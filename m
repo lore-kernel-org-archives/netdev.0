@@ -1,73 +1,42 @@
-From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
-Subject: Re: [RFC] situation with csum_and_copy_... API
-Date: Thu, 20 Nov 2014 20:17:54 -0800
-Message-ID: <1416543474.27917.51.camel@haakon3.risingtidesystems.com>
-References: <CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
-	 <20141119.161744.1661940121298888832.davem@davemloft.net>
-	 <20141119213006.GE7996@ZenIV.linux.org.uk>
-	 <20141119.165340.2162829993279387495.davem@davemloft.net>
-	 <20141120214753.GR7996@ZenIV.linux.org.uk>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: Translation table available between 'ethtool -k' and 'ethtool -K'
+ ? For Linux?
+Date: Thu, 20 Nov 2014 20:36:16 -0800
+Message-ID: <CA+mtBx_m8kZck4Lr8wj6G-R7pREiB6Fut1Xf=q6eB3x2u3hh_Q@mail.gmail.com>
+References: <BABF60987D48764FA4071AC73CB9C56162EBFBD0AC@AUSX7MCPC101.AMER.DELL.COM>
+	<1416526354.7215.4.camel@decadent.org.uk>
+	<CA+mtBx9SJ5mhLBMk8E0gGceweMyzJ2icBfjGJc0rjOTDVQZi1Q@mail.gmail.com>
+	<20141120.230507.1288958595564653550.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	target-devel@vger.kernel.org, Christoph Hellwig <hch@infradead.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141120214753.GR7996@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Ben Hutchings <ben@decadent.org.uk>, Spike_White@dell.com,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:63602 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757162AbaKUEgR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 23:36:17 -0500
+Received: by mail-ig0-f180.google.com with SMTP id h15so4083434igd.7
+        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 20:36:16 -0800 (PST)
+In-Reply-To: <20141120.230507.1288958595564653550.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Al & Co,
+On Thu, Nov 20, 2014 at 8:05 PM, David Miller <davem@davemloft.net> wrote:
+> From: Tom Herbert <therbert@google.com>
+> Date: Thu, 20 Nov 2014 17:07:44 -0800
+>
+>> Ben I'm not sure I see this. If we turn off HW offloads and rely on
+>> the software offloads where is the increased risk? This may result in
+>> performance degradation for sure, but I really hope at this point that
+>> the software offload mechanisms in the stack are as least as robust as
+>> any HW mechanism.
+>
+> It means you're testing a configuration different from %99 of users
+> (who are not changing the defaults).  You are by definition testing
+> code paths with less overall global testing coverage.
 
-On Thu, 2014-11-20 at 21:47 +0000, Al Viro wrote:
-> On Wed, Nov 19, 2014 at 04:53:40PM -0500, David Miller wrote:
-> 
-> > Pulled, thanks Al.
-> 
-> Umm...  Not in net-next.git#master...  Anyway, the next portion is in
-> vfs.git#iov_iter-net right now; I'll post it on netdev once I get some
-> sleep.
-> 
-
-Thanks for your detailed analysis + work on this.
-
-> It's getting close to really interesting parts.  Right now the main obstacle
-> is in iscsit_do_rx_data/iscsit_do_tx_data; what happens there is reuse of
-> iovec if kernel_sendmsg() gives a short write - it tries to send again, with
-> the same iovec and decremented length.  Ditto on RX side (with kernel_recvmsg(),
-> obviously).
-> 
-> As far as I can see, these retries on the send side are simply broken -
-> normally we are talking to TCP sockets there and tcp_sendmsg() does *not*
-> modify iovec in normal case.  IOW, if you get 8K sent out of 80K, the next
-> time it'll try to send 72K - already sent piece + 64K following it, etc.
-> 
-
-AFAIK, short writes have not been actively getting triggered.
-
-This is likely due to iscsit_do_tx_data() being used for sending 48 byte
-PDU header, and small payloads in ISCSI_OP_LOGIN_RSP, ISCSI_OP_TEXT_RSP,
-and ISCSI_OP_NOOP_IN control PDUs. 
-
-All bulk data READ payloads are sent via iscsit_fe_sendpage_sg() and
-only use iscsit_do_tx_data() for leading PDU header.
-
-On the receive side, kernel_recvmsg() is called with MSG_WAITALL that
-has been masking this bug..
-
-> Could target-devel folks tell how realistic those resends are, in the
-> first place?  Both with TX and RX sides...  Is there any sane limit on
-> iovec size there, etc.
-> 
-
-Of the three control type PDU using this codepath, the transfer lengths
-are currently limited to <= 32K + header across 2 kvecs.  The simplest
-fix would probably be to fail the connection when send/recv returns a
-value other than requested transfer length for these special cases.
-
-For correctly handling short writes with your new work, what's the
-preferred way to do this..?
-
---nab
+Remarkably, this is the second time this week I've heard of a user
+unilaterally turning off LRO/TSO in their network because of perceived
+issues. I wonder if this is happening more often then we might hope...
