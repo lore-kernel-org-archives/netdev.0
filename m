@@ -1,88 +1,45 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] xen-netback: do not report success if xenvif_alloc() fails
-Date: Sat, 22 Nov 2014 01:56:28 +0300
-Message-ID: <1416610588-19816-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC PATCH 1/4] rtnetlink: new flag NLM_F_HW_OFFLOAD to indicate
+ kernel object offload to hardware
+Date: Fri, 21 Nov 2014 23:12:34 +0000
+Message-ID: <20141121231234.GA20810@casper.infradead.org>
+References: <1416610170-21224-2-git-send-email-roopa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jiri@resnulli.us, sfeldma@gmail.com, jhs@mojatatu.com,
+	bcrl@kvack.org, john.fastabend@gmail.com,
+	stephen@networkplumber.org, linville@tuxdriver.com,
+	nhorman@tuxdriver.com, nicolas.dichtel@6wind.com,
+	vyasevic@redhat.com, f.fainelli@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, netdev@vger.kernel.org, davem@davemloft.net,
+	shrijeet@cumulusnetworks.com, gospo@cumulusnetworks.com
+To: roopa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:60030 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751622AbaKUXMm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 18:12:42 -0500
+Content-Disposition: inline
+In-Reply-To: <1416610170-21224-2-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If xenvif_alloc() failes, netback_probe() reports success as well as
-"online" uevent is emitted. It does not make any sense, but it just
-misleads users.
+On 11/21/14 at 02:49pm, roopa@cumulusnetworks.com wrote:
+> diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
+> index 1a85940..f78522d 100644
+> --- a/include/uapi/linux/netlink.h
+> +++ b/include/uapi/linux/netlink.h
+> @@ -54,6 +54,8 @@ struct nlmsghdr {
+>  #define NLM_F_ACK		4	/* Reply with ack, with zero or error code */
+>  #define NLM_F_ECHO		8	/* Echo this request 		*/
+>  #define NLM_F_DUMP_INTR		16	/* Dump was inconsistent due to sequence change */
+> ++#define NLM_F_KERNEL       32      /* This msg is only for the kernel */
+> +#define NLM_F_HW_OFFLOAD	64	/* offload this msg to hw */
+>  
+>  /* Modifiers to GET request */
+>  #define NLM_F_ROOT	0x100	/* specify tree	root	*/
 
-The patch implements propagation of error code if xenvif creation fails.
-
-Found by Linux Driver Verification project (linuxtesting.org).
-
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/xen-netback/xenbus.c | 15 +++++++++------
- 1 file changed, 9 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index 4e56a27f9689..fab0d4b42f58 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -39,7 +39,7 @@ struct backend_info {
- static int connect_rings(struct backend_info *be, struct xenvif_queue *queue);
- static void connect(struct backend_info *be);
- static int read_xenbus_vif_flags(struct backend_info *be);
--static void backend_create_xenvif(struct backend_info *be);
-+static int backend_create_xenvif(struct backend_info *be);
- static void unregister_hotplug_status_watch(struct backend_info *be);
- static void set_backend_state(struct backend_info *be,
- 			      enum xenbus_state state);
-@@ -352,7 +352,9 @@ static int netback_probe(struct xenbus_device *dev,
- 	be->state = XenbusStateInitWait;
- 
- 	/* This kicks hotplug scripts, so do it immediately. */
--	backend_create_xenvif(be);
-+	err = backend_create_xenvif(be);
-+	if (err)
-+		goto fail;
- 
- 	return 0;
- 
-@@ -397,19 +399,19 @@ static int netback_uevent(struct xenbus_device *xdev,
- }
- 
- 
--static void backend_create_xenvif(struct backend_info *be)
-+static int backend_create_xenvif(struct backend_info *be)
- {
- 	int err;
- 	long handle;
- 	struct xenbus_device *dev = be->dev;
- 
- 	if (be->vif != NULL)
--		return;
-+		return 0;
- 
- 	err = xenbus_scanf(XBT_NIL, dev->nodename, "handle", "%li", &handle);
- 	if (err != 1) {
- 		xenbus_dev_fatal(dev, err, "reading handle");
--		return;
-+		return (err < 0) ? err : -EINVAL;
- 	}
- 
- 	be->vif = xenvif_alloc(&dev->dev, dev->otherend_id, handle);
-@@ -417,10 +419,11 @@ static void backend_create_xenvif(struct backend_info *be)
- 		err = PTR_ERR(be->vif);
- 		be->vif = NULL;
- 		xenbus_dev_fatal(dev, err, "creating interface");
--		return;
-+		return err;
- 	}
- 
- 	kobject_uevent(&dev->dev.kobj, KOBJ_ONLINE);
-+	return 0;
- }
- 
- static void backend_disconnect(struct backend_info *be)
--- 
-1.9.1
+The NLM_F_ flag space applies to all Netlink messages including non
+networking bits and is reserved for flags vital to the functioning
+of the Netlink protocol itself. I suggest you move this to a
+RTNETLINK specific flags space.
