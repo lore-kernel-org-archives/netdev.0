@@ -1,43 +1,37 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCHv10 ovs 03/15] datapath: Add 'is_mask' to ovs_nla_put_flow().
-Date: Fri, 21 Nov 2014 10:17:19 -0800
-Message-ID: <CALnjE+rg_UYkLjocyhm-sW1hRbNrOza=uYR9NqXOHZ85wnRr+w@mail.gmail.com>
-References: <1415906275-3172-1-git-send-email-joestringer@nicira.com>
-	<1415906275-3172-4-git-send-email-joestringer@nicira.com>
-	<CANr6G5x4ObV4r3G1wLd+51nr=oYtwt=ConknjO29VkNT-vvrmA@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] Add support of Cavium Liquidio ethernet adapters
+Date: Fri, 21 Nov 2014 10:28:44 -0800
+Message-ID: <1416594524.6651.43.camel@perches.com>
+References: <1416535693-20548-1-git-send-email-rvatsavayi@caviumnetworks.com>
+	 <CAL3LdT4FhVQKnV6Ef+QmZZ03tuAzrd=vqbxdFDU7GpJEipZ1Mw@mail.gmail.com>
+	 <cf26e72eac21446eb65fa1bb7463d5b0@BY2PR07MB486.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Joe Stringer <joestringer@nicira.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"Vatsavayi, Raghu" <Raghu.Vatsavayi@caviumnetworks.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Burla, Satananda" <Satananda.Burla@caviumnetworks.com>,
+	"Manlunas, Felix" <Felix.Manlunas@caviumnetworks.com>
+To: "Chickles, Derek" <Derek.Chickles@caviumnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog113.obsmtp.com ([74.125.149.209]:54341 "HELO
-	na3sys009aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751514AbaKUSRT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 13:17:19 -0500
-Received: by mail-ie0-f174.google.com with SMTP id rl12so5436804iec.33
-        for <netdev@vger.kernel.org>; Fri, 21 Nov 2014 10:17:19 -0800 (PST)
-In-Reply-To: <CANr6G5x4ObV4r3G1wLd+51nr=oYtwt=ConknjO29VkNT-vvrmA@mail.gmail.com>
+Received: from smtprelay0192.hostedemail.com ([216.40.44.192]:49079 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750757AbaKUS2s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 13:28:48 -0500
+In-Reply-To: <cf26e72eac21446eb65fa1bb7463d5b0@BY2PR07MB486.namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 20, 2014 at 4:15 PM, Joe Stringer <joestringer@nicira.com> wrote:
-> On 13 November 2014 11:17, Joe Stringer <joestringer@nicira.com> wrote:
->> This function previously hid the 'is_mask' parameter from the callers,
->> which actually have better knowledge about whether it is serializing a
->> mask or not. Expose this parameter to the callers. This allows the same
->> function to be called to serialize masked keys as well as masked keys.
->>
->> To serialize an unmasked key:
->> ovs_nla_put_flow(key, key, skb, false);
->>
->> To serialize a masked key:
->> ovs_nla_put_flow(mask, key, skb, false);
->>
->> To serialize a mask:
->> ovs_nla_put_flow(key, mask, skb, true);
->
-> I'll add helpers for each of these functions:
-> ovs_nla_put_{un,}masked_key(), ovs_nla_put_mask() in the next version.
+On Fri, 2014-11-21 at 17:55 +0000, Chickles, Derek wrote:
+> We apologize for that. It looks like we were running an older version of
+> checkpatch.pl that didn't include these checks. We'll get it fixed and
+> send a new version of the patch.
 
-sounds good to me.
+[ plus nearly 1MB of unnecessary quoted stuff]
+
+Please remember to strip out the unnecessary quoted
+stuff from your replies too.
+
+thanks.
