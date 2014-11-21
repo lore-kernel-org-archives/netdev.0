@@ -1,76 +1,49 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: Re: [PATCH net-next] filter: add bpf_optimize_div()
-Date: Fri, 21 Nov 2014 13:22:03 +0400
-Message-ID: <CAOJe8K13=RXfUccVqLk-73-STJC9b2n5OL=ZRwySeOCtVmi6kw@mail.gmail.com>
-References: <1416512551-22252-1-git-send-email-kda@linux-powerpc.org>
-	<CAMEtUuw1q_=CuZOHqd1WDd8ZE+bo-CNsbQ4rFPgRRVy7H1Q4uA@mail.gmail.com>
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: RE: [PATCH] ixgbe: make VLAN filter conditional in SR-IOV case
+Date: Fri, 21 Nov 2014 09:22:19 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05DB6636@BPXM14GP.gisp.nec.co.jp>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05D9D336@BPXM14GP.gisp.nec.co.jp>
+ <1416533299.7215.17.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f181.google.com ([209.85.160.181]:46103 "EHLO
-	mail-yk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751857AbaKUJWF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 04:22:05 -0500
-Received: by mail-yk0-f181.google.com with SMTP id 142so2086561ykq.40
-        for <netdev@vger.kernel.org>; Fri, 21 Nov 2014 01:22:03 -0800 (PST)
-In-Reply-To: <CAMEtUuw1q_=CuZOHqd1WDd8ZE+bo-CNsbQ4rFPgRRVy7H1Q4uA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	Hayato Momma <h-momma@ce.jp.nec.com>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1416533299.7215.17.camel@decadent.org.uk>
+Content-Language: ja-JP
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/21/14, Alexei Starovoitov <ast@plumgrid.com> wrote:
-> On Thu, Nov 20, 2014 at 11:42 AM, Denis Kirjanov <kda@linux-powerpc.org>
-> wrote:
->> optimize_div() found in  mips bpf jit is really usefull
->> for other arches. So let's put it in filter.h
->>
->> CC: Alexei Starovoitov <ast@plumgrid.com>
->> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
->> ---
->>  include/linux/filter.h | 11 +++++++++++
->>  1 file changed, 11 insertions(+)
->>
->> diff --git a/include/linux/filter.h b/include/linux/filter.h
->> index ca95abd..b385637 100644
->> --- a/include/linux/filter.h
->> +++ b/include/linux/filter.h
->> +
->> +static inline int bpf_optimize_div(u32 *k)
->
-> 'inline' is unnecessary
->
->> +{
->> +       /* power of 2 divides can be implemented with right shift */
->> +       if (!(*k & (*k-1))) {
->> +               *k = ilog2(*k);
->> +               return 1;
->> +       }
->> +
->> +       return 0;
->> +}
->
-> I don't think it makes sense to add a helper function
-> without first user. If you really want to use it
-> in ppc, make this change as part of the series.
-> In the 1st patch move it out of mips and use it in
-> mips jit and 2nd patch use it in ppc.
-
-Heh, actually we already have it: is_power_of_2()
-
->
-> Also since you mentioned mips...
-> if (k == 1 || optimize_div(&k)) {
->   ctx->flags |= SEEN_A;
->   emit_jit_reg_move(r_A, r_zero, ctx);
-> this is definitely wrong in there.
->
-I'll check it
-
-> Also with such helper function we'd need to be
-> careful not to modify 'k' in place, otherwise
-> multi-pass jit algorithm would be broken.
->
-> In general I don't think such optimizations
-> belong in kernel at all. User space should be doing this.
->
+PiBTdWJqZWN0OiBSZTogW1BBVENIXSBpeGdiZTogbWFrZSBWTEFOIGZpbHRlciBjb25kaXRpb25h
+bCBpbiBTUi1JT1YgY2FzZQ0KPiANCj4gT24gVGh1LCAyMDE0LTExLTEzIGF0IDA4OjI4ICswMDAw
+LCBIaXJvc2hpIFNoaW1hbW90byB3cm90ZToNCj4gPiBGcm9tOiBIaXJvc2hpIFNoaW1hbW90byA8
+aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbT4NCj4gPg0KPiA+IERpc2FibGUgaGFyZHdhcmUgVkxB
+TiBmaWx0ZXJpbmcgaWYgbmV0ZGV2LT5mZWF0dXJlcyBWTEFOIGZsYWcgaXMgZHJvcHBlZC4NCj4g
+Pg0KPiA+IEluIFNSLUlPViBjYXNlLCB0aGVyZSBpcyBhIHVzZSBjYXNlIHdoaWNoIG5lZWRzIHRv
+IGRpc2FibGUgVkxBTiBmaWx0ZXIuDQo+ID4gRm9yIGV4YW1wbGUsIHdlIG5lZWQgdG8gbWFrZSBh
+IG5ldHdvcmsgZnVuY3Rpb24gd2l0aCBWRiBpbiB2aXJ0dWFsaXplZA0KPiA+IGVudmlyb25tZW50
+LiBUaGF0IG5ldHdvcmsgZnVuY3Rpb24gbWF5IGJlIGEgc29mdHdhcmUgc3dpdGNoLCBhIHJvdXRl
+cg0KPiA+IG9yIGV0Yy4gSXQgbWVhbnMgdGhhdCB0aGF0IG5ldHdvcmsgZnVuY3Rpb24gd2lsbCBi
+ZSBhbiBlbmQgcG9pbnQgd2hpY2gNCj4gPiB0ZXJtaW5hdGVzIG1hbnkgVkxBTnMuDQo+ID4NCj4g
+PiBJbiB0aGUgY3VycmVudCBpbXBsZW1lbnRhdGlvbiwgVkxBTiBmaWx0ZXJpbmcgYWx3YXlzIGJl
+IHR1cm5lZCBvbiBhbmQNCj4gPiBWRiBjYW4gcmVjZWl2ZSBvbmx5IDYzIFZMQU5zLiBJdCBtZWFu
+cyB0aGF0IG9ubHkgNjMgVkxBTnMgY2FuIGJlIHVzZWQNCj4gPiBhbmQgaXQncyBub3QgZW5vdWdo
+IGF0IGFsbCBmb3IgYnVpbGRpbmcgYSB2aXJ0dWFsIHJvdXRlci4NCj4gPg0KPiA+IFdpdGggdGhp
+cyBwYXRjaCwgaWYgdGhlIHVzZXIgdHVybnMgVkxBTiBmaWx0ZXJpbmcgb2ZmIG9uIHRoZSBob3N0
+LCBWRg0KPiA+IGNhbiByZWNlaXZlIGV2ZXJ5IFZMQU4gcGFja2V0Lg0KPiA+IFRoZSBiZWhhdmlv
+ciBpcyBjaGFuZ2VkIG9ubHkgaWYgVkxBTiBmaWx0ZXJpbmcgaXMgdHVybmVkIG9mZiBieSBldGh0
+b29sLg0KPiBbLi4uXQ0KPiANCj4gV2hhdCBoYXBwZW5zIHdoZW4gVkxBTiBmaWx0ZXJpbmcgaXMg
+dHVybmVkIGJhY2sgb24gYW5kIGEgVkYgdXNlcyB0b28NCj4gbWFueSBWTEFOcz8gIEl0IHNlZW1z
+IGxpa2UgdGhhdCBzaG91bGQgZWl0aGVyIGJlIHByZXZlbnRlZCAoeW91IGNhbid0DQo+IHR1cm4g
+aXQgYmFjayBvbikgb3IgdGhlIGRyaXZlciBzaG91bGQgbG9nIGEgbWVzc2FnZSBzYXlpbmcgdGhl
+IFZGIGlzIG5vdw0KPiBicm9rZW4uDQoNCnRoYXQncyByZWFzb25hYmxlLg0KV2lsbCBzdWJtaXQg
+YWRkaXRpb25hbCBwYXRjaCB0byB0YWtlIGNhcmUgYWJvdXQgdGhhdC4NCg0KdGhhbmtzLA0KSGly
+b3NoaQ0KDQo+IA0KPiBCZW4uDQo+IA0KPiAtLQ0KPiBCZW4gSHV0Y2hpbmdzDQo+IEJld2FyZSBv
+ZiBidWdzIGluIHRoZSBhYm92ZSBjb2RlOw0KPiBJIGhhdmUgb25seSBwcm92ZWQgaXQgY29ycmVj
+dCwgbm90IHRyaWVkIGl0LiAtIERvbmFsZCBLbnV0aA0K
