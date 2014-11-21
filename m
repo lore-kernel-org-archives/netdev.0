@@ -1,42 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/mlx4_en: Add VXLAN ndo calls to the PF net
- device ops too
-Date: Fri, 21 Nov 2014 14:55:10 -0500 (EST)
-Message-ID: <20141121.145510.1479113144106448081.davem@davemloft.net>
-References: <1416325887-14704-1-git-send-email-ogerlitz@mellanox.com>
-	<20141119.151155.2119587385505880097.davem@davemloft.net>
-	<546D7913.7040508@mellanox.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: mlx5: don't duplicate kvfree()
+Date: Fri, 21 Nov 2014 14:58:28 -0500 (EST)
+Message-ID: <20141121.145828.1458101987936104160.davem@davemloft.net>
+References: <20141120081357.GI7996@ZenIV.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de, amirv@mellanox.com,
-	saeedm@mellanox.com
-To: ogerlitz@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38162 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751199AbaKUTzM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 14:55:12 -0500
-In-Reply-To: <546D7913.7040508@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20141120081357.GI7996-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu, 20 Nov 2014 07:16:03 +0200
+From: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+Date: Thu, 20 Nov 2014 08:13:57 +0000
 
-> On 11/19/2014 10:11 PM, David Miller wrote:
->> Applied, -stable material? If so for what releases? In the future, if
->> you add an appropriated Fixes: tag I can figure most of this out
->> without asking you. Thanks.
-> 
-> 
-> Yes, please! let the below commits two swim for a while in 3.18-rc and
-> later push
-> them to -stable >= 3.15, got it re the fixes: tag, thanks for the
-> heads-up.
-> 
-> 9737c6a net/mlx4_en: Add VXLAN ndo calls to the PF net device ops too
-> f4a1edd net/mlx4_en: Advertize encapsulation offloads features only
-> when VXLAN tunnel is set
+> Signed-off-by: Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
 
-Ok, queued up for -stable.
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
