@@ -1,72 +1,109 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: RE: [PATCH net] cxgb4 : Fix DCB priority groups being returned in
- wrong order
-Date: Fri, 21 Nov 2014 01:16:29 +0000
-Message-ID: <525DB349B3FB5444AE057A887CB2A8D8D85F42@nice.asicdesigners.com>
-References: <1416523564-28126-1-git-send-email-anish@chelsio.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next v2] ipvlan: Initial check-in of the IPVLAN
+ driver.
+Date: Fri, 21 Nov 2014 01:20:36 +0000
+Message-ID: <1416532836.7215.13.camel@decadent.org.uk>
+References: <1416205634-26611-1-git-send-email-maheshb@google.com>
+	 <20141118.155437.1582768084232091503.davem@davemloft.net>
+	 <CAF2d9jjrN4cDmtN_yKTe0BS+cAqE=hqgsT_6mOEBuMTTPOaPRg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	Hariprasad S <hariprasad@chelsio.com>
-To: Anish Bhatt <anish@chelsio.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-o58o+A7NmxNd/vmGU8av"
+Cc: David Miller <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
+	Laurent Chavey <chavey@google.com>,
+	Tim Hockin <thockin@google.com>, brandon.philips@coreos.com,
+	xemul@parallels.com
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:12075 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756700AbaKUBQc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 20:16:32 -0500
-In-Reply-To: <1416523564-28126-1-git-send-email-anish@chelsio.com>
-Content-Language: en-US
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:33592 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757536AbaKUBUu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 20:20:50 -0500
+In-Reply-To: <CAF2d9jjrN4cDmtN_yKTe0BS+cAqE=hqgsT_6mOEBuMTTPOaPRg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Anish Bhatt [mailto:anish@chelsio.com]
-> Sent: Thursday, November 20, 2014 2:46 PM
-> To: netdev@vger.kernel.org
-> Cc: davem@davemloft.net; Hariprasad S; Anish Bhatt
-> Subject: [PATCH net] cxgb4 : Fix DCB priority groups being returned in wrong
-> order
-> 
-> Peer priority groups were being reversed, but this was missed in the
-> previous fix sent out for this issue.
-> 
-> Fixes :	ee7bc3cdc270 ('cxgb4 : dcb open-lldp interop fixes')
-> 
-> Signed-off-by: Anish Bhatt <anish@chelsio.com>
-> ---
->  drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c | 5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-> b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-> index cca6049..d8e60b3 100644
-> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-> @@ -1082,7 +1082,7 @@ static int cxgb4_cee_peer_getpg(struct net_device
-> *dev, struct cee_pg *pg)
->  	pgid = be32_to_cpu(pcmd.u.dcb.pgid.pgid);
-> 
->  	for (i = 0; i < CXGB4_MAX_PRIORITY; i++)
-> -		pg->prio_pg[i] = (pgid >> (i * 4)) & 0xF;
-> +		pg->prio_pg[7 - i] = (pgid >> (i * 4)) & 0xF;
-> 
->  	INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
->  	pcmd.u.dcb.pgrate.type = FW_PORT_DCB_TYPE_PGRATE; @@ -
-> 1094,7 +1094,8 @@ static int cxgb4_cee_peer_getpg(struct net_device *dev,
-> struct cee_pg *pg)
->  	}
-> 
->  	for (i = 0; i < CXGB4_MAX_PRIORITY; i++)
-> -		pg->pg_bw[i] = pcmd.u.dcb.pgrate.pgrate[i];
-> +		pg->pg_bw[7 - i] = pcmd.u.dcb.pgrate.pgrate[
-> +			(pgid >> (i * 4)) & 0xF];
-> 
->  	return 0;
->  }
-> --
-> 2.1.3
 
-Just sent out a v2, Dave please ignore this patch.
--Anish
+--=-o58o+A7NmxNd/vmGU8av
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 2014-11-18 at 21:27 -0800, Mahesh Bandewar wrote:
+> On Tue, Nov 18, 2014 at 12:54 PM, David Miller <davem@davemloft.net> wrot=
+e:
+> >
+> > From: Mahesh Bandewar <maheshb@google.com>
+> > Date: Sun, 16 Nov 2014 22:27:14 -0800
+> >
+> > > +/* Define IPVL_DEBUG and set the appropriate dbg_level for debugging=
+. */
+> > > +#ifdef       IPVL_DEBUG
+> > > +/*
+> > > + * 1 : non-datapath debugging
+> > > + * 2 : Custom
+> > > + * 3 : function enters and exists.
+> > > + * 4 : printk in data path (be careful!)
+> > > + */
+> > > +#define IPVL_DBG_LEVEL 1
+> > > +#define ipvlan_dbg(level, msg...)    do { \
+> > > +                                             if (level <=3D IPVL_DBG=
+_LEVEL) \
+> > > +                                             printk(KERN_DEBUG msg);=
+ \
+> > > +                                     } while (0)
+> > > +#else
+> > > +#define ipvlan_dbg(level, msg...) do { ; } while (0)
+> > > +#endif
+> >
+> > The day of having code use custom local debug logging facilities is lon=
+g
+> > gone, please use a standard mechanism for this rather than home cooked
+> > reimplementations.
+> >
+> Do you mean pr_err() / pr_warn() / pr_debug() etc.? or something else?
+[...]
+
+There are also netdev_err() etc. for logging with a net device as
+context.
+
+You can use the netif_err(), netif_dbg() etc. functions and implement
+the ethtool {get,set}_msglevel operations to allow turning on and off
+broad classes of log messages.
+
+Finally, if CONFIG_DYNAMIC_DEBUG is enabled then debug logging messages
+can be turned on and off at run-time (individually or by function, file
+or module).
+
+Ben.
+
+--=20
+Ben Hutchings
+Beware of bugs in the above code;
+I have only proved it correct, not tried it. - Donald Knuth
+
+--=-o58o+A7NmxNd/vmGU8av
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUAVG6Taue/yOyVhhEJAQrXGQ/9GaZbVnSrO8OREvN31ufBf/Uc5Jykbp0x
+kmSoRAs3UeZ3lhm+euIvN2+XZWhj7EuUzrewKkkabvFYq3ZkmiyazmTF1r3PHKWC
+XMxqMhwA7EwcWD7Ck6x/Z8y/OcOgGtJzsFUS6OlpsV6mZVSlAHLX1qCGefwSicX9
+RaDem/hdvN3zqQDaNEx2iGj23IjYjH68k9wMTyS10+9Syn2PKZaZzL1f5KheHv+p
+a7KIUTn9+8SHiRd8fFSGxI4IPj8ghAWeS5lZXQZio7FaAUzR6GZ21HT6pdw5yTnn
+4a9ok8N6WhKLcL8rg4EDlzkQupZQlTqwHsRkq8OBP+bs2UMZ/YT3TXGHFghke1y/
+l1g8+K+pRMCze1ZkoaERfbodFLwMAq8986jIuNIyvvDqCJ4a+3+EVhOCW4i6uVAc
+ubbYLLmMsMzHzDUkBdQnnBnMJxPNpvhP1Gw7cbguTO+69HhGojemGyiuUYUv2Rcq
+V/baAL9RxLs5V9xjTPD+THkhRssMLduwd4OIkTNTbo+XV3A4dZ8AYAEzzPE/X7f/
+p+ToqS1+HXsu9Ws39+7ICrBoAZNyHO873P4avtkJe+S8tQj6uMzygpMWnbRaQf6i
+3xPKZwqZ0D5dBtIwVUxuuZ+JHjVkSBWH6zRhukdllaVxxEIRvXBYXm6hIS5JH/ND
+kwrK1bQMpq0=
+=UpW2
+-----END PGP SIGNATURE-----
+
+--=-o58o+A7NmxNd/vmGU8av--
