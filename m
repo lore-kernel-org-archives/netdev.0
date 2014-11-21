@@ -1,64 +1,39 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [net-next v2 08/15] ixgbevf: compare total_rx_packets and
- budget in ixgbevf_clean_rx_irq
-Date: Fri, 21 Nov 2014 14:59:20 +0000
-Message-ID: <87618083B2453E4A8714035B62D67992501A43B7@FMSMSX105.amr.corp.intel.com>
-References: <1416524953-15161-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1416524953-15161-9-git-send-email-jeffrey.t.kirsher@intel.com>
- <063D6719AE5E284EB5DD2968C1650D6D1C9F648C@AcuExch.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] situation with csum_and_copy_... API
+Date: Fri, 21 Nov 2014 07:01:25 -0800
+Message-ID: <1416582085.8629.98.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
+	 <20141119.161744.1661940121298888832.davem@davemloft.net>
+	 <20141119213006.GE7996@ZenIV.linux.org.uk>
+	 <20141119.165340.2162829993279387495.davem@davemloft.net>
+	 <20141120214753.GR7996@ZenIV.linux.org.uk>
+	 <1416520542.8629.46.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20141120222506.GS7996@ZenIV.linux.org.uk>
+	 <1416524035.8629.54.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20141121084956.GT7996@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:49912 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755442AbaKUO7X convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 09:59:23 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1C9F648C@AcuExch.aculab.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	target-devel@vger.kernel.org,
+	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	Christoph Hellwig <hch@infradead.org>
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141121084956.GT7996@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: David Laight [mailto:David.Laight@ACULAB.COM]
->Sent: Friday, November 21, 2014 3:08 AM
->To: Kirsher, Jeffrey T; davem@davemloft.net
->Cc: Tantilov, Emil S; netdev@vger.kernel.org;
->nhorman@redhat.com; sassmann@redhat.com;
->jogreene@redhat.com; Alexander Duyck
->Subject: RE: [net-next v2 08/15] ixgbevf: compare
->total_rx_packets and budget in ixgbevf_clean_rx_irq
->
->From: Jeff Kirsher
->> From: Emil Tantilov <emil.s.tantilov@intel.com>
->>
->> total_rx_packets is the number of packets we had cleaned, and budget is
->> the total number of packets that we could clean per poll. Instead of
->> altering both of these values we can save ourselves one write to memory by
->> just comparing total_rx_packets to the budget and as long as we are less
->> than budget we continue cleaning.
->>
->> Also change the do{}while logic to while{} in order to avoid processing
->> packets when budget is 0.
->
->Does it matter if one packet is processed when budget is zero?
->The 'do {} while ();' version will generate better code.
+On Fri, 2014-11-21 at 08:49 +0000, Al Viro wrote:
 
-Yes. The change is in sync with other drivers to protect against netpoll:
-https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/patch/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c?id=57ba34c9b068f314b219affafc19a39f8735d5e8
+> Another thing is tcp_sendmsg_fastopen() and tcp_send_rcvq().  The latter
+> should just use copy_from_iter() instead of memcpy_from_iovec(), the former
+> is dealt with by making tcp_send_syn_data() use the same copy_from_iter()
+> instead of memcpy_from_iovecend().
 
-Thanks,
-Emil
+Well, another problem I already mentioned is that tcp_send_rcvq() does a
+single alloc_skb() with @size directly coming from user space. This
+certainly can try allocation of dozen of Megabytes.
 
->
->	David
->
->
+Not good.
