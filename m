@@ -1,80 +1,81 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 1/2] 8139too: Allow setting MTU larger than 1500
-Date: Fri, 21 Nov 2014 00:34:34 +0000
-Message-ID: <1416530074.7215.11.camel@decadent.org.uk>
-References: <1415447316-12424-1-git-send-email-albeu@free.fr>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: Translation table available between 'ethtool -k' and 'ethtool -K'
+ ? For Linux?
+Date: Thu, 20 Nov 2014 17:07:44 -0800
+Message-ID: <CA+mtBx9SJ5mhLBMk8E0gGceweMyzJ2icBfjGJc0rjOTDVQZi1Q@mail.gmail.com>
+References: <BABF60987D48764FA4071AC73CB9C56162EBFBD0AC@AUSX7MCPC101.AMER.DELL.COM>
+	<1416526354.7215.4.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-QM3yg4dxsEitY9RYt6qF"
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Benoit Taine <benoit.taine@lip6.fr>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Alban Bedel <albeu@free.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1415447316-12424-1-git-send-email-albeu@free.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Spike_White@dell.com, Linux Netdev List <netdev@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:50965 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756792AbaKUBHp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 20:07:45 -0500
+Received: by mail-ie0-f172.google.com with SMTP id ar1so3986128iec.31
+        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 17:07:45 -0800 (PST)
+In-Reply-To: <1416526354.7215.4.camel@decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Nov 20, 2014 at 3:32 PM, Ben Hutchings <ben@decadent.org.uk> wr=
+ote:
+> On Thu, 2014-11-20 at 15:10 -0600, Spike_White@Dell.com wrote:
+>> Ethtool developers,
+>>
+>>
+>>
+>> Is there a translation table available between the offload names tha=
+t
+>> ethtool =E2=80=93k reports and the offload names that ethool =E2=80=93=
+K accepts?
+>>
+>>
+>>
+>> Our network engineering team has to standard to disable all NIC
+>> offloads.  I don=E2=80=99t disagree;  several have often bitten us i=
+n the
+>> past.  LRO on vmxnet3 vNICs, TSO on old NICs and (just now) LRO on
+>> ixgbe/Intel NIC.
+>
+> So instead of properly validating drivers, you just assume they all h=
+ave
+> the same bug as something you saw in the past?
+>
+> You may think you're being conservative, but by using non-default
+> settings you're actually taking more of a risk.
+>
+Ben I'm not sure I see this. If we turn off HW offloads and rely on
+the software offloads where is the increased risk? This may result in
+performance degradation for sure, but I really hope at this point that
+the software offload mechanisms in the stack are as least as robust as
+any HW mechanism.
 
---=-QM3yg4dxsEitY9RYt6qF
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Sat, 2014-11-08 at 12:48 +0100, Alban Bedel wrote:
-> Replace the default ndo_change_mtu callback with one that allow
-> setting MTU that the driver can handle.
->=20
-> Signed-off-by: Alban Bedel <albeu@free.fr>
-> ---
->  drivers/net/ethernet/realtek/8139too.c | 13 ++++++++++++-
->  1 file changed, 12 insertions(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/etherne=
-t/realtek/8139too.c
-> index 007b38c..8387de9 100644
-> --- a/drivers/net/ethernet/realtek/8139too.c
-> +++ b/drivers/net/ethernet/realtek/8139too.c
-> @@ -185,6 +185,9 @@ static int debug =3D -1;
->  /* max supported ethernet frame size -- must be at least (dev->mtu+14+4)=
-.*/
->  #define MAX_ETH_FRAME_SIZE	1536
-> =20
-> +/* max supported payload size */
-> +#define MAX_ETH_DATA_SIZE	(MAX_ETH_FRAME_SIZE - ETH_HLEN - ETH_FCS_LEN)
-[...]
-
-Does this maximum still allow for VLAN tags, or should it use
-VLAN_ETH_HLEN instead of ETH_HLEN?
-
-Ben.
-
---=20
-Ben Hutchings
-Beware of bugs in the above code;
-I have only proved it correct, not tried it. - Donald Knuth
-
---=-QM3yg4dxsEitY9RYt6qF
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAVG6IoOe/yOyVhhEJAQphNg//arOAUbFfHPlZAgz+up1cRvKDuU99FrGP
-fPKdaHJ0UNCmnuW/VEUP5jUKWNIIOvOUQVOkrnOcEPhzsFMWpKOdXXX4RciRAeJw
-ICaW03kIZpbRqTJpBdsMLywOWGtvpWJlLa4r58Mm0KtxoxeE1emKGJxnOgKfzqT8
-LXSqHfpWA4RCP6Gtq1X+Ot3upDyy6lAvD2fr9xPK1Xh513uUCltHMLuOkUVPHLYP
-G7viORLvXXB7KMtJaz3sSQ/2JUGzg9Y2SNo1uN5Av/oRc5ObkuKVWfmpE2Nu7TYp
-b1BDMZnJP2oF2xOapz4MdYCsCjNoiKzM2zsdJzRRBfgZrioirnLcGeSNxxTMlU5H
-reGXKOWiKNKVZ4sLG+ToD11ndxhKYz2eA+3nAFwUjohGLVQAoVrdIU+zbq22CpBC
-AKg+gFwU/OVwO03sSPfqUgyt5v2oRzzW/gydYPAqWCYDI7K9rSKUlUfpPxqjZ2Ik
-V5FJojY6unlYGNZGiNo07grDGS0tvmFt2tYFlSTK/DOoOCK6y0q3J68PtDZL3qTa
-/1JaS7/qqv02QQHLi4kUnot5ZeLa+nAQO4carwhTiSDhhz50SRcKxSy+7+jTDciC
-dOuePs/p5EXKzj2vp97N8xoBVY+ywJnZaF1FtopFx8KN3XuAxn2wKUM9dsp+67A4
-83U9wddnMOI=
-=s1bc
------END PGP SIGNATURE-----
-
---=-QM3yg4dxsEitY9RYt6qF--
+>> And we have CPU for days, never CPU-limited on our servers.
+>
+> Lucky you.  It's a shame about the power going to waste.
+>
+>> If ethtool =E2=80=93K accepted the offload format that =E2=80=93k re=
+ports, then
+>> disabling all offloads would be trivial:
+> [...]
+>> Is there a translation table somewhere that translates from the =E2=80=
+=98-k=E2=80=99
+>> output offload names to the =E2=80=98-K=E2=80=99 style offload names=
+?
+> [...]
+>
+> Yes, it's the off_flag_def array.
+>
+> For any newly defined features, ethtool will simply use the name
+> supplied by the kernel for both -k output and -K argument parsing.
+>
+> Ben.
+>
+> --
+> Ben Hutchings
+> Man invented language to satisfy his deep need to complain. - Lily To=
+mlin
