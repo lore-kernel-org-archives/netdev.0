@@ -1,7 +1,7 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 1/5] RDMA/cxgb4: Cleanup Filter related macros/register defines
-Date: Fri, 21 Nov 2014 12:52:01 +0530
-Message-ID: <1416554525-11844-2-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 2/5] RDMA/cxgb4/csiostor: Cleansup FW related macros/register defines for PF/VF and LDST
+Date: Fri, 21 Nov 2014 12:52:02 +0530
+Message-ID: <1416554525-11844-3-git-send-email-hariprasad@chelsio.com>
 References: <1416554525-11844-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com,
 	JBottomley@parallels.com, hch@infradead.org,
@@ -10,772 +10,1003 @@ Cc: davem@davemloft.net, roland@purestorage.com,
 	varun@chelsio.com, Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
 	linux-scsi@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:33690
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752436AbaKUHRX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 02:17:23 -0500
 In-Reply-To: <1416554525-11844-1-git-send-email-hariprasad@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch cleanups all filter related macros/register defines that are defined
-in t4fw_api.h and the affected files.
+This patch cleanups PF/VF and LDST related macros/register defines that are
+defined in t4fw_api.h and the affected files.
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/infiniband/hw/cxgb4/cm.c                |   14 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   68 ++--
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |    8 +-
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  584 +++++++++++-----------
- 4 files changed, 337 insertions(+), 337 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c                   |    2 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |   61 +++--
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |   78 +++---
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h      |  270 +++++++++++++-------
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |   10 +-
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |   72 +++---
+ drivers/scsi/csiostor/csio_hw.c                    |   20 +-
+ drivers/scsi/csiostor/csio_mb.c                    |   30 +-
+ drivers/scsi/csiostor/csio_mb.h                    |   12 +-
+ 9 files changed, 327 insertions(+), 228 deletions(-)
 
 diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index 83fa16f..0ad8e2a 100644
+index 0ad8e2a..4b8c611 100644
 --- a/drivers/infiniband/hw/cxgb4/cm.c
 +++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -1762,10 +1762,10 @@ static void send_fw_act_open_req(struct c4iw_ep *ep, unsigned int atid)
- 	req->le.pport = sin->sin_port;
- 	req->le.u.ipv4.pip = sin->sin_addr.s_addr;
- 	req->tcb.t_state_to_astid =
--			htonl(V_FW_OFLD_CONNECTION_WR_T_STATE(TCP_SYN_SENT) |
--			V_FW_OFLD_CONNECTION_WR_ASTID(atid));
-+			htonl(FW_OFLD_CONNECTION_WR_T_STATE_V(TCP_SYN_SENT) |
-+			FW_OFLD_CONNECTION_WR_ASTID_V(atid));
- 	req->tcb.cplrxdataack_cplpassacceptrpl =
--			htons(F_FW_OFLD_CONNECTION_WR_CPLRXDATAACK);
-+			htons(FW_OFLD_CONNECTION_WR_CPLRXDATAACK_F);
- 	req->tcb.tx_max = (__force __be32) jiffies;
- 	req->tcb.rcv_adv = htons(1);
- 	best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
-@@ -3539,7 +3539,7 @@ static void send_fw_pass_open_req(struct c4iw_dev *dev, struct sk_buff *skb,
- 	memset(req, 0, sizeof(*req));
- 	req->op_compl = htonl(V_WR_OP(FW_OFLD_CONNECTION_WR) | FW_WR_COMPL_F);
- 	req->len16_pkd = htonl(FW_WR_LEN16_V(DIV_ROUND_UP(sizeof(*req), 16)));
--	req->le.version_cpl = htonl(F_FW_OFLD_CONNECTION_WR_CPL);
-+	req->le.version_cpl = htonl(FW_OFLD_CONNECTION_WR_CPL_F);
- 	req->le.filter = (__force __be32) filter;
- 	req->le.lport = lport;
- 	req->le.pport = rport;
-@@ -3548,9 +3548,9 @@ static void send_fw_pass_open_req(struct c4iw_dev *dev, struct sk_buff *skb,
- 	req->tcb.rcv_nxt = htonl(rcv_isn + 1);
- 	req->tcb.rcv_adv = htons(window);
- 	req->tcb.t_state_to_astid =
--		 htonl(V_FW_OFLD_CONNECTION_WR_T_STATE(TCP_SYN_RECV) |
--			V_FW_OFLD_CONNECTION_WR_RCV_SCALE(cpl->tcpopt.wsf) |
--			V_FW_OFLD_CONNECTION_WR_ASTID(
-+		 htonl(FW_OFLD_CONNECTION_WR_T_STATE_V(TCP_SYN_RECV) |
-+			FW_OFLD_CONNECTION_WR_RCV_SCALE_V(cpl->tcpopt.wsf) |
-+			FW_OFLD_CONNECTION_WR_ASTID_V(
- 			GET_PASS_OPEN_TID(ntohl(cpl->tos_stid))));
+@@ -478,7 +478,7 @@ static void send_flowc(struct c4iw_ep *ep, struct sk_buff *skb)
+ 					  16)) | FW_WR_FLOWID_V(ep->hwtid));
  
- 	/*
+ 	flowc->mnemval[0].mnemonic = FW_FLOWC_MNEM_PFNVFN;
+-	flowc->mnemval[0].val = cpu_to_be32(FW_PFVF_CMD_PFN
++	flowc->mnemval[0].val = cpu_to_be32(FW_PFVF_CMD_PFN_V
+ 					    (ep->com.dev->rdev.lldi.pf));
+ 	flowc->mnemval[1].mnemonic = FW_FLOWC_MNEM_CH;
+ 	flowc->mnemval[1].val = cpu_to_be32(ep->tx_chan);
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 19ffe9b..6b6d7e1 100644
+index 6b6d7e1..4caec41 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -1342,49 +1342,49 @@ static int set_filter_wr(struct adapter *adapter, int fidx)
- 	fwr->op_pkd = htonl(FW_WR_OP_V(FW_FILTER_WR));
- 	fwr->len16_pkd = htonl(FW_WR_LEN16_V(sizeof(*fwr)/16));
- 	fwr->tid_to_iq =
--		htonl(V_FW_FILTER_WR_TID(ftid) |
--		      V_FW_FILTER_WR_RQTYPE(f->fs.type) |
--		      V_FW_FILTER_WR_NOREPLY(0) |
--		      V_FW_FILTER_WR_IQ(f->fs.iq));
-+		htonl(FW_FILTER_WR_TID_V(ftid) |
-+		      FW_FILTER_WR_RQTYPE_V(f->fs.type) |
-+		      FW_FILTER_WR_NOREPLY_V(0) |
-+		      FW_FILTER_WR_IQ_V(f->fs.iq));
- 	fwr->del_filter_to_l2tix =
--		htonl(V_FW_FILTER_WR_RPTTID(f->fs.rpttid) |
--		      V_FW_FILTER_WR_DROP(f->fs.action == FILTER_DROP) |
--		      V_FW_FILTER_WR_DIRSTEER(f->fs.dirsteer) |
--		      V_FW_FILTER_WR_MASKHASH(f->fs.maskhash) |
--		      V_FW_FILTER_WR_DIRSTEERHASH(f->fs.dirsteerhash) |
--		      V_FW_FILTER_WR_LPBK(f->fs.action == FILTER_SWITCH) |
--		      V_FW_FILTER_WR_DMAC(f->fs.newdmac) |
--		      V_FW_FILTER_WR_SMAC(f->fs.newsmac) |
--		      V_FW_FILTER_WR_INSVLAN(f->fs.newvlan == VLAN_INSERT ||
-+		htonl(FW_FILTER_WR_RPTTID_V(f->fs.rpttid) |
-+		      FW_FILTER_WR_DROP_V(f->fs.action == FILTER_DROP) |
-+		      FW_FILTER_WR_DIRSTEER_V(f->fs.dirsteer) |
-+		      FW_FILTER_WR_MASKHASH_V(f->fs.maskhash) |
-+		      FW_FILTER_WR_DIRSTEERHASH_V(f->fs.dirsteerhash) |
-+		      FW_FILTER_WR_LPBK_V(f->fs.action == FILTER_SWITCH) |
-+		      FW_FILTER_WR_DMAC_V(f->fs.newdmac) |
-+		      FW_FILTER_WR_SMAC_V(f->fs.newsmac) |
-+		      FW_FILTER_WR_INSVLAN_V(f->fs.newvlan == VLAN_INSERT ||
- 					     f->fs.newvlan == VLAN_REWRITE) |
--		      V_FW_FILTER_WR_RMVLAN(f->fs.newvlan == VLAN_REMOVE ||
-+		      FW_FILTER_WR_RMVLAN_V(f->fs.newvlan == VLAN_REMOVE ||
- 					    f->fs.newvlan == VLAN_REWRITE) |
--		      V_FW_FILTER_WR_HITCNTS(f->fs.hitcnts) |
--		      V_FW_FILTER_WR_TXCHAN(f->fs.eport) |
--		      V_FW_FILTER_WR_PRIO(f->fs.prio) |
--		      V_FW_FILTER_WR_L2TIX(f->l2t ? f->l2t->idx : 0));
-+		      FW_FILTER_WR_HITCNTS_V(f->fs.hitcnts) |
-+		      FW_FILTER_WR_TXCHAN_V(f->fs.eport) |
-+		      FW_FILTER_WR_PRIO_V(f->fs.prio) |
-+		      FW_FILTER_WR_L2TIX_V(f->l2t ? f->l2t->idx : 0));
- 	fwr->ethtype = htons(f->fs.val.ethtype);
- 	fwr->ethtypem = htons(f->fs.mask.ethtype);
- 	fwr->frag_to_ovlan_vldm =
--		(V_FW_FILTER_WR_FRAG(f->fs.val.frag) |
--		 V_FW_FILTER_WR_FRAGM(f->fs.mask.frag) |
--		 V_FW_FILTER_WR_IVLAN_VLD(f->fs.val.ivlan_vld) |
--		 V_FW_FILTER_WR_OVLAN_VLD(f->fs.val.ovlan_vld) |
--		 V_FW_FILTER_WR_IVLAN_VLDM(f->fs.mask.ivlan_vld) |
--		 V_FW_FILTER_WR_OVLAN_VLDM(f->fs.mask.ovlan_vld));
-+		(FW_FILTER_WR_FRAG_V(f->fs.val.frag) |
-+		 FW_FILTER_WR_FRAGM_V(f->fs.mask.frag) |
-+		 FW_FILTER_WR_IVLAN_VLD_V(f->fs.val.ivlan_vld) |
-+		 FW_FILTER_WR_OVLAN_VLD_V(f->fs.val.ovlan_vld) |
-+		 FW_FILTER_WR_IVLAN_VLDM_V(f->fs.mask.ivlan_vld) |
-+		 FW_FILTER_WR_OVLAN_VLDM_V(f->fs.mask.ovlan_vld));
- 	fwr->smac_sel = 0;
- 	fwr->rx_chan_rx_rpl_iq =
--		htons(V_FW_FILTER_WR_RX_CHAN(0) |
--		      V_FW_FILTER_WR_RX_RPL_IQ(adapter->sge.fw_evtq.abs_id));
-+		htons(FW_FILTER_WR_RX_CHAN_V(0) |
-+		      FW_FILTER_WR_RX_RPL_IQ_V(adapter->sge.fw_evtq.abs_id));
- 	fwr->maci_to_matchtypem =
--		htonl(V_FW_FILTER_WR_MACI(f->fs.val.macidx) |
--		      V_FW_FILTER_WR_MACIM(f->fs.mask.macidx) |
--		      V_FW_FILTER_WR_FCOE(f->fs.val.fcoe) |
--		      V_FW_FILTER_WR_FCOEM(f->fs.mask.fcoe) |
--		      V_FW_FILTER_WR_PORT(f->fs.val.iport) |
--		      V_FW_FILTER_WR_PORTM(f->fs.mask.iport) |
--		      V_FW_FILTER_WR_MATCHTYPE(f->fs.val.matchtype) |
--		      V_FW_FILTER_WR_MATCHTYPEM(f->fs.mask.matchtype));
-+		htonl(FW_FILTER_WR_MACI_V(f->fs.val.macidx) |
-+		      FW_FILTER_WR_MACIM_V(f->fs.mask.macidx) |
-+		      FW_FILTER_WR_FCOE_V(f->fs.val.fcoe) |
-+		      FW_FILTER_WR_FCOEM_V(f->fs.mask.fcoe) |
-+		      FW_FILTER_WR_PORT_V(f->fs.val.iport) |
-+		      FW_FILTER_WR_PORTM_V(f->fs.mask.iport) |
-+		      FW_FILTER_WR_MATCHTYPE_V(f->fs.val.matchtype) |
-+		      FW_FILTER_WR_MATCHTYPEM_V(f->fs.mask.matchtype));
- 	fwr->ptcl = f->fs.val.proto;
- 	fwr->ptclm = f->fs.mask.proto;
- 	fwr->ttyp = f->fs.val.tos;
+@@ -141,7 +141,7 @@ static unsigned int pfvfres_pmask(struct adapter *adapter,
+ 	 * Give PF's access to all of the ports.
+ 	 */
+ 	if (vf == 0)
+-		return FW_PFVF_CMD_PMASK_MASK;
++		return FW_PFVF_CMD_PMASK_M;
+ 
+ 	/*
+ 	 * For VFs, we'll assign them access to the ports based purely on the
+@@ -512,9 +512,10 @@ static void dcb_tx_queue_prio_enable(struct net_device *dev, int enable)
+ 		u32 name, value;
+ 		int err;
+ 
+-		name = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_DMAQ) |
+-			FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DMAQ_EQ_DCBPRIO_ETH) |
+-			FW_PARAMS_PARAM_YZ(txq->q.cntxt_id));
++		name = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DMAQ) |
++			FW_PARAMS_PARAM_X_V(
++				FW_PARAMS_PARAM_DMAQ_EQ_DCBPRIO_ETH) |
++			FW_PARAMS_PARAM_YZ_V(txq->q.cntxt_id));
+ 		value = enable ? i : 0xffffffff;
+ 
+ 		/* Since we can be called while atomic (from "interrupt
+@@ -2717,9 +2718,10 @@ static int set_rspq_intr_params(struct sge_rspq *q,
+ 		new_idx = closest_thres(&adap->sge, cnt);
+ 		if (q->desc && q->pktcnt_idx != new_idx) {
+ 			/* the queue has already been created, update it */
+-			v = FW_PARAMS_MNEM(FW_PARAMS_MNEM_DMAQ) |
+-			    FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DMAQ_IQ_INTCNTTHRESH) |
+-			    FW_PARAMS_PARAM_YZ(q->cntxt_id);
++			v = FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DMAQ) |
++			    FW_PARAMS_PARAM_X_V(
++					FW_PARAMS_PARAM_DMAQ_IQ_INTCNTTHRESH) |
++			    FW_PARAMS_PARAM_YZ_V(q->cntxt_id);
+ 			err = t4_set_params(adap, adap->fn, adap->fn, 0, 1, &v,
+ 					    &new_idx);
+ 			if (err)
+@@ -4870,11 +4872,11 @@ static u32 t4_read_pcie_cfg4(struct adapter *adap, int reg)
+ 		htonl(FW_CMD_OP_V(FW_LDST_CMD) |
+ 		      FW_CMD_REQUEST_F |
+ 		      FW_CMD_READ_F |
+-		      FW_LDST_CMD_ADDRSPACE(FW_LDST_ADDRSPC_FUNC_PCIE));
++		      FW_LDST_CMD_ADDRSPACE_V(FW_LDST_ADDRSPC_FUNC_PCIE));
+ 	ldst_cmd.cycles_to_len16 = htonl(FW_LEN16(ldst_cmd));
+-	ldst_cmd.u.pcie.select_naccess = FW_LDST_CMD_NACCESS(1);
++	ldst_cmd.u.pcie.select_naccess = FW_LDST_CMD_NACCESS_V(1);
+ 	ldst_cmd.u.pcie.ctrl_to_fn =
+-		(FW_LDST_CMD_LC | FW_LDST_CMD_FN(adap->fn));
++		(FW_LDST_CMD_LC_F | FW_LDST_CMD_FN_V(adap->fn));
+ 	ldst_cmd.u.pcie.r = reg;
+ 	ret = t4_wr_mbox(adap, adap->mbox, &ldst_cmd, sizeof(ldst_cmd),
+ 			 &ldst_cmd);
+@@ -5148,8 +5150,8 @@ static int adap_init0_config(struct adapter *adapter, int reset)
+ 		if (cf->size >= FLASH_CFG_MAX_SIZE)
+ 			ret = -ENOMEM;
+ 		else {
+-			params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
+-			     FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_CF));
++			params[0] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) |
++			     FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_CF));
+ 			ret = t4_query_params(adapter, adapter->mbox,
+ 					      adapter->fn, 0, 1, params, val);
+ 			if (ret == 0) {
+@@ -5167,8 +5169,8 @@ static int adap_init0_config(struct adapter *adapter, int reset)
+ 				size_t size = cf->size & ~0x3;
+ 				__be32 *data = (__be32 *)cf->data;
+ 
+-				mtype = FW_PARAMS_PARAM_Y_GET(val[0]);
+-				maddr = FW_PARAMS_PARAM_Z_GET(val[0]) << 16;
++				mtype = FW_PARAMS_PARAM_Y_G(val[0]);
++				maddr = FW_PARAMS_PARAM_Z_G(val[0]) << 16;
+ 
+ 				spin_lock(&adapter->win0_lock);
+ 				ret = t4_memory_rw(adapter, 0, mtype, maddr,
+@@ -5209,9 +5211,9 @@ static int adap_init0_config(struct adapter *adapter, int reset)
+ 		      FW_CMD_REQUEST_F |
+ 		      FW_CMD_READ_F);
+ 	caps_cmd.cfvalid_to_len16 =
+-		htonl(FW_CAPS_CONFIG_CMD_CFVALID |
+-		      FW_CAPS_CONFIG_CMD_MEMTYPE_CF(mtype) |
+-		      FW_CAPS_CONFIG_CMD_MEMADDR64K_CF(maddr >> 16) |
++		htonl(FW_CAPS_CONFIG_CMD_CFVALID_F |
++		      FW_CAPS_CONFIG_CMD_MEMTYPE_CF_V(mtype) |
++		      FW_CAPS_CONFIG_CMD_MEMADDR64K_CF_V(maddr >> 16) |
+ 		      FW_LEN16(caps_cmd));
+ 	ret = t4_wr_mbox(adapter, adapter->mbox, &caps_cmd, sizeof(caps_cmd),
+ 			 &caps_cmd);
+@@ -5377,7 +5379,7 @@ static int adap_init0_no_config(struct adapter *adapter, int reset)
+ 			  PFRES_NEQ, PFRES_NETHCTRL,
+ 			  PFRES_NIQFLINT, PFRES_NIQ,
+ 			  PFRES_TC, PFRES_NVI,
+-			  FW_PFVF_CMD_CMASK_MASK,
++			  FW_PFVF_CMD_CMASK_M,
+ 			  pfvfres_pmask(adapter, adapter->fn, 0),
+ 			  PFRES_NEXACTF,
+ 			  PFRES_R_CAPS, PFRES_WX_CAPS);
+@@ -5422,7 +5424,7 @@ static int adap_init0_no_config(struct adapter *adapter, int reset)
+ 						  VFRES_NEQ, VFRES_NETHCTRL,
+ 						  VFRES_NIQFLINT, VFRES_NIQ,
+ 						  VFRES_TC, VFRES_NVI,
+-						  FW_PFVF_CMD_CMASK_MASK,
++						  FW_PFVF_CMD_CMASK_M,
+ 						  pfvfres_pmask(
+ 						  adapter, pf, vf),
+ 						  VFRES_NEXACTF,
+@@ -5686,8 +5688,8 @@ static int adap_init0(struct adapter *adap)
+ 	 * and portvec ...
+ 	 */
+ 	v =
+-	    FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
+-	    FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_PORTVEC);
++	    FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) |
++	    FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_PORTVEC);
+ 	ret = t4_query_params(adap, adap->mbox, adap->fn, 0, 1, &v, &port_vec);
+ 	if (ret < 0)
+ 		goto bye;
+@@ -5723,8 +5725,9 @@ static int adap_init0(struct adapter *adap)
+ 			 * Find out whether we're dealing with a version of
+ 			 * the firmware which has configuration file support.
+ 			 */
+-			params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
+-				     FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_CF));
++			params[0] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) |
++				     FW_PARAMS_PARAM_X_V(
++					     FW_PARAMS_PARAM_DEV_CF));
+ 			ret = t4_query_params(adap, adap->mbox, adap->fn, 0, 1,
+ 					      params, val);
+ 
+@@ -5784,14 +5787,14 @@ static int adap_init0(struct adapter *adap)
+ 	 * Grab some of our basic fundamental operating parameters.
+ 	 */
+ #define FW_PARAM_DEV(param) \
+-	(FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) | \
+-	FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_##param))
++	(FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) | \
++	FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_##param))
+ 
+ #define FW_PARAM_PFVF(param) \
+-	FW_PARAMS_MNEM(FW_PARAMS_MNEM_PFVF) | \
+-	FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_PFVF_##param)|  \
+-	FW_PARAMS_PARAM_Y(0) | \
+-	FW_PARAMS_PARAM_Z(0)
++	FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_PFVF) | \
++	FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_PFVF_##param)|  \
++	FW_PARAMS_PARAM_Y_V(0) | \
++	FW_PARAMS_PARAM_Z_V(0)
+ 
+ 	params[0] = FW_PARAM_PFVF(EQ_START);
+ 	params[1] = FW_PARAM_PFVF(L2T_START);
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 4d32df5..0c78be3 100644
+index 0c78be3..9f1b304 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -2556,11 +2556,11 @@ void t4_mk_filtdelwr(unsigned int ftid, struct fw_filter_wr *wr, int qid)
- 	memset(wr, 0, sizeof(*wr));
- 	wr->op_pkd = htonl(FW_WR_OP_V(FW_FILTER_WR));
- 	wr->len16_pkd = htonl(FW_WR_LEN16_V(sizeof(*wr) / 16));
--	wr->tid_to_iq = htonl(V_FW_FILTER_WR_TID(ftid) |
--			V_FW_FILTER_WR_NOREPLY(qid < 0));
--	wr->del_filter_to_l2tix = htonl(F_FW_FILTER_WR_DEL_FILTER);
-+	wr->tid_to_iq = htonl(FW_FILTER_WR_TID_V(ftid) |
-+			FW_FILTER_WR_NOREPLY_V(qid < 0));
-+	wr->del_filter_to_l2tix = htonl(FW_FILTER_WR_DEL_FILTER_F);
- 	if (qid >= 0)
--		wr->rx_chan_rx_rpl_iq = htons(V_FW_FILTER_WR_RX_RPL_IQ(qid));
-+		wr->rx_chan_rx_rpl_iq = htons(FW_FILTER_WR_RX_RPL_IQ_V(qid));
+@@ -711,8 +711,8 @@ int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+ 	 * Ask firmware for the Core Clock since it knows how to translate the
+ 	 * Reference Clock ('V2') VPD field into a Core Clock value ...
+ 	 */
+-	cclk_param = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
+-		      FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_CCLK));
++	cclk_param = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) |
++		      FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_CCLK));
+ 	ret = t4_query_params(adapter, adapter->mbox, 0, 0,
+ 			      1, &cclk_param, &cclk_val);
+ 
+@@ -2577,7 +2577,7 @@ int t4_fwaddrspace_write(struct adapter *adap, unsigned int mbox,
+ 	memset(&c, 0, sizeof(c));
+ 	c.op_to_addrspace = htonl(FW_CMD_OP_V(FW_LDST_CMD) | FW_CMD_REQUEST_F |
+ 			    FW_CMD_WRITE_F |
+-			    FW_LDST_CMD_ADDRSPACE(FW_LDST_ADDRSPC_FIRMWARE));
++			    FW_LDST_CMD_ADDRSPACE_V(FW_LDST_ADDRSPC_FIRMWARE));
+ 	c.cycles_to_len16 = htonl(FW_LEN16(c));
+ 	c.u.addrval.addr = htonl(addr);
+ 	c.u.addrval.val = htonl(val);
+@@ -2604,10 +2604,10 @@ int t4_mdio_rd(struct adapter *adap, unsigned int mbox, unsigned int phy_addr,
+ 
+ 	memset(&c, 0, sizeof(c));
+ 	c.op_to_addrspace = htonl(FW_CMD_OP_V(FW_LDST_CMD) | FW_CMD_REQUEST_F |
+-		FW_CMD_READ_F | FW_LDST_CMD_ADDRSPACE(FW_LDST_ADDRSPC_MDIO));
++		FW_CMD_READ_F | FW_LDST_CMD_ADDRSPACE_V(FW_LDST_ADDRSPC_MDIO));
+ 	c.cycles_to_len16 = htonl(FW_LEN16(c));
+-	c.u.mdio.paddr_mmd = htons(FW_LDST_CMD_PADDR(phy_addr) |
+-				   FW_LDST_CMD_MMD(mmd));
++	c.u.mdio.paddr_mmd = htons(FW_LDST_CMD_PADDR_V(phy_addr) |
++				   FW_LDST_CMD_MMD_V(mmd));
+ 	c.u.mdio.raddr = htons(reg);
+ 
+ 	ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), &c);
+@@ -2634,10 +2634,10 @@ int t4_mdio_wr(struct adapter *adap, unsigned int mbox, unsigned int phy_addr,
+ 
+ 	memset(&c, 0, sizeof(c));
+ 	c.op_to_addrspace = htonl(FW_CMD_OP_V(FW_LDST_CMD) | FW_CMD_REQUEST_F |
+-		FW_CMD_WRITE_F | FW_LDST_CMD_ADDRSPACE(FW_LDST_ADDRSPC_MDIO));
++		FW_CMD_WRITE_F | FW_LDST_CMD_ADDRSPACE_V(FW_LDST_ADDRSPC_MDIO));
+ 	c.cycles_to_len16 = htonl(FW_LEN16(c));
+-	c.u.mdio.paddr_mmd = htons(FW_LDST_CMD_PADDR(phy_addr) |
+-				   FW_LDST_CMD_MMD(mmd));
++	c.u.mdio.paddr_mmd = htons(FW_LDST_CMD_PADDR_V(phy_addr) |
++				   FW_LDST_CMD_MMD_V(mmd));
+ 	c.u.mdio.raddr = htons(reg);
+ 	c.u.mdio.rval = htons(val);
+ 
+@@ -2774,13 +2774,13 @@ retry:
+ 	memset(&c, 0, sizeof(c));
+ 	INIT_CMD(c, HELLO, WRITE);
+ 	c.err_to_clearinit = htonl(
+-		FW_HELLO_CMD_MASTERDIS(master == MASTER_CANT) |
+-		FW_HELLO_CMD_MASTERFORCE(master == MASTER_MUST) |
+-		FW_HELLO_CMD_MBMASTER(master == MASTER_MUST ? mbox :
+-				      FW_HELLO_CMD_MBMASTER_MASK) |
+-		FW_HELLO_CMD_MBASYNCNOT(evt_mbox) |
+-		FW_HELLO_CMD_STAGE(fw_hello_cmd_stage_os) |
+-		FW_HELLO_CMD_CLEARINIT);
++		FW_HELLO_CMD_MASTERDIS_V(master == MASTER_CANT) |
++		FW_HELLO_CMD_MASTERFORCE_V(master == MASTER_MUST) |
++		FW_HELLO_CMD_MBMASTER_V(master == MASTER_MUST ? mbox :
++				      FW_HELLO_CMD_MBMASTER_M) |
++		FW_HELLO_CMD_MBASYNCNOT_V(evt_mbox) |
++		FW_HELLO_CMD_STAGE_V(fw_hello_cmd_stage_os) |
++		FW_HELLO_CMD_CLEARINIT_F);
+ 
+ 	/*
+ 	 * Issue the HELLO command to the firmware.  If it's not successful
+@@ -2799,11 +2799,11 @@ retry:
+ 	}
+ 
+ 	v = ntohl(c.err_to_clearinit);
+-	master_mbox = FW_HELLO_CMD_MBMASTER_GET(v);
++	master_mbox = FW_HELLO_CMD_MBMASTER_G(v);
+ 	if (state) {
+-		if (v & FW_HELLO_CMD_ERR)
++		if (v & FW_HELLO_CMD_ERR_F)
+ 			*state = DEV_STATE_ERR;
+-		else if (v & FW_HELLO_CMD_INIT)
++		else if (v & FW_HELLO_CMD_INIT_F)
+ 			*state = DEV_STATE_INIT;
+ 		else
+ 			*state = DEV_STATE_UNINIT;
+@@ -2820,7 +2820,7 @@ retry:
+ 	 * this case, the Master PF returned by the firmware will be
+ 	 * FW_PCIE_FW_MASTER_MASK so the test below will work ...
+ 	 */
+-	if ((v & (FW_HELLO_CMD_ERR|FW_HELLO_CMD_INIT)) == 0 &&
++	if ((v & (FW_HELLO_CMD_ERR_F|FW_HELLO_CMD_INIT_F)) == 0 &&
+ 	    master_mbox != mbox) {
+ 		int waiting = FW_CMD_HELLO_TIMEOUT;
+ 
+@@ -2961,7 +2961,7 @@ static int t4_fw_halt(struct adapter *adap, unsigned int mbox, int force)
+ 		memset(&c, 0, sizeof(c));
+ 		INIT_CMD(c, RESET, WRITE);
+ 		c.val = htonl(PIORST | PIORSTMODE);
+-		c.halt_pkd = htonl(FW_RESET_CMD_HALT(1U));
++		c.halt_pkd = htonl(FW_RESET_CMD_HALT_F);
+ 		ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
+ 	}
+ 
+@@ -3252,8 +3252,8 @@ int t4_query_params(struct adapter *adap, unsigned int mbox, unsigned int pf,
+ 
+ 	memset(&c, 0, sizeof(c));
+ 	c.op_to_vfn = htonl(FW_CMD_OP_V(FW_PARAMS_CMD) | FW_CMD_REQUEST_F |
+-			    FW_CMD_READ_F | FW_PARAMS_CMD_PFN(pf) |
+-			    FW_PARAMS_CMD_VFN(vf));
++			    FW_CMD_READ_F | FW_PARAMS_CMD_PFN_V(pf) |
++			    FW_PARAMS_CMD_VFN_V(vf));
+ 	c.retval_len16 = htonl(FW_LEN16(c));
+ 	for (i = 0; i < nparams; i++, p += 2)
+ 		*p = htonl(*params++);
+@@ -3293,8 +3293,8 @@ int t4_set_params_nosleep(struct adapter *adap, unsigned int mbox,
+ 	memset(&c, 0, sizeof(c));
+ 	c.op_to_vfn = cpu_to_be32(FW_CMD_OP_V(FW_PARAMS_CMD) |
+ 				FW_CMD_REQUEST_F | FW_CMD_WRITE_F |
+-				FW_PARAMS_CMD_PFN(pf) |
+-				FW_PARAMS_CMD_VFN(vf));
++				FW_PARAMS_CMD_PFN_V(pf) |
++				FW_PARAMS_CMD_VFN_V(vf));
+ 	c.retval_len16 = cpu_to_be32(FW_LEN16(c));
+ 
+ 	while (nparams--) {
+@@ -3330,8 +3330,8 @@ int t4_set_params(struct adapter *adap, unsigned int mbox, unsigned int pf,
+ 
+ 	memset(&c, 0, sizeof(c));
+ 	c.op_to_vfn = htonl(FW_CMD_OP_V(FW_PARAMS_CMD) | FW_CMD_REQUEST_F |
+-			    FW_CMD_WRITE_F | FW_PARAMS_CMD_PFN(pf) |
+-			    FW_PARAMS_CMD_VFN(vf));
++			    FW_CMD_WRITE_F | FW_PARAMS_CMD_PFN_V(pf) |
++			    FW_PARAMS_CMD_VFN_V(vf));
+ 	c.retval_len16 = htonl(FW_LEN16(c));
+ 	while (nparams--) {
+ 		*p++ = htonl(*params++);
+@@ -3372,19 +3372,19 @@ int t4_cfg_pfvf(struct adapter *adap, unsigned int mbox, unsigned int pf,
+ 
+ 	memset(&c, 0, sizeof(c));
+ 	c.op_to_vfn = htonl(FW_CMD_OP_V(FW_PFVF_CMD) | FW_CMD_REQUEST_F |
+-			    FW_CMD_WRITE_F | FW_PFVF_CMD_PFN(pf) |
+-			    FW_PFVF_CMD_VFN(vf));
++			    FW_CMD_WRITE_F | FW_PFVF_CMD_PFN_V(pf) |
++			    FW_PFVF_CMD_VFN_V(vf));
+ 	c.retval_len16 = htonl(FW_LEN16(c));
+-	c.niqflint_niq = htonl(FW_PFVF_CMD_NIQFLINT(rxqi) |
+-			       FW_PFVF_CMD_NIQ(rxq));
+-	c.type_to_neq = htonl(FW_PFVF_CMD_CMASK(cmask) |
+-			       FW_PFVF_CMD_PMASK(pmask) |
+-			       FW_PFVF_CMD_NEQ(txq));
+-	c.tc_to_nexactf = htonl(FW_PFVF_CMD_TC(tc) | FW_PFVF_CMD_NVI(vi) |
+-				FW_PFVF_CMD_NEXACTF(nexact));
+-	c.r_caps_to_nethctrl = htonl(FW_PFVF_CMD_R_CAPS(rcaps) |
+-				     FW_PFVF_CMD_WX_CAPS(wxcaps) |
+-				     FW_PFVF_CMD_NETHCTRL(txq_eth_ctrl));
++	c.niqflint_niq = htonl(FW_PFVF_CMD_NIQFLINT_V(rxqi) |
++			       FW_PFVF_CMD_NIQ_V(rxq));
++	c.type_to_neq = htonl(FW_PFVF_CMD_CMASK_V(cmask) |
++			       FW_PFVF_CMD_PMASK_V(pmask) |
++			       FW_PFVF_CMD_NEQ_V(txq));
++	c.tc_to_nexactf = htonl(FW_PFVF_CMD_TC_V(tc) | FW_PFVF_CMD_NVI_V(vi) |
++				FW_PFVF_CMD_NEXACTF_V(nexact));
++	c.r_caps_to_nethctrl = htonl(FW_PFVF_CMD_R_CAPS_V(rcaps) |
++				     FW_PFVF_CMD_WX_CAPS_V(wxcaps) |
++				     FW_PFVF_CMD_NETHCTRL_V(txq_eth_ctrl));
+ 	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
  }
  
- #define INIT_CMD(var, cmd, rd_wr) do { \
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-index 6fc46dc..3bc5bdb 100644
+index 3bc5bdb..5839b80 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-@@ -197,239 +197,239 @@ struct fw_filter_wr {
- 	__u8   sma[6];
+@@ -761,7 +761,8 @@ enum fw_ldst_func_mod_index {
+ 
+ struct fw_ldst_cmd {
+ 	__be32 op_to_addrspace;
+-#define FW_LDST_CMD_ADDRSPACE(x) ((x) << 0)
++#define FW_LDST_CMD_ADDRSPACE_S		0
++#define FW_LDST_CMD_ADDRSPACE_V(x)	((x) << FW_LDST_CMD_ADDRSPACE_S)
+ 	__be32 cycles_to_len16;
+ 	union fw_ldst {
+ 		struct fw_ldst_addrval {
+@@ -817,15 +818,33 @@ struct fw_ldst_cmd {
+ 	} u;
  };
  
--#define S_FW_FILTER_WR_TID      12
--#define M_FW_FILTER_WR_TID      0xfffff
--#define V_FW_FILTER_WR_TID(x)   ((x) << S_FW_FILTER_WR_TID)
--#define G_FW_FILTER_WR_TID(x)   \
--	(((x) >> S_FW_FILTER_WR_TID) & M_FW_FILTER_WR_TID)
--
--#define S_FW_FILTER_WR_RQTYPE           11
--#define M_FW_FILTER_WR_RQTYPE           0x1
--#define V_FW_FILTER_WR_RQTYPE(x)        ((x) << S_FW_FILTER_WR_RQTYPE)
--#define G_FW_FILTER_WR_RQTYPE(x)        \
--	(((x) >> S_FW_FILTER_WR_RQTYPE) & M_FW_FILTER_WR_RQTYPE)
--#define F_FW_FILTER_WR_RQTYPE   V_FW_FILTER_WR_RQTYPE(1U)
--
--#define S_FW_FILTER_WR_NOREPLY          10
--#define M_FW_FILTER_WR_NOREPLY          0x1
--#define V_FW_FILTER_WR_NOREPLY(x)       ((x) << S_FW_FILTER_WR_NOREPLY)
--#define G_FW_FILTER_WR_NOREPLY(x)       \
--	(((x) >> S_FW_FILTER_WR_NOREPLY) & M_FW_FILTER_WR_NOREPLY)
--#define F_FW_FILTER_WR_NOREPLY  V_FW_FILTER_WR_NOREPLY(1U)
--
--#define S_FW_FILTER_WR_IQ       0
--#define M_FW_FILTER_WR_IQ       0x3ff
--#define V_FW_FILTER_WR_IQ(x)    ((x) << S_FW_FILTER_WR_IQ)
--#define G_FW_FILTER_WR_IQ(x)    \
--	(((x) >> S_FW_FILTER_WR_IQ) & M_FW_FILTER_WR_IQ)
--
--#define S_FW_FILTER_WR_DEL_FILTER       31
--#define M_FW_FILTER_WR_DEL_FILTER       0x1
--#define V_FW_FILTER_WR_DEL_FILTER(x)    ((x) << S_FW_FILTER_WR_DEL_FILTER)
--#define G_FW_FILTER_WR_DEL_FILTER(x)    \
--	(((x) >> S_FW_FILTER_WR_DEL_FILTER) & M_FW_FILTER_WR_DEL_FILTER)
--#define F_FW_FILTER_WR_DEL_FILTER       V_FW_FILTER_WR_DEL_FILTER(1U)
--
--#define S_FW_FILTER_WR_RPTTID           25
--#define M_FW_FILTER_WR_RPTTID           0x1
--#define V_FW_FILTER_WR_RPTTID(x)        ((x) << S_FW_FILTER_WR_RPTTID)
--#define G_FW_FILTER_WR_RPTTID(x)        \
--	(((x) >> S_FW_FILTER_WR_RPTTID) & M_FW_FILTER_WR_RPTTID)
--#define F_FW_FILTER_WR_RPTTID   V_FW_FILTER_WR_RPTTID(1U)
--
--#define S_FW_FILTER_WR_DROP     24
--#define M_FW_FILTER_WR_DROP     0x1
--#define V_FW_FILTER_WR_DROP(x)  ((x) << S_FW_FILTER_WR_DROP)
--#define G_FW_FILTER_WR_DROP(x)  \
--	(((x) >> S_FW_FILTER_WR_DROP) & M_FW_FILTER_WR_DROP)
--#define F_FW_FILTER_WR_DROP     V_FW_FILTER_WR_DROP(1U)
--
--#define S_FW_FILTER_WR_DIRSTEER         23
--#define M_FW_FILTER_WR_DIRSTEER         0x1
--#define V_FW_FILTER_WR_DIRSTEER(x)      ((x) << S_FW_FILTER_WR_DIRSTEER)
--#define G_FW_FILTER_WR_DIRSTEER(x)      \
--	(((x) >> S_FW_FILTER_WR_DIRSTEER) & M_FW_FILTER_WR_DIRSTEER)
--#define F_FW_FILTER_WR_DIRSTEER V_FW_FILTER_WR_DIRSTEER(1U)
--
--#define S_FW_FILTER_WR_MASKHASH         22
--#define M_FW_FILTER_WR_MASKHASH         0x1
--#define V_FW_FILTER_WR_MASKHASH(x)      ((x) << S_FW_FILTER_WR_MASKHASH)
--#define G_FW_FILTER_WR_MASKHASH(x)      \
--	(((x) >> S_FW_FILTER_WR_MASKHASH) & M_FW_FILTER_WR_MASKHASH)
--#define F_FW_FILTER_WR_MASKHASH V_FW_FILTER_WR_MASKHASH(1U)
--
--#define S_FW_FILTER_WR_DIRSTEERHASH     21
--#define M_FW_FILTER_WR_DIRSTEERHASH     0x1
--#define V_FW_FILTER_WR_DIRSTEERHASH(x)  ((x) << S_FW_FILTER_WR_DIRSTEERHASH)
--#define G_FW_FILTER_WR_DIRSTEERHASH(x)  \
--	(((x) >> S_FW_FILTER_WR_DIRSTEERHASH) & M_FW_FILTER_WR_DIRSTEERHASH)
--#define F_FW_FILTER_WR_DIRSTEERHASH     V_FW_FILTER_WR_DIRSTEERHASH(1U)
--
--#define S_FW_FILTER_WR_LPBK     20
--#define M_FW_FILTER_WR_LPBK     0x1
--#define V_FW_FILTER_WR_LPBK(x)  ((x) << S_FW_FILTER_WR_LPBK)
--#define G_FW_FILTER_WR_LPBK(x)  \
--	(((x) >> S_FW_FILTER_WR_LPBK) & M_FW_FILTER_WR_LPBK)
--#define F_FW_FILTER_WR_LPBK     V_FW_FILTER_WR_LPBK(1U)
--
--#define S_FW_FILTER_WR_DMAC     19
--#define M_FW_FILTER_WR_DMAC     0x1
--#define V_FW_FILTER_WR_DMAC(x)  ((x) << S_FW_FILTER_WR_DMAC)
--#define G_FW_FILTER_WR_DMAC(x)  \
--	(((x) >> S_FW_FILTER_WR_DMAC) & M_FW_FILTER_WR_DMAC)
--#define F_FW_FILTER_WR_DMAC     V_FW_FILTER_WR_DMAC(1U)
--
--#define S_FW_FILTER_WR_SMAC     18
--#define M_FW_FILTER_WR_SMAC     0x1
--#define V_FW_FILTER_WR_SMAC(x)  ((x) << S_FW_FILTER_WR_SMAC)
--#define G_FW_FILTER_WR_SMAC(x)  \
--	(((x) >> S_FW_FILTER_WR_SMAC) & M_FW_FILTER_WR_SMAC)
--#define F_FW_FILTER_WR_SMAC     V_FW_FILTER_WR_SMAC(1U)
--
--#define S_FW_FILTER_WR_INSVLAN          17
--#define M_FW_FILTER_WR_INSVLAN          0x1
--#define V_FW_FILTER_WR_INSVLAN(x)       ((x) << S_FW_FILTER_WR_INSVLAN)
--#define G_FW_FILTER_WR_INSVLAN(x)       \
--	(((x) >> S_FW_FILTER_WR_INSVLAN) & M_FW_FILTER_WR_INSVLAN)
--#define F_FW_FILTER_WR_INSVLAN  V_FW_FILTER_WR_INSVLAN(1U)
--
--#define S_FW_FILTER_WR_RMVLAN           16
--#define M_FW_FILTER_WR_RMVLAN           0x1
--#define V_FW_FILTER_WR_RMVLAN(x)        ((x) << S_FW_FILTER_WR_RMVLAN)
--#define G_FW_FILTER_WR_RMVLAN(x)        \
--	(((x) >> S_FW_FILTER_WR_RMVLAN) & M_FW_FILTER_WR_RMVLAN)
--#define F_FW_FILTER_WR_RMVLAN   V_FW_FILTER_WR_RMVLAN(1U)
--
--#define S_FW_FILTER_WR_HITCNTS          15
--#define M_FW_FILTER_WR_HITCNTS          0x1
--#define V_FW_FILTER_WR_HITCNTS(x)       ((x) << S_FW_FILTER_WR_HITCNTS)
--#define G_FW_FILTER_WR_HITCNTS(x)       \
--	(((x) >> S_FW_FILTER_WR_HITCNTS) & M_FW_FILTER_WR_HITCNTS)
--#define F_FW_FILTER_WR_HITCNTS  V_FW_FILTER_WR_HITCNTS(1U)
--
--#define S_FW_FILTER_WR_TXCHAN           13
--#define M_FW_FILTER_WR_TXCHAN           0x3
--#define V_FW_FILTER_WR_TXCHAN(x)        ((x) << S_FW_FILTER_WR_TXCHAN)
--#define G_FW_FILTER_WR_TXCHAN(x)        \
--	(((x) >> S_FW_FILTER_WR_TXCHAN) & M_FW_FILTER_WR_TXCHAN)
--
--#define S_FW_FILTER_WR_PRIO     12
--#define M_FW_FILTER_WR_PRIO     0x1
--#define V_FW_FILTER_WR_PRIO(x)  ((x) << S_FW_FILTER_WR_PRIO)
--#define G_FW_FILTER_WR_PRIO(x)  \
--	(((x) >> S_FW_FILTER_WR_PRIO) & M_FW_FILTER_WR_PRIO)
--#define F_FW_FILTER_WR_PRIO     V_FW_FILTER_WR_PRIO(1U)
--
--#define S_FW_FILTER_WR_L2TIX    0
--#define M_FW_FILTER_WR_L2TIX    0xfff
--#define V_FW_FILTER_WR_L2TIX(x) ((x) << S_FW_FILTER_WR_L2TIX)
--#define G_FW_FILTER_WR_L2TIX(x) \
--	(((x) >> S_FW_FILTER_WR_L2TIX) & M_FW_FILTER_WR_L2TIX)
--
--#define S_FW_FILTER_WR_FRAG     7
--#define M_FW_FILTER_WR_FRAG     0x1
--#define V_FW_FILTER_WR_FRAG(x)  ((x) << S_FW_FILTER_WR_FRAG)
--#define G_FW_FILTER_WR_FRAG(x)  \
--	(((x) >> S_FW_FILTER_WR_FRAG) & M_FW_FILTER_WR_FRAG)
--#define F_FW_FILTER_WR_FRAG     V_FW_FILTER_WR_FRAG(1U)
--
--#define S_FW_FILTER_WR_FRAGM    6
--#define M_FW_FILTER_WR_FRAGM    0x1
--#define V_FW_FILTER_WR_FRAGM(x) ((x) << S_FW_FILTER_WR_FRAGM)
--#define G_FW_FILTER_WR_FRAGM(x) \
--	(((x) >> S_FW_FILTER_WR_FRAGM) & M_FW_FILTER_WR_FRAGM)
--#define F_FW_FILTER_WR_FRAGM    V_FW_FILTER_WR_FRAGM(1U)
--
--#define S_FW_FILTER_WR_IVLAN_VLD        5
--#define M_FW_FILTER_WR_IVLAN_VLD        0x1
--#define V_FW_FILTER_WR_IVLAN_VLD(x)     ((x) << S_FW_FILTER_WR_IVLAN_VLD)
--#define G_FW_FILTER_WR_IVLAN_VLD(x)     \
--	(((x) >> S_FW_FILTER_WR_IVLAN_VLD) & M_FW_FILTER_WR_IVLAN_VLD)
--#define F_FW_FILTER_WR_IVLAN_VLD        V_FW_FILTER_WR_IVLAN_VLD(1U)
--
--#define S_FW_FILTER_WR_OVLAN_VLD        4
--#define M_FW_FILTER_WR_OVLAN_VLD        0x1
--#define V_FW_FILTER_WR_OVLAN_VLD(x)     ((x) << S_FW_FILTER_WR_OVLAN_VLD)
--#define G_FW_FILTER_WR_OVLAN_VLD(x)     \
--	(((x) >> S_FW_FILTER_WR_OVLAN_VLD) & M_FW_FILTER_WR_OVLAN_VLD)
--#define F_FW_FILTER_WR_OVLAN_VLD        V_FW_FILTER_WR_OVLAN_VLD(1U)
--
--#define S_FW_FILTER_WR_IVLAN_VLDM       3
--#define M_FW_FILTER_WR_IVLAN_VLDM       0x1
--#define V_FW_FILTER_WR_IVLAN_VLDM(x)    ((x) << S_FW_FILTER_WR_IVLAN_VLDM)
--#define G_FW_FILTER_WR_IVLAN_VLDM(x)    \
--	(((x) >> S_FW_FILTER_WR_IVLAN_VLDM) & M_FW_FILTER_WR_IVLAN_VLDM)
--#define F_FW_FILTER_WR_IVLAN_VLDM       V_FW_FILTER_WR_IVLAN_VLDM(1U)
--
--#define S_FW_FILTER_WR_OVLAN_VLDM       2
--#define M_FW_FILTER_WR_OVLAN_VLDM       0x1
--#define V_FW_FILTER_WR_OVLAN_VLDM(x)    ((x) << S_FW_FILTER_WR_OVLAN_VLDM)
--#define G_FW_FILTER_WR_OVLAN_VLDM(x)    \
--	(((x) >> S_FW_FILTER_WR_OVLAN_VLDM) & M_FW_FILTER_WR_OVLAN_VLDM)
--#define F_FW_FILTER_WR_OVLAN_VLDM       V_FW_FILTER_WR_OVLAN_VLDM(1U)
--
--#define S_FW_FILTER_WR_RX_CHAN          15
--#define M_FW_FILTER_WR_RX_CHAN          0x1
--#define V_FW_FILTER_WR_RX_CHAN(x)       ((x) << S_FW_FILTER_WR_RX_CHAN)
--#define G_FW_FILTER_WR_RX_CHAN(x)       \
--	(((x) >> S_FW_FILTER_WR_RX_CHAN) & M_FW_FILTER_WR_RX_CHAN)
--#define F_FW_FILTER_WR_RX_CHAN  V_FW_FILTER_WR_RX_CHAN(1U)
--
--#define S_FW_FILTER_WR_RX_RPL_IQ        0
--#define M_FW_FILTER_WR_RX_RPL_IQ        0x3ff
--#define V_FW_FILTER_WR_RX_RPL_IQ(x)     ((x) << S_FW_FILTER_WR_RX_RPL_IQ)
--#define G_FW_FILTER_WR_RX_RPL_IQ(x)     \
--	(((x) >> S_FW_FILTER_WR_RX_RPL_IQ) & M_FW_FILTER_WR_RX_RPL_IQ)
--
--#define S_FW_FILTER_WR_MACI     23
--#define M_FW_FILTER_WR_MACI     0x1ff
--#define V_FW_FILTER_WR_MACI(x)  ((x) << S_FW_FILTER_WR_MACI)
--#define G_FW_FILTER_WR_MACI(x)  \
--	(((x) >> S_FW_FILTER_WR_MACI) & M_FW_FILTER_WR_MACI)
--
--#define S_FW_FILTER_WR_MACIM    14
--#define M_FW_FILTER_WR_MACIM    0x1ff
--#define V_FW_FILTER_WR_MACIM(x) ((x) << S_FW_FILTER_WR_MACIM)
--#define G_FW_FILTER_WR_MACIM(x) \
--	(((x) >> S_FW_FILTER_WR_MACIM) & M_FW_FILTER_WR_MACIM)
--
--#define S_FW_FILTER_WR_FCOE     13
--#define M_FW_FILTER_WR_FCOE     0x1
--#define V_FW_FILTER_WR_FCOE(x)  ((x) << S_FW_FILTER_WR_FCOE)
--#define G_FW_FILTER_WR_FCOE(x)  \
--	(((x) >> S_FW_FILTER_WR_FCOE) & M_FW_FILTER_WR_FCOE)
--#define F_FW_FILTER_WR_FCOE     V_FW_FILTER_WR_FCOE(1U)
--
--#define S_FW_FILTER_WR_FCOEM    12
--#define M_FW_FILTER_WR_FCOEM    0x1
--#define V_FW_FILTER_WR_FCOEM(x) ((x) << S_FW_FILTER_WR_FCOEM)
--#define G_FW_FILTER_WR_FCOEM(x) \
--	(((x) >> S_FW_FILTER_WR_FCOEM) & M_FW_FILTER_WR_FCOEM)
--#define F_FW_FILTER_WR_FCOEM    V_FW_FILTER_WR_FCOEM(1U)
--
--#define S_FW_FILTER_WR_PORT     9
--#define M_FW_FILTER_WR_PORT     0x7
--#define V_FW_FILTER_WR_PORT(x)  ((x) << S_FW_FILTER_WR_PORT)
--#define G_FW_FILTER_WR_PORT(x)  \
--	(((x) >> S_FW_FILTER_WR_PORT) & M_FW_FILTER_WR_PORT)
--
--#define S_FW_FILTER_WR_PORTM    6
--#define M_FW_FILTER_WR_PORTM    0x7
--#define V_FW_FILTER_WR_PORTM(x) ((x) << S_FW_FILTER_WR_PORTM)
--#define G_FW_FILTER_WR_PORTM(x) \
--	(((x) >> S_FW_FILTER_WR_PORTM) & M_FW_FILTER_WR_PORTM)
--
--#define S_FW_FILTER_WR_MATCHTYPE        3
--#define M_FW_FILTER_WR_MATCHTYPE        0x7
--#define V_FW_FILTER_WR_MATCHTYPE(x)     ((x) << S_FW_FILTER_WR_MATCHTYPE)
--#define G_FW_FILTER_WR_MATCHTYPE(x)     \
--	(((x) >> S_FW_FILTER_WR_MATCHTYPE) & M_FW_FILTER_WR_MATCHTYPE)
--
--#define S_FW_FILTER_WR_MATCHTYPEM       0
--#define M_FW_FILTER_WR_MATCHTYPEM       0x7
--#define V_FW_FILTER_WR_MATCHTYPEM(x)    ((x) << S_FW_FILTER_WR_MATCHTYPEM)
--#define G_FW_FILTER_WR_MATCHTYPEM(x)    \
--	(((x) >> S_FW_FILTER_WR_MATCHTYPEM) & M_FW_FILTER_WR_MATCHTYPEM)
-+#define FW_FILTER_WR_TID_S      12
-+#define FW_FILTER_WR_TID_M      0xfffff
-+#define FW_FILTER_WR_TID_V(x)   ((x) << FW_FILTER_WR_TID_S)
-+#define FW_FILTER_WR_TID_G(x)   \
-+	(((x) >> FW_FILTER_WR_TID_S) & FW_FILTER_WR_TID_M)
+-#define FW_LDST_CMD_MSG(x)	((x) << 31)
+-#define FW_LDST_CMD_PADDR(x)	((x) << 8)
+-#define FW_LDST_CMD_MMD(x)	((x) << 0)
+-#define FW_LDST_CMD_FID(x)	((x) << 15)
+-#define FW_LDST_CMD_CTL(x)	((x) << 0)
+-#define FW_LDST_CMD_RPLCPF(x)	((x) << 0)
+-#define FW_LDST_CMD_LC		(1U << 4)
+-#define FW_LDST_CMD_NACCESS(x)	((x) << 0)
+-#define FW_LDST_CMD_FN(x)	((x) << 0)
++#define FW_LDST_CMD_MSG_S       31
++#define FW_LDST_CMD_MSG_V(x)	((x) << FW_LDST_CMD_MSG_S)
 +
-+#define FW_FILTER_WR_RQTYPE_S           11
-+#define FW_FILTER_WR_RQTYPE_M           0x1
-+#define FW_FILTER_WR_RQTYPE_V(x)        ((x) << FW_FILTER_WR_RQTYPE_S)
-+#define FW_FILTER_WR_RQTYPE_G(x)        \
-+	(((x) >> FW_FILTER_WR_RQTYPE_S) & FW_FILTER_WR_RQTYPE_M)
-+#define FW_FILTER_WR_RQTYPE_F   FW_FILTER_WR_RQTYPE_V(1U)
++#define FW_LDST_CMD_PADDR_S     8
++#define FW_LDST_CMD_PADDR_V(x)	((x) << FW_LDST_CMD_PADDR_S)
 +
-+#define FW_FILTER_WR_NOREPLY_S          10
-+#define FW_FILTER_WR_NOREPLY_M          0x1
-+#define FW_FILTER_WR_NOREPLY_V(x)       ((x) << FW_FILTER_WR_NOREPLY_S)
-+#define FW_FILTER_WR_NOREPLY_G(x)       \
-+	(((x) >> FW_FILTER_WR_NOREPLY_S) & FW_FILTER_WR_NOREPLY_M)
-+#define FW_FILTER_WR_NOREPLY_F  FW_FILTER_WR_NOREPLY_V(1U)
++#define FW_LDST_CMD_MMD_S       0
++#define FW_LDST_CMD_MMD_V(x)	((x) << FW_LDST_CMD_MMD_S)
 +
-+#define FW_FILTER_WR_IQ_S       0
-+#define FW_FILTER_WR_IQ_M       0x3ff
-+#define FW_FILTER_WR_IQ_V(x)    ((x) << FW_FILTER_WR_IQ_S)
-+#define FW_FILTER_WR_IQ_G(x)    \
-+	(((x) >> FW_FILTER_WR_IQ_S) & FW_FILTER_WR_IQ_M)
++#define FW_LDST_CMD_FID_S       15
++#define FW_LDST_CMD_FID_V(x)	((x) << FW_LDST_CMD_FID_S)
 +
-+#define FW_FILTER_WR_DEL_FILTER_S       31
-+#define FW_FILTER_WR_DEL_FILTER_M       0x1
-+#define FW_FILTER_WR_DEL_FILTER_V(x)    ((x) << FW_FILTER_WR_DEL_FILTER_S)
-+#define FW_FILTER_WR_DEL_FILTER_G(x)    \
-+	(((x) >> FW_FILTER_WR_DEL_FILTER_S) & FW_FILTER_WR_DEL_FILTER_M)
-+#define FW_FILTER_WR_DEL_FILTER_F       FW_FILTER_WR_DEL_FILTER_V(1U)
++#define FW_LDST_CMD_CTL_S       0
++#define FW_LDST_CMD_CTL_V(x)	((x) << FW_LDST_CMD_CTL_S)
 +
-+#define FW_FILTER_WR_RPTTID_S           25
-+#define FW_FILTER_WR_RPTTID_M           0x1
-+#define FW_FILTER_WR_RPTTID_V(x)        ((x) << FW_FILTER_WR_RPTTID_S)
-+#define FW_FILTER_WR_RPTTID_G(x)        \
-+	(((x) >> FW_FILTER_WR_RPTTID_S) & FW_FILTER_WR_RPTTID_M)
-+#define FW_FILTER_WR_RPTTID_F   FW_FILTER_WR_RPTTID_V(1U)
++#define FW_LDST_CMD_RPLCPF_S    0
++#define FW_LDST_CMD_RPLCPF_V(x)	((x) << FW_LDST_CMD_RPLCPF_S)
 +
-+#define FW_FILTER_WR_DROP_S     24
-+#define FW_FILTER_WR_DROP_M     0x1
-+#define FW_FILTER_WR_DROP_V(x)  ((x) << FW_FILTER_WR_DROP_S)
-+#define FW_FILTER_WR_DROP_G(x)  \
-+	(((x) >> FW_FILTER_WR_DROP_S) & FW_FILTER_WR_DROP_M)
-+#define FW_FILTER_WR_DROP_F     FW_FILTER_WR_DROP_V(1U)
++#define FW_LDST_CMD_LC_S        4
++#define FW_LDST_CMD_LC_V(x)     ((x) << FW_LDST_CMD_LC_S)
++#define FW_LDST_CMD_LC_F	FW_LDST_CMD_LC_V(1U)
 +
-+#define FW_FILTER_WR_DIRSTEER_S         23
-+#define FW_FILTER_WR_DIRSTEER_M         0x1
-+#define FW_FILTER_WR_DIRSTEER_V(x)      ((x) << FW_FILTER_WR_DIRSTEER_S)
-+#define FW_FILTER_WR_DIRSTEER_G(x)      \
-+	(((x) >> FW_FILTER_WR_DIRSTEER_S) & FW_FILTER_WR_DIRSTEER_M)
-+#define FW_FILTER_WR_DIRSTEER_F FW_FILTER_WR_DIRSTEER_V(1U)
++#define FW_LDST_CMD_FN_S        0
++#define FW_LDST_CMD_FN_V(x)	((x) << FW_LDST_CMD_FN_S)
 +
-+#define FW_FILTER_WR_MASKHASH_S         22
-+#define FW_FILTER_WR_MASKHASH_M         0x1
-+#define FW_FILTER_WR_MASKHASH_V(x)      ((x) << FW_FILTER_WR_MASKHASH_S)
-+#define FW_FILTER_WR_MASKHASH_G(x)      \
-+	(((x) >> FW_FILTER_WR_MASKHASH_S) & FW_FILTER_WR_MASKHASH_M)
-+#define FW_FILTER_WR_MASKHASH_F FW_FILTER_WR_MASKHASH_V(1U)
-+
-+#define FW_FILTER_WR_DIRSTEERHASH_S     21
-+#define FW_FILTER_WR_DIRSTEERHASH_M     0x1
-+#define FW_FILTER_WR_DIRSTEERHASH_V(x)  ((x) << FW_FILTER_WR_DIRSTEERHASH_S)
-+#define FW_FILTER_WR_DIRSTEERHASH_G(x)  \
-+	(((x) >> FW_FILTER_WR_DIRSTEERHASH_S) & FW_FILTER_WR_DIRSTEERHASH_M)
-+#define FW_FILTER_WR_DIRSTEERHASH_F     FW_FILTER_WR_DIRSTEERHASH_V(1U)
-+
-+#define FW_FILTER_WR_LPBK_S     20
-+#define FW_FILTER_WR_LPBK_M     0x1
-+#define FW_FILTER_WR_LPBK_V(x)  ((x) << FW_FILTER_WR_LPBK_S)
-+#define FW_FILTER_WR_LPBK_G(x)  \
-+	(((x) >> FW_FILTER_WR_LPBK_S) & FW_FILTER_WR_LPBK_M)
-+#define FW_FILTER_WR_LPBK_F     FW_FILTER_WR_LPBK_V(1U)
-+
-+#define FW_FILTER_WR_DMAC_S     19
-+#define FW_FILTER_WR_DMAC_M     0x1
-+#define FW_FILTER_WR_DMAC_V(x)  ((x) << FW_FILTER_WR_DMAC_S)
-+#define FW_FILTER_WR_DMAC_G(x)  \
-+	(((x) >> FW_FILTER_WR_DMAC_S) & FW_FILTER_WR_DMAC_M)
-+#define FW_FILTER_WR_DMAC_F     FW_FILTER_WR_DMAC_V(1U)
-+
-+#define FW_FILTER_WR_SMAC_S     18
-+#define FW_FILTER_WR_SMAC_M     0x1
-+#define FW_FILTER_WR_SMAC_V(x)  ((x) << FW_FILTER_WR_SMAC_S)
-+#define FW_FILTER_WR_SMAC_G(x)  \
-+	(((x) >> FW_FILTER_WR_SMAC_S) & FW_FILTER_WR_SMAC_M)
-+#define FW_FILTER_WR_SMAC_F     FW_FILTER_WR_SMAC_V(1U)
-+
-+#define FW_FILTER_WR_INSVLAN_S          17
-+#define FW_FILTER_WR_INSVLAN_M          0x1
-+#define FW_FILTER_WR_INSVLAN_V(x)       ((x) << FW_FILTER_WR_INSVLAN_S)
-+#define FW_FILTER_WR_INSVLAN_G(x)       \
-+	(((x) >> FW_FILTER_WR_INSVLAN_S) & FW_FILTER_WR_INSVLAN_M)
-+#define FW_FILTER_WR_INSVLAN_F  FW_FILTER_WR_INSVLAN_V(1U)
-+
-+#define FW_FILTER_WR_RMVLAN_S           16
-+#define FW_FILTER_WR_RMVLAN_M           0x1
-+#define FW_FILTER_WR_RMVLAN_V(x)        ((x) << FW_FILTER_WR_RMVLAN_S)
-+#define FW_FILTER_WR_RMVLAN_G(x)        \
-+	(((x) >> FW_FILTER_WR_RMVLAN_S) & FW_FILTER_WR_RMVLAN_M)
-+#define FW_FILTER_WR_RMVLAN_F   FW_FILTER_WR_RMVLAN_V(1U)
-+
-+#define FW_FILTER_WR_HITCNTS_S          15
-+#define FW_FILTER_WR_HITCNTS_M          0x1
-+#define FW_FILTER_WR_HITCNTS_V(x)       ((x) << FW_FILTER_WR_HITCNTS_S)
-+#define FW_FILTER_WR_HITCNTS_G(x)       \
-+	(((x) >> FW_FILTER_WR_HITCNTS_S) & FW_FILTER_WR_HITCNTS_M)
-+#define FW_FILTER_WR_HITCNTS_F  FW_FILTER_WR_HITCNTS_V(1U)
-+
-+#define FW_FILTER_WR_TXCHAN_S           13
-+#define FW_FILTER_WR_TXCHAN_M           0x3
-+#define FW_FILTER_WR_TXCHAN_V(x)        ((x) << FW_FILTER_WR_TXCHAN_S)
-+#define FW_FILTER_WR_TXCHAN_G(x)        \
-+	(((x) >> FW_FILTER_WR_TXCHAN_S) & FW_FILTER_WR_TXCHAN_M)
-+
-+#define FW_FILTER_WR_PRIO_S     12
-+#define FW_FILTER_WR_PRIO_M     0x1
-+#define FW_FILTER_WR_PRIO_V(x)  ((x) << FW_FILTER_WR_PRIO_S)
-+#define FW_FILTER_WR_PRIO_G(x)  \
-+	(((x) >> FW_FILTER_WR_PRIO_S) & FW_FILTER_WR_PRIO_M)
-+#define FW_FILTER_WR_PRIO_F     FW_FILTER_WR_PRIO_V(1U)
-+
-+#define FW_FILTER_WR_L2TIX_S    0
-+#define FW_FILTER_WR_L2TIX_M    0xfff
-+#define FW_FILTER_WR_L2TIX_V(x) ((x) << FW_FILTER_WR_L2TIX_S)
-+#define FW_FILTER_WR_L2TIX_G(x) \
-+	(((x) >> FW_FILTER_WR_L2TIX_S) & FW_FILTER_WR_L2TIX_M)
-+
-+#define FW_FILTER_WR_FRAG_S     7
-+#define FW_FILTER_WR_FRAG_M     0x1
-+#define FW_FILTER_WR_FRAG_V(x)  ((x) << FW_FILTER_WR_FRAG_S)
-+#define FW_FILTER_WR_FRAG_G(x)  \
-+	(((x) >> FW_FILTER_WR_FRAG_S) & FW_FILTER_WR_FRAG_M)
-+#define FW_FILTER_WR_FRAG_F     FW_FILTER_WR_FRAG_V(1U)
-+
-+#define FW_FILTER_WR_FRAGM_S    6
-+#define FW_FILTER_WR_FRAGM_M    0x1
-+#define FW_FILTER_WR_FRAGM_V(x) ((x) << FW_FILTER_WR_FRAGM_S)
-+#define FW_FILTER_WR_FRAGM_G(x) \
-+	(((x) >> FW_FILTER_WR_FRAGM_S) & FW_FILTER_WR_FRAGM_M)
-+#define FW_FILTER_WR_FRAGM_F    FW_FILTER_WR_FRAGM_V(1U)
-+
-+#define FW_FILTER_WR_IVLAN_VLD_S        5
-+#define FW_FILTER_WR_IVLAN_VLD_M        0x1
-+#define FW_FILTER_WR_IVLAN_VLD_V(x)     ((x) << FW_FILTER_WR_IVLAN_VLD_S)
-+#define FW_FILTER_WR_IVLAN_VLD_G(x)     \
-+	(((x) >> FW_FILTER_WR_IVLAN_VLD_S) & FW_FILTER_WR_IVLAN_VLD_M)
-+#define FW_FILTER_WR_IVLAN_VLD_F        FW_FILTER_WR_IVLAN_VLD_V(1U)
-+
-+#define FW_FILTER_WR_OVLAN_VLD_S        4
-+#define FW_FILTER_WR_OVLAN_VLD_M        0x1
-+#define FW_FILTER_WR_OVLAN_VLD_V(x)     ((x) << FW_FILTER_WR_OVLAN_VLD_S)
-+#define FW_FILTER_WR_OVLAN_VLD_G(x)     \
-+	(((x) >> FW_FILTER_WR_OVLAN_VLD_S) & FW_FILTER_WR_OVLAN_VLD_M)
-+#define FW_FILTER_WR_OVLAN_VLD_F        FW_FILTER_WR_OVLAN_VLD_V(1U)
-+
-+#define FW_FILTER_WR_IVLAN_VLDM_S       3
-+#define FW_FILTER_WR_IVLAN_VLDM_M       0x1
-+#define FW_FILTER_WR_IVLAN_VLDM_V(x)    ((x) << FW_FILTER_WR_IVLAN_VLDM_S)
-+#define FW_FILTER_WR_IVLAN_VLDM_G(x)    \
-+	(((x) >> FW_FILTER_WR_IVLAN_VLDM_S) & FW_FILTER_WR_IVLAN_VLDM_M)
-+#define FW_FILTER_WR_IVLAN_VLDM_F       FW_FILTER_WR_IVLAN_VLDM_V(1U)
-+
-+#define FW_FILTER_WR_OVLAN_VLDM_S       2
-+#define FW_FILTER_WR_OVLAN_VLDM_M       0x1
-+#define FW_FILTER_WR_OVLAN_VLDM_V(x)    ((x) << FW_FILTER_WR_OVLAN_VLDM_S)
-+#define FW_FILTER_WR_OVLAN_VLDM_G(x)    \
-+	(((x) >> FW_FILTER_WR_OVLAN_VLDM_S) & FW_FILTER_WR_OVLAN_VLDM_M)
-+#define FW_FILTER_WR_OVLAN_VLDM_F       FW_FILTER_WR_OVLAN_VLDM_V(1U)
-+
-+#define FW_FILTER_WR_RX_CHAN_S          15
-+#define FW_FILTER_WR_RX_CHAN_M          0x1
-+#define FW_FILTER_WR_RX_CHAN_V(x)       ((x) << FW_FILTER_WR_RX_CHAN_S)
-+#define FW_FILTER_WR_RX_CHAN_G(x)       \
-+	(((x) >> FW_FILTER_WR_RX_CHAN_S) & FW_FILTER_WR_RX_CHAN_M)
-+#define FW_FILTER_WR_RX_CHAN_F  FW_FILTER_WR_RX_CHAN_V(1U)
-+
-+#define FW_FILTER_WR_RX_RPL_IQ_S        0
-+#define FW_FILTER_WR_RX_RPL_IQ_M        0x3ff
-+#define FW_FILTER_WR_RX_RPL_IQ_V(x)     ((x) << FW_FILTER_WR_RX_RPL_IQ_S)
-+#define FW_FILTER_WR_RX_RPL_IQ_G(x)     \
-+	(((x) >> FW_FILTER_WR_RX_RPL_IQ_S) & FW_FILTER_WR_RX_RPL_IQ_M)
-+
-+#define FW_FILTER_WR_MACI_S     23
-+#define FW_FILTER_WR_MACI_M     0x1ff
-+#define FW_FILTER_WR_MACI_V(x)  ((x) << FW_FILTER_WR_MACI_S)
-+#define FW_FILTER_WR_MACI_G(x)  \
-+	(((x) >> FW_FILTER_WR_MACI_S) & FW_FILTER_WR_MACI_M)
-+
-+#define FW_FILTER_WR_MACIM_S    14
-+#define FW_FILTER_WR_MACIM_M    0x1ff
-+#define FW_FILTER_WR_MACIM_V(x) ((x) << FW_FILTER_WR_MACIM_S)
-+#define FW_FILTER_WR_MACIM_G(x) \
-+	(((x) >> FW_FILTER_WR_MACIM_S) & FW_FILTER_WR_MACIM_M)
-+
-+#define FW_FILTER_WR_FCOE_S     13
-+#define FW_FILTER_WR_FCOE_M     0x1
-+#define FW_FILTER_WR_FCOE_V(x)  ((x) << FW_FILTER_WR_FCOE_S)
-+#define FW_FILTER_WR_FCOE_G(x)  \
-+	(((x) >> FW_FILTER_WR_FCOE_S) & FW_FILTER_WR_FCOE_M)
-+#define FW_FILTER_WR_FCOE_F     FW_FILTER_WR_FCOE_V(1U)
-+
-+#define FW_FILTER_WR_FCOEM_S    12
-+#define FW_FILTER_WR_FCOEM_M    0x1
-+#define FW_FILTER_WR_FCOEM_V(x) ((x) << FW_FILTER_WR_FCOEM_S)
-+#define FW_FILTER_WR_FCOEM_G(x) \
-+	(((x) >> FW_FILTER_WR_FCOEM_S) & FW_FILTER_WR_FCOEM_M)
-+#define FW_FILTER_WR_FCOEM_F    FW_FILTER_WR_FCOEM_V(1U)
-+
-+#define FW_FILTER_WR_PORT_S     9
-+#define FW_FILTER_WR_PORT_M     0x7
-+#define FW_FILTER_WR_PORT_V(x)  ((x) << FW_FILTER_WR_PORT_S)
-+#define FW_FILTER_WR_PORT_G(x)  \
-+	(((x) >> FW_FILTER_WR_PORT_S) & FW_FILTER_WR_PORT_M)
-+
-+#define FW_FILTER_WR_PORTM_S    6
-+#define FW_FILTER_WR_PORTM_M    0x7
-+#define FW_FILTER_WR_PORTM_V(x) ((x) << FW_FILTER_WR_PORTM_S)
-+#define FW_FILTER_WR_PORTM_G(x) \
-+	(((x) >> FW_FILTER_WR_PORTM_S) & FW_FILTER_WR_PORTM_M)
-+
-+#define FW_FILTER_WR_MATCHTYPE_S        3
-+#define FW_FILTER_WR_MATCHTYPE_M        0x7
-+#define FW_FILTER_WR_MATCHTYPE_V(x)     ((x) << FW_FILTER_WR_MATCHTYPE_S)
-+#define FW_FILTER_WR_MATCHTYPE_G(x)     \
-+	(((x) >> FW_FILTER_WR_MATCHTYPE_S) & FW_FILTER_WR_MATCHTYPE_M)
-+
-+#define FW_FILTER_WR_MATCHTYPEM_S       0
-+#define FW_FILTER_WR_MATCHTYPEM_M       0x7
-+#define FW_FILTER_WR_MATCHTYPEM_V(x)    ((x) << FW_FILTER_WR_MATCHTYPEM_S)
-+#define FW_FILTER_WR_MATCHTYPEM_G(x)    \
-+	(((x) >> FW_FILTER_WR_MATCHTYPEM_S) & FW_FILTER_WR_MATCHTYPEM_M)
++#define FW_LDST_CMD_NACCESS_S           0
++#define FW_LDST_CMD_NACCESS_V(x)	((x) << FW_LDST_CMD_NACCESS_S)
  
- struct fw_ulptx_wr {
- 	__be32 op_to_compl;
-@@ -491,65 +491,65 @@ struct fw_ofld_connection_wr {
- 	} tcb;
+ struct fw_reset_cmd {
+ 	__be32 op_to_write;
+@@ -834,11 +853,12 @@ struct fw_reset_cmd {
+ 	__be32 halt_pkd;
  };
  
--#define S_FW_OFLD_CONNECTION_WR_VERSION                31
--#define M_FW_OFLD_CONNECTION_WR_VERSION                0x1
--#define V_FW_OFLD_CONNECTION_WR_VERSION(x)     \
--	((x) << S_FW_OFLD_CONNECTION_WR_VERSION)
--#define G_FW_OFLD_CONNECTION_WR_VERSION(x)     \
--	(((x) >> S_FW_OFLD_CONNECTION_WR_VERSION) & \
--	M_FW_OFLD_CONNECTION_WR_VERSION)
--#define F_FW_OFLD_CONNECTION_WR_VERSION        \
--	V_FW_OFLD_CONNECTION_WR_VERSION(1U)
--
--#define S_FW_OFLD_CONNECTION_WR_CPL    30
--#define M_FW_OFLD_CONNECTION_WR_CPL    0x1
--#define V_FW_OFLD_CONNECTION_WR_CPL(x) ((x) << S_FW_OFLD_CONNECTION_WR_CPL)
--#define G_FW_OFLD_CONNECTION_WR_CPL(x) \
--	(((x) >> S_FW_OFLD_CONNECTION_WR_CPL) & M_FW_OFLD_CONNECTION_WR_CPL)
--#define F_FW_OFLD_CONNECTION_WR_CPL    V_FW_OFLD_CONNECTION_WR_CPL(1U)
--
--#define S_FW_OFLD_CONNECTION_WR_T_STATE                28
--#define M_FW_OFLD_CONNECTION_WR_T_STATE                0xf
--#define V_FW_OFLD_CONNECTION_WR_T_STATE(x)     \
--	((x) << S_FW_OFLD_CONNECTION_WR_T_STATE)
--#define G_FW_OFLD_CONNECTION_WR_T_STATE(x)     \
--	(((x) >> S_FW_OFLD_CONNECTION_WR_T_STATE) & \
--	M_FW_OFLD_CONNECTION_WR_T_STATE)
--
--#define S_FW_OFLD_CONNECTION_WR_RCV_SCALE      24
--#define M_FW_OFLD_CONNECTION_WR_RCV_SCALE      0xf
--#define V_FW_OFLD_CONNECTION_WR_RCV_SCALE(x)   \
--	((x) << S_FW_OFLD_CONNECTION_WR_RCV_SCALE)
--#define G_FW_OFLD_CONNECTION_WR_RCV_SCALE(x)   \
--	(((x) >> S_FW_OFLD_CONNECTION_WR_RCV_SCALE) & \
--	M_FW_OFLD_CONNECTION_WR_RCV_SCALE)
--
--#define S_FW_OFLD_CONNECTION_WR_ASTID          0
--#define M_FW_OFLD_CONNECTION_WR_ASTID          0xffffff
--#define V_FW_OFLD_CONNECTION_WR_ASTID(x)       \
--	((x) << S_FW_OFLD_CONNECTION_WR_ASTID)
--#define G_FW_OFLD_CONNECTION_WR_ASTID(x)       \
--	(((x) >> S_FW_OFLD_CONNECTION_WR_ASTID) & M_FW_OFLD_CONNECTION_WR_ASTID)
--
--#define S_FW_OFLD_CONNECTION_WR_CPLRXDATAACK   15
--#define M_FW_OFLD_CONNECTION_WR_CPLRXDATAACK   0x1
--#define V_FW_OFLD_CONNECTION_WR_CPLRXDATAACK(x)        \
--	((x) << S_FW_OFLD_CONNECTION_WR_CPLRXDATAACK)
--#define G_FW_OFLD_CONNECTION_WR_CPLRXDATAACK(x)        \
--	(((x) >> S_FW_OFLD_CONNECTION_WR_CPLRXDATAACK) & \
--	M_FW_OFLD_CONNECTION_WR_CPLRXDATAACK)
--#define F_FW_OFLD_CONNECTION_WR_CPLRXDATAACK   \
--	V_FW_OFLD_CONNECTION_WR_CPLRXDATAACK(1U)
--
--#define S_FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL       14
--#define M_FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL       0x1
--#define V_FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL(x)    \
--	((x) << S_FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL)
--#define G_FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL(x)    \
--	(((x) >> S_FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL) & \
--	M_FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL)
--#define F_FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL       \
--	V_FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL(1U)
-+#define FW_OFLD_CONNECTION_WR_VERSION_S                31
-+#define FW_OFLD_CONNECTION_WR_VERSION_M                0x1
-+#define FW_OFLD_CONNECTION_WR_VERSION_V(x)     \
-+	((x) << FW_OFLD_CONNECTION_WR_VERSION_S)
-+#define FW_OFLD_CONNECTION_WR_VERSION_G(x)     \
-+	(((x) >> FW_OFLD_CONNECTION_WR_VERSION_S) & \
-+	FW_OFLD_CONNECTION_WR_VERSION_M)
-+#define FW_OFLD_CONNECTION_WR_VERSION_F        \
-+	FW_OFLD_CONNECTION_WR_VERSION_V(1U)
-+
-+#define FW_OFLD_CONNECTION_WR_CPL_S    30
-+#define FW_OFLD_CONNECTION_WR_CPL_M    0x1
-+#define FW_OFLD_CONNECTION_WR_CPL_V(x) ((x) << FW_OFLD_CONNECTION_WR_CPL_S)
-+#define FW_OFLD_CONNECTION_WR_CPL_G(x) \
-+	(((x) >> FW_OFLD_CONNECTION_WR_CPL_S) & FW_OFLD_CONNECTION_WR_CPL_M)
-+#define FW_OFLD_CONNECTION_WR_CPL_F    FW_OFLD_CONNECTION_WR_CPL_V(1U)
-+
-+#define FW_OFLD_CONNECTION_WR_T_STATE_S                28
-+#define FW_OFLD_CONNECTION_WR_T_STATE_M                0xf
-+#define FW_OFLD_CONNECTION_WR_T_STATE_V(x)     \
-+	((x) << FW_OFLD_CONNECTION_WR_T_STATE_S)
-+#define FW_OFLD_CONNECTION_WR_T_STATE_G(x)     \
-+	(((x) >> FW_OFLD_CONNECTION_WR_T_STATE_S) & \
-+	FW_OFLD_CONNECTION_WR_T_STATE_M)
-+
-+#define FW_OFLD_CONNECTION_WR_RCV_SCALE_S      24
-+#define FW_OFLD_CONNECTION_WR_RCV_SCALE_M      0xf
-+#define FW_OFLD_CONNECTION_WR_RCV_SCALE_V(x)   \
-+	((x) << FW_OFLD_CONNECTION_WR_RCV_SCALE_S)
-+#define FW_OFLD_CONNECTION_WR_RCV_SCALE_G(x)   \
-+	(((x) >> FW_OFLD_CONNECTION_WR_RCV_SCALE_S) & \
-+	FW_OFLD_CONNECTION_WR_RCV_SCALE_M)
-+
-+#define FW_OFLD_CONNECTION_WR_ASTID_S          0
-+#define FW_OFLD_CONNECTION_WR_ASTID_M          0xffffff
-+#define FW_OFLD_CONNECTION_WR_ASTID_V(x)       \
-+	((x) << FW_OFLD_CONNECTION_WR_ASTID_S)
-+#define FW_OFLD_CONNECTION_WR_ASTID_G(x)       \
-+	(((x) >> FW_OFLD_CONNECTION_WR_ASTID_S) & FW_OFLD_CONNECTION_WR_ASTID_M)
-+
-+#define FW_OFLD_CONNECTION_WR_CPLRXDATAACK_S   15
-+#define FW_OFLD_CONNECTION_WR_CPLRXDATAACK_M   0x1
-+#define FW_OFLD_CONNECTION_WR_CPLRXDATAACK_V(x)        \
-+	((x) << FW_OFLD_CONNECTION_WR_CPLRXDATAACK_S)
-+#define FW_OFLD_CONNECTION_WR_CPLRXDATAACK_G(x)        \
-+	(((x) >> FW_OFLD_CONNECTION_WR_CPLRXDATAACK_S) & \
-+	FW_OFLD_CONNECTION_WR_CPLRXDATAACK_M)
-+#define FW_OFLD_CONNECTION_WR_CPLRXDATAACK_F   \
-+	FW_OFLD_CONNECTION_WR_CPLRXDATAACK_V(1U)
-+
-+#define FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL_S       14
-+#define FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL_M       0x1
-+#define FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL_V(x)    \
-+	((x) << FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL_S)
-+#define FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL_G(x)    \
-+	(((x) >> FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL_S) & \
-+	FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL_M)
-+#define FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL_F       \
-+	FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL_V(1U)
+-#define FW_RESET_CMD_HALT_SHIFT    31
+-#define FW_RESET_CMD_HALT_MASK     0x1
+-#define FW_RESET_CMD_HALT(x)       ((x) << FW_RESET_CMD_HALT_SHIFT)
+-#define FW_RESET_CMD_HALT_GET(x)  \
+-	(((x) >> FW_RESET_CMD_HALT_SHIFT) & FW_RESET_CMD_HALT_MASK)
++#define FW_RESET_CMD_HALT_S	31
++#define FW_RESET_CMD_HALT_M     0x1
++#define FW_RESET_CMD_HALT_V(x)	((x) << FW_RESET_CMD_HALT_S)
++#define FW_RESET_CMD_HALT_G(x)  \
++	(((x) >> FW_RESET_CMD_HALT_S) & FW_RESET_CMD_HALT_M)
++#define FW_RESET_CMD_HALT_F	FW_RESET_CMD_HALT_V(1U)
  
- enum fw_flowc_mnem {
- 	FW_FLOWC_MNEM_PFNVFN,		/* PFN [15:8] VFN [7:0] */
+ enum fw_hellow_cmd {
+ 	fw_hello_cmd_stage_os		= 0x0
+@@ -848,22 +868,42 @@ struct fw_hello_cmd {
+ 	__be32 op_to_write;
+ 	__be32 retval_len16;
+ 	__be32 err_to_clearinit;
+-#define FW_HELLO_CMD_ERR	    (1U << 31)
+-#define FW_HELLO_CMD_INIT	    (1U << 30)
+-#define FW_HELLO_CMD_MASTERDIS(x)   ((x) << 29)
+-#define FW_HELLO_CMD_MASTERFORCE(x) ((x) << 28)
+-#define FW_HELLO_CMD_MBMASTER_MASK   0xfU
+-#define FW_HELLO_CMD_MBMASTER_SHIFT  24
+-#define FW_HELLO_CMD_MBMASTER(x)     ((x) << FW_HELLO_CMD_MBMASTER_SHIFT)
+-#define FW_HELLO_CMD_MBMASTER_GET(x) \
+-	(((x) >> FW_HELLO_CMD_MBMASTER_SHIFT) & FW_HELLO_CMD_MBMASTER_MASK)
+-#define FW_HELLO_CMD_MBASYNCNOTINT(x)	((x) << 23)
+-#define FW_HELLO_CMD_MBASYNCNOT(x)  ((x) << 20)
+-#define FW_HELLO_CMD_STAGE(x)       ((x) << 17)
+-#define FW_HELLO_CMD_CLEARINIT      (1U << 16)
+ 	__be32 fwrev;
+ };
+ 
++#define FW_HELLO_CMD_ERR_S      31
++#define FW_HELLO_CMD_ERR_V(x)   ((x) << FW_HELLO_CMD_ERR_S)
++#define FW_HELLO_CMD_ERR_F	FW_HELLO_CMD_ERR_V(1U)
++
++#define FW_HELLO_CMD_INIT_S     30
++#define FW_HELLO_CMD_INIT_V(x)  ((x) << FW_HELLO_CMD_INIT_S)
++#define FW_HELLO_CMD_INIT_F	FW_HELLO_CMD_INIT_V(1U)
++
++#define FW_HELLO_CMD_MASTERDIS_S	29
++#define FW_HELLO_CMD_MASTERDIS_V(x)	((x) << FW_HELLO_CMD_MASTERDIS_S)
++
++#define FW_HELLO_CMD_MASTERFORCE_S      28
++#define FW_HELLO_CMD_MASTERFORCE_V(x)	((x) << FW_HELLO_CMD_MASTERFORCE_S)
++
++#define FW_HELLO_CMD_MBMASTER_S		24
++#define FW_HELLO_CMD_MBMASTER_M		0xfU
++#define FW_HELLO_CMD_MBMASTER_V(x)	((x) << FW_HELLO_CMD_MBMASTER_S)
++#define FW_HELLO_CMD_MBMASTER_G(x)	\
++	(((x) >> FW_HELLO_CMD_MBMASTER_S) & FW_HELLO_CMD_MBMASTER_M)
++
++#define FW_HELLO_CMD_MBASYNCNOTINT_S    23
++#define FW_HELLO_CMD_MBASYNCNOTINT_V(x)	((x) << FW_HELLO_CMD_MBASYNCNOTINT_S)
++
++#define FW_HELLO_CMD_MBASYNCNOT_S       20
++#define FW_HELLO_CMD_MBASYNCNOT_V(x)	((x) << FW_HELLO_CMD_MBASYNCNOT_S)
++
++#define FW_HELLO_CMD_STAGE_S		17
++#define FW_HELLO_CMD_STAGE_V(x)		((x) << FW_HELLO_CMD_STAGE_S)
++
++#define FW_HELLO_CMD_CLEARINIT_S        16
++#define FW_HELLO_CMD_CLEARINIT_V(x)     ((x) << FW_HELLO_CMD_CLEARINIT_S)
++#define FW_HELLO_CMD_CLEARINIT_F	FW_HELLO_CMD_CLEARINIT_V(1U)
++
+ struct fw_bye_cmd {
+ 	__be32 op_to_write;
+ 	__be32 retval_len16;
+@@ -974,9 +1014,17 @@ struct fw_caps_config_cmd {
+ 	__be32 finicsum;
+ };
+ 
+-#define FW_CAPS_CONFIG_CMD_CFVALID          (1U << 27)
+-#define FW_CAPS_CONFIG_CMD_MEMTYPE_CF(x)    ((x) << 24)
+-#define FW_CAPS_CONFIG_CMD_MEMADDR64K_CF(x) ((x) << 16)
++#define FW_CAPS_CONFIG_CMD_CFVALID_S    27
++#define FW_CAPS_CONFIG_CMD_CFVALID_V(x) ((x) << FW_CAPS_CONFIG_CMD_CFVALID_S)
++#define FW_CAPS_CONFIG_CMD_CFVALID_F    FW_CAPS_CONFIG_CMD_CFVALID_V(1U)
++
++#define FW_CAPS_CONFIG_CMD_MEMTYPE_CF_S		24
++#define FW_CAPS_CONFIG_CMD_MEMTYPE_CF_V(x)	\
++	((x) << FW_CAPS_CONFIG_CMD_MEMTYPE_CF_S)
++
++#define FW_CAPS_CONFIG_CMD_MEMADDR64K_CF_S      16
++#define FW_CAPS_CONFIG_CMD_MEMADDR64K_CF_V(x)	\
++	((x) << FW_CAPS_CONFIG_CMD_MEMADDR64K_CF_S)
+ 
+ /*
+  * params command mnemonics
+@@ -1072,20 +1120,29 @@ enum fw_params_param_dmaq {
+ 	FW_PARAMS_PARAM_DMAQ_EQ_DCBPRIO_ETH = 0x13,
+ };
+ 
+-#define FW_PARAMS_MNEM(x)      ((x) << 24)
+-#define FW_PARAMS_PARAM_X(x)   ((x) << 16)
+-#define FW_PARAMS_PARAM_Y_SHIFT  8
+-#define FW_PARAMS_PARAM_Y_MASK   0xffU
+-#define FW_PARAMS_PARAM_Y(x)     ((x) << FW_PARAMS_PARAM_Y_SHIFT)
+-#define FW_PARAMS_PARAM_Y_GET(x) (((x) >> FW_PARAMS_PARAM_Y_SHIFT) &\
+-		FW_PARAMS_PARAM_Y_MASK)
+-#define FW_PARAMS_PARAM_Z_SHIFT  0
+-#define FW_PARAMS_PARAM_Z_MASK   0xffu
+-#define FW_PARAMS_PARAM_Z(x)     ((x) << FW_PARAMS_PARAM_Z_SHIFT)
+-#define FW_PARAMS_PARAM_Z_GET(x) (((x) >> FW_PARAMS_PARAM_Z_SHIFT) &\
+-		FW_PARAMS_PARAM_Z_MASK)
+-#define FW_PARAMS_PARAM_XYZ(x) ((x) << 0)
+-#define FW_PARAMS_PARAM_YZ(x)  ((x) << 0)
++#define FW_PARAMS_MNEM_S	24
++#define FW_PARAMS_MNEM_V(x)	((x) << FW_PARAMS_MNEM_S)
++
++#define FW_PARAMS_PARAM_X_S     16
++#define FW_PARAMS_PARAM_X_V(x)	((x) << FW_PARAMS_PARAM_X_S)
++
++#define FW_PARAMS_PARAM_Y_S	8
++#define FW_PARAMS_PARAM_Y_M	0xffU
++#define FW_PARAMS_PARAM_Y_V(x)	((x) << FW_PARAMS_PARAM_Y_S)
++#define FW_PARAMS_PARAM_Y_G(x)	(((x) >> FW_PARAMS_PARAM_Y_S) &\
++		FW_PARAMS_PARAM_Y_M)
++
++#define FW_PARAMS_PARAM_Z_S	0
++#define FW_PARAMS_PARAM_Z_M	0xffu
++#define FW_PARAMS_PARAM_Z_V(x)	((x) << FW_PARAMS_PARAM_Z_S)
++#define FW_PARAMS_PARAM_Z_G(x)	(((x) >> FW_PARAMS_PARAM_Z_S) &\
++		FW_PARAMS_PARAM_Z_M)
++
++#define FW_PARAMS_PARAM_XYZ_S		0
++#define FW_PARAMS_PARAM_XYZ_V(x)	((x) << FW_PARAMS_PARAM_XYZ_S)
++
++#define FW_PARAMS_PARAM_YZ_S		0
++#define FW_PARAMS_PARAM_YZ_V(x)		((x) << FW_PARAMS_PARAM_YZ_S)
+ 
+ struct fw_params_cmd {
+ 	__be32 op_to_vfn;
+@@ -1096,8 +1153,11 @@ struct fw_params_cmd {
+ 	} param[7];
+ };
+ 
+-#define FW_PARAMS_CMD_PFN(x) ((x) << 8)
+-#define FW_PARAMS_CMD_VFN(x) ((x) << 0)
++#define FW_PARAMS_CMD_PFN_S     8
++#define FW_PARAMS_CMD_PFN_V(x)	((x) << FW_PARAMS_CMD_PFN_S)
++
++#define FW_PARAMS_CMD_VFN_S     0
++#define FW_PARAMS_CMD_VFN_V(x)	((x) << FW_PARAMS_CMD_VFN_S)
+ 
+ struct fw_pfvf_cmd {
+ 	__be32 op_to_vfn;
+@@ -1111,46 +1171,82 @@ struct fw_pfvf_cmd {
+ 	__be32 r4;
+ };
+ 
+-#define FW_PFVF_CMD_PFN(x) ((x) << 8)
+-#define FW_PFVF_CMD_VFN(x) ((x) << 0)
+-
+-#define FW_PFVF_CMD_NIQFLINT(x) ((x) << 20)
+-#define FW_PFVF_CMD_NIQFLINT_GET(x) (((x) >> 20) & 0xfff)
+-
+-#define FW_PFVF_CMD_NIQ(x) ((x) << 0)
+-#define FW_PFVF_CMD_NIQ_GET(x) (((x) >> 0) & 0xfffff)
+-
+-#define FW_PFVF_CMD_TYPE (1 << 31)
+-#define FW_PFVF_CMD_TYPE_GET(x) (((x) >> 31) & 0x1)
+-
+-#define FW_PFVF_CMD_CMASK(x) ((x) << 24)
+-#define FW_PFVF_CMD_CMASK_MASK 0xf
+-#define FW_PFVF_CMD_CMASK_GET(x) (((x) >> 24) & FW_PFVF_CMD_CMASK_MASK)
+-
+-#define FW_PFVF_CMD_PMASK(x) ((x) << 20)
+-#define FW_PFVF_CMD_PMASK_MASK 0xf
+-#define FW_PFVF_CMD_PMASK_GET(x) (((x) >> 20) & FW_PFVF_CMD_PMASK_MASK)
+-
+-#define FW_PFVF_CMD_NEQ(x) ((x) << 0)
+-#define FW_PFVF_CMD_NEQ_GET(x) (((x) >> 0) & 0xfffff)
+-
+-#define FW_PFVF_CMD_TC(x) ((x) << 24)
+-#define FW_PFVF_CMD_TC_GET(x) (((x) >> 24) & 0xff)
+-
+-#define FW_PFVF_CMD_NVI(x) ((x) << 16)
+-#define FW_PFVF_CMD_NVI_GET(x) (((x) >> 16) & 0xff)
+-
+-#define FW_PFVF_CMD_NEXACTF(x) ((x) << 0)
+-#define FW_PFVF_CMD_NEXACTF_GET(x) (((x) >> 0) & 0xffff)
+-
+-#define FW_PFVF_CMD_R_CAPS(x) ((x) << 24)
+-#define FW_PFVF_CMD_R_CAPS_GET(x) (((x) >> 24) & 0xff)
+-
+-#define FW_PFVF_CMD_WX_CAPS(x) ((x) << 16)
+-#define FW_PFVF_CMD_WX_CAPS_GET(x) (((x) >> 16) & 0xff)
+-
+-#define FW_PFVF_CMD_NETHCTRL(x) ((x) << 0)
+-#define FW_PFVF_CMD_NETHCTRL_GET(x) (((x) >> 0) & 0xffff)
++#define FW_PFVF_CMD_PFN_S	8
++#define FW_PFVF_CMD_PFN_V(x)	((x) << FW_PFVF_CMD_PFN_S)
++
++#define FW_PFVF_CMD_VFN_S       0
++#define FW_PFVF_CMD_VFN_V(x)	((x) << FW_PFVF_CMD_VFN_S)
++
++#define FW_PFVF_CMD_NIQFLINT_S          20
++#define FW_PFVF_CMD_NIQFLINT_M          0xfff
++#define FW_PFVF_CMD_NIQFLINT_V(x)	((x) << FW_PFVF_CMD_NIQFLINT_S)
++#define FW_PFVF_CMD_NIQFLINT_G(x)	\
++	(((x) >> FW_PFVF_CMD_NIQFLINT_S) & FW_PFVF_CMD_NIQFLINT_M)
++
++#define FW_PFVF_CMD_NIQ_S       0
++#define FW_PFVF_CMD_NIQ_M       0xfffff
++#define FW_PFVF_CMD_NIQ_V(x)	((x) << FW_PFVF_CMD_NIQ_S)
++#define FW_PFVF_CMD_NIQ_G(x)	\
++	(((x) >> FW_PFVF_CMD_NIQ_S) & FW_PFVF_CMD_NIQ_M)
++
++#define FW_PFVF_CMD_TYPE_S      31
++#define FW_PFVF_CMD_TYPE_M      0x1
++#define FW_PFVF_CMD_TYPE_V(x)   ((x) << FW_PFVF_CMD_TYPE_S)
++#define FW_PFVF_CMD_TYPE_G(x)	\
++	(((x) >> FW_PFVF_CMD_TYPE_S) & FW_PFVF_CMD_TYPE_M)
++#define FW_PFVF_CMD_TYPE_F      FW_PFVF_CMD_TYPE_V(1U)
++
++#define FW_PFVF_CMD_CMASK_S     24
++#define FW_PFVF_CMD_CMASK_M	0xf
++#define FW_PFVF_CMD_CMASK_V(x)	((x) << FW_PFVF_CMD_CMASK_S)
++#define FW_PFVF_CMD_CMASK_G(x)	\
++	(((x) >> FW_PFVF_CMD_CMASK_S) & FW_PFVF_CMD_CMASK_M)
++
++#define FW_PFVF_CMD_PMASK_S     20
++#define FW_PFVF_CMD_PMASK_M	0xf
++#define FW_PFVF_CMD_PMASK_V(x)	((x) << FW_PFVF_CMD_PMASK_S)
++#define FW_PFVF_CMD_PMASK_G(x) \
++	(((x) >> FW_PFVF_CMD_PMASK_S) & FW_PFVF_CMD_PMASK_M)
++
++#define FW_PFVF_CMD_NEQ_S       0
++#define FW_PFVF_CMD_NEQ_M       0xfffff
++#define FW_PFVF_CMD_NEQ_V(x)	((x) << FW_PFVF_CMD_NEQ_S)
++#define FW_PFVF_CMD_NEQ_G(x)	\
++	(((x) >> FW_PFVF_CMD_NEQ_S) & FW_PFVF_CMD_NEQ_M)
++
++#define FW_PFVF_CMD_TC_S        24
++#define FW_PFVF_CMD_TC_M        0xff
++#define FW_PFVF_CMD_TC_V(x)	((x) << FW_PFVF_CMD_TC_S)
++#define FW_PFVF_CMD_TC_G(x)	(((x) >> FW_PFVF_CMD_TC_S) & FW_PFVF_CMD_TC_M)
++
++#define FW_PFVF_CMD_NVI_S       16
++#define FW_PFVF_CMD_NVI_M       0xff
++#define FW_PFVF_CMD_NVI_V(x)	((x) << FW_PFVF_CMD_NVI_S)
++#define FW_PFVF_CMD_NVI_G(x)	(((x) >> FW_PFVF_CMD_NVI_S) & FW_PFVF_CMD_NVI_M)
++
++#define FW_PFVF_CMD_NEXACTF_S           0
++#define FW_PFVF_CMD_NEXACTF_M           0xffff
++#define FW_PFVF_CMD_NEXACTF_V(x)	((x) << FW_PFVF_CMD_NEXACTF_S)
++#define FW_PFVF_CMD_NEXACTF_G(x)	\
++	(((x) >> FW_PFVF_CMD_NEXACTF_S) & FW_PFVF_CMD_NEXACTF_M)
++
++#define FW_PFVF_CMD_R_CAPS_S    24
++#define FW_PFVF_CMD_R_CAPS_M    0xff
++#define FW_PFVF_CMD_R_CAPS_V(x) ((x) << FW_PFVF_CMD_R_CAPS_S)
++#define FW_PFVF_CMD_R_CAPS_G(x) \
++	(((x) >> FW_PFVF_CMD_R_CAPS_S) & FW_PFVF_CMD_R_CAPS_M)
++
++#define FW_PFVF_CMD_WX_CAPS_S           16
++#define FW_PFVF_CMD_WX_CAPS_M           0xff
++#define FW_PFVF_CMD_WX_CAPS_V(x)	((x) << FW_PFVF_CMD_WX_CAPS_S)
++#define FW_PFVF_CMD_WX_CAPS_G(x)	\
++	(((x) >> FW_PFVF_CMD_WX_CAPS_S) & FW_PFVF_CMD_WX_CAPS_M)
++
++#define FW_PFVF_CMD_NETHCTRL_S          0
++#define FW_PFVF_CMD_NETHCTRL_M          0xffff
++#define FW_PFVF_CMD_NETHCTRL_V(x)	((x) << FW_PFVF_CMD_NETHCTRL_S)
++#define FW_PFVF_CMD_NETHCTRL_G(x)	\
++	(((x) >> FW_PFVF_CMD_NETHCTRL_S) & FW_PFVF_CMD_NETHCTRL_M)
+ 
+ enum fw_iq_type {
+ 	FW_IQ_TYPE_FL_INT_CAP,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index 0b42bdd..7c24b50 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -1030,10 +1030,10 @@ static int set_rxq_intr_params(struct adapter *adapter, struct sge_rspq *rspq,
+ 
+ 		pktcnt_idx = closest_thres(&adapter->sge, cnt);
+ 		if (rspq->desc && rspq->pktcnt_idx != pktcnt_idx) {
+-			v = FW_PARAMS_MNEM(FW_PARAMS_MNEM_DMAQ) |
+-			    FW_PARAMS_PARAM_X(
++			v = FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DMAQ) |
++			    FW_PARAMS_PARAM_X_V(
+ 					FW_PARAMS_PARAM_DMAQ_IQ_INTCNTTHRESH) |
+-			    FW_PARAMS_PARAM_YZ(rspq->cntxt_id);
++			    FW_PARAMS_PARAM_YZ_V(rspq->cntxt_id);
+ 			err = t4vf_set_params(adapter, 1, &v, &pktcnt_idx);
+ 			if (err)
+ 				return err;
+@@ -2184,8 +2184,8 @@ static int adap_init0(struct adapter *adapter)
+ 	 * firmware won't understand this and we'll just get
+ 	 * unencapsulated messages ...
+ 	 */
+-	param = FW_PARAMS_MNEM(FW_PARAMS_MNEM_PFVF) |
+-		FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_PFVF_CPLFW4MSG_ENCAP);
++	param = FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_PFVF) |
++		FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_PFVF_CPLFW4MSG_ENCAP);
+ 	val = 1;
+ 	(void) t4vf_set_params(adapter, 1, &param, &val);
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+index fae0c95..f2087eb 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+@@ -443,20 +443,20 @@ int t4vf_get_sge_params(struct adapter *adapter)
+ 	u32 params[7], vals[7];
+ 	int v;
+ 
+-	params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
+-		     FW_PARAMS_PARAM_XYZ(SGE_CONTROL));
+-	params[1] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
+-		     FW_PARAMS_PARAM_XYZ(SGE_HOST_PAGE_SIZE));
+-	params[2] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
+-		     FW_PARAMS_PARAM_XYZ(SGE_FL_BUFFER_SIZE0));
+-	params[3] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
+-		     FW_PARAMS_PARAM_XYZ(SGE_FL_BUFFER_SIZE1));
+-	params[4] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
+-		     FW_PARAMS_PARAM_XYZ(SGE_TIMER_VALUE_0_AND_1));
+-	params[5] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
+-		     FW_PARAMS_PARAM_XYZ(SGE_TIMER_VALUE_2_AND_3));
+-	params[6] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
+-		     FW_PARAMS_PARAM_XYZ(SGE_TIMER_VALUE_4_AND_5));
++	params[0] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
++		     FW_PARAMS_PARAM_XYZ_V(SGE_CONTROL));
++	params[1] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
++		     FW_PARAMS_PARAM_XYZ_V(SGE_HOST_PAGE_SIZE));
++	params[2] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
++		     FW_PARAMS_PARAM_XYZ_V(SGE_FL_BUFFER_SIZE0));
++	params[3] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
++		     FW_PARAMS_PARAM_XYZ_V(SGE_FL_BUFFER_SIZE1));
++	params[4] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
++		     FW_PARAMS_PARAM_XYZ_V(SGE_TIMER_VALUE_0_AND_1));
++	params[5] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
++		     FW_PARAMS_PARAM_XYZ_V(SGE_TIMER_VALUE_2_AND_3));
++	params[6] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
++		     FW_PARAMS_PARAM_XYZ_V(SGE_TIMER_VALUE_4_AND_5));
+ 	v = t4vf_query_params(adapter, 7, params, vals);
+ 	if (v)
+ 		return v;
+@@ -479,8 +479,8 @@ int t4vf_get_sge_params(struct adapter *adapter)
+ 	 * right value.
+ 	 */
+ 	if (!is_t4(adapter->params.chip)) {
+-		params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
+-			     FW_PARAMS_PARAM_XYZ(SGE_CONTROL2_A));
++		params[0] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
++			     FW_PARAMS_PARAM_XYZ_V(SGE_CONTROL2_A));
+ 		v = t4vf_query_params(adapter, 1, params, vals);
+ 		if (v != FW_SUCCESS) {
+ 			dev_err(adapter->pdev_dev,
+@@ -491,10 +491,10 @@ int t4vf_get_sge_params(struct adapter *adapter)
+ 		sge_params->sge_control2 = vals[0];
+ 	}
+ 
+-	params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
+-		     FW_PARAMS_PARAM_XYZ(SGE_INGRESS_RX_THRESHOLD));
+-	params[1] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
+-		     FW_PARAMS_PARAM_XYZ(SGE_CONM_CTRL));
++	params[0] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
++		     FW_PARAMS_PARAM_XYZ_V(SGE_INGRESS_RX_THRESHOLD));
++	params[1] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
++		     FW_PARAMS_PARAM_XYZ_V(SGE_CONM_CTRL));
+ 	v = t4vf_query_params(adapter, 2, params, vals);
+ 	if (v)
+ 		return v;
+@@ -517,8 +517,8 @@ int t4vf_get_vpd_params(struct adapter *adapter)
+ 	u32 params[7], vals[7];
+ 	int v;
+ 
+-	params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
+-		     FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_CCLK));
++	params[0] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) |
++		     FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_CCLK));
+ 	v = t4vf_query_params(adapter, 1, params, vals);
+ 	if (v)
+ 		return v;
+@@ -540,10 +540,10 @@ int t4vf_get_dev_params(struct adapter *adapter)
+ 	u32 params[7], vals[7];
+ 	int v;
+ 
+-	params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
+-		     FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_FWREV));
+-	params[1] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
+-		     FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_TPREV));
++	params[0] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) |
++		     FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_FWREV));
++	params[1] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) |
++		     FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_TPREV));
+ 	v = t4vf_query_params(adapter, 2, params, vals);
+ 	if (v)
+ 		return v;
+@@ -659,22 +659,22 @@ int t4vf_get_vfres(struct adapter *adapter)
+ 	 * Extract VF resource limits and return success.
+ 	 */
+ 	word = be32_to_cpu(rpl.niqflint_niq);
+-	vfres->niqflint = FW_PFVF_CMD_NIQFLINT_GET(word);
+-	vfres->niq = FW_PFVF_CMD_NIQ_GET(word);
++	vfres->niqflint = FW_PFVF_CMD_NIQFLINT_G(word);
++	vfres->niq = FW_PFVF_CMD_NIQ_G(word);
+ 
+ 	word = be32_to_cpu(rpl.type_to_neq);
+-	vfres->neq = FW_PFVF_CMD_NEQ_GET(word);
+-	vfres->pmask = FW_PFVF_CMD_PMASK_GET(word);
++	vfres->neq = FW_PFVF_CMD_NEQ_G(word);
++	vfres->pmask = FW_PFVF_CMD_PMASK_G(word);
+ 
+ 	word = be32_to_cpu(rpl.tc_to_nexactf);
+-	vfres->tc = FW_PFVF_CMD_TC_GET(word);
+-	vfres->nvi = FW_PFVF_CMD_NVI_GET(word);
+-	vfres->nexactf = FW_PFVF_CMD_NEXACTF_GET(word);
++	vfres->tc = FW_PFVF_CMD_TC_G(word);
++	vfres->nvi = FW_PFVF_CMD_NVI_G(word);
++	vfres->nexactf = FW_PFVF_CMD_NEXACTF_G(word);
+ 
+ 	word = be32_to_cpu(rpl.r_caps_to_nethctrl);
+-	vfres->r_caps = FW_PFVF_CMD_R_CAPS_GET(word);
+-	vfres->wx_caps = FW_PFVF_CMD_WX_CAPS_GET(word);
+-	vfres->nethctrl = FW_PFVF_CMD_NETHCTRL_GET(word);
++	vfres->r_caps = FW_PFVF_CMD_R_CAPS_G(word);
++	vfres->wx_caps = FW_PFVF_CMD_WX_CAPS_G(word);
++	vfres->nethctrl = FW_PFVF_CMD_NETHCTRL_G(word);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/scsi/csiostor/csio_hw.c b/drivers/scsi/csiostor/csio_hw.c
+index 5f06877..80ad9c5 100644
+--- a/drivers/scsi/csiostor/csio_hw.c
++++ b/drivers/scsi/csiostor/csio_hw.c
+@@ -1170,7 +1170,7 @@ csio_hw_fw_halt(struct csio_hw *hw, uint32_t mbox, int32_t force)
+ 		}
+ 
+ 		csio_mb_reset(hw, mbp, CSIO_MB_DEFAULT_TMO,
+-			      PIORSTMODE | PIORST, FW_RESET_CMD_HALT(1),
++			      PIORSTMODE | PIORST, FW_RESET_CMD_HALT_F,
+ 			      NULL);
+ 
+ 		if (csio_mb_issue(hw, mbp)) {
+@@ -1374,9 +1374,9 @@ csio_hw_fw_config_file(struct csio_hw *hw,
+ 		      FW_CMD_REQUEST_F |
+ 		      FW_CMD_READ_F);
+ 	caps_cmd->cfvalid_to_len16 =
+-		htonl(FW_CAPS_CONFIG_CMD_CFVALID |
+-		      FW_CAPS_CONFIG_CMD_MEMTYPE_CF(mtype) |
+-		      FW_CAPS_CONFIG_CMD_MEMADDR64K_CF(maddr >> 16) |
++		htonl(FW_CAPS_CONFIG_CMD_CFVALID_F |
++		      FW_CAPS_CONFIG_CMD_MEMTYPE_CF_V(mtype) |
++		      FW_CAPS_CONFIG_CMD_MEMADDR64K_CF_V(maddr >> 16) |
+ 		      FW_LEN16(*caps_cmd));
+ 
+ 	if (csio_mb_issue(hw, mbp)) {
+@@ -1723,8 +1723,8 @@ csio_hw_check_fwconfig(struct csio_hw *hw, u32 *param)
+ 	 * Find out whether we're dealing with a version of
+ 	 * the firmware which has configuration file support.
+ 	 */
+-	_param[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
+-		     FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_CF));
++	_param[0] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) |
++		     FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_CF));
+ 
+ 	csio_mb_params(hw, mbp, CSIO_MB_DEFAULT_TMO, hw->pfn, 0,
+ 		       ARRAY_SIZE(_param), _param, NULL, false, NULL);
+@@ -1781,8 +1781,8 @@ csio_hw_flash_config(struct csio_hw *hw, u32 *fw_cfg_param, char *path)
+ 		goto leave;
+ 	}
+ 
+-	mtype = FW_PARAMS_PARAM_Y_GET(*fw_cfg_param);
+-	maddr = FW_PARAMS_PARAM_Z_GET(*fw_cfg_param) << 16;
++	mtype = FW_PARAMS_PARAM_Y_G(*fw_cfg_param);
++	maddr = FW_PARAMS_PARAM_Z_G(*fw_cfg_param) << 16;
+ 
+ 	ret = csio_memory_write(hw, mtype, maddr,
+ 				cf->size + value_to_add, cfg_data);
+@@ -1871,8 +1871,8 @@ csio_hw_use_fwconfig(struct csio_hw *hw, int reset, u32 *fw_cfg_param)
+ 			goto bye;
+ 		}
+ 	} else {
+-		mtype = FW_PARAMS_PARAM_Y_GET(*fw_cfg_param);
+-		maddr = FW_PARAMS_PARAM_Z_GET(*fw_cfg_param) << 16;
++		mtype = FW_PARAMS_PARAM_Y_G(*fw_cfg_param);
++		maddr = FW_PARAMS_PARAM_Z_G(*fw_cfg_param) << 16;
+ 		using_flash = 0;
+ 	}
+ 
+diff --git a/drivers/scsi/csiostor/csio_mb.c b/drivers/scsi/csiostor/csio_mb.c
+index ffa8489..a1e0568 100644
+--- a/drivers/scsi/csiostor/csio_mb.c
++++ b/drivers/scsi/csiostor/csio_mb.c
+@@ -85,13 +85,13 @@ csio_mb_hello(struct csio_hw *hw, struct csio_mb *mbp, uint32_t tmo,
+ 				       FW_CMD_REQUEST_F | FW_CMD_WRITE_F);
+ 	cmdp->retval_len16 = htonl(FW_CMD_LEN16_V(sizeof(*cmdp) / 16));
+ 	cmdp->err_to_clearinit = htonl(
+-		FW_HELLO_CMD_MASTERDIS(master == CSIO_MASTER_CANT)	|
+-		FW_HELLO_CMD_MASTERFORCE(master == CSIO_MASTER_MUST)	|
+-		FW_HELLO_CMD_MBMASTER(master == CSIO_MASTER_MUST ?
+-				m_mbox : FW_HELLO_CMD_MBMASTER_MASK)	|
+-		FW_HELLO_CMD_MBASYNCNOT(a_mbox) |
+-		FW_HELLO_CMD_STAGE(fw_hello_cmd_stage_os) |
+-		FW_HELLO_CMD_CLEARINIT);
++		FW_HELLO_CMD_MASTERDIS_V(master == CSIO_MASTER_CANT)	|
++		FW_HELLO_CMD_MASTERFORCE_V(master == CSIO_MASTER_MUST)	|
++		FW_HELLO_CMD_MBMASTER_V(master == CSIO_MASTER_MUST ?
++				m_mbox : FW_HELLO_CMD_MBMASTER_M)	|
++		FW_HELLO_CMD_MBASYNCNOT_V(a_mbox) |
++		FW_HELLO_CMD_STAGE_V(fw_hello_cmd_stage_os) |
++		FW_HELLO_CMD_CLEARINIT_F);
+ 
+ }
+ 
+@@ -118,11 +118,11 @@ csio_mb_process_hello_rsp(struct csio_hw *hw, struct csio_mb *mbp,
+ 		hw->fwrev = ntohl(rsp->fwrev);
+ 
+ 		value = ntohl(rsp->err_to_clearinit);
+-		*mpfn = FW_HELLO_CMD_MBMASTER_GET(value);
++		*mpfn = FW_HELLO_CMD_MBMASTER_G(value);
+ 
+-		if (value & FW_HELLO_CMD_INIT)
++		if (value & FW_HELLO_CMD_INIT_F)
+ 			*state = CSIO_DEV_STATE_INIT;
+-		else if (value & FW_HELLO_CMD_ERR)
++		else if (value & FW_HELLO_CMD_ERR_F)
+ 			*state = CSIO_DEV_STATE_ERR;
+ 		else
+ 			*state = CSIO_DEV_STATE_UNINIT;
+@@ -205,8 +205,8 @@ csio_mb_params(struct csio_hw *hw, struct csio_mb *mbp, uint32_t tmo,
+ 	cmdp->op_to_vfn = htonl(FW_CMD_OP_V(FW_PARAMS_CMD)		|
+ 				FW_CMD_REQUEST_F			|
+ 				(wr ? FW_CMD_WRITE_F : FW_CMD_READ_F)	|
+-				FW_PARAMS_CMD_PFN(pf)			|
+-				FW_PARAMS_CMD_VFN(vf));
++				FW_PARAMS_CMD_PFN_V(pf)			|
++				FW_PARAMS_CMD_VFN_V(vf));
+ 	cmdp->retval_len16 = htonl(FW_CMD_LEN16_V(sizeof(*cmdp) / 16));
+ 
+ 	/* Write Params */
+@@ -274,11 +274,11 @@ csio_mb_ldst(struct csio_hw *hw, struct csio_mb *mbp, uint32_t tmo, int reg)
+ 			htonl(FW_CMD_OP_V(FW_LDST_CMD)	|
+ 			FW_CMD_REQUEST_F			|
+ 			FW_CMD_READ_F			|
+-			FW_LDST_CMD_ADDRSPACE(FW_LDST_ADDRSPC_FUNC_PCIE));
++			FW_LDST_CMD_ADDRSPACE_V(FW_LDST_ADDRSPC_FUNC_PCIE));
+ 	ldst_cmd->cycles_to_len16 = htonl(FW_LEN16(struct fw_ldst_cmd));
+-	ldst_cmd->u.pcie.select_naccess = FW_LDST_CMD_NACCESS(1);
++	ldst_cmd->u.pcie.select_naccess = FW_LDST_CMD_NACCESS_V(1);
+ 	ldst_cmd->u.pcie.ctrl_to_fn =
+-		(FW_LDST_CMD_LC | FW_LDST_CMD_FN(hw->pfn));
++		(FW_LDST_CMD_LC_F | FW_LDST_CMD_FN_V(hw->pfn));
+ 	ldst_cmd->u.pcie.r = (uint8_t)reg;
+ }
+ 
+diff --git a/drivers/scsi/csiostor/csio_mb.h b/drivers/scsi/csiostor/csio_mb.h
+index a84179e..1bc82d0 100644
+--- a/drivers/scsi/csiostor/csio_mb.h
++++ b/drivers/scsi/csiostor/csio_mb.h
+@@ -79,14 +79,14 @@ enum csio_dev_state {
+ };
+ 
+ #define FW_PARAM_DEV(param) \
+-	(FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) | \
+-	 FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_##param))
++	(FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) | \
++	 FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_##param))
+ 
+ #define FW_PARAM_PFVF(param) \
+-	(FW_PARAMS_MNEM(FW_PARAMS_MNEM_PFVF) | \
+-	 FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_PFVF_##param)|  \
+-	 FW_PARAMS_PARAM_Y(0) | \
+-	 FW_PARAMS_PARAM_Z(0))
++	(FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_PFVF) | \
++	 FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_PFVF_##param)|  \
++	 FW_PARAMS_PARAM_Y_V(0) | \
++	 FW_PARAMS_PARAM_Z_V(0))
+ 
+ enum {
+ 	PAUSE_RX      = 1 << 0,
 -- 
 1.7.1
-
