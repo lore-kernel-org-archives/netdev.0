@@ -1,53 +1,94 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH v2 net 1/2] drivers/net: Disable UFO through virtio
-Date: Fri, 21 Nov 2014 09:47:18 +0800
-Message-ID: <546E99A6.5090803@redhat.com>
-References: <1414693592.16849.61.camel@decadent.org.uk>	<1414693632.16849.62.camel@decadent.org.uk>
-	<20141119091455.GA26036@redhat.com>
+From: Calvin Owens <calvinowens@fb.com>
+Subject: Re: [PATCH] tcp: Restore RFC5961-compliant behavior for SYN packets
+Date: Thu, 20 Nov 2014 17:47:27 -0800
+Message-ID: <20141121014727.GA1536781@mail.thefacebook.com>
+References: <1416524993-26228-1-git-send-email-calvinowens@fb.com>
+ <1416526940.8629.62.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, Ben Hutchings <ben@decadent.org.uk>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20141119091455.GA26036@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="utf-8"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Eric Dumazet <edumazet@google.com>, <kernel-team@fb.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1416526940.8629.62.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/19/2014 05:14 PM, Michael S. Tsirkin wrote:
-> On Thu, Oct 30, 2014 at 06:27:12PM +0000, Ben Hutchings wrote:
->> > IPv6 does not allow fragmentation by routers, so there is no
->> > fragmentation ID in the fixed header.  UFO for IPv6 requires the ID to
->> > be passed separately, but there is no provision for this in the virtio
->> > net protocol.
->> > 
->> > Until recently our software implementation of UFO/IPv6 generated a new
->> > ID, but this was a bug.  Now we will use ID=0 for any UFO/IPv6 packet
->> > passed through a tap, which is even worse.
->> > 
->> > Unfortunately there is no distinction between UFO/IPv4 and v6
->> > features, so disable UFO on taps and virtio_net completely until we
->> > have a proper solution.
->> > 
->> > We cannot depend on VM managers respecting the tap feature flags, so
->> > keep accepting UFO packets but log a warning the first time we do
->> > this.
->> > 
->> > Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
->> > Fixes: 916e4cf46d02 ("ipv6: reuse ip6_frag_id from ip6_ufo_append_data")
-> There's something I don't understand here. I see:
->
->         NETIF_F_UFO_BIT,                /* ... UDPv4 fragmentation */
->
-> this comment is wrong then?
+On Thursday 11/20 at 15:42 -0800, Eric Dumazet wrote:
+> On Thu, 2014-11-20 at 15:09 -0800, Calvin Owens wrote:
+> > Commit c3ae62af8e755 ("tcp: should drop incoming frames without ACK
+> > flag set") was created to mitigate a security vulnerability in which a
+> > local attacker is able to inject data into locally-opened sockets by
+> > using TCP protocol statistics in procfs to quickly find the correct
+> > sequence number.
+> > 
+> > This broke the RFC5961 requirement to send a challenge ACK in response
+> > to spurious RST packets, which was subsequently fixed by commit
+> > 7b514a886ba50 ("tcp: accept RST without ACK flag").
+> > 
+> > Unfortunately, the RFC5961 requirement that spurious SYN packets be
+> > handled in a similar manner remains broken.
+> > 
+> > RFC5961 section 4 states that:
+> > 
+> >    ... the handling of the SYN in the synchronized state SHOULD be
+> >    performed as follows:
+> > 
+> >    1) If the SYN bit is set, irrespective of the sequence number, TCP
+> >       MUST send an ACK (also referred to as challenge ACK) to the remote
+> >       peer:
+> > 
+> >       <SEQ=SND.NXT><ACK=RCV.NXT><CTL=ACK>
+> > 
+> >       After sending the acknowledgment, TCP MUST drop the unacceptable
+> >       segment and stop processing further.
+> > 
+> >    By sending an ACK, the remote peer is challenged to confirm the loss
+> >    of the previous connection and the request to start a new connection.
+> >    A legitimate peer, after restart, would not have a TCB in the
+> >    synchronized state.  Thus, when the ACK arrives, the peer should send
+> >    a RST segment back with the sequence number derived from the ACK
+> >    field that caused the RST.
+> > 
+> >    This RST will confirm that the remote peer has indeed closed the
+> >    previous connection.  Upon receipt of a valid RST, the local TCP
+> >    endpoint MUST terminate its connection.  The local TCP endpoint
+> >    should then rely on SYN retransmission from the remote end to
+> >    re-establish the connection.
+> > 
+> > This patch lets SYN packets through the discard added in c3ae62af8e755,
+> > so that spurious SYN packets are properly dealt with as per the RFC.
+> > 
+> > The challenge ACK is sent unconditionally and is rate-limited, so the
+> > original vulnerability is not reintroduced by this patch.
+> 
+> 
+> I think this patch makes sense. But I wonder if the rate limiting wont
+> hurt anyway, as I presume you need that after some server being
+> rebooted, and if many connections are attempted in a small amount of
+> time, some of them wont get any answer ?
 
-Looks wrong, at least ufo6 depends check this bit in ip6_output.c
+That's actually not what led to finding this, but it's a good point. :)
+
+What if the challenge-ACK counter were decremented in tcp_validate_incoming()
+when a valid RST packet is seen? That would allow legitimate remote
+hosts to reestablish connections without being ratelimited, and still
+prevent a malicious host from guessing sequence numbers.
+
+There would need to be a way to tell if a challenge ACK had in fact been
+sent and only decrement in that case, since otherwise a local attacker
+could establish and immediately reset lots of connections to keep the
+counter below the ratelimit threshold and guess sequence numbers.
+
+Simply adding a flag to struct tcp_sock would work: just set the flag
+whenever a challenge ACK is sent, and clear it and decrement the counter
+only if it is set when a valid RST packet is seen.
+
+I suppose that should be a seperate patch?
+
+Thanks,
+Calvin 
