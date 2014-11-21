@@ -1,43 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2014-11-20
-Date: Fri, 21 Nov 2014 00:08:18 -0500 (EST)
-Message-ID: <20141121.000818.597514678074429997.davem@davemloft.net>
-References: <20141120210030.GD31881@tuxdriver.com>
+Subject: Re: [PATCH net v2] cxgb4 : Fix DCB priority groups being returned
+ in wrong order
+Date: Fri, 21 Nov 2014 00:08:46 -0500 (EST)
+Message-ID: <20141121.000846.725447970112747656.davem@davemloft.net>
+References: <1416532306-29739-1-git-send-email-anish@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141120210030.GD31881@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hariprasad@chelsio.com
+To: anish@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52316 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756917AbaKUFI7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 00:08:59 -0500
+In-Reply-To: <1416532306-29739-1-git-send-email-anish@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Thu, 20 Nov 2014 16:00:30 -0500
+From: Anish Bhatt <anish@chelsio.com>
+Date: Thu, 20 Nov 2014 17:11:46 -0800
 
-> Please full this little batch of fixes intended for the 3.18 stream!
+> Peer priority groups were being reversed, but this was missed in the previous
+> fix sent out for this issue.
 > 
-> For the mac80211 patch, Johannes says:
+> v2 : Previous patch was doing extra unnecessary work, result is the same.
+> Please ignore previous patch
 > 
-> "Here's another last minute fix, for minstrel HT crashing
-> depending on the value of some uninitialised stack."
+> Fixes :	ee7bc3cdc270 ('cxgb4 : dcb open-lldp interop fixes')
 > 
-> On top of that...
-> 
-> Ben Greear fixes an ath9k regression in which a BSSID mask is
-> miscalculated.
-> 
-> Dmitry Torokhov corrects an error handling routing in brcmfmac which
-> was checking an unsigned variable for a negative value.
-> 
-> Johannes Berg avoids a build problem in brcmfmac for arches where
-> linux/unaligned/access_ok.h and asm/unaligned.h conflict.
-> 
-> Mathy Vanhoef addresses another brcmfmac issue so as to eliminate a
-> use-after-free of the URB transfer buffer if a timeout occurs.
-> 
-> Please let me know if there are problems!
+> Signed-off-by: Anish Bhatt <anish@chelsio.com>
 
-Pulled, thanks John.
+Applied.
