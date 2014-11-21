@@ -1,75 +1,48 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [patch net-next v4 8/9] net: move vlan pop/push functions into
- common code
-Date: Fri, 21 Nov 2014 20:29:33 +0100
-Message-ID: <20141121202933.2970b7ea@griffin>
-References: <1416402303-25341-1-git-send-email-jiri@resnulli.us>
-	<1416402303-25341-9-git-send-email-jiri@resnulli.us>
-	<CALnjE+pM=D=OEnkuC3h8iQHzF3Qc33CNA7CMgB2=H0hMboxiKQ@mail.gmail.com>
-	<20141121180553.GA2251@nanopsycho.orion>
-	<CALnjE+p3PtaOz7Ujp7KDK0-=giP-kzEDDDvw8=GCjJdcECYJEA@mail.gmail.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [RFC] situation with csum_and_copy_... API
+Date: Fri, 21 Nov 2014 19:39:11 +0000
+Message-ID: <20141121193911.GU7996@ZenIV.linux.org.uk>
+References: <CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
+ <20141119.161744.1661940121298888832.davem@davemloft.net>
+ <20141119213006.GE7996@ZenIV.linux.org.uk>
+ <20141119.165340.2162829993279387495.davem@davemloft.net>
+ <20141120214753.GR7996@ZenIV.linux.org.uk>
+ <1416520542.8629.46.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20141120222506.GS7996@ZenIV.linux.org.uk>
+ <1416524035.8629.54.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20141121084956.GT7996@ZenIV.linux.org.uk>
+ <063D6719AE5E284EB5DD2968C1650D6D1C9F6930@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	David Miller <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Tom Herbert <therbert@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>, mst@redhat.com,
-	fw@strlen.de, Paul.Durrant@citrix.com, Thomas Graf <tgraf@suug.ch>,
-	Cong Wang <cwang@twopensource.com>
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59504 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751480AbaKUTaZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Nov 2014 14:30:25 -0500
-In-Reply-To: <CALnjE+p3PtaOz7Ujp7KDK0-=giP-kzEDDDvw8=GCjJdcECYJEA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"target-devel@vger.kernel.org" <target-devel@vger.kernel.org>,
+	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	Christoph Hellwig <hch@infradead.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <target-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1C9F6930@AcuExch.aculab.com>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 21 Nov 2014 10:41:27 -0800, Pravin Shelar wrote:
-> There is bug in the openvswitch code where vlan-pop does mac-length
-> reset rather than subtracting VLAN_HLEN  from mac-len. MPLS code
-> depends on this. Now this patch moves the bug to common code. I am
-> fine with this patch and I can send fix to change code vlan-pop code
-> to adjust mac_len later on.
-> But I am worried about the comment made by Jiri Benc on earlier
-> version of this patch where is mentioned that subtracting VLAN_HLEN
-> can break common case for vlan-pop. In that case we can not change
-> this common function. Jiri Benc, Can you point me to the code, so the
-> we can work on solution to fix this issue.
+On Fri, Nov 21, 2014 at 05:42:55PM +0000, David Laight wrote:
 
-In such case, a skb that enters the __pop_vlan_tci function looks like
-this:
+> Callers of kernel_send/recvmsg() could easily be using a wrapper
+> function that creates the 'msghdr'.
+> When the want to send the remaining part of a buffer the old iterator
+> will no longer be available - just the original iov and the required offset.
 
-+--------+--------+-------------+-----+---------+-------
-| dstmac | srcmac | ETH_P_8021Q | tci | ETH_P_x | data
-+--------+--------+-------------+-----+---------+-------
-^                               ^
-mac_header                      network_header
+Er...  So why not copy a struct iov_iter to/from msg->msg_iter, then?
+It's not as it had been particulary large - 5 words isn't much...
 
-skb->protocol = ETH_P_8021Q
-skb->mac_len = 14
+I'm not at all sure that _anything_ has valid reasons for draining iovecs.
+Maintaining a struct iov_iter and modifying it is easy and actually faster...
 
-After the function finishes, it's supposed to look like this:
-
-                    +--------+--------+---------+-------
-                    | dstmac | srcmac | ETH_P_x | data
-                    +--------+--------+---------+-------
-                    ^                           ^
-                    mac_header                  network_header
-
-skb->protocol = ETH_P_x
-skb->mac_len = 14
-
-Blindly decrementing mac_len wouldn't work here, you'd end up with
-mac_len = 10. You'd either need to ensure this case doesn't happen (it
-does with openvswitch currently) or detect this case.
-
- Jiri
-
--- 
-Jiri Benc
+Right now the main examples outside of net/* are due to unfortunate
+limitations of ->sendmsg() - until now it had no way to be told that
+desired data starts at offset.  With ->msg_iter it obviously becomes
+possible...
