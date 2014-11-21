@@ -1,42 +1,75 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next V2 4/4] igb: enable auxiliary PHC functions for
- the i210.
-Date: Fri, 21 Nov 2014 13:59:10 +0100
-Message-ID: <20141121125910.GB6031@localhost.localdomain>
-References: <cover.1416562191.git.rcochran@linutronix.de>
- <00356ddec4e20d99010884c8f18cd00df4419eaf.1416562192.git.rcochran@linutronix.de>
- <1416573969.2280.39.camel@jtkirshe-mobl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	bruce.w.allan@intel.com, Jacob Keller <jacob.e.keller@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Matthew Vick <matthew.vick@intel.com>, Jian Yu <jian.yu@ni.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [PATCH net-next] vlan: Pass ethtool get_ts_info queries to real device.
+Date: Fri, 21 Nov 2014 14:16:20 +0100
+Message-ID: <1416575780-19132-1-git-send-email-richardcochran@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
+	<stefan.sorensen@spectralink.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:41241 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758326AbaKUM7P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 07:59:15 -0500
-Received: by mail-wi0-f174.google.com with SMTP id h11so11949592wiw.1
-        for <netdev@vger.kernel.org>; Fri, 21 Nov 2014 04:59:14 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1416573969.2280.39.camel@jtkirshe-mobl>
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:58857 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757965AbaKUNX6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 08:23:58 -0500
+Received: by mail-wg0-f49.google.com with SMTP id x12so6499932wgg.8
+        for <netdev@vger.kernel.org>; Fri, 21 Nov 2014 05:23:57 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 21, 2014 at 04:46:09AM -0800, Jeff Kirsher wrote:
-> On Fri, 2014-11-21 at 10:41 +0100, Richard Cochran wrote:
-> > +	/* Make sure this pin is not enabled as an ouput. */
-> 
-> Minor nitpick, output is mis-spelled (I can fix that up for you)
+Commit a6111d3c "vlan: Pass SIOC[SG]HWTSTAMP ioctls to real device"
+intended to enable hardware time stamping on VLAN interfaces, but
+passing SIOCSHWTSTAMP is only half of the story. This patch adds
+the second half, by letting user space find out the time stamping
+capabilities of the device backing a VLAN interface.
 
-Yes please.
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+---
+ net/8021q/vlan_dev.c |   19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
 
-> Probably should have a blank line after the local variable declaration.
-> Again, I can fix this up for ya.
-
-Okay.
-
-Thanks,
-Richard
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 0d441ec..960aeb8 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -26,6 +26,7 @@
+ #include <linux/slab.h>
+ #include <linux/skbuff.h>
+ #include <linux/netdevice.h>
++#include <linux/net_tstamp.h>
+ #include <linux/etherdevice.h>
+ #include <linux/ethtool.h>
+ #include <net/arp.h>
+@@ -669,6 +670,23 @@ static void vlan_ethtool_get_drvinfo(struct net_device *dev,
+ 	strlcpy(info->fw_version, "N/A", sizeof(info->fw_version));
+ }
+ 
++static int vlan_ethtool_get_ts_info(struct net_device *dev,
++				    struct ethtool_ts_info *info)
++{
++	const struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
++	const struct ethtool_ops *ops = vlan->real_dev->ethtool_ops;
++
++	if (ops->get_ts_info) {
++		return ops->get_ts_info(vlan->real_dev, info);
++	} else {
++		info->so_timestamping = SOF_TIMESTAMPING_RX_SOFTWARE |
++			SOF_TIMESTAMPING_SOFTWARE;
++		info->phc_index = -1;
++	}
++
++	return 0;
++}
++
+ static struct rtnl_link_stats64 *vlan_dev_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
+ {
+ 	struct vlan_pcpu_stats *p;
+@@ -752,6 +770,7 @@ static const struct ethtool_ops vlan_ethtool_ops = {
+ 	.get_settings	        = vlan_ethtool_get_settings,
+ 	.get_drvinfo	        = vlan_ethtool_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
++	.get_ts_info		= vlan_ethtool_get_ts_info,
+ };
+ 
+ static const struct net_device_ops vlan_netdev_ops = {
+-- 
+1.7.10.4
