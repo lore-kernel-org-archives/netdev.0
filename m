@@ -1,7 +1,7 @@
 From: roopa@cumulusnetworks.com
-Subject: [RFC PATCH 0/4] switch device: offload policy attributes
-Date: Fri, 21 Nov 2014 14:49:26 -0800
-Message-ID: <1416610170-21224-1-git-send-email-roopa@cumulusnetworks.com>
+Subject: [RFC PATCH 1/4] rtnetlink: new flag NLM_F_HW_OFFLOAD to indicate kernel object offload to hardware
+Date: Fri, 21 Nov 2014 14:49:27 -0800
+Message-ID: <1416610170-21224-2-git-send-email-roopa@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	shrijeet@cumulusnetworks.com, gospo@cumulusnetworks.com,
 	Roopa Prabhu <roopa@cumulusnetworks.com>
@@ -12,56 +12,44 @@ To: jiri@resnulli.us, sfeldma@gmail.com, jhs@mojatatu.com,
 	vyasevic@redhat.com, f.fainelli@gmail.com, buytenh@wantstofly.org,
 	aviadr@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:36801 "EHLO
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:36829 "EHLO
 	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752100AbaKUWtf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 17:49:35 -0500
+	with ESMTP id S1752100AbaKUWtg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 17:49:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
+This patch adds new flags in netlink header nlmsg_flags to signal if the
+message is for the kernel, hw or both.
 
-This series aims at introducing new policy attibutes/flags to enable
-selective offloading of kernel network objects.
-This is in the context of supporting switch devices in the linux kernel.
+This can be used to indicate hw offload for all kind of objects
+routes, fdb entries, neighs, link objects like bonds, bridges, vxlan.
 
-Assumption:
-    - All kernel network objects (routes, neighs, bridges, bonds, vxlans)
-      can be offloaded (This is true today with a few exceptions maybe)
+Adding it in the header makes it possible to use it accross all objects and
+across all messages (sets/gets/deletes).
 
-policy points:
-    - By default all objects exist in software (kernel)
-    - Per object flag to add/del/show in kernel, hardware or both
-    - System global option to turn on/off offloads for all network objects.
-      This is for systems who want to turn offloading on for all network objects
-      by default. us :). Apps dont need to know about offloading in this
-      model. (TBD)
+Other alternative to this is a per kernel object netlink attribute/flag.
+But that leads to duplicating the attribute in different subsystems.
 
-Patches are based on jiri/sfeldma's rocker work.
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ include/uapi/linux/netlink.h |    2 ++
+ 1 file changed, 2 insertions(+)
 
-Apologize for the incomplete and untested code. This is a sample patch
- to get some initial feedback.
-
-Roopa Prabhu (4):
-  rtnetlink: new flag NLM_F_HW_OFFLOAD to indicate kernel object
-    offload to hardware
-  netdev: new feature flag NETIF_F_HW_OFFLOAD to indicate netdev object
-    offload to hardware
-  swdevice: new generic op to set bridge port attr
-  bridge: make hw offload conditional on bridge and bridge port offload
-    flags
-
- include/linux/netdev_features.h |    1 +
- include/net/switchdev.h         |    8 ++++++-
- include/uapi/linux/netlink.h    |    2 ++
- net/bridge/br_netlink.c         |   50 +++++++++++++++++++++++++++++++--------
- net/bridge/br_private.h         |    2 ++
- net/bridge/br_stp.c             |    9 ++++---
- net/bridge/br_stp_if.c          |    8 +++++--
- net/core/rtnetlink.c            |    7 ++++++
- net/switchdev/switchdev.c       |   17 +++++++++++++
- 9 files changed, 88 insertions(+), 16 deletions(-)
-
+diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
+index 1a85940..f78522d 100644
+--- a/include/uapi/linux/netlink.h
++++ b/include/uapi/linux/netlink.h
+@@ -54,6 +54,8 @@ struct nlmsghdr {
+ #define NLM_F_ACK		4	/* Reply with ack, with zero or error code */
+ #define NLM_F_ECHO		8	/* Echo this request 		*/
+ #define NLM_F_DUMP_INTR		16	/* Dump was inconsistent due to sequence change */
+++#define NLM_F_KERNEL       32      /* This msg is only for the kernel */
++#define NLM_F_HW_OFFLOAD	64	/* offload this msg to hw */
+ 
+ /* Modifiers to GET request */
+ #define NLM_F_ROOT	0x100	/* specify tree	root	*/
 -- 
 1.7.10.4
