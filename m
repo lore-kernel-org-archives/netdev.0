@@ -1,25 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] l2tp_eth: allow to set a specific mac address
-Date: Fri, 21 Nov 2014 14:16:59 -0500 (EST)
-Message-ID: <20141121.141659.649996800806407919.davem@davemloft.net>
-References: <1416399879-3164-1-git-send-email-lynxis@fe80.eu>
+Subject: Re: [patch net-next v4 0/9] sched: introduce vlan action
+Date: Fri, 21 Nov 2014 14:21:07 -0500 (EST)
+Message-ID: <20141121.142107.1704149841896863666.davem@davemloft.net>
+References: <1416402303-25341-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: lynxis@fe80.eu
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, pshelar@nicira.com,
+	therbert@google.com, edumazet@google.com, willemb@google.com,
+	dborkman@redhat.com, mst@redhat.com, fw@strlen.de,
+	Paul.Durrant@citrix.com, tgraf@suug.ch, cwang@twopensource.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37666 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37726 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751599AbaKUTRB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 14:17:01 -0500
-In-Reply-To: <1416399879-3164-1-git-send-email-lynxis@fe80.eu>
+	with ESMTP id S1750777AbaKUTVL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 14:21:11 -0500
+In-Reply-To: <1416402303-25341-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Couzens <lynxis@fe80.eu>
-Date: Wed, 19 Nov 2014 13:24:39 +0100
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 19 Nov 2014 14:04:54 +0100
 
-> Signed-off-by: Alexander Couzens <lynxis@fe80.eu>
+> Please see the individual patches for info
 
-Looks good, applied, thanks.
+Series applied, thanks Jiri.
+
+Please work with others to resolve the MPLS header length subtraction
+issue Pravin mentioned.
+
+Thanks.
