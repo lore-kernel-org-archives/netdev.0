@@ -1,38 +1,48 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: net: Hyper-V: Deletion of an unnecessary check before the function
- call "vfree"
-Date: Fri, 21 Nov 2014 23:15:42 +0100
-Message-ID: <546FB98E.5070703@users.sourceforge.net>
-References: <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>	<5317A59D.4@users.sourceforge.net>	<546DF9D7.6080801@users.sourceforge.net>
- <20141121.151503.1986113223309494197.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/2] bonding: Introduce 4 AD link speed
+Date: Fri, 21 Nov 2014 17:16:13 -0500 (EST)
+Message-ID: <20141121.171613.504119260083729947.davem@davemloft.net>
+References: <1416386939-24591-1-git-send-email-Jianhua.Xie@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, haiyangz@microsoft.com,
- kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
- julia.lawall@lip6.fr, devel@linuxdriverproject.org
-To: David Miller <davem@davemloft.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20141121.151503.1986113223309494197.davem@davemloft.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com, j.vosburgh@gmail.com,
+	vfalico@gmail.com, andy@greyhouse.net
+To: Jianhua.Xie@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39699 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750948AbaKUWQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 17:16:15 -0500
+In-Reply-To: <1416386939-24591-1-git-send-email-Jianhua.Xie@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> This does not apply to the net-next tree, please respin.
+From: Xie Jianhua <Jianhua.Xie@freescale.com>
+Date: Wed, 19 Nov 2014 16:48:57 +0800
 
-Thanks for your reply.
+> From: Jianhua Xie <Jianhua.Xie@freescale.com>
+> 
+> The speed field of AD Port Key was based on bitmask, it supported 5
+> kinds of link speed at most, as there were only 5 bits in the speed
+> field of the AD Port Key.  This patches series change the speed type
+> (AD_LINK_SPEED_BITMASK) from bitmask to enum type in order to enhance
+> speed type from 5 to 32, and then introduce 4 AD link speed to fix
+> agg_bandwidth.
+> 
+> Jianhua Xie (2):
+>   bonding: change AD_LINK_SPEED_BITMASK to enum to suport more speed
+>   bonding: Introduce 4 AD link speed to fix agg_bandwidth
+> 
+>  drivers/net/bonding/bond_3ad.c | 102 ++++++++++++++++++++++++++++-------------
+>  1 file changed, 70 insertions(+), 32 deletions(-)
+> 
+> -- 
+> v2:
+>  * Use an enum type to instead of the bitmask, not expand speed field, 
+> 
+> v1:
+>  * Compress RFC patches #2 to #5 into one single patch.
+>  * Fix inexact commit information.
 
-How do you think about to try out the scripts which I published
-in March to get more constructive feedback?
-Will they run faster for another analysis on current
-Linux source files with your test systems (than my computer)?
-
-Regards,
-Markus
+Series applied, thanks.
