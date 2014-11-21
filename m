@@ -1,37 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Netfilter fixes for net
-Date: Fri, 21 Nov 2014 00:12:59 -0500 (EST)
-Message-ID: <20141121.001259.557583673841588271.davem@davemloft.net>
-References: <1416486651-12271-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH net V5] virtio-net: validate features during probe
+Date: Fri, 21 Nov 2014 00:27:28 -0500 (EST)
+Message-ID: <20141121.002728.487856666097568926.davem@davemloft.net>
+References: <1416474185-10981-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52344 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750704AbaKUFNB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 00:13:01 -0500
-In-Reply-To: <1416486651-12271-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: jasowang@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1416474185-10981-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Thu, 20 Nov 2014 13:30:49 +0100
+From: Jason Wang <jasowang@redhat.com>
+Date: Thu, 20 Nov 2014 17:03:05 +0800
 
-> The following patchset contains two bugfixes for your net tree, they are:
+> We currently trigger BUG when VIRTIO_NET_F_CTRL_VQ
+> is not set but one of features depending on it is.
+> That's not a friendly way to report errors to
+> hypervisors.
+> Let's check, and fail probe instead.
 > 
-> 1) Validate netlink group from nfnetlink to avoid an out of bound array
->    access. This should only happen with superuser priviledges though.
->    Discovered by Andrey Ryabinin using trinity.
-> 
-> 2) Don't push ethernet header before calling the netfilter output hook
->    for multicast traffic, this breaks ebtables since it expects to see
->    skb->data pointing to the network header, patch from Linus Luessing.
-> 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
+> Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Pulled, thanks Pablo.
+Applied, thanks.
