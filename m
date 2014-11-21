@@ -1,40 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net V5] virtio-net: validate features during probe
-Date: Fri, 21 Nov 2014 00:27:28 -0500 (EST)
-Message-ID: <20141121.002728.487856666097568926.davem@davemloft.net>
-References: <1416474185-10981-1-git-send-email-jasowang@redhat.com>
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: Re: [PATCH net-next] filter: add bpf_optimize_div()
+Date: Fri, 21 Nov 2014 09:46:06 +0400
+Message-ID: <CAOJe8K2u3UMwx-oaF6qRHOxgYQtHdvZHG6cxo3JRyVj4TWyRyg@mail.gmail.com>
+References: <1416512551-22252-1-git-send-email-kda@linux-powerpc.org>
+	<546E5DE9.3050602@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: jasowang@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1416474185-10981-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Alexei Starovoitov <ast@plumgrid.com>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35285 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750766AbaKUFqI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 00:46:08 -0500
+Received: by mail-pa0-f47.google.com with SMTP id kq14so4123564pab.34
+        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 21:46:06 -0800 (PST)
+In-Reply-To: <546E5DE9.3050602@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Thu, 20 Nov 2014 17:03:05 +0800
+On 11/21/14, Daniel Borkmann <dborkman@redhat.com> wrote:
+> On 11/20/2014 08:42 PM, Denis Kirjanov wrote:
+>> optimize_div() found in  mips bpf jit is really usefull
+>> for other arches. So let's put it in filter.h
+>>
+>> CC: Alexei Starovoitov <ast@plumgrid.com>
+>> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+>
+> NAK
+>
+> 1) There's no user of this function (you name MIPS JIT, but
+>     don't remove it from there) ...
 
-> We currently trigger BUG when VIRTIO_NET_F_CTRL_VQ
-> is not set but one of features depending on it is.
-> That's not a friendly way to report errors to
-> hypervisors.
-> Let's check, and fail probe instead.
-> 
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
-> Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+Right, I wanted to get some feedback before removing/adding it to the
+other places.
 
-Applied, thanks.
+>
+> 2) It's not really specific or tied to the BPF API in particular,
+>     so doesn't really belong here, rather some more generic kernel
+>     header, iff anything.
+
+I was thinking about the best place to put this helper since this
+looks more or less generic...
+Actually I had to put the RFC tag to the patch
+
+>
+>> ---
+>>   include/linux/filter.h | 11 +++++++++++
+>>   1 file changed, 11 insertions(+)
+>>
+>> diff --git a/include/linux/filter.h b/include/linux/filter.h
+>> index ca95abd..b385637 100644
+>> --- a/include/linux/filter.h
+>> +++ b/include/linux/filter.h
+>> @@ -414,6 +414,17 @@ static inline void bpf_jit_dump(unsigned int flen,
+>> unsigned int proglen,
+>>   		print_hex_dump(KERN_ERR, "JIT code: ", DUMP_PREFIX_OFFSET,
+>>   			       16, 1, image, proglen, false);
+>>   }
+>> +
+>> +static inline int bpf_optimize_div(u32 *k)
+>> +{
+>> +	/* power of 2 divides can be implemented with right shift */
+>> +	if (!(*k & (*k-1))) {
+>> +		*k = ilog2(*k);
+>> +		return 1;
+>> +	}
+>> +
+>> +	return 0;
+>> +}
+>>   #else
+>>   static inline void bpf_jit_compile(struct bpf_prog *fp)
+>>   {
+>>
+>
