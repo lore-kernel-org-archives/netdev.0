@@ -1,49 +1,57 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: RE: [PATCH] ixgbe: make VLAN filter conditional in SR-IOV case
-Date: Fri, 21 Nov 2014 09:22:19 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05DB6636@BPXM14GP.gisp.nec.co.jp>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05D9D336@BPXM14GP.gisp.nec.co.jp>
- <1416533299.7215.17.camel@decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	Hayato Momma <h-momma@ce.jp.nec.com>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1416533299.7215.17.camel@decadent.org.uk>
-Content-Language: ja-JP
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH net-next V2 0/4] igb: auxiliary PHC functions for the i210.
+Date: Fri, 21 Nov 2014 10:41:12 +0100
+Message-ID: <cover.1416562191.git.rcochran@linutronix.de>
+Cc: David Miller <davem@davemloft.net>, <bruce.w.allan@intel.com>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	Jian Yu <jian.yu@ni.com>,
+	Richard Cochran <rcochran@linutronix.de>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:38926 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753610AbaKUJlV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 04:41:21 -0500
+Received: by mail-wg0-f49.google.com with SMTP id x12so5964425wgg.8
+        for <netdev@vger.kernel.org>; Fri, 21 Nov 2014 01:41:20 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiBTdWJqZWN0OiBSZTogW1BBVENIXSBpeGdiZTogbWFrZSBWTEFOIGZpbHRlciBjb25kaXRpb25h
-bCBpbiBTUi1JT1YgY2FzZQ0KPiANCj4gT24gVGh1LCAyMDE0LTExLTEzIGF0IDA4OjI4ICswMDAw
-LCBIaXJvc2hpIFNoaW1hbW90byB3cm90ZToNCj4gPiBGcm9tOiBIaXJvc2hpIFNoaW1hbW90byA8
-aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbT4NCj4gPg0KPiA+IERpc2FibGUgaGFyZHdhcmUgVkxB
-TiBmaWx0ZXJpbmcgaWYgbmV0ZGV2LT5mZWF0dXJlcyBWTEFOIGZsYWcgaXMgZHJvcHBlZC4NCj4g
-Pg0KPiA+IEluIFNSLUlPViBjYXNlLCB0aGVyZSBpcyBhIHVzZSBjYXNlIHdoaWNoIG5lZWRzIHRv
-IGRpc2FibGUgVkxBTiBmaWx0ZXIuDQo+ID4gRm9yIGV4YW1wbGUsIHdlIG5lZWQgdG8gbWFrZSBh
-IG5ldHdvcmsgZnVuY3Rpb24gd2l0aCBWRiBpbiB2aXJ0dWFsaXplZA0KPiA+IGVudmlyb25tZW50
-LiBUaGF0IG5ldHdvcmsgZnVuY3Rpb24gbWF5IGJlIGEgc29mdHdhcmUgc3dpdGNoLCBhIHJvdXRl
-cg0KPiA+IG9yIGV0Yy4gSXQgbWVhbnMgdGhhdCB0aGF0IG5ldHdvcmsgZnVuY3Rpb24gd2lsbCBi
-ZSBhbiBlbmQgcG9pbnQgd2hpY2gNCj4gPiB0ZXJtaW5hdGVzIG1hbnkgVkxBTnMuDQo+ID4NCj4g
-PiBJbiB0aGUgY3VycmVudCBpbXBsZW1lbnRhdGlvbiwgVkxBTiBmaWx0ZXJpbmcgYWx3YXlzIGJl
-IHR1cm5lZCBvbiBhbmQNCj4gPiBWRiBjYW4gcmVjZWl2ZSBvbmx5IDYzIFZMQU5zLiBJdCBtZWFu
-cyB0aGF0IG9ubHkgNjMgVkxBTnMgY2FuIGJlIHVzZWQNCj4gPiBhbmQgaXQncyBub3QgZW5vdWdo
-IGF0IGFsbCBmb3IgYnVpbGRpbmcgYSB2aXJ0dWFsIHJvdXRlci4NCj4gPg0KPiA+IFdpdGggdGhp
-cyBwYXRjaCwgaWYgdGhlIHVzZXIgdHVybnMgVkxBTiBmaWx0ZXJpbmcgb2ZmIG9uIHRoZSBob3N0
-LCBWRg0KPiA+IGNhbiByZWNlaXZlIGV2ZXJ5IFZMQU4gcGFja2V0Lg0KPiA+IFRoZSBiZWhhdmlv
-ciBpcyBjaGFuZ2VkIG9ubHkgaWYgVkxBTiBmaWx0ZXJpbmcgaXMgdHVybmVkIG9mZiBieSBldGh0
-b29sLg0KPiBbLi4uXQ0KPiANCj4gV2hhdCBoYXBwZW5zIHdoZW4gVkxBTiBmaWx0ZXJpbmcgaXMg
-dHVybmVkIGJhY2sgb24gYW5kIGEgVkYgdXNlcyB0b28NCj4gbWFueSBWTEFOcz8gIEl0IHNlZW1z
-IGxpa2UgdGhhdCBzaG91bGQgZWl0aGVyIGJlIHByZXZlbnRlZCAoeW91IGNhbid0DQo+IHR1cm4g
-aXQgYmFjayBvbikgb3IgdGhlIGRyaXZlciBzaG91bGQgbG9nIGEgbWVzc2FnZSBzYXlpbmcgdGhl
-IFZGIGlzIG5vdw0KPiBicm9rZW4uDQoNCnRoYXQncyByZWFzb25hYmxlLg0KV2lsbCBzdWJtaXQg
-YWRkaXRpb25hbCBwYXRjaCB0byB0YWtlIGNhcmUgYWJvdXQgdGhhdC4NCg0KdGhhbmtzLA0KSGly
-b3NoaQ0KDQo+IA0KPiBCZW4uDQo+IA0KPiAtLQ0KPiBCZW4gSHV0Y2hpbmdzDQo+IEJld2FyZSBv
-ZiBidWdzIGluIHRoZSBhYm92ZSBjb2RlOw0KPiBJIGhhdmUgb25seSBwcm92ZWQgaXQgY29ycmVj
-dCwgbm90IHRyaWVkIGl0LiAtIERvbmFsZCBLbnV0aA0K
+From: Richard Cochran <rcochran@linutronix.de>
+
+* ChangeLog
+** V2
+   - Add missing serialization in the reset function
+   - Reset the auxiliary functions along with the rest
+   - Guard against spurious SYS_WRAP interrupts (these occur in the
+     82580 device from time to time)
+
+This patch series adds three features: time stamping external events,
+producing a periodic output signal, and an internal PPS event. The
+i210 PCIe card has a 6 pin header with SDP0-3, making it easy to try
+out this new functionality.
+
+An earlier version of this series was posted way back in May, 2013,
+but that version lacked a good way to assign functions to the pins. In
+the mean time, the PHC core has a standard method to configure the
+pins, and this series makes use of it.
+
+Thanks,
+Richard
+
+Richard Cochran (4):
+  igb: refactor time sync interrupt handling
+  igb: serialize access to the time sync interrupt registers.
+  igb: enable internal PPS for the i210.
+  igb: enable auxiliary PHC functions for the i210.
+
+ drivers/net/ethernet/intel/igb/igb.h      |    9 +
+ drivers/net/ethernet/intel/igb/igb_main.c |  110 +++++++++----
+ drivers/net/ethernet/intel/igb/igb_ptp.c  |  254 ++++++++++++++++++++++++++++-
+ 3 files changed, 337 insertions(+), 36 deletions(-)
+
+-- 
+1.7.10.4
