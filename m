@@ -1,75 +1,54 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next] vlan: Pass ethtool get_ts_info queries to real device.
-Date: Fri, 21 Nov 2014 14:16:20 +0100
-Message-ID: <1416575780-19132-1-git-send-email-richardcochran@gmail.com>
-Cc: David Miller <davem@davemloft.net>,
-	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
-	<stefan.sorensen@spectralink.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:58857 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757965AbaKUNX6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 08:23:58 -0500
-Received: by mail-wg0-f49.google.com with SMTP id x12so6499932wgg.8
-        for <netdev@vger.kernel.org>; Fri, 21 Nov 2014 05:23:57 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alban <albeu@free.fr>
+Subject: Re: [PATCH 1/2] 8139too: Allow setting MTU larger than 1500
+Date: Fri, 21 Nov 2014 14:58:53 +0100
+Message-ID: <20141121145853.1be898de@tock>
+References: <1415447316-12424-1-git-send-email-albeu@free.fr>
+	<1416530074.7215.11.camel@decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Aban Bedel <albeu@free.fr>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
+	Benoit Taine <benoit.taine@lip6.fr>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1416530074.7215.11.camel@decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit a6111d3c "vlan: Pass SIOC[SG]HWTSTAMP ioctls to real device"
-intended to enable hardware time stamping on VLAN interfaces, but
-passing SIOCSHWTSTAMP is only half of the story. This patch adds
-the second half, by letting user space find out the time stamping
-capabilities of the device backing a VLAN interface.
+On Fri, 21 Nov 2014 00:34:34 +0000
+Ben Hutchings <ben@decadent.org.uk> wrote:
 
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
----
- net/8021q/vlan_dev.c |   19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
+> On Sat, 2014-11-08 at 12:48 +0100, Alban Bedel wrote:
+> > Replace the default ndo_change_mtu callback with one that allow
+> > setting MTU that the driver can handle.
+> > 
+> > Signed-off-by: Alban Bedel <albeu@free.fr>
+> > ---
+> >  drivers/net/ethernet/realtek/8139too.c | 13 ++++++++++++-
+> >  1 file changed, 12 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/drivers/net/ethernet/realtek/8139too.c
+> > b/drivers/net/ethernet/realtek/8139too.c index 007b38c..8387de9
+> > 100644 --- a/drivers/net/ethernet/realtek/8139too.c
+> > +++ b/drivers/net/ethernet/realtek/8139too.c
+> > @@ -185,6 +185,9 @@ static int debug = -1;
+> >  /* max supported ethernet frame size -- must be at least
+> > (dev->mtu+14+4).*/ #define MAX_ETH_FRAME_SIZE	1536
+> >  
+> > +/* max supported payload size */
+> > +#define MAX_ETH_DATA_SIZE	(MAX_ETH_FRAME_SIZE - ETH_HLEN -
+> > ETH_FCS_LEN)
+> [...]
+> 
+> Does this maximum still allow for VLAN tags, or should it use
+> VLAN_ETH_HLEN instead of ETH_HLEN?
 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 0d441ec..960aeb8 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -26,6 +26,7 @@
- #include <linux/slab.h>
- #include <linux/skbuff.h>
- #include <linux/netdevice.h>
-+#include <linux/net_tstamp.h>
- #include <linux/etherdevice.h>
- #include <linux/ethtool.h>
- #include <net/arp.h>
-@@ -669,6 +670,23 @@ static void vlan_ethtool_get_drvinfo(struct net_device *dev,
- 	strlcpy(info->fw_version, "N/A", sizeof(info->fw_version));
- }
- 
-+static int vlan_ethtool_get_ts_info(struct net_device *dev,
-+				    struct ethtool_ts_info *info)
-+{
-+	const struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
-+	const struct ethtool_ops *ops = vlan->real_dev->ethtool_ops;
-+
-+	if (ops->get_ts_info) {
-+		return ops->get_ts_info(vlan->real_dev, info);
-+	} else {
-+		info->so_timestamping = SOF_TIMESTAMPING_RX_SOFTWARE |
-+			SOF_TIMESTAMPING_SOFTWARE;
-+		info->phc_index = -1;
-+	}
-+
-+	return 0;
-+}
-+
- static struct rtnl_link_stats64 *vlan_dev_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
- {
- 	struct vlan_pcpu_stats *p;
-@@ -752,6 +770,7 @@ static const struct ethtool_ops vlan_ethtool_ops = {
- 	.get_settings	        = vlan_ethtool_get_settings,
- 	.get_drvinfo	        = vlan_ethtool_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
-+	.get_ts_info		= vlan_ethtool_get_ts_info,
- };
- 
- static const struct net_device_ops vlan_netdev_ops = {
--- 
-1.7.10.4
+That might well be as the VLAN code seems to assume that the physical
+device can handle frames of MTU + VLAN_HLEN bytes. I can fix it, but to
+me it seems like the VLAN code should be fixed to respect the physical
+device MTU.
+
+Alban
