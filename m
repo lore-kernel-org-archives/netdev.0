@@ -1,47 +1,39 @@
-From: Chris Mason <clm@fb.com>
-Subject: Re: crash in __kfree_skb on v3.18-rc5 with CONFIG_DEBUG_PAGEALLOC
-Date: Fri, 21 Nov 2014 12:18:03 -0500
-Message-ID: <1416590283.24312.8@mail.thefacebook.com>
-References: <20141121160937.GA32608@ret.masoncoding.com>
-	<1416587469.8629.106.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1416587848.8629.108.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1416588426.24312.6@mail.thefacebook.com>
-	<1416588995.8629.114.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] situation with csum_and_copy_... API
+Date: Fri, 21 Nov 2014 12:26:15 -0500 (EST)
+Message-ID: <20141121.122615.1091044030302005883.davem@davemloft.net>
+References: <20141119.165340.2162829993279387495.davem@davemloft.net>
+	<20141120214753.GR7996@ZenIV.linux.org.uk>
+	<20141120.182339.972861702759954603.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Cc: <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:37109 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932081AbaKURSO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 12:18:14 -0500
-In-Reply-To: <1416588995.8629.114.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, target-devel@vger.kernel.org,
+	nab@linux-iscsi.org, hch@infradead.org
+To: viro@ZenIV.linux.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141120.182339.972861702759954603.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: David Miller <davem@davemloft.net>
+Date: Thu, 20 Nov 2014 18:23:39 -0500 (EST)
 
-
-On Fri, Nov 21, 2014 at 11:56 AM, Eric Dumazet <eric.dumazet@gmail.com> 
-wrote:
-> On Fri, 2014-11-21 at 11:47 -0500, Chris Mason wrote:
+> From: Al Viro <viro@ZenIV.linux.org.uk>
+> Date: Thu, 20 Nov 2014 21:47:53 +0000
 > 
->>  Once my current run is done, I can revert this and try a loop.  But 
->> I
->>  don't see how this commit causes a use-after-free on the skb itself?
+>> On Wed, Nov 19, 2014 at 04:53:40PM -0500, David Miller wrote:
+>> 
+>>> Pulled, thanks Al.
+>> 
+>> Umm...  Not in net-next.git#master...
 > 
-> Well, it is so obvious, you really want to make me miserable ;)
+> Sorry, I may have done my usual: pull at the office compute, fire up
+> build testing, go home without pushing back out to kernel.org
 > 
-> I am testing the revert and send it asap.
+> :-/
+> 
+> I'll check first thing tomorrow morning.
 
-Grin, no I just don't know what fclones really are ;)  So dropping the 
-ref by one on the clone opens up the skb to be freed and another CPU 
-races in and frees skb before we can do the assignment lower down.
-
-I've added your revert here and I'll restart the test.  It takes a few 
-hours to get to the point where I've fallen over so far today, but I'll 
-just leave it in a loop all day long.
-
-Thanks!
-
--chris
+I've resolved this now, sorry for the inconvenience Al.
