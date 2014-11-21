@@ -1,37 +1,39 @@
-From: Chris Mason <clm@fb.com>
-Subject: Re: [PATCH v2 net] net: Revert "net: avoid one atomic operation in
- skb_clone()"
-Date: Fri, 21 Nov 2014 16:15:56 -0500
-Message-ID: <1416604556.24312.11@mail.thefacebook.com>
-References: <20141121160937.GA32608@ret.masoncoding.com>
-	<1416587469.8629.106.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1416589451.8629.119.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20141121180510.GA22112@kria>
-	<1416598161.8629.120.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1416599236.8629.124.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] defxx: Assorted fixes, mainly for EISA
+Date: Fri, 21 Nov 2014 16:37:46 -0500 (EST)
+Message-ID: <20141121.163746.172766926955262081.davem@davemloft.net>
+References: <alpine.LFD.2.11.1411211107150.4773@eddie.linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Cc: Sabrina Dubroca <sd@queasysnail.net>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: macro@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:41318 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750802AbaKUVQG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 16:16:06 -0500
-In-Reply-To: <1416599236.8629.124.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39278 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751511AbaKUVhv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 16:37:51 -0500
+In-Reply-To: <alpine.LFD.2.11.1411211107150.4773@eddie.linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 21, 2014 at 2:47 PM, Eric Dumazet <eric.dumazet@gmail.com> 
-wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> v2: the revert went wrong, as SKB_FCLONE_UNAVAILABLE
->     was later replaced by SKB_FCLONE_FREE, spotted by Sabrina Dubroca
-> 
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Date: Fri, 21 Nov 2014 14:09:47 +0000 (GMT)
 
-v2 is happy here too.  I'll let it keep going over the weekend and add 
-more memory pressure, but my crashes seem to be gone.
+>  This is another small series fixing issues with the defxx driver, 
+> mainly for EISA boards, but there's one patch for PCI as well.
+> 
+>  In the end, with the inexistent second IDE channel forcefully disabled 
+> in the IDE driver, I wasn't able to retrigger spurious IRQ 15 interrupts 
+> I previously saw and suspected the DEFEA to be the cause.  So it looks 
+> to me these were real noise on IRQ 15 rather than the latency in 
+> interrupt acknowledge in the DEFEA board causing the slave 8259A to 
+> issue the spurious interrupt vector.  In any case not an issue with the 
+> defxx driver, so nothing to do here unless the problem resurfaces.
+> 
+>  I haven't seen your announcement about opening net-next since the 
+> closure on Oct 6th, but from the patch traffic and the policy described 
+> in Documentation/networking/netdev-FAQ.txt I gather your tree is open.  
+> And these are bug fixes anyway, not new features, so please apply.
 
--chris
+Series applied to net-next, thanks.
