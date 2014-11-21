@@ -1,40 +1,33 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [RFC] situation with csum_and_copy_... API
-Date: Fri, 21 Nov 2014 11:40:49 -0800
-Message-ID: <CA+55aFy4d1uii5078NxT7E9cTCbHfpgMitA4goHJadRGM8pshg@mail.gmail.com>
-References: <CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
-	<20141119.161744.1661940121298888832.davem@davemloft.net>
-	<20141119213006.GE7996@ZenIV.linux.org.uk>
-	<20141119.165340.2162829993279387495.davem@davemloft.net>
-	<20141120214753.GR7996@ZenIV.linux.org.uk>
-	<1416520542.8629.46.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20141120222506.GS7996@ZenIV.linux.org.uk>
-	<1416524035.8629.54.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20141121084956.GT7996@ZenIV.linux.org.uk>
-	<063D6719AE5E284EB5DD2968C1650D6D1C9F6930@AcuExch.aculab.com>
-	<20141121193911.GU7996@ZenIV.linux.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] packet: make packet_snd fail on len
+ smaller than l2 header
+Date: Fri, 21 Nov 2014 14:43:54 -0500 (EST)
+Message-ID: <20141121.144354.321574305151092990.davem@davemloft.net>
+References: <1416420616-5029-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Laight <David.Laight@aculab.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"target-devel@vger.kernel.org" <target-devel@vger.kernel.org>,
-	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	Christoph Hellwig <hch@infradead.org>
-To: Al Viro <viro@zeniv.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141121193911.GU7996@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, dborkman@redhat.com
+To: willemb@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38032 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750863AbaKUTn6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 14:43:58 -0500
+In-Reply-To: <1416420616-5029-1-git-send-email-willemb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 21, 2014 at 11:39 AM, Al Viro <viro@zeniv.linux.org.uk> wrote:
->
-> I'm not at all sure that _anything_ has valid reasons for draining iovecs.
-> Maintaining a struct iov_iter and modifying it is easy and actually faster...
+From: Willem de Bruijn <willemb@google.com>
+Date: Wed, 19 Nov 2014 13:10:16 -0500
 
-For new code, I agree. But the whole "draining iovec's" is a fairly
-common old model.
+> From: Willem de Bruijn <willemb@google.com>
+> 
+> When sending packets out with PF_PACKET, SOCK_RAW, ensure that the
+> packet is at least as long as the device's expected link layer header.
+> This check already exists in tpacket_snd, but not in packet_snd.
+> Also rate limit the warning in tpacket_snd.
+> 
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
 
-                  Linus
+Applied, thanks.
