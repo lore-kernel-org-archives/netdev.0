@@ -1,48 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net: sctp: keep owned chunk in
- destructor_arg instead of skb->cb
-Date: Fri, 21 Nov 2014 14:51:53 -0500 (EST)
-Message-ID: <20141121.145153.1551371249438323651.davem@davemloft.net>
-References: <1416444888-12778-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH net-next v3 0/2] r8152: adjust rx functions
+Date: Fri, 21 Nov 2014 14:53:34 -0500 (EST)
+Message-ID: <20141121.145334.65720125038869042.davem@davemloft.net>
+References: <1394712342-15778-88-Taiwan-albertk@realtek.com>
+	<1394712342-15778-98-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38106 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750863AbaKUTvz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 14:51:55 -0500
-In-Reply-To: <1416444888-12778-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394712342-15778-98-Taiwan-albertk@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Thu, 20 Nov 2014 01:54:48 +0100
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Thu, 20 Nov 2014 10:29:04 +0800
 
-> It's just silly to hold the skb destructor argument around inside
-> skb->cb[] as we currently do in SCTP.
+> v3:
+> For patch #1, remove unnecessary initialization for ret and
+> unnecessary blank line in r8152_submit_rx().
 > 
-> Nowadays, we're sort of cheating on data accounting in the sense
-> that due to commit 4c3a5bdae293 ("sctp: Don't charge for data in
-> sndbuf again when transmitting packet"), we orphan the skb already
-> in the SCTP output path, i.e. giving back charged data memory, and
-> use a different destructor only to make sure the sk doesn't vanish
-> on skb destruction time. Thus, cb[] is still valid here as we
-> operate within the SCTP layer. (It's generally actually a big
-> candidate for future rework, imho.)
+> v2:
+> For patch #1, set actual_length to 0 before adding the rx to the
+> list, when a error occurs.
 > 
-> However, storing the destructor in the cb[] can easily cause issues
-> should an non sctp_packet_set_owner_w()'ed skb ever escape the SCTP
-> layer, since cb[] may get overwritten by lower layers and thus can
-> corrupt the chunk pointer. There are no such issues at present,
-> but lets keep the chunk in destructor_arg, as this is the actual
-> purpose for it.
+> For patch #2, change the flow. Stop submitting the rx if a error
+> occurs, and add the remaining rx to the list for submitting later.
 > 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  v1->v2:
->   - Only reworded commit message to make it more clear
+> v1:
+> Adjust some flows and codes which are relative to r8152_submit_rx()
+> and rtl_start_rx().
 
-Applied, thanks.
+Series applied, thanks.
