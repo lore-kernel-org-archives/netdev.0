@@ -1,36 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/2] r8152: adjust rx functions
-Date: Fri, 21 Nov 2014 14:53:34 -0500 (EST)
-Message-ID: <20141121.145334.65720125038869042.davem@davemloft.net>
-References: <1394712342-15778-88-Taiwan-albertk@realtek.com>
-	<1394712342-15778-98-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH net] net/mlx4_en: Add VXLAN ndo calls to the PF net
+ device ops too
+Date: Fri, 21 Nov 2014 14:55:10 -0500 (EST)
+Message-ID: <20141121.145510.1479113144106448081.davem@davemloft.net>
+References: <1416325887-14704-1-git-send-email-ogerlitz@mellanox.com>
+	<20141119.151155.2119587385505880097.davem@davemloft.net>
+	<546D7913.7040508@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-98-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, fw@strlen.de, amirv@mellanox.com,
+	saeedm@mellanox.com
+To: ogerlitz@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38162 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751199AbaKUTzM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 14:55:12 -0500
+In-Reply-To: <546D7913.7040508@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Thu, 20 Nov 2014 10:29:04 +0800
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Thu, 20 Nov 2014 07:16:03 +0200
 
-> v3:
-> For patch #1, remove unnecessary initialization for ret and
-> unnecessary blank line in r8152_submit_rx().
+> On 11/19/2014 10:11 PM, David Miller wrote:
+>> Applied, -stable material? If so for what releases? In the future, if
+>> you add an appropriated Fixes: tag I can figure most of this out
+>> without asking you. Thanks.
 > 
-> v2:
-> For patch #1, set actual_length to 0 before adding the rx to the
-> list, when a error occurs.
 > 
-> For patch #2, change the flow. Stop submitting the rx if a error
-> occurs, and add the remaining rx to the list for submitting later.
+> Yes, please! let the below commits two swim for a while in 3.18-rc and
+> later push
+> them to -stable >= 3.15, got it re the fixes: tag, thanks for the
+> heads-up.
 > 
-> v1:
-> Adjust some flows and codes which are relative to r8152_submit_rx()
-> and rtl_start_rx().
+> 9737c6a net/mlx4_en: Add VXLAN ndo calls to the PF net device ops too
+> f4a1edd net/mlx4_en: Advertize encapsulation offloads features only
+> when VXLAN tunnel is set
 
-Series applied, thanks.
+Ok, queued up for -stable.
