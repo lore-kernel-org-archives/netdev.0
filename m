@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/17] i40e: implement ethtool RSS config
-Date: Fri, 21 Nov 2014 21:55:05 -0800
-Message-ID: <1416635708-4765-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/17] i40evf: refactor ethtool RSS handling
+Date: Fri, 21 Nov 2014 21:55:04 -0800
+Message-ID: <1416635708-4765-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1416635708-4765-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:15262 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:26255 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750878AbaKVFzT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1750874AbaKVFzT (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 22 Nov 2014 00:55:19 -0500
 In-Reply-To: <1416635708-4765-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,137 +18,133 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Mitch Williams <mitch.a.williams@intel.com>
 
-Support ethtool methods for getting and setting the RSS look-up table.
+Add support for setting the RSS key as it is now implemented.
 
-Change-ID: I52707fb371fc11fe9fd4c287e08542cde38f79d4
+Change-ID: I9290ae3ea99d0e46053540650f95e24a24e453f1
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 104 +++++++++++++++++++++++++
- 1 file changed, 104 insertions(+)
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 66 ++++++++++++++++------
+ 1 file changed, 50 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index fcd815d..f9f68ea 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -2237,6 +2237,106 @@ static int i40e_set_channels(struct net_device *dev,
- 		return -EINVAL;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+index 69a269b..ed0e4dc 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+@@ -608,6 +608,19 @@ static void i40evf_get_channels(struct net_device *netdev,
+ 	ch->combined_count = adapter->num_active_queues;
  }
  
-+#define I40E_HLUT_ARRAY_SIZE ((I40E_PFQF_HLUT_MAX_INDEX + 1) * 4)
-+#define I40E_HKEY_ARRAY_SIZE ((I40E_PFQF_HKEY_MAX_INDEX * 1) * 4)
++#define I40EVF_HLUT_ARRAY_SIZE ((I40E_VFQF_HLUT_MAX_INDEX + 1) * 4)
++#define I40EVF_HKEY_ARRAY_SIZE ((I40E_VFQF_HKEY_MAX_INDEX * 1) * 4)
 +/**
-+ * i40e_get_rxfh_key_size - get the RSS hash key size
++ * i40evf_get_rxfh_key_size - get the RSS hash key size
 + * @netdev: network interface device structure
 + *
 + * Returns the table size.
 + **/
-+static u32 i40e_get_rxfh_key_size(struct net_device *netdev)
++static u32 i40evf_get_rxfh_key_size(struct net_device *netdev)
 +{
-+	return I40E_HKEY_ARRAY_SIZE;
++	return I40EVF_HKEY_ARRAY_SIZE;
 +}
 +
-+/**
-+ * i40e_get_rxfh_indir_size - get the rx flow hash indirection table size
-+ * @netdev: network interface device structure
-+ *
-+ * Returns the table size.
-+ **/
-+static u32 i40e_get_rxfh_indir_size(struct net_device *netdev)
-+{
-+	return I40E_HLUT_ARRAY_SIZE;
-+}
-+
-+/**
-+ * i40e_get_rxfh - get the rx flow hash indirection table
-+ * @netdev: network interface device structure
-+ * @indir: indirection table
-+ * @key: hash key
-+ *
-+ * Reads the indirection table directly from the hardware. Always returns 0.
-+ **/
-+static int i40e_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key)
-+{
-+	struct i40e_netdev_priv *np = netdev_priv(netdev);
-+	struct i40e_vsi *vsi = np->vsi;
-+	struct i40e_pf *pf = vsi->back;
-+	struct i40e_hw *hw = &pf->hw;
+ /**
+  * i40evf_get_rxfh_indir_size - get the rx flow hash indirection table size
+  * @netdev: network interface device structure
+@@ -616,7 +629,7 @@ static void i40evf_get_channels(struct net_device *netdev,
+  **/
+ static u32 i40evf_get_rxfh_indir_size(struct net_device *netdev)
+ {
+-	return (I40E_VFQF_HLUT_MAX_INDEX + 1) * 4;
++	return I40EVF_HLUT_ARRAY_SIZE;
+ }
+ 
+ /**
+@@ -631,19 +644,28 @@ static int i40evf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key)
+ {
+ 	struct i40evf_adapter *adapter = netdev_priv(netdev);
+ 	struct i40e_hw *hw = &adapter->hw;
+-	u32 hlut_val;
 +	u32 reg_val;
-+	int i, j;
-+
-+	for (i = 0, j = 0; i <= I40E_PFQF_HLUT_MAX_INDEX; i++) {
-+		reg_val = rd32(hw, I40E_PFQF_HLUT(i));
+ 	int i, j;
+ 
+ 	for (i = 0, j = 0; i <= I40E_VFQF_HLUT_MAX_INDEX; i++) {
+-		hlut_val = rd32(hw, I40E_VFQF_HLUT(i));
+-		indir[j++] = hlut_val & 0xff;
+-		indir[j++] = (hlut_val >> 8) & 0xff;
+-		indir[j++] = (hlut_val >> 16) & 0xff;
+-		indir[j++] = (hlut_val >> 24) & 0xff;
++		reg_val = rd32(hw, I40E_VFQF_HLUT(i));
 +		indir[j++] = reg_val & 0xff;
 +		indir[j++] = (reg_val >> 8) & 0xff;
 +		indir[j++] = (reg_val >> 16) & 0xff;
 +		indir[j++] = (reg_val >> 24) & 0xff;
 +	}
++
 +	if (key) {
-+		for (i = 0, j = 0; i <= I40E_PFQF_HKEY_MAX_INDEX; i++) {
-+			reg_val = rd32(hw, I40E_PFQF_HKEY(i));
++		for (i = 0, j = 0; i <= I40E_VFQF_HKEY_MAX_INDEX; i++) {
++			reg_val = rd32(hw, I40E_VFQF_HKEY(i));
 +			key[j++] = (u8)(reg_val & 0xff);
 +			key[j++] = (u8)((reg_val >> 8) & 0xff);
 +			key[j++] = (u8)((reg_val >> 16) & 0xff);
 +			key[j++] = (u8)((reg_val >> 24) & 0xff);
 +		}
-+	}
-+	return 0;
-+}
-+
-+/**
-+ * i40e_set_rxfh - set the rx flow hash indirection table
-+ * @netdev: network interface device structure
-+ * @indir: indirection table
-+ * @key: hash key
-+ *
-+ * Returns -EINVAL if the table specifies an inavlid queue id, otherwise
-+ * returns 0 after programming the table.
-+ **/
-+static int i40e_set_rxfh(struct net_device *netdev, const u32 *indir,
-+			 const u8 *key)
-+{
-+	struct i40e_netdev_priv *np = netdev_priv(netdev);
-+	struct i40e_vsi *vsi = np->vsi;
-+	struct i40e_pf *pf = vsi->back;
-+	struct i40e_hw *hw = &pf->hw;
+ 	}
+ 	return 0;
+ }
+-
+ /**
+  * i40evf_set_rxfh - set the rx flow hash indirection table
+  * @netdev: network interface device structure
+@@ -658,17 +680,27 @@ static int i40evf_set_rxfh(struct net_device *netdev, const u32 *indir,
+ {
+ 	struct i40evf_adapter *adapter = netdev_priv(netdev);
+ 	struct i40e_hw *hw = &adapter->hw;
+-	u32 hlut_val;
 +	u32 reg_val;
-+	int i, j;
-+
+ 	int i, j;
+ 
+-	for (i = 0, j = 0; i <= I40E_VFQF_HLUT_MAX_INDEX; i++) {
+-		hlut_val = indir[j++];
+-		hlut_val |= indir[j++] << 8;
+-		hlut_val |= indir[j++] << 16;
+-		hlut_val |= indir[j++] << 24;
+-		wr32(hw, I40E_VFQF_HLUT(i), hlut_val);
 +	if (indir) {
-+		for (i = 0, j = 0; i <= I40E_PFQF_HLUT_MAX_INDEX; i++) {
++		for (i = 0, j = 0; i <= I40E_VFQF_HLUT_MAX_INDEX; i++) {
 +			reg_val = indir[j++];
 +			reg_val |= indir[j++] << 8;
 +			reg_val |= indir[j++] << 16;
 +			reg_val |= indir[j++] << 24;
-+			wr32(hw, I40E_PFQF_HLUT(i), reg_val);
++			wr32(hw, I40E_VFQF_HLUT(i), reg_val);
 +		}
 +	}
 +	if (key) {
-+		for (i = 0, j = 0; i <= I40E_PFQF_HKEY_MAX_INDEX; i++) {
++		for (i = 0, j = 0; i <= I40E_VFQF_HKEY_MAX_INDEX; i++) {
 +			reg_val = key[j++];
 +			reg_val |= key[j++] << 8;
 +			reg_val |= key[j++] << 16;
 +			reg_val |= key[j++] << 24;
-+			wr32(hw, I40E_PFQF_HKEY(i), reg_val);
++			wr32(hw, I40E_VFQF_HKEY(i), reg_val);
 +		}
-+	}
-+	return 0;
-+}
+ 	}
+-
+ 	return 0;
+ }
+ 
+@@ -687,10 +719,12 @@ static const struct ethtool_ops i40evf_ethtool_ops = {
+ 	.set_coalesce		= i40evf_set_coalesce,
+ 	.get_rxnfc		= i40evf_get_rxnfc,
+ 	.set_rxnfc		= i40evf_set_rxnfc,
++	.get_rxfh_key_size	= i40evf_get_rxfh_key_size,
+ 	.get_rxfh_indir_size	= i40evf_get_rxfh_indir_size,
+ 	.get_rxfh		= i40evf_get_rxfh,
+ 	.set_rxfh		= i40evf_set_rxfh,
+ 	.get_channels		= i40evf_get_channels,
 +
- static const struct ethtool_ops i40e_ethtool_ops = {
- 	.get_settings		= i40e_get_settings,
- 	.set_settings		= i40e_set_settings,
-@@ -2265,6 +2365,10 @@ static const struct ethtool_ops i40e_ethtool_ops = {
- 	.get_ethtool_stats	= i40e_get_ethtool_stats,
- 	.get_coalesce		= i40e_get_coalesce,
- 	.set_coalesce		= i40e_set_coalesce,
-+	.get_rxfh_key_size	= i40e_get_rxfh_key_size,
-+	.get_rxfh_indir_size	= i40e_get_rxfh_indir_size,
-+	.get_rxfh		= i40e_get_rxfh,
-+	.set_rxfh		= i40e_set_rxfh,
- 	.get_channels		= i40e_get_channels,
- 	.set_channels		= i40e_set_channels,
- 	.get_ts_info		= i40e_get_ts_info,
+ };
+ 
+ /**
 -- 
 1.9.3
