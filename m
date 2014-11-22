@@ -1,40 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] i40e: enable fdb add code, remove unused code
-Date: Sat, 22 Nov 2014 16:56:59 -0500 (EST)
-Message-ID: <20141122.165659.986635845194584299.davem@davemloft.net>
-References: <1416529802-16055-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next 0/5] RDMA/cxgb4,cxgb4vf,csiostor: Cleanup
+ macros
+Date: Sat, 22 Nov 2014 16:58:11 -0500 (EST)
+Message-ID: <20141122.165811.2270530256951559796.davem@davemloft.net>
+References: <1416554525-11844-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jesse.brandeburg@intel.com, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51211 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750878AbaKVV5C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2014 16:57:02 -0500
-In-Reply-To: <1416529802-16055-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
+	JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, praveen-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1416554525-11844-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 20 Nov 2014 16:30:02 -0800
+From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Date: Fri, 21 Nov 2014 12:52:00 +0530
 
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> This series continues to cleanup all the macros/register defines related to
+> filter, port, VI, queue, RSS, LDST, firmware, etc that are defined in t4fw_api.h
+> and the affected files.
 > 
-> The original FDB code submission wasn't correct and the code
-> wasn't enabled.  This removes some dead code (can use the common kernel
-> code for fdb_del and fdb_dump) and correctly enables the fdb_add
-> function pointer.
+> Will post few more series so that we can cover all the macros so that they all
+> follow the same style to be consistent.
 > 
-> The fdb_add functionality is important to i40e because it is needed
-> for a workaround to allow bridges to work correctly on the i40e
-> hardware.
+> The patches series is created against 'net-next' tree.
+> And includes patches on cxgb4, cxgb4vf, iw_cxgb4 and csiostor driver.
 > 
-> Reported-by: Jiri Pirko <jiri@resnulli.us>
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Acked-by: Greg Rose <gregory.v.rose@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> We have included all the maintainers of respective drivers. Kindly review the
+> change and let us know in case of any review comments.
 
-Applied, thanks Jeff.
+Series applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
