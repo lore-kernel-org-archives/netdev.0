@@ -1,55 +1,91 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [RFC PATCH 1/4] rtnetlink: new flag NLM_F_HW_OFFLOAD to indicate
- kernel object offload to hardware
-Date: Fri, 21 Nov 2014 16:10:15 -0800
-Message-ID: <546FD467.5030602@cumulusnetworks.com>
-References: <1416610170-21224-2-git-send-email-roopa@cumulusnetworks.com> <20141121231234.GA20810@casper.infradead.org>
+From: Andres Freund <andres@anarazel.de>
+Subject: Re: [PATCH v2 9/9] netfilter: Replace smp_read_barrier_depends()
+ with lockless_dereference()
+Date: Sat, 22 Nov 2014 01:24:45 +0100
+Message-ID: <20141122002445.GA4704@alap3.anarazel.de>
+References: <1416582363-20661-1-git-send-email-bobby.prani@gmail.com>
+ <1416582363-20661-10-git-send-email-bobby.prani@gmail.com>
+ <1416586364.8629.104.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAJhHMCCCSU7PbWdgPouefbLJBcoxR8nmsS8dg_=BcuqVJZbDew@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, sfeldma@gmail.com, jhs@mojatatu.com,
-	bcrl@kvack.org, john.fastabend@gmail.com,
-	stephen@networkplumber.org, linville@tuxdriver.com,
-	nhorman@tuxdriver.com, nicolas.dichtel@6wind.com,
-	vyasevic@redhat.com, f.fainelli@gmail.com, buytenh@wantstofly.org,
-	aviadr@mellanox.com, netdev@vger.kernel.org, davem@davemloft.net,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	gospo@cumulusnetworks.com
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:49584 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752160AbaKVAKU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 19:10:20 -0500
-In-Reply-To: <20141121231234.GA20810@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	"open list:NETWORKING [IPv4/..." <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Pranith Kumar <bobby.prani@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAJhHMCCCSU7PbWdgPouefbLJBcoxR8nmsS8dg_=BcuqVJZbDew@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/21/14, 3:12 PM, Thomas Graf wrote:
-> On 11/21/14 at 02:49pm, roopa@cumulusnetworks.com wrote:
->> diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
->> index 1a85940..f78522d 100644
->> --- a/include/uapi/linux/netlink.h
->> +++ b/include/uapi/linux/netlink.h
->> @@ -54,6 +54,8 @@ struct nlmsghdr {
->>   #define NLM_F_ACK		4	/* Reply with ack, with zero or error code */
->>   #define NLM_F_ECHO		8	/* Echo this request 		*/
->>   #define NLM_F_DUMP_INTR		16	/* Dump was inconsistent due to sequence change */
->> ++#define NLM_F_KERNEL       32      /* This msg is only for the kernel */
->> +#define NLM_F_HW_OFFLOAD	64	/* offload this msg to hw */
->>   
->>   /* Modifiers to GET request */
->>   #define NLM_F_ROOT	0x100	/* specify tree	root	*/
-> The NLM_F_ flag space applies to all Netlink messages including non
-> networking bits and is reserved for flags vital to the functioning
-> of the Netlink protocol itself. I suggest you move this to a
-> RTNETLINK specific flags space.
+Hi,
 
-I did try to add it at a layer lower than the netlink header. But, 
-nothing else fits so well as this :).
-I did not find a place where i could make it a global flag for just 
-networking objects. As I mention in my patch description,
-If not here it will be a per subsystem flag/attribute. I can post a 
-patch showing that approach as well.
+On 2014-11-21 16:57:00 -0500, Pranith Kumar wrote:
+> On Fri, Nov 21, 2014 at 11:12 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Fri, 2014-11-21 at 10:06 -0500, Pranith Kumar wrote:
+> >> Recently lockless_dereference() was added which can be used in place of
+> >> hard-coding smp_read_barrier_depends(). The following PATCH makes the change.
+> >>
+> >> Signed-off-by: Pranith Kumar <bobby.prani@gmail.com>
+> >> ---
+> >>  net/ipv4/netfilter/arp_tables.c | 3 +--
+> >>  net/ipv4/netfilter/ip_tables.c  | 3 +--
+> >>  net/ipv6/netfilter/ip6_tables.c | 3 +--
+> >>  3 files changed, 3 insertions(+), 6 deletions(-)
+> >>
+> >> diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+> >> index f95b6f9..fc7533d 100644
+> >> --- a/net/ipv4/netfilter/arp_tables.c
+> >> +++ b/net/ipv4/netfilter/arp_tables.c
+> >> @@ -270,12 +270,11 @@ unsigned int arpt_do_table(struct sk_buff *skb,
+> >>
+> >>       local_bh_disable();
+> >>       addend = xt_write_recseq_begin();
+> >> -     private = table->private;
+> >>       /*
+> >>        * Ensure we load private-> members after we've fetched the base
+> >>        * pointer.
+> >>        */
+> >> -     smp_read_barrier_depends();
+> >> +     private = lockless_dereference(table->private);
+> >>       table_base = private->entries[smp_processor_id()];
+> >>
+> >
+> >
+> > Please carefully read the code, before and after your change, then
+> > you'll see this change broke the code.
+> >
+> > Problem is that a bug like that can be really hard to diagnose and fix
+> > later, so really you have to be very careful doing these mechanical
+> > changes.
+> >
+> > IMO, current code+comment is better than with this
+> > lockless_dereference() which in this particular case obfuscates the
+> > code. more than anything.
+> >
+> > In this case we do have a lock (sort of), so lockless_dereference() is
+> > quite misleading.
+> >
+> 
+> Hi Eric,
+> 
+> Thanks for looking at this patch.
+> 
+> I've been scratching my head since morning trying to find out what was
+> so obviously wrong with this patch. Alas, I don't see what you do.
 
-Thanks!.
+Afaics the read_barrier_depends protected the load from private->entries[x]
+earlier, not the load of table->private itself.
+
+Greetings,
+
+Andres Freund
