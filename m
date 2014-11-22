@@ -1,67 +1,45 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 01/17] i40e: Remove unneeded break statement
-Date: Fri, 21 Nov 2014 21:58:43 -0800
-Message-ID: <1416635923.2280.110.camel@jtkirshe-mobl>
-References: <1416635708-4765-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1416635708-4765-2-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ceULwQ+2DH4Pop0Rpv+F"
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: davem@davemloft.net
+From: Ani Sinha <ani@arista.com>
+Subject: [PATCH 1/1] fix return code from fib_rules_lookup()
+Date: Fri, 21 Nov 2014 22:25:21 -0800
+Message-ID: <1416637521-20173-1-git-send-email-ani@arista.com>
+Cc: netdev@vger.kernel.org, fruggeri@arista.com, ani@arista.com
+To: davem@davemloft.net, maze@google.com, edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:37548 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750711AbaKVF6o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Nov 2014 00:58:44 -0500
-In-Reply-To: <1416635708-4765-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:58081 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750711AbaKVGZ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2014 01:25:26 -0500
+Received: by mail-pd0-f169.google.com with SMTP id fp1so6593467pdb.28
+        for <netdev@vger.kernel.org>; Fri, 21 Nov 2014 22:25:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+ fib_lookup() api returns two different types of error
+ codes. When no custom FIB rules are installed and
+ lookup fails, it returns ENETUNREACH. However, when
+ custom rules are installed, __fib_lookup() calls
+ fib_rules_lookup() which returns ESRCH when the rule
+ lookup fails. This patch makes both code paths return
+ identical error codes under lookup failure.
 
---=-ceULwQ+2DH4Pop0Rpv+F
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2014-11-21 at 21:54 -0800, Jeff Kirsher wrote:
-> From: Shannon Nelson <shannon.nelson@intel.com>
->=20
-> This case statement is empty and the fall through just breaks out
-> so remove the break and let it fall through to break out.
->=20
-> Change-ID: I1b5ba9870d5245ca80bfca6e7f5f089e2eb8ccb0
-> Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_main.c | 2 --
->  1 file changed, 2 deletions(-)
+Signed-off-by: Ani Sinha <ani@arista.com>
+---
+ net/core/fib_rules.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Disregard this patch, I fixed a mis-spelled word in the patch, but
-forgot to cleanup (ie remove) this patch from the group of patches to be
-sent.  I have already sent out the "fixed" patch in the series.
-
---=-ceULwQ+2DH4Pop0Rpv+F
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJUcCYTAAoJEOVv75VaS+3OjAEQAJveykcvK8vdmgm8XIP3rHgc
-JL2TMpRIUPvFAuhgBIYYdXC0Un6beGjwSlpyieFRXiTw8UYnAvkaeEPwgH+tKsX+
-WyCYYDR4P2vl72cOvhuxjuVGElc0RsFHPfbDZXC8acHONPiR4OwP70tCDSDZj2Dx
-H9AjGzhcJ05PeDHpUXPe9XD/4NMHhRig369cF8qR1ecPdgdPlLtrAruba5XjCcWg
-Xq79AdDUQ7dagQe0i4ngpwHoJ7KgVFvdY4oTQMLnmC72uS7phede2xk7vzyb5kDS
-el7Uc2B1JvMi9H93wE0G6g63a3mWlbxYTFCQDDvTZNwMpii3WVN3y6RB5tjtJRp/
-aUCdw0arWY8KhBy8POiJvQv2ixO6oI2xTjp1/RV9NbPFwLP3I15QO4qhI6ix/gRt
-p0Rh5fT3jofFo6JqACvVSX5HQNbqO4ENEe1RBGFPOBQcMUBMKnwfMvXrsr7sIf5u
-q/MqxQsc8569LVgofZfoZl7y4X/7Ly6DvenyUNdkGVNm1eaQX+GuLn1m7mcKtPiX
-382Ct0OXZe8LaJlImWyweEwWLvO/wCfeu9QRqHftl2dDL+NiTTamtxBEaTXdFXvN
-afhuNKsLBH2hJV5lToHaa02SJQKrgJDsAU6iT/7igIwoRODbViPLcCZF4lm3DIdc
-pW39V3DGLyy2LJ4qEMW7
-=cQyg
------END PGP SIGNATURE-----
-
---=-ceULwQ+2DH4Pop0Rpv+F--
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 185c341..ab8e732 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -242,7 +242,7 @@ jumped:
+ 		}
+ 	}
+ 
+-	err = -ESRCH;
++	err = -ENETUNREACH;
+ out:
+ 	rcu_read_unlock();
+ 
+-- 
+1.7.4.4
