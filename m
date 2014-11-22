@@ -1,67 +1,93 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RFC PATCH 1/4] rtnetlink: new flag NLM_F_HW_OFFLOAD to indicate
- kernel object offload to hardware
-Date: Sat, 22 Nov 2014 23:08:20 +0300
-Message-ID: <5470ED34.4090809@cogentembedded.com>
-References: <1416610170-21224-2-git-send-email-roopa@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shrijeet@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: roopa@cumulusnetworks.com, jiri@resnulli.us, sfeldma@gmail.com,
-	jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
-	john.fastabend@gmail.com, stephen@networkplumber.org,
-	linville@tuxdriver.com, nhorman@tuxdriver.com,
-	nicolas.dichtel@6wind.com, vyasevic@redhat.com,
-	f.fainelli@gmail.com, buytenh@wantstofly.org, aviadr@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f49.google.com ([209.85.215.49]:43016 "EHLO
-	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751511AbaKVUIW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2014 15:08:22 -0500
-Received: by mail-la0-f49.google.com with SMTP id hs14so5654980lab.8
-        for <netdev@vger.kernel.org>; Sat, 22 Nov 2014 12:08:21 -0800 (PST)
-In-Reply-To: <1416610170-21224-2-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pieter Smith <pieter@boesman.nl>
+Subject: [PATCH 5/6] net/core: support compiling out splice
+Date: Sat, 22 Nov 2014 22:00:00 +0100
+Message-ID: <1416690001-20817-6-git-send-email-pieter@boesman.nl>
+References: <1416690001-20817-1-git-send-email-pieter@boesman.nl>
+Cc: Josh Triplett <josh@joshtriplett.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Willem de Bruijn <willemb@google.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	Thomas Graf <tgraf@suug.ch>, Jan Beulich <JBeulich@suse.com>,
+	Miklos Szeredi <mszeredi@suse.cz>,
+	linux-kernel@vger.kernel.org (open list),
+	netdev@vger.kernel.org (open list:NETWORKING [GENERAL])
+To: pieter@boesman.nl
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1416690001-20817-1-git-send-email-pieter@boesman.nl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Compile out splice support from networking core when the splice-family of
+syscalls is not supported by the system (i.e. CONFIG_SYSCALL_SPLICE is
+undefined).
 
-On 11/22/2014 1:49 AM, roopa@cumulusnetworks.com wrote:
+Signed-off-by: Pieter Smith <pieter@boesman.nl>
+---
+ include/linux/skbuff.h | 9 +++++++++
+ net/core/skbuff.c      | 9 ++++++---
+ 2 files changed, 15 insertions(+), 3 deletions(-)
 
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-
-> This patch adds new flags in netlink header nlmsg_flags to signal if the
-> message is for the kernel, hw or both.
-
-> This can be used to indicate hw offload for all kind of objects
-> routes, fdb entries, neighs, link objects like bonds, bridges, vxlan.
-
-> Adding it in the header makes it possible to use it accross all objects and
-> across all messages (sets/gets/deletes).
-
-> Other alternative to this is a per kernel object netlink attribute/flag.
-> But that leads to duplicating the attribute in different subsystems.
-
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> ---
->   include/uapi/linux/netlink.h |    2 ++
->   1 file changed, 2 insertions(+)
-
-> diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
-> index 1a85940..f78522d 100644
-> --- a/include/uapi/linux/netlink.h
-> +++ b/include/uapi/linux/netlink.h
-> @@ -54,6 +54,8 @@ struct nlmsghdr {
->   #define NLM_F_ACK		4	/* Reply with ack, with zero or error code */
->   #define NLM_F_ECHO		8	/* Echo this request 		*/
->   #define NLM_F_DUMP_INTR		16	/* Dump was inconsistent due to sequence change */
-> ++#define NLM_F_KERNEL       32      /* This msg is only for the kernel */
-
-    I don't think you really meant double '+'.
-
-> +#define NLM_F_HW_OFFLOAD	64	/* offload this msg to hw */
-[...]
-
-WBR, Sergei
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index a59d934..8c28524 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2640,9 +2640,18 @@ int skb_copy_bits(const struct sk_buff *skb, int offset, void *to, int len);
+ int skb_store_bits(struct sk_buff *skb, int offset, const void *from, int len);
+ __wsum skb_copy_and_csum_bits(const struct sk_buff *skb, int offset, u8 *to,
+ 			      int len, __wsum csum);
++#ifdef CONFIG_SYSCALL_SPLICE
+ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
+ 		    struct pipe_inode_info *pipe, unsigned int len,
+ 		    unsigned int flags);
++#else /* #ifdef CONFIG_SYSCALL_SPLICE */
++static inline int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
++		    struct pipe_inode_info *pipe, unsigned int len,
++		    unsigned int flags)
++{
++	return -EPERM;
++}
++#endif /* #ifdef CONFIG_SYSCALL_SPLICE */
+ void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to);
+ unsigned int skb_zerocopy_headlen(const struct sk_buff *from);
+ int skb_zerocopy(struct sk_buff *to, struct sk_buff *from,
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 61059a0..74fad8a 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1781,9 +1781,9 @@ static bool __splice_segment(struct page *page, unsigned int poff,
+  * Map linear and fragment data from the skb to spd. It reports true if the
+  * pipe is full or if we already spliced the requested length.
+  */
+-static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
+-			      unsigned int *offset, unsigned int *len,
+-			      struct splice_pipe_desc *spd, struct sock *sk)
++static bool __maybe_unused __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
++					     unsigned int *offset, unsigned int *len,
++					     struct splice_pipe_desc *spd, struct sock *sk)
+ {
+ 	int seg;
+ 
+@@ -1821,6 +1821,7 @@ static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
+  * the frag list, if such a thing exists. We'd probably need to recurse to
+  * handle that cleanly.
+  */
++#ifdef CONFIG_SYSCALL_SPLICE
+ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
+ 		    struct pipe_inode_info *pipe, unsigned int tlen,
+ 		    unsigned int flags)
+@@ -1876,6 +1877,8 @@ done:
+ 
+ 	return ret;
+ }
++#endif /* #ifdef CONFIG_SYSCALL_SPLICE */
++
+ 
+ /**
+  *	skb_store_bits - store bits from kernel buffer to skb
+-- 
+1.9.1
