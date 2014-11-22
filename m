@@ -1,49 +1,54 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [RFC] situation with csum_and_copy_... API
-Date: Sat, 22 Nov 2014 03:36:39 +0000
-Message-ID: <20141122033639.GY7996@ZenIV.linux.org.uk>
-References: <CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
- <20141119.161744.1661940121298888832.davem@davemloft.net>
- <20141119213006.GE7996@ZenIV.linux.org.uk>
- <20141119.165340.2162829993279387495.davem@davemloft.net>
- <20141120214753.GR7996@ZenIV.linux.org.uk>
- <1416520542.8629.46.camel@edumazet-glaptop2.roam.corp.google.com>
- <20141120222506.GS7996@ZenIV.linux.org.uk>
- <1416524035.8629.54.camel@edumazet-glaptop2.roam.corp.google.com>
- <20141121084956.GT7996@ZenIV.linux.org.uk>
- <20141122032718.GA24457@ZenIV.linux.org.uk>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [net PATCH] ipv6: Do not treat a GSO_TCPV4 request from UDP tunnel
+ over IPv6 as invalid
+Date: Fri, 21 Nov 2014 19:37:09 -0800
+Message-ID: <20141122033603.22361.28896.stgit@ahduyck-server>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, target-devel@vger.kernel.org,
-	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <target-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141122032718.GA24457@ZenIV.linux.org.uk>
-Sender: target-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44278 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751760AbaKVDhM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Nov 2014 22:37:12 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 22, 2014 at 03:27:18AM +0000, Al Viro wrote:
-  
-> @@ -566,38 +445,15 @@ static size_t copy_to_iter_bvec(void *from, size_t bytes, struct iov_iter *i)
-[snip]
-> +	iterate_bvec(i, bytes, page, off, len, true,
-> +		     memcpy_from_page((from += len) - len, page, off, len))
+This patch adds SKB_GSO_TCPV4 to the list of supported GSO types handled by
+the IPv6 GSO offloads.  Without this change VXLAN tunnels running over IPv6
+do not currently handle IPv4 TCP TSO requests correctly and end up handing
+the non-segmented frame off to the device.
 
-should be
-+		     memcpy_to_page(page, off, (from += len) - len, len))
+Below is the before and after for a simple netperf TCP_STREAM test between
+two endpoints tunneling IPv4 over a VXLAN tunnel running on IPv6 on top of
+a 1Gb/s network adapter.
 
-and
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
 
-> @@ -605,35 +461,9 @@ static size_t copy_from_iter_bvec(void *to, size_t bytes, struct iov_iter *i)
-[snip]
-> +	iterate_bvec(i, bytes, page, off, len, true,
-> +		     memcpy_to_page(page, off, (to += len) - len, len))
+ 87380  16384  16384    10.29       0.88      Before
+ 87380  16384  16384    10.03     895.69      After
 
-should be
-+		     memcpy_from_page((to += len) - len, page, off, len))
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+---
+ net/ipv6/ip6_offload.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Sorry, wrong delta.
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index a071563..01e12d0 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -69,7 +69,8 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 	int nhoff;
+ 
+ 	if (unlikely(skb_shinfo(skb)->gso_type &
+-		     ~(SKB_GSO_UDP |
++		     ~(SKB_GSO_TCPV4 |
++		       SKB_GSO_UDP |
+ 		       SKB_GSO_DODGY |
+ 		       SKB_GSO_TCP_ECN |
+ 		       SKB_GSO_GRE |
