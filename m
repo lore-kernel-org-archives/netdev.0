@@ -1,174 +1,45 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 0/6] fix error return code
-Date: Sat, 22 Nov 2014 15:39:13 +0100
-Message-ID: <1416667159-9808-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-edac@vger.kernel.org,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	Dan Williams <dan.j.williams@intel.com>,
-	linux-arm-kernel@lists.infradead.org, dmaengine@vger.kernel.org
-To: linux-rdma@vger.kernel.org
+From: wc8348@cs.utexas.edu
+Subject: Problem about Setting TCP Congestion Window to a Small Constant
+Date: Sat, 22 Nov 2014 10:29:40 -0600
+Message-ID: <a7b958c622a1f1ebed77d4ce44109ceb.squirrel@webmail.cs.utexas.edu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:54078
-	"EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750961AbaKVOom (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2014 09:44:42 -0500
+Received: from poliwhirl.cs.utexas.edu ([128.83.120.135]:41197 "EHLO
+	poliwhirl.cs.utexas.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752025AbaKVQiA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2014 11:38:00 -0500
+Received: from webmail.cs.utexas.edu (www-data@localhost [127.0.0.1])
+	by poliwhirl.cs.utexas.edu (8.14.4/8.14.4/Debian-2ubuntu2.1) with ESMTP id sAMGTdbt009770
+	for <netdev@vger.kernel.org>; Sat, 22 Nov 2014 10:29:40 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The complate semantic patch that finds this problem is as follows:
-(http://coccinelle.lip6.fr/)
+Hi all,
+     My name is Wenzhi Cui, a graduate student working on TCP congestion
+control in Linux Kernel. I have a problem about congestion control in
+linux kernel.
 
-// <smpl>
-@ok exists@
-identifier f,ret,i;
-expression e;
-constant c;
-@@
+     Recently I am playing with TCP Congestion Control Protocol by setting
+the congestion window size to a constant, say 1, and measure the TCP
+flow throughput to see the relationship between cwnd size and
+transmission rate (on a stable environment).
 
-// identify a function that returns a negative return value at least once.
-f(...) {
-... when any
-(
-return -c@i;
-|
-ret = -c@i;
-... when != ret = e
-return ret;
-|
-if (ret < 0) { ... return ret; }
-)
-... when any
-}
+     The problem is, when I am setting the snd_cwnd to 1, the real
+transmission rate is around 25MBps. However, since I am testing TCP
+on our department network with 1Gbps (which is 125MBps) bandwidth and
+300 micro seconds Round trip time (measured by analyzing tcpdump
+trace). So the theoretical sending rate should be
+CWND * MSS / RTT = 1 * 1460 Byte / 300 us = around 5 MBps
+which is far less than the observed 25 MBps bandwidth. I have taken a look
+at tcp_cong.c, tcp_input output.c, etc. but I still cannot find the
+problem.
 
-@r exists@
-identifier ret,ok.f,fn;
-expression e1,e2,e3,e4,e5,e6,x;
-statement S,S1;
-position p1,p2,p3;
-@@
+     Can somebody help me figure out what is missing, maybe what may
+affect the real TCP transmission other than CWND or what will happen
+when CWND is set to a very small constant?
 
-// identify a case where the return variable is set to a non-negative value
-// and then returned in error-handling code
-f(...) {
-... when any
-(
-if@p1 (\(ret < 0\|ret != 0\))
- { ... return ret; }
-|
-ret@p1 = 0
-)
-... when != \(ret = e1\|ret++\|ret--\|ret+=e1\|ret-=e1\)
-    when != &ret
-    when any
-(
- if (<+... ret = e5 ...+>) S1
-|
- if (<+... &ret ...+>) S1
-|
-if@p2(<+...x = fn(...)...+>)
- {
-  ... when != ret = e6
-      when forall
- return@p3 ret;
-}
-|
-break;
-|
-x = fn(...)
-... when != \(ret = e4\|ret++\|ret--\|ret+=e4\|ret-=e4\)
-    when != &ret
-(
- if (<+... ret = e3 ...+>) S
-|
- if (<+... &ret ...+>) S
-|
-if@p2(<+...\(x != 0\|x < 0\|x == NULL\|IS_ERR(x)\)...+>)
- {
-  ... when != ret = e2
-      when forall
- return@p3 ret;
-}
-)
-)
-... when any
-}
-
-@printer depends on r@
-position p;
-identifier ok.f,pr;
-constant char [] c;
-@@
-
-f(...) { <...pr@p(...,c,...)...> }
-
-@bad0 exists@
-identifier r.ret,ok.f,g != {ERR_PTR,IS_ERR};
-position p != printer.p;
-@@
-
-f(...) { ... when any
-g@p(...,ret,...)
-... when any
- }
-
-@bad depends on !bad0 exists@
-position r.p1,r.p2;
-statement S1,S2;
-identifier r.ret;
-expression e1;
-@@
-
-// ignore the above if there is some path where the variable is set to
-// something else
-(
-if@p1 (\(ret < 0\|ret != 0\)) S1
-|
-ret@p1 = 0
-)
-... when any
- \(ret = e1\|ret++\|ret--\|ret+=e1\|ret-=e1\|&ret\)
-... when any
-if@p2(...) S2
-
-@bad1 depends on !bad0 && !bad exists@
-position r.p2;
-statement S2;
-identifier r.ret;
-expression e1;
-constant c;
-@@
-
-ret = -c
-... when != \(ret = e1\|ret++\|ret--\|ret+=e1\|ret-=e1\)
-    when != &ret
-    when any
-if@p2(...) S2
-
-@bad2 depends on !bad0 && !bad && !bad1 exists@
-position r.p1,r.p2;
-identifier r.ret;
-expression e1;
-statement S2;
-constant c;
-@@
-
-// likewise ignore it if there has been an intervening return
-ret@p1 = 0
-... when != if (...) { ... ret = e1 ... return ret; }
-    when != if (...) { ... return -c; }
-    when any
-if@p2(...) S2
-
-
-@script:python depends on !bad0 && !bad && !bad1 && !bad2@
-p1 << r.p1;
-p2 << r.p2;
-p3 << r.p3;
-@@
-
-cocci.print_main("",p1)
-cocci.print_secs("",p2)
-cocci.print_secs("",p3)
-
-// </smpl>
+Thanks,
+Wenzhi Cui
