@@ -1,43 +1,65 @@
-From: Josh Triplett <josh@joshtriplett.org>
-Subject: Re: [PATCH 5/6] net/core: support compiling out splice
-Date: Sat, 22 Nov 2014 15:07:32 -0800
-Message-ID: <20141122230731.GC24429@thin>
-References: <1416690001-20817-1-git-send-email-pieter@boesman.nl>
- <1416690001-20817-6-git-send-email-pieter@boesman.nl>
- <20141122214853.GB23711@thin>
- <CAPho-_+GV+2sVVxGsPSjvE3heEoGa4chbqrmnxLAr_p7RU=TDQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 12/14] mlx4: use netdev_rss_key_fill() helper
+Date: Sat, 22 Nov 2014 15:58:10 -0800
+Message-ID: <1416700690.20938.34.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1416147798-16561-1-git-send-email-edumazet@google.com>
+	 <1416147798-16561-13-git-send-email-edumazet@google.com>
+	 <1416692961.7215.31.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Willem de Bruijn <willemb@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
-	Miklos Szeredi <mszeredi@suse.cz>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Jan Beulich <JBeulich@suse.com>,
-	open list <linux-kernel@vger.kernel.org>,
-	Paul Durrant <Paul.Durrant@citrix.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>
-To: Pieter Smith <pieter@boesman.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAPho-_+GV+2sVVxGsPSjvE3heEoGa4chbqrmnxLAr_p7RU=TDQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Thomas Lendacky <Thomas.Lendacky@amd.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Rasesh Mody <rasesh.mody@qlogic.com>,
+	Sathya Perla <sathya.perla@emulex.com>,
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Shradha Shah <sshah@solarflare.com>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:39645 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751511AbaKVX6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2014 18:58:13 -0500
+Received: by mail-ig0-f172.google.com with SMTP id hl2so1478107igb.5
+        for <netdev@vger.kernel.org>; Sat, 22 Nov 2014 15:58:12 -0800 (PST)
+In-Reply-To: <1416692961.7215.31.camel@decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[Please don't top-post.]
+On Sat, 2014-11-22 at 21:49 +0000, Ben Hutchings wrote:
+> On Sun, 2014-11-16 at 06:23 -0800, Eric Dumazet wrote:
+> > Use of well known RSS key increases attack surface.
+> > Switch to a random one, using generic helper so that all
+> > ports share a common key.
+> > 
+> > Also provide ethtool -x support to fetch RSS key
+> [...]
+> > @@ -1799,6 +1805,7 @@ const struct ethtool_ops mlx4_en_ethtool_ops = {
+> >  	.get_rxnfc = mlx4_en_get_rxnfc,
+> >  	.set_rxnfc = mlx4_en_set_rxnfc,
+> >  	.get_rxfh_indir_size = mlx4_en_get_rxfh_indir_size,
+> > +	.get_rxfh_key_size = mlx4_en_get_rxfh_key_size,
+> >  	.get_rxfh = mlx4_en_get_rxfh,
+> >  	.set_rxfh = mlx4_en_set_rxfh,
+> [...]
+> 
+> A driver that implements get_rxfh_key_size() and set_rxfh() is assumed
+> to support setting the RSS key (and only the key).  However,
+> mlx4_en_set_rxfh() will currently crash if a new indirection table is
+> not provided.
 
-On Sat, Nov 22, 2014 at 11:50:51PM +0100, Pieter Smith wrote:
-> splice exports a structure that is used by skbuf. Mocking out a function is
-> straightforward. To my knowledge there is no elegant way of mocking out a
-> splice_operations struct. I directly modified the code to prevent linking
-> against the struct. Do you know of a better technique to get the same
-> result?
+Hi Ben.
 
-No, I don't.  The approach you took seems fine; I'm just saying that you
-need to explain the need for it in the commit message.
+Is this a net-next only concern, or is it an existing problem in net
+tree ?
 
-- JosH Triplett
+Thanks !
