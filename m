@@ -1,42 +1,40 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next 0/5] RDMA/cxgb4,cxgb4vf,csiostor: Cleanup
- macros
-Date: Sat, 22 Nov 2014 16:58:11 -0500 (EST)
-Message-ID: <20141122.165811.2270530256951559796.davem@davemloft.net>
-References: <1416554525-11844-1-git-send-email-hariprasad@chelsio.com>
+From: Vincent JARDIN <vincent.jardin@6wind.com>
+Subject: Re: [RFC PATCH 1/4] rtnetlink: new flag NLM_F_HW_OFFLOAD to indicate
+ kernel object offload to hardware
+Date: Sat, 22 Nov 2014 23:03:38 +0100
+Message-ID: <5471083A.7050701@6wind.com>
+References: <1416610170-21224-2-git-send-email-roopa@cumulusnetworks.com> <20141121231234.GA20810@casper.infradead.org> <546FD467.5030602@cumulusnetworks.com> <20141122122936.GD20810@casper.infradead.org> <5470E5E0.9070005@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
-	JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, praveen-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1416554525-11844-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Thomas Graf <tgraf@suug.ch>, jiri@resnulli.us, sfeldma@gmail.com,
+	jhs@mojatatu.com, bcrl@kvack.org, john.fastabend@gmail.com,
+	stephen@networkplumber.org, linville@tuxdriver.com,
+	nhorman@tuxdriver.com, nicolas.dichtel@6wind.com,
+	vyasevic@redhat.com, f.fainelli@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, netdev@vger.kernel.org, davem@davemloft.net,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
+	gospo@cumulusnetworks.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:53233 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750778AbaKVWDn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2014 17:03:43 -0500
+Received: by mail-wi0-f172.google.com with SMTP id n3so2358318wiv.17
+        for <netdev@vger.kernel.org>; Sat, 22 Nov 2014 14:03:42 -0800 (PST)
+In-Reply-To: <5470E5E0.9070005@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Date: Fri, 21 Nov 2014 12:52:00 +0530
+On 22/11/2014 20:37, Roopa Prabhu wrote:
+> struct ifinfomsg -> ifi_flags
+> struct ndmsg ->ndm_flags
+> struct rtmsg  -> rtm_flags
+>
+> If this is preferred .., I can repost the series with these changes.
 
-> This series continues to cleanup all the macros/register defines related to
-> filter, port, VI, queue, RSS, LDST, firmware, etc that are defined in t4fw_api.h
-> and the affected files.
-> 
-> Will post few more series so that we can cover all the macros so that they all
-> follow the same style to be consistent.
-> 
-> The patches series is created against 'net-next' tree.
-> And includes patches on cxgb4, cxgb4vf, iw_cxgb4 and csiostor driver.
-> 
-> We have included all the maintainers of respective drivers. Kindly review the
-> change and let us know in case of any review comments.
+Yes, it would be my preferred too.
 
-Series applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thank you,
+   Vincent
