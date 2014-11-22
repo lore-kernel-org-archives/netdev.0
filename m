@@ -1,36 +1,26 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -next] bpf: null dereference allocating large arrays
-Date: Sat, 22 Nov 2014 21:30:59 +0300
-Message-ID: <20141122183059.GC6994@mwanda>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [patch -next] bpf: null dereference allocating large arrays
+Date: Sat, 22 Nov 2014 10:45:51 -0800
+Message-ID: <CAADnVQL+zgLbsAcLv-qSFmUi9yOy0qB9m-hO75E53fXu6yL6hA@mail.gmail.com>
+References: <20141122183059.GC6994@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Alexei Starovoitov <ast@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:29888 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751302AbaKVS3n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2014 13:29:43 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexei Starovoitov <ast@kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20141122183059.GC6994@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There is a typo here, "array" is null so we can't dereference it and
-also the size calculation should match the kzalloc() on the lines
-before.
+On Sat, Nov 22, 2014 at 10:30 AM, Dan Carpenter
+<dan.carpenter@oracle.com> wrote:
+> There is a typo here, "array" is null so we can't dereference it and
+> also the size calculation should match the kzalloc() on the lines
+> before.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
-index 58b80c1..662a412 100644
---- a/kernel/bpf/arraymap.c
-+++ b/kernel/bpf/arraymap.c
-@@ -38,7 +38,7 @@ static struct bpf_map *array_map_alloc(union bpf_attr *attr)
- 	array = kzalloc(sizeof(*array) + attr->max_entries * elem_size,
- 			GFP_USER | __GFP_NOWARN);
- 	if (!array) {
--		array = vzalloc(array->map.max_entries * array->elem_size);
-+		array = vzalloc(sizeof(*array) + attr->max_entries * elem_size);
- 		if (!array)
- 			return ERR_PTR(-ENOMEM);
- 	}
+Not sure what tree you're looking at...
+it was more than typo, but it was fixed 4 days ago.
+See commit daaf427c6ab39 ("bpf: fix arraymap NULL deref and missing
+overflow and zero size checks")
