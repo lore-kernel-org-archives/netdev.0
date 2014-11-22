@@ -1,59 +1,125 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/3] ixgbe: Correctly disable VLAN filter in promiscuous mode
-Date: Fri, 21 Nov 2014 23:52:52 -0800
-Message-ID: <1416642774-17077-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
+Subject: [net 2/3] ixgbe: fix use after free adapter->state test in ixgbe_remove/ixgbe_probe
+Date: Fri, 21 Nov 2014 23:52:53 -0800
+Message-ID: <1416642774-17077-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1416642774-17077-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	stable <stable@vger.kernel.org>,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	Vladislav Yasevich <vyasevic@redhat.com>,
+	Mark Rustad <mark.d.rustad@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1416642774-17077-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vyasevich@gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
 
-IXGBE adapter seems to require that VLAN filtering be enabled if
-VMDQ or SRIOV are enabled.  When those functions are disabled,
-VLAN filtering may be disabled in promiscuous mode.
+While working on a different issue, I noticed an annoying use
+after free bug on my machine when unloading the ixgbe driver:
 
-Prior to commit a9b8943ee129 ("ixgbe: remove vlan_filter_disable
-and enable functions")
+[ 8642.318797] ixgbe 0000:02:00.1: removed PHC on p2p2
+[ 8642.742716] ixgbe 0000:02:00.1: complete
+[ 8642.743784] BUG: unable to handle kernel paging request at ffff8807d3740a90
+[ 8642.744828] IP: [<ffffffffa01c77dc>] ixgbe_remove+0xfc/0x1b0 [ixgbe]
+[ 8642.745886] PGD 20c6067 PUD 81c1f6067 PMD 81c15a067 PTE 80000007d3740060
+[ 8642.746956] Oops: 0002 [#1] SMP DEBUG_PAGEALLOC
+[ 8642.748039] Modules linked in: [...]
+[ 8642.752929] CPU: 1 PID: 1225 Comm: rmmod Not tainted 3.18.0-rc2+ #49
+[ 8642.754203] Hardware name: Supermicro X10SLM-F/X10SLM-F, BIOS 1.1b 11/01/2013
+[ 8642.755505] task: ffff8807e34d3fe0 ti: ffff8807b7204000 task.ti: ffff8807b7204000
+[ 8642.756831] RIP: 0010:[<ffffffffa01c77dc>]  [<ffffffffa01c77dc>] ixgbe_remove+0xfc/0x1b0 [ixgbe]
+[...]
+[ 8642.774335] Stack:
+[ 8642.775805]  ffff8807ee824098 ffff8807ee824098 ffffffffa01f3000 ffff8807ee824000
+[ 8642.777326]  ffff8807b7207e18 ffffffff8137720f ffff8807ee824098 ffff8807ee824098
+[ 8642.778848]  ffffffffa01f3068 ffff8807ee8240f8 ffff8807b7207e38 ffffffff8144180f
+[ 8642.780365] Call Trace:
+[ 8642.781869]  [<ffffffff8137720f>] pci_device_remove+0x3f/0xc0
+[ 8642.783395]  [<ffffffff8144180f>] __device_release_driver+0x7f/0xf0
+[ 8642.784876]  [<ffffffff814421f8>] driver_detach+0xb8/0xc0
+[ 8642.786352]  [<ffffffff814414a9>] bus_remove_driver+0x59/0xe0
+[ 8642.787783]  [<ffffffff814429d0>] driver_unregister+0x30/0x70
+[ 8642.789202]  [<ffffffff81375c65>] pci_unregister_driver+0x25/0xa0
+[ 8642.790657]  [<ffffffffa01eb38e>] ixgbe_exit_module+0x1c/0xc8e [ixgbe]
+[ 8642.792064]  [<ffffffff810f93a2>] SyS_delete_module+0x132/0x1c0
+[ 8642.793450]  [<ffffffff81012c61>] ? do_notify_resume+0x61/0xa0
+[ 8642.794837]  [<ffffffff816d2029>] system_call_fastpath+0x12/0x17
 
-The logic was correct.  However, after the commit the logic
-got reversed and VLAN filtered in now turned on when VMDQ/SRIOV
-is disabled.
+The issue is that test_and_set_bit() done on adapter->state is being
+performed *after* the netdevice has been freed via free_netdev().
 
-This patch changes the condition to enable hw vlan filtered
-when VMDQ or SRIOV is enabled.
+When netdev is being allocated on initialization time, it allocates
+a private area, here struct ixgbe_adapter, that resides after the
+net_device structure. In ixgbe_probe(), the device init routine,
+we set up the adapter after alloc_etherdev_mq() on the private area
+and add a reference for the pci_dev as well via pci_set_drvdata().
 
-Fixes: a9b8943ee129 ("ixgbe: remove vlan_filter_disable and enable functions")
+Both in the error path of ixgbe_probe(), but also on module unload
+when ixgbe_remove() is being called, commit 41c62843eb6a ("ixgbe:
+Fix rcu warnings induced by LER") accesses adapter after free_netdev().
+The patch stores the result in a bool and thus fixes above oops on my
+side.
+
+Fixes: 41c62843eb6a ("ixgbe: Fix rcu warnings induced by LER")
 Cc: stable <stable@vger.kernel.org>
-CC: Jacob Keller <jacob.e.keller@intel.com>
-Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
-Acked-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Cc: Mark Rustad <mark.d.rustad@intel.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index d2df4e3..7acde46 100644
+index 7acde46..82ffe8b 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3936,8 +3936,8 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 		 * if SR-IOV and VMDQ are disabled - otherwise ensure
- 		 * that hardware VLAN filters remain enabled.
- 		 */
--		if (!(adapter->flags & (IXGBE_FLAG_VMDQ_ENABLED |
--					IXGBE_FLAG_SRIOV_ENABLED)))
-+		if (adapter->flags & (IXGBE_FLAG_VMDQ_ENABLED |
-+				      IXGBE_FLAG_SRIOV_ENABLED))
- 			vlnctrl |= (IXGBE_VLNCTRL_VFE | IXGBE_VLNCTRL_CFIEN);
- 	} else {
- 		if (netdev->flags & IFF_ALLMULTI) {
+@@ -7979,6 +7979,7 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	int i, err, pci_using_dac, expected_gts;
+ 	unsigned int indices = MAX_TX_QUEUES;
+ 	u8 part_str[IXGBE_PBANUM_LENGTH];
++	bool disable_dev = false;
+ #ifdef IXGBE_FCOE
+ 	u16 device_caps;
+ #endif
+@@ -8369,13 +8370,14 @@ err_sw_init:
+ 	iounmap(adapter->io_addr);
+ 	kfree(adapter->mac_table);
+ err_ioremap:
++	disable_dev = !test_and_set_bit(__IXGBE_DISABLED, &adapter->state);
+ 	free_netdev(netdev);
+ err_alloc_etherdev:
+ 	pci_release_selected_regions(pdev,
+ 				     pci_select_bars(pdev, IORESOURCE_MEM));
+ err_pci_reg:
+ err_dma:
+-	if (!adapter || !test_and_set_bit(__IXGBE_DISABLED, &adapter->state))
++	if (!adapter || disable_dev)
+ 		pci_disable_device(pdev);
+ 	return err;
+ }
+@@ -8393,6 +8395,7 @@ static void ixgbe_remove(struct pci_dev *pdev)
+ {
+ 	struct ixgbe_adapter *adapter = pci_get_drvdata(pdev);
+ 	struct net_device *netdev = adapter->netdev;
++	bool disable_dev;
+ 
+ 	ixgbe_dbg_adapter_exit(adapter);
+ 
+@@ -8442,11 +8445,12 @@ static void ixgbe_remove(struct pci_dev *pdev)
+ 	e_dev_info("complete\n");
+ 
+ 	kfree(adapter->mac_table);
++	disable_dev = !test_and_set_bit(__IXGBE_DISABLED, &adapter->state);
+ 	free_netdev(netdev);
+ 
+ 	pci_disable_pcie_error_reporting(pdev);
+ 
+-	if (!test_and_set_bit(__IXGBE_DISABLED, &adapter->state))
++	if (disable_dev)
+ 		pci_disable_device(pdev);
+ }
+ 
 -- 
 1.9.3
