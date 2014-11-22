@@ -1,108 +1,97 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [RFC PATCH 4/4] bridge: make hw offload conditional on bridge
- and bridge port offload flags
-Date: Fri, 21 Nov 2014 16:33:42 -0800
-Message-ID: <546FD9E6.6080205@cumulusnetworks.com>
-References: <1416610170-21224-5-git-send-email-roopa@cumulusnetworks.com> <20141121233054.GB20810@casper.infradead.org>
+From: Pranith Kumar <bobby.prani@gmail.com>
+Subject: Re: [PATCH v2 9/9] netfilter: Replace smp_read_barrier_depends() with lockless_dereference()
+Date: Fri, 21 Nov 2014 20:23:11 -0500
+Message-ID: <CAJhHMCB4NfOGBKutkM0L42Vp5ASOLupMRMR07H4sUYy_Dc31KQ@mail.gmail.com>
+References: <1416582363-20661-1-git-send-email-bobby.prani@gmail.com>
+ <1416582363-20661-10-git-send-email-bobby.prani@gmail.com>
+ <1416586364.8629.104.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAJhHMCCCSU7PbWdgPouefbLJBcoxR8nmsS8dg_=BcuqVJZbDew@mail.gmail.com> <1416614703.20938.0.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, sfeldma@gmail.com, jhs@mojatatu.com,
-	bcrl@kvack.org, john.fastabend@gmail.com,
-	stephen@networkplumber.org, linville@tuxdriver.com,
-	nhorman@tuxdriver.com, nicolas.dichtel@6wind.com,
-	vyasevic@redhat.com, f.fainelli@gmail.com, buytenh@wantstofly.org,
-	aviadr@mellanox.com, netdev@vger.kernel.org, davem@davemloft.net,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	gospo@cumulusnetworks.com
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:52874 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752593AbaKVAds (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 19:33:48 -0500
-In-Reply-To: <20141121233054.GB20810@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	"open list:NETWORKING [IPv4/..." <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>,
+	Paul McKenney <paulmck@linux.vnet.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1416614703.20938.0.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/21/14, 3:30 PM, Thomas Graf wrote:
-> On 11/21/14 at 02:49pm, roopa@cumulusnetworks.com wrote:
->> +	    nla_put_u8(skb, IFLA_BRPORT_GUARD,
->> +		           br_get_port_flag(p, IFLA_BRPORT_GUARD, BR_BPDU_GUARD)) ||
-> A helper taking nla_put_br_flag(port, skb, attrtype, brflag) would simplify
-> this code a lot.
-sure
+On Fri, Nov 21, 2014 at 7:05 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 >
->> @@ -305,7 +312,9 @@ static int br_set_port_state(struct net_bridge_port *p, u8 state)
->>   
->>   	br_set_state(p, state);
->>   	br_log_state(p);
->> -	netdev_sw_port_stp_update(p->dev, p->state);
->> +
->> +	if (BR_HW_OFFLOAD(p->br))
->> +	    netdev_sw_port_set_attr(p->dev, IFLA_BRPORT_STATE, &p->state);
-> I assume the yet unfinished netdev_sw_port_set_attr() will call
-> netdev_sw_port_stp_update()?
+> On Fri, 2014-11-21 at 16:57 -0500, Pranith Kumar wrote:
+>
+>> Hi Eric,
+>>
+>> Thanks for looking at this patch.
+>>
+>> I've been scratching my head since morning trying to find out what was
+>> so obviously wrong with this patch. Alas, I don't see what you do.
+>>
+>> Could you point it out and show me how incompetent I am, please?
+>>
+>> Thanks!
+>
+> Well, even it the code is _not_ broken, I don't see any value with this
+> patch.
 
-netdev_sw_port_set_attr will just call the switch driver ndo for bridge port attributes. (ndo_sw_bridge_port_set_attr()).
-On that note it would be nice to rename the whole thing  (the other thread on "sw" vs "offload"), this could be
-renamed to netdev_offload_bridge_port_set_attr() or something along those lines.
+Phew. Not being broken itself is a win :)
 
 >
->> @@ -316,13 +325,34 @@ static void br_set_port_flag(struct net_bridge_port *p, struct nlattr *tb[],
->>   {
->>   	if (tb[attrtype]) {
->>   		u8 flag = nla_get_u8(tb[attrtype]);
->> -		if (flag)
->> -			p->flags |= mask;
->> -		else
->> +		if (flag) {
->> +			flag_upper = flag & 0xf0
->> +			if (!flag_upper || (flag_upper & BRPORT_KERNEL))
->> +				p->flags |= mask;
->> +			if ((flag_upper & BRPORT_HW_OFFLOAD) ||
->> +				(BR_HW_OFFLOAD(p->br)))
->> +				/* Also set the port flag in hw */
->> +			netdev_sw_port_set_attr(p->dev, attrtype, 1);
-> I'm not sure I understand the || here. HW_OFFLOAD enabled on the
-> net_device is a conditional for all netdev_sw_port_set_attr() calls
-> and at the same time implies BRPORT_HW_OFFLOAD on all attributes.
+> If I use git blame on current code, line containing
+> smp_read_barrier_depends() exactly points to the relevant commit [1]
 
-Just realized this needs another condition, I will fix it.
+And that is an opinion I will respect. I don't want to muck the git
+history where it is significant.
 
-The idea is, the port attribute flags BRPORT_KERNEL and BRPORT_HW_OFFLOAD
-can be used to override the HW_OFFLOAD flag on the bridge netdev.
-
-You will only call the swdev api to offload the bridge port flag,
-if the bridge netdev has the HW_OFFLOAD flag set and also the per port 
-attribute flag
-does not override it.
-
-> As I read this code now, I don't see how you would offload individual
-> features to hardware.
-
-
-This is for offloading individual bridge port flags like learning and 
-flooding.
-
-You want to be able to HW_OFFLOAD the bridge device, but be able to 
-control offloading of some of the port flags
-like learning and flooding. For example some of the realtek devices 
-might want to turn learning in hw off by default
-but learn in software.
+This effort is to eventually replace the uses of
+smp_read_barrier_depends() and to use either rcu or
+lockless_dereference() as documented in memory-barriers.txt.
 
 >
->> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
->> index 8f3f081..3ebd196 100644
->> --- a/net/bridge/br_private.h
->> +++ b/net/bridge/br_private.h
->> @@ -41,6 +41,8 @@
->>   /* Path to usermode spanning tree program */
->>   #define BR_STP_PROG	"/sbin/bridge-stp"
->>   
->> +#define BR_HW_OFFLOAD(br) !!(br->dev->features & NETIF_F_HW_OFFLOAD)
-> Let's not add more non type safe macros. A static inline seems like
-> a better fit here.
-sure, ack.
+> After your change, it will point to some cleanup, which makes little
+> sense to me, considering you did not change the smp_wmb() in
+> xt_replace_table().
 
-Thanks for the review.
+That does not need to change as it is fine as it is. It still pairs
+with the smp_read_barrier_depends() in lockless_dereference().
+
+>
+> I, as a netfilter contributor would like to keep current code as is,
+> because it is how I feel safe with it.
+>
+> We have a proliferation of interfaces, but this does not help to
+> understand the issues and code maintenance.
+>
+> smp_read_barrier_depends() better documents the read barrier than
+> lockless_dereference().
+
+I think this is a matter of opinion. But in the current effort I've
+seen cases where it is not clear what the barrier is actually
+guaranteeing. I am glad that the current code is not one of those and
+it has reasonable comments.
+
+lockless_dereference() on the other hand makes the dependency explicit.
+
+>
+> The point of having a lock or not is irrelevant here.
+>
+> [1]
+> http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=b416c144f46af1a30ddfa4e4319a8f077381ad63
+>
+>
+>
+>
+
+
+Thanks!
+-- 
+Pranith
