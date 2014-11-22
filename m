@@ -1,103 +1,64 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/17] i40evf: make early init sequence even more robust
-Date: Fri, 21 Nov 2014 21:55:00 -0800
-Message-ID: <1416635708-4765-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/17] i40e: Add description to misc and fd interrupts
+Date: Fri, 21 Nov 2014 21:54:55 -0800
+Message-ID: <1416635708-4765-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1416635708-4765-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:46133 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:9277 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750866AbaKVFzQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Nov 2014 00:55:16 -0500
+	id S1750784AbaKVFzO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Nov 2014 00:55:14 -0500
 In-Reply-To: <1416635708-4765-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-When multiple VFs attempt to initialize simultaneously, the firmware may
-delay or drop messages. Make the init code more adept at handling these
-situations by a) reinitializing the admin queue if the firmware fails to
-process a request, and b) resending a request if the PF doesn't answer.
+This patch adds additional text description for base pf0 and flow director
+generated interrupts.  Without this patch, these interrupts are difficult
+to distinguish per port on a multi-function device.
 
-Once the request has been sent again, the PF might end up getting both
-requests and send the configuration information to the driver twice.
-This will cause the VF to complain about receiving an unexpected message
-from the PF. Since this is not fatal, reduce the warning level of the
-log messages that are generated in response to this event.
-
-Change-ID: I9370a1a2fde2ad3934fa25ccfd0545edfbbb4805
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Tested-by: Jim Young <jamesx.m.young@intel.com>
+Change-ID: I4662e1b38840757765a3fe63d90219d28e76bfab
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c     |  9 +++++++--
- drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c | 16 +++++-----------
- 2 files changed, 12 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 8e01009..62456f8 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2045,6 +2045,8 @@ static void i40evf_init_task(struct work_struct *work)
- 	case __I40EVF_INIT_VERSION_CHECK:
- 		if (!i40evf_asq_done(hw)) {
- 			dev_err(&pdev->dev, "Admin queue command never completed\n");
-+			i40evf_shutdown_adminq(hw);
-+			adapter->state = __I40EVF_STARTUP;
- 			goto err;
- 		}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 308b4b6..47631d6 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -4870,9 +4870,11 @@ int i40e_vsi_open(struct i40e_vsi *vsi)
+ 			goto err_set_queues;
  
-@@ -2078,8 +2080,11 @@ static void i40evf_init_task(struct work_struct *work)
- 				goto err;
- 		}
- 		err = i40evf_get_vf_config(adapter);
--		if (err == I40E_ERR_ADMIN_QUEUE_NO_WORK)
--			goto restart;
-+		if (err == I40E_ERR_ADMIN_QUEUE_NO_WORK) {
-+			dev_info(&pdev->dev, "Resending VF config request\n");
-+			err = i40evf_send_vf_config_msg(adapter);
-+			goto err;
-+		}
- 		if (err) {
- 			dev_err(&pdev->dev, "Unable to get VF config (%d)\n",
- 				err);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index 07c13b0..5fde5a7 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -715,15 +715,9 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 		}
- 		return;
- 	}
--	if (v_opcode != adapter->current_op) {
--		dev_err(&adapter->pdev->dev, "%s: Pending op is %d, received %d\n",
--			__func__, adapter->current_op, v_opcode);
--		/* We're probably completely screwed at this point, but clear
--		 * the current op and try to carry on....
--		 */
--		adapter->current_op = I40E_VIRTCHNL_OP_UNKNOWN;
--		return;
--	}
-+	if (v_opcode != adapter->current_op)
-+		dev_info(&adapter->pdev->dev, "Pending op is %d, received %d\n",
-+			 adapter->current_op, v_opcode);
- 	if (v_retval) {
- 		dev_err(&adapter->pdev->dev, "%s: PF returned error %d to our request %d\n",
- 			__func__, v_retval, v_opcode);
-@@ -775,8 +769,8 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 		adapter->aq_pending &= ~(I40EVF_FLAG_AQ_MAP_VECTORS);
- 		break;
- 	default:
--		dev_warn(&adapter->pdev->dev, "%s: Received unexpected message %d from PF\n",
--			 __func__, v_opcode);
-+		dev_info(&adapter->pdev->dev, "Received unexpected message %d from PF\n",
-+			 v_opcode);
- 		break;
- 	} /* switch v_opcode */
- 	adapter->current_op = I40E_VIRTCHNL_OP_UNKNOWN;
+ 	} else if (vsi->type == I40E_VSI_FDIR) {
+-		snprintf(int_name, sizeof(int_name) - 1, "%s-fdir",
+-			 dev_driver_string(&pf->pdev->dev));
++		snprintf(int_name, sizeof(int_name) - 1, "%s-%s-fdir",
++			 dev_driver_string(&pf->pdev->dev),
++			 dev_name(&pf->pdev->dev));
+ 		err = i40e_vsi_request_irq(vsi, int_name);
++
+ 	} else {
+ 		err = -EINVAL;
+ 		goto err_setup_rx;
+@@ -9196,9 +9198,10 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	hw->aq.arq_buf_size = I40E_MAX_AQ_BUF_SIZE;
+ 	hw->aq.asq_buf_size = I40E_MAX_AQ_BUF_SIZE;
+ 	pf->adminq_work_limit = I40E_AQ_WORK_LIMIT;
++
+ 	snprintf(pf->misc_int_name, sizeof(pf->misc_int_name) - 1,
+-		 "%s-pf%d:misc",
+-		 dev_driver_string(&pf->pdev->dev), pf->hw.pf_id);
++		 "%s-%s:misc",
++		 dev_driver_string(&pf->pdev->dev), dev_name(&pdev->dev));
+ 
+ 	err = i40e_init_shared_code(hw);
+ 	if (err) {
 -- 
 1.9.3
