@@ -1,70 +1,48 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] can: eliminate banner[] variable and switch to pr_info()
-Date: Sat, 22 Nov 2014 17:59:07 +0100
-Message-ID: <5470C0DB.9080900@pengutronix.de>
-References: <1416642155-31816-1-git-send-email-jmmahler@gmail.com>
+From: John Heffner <johnwheffner@gmail.com>
+Subject: Re: Problem about Setting TCP Congestion Window to a Small Constant
+Date: Sat, 22 Nov 2014 12:34:23 -0500
+Message-ID: <CABrhC0=pmH+Dvh405WEef=x3gn+5tTtRis680GaHmSwLDwC3pQ@mail.gmail.com>
+References: <a7b958c622a1f1ebed77d4ce44109ceb.squirrel@webmail.cs.utexas.edu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="7KSnNMPQbH53b4pehpLxxXQNhAn3S8823"
-Cc: "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jeremiah Mahler <jmmahler@gmail.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1416642155-31816-1-git-send-email-jmmahler@gmail.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---7KSnNMPQbH53b4pehpLxxXQNhAn3S8823
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Cc: Netdev <netdev@vger.kernel.org>
+To: wc8348@cs.utexas.edu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:61524 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750735AbaKVRe0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2014 12:34:26 -0500
+Received: by mail-lb0-f169.google.com with SMTP id p9so4660299lbv.28
+        for <netdev@vger.kernel.org>; Sat, 22 Nov 2014 09:34:24 -0800 (PST)
+In-Reply-To: <a7b958c622a1f1ebed77d4ce44109ceb.squirrel@webmail.cs.utexas.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/22/2014 08:42 AM, Jeremiah Mahler wrote:
-> Several CAN modules use a design pattern with a banner[] variable at th=
-e
-> top which defines a string that is used once during init to print the
-> banner.  The string is also embedded with KERN_INFO which makes it
-> printk() specific.
->=20
-> Improve the code by eliminating the banner[] variable and moving the
-> string to where it is printed.  Then switch from printk(KERN_INFO to
-> pr_info() for the lines that were changed.
+On Sat, Nov 22, 2014 at 11:29 AM,  <wc8348@cs.utexas.edu> wrote:
+> Hi all,
+>      My name is Wenzhi Cui, a graduate student working on TCP congestion
+> control in Linux Kernel. I have a problem about congestion control in
+> linux kernel.
+>
+>      Recently I am playing with TCP Congestion Control Protocol by setting
+> the congestion window size to a constant, say 1, and measure the TCP
+> flow throughput to see the relationship between cwnd size and
+> transmission rate (on a stable environment).
+>
+>      The problem is, when I am setting the snd_cwnd to 1, the real
+> transmission rate is around 25MBps. However, since I am testing TCP
+> on our department network with 1Gbps (which is 125MBps) bandwidth and
+> 300 micro seconds Round trip time (measured by analyzing tcpdump
+> trace). So the theoretical sending rate should be
+> CWND * MSS / RTT = 1 * 1460 Byte / 300 us = around 5 MBps
+> which is far less than the observed 25 MBps bandwidth. I have taken a look
+> at tcp_cong.c, tcp_input output.c, etc. but I still cannot find the
+> problem.
+>
+>      Can somebody help me figure out what is missing, maybe what may
+> affect the real TCP transmission other than CWND or what will happen
+> when CWND is set to a very small constant?
 
-Applied to can-next.
+Looking at a tcptrace "outstanding data graph" may be illuminating.
 
-Thanks,
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---7KSnNMPQbH53b4pehpLxxXQNhAn3S8823
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUcMDeAAoJECte4hHFiupUbiIP/j/eSss/WXIZf/EaxW6cui8D
-un16nudHbCmfuVAjSkMF7Be/wwtsSy0W2KTSOGI+PfgzYeInEsT+rfdMMeGEpIom
-bQNsG9J8Uv6vf32KQAC4G+h1GRL8YdTeDIWceFNNKFbtYBKp4xa5m94bVkgWeK5s
-B4OsaLV1eQOiw+gRqjWWe0BHsFhVQc0ifndLhTgkEcDh8Bsq58AAX9mWul0THAs3
-YJY1hbVu/lUTKkwahmvUS/5QcP0MjB9hUS/xBiCga4FNHvpu/XESZ97EjjZ10Xth
-BezRXcGNZCNZPzN/94aEGdQeZKg80vrfafjO8G9OHbFmozqR+TMT0RCwHq8+kTBa
-iDW9p+BUUyHeCcK9G6Q/m1F8MnSA2oGL0YZu6BzEAAWnXHaM9TPM9yi9zS/CzXAu
-c38Y//UyWM68ShUOE7Qlgpjxbm5Spgvsvir25lnVn9SspdD/iZ8kLgYt9Id214tU
-ewhfuaaFJNB+t0dc0/g+7BxA8p6RwwHQwFiOEVSgxMgfd4sGGOvjiqnJz77/Hm79
-ixJO3YMJ6LmOVOTX1ydRzSJHaVlA26VreTZ/gBgvOJFwm6qGUIuT5iYVz5wLkgkz
-ke5QwkzbmOmnxGR+wSrHctWeWCMDTObCUbGil7c3KnPmS90CdGKvUxisdpxLdiRd
-z+MqaSKGKFVLE/qxxaUT
-=7+dH
------END PGP SIGNATURE-----
-
---7KSnNMPQbH53b4pehpLxxXQNhAn3S8823--
+  -John
