@@ -1,7 +1,7 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 04/17] new helper: memcpy_to_msg()
-Date: Sat, 22 Nov 2014 04:31:32 +0000
-Message-ID: <20141122043132.GD30478@ZenIV.linux.org.uk>
+Subject: [PATCH 05/17] switch drivers/net/tun.c to ->read_iter()
+Date: Sat, 22 Nov 2014 04:32:02 +0000
+Message-ID: <20141122043202.GE30478@ZenIV.linux.org.uk>
 References: <20141119.165340.2162829993279387495.davem@davemloft.net>
  <20141120214753.GR7996@ZenIV.linux.org.uk>
  <20141120.182339.972861702759954603.davem@davemloft.net>
@@ -13,145 +13,117 @@ Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, target-devel@vger.kernel.org,
 	nab@linux-iscsi.org, hch@infradead.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <target-devel-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <20141122042856.GZ7996@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: target-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- crypto/algif_hash.c    |    2 +-
- include/linux/skbuff.h |    5 +++++
- net/caif/caif_socket.c |    2 +-
- net/can/bcm.c          |    2 +-
- net/can/raw.c          |    2 +-
- net/decnet/af_decnet.c |    2 +-
- net/ipv4/tcp.c         |    2 +-
- net/irda/af_irda.c     |    2 +-
- net/packet/af_packet.c |    3 +--
- 9 files changed, 13 insertions(+), 9 deletions(-)
+ drivers/net/tun.c |   40 +++++++++++++++-------------------------
+ 1 file changed, 15 insertions(+), 25 deletions(-)
 
-diff --git a/crypto/algif_hash.c b/crypto/algif_hash.c
-index 8502462..35c93ff 100644
---- a/crypto/algif_hash.c
-+++ b/crypto/algif_hash.c
-@@ -174,7 +174,7 @@ static int hash_recvmsg(struct kiocb *unused, struct socket *sock,
- 			goto unlock;
- 	}
- 
--	err = memcpy_toiovec(msg->msg_iov, ctx->result, len);
-+	err = memcpy_to_msg(msg, ctx->result, len);
- 
- unlock:
- 	release_sock(sk);
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index cb7fa2b..18ce42e 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2689,6 +2689,11 @@ static inline int memcpy_from_msg(void *data, struct msghdr *msg, int len)
- 	return memcpy_fromiovec(data, msg->msg_iov, len);
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index ac53a73..405dfdf 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1339,18 +1339,17 @@ done:
  }
  
-+static inline int memcpy_to_msg(struct msghdr *msg, void *data, int len)
-+{
-+	return memcpy_toiovec(msg->msg_iov, data, len);
-+}
-+
- struct skb_checksum_ops {
- 	__wsum (*update)(const void *mem, int len, __wsum wsum);
- 	__wsum (*combine)(__wsum csum, __wsum csum2, int offset, int len);
-diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
-index 230f140..ac618b0 100644
---- a/net/caif/caif_socket.c
-+++ b/net/caif/caif_socket.c
-@@ -418,7 +418,7 @@ unlock:
- 		}
- 		release_sock(sk);
- 		chunk = min_t(unsigned int, skb->len, size);
--		if (memcpy_toiovec(msg->msg_iov, skb->data, chunk)) {
-+		if (memcpy_to_msg(msg, skb->data, chunk)) {
- 			skb_queue_head(&sk->sk_receive_queue, skb);
- 			if (copied == 0)
- 				copied = -EFAULT;
-diff --git a/net/can/bcm.c b/net/can/bcm.c
-index b9a1f71..0167118 100644
---- a/net/can/bcm.c
-+++ b/net/can/bcm.c
-@@ -1555,7 +1555,7 @@ static int bcm_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	if (skb->len < size)
- 		size = skb->len;
+ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+-			   const struct iovec *iv, unsigned long segs,
+-			   ssize_t len, int noblock)
++			   struct iov_iter *to,
++			   int noblock)
+ {
+ 	struct sk_buff *skb;
+-	ssize_t ret = 0;
++	ssize_t ret;
+ 	int peeked, err, off = 0;
+-	struct iov_iter iter;
  
--	err = memcpy_toiovec(msg->msg_iov, skb->data, size);
-+	err = memcpy_to_msg(msg, skb->data, size);
- 	if (err < 0) {
- 		skb_free_datagram(sk, skb);
- 		return err;
-diff --git a/net/can/raw.c b/net/can/raw.c
-index 0e4004f..dfdcffb 100644
---- a/net/can/raw.c
-+++ b/net/can/raw.c
-@@ -750,7 +750,7 @@ static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	else
- 		size = skb->len;
+ 	tun_debug(KERN_INFO, tun, "tun_do_read\n");
  
--	err = memcpy_toiovec(msg->msg_iov, skb->data, size);
-+	err = memcpy_to_msg(msg, skb->data, size);
- 	if (err < 0) {
- 		skb_free_datagram(sk, skb);
- 		return err;
-diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
-index e2e2e3c..8102286 100644
---- a/net/decnet/af_decnet.c
-+++ b/net/decnet/af_decnet.c
-@@ -1760,7 +1760,7 @@ static int dn_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		if ((chunk + copied) > size)
- 			chunk = size - copied;
+-	if (!len)
+-		return ret;
++	if (!iov_iter_count(to))
++		return 0;
  
--		if (memcpy_toiovec(msg->msg_iov, skb->data, chunk)) {
-+		if (memcpy_to_msg(msg, skb->data, chunk)) {
- 			rv = -EFAULT;
- 			break;
- 		}
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index c239f47..435443b 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1349,7 +1349,7 @@ static int tcp_recv_urg(struct sock *sk, struct msghdr *msg, int len, int flags)
+ 	if (tun->dev->reg_state != NETREG_REGISTERED)
+ 		return -EIO;
+@@ -1359,37 +1358,27 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+ 	skb = __skb_recv_datagram(tfile->socket.sk, noblock ? MSG_DONTWAIT : 0,
+ 				  &peeked, &off, &err);
+ 	if (!skb)
+-		return ret;
++		return 0;
  
- 		if (len > 0) {
- 			if (!(flags & MSG_TRUNC))
--				err = memcpy_toiovec(msg->msg_iov, &c, 1);
-+				err = memcpy_to_msg(msg, &c, 1);
- 			len = 1;
- 		} else
- 			msg->msg_flags |= MSG_TRUNC;
-diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
-index 9052462..568edc7 100644
---- a/net/irda/af_irda.c
-+++ b/net/irda/af_irda.c
-@@ -1466,7 +1466,7 @@ static int irda_recvmsg_stream(struct kiocb *iocb, struct socket *sock,
- 		}
+-	iov_iter_init(&iter, READ, iv, segs, len);
+-	ret = tun_put_user(tun, tfile, skb, &iter);
++	ret = tun_put_user(tun, tfile, skb, to);
+ 	kfree_skb(skb);
  
- 		chunk = min_t(unsigned int, skb->len, size);
--		if (memcpy_toiovec(msg->msg_iov, skb->data, chunk)) {
-+		if (memcpy_to_msg(msg, skb->data, chunk)) {
- 			skb_queue_head(&sk->sk_receive_queue, skb);
- 			if (copied == 0)
- 				copied = -EFAULT;
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index be79208..692f049 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2936,8 +2936,7 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
- 			vnet_hdr.flags = VIRTIO_NET_HDR_F_DATA_VALID;
- 		} /* else everything is zero */
+ 	return ret;
+ }
  
--		err = memcpy_toiovec(msg->msg_iov, (void *)&vnet_hdr,
--				     vnet_hdr_len);
-+		err = memcpy_to_msg(msg, (void *)&vnet_hdr, vnet_hdr_len);
- 		if (err < 0)
- 			goto out_free;
+-static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
+-			    unsigned long count, loff_t pos)
++static ssize_t tun_chr_read_iter(struct kiocb *iocb, struct iov_iter *to)
+ {
+ 	struct file *file = iocb->ki_filp;
+ 	struct tun_file *tfile = file->private_data;
+ 	struct tun_struct *tun = __tun_get(tfile);
+-	ssize_t len, ret;
++	ssize_t len = iov_iter_count(to), ret;
+ 
+ 	if (!tun)
+ 		return -EBADFD;
+-	len = iov_length(iv, count);
+-	if (len < 0) {
+-		ret = -EINVAL;
+-		goto out;
+-	}
+-
+-	ret = tun_do_read(tun, tfile, iv, count, len,
+-			  file->f_flags & O_NONBLOCK);
++	ret = tun_do_read(tun, tfile, to, file->f_flags & O_NONBLOCK);
+ 	ret = min_t(ssize_t, ret, len);
+ 	if (ret > 0)
+ 		iocb->ki_pos = ret;
+-out:
+ 	tun_put(tun);
+ 	return ret;
+ }
+@@ -1471,6 +1460,7 @@ static int tun_recvmsg(struct kiocb *iocb, struct socket *sock,
+ {
+ 	struct tun_file *tfile = container_of(sock, struct tun_file, socket);
+ 	struct tun_struct *tun = __tun_get(tfile);
++	struct iov_iter to;
+ 	int ret;
+ 
+ 	if (!tun)
+@@ -1485,8 +1475,8 @@ static int tun_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 					 SOL_PACKET, TUN_TX_TIMESTAMP);
+ 		goto out;
  	}
+-	ret = tun_do_read(tun, tfile, m->msg_iov, m->msg_iovlen, total_len,
+-			  flags & MSG_DONTWAIT);
++	iov_iter_init(&to, READ, m->msg_iov, m->msg_iovlen, total_len);
++	ret = tun_do_read(tun, tfile, &to, flags & MSG_DONTWAIT);
+ 	if (ret > total_len) {
+ 		m->msg_flags |= MSG_TRUNC;
+ 		ret = flags & MSG_TRUNC ? ret : total_len;
+@@ -2242,8 +2232,8 @@ static int tun_chr_show_fdinfo(struct seq_file *m, struct file *f)
+ static const struct file_operations tun_fops = {
+ 	.owner	= THIS_MODULE,
+ 	.llseek = no_llseek,
+-	.read  = do_sync_read,
+-	.aio_read  = tun_chr_aio_read,
++	.read  = new_sync_read,
++	.read_iter  = tun_chr_read_iter,
+ 	.write = do_sync_write,
+ 	.aio_write = tun_chr_aio_write,
+ 	.poll	= tun_chr_poll,
 -- 
 1.7.10.4
