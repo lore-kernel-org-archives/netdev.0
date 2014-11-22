@@ -1,50 +1,42 @@
-From: "Jia-Ju Bai" <baijiaju1990@163.com>
-Subject: Potential bugs found in ne2k-pci+8390
-Date: Sat, 22 Nov 2014 11:51:15 +0800
-Message-ID: <000001d00607$90e5ee70$b2b1cb50$@163.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [RFC] situation with csum_and_copy_... API
+Date: Sat, 22 Nov 2014 04:28:57 +0000
+Message-ID: <20141122042856.GZ7996@ZenIV.linux.org.uk>
+References: <20141119.165340.2162829993279387495.davem@davemloft.net>
+ <20141120214753.GR7996@ZenIV.linux.org.uk>
+ <20141120.182339.972861702759954603.davem@davemloft.net>
+ <20141121.122615.1091044030302005883.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-16.163.com ([220.181.12.16]:45760 "EHLO m12-16.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752687AbaKVDv3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Nov 2014 22:51:29 -0500
-Content-Language: zh-cn
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, target-devel@vger.kernel.org,
+	nab@linux-iscsi.org, hch@infradead.org
+To: David Miller <davem@davemloft.net>
+Return-path: <target-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141121.122615.1091044030302005883.davem@davemloft.net>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Sir,
-I'm very sorry to trouble you. 
-Recently I test 15 linux device drivers and find some potential bugs both in
-Linux 3.8.6 and Linux 3.17.2. 
+	OK, here's the next bunch.  Sorry about the delay, iov_iter.c stuff
+took most of the day (and it's not included in this pile).  Please, review.
+Al Viro (17):
+      new helper: skb_copy_and_csum_datagram_msg()
+      new helper: memcpy_from_msg()
+      switch ipxrtr_route_packet() from iovec to msghdr
+      new helper: memcpy_to_msg()
+      switch drivers/net/tun.c to ->read_iter()
+      switch macvtap to ->read_iter()
+      new helpers: skb_copy_datagram_from_iter() and zerocopy_sg_from_iter()
+      {macvtap,tun}_get_user(): switch to iov_iter
+      kill zerocopy_sg_from_iovec()
+      switch AF_PACKET and AF_UNIX to skb_copy_datagram_from_iter()
+      switch sctp_user_addto_chunk() and sctp_datamsg_from_user() to passing iov_iter
+      tipc_sendmsg(): pass msghdr instead of its ->msg_iov
+      tipc_msg_build(): pass msghdr instead of its ->msg_iov
+      vmci_transport: switch ->enqeue_dgram, ->enqueue_stream and ->dequeue_stream to msghdr
+      [atm] switch vcc_sendmsg() to copy_from_iter()
+      rds: switch ->inc_copy_to_user() to passing iov_iter
+      rds: switch rds_message_copy_from_user() to iov_iter
 
-The target file is drivers/net/ethernet/8390/ne2k-pci.c, which is used to
-build ne2k-pci.ko. I hope you can help me check my findings:
-[1] The function request_region is called by ne2k_pci_init_one when
-initializing the ethernet card driver. But when request_region is failed,
-which means that it returns the error value, ne2k_pci_init_one returns
-immediately to halt the process. However, because pci_enable_device has been
-called before request_region in ne2k_pci_init_one, pci_disable_device should
-be called before exiting. When the driver works normally, pci_enable_device
-and pci_disable_device are called in pairs in ne2k_pci_init_one and
-ne2k_pci_remove_one. Moreover, other ethernet card drivers call
-pci_enable_device and pci_disable_device in pairs in error handling paths,
-such as r8169 and sky2.
-[2] The similar problem to [1] occurs when alloc_ei_netdev is failed in
-ne2k_pci_init_one.
-[3] The similar problem to [1] occurs when register_netdev is failed in
-ne2k_pci_init_one.
-
-Could you help me check these findings? Thank you very much, and I'm looking
-forward to your reply.
-
---
-Best wishes!
-Jia-Ju Bai
-E-mail: baijiaju1990@163.com
-Department of Computer Science and Technology, Tsinghua University
-Address: Room 1-417, West Main, Tsinghua University, Haidian District,
-Beijing, 100084, China.
+Patches themselves are in followups...
