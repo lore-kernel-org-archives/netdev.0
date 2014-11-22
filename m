@@ -1,111 +1,77 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 3/3] igb: Fixes needed for surprise removal support
-Date: Fri, 21 Nov 2014 23:52:54 -0800
-Message-ID: <1416642774-17077-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1416642774-17077-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Yanir Lubetkin <yanirx.lubetkin@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Subject: [PATCH] net/mlx4: Fix EEH recovery failure
+Date: Sat, 22 Nov 2014 21:56:47 +1100
+Message-ID: <1416653807-4859-1-git-send-email-gwshan@linux.vnet.ibm.com>
+Cc: amirv@mellanox.com, davem@davemloft.net,
+	Gavin Shan <gwshan@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:22930 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750880AbaKVHxN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Nov 2014 02:53:13 -0500
-In-Reply-To: <1416642774-17077-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from e28smtp01.in.ibm.com ([122.248.162.1]:32834 "EHLO
+	e28smtp01.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750803AbaKVK5F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2014 05:57:05 -0500
+Received: from /spool/local
+	by e28smtp01.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
+	Sat, 22 Nov 2014 16:27:02 +0530
+Received: from d28relay01.in.ibm.com (d28relay01.in.ibm.com [9.184.220.58])
+	by d28dlp03.in.ibm.com (Postfix) with ESMTP id 3C83F125804B
+	for <netdev@vger.kernel.org>; Sat, 22 Nov 2014 16:27:10 +0530 (IST)
+Received: from d28av03.in.ibm.com (d28av03.in.ibm.com [9.184.220.65])
+	by d28relay01.in.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id sAMAuWIE56361140
+	for <netdev@vger.kernel.org>; Sat, 22 Nov 2014 16:26:32 +0530
+Received: from d28av03.in.ibm.com (localhost [127.0.0.1])
+	by d28av03.in.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id sAMAuxgu030960
+	for <netdev@vger.kernel.org>; Sat, 22 Nov 2014 16:26:59 +0530
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+The patch fixes couple of EEH recovery failures on PPC PowerNV
+platform:
 
-This patch adds some checks in order to prevent panic's on surprise
-removal of devices during S0, S3, S4.  Without this patch, Thunderbolt
-type device removal will panic the system.
+   * Release reserved memory regions in mlx4_pci_err_detected().
+     Otherwise, __mlx4_init_one() fails because of reserving
+     same memory regions recursively.
+   * Disable PCI device in mlx4_pci_err_detected(). Otherwise,
+     pci_enable_device() in __mlx4_init_one() doesn't enable
+     the PCI device because it's already in enabled state indicated
+     by struct pci_dev::enable_cnt.
+   * Don't clear struct mlx4_priv instance in mlx4_pci_err_detected().
+     Otherwise, __mlx4_init_one() runs into kernel crash because
+     of dereferencing to NULL pointer.
 
-Signed-off-by: Yanir Lubetkin <yanirx.lubetkin@intel.com>
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+With the patch applied, EEH recovery for mlx4 adapter succeeds on PPC
+PowerNV platform.
+
+   # lspci
+   0003:0f:00.0 Network controller: Mellanox Technologies \
+   MT27500 Family [ConnectX-3]
+
+Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 23 ++++++++++++++++-------
- 1 file changed, 16 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index a2d72a8..487cd9c 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1012,7 +1012,8 @@ static void igb_free_q_vector(struct igb_adapter *adapter, int v_idx)
- 	/* igb_get_stats64() might access the rings on this vector,
- 	 * we must wait a grace period before freeing it.
- 	 */
--	kfree_rcu(q_vector, rcu);
-+	if (q_vector)
-+		kfree_rcu(q_vector, rcu);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 90de6e1..e118ac9 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -2809,7 +2809,6 @@ static void mlx4_unload_one(struct pci_dev *pdev)
+ 	kfree(dev->caps.qp1_proxy);
+ 	kfree(dev->dev_vfs);
+ 
+-	memset(priv, 0, sizeof(*priv));
+ 	priv->pci_dev_data = pci_dev_data;
+ 	priv->removed = 1;
  }
+@@ -2900,6 +2899,8 @@ static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
+ 					      pci_channel_state_t state)
+ {
+ 	mlx4_unload_one(pdev);
++	pci_release_regions(pdev);
++	pci_disable_device(pdev);
  
- /**
-@@ -1792,8 +1793,10 @@ void igb_down(struct igb_adapter *adapter)
- 	adapter->flags &= ~IGB_FLAG_NEED_LINK_UPDATE;
- 
- 	for (i = 0; i < adapter->num_q_vectors; i++) {
--		napi_synchronize(&(adapter->q_vector[i]->napi));
--		napi_disable(&(adapter->q_vector[i]->napi));
-+		if (adapter->q_vector[i]) {
-+			napi_synchronize(&adapter->q_vector[i]->napi);
-+			napi_disable(&adapter->q_vector[i]->napi);
-+		}
- 	}
- 
- 
-@@ -3717,7 +3720,8 @@ static void igb_free_all_tx_resources(struct igb_adapter *adapter)
- 	int i;
- 
- 	for (i = 0; i < adapter->num_tx_queues; i++)
--		igb_free_tx_resources(adapter->tx_ring[i]);
-+		if (adapter->tx_ring[i])
-+			igb_free_tx_resources(adapter->tx_ring[i]);
- }
- 
- void igb_unmap_and_free_tx_resource(struct igb_ring *ring,
-@@ -3782,7 +3786,8 @@ static void igb_clean_all_tx_rings(struct igb_adapter *adapter)
- 	int i;
- 
- 	for (i = 0; i < adapter->num_tx_queues; i++)
--		igb_clean_tx_ring(adapter->tx_ring[i]);
-+		if (adapter->tx_ring[i])
-+			igb_clean_tx_ring(adapter->tx_ring[i]);
- }
- 
- /**
-@@ -3819,7 +3824,8 @@ static void igb_free_all_rx_resources(struct igb_adapter *adapter)
- 	int i;
- 
- 	for (i = 0; i < adapter->num_rx_queues; i++)
--		igb_free_rx_resources(adapter->rx_ring[i]);
-+		if (adapter->rx_ring[i])
-+			igb_free_rx_resources(adapter->rx_ring[i]);
- }
- 
- /**
-@@ -3874,7 +3880,8 @@ static void igb_clean_all_rx_rings(struct igb_adapter *adapter)
- 	int i;
- 
- 	for (i = 0; i < adapter->num_rx_queues; i++)
--		igb_clean_rx_ring(adapter->rx_ring[i]);
-+		if (adapter->rx_ring[i])
-+			igb_clean_rx_ring(adapter->rx_ring[i]);
- }
- 
- /**
-@@ -7404,6 +7411,8 @@ static int igb_resume(struct device *dev)
- 	pci_restore_state(pdev);
- 	pci_save_state(pdev);
- 
-+	if (!pci_device_is_present(pdev))
-+		return -ENODEV;
- 	err = pci_enable_device_mem(pdev);
- 	if (err) {
- 		dev_err(&pdev->dev,
+ 	return state == pci_channel_io_perm_failure ?
+ 		PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_NEED_RESET;
 -- 
-1.9.3
+1.8.3.2
