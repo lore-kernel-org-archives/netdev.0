@@ -1,146 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/17] i40e: don't enable PTP support on more than one PF per port
-Date: Fri, 21 Nov 2014 21:54:56 -0800
-Message-ID: <1416635708-4765-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/17] i40e: Add a virtual channel op to config RSS
+Date: Fri, 21 Nov 2014 21:54:57 -0800
+Message-ID: <1416635708-4765-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1416635708-4765-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:46133 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:50713 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750820AbaKVFzO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Nov 2014 00:55:14 -0500
+	id S1750822AbaKVFzP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Nov 2014 00:55:15 -0500
 In-Reply-To: <1416635708-4765-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Resolve an issue related to images with multiple PFs per physical
-port. We cannot fully support 1588 PTP features, since only one port
-should control (ie: write) the registers at a time. Doing so can cause
-interference of functionality.
+Add the Virtual Channel OP event opcode for CONFIG_RSS, so that the
+Virtual Channel state machine can properly decipher status change events.
 
-It may be possible to partially implement the API for only those
-features without side effects. However, this at minimum means non
-controlling PFs lose Tx timestamps, frequency atunement, and possibly
-SYSTIME adjustment. There may be further impact I did not discover.
-Since the API in the kernel expects these features to work, it is
-simpler and less dangerous to just disable PTP features on all PFs not
-identified as the controlling PF in PRTTSYN_CTL0.PF_ID.
-
-This change also removes the warning printed when hwtstaml IOCTL is
-called on the wrong PF. This is actually meaningless now, since only one
-PF per port will support it. In addition, the ethtool get_ts_info IOCTL
-was updated so that only the controlling port will even indicate support
-(so as not to confuse users).
-
-The overall downside is complete loss of functionality on non
-controlling PF, vs the possible gain of partial support. The biggest
-factor for choosing this approach is simplicity and ensuring that the
-main PF will work. There could easily be other portions of the 1588
-logic with side effects I am not aware, and the reduced functionality
-that might be made available is significantly less useful. In addition,
-the API does not allow for proper indication of why particular features
-are not supported. These reasons are enough to decide for the simpler
-approach to resolving this issue.
-
-Change-ID: If4696bae686fc18aef6552b67dd417213d987c16
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Jim Young <jamesx.m.young@intel.com>
+Change-ID: I09939c7aa380147f60c49fd01ef2e27d0dc1c299
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Acked-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  4 ++++
- drivers/net/ethernet/intel/i40e/i40e_ptp.c     | 32 +++++++++++++++++---------
- 2 files changed, 25 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl.h   | 1 +
+ drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h | 1 +
+ 2 files changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index b2402851..4053b34 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1325,6 +1325,10 @@ static int i40e_get_ts_info(struct net_device *dev,
- {
- 	struct i40e_pf *pf = i40e_netdev_to_pf(dev);
- 
-+	/* only report HW timestamping if PTP is enabled */
-+	if (!(pf->flags & I40E_FLAG_PTP))
-+		return ethtool_op_get_ts_info(dev, info);
-+
- 	info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE |
- 				SOF_TIMESTAMPING_RX_SOFTWARE |
- 				SOF_TIMESTAMPING_SOFTWARE |
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-index f9151037..6d1ec92 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-@@ -424,6 +424,9 @@ int i40e_ptp_get_ts_config(struct i40e_pf *pf, struct ifreq *ifr)
- {
- 	struct hwtstamp_config *config = &pf->tstamp_config;
- 
-+	if (!(pf->flags & I40E_FLAG_PTP))
-+		return -EOPNOTSUPP;
-+
- 	return copy_to_user(ifr->ifr_data, config, sizeof(*config)) ?
- 		-EFAULT : 0;
- }
-@@ -444,22 +447,12 @@ static int i40e_ptp_set_timestamp_mode(struct i40e_pf *pf,
- 				       struct hwtstamp_config *config)
- {
- 	struct i40e_hw *hw = &pf->hw;
--	u32 pf_id, tsyntype, regval;
-+	u32 tsyntype, regval;
- 
- 	/* Reserved for future extensions. */
- 	if (config->flags)
- 		return -EINVAL;
- 
--	/* Confirm that 1588 is supported on this PF. */
--	pf_id = (rd32(hw, I40E_PRTTSYN_CTL0) & I40E_PRTTSYN_CTL0_PF_ID_MASK) >>
--		I40E_PRTTSYN_CTL0_PF_ID_SHIFT;
--	if (hw->pf_id != pf_id) {
--		dev_err(&pf->pdev->dev,
--			"PF %d attempted to control timestamp mode on port %d, which is owned by PF %d\n",
--			hw->pf_id, hw->port, pf_id);
--		return -EPERM;
--	}
--
- 	switch (config->tx_type) {
- 	case HWTSTAMP_TX_OFF:
- 		pf->ptp_tx = false;
-@@ -562,6 +555,9 @@ int i40e_ptp_set_ts_config(struct i40e_pf *pf, struct ifreq *ifr)
- 	struct hwtstamp_config config;
- 	int err;
- 
-+	if (!(pf->flags & I40E_FLAG_PTP))
-+		return -EOPNOTSUPP;
-+
- 	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
- 		return -EFAULT;
- 
-@@ -631,8 +627,22 @@ void i40e_ptp_init(struct i40e_pf *pf)
- {
- 	struct net_device *netdev = pf->vsi[pf->lan_vsi]->netdev;
- 	struct i40e_hw *hw = &pf->hw;
-+	u32 pf_id;
- 	long err;
- 
-+	/* Only one PF is assigned to control 1588 logic per port. Do not
-+	 * enable any support for PFs not assigned via PRTTSYN_CTL0.PF_ID
-+	 */
-+	pf_id = (rd32(hw, I40E_PRTTSYN_CTL0) & I40E_PRTTSYN_CTL0_PF_ID_MASK) >>
-+		I40E_PRTTSYN_CTL0_PF_ID_SHIFT;
-+	if (hw->pf_id != pf_id) {
-+		pf->flags &= ~I40E_FLAG_PTP;
-+		dev_info(&pf->pdev->dev, "%s: PTP not supported on %s\n",
-+			 __func__,
-+			 netdev->name);
-+		return;
-+	}
-+
- 	/* we have to initialize the lock first, since we can't control
- 	 * when the user will enter the PHC device entry points
- 	 */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
+index 70951d2..61dd1b18 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
+@@ -79,6 +79,7 @@ enum i40e_virtchnl_ops {
+ 	I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE,
+ 	I40E_VIRTCHNL_OP_GET_STATS,
+ 	I40E_VIRTCHNL_OP_FCOE,
++	I40E_VIRTCHNL_OP_CONFIG_RSS,
+ /* PF sends status change events to vfs using
+  * the following op.
+  */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
+index cd18d56..e0c8208 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
+@@ -79,6 +79,7 @@ enum i40e_virtchnl_ops {
+ 	I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE,
+ 	I40E_VIRTCHNL_OP_GET_STATS,
+ 	I40E_VIRTCHNL_OP_FCOE,
++	I40E_VIRTCHNL_OP_CONFIG_RSS,
+ /* PF sends status change events to vfs using
+  * the following op.
+  */
 -- 
 1.9.3
