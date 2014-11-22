@@ -1,111 +1,88 @@
-From: Josh Triplett <josh@joshtriplett.org>
-Subject: Re: [PATCH 5/6] net/core: support compiling out splice
-Date: Sat, 22 Nov 2014 13:48:53 -0800
-Message-ID: <20141122214853.GB23711@thin>
-References: <1416690001-20817-1-git-send-email-pieter@boesman.nl>
- <1416690001-20817-6-git-send-email-pieter@boesman.nl>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next 12/14] mlx4: use netdev_rss_key_fill() helper
+Date: Sat, 22 Nov 2014 21:49:21 +0000
+Message-ID: <1416692961.7215.31.camel@decadent.org.uk>
+References: <1416147798-16561-1-git-send-email-edumazet@google.com>
+	 <1416147798-16561-13-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Willem de Bruijn <willemb@google.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Paul Durrant <Paul.Durrant@citrix.com>,
-	Thomas Graf <tgraf@suug.ch>, Jan Beulich <JBeulich@suse.com>,
-	Miklos Szeredi <mszeredi@suse.cz>,
-	open list <linux-kernel@vger.kernel.org>,
-	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>
-To: Pieter Smith <pieter@boesman.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1416690001-20817-6-git-send-email-pieter@boesman.nl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-OGX52J2p4baRDjIXYFKj"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Thomas Lendacky <Thomas.Lendacky@amd.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Rasesh Mody <rasesh.mody@qlogic.com>,
+	Sathya Perla <sathya.perla@emulex.com>,
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Shradha Shah <sshah@solarflare.com>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:44199 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752929AbaKVVtv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2014 16:49:51 -0500
+In-Reply-To: <1416147798-16561-13-git-send-email-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 22, 2014 at 10:00:00PM +0100, Pieter Smith wrote:
-> Compile out splice support from networking core when the splice-family of
-> syscalls is not supported by the system (i.e. CONFIG_SYSCALL_SPLICE is
-> undefined).
 
-Please explain in the commit message why this particular bit of splice
-support needs compiling out when most other bits do not.
+--=-OGX52J2p4baRDjIXYFKj
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Also, a couple of style comments below.
+On Sun, 2014-11-16 at 06:23 -0800, Eric Dumazet wrote:
+> Use of well known RSS key increases attack surface.
+> Switch to a random one, using generic helper so that all
+> ports share a common key.
+>=20
+> Also provide ethtool -x support to fetch RSS key
+[...]
+> @@ -1799,6 +1805,7 @@ const struct ethtool_ops mlx4_en_ethtool_ops =3D {
+>  	.get_rxnfc =3D mlx4_en_get_rxnfc,
+>  	.set_rxnfc =3D mlx4_en_set_rxnfc,
+>  	.get_rxfh_indir_size =3D mlx4_en_get_rxfh_indir_size,
+> +	.get_rxfh_key_size =3D mlx4_en_get_rxfh_key_size,
+>  	.get_rxfh =3D mlx4_en_get_rxfh,
+>  	.set_rxfh =3D mlx4_en_set_rxfh,
+[...]
 
-> Signed-off-by: Pieter Smith <pieter@boesman.nl>
-> ---
->  include/linux/skbuff.h | 9 +++++++++
->  net/core/skbuff.c      | 9 ++++++---
->  2 files changed, 15 insertions(+), 3 deletions(-)
-> 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index a59d934..8c28524 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -2640,9 +2640,18 @@ int skb_copy_bits(const struct sk_buff *skb, int offset, void *to, int len);
->  int skb_store_bits(struct sk_buff *skb, int offset, const void *from, int len);
->  __wsum skb_copy_and_csum_bits(const struct sk_buff *skb, int offset, u8 *to,
->  			      int len, __wsum csum);
-> +#ifdef CONFIG_SYSCALL_SPLICE
->  int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
->  		    struct pipe_inode_info *pipe, unsigned int len,
->  		    unsigned int flags);
-> +#else /* #ifdef CONFIG_SYSCALL_SPLICE */
-> +static inline int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
-> +		    struct pipe_inode_info *pipe, unsigned int len,
-> +		    unsigned int flags)
-> +{
-> +	return -EPERM;
-> +}
-> +#endif /* #ifdef CONFIG_SYSCALL_SPLICE */
+A driver that implements get_rxfh_key_size() and set_rxfh() is assumed
+to support setting the RSS key (and only the key).  However,
+mlx4_en_set_rxfh() will currently crash if a new indirection table is
+not provided.
 
-These comments, and the one added below in the corresponding .c file,
-don't match the prevailing style.  These are so short (fitting on one
-screen) that they hardly seem worth the comments at all, but if you want
-to include them, s/#ifdef// in the comment.
+Ben.
 
->  void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to);
->  unsigned int skb_zerocopy_headlen(const struct sk_buff *from);
->  int skb_zerocopy(struct sk_buff *to, struct sk_buff *from,
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 61059a0..74fad8a 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -1781,9 +1781,9 @@ static bool __splice_segment(struct page *page, unsigned int poff,
->   * Map linear and fragment data from the skb to spd. It reports true if the
->   * pipe is full or if we already spliced the requested length.
->   */
-> -static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
-> -			      unsigned int *offset, unsigned int *len,
-> -			      struct splice_pipe_desc *spd, struct sock *sk)
-> +static bool __maybe_unused __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
-> +					     unsigned int *offset, unsigned int *len,
-> +					     struct splice_pipe_desc *spd, struct sock *sk)
->  {
->  	int seg;
->  
-> @@ -1821,6 +1821,7 @@ static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
->   * the frag list, if such a thing exists. We'd probably need to recurse to
->   * handle that cleanly.
->   */
-> +#ifdef CONFIG_SYSCALL_SPLICE
->  int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
->  		    struct pipe_inode_info *pipe, unsigned int tlen,
->  		    unsigned int flags)
-> @@ -1876,6 +1877,8 @@ done:
->  
->  	return ret;
->  }
-> +#endif /* #ifdef CONFIG_SYSCALL_SPLICE */
-> +
+--=20
+Ben Hutchings
+Logic doesn't apply to the real world. - Marvin Minsky
 
-This extra blank line shouldn't be here.
+--=-OGX52J2p4baRDjIXYFKj
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
->  /**
->   *	skb_store_bits - store bits from kernel buffer to skb
-> -- 
-> 1.9.1
-> 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUAVHEE8Oe/yOyVhhEJAQrQAhAApz77db/zwFfV+N/g+eVt2iNEyUn1Atv8
+RrLrHHDni6Pe9gvULgBqk7j2Eu0VVmJGsNMd3w1hXn5Jy2EDxwwolcZ6PbUWbibk
+GaxURLErdA+NOiPPekUzAeSVmqvZhkBDNYdqHhILipLRXNLOP/5j162pEHt5m1t0
+AMmURk3fDIxZrHSvlkSMrkoNWeyIRmAoCEVmDbyWOpQ9TU4SeAMdBFCCnoCBQRtr
+0xF13wSXVUSm/wovjOg09CdECn8pnuup7qCx+PcB7uc7WoHSzDrbpimBNKoZINdT
+ChUvQrjyS3HlQnVzM7J9paGTJs2fugOIlpEQx3aWitYF085v+OFZFFOoq7js0Q2w
+h4wkQbnkq/tTYM54EyNV1f2bQ+79g8mwYJRG+do91adrC2LMi5eh8N8cmlYV/WMP
+kthRZwUHccjW/w1rvBbTPgXLgFVjrGVf/4RZoHP9Oo8Ew8eSKvCmUPLsfXpJH/cj
+FYVWgj1sMa7/CYMmZLtP27HLVI7ZHopdIggxeI/Af9xyl2eu/Wo3pPGMptjprEqP
+r1iVt1hNVGCGjMEB9+zHLk0EPhxTnLnW5S35HZMPvY/iYLjvr8abJ8vy4La+huXY
+vqWP+rq25WyabGZUEEdag549oMtOyYFCoozlIslQsIOYestaG3Xa53oUEHkZb7xC
+vzZCwDmdDis=
+=U9dh
+-----END PGP SIGNATURE-----
+
+--=-OGX52J2p4baRDjIXYFKj--
