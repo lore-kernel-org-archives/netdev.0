@@ -1,40 +1,43 @@
-From: Vincent JARDIN <vincent.jardin@6wind.com>
-Subject: Re: [RFC PATCH 1/4] rtnetlink: new flag NLM_F_HW_OFFLOAD to indicate
- kernel object offload to hardware
-Date: Sat, 22 Nov 2014 23:03:38 +0100
-Message-ID: <5471083A.7050701@6wind.com>
-References: <1416610170-21224-2-git-send-email-roopa@cumulusnetworks.com> <20141121231234.GA20810@casper.infradead.org> <546FD467.5030602@cumulusnetworks.com> <20141122122936.GD20810@casper.infradead.org> <5470E5E0.9070005@cumulusnetworks.com>
+From: Josh Triplett <josh@joshtriplett.org>
+Subject: Re: [PATCH 5/6] net/core: support compiling out splice
+Date: Sat, 22 Nov 2014 15:07:32 -0800
+Message-ID: <20141122230731.GC24429@thin>
+References: <1416690001-20817-1-git-send-email-pieter@boesman.nl>
+ <1416690001-20817-6-git-send-email-pieter@boesman.nl>
+ <20141122214853.GB23711@thin>
+ <CAPho-_+GV+2sVVxGsPSjvE3heEoGa4chbqrmnxLAr_p7RU=TDQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, jiri@resnulli.us, sfeldma@gmail.com,
-	jhs@mojatatu.com, bcrl@kvack.org, john.fastabend@gmail.com,
-	stephen@networkplumber.org, linville@tuxdriver.com,
-	nhorman@tuxdriver.com, nicolas.dichtel@6wind.com,
-	vyasevic@redhat.com, f.fainelli@gmail.com, buytenh@wantstofly.org,
-	aviadr@mellanox.com, netdev@vger.kernel.org, davem@davemloft.net,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	gospo@cumulusnetworks.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:53233 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750778AbaKVWDn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2014 17:03:43 -0500
-Received: by mail-wi0-f172.google.com with SMTP id n3so2358318wiv.17
-        for <netdev@vger.kernel.org>; Sat, 22 Nov 2014 14:03:42 -0800 (PST)
-In-Reply-To: <5470E5E0.9070005@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Willem de Bruijn <willemb@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
+	Miklos Szeredi <mszeredi@suse.cz>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Jan Beulich <JBeulich@suse.com>,
+	open list <linux-kernel@vger.kernel.org>,
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>
+To: Pieter Smith <pieter@boesman.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAPho-_+GV+2sVVxGsPSjvE3heEoGa4chbqrmnxLAr_p7RU=TDQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 22/11/2014 20:37, Roopa Prabhu wrote:
-> struct ifinfomsg -> ifi_flags
-> struct ndmsg ->ndm_flags
-> struct rtmsg  -> rtm_flags
->
-> If this is preferred .., I can repost the series with these changes.
+[Please don't top-post.]
 
-Yes, it would be my preferred too.
+On Sat, Nov 22, 2014 at 11:50:51PM +0100, Pieter Smith wrote:
+> splice exports a structure that is used by skbuf. Mocking out a function is
+> straightforward. To my knowledge there is no elegant way of mocking out a
+> splice_operations struct. I directly modified the code to prevent linking
+> against the struct. Do you know of a better technique to get the same
+> result?
 
-Thank you,
-   Vincent
+No, I don't.  The approach you took seems fine; I'm just saying that you
+need to explain the need for it in the commit message.
+
+- JosH Triplett
