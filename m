@@ -1,54 +1,50 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net PATCH] ipv6: Do not treat a GSO_TCPV4 request from UDP tunnel
- over IPv6 as invalid
-Date: Fri, 21 Nov 2014 19:37:09 -0800
-Message-ID: <20141122033603.22361.28896.stgit@ahduyck-server>
+From: "Jia-Ju Bai" <baijiaju1990@163.com>
+Subject: Potential bugs found in ne2k-pci+8390
+Date: Sat, 22 Nov 2014 11:51:15 +0800
+Message-ID: <000001d00607$90e5ee70$b2b1cb50$@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44278 "EHLO mx1.redhat.com"
+Received: from m12-16.163.com ([220.181.12.16]:45760 "EHLO m12-16.163.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751760AbaKVDhM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Nov 2014 22:37:12 -0500
+	id S1752687AbaKVDv3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Nov 2014 22:51:29 -0500
+Content-Language: zh-cn
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds SKB_GSO_TCPV4 to the list of supported GSO types handled by
-the IPv6 GSO offloads.  Without this change VXLAN tunnels running over IPv6
-do not currently handle IPv4 TCP TSO requests correctly and end up handing
-the non-segmented frame off to the device.
+Dear Sir,
+I'm very sorry to trouble you. 
+Recently I test 15 linux device drivers and find some potential bugs both in
+Linux 3.8.6 and Linux 3.17.2. 
 
-Below is the before and after for a simple netperf TCP_STREAM test between
-two endpoints tunneling IPv4 over a VXLAN tunnel running on IPv6 on top of
-a 1Gb/s network adapter.
+The target file is drivers/net/ethernet/8390/ne2k-pci.c, which is used to
+build ne2k-pci.ko. I hope you can help me check my findings:
+[1] The function request_region is called by ne2k_pci_init_one when
+initializing the ethernet card driver. But when request_region is failed,
+which means that it returns the error value, ne2k_pci_init_one returns
+immediately to halt the process. However, because pci_enable_device has been
+called before request_region in ne2k_pci_init_one, pci_disable_device should
+be called before exiting. When the driver works normally, pci_enable_device
+and pci_disable_device are called in pairs in ne2k_pci_init_one and
+ne2k_pci_remove_one. Moreover, other ethernet card drivers call
+pci_enable_device and pci_disable_device in pairs in error handling paths,
+such as r8169 and sky2.
+[2] The similar problem to [1] occurs when alloc_ei_netdev is failed in
+ne2k_pci_init_one.
+[3] The similar problem to [1] occurs when register_netdev is failed in
+ne2k_pci_init_one.
 
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
+Could you help me check these findings? Thank you very much, and I'm looking
+forward to your reply.
 
- 87380  16384  16384    10.29       0.88      Before
- 87380  16384  16384    10.03     895.69      After
-
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
- net/ipv6/ip6_offload.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index a071563..01e12d0 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -69,7 +69,8 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
- 	int nhoff;
- 
- 	if (unlikely(skb_shinfo(skb)->gso_type &
--		     ~(SKB_GSO_UDP |
-+		     ~(SKB_GSO_TCPV4 |
-+		       SKB_GSO_UDP |
- 		       SKB_GSO_DODGY |
- 		       SKB_GSO_TCP_ECN |
- 		       SKB_GSO_GRE |
+--
+Best wishes!
+Jia-Ju Bai
+E-mail: baijiaju1990@163.com
+Department of Computer Science and Technology, Tsinghua University
+Address: Room 1-417, West Main, Tsinghua University, Haidian District,
+Beijing, 100084, China.
