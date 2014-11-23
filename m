@@ -1,38 +1,59 @@
-From: nick <xerofoify@gmail.com>
-Subject: FIX ME in e1000_82575.c
-Date: Sat, 22 Nov 2014 23:42:36 -0500
-Message-ID: <547165BC.2000508@gmail.com>
+From: Pankaj Gupta <pagupta@redhat.com>
+Subject: Re: [PATCH net-net 0/4] Increase the limit of tuntap queues
+Date: Sun, 23 Nov 2014 00:22:00 -0500 (EST)
+Message-ID: <1279921267.2842813.1416720120277.JavaMail.zimbra@redhat.com>
+References: <1416327778-17716-1-git-send-email-pagupta@redhat.com> <20141119.151628.768548269128919029.davem@davemloft.net> <20141119204427.GB30994@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
-	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.or
-To: "jeffrey.t.kirsher@intel.com >> Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jasowang@redhat.com, dgibson@redhat.com, vfalico@gmail.com,
+	edumazet@google.com, vyasevic@redhat.com, hkchu@google.com,
+	wuzhy@linux.vnet.ibm.com, xemul@parallels.com, therbert@google.com,
+	bhutchings@solarflare.com, xii@google.com,
+	stephen@networkplumber.org, jiri@resnulli.us,
+	sergei shtylyov <sergei.shtylyov@cogentembedded.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141119204427.GB30994@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Greetings Again Jeff,
-I am wondering about sending in a patch to FIX ME in the file, e1000_82575 due to incorrect values in the function,
-igdb_acquire_swfw_sync_82575. If you or one of the other maintainers at Intel can send me the correct values or a hardware reference for me to find the values, I would be glad to send it a patch fixing these outstanding issues.
-Regards Nick 
 
-------------------------------------------------------------------------------
-Download BIRT iHub F-Type - The Free Enterprise-Grade BIRT Server
-from Actuate! Instantly Supercharge Your Business Reports and Dashboards
-with Interactivity, Sharing, Native Excel Exports, App Integration & more
-Get technology previously reserved for billion-dollar corporations, FREE
-http://pubads.g.doubleclick.net/gampad/clk?id=157005751&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+> On Wed, Nov 19, 2014 at 03:16:28PM -0500, David Miller wrote:
+> > From: Pankaj Gupta <pagupta@redhat.com>
+> > Date: Tue, 18 Nov 2014 21:52:54 +0530
+> > 
+> > > - Accept maximum number of queues as sysctl param so that any user space
+> > >   application like libvirt can use this value to limit number of queues.
+> > >   Also
+> > >   Administrators can specify maximum number of queues by updating this
+> > >   sysctl
+> > >   entry.
+> > 
+> > This is the only part I don't like.
+> > 
+> > Just let whoever has privileges to configure the tun device shoot
+> > themselves in the foot if they want to by configuring "too many"
+> > queues.
+> > 
+> > If the virtual entity runs itself out of resources by doing something
+> > stupid, it's purely their problem.
+
+We can configure some fixed number of queues like 16 or so at the start 
+if multiqueue is enabled and then if somebody needs more then that, they
+can do on their own.
+
+If we dont want anyone to directly increase the number of queues, we can add
+an ioctl command for increasing number of queues?
+
+
+
+Suggestions here. 
+> 
+> Well it will run host out of kernel, no?
+> 
+> --
+> MST
+> 
