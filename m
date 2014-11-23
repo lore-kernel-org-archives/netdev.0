@@ -1,112 +1,65 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 06/17] switch macvtap to ->read_iter()
-Date: Sun, 23 Nov 2014 23:29:50 +0000
-Message-ID: <1416785390.7215.61.camel@decadent.org.uk>
-References: <20141119.165340.2162829993279387495.davem@davemloft.net>
-	 <20141120214753.GR7996@ZenIV.linux.org.uk>
-	 <20141120.182339.972861702759954603.davem@davemloft.net>
-	 <20141121.122615.1091044030302005883.davem@davemloft.net>
-	 <20141122042856.GZ7996@ZenIV.linux.org.uk>
-	 <20141122043230.GF30478@ZenIV.linux.org.uk>
+From: Josh Triplett <josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org>
+Subject: Re: [PATCH 0/6] kernel tinification: optionally compile out splice
+ family of syscalls (splice, vmsplice, tee and sendfile)
+Date: Sun, 23 Nov 2014 15:36:37 -0800
+Message-ID: <20141123233637.GC12456@thin>
+References: <1416752468-1626-1-git-send-email-pieter@boesman.nl>
+ <20141123.134623.2061031332250984539.davem@davemloft.net>
+ <20141123194326.GB8517@thin>
+ <20141123203040.GB26749@smipidev>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-8IN9vrfdcFEDwDBwMRje"
-Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	target-devel@vger.kernel.org, nab@linux-iscsi.org,
-	hch@infradead.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141122043230.GF30478@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, beber-2YnHqweIUXrk1uMJSBkQmQ@public.gmane.org,
+	catalina.mocanu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org,
+	fuse-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org,
+	hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, iulia.manda21-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, JBeulich-IBi9RG/b67k@public.gmane.org,
+	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mcgrof-IBi9RG/b67k@public.gmane.org, mattst88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	mgorman-l3A5Bk7waGM@public.gmane.org, mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, miklos-sUDqSbJrdHQHWmgEVkV9KA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Paul.Durrant-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org,
+	paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, pefoley2-lY0TAiDIAFlBDgjK7y7TUQ@public.gmane.org, tgraf-G/eBtMaohhA@public.gmane.org,
+	therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	xiaoguangrong-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, zhenglong.cai-TJRtMXcVgQTM1kAEIRd3EQ@public.gmane.org
+To: Pieter Smith <pieter-qeJ+1H9vRZbz+pZb47iToQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20141123203040.GB26749@smipidev>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, Nov 23, 2014 at 09:30:40PM +0100, Pieter Smith wrote:
+> On Sun, Nov 23, 2014 at 11:43:26AM -0800, Josh Triplett wrote:
+> > On Sun, Nov 23, 2014 at 01:46:23PM -0500, David Miller wrote:
+> > > Truly removing sendfile/sendpage means that you can't even compile NFS
+> > > into the tree.
+> > 
+> > If you mean the in-kernel nfsd (CONFIG_NFSD), that already has a large
+> > stack of "select" and "depends on", both directly and indirectly; adding
+> > a "select SPLICE_SYSCALL" to it seems fine.  (That select does need
+> > adding, though.  Pieter, you need to test-compile more than just
+> > tinyconfig and defconfig.  Try an allyesconfig with *just* splice turned
+> > off, and make sure that compiles.)
+> 
+> Did exacly that. Took forever on my hardware, but no problems.
 
---=-8IN9vrfdcFEDwDBwMRje
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Ah, I see.  Looking more closely at nfsd, it looks like it already has a
+code path for filesystems that don't do splice.  I think, rather than
+making nfsd select SPLICE_SYSCALL, that it would suffice to change the
+"rqstp->rq_splice_ok = true;" in svc_process_common (net/sunrpc/svc.c)
+to:
 
-On Sat, 2014-11-22 at 04:32 +0000, Al Viro wrote:
-> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
-> ---
->  drivers/net/macvtap.c |   39 ++++++++++++++++-----------------------
->  1 file changed, 16 insertions(+), 23 deletions(-)
->=20
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index cea99d4..cdd820f 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -829,16 +829,17 @@ done:
->  }
-> =20
->  static ssize_t macvtap_do_read(struct macvtap_queue *q,
-> -			       const struct iovec *iv, unsigned long segs,
-> -			       unsigned long len,
-> +			       struct iov_iter *to,
->  			       int noblock)
->  {
->  	DEFINE_WAIT(wait);
->  	struct sk_buff *skb;
->  	ssize_t ret =3D 0;
-> -	struct iov_iter iter;
-> =20
-> -	while (len) {
-> +	if (!iov_iter_count(to))
-> +		return 0;
-> +
-> +	while (1) {
->  		if (!noblock)
->  			prepare_to_wait(sk_sleep(&q->sk), &wait,
->  					TASK_INTERRUPTIBLE);
-> @@ -856,37 +857,27 @@ static ssize_t macvtap_do_read(struct macvtap_queue=
- *q,
->  			}
->  			/* Nothing to read, let's sleep */
->  			schedule();
-> -			continue;
->  		}
-> -		iov_iter_init(&iter, READ, iv, segs, len);
-> -		ret =3D macvtap_put_user(q, skb, &iter);
-> +	}
-> +	if (skb) {
-> +		ret =3D macvtap_put_user(q, skb, to);
->  		kfree_skb(skb);
-> -		break;
-[...]
+rqstp->rq_splice_ok = IS_ENABLED(CONFIG_SPLICE_SYSCALL);
 
-You need to leave this break at the bottom of the loop body, or change
-it to:
+Then nfsd should simply *always* fall back to its non-splice support.
 
-	do {
-		...
-	} while (!skb);
+That said, given that it seems exceedingly unlikely that anyone would
+use the in-kernel nfsd on a system trying to minimize kernel size, it
+still seems cleaner to just "select SPLICE_SYSCALL" from NFSD in
+Kconfig.  That avoids making any changes at all to the nfsd source in
+this patch series.
 
-Ben.
-
---=20
-Ben Hutchings
-Never put off till tomorrow what you can avoid all together.
-
---=-8IN9vrfdcFEDwDBwMRje
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAVHJt8+e/yOyVhhEJAQpr6RAAh1Jug0kP//dh4IOWq7c7Dw8faw0bc51z
-XSQBvrg7bUU/9ETjrW6Dcpoyp2ZyIF8GFGjknDbddXRYg5+hRUD29pLF1cs0f6MB
-O/L7uhArjhGRyJd3TR3wsxkw9pbzuBgtJQfo+JOxWUB3kXLa992A641p4JX/5eSF
-VUmI6tZoLwEIgsJ4D1MehFiSdzQraM6cZCaci91iSzVr9zjB5MVRt2kYjcFo5oEY
-lbeGktE/G60+q6LPB4VlLceVHASNlE8syaZC8cQ2PAEyRVn7D7tiz5f9kJt2twJ8
-ZhdMfOPZBpPlCCGvor0dy062kqGa2OMaI1Cl/UetjdwZcciq8yhvDm1ZvSCvzZUh
-UcejycyxrAJoftL8yEyzPOWM5frNFV2IdbL+Mu9yftKEytVnMTHNParWloh5Z+w1
-/4Jq1HSZaSQPLajbOwsm1imASMxne5rMDrDXqtjwHa+5FHw26k4SIsqydj8ALrfx
-3iI/KPPNtyklFfYxBNFVYBsXsr/A9JaN65Iiv5Jw5Cj6W8XV9wkp7svB8dpqGUCn
-HZnsgRFEDpwFdSbquO+qIrYS14xm/VqmBlzSjcIMS7NvNiii8jqpv4qQ4K7Hysay
-TTPY6tdGb+wBqnxQElRIg5dMZM1eToyVFw5Hn4qXzfz6w1EzeLF0SWV9pu3nYMxt
-yesY7BmZMos=
-=Memq
------END PGP SIGNATURE-----
-
---=-8IN9vrfdcFEDwDBwMRje--
+- Josh Triplett
