@@ -1,79 +1,76 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [net-next 14/17] i40e: implement ethtool RSS config
-Date: Sun, 23 Nov 2014 03:53:42 +0000
-Message-ID: <1416714822.7215.40.camel@decadent.org.uk>
-References: <1416635708-4765-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1416635708-4765-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next 12/14] mlx4: use netdev_rss_key_fill() helper
+Date: Sun, 23 Nov 2014 04:07:31 +0000
+Message-ID: <1416715651.7215.43.camel@decadent.org.uk>
+References: <1416147798-16561-1-git-send-email-edumazet@google.com>
+	 <1416147798-16561-13-git-send-email-edumazet@google.com>
+	 <1416692961.7215.31.camel@decadent.org.uk>
+	 <1416700690.20938.34.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-WrN9M50n4uOZa8dEHVt8"
-Cc: davem@davemloft.net, Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	protocol="application/pgp-signature"; boundary="=-AGx4fLABdG6SdqwH/Voa"
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Thomas Lendacky <Thomas.Lendacky@amd.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Rasesh Mody <rasesh.mody@qlogic.com>,
+	Sathya Perla <sathya.perla@emulex.com>,
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Shradha Shah <sshah@solarflare.com>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:45576 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:45640 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752644AbaKWDxw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2014 22:53:52 -0500
-In-Reply-To: <1416635708-4765-16-git-send-email-jeffrey.t.kirsher@intel.com>
+	by vger.kernel.org with ESMTP id S1751891AbaKWEHx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2014 23:07:53 -0500
+In-Reply-To: <1416700690.20938.34.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-WrN9M50n4uOZa8dEHVt8
+--=-AGx4fLABdG6SdqwH/Voa
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2014-11-21 at 21:55 -0800, Jeff Kirsher wrote:
-> From: Mitch Williams <mitch.a.williams@intel.com>
+On Sat, 2014-11-22 at 15:58 -0800, Eric Dumazet wrote:
+> On Sat, 2014-11-22 at 21:49 +0000, Ben Hutchings wrote:
+> > On Sun, 2014-11-16 at 06:23 -0800, Eric Dumazet wrote:
+> > > Use of well known RSS key increases attack surface.
+> > > Switch to a random one, using generic helper so that all
+> > > ports share a common key.
+> > >=20
+> > > Also provide ethtool -x support to fetch RSS key
+> > [...]
+> > > @@ -1799,6 +1805,7 @@ const struct ethtool_ops mlx4_en_ethtool_ops =
+=3D {
+> > >  	.get_rxnfc =3D mlx4_en_get_rxnfc,
+> > >  	.set_rxnfc =3D mlx4_en_set_rxnfc,
+> > >  	.get_rxfh_indir_size =3D mlx4_en_get_rxfh_indir_size,
+> > > +	.get_rxfh_key_size =3D mlx4_en_get_rxfh_key_size,
+> > >  	.get_rxfh =3D mlx4_en_get_rxfh,
+> > >  	.set_rxfh =3D mlx4_en_set_rxfh,
+> > [...]
+> >=20
+> > A driver that implements get_rxfh_key_size() and set_rxfh() is assumed
+> > to support setting the RSS key (and only the key).  However,
+> > mlx4_en_set_rxfh() will currently crash if a new indirection table is
+> > not provided.
 >=20
-> Support ethtool methods for getting and setting the RSS look-up table.
+> Hi Ben.
 >=20
-> Change-ID: I52707fb371fc11fe9fd4c287e08542cde38f79d4
-> Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-> Tested-by: Jim Young <jamesx.m.young@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 104 +++++++++++++++++++=
-++++++
->  1 file changed, 104 insertions(+)
->=20
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net=
-/ethernet/intel/i40e/i40e_ethtool.c
-> index fcd815d..f9f68ea 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> @@ -2237,6 +2237,106 @@ static int i40e_set_channels(struct net_device *d=
-ev,
->  		return -EINVAL;
->  }
-> =20
-> +#define I40E_HLUT_ARRAY_SIZE ((I40E_PFQF_HLUT_MAX_INDEX + 1) * 4)
-> +#define I40E_HKEY_ARRAY_SIZE ((I40E_PFQF_HKEY_MAX_INDEX * 1) * 4)
+> Is this a net-next only concern, or is it an existing problem in net
+> tree ?
 
-Same typo as in i40evf.
-
-[...]
-> +static int i40e_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key)
-> +{
-> +	struct i40e_netdev_priv *np =3D netdev_priv(netdev);
-> +	struct i40e_vsi *vsi =3D np->vsi;
-> +	struct i40e_pf *pf =3D vsi->back;
-> +	struct i40e_hw *hw =3D &pf->hw;
-> +	u32 reg_val;
-> +	int i, j;
-> +
-> +	for (i =3D 0, j =3D 0; i <=3D I40E_PFQF_HLUT_MAX_INDEX; i++) {
-> +		reg_val =3D rd32(hw, I40E_PFQF_HLUT(i));
-> +		indir[j++] =3D reg_val & 0xff;
-> +		indir[j++] =3D (reg_val >> 8) & 0xff;
-> +		indir[j++] =3D (reg_val >> 16) & 0xff;
-> +		indir[j++] =3D (reg_val >> 24) & 0xff;
-> +	}
-[...]
-
-Same missing condition as in i40evf.
+It's introduced by the above patch, as you seem to have worked out.
+Drivers not implementing ethtool_ops::get_rxfh_key_size will always get
+a non-null indir pointer (see commit 61d88c6811f2).
 
 Ben.
 
@@ -81,26 +78,26 @@ Ben.
 Ben Hutchings
 Never put off till tomorrow what you can avoid all together.
 
---=-WrN9M50n4uOZa8dEHVt8
+--=-AGx4fLABdG6SdqwH/Voa
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIVAwUAVHFaR+e/yOyVhhEJAQqz2Q//WwsPginWlbF/3dRqX7ZF6Y/ibuu/yS/H
-AYw/94ab/UHztxtOMfab5TU6jUxyz9gY0aS0gx7R0Zm25PhplpbxuA1+FFgdWS7z
-iYWE+AMty69kxGzi+yTbJXbq/J8ujnG1sTUBFHtEkXpCSBYfTnVGieQ8ff6/0IpW
-HtPMYLQ2kDgfN4e56Euhy8YnUaRAskVlYmb2D45a5mK9WqDLjHPjN1yU46fnNcZL
-+jiF0ifVNXEBUtIgKqL0JdOsynGbgX9ZDsxu98qsvwnH8sMwBWqcRibJGb98HhaM
-NQfR+OmesBCMBwRfyWTA43inG1RVIqASgtLMc1g1k7X81ZEoDNY/LboVVmxZGhCD
-AbH06JJfdGnBcnWc2gsURoozmMHvwezQoLApiWSo45hulZxuKqajDSjwA3nXZ9me
-TV+vsBW8Nap+BMaiiU6GzDk+/E5+CRAaLZMfjdL0b4tkKkLl6k15qFHxMSAWlQ6M
-pkGw7oYbTcScud0pj18JQCOOoBuND40+4PlEQL3rzWYtVjqC3voyTB2ntMqqYLWH
-sdsZet+Pj4tlNUf6eZtqfghxPm5ZsnTKMdDFsvc3UGoaxTzrNQ1tyT1+VLpHyQL7
-BvkidZ/71/TiKKc/E9e3EZ/pZzRMERC0R9nKGWjIBP1yXui7BGyVwouwq8QkoGKg
-hkYP+XnvJhw=
-=btkn
+iQIVAwUAVHFdh+e/yOyVhhEJAQr4mQ//XClFFJidC8uel2uKb++NJ9dFLCArsI0x
+K8yTGJiWqpMjImySIP6tbRhhDl0MTDY0bYPrXMs0YpIkHiLo9JMx+bPdM/7FKVWs
+Nqn33z0qzmaueCr0FYdRoXtFK/79tdL9gy35FyvNbBAx436+xGBECh5AquwLOj1O
+BHsP0O8q8iytZt/DjZmBuvFY7YtfF5qRs0kSP4UVstzuWdfhXfyqIvSKchRWhd9U
+K7IsILEWhpr1ZjufAZPqaWW21rnb6ffaLdsYityOJZXqM3t8MTkOG1c/EpbhBWOy
+Mmas5M6a25Y477sS9a9s9TTbDAdZwVUNDQ3PQ0wYVBzVAMCE7Dt3MgIi7TUQVRfT
+iMltJ3zvITC9uSZo9N1q7BzcGnzXSkvdaUvaPIf6UAEYlHKGYgIgbystUHUWq2Cq
++YYCGqrJOTI72mc2NLuUozRdx8U32U0gdpszsomp9voOta/tstFJfFZppyemvt72
+P8kQdxGd+V7Yf3NfeXdk7Kunw5jFRCngd25zYs7pYDVpAy8u8F93hojusFHy9Kn3
+pxwT1C8CQ4cfn8n9fEi56urS0vA6CgP71pktpYmiZ8LdRsrbVRihUt25E/K/lYvw
++Qm4YBSpoeUQqW9oQBmCI/aUC0Cq0n6ErpGbGP2e8vH3ZbnR7e0XuX2raWyeuphL
+SS4+gbuXeh4=
+=MzkL
 -----END PGP SIGNATURE-----
 
---=-WrN9M50n4uOZa8dEHVt8--
+--=-AGx4fLABdG6SdqwH/Voa--
