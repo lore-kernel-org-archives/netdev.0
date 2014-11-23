@@ -1,49 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net 2/3] ixgbe: fix use after free adapter->state test in
- ixgbe_remove/ixgbe_probe
-Date: Sun, 23 Nov 2014 14:27:09 -0500 (EST)
-Message-ID: <20141123.142709.2057383946565296456.davem@davemloft.net>
+Subject: Re: [net 3/3] igb: Fixes needed for surprise removal support
+Date: Sun, 23 Nov 2014 14:27:15 -0500 (EST)
+Message-ID: <20141123.142715.1046322185203400142.davem@davemloft.net>
 References: <1416642774-17077-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1416642774-17077-2-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1416642774-17077-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, netdev@vger.kernel.org, nhorman@redhat.com,
-	sassmann@redhat.com, jogreene@redhat.com, stable@vger.kernel.org,
-	mark.d.rustad@intel.com
+Cc: carolyn.wyborny@intel.com, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	yanirx.lubetkin@intel.com
 To: jeffrey.t.kirsher@intel.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1416642774-17077-2-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35191 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752261AbaKWT1R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Nov 2014 14:27:17 -0500
+In-Reply-To: <1416642774-17077-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 21 Nov 2014 23:52:53 -0800
+Date: Fri, 21 Nov 2014 23:52:54 -0800
 
-> From: Daniel Borkmann <dborkman@redhat.com>
+> From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 > 
-> While working on a different issue, I noticed an annoying use
-> after free bug on my machine when unloading the ixgbe driver:
- ...
-> The issue is that test_and_set_bit() done on adapter->state is being
-> performed *after* the netdevice has been freed via free_netdev().
+> This patch adds some checks in order to prevent panic's on surprise
+> removal of devices during S0, S3, S4.  Without this patch, Thunderbolt
+> type device removal will panic the system.
 > 
-> When netdev is being allocated on initialization time, it allocates
-> a private area, here struct ixgbe_adapter, that resides after the
-> net_device structure. In ixgbe_probe(), the device init routine,
-> we set up the adapter after alloc_etherdev_mq() on the private area
-> and add a reference for the pci_dev as well via pci_set_drvdata().
-> 
-> Both in the error path of ixgbe_probe(), but also on module unload
-> when ixgbe_remove() is being called, commit 41c62843eb6a ("ixgbe:
-> Fix rcu warnings induced by LER") accesses adapter after free_netdev().
-> The patch stores the result in a bool and thus fixes above oops on my
-> side.
-> 
-> Fixes: 41c62843eb6a ("ixgbe: Fix rcu warnings induced by LER")
-> Cc: stable <stable@vger.kernel.org>
-> Cc: Mark Rustad <mark.d.rustad@intel.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Yanir Lubetkin <yanirx.lubetkin@intel.com>
+> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
