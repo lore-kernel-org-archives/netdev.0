@@ -1,57 +1,97 @@
-From: Eyal perry <eyalpe@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next V1 1/2] ethtool: Support for configurable RSS
- hash function
-Date: Sun, 23 Nov 2014 12:13:54 +0200
-Message-ID: <5471B362.6050706@dev.mellanox.co.il>
-References: <1416493610-8966-1-git-send-email-amirv@mellanox.com>	<1416493610-8966-2-git-send-email-amirv@mellanox.com> <20141122.165407.641057904952001007.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v2 net 1/2] drivers/net: Disable UFO through virtio
+Date: Sun, 23 Nov 2014 12:33:39 +0200
+Message-ID: <20141123103339.GA25224@redhat.com>
+References: <1414693592.16849.61.camel@decadent.org.uk>
+	<1414693632.16849.62.camel@decadent.org.uk>
+	<20141119091455.GA26036@redhat.com>
+	<1416595612.7215.21.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ben@decadent.org.uk, ogerlitz@mellanox.com,
-	yevgenyp@mellanox.com, eyalpe@mellanox.com,
-	thomas.lendacky@amd.com, ariel.elior@qlogic.com,
-	prashant@broadcom.com, mchan@broadcom.com, hariprasad@chelsio.com,
-	sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
-	ajit.khaparde@emulex.com, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	gregory.v.rose@intel.com, matthew.vick@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	linux-net-drivers@solarflare.com, sshah@solarflare.com,
-	sbhatewara@vmware.com, pv-drivers@vmware.com
-To: David Miller <davem@davemloft.net>, amirv@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:53291 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750704AbaKWKOD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Nov 2014 05:14:03 -0500
-Received: by mail-wi0-f173.google.com with SMTP id r20so3038158wiv.12
-        for <netdev@vger.kernel.org>; Sun, 23 Nov 2014 02:14:01 -0800 (PST)
-In-Reply-To: <20141122.165407.641057904952001007.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	virtualization@lists.linux-foundation.org
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1416595612.7215.21.camel@decadent.org.uk>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 11/22/2014 11:54 PM, David Miller wrote:
-> From: Amir Vadai <amirv@mellanox.com>
-> Date: Thu, 20 Nov 2014 16:26:49 +0200
+On Fri, Nov 21, 2014 at 06:46:52PM +0000, Ben Hutchings wrote:
+> On Wed, 2014-11-19 at 11:14 +0200, Michael S. Tsirkin wrote:
+> > On Thu, Oct 30, 2014 at 06:27:12PM +0000, Ben Hutchings wrote:
+> > > IPv6 does not allow fragmentation by routers, so there is no
+> > > fragmentation ID in the fixed header.  UFO for IPv6 requires the ID to
+> > > be passed separately, but there is no provision for this in the virtio
+> > > net protocol.
+> > > 
+> > > Until recently our software implementation of UFO/IPv6 generated a new
+> > > ID, but this was a bug.  Now we will use ID=0 for any UFO/IPv6 packet
+> > > passed through a tap, which is even worse.
+> > > 
+> > > Unfortunately there is no distinction between UFO/IPv4 and v6
+> > > features, so disable UFO on taps and virtio_net completely until we
+> > > have a proper solution.
+> > > 
+> > > We cannot depend on VM managers respecting the tap feature flags, so
+> > > keep accepting UFO packets but log a warning the first time we do
+> > > this.
+> > > 
+> > > Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> > > Fixes: 916e4cf46d02 ("ipv6: reuse ip6_frag_id from ip6_ufo_append_data")
+> > 
+> > 
+> > There's something I don't understand here. I see:
+> > 
+> >         NETIF_F_UFO_BIT,                /* ... UDPv4 fragmentation */
+> > 
+> > this comment is wrong then?
 > 
->> +	/* We require at least one supported parameter to be changed and no
->> +	 * change in any of the unsupported parameters
->> +	 */
->> +	if ((!indir && !key) || hfunc != ETH_RSS_HASH_NO_CHANGE)
->> +		return -EOPNOTSUPP;
->> +
+> Yes.
 > 
-> I know it will make more work for you, but all of these driver
-> implementations of this hook should:
+> > The patches drastically regress performance for UDPv4 for VMs only, but
+> > isn't it likely many other devices based their code on this comment?
 > 
-> 1) Accept hfunc of whatever hash function the chip is using,
->    not just ETH_RSS_HASH_NO_CHANGE.
+> There's only one hardware driver that implements UFO (s2io), and it does
+> handle IPv6.
 > 
-> 2) Provide an accurate hfunc value in the ->get() call.
-Ok, I'll do it for V2.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > How about we disable UFO for IPv6 globally, and put the
+> > flag back in?
+> > We can then gradually add NETIF_F_UFO6_BIT for devices that
+> > actually support UFO for IPv6.
 > 
+> Since the corresponding virtio feature bit is understood to include
+> UFO/IPv6, and existing VMs rely on that, I don't see what this solves.
+> 
+> Ben.
+
+
+I'm confused. Patching virtio has 0 effect on existing VMs - they
+are running old drivers anyway.
+
+Here's the proposal for guest side:
+
+- Add NETIF_F_UFO6_BIT, set in s2io.
+- Teach IPv6 to check NETIF_F_UFO6_BIT and not NETIF_F_UFO_BIT.
+
+What is accomplishes is good speed for virtio with UDP over IPv4,
+and correct, slower transmission for IPv6.
+
+Of course this does not help old guests but your patch
+to which I'm replying doesn't affect old guests either.
+
+Or did I miss something?
+
+> -- 
+> Ben Hutchings
+> Beware of bugs in the above code;
+> I have only proved it correct, not tried it. - Donald Knuth
