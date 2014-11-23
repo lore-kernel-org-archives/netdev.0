@@ -1,46 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 12/14] mlx4: use netdev_rss_key_fill() helper
-Date: Sat, 22 Nov 2014 20:14:33 -0800
-Message-ID: <1416716073.17888.10.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1416147798-16561-1-git-send-email-edumazet@google.com>
-	 <1416147798-16561-13-git-send-email-edumazet@google.com>
-	 <1416692961.7215.31.camel@decadent.org.uk>
-	 <1416700690.20938.34.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1416715651.7215.43.camel@decadent.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net: Hyper-V: Deletion of an unnecessary check before the
+ function call "vfree"
+Date: Sat, 22 Nov 2014 23:36:54 -0500 (EST)
+Message-ID: <20141122.233654.279540319568229037.davem@davemloft.net>
+References: <546FB98E.5070703@users.sourceforge.net>
+	<20141121.172705.540279259389643572.davem@davemloft.net>
+	<54712F8C.10206@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Thomas Lendacky <Thomas.Lendacky@amd.com>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Rasesh Mody <rasesh.mody@qlogic.com>,
-	Sathya Perla <sathya.perla@emulex.com>,
-	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
-	Ajit Khaparde <ajit.khaparde@emulex.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Shradha Shah <sshah@solarflare.com>,
-	Shreyas Bhatewara <sbhatewara@vmware.com>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:52829 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751891AbaKWEOg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Nov 2014 23:14:36 -0500
-Received: by mail-ie0-f169.google.com with SMTP id y20so7198689ier.0
-        for <netdev@vger.kernel.org>; Sat, 22 Nov 2014 20:14:35 -0800 (PST)
-In-Reply-To: <1416715651.7215.43.camel@decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: haiyangz@microsoft.com, kys@microsoft.com,
+	devel@linuxdriverproject.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	julia.lawall@lip6.fr
+To: elfring@users.sourceforge.net
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <54712F8C.10206@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2014-11-23 at 04:07 +0000, Ben Hutchings wrote:
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Sun, 23 Nov 2014 01:51:24 +0100
 
-> It's introduced by the above patch, as you seem to have worked out.
-> Drivers not implementing ethtool_ops::get_rxfh_key_size will always get
-> a non-null indir pointer (see commit 61d88c6811f2).
+>> This has nothing to do with me asking you to frame your patches
+>> against the correct tree.
+> 
+> I imagine than someone other can also pick up this update suggestion
+> (a simple change of two lines) quicker before I might try another
+> software build again from a different commit as a base.
 
-Yep, thanks Ben ;)
+Whereas if you learn how to base your changes cleanly on the correct
+base now, all of your future submissions will go quickly and smoothly
+into my tree.
