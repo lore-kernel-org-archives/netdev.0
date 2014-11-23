@@ -1,52 +1,42 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-net 0/4] Increase the limit of tuntap queues
-Date: Sun, 23 Nov 2014 22:30:32 +0200
-Message-ID: <20141123203032.GA6286@redhat.com>
-References: <20141119.151628.768548269128919029.davem@davemloft.net>
- <20141119204427.GB30994@redhat.com>
- <20141123104623.GA31915@redhat.com>
- <20141123.134323.1154795102254868842.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] mlx4: fix mlx4_en_set_rxfh()
+Date: Sun, 23 Nov 2014 12:56:31 -0800
+Message-ID: <1416776191.6651.58.camel@perches.com>
+References: <1416147798-16561-1-git-send-email-edumazet@google.com>
+	 <1416147798-16561-13-git-send-email-edumazet@google.com>
+	 <1416692961.7215.31.camel@decadent.org.uk>
+	 <1416700690.20938.34.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1416705859.17888.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <547210EF.9030800@mellanox.com>
+	 <1416762320.17888.21.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pagupta@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jasowang@redhat.com, dgibson@redhat.com,
-	vfalico@gmail.com, edumazet@google.com, vyasevic@redhat.com,
-	hkchu@google.com, wuzhy@linux.vnet.ibm.com, xemul@parallels.com,
-	therbert@google.com, bhutchings@solarflare.com, xii@google.com,
-	stephen@networkplumber.org, jiri@resnulli.us,
-	sergei.shtylyov@cogentembedded.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141123.134323.1154795102254868842.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Amir Vadai <amirv@mellanox.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0222.hostedemail.com ([216.40.44.222]:53349 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752357AbaKWU4h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Nov 2014 15:56:37 -0500
+In-Reply-To: <1416762320.17888.21.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 23, 2014 at 01:43:23PM -0500, David Miller wrote:
-> From: "Michael S. Tsirkin" <mst@redhat.com>
-> Date: Sun, 23 Nov 2014 12:46:23 +0200
-> 
-> > At the moment attaching/detaching queues is an unpriveledged operation.
+On Sun, 2014-11-23 at 09:05 -0800, Eric Dumazet wrote:
+> On Sun, 2014-11-23 at 18:53 +0200, Amir Vadai wrote:
+> > >  	 */
+> > >  	for (i = 0; i < priv->rx_ring_num; i++) {
+> > > +		if (!ring_index)
+> > > +			continue;
 > > 
-> > Shouldn't we worry that an application can cause large
-> > allocations, and provide a way to limit these?
-> > 
-> > David, could you comment on this please?
+> > Why didn't you put the whole loop under the 'if'?
 > 
-> I don't want arbitrary limits imposed.
+> To avoid adding one indentation on the block, and ease this code review.
 > 
-> Where does this "application" run?  If it's in the host, then who
-> cares?  If they suck up all of their available memory with queue
-> resources, it's their problem.
+> This is hardly fast path, and compiler does the optim for us anyway.
 
-qemu runs in the host, but it's unpriveledged: it gets
-passed tun FDs by a priveledged daemon, and it only
-has the rights to some operations,
-in particular to attach and detach queues.
-
-The assumption always was that this operation is safe
-and can't make kernel run out of resources.
-
-
--- 
-MST
+It might have been more sensible
+to use break instead of continue
