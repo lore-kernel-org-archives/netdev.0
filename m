@@ -1,52 +1,91 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net: Hyper-V: Deletion of an unnecessary check before the
- function call "vfree"
-Date: Sun, 23 Nov 2014 13:37:29 -0500 (EST)
-Message-ID: <20141123.133729.642772258617830867.davem@davemloft.net>
-References: <54712F8C.10206@users.sourceforge.net>
- <20141122.233654.279540319568229037.davem@davemloft.net>
- <54718A47.20301@users.sourceforge.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next] vlan: Pass ethtool get_ts_info queries to real
+ device.
+Date: Sun, 23 Nov 2014 19:38:02 +0100
+Message-ID: <20141123183802.GA5192@localhost.localdomain>
+References: <1416575780-19132-1-git-send-email-richardcochran@gmail.com>
+ <1416712512.7215.34.camel@decadent.org.uk>
+ <20141123160533.GA4562@netboy>
+ <1416763199.7215.53.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, haiyangz@microsoft.com,
- kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
- julia.lawall@lip6.fr, devel@linuxdriverproject.org
-To: elfring@users.sourceforge.net
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <54718A47.20301@users.sourceforge.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Stefan =?iso-8859-1?Q?S=F8rensen?=
+	<stefan.sorensen@spectralink.com>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:65039 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752424AbaKWSiI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Nov 2014 13:38:08 -0500
+Received: by mail-wi0-f174.google.com with SMTP id h11so3723253wiw.1
+        for <netdev@vger.kernel.org>; Sun, 23 Nov 2014 10:38:07 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1416763199.7215.53.camel@decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Date: Sun, 23 Nov 2014 08:18:31 +0100
-
->> Whereas if you learn how to base your changes cleanly on the correct
->> base now, all of your future submissions will go quickly and smoothly
->> into my tree.
+On Sun, Nov 23, 2014 at 05:19:59PM +0000, Ben Hutchings wrote:
+> > Unsafe? How?
 > 
-> My reluctance to work with more Linux repositories will evolve
-> over time. The faster affected software versions can be rebuilt
-> the more it will become interesting to try even more source
-> code improvements out, won't it?
+> I mean that the assumption is wrong in general.  So these changes will
+> result in silent failure to enable RX timestamps, on some devices.
+
+Silent failure is dissapointing, yes, but not unsafe. Nothing breaks.
+ 
+> > The whole filter list with every last combination (at least, the ones
+> > at the time) came directly from a early, limited HW design.  Sane,
+> > modern PTP hardware provides time stamps regardless of whether a frame
+> > is VLAN tagged or not.
 > 
-> I find it nice that you could accept update suggestions for
-> a few other Linux components already.
+> I would hope so.  However, this is non-standard - IEEE802.1AS
+> *explicitly forbids* the use of VLAN tags.
 
-You are seriously starting to waste our time.
+Yes, but still people are using them. People fail to understand that
+VLAN tags are not meant for end stations. The power industry has
+created IEEE 61850 which actually requires end stations to send and
+receive VLAN tagged frames with VID!=0, in violation of 802.1. Then
+they published a PTP profile running on VLAN tagged Layer2.
 
-Either resubmit your changes against a clean base, or more on.
+(For this reason alone, most hardware does handle tagged frames, and
+that is also why the linuxptp stack accepts vlan tags when using Layer2
+transport.)
 
-Seriously, all I am purely interested in is seeing properly submitted
-patches, reviewing them, and then integrating them.  Anything else is
-pure noise to me.
+Setting up vlan interfaces on an end station is already somewhat
+fishy. People who do that can surely take care that their cards do
+correctly handle vlan tagged frames.
 
-Thanks.
+Concerning this patch, I needed get_ts_info to work on a VLAN interface
+in order to implement a grand master clock on a managed switch. I think
+that is valid use case, and implementing a Linux based Transparent
+Clock will also need this.
+
+>  Linux's software PTP
+> classifier also doesn't yet handle 802.1ad VLAN tags.
+
+As soon as someone wants this, I don't see why it cannot be added.
+
+> > I don't see any reason not to make our stack even more ugly just to cater
+> > to broken hardware.
+> 
+> So failure to implement a non-standard extension is now 'broken'?
+
+If your PTP traffic flows through a managed, transparent switch with
+VLANs enabled, then the device will have to provide time stamps. This
+is really a standard use case. Also the power profile mandates vlan.
+ 
+> This is progress for some devices, false advertising for others.
+
+And where do we draw the line with describing the limitations of poorly
+made hardware classifiers? What if a card can time stamp IPv4 packets,
+but not in the presence of IPv4 options?
+
+Again, I don't mind if someone wants to add a bunch more combinations
+to the rx_filters. But they are useless in the end. In practice, user
+space software will ignore them anyhow, unless the software somehow
+caters to hardware limitations. Really, look at the list in rx_filters,
+and think about this. What is the stack supposed to do if SIOCGHWTSTAMP
+returns HWTSTAMP_FILTER_PTP_V2_DELAY_REQ? It is madness, really.
+
+Thanks,
+Richard
