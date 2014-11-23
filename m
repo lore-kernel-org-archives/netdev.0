@@ -1,65 +1,93 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next] vlan: Pass ethtool get_ts_info queries to real
- device.
-Date: Sun, 23 Nov 2014 17:05:35 +0100
-Message-ID: <20141123160533.GA4562@netboy>
-References: <1416575780-19132-1-git-send-email-richardcochran@gmail.com>
- <1416712512.7215.34.camel@decadent.org.uk>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net-next] mlx4: fix mlx4_en_set_rxfh()
+Date: Sun, 23 Nov 2014 18:53:03 +0200
+Message-ID: <547210EF.9030800@mellanox.com>
+References: <1416147798-16561-1-git-send-email-edumazet@google.com>
+	 <1416147798-16561-13-git-send-email-edumazet@google.com>
+	 <1416692961.7215.31.camel@decadent.org.uk>
+	 <1416700690.20938.34.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1416705859.17888.7.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Stefan =?iso-8859-1?Q?S=F8rensen?=
-	<stefan.sorensen@spectralink.com>
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:55895 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751273AbaKWQFl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Nov 2014 11:05:41 -0500
-Received: by mail-wg0-f42.google.com with SMTP id z12so10316566wgg.1
-        for <netdev@vger.kernel.org>; Sun, 23 Nov 2014 08:05:40 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1416712512.7215.34.camel@decadent.org.uk>
+Received: from mail-db3on0100.outbound.protection.outlook.com ([157.55.234.100]:40288
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751253AbaKWQx2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Nov 2014 11:53:28 -0500
+In-Reply-To: <1416705859.17888.7.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 23, 2014 at 03:15:12AM +0000, Ben Hutchings wrote:
-> This assumes that the same PTP capabilities apply to VLAN-tagged frames.
-> I don't think it's at all safe to assume that RX filter modes other than
-> HWTSTAMP_FILTER_ALL will include VLAN-tagged frames.  I think it is
-> necessary to define additional modes that explicitly include VLAN-tagged
-> frames.
+On 11/23/2014 3:24 AM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> mlx4_en_set_rxfh() can crash if no RSS indir table is provided.
+> 
+> While we are at it, allow RSS key to be changed with ethtool -X
+> 
+> Tested:
+> 
+> myhost:~# cat /proc/sys/net/core/netdev_rss_key 
+> b6:89:91:f3:b2:c3:c2:90:11:e8:ce:45:e8:a9:9d:1c:f2:f6:d4:53:61:8b:26:3a:b3:9a:57:97:c3:b6:79:4d:2e:d9:66:5c:72:ed:b6:8e:c5:5d:4d:8c:22:67:30:ab:8a:6e:c3:6a
+> 
+> myhost:~# ethtool -x eth0
+> RX flow hash indirection table for eth0 with 8 RX ring(s):
+>     0:      0     1     2     3     4     5     6     7
+> RSS hash key:
+> b6:89:91:f3:b2:c3:c2:90:11:e8:ce:45:e8:a9:9d:1c:f2:f6:d4:53:61:8b:26:3a:b3:9a:57:97:c3:b6:79:4d:2e:d9:66:5c:72:ed:b6:8e
+> 
+> myhost:~# ethtool -X eth0 hkey \
+> 03:0e:e2:43:fa:82:0e:73:14:2d:c0:68:21:9e:82:99:b9:84:d0:22:e2:b3:64:9f:4a:af:00:fa:cc:05:b4:4a:17:05:14:73:76:58:bd:2f
+> 
+> myhost:~# ethtool -x eth0
+> RX flow hash indirection table for eth0 with 8 RX ring(s):
+>     0:      0     1     2     3     4     5     6     7
+> RSS hash key:
+> 03:0e:e2:43:fa:82:0e:73:14:2d:c0:68:21:9e:82:99:b9:84:d0:22:e2:b3:64:9f:4a:af:00:fa:cc:05:b4:4a:17:05:14:73:76:58:bd:2f
+> 
+> 
+> Reported-by: Ben Hutchings <ben@decadent.org.uk>
+> Fixes: b9d1ab7eb42e ("mlx4: use netdev_rss_key_fill() helper")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Amir Vadai <amirv@mellanox.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |   10 +++++++---
+>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |    1 +
+>  drivers/net/ethernet/mellanox/mlx4/en_rx.c      |    3 +--
+>  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    1 +
+>  4 files changed, 10 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> index bdff834a2a7e..c45e06abc073 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> @@ -994,7 +994,7 @@ static int mlx4_en_get_rxfh(struct net_device *dev, u32 *ring_index, u8 *key)
+>  			rss_map->base_qpn;
+>  	}
+>  	if (key)
+> -		netdev_rss_key_fill(key, MLX4_EN_RSS_KEY_SIZE);
+> +		memcpy(key, priv->rss_key, MLX4_EN_RSS_KEY_SIZE);
+>  	return err;
+>  }
+>  
+> @@ -1012,6 +1012,8 @@ static int mlx4_en_set_rxfh(struct net_device *dev, const u32 *ring_index,
+>  	 * between rings
+>  	 */
+>  	for (i = 0; i < priv->rx_ring_num; i++) {
+> +		if (!ring_index)
+> +			continue;
 
-Unsafe? How?
+Why didn't you put the whole loop under the 'if'?
 
-Do you mean that some HW cannot identify and time stamp PTP frames
-when VLAN tagged? That is surely disappointing for people who shell
-out money for such cards, but it is hardly unsafe.
+>  		if (i > 0 && !ring_index[i] && !rss_rings)
+>  			rss_rings = i;
+>  
 
-> I also disagree in general that reconfiguring a VLAN device should make
-> changes to the underlying device that affect more than just that VLAN,
-> i.e. SIOCSHWTSTAMP should not be passed through.  SIOCGHWTSTAMP could be
-> passed through, but rx_filter would need adjustment (VLAN-tagged modes
-> on the underlying devices become untagged modes on the VLAN device).
+[...]
 
-The whole filter list with every last combination (at least, the ones
-at the time) came directly from a early, limited HW design.  Sane,
-modern PTP hardware provides time stamps regardless of whether a frame
-is VLAN tagged or not. I don't see any reason not to make our stack
-even more ugly just to cater to broken hardware.
-
-I have nothing against adding VLAN to the SIOCGHWTSTAMP list, because
-the hardware people *really* use all have:
-
-	HWTSTAMP_TX_ON, and
-	HWTSTAMP_FILTER_ALL, or 
-	HWTSTAMP_FILTER_PTP_V2_EVENT,
-
-So adding more won't hurt. (But it won't help either. If your HW
-cannot time stamp Layer2 and you transmit Layer2, you simply never get
-a time stamp.)
-
-But please don't hold up progress just for this sort of thing.
-
-Thanks,
-Richard
+Amir
