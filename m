@@ -1,97 +1,112 @@
-From: Josh Triplett <josh@joshtriplett.org>
-Subject: Re: [fuse-devel] [PATCH 4/6] fs/fuse: support compiling out splice
-Date: Sun, 23 Nov 2014 15:23:02 -0800
-Message-ID: <20141123232302.GA12456@thin>
-References: <1416752468-1626-1-git-send-email-pieter@boesman.nl>
- <1416752468-1626-5-git-send-email-pieter@boesman.nl>
- <CAFLxGvxq3Mr9n8xMO_fPZDhrGmBh=WKyU0+RF13JBdjssX6qfw@mail.gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH 06/17] switch macvtap to ->read_iter()
+Date: Sun, 23 Nov 2014 23:29:50 +0000
+Message-ID: <1416785390.7215.61.camel@decadent.org.uk>
+References: <20141119.165340.2162829993279387495.davem@davemloft.net>
+	 <20141120214753.GR7996@ZenIV.linux.org.uk>
+	 <20141120.182339.972861702759954603.davem@davemloft.net>
+	 <20141121.122615.1091044030302005883.davem@davemloft.net>
+	 <20141122042856.GZ7996@ZenIV.linux.org.uk>
+	 <20141122043230.GF30478@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pieter Smith <pieter@boesman.nl>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Bertrand Jacquin <beber@meleeweb.net>,
-	Oleg Nesterov <oleg@redhat.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Eric Dumazet <edumazet@google.com>,
-	=?utf-8?B?6JSh5q2j6b6Z?= <zhenglong.cai@cs2c.com.cn>,
-	Jeff Layton <jlayton@poochiereds.net>,
-	Tom Herbert <therbert@google.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Miklos Szeredi <miklos@szeredi.hu>,
-	Peter Foley <pefoley2@pefoley.com>,
-	Hugh Dickins <hughd@google.com>,
-	Xiao Guangrong <xiaoguangrong@linux.vnet.ibm.com>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Mel Gorman <mgorman@suse.de>, Matt Turner <mattst88@gmail.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	"open list:FUSE: FILESYSTEM..." <fuse-devel@lists.sourceforge.net>,
-	"Luis R. Rodriguez" <mcgrof@suse.com>,
-	Catalina Mocanu <cat
-To: Richard Weinberger <richard.weinberger@gmail.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAFLxGvxq3Mr9n8xMO_fPZDhrGmBh=WKyU0+RF13JBdjssX6qfw@mail.gmail.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-8IN9vrfdcFEDwDBwMRje"
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	target-devel@vger.kernel.org, nab@linux-iscsi.org,
+	hch@infradead.org
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141122043230.GF30478@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 23, 2014 at 11:29:08PM +0100, Richard Weinberger wrote:
-> On Sun, Nov 23, 2014 at 3:20 PM, Pieter Smith <pieter@boesman.nl> wrote:
-> > To implement splice support, fs/fuse makes use of nosteal_pipe_buf_ops. This
-> > struct is exported by fs/splice. The goal of the larger patch set is to
-> > completely compile out fs/splice, so uses of the exported struct need to be
-> > compiled out along with fs/splice.
-> >
-> > This patch therefore compiles out splice support in fs/fuse when
-> > CONFIG_SYSCALL_SPLICE is undefined.
-> >
-> > Signed-off-by: Pieter Smith <pieter@boesman.nl>
-> > ---
-> >  fs/fuse/dev.c      | 4 ++--
-> >  include/linux/fs.h | 6 ++++++
-> >  2 files changed, 8 insertions(+), 2 deletions(-)
-> >
-> > diff --git a/fs/fuse/dev.c b/fs/fuse/dev.c
-> > index ca88731..f8f92a4 100644
-> > --- a/fs/fuse/dev.c
-> > +++ b/fs/fuse/dev.c
-> > @@ -1291,7 +1291,7 @@ static ssize_t fuse_dev_read(struct kiocb *iocb, const struct iovec *iov,
-> >         return fuse_dev_do_read(fc, file, &cs, iov_length(iov, nr_segs));
-> >  }
-> >
-> > -static ssize_t fuse_dev_splice_read(struct file *in, loff_t *ppos,
-> > +static ssize_t __maybe_unused fuse_dev_splice_read(struct file *in, loff_t *ppos,
-> >                                     struct pipe_inode_info *pipe,
-> >                                     size_t len, unsigned int flags)
-> >  {
-> > @@ -2144,7 +2144,7 @@ const struct file_operations fuse_dev_operations = {
-> >         .llseek         = no_llseek,
-> >         .read           = do_sync_read,
-> >         .aio_read       = fuse_dev_read,
-> > -       .splice_read    = fuse_dev_splice_read,
-> > +       .splice_read    = __splice_p(fuse_dev_splice_read),
-> >         .write          = do_sync_write,
-> >         .aio_write      = fuse_dev_write,
-> >         .splice_write   = fuse_dev_splice_write,
-> > diff --git a/include/linux/fs.h b/include/linux/fs.h
-> > index a957d43..04c0975 100644
-> > --- a/include/linux/fs.h
-> > +++ b/include/linux/fs.h
-> > @@ -2443,6 +2443,12 @@ extern int blkdev_fsync(struct file *filp, loff_t start, loff_t end,
-> >                         int datasync);
-> >  extern void block_sync_page(struct page *page);
-> >
-> > +#ifdef CONFIG_SYSCALL_SPLICE
-> > +#define __splice_p(x) x
-> > +#else
-> > +#define __splice_p(x) NULL
-> > +#endif
-> > +
-> 
-> This needs to go into a different patch.
-> One logical change per patch please. :-)
 
-Easy enough to merge this one into the patch introducing
-CONFIG_SYSCALL_SPLICE, then.
+--=-8IN9vrfdcFEDwDBwMRje
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-- Josh Triplett
+On Sat, 2014-11-22 at 04:32 +0000, Al Viro wrote:
+> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+> ---
+>  drivers/net/macvtap.c |   39 ++++++++++++++++-----------------------
+>  1 file changed, 16 insertions(+), 23 deletions(-)
+>=20
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index cea99d4..cdd820f 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -829,16 +829,17 @@ done:
+>  }
+> =20
+>  static ssize_t macvtap_do_read(struct macvtap_queue *q,
+> -			       const struct iovec *iv, unsigned long segs,
+> -			       unsigned long len,
+> +			       struct iov_iter *to,
+>  			       int noblock)
+>  {
+>  	DEFINE_WAIT(wait);
+>  	struct sk_buff *skb;
+>  	ssize_t ret =3D 0;
+> -	struct iov_iter iter;
+> =20
+> -	while (len) {
+> +	if (!iov_iter_count(to))
+> +		return 0;
+> +
+> +	while (1) {
+>  		if (!noblock)
+>  			prepare_to_wait(sk_sleep(&q->sk), &wait,
+>  					TASK_INTERRUPTIBLE);
+> @@ -856,37 +857,27 @@ static ssize_t macvtap_do_read(struct macvtap_queue=
+ *q,
+>  			}
+>  			/* Nothing to read, let's sleep */
+>  			schedule();
+> -			continue;
+>  		}
+> -		iov_iter_init(&iter, READ, iv, segs, len);
+> -		ret =3D macvtap_put_user(q, skb, &iter);
+> +	}
+> +	if (skb) {
+> +		ret =3D macvtap_put_user(q, skb, to);
+>  		kfree_skb(skb);
+> -		break;
+[...]
+
+You need to leave this break at the bottom of the loop body, or change
+it to:
+
+	do {
+		...
+	} while (!skb);
+
+Ben.
+
+--=20
+Ben Hutchings
+Never put off till tomorrow what you can avoid all together.
+
+--=-8IN9vrfdcFEDwDBwMRje
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUAVHJt8+e/yOyVhhEJAQpr6RAAh1Jug0kP//dh4IOWq7c7Dw8faw0bc51z
+XSQBvrg7bUU/9ETjrW6Dcpoyp2ZyIF8GFGjknDbddXRYg5+hRUD29pLF1cs0f6MB
+O/L7uhArjhGRyJd3TR3wsxkw9pbzuBgtJQfo+JOxWUB3kXLa992A641p4JX/5eSF
+VUmI6tZoLwEIgsJ4D1MehFiSdzQraM6cZCaci91iSzVr9zjB5MVRt2kYjcFo5oEY
+lbeGktE/G60+q6LPB4VlLceVHASNlE8syaZC8cQ2PAEyRVn7D7tiz5f9kJt2twJ8
+ZhdMfOPZBpPlCCGvor0dy062kqGa2OMaI1Cl/UetjdwZcciq8yhvDm1ZvSCvzZUh
+UcejycyxrAJoftL8yEyzPOWM5frNFV2IdbL+Mu9yftKEytVnMTHNParWloh5Z+w1
+/4Jq1HSZaSQPLajbOwsm1imASMxne5rMDrDXqtjwHa+5FHw26k4SIsqydj8ALrfx
+3iI/KPPNtyklFfYxBNFVYBsXsr/A9JaN65Iiv5Jw5Cj6W8XV9wkp7svB8dpqGUCn
+HZnsgRFEDpwFdSbquO+qIrYS14xm/VqmBlzSjcIMS7NvNiii8jqpv4qQ4K7Hysay
+TTPY6tdGb+wBqnxQElRIg5dMZM1eToyVFw5Hn4qXzfz6w1EzeLF0SWV9pu3nYMxt
+yesY7BmZMos=
+=Memq
+-----END PGP SIGNATURE-----
+
+--=-8IN9vrfdcFEDwDBwMRje--
