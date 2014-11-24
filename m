@@ -1,81 +1,56 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 15/17] netfilter: nf_conntrack_h323: lookup route from proper net namespace
-Date: Mon, 24 Nov 2014 14:27:52 +0100
-Message-ID: <1416835674-11871-16-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 13/17] netfilter: nfnetlink_log: remove unnecessary error messages
+Date: Mon, 24 Nov 2014 14:27:50 +0100
+Message-ID: <1416835674-11871-14-git-send-email-pablo@netfilter.org>
 References: <1416835674-11871-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44921 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:44908 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754063AbaKXN0B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Nov 2014 08:26:01 -0500
+	id S1753928AbaKXNZ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Nov 2014 08:25:59 -0500
 In-Reply-To: <1416835674-11871-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasily Averin <vvs@parallels.com>
+In case of OOM, there's nothing userspace can do.
 
-Signed-off-by: Vasily Averin <vvs@parallels.com>
+If there's no room to put the payload in __build_packet_message(),
+jump to nla_put_failure which already performs the corresponding
+error reporting.
+
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_h323_main.c |   14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
+ net/netfilter/nfnetlink_log.c |    9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
-index 3a3a60b..1d69f5b 100644
---- a/net/netfilter/nf_conntrack_h323_main.c
-+++ b/net/netfilter/nf_conntrack_h323_main.c
-@@ -728,7 +728,8 @@ static int expect_h245(struct sk_buff *skb, struct nf_conn *ct,
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index b1e3a05..51996ec 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -334,9 +334,6 @@ nfulnl_alloc_skb(struct net *net, u32 peer_portid, unsigned int inst_size,
  
- /* If the calling party is on the same side of the forward-to party,
-  * we don't need to track the second call */
--static int callforward_do_filter(const union nf_inet_addr *src,
-+static int callforward_do_filter(struct net *net,
-+				 const union nf_inet_addr *src,
- 				 const union nf_inet_addr *dst,
- 				 u_int8_t family)
- {
-@@ -750,9 +751,9 @@ static int callforward_do_filter(const union nf_inet_addr *src,
+ 			skb = nfnetlink_alloc_skb(net, pkt_size,
+ 						  peer_portid, GFP_ATOMIC);
+-			if (!skb)
+-				pr_err("nfnetlink_log: can't even alloc %u bytes\n",
+-				       pkt_size);
+ 		}
+ 	}
  
- 		memset(&fl2, 0, sizeof(fl2));
- 		fl2.daddr = dst->ip;
--		if (!afinfo->route(&init_net, (struct dst_entry **)&rt1,
-+		if (!afinfo->route(net, (struct dst_entry **)&rt1,
- 				   flowi4_to_flowi(&fl1), false)) {
--			if (!afinfo->route(&init_net, (struct dst_entry **)&rt2,
-+			if (!afinfo->route(net, (struct dst_entry **)&rt2,
- 					   flowi4_to_flowi(&fl2), false)) {
- 				if (rt_nexthop(rt1, fl1.daddr) ==
- 				    rt_nexthop(rt2, fl2.daddr) &&
-@@ -774,9 +775,9 @@ static int callforward_do_filter(const union nf_inet_addr *src,
+@@ -568,10 +565,8 @@ __build_packet_message(struct nfnl_log_net *log,
+ 		struct nlattr *nla;
+ 		int size = nla_attr_size(data_len);
  
- 		memset(&fl2, 0, sizeof(fl2));
- 		fl2.daddr = dst->in6;
--		if (!afinfo->route(&init_net, (struct dst_entry **)&rt1,
-+		if (!afinfo->route(net, (struct dst_entry **)&rt1,
- 				   flowi6_to_flowi(&fl1), false)) {
--			if (!afinfo->route(&init_net, (struct dst_entry **)&rt2,
-+			if (!afinfo->route(net, (struct dst_entry **)&rt2,
- 					   flowi6_to_flowi(&fl2), false)) {
- 				if (ipv6_addr_equal(rt6_nexthop(rt1),
- 						    rt6_nexthop(rt2)) &&
-@@ -807,6 +808,7 @@ static int expect_callforwarding(struct sk_buff *skb,
- 	__be16 port;
- 	union nf_inet_addr addr;
- 	struct nf_conntrack_expect *exp;
-+	struct net *net = nf_ct_net(ct);
- 	typeof(nat_callforwarding_hook) nat_callforwarding;
+-		if (skb_tailroom(inst->skb) < nla_total_size(data_len)) {
+-			printk(KERN_WARNING "nfnetlink_log: no tailroom!\n");
+-			return -1;
+-		}
++		if (skb_tailroom(inst->skb) < nla_total_size(data_len))
++			goto nla_put_failure;
  
- 	/* Read alternativeAddress */
-@@ -816,7 +818,7 @@ static int expect_callforwarding(struct sk_buff *skb,
- 	/* If the calling party is on the same side of the forward-to party,
- 	 * we don't need to track the second call */
- 	if (callforward_filter &&
--	    callforward_do_filter(&addr, &ct->tuplehash[!dir].tuple.src.u3,
-+	    callforward_do_filter(net, &addr, &ct->tuplehash[!dir].tuple.src.u3,
- 				  nf_ct_l3num(ct))) {
- 		pr_debug("nf_ct_q931: Call Forwarding not tracked\n");
- 		return 0;
+ 		nla = (struct nlattr *)skb_put(inst->skb, nla_total_size(data_len));
+ 		nla->nla_type = NFULA_PAYLOAD;
 -- 
 1.7.10.4
