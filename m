@@ -1,39 +1,38 @@
-From: Ani Sinha <ani@arista.com>
-Subject: Re: [PATCH 1/1] fix return code from fib_rules_lookup()
-Date: Mon, 24 Nov 2014 10:34:18 -0800
-Message-ID: <CAOxq_8N-jVdsJPyjiqUVGLJnbC8L7AoB8vKv5xcsOQiuPoAPDw@mail.gmail.com>
-References: <1416637521-20173-1-git-send-email-ani@arista.com> <20141123.142438.1266838467850561800.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: maze <maze@google.com>, Eric Dumazet <edumazet@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	fruggeri <fruggeri@arista.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:57746 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752589AbaKXSej (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 13:34:39 -0500
-Received: by mail-ie0-f181.google.com with SMTP id tp5so9385986ieb.12
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2014 10:34:39 -0800 (PST)
-In-Reply-To: <20141123.142438.1266838467850561800.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andreas Ruprecht <rupran@einserver.de>
+Subject: [PATCH 0/2] net: wireless: rtlwifi: Fix issues with Makefiles
+Date: Mon, 24 Nov 2014 19:34:30 +0100
+Message-ID: <1416854072-14794-1-git-send-email-rupran@einserver.de>
+Cc: Chaoming Li <chaoming_li@realsil.com.cn>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Andreas Ruprecht <rupran@einserver.de>
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 23, 2014 at 11:24 AM, David Miller <davem@davemloft.net> wrote:
+This patch series fixes two issues in the Makefiles for different
+rtlwifi drivers.
 
->
-> How does this relate to the already committed:
->
-> commit 49dd18ba4615eaa72f15c9087dea1c2ab4744cf5
-> Author: Panu Matilainen <pmatilai@redhat.com>
-> Date:   Fri Nov 14 13:14:32 2014 +0200
->
->     ipv4: Fix incorrect error code when adding an unreachable route
->
+The first one lead to object files for the drivers always being
+included in obj-m even if the corresponding Kconfig option is set to
+'y'.
 
-Oh wow! This was committed only a week or so ago. My tree wasn't
-updated. Sorry. Yes, this is the same problem I was referring to and
-this patch should fix it.
+The second one is likely to be a copy-and-paste mistake, which
+prevents compilation of the rtl8192ee driver unless the
+completely unrelated Kconfig option for the rtl8821ae driver
+(CONFIG_RTL8821AE) is also enabled.
 
-Ani
+Andreas Ruprecht (2):
+  net: wireless: rtlwifi: Do not always include drivers in obj-m
+  net: wireless: rtlwifi: rtl8192ee: Fix compilation of the driver
+
+ drivers/net/wireless/rtlwifi/rtl8192ee/Makefile | 5 +----
+ drivers/net/wireless/rtlwifi/rtl8723ae/Makefile | 3 ---
+ drivers/net/wireless/rtlwifi/rtl8723be/Makefile | 3 ---
+ drivers/net/wireless/rtlwifi/rtl8821ae/Makefile | 3 ---
+ 4 files changed, 1 insertion(+), 13 deletions(-)
+
+--
+1.9.1
