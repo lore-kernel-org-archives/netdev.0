@@ -1,124 +1,82 @@
-From: Wengang <wen.gang.wang@oracle.com>
-Subject: Re: [PATCH] bonding: clear header_ops when last slave detached (v2)
-Date: Mon, 24 Nov 2014 11:05:39 +0800
-Message-ID: <5472A083.9020801@oracle.com>
-References: <1416374292-10993-1-git-send-email-wen.gang.wang@oracle.com> <1416375565.14060.43.camel@edumazet-glaptop2.roam.corp.google.com> <546C4022.5010509@oracle.com> <CAHA+R7OyA_V149bpE8qUgG9epU-5UG8cf=zOgh5ZXVB3ZFZHUw@mail.gmail.com> <1416465685.8629.15.camel@edumazet-glaptop2.roam.corp.google.com> <CAHA+R7PKRbBNwfUWRAsVHQreKsGXBc8CHorZRuyCfvwL4O=y+g@mail.gmail.com> <1416516104.8629.39.camel@edumazet-glaptop2.roam.corp.google.com> <CAHA+R7Me4zPdGpeQVHFLLGVq=4cVar09jQFyjA81nxF_Fmuppw@mail.gmail.com> <1416521035.8629.49.camel@edumazet-glaptop2.roam.corp.google.com> <CAHA+R7P9XhGQZXFy6frxOyZJ4rX_MdVgY3kAPE1_wDNcvYd_yA@mail.gmail.com> <23563.1416523985@famine> <CAHA+R7Pnn4TxRQcR4KBRrZV8mqsm-YznMMvXVasji07caY9b1g@mail.gmail.com> <29850.1416596051@famine>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next 1/2] r8152: redefine REALTEK_USB_DEVICE
+Date: Mon, 24 Nov 2014 11:09:48 +0800
+Message-ID: <1394712342-15778-102-Taiwan-albertk@realtek.com>
+References: <1394712342-15778-101-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>,
-	Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:26054 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750804AbaKXDEV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Nov 2014 22:04:21 -0500
-In-Reply-To: <29850.1416596051@famine>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394712342-15778-101-Taiwan-albertk@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=E4=BA=8E 2014=E5=B9=B411=E6=9C=8822=E6=97=A5 02:54, Jay Vosburgh =E5=86=
-=99=E9=81=93:
-> Cong Wang <cwang@twopensource.com> wrote:
->
->> On Thu, Nov 20, 2014 at 2:53 PM, Jay Vosburgh
->> <jay.vosburgh@canonical.com> wrote:
->>> Cong Wang <cwang@twopensource.com> wrote:
->>>
->>>> Also, no one seems to care about my previous question:
->>>> why only bonding has the problem?
->>>          Bonding has the problem because it stashes a pointer to a =
-data
->>> structure (the header_ops) from another module, and when that modul=
-e is
->>> unloaded the dangling pointer may be dereferenced if it's not eithe=
-r
->>> cleared or made to never go away.
->> I knew, please re-read my question, I was asking why ONLY bonding
->> has the problem, i.e. why not neigh or whatever else calling
->> header_ops->foo()? :)
->>
->> As I said, I may miss some try_get_module() somewhere of course.
->> Needs more digging.
-> 	My explanation is why only bonding has the problem; it's keeping
-> a pointer (in bond_dev->header_ops) that is copied from the slave
-> device's ->header_ops, and clearing that stashed pointer is (a) not
-> correctly synchronized with the removal of the slave device, and (b)
-> trying to simply clear the pointer has a check then use race in
-> dev_hard_header.
->
-> 	8021q, for example, uses a "passthru" header_ops to call the
-> underlying device's header_ops, but 8021q is only for ethernet, and t=
-he
-> eth_header_ops are static in vmlinux, so it won't see these problems.
->
-> 	Actually, now that I think about it, when the last ipoib slave
-> is released, the bonding master device is theoretically supposed to b=
-e
-> removed to avoid the sort of problem we're discussing here.
->
-> 	That apparently isn't happening, unless Wengang is running
-> pktgen and simultaneously removing the ipoib module (racing the trans=
-mit
-> against the removal), or maybe something else is going on (perhaps
-> pktgen holds a reference to the bonding master, preventing its remova=
-l).
->
-> 	Also, curiously, looking at pkgten, pktgen_setup_dev appears to
-> only accept devices of type ARPHRD_ETHER, but bonding with an ipoib
-> slave would be ARPHRD_INFINIBAND.  I'm therefore not sure how Wengang
-> configured pktgen over an ipoib bond.
->
-> 	Wengang, what kernel are you using, and is your kernel modified
-> to change pktgen_setup_dev?
->
-> 	-J
+Redefine REALTEK_USB_DEVICE for the desired USB interface for probe().
+There are three USB interfaces for the device. USB_CLASS_COMM and
+USB_CLASS_CDC_DATA are for ECM mode (config #2). USB_CLASS_VENDOR_SPEC
+is for the vendor mode (config #1). However, we are not interesting
+in USB_CLASS_CDC_DATA for probe(), so redefine REALTEK_USB_DEVICE
+to ignore the USB interface class of USB_CLASS_CDC_DATA.
 
-It's a 2.6.39 kernel.
-code is like this:
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 26 ++++++++++++++++++++------
+ 1 file changed, 20 insertions(+), 6 deletions(-)
 
-static int pktgen_setup_dev(struct pktgen_dev *pkt_dev, const char *ifn=
-ame)
-{
-         struct net_device *odev;
-         int err;
-
-         /* Clean old setups */
-         if (pkt_dev->odev) {
-                 dev_put(pkt_dev->odev);
-                 pkt_dev->odev =3D NULL;
-         }
-
-         odev =3D pktgen_dev_get_by_name(pkt_dev, ifname);
-         if (!odev) {
-                 pr_err("no such netdevice: \"%s\"\n", ifname);
-                 return -ENODEV;
-         }
-
-         if (odev->type !=3D ARPHRD_ETHER) {
-                 pr_err("not an ethernet device: \"%s\"\n", ifname);
-                 err =3D -EINVAL;
-         } else if (!netif_running(odev)) {
-                 pr_err("device is down: \"%s\"\n", ifname);
-                 err =3D -ENETDOWN;
-         } else {
-                 pkt_dev->odev =3D odev;
-                 return 0;
-         }
-
-         dev_put(odev);
-         return err;
-}
-
-No change done to it.
-
-This problem is a side product when I was working with another area. I=20
-am so far not very clear about the setup(no env to check now either).
-
-thanks,
-wengang
-> ---
-> 	-Jay Vosburgh, jay.vosburgh@canonical.com
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 4a9ece0..2d1c77e 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -24,6 +24,7 @@
+ #include <net/ip6_checksum.h>
+ #include <uapi/linux/mdio.h>
+ #include <linux/mdio.h>
++#include <linux/usb/cdc.h>
+ 
+ /* Version Information */
+ #define DRIVER_VERSION "v1.07.0 (2014/10/09)"
+@@ -466,9 +467,6 @@ enum rtl8152_flags {
+ #define MCU_TYPE_PLA			0x0100
+ #define MCU_TYPE_USB			0x0000
+ 
+-#define REALTEK_USB_DEVICE(vend, prod)	\
+-	USB_DEVICE_INTERFACE_CLASS(vend, prod, USB_CLASS_VENDOR_SPEC)
+-
+ struct tally_counter {
+ 	__le64	tx_packets;
+ 	__le64	rx_packets;
+@@ -3915,11 +3913,27 @@ static void rtl8152_disconnect(struct usb_interface *intf)
+ 	}
+ }
+ 
++#define REALTEK_USB_DEVICE(vend, prod)	\
++	.match_flags = USB_DEVICE_ID_MATCH_DEVICE | \
++		       USB_DEVICE_ID_MATCH_INT_CLASS, \
++	.idVendor = (vend), \
++	.idProduct = (prod), \
++	.bInterfaceClass = USB_CLASS_VENDOR_SPEC \
++}, \
++{ \
++	.match_flags = USB_DEVICE_ID_MATCH_INT_INFO | \
++		       USB_DEVICE_ID_MATCH_DEVICE, \
++	.idVendor = (vend), \
++	.idProduct = (prod), \
++	.bInterfaceClass = USB_CLASS_COMM, \
++	.bInterfaceSubClass = USB_CDC_SUBCLASS_ETHERNET, \
++	.bInterfaceProtocol = USB_CDC_PROTO_NONE
++
+ /* table of devices that work with this driver */
+ static struct usb_device_id rtl8152_table[] = {
+-	{USB_DEVICE(VENDOR_ID_REALTEK, 0x8152)},
+-	{USB_DEVICE(VENDOR_ID_REALTEK, 0x8153)},
+-	{USB_DEVICE(VENDOR_ID_SAMSUNG, 0xa101)},
++	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8152)},
++	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8153)},
++	{REALTEK_USB_DEVICE(VENDOR_ID_SAMSUNG, 0xa101)},
+ 	{}
+ };
+ 
+-- 
+1.9.3
