@@ -1,42 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: init maximum receive buffer size for ring1
- and ring2
-Date: Mon, 24 Nov 2014 15:22:50 -0500 (EST)
-Message-ID: <20141124.152250.380142287256307570.davem@davemloft.net>
-References: <1416734586-26634-1-git-send-email-b38611@freescale.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
-	stephen@networkplumber.org, festevam@gmail.com
-To: b38611@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52956 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750931AbaKXUWy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 15:22:54 -0500
-In-Reply-To: <1416734586-26634-1-git-send-email-b38611@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pankaj Gupta <pagupta@redhat.com>
+Subject: [PATCH v2 net-next 3/3] tuntap: Increase the number of queues in tun.
+Date: Tue, 25 Nov 2014 00:04:10 +0530
+Message-ID: <1416854050-10165-1-git-send-email-pagupta@redhat.com>
+Cc: davem@davemloft.net, jasowang@redhat.com, dgibson@redhat.com,
+	vfalico@gmail.com, edumazet@google.com, vyasevic@redhat.com,
+	hkchu@google.com, xemul@parallels.com, therbert@google.com,
+	bhutchings@solarflare.com, xii@google.com,
+	stephen@networkplumber.org, jiri@resnulli.us,
+	sergei.shtylyov@cogentembedded.com, pagupta@redhat.com
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Fugang Duan <b38611@freescale.com>
-Date: Sun, 23 Nov 2014 17:23:06 +0800
+Networking under kvm works best if we allocate a per-vCPU RX and TX
+queue in a virtual NIC. This requires a per-vCPU queue on the host side.
 
-> i.MX6SX fec support three rx ring1, the current driver lost to init
-> ring1 and ring2 maximum receive buffer size, that cause receving
-> frame date length error. The driver reports "rcv is not +last" error
-> log in user case.
-> 
-> Signed-off-by: Fugang Duan <B38611@freescale.com>
+It is now safe to increase the maximum number of queues.
+Preceding patches:
+        net: allow large number of rx queues
+        tuntap: Reduce the size of tun_struct by using flex array
 
-This patch does not apply to the 'net' tree, although it does
-apply cleanly to the net-next tree.
+        made sure this won't cause failures due to high order memory
+allocations. Increase it to 256: this is the max number of vCPUs
+KVM supports.
 
-Determining which tree a patch is for is not my job, it is your's.
+Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
+Reviewed-by: David Gibson <dgibson@redhat.com>
+---
+ drivers/net/tun.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-Therefore you must always explicitly state what tree your patch
-is intended to be added to, by starting your Subject line
-with "[PATCH net] " or "[PATCH net-next] ".
-
-I've applied this, but next time I will just ask you to properly
-submit the patch instead.
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index e3fa65a..a19dc5f8 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -113,10 +113,11 @@ struct tap_filter {
+ 	unsigned char	addr[FLT_EXACT_COUNT][ETH_ALEN];
+ };
+ 
+-/* DEFAULT_MAX_NUM_RSS_QUEUES were chosen to let the rx/tx queues allocated for
+- * the netdevice to be fit in one page. So we can make sure the success of
+- * memory allocation. TODO: increase the limit. */
+-#define MAX_TAP_QUEUES DEFAULT_MAX_NUM_RSS_QUEUES
++/* MAX_TAP_QUEUES 256 is chosen to allow rx/tx queues to be equal
++ * to max number of vCPUS in guest. Also, we are making sure here
++ * queue memory allocation do not fail.
++ */
++#define MAX_TAP_QUEUES 256
+ #define MAX_TAP_FLOWS  4096
+ 
+ #define TUN_FLOW_EXPIRE (3 * HZ)
+-- 
+1.8.3.1
