@@ -1,102 +1,62 @@
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: Re: [PATCH] net/mlx4: Fix EEH recovery failure
-Date: Tue, 25 Nov 2014 08:55:55 +1100
-Message-ID: <20141124215555.GA6970@shangw>
-References: <CAJ3xEMg_bWmDGPHUSk6HzYD7N7CBU_V6J1ovft2rEigP-DJupA@mail.gmail.com>
-Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH] net-timestamp: Fix a documentation typo
+Date: Mon, 24 Nov 2014 17:11:28 -0500
+Message-ID: <CA+FuTSenSVXP-=hH+erpoE7yz1HbF8n9PeD_Xof-W=3GaQ6OFA@mail.gmail.com>
+References: <ca6ac789334c26905d86f2a596878d2dc18e69e9.1416859110.git.luto@amacapital.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Amir Vadai <amirv@mellanox.com>,
-	David Miller <davem@davemloft.net>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp09.au.ibm.com ([202.81.31.142]:45039 "EHLO
-	e23smtp09.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750726AbaKXV4F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 16:56:05 -0500
-Received: from /spool/local
-	by e23smtp09.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-	Tue, 25 Nov 2014 07:56:00 +1000
-Received: from d23relay09.au.ibm.com (d23relay09.au.ibm.com [9.185.63.181])
-	by d23dlp02.au.ibm.com (Postfix) with ESMTP id 516DF2BB0059
-	for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 08:55:58 +1100 (EST)
-Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
-	by d23relay09.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id sAOLtvPD4456506
-	for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 08:55:58 +1100
-Received: from d23av01.au.ibm.com (localhost [127.0.0.1])
-	by d23av01.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id sAOLtudO028508
-	for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 08:55:57 +1100
-Content-Disposition: inline
-In-Reply-To: <CAJ3xEMg_bWmDGPHUSk6HzYD7N7CBU_V6J1ovft2rEigP-DJupA@mail.gmail.com>
+Received: from mail-qg0-f48.google.com ([209.85.192.48]:50997 "EHLO
+	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750821AbaKXWMD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 17:12:03 -0500
+Received: by mail-qg0-f48.google.com with SMTP id q107so7387897qgd.7
+        for <netdev@vger.kernel.org>; Mon, 24 Nov 2014 14:12:02 -0800 (PST)
+In-Reply-To: <ca6ac789334c26905d86f2a596878d2dc18e69e9.1416859110.git.luto@amacapital.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 24, 2014 at 11:17:55PM +0200, Or Gerlitz wrote:
->On Sat, Nov 22, 2014 at 12:56 PM, Gavin Shan <gwshan@linux.vnet.ibm.com> wrote:
->> The patch fixes couple of EEH recovery failures on PPC PowerNV
->> platform:
+On Mon, Nov 24, 2014 at 3:02 PM, Andy Lutomirski <luto@amacapital.net> wrote:
+> SOF_TIMESTAMPING_OPT_ID puts the id in ee_data, not ee_info.
 >
->>    * Don't clear struct mlx4_priv instance in mlx4_pci_err_detected().
->>      Otherwise, __mlx4_init_one() runs into kernel crash because
->>      of dereferencing to NULL pointer.
->
->I don't see this change in the patch, I see no-clearing of mlx4_priv
->in __mlx4_unload_one - please clarify, also is this patch
->based/targeted on the net or net-next tree?
->
+> Cc: Willem de Bruijn <willemb@google.com>
+> Signed-off-by: Andy Lutomirski <luto@amacapital.net>
 
-Yes, It would be: Don't clear struct mlx4_priv instance in mlx4_unload_one(),
-which is called by mlx4_pci_err_detected().
+Acked-by: Willem de Bruijn <willemb@google.com>
 
-It's based on 3.18.rc5, where I had couple of EEH fixes on top of it.
-When testing EEH with it, I hit the issue.
+> ---
 
-Thanks,
-Gavin
+Thanks for sending a fix.
 
+> While I'm here, the docs say:
 >
+>     In practice, it [ee_data] is a monotonically increasing u32 (that wraps).
 >
->> With the patch applied, EEH recovery for mlx4 adapter succeeds on PPC
->> PowerNV platform.
->>
->>    # lspci
->>    0003:0f:00.0 Network controller: Mellanox Technologies \
->>    MT27500 Family [ConnectX-3]
->>
->> Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
->> ---
->>  drivers/net/ethernet/mellanox/mlx4/main.c | 3 ++-
->>  1 file changed, 2 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
->> index 90de6e1..e118ac9 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
->> @@ -2809,7 +2809,6 @@ static void mlx4_unload_one(struct pci_dev *pdev)
->>         kfree(dev->caps.qp1_proxy);
->>         kfree(dev->dev_vfs);
->>
->> -       memset(priv, 0, sizeof(*priv));
->>         priv->pci_dev_data = pci_dev_data;
->>         priv->removed = 1;
->>  }
->> @@ -2900,6 +2899,8 @@ static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
->>                                               pci_channel_state_t state)
->>  {
->>         mlx4_unload_one(pdev);
->> +       pci_release_regions(pdev);
->> +       pci_disable_device(pdev);
->>
->>         return state == pci_channel_io_perm_failure ?
->>                 PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_NEED_RESET;
->> --
->> 1.8.3.2
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+> Is user code supposed to rely on this and, further, on the fact that the
+> counter starts at zero?  If not, how else is user code supposed to match
+> outgoing data to timestamps?
+
+That is correct. The per-socket counter is reset when
+SOF_TIMESTAMPING_OPT_ID is set. On datagram sockets, it returns the
+packet number since the reset. On stream sockets, it returns the byte
+offset since the reset.
+
+> Also, is it intentional that the payload data associated with the tx
+> timestamp is (I think) the full outgoing packet including lower-layer
+> headers?
+
+Absolutely not. I'll look into that right away. It doesn't on ACK, and
+should certainly not expose this info in the other cases, either.
+
+> And, finally, would it be possible to attach IP_PKTINFO to the looped
+> timestamp?  That way I could finally update my fancy ping program to
+> track which outgoing interface was used for a request.
+
+If socket option IP_PKTINFO is set, you want to receive in_pktinfo for
+any packet that happens to be queued onto the error queue? Both
+SKB_EXT_ERR(skb) and PKTINFO_SKB_CB(skb) use the control block to
+store data that is later encoded in a cmsg, so there may not be enough
+room to hold both. I'll take a look.
