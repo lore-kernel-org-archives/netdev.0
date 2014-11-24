@@ -1,105 +1,516 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [RFC PATCH 0/4] switch device: offload policy attributes
-Date: Mon, 24 Nov 2014 00:18:13 -1000
-Message-ID: <CAE4R7bCDp2Cf=azOJvnm3_YRdsD5vwCafbcVFuseUaPuYKDA1g@mail.gmail.com>
-References: <1416610170-21224-1-git-send-email-roopa@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
-	john.fastabend@gmail.com, stephen@networkplumber.org,
-	John Linville <linville@tuxdriver.com>, nhorman@tuxdriver.com,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	vyasevic@redhat.com, Florian Fainelli <f.fainelli@gmail.com>,
-	buytenh@wantstofly.org, Aviad Raveh <aviadr@mellanox.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	shrijeet@cumulusnetworks.com,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:59252 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751227AbaKXKSP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 05:18:15 -0500
-Received: by mail-wg0-f45.google.com with SMTP id b13so11744232wgh.32
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2014 02:18:13 -0800 (PST)
-In-Reply-To: <1416610170-21224-1-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
+Subject: [PATCH] wireless/p54: Remove duplicated  net2280 header
+Date: Mon, 24 Nov 2014 11:19:51 +0100
+Message-ID: <1416824391-13976-1-git-send-email-ricardo.ribalda@gmail.com>
+Cc: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
+To: Christian Lamparter <chunkeey@googlemail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Roopa,
+The usb gadget driver net2280 has exported a header file with the
+register definition of the net2280 chip.
 
-I have a patch pending against Jiri's v2 that's uses existing
-ndo_bridge_setlink/getlink to push policy settings down to port driver
-for controlling HW offload.  I had to make a few tweaks, but for the
-most part setlink/getlink already has the master/self semantics so
-users can set policy flags on bridge's SW version of the port (master)
-or on the offloaded version of the port (self).  I added the new
-hwmode option "swdev" to the existing "vepa"|"veb" choices.  When you
-specify hwmode, SELF is set and the port driver's setlink get's
-called.  Did you look at setlink/getlink?  It looks like the kernel
-and iproute2 where going down this route of using setlink/getlink for
-SELF policy, so I'm wondering if we need more?
+Remove the custom/duplicated header file in favor of that header file
+in include/linux
 
-On FDB entries, using master/self semantics that exist, it's clear
-which are owned by offloaded device and which are owned by bridge.
-The one missing annotation was a flag indicating FDB entry in bridge
-was synced from device.  And a policy flag to turn on/off syncing from
-the device.  The policy flag is just another IFLA_BRPORT flags passed
-with setlink/getlink.
+Signed-off-by: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
+---
+ drivers/net/wireless/p54/net2280.h | 451 -------------------------------------
+ drivers/net/wireless/p54/p54usb.h  |  13 +-
+ 2 files changed, 12 insertions(+), 452 deletions(-)
+ delete mode 100644 drivers/net/wireless/p54/net2280.h
 
-The setlink/getlink patch will go out in v3 once I finish testing it
-and push it to Jiri.  Hopefully tomorrow.
-
--scott
-
-On Fri, Nov 21, 2014 at 12:49 PM,  <roopa@cumulusnetworks.com> wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
->
-> This series aims at introducing new policy attibutes/flags to enable
-> selective offloading of kernel network objects.
-> This is in the context of supporting switch devices in the linux kernel.
->
-> Assumption:
->     - All kernel network objects (routes, neighs, bridges, bonds, vxlans)
->       can be offloaded (This is true today with a few exceptions maybe)
->
-> policy points:
->     - By default all objects exist in software (kernel)
->     - Per object flag to add/del/show in kernel, hardware or both
->     - System global option to turn on/off offloads for all network objects.
->       This is for systems who want to turn offloading on for all network objects
->       by default. us :). Apps dont need to know about offloading in this
->       model. (TBD)
->
-> Patches are based on jiri/sfeldma's rocker work.
->
-> Apologize for the incomplete and untested code. This is a sample patch
->  to get some initial feedback.
->
-> Roopa Prabhu (4):
->   rtnetlink: new flag NLM_F_HW_OFFLOAD to indicate kernel object
->     offload to hardware
->   netdev: new feature flag NETIF_F_HW_OFFLOAD to indicate netdev object
->     offload to hardware
->   swdevice: new generic op to set bridge port attr
->   bridge: make hw offload conditional on bridge and bridge port offload
->     flags
->
->  include/linux/netdev_features.h |    1 +
->  include/net/switchdev.h         |    8 ++++++-
->  include/uapi/linux/netlink.h    |    2 ++
->  net/bridge/br_netlink.c         |   50 +++++++++++++++++++++++++++++++--------
->  net/bridge/br_private.h         |    2 ++
->  net/bridge/br_stp.c             |    9 ++++---
->  net/bridge/br_stp_if.c          |    8 +++++--
->  net/core/rtnetlink.c            |    7 ++++++
->  net/switchdev/switchdev.c       |   17 +++++++++++++
->  9 files changed, 88 insertions(+), 16 deletions(-)
->
-> --
-> 1.7.10.4
->
+diff --git a/drivers/net/wireless/p54/net2280.h b/drivers/net/wireless/p54/net2280.h
+deleted file mode 100644
+index aedfaf2..0000000
+--- a/drivers/net/wireless/p54/net2280.h
++++ /dev/null
+@@ -1,451 +0,0 @@
+-#ifndef NET2280_H
+-#define NET2280_H
+-/*
+- * NetChip 2280 high/full speed USB device controller.
+- * Unlike many such controllers, this one talks PCI.
+- */
+-
+-/*
+- * Copyright (C) 2002 NetChip Technology, Inc. (http://www.netchip.com)
+- * Copyright (C) 2003 David Brownell
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+- */
+-
+-/*-------------------------------------------------------------------------*/
+-
+-/* NET2280 MEMORY MAPPED REGISTERS
+- *
+- * The register layout came from the chip documentation, and the bit
+- * number definitions were extracted from chip specification.
+- *
+- * Use the shift operator ('<<') to build bit masks, with readl/writel
+- * to access the registers through PCI.
+- */
+-
+-/* main registers, BAR0 + 0x0000 */
+-struct net2280_regs {
+-	/* offset 0x0000 */
+-	__le32			devinit;
+-#define LOCAL_CLOCK_FREQUENCY					8
+-#define FORCE_PCI_RESET						7
+-#define PCI_ID							6
+-#define PCI_ENABLE						5
+-#define FIFO_SOFT_RESET						4
+-#define CFG_SOFT_RESET						3
+-#define PCI_SOFT_RESET						2
+-#define USB_SOFT_RESET						1
+-#define M8051_RESET						0
+-	__le32			eectl;
+-#define EEPROM_ADDRESS_WIDTH					23
+-#define EEPROM_CHIP_SELECT_ACTIVE				22
+-#define EEPROM_PRESENT						21
+-#define EEPROM_VALID						20
+-#define EEPROM_BUSY						19
+-#define EEPROM_CHIP_SELECT_ENABLE				18
+-#define EEPROM_BYTE_READ_START					17
+-#define EEPROM_BYTE_WRITE_START					16
+-#define EEPROM_READ_DATA					8
+-#define EEPROM_WRITE_DATA					0
+-	__le32			eeclkfreq;
+-	u32			_unused0;
+-	/* offset 0x0010 */
+-
+-	__le32			pciirqenb0;	/* interrupt PCI master ... */
+-#define SETUP_PACKET_INTERRUPT_ENABLE				7
+-#define ENDPOINT_F_INTERRUPT_ENABLE				6
+-#define ENDPOINT_E_INTERRUPT_ENABLE				5
+-#define ENDPOINT_D_INTERRUPT_ENABLE				4
+-#define ENDPOINT_C_INTERRUPT_ENABLE				3
+-#define ENDPOINT_B_INTERRUPT_ENABLE				2
+-#define ENDPOINT_A_INTERRUPT_ENABLE				1
+-#define ENDPOINT_0_INTERRUPT_ENABLE				0
+-	__le32			pciirqenb1;
+-#define PCI_INTERRUPT_ENABLE					31
+-#define POWER_STATE_CHANGE_INTERRUPT_ENABLE			27
+-#define PCI_ARBITER_TIMEOUT_INTERRUPT_ENABLE			26
+-#define PCI_PARITY_ERROR_INTERRUPT_ENABLE			25
+-#define PCI_MASTER_ABORT_RECEIVED_INTERRUPT_ENABLE		20
+-#define PCI_TARGET_ABORT_RECEIVED_INTERRUPT_ENABLE		19
+-#define PCI_TARGET_ABORT_ASSERTED_INTERRUPT_ENABLE		18
+-#define PCI_RETRY_ABORT_INTERRUPT_ENABLE			17
+-#define PCI_MASTER_CYCLE_DONE_INTERRUPT_ENABLE			16
+-#define GPIO_INTERRUPT_ENABLE					13
+-#define DMA_D_INTERRUPT_ENABLE					12
+-#define DMA_C_INTERRUPT_ENABLE					11
+-#define DMA_B_INTERRUPT_ENABLE					10
+-#define DMA_A_INTERRUPT_ENABLE					9
+-#define EEPROM_DONE_INTERRUPT_ENABLE				8
+-#define VBUS_INTERRUPT_ENABLE					7
+-#define CONTROL_STATUS_INTERRUPT_ENABLE				6
+-#define ROOT_PORT_RESET_INTERRUPT_ENABLE			4
+-#define SUSPEND_REQUEST_INTERRUPT_ENABLE			3
+-#define SUSPEND_REQUEST_CHANGE_INTERRUPT_ENABLE			2
+-#define RESUME_INTERRUPT_ENABLE					1
+-#define SOF_INTERRUPT_ENABLE					0
+-	__le32                  cpu_irqenb0;	/* ... or onboard 8051 */
+-#define SETUP_PACKET_INTERRUPT_ENABLE				7
+-#define ENDPOINT_F_INTERRUPT_ENABLE				6
+-#define ENDPOINT_E_INTERRUPT_ENABLE				5
+-#define ENDPOINT_D_INTERRUPT_ENABLE				4
+-#define ENDPOINT_C_INTERRUPT_ENABLE				3
+-#define ENDPOINT_B_INTERRUPT_ENABLE				2
+-#define ENDPOINT_A_INTERRUPT_ENABLE				1
+-#define ENDPOINT_0_INTERRUPT_ENABLE				0
+-	__le32                  cpu_irqenb1;
+-#define CPU_INTERRUPT_ENABLE					31
+-#define POWER_STATE_CHANGE_INTERRUPT_ENABLE			27
+-#define PCI_ARBITER_TIMEOUT_INTERRUPT_ENABLE			26
+-#define PCI_PARITY_ERROR_INTERRUPT_ENABLE			25
+-#define PCI_INTA_INTERRUPT_ENABLE				24
+-#define PCI_PME_INTERRUPT_ENABLE				23
+-#define PCI_SERR_INTERRUPT_ENABLE				22
+-#define PCI_PERR_INTERRUPT_ENABLE				21
+-#define PCI_MASTER_ABORT_RECEIVED_INTERRUPT_ENABLE		20
+-#define PCI_TARGET_ABORT_RECEIVED_INTERRUPT_ENABLE		19
+-#define PCI_RETRY_ABORT_INTERRUPT_ENABLE			17
+-#define PCI_MASTER_CYCLE_DONE_INTERRUPT_ENABLE			16
+-#define GPIO_INTERRUPT_ENABLE					13
+-#define DMA_D_INTERRUPT_ENABLE					12
+-#define DMA_C_INTERRUPT_ENABLE					11
+-#define DMA_B_INTERRUPT_ENABLE					10
+-#define DMA_A_INTERRUPT_ENABLE					9
+-#define EEPROM_DONE_INTERRUPT_ENABLE				8
+-#define VBUS_INTERRUPT_ENABLE					7
+-#define CONTROL_STATUS_INTERRUPT_ENABLE				6
+-#define ROOT_PORT_RESET_INTERRUPT_ENABLE			4
+-#define SUSPEND_REQUEST_INTERRUPT_ENABLE			3
+-#define SUSPEND_REQUEST_CHANGE_INTERRUPT_ENABLE			2
+-#define RESUME_INTERRUPT_ENABLE					1
+-#define SOF_INTERRUPT_ENABLE					0
+-
+-	/* offset 0x0020 */
+-	u32			_unused1;
+-	__le32			usbirqenb1;
+-#define USB_INTERRUPT_ENABLE					31
+-#define POWER_STATE_CHANGE_INTERRUPT_ENABLE			27
+-#define PCI_ARBITER_TIMEOUT_INTERRUPT_ENABLE			26
+-#define PCI_PARITY_ERROR_INTERRUPT_ENABLE			25
+-#define PCI_INTA_INTERRUPT_ENABLE				24
+-#define PCI_PME_INTERRUPT_ENABLE				23
+-#define PCI_SERR_INTERRUPT_ENABLE				22
+-#define PCI_PERR_INTERRUPT_ENABLE				21
+-#define PCI_MASTER_ABORT_RECEIVED_INTERRUPT_ENABLE		20
+-#define PCI_TARGET_ABORT_RECEIVED_INTERRUPT_ENABLE		19
+-#define PCI_RETRY_ABORT_INTERRUPT_ENABLE			17
+-#define PCI_MASTER_CYCLE_DONE_INTERRUPT_ENABLE			16
+-#define GPIO_INTERRUPT_ENABLE					13
+-#define DMA_D_INTERRUPT_ENABLE					12
+-#define DMA_C_INTERRUPT_ENABLE					11
+-#define DMA_B_INTERRUPT_ENABLE					10
+-#define DMA_A_INTERRUPT_ENABLE					9
+-#define EEPROM_DONE_INTERRUPT_ENABLE				8
+-#define VBUS_INTERRUPT_ENABLE					7
+-#define CONTROL_STATUS_INTERRUPT_ENABLE				6
+-#define ROOT_PORT_RESET_INTERRUPT_ENABLE			4
+-#define SUSPEND_REQUEST_INTERRUPT_ENABLE			3
+-#define SUSPEND_REQUEST_CHANGE_INTERRUPT_ENABLE			2
+-#define RESUME_INTERRUPT_ENABLE					1
+-#define SOF_INTERRUPT_ENABLE					0
+-	__le32			irqstat0;
+-#define INTA_ASSERTED						12
+-#define SETUP_PACKET_INTERRUPT					7
+-#define ENDPOINT_F_INTERRUPT					6
+-#define ENDPOINT_E_INTERRUPT					5
+-#define ENDPOINT_D_INTERRUPT					4
+-#define ENDPOINT_C_INTERRUPT					3
+-#define ENDPOINT_B_INTERRUPT					2
+-#define ENDPOINT_A_INTERRUPT					1
+-#define ENDPOINT_0_INTERRUPT					0
+-	__le32			irqstat1;
+-#define POWER_STATE_CHANGE_INTERRUPT				27
+-#define PCI_ARBITER_TIMEOUT_INTERRUPT				26
+-#define PCI_PARITY_ERROR_INTERRUPT				25
+-#define PCI_INTA_INTERRUPT					24
+-#define PCI_PME_INTERRUPT					23
+-#define PCI_SERR_INTERRUPT					22
+-#define PCI_PERR_INTERRUPT					21
+-#define PCI_MASTER_ABORT_RECEIVED_INTERRUPT			20
+-#define PCI_TARGET_ABORT_RECEIVED_INTERRUPT			19
+-#define PCI_RETRY_ABORT_INTERRUPT				17
+-#define PCI_MASTER_CYCLE_DONE_INTERRUPT				16
+-#define GPIO_INTERRUPT						13
+-#define DMA_D_INTERRUPT						12
+-#define DMA_C_INTERRUPT						11
+-#define DMA_B_INTERRUPT						10
+-#define DMA_A_INTERRUPT						9
+-#define EEPROM_DONE_INTERRUPT					8
+-#define VBUS_INTERRUPT						7
+-#define CONTROL_STATUS_INTERRUPT				6
+-#define ROOT_PORT_RESET_INTERRUPT				4
+-#define SUSPEND_REQUEST_INTERRUPT				3
+-#define SUSPEND_REQUEST_CHANGE_INTERRUPT			2
+-#define RESUME_INTERRUPT					1
+-#define SOF_INTERRUPT						0
+-	/* offset 0x0030 */
+-	__le32			idxaddr;
+-	__le32			idxdata;
+-	__le32			fifoctl;
+-#define PCI_BASE2_RANGE						16
+-#define IGNORE_FIFO_AVAILABILITY				3
+-#define PCI_BASE2_SELECT					2
+-#define FIFO_CONFIGURATION_SELECT				0
+-	u32			_unused2;
+-	/* offset 0x0040 */
+-	__le32			memaddr;
+-#define START							28
+-#define DIRECTION						27
+-#define FIFO_DIAGNOSTIC_SELECT					24
+-#define MEMORY_ADDRESS						0
+-	__le32			memdata0;
+-	__le32			memdata1;
+-	u32			_unused3;
+-	/* offset 0x0050 */
+-	__le32			gpioctl;
+-#define GPIO3_LED_SELECT					12
+-#define GPIO3_INTERRUPT_ENABLE					11
+-#define GPIO2_INTERRUPT_ENABLE					10
+-#define GPIO1_INTERRUPT_ENABLE					9
+-#define GPIO0_INTERRUPT_ENABLE					8
+-#define GPIO3_OUTPUT_ENABLE					7
+-#define GPIO2_OUTPUT_ENABLE					6
+-#define GPIO1_OUTPUT_ENABLE					5
+-#define GPIO0_OUTPUT_ENABLE					4
+-#define GPIO3_DATA						3
+-#define GPIO2_DATA						2
+-#define GPIO1_DATA						1
+-#define GPIO0_DATA						0
+-	__le32			gpiostat;
+-#define GPIO3_INTERRUPT						3
+-#define GPIO2_INTERRUPT						2
+-#define GPIO1_INTERRUPT						1
+-#define GPIO0_INTERRUPT						0
+-} __packed;
+-
+-/* usb control, BAR0 + 0x0080 */
+-struct net2280_usb_regs {
+-	/* offset 0x0080 */
+-	__le32			stdrsp;
+-#define STALL_UNSUPPORTED_REQUESTS				31
+-#define SET_TEST_MODE						16
+-#define GET_OTHER_SPEED_CONFIGURATION				15
+-#define GET_DEVICE_QUALIFIER					14
+-#define SET_ADDRESS						13
+-#define ENDPOINT_SET_CLEAR_HALT					12
+-#define DEVICE_SET_CLEAR_DEVICE_REMOTE_WAKEUP			11
+-#define GET_STRING_DESCRIPTOR_2					10
+-#define GET_STRING_DESCRIPTOR_1					9
+-#define GET_STRING_DESCRIPTOR_0					8
+-#define GET_SET_INTERFACE					6
+-#define GET_SET_CONFIGURATION					5
+-#define GET_CONFIGURATION_DESCRIPTOR				4
+-#define GET_DEVICE_DESCRIPTOR					3
+-#define GET_ENDPOINT_STATUS					2
+-#define GET_INTERFACE_STATUS					1
+-#define GET_DEVICE_STATUS					0
+-	__le32			prodvendid;
+-#define     PRODUCT_ID						16
+-#define     VENDOR_ID						0
+-	__le32			relnum;
+-	__le32			usbctl;
+-#define SERIAL_NUMBER_INDEX					16
+-#define PRODUCT_ID_STRING_ENABLE				13
+-#define VENDOR_ID_STRING_ENABLE					12
+-#define USB_ROOT_PORT_WAKEUP_ENABLE				11
+-#define VBUS_PIN						10
+-#define TIMED_DISCONNECT					9
+-#define SUSPEND_IMMEDIATELY					7
+-#define SELF_POWERED_USB_DEVICE					6
+-#define REMOTE_WAKEUP_SUPPORT					5
+-#define PME_POLARITY						4
+-#define USB_DETECT_ENABLE					3
+-#define PME_WAKEUP_ENABLE					2
+-#define DEVICE_REMOTE_WAKEUP_ENABLE				1
+-#define SELF_POWERED_STATUS					0
+-	/* offset 0x0090 */
+-	__le32			usbstat;
+-#define HIGH_SPEED						7
+-#define FULL_SPEED						6
+-#define GENERATE_RESUME						5
+-#define GENERATE_DEVICE_REMOTE_WAKEUP				4
+-	__le32			xcvrdiag;
+-#define FORCE_HIGH_SPEED_MODE					31
+-#define FORCE_FULL_SPEED_MODE					30
+-#define USB_TEST_MODE						24
+-#define LINE_STATE						16
+-#define TRANSCEIVER_OPERATION_MODE				2
+-#define TRANSCEIVER_SELECT					1
+-#define TERMINATION_SELECT					0
+-	__le32			setup0123;
+-	__le32			setup4567;
+-	/* offset 0x0090 */
+-	u32			_unused0;
+-	__le32			ouraddr;
+-#define FORCE_IMMEDIATE						7
+-#define OUR_USB_ADDRESS						0
+-	__le32			ourconfig;
+-} __packed;
+-
+-/* pci control, BAR0 + 0x0100 */
+-struct net2280_pci_regs {
+-	/* offset 0x0100 */
+-	__le32			pcimstctl;
+-#define PCI_ARBITER_PARK_SELECT					13
+-#define PCI_MULTI LEVEL_ARBITER					12
+-#define PCI_RETRY_ABORT_ENABLE					11
+-#define DMA_MEMORY_WRITE_AND_INVALIDATE_ENABLE			10
+-#define DMA_READ_MULTIPLE_ENABLE				9
+-#define DMA_READ_LINE_ENABLE					8
+-#define PCI_MASTER_COMMAND_SELECT				6
+-#define		MEM_READ_OR_WRITE				0
+-#define		IO_READ_OR_WRITE				1
+-#define		CFG_READ_OR_WRITE				2
+-#define PCI_MASTER_START					5
+-#define PCI_MASTER_READ_WRITE					4
+-#define		PCI_MASTER_WRITE				0
+-#define		PCI_MASTER_READ					1
+-#define PCI_MASTER_BYTE_WRITE_ENABLES				0
+-	__le32			pcimstaddr;
+-	__le32			pcimstdata;
+-	__le32			pcimststat;
+-#define PCI_ARBITER_CLEAR					2
+-#define PCI_EXTERNAL_ARBITER					1
+-#define PCI_HOST_MODE						0
+-} __packed;
+-
+-/* dma control, BAR0 + 0x0180 ... array of four structs like this,
+- * for channels 0..3.  see also struct net2280_dma:  descriptor
+- * that can be loaded into some of these registers.
+- */
+-struct net2280_dma_regs {	/* [11.7] */
+-	/* offset 0x0180, 0x01a0, 0x01c0, 0x01e0, */
+-	__le32			dmactl;
+-#define DMA_SCATTER_GATHER_DONE_INTERRUPT_ENABLE		25
+-#define DMA_CLEAR_COUNT_ENABLE					21
+-#define DESCRIPTOR_POLLING_RATE					19
+-#define		POLL_CONTINUOUS					0
+-#define		POLL_1_USEC					1
+-#define		POLL_100_USEC					2
+-#define		POLL_1_MSEC					3
+-#define DMA_VALID_BIT_POLLING_ENABLE				18
+-#define DMA_VALID_BIT_ENABLE					17
+-#define DMA_SCATTER_GATHER_ENABLE				16
+-#define DMA_OUT_AUTO_START_ENABLE				4
+-#define DMA_PREEMPT_ENABLE					3
+-#define DMA_FIFO_VALIDATE					2
+-#define DMA_ENABLE						1
+-#define DMA_ADDRESS_HOLD					0
+-	__le32			dmastat;
+-#define DMA_SCATTER_GATHER_DONE_INTERRUPT			25
+-#define DMA_TRANSACTION_DONE_INTERRUPT				24
+-#define DMA_ABORT						1
+-#define DMA_START						0
+-	u32			_unused0[2];
+-	/* offset 0x0190, 0x01b0, 0x01d0, 0x01f0, */
+-	__le32                  dmacount;
+-#define VALID_BIT						31
+-#define DMA_DIRECTION						30
+-#define DMA_DONE_INTERRUPT_ENABLE				29
+-#define END_OF_CHAIN						28
+-#define DMA_BYTE_COUNT_MASK					((1<<24)-1)
+-#define DMA_BYTE_COUNT						0
+-	__le32			dmaaddr;
+-	__le32			dmadesc;
+-	u32			_unused1;
+-} __packed;
+-
+-/* dedicated endpoint registers, BAR0 + 0x0200 */
+-
+-struct net2280_dep_regs {	/* [11.8] */
+-	/* offset 0x0200, 0x0210, 0x220, 0x230, 0x240 */
+-	__le32			dep_cfg;
+-	/* offset 0x0204, 0x0214, 0x224, 0x234, 0x244 */
+-	__le32			dep_rsp;
+-	u32			_unused[2];
+-} __packed;
+-
+-/* configurable endpoint registers, BAR0 + 0x0300 ... array of seven structs
+- * like this, for ep0 then the configurable endpoints A..F
+- * ep0 reserved for control; E and F have only 64 bytes of fifo
+- */
+-struct net2280_ep_regs {	/* [11.9] */
+-	/* offset 0x0300, 0x0320, 0x0340, 0x0360, 0x0380, 0x03a0, 0x03c0 */
+-	__le32			ep_cfg;
+-#define ENDPOINT_BYTE_COUNT					16
+-#define ENDPOINT_ENABLE						10
+-#define ENDPOINT_TYPE						8
+-#define ENDPOINT_DIRECTION					7
+-#define ENDPOINT_NUMBER						0
+-	__le32			ep_rsp;
+-#define SET_NAK_OUT_PACKETS					15
+-#define SET_EP_HIDE_STATUS_PHASE				14
+-#define SET_EP_FORCE_CRC_ERROR					13
+-#define SET_INTERRUPT_MODE					12
+-#define SET_CONTROL_STATUS_PHASE_HANDSHAKE			11
+-#define SET_NAK_OUT_PACKETS_MODE				10
+-#define SET_ENDPOINT_TOGGLE					9
+-#define SET_ENDPOINT_HALT					8
+-#define CLEAR_NAK_OUT_PACKETS					7
+-#define CLEAR_EP_HIDE_STATUS_PHASE				6
+-#define CLEAR_EP_FORCE_CRC_ERROR				5
+-#define CLEAR_INTERRUPT_MODE					4
+-#define CLEAR_CONTROL_STATUS_PHASE_HANDSHAKE			3
+-#define CLEAR_NAK_OUT_PACKETS_MODE				2
+-#define CLEAR_ENDPOINT_TOGGLE					1
+-#define CLEAR_ENDPOINT_HALT					0
+-	__le32			ep_irqenb;
+-#define SHORT_PACKET_OUT_DONE_INTERRUPT_ENABLE			6
+-#define SHORT_PACKET_TRANSFERRED_INTERRUPT_ENABLE		5
+-#define DATA_PACKET_RECEIVED_INTERRUPT_ENABLE			3
+-#define DATA_PACKET_TRANSMITTED_INTERRUPT_ENABLE		2
+-#define DATA_OUT_PING_TOKEN_INTERRUPT_ENABLE			1
+-#define DATA_IN_TOKEN_INTERRUPT_ENABLE				0
+-	__le32			ep_stat;
+-#define FIFO_VALID_COUNT					24
+-#define HIGH_BANDWIDTH_OUT_TRANSACTION_PID			22
+-#define TIMEOUT							21
+-#define USB_STALL_SENT						20
+-#define USB_IN_NAK_SENT						19
+-#define USB_IN_ACK_RCVD						18
+-#define USB_OUT_PING_NAK_SENT					17
+-#define USB_OUT_ACK_SENT					16
+-#define FIFO_OVERFLOW						13
+-#define FIFO_UNDERFLOW						12
+-#define FIFO_FULL						11
+-#define FIFO_EMPTY						10
+-#define FIFO_FLUSH						9
+-#define SHORT_PACKET_OUT_DONE_INTERRUPT				6
+-#define SHORT_PACKET_TRANSFERRED_INTERRUPT			5
+-#define NAK_OUT_PACKETS						4
+-#define DATA_PACKET_RECEIVED_INTERRUPT				3
+-#define DATA_PACKET_TRANSMITTED_INTERRUPT			2
+-#define DATA_OUT_PING_TOKEN_INTERRUPT				1
+-#define DATA_IN_TOKEN_INTERRUPT					0
+-	/* offset 0x0310, 0x0330, 0x0350, 0x0370, 0x0390, 0x03b0, 0x03d0 */
+-	__le32			ep_avail;
+-	__le32			ep_data;
+-	u32			_unused0[2];
+-} __packed;
+-
+-struct net2280_reg_write {
+-	__le16 port;
+-	__le32 addr;
+-	__le32 val;
+-} __packed;
+-
+-struct net2280_reg_read {
+-	__le16 port;
+-	__le32 addr;
+-} __packed;
+-#endif /* NET2280_H */
+diff --git a/drivers/net/wireless/p54/p54usb.h b/drivers/net/wireless/p54/p54usb.h
+index d273be7..a5f5f0f 100644
+--- a/drivers/net/wireless/p54/p54usb.h
++++ b/drivers/net/wireless/p54/p54usb.h
+@@ -16,7 +16,7 @@
+ 
+ /* for isl3886 register definitions used on ver 1 devices */
+ #include "p54pci.h"
+-#include "net2280.h"
++#include <linux/usb/net2280.h>
+ 
+ /* pci */
+ #define NET2280_BASE		0x10000000
+@@ -93,6 +93,17 @@ enum net2280_op_type {
+ 	NET2280_DEV_CFG_U16	= 0x0883
+ };
+ 
++struct net2280_reg_write {
++	__le16 port;
++	__le32 addr;
++	__le32 val;
++} __packed;
++
++struct net2280_reg_read {
++	__le16 port;
++	__le32 addr;
++} __packed;
++
+ #define P54U_FW_BLOCK 2048
+ 
+ #define X2_SIGNATURE "x2  "
+-- 
+2.1.3
