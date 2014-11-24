@@ -1,40 +1,38 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: [PATCH net_test_tools] route_bench: Fix bug in DST_ITERATE option
-Date: Mon, 24 Nov 2014 00:13:39 -0800
-Message-ID: <1416816819-17310-1-git-send-email-subramanian.vijay@gmail.com>
-Cc: davem@davemloft.net,
-	Vijay Subramanian <subramanian.vijay@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:32890 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752367AbaKXIOl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 03:14:41 -0500
-Received: by mail-pd0-f178.google.com with SMTP id g10so7150494pdj.9
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2014 00:14:40 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rojhalat Ibrahim <imr@rtschenk.de>
+Subject: Re: [PATCH] mdio-mux-gpio: Use GPIO descriptor interface and new gpiod_set_array function
+Date: Mon, 24 Nov 2014 09:35:02 +0100
+Message-ID: <1671914.Rot4bT9ZsP@pcimr>
+References: <6441674.xrJo8HXDvD@pcimr> <20141121.151301.477197043372693075.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	david.daney@cavium.com, linux-gpio@vger.kernel.org,
+	linus.walleij@linaro.org, acourbot@nvidia.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+In-Reply-To: <20141121.151301.477197043372693075.davem@davemloft.net>
+Sender: linux-gpio-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-While setting option for dst_addr_stride, flags should be set for
-FLAG_DST_ITERATE not FLAG_SRC_ITERATE.
+On Friday 21 November 2014 15:13:01 David Miller wrote:
+> From: Rojhalat Ibrahim <imr@rtschenk.de>
+> Date: Thu, 20 Nov 2014 13:24:44 +0100
+> 
+> > Convert mdio-mux-gpio to the GPIO descriptor interface and use the new
+> > gpiod_set_array function to set all output signals simultaneously.
+> > 
+> > Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
+> > --
+> > This patch depends on the gpiod_set_array function, which is available in
+> > the linux-gpio devel tree.
+> 
+> Then I really can't apply it to the networking GIT tree.
+> 
 
-Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
----
- route_bench.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Then maybe you could ack the patch and then Linus Walleij could apply it to
+the GPIO tree, right?
 
-diff --git a/route_bench.c b/route_bench.c
-index eb91dcf..22cbd2a 100644
---- a/route_bench.c
-+++ b/route_bench.c
-@@ -292,7 +292,7 @@ int main(int argc, char **argv, char **envp)
- 			break;
- 		case 'e':
- 			sscanf(optarg, "%u", &s->dst_addr_stride);
--			s->flags |= FLAG_SRC_ITERATE;
-+			s->flags |= FLAG_DST_ITERATE;
- 			break;
- 		case 'f':
- 			s->dst_addr_limit = inet_addr(optarg);
--- 
-1.7.9.5
+   Rojhalat
+
+
