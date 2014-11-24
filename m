@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net_test_tools] route_bench: Fix bug in DST_ITERATE
- option
-Date: Mon, 24 Nov 2014 16:09:32 -0500 (EST)
-Message-ID: <20141124.160932.1535765335085310139.davem@davemloft.net>
-References: <1416816819-17310-1-git-send-email-subramanian.vijay@gmail.com>
+Subject: Re: [PATCH net-next] tipc: fix sparse warnings in new nl api
+Date: Mon, 24 Nov 2014 16:10:37 -0500 (EST)
+Message-ID: <20141124.161037.1158578053524448692.davem@davemloft.net>
+References: <1416823829-19277-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: subramanian.vijay@gmail.com
+To: richard.alpe@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53670 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53695 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750850AbaKXVJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 16:09:34 -0500
-In-Reply-To: <1416816819-17310-1-git-send-email-subramanian.vijay@gmail.com>
+	with ESMTP id S1750836AbaKXVKj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 16:10:39 -0500
+In-Reply-To: <1416823829-19277-1-git-send-email-richard.alpe@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Date: Mon, 24 Nov 2014 00:13:39 -0800
+From: <richard.alpe@ericsson.com>
+Date: Mon, 24 Nov 2014 11:10:29 +0100
 
-> While setting option for dst_addr_stride, flags should be set for
-> FLAG_DST_ITERATE not FLAG_SRC_ITERATE.
+> From: Richard Alpe <richard.alpe@ericsson.com>
 > 
-> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+> Fix sparse warnings about non-static declaration of static functions
+> in the new tipc netlink API.
+> 
+> Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 
-This does not apply to the 'net' tree.
+Applied, thanks.
