@@ -1,40 +1,82 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH] xen-netback: do not report success if xenvif_alloc()
- fails
-Date: Mon, 24 Nov 2014 10:00:53 +0000
-Message-ID: <20141124100053.GC30053@zion.uk.xensource.com>
-References: <1416610588-19816-1-git-send-email-khoroshilov@ispras.ru>
+From: Pieter Smith <pieter-qeJ+1H9vRZbz+pZb47iToQ@public.gmane.org>
+Subject: Re: [PATCH 0/6] kernel tinification: optionally compile out splice
+ family of syscalls (splice, vmsplice, tee and sendfile)
+Date: Mon, 24 Nov 2014 11:01:38 +0100
+Message-ID: <20141124100138.GB1055@smipidev>
+References: <1416752468-1626-1-git-send-email-pieter@boesman.nl>
+ <20141123.134623.2061031332250984539.davem@davemloft.net>
+ <20141123194326.GB8517@thin>
+ <20141123203040.GB26749@smipidev>
+ <20141123233637.GC12456@thin>
+ <20141123192810.682a223e@tlielax.poochiereds.net>
+ <20141124003251.GA13590@thin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <ldv-project@linuxtesting.org>
-To: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org,
+	ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, beber-2YnHqweIUXrk1uMJSBkQmQ@public.gmane.org,
+	catalina.mocanu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org,
+	fuse-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org,
+	hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, iulia.manda21-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, JBeulich-IBi9RG/b67k@public.gmane.org,
+	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	mcgrof-IBi9RG/b67k@public.gmane.org, mattst88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, mgorman-l3A5Bk7waGM@public.gmane.org,
+	mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, miklos-sUDqSbJrdHQHWmgEVkV9KA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Paul.Durrant-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org,
+	paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, pefoley2-lY0TAiDIAFlBDgjK7y7TUQ@public.gmane.org, tgraf-G/eBtMaohhA@public.gmane.org,
+	therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	xiaoguangrong-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, zhenglong.cai-TJRtMXcVgQTM1kAEIRd3EQ@public.gmane.org
+To: Josh Triplett <josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1416610588-19816-1-git-send-email-khoroshilov@ispras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20141124003251.GA13590@thin>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 22, 2014 at 01:56:28AM +0300, Alexey Khoroshilov wrote:
-> If xenvif_alloc() failes, netback_probe() reports success as well as
-> "online" uevent is emitted. It does not make any sense, but it just
-
-Sorry, I don't follow. KOBJ_ONLINE event is not emitted in the event of
-xenvif_alloc fails, is it?
-
-> misleads users.
+On Sun, Nov 23, 2014 at 04:32:51PM -0800, Josh Triplett wrote:
+> On Sun, Nov 23, 2014 at 07:28:10PM -0500, Jeff Layton wrote:
+> > On Sun, 23 Nov 2014 15:36:37 -0800
+> > Josh Triplett <josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org> wrote:
+> > 
+> > > On Sun, Nov 23, 2014 at 09:30:40PM +0100, Pieter Smith wrote:
+> > > > On Sun, Nov 23, 2014 at 11:43:26AM -0800, Josh Triplett wrote:
+> > > > > On Sun, Nov 23, 2014 at 01:46:23PM -0500, David Miller wrote:
+> > > > > > Truly removing sendfile/sendpage means that you can't even compile NFS
+> > > > > > into the tree.
+> > > > > 
+> > > > > If you mean the in-kernel nfsd (CONFIG_NFSD), that already has a large
+> > > > > stack of "select" and "depends on", both directly and indirectly; adding
+> > > > > a "select SPLICE_SYSCALL" to it seems fine.  (That select does need
+> > > > > adding, though.  Pieter, you need to test-compile more than just
+> > > > > tinyconfig and defconfig.  Try an allyesconfig with *just* splice turned
+> > > > > off, and make sure that compiles.)
+> > > > 
+> > > > Did exacly that. Took forever on my hardware, but no problems.
+> > > 
+> > > Ah, I see.  Looking more closely at nfsd, it looks like it already has a
+> > > code path for filesystems that don't do splice.  I think, rather than
+> > > making nfsd select SPLICE_SYSCALL, that it would suffice to change the
+> > > "rqstp->rq_splice_ok = true;" in svc_process_common (net/sunrpc/svc.c)
+> > > to:
+> > > 
+> > > rqstp->rq_splice_ok = IS_ENABLED(CONFIG_SPLICE_SYSCALL);
+> > > 
+> > > Then nfsd should simply *always* fall back to its non-splice support.
+> > > 
+> > 
+> > I'd probably prefer the above, actually. We have to keep supporting
+> > non-splice enabled fs' for the forseeable future, so we may as well
+> > allow people to run nfsd in such configurations. It could even be
+> > useful for testing the non-splice-enabled codepaths.
 > 
-> The patch implements propagation of error code if xenvif creation fails.
+> Good point!
 > 
+> - Josh Triplett
 
-This patch not only implements propagation of error code when xenvif
-creation fails, but also when xenbus_scanf fails. You can simply write
-"This patch implements propagation of error code for
-backend_create_xenvif".
+I'll add this to svc_process_common. I can squash this into PATCH 3, which is
+where the syscalls can be compiled out. The log entry may however get a little
+crowded and multi-functional.
 
-The rest of this patch looks good to me. Can you rewrite commit message
-and resubmit, thanks.
-
-Wei.
+Should I keep this as a separate patch?
