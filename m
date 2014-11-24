@@ -1,129 +1,82 @@
-From: Pieter Smith <pieter-qeJ+1H9vRZbz+pZb47iToQ@public.gmane.org>
-Subject: [PATCH v4 6/7] net/core: support compiling out splice
-Date: Tue, 25 Nov 2014 00:01:05 +0100
-Message-ID: <1416870079-15254-7-git-send-email-pieter@boesman.nl>
+From: Pieter Smith <pieter@boesman.nl>
+Subject: [PATCH v4 4/7] fs/fuse: support compiling out splice
+Date: Tue, 25 Nov 2014 00:01:03 +0100
+Message-ID: <1416870079-15254-5-git-send-email-pieter@boesman.nl>
 References: <1416870079-15254-1-git-send-email-pieter@boesman.nl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	Bertrand Jacquin <beber-2YnHqweIUXrk1uMJSBkQmQ@public.gmane.org>, Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	=?UTF-8?q?=E8=94=A1=E6=AD=A3=E9=BE=99?= <zhenglong.cai-TJRtMXcVgQTM1kAEIRd3EQ@public.gmane.org>,
-	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>, Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>, Miklos Szeredi <miklos-sUDqSbJrdHQHWmgEVkV9KA@public.gmane.org>,
-	Peter Foley <pefoley2-lY0TAiDIAFlBDgjK7y7TUQ@public.gmane.org>, Hugh Dickins <hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Xiao Guangrong <xiaoguangrong-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
-	Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>, Matt Turner <mattst88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"open list:FUSE: FILESYSTEM..." <fuse-devel-5NWGOfrQmneRv+LV9MX5uuRhgaa4a2kL@public.gmane.org
-To: pieter-qeJ+1H9vRZbz+pZb47iToQ@public.gmane.org
-Return-path: <fuse-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1416870079-15254-1-git-send-email-pieter-qeJ+1H9vRZbz+pZb47iToQ@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/fuse-devel>,
-	<mailto:fuse-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=fuse-devel>
-List-Post: <mailto:fuse-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:fuse-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/fuse-devel>,
-	<mailto:fuse-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: fuse-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: Josh Triplett <josh@joshtriplett.org>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Alexander Viro <viro@zeniv.linux.org.uk>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Bertrand Jacquin <beber@meleeweb.net>,
+	Catalina Mocanu <catalina.mocanu@gmail.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Fabian Frederick <fabf@skynet.be>,
+	fuse-devel@lists.sourceforge.net (open list:FUSE: FILESYSTEM...),
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Hugh Dickins <hughd@google.com>,
+	Iulia Manda <iulia.manda21@gmail.com>,
+	Jan Beulich <JBeulich@suse.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Jeff Layton <jlayton@poochiereds.net>,
+	linux-api@vger.kernel.org (open list:ABI/API),
+	linux-fsdevel@vger.kernel.org,
+	linux-kernel
+To: pieter@boesman.nl
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1416870079-15254-1-git-send-email-pieter@boesman.nl>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-To implement splice support, net/core makes use of nosteal_pipe_buf_ops. This
+To implement splice support, fs/fuse makes use of nosteal_pipe_buf_ops. This
 struct is exported by fs/splice. The goal of the larger patch set is to
 completely compile out fs/splice, so uses of the exported struct need to be
 compiled out along with fs/splice.
 
-This patch therefore compiles out splice support in net/core when
-CONFIG_SYSCALL_SPLICE is undefined. The compiled out function skb_splice_bits
-is transparently mocked out with a static inline. The greater patch set removes
-userspace splice support so it cannot be called anyway.
+This patch therefore compiles out splice support in fs/fuse when
+CONFIG_SYSCALL_SPLICE is undefined.
 
-Signed-off-by: Pieter Smith <pieter-qeJ+1H9vRZbz+pZb47iToQ@public.gmane.org>
+Signed-off-by: Pieter Smith <pieter@boesman.nl>
 ---
- include/linux/skbuff.h | 10 ++++++++++
- net/core/skbuff.c      | 11 +++++++----
- 2 files changed, 17 insertions(+), 4 deletions(-)
+ fs/fuse/dev.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index a59d934..5cd636b 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2640,9 +2640,19 @@ int skb_copy_bits(const struct sk_buff *skb, int offset, void *to, int len);
- int skb_store_bits(struct sk_buff *skb, int offset, const void *from, int len);
- __wsum skb_copy_and_csum_bits(const struct sk_buff *skb, int offset, u8 *to,
- 			      int len, __wsum csum);
-+#ifdef CONFIG_SYSCALL_SPLICE
- int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
- 		    struct pipe_inode_info *pipe, unsigned int len,
- 		    unsigned int flags);
-+#else
-+static inline int
-+skb_splice_bits(struct sk_buff *skb, unsigned int offset,
-+		struct pipe_inode_info *pipe, unsigned int len,
-+		unsigned int flags)
-+{
-+	return -EPERM;
-+}
-+#endif
- void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to);
- unsigned int skb_zerocopy_headlen(const struct sk_buff *from);
- int skb_zerocopy(struct sk_buff *to, struct sk_buff *from,
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 61059a0..bb426d9 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1678,7 +1678,8 @@ EXPORT_SYMBOL(skb_copy_bits);
-  * Callback from splice_to_pipe(), if we need to release some pages
-  * at the end of the spd in case we error'ed out in filling the pipe.
+diff --git a/fs/fuse/dev.c b/fs/fuse/dev.c
+index ca88731..e984302 100644
+--- a/fs/fuse/dev.c
++++ b/fs/fuse/dev.c
+@@ -1191,8 +1191,9 @@ __releases(fc->lock)
+  * request_end().  Otherwise add it to the processing list, and set
+  * the 'sent' flag.
   */
--static void sock_spd_release(struct splice_pipe_desc *spd, unsigned int i)
-+static void __maybe_unused sock_spd_release(struct splice_pipe_desc *spd,
-+					    unsigned int i)
+-static ssize_t fuse_dev_do_read(struct fuse_conn *fc, struct file *file,
+-				struct fuse_copy_state *cs, size_t nbytes)
++static ssize_t __maybe_unused
++fuse_dev_do_read(struct fuse_conn *fc, struct file *file,
++		 struct fuse_copy_state *cs, size_t nbytes)
  {
- 	put_page(spd->pages[i]);
+ 	int err;
+ 	struct fuse_req *req;
+@@ -1291,6 +1292,7 @@ static ssize_t fuse_dev_read(struct kiocb *iocb, const struct iovec *iov,
+ 	return fuse_dev_do_read(fc, file, &cs, iov_length(iov, nr_segs));
  }
-@@ -1781,9 +1782,9 @@ static bool __splice_segment(struct page *page, unsigned int poff,
-  * Map linear and fragment data from the skb to spd. It reports true if the
-  * pipe is full or if we already spliced the requested length.
-  */
--static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
--			      unsigned int *offset, unsigned int *len,
--			      struct splice_pipe_desc *spd, struct sock *sk)
-+static bool __maybe_unused __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
-+					     unsigned int *offset, unsigned int *len,
-+					     struct splice_pipe_desc *spd, struct sock *sk)
- {
- 	int seg;
  
-@@ -1821,6 +1822,7 @@ static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
-  * the frag list, if such a thing exists. We'd probably need to recurse to
-  * handle that cleanly.
-  */
 +#ifdef CONFIG_SYSCALL_SPLICE
- int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
- 		    struct pipe_inode_info *pipe, unsigned int tlen,
- 		    unsigned int flags)
-@@ -1876,6 +1878,7 @@ done:
- 
+ static ssize_t fuse_dev_splice_read(struct file *in, loff_t *ppos,
+ 				    struct pipe_inode_info *pipe,
+ 				    size_t len, unsigned int flags)
+@@ -1368,6 +1370,9 @@ out:
+ 	kfree(bufs);
  	return ret;
  }
-+#endif /* CONFIG_SYSCALL_SPLICE */
++#else /* CONFIG_SYSCALL_SPLICE */
++#define fuse_dev_splice_read NULL
++#endif
  
- /**
-  *	skb_store_bits - store bits from kernel buffer to skb
+ static int fuse_notify_poll(struct fuse_conn *fc, unsigned int size,
+ 			    struct fuse_copy_state *cs)
 -- 
 2.1.0
-
-
-------------------------------------------------------------------------------
-Download BIRT iHub F-Type - The Free Enterprise-Grade BIRT Server
-from Actuate! Instantly Supercharge Your Business Reports and Dashboards
-with Interactivity, Sharing, Native Excel Exports, App Integration & more
-Get technology previously reserved for billion-dollar corporations, FREE
-http://pubads.g.doubleclick.net/gampad/clk?id=157005751&iu=/4140/ostg.clktrk
