@@ -1,84 +1,115 @@
-From: Josh Triplett <josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org>
-Subject: Re: [PATCH 0/6] kernel tinification: optionally compile out splice
- family of syscalls (splice, vmsplice, tee and sendfile)
-Date: Mon, 24 Nov 2014 01:00:54 -0800
-Message-ID: <20141124090054.GA20119@thin>
+From: Pieter Smith <pieter@boesman.nl>
+Subject: Re: [fuse-devel] [PATCH 4/6] fs/fuse: support compiling out splice
+Date: Mon, 24 Nov 2014 10:49:31 +0100
+Message-ID: <20141124094931.GA1055@smipidev>
 References: <1416752468-1626-1-git-send-email-pieter@boesman.nl>
- <20141123.134623.2061031332250984539.davem@davemloft.net>
- <20141123194326.GB8517@thin>
- <20141123203040.GB26749@smipidev>
- <20141123233637.GC12456@thin>
- <CAMuHMdW8gAiyFiPHu-N4Dg_+b6Qg9JXZZ3PqOn=VmZLcEH-Xkg@mail.gmail.com>
+ <1416752468-1626-5-git-send-email-pieter@boesman.nl>
+ <CAFLxGvxq3Mr9n8xMO_fPZDhrGmBh=WKyU0+RF13JBdjssX6qfw@mail.gmail.com>
+ <20141123232302.GA12456@thin>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pieter Smith <pieter-qeJ+1H9vRZbz+pZb47iToQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-	Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>, beber-2YnHqweIUXrk1uMJSBkQmQ@public.gmane.org,
-	catalina.mocanu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	Fabian Frederick <fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>,
-	fuse-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, Hugh Dickins <hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	iulia.manda21-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Jan Beulich <JBeulich-IBi9RG/b67k@public.gmane.org>,
-	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Luis R. Rodriguez" <mcgrof-IBi9RG/b67k@public.gmane.org>,
-	Matt Turner <mattst88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>,
-	"Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Miklos S
-To: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Richard Weinberger <richard.weinberger@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Bertrand Jacquin <beber@meleeweb.net>,
+	Oleg Nesterov <oleg@redhat.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Eric Dumazet <edumazet@google.com>,
+	=?utf-8?B?6JSh5q2j6b6Z?= <zhenglong.cai@cs2c.com.cn>,
+	Jeff Layton <jlayton@poochiereds.net>,
+	Tom Herbert <therbert@google.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Miklos Szeredi <miklos@szeredi.hu>,
+	Peter Foley <pefoley2@pefoley.com>,
+	Hugh Dickins <hughd@google.com>,
+	Xiao Guangrong <xiaoguangrong@linux.vnet.ibm.com>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Mel Gorman <mgorman@suse.de>, Matt Turner <mattst88@gmail.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	"open list:FUSE: FILESYSTEM..." <fuse-devel@lists.sourceforge.net>,
+	"Luis R. Rodriguez" <mcgrof@suse.com>,
+	Cat
+To: Josh Triplett <josh@joshtriplett.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:45944 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751062AbaKXJtl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 04:49:41 -0500
 Content-Disposition: inline
-In-Reply-To: <CAMuHMdW8gAiyFiPHu-N4Dg_+b6Qg9JXZZ3PqOn=VmZLcEH-Xkg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20141123232302.GA12456@thin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 24, 2014 at 09:38:20AM +0100, Geert Uytterhoeven wrote:
-> On Mon, Nov 24, 2014 at 12:36 AM, Josh Triplett <josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org> wrote:
-> > On Sun, Nov 23, 2014 at 09:30:40PM +0100, Pieter Smith wrote:
-> >> On Sun, Nov 23, 2014 at 11:43:26AM -0800, Josh Triplett wrote:
-> >> > On Sun, Nov 23, 2014 at 01:46:23PM -0500, David Miller wrote:
-> >> > > Truly removing sendfile/sendpage means that you can't even compile NFS
-> >> > > into the tree.
-> >> >
-> >> > If you mean the in-kernel nfsd (CONFIG_NFSD), that already has a large
-> >> > stack of "select" and "depends on", both directly and indirectly; adding
-> >> > a "select SPLICE_SYSCALL" to it seems fine.  (That select does need
-> >> > adding, though.  Pieter, you need to test-compile more than just
-> >> > tinyconfig and defconfig.  Try an allyesconfig with *just* splice turned
-> >> > off, and make sure that compiles.)
-> >>
-> >> Did exacly that. Took forever on my hardware, but no problems.
-> >
-> > Ah, I see.  Looking more closely at nfsd, it looks like it already has a
-> > code path for filesystems that don't do splice.  I think, rather than
-> > making nfsd select SPLICE_SYSCALL, that it would suffice to change the
-> > "rqstp->rq_splice_ok = true;" in svc_process_common (net/sunrpc/svc.c)
-> > to:
-> >
-> > rqstp->rq_splice_ok = IS_ENABLED(CONFIG_SPLICE_SYSCALL);
-> >
-> > Then nfsd should simply *always* fall back to its non-splice support.
+On Sun, Nov 23, 2014 at 03:23:02PM -0800, Josh Triplett wrote:
+> On Sun, Nov 23, 2014 at 11:29:08PM +0100, Richard Weinberger wrote:
+> > On Sun, Nov 23, 2014 at 3:20 PM, Pieter Smith <pieter@boesman.nl> wrote:
+> > > To implement splice support, fs/fuse makes use of nosteal_pipe_buf_ops. This
+> > > struct is exported by fs/splice. The goal of the larger patch set is to
+> > > completely compile out fs/splice, so uses of the exported struct need to be
+> > > compiled out along with fs/splice.
+> > >
+> > > This patch therefore compiles out splice support in fs/fuse when
+> > > CONFIG_SYSCALL_SPLICE is undefined.
+> > >
+> > > Signed-off-by: Pieter Smith <pieter@boesman.nl>
+> > > ---
+> > >  fs/fuse/dev.c      | 4 ++--
+> > >  include/linux/fs.h | 6 ++++++
+> > >  2 files changed, 8 insertions(+), 2 deletions(-)
+> > >
+> > > diff --git a/fs/fuse/dev.c b/fs/fuse/dev.c
+> > > index ca88731..f8f92a4 100644
+> > > --- a/fs/fuse/dev.c
+> > > +++ b/fs/fuse/dev.c
+> > > @@ -1291,7 +1291,7 @@ static ssize_t fuse_dev_read(struct kiocb *iocb, const struct iovec *iov,
+> > >         return fuse_dev_do_read(fc, file, &cs, iov_length(iov, nr_segs));
+> > >  }
+> > >
+> > > -static ssize_t fuse_dev_splice_read(struct file *in, loff_t *ppos,
+> > > +static ssize_t __maybe_unused fuse_dev_splice_read(struct file *in, loff_t *ppos,
+> > >                                     struct pipe_inode_info *pipe,
+> > >                                     size_t len, unsigned int flags)
+> > >  {
+> > > @@ -2144,7 +2144,7 @@ const struct file_operations fuse_dev_operations = {
+> > >         .llseek         = no_llseek,
+> > >         .read           = do_sync_read,
+> > >         .aio_read       = fuse_dev_read,
+> > > -       .splice_read    = fuse_dev_splice_read,
+> > > +       .splice_read    = __splice_p(fuse_dev_splice_read),
+> > >         .write          = do_sync_write,
+> > >         .aio_write      = fuse_dev_write,
+> > >         .splice_write   = fuse_dev_splice_write,
+> > > diff --git a/include/linux/fs.h b/include/linux/fs.h
+> > > index a957d43..04c0975 100644
+> > > --- a/include/linux/fs.h
+> > > +++ b/include/linux/fs.h
+> > > @@ -2443,6 +2443,12 @@ extern int blkdev_fsync(struct file *filp, loff_t start, loff_t end,
+> > >                         int datasync);
+> > >  extern void block_sync_page(struct page *page);
+> > >
+> > > +#ifdef CONFIG_SYSCALL_SPLICE
+> > > +#define __splice_p(x) x
+> > > +#else
+> > > +#define __splice_p(x) NULL
+> > > +#endif
+> > > +
+> > 
+> > This needs to go into a different patch.
+> > One logical change per patch please. :-)
 > 
-> Hence I suggest adding to the nfsd help text:
+> Easy enough to merge this one into the patch introducing
+> CONFIG_SYSCALL_SPLICE, then.
 > 
->     While nfsd works without SPLICE_SYSCALL, you may want to enable
->     SPLICE_SYSCALL for <...> (performance?) reasons.
+> - Josh Triplett
 
-It already seems sufficiently unlikely to enable NFSD while disabling
-SPLICE_SYSCALL (in the latter case, turning on EXPERT to do so).  It
-doesn't seem worth adding such a note to NFSD.  At most, I'd say that
-NFSD might want a note somewhere in its documentation saying that it
-takes advantage of filesystems with splice support if serving files from
-one, and if running on a kernel that has splice.
+The patch introducing CONFIG_SYSCALL_SPLICE (PATCH 3) only compiles out the
+syscalls. PATCH 6 on the other hand, compiles out fs/splice.c. This patch
+allows fs/fuse to be compiled when fs/splice.c is compiled out. If I am to
+squash it, it would be logical to include it in PATCH 6, not 3.
 
-> (Hmm, does Kconfig need a "suggests", cfr. Debian package dependencies?)
+Is this agreeable?
 
-Perhaps, though that seems much lower priority than, for instance,
-transitive "select".
+PATCH 5 does the same as this one for net/core. Should I still keep PATCH 5
+separate from a maintainership perspective?
 
-- Josh Triplett
+- Pieter Smith
