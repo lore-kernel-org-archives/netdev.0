@@ -1,54 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: qstats update in packet scheduling
-Date: Mon, 24 Nov 2014 12:21:59 -0800
-Message-ID: <1416860519.17888.74.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAHmvzZQnBJbx3hfdvpXg0TZM-UooKxjM+-1HO6nSSpx4qJLcaw@mail.gmail.com>
-	 <1416850289.17888.67.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAHmvzZRwsd7S+T4cdAVzWGORcbkq+WWMtFAV6Ss3UrA+Ogeujg@mail.gmail.com>
-	 <1416854568.17888.69.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAA93jw4URTCK_O5mrJB14qAraubqj4Y-pvWMFX7ts=BWSgd-Og@mail.gmail.com>
-	 <CAHmvzZTF76DwdyBF9og2v9Vumx5v0BhHR584uX54o5R+T+iUMw@mail.gmail.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [fuse-devel] [PATCH 4/6] fs/fuse: support compiling out splice
+Date: Mon, 24 Nov 2014 12:22:14 -0800
+Message-ID: <20141124202214.GA11362@kroah.com>
+References: <1416752468-1626-1-git-send-email-pieter@boesman.nl>
+ <1416752468-1626-5-git-send-email-pieter@boesman.nl>
+ <CAFLxGvxq3Mr9n8xMO_fPZDhrGmBh=WKyU0+RF13JBdjssX6qfw@mail.gmail.com>
+ <20141123232302.GA12456@thin>
+ <20141124094931.GA1055@smipidev>
+ <20141124160510.GA2446@jtriplet-mobl1>
+ <20141124193412.GB31618@kroah.com>
+ <20141124201450.GA18776@cloud>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dave Taht <dave.taht@gmail.com>, netdev <netdev@vger.kernel.org>
-To: Josh Clark <jcinma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:58082 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752832AbaKXUWC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 15:22:02 -0500
-Received: by mail-ig0-f171.google.com with SMTP id uq10so3778571igb.16
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2014 12:22:01 -0800 (PST)
-In-Reply-To: <CAHmvzZTF76DwdyBF9og2v9Vumx5v0BhHR584uX54o5R+T+iUMw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pieter Smith <pieter@boesman.nl>,
+	Richard Weinberger <richard.weinberger@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Bertrand Jacquin <beber@meleeweb.net>,
+	Oleg Nesterov <oleg@redhat.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Eric Dumazet <edumazet@google.com>,
+	=?utf-8?B?6JSh5q2j6b6Z?= <zhenglong.cai@cs2c.com.cn>,
+	Jeff Layton <jlayton@poochiereds.net>,
+	Tom Herbert <therbert@google.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Miklos Szeredi <miklos@szeredi.hu>,
+	Peter Foley <pefoley2@pefoley.com>,
+	Hugh Dickins <hughd@google.com>,
+	Xiao Guangrong <xiaoguangrong@linux.vnet.ibm.com>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Mel Gorman <mgorman@suse.de>, Matt Turner <mattst88@gmail.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	"open list:FUSE: FILESYSTEM..." <fuse-devel@lists.sourceforge.net>,
+	"Luis R.
+To: josh@joshtriplett.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141124201450.GA18776@cloud>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-11-24 at 14:14 -0500, Josh Clark wrote:
+On Mon, Nov 24, 2014 at 12:14:50PM -0800, josh@joshtriplett.org wrote:
+> > I would, again, argue that stuff like __splice_p() not be implemented at
+> > all please.  It will only cause a huge proliferation of stuff like this
+> > that will not make any sense, and only cause a trivial, if any, amount
+> > of code savings.
+> > 
+> > I thought you were going to not do this type of thing until you got the
+> > gcc optimizer working for function callbacks.
+> 
+> Compared to the previous patchset, there are now only two instances of
+> ifdefs outside of the splice code for this, and this is one of them.  In
+> this case, the issue is no longer about making the code for this
+> splice_read function disappear, but rather to eliminate a reference to a
+> bit of splice functionality (used *inside* the FUSE splice code) that
+> will not work without SPLICE_SYSCALL.
+> 
+> Would you prefer to see this specific case handled via an #ifdef in
+> fs/fuse/dev.c rather than introducing a __splice_p that people might be
+> inclined to propagate?  That'd be fine; the code could simply wrap
+> fuse_dev_splice_read in an #ifdef and have the #else define a NULL
+> fuse_dev_splice_read.
 
-> At the moment, I'm using standard RED (from /net/sched/sch_red.c) with
-> some printks to output qstats.
+Yes, I would prefer that, but I'm not the fuse maintainer.
 
-printk are slowing down the kernel and might interfere with normal
-behavior. Don't use them.
+thanks,
 
-
-> Are you saying that when I set this up, I need to use the -s flag in
-> tc to maintain those statistics?
-
-stats are maintained by the kernel no matter what.
-
-tc -s qdisc   actually display them.
-
-For instance, red_dump() copies the backlog from child qdisc.
-
-static int red_dump(struct Qdisc *sch, struct sk_buff *skb)
-{
-...
-	sch->qstats.backlog = q->qdisc->qstats.backlog;
-...
-}
-
-
-
-This backlog is probably not 0 !
+greg k-h
