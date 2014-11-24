@@ -1,55 +1,64 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next] tc_vlan: fix type of tcfv_push_vid
-Date: Mon, 24 Nov 2014 14:33:00 +0100
-Message-ID: <20141124133300.GB7225@nanopsycho.orion>
-References: <1416825026-4628-1-git-send-email-jiri@resnulli.us>
- <547331E0.6030305@mojatatu.com>
+From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v4 0/4] netns: allow to identify peer netns
+Date: Mon, 24 Nov 2014 14:45:48 +0100
+Message-ID: <5473368C.5040409@6wind.com>
+References: <1412257690-31253-1-git-send-email-nicolas.dichtel@6wind.com>	<1414682728-4532-1-git-send-email-nicolas.dichtel@6wind.com>
+	<871tpph03k.fsf@x220.int.ebiederm.org>
+Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:58353 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750966AbaKXNdE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 08:33:04 -0500
-Received: by mail-wi0-f181.google.com with SMTP id r20so5786599wiv.8
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2014 05:33:02 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <547331E0.6030305@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org,
+	stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <871tpph03k.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Nov 24, 2014 at 02:25:52PM CET, jhs@mojatatu.com wrote:
->On 11/24/14 05:30, Jiri Pirko wrote:
->>Should be u16. So fix it to kill the sparse warning.
->>
->>Fixes: c7e2b9689ef8136 "sched: introduce vlan action"
->>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>---
->>  include/net/tc_act/tc_vlan.h | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->>diff --git a/include/net/tc_act/tc_vlan.h b/include/net/tc_act/tc_vlan.h
->>index c809c1d..93b70ad 100644
->>--- a/include/net/tc_act/tc_vlan.h
->>+++ b/include/net/tc_act/tc_vlan.h
->>@@ -18,7 +18,7 @@
->>  struct tcf_vlan {
->>  	struct tcf_common	common;
->>  	int			tcfv_action;
->>-	__be16			tcfv_push_vid;
->>+	u16			tcfv_push_vid;
->>  	__be16			tcfv_push_proto;
->
->
->User space sends you this in be, no? I thought it was fine
->the way it is. Isnt __be16 just an annotation?
-
-No, userspace sends this in host. Therefore we should store it in host,
-not in be. It is just an annotation.
-
->
->cheers,
->jamal
->
+TGUgMzAvMTAvMjAxNCAxOTo0MSwgRXJpYyBXLiBCaWVkZXJtYW4gYSDDqWNyaXQgOgo+IE5pY29s
+YXMgRGljaHRlbCA8bmljb2xhcy5kaWNodGVsQDZ3aW5kLmNvbT4gd3JpdGVzOgo+Cj4+IFRoZSBn
+b2FsIG9mIHRoaXMgc2VyaWUgaXMgdG8gYmUgYWJsZSB0byBtdWx0aWNhc3QgbmV0bGluayBtZXNz
+YWdlcyB3aXRoIGFuCj4+IGF0dHJpYnV0ZSB0aGF0IGlkZW50aWZ5IGEgcGVlciBuZXRucy4KPj4g
+VGhpcyBpcyBuZWVkZWQgYnkgdGhlIHVzZXJsYW5kIHRvIGludGVycHJldCBzb21lIGluZm9ybWF0
+aW9ucyBjb250YWluZWQgaW4KPj4gbmV0bGluayBtZXNzYWdlcyAobGlrZSBJRkxBX0xJTksgdmFs
+dWUsIGJ1dCBhbHNvIHNvbWUgb3RoZXIgYXR0cmlidXRlcyBpbiBjYXNlCj4+IG9mIHgtbmV0bnMg
+bmV0ZGV2aWNlIChzZWUgYWxzbwo+PiBodHRwOi8vdGhyZWFkLmdtYW5lLm9yZy9nbWFuZS5saW51
+eC5uZXR3b3JrLzMxNTkzMy9mb2N1cz0zMTYwNjQgYW5kCj4+IGh0dHA6Ly90aHJlYWQuZ21hbmUu
+b3JnL2dtYW5lLmxpbnV4Lmtlcm5lbC5jb250YWluZXJzLzI4MzAxL2ZvY3VzPTQyMzkpKS4KPj4K
+Pj4gSWRzIG9mIHBlZXIgbmV0bnMgYXJlIHNldCBieSB1c2VybGFuZCB2aWEgYSBuZXcgZ2VubCBt
+ZXNzYWdlcy4gVGhlc2UgaWRzIGFyZQo+PiBzdG9yZWQgcGVyIG5ldG5zIGFuZCBhcmUgbG9jYWwg
+KGllIG9ubHkgdmFsaWQgaW4gdGhlIG5ldG5zIHdoZXJlIHRoZXkgYXJlIHNldCkuCj4+IFRvIGF2
+b2lkIGFsbG9jYXRpbmcgYW4gaW50IGZvciBlYWNoIHBlZXIgbmV0bnMsIEkgdXNlIGlkcl9mb3Jf
+ZWFjaCgpIHRvIHJldHJpZXZlCj4+IHRoZSBpZCBvZiBhIHBlZXIgbmV0bnMuIE5vdGUgdGhhdCBp
+dCB3aWxsIGJlIHBvc3NpYmxlIHRvIGFkZCBhIHRhYmxlIChzdHJ1Y3QgbmV0Cj4+IC0+IGlkKSBs
+YXRlciB0byBvcHRpbWl6ZSB0aGlzIGxvb2t1cCBpZiBuZWVkZWQuCj4+Cj4+IFBhdGNoIDEvNCBp
+bnRyb2R1Y2VzIHRoZSBuZXRsaW5rIEFQSSBtZWNoYW5pc20gdG8gc2V0IGFuZCBnZXQgdGhlc2Ug
+aWRzLgo+PiBQYXRjaCAyLzQgYW5kIDMvNCBpbXBsZW1lbnRzIGFuIGV4YW1wbGUgb2YgaG93IHRv
+IHVzZSB0aGVzZSBpZHMgaW4gcnRuZXRsaW5rCj4+IG1lc3NhZ2VzLiBBbmQgcGF0Y2ggNC80IHNo
+b3dzIHRoYXQgdGhlIG5ldGxpbmsgbWVzc2FnZXMgY2FuIGJlIHN5bWV0cmljIGJldHdlZW4KPj4g
+YSBHRVQgYW5kIGEgU0VULgo+Pgo+PiBpcHJvdXRlMiBwYXRjaGVzIGFyZSBhdmFpbGFibGUsIEkg
+Y2FuIHNlbmQgdGhlbSBvbiBkZW1hbmQuCj4KPiBBIHF1aWNrIHJlcGx5LiAgSSB0aGluayB0aGlz
+IHBhdGNoc2V0IGlzIGluIHRoZSByaWdodCBnZW5lcmFsIGRpcmVjdGlvbi4KPiBUaGVyZSBhcmUg
+c29tZSBvZGRiYWxsIGRldGFpbHMgdGhhdCBzZWVtIG9kZC9hd2t3YXJkIHRvIG1lIHN1Y2ggYXMg
+dXNpbmcKPiBnZW5ldGxpbmsgaW5zdGVhZCBvZiBydG5ldGxpbmsgdG8gZ2V0IGFuZCBzZXQgdGhl
+IGlkcywgYW5kIG5vdCBoYXZpbmcKPiBpZHMgaWYgdGhleSBhcmUgbm90IHNldCAodGhhdCBmZWVs
+cyBsaWtlIGEgbWFpbnRlbmFuY2UvdXNhYmlsaXR5IGNoYWxsZW5nZSkuCj4KPiBJIHdvdWxkIGxp
+a2UgdG8gZ2l2ZSB5b3VyIHBhdGNoZXMgYSBkZWVwIHJldmlldywgYnV0IEkgd29uJ3QgYmUgYWJs
+ZSB0bwo+IGRvIHRoYXQgZm9yIGEgY291cGxlIG9mIHdlZWtzLiAgSSBhbSBkZWVwIGluIHRoZSBw
+cm9jZXNzIG9mIG1vdmluZywKPiBhbmQgd2lsbCBiZSBtb3N0bHkgb2ZmbGluZSB1bnRpbCBhYm91
+dCB0aGUgTm92IDExdGguCkVyaWMsIGRpZCB5b3UgaGF2ZSBhIGNoYW5jZSB0byBsb29rIGF0IHRo
+aXM/CgoKUmVnYXJkcywKTmljb2xhcwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fXwpDb250YWluZXJzIG1haWxpbmcgbGlzdApDb250YWluZXJzQGxpc3RzLmxp
+bnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWls
+bWFuL2xpc3RpbmZvL2NvbnRhaW5lcnM=
