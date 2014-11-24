@@ -1,84 +1,75 @@
-From: Jeff Layton <jlayton@poochiereds.net>
-Subject: Re: [PATCH 0/6] kernel tinification: optionally compile out splice
- family of syscalls (splice, vmsplice, tee and sendfile)
-Date: Sun, 23 Nov 2014 19:28:10 -0500
-Message-ID: <20141123192810.682a223e@tlielax.poochiereds.net>
-References: <1416752468-1626-1-git-send-email-pieter@boesman.nl>
-	<20141123.134623.2061031332250984539.davem@davemloft.net>
-	<20141123194326.GB8517@thin>
-	<20141123203040.GB26749@smipidev>
-	<20141123233637.GC12456@thin>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH 07/17] new helpers: skb_copy_datagram_from_iter() and
+ zerocopy_sg_from_iter()
+Date: Mon, 24 Nov 2014 00:29:40 +0000
+Message-ID: <1416788980.7215.66.camel@decadent.org.uk>
+References: <20141119.165340.2162829993279387495.davem@davemloft.net>
+	 <20141120214753.GR7996@ZenIV.linux.org.uk>
+	 <20141120.182339.972861702759954603.davem@davemloft.net>
+	 <20141121.122615.1091044030302005883.davem@davemloft.net>
+	 <20141122042856.GZ7996@ZenIV.linux.org.uk>
+	 <20141122043320.GG30478@ZenIV.linux.org.uk>
+	 <1416787365.7215.63.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Pieter Smith <pieter@boesman.nl>,
-	David Miller <davem@davemloft.net>,
-	alexander.h.duyck@intel.com, viro@zeniv.linux.org.uk,
-	ast@plumgrid.com, akpm@linux-foundation.org, beber@meleeweb.net,
-	catalina.mocanu@gmail.com, dborkman@redhat.com,
-	edumazet@google.com, ebiederm@xmission.com, fabf@skynet.be,
-	fuse-devel@lists.sourceforge.net, geert@linux-m68k.org,
-	hughd@google.com, iulia.manda21@gmail.com, JBeulich@suse.com,
-	bfields@fieldses.org, linux-api@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mcgrof@suse.com, mattst88@gmail.com, mgorman@suse.de,
-	mst@redhat.com, miklos@szeredi.hu, netdev@vger.kernel.org,
-	oleg@redhat.com, Paul.Durrant@citrix.com,
-	paulmck@linux.vnet.ibm.com, pefoley2@pefoley.com, tgraf@suug.ch,
-	therbert@google.com, willemb@google.com,
-	xiaoguangrong@linux.vnet.ibm.com, zhenglong.cai@cs2c.com.cn
-To: Josh Triplett <josh@joshtriplett.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f51.google.com ([209.85.216.51]:41166 "EHLO
-	mail-qa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752685AbaKXA2Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Nov 2014 19:28:16 -0500
-Received: by mail-qa0-f51.google.com with SMTP id k15so5609238qaq.38
-        for <netdev@vger.kernel.org>; Sun, 23 Nov 2014 16:28:15 -0800 (PST)
-In-Reply-To: <20141123233637.GC12456@thin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-O42VdvIkrQJ32zf2RE2Q"
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	target-devel@vger.kernel.org, nab@linux-iscsi.org,
+	hch@infradead.org
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1416787365.7215.63.camel@decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 23 Nov 2014 15:36:37 -0800
-Josh Triplett <josh@joshtriplett.org> wrote:
 
-> On Sun, Nov 23, 2014 at 09:30:40PM +0100, Pieter Smith wrote:
-> > On Sun, Nov 23, 2014 at 11:43:26AM -0800, Josh Triplett wrote:
-> > > On Sun, Nov 23, 2014 at 01:46:23PM -0500, David Miller wrote:
-> > > > Truly removing sendfile/sendpage means that you can't even compile NFS
-> > > > into the tree.
-> > > 
-> > > If you mean the in-kernel nfsd (CONFIG_NFSD), that already has a large
-> > > stack of "select" and "depends on", both directly and indirectly; adding
-> > > a "select SPLICE_SYSCALL" to it seems fine.  (That select does need
-> > > adding, though.  Pieter, you need to test-compile more than just
-> > > tinyconfig and defconfig.  Try an allyesconfig with *just* splice turned
-> > > off, and make sure that compiles.)
-> > 
-> > Did exacly that. Took forever on my hardware, but no problems.
-> 
-> Ah, I see.  Looking more closely at nfsd, it looks like it already has a
-> code path for filesystems that don't do splice.  I think, rather than
-> making nfsd select SPLICE_SYSCALL, that it would suffice to change the
-> "rqstp->rq_splice_ok = true;" in svc_process_common (net/sunrpc/svc.c)
-> to:
-> 
-> rqstp->rq_splice_ok = IS_ENABLED(CONFIG_SPLICE_SYSCALL);
-> 
-> Then nfsd should simply *always* fall back to its non-splice support.
-> 
+--=-O42VdvIkrQJ32zf2RE2Q
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-I'd probably prefer the above, actually. We have to keep supporting
-non-splice enabled fs' for the forseeable future, so we may as well
-allow people to run nfsd in such configurations. It could even be
-useful for testing the non-splice-enabled codepaths.
+On Mon, 2014-11-24 at 00:02 +0000, Ben Hutchings wrote:
+> On Sat, 2014-11-22 at 04:33 +0000, Al Viro wrote:
+> [...]
+> > --- a/net/core/datagram.c
+> > +++ b/net/core/datagram.c
+> > @@ -572,6 +572,77 @@ fault:
+> >  }
+> >  EXPORT_SYMBOL(skb_copy_datagram_from_iovec);
+> > =20
+>=20
+> Missing kernel-doc.
+[...]
 
-> That said, given that it seems exceedingly unlikely that anyone would
-> use the in-kernel nfsd on a system trying to minimize kernel size, it
-> still seems cleaner to just "select SPLICE_SYSCALL" from NFSD in
-> Kconfig.  That avoids making any changes at all to the nfsd source in
-> this patch series.
-> 
+Never mind, I can see that patches 9 and 10 recycle the _iovec
+functions' kernel-doc comments.
 
--- 
-Jeff Layton <jlayton@poochiereds.net>
+Ben.
+
+--=20
+Ben Hutchings
+Absolutum obsoletum. (If it works, it's out of date.) - Stafford Beer
+
+--=-O42VdvIkrQJ32zf2RE2Q
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUAVHJ79ee/yOyVhhEJAQrCFg//ZODm5r8eMweaADJHu5C0vKLYfkFRrv4S
+Wx4zGgMMI0IyUFIjogZOKOcINWgCZu7i+YyrGYx5FjBztJQs2MoEHyE+eNgC9fym
+qV9S7sHUWIW8OkEnmbjIV9bW1mWZ8aqersjvSzTRJx/6VD6reL63aMt9aFbbFXb8
+Bq4Gs9yE2zPSXPqRau2wHemi1cg2zwh5dIhLHmQmRbWuLwFPQ0hHCF3l0x1ThPjZ
+qCCYz+/K//GrjtdtRr4GLviHRktkPDpRYfsGv6TQgQ9HiWQZQjRDZBlCrNgJiosD
+bHH9b57JA7RMevSBOb4qvLLYCRkjWJt8rweo/yVsMpQxFY1OcfrnEitONJ/AUzbW
+BP8QT8Z6+LG5pwoPjkwabRltjOfCSeQBK80LUwalQxUc41TgmOSjJs7NIlDYYU3X
+pr/dHpAryij1AVJiiHwUuYGJy1x6VShTVeHLJE2T+Xt2nI7DmlTyZeBCX+k8sh68
+7UfPSXIzAyCCBMfGFgXo1qB6uihosPFp8rHXGYi1TrGuESi+soAJiprqEPuv0V9e
+UXXlmgmbXwrAS0Q7ssFZtRrKfKnZ5ufZl5dnaVWRAoa3Jz9Tc5iIBQpuP2COMwrg
+fndRgaJ0no6JpZ9kUylT3lBGhOj6ZW04Cf3d01Mry5fz11OhYs3A7lw7bKbhUNFC
+THlXOQ9OnhU=
+=OXeo
+-----END PGP SIGNATURE-----
+
+--=-O42VdvIkrQJ32zf2RE2Q--
