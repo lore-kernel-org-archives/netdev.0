@@ -1,100 +1,346 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH] ip_tunnel: the lack of vti_link_ops' dellink() cause
- kernel panic
-Date: Mon, 24 Nov 2014 15:18:38 +0100
-Message-ID: <54733E3E.7070702@6wind.com>
-References: <1416726251-13088-1-git-send-email-lucien.xin@gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Cedric Le Goater <clg@fr.ibm.com>
+Subject: Re: [PATCH v3 26/41] vhost: virtio 1.0 endian-ness support
+Date: Mon, 24 Nov 2014 15:28:26 +0100
+Message-ID: <5473408A.2090308@fr.ibm.com>
+References: <1416829787-14252-1-git-send-email-mst@redhat.com> <1416829787-14252-27-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Cong Wang <cwang@twopensource.com>
-To: Xin Long <lucien.xin@gmail.com>,
-	network dev <netdev@vger.kernel.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:53097 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753741AbaKXOSl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 09:18:41 -0500
-Received: by mail-wg0-f43.google.com with SMTP id l18so12459928wgh.2
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2014 06:18:40 -0800 (PST)
-In-Reply-To: <1416726251-13088-1-git-send-email-lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
+	rusty@au1.ibm.com, nab@linux-iscsi.org, pbonzini@redhat.com,
+	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1416829787-14252-27-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 23/11/2014 08:04, Xin Long a =C3=A9crit :
-> Now the vti_link_ops do not point the .dellink, for fb tunnel device
-> (ip_vti0), the net_device will be removed as the default .dellink is
-> unregister_netdevice_queue,but the tunnel still in the tunnel list,
-> then if we add a new vti tunnel, in ip_tunnel_find():
->
->          hlist_for_each_entry_rcu(t, head, hash_node) {
->                  if (local =3D=3D t->parms.iph.saddr &&
->                      remote =3D=3D t->parms.iph.daddr &&
->                      link =3D=3D t->parms.link &&
-> =3D=3D>                 type =3D=3D t->dev->type &&
->                      ip_tunnel_key_match(&t->parms, flags, key))
->                          break;
->          }
->
-> the panic will happen, cause dev of ip_tunnel *t is null:
-> [ 3835.072977] IP: [<ffffffffa04103fd>] ip_tunnel_find+0x9d/0xc0 [ip_=
-tunnel]
-> [ 3835.073008] PGD b2c21067 PUD b7277067 PMD 0
-> [ 3835.073008] Oops: 0000 [#1] SMP
-> .....
-> [ 3835.073008] Stack:
-> [ 3835.073008]  ffff8800b72d77f0 ffffffffa0411924 ffff8800bb956000 ff=
-ff8800b72d78e0
-> [ 3835.073008]  ffff8800b72d78a0 0000000000000000 ffffffffa040d100 ff=
-ff8800b72d7858
-> [ 3835.073008]  ffffffffa040b2e3 0000000000000000 0000000000000000 00=
-00000000000000
-> [ 3835.073008] Call Trace:
-> [ 3835.073008]  [<ffffffffa0411924>] ip_tunnel_newlink+0x64/0x160 [ip=
-_tunnel]
-> [ 3835.073008]  [<ffffffffa040b2e3>] vti_newlink+0x43/0x70 [ip_vti]
-> [ 3835.073008]  [<ffffffff8150d4da>] rtnl_newlink+0x4fa/0x5f0
-> [ 3835.073008]  [<ffffffff812f68bb>] ? nla_strlcpy+0x5b/0x70
-> [ 3835.073008]  [<ffffffff81508fb0>] ? rtnl_link_ops_get+0x40/0x60
-> [ 3835.073008]  [<ffffffff8150d11f>] ? rtnl_newlink+0x13f/0x5f0
-> [ 3835.073008]  [<ffffffff81509cf4>] rtnetlink_rcv_msg+0xa4/0x270
-> [ 3835.073008]  [<ffffffff8126adf5>] ? sock_has_perm+0x75/0x90
-> [ 3835.073008]  [<ffffffff81509c50>] ? rtnetlink_rcv+0x30/0x30
-> [ 3835.073008]  [<ffffffff81529e39>] netlink_rcv_skb+0xa9/0xc0
-> [ 3835.073008]  [<ffffffff81509c48>] rtnetlink_rcv+0x28/0x30
-> ....
->
-> modprobe ip_vti
-> ip link del ip_vti0 type vti
-> ip link add ip_vti0 type vti
-> rmmod ip_vti
->
-> do that one or more times, kernel will panic.
->
-> fix it by assigning ip_tunnel_dellink to vti_link_ops' dellink, in
-> which we skip the unregister of fb tunnel device. do the same on ip6_=
-vti.
->
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> Signed-off-by: Cong Wang <cwang@twopensource.com>
+Hi Michael,
+
+Do you have a tree from where I could pull these patches ? 
+
+Thanks,
+
+C.
+
+On 11/24/2014 12:54 PM, Michael S. Tsirkin wrote:
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 > ---
->   net/ipv4/ip_vti.c  |  1 +
->   net/ipv6/ip6_vti.c | 11 +++++++++++
->   2 files changed, 12 insertions(+)
->
-> diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-> index 3e86101..1a7e979 100644
-> --- a/net/ipv4/ip_vti.c
-> +++ b/net/ipv4/ip_vti.c
-> @@ -528,6 +528,7 @@ static struct rtnl_link_ops vti_link_ops __read_m=
-ostly =3D {
->   	.validate	=3D vti_tunnel_validate,
->   	.newlink	=3D vti_newlink,
->   	.changelink	=3D vti_changelink,
-> +	.dellink        =3D ip_tunnel_dellink,
-Nitpicking: please, use a tab instead of space to align the '=3D', like=
- other
-lines.
+>  drivers/vhost/vhost.c | 93 +++++++++++++++++++++++++++++++--------------------
+>  1 file changed, 56 insertions(+), 37 deletions(-)
+> 
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index c90f437..4d379ed 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -33,8 +33,8 @@ enum {
+>  	VHOST_MEMORY_F_LOG = 0x1,
+>  };
+> 
+> -#define vhost_used_event(vq) ((u16 __user *)&vq->avail->ring[vq->num])
+> -#define vhost_avail_event(vq) ((u16 __user *)&vq->used->ring[vq->num])
+> +#define vhost_used_event(vq) ((__virtio16 __user *)&vq->avail->ring[vq->num])
+> +#define vhost_avail_event(vq) ((__virtio16 __user *)&vq->used->ring[vq->num])
+> 
+>  static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
+>  			    poll_table *pt)
+> @@ -1001,7 +1001,7 @@ EXPORT_SYMBOL_GPL(vhost_log_write);
+>  static int vhost_update_used_flags(struct vhost_virtqueue *vq)
+>  {
+>  	void __user *used;
+> -	if (__put_user(vq->used_flags, &vq->used->flags) < 0)
+> +	if (__put_user(cpu_to_vhost16(vq, vq->used_flags), &vq->used->flags) < 0)
+>  		return -EFAULT;
+>  	if (unlikely(vq->log_used)) {
+>  		/* Make sure the flag is seen before log. */
+> @@ -1019,7 +1019,7 @@ static int vhost_update_used_flags(struct vhost_virtqueue *vq)
+> 
+>  static int vhost_update_avail_event(struct vhost_virtqueue *vq, u16 avail_event)
+>  {
+> -	if (__put_user(vq->avail_idx, vhost_avail_event(vq)))
+> +	if (__put_user(cpu_to_vhost16(vq, vq->avail_idx), vhost_avail_event(vq)))
+>  		return -EFAULT;
+>  	if (unlikely(vq->log_used)) {
+>  		void __user *used;
+> @@ -1038,6 +1038,7 @@ static int vhost_update_avail_event(struct vhost_virtqueue *vq, u16 avail_event)
+> 
+>  int vhost_init_used(struct vhost_virtqueue *vq)
+>  {
+> +	__virtio16 last_used_idx;
+>  	int r;
+>  	if (!vq->private_data)
+>  		return 0;
+> @@ -1046,7 +1047,13 @@ int vhost_init_used(struct vhost_virtqueue *vq)
+>  	if (r)
+>  		return r;
+>  	vq->signalled_used_valid = false;
+> -	return get_user(vq->last_used_idx, &vq->used->idx);
+> +	if (!access_ok(VERIFY_READ, &vq->used->idx, sizeof vq->used->idx))
+> +		return -EFAULT;
+> +	r = __get_user(last_used_idx, &vq->used->idx);
+> +	if (r)
+> +		return r;
+> +	vq->last_used_idx = vhost16_to_cpu(vq, last_used_idx);
+> +	return 0;
+>  }
+>  EXPORT_SYMBOL_GPL(vhost_init_used);
+> 
+> @@ -1087,16 +1094,16 @@ static int translate_desc(struct vhost_virtqueue *vq, u64 addr, u32 len,
+>  /* Each buffer in the virtqueues is actually a chain of descriptors.  This
+>   * function returns the next descriptor in the chain,
+>   * or -1U if we're at the end. */
+> -static unsigned next_desc(struct vring_desc *desc)
+> +static unsigned next_desc(struct vhost_virtqueue *vq, struct vring_desc *desc)
+>  {
+>  	unsigned int next;
+> 
+>  	/* If this descriptor says it doesn't chain, we're done. */
+> -	if (!(desc->flags & VRING_DESC_F_NEXT))
+> +	if (!(desc->flags & cpu_to_vhost16(vq, VRING_DESC_F_NEXT)))
+>  		return -1U;
+> 
+>  	/* Check they're not leading us off end of descriptors. */
+> -	next = desc->next;
+> +	next = vhost16_to_cpu(vq, desc->next);
+>  	/* Make sure compiler knows to grab that: we don't want it changing! */
+>  	/* We will use the result as an index in an array, so most
+>  	 * architectures only need a compiler barrier here. */
+> @@ -1113,18 +1120,19 @@ static int get_indirect(struct vhost_virtqueue *vq,
+>  {
+>  	struct vring_desc desc;
+>  	unsigned int i = 0, count, found = 0;
+> +	u32 len = vhost32_to_cpu(vq, indirect->len);
+>  	int ret;
+> 
+>  	/* Sanity check */
+> -	if (unlikely(indirect->len % sizeof desc)) {
+> +	if (unlikely(len % sizeof desc)) {
+>  		vq_err(vq, "Invalid length in indirect descriptor: "
+>  		       "len 0x%llx not multiple of 0x%zx\n",
+> -		       (unsigned long long)indirect->len,
+> +		       (unsigned long long)vhost32_to_cpu(vq, indirect->len),
+>  		       sizeof desc);
+>  		return -EINVAL;
+>  	}
+> 
+> -	ret = translate_desc(vq, indirect->addr, indirect->len, vq->indirect,
+> +	ret = translate_desc(vq, vhost64_to_cpu(vq, indirect->addr), len, vq->indirect,
+>  			     UIO_MAXIOV);
+>  	if (unlikely(ret < 0)) {
+>  		vq_err(vq, "Translation failure %d in indirect.\n", ret);
+> @@ -1135,7 +1143,7 @@ static int get_indirect(struct vhost_virtqueue *vq,
+>  	 * architectures only need a compiler barrier here. */
+>  	read_barrier_depends();
+> 
+> -	count = indirect->len / sizeof desc;
+> +	count = len / sizeof desc;
+>  	/* Buffers are chained via a 16 bit next field, so
+>  	 * we can have at most 2^16 of these. */
+>  	if (unlikely(count > USHRT_MAX + 1)) {
+> @@ -1155,16 +1163,17 @@ static int get_indirect(struct vhost_virtqueue *vq,
+>  		if (unlikely(memcpy_fromiovec((unsigned char *)&desc,
+>  					      vq->indirect, sizeof desc))) {
+>  			vq_err(vq, "Failed indirect descriptor: idx %d, %zx\n",
+> -			       i, (size_t)indirect->addr + i * sizeof desc);
+> +			       i, (size_t)vhost64_to_cpu(vq, indirect->addr) + i * sizeof desc);
+>  			return -EINVAL;
+>  		}
+> -		if (unlikely(desc.flags & VRING_DESC_F_INDIRECT)) {
+> +		if (unlikely(desc.flags & cpu_to_vhost16(vq, VRING_DESC_F_INDIRECT))) {
+>  			vq_err(vq, "Nested indirect descriptor: idx %d, %zx\n",
+> -			       i, (size_t)indirect->addr + i * sizeof desc);
+> +			       i, (size_t)vhost64_to_cpu(vq, indirect->addr) + i * sizeof desc);
+>  			return -EINVAL;
+>  		}
+> 
+> -		ret = translate_desc(vq, desc.addr, desc.len, iov + iov_count,
+> +		ret = translate_desc(vq, vhost64_to_cpu(vq, desc.addr),
+> +				     vhost32_to_cpu(vq, desc.len), iov + iov_count,
+>  				     iov_size - iov_count);
+>  		if (unlikely(ret < 0)) {
+>  			vq_err(vq, "Translation failure %d indirect idx %d\n",
+> @@ -1172,11 +1181,11 @@ static int get_indirect(struct vhost_virtqueue *vq,
+>  			return ret;
+>  		}
+>  		/* If this is an input descriptor, increment that count. */
+> -		if (desc.flags & VRING_DESC_F_WRITE) {
+> +		if (desc.flags & cpu_to_vhost16(vq, VRING_DESC_F_WRITE)) {
+>  			*in_num += ret;
+>  			if (unlikely(log)) {
+> -				log[*log_num].addr = desc.addr;
+> -				log[*log_num].len = desc.len;
+> +				log[*log_num].addr = vhost64_to_cpu(vq, desc.addr);
+> +				log[*log_num].len = vhost32_to_cpu(vq, desc.len);
+>  				++*log_num;
+>  			}
+>  		} else {
+> @@ -1189,7 +1198,7 @@ static int get_indirect(struct vhost_virtqueue *vq,
+>  			}
+>  			*out_num += ret;
+>  		}
+> -	} while ((i = next_desc(&desc)) != -1);
+> +	} while ((i = next_desc(vq, &desc)) != -1);
+>  	return 0;
+>  }
+> 
+> @@ -1209,15 +1218,18 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+>  	struct vring_desc desc;
+>  	unsigned int i, head, found = 0;
+>  	u16 last_avail_idx;
+> +	__virtio16 avail_idx;
+> +	__virtio16 ring_head;
+>  	int ret;
+> 
+>  	/* Check it isn't doing very strange things with descriptor numbers. */
+>  	last_avail_idx = vq->last_avail_idx;
+> -	if (unlikely(__get_user(vq->avail_idx, &vq->avail->idx))) {
+> +	if (unlikely(__get_user(avail_idx, &vq->avail->idx))) {
+>  		vq_err(vq, "Failed to access avail idx at %p\n",
+>  		       &vq->avail->idx);
+>  		return -EFAULT;
+>  	}
+> +	vq->avail_idx = vhost16_to_cpu(vq, avail_idx);
+> 
+>  	if (unlikely((u16)(vq->avail_idx - last_avail_idx) > vq->num)) {
+>  		vq_err(vq, "Guest moved used index from %u to %u",
+> @@ -1234,7 +1246,7 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+> 
+>  	/* Grab the next descriptor number they're advertising, and increment
+>  	 * the index we've seen. */
+> -	if (unlikely(__get_user(head,
+> +	if (unlikely(__get_user(ring_head,
+>  				&vq->avail->ring[last_avail_idx % vq->num]))) {
+>  		vq_err(vq, "Failed to read head: idx %d address %p\n",
+>  		       last_avail_idx,
+> @@ -1242,6 +1254,8 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+>  		return -EFAULT;
+>  	}
+> 
+> +	head = vhost16_to_cpu(vq, ring_head);
+> +
+>  	/* If their number is silly, that's an error. */
+>  	if (unlikely(head >= vq->num)) {
+>  		vq_err(vq, "Guest says index %u > %u is available",
+> @@ -1274,7 +1288,7 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+>  			       i, vq->desc + i);
+>  			return -EFAULT;
+>  		}
+> -		if (desc.flags & VRING_DESC_F_INDIRECT) {
+> +		if (desc.flags & cpu_to_vhost16(vq, VRING_DESC_F_INDIRECT)) {
+>  			ret = get_indirect(vq, iov, iov_size,
+>  					   out_num, in_num,
+>  					   log, log_num, &desc);
+> @@ -1286,20 +1300,21 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+>  			continue;
+>  		}
+> 
+> -		ret = translate_desc(vq, desc.addr, desc.len, iov + iov_count,
+> +		ret = translate_desc(vq, vhost64_to_cpu(vq, desc.addr),
+> +				     vhost32_to_cpu(vq, desc.len), iov + iov_count,
+>  				     iov_size - iov_count);
+>  		if (unlikely(ret < 0)) {
+>  			vq_err(vq, "Translation failure %d descriptor idx %d\n",
+>  			       ret, i);
+>  			return ret;
+>  		}
+> -		if (desc.flags & VRING_DESC_F_WRITE) {
+> +		if (desc.flags & cpu_to_vhost16(vq, VRING_DESC_F_WRITE)) {
+>  			/* If this is an input descriptor,
+>  			 * increment that count. */
+>  			*in_num += ret;
+>  			if (unlikely(log)) {
+> -				log[*log_num].addr = desc.addr;
+> -				log[*log_num].len = desc.len;
+> +				log[*log_num].addr = vhost64_to_cpu(vq, desc.addr);
+> +				log[*log_num].len = vhost32_to_cpu(vq, desc.len);
+>  				++*log_num;
+>  			}
+>  		} else {
+> @@ -1312,7 +1327,7 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+>  			}
+>  			*out_num += ret;
+>  		}
+> -	} while ((i = next_desc(&desc)) != -1);
+> +	} while ((i = next_desc(vq, &desc)) != -1);
+> 
+>  	/* On success, increment avail index. */
+>  	vq->last_avail_idx++;
+> @@ -1335,7 +1350,10 @@ EXPORT_SYMBOL_GPL(vhost_discard_vq_desc);
+>   * want to notify the guest, using eventfd. */
+>  int vhost_add_used(struct vhost_virtqueue *vq, unsigned int head, int len)
+>  {
+> -	struct vring_used_elem heads = { head, len };
+> +	struct vring_used_elem heads = {
+> +		cpu_to_vhost32(vq, head),
+> +		cpu_to_vhost32(vq, len)
+> +	};
+> 
+>  	return vhost_add_used_n(vq, &heads, 1);
+>  }
+> @@ -1404,7 +1422,7 @@ int vhost_add_used_n(struct vhost_virtqueue *vq, struct vring_used_elem *heads,
+> 
+>  	/* Make sure buffer is written before we update index. */
+>  	smp_wmb();
+> -	if (put_user(vq->last_used_idx, &vq->used->idx)) {
+> +	if (__put_user(cpu_to_vhost16(vq, vq->last_used_idx), &vq->used->idx)) {
+>  		vq_err(vq, "Failed to increment used idx");
+>  		return -EFAULT;
+>  	}
+> @@ -1422,7 +1440,8 @@ EXPORT_SYMBOL_GPL(vhost_add_used_n);
+> 
+>  static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+>  {
+> -	__u16 old, new, event;
+> +	__u16 old, new;
+> +	__virtio16 event;
+>  	bool v;
+>  	/* Flush out used index updates. This is paired
+>  	 * with the barrier that the Guest executes when enabling
+> @@ -1434,12 +1453,12 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+>  		return true;
+> 
+>  	if (!vhost_has_feature(vq, VIRTIO_RING_F_EVENT_IDX)) {
+> -		__u16 flags;
+> +		__virtio16 flags;
+>  		if (__get_user(flags, &vq->avail->flags)) {
+>  			vq_err(vq, "Failed to get flags");
+>  			return true;
+>  		}
+> -		return !(flags & VRING_AVAIL_F_NO_INTERRUPT);
+> +		return !(flags & cpu_to_vhost16(vq, VRING_AVAIL_F_NO_INTERRUPT));
+>  	}
+>  	old = vq->signalled_used;
+>  	v = vq->signalled_used_valid;
+> @@ -1449,11 +1468,11 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+>  	if (unlikely(!v))
+>  		return true;
+> 
+> -	if (get_user(event, vhost_used_event(vq))) {
+> +	if (__get_user(event, vhost_used_event(vq))) {
+>  		vq_err(vq, "Failed to get used event idx");
+>  		return true;
+>  	}
+> -	return vring_need_event(event, new, old);
+> +	return vring_need_event(vhost16_to_cpu(vq, event), new, old);
+>  }
+> 
+>  /* This actually signals the guest, using eventfd. */
+> @@ -1488,7 +1507,7 @@ EXPORT_SYMBOL_GPL(vhost_add_used_and_signal_n);
+>  /* OK, now we need to know about added descriptors. */
+>  bool vhost_enable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+>  {
+> -	u16 avail_idx;
+> +	__virtio16 avail_idx;
+>  	int r;
+> 
+>  	if (!(vq->used_flags & VRING_USED_F_NO_NOTIFY))
+> @@ -1519,7 +1538,7 @@ bool vhost_enable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+>  		return false;
+>  	}
+> 
+> -	return avail_idx != vq->avail_idx;
+> +	return vhost16_to_cpu(vq, avail_idx) != vq->avail_idx;
+>  }
+>  EXPORT_SYMBOL_GPL(vhost_enable_notify);
+> 
