@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] tc_vlan: fix type of tcfv_push_vid
-Date: Mon, 24 Nov 2014 16:12:19 -0500 (EST)
-Message-ID: <20141124.161219.1847762149666187980.davem@davemloft.net>
-References: <1416825026-4628-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH] xen-netback: do not report success if
+ backend_create_xenvif() fails
+Date: Mon, 24 Nov 2014 16:14:57 -0500 (EST)
+Message-ID: <20141124.161457.416165119227187597.davem@davemloft.net>
+References: <20141124100053.GC30053@zion.uk.xensource.com>
+	<1416826680-19145-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53733 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750736AbaKXVMV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 16:12:21 -0500
-In-Reply-To: <1416825026-4628-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: wei.liu2@citrix.com, ian.campbell@citrix.com,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: khoroshilov@ispras.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1416826680-19145-1-git-send-email-khoroshilov@ispras.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Mon, 24 Nov 2014 11:30:26 +0100
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Date: Mon, 24 Nov 2014 13:58:00 +0300
 
-> Should be u16. So fix it to kill the sparse warning.
+> If xenvif_alloc() or xenbus_scanf() fail in backend_create_xenvif(),
+> xenbus is left in offline mode but netback_probe() reports success.
 > 
-> Fixes: c7e2b9689ef8136 "sched: introduce vlan action"
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> The patch implements propagation of error code for backend_create_xenvif().
+> 
+> Found by Linux Driver Verification project (linuxtesting.org).
+> 
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 
-Applied, thanks Jiri.
+Applied, thanks.
