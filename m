@@ -1,69 +1,42 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [fuse-devel] [PATCH 4/6] fs/fuse: support compiling out splice
-Date: Mon, 24 Nov 2014 12:22:14 -0800
-Message-ID: <20141124202214.GA11362@kroah.com>
-References: <1416752468-1626-1-git-send-email-pieter@boesman.nl>
- <1416752468-1626-5-git-send-email-pieter@boesman.nl>
- <CAFLxGvxq3Mr9n8xMO_fPZDhrGmBh=WKyU0+RF13JBdjssX6qfw@mail.gmail.com>
- <20141123232302.GA12456@thin>
- <20141124094931.GA1055@smipidev>
- <20141124160510.GA2446@jtriplet-mobl1>
- <20141124193412.GB31618@kroah.com>
- <20141124201450.GA18776@cloud>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fec: init maximum receive buffer size for ring1
+ and ring2
+Date: Mon, 24 Nov 2014 15:22:50 -0500 (EST)
+Message-ID: <20141124.152250.380142287256307570.davem@davemloft.net>
+References: <1416734586-26634-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pieter Smith <pieter@boesman.nl>,
-	Richard Weinberger <richard.weinberger@gmail.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Bertrand Jacquin <beber@meleeweb.net>,
-	Oleg Nesterov <oleg@redhat.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Eric Dumazet <edumazet@google.com>,
-	=?utf-8?B?6JSh5q2j6b6Z?= <zhenglong.cai@cs2c.com.cn>,
-	Jeff Layton <jlayton@poochiereds.net>,
-	Tom Herbert <therbert@google.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Miklos Szeredi <miklos@szeredi.hu>,
-	Peter Foley <pefoley2@pefoley.com>,
-	Hugh Dickins <hughd@google.com>,
-	Xiao Guangrong <xiaoguangrong@linux.vnet.ibm.com>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Mel Gorman <mgorman@suse.de>, Matt Turner <mattst88@gmail.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	"open list:FUSE: FILESYSTEM..." <fuse-devel@lists.sourceforge.net>,
-	"Luis R.
-To: josh@joshtriplett.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141124201450.GA18776@cloud>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
+	stephen@networkplumber.org, festevam@gmail.com
+To: b38611@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52956 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750931AbaKXUWy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 15:22:54 -0500
+In-Reply-To: <1416734586-26634-1-git-send-email-b38611@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 24, 2014 at 12:14:50PM -0800, josh@joshtriplett.org wrote:
-> > I would, again, argue that stuff like __splice_p() not be implemented at
-> > all please.  It will only cause a huge proliferation of stuff like this
-> > that will not make any sense, and only cause a trivial, if any, amount
-> > of code savings.
-> > 
-> > I thought you were going to not do this type of thing until you got the
-> > gcc optimizer working for function callbacks.
+From: Fugang Duan <b38611@freescale.com>
+Date: Sun, 23 Nov 2014 17:23:06 +0800
+
+> i.MX6SX fec support three rx ring1, the current driver lost to init
+> ring1 and ring2 maximum receive buffer size, that cause receving
+> frame date length error. The driver reports "rcv is not +last" error
+> log in user case.
 > 
-> Compared to the previous patchset, there are now only two instances of
-> ifdefs outside of the splice code for this, and this is one of them.  In
-> this case, the issue is no longer about making the code for this
-> splice_read function disappear, but rather to eliminate a reference to a
-> bit of splice functionality (used *inside* the FUSE splice code) that
-> will not work without SPLICE_SYSCALL.
-> 
-> Would you prefer to see this specific case handled via an #ifdef in
-> fs/fuse/dev.c rather than introducing a __splice_p that people might be
-> inclined to propagate?  That'd be fine; the code could simply wrap
-> fuse_dev_splice_read in an #ifdef and have the #else define a NULL
-> fuse_dev_splice_read.
+> Signed-off-by: Fugang Duan <B38611@freescale.com>
 
-Yes, I would prefer that, but I'm not the fuse maintainer.
+This patch does not apply to the 'net' tree, although it does
+apply cleanly to the net-next tree.
 
-thanks,
+Determining which tree a patch is for is not my job, it is your's.
 
-greg k-h
+Therefore you must always explicitly state what tree your patch
+is intended to be added to, by starting your Subject line
+with "[PATCH net] " or "[PATCH net-next] ".
+
+I've applied this, but next time I will just ask you to properly
+submit the patch instead.
