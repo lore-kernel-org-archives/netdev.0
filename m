@@ -1,76 +1,53 @@
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Subject: [PATCH] net/smsc911x: Add minimal runtime PM support
-Date: Mon, 24 Nov 2014 19:58:17 +0100
-Message-ID: <1416855497-6479-1-git-send-email-geert+renesas@glider.be>
-Cc: netdev@vger.kernel.org, linux-pm@vger.kernel.org,
-	linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert+renesas@glider.be>
-To: Steve Glendinning <steve.glendinning@shawell.net>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: qstats update in packet scheduling
+Date: Mon, 24 Nov 2014 11:01:53 -0800
+Message-ID: <CAA93jw4URTCK_O5mrJB14qAraubqj4Y-pvWMFX7ts=BWSgd-Og@mail.gmail.com>
+References: <CAHmvzZQnBJbx3hfdvpXg0TZM-UooKxjM+-1HO6nSSpx4qJLcaw@mail.gmail.com>
+	<1416850289.17888.67.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAHmvzZRwsd7S+T4cdAVzWGORcbkq+WWMtFAV6Ss3UrA+Ogeujg@mail.gmail.com>
+	<1416854568.17888.69.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Josh Clark <jcinma@gmail.com>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:48506 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754024AbaKXTBx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 14:01:53 -0500
+Received: by mail-ob0-f180.google.com with SMTP id wp4so7562408obc.39
+        for <netdev@vger.kernel.org>; Mon, 24 Nov 2014 11:01:53 -0800 (PST)
+In-Reply-To: <1416854568.17888.69.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add minimal runtime PM support (enable on probe, disable on remove), to
-ensure proper operation with a parent device that uses runtime PM.
+On Mon, Nov 24, 2014 at 10:42 AM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> On Mon, 2014-11-24 at 13:17 -0500, Josh Clark wrote:
+>
+>> But I'm seeing no change at all in qlen. qlen and backlog are both
+>> zero, which results in zero qavg, meaning I can't test the RED
+>> functionality at all.
+>
+> Wait. If you use some kernel patch without giving it, I can not comme=
+nt.
+>
+> If you use regular "tc -s qdisc ...", then you'll see non zero qlen
 
-This is needed on systems where the external bus controller module of
-the SoC is contained in a PM domain and/or has a gateable functional
-clock. In such cases, before accessing any device connected to the
-external bus, the PM domain must be powered up, and/or the functional
-clock must be enabled, which is typically handled through runtime PM by
-the bus controller driver.
+Well, assuming you have BQL or a software rate limiter in place in
+front of it...
 
-An example of this is the kzm9g development board, where an smsc9220
-Ethernet controller is connected to the Bus State Controller (BSC) of a
-Renesas sh73a0 SoC.
 
-Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
----
- drivers/net/ethernet/smsc/smsc911x.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index 77ed74561e5fe815..f9c87624a0afb08b 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -59,6 +59,8 @@
- #include <linux/of_device.h>
- #include <linux/of_gpio.h>
- #include <linux/of_net.h>
-+#include <linux/pm_runtime.h>
-+
- #include "smsc911x.h"
- 
- #define SMSC_CHIPNAME		"smsc911x"
-@@ -2338,6 +2340,9 @@ static int smsc911x_drv_remove(struct platform_device *pdev)
- 
- 	free_netdev(dev);
- 
-+	pm_runtime_put(&pdev->dev);
-+	pm_runtime_disable(&pdev->dev);
-+
- 	return 0;
- }
- 
-@@ -2491,6 +2496,9 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
- 	if (pdata->config.shift)
- 		pdata->ops = &shifted_smsc911x_ops;
- 
-+	pm_runtime_enable(&pdev->dev);
-+	pm_runtime_get_sync(&pdev->dev);
-+
- 	retval = smsc911x_init(dev);
- 	if (retval < 0)
- 		goto out_disable_resources;
-@@ -2572,6 +2580,8 @@ out_unregister_netdev_5:
- out_free_irq:
- 	free_irq(dev->irq, dev);
- out_disable_resources:
-+	pm_runtime_put(&pdev->dev);
-+	pm_runtime_disable(&pdev->dev);
- 	(void)smsc911x_disable_resources(pdev);
- out_enable_resources_fail:
- 	smsc911x_free_resources(pdev);
--- 
-1.9.1
+
+
+--=20
+Dave T=C3=A4ht
+
+thttp://www.bufferbloat.net/projects/bloat/wiki/Upcoming_Talks
