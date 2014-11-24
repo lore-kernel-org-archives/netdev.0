@@ -1,82 +1,124 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 2/2] sh_eth: Fix asynchronous external abort
-Date: Mon, 24 Nov 2014 02:19:57 +0000
-Message-ID: <1416795597.7215.76.camel@decadent.org.uk>
-References: <1415862135-27972-1-git-send-email-ykaneko0929@gmail.com>
-	 <1415862135-27972-3-git-send-email-ykaneko0929@gmail.com>
-	 <20141124011759.GA5089@verge.net.au>
+From: Wengang <wen.gang.wang@oracle.com>
+Subject: Re: [PATCH] bonding: clear header_ops when last slave detached (v2)
+Date: Mon, 24 Nov 2014 11:05:39 +0800
+Message-ID: <5472A083.9020801@oracle.com>
+References: <1416374292-10993-1-git-send-email-wen.gang.wang@oracle.com> <1416375565.14060.43.camel@edumazet-glaptop2.roam.corp.google.com> <546C4022.5010509@oracle.com> <CAHA+R7OyA_V149bpE8qUgG9epU-5UG8cf=zOgh5ZXVB3ZFZHUw@mail.gmail.com> <1416465685.8629.15.camel@edumazet-glaptop2.roam.corp.google.com> <CAHA+R7PKRbBNwfUWRAsVHQreKsGXBc8CHorZRuyCfvwL4O=y+g@mail.gmail.com> <1416516104.8629.39.camel@edumazet-glaptop2.roam.corp.google.com> <CAHA+R7Me4zPdGpeQVHFLLGVq=4cVar09jQFyjA81nxF_Fmuppw@mail.gmail.com> <1416521035.8629.49.camel@edumazet-glaptop2.roam.corp.google.com> <CAHA+R7P9XhGQZXFy6frxOyZJ4rX_MdVgY3kAPE1_wDNcvYd_yA@mail.gmail.com> <23563.1416523985@famine> <CAHA+R7Pnn4TxRQcR4KBRrZV8mqsm-YznMMvXVasji07caY9b1g@mail.gmail.com> <29850.1416596051@famine>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-iLgGtmfsmCOT63+uXC6h"
-Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20141124011759.GA5089@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>,
+	Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:26054 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750804AbaKXDEV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Nov 2014 22:04:21 -0500
+In-Reply-To: <29850.1416596051@famine>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+=E4=BA=8E 2014=E5=B9=B411=E6=9C=8822=E6=97=A5 02:54, Jay Vosburgh =E5=86=
+=99=E9=81=93:
+> Cong Wang <cwang@twopensource.com> wrote:
+>
+>> On Thu, Nov 20, 2014 at 2:53 PM, Jay Vosburgh
+>> <jay.vosburgh@canonical.com> wrote:
+>>> Cong Wang <cwang@twopensource.com> wrote:
+>>>
+>>>> Also, no one seems to care about my previous question:
+>>>> why only bonding has the problem?
+>>>          Bonding has the problem because it stashes a pointer to a =
+data
+>>> structure (the header_ops) from another module, and when that modul=
+e is
+>>> unloaded the dangling pointer may be dereferenced if it's not eithe=
+r
+>>> cleared or made to never go away.
+>> I knew, please re-read my question, I was asking why ONLY bonding
+>> has the problem, i.e. why not neigh or whatever else calling
+>> header_ops->foo()? :)
+>>
+>> As I said, I may miss some try_get_module() somewhere of course.
+>> Needs more digging.
+> 	My explanation is why only bonding has the problem; it's keeping
+> a pointer (in bond_dev->header_ops) that is copied from the slave
+> device's ->header_ops, and clearing that stashed pointer is (a) not
+> correctly synchronized with the removal of the slave device, and (b)
+> trying to simply clear the pointer has a check then use race in
+> dev_hard_header.
+>
+> 	8021q, for example, uses a "passthru" header_ops to call the
+> underlying device's header_ops, but 8021q is only for ethernet, and t=
+he
+> eth_header_ops are static in vmlinux, so it won't see these problems.
+>
+> 	Actually, now that I think about it, when the last ipoib slave
+> is released, the bonding master device is theoretically supposed to b=
+e
+> removed to avoid the sort of problem we're discussing here.
+>
+> 	That apparently isn't happening, unless Wengang is running
+> pktgen and simultaneously removing the ipoib module (racing the trans=
+mit
+> against the removal), or maybe something else is going on (perhaps
+> pktgen holds a reference to the bonding master, preventing its remova=
+l).
+>
+> 	Also, curiously, looking at pkgten, pktgen_setup_dev appears to
+> only accept devices of type ARPHRD_ETHER, but bonding with an ipoib
+> slave would be ARPHRD_INFINIBAND.  I'm therefore not sure how Wengang
+> configured pktgen over an ipoib bond.
+>
+> 	Wengang, what kernel are you using, and is your kernel modified
+> to change pktgen_setup_dev?
+>
+> 	-J
 
---=-iLgGtmfsmCOT63+uXC6h
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+It's a 2.6.39 kernel.
+code is like this:
 
-On Mon, 2014-11-24 at 10:18 +0900, Simon Horman wrote:
-> Hi Kaneko-san, Hi All,
->=20
-> On Thu, Nov 13, 2014 at 04:02:15PM +0900, Yoshihiro Kaneko wrote:
-> > From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
-> >=20
-> > When clock is disabled, Ethernet register access raise Bus error.
->=20
-> I have spoken with Kimura-san and the problem may be reproduced by
-> calling ethtool with -s of -G while the network interface is down.
->=20
-> e.g.:
-> ifconfig eth0 down
-> ethtool -G eth0 rx 512
->=20
-> I have confirmed that the problem above appears in net-next
-> and appears to be resolved with this patch and the previous on
-> in this series (which seems to be a dependency) applied.
-[...]
+static int pktgen_setup_dev(struct pktgen_dev *pkt_dev, const char *ifn=
+ame)
+{
+         struct net_device *odev;
+         int err;
 
-The change to sh_eth_set_ringparam() is fine.  But I don't think it is
-correct for sh_eth_set_settings() to fail when the interface is down.
-It should behave like sh_eth_set_ringparam() - validate and remember the
-requested settings, so they can be applied when the interface is brought
-up.
+         /* Clean old setups */
+         if (pkt_dev->odev) {
+                 dev_put(pkt_dev->odev);
+                 pkt_dev->odev =3D NULL;
+         }
 
-When drivers have their own rules about when certain configuration
-operations can and can't be used, we end up with messes like WEXT.
+         odev =3D pktgen_dev_get_by_name(pkt_dev, ifname);
+         if (!odev) {
+                 pr_err("no such netdevice: \"%s\"\n", ifname);
+                 return -ENODEV;
+         }
 
-Ben.
+         if (odev->type !=3D ARPHRD_ETHER) {
+                 pr_err("not an ethernet device: \"%s\"\n", ifname);
+                 err =3D -EINVAL;
+         } else if (!netif_running(odev)) {
+                 pr_err("device is down: \"%s\"\n", ifname);
+                 err =3D -ENETDOWN;
+         } else {
+                 pkt_dev->odev =3D odev;
+                 return 0;
+         }
 
---=20
-Ben Hutchings
-Absolutum obsoletum. (If it works, it's out of date.) - Stafford Beer
+         dev_put(odev);
+         return err;
+}
 
---=-iLgGtmfsmCOT63+uXC6h
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+No change done to it.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+This problem is a side product when I was working with another area. I=20
+am so far not very clear about the setup(no env to check now either).
 
-iQIUAwUAVHKV0ue/yOyVhhEJAQpcYw/4zt192+cfaaMCoYcT29KwmzYAUPaR69zF
-iSlqFIn2eRF16zm+eJFkgg18c4tF6b3rg8oA2vkBaSCBqqxgHk98jgPG+6TQCQie
-VCc9aLsH6KOC5Xsb5SOy+QTA3N8j4N6VGqxGgtIikZN2CQVR60r0kx5k27p2gz+O
-HQgZjZ0a3YQF+Yt38A5vmDkhlsyi0Yc0rpMvmJDaJ34E+UCmgKbPnUlQrChUs5TK
-p3FqSIZpqktxqp2EbtfJbMDrwKxv4BIrYmb3a3eaBJp5OAuIJ3suOm7duDB3DAFK
-O1RnNlCNsY05OfxHypvhxx6BiirgjxY7FqsoFZNuBlOyfx6R7HpuNALWzo3q8gIT
-IA7lfqEyTFwiAW0FG02kGzmOhOku7XCFbDIt/gU3Eutf1mOTpgmzSfgps/y7MyOA
-LrFv6lbF0gUivm4tFvGr+rpooLLuM98V9qrZaZVcYYWli3M0hdo8HQYUjs3DdXoU
-hyxtIWzkqcoaEIkezmPTSvqy+GhKwZ8Cy/hWvZ8wiEe0H5HheD5d6nHNRWGyZrUt
-cXXdXF1miIXyxacVNh7bY3CeQ2zKuczloquV5oFCS0mV0anmlcYokSB757Cr+mvq
-hhAktE+NV0r53azvUeKHdIhRXeEe1vDTMskxkideFkk3UaX6IaUJ4oyM252gFPBY
-grSIZxTA7g==
-=ZBjM
------END PGP SIGNATURE-----
-
---=-iLgGtmfsmCOT63+uXC6h--
+thanks,
+wengang
+> ---
+> 	-Jay Vosburgh, jay.vosburgh@canonical.com
