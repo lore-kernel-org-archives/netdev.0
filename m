@@ -1,149 +1,129 @@
-From: Pieter Smith <pieter@boesman.nl>
-Subject: [PATCH v4 3/7] fs/splice: support compiling out splice-family syscalls
-Date: Tue, 25 Nov 2014 00:01:02 +0100
-Message-ID: <1416870079-15254-4-git-send-email-pieter@boesman.nl>
+From: Pieter Smith <pieter-qeJ+1H9vRZbz+pZb47iToQ@public.gmane.org>
+Subject: [PATCH v4 6/7] net/core: support compiling out splice
+Date: Tue, 25 Nov 2014 00:01:05 +0100
+Message-ID: <1416870079-15254-7-git-send-email-pieter@boesman.nl>
 References: <1416870079-15254-1-git-send-email-pieter@boesman.nl>
-Cc: Josh Triplett <josh@joshtriplett.org>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Bertrand Jacquin <beber@meleeweb.net>,
-	Catalina Mocanu <catalina.mocanu@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Fabian Frederick <fabf@skynet.be>,
-	fuse-devel@lists.sourceforge.net (open list:FUSE: FILESYSTEM...),
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Hugh Dickins <hughd@google.com>,
-	Iulia Manda <iulia.manda21@gmail.com>,
-	Jan Beulich <JBeulich@suse.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Jeff Layton <jlayton@poochiereds.net>,
-	linux-api@vger.kernel.org (open list:ABI/API),
-	linux-fsdevel@vger.kernel.org,
-	linux-kernel
-To: pieter@boesman.nl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:39011 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751799AbaKXXC0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 18:02:26 -0500
-In-Reply-To: <1416870079-15254-1-git-send-email-pieter@boesman.nl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	Bertrand Jacquin <beber-2YnHqweIUXrk1uMJSBkQmQ@public.gmane.org>, Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	=?UTF-8?q?=E8=94=A1=E6=AD=A3=E9=BE=99?= <zhenglong.cai-TJRtMXcVgQTM1kAEIRd3EQ@public.gmane.org>,
+	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>, Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>, Miklos Szeredi <miklos-sUDqSbJrdHQHWmgEVkV9KA@public.gmane.org>,
+	Peter Foley <pefoley2-lY0TAiDIAFlBDgjK7y7TUQ@public.gmane.org>, Hugh Dickins <hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Xiao Guangrong <xiaoguangrong-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
+	Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>, Matt Turner <mattst88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"open list:FUSE: FILESYSTEM..." <fuse-devel-5NWGOfrQmneRv+LV9MX5uuRhgaa4a2kL@public.gmane.org
+To: pieter-qeJ+1H9vRZbz+pZb47iToQ@public.gmane.org
+Return-path: <fuse-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1416870079-15254-1-git-send-email-pieter-qeJ+1H9vRZbz+pZb47iToQ@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/fuse-devel>,
+	<mailto:fuse-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=fuse-devel>
+List-Post: <mailto:fuse-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:fuse-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/fuse-devel>,
+	<mailto:fuse-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: fuse-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Many embedded systems will not need the splice-family syscalls (splice,
-vmsplice, tee and sendfile). Omitting them saves space.  This adds a new EXPERT
-config option CONFIG_SYSCALL_SPLICE (default y) to support compiling them out.
+To implement splice support, net/core makes use of nosteal_pipe_buf_ops. This
+struct is exported by fs/splice. The goal of the larger patch set is to
+completely compile out fs/splice, so uses of the exported struct need to be
+compiled out along with fs/splice.
 
-The goal is to completely compile out fs/splice along with the syscalls. To
-achieve this, the remaining patch-set will deal with fs/splice exports. As far
-as possible, the impact on other device drivers will be minimized so as to
-reduce the overal maintenance burden of CONFIG_SYSCALL_SPLICE.
+This patch therefore compiles out splice support in net/core when
+CONFIG_SYSCALL_SPLICE is undefined. The compiled out function skb_splice_bits
+is transparently mocked out with a static inline. The greater patch set removes
+userspace splice support so it cannot be called anyway.
 
-The use of exported functions will be solved by transparently mocking them out
-with static inlines. Uses of the exported pipe_buf_operations struct however
-require direct modification in fs/fuse and net/core. The next two patches will
-deal with this. A macro is defined that will assist with NULL'ing out callbacks
-when CONFIG_SYSCALL_SPLICE is undefined: __splice_p().
-
-Once all exports are solved, fs/splice can be compiled out.
-
-The bloat benefit of this patch given a tinyconfig is:
-
-add/remove: 0/16 grow/shrink: 2/5 up/down: 114/-3693 (-3579)
-function                                     old     new   delta
-splice_direct_to_actor                       348     416     +68
-splice_to_pipe                               371     417     +46
-splice_from_pipe_next                        107     106      -1
-fdput                                         11       -     -11
-signal_pending                                39      26     -13
-fdget                                         56      42     -14
-user_page_pipe_buf_ops                        20       -     -20
-user_page_pipe_buf_steal                      25       -     -25
-file_end_write                                58      29     -29
-file_start_write                              68      34     -34
-pipe_to_user                                  43       -     -43
-wakeup_pipe_readers                           54       -     -54
-do_splice_to                                  87       -     -87
-ipipe_prep.part                               92       -     -92
-opipe_prep.part                              119       -    -119
-sys_sendfile                                 122       -    -122
-sys_sendfile64                               126       -    -126
-sys_vmsplice                                 137       -    -137
-vmsplice_to_user                             205       -    -205
-sys_tee                                      491       -    -491
-do_sendfile                                  492       -    -492
-vmsplice_to_pipe                             558       -    -558
-sys_splice                                  1020       -   -1020
-
-Signed-off-by: Pieter Smith <pieter@boesman.nl>
+Signed-off-by: Pieter Smith <pieter-qeJ+1H9vRZbz+pZb47iToQ@public.gmane.org>
 ---
- fs/splice.c     |  2 ++
- init/Kconfig    | 10 ++++++++++
- kernel/sys_ni.c |  8 ++++++++
- 3 files changed, 20 insertions(+)
+ include/linux/skbuff.h | 10 ++++++++++
+ net/core/skbuff.c      | 11 +++++++----
+ 2 files changed, 17 insertions(+), 4 deletions(-)
 
-diff --git a/fs/splice.c b/fs/splice.c
-index 44b201b..7c4c695 100644
---- a/fs/splice.c
-+++ b/fs/splice.c
-@@ -1316,6 +1316,7 @@ long do_splice_direct(struct file *in, loff_t *ppos, struct file *out,
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index a59d934..5cd636b 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2640,9 +2640,19 @@ int skb_copy_bits(const struct sk_buff *skb, int offset, void *to, int len);
+ int skb_store_bits(struct sk_buff *skb, int offset, const void *from, int len);
+ __wsum skb_copy_and_csum_bits(const struct sk_buff *skb, int offset, u8 *to,
+ 			      int len, __wsum csum);
++#ifdef CONFIG_SYSCALL_SPLICE
+ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
+ 		    struct pipe_inode_info *pipe, unsigned int len,
+ 		    unsigned int flags);
++#else
++static inline int
++skb_splice_bits(struct sk_buff *skb, unsigned int offset,
++		struct pipe_inode_info *pipe, unsigned int len,
++		unsigned int flags)
++{
++	return -EPERM;
++}
++#endif
+ void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to);
+ unsigned int skb_zerocopy_headlen(const struct sk_buff *from);
+ int skb_zerocopy(struct sk_buff *to, struct sk_buff *from,
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 61059a0..bb426d9 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1678,7 +1678,8 @@ EXPORT_SYMBOL(skb_copy_bits);
+  * Callback from splice_to_pipe(), if we need to release some pages
+  * at the end of the spd in case we error'ed out in filling the pipe.
+  */
+-static void sock_spd_release(struct splice_pipe_desc *spd, unsigned int i)
++static void __maybe_unused sock_spd_release(struct splice_pipe_desc *spd,
++					    unsigned int i)
+ {
+ 	put_page(spd->pages[i]);
+ }
+@@ -1781,9 +1782,9 @@ static bool __splice_segment(struct page *page, unsigned int poff,
+  * Map linear and fragment data from the skb to spd. It reports true if the
+  * pipe is full or if we already spliced the requested length.
+  */
+-static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
+-			      unsigned int *offset, unsigned int *len,
+-			      struct splice_pipe_desc *spd, struct sock *sk)
++static bool __maybe_unused __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
++					     unsigned int *offset, unsigned int *len,
++					     struct splice_pipe_desc *spd, struct sock *sk)
+ {
+ 	int seg;
+ 
+@@ -1821,6 +1822,7 @@ static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
+  * the frag list, if such a thing exists. We'd probably need to recurse to
+  * handle that cleanly.
+  */
++#ifdef CONFIG_SYSCALL_SPLICE
+ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
+ 		    struct pipe_inode_info *pipe, unsigned int tlen,
+ 		    unsigned int flags)
+@@ -1876,6 +1878,7 @@ done:
+ 
  	return ret;
  }
++#endif /* CONFIG_SYSCALL_SPLICE */
  
-+#ifdef CONFIG_SYSCALL_SPLICE
- static int splice_pipe_to_pipe(struct pipe_inode_info *ipipe,
- 			       struct pipe_inode_info *opipe,
- 			       size_t len, unsigned int flags);
-@@ -2200,4 +2201,5 @@ COMPAT_SYSCALL_DEFINE4(sendfile64, int, out_fd, int, in_fd,
- 	return do_sendfile(out_fd, in_fd, NULL, count, 0);
- }
- #endif
-+#endif
- 
-diff --git a/init/Kconfig b/init/Kconfig
-index d811d5f..dec9819 100644
---- a/init/Kconfig
-+++ b/init/Kconfig
-@@ -1571,6 +1571,16 @@ config NTP
- 	  system clock to an NTP server, you can disable this option to save
- 	  space.
- 
-+config SYSCALL_SPLICE
-+	bool "Enable splice/vmsplice/tee/sendfile syscalls" if EXPERT
-+	default y
-+	help
-+	  This option enables the splice, vmsplice, tee and sendfile syscalls. These
-+	  are used by applications to: move data between buffers and arbitrary file
-+	  descriptors; "copy" data between buffers; or copy data from userspace into
-+	  buffers. If building an embedded system where no applications use these
-+	  syscalls, you can disable this option to save space.
-+
- config PCI_QUIRKS
- 	default y
- 	bool "Enable PCI quirk workarounds" if EXPERT
-diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
-index d2f5b00..25d5551 100644
---- a/kernel/sys_ni.c
-+++ b/kernel/sys_ni.c
-@@ -170,6 +170,14 @@ cond_syscall(sys_fstat);
- cond_syscall(sys_stat);
- cond_syscall(sys_uname);
- cond_syscall(sys_olduname);
-+cond_syscall(sys_vmsplice);
-+cond_syscall(sys_splice);
-+cond_syscall(sys_tee);
-+cond_syscall(sys_sendfile);
-+cond_syscall(sys_sendfile64);
-+cond_syscall(compat_sys_vmsplice);
-+cond_syscall(compat_sys_sendfile);
-+cond_syscall(compat_sys_sendfile64);
- 
- /* arch-specific weak syscall entries */
- cond_syscall(sys_pciconfig_read);
+ /**
+  *	skb_store_bits - store bits from kernel buffer to skb
 -- 
 2.1.0
+
+
+------------------------------------------------------------------------------
+Download BIRT iHub F-Type - The Free Enterprise-Grade BIRT Server
+from Actuate! Instantly Supercharge Your Business Reports and Dashboards
+with Interactivity, Sharing, Native Excel Exports, App Integration & more
+Get technology previously reserved for billion-dollar corporations, FREE
+http://pubads.g.doubleclick.net/gampad/clk?id=157005751&iu=/4140/ostg.clktrk
