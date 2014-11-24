@@ -1,56 +1,39 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH net-next] ipvlan: fix sparse warnings
-Date: Tue, 25 Nov 2014 21:24:43 -0800
-Message-ID: <1416979483-30610-1-git-send-email-maheshb@google.com>
-Cc: David Miller <davem@davemloft.net>,
-	Mahesh Bandewar <maheshb@google.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f74.google.com ([209.85.213.74]:44460 "EHLO
-	mail-yh0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752041AbaKZFYs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 00:24:48 -0500
-Received: by mail-yh0-f74.google.com with SMTP id 29so125847yhl.1
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 21:24:48 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 1/2] virito: introduce methods of fixing device features
+Date: Mon, 24 Nov 2014 11:38:13 +1030
+Message-ID: <87sih9xv5u.fsf@rustcorp.com.au>
+References: <1415857974-23326-1-git-send-email-jasowang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1415857974-23326-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Fix sparse warnings reported by kbuild robot
+Jason Wang <jasowang@redhat.com> writes:
+> Buggy host may advertised buggy host features (a usual case is that host
+> advertise a feature whose dependencies were missed). In this case, driver
+> should detect and disable the buggy features by itself.
 
-drivers/net/ipvlan/ipvlan_main.c:172:13: warning: symbol 'ipvlan_start_xmit' was not declared. Should it be static?
-drivers/net/ipvlan/ipvlan_main.c:256:33: warning: incorrect type in initializer (different address spaces)
-drivers/net/ipvlan/ipvlan_main.c:256:33:    expected void const [noderef] <asn:3>*__vpp_verify
-drivers/net/ipvlan/ipvlan_main.c:256:33:    got struct ipvl_pcpu_stats *<noident>
-drivers/net/ipvlan/ipvlan_main.c:544:5: warning: symbol 'ipvlan_link_register' was not declared. Should it be static
+Sorry, I've been focussing elsewhere.
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
- drivers/net/ipvlan/ipvlan_main.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+I would really prefer that drivers offer a "feature_depends" table,
+which can indicate that feature A depends on feature B, and have the
+core iterate, complain and fixup as necessary.
 
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index c3df84bd2857..96b71b0d78f6 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -169,7 +169,8 @@ static int ipvlan_stop(struct net_device *dev)
- 	return 0;
- }
- 
--netdev_tx_t ipvlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t ipvlan_start_xmit(struct sk_buff *skb,
-+				     struct net_device *dev)
- {
- 	const struct ipvl_dev *ipvlan = netdev_priv(dev);
- 	int skblen = skb->len;
-@@ -541,7 +542,7 @@ static struct rtnl_link_ops ipvlan_link_ops = {
- 	.dellink	= ipvlan_link_delete,
- };
- 
--int ipvlan_link_register(struct rtnl_link_ops *ops)
-+static int ipvlan_link_register(struct rtnl_link_ops *ops)
- {
- 	return rtnl_link_register(ops);
- }
--- 
-2.2.0.rc0.207.ga3a616c
+Is that expressive enough, or do we need more?
+
+Thanks,
+Rusty.
