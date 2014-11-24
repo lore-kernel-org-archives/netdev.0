@@ -1,48 +1,53 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next] tc_vlan: fix type of tcfv_push_vid
-Date: Mon, 24 Nov 2014 08:25:52 -0500
-Message-ID: <547331E0.6030305@mojatatu.com>
-References: <1416825026-4628-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 07/17] netfilter: fix spelling errors
+Date: Mon, 24 Nov 2014 14:27:44 +0100
+Message-ID: <1416835674-11871-8-git-send-email-pablo@netfilter.org>
+References: <1416835674-11871-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:33257 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932104AbaKXNZ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 08:25:56 -0500
-Received: by mail-ie0-f172.google.com with SMTP id tr6so1103031ieb.17
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2014 05:25:55 -0800 (PST)
-In-Reply-To: <1416825026-4628-1-git-send-email-jiri@resnulli.us>
+Received: from mail.us.es ([193.147.175.20]:44863 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932100AbaKXNZz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Nov 2014 08:25:55 -0500
+In-Reply-To: <1416835674-11871-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/24/14 05:30, Jiri Pirko wrote:
-> Should be u16. So fix it to kill the sparse warning.
->
-> Fixes: c7e2b9689ef8136 "sched: introduce vlan action"
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->   include/net/tc_act/tc_vlan.h | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/include/net/tc_act/tc_vlan.h b/include/net/tc_act/tc_vlan.h
-> index c809c1d..93b70ad 100644
-> --- a/include/net/tc_act/tc_vlan.h
-> +++ b/include/net/tc_act/tc_vlan.h
-> @@ -18,7 +18,7 @@
->   struct tcf_vlan {
->   	struct tcf_common	common;
->   	int			tcfv_action;
-> -	__be16			tcfv_push_vid;
-> +	u16			tcfv_push_vid;
->   	__be16			tcfv_push_proto;
+From: stephen hemminger <stephen@networkplumber.org>
 
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nf_conntrack_helper.c |    2 +-
+ net/netfilter/nf_tables_api.c       |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-User space sends you this in be, no? I thought it was fine
-the way it is. Isnt __be16 just an annotation?
-
-cheers,
-jamal
+diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
+index 5b3eae7..bd9d315 100644
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -250,7 +250,7 @@ out:
+ }
+ EXPORT_SYMBOL_GPL(__nf_ct_try_assign_helper);
+ 
+-/* appropiate ct lock protecting must be taken by caller */
++/* appropriate ct lock protecting must be taken by caller */
+ static inline int unhelp(struct nf_conntrack_tuple_hash *i,
+ 			 const struct nf_conntrack_helper *me)
+ {
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 65eb2a1..1ffb253 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -2477,7 +2477,7 @@ static int nf_tables_getset(struct sock *nlsk, struct sk_buff *skb,
+ 	const struct nfgenmsg *nfmsg = nlmsg_data(nlh);
+ 	int err;
+ 
+-	/* Verify existance before starting dump */
++	/* Verify existence before starting dump */
+ 	err = nft_ctx_init_from_setattr(&ctx, skb, nlh, nla);
+ 	if (err < 0)
+ 		return err;
+-- 
+1.7.10.4
