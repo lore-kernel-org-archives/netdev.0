@@ -1,72 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: GRE with GRO very slow when forwarding starting with 3.14.24
-Date: Mon, 24 Nov 2014 08:48:16 -0800
-Message-ID: <1416847696.17888.64.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <2340533.MickblD7NF@h2o.as.studentenwerk.mhn.de>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [net-next 03/17] i40e: allow various base numbers in debugfs aq
+ commands
+Date: Mon, 24 Nov 2014 16:50:58 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1C9FA07E@AcuExch.aculab.com>
+References: <1416635708-4765-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1416635708-4765-5-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Tom Herbert <therbert@google.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
-To: Wolfgang Walter <linux@stwm.de>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Shannon Nelson <shannon.nelson@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>
+To: 'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:62681 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752367AbaKXQsT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 11:48:19 -0500
-Received: by mail-ig0-f181.google.com with SMTP id l13so3691098iga.8
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2014 08:48:18 -0800 (PST)
-In-Reply-To: <2340533.MickblD7NF@h2o.as.studentenwerk.mhn.de>
+Received: from mx0.aculab.com ([213.249.233.131]:52848 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751111AbaKXQwD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 11:52:03 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 07125-06 for <netdev@vger.kernel.org>;
+ Mon, 24 Nov 2014 16:51:53 +0000 (GMT)
+In-Reply-To: <1416635708-4765-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-11-24 at 17:13 +0100, Wolfgang Walter wrote:
-> Hello,
+From: Jeff Kirsher
+> From: Shannon Nelson <shannon.nelson@intel.com>
 > 
-> starting with 3.14.24 GRE with GRO on is very slow. To be more specific:
+> Use the 'i' rather than the more restrictive 'x' or 'd' in the aq_cmd
+> arguments.  This makes the user interface much more forgiving and user
+> friendly.
 > 
-> yyyy <--> GRO_endpoint <-_> .... <--> |eth0<->GRO-endpoint | eth1 |<-> xxxx
+> Change-ID: I5dcd57b9befc047e06b74cf1152a25a3fa9e1309
+> Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 > 
-> routing (IPv4) between xxxx and yyyy is very slow when GRO is enabled on eth0 
-> and/or eth1 starting with stable kernel 3.14.24
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+> b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+> index 3a3c237..16ac3f8 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+> @@ -1493,7 +1493,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+>  		if (!desc)
+>  			goto command_write_done;
+>  		cnt = sscanf(&cmd_buf[11],
+> -			     "%hx %hx %hx %hx %x %x %x %x %x %x",
+> +			     "%hi %hi %hi %hi %i %i %i %i %i %i",
+
+Isn't that an API change?
+Anything that used to specify "10" will now get 10 instead of 16.
+
+So if this has been in a release kernel you probably shouldn't change it.
+
+	David
+
+>  			     &desc->flags,
+>  			     &desc->opcode, &desc->datalen, &desc->retval,
+>  			     &desc->cookie_high, &desc->cookie_low,
+> @@ -1541,7 +1541,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+>  		if (!desc)
+>  			goto command_write_done;
+>  		cnt = sscanf(&cmd_buf[20],
+> -			     "%hx %hx %hx %hx %x %x %x %x %x %x %hd",
+> +			     "%hi %hi %hi %hi %i %i %i %i %i %i %hi",
+>  			     &desc->flags,
+>  			     &desc->opcode, &desc->datalen, &desc->retval,
+>  			     &desc->cookie_high, &desc->cookie_low,
+> --
+> 1.9.3
 > 
-> Regards,
-
-
-tcpdump might help, but I presume GSO is no longer working properly on
-egress.
-
-Can you try to revert :
-
-commit abe640984aa492652232b65d3579361cf6d461f5
-Author: Tom Herbert <therbert@google.com>
-Date:   Thu Oct 30 08:40:56 2014 -0700
-
-    gre: Use inner mac length when computing tunnel length
-    
-    [ Upstream commit 14051f0452a2c26a3f4791e6ad6a435e8f1945ff ]
-    
-    Currently, skb_inner_network_header is used but this does not account
-    for Ethernet header for ETH_P_TEB. Use skb_inner_mac_header which
-    handles TEB and also should work with IP encapsulation in which case
-    inner mac and inner network headers are the same.
-    
-    Tested: Ran TCP_STREAM over GRE, worked as expected.
-    
-    Signed-off-by: Tom Herbert <therbert@google.com>
-    Acked-by: Alexander Duyck <alexander.h.duyck@redhat.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-    Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index 2d24f293f977..8c8493ea6b1c 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -50,7 +50,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
- 
-        greh = (struct gre_base_hdr *)skb_transport_header(skb);
- 
--       ghl = skb_inner_network_header(skb) - skb_transport_header(skb);
-+       ghl = skb_inner_mac_header(skb) - skb_transport_header(skb);
-        if (unlikely(ghl < sizeof(*greh)))
-                goto out;
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
