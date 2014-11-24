@@ -1,96 +1,207 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next] rhashtable: Check for count mismatch while iterating in selftest
-Date: Mon, 24 Nov 2014 12:37:58 +0100
-Message-ID: <20668a4b2ff01138f5b1d5b3b59650790e504c00.1416828807.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:40497 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751631AbaKXLiD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 06:38:03 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH v3 11/41] virtio_net: v1.0 endianness
+Date: Mon, 24 Nov 2014 13:53:26 +0200
+Message-ID: <1416829787-14252-12-git-send-email-mst@redhat.com>
+References: <1416829787-14252-1-git-send-email-mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: rusty@au1.ibm.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	linux-api@vger.kernel.org, pbonzini@redhat.com,
+	David Miller <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1416829787-14252-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Verify whether both the lock and RCU protected iterators see all
-test entries before and after expanding and shrinking has been
-performed. Also verify whether the number of entries in the hashtable
-remains stable during expansion and shrinking.
+Based on patches by Rusty Russell, Cornelia Huck.
+Note: more code changes are needed for 1.0 support
+(due to different header size).
+So we don't advertize support for 1.0 yet.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- lib/rhashtable.c | 27 ++++++++++++++++++++-------
- 1 file changed, 20 insertions(+), 7 deletions(-)
+ include/uapi/linux/virtio_net.h | 15 ++++++++-------
+ drivers/net/virtio_net.c        | 33 ++++++++++++++++++++-------------
+ 2 files changed, 28 insertions(+), 20 deletions(-)
 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index e5f5e69..c7e987a 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -653,15 +653,15 @@ static int __init test_rht_lookup(struct rhashtable *ht)
- 	return 0;
+diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
+index 172a7f0..b5f1677 100644
+--- a/include/uapi/linux/virtio_net.h
++++ b/include/uapi/linux/virtio_net.h
+@@ -28,6 +28,7 @@
+ #include <linux/types.h>
+ #include <linux/virtio_ids.h>
+ #include <linux/virtio_config.h>
++#include <linux/virtio_types.h>
+ #include <linux/if_ether.h>
+ 
+ /* The feature bitmap for virtio net */
+@@ -84,17 +85,17 @@ struct virtio_net_hdr {
+ #define VIRTIO_NET_HDR_GSO_TCPV6	4	// GSO frame, IPv6 TCP
+ #define VIRTIO_NET_HDR_GSO_ECN		0x80	// TCP has ECN set
+ 	__u8 gso_type;
+-	__u16 hdr_len;		/* Ethernet + IP + tcp/udp hdrs */
+-	__u16 gso_size;		/* Bytes to append to hdr_len per frame */
+-	__u16 csum_start;	/* Position to start checksumming from */
+-	__u16 csum_offset;	/* Offset after that to place checksum */
++	__virtio16 hdr_len;		/* Ethernet + IP + tcp/udp hdrs */
++	__virtio16 gso_size;		/* Bytes to append to hdr_len per frame */
++	__virtio16 csum_start;	/* Position to start checksumming from */
++	__virtio16 csum_offset;	/* Offset after that to place checksum */
+ };
+ 
+ /* This is the version of the header to use when the MRG_RXBUF
+  * feature has been negotiated. */
+ struct virtio_net_hdr_mrg_rxbuf {
+ 	struct virtio_net_hdr hdr;
+-	__u16 num_buffers;	/* Number of merged rx buffers */
++	__virtio16 num_buffers;	/* Number of merged rx buffers */
+ };
+ 
+ /*
+@@ -149,7 +150,7 @@ typedef __u8 virtio_net_ctrl_ack;
+  * VIRTIO_NET_F_CTRL_MAC_ADDR feature is available.
+  */
+ struct virtio_net_ctrl_mac {
+-	__u32 entries;
++	__virtio32 entries;
+ 	__u8 macs[][ETH_ALEN];
+ } __attribute__((packed));
+ 
+@@ -193,7 +194,7 @@ struct virtio_net_ctrl_mac {
+  * specified.
+  */
+ struct virtio_net_ctrl_mq {
+-	__u16 virtqueue_pairs;
++	__virtio16 virtqueue_pairs;
+ };
+ 
+ #define VIRTIO_NET_CTRL_MQ   4
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index b0bc8ea..c07e030 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -347,13 +347,14 @@ err:
  }
  
--static void test_bucket_stats(struct rhashtable *ht,
--				     struct bucket_table *tbl,
--				     bool quiet)
-+static void test_bucket_stats(struct rhashtable *ht, bool quiet)
+ static struct sk_buff *receive_mergeable(struct net_device *dev,
++					 struct virtnet_info *vi,
+ 					 struct receive_queue *rq,
+ 					 unsigned long ctx,
+ 					 unsigned int len)
  {
--	unsigned int cnt, i, total = 0;
-+	unsigned int cnt, rcu_cnt, i, total = 0;
- 	struct test_obj *obj;
-+	struct bucket_table *tbl;
- 
-+	tbl = rht_dereference_rcu(ht->tbl, ht);
- 	for (i = 0; i < tbl->size; i++) {
--		cnt = 0;
-+		rcu_cnt = cnt = 0;
- 
- 		if (!quiet)
- 			pr_info(" [%#4x/%zu]", i, tbl->size);
-@@ -673,6 +673,13 @@ static void test_bucket_stats(struct rhashtable *ht,
- 				pr_cont(" [%p],", obj);
+ 	void *buf = mergeable_ctx_to_buf_address(ctx);
+ 	struct skb_vnet_hdr *hdr = buf;
+-	int num_buf = hdr->mhdr.num_buffers;
++	u16 num_buf = virtio16_to_cpu(rq->vq->vdev, hdr->mhdr.num_buffers);
+ 	struct page *page = virt_to_head_page(buf);
+ 	int offset = buf - page_address(page);
+ 	unsigned int truesize = max(len, mergeable_ctx_to_buf_truesize(ctx));
+@@ -369,7 +370,9 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 		ctx = (unsigned long)virtqueue_get_buf(rq->vq, &len);
+ 		if (unlikely(!ctx)) {
+ 			pr_debug("%s: rx error: %d buffers out of %d missing\n",
+-				 dev->name, num_buf, hdr->mhdr.num_buffers);
++				 dev->name, num_buf,
++				 virtio16_to_cpu(rq->vq->vdev,
++						 hdr->mhdr.num_buffers));
+ 			dev->stats.rx_length_errors++;
+ 			goto err_buf;
  		}
- 
-+		rht_for_each_entry_rcu(obj, tbl->buckets[i], node)
-+			rcu_cnt++;
-+
-+		if (rcu_cnt != cnt)
-+			pr_warn("Test failed: Chain count mismach %d != %d",
-+				cnt, rcu_cnt);
-+
- 		if (!quiet)
- 			pr_cont("\n  [%#x] first element: %p, chain length: %u\n",
- 				i, tbl->buckets[i], cnt);
-@@ -680,6 +687,9 @@ static void test_bucket_stats(struct rhashtable *ht,
- 
- 	pr_info("  Traversal complete: counted=%u, nelems=%zu, entries=%d\n",
- 		total, ht->nelems, TEST_ENTRIES);
-+
-+	if (total != ht->nelems || total != TEST_ENTRIES)
-+		pr_warn("Test failed: Total count mismatch ^^^");
- }
- 
- static int __init test_rhashtable(struct rhashtable *ht)
-@@ -710,8 +720,7 @@ static int __init test_rhashtable(struct rhashtable *ht)
+@@ -454,7 +457,7 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
  	}
  
- 	rcu_read_lock();
--	tbl = rht_dereference_rcu(ht->tbl, ht);
--	test_bucket_stats(ht, tbl, true);
-+	test_bucket_stats(ht, true);
- 	test_rht_lookup(ht);
- 	rcu_read_unlock();
+ 	if (vi->mergeable_rx_bufs)
+-		skb = receive_mergeable(dev, rq, (unsigned long)buf, len);
++		skb = receive_mergeable(dev, vi, rq, (unsigned long)buf, len);
+ 	else if (vi->big_packets)
+ 		skb = receive_big(dev, rq, buf, len);
+ 	else
+@@ -473,8 +476,8 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+ 	if (hdr->hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
+ 		pr_debug("Needs csum!\n");
+ 		if (!skb_partial_csum_set(skb,
+-					  hdr->hdr.csum_start,
+-					  hdr->hdr.csum_offset))
++			  virtio16_to_cpu(vi->vdev, hdr->hdr.csum_start),
++			  virtio16_to_cpu(vi->vdev, hdr->hdr.csum_offset)))
+ 			goto frame_err;
+ 	} else if (hdr->hdr.flags & VIRTIO_NET_HDR_F_DATA_VALID) {
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+@@ -514,7 +517,8 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+ 		if (hdr->hdr.gso_type & VIRTIO_NET_HDR_GSO_ECN)
+ 			skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_ECN;
  
-@@ -735,6 +744,10 @@ static int __init test_rhashtable(struct rhashtable *ht)
- 		rcu_read_unlock();
+-		skb_shinfo(skb)->gso_size = hdr->hdr.gso_size;
++		skb_shinfo(skb)->gso_size = virtio16_to_cpu(vi->vdev,
++							    hdr->hdr.gso_size);
+ 		if (skb_shinfo(skb)->gso_size == 0) {
+ 			net_warn_ratelimited("%s: zero gso size.\n", dev->name);
+ 			goto frame_err;
+@@ -876,16 +880,19 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+ 
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		hdr->hdr.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+-		hdr->hdr.csum_start = skb_checksum_start_offset(skb);
+-		hdr->hdr.csum_offset = skb->csum_offset;
++		hdr->hdr.csum_start = cpu_to_virtio16(vi->vdev,
++						skb_checksum_start_offset(skb));
++		hdr->hdr.csum_offset = cpu_to_virtio16(vi->vdev,
++							 skb->csum_offset);
+ 	} else {
+ 		hdr->hdr.flags = 0;
+ 		hdr->hdr.csum_offset = hdr->hdr.csum_start = 0;
  	}
  
-+	rcu_read_lock();
-+	test_bucket_stats(ht, true);
-+	rcu_read_unlock();
-+
- 	pr_info("  Deleting %d keys\n", TEST_ENTRIES);
- 	for (i = 0; i < TEST_ENTRIES; i++) {
- 		u32 key = i * 2;
+ 	if (skb_is_gso(skb)) {
+-		hdr->hdr.hdr_len = skb_headlen(skb);
+-		hdr->hdr.gso_size = skb_shinfo(skb)->gso_size;
++		hdr->hdr.hdr_len = cpu_to_virtio16(vi->vdev, skb_headlen(skb));
++		hdr->hdr.gso_size = cpu_to_virtio16(vi->vdev,
++						    skb_shinfo(skb)->gso_size);
+ 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
+ 			hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+ 		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
+@@ -1112,7 +1119,7 @@ static int virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
+ 	if (!vi->has_cvq || !virtio_has_feature(vi->vdev, VIRTIO_NET_F_MQ))
+ 		return 0;
+ 
+-	s.virtqueue_pairs = queue_pairs;
++	s.virtqueue_pairs = cpu_to_virtio16(vi->vdev, queue_pairs);
+ 	sg_init_one(&sg, &s, sizeof(s));
+ 
+ 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MQ,
+@@ -1189,7 +1196,7 @@ static void virtnet_set_rx_mode(struct net_device *dev)
+ 	sg_init_table(sg, 2);
+ 
+ 	/* Store the unicast list and count in the front of the buffer */
+-	mac_data->entries = uc_count;
++	mac_data->entries = cpu_to_virtio32(vi->vdev, uc_count);
+ 	i = 0;
+ 	netdev_for_each_uc_addr(ha, dev)
+ 		memcpy(&mac_data->macs[i++][0], ha->addr, ETH_ALEN);
+@@ -1200,7 +1207,7 @@ static void virtnet_set_rx_mode(struct net_device *dev)
+ 	/* multicast list and count fill the end */
+ 	mac_data = (void *)&mac_data->macs[uc_count][0];
+ 
+-	mac_data->entries = mc_count;
++	mac_data->entries = cpu_to_virtio32(vi->vdev, mc_count);
+ 	i = 0;
+ 	netdev_for_each_mc_addr(ha, dev)
+ 		memcpy(&mac_data->macs[i++][0], ha->addr, ETH_ALEN);
 -- 
-1.9.3
+MST
