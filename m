@@ -1,25 +1,20 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: net_tx_action race condition?
-Date: Mon, 24 Nov 2014 23:08:32 +0800
-Message-ID: <20141124150832.GA32184@gondor.apana.org.au>
+Date: Mon, 24 Nov 2014 07:33:20 -0800
+Message-ID: <1416843200.17888.53.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <547332D7.7050104@3dautomazione.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 To: Angelo Rizzi <angelo.rizzi@3dautomazione.it>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:41068 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752823AbaKXPIg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 10:08:36 -0500
-Content-Disposition: inline
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <547332D7.7050104@3dautomazione.it>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Angelo Rizzi <angelo.rizzi@3dautomazione.it> wrote:
-> [-- text/plain, encoding 7bit, charset: iso-8859-15, 22 lines --]
-> 
+On Mon, 2014-11-24 at 14:29 +0100, Angelo Rizzi wrote:
 > Hi Daniel,
 > Here attached the patch file you required.
 > The problem i've found is on the declaration of 'struct softnet_data 
@@ -37,12 +32,40 @@ Angelo Rizzi <angelo.rizzi@3dautomazione.it> wrote:
 > 'struct softnet_data *sd' to 'volatile struct softnet_data *sd' and now 
 > everything seems to be ok.
 > I hope this will help.
+> 
+> Regards,
+> Angelo
+> 
 
-local_irq_disable is supposed to contain a compiler barrier.  So
-this is either a buggy arch or a buggy compiler.
+Do not add volatile in the kernel, this is not how we solve this kind of
+problems.  Documentation/memory-barriers.txt and
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Documentation/00-INDEX:476:volatile-considered-harmful.txt
+Documentation/00-INDEX:477:     - Why the "volatile" type class should not be used
+
+
+I am surprised this patch is needed. Many other 'bugs' would need
+similar fixes.
+
+local_irq_disable() MUST have a memory barrier. This looks like a bug in
+one particular arch implementation.
+
+
+On x86 for example, native_irq_disable() is really :
+
+	asm volatile("cli": : :"memory");
+
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ac4836241a965a71952469ba054f87d8dfca2d32..fa73072e515aa07fa8ae1bc39174b7d59c7a31a5 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3406,7 +3406,7 @@ static void net_tx_action(struct softirq_action *h)
+ 		struct sk_buff *clist;
+ 
+ 		local_irq_disable();
+-		clist = sd->completion_queue;
++		clist = ACCESS_ONCE(sd->completion_queue);
+ 		sd->completion_queue = NULL;
+ 		local_irq_enable();
+ 
