@@ -1,89 +1,33 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] xen-netback: do not report success if backend_create_xenvif() fails
-Date: Mon, 24 Nov 2014 13:58:00 +0300
-Message-ID: <1416826680-19145-1-git-send-email-khoroshilov@ispras.ru>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH] xen-netback: do not report success if
+ backend_create_xenvif() fails
+Date: Mon, 24 Nov 2014 11:03:08 +0000
+Message-ID: <20141124110308.GA322@zion.uk.xensource.com>
 References: <20141124100053.GC30053@zion.uk.xensource.com>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+ <1416826680-19145-1-git-send-email-khoroshilov@ispras.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
 	Ian Campbell <ian.campbell@citrix.com>,
-	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Wei Liu <wei.liu2@citrix.com>
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <ldv-project@linuxtesting.org>
+To: Alexey Khoroshilov <khoroshilov@ispras.ru>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141124100053.GC30053@zion.uk.xensource.com>
+Content-Disposition: inline
+In-Reply-To: <1416826680-19145-1-git-send-email-khoroshilov@ispras.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If xenvif_alloc() or xenbus_scanf() fail in backend_create_xenvif(),
-xenbus is left in offline mode but netback_probe() reports success.
+On Mon, Nov 24, 2014 at 01:58:00PM +0300, Alexey Khoroshilov wrote:
+> If xenvif_alloc() or xenbus_scanf() fail in backend_create_xenvif(),
+> xenbus is left in offline mode but netback_probe() reports success.
+> 
+> The patch implements propagation of error code for backend_create_xenvif().
+> 
+> Found by Linux Driver Verification project (linuxtesting.org).
+> 
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 
-The patch implements propagation of error code for backend_create_xenvif().
+Acked-by: Wei Liu <wei.liu2@citrix.com>
 
-Found by Linux Driver Verification project (linuxtesting.org).
-
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/xen-netback/xenbus.c | 15 +++++++++------
- 1 file changed, 9 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index 4e56a27f9689..fab0d4b42f58 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -39,7 +39,7 @@ struct backend_info {
- static int connect_rings(struct backend_info *be, struct xenvif_queue *queue);
- static void connect(struct backend_info *be);
- static int read_xenbus_vif_flags(struct backend_info *be);
--static void backend_create_xenvif(struct backend_info *be);
-+static int backend_create_xenvif(struct backend_info *be);
- static void unregister_hotplug_status_watch(struct backend_info *be);
- static void set_backend_state(struct backend_info *be,
- 			      enum xenbus_state state);
-@@ -352,7 +352,9 @@ static int netback_probe(struct xenbus_device *dev,
- 	be->state = XenbusStateInitWait;
- 
- 	/* This kicks hotplug scripts, so do it immediately. */
--	backend_create_xenvif(be);
-+	err = backend_create_xenvif(be);
-+	if (err)
-+		goto fail;
- 
- 	return 0;
- 
-@@ -397,19 +399,19 @@ static int netback_uevent(struct xenbus_device *xdev,
- }
- 
- 
--static void backend_create_xenvif(struct backend_info *be)
-+static int backend_create_xenvif(struct backend_info *be)
- {
- 	int err;
- 	long handle;
- 	struct xenbus_device *dev = be->dev;
- 
- 	if (be->vif != NULL)
--		return;
-+		return 0;
- 
- 	err = xenbus_scanf(XBT_NIL, dev->nodename, "handle", "%li", &handle);
- 	if (err != 1) {
- 		xenbus_dev_fatal(dev, err, "reading handle");
--		return;
-+		return (err < 0) ? err : -EINVAL;
- 	}
- 
- 	be->vif = xenvif_alloc(&dev->dev, dev->otherend_id, handle);
-@@ -417,10 +419,11 @@ static void backend_create_xenvif(struct backend_info *be)
- 		err = PTR_ERR(be->vif);
- 		be->vif = NULL;
- 		xenbus_dev_fatal(dev, err, "creating interface");
--		return;
-+		return err;
- 	}
- 
- 	kobject_uevent(&dev->dev.kobj, KOBJ_ONLINE);
-+	return 0;
- }
- 
- static void backend_disconnect(struct backend_info *be)
--- 
-1.9.1
+Thanks!
