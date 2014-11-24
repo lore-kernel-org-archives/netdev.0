@@ -1,29 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/17] netfilter/ipvs updates for net-next
-Date: Mon, 24 Nov 2014 16:01:24 -0500 (EST)
-Message-ID: <20141124.160124.1790575206232093878.davem@davemloft.net>
-References: <1416835674-11871-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH v2] Add support of Cavium Liquidio ethernet adapters
+Date: Mon, 24 Nov 2014 16:08:37 -0500 (EST)
+Message-ID: <20141124.160837.1008717214755094566.davem@davemloft.net>
+References: <1416799190-23789-1-git-send-email-rvatsavayi@caviumnetworks.com>
+	<54739C92.5070309@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1416835674-11871-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: rvatsavayi@caviumnetworks.com, netdev@vger.kernel.org,
+	derek.chickles@caviumnetworks.com,
+	satananda.burla@caviumnetworks.com,
+	felix.manlunas@caviumnetworks.com,
+	raghu.vatsavayi@caviumnetworks.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53629 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750792AbaKXVIl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 16:08:41 -0500
+In-Reply-To: <54739C92.5070309@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon, 24 Nov 2014 14:27:37 +0100
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Mon, 24 Nov 2014 13:01:06 -0800
 
-> The following patchset contains Netfilter updates for your net-next
-> tree, this includes the NAT redirection support for nf_tables, the
-> cgroup support for nft meta and conntrack zone support for the connlimit
-> match. Coming after those, a bunch of sparse warning fixes, missing
-> netns bits and cleanups. More specifically, they are:
- ...
-> You can pull these changes from:
+> On 11/23/2014 07:19 PM, Raghu Vatsavayi wrote:
+>> +if LIQUIDIO
+>> +
+>> +config LIQUIDIO_NAPI
+>> +	bool "Enable NAPI for LiquidIO"
+>> +	default y
+>> +	---help---
+>> +	  NAPI is a new driver API designed to reduce CPU and interrupt load
+>> +	  when the driver is receiving lots of packets from the card. You
+>> +	  would only disable this feature in very specific instances, like
+>> +	  an application that very rapidly sets up and tears down connections.
+>> +
+>> +	  If in doubt, say Y.
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+> You probably do not want to offer a non-NAPI variant, pretty much all
+> drivers have NAPI built-in now.
 
-Pulled, thanks Pablo.
++1.
+
+>> +config LIQUIDIO_DEBUG
+>> +	int "Debug level for LiquidIO"
+>> +	range 0 4
+>> +	default 0
+> 
+> This should be moved to dynamic_debug/ethtools' msglvl control knob.
+
++1
