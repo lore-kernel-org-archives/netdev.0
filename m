@@ -1,32 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xen-netback: do not report success if
- backend_create_xenvif() fails
-Date: Mon, 24 Nov 2014 16:14:57 -0500 (EST)
-Message-ID: <20141124.161457.416165119227187597.davem@davemloft.net>
-References: <20141124100053.GC30053@zion.uk.xensource.com>
-	<1416826680-19145-1-git-send-email-khoroshilov@ispras.ru>
+Subject: Re: [PATCH] af_packet: fix sparse warning
+Date: Mon, 24 Nov 2014 16:16:03 -0500 (EST)
+Message-ID: <20141124.161603.798932139185654908.davem@davemloft.net>
+References: <1416828696-3989-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wei.liu2@citrix.com, ian.campbell@citrix.com,
-	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: khoroshilov@ispras.ru
+Cc: linux-kernel@vger.kernel.org, dborkman@redhat.com,
+	edumazet@google.com, atzm@stratosphere.co.jp,
+	hannes@stressinduktion.org, therbert@google.com,
+	netdev@vger.kernel.org
+To: mst@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1416826680-19145-1-git-send-email-khoroshilov@ispras.ru>
+In-Reply-To: <1416828696-3989-1-git-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Date: Mon, 24 Nov 2014 13:58:00 +0300
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Mon, 24 Nov 2014 13:32:16 +0200
 
-> If xenvif_alloc() or xenbus_scanf() fail in backend_create_xenvif(),
-> xenbus is left in offline mode but netback_probe() reports success.
+> af_packet produces lots of these:
+> 	net/packet/af_packet.c:384:39: warning: incorrect type in return expression (different modifiers)
+> 	net/packet/af_packet.c:384:39:    expected struct page [pure] *
+> 	net/packet/af_packet.c:384:39:    got struct page *
 > 
-> The patch implements propagation of error code for backend_create_xenvif().
+> this seems to be because sparse does not realize that _pure
+> refers to function, not the returned pointer.
 > 
-> Found by Linux Driver Verification project (linuxtesting.org).
+> Tweak code slightly to avoid the warning.
 > 
-> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-Applied, thanks.
+Applied, please report the sparse bug if you haven't already.
+
+Thanks.
