@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v3 29/41] vhost/net: larger header for virtio 1.0
-Date: Mon, 24 Nov 2014 13:54:40 +0200
-Message-ID: <1416829787-14252-30-git-send-email-mst@redhat.com>
+Subject: [PATCH v3 31/41] vhost/net: suppress compiler warning
+Date: Mon, 24 Nov 2014 13:54:48 +0200
+Message-ID: <1416829787-14252-32-git-send-email-mst@redhat.com>
 References: <1416829787-14252-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -16,24 +16,25 @@ In-Reply-To: <1416829787-14252-1-git-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+len is always initialized since function is called with size > 0.
+
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/vhost/net.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/vhost/net.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index cae22f9..1ac58d0 100644
+index 984242e..54ffbb0 100644
 --- a/drivers/vhost/net.c
 +++ b/drivers/vhost/net.c
-@@ -1027,7 +1027,8 @@ static int vhost_net_set_features(struct vhost_net *n, u64 features)
- 	size_t vhost_hlen, sock_hlen, hdr_len;
- 	int i;
+@@ -501,7 +501,7 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
+ 	int headcount = 0;
+ 	unsigned d;
+ 	int r, nlogs = 0;
+-	u32 len;
++	u32 uninitialized_var(len);
  
--	hdr_len = (features & (1 << VIRTIO_NET_F_MRG_RXBUF)) ?
-+	hdr_len = (features & ((1ULL << VIRTIO_NET_F_MRG_RXBUF) |
-+			       (1ULL << VIRTIO_F_VERSION_1))) ?
- 			sizeof(struct virtio_net_hdr_mrg_rxbuf) :
- 			sizeof(struct virtio_net_hdr);
- 	if (features & (1 << VHOST_NET_F_VIRTIO_NET_HDR)) {
+ 	while (datalen > 0 && headcount < quota) {
+ 		if (unlikely(seg >= UIO_MAXIOV)) {
 -- 
 MST
