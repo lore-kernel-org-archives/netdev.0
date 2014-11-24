@@ -1,36 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: qstats update in packet scheduling
-Date: Mon, 24 Nov 2014 09:31:29 -0800
-Message-ID: <1416850289.17888.67.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAHmvzZQnBJbx3hfdvpXg0TZM-UooKxjM+-1HO6nSSpx4qJLcaw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] mdio-mux-gpio: Use GPIO descriptor interface and new
+ gpiod_set_array function
+Date: Mon, 24 Nov 2014 13:06:37 -0500 (EST)
+Message-ID: <20141124.130637.1309072709781431579.davem@davemloft.net>
+References: <6441674.xrJo8HXDvD@pcimr>
+	<20141121.151301.477197043372693075.davem@davemloft.net>
+	<1671914.Rot4bT9ZsP@pcimr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Josh Clark <jcinma@gmail.com>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	david.daney@cavium.com, linux-gpio@vger.kernel.org,
+	linus.walleij@linaro.org, acourbot@nvidia.com
+To: imr@rtschenk.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:51883 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753878AbaKXRbb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 12:31:31 -0500
-Received: by mail-ie0-f182.google.com with SMTP id x19so9416775ier.13
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2014 09:31:30 -0800 (PST)
-In-Reply-To: <CAHmvzZQnBJbx3hfdvpXg0TZM-UooKxjM+-1HO6nSSpx4qJLcaw@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50692 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753430AbaKXSGm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 13:06:42 -0500
+In-Reply-To: <1671914.Rot4bT9ZsP@pcimr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-11-24 at 12:06 -0500, Josh Clark wrote:
-> Hi everyone,
-> 
-> I'm working on a research project to add some extra functionality to
-> RED. Right now, I'm tracking qstats to look at the factors that RED
-> uses to calculate marking probability. Using standard RED with printk
-> debug statements, I'm seeing that there are some drops, but no change
-> in qlen or backlog when I send 12Mbps through a 10Mbps link.
-> 
-> Does RED use some other means to update qstats and track backlog, or
-> do I need to change how I'm sending the test traffic though?
+From: Rojhalat Ibrahim <imr@rtschenk.de>
+Date: Mon, 24 Nov 2014 09:35:02 +0100
 
-With steady traffic, there is no reason qlen should vary.
+> On Friday 21 November 2014 15:13:01 David Miller wrote:
+>> From: Rojhalat Ibrahim <imr@rtschenk.de>
+>> Date: Thu, 20 Nov 2014 13:24:44 +0100
+>> 
+>> > Convert mdio-mux-gpio to the GPIO descriptor interface and use the new
+>> > gpiod_set_array function to set all output signals simultaneously.
+>> > 
+>> > Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
+>> > --
+>> > This patch depends on the gpiod_set_array function, which is available in
+>> > the linux-gpio devel tree.
+>> 
+>> Then I really can't apply it to the networking GIT tree.
+>> 
+> 
+> Then maybe you could ack the patch and then Linus Walleij could apply it to
+> the GPIO tree, right?
 
-It should reach some equilibrium as well.
+Yep, I can do that:
+
+Acked-by: David S. Miller <davem@davemloft.net>
