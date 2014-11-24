@@ -1,33 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 8139too: The maximum MTU should allow for VLAN headers
-Date: Mon, 24 Nov 2014 15:27:40 -0500 (EST)
-Message-ID: <20141124.152740.1226649067585496281.davem@davemloft.net>
-References: <1416744476-7372-1-git-send-email-albeu@free.fr>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v3 26/41] vhost: virtio 1.0 endian-ness support
+Date: Mon, 24 Nov 2014 22:28:29 +0200
+Message-ID: <20141124202829.GA29515@redhat.com>
+References: <1416829787-14252-1-git-send-email-mst@redhat.com>
+	<1416829787-14252-27-git-send-email-mst@redhat.com>
+	<5473408A.2090308@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ben@decadent.org.uk, ebiederm@xmission.com,
-	bhelgaas@google.com, benoit.taine@lip6.fr,
-	linux-kernel@vger.kernel.org
-To: albeu@free.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1416744476-7372-1-git-send-email-albeu@free.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: kvm@vger.kernel.org, rusty@au1.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, pbonzini@redhat.com,
+	David Miller <davem@davemloft.net>
+To: Cedric Le Goater <clg@fr.ibm.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <5473408A.2090308@fr.ibm.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Alban Bedel <albeu@free.fr>
-Date: Sun, 23 Nov 2014 13:07:54 +0100
-
-> As pointed out by Ben Hutchings drivers that allow using VLAN have to
-> provide enough headroom for the VLAN tags.
+On Mon, Nov 24, 2014 at 03:28:26PM +0100, Cedric Le Goater wrote:
+> Hi Michael,
 > 
-> Signed-off-by: Alban Bedel <albeu@free.fr>
+> Do you have a tree from where I could pull these patches ? 
+> 
+> Thanks,
+> 
+> C.
 
-Applied to net-next, but I shouldn't have to guess around about what
-tree your patch is for.
+Yes - vhost-next that linux-next includes.
 
-In the future you must specify explicitly what tree your patch is
-targetted at by saying either "[PATCH net] " or "[PATCH net-next] "
-in your subject line.
-
-Thanks.
+-- 
+MST
