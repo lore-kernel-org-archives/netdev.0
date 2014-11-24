@@ -1,160 +1,48 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [RFC PATCH 0/4] switch device: offload policy attributes
-Date: Mon, 24 Nov 2014 06:55:39 -0800
-Message-ID: <547346EB.7060302@cumulusnetworks.com>
-References: <1416610170-21224-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bCDp2Cf=azOJvnm3_YRdsD5vwCafbcVFuseUaPuYKDA1g@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: net_tx_action race condition?
+Date: Mon, 24 Nov 2014 23:08:32 +0800
+Message-ID: <20141124150832.GA32184@gondor.apana.org.au>
+References: <547332D7.7050104@3dautomazione.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
-	john.fastabend@gmail.com, stephen@networkplumber.org,
-	John Linville <linville@tuxdriver.com>, nhorman@tuxdriver.com,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	vyasevic@redhat.com, Florian Fainelli <f.fainelli@gmail.com>,
-	buytenh@wantstofly.org, Aviad Raveh <aviadr@mellanox.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	shrijeet@cumulusnetworks.com,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Angelo Rizzi <angelo.rizzi@3dautomazione.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:40574 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754343AbaKXOzw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 09:55:52 -0500
-In-Reply-To: <CAE4R7bCDp2Cf=azOJvnm3_YRdsD5vwCafbcVFuseUaPuYKDA1g@mail.gmail.com>
+Received: from helcar.apana.org.au ([209.40.204.226]:41068 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752823AbaKXPIg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 10:08:36 -0500
+Content-Disposition: inline
+In-Reply-To: <547332D7.7050104@3dautomazione.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/24/14, 2:18 AM, Scott Feldman wrote:
-> Hi Roopa,
->
-> I have a patch pending against Jiri's v2 that's uses existing
-> ndo_bridge_setlink/getlink to push policy settings down to port driver
-> for controlling HW offload.  I had to make a few tweaks, but for the
-> most part setlink/getlink already has the master/self semantics so
-> users can set policy flags on bridge's SW version of the port (master)
-> or on the offloaded version of the port (self).
->    I added the new
-> hwmode option "swdev" to the existing "vepa"|"veb" choices.  When you
-> specify hwmode, SELF is set and the port driver's setlink get's
-> called.  Did you look at setlink/getlink?  It looks like the kernel
-> and iproute2 where going down this route of using setlink/getlink for
-> SELF policy, so I'm wondering if we need more?
-If i understand you correctly, this will mean the port driver implements 
-the
-setlink/getlink with the  bridge port flags and attributes. And, it also 
-means
-the port driver will parse the netlink msg instead of the bridge driver
-parsing all attributes and then calling offloads.
+Angelo Rizzi <angelo.rizzi@3dautomazione.it> wrote:
+> [-- text/plain, encoding 7bit, charset: iso-8859-15, 22 lines --]
+> 
+> Hi Daniel,
+> Here attached the patch file you required.
+> The problem i've found is on the declaration of 'struct softnet_data 
+> *sd' in function 'net_tx_action'
+> What happens to me (i have an embedded system based on FPGA and a NIOS2 
+> cpu) is that, due to compiler optimization, the content of 
+> 'sd->completion_queue' is saved in a CPU register before interrupt 
+> disabling (when the instruction 'if (sd->completion_queue) {' is 
+> executed) and then the register contents is used for interrupt-disabled 
+> assignment ('clist = sd->completion_queue') instead of re-read the 
+> variable contents.
+> This seems to lead to a race condition when an interrupt modifies the 
+> content of 'sd->completion_queue' between these two instructions.
+> What i have done to avoid this situation is to change the declaration of 
+> 'struct softnet_data *sd' to 'volatile struct softnet_data *sd' and now 
+> everything seems to be ok.
+> I hope this will help.
 
-But, in cases where we want bridge port flags and attributes set both in 
-hw and sw,
-the user (iproute2) will have to set both MASTER and SELF flags, and the
-netlink parsing will now happen in two places, the bridge driver and the 
-bridge port
-driver ?
+local_irq_disable is supposed to contain a compiler barrier.  So
+this is either a buggy arch or a buggy compiler.
 
-For bridge stp state updates, the bridge driver will call the 
-ports->setlink ndo op ?
-
-(We should probably rename the ndo_bridge_setlink to ndo_setlink)
-
->
-> On FDB entries, using master/self semantics that exist, it's clear
-> which are owned by offloaded device and which are owned by bridge.
-> The one missing annotation was a flag indicating FDB entry in bridge
-> was synced from device.  And a policy flag to turn on/off syncing from
-> the device.  The policy flag is just another IFLA_BRPORT flags passed
-> with setlink/getlink.
->
-> The setlink/getlink patch will go out in v3 once I finish testing it
-> and push it to Jiri.  Hopefully tomorrow.
-
-In my patches, I used newlink..., but in most cases all attributes set 
-via newlink can be
-used with setlink and hence getlink. So, i think we are close here.
-
-But, Oh wait, i am talking about rtnl_link_ops 
-->newlink/changelink/getlink/dellink. I did not
-realize there was a parallel ndo op to this. But thats probably because, 
-rtnl_link_ops can be
-used only for logical devices. But, i see bridge driver implementing 
-both the
-rtnl_link_ops changelink and ndo op setlink. hmm..seems like a lot of 
-duplication.
-Will look closely some more.
-
-
-Coming back to my series, i was trying to get a common set of flags for 
-all netdevs
-(bridge, bond, vxlans so far), and hence the common flag in 'struct 
-ifiinfomsg'.
-
-But, I am all for using existing infrastructure if it fits well.
-
-For the fdb offloads, the NTF_SELF and NTF_MASTER is in 'struct 
-ndmsg->ndm_flags', which is also
-what i was proposing. So, ack there.
-
-For the bridge netdev, using the flag in IFLA_BRIDGE_FLAGS, is also ok.
-
-
-I will look at your patches when they are out.
-
-Thanks,
-Roopa
-
-
-
-
-On Fri, Nov 21, 2014 at 12:49 PM, <roopa@cumulusnetworks.com> wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->>
->> This series aims at introducing new policy attibutes/flags to enable
->> selective offloading of kernel network objects.
->> This is in the context of supporting switch devices in the linux kernel.
->>
->> Assumption:
->>      - All kernel network objects (routes, neighs, bridges, bonds, vxlans)
->>        can be offloaded (This is true today with a few exceptions maybe)
->>
->> policy points:
->>      - By default all objects exist in software (kernel)
->>      - Per object flag to add/del/show in kernel, hardware or both
->>      - System global option to turn on/off offloads for all network objects.
->>        This is for systems who want to turn offloading on for all network objects
->>        by default. us :). Apps dont need to know about offloading in this
->>        model. (TBD)
->>
->> Patches are based on jiri/sfeldma's rocker work.
->>
->> Apologize for the incomplete and untested code. This is a sample patch
->>   to get some initial feedback.
->>
->> Roopa Prabhu (4):
->>    rtnetlink: new flag NLM_F_HW_OFFLOAD to indicate kernel object
->>      offload to hardware
->>    netdev: new feature flag NETIF_F_HW_OFFLOAD to indicate netdev object
->>      offload to hardware
->>    swdevice: new generic op to set bridge port attr
->>    bridge: make hw offload conditional on bridge and bridge port offload
->>      flags
->>
->>   include/linux/netdev_features.h |    1 +
->>   include/net/switchdev.h         |    8 ++++++-
->>   include/uapi/linux/netlink.h    |    2 ++
->>   net/bridge/br_netlink.c         |   50 +++++++++++++++++++++++++++++++--------
->>   net/bridge/br_private.h         |    2 ++
->>   net/bridge/br_stp.c             |    9 ++++---
->>   net/bridge/br_stp_if.c          |    8 +++++--
->>   net/core/rtnetlink.c            |    7 ++++++
->>   net/switchdev/switchdev.c       |   17 +++++++++++++
->>   9 files changed, 88 insertions(+), 16 deletions(-)
->>
->> --
->> 1.7.10.4
->>
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
