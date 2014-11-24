@@ -1,89 +1,160 @@
-From: Josh Triplett <josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org>
-Subject: Re: [PATCH 0/6] kernel tinification: optionally compile out splice
- family of syscalls (splice, vmsplice, tee and sendfile)
-Date: Mon, 24 Nov 2014 06:54:27 -0800
-Message-ID: <20141124145427.GB20712@thin>
-References: <1416752468-1626-1-git-send-email-pieter@boesman.nl>
- <20141123.134623.2061031332250984539.davem@davemloft.net>
- <20141123194326.GB8517@thin>
- <20141123203040.GB26749@smipidev>
- <20141123233637.GC12456@thin>
- <20141123192810.682a223e@tlielax.poochiereds.net>
- <20141124003251.GA13590@thin>
- <20141124100138.GB1055@smipidev>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [RFC PATCH 0/4] switch device: offload policy attributes
+Date: Mon, 24 Nov 2014 06:55:39 -0800
+Message-ID: <547346EB.7060302@cumulusnetworks.com>
+References: <1416610170-21224-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bCDp2Cf=azOJvnm3_YRdsD5vwCafbcVFuseUaPuYKDA1g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org,
-	ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, beber-2YnHqweIUXrk1uMJSBkQmQ@public.gmane.org,
-	catalina.mocanu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org,
-	fuse-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org,
-	hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, iulia.manda21-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, JBeulich-IBi9RG/b67k@public.gmane.org,
-	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	mcgrof-IBi9RG/b67k@public.gmane.org, mattst88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, mgorman-l3A5Bk7waGM@public.gmane.org,
-	mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, miklos-sUDqSbJrdHQHWmgEVkV9KA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Paul.Durrant-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org,
-	paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, pefoley2-lY0TAiDIAFlBDgjK7y7TUQ@public.gmane.org, tgraf-G/eBtMaohhA@public.gmane.org,
-	therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	xiaoguangrong-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, zhenglong.cai-TJRtMXcVgQTM1kAEIRd3EQ@public.gmane.org
-To: Pieter Smith <pieter-qeJ+1H9vRZbz+pZb47iToQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20141124100138.GB1055@smipidev>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
+	john.fastabend@gmail.com, stephen@networkplumber.org,
+	John Linville <linville@tuxdriver.com>, nhorman@tuxdriver.com,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	vyasevic@redhat.com, Florian Fainelli <f.fainelli@gmail.com>,
+	buytenh@wantstofly.org, Aviad Raveh <aviadr@mellanox.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	shrijeet@cumulusnetworks.com,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:40574 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754343AbaKXOzw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 09:55:52 -0500
+In-Reply-To: <CAE4R7bCDp2Cf=azOJvnm3_YRdsD5vwCafbcVFuseUaPuYKDA1g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 24, 2014 at 11:01:38AM +0100, Pieter Smith wrote:
-> On Sun, Nov 23, 2014 at 04:32:51PM -0800, Josh Triplett wrote:
-> > On Sun, Nov 23, 2014 at 07:28:10PM -0500, Jeff Layton wrote:
-> > > On Sun, 23 Nov 2014 15:36:37 -0800
-> > > Josh Triplett <josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org> wrote:
-> > > 
-> > > > On Sun, Nov 23, 2014 at 09:30:40PM +0100, Pieter Smith wrote:
-> > > > > On Sun, Nov 23, 2014 at 11:43:26AM -0800, Josh Triplett wrote:
-> > > > > > On Sun, Nov 23, 2014 at 01:46:23PM -0500, David Miller wrote:
-> > > > > > > Truly removing sendfile/sendpage means that you can't even compile NFS
-> > > > > > > into the tree.
-> > > > > > 
-> > > > > > If you mean the in-kernel nfsd (CONFIG_NFSD), that already has a large
-> > > > > > stack of "select" and "depends on", both directly and indirectly; adding
-> > > > > > a "select SPLICE_SYSCALL" to it seems fine.  (That select does need
-> > > > > > adding, though.  Pieter, you need to test-compile more than just
-> > > > > > tinyconfig and defconfig.  Try an allyesconfig with *just* splice turned
-> > > > > > off, and make sure that compiles.)
-> > > > > 
-> > > > > Did exacly that. Took forever on my hardware, but no problems.
-> > > > 
-> > > > Ah, I see.  Looking more closely at nfsd, it looks like it already has a
-> > > > code path for filesystems that don't do splice.  I think, rather than
-> > > > making nfsd select SPLICE_SYSCALL, that it would suffice to change the
-> > > > "rqstp->rq_splice_ok = true;" in svc_process_common (net/sunrpc/svc.c)
-> > > > to:
-> > > > 
-> > > > rqstp->rq_splice_ok = IS_ENABLED(CONFIG_SPLICE_SYSCALL);
-> > > > 
-> > > > Then nfsd should simply *always* fall back to its non-splice support.
-> > > > 
-> > > 
-> > > I'd probably prefer the above, actually. We have to keep supporting
-> > > non-splice enabled fs' for the forseeable future, so we may as well
-> > > allow people to run nfsd in such configurations. It could even be
-> > > useful for testing the non-splice-enabled codepaths.
-> > 
-> > Good point!
-> > 
-> > - Josh Triplett
-> 
-> I'll add this to svc_process_common. I can squash this into PATCH 3, which is
-> where the syscalls can be compiled out. The log entry may however get a little
-> crowded and multi-functional.
-> 
-> Should I keep this as a separate patch?
+On 11/24/14, 2:18 AM, Scott Feldman wrote:
+> Hi Roopa,
+>
+> I have a patch pending against Jiri's v2 that's uses existing
+> ndo_bridge_setlink/getlink to push policy settings down to port driver
+> for controlling HW offload.  I had to make a few tweaks, but for the
+> most part setlink/getlink already has the master/self semantics so
+> users can set policy flags on bridge's SW version of the port (master)
+> or on the offloaded version of the port (self).
+>    I added the new
+> hwmode option "swdev" to the existing "vepa"|"veb" choices.  When you
+> specify hwmode, SELF is set and the port driver's setlink get's
+> called.  Did you look at setlink/getlink?  It looks like the kernel
+> and iproute2 where going down this route of using setlink/getlink for
+> SELF policy, so I'm wondering if we need more?
+If i understand you correctly, this will mean the port driver implements 
+the
+setlink/getlink with the  bridge port flags and attributes. And, it also 
+means
+the port driver will parse the netlink msg instead of the bridge driver
+parsing all attributes and then calling offloads.
 
-I'd keep it as a separate patch, yes.  It doesn't become necessary until
-patch 6, so you can add it as a new patch between patches 3 and 6.
+But, in cases where we want bridge port flags and attributes set both in 
+hw and sw,
+the user (iproute2) will have to set both MASTER and SELF flags, and the
+netlink parsing will now happen in two places, the bridge driver and the 
+bridge port
+driver ?
 
-- Josh Triplett
+For bridge stp state updates, the bridge driver will call the 
+ports->setlink ndo op ?
+
+(We should probably rename the ndo_bridge_setlink to ndo_setlink)
+
+>
+> On FDB entries, using master/self semantics that exist, it's clear
+> which are owned by offloaded device and which are owned by bridge.
+> The one missing annotation was a flag indicating FDB entry in bridge
+> was synced from device.  And a policy flag to turn on/off syncing from
+> the device.  The policy flag is just another IFLA_BRPORT flags passed
+> with setlink/getlink.
+>
+> The setlink/getlink patch will go out in v3 once I finish testing it
+> and push it to Jiri.  Hopefully tomorrow.
+
+In my patches, I used newlink..., but in most cases all attributes set 
+via newlink can be
+used with setlink and hence getlink. So, i think we are close here.
+
+But, Oh wait, i am talking about rtnl_link_ops 
+->newlink/changelink/getlink/dellink. I did not
+realize there was a parallel ndo op to this. But thats probably because, 
+rtnl_link_ops can be
+used only for logical devices. But, i see bridge driver implementing 
+both the
+rtnl_link_ops changelink and ndo op setlink. hmm..seems like a lot of 
+duplication.
+Will look closely some more.
+
+
+Coming back to my series, i was trying to get a common set of flags for 
+all netdevs
+(bridge, bond, vxlans so far), and hence the common flag in 'struct 
+ifiinfomsg'.
+
+But, I am all for using existing infrastructure if it fits well.
+
+For the fdb offloads, the NTF_SELF and NTF_MASTER is in 'struct 
+ndmsg->ndm_flags', which is also
+what i was proposing. So, ack there.
+
+For the bridge netdev, using the flag in IFLA_BRIDGE_FLAGS, is also ok.
+
+
+I will look at your patches when they are out.
+
+Thanks,
+Roopa
+
+
+
+
+On Fri, Nov 21, 2014 at 12:49 PM, <roopa@cumulusnetworks.com> wrote:
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>>
+>> This series aims at introducing new policy attibutes/flags to enable
+>> selective offloading of kernel network objects.
+>> This is in the context of supporting switch devices in the linux kernel.
+>>
+>> Assumption:
+>>      - All kernel network objects (routes, neighs, bridges, bonds, vxlans)
+>>        can be offloaded (This is true today with a few exceptions maybe)
+>>
+>> policy points:
+>>      - By default all objects exist in software (kernel)
+>>      - Per object flag to add/del/show in kernel, hardware or both
+>>      - System global option to turn on/off offloads for all network objects.
+>>        This is for systems who want to turn offloading on for all network objects
+>>        by default. us :). Apps dont need to know about offloading in this
+>>        model. (TBD)
+>>
+>> Patches are based on jiri/sfeldma's rocker work.
+>>
+>> Apologize for the incomplete and untested code. This is a sample patch
+>>   to get some initial feedback.
+>>
+>> Roopa Prabhu (4):
+>>    rtnetlink: new flag NLM_F_HW_OFFLOAD to indicate kernel object
+>>      offload to hardware
+>>    netdev: new feature flag NETIF_F_HW_OFFLOAD to indicate netdev object
+>>      offload to hardware
+>>    swdevice: new generic op to set bridge port attr
+>>    bridge: make hw offload conditional on bridge and bridge port offload
+>>      flags
+>>
+>>   include/linux/netdev_features.h |    1 +
+>>   include/net/switchdev.h         |    8 ++++++-
+>>   include/uapi/linux/netlink.h    |    2 ++
+>>   net/bridge/br_netlink.c         |   50 +++++++++++++++++++++++++++++++--------
+>>   net/bridge/br_private.h         |    2 ++
+>>   net/bridge/br_stp.c             |    9 ++++---
+>>   net/bridge/br_stp_if.c          |    8 +++++--
+>>   net/core/rtnetlink.c            |    7 ++++++
+>>   net/switchdev/switchdev.c       |   17 +++++++++++++
+>>   9 files changed, 88 insertions(+), 16 deletions(-)
+>>
+>> --
+>> 1.7.10.4
+>>
