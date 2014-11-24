@@ -1,77 +1,102 @@
-From: Pieter Smith <pieter-qeJ+1H9vRZbz+pZb47iToQ@public.gmane.org>
-Subject: Re: [fuse-devel] [PATCH 4/6] fs/fuse: support compiling out splice
-Date: Mon, 24 Nov 2014 22:49:26 +0100
-Message-ID: <20141124214926.GA9371@smipidev>
-References: <1416752468-1626-1-git-send-email-pieter@boesman.nl>
- <1416752468-1626-5-git-send-email-pieter@boesman.nl>
- <CAFLxGvxq3Mr9n8xMO_fPZDhrGmBh=WKyU0+RF13JBdjssX6qfw@mail.gmail.com>
- <20141123232302.GA12456@thin>
- <20141124094931.GA1055@smipidev>
- <20141124160510.GA2446@jtriplet-mobl1>
- <20141124193412.GB31618@kroah.com>
- <20141124201450.GA18776@cloud>
- <20141124202214.GA11362@kroah.com>
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Subject: Re: [PATCH] net/mlx4: Fix EEH recovery failure
+Date: Tue, 25 Nov 2014 08:55:55 +1100
+Message-ID: <20141124215555.GA6970@shangw>
+References: <CAJ3xEMg_bWmDGPHUSk6HzYD7N7CBU_V6J1ovft2rEigP-DJupA@mail.gmail.com>
+Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org,
-	Richard Weinberger <richard.weinberger-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Bertrand Jacquin <beber-2YnHqweIUXrk1uMJSBkQmQ@public.gmane.org>,
-	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	=?utf-8?B?6JSh5q2j6b6Z?= <zhenglong.cai-TJRtMXcVgQTM1kAEIRd3EQ@public.gmane.org>,
-	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-	Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
-	Miklos Szeredi <miklos-sUDqSbJrdHQHWmgEVkV9KA@public.gmane.org>,
-	Peter Foley <pefoley2-lY0TAiDIAFlBDgjK7y7TUQ@public.gmane.org>,
-	Hugh Dickins <hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Xiao Guangrong <xiaoguangrong-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
-	Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>, Matt Turner <mattst88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"open list:FUSE: FILESYSTEM..." <fuse-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	"Luis R. Rodriguez"
-To: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Amir Vadai <amirv@mellanox.com>,
+	David Miller <davem@davemloft.net>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e23smtp09.au.ibm.com ([202.81.31.142]:45039 "EHLO
+	e23smtp09.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750726AbaKXV4F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 16:56:05 -0500
+Received: from /spool/local
+	by e23smtp09.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
+	Tue, 25 Nov 2014 07:56:00 +1000
+Received: from d23relay09.au.ibm.com (d23relay09.au.ibm.com [9.185.63.181])
+	by d23dlp02.au.ibm.com (Postfix) with ESMTP id 516DF2BB0059
+	for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 08:55:58 +1100 (EST)
+Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
+	by d23relay09.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id sAOLtvPD4456506
+	for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 08:55:58 +1100
+Received: from d23av01.au.ibm.com (localhost [127.0.0.1])
+	by d23av01.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id sAOLtudO028508
+	for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 08:55:57 +1100
 Content-Disposition: inline
-In-Reply-To: <20141124202214.GA11362-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CAJ3xEMg_bWmDGPHUSk6HzYD7N7CBU_V6J1ovft2rEigP-DJupA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 24, 2014 at 12:22:14PM -0800, Greg KH wrote:
-> On Mon, Nov 24, 2014 at 12:14:50PM -0800, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org wrote:
-> > > I would, again, argue that stuff like __splice_p() not be implemented at
-> > > all please.  It will only cause a huge proliferation of stuff like this
-> > > that will not make any sense, and only cause a trivial, if any, amount
-> > > of code savings.
-> > > 
-> > > I thought you were going to not do this type of thing until you got the
-> > > gcc optimizer working for function callbacks.
-> > 
-> > Compared to the previous patchset, there are now only two instances of
-> > ifdefs outside of the splice code for this, and this is one of them.  In
-> > this case, the issue is no longer about making the code for this
-> > splice_read function disappear, but rather to eliminate a reference to a
-> > bit of splice functionality (used *inside* the FUSE splice code) that
-> > will not work without SPLICE_SYSCALL.
-> > 
-> > Would you prefer to see this specific case handled via an #ifdef in
-> > fs/fuse/dev.c rather than introducing a __splice_p that people might be
-> > inclined to propagate?  That'd be fine; the code could simply wrap
-> > fuse_dev_splice_read in an #ifdef and have the #else define a NULL
-> > fuse_dev_splice_read.
-> 
-> Yes, I would prefer that, but I'm not the fuse maintainer.
-> 
-> thanks,
-> 
-> greg k-h
+On Mon, Nov 24, 2014 at 11:17:55PM +0200, Or Gerlitz wrote:
+>On Sat, Nov 22, 2014 at 12:56 PM, Gavin Shan <gwshan@linux.vnet.ibm.com> wrote:
+>> The patch fixes couple of EEH recovery failures on PPC PowerNV
+>> platform:
+>
+>>    * Don't clear struct mlx4_priv instance in mlx4_pci_err_detected().
+>>      Otherwise, __mlx4_init_one() runs into kernel crash because
+>>      of dereferencing to NULL pointer.
+>
+>I don't see this change in the patch, I see no-clearing of mlx4_priv
+>in __mlx4_unload_one - please clarify, also is this patch
+>based/targeted on the net or net-next tree?
+>
 
-Okay. I'll do my part to prevent the type of proliferation guaranteed to rate
-high on the respected K-H icky-scale. __splice_p() goes the way of the dodo
-in favor of the solution presented by Josh.
+Yes, It would be: Don't clear struct mlx4_priv instance in mlx4_unload_one(),
+which is called by mlx4_pci_err_detected().
 
-I pray that the Gods of fuse maintenance will look favorable upon the result.
+It's based on 3.18.rc5, where I had couple of EEH fixes on top of it.
+When testing EEH with it, I hit the issue.
+
+Thanks,
+Gavin
+
+>
+>
+>> With the patch applied, EEH recovery for mlx4 adapter succeeds on PPC
+>> PowerNV platform.
+>>
+>>    # lspci
+>>    0003:0f:00.0 Network controller: Mellanox Technologies \
+>>    MT27500 Family [ConnectX-3]
+>>
+>> Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
+>> ---
+>>  drivers/net/ethernet/mellanox/mlx4/main.c | 3 ++-
+>>  1 file changed, 2 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+>> index 90de6e1..e118ac9 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+>> @@ -2809,7 +2809,6 @@ static void mlx4_unload_one(struct pci_dev *pdev)
+>>         kfree(dev->caps.qp1_proxy);
+>>         kfree(dev->dev_vfs);
+>>
+>> -       memset(priv, 0, sizeof(*priv));
+>>         priv->pci_dev_data = pci_dev_data;
+>>         priv->removed = 1;
+>>  }
+>> @@ -2900,6 +2899,8 @@ static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
+>>                                               pci_channel_state_t state)
+>>  {
+>>         mlx4_unload_one(pdev);
+>> +       pci_release_regions(pdev);
+>> +       pci_disable_device(pdev);
+>>
+>>         return state == pci_channel_io_perm_failure ?
+>>                 PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_NEED_RESET;
+>> --
+>> 1.8.3.2
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
