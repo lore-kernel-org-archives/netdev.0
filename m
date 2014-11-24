@@ -1,45 +1,41 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 10/17] netfilter: fix unmet dependencies in NETFILTER_XT_TARGET_REDIRECT
-Date: Mon, 24 Nov 2014 14:27:47 +0100
-Message-ID: <1416835674-11871-11-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 08/17] netfilter: nf_log: fix sparse warning in nf_logger_find_get()
+Date: Mon, 24 Nov 2014 14:27:45 +0100
+Message-ID: <1416835674-11871-9-git-send-email-pablo@netfilter.org>
 References: <1416835674-11871-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44891 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:44871 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932094AbaKXNZ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Nov 2014 08:25:57 -0500
+	id S932103AbaKXNZ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Nov 2014 08:25:56 -0500
 In-Reply-To: <1416835674-11871-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-warning: (NETFILTER_XT_TARGET_REDIRECT) selects NF_NAT_REDIRECT_IPV4 which has unmet direct dependencies (NET && INET && NETFILTER && NF_NAT_IPV4)
+net/netfilter/nf_log.c:157:16: warning: incorrect type in assignment (different address spaces)
+net/netfilter/nf_log.c:157:16:    expected struct nf_logger *logger
+net/netfilter/nf_log.c:157:16:    got struct nf_logger [noderef] <asn:4>*<noident>
 
-warning: (NETFILTER_XT_TARGET_REDIRECT) selects NF_NAT_REDIRECT_IPV6 which has unmet direct dependencies (NET && INET && IPV6 && NETFILTER && NF_NAT_IPV6)
-
-Fixes: 8b13edd ("netfilter: refactor NAT redirect IPv4 to use it from nf_tables")
-Fixes: 9de920e ("netfilter: refactor NAT redirect IPv6 code to use it from nf_tables")
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/Kconfig |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/netfilter/nf_log.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 373486a..57f15a9 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -844,8 +844,8 @@ config NETFILTER_XT_TARGET_RATEEST
- config NETFILTER_XT_TARGET_REDIRECT
- 	tristate "REDIRECT target support"
- 	depends on NF_NAT
--	select NF_NAT_REDIRECT_IPV4
--	select NF_NAT_REDIRECT_IPV6 if IP6_NF_IPTABLES
-+	select NF_NAT_REDIRECT_IPV4 if NF_NAT_IPV4
-+	select NF_NAT_REDIRECT_IPV6 if NF_NAT_IPV6
- 	---help---
- 	REDIRECT is a special case of NAT: all incoming connections are
- 	mapped onto the incoming interface's address, causing the packets to
+diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+index 9562e39..49a6417 100644
+--- a/net/netfilter/nf_log.c
++++ b/net/netfilter/nf_log.c
+@@ -154,8 +154,7 @@ int nf_logger_find_get(int pf, enum nf_log_type type)
+ 	struct nf_logger *logger;
+ 	int ret = -ENOENT;
+ 
+-	logger = loggers[pf][type];
+-	if (logger == NULL)
++	if (rcu_access_pointer(loggers[pf][type]) == NULL)
+ 		request_module("nf-logger-%u-%u", pf, type);
+ 
+ 	rcu_read_lock();
 -- 
 1.7.10.4
