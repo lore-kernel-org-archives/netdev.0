@@ -1,72 +1,205 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [RFC] situation with csum_and_copy_... API
-Date: Mon, 24 Nov 2014 10:03:05 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1C9F9AE7@AcuExch.aculab.com>
-References: <CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
- <20141119.161744.1661940121298888832.davem@davemloft.net>
- <20141119213006.GE7996@ZenIV.linux.org.uk>
- <20141119.165340.2162829993279387495.davem@davemloft.net>
- <20141120214753.GR7996@ZenIV.linux.org.uk>
- <1416520542.8629.46.camel@edumazet-glaptop2.roam.corp.google.com>
- <20141120222506.GS7996@ZenIV.linux.org.uk>
- <1416524035.8629.54.camel@edumazet-glaptop2.roam.corp.google.com>
- <20141121084956.GT7996@ZenIV.linux.org.uk>
- <063D6719AE5E284EB5DD2968C1650D6D1C9F6930@AcuExch.aculab.com>
- <20141121193911.GU7996@ZenIV.linux.org.uk>
+From: <richard.alpe@ericsson.com>
+Subject: [PATCH net-next] tipc: fix sparse warnings in new nl api
+Date: Mon, 24 Nov 2014 11:10:29 +0100
+Message-ID: <1416823829-19277-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"target-devel@vger.kernel.org" <target-devel@vger.kernel.org>,
-	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	Christoph Hellwig <hch@infradead.org>
-To: 'Al Viro' <viro@ZenIV.linux.org.uk>
+Content-Type: text/plain
+Cc: Richard Alpe <richard.alpe@ericsson.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:44529 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752840AbaKXKEJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 05:04:09 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 13194-01 for <netdev@vger.kernel.org>;
- Mon, 24 Nov 2014 10:03:58 +0000 (GMT)
-In-Reply-To: <20141121193911.GU7996@ZenIV.linux.org.uk>
-Content-Language: en-US
+Received: from sessmg22.ericsson.net ([193.180.251.58]:65404 "EHLO
+	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753233AbaKXKNG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 05:13:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Al Viro
-> On Fri, Nov 21, 2014 at 05:42:55PM +0000, David Laight wrote:
-> 
-> > Callers of kernel_send/recvmsg() could easily be using a wrapper
-> > function that creates the 'msghdr'.
-> > When the want to send the remaining part of a buffer the old iterator
-> > will no longer be available - just the original iov and the required offset.
-> 
-> Er...  So why not copy a struct iov_iter to/from msg->msg_iter, then?
-> It's not as it had been particulary large - 5 words isn't much...
-> 
-> I'm not at all sure that _anything_ has valid reasons for draining iovecs.
-> Maintaining a struct iov_iter and modifying it is easy and actually faster...
-> 
-> Right now the main examples outside of net/* are due to unfortunate
-> limitations of ->sendmsg() - until now it had no way to be told that
-> desired data starts at offset.  With ->msg_iter it obviously becomes
-> possible...
+From: Richard Alpe <richard.alpe@ericsson.com>
 
-It may well be easier for code that only has to run in a new kernel.
-But for code that has run in old kernels as well you still need
-to modify the iov[].
+Fix sparse warnings about non-static declaration of static functions
+in the new tipc netlink API.
 
-This is also true of userspace - there is no way of completing
-a partial transfer without modifying the iov[] to allow for the
-partial transfer.
+Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
+---
+ net/tipc/bcast.c      |  3 ++-
+ net/tipc/bearer.c     |  6 ++++--
+ net/tipc/link.c       | 10 ++++++----
+ net/tipc/name_table.c | 13 +++++++------
+ net/tipc/node.c       |  2 +-
+ net/tipc/socket.c     | 16 +++++++++-------
+ 6 files changed, 29 insertions(+), 21 deletions(-)
 
-Note that I'm not suggesting that any of the 'write' functions
-should ever modify an iov[].
-
-	David
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index dcf3589..556b26a 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -767,7 +767,8 @@ void tipc_bcbearer_sort(struct tipc_node_map *nm_ptr, u32 node, bool action)
+ 	tipc_bclink_unlock();
+ }
+ 
+-int __tipc_nl_add_bc_link_stat(struct sk_buff *skb, struct tipc_stats *stats)
++static int __tipc_nl_add_bc_link_stat(struct sk_buff *skb,
++				      struct tipc_stats *stats)
+ {
+ 	int i;
+ 	struct nlattr *nest;
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 5f6f323..463db5b 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -647,7 +647,8 @@ void tipc_bearer_stop(void)
+ }
+ 
+ /* Caller should hold rtnl_lock to protect the bearer */
+-int __tipc_nl_add_bearer(struct tipc_nl_msg *msg, struct tipc_bearer *bearer)
++static int __tipc_nl_add_bearer(struct tipc_nl_msg *msg,
++				struct tipc_bearer *bearer)
+ {
+ 	void *hdr;
+ 	struct nlattr *attrs;
+@@ -905,7 +906,8 @@ int tipc_nl_bearer_set(struct sk_buff *skb, struct genl_info *info)
+ 	return 0;
+ }
+ 
+-int __tipc_nl_add_media(struct tipc_nl_msg *msg, struct tipc_media *media)
++static int __tipc_nl_add_media(struct tipc_nl_msg *msg,
++			       struct tipc_media *media)
+ {
+ 	void *hdr;
+ 	struct nlattr *attrs;
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 629e8cf..4738cb1 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -2514,7 +2514,8 @@ out:
+ 
+ 	return res;
+ }
+-int __tipc_nl_add_stats(struct sk_buff *skb, struct tipc_stats *s)
++
++static int __tipc_nl_add_stats(struct sk_buff *skb, struct tipc_stats *s)
+ {
+ 	int i;
+ 	struct nlattr *stats;
+@@ -2580,7 +2581,7 @@ msg_full:
+ }
+ 
+ /* Caller should hold appropriate locks to protect the link */
+-int __tipc_nl_add_link(struct tipc_nl_msg *msg, struct tipc_link *link)
++static int __tipc_nl_add_link(struct tipc_nl_msg *msg, struct tipc_link *link)
+ {
+ 	int err;
+ 	void *hdr;
+@@ -2649,8 +2650,9 @@ msg_full:
+ }
+ 
+ /* Caller should hold node lock  */
+-int __tipc_nl_add_node_links(struct tipc_nl_msg *msg, struct tipc_node *node,
+-			     u32 *prev_link)
++static int __tipc_nl_add_node_links(struct tipc_nl_msg *msg,
++				    struct tipc_node *node,
++				    u32 *prev_link)
+ {
+ 	u32 i;
+ 	int err;
+diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
+index 30ca8e0..7cfb7a4 100644
+--- a/net/tipc/name_table.c
++++ b/net/tipc/name_table.c
+@@ -1002,8 +1002,9 @@ void tipc_nametbl_stop(void)
+ 	write_unlock_bh(&tipc_nametbl_lock);
+ }
+ 
+-int __tipc_nl_add_nametable_publ(struct tipc_nl_msg *msg, struct name_seq *seq,
+-				 struct sub_seq *sseq, u32 *last_publ)
++static int __tipc_nl_add_nametable_publ(struct tipc_nl_msg *msg,
++					struct name_seq *seq,
++					struct sub_seq *sseq, u32 *last_publ)
+ {
+ 	void *hdr;
+ 	struct nlattr *attrs;
+@@ -1071,8 +1072,8 @@ msg_full:
+ 	return -EMSGSIZE;
+ }
+ 
+-int __tipc_nl_subseq_list(struct tipc_nl_msg *msg, struct name_seq *seq,
+-			  u32 *last_lower, u32 *last_publ)
++static int __tipc_nl_subseq_list(struct tipc_nl_msg *msg, struct name_seq *seq,
++				 u32 *last_lower, u32 *last_publ)
+ {
+ 	struct sub_seq *sseq;
+ 	struct sub_seq *sseq_start;
+@@ -1098,8 +1099,8 @@ int __tipc_nl_subseq_list(struct tipc_nl_msg *msg, struct name_seq *seq,
+ 	return 0;
+ }
+ 
+-int __tipc_nl_seq_list(struct tipc_nl_msg *msg, u32 *last_type, u32 *last_lower,
+-		       u32 *last_publ)
++static int __tipc_nl_seq_list(struct tipc_nl_msg *msg, u32 *last_type,
++			      u32 *last_lower, u32 *last_publ)
+ {
+ 	struct hlist_head *seq_head;
+ 	struct name_seq *seq;
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 72a75d4..82e5edd 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -609,7 +609,7 @@ void tipc_node_unlock(struct tipc_node *node)
+ }
+ 
+ /* Caller should hold node lock for the passed node */
+-int __tipc_nl_add_node(struct tipc_nl_msg *msg, struct tipc_node *node)
++static int __tipc_nl_add_node(struct tipc_nl_msg *msg, struct tipc_node *node)
+ {
+ 	void *hdr;
+ 	struct nlattr *attrs;
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index e918091..6aa8c6a 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -2811,7 +2811,7 @@ void tipc_socket_stop(void)
+ }
+ 
+ /* Caller should hold socket lock for the passed tipc socket. */
+-int __tipc_nl_add_sk_con(struct sk_buff *skb, struct tipc_sock *tsk)
++static int __tipc_nl_add_sk_con(struct sk_buff *skb, struct tipc_sock *tsk)
+ {
+ 	u32 peer_node;
+ 	u32 peer_port;
+@@ -2846,8 +2846,8 @@ msg_full:
+ }
+ 
+ /* Caller should hold socket lock for the passed tipc socket. */
+-int __tipc_nl_add_sk(struct sk_buff *skb, struct netlink_callback *cb,
+-		     struct tipc_sock *tsk)
++static int __tipc_nl_add_sk(struct sk_buff *skb, struct netlink_callback *cb,
++			    struct tipc_sock *tsk)
+ {
+ 	int err;
+ 	void *hdr;
+@@ -2912,8 +2912,9 @@ int tipc_nl_sk_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ }
+ 
+ /* Caller should hold socket lock for the passed tipc socket. */
+-int __tipc_nl_add_sk_publ(struct sk_buff *skb, struct netlink_callback *cb,
+-			  struct publication *publ)
++static int __tipc_nl_add_sk_publ(struct sk_buff *skb,
++				 struct netlink_callback *cb,
++				 struct publication *publ)
+ {
+ 	void *hdr;
+ 	struct nlattr *attrs;
+@@ -2950,8 +2951,9 @@ msg_cancel:
+ }
+ 
+ /* Caller should hold socket lock for the passed tipc socket. */
+-int __tipc_nl_list_sk_publ(struct sk_buff *skb, struct netlink_callback *cb,
+-			   struct tipc_sock *tsk, u32 *last_publ)
++static int __tipc_nl_list_sk_publ(struct sk_buff *skb,
++				  struct netlink_callback *cb,
++				  struct tipc_sock *tsk, u32 *last_publ)
+ {
+ 	int err;
+ 	struct publication *p;
+-- 
+2.1.1
