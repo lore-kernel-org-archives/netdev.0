@@ -1,221 +1,82 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH Iproute2 next v2] ip link: Add ipvlan support to the iproute2/ip util
-Date: Sun, 23 Nov 2014 18:06:11 -0800
-Message-ID: <1416794771-11193-1-git-send-email-maheshb@google.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH 2/2] sh_eth: Fix asynchronous external abort
+Date: Mon, 24 Nov 2014 02:19:57 +0000
+Message-ID: <1416795597.7215.76.camel@decadent.org.uk>
+References: <1415862135-27972-1-git-send-email-ykaneko0929@gmail.com>
+	 <1415862135-27972-3-git-send-email-ykaneko0929@gmail.com>
+	 <20141124011759.GA5089@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>,
-	Laurent Chavey <chavey@google.com>,
-	Tim Hockin <thockin@google.com>,
-	David Miller <davem@davemloft.net>,
-	Brandon Philips <brandon.philips@coreos.com>,
-	Pavel Emelianov <xemul@parallels.com>,
-	Mahesh Bandewar <maheshb@google.com>
-To: netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f202.google.com ([209.85.223.202]:64474 "EHLO
-	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750770AbaKXCGT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Nov 2014 21:06:19 -0500
-Received: by mail-ie0-f202.google.com with SMTP id rl12so1004304iec.5
-        for <netdev@vger.kernel.org>; Sun, 23 Nov 2014 18:06:18 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-iLgGtmfsmCOT63+uXC6h"
+Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20141124011759.GA5089@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Adding basic support to create virtual devices using 'ip'
-utility. Following is the syntax -
 
-	ip link add link <master> <virtual> type ipvlan mode [ l2 | l3 ]
-	e.g. ip link add link eth0 ipvl0 type ipvlan mode l3
+--=-iLgGtmfsmCOT63+uXC6h
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Maciej =C5=BBenczykowski <maze@google.com>
-Cc: Laurent Chavey <chavey@google.com>
-Cc: Tim Hockin <thockin@google.com>
-Cc: Brandon Philips <brandon.philips@coreos.com>
-Cc: Pavel Emelianov <xemul@parallels.com>
----
- include/linux/if_link.h | 14 +++++++
- ip/Makefile             |  2 +-
- ip/iplink.c             |  2 +-
- ip/iplink_ipvlan.c      | 98 +++++++++++++++++++++++++++++++++++++++++=
-++++++++
- 4 files changed, 114 insertions(+), 2 deletions(-)
- create mode 100644 ip/iplink_ipvlan.c
+On Mon, 2014-11-24 at 10:18 +0900, Simon Horman wrote:
+> Hi Kaneko-san, Hi All,
+>=20
+> On Thu, Nov 13, 2014 at 04:02:15PM +0900, Yoshihiro Kaneko wrote:
+> > From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+> >=20
+> > When clock is disabled, Ethernet register access raise Bus error.
+>=20
+> I have spoken with Kimura-san and the problem may be reproduced by
+> calling ethtool with -s of -G while the network interface is down.
+>=20
+> e.g.:
+> ifconfig eth0 down
+> ethtool -G eth0 rx 512
+>=20
+> I have confirmed that the problem above appears in net-next
+> and appears to be resolved with this patch and the previous on
+> in this series (which seems to be a dependency) applied.
+[...]
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 47320636361c..ef1e9f73fb15 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -325,6 +325,20 @@ enum macvlan_macaddr_mode {
- 	MACVLAN_MACADDR_SET,
- };
-=20
-+/* IPVLAN section */
-+enum {
-+	IFLA_IPVLAN_UNSPEC,
-+	IFLA_IPVLAN_MODE,
-+	__IFLA_IPVLAN_MAX,
-+};
-+
-+#define IFLA_IPVLAN_MAX (__IFLA_IPVLAN_MAX - 1)
-+
-+enum ipvlan_mode {
-+	IPVLAN_MODE_L2 =3D 0, /* Process packets all the way upto L2 */
-+	IPVLAN_MODE_L3 =3D 1, /* Process Packets all the way upto L3 */
-+};
-+
- #define MACVLAN_FLAG_NOPROMISC	1
-=20
- /* VXLAN section */
-diff --git a/ip/Makefile b/ip/Makefile
-index fdc82f7286a0..01901bc8571c 100644
---- a/ip/Makefile
-+++ b/ip/Makefile
-@@ -6,7 +6,7 @@ IPOBJ=3Dip.o ipaddress.o ipaddrlabel.o iproute.o iprule=
-=2Eo ipnetns.o \
-     iplink_macvlan.o iplink_macvtap.o ipl2tp.o link_vti.o link_vti6.o =
-\
-     iplink_vxlan.o tcp_metrics.o iplink_ipoib.o ipnetconf.o link_ip6tn=
-l.o \
-     link_iptnl.o link_gre6.o iplink_bond.o iplink_bond_slave.o iplink_=
-hsr.o \
--    iplink_bridge.o iplink_bridge_slave.o ipfou.o
-+    iplink_bridge.o iplink_bridge_slave.o ipfou.o iplink_ipvlan.o
-=20
- RTMONOBJ=3Drtmon.o
-=20
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 43b26f4cea08..2fc7fa2b47c8 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -90,7 +90,7 @@ void iplink_usage(void)
- 		fprintf(stderr, "TYPE :=3D { vlan | veth | vcan | dummy | ifb | macv=
-lan | macvtap |\n");
- 		fprintf(stderr, "          bridge | bond | ipoib | ip6tnl | ipip | s=
-it | vxlan |\n");
- 		fprintf(stderr, "          gre | gretap | ip6gre | ip6gretap | vti |=
- nlmon |\n");
--		fprintf(stderr, "          bond_slave }\n");
-+		fprintf(stderr, "          bond_slave | ipvlan }\n");
- 	}
- 	exit(-1);
- }
-diff --git a/ip/iplink_ipvlan.c b/ip/iplink_ipvlan.c
-new file mode 100644
-index 000000000000..e08fc397b3dd
---- /dev/null
-+++ b/ip/iplink_ipvlan.c
-@@ -0,0 +1,98 @@
-+/* iplink_ipvlan.c	IPVLAN device support
-+ *
-+ *              This program is free software; you can redistribute it=
- and/or
-+ *              modify it under the terms of the GNU General Public Li=
-cense
-+ *              as published by the Free Software Foundation; either v=
-ersion
-+ *              2 of the License, or (at your option) any later versio=
-n.
-+ *
-+ * Authors:     Mahesh Bandewar <maheshb@google.com>
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <sys/socket.h>
-+#include <linux/if_link.h>
-+
-+#include "rt_names.h"
-+#include "utils.h"
-+#include "ip_common.h"
-+
-+static void ipvlan_explain(FILE *f)
-+{
-+	fprintf(f, "Usage: ... ipvlan [ mode { l2 | l3 } ]\n");
-+}
-+
-+static void explain(void)
-+{
-+	ipvlan_explain(stderr);
-+}
-+
-+static int mode_arg(void)
-+{
-+	fprintf(stderr, "Error: argument of \"mode\" must be either \"l2\", "
-+		"or \"l3\"\n");
-+	return -1;
-+}
-+
-+static int ipvlan_parse_opt(struct link_util *lu, int argc, char **arg=
-v,
-+			    struct nlmsghdr *n)
-+{
-+	while (argc > 0) {
-+		if (matches(*argv, "mode") =3D=3D 0) {
-+			__u16 mode =3D 0;
-+			NEXT_ARG();
-+
-+			if (strcmp(*argv, "l2") =3D=3D 0)
-+				mode =3D IPVLAN_MODE_L2;
-+			else if (strcmp(*argv, "l3") =3D=3D 0)
-+				mode =3D IPVLAN_MODE_L3;
-+			else
-+				return mode_arg();
-+
-+			addattr16(n, 1024, IFLA_IPVLAN_MODE, mode);
-+		} else if (matches(*argv, "help") =3D=3D 0) {
-+			explain();
-+			return -1;
-+		} else {
-+			fprintf(stderr, "ipvlan: unknown option \"%s\"?\n",
-+				*argv);
-+			explain();
-+			return -1;
-+		}
-+		argc--, argv++;
-+	}
-+
-+	return 0;
-+}
-+
-+static void ipvlan_print_opt(struct link_util *lu, FILE *f, struct rta=
-ttr *tb[])
-+{
-+
-+	if (!tb)
-+		return;
-+
-+	if (tb[IFLA_IPVLAN_MODE]) {
-+		if (RTA_PAYLOAD(tb[IFLA_IPVLAN_MODE]) =3D=3D sizeof(__u16)) {
-+			__u16 mode =3D rta_getattr_u16(tb[IFLA_IPVLAN_MODE]);
-+
-+			fprintf(f, " mode %s ",
-+				mode =3D=3D IPVLAN_MODE_L2 ? "l2" :
-+				mode =3D=3D IPVLAN_MODE_L3 ? "l3" : "unknown");
-+		}
-+	}
-+}
-+
-+static void ipvlan_print_help(struct link_util *lu, int argc, char **a=
-rgv,
-+			      FILE *f)
-+{
-+	ipvlan_explain(f);
-+}
-+
-+struct link_util ipvlan_link_util =3D {
-+	.id		=3D "ipvlan",
-+	.maxattr	=3D IFLA_IPVLAN_MAX,
-+	.parse_opt	=3D ipvlan_parse_opt,
-+	.print_opt	=3D ipvlan_print_opt,
-+	.print_help	=3D ipvlan_print_help,
-+};
+The change to sh_eth_set_ringparam() is fine.  But I don't think it is
+correct for sh_eth_set_settings() to fail when the interface is down.
+It should behave like sh_eth_set_ringparam() - validate and remember the
+requested settings, so they can be applied when the interface is brought
+up.
+
+When drivers have their own rules about when certain configuration
+operations can and can't be used, we end up with messes like WEXT.
+
+Ben.
+
 --=20
-2.1.0.rc2.206.gedb03e5
+Ben Hutchings
+Absolutum obsoletum. (If it works, it's out of date.) - Stafford Beer
+
+--=-iLgGtmfsmCOT63+uXC6h
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIUAwUAVHKV0ue/yOyVhhEJAQpcYw/4zt192+cfaaMCoYcT29KwmzYAUPaR69zF
+iSlqFIn2eRF16zm+eJFkgg18c4tF6b3rg8oA2vkBaSCBqqxgHk98jgPG+6TQCQie
+VCc9aLsH6KOC5Xsb5SOy+QTA3N8j4N6VGqxGgtIikZN2CQVR60r0kx5k27p2gz+O
+HQgZjZ0a3YQF+Yt38A5vmDkhlsyi0Yc0rpMvmJDaJ34E+UCmgKbPnUlQrChUs5TK
+p3FqSIZpqktxqp2EbtfJbMDrwKxv4BIrYmb3a3eaBJp5OAuIJ3suOm7duDB3DAFK
+O1RnNlCNsY05OfxHypvhxx6BiirgjxY7FqsoFZNuBlOyfx6R7HpuNALWzo3q8gIT
+IA7lfqEyTFwiAW0FG02kGzmOhOku7XCFbDIt/gU3Eutf1mOTpgmzSfgps/y7MyOA
+LrFv6lbF0gUivm4tFvGr+rpooLLuM98V9qrZaZVcYYWli3M0hdo8HQYUjs3DdXoU
+hyxtIWzkqcoaEIkezmPTSvqy+GhKwZ8Cy/hWvZ8wiEe0H5HheD5d6nHNRWGyZrUt
+cXXdXF1miIXyxacVNh7bY3CeQ2zKuczloquV5oFCS0mV0anmlcYokSB757Cr+mvq
+hhAktE+NV0r53azvUeKHdIhRXeEe1vDTMskxkideFkk3UaX6IaUJ4oyM252gFPBY
+grSIZxTA7g==
+=ZBjM
+-----END PGP SIGNATURE-----
+
+--=-iLgGtmfsmCOT63+uXC6h--
