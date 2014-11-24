@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v3 25/41] vhost/net: force len for TX to host endian
-Date: Mon, 24 Nov 2014 13:54:24 +0200
-Message-ID: <1416829787-14252-26-git-send-email-mst@redhat.com>
+Subject: [PATCH v3 28/41] vhost/net: virtio 1.0 byte swap
+Date: Mon, 24 Nov 2014 13:54:36 +0200
+Message-ID: <1416829787-14252-29-git-send-email-mst@redhat.com>
 References: <1416829787-14252-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -16,38 +16,50 @@ In-Reply-To: <1416829787-14252-1-git-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We use native endian-ness internally but never
-expose it to guest.
-
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/vhost/net.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/vhost/net.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 8dae2f7..dce5c58 100644
+index dce5c58..cae22f9 100644
 --- a/drivers/vhost/net.c
 +++ b/drivers/vhost/net.c
-@@ -48,15 +48,15 @@ MODULE_PARM_DESC(experimental_zcopytx, "Enable Zero Copy TX;"
-  * status internally; used for zerocopy tx only.
-  */
- /* Lower device DMA failed */
--#define VHOST_DMA_FAILED_LEN	3
-+#define VHOST_DMA_FAILED_LEN	((__force __virtio32)3)
- /* Lower device DMA done */
--#define VHOST_DMA_DONE_LEN	2
-+#define VHOST_DMA_DONE_LEN	((__force __virtio32)2)
- /* Lower device DMA in progress */
--#define VHOST_DMA_IN_PROGRESS	1
-+#define VHOST_DMA_IN_PROGRESS	((__force __virtio32)1)
- /* Buffer unused */
--#define VHOST_DMA_CLEAR_LEN	0
-+#define VHOST_DMA_CLEAR_LEN	((__force __virtio32)0)
+@@ -416,7 +416,7 @@ static void handle_tx(struct vhost_net *net)
+ 			struct ubuf_info *ubuf;
+ 			ubuf = nvq->ubuf_info + nvq->upend_idx;
  
--#define VHOST_DMA_IS_DONE(len) ((len) >= VHOST_DMA_DONE_LEN)
-+#define VHOST_DMA_IS_DONE(len) ((__force u32)(len) >= (__force u32)VHOST_DMA_DONE_LEN)
+-			vq->heads[nvq->upend_idx].id = head;
++			vq->heads[nvq->upend_idx].id = cpu_to_vhost32(vq, head);
+ 			vq->heads[nvq->upend_idx].len = VHOST_DMA_IN_PROGRESS;
+ 			ubuf->callback = vhost_zerocopy_callback;
+ 			ubuf->ctx = nvq->ubufs;
+@@ -500,6 +500,7 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
+ 	int headcount = 0;
+ 	unsigned d;
+ 	int r, nlogs = 0;
++	u32 len;
  
- enum {
- 	VHOST_NET_FEATURES = VHOST_FEATURES |
+ 	while (datalen > 0 && headcount < quota) {
+ 		if (unlikely(seg >= UIO_MAXIOV)) {
+@@ -527,13 +528,14 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
+ 			nlogs += *log_num;
+ 			log += *log_num;
+ 		}
+-		heads[headcount].id = d;
+-		heads[headcount].len = iov_length(vq->iov + seg, in);
+-		datalen -= heads[headcount].len;
++		heads[headcount].id = cpu_to_vhost32(vq, d);
++		len = iov_length(vq->iov + seg, in);
++		heads[headcount].len = cpu_to_vhost32(vq, len);
++		datalen -= len;
+ 		++headcount;
+ 		seg += in;
+ 	}
+-	heads[headcount - 1].len += datalen;
++	heads[headcount - 1].len = cpu_to_vhost32(vq, len - datalen);
+ 	*iovcount = seg;
+ 	if (unlikely(log))
+ 		*log_num = nlogs;
 -- 
 MST
