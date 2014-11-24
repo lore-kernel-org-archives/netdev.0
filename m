@@ -1,31 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tipc: add tipc_netlink.h to uapi Kbuild
-Date: Mon, 24 Nov 2014 16:25:33 -0500 (EST)
-Message-ID: <20141124.162533.281393904431633682.davem@davemloft.net>
-References: <1416835494-7655-1-git-send-email-richard.alpe@ericsson.com>
+Subject: Re: [PATCH] net/smsc911x: Add minimal runtime PM support
+Date: Mon, 24 Nov 2014 16:42:04 -0500 (EST)
+Message-ID: <20141124.164204.382324382412456341.davem@davemloft.net>
+References: <1416855497-6479-1-git-send-email-geert+renesas@glider.be>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: richard.alpe@ericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53882 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750729AbaKXVZf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 16:25:35 -0500
-In-Reply-To: <1416835494-7655-1-git-send-email-richard.alpe@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: steve.glendinning@shawell.net, netdev@vger.kernel.org,
+	linux-pm@vger.kernel.org, linux-sh@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geert+renesas@glider.be
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <1416855497-6479-1-git-send-email-geert+renesas@glider.be>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: <richard.alpe@ericsson.com>
-Date: Mon, 24 Nov 2014 14:24:54 +0100
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Date: Mon, 24 Nov 2014 19:58:17 +0100
 
-> From: Richard Alpe <richard.alpe@ericsson.com>
+> Add minimal runtime PM support (enable on probe, disable on remove), to
+> ensure proper operation with a parent device that uses runtime PM.
 > 
-> tipc_netlink.h is the user-space header for the new netlink api. It
-> was accidentally left out of the uapi Kbuild list when the api was
-> added.
+> This is needed on systems where the external bus controller module of
+> the SoC is contained in a PM domain and/or has a gateable functional
+> clock. In such cases, before accessing any device connected to the
+> external bus, the PM domain must be powered up, and/or the functional
+> clock must be enabled, which is typically handled through runtime PM by
+> the bus controller driver.
 > 
-> Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
+> An example of this is the kzm9g development board, where an smsc9220
+> Ethernet controller is connected to the Bus State Controller (BSC) of a
+> Renesas sh73a0 SoC.
+> 
+> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
 
-Applied, thanks.
+Applied to net-next, thanks!
