@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] af_packet: fix sparse warning
-Date: Mon, 24 Nov 2014 16:16:03 -0500 (EST)
-Message-ID: <20141124.161603.798932139185654908.davem@davemloft.net>
-References: <1416828696-3989-1-git-send-email-mst@redhat.com>
+Subject: Re: [PATCH net-next] rhashtable: Check for count mismatch while
+ iterating in selftest
+Date: Mon, 24 Nov 2014 16:17:44 -0500 (EST)
+Message-ID: <20141124.161744.578588494163013973.davem@davemloft.net>
+References: <20668a4b2ff01138f5b1d5b3b59650790e504c00.1416828807.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, dborkman@redhat.com,
-	edumazet@google.com, atzm@stratosphere.co.jp,
-	hannes@stressinduktion.org, therbert@google.com,
-	netdev@vger.kernel.org
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1416828696-3989-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: tgraf@suug.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53798 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750736AbaKXVRq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 16:17:46 -0500
+In-Reply-To: <20668a4b2ff01138f5b1d5b3b59650790e504c00.1416828807.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Mon, 24 Nov 2014 13:32:16 +0200
+From: Thomas Graf <tgraf@suug.ch>
+Date: Mon, 24 Nov 2014 12:37:58 +0100
 
-> af_packet produces lots of these:
-> 	net/packet/af_packet.c:384:39: warning: incorrect type in return expression (different modifiers)
-> 	net/packet/af_packet.c:384:39:    expected struct page [pure] *
-> 	net/packet/af_packet.c:384:39:    got struct page *
+> Verify whether both the lock and RCU protected iterators see all
+> test entries before and after expanding and shrinking has been
+> performed. Also verify whether the number of entries in the hashtable
+> remains stable during expansion and shrinking.
 > 
-> this seems to be because sparse does not realize that _pure
-> refers to function, not the returned pointer.
-> 
-> Tweak code slightly to avoid the warning.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Applied, please report the sparse bug if you haven't already.
-
-Thanks.
+Applied, thanks Thomas.
