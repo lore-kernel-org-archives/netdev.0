@@ -1,73 +1,53 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [PATCH v4 0/7] kernel tinification: optionally compile out splice family of syscalls (splice, vmsplice, tee and sendfile)
-Date: Tue, 25 Nov 2014 14:01:15 -0600
-Message-ID: <87y4qz82yc.fsf@x220.int.ebiederm.org>
-References: <20141125185310.GA24891@cloud>
-	<20141125.140441.401150380839514113.davem@davemloft.net>
-	<87egsr9jkz.fsf@x220.int.ebiederm.org>
-	<20141125.142741.1620673255148724338.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, pieter-qeJ+1H9vRZbz+pZb47iToQ@public.gmane.org,
-	alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org,
-	ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, beber-2YnHqweIUXrk1uMJSBkQmQ@public.gmane.org,
-	catalina.mocanu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org,
-	fuse-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org,
-	hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, iulia.manda21-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, JBeulich-IBi9RG/b67k@public.gmane.org,
-	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	mcgrof-IBi9RG/b67k@public.gmane.org, mattst88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, mgorman-l3A5Bk7waGM@public.gmane.org,
-	mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, miklos-sUDqSbJrdHQHWmgEVkV9KA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Paul.Durrant-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org,
-	paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, pefoley2-lY0TAiDIAFlBDgjK7y7TUQ@public.gmane.org, tgraf-G/eBtMaohhA@public.gmane.org,
-	therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org,
-	willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, xiaoguangrong-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	zhe
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20141125.142741.1620673255148724338.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (David
-	Miller's message of "Tue, 25 Nov 2014 14:27:41 -0500 (EST)")
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH 1/2 V2 3.18] rtlwifi: rtl8821ae: Fix 5G detection problem
+Date: Tue, 25 Nov 2014 14:02:07 -0600
+Message-ID: <1416945727-10743-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Valerio Passini <valerio.passini-vbqOIlEVYMdeoWH0uzbU5w@public.gmane.org>
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
+The changes associated with moving this driver from staging to the regular
+tree missed one section setting the allowable rates for the 5GHz band.
 
-> From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-> Date: Tue, 25 Nov 2014 13:16:44 -0600
->
->> David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
->> 
->>> From: josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org
->>> Date: Tue, 25 Nov 2014 10:53:10 -0800
->>>
->>>> It's not a "slippery slope"; it's been our standard practice for ages.
->>>
->>> We've never put an entire class of generic system calls behind
->>> a config option.
->> 
->> CONFIG_SYSVIPC has been in the kernel as long as I can remember.
->> 
->> I seem to remember a plan to remove that code once userspace had
->> finished migrating to more unixy interfaces to ipc.  But in 20 years
->> that migration does does not seem to have finished, or even look
->> like it ever will.
->> 
->> But if we started a slippery slope it was long long ago.
->
-> Fair enough.
->
-> Would be amusing if these tiny systems have it enabled.
+This patch is needed to fix the regression reported in Bug #88811
+(https://bugzilla.kernel.org/show_bug.cgi?id=88811).
 
-It would.
+Reported-by: Valerio Passini <valerio.passini-vbqOIlEVYMdeoWH0uzbU5w@public.gmane.org>
+Tested-by: Valerio Passini <valerio.passini-vbqOIlEVYMdeoWH0uzbU5w@public.gmane.org>
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Cc: Valerio Passini <valerio.passini-vbqOIlEVYMdeoWH0uzbU5w@public.gmane.org>
+---
 
-In practice when I was playing in that space I had a hard time
-justifying CONFIG_NET and CONFIG_INET.  Despite writing a network
-bootloader to use with kexec.
+V2 - removed extra parentheses as suggested by John Linville.
 
-Eric
+---
+ drivers/net/wireless/rtlwifi/rtl8821ae/hw.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
+index 310d316..18f34f7 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
+@@ -3672,8 +3672,9 @@ static void rtl8821ae_update_hal_rate_mask(struct ieee80211_hw *hw,
+ 		mac->opmode == NL80211_IFTYPE_ADHOC)
+ 		macid = sta->aid + 1;
+ 	if (wirelessmode == WIRELESS_MODE_N_5G ||
+-	    wirelessmode == WIRELESS_MODE_AC_5G)
+-		ratr_bitmap = sta->supp_rates[NL80211_BAND_5GHZ];
++	    wirelessmode == WIRELESS_MODE_AC_5G ||
++	    wirelessmode == WIRELESS_MODE_A)
++		ratr_bitmap = sta->supp_rates[NL80211_BAND_5GHZ]<<4;
+ 	else
+ 		ratr_bitmap = sta->supp_rates[NL80211_BAND_2GHZ];
+ 
+-- 
+2.1.2
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
