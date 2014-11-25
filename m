@@ -1,7 +1,7 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH v2 05/17] switch drivers/net/tun.c to ->read_iter()
-Date: Tue, 25 Nov 2014 14:02:19 +0000
-Message-ID: <1416924151-28698-5-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH v2 06/17] switch macvtap to ->read_iter()
+Date: Tue, 25 Nov 2014 14:02:20 +0000
+Message-ID: <1416924151-28698-6-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20141125024018.GH7996@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
@@ -14,109 +14,124 @@ From: Al Viro <viro@zeniv.linux.org.uk>
 
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- drivers/net/tun.c |   40 +++++++++++++++-------------------------
- 1 file changed, 15 insertions(+), 25 deletions(-)
+ drivers/net/macvtap.c |   61 ++++++++++++++++++++++---------------------------
+ 1 file changed, 27 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index ac53a73..405dfdf 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1339,18 +1339,17 @@ done:
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 42a80d3..8f80045 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -831,64 +831,55 @@ done:
  }
  
- static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
--			   const struct iovec *iv, unsigned long segs,
--			   ssize_t len, int noblock)
-+			   struct iov_iter *to,
-+			   int noblock)
+ static ssize_t macvtap_do_read(struct macvtap_queue *q,
+-			       const struct iovec *iv, unsigned long segs,
+-			       unsigned long len,
++			       struct iov_iter *to,
+ 			       int noblock)
  {
+ 	DEFINE_WAIT(wait);
  	struct sk_buff *skb;
--	ssize_t ret = 0;
-+	ssize_t ret;
- 	int peeked, err, off = 0;
+ 	ssize_t ret = 0;
 -	struct iov_iter iter;
  
- 	tun_debug(KERN_INFO, tun, "tun_do_read\n");
- 
--	if (!len)
--		return ret;
+-	while (len) {
 +	if (!iov_iter_count(to))
 +		return 0;
++
++	while (1) {
+ 		if (!noblock)
+ 			prepare_to_wait(sk_sleep(&q->sk), &wait,
+ 					TASK_INTERRUPTIBLE);
  
- 	if (tun->dev->reg_state != NETREG_REGISTERED)
- 		return -EIO;
-@@ -1359,37 +1358,27 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
- 	skb = __skb_recv_datagram(tfile->socket.sk, noblock ? MSG_DONTWAIT : 0,
- 				  &peeked, &off, &err);
- 	if (!skb)
--		return ret;
-+		return 0;
- 
--	iov_iter_init(&iter, READ, iv, segs, len);
--	ret = tun_put_user(tun, tfile, skb, &iter);
-+	ret = tun_put_user(tun, tfile, skb, to);
- 	kfree_skb(skb);
- 
+ 		/* Read frames from the queue */
+ 		skb = skb_dequeue(&q->sk.sk_receive_queue);
+-		if (!skb) {
+-			if (noblock) {
+-				ret = -EAGAIN;
+-				break;
+-			}
+-			if (signal_pending(current)) {
+-				ret = -ERESTARTSYS;
+-				break;
+-			}
+-			/* Nothing to read, let's sleep */
+-			schedule();
+-			continue;
++		if (skb)
++			break;
++		if (noblock) {
++			ret = -EAGAIN;
++			break;
+ 		}
+-		iov_iter_init(&iter, READ, iv, segs, len);
+-		ret = macvtap_put_user(q, skb, &iter);
++		if (signal_pending(current)) {
++			ret = -ERESTARTSYS;
++			break;
++		}
++		/* Nothing to read, let's sleep */
++		schedule();
++	}
++	if (skb) {
++		ret = macvtap_put_user(q, skb, to);
+ 		kfree_skb(skb);
+-		break;
+ 	}
+-
+ 	if (!noblock)
+ 		finish_wait(sk_sleep(&q->sk), &wait);
  	return ret;
  }
  
--static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
--			    unsigned long count, loff_t pos)
-+static ssize_t tun_chr_read_iter(struct kiocb *iocb, struct iov_iter *to)
+-static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
+-				unsigned long count, loff_t pos)
++static ssize_t macvtap_read_iter(struct kiocb *iocb, struct iov_iter *to)
  {
  	struct file *file = iocb->ki_filp;
- 	struct tun_file *tfile = file->private_data;
- 	struct tun_struct *tun = __tun_get(tfile);
--	ssize_t len, ret;
+ 	struct macvtap_queue *q = file->private_data;
+-	ssize_t len, ret = 0;
 +	ssize_t len = iov_iter_count(to), ret;
  
- 	if (!tun)
- 		return -EBADFD;
 -	len = iov_length(iv, count);
 -	if (len < 0) {
 -		ret = -EINVAL;
 -		goto out;
 -	}
 -
--	ret = tun_do_read(tun, tfile, iv, count, len,
--			  file->f_flags & O_NONBLOCK);
-+	ret = tun_do_read(tun, tfile, to, file->f_flags & O_NONBLOCK);
+-	ret = macvtap_do_read(q, iv, count, len, file->f_flags & O_NONBLOCK);
++	ret = macvtap_do_read(q, to, file->f_flags & O_NONBLOCK);
  	ret = min_t(ssize_t, ret, len);
  	if (ret > 0)
  		iocb->ki_pos = ret;
 -out:
- 	tun_put(tun);
  	return ret;
  }
-@@ -1471,6 +1460,7 @@ static int tun_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 
+@@ -1089,7 +1080,8 @@ static const struct file_operations macvtap_fops = {
+ 	.owner		= THIS_MODULE,
+ 	.open		= macvtap_open,
+ 	.release	= macvtap_release,
+-	.aio_read	= macvtap_aio_read,
++	.read		= new_sync_read,
++	.read_iter	= macvtap_read_iter,
+ 	.aio_write	= macvtap_aio_write,
+ 	.poll		= macvtap_poll,
+ 	.llseek		= no_llseek,
+@@ -1112,11 +1104,12 @@ static int macvtap_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 			   int flags)
  {
- 	struct tun_file *tfile = container_of(sock, struct tun_file, socket);
- 	struct tun_struct *tun = __tun_get(tfile);
+ 	struct macvtap_queue *q = container_of(sock, struct macvtap_queue, sock);
 +	struct iov_iter to;
  	int ret;
- 
- 	if (!tun)
-@@ -1485,8 +1475,8 @@ static int tun_recvmsg(struct kiocb *iocb, struct socket *sock,
- 					 SOL_PACKET, TUN_TX_TIMESTAMP);
- 		goto out;
- 	}
--	ret = tun_do_read(tun, tfile, m->msg_iov, m->msg_iovlen, total_len,
+ 	if (flags & ~(MSG_DONTWAIT|MSG_TRUNC))
+ 		return -EINVAL;
+-	ret = macvtap_do_read(q, m->msg_iov, m->msg_iovlen, total_len,
 -			  flags & MSG_DONTWAIT);
 +	iov_iter_init(&to, READ, m->msg_iov, m->msg_iovlen, total_len);
-+	ret = tun_do_read(tun, tfile, &to, flags & MSG_DONTWAIT);
++	ret = macvtap_do_read(q, &to, flags & MSG_DONTWAIT);
  	if (ret > total_len) {
  		m->msg_flags |= MSG_TRUNC;
  		ret = flags & MSG_TRUNC ? ret : total_len;
-@@ -2242,8 +2232,8 @@ static int tun_chr_show_fdinfo(struct seq_file *m, struct file *f)
- static const struct file_operations tun_fops = {
- 	.owner	= THIS_MODULE,
- 	.llseek = no_llseek,
--	.read  = do_sync_read,
--	.aio_read  = tun_chr_aio_read,
-+	.read  = new_sync_read,
-+	.read_iter  = tun_chr_read_iter,
- 	.write = do_sync_write,
- 	.aio_write = tun_chr_aio_write,
- 	.poll	= tun_chr_poll,
 -- 
 1.7.10.4
