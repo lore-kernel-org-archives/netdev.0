@@ -1,63 +1,58 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [patch net-next v3 04/17] net: introduce generic switch devices
- support
-Date: Tue, 25 Nov 2014 21:54:02 +0000
-Message-ID: <20141125215402.GA3912@casper.infradead.org>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
- <1416911328-10979-5-git-send-email-jiri@resnulli.us>
- <5474A567.4040401@mojatatu.com>
- <20141125164954.GJ1971@nanopsycho.orion>
- <5474B795.3080204@mojatatu.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH v2] net: Hyper-V: Deletion of an unnecessary check before
+ the function call "vfree"
+Date: Tue, 25 Nov 2014 22:55:34 +0100
+Message-ID: <5474FAD6.4060704@users.sourceforge.net>
+References: <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>	<5317A59D.4@users.sourceforge.net>	<546DF9D7.6080801@users.sourceforge.net>
+ <20141121.151503.1986113223309494197.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
-	pshelar@nicira.com, azhou@nicira.com, ben@decadent.org.uk,
-	stephen@networkplumber.org, jeffrey.t.kirsher@intel.com,
-	vyasevic@redhat.com, xiyou.wangcong@gmail.com,
-	john.r.fastabend@intel.com, edumazet@google.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:56553 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750913AbaKYVyJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 16:54:09 -0500
-Content-Disposition: inline
-In-Reply-To: <5474B795.3080204@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Julia Lawall <julia.lawall@lip6.fr>, Haiyang Zhang <haiyangz@microsoft.com>,
+ kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, devel@linuxdriverproject.org,
+ netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20141121.151503.1986113223309494197.davem@davemloft.net>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On 11/25/14 at 12:08pm, Jamal Hadi Salim wrote:
-> On 11/25/14 11:49, Jiri Pirko wrote:
-> 
-> >
-> >What does it do? "L3 switching"?
-> >
-> 
-> Absolutely not - that is too easy;-> Why not just a mellanox
-> chip for that? (Testing if Aviad is awake). But flows and associated
-> constructs apply.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Tue, 25 Nov 2014 22:33:45 +0100
 
-It would definitely help if you could expose some more details on the
-"some network processor" you have. We're all very eager ;-)
+The vfree() function performs also input parameter validation.
+Thus the test around the call is not needed.
 
-> I think this interface is usable for example to offload to user space
-> ala DPDK and friends just as it would be for ASICs or standard NIC
-> offload (which we already have with fdb offload).
-> I dont know what a good name is - but switch looks incorrect.
+This issue was detected by using the Coccinelle software.
 
-I'm with Jiri but I agree it's not a perfect fit. I doubt there is but
-if you can come up with something that fits better I'm open to it.
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-I considered "dataplane" or "dp" for a bit but it's quite generic as
-well.
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 6b46311..6fc834e 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -561,9 +561,7 @@ int netvsc_device_remove(struct hv_device *device)
+ 	vmbus_close(device->channel);
+ 
+ 	/* Release all resources */
+-	if (net_device->sub_cb_buf)
+-		vfree(net_device->sub_cb_buf);
+-
++	vfree(net_device->sub_cb_buf);
+ 	free_netvsc_device(net_device);
+ 	return 0;
+ }
+-- 
+2.1.3
