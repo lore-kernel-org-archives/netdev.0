@@ -1,87 +1,66 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH] net/mlx4: Fix EEH recovery failure
-Date: Wed, 26 Nov 2014 00:00:31 +0200
-Message-ID: <CAJ3xEMi9G+tFsaANwndhmOZ78gt79WZ35Oq4CiFOm1WqxBXyqQ@mail.gmail.com>
-References: <CAJ3xEMg_bWmDGPHUSk6HzYD7N7CBU_V6J1ovft2rEigP-DJupA@mail.gmail.com>
-	<20141124215555.GA6970@shangw>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next v3 16/17] bridge: add brport flags to dflt
+ bridge_getlink
+Date: Tue, 25 Nov 2014 22:07:53 +0000
+Message-ID: <20141125220753.GD3912@casper.infradead.org>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
+ <1416911328-10979-17-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Amir Vadai <amirv@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	Wei Yang <weiyang@linux.vnet.ibm.com>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>
-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f170.google.com ([209.85.214.170]:62032 "EHLO
-	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750946AbaKYWAc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 17:00:32 -0500
-Received: by mail-ob0-f170.google.com with SMTP id wp18so1239079obc.1
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 14:00:32 -0800 (PST)
-In-Reply-To: <20141124215555.GA6970@shangw>
+Received: from casper.infradead.org ([85.118.1.10]:56674 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751563AbaKYWH5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 17:07:57 -0500
+Content-Disposition: inline
+In-Reply-To: <1416911328-10979-17-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 24, 2014 at 11:55 PM, Gavin Shan <gwshan@linux.vnet.ibm.com> wrote:
-> On Mon, Nov 24, 2014 at 11:17:55PM +0200, Or Gerlitz wrote:
->>On Sat, Nov 22, 2014 at 12:56 PM, Gavin Shan <gwshan@linux.vnet.ibm.com> wrote:
->>> The patch fixes couple of EEH recovery failures on PPC PowerNV
->>> platform:
->>
->>>    * Don't clear struct mlx4_priv instance in mlx4_pci_err_detected().
->>>      Otherwise, __mlx4_init_one() runs into kernel crash because
->>>      of dereferencing to NULL pointer.
->>
->>I don't see this change in the patch, I see no-clearing of mlx4_priv
->>in __mlx4_unload_one - please clarify, also is this patch
->>based/targeted on the net or net-next tree?
->>
->
-> Yes, It would be: Don't clear struct mlx4_priv instance in mlx4_unload_one(),
-> which is called by mlx4_pci_err_detected().
+On 11/25/14 at 11:28am, Jiri Pirko wrote:
+> From: Scott Feldman <sfeldma@gmail.com>
+> 
+> To allow brport device to return current brport flags set on port.  Add
+> returned flags to nested IFLA_PROTINFO netlink msg built in dflt getlink.
+> With this change, netlink msg returned for bridge_getlink contains the port's
+> offloaded flag settings (the port's SELF settings).
+> 
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
+Minor nit below. Otherwise:
 
-But the struct mlx4_priv instance is cleared in mlx4_unload_one() for
-a reason, I suspect that you might made the EEH callback to work, but
-broke something else... e.g did you made sure that kexec works after
-your changes as it did before?
+Acked-by: Thomas Graf <tgraf@suug.ch>
 
-> It's based on 3.18.rc5, where I had couple of EEH fixes on top of it.
-> When testing EEH with it, I hit the issue.
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index bd5e783..91e5368 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -2687,12 +2687,22 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
+>  	return skb->len;
+>  }
+>  
+> +static int brport_nla_put_flag(struct sk_buff *skb, u32 flags, u32 mask,
+> +			       unsigned int attrnum, unsigned int flag)
+> +{
+> +	if (mask & flag)
+> +		return nla_put_u8(skb, attrnum, !!(flags & flag));
 
->>> With the patch applied, EEH recovery for mlx4 adapter succeeds on PPC
->>> PowerNV platform.
->>>
->>>    # lspci
->>>    0003:0f:00.0 Network controller: Mellanox Technologies \
->>>    MT27500 Family [ConnectX-3]
->>>
->>> Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
->>> ---
->>>  drivers/net/ethernet/mellanox/mlx4/main.c | 3 ++-
->>>  1 file changed, 2 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
->>> index 90de6e1..e118ac9 100644
->>> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
->>> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
->>> @@ -2809,7 +2809,6 @@ static void mlx4_unload_one(struct pci_dev *pdev)
->>>         kfree(dev->caps.qp1_proxy);
->>>         kfree(dev->dev_vfs);
->>>
->>> -       memset(priv, 0, sizeof(*priv));
->>>         priv->pci_dev_data = pci_dev_data;
->>>         priv->removed = 1;
->>>  }
->>> @@ -2900,6 +2899,8 @@ static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
->>>                                               pci_channel_state_t state)
->>>  {
->>>         mlx4_unload_one(pdev);
->>> +       pci_release_regions(pdev);
->>> +       pci_disable_device(pdev);
->>>
->>>         return state == pci_channel_io_perm_failure ?
->>>                 PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_NEED_RESET;
->>> --
+nla_put_flag()?
