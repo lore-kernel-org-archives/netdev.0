@@ -1,14 +1,14 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH v4 0/7] kernel tinification: optionally compile out
  splice family of syscalls (splice, vmsplice, tee and sendfile)
-Date: Tue, 25 Nov 2014 10:10:32 -0800
-Message-ID: <20141125181032.GJ5050@linux.vnet.ibm.com>
-References: <1416870079-15254-1-git-send-email-pieter@boesman.nl>
- <5474ABB6.3030400@infradead.org>
- <20141125.121305.2094097848188324942.davem@davemloft.net>
-Reply-To: paulmck@linux.vnet.ibm.com
+Date: Tue, 25 Nov 2014 13:24:45 -0500 (EST)
+Message-ID: <20141125.132445.152609149279137368.davem@davemloft.net>
+References: <5474ABB6.3030400@infradead.org>
+	<20141125.121305.2094097848188324942.davem@davemloft.net>
+	<20141125181032.GJ5050@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: rdunlap@infradead.org, pieter@boesman.nl, josh@joshtriplett.org,
 	alexander.h.duyck@intel.com, viro@zeniv.linux.org.uk,
 	ast@plumgrid.com, akpm@linux-foundation.org, beber@meleeweb.net,
@@ -25,35 +25,25 @@ Cc: rdunlap@infradead.org, pieter@boesman.nl, josh@joshtriplett.org,
 	tgraf@suug.ch, therbert@google.com,
 	trond.myklebust@primarydata.com, willemb@google.com,
 	xiaoguangrong@linux.vnet.ibm.com, zhenglong
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141125.121305.2094097848188324942.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+To: paulmck@linux.vnet.ibm.com
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20141125181032.GJ5050@linux.vnet.ibm.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 25, 2014 at 12:13:05PM -0500, David Miller wrote:
-> From: Randy Dunlap <rdunlap@infradead.org>
-> Date: Tue, 25 Nov 2014 08:17:58 -0800
-> 
-> > Is the splice family of syscalls the only one that tiny has identified
-> > for optional building or can we expect similar treatment for other
-> > syscalls?
-> > 
-> > Why will many embedded systems not need these syscalls?  You know
-> > exactly what apps they run and you are positive that those apps do
-> > not use splice?
-> 
-> I think starting to compile out system calls is a very slippery
-> slope we should not begin the journey down.
-> 
-> This changes the forward facing interface to userspace.
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Date: Tue, 25 Nov 2014 10:10:32 -0800
 
-I certainly sympathize with this concern, given the importance of software
-portability.  However, the tiny-hardware alternative appears ot some sort
-of special-purpose embedded OS, which most definitely will suffer from
-software compatibility issues.  I guess that the good news is that much
-of the tiny hardware that used to be 8 or 16 bits is now 32 bits, which
-means that it has at least some chance of running some form of Linux.  ;-)
+> I certainly sympathize with this concern, given the importance of software
+> portability.  However, the tiny-hardware alternative appears ot some sort
+> of special-purpose embedded OS, which most definitely will suffer from
+> software compatibility issues.  I guess that the good news is that much
+> of the tiny hardware that used to be 8 or 16 bits is now 32 bits, which
+> means that it has at least some chance of running some form of Linux.  ;-)
 
-							Thanx, Paul
+And then if some fundamental part of userland (glibc, klibc, etc.) finds
+a useful way to use splice for a fundamental operation, we're back to
+square one.
+
+I simply do not agree with modifying the user facing interface, especially
+one with decades of precedence.
