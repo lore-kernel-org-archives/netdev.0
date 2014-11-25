@@ -1,68 +1,35 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [patch net-next v3 07/17] rocker: introduce rocker switch driver
-Date: Tue, 25 Nov 2014 12:51:16 -0500
-Message-ID: <20141125175116.GN27416@gospo.rtplab.test>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
- <1416911328-10979-8-git-send-email-jiri@resnulli.us>
- <5474A705.5070007@mojatatu.com>
- <20141125.121019.465267851168750694.davem@davemloft.net>
- <20141125171514.GN1971@nanopsycho.orion>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] gre: Set inner mac header in gro complete
+Date: Tue, 25 Nov 2014 09:57:21 -0800
+Message-ID: <1416938241.29427.37.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1416936611-22702-1-git-send-email-therbert@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jhs@mojatatu.com,
-	netdev@vger.kernel.org, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, bcrl@kvack.org
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, linux@stwm.de, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:40185 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750816AbaKYRv3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 12:51:29 -0500
-Content-Disposition: inline
-In-Reply-To: <20141125171514.GN1971@nanopsycho.orion>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:41039 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751328AbaKYR5Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 12:57:24 -0500
+Received: by mail-ie0-f175.google.com with SMTP id at20so1035391iec.20
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 09:57:23 -0800 (PST)
+In-Reply-To: <1416936611-22702-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 25, 2014 at 06:15:14PM +0100, Jiri Pirko wrote:
-> Tue, Nov 25, 2014 at 06:10:19PM CET, davem@davemloft.net wrote:
-> >From: Jamal Hadi Salim <jhs@mojatatu.com>
-> >Date: Tue, 25 Nov 2014 10:57:57 -0500
-> >
-> >> On 11/25/14 05:28, Jiri Pirko wrote:
-> >>> This patch introduces the first driver to benefit from the switchdev
-> >>> infrastructure and to implement newly introduced switch ndos. This is
-> >>> a
-> >>> driver for emulated switch chip implemented in qemu:
-> >>> https://github.com/sfeldma/qemu-rocker/
-> >>>
-> >>> This patch is a result of joint work with Scott Feldman.
-> >>>
-> >>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-> >>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> >>> Reviewed-by: Thomas Graf <tgraf@suug.ch>
-> >>> Reviewed-by: John Fastabend <john.r.fastabend@intel.com>
-> >> 
-> >> Users should be a different patch set for easier review.
-> >> I think you should separate rocker to be another patch series.
-> >
-> >I want to see how the new infrastructure is used in the same patch
-> >series as the changes that add that infrastructure.
+On Tue, 2014-11-25 at 09:30 -0800, Tom Herbert wrote:
+> Set the inner mac header to point to the GRE payload when
+> doing GRO. This is needed if we proceed to send the packet
+> through GRE GSO which now uses the inner mac header instead
+> of inner network header to determine the length of encapsulation
+> headers.
 > 
-> Yep. For easier review, I will move the rocker patches to the tail and
-> leave the other ones on head.
+> Reported-by: Wolfgang Walter <linux@stwm.de>
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
 
-I appreciate that.  I do plan to *try* and review those, but due to
-their length have not done that.
+Please Tom, add in your bug fixes something to ease backports.
+
+Fixes: 14051f0452a2 ("gre: Use inner mac length when computing tunnel length")
