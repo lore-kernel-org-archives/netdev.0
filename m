@@ -1,50 +1,72 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 1/2 3.18] rtlwifi: rtl8821ae: Fix 5G detection problem
-Date: Tue, 25 Nov 2014 10:32:06 -0600
-Message-ID: <1416933127-25912-2-git-send-email-Larry.Finger@lwfinger.net>
-References: <1416933127-25912-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, Valerio Passini <valerio.passini@unicam.it>
-To: linville@tuxdriver.com
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [patch net-next v3 02/17] net: make vid as a parameter for ndo_fdb_add/ndo_fdb_del
+Date: Tue, 25 Nov 2014 08:33:23 -0800
+Message-ID: <5474AF53.8030709@intel.com>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us> <1416911328-10979-3-git-send-email-jiri@resnulli.us> <5474A25C.3080505@mojatatu.com> <5474AC18.8040809@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, edumazet@google.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, linville@tuxdriver.com, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com,
+	simon.horman@netronome.com, alexander.h.duyck@redhat.com,
+	john.ronciak@intel.com, mleitner@redhat.com, shrijeet@gmail.com,
+	gospo@cumulusnetworks.com, bcrl@kvack.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:36621 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751017AbaKYQcS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 11:32:18 -0500
-In-Reply-To: <1416933127-25912-1-git-send-email-Larry.Finger@lwfinger.net>
+Received: from mga11.intel.com ([192.55.52.93]:43007 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751208AbaKYQeW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Nov 2014 11:34:22 -0500
+In-Reply-To: <5474AC18.8040809@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The changes associated with moving this driver from staging to the regular
-tree missed one section setting the allowable rates for the 5GHz band.
+On 11/25/2014 08:19 AM, Roopa Prabhu wrote:
+> On 11/25/14, 7:38 AM, Jamal Hadi Salim wrote:
+>> On 11/25/14 05:28, Jiri Pirko wrote:
+>>> Do the work of parsing NDA_VLAN directly in rtnetlink code, pass simple
+>>> u16 vid to drivers from there.
+>>>
+>>
+>> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+>>
+>> I know this maintains status quo of what is already in the kernel.
+>> But we need to take care of policy (pass it from user space) which
+>> dictates how to proceed on failure. Three possible options:
+>> 1) If something fails just continue with the rest of the transaction.
+>> Return success if at least one thing succeeds.
+>> 2) If something fails stop transaction and return some partial success code
+>> 3) If something fails undo everything that has been done and return failure.
+>>
+>> So two bits from somewhere would be useful to send from userspace->kernel
+>>
+>>
+> 
+> ack to what jamal said.  In the model where sw and hw must be in sync, we need a mechanism to roll back in this approach.
 
-This patch is needed to fix the regression reported in Bug #88811
-(https://bugzilla.kernel.org/show_bug.cgi?id=88811).
+I agree its needed but your already out of sync for some period of time
+why the software/hardware tables are being programmed. There is no global
+sw/hw commit operation.
 
-Reported-by: Valerio Passini <valerio.passini@unicam.it>
-Tested-by: Valerio Passini <valerio.passini@unicam.it>
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Valerio Passini <valerio.passini@unicam.it>
----
- drivers/net/wireless/rtlwifi/rtl8821ae/hw.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+I'm not sure it matters if the time being out of sync is a touch longer
+because we go to user space to fix it. But agreed it can be supported.
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
-index 310d316..18f34f7 100644
---- a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
-@@ -3672,8 +3672,9 @@ static void rtl8821ae_update_hal_rate_mask(struct ieee80211_hw *hw,
- 		mac->opmode == NL80211_IFTYPE_ADHOC)
- 		macid = sta->aid + 1;
- 	if (wirelessmode == WIRELESS_MODE_N_5G ||
--	    wirelessmode == WIRELESS_MODE_AC_5G)
--		ratr_bitmap = sta->supp_rates[NL80211_BAND_5GHZ];
-+	    wirelessmode == WIRELESS_MODE_AC_5G ||
-+	    wirelessmode == WIRELESS_MODE_A)
-+		ratr_bitmap = (sta->supp_rates[NL80211_BAND_5GHZ])<<4;
- 	else
- 		ratr_bitmap = sta->supp_rates[NL80211_BAND_2GHZ];
- 
--- 
-2.1.2
+> 
+> I like that you are using existing ops.
+> To avoid the synchronization problem or to make the rollback easier, You can still use existing ops and move this into the bridge driver.
+> ie call ndo_fdb_add/del and ndo_bridge_setlink/ndo_bridge_getlink on the bridge port from within the bridge driver.
+> 
+> Again, vote for change ndo_bridge_setlink/ndo_bridge_getlink to be renamed to ndo_setlink/getlink for other netdevs. I can submit a patch.
+> 
+> 
