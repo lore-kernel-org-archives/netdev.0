@@ -1,41 +1,134 @@
-From: Ahmed Tamrawi <ahmedtamrawi@gmail.com>
-Subject: Possible memory leak in function (r8712_setrttbl_cmd) not freeing
- pointer (ph2c) on error path
-Date: Tue, 25 Nov 2014 08:24:57 -0600
-Message-ID: <CAFZT-jL+pUyeVJ1c7W-d+gaC_C2ezP2fVK_HpoZuvisyEsjFSQ@mail.gmail.com>
+From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
+Subject: Re: [PATCH 3/4] GMAC: dts: add gmac info for rk3288
+Date: Tue, 25 Nov 2014 15:39:37 +0100
+Message-ID: <1773507.kOcjDCLbcs@diego>
+References: <1416906536-26158-1-git-send-email-roger.chen@rock-chips.com> <547486EB.5080702@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:38441 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750908AbaKYOY6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 09:24:58 -0500
-Received: by mail-ig0-f178.google.com with SMTP id hl2so744142igb.17
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 06:24:57 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
+	kever.yang@rock-chips.com, mark.yao@rock-chips.com,
+	eddie.cai@rock-chips.com
+To: Roger Chen <roger.chen@rock-chips.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <547486EB.5080702@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Bug Report Filed: https://bugzilla.kernel.org/show_bug.cgi?id=88881
-Linux Version [3.17-rc1]
-Configuration: Default configuration for x86
+Am Dienstag, 25. November 2014, 16:40:59 schrieb Sergei Shtylyov:
+> Hello.
+> 
+> On 11/25/2014 12:08 PM, Roger Chen wrote:
+> > add gmac info in rk3288.dtsi for GMAC driver
+> > 
+> > Signed-off-by: Roger Chen <roger.chen@rock-chips.com>
+> > ---
+> > 
+> >   arch/arm/boot/dts/rk3288.dtsi |   59
+> >   +++++++++++++++++++++++++++++++++++++++++ 1 file changed, 59
+> >   insertions(+)
+> > 
+> > diff --git a/arch/arm/boot/dts/rk3288.dtsi b/arch/arm/boot/dts/rk3288.dtsi
+> > index 0f50d5d..949675d 100644
+> > --- a/arch/arm/boot/dts/rk3288.dtsi
+> > +++ b/arch/arm/boot/dts/rk3288.dtsi
+> 
+> [...]
+> 
+> > @@ -490,6 +497,25 @@
+> > 
+> >   		reg = <0xff740000 0x1000>;
+> >   	
+> >   	};
+> > 
+> > +	gmac: eth@ff290000 {
+> 
+>     Please name the node "ethernet@ff290000" to comply with the ePAPR
+> standard.
+> > +		compatible = "rockchip,rk3288-gmac";
+> > +		reg = <0xff290000 0x10000>;
+> > +		interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;  /*irq=59*/
+> > +		interrupt-names = "macirq";
+> > +		rockchip,grf = <&grf>;
+> > +		clocks = <&cru SCLK_MAC>, <&cru SCLK_MAC_PLL>,
+> > +			<&cru SCLK_MAC_RX>, <&cru SCLK_MAC_TX>,
+> > +			<&cru SCLK_MACREF>, <&cru SCLK_MACREF_OUT>,
+> > +			<&cru ACLK_GMAC>, <&cru PCLK_GMAC>;
+> > +		clock-names = "stmmaceth", "clk_mac_pll",
+> > +			"mac_clk_rx", "mac_clk_tx",
+> > +			"clk_mac_ref", "clk_mac_refout",
+> > +			"aclk_mac", "pclk_mac";
+> > +		phy-mode = "rgmii";
+> > +		pinctrl-names = "default";
+> > +		pinctrl-0 = <&rgmii_pin /*&rmii_pin*/>;
+> 
+>     Hm, pinctrl props in a .dtsi file? Those are usually board dependent.
 
-In function (r8712_setrttbl_cmd) file (drivers/staging/rtl8712/rtl871x_cmd.c):
-
-Function (r8712_setrttbl_cmd) allocates the variable (ph2c) at line
-732 and passes it as a parameter to function (r8712_enqueue_cmd) at
-line 743. Function (r8712_setrttbl_cmd) returns (_SUCCESS) result
-regardless of the result of the called function (r8712_enqueue_cmd)
-which may return (_FAIL) at line 176. This failure causing the
-allocated object not to be queued and hence not freed later. Thus,
-causing a possible memory leak not freeing the (ph2c) pointer upon
-(_FAIL) return of function (r8712_enqueue_cmd).
-
-Source code reference for function (r8712_setrttbl_cmd):
-http://lxr.free-electrons.com/source/drivers/staging/rtl8712/rtl871x_cmd.c#L725
-
-Source code reference for function (r8712_enqueue_cmd):
-http://lxr.free-electrons.com/source/drivers/staging/rtl8712/rtl871x_cmd.c#L171
+yep, especially as there is a board-dependent selection needed of what to use 
+[rgmii or rmii] depending on the phy on the board.
 
 
-~Ahmed
+> 
+> [...]
+> 
+> > @@ -1040,5 +1066,38 @@
+> > 
+> >   				rockchip,pins = <7 23 3 &pcfg_pull_none>;
+> >   			
+> >   			};
+> >   		
+> >   		};
+> > 
+> > +
+> > +		gmac {
+> > +			rgmii_pin: rgmii-pins {
+
+please add the "s" to the label - "rgmii_pins"
+
+
+> > +				rockchip,pins = <3 30 3 &pcfg_pull_none>,
+> > +						<3 31 3 &pcfg_pull_none>,
+> > +						<3 26 3 &pcfg_pull_none>,
+> > +						<3 27 3 &pcfg_pull_none>,
+> > +						<3 28 3 &pcfg_pull_none>,
+> > +						<3 29 3 &pcfg_pull_none>,
+> > +						<3 24 3 &pcfg_pull_none>,
+> > +						<3 25 3 &pcfg_pull_none>,
+> > +						<4 0 3 &pcfg_pull_none>,
+> > +						<4 5 3 &pcfg_pull_none>,
+> > +						<4 6 3 &pcfg_pull_none>,
+> > +						<4 9 3 &pcfg_pull_none>,
+> > +						<4 4 3 &pcfg_pull_none>,
+> > +						<4 1 3 &pcfg_pull_none>,
+> > +						<4 3 3 &pcfg_pull_none>;
+> > +			};
+> > +
+> > +			rmii_pin: rmii-pins {
+
+same here
+
+
+> > +				rockchip,pins = <3 30 3 &pcfg_pull_none>,
+> > +						<3 31 3 &pcfg_pull_none>,
+> > +						<3 28 3 &pcfg_pull_none>,
+> > +						<3 29 3 &pcfg_pull_none>,
+> > +						<4 0 3 &pcfg_pull_none>,
+> > +						<4 5 3 &pcfg_pull_none>,
+> > +						<4 4 3 &pcfg_pull_none>,
+> > +						<4 1 3 &pcfg_pull_none>,
+> > +						<4 2 3 &pcfg_pull_none>,
+> > +						<4 3 3 &pcfg_pull_none>;
+> > +			};
+> > +		};
+> 
+>     These are usually define in the board .dts file...
+
+The pinctrl settings itself are soc-specific, i.e. the pins and their settings 
+to use to enable r{g}mii functionality are the same for all boards using this 
+soc, so the pinctrl definitions should stay here and not be redefined in each 
+and every board file.
+
+
+Heiko
