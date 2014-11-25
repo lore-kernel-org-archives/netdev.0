@@ -1,9 +1,9 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v3 03/17] net: rename netdev_phys_port_id to
- more generic name
-Date: Tue, 25 Nov 2014 10:44:38 -0500
-Message-ID: <5474A3E6.8090902@mojatatu.com>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us> <1416911328-10979-4-git-send-email-jiri@resnulli.us>
+Subject: Re: [patch net-next v3 04/17] net: introduce generic switch devices
+ support
+Date: Tue, 25 Nov 2014 10:51:03 -0500
+Message-ID: <5474A567.4040401@mojatatu.com>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us> <1416911328-10979-5-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -25,26 +25,26 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	bcrl@kvack.org
 To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:59977 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751065AbaKYPom (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 10:44:42 -0500
-Received: by mail-ig0-f169.google.com with SMTP id hl2so6977503igb.4
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 07:44:41 -0800 (PST)
-In-Reply-To: <1416911328-10979-4-git-send-email-jiri@resnulli.us>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:46513 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751067AbaKYPvK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 10:51:10 -0500
+Received: by mail-ig0-f174.google.com with SMTP id hn15so5225401igb.7
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 07:51:10 -0800 (PST)
+In-Reply-To: <1416911328-10979-5-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 11/25/14 05:28, Jiri Pirko wrote:
-> So this can be reused for identification of other "items" as well.
+> The goal of this is to provide a possibility to support various switch
+> chips. Drivers should implement relevant ndos to do so. Now there is
+> only one ndo defined:
+> - for getting physical switch id is in place.
 >
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> Reviewed-by: Thomas Graf <tgraf@suug.ch>
-> Acked-by: John Fastabend <john.r.fastabend@intel.com>
 
-
-
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+I am not sure switch id is the right term. I have a network processor
+that *does not* do switching. I am not sure if "chip" or "ASIC" or
+"offload_id" would be the right term. switch doesnt sound right.
 
 cheers,
 jamal
