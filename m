@@ -1,12 +1,12 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v4 28/42] vhost: make features 64 bit
-Date: Tue, 25 Nov 2014 18:43:22 +0200
-Message-ID: <1416933600-21398-29-git-send-email-mst@redhat.com>
+Subject: [PATCH v4 23/42] virtio_net: bigger header when VERSION_1 is set
+Date: Tue, 25 Nov 2014 18:43:02 +0200
+Message-ID: <1416933600-21398-24-git-send-email-mst@redhat.com>
 References: <1416933600-21398-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, rusty@au1.ibm.com, netdev@vger.kernel.org,
+Cc: rusty@au1.ibm.com, netdev@vger.kernel.org,
 	virtualization@lists.linux-foundation.org, pbonzini@redhat.com,
 	David Miller <davem@davemloft.net>
 To: linux-kernel@vger.kernel.org
@@ -24,25 +24,27 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-We need to use bit 32 for virtio 1.0
+With VERSION_1 virtio_net uses same header size
+whether mergeable buffers are enabled or not.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/vhost/vhost.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/virtio_net.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index b9032e8..1f321fd 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -106,7 +106,7 @@ struct vhost_virtqueue {
- 	/* Protected by virtqueue mutex. */
- 	struct vhost_memory *memory;
- 	void *private_data;
--	unsigned acked_features;
-+	u64 acked_features;
- 	/* Log write descriptors */
- 	void __user *log_base;
- 	struct vhost_log *log;
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 098f443..a0e64cf 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1805,7 +1805,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
+ 		vi->mergeable_rx_bufs = true;
+ 
+-	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
++	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF) ||
++	    virtio_has_feature(vdev, VIRTIO_F_VERSION_1))
+ 		vi->hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+ 	else
+ 		vi->hdr_len = sizeof(struct virtio_net_hdr);
 -- 
 MST
