@@ -1,10 +1,10 @@
 From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [patch net-next v3 09/17] bridge: add API to notify bridge
- driver of learned FBD on offloaded device
-Date: Tue, 25 Nov 2014 11:38:53 -0500
-Message-ID: <20141125163853.GJ27416@gospo.rtplab.test>
+Subject: Re: [patch net-next v3 14/17] bridge: add new brport flag
+ LEARNING_SYNC
+Date: Tue, 25 Nov 2014 11:40:46 -0500
+Message-ID: <20141125164046.GK27416@gospo.rtplab.test>
 References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
- <1416911328-10979-10-git-send-email-jiri@resnulli.us>
+ <1416911328-10979-15-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
@@ -24,226 +24,58 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
 	mleitner@redhat.com, shrijeet@gmail.com, bcrl@kvack.org
 To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:50820 "EHLO
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:51019 "EHLO
 	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750726AbaKYQjB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 11:39:01 -0500
+	with ESMTP id S1751593AbaKYQk7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 11:40:59 -0500
 Content-Disposition: inline
-In-Reply-To: <1416911328-10979-10-git-send-email-jiri@resnulli.us>
+In-Reply-To: <1416911328-10979-15-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 25, 2014 at 11:28:40AM +0100, Jiri Pirko wrote:
+On Tue, Nov 25, 2014 at 11:28:45AM +0100, Jiri Pirko wrote:
 > From: Scott Feldman <sfeldma@gmail.com>
 > 
-> When the swdev device learns a new mac/vlan on a port, it sends some async
-> notification to the driver and the driver installs an FDB in the device.
-> To give a holistic system view, the learned mac/vlan should be reflected
-> in the bridge's FBD table, so the user, using normal iproute2 cmds, can view
-> what is currently learned by the device.  This API on the bridge driver gives
-> a way for the swdev driver to install an FBD entry in the bridge FBD table.
-> (And remove one).
-> 
-> This is equivalent to the device running these cmds:
-> 
->   bridge fdb [add|del] <mac> dev <dev> vid <vlan id> master
-> 
-> This patch needs some extra eyeballs for review, in paricular around the
-> locking and contexts.
+> This policy flag controls syncing of learned FDB entries to bridge's FDB.  If
+> on, FDB entries learned on bridge port device will be synced.  If off, device
+> may still learn new FDB entries but they will not be synced with bridge's FDB.
 > 
 > Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 > Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+
+Acked-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+
 > ---
-> v2->v3:
-> -added "external" word into function names to emphasize fdbs are learned
->  externally
-> -added "added_by_external_learn" to fbd entry struct indicate the entry
->  was learned externaly and build some logic around that
-> -expose the fact that fdb entry was learned externally to userspace
-> v1->v2:
-> -no change
+> new in v3
 > ---
->  include/linux/if_bridge.h      | 18 +++++++++
->  include/uapi/linux/neighbour.h |  1 +
->  net/bridge/br_fdb.c            | 91 +++++++++++++++++++++++++++++++++++++++++-
->  net/bridge/br_private.h        |  1 +
->  4 files changed, 110 insertions(+), 1 deletion(-)
+>  include/linux/if_bridge.h    | 1 +
+>  include/uapi/linux/if_link.h | 1 +
+>  2 files changed, 2 insertions(+)
 > 
 > diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
-> index 808dcb8..fa2eca6 100644
+> index b4bb104..67b7a8e 100644
 > --- a/include/linux/if_bridge.h
 > +++ b/include/linux/if_bridge.h
-> @@ -37,6 +37,24 @@ extern void brioctl_set(int (*ioctl_hook)(struct net *, unsigned int, void __use
->  typedef int br_should_route_hook_t(struct sk_buff *skb);
->  extern br_should_route_hook_t __rcu *br_should_route_hook;
+> @@ -42,6 +42,7 @@ struct br_ip_list {
+>  #define BR_AUTO_MASK (BR_FLOOD | BR_LEARNING)
+>  #define BR_PROMISC		0x00000080
+>  #define BR_PROXYARP		0x00000100
+> +#define BR_LEARNING_SYNC	0x00000200
 >  
-> +#if IS_ENABLED(CONFIG_BRIDGE)
-> +int br_fdb_external_learn_add(struct net_device *dev,
-> +			      const unsigned char *addr, u16 vid);
-> +int br_fdb_external_learn_del(struct net_device *dev,
-> +			      const unsigned char *addr, u16 vid);
-> +#else
-> +static inline int br_fdb_external_learn_add(struct net_device *dev,
-> +					    const unsigned char *addr, u16 vid)
-> +{
-> +	return 0;
-> +}
-> +static inline int br_fdb_external_learn_del(struct net_device *dev,
-> +					    const unsigned char *addr, u16 vid)
-> +{
-> +	return 0;
-> +}
-> +#endif
-> +
->  #if IS_ENABLED(CONFIG_BRIDGE) && IS_ENABLED(CONFIG_BRIDGE_IGMP_SNOOPING)
->  int br_multicast_list_adjacent(struct net_device *dev,
->  			       struct list_head *br_ip_list);
-> diff --git a/include/uapi/linux/neighbour.h b/include/uapi/linux/neighbour.h
-> index 4a1d7e9..3a9b0df 100644
-> --- a/include/uapi/linux/neighbour.h
-> +++ b/include/uapi/linux/neighbour.h
-> @@ -40,6 +40,7 @@ enum {
+>  extern void brioctl_set(int (*ioctl_hook)(struct net *, unsigned int, void __user *));
 >  
->  #define NTF_SELF	0x02
->  #define NTF_MASTER	0x04
-> +#define NTF_EXT_LEARNED	0x10
->  
->  /*
->   *	Neighbor Cache Entry States.
-> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> index b1be971..b42e71d 100644
-> --- a/net/bridge/br_fdb.c
-> +++ b/net/bridge/br_fdb.c
-> @@ -481,6 +481,7 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
->  		fdb->is_local = 0;
->  		fdb->is_static = 0;
->  		fdb->added_by_user = 0;
-> +		fdb->added_by_external_learn = 0;
->  		fdb->updated = fdb->used = jiffies;
->  		hlist_add_head_rcu(&fdb->hlist, head);
->  	}
-> @@ -613,7 +614,7 @@ static int fdb_fill_info(struct sk_buff *skb, const struct net_bridge *br,
->  	ndm->ndm_family	 = AF_BRIDGE;
->  	ndm->ndm_pad1    = 0;
->  	ndm->ndm_pad2    = 0;
-> -	ndm->ndm_flags	 = 0;
-> +	ndm->ndm_flags	 = fdb->added_by_external_learn ? NTF_EXT_LEARNED : 0;
->  	ndm->ndm_type	 = 0;
->  	ndm->ndm_ifindex = fdb->dst ? fdb->dst->dev->ifindex : br->dev->ifindex;
->  	ndm->ndm_state   = fdb_to_nud(fdb);
-> @@ -983,3 +984,91 @@ void br_fdb_unsync_static(struct net_bridge *br, struct net_bridge_port *p)
->  		}
->  	}
->  }
-> +
-> +int br_fdb_external_learn_add(struct net_device *dev,
-> +			      const unsigned char *addr, u16 vid)
-> +{
-> +	struct net_bridge_port *p;
-> +	struct net_bridge *br;
-> +	struct hlist_head *head;
-> +	struct net_bridge_fdb_entry *fdb;
-> +	int err = 0;
-> +
-> +	rtnl_lock();
-> +
-> +	p = br_port_get_rtnl(dev);
-> +	if (!p) {
-> +		pr_info("bridge: %s not a bridge port\n", dev->name);
-> +		err = -EINVAL;
-> +		goto err_rtnl_unlock;
-> +	}
-> +
-> +	br = p->br;
-> +
-> +	spin_lock(&br->hash_lock);
-(Since you asked to check locking...)
-
-Most of the other fdb_add/delete/insert/update calls take this with
-spin_lock_bh.  Did you try this with lockdep enabled just to see if that
-is needed here?  I suspect that anytime br->hash_lock is taken it will
-need to be with softirqs disabled from this point forward.
-
-> +
-> +	head = &br->hash[br_mac_hash(addr, vid)];
-> +	fdb = fdb_find(head, addr, vid);
-> +	if (!fdb) {
-> +		fdb = fdb_create(head, p, addr, vid);
-> +		if (!fdb) {
-> +			err = -ENOMEM;
-> +			goto err_unlock;
-> +		}
-> +		fdb->added_by_external_learn = 1;
-> +		fdb_notify(br, fdb, RTM_NEWNEIGH);
-> +	} else if (fdb->added_by_external_learn) {
-> +		/* Refresh entry */
-> +		fdb->updated = fdb->used = jiffies;
-> +	} else if (!fdb->added_by_user) {
-> +		/* Take over SW learned entry */
-> +		fdb->added_by_external_learn = 1;
-> +		fdb->updated = jiffies;
-> +		fdb_notify(br, fdb, RTM_NEWNEIGH);
-> +	}
-> +
-> +err_unlock:
-> +	spin_unlock(&br->hash_lock);
-> +err_rtnl_unlock:
-> +	rtnl_unlock();
-> +
-> +	return err;
-> +}
-> +EXPORT_SYMBOL(br_fdb_external_learn_add);
-> +
-> +int br_fdb_external_learn_del(struct net_device *dev,
-> +			      const unsigned char *addr, u16 vid)
-> +{
-> +	struct net_bridge_port *p;
-> +	struct net_bridge *br;
-> +	struct hlist_head *head;
-> +	struct net_bridge_fdb_entry *fdb;
-> +	int err = 0;
-> +
-> +	rtnl_lock();
-> +
-> +	p = br_port_get_rtnl(dev);
-> +	if (!p) {
-> +		pr_info("bridge: %s not a bridge port\n", dev->name);
-> +		err = -EINVAL;
-> +		goto err_rtnl_unlock;
-> +	}
-> +
-> +	br = p->br;
-> +
-> +	spin_lock(&br->hash_lock);
-Same comment as above here.
-
-> +
-> +	head = &br->hash[br_mac_hash(addr, vid)];
-> +	fdb = fdb_find(head, addr, vid);
-> +	if (fdb && fdb->added_by_external_learn)
-> +		fdb_delete(br, fdb);
-> +	else
-> +		err = -ENOENT;
-> +
-> +	spin_unlock(&br->hash_lock);
-> +err_rtnl_unlock:
-> +	rtnl_unlock();
-> +
-> +	return err;
-> +}
-> +EXPORT_SYMBOL(br_fdb_external_learn_del);
-> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> index 4f577c4..02cd63b 100644
-> --- a/net/bridge/br_private.h
-> +++ b/net/bridge/br_private.h
-> @@ -101,6 +101,7 @@ struct net_bridge_fdb_entry
->  	unsigned char			is_local;
->  	unsigned char			is_static;
->  	unsigned char			added_by_user;
-> +	unsigned char			added_by_external_learn;
->  	__u16				vlan_id;
+> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> index 4163753..d8e6a31 100644
+> --- a/include/uapi/linux/if_link.h
+> +++ b/include/uapi/linux/if_link.h
+> @@ -245,6 +245,7 @@ enum {
+>  	IFLA_BRPORT_LEARNING,	/* mac learning */
+>  	IFLA_BRPORT_UNICAST_FLOOD, /* flood unicast traffic */
+>  	IFLA_BRPORT_PROXYARP,	/* proxy ARP */
+> +	IFLA_BRPORT_LEARNING_SYNC, /* mac learning sync from device */
+>  	__IFLA_BRPORT_MAX
 >  };
->  
+>  #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
 > -- 
 > 1.9.3
 > 
