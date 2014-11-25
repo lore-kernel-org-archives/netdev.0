@@ -1,61 +1,43 @@
-From: Rojhalat Ibrahim <imr@rtschenk.de>
-Subject: Re: [PATCH] mdio-mux-gpio: Use GPIO descriptor interface and new gpiod_set_array function
-Date: Tue, 25 Nov 2014 09:13:48 +0100
-Message-ID: <8914633.CtiBEziHQ6@pcimr>
-References: <6441674.xrJo8HXDvD@pcimr> <CAAVeFuKTmQi3vK5vALbT=hseRm9mn=-cb-7hiHwg7Zbczmz_WA@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] net-timestamp: Fix a documentation typo
+Date: Tue, 25 Nov 2014 09:33:42 +0100
+Message-ID: <20141125083342.GA4411@localhost.localdomain>
+References: <ca6ac789334c26905d86f2a596878d2dc18e69e9.1416859110.git.luto@amacapital.net>
+ <CA+FuTSenSVXP-=hH+erpoE7yz1HbF8n9PeD_Xof-W=3GaQ6OFA@mail.gmail.com>
+ <CALCETrU6tjwZoSCdfXnnhRy5H0uG9B8h5ftu9tA42iBuLXTQog@mail.gmail.com>
+ <CA+FuTSe8pjpUUpStfEHsuZ2Row9=MHVPH0S-MjUxiauBSNMOsg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Daney <david.daney@cavium.com>,
-	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Alexandre Courbot <acourbot@nvidia.com>
-To: Alexandre Courbot <gnurou@gmail.com>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-In-Reply-To: <CAAVeFuKTmQi3vK5vALbT=hseRm9mn=-cb-7hiHwg7Zbczmz_WA@mail.gmail.com>
-Sender: linux-gpio-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Lutomirski <luto@amacapital.net>,
+	Network Development <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:34719 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750963AbaKYIds (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 03:33:48 -0500
+Received: by mail-wi0-f182.google.com with SMTP id h11so565672wiw.9
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 00:33:46 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CA+FuTSe8pjpUUpStfEHsuZ2Row9=MHVPH0S-MjUxiauBSNMOsg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 25 November 2014 12:39:13 Alexandre Courbot wrote:
-> On Thu, Nov 20, 2014 at 9:24 PM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
-> > @@ -70,20 +64,17 @@ static int mdio_mux_gpio_probe(struct platform_device *pdev)
-> >         s->num_gpios = num_gpios;
-> >
-> >         for (n = 0; n < num_gpios; ) {
-> > -               int gpio = of_get_gpio_flags(pdev->dev.of_node, n, &f);
-> > -               if (gpio < 0) {
-> > -                       r = (gpio == -ENODEV) ? -EPROBE_DEFER : gpio;
-> > +               struct gpio_desc *gpio = gpiod_get_index(&pdev->dev,
-> > +                                                        "mdio-mux-gpio", n);
-> 
-> Doesn't this change introduce some incompatibility against the current
-> DT bindings? of_get_gpio_flags() looks for a "gpios" property, while
-> your call to gpiod_get_index() will look for "mdio-mux-gpio-gpios". It
-> should probably be changed to gpiod_get_index(&pdev->dev, NULL, n).
-> 
+On Mon, Nov 24, 2014 at 05:38:21PM -0500, Willem de Bruijn wrote:
+> The datagram feature existed before I added the counter and stream
+> support, so returning the entire packet in that case is legacy
+> behavior, I suppose. I did not intend to expose network headers for
+> the new stream socket interface, though.
 
-You are right, of course. I'll fix it and post a new patch version.
+I suppose that idea (not mine) behind returning the entire frame was
+to allow the user to send multiple frames, and then figure out which
+time stamp goes with which sent frame. The whole thing is weak for two
+reasons, firstly you aren't able to send two identical frames, and
+secondly there are quite a few time stamping cards out there which
+only handle one transmit time stamp at a time. Thus the ptp4l
+application always waits for the hardware time stamp before sending
+another frame and never looks at the returned frame data.
 
-> ... or even be changed to gpiod_get_index(&pdev->dev, NULL, n,
-> GPIOD_OUT_LOW) as the calls to gpiod_get() functions are being updated
-> to take an initial state (both variants are currently usable but the
-> former one will disappear in the future). This will also allow you to
-> get rid of your call to gpiod_direction_output().
-> 
-
-Will do that.
-
-> Side-note: it would be nice to have a gpiod_get_array() call that does
-> exactly what this loop does, and returns an array of gpios directly
-> usable by gpiod_set_array*(). And a matching gpiod_put_array() of
-> course.
-> 
-
-I'll add that to my to-do-list.
-
-
-Thanks
-   Rojhalat
-
+Thanks,
+Richard
