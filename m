@@ -1,129 +1,87 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 05/17] rtnl: expose physical switch id for particular device
-Date: Tue, 25 Nov 2014 11:28:36 +0100
-Message-ID: <1416911328-10979-6-git-send-email-jiri@resnulli.us>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.org
-To: netdev@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/2] sh_eth: Fix sleeping function called from invalid
+ context
+Date: Tue, 25 Nov 2014 14:02:34 +0300
+Message-ID: <547461CA.8000506@cogentembedded.com>
+References: <1415862135-27972-1-git-send-email-ykaneko0929@gmail.com> <1415862135-27972-2-git-send-email-ykaneko0929@gmail.com> <546531D6.3090009@cogentembedded.com> <20141125021709.GA22983@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:38361 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752593AbaKYK4n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 05:56:43 -0500
-Received: by mail-wi0-f178.google.com with SMTP id hi2so967670wib.17
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 02:56:42 -0800 (PST)
-In-Reply-To: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
+Received: from mail-la0-f43.google.com ([209.85.215.43]:47092 "EHLO
+	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752488AbaKYLCh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 06:02:37 -0500
+Received: by mail-la0-f43.google.com with SMTP id q1so301766lam.2
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 03:02:36 -0800 (PST)
+In-Reply-To: <20141125021709.GA22983@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The netdevice represents a port in a switch, it will expose
-IFLA_PHYS_SWITCH_ID value via rtnl. Two netdevices with the same value
-belong to one physical switch.
+Hello.
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-Reviewed-by: Thomas Graf <tgraf@suug.ch>
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
----
-v2->v3:
--changed "sw" string to "switch" to avoid confusion
-v1->v2:
--no change
----
- include/uapi/linux/if_link.h |  1 +
- net/core/rtnetlink.c         | 26 +++++++++++++++++++++++++-
- 2 files changed, 26 insertions(+), 1 deletion(-)
+On 11/25/2014 5:17 AM, Simon Horman wrote:
 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 7072d83..4163753 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -145,6 +145,7 @@ enum {
- 	IFLA_CARRIER,
- 	IFLA_PHYS_PORT_ID,
- 	IFLA_CARRIER_CHANGES,
-+	IFLA_PHYS_SWITCH_ID,
- 	__IFLA_MAX
- };
- 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 0fb3a68..bd5e783 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -44,6 +44,7 @@
- 
- #include <linux/inet.h>
- #include <linux/netdevice.h>
-+#include <net/switchdev.h>
- #include <net/ip.h>
- #include <net/protocol.h>
- #include <net/arp.h>
-@@ -869,7 +870,8 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
- 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
- 	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
--	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_PORT_ID */
-+	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
-+	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_SWITCH_ID */
- }
- 
- static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
-@@ -968,6 +970,24 @@ static int rtnl_phys_port_id_fill(struct sk_buff *skb, struct net_device *dev)
- 	return 0;
- }
- 
-+static int rtnl_phys_switch_id_fill(struct sk_buff *skb, struct net_device *dev)
-+{
-+	int err;
-+	struct netdev_phys_item_id psid;
-+
-+	err = netdev_switch_parent_id_get(dev, &psid);
-+	if (err) {
-+		if (err == -EOPNOTSUPP)
-+			return 0;
-+		return err;
-+	}
-+
-+	if (nla_put(skb, IFLA_PHYS_SWITCH_ID, psid.id_len, psid.id))
-+		return -EMSGSIZE;
-+
-+	return 0;
-+}
-+
- static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			    int type, u32 pid, u32 seq, u32 change,
- 			    unsigned int flags, u32 ext_filter_mask)
-@@ -1040,6 +1060,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	if (rtnl_phys_port_id_fill(skb, dev))
- 		goto nla_put_failure;
- 
-+	if (rtnl_phys_switch_id_fill(skb, dev))
-+		goto nla_put_failure;
-+
- 	attr = nla_reserve(skb, IFLA_STATS,
- 			sizeof(struct rtnl_link_stats));
- 	if (attr == NULL)
-@@ -1199,6 +1222,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
- 	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
- 	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
-+	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
- };
- 
- static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
--- 
-1.9.3
+>>> From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+
+>>> Fix the bug as follows:
+
+>>> ----
+>>> [ 1238.161349] BUG: sleeping function called from invalid context at drivers/base/power/runtime.c:952
+>>> [ 1238.188279] in_atomic(): 1, irqs_disabled(): 0, pid: 1388, name: cat
+>>> [ 1238.207425] CPU: 0 PID: 1388 Comm: cat Not tainted 3.10.31-ltsi-00046-gefa0b46 #1087
+>>> [ 1238.230737] Backtrace:
+>>> [ 1238.238123] [<c0012e64>] (dump_backtrace+0x0/0x10c) from [<c0013000>] (show_stack+0x18/0x1c)
+>>> [ 1238.263499]  r6:000003b8 r5:c06160c0 r4:c0669e00 r3:00404000
+>>> [ 1238.280583] [<c0012fe8>] (show_stack+0x0/0x1c) from [<c04515a4>] (dump_stack+0x20/0x28)
+>>> [ 1238.304631] [<c0451584>] (dump_stack+0x0/0x28) from [<c004970c>] (__might_sleep+0xf8/0x118)
+>>> [ 1238.329734] [<c0049614>] (__might_sleep+0x0/0x118) from [<c02465ac>] (__pm_runtime_resume+0x38/0x90)
+>>> [ 1238.357170]  r7:d616f000 r6:c049c458 r5:00000004 r4:d6a17210
+>>> [ 1238.374251] [<c0246574>] (__pm_runtime_resume+0x0/0x90) from [<c029b1c4>] (sh_eth_get_stats+0x44/0x280)
+>>> [ 1238.402468]  r7:d616f000 r6:c049c458 r5:d5c21000 r4:d5c21000
+>>> [ 1238.419552] [<c029b180>] (sh_eth_get_stats+0x0/0x280) from [<c03ae39c>] (dev_get_stats+0x54/0x88)
+>>> [ 1238.446204]  r5:d5c21000 r4:d5ed7e08
+>>> [ 1238.456980] [<c03ae348>] (dev_get_stats+0x0/0x88) from [<c03c677c>] (netstat_show.isra.15+0x54/0x9c)
+>>> [ 1238.484413]  r6:d5c21000 r5:d5c21238 r4:00000028 r3:00000001
+>>> [ 1238.501495] [<c03c6728>] (netstat_show.isra.15+0x0/0x9c) from [<c03c69b8>] (show_tx_errors+0x18/0x1c)
+>>> [ 1238.529196]  r7:d5f945d8 r6:d5f945c0 r5:c049716c r4:c0650e7c
+>>> [ 1238.546279] [<c03c69a0>] (show_tx_errors+0x0/0x1c) from [<c023963c>] (dev_attr_show+0x24/0x50)
+>>> [ 1238.572157] [<c0239618>] (dev_attr_show+0x0/0x50) from [<c010c148>] (sysfs_read_file+0xb0/0x140)
+>>> [ 1238.598554]  r5:c049716c r4:d5c21240
+>>> [ 1238.609326] [<c010c098>] (sysfs_read_file+0x0/0x140) from [<c00b9ee4>] (vfs_read+0xb0/0x13c)
+>>> [ 1238.634679] [<c00b9e34>] (vfs_read+0x0/0x13c) from [<c00ba0ac>] (SyS_read+0x44/0x74)
+>>> [ 1238.657944]  r8:bef45bf0 r7:00000000 r6:d6ac0600 r5:00000000 r4:00000000
+>>> [ 1238.678172] [<c00ba068>] (SyS_read+0x0/0x74) from [<c000eec0>] (ret_fast_syscall+0x0/0x30)
+>>> ----
+
+>>     How to reproduce this?
+
+> I have spoken with Kimura-san and the problem may be reproduced by
+> building the kernel with CONFIG_DEBUG_ATOMIC_SLEEP=y and reading network
+> statistics while the network interface is down.
+
+> e.g.:
+
+> ifconfig eth0 down
+> cat /sys/class/net/eth0/statistics/tx_errors
+
+> I have confirmed that the problem above appears in net-next
+> and appears to be resolved by this patch.
+
+    Shouldn't we target 'net' for the fixes instead?
+
+> Would you be happy with this patch if the changelog was enhanced
+> and the minor issue you point our below was resolved?
+
+    Most probably yes.
+
+>>> Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+>>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+
+[...]
+
+WBR, Sergei
