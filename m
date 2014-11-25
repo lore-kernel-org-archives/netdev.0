@@ -1,71 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] pkt_sched: fq: increase max delay from 125 ms to
- one second
-Date: Tue, 25 Nov 2014 08:57:29 -0800
-Message-ID: <1416934649.29427.34.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1416921892-4756-1-git-send-email-yangyingliang@huawei.com>
-	 <1416933094.29427.27.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next v3 02/17] net: make vid as a parameter for ndo_fdb_add/ndo_fdb_del
+Date: Tue, 25 Nov 2014 11:57:40 -0500
+Message-ID: <5474B504.1080208@mojatatu.com>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us> <1416911328-10979-3-git-send-email-jiri@resnulli.us> <5474A25C.3080505@mojatatu.com> <5474AC18.8040809@cumulusnetworks.com> <5474AF53.8030709@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>
-To: Yang Yingliang <yangyingliang@huawei.com>,
-	David Miller <davem@davemloft.net>
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, edumazet@google.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, linville@tuxdriver.com, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com,
+	simon.horman@netronome.com, alexander.h.duyck@redhat.com,
+	john.ronciak@intel.com, mleitner@redhat.com, shrijeet@gmail.com,
+	gospo@cumulusnetworks.com, bcrl@kvack.org
+To: John Fastabend <john.r.fastabend@intel.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:37435 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750910AbaKYQ5b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 11:57:31 -0500
-Received: by mail-ie0-f181.google.com with SMTP id tp5so906850ieb.40
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 08:57:31 -0800 (PST)
-In-Reply-To: <1416933094.29427.27.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:56162 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751028AbaKYQ5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 11:57:44 -0500
+Received: by mail-ig0-f169.google.com with SMTP id hl2so7102615igb.4
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 08:57:43 -0800 (PST)
+In-Reply-To: <5474AF53.8030709@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 11/25/14 11:33, John Fastabend wrote:
+> On 11/25/2014 08:19 AM, Roopa Prabhu wrote:
 
-FQ/pacing has a clamp of delay of 125 ms, to avoid some possible harm.
+> I agree its needed but your already out of sync for some period of time
+> why the software/hardware tables are being programmed. There is no global
+> sw/hw commit operation.
+>
+> I'm not sure it matters if the time being out of sync is a touch longer
+> because we go to user space to fix it. But agreed it can be supported.
+>
 
-It turns out this delay is too small to allow pacing low rates :
-Some ISP setup very aggressive policers as low as 16kbit.
-    
-Now TCP stack has spurious rtx prevention, it seems safe to increase
-this fixed parameter, without adding a qdisc attribute.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Yang Yingliang <yangyingliang@huawei.com>
----
-This is something we run since July 2014 with good results, I forgot to
-upstream this change. Thanks !
+Recent netfilter has 2 phase commit built in. Maybe we can generalize
+that?
+Note, there are use cases where it is important to do rollbacks.
+If i am doing a distributed router, then to make sure a FIB/NH entries
+are properly synced in across the cluster is extremely important. You
+cant justify letting a few packets sneak in the wrong path.
+in other words, strong consistency is important.
+Having said that things can be worked around (and i would not use
+2pc for the example use case i gave); however, that doesnt negate
+the fact we need it.
 
-Notes for Googlers :
-
- Google-Bug-Id: 9297267
- Google-Bug-Id: 11789651
- Change-Id: I081d7d842bfb860a4cd620bf1c71a8eb239150c8
-
- net/sched/sch_fq.c |    9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
-
-diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
-index cbd7e1fd23b41bb7ba0bb348c3a1a287652cca93..9b05924cc386ecc2cdb9816be27e439637fb37b3 100644
---- a/net/sched/sch_fq.c
-+++ b/net/sched/sch_fq.c
-@@ -481,12 +481,11 @@ begin:
- 		if (likely(rate))
- 			do_div(len, rate);
- 		/* Since socket rate can change later,
--		 * clamp the delay to 125 ms.
--		 * TODO: maybe segment the too big skb, as in commit
--		 * e43ac79a4bc ("sch_tbf: segment too big GSO packets")
-+		 * clamp the delay to 1 second.
-+		 * Really, providers of too big packets should be fixed !
- 		 */
--		if (unlikely(len > 125 * NSEC_PER_MSEC)) {
--			len = 125 * NSEC_PER_MSEC;
-+		if (unlikely(len > NSEC_PER_SEC)) {
-+			len = NSEC_PER_SEC;
- 			q->stat_pkts_too_long++;
- 		}
- 
+cheers,
+jamal
