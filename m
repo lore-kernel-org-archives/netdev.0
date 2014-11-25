@@ -1,29 +1,48 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Patch to fix scheduling while atomic splat
-Date: Tue, 25 Nov 2014 10:45:40 -0600
-Message-ID: <5474B234.9090701@lwfinger.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH v4 32/42] vhost/net: suppress compiler warning
+Date: Tue, 25 Nov 2014 18:43:39 +0200
+Message-ID: <1416933600-21398-33-git-send-email-mst@redhat.com>
+References: <1416933600-21398-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org >> netdev" <netdev@vger.kernel.org>
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f54.google.com ([209.85.218.54]:41438 "EHLO
-	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752369AbaKYQpl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 11:45:41 -0500
-Received: by mail-oi0-f54.google.com with SMTP id u20so673510oif.27
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 08:45:41 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, rusty@au1.ibm.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, pbonzini@redhat.com,
+	David Miller <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1416933600-21398-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Greg,
+len is always initialized since function is called with size > 0.
 
-On Nov. 12, I sent a patch for kernel 3.18 with the subject "[PATCH for 3.18] 
-staging: r8188eu: Fix scheduling while atomic error introduced in commit 
-fadbe0cd". To date, this fix does not seem to have appeared in mainline. Did it 
-get missed?
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/vhost/net.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks,
-
-Larry
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 984242e..54ffbb0 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -501,7 +501,7 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
+ 	int headcount = 0;
+ 	unsigned d;
+ 	int r, nlogs = 0;
+-	u32 len;
++	u32 uninitialized_var(len);
+ 
+ 	while (datalen > 0 && headcount < quota) {
+ 		if (unlikely(seg >= UIO_MAXIOV)) {
+-- 
+MST
