@@ -1,59 +1,95 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH] net: fec: init maximum receive buffer size for ring1 and
- ring2
-Date: Tue, 25 Nov 2014 01:27:17 +0000
-Message-ID: <BLUPR03MB37317746454BEF4E500B1D8F5730@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <1416734586-26634-1-git-send-email-b38611@freescale.com>
- <20141124.152250.380142287256307570.davem@davemloft.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 1/2] sh_eth: Fix sleeping function called from invalid
+ context
+Date: Tue, 25 Nov 2014 11:17:11 +0900
+Message-ID: <20141125021709.GA22983@verge.net.au>
+References: <1415862135-27972-1-git-send-email-ykaneko0929@gmail.com>
+ <1415862135-27972-2-git-send-email-ykaneko0929@gmail.com>
+ <546531D6.3090009@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"festevam@gmail.com" <festevam@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0147.outbound.protection.outlook.com ([207.46.100.147]:44864
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750784AbaKYBnL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 20:43:11 -0500
-In-Reply-To: <20141124.152250.380142287256307570.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <546531D6.3090009@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net> Sent: Tuesday, November 25, 2014 4:23 AM
->To: Duan Fugang-B38611
->Cc: netdev@vger.kernel.org; bhutchings@solarflare.com;
->stephen@networkplumber.org; festevam@gmail.com
->Subject: Re: [PATCH] net: fec: init maximum receive buffer size for ring1
->and ring2
->
->From: Fugang Duan <b38611@freescale.com>
->Date: Sun, 23 Nov 2014 17:23:06 +0800
->
->> i.MX6SX fec support three rx ring1, the current driver lost to init
->> ring1 and ring2 maximum receive buffer size, that cause receving frame
->> date length error. The driver reports "rcv is not +last" error log in
->> user case.
->>
->> Signed-off-by: Fugang Duan <B38611@freescale.com>
->
->This patch does not apply to the 'net' tree, although it does apply
->cleanly to the net-next tree.
->
->Determining which tree a patch is for is not my job, it is your's.
->
->Therefore you must always explicitly state what tree your patch is
->intended to be added to, by starting your Subject line with "[PATCH net] "
->or "[PATCH net-next] ".
->
->I've applied this, but next time I will just ask you to properly submit
->the patch instead.
+Hi Sergei,
 
-David, thanks. I note this the next time.
+On Fri, Nov 14, 2014 at 01:33:58AM +0300, Sergei Shtylyov wrote:
+> On 11/13/2014 10:02 AM, Yoshihiro Kaneko wrote:
+> 
+> >From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+> 
+> >Fix the bug as follows:
+> 
+> >----
+> >[ 1238.161349] BUG: sleeping function called from invalid context at drivers/base/power/runtime.c:952
+> >[ 1238.188279] in_atomic(): 1, irqs_disabled(): 0, pid: 1388, name: cat
+> >[ 1238.207425] CPU: 0 PID: 1388 Comm: cat Not tainted 3.10.31-ltsi-00046-gefa0b46 #1087
+> >[ 1238.230737] Backtrace:
+> >[ 1238.238123] [<c0012e64>] (dump_backtrace+0x0/0x10c) from [<c0013000>] (show_stack+0x18/0x1c)
+> >[ 1238.263499]  r6:000003b8 r5:c06160c0 r4:c0669e00 r3:00404000
+> >[ 1238.280583] [<c0012fe8>] (show_stack+0x0/0x1c) from [<c04515a4>] (dump_stack+0x20/0x28)
+> >[ 1238.304631] [<c0451584>] (dump_stack+0x0/0x28) from [<c004970c>] (__might_sleep+0xf8/0x118)
+> >[ 1238.329734] [<c0049614>] (__might_sleep+0x0/0x118) from [<c02465ac>] (__pm_runtime_resume+0x38/0x90)
+> >[ 1238.357170]  r7:d616f000 r6:c049c458 r5:00000004 r4:d6a17210
+> >[ 1238.374251] [<c0246574>] (__pm_runtime_resume+0x0/0x90) from [<c029b1c4>] (sh_eth_get_stats+0x44/0x280)
+> >[ 1238.402468]  r7:d616f000 r6:c049c458 r5:d5c21000 r4:d5c21000
+> >[ 1238.419552] [<c029b180>] (sh_eth_get_stats+0x0/0x280) from [<c03ae39c>] (dev_get_stats+0x54/0x88)
+> >[ 1238.446204]  r5:d5c21000 r4:d5ed7e08
+> >[ 1238.456980] [<c03ae348>] (dev_get_stats+0x0/0x88) from [<c03c677c>] (netstat_show.isra.15+0x54/0x9c)
+> >[ 1238.484413]  r6:d5c21000 r5:d5c21238 r4:00000028 r3:00000001
+> >[ 1238.501495] [<c03c6728>] (netstat_show.isra.15+0x0/0x9c) from [<c03c69b8>] (show_tx_errors+0x18/0x1c)
+> >[ 1238.529196]  r7:d5f945d8 r6:d5f945c0 r5:c049716c r4:c0650e7c
+> >[ 1238.546279] [<c03c69a0>] (show_tx_errors+0x0/0x1c) from [<c023963c>] (dev_attr_show+0x24/0x50)
+> >[ 1238.572157] [<c0239618>] (dev_attr_show+0x0/0x50) from [<c010c148>] (sysfs_read_file+0xb0/0x140)
+> >[ 1238.598554]  r5:c049716c r4:d5c21240
+> >[ 1238.609326] [<c010c098>] (sysfs_read_file+0x0/0x140) from [<c00b9ee4>] (vfs_read+0xb0/0x13c)
+> >[ 1238.634679] [<c00b9e34>] (vfs_read+0x0/0x13c) from [<c00ba0ac>] (SyS_read+0x44/0x74)
+> >[ 1238.657944]  r8:bef45bf0 r7:00000000 r6:d6ac0600 r5:00000000 r4:00000000
+> >[ 1238.678172] [<c00ba068>] (SyS_read+0x0/0x74) from [<c000eec0>] (ret_fast_syscall+0x0/0x30)
+> >----
+> 
+>    How to reproduce this?
 
-Regards,
-Andy
+I have spoken with Kimura-san and the problem may be reproduced by
+building the kernel with CONFIG_DEBUG_ATOMIC_SLEEP=y and reading network
+statistics while the network interface is down.
+
+e.g.:
+
+ifconfig eth0 down
+cat /sys/class/net/eth0/statistics/tx_errors
+
+I have confirmed that the problem above appears in net-next
+and appears to be resolved by this patch.
+
+
+Would you be happy with this patch if the changelog was enhanced
+and the minor issue you point our below was resolved?
+
+> >Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+> >Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+> 
+> [...]
+> 
+> >diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
+> >index b37c427..9a1c550 100644
+> >--- a/drivers/net/ethernet/renesas/sh_eth.h
+> >+++ b/drivers/net/ethernet/renesas/sh_eth.h
+> >@@ -508,6 +508,7 @@ struct sh_eth_private {
+> >  	u32 rx_buf_sz;			/* Based on MTU+slack. */
+> >  	int edmac_endian;
+> >  	struct napi_struct napi;
+> >+	bool is_opened;
+> 
+>    Placing it after 'vlan_num_ids' (and making it a bitfield?) would
+> probably allow to save some space.
+> 
+> WBR, Sergei
+> 
