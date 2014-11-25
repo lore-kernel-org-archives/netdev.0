@@ -1,106 +1,111 @@
-From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
-Subject: Re: [PATCH 3/4] GMAC: dts: add gmac info for rk3288
-Date: Tue, 25 Nov 2014 11:12:44 +0100
-Message-ID: <1964829.jls4nocKCY@diego>
-References: <1416906536-26158-1-git-send-email-roger.chen@rock-chips.com> <54745229.2040503@rock-chips.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Roger Chen <roger.chen@rock-chips.com>, peppe.cavallaro@st.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-rockchip@lists.infradead.org, mark.yao@rock-chips.com,
-	eddie.cai@rock-chips.com
-To: Kever Yang <kever.yang@rock-chips.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54745229.2040503@rock-chips.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v3 01/17] bridge: rename fdb_*_hw to fdb_*_hw_addr to avoid confusion
+Date: Tue, 25 Nov 2014 11:28:32 +0100
+Message-ID: <1416911328-10979-2-git-send-email-jiri@resnulli.us>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:48201 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751351AbaKYK2w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 05:28:52 -0500
+Received: by mail-wi0-f180.google.com with SMTP id n3so896128wiv.7
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 02:28:51 -0800 (PST)
+In-Reply-To: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Roger, Kever,
+The current name might seem that this actually offloads the fdb entry to
+hw. So rename it to clearly present that this for hardware address
+addition/removal.
 
-Am Dienstag, 25. November 2014, 17:55:53 schrieb Kever Yang:
-> The Subject should use below prefix:
-> ARM: dts: rockchip: add gmac info for rk3288
-> 
-> On 11/25/2014 05:08 PM, Roger Chen wrote:
-> > add gmac info in rk3288.dtsi for GMAC driver
-> > 
-> > Signed-off-by: Roger Chen <roger.chen@rock-chips.com>
-> > ---
-> > 
-> >   arch/arm/boot/dts/rk3288.dtsi |   59
-> >   +++++++++++++++++++++++++++++++++++++++++ 1 file changed, 59
-> >   insertions(+)
-> > 
-> > diff --git a/arch/arm/boot/dts/rk3288.dtsi b/arch/arm/boot/dts/rk3288.dtsi
-> > index 0f50d5d..949675d 100644
-> > --- a/arch/arm/boot/dts/rk3288.dtsi
-> > +++ b/arch/arm/boot/dts/rk3288.dtsi
-> > @@ -137,6 +137,13 @@
-> > 
-> >   		#clock-cells = <0>;
-> >   	
-> >   	};
-> > 
-> > +	ext_gmac: external-gmac-clock {
-> > +		compatible = "fixed-clock";
-> > +		clock-frequency = <125000000>;
-> > +		clock-output-names = "ext_gmac";
-> > +		#clock-cells = <0>;
-> > +	};
-> > +
-> 
-> I'm not sure Heiko will happy with both add the new clock source and
-> gmac node in these patch.
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+new in v2 as suggested by DaveM
+v2->v3:
+-moved the patch to the patchset head
+---
+ net/bridge/br_fdb.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-correct. The ext_gmac is an external clock input providing a special clock to 
-the gmac. This makes it a board-specific property, which should also only be 
-added on boards having this external source - and of course in the board-
-specific dts.
-
-
-> 
-> >   	timer {
-> >   	
-> >   		compatible = "arm,armv7-timer";
-> >   		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(4) |
-> >   		IRQ_TYPE_LEVEL_HIGH)>,
-> > 
-> > @@ -490,6 +497,25 @@
-> > 
-> >   		reg = <0xff740000 0x1000>;
-> >   	
-> >   	};
-> > 
-> > +	gmac: eth@ff290000 {
-> > +		compatible = "rockchip,rk3288-gmac";
-> > +		reg = <0xff290000 0x10000>;
-> > +		interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;  /*irq=59*/
-
-please remote the "irq=59" comment, as it is not necessary
-
-
-> > +		interrupt-names = "macirq";
-> > +		rockchip,grf = <&grf>;
-> > +		clocks = <&cru SCLK_MAC>, <&cru SCLK_MAC_PLL>,
-> > +			<&cru SCLK_MAC_RX>, <&cru SCLK_MAC_TX>,
-> > +			<&cru SCLK_MACREF>, <&cru SCLK_MACREF_OUT>,
-> > +			<&cru ACLK_GMAC>, <&cru PCLK_GMAC>;
-> > +		clock-names = "stmmaceth", "clk_mac_pll",
-> > +			"mac_clk_rx", "mac_clk_tx",
-> > +			"clk_mac_ref", "clk_mac_refout",
-> > +			"aclk_mac", "pclk_mac";
-> > +		phy-mode = "rgmii";
-> > +		pinctrl-names = "default";
-> > +		pinctrl-0 = <&rgmii_pin /*&rmii_pin*/>;
-> > +	};
-> > +
-> 
-> The controller dts node should be sort by the base address, I'm sure
-> this is in a
-> wrong place.
-
-correct, it is on the wrong place
-
-
-Heiko
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 6f6c95c..08ef4e7 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -90,7 +90,7 @@ static void fdb_rcu_free(struct rcu_head *head)
+  * are then updated with the new information.
+  * Called under RTNL.
+  */
+-static void fdb_add_hw(struct net_bridge *br, const unsigned char *addr)
++static void fdb_add_hw_addr(struct net_bridge *br, const unsigned char *addr)
+ {
+ 	int err;
+ 	struct net_bridge_port *p;
+@@ -118,7 +118,7 @@ undo:
+  * the ports with needed information.
+  * Called under RTNL.
+  */
+-static void fdb_del_hw(struct net_bridge *br, const unsigned char *addr)
++static void fdb_del_hw_addr(struct net_bridge *br, const unsigned char *addr)
+ {
+ 	struct net_bridge_port *p;
+ 
+@@ -133,7 +133,7 @@ static void fdb_del_hw(struct net_bridge *br, const unsigned char *addr)
+ static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
+ {
+ 	if (f->is_static)
+-		fdb_del_hw(br, f->addr.addr);
++		fdb_del_hw_addr(br, f->addr.addr);
+ 
+ 	hlist_del_rcu(&f->hlist);
+ 	fdb_notify(br, f, RTM_DELNEIGH);
+@@ -514,7 +514,7 @@ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
+ 		return -ENOMEM;
+ 
+ 	fdb->is_local = fdb->is_static = 1;
+-	fdb_add_hw(br, addr);
++	fdb_add_hw_addr(br, addr);
+ 	fdb_notify(br, fdb, RTM_NEWNEIGH);
+ 	return 0;
+ }
+@@ -754,19 +754,19 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
+ 			fdb->is_local = 1;
+ 			if (!fdb->is_static) {
+ 				fdb->is_static = 1;
+-				fdb_add_hw(br, addr);
++				fdb_add_hw_addr(br, addr);
+ 			}
+ 		} else if (state & NUD_NOARP) {
+ 			fdb->is_local = 0;
+ 			if (!fdb->is_static) {
+ 				fdb->is_static = 1;
+-				fdb_add_hw(br, addr);
++				fdb_add_hw_addr(br, addr);
+ 			}
+ 		} else {
+ 			fdb->is_local = 0;
+ 			if (fdb->is_static) {
+ 				fdb->is_static = 0;
+-				fdb_del_hw(br, addr);
++				fdb_del_hw_addr(br, addr);
+ 			}
+ 		}
+ 
+-- 
+1.9.3
