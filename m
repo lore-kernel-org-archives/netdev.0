@@ -1,46 +1,116 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] bonding: move ipoib_header_ops to vmlinux
-Date: Tue, 25 Nov 2014 13:44:50 -0500 (EST)
-Message-ID: <20141125.134450.1265438298771389292.davem@davemloft.net>
-References: <20141125.010741.450666241983239119.davem@davemloft.net>
-	<54742D6E.9030605@mellanox.com>
-	<19740.1416940877@famine>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [PATCH v6 4/5] fm10k/igb/ixgbe: Use dma_rmb on Rx descriptor reads
+Date: Tue, 25 Nov 2014 10:33:11 -0800
+Message-ID: <20141125183311.1486.89746.stgit@ahduyck-server>
+References: <20141125183009.1486.20845.stgit@ahduyck-server>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, wen.gang.wang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jay.vosburgh-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <19740.1416940877@famine>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: mathieu.desnoyers@polymtl.ca, peterz@infradead.org,
+	benh@kernel.crashing.org, heiko.carstens@de.ibm.com,
+	mingo@kernel.org, mikey@neuling.org, linux@arm.linux.org.uk,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	geert@linux-m68k.org, jeffrey.t.kirsher@intel.com,
+	romieu@fr.zoreil.com, paulmck@linux.vnet.ibm.com,
+	nic_swsd@realtek.com, arnd@arndb.de, will.deacon@arm.com,
+	michael@ellerman.id.au, tony.luck@intel.com,
+	torvalds@linux-foundation.org, oleg@redhat.com,
+	schwidefsky@de.ibm.com, fweisbec@gmail.com, davem@davemloft.net
+To: linux-arch@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <20141125183009.1486.20845.stgit@ahduyck-server>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jay Vosburgh <jay.vosburgh-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Date: Tue, 25 Nov 2014 10:41:17 -0800
+This change makes it so that dma_rmb is used when reading the Rx
+descriptor.  The advantage of dma_rmb is that it allows for a much
+lower cost barrier on x86, powerpc, arm, and arm64 architectures than a
+traditional memory barrier when dealing with reads that only have to
+synchronize to coherent memory.
 
-> Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
-> 
->>On 11/25/2014 8:07 AM, David Miller wrote:
->>> IPOIB should not work over bonding as it requires that the device
->>> use ARPHRD_ETHER.
->>
->>Hi Dave,
->>
->>IPoIB devices can be enslaved to both bonding and teaming in their HA mode,
->>the bond device type becomes ARPHRD_INFINIBAND when this happens.
-> 
-> 	The point was that pktgen disallows ARPHRD_INFINIBAND, not that
-> bonding does.
-> 
-> 	Pktgen specifically checks for type != ARPHRD_ETHER, so the
-> IPoIB bond should not be able to be used with pkgten.  My suspicion is
-> that pktgen is being configured on the bond first, then an IPoIB slave
-> is added to the bond; this would change its type in a way that pktgen
-> wouldn't notice.
+In addition I have updated the code so that it just checks to see if any
+bits have been set instead of just the DD bit since the DD bit will always
+be set as a part of a descriptor write-back so we just need to check for a
+non-zero value being present at that memory location rather than just
+checking for any specific bit.  This allows the code itself to appear much
+cleaner and allows the compiler more room to optimize.
 
-+1
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cc: Matthew Vick <matthew.vick@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+---
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c |    6 +++---
+ drivers/net/ethernet/intel/igb/igb_main.c     |    6 +++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    9 ++++-----
+ 3 files changed, 10 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+index 73457ed..b348178 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+@@ -620,14 +620,14 @@ static bool fm10k_clean_rx_irq(struct fm10k_q_vector *q_vector,
+ 
+ 		rx_desc = FM10K_RX_DESC(rx_ring, rx_ring->next_to_clean);
+ 
+-		if (!fm10k_test_staterr(rx_desc, FM10K_RXD_STATUS_DD))
++		if (!rx_desc->d.staterr)
+ 			break;
+ 
+ 		/* This memory barrier is needed to keep us from reading
+ 		 * any other fields out of the rx_desc until we know the
+-		 * RXD_STATUS_DD bit is set
++		 * descriptor has been written back
+ 		 */
+-		rmb();
++		dma_rmb();
+ 
+ 		/* retrieve a buffer from the ring */
+ 		skb = fm10k_fetch_rx_buffer(rx_ring, rx_desc, skb);
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 3c02216..ecf38cf 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -6922,14 +6922,14 @@ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, const int budget)
+ 
+ 		rx_desc = IGB_RX_DESC(rx_ring, rx_ring->next_to_clean);
+ 
+-		if (!igb_test_staterr(rx_desc, E1000_RXD_STAT_DD))
++		if (!rx_desc->wb.upper.status_error)
+ 			break;
+ 
+ 		/* This memory barrier is needed to keep us from reading
+ 		 * any other fields out of the rx_desc until we know the
+-		 * RXD_STAT_DD bit is set
++		 * descriptor has been written back
+ 		 */
+-		rmb();
++		dma_rmb();
+ 
+ 		/* retrieve a buffer from the ring */
+ 		skb = igb_fetch_rx_buffer(rx_ring, rx_desc, skb);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index c19af9f..5bc9650 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -2006,15 +2006,14 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 
+ 		rx_desc = IXGBE_RX_DESC(rx_ring, rx_ring->next_to_clean);
+ 
+-		if (!ixgbe_test_staterr(rx_desc, IXGBE_RXD_STAT_DD))
++		if (!rx_desc->wb.upper.status_error)
+ 			break;
+ 
+-		/*
+-		 * This memory barrier is needed to keep us from reading
++		/* This memory barrier is needed to keep us from reading
+ 		 * any other fields out of the rx_desc until we know the
+-		 * RXD_STAT_DD bit is set
++		 * descriptor has been written back
+ 		 */
+-		rmb();
++		dma_rmb();
+ 
+ 		/* retrieve a buffer from the ring */
+ 		skb = ixgbe_fetch_rx_buffer(rx_ring, rx_desc);
