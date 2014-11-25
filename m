@@ -1,53 +1,67 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH 1/2 V2 3.18] rtlwifi: rtl8821ae: Fix 5G detection problem
-Date: Tue, 25 Nov 2014 14:02:07 -0600
-Message-ID: <1416945727-10743-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Valerio Passini <valerio.passini-vbqOIlEVYMdeoWH0uzbU5w@public.gmane.org>
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 3/3] sh_eth: Fix dma mapping issue
+Date: Tue, 25 Nov 2014 23:07:56 +0300
+Message-ID: <5474E19C.1020108@cogentembedded.com>
+References: <1415862301-28032-1-git-send-email-ykaneko0929@gmail.com> <1415862301-28032-4-git-send-email-ykaneko0929@gmail.com> <54653948.5070606@cogentembedded.com> <20141117040935.GA10017@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20141117040935.GA10017@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The changes associated with moving this driver from staging to the regular
-tree missed one section setting the allowable rates for the 5GHz band.
+Hello.
 
-This patch is needed to fix the regression reported in Bug #88811
-(https://bugzilla.kernel.org/show_bug.cgi?id=88811).
+On 11/17/2014 07:09 AM, Simon Horman wrote:
 
-Reported-by: Valerio Passini <valerio.passini-vbqOIlEVYMdeoWH0uzbU5w@public.gmane.org>
-Tested-by: Valerio Passini <valerio.passini-vbqOIlEVYMdeoWH0uzbU5w@public.gmane.org>
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Cc: Valerio Passini <valerio.passini-vbqOIlEVYMdeoWH0uzbU5w@public.gmane.org>
----
+>>> From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
 
-V2 - removed extra parentheses as suggested by John Linville.
+>>> When CONFIG_DMA_API_DEBUG=y, many DMA error messages reports.
+>>> In order to use DMA debug, This patch fix following issues.
 
----
- drivers/net/wireless/rtlwifi/rtl8821ae/hw.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+>>> Issue 1:
+>>> If dma_mapping_error function is not called appropriately after
+>>> DMA mapping, DMA debug will report error message when DMA unmap
+>>> function is called.
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
-index 310d316..18f34f7 100644
---- a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
-@@ -3672,8 +3672,9 @@ static void rtl8821ae_update_hal_rate_mask(struct ieee80211_hw *hw,
- 		mac->opmode == NL80211_IFTYPE_ADHOC)
- 		macid = sta->aid + 1;
- 	if (wirelessmode == WIRELESS_MODE_N_5G ||
--	    wirelessmode == WIRELESS_MODE_AC_5G)
--		ratr_bitmap = sta->supp_rates[NL80211_BAND_5GHZ];
-+	    wirelessmode == WIRELESS_MODE_AC_5G ||
-+	    wirelessmode == WIRELESS_MODE_A)
-+		ratr_bitmap = sta->supp_rates[NL80211_BAND_5GHZ]<<4;
- 	else
- 		ratr_bitmap = sta->supp_rates[NL80211_BAND_2GHZ];
- 
--- 
-2.1.2
+>>> Issue 2:
+>>> If skb_reserve function is called after DMA mapping, the relationship
+>>> between mapping addr and mapping size will be broken.
+>>> In this case, DMA debug will report error messages when DMA sync
+>>> function and DMA unmap function are called.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>> Issue 3:
+>>> If the size of frame data is less than ETH_ZLEN, the size is resized
+>>> to ETH_ZLEN after DMA map function is called.
+>>> In the TX skb freeing function, dma unmap function is called with that
+>>> resized value. So, unmap size error will reported.
+
+>>> Issue 4:
+>>> In the rx function, DMA map function is called without DMA unmap function
+>>> is called for RX skb reallocating.
+>>> It will case the DMA debug error that number of debug entry is full and
+>>> DMA debug logic is stopped.
+
+>>     The rule of thumb is "fix one issue per patch". Please split accordingly.
+
+>>> Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+>>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+
+>>     Thanks for beating me to it. Fixing these issues has been on my agenda
+>> for a long time... :-)
+
+> as this patch is somewhat involved and as you have pointed out needs a bit
+> of work I'm wondering if you could take it over.
+
+    Perhaps I could... but I'm busy with other stuff... not sure when can I 
+get to it.
+
+[...]
+
+WBR, Sergei
+
