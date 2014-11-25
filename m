@@ -1,117 +1,71 @@
-From: Wolfgang Walter <linux@stwm.de>
-Subject: Re: GRE with GRO very slow when forwarding starting with 3.14.24
-Date: Tue, 25 Nov 2014 17:55:42 +0100
-Message-ID: <3312348.sHuoVf2bjb@h2o.as.studentenwerk.mhn.de>
-References: <2340533.MickblD7NF@h2o.as.studentenwerk.mhn.de> <1416847696.17888.64.camel@edumazet-glaptop2.roam.corp.google.com> <CA+mtBx9SOr5RH7S63S28YbgxR8EwjgfS_dUkS2A4D1W3NzazHQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] pkt_sched: fq: increase max delay from 125 ms to
+ one second
+Date: Tue, 25 Nov 2014 08:57:29 -0800
+Message-ID: <1416934649.29427.34.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1416921892-4756-1-git-send-email-yangyingliang@huawei.com>
+	 <1416933094.29427.27.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>
+To: Yang Yingliang <yangyingliang@huawei.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailin.studentenwerk.mhn.de ([141.84.225.229]:43983 "EHLO
-	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752295AbaKYQzp convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Nov 2014 11:55:45 -0500
-In-Reply-To: <CA+mtBx9SOr5RH7S63S28YbgxR8EwjgfS_dUkS2A4D1W3NzazHQ@mail.gmail.com>
+Received: from mail-ie0-f181.google.com ([209.85.223.181]:37435 "EHLO
+	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750910AbaKYQ5b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 11:57:31 -0500
+Received: by mail-ie0-f181.google.com with SMTP id tp5so906850ieb.40
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 08:57:31 -0800 (PST)
+In-Reply-To: <1416933094.29427.27.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Montag, 24. November 2014, 10:16:26 schrieb Tom Herbert:
-> On Mon, Nov 24, 2014 at 8:48 AM, Eric Dumazet <eric.dumazet@gmail.com=
->=20
-wrote:
-> > On Mon, 2014-11-24 at 17:13 +0100, Wolfgang Walter wrote:
-> > > Hello,
-> > >=20
-> > > starting with 3.14.24 GRE with GRO on is very slow. To be more sp=
-ecific:
-> > >=20
-> > > yyyy <--> GRO_endpoint <-_> .... <--> |eth0<->GRO-endpoint | eth1=
- |<->
-> > > xxxx
-> > >=20
-> > > routing (IPv4) between xxxx and yyyy is very slow when GRO is ena=
-bled on
-> > > eth0 and/or eth1 starting with stable kernel 3.14.24
-> > >=20
-> > > Regards,
-> >=20
-> > tcpdump might help, but I presume GSO is no longer working properly=
- on
-> > egress.
->=20
-> Inner mac header is probably not being set in GRO->GSO GRE path.
-> Please try this also:
+From: Eric Dumazet <edumazet@google.com>
 
+FQ/pacing has a clamp of delay of 125 ms, to avoid some possible harm.
 
-Thanks, this patch fixes the problem.
+It turns out this delay is too small to allow pacing low rates :
+Some ISP setup very aggressive policers as low as 16kbit.
+    
+Now TCP stack has spurious rtx prevention, it seems safe to increase
+this fixed parameter, without adding a qdisc attribute.
 
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Yang Yingliang <yangyingliang@huawei.com>
+---
+This is something we run since July 2014 with good results, I forgot to
+upstream this change. Thanks !
 
->=20
-> diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-> index bb5947b..51973dd 100644
-> --- a/net/ipv4/gre_offload.c
-> +++ b/net/ipv4/gre_offload.c
-> @@ -247,6 +247,9 @@ static int gre_gro_complete(struct sk_buff *skb, =
-int
-> nhoff) err =3D ptype->callbacks.gro_complete(skb, nhoff + grehlen);
->=20
->         rcu_read_unlock();
-> +
-> +       skb_set_inner_mac_header(skb, nhoff + grehlen);
-> +
->         return err;
->  }
->=20
-> > Can you try to revert :
-> >=20
-> > commit abe640984aa492652232b65d3579361cf6d461f5
-> > Author: Tom Herbert <therbert@google.com>
-> > Date:   Thu Oct 30 08:40:56 2014 -0700
-> >=20
-> >     gre: Use inner mac length when computing tunnel length
-> >    =20
-> >     [ Upstream commit 14051f0452a2c26a3f4791e6ad6a435e8f1945ff ]
-> >    =20
-> >     Currently, skb_inner_network_header is used but this does not a=
-ccount
-> >     for Ethernet header for ETH_P_TEB. Use skb_inner_mac_header whi=
-ch
-> >     handles TEB and also should work with IP encapsulation in which=
- case
-> >     inner mac and inner network headers are the same.
-> >    =20
-> >     Tested: Ran TCP_STREAM over GRE, worked as expected.
-> >    =20
-> >     Signed-off-by: Tom Herbert <therbert@google.com>
-> >     Acked-by: Alexander Duyck <alexander.h.duyck@redhat.com>
-> >     Signed-off-by: David S. Miller <davem@davemloft.net>
-> >     Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> >=20
-> > diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-> > index 2d24f293f977..8c8493ea6b1c 100644
-> > --- a/net/ipv4/gre_offload.c
-> > +++ b/net/ipv4/gre_offload.c
-> > @@ -50,7 +50,7 @@ static struct sk_buff *gre_gso_segment(struct sk_=
-buff
-> > *skb,>=20
-> >         greh =3D (struct gre_base_hdr *)skb_transport_header(skb);
-> >=20
-> > -       ghl =3D skb_inner_network_header(skb) - skb_transport_heade=
-r(skb);
-> > +       ghl =3D skb_inner_mac_header(skb) - skb_transport_header(sk=
-b);
-> >=20
-> >         if (unlikely(ghl < sizeof(*greh)))
-> >        =20
-> >                 goto out;
+Notes for Googlers :
 
-Regards,
---=20
-Wolfgang Walter
-Studentenwerk M=FCnchen
-Anstalt des =F6ffentlichen Rechts
+ Google-Bug-Id: 9297267
+ Google-Bug-Id: 11789651
+ Change-Id: I081d7d842bfb860a4cd620bf1c71a8eb239150c8
+
+ net/sched/sch_fq.c |    9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
+index cbd7e1fd23b41bb7ba0bb348c3a1a287652cca93..9b05924cc386ecc2cdb9816be27e439637fb37b3 100644
+--- a/net/sched/sch_fq.c
++++ b/net/sched/sch_fq.c
+@@ -481,12 +481,11 @@ begin:
+ 		if (likely(rate))
+ 			do_div(len, rate);
+ 		/* Since socket rate can change later,
+-		 * clamp the delay to 125 ms.
+-		 * TODO: maybe segment the too big skb, as in commit
+-		 * e43ac79a4bc ("sch_tbf: segment too big GSO packets")
++		 * clamp the delay to 1 second.
++		 * Really, providers of too big packets should be fixed !
+ 		 */
+-		if (unlikely(len > 125 * NSEC_PER_MSEC)) {
+-			len = 125 * NSEC_PER_MSEC;
++		if (unlikely(len > NSEC_PER_SEC)) {
++			len = NSEC_PER_SEC;
+ 			q->stat_pkts_too_long++;
+ 		}
+ 
