@@ -1,10 +1,12 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [patch net-next v3 15/17] bridge: add new hwmode swdev
-Date: Tue, 25 Nov 2014 23:00:53 +0000
-Message-ID: <20141125230053.GK3912@casper.infradead.org>
+Subject: Re: [patch net-next v3 02/17] net: make vid as a parameter for
+ ndo_fdb_add/ndo_fdb_del
+Date: Tue, 25 Nov 2014 23:11:05 +0000
+Message-ID: <20141125231105.GL3912@casper.infradead.org>
 References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
- <1416911328-10979-16-git-send-email-jiri@resnulli.us>
- <5474A95B.3080607@mojatatu.com>
+ <1416911328-10979-3-git-send-email-jiri@resnulli.us>
+ <20141125221417.GF3912@casper.infradead.org>
+ <54750505.3060004@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
@@ -13,8 +15,8 @@ Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
 	pshelar@nicira.com, azhou@nicira.com, ben@decadent.org.uk,
 	stephen@networkplumber.org, jeffrey.t.kirsher@intel.com,
 	vyasevic@redhat.com, xiyou.wangcong@gmail.com,
-	john.r.fastabend@intel.com, edumazet@google.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	john.r.fastabend@intel.com, edumazet@google.com, jhs@mojatatu.com,
+	sfeldma@gmail.com, roopa@cumulusnetworks.com,
 	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
 	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
 	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
@@ -22,54 +24,41 @@ Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
 	ronye@mellanox.com, simon.horman@netronome.com,
 	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
 	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+	bcrl@kvack.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:57026 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:57087 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751828AbaKYXAy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 18:00:54 -0500
+	with ESMTP id S1751374AbaKYXLJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 18:11:09 -0500
 Content-Disposition: inline
-In-Reply-To: <5474A95B.3080607@mojatatu.com>
+In-Reply-To: <54750505.3060004@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/25/14 at 11:07am, Jamal Hadi Salim wrote:
-> On 11/25/14 05:28, Jiri Pirko wrote:
-> >From: Scott Feldman <sfeldma@gmail.com>
-> >
-> >Current hwmode settings are "vepa" or "veb".  These are for NIC interfaces
-> >with basic bridging function offloaded to HW.  Add new "swdev" for full
-> >switch device offloads.
-> >
-> >Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-> >Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> >---
-> >new in v3
-> >---
-> >  include/uapi/linux/if_bridge.h | 1 +
-> >  1 file changed, 1 insertion(+)
-> >
-> >diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
-> >index da17e45..60425ca 100644
-> >--- a/include/uapi/linux/if_bridge.h
-> >+++ b/include/uapi/linux/if_bridge.h
-> >@@ -105,6 +105,7 @@ struct __fdb_entry {
-> >
-> >  #define BRIDGE_MODE_VEB		0	/* Default loopback mode */
-> >  #define BRIDGE_MODE_VEPA	1	/* 802.1Qbg defined VEPA mode */
-> >+#define BRIDGE_MODE_SWDEV       2       /* Full switch device offload */
-> >
-> >  /* Bridge management nested attributes
-> >   * [IFLA_AF_SPEC] = {
-> >
+On 11/25/14 at 02:39pm, Florian Fainelli wrote:
+> On 25/11/14 14:14, Thomas Graf wrote:
+> > On 11/25/14 at 11:28am, Jiri Pirko wrote:
+> >> Do the work of parsing NDA_VLAN directly in rtnetlink code, pass simple
+> >> u16 vid to drivers from there.
+> >>
+> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> > 
+> > I'm slightly confused ;-)
+> > 
+> > We both argued that parsing Netlink attributes in the drivers is wrong.
+> > What happened to the plan of renaming ndo_fdb_ to ndo_neigh_ and
+> > introducing a non-Netlink in-kernel API for advanced usage by swdev?
+> > 
 > 
-> Again - Why is this not a generic interface the way Roopa had it?
-> We need to do offloads for a lot of other things than just bridge..
+> Not sure I follow you here, the commit message says what it says it
+> does, are we looking at the same patch?
 
-I agree in general but I'm not sure we should mirror the NETIF_F_*
-approach. Even the relatively simple encap offload has turned into
-a complex set of feature bitmasks requiring harmonization.
+I'm referring to the discussion that occured on patch 06/10 of v2:
 
-I think we should discuss this in the context of John's work which
-neatly abstracts the capabilities.
+http://www.spinics.net/lists/netdev/msg303637.html
+http://www.spinics.net/lists/netdev/msg303669.html
+http://www.spinics.net/lists/netdev/msg303689.html
+http://www.spinics.net/lists/netdev/msg303706.html
+
+I won't hold up this series though. Glad to do the work afterwards.
