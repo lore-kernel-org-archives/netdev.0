@@ -1,14 +1,14 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v4 21/42] virtio_net: get rid of virtio_net_hdr/skb_vnet_hdr
-Date: Tue, 25 Nov 2014 18:42:53 +0200
-Message-ID: <1416933600-21398-22-git-send-email-mst@redhat.com>
+Subject: [PATCH v4 27/42] vhost: virtio 1.0 endian-ness support
+Date: Tue, 25 Nov 2014 18:43:18 +0200
+Message-ID: <1416933600-21398-28-git-send-email-mst@redhat.com>
 References: <1416933600-21398-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
 	rusty@au1.ibm.com, nab@linux-iscsi.org, pbonzini@redhat.com,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
@@ -16,265 +16,324 @@ In-Reply-To: <1416933600-21398-1-git-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-virtio 1.0 doesn't use virtio_net_hdr anymore, and in fact, it's not
-really useful since virtio_net_hdr_mrg_rxbuf includes that as the first
-field anyway.
-
-Let's drop it, precalculate header len and store within vi instead.
-
-This way we can also remove struct skb_vnet_hdr.
-
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/net/virtio_net.c | 90 ++++++++++++++++++++++--------------------------
- 1 file changed, 41 insertions(+), 49 deletions(-)
+ drivers/vhost/vhost.c | 93 +++++++++++++++++++++++++++++++--------------------
+ 1 file changed, 56 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 1630c21..516f2cb 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -123,6 +123,9 @@ struct virtnet_info {
- 	/* Host can handle any s/g split between our header and packet data */
- 	bool any_header_sg;
- 
-+	/* Packet virtio header size */
-+	u8 hdr_len;
-+
- 	/* Active statistics */
- 	struct virtnet_stats __percpu *stats;
- 
-@@ -139,21 +142,14 @@ struct virtnet_info {
- 	struct notifier_block nb;
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index c90f437..4d379ed 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -33,8 +33,8 @@ enum {
+ 	VHOST_MEMORY_F_LOG = 0x1,
  };
  
--struct skb_vnet_hdr {
--	union {
--		struct virtio_net_hdr hdr;
--		struct virtio_net_hdr_mrg_rxbuf mhdr;
--	};
--};
--
- struct padded_vnet_hdr {
--	struct virtio_net_hdr hdr;
-+	struct virtio_net_hdr_mrg_rxbuf hdr;
- 	/*
--	 * virtio_net_hdr should be in a separated sg buffer because of a
--	 * QEMU bug, and data sg buffer shares same page with this header sg.
--	 * This padding makes next sg 16 byte aligned after virtio_net_hdr.
-+	 * hdr is in a separate sg buffer, and data sg buffer shares same page
-+	 * with this header sg. This padding makes next sg 16 byte aligned
-+	 * after the header.
- 	 */
--	char padding[6];
-+	char padding[4];
- };
+-#define vhost_used_event(vq) ((u16 __user *)&vq->avail->ring[vq->num])
+-#define vhost_avail_event(vq) ((u16 __user *)&vq->used->ring[vq->num])
++#define vhost_used_event(vq) ((__virtio16 __user *)&vq->avail->ring[vq->num])
++#define vhost_avail_event(vq) ((__virtio16 __user *)&vq->used->ring[vq->num])
  
- /* Converting between virtqueue no. and kernel tx/rx queue no.
-@@ -179,9 +175,9 @@ static int rxq2vq(int rxq)
- 	return rxq * 2;
+ static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
+ 			    poll_table *pt)
+@@ -1001,7 +1001,7 @@ EXPORT_SYMBOL_GPL(vhost_log_write);
+ static int vhost_update_used_flags(struct vhost_virtqueue *vq)
+ {
+ 	void __user *used;
+-	if (__put_user(vq->used_flags, &vq->used->flags) < 0)
++	if (__put_user(cpu_to_vhost16(vq, vq->used_flags), &vq->used->flags) < 0)
+ 		return -EFAULT;
+ 	if (unlikely(vq->log_used)) {
+ 		/* Make sure the flag is seen before log. */
+@@ -1019,7 +1019,7 @@ static int vhost_update_used_flags(struct vhost_virtqueue *vq)
+ 
+ static int vhost_update_avail_event(struct vhost_virtqueue *vq, u16 avail_event)
+ {
+-	if (__put_user(vq->avail_idx, vhost_avail_event(vq)))
++	if (__put_user(cpu_to_vhost16(vq, vq->avail_idx), vhost_avail_event(vq)))
+ 		return -EFAULT;
+ 	if (unlikely(vq->log_used)) {
+ 		void __user *used;
+@@ -1038,6 +1038,7 @@ static int vhost_update_avail_event(struct vhost_virtqueue *vq, u16 avail_event)
+ 
+ int vhost_init_used(struct vhost_virtqueue *vq)
+ {
++	__virtio16 last_used_idx;
+ 	int r;
+ 	if (!vq->private_data)
+ 		return 0;
+@@ -1046,7 +1047,13 @@ int vhost_init_used(struct vhost_virtqueue *vq)
+ 	if (r)
+ 		return r;
+ 	vq->signalled_used_valid = false;
+-	return get_user(vq->last_used_idx, &vq->used->idx);
++	if (!access_ok(VERIFY_READ, &vq->used->idx, sizeof vq->used->idx))
++		return -EFAULT;
++	r = __get_user(last_used_idx, &vq->used->idx);
++	if (r)
++		return r;
++	vq->last_used_idx = vhost16_to_cpu(vq, last_used_idx);
++	return 0;
  }
+ EXPORT_SYMBOL_GPL(vhost_init_used);
  
--static inline struct skb_vnet_hdr *skb_vnet_hdr(struct sk_buff *skb)
-+static inline struct virtio_net_hdr_mrg_rxbuf *skb_vnet_hdr(struct sk_buff *skb)
+@@ -1087,16 +1094,16 @@ static int translate_desc(struct vhost_virtqueue *vq, u64 addr, u32 len,
+ /* Each buffer in the virtqueues is actually a chain of descriptors.  This
+  * function returns the next descriptor in the chain,
+  * or -1U if we're at the end. */
+-static unsigned next_desc(struct vring_desc *desc)
++static unsigned next_desc(struct vhost_virtqueue *vq, struct vring_desc *desc)
  {
--	return (struct skb_vnet_hdr *)skb->cb;
-+	return (struct virtio_net_hdr_mrg_rxbuf *)skb->cb;
- }
+ 	unsigned int next;
  
- /*
-@@ -247,7 +243,7 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
- 				   unsigned int len, unsigned int truesize)
+ 	/* If this descriptor says it doesn't chain, we're done. */
+-	if (!(desc->flags & VRING_DESC_F_NEXT))
++	if (!(desc->flags & cpu_to_vhost16(vq, VRING_DESC_F_NEXT)))
+ 		return -1U;
+ 
+ 	/* Check they're not leading us off end of descriptors. */
+-	next = desc->next;
++	next = vhost16_to_cpu(vq, desc->next);
+ 	/* Make sure compiler knows to grab that: we don't want it changing! */
+ 	/* We will use the result as an index in an array, so most
+ 	 * architectures only need a compiler barrier here. */
+@@ -1113,18 +1120,19 @@ static int get_indirect(struct vhost_virtqueue *vq,
  {
- 	struct sk_buff *skb;
--	struct skb_vnet_hdr *hdr;
-+	struct virtio_net_hdr_mrg_rxbuf *hdr;
- 	unsigned int copy, hdr_len, hdr_padded_len;
- 	char *p;
+ 	struct vring_desc desc;
+ 	unsigned int i = 0, count, found = 0;
++	u32 len = vhost32_to_cpu(vq, indirect->len);
+ 	int ret;
  
-@@ -260,13 +256,11 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
- 
- 	hdr = skb_vnet_hdr(skb);
- 
--	if (vi->mergeable_rx_bufs) {
--		hdr_len = sizeof hdr->mhdr;
--		hdr_padded_len = sizeof hdr->mhdr;
--	} else {
--		hdr_len = sizeof hdr->hdr;
-+	hdr_len = vi->hdr_len;
-+	if (vi->mergeable_rx_bufs)
-+		hdr_padded_len = sizeof *hdr;
-+	else
- 		hdr_padded_len = sizeof(struct padded_vnet_hdr);
--	}
- 
- 	memcpy(hdr, p, hdr_len);
- 
-@@ -317,11 +311,11 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
- 	return skb;
- }
- 
--static struct sk_buff *receive_small(void *buf, unsigned int len)
-+static struct sk_buff *receive_small(struct virtnet_info *vi, void *buf, unsigned int len)
- {
- 	struct sk_buff * skb = buf;
- 
--	len -= sizeof(struct virtio_net_hdr);
-+	len -= vi->hdr_len;
- 	skb_trim(skb, len);
- 
- 	return skb;
-@@ -354,8 +348,8 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 					 unsigned int len)
- {
- 	void *buf = mergeable_ctx_to_buf_address(ctx);
--	struct skb_vnet_hdr *hdr = buf;
--	u16 num_buf = virtio16_to_cpu(rq->vq->vdev, hdr->mhdr.num_buffers);
-+	struct virtio_net_hdr_mrg_rxbuf *hdr = buf;
-+	u16 num_buf = virtio16_to_cpu(vi->vdev, hdr->num_buffers);
- 	struct page *page = virt_to_head_page(buf);
- 	int offset = buf - page_address(page);
- 	unsigned int truesize = max(len, mergeable_ctx_to_buf_truesize(ctx));
-@@ -373,8 +367,8 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 		if (unlikely(!ctx)) {
- 			pr_debug("%s: rx error: %d buffers out of %d missing\n",
- 				 dev->name, num_buf,
--				 virtio16_to_cpu(rq->vq->vdev,
--						 hdr->mhdr.num_buffers));
-+				 virtio16_to_cpu(vi->vdev,
-+						 hdr->num_buffers));
- 			dev->stats.rx_length_errors++;
- 			goto err_buf;
- 		}
-@@ -441,7 +435,7 @@ static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
- 	struct net_device *dev = vi->dev;
- 	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
- 	struct sk_buff *skb;
--	struct skb_vnet_hdr *hdr;
-+	struct virtio_net_hdr_mrg_rxbuf *hdr;
- 
- 	if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
- 		pr_debug("%s: short packet %i\n", dev->name, len);
-@@ -463,7 +457,7 @@ static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
- 	else if (vi->big_packets)
- 		skb = receive_big(dev, vi, rq, buf, len);
- 	else
--		skb = receive_small(buf, len);
-+		skb = receive_small(vi, buf, len);
- 
- 	if (unlikely(!skb))
- 		return;
-@@ -545,7 +539,7 @@ static int add_recvbuf_small(struct virtnet_info *vi, struct receive_queue *rq,
- 			     gfp_t gfp)
- {
- 	struct sk_buff *skb;
--	struct skb_vnet_hdr *hdr;
-+	struct virtio_net_hdr_mrg_rxbuf *hdr;
- 	int err;
- 
- 	skb = __netdev_alloc_skb_ip_align(vi->dev, GOOD_PACKET_LEN, gfp);
-@@ -556,7 +550,7 @@ static int add_recvbuf_small(struct virtnet_info *vi, struct receive_queue *rq,
- 
- 	hdr = skb_vnet_hdr(skb);
- 	sg_init_table(rq->sg, MAX_SKB_FRAGS + 2);
--	sg_set_buf(rq->sg, &hdr->hdr, sizeof hdr->hdr);
-+	sg_set_buf(rq->sg, hdr, vi->hdr_len);
- 	skb_to_sgvec(skb, rq->sg + 1, 0, skb->len);
- 
- 	err = virtqueue_add_inbuf(rq->vq, rq->sg, 2, skb, gfp);
-@@ -566,7 +560,8 @@ static int add_recvbuf_small(struct virtnet_info *vi, struct receive_queue *rq,
- 	return err;
- }
- 
--static int add_recvbuf_big(struct receive_queue *rq, gfp_t gfp)
-+static int add_recvbuf_big(struct virtnet_info *vi, struct receive_queue *rq,
-+			   gfp_t gfp)
- {
- 	struct page *first, *list = NULL;
- 	char *p;
-@@ -597,8 +592,8 @@ static int add_recvbuf_big(struct receive_queue *rq, gfp_t gfp)
- 	p = page_address(first);
- 
- 	/* rq->sg[0], rq->sg[1] share the same page */
--	/* a separated rq->sg[0] for virtio_net_hdr only due to QEMU bug */
--	sg_set_buf(&rq->sg[0], p, sizeof(struct virtio_net_hdr));
-+	/* a separated rq->sg[0] for header - required in case !any_header_sg */
-+	sg_set_buf(&rq->sg[0], p, vi->hdr_len);
- 
- 	/* rq->sg[1] for data packet, from offset */
- 	offset = sizeof(struct padded_vnet_hdr);
-@@ -677,7 +672,7 @@ static bool try_fill_recv(struct virtnet_info *vi, struct receive_queue *rq,
- 		if (vi->mergeable_rx_bufs)
- 			err = add_recvbuf_mergeable(rq, gfp);
- 		else if (vi->big_packets)
--			err = add_recvbuf_big(rq, gfp);
-+			err = add_recvbuf_big(vi, rq, gfp);
- 		else
- 			err = add_recvbuf_small(vi, rq, gfp);
- 
-@@ -857,18 +852,14 @@ static void free_old_xmit_skbs(struct send_queue *sq)
- 
- static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
- {
--	struct skb_vnet_hdr *hdr;
-+	struct virtio_net_hdr_mrg_rxbuf *hdr;
- 	const unsigned char *dest = ((struct ethhdr *)skb->data)->h_dest;
- 	struct virtnet_info *vi = sq->vq->vdev->priv;
- 	unsigned num_sg;
--	unsigned hdr_len;
-+	unsigned hdr_len = vi->hdr_len;
- 	bool can_push;
- 
- 	pr_debug("%s: xmit %p %pM\n", vi->dev->name, skb, dest);
--	if (vi->mergeable_rx_bufs)
--		hdr_len = sizeof hdr->mhdr;
--	else
--		hdr_len = sizeof hdr->hdr;
- 
- 	can_push = vi->any_header_sg &&
- 		!((unsigned long)skb->data & (__alignof__(*hdr) - 1)) &&
-@@ -876,7 +867,7 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
- 	/* Even if we can, don't push here yet as this would skew
- 	 * csum_start offset below. */
- 	if (can_push)
--		hdr = (struct skb_vnet_hdr *)(skb->data - hdr_len);
-+		hdr = (struct virtio_net_hdr_mrg_rxbuf *)(skb->data - hdr_len);
- 	else
- 		hdr = skb_vnet_hdr(skb);
- 
-@@ -909,7 +900,7 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+ 	/* Sanity check */
+-	if (unlikely(indirect->len % sizeof desc)) {
++	if (unlikely(len % sizeof desc)) {
+ 		vq_err(vq, "Invalid length in indirect descriptor: "
+ 		       "len 0x%llx not multiple of 0x%zx\n",
+-		       (unsigned long long)indirect->len,
++		       (unsigned long long)vhost32_to_cpu(vq, indirect->len),
+ 		       sizeof desc);
+ 		return -EINVAL;
  	}
  
- 	if (vi->mergeable_rx_bufs)
--		hdr->mhdr.num_buffers = 0;
-+		hdr->num_buffers = 0;
+-	ret = translate_desc(vq, indirect->addr, indirect->len, vq->indirect,
++	ret = translate_desc(vq, vhost64_to_cpu(vq, indirect->addr), len, vq->indirect,
+ 			     UIO_MAXIOV);
+ 	if (unlikely(ret < 0)) {
+ 		vq_err(vq, "Translation failure %d in indirect.\n", ret);
+@@ -1135,7 +1143,7 @@ static int get_indirect(struct vhost_virtqueue *vq,
+ 	 * architectures only need a compiler barrier here. */
+ 	read_barrier_depends();
  
- 	sg_init_table(sq->sg, MAX_SKB_FRAGS + 2);
- 	if (can_push) {
-@@ -1814,18 +1805,19 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
- 		vi->mergeable_rx_bufs = true;
+-	count = indirect->len / sizeof desc;
++	count = len / sizeof desc;
+ 	/* Buffers are chained via a 16 bit next field, so
+ 	 * we can have at most 2^16 of these. */
+ 	if (unlikely(count > USHRT_MAX + 1)) {
+@@ -1155,16 +1163,17 @@ static int get_indirect(struct vhost_virtqueue *vq,
+ 		if (unlikely(memcpy_fromiovec((unsigned char *)&desc,
+ 					      vq->indirect, sizeof desc))) {
+ 			vq_err(vq, "Failed indirect descriptor: idx %d, %zx\n",
+-			       i, (size_t)indirect->addr + i * sizeof desc);
++			       i, (size_t)vhost64_to_cpu(vq, indirect->addr) + i * sizeof desc);
+ 			return -EINVAL;
+ 		}
+-		if (unlikely(desc.flags & VRING_DESC_F_INDIRECT)) {
++		if (unlikely(desc.flags & cpu_to_vhost16(vq, VRING_DESC_F_INDIRECT))) {
+ 			vq_err(vq, "Nested indirect descriptor: idx %d, %zx\n",
+-			       i, (size_t)indirect->addr + i * sizeof desc);
++			       i, (size_t)vhost64_to_cpu(vq, indirect->addr) + i * sizeof desc);
+ 			return -EINVAL;
+ 		}
  
-+	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
-+		vi->hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-+	else
-+		vi->hdr_len = sizeof(struct virtio_net_hdr);
+-		ret = translate_desc(vq, desc.addr, desc.len, iov + iov_count,
++		ret = translate_desc(vq, vhost64_to_cpu(vq, desc.addr),
++				     vhost32_to_cpu(vq, desc.len), iov + iov_count,
+ 				     iov_size - iov_count);
+ 		if (unlikely(ret < 0)) {
+ 			vq_err(vq, "Translation failure %d indirect idx %d\n",
+@@ -1172,11 +1181,11 @@ static int get_indirect(struct vhost_virtqueue *vq,
+ 			return ret;
+ 		}
+ 		/* If this is an input descriptor, increment that count. */
+-		if (desc.flags & VRING_DESC_F_WRITE) {
++		if (desc.flags & cpu_to_vhost16(vq, VRING_DESC_F_WRITE)) {
+ 			*in_num += ret;
+ 			if (unlikely(log)) {
+-				log[*log_num].addr = desc.addr;
+-				log[*log_num].len = desc.len;
++				log[*log_num].addr = vhost64_to_cpu(vq, desc.addr);
++				log[*log_num].len = vhost32_to_cpu(vq, desc.len);
+ 				++*log_num;
+ 			}
+ 		} else {
+@@ -1189,7 +1198,7 @@ static int get_indirect(struct vhost_virtqueue *vq,
+ 			}
+ 			*out_num += ret;
+ 		}
+-	} while ((i = next_desc(&desc)) != -1);
++	} while ((i = next_desc(vq, &desc)) != -1);
+ 	return 0;
+ }
+ 
+@@ -1209,15 +1218,18 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+ 	struct vring_desc desc;
+ 	unsigned int i, head, found = 0;
+ 	u16 last_avail_idx;
++	__virtio16 avail_idx;
++	__virtio16 ring_head;
+ 	int ret;
+ 
+ 	/* Check it isn't doing very strange things with descriptor numbers. */
+ 	last_avail_idx = vq->last_avail_idx;
+-	if (unlikely(__get_user(vq->avail_idx, &vq->avail->idx))) {
++	if (unlikely(__get_user(avail_idx, &vq->avail->idx))) {
+ 		vq_err(vq, "Failed to access avail idx at %p\n",
+ 		       &vq->avail->idx);
+ 		return -EFAULT;
+ 	}
++	vq->avail_idx = vhost16_to_cpu(vq, avail_idx);
+ 
+ 	if (unlikely((u16)(vq->avail_idx - last_avail_idx) > vq->num)) {
+ 		vq_err(vq, "Guest moved used index from %u to %u",
+@@ -1234,7 +1246,7 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+ 
+ 	/* Grab the next descriptor number they're advertising, and increment
+ 	 * the index we've seen. */
+-	if (unlikely(__get_user(head,
++	if (unlikely(__get_user(ring_head,
+ 				&vq->avail->ring[last_avail_idx % vq->num]))) {
+ 		vq_err(vq, "Failed to read head: idx %d address %p\n",
+ 		       last_avail_idx,
+@@ -1242,6 +1254,8 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+ 		return -EFAULT;
+ 	}
+ 
++	head = vhost16_to_cpu(vq, ring_head);
 +
- 	if (virtio_has_feature(vdev, VIRTIO_F_ANY_LAYOUT))
- 		vi->any_header_sg = true;
+ 	/* If their number is silly, that's an error. */
+ 	if (unlikely(head >= vq->num)) {
+ 		vq_err(vq, "Guest says index %u > %u is available",
+@@ -1274,7 +1288,7 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+ 			       i, vq->desc + i);
+ 			return -EFAULT;
+ 		}
+-		if (desc.flags & VRING_DESC_F_INDIRECT) {
++		if (desc.flags & cpu_to_vhost16(vq, VRING_DESC_F_INDIRECT)) {
+ 			ret = get_indirect(vq, iov, iov_size,
+ 					   out_num, in_num,
+ 					   log, log_num, &desc);
+@@ -1286,20 +1300,21 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+ 			continue;
+ 		}
  
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
- 		vi->has_cvq = true;
+-		ret = translate_desc(vq, desc.addr, desc.len, iov + iov_count,
++		ret = translate_desc(vq, vhost64_to_cpu(vq, desc.addr),
++				     vhost32_to_cpu(vq, desc.len), iov + iov_count,
+ 				     iov_size - iov_count);
+ 		if (unlikely(ret < 0)) {
+ 			vq_err(vq, "Translation failure %d descriptor idx %d\n",
+ 			       ret, i);
+ 			return ret;
+ 		}
+-		if (desc.flags & VRING_DESC_F_WRITE) {
++		if (desc.flags & cpu_to_vhost16(vq, VRING_DESC_F_WRITE)) {
+ 			/* If this is an input descriptor,
+ 			 * increment that count. */
+ 			*in_num += ret;
+ 			if (unlikely(log)) {
+-				log[*log_num].addr = desc.addr;
+-				log[*log_num].len = desc.len;
++				log[*log_num].addr = vhost64_to_cpu(vq, desc.addr);
++				log[*log_num].len = vhost32_to_cpu(vq, desc.len);
+ 				++*log_num;
+ 			}
+ 		} else {
+@@ -1312,7 +1327,7 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+ 			}
+ 			*out_num += ret;
+ 		}
+-	} while ((i = next_desc(&desc)) != -1);
++	} while ((i = next_desc(vq, &desc)) != -1);
  
--	if (vi->any_header_sg) {
--		if (vi->mergeable_rx_bufs)
--			dev->needed_headroom = sizeof(struct virtio_net_hdr_mrg_rxbuf);
--		else
--			dev->needed_headroom = sizeof(struct virtio_net_hdr);
--	}
-+	if (vi->any_header_sg)
-+		dev->needed_headroom = vi->hdr_len;
+ 	/* On success, increment avail index. */
+ 	vq->last_avail_idx++;
+@@ -1335,7 +1350,10 @@ EXPORT_SYMBOL_GPL(vhost_discard_vq_desc);
+  * want to notify the guest, using eventfd. */
+ int vhost_add_used(struct vhost_virtqueue *vq, unsigned int head, int len)
+ {
+-	struct vring_used_elem heads = { head, len };
++	struct vring_used_elem heads = {
++		cpu_to_vhost32(vq, head),
++		cpu_to_vhost32(vq, len)
++	};
  
- 	/* Use single tx/rx queue pair as default */
- 	vi->curr_queue_pairs = 1;
+ 	return vhost_add_used_n(vq, &heads, 1);
+ }
+@@ -1404,7 +1422,7 @@ int vhost_add_used_n(struct vhost_virtqueue *vq, struct vring_used_elem *heads,
+ 
+ 	/* Make sure buffer is written before we update index. */
+ 	smp_wmb();
+-	if (put_user(vq->last_used_idx, &vq->used->idx)) {
++	if (__put_user(cpu_to_vhost16(vq, vq->last_used_idx), &vq->used->idx)) {
+ 		vq_err(vq, "Failed to increment used idx");
+ 		return -EFAULT;
+ 	}
+@@ -1422,7 +1440,8 @@ EXPORT_SYMBOL_GPL(vhost_add_used_n);
+ 
+ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ {
+-	__u16 old, new, event;
++	__u16 old, new;
++	__virtio16 event;
+ 	bool v;
+ 	/* Flush out used index updates. This is paired
+ 	 * with the barrier that the Guest executes when enabling
+@@ -1434,12 +1453,12 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ 		return true;
+ 
+ 	if (!vhost_has_feature(vq, VIRTIO_RING_F_EVENT_IDX)) {
+-		__u16 flags;
++		__virtio16 flags;
+ 		if (__get_user(flags, &vq->avail->flags)) {
+ 			vq_err(vq, "Failed to get flags");
+ 			return true;
+ 		}
+-		return !(flags & VRING_AVAIL_F_NO_INTERRUPT);
++		return !(flags & cpu_to_vhost16(vq, VRING_AVAIL_F_NO_INTERRUPT));
+ 	}
+ 	old = vq->signalled_used;
+ 	v = vq->signalled_used_valid;
+@@ -1449,11 +1468,11 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ 	if (unlikely(!v))
+ 		return true;
+ 
+-	if (get_user(event, vhost_used_event(vq))) {
++	if (__get_user(event, vhost_used_event(vq))) {
+ 		vq_err(vq, "Failed to get used event idx");
+ 		return true;
+ 	}
+-	return vring_need_event(event, new, old);
++	return vring_need_event(vhost16_to_cpu(vq, event), new, old);
+ }
+ 
+ /* This actually signals the guest, using eventfd. */
+@@ -1488,7 +1507,7 @@ EXPORT_SYMBOL_GPL(vhost_add_used_and_signal_n);
+ /* OK, now we need to know about added descriptors. */
+ bool vhost_enable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ {
+-	u16 avail_idx;
++	__virtio16 avail_idx;
+ 	int r;
+ 
+ 	if (!(vq->used_flags & VRING_USED_F_NO_NOTIFY))
+@@ -1519,7 +1538,7 @@ bool vhost_enable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ 		return false;
+ 	}
+ 
+-	return avail_idx != vq->avail_idx;
++	return vhost16_to_cpu(vq, avail_idx) != vq->avail_idx;
+ }
+ EXPORT_SYMBOL_GPL(vhost_enable_notify);
+ 
 -- 
 MST
