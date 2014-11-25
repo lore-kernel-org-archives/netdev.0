@@ -1,116 +1,143 @@
-From: Andreas Ruprecht <rupran@einserver.de>
-Subject: [PATCH] net: netfilter: Fix undefined reference to nf_nat_redirect_* functions
-Date: Tue, 25 Nov 2014 16:07:14 +0100
-Message-ID: <1416928034-10882-1-git-send-email-rupran@einserver.de>
-Cc: Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andreas Ruprecht <rupran@einserver.de>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [patch net-next v3 02/17] net: make vid as a parameter for
+ ndo_fdb_add/ndo_fdb_del
+Date: Tue, 25 Nov 2014 10:13:12 -0500
+Message-ID: <20141125151312.GC27416@gospo.rtplab.test>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
+ <1416911328-10979-3-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, bcrl@kvack.org
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:37039 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751005AbaKYPNq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 10:13:46 -0500
+Content-Disposition: inline
+In-Reply-To: <1416911328-10979-3-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In a configuration with CONFIG_NFT_NAT and
-CONFIG_NETFILTER_XT_TARGET_REDIRECT enabled, undefined references to
-nf_nat_redirect_ipv{4,6}() can occur, when the corresponding options
-CONFIG_NF_NAT_REDIRECT_IPV4 or CONFIG_NF_NAT_REDIRECT_IPV6 are not
-enabled.
+On Tue, Nov 25, 2014 at 11:28:33AM +0100, Jiri Pirko wrote:
+> Do the work of parsing NDA_VLAN directly in rtnetlink code, pass simple
+> u16 vid to drivers from there.
+> 
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-net/built-in.o: In function `redirect_tg4':
-xt_REDIRECT.c:(.text+0x6d001): undefined reference to `nf_nat_redirect_ipv4'
-net/built-in.o: In function `redirect_tg6':
-xt_REDIRECT.c:(.text+0x6d021): undefined reference to `nf_nat_redirect_ipv6'
+Structurally this looks fine, just a misspelling noted below.
 
-This is because the file xt_REDIRECT.c is compiled when
-CONFIG_NETFILTER_XT_TARGET_REDIRECT is enabled, which only depends
-on CONFIG_NF_NAT. This option is invisible and can only be selected by
-other Kconfig options. In this particular case, it is selected by
-CONFIG_NFT_NAT.
+Acked-by: Andy Gospodarek <gospo@cumulusnetworks.com>
 
-This patch changes the dependency for CONFIG_NETFILTER_XT_TARGET_REDIRECT
-to only make it visible if at least one of
-{CONFIG_NF_NAT_REDIRECT_IPV4, CONFIG_NF_NAT_REDIRECT_IPV6} are enabled.
+> ---
+> new in v3
+> ---
+>  drivers/net/ethernet/intel/i40e/i40e_main.c      |  2 +-
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  4 +-
+>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |  9 +++--
+>  drivers/net/macvlan.c                            |  4 +-
+>  drivers/net/vxlan.c                              |  4 +-
+>  include/linux/netdevice.h                        |  8 ++--
+>  include/linux/rtnetlink.h                        |  6 ++-
+>  net/bridge/br_fdb.c                              | 39 ++----------------
+>  net/bridge/br_private.h                          |  4 +-
+>  net/core/rtnetlink.c                             | 50 ++++++++++++++++++++----
+>  10 files changed, 70 insertions(+), 60 deletions(-)
+> 
+[...]
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index a688268..f2a4b38 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -36,6 +36,7 @@
+>  #include <linux/mutex.h>
+>  #include <linux/if_addr.h>
+>  #include <linux/if_bridge.h>
+> +#include <linux/if_vlan.h>
+>  #include <linux/pci.h>
+>  #include <linux/etherdevice.h>
+>  
+> @@ -2312,7 +2313,7 @@ errout:
+>  int ndo_dflt_fdb_add(struct ndmsg *ndm,
+>  		     struct nlattr *tb[],
+>  		     struct net_device *dev,
+> -		     const unsigned char *addr,
+> +		     const unsigned char *addr, u16 vid,
+>  		     u16 flags)
+>  {
+>  	int err = -EINVAL;
+> @@ -2338,6 +2339,28 @@ int ndo_dflt_fdb_add(struct ndmsg *ndm,
+>  }
+>  EXPORT_SYMBOL(ndo_dflt_fdb_add);
+>  
+> +static int fbd_vid_parse(struct nlattr *vlan_attr, u16 *p_vid)
+I presume this is a misspelling?
 
-Additionally it is necessary to provide stubs for the
-nf_nat_redirect_ipv{4,6} functions in case the header is included but
-the corresponding Kconfig feature is not enabled.
+[...]
+> @@ -2370,6 +2394,10 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh)
+>  
+>  	addr = nla_data(tb[NDA_LLADDR]);
+>  
+> +	err = fbd_vid_parse(tb[NDA_VLAN], &vid);
+Same here....
 
-Signed-off-by: Andreas Ruprecht <rupran@einserver.de>
----
- include/net/netfilter/ipv4/nf_nat_redirect.h | 14 ++++++++++++++
- include/net/netfilter/ipv6/nf_nat_redirect.h | 13 +++++++++++++
- net/netfilter/Kconfig                        |  2 +-
- 3 files changed, 28 insertions(+), 1 deletion(-)
+> +	if (err)
+> +		return err;
+> +
+>  	err = -EOPNOTSUPP;
+>  
+>  	/* Support fdb on master device the net/bridge default case */
 
-diff --git a/include/net/netfilter/ipv4/nf_nat_redirect.h b/include/net/netfilter/ipv4/nf_nat_redirect.h
-index 19e1df3a0a4d..514c7f465d5f 100644
---- a/include/net/netfilter/ipv4/nf_nat_redirect.h
-+++ b/include/net/netfilter/ipv4/nf_nat_redirect.h
-@@ -1,9 +1,23 @@
- #ifndef _NF_NAT_REDIRECT_IPV4_H_
- #define _NF_NAT_REDIRECT_IPV4_H_
- 
-+#include <linux/netfilter.h>
-+
-+#ifdef CONFIG_NF_NAT_REDIRECT_IPV4
- unsigned int
- nf_nat_redirect_ipv4(struct sk_buff *skb,
- 		     const struct nf_nat_ipv4_multi_range_compat *mr,
- 		     unsigned int hooknum);
- 
-+#else /* CONFIG_NF_NAT_REDIRECT_IPv4 */
-+
-+unsigned int
-+nf_nat_redirect_ipv4(struct sk_buff *skb,
-+		     const struct nf_nat_ipv4_multi_range_compat *mr,
-+		     unsigned int hooknum)
-+{
-+	return NF_ACCEPT;
-+}
-+#endif /* CONFIG_NF_NAT_REDIRECT_IPv4 */
-+
- #endif /* _NF_NAT_REDIRECT_IPV4_H_ */
-diff --git a/include/net/netfilter/ipv6/nf_nat_redirect.h b/include/net/netfilter/ipv6/nf_nat_redirect.h
-index 1ebdffc461cc..4db9351120ec 100644
---- a/include/net/netfilter/ipv6/nf_nat_redirect.h
-+++ b/include/net/netfilter/ipv6/nf_nat_redirect.h
-@@ -1,8 +1,21 @@
- #ifndef _NF_NAT_REDIRECT_IPV6_H_
- #define _NF_NAT_REDIRECT_IPV6_H_
- 
-+#include <linux/netfilter.h>
-+
-+#ifdef CONFIG_NF_NAT_REDIRECT_IPV6
- unsigned int
- nf_nat_redirect_ipv6(struct sk_buff *skb, const struct nf_nat_range *range,
- 		     unsigned int hooknum);
- 
-+#else /* CONFIG_NF_NAT_REDIRECT_IPV6 */
-+
-+unsigned int
-+nf_nat_redirect_ipv6(struct sk_buff *skb, const struct nf_nat_range *range,
-+		     unsigned int hooknum)
-+{
-+	return NF_ACCEPT;
-+}
-+#endif /* CONFIG_NF_NAT_REDIRECT_IPV6 */
-+
- #endif /* _NF_NAT_REDIRECT_IPV6_H_ */
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index be8db270aa77..0972851cce03 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -844,7 +844,7 @@ config NETFILTER_XT_TARGET_RATEEST
- 
- config NETFILTER_XT_TARGET_REDIRECT
- 	tristate "REDIRECT target support"
--	depends on NF_NAT
-+	depends on NF_NAT_IPV4 || NF_NAT_IPV6
- 	select NF_NAT_REDIRECT_IPV4 if NF_NAT_IPV4
- 	select NF_NAT_REDIRECT_IPV6 if NF_NAT_IPV6
- 	---help---
--- 
-1.9.1
+[...]
+> @@ -2465,6 +2496,10 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh)
+>  
+>  	addr = nla_data(tb[NDA_LLADDR]);
+>  
+> +	err = fbd_vid_parse(tb[NDA_VLAN], &vid);
+...and here.
+
+> +	if (err)
+> +		return err;
+> +
+>  	err = -EOPNOTSUPP;
+>  
+>  	/* Support fdb on master device the net/bridge default case */
+> @@ -2474,7 +2509,7 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh)
+>  		const struct net_device_ops *ops = br_dev->netdev_ops;
+>  
+>  		if (ops->ndo_fdb_del)
+> -			err = ops->ndo_fdb_del(ndm, tb, dev, addr);
+> +			err = ops->ndo_fdb_del(ndm, tb, dev, addr, vid);
+>  
+>  		if (err)
+>  			goto out;
+> @@ -2485,9 +2520,10 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh)
+>  	/* Embedded bridge, macvlan, and any other device support */
+>  	if (ndm->ndm_flags & NTF_SELF) {
+>  		if (dev->netdev_ops->ndo_fdb_del)
+> -			err = dev->netdev_ops->ndo_fdb_del(ndm, tb, dev, addr);
+> +			err = dev->netdev_ops->ndo_fdb_del(ndm, tb, dev, addr,
+> +							   vid);
+>  		else
+> -			err = ndo_dflt_fdb_del(ndm, tb, dev, addr);
+> +			err = ndo_dflt_fdb_del(ndm, tb, dev, addr, vid);
+>  
+>  		if (!err) {
+>  			rtnl_fdb_notify(dev, addr, RTM_DELNEIGH);
+> -- 
+> 1.9.3
+> 
