@@ -1,110 +1,74 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH 0/4] switch device: offload policy attributes
-Date: Mon, 24 Nov 2014 22:43:51 -0800
-Message-ID: <54742527.8000506@gmail.com>
-References: <1416610170-21224-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bCDp2Cf=azOJvnm3_YRdsD5vwCafbcVFuseUaPuYKDA1g@mail.gmail.com> <547346EB.7060302@cumulusnetworks.com> <CAE4R7bAY2zMy4SiuwhdXyH2Swqv1KfkrBJ_ZwU_RYdCW3k+Mvg@mail.gmail.com> <loom.20141125T032621-877@post.gmane.org>
+From: =?utf-8?B?5bCP5L2V?= <hr@vollo.com.cn>
+Subject: =?utf-8?B?MjAxNOacgOecgeW/g+eahOaJvuWuouaIt+aWueW8jw==?=
+Date: Tue, 25 Nov 2014 14:50:39 +0800
+Message-ID: <20141125145050847455@vollo.com.cn>
+Reply-To: <dingxj8@aliyun.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ronen Arad <ronen.arad@intel.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <i.phwtr9oxirq@vgdmxxqolsunachhqncanir.li>, <212@vger.kernel.org>,
+	<btrfs@vger.kernel.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f49.google.com ([209.85.218.49]:40626 "EHLO
-	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750937AbaKYGoE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 01:44:04 -0500
-Received: by mail-oi0-f49.google.com with SMTP id i138so7606462oig.8
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2014 22:44:03 -0800 (PST)
-In-Reply-To: <loom.20141125T032621-877@post.gmane.org>
+Received: from [210.22.155.234] ([210.22.155.234]:7505 "EHLO mail.vollo.com.cn"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751061AbaKYGw7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Nov 2014 01:52:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/24/2014 07:10 PM, Ronen Arad wrote:
-> Scott Feldman <sfeldma <at> gmail.com> writes:
->
->>
->> On Mon, Nov 24, 2014 at 4:55 AM, Roopa Prabhu <roopa <at>
-> cumulusnetworks.com> wrote:
->>> On 11/24/14, 2:18 AM, Scott Feldman wrote:
->>>>
->>>> Hi Roopa,
->>>>
->>>> I have a patch pending against Jiri's v2 that's uses existing
->>>> ndo_bridge_setlink/getlink to push policy settings down to port driver
->>>> for controlling HW offload.  I had to make a few tweaks, but for the
->>>> most part setlink/getlink already has the master/self semantics so
->>>> users can set policy flags on bridge's SW version of the port (master)
->>>> or on the offloaded version of the port (self).
->>>>     I added the new
->>>> hwmode option "swdev" to the existing "vepa"|"veb" choices.  When you
->>>> specify hwmode, SELF is set and the port driver's setlink get's
->>>> called.  Did you look at setlink/getlink?  It looks like the kernel
->>>> and iproute2 where going down this route of using setlink/getlink for
->>>> SELF policy, so I'm wondering if we need more?
->>>
->>> If i understand you correctly, this will mean the port driver implements
-> the
->>> setlink/getlink with the  bridge port flags and attributes. And, it also
->>> means
->>> the port driver will parse the netlink msg instead of the bridge driver
->>> parsing all attributes and then calling offloads.
->>
->> Yes, exactly, the port driver parses/fills bridge_setlink/getlink
->> netlink msg to set/get port settings.  It's basically a passthru for
->> rtnl_bridge_setlink/getlink handling RTM_GETLNK/RTM_SETLINK on
->> PF_BRIDGE.
->>
->>> But, in cases where we want bridge port flags and attributes set both in
-> hw
->>> and sw,
->>> the user (iproute2) will have to set both MASTER and SELF flags, and the
->>> netlink parsing will now happen in two places, the bridge driver and the
->>> bridge port
->>> driver ?
->>
->
-> How does VLAN filtering is expected to work with an HW-offloaded bridge?
->
-> When MASTER flag is set by iproute2 in the netlink message (or no flag is
->   set), br_setlink - the ndo_bridge_setlink function of the port's master
-> bridge is called. It takes care of setting the VLAN policy in the
-> net_port_vlans of the net_bridge_port. During this sequence the
-> ndo_vlan_rx_add_vid function of the port dev is called. However, it only gets
-> the vid. It does not have access to the flags (PVID, UNTAGGED) and those are
-> not set in the net_port_vlans struct at that time.
->
-> Giving the port driver access to the VLAN policy requires both MASTER and
-> SLAVE flags to be set in the IFLA_BRIDGE_FLAGS attribute.
-> Is the end user is expected to set both flags in the "bridge vlan add"
-> command (Failing to do that will prevent the bridge and HW from being in
-> sync)?
->
-
-Correct. My expectation is if the user wants the software and hardware
-tables to be in sync they should set both SELF and MASTER. If the user
-sets only one of these then it indicates the user _wants_ to have
-hw/sw out of sync.
-
-> Even with both MASTER and SLAVE flags being set in a single netlink request,
-> the HW and bridge could get out of sync if adding the VLAN policy to the port
-> driver would fail after it was added to the bridge netdev.
-> Is there any mechanism for keeping both software and HW in-sync?
->
-
-Yep, my proposal to Roopa would be to abort the transaction and send
-back an indication of where the failure occurred. This seems to me
-to be the easiest option. We could implement a rollback mechanism but
-I think that can be done in a second series if its needed.
-
-> -Ronen
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-
-
--- 
-John Fastabend         Intel Corporation
+5LuK5bm05om+5a6i5oi355qE5pyA55yB5b+D5pa55byP77yM5Y+R5Y+R55+t5L+h5pWI5p6c5Ye6
+5LmO5L2g5oSP5paZ44CC5YqgcXHvvIggMTkzIDk4OSA3MjXvvInvvIzor5XnlKjmnIDlpb3nmoTn
+n63kv6HlubPlj7DjgIINCg0KDQoNCg0KIA0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0K
+DQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoN
+Cg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0K
+DQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoNCg0KDQoN
+Cg0KDQoNCuiPoemih+acieaJjeWQje+8jOiAjOS4lOmVv+W+l+S5n+W+iOa8guS6ru+8jOS9huaY
+r+W+iOmrmOWCsu+8jOaYr+Wkp+WutuW/g+ebruS4reeahOWGsOWxsee+juS6uu+8jOW+iOWwkeS4
+u+WKqOWSjOeUt+eUn+ivtOivne+8jOatpOWIu++8jOWlueermeWcqOS4gOS4quavq+S4jei1t+ec
+vOeahOeUt+eUn+i3n+WJje+8jOW3p+eskeWAqeWFru+8jOiHqueEtuW8leadpeS6uuS7rOe6t+e6
+t+azqOebruOAgiAgICDnlLfkuI3kuozvvJ/nqb/kuKropb/oo4XmnaXms6Hlpp7vvIzot5/kvaDk
+uIDotbfvvIznnJ/kuKLku73lhL/jgILigJ0gICAg4oCc5L2g5Lul5Li65oiR5LiN5oOz56m/6Zi/
+546b5bC85ZWK77yf5ZKx5bCx6L+Z5LiA5Lu25YOP5qC355qE6KGj5pyN5LqG77yM5Lq65piv6KGj
+6KOz6ams5piv6Z6N77yM5aW95q255Lmf5b6X56m/54K55oiQ54af54K55pKR5pKR6Zeo6Z2i44CC
+4oCdICAgIOWxiOWwj+WFg+WAkuS5n+WdpueEtu+8jOaIluWTpe+8n+KAnSAgICDmraPmmK/mn7Pm
+n7TngavnmoTlp5Dlp5Dmn7PmnIjvvIzov5nkuKrlpbPlranlrZDms7zovqPli4fmlaLkuI3nlY/m
+nYPlir/nmoTmgKfmoLzlnKjlpI/lsI/mtJvlv4PkuK3nlZnkuIvkuobmt7HliLvnmoTljbDosaHv
+vIzogIznjrDlnKjlpbnljbTlv43kuI3kvY/lk63ms6PjgIIgICAg5aSP5pOO5aSp6Zeu6YGT77ya
+4oCc5p+z5pyI77yf6L+Z5LmI5pma5LqG77yM6YO95Y2B5LqM54K55aSa5LqG77yM5L2g55CG6L+Z
+5Lu25LqL5pyJ5LiJ5Liq5Y6f5YiZ44CC56ys5LiA5piv5L+d5a+G77yM5Lu75L2V6ICB5biI5LiN
+6IO95rOE6Zyy6L+Z5Liq5raI5oGv77yM6L+Z5Liq5LqL5oOF5YWz57O7552A5oiR5Lus56ys5LiA
+6auY5Lit55qE6I2j6KqJ77yM5pu05YWz57O7552A5oiR5Lus55qE5YiH6Lqr5Yip55uK77yb56ys
+5LqM5Liq5piv5a6J5oqa77yM5oiR5bu66K6u77yM5oqK6ZmI5Yas5Y2H5Li65pWZ5Yqh5Li75Lu7
+77yM5bm25LiU5qCh5pa56K+X6Z+156C05raV5Li656yR77yM5Y+j5Lit5ZeU6YGT77ya4oCc5q27
+5aSP5bCP5rSb77yM5L2g55yf5Z2P77yB55yL5oiR5LiN5omT5q275L2g44CC4oCdICAgIOWlueW/
+g+S4reWkp+S4uuasouWWnO+8jOW/mOiusOS6huS4gOWIh++8jOWPquinieW+l+WPquimgeS7lua0
+u+edgO+8jOS4gOWIh+mDveaYr+e+juWlveeahO+8jOS5n+aJkemAmuS4gOWjsOi3s+i/m+awtOmH
+jO+8jOaMpeiInuedgOeyieaLs+aJk+WQkeWkj+Wwj+a0m+ecvOelnu+8jOeOsOWcqOS7lOe7huaD
+s+aDs++8jOS4pOiAheW6lOivpeebuOivhu+8jOWFtuWunuS7luS5n+S4gOebtOaDs+mXruS9leiv
+l+mftei/meS4qumXrumimO+8jOWPquaYr+acgOi/kei/meauteaXtumXtOW4rueOi+Wkp+WKm+mA
+g+mavu+8jOW8hOacjeijheWOgueahOeOqeWFt+mhueebru+8jOW/mOS6hui/meaho+WtkOS6i+WE
+v+OAgiAgICDku5bop4nlvpflvojmnInlv4XopoHmiorov5nkuKrkuovmg4XlkozkvZXor5cJDQrn
+jrDlnKjnnIvnnIvov5nogYzlt6XpgJrlrrXmiZPpurvlsIbvvIzkuI3kuIrnj63nhafmoLfmi7/p
+krHvvIzmlYjnjofpq5jkuobmiY3mgKrjgILnmoTml7blgJnohLjoibLnmoTooajmg4XvvIzliIbm
+mI7lvojmg7Pmi6XmnInvvIzkvYbmmK/lm4rkuK3nvp7mtqnvvIzlv4PpgZPvvIzmmI7lpKnopoHk
+ubDkuIDloIblpb3kuabpgIHnu5nku5YgICAg5aSP5bCP5rSb6YGT77ya4oCc5piO5aSp5L2g5Yiw
+5oiR5a625ZCD5Liq6aWt5ZCn77yM5L2g5p2l5Y6/5Z+O6L+Z5LmI5aSa5aSp77yM5LiA55u06Zmq
+5p2o6ICB5biI77yM5Lmf5rKh5Yiw5oiR5a625ZCD6aG/6aWt44CC4oCdICAgIOe7k+iuuuWumuS6
+hu+8jOWIq+ivtOaYr+mTgeWxgOmVv++8jOWwseaYr+mSouWxgOmVv+S5n+ayoeacieWKnuazle+8
+geKAnSAgICDigJzlr7nkuo7pk4HlsYDplb/vvIzmiJHku6zopoHmi5bvvIHkuI3opoHorqnku5bp
+gqPkuYjlv6vmjqXop6bmoYjlrZDjgILigJ3lpI/lsI/mtJvnq5notbfouqvmnaXvvIzoh6rkv6Hl
+nLDouLHmraXpgZPjgILigJzmnaXkuobku6XlkI7vvIzmib7lh6DkuKrog73llp3phZLnmoTvvIzl
+pb3lpb3lnLDnibXnjKrjgIIgICAg5p+z5pyI6LaB5p2O5aSn5Zi05LiN5rOo5oSP77yM5L2O5aS0
+5Zyo5LuW6ISW5a2Q5LiK5ZKs5LqG5LiA5LiL77yM5aW55b+D5Lit5ruh5piv5oCS54Gr77yM5LiL
+5Zi055Sa54ug77yM5p2O5aSn5Zi06ISW5a2Q5LiK5LiA5LiL5a2Q6bKc6KGA55u05rWB44CCICAg
+IOebm+aAkuS5i+S4i+adjuWkp+WYtOS4gOaLs+aJk+WcqOafs+aciOWktOS4iu+8jOWlueaZleS6
+hui/h+WOu+OAgiAgICDlpI/mk47lpKnmlofkvJrlj4vigJ3jgIIgICAg5Zyo5b2T5pe277yM6ICB
+5biI5ZKM5a626ZW/5a+56L+Z56eN546w6LGh5LiN56aB5q2i44CB5LiN6L+H5aSa5bmy5raJ77yM
+5L2G5piv5Lmf5LiN6byT5Yqx77yM5Lmf5LiN5Lya5LiN566h5LiN6Zeu44CCICAgIOW9k+aXtuea
+hOS4reWtpueUn+S4gOaXpuaUtuWIsOeslOWPi+eahOadpeS/oeWImeS8mumrmOWFtOWkp+WNiuWk
+qeOAgiAgICDlpI/lsI/mtJvmgJ3liY3mg7PlkI7vvIzov5jmmK/nnYDnmoTol6TmpIXkuIrvvIzm
+gJXlpbnlnKjmt7fkubHkuK3ooqvmkp7lgJLkuobvvIzlkqznnYDniZnnnIvnnYDpmaLlrZDph4zn
+moTkuIDnvqTkuaHlubLpg6jlkozooZfnl57lrZDjgIIgICAg4oCc5ZSJ77yM5piv5Zyf5Yyq5p2l
+5LqG77yfNDLlubTvvIzlnJ/ljKrlpJrvvIznmb3mnJfmnIDljonlrrPkuobvvIzop4HkurrlsLHm
+nYDvvIzkvaDku6zpg73kuI3opoHlrojnnYDnjKrku5TkuobvvIzotbbntKfot5HlkKfvvIHliKsJ
+DQo=
