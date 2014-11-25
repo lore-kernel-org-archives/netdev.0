@@ -1,21 +1,24 @@
 From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [patch net-next v3 16/17] bridge: add brport flags to dflt
- bridge_getlink
-Date: Tue, 25 Nov 2014 12:48:58 -0500
-Message-ID: <20141125174858.GM27416@gospo.rtplab.test>
+Subject: Re: [patch net-next v3 07/17] rocker: introduce rocker switch driver
+Date: Tue, 25 Nov 2014 12:51:16 -0500
+Message-ID: <20141125175116.GN27416@gospo.rtplab.test>
 References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
- <1416911328-10979-17-git-send-email-jiri@resnulli.us>
+ <1416911328-10979-8-git-send-email-jiri@resnulli.us>
+ <5474A705.5070007@mojatatu.com>
+ <20141125.121019.465267851168750694.davem@davemloft.net>
+ <20141125171514.GN1971@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
-	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
-	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+Cc: David Miller <davem@davemloft.net>, jhs@mojatatu.com,
+	netdev@vger.kernel.org, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
 	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
 	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
+	roopa@cumulusnetworks.com, linville@tuxdriver.com,
+	jasowang@redhat.com, ebiederm@xmission.com,
 	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
 	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
 	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
@@ -24,140 +27,42 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
 	mleitner@redhat.com, shrijeet@gmail.com, bcrl@kvack.org
 To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:39971 "EHLO
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:40185 "EHLO
 	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750726AbaKYRtH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 12:49:07 -0500
+	with ESMTP id S1750816AbaKYRv3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 12:51:29 -0500
 Content-Disposition: inline
-In-Reply-To: <1416911328-10979-17-git-send-email-jiri@resnulli.us>
+In-Reply-To: <20141125171514.GN1971@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 25, 2014 at 11:28:47AM +0100, Jiri Pirko wrote:
-> From: Scott Feldman <sfeldma@gmail.com>
+On Tue, Nov 25, 2014 at 06:15:14PM +0100, Jiri Pirko wrote:
+> Tue, Nov 25, 2014 at 06:10:19PM CET, davem@davemloft.net wrote:
+> >From: Jamal Hadi Salim <jhs@mojatatu.com>
+> >Date: Tue, 25 Nov 2014 10:57:57 -0500
+> >
+> >> On 11/25/14 05:28, Jiri Pirko wrote:
+> >>> This patch introduces the first driver to benefit from the switchdev
+> >>> infrastructure and to implement newly introduced switch ndos. This is
+> >>> a
+> >>> driver for emulated switch chip implemented in qemu:
+> >>> https://github.com/sfeldma/qemu-rocker/
+> >>>
+> >>> This patch is a result of joint work with Scott Feldman.
+> >>>
+> >>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> >>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> >>> Reviewed-by: Thomas Graf <tgraf@suug.ch>
+> >>> Reviewed-by: John Fastabend <john.r.fastabend@intel.com>
+> >> 
+> >> Users should be a different patch set for easier review.
+> >> I think you should separate rocker to be another patch series.
+> >
+> >I want to see how the new infrastructure is used in the same patch
+> >series as the changes that add that infrastructure.
 > 
-> To allow brport device to return current brport flags set on port.  Add
-> returned flags to nested IFLA_PROTINFO netlink msg built in dflt getlink.
-> With this change, netlink msg returned for bridge_getlink contains the port's
-> offloaded flag settings (the port's SELF settings).
-> 
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> Yep. For easier review, I will move the rocker patches to the tail and
+> leave the other ones on head.
 
-Seems fine.
-
-Acked-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-
-> ---
-> new in v3
-> ---
->  drivers/net/ethernet/emulex/benet/be_main.c   |  3 ++-
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  2 +-
->  include/linux/rtnetlink.h                     |  3 ++-
->  net/core/rtnetlink.c                          | 39 ++++++++++++++++++++++++++-
->  4 files changed, 43 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-> index 9070b98..6510ec8 100644
-> --- a/drivers/net/ethernet/emulex/benet/be_main.c
-> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-> @@ -4362,7 +4362,8 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
->  
->  	return ndo_dflt_bridge_getlink(skb, pid, seq, dev,
->  				       hsw_mode == PORT_FWD_TYPE_VEPA ?
-> -				       BRIDGE_MODE_VEPA : BRIDGE_MODE_VEB);
-> +				       BRIDGE_MODE_VEPA : BRIDGE_MODE_VEB,
-> +				       0, 0);
->  }
->  
->  #ifdef CONFIG_BE2NET_VXLAN
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index 1bad9f4..eb2a04b 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -7773,7 +7773,7 @@ static int ixgbe_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
->  	else
->  		mode = BRIDGE_MODE_VEPA;
->  
-> -	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode);
-> +	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode, 0, 0);
->  }
->  
->  static void *ixgbe_fwd_add(struct net_device *pdev, struct net_device *vdev)
-> diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-> index 063f0f5..3b04190 100644
-> --- a/include/linux/rtnetlink.h
-> +++ b/include/linux/rtnetlink.h
-> @@ -103,5 +103,6 @@ extern int ndo_dflt_fdb_del(struct ndmsg *ndm,
->  			    u16 vid);
->  
->  extern int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-> -				   struct net_device *dev, u16 mode);
-> +				   struct net_device *dev, u16 mode,
-> +				   u32 flags, u32 mask);
->  #endif	/* __LINUX_RTNETLINK_H */
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index bd5e783..91e5368 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -2687,12 +2687,22 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
->  	return skb->len;
->  }
->  
-> +static int brport_nla_put_flag(struct sk_buff *skb, u32 flags, u32 mask,
-> +			       unsigned int attrnum, unsigned int flag)
-> +{
-> +	if (mask & flag)
-> +		return nla_put_u8(skb, attrnum, !!(flags & flag));
-> +	return 0;
-> +}
-> +
->  int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-> -			    struct net_device *dev, u16 mode)
-> +			    struct net_device *dev, u16 mode,
-> +			    u32 flags, u32 mask)
->  {
->  	struct nlmsghdr *nlh;
->  	struct ifinfomsg *ifm;
->  	struct nlattr *br_afspec;
-> +	struct nlattr *protinfo;
->  	u8 operstate = netif_running(dev) ? dev->operstate : IF_OPER_DOWN;
->  	struct net_device *br_dev = netdev_master_upper_dev_get(dev);
->  
-> @@ -2731,6 +2741,33 @@ int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
->  	}
->  	nla_nest_end(skb, br_afspec);
->  
-> +	protinfo = nla_nest_start(skb, IFLA_PROTINFO | NLA_F_NESTED);
-> +	if (!protinfo)
-> +		goto nla_put_failure;
-> +
-> +	if (brport_nla_put_flag(skb, flags, mask,
-> +				IFLA_BRPORT_MODE, BR_HAIRPIN_MODE) ||
-> +	    brport_nla_put_flag(skb, flags, mask,
-> +				IFLA_BRPORT_GUARD, BR_BPDU_GUARD) ||
-> +	    brport_nla_put_flag(skb, flags, mask,
-> +				IFLA_BRPORT_FAST_LEAVE,
-> +				BR_MULTICAST_FAST_LEAVE) ||
-> +	    brport_nla_put_flag(skb, flags, mask,
-> +				IFLA_BRPORT_PROTECT, BR_ROOT_BLOCK) ||
-> +	    brport_nla_put_flag(skb, flags, mask,
-> +				IFLA_BRPORT_LEARNING, BR_LEARNING) ||
-> +	    brport_nla_put_flag(skb, flags, mask,
-> +				IFLA_BRPORT_LEARNING_SYNC, BR_LEARNING_SYNC) ||
-> +	    brport_nla_put_flag(skb, flags, mask,
-> +				IFLA_BRPORT_UNICAST_FLOOD, BR_FLOOD) ||
-> +	    brport_nla_put_flag(skb, flags, mask,
-> +				IFLA_BRPORT_PROXYARP, BR_PROXYARP)) {
-> +		nla_nest_cancel(skb, protinfo);
-> +		goto nla_put_failure;
-> +	}
-> +
-> +	nla_nest_end(skb, protinfo);
-> +
->  	return nlmsg_end(skb, nlh);
->  nla_put_failure:
->  	nlmsg_cancel(skb, nlh);
-> -- 
-> 1.9.3
-> 
+I appreciate that.  I do plan to *try* and review those, but due to
+their length have not done that.
