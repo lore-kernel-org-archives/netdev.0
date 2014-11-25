@@ -1,140 +1,41 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [PATCH v6 3/5] r8169: Use dma_rmb() and dma_wmb() for DescOwn checks
-Date: Tue, 25 Nov 2014 10:33:00 -0800
-Message-ID: <20141125183300.1486.53993.stgit@ahduyck-server>
-References: <20141125183009.1486.20845.stgit@ahduyck-server>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] net: Remote checksum offload for VXLAN
+Date: Tue, 25 Nov 2014 13:50:38 -0500 (EST)
+Message-ID: <20141125.135038.450259284061493243.davem@davemloft.net>
+References: <1416873150-12260-1-git-send-email-therbert@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mathieu.desnoyers@polymtl.ca, peterz@infradead.org,
-	benh@kernel.crashing.org, heiko.carstens@de.ibm.com,
-	mingo@kernel.org, mikey@neuling.org, linux@arm.linux.org.uk,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	geert@linux-m68k.org, jeffrey.t.kirsher@intel.com,
-	romieu@fr.zoreil.com, paulmck@linux.vnet.ibm.com,
-	nic_swsd@realtek.com, arnd@arndb.de, will.deacon@arm.com,
-	michael@ellerman.id.au, tony.luck@intel.com,
-	torvalds@linux-foundation.org, oleg@redhat.com,
-	schwidefsky@de.ibm.com, fweisbec@gmail.com, davem@davemloft.net
-To: linux-arch@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20141125183009.1486.20845.stgit@ahduyck-server>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36861 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751287AbaKYSuk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 13:50:40 -0500
+In-Reply-To: <1416873150-12260-1-git-send-email-therbert@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The r8169 use a pair of wmb() calls when setting up the descriptor rings.
-The first is to synchronize the descriptor data with the descriptor status,
-and the second is to synchronize the descriptor status with the use of the
-MMIO doorbell to notify the device that descriptors are ready.  This can
-come at a heavy price on some systems, and is not really necessary on
-systems such as x86 as a simple barrier() would suffice to order store/store
-accesses.  As such we can replace the first memory barrier with
-dma_wmb() to reduce the cost for these accesses.
+From: Tom Herbert <therbert@google.com>
+Date: Mon, 24 Nov 2014 15:52:27 -0800
 
-In addition the r8169 uses a rmb() to prevent compiler optimization in the
-cleanup paths, however by moving the barrier down a few lines and replacing
-it with a dma_rmb() we should be able to use it to guarantee
-descriptor accesses do not occur until the device has updated the DescOwn
-bit from its end.
+> This patch set adds support for remote checksum offload in VXLAN.
+> 
+> The remote checksum offload is generalized by creating a common
+> function (remcsum_adjust) that does the work of modifying the
+> checksum in remote checksum offload. This function can be called
+> from normal or GRO path. GUE was modified to use this function.
+> 
+> To support RCO is VXLAN we use the 9th bit in the reserved
+> flags to indicated remote checksum offload. The start and offset
+> values are encoded n a compressed form in the low order (reserved)
+> byte of the vni field.
+> 
+> Remote checksum offload is described in
+> https://tools.ietf.org/html/draft-herbert-remotecsumoffload-01
+> 
+> Tested by running 200 TCP_STREAM connections with VXLAN (over IPv4).
 
-One last change I made is to move the update of cur_tx in the xmit path to
-after the wmb.  This way we can guarantee the device and all CPUs should
-see the DescOwn update before they see the cur_tx value update.
-
-Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>
-Cc: Francois Romieu <romieu@fr.zoreil.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
- drivers/net/ethernet/realtek/r8169.c |   29 +++++++++++++++++++++--------
- 1 file changed, 21 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index cf154f7..39e9796 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -6601,6 +6601,9 @@ static inline void rtl8169_mark_to_asic(struct RxDesc *desc, u32 rx_buf_sz)
- {
- 	u32 eor = le32_to_cpu(desc->opts1) & RingEnd;
- 
-+	/* Force memory writes to complete before releasing descriptor */
-+	dma_wmb();
-+
- 	desc->opts1 = cpu_to_le32(DescOwn | eor | rx_buf_sz);
- }
- 
-@@ -6608,7 +6611,6 @@ static inline void rtl8169_map_to_asic(struct RxDesc *desc, dma_addr_t mapping,
- 				       u32 rx_buf_sz)
- {
- 	desc->addr = cpu_to_le64(mapping);
--	wmb();
- 	rtl8169_mark_to_asic(desc, rx_buf_sz);
- }
- 
-@@ -7077,16 +7079,18 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
- 
- 	skb_tx_timestamp(skb);
- 
--	wmb();
-+	/* Force memory writes to complete before releasing descriptor */
-+	dma_wmb();
- 
- 	/* Anti gcc 2.95.3 bugware (sic) */
- 	status = opts[0] | len | (RingEnd * !((entry + 1) % NUM_TX_DESC));
- 	txd->opts1 = cpu_to_le32(status);
- 
--	tp->cur_tx += frags + 1;
--
-+	/* Force all memory writes to complete before notifying device */
- 	wmb();
- 
-+	tp->cur_tx += frags + 1;
-+
- 	RTL_W8(TxPoll, NPQ);
- 
- 	mmiowb();
-@@ -7185,11 +7189,16 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
- 		struct ring_info *tx_skb = tp->tx_skb + entry;
- 		u32 status;
- 
--		rmb();
- 		status = le32_to_cpu(tp->TxDescArray[entry].opts1);
- 		if (status & DescOwn)
- 			break;
- 
-+		/* This barrier is needed to keep us from reading
-+		 * any other fields out of the Tx descriptor until
-+		 * we know the status of DescOwn
-+		 */
-+		dma_rmb();
-+
- 		rtl8169_unmap_tx_skb(&tp->pci_dev->dev, tx_skb,
- 				     tp->TxDescArray + entry);
- 		if (status & LastFrag) {
-@@ -7284,11 +7293,16 @@ static int rtl_rx(struct net_device *dev, struct rtl8169_private *tp, u32 budget
- 		struct RxDesc *desc = tp->RxDescArray + entry;
- 		u32 status;
- 
--		rmb();
- 		status = le32_to_cpu(desc->opts1) & tp->opts1_mask;
--
- 		if (status & DescOwn)
- 			break;
-+
-+		/* This barrier is needed to keep us from reading
-+		 * any other fields out of the Rx descriptor until
-+		 * we know the status of DescOwn
-+		 */
-+		dma_rmb();
-+
- 		if (unlikely(status & RxRES)) {
- 			netif_info(tp, rx_err, dev, "Rx ERROR. status = %08x\n",
- 				   status);
-@@ -7350,7 +7364,6 @@ process_pkt:
- 		}
- release_descriptor:
- 		desc->opts2 = 0;
--		wmb();
- 		rtl8169_mark_to_asic(desc, rx_buf_sz);
- 	}
- 
+What to do with the reserved bit seems to still be up in the air,
+so I've marked this series as 'deferred'.
