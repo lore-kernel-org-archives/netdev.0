@@ -1,67 +1,55 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [patch net-next v3 02/17] net: make vid as a parameter for ndo_fdb_add/ndo_fdb_del
-Date: Tue, 25 Nov 2014 08:19:36 -0800
-Message-ID: <5474AC18.8040809@cumulusnetworks.com>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us> <1416911328-10979-3-git-send-email-jiri@resnulli.us> <5474A25C.3080505@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
-	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: [PATCH] tg3: fix ring init when there are more TX than RX channels
+Date: Tue, 25 Nov 2014 14:21:11 -0200
+Message-ID: <1416932471-8744-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Cc: prashant@broadcom.com, mchan@broadcom.com,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:48319 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750975AbaKYQTp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 11:19:45 -0500
-In-Reply-To: <5474A25C.3080505@mojatatu.com>
+Received: from e24smtp04.br.ibm.com ([32.104.18.25]:33910 "EHLO
+	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750882AbaKYQVZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 11:21:25 -0500
+Received: from /spool/local
+	by e24smtp04.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
+	Tue, 25 Nov 2014 14:21:24 -0200
+Received: from d24relay03.br.ibm.com (d24relay03.br.ibm.com [9.13.184.25])
+	by d24dlp02.br.ibm.com (Postfix) with ESMTP id 06D191DC0050
+	for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 11:20:27 -0500 (EST)
+Received: from d24av03.br.ibm.com (d24av03.br.ibm.com [9.8.31.95])
+	by d24relay03.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id sAPGL98m56557614
+	for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 14:21:09 -0200
+Received: from d24av03.br.ibm.com (localhost [127.0.0.1])
+	by d24av03.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id sAPGLKAE022669
+	for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 14:21:21 -0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/25/14, 7:38 AM, Jamal Hadi Salim wrote:
-> On 11/25/14 05:28, Jiri Pirko wrote:
->> Do the work of parsing NDA_VLAN directly in rtnetlink code, pass simple
->> u16 vid to drivers from there.
->>
->
-> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
->
-> I know this maintains status quo of what is already in the kernel.
-> But we need to take care of policy (pass it from user space) which
-> dictates how to proceed on failure. Three possible options:
-> 1) If something fails just continue with the rest of the transaction.
-> Return success if at least one thing succeeds.
-> 2) If something fails stop transaction and return some partial success 
-> code
-> 3) If something fails undo everything that has been done and return 
-> failure.
->
-> So two bits from somewhere would be useful to send from userspace->kernel
->
->
+If TX channels are set to 4 and RX channels are set to less than 4,
+using ethtool -L, the driver will try to initialize more RX channels
+than it has allocated, causing an oops.
 
-ack to what jamal said.  In the model where sw and hw must be in sync, 
-we need a mechanism to roll back in this approach.
+This fix only initializes the RX ring if it has been allocated.
 
-I like that you are using existing ops.
-To avoid the synchronization problem or to make the rollback easier, You 
-can still use existing ops and move this into the bridge driver.
-ie call ndo_fdb_add/del and ndo_bridge_setlink/ndo_bridge_getlink on the 
-bridge port from within the bridge driver.
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Again, vote for change ndo_bridge_setlink/ndo_bridge_getlink to be 
-renamed to ndo_setlink/getlink for other netdevs. I can submit a patch.
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index dbb41c19..77f8f83 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -8563,7 +8563,8 @@ static int tg3_init_rings(struct tg3 *tp)
+ 		if (tnapi->rx_rcb)
+ 			memset(tnapi->rx_rcb, 0, TG3_RX_RCB_RING_BYTES(tp));
+ 
+-		if (tg3_rx_prodring_alloc(tp, &tnapi->prodring)) {
++		if (tnapi->prodring.rx_std &&
++		    tg3_rx_prodring_alloc(tp, &tnapi->prodring)) {
+ 			tg3_free_rings(tp);
+ 			return -ENOMEM;
+ 		}
+-- 
+1.7.10.4
