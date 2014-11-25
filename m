@@ -1,60 +1,62 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 1/2 3.18] rtlwifi: rtl8821ae: Fix 5G detection problem
-Date: Tue, 25 Nov 2014 13:50:32 -0600
-Message-ID: <5474DD88.7060002@lwfinger.net>
-References: <1416933127-25912-1-git-send-email-Larry.Finger@lwfinger.net> <1416933127-25912-2-git-send-email-Larry.Finger@lwfinger.net> <20141125184625.GC15476@tuxdriver.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH rfc 1/4] net-timestamp: pull headers for SOCK_STREAM
+Date: Tue, 25 Nov 2014 14:52:00 -0500
+Message-ID: <CA+FuTSdT9=Hi7K3OnMxVRiK8PmS4=DvVqLumWx74OEz3okx23A@mail.gmail.com>
+References: <1416938286-14147-1-git-send-email-willemb@google.com>
+ <1416938286-14147-2-git-send-email-willemb@google.com> <20141125.134240.861582393401487675.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Valerio Passini <valerio.passini@unicam.it>
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Richard Cochran <richardcochran@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f42.google.com ([209.85.218.42]:59779 "EHLO
-	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751008AbaKYTvD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 14:51:03 -0500
-In-Reply-To: <20141125184625.GC15476@tuxdriver.com>
+Received: from mail-qa0-f43.google.com ([209.85.216.43]:38399 "EHLO
+	mail-qa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751288AbaKYTwb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 14:52:31 -0500
+Received: by mail-qa0-f43.google.com with SMTP id bm13so919309qab.16
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 11:52:31 -0800 (PST)
+In-Reply-To: <20141125.134240.861582393401487675.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/25/2014 12:46 PM, John W. Linville wrote:
-> On Tue, Nov 25, 2014 at 10:32:06AM -0600, Larry Finger wrote:
->> The changes associated with moving this driver from staging to the regular
->> tree missed one section setting the allowable rates for the 5GHz band.
->>
->> This patch is needed to fix the regression reported in Bug #88811
->> (https://bugzilla.kernel.org/show_bug.cgi?id=88811).
->>
->> Reported-by: Valerio Passini <valerio.passini@unicam.it>
->> Tested-by: Valerio Passini <valerio.passini@unicam.it>
->> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
->> Cc: Valerio Passini <valerio.passini@unicam.it>
->> ---
->>   drivers/net/wireless/rtlwifi/rtl8821ae/hw.c | 5 +++--
->>   1 file changed, 3 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
->> index 310d316..18f34f7 100644
->> --- a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
->> +++ b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
->> @@ -3672,8 +3672,9 @@ static void rtl8821ae_update_hal_rate_mask(struct ieee80211_hw *hw,
->>   		mac->opmode == NL80211_IFTYPE_ADHOC)
->>   		macid = sta->aid + 1;
->>   	if (wirelessmode == WIRELESS_MODE_N_5G ||
->> -	    wirelessmode == WIRELESS_MODE_AC_5G)
->> -		ratr_bitmap = sta->supp_rates[NL80211_BAND_5GHZ];
->> +	    wirelessmode == WIRELESS_MODE_AC_5G ||
->> +	    wirelessmode == WIRELESS_MODE_A)
->> +		ratr_bitmap = (sta->supp_rates[NL80211_BAND_5GHZ])<<4;
+On Tue, Nov 25, 2014 at 1:42 PM, David Miller <davem@davemloft.net> wrote:
+> From: Willem de Bruijn <willemb@google.com>
+> Date: Tue, 25 Nov 2014 12:58:03 -0500
 >
-> The parenthesis seem superfluous.  How about this line instead?
+>> From: Willem de Bruijn <willemb@google.com>
+>>
+>> When returning timestamped packets on the error queue, only return
+>> the data that the application initially sent: not the protocol
+>> headers.
+>>
+>> This changes the ABI. The TCP interface is new enough that it should
+>> be safe to do so. The UDP interface could be changed analogously with
+>>
+>> +  else if (sk->sk_protocol == IPPROTO_UDP)
+>> +    skb_pull(skb, skb_transport_offset(skb) + sizeof(struct udphdr));
+>>
+>> Tested with Documentation/networking/timestamping/txtimestamp -l 60 -x
+>>
+>> Signed-off-by: Willem de Bruijn <willemb@google.com>
 >
-> +		ratr_bitmap = sta->supp_rates[NL80211_BAND_5GHZ] << 4;
->
->>   	else
->>   		ratr_bitmap = sta->supp_rates[NL80211_BAND_2GHZ];
+> What's the harm in exposing the headers?  Either it's harmful, and
+> therefore doing so for UDP is bad too, or it's harmless and
 
-Good idea. V2 is on its way.
+Headers may expose information not available otherwise. I don't
+immediately see critical problems, but that does not mean that they
+might not lurk there.
 
-Larry
+We so far avoid exposing the sequence number, though keeping it hidden
+is more about third parties. More in general, unprivileged processes
+may start requesting timestamps only to learn tcp state that they
+should either get from tcpinfo or cannot currently get at all, likely
+for good reason. A far-fetched example is identifying admin iptables
+tos mangling rules by reading the tos bits at the driver layer. At least
+on my machine, iptables -L is privileged.
+
+> we should probably leave it alone to not risk breaking anyone.
+
+That's fair. I sent it for rfc first for that reason. I won't resubmit
+unless more serious concerns are raised.
