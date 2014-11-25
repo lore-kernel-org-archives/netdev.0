@@ -1,83 +1,60 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCHv10 ovs 00/15] Revalidate flows with unique identifiers.
-Date: Tue, 25 Nov 2014 11:45:26 -0800
-Message-ID: <CANr6G5w9tSTH=a-JmJpisF1Mf4L6vb8+1dRhcNxGjZWNHdna0A@mail.gmail.com>
-References: <1415906275-3172-1-git-send-email-joestringer@nicira.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 1/2 3.18] rtlwifi: rtl8821ae: Fix 5G detection problem
+Date: Tue, 25 Nov 2014 13:50:32 -0600
+Message-ID: <5474DD88.7060002@lwfinger.net>
+References: <1416933127-25912-1-git-send-email-Larry.Finger@lwfinger.net> <1416933127-25912-2-git-send-email-Larry.Finger@lwfinger.net> <20141125184625.GC15476@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "dev@openvswitch.org" <dev@openvswitch.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Valerio Passini <valerio.passini@unicam.it>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog108.obsmtp.com ([74.125.149.199]:41369 "HELO
-	na3sys009aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750877AbaKYTpr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 14:45:47 -0500
-Received: by mail-wi0-f169.google.com with SMTP id r20so13020967wiv.4
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 11:45:46 -0800 (PST)
-In-Reply-To: <1415906275-3172-1-git-send-email-joestringer@nicira.com>
+Received: from mail-oi0-f42.google.com ([209.85.218.42]:59779 "EHLO
+	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751008AbaKYTvD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 14:51:03 -0500
+In-Reply-To: <20141125184625.GC15476@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13 November 2014 at 11:17, Joe Stringer <joestringer@nicira.com> wrote:
+On 11/25/2014 12:46 PM, John W. Linville wrote:
+> On Tue, Nov 25, 2014 at 10:32:06AM -0600, Larry Finger wrote:
+>> The changes associated with moving this driver from staging to the regular
+>> tree missed one section setting the allowable rates for the 5GHz band.
+>>
+>> This patch is needed to fix the regression reported in Bug #88811
+>> (https://bugzilla.kernel.org/show_bug.cgi?id=88811).
+>>
+>> Reported-by: Valerio Passini <valerio.passini@unicam.it>
+>> Tested-by: Valerio Passini <valerio.passini@unicam.it>
+>> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+>> Cc: Valerio Passini <valerio.passini@unicam.it>
+>> ---
+>>   drivers/net/wireless/rtlwifi/rtl8821ae/hw.c | 5 +++--
+>>   1 file changed, 3 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
+>> index 310d316..18f34f7 100644
+>> --- a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
+>> +++ b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
+>> @@ -3672,8 +3672,9 @@ static void rtl8821ae_update_hal_rate_mask(struct ieee80211_hw *hw,
+>>   		mac->opmode == NL80211_IFTYPE_ADHOC)
+>>   		macid = sta->aid + 1;
+>>   	if (wirelessmode == WIRELESS_MODE_N_5G ||
+>> -	    wirelessmode == WIRELESS_MODE_AC_5G)
+>> -		ratr_bitmap = sta->supp_rates[NL80211_BAND_5GHZ];
+>> +	    wirelessmode == WIRELESS_MODE_AC_5G ||
+>> +	    wirelessmode == WIRELESS_MODE_A)
+>> +		ratr_bitmap = (sta->supp_rates[NL80211_BAND_5GHZ])<<4;
 >
-> This series modifies the dpif interface for flow commands to use 128-bit unique
-> identifiers as an alternative to the netlink-formatted flow key, and caches the
-> mask/actions in the udpif_key. This significantly reduces the cost of
-> assembling messages between revalidators and the datapath, improving
-> revalidation performance by 40% or more. In a test environment of many
-> short-lived flows constantly being set up in the datapath, this increases the
-> number of flows that can be maintained in the linux datapath from around
-> 130-140K up to 190-200K. For the userspace datapath, this decreases the time
-> spent revalidating 160K flows from 250ms to 150ms.
+> The parenthesis seem superfluous.  How about this line instead?
 >
-> The core of the changes sits in the handler and revalidator code. Handlers take
-> responsibility for creating udpif_key cache entries which now include a copy of
-> the flow mask and actions. Revalidators request datapaths to dump flows using
-> only the unique identifier and stats, rather than the full set of
-> netlink-formatted flow key, mask and actions.
+> +		ratr_bitmap = sta->supp_rates[NL80211_BAND_5GHZ] << 4;
 >
-> In cases where full revalidation is required, revalidators will use the
-> udpif_key cache of the key/mask/acts to validate the flow. The dpif will
-> detect datapath support for the unique identifer "UFID" feature, and omit flow
-> keys from netlink transactions if it is supported. For backwards compatibility,
-> flow keys will always be serialised if UFID support is not detected in the
-> datapath.
->
-> Patches 1,2,3,15 are unreviewed. Patch 12 needs further review.
->
-> This series is also made available here to assist review:
-> https://github.com/joestringer/openvswitch/tree/submit/ufid_v10
->
+>>   	else
+>>   		ratr_bitmap = sta->supp_rates[NL80211_BAND_2GHZ];
 
-<snip>
+Good idea. V2 is on its way.
 
->
-> Joe Stringer (15):
->   tests: Add command to purge revalidators of flows.
->   ovs-bugtool: Log more detail for dumped flows.
->   datapath: Add 'is_mask' to ovs_nla_put_flow().
->   revalidator: Use 'cmap' for storing ukeys.
->   revalidator: Protect ukeys with a mutex.
->   udpif: Separate udpif_key maps from revalidators.
->   upcall: Rename dump_op -> ukey_op.
->   upcall: Create ukeys in handler threads.
->   upcall: Revalidate using cache of mask, actions.
->   hash: Add 128-bit murmurhash.
->   dpif: Generate flow_hash for revalidators in dpif.
->   datapath: Add support for unique flow identifiers.
->   dpif: Index flows using unique identifiers.
->   dpif: Minimize memory copy for revalidation.
->   dpctl: Add support for using UFID to add/del flows.
-
-
-<snip>
-
-I'm currently addressing feedback for the datapath patches, which also
-involves minor changes to patch #13.
-
-I've already pushed patch #1 as it provided an unrelated benefit.  As
-this series is fairly close, my current plan is to push patches 4-11
-to master this afternoon; these are long-running unchanged patches. I
-will then resend patches 2,13,14,15 and the openvswitch.h changes for
-final review here. I'll rebase the datapath changes against net-next
-and go through review there.
+Larry
