@@ -1,69 +1,62 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 88871] New: SO_BINDTODEVICE set sock's sk_bound_dev_if
- ,but interface's index can chang where interface down and up
-Date: Tue, 25 Nov 2014 07:43:38 -0800
-Message-ID: <20141125074338.7476ad08@urahara>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [patch net-next v3 02/17] net: make vid as a parameter for ndo_fdb_add/ndo_fdb_del
+Date: Tue, 25 Nov 2014 07:43:13 -0800
+Message-ID: <5474A391.2080204@gmail.com>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us> <1416911328-10979-3-git-send-email-jiri@resnulli.us> <20141125151312.GC27416@gospo.rtplab.test> <20141125151811.GF1971@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gm
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:62632 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750780AbaKYPnt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 10:43:49 -0500
-Received: by mail-pa0-f43.google.com with SMTP id kx10so821645pab.2
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 07:43:48 -0800 (PST)
-Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
-        by mx.google.com with ESMTPSA id r3sm1839667pds.57.2014.11.25.07.43.46
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Tue, 25 Nov 2014 07:43:48 -0800 (PST)
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:57440 "EHLO
+	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750876AbaKYPnz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 10:43:55 -0500
+Received: by mail-oi0-f52.google.com with SMTP id h136so567596oig.39
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 07:43:55 -0800 (PST)
+In-Reply-To: <20141125151811.GF1971@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is not really a bug.
+On 11/25/2014 07:18 AM, Jiri Pirko wrote:
+> Tue, Nov 25, 2014 at 04:13:12PM CET, gospo@cumulusnetworks.com wrote:
+>> On Tue, Nov 25, 2014 at 11:28:33AM +0100, Jiri Pirko wrote:
+>>> Do the work of parsing NDA_VLAN directly in rtnetlink code, pass simple
+>>> u16 vid to drivers from there.
+>>>
+>>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>>
+>> Structurally this looks fine, just a misspelling noted below.
+>>
+>> Acked-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+>>
 
-Begin forwarded message:
+If your going to spin this, should we return an error from
+ndo_dflt_fdb_add() when we have a non-zero vid? The dflt
+handler uses the dev_(mc|uc)_add_excl routines which will
+not consume vids.
 
-Date: Mon, 24 Nov 2014 22:50:49 -0800
-=46rom: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla=
-=2Ekernel.org>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 88871] New: SO_BINDTODEVICE set sock's sk_bound_dev_if ,b=
-ut interface's index can chang where interface down and up
+If you want to address this with a follow up patch I'm OK
+with that. Go ahead and add my ack,
+
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
 
 
-https://bugzilla.kernel.org/show_bug.cgi?id=3D88871
-
-            Bug ID: 88871
-           Summary: SO_BINDTODEVICE set sock's sk_bound_dev_if ,but
-                    interface's index can chang where interface down an=
-d
-                    up
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 3.4
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: high
-          Priority: P1
-         Component: Other
-          Assignee: shemminger@linux-foundation.org
-          Reporter: 10142904@qq.com
-        Regression: No
-
-call setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, iface_brlan, iface_len=
- + 1),
-the sock's sk_bound_dev_if be set to iface_brlan's index, when i pull o=
-ut other
-cab and plug in=EF=BC=8C  the br-lan's index can changed, the tcp packe=
-t to the socket
-be rest, because the orignal sk_bound_dev_if not match current br-lan's=
- index
-
---=20
-You are receiving this mail because:
-You are the assignee for the bug.
+-- 
+John Fastabend         Intel Corporation
