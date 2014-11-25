@@ -1,43 +1,163 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next] gre: Set inner mac header in gro complete
-Date: Tue, 25 Nov 2014 09:30:11 -0800
-Message-ID: <1416936611-22702-1-git-send-email-therbert@google.com>
-To: davem@davemloft.net, linux@stwm.de, netdev@vger.kernel.org
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [patch net-next v3 16/17] bridge: add brport flags to dflt
+ bridge_getlink
+Date: Tue, 25 Nov 2014 12:48:58 -0500
+Message-ID: <20141125174858.GM27416@gospo.rtplab.test>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
+ <1416911328-10979-17-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, bcrl@kvack.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:38860 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751218AbaKYRep (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 12:34:45 -0500
-Received: by mail-ie0-f172.google.com with SMTP id tr6so1008248ieb.3
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 09:34:45 -0800 (PST)
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:39971 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750726AbaKYRtH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 12:49:07 -0500
+Content-Disposition: inline
+In-Reply-To: <1416911328-10979-17-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Set the inner mac header to point to the GRE payload when
-doing GRO. This is needed if we proceed to send the packet
-through GRE GSO which now uses the inner mac header instead
-of inner network header to determine the length of encapsulation
-headers.
+On Tue, Nov 25, 2014 at 11:28:47AM +0100, Jiri Pirko wrote:
+> From: Scott Feldman <sfeldma@gmail.com>
+> 
+> To allow brport device to return current brport flags set on port.  Add
+> returned flags to nested IFLA_PROTINFO netlink msg built in dflt getlink.
+> With this change, netlink msg returned for bridge_getlink contains the port's
+> offloaded flag settings (the port's SELF settings).
+> 
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Reported-by: Wolfgang Walter <linux@stwm.de>
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/ipv4/gre_offload.c | 3 +++
- 1 file changed, 3 insertions(+)
+Seems fine.
 
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index bb5947b..51973dd 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -247,6 +247,9 @@ static int gre_gro_complete(struct sk_buff *skb, int nhoff)
- 		err = ptype->callbacks.gro_complete(skb, nhoff + grehlen);
- 
- 	rcu_read_unlock();
-+
-+	skb_set_inner_mac_header(skb, nhoff + grehlen);
-+
- 	return err;
- }
- 
--- 
-2.1.0.rc2.206.gedb03e5
+Acked-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+
+> ---
+> new in v3
+> ---
+>  drivers/net/ethernet/emulex/benet/be_main.c   |  3 ++-
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  2 +-
+>  include/linux/rtnetlink.h                     |  3 ++-
+>  net/core/rtnetlink.c                          | 39 ++++++++++++++++++++++++++-
+>  4 files changed, 43 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+> index 9070b98..6510ec8 100644
+> --- a/drivers/net/ethernet/emulex/benet/be_main.c
+> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
+> @@ -4362,7 +4362,8 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+>  
+>  	return ndo_dflt_bridge_getlink(skb, pid, seq, dev,
+>  				       hsw_mode == PORT_FWD_TYPE_VEPA ?
+> -				       BRIDGE_MODE_VEPA : BRIDGE_MODE_VEB);
+> +				       BRIDGE_MODE_VEPA : BRIDGE_MODE_VEB,
+> +				       0, 0);
+>  }
+>  
+>  #ifdef CONFIG_BE2NET_VXLAN
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> index 1bad9f4..eb2a04b 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> @@ -7773,7 +7773,7 @@ static int ixgbe_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+>  	else
+>  		mode = BRIDGE_MODE_VEPA;
+>  
+> -	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode);
+> +	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode, 0, 0);
+>  }
+>  
+>  static void *ixgbe_fwd_add(struct net_device *pdev, struct net_device *vdev)
+> diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+> index 063f0f5..3b04190 100644
+> --- a/include/linux/rtnetlink.h
+> +++ b/include/linux/rtnetlink.h
+> @@ -103,5 +103,6 @@ extern int ndo_dflt_fdb_del(struct ndmsg *ndm,
+>  			    u16 vid);
+>  
+>  extern int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+> -				   struct net_device *dev, u16 mode);
+> +				   struct net_device *dev, u16 mode,
+> +				   u32 flags, u32 mask);
+>  #endif	/* __LINUX_RTNETLINK_H */
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index bd5e783..91e5368 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -2687,12 +2687,22 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
+>  	return skb->len;
+>  }
+>  
+> +static int brport_nla_put_flag(struct sk_buff *skb, u32 flags, u32 mask,
+> +			       unsigned int attrnum, unsigned int flag)
+> +{
+> +	if (mask & flag)
+> +		return nla_put_u8(skb, attrnum, !!(flags & flag));
+> +	return 0;
+> +}
+> +
+>  int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+> -			    struct net_device *dev, u16 mode)
+> +			    struct net_device *dev, u16 mode,
+> +			    u32 flags, u32 mask)
+>  {
+>  	struct nlmsghdr *nlh;
+>  	struct ifinfomsg *ifm;
+>  	struct nlattr *br_afspec;
+> +	struct nlattr *protinfo;
+>  	u8 operstate = netif_running(dev) ? dev->operstate : IF_OPER_DOWN;
+>  	struct net_device *br_dev = netdev_master_upper_dev_get(dev);
+>  
+> @@ -2731,6 +2741,33 @@ int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+>  	}
+>  	nla_nest_end(skb, br_afspec);
+>  
+> +	protinfo = nla_nest_start(skb, IFLA_PROTINFO | NLA_F_NESTED);
+> +	if (!protinfo)
+> +		goto nla_put_failure;
+> +
+> +	if (brport_nla_put_flag(skb, flags, mask,
+> +				IFLA_BRPORT_MODE, BR_HAIRPIN_MODE) ||
+> +	    brport_nla_put_flag(skb, flags, mask,
+> +				IFLA_BRPORT_GUARD, BR_BPDU_GUARD) ||
+> +	    brport_nla_put_flag(skb, flags, mask,
+> +				IFLA_BRPORT_FAST_LEAVE,
+> +				BR_MULTICAST_FAST_LEAVE) ||
+> +	    brport_nla_put_flag(skb, flags, mask,
+> +				IFLA_BRPORT_PROTECT, BR_ROOT_BLOCK) ||
+> +	    brport_nla_put_flag(skb, flags, mask,
+> +				IFLA_BRPORT_LEARNING, BR_LEARNING) ||
+> +	    brport_nla_put_flag(skb, flags, mask,
+> +				IFLA_BRPORT_LEARNING_SYNC, BR_LEARNING_SYNC) ||
+> +	    brport_nla_put_flag(skb, flags, mask,
+> +				IFLA_BRPORT_UNICAST_FLOOD, BR_FLOOD) ||
+> +	    brport_nla_put_flag(skb, flags, mask,
+> +				IFLA_BRPORT_PROXYARP, BR_PROXYARP)) {
+> +		nla_nest_cancel(skb, protinfo);
+> +		goto nla_put_failure;
+> +	}
+> +
+> +	nla_nest_end(skb, protinfo);
+> +
+>  	return nlmsg_end(skb, nlh);
+>  nla_put_failure:
+>  	nlmsg_cancel(skb, nlh);
+> -- 
+> 1.9.3
+> 
