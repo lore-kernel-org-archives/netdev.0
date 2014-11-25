@@ -1,52 +1,37 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v3 06/17] net-sysfs: expose physical switch id
- for particular device
-Date: Tue, 25 Nov 2014 10:53:07 -0500
-Message-ID: <5474A5E3.5000603@mojatatu.com>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us> <1416911328-10979-7-git-send-email-jiri@resnulli.us>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: linux-next: manual merge of the net-next tree with the vfs tree
+Date: Tue, 25 Nov 2014 16:56:41 +0100
+Message-ID: <20141125155641.GA3817@salvia>
+References: <20141125134246.2761ada5@canb.auug.org.au>
+ <547466C8.1000203@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.org
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:36218 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750913AbaKYPxL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 10:53:11 -0500
-Received: by mail-ig0-f178.google.com with SMTP id hl2so921671igb.5
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 07:53:10 -0800 (PST)
-In-Reply-To: <1416911328-10979-7-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Al Viro <viro@ZenIV.linux.org.uk>, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"Steven Rostedt (Red Hat)" <rostedt@goodmis.org>
+To: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <547466C8.1000203@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/25/14 05:28, Jiri Pirko wrote:
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> Reviewed-by: Thomas Graf <tgraf@suug.ch>
-> Acked-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
-> v2->v3:
-> -changed "sw" string to "switch" to avoid confusion
-> v1->v2:
-> -no change
+On Tue, Nov 25, 2014 at 09:23:52AM -0200, Marcelo Ricardo Leitner wrote:
+> On 25-11-2014 00:42, Stephen Rothwell wrote:
+> >Hi all,
+> >
+> >Today's linux-next merge of the net-next tree got a conflict in
+> >net/netfilter/nf_log.c between commit e71456ae9871 ("netfilter: Remove
+> >checks of seq_printf() return values") from the vfs tree and commit
+> >0c26ed1c07f1 ("netfilter: nf_log: Introduce nft_log_dereference()
+> >macro") from the net-next tree.
+> >
+> >I fixed it up (see below) and can carry the fix as necessary (no action
+> >is required).
+> >
+> 
+> Looks good to me, thanks Stephen.
 
-
-tied to patches 5 and 4 in terms of the noun used.
-
-cheers,
-jamal
+Also to me, thanks Stephen and Marcelo.
