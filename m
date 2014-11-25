@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4/cxgb4vf/csiostor: Add T4/T5 PCI ID Table
-Date: Tue, 25 Nov 2014 14:07:21 -0500 (EST)
-Message-ID: <20141125.140721.1105760708655161441.davem@davemloft.net>
-References: <1416884638-7582-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [net PATCH 0/2] Fix outer UDP checksums for IPv6 VXLAN tunnels
+Date: Tue, 25 Nov 2014 14:13:05 -0500 (EST)
+Message-ID: <20141125.141305.1951284300777976974.davem@davemloft.net>
+References: <20141125035808.13612.52556.stgit@ahduyck-workstation.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	JBottomley@parallels.com, hch@infradead.org, leedom@chelsio.com,
-	anish@chelsio.com, nirranjan@chelsio.com, kumaras@chelsio.com,
-	praveenm@chelsio.com, varun@chelsio.com
-To: hariprasad@chelsio.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1416884638-7582-1-git-send-email-hariprasad@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: alexander.duyck@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37176 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750834AbaKYTNI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 14:13:08 -0500
+In-Reply-To: <20141125035808.13612.52556.stgit@ahduyck-workstation.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Tue, 25 Nov 2014 08:33:58 +0530
+From: alexander.duyck@gmail.com
+Date: Mon, 24 Nov 2014 20:08:25 -0800
 
-> Add a new file t4_pci_id_tbl.h that contains T4/T5 PCI ID Table so that for all
-> drivers that uses T4/T5 PCI functions changes can be done in one place.
+> In testing against an older kernel I found a couple issues in the IPv6
+> VXLAN tunnel checksum logic for the outer UDP checksum.
 > 
-> checkpatch.pl script reports following error, which if tried to fix ends up in
-> compilation error.
-...
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+> First the default transitioned from using an outer checksum to not using
+> one.  Second, sometime after that the checksum inputs were changed
+> resulting the checksum not being correct if it were computed.
+> 
+> These two issues prevented a ping from the newer kernel to the older one.
+> With these two changes applied I verified I was able to send traffic over
+> the VXLAN tunnel to a link partner on an older kernel.
+> 
+> The boolean flip fix can be submitted for 3.17 stable as well since the
+> patch that introduced the issue was included in that kernel.
 
-Applied, thanks.
+Series applied and queued up for -stable, thanks.
