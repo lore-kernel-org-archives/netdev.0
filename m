@@ -1,62 +1,120 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [RFC] situation with csum_and_copy_... API
-Date: Tue, 25 Nov 2014 02:40:18 +0000
-Message-ID: <20141125024018.GH7996@ZenIV.linux.org.uk>
-References: <20141120.182339.972861702759954603.davem@davemloft.net>
- <20141121.122615.1091044030302005883.davem@davemloft.net>
- <20141122042856.GZ7996@ZenIV.linux.org.uk>
- <20141122.022444.425003630662787798.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the vfs tree
+Date: Tue, 25 Nov 2014 13:42:46 +1100
+Message-ID: <20141125134246.2761ada5@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, target-devel@vger.kernel.org,
-	nab@linux-iscsi.org, hch@infradead.org
-To: David Miller <davem@davemloft.net>
-Return-path: <target-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141122.022444.425003630662787798.davem@davemloft.net>
-Sender: target-devel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/ice+t87a0803zj7P9lvPyEQ"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Steven Rostedt (Red Hat)" <rostedt@goodmis.org>,
+	Marcelo Leitner <mleitner@redhat.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 22, 2014 at 02:24:44AM -0500, David Miller wrote:
-> From: Al Viro <viro@ZenIV.linux.org.uk>
-> Date: Sat, 22 Nov 2014 04:28:57 +0000
-> 
-> > 	OK, here's the next bunch.  Sorry about the delay, iov_iter.c stuff
-> > took most of the day (and it's not included in this pile).  Please, review.
-> 
-> I read over this stuff twice and this series looks fine to me.
-> 
-> Since this is the weekend... maybe wait until Monday for other feedback
-> then give me a pull request?
+--Sig_/ice+t87a0803zj7P9lvPyEQ
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-I'll probably repost the patches with updates folded in first...
+Hi all,
 
-FWIW, the current situation is
-	* all but one ->recvmsg() instances switched to iov_iter primitives
-(the exception is one of the AF_ALG instances and I know what to do with it).
-Consequently, they do not drain iovecs anymore and simply advance ->msg_iter.
-	* kvec-based iov_iter work just fine without set_fs(KERNEL_DS).  And
-so do ->recvmsg() instances that had received such iov_iter.
-	* memcpy_to_iovec() and skb_copy_datagram_iovec() are gone - no users
-left.
+Today's linux-next merge of the net-next tree got a conflict in
+net/netfilter/nf_log.c between commit e71456ae9871 ("netfilter: Remove
+checks of seq_printf() return values") from the vfs tree and commit
+0c26ed1c07f1 ("netfilter: nf_log: Introduce nft_log_dereference()
+macro") from the net-next tree.
 
-I'm about to start on ->sendmsg() side of the things.  The interesting
-question is whether tcp_send_syn_data() is doing the right thing if it
-runs into EFAULT when copying iovec from userland.
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
-As it is, it gives up on the skb it has allocated and falls back to normal
-handshake.  I can duplicate that behaviour, all right, but why not simply
-do skb_trim(syn_data, <actually copied>) and do fallback only if nothing
-got copied at all?  Is there any problem with that?
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-The reason why I'm asking is that it's easier to just use copy_from_iter()
-and let the damn thing advance.  Not a lot of pain to preserve the original
-iov_iter (all 5 words of it) and copy it back in case of failure, but I'd
-rather understood what's wrong with simpler approach...
+diff --cc net/netfilter/nf_log.c
+index 6e3b9117db1f,49a64174f3f1..000000000000
+--- a/net/netfilter/nf_log.c
++++ b/net/netfilter/nf_log.c
+@@@ -294,39 -303,35 +303,37 @@@ static int seq_show(struct seq_file *s
+  {
+  	loff_t *pos =3D v;
+  	const struct nf_logger *logger;
+ -	int i, ret;
+ +	int i;
+  	struct net *net =3D seq_file_net(s);
+ =20
+- 	logger =3D rcu_dereference_protected(net->nf.nf_loggers[*pos],
+- 					   lockdep_is_held(&nf_log_mutex));
++ 	logger =3D nft_log_dereference(net->nf.nf_loggers[*pos]);
+ =20
+  	if (!logger)
+ -		ret =3D seq_printf(s, "%2lld NONE (", *pos);
+ +		seq_printf(s, "%2lld NONE (", *pos);
+  	else
+ -		ret =3D seq_printf(s, "%2lld %s (", *pos, logger->name);
+ +		seq_printf(s, "%2lld %s (", *pos, logger->name);
+ =20
+ -	if (ret < 0)
+ -		return ret;
+ +	if (seq_has_overflowed(s))
+ +		return -ENOSPC;
+ =20
+  	for (i =3D 0; i < NF_LOG_TYPE_MAX; i++) {
+  		if (loggers[*pos][i] =3D=3D NULL)
+  			continue;
+ =20
+- 		logger =3D rcu_dereference_protected(loggers[*pos][i],
+- 					   lockdep_is_held(&nf_log_mutex));
++ 		logger =3D nft_log_dereference(loggers[*pos][i]);
+ -		ret =3D seq_printf(s, "%s", logger->name);
+ -		if (ret < 0)
+ -			return ret;
+ -		if (i =3D=3D 0 && loggers[*pos][i + 1] !=3D NULL) {
+ -			ret =3D seq_printf(s, ",");
+ -			if (ret < 0)
+ -				return ret;
+ -		}
+ +		seq_printf(s, "%s", logger->name);
+ +		if (i =3D=3D 0 && loggers[*pos][i + 1] !=3D NULL)
+ +			seq_printf(s, ",");
+ +
+ +		if (seq_has_overflowed(s))
+ +			return -ENOSPC;
+  	}
+ =20
+ -	return seq_printf(s, ")\n");
+ +	seq_printf(s, ")\n");
+ +
+ +	if (seq_has_overflowed(s))
+ +		return -ENOSPC;
+ +	return 0;
+  }
+ =20
+  static const struct seq_operations nflog_seq_ops =3D {
 
-Anyway, the current branch is in vfs.git#iov_iter-net.  Current balance is
-about -0.5KLoC and that's not counting the simplifications that will become
-possible in callers of kernel_sendmg/kernel_recvmsg...  I'll post the beginning
-of that queue (the same 17 commits in the beginning) later tonight and wait
-for review...
+--Sig_/ice+t87a0803zj7P9lvPyEQ
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJUc+ysAAoJEMDTa8Ir7ZwVxVoQAJMJK7tRoRBZ7wXRDQ10E8Xe
+Y5/EhDqoMCyg8dTGCp/GjDCJ88w/lvdXRVccUA8rfjIcAecnfFY/dS2cNWZXFFE3
+nsw7tgzn75TCp8psNthoqKQVncDfMjVEYsPxup8D0qx5C9AGNQVkAVwP4SRcz26f
+omMhtL8m2oa7jKXjkn2WMFOt3CdaCHDo/822ZJUoBYVX1O9EvpFuuu5n1ZC5cNA8
+K8P5unQ6yxV0D5Dfu1o/3S1iZpzZwqPHw3UbVnNOmh8mYFV0PaIdG9L/owRWvDf9
+qwOO+8ZHsy6NCFB+lScJcj8OCQew/nAnhewZOfCHQRqFXnFLoSEnk0uJ/rZXYi+F
+XzBh5SiBTJfPjugHf+sLdgVHZWQwQ2wfoHw2Ce232B6C0pLT7yGUvh+iuxclKVcr
+5ftKq4xQRuU8ADfUzQ9qlwCkPgmzINLO4BsHWPNwx8HFtiQJt6EbkhblEE7BNwgC
+fc5GUmbN3tcBfZT0auas5uMkwgDoQVThuasVnI5Eel80H2lwvc2ijZCfFJC4sOjC
+HSsreVWXWCc41WtnEJeQF3qdzbU9hSAWdBIHvId6CItyrmNk1QKu5XJ7x+UG3NSW
+S8/469FuAJsMlmPEwoLilNhh9dRjoPuoQJGEnHaqtG/HAW8r66PIrdNCv6p2S5o3
+qJ9RBdtpHg4niBXmbRee
+=maA7
+-----END PGP SIGNATURE-----
+
+--Sig_/ice+t87a0803zj7P9lvPyEQ--
