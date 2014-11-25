@@ -1,68 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: fix ring init when there are more TX than RX
- channels
-Date: Tue, 25 Nov 2014 15:19:44 -0500 (EST)
-Message-ID: <20141125.151944.683290833692724626.davem@davemloft.net>
-References: <1416932471-8744-1-git-send-email-cascardo@linux.vnet.ibm.com>
-	<20141125.143352.669361329120151757.davem@davemloft.net>
-	<20141125195721.GB3933@oc0812247204.br.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, prashant@broadcom.com, mchan@broadcom.com
-To: cascardo@linux.vnet.ibm.com
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 1/2 V3 3.18] rtlwifi: rtl8821ae: Fix 5G detection problem
+Date: Tue, 25 Nov 2014 14:28:48 -0600
+Message-ID: <1416947328-5431-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, Valerio Passini <valerio.passini@unicam.it>
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38085 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751738AbaKYUTr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 15:19:47 -0500
-In-Reply-To: <20141125195721.GB3933@oc0812247204.br.ibm.com>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:48778 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750879AbaKYUaZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 15:30:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: cascardo@linux.vnet.ibm.com
-Date: Tue, 25 Nov 2014 17:57:21 -0200
+The changes associated with moving this driver from staging to the regular
+tree missed one section setting the allowable rates for the 5GHz band.
 
-> On Tue, Nov 25, 2014 at 02:33:52PM -0500, David Miller wrote:
->> From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
->> Date: Tue, 25 Nov 2014 14:21:11 -0200
->> 
->> > @@ -8563,7 +8563,8 @@ static int tg3_init_rings(struct tg3 *tp)
->> >  		if (tnapi->rx_rcb)
->> >  			memset(tnapi->rx_rcb, 0, TG3_RX_RCB_RING_BYTES(tp));
->> >  
->> > -		if (tg3_rx_prodring_alloc(tp, &tnapi->prodring)) {
->> > +		if (tnapi->prodring.rx_std &&
->> > +		    tg3_rx_prodring_alloc(tp, &tnapi->prodring)) {
->> >  			tg3_free_rings(tp);
->> >  			return -ENOMEM;
->> 
->> Maybe a better test is "i < tp->rxq_cnt"?  This is what is used in
->> tg3_mem_rx_acquire() to determine if tg3_rx_prodring_init() happens.
->> 
-> 
-> Well, what we have in net-next/master does:
-> 
-> 	for (i = 0; i < limit; i++) {
-> 		struct tg3_napi *tnapi = &tp->napi[i];
-> 
-> 		if (tg3_rx_prodring_init(tp, &tnapi->prodring))
-> 			goto err_out;
-> 
-> where limit is:
-> 
-> 	limit = tp->rxq_cnt;
-> 
-> 	if (tg3_flag(tp, ENABLE_RSS))
-> 		limit++;
-> 
-> So, I thought that, instead of rewriting that same logic in
-> tg3_init_rings, that we should better just check that the rx_std has
-> been allocated, which is going to happen in tg3_rx_prodring_init.
-> 
-> So, the alternative would be:
+This patch is needed to fix the regression reported in Bug #88811
+(https://bugzilla.kernel.org/show_bug.cgi?id=88811).
 
-Ok, come to think of it, your original test is fine and I've applied
-that patch and queued it up for -stable.
+Reported-by: Valerio Passini <valerio.passini@unicam.it>
+Tested-by: Valerio Passini <valerio.passini@unicam.it>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Valerio Passini <valerio.passini@unicam.it>
+---
 
-Thanks.
+V2 - removed extra parentheses as suggested by John Linville.
+V3 - Add spaces around the << operator
+---
+ drivers/net/wireless/rtlwifi/rtl8821ae/hw.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
+index 310d316..18f34f7 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
+@@ -3672,8 +3672,9 @@ static void rtl8821ae_update_hal_rate_mask(struct ieee80211_hw *hw,
+ 		mac->opmode == NL80211_IFTYPE_ADHOC)
+ 		macid = sta->aid + 1;
+ 	if (wirelessmode == WIRELESS_MODE_N_5G ||
+-	    wirelessmode == WIRELESS_MODE_AC_5G)
+-		ratr_bitmap = sta->supp_rates[NL80211_BAND_5GHZ];
++	    wirelessmode == WIRELESS_MODE_AC_5G ||
++	    wirelessmode == WIRELESS_MODE_A)
++		ratr_bitmap = sta->supp_rates[NL80211_BAND_5GHZ] << 4;
+ 	else
+ 		ratr_bitmap = sta->supp_rates[NL80211_BAND_2GHZ];
+ 
+-- 
+2.1.2
