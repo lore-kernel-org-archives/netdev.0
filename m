@@ -1,113 +1,103 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 1/2] sh_eth: Fix sleeping function called from invalid context
-Date: Tue, 25 Nov 2014 14:35:53 +0100
-Message-ID: <CAMuHMdWJYuXES4g1-=H6xo=gVePPSUkybUhL0VjuKk7asE6syg@mail.gmail.com>
-References: <1415862135-27972-1-git-send-email-ykaneko0929@gmail.com>
-	<1415862135-27972-2-git-send-email-ykaneko0929@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 3/4] GMAC: dts: add gmac info for rk3288
+Date: Tue, 25 Nov 2014 16:40:59 +0300
+Message-ID: <547486EB.5080702@cogentembedded.com>
+References: <1416906536-26158-1-git-send-email-roger.chen@rock-chips.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1415862135-27972-2-git-send-email-ykaneko0929@gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
+	kever.yang@rock-chips.com, mark.yao@rock-chips.com,
+	eddie.cai@rock-chips.com
+To: Roger Chen <roger.chen@rock-chips.com>, heiko@sntech.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1416906536-26158-1-git-send-email-roger.chen@rock-chips.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Kaneko-san,
+Hello.
 
-On Thu, Nov 13, 2014 at 8:02 AM, Yoshihiro Kaneko <ykaneko0929@gmail.com> wrote:
-> From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
->
-> Fix the bug as follows:
->
-> ----
-> [ 1238.161349] BUG: sleeping function called from invalid context at drivers/base/power/runtime.c:952
-> [ 1238.188279] in_atomic(): 1, irqs_disabled(): 0, pid: 1388, name: cat
-> [ 1238.207425] CPU: 0 PID: 1388 Comm: cat Not tainted 3.10.31-ltsi-00046-gefa0b46 #1087
-> [ 1238.230737] Backtrace:
-> [ 1238.238123] [<c0012e64>] (dump_backtrace+0x0/0x10c) from [<c0013000>] (show_stack+0x18/0x1c)
-> [ 1238.263499]  r6:000003b8 r5:c06160c0 r4:c0669e00 r3:00404000
-> [ 1238.280583] [<c0012fe8>] (show_stack+0x0/0x1c) from [<c04515a4>] (dump_stack+0x20/0x28)
-> [ 1238.304631] [<c0451584>] (dump_stack+0x0/0x28) from [<c004970c>] (__might_sleep+0xf8/0x118)
-> [ 1238.329734] [<c0049614>] (__might_sleep+0x0/0x118) from [<c02465ac>] (__pm_runtime_resume+0x38/0x90)
-> [ 1238.357170]  r7:d616f000 r6:c049c458 r5:00000004 r4:d6a17210
-> [ 1238.374251] [<c0246574>] (__pm_runtime_resume+0x0/0x90) from [<c029b1c4>] (sh_eth_get_stats+0x44/0x280)
-> [ 1238.402468]  r7:d616f000 r6:c049c458 r5:d5c21000 r4:d5c21000
-> [ 1238.419552] [<c029b180>] (sh_eth_get_stats+0x0/0x280) from [<c03ae39c>] (dev_get_stats+0x54/0x88)
-> [ 1238.446204]  r5:d5c21000 r4:d5ed7e08
-> [ 1238.456980] [<c03ae348>] (dev_get_stats+0x0/0x88) from [<c03c677c>] (netstat_show.isra.15+0x54/0x9c)
-> [ 1238.484413]  r6:d5c21000 r5:d5c21238 r4:00000028 r3:00000001
-> [ 1238.501495] [<c03c6728>] (netstat_show.isra.15+0x0/0x9c) from [<c03c69b8>] (show_tx_errors+0x18/0x1c)
-> [ 1238.529196]  r7:d5f945d8 r6:d5f945c0 r5:c049716c r4:c0650e7c
-> [ 1238.546279] [<c03c69a0>] (show_tx_errors+0x0/0x1c) from [<c023963c>] (dev_attr_show+0x24/0x50)
-> [ 1238.572157] [<c0239618>] (dev_attr_show+0x0/0x50) from [<c010c148>] (sysfs_read_file+0xb0/0x140)
-> [ 1238.598554]  r5:c049716c r4:d5c21240
-> [ 1238.609326] [<c010c098>] (sysfs_read_file+0x0/0x140) from [<c00b9ee4>] (vfs_read+0xb0/0x13c)
-> [ 1238.634679] [<c00b9e34>] (vfs_read+0x0/0x13c) from [<c00ba0ac>] (SyS_read+0x44/0x74)
-> [ 1238.657944]  r8:bef45bf0 r7:00000000 r6:d6ac0600 r5:00000000 r4:00000000
-> [ 1238.678172] [<c00ba068>] (SyS_read+0x0/0x74) from [<c000eec0>] (ret_fast_syscall+0x0/0x30)
-> ----
->
-> Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
-> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+On 11/25/2014 12:08 PM, Roger Chen wrote:
+
+> add gmac info in rk3288.dtsi for GMAC driver
+
+> Signed-off-by: Roger Chen <roger.chen@rock-chips.com>
 > ---
->  drivers/net/ethernet/renesas/sh_eth.c | 64 +++++++++++++++++++----------------
->  drivers/net/ethernet/renesas/sh_eth.h |  1 +
->  2 files changed, 36 insertions(+), 29 deletions(-)
+>   arch/arm/boot/dts/rk3288.dtsi |   59 +++++++++++++++++++++++++++++++++++++++++
+>   1 file changed, 59 insertions(+)
+
+> diff --git a/arch/arm/boot/dts/rk3288.dtsi b/arch/arm/boot/dts/rk3288.dtsi
+> index 0f50d5d..949675d 100644
+> --- a/arch/arm/boot/dts/rk3288.dtsi
+> +++ b/arch/arm/boot/dts/rk3288.dtsi
+[...]
+> @@ -490,6 +497,25 @@
+>   		reg = <0xff740000 0x1000>;
+>   	};
 >
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index 60e9c2c..862a691 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -2042,6 +2042,8 @@ static int sh_eth_open(struct net_device *ndev)
->         if (ret)
->                 goto out_free_irq;
->
-> +       mdp->is_opened = 1;
+> +	gmac: eth@ff290000 {
+
+    Please name the node "ethernet@ff290000" to comply with the ePAPR standard.
+
+> +		compatible = "rockchip,rk3288-gmac";
+> +		reg = <0xff290000 0x10000>;
+> +		interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;  /*irq=59*/
+> +		interrupt-names = "macirq";
+> +		rockchip,grf = <&grf>;
+> +		clocks = <&cru SCLK_MAC>, <&cru SCLK_MAC_PLL>,
+> +			<&cru SCLK_MAC_RX>, <&cru SCLK_MAC_TX>,
+> +			<&cru SCLK_MACREF>, <&cru SCLK_MACREF_OUT>,
+> +			<&cru ACLK_GMAC>, <&cru PCLK_GMAC>;
+> +		clock-names = "stmmaceth", "clk_mac_pll",
+> +			"mac_clk_rx", "mac_clk_tx",
+> +			"clk_mac_ref", "clk_mac_refout",
+> +			"aclk_mac", "pclk_mac";
+> +		phy-mode = "rgmii";
+> +		pinctrl-names = "default";
+> +		pinctrl-0 = <&rgmii_pin /*&rmii_pin*/>;
+
+    Hm, pinctrl props in a .dtsi file? Those are usually board dependent.
+
+[...]
+> @@ -1040,5 +1066,38 @@
+>   				rockchip,pins = <7 23 3 &pcfg_pull_none>;
+>   			};
+>   		};
 > +
->         return ret;
->
->  out_free_irq:
-> @@ -2131,6 +2133,36 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
->         return NETDEV_TX_OK;
->  }
->
-> +static struct net_device_stats *sh_eth_get_stats(struct net_device *ndev)
-> +{
-> +       struct sh_eth_private *mdp = netdev_priv(ndev);
+> +		gmac {
+> +			rgmii_pin: rgmii-pins {
+> +				rockchip,pins = <3 30 3 &pcfg_pull_none>,
+> +						<3 31 3 &pcfg_pull_none>,
+> +						<3 26 3 &pcfg_pull_none>,
+> +						<3 27 3 &pcfg_pull_none>,
+> +						<3 28 3 &pcfg_pull_none>,
+> +						<3 29 3 &pcfg_pull_none>,
+> +						<3 24 3 &pcfg_pull_none>,
+> +						<3 25 3 &pcfg_pull_none>,
+> +						<4 0 3 &pcfg_pull_none>,
+> +						<4 5 3 &pcfg_pull_none>,
+> +						<4 6 3 &pcfg_pull_none>,
+> +						<4 9 3 &pcfg_pull_none>,
+> +						<4 4 3 &pcfg_pull_none>,
+> +						<4 1 3 &pcfg_pull_none>,
+> +						<4 3 3 &pcfg_pull_none>;
+> +			};
 > +
-> +       if (sh_eth_is_rz_fast_ether(mdp))
-> +               return &ndev->stats;
-> +
-> +       if (!mdp->is_opened)
+> +			rmii_pin: rmii-pins {
+> +				rockchip,pins = <3 30 3 &pcfg_pull_none>,
+> +						<3 31 3 &pcfg_pull_none>,
+> +						<3 28 3 &pcfg_pull_none>,
+> +						<3 29 3 &pcfg_pull_none>,
+> +						<4 0 3 &pcfg_pull_none>,
+> +						<4 5 3 &pcfg_pull_none>,
+> +						<4 4 3 &pcfg_pull_none>,
+> +						<4 1 3 &pcfg_pull_none>,
+> +						<4 2 3 &pcfg_pull_none>,
+> +						<4 3 3 &pcfg_pull_none>;
+> +			};
+> +		};
 
-Can't you use netif_running(ndev) instead?
+    These are usually define in the board .dts file...
 
-That way you don't need the is_opened field and track open/close
-calls.
-
-> --- a/drivers/net/ethernet/renesas/sh_eth.h
-> +++ b/drivers/net/ethernet/renesas/sh_eth.h
-> @@ -508,6 +508,7 @@ struct sh_eth_private {
->         u32 rx_buf_sz;                  /* Based on MTU+slack. */
->         int edmac_endian;
->         struct napi_struct napi;
-> +       bool is_opened;
->         /* MII transceiver section. */
->         u32 phy_id;                     /* PHY ID */
->         struct mii_bus *mii_bus;        /* MDIO bus control */
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+WBR, Sergei
