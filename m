@@ -1,52 +1,82 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: [cdc_ncm] kickstart
-Date: Tue, 25 Nov 2014 22:29:42 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1411252210380.1677@gmail.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH rfc 1/4] net-timestamp: pull headers for SOCK_STREAM
+Date: Tue, 25 Nov 2014 13:39:39 -0800
+Message-ID: <CALCETrXHdSVC-YLsdjHxAp3rU2gGFZaz8NNgaTKYgjM-ah3z+A@mail.gmail.com>
+References: <1416938286-14147-2-git-send-email-willemb@google.com>
+ <20141125.134240.861582393401487675.davem@davemloft.net> <CA+FuTSdT9=Hi7K3OnMxVRiK8PmS4=DvVqLumWx74OEz3okx23A@mail.gmail.com>
+ <20141125.145434.1790615963499624322.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: alexxst@gmail.com, bjorn@mork.no
-To: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Willem de Bruijn <willemb@google.com>,
+	Network Development <netdev@vger.kernel.org>,
+	Richard Cochran <richardcochran@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:59543 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751100AbaKYV3R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 16:29:17 -0500
+Received: from mail-la0-f49.google.com ([209.85.215.49]:38902 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751061AbaKYVkB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 16:40:01 -0500
+Received: by mail-la0-f49.google.com with SMTP id hs14so1341951lab.8
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 13:39:59 -0800 (PST)
+In-Reply-To: <20141125.145434.1790615963499624322.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Bjorn,
-Hi Alex.
+On Tue, Nov 25, 2014 at 11:54 AM, David Miller <davem@davemloft.net> wrote:
+> From: Willem de Bruijn <willemb@google.com>
+> Date: Tue, 25 Nov 2014 14:52:00 -0500
+>
+>> On Tue, Nov 25, 2014 at 1:42 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Willem de Bruijn <willemb@google.com>
+>>> Date: Tue, 25 Nov 2014 12:58:03 -0500
+>>>
+>>> What's the harm in exposing the headers?  Either it's harmful, and
+>>> therefore doing so for UDP is bad too, or it's harmless and
+>>
+>> Headers may expose information not available otherwise. I don't
+>> immediately see critical problems, but that does not mean that they
+>> might not lurk there.
+>>
+>> We so far avoid exposing the sequence number, though keeping it hidden
+>> is more about third parties. More in general, unprivileged processes
+>> may start requesting timestamps only to learn tcp state that they
+>> should either get from tcpinfo or cannot currently get at all, likely
+>> for good reason. A far-fetched example is identifying admin iptables
+>> tos mangling rules by reading the tos bits at the driver layer. At least
+>> on my machine, iptables -L is privileged.
+>>
+>>> we should probably leave it alone to not risk breaking anyone.
+>>
+>> That's fair. I sent it for rfc first for that reason. I won't resubmit
+>> unless more serious concerns are raised.
+>
+> I just worry about the potential breakage.
+>
+> Your concerns are valid... I honestly don't know what we should do here.
+> Both choices have merit.
 
-So - I tried to read and understand parts of the logic implemented in the 
-cdc_ncm driver.
-What I understood is:
-- the device and the drive exchange "obviously" lots of infos about lengths and
-   so on
-- lots of sanity checks all over the place
+Here's a scenario in which giving the headers might be dangerous:
 
-And the basic assumption that we are working inndp 16 mode.
-So there is a lot of code to write - but not a lot of logic to change, right?
-Or are there differences in 32 bit mode that might need attention? (behavioural 
-attention, math changes or anything)
+Suppose I create a network namespace that's designed to contain
+something, e.g. a Tor or Tor-like client, that shouldn't know any of
+its public addressing information.  I might assign something like a
+tunnel interface to the namespace, but, if the contained code can get
+lower-level headers, it might learn something that would identify the
+*other* end of the tunnel, which wouldn't be so good.  Admittedly,
+this would be just one of several things that would require care to
+get this right.
 
-So - first of all the tx and rx fixup functions should be changed, 
-reimplementing the needed code to let them work.
-I was thinking to proceed this way, but I would like to have some comments 
-before moving on.
-Note that all these line numbers refer to the cdc_ncm.c file in the current 
-kernel git tree as of today (Nov 25 at 22:27).
+Also, what happens if the output is transformed by ipsec?  Does the
+timestamp message show the ciphertext?
 
-1 - Have a module parameter that inhibits the current forcing of 16 bit NTBs: 
-and check for it more or less at line 469 of cdc_ncm.c in function 
-cdc_ncm_init.
-2 - Check somehow (how?) for the format we are using in .{rx,tx}_fixup 
-functions, and switch to two different distinct functions:
-- one to handle 16 bits
-- one to handle 32 bits
-3 - Disambiguate some function names if needed: for example, cdc_ncm_ndp at 
-line 983 of the cdc_ncm.c file.
+TBH, I'd rather send no payload at all and have an scm message that
+the sender provides that specifies a cookie identifying the particular
+sent data.  But that ship mostly sailed awhile ago.
 
-Please CC me and Alex, since (at least I) am not subscribed to the list. Any 
-hint or help would be greatly apreciated. Sorry for the long to / cc lists: 
-what's the appropriate list for these things?
-Enrico
+For bytestreams, though, isn't this all new in 3.18?  Or am I off by a release.
+
+--Andy
+
+-- 
+Andy Lutomirski
+AMA Capital Management, LLC
