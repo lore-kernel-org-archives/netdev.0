@@ -1,75 +1,65 @@
-From: Theodore Ts'o <tytso-3s7WtUTddSA@public.gmane.org>
-Subject: Re: [PATCH v4 0/7] kernel tinification: optionally
- compile out splice family of syscalls (splice, vmsplice, tee and sendfile)
-Date: Tue, 25 Nov 2014 13:58:06 -0500
-Message-ID: <20141125185806.GA28116@thunk.org>
-References: <5474ABB6.3030400@infradead.org>
-	<20141125.121305.2094097848188324942.davem@davemloft.net>
-	<20141125181032.GJ5050@linux.vnet.ibm.com>
-	<20141125.132445.152609149279137368.davem@davemloft.net>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH 1/2 3.18] rtlwifi: rtl8821ae: Fix 5G detection problem
+Date: Tue, 25 Nov 2014 13:46:25 -0500
+Message-ID: <20141125184625.GC15476@tuxdriver.com>
+References: <1416933127-25912-1-git-send-email-Larry.Finger@lwfinger.net>
+ <1416933127-25912-2-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org, beber-2YnHqweIUXrk1uMJSBkQmQ@public.gmane.org,
-	oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, zhenglong.cai-TJRtMXcVgQTM1kAEIRd3EQ@public.gmane.org,
-	jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org, therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org,
-	miklos-sUDqSbJrdHQHWmgEVkV9KA@public.gmane.org, pefoley2-lY0TAiDIAFlBDgjK7y7TUQ@public.gmane.org, hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	xiaoguangrong-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org,
-	mgorman-l3A5Bk7waGM@public.gmane.org, mattst88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, pieter-qeJ+1H9vRZbz+pZb47iToQ@public.gmane.org,
-	fuse-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, mcgrof-IBi9RG/b67k@public.gmane.org,
-	josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, catalina.mocanu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org,
-	tgraf-G/eBtMaohhA@public.gmane.org, Paul.Durrant-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org, viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org,
-	JBeulich-IBi9RG/b67k@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	iulia.manda21-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fsdeve
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <fuse-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Valerio Passini <valerio.passini@unicam.it>
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:48702 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751160AbaKYTAO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 14:00:14 -0500
 Content-Disposition: inline
-In-Reply-To: <20141125.132445.152609149279137368.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/fuse-devel>,
-	<mailto:fuse-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=fuse-devel>
-List-Post: <mailto:fuse-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:fuse-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/fuse-devel>,
-	<mailto:fuse-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: fuse-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1416933127-25912-2-git-send-email-Larry.Finger@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 25, 2014 at 01:24:45PM -0500, David Miller wrote:
+On Tue, Nov 25, 2014 at 10:32:06AM -0600, Larry Finger wrote:
+> The changes associated with moving this driver from staging to the regular
+> tree missed one section setting the allowable rates for the 5GHz band.
 > 
-> And then if some fundamental part of userland (glibc, klibc, etc.) finds
-> a useful way to use splice for a fundamental operation, we're back to
-> square one.
+> This patch is needed to fix the regression reported in Bug #88811
+> (https://bugzilla.kernel.org/show_bug.cgi?id=88811).
+> 
+> Reported-by: Valerio Passini <valerio.passini@unicam.it>
+> Tested-by: Valerio Passini <valerio.passini@unicam.it>
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> Cc: Valerio Passini <valerio.passini@unicam.it>
+> ---
+>  drivers/net/wireless/rtlwifi/rtl8821ae/hw.c | 5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
+> index 310d316..18f34f7 100644
+> --- a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
+> +++ b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
+> @@ -3672,8 +3672,9 @@ static void rtl8821ae_update_hal_rate_mask(struct ieee80211_hw *hw,
+>  		mac->opmode == NL80211_IFTYPE_ADHOC)
+>  		macid = sta->aid + 1;
+>  	if (wirelessmode == WIRELESS_MODE_N_5G ||
+> -	    wirelessmode == WIRELESS_MODE_AC_5G)
+> -		ratr_bitmap = sta->supp_rates[NL80211_BAND_5GHZ];
+> +	    wirelessmode == WIRELESS_MODE_AC_5G ||
+> +	    wirelessmode == WIRELESS_MODE_A)
+> +		ratr_bitmap = (sta->supp_rates[NL80211_BAND_5GHZ])<<4;
 
-I'll note that the applications for these super-tiny kernels are
-places where it's not likely they would be using glibc at all; think
-very tiny embedded systems.  The userspace tends to be highly
-restricted for the same space reasons why there is an effort to make
-the kernel as small as possible.
+The parenthesis seem superfluous.  How about this line instead?
 
-In these places, they are using Linux already, but they're using a 2.2
-or 2.4 kernel because 3.0 is just too damned big.  So the goal is to
-try to provide them an alternative which allows them to use a modern,
-but stripped down kernel.  If glibc or klibc isn't going to work
-without splice, then it's not going to work on a pre 2.6 kernel
-anyway, so things are no worse with these systems anyway.
++		ratr_bitmap = sta->supp_rates[NL80211_BAND_5GHZ] << 4;
 
-After all, if we can get these systems to using a 3.x kernel w/o
-splice, that's surely better than their using a 2.2 or 2.4 kernel w/o
-the splice system, isn't it?
+>  	else
+>  		ratr_bitmap = sta->supp_rates[NL80211_BAND_2GHZ];
+>  
+> -- 
+> 2.1.2
+> 
+> 
 
-Cheers,
-
-					- Ted
-
-------------------------------------------------------------------------------
-Download BIRT iHub F-Type - The Free Enterprise-Grade BIRT Server
-from Actuate! Instantly Supercharge Your Business Reports and Dashboards
-with Interactivity, Sharing, Native Excel Exports, App Integration & more
-Get technology previously reserved for billion-dollar corporations, FREE
-http://pubads.g.doubleclick.net/gampad/clk?id=157005751&iu=/4140/ostg.clktrk
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
