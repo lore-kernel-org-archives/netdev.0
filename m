@@ -1,34 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH rfc 2/4] net-errqueue: add IP(V6)_PKTINFO support
-Date: Tue, 25 Nov 2014 13:41:02 -0500 (EST)
-Message-ID: <20141125.134102.1488230781371300774.davem@davemloft.net>
-References: <1416938286-14147-1-git-send-email-willemb@google.com>
-	<1416938286-14147-3-git-send-email-willemb@google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, luto@amacapital.net,
-	richardcochran@gmail.com
-To: willemb@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36719 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751045AbaKYSlF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 13:41:05 -0500
-In-Reply-To: <1416938286-14147-3-git-send-email-willemb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jay Vosburgh <jay.vosburgh-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH] bonding: move ipoib_header_ops to vmlinux
+Date: Tue, 25 Nov 2014 10:41:17 -0800
+Message-ID: <19740.1416940877@famine>
+References: <1416893768-21369-1-git-send-email-wen.gang.wang@oracle.com> <20141125.010741.450666241983239119.davem@davemloft.net> <54742D6E.9030605@mellanox.com>
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, wen.gang.wang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-reply-to: <54742D6E.9030605-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemb@google.com>
-Date: Tue, 25 Nov 2014 12:58:04 -0500
+Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
 
-> +	if (inet_sk(sk)->cmsg_flags & IP_CMSG_PKTINFO && skb->dev) {
-> +		struct in_pktinfo info = {0};
+>On 11/25/2014 8:07 AM, David Miller wrote:
+>> IPOIB should not work over bonding as it requires that the device
+>> use ARPHRD_ETHER.
+>
+>Hi Dave,
+>
+>IPoIB devices can be enslaved to both bonding and teaming in their HA mode,
+>the bond device type becomes ARPHRD_INFINIBAND when this happens.
 
-I think memset(&info... is cleaner, and:
+	The point was that pktgen disallows ARPHRD_INFINIBAND, not that
+bonding does.
 
-> +		struct in6_pktinfo info;
-> +
-> +		memset(&info, 0, sizeof(info));
+	Pktgen specifically checks for type != ARPHRD_ETHER, so the
+IPoIB bond should not be able to be used with pkgten.  My suspicion is
+that pktgen is being configured on the bond first, then an IPoIB slave
+is added to the bond; this would change its type in a way that pktgen
+wouldn't notice.
 
-Would make the code consistent with the ipv6 side.
+	-J
+
+---
+	-Jay Vosburgh, jay.vosburgh-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
