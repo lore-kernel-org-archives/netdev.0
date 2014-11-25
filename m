@@ -1,45 +1,62 @@
 From: alexander.duyck@gmail.com
-Subject: [net PATCH 0/2] Fix outer UDP checksums for IPv6 VXLAN tunnels
-Date: Mon, 24 Nov 2014 20:08:25 -0800
-Message-ID: <20141125035808.13612.52556.stgit@ahduyck-workstation.home>
+Subject: [net PATCH 1/2] ip6_udp_tunnel: Fix checksum calculation
+Date: Mon, 24 Nov 2014 20:08:32 -0800
+Message-ID: <20141125040831.13612.4374.stgit@ahduyck-workstation.home>
+References: <20141125035808.13612.52556.stgit@ahduyck-workstation.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	Andy Zhou <azhou@nicira.com>, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:62350 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751874AbaKYEI1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 23:08:27 -0500
-Received: by mail-pd0-f177.google.com with SMTP id ft15so10987972pdb.8
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2014 20:08:26 -0800 (PST)
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:62029 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751290AbaKYEId (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 23:08:33 -0500
+Received: by mail-pd0-f171.google.com with SMTP id y13so3077712pdi.16
+        for <netdev@vger.kernel.org>; Mon, 24 Nov 2014 20:08:33 -0800 (PST)
+In-Reply-To: <20141125035808.13612.52556.stgit@ahduyck-workstation.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In testing against an older kernel I found a couple issues in the IPv6
-VXLAN tunnel checksum logic for the outer UDP checksum.
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
 
-First the default transitioned from using an outer checksum to not using
-one.  Second, sometime after that the checksum inputs were changed
-resulting the checksum not being correct if it were computed.
+The UDP checksum calculation for VXLAN tunnels is currently using the
+socket addresses instead of the actual packet source and destination
+addresses.  As a result the checksum calculated is incorrect in some
+cases.
 
-These two issues prevented a ping from the newer kernel to the older one.
-With these two changes applied I verified I was able to send traffic over
-the VXLAN tunnel to a link partner on an older kernel.
+Also uh->check was being set twice, first it was set to 0, and then it is
+set again in udp6_set_csum.  This change removes the redundant assignment
+to 0.
 
-The boolean flip fix can be submitted for 3.17 stable as well since the
-patch that introduced the issue was included in that kernel.
+Fixes: acbf74a7 ("vxlan: Refactor vxlan driver to make use of the common UDP tunnel functions.")
 
+Cc: Andy Zhou <azhou@nicira.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
-
-Alexander Duyck (2):
-      ip6_udp_tunnel: Fix checksum calculation
-      vxlan: Fix boolean flip in VXLAN_F_UDP_ZERO_CSUM6_[TX|RX]
-
-
- drivers/net/vxlan.c       |    4 ++--
  net/ipv6/ip6_udp_tunnel.c |    4 +---
- 2 files changed, 3 insertions(+), 5 deletions(-)
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
--- 
+diff --git a/net/ipv6/ip6_udp_tunnel.c b/net/ipv6/ip6_udp_tunnel.c
+index b04ed72..8db6c98 100644
+--- a/net/ipv6/ip6_udp_tunnel.c
++++ b/net/ipv6/ip6_udp_tunnel.c
+@@ -79,15 +79,13 @@ int udp_tunnel6_xmit_skb(struct socket *sock, struct dst_entry *dst,
+ 	uh->source = src_port;
+ 
+ 	uh->len = htons(skb->len);
+-	uh->check = 0;
+ 
+ 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+ 	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED
+ 			    | IPSKB_REROUTED);
+ 	skb_dst_set(skb, dst);
+ 
+-	udp6_set_csum(udp_get_no_check6_tx(sk), skb, &inet6_sk(sk)->saddr,
+-		      &sk->sk_v6_daddr, skb->len);
++	udp6_set_csum(udp_get_no_check6_tx(sk), skb, saddr, daddr, skb->len);
+ 
+ 	__skb_push(skb, sizeof(*ip6h));
+ 	skb_reset_network_header(skb);
