@@ -1,10 +1,11 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [patch net-next v3 05/17] rtnl: expose physical switch id for
- particular device
-Date: Tue, 25 Nov 2014 10:16:55 -0500
-Message-ID: <20141125151655.GE27416@gospo.rtplab.test>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v3 02/17] net: make vid as a parameter for
+ ndo_fdb_add/ndo_fdb_del
+Date: Tue, 25 Nov 2014 16:18:11 +0100
+Message-ID: <20141125151811.GF1971@nanopsycho.orion>
 References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
- <1416911328-10979-6-git-send-email-jiri@resnulli.us>
+ <1416911328-10979-3-git-send-email-jiri@resnulli.us>
+ <20141125151312.GC27416@gospo.rtplab.test>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
@@ -22,119 +23,128 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
 	ronye@mellanox.com, simon.horman@netronome.com,
 	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
 	mleitner@redhat.com, shrijeet@gmail.com, bcrl@kvack.org
-To: Jiri Pirko <jiri@resnulli.us>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:37382 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750780AbaKYPRL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 10:17:11 -0500
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:51925 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750848AbaKYPSO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 10:18:14 -0500
+Received: by mail-wg0-f47.google.com with SMTP id n12so1157950wgh.6
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 07:18:12 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1416911328-10979-6-git-send-email-jiri@resnulli.us>
+In-Reply-To: <20141125151312.GC27416@gospo.rtplab.test>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 25, 2014 at 11:28:36AM +0100, Jiri Pirko wrote:
-> The netdevice represents a port in a switch, it will expose
-> IFLA_PHYS_SWITCH_ID value via rtnl. Two netdevices with the same value
-> belong to one physical switch.
-> 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> Reviewed-by: Thomas Graf <tgraf@suug.ch>
-> Acked-by: John Fastabend <john.r.fastabend@intel.com>
+Tue, Nov 25, 2014 at 04:13:12PM CET, gospo@cumulusnetworks.com wrote:
+>On Tue, Nov 25, 2014 at 11:28:33AM +0100, Jiri Pirko wrote:
+>> Do the work of parsing NDA_VLAN directly in rtnetlink code, pass simple
+>> u16 vid to drivers from there.
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>
+>Structurally this looks fine, just a misspelling noted below.
+>
+>Acked-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+>
+>> ---
+>> new in v3
+>> ---
+>>  drivers/net/ethernet/intel/i40e/i40e_main.c      |  2 +-
+>>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  4 +-
+>>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |  9 +++--
+>>  drivers/net/macvlan.c                            |  4 +-
+>>  drivers/net/vxlan.c                              |  4 +-
+>>  include/linux/netdevice.h                        |  8 ++--
+>>  include/linux/rtnetlink.h                        |  6 ++-
+>>  net/bridge/br_fdb.c                              | 39 ++----------------
+>>  net/bridge/br_private.h                          |  4 +-
+>>  net/core/rtnetlink.c                             | 50 ++++++++++++++++++++----
+>>  10 files changed, 70 insertions(+), 60 deletions(-)
+>> 
+>[...]
+>> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+>> index a688268..f2a4b38 100644
+>> --- a/net/core/rtnetlink.c
+>> +++ b/net/core/rtnetlink.c
+>> @@ -36,6 +36,7 @@
+>>  #include <linux/mutex.h>
+>>  #include <linux/if_addr.h>
+>>  #include <linux/if_bridge.h>
+>> +#include <linux/if_vlan.h>
+>>  #include <linux/pci.h>
+>>  #include <linux/etherdevice.h>
+>>  
+>> @@ -2312,7 +2313,7 @@ errout:
+>>  int ndo_dflt_fdb_add(struct ndmsg *ndm,
+>>  		     struct nlattr *tb[],
+>>  		     struct net_device *dev,
+>> -		     const unsigned char *addr,
+>> +		     const unsigned char *addr, u16 vid,
+>>  		     u16 flags)
+>>  {
+>>  	int err = -EINVAL;
+>> @@ -2338,6 +2339,28 @@ int ndo_dflt_fdb_add(struct ndmsg *ndm,
+>>  }
+>>  EXPORT_SYMBOL(ndo_dflt_fdb_add);
+>>  
+>> +static int fbd_vid_parse(struct nlattr *vlan_attr, u16 *p_vid)
+>I presume this is a misspelling?
 
-Acked-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+Darn. Thanks. Will fix this.
 
-> ---
-> v2->v3:
-> -changed "sw" string to "switch" to avoid confusion
-> v1->v2:
-> -no change
-> ---
->  include/uapi/linux/if_link.h |  1 +
->  net/core/rtnetlink.c         | 26 +++++++++++++++++++++++++-
->  2 files changed, 26 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-> index 7072d83..4163753 100644
-> --- a/include/uapi/linux/if_link.h
-> +++ b/include/uapi/linux/if_link.h
-> @@ -145,6 +145,7 @@ enum {
->  	IFLA_CARRIER,
->  	IFLA_PHYS_PORT_ID,
->  	IFLA_CARRIER_CHANGES,
-> +	IFLA_PHYS_SWITCH_ID,
->  	__IFLA_MAX
->  };
->  
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index 0fb3a68..bd5e783 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -44,6 +44,7 @@
->  
->  #include <linux/inet.h>
->  #include <linux/netdevice.h>
-> +#include <net/switchdev.h>
->  #include <net/ip.h>
->  #include <net/protocol.h>
->  #include <net/arp.h>
-> @@ -869,7 +870,8 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
->  	       + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
->  	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
->  	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
-> -	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_PORT_ID */
-> +	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
-> +	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_SWITCH_ID */
->  }
->  
->  static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
-> @@ -968,6 +970,24 @@ static int rtnl_phys_port_id_fill(struct sk_buff *skb, struct net_device *dev)
->  	return 0;
->  }
->  
-> +static int rtnl_phys_switch_id_fill(struct sk_buff *skb, struct net_device *dev)
-> +{
-> +	int err;
-> +	struct netdev_phys_item_id psid;
-> +
-> +	err = netdev_switch_parent_id_get(dev, &psid);
-> +	if (err) {
-> +		if (err == -EOPNOTSUPP)
-> +			return 0;
-> +		return err;
-> +	}
-> +
-> +	if (nla_put(skb, IFLA_PHYS_SWITCH_ID, psid.id_len, psid.id))
-> +		return -EMSGSIZE;
-> +
-> +	return 0;
-> +}
-> +
->  static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
->  			    int type, u32 pid, u32 seq, u32 change,
->  			    unsigned int flags, u32 ext_filter_mask)
-> @@ -1040,6 +1060,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
->  	if (rtnl_phys_port_id_fill(skb, dev))
->  		goto nla_put_failure;
->  
-> +	if (rtnl_phys_switch_id_fill(skb, dev))
-> +		goto nla_put_failure;
-> +
->  	attr = nla_reserve(skb, IFLA_STATS,
->  			sizeof(struct rtnl_link_stats));
->  	if (attr == NULL)
-> @@ -1199,6 +1222,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
->  	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
->  	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
->  	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
-> +	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
->  };
->  
->  static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
-> -- 
-> 1.9.3
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>[...]
+>> @@ -2370,6 +2394,10 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh)
+>>  
+>>  	addr = nla_data(tb[NDA_LLADDR]);
+>>  
+>> +	err = fbd_vid_parse(tb[NDA_VLAN], &vid);
+>Same here....
+>
+>> +	if (err)
+>> +		return err;
+>> +
+>>  	err = -EOPNOTSUPP;
+>>  
+>>  	/* Support fdb on master device the net/bridge default case */
+>
+>[...]
+>> @@ -2465,6 +2496,10 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh)
+>>  
+>>  	addr = nla_data(tb[NDA_LLADDR]);
+>>  
+>> +	err = fbd_vid_parse(tb[NDA_VLAN], &vid);
+>...and here.
+>
+>> +	if (err)
+>> +		return err;
+>> +
+>>  	err = -EOPNOTSUPP;
+>>  
+>>  	/* Support fdb on master device the net/bridge default case */
+>> @@ -2474,7 +2509,7 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh)
+>>  		const struct net_device_ops *ops = br_dev->netdev_ops;
+>>  
+>>  		if (ops->ndo_fdb_del)
+>> -			err = ops->ndo_fdb_del(ndm, tb, dev, addr);
+>> +			err = ops->ndo_fdb_del(ndm, tb, dev, addr, vid);
+>>  
+>>  		if (err)
+>>  			goto out;
+>> @@ -2485,9 +2520,10 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh)
+>>  	/* Embedded bridge, macvlan, and any other device support */
+>>  	if (ndm->ndm_flags & NTF_SELF) {
+>>  		if (dev->netdev_ops->ndo_fdb_del)
+>> -			err = dev->netdev_ops->ndo_fdb_del(ndm, tb, dev, addr);
+>> +			err = dev->netdev_ops->ndo_fdb_del(ndm, tb, dev, addr,
+>> +							   vid);
+>>  		else
+>> -			err = ndo_dflt_fdb_del(ndm, tb, dev, addr);
+>> +			err = ndo_dflt_fdb_del(ndm, tb, dev, addr, vid);
+>>  
+>>  		if (!err) {
+>>  			rtnl_fdb_notify(dev, addr, RTM_DELNEIGH);
+>> -- 
+>> 1.9.3
+>> 
