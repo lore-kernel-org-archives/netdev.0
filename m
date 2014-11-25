@@ -1,43 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] bonding: move ipoib_header_ops to vmlinux
-Date: Tue, 25 Nov 2014 01:07:41 -0500 (EST)
-Message-ID: <20141125.010741.450666241983239119.davem@davemloft.net>
-References: <1416893768-21369-1-git-send-email-wen.gang.wang@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ip_tunnel: the lack of vti_link_ops' dellink() cause
+ kernel panic
+Date: Tue, 25 Nov 2014 01:08:39 -0500 (EST)
+Message-ID: <20141125.010839.907618384855778659.davem@davemloft.net>
+References: <1416726251-13088-1-git-send-email-lucien.xin@gmail.com>
+	<54733E3E.7070702@6wind.com>
+	<CADvbK_f31zM4B97r29jZuEE_fRbZY55SEWifjAFWg86wrfVFDg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: wen.gang.wang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1416893768-21369-1-git-send-email-wen.gang.wang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
+	steffen.klassert@secunet.com, cwang@twopensource.com
+To: lucien.xin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58256 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750945AbaKYGIl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 01:08:41 -0500
+In-Reply-To: <CADvbK_f31zM4B97r29jZuEE_fRbZY55SEWifjAFWg86wrfVFDg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wengang Wang <wen.gang.wang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Date: Tue, 25 Nov 2014 13:36:08 +0800
+From: lucien xin <lucien.xin@gmail.com>
+Date: Tue, 25 Nov 2014 13:53:15 +0800
 
-> When last slave of a bonding master is removed, the bonding then does not work.
-> At the time if packet_snd is called against with a master net_device, it calls
-> then header_ops->create which points to slave's header_ops. In case the slave
-> is ipoib and the module is unloaded, header_ops would point to invalid address.
-> Accessing it will cause problem.
-> This patch tries to fix this issue by moving ipoib_header_ops to vmlinux to keep
-> it valid even when ipoib module is unloaded.
+>> Nitpicking: please, use a tab instead of space to align the '=', like other
+>> lines.
 > 
-> Signed-off-by: Wengang Wang <wen.gang.wang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> ok, I will repost it.
 
-IPOIB should not work over bonding as it requires that the device
-use ARPHRD_ETHER.
-
-Someone mentioned this, and I did not see any response.
-
-Please show how a legitimate real bonding configuration can be
-created, reproduce a stray memory access, and therefore potentially
-cause a crash.
-
-Using various debugging features of the kernel should allow you to
-trigger an assertion quite easily if this bug really exists.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+That's pointless, as I already applied your original patch to
+my tree.
