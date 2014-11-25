@@ -1,118 +1,116 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [patch net-next v3 01/17] bridge: rename fdb_*_hw to
- fdb_*_hw_addr to avoid confusion
-Date: Tue, 25 Nov 2014 10:03:51 -0500
-Message-ID: <20141125150351.GB27416@gospo.rtplab.test>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
- <1416911328-10979-2-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
-	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
-	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, bcrl@kvack.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:35954 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750781AbaKYPEA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 10:04:00 -0500
-Content-Disposition: inline
-In-Reply-To: <1416911328-10979-2-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andreas Ruprecht <rupran@einserver.de>
+Subject: [PATCH] net: netfilter: Fix undefined reference to nf_nat_redirect_* functions
+Date: Tue, 25 Nov 2014 16:07:14 +0100
+Message-ID: <1416928034-10882-1-git-send-email-rupran@einserver.de>
+Cc: Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Andreas Ruprecht <rupran@einserver.de>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 25, 2014 at 11:28:32AM +0100, Jiri Pirko wrote:
-> The current name might seem that this actually offloads the fdb entry to
-> hw. So rename it to clearly present that this for hardware address
-> addition/removal.
-> 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+In a configuration with CONFIG_NFT_NAT and
+CONFIG_NETFILTER_XT_TARGET_REDIRECT enabled, undefined references to
+nf_nat_redirect_ipv{4,6}() can occur, when the corresponding options
+CONFIG_NF_NAT_REDIRECT_IPV4 or CONFIG_NF_NAT_REDIRECT_IPV6 are not
+enabled.
 
-Acked-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+net/built-in.o: In function `redirect_tg4':
+xt_REDIRECT.c:(.text+0x6d001): undefined reference to `nf_nat_redirect_ipv4'
+net/built-in.o: In function `redirect_tg6':
+xt_REDIRECT.c:(.text+0x6d021): undefined reference to `nf_nat_redirect_ipv6'
 
-> ---
-> new in v2 as suggested by DaveM
-> v2->v3:
-> -moved the patch to the patchset head
-> ---
->  net/bridge/br_fdb.c | 14 +++++++-------
->  1 file changed, 7 insertions(+), 7 deletions(-)
-> 
-> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> index 6f6c95c..08ef4e7 100644
-> --- a/net/bridge/br_fdb.c
-> +++ b/net/bridge/br_fdb.c
-> @@ -90,7 +90,7 @@ static void fdb_rcu_free(struct rcu_head *head)
->   * are then updated with the new information.
->   * Called under RTNL.
->   */
-> -static void fdb_add_hw(struct net_bridge *br, const unsigned char *addr)
-> +static void fdb_add_hw_addr(struct net_bridge *br, const unsigned char *addr)
->  {
->  	int err;
->  	struct net_bridge_port *p;
-> @@ -118,7 +118,7 @@ undo:
->   * the ports with needed information.
->   * Called under RTNL.
->   */
-> -static void fdb_del_hw(struct net_bridge *br, const unsigned char *addr)
-> +static void fdb_del_hw_addr(struct net_bridge *br, const unsigned char *addr)
->  {
->  	struct net_bridge_port *p;
->  
-> @@ -133,7 +133,7 @@ static void fdb_del_hw(struct net_bridge *br, const unsigned char *addr)
->  static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
->  {
->  	if (f->is_static)
-> -		fdb_del_hw(br, f->addr.addr);
-> +		fdb_del_hw_addr(br, f->addr.addr);
->  
->  	hlist_del_rcu(&f->hlist);
->  	fdb_notify(br, f, RTM_DELNEIGH);
-> @@ -514,7 +514,7 @@ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
->  		return -ENOMEM;
->  
->  	fdb->is_local = fdb->is_static = 1;
-> -	fdb_add_hw(br, addr);
-> +	fdb_add_hw_addr(br, addr);
->  	fdb_notify(br, fdb, RTM_NEWNEIGH);
->  	return 0;
->  }
-> @@ -754,19 +754,19 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
->  			fdb->is_local = 1;
->  			if (!fdb->is_static) {
->  				fdb->is_static = 1;
-> -				fdb_add_hw(br, addr);
-> +				fdb_add_hw_addr(br, addr);
->  			}
->  		} else if (state & NUD_NOARP) {
->  			fdb->is_local = 0;
->  			if (!fdb->is_static) {
->  				fdb->is_static = 1;
-> -				fdb_add_hw(br, addr);
-> +				fdb_add_hw_addr(br, addr);
->  			}
->  		} else {
->  			fdb->is_local = 0;
->  			if (fdb->is_static) {
->  				fdb->is_static = 0;
-> -				fdb_del_hw(br, addr);
-> +				fdb_del_hw_addr(br, addr);
->  			}
->  		}
->  
-> -- 
-> 1.9.3
-> 
+This is because the file xt_REDIRECT.c is compiled when
+CONFIG_NETFILTER_XT_TARGET_REDIRECT is enabled, which only depends
+on CONFIG_NF_NAT. This option is invisible and can only be selected by
+other Kconfig options. In this particular case, it is selected by
+CONFIG_NFT_NAT.
+
+This patch changes the dependency for CONFIG_NETFILTER_XT_TARGET_REDIRECT
+to only make it visible if at least one of
+{CONFIG_NF_NAT_REDIRECT_IPV4, CONFIG_NF_NAT_REDIRECT_IPV6} are enabled.
+
+Additionally it is necessary to provide stubs for the
+nf_nat_redirect_ipv{4,6} functions in case the header is included but
+the corresponding Kconfig feature is not enabled.
+
+Signed-off-by: Andreas Ruprecht <rupran@einserver.de>
+---
+ include/net/netfilter/ipv4/nf_nat_redirect.h | 14 ++++++++++++++
+ include/net/netfilter/ipv6/nf_nat_redirect.h | 13 +++++++++++++
+ net/netfilter/Kconfig                        |  2 +-
+ 3 files changed, 28 insertions(+), 1 deletion(-)
+
+diff --git a/include/net/netfilter/ipv4/nf_nat_redirect.h b/include/net/netfilter/ipv4/nf_nat_redirect.h
+index 19e1df3a0a4d..514c7f465d5f 100644
+--- a/include/net/netfilter/ipv4/nf_nat_redirect.h
++++ b/include/net/netfilter/ipv4/nf_nat_redirect.h
+@@ -1,9 +1,23 @@
+ #ifndef _NF_NAT_REDIRECT_IPV4_H_
+ #define _NF_NAT_REDIRECT_IPV4_H_
+ 
++#include <linux/netfilter.h>
++
++#ifdef CONFIG_NF_NAT_REDIRECT_IPV4
+ unsigned int
+ nf_nat_redirect_ipv4(struct sk_buff *skb,
+ 		     const struct nf_nat_ipv4_multi_range_compat *mr,
+ 		     unsigned int hooknum);
+ 
++#else /* CONFIG_NF_NAT_REDIRECT_IPv4 */
++
++unsigned int
++nf_nat_redirect_ipv4(struct sk_buff *skb,
++		     const struct nf_nat_ipv4_multi_range_compat *mr,
++		     unsigned int hooknum)
++{
++	return NF_ACCEPT;
++}
++#endif /* CONFIG_NF_NAT_REDIRECT_IPv4 */
++
+ #endif /* _NF_NAT_REDIRECT_IPV4_H_ */
+diff --git a/include/net/netfilter/ipv6/nf_nat_redirect.h b/include/net/netfilter/ipv6/nf_nat_redirect.h
+index 1ebdffc461cc..4db9351120ec 100644
+--- a/include/net/netfilter/ipv6/nf_nat_redirect.h
++++ b/include/net/netfilter/ipv6/nf_nat_redirect.h
+@@ -1,8 +1,21 @@
+ #ifndef _NF_NAT_REDIRECT_IPV6_H_
+ #define _NF_NAT_REDIRECT_IPV6_H_
+ 
++#include <linux/netfilter.h>
++
++#ifdef CONFIG_NF_NAT_REDIRECT_IPV6
+ unsigned int
+ nf_nat_redirect_ipv6(struct sk_buff *skb, const struct nf_nat_range *range,
+ 		     unsigned int hooknum);
+ 
++#else /* CONFIG_NF_NAT_REDIRECT_IPV6 */
++
++unsigned int
++nf_nat_redirect_ipv6(struct sk_buff *skb, const struct nf_nat_range *range,
++		     unsigned int hooknum)
++{
++	return NF_ACCEPT;
++}
++#endif /* CONFIG_NF_NAT_REDIRECT_IPV6 */
++
+ #endif /* _NF_NAT_REDIRECT_IPV6_H_ */
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index be8db270aa77..0972851cce03 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -844,7 +844,7 @@ config NETFILTER_XT_TARGET_RATEEST
+ 
+ config NETFILTER_XT_TARGET_REDIRECT
+ 	tristate "REDIRECT target support"
+-	depends on NF_NAT
++	depends on NF_NAT_IPV4 || NF_NAT_IPV6
+ 	select NF_NAT_REDIRECT_IPV4 if NF_NAT_IPV4
+ 	select NF_NAT_REDIRECT_IPV6 if NF_NAT_IPV6
+ 	---help---
+-- 
+1.9.1
