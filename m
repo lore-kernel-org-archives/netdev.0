@@ -1,22 +1,19 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v3 04/17] net: introduce generic switch devices
- support
-Date: Tue, 25 Nov 2014 17:49:54 +0100
-Message-ID: <20141125164954.GJ1971@nanopsycho.orion>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
- <1416911328-10979-5-git-send-email-jiri@resnulli.us>
- <5474A567.4040401@mojatatu.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next v3 02/17] net: make vid as a parameter for ndo_fdb_add/ndo_fdb_del
+Date: Tue, 25 Nov 2014 11:50:27 -0500
+Message-ID: <5474B353.10802@mojatatu.com>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us> <1416911328-10979-3-git-send-email-jiri@resnulli.us> <5474A25C.3080505@mojatatu.com> <5474A7EE.8000300@intel.com> <5474ABF0.60901@mojatatu.com> <5474AE9B.6000500@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
-	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
-	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
 	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	jasowang@redhat.com, ebiederm@xmission.com,
+	xiyou.wangcong@gmail.com, edumazet@google.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
 	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
 	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
 	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
@@ -24,42 +21,59 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
 	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
 	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
 	bcrl@kvack.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+To: John Fastabend <john.r.fastabend@intel.com>,
+	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:39915 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751078AbaKYQt5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 11:49:57 -0500
-Received: by mail-wi0-f177.google.com with SMTP id l15so2124653wiw.4
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 08:49:56 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <5474A567.4040401@mojatatu.com>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:36551 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752336AbaKYQuc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 11:50:32 -0500
+Received: by mail-ig0-f179.google.com with SMTP id r2so1033009igi.6
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 08:50:31 -0800 (PST)
+In-Reply-To: <5474AE9B.6000500@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Nov 25, 2014 at 04:51:03PM CET, jhs@mojatatu.com wrote:
->On 11/25/14 05:28, Jiri Pirko wrote:
->>The goal of this is to provide a possibility to support various switch
->>chips. Drivers should implement relevant ndos to do so. Now there is
->>only one ndo defined:
->>- for getting physical switch id is in place.
->>
+On 11/25/14 11:30, John Fastabend wrote:
+> On 11/25/2014 08:18 AM, Jamal Hadi Salim wrote:
+>> On 11/25/14 11:01, John Fastabend wrote:
+>>> On 11/25/2014 07:38 AM, Jamal Hadi Salim wrote:
+>>>> On 11/25/14 05:28, Jiri Pirko wrote:
+>>>>> Do the work of parsing NDA_VLAN directly in rtnetlink code, pass simple
+>>>>> u16 vid to drivers from there.
+>>>>>
+>>>>
+
+
+> Actually (after having some coffee) this becomes much more useful
+> if you return which items failed. Then you can slam the hardware
+> with your 100 entries, probably a lot more then that, and come back
+> later and clean it up.
 >
->I am not sure switch id is the right term. I have a network processor
->that *does not* do switching. I am not sure if "chip" or "ASIC" or
 
-What does it do? "L3 switching"?
-
->"offload_id" would be the right term. switch doesnt sound right.
-
-When we talk about this area, we use word "switch". I know it is not
-accurate, but in my opinion it is the closest we can get. "chip" and
-"ASIC" are too generic I believe. I would not use "offload" cause it wan
-be easily mistaken with NIC offloads + it is alsno not accurate.
+Yes, that is the general use case.
+Unfortunately at the moment we only return codes on a netlink set
+direction - but would be a beauty if we could return what succeeded
+and didnt in some form of vector.
+Note: all is not lost because you can always do a get afterwards and
+find what is missing if you got a return code of "partial success".
+Just a little less efficient..
 
 
-
+> We return a bitmask of which operations were successful. So if SW fails
+> we have both bits cleared and we abort. When SW is successful we set the
+> SW bit and try to program the HW. If its sucessful we set the HW bit if
+> its not we abort with an err. Converting this to (1) is not much work
+> just skip the abort.
 >
->cheers,
->jamal
->
+
+Ok, guess i am gonna have to go stare at the code some more.
+I thought we returned one of the error codes?
+A bitmask would work for a single entry - because you have two
+options add to h/ware and/or s/ware. So response is easy to encode.
+But if i have 1000 and they are sparsely populated (think an indexed
+table and i have indices 1, 23, 45, etc), then a bitmask would be
+hard to use.
+
+cheers,
+jamal
