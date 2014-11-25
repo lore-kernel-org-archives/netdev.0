@@ -1,64 +1,52 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/2 V2 3.18] rtlwifi: rtl8821ae: Fix 5G detection problem
-Date: Tue, 25 Nov 2014 23:10:36 +0300
-Message-ID: <5474E23C.8090208@cogentembedded.com>
-References: <1416945727-10743-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Pieter Smith <pieter-qeJ+1H9vRZbz+pZb47iToQ@public.gmane.org>
+Subject: Re: [PATCH v4 0/7] kernel tinification: optionally compile out
+ splice family of syscalls (splice, vmsplice, tee and sendfile)
+Date: Tue, 25 Nov 2014 21:11:29 +0100
+Message-ID: <20141125201129.GA27167@smipidev>
+References: <5474ABB6.3030400@infradead.org>
+ <20141125.121305.2094097848188324942.davem@davemloft.net>
+ <20141125185310.GA24891@cloud>
+ <20141125.140441.401150380839514113.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Valerio Passini <valerio.passini@unicam.it>
-To: Larry Finger <Larry.Finger@lwfinger.net>, linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:61475 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750866AbaKYUKk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 15:10:40 -0500
-Received: by mail-la0-f44.google.com with SMTP id ge10so1243564lab.31
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 12:10:39 -0800 (PST)
-In-Reply-To: <1416945727-10743-1-git-send-email-Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
+	alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org,
+	ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, beber-2YnHqweIUXrk1uMJSBkQmQ@public.gmane.org,
+	catalina.mocanu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org,
+	fuse-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org,
+	hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, iulia.manda21-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, JBeulich-IBi9RG/b67k@public.gmane.org,
+	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	mcgrof-IBi9RG/b67k@public.gmane.org, mattst88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, mgorman-l3A5Bk7waGM@public.gmane.org,
+	mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, miklos-sUDqSbJrdHQHWmgEVkV9KA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Paul.Durrant-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org,
+	paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, pefoley2-lY0TAiDIAFlBDgjK7y7TUQ@public.gmane.org, tgraf-G/eBtMaohhA@public.gmane.org,
+	therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org,
+	willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, xiaoguangrong-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20141125.140441.401150380839514113.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Tue, Nov 25, 2014 at 02:04:41PM -0500, David Miller wrote:
+> From: josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org
+> Date: Tue, 25 Nov 2014 10:53:10 -0800
+> 
+> > It's not a "slippery slope"; it's been our standard practice for ages.
+> 
+> We've never put an entire class of generic system calls behind
+> a config option.
 
-On 11/25/2014 11:02 PM, Larry Finger wrote:
+I would have loved to make them optional individually, but they all are
+semantic variations of the same thing: Moving data between fd's without that
+data passing through userspace. It therefore isn't surprising that these
+syscalls share an underlying entanglement of code (which is where the bulk of
+the space saving is to be had).
 
-> The changes associated with moving this driver from staging to the regular
-> tree missed one section setting the allowable rates for the 5GHz band.
-
-> This patch is needed to fix the regression reported in Bug #88811
-> (https://bugzilla.kernel.org/show_bug.cgi?id=88811).
-
-> Reported-by: Valerio Passini <valerio.passini@unicam.it>
-> Tested-by: Valerio Passini <valerio.passini@unicam.it>
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-> Cc: Valerio Passini <valerio.passini@unicam.it>
-> ---
-
-> V2 - removed extra parentheses as suggested by John Linville.
-
-    He's also suggested spaces around << in his example
-
-> ---
->   drivers/net/wireless/rtlwifi/rtl8821ae/hw.c | 5 +++--
->   1 file changed, 3 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
-> index 310d316..18f34f7 100644
-> --- a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
-> +++ b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
-> @@ -3672,8 +3672,9 @@ static void rtl8821ae_update_hal_rate_mask(struct ieee80211_hw *hw,
->   		mac->opmode == NL80211_IFTYPE_ADHOC)
->   		macid = sta->aid + 1;
->   	if (wirelessmode == WIRELESS_MODE_N_5G ||
-> -	    wirelessmode == WIRELESS_MODE_AC_5G)
-> -		ratr_bitmap = sta->supp_rates[NL80211_BAND_5GHZ];
-> +	    wirelessmode == WIRELESS_MODE_AC_5G ||
-> +	    wirelessmode == WIRELESS_MODE_A)
-> +		ratr_bitmap = sta->supp_rates[NL80211_BAND_5GHZ]<<4;
-
-    The kernel style generally assumes spaces around operators, and it would 
-only be consistent with the other code in the vicinity if you added them...
-
-WBR, Sergei
+What a tiny product developer should be asking himself, is: "Do I really need
+to efficiently move data between file descriptors?". If the answer no, he can
+disable CONFIG_SYSCALL_SPLICE to squeeze an extra 8KB out of his kernel.
