@@ -1,9 +1,9 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v3 04/17] net: introduce generic switch devices
- support
-Date: Tue, 25 Nov 2014 10:51:03 -0500
-Message-ID: <5474A567.4040401@mojatatu.com>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us> <1416911328-10979-5-git-send-email-jiri@resnulli.us>
+Subject: Re: [patch net-next v3 06/17] net-sysfs: expose physical switch id
+ for particular device
+Date: Tue, 25 Nov 2014 10:53:07 -0500
+Message-ID: <5474A5E3.5000603@mojatatu.com>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us> <1416911328-10979-7-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -25,26 +25,28 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	bcrl@kvack.org
 To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:46513 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751067AbaKYPvK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 10:51:10 -0500
-Received: by mail-ig0-f174.google.com with SMTP id hn15so5225401igb.7
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 07:51:10 -0800 (PST)
-In-Reply-To: <1416911328-10979-5-git-send-email-jiri@resnulli.us>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:36218 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750913AbaKYPxL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 10:53:11 -0500
+Received: by mail-ig0-f178.google.com with SMTP id hl2so921671igb.5
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 07:53:10 -0800 (PST)
+In-Reply-To: <1416911328-10979-7-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 11/25/14 05:28, Jiri Pirko wrote:
-> The goal of this is to provide a possibility to support various switch
-> chips. Drivers should implement relevant ndos to do so. Now there is
-> only one ndo defined:
-> - for getting physical switch id is in place.
->
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> Reviewed-by: Thomas Graf <tgraf@suug.ch>
+> Acked-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+> v2->v3:
+> -changed "sw" string to "switch" to avoid confusion
+> v1->v2:
+> -no change
 
-I am not sure switch id is the right term. I have a network processor
-that *does not* do switching. I am not sure if "chip" or "ASIC" or
-"offload_id" would be the right term. switch doesnt sound right.
+
+tied to patches 5 and 4 in terms of the noun used.
 
 cheers,
 jamal
