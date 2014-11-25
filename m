@@ -1,31 +1,42 @@
-From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH] bonding: move ipoib_header_ops to vmlinux
-Date: Tue, 25 Nov 2014 09:19:10 +0200
-Message-ID: <54742D6E.9030605@mellanox.com>
-References: <1416893768-21369-1-git-send-email-wen.gang.wang@oracle.com>
- <20141125.010741.450666241983239119.davem@davemloft.net>
+From: =?utf-8?Q?Loan_Engine=C2=AE?= <ssouza2@uem.br>
+Subject: Goedemorgen
+Date: Tue, 25 Nov 2014 04:39:58 -0200 (BRST)
+Message-ID: <14176725.19890991416897595152.JavaMail.root@Sakhir.uem.br>
+Reply-To: =?utf-8?Q?Loan_Engine=C2=AE?= <loan.engine@outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <wen.gang.wang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20141125.010741.450666241983239119.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Barcelona.uem.br ([186.233.154.14]:47858 "EHLO barcelona.uem.br"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750864AbaKYHls convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 02:41:48 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/25/2014 8:07 AM, David Miller wrote:
-> IPOIB should not work over bonding as it requires that the device
-> use ARPHRD_ETHER.
 
-Hi Dave,
 
-IPoIB devices can be enslaved to both bonding and teaming in their HA mode,
-the bond device type becomes ARPHRD_INFINIBAND when this happens.
+Goedemorgen
+Ik wil u kennismaken met de Britse regering dit priv=C3=A9
+Leningen bedrijf lening motor, geven wij
+Leningen aan particulieren en bedrijven, wij bieden alle soorten van
+Lening tegen een lage rente van 3%. Wij bieden leningen van
+=E2=82=AC10,000 en verder. Moet in een financi=C3=ABle
+Moeilijkheden en noodzaak een lening, gelieve ons te contacteren
+telefonisch of per email: loan.engine@outlook.com of Tel:
++ 447042069238
+U kunt ook de volgende informatie invullen:
+Volledige naam:
+Geslacht:
+Land en adres:
+Benodigde hoeveelheid:
+Duur:
+Tel:
+Wachten voor uw snelle reactie, als u een lening nodig.
+Bedankt
+Ana White
 
-Or.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Esta mensagem foi verificada pelo sistema de antivirus e
+ acredita-se estar livre de perigo.
