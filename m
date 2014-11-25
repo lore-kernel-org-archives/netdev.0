@@ -1,708 +1,136 @@
-From: Roger Chen <roger.chen@rock-chips.com>
-Subject: [PATCH 1/4] GMAC: add driver for Rockchip RK3288 SoCs integrated GMAC
-Date: Tue, 25 Nov 2014 17:06:55 +0800
-Message-ID: <1416906418-26034-2-git-send-email-roger.chen@rock-chips.com>
-References: <1416906418-26034-1-git-send-email-roger.chen@rock-chips.com>
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
-	kever.yang@rock-chips.com, mark.yao@rock-chips.com,
-	eddie.cai@rock-chips.com, Roger Chen <roger.chen@rock-chips.com>
-To: heiko@sntech.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1416906418-26034-1-git-send-email-roger.chen@rock-chips.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Rojhalat Ibrahim <imr@rtschenk.de>
+Subject: [PATCH][v2] mdio-mux-gpio: Use GPIO descriptor interface and new gpiod_set_array function
+Date: Tue, 25 Nov 2014 10:31:18 +0100
+Message-ID: <2814617.OrXEO01vgP@pcimr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Linus Walleij <linus.walleij@linaro.org>,
+	Alexandre Courbot <acourbot@nvidia.com>,
+	David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	David Daney <david.daney@cavium.com>
+To: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
+	netdev@vger.kernel.org
+Return-path: <linux-gpio-owner@vger.kernel.org>
+Sender: linux-gpio-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This driver is based on stmmac driver.
+Convert mdio-mux-gpio to the GPIO descriptor interface and use the new
+gpiod_set_array function to set all output signals simultaneously.
 
-Signed-off-by: Roger Chen <roger.chen@rock-chips.com>
----
- drivers/net/ethernet/stmicro/stmmac/Makefile       |    2 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     |  629 ++++++++++++++++++++
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    3 +
- .../net/ethernet/stmicro/stmmac/stmmac_platform.h  |    1 +
- 4 files changed, 634 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
+Acked-by: David S. Miller <davem@davemloft.net>
+--
+This patch depends on the gpiod_set_array function, which is available in
+the linux-gpio devel tree.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
-index ac4d562..73c2715 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Makefile
-+++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
-@@ -6,7 +6,7 @@ stmmac-objs:= stmmac_main.o stmmac_ethtool.o stmmac_mdio.o ring_mode.o	\
+v2: fix gpiod_get_index usage
+
+ drivers/net/phy/mdio-mux-gpio.c |   38 ++++++++++++++------------------------
+ 1 file changed, 14 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/net/phy/mdio-mux-gpio.c b/drivers/net/phy/mdio-mux-gpio.c
+index 0966951..1167c5b 100644
+--- a/drivers/net/phy/mdio-mux-gpio.c
++++ b/drivers/net/phy/mdio-mux-gpio.c
+@@ -14,13 +14,13 @@
+ #include <linux/mdio-mux.h>
+ #include <linux/of_gpio.h>
  
- obj-$(CONFIG_STMMAC_PLATFORM) += stmmac-platform.o
- stmmac-platform-objs:= stmmac_platform.o dwmac-meson.o dwmac-sunxi.o	\
--		       dwmac-sti.o dwmac-socfpga.o
-+		       dwmac-sti.o dwmac-socfpga.o dwmac-rk.o
+-#define DRV_VERSION "1.0"
++#define DRV_VERSION "1.1"
+ #define DRV_DESCRIPTION "GPIO controlled MDIO bus multiplexer driver"
  
- obj-$(CONFIG_STMMAC_PCI) += stmmac-pci.o
- stmmac-pci-objs:= stmmac_pci.o
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-new file mode 100644
-index 0000000..9e50b37
---- /dev/null
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-@@ -0,0 +1,629 @@
-+/**
-+ * dwmac-rk.c - Rockchip RK3288 DWMAC specific glue layer
-+ *
-+ * Copyright (C) 2014 Chen-Zhi (Roger Chen)
-+ *
-+ * Chen-Zhi (Roger Chen)  <roger.chen@rock-chips.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/stmmac.h>
-+#include <linux/clk.h>
-+#include <linux/phy.h>
-+#include <linux/of_net.h>
-+#include <linux/gpio.h>
-+#include <linux/of_gpio.h>
-+#include <linux/of_device.h>
-+#include <linux/regulator/consumer.h>
-+#include <linux/delay.h>
-+#include <linux/regmap.h>
-+#include <linux/mfd/syscon.h>
-+
-+struct rk_priv_data {
-+	struct platform_device *pdev;
-+	int phy_iface;
-+	bool power_ctrl_by_pmu;
-+	char pmu_regulator[32];
-+	int pmu_enable_level;
-+
-+	int power_io;
-+	int power_io_level;
-+	int reset_io;
-+	int reset_io_level;
-+	int phyirq_io;
-+	int phyirq_io_level;
-+
-+	bool clk_enabled;
-+	bool clock_input;
-+
-+	struct clk *clk_mac;
-+	struct clk *clk_mac_pll;
-+	struct clk *gmac_clkin;
-+	struct clk *mac_clk_rx;
-+	struct clk *mac_clk_tx;
-+	struct clk *clk_mac_ref;
-+	struct clk *clk_mac_refout;
-+	struct clk *aclk_mac;
-+	struct clk *pclk_mac;
-+
-+	int tx_delay;
-+	int rx_delay;
-+
-+	struct regmap *grf;
-+};
-+
-+#define RK3288_GRF_SOC_CON1 0x0248
-+#define RK3288_GRF_SOC_CON3 0x0250
-+#define RK3288_GRF_GPIO3D_E 0x01ec
-+#define RK3288_GRF_GPIO4A_E 0x01f0
-+#define RK3288_GRF_GPIO4B_E 0x01f4
-+
-+/*RK3288_GRF_SOC_CON1*/
-+#define GMAC_PHY_INTF_SEL_RGMII ((0x01C0 << 16) | (0x0040))
-+#define GMAC_PHY_INTF_SEL_RMII  ((0x01C0 << 16) | (0x0100))
-+#define GMAC_FLOW_CTRL          ((0x0200 << 16) | (0x0200))
-+#define GMAC_FLOW_CTRL_CLR      ((0x0200 << 16) | (0x0000))
-+#define GMAC_SPEED_10M          ((0x0400 << 16) | (0x0000))
-+#define GMAC_SPEED_100M         ((0x0400 << 16) | (0x0400))
-+#define GMAC_RMII_CLK_25M       ((0x0800 << 16) | (0x0800))
-+#define GMAC_RMII_CLK_2_5M      ((0x0800 << 16) | (0x0000))
-+#define GMAC_CLK_125M           ((0x3000 << 16) | (0x0000))
-+#define GMAC_CLK_25M            ((0x3000 << 16) | (0x3000))
-+#define GMAC_CLK_2_5M           ((0x3000 << 16) | (0x2000))
-+#define GMAC_RMII_MODE          ((0x4000 << 16) | (0x4000))
-+#define GMAC_RMII_MODE_CLR      ((0x4000 << 16) | (0x0000))
-+
-+/*RK3288_GRF_SOC_CON3*/
-+#define GMAC_TXCLK_DLY_ENABLE   ((0x4000 << 16) | (0x4000))
-+#define GMAC_TXCLK_DLY_DISABLE  ((0x4000 << 16) | (0x0000))
-+#define GMAC_RXCLK_DLY_ENABLE   ((0x8000 << 16) | (0x8000))
-+#define GMAC_RXCLK_DLY_DISABLE  ((0x8000 << 16) | (0x0000))
-+#define GMAC_CLK_RX_DL_CFG(val) ((0x3F80 << 16) | (val<<7))
-+#define GMAC_CLK_TX_DL_CFG(val) ((0x007F << 16) | (val))
-+
-+static void set_to_rgmii(struct rk_priv_data *bsp_priv,
-+			 int tx_delay, int rx_delay)
-+{
-+	if (IS_ERR(bsp_priv->grf)) {
-+		pr_err("%s: Missing rockchip,grf property\n", __func__);
-+		return;
-+	}
-+
-+	regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
-+		     GMAC_PHY_INTF_SEL_RGMII);
-+	regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
-+		     GMAC_RMII_MODE_CLR);
-+	regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON3,
-+		     GMAC_RXCLK_DLY_ENABLE);
-+	regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON3,
-+		     GMAC_TXCLK_DLY_ENABLE);
-+	regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON3,
-+		     GMAC_CLK_RX_DL_CFG(rx_delay));
-+	regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON3,
-+		     GMAC_CLK_TX_DL_CFG(tx_delay));
-+
-+	regmap_write(bsp_priv->grf, RK3288_GRF_GPIO3D_E, 0xFFFFFFFF);
-+	regmap_write(bsp_priv->grf, RK3288_GRF_GPIO4B_E,
-+		     0x3<<2<<16 | 0x3<<2);
-+	regmap_write(bsp_priv->grf, RK3288_GRF_GPIO4A_E, 0xFFFFFFFF);
-+
-+	pr_info("%s: tx delay=0x%x; rx delay=0x%x;\n",
-+		__func__, tx_delay, rx_delay);
-+}
-+
-+static void set_to_rmii(struct rk_priv_data *bsp_priv)
-+{
-+	if (IS_ERR(bsp_priv->grf)) {
-+		pr_err("%s: Missing rockchip,grf property\n", __func__);
-+		return;
-+	}
-+
-+	regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
-+		     GMAC_PHY_INTF_SEL_RMII);
-+	regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
-+		     GMAC_RMII_MODE);
-+}
-+
-+static void set_rgmii_speed(struct rk_priv_data *bsp_priv, int speed)
-+{
-+	if (IS_ERR(bsp_priv->grf)) {
-+		pr_err("%s: Missing rockchip,grf property\n", __func__);
-+		return;
-+	}
-+
-+	if (speed == 10)
-+		regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1, GMAC_CLK_2_5M);
-+	else if (speed == 100)
-+		regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1, GMAC_CLK_25M);
-+	else if (speed == 1000)
-+		regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1, GMAC_CLK_125M);
-+	else
-+		pr_err("unknown speed value for RGMII! speed=%d", speed);
-+}
-+
-+static void set_rmii_speed(struct rk_priv_data *bsp_priv, int speed)
-+{
-+	if (IS_ERR(bsp_priv->grf)) {
-+		pr_err("%s: Missing rockchip,grf property\n", __func__);
-+		return;
-+	}
-+
-+	if (speed == 10) {
-+		regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
-+			     GMAC_RMII_CLK_2_5M);
-+		regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
-+			     GMAC_SPEED_10M);
-+	} else if (speed == 100) {
-+		regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
-+			     GMAC_RMII_CLK_25M);
-+		regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
-+			     GMAC_SPEED_100M);
-+	} else {
-+		pr_err("unknown speed value for RMII! speed=%d", speed);
-+	}
-+}
-+
-+#define MAC_CLK_RX	"mac_clk_rx"
-+#define MAC_CLK_TX	"mac_clk_tx"
-+#define CLK_MAC_REF	"clk_mac_ref"
-+#define CLK_MAC_REF_OUT	"clk_mac_refout"
-+#define CLK_MAC_PLL	"clk_mac_pll"
-+#define ACLK_MAC	"aclk_mac"
-+#define PCLK_MAC	"pclk_mac"
-+#define MAC_CLKIN	"ext_gmac"
-+#define CLK_MAC		"stmmaceth"
-+
-+int gmac_clk_init(struct rk_priv_data *bsp_priv)
-+{
-+	struct device *dev = &bsp_priv->pdev->dev;
-+
-+	bsp_priv->clk_enabled = false;
-+
-+	bsp_priv->mac_clk_rx = clk_get(dev, MAC_CLK_RX);
-+	if (IS_ERR(bsp_priv->mac_clk_rx))
-+		pr_warn("%s: warning: cannot get clock %s\n",
-+			__func__, MAC_CLK_RX);
-+
-+	bsp_priv->mac_clk_tx = clk_get(dev, MAC_CLK_TX);
-+	if (IS_ERR(bsp_priv->mac_clk_tx))
-+		pr_warn("%s: warning: cannot get clock %s\n",
-+			__func__, MAC_CLK_TX);
-+
-+	bsp_priv->clk_mac_ref = clk_get(dev, CLK_MAC_REF);
-+	if (IS_ERR(bsp_priv->clk_mac_ref))
-+		pr_warn("%s: warning: cannot get clock %s\n",
-+			__func__, CLK_MAC_REF);
-+
-+	bsp_priv->clk_mac_refout = clk_get(dev, CLK_MAC_REF_OUT);
-+	if (IS_ERR(bsp_priv->clk_mac_refout))
-+		pr_warn("%s: warning:cannot get clock %s\n",
-+			__func__, CLK_MAC_REF_OUT);
-+
-+	bsp_priv->aclk_mac = clk_get(dev, ACLK_MAC);
-+	if (IS_ERR(bsp_priv->aclk_mac))
-+		pr_warn("%s: warning: cannot get clock %s\n",
-+			__func__, ACLK_MAC);
-+
-+	bsp_priv->pclk_mac = clk_get(dev, PCLK_MAC);
-+	if (IS_ERR(bsp_priv->pclk_mac))
-+		pr_warn("%s: warning: cannot get clock %s\n",
-+			__func__, PCLK_MAC);
-+
-+	bsp_priv->clk_mac_pll = clk_get(dev, CLK_MAC_PLL);
-+	if (IS_ERR(bsp_priv->clk_mac_pll))
-+		pr_warn("%s: warning: cannot get clock %s\n",
-+			__func__, CLK_MAC_PLL);
-+
-+	bsp_priv->gmac_clkin = clk_get(dev, MAC_CLKIN);
-+	if (IS_ERR(bsp_priv->gmac_clkin))
-+		pr_warn("%s: warning: cannot get clock %s\n",
-+			__func__, MAC_CLKIN);
-+
-+	bsp_priv->clk_mac = clk_get(dev, CLK_MAC);
-+	if (IS_ERR(bsp_priv->clk_mac))
-+		pr_warn("%s: warning: cannot get clock %s\n",
-+			__func__, CLK_MAC);
-+
-+	if (bsp_priv->clock_input) {
-+		pr_info("%s: clock input from PHY\n", __func__);
-+	} else {
-+		if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RMII)
-+			clk_set_rate(bsp_priv->clk_mac_pll, 50000000);
-+
-+		clk_set_parent(bsp_priv->clk_mac, bsp_priv->clk_mac_pll);
-+	}
-+
-+	return 0;
-+}
-+
-+static int gmac_clk_enable(struct rk_priv_data *bsp_priv, bool enable)
-+{
-+	int phy_iface = phy_iface = bsp_priv->phy_iface;
-+
-+	if (enable) {
-+		if (!bsp_priv->clk_enabled) {
-+			if (phy_iface == PHY_INTERFACE_MODE_RMII) {
-+				if (!IS_ERR(bsp_priv->mac_clk_rx))
-+					clk_prepare_enable(
-+						bsp_priv->mac_clk_rx);
-+
-+				if (!IS_ERR(bsp_priv->clk_mac_ref))
-+					clk_prepare_enable(
-+						bsp_priv->clk_mac_ref);
-+
-+				if (!IS_ERR(bsp_priv->clk_mac_refout))
-+					clk_prepare_enable(
-+						bsp_priv->clk_mac_refout);
-+			}
-+
-+			if (!IS_ERR(bsp_priv->aclk_mac))
-+				clk_prepare_enable(bsp_priv->aclk_mac);
-+
-+			if (!IS_ERR(bsp_priv->pclk_mac))
-+				clk_prepare_enable(bsp_priv->pclk_mac);
-+
-+			if (!IS_ERR(bsp_priv->mac_clk_tx))
-+				clk_prepare_enable(bsp_priv->mac_clk_tx);
-+
-+			/**
-+			 * if (!IS_ERR(bsp_priv->clk_mac))
-+			 *	clk_prepare_enable(bsp_priv->clk_mac);
-+			 */
-+			mdelay(5);
-+			bsp_priv->clk_enabled = true;
-+		}
-+	} else {
-+		if (bsp_priv->clk_enabled) {
-+			if (phy_iface == PHY_INTERFACE_MODE_RMII) {
-+				if (!IS_ERR(bsp_priv->mac_clk_rx))
-+					clk_disable_unprepare(
-+						bsp_priv->mac_clk_rx);
-+
-+				if (!IS_ERR(bsp_priv->clk_mac_ref))
-+					clk_disable_unprepare(
-+						bsp_priv->clk_mac_ref);
-+
-+				if (!IS_ERR(bsp_priv->clk_mac_refout))
-+					clk_disable_unprepare(
-+						bsp_priv->clk_mac_refout);
-+			}
-+
-+			if (!IS_ERR(bsp_priv->aclk_mac))
-+				clk_disable_unprepare(bsp_priv->aclk_mac);
-+
-+			if (!IS_ERR(bsp_priv->pclk_mac))
-+				clk_disable_unprepare(bsp_priv->pclk_mac);
-+
-+			if (!IS_ERR(bsp_priv->mac_clk_tx))
-+				clk_disable_unprepare(bsp_priv->mac_clk_tx);
-+			/**
-+			 * if (!IS_ERR(bsp_priv->clk_mac))
-+			 *	clk_disable_unprepare(bsp_priv->clk_mac);
-+			 */
-+			bsp_priv->clk_enabled = false;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static int power_on_by_pmu(struct rk_priv_data *bsp_priv, bool enable)
-+{
-+	struct regulator *ldo;
-+	char *ldostr = bsp_priv->pmu_regulator;
-+	int ret;
-+
-+	if (!ldostr) {
-+		pr_err("%s: no ldo found\n", __func__);
-+		return -1;
-+	}
-+
-+	ldo = regulator_get(NULL, ldostr);
-+	if (!ldo) {
-+		pr_err("\n%s get ldo %s failed\n", __func__, ldostr);
-+	} else {
-+		if (enable) {
-+			if (!regulator_is_enabled(ldo)) {
-+				regulator_set_voltage(ldo, 3300000, 3300000);
-+				ret = regulator_enable(ldo);
-+				if (ret != 0)
-+					pr_err("%s: fail to enable %s\n",
-+					       __func__, ldostr);
-+				else
-+					pr_info("turn on ldo done.\n");
-+			} else {
-+				pr_warn("%s is enabled before enable", ldostr);
-+			}
-+		} else {
-+			if (regulator_is_enabled(ldo)) {
-+				ret = regulator_disable(ldo);
-+				if (ret != 0)
-+					pr_err("%s: fail to disable %s\n",
-+					       __func__, ldostr);
-+				else
-+					pr_info("turn off ldo done.\n");
-+			} else {
-+				pr_warn("%s is disabled before disable",
-+					ldostr);
-+			}
-+		}
-+		regulator_put(ldo);
-+	}
-+
-+	return 0;
-+}
-+
-+static int power_on_by_gpio(struct rk_priv_data *bsp_priv, bool enable)
-+{
-+	if (enable) {
-+		/*power on*/
-+		if (gpio_is_valid(bsp_priv->power_io))
-+			gpio_direction_output(bsp_priv->power_io,
-+					      bsp_priv->power_io_level);
-+	} else {
-+		/*power off*/
-+		if (gpio_is_valid(bsp_priv->power_io))
-+			gpio_direction_output(bsp_priv->power_io,
-+					      !bsp_priv->power_io_level);
-+	}
-+
-+	return 0;
-+}
-+
-+static int phy_power_on(struct rk_priv_data *bsp_priv, bool enable)
-+{
-+	int ret = -1;
-+
-+	pr_info("Ethernet PHY power %s\n", enable == 1 ? "on" : "off");
-+
-+	if (bsp_priv->power_ctrl_by_pmu)
-+		ret = power_on_by_pmu(bsp_priv, enable);
-+	else
-+		ret =  power_on_by_gpio(bsp_priv, enable);
-+
-+	if (enable) {
-+		/*reset*/
-+		if (gpio_is_valid(bsp_priv->reset_io)) {
-+			gpio_direction_output(bsp_priv->reset_io,
-+					      bsp_priv->reset_io_level);
-+			mdelay(5);
-+			gpio_direction_output(bsp_priv->reset_io,
-+					      !bsp_priv->reset_io_level);
-+		}
-+		mdelay(30);
-+
-+	} else {
-+		/*pull down reset*/
-+		if (gpio_is_valid(bsp_priv->reset_io)) {
-+			gpio_direction_output(bsp_priv->reset_io,
-+					      bsp_priv->reset_io_level);
-+		}
-+	}
-+
-+	return ret;
-+}
-+
-+#define GPIO_PHY_POWER	"gmac_phy_power"
-+#define GPIO_PHY_RESET	"gmac_phy_reset"
-+#define GPIO_PHY_IRQ	"gmac_phy_irq"
-+
-+static void *rk_gmac_setup(struct platform_device *pdev)
-+{
-+	struct rk_priv_data *bsp_priv;
-+	struct device *dev = &pdev->dev;
-+	enum of_gpio_flags flags;
-+	int ret;
-+	const char *strings = NULL;
-+	int value;
-+	int irq;
-+
-+	bsp_priv = devm_kzalloc(dev, sizeof(*bsp_priv), GFP_KERNEL);
-+	if (!bsp_priv)
-+		return ERR_PTR(-ENOMEM);
-+
-+	bsp_priv->phy_iface = of_get_phy_mode(dev->of_node);
-+
-+	ret = of_property_read_string(dev->of_node, "pmu_regulator", &strings);
-+	if (ret) {
-+		pr_err("%s: Can not read property: pmu_regulator.\n", __func__);
-+		bsp_priv->power_ctrl_by_pmu = false;
-+	} else {
-+		pr_info("%s: ethernet phy power controlled by pmu(%s).\n",
-+			__func__, strings);
-+		bsp_priv->power_ctrl_by_pmu = true;
-+		strcpy(bsp_priv->pmu_regulator, strings);
-+	}
-+
-+	ret = of_property_read_u32(dev->of_node, "pmu_enable_level", &value);
-+	if (ret) {
-+		pr_err("%s: Can not read property: pmu_enable_level.\n",
-+		       __func__);
-+		bsp_priv->power_ctrl_by_pmu = false;
-+	} else {
-+		pr_info("%s: PHY power controlled by pmu(level = %s).\n",
-+			__func__, (value == 1) ? "HIGH" : "LOW");
-+		bsp_priv->power_ctrl_by_pmu = true;
-+		bsp_priv->pmu_enable_level = value;
-+	}
-+
-+	ret = of_property_read_string(dev->of_node, "clock_in_out", &strings);
-+	if (ret) {
-+		pr_err("%s: Can not read property: clock_in_out.\n", __func__);
-+		bsp_priv->clock_input = true;
-+	} else {
-+		pr_info("%s: clock input or output? (%s).\n",
-+			__func__, strings);
-+		if (!strcmp(strings, "input"))
-+			bsp_priv->clock_input = true;
-+		else
-+			bsp_priv->clock_input = false;
-+	}
-+
-+	ret = of_property_read_u32(dev->of_node, "tx_delay", &value);
-+	if (ret) {
-+		bsp_priv->tx_delay = 0x30;
-+		pr_err("%s: Can not read property: tx_delay.", __func__);
-+		pr_err("%s: set tx_delay to 0x%x\n",
-+		       __func__, bsp_priv->tx_delay);
-+	} else {
-+		pr_info("%s: TX delay(0x%x).\n", __func__, value);
-+		bsp_priv->tx_delay = value;
-+	}
-+
-+	ret = of_property_read_u32(dev->of_node, "rx_delay", &value);
-+	if (ret) {
-+		bsp_priv->rx_delay = 0x10;
-+		pr_err("%s: Can not read property: rx_delay.", __func__);
-+		pr_err("%s: set rx_delay to 0x%x\n",
-+		       __func__, bsp_priv->rx_delay);
-+	} else {
-+		pr_info("%s: RX delay(0x%x).\n", __func__, value);
-+		bsp_priv->rx_delay = value;
-+	}
-+
-+	bsp_priv->grf = syscon_regmap_lookup_by_phandle(dev->of_node,
-+							"rockchip,grf");
-+	if (IS_ERR(bsp_priv->grf))
-+		dev_err(&pdev->dev, "Missing rockchip,grf property\n");
-+
-+	bsp_priv->phyirq_io =
-+		of_get_named_gpio_flags(dev->of_node,
-+					"phyirq-gpio", 0, &flags);
-+	bsp_priv->phyirq_io_level = (flags & OF_GPIO_ACTIVE_LOW) ? 0 : 1;
-+
-+	bsp_priv->reset_io =
-+		of_get_named_gpio_flags(dev->of_node,
-+					"reset-gpio", 0, &flags);
-+	bsp_priv->reset_io_level = (flags & OF_GPIO_ACTIVE_LOW) ? 0 : 1;
-+
-+	bsp_priv->power_io =
-+		of_get_named_gpio_flags(dev->of_node, "power-gpio", 0, &flags);
-+	bsp_priv->power_io_level = (flags & OF_GPIO_ACTIVE_LOW) ? 0 : 1;
-+
-+	/*power*/
-+	if (!gpio_is_valid(bsp_priv->power_io)) {
-+		pr_err("%s: Failed to get GPIO %s.\n",
-+		       __func__, "power-gpio");
-+	} else {
-+		ret = gpio_request(bsp_priv->power_io, GPIO_PHY_POWER);
-+		if (ret)
-+			pr_err("%s: ERROR: Failed to request GPIO %s.\n",
-+			       __func__, GPIO_PHY_POWER);
-+	}
-+
-+	if (!gpio_is_valid(bsp_priv->reset_io)) {
-+		pr_err("%s: ERROR: Get reset-gpio failed.\n", __func__);
-+	} else {
-+		ret = gpio_request(bsp_priv->reset_io, GPIO_PHY_RESET);
-+		if (ret)
-+			pr_err("%s: ERROR: Failed to request GPIO %s.\n",
-+			       __func__, GPIO_PHY_RESET);
-+	}
-+
-+	if (bsp_priv->phyirq_io > 0) {
-+		struct plat_stmmacenet_data *plat_dat;
-+
-+		pr_info("PHY irq in use\n");
-+		ret = gpio_request(bsp_priv->phyirq_io, GPIO_PHY_IRQ);
-+		if (ret < 0) {
-+			pr_warn("%s: Failed to request GPIO %s\n",
-+				__func__, GPIO_PHY_IRQ);
-+			goto goon;
-+		}
-+
-+		ret = gpio_direction_input(bsp_priv->phyirq_io);
-+		if (ret < 0) {
-+			pr_err("%s, Failed to set input for GPIO %s\n",
-+			       __func__, GPIO_PHY_IRQ);
-+			gpio_free(bsp_priv->phyirq_io);
-+			goto goon;
-+		}
-+
-+		irq = gpio_to_irq(bsp_priv->phyirq_io);
-+		if (irq < 0) {
-+			ret = irq;
-+			pr_err("Failed to set irq for %s\n",
-+			       GPIO_PHY_IRQ);
-+			gpio_free(bsp_priv->phyirq_io);
-+			goto goon;
-+		}
-+
-+		plat_dat = dev_get_platdata(&pdev->dev);
-+		if (plat_dat)
-+			plat_dat->mdio_bus_data->probed_phy_irq = irq;
-+		else
-+			pr_err("%s: plat_data is NULL\n", __func__);
-+	}
-+
-+goon:
-+	/*rmii or rgmii*/
-+	if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RGMII) {
-+		pr_info("%s: init for RGMII\n", __func__);
-+		set_to_rgmii(bsp_priv, bsp_priv->tx_delay, bsp_priv->rx_delay);
-+	} else if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RMII) {
-+		pr_info("%s: init for RMII\n", __func__);
-+		set_to_rmii(bsp_priv);
-+	} else {
-+		pr_err("%s: ERROR: NO interface defined!\n", __func__);
-+	}
-+
-+	bsp_priv->pdev = pdev;
-+
-+	gmac_clk_init(bsp_priv);
-+
-+	return bsp_priv;
-+}
-+
-+static int rk_gmac_init(struct platform_device *pdev, void *priv)
-+{
-+	struct rk_priv_data *bsp_priv = priv;
-+	int ret;
-+
-+	ret = phy_power_on(bsp_priv, true);
-+	if (ret)
-+		return ret;
-+
-+	ret = gmac_clk_enable(bsp_priv, true);
-+	if (ret)
-+		return ret;
-+
-+	return 0;
-+}
-+
-+static void rk_gmac_exit(struct platform_device *pdev, void *priv)
-+{
-+	struct rk_priv_data *gmac = priv;
-+
-+	phy_power_on(gmac, false);
-+	gmac_clk_enable(gmac, false);
-+}
-+
-+static void rk_fix_speed(void *priv, unsigned int speed)
-+{
-+	struct rk_priv_data *bsp_priv = priv;
-+
-+	if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RGMII)
-+		set_rgmii_speed(bsp_priv, speed);
-+	else if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RMII)
-+		set_rmii_speed(bsp_priv, speed);
-+	else
-+		pr_err("unsupported interface %d", bsp_priv->phy_iface);
-+}
-+
-+const struct stmmac_of_data rk_gmac_data = {
-+	.has_gmac = 1,
-+	.tx_coe = 1,
-+	.fix_mac_speed = rk_fix_speed,
-+	.setup = rk_gmac_setup,
-+	.init = rk_gmac_init,
-+	.exit = rk_gmac_exit,
-+};
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 15814b7..b4dee96 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -33,6 +33,7 @@
+ #define MDIO_MUX_GPIO_MAX_BITS 8
  
- static const struct of_device_id stmmac_dt_ids[] = {
- 	/* SoC specific glue layers should come before generic bindings */
-+	{ .compatible = "rockchip,rk3288-gmac", .data = &rk_gmac_data},
- 	{ .compatible = "amlogic,meson6-dwmac", .data = &meson6_dwmac_data},
- 	{ .compatible = "allwinner,sun7i-a20-gmac", .data = &sun7i_gmac_data},
- 	{ .compatible = "st,stih415-dwmac", .data = &stih4xx_dwmac_data},
-@@ -291,6 +292,8 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
- 			return  -ENOMEM;
+ struct mdio_mux_gpio_state {
+-	int gpio[MDIO_MUX_GPIO_MAX_BITS];
++	struct gpio_desc *gpio[MDIO_MUX_GPIO_MAX_BITS];
+ 	unsigned int num_gpios;
+ 	void *mux_handle;
+ };
+@@ -28,29 +28,23 @@ struct mdio_mux_gpio_state {
+ static int mdio_mux_gpio_switch_fn(int current_child, int desired_child,
+ 				   void *data)
+ {
+-	int change;
++	int values[MDIO_MUX_GPIO_MAX_BITS];
+ 	unsigned int n;
+ 	struct mdio_mux_gpio_state *s = data;
+ 
+ 	if (current_child == desired_child)
+ 		return 0;
+ 
+-	change = current_child == -1 ? -1 : current_child ^ desired_child;
+-
+ 	for (n = 0; n < s->num_gpios; n++) {
+-		if (change & 1)
+-			gpio_set_value_cansleep(s->gpio[n],
+-						(desired_child & 1) != 0);
+-		change >>= 1;
+-		desired_child >>= 1;
++		values[n] = (desired_child >> n) & 1;
+ 	}
++	gpiod_set_array_cansleep(s->num_gpios, s->gpio, values);
+ 
+ 	return 0;
+ }
+ 
+ static int mdio_mux_gpio_probe(struct platform_device *pdev)
+ {
+-	enum of_gpio_flags f;
+ 	struct mdio_mux_gpio_state *s;
+ 	int num_gpios;
+ 	unsigned int n;
+@@ -70,22 +64,14 @@ static int mdio_mux_gpio_probe(struct platform_device *pdev)
+ 	s->num_gpios = num_gpios;
+ 
+ 	for (n = 0; n < num_gpios; ) {
+-		int gpio = of_get_gpio_flags(pdev->dev.of_node, n, &f);
+-		if (gpio < 0) {
+-			r = (gpio == -ENODEV) ? -EPROBE_DEFER : gpio;
++		struct gpio_desc *gpio = gpiod_get_index(&pdev->dev, NULL, n,
++							 GPIOD_OUT_LOW);
++		if (IS_ERR(gpio)) {
++			r = PTR_ERR(gpio);
+ 			goto err;
  		}
+ 		s->gpio[n] = gpio;
+-
+ 		n++;
+-
+-		r = gpio_request(gpio, "mdio_mux_gpio");
+-		if (r)
+-			goto err;
+-
+-		r = gpio_direction_output(gpio, 0);
+-		if (r)
+-			goto err;
+ 	}
  
-+		pdev->dev.platform_data = plat_dat;
-+
- 		ret = stmmac_probe_config_dt(pdev, plat_dat, &mac);
- 		if (ret) {
- 			pr_err("%s: main dt probe failed", __func__);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
-index 25dd1f7..32a0516 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
-@@ -24,5 +24,6 @@ extern const struct stmmac_of_data sun7i_gmac_data;
- extern const struct stmmac_of_data stih4xx_dwmac_data;
- extern const struct stmmac_of_data stid127_dwmac_data;
- extern const struct stmmac_of_data socfpga_gmac_data;
-+extern const struct stmmac_of_data rk_gmac_data;
+ 	r = mdio_mux_init(&pdev->dev,
+@@ -98,15 +84,19 @@ static int mdio_mux_gpio_probe(struct platform_device *pdev)
+ err:
+ 	while (n) {
+ 		n--;
+-		gpio_free(s->gpio[n]);
++		gpiod_put(s->gpio[n]);
+ 	}
+ 	return r;
+ }
  
- #endif /* __STMMAC_PLATFORM_H__ */
--- 
-1.7.9.5
+ static int mdio_mux_gpio_remove(struct platform_device *pdev)
+ {
++	unsigned int n;
+ 	struct mdio_mux_gpio_state *s = dev_get_platdata(&pdev->dev);
+ 	mdio_mux_uninit(s->mux_handle);
++	for (n = 0; n < s->num_gpios; n++) {
++		gpiod_put(s->gpio[n]);
++	}
+ 	return 0;
+ }
+ 
+--
+2.0.4
+
