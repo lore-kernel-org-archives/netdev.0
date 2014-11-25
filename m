@@ -1,116 +1,152 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [patch net-next v3 09/17] bridge: add API to notify bridge driver
- of learned FBD on offloaded device
-Date: Tue, 25 Nov 2014 14:44:57 -0800
-Message-ID: <54750669.4090406@gmail.com>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us> <1416911328-10979-10-git-send-email-jiri@resnulli.us>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next v3 08/17] bridge: call netdev_sw_port_stp_update
+ when bridge port STP status changes
+Date: Tue, 25 Nov 2014 14:48:30 -0800
+Message-ID: <5475073E.70503@cumulusnetworks.com>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us> <1416911328-10979-9-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
 	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
 	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
 	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.org
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+	f.fainelli@gmail.com, linville@tuxdriver.com, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com,
+	simon.horman@netronome.com, alexander.h.duyck@redhat.com,
+	john.ronciak@intel.com, mleitner@redhat.com, shrijeet@gmail.com,
+	gospo@cumulusnetworks.com, bcrl@kvack.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:60056 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751346AbaKYWpC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 17:45:02 -0500
-Received: by mail-pa0-f42.google.com with SMTP id et14so1512280pad.1
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 14:45:01 -0800 (PST)
-In-Reply-To: <1416911328-10979-10-git-send-email-jiri@resnulli.us>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:60894 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751356AbaKYWsj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 17:48:39 -0500
+In-Reply-To: <1416911328-10979-9-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25/11/14 02:28, Jiri Pirko wrote:
+On 11/25/14, 2:28 AM, Jiri Pirko wrote:
 > From: Scott Feldman <sfeldma@gmail.com>
-> 
-> When the swdev device learns a new mac/vlan on a port, it sends some async
-> notification to the driver and the driver installs an FDB in the device.
-> To give a holistic system view, the learned mac/vlan should be reflected
-> in the bridge's FBD table, so the user, using normal iproute2 cmds, can view
-> what is currently learned by the device.  This API on the bridge driver gives
-> a way for the swdev driver to install an FBD entry in the bridge FBD table.
-> (And remove one).
-> 
-> This is equivalent to the device running these cmds:
-> 
->   bridge fdb [add|del] <mac> dev <dev> vid <vlan id> master
-> 
-> This patch needs some extra eyeballs for review, in paricular around the
-> locking and contexts.
-> 
+>
+> To notify switch driver of change in STP state of bridge port, add new
+> .ndo op and provide switchdev wrapper func to call ndo op. Use it in bridge
+> code then.
+>
 > Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 > Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 > ---
+> v2->v3:
+> -changed "sw" string to "switch" to avoid confusion
+> v1->v2:
+> -no change
+> ---
+>   include/linux/netdevice.h |  5 +++++
+>   include/net/switchdev.h   |  7 +++++++
+>   net/bridge/br_stp.c       |  2 ++
+>   net/switchdev/switchdev.c | 19 +++++++++++++++++++
+>   4 files changed, 33 insertions(+)
+>
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index ce096dc..66cb64e 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1024,6 +1024,9 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+>    *	Called to get an ID of the switch chip this port is part of.
+>    *	If driver implements this, it indicates that it represents a port
+>    *	of a switch chip.
+> + * int (*ndo_switch_port_stp_update)(struct net_device *dev, u8 state);
+> + *	Called to notify switch device port of bridge port STP
+> + *	state change.
+>    */
+>   struct net_device_ops {
+>   	int			(*ndo_init)(struct net_device *dev);
+> @@ -1180,6 +1183,8 @@ struct net_device_ops {
+>   #ifdef CONFIG_NET_SWITCHDEV
+>   	int			(*ndo_switch_parent_id_get)(struct net_device *dev,
+>   							    struct netdev_phys_item_id *psid);
+> +	int			(*ndo_switch_port_stp_update)(struct net_device *dev,
+> +							      u8 state);
+>   #endif
+>   };
+>   
+> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+> index 7a52360..8a6d164 100644
+> --- a/include/net/switchdev.h
+> +++ b/include/net/switchdev.h
+> @@ -16,6 +16,7 @@
+>   
+>   int netdev_switch_parent_id_get(struct net_device *dev,
+>   				struct netdev_phys_item_id *psid);
+> +int netdev_switch_port_stp_update(struct net_device *dev, u8 state);
+>   
+>   #else
+>   
+> @@ -25,6 +26,12 @@ static inline int netdev_switch_parent_id_get(struct net_device *dev,
+>   	return -EOPNOTSUPP;
+>   }
+>   
+> +static inline int netdev_switch_port_stp_update(struct net_device *dev,
+> +						u8 state)
+> +{
+> +	return -EOPNOTSUPP;
+> +}
+> +
+>   #endif
+>   
+>   #endif /* _LINUX_SWITCHDEV_H_ */
+> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+> index 2b047bc..35e016c 100644
+> --- a/net/bridge/br_stp.c
+> +++ b/net/bridge/br_stp.c
+> @@ -12,6 +12,7 @@
+>    */
+>   #include <linux/kernel.h>
+>   #include <linux/rculist.h>
+> +#include <net/switchdev.h>
+>   
+>   #include "br_private.h"
+>   #include "br_private_stp.h"
+> @@ -39,6 +40,7 @@ void br_log_state(const struct net_bridge_port *p)
+>   void br_set_state(struct net_bridge_port *p, unsigned int state)
+>   {
+>   	p->state = state;
+> +	netdev_switch_port_stp_update(p->dev, state);
+>   }
+>   
+>   /* called under bridge lock */
+> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+> index 66973de..d162b21 100644
+> --- a/net/switchdev/switchdev.c
+> +++ b/net/switchdev/switchdev.c
+> @@ -31,3 +31,22 @@ int netdev_switch_parent_id_get(struct net_device *dev,
+>   	return ops->ndo_switch_parent_id_get(dev, psid);
+>   }
+>   EXPORT_SYMBOL(netdev_switch_parent_id_get);
+> +
+> +/**
+> + *	netdev_switch_port_stp_update - Notify switch device port of STP
+> + *					state change
+> + *	@dev: port device
+> + *	@state: port STP state
+> + *
+> + *	Notify switch device port of bridge port STP state change.
+> + */
+> +int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
+> +{
+> +	const struct net_device_ops *ops = dev->netdev_ops;
+> +
+> +	if (!ops->ndo_switch_port_stp_update)
+> +		return -EOPNOTSUPP;
+> +	WARN_ON(!ops->ndo_switch_parent_id_get);
+> +	return ops->ndo_switch_port_stp_update(dev, state);
+> +}
+> +EXPORT_SYMBOL(netdev_switch_port_stp_update);
 
-[snip]
-
-> diff --git a/include/uapi/linux/neighbour.h b/include/uapi/linux/neighbour.h
-> index 4a1d7e9..3a9b0df 100644
-> --- a/include/uapi/linux/neighbour.h
-> +++ b/include/uapi/linux/neighbour.h
-> @@ -40,6 +40,7 @@ enum {
->  
->  #define NTF_SELF	0x02
->  #define NTF_MASTER	0x04
-> +#define NTF_EXT_LEARNED	0x10
-
-This file could use some re-ordering to have the constants in ascending
-order.
-
-[snip]
-
-> +	head = &br->hash[br_mac_hash(addr, vid)];
-> +	fdb = fdb_find(head, addr, vid);
-> +	if (!fdb) {
-> +		fdb = fdb_create(head, p, addr, vid);
-> +		if (!fdb) {
-> +			err = -ENOMEM;
-> +			goto err_unlock;
-> +		}
-> +		fdb->added_by_external_learn = 1;
-> +		fdb_notify(br, fdb, RTM_NEWNEIGH);
-> +	} else if (fdb->added_by_external_learn) {
-> +		/* Refresh entry */
-> +		fdb->updated = fdb->used = jiffies;
-> +	} else if (!fdb->added_by_user) {
-> +		/* Take over SW learned entry */
-> +		fdb->added_by_external_learn = 1;
-> +		fdb->updated = jiffies;
-> +		fdb_notify(br, fdb, RTM_NEWNEIGH);
-> +	}
-
-Is there any case where this fdb entry gets re-used and is no longer
-added by an external learning? Should we clear this flag somewhere?
-
-[snip]
-
-> +EXPORT_SYMBOL(br_fdb_external_learn_del);
-> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> index 4f577c4..02cd63b 100644
-> --- a/net/bridge/br_private.h
-> +++ b/net/bridge/br_private.h
-> @@ -101,6 +101,7 @@ struct net_bridge_fdb_entry
->  	unsigned char			is_local;
->  	unsigned char			is_static;
->  	unsigned char			added_by_user;
-> +	unsigned char			added_by_external_learn;
-
-Pheww, we could be saving some memory footprint here by using different
-types here ;)
---
-Florian
+This should also check  if offload is enabled on the bridge/port ?
