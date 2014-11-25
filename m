@@ -1,67 +1,64 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 3/3] sh_eth: Fix dma mapping issue
-Date: Tue, 25 Nov 2014 23:07:56 +0300
-Message-ID: <5474E19C.1020108@cogentembedded.com>
-References: <1415862301-28032-1-git-send-email-ykaneko0929@gmail.com> <1415862301-28032-4-git-send-email-ykaneko0929@gmail.com> <54653948.5070606@cogentembedded.com> <20141117040935.GA10017@verge.net.au>
+Subject: Re: [PATCH 1/2 V2 3.18] rtlwifi: rtl8821ae: Fix 5G detection problem
+Date: Tue, 25 Nov 2014 23:10:36 +0300
+Message-ID: <5474E23C.8090208@cogentembedded.com>
+References: <1416945727-10743-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20141117040935.GA10017@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Valerio Passini <valerio.passini@unicam.it>
+To: Larry Finger <Larry.Finger@lwfinger.net>, linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f44.google.com ([209.85.215.44]:61475 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750866AbaKYUKk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 15:10:40 -0500
+Received: by mail-la0-f44.google.com with SMTP id ge10so1243564lab.31
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 12:10:39 -0800 (PST)
+In-Reply-To: <1416945727-10743-1-git-send-email-Larry.Finger@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hello.
 
-On 11/17/2014 07:09 AM, Simon Horman wrote:
+On 11/25/2014 11:02 PM, Larry Finger wrote:
 
->>> From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+> The changes associated with moving this driver from staging to the regular
+> tree missed one section setting the allowable rates for the 5GHz band.
 
->>> When CONFIG_DMA_API_DEBUG=y, many DMA error messages reports.
->>> In order to use DMA debug, This patch fix following issues.
+> This patch is needed to fix the regression reported in Bug #88811
+> (https://bugzilla.kernel.org/show_bug.cgi?id=88811).
 
->>> Issue 1:
->>> If dma_mapping_error function is not called appropriately after
->>> DMA mapping, DMA debug will report error message when DMA unmap
->>> function is called.
+> Reported-by: Valerio Passini <valerio.passini@unicam.it>
+> Tested-by: Valerio Passini <valerio.passini@unicam.it>
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> Cc: Valerio Passini <valerio.passini@unicam.it>
+> ---
 
->>> Issue 2:
->>> If skb_reserve function is called after DMA mapping, the relationship
->>> between mapping addr and mapping size will be broken.
->>> In this case, DMA debug will report error messages when DMA sync
->>> function and DMA unmap function are called.
+> V2 - removed extra parentheses as suggested by John Linville.
 
->>> Issue 3:
->>> If the size of frame data is less than ETH_ZLEN, the size is resized
->>> to ETH_ZLEN after DMA map function is called.
->>> In the TX skb freeing function, dma unmap function is called with that
->>> resized value. So, unmap size error will reported.
+    He's also suggested spaces around << in his example
 
->>> Issue 4:
->>> In the rx function, DMA map function is called without DMA unmap function
->>> is called for RX skb reallocating.
->>> It will case the DMA debug error that number of debug entry is full and
->>> DMA debug logic is stopped.
+> ---
+>   drivers/net/wireless/rtlwifi/rtl8821ae/hw.c | 5 +++--
+>   1 file changed, 3 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
+> index 310d316..18f34f7 100644
+> --- a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
+> +++ b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
+> @@ -3672,8 +3672,9 @@ static void rtl8821ae_update_hal_rate_mask(struct ieee80211_hw *hw,
+>   		mac->opmode == NL80211_IFTYPE_ADHOC)
+>   		macid = sta->aid + 1;
+>   	if (wirelessmode == WIRELESS_MODE_N_5G ||
+> -	    wirelessmode == WIRELESS_MODE_AC_5G)
+> -		ratr_bitmap = sta->supp_rates[NL80211_BAND_5GHZ];
+> +	    wirelessmode == WIRELESS_MODE_AC_5G ||
+> +	    wirelessmode == WIRELESS_MODE_A)
+> +		ratr_bitmap = sta->supp_rates[NL80211_BAND_5GHZ]<<4;
 
->>     The rule of thumb is "fix one issue per patch". Please split accordingly.
-
->>> Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
->>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-
->>     Thanks for beating me to it. Fixing these issues has been on my agenda
->> for a long time... :-)
-
-> as this patch is somewhat involved and as you have pointed out needs a bit
-> of work I'm wondering if you could take it over.
-
-    Perhaps I could... but I'm busy with other stuff... not sure when can I 
-get to it.
-
-[...]
+    The kernel style generally assumes spaces around operators, and it would 
+only be consistent with the other code in the vicinity if you added them...
 
 WBR, Sergei
-
