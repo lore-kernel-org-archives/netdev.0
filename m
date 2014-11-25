@@ -1,33 +1,59 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Re: [PATCH net_test_tools] route_bench: Fix bug in DST_ITERATE option
-Date: Mon, 24 Nov 2014 17:18:27 -0800
-Message-ID: <CAGK4HS9Hs_3s=QALZKRFnH0b3v88mDVWDs5KSosn3D0smZvRBQ@mail.gmail.com>
-References: <1416816819-17310-1-git-send-email-subramanian.vijay@gmail.com>
-	<20141124.160932.1535765335085310139.davem@davemloft.net>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH] net: fec: init maximum receive buffer size for ring1 and
+ ring2
+Date: Tue, 25 Nov 2014 01:27:17 +0000
+Message-ID: <BLUPR03MB37317746454BEF4E500B1D8F5730@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1416734586-26634-1-git-send-email-b38611@freescale.com>
+ <20141124.152250.380142287256307570.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"festevam@gmail.com" <festevam@gmail.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:34493 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750774AbaKYBS2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 20:18:28 -0500
-Received: by mail-wi0-f171.google.com with SMTP id bs8so7556858wib.10
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2014 17:18:27 -0800 (PST)
-In-Reply-To: <20141124.160932.1535765335085310139.davem@davemloft.net>
+Received: from mail-by2on0147.outbound.protection.outlook.com ([207.46.100.147]:44864
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750784AbaKYBnL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2014 20:43:11 -0500
+In-Reply-To: <20141124.152250.380142287256307570.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+From: David Miller <davem@davemloft.net> Sent: Tuesday, November 25, 2014 4:23 AM
+>To: Duan Fugang-B38611
+>Cc: netdev@vger.kernel.org; bhutchings@solarflare.com;
+>stephen@networkplumber.org; festevam@gmail.com
+>Subject: Re: [PATCH] net: fec: init maximum receive buffer size for ring1
+>and ring2
 >
-> This does not apply to the 'net' tree.
+>From: Fugang Duan <b38611@freescale.com>
+>Date: Sun, 23 Nov 2014 17:23:06 +0800
+>
+>> i.MX6SX fec support three rx ring1, the current driver lost to init
+>> ring1 and ring2 maximum receive buffer size, that cause receving frame
+>> date length error. The driver reports "rcv is not +last" error log in
+>> user case.
+>>
+>> Signed-off-by: Fugang Duan <B38611@freescale.com>
+>
+>This patch does not apply to the 'net' tree, although it does apply
+>cleanly to the net-next tree.
+>
+>Determining which tree a patch is for is not my job, it is your's.
+>
+>Therefore you must always explicitly state what tree your patch is
+>intended to be added to, by starting your Subject line with "[PATCH net] "
+>or "[PATCH net-next] ".
+>
+>I've applied this, but next time I will just ask you to properly submit
+>the patch instead.
 
-David,
+David, thanks. I note this the next time.
 
-The patch was targeted not against 'net' tree but against  test suite
-at  https://git.kernel.org/pub/scm/linux/kernel/git/davem/net_test_tools.git
-as indicated in subject. Would you like me to resubmit this making it
-clear in commit log too?
-
--vijay
+Regards,
+Andy
