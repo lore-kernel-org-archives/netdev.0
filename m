@@ -1,116 +1,28 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [PATCH v7 4/4] fm10k/igb/ixgbe: Use dma_rmb on Rx descriptor reads
-Date: Tue, 25 Nov 2014 12:35:53 -0800
-Message-ID: <20141125203552.8240.73686.stgit@ahduyck-server>
-References: <20141125203310.8240.27370.stgit@ahduyck-server>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH v2 01/17] new helper: skb_copy_and_csum_datagram_msg()
+Date: Tue, 25 Nov 2014 20:59:11 +0000
+Message-ID: <20141125205911.GA29748@ZenIV.linux.org.uk>
+References: <20141125024018.GH7996@ZenIV.linux.org.uk>
+ <1416924151-28698-1-git-send-email-viro@ZenIV.linux.org.uk>
+ <20141125.142820.78809050565547546.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: mathieu.desnoyers@polymtl.ca, peterz@infradead.org,
-	benh@kernel.crashing.org, heiko.carstens@de.ibm.com,
-	mingo@kernel.org, mikey@neuling.org, linux@arm.linux.org.uk,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	geert@linux-m68k.org, jeffrey.t.kirsher@intel.com,
-	romieu@fr.zoreil.com, paulmck@linux.vnet.ibm.com,
-	nic_swsd@realtek.com, arnd@arndb.de, will.deacon@arm.com,
-	michael@ellerman.id.au, tony.luck@intel.com,
-	torvalds@linux-foundation.org, oleg@redhat.com,
-	schwidefsky@de.ibm.com, fweisbec@gmail.com, davem@davemloft.net
-To: linux-arch@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141125203310.8240.27370.stgit@ahduyck-server>
+Content-Disposition: inline
+In-Reply-To: <20141125.142820.78809050565547546.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This change makes it so that dma_rmb is used when reading the Rx
-descriptor.  The advantage of dma_rmb is that it allows for a much
-lower cost barrier on x86, powerpc, arm, and arm64 architectures than a
-traditional memory barrier when dealing with reads that only have to
-synchronize to coherent memory.
+On Tue, Nov 25, 2014 at 02:28:20PM -0500, David Miller wrote:
+> 
+> Al, this series looks fine to me, do you have a tree I can pull
+> it from?
 
-In addition I have updated the code so that it just checks to see if any
-bits have been set instead of just the DD bit since the DD bit will always
-be set as a part of a descriptor write-back so we just need to check for a
-non-zero value being present at that memory location rather than just
-checking for any specific bit.  This allows the code itself to appear much
-cleaner and allows the compiler more room to optimize.
+Er...  Same as the last time?
 
-Cc: Matthew Vick <matthew.vick@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
- drivers/net/ethernet/intel/fm10k/fm10k_main.c |    6 +++---
- drivers/net/ethernet/intel/igb/igb_main.c     |    6 +++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    9 ++++-----
- 3 files changed, 10 insertions(+), 11 deletions(-)
+git://git.kernel.org/pub/scm/linux/kernel/git/viro/vfs.git for-davem
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index 73457ed..b348178 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -620,14 +620,14 @@ static bool fm10k_clean_rx_irq(struct fm10k_q_vector *q_vector,
- 
- 		rx_desc = FM10K_RX_DESC(rx_ring, rx_ring->next_to_clean);
- 
--		if (!fm10k_test_staterr(rx_desc, FM10K_RXD_STATUS_DD))
-+		if (!rx_desc->d.staterr)
- 			break;
- 
- 		/* This memory barrier is needed to keep us from reading
- 		 * any other fields out of the rx_desc until we know the
--		 * RXD_STATUS_DD bit is set
-+		 * descriptor has been written back
- 		 */
--		rmb();
-+		dma_rmb();
- 
- 		/* retrieve a buffer from the ring */
- 		skb = fm10k_fetch_rx_buffer(rx_ring, rx_desc, skb);
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 3c02216..ecf38cf 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -6922,14 +6922,14 @@ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, const int budget)
- 
- 		rx_desc = IGB_RX_DESC(rx_ring, rx_ring->next_to_clean);
- 
--		if (!igb_test_staterr(rx_desc, E1000_RXD_STAT_DD))
-+		if (!rx_desc->wb.upper.status_error)
- 			break;
- 
- 		/* This memory barrier is needed to keep us from reading
- 		 * any other fields out of the rx_desc until we know the
--		 * RXD_STAT_DD bit is set
-+		 * descriptor has been written back
- 		 */
--		rmb();
-+		dma_rmb();
- 
- 		/* retrieve a buffer from the ring */
- 		skb = igb_fetch_rx_buffer(rx_ring, rx_desc, skb);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index c19af9f..5bc9650 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -2006,15 +2006,14 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 
- 		rx_desc = IXGBE_RX_DESC(rx_ring, rx_ring->next_to_clean);
- 
--		if (!ixgbe_test_staterr(rx_desc, IXGBE_RXD_STAT_DD))
-+		if (!rx_desc->wb.upper.status_error)
- 			break;
- 
--		/*
--		 * This memory barrier is needed to keep us from reading
-+		/* This memory barrier is needed to keep us from reading
- 		 * any other fields out of the rx_desc until we know the
--		 * RXD_STAT_DD bit is set
-+		 * descriptor has been written back
- 		 */
--		rmb();
-+		dma_rmb();
- 
- 		/* retrieve a buffer from the ring */
- 		skb = ixgbe_fetch_rx_buffer(rx_ring, rx_desc);
+and there's more fun stuff in #iov_iter-net in the same tree, but that's
+the next batch...
