@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 14/17] bridge: add new brport flag LEARNING_SYNC
-Date: Tue, 25 Nov 2014 11:28:45 +0100
-Message-ID: <1416911328-10979-15-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 17/17] rocker: add ndo_bridge_setlnk/getlink support for learning policy
+Date: Tue, 25 Nov 2014 11:28:48 +0100
+Message-ID: <1416911328-10979-18-git-send-email-jiri@resnulli.us>
 References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
@@ -21,54 +21,208 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	bcrl@kvack.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:40544 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752188AbaKYK3J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 05:29:09 -0500
-Received: by mail-wg0-f41.google.com with SMTP id y19so419128wgg.28
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 02:29:08 -0800 (PST)
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:57952 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752222AbaKYK3M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 05:29:12 -0500
+Received: by mail-wi0-f174.google.com with SMTP id h11so8649950wiw.1
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 02:29:11 -0800 (PST)
 In-Reply-To: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-This policy flag controls syncing of learned FDB entries to bridge's FDB.  If
-on, FDB entries learned on bridge port device will be synced.  If off, device
-may still learn new FDB entries but they will not be synced with bridge's FDB.
+Rocker ports will use new "swdev" hwmode for bridge port offload policy.
+Current supported policy settings are BR_LEARNING and BR_LEARNING_SYNC.
+User can turn on/off device port FDB learning and syncing to bridge.
 
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
 new in v3
 ---
- include/linux/if_bridge.h    | 1 +
- include/uapi/linux/if_link.h | 1 +
- 2 files changed, 2 insertions(+)
+ drivers/net/ethernet/rocker/rocker.c | 99 ++++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/rocker/rocker.h |  1 +
+ 2 files changed, 100 insertions(+)
 
-diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
-index b4bb104..67b7a8e 100644
---- a/include/linux/if_bridge.h
-+++ b/include/linux/if_bridge.h
-@@ -42,6 +42,7 @@ struct br_ip_list {
- #define BR_AUTO_MASK (BR_FLOOD | BR_LEARNING)
- #define BR_PROMISC		0x00000080
- #define BR_PROXYARP		0x00000100
-+#define BR_LEARNING_SYNC	0x00000200
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 1434497..6d56960 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -203,6 +203,7 @@ struct rocker_port {
+ 	u32 lport;
+ 	__be16 internal_vlan_id;
+ 	int stp_state;
++	u32 brport_flags;
+ 	bool ctrls[ROCKER_CTRL_MAX];
+ 	unsigned long vlan_bitmap[ROCKER_VLAN_BITMAP_LEN];
+ 	struct napi_struct napi_tx;
+@@ -1629,6 +1630,30 @@ rocker_cmd_set_port_settings_macaddr_prep(struct rocker *rocker,
+ 	return 0;
+ }
  
- extern void brioctl_set(int (*ioctl_hook)(struct net *, unsigned int, void __user *));
++static int
++rocker_cmd_set_port_learning_prep(struct rocker *rocker,
++				  struct rocker_port *rocker_port,
++				  struct rocker_desc_info *desc_info,
++				  void *priv)
++{
++	struct rocker_tlv *cmd_info;
++
++	if (rocker_tlv_put_u16(desc_info, ROCKER_TLV_CMD_TYPE,
++			       ROCKER_TLV_CMD_TYPE_SET_PORT_SETTINGS))
++		return -EMSGSIZE;
++	cmd_info = rocker_tlv_nest_start(desc_info, ROCKER_TLV_CMD_INFO);
++	if (!cmd_info)
++		return -EMSGSIZE;
++	if (rocker_tlv_put_u32(desc_info, ROCKER_TLV_CMD_PORT_SETTINGS_LPORT,
++			       rocker_port->lport))
++		return -EMSGSIZE;
++	if (rocker_tlv_put_u8(desc_info, ROCKER_TLV_CMD_PORT_SETTINGS_LEARNING,
++			      !!(rocker_port->brport_flags & BR_LEARNING)))
++		return -EMSGSIZE;
++	rocker_tlv_nest_end(desc_info, cmd_info);
++	return 0;
++}
++
+ static int rocker_cmd_get_port_settings_ethtool(struct rocker_port *rocker_port,
+ 						struct ethtool_cmd *ecmd)
+ {
+@@ -1663,6 +1688,13 @@ static int rocker_cmd_set_port_settings_macaddr(struct rocker_port *rocker_port,
+ 			       macaddr, NULL, NULL, false);
+ }
  
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 4163753..d8e6a31 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -245,6 +245,7 @@ enum {
- 	IFLA_BRPORT_LEARNING,	/* mac learning */
- 	IFLA_BRPORT_UNICAST_FLOOD, /* flood unicast traffic */
- 	IFLA_BRPORT_PROXYARP,	/* proxy ARP */
-+	IFLA_BRPORT_LEARNING_SYNC, /* mac learning sync from device */
- 	__IFLA_BRPORT_MAX
++static int rocker_port_set_learning(struct rocker_port *rocker_port)
++{
++	return rocker_cmd_exec(rocker_port->rocker, rocker_port,
++			       rocker_cmd_set_port_learning_prep,
++			       NULL, NULL, NULL, false);
++}
++
+ static int rocker_cmd_flow_tbl_add_ig_port(struct rocker_desc_info *desc_info,
+ 					   struct rocker_flow_tbl_entry *entry)
+ {
+@@ -2995,6 +3027,7 @@ static int rocker_port_fdb_learn(struct rocker_port *rocker_port,
+ 	u32 out_lport = rocker_port->lport;
+ 	u32 tunnel_id = 0;
+ 	u32 group_id = ROCKER_GROUP_NONE;
++	bool syncing = !!(rocker_port->brport_flags & BR_LEARNING_SYNC);
+ 	bool copy_to_cpu = false;
+ 	int err;
+ 
+@@ -3009,6 +3042,9 @@ static int rocker_port_fdb_learn(struct rocker_port *rocker_port,
+ 			return err;
+ 	}
+ 
++	if (!syncing)
++		return 0;
++
+ 	if (!rocker_port_is_bridged(rocker_port))
+ 		return 0;
+ 
+@@ -3657,6 +3693,64 @@ skip:
+ 	return idx;
+ }
+ 
++static int rocker_port_bridge_setlink(struct net_device *dev,
++				      struct nlmsghdr *nlh)
++{
++	struct rocker_port *rocker_port = netdev_priv(dev);
++	struct nlattr *protinfo;
++	struct nlattr *afspec;
++	struct nlattr *attr;
++	u16 mode;
++	int err;
++
++	protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
++				   IFLA_PROTINFO);
++	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
++
++	if (afspec) {
++		attr = nla_find_nested(afspec, IFLA_BRIDGE_MODE);
++		if (attr) {
++			mode = nla_get_u16(attr);
++			if (mode != BRIDGE_MODE_SWDEV)
++				return -EINVAL;
++		}
++	}
++
++	if (protinfo) {
++		attr = nla_find_nested(protinfo, IFLA_BRPORT_LEARNING);
++		if (attr) {
++			if (nla_get_u8(attr))
++				rocker_port->brport_flags |= BR_LEARNING;
++			else
++				rocker_port->brport_flags &= ~BR_LEARNING;
++			err = rocker_port_set_learning(rocker_port);
++			if (err)
++				return err;
++		}
++		attr = nla_find_nested(protinfo, IFLA_BRPORT_LEARNING_SYNC);
++		if (attr) {
++			if (nla_get_u8(attr))
++				rocker_port->brport_flags |= BR_LEARNING_SYNC;
++			else
++				rocker_port->brport_flags &= ~BR_LEARNING_SYNC;
++		}
++	}
++
++	return 0;
++}
++
++static int rocker_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
++				      struct net_device *dev,
++				      u32 filter_mask)
++{
++	struct rocker_port *rocker_port = netdev_priv(dev);
++	u16 mode = BRIDGE_MODE_SWDEV;
++	u32 mask = BR_LEARNING | BR_LEARNING_SYNC;
++
++	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode,
++				       rocker_port->brport_flags, mask);
++}
++
+ static int rocker_port_switch_parent_id_get(struct net_device *dev,
+ 					    struct netdev_phys_item_id *psid)
+ {
+@@ -3685,6 +3779,8 @@ static const struct net_device_ops rocker_port_netdev_ops = {
+ 	.ndo_fdb_add			= rocker_port_fdb_add,
+ 	.ndo_fdb_del			= rocker_port_fdb_del,
+ 	.ndo_fdb_dump			= rocker_port_fdb_dump,
++	.ndo_bridge_setlink		= rocker_port_bridge_setlink,
++	.ndo_bridge_getlink		= rocker_port_bridge_getlink,
+ 	.ndo_switch_parent_id_get	= rocker_port_switch_parent_id_get,
+ 	.ndo_switch_port_stp_update	= rocker_port_switch_port_stp_update,
  };
- #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
+@@ -3885,6 +3981,7 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+ 	rocker_port->rocker = rocker;
+ 	rocker_port->port_number = port_number;
+ 	rocker_port->lport = port_number + 1;
++	rocker_port->brport_flags = BR_LEARNING | BR_LEARNING_SYNC;
+ 
+ 	rocker_port_dev_addr_init(rocker, rocker_port);
+ 	dev->netdev_ops = &rocker_port_netdev_ops;
+@@ -3904,6 +4001,8 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+ 	}
+ 	rocker->ports[port_number] = rocker_port;
+ 
++	rocker_port_set_learning(rocker_port);
++
+ 	rocker_port->internal_vlan_id =
+ 		rocker_port_internal_vlan_id_get(rocker_port, dev->ifindex);
+ 	err = rocker_port_ig_tbl(rocker_port, 0);
+diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
+index 5251cf8..8d2865b 100644
+--- a/drivers/net/ethernet/rocker/rocker.h
++++ b/drivers/net/ethernet/rocker/rocker.h
+@@ -139,6 +139,7 @@ enum {
+ 	ROCKER_TLV_CMD_PORT_SETTINGS_AUTONEG,		/* u8 */
+ 	ROCKER_TLV_CMD_PORT_SETTINGS_MACADDR,		/* binary */
+ 	ROCKER_TLV_CMD_PORT_SETTINGS_MODE,		/* u8 */
++	ROCKER_TLV_CMD_PORT_SETTINGS_LEARNING,		/* u8 */
+ 
+ 	__ROCKER_TLV_CMD_PORT_SETTINGS_MAX,
+ 	ROCKER_TLV_CMD_PORT_SETTINGS_MAX =
 -- 
 1.9.3
