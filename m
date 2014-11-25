@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 04/17] net: introduce generic switch devices support
-Date: Tue, 25 Nov 2014 11:28:35 +0100
-Message-ID: <1416911328-10979-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 02/17] net: make vid as a parameter for ndo_fdb_add/ndo_fdb_del
+Date: Tue, 25 Nov 2014 11:28:33 +0100
+Message-ID: <1416911328-10979-3-git-send-email-jiri@resnulli.us>
 References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
@@ -21,286 +21,446 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	bcrl@kvack.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:44944 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751351AbaKYK24 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 05:28:56 -0500
-Received: by mail-wg0-f46.google.com with SMTP id x12so438457wgg.5
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 02:28:55 -0800 (PST)
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:61431 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751919AbaKYK2y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 05:28:54 -0500
+Received: by mail-wi0-f173.google.com with SMTP id r20so8609115wiv.6
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 02:28:52 -0800 (PST)
 In-Reply-To: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The goal of this is to provide a possibility to support various switch
-chips. Drivers should implement relevant ndos to do so. Now there is
-only one ndo defined:
-- for getting physical switch id is in place.
-
-Note that user can use random port netdevice to access the switch.
+Do the work of parsing NDA_VLAN directly in rtnetlink code, pass simple
+u16 vid to drivers from there.
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-Reviewed-by: Thomas Graf <tgraf@suug.ch>
 ---
-v2->v3:
--fixed documentation typo pointed out by M. Braun
--changed "sw" string to "switch" to avoid confusion
-v1->v2:
--no change
+new in v3
 ---
- Documentation/networking/switchdev.txt | 59 ++++++++++++++++++++++++++++++++++
- MAINTAINERS                            |  7 ++++
- include/linux/netdevice.h              | 10 ++++++
- include/net/switchdev.h                | 30 +++++++++++++++++
- net/Kconfig                            |  1 +
- net/Makefile                           |  3 ++
- net/switchdev/Kconfig                  | 13 ++++++++
- net/switchdev/Makefile                 |  5 +++
- net/switchdev/switchdev.c              | 33 +++++++++++++++++++
- 9 files changed, 161 insertions(+)
- create mode 100644 Documentation/networking/switchdev.txt
- create mode 100644 include/net/switchdev.h
- create mode 100644 net/switchdev/Kconfig
- create mode 100644 net/switchdev/Makefile
- create mode 100644 net/switchdev/switchdev.c
+ drivers/net/ethernet/intel/i40e/i40e_main.c      |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  4 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |  9 +++--
+ drivers/net/macvlan.c                            |  4 +-
+ drivers/net/vxlan.c                              |  4 +-
+ include/linux/netdevice.h                        |  8 ++--
+ include/linux/rtnetlink.h                        |  6 ++-
+ net/bridge/br_fdb.c                              | 39 ++----------------
+ net/bridge/br_private.h                          |  4 +-
+ net/core/rtnetlink.c                             | 50 ++++++++++++++++++++----
+ 10 files changed, 70 insertions(+), 60 deletions(-)
 
-diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
-new file mode 100644
-index 0000000..f981a92
---- /dev/null
-+++ b/Documentation/networking/switchdev.txt
-@@ -0,0 +1,59 @@
-+Switch (and switch-ish) device drivers HOWTO
-+===========================
-+
-+Please note that the word "switch" is here used in very generic meaning.
-+This include devices supporting L2/L3 but also various flow offloading chips,
-+including switches embedded into SR-IOV NICs.
-+
-+Lets describe a topology a bit. Imagine the following example:
-+
-+       +----------------------------+    +---------------+
-+       |     SOME switch chip       |    |      CPU      |
-+       +----------------------------+    +---------------+
-+       port1 port2 port3 port4 MNGMNT    |     PCI-E     |
-+         |     |     |     |     |       +---------------+
-+        PHY   PHY    |     |     |         |  NIC0 NIC1
-+                     |     |     |         |   |    |
-+                     |     |     +- PCI-E -+   |    |
-+                     |     +------- MII -------+    |
-+                     +------------- MII ------------+
-+
-+In this example, there are two independent lines between the switch silicon
-+and CPU. NIC0 and NIC1 drivers are not aware of a switch presence. They are
-+separate from the switch driver. SOME switch chip is by managed by a driver
-+via PCI-E device MNGMNT. Note that MNGMNT device, NIC0 and NIC1 may be
-+connected to some other type of bus.
-+
-+Now, for the previous example show the representation in kernel:
-+
-+       +----------------------------+    +---------------+
-+       |     SOME switch chip       |    |      CPU      |
-+       +----------------------------+    +---------------+
-+       sw0p0 sw0p1 sw0p2 sw0p3 MNGMNT    |     PCI-E     |
-+         |     |     |     |     |       +---------------+
-+        PHY   PHY    |     |     |         |  eth0 eth1
-+                     |     |     |         |   |    |
-+                     |     |     +- PCI-E -+   |    |
-+                     |     +------- MII -------+    |
-+                     +------------- MII ------------+
-+
-+Lets call the example switch driver for SOME switch chip "SOMEswitch". This
-+driver takes care of PCI-E device MNGMNT. There is a netdevice instance sw0pX
-+created for each port of a switch. These netdevices are instances
-+of "SOMEswitch" driver. sw0pX netdevices serve as a "representation"
-+of the switch chip. eth0 and eth1 are instances of some other existing driver.
-+
-+The only difference of the switch-port netdevice from the ordinary netdevice
-+is that is implements couple more NDOs:
-+
-+  ndo_switch_parent_id_get - This returns the same ID for two port netdevices
-+			     of the same physical switch chip. This is
-+			     mandatory to be implemented by all switch drivers
-+			     and serves the caller for recognition of a port
-+			     netdevice.
-+  ndo_switch_parent_* - Functions that serve for a manipulation of the switch
-+			chip itself (it can be though of as a "parent" of the
-+			port, therefore the name). They are not port-specific.
-+			Caller might use arbitrary port netdevice of the same
-+			switch and it will make no difference.
-+  ndo_switch_port_* - Functions that serve for a port-specific manipulation.
-diff --git a/MAINTAINERS b/MAINTAINERS
-index a545d68..05addb6 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -9058,6 +9058,13 @@ F:	lib/swiotlb.c
- F:	arch/*/kernel/pci-swiotlb.c
- F:	include/linux/swiotlb.h
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 7262077..5ed5e40 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -7536,7 +7536,7 @@ static int i40e_get_phys_port_id(struct net_device *netdev,
+  */
+ static int i40e_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 			    struct net_device *dev,
+-			    const unsigned char *addr,
++			    const unsigned char *addr, u16 vid,
+ 			    u16 flags)
+ {
+ 	struct i40e_netdev_priv *np = netdev_priv(dev);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 932f779..1bad9f4 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7708,7 +7708,7 @@ static int ixgbe_set_features(struct net_device *netdev,
  
-+SWITCHDEV
-+M:	Jiri Pirko <jiri@resnulli.us>
-+L:	netdev@vger.kernel.org
-+S:	Supported
-+F:	net/switchdev/
-+F:	include/net/switchdev.h
-+
- SYNOPSYS ARC ARCHITECTURE
- M:	Vineet Gupta <vgupta@synopsys.com>
- S:	Supported
+ static int ixgbe_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 			     struct net_device *dev,
+-			     const unsigned char *addr,
++			     const unsigned char *addr, u16 vid,
+ 			     u16 flags)
+ {
+ 	/* guarantee we can provide a unique filter for the unicast address */
+@@ -7717,7 +7717,7 @@ static int ixgbe_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 			return -ENOMEM;
+ 	}
+ 
+-	return ndo_dflt_fdb_add(ndm, tb, dev, addr, flags);
++	return ndo_dflt_fdb_add(ndm, tb, dev, addr, vid, flags);
+ }
+ 
+ static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index a913b3a..3227c80 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -376,13 +376,14 @@ static int qlcnic_set_mac(struct net_device *netdev, void *p)
+ }
+ 
+ static int qlcnic_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
+-			struct net_device *netdev, const unsigned char *addr)
++			struct net_device *netdev,
++			const unsigned char *addr, u16 vid)
+ {
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 	int err = -EOPNOTSUPP;
+ 
+ 	if (!adapter->fdb_mac_learn)
+-		return ndo_dflt_fdb_del(ndm, tb, netdev, addr);
++		return ndo_dflt_fdb_del(ndm, tb, netdev, addr, vid);
+ 
+ 	if ((adapter->flags & QLCNIC_ESWITCH_ENABLED) ||
+ 	    qlcnic_sriov_check(adapter)) {
+@@ -401,13 +402,13 @@ static int qlcnic_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
+ 
+ static int qlcnic_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 			struct net_device *netdev,
+-			const unsigned char *addr, u16 flags)
++			const unsigned char *addr, u16 vid, u16 flags)
+ {
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 	int err = 0;
+ 
+ 	if (!adapter->fdb_mac_learn)
+-		return ndo_dflt_fdb_add(ndm, tb, netdev, addr, flags);
++		return ndo_dflt_fdb_add(ndm, tb, netdev, addr, vid, flags);
+ 
+ 	if (!(adapter->flags & QLCNIC_ESWITCH_ENABLED) &&
+ 	    !qlcnic_sriov_check(adapter)) {
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index bfb0b6e..a1a3e3e 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -872,7 +872,7 @@ static int macvlan_vlan_rx_kill_vid(struct net_device *dev,
+ 
+ static int macvlan_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 			   struct net_device *dev,
+-			   const unsigned char *addr,
++			   const unsigned char *addr, u16 vid,
+ 			   u16 flags)
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+@@ -897,7 +897,7 @@ static int macvlan_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 
+ static int macvlan_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
+ 			   struct net_device *dev,
+-			   const unsigned char *addr)
++			   const unsigned char *addr, u16 vid)
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+ 	int err = -EINVAL;
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index e9f81d4..7d8013d 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -849,7 +849,7 @@ static int vxlan_fdb_parse(struct nlattr *tb[], struct vxlan_dev *vxlan,
+ /* Add static entry (via netlink) */
+ static int vxlan_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 			 struct net_device *dev,
+-			 const unsigned char *addr, u16 flags)
++			 const unsigned char *addr, u16 vid, u16 flags)
+ {
+ 	struct vxlan_dev *vxlan = netdev_priv(dev);
+ 	/* struct net *net = dev_net(vxlan->dev); */
+@@ -885,7 +885,7 @@ static int vxlan_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ /* Delete entry (via netlink) */
+ static int vxlan_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+ 			    struct net_device *dev,
+-			    const unsigned char *addr)
++			    const unsigned char *addr, u16 vid)
+ {
+ 	struct vxlan_dev *vxlan = netdev_priv(dev);
+ 	struct vxlan_fdb *f;
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 5b491b3..ce096dc 100644
+index 5cd5087..fab074e 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -1018,6 +1018,12 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
-  *	performing GSO on a packet. The device returns true if it is
-  *	able to GSO the packet, false otherwise. If the return value is
-  *	false the stack will do software GSO.
-+ *
-+ * int (*ndo_switch_parent_id_get)(struct net_device *dev,
-+ *				   struct netdev_phys_item_id *psid);
-+ *	Called to get an ID of the switch chip this port is part of.
-+ *	If driver implements this, it indicates that it represents a port
-+ *	of a switch chip.
-  */
- struct net_device_ops {
- 	int			(*ndo_init)(struct net_device *dev);
-@@ -1171,6 +1177,10 @@ struct net_device_ops {
- 	int			(*ndo_get_lock_subclass)(struct net_device *dev);
- 	bool			(*ndo_gso_check) (struct sk_buff *skb,
- 						  struct net_device *dev);
-+#ifdef CONFIG_NET_SWITCHDEV
-+	int			(*ndo_switch_parent_id_get)(struct net_device *dev,
-+							    struct netdev_phys_item_id *psid);
-+#endif
- };
+@@ -951,11 +951,11 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+  *
+  * int (*ndo_fdb_add)(struct ndmsg *ndm, struct nlattr *tb[],
+  *		      struct net_device *dev,
+- *		      const unsigned char *addr, u16 flags)
++ *		      const unsigned char *addr, u16 vid, u16 flags)
+  *	Adds an FDB entry to dev for addr.
+  * int (*ndo_fdb_del)(struct ndmsg *ndm, struct nlattr *tb[],
+  *		      struct net_device *dev,
+- *		      const unsigned char *addr)
++ *		      const unsigned char *addr, u16 vid)
+  *	Deletes the FDB entry from dev coresponding to addr.
+  * int (*ndo_fdb_dump)(struct sk_buff *skb, struct netlink_callback *cb,
+  *		       struct net_device *dev, struct net_device *filter_dev,
+@@ -1128,11 +1128,13 @@ struct net_device_ops {
+ 					       struct nlattr *tb[],
+ 					       struct net_device *dev,
+ 					       const unsigned char *addr,
++					       u16 vid,
+ 					       u16 flags);
+ 	int			(*ndo_fdb_del)(struct ndmsg *ndm,
+ 					       struct nlattr *tb[],
+ 					       struct net_device *dev,
+-					       const unsigned char *addr);
++					       const unsigned char *addr,
++					       u16 vid);
+ 	int			(*ndo_fdb_dump)(struct sk_buff *skb,
+ 						struct netlink_callback *cb,
+ 						struct net_device *dev,
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 6cacbce..063f0f5 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -94,11 +94,13 @@ extern int ndo_dflt_fdb_add(struct ndmsg *ndm,
+ 			    struct nlattr *tb[],
+ 			    struct net_device *dev,
+ 			    const unsigned char *addr,
+-			     u16 flags);
++			    u16 vid,
++			    u16 flags);
+ extern int ndo_dflt_fdb_del(struct ndmsg *ndm,
+ 			    struct nlattr *tb[],
+ 			    struct net_device *dev,
+-			    const unsigned char *addr);
++			    const unsigned char *addr,
++			    u16 vid);
  
- /**
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-new file mode 100644
-index 0000000..7a52360
---- /dev/null
-+++ b/include/net/switchdev.h
-@@ -0,0 +1,30 @@
-+/*
-+ * include/net/switchdev.h - Switch device API
-+ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+#ifndef _LINUX_SWITCHDEV_H_
-+#define _LINUX_SWITCHDEV_H_
-+
-+#include <linux/netdevice.h>
-+
-+#ifdef CONFIG_NET_SWITCHDEV
-+
-+int netdev_switch_parent_id_get(struct net_device *dev,
-+				struct netdev_phys_item_id *psid);
-+
-+#else
-+
-+static inline int netdev_switch_parent_id_get(struct net_device *dev,
-+					      struct netdev_phys_item_id *psid)
+ extern int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+ 				   struct net_device *dev, u16 mode);
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 08ef4e7..b1be971 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -805,33 +805,17 @@ static int __br_fdb_add(struct ndmsg *ndm, struct net_bridge_port *p,
+ /* Add new permanent fdb entry with RTM_NEWNEIGH */
+ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 	       struct net_device *dev,
+-	       const unsigned char *addr, u16 nlh_flags)
++	       const unsigned char *addr, u16 vid, u16 nlh_flags)
+ {
+ 	struct net_bridge_port *p;
+ 	int err = 0;
+ 	struct net_port_vlans *pv;
+-	unsigned short vid = VLAN_N_VID;
+ 
+ 	if (!(ndm->ndm_state & (NUD_PERMANENT|NUD_NOARP|NUD_REACHABLE))) {
+ 		pr_info("bridge: RTM_NEWNEIGH with invalid state %#x\n", ndm->ndm_state);
+ 		return -EINVAL;
+ 	}
+ 
+-	if (tb[NDA_VLAN]) {
+-		if (nla_len(tb[NDA_VLAN]) != sizeof(unsigned short)) {
+-			pr_info("bridge: RTM_NEWNEIGH with invalid vlan\n");
+-			return -EINVAL;
+-		}
+-
+-		vid = nla_get_u16(tb[NDA_VLAN]);
+-
+-		if (!vid || vid >= VLAN_VID_MASK) {
+-			pr_info("bridge: RTM_NEWNEIGH with invalid vlan id %d\n",
+-				vid);
+-			return -EINVAL;
+-		}
+-	}
+-
+ 	if (is_zero_ether_addr(addr)) {
+ 		pr_info("bridge: RTM_NEWNEIGH with invalid ether address\n");
+ 		return -EINVAL;
+@@ -845,7 +829,7 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 	}
+ 
+ 	pv = nbp_get_vlan_info(p);
+-	if (vid != VLAN_N_VID) {
++	if (vid) {
+ 		if (!pv || !test_bit(vid, pv->vlan_bitmap)) {
+ 			pr_info("bridge: RTM_NEWNEIGH with unconfigured "
+ 				"vlan %d on port %s\n", vid, dev->name);
+@@ -903,27 +887,12 @@ static int __br_fdb_delete(struct net_bridge_port *p,
+ /* Remove neighbor entry with RTM_DELNEIGH */
+ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+ 		  struct net_device *dev,
+-		  const unsigned char *addr)
++		  const unsigned char *addr, u16 vid)
+ {
+ 	struct net_bridge_port *p;
+ 	int err;
+ 	struct net_port_vlans *pv;
+-	unsigned short vid = VLAN_N_VID;
+-
+-	if (tb[NDA_VLAN]) {
+-		if (nla_len(tb[NDA_VLAN]) != sizeof(unsigned short)) {
+-			pr_info("bridge: RTM_NEWNEIGH with invalid vlan\n");
+-			return -EINVAL;
+-		}
+ 
+-		vid = nla_get_u16(tb[NDA_VLAN]);
+-
+-		if (!vid || vid >= VLAN_VID_MASK) {
+-			pr_info("bridge: RTM_NEWNEIGH with invalid vlan id %d\n",
+-				vid);
+-			return -EINVAL;
+-		}
+-	}
+ 	p = br_port_get_rtnl(dev);
+ 	if (p == NULL) {
+ 		pr_info("bridge: RTM_DELNEIGH %s not a bridge port\n",
+@@ -932,7 +901,7 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+ 	}
+ 
+ 	pv = nbp_get_vlan_info(p);
+-	if (vid != VLAN_N_VID) {
++	if (vid) {
+ 		if (!pv || !test_bit(vid, pv->vlan_bitmap)) {
+ 			pr_info("bridge: RTM_DELNEIGH with unconfigured "
+ 				"vlan %d on port %s\n", vid, dev->name);
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 8f3f081..4f577c4 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -404,9 +404,9 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+ 		   const unsigned char *addr, u16 vid, bool added_by_user);
+ 
+ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+-		  struct net_device *dev, const unsigned char *addr);
++		  struct net_device *dev, const unsigned char *addr, u16 vid);
+ int br_fdb_add(struct ndmsg *nlh, struct nlattr *tb[], struct net_device *dev,
+-	       const unsigned char *addr, u16 nlh_flags);
++	       const unsigned char *addr, u16 vid, u16 nlh_flags);
+ int br_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
+ 		struct net_device *dev, struct net_device *fdev, int idx);
+ int br_fdb_sync_static(struct net_bridge *br, struct net_bridge_port *p);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index a688268..f2a4b38 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -36,6 +36,7 @@
+ #include <linux/mutex.h>
+ #include <linux/if_addr.h>
+ #include <linux/if_bridge.h>
++#include <linux/if_vlan.h>
+ #include <linux/pci.h>
+ #include <linux/etherdevice.h>
+ 
+@@ -2312,7 +2313,7 @@ errout:
+ int ndo_dflt_fdb_add(struct ndmsg *ndm,
+ 		     struct nlattr *tb[],
+ 		     struct net_device *dev,
+-		     const unsigned char *addr,
++		     const unsigned char *addr, u16 vid,
+ 		     u16 flags)
+ {
+ 	int err = -EINVAL;
+@@ -2338,6 +2339,28 @@ int ndo_dflt_fdb_add(struct ndmsg *ndm,
+ }
+ EXPORT_SYMBOL(ndo_dflt_fdb_add);
+ 
++static int fbd_vid_parse(struct nlattr *vlan_attr, u16 *p_vid)
 +{
-+	return -EOPNOTSUPP;
++	u16 vid = 0;
++
++	if (vlan_attr) {
++		if (nla_len(vlan_attr) != sizeof(u16)) {
++			pr_info("PF_BRIDGE: RTM_NEWNEIGH with invalid vlan\n");
++			return -EINVAL;
++		}
++
++		vid = nla_get_u16(vlan_attr);
++
++		if (!vid || vid >= VLAN_VID_MASK) {
++			pr_info("PF_BRIDGE: RTM_NEWNEIGH with invalid vlan id %d\n",
++				vid);
++			return -EINVAL;
++		}
++	}
++	*p_vid = vid;
++	return 0;
 +}
 +
-+#endif
-+
-+#endif /* _LINUX_SWITCHDEV_H_ */
-diff --git a/net/Kconfig b/net/Kconfig
-index 99815b5..ff9ffc1 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -228,6 +228,7 @@ source "net/vmw_vsock/Kconfig"
- source "net/netlink/Kconfig"
- source "net/mpls/Kconfig"
- source "net/hsr/Kconfig"
-+source "net/switchdev/Kconfig"
+ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+@@ -2345,6 +2368,7 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	struct nlattr *tb[NDA_MAX+1];
+ 	struct net_device *dev;
+ 	u8 *addr;
++	u16 vid;
+ 	int err;
  
- config RPS
- 	boolean
-diff --git a/net/Makefile b/net/Makefile
-index 7ed1970..95fc694 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -73,3 +73,6 @@ obj-$(CONFIG_OPENVSWITCH)	+= openvswitch/
- obj-$(CONFIG_VSOCKETS)	+= vmw_vsock/
- obj-$(CONFIG_NET_MPLS_GSO)	+= mpls/
- obj-$(CONFIG_HSR)		+= hsr/
-+ifneq ($(CONFIG_NET_SWITCHDEV),)
-+obj-y				+= switchdev/
-+endif
-diff --git a/net/switchdev/Kconfig b/net/switchdev/Kconfig
-new file mode 100644
-index 0000000..1557545
---- /dev/null
-+++ b/net/switchdev/Kconfig
-@@ -0,0 +1,13 @@
-+#
-+# Configuration for Switch device support
-+#
+ 	err = nlmsg_parse(nlh, sizeof(*ndm), tb, NDA_MAX, NULL);
+@@ -2370,6 +2394,10 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 
+ 	addr = nla_data(tb[NDA_LLADDR]);
+ 
++	err = fbd_vid_parse(tb[NDA_VLAN], &vid);
++	if (err)
++		return err;
 +
-+config NET_SWITCHDEV
-+	boolean "Switch (and switch-ish) device support (EXPERIMENTAL)"
-+	depends on INET
-+	---help---
-+	  This module provides glue between core networking code and device
-+	  drivers in order to support hardware switch chips in very generic
-+	  meaning of the word "switch". This include devices supporting L2/L3 but
-+	  also various flow offloading chips, including switches embedded into
-+	  SR-IOV NICs.
-diff --git a/net/switchdev/Makefile b/net/switchdev/Makefile
-new file mode 100644
-index 0000000..5ed63ed
---- /dev/null
-+++ b/net/switchdev/Makefile
-@@ -0,0 +1,5 @@
-+#
-+# Makefile for the Switch device API
-+#
+ 	err = -EOPNOTSUPP;
+ 
+ 	/* Support fdb on master device the net/bridge default case */
+@@ -2378,7 +2406,8 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		struct net_device *br_dev = netdev_master_upper_dev_get(dev);
+ 		const struct net_device_ops *ops = br_dev->netdev_ops;
+ 
+-		err = ops->ndo_fdb_add(ndm, tb, dev, addr, nlh->nlmsg_flags);
++		err = ops->ndo_fdb_add(ndm, tb, dev, addr, vid,
++				       nlh->nlmsg_flags);
+ 		if (err)
+ 			goto out;
+ 		else
+@@ -2389,9 +2418,10 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	if ((ndm->ndm_flags & NTF_SELF)) {
+ 		if (dev->netdev_ops->ndo_fdb_add)
+ 			err = dev->netdev_ops->ndo_fdb_add(ndm, tb, dev, addr,
++							   vid,
+ 							   nlh->nlmsg_flags);
+ 		else
+-			err = ndo_dflt_fdb_add(ndm, tb, dev, addr,
++			err = ndo_dflt_fdb_add(ndm, tb, dev, addr, vid,
+ 					       nlh->nlmsg_flags);
+ 
+ 		if (!err) {
+@@ -2409,7 +2439,7 @@ out:
+ int ndo_dflt_fdb_del(struct ndmsg *ndm,
+ 		     struct nlattr *tb[],
+ 		     struct net_device *dev,
+-		     const unsigned char *addr)
++		     const unsigned char *addr, u16 vid)
+ {
+ 	int err = -EINVAL;
+ 
+@@ -2438,6 +2468,7 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	struct net_device *dev;
+ 	int err = -EINVAL;
+ 	__u8 *addr;
++	u16 vid;
+ 
+ 	if (!netlink_capable(skb, CAP_NET_ADMIN))
+ 		return -EPERM;
+@@ -2465,6 +2496,10 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 
+ 	addr = nla_data(tb[NDA_LLADDR]);
+ 
++	err = fbd_vid_parse(tb[NDA_VLAN], &vid);
++	if (err)
++		return err;
 +
-+obj-$(CONFIG_NET_SWITCHDEV) += switchdev.o
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-new file mode 100644
-index 0000000..66973de
---- /dev/null
-+++ b/net/switchdev/switchdev.c
-@@ -0,0 +1,33 @@
-+/*
-+ * net/switchdev/switchdev.c - Switch device API
-+ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/init.h>
-+#include <linux/netdevice.h>
-+#include <net/switchdev.h>
-+
-+/**
-+ *	netdev_switch_parent_id_get - Get ID of a switch
-+ *	@dev: port device
-+ *	@psid: switch ID
-+ *
-+ *	Get ID of a switch this port is part of.
-+ */
-+int netdev_switch_parent_id_get(struct net_device *dev,
-+				struct netdev_phys_item_id *psid)
-+{
-+	const struct net_device_ops *ops = dev->netdev_ops;
-+
-+	if (!ops->ndo_switch_parent_id_get)
-+		return -EOPNOTSUPP;
-+	return ops->ndo_switch_parent_id_get(dev, psid);
-+}
-+EXPORT_SYMBOL(netdev_switch_parent_id_get);
+ 	err = -EOPNOTSUPP;
+ 
+ 	/* Support fdb on master device the net/bridge default case */
+@@ -2474,7 +2509,7 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		const struct net_device_ops *ops = br_dev->netdev_ops;
+ 
+ 		if (ops->ndo_fdb_del)
+-			err = ops->ndo_fdb_del(ndm, tb, dev, addr);
++			err = ops->ndo_fdb_del(ndm, tb, dev, addr, vid);
+ 
+ 		if (err)
+ 			goto out;
+@@ -2485,9 +2520,10 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	/* Embedded bridge, macvlan, and any other device support */
+ 	if (ndm->ndm_flags & NTF_SELF) {
+ 		if (dev->netdev_ops->ndo_fdb_del)
+-			err = dev->netdev_ops->ndo_fdb_del(ndm, tb, dev, addr);
++			err = dev->netdev_ops->ndo_fdb_del(ndm, tb, dev, addr,
++							   vid);
+ 		else
+-			err = ndo_dflt_fdb_del(ndm, tb, dev, addr);
++			err = ndo_dflt_fdb_del(ndm, tb, dev, addr, vid);
+ 
+ 		if (!err) {
+ 			rtnl_fdb_notify(dev, addr, RTM_DELNEIGH);
 -- 
 1.9.3
