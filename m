@@ -1,94 +1,174 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/2] sh_eth: Fix sleeping function called from invalid
- context
-Date: Tue, 25 Nov 2014 17:09:07 +0300
-Message-ID: <54748D83.1090707@cogentembedded.com>
-References: <1415862135-27972-1-git-send-email-ykaneko0929@gmail.com>	<1415862135-27972-2-git-send-email-ykaneko0929@gmail.com> <CAMuHMdWJYuXES4g1-=H6xo=gVePPSUkybUhL0VjuKk7asE6syg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>,
-	Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:42618 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752408AbaKYOJL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 09:09:11 -0500
-Received: by mail-lb0-f169.google.com with SMTP id p9so592781lbv.28
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 06:09:09 -0800 (PST)
-In-Reply-To: <CAMuHMdWJYuXES4g1-=H6xo=gVePPSUkybUhL0VjuKk7asE6syg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: [PATCH v2 07/17] new helpers: skb_copy_datagram_from_iter() and zerocopy_sg_from_iter()
+Date: Tue, 25 Nov 2014 14:02:21 +0000
+Message-ID: <1416924151-28698-7-git-send-email-viro@ZenIV.linux.org.uk>
+References: <20141125024018.GH7996@ZenIV.linux.org.uk>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141125024018.GH7996@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+From: Al Viro <viro@zeniv.linux.org.uk>
 
-On 11/25/2014 4:35 PM, Geert Uytterhoeven wrote:
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+---
+ include/linux/skbuff.h |    3 ++
+ net/core/datagram.c    |  116 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 119 insertions(+)
 
->> From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
-
->> Fix the bug as follows:
-
->> ----
->> [ 1238.161349] BUG: sleeping function called from invalid context at drivers/base/power/runtime.c:952
->> [ 1238.188279] in_atomic(): 1, irqs_disabled(): 0, pid: 1388, name: cat
->> [ 1238.207425] CPU: 0 PID: 1388 Comm: cat Not tainted 3.10.31-ltsi-00046-gefa0b46 #1087
->> [ 1238.230737] Backtrace:
->> [ 1238.238123] [<c0012e64>] (dump_backtrace+0x0/0x10c) from [<c0013000>] (show_stack+0x18/0x1c)
->> [ 1238.263499]  r6:000003b8 r5:c06160c0 r4:c0669e00 r3:00404000
->> [ 1238.280583] [<c0012fe8>] (show_stack+0x0/0x1c) from [<c04515a4>] (dump_stack+0x20/0x28)
->> [ 1238.304631] [<c0451584>] (dump_stack+0x0/0x28) from [<c004970c>] (__might_sleep+0xf8/0x118)
->> [ 1238.329734] [<c0049614>] (__might_sleep+0x0/0x118) from [<c02465ac>] (__pm_runtime_resume+0x38/0x90)
->> [ 1238.357170]  r7:d616f000 r6:c049c458 r5:00000004 r4:d6a17210
->> [ 1238.374251] [<c0246574>] (__pm_runtime_resume+0x0/0x90) from [<c029b1c4>] (sh_eth_get_stats+0x44/0x280)
->> [ 1238.402468]  r7:d616f000 r6:c049c458 r5:d5c21000 r4:d5c21000
->> [ 1238.419552] [<c029b180>] (sh_eth_get_stats+0x0/0x280) from [<c03ae39c>] (dev_get_stats+0x54/0x88)
->> [ 1238.446204]  r5:d5c21000 r4:d5ed7e08
->> [ 1238.456980] [<c03ae348>] (dev_get_stats+0x0/0x88) from [<c03c677c>] (netstat_show.isra.15+0x54/0x9c)
->> [ 1238.484413]  r6:d5c21000 r5:d5c21238 r4:00000028 r3:00000001
->> [ 1238.501495] [<c03c6728>] (netstat_show.isra.15+0x0/0x9c) from [<c03c69b8>] (show_tx_errors+0x18/0x1c)
->> [ 1238.529196]  r7:d5f945d8 r6:d5f945c0 r5:c049716c r4:c0650e7c
->> [ 1238.546279] [<c03c69a0>] (show_tx_errors+0x0/0x1c) from [<c023963c>] (dev_attr_show+0x24/0x50)
->> [ 1238.572157] [<c0239618>] (dev_attr_show+0x0/0x50) from [<c010c148>] (sysfs_read_file+0xb0/0x140)
->> [ 1238.598554]  r5:c049716c r4:d5c21240
->> [ 1238.609326] [<c010c098>] (sysfs_read_file+0x0/0x140) from [<c00b9ee4>] (vfs_read+0xb0/0x13c)
->> [ 1238.634679] [<c00b9e34>] (vfs_read+0x0/0x13c) from [<c00ba0ac>] (SyS_read+0x44/0x74)
->> [ 1238.657944]  r8:bef45bf0 r7:00000000 r6:d6ac0600 r5:00000000 r4:00000000
->> [ 1238.678172] [<c00ba068>] (SyS_read+0x0/0x74) from [<c000eec0>] (ret_fast_syscall+0x0/0x30)
->> ----
-
->> Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
->> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
->> ---
->>   drivers/net/ethernet/renesas/sh_eth.c | 64 +++++++++++++++++++----------------
->>   drivers/net/ethernet/renesas/sh_eth.h |  1 +
->>   2 files changed, 36 insertions(+), 29 deletions(-)
-
->> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
->> index 60e9c2c..862a691 100644
->> --- a/drivers/net/ethernet/renesas/sh_eth.c
->> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-[...]
->> @@ -2131,6 +2133,36 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
->>          return NETDEV_TX_OK;
->>   }
->>
->> +static struct net_device_stats *sh_eth_get_stats(struct net_device *ndev)
->> +{
->> +       struct sh_eth_private *mdp = netdev_priv(ndev);
->> +
->> +       if (sh_eth_is_rz_fast_ether(mdp))
->> +               return &ndev->stats;
->> +
->> +       if (!mdp->is_opened)
-
-> Can't you use netif_running(ndev) instead?
-
-    The __LINK_STATE_START flag it tests gets set in __dev_open() before 
-calling the ndo_open() method. Looks like it would be somewhat unsafe to use it...
-
-WBR, Sergei
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index d048347..a01cd9a 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2659,10 +2659,13 @@ static inline int skb_copy_and_csum_datagram_msg(struct sk_buff *skb, int hlen,
+ int skb_copy_datagram_from_iovec(struct sk_buff *skb, int offset,
+ 				 const struct iovec *from, int from_offset,
+ 				 int len);
++int skb_copy_datagram_from_iter(struct sk_buff *skb, int offset,
++				 struct iov_iter *from, int len);
+ int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *frm,
+ 			   int offset, size_t count);
+ int skb_copy_datagram_iter(const struct sk_buff *from, int offset,
+ 			   struct iov_iter *to, int size);
++int zerocopy_sg_from_iter(struct sk_buff *skb, struct iov_iter *frm);
+ void skb_free_datagram(struct sock *sk, struct sk_buff *skb);
+ void skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb);
+ int skb_kill_datagram(struct sock *sk, struct sk_buff *skb, unsigned int flags);
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index 26391a3..3ea0384 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -572,6 +572,78 @@ fault:
+ }
+ EXPORT_SYMBOL(skb_copy_datagram_from_iovec);
+ 
++int skb_copy_datagram_from_iter(struct sk_buff *skb, int offset,
++				 struct iov_iter *from,
++				 int len)
++{
++	int start = skb_headlen(skb);
++	int i, copy = start - offset;
++	struct sk_buff *frag_iter;
++
++	/* Copy header. */
++	if (copy > 0) {
++		if (copy > len)
++			copy = len;
++		if (copy_from_iter(skb->data + offset, copy, from) != copy)
++			goto fault;
++		if ((len -= copy) == 0)
++			return 0;
++		offset += copy;
++	}
++
++	/* Copy paged appendix. Hmm... why does this look so complicated? */
++	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
++		int end;
++		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
++
++		WARN_ON(start > offset + len);
++
++		end = start + skb_frag_size(frag);
++		if ((copy = end - offset) > 0) {
++			size_t copied;
++
++			if (copy > len)
++				copy = len;
++			copied = copy_page_from_iter(skb_frag_page(frag),
++					  frag->page_offset + offset - start,
++					  copy, from);
++			if (copied != copy)
++				goto fault;
++
++			if (!(len -= copy))
++				return 0;
++			offset += copy;
++		}
++		start = end;
++	}
++
++	skb_walk_frags(skb, frag_iter) {
++		int end;
++
++		WARN_ON(start > offset + len);
++
++		end = start + frag_iter->len;
++		if ((copy = end - offset) > 0) {
++			if (copy > len)
++				copy = len;
++			if (skb_copy_datagram_from_iter(frag_iter,
++							offset - start,
++							from, copy))
++				goto fault;
++			if ((len -= copy) == 0)
++				return 0;
++			offset += copy;
++		}
++		start = end;
++	}
++	if (!len)
++		return 0;
++
++fault:
++	return -EFAULT;
++}
++EXPORT_SYMBOL(skb_copy_datagram_from_iter);
++
+ /**
+  *	zerocopy_sg_from_iovec - Build a zerocopy datagram from an iovec
+  *	@skb: buffer to copy
+@@ -643,6 +715,50 @@ int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
+ }
+ EXPORT_SYMBOL(zerocopy_sg_from_iovec);
+ 
++int zerocopy_sg_from_iter(struct sk_buff *skb, struct iov_iter *from)
++{
++	int len = iov_iter_count(from);
++	int copy = min_t(int, skb_headlen(skb), len);
++	int frag = 0;
++
++	/* copy up to skb headlen */
++	if (skb_copy_datagram_from_iter(skb, 0, from, copy))
++		return -EFAULT;
++
++	while (iov_iter_count(from)) {
++		struct page *pages[MAX_SKB_FRAGS];
++		size_t start;
++		ssize_t copied;
++		unsigned long truesize;
++		int n = 0;
++
++		if (frag == MAX_SKB_FRAGS)
++			return -EMSGSIZE;
++
++		copied = iov_iter_get_pages(from, pages, ~0U,
++					    MAX_SKB_FRAGS - frag, &start);
++		if (copied < 0)
++			return -EFAULT;
++
++		iov_iter_advance(from, copied);
++
++		truesize = PAGE_ALIGN(copied + start);
++		skb->data_len += copied;
++		skb->len += copied;
++		skb->truesize += truesize;
++		atomic_add(truesize, &skb->sk->sk_wmem_alloc);
++		while (copied) {
++			int size = min_t(int, copied, PAGE_SIZE - start);
++			skb_fill_page_desc(skb, frag++, pages[n], start, size);
++			start = 0;
++			copied -= size;
++			n++;
++		}
++	}
++	return 0;
++}
++EXPORT_SYMBOL(zerocopy_sg_from_iter);
++
+ static int skb_copy_and_csum_datagram(const struct sk_buff *skb, int offset,
+ 				      u8 __user *to, int len,
+ 				      __wsum *csump)
+-- 
+1.7.10.4
