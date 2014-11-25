@@ -1,67 +1,59 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH rfc 1/4] net-timestamp: pull headers for SOCK_STREAM
-Date: Tue, 25 Nov 2014 12:58:03 -0500
-Message-ID: <1416938286-14147-2-git-send-email-willemb@google.com>
+Subject: [PATCH rfc 3/4] net-timestamp: tcp sockets return v6 errors on v6 sockets
+Date: Tue, 25 Nov 2014 12:58:05 -0500
+Message-ID: <1416938286-14147-4-git-send-email-willemb@google.com>
 References: <1416938286-14147-1-git-send-email-willemb@google.com>
 Cc: davem@davemloft.net, luto@amacapital.net, richardcochran@gmail.com,
 	Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f50.google.com ([209.85.213.50]:63938 "EHLO
-	mail-yh0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750852AbaKYR6L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 12:58:11 -0500
-Received: by mail-yh0-f50.google.com with SMTP id 29so570926yhl.9
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 09:58:11 -0800 (PST)
+Received: from mail-yk0-f175.google.com ([209.85.160.175]:62679 "EHLO
+	mail-yk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751346AbaKYR6O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 12:58:14 -0500
+Received: by mail-yk0-f175.google.com with SMTP id 200so505831ykr.6
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 09:58:13 -0800 (PST)
 In-Reply-To: <1416938286-14147-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-When returning timestamped packets on the error queue, only return
-the data that the application initially sent: not the protocol
-headers.
+TCP timestamping introduced MSG_ERRQUEUE handling for TCP sockets.
+It always passed errorqueue requests onto ip_recv_error, but the
+same tcp_recvmsg code may also be called for IPv6 sockets. In that
+case, pass to ipv6_recv_error.
 
-This changes the ABI. The TCP interface is new enough that it should
-be safe to do so. The UDP interface could be changed analogously with
+Tested by asking for PKTINFO with
 
-+  else if (sk->sk_protocol == IPPROTO_UDP)
-+    skb_pull(skb, skb_transport_offset(skb) + sizeof(struct udphdr));
+  Documentation/networking/timestamping/txtimestamp -I
 
-Tested with Documentation/networking/timestamping/txtimestamp -l 60 -x
+Before this change, IPv6 sockets would return AF_INET/IP_PKTINFO
+after the change, these sockets return AF_INET6/IPV6_PKTINFO
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- net/core/skbuff.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ net/ipv4/tcp.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 92116df..70a8596 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3580,6 +3580,7 @@ static void __skb_complete_tx_timestamp(struct sk_buff *skb,
- 					int tstype)
- {
- 	struct sock_exterr_skb *serr;
-+	bool is_tcp = sk->sk_protocol == IPPROTO_TCP;
- 	int err;
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index c239f47..04ea9b2 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1597,8 +1597,12 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	struct sk_buff *skb;
+ 	u32 urg_hole = 0;
  
- 	serr = SKB_EXT_ERR(skb);
-@@ -3589,10 +3590,13 @@ static void __skb_complete_tx_timestamp(struct sk_buff *skb,
- 	serr->ee.ee_info = tstype;
- 	if (sk->sk_tsflags & SOF_TIMESTAMPING_OPT_ID) {
- 		serr->ee.ee_data = skb_shinfo(skb)->tskey;
--		if (sk->sk_protocol == IPPROTO_TCP)
-+		if (is_tcp)
- 			serr->ee.ee_data -= sk->sk_tskey;
- 	}
+-	if (unlikely(flags & MSG_ERRQUEUE))
+-		return ip_recv_error(sk, msg, len, addr_len);
++	if (unlikely(flags & MSG_ERRQUEUE)) {
++		if (sk->sk_family == AF_INET6)
++			return ipv6_recv_error(sk, msg, len, addr_len);
++		else
++			return ip_recv_error(sk, msg, len, addr_len);
++	}
  
-+	if (is_tcp)
-+		skb_pull(skb, skb_transport_offset(skb) + tcp_hdrlen(skb));
-+
- 	err = sock_queue_err_skb(sk, skb);
- 
- 	if (err)
+ 	if (sk_can_busy_loop(sk) && skb_queue_empty(&sk->sk_receive_queue) &&
+ 	    (sk->sk_state == TCP_ESTABLISHED))
 -- 
 2.1.0.rc2.206.gedb03e5
