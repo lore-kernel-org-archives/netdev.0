@@ -1,14 +1,17 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v4 41/42] vhost/scsi: partial virtio 1.0 support
-Date: Tue, 25 Nov 2014 18:44:22 +0200
-Message-ID: <1416933600-21398-42-git-send-email-mst@redhat.com>
+Subject: [PATCH v4 42/42] af_packet: virtio 1.0 stubs
+Date: Tue, 25 Nov 2014 18:44:26 +0200
+Message-ID: <1416933600-21398-43-git-send-email-mst@redhat.com>
 References: <1416933600-21398-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
 	rusty@au1.ibm.com, nab@linux-iscsi.org, pbonzini@redhat.com,
-	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org
+	Daniel Borkmann <dborkman@redhat.com>,
+	Atzm Watanabe <atzm@stratosphere.co.jp>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
@@ -16,95 +19,97 @@ In-Reply-To: <1416933600-21398-1-git-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Include all endian conversions as required by virtio 1.0.
-Don't set virtio 1.0 yet, since that requires ANY_LAYOUT
-which we don't yet support.
+This merely fixes sparse warnings, without actually
+adding support for the new APIs.
+
+Still working out the best way to enable the new
+functionality.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/vhost/scsi.c | 22 ++++++++++++----------
- 1 file changed, 12 insertions(+), 10 deletions(-)
+ net/packet/af_packet.c | 35 ++++++++++++++++++++++-------------
+ 1 file changed, 22 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
-index a17f118..01c01cb 100644
---- a/drivers/vhost/scsi.c
-+++ b/drivers/vhost/scsi.c
-@@ -168,6 +168,7 @@ enum {
- 	VHOST_SCSI_VQ_IO = 2,
- };
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 87d20f4..d4a877e 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2444,13 +2444,15 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 			goto out_unlock;
  
-+/* Note: can't set VIRTIO_F_VERSION_1 yet, since that implies ANY_LAYOUT. */
- enum {
- 	VHOST_SCSI_FEATURES = VHOST_FEATURES | (1ULL << VIRTIO_SCSI_F_HOTPLUG) |
- 					       (1ULL << VIRTIO_SCSI_F_T10_PI)
-@@ -577,8 +578,8 @@ tcm_vhost_allocate_evt(struct vhost_scsi *vs,
- 		return NULL;
- 	}
+ 		if ((vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
+-		    (vnet_hdr.csum_start + vnet_hdr.csum_offset + 2 >
+-		      vnet_hdr.hdr_len))
+-			vnet_hdr.hdr_len = vnet_hdr.csum_start +
+-						 vnet_hdr.csum_offset + 2;
++		    (__virtio16_to_cpu(false, vnet_hdr.csum_start) +
++		     __virtio16_to_cpu(false, vnet_hdr.csum_offset) + 2 >
++		      __virtio16_to_cpu(false, vnet_hdr.hdr_len)))
++			vnet_hdr.hdr_len = __cpu_to_virtio16(false,
++				 __virtio16_to_cpu(false, vnet_hdr.csum_start) +
++				__virtio16_to_cpu(false, vnet_hdr.csum_offset) + 2);
  
--	evt->event.event = event;
--	evt->event.reason = reason;
-+	evt->event.event = cpu_to_vhost32(vq, event);
-+	evt->event.reason = cpu_to_vhost32(vq, reason);
- 	vs->vs_events_nr++;
+ 		err = -EINVAL;
+-		if (vnet_hdr.hdr_len > len)
++		if (__virtio16_to_cpu(false, vnet_hdr.hdr_len) > len)
+ 			goto out_unlock;
  
- 	return evt;
-@@ -636,7 +637,7 @@ again:
- 	}
+ 		if (vnet_hdr.gso_type != VIRTIO_NET_HDR_GSO_NONE) {
+@@ -2492,7 +2494,8 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 	err = -ENOBUFS;
+ 	hlen = LL_RESERVED_SPACE(dev);
+ 	tlen = dev->needed_tailroom;
+-	skb = packet_alloc_skb(sk, hlen + tlen, hlen, len, vnet_hdr.hdr_len,
++	skb = packet_alloc_skb(sk, hlen + tlen, hlen, len,
++			       __virtio16_to_cpu(false, vnet_hdr.hdr_len),
+ 			       msg->msg_flags & MSG_DONTWAIT, &err);
+ 	if (skb == NULL)
+ 		goto out_unlock;
+@@ -2534,14 +2537,16 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
  
- 	if (vs->vs_events_missed) {
--		event->event |= VIRTIO_SCSI_T_EVENTS_MISSED;
-+		event->event |= cpu_to_vhost32(vq, VIRTIO_SCSI_T_EVENTS_MISSED);
- 		vs->vs_events_missed = false;
- 	}
- 
-@@ -695,12 +696,13 @@ static void vhost_scsi_complete_cmd_work(struct vhost_work *work)
- 			cmd, se_cmd->residual_count, se_cmd->scsi_status);
- 
- 		memset(&v_rsp, 0, sizeof(v_rsp));
--		v_rsp.resid = se_cmd->residual_count;
-+		v_rsp.resid = cpu_to_vhost32(cmd->tvc_vq, se_cmd->residual_count);
- 		/* TODO is status_qualifier field needed? */
- 		v_rsp.status = se_cmd->scsi_status;
--		v_rsp.sense_len = se_cmd->scsi_sense_length;
-+		v_rsp.sense_len = cpu_to_vhost32(cmd->tvc_vq,
-+						 se_cmd->scsi_sense_length);
- 		memcpy(v_rsp.sense, cmd->tvc_sense_buf,
--		       v_rsp.sense_len);
-+		       se_cmd->scsi_sense_length);
- 		ret = copy_to_user(cmd->tvc_resp, &v_rsp, sizeof(v_rsp));
- 		if (likely(ret == 0)) {
- 			struct vhost_scsi_virtqueue *q;
-@@ -1095,14 +1097,14 @@ vhost_scsi_handle_vq(struct vhost_scsi *vs, struct vhost_virtqueue *vq)
- 						", but wrong data_direction\n");
- 					goto err_cmd;
- 				}
--				prot_bytes = v_req_pi.pi_bytesout;
-+				prot_bytes = vhost32_to_cpu(vq, v_req_pi.pi_bytesout);
- 			} else if (v_req_pi.pi_bytesin) {
- 				if (data_direction != DMA_FROM_DEVICE) {
- 					vq_err(vq, "Received non zero di_pi_niov"
- 						", but wrong data_direction\n");
- 					goto err_cmd;
- 				}
--				prot_bytes = v_req_pi.pi_bytesin;
-+				prot_bytes = vhost32_to_cpu(vq, v_req_pi.pi_bytesin);
+ 	if (po->has_vnet_hdr) {
+ 		if (vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
+-			if (!skb_partial_csum_set(skb, vnet_hdr.csum_start,
+-						  vnet_hdr.csum_offset)) {
++			u16 s = __virtio16_to_cpu(false, vnet_hdr.csum_start);
++			u16 o = __virtio16_to_cpu(false, vnet_hdr.csum_offset);
++			if (!skb_partial_csum_set(skb, s, o)) {
+ 				err = -EINVAL;
+ 				goto out_free;
  			}
- 			if (prot_bytes) {
- 				int tmp = 0;
-@@ -1117,12 +1119,12 @@ vhost_scsi_handle_vq(struct vhost_scsi *vs, struct vhost_virtqueue *vq)
- 				data_first += prot_niov;
- 				data_niov = data_num - prot_niov;
- 			}
--			tag = v_req_pi.tag;
-+			tag = vhost64_to_cpu(vq, v_req_pi.tag);
- 			task_attr = v_req_pi.task_attr;
- 			cdb = &v_req_pi.cdb[0];
- 			lun = ((v_req_pi.lun[2] << 8) | v_req_pi.lun[3]) & 0x3FFF;
- 		} else {
--			tag = v_req.tag;
-+			tag = vhost64_to_cpu(vq, v_req.tag);
- 			task_attr = v_req.task_attr;
- 			cdb = &v_req.cdb[0];
- 			lun = ((v_req.lun[2] << 8) | v_req.lun[3]) & 0x3FFF;
+ 		}
+ 
+-		skb_shinfo(skb)->gso_size = vnet_hdr.gso_size;
++		skb_shinfo(skb)->gso_size =
++			__virtio16_to_cpu(false, vnet_hdr.gso_size);
+ 		skb_shinfo(skb)->gso_type = gso_type;
+ 
+ 		/* Header must be checked, and gso_segs computed. */
+@@ -2912,8 +2917,10 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 			struct skb_shared_info *sinfo = skb_shinfo(skb);
+ 
+ 			/* This is a hint as to how much should be linear. */
+-			vnet_hdr.hdr_len = skb_headlen(skb);
+-			vnet_hdr.gso_size = sinfo->gso_size;
++			vnet_hdr.hdr_len =
++				__cpu_to_virtio16(false, skb_headlen(skb));
++			vnet_hdr.gso_size =
++				__cpu_to_virtio16(false, sinfo->gso_size);
+ 			if (sinfo->gso_type & SKB_GSO_TCPV4)
+ 				vnet_hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+ 			else if (sinfo->gso_type & SKB_GSO_TCPV6)
+@@ -2931,8 +2938,10 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 
+ 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 			vnet_hdr.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+-			vnet_hdr.csum_start = skb_checksum_start_offset(skb);
+-			vnet_hdr.csum_offset = skb->csum_offset;
++			vnet_hdr.csum_start = __cpu_to_virtio16(false,
++					  skb_checksum_start_offset(skb));
++			vnet_hdr.csum_offset = __cpu_to_virtio16(false,
++							 skb->csum_offset);
+ 		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+ 			vnet_hdr.flags = VIRTIO_NET_HDR_F_DATA_VALID;
+ 		} /* else everything is zero */
 -- 
 MST
