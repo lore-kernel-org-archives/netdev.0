@@ -1,81 +1,111 @@
 From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net-next 0/3] sch_fq: segment too big GSO packets
-Date: Tue, 25 Nov 2014 21:24:49 +0800
-Message-ID: <1416921892-4756-1-git-send-email-yangyingliang@huawei.com>
+Subject: [PATCH net-next 1/3] sch_fq: add skb_is_too_big() helper
+Date: Tue, 25 Nov 2014 21:24:50 +0800
+Message-ID: <1416921892-4756-2-git-send-email-yangyingliang@huawei.com>
+References: <1416921892-4756-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <eric.dumazet@gmail.com>, <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:3086 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754823AbaKYNZR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 08:25:17 -0500
+Received: from szxga01-in.huawei.com ([119.145.14.64]:54740 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753016AbaKYNZK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 08:25:10 -0500
+In-Reply-To: <1416921892-4756-1-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As the TODO says: "maybe segment the too big skb, as in commit
-e43ac79a4bc ("sch_tbf: segment too big GSO packets")" in fq_dequeue(),
-this patchset segment the GSO packets that are too big.
+Add skb_is_too_big() helper to get the cost time of sending packets
+and check if it is more than 125ms.
 
-Sometimes a GSO packet is too big at a low rate. This patchset check
-the packet before it's enqueued, if the GSO packet cost more than 125ms
-to send, it will be segmented, then enqueue the segments one by one.
-Because of the segment, the qlen may be bigger than limit in some condition.
-My way is that let the packet in if qlen is smaller than limit before
-it's segmented.
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+---
+ net/sched/sch_fq.c | 57 +++++++++++++++++++++++++++++++++---------------------
+ 1 file changed, 35 insertions(+), 22 deletions(-)
 
-Test way:
- Step 1.
- # tc qdisc add dev eth4 root handle 1: htb default 1
- # tc class add dev eth4 parent 1:0 classid 1:1 htb rate 100mbit ceil 100mbit
- # tc qdisc add dev eth4 parent 1:1 handle 11: fq maxrate 180kbit quantum 1000
-
- Step 2. use iperf to send packets
-
- Step 3. # tc -s -d qdisc show dev eth4
- There is no too long packets and there are some packets to send in queue:
-
-qdisc htb 1: root refcnt 2 r2q 10 default 1 direct_packets_stat 0 ver 3.17 direct_qlen 1000
- Sent 1273136 bytes 1158 pkt (dropped 0, overlimits 1544 requeues 0) 
- backlog 0b 54p requeues 0 
-qdisc fq 11: parent 1:1 limit 10000p flow_limit 100p buckets 1024 quantum 1000 initial_quantum 15140 maxrate 180Kbit 
- Sent 1273136 bytes 1158 pkt (dropped 0, overlimits 0 requeues 0) 
- backlog 81756b 54p requeues 0 
-  4 flows (3 inactive, 1 throttled), next packet delay 2015043 ns
-  0 gc, 2 highprio, 792 throttled
-
- Several seconds later after stopping iperf, show qdisc again, all packets has been sent:
-
-qdisc htb 1: root refcnt 2 r2q 10 default 1 direct_packets_stat 0 ver 3.17 direct_qlen 1000
- Sent 2800098 bytes 2359 pkt (dropped 0, overlimits 3166 requeues 0) 
- backlog 0b 0p requeues 0 
-qdisc fq 11: parent 1:1 limit 10000p flow_limit 100p buckets 1024 quantum 1000 initial_quantum 15140 maxrate 180Kbit 
- Sent 2800098 bytes 2359 pkt (dropped 0, overlimits 0 requeues 0) 
- backlog 0b 0p requeues 0 
-  5 flows (3 inactive, 0 throttled)
-  0 gc, 6 highprio, 1782 throttled
-
- Step 4. Without this patchset, do step1-2, then show the qdisc,
- there are some too long packets:
-
-qdisc htb 1: root refcnt 2 r2q 10 default 1 direct_packets_stat 0 ver 3.17 direct_qlen 1000
- Sent 1897859 bytes 2674 pkt (dropped 0, overlimits 1362 requeues 0) 
- backlog 0b 36p requeues 0 
-qdisc fq 11: parent 1:1 limit 10000p flow_limit 100p buckets 1024 quantum 1000 initial_quantum 15140 maxrate 180Kbit 
- Sent 1897859 bytes 2674 pkt (dropped 0, overlimits 0 requeues 0) 
- backlog 109008b 36p requeues 0 
-  9 flows (8 inactive, 1 throttled), next packet delay 21671844 ns
-  0 gc, 82 highprio, 568 throttled
-  513 _too long pkts_, 0 alloc errors
-
-Yang Yingliang (3):
-  sch_fq: add skb_is_too_big() helper
-  sch_fq: add __fq_enqueue() helper
-  sch_fq: segment too big GSO packets
-
- net/sched/sch_fq.c | 112 ++++++++++++++++++++++++++++++++++++-----------------
- 1 file changed, 77 insertions(+), 35 deletions(-)
-
+diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
+index cbd7e1f..36a22e0 100644
+--- a/net/sched/sch_fq.c
++++ b/net/sched/sch_fq.c
+@@ -304,6 +304,37 @@ static bool skb_is_retransmit(struct sk_buff *skb)
+ 	return false;
+ }
+ 
++static bool skb_is_too_big(struct sk_buff *skb, struct fq_sched_data *q, u64 *cost_time)
++{
++	u32 rate = q->flow_max_rate;
++
++	if (skb->sk && skb->sk->sk_state != TCP_TIME_WAIT)
++		rate = min(skb->sk->sk_pacing_rate, q->flow_max_rate);
++
++	if (cost_time)
++		*cost_time = 0;
++
++	if (rate != ~0U) {
++		u32 plen = max(qdisc_pkt_len(skb), q->quantum);
++		u64 len = (u64)plen * NSEC_PER_SEC;
++
++		if (likely(rate))
++			do_div(len, rate);
++		if (cost_time)
++			*cost_time = len;
++		/* Since socket rate can change later,
++		 * clamp the delay to 125 ms.
++		 */
++		if (unlikely(len > 125 * NSEC_PER_MSEC)) {
++			if (cost_time)
++				*cost_time = 125 * NSEC_PER_MSEC;
++			return true;
++		}
++	}
++
++	return false;
++}
++
+ /* add skb to flow queue
+  * flow queue is a linked list, kind of FIFO, except for TCP retransmits
+  * We special case tcp retransmits to be transmitted before other packets.
+@@ -418,7 +449,7 @@ static struct sk_buff *fq_dequeue(struct Qdisc *sch)
+ 	struct fq_flow_head *head;
+ 	struct sk_buff *skb;
+ 	struct fq_flow *f;
+-	u32 rate;
++	u64 cost_time;
+ 
+ 	skb = fq_dequeue_head(sch, &q->internal);
+ 	if (skb)
+@@ -470,28 +501,10 @@ begin:
+ 	if (f->credit > 0 || !q->rate_enable)
+ 		goto out;
+ 
+-	rate = q->flow_max_rate;
+-	if (skb->sk && skb->sk->sk_state != TCP_TIME_WAIT)
+-		rate = min(skb->sk->sk_pacing_rate, rate);
++	if (skb_is_too_big(skb, q, &cost_time))
++		q->stat_pkts_too_long++;
++	f->time_next_packet = now + cost_time;
+ 
+-	if (rate != ~0U) {
+-		u32 plen = max(qdisc_pkt_len(skb), q->quantum);
+-		u64 len = (u64)plen * NSEC_PER_SEC;
+-
+-		if (likely(rate))
+-			do_div(len, rate);
+-		/* Since socket rate can change later,
+-		 * clamp the delay to 125 ms.
+-		 * TODO: maybe segment the too big skb, as in commit
+-		 * e43ac79a4bc ("sch_tbf: segment too big GSO packets")
+-		 */
+-		if (unlikely(len > 125 * NSEC_PER_MSEC)) {
+-			len = 125 * NSEC_PER_MSEC;
+-			q->stat_pkts_too_long++;
+-		}
+-
+-		f->time_next_packet = now + len;
+-	}
+ out:
+ 	qdisc_bstats_update(sch, skb);
+ 	return skb;
 -- 
 1.8.0
