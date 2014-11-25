@@ -1,7 +1,7 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH v2 02/17] new helper: memcpy_from_msg()
-Date: Tue, 25 Nov 2014 14:02:16 +0000
-Message-ID: <1416924151-28698-2-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH v2 08/17] {macvtap,tun}_get_user(): switch to iov_iter
+Date: Tue, 25 Nov 2014 14:02:22 +0000
+Message-ID: <1416924151-28698-8-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20141125024018.GH7996@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
@@ -12,639 +12,273 @@ List-Id: netdev.vger.kernel.org
 
 From: Al Viro <viro@zeniv.linux.org.uk>
 
+allows to switch macvtap and tun from ->aio_write() to ->write_iter()
+
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- crypto/algif_skcipher.c     |   10 +++++-----
- drivers/isdn/mISDN/socket.c |    2 +-
- drivers/net/ppp/pppoe.c     |    2 +-
- include/linux/skbuff.h      |    5 +++++
- include/net/sctp/sm.h       |    2 +-
- net/appletalk/ddp.c         |    2 +-
- net/ax25/af_ax25.c          |    2 +-
- net/bluetooth/hci_sock.c    |    2 +-
- net/bluetooth/mgmt.c        |    2 +-
- net/bluetooth/rfcomm/sock.c |    2 +-
- net/bluetooth/sco.c         |    2 +-
- net/caif/caif_socket.c      |    4 ++--
- net/can/bcm.c               |   19 ++++++++-----------
- net/can/raw.c               |    2 +-
- net/dccp/proto.c            |    2 +-
- net/decnet/af_decnet.c      |    2 +-
- net/ieee802154/dgram.c      |    2 +-
- net/ieee802154/raw.c        |    2 +-
- net/ipv4/ping.c             |    2 +-
- net/ipv4/tcp_input.c        |    2 +-
- net/irda/af_irda.c          |    6 +++---
- net/iucv/af_iucv.c          |    2 +-
- net/key/af_key.c            |    2 +-
- net/l2tp/l2tp_ip.c          |    2 +-
- net/l2tp/l2tp_ppp.c         |    3 +--
- net/llc/af_llc.c            |    2 +-
- net/netlink/af_netlink.c    |    2 +-
- net/netrom/af_netrom.c      |    2 +-
- net/nfc/llcp_commands.c     |    4 ++--
- net/nfc/rawsock.c           |    2 +-
- net/packet/af_packet.c      |    5 ++---
- net/phonet/datagram.c       |    2 +-
- net/phonet/pep.c            |    2 +-
- net/rose/af_rose.c          |    2 +-
- net/sctp/sm_make_chunk.c    |    4 ++--
- net/x25/af_x25.c            |    2 +-
- 36 files changed, 57 insertions(+), 57 deletions(-)
+ drivers/net/macvtap.c |   44 +++++++++++++++++++++-----------------------
+ drivers/net/tun.c     |   44 ++++++++++++++++++++++++--------------------
+ 2 files changed, 45 insertions(+), 43 deletions(-)
 
-diff --git a/crypto/algif_skcipher.c b/crypto/algif_skcipher.c
-index 83187f4..c3b482b 100644
---- a/crypto/algif_skcipher.c
-+++ b/crypto/algif_skcipher.c
-@@ -298,9 +298,9 @@ static int skcipher_sendmsg(struct kiocb *unused, struct socket *sock,
- 			len = min_t(unsigned long, len,
- 				    PAGE_SIZE - sg->offset - sg->length);
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 8f80045..22b4cf2 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -640,12 +640,12 @@ static void macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
  
--			err = memcpy_fromiovec(page_address(sg_page(sg)) +
--					       sg->offset + sg->length,
--					       msg->msg_iov, len);
-+			err = memcpy_from_msg(page_address(sg_page(sg)) +
-+					      sg->offset + sg->length,
-+					      msg, len);
- 			if (err)
- 				goto unlock;
+ /* Get packet from user space buffer */
+ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+-				const struct iovec *iv, unsigned long total_len,
+-				size_t count, int noblock)
++				struct iov_iter *from, int noblock)
+ {
+ 	int good_linear = SKB_MAX_HEAD(NET_IP_ALIGN);
+ 	struct sk_buff *skb;
+ 	struct macvlan_dev *vlan;
++	unsigned long total_len = iov_iter_count(from);
+ 	unsigned long len = total_len;
+ 	int err;
+ 	struct virtio_net_hdr vnet_hdr = { 0 };
+@@ -653,6 +653,7 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 	int copylen = 0;
+ 	bool zerocopy = false;
+ 	size_t linear;
++	ssize_t n;
  
-@@ -337,8 +337,8 @@ static int skcipher_sendmsg(struct kiocb *unused, struct socket *sock,
- 			if (!sg_page(sg + i))
- 				goto unlock;
- 
--			err = memcpy_fromiovec(page_address(sg_page(sg + i)),
--					       msg->msg_iov, plen);
-+			err = memcpy_from_msg(page_address(sg_page(sg + i)),
-+					      msg, plen);
- 			if (err) {
- 				__free_page(sg_page(sg + i));
- 				sg_assign_page(sg + i, NULL);
-diff --git a/drivers/isdn/mISDN/socket.c b/drivers/isdn/mISDN/socket.c
-index dcbd858..84b3592 100644
---- a/drivers/isdn/mISDN/socket.c
-+++ b/drivers/isdn/mISDN/socket.c
-@@ -203,7 +203,7 @@ mISDN_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	if (!skb)
- 		goto done;
- 
--	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
-+	if (memcpy_from_msg(skb_put(skb, len), msg, len)) {
- 		err = -EFAULT;
- 		goto done;
- 	}
-diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
-index 443cbbf..d2408a5 100644
---- a/drivers/net/ppp/pppoe.c
-+++ b/drivers/net/ppp/pppoe.c
-@@ -869,7 +869,7 @@ static int pppoe_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	ph = (struct pppoe_hdr *)skb_put(skb, total_len + sizeof(struct pppoe_hdr));
- 	start = (char *)&ph->tag[0];
- 
--	error = memcpy_fromiovec(start, m->msg_iov, total_len);
-+	error = memcpy_from_msg(start, m, total_len);
- 	if (error < 0) {
- 		kfree_skb(skb);
- 		goto end;
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index cbe4b20..97dc5f8 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2687,6 +2687,11 @@ int skb_ensure_writable(struct sk_buff *skb, int write_len);
- int skb_vlan_pop(struct sk_buff *skb);
- int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci);
- 
-+static inline int memcpy_from_msg(void *data, struct msghdr *msg, int len)
-+{
-+	return memcpy_fromiovec(data, msg->msg_iov, len);
-+}
-+
- struct skb_checksum_ops {
- 	__wsum (*update)(const void *mem, int len, __wsum wsum);
- 	__wsum (*combine)(__wsum csum, __wsum csum2, int offset, int len);
-diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
-index 72a31db..487ef34 100644
---- a/include/net/sctp/sm.h
-+++ b/include/net/sctp/sm.h
-@@ -219,7 +219,7 @@ struct sctp_chunk *sctp_make_abort_no_data(const struct sctp_association *,
- 				      const struct sctp_chunk *,
- 				      __u32 tsn);
- struct sctp_chunk *sctp_make_abort_user(const struct sctp_association *,
--					const struct msghdr *, size_t msg_len);
-+					struct msghdr *, size_t msg_len);
- struct sctp_chunk *sctp_make_abort_violation(const struct sctp_association *,
- 				   const struct sctp_chunk *,
- 				   const __u8 *,
-diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
-index 425942d..0d0766e 100644
---- a/net/appletalk/ddp.c
-+++ b/net/appletalk/ddp.c
-@@ -1659,7 +1659,7 @@ static int atalk_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr
- 
- 	SOCK_DEBUG(sk, "SK %p: Copy user data (%Zd bytes).\n", sk, len);
- 
--	err = memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len);
-+	err = memcpy_from_msg(skb_put(skb, len), msg, len);
- 	if (err) {
- 		kfree_skb(skb);
- 		err = -EFAULT;
-diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
-index f4f835e19..ca049a7 100644
---- a/net/ax25/af_ax25.c
-+++ b/net/ax25/af_ax25.c
-@@ -1549,7 +1549,7 @@ static int ax25_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	skb_reserve(skb, size - len);
- 
- 	/* User data follows immediately after the AX.25 data */
--	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
-+	if (memcpy_from_msg(skb_put(skb, len), msg, len)) {
- 		err = -EFAULT;
- 		kfree_skb(skb);
- 		goto out;
-diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
-index 5e2cd25..2c245fd 100644
---- a/net/bluetooth/hci_sock.c
-+++ b/net/bluetooth/hci_sock.c
-@@ -947,7 +947,7 @@ static int hci_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	if (!skb)
- 		goto done;
- 
--	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
-+	if (memcpy_from_msg(skb_put(skb, len), msg, len)) {
- 		err = -EFAULT;
- 		goto drop;
- 	}
-diff --git a/net/bluetooth/mgmt.c b/net/bluetooth/mgmt.c
-index cbeef5f..f3e4a16 100644
---- a/net/bluetooth/mgmt.c
-+++ b/net/bluetooth/mgmt.c
-@@ -5767,7 +5767,7 @@ int mgmt_control(struct sock *sk, struct msghdr *msg, size_t msglen)
- 	if (!buf)
- 		return -ENOMEM;
- 
--	if (memcpy_fromiovec(buf, msg->msg_iov, msglen)) {
-+	if (memcpy_from_msg(buf, msg, msglen)) {
- 		err = -EFAULT;
- 		goto done;
- 	}
-diff --git a/net/bluetooth/rfcomm/sock.c b/net/bluetooth/rfcomm/sock.c
-index 8bbbb5e..2348176 100644
---- a/net/bluetooth/rfcomm/sock.c
-+++ b/net/bluetooth/rfcomm/sock.c
-@@ -588,7 +588,7 @@ static int rfcomm_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
- 		}
- 		skb_reserve(skb, RFCOMM_SKB_HEAD_RESERVE);
- 
--		err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
-+		err = memcpy_from_msg(skb_put(skb, size), msg, size);
- 		if (err) {
- 			kfree_skb(skb);
- 			if (sent == 0)
-diff --git a/net/bluetooth/sco.c b/net/bluetooth/sco.c
-index 7ee9e4a..30e5ea3 100644
---- a/net/bluetooth/sco.c
-+++ b/net/bluetooth/sco.c
-@@ -285,7 +285,7 @@ static int sco_send_frame(struct sock *sk, struct msghdr *msg, int len)
- 	if (!skb)
- 		return err;
- 
--	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
-+	if (memcpy_from_msg(skb_put(skb, len), msg, len)) {
- 		kfree_skb(skb);
- 		return -EFAULT;
- 	}
-diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
-index fbcd156..230f140 100644
---- a/net/caif/caif_socket.c
-+++ b/net/caif/caif_socket.c
-@@ -566,7 +566,7 @@ static int caif_seqpkt_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 
- 	skb_reserve(skb, cf_sk->headroom);
- 
--	ret = memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len);
-+	ret = memcpy_from_msg(skb_put(skb, len), msg, len);
- 
- 	if (ret)
- 		goto err;
-@@ -641,7 +641,7 @@ static int caif_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 		 */
- 		size = min_t(int, size, skb_tailroom(skb));
- 
--		err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
-+		err = memcpy_from_msg(skb_put(skb, size), msg, size);
- 		if (err) {
- 			kfree_skb(skb);
- 			goto out_err;
-diff --git a/net/can/bcm.c b/net/can/bcm.c
-index dcb75c0..b9a1f71 100644
---- a/net/can/bcm.c
-+++ b/net/can/bcm.c
-@@ -858,8 +858,7 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
- 
- 		/* update can_frames content */
- 		for (i = 0; i < msg_head->nframes; i++) {
--			err = memcpy_fromiovec((u8 *)&op->frames[i],
--					       msg->msg_iov, CFSIZ);
-+			err = memcpy_from_msg((u8 *)&op->frames[i], msg, CFSIZ);
- 
- 			if (op->frames[i].can_dlc > 8)
- 				err = -EINVAL;
-@@ -894,8 +893,7 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
- 			op->frames = &op->sframe;
- 
- 		for (i = 0; i < msg_head->nframes; i++) {
--			err = memcpy_fromiovec((u8 *)&op->frames[i],
--					       msg->msg_iov, CFSIZ);
-+			err = memcpy_from_msg((u8 *)&op->frames[i], msg, CFSIZ);
- 
- 			if (op->frames[i].can_dlc > 8)
- 				err = -EINVAL;
-@@ -1024,9 +1022,8 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
- 
- 		if (msg_head->nframes) {
- 			/* update can_frames content */
--			err = memcpy_fromiovec((u8 *)op->frames,
--					       msg->msg_iov,
--					       msg_head->nframes * CFSIZ);
-+			err = memcpy_from_msg((u8 *)op->frames, msg,
-+					      msg_head->nframes * CFSIZ);
- 			if (err < 0)
- 				return err;
- 
-@@ -1072,8 +1069,8 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
- 		}
- 
- 		if (msg_head->nframes) {
--			err = memcpy_fromiovec((u8 *)op->frames, msg->msg_iov,
--					       msg_head->nframes * CFSIZ);
-+			err = memcpy_from_msg((u8 *)op->frames, msg,
-+					      msg_head->nframes * CFSIZ);
- 			if (err < 0) {
- 				if (op->frames != &op->sframe)
- 					kfree(op->frames);
-@@ -1209,7 +1206,7 @@ static int bcm_tx_send(struct msghdr *msg, int ifindex, struct sock *sk)
- 
- 	can_skb_reserve(skb);
- 
--	err = memcpy_fromiovec(skb_put(skb, CFSIZ), msg->msg_iov, CFSIZ);
-+	err = memcpy_from_msg(skb_put(skb, CFSIZ), msg, CFSIZ);
- 	if (err < 0) {
- 		kfree_skb(skb);
- 		return err;
-@@ -1285,7 +1282,7 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
- 
- 	/* read message head information */
- 
--	ret = memcpy_fromiovec((u8 *)&msg_head, msg->msg_iov, MHSIZ);
-+	ret = memcpy_from_msg((u8 *)&msg_head, msg, MHSIZ);
- 	if (ret < 0)
- 		return ret;
- 
-diff --git a/net/can/raw.c b/net/can/raw.c
-index 081e81f..0e4004f 100644
---- a/net/can/raw.c
-+++ b/net/can/raw.c
-@@ -703,7 +703,7 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	can_skb_reserve(skb);
- 	can_skb_prv(skb)->ifindex = dev->ifindex;
- 
--	err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
-+	err = memcpy_from_msg(skb_put(skb, size), msg, size);
- 	if (err < 0)
- 		goto free_skb;
- 
-diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-index 8e6ae94..19f0387 100644
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -781,7 +781,7 @@ int dccp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		goto out_release;
- 
- 	skb_reserve(skb, sk->sk_prot->max_header);
--	rc = memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len);
-+	rc = memcpy_from_msg(skb_put(skb, len), msg, len);
- 	if (rc != 0)
- 		goto out_discard;
- 
-diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
-index 25733d5..e2e2e3c 100644
---- a/net/decnet/af_decnet.c
-+++ b/net/decnet/af_decnet.c
-@@ -2032,7 +2032,7 @@ static int dn_sendmsg(struct kiocb *iocb, struct socket *sock,
- 
- 		skb_reserve(skb, 64 + DN_MAX_NSP_DATA_HEADER);
- 
--		if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
-+		if (memcpy_from_msg(skb_put(skb, len), msg, len)) {
- 			err = -EFAULT;
- 			goto out;
- 		}
-diff --git a/net/ieee802154/dgram.c b/net/ieee802154/dgram.c
-index b8555ec..2c7a93e 100644
---- a/net/ieee802154/dgram.c
-+++ b/net/ieee802154/dgram.c
-@@ -276,7 +276,7 @@ static int dgram_sendmsg(struct kiocb *iocb, struct sock *sk,
- 	if (err < 0)
- 		goto out_skb;
- 
--	err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
-+	err = memcpy_from_msg(skb_put(skb, size), msg, size);
- 	if (err < 0)
- 		goto out_skb;
- 
-diff --git a/net/ieee802154/raw.c b/net/ieee802154/raw.c
-index 21c3894..61e9d29 100644
---- a/net/ieee802154/raw.c
-+++ b/net/ieee802154/raw.c
-@@ -150,7 +150,7 @@ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk,
- 	skb_reset_mac_header(skb);
- 	skb_reset_network_header(skb);
- 
--	err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
-+	err = memcpy_from_msg(skb_put(skb, size), msg, size);
- 	if (err < 0)
- 		goto out_skb;
- 
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index ce2920f..ef8f6ee 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -660,7 +660,7 @@ int ping_common_sendmsg(int family, struct msghdr *msg, size_t len,
- 	 *	Fetch the ICMP header provided by the userland.
- 	 *	iovec is modified! The ICMP header is consumed.
- 	 */
--	if (memcpy_fromiovec(user_icmph, msg->msg_iov, icmph_len))
-+	if (memcpy_from_msg(user_icmph, msg, icmph_len))
- 		return -EFAULT;
- 
- 	if (family == AF_INET) {
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index d22a31f..69de1a1 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4368,7 +4368,7 @@ int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size)
- 	if (tcp_try_rmem_schedule(sk, skb, skb->truesize))
- 		goto err_free;
- 
--	if (memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size))
-+	if (memcpy_from_msg(skb_put(skb, size), msg, size))
- 		goto err_free;
- 
- 	TCP_SKB_CB(skb)->seq = tcp_sk(sk)->rcv_nxt;
-diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
-index e8c4090..9052462 100644
---- a/net/irda/af_irda.c
-+++ b/net/irda/af_irda.c
-@@ -1319,7 +1319,7 @@ static int irda_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	skb_reserve(skb, self->max_header_size + 16);
- 	skb_reset_transport_header(skb);
- 	skb_put(skb, len);
--	err = memcpy_fromiovec(skb_transport_header(skb), msg->msg_iov, len);
-+	err = memcpy_from_msg(skb_transport_header(skb), msg, len);
- 	if (err) {
- 		kfree_skb(skb);
- 		goto out_err;
-@@ -1569,7 +1569,7 @@ static int irda_sendmsg_dgram(struct kiocb *iocb, struct socket *sock,
- 
- 	pr_debug("%s(), appending user data\n", __func__);
- 	skb_put(skb, len);
--	err = memcpy_fromiovec(skb_transport_header(skb), msg->msg_iov, len);
-+	err = memcpy_from_msg(skb_transport_header(skb), msg, len);
- 	if (err) {
- 		kfree_skb(skb);
- 		goto out;
-@@ -1678,7 +1678,7 @@ static int irda_sendmsg_ultra(struct kiocb *iocb, struct socket *sock,
- 
- 	pr_debug("%s(), appending user data\n", __func__);
- 	skb_put(skb, len);
--	err = memcpy_fromiovec(skb_transport_header(skb), msg->msg_iov, len);
-+	err = memcpy_from_msg(skb_transport_header(skb), msg, len);
- 	if (err) {
- 		kfree_skb(skb);
- 		goto out;
-diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
-index 057b564..1cd3f81 100644
---- a/net/iucv/af_iucv.c
-+++ b/net/iucv/af_iucv.c
-@@ -1122,7 +1122,7 @@ static int iucv_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	}
- 	if (iucv->transport == AF_IUCV_TRANS_HIPER)
- 		skb_reserve(skb, sizeof(struct af_iucv_trans_hdr) + ETH_HLEN);
--	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
-+	if (memcpy_from_msg(skb_put(skb, len), msg, len)) {
- 		err = -EFAULT;
- 		goto fail;
- 	}
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index e588309..f8ac939 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -3611,7 +3611,7 @@ static int pfkey_sendmsg(struct kiocb *kiocb,
- 		goto out;
- 
- 	err = -EFAULT;
--	if (memcpy_fromiovec(skb_put(skb,len), msg->msg_iov, len))
-+	if (memcpy_from_msg(skb_put(skb,len), msg, len))
- 		goto out;
- 
- 	hdr = pfkey_get_base_msg(skb, &err);
-diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
-index a6cc1fe..05dfc8a 100644
---- a/net/l2tp/l2tp_ip.c
-+++ b/net/l2tp/l2tp_ip.c
-@@ -441,7 +441,7 @@ static int l2tp_ip_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *m
- 	*((__be32 *) skb_put(skb, 4)) = 0;
- 
- 	/* Copy user data into skb */
--	rc = memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len);
-+	rc = memcpy_from_msg(skb_put(skb, len), msg, len);
- 	if (rc < 0) {
- 		kfree_skb(skb);
- 		goto error;
-diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-index c559bcd..cc7a828 100644
---- a/net/l2tp/l2tp_ppp.c
-+++ b/net/l2tp/l2tp_ppp.c
-@@ -346,8 +346,7 @@ static int pppol2tp_sendmsg(struct kiocb *iocb, struct socket *sock, struct msgh
- 	skb_put(skb, 2);
- 
- 	/* Copy user data into skb */
--	error = memcpy_fromiovec(skb_put(skb, total_len), m->msg_iov,
--				 total_len);
-+	error = memcpy_from_msg(skb_put(skb, total_len), m, total_len);
- 	if (error < 0) {
- 		kfree_skb(skb);
- 		goto error_put_sess_tun;
-diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
-index af662669..2c0b83c 100644
---- a/net/llc/af_llc.c
-+++ b/net/llc/af_llc.c
-@@ -921,7 +921,7 @@ static int llc_ui_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	skb->dev      = llc->dev;
- 	skb->protocol = llc_proto_type(addr->sllc_arphrd);
- 	skb_reserve(skb, hdrlen);
--	rc = memcpy_fromiovec(skb_put(skb, copied), msg->msg_iov, copied);
-+	rc = memcpy_from_msg(skb_put(skb, copied), msg, copied);
- 	if (rc)
- 		goto out;
- 	if (sk->sk_type == SOCK_DGRAM || addr->sllc_ua) {
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index e1aad6e..63aa5c8 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -2325,7 +2325,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	NETLINK_CB(skb).flags	= netlink_skb_flags;
- 
- 	err = -EFAULT;
--	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
-+	if (memcpy_from_msg(skb_put(skb, len), msg, len)) {
- 		kfree_skb(skb);
- 		goto out;
- 	}
-diff --git a/net/netrom/af_netrom.c b/net/netrom/af_netrom.c
-index 7e13f6a..69f1d5e 100644
---- a/net/netrom/af_netrom.c
-+++ b/net/netrom/af_netrom.c
-@@ -1113,7 +1113,7 @@ static int nr_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	skb_put(skb, len);
- 
- 	/* User data follows immediately after the NET/ROM transport header */
--	if (memcpy_fromiovec(skb_transport_header(skb), msg->msg_iov, len)) {
-+	if (memcpy_from_msg(skb_transport_header(skb), msg, len)) {
- 		kfree_skb(skb);
- 		err = -EFAULT;
- 		goto out;
-diff --git a/net/nfc/llcp_commands.c b/net/nfc/llcp_commands.c
-index a3ad69a..c4da0c2 100644
---- a/net/nfc/llcp_commands.c
-+++ b/net/nfc/llcp_commands.c
-@@ -665,7 +665,7 @@ int nfc_llcp_send_i_frame(struct nfc_llcp_sock *sock,
- 	if (msg_data == NULL)
- 		return -ENOMEM;
- 
--	if (memcpy_fromiovec(msg_data, msg->msg_iov, len)) {
-+	if (memcpy_from_msg(msg_data, msg, len)) {
- 		kfree(msg_data);
- 		return -EFAULT;
- 	}
-@@ -731,7 +731,7 @@ int nfc_llcp_send_ui_frame(struct nfc_llcp_sock *sock, u8 ssap, u8 dsap,
- 	if (msg_data == NULL)
- 		return -ENOMEM;
- 
--	if (memcpy_fromiovec(msg_data, msg->msg_iov, len)) {
-+	if (memcpy_from_msg(msg_data, msg, len)) {
- 		kfree(msg_data);
- 		return -EFAULT;
- 	}
-diff --git a/net/nfc/rawsock.c b/net/nfc/rawsock.c
-index 9d7d2b7..373e138 100644
---- a/net/nfc/rawsock.c
-+++ b/net/nfc/rawsock.c
-@@ -231,7 +231,7 @@ static int rawsock_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	if (skb == NULL)
- 		return rc;
- 
--	rc = memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len);
-+	rc = memcpy_from_msg(skb_put(skb, len), msg, len);
- 	if (rc < 0) {
- 		kfree_skb(skb);
- 		return rc;
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 58af5802..07ac950 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1676,7 +1676,7 @@ retry:
- 			if (len < hhlen)
- 				skb_reset_network_header(skb);
- 		}
--		err = memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len);
-+		err = memcpy_from_msg(skb_put(skb, len), msg, len);
- 		if (err)
- 			goto out_free;
- 		goto retry;
-@@ -2446,8 +2446,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
- 
+ 	if (q->flags & IFF_VNET_HDR) {
+ 		vnet_hdr_len = q->vnet_hdr_sz;
+@@ -662,10 +663,11 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 			goto err;
  		len -= vnet_hdr_len;
  
--		err = memcpy_fromiovec((void *)&vnet_hdr, msg->msg_iov,
--				       vnet_hdr_len);
-+		err = memcpy_from_msg((void *)&vnet_hdr, msg, vnet_hdr_len);
- 		if (err < 0)
- 			goto out_unlock;
+-		err = memcpy_fromiovecend((void *)&vnet_hdr, iv, 0,
+-					   sizeof(vnet_hdr));
+-		if (err < 0)
++		err = -EFAULT;
++		n = copy_from_iter(&vnet_hdr, sizeof(vnet_hdr), from);
++		if (n != sizeof(vnet_hdr))
+ 			goto err;
++		iov_iter_advance(from, vnet_hdr_len - sizeof(vnet_hdr));
+ 		if ((vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
+ 		     vnet_hdr.csum_start + vnet_hdr.csum_offset + 2 >
+ 							vnet_hdr.hdr_len)
+@@ -680,17 +682,16 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 	if (unlikely(len < ETH_HLEN))
+ 		goto err;
  
-diff --git a/net/phonet/datagram.c b/net/phonet/datagram.c
-index 0918bc2..26054b4 100644
---- a/net/phonet/datagram.c
-+++ b/net/phonet/datagram.c
-@@ -109,7 +109,7 @@ static int pn_sendmsg(struct kiocb *iocb, struct sock *sk,
- 		return err;
- 	skb_reserve(skb, MAX_PHONET_HEADER);
- 
--	err = memcpy_fromiovec((void *)skb_put(skb, len), msg->msg_iov, len);
-+	err = memcpy_from_msg((void *)skb_put(skb, len), msg, len);
- 	if (err < 0) {
- 		kfree_skb(skb);
- 		return err;
-diff --git a/net/phonet/pep.c b/net/phonet/pep.c
-index 9cd069d..5d3f2b7 100644
---- a/net/phonet/pep.c
-+++ b/net/phonet/pep.c
-@@ -1141,7 +1141,7 @@ static int pep_sendmsg(struct kiocb *iocb, struct sock *sk,
- 		return err;
- 
- 	skb_reserve(skb, MAX_PHONET_HEADER + 3 + pn->aligned);
--	err = memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len);
-+	err = memcpy_from_msg(skb_put(skb, len), msg, len);
- 	if (err < 0)
- 		goto outfree;
- 
-diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
-index 9b600c2..43bac7c 100644
---- a/net/rose/af_rose.c
-+++ b/net/rose/af_rose.c
-@@ -1121,7 +1121,7 @@ static int rose_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	skb_reset_transport_header(skb);
- 	skb_put(skb, len);
- 
--	err = memcpy_fromiovec(skb_transport_header(skb), msg->msg_iov, len);
-+	err = memcpy_from_msg(skb_transport_header(skb), msg, len);
- 	if (err) {
- 		kfree_skb(skb);
- 		return err;
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 9f32741..e49bcce 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -1001,7 +1001,7 @@ no_mem:
- 
- /* Helper to create ABORT with a SCTP_ERROR_USER_ABORT error.  */
- struct sctp_chunk *sctp_make_abort_user(const struct sctp_association *asoc,
--					const struct msghdr *msg,
-+					struct msghdr *msg,
- 					size_t paylen)
- {
- 	struct sctp_chunk *retval;
-@@ -1018,7 +1018,7 @@ struct sctp_chunk *sctp_make_abort_user(const struct sctp_association *asoc,
- 		if (!payload)
- 			goto err_payload;
- 
--		err = memcpy_fromiovec(payload, msg->msg_iov, paylen);
-+		err = memcpy_from_msg(payload, msg, paylen);
- 		if (err < 0)
- 			goto err_copy;
+-	err = -EMSGSIZE;
+-	if (unlikely(count > UIO_MAXIOV))
+-		goto err;
+-
+ 	if (m && m->msg_control && sock_flag(&q->sk, SOCK_ZEROCOPY)) {
++		struct iov_iter i;
++
+ 		copylen = vnet_hdr.hdr_len ? vnet_hdr.hdr_len : GOODCOPY_LEN;
+ 		if (copylen > good_linear)
+ 			copylen = good_linear;
+ 		linear = copylen;
+-		if (iov_pages(iv, vnet_hdr_len + copylen, count)
+-		    <= MAX_SKB_FRAGS)
++		i = *from;
++		iov_iter_advance(&i, copylen);
++		if (iov_iter_npages(&i, INT_MAX) <= MAX_SKB_FRAGS)
+ 			zerocopy = true;
  	}
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index 59e785b..d9149b6 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -1170,7 +1170,7 @@ static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	skb_reset_transport_header(skb);
- 	skb_put(skb, len);
  
--	rc = memcpy_fromiovec(skb_transport_header(skb), msg->msg_iov, len);
-+	rc = memcpy_from_msg(skb_transport_header(skb), msg, len);
- 	if (rc)
- 		goto out_kfree_skb;
+@@ -708,10 +709,9 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 		goto err;
  
+ 	if (zerocopy)
+-		err = zerocopy_sg_from_iovec(skb, iv, vnet_hdr_len, count);
++		err = zerocopy_sg_from_iter(skb, from);
+ 	else {
+-		err = skb_copy_datagram_from_iovec(skb, 0, iv, vnet_hdr_len,
+-						   len);
++		err = skb_copy_datagram_from_iter(skb, 0, from, len);
+ 		if (!err && m && m->msg_control) {
+ 			struct ubuf_info *uarg = m->msg_control;
+ 			uarg->callback(uarg, false);
+@@ -764,16 +764,12 @@ err:
+ 	return err;
+ }
+ 
+-static ssize_t macvtap_aio_write(struct kiocb *iocb, const struct iovec *iv,
+-				 unsigned long count, loff_t pos)
++static ssize_t macvtap_write_iter(struct kiocb *iocb, struct iov_iter *from)
+ {
+ 	struct file *file = iocb->ki_filp;
+-	ssize_t result = -ENOLINK;
+ 	struct macvtap_queue *q = file->private_data;
+ 
+-	result = macvtap_get_user(q, NULL, iv, iov_length(iv, count), count,
+-				  file->f_flags & O_NONBLOCK);
+-	return result;
++	return macvtap_get_user(q, NULL, from, file->f_flags & O_NONBLOCK);
+ }
+ 
+ /* Put packet to the user space buffer */
+@@ -1081,8 +1077,9 @@ static const struct file_operations macvtap_fops = {
+ 	.open		= macvtap_open,
+ 	.release	= macvtap_release,
+ 	.read		= new_sync_read,
++	.write		= new_sync_write,
+ 	.read_iter	= macvtap_read_iter,
+-	.aio_write	= macvtap_aio_write,
++	.write_iter	= macvtap_write_iter,
+ 	.poll		= macvtap_poll,
+ 	.llseek		= no_llseek,
+ 	.unlocked_ioctl	= macvtap_ioctl,
+@@ -1095,8 +1092,9 @@ static int macvtap_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 			   struct msghdr *m, size_t total_len)
+ {
+ 	struct macvtap_queue *q = container_of(sock, struct macvtap_queue, sock);
+-	return macvtap_get_user(q, m, m->msg_iov, total_len, m->msg_iovlen,
+-			    m->msg_flags & MSG_DONTWAIT);
++	struct iov_iter from;
++	iov_iter_init(&from, WRITE, m->msg_iov, m->msg_iovlen, total_len);
++	return macvtap_get_user(q, m, &from, m->msg_flags & MSG_DONTWAIT);
+ }
+ 
+ static int macvtap_recvmsg(struct kiocb *iocb, struct socket *sock,
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 405dfdf..4b743c6 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1012,28 +1012,29 @@ static struct sk_buff *tun_alloc_skb(struct tun_file *tfile,
+ 
+ /* Get packet from user space buffer */
+ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+-			    void *msg_control, const struct iovec *iv,
+-			    size_t total_len, size_t count, int noblock)
++			    void *msg_control, struct iov_iter *from,
++			    int noblock)
+ {
+ 	struct tun_pi pi = { 0, cpu_to_be16(ETH_P_IP) };
+ 	struct sk_buff *skb;
++	size_t total_len = iov_iter_count(from);
+ 	size_t len = total_len, align = NET_SKB_PAD, linear;
+ 	struct virtio_net_hdr gso = { 0 };
+ 	int good_linear;
+-	int offset = 0;
+ 	int copylen;
+ 	bool zerocopy = false;
+ 	int err;
+ 	u32 rxhash;
++	ssize_t n;
+ 
+ 	if (!(tun->flags & TUN_NO_PI)) {
+ 		if (len < sizeof(pi))
+ 			return -EINVAL;
+ 		len -= sizeof(pi);
+ 
+-		if (memcpy_fromiovecend((void *)&pi, iv, 0, sizeof(pi)))
++		n = copy_from_iter(&pi, sizeof(pi), from);
++		if (n != sizeof(pi))
+ 			return -EFAULT;
+-		offset += sizeof(pi);
+ 	}
+ 
+ 	if (tun->flags & TUN_VNET_HDR) {
+@@ -1041,7 +1042,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 			return -EINVAL;
+ 		len -= tun->vnet_hdr_sz;
+ 
+-		if (memcpy_fromiovecend((void *)&gso, iv, offset, sizeof(gso)))
++		n = copy_from_iter(&gso, sizeof(gso), from);
++		if (n != sizeof(gso))
+ 			return -EFAULT;
+ 
+ 		if ((gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
+@@ -1050,7 +1052,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 
+ 		if (gso.hdr_len > len)
+ 			return -EINVAL;
+-		offset += tun->vnet_hdr_sz;
++		iov_iter_advance(from, tun->vnet_hdr_sz);
+ 	}
+ 
+ 	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV) {
+@@ -1063,6 +1065,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	good_linear = SKB_MAX_HEAD(align);
+ 
+ 	if (msg_control) {
++		struct iov_iter i = *from;
++
+ 		/* There are 256 bytes to be copied in skb, so there is
+ 		 * enough room for skb expand head in case it is used.
+ 		 * The rest of the buffer is mapped from userspace.
+@@ -1071,7 +1075,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		if (copylen > good_linear)
+ 			copylen = good_linear;
+ 		linear = copylen;
+-		if (iov_pages(iv, offset + copylen, count) <= MAX_SKB_FRAGS)
++		iov_iter_advance(&i, copylen);
++		if (iov_iter_npages(&i, INT_MAX) <= MAX_SKB_FRAGS)
+ 			zerocopy = true;
+ 	}
+ 
+@@ -1091,9 +1096,9 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	}
+ 
+ 	if (zerocopy)
+-		err = zerocopy_sg_from_iovec(skb, iv, offset, count);
++		err = zerocopy_sg_from_iter(skb, from);
+ 	else {
+-		err = skb_copy_datagram_from_iovec(skb, 0, iv, offset, len);
++		err = skb_copy_datagram_from_iter(skb, 0, from, len);
+ 		if (!err && msg_control) {
+ 			struct ubuf_info *uarg = msg_control;
+ 			uarg->callback(uarg, false);
+@@ -1207,8 +1212,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	return total_len;
+ }
+ 
+-static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
+-			      unsigned long count, loff_t pos)
++static ssize_t tun_chr_write_iter(struct kiocb *iocb, struct iov_iter *from)
+ {
+ 	struct file *file = iocb->ki_filp;
+ 	struct tun_struct *tun = tun_get(file);
+@@ -1218,10 +1222,7 @@ static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
+ 	if (!tun)
+ 		return -EBADFD;
+ 
+-	tun_debug(KERN_INFO, tun, "tun_chr_write %ld\n", count);
+-
+-	result = tun_get_user(tun, tfile, NULL, iv, iov_length(iv, count),
+-			      count, file->f_flags & O_NONBLOCK);
++	result = tun_get_user(tun, tfile, NULL, from, file->f_flags & O_NONBLOCK);
+ 
+ 	tun_put(tun);
+ 	return result;
+@@ -1445,11 +1446,14 @@ static int tun_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	int ret;
+ 	struct tun_file *tfile = container_of(sock, struct tun_file, socket);
+ 	struct tun_struct *tun = __tun_get(tfile);
++	struct iov_iter from;
+ 
+ 	if (!tun)
+ 		return -EBADFD;
+-	ret = tun_get_user(tun, tfile, m->msg_control, m->msg_iov, total_len,
+-			   m->msg_iovlen, m->msg_flags & MSG_DONTWAIT);
++
++	iov_iter_init(&from, WRITE, m->msg_iov, m->msg_iovlen, total_len);
++	ret = tun_get_user(tun, tfile, m->msg_control, &from,
++			   m->msg_flags & MSG_DONTWAIT);
+ 	tun_put(tun);
+ 	return ret;
+ }
+@@ -2233,9 +2237,9 @@ static const struct file_operations tun_fops = {
+ 	.owner	= THIS_MODULE,
+ 	.llseek = no_llseek,
+ 	.read  = new_sync_read,
++	.write = new_sync_write,
+ 	.read_iter  = tun_chr_read_iter,
+-	.write = do_sync_write,
+-	.aio_write = tun_chr_aio_write,
++	.write_iter = tun_chr_write_iter,
+ 	.poll	= tun_chr_poll,
+ 	.unlocked_ioctl	= tun_chr_ioctl,
+ #ifdef CONFIG_COMPAT
 -- 
 1.7.10.4
