@@ -1,33 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip_tunnel: the lack of vti_link_ops' dellink() cause
- kernel panic
-Date: Tue, 25 Nov 2014 01:08:39 -0500 (EST)
-Message-ID: <20141125.010839.907618384855778659.davem@davemloft.net>
-References: <1416726251-13088-1-git-send-email-lucien.xin@gmail.com>
-	<54733E3E.7070702@6wind.com>
-	<CADvbK_f31zM4B97r29jZuEE_fRbZY55SEWifjAFWg86wrfVFDg@mail.gmail.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH iproute2] iplink: allow to show ip addresses
+Date: Tue, 25 Nov 2014 07:10:23 +0100
+Message-ID: <20141125061023.GA8819@unicorn.suse.cz>
+References: <1416847337-23661-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
-	steffen.klassert@secunet.com, cwang@twopensource.com
-To: lucien.xin@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58256 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750945AbaKYGIl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 01:08:41 -0500
-In-Reply-To: <CADvbK_f31zM4B97r29jZuEE_fRbZY55SEWifjAFWg86wrfVFDg@mail.gmail.com>
+Received: from cantor2.suse.de ([195.135.220.15]:59853 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750841AbaKYGKZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Nov 2014 01:10:25 -0500
+Content-Disposition: inline
+In-Reply-To: <1416847337-23661-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: lucien xin <lucien.xin@gmail.com>
-Date: Tue, 25 Nov 2014 13:53:15 +0800
-
->> Nitpicking: please, use a tab instead of space to align the '=', like other
->> lines.
+On Mon, Nov 24, 2014 at 05:42:17PM +0100, Nicolas Dichtel wrote:
+> This patch adds a new option (-addresses) to the 'ip link' command so that the
+> user can display link details and IP addresses with the same command.
 > 
-> ok, I will repost it.
+> Example:
+> $ ip -d -a l ls gre1
+> 9: gre1@NONE: <POINTOPOINT,NOARP,UP,LOWER_UP> mtu 1468 qdisc noqueue state UNKNOWN mode DEFAULT group default
+>     link/gre 10.16.0.249 peer 10.16.0.121 promiscuity 0
+>     gre remote 10.16.0.121 local 10.16.0.249 ttl inherit ikey 0.0.0.10 okey 0.0.0.10 icsum ocsum
+>     inet 192.168.0.249 peer 192.168.0.121/32 scope global gre1
+>        valid_lft forever preferred_lft forever
+>     inet6 fe80::5efe:a10:f9/64 scope link
+>        valid_lft forever preferred_lft forever
 
-That's pointless, as I already applied your original patch to
-my tree.
+Perhaps it would be more consistent to add -d option to "ip addr show" 
+instead as we already have -s for statistics there (commit 5d5cf1b43).
+
+                                                       Michal Kubecek
