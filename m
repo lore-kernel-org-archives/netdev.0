@@ -1,99 +1,150 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: [PATCH v5 2/4] arch: Add lightweight memory barriers dma_rmb()
- and dma_wmb()
-Date: Tue, 25 Nov 2014 14:01:30 +0000
-Message-ID: <20141125140130.GC8541@arm.com>
-References: <20141119012205.9563.95544.stgit@ahduyck-server>
- <20141119012400.9563.21117.stgit@ahduyck-server>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mathieu.desnoyers@polymtl.ca" <mathieu.desnoyers@polymtl.ca>,
-	"peterz@infradead.org" <peterz@infradead.org>,
-	"benh@kernel.crashing.org" <benh@kernel.crashing.org>,
-	"heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>,
-	"mingo@kernel.org" <mingo@kernel.org>,
-	"mikey@neuling.org" <mikey@neuling.org>,
-	"linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
-	"donald.c.skidmore@intel.com" <donald.c.skidmore@intel.com>,
-	"matthew.vick@intel.com" <matthew.vick@intel.com>,
-	"geert@linux-m68k.org" <geert@linux-m68k.org>,
-	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-	"romieu@fr.zoreil.com" <romieu@fr.zoreil.com>,
-	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
-	"nic_swsd@realtek.com" <nic_
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss-mx-na.foss.arm.com ([217.140.108.86]:38925 "EHLO
-	foss-mx-na.foss.arm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751353AbaKYOBb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 09:01:31 -0500
-Content-Disposition: inline
-In-Reply-To: <20141119012400.9563.21117.stgit@ahduyck-server>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: [PATCH v2 04/17] new helper: memcpy_to_msg()
+Date: Tue, 25 Nov 2014 14:02:18 +0000
+Message-ID: <1416924151-28698-4-git-send-email-viro@ZenIV.linux.org.uk>
+References: <20141125024018.GH7996@ZenIV.linux.org.uk>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141125024018.GH7996@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 19, 2014 at 01:24:02AM +0000, Alexander Duyck wrote:
-> diff --git a/Documentation/memory-barriers.txt b/Documentation/memory-barriers.txt
-> index 22a969c..a1c589b 100644
-> --- a/Documentation/memory-barriers.txt
-> +++ b/Documentation/memory-barriers.txt
-> @@ -1615,6 +1615,47 @@ There are some more advanced barrier functions:
->       operations" subsection for information on where to use these.
-> 
-> 
-> + (*) dma_wmb();
-> + (*) dma_rmb();
-> +
-> +     These are for use with memory based device I/O to guarantee the ordering
-> +     of cache coherent writes or reads with respect to other writes or reads
-> +     to cache coherent DMA memory.
+From: Al Viro <viro@zeniv.linux.org.uk>
 
-Can you please make it crystal clear that "memory based device I/O" != MMIO?
-If people get these barriers wrong, then debugging will be a nightmare.
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+---
+ crypto/algif_hash.c    |    2 +-
+ include/linux/skbuff.h |    5 +++++
+ net/caif/caif_socket.c |    2 +-
+ net/can/bcm.c          |    2 +-
+ net/can/raw.c          |    2 +-
+ net/decnet/af_decnet.c |    2 +-
+ net/ipv4/tcp.c         |    2 +-
+ net/irda/af_irda.c     |    2 +-
+ net/packet/af_packet.c |    3 +--
+ 9 files changed, 13 insertions(+), 9 deletions(-)
 
-> diff --git a/arch/arm/include/asm/barrier.h b/arch/arm/include/asm/barrier.h
-> index c6a3e73..d2f81e6 100644
-> --- a/arch/arm/include/asm/barrier.h
-> +++ b/arch/arm/include/asm/barrier.h
-> @@ -43,10 +43,14 @@
->  #define mb()           do { dsb(); outer_sync(); } while (0)
->  #define rmb()          dsb()
->  #define wmb()          do { dsb(st); outer_sync(); } while (0)
-> +#define dma_rmb()      dmb(osh)
-> +#define dma_wmb()      dmb(oshst)
->  #else
->  #define mb()           barrier()
->  #define rmb()          barrier()
->  #define wmb()          barrier()
-> +#define dma_rmb()      barrier()
-> +#define dma_wmb()      barrier()
->  #endif
-> 
->  #ifndef CONFIG_SMP
-> diff --git a/arch/arm64/include/asm/barrier.h b/arch/arm64/include/asm/barrier.h
-> index 6389d60..a5abb00 100644
-> --- a/arch/arm64/include/asm/barrier.h
-> +++ b/arch/arm64/include/asm/barrier.h
-> @@ -32,6 +32,9 @@
->  #define rmb()          dsb(ld)
->  #define wmb()          dsb(st)
-> 
-> +#define dma_rmb()      dmb(oshld)
-> +#define dma_wmb()      dmb(oshst)
-> +
->  #ifndef CONFIG_SMP
->  #define smp_mb()       barrier()
->  #define smp_rmb()      barrier()
-
-The arm/arm64 bits look fine to me.
-
-  Acked-by: Will Deacon <will.deacon@arm.com>
-
-If we ever see platforms using Linux/dma_alloc_coherent with devices
-mastering from a different outer-shareable domain that the one containing
-the CPUs, then we'll need to revisit this.
-
-Will
+diff --git a/crypto/algif_hash.c b/crypto/algif_hash.c
+index 8502462..35c93ff 100644
+--- a/crypto/algif_hash.c
++++ b/crypto/algif_hash.c
+@@ -174,7 +174,7 @@ static int hash_recvmsg(struct kiocb *unused, struct socket *sock,
+ 			goto unlock;
+ 	}
+ 
+-	err = memcpy_toiovec(msg->msg_iov, ctx->result, len);
++	err = memcpy_to_msg(msg, ctx->result, len);
+ 
+ unlock:
+ 	release_sock(sk);
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 97dc5f8..d048347 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2692,6 +2692,11 @@ static inline int memcpy_from_msg(void *data, struct msghdr *msg, int len)
+ 	return memcpy_fromiovec(data, msg->msg_iov, len);
+ }
+ 
++static inline int memcpy_to_msg(struct msghdr *msg, void *data, int len)
++{
++	return memcpy_toiovec(msg->msg_iov, data, len);
++}
++
+ struct skb_checksum_ops {
+ 	__wsum (*update)(const void *mem, int len, __wsum wsum);
+ 	__wsum (*combine)(__wsum csum, __wsum csum2, int offset, int len);
+diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
+index 230f140..ac618b0 100644
+--- a/net/caif/caif_socket.c
++++ b/net/caif/caif_socket.c
+@@ -418,7 +418,7 @@ unlock:
+ 		}
+ 		release_sock(sk);
+ 		chunk = min_t(unsigned int, skb->len, size);
+-		if (memcpy_toiovec(msg->msg_iov, skb->data, chunk)) {
++		if (memcpy_to_msg(msg, skb->data, chunk)) {
+ 			skb_queue_head(&sk->sk_receive_queue, skb);
+ 			if (copied == 0)
+ 				copied = -EFAULT;
+diff --git a/net/can/bcm.c b/net/can/bcm.c
+index b9a1f71..0167118 100644
+--- a/net/can/bcm.c
++++ b/net/can/bcm.c
+@@ -1555,7 +1555,7 @@ static int bcm_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	if (skb->len < size)
+ 		size = skb->len;
+ 
+-	err = memcpy_toiovec(msg->msg_iov, skb->data, size);
++	err = memcpy_to_msg(msg, skb->data, size);
+ 	if (err < 0) {
+ 		skb_free_datagram(sk, skb);
+ 		return err;
+diff --git a/net/can/raw.c b/net/can/raw.c
+index 0e4004f..dfdcffb 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -750,7 +750,7 @@ static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	else
+ 		size = skb->len;
+ 
+-	err = memcpy_toiovec(msg->msg_iov, skb->data, size);
++	err = memcpy_to_msg(msg, skb->data, size);
+ 	if (err < 0) {
+ 		skb_free_datagram(sk, skb);
+ 		return err;
+diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
+index e2e2e3c..8102286 100644
+--- a/net/decnet/af_decnet.c
++++ b/net/decnet/af_decnet.c
+@@ -1760,7 +1760,7 @@ static int dn_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		if ((chunk + copied) > size)
+ 			chunk = size - copied;
+ 
+-		if (memcpy_toiovec(msg->msg_iov, skb->data, chunk)) {
++		if (memcpy_to_msg(msg, skb->data, chunk)) {
+ 			rv = -EFAULT;
+ 			break;
+ 		}
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index c239f47..435443b 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1349,7 +1349,7 @@ static int tcp_recv_urg(struct sock *sk, struct msghdr *msg, int len, int flags)
+ 
+ 		if (len > 0) {
+ 			if (!(flags & MSG_TRUNC))
+-				err = memcpy_toiovec(msg->msg_iov, &c, 1);
++				err = memcpy_to_msg(msg, &c, 1);
+ 			len = 1;
+ 		} else
+ 			msg->msg_flags |= MSG_TRUNC;
+diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
+index 9052462..568edc7 100644
+--- a/net/irda/af_irda.c
++++ b/net/irda/af_irda.c
+@@ -1466,7 +1466,7 @@ static int irda_recvmsg_stream(struct kiocb *iocb, struct socket *sock,
+ 		}
+ 
+ 		chunk = min_t(unsigned int, skb->len, size);
+-		if (memcpy_toiovec(msg->msg_iov, skb->data, chunk)) {
++		if (memcpy_to_msg(msg, skb->data, chunk)) {
+ 			skb_queue_head(&sk->sk_receive_queue, skb);
+ 			if (copied == 0)
+ 				copied = -EFAULT;
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 07ac950..108d7f3 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2949,8 +2949,7 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 			vnet_hdr.flags = VIRTIO_NET_HDR_F_DATA_VALID;
+ 		} /* else everything is zero */
+ 
+-		err = memcpy_toiovec(msg->msg_iov, (void *)&vnet_hdr,
+-				     vnet_hdr_len);
++		err = memcpy_to_msg(msg, (void *)&vnet_hdr, vnet_hdr_len);
+ 		if (err < 0)
+ 			goto out_free;
+ 	}
+-- 
+1.7.10.4
