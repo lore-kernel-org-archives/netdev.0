@@ -1,45 +1,50 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v3 07/17] rocker: introduce rocker switch driver
-Date: Tue, 25 Nov 2014 12:15:44 -0500
-Message-ID: <5474B940.3020305@mojatatu.com>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us> <1416911328-10979-8-git-send-email-jiri@resnulli.us> <5474A705.5070007@mojatatu.com> <20141125.121019.465267851168750694.davem@davemloft.net> <20141125171514.GN1971@nanopsycho.orion>
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v4 35/42] tun: add VNET_LE flag
+Date: Tue, 25 Nov 2014 18:43:54 +0200
+Message-ID: <1416933600-21398-36-git-send-email-mst@redhat.com>
+References: <1416933600-21398-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.org
-To: Jiri Pirko <jiri@resnulli.us>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:44675 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750935AbaKYRPr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 12:15:47 -0500
-Received: by mail-ig0-f179.google.com with SMTP id r2so1090480igi.0
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 09:15:47 -0800 (PST)
-In-Reply-To: <20141125171514.GN1971@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, cornelia.huck-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
+	rusty-8fk3Idey6ehBDgjK7y7TUQ@public.gmane.org, nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org, pbonzini-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1416933600-21398-1-git-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 11/25/14 12:15, Jiri Pirko wrote:
+virtio 1.0 modified virtio net header format,
+making all fields little endian.
 
-> Yep. For easier review, I will move the rocker patches to the tail and
-> leave the other ones on head.
+Users can tweak header format before submitting it to tun,
+but this means more data copies where none were necessary.
+And if the iovec is in RO memory, this means we might
+need to split iovec also means we might in theory overflow
+iovec max size.
 
-Sounds reasonable.
+This patch adds a simpler way for applications to handle this,
+using new "little endian" flag in tun.
+As a result, tun simply byte-swaps header fields as appropriate.
+This is a NOP on LE architectures.
 
-cheers,
-jamal
+Signed-off-by: Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+---
+ include/uapi/linux/if_tun.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
+index 277a260..18b2403 100644
+--- a/include/uapi/linux/if_tun.h
++++ b/include/uapi/linux/if_tun.h
+@@ -57,6 +57,7 @@
+ #define IFF_ONE_QUEUE	0x2000
+ #define IFF_VNET_HDR	0x4000
+ #define IFF_TUN_EXCL	0x8000
++#define IFF_VNET_LE	0x10000
+ #define IFF_MULTI_QUEUE 0x0100
+ #define IFF_ATTACH_QUEUE 0x0200
+ #define IFF_DETACH_QUEUE 0x0400
+-- 
+MST
