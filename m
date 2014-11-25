@@ -1,58 +1,57 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH v2] net: Hyper-V: Deletion of an unnecessary check before
- the function call "vfree"
-Date: Tue, 25 Nov 2014 22:55:34 +0100
-Message-ID: <5474FAD6.4060704@users.sourceforge.net>
-References: <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>	<5317A59D.4@users.sourceforge.net>	<546DF9D7.6080801@users.sourceforge.net>
- <20141121.151503.1986113223309494197.davem@davemloft.net>
+From: "tgraf@suug.ch" <tgraf@suug.ch>
+Subject: Re: [patch net-next v3 07/17] rocker: introduce rocker switch driver
+Date: Tue, 25 Nov 2014 21:57:54 +0000
+Message-ID: <20141125215754.GC3912@casper.infradead.org>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
+ <1416911328-10979-8-git-send-email-jiri@resnulli.us>
+ <063D6719AE5E284EB5DD2968C1650D6D1C9FB50A@AcuExch.aculab.com>
+ <CAE4R7bC=jnq=OX2BNa9hpzbx8fpxHF+zGf1cV1ahP31htpE7kQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Julia Lawall <julia.lawall@lip6.fr>, Haiyang Zhang <haiyangz@microsoft.com>,
- kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, devel@linuxdriverproject.org,
- netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20141121.151503.1986113223309494197.davem@davemloft.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Laight <David.Laight@aculab.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	"andy@greyhouse.net" <andy@greyhouse.net>,
+	"dborkman@redhat.com" <dborkman@redhat.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"jesse@nicira.com" <jesse@nicira.com>,
+	"pshelar@nicira.com" <pshelar@nicira.com>,
+	"azhou@nicira.com" <azhou@nicira.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	"xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"jhs@mojatatu.com" <jhs@mojatatu.co
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:56601 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750876AbaKYV54 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 16:57:56 -0500
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bC=jnq=OX2BNa9hpzbx8fpxHF+zGf1cV1ahP31htpE7kQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Tue, 25 Nov 2014 22:33:45 +0100
+On 11/25/14 at 09:19am, Scott Feldman wrote:
+> On Tue, Nov 25, 2014 at 6:13 AM, David Laight <David.Laight@aculab.com> wrote:
+> > From: Jiri Pirko
+> >>
+> >> This patch introduces the first driver to benefit from the switchdev
+> >> infrastructure and to implement newly introduced switch ndos. This is a
+> >> driver for emulated switch chip implemented in qemu:
+> >> https://github.com/sfeldma/qemu-rocker/
+> >
+> > If this driver caller 'rocker' just to get the (bad) pun 'rocker switch'?
+> > IMHO A more descriptive name would be a lot better.
+> 
+> Sorry, it's the best we could do since qla3xxx and mlx4 and fm10k were
+> already taken.
 
-The vfree() function performs also input parameter validation.
-Thus the test around the call is not needed.
-
-This issue was detected by using the Coccinelle software.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
----
- drivers/net/hyperv/netvsc.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 6b46311..6fc834e 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -561,9 +561,7 @@ int netvsc_device_remove(struct hv_device *device)
- 	vmbus_close(device->channel);
- 
- 	/* Release all resources */
--	if (net_device->sub_cb_buf)
--		vfree(net_device->sub_cb_buf);
--
-+	vfree(net_device->sub_cb_buf);
- 	free_netvsc_device(net_device);
- 	return 0;
- }
--- 
-2.1.3
+Given the amount of momentum rocker has created in the cause of
+driving this API forward, I find the name quite appropriate.
