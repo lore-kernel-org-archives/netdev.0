@@ -1,88 +1,155 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v4 26/42] vhost/net: force len for TX to host endian
-Date: Wed, 26 Nov 2014 17:01:39 +0200
-Message-ID: <20141126150139.GB9359@redhat.com>
-References: <1416933600-21398-1-git-send-email-mst@redhat.com>
-	<1416933600-21398-27-git-send-email-mst@redhat.com>
-	<20141126153102.3f5b8fc9.cornelia.huck@de.ibm.com>
-	<20141126144400.GA8086@redhat.com>
-	<20141126155440.4f49b70f.cornelia.huck@de.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, rusty@au1.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, pbonzini@redhat.com,
-	David Miller <davem@davemloft.net>
-To: Cornelia Huck <cornelia.huck@de.ibm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20141126155440.4f49b70f.cornelia.huck@de.ibm.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH RFC net-next] net: Add GRO support for GRE tunneling of TEB packets
+Date: Wed, 26 Nov 2014 17:08:24 +0200
+Message-ID: <1417014504-5929-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, therbert@google.com, edumazet@google.com,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	"H.K. Jerry Chu" <hkchu@google.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:47401 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752064AbaKZPI2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Nov 2014 10:08:28 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 26, 2014 at 03:54:40PM +0100, Cornelia Huck wrote:
-> On Wed, 26 Nov 2014 16:44:00 +0200
-> "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> 
-> > On Wed, Nov 26, 2014 at 03:31:02PM +0100, Cornelia Huck wrote:
-> > > On Tue, 25 Nov 2014 18:43:14 +0200
-> > > "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> > > 
-> > > > We use native endian-ness internally but never
-> > > > expose it to guest.
-> > > > 
-> > > > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > > > ---
-> > > >  drivers/vhost/net.c | 10 +++++-----
-> > > >  1 file changed, 5 insertions(+), 5 deletions(-)
-> > > > 
-> > > > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> > > > index 8dae2f7..dce5c58 100644
-> > > > --- a/drivers/vhost/net.c
-> > > > +++ b/drivers/vhost/net.c
-> > > > @@ -48,15 +48,15 @@ MODULE_PARM_DESC(experimental_zcopytx, "Enable Zero Copy TX;"
-> > > >   * status internally; used for zerocopy tx only.
-> > > >   */
-> > > >  /* Lower device DMA failed */
-> > > > -#define VHOST_DMA_FAILED_LEN	3
-> > > > +#define VHOST_DMA_FAILED_LEN	((__force __virtio32)3)
-> > > >  /* Lower device DMA done */
-> > > > -#define VHOST_DMA_DONE_LEN	2
-> > > > +#define VHOST_DMA_DONE_LEN	((__force __virtio32)2)
-> > > >  /* Lower device DMA in progress */
-> > > > -#define VHOST_DMA_IN_PROGRESS	1
-> > > > +#define VHOST_DMA_IN_PROGRESS	((__force __virtio32)1)
-> > > >  /* Buffer unused */
-> > > > -#define VHOST_DMA_CLEAR_LEN	0
-> > > > +#define VHOST_DMA_CLEAR_LEN	((__force __virtio32)0)
-> > > 
-> > > I find these constants a bit confusing: What does __virtio32 mean
-> > > without the context of a vq or device?
-> > > 
-> > > > 
-> > > > -#define VHOST_DMA_IS_DONE(len) ((len) >= VHOST_DMA_DONE_LEN)
-> > > > +#define VHOST_DMA_IS_DONE(len) ((__force u32)(len) >= (__force u32)VHOST_DMA_DONE_LEN)
-> > > 
-> > > And here you cast it to a plain u32 again.
-> > > 
-> > > I looked at the final code, and you seem either to use the above
-> > > constants for .len or do a cpu_to_vhost32(). Wouldn't you need to
-> > > convert the constants as well?
-> > 
-> > I tried to explain it in the commit message.
-> > It's a hack in vhost: it keeps virtio used structure in host
-> > memory, but abuses length field for internal housekeeping.
-> > This works because length in used ring for tx is always 0.
-> 
-> Ah, ok. It might make sense to add this explanation to the patch :)
+Add the missing parts in the gre gro handlers when the inner protocol 
+is ETH_P_TEB which is the case for OVS based GRE tunneling.
 
-Absolutely.
+Cc: H.K. Jerry Chu <hkchu@google.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ net/ipv4/gre_offload.c |   57 +++++++++++++++++++++++++++++++++++++----------
+ 1 files changed, 45 insertions(+), 12 deletions(-)
+
+diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
+index bb5947b..06ae197 100644
+--- a/net/ipv4/gre_offload.c
++++ b/net/ipv4/gre_offload.c
+@@ -14,6 +14,7 @@
+ #include <linux/init.h>
+ #include <net/protocol.h>
+ #include <net/gre.h>
++#include <linux/etherdevice.h>
+ 
+ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
+ 				       netdev_features_t features)
+@@ -121,8 +122,9 @@ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
+ 	struct sk_buff **pp = NULL;
+ 	struct sk_buff *p;
+ 	const struct gre_base_hdr *greh;
++	struct ethhdr *eh = NULL;
+ 	unsigned int hlen, grehlen;
+-	unsigned int off;
++	unsigned int off, off_eth = 0;
+ 	int flush = 1;
+ 	struct packet_offload *ptype;
+ 	__be16 type;
+@@ -147,11 +149,6 @@ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
+ 
+ 	type = greh->protocol;
+ 
+-	rcu_read_lock();
+-	ptype = gro_find_receive_by_type(type);
+-	if (ptype == NULL)
+-		goto out_unlock;
+-
+ 	grehlen = GRE_HEADER_SECTION;
+ 
+ 	if (greh->flags & GRE_KEY)
+@@ -164,22 +161,45 @@ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
+ 	if (skb_gro_header_hard(skb, hlen)) {
+ 		greh = skb_gro_header_slow(skb, hlen, off);
+ 		if (unlikely(!greh))
+-			goto out_unlock;
++			goto out;
+ 	}
+ 
+ 	/* Don't bother verifying checksum if we're going to flush anyway. */
+ 	if ((greh->flags & GRE_CSUM) && !NAPI_GRO_CB(skb)->flush) {
+ 		if (skb_gro_checksum_simple_validate(skb))
+-			goto out_unlock;
++			goto out;
+ 
+ 		skb_gro_checksum_try_convert(skb, IPPROTO_GRE, 0,
+ 					     null_compute_pseudo);
+ 	}
+ 
++	skb_gro_pull(skb, grehlen);
++
++	/* Adjusted NAPI_GRO_CB(skb)->csum after skb_gro_pull()*/
++	skb_gro_postpull_rcsum(skb, greh, grehlen);
++
++	if (type == ntohs(ETH_P_TEB)) {
++		off_eth = skb_gro_offset(skb);
++		hlen = off_eth + sizeof(*eh);
++		eh   = skb_gro_header_fast(skb, off_eth);
++		if (skb_gro_header_hard(skb, hlen)) {
++			eh = skb_gro_header_slow(skb, hlen, off_eth);
++			if (unlikely(!eh))
++				goto out;
++		}
++		type = eh->h_proto;
++	}
++
++	rcu_read_lock();
++	ptype = gro_find_receive_by_type(type);
++	if (ptype == NULL)
++		goto out_unlock;
++
+ 	flush = 0;
+ 
+ 	for (p = *head; p; p = p->next) {
+ 		const struct gre_base_hdr *greh2;
++		const struct ethhdr *eh2;
+ 
+ 		if (!NAPI_GRO_CB(p)->same_flow)
+ 			continue;
+@@ -205,13 +225,19 @@ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
+ 				NAPI_GRO_CB(p)->same_flow = 0;
+ 				continue;
+ 			}
++
++			eh2 = (struct ethhdr   *)(p->data + off_eth);
++			if (eh && compare_ether_header(eh, eh2)) {
++				NAPI_GRO_CB(p)->same_flow = 0;
++				continue;
++			}
+ 		}
+ 	}
+ 
+-	skb_gro_pull(skb, grehlen);
+-
+-	/* Adjusted NAPI_GRO_CB(skb)->csum after skb_gro_pull()*/
+-	skb_gro_postpull_rcsum(skb, greh, grehlen);
++	if (eh) {
++		skb_gro_pull(skb, sizeof(*eh)); /* pull inner eth header */
++		skb_gro_postpull_rcsum(skb, eh, sizeof(*eh));
++	}
+ 
+ 	pp = ptype->callbacks.gro_receive(head, skb);
+ 
+@@ -229,6 +255,7 @@ static int gre_gro_complete(struct sk_buff *skb, int nhoff)
+ 	struct packet_offload *ptype;
+ 	unsigned int grehlen = sizeof(*greh);
+ 	int err = -ENOENT;
++	struct ethhdr *eh;
+ 	__be16 type;
+ 
+ 	skb->encapsulation = 1;
+@@ -241,6 +268,12 @@ static int gre_gro_complete(struct sk_buff *skb, int nhoff)
+ 	if (greh->flags & GRE_CSUM)
+ 		grehlen += GRE_HEADER_SECTION;
+ 
++	if (type == ntohs(ETH_P_TEB)) {
++		eh = (struct ethhdr *)(skb->data + nhoff + grehlen);
++		type = eh->h_proto;
++		grehlen += sizeof(*eh);
++	}
++
+ 	rcu_read_lock();
+ 	ptype = gro_find_complete_by_type(type);
+ 	if (ptype != NULL)
+-- 
+1.7.1
