@@ -1,66 +1,41 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v3 04/17] net: introduce generic switch devices
- support
-Date: Wed, 26 Nov 2014 12:09:13 -0500
-Message-ID: <54760939.8050805@mojatatu.com>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us> <1416911328-10979-5-git-send-email-jiri@resnulli.us> <5474A567.4040401@mojatatu.com> <20141125164954.GJ1971@nanopsycho.orion> <5474B795.3080204@mojatatu.com> <20141125215402.GA3912@casper.infradead.org> <54754A10.6020601@mojatatu.com> <CAE4R7bCYwWt5cem5_v8Y0jOSz5ER5_33bMRE2xkTPOqYvM6dUg@mail.gmail.com> <5475BB53.3070200@mojatatu.com> <20141126160859.GB13786@casper.infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tcp: fix possible NULL dereference in
+ tcp_vX_send_reset()
+Date: Wed, 26 Nov 2014 12:09:51 -0500 (EST)
+Message-ID: <20141126.120951.631006073056672211.davem@davemloft.net>
+References: <1416930004.29427.21.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"dborkman@redhat.com" <dborkman@redhat.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"pshelar@nicira.com" <pshelar@nicira.com>,
-	"azhou@nicira.com" <azhou@nicira.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tux
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: Text/Plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, dborkman@redhat.com, jasa.bartelj@gmail.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:58614 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750927AbaKZRJS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 12:09:18 -0500
-Received: by mail-ie0-f179.google.com with SMTP id rp18so3048839iec.10
-        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 09:09:17 -0800 (PST)
-In-Reply-To: <20141126160859.GB13786@casper.infradead.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48707 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750881AbaKZRJx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 12:09:53 -0500
+In-Reply-To: <1416930004.29427.21.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/26/14 11:08, Thomas Graf wrote:
-> On 11/26/14 at 06:36am, Jamal Hadi Salim wrote:
->
->
-> Jamal,
->
-> What is irriating in this context is that you are pushing back on
-> Jiri and others while referring to properitary and closed code which
-> you are unwilling or unable to share. I don't see this as being
-> passive aggressive, everybody is treated the same way in this regard.
->
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 25 Nov 2014 07:40:04 -0800
 
-WTF? I said i have hardware that is not a switch because it doesnt
-do switching. This all started with the name being "switch" which
-I objected to. You ask me to describe hardware and then you come
-back and say I am using that to stop progress?
-Where the hell did i push back on Jiri? Stop going around
-telling people i do. I invest my time and effort reviewing code,
-proposing ideas, posting etc calling meetings. Infact i initiated
-this whole effort to begin with.
+> From: Eric Dumazet <edumazet@google.com>
+>=20
+> After commit ca777eff51f7 ("tcp: remove dst refcount false sharing fo=
+r
+> prequeue mode") we have to relax check against skb dst in
+> tcp_v[46]_send_reset() if prequeue dropped the dst.
+>=20
+> If a socket is provided, a full lookup was done to find this socket,
+> so the dst test can be skipped.
+>=20
+> Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=3D88191
+> Reported-by: Ja=A8a Bartelj <jasa.bartelj@gmail.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Daniel Borkmann <dborkman@redhat.com>
+> Fixes: ca777eff51f7 ("tcp: remove dst refcount false sharing for preq=
+ueue mode")
 
-There is no point to responding to any of your other comments.
-
-cheers,
-jamal
+Applied, thanks Eric.
