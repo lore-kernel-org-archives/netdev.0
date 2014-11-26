@@ -1,46 +1,132 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 1/2] virito: introduce methods of fixing device features
-Date: Wed, 26 Nov 2014 02:09:00 -0500 (EST)
-Message-ID: <848153913.16119602.1416985740195.JavaMail.zimbra@redhat.com>
-References: <1415857974-23326-1-git-send-email-jasowang@redhat.com>
-	<87sih9xv5u.fsf@rustcorp.com.au>
+From: Rajib Karmakar <rajibkit@gmail.com>
+Subject: Re: Multiple DSA switch on shared MII
+Date: Wed, 26 Nov 2014 13:03:01 +0530
+Message-ID: <CAOi_9k8WySmjm5cdFn1kJQuE7cJ1rDyM9SV2RvbcmbB+UeTVdQ@mail.gmail.com>
+References: <CAOi_9k8NwpVFxg=9VOagVt3m6hn2uLKuCZ_0-+4PciJNRWuTmA@mail.gmail.com>
+	<CAGVrzcaG_uYpmmgC252ObHJ9Cmt91-BUtB3uOfPJHV6RhkRU1Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <87sih9xv5u.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:46560 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751141AbaKZHdC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 02:33:02 -0500
+Received: by mail-pd0-f169.google.com with SMTP id fp1so2280675pdb.0
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 23:33:01 -0800 (PST)
+In-Reply-To: <CAGVrzcaG_uYpmmgC252ObHJ9Cmt91-BUtB3uOfPJHV6RhkRU1Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello Florian,
 
+Thanks for your reply.
 
------ Original Message -----
-> Jason Wang <jasowang@redhat.com> writes:
-> > Buggy host may advertised buggy host features (a usual case is that host
-> > advertise a feature whose dependencies were missed). In this case, driver
-> > should detect and disable the buggy features by itself.
-> 
-> Sorry, I've been focussing elsewhere.
-> 
-> I would really prefer that drivers offer a "feature_depends" table,
-> which can indicate that feature A depends on feature B, and have the
-> core iterate, complain and fixup as necessary.
-> 
-> Is that expressive enough, or do we need more?
-> 
-> Thanks,
-> Rusty.
+On Wed, Nov 26, 2014 at 10:52 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> 2014-11-25 20:52 GMT-08:00 Rajib Karmakar <rajibkit@gmail.com>:
+>> Hello,
+>>
+>> I am developing a DSA driver for Marvell 6172 and need to create 2 dsa
+>> switch chip (one for WAN and one for LAN).
+>
+> This is not typically how it is designed to work, you would register
+> one dsa switch chip with the ports assignment in this data structure.
+> Right now, DSA does not support a dual Ethernet MAC configuration,
+> although you could probably do per-port VLAN membership and create two
+> default VLANs to allow that.
+>
+>>
+>> My device has 2 MACs and one shared mii_bus. I have added two
+>> dsa_platform_data structures and registered them but cannot probe as
+>> dsa_probe tries mdio_register() on the same bus and fails.
+>>
+>> Is it possible to create two DSA switch on same (shared) mii?
+>
+> Not in its current form, and I am not exactly sure how we would support that.
 
-I suggested something like this in https://lkml.org/lkml/2014/11/19/132, but
-Michael does not like it ...
+Yes, not with the current DSA implementation, but I can manage to
+solve this by a small (ugly) patch - renamed the slave mii bus as
+"<master_bus->id>:<pd->sw_addr>:<platform_device->id>" instead of
+"<master_bus->id>:<pd->sw_addr>". Though I am not yet sure enough if
+this could have any negative impact or not.
+
+Comments please.
+
+>
+>>
+>> Regards,
+>> Rajib
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
+>
+> --
+> Florian
+
+----
+diff -rup org/net/dsa/dsa.c mod/net/dsa/dsa.c
+--- org/net/dsa/dsa.c
++++ mod/net/dsa/dsa.c
+@@ -68,7 +68,7 @@ dsa_switch_probe(struct mii_bus *bus, in
+
+ /* basic switch operations **************************************************/
+ static struct dsa_switch *
+-dsa_switch_setup(struct dsa_switch_tree *dst, int index,
++dsa_switch_setup(struct dsa_switch_tree *dst, int index, int id,
+  struct device *parent, struct mii_bus *bus)
+ {
+  struct dsa_chip_data *pd = dst->pd->chip + index;
+@@ -156,7 +156,7 @@ dsa_switch_setup(struct dsa_switch_tree
+  ret = -ENOMEM;
+  goto out;
+  }
+- dsa_slave_mii_bus_init(ds);
++ dsa_slave_mii_bus_init(ds, id);
+
+  ret = mdiobus_register(ds->slave_mii_bus);
+  if (ret < 0)
+@@ -349,7 +349,7 @@ static int dsa_probe(struct platform_dev
+  continue;
+  }
+
+- ds = dsa_switch_setup(dst, i, &pdev->dev, bus);
++ ds = dsa_switch_setup(dst, i, pdev->id, &pdev->dev, bus);
+  if (IS_ERR(ds)) {
+  printk(KERN_ERR "%s[%d]: couldn't create dsa switch "
+  "instance (error %ld)\n", dev->name, i,
+diff -rup org/net/dsa/dsa_priv.h mod/net/dsa/dsa_priv.h
+--- org/net/dsa/dsa_priv.h
++++ mod/net/dsa/dsa_priv.h
+@@ -163,7 +163,7 @@ void register_switch_driver(struct dsa_s
+ void unregister_switch_driver(struct dsa_switch_driver *type);
+
+ /* slave.c */
+-void dsa_slave_mii_bus_init(struct dsa_switch *ds);
++void dsa_slave_mii_bus_init(struct dsa_switch *ds, int id);
+ struct net_device *dsa_slave_create(struct dsa_switch *ds,
+     struct device *parent,
+     int port, char *name);
+diff -rup org/net/dsa/slave.c mod/net/dsa/slave.c
+--- org/net/dsa/slave.c
++++ mod/net/dsa/slave.c
+@@ -35,14 +35,14 @@ static int dsa_slave_phy_write(struct mi
+  return 0;
+ }
+
+-void dsa_slave_mii_bus_init(struct dsa_switch *ds)
++void dsa_slave_mii_bus_init(struct dsa_switch *ds, int id)
+ {
+  ds->slave_mii_bus->priv = (void *)ds;
+  ds->slave_mii_bus->name = "dsa slave smi";
+  ds->slave_mii_bus->read = dsa_slave_phy_read;
+  ds->slave_mii_bus->write = dsa_slave_phy_write;
+- snprintf(ds->slave_mii_bus->id, MII_BUS_ID_SIZE, "%s:%.2x",
+- ds->master_mii_bus->id, ds->pd->sw_addr);
++ snprintf(ds->slave_mii_bus->id, MII_BUS_ID_SIZE, "%s:%.2x:%.1x",
++ ds->master_mii_bus->id, ds->pd->sw_addr, id);
+  ds->slave_mii_bus->parent = &ds->master_mii_bus->dev;
+ }
