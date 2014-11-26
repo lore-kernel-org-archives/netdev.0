@@ -1,87 +1,70 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [patch net-next v3 04/17] net: introduce generic switch devices
- support
-Date: Wed, 26 Nov 2014 16:08:59 +0000
-Message-ID: <20141126160859.GB13786@casper.infradead.org>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
- <1416911328-10979-5-git-send-email-jiri@resnulli.us>
- <5474A567.4040401@mojatatu.com>
- <20141125164954.GJ1971@nanopsycho.orion>
- <5474B795.3080204@mojatatu.com>
- <20141125215402.GA3912@casper.infradead.org>
- <54754A10.6020601@mojatatu.com>
- <CAE4R7bCYwWt5cem5_v8Y0jOSz5ER5_33bMRE2xkTPOqYvM6dUg@mail.gmail.com>
- <5475BB53.3070200@mojatatu.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH] x86: bpf_jit_comp: simplify trivial boolean return
+Date: Wed, 26 Nov 2014 08:42:09 -0800
+Message-ID: <CAADnVQK8mn4ZHwbhBArosEw3Bmsc5vJfOzAeRE3R_1S7dbNfkg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"dborkman@redhat.com" <dborkman@redhat.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"pshelar@nicira.com" <pshelar@nicira.com>,
-	"azhou@nicira.com" <azhou@nicira.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tux
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:33426 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752224AbaKZQJG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 11:09:06 -0500
-Content-Disposition: inline
-In-Reply-To: <5475BB53.3070200@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Quentin Lambert <lambert.quentin@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/26/14 at 06:36am, Jamal Hadi Salim wrote:
-> On 11/25/14 23:18, Scott Feldman wrote:
-> >On Tue, Nov 25, 2014 at 5:33 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> 
-> >
-> >You have a pointer to the kernel driver for that HW?
-> 
-> I wasnt sure if that was a passive aggressive move there to
-> question what i am claiming?(Only Canadians are allowed to be
-> passive aggressive Scott). To answer your question, no
-> code currently littered with vendor SDK unfortunately (as you
-> would know!).
-> But hopefully if we get these changes in correctly it would
-> not be hard to show the driver working fully in the kernel.
-> There are definetely a few other pieces of hardware that are
-> making me come back here and invest time and effort in these
-> long discussions.
-> 
-> >Can you show how
-> >you're using Linux tc netlink msg in kernel to program HW?  I'd like
-> >to see the in-kernel API.
-> >
-> 
-> Lets do the L2/port thing first. But yes, I am using Linux tc in
-> kernel.
+On Wed, Nov 26, 2014 at 1:18 AM, Quentin Lambert
+<lambert.quentin@gmail.com> wrote:
+> Remove if then else statements preceding
+> boolean return. Occurences were found using
+> Coccinelle.
+>
+> The semantic patch used was:
+>
+> @@
+> expression expr;
+> @@
+>
+>
+> - if ( expr )
+> -       return true;
+> - else
+> -       return false;
+> + return expr;
+>
+> Signed-off-by: Quentin Lambert <lambert.quentin@gmail.com>
+>
+> ---
+>  arch/x86/net/bpf_jit_comp.c |    8 +++-----
+>  1 file changed, 3 insertions(+), 5 deletions(-)
+>
+> diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+> index 3f62734..1542f39 100644
+> --- a/arch/x86/net/bpf_jit_comp.c
+> +++ b/arch/x86/net/bpf_jit_comp.c
+> @@ -135,11 +135,9 @@ static const int reg2hex[] = {
+>   */
+>  static inline bool is_ereg(u32 reg)
+>  {
+> -       if (reg == BPF_REG_5 || reg == AUX_REG ||
+> -           (reg >= BPF_REG_7 && reg <= BPF_REG_9))
+> -               return true;
+> -       else
+> -               return false;
+> +       return (reg == BPF_REG_5 ||
+> +               reg == AUX_REG ||
+> +               (reg >= BPF_REG_7 && reg <= BPF_REG_9));
 
-Jamal,
-
-What is irriating in this context is that you are pushing back on
-Jiri and others while referring to properitary and closed code which
-you are unwilling or unable to share. I don't see this as being
-passive aggressive, everybody is treated the same way in this regard.
-
-It is exactly the point of this API and related discussions to
-decouple the control plane (tc) from any vendor specifics while
-allowing them to innovate, compete, and solve different use cases.
-
-I think it's absolutely the right thing to write the API against
-code that is public, which in this case is rocker and the existing
-in-kernel NIC drivers.
+please remove extra () around the whole expression, and
+align in properly, and
+don't move reg==AUX_REG check to a different line.
+Subject is not warranted. I don't think it's a simplification.
+imo existing code is fine and I don't think the time spent
+reviewing such changes is worth it when there is no
+improvement in readability.
