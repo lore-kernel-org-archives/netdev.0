@@ -1,57 +1,59 @@
-From: Pankaj Gupta <pagupta@redhat.com>
-Subject: Re: [PATCH v2 net-next 3/3] tuntap: reduce the size of tun_struct
- by using flex array.
-Date: Wed, 26 Nov 2014 02:40:14 -0500 (EST)
-Message-ID: <538874253.4658840.1416987614805.JavaMail.zimbra@redhat.com>
-References: <1416854044-10124-1-git-send-email-pagupta@redhat.com> <20141125.132717.122094133335261929.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jasowang@redhat.com, dgibson@redhat.com, vfalico@gmail.com,
-	edumazet@google.com, vyasevic@redhat.com, hkchu@google.com,
-	xemul@parallels.com, therbert@google.com,
-	bhutchings@solarflare.com, xii@google.com,
-	stephen@networkplumber.org, jiri@resnulli.us,
-	sergei shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: David Miller <davem@davemloft.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net-next V2] tun/macvtap: use consume_skb() instead of kfree_skb() when needed
+Date: Wed, 26 Nov 2014 15:43:30 +0800
+Message-ID: <1416987810-23263-1-git-send-email-jasowang@redhat.com>
+Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141125.132717.122094133335261929.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+To be more friendly with drop monitor, we should only call kfree_skb() when
+the packets were dropped and use consume_skb() in other cases.
 
-> 
-> From: Pankaj Gupta <pagupta@redhat.com>
-> Date: Tue, 25 Nov 2014 00:04:04 +0530
-> 
-> > This patch switches to flex array to implement the flow caches, it brings
-> > several advantages:
-> > 
-> > - Reduce the size of the tun_struct structure, which allows us to increase
-> > the
-> >   upper limit of queues in future.
-> > - Avoid higher order memory allocation. It will be useful when switching to
-> >   pure hashing in flow cache which may demand a larger size array in
-> >   future.
-> > 
-> > After this patch, the size of tun_struct on x86_64 reduced from 8512 to
-> > 328
-> > 
-> > Signed-off-by: Jason Wang <jasowang@redhat.com>
-> > Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
-> > Reviewed-by: David Gibson <dgibson@redhat.com>
-> 
-> I see no reason to use flex arrays for this, you are preallocaing the
-> memory so if anything flex array is adding an unnecessary level of
-> redirection for every access in return for no real gains.
-> 
-> Just allocate the thing normally using kzalloc() or whatever.
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+Changes from V1:
+- check the return value of tun/macvtap_put_user()
+---
+ drivers/net/macvtap.c | 5 ++++-
+ drivers/net/tun.c     | 5 ++++-
+ 2 files changed, 8 insertions(+), 2 deletions(-)
 
-I agree. Will do the changes and submit v3.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 42a80d3..c171ab6 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -862,7 +862,10 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q,
+ 		}
+ 		iov_iter_init(&iter, READ, iv, segs, len);
+ 		ret = macvtap_put_user(q, skb, &iter);
+-		kfree_skb(skb);
++		if (ret < 0)
++			kfree_skb(skb);
++		else
++			consume_skb(skb);
+ 		break;
+ 	}
+ 
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index ac53a73..a21c130 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1363,7 +1363,10 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+ 
+ 	iov_iter_init(&iter, READ, iv, segs, len);
+ 	ret = tun_put_user(tun, tfile, skb, &iter);
+-	kfree_skb(skb);
++	if (ret < 0)
++		kfree_skb(skb);
++	else
++		consume_skb(skb);
+ 
+ 	return ret;
+ }
+-- 
+1.9.1
