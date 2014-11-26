@@ -1,49 +1,55 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v3 13/17] bridge: move private brport flags to
- if_bridge.h so port drivers can use flags
-Date: Wed, 26 Nov 2014 13:12:43 +0100
-Message-ID: <20141126121243.GO1875@nanopsycho.orion>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
- <1416911328-10979-14-git-send-email-jiri@resnulli.us>
- <20141125224856.GI3912@casper.infradead.org>
+From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH v4 0/7] kernel tinification: optionally compile out
+ splice family of syscalls (splice, vmsplice, tee and sendfile)
+Date: Wed, 26 Nov 2014 12:19:03 +0000
+Message-ID: <20141126121903.5231c854@lxorguk.ukuu.org.uk>
+References: <5474ABB6.3030400@infradead.org>
+	<20141125.121305.2094097848188324942.davem@davemloft.net>
+	<20141125185310.GA24891@cloud>
+	<20141125.140441.401150380839514113.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:39576 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750804AbaKZMMq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 07:12:46 -0500
-Received: by mail-wi0-f180.google.com with SMTP id n3so4730977wiv.1
-        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 04:12:45 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20141125224856.GI3912@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: josh@joshtriplett.org, rdunlap@infradead.org, pieter@boesman.nl,
+	alexander.h.duyck@intel.com, viro@zeniv.linux.org.uk,
+	ast@plumgrid.com, akpm@linux-foundation.org, beber@meleeweb.net,
+	catalina.mocanu@gmail.com, dborkman@redhat.com,
+	edumazet@google.com, ebiederm@xmission.com, fabf@skynet.be,
+	fuse-devel@lists.sourceforge.net, geert@linux-m68k.org,
+	hughd@google.com, iulia.manda21@gmail.com, JBeulich@suse.com,
+	bfields@fieldses.org, jlayton@poochiereds.net,
+	linux-api@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
+	mcgrof@suse.com, mattst88@gmail.com, mgorman@suse.de,
+	mst@redhat.com, miklos@szeredi.hu, netdev@vger.kernel.org,
+	oleg@redhat.com, Paul.Durrant@citrix.com,
+	paulmck@linux.vnet.ibm.com, pefoley2@pefoley.com, tgraf@suug.ch,
+	therbert@google.com, trond.myklebust@primarydata.com,
+	willemb@google.com, xiaoguangrong@l
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141125.140441.401150380839514113.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Nov 25, 2014 at 11:48:56PM CET, tgraf@suug.ch wrote:
->On 11/25/14 at 11:28am, Jiri Pirko wrote:
->> From: Scott Feldman <sfeldma@gmail.com>
->> 
->> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->
->Could be ported to BIT() if you respin.
+On Tue, 25 Nov 2014 14:04:41 -0500 (EST)
+David Miller <davem@davemloft.net> wrote:
 
-Done, thanks.
+> From: josh@joshtriplett.org
+> Date: Tue, 25 Nov 2014 10:53:10 -0800
+> 
+> > It's not a "slippery slope"; it's been our standard practice for ages.
+> 
+> We've never put an entire class of generic system calls behind
+> a config option.
+
+Try running an original MCC Linux binary and C lib on a current kernel
+
+We've put *entire binary formats* behind a config option. We've put older
+syscalls behind it, we've put sysfs behind it, sysctl behind it, the
+older microcode interfaces behind it, ISA bus as a concept behind
+options. VDSO, IPC, even 32bit support ... the list goes on and on.
+
+I'd say those were far more generic on the whole than splice/sendfile.
+
+Alan
