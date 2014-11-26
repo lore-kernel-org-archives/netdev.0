@@ -1,46 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 2/5] ethernet/intel: Use eth_skb_pad helper
-Date: Tue, 25 Nov 2014 20:01:13 -0800
-Message-ID: <1416974473.29427.49.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1416957251.29427.39.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <54752263.2040204@gmail.com>
-	 <1416966185.29427.46.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20141125.221900.653470310152197801.davem@davemloft.net>
+From: Kever Yang <kever.yang@rock-chips.com>
+Subject: Re: [PATCH 0/4] support GMAC driver for RK3288
+Date: Wed, 26 Nov 2014 12:05:59 +0800
+Message-ID: <547551A7.2090700@rock-chips.com>
+References: <1416906460-26078-1-git-send-email-roger.chen@rock-chips.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: alexander.duyck@gmail.com, alexander.h.duyck@redhat.com,
-	netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:42062 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751994AbaKZEBQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 23:01:16 -0500
-Received: by mail-ie0-f181.google.com with SMTP id tp5so1871735ieb.26
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 20:01:15 -0800 (PST)
-In-Reply-To: <20141125.221900.653470310152197801.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
+	mark.yao@rock-chips.com, eddie.cai@rock-chips.com
+To: Roger Chen <roger.chen@rock-chips.com>, heiko@sntech.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1416906460-26078-1-git-send-email-roger.chen@rock-chips.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-11-25 at 22:19 -0500, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 25 Nov 2014 17:43:05 -0800
-> 
-> > I believe I finally have an idea why we had various + 15 in skb
-> > allocations in TCP stack !
-> 
-> It was so that you could do one level of tunneling with "for
-> free".  Or that is my recollection.
-> 
-> Those + 15 existed way before any of these padto() calls even
-> existed.
+Hi Roger,
 
+     Please use the --in-reply-to option for patches other than 0/4
+with the git send-email.
 
-Well, tunneling is added in front of the packet. Thats why we use
-MAX_TCP_HEADER.
-
-The +15 is in fact because TCP stack wanted to make sure the eventual
-padding (needing tailroom, not headroom) was possible...
-
-Note that ack packets never used the +15, but other packets did.
+On 11/25/2014 05:07 PM, Roger Chen wrote:
+> Roger Chen (4):
+>    patch1: add driver for Rockchip RK3288 SoCs integrated GMAC
+>    patch2: modify CRU config for Rockchip RK3288 SoCs integrated GMAC
+>    patch3: dts: add gmac info for rk3288
+>    patch4: dts: enable gmac on RK3288 evb board
+>
+> tested on rk3288 SDK board:
+> busybox ifconfig eth0 up
+> busybox ifconfig eth0 192.168.1.111
+> ping 192.168.1.1
+>
