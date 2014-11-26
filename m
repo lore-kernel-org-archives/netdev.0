@@ -1,56 +1,57 @@
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
-Subject: [PATCH V3 1/1] ipv6: Remove unnecessary test
-Date: Wed, 26 Nov 2014 10:25:58 +0800
-Message-ID: <1416968758-19641-1-git-send-email-Yanjun.Zhu@windriver.com>
-Cc: Zhu Yanjun <Yanjun.Zhu@windriver.com>,
-	Hong Zhiguo <honkiko@gmail.com>,
-	Octavian Purdila <opurdila@ixiacom.com>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	Cong Wang <cwang@twopensource.com>
-To: zyjzyj2000@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:62687 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750938AbaKZC0L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 21:26:11 -0500
-Received: by mail-pd0-f177.google.com with SMTP id ft15so1772078pdb.8
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 18:26:10 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Seth Forshee <seth.forshee@canonical.com>
+Subject: [PATCH] xen-netfront: Remove BUGs on paged skb data which crosses a page boundary
+Date: Tue, 25 Nov 2014 20:28:24 -0600
+Message-ID: <1416968904-70874-1-git-send-email-seth.forshee@canonical.com>
+Cc: Zoltan Kiss <zoltan.kiss@linaro.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stefan Bader <stefan.bader@canonical.com>,
+	Seth Forshee <seth.forshee@canonical.com>,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The "init_net" test in function addrconf_exit_net is introduced
-in commit 44a6bd29 [Create ipv6 devconf-s for namespaces] to avoid freeing
-init_net. In commit c900a800 [ipv6: fix bad free of addrconf_init_net],
-function addrconf_init_net will allocate memory for every net regardless of
-init_net. In this case, it is unnecessary to make "init_net" test.
+These BUGs can be erroneously triggered by frags which refer to
+tail pages within a compound page. The data in these pages may
+overrun the hardware page while still being contained within the
+compound page, but since compound_order() evaluates to 0 for tail
+pages the assertion fails. The code already iterates through
+subsequent pages correctly in this scenario, so the BUGs are
+unnecessary and can be removed.
 
-CC: Hong Zhiguo <honkiko@gmail.com>
-CC: Octavian Purdila <opurdila@ixiacom.com>
-CC: Pavel Emelyanov <xemul@openvz.org>
-CC: Cong Wang <cwang@twopensource.com>
-Suggested-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
-
+Fixes: f36c374782e4 ("xen/netfront: handle compound page fragments on transmit")
+Cc: <stable@vger.kernel.org> # 3.7+
+Signed-off-by: Seth Forshee <seth.forshee@canonical.com>
 ---
- net/ipv6/addrconf.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/xen-netfront.c | 5 -----
+ 1 file changed, 5 deletions(-)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 0169ccf..b8724fc 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -5336,10 +5336,8 @@ static void __net_exit addrconf_exit_net(struct net *net)
- 	__addrconf_sysctl_unregister(net->ipv6.devconf_dflt);
- 	__addrconf_sysctl_unregister(net->ipv6.devconf_all);
- #endif
--	if (!net_eq(net, &init_net)) {
--		kfree(net->ipv6.devconf_dflt);
--		kfree(net->ipv6.devconf_all);
--	}
-+	kfree(net->ipv6.devconf_dflt);
-+	kfree(net->ipv6.devconf_all);
- }
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index cca871346a0f..ece8d1804d13 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -496,9 +496,6 @@ static void xennet_make_frags(struct sk_buff *skb, struct netfront_queue *queue,
+ 		len = skb_frag_size(frag);
+ 		offset = frag->page_offset;
  
- static struct pernet_operations addrconf_ops = {
+-		/* Data must not cross a page boundary. */
+-		BUG_ON(len + offset > PAGE_SIZE<<compound_order(page));
+-
+ 		/* Skip unused frames from start of page */
+ 		page += offset >> PAGE_SHIFT;
+ 		offset &= ~PAGE_MASK;
+@@ -506,8 +503,6 @@ static void xennet_make_frags(struct sk_buff *skb, struct netfront_queue *queue,
+ 		while (len > 0) {
+ 			unsigned long bytes;
+ 
+-			BUG_ON(offset >= PAGE_SIZE);
+-
+ 			bytes = PAGE_SIZE - offset;
+ 			if (bytes > len)
+ 				bytes = len;
 -- 
 1.9.1
