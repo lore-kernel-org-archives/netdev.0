@@ -1,49 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/11] standardize TIPC SKB queue operations
-Date: Wed, 26 Nov 2014 12:31:20 -0500 (EST)
-Message-ID: <20141126.123120.2063090248645805847.davem@davemloft.net>
-References: <1416973315-6047-1-git-send-email-ying.xue@windriver.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] x86: bpf_jit_comp: simplify trivial boolean return
+Date: Wed, 26 Nov 2014 18:55:48 +0100
+Message-ID: <54761424.8060203@redhat.com>
+References: <CAADnVQK8mn4ZHwbhBArosEw3Bmsc5vJfOzAeRE3R_1S7dbNfkg@mail.gmail.com> <1417021108.19695.5.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
-	erik.hugne@ericsson.com, richard.alpe@ericsson.com,
-	netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: ying.xue@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48940 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751057AbaKZRbX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 12:31:23 -0500
-In-Reply-To: <1416973315-6047-1-git-send-email-ying.xue@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Quentin Lambert <lambert.quentin@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1417021108.19695.5.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ying Xue <ying.xue@windriver.com>
-Date: Wed, 26 Nov 2014 11:41:44 +0800
+On 11/26/2014 05:58 PM, Joe Perches wrote:
+...
+>> imo existing code is fine and I don't think the time spent
+>> reviewing such changes is worth it when there is no
+>> improvement in readability.
 
-> Now the following SKB queues are created and maintained within internal
-> TIPC stack:
-> 
-> - link transmission queue
-> - link deferred queue
-> - link receive queue
-> - socket outgoing packet chain
-> - name table outgoing packet chain
-> 
-> In order to manage above queues, TIPC stack declares a sk_buff pointer
-> for each queue to record its head, and directly modifies "prev" and
-> "next" SKB pointers of SKB structure when inserting or deleting a SKB
-> to or from the queue. As these operations are pretty complex, they
-> easily involve fatal mistakes. If these sk_buff pointers are replaced
-> with sk_buff_head instances as queue heads and corresponding generic
-> SKB list APIs are used to manage them, the entire TIPC code would
-> become quite clean and readable. But before make the change, we need
-> to clean up below redundant functionalities:
-> 
-> - remove node subscribe infrastructure
-> - remove protocol message queue
-> - remove retransmission queue
-> - clean up process of pushing packets in link layer 
++1
 
-Series applied, thanks.
+> Is there any value in reordering these tests for frequency
+> or maybe using | instead of || to avoid multiple jumps?
+
+No, it's not a fast-path.
