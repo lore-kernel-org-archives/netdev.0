@@ -1,39 +1,53 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 1/2] virito: introduce methods of fixing device features
-Date: Mon, 24 Nov 2014 11:38:13 +1030
-Message-ID: <87sih9xv5u.fsf@rustcorp.com.au>
-References: <1415857974-23326-1-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1415857974-23326-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net-next] tun/macvtap: use consume_skb() instead of kfree_skb() in tun/macvtap_do_read()
+Date: Wed, 26 Nov 2014 14:08:04 +0800
+Message-ID: <1416982084-12212-1-git-send-email-jasowang@redhat.com>
+Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57380 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750731AbaKZGIN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Nov 2014 01:08:13 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jason Wang <jasowang@redhat.com> writes:
-> Buggy host may advertised buggy host features (a usual case is that host
-> advertise a feature whose dependencies were missed). In this case, driver
-> should detect and disable the buggy features by itself.
+To be more friendly with drop monitor, we should use comsume_skb() instead
+of kfree_skb() in tun/macvtap_do_read(). Otherwise, the packets will be
+marked as dropped.
 
-Sorry, I've been focussing elsewhere.
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/macvtap.c | 2 +-
+ drivers/net/tun.c     | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-I would really prefer that drivers offer a "feature_depends" table,
-which can indicate that feature A depends on feature B, and have the
-core iterate, complain and fixup as necessary.
-
-Is that expressive enough, or do we need more?
-
-Thanks,
-Rusty.
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 42a80d3..74d1b23 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -862,7 +862,7 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q,
+ 		}
+ 		iov_iter_init(&iter, READ, iv, segs, len);
+ 		ret = macvtap_put_user(q, skb, &iter);
+-		kfree_skb(skb);
++		consume_skb(skb);
+ 		break;
+ 	}
+ 
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index ac53a73..d7edeaf 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1363,7 +1363,7 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+ 
+ 	iov_iter_init(&iter, READ, iv, segs, len);
+ 	ret = tun_put_user(tun, tfile, skb, &iter);
+-	kfree_skb(skb);
++	consume_skb(skb);
+ 
+ 	return ret;
+ }
+-- 
+1.9.1
