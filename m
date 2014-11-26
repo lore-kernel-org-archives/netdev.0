@@ -1,31 +1,36 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
 Subject: Re: [net-next PATCH 5/5] r8169: Use eth_skb_pad function
-Date: Wed, 26 Nov 2014 01:02:58 +0100
-Message-ID: <20141126000258.GA5901@electric-eye.fr.zoreil.com>
-References: <20141125223727.1867.43890.stgit@ahduyck-vm-fedora20>
- <20141125224425.1867.70460.stgit@ahduyck-vm-fedora20>
+Date: Tue, 25 Nov 2014 16:33:24 -0800
+Message-ID: <54751FD4.2000003@gmail.com>
+References: <20141125223727.1867.43890.stgit@ahduyck-vm-fedora20> <20141125224425.1867.70460.stgit@ahduyck-vm-fedora20> <20141126000258.GA5901@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org,
 	Realtek linux nic maintainers <nic_swsd@realtek.com>,
 	davem@davemloft.net
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+To: Francois Romieu <romieu@fr.zoreil.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:58975 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751045AbaKZADP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 19:03:15 -0500
-Content-Disposition: inline
-In-Reply-To: <20141125224425.1867.70460.stgit@ahduyck-vm-fedora20>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:38074 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750869AbaKZAd0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 19:33:26 -0500
+Received: by mail-pd0-f173.google.com with SMTP id ft15so1613298pdb.32
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 16:33:26 -0800 (PST)
+In-Reply-To: <20141126000258.GA5901@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alexander Duyck <alexander.h.duyck@redhat.com> :
-> Replace rtl_skb_pad with eth_skb_pad since they do the same thing.
+On 11/25/2014 04:02 PM, Francois Romieu wrote:
+> Alexander Duyck <alexander.h.duyck@redhat.com> :
+>> Replace rtl_skb_pad with eth_skb_pad since they do the same thing.
+> rtl_skb_pad returns true on success.
+>
+> eth_skb_pad returns 0 on success.
+>
 
-rtl_skb_pad returns true on success.
+Okay, that is an easy enough fix.  I will just test for !eth_skb_pad in
+the v2 version.
 
-eth_skb_pad returns 0 on success.
-
--- 
-Ueimor
+- Alex
