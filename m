@@ -1,67 +1,31 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v3 04/17] net: introduce generic switch devices
- support
-Date: Tue, 25 Nov 2014 22:33:36 -0500
-Message-ID: <54754A10.6020601@mojatatu.com>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us> <1416911328-10979-5-git-send-email-jiri@resnulli.us> <5474A567.4040401@mojatatu.com> <20141125164954.GJ1971@nanopsycho.orion> <5474B795.3080204@mojatatu.com> <20141125215402.GA3912@casper.infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/2] net: dsa: bcm_sf2: misc bugfixes
+Date: Tue, 25 Nov 2014 22:39:18 -0500 (EST)
+Message-ID: <20141125.223918.1199525512212985299.davem@davemloft.net>
+References: <1416967711-32494-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
-	pshelar@nicira.com, azhou@nicira.com, ben@decadent.org.uk,
-	stephen@networkplumber.org, jeffrey.t.kirsher@intel.com,
-	vyasevic@redhat.com, xiyou.wangcong@gmail.com,
-	john.r.fastabend@intel.com, edumazet@google.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.
-To: Thomas Graf <tgraf@suug.ch>
+Cc: netdev@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:34473 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751994AbaKZDdn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 22:33:43 -0500
-Received: by mail-ie0-f170.google.com with SMTP id rd18so1940873iec.1
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 19:33:42 -0800 (PST)
-In-Reply-To: <20141125215402.GA3912@casper.infradead.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42087 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751065AbaKZDjV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 22:39:21 -0500
+In-Reply-To: <1416967711-32494-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/25/14 16:54, Thomas Graf wrote:
-> On 11/25/14 at 12:08pm, Jamal Hadi Salim wrote:
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 25 Nov 2014 18:08:29 -0800
 
-> It would definitely help if you could expose some more details on the
-> "some network processor" you have. We're all very eager ;-)
->
+> This patch series contains two bug fixes:
+> 
+> - first patch fixes an issue on the error path of the driver where we could
+>   have left some of our registers mapped
+> 
+> - second patch enforces the use of a software reset of the switch to guarantee
+>   the HW is in a consistent state prior to software initialization
 
-Well, this thing doesnt run ovs ;-> (/me runs). If you come
-to netdev i may let you play with it ;-> Its a humongous device
-(think multi 100G ports).
-
-On a serious note: Even if you took what Simon/Netronome has
-(yes, I know they use ovs;->) - there is really no need for a switch
-abstraction *at all* if all you want to is hang a packet
-processing graph that ingresses at a port and egress at another port.
-As you know, Linux supports it just fine with tc.
-
-> I'm with Jiri but I agree it's not a perfect fit. I doubt there is but
-> if you can come up with something that fits better I'm open to it.
->
-> I considered "dataplane" or "dp" for a bit but it's quite generic as
-> well.
->
-
-The purpose is to offload. I think any name would be better than
-mapping it to a specific abstraction called "switch". Especially
-if it is hanging off a port and there is no switch in the pipeline.
-
-cheers,
-jamal
+Series applied, thanks Florian.
