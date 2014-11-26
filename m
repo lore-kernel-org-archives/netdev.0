@@ -1,132 +1,32 @@
-From: Rajib Karmakar <rajibkit@gmail.com>
-Subject: Re: Multiple DSA switch on shared MII
-Date: Wed, 26 Nov 2014 13:03:01 +0530
-Message-ID: <CAOi_9k8WySmjm5cdFn1kJQuE7cJ1rDyM9SV2RvbcmbB+UeTVdQ@mail.gmail.com>
-References: <CAOi_9k8NwpVFxg=9VOagVt3m6hn2uLKuCZ_0-+4PciJNRWuTmA@mail.gmail.com>
-	<CAGVrzcaG_uYpmmgC252ObHJ9Cmt91-BUtB3uOfPJHV6RhkRU1Q@mail.gmail.com>
+From: "Arad, Ronen" <ronen.arad@intel.com>
+Subject: RE: [patch net-next v3 02/17] net: make vid as a parameter for
+ ndo_fdb_add/ndo_fdb_del
+Date: Wed, 26 Nov 2014 07:35:26 +0000
+Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505D7E120@ORSMSX101.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:46560 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751141AbaKZHdC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 02:33:02 -0500
-Received: by mail-pd0-f169.google.com with SMTP id fp1so2280675pdb.0
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 23:33:01 -0800 (PST)
-In-Reply-To: <CAGVrzcaG_uYpmmgC252ObHJ9Cmt91-BUtB3uOfPJHV6RhkRU1Q@mail.gmail.com>
+Received: from mga03.intel.com ([134.134.136.65]:1787 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752055AbaKZHf2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Nov 2014 02:35:28 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Florian,
-
-Thanks for your reply.
-
-On Wed, Nov 26, 2014 at 10:52 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> 2014-11-25 20:52 GMT-08:00 Rajib Karmakar <rajibkit@gmail.com>:
->> Hello,
->>
->> I am developing a DSA driver for Marvell 6172 and need to create 2 dsa
->> switch chip (one for WAN and one for LAN).
->
-> This is not typically how it is designed to work, you would register
-> one dsa switch chip with the ports assignment in this data structure.
-> Right now, DSA does not support a dual Ethernet MAC configuration,
-> although you could probably do per-port VLAN membership and create two
-> default VLANs to allow that.
->
->>
->> My device has 2 MACs and one shared mii_bus. I have added two
->> dsa_platform_data structures and registered them but cannot probe as
->> dsa_probe tries mdio_register() on the same bus and fails.
->>
->> Is it possible to create two DSA switch on same (shared) mii?
->
-> Not in its current form, and I am not exactly sure how we would support that.
-
-Yes, not with the current DSA implementation, but I can manage to
-solve this by a small (ugly) patch - renamed the slave mii bus as
-"<master_bus->id>:<pd->sw_addr>:<platform_device->id>" instead of
-"<master_bus->id>:<pd->sw_addr>". Though I am not yet sure enough if
-this could have any negative impact or not.
-
-Comments please.
-
->
->>
->> Regards,
->> Rajib
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
->
-> --
-> Florian
-
-----
-diff -rup org/net/dsa/dsa.c mod/net/dsa/dsa.c
---- org/net/dsa/dsa.c
-+++ mod/net/dsa/dsa.c
-@@ -68,7 +68,7 @@ dsa_switch_probe(struct mii_bus *bus, in
-
- /* basic switch operations **************************************************/
- static struct dsa_switch *
--dsa_switch_setup(struct dsa_switch_tree *dst, int index,
-+dsa_switch_setup(struct dsa_switch_tree *dst, int index, int id,
-  struct device *parent, struct mii_bus *bus)
- {
-  struct dsa_chip_data *pd = dst->pd->chip + index;
-@@ -156,7 +156,7 @@ dsa_switch_setup(struct dsa_switch_tree
-  ret = -ENOMEM;
-  goto out;
-  }
-- dsa_slave_mii_bus_init(ds);
-+ dsa_slave_mii_bus_init(ds, id);
-
-  ret = mdiobus_register(ds->slave_mii_bus);
-  if (ret < 0)
-@@ -349,7 +349,7 @@ static int dsa_probe(struct platform_dev
-  continue;
-  }
-
-- ds = dsa_switch_setup(dst, i, &pdev->dev, bus);
-+ ds = dsa_switch_setup(dst, i, pdev->id, &pdev->dev, bus);
-  if (IS_ERR(ds)) {
-  printk(KERN_ERR "%s[%d]: couldn't create dsa switch "
-  "instance (error %ld)\n", dev->name, i,
-diff -rup org/net/dsa/dsa_priv.h mod/net/dsa/dsa_priv.h
---- org/net/dsa/dsa_priv.h
-+++ mod/net/dsa/dsa_priv.h
-@@ -163,7 +163,7 @@ void register_switch_driver(struct dsa_s
- void unregister_switch_driver(struct dsa_switch_driver *type);
-
- /* slave.c */
--void dsa_slave_mii_bus_init(struct dsa_switch *ds);
-+void dsa_slave_mii_bus_init(struct dsa_switch *ds, int id);
- struct net_device *dsa_slave_create(struct dsa_switch *ds,
-     struct device *parent,
-     int port, char *name);
-diff -rup org/net/dsa/slave.c mod/net/dsa/slave.c
---- org/net/dsa/slave.c
-+++ mod/net/dsa/slave.c
-@@ -35,14 +35,14 @@ static int dsa_slave_phy_write(struct mi
-  return 0;
- }
-
--void dsa_slave_mii_bus_init(struct dsa_switch *ds)
-+void dsa_slave_mii_bus_init(struct dsa_switch *ds, int id)
- {
-  ds->slave_mii_bus->priv = (void *)ds;
-  ds->slave_mii_bus->name = "dsa slave smi";
-  ds->slave_mii_bus->read = dsa_slave_phy_read;
-  ds->slave_mii_bus->write = dsa_slave_phy_write;
-- snprintf(ds->slave_mii_bus->id, MII_BUS_ID_SIZE, "%s:%.2x",
-- ds->master_mii_bus->id, ds->pd->sw_addr);
-+ snprintf(ds->slave_mii_bus->id, MII_BUS_ID_SIZE, "%s:%.2x:%.1x",
-+ ds->master_mii_bus->id, ds->pd->sw_addr, id);
-  ds->slave_mii_bus->parent = &ds->master_mii_bus->dev;
- }
+DQoNCj5AQCAtMjMxMiw3ICsyMzEzLDcgQEAgZXJyb3V0Og0KPiBpbnQgbmRvX2RmbHRfZmRiX2Fk
+ZChzdHJ1Y3QgbmRtc2cgKm5kbSwNCj4gCQkgICAgIHN0cnVjdCBubGF0dHIgKnRiW10sDQo+IAkJ
+ICAgICBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LA0KPi0JCSAgICAgY29uc3QgdW5zaWduZWQgY2hh
+ciAqYWRkciwNCj4rCQkgICAgIGNvbnN0IHVuc2lnbmVkIGNoYXIgKmFkZHIsIHUxNiB2aWQsDQo+
+IAkJICAgICB1MTYgZmxhZ3MpDQo+IHsNCj4gCWludCBlcnIgPSAtRUlOVkFMOw0KDQo+QEAgLTI0
+MDksNyArMjQzOSw3IEBAIG91dDoNCj4gaW50IG5kb19kZmx0X2ZkYl9kZWwoc3RydWN0IG5kbXNn
+ICpuZG0sDQo+IAkJICAgICBzdHJ1Y3QgbmxhdHRyICp0YltdLA0KPiAJCSAgICAgc3RydWN0IG5l
+dF9kZXZpY2UgKmRldiwNCj4tCQkgICAgIGNvbnN0IHVuc2lnbmVkIGNoYXIgKmFkZHIpDQo+KwkJ
+ICAgICBjb25zdCB1bnNpZ25lZCBjaGFyICphZGRyLCB1MTYgdmlkKQ0KPiB7DQo+IAlpbnQgZXJy
+ID0gLUVJTlZBTDsNCg0KV2hhdCBpcyB0aGUgZXhwZWN0ZWQgcm9sZSBvZiB2aWQgaW4gbmRvX2Rm
+bHRfZmRiX2FkZC9uZG9fZGZsdF9mZGJfZGVsPw0KSXQgaXMgaWdub3JlZCBpbiBib3RoIGZ1bmN0
+aW9ucy4gDQpXaWxsIHRoZSB2aWQgYmUgcGFzc2VkIHRvIGRldl91Y19hZGQvZGV2X3VjX2FkZF9l
+eGNsL2Rldl91Y19kZWwgYW5kIHNpbWlsYXIgZGV2X21jX3h4eCBmdW5jdGlvbnM/DQpXaWxsIHRo
+ZSBkZXZpY2UgYWRkcmVzcyBsaXN0cyBiZWNvbWUgVkxBTi1hd2FyZT8NCg0KIA0KDQoNCg==
