@@ -1,60 +1,45 @@
-From: Quentin Lambert <lambert.quentin@gmail.com>
-Subject: [PATCH] x86: bpf_jit_comp: simplify trivial boolean return
-Date: Wed, 26 Nov 2014 10:18:17 +0100
-Message-ID: <1416993497-27225-1-git-send-email-lambert.quentin@gmail.com>
-Cc: Quentin Lambert <lambert.quentin@gmail.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net-next] macvlan: delay the header check for dodgy packets into lower device
+Date: Wed, 26 Nov 2014 17:21:14 +0800
+Message-ID: <1416993674-11177-1-git-send-email-jasowang@redhat.com>
+Cc: mst@redhat.com, vyasevic@redhat.com,
+	Jason Wang <jasowang@redhat.com>
+To: kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove if then else statements preceding
-boolean return. Occurences were found using
-Coccinelle.
+We do header check twice for a dodgy packet. One is done before
+macvlan_start_xmit(), another is done before lower device's
+ndo_start_xmit(). The first one seems redundant so this patch tries to
+delay header check until a packet reaches its lower device (or macvtap)
+through always enabling NETIF_F_GSO_ROBUST for macvlan device.
 
-The semantic patch used was:
-
-@@
-expression expr;
-@@
-
-
-- if ( expr )
--	return true;
-- else
--	return false;
-+ return expr;
-
-Signed-off-by: Quentin Lambert <lambert.quentin@gmail.com>
-
+Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- arch/x86/net/bpf_jit_comp.c |    8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+ drivers/net/macvlan.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index 3f62734..1542f39 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -135,11 +135,9 @@ static const int reg2hex[] = {
-  */
- static inline bool is_ereg(u32 reg)
- {
--	if (reg == BPF_REG_5 || reg == AUX_REG ||
--	    (reg >= BPF_REG_7 && reg <= BPF_REG_9))
--		return true;
--	else
--		return false;
-+	return (reg == BPF_REG_5 ||
-+		reg == AUX_REG ||
-+		(reg >= BPF_REG_7 && reg <= BPF_REG_9));
- }
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index bfb0b6e..11d4b35 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -742,11 +742,12 @@ static struct lock_class_key macvlan_netdev_xmit_lock_key;
+ static struct lock_class_key macvlan_netdev_addr_lock_key;
  
- /* add modifiers if 'reg' maps to x64 registers r8..r15 */
+ #define ALWAYS_ON_FEATURES \
+-	(NETIF_F_SG | NETIF_F_GEN_CSUM | NETIF_F_GSO_SOFTWARE | NETIF_F_LLTX)
++	(NETIF_F_SG | NETIF_F_GEN_CSUM | NETIF_F_GSO_SOFTWARE | NETIF_F_LLTX | \
++	 NETIF_F_GSO_ROBUST)
+ 
+ #define MACVLAN_FEATURES \
+ 	(NETIF_F_SG | NETIF_F_ALL_CSUM | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST | \
+-	 NETIF_F_GSO | NETIF_F_TSO | NETIF_F_UFO | NETIF_F_GSO_ROBUST | \
++	 NETIF_F_GSO | NETIF_F_TSO | NETIF_F_UFO | \
+ 	 NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_GRO | NETIF_F_RXCSUM | \
+ 	 NETIF_F_HW_VLAN_CTAG_FILTER | NETIF_F_HW_VLAN_STAG_FILTER)
+ 
+-- 
+1.9.1
