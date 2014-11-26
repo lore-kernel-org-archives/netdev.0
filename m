@@ -1,70 +1,45 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH] x86: bpf_jit_comp: simplify trivial boolean return
-Date: Wed, 26 Nov 2014 08:42:09 -0800
-Message-ID: <CAADnVQK8mn4ZHwbhBArosEw3Bmsc5vJfOzAeRE3R_1S7dbNfkg@mail.gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH 2/5] net: Validate IFLA_BRIDGE_MODE attribute length
+Date: Wed, 26 Nov 2014 08:42:48 -0800
+Message-ID: <54760308.8030708@gmail.com>
+References: <cover.1417005245.git.tgraf@suug.ch> <4a88a0350064b5c2ec4e2adcef5afdfcab3e45dd.1417005245.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Quentin Lambert <lambert.quentin@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+	netdev@vger.kernel.org, Ajit Khaparde <ajit.khaparde@emulex.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f43.google.com ([209.85.218.43]:65221 "EHLO
+	mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750970AbaKZQnF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 11:43:05 -0500
+Received: by mail-oi0-f43.google.com with SMTP id a3so2270815oib.30
+        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 08:43:04 -0800 (PST)
+In-Reply-To: <4a88a0350064b5c2ec4e2adcef5afdfcab3e45dd.1417005245.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 26, 2014 at 1:18 AM, Quentin Lambert
-<lambert.quentin@gmail.com> wrote:
-> Remove if then else statements preceding
-> boolean return. Occurences were found using
-> Coccinelle.
+On 11/26/2014 04:42 AM, Thomas Graf wrote:
+> Payload is currently accessed blindly and may exceed valid message
+> boundaries.
 >
-> The semantic patch used was:
->
-> @@
-> expression expr;
-> @@
->
->
-> - if ( expr )
-> -       return true;
-> - else
-> -       return false;
-> + return expr;
->
-> Signed-off-by: Quentin Lambert <lambert.quentin@gmail.com>
->
+> Fixes: a77dcb8c8 ("be2net: set and query VEB/VEPA mode of the PF interface")
+> Fixes: 815cccbf1 ("ixgbe: add setlink, getlink support to ixgbe and ixgbevf")
+> Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
+> Cc: John Fastabend <john.r.fastabend@intel.com>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 > ---
->  arch/x86/net/bpf_jit_comp.c |    8 +++-----
->  1 file changed, 3 insertions(+), 5 deletions(-)
+>   drivers/net/ethernet/emulex/benet/be_main.c   | 3 +++
+>   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 3 +++
+>   2 files changed, 6 insertions(+)
 >
-> diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-> index 3f62734..1542f39 100644
-> --- a/arch/x86/net/bpf_jit_comp.c
-> +++ b/arch/x86/net/bpf_jit_comp.c
-> @@ -135,11 +135,9 @@ static const int reg2hex[] = {
->   */
->  static inline bool is_ereg(u32 reg)
->  {
-> -       if (reg == BPF_REG_5 || reg == AUX_REG ||
-> -           (reg >= BPF_REG_7 && reg <= BPF_REG_9))
-> -               return true;
-> -       else
-> -               return false;
-> +       return (reg == BPF_REG_5 ||
-> +               reg == AUX_REG ||
-> +               (reg >= BPF_REG_7 && reg <= BPF_REG_9));
 
-please remove extra () around the whole expression, and
-align in properly, and
-don't move reg==AUX_REG check to a different line.
-Subject is not warranted. I don't think it's a simplification.
-imo existing code is fine and I don't think the time spent
-reviewing such changes is worth it when there is no
-improvement in readability.
+Thanks Thomas.
+
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
+
+
+-- 
+John Fastabend         Intel Corporation
