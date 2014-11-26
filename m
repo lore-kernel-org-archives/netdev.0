@@ -1,45 +1,48 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH iproute2] iplink: allow to show ip addresses
-Date: Wed, 26 Nov 2014 14:12:04 +0100
-Message-ID: <20141126141204.42c76a37@griffin>
-References: <1416847337-23661-1-git-send-email-nicolas.dichtel@6wind.com>
-	<20141125061023.GA8819@unicorn.suse.cz>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v4 24/42] virtio_net: enable v1.0 support
+Date: Wed, 26 Nov 2014 15:28:52 +0200
+Message-ID: <20141126132852.GB5127@redhat.com>
+References: <1416933600-21398-1-git-send-email-mst@redhat.com>
+	<1416933600-21398-25-git-send-email-mst@redhat.com>
+	<20141126140857.6ff85e4b.cornelia.huck@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>, shemminger@vyatta.com,
-	netdev@vger.kernel.org
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55347 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750945AbaKZNMN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Nov 2014 08:12:13 -0500
-In-Reply-To: <20141125061023.GA8819@unicorn.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rusty@au1.ibm.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, pbonzini@redhat.com,
+	David Miller <davem@davemloft.net>
+To: Cornelia Huck <cornelia.huck@de.ibm.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20141126140857.6ff85e4b.cornelia.huck@de.ibm.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 25 Nov 2014 07:10:23 +0100, Michal Kubecek wrote:
-> On Mon, Nov 24, 2014 at 05:42:17PM +0100, Nicolas Dichtel wrote:
-> > This patch adds a new option (-addresses) to the 'ip link' command so that the
-> > user can display link details and IP addresses with the same command.
-> > 
-> > Example:
-> > $ ip -d -a l ls gre1
-> > 9: gre1@NONE: <POINTOPOINT,NOARP,UP,LOWER_UP> mtu 1468 qdisc noqueue state UNKNOWN mode DEFAULT group default
-> >     link/gre 10.16.0.249 peer 10.16.0.121 promiscuity 0
-> >     gre remote 10.16.0.121 local 10.16.0.249 ttl inherit ikey 0.0.0.10 okey 0.0.0.10 icsum ocsum
-> >     inet 192.168.0.249 peer 192.168.0.121/32 scope global gre1
-> >        valid_lft forever preferred_lft forever
-> >     inet6 fe80::5efe:a10:f9/64 scope link
-> >        valid_lft forever preferred_lft forever
+On Wed, Nov 26, 2014 at 02:08:57PM +0100, Cornelia Huck wrote:
+> On Tue, 25 Nov 2014 18:43:06 +0200
+> "Michael S. Tsirkin" <mst@redhat.com> wrote:
 > 
-> Perhaps it would be more consistent to add -d option to "ip addr show" 
-> instead as we already have -s for statistics there (commit 5d5cf1b43).
+> > Now that we have completed 1.0 support, enable it in our driver.
+> > 
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > ---
+> >  drivers/net/virtio_net.c | 1 +
+> >  1 file changed, 1 insertion(+)
+> > 
+> 
+> Hm. The spec states that mac is driver-writable in the legacy case.
+> Don't we need to fence writing it in virtnet_set_mac_address() in the
+> virtio 1.0 case?
 
-Agreed.
-
- Jiri
-
--- 
-Jiri Benc
+You are right. I'll add a patch to fix that one: we
+should return -EOPNOTSUPP unless
+	VIRTIO_NET_F_CTRL_MAC_ADDR or
+	VERSION_1 is clear and VIRTIO_NET_F_MAC is set.
