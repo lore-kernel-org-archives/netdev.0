@@ -1,115 +1,253 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net] net-timestamp: make tcp_recvmsg call ipv6_recv_error for AF_INET6 socks
-Date: Wed, 26 Nov 2014 14:53:02 -0500
-Message-ID: <1417031582-16480-1-git-send-email-willemb@google.com>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+Subject: Re: [PATCH rfc] packet: zerocopy packet_snd
+Date: Wed, 26 Nov 2014 14:59:34 -0500
+Message-ID: <CA+FuTSdYB4rDMH3gAAMwaRdbqN58f_SxLz=C3fcCACw_KosGXw@mail.gmail.com>
+References: <1416602694-7540-1-git-send-email-willemb@google.com> <20141126182445.GA15744@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f176.google.com ([209.85.160.176]:44727 "EHLO
-	mail-yk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750804AbaKZTxU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 14:53:20 -0500
-Received: by mail-yk0-f176.google.com with SMTP id q200so1587856ykb.35
-        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 11:53:19 -0800 (PST)
+Received: from mail-qa0-f41.google.com ([209.85.216.41]:54465 "EHLO
+	mail-qa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751107AbaKZUAF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 15:00:05 -0500
+Received: by mail-qa0-f41.google.com with SMTP id f12so2458861qad.14
+        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 12:00:04 -0800 (PST)
+In-Reply-To: <20141126182445.GA15744@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+> The main problem with zero copy ATM is with queueing disciplines
+> which might keep the socket around essentially forever.
+> The case was described here:
+> https://lkml.org/lkml/2014/1/17/105
+> and of course this will make it more serious now that
+> more applications will be able to do this, so
+> chances that an administrator enables this
+> are higher.
 
-TCP timestamping introduced MSG_ERRQUEUE handling for TCP sockets.
-If the socket is of family AF_INET6, call ipv6_recv_error instead
-of ip_recv_error.
+The denial of service issue raised there, that a single queue can
+block an entire virtio-net device, is less problematic in the case of
+packet sockets. A socket can run out of sk_wmem_alloc, but a prudent
+application can increase the limit or use separate sockets for
+separate flows.
 
-This change is more complex than a single branch due to the loadable
-ipv6 module. It reuses a pre-existing indirect function call from
-ping. The ping code is safe to call, because it is part of the core
-ipv6 module and always present when AF_INET6 sockets are active.
+> One possible solution is some kind of timer orphaning frags
+> for skbs that have been around for too long.
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
+Perhaps this can be approximated without an explicit timer by calling
+skb_copy_ubufs on enqueue whenever qlen exceeds a threshold value?
 
-----
-
-It may also be worthwhile to add WARN_ON_ONCE(sk->family == AF_INET6)
-to ip_recv_error.
----
- include/net/inet_common.h |  2 ++
- net/ipv4/af_inet.c        | 11 +++++++++++
- net/ipv4/ping.c           | 12 ++----------
- net/ipv4/tcp.c            |  2 +-
- 4 files changed, 16 insertions(+), 11 deletions(-)
-
-diff --git a/include/net/inet_common.h b/include/net/inet_common.h
-index fe7994c..b2828a0 100644
---- a/include/net/inet_common.h
-+++ b/include/net/inet_common.h
-@@ -37,6 +37,8 @@ int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg);
- int inet_ctl_sock_create(struct sock **sk, unsigned short family,
- 			 unsigned short type, unsigned char protocol,
- 			 struct net *net);
-+int inet_recv_error(struct sock *sk, struct msghdr *msg, int len,
-+		    int *addr_len);
- 
- static inline void inet_ctl_sock_destroy(struct sock *sk)
- {
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 8b7fe5b..e67da4e 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1386,6 +1386,17 @@ out:
- 	return pp;
- }
- 
-+int inet_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
-+{
-+	if (sk->sk_family == AF_INET)
-+		return ip_recv_error(sk, msg, len, addr_len);
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (sk->sk_family == AF_INET6)
-+		return pingv6_ops.ipv6_recv_error(sk, msg, len, addr_len);
-+#endif
-+	return -EINVAL;
-+}
-+
- static int inet_gro_complete(struct sk_buff *skb, int nhoff)
- {
- 	__be16 newlen = htons(skb->len - nhoff);
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 85a02a7..5d740cc 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -855,16 +855,8 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	if (flags & MSG_OOB)
- 		goto out;
- 
--	if (flags & MSG_ERRQUEUE) {
--		if (family == AF_INET) {
--			return ip_recv_error(sk, msg, len, addr_len);
--#if IS_ENABLED(CONFIG_IPV6)
--		} else if (family == AF_INET6) {
--			return pingv6_ops.ipv6_recv_error(sk, msg, len,
--							  addr_len);
--#endif
--		}
--	}
-+	if (flags & MSG_ERRQUEUE)
-+		return inet_recv_error(sk, msg, len, addr_len);
- 
- 	skb = skb_recv_datagram(sk, flags, noblock, &err);
- 	if (!skb)
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 39ec0c3..38c2bcb 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1598,7 +1598,7 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	u32 urg_hole = 0;
- 
- 	if (unlikely(flags & MSG_ERRQUEUE))
--		return ip_recv_error(sk, msg, len, addr_len);
-+		return inet_recv_error(sk, msg, len, addr_len);
- 
- 	if (sk_can_busy_loop(sk) && skb_queue_empty(&sk->sk_receive_queue) &&
- 	    (sk->sk_state == TCP_ESTABLISHED))
--- 
-2.2.0.rc0.207.ga3a616c
+>
+>> ---
+>>  include/linux/skbuff.h        |   1 +
+>>  include/linux/socket.h        |   1 +
+>>  include/uapi/linux/errqueue.h |   1 +
+>>  net/packet/af_packet.c        | 110 ++++++++++++++++++++++++++++++++++++++----
+>>  4 files changed, 103 insertions(+), 10 deletions(-)
+>>
+>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+>> index 78c299f..8e661d2 100644
+>> --- a/include/linux/skbuff.h
+>> +++ b/include/linux/skbuff.h
+>> @@ -295,6 +295,7 @@ struct ubuf_info {
+>>       void (*callback)(struct ubuf_info *, bool zerocopy_success);
+>>       void *ctx;
+>>       unsigned long desc;
+>> +     void *callback_priv;
+>>  };
+>>
+>>  /* This data is invariant across clones and lives at
+>> diff --git a/include/linux/socket.h b/include/linux/socket.h
+>> index de52228..0a2e0ea 100644
+>> --- a/include/linux/socket.h
+>> +++ b/include/linux/socket.h
+>> @@ -265,6 +265,7 @@ struct ucred {
+>>  #define MSG_SENDPAGE_NOTLAST 0x20000 /* sendpage() internal : not the last page */
+>>  #define MSG_EOF         MSG_FIN
+>>
+>> +#define MSG_ZEROCOPY 0x4000000       /* Pin user pages */
+>>  #define MSG_FASTOPEN 0x20000000      /* Send data in TCP SYN */
+>>  #define MSG_CMSG_CLOEXEC 0x40000000  /* Set close_on_exec for file
+>>                                          descriptor received through
+>> diff --git a/include/uapi/linux/errqueue.h b/include/uapi/linux/errqueue.h
+>> index 07bdce1..61bf318 100644
+>> --- a/include/uapi/linux/errqueue.h
+>> +++ b/include/uapi/linux/errqueue.h
+>> @@ -19,6 +19,7 @@ struct sock_extended_err {
+>>  #define SO_EE_ORIGIN_ICMP6   3
+>>  #define SO_EE_ORIGIN_TXSTATUS        4
+>>  #define SO_EE_ORIGIN_TIMESTAMPING SO_EE_ORIGIN_TXSTATUS
+>> +#define SO_EE_ORIGIN_UPAGE   5
+>>
+>>  #define SO_EE_OFFENDER(ee)   ((struct sockaddr*)((ee)+1))
+>>
+>> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+>> index 58af5802..367c23a 100644
+>> --- a/net/packet/af_packet.c
+>> +++ b/net/packet/af_packet.c
+>> @@ -2370,28 +2370,112 @@ out:
+>>
+>>  static struct sk_buff *packet_alloc_skb(struct sock *sk, size_t prepad,
+>>                                       size_t reserve, size_t len,
+>> -                                     size_t linear, int noblock,
+>> +                                     size_t linear, int flags,
+>>                                       int *err)
+>>  {
+>>       struct sk_buff *skb;
+>> +     size_t data_len;
+>>
+>> -     /* Under a page?  Don't bother with paged skb. */
+>> -     if (prepad + len < PAGE_SIZE || !linear)
+>> -             linear = len;
+>> +     if (flags & MSG_ZEROCOPY) {
+>> +             /* Minimize linear, but respect header lower bound */
+>> +             linear = min(len, max_t(size_t, linear, MAX_HEADER));
+>> +             data_len = 0;
+>> +     } else {
+>> +             /* Under a page? Don't bother with paged skb. */
+>> +             if (prepad + len < PAGE_SIZE || !linear)
+>> +                     linear = len;
+>> +             data_len = len - linear;
+>> +     }
+>>
+>> -     skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
+>> -                                err, 0);
+>> +     skb = sock_alloc_send_pskb(sk, prepad + linear, data_len,
+>> +                                flags & MSG_DONTWAIT, err, 0);
+>>       if (!skb)
+>>               return NULL;
+>>
+>>       skb_reserve(skb, reserve);
+>>       skb_put(skb, linear);
+>> -     skb->data_len = len - linear;
+>> -     skb->len += len - linear;
+>> +     skb->data_len = data_len;
+>> +     skb->len += data_len;
+>>
+>>       return skb;
+>>  }
+>>
+>> +/* release zerocopy resources and avoid destructor callback on kfree */
+>> +static void packet_snd_zerocopy_free(struct sk_buff *skb)
+>> +{
+>> +     struct ubuf_info *uarg = skb_shinfo(skb)->destructor_arg;
+>> +
+>> +     if (uarg) {
+>> +             kfree_skb(uarg->callback_priv);
+>> +             sock_put((struct sock *) uarg->ctx);
+>> +             kfree(uarg);
+>> +
+>> +             skb_shinfo(skb)->destructor_arg = NULL;
+>> +             skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
+>> +     }
+>> +}
+>> +
+>> +static void packet_snd_zerocopy_callback(struct ubuf_info *uarg,
+>> +                                      bool zerocopy_success)
+>> +{
+>> +     struct sk_buff *err_skb;
+>> +     struct sock *err_sk;
+>> +     struct sock_exterr_skb *serr;
+>> +
+>> +     err_sk = uarg->ctx;
+>> +     err_skb = uarg->callback_priv;
+>> +
+>> +     serr = SKB_EXT_ERR(err_skb);
+>> +     memset(serr, 0, sizeof(*serr));
+>> +     serr->ee.ee_errno = ENOMSG;
+>> +     serr->ee.ee_origin = SO_EE_ORIGIN_UPAGE;
+>> +     serr->ee.ee_data = uarg->desc & 0xFFFFFFFF;
+>> +     serr->ee.ee_info = ((u64) uarg->desc) >> 32;
+>> +     if (sock_queue_err_skb(err_sk, err_skb))
+>> +             kfree_skb(err_skb);
+>> +
+>> +     kfree(uarg);
+>> +     sock_put(err_sk);
+>> +}
+>> +
+>> +static int packet_zerocopy_sg_from_iovec(struct sk_buff *skb,
+>> +                                      struct msghdr *msg)
+>> +{
+>> +     struct ubuf_info *uarg = NULL;
+>> +     int ret;
+>> +
+>> +     if (iov_pages(msg->msg_iov, 0, msg->msg_iovlen) > MAX_SKB_FRAGS)
+>> +             return -EMSGSIZE;
+>> +
+>> +     uarg = kzalloc(sizeof(*uarg), GFP_KERNEL);
+>> +     if (!uarg)
+>> +             return -ENOMEM;
+>> +
+>> +     uarg->callback_priv = alloc_skb(0, GFP_KERNEL);
+>> +     if (!uarg->callback_priv) {
+>> +             kfree(uarg);
+>> +             return -ENOMEM;
+>> +     }
+>> +
+>> +     ret = zerocopy_sg_from_iovec(skb, msg->msg_iov, 0, msg->msg_iovlen);
+>> +     if (ret) {
+>> +             kfree_skb(uarg->callback_priv);
+>> +             kfree(uarg);
+>> +             return -EIO;
+>> +     }
+>> +
+>> +     sock_hold(skb->sk);
+>> +     uarg->ctx = skb->sk;
+>> +     uarg->callback = packet_snd_zerocopy_callback;
+>> +     uarg->desc = (unsigned long) msg->msg_iov[0].iov_base;
+>> +
+>> +     skb_shinfo(skb)->destructor_arg = uarg;
+>> +     skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
+>> +     skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
+>> +
+>> +     return 0;
+>> +}
+>> +
+>>  static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+>>  {
+>>       struct sock *sk = sock->sk;
+>> @@ -2408,6 +2492,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+>>       unsigned short gso_type = 0;
+>>       int hlen, tlen;
+>>       int extra_len = 0;
+>> +     bool zerocopy = msg->msg_flags & MSG_ZEROCOPY;
+>>
+>>       /*
+>>        *      Get and verify the address.
+>> @@ -2501,7 +2586,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+>>       hlen = LL_RESERVED_SPACE(dev);
+>>       tlen = dev->needed_tailroom;
+>>       skb = packet_alloc_skb(sk, hlen + tlen, hlen, len, vnet_hdr.hdr_len,
+>> -                            msg->msg_flags & MSG_DONTWAIT, &err);
+>> +                            msg->msg_flags, &err);
+>>       if (skb == NULL)
+>>               goto out_unlock;
+>>
+>> @@ -2518,7 +2603,11 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+>>       }
+>>
+>>       /* Returns -EFAULT on error */
+>> -     err = skb_copy_datagram_from_iovec(skb, offset, msg->msg_iov, 0, len);
+>> +     if (zerocopy)
+>> +             err = packet_zerocopy_sg_from_iovec(skb, msg);
+>> +     else
+>> +             err = skb_copy_datagram_from_iovec(skb, offset, msg->msg_iov,
+>> +                                                0, len);
+>>       if (err)
+>>               goto out_free;
+>>
+>> @@ -2578,6 +2667,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+>>       return len;
+>>
+>>  out_free:
+>> +     packet_snd_zerocopy_free(skb);
+>>       kfree_skb(skb);
+>>  out_unlock:
+>>       if (dev)
+>> --
+>> 2.1.0.rc2.206.gedb03e5
