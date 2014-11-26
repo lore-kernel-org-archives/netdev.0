@@ -1,87 +1,60 @@
-From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
-Subject: Re: [PATCH 3/4] GMAC: dts: add gmac info for rk3288
-Date: Wed, 26 Nov 2014 09:47:56 +0100
-Message-ID: <2888396.enB18gaD2a@diego>
-References: <1416906536-26158-1-git-send-email-roger.chen@rock-chips.com> <1773507.kOcjDCLbcs@diego> <54753FAD.8040908@rock-chips.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
-	kever.yang@rock-chips.com, mark.yao@rock-chips.com,
-	eddie.cai@rock-chips.com
-To: Roger <roger.chen@rock-chips.com>
+From: Quentin Lambert <lambert.quentin@gmail.com>
+Subject: [PATCH] x86: bpf_jit_comp: simplify trivial boolean return
+Date: Wed, 26 Nov 2014 10:18:17 +0100
+Message-ID: <1416993497-27225-1-git-send-email-lambert.quentin@gmail.com>
+Cc: Quentin Lambert <lambert.quentin@gmail.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54753FAD.8040908@rock-chips.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Mittwoch, 26. November 2014, 10:49:17 schrieb Roger:
-> On 2014/11/25 22:39, Heiko St=FCbner wrote:
-> > Am Dienstag, 25. November 2014, 16:40:59 schrieb Sergei Shtylyov:
-> >> Hello.
-> >>=20
-> >> On 11/25/2014 12:08 PM, Roger Chen wrote:
-> >>> add gmac info in rk3288.dtsi for GMAC driver
-> >>>=20
-> >>> Signed-off-by: Roger Chen <roger.chen@rock-chips.com>
-> >>> ---
-> >>>=20
-> >>>    arch/arm/boot/dts/rk3288.dtsi |   59
-> >>>    +++++++++++++++++++++++++++++++++++++++++ 1 file changed, 59
-> >>>    insertions(+)
-> >>>=20
-> >>> diff --git a/arch/arm/boot/dts/rk3288.dtsi
-> >>> b/arch/arm/boot/dts/rk3288.dtsi
-> >>> index 0f50d5d..949675d 100644
-> >>> --- a/arch/arm/boot/dts/rk3288.dtsi
-> >>> +++ b/arch/arm/boot/dts/rk3288.dtsi
-> >>=20
-> >> [...]
-> >>=20
-> >>> @@ -490,6 +497,25 @@
-> >>>=20
-> >>>    		reg =3D <0xff740000 0x1000>;
-> >>>    =09
-> >>>    	};
-> >>>=20
-> >>> +	gmac: eth@ff290000 {
-> >>>=20
-> >>      Please name the node "ethernet@ff290000" to comply with the e=
-PAPR
-> >>=20
-> >> standard.
-> >>=20
-> >>> +		compatible =3D "rockchip,rk3288-gmac";
-> >>> +		reg =3D <0xff290000 0x10000>;
-> >>> +		interrupts =3D <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;  /*irq=3D59*/
-> >>> +		interrupt-names =3D "macirq";
-> >>> +		rockchip,grf =3D <&grf>;
-> >>> +		clocks =3D <&cru SCLK_MAC>, <&cru SCLK_MAC_PLL>,
-> >>> +			<&cru SCLK_MAC_RX>, <&cru SCLK_MAC_TX>,
-> >>> +			<&cru SCLK_MACREF>, <&cru SCLK_MACREF_OUT>,
-> >>> +			<&cru ACLK_GMAC>, <&cru PCLK_GMAC>;
-> >>> +		clock-names =3D "stmmaceth", "clk_mac_pll",
-> >>> +			"mac_clk_rx", "mac_clk_tx",
-> >>> +			"clk_mac_ref", "clk_mac_refout",
-> >>> +			"aclk_mac", "pclk_mac";
-> >>> +		phy-mode =3D "rgmii";
-> >>> +		pinctrl-names =3D "default";
-> >>> +		pinctrl-0 =3D <&rgmii_pin /*&rmii_pin*/>;
-> >>>=20
-> >>      Hm, pinctrl props in a .dtsi file? Those are usually board
-> >>      dependent.
-> >=20
-> > yep, especially as there is a board-dependent selection needed of w=
-hat to
-> > use [rgmii or rmii] depending on the phy on the board.
->=20
-> of course pinctrl props is redefined in the rk3288-evb-rk808.dts,
-> IMO, pinctrl props in .dtsi is used to fit for the "phy-mode" prop as
-> default. if pinctrl props should be removed, how about "phy-mode" pro=
-p?
+Remove if then else statements preceding
+boolean return. Occurences were found using
+Coccinelle.
 
-yep, the phy-mode should also move to the board file - as it of course =
-also=20
-depends on the phy-chip used there.
+The semantic patch used was:
+
+@@
+expression expr;
+@@
+
+
+- if ( expr )
+-	return true;
+- else
+-	return false;
++ return expr;
+
+Signed-off-by: Quentin Lambert <lambert.quentin@gmail.com>
+
+---
+ arch/x86/net/bpf_jit_comp.c |    8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index 3f62734..1542f39 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -135,11 +135,9 @@ static const int reg2hex[] = {
+  */
+ static inline bool is_ereg(u32 reg)
+ {
+-	if (reg == BPF_REG_5 || reg == AUX_REG ||
+-	    (reg >= BPF_REG_7 && reg <= BPF_REG_9))
+-		return true;
+-	else
+-		return false;
++	return (reg == BPF_REG_5 ||
++		reg == AUX_REG ||
++		(reg >= BPF_REG_7 && reg <= BPF_REG_9));
+ }
+ 
+ /* add modifiers if 'reg' maps to x64 registers r8..r15 */
