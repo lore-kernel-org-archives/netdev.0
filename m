@@ -1,59 +1,57 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V2] tun/macvtap: use consume_skb() instead of kfree_skb() when needed
-Date: Wed, 26 Nov 2014 15:43:30 +0800
-Message-ID: <1416987810-23263-1-git-send-email-jasowang@redhat.com>
-Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v3 02/17] net: make vid as a parameter for
+ ndo_fdb_add/ndo_fdb_del
+Date: Wed, 26 Nov 2014 08:54:49 +0100
+Message-ID: <20141126075449.GA1875@nanopsycho.orion>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
+ <1416911328-10979-3-git-send-email-jiri@resnulli.us>
+ <20141125221417.GF3912@casper.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:55054 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752362AbaKZHyw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 02:54:52 -0500
+Received: by mail-wi0-f182.google.com with SMTP id h11so3977186wiw.9
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 23:54:50 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20141125221417.GF3912@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-To be more friendly with drop monitor, we should only call kfree_skb() when
-the packets were dropped and use consume_skb() in other cases.
+Tue, Nov 25, 2014 at 11:14:17PM CET, tgraf@suug.ch wrote:
+>On 11/25/14 at 11:28am, Jiri Pirko wrote:
+>> Do the work of parsing NDA_VLAN directly in rtnetlink code, pass simple
+>> u16 vid to drivers from there.
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>
+>I'm slightly confused ;-)
+>
+>We both argued that parsing Netlink attributes in the drivers is wrong.
+>What happened to the plan of renaming ndo_fdb_ to ndo_neigh_ and
+>introducing a non-Netlink in-kernel API for advanced usage by swdev?
 
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-Changes from V1:
-- check the return value of tun/macvtap_put_user()
----
- drivers/net/macvtap.c | 5 ++++-
- drivers/net/tun.c     | 5 ++++-
- 2 files changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 42a80d3..c171ab6 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -862,7 +862,10 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q,
- 		}
- 		iov_iter_init(&iter, READ, iv, segs, len);
- 		ret = macvtap_put_user(q, skb, &iter);
--		kfree_skb(skb);
-+		if (ret < 0)
-+			kfree_skb(skb);
-+		else
-+			consume_skb(skb);
- 		break;
- 	}
- 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index ac53a73..a21c130 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1363,7 +1363,10 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
- 
- 	iov_iter_init(&iter, READ, iv, segs, len);
- 	ret = tun_put_user(tun, tfile, skb, &iter);
--	kfree_skb(skb);
-+	if (ret < 0)
-+		kfree_skb(skb);
-+	else
-+		consume_skb(skb);
- 
- 	return ret;
- }
--- 
-1.9.1
+Well the thing is that at the moment, it is not needed to call ndo_fdb_*
+from inside the kernel. So the whole plan does not have to happen now.
+Plus I saw the patches (Scott sent me) and I believe that they are
+unnecessary complex. We can do this later if needed. Now, I would like
+to stick with what we have so far, keep things simple.
