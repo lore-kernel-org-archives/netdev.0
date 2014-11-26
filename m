@@ -1,69 +1,854 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] stmmac: platform: fix default values of the filter bins
- setting
-Date: Wed, 26 Nov 2014 18:16:25 +0100
-Message-ID: <54760AE9.1000006@st.com>
-References: <1416969486-9047-1-git-send-email-chenhc@lemote.com>
+Subject: Re: [PATCH 1/4] GMAC: add driver for Rockchip RK3288 SoCs integrated
+ GMAC
+Date: Wed, 26 Nov 2014 18:14:59 +0100
+Message-ID: <54760A93.6090503@st.com>
+References: <1416906460-26078-1-git-send-email-roger.chen@rock-chips.com> <1416906460-26078-2-git-send-email-roger.chen@rock-chips.com> <54745455.9060607@st.com> <54753B17.1050308@rock-chips.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Vince Bridgers <vbridgers2013@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Huacai Chen <chenhc@lemote.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-rockchip@lists.infradead.org>, <kever.yang@rock-chips.com>,
+	<mark.yao@rock-chips.com>, <eddie.cai@rock-chips.com>
+To: Roger <roger.chen@rock-chips.com>, <heiko@sntech.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:60105 "EHLO
-	mx08-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750881AbaKZRQn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 12:16:43 -0500
-In-Reply-To: <1416969486-9047-1-git-send-email-chenhc@lemote.com>
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:44029 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750926AbaKZRRo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 12:17:44 -0500
+In-Reply-To: <54753B17.1050308@rock-chips.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/26/2014 3:38 AM, Huacai Chen wrote:
-> The commit 3b57de958e2a brought the support for a different amount of
-> the filter bins, but didn't update the platform driver that without
-> CONFIG_OF.
+On 11/26/2014 3:29 AM, Roger wrote:
+> Hi! Giuseppe CAVALLARO
 >
-> Fixes: 3b57de958e2a (net: stmmac: Support devicetree configs for mcast
-> and ucast filter entries)
->
-> Signed-off-by: Huacai Chen <chenhc@lemote.com>
+> =E5=9C=A8 2014/11/25 18:05, Giuseppe CAVALLARO =E5=86=99=E9=81=93:
+>> Hello Roger
+>>
+>> thx for these patches, my comments inline below
+>>
+>> On 11/25/2014 10:07 AM, Roger Chen wrote:
+>>> This driver is based on stmmac driver.
+>>>
+>>> Signed-off-by: Roger Chen <roger.chen@rock-chips.com>
+>>> ---
+>>>   drivers/net/ethernet/stmicro/stmmac/Makefile       |    2 +-
+>>>   drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     |  629
+>>> ++++++++++++++++++++
+>>>   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    3 +
+>>>   .../net/ethernet/stmicro/stmmac/stmmac_platform.h  |    1 +
+>>>   4 files changed, 634 insertions(+), 1 deletion(-)
+>>>   create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+>>>
+>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile
+>>> b/drivers/net/ethernet/stmicro/stmmac/Makefile
+>>> index ac4d562..73c2715 100644
+>>> --- a/drivers/net/ethernet/stmicro/stmmac/Makefile
+>>> +++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
+>>> @@ -6,7 +6,7 @@ stmmac-objs:=3D stmmac_main.o stmmac_ethtool.o
+>>> stmmac_mdio.o ring_mode.o    \
+>>>
+>>>   obj-$(CONFIG_STMMAC_PLATFORM) +=3D stmmac-platform.o
+>>>   stmmac-platform-objs:=3D stmmac_platform.o dwmac-meson.o
+>>> dwmac-sunxi.o    \
+>>> -               dwmac-sti.o dwmac-socfpga.o
+>>> +               dwmac-sti.o dwmac-socfpga.o dwmac-rk.o
+>>>
+>>>   obj-$(CONFIG_STMMAC_PCI) +=3D stmmac-pci.o
+>>>   stmmac-pci-objs:=3D stmmac_pci.o
+>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+>>> b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+>>> new file mode 100644
+>>> index 0000000..9e50b37
+>>> --- /dev/null
+>>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+>>> @@ -0,0 +1,629 @@
+>>> +/**
+>>> + * dwmac-rk.c - Rockchip RK3288 DWMAC specific glue layer
+>>> + *
+>>> + * Copyright (C) 2014 Chen-Zhi (Roger Chen)
+>>> + *
+>>> + * Chen-Zhi (Roger Chen) <roger.chen@rock-chips.com>
+>>> + *
+>>> + * This program is free software; you can redistribute it and/or m=
+odify
+>>> + * it under the terms of the GNU General Public License as publish=
+ed by
+>>> + * the Free Software Foundation; either version 2 of the License, =
+or
+>>> + * (at your option) any later version.
+>>> + *
+>>> + * This program is distributed in the hope that it will be useful,
+>>> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+>>> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+>>> + * GNU General Public License for more details.
+>>> + */
+>>> +
+>>> +#include <linux/stmmac.h>
+>>> +#include <linux/clk.h>
+>>> +#include <linux/phy.h>
+>>> +#include <linux/of_net.h>
+>>> +#include <linux/gpio.h>
+>>> +#include <linux/of_gpio.h>
+>>> +#include <linux/of_device.h>
+>>> +#include <linux/regulator/consumer.h>
+>>> +#include <linux/delay.h>
+>>> +#include <linux/regmap.h>
+>>> +#include <linux/mfd/syscon.h>
+>>> +
+>>> +struct rk_priv_data {
+>>> +    struct platform_device *pdev;
+>>> +    int phy_iface;
+>>> +    bool power_ctrl_by_pmu;
+>>> +    char pmu_regulator[32];
+>>> +    int pmu_enable_level;
+>>> +
+>>> +    int power_io;
+>>> +    int power_io_level;
+>>> +    int reset_io;
+>>> +    int reset_io_level;
+>>> +    int phyirq_io;
+>>> +    int phyirq_io_level;
+>>> +
+>>> +    bool clk_enabled;
+>>> +    bool clock_input;
+>>> +
+>>> +    struct clk *clk_mac;
+>>> +    struct clk *clk_mac_pll;
+>>> +    struct clk *gmac_clkin;
+>>> +    struct clk *mac_clk_rx;
+>>> +    struct clk *mac_clk_tx;
+>>> +    struct clk *clk_mac_ref;
+>>> +    struct clk *clk_mac_refout;
+>>> +    struct clk *aclk_mac;
+>>> +    struct clk *pclk_mac;
+>>> +
+>>> +    int tx_delay;
+>>> +    int rx_delay;
+>>> +
+>>> +    struct regmap *grf;
+>>> +};
+>>> +
+>>> +#define RK3288_GRF_SOC_CON1 0x0248
+>>> +#define RK3288_GRF_SOC_CON3 0x0250
+>>> +#define RK3288_GRF_GPIO3D_E 0x01ec
+>>> +#define RK3288_GRF_GPIO4A_E 0x01f0
+>>> +#define RK3288_GRF_GPIO4B_E 0x01f4
+>>> +
+>>> +/*RK3288_GRF_SOC_CON1*/
+>>> +#define GMAC_PHY_INTF_SEL_RGMII ((0x01C0 << 16) | (0x0040))
+>>> +#define GMAC_PHY_INTF_SEL_RMII  ((0x01C0 << 16) | (0x0100))
+>>> +#define GMAC_FLOW_CTRL          ((0x0200 << 16) | (0x0200))
+>>> +#define GMAC_FLOW_CTRL_CLR      ((0x0200 << 16) | (0x0000))
+>>> +#define GMAC_SPEED_10M          ((0x0400 << 16) | (0x0000))
+>>> +#define GMAC_SPEED_100M         ((0x0400 << 16) | (0x0400))
+>>> +#define GMAC_RMII_CLK_25M       ((0x0800 << 16) | (0x0800))
+>>> +#define GMAC_RMII_CLK_2_5M      ((0x0800 << 16) | (0x0000))
+>>> +#define GMAC_CLK_125M           ((0x3000 << 16) | (0x0000))
+>>> +#define GMAC_CLK_25M            ((0x3000 << 16) | (0x3000))
+>>> +#define GMAC_CLK_2_5M           ((0x3000 << 16) | (0x2000))
+>>> +#define GMAC_RMII_MODE          ((0x4000 << 16) | (0x4000))
+>>> +#define GMAC_RMII_MODE_CLR      ((0x4000 << 16) | (0x0000))
+>>> +
+>>> +/*RK3288_GRF_SOC_CON3*/
+>>> +#define GMAC_TXCLK_DLY_ENABLE   ((0x4000 << 16) | (0x4000))
+>>> +#define GMAC_TXCLK_DLY_DISABLE  ((0x4000 << 16) | (0x0000))
+>>> +#define GMAC_RXCLK_DLY_ENABLE   ((0x8000 << 16) | (0x8000))
+>>> +#define GMAC_RXCLK_DLY_DISABLE  ((0x8000 << 16) | (0x0000))
+>>> +#define GMAC_CLK_RX_DL_CFG(val) ((0x3F80 << 16) | (val<<7))
+>>> +#define GMAC_CLK_TX_DL_CFG(val) ((0x007F << 16) | (val))
+>>
+>> why do not use BIT and BIT_MASK where possible?
+>>
+>>> +static void set_to_rgmii(struct rk_priv_data *bsp_priv,
+>>> +             int tx_delay, int rx_delay)
+>>> +{
+>>> +    if (IS_ERR(bsp_priv->grf)) {
+>>> +        pr_err("%s: Missing rockchip,grf property\n", __func__);
+>>> +        return;
+>>> +    }
+>>> +
+>>> +    regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> +             GMAC_PHY_INTF_SEL_RGMII);
+>>> +    regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> +             GMAC_RMII_MODE_CLR);
+>>
+>> maybe you could perform just one write unless there is some HW
+>> constraint.
+>>
+>>> +    regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON3,
+>>> +             GMAC_RXCLK_DLY_ENABLE);
+>>> +    regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON3,
+>>> +             GMAC_TXCLK_DLY_ENABLE);
+>>> +    regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON3,
+>>> +             GMAC_CLK_RX_DL_CFG(rx_delay));
+>>> +    regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON3,
+>>> +             GMAC_CLK_TX_DL_CFG(tx_delay));
+>>
+>> ditto
+>>
+>>> +
+>>> +    regmap_write(bsp_priv->grf, RK3288_GRF_GPIO3D_E, 0xFFFFFFFF);
+>>> +    regmap_write(bsp_priv->grf, RK3288_GRF_GPIO4B_E,
+>>> +             0x3<<2<<16 | 0x3<<2);
+>>
+>> pls use macros, these shift sequence is really help to decode
+>>
+>>> +    regmap_write(bsp_priv->grf, RK3288_GRF_GPIO4A_E, 0xFFFFFFFF);
+>>> +
+>>> +    pr_info("%s: tx delay=3D0x%x; rx delay=3D0x%x;\n",
+>>> +        __func__, tx_delay, rx_delay);
+>>
+>> may I suggest pr_debug?
+>>
+>>> +}
+>>> +
+>>> +static void set_to_rmii(struct rk_priv_data *bsp_priv)
+>>> +{
+>>> +    if (IS_ERR(bsp_priv->grf)) {
+>>> +        pr_err("%s: Missing rockchip,grf property\n", __func__);
+>>> +        return;
+>>> +    }
+>>> +
+>>> +    regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> +             GMAC_PHY_INTF_SEL_RMII);
+>>> +    regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> +             GMAC_RMII_MODE);
+>>> +}
+>>> +
+>>> +static void set_rgmii_speed(struct rk_priv_data *bsp_priv, int spe=
+ed)
+>>> +{
+>>> +    if (IS_ERR(bsp_priv->grf)) {
+>>> +        pr_err("%s: Missing rockchip,grf property\n", __func__);
+>>> +        return;
+>>> +    }
+>>> +
+>>> +    if (speed =3D=3D 10)
+>>> +        regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> GMAC_CLK_2_5M);
+>>> +    else if (speed =3D=3D 100)
+>>> +        regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1, GMAC_CLK_=
+25M);
+>>> +    else if (speed =3D=3D 1000)
+>>> +        regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> GMAC_CLK_125M);
+>>> +    else
+>>> +        pr_err("unknown speed value for RGMII! speed=3D%d", speed)=
+;
+>>> +}
+>>> +
+>>> +static void set_rmii_speed(struct rk_priv_data *bsp_priv, int spee=
+d)
+>>> +{
+>>> +    if (IS_ERR(bsp_priv->grf)) {
+>>> +        pr_err("%s: Missing rockchip,grf property\n", __func__);
+>>> +        return;
+>>> +    }
+>>> +
+>>> +    if (speed =3D=3D 10) {
+>>> +        regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> +                 GMAC_RMII_CLK_2_5M);
+>>> +        regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> +                 GMAC_SPEED_10M);
+>>> +    } else if (speed =3D=3D 100) {
+>>> +        regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> +                 GMAC_RMII_CLK_25M);
+>>> +        regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> +                 GMAC_SPEED_100M);
+>>> +    } else {
+>>> +        pr_err("unknown speed value for RMII! speed=3D%d", speed);
+>>> +    }
+>>> +}
+>>> +
+>>> +#define MAC_CLK_RX    "mac_clk_rx"
+>>> +#define MAC_CLK_TX    "mac_clk_tx"
+>>> +#define CLK_MAC_REF    "clk_mac_ref"
+>>> +#define CLK_MAC_REF_OUT    "clk_mac_refout"
+>>> +#define CLK_MAC_PLL    "clk_mac_pll"
+>>> +#define ACLK_MAC    "aclk_mac"
+>>> +#define PCLK_MAC    "pclk_mac"
+>>> +#define MAC_CLKIN    "ext_gmac"
+>>> +#define CLK_MAC        "stmmaceth"
+>>
+>> Concerning the clocks, the "stmmaceth" is actually used for the main
+>> clock so maybe you should use another name.
+>>
+> in stmmac_main.c, clk "stmmaceth"(STMMAC_RESOURCE_NAME) is used to be
+> the source of priv->clk_csr.
+> priv->stmmac_clk =3D devm_clk_get(priv->device, STMMAC_RESOURCE_NAME)=
+;
+> so I have to define a kind of clock named "stmmaceth".
 
-Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+ok
 
-> ---
->   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   13 +++++++------
->   1 files changed, 7 insertions(+), 6 deletions(-)
+I was a bit confused because I had seen that you manage it as parent
+so I believed it was for phy clock.
+
 >
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> index db56fa7..5b0da39 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> @@ -177,12 +177,6 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
->   	 */
->   	plat->maxmtu = JUMBO_LEN;
+>> See: Documentation/devicetree/bindings/net/stmmac.txt
+>>
+>> For St platforms, it has been used: sti-ethclk but we could
+>> used a common and better name: stmmac-phyclk
+>> And I could also propose this change on STi glue-logic.
+>>
+>> Then, I think that all the clock macros above should be documented
+>> and maybe managed at DT level, what do you think?
+>>
+>>> +
+>>> +int gmac_clk_init(struct rk_priv_data *bsp_priv)
+>>> +{
+>>> +    struct device *dev =3D &bsp_priv->pdev->dev;
+>>> +
+>>> +    bsp_priv->clk_enabled =3D false;
+>>> +
+>>> +    bsp_priv->mac_clk_rx =3D clk_get(dev, MAC_CLK_RX);
+>>> +    if (IS_ERR(bsp_priv->mac_clk_rx))
+>>> +        pr_warn("%s: warning: cannot get clock %s\n",
+>>> +            __func__, MAC_CLK_RX);
+>>> +
+>>> +    bsp_priv->mac_clk_tx =3D clk_get(dev, MAC_CLK_TX);
+>>> +    if (IS_ERR(bsp_priv->mac_clk_tx))
+>>> +        pr_warn("%s: warning: cannot get clock %s\n",
+>>> +            __func__, MAC_CLK_TX);
+>>> +
+>>> +    bsp_priv->clk_mac_ref =3D clk_get(dev, CLK_MAC_REF);
+>>> +    if (IS_ERR(bsp_priv->clk_mac_ref))
+>>> +        pr_warn("%s: warning: cannot get clock %s\n",
+>>> +            __func__, CLK_MAC_REF);
+>>> +
+>>> +    bsp_priv->clk_mac_refout =3D clk_get(dev, CLK_MAC_REF_OUT);
+>>> +    if (IS_ERR(bsp_priv->clk_mac_refout))
+>>> +        pr_warn("%s: warning:cannot get clock %s\n",
+>>> +            __func__, CLK_MAC_REF_OUT);
+>>> +
+>>> +    bsp_priv->aclk_mac =3D clk_get(dev, ACLK_MAC);
+>>> +    if (IS_ERR(bsp_priv->aclk_mac))
+>>> +        pr_warn("%s: warning: cannot get clock %s\n",
+>>> +            __func__, ACLK_MAC);
+>>> +
+>>> +    bsp_priv->pclk_mac =3D clk_get(dev, PCLK_MAC);
+>>> +    if (IS_ERR(bsp_priv->pclk_mac))
+>>> +        pr_warn("%s: warning: cannot get clock %s\n",
+>>> +            __func__, PCLK_MAC);
+>>> +
+>>> +    bsp_priv->clk_mac_pll =3D clk_get(dev, CLK_MAC_PLL);
+>>> +    if (IS_ERR(bsp_priv->clk_mac_pll))
+>>> +        pr_warn("%s: warning: cannot get clock %s\n",
+>>> +            __func__, CLK_MAC_PLL);
+>>> +
+>>> +    bsp_priv->gmac_clkin =3D clk_get(dev, MAC_CLKIN);
+>>> +    if (IS_ERR(bsp_priv->gmac_clkin))
+>>> +        pr_warn("%s: warning: cannot get clock %s\n",
+>>> +            __func__, MAC_CLKIN);
+>>> +
+>>> +    bsp_priv->clk_mac =3D clk_get(dev, CLK_MAC);
+>>> +    if (IS_ERR(bsp_priv->clk_mac))
+>>> +        pr_warn("%s: warning: cannot get clock %s\n",
+>>> +            __func__, CLK_MAC);
+>>> +
+>>> +    if (bsp_priv->clock_input) {
+>>> +        pr_info("%s: clock input from PHY\n", __func__);
+>>> +    } else {
+>>> +        if (bsp_priv->phy_iface =3D=3D PHY_INTERFACE_MODE_RMII)
+>>> +            clk_set_rate(bsp_priv->clk_mac_pll, 50000000);
+>>> +
+>>> +        clk_set_parent(bsp_priv->clk_mac, bsp_priv->clk_mac_pll);
+>>> +    }
+>>> +
+>>> +    return 0;
+>>> +}
+>>> +
+>>> +static int gmac_clk_enable(struct rk_priv_data *bsp_priv, bool ena=
+ble)
+>>> +{
+>>> +    int phy_iface =3D phy_iface =3D bsp_priv->phy_iface;
+>>> +
+>>> +    if (enable) {
+>>> +        if (!bsp_priv->clk_enabled) {
+>>> +            if (phy_iface =3D=3D PHY_INTERFACE_MODE_RMII) {
+>>> +                if (!IS_ERR(bsp_priv->mac_clk_rx))
+>>> +                    clk_prepare_enable(
+>>> +                        bsp_priv->mac_clk_rx);
+>>> +
+>>> +                if (!IS_ERR(bsp_priv->clk_mac_ref))
+>>> +                    clk_prepare_enable(
+>>> +                        bsp_priv->clk_mac_ref);
+>>> +
+>>> +                if (!IS_ERR(bsp_priv->clk_mac_refout))
+>>> +                    clk_prepare_enable(
+>>> +                        bsp_priv->clk_mac_refout);
+>>> +            }
+>>> +
+>>> +            if (!IS_ERR(bsp_priv->aclk_mac))
+>>> +                clk_prepare_enable(bsp_priv->aclk_mac);
+>>> +
+>>> +            if (!IS_ERR(bsp_priv->pclk_mac))
+>>> +                clk_prepare_enable(bsp_priv->pclk_mac);
+>>> +
+>>> +            if (!IS_ERR(bsp_priv->mac_clk_tx))
+>>> +                clk_prepare_enable(bsp_priv->mac_clk_tx);
+>>> +
+>>> +            /**
+>>> +             * if (!IS_ERR(bsp_priv->clk_mac))
+>>> +             *    clk_prepare_enable(bsp_priv->clk_mac);
+>>> +             */
+>>
+>> why do you need to comment this? could it be related to the stmmacet=
+h
+>> clk that is used by the main?
+>>
+> yes. the same explanation as above
+>>> +            mdelay(5);
+>>
+>> hmm, do you actually need this mdelay? Is it to stabilize PLL source=
+s?
+>>
+> yes.
+>>> +            bsp_priv->clk_enabled =3D true;
+>>> +        }
+>>> +    } else {
+>>> +        if (bsp_priv->clk_enabled) {
+>>> +            if (phy_iface =3D=3D PHY_INTERFACE_MODE_RMII) {
+>>> +                if (!IS_ERR(bsp_priv->mac_clk_rx))
+>>> +                    clk_disable_unprepare(
+>>> +                        bsp_priv->mac_clk_rx);
+>>> +
+>>> +                if (!IS_ERR(bsp_priv->clk_mac_ref))
+>>> +                    clk_disable_unprepare(
+>>> +                        bsp_priv->clk_mac_ref);
+>>> +
+>>> +                if (!IS_ERR(bsp_priv->clk_mac_refout))
+>>> +                    clk_disable_unprepare(
+>>> +                        bsp_priv->clk_mac_refout);
+>>> +            }
+>>> +
+>>> +            if (!IS_ERR(bsp_priv->aclk_mac))
+>>> +                clk_disable_unprepare(bsp_priv->aclk_mac);
+>>> +
+>>> +            if (!IS_ERR(bsp_priv->pclk_mac))
+>>> +                clk_disable_unprepare(bsp_priv->pclk_mac);
+>>> +
+>>> +            if (!IS_ERR(bsp_priv->mac_clk_tx))
+>>> +                clk_disable_unprepare(bsp_priv->mac_clk_tx);
+>>> +            /**
+>>> +             * if (!IS_ERR(bsp_priv->clk_mac))
+>>> +             *    clk_disable_unprepare(bsp_priv->clk_mac);
+>>> +             */
+>>> +            bsp_priv->clk_enabled =3D false;
+>>> +        }
+>>> +    }
+>>> +
+>>> +    return 0;
+>>> +}
+>>> +
+>>> +static int power_on_by_pmu(struct rk_priv_data *bsp_priv, bool ena=
+ble)
+>>> +{
+>>> +    struct regulator *ldo;
+>>> +    char *ldostr =3D bsp_priv->pmu_regulator;
+>>> +    int ret;
+>>> +
+>>> +    if (!ldostr) {
+>>> +        pr_err("%s: no ldo found\n", __func__);
+>>> +        return -1;
+>>> +    }
+>>> +
+>>> +    ldo =3D regulator_get(NULL, ldostr);
+>>> +    if (!ldo) {
+>>> +        pr_err("\n%s get ldo %s failed\n", __func__, ldostr);
+>>> +    } else {
+>>> +        if (enable) {
+>>> +            if (!regulator_is_enabled(ldo)) {
+>>> +                regulator_set_voltage(ldo, 3300000, 3300000);
+>>> +                ret =3D regulator_enable(ldo);
+>>> +                if (ret !=3D 0)
+>>> +                    pr_err("%s: fail to enable %s\n",
+>>> +                           __func__, ldostr);
+>>> +                else
+>>> +                    pr_info("turn on ldo done.\n");
+>>> +            } else {
+>>> +                pr_warn("%s is enabled before enable", ldostr);
+>>> +            }
+>>> +        } else {
+>>> +            if (regulator_is_enabled(ldo)) {
+>>> +                ret =3D regulator_disable(ldo);
+>>> +                if (ret !=3D 0)
+>>> +                    pr_err("%s: fail to disable %s\n",
+>>> +                           __func__, ldostr);
+>>> +                else
+>>> +                    pr_info("turn off ldo done.\n");
+>>> +            } else {
+>>> +                pr_warn("%s is disabled before disable",
+>>> +                    ldostr);
+>>> +            }
+>>> +        }
+>>> +        regulator_put(ldo);
+>>> +    }
+>>> +
+>>> +    return 0;
+>>> +}
+>>> +
+>>> +static int power_on_by_gpio(struct rk_priv_data *bsp_priv, bool en=
+able)
+>>> +{
+>>> +    if (enable) {
+>>> +        /*power on*/
+>>> +        if (gpio_is_valid(bsp_priv->power_io))
+>>> +            gpio_direction_output(bsp_priv->power_io,
+>>> +                          bsp_priv->power_io_level);
+>>> +    } else {
+>>> +        /*power off*/
+>>> +        if (gpio_is_valid(bsp_priv->power_io))
+>>> +            gpio_direction_output(bsp_priv->power_io,
+>>> +                          !bsp_priv->power_io_level);
+>>> +    }
+>>> +
+>>> +    return 0;
+>>> +}
+>>> +
+>>> +static int phy_power_on(struct rk_priv_data *bsp_priv, bool enable=
+)
+>>> +{
+>>> +    int ret =3D -1;
+>>> +
+>>> +    pr_info("Ethernet PHY power %s\n", enable =3D=3D 1 ? "on" : "o=
+ff");
+>>> +
+>>> +    if (bsp_priv->power_ctrl_by_pmu)
+>>> +        ret =3D power_on_by_pmu(bsp_priv, enable);
+>>> +    else
+>>> +        ret =3D  power_on_by_gpio(bsp_priv, enable);
+>>> +
+>>> +    if (enable) {
+>>> +        /*reset*/
+>>> +        if (gpio_is_valid(bsp_priv->reset_io)) {
+>>> +            gpio_direction_output(bsp_priv->reset_io,
+>>> +                          bsp_priv->reset_io_level);
+>>> +            mdelay(5);
+>>> +            gpio_direction_output(bsp_priv->reset_io,
+>>> +                          !bsp_priv->reset_io_level);
+>>> +        }
+>>> +        mdelay(30);
+>>> +
+>>> +    } else {
+>>> +        /*pull down reset*/
+>>> +        if (gpio_is_valid(bsp_priv->reset_io)) {
+>>> +            gpio_direction_output(bsp_priv->reset_io,
+>>> +                          bsp_priv->reset_io_level);
+>>> +        }
+>>> +    }
+>>> +
+>>> +    return ret;
+>>> +}
+>>> +
+>>> +#define GPIO_PHY_POWER    "gmac_phy_power"
+>>> +#define GPIO_PHY_RESET    "gmac_phy_reset"
+>>> +#define GPIO_PHY_IRQ    "gmac_phy_irq"
+>>> +
+>>> +static void *rk_gmac_setup(struct platform_device *pdev)
+>>> +{
+>>> +    struct rk_priv_data *bsp_priv;
+>>> +    struct device *dev =3D &pdev->dev;
+>>> +    enum of_gpio_flags flags;
+>>> +    int ret;
+>>> +    const char *strings =3D NULL;
+>>> +    int value;
+>>> +    int irq;
+>>> +
+>>> +    bsp_priv =3D devm_kzalloc(dev, sizeof(*bsp_priv), GFP_KERNEL);
+>>> +    if (!bsp_priv)
+>>> +        return ERR_PTR(-ENOMEM);
+>>> +
+>>> +    bsp_priv->phy_iface =3D of_get_phy_mode(dev->of_node);
+>>> +
+>>> +    ret =3D of_property_read_string(dev->of_node, "pmu_regulator",
+>>> &strings);
+>>> +    if (ret) {
+>>> +        pr_err("%s: Can not read property: pmu_regulator.\n",
+>>> __func__);
+>>> +        bsp_priv->power_ctrl_by_pmu =3D false;
+>>> +    } else {
+>>> +        pr_info("%s: ethernet phy power controlled by pmu(%s).\n",
+>>> +            __func__, strings);
+>>> +        bsp_priv->power_ctrl_by_pmu =3D true;
+>>> +        strcpy(bsp_priv->pmu_regulator, strings);
+>>> +    }
+>>> +
+>>> +    ret =3D of_property_read_u32(dev->of_node, "pmu_enable_level",
+>>> &value);
+>>> +    if (ret) {
+>>> +        pr_err("%s: Can not read property: pmu_enable_level.\n",
+>>> +               __func__);
+>>> +        bsp_priv->power_ctrl_by_pmu =3D false;
+>>> +    } else {
+>>> +        pr_info("%s: PHY power controlled by pmu(level =3D %s).\n"=
+,
+>>> +            __func__, (value =3D=3D 1) ? "HIGH" : "LOW");
+>>> +        bsp_priv->power_ctrl_by_pmu =3D true;
+>>> +        bsp_priv->pmu_enable_level =3D value;
+>>> +    }
+>>> +
+>>> +    ret =3D of_property_read_string(dev->of_node, "clock_in_out",
+>>> &strings);
+>>> +    if (ret) {
+>>> +        pr_err("%s: Can not read property: clock_in_out.\n", __fun=
+c__);
+>>> +        bsp_priv->clock_input =3D true;
+>>> +    } else {
+>>> +        pr_info("%s: clock input or output? (%s).\n",
+>>> +            __func__, strings);
+>>> +        if (!strcmp(strings, "input"))
+>>> +            bsp_priv->clock_input =3D true;
+>>> +        else
+>>> +            bsp_priv->clock_input =3D false;
+>>> +    }
+>>> +
+>>> +    ret =3D of_property_read_u32(dev->of_node, "tx_delay", &value)=
+;
+>>> +    if (ret) {
+>>> +        bsp_priv->tx_delay =3D 0x30;
+>>> +        pr_err("%s: Can not read property: tx_delay.", __func__);
+>>> +        pr_err("%s: set tx_delay to 0x%x\n",
+>>> +               __func__, bsp_priv->tx_delay);
+>>> +    } else {
+>>> +        pr_info("%s: TX delay(0x%x).\n", __func__, value);
+>>> +        bsp_priv->tx_delay =3D value;
+>>> +    }
+>>> +
+>>> +    ret =3D of_property_read_u32(dev->of_node, "rx_delay", &value)=
+;
+>>> +    if (ret) {
+>>> +        bsp_priv->rx_delay =3D 0x10;
+>>> +        pr_err("%s: Can not read property: rx_delay.", __func__);
+>>> +        pr_err("%s: set rx_delay to 0x%x\n",
+>>> +               __func__, bsp_priv->rx_delay);
+>>> +    } else {
+>>> +        pr_info("%s: RX delay(0x%x).\n", __func__, value);
+>>> +        bsp_priv->rx_delay =3D value;
+>>> +    }
+>>> +
+>>> +    bsp_priv->grf =3D syscon_regmap_lookup_by_phandle(dev->of_node=
+,
+>>> +                            "rockchip,grf");
+>>> +    if (IS_ERR(bsp_priv->grf))
+>>> +        dev_err(&pdev->dev, "Missing rockchip,grf property\n");
+>>
+>> I wonder if you can fail on here and save all the check in
+>> set_rgmii_speed etc.
+>> Maybe this can be considered a mandatory property for the glue-logic=
+=2E
+>>
+> about fail check, you mean "if(IS_ERR(bsp_priv->grf))" ?
+> or all of the return value of of_property_*
+
+I meant about the grf only.
+
+Peppe
+
+>>> +
+>>> +    bsp_priv->phyirq_io =3D
+>>> +        of_get_named_gpio_flags(dev->of_node,
+>>> +                    "phyirq-gpio", 0, &flags);
+>>> +    bsp_priv->phyirq_io_level =3D (flags & OF_GPIO_ACTIVE_LOW) ? 0=
+ : 1;
+>>
+>>
+>> Sorry, did you document all in Documentation/devicetree/bindings/net=
+/ ?
+>>
+>>> +
+>>> +    bsp_priv->reset_io =3D
+>>> +        of_get_named_gpio_flags(dev->of_node,
+>>> +                    "reset-gpio", 0, &flags);
+>>> +    bsp_priv->reset_io_level =3D (flags & OF_GPIO_ACTIVE_LOW) ? 0 =
+: 1;
+>>> +
+>>> +    bsp_priv->power_io =3D
+>>> +        of_get_named_gpio_flags(dev->of_node, "power-gpio", 0, &fl=
+ags);
+>>> +    bsp_priv->power_io_level =3D (flags & OF_GPIO_ACTIVE_LOW) ? 0 =
+: 1;
+>>> +
+>>> +    /*power*/
+>>> +    if (!gpio_is_valid(bsp_priv->power_io)) {
+>>> +        pr_err("%s: Failed to get GPIO %s.\n",
+>>> +               __func__, "power-gpio");
+>>> +    } else {
+>>> +        ret =3D gpio_request(bsp_priv->power_io, GPIO_PHY_POWER);
+>>> +        if (ret)
+>>> +            pr_err("%s: ERROR: Failed to request GPIO %s.\n",
+>>> +                   __func__, GPIO_PHY_POWER);
+>>> +    }
+>>> +
+>>> +    if (!gpio_is_valid(bsp_priv->reset_io)) {
+>>> +        pr_err("%s: ERROR: Get reset-gpio failed.\n", __func__);
+>>> +    } else {
+>>> +        ret =3D gpio_request(bsp_priv->reset_io, GPIO_PHY_RESET);
+>>> +        if (ret)
+>>> +            pr_err("%s: ERROR: Failed to request GPIO %s.\n",
+>>> +                   __func__, GPIO_PHY_RESET);
+>>> +    }
+>>> +
+>>> +    if (bsp_priv->phyirq_io > 0) {
+>>> +        struct plat_stmmacenet_data *plat_dat;
+>>> +
+>>> +        pr_info("PHY irq in use\n");
+>>> +        ret =3D gpio_request(bsp_priv->phyirq_io, GPIO_PHY_IRQ);
+>>> +        if (ret < 0) {
+>>> +            pr_warn("%s: Failed to request GPIO %s\n",
+>>> +                __func__, GPIO_PHY_IRQ);
+>>> +            goto goon;
+>>> +        }
+>>> +
+>>> +        ret =3D gpio_direction_input(bsp_priv->phyirq_io);
+>>> +        if (ret < 0) {
+>>> +            pr_err("%s, Failed to set input for GPIO %s\n",
+>>> +                   __func__, GPIO_PHY_IRQ);
+>>> +            gpio_free(bsp_priv->phyirq_io);
+>>> +            goto goon;
+>>> +        }
+>>> +
+>>> +        irq =3D gpio_to_irq(bsp_priv->phyirq_io);
+>>> +        if (irq < 0) {
+>>> +            ret =3D irq;
+>>> +            pr_err("Failed to set irq for %s\n",
+>>> +                   GPIO_PHY_IRQ);
+>>> +            gpio_free(bsp_priv->phyirq_io);
+>>> +            goto goon;
+>>> +        }
+>>> +
+>>> +        plat_dat =3D dev_get_platdata(&pdev->dev);
+>>> +        if (plat_dat)
+>>> +            plat_dat->mdio_bus_data->probed_phy_irq =3D irq;
+>>> +        else
+>>> +            pr_err("%s: plat_data is NULL\n", __func__);
+>>> +    }
+>>> +
+>>> +goon:
+>>> +    /*rmii or rgmii*/
+>>> +    if (bsp_priv->phy_iface =3D=3D PHY_INTERFACE_MODE_RGMII) {
+>>> +        pr_info("%s: init for RGMII\n", __func__);
+>>> +        set_to_rgmii(bsp_priv, bsp_priv->tx_delay, bsp_priv->rx_de=
+lay);
+>>> +    } else if (bsp_priv->phy_iface =3D=3D PHY_INTERFACE_MODE_RMII)=
+ {
+>>> +        pr_info("%s: init for RMII\n", __func__);
+>>> +        set_to_rmii(bsp_priv);
+>>> +    } else {
+>>> +        pr_err("%s: ERROR: NO interface defined!\n", __func__);
+>>> +    }
+>>> +
+>>> +    bsp_priv->pdev =3D pdev;
+>>> +
+>>> +    gmac_clk_init(bsp_priv);
+>>> +
+>>> +    return bsp_priv;
+>>> +}
+>>> +
+>>> +static int rk_gmac_init(struct platform_device *pdev, void *priv)
+>>> +{
+>>> +    struct rk_priv_data *bsp_priv =3D priv;
+>>> +    int ret;
+>>> +
+>>> +    ret =3D phy_power_on(bsp_priv, true);
+>>> +    if (ret)
+>>> +        return ret;
+>>> +
+>>> +    ret =3D gmac_clk_enable(bsp_priv, true);
+>>> +    if (ret)
+>>> +        return ret;
+>>> +
+>>> +    return 0;
+>>> +}
+>>> +
+>>> +static void rk_gmac_exit(struct platform_device *pdev, void *priv)
+>>> +{
+>>> +    struct rk_priv_data *gmac =3D priv;
+>>> +
+>>> +    phy_power_on(gmac, false);
+>>> +    gmac_clk_enable(gmac, false);
+>>> +}
+>>> +
+>>> +static void rk_fix_speed(void *priv, unsigned int speed)
+>>> +{
+>>> +    struct rk_priv_data *bsp_priv =3D priv;
+>>> +
+>>> +    if (bsp_priv->phy_iface =3D=3D PHY_INTERFACE_MODE_RGMII)
+>>> +        set_rgmii_speed(bsp_priv, speed);
+>>> +    else if (bsp_priv->phy_iface =3D=3D PHY_INTERFACE_MODE_RMII)
+>>> +        set_rmii_speed(bsp_priv, speed);
+>>> +    else
+>>> +        pr_err("unsupported interface %d", bsp_priv->phy_iface);
+>>> +}
+>>> +
+>>> +const struct stmmac_of_data rk_gmac_data =3D {
+>>> +    .has_gmac =3D 1,
+>>> +    .tx_coe =3D 1,
+>>
+>> FYI, on new gmac there is the HW capability register to dinamically
+>> provide you if coe is supported.
+>>
+>> IMO you should add the OF "compatible" string and in case of mac
+>> newer than the 3.50a you can remove coe.
+>>
+>>
+>> BR
+>> Peppe
+>>
+>>> +    .fix_mac_speed =3D rk_fix_speed,
+>>> +    .setup =3D rk_gmac_setup,
+>>> +    .init =3D rk_gmac_init,
+>>> +    .exit =3D rk_gmac_exit,
+>>> +};
+>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> index 15814b7..b4dee96 100644
+>>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> @@ -33,6 +33,7 @@
+>>>
+>>>   static const struct of_device_id stmmac_dt_ids[] =3D {
+>>>       /* SoC specific glue layers should come before generic bindin=
+gs */
+>>> +    { .compatible =3D "rockchip,rk3288-gmac", .data =3D &rk_gmac_d=
+ata},
+>>>       { .compatible =3D "amlogic,meson6-dwmac", .data =3D
+>>> &meson6_dwmac_data},
+>>>       { .compatible =3D "allwinner,sun7i-a20-gmac", .data =3D
+>>> &sun7i_gmac_data},
+>>>       { .compatible =3D "st,stih415-dwmac", .data =3D &stih4xx_dwma=
+c_data},
+>>> @@ -291,6 +292,8 @@ static int stmmac_pltfr_probe(struct
+>>> platform_device *pdev)
+>>>               return  -ENOMEM;
+>>>           }
+>>>
+>>> +        pdev->dev.platform_data =3D plat_dat;
+>>> +
+>>>           ret =3D stmmac_probe_config_dt(pdev, plat_dat, &mac);
+>>>           if (ret) {
+>>>               pr_err("%s: main dt probe failed", __func__);
+>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
+>>> b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
+>>> index 25dd1f7..32a0516 100644
+>>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
+>>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
+>>> @@ -24,5 +24,6 @@ extern const struct stmmac_of_data sun7i_gmac_dat=
+a;
+>>>   extern const struct stmmac_of_data stih4xx_dwmac_data;
+>>>   extern const struct stmmac_of_data stid127_dwmac_data;
+>>>   extern const struct stmmac_of_data socfpga_gmac_data;
+>>> +extern const struct stmmac_of_data rk_gmac_data;
+>>>
+>>>   #endif /* __STMMAC_PLATFORM_H__ */
+>>>
+>>
+>>
+>>
+>>
 >
-> -	/* Set default value for multicast hash bins */
-> -	plat->multicast_filter_bins = HASH_TABLE_SIZE;
-> -
-> -	/* Set default value for unicast filter entries */
-> -	plat->unicast_filter_entries = 1;
-> -
->   	/*
->   	 * Currently only the properties needed on SPEAr600
->   	 * are provided. All other properties should be added
-> @@ -270,6 +264,13 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
->   		return PTR_ERR(addr);
 >
->   	plat_dat = dev_get_platdata(&pdev->dev);
-> +
-> +	/* Set default value for multicast hash bins */
-> +	plat_dat->multicast_filter_bins = HASH_TABLE_SIZE;
-> +
-> +	/* Set default value for unicast filter entries */
-> +	plat_dat->unicast_filter_entries = 1;
-> +
->   	if (pdev->dev.of_node) {
->   		if (!plat_dat)
->   			plat_dat = devm_kzalloc(&pdev->dev,
 >
