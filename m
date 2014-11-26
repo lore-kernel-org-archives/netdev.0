@@ -1,47 +1,28 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net] net-timestamp: make tcp_recvmsg call ipv6_recv_error
- for AF_INET6 socks
-Date: Wed, 26 Nov 2014 15:03:01 -0500
-Message-ID: <CA+FuTSdf=3cw7rGhAmPo+hh2qnn_GgPG3Xy8Er259_FxjTur3w@mail.gmail.com>
-References: <1417031582-16480-1-git-send-email-willemb@google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] net: bcmgenet: EEE support
+Date: Wed, 26 Nov 2014 15:09:06 -0500 (EST)
+Message-ID: <20141126.150906.1197410224109013939.davem@davemloft.net>
+References: <1416978996-24808-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	Patrick McHardy <kaber@trash.net>,
-	Willem de Bruijn <willemb@google.com>
-To: Network Development <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, pgynther@google.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f51.google.com ([209.85.192.51]:36721 "EHLO
-	mail-qg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750770AbaKZUDc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 15:03:32 -0500
-Received: by mail-qg0-f51.google.com with SMTP id l89so2524759qgf.38
-        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 12:03:31 -0800 (PST)
-In-Reply-To: <1417031582-16480-1-git-send-email-willemb@google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50296 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750780AbaKZUJL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 15:09:11 -0500
+In-Reply-To: <1416978996-24808-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 26, 2014 at 2:53 PM, Willem de Bruijn <willemb@google.com> wrote:
-> From: Willem de Bruijn <willemb@google.com>
->
-> TCP timestamping introduced MSG_ERRQUEUE handling for TCP sockets.
-> If the socket is of family AF_INET6, call ipv6_recv_error instead
-> of ip_recv_error.
->
-> This change is more complex than a single branch due to the loadable
-> ipv6 module. It reuses a pre-existing indirect function call from
-> ping. The ping code is safe to call, because it is part of the core
-> ipv6 module and always present when AF_INET6 sockets are active.
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 25 Nov 2014 21:16:33 -0800
 
-I forgot to add:
+> This patch series add EEE support to the Broadcom GENET driver, first patch
+> basically adds register definitions for the hardware, the second patch does the
+> actual implementation and hooks the {get,set}_eee ethtool callbacks, the last
+> patch adds auto-negotiation restart capability.
 
-Fixes: 4ed2d765 (net-timestamp: TCP timestamping)
-
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
->
-> ----
->
-> It may also be worthwhile to add WARN_ON_ONCE(sk->family == AF_INET6)
-> to ip_recv_error.
+Series applied, thanks.
