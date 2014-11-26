@@ -1,122 +1,87 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v3 09/17] bridge: add API to notify bridge
- driver of learned FBD on offloaded device
-Date: Wed, 26 Nov 2014 09:16:41 +0100
-Message-ID: <20141126081641.GB1875@nanopsycho.orion>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
- <1416911328-10979-10-git-send-email-jiri@resnulli.us>
- <54750669.4090406@gmail.com>
- <CAE4R7bBQnxKh7y+ViB-s-7b7Ro=gTQLavUTcNLA1u=3UJHa1Rg@mail.gmail.com>
- <54753C1F.1080109@gmail.com>
- <CAE4R7bCcB+HHDtULEdYA9uZUOtNJYL7edQQtfjh74wKQxxy-Lw@mail.gmail.com>
+From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
+Subject: Re: [PATCH 3/4] GMAC: dts: add gmac info for rk3288
+Date: Wed, 26 Nov 2014 09:47:56 +0100
+Message-ID: <2888396.enB18gaD2a@diego>
+References: <1416906536-26158-1-git-send-email-roger.chen@rock-chips.com> <1773507.kOcjDCLbcs@diego> <54753FAD.8040908@rock-chips.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	"dborkman@redhat.com" <dborkman@redhat.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"pshelar@nicira.com" <pshelar@nicira.com>,
-	"azhou@nicira.com" <azhou@nicira.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tu
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:49758 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752473AbaKZIQn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 03:16:43 -0500
-Received: by mail-wi0-f172.google.com with SMTP id n3so11599825wiv.11
-        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 00:16:42 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bCcB+HHDtULEdYA9uZUOtNJYL7edQQtfjh74wKQxxy-Lw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
+	kever.yang@rock-chips.com, mark.yao@rock-chips.com,
+	eddie.cai@rock-chips.com
+To: Roger <roger.chen@rock-chips.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54753FAD.8040908@rock-chips.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Nov 26, 2014 at 03:40:59AM CET, sfeldma@gmail.com wrote:
->On Tue, Nov 25, 2014 at 4:34 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->> On 25/11/14 18:03, Scott Feldman wrote:
->>> On Tue, Nov 25, 2014 at 12:44 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->>>> On 25/11/14 02:28, Jiri Pirko wrote:
->>>>> From: Scott Feldman <sfeldma@gmail.com>
->>>>>
->>>>> When the swdev device learns a new mac/vlan on a port, it sends some async
->>>>> notification to the driver and the driver installs an FDB in the device.
->>>>> To give a holistic system view, the learned mac/vlan should be reflected
->>>>> in the bridge's FBD table, so the user, using normal iproute2 cmds, can view
->>>>> what is currently learned by the device.  This API on the bridge driver gives
->>>>> a way for the swdev driver to install an FBD entry in the bridge FBD table.
->>>>> (And remove one).
->>>>>
->>>>> This is equivalent to the device running these cmds:
->>>>>
->>>>>   bridge fdb [add|del] <mac> dev <dev> vid <vlan id> master
->>>>>
->>>>> This patch needs some extra eyeballs for review, in paricular around the
->>>>> locking and contexts.
->>>>>
->>>>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->>>>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>>>> ---
->>>>
->>>> [snip]
->>>>
->>>>> +     head = &br->hash[br_mac_hash(addr, vid)];
->>>>> +     fdb = fdb_find(head, addr, vid);
->>>>> +     if (!fdb) {
->>>>> +             fdb = fdb_create(head, p, addr, vid);
->>>>> +             if (!fdb) {
->>>>> +                     err = -ENOMEM;
->>>>> +                     goto err_unlock;
->>>>> +             }
->>>>> +             fdb->added_by_external_learn = 1;
->>>>> +             fdb_notify(br, fdb, RTM_NEWNEIGH);
->>>>> +     } else if (fdb->added_by_external_learn) {
->>>>> +             /* Refresh entry */
->>>>> +             fdb->updated = fdb->used = jiffies;
->>>>> +     } else if (!fdb->added_by_user) {
->>>>> +             /* Take over SW learned entry */
->>>>> +             fdb->added_by_external_learn = 1;
->>>>> +             fdb->updated = jiffies;
->>>>> +             fdb_notify(br, fdb, RTM_NEWNEIGH);
->>>>> +     }
->>>>
->>>> Is there any case where this fdb entry gets re-used and is no longer
->>>> added by an external learning? Should we clear this flag somewhere?
->>>
->>> Once the FDB entry is marked "added_by_external_learn" it stays marked
->>> as such until removed by aging cleanup process (or flushed due to
->>> interface down, etc).  If aged out (and now deleted), the FDB entry
->>> may come back either by SW learn or by HW learn.  If SW learn comes
->>> first, and then HW learn, HW learn will override and mark the existing
->>> FDB entry "added_by_external_learn".  So there is take-over by HW but
->>> no give-back to SW.  And there is no explicit clearing of the mark
->>> short of deleting the FDB entry.  The mark is mostly for letting
->>> user's know which FDB entries where learned by HW and synced to the
->>> bridge's FDB.
->>
->> Thanks, makes sense now. This is probably obvious in this context, but
->> maybe it would not hurt to come up with a documentation that describe
->> the offload API, FDB entry lifetime and HW/SW ownership etc...
->
->I have an updated Documentation/networking/switchdev.txt that covers
->the swdev APIs and usage and notes, but Jiri is being stingy with it.
+Am Mittwoch, 26. November 2014, 10:49:17 schrieb Roger:
+> On 2014/11/25 22:39, Heiko St=FCbner wrote:
+> > Am Dienstag, 25. November 2014, 16:40:59 schrieb Sergei Shtylyov:
+> >> Hello.
+> >>=20
+> >> On 11/25/2014 12:08 PM, Roger Chen wrote:
+> >>> add gmac info in rk3288.dtsi for GMAC driver
+> >>>=20
+> >>> Signed-off-by: Roger Chen <roger.chen@rock-chips.com>
+> >>> ---
+> >>>=20
+> >>>    arch/arm/boot/dts/rk3288.dtsi |   59
+> >>>    +++++++++++++++++++++++++++++++++++++++++ 1 file changed, 59
+> >>>    insertions(+)
+> >>>=20
+> >>> diff --git a/arch/arm/boot/dts/rk3288.dtsi
+> >>> b/arch/arm/boot/dts/rk3288.dtsi
+> >>> index 0f50d5d..949675d 100644
+> >>> --- a/arch/arm/boot/dts/rk3288.dtsi
+> >>> +++ b/arch/arm/boot/dts/rk3288.dtsi
+> >>=20
+> >> [...]
+> >>=20
+> >>> @@ -490,6 +497,25 @@
+> >>>=20
+> >>>    		reg =3D <0xff740000 0x1000>;
+> >>>    =09
+> >>>    	};
+> >>>=20
+> >>> +	gmac: eth@ff290000 {
+> >>>=20
+> >>      Please name the node "ethernet@ff290000" to comply with the e=
+PAPR
+> >>=20
+> >> standard.
+> >>=20
+> >>> +		compatible =3D "rockchip,rk3288-gmac";
+> >>> +		reg =3D <0xff290000 0x10000>;
+> >>> +		interrupts =3D <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;  /*irq=3D59*/
+> >>> +		interrupt-names =3D "macirq";
+> >>> +		rockchip,grf =3D <&grf>;
+> >>> +		clocks =3D <&cru SCLK_MAC>, <&cru SCLK_MAC_PLL>,
+> >>> +			<&cru SCLK_MAC_RX>, <&cru SCLK_MAC_TX>,
+> >>> +			<&cru SCLK_MACREF>, <&cru SCLK_MACREF_OUT>,
+> >>> +			<&cru ACLK_GMAC>, <&cru PCLK_GMAC>;
+> >>> +		clock-names =3D "stmmaceth", "clk_mac_pll",
+> >>> +			"mac_clk_rx", "mac_clk_tx",
+> >>> +			"clk_mac_ref", "clk_mac_refout",
+> >>> +			"aclk_mac", "pclk_mac";
+> >>> +		phy-mode =3D "rgmii";
+> >>> +		pinctrl-names =3D "default";
+> >>> +		pinctrl-0 =3D <&rgmii_pin /*&rmii_pin*/>;
+> >>>=20
+> >>      Hm, pinctrl props in a .dtsi file? Those are usually board
+> >>      dependent.
+> >=20
+> > yep, especially as there is a board-dependent selection needed of w=
+hat to
+> > use [rgmii or rmii] depending on the phy on the board.
+>=20
+> of course pinctrl props is redefined in the rk3288-evb-rk808.dts,
+> IMO, pinctrl props in .dtsi is used to fit for the "phy-mode" prop as
+> default. if pinctrl props should be removed, how about "phy-mode" pro=
+p?
 
-The doc update you mention includes also fib offload which we are not
-pushing now. I have that patches in queue.
-
->Will get this out, either in v4 or follow-on patches.  There is enough
->going on just with L2 offload that we're going to need some good
->documentation to guide implementers.
+yep, the phy-mode should also move to the board file - as it of course =
+also=20
+depends on the phy-chip used there.
