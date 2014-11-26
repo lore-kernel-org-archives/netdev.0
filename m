@@ -1,100 +1,261 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH rfc 1/4] net-timestamp: pull headers for SOCK_STREAM
-Date: Wed, 26 Nov 2014 16:03:16 -0500
-Message-ID: <CA+FuTScmwYyrU-LOK5dvbdcp4n=wig7GTdV1gmViS-2gJ4Q9ZA@mail.gmail.com>
-References: <1416938286-14147-2-git-send-email-willemb@google.com>
- <20141125.134240.861582393401487675.davem@davemloft.net> <CA+FuTSdT9=Hi7K3OnMxVRiK8PmS4=DvVqLumWx74OEz3okx23A@mail.gmail.com>
- <20141125.145434.1790615963499624322.davem@davemloft.net> <CALCETrXHdSVC-YLsdjHxAp3rU2gGFZaz8NNgaTKYgjM-ah3z+A@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH rfc] packet: zerocopy packet_snd
+Date: Wed, 26 Nov 2014 23:17:48 +0200
+Message-ID: <20141126211748.GA11904@redhat.com>
+References: <1416602694-7540-1-git-send-email-willemb@google.com>
+ <20141126182445.GA15744@redhat.com>
+ <CA+FuTSdYB4rDMH3gAAMwaRdbqN58f_SxLz=C3fcCACw_KosGXw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Richard Cochran <richardcochran@gmail.com>
-To: Andy Lutomirski <luto@amacapital.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Willem de Bruijn <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f171.google.com ([209.85.216.171]:47459 "EHLO
-	mail-qc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751065AbaKZVDr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 16:03:47 -0500
-Received: by mail-qc0-f171.google.com with SMTP id r5so2751924qcx.30
-        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 13:03:47 -0800 (PST)
-In-Reply-To: <CALCETrXHdSVC-YLsdjHxAp3rU2gGFZaz8NNgaTKYgjM-ah3z+A@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:55301 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751240AbaKZVTb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Nov 2014 16:19:31 -0500
+Content-Disposition: inline
+In-Reply-To: <CA+FuTSdYB4rDMH3gAAMwaRdbqN58f_SxLz=C3fcCACw_KosGXw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 25, 2014 at 4:39 PM, Andy Lutomirski <luto@amacapital.net> wrote:
-> On Tue, Nov 25, 2014 at 11:54 AM, David Miller <davem@davemloft.net> wrote:
->> From: Willem de Bruijn <willemb@google.com>
->> Date: Tue, 25 Nov 2014 14:52:00 -0500
->>
->>> On Tue, Nov 25, 2014 at 1:42 PM, David Miller <davem@davemloft.net> wrote:
->>>> From: Willem de Bruijn <willemb@google.com>
->>>> Date: Tue, 25 Nov 2014 12:58:03 -0500
->>>>
->>>> What's the harm in exposing the headers?  Either it's harmful, and
->>>> therefore doing so for UDP is bad too, or it's harmless and
->>>
->>> Headers may expose information not available otherwise. I don't
->>> immediately see critical problems, but that does not mean that they
->>> might not lurk there.
->>>
->>> We so far avoid exposing the sequence number, though keeping it hidden
->>> is more about third parties. More in general, unprivileged processes
->>> may start requesting timestamps only to learn tcp state that they
->>> should either get from tcpinfo or cannot currently get at all, likely
->>> for good reason. A far-fetched example is identifying admin iptables
->>> tos mangling rules by reading the tos bits at the driver layer. At least
->>> on my machine, iptables -L is privileged.
->>>
->>>> we should probably leave it alone to not risk breaking anyone.
->>>
->>> That's fair. I sent it for rfc first for that reason. I won't resubmit
->>> unless more serious concerns are raised.
->>
->> I just worry about the potential breakage.
->>
->> Your concerns are valid... I honestly don't know what we should do here.
->> Both choices have merit.
->
-> Here's a scenario in which giving the headers might be dangerous:
->
-> Suppose I create a network namespace that's designed to contain
-> something, e.g. a Tor or Tor-like client, that shouldn't know any of
-> its public addressing information.  I might assign something like a
-> tunnel interface to the namespace, but, if the contained code can get
-> lower-level headers, it might learn something that would identify the
-> *other* end of the tunnel, which wouldn't be so good.  Admittedly,
-> this would be just one of several things that would require care to
-> get this right.
+On Wed, Nov 26, 2014 at 02:59:34PM -0500, Willem de Bruijn wrote:
+> > The main problem with zero copy ATM is with queueing disciplines
+> > which might keep the socket around essentially forever.
+> > The case was described here:
+> > https://lkml.org/lkml/2014/1/17/105
+> > and of course this will make it more serious now that
+> > more applications will be able to do this, so
+> > chances that an administrator enables this
+> > are higher.
+> 
+> The denial of service issue raised there, that a single queue can
+> block an entire virtio-net device, is less problematic in the case of
+> packet sockets. A socket can run out of sk_wmem_alloc, but a prudent
+> application can increase the limit or use separate sockets for
+> separate flows.
 
-network namespaces are an interesting case, indeed.
+Socket per flow? Maybe just use TCP then?  increasing the limit
+sounds like a wrong solution, it hurts security.
 
->
-> Also, what happens if the output is transformed by ipsec?  Does the
-> timestamp message show the ciphertext?
->
-> TBH, I'd rather send no payload at all and have an scm message that
-> the sender provides that specifies a cookie identifying the particular
-> sent data.  But that ship mostly sailed awhile ago.
->
-> For bytestreams, though, isn't this all new in 3.18?  Or am I off by a release.
+> > One possible solution is some kind of timer orphaning frags
+> > for skbs that have been around for too long.
+> 
+> Perhaps this can be approximated without an explicit timer by calling
+> skb_copy_ubufs on enqueue whenever qlen exceeds a threshold value?
 
-It was added in 3.17. That is still very recent.
+Hard to say. Will have to see that patch to judge how robust this is.
 
-One third option, though hardly pretty, is to put display of headers
-under administrator control. An application cannot easily infer whether
-headers are stripped, and legacy applications do not even know to try.
-So, this is a bit too crude:
 
-+    if (sk->sk_protocol == IPPROTO_TCP && sysctl_net_blind_errqueue)
-+        skb_pull(skb, skb_transport_offset(skb) + tcp_hdrlen(skb));
-+    else if (sk->sk_protocol == IPPROTO_UDP && sysctl_net_blind_errqueue >= 2)
-+        skb_pull(skb, skb_transport_offset(skb) + sizeof(struct udphdr));
-
-An alternative is to add a timestamping option to skip headers (or
-even full payload, basically
-http://patchwork.ozlabs.org/patch/366967/) and give the administrator
-a sysctl to drop all requests that do not pass this flag. The intent
-is that future proof applications will start requesting the flag, and
-relying on the ts counter. Hardened installations can set the sysctl
-from the start, accepting possible breakage.
+> >
+> >> ---
+> >>  include/linux/skbuff.h        |   1 +
+> >>  include/linux/socket.h        |   1 +
+> >>  include/uapi/linux/errqueue.h |   1 +
+> >>  net/packet/af_packet.c        | 110 ++++++++++++++++++++++++++++++++++++++----
+> >>  4 files changed, 103 insertions(+), 10 deletions(-)
+> >>
+> >> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> >> index 78c299f..8e661d2 100644
+> >> --- a/include/linux/skbuff.h
+> >> +++ b/include/linux/skbuff.h
+> >> @@ -295,6 +295,7 @@ struct ubuf_info {
+> >>       void (*callback)(struct ubuf_info *, bool zerocopy_success);
+> >>       void *ctx;
+> >>       unsigned long desc;
+> >> +     void *callback_priv;
+> >>  };
+> >>
+> >>  /* This data is invariant across clones and lives at
+> >> diff --git a/include/linux/socket.h b/include/linux/socket.h
+> >> index de52228..0a2e0ea 100644
+> >> --- a/include/linux/socket.h
+> >> +++ b/include/linux/socket.h
+> >> @@ -265,6 +265,7 @@ struct ucred {
+> >>  #define MSG_SENDPAGE_NOTLAST 0x20000 /* sendpage() internal : not the last page */
+> >>  #define MSG_EOF         MSG_FIN
+> >>
+> >> +#define MSG_ZEROCOPY 0x4000000       /* Pin user pages */
+> >>  #define MSG_FASTOPEN 0x20000000      /* Send data in TCP SYN */
+> >>  #define MSG_CMSG_CLOEXEC 0x40000000  /* Set close_on_exec for file
+> >>                                          descriptor received through
+> >> diff --git a/include/uapi/linux/errqueue.h b/include/uapi/linux/errqueue.h
+> >> index 07bdce1..61bf318 100644
+> >> --- a/include/uapi/linux/errqueue.h
+> >> +++ b/include/uapi/linux/errqueue.h
+> >> @@ -19,6 +19,7 @@ struct sock_extended_err {
+> >>  #define SO_EE_ORIGIN_ICMP6   3
+> >>  #define SO_EE_ORIGIN_TXSTATUS        4
+> >>  #define SO_EE_ORIGIN_TIMESTAMPING SO_EE_ORIGIN_TXSTATUS
+> >> +#define SO_EE_ORIGIN_UPAGE   5
+> >>
+> >>  #define SO_EE_OFFENDER(ee)   ((struct sockaddr*)((ee)+1))
+> >>
+> >> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> >> index 58af5802..367c23a 100644
+> >> --- a/net/packet/af_packet.c
+> >> +++ b/net/packet/af_packet.c
+> >> @@ -2370,28 +2370,112 @@ out:
+> >>
+> >>  static struct sk_buff *packet_alloc_skb(struct sock *sk, size_t prepad,
+> >>                                       size_t reserve, size_t len,
+> >> -                                     size_t linear, int noblock,
+> >> +                                     size_t linear, int flags,
+> >>                                       int *err)
+> >>  {
+> >>       struct sk_buff *skb;
+> >> +     size_t data_len;
+> >>
+> >> -     /* Under a page?  Don't bother with paged skb. */
+> >> -     if (prepad + len < PAGE_SIZE || !linear)
+> >> -             linear = len;
+> >> +     if (flags & MSG_ZEROCOPY) {
+> >> +             /* Minimize linear, but respect header lower bound */
+> >> +             linear = min(len, max_t(size_t, linear, MAX_HEADER));
+> >> +             data_len = 0;
+> >> +     } else {
+> >> +             /* Under a page? Don't bother with paged skb. */
+> >> +             if (prepad + len < PAGE_SIZE || !linear)
+> >> +                     linear = len;
+> >> +             data_len = len - linear;
+> >> +     }
+> >>
+> >> -     skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
+> >> -                                err, 0);
+> >> +     skb = sock_alloc_send_pskb(sk, prepad + linear, data_len,
+> >> +                                flags & MSG_DONTWAIT, err, 0);
+> >>       if (!skb)
+> >>               return NULL;
+> >>
+> >>       skb_reserve(skb, reserve);
+> >>       skb_put(skb, linear);
+> >> -     skb->data_len = len - linear;
+> >> -     skb->len += len - linear;
+> >> +     skb->data_len = data_len;
+> >> +     skb->len += data_len;
+> >>
+> >>       return skb;
+> >>  }
+> >>
+> >> +/* release zerocopy resources and avoid destructor callback on kfree */
+> >> +static void packet_snd_zerocopy_free(struct sk_buff *skb)
+> >> +{
+> >> +     struct ubuf_info *uarg = skb_shinfo(skb)->destructor_arg;
+> >> +
+> >> +     if (uarg) {
+> >> +             kfree_skb(uarg->callback_priv);
+> >> +             sock_put((struct sock *) uarg->ctx);
+> >> +             kfree(uarg);
+> >> +
+> >> +             skb_shinfo(skb)->destructor_arg = NULL;
+> >> +             skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
+> >> +     }
+> >> +}
+> >> +
+> >> +static void packet_snd_zerocopy_callback(struct ubuf_info *uarg,
+> >> +                                      bool zerocopy_success)
+> >> +{
+> >> +     struct sk_buff *err_skb;
+> >> +     struct sock *err_sk;
+> >> +     struct sock_exterr_skb *serr;
+> >> +
+> >> +     err_sk = uarg->ctx;
+> >> +     err_skb = uarg->callback_priv;
+> >> +
+> >> +     serr = SKB_EXT_ERR(err_skb);
+> >> +     memset(serr, 0, sizeof(*serr));
+> >> +     serr->ee.ee_errno = ENOMSG;
+> >> +     serr->ee.ee_origin = SO_EE_ORIGIN_UPAGE;
+> >> +     serr->ee.ee_data = uarg->desc & 0xFFFFFFFF;
+> >> +     serr->ee.ee_info = ((u64) uarg->desc) >> 32;
+> >> +     if (sock_queue_err_skb(err_sk, err_skb))
+> >> +             kfree_skb(err_skb);
+> >> +
+> >> +     kfree(uarg);
+> >> +     sock_put(err_sk);
+> >> +}
+> >> +
+> >> +static int packet_zerocopy_sg_from_iovec(struct sk_buff *skb,
+> >> +                                      struct msghdr *msg)
+> >> +{
+> >> +     struct ubuf_info *uarg = NULL;
+> >> +     int ret;
+> >> +
+> >> +     if (iov_pages(msg->msg_iov, 0, msg->msg_iovlen) > MAX_SKB_FRAGS)
+> >> +             return -EMSGSIZE;
+> >> +
+> >> +     uarg = kzalloc(sizeof(*uarg), GFP_KERNEL);
+> >> +     if (!uarg)
+> >> +             return -ENOMEM;
+> >> +
+> >> +     uarg->callback_priv = alloc_skb(0, GFP_KERNEL);
+> >> +     if (!uarg->callback_priv) {
+> >> +             kfree(uarg);
+> >> +             return -ENOMEM;
+> >> +     }
+> >> +
+> >> +     ret = zerocopy_sg_from_iovec(skb, msg->msg_iov, 0, msg->msg_iovlen);
+> >> +     if (ret) {
+> >> +             kfree_skb(uarg->callback_priv);
+> >> +             kfree(uarg);
+> >> +             return -EIO;
+> >> +     }
+> >> +
+> >> +     sock_hold(skb->sk);
+> >> +     uarg->ctx = skb->sk;
+> >> +     uarg->callback = packet_snd_zerocopy_callback;
+> >> +     uarg->desc = (unsigned long) msg->msg_iov[0].iov_base;
+> >> +
+> >> +     skb_shinfo(skb)->destructor_arg = uarg;
+> >> +     skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
+> >> +     skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
+> >> +
+> >> +     return 0;
+> >> +}
+> >> +
+> >>  static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+> >>  {
+> >>       struct sock *sk = sock->sk;
+> >> @@ -2408,6 +2492,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+> >>       unsigned short gso_type = 0;
+> >>       int hlen, tlen;
+> >>       int extra_len = 0;
+> >> +     bool zerocopy = msg->msg_flags & MSG_ZEROCOPY;
+> >>
+> >>       /*
+> >>        *      Get and verify the address.
+> >> @@ -2501,7 +2586,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+> >>       hlen = LL_RESERVED_SPACE(dev);
+> >>       tlen = dev->needed_tailroom;
+> >>       skb = packet_alloc_skb(sk, hlen + tlen, hlen, len, vnet_hdr.hdr_len,
+> >> -                            msg->msg_flags & MSG_DONTWAIT, &err);
+> >> +                            msg->msg_flags, &err);
+> >>       if (skb == NULL)
+> >>               goto out_unlock;
+> >>
+> >> @@ -2518,7 +2603,11 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+> >>       }
+> >>
+> >>       /* Returns -EFAULT on error */
+> >> -     err = skb_copy_datagram_from_iovec(skb, offset, msg->msg_iov, 0, len);
+> >> +     if (zerocopy)
+> >> +             err = packet_zerocopy_sg_from_iovec(skb, msg);
+> >> +     else
+> >> +             err = skb_copy_datagram_from_iovec(skb, offset, msg->msg_iov,
+> >> +                                                0, len);
+> >>       if (err)
+> >>               goto out_free;
+> >>
+> >> @@ -2578,6 +2667,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+> >>       return len;
+> >>
+> >>  out_free:
+> >> +     packet_snd_zerocopy_free(skb);
+> >>       kfree_skb(skb);
+> >>  out_unlock:
+> >>       if (dev)
+> >> --
+> >> 2.1.0.rc2.206.gedb03e5
