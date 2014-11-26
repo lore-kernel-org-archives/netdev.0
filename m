@@ -1,40 +1,68 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 3/5] net: Check for presence of IFLA_AF_SPEC
-Date: Wed, 26 Nov 2014 05:30:57 -0800
-Message-ID: <CAL3LdT5W=eMxdX36fMMYue9GdGrt9Gt0YHbVw+MWS2SDG2G3Pw@mail.gmail.com>
-References: <cover.1417005245.git.tgraf@suug.ch>
-	<495eced061d109e02b035ad56e56a3de2505ee22.1417005245.git.tgraf@suug.ch>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next V2] tun/macvtap: use consume_skb() instead of
+ kfree_skb() when needed
+Date: Wed, 26 Nov 2014 15:47:42 +0200
+Message-ID: <20141126134742.GA5358@redhat.com>
+References: <1416987810-23263-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>,
-	Ajit Khaparde <ajit.khaparde@emulex.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:57630 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752589AbaKZNa6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 08:30:58 -0500
-Received: by mail-ob0-f180.google.com with SMTP id wp4so2137879obc.39
-        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 05:30:57 -0800 (PST)
-In-Reply-To: <495eced061d109e02b035ad56e56a3de2505ee22.1417005245.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1416987810-23263-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 26, 2014 at 4:42 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> ndo_bridge_setlink() is currently only called on the slave if
-> IFLA_AF_SPEC is set but this is a very fragile assumption and may
-> change in the future.
->
-> Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
-> Cc: John Fastabend <john.r.fastabend@intel.com>
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+On Wed, Nov 26, 2014 at 03:43:30PM +0800, Jason Wang wrote:
+> To be more friendly with drop monitor, we should only call kfree_skb() when
+> the packets were dropped and use consume_skb() in other cases.
+> 
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 > ---
->  drivers/net/ethernet/emulex/benet/be_main.c   | 2 ++
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 ++
->  2 files changed, 4 insertions(+)
->
+> Changes from V1:
+> - check the return value of tun/macvtap_put_user()
+> ---
+>  drivers/net/macvtap.c | 5 ++++-
+>  drivers/net/tun.c     | 5 ++++-
+>  2 files changed, 8 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index 42a80d3..c171ab6 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -862,7 +862,10 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q,
+>  		}
+>  		iov_iter_init(&iter, READ, iv, segs, len);
+>  		ret = macvtap_put_user(q, skb, &iter);
+> -		kfree_skb(skb);
+> +		if (ret < 0)
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Maybe unlikely() here?
+
+> +			kfree_skb(skb);
+> +		else
+> +			consume_skb(skb);
+>  		break;
+>  	}
+>  
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index ac53a73..a21c130 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1363,7 +1363,10 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+>  
+>  	iov_iter_init(&iter, READ, iv, segs, len);
+>  	ret = tun_put_user(tun, tfile, skb, &iter);
+> -	kfree_skb(skb);
+> +	if (ret < 0)
+> +		kfree_skb(skb);
+> +	else
+> +		consume_skb(skb);
+>  
+>  	return ret;
+>  }
+> -- 
+> 1.9.1
