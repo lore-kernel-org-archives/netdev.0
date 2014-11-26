@@ -1,44 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 2/5] ethernet/intel: Use eth_skb_pad helper
-Date: Tue, 25 Nov 2014 17:43:05 -0800
-Message-ID: <1416966185.29427.46.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20141125223727.1867.43890.stgit@ahduyck-vm-fedora20>
-	 <20141125224406.1867.97911.stgit@ahduyck-vm-fedora20>
-	 <1416957251.29427.39.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <54752263.2040204@gmail.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [patch net-next v3 02/17] net: make vid as a parameter for
+ ndo_fdb_add/ndo_fdb_del
+Date: Wed, 26 Nov 2014 10:44:17 +0900
+Message-ID: <20141126014414.GA16417@vergenet.net>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
+ <1416911328-10979-3-git-send-email-jiri@resnulli.us>
+ <5474A25C.3080505@mojatatu.com>
+ <5474A7EE.8000300@intel.com>
+ <5474ABF0.60901@mojatatu.com>
+ <5474AE9B.6000500@intel.com>
+ <5474B353.10802@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	davem@davemloft.net
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, edumazet@google.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, alexander.h.duyck@redhat.com,
+	john.ronciak@intel.com, mleitner@redhat.com, shrijeet@gmail.com,
+	gospo@cumulusnetworks.com, bcrl@kv
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:56245 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751065AbaKZBnH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 20:43:07 -0500
-Received: by mail-ie0-f177.google.com with SMTP id rd18so1708678iec.8
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 17:43:07 -0800 (PST)
-In-Reply-To: <54752263.2040204@gmail.com>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:60954 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750864AbaKZBom (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 20:44:42 -0500
+Received: by mail-pd0-f173.google.com with SMTP id ft15so1733019pdb.4
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 17:44:41 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <5474B353.10802@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-11-25 at 16:44 -0800, Alexander Duyck wrote:
-
-
+On Tue, Nov 25, 2014 at 11:50:27AM -0500, Jamal Hadi Salim wrote:
+> On 11/25/14 11:30, John Fastabend wrote:
+> >On 11/25/2014 08:18 AM, Jamal Hadi Salim wrote:
+> >>On 11/25/14 11:01, John Fastabend wrote:
+> >>>On 11/25/2014 07:38 AM, Jamal Hadi Salim wrote:
+> >>>>On 11/25/14 05:28, Jiri Pirko wrote:
+> >>>>>Do the work of parsing NDA_VLAN directly in rtnetlink code, pass simple
+> >>>>>u16 vid to drivers from there.
+> >>>>>
+> >>>>
 > 
-> I wonder if we couldn't make this some sort of netdevice attribute to
-> indicate what the smallest frame we can handle is and then just pad the
-> frame to that as a part of __dev_xmit_skb.  Then we could do that
-> outside of the locks and take care of it before we even hit the qdisc layer.
+> 
+> >Actually (after having some coffee) this becomes much more useful
+> >if you return which items failed. Then you can slam the hardware
+> >with your 100 entries, probably a lot more then that, and come back
+> >later and clean it up.
+> >
+> 
+> Yes, that is the general use case.
+> Unfortunately at the moment we only return codes on a netlink set
+> direction - but would be a beauty if we could return what succeeded
+> and didnt in some form of vector.
+> Note: all is not lost because you can always do a get afterwards and
+> find what is missing if you got a return code of "partial success".
+> Just a little less efficient..
 
-Well, many NIC do not have such restriction.
+I agree entirely. But efficiency may be a very real issue in practice.
 
-Do we have some kind of counters of skb->head reallocations caused by
-this padding ?
-
-I believe I finally have an idea why we had various + 15 in skb
-allocations in TCP stack !
-
-We probably should reinstate them, as ACK packets can be 54 bytes long.
+> >We return a bitmask of which operations were successful. So if SW fails
+> >we have both bits cleared and we abort. When SW is successful we set the
+> >SW bit and try to program the HW. If its sucessful we set the HW bit if
+> >its not we abort with an err. Converting this to (1) is not much work
+> >just skip the abort.
+> >
+> 
+> Ok, guess i am gonna have to go stare at the code some more.
+> I thought we returned one of the error codes?
+> A bitmask would work for a single entry - because you have two
+> options add to h/ware and/or s/ware. So response is easy to encode.
+> But if i have 1000 and they are sparsely populated (think an indexed
+> table and i have indices 1, 23, 45, etc), then a bitmask would be
+> hard to use.
+> 
+> cheers,
+> jamal
