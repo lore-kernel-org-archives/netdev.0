@@ -1,60 +1,62 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 3/5] net: Check for presence of IFLA_AF_SPEC
-Date: Wed, 26 Nov 2014 13:42:18 +0100
-Message-ID: <495eced061d109e02b035ad56e56a3de2505ee22.1417005245.git.tgraf@suug.ch>
+Subject: [PATCH 5/5] bridge: Sanitize IFLA_EXT_MASK for AF_BRIDGE:RTM_GETLINK
+Date: Wed, 26 Nov 2014 13:42:20 +0100
+Message-ID: <e88d89f25d1f6f110cef58074323c0253be7a5db.1417005245.git.tgraf@suug.ch>
 References: <cover.1417005245.git.tgraf@suug.ch>
 Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	Ajit Khaparde <ajit.khaparde@emulex.com>,
-	John Fastabend <john.r.fastabend@intel.com>
+	Vlad Yasevich <vyasevic@redhat.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:56885 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:56934 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750969AbaKZMmb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 07:42:31 -0500
+	with ESMTP id S1750969AbaKZMme (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 07:42:34 -0500
 In-Reply-To: <cover.1417005245.git.tgraf@suug.ch>
 In-Reply-To: <cover.1417005245.git.tgraf@suug.ch>
 References: <cover.1417005245.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ndo_bridge_setlink() is currently only called on the slave if
-IFLA_AF_SPEC is set but this is a very fragile assumption and may
-change in the future.
+Only search for IFLA_EXT_MASK if the message actually carries a
+ifinfomsg header and validate minimal length requirements for
+IFLA_EXT_MASK.
 
-Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>
+Fixes: 6cbdceeb ("bridge: Dump vlan information from a bridge port")
+Cc: Vlad Yasevich <vyasevic@redhat.com>
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c   | 2 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 ++
- 2 files changed, 4 insertions(+)
+ net/core/rtnetlink.c | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 337e4cd..597c463 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4309,6 +4309,8 @@ static int be_ndo_bridge_setlink(struct net_device *dev, struct nlmsghdr *nlh)
- 		return -EOPNOTSUPP;
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 5a853f8..b9b7dfa 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2685,13 +2685,20 @@ static int rtnl_bridge_getlink(struct sk_buff *skb, struct netlink_callback *cb)
+ 	int idx = 0;
+ 	u32 portid = NETLINK_CB(cb->skb).portid;
+ 	u32 seq = cb->nlh->nlmsg_seq;
+-	struct nlattr *extfilt;
+ 	u32 filter_mask = 0;
  
- 	br_spec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
-+	if (!br_spec)
-+		return -EINVAL;
+-	extfilt = nlmsg_find_attr(cb->nlh, sizeof(struct ifinfomsg),
+-				  IFLA_EXT_MASK);
+-	if (extfilt)
+-		filter_mask = nla_get_u32(extfilt);
++	if (nlmsg_len(cb->nlh) > sizeof(struct ifinfomsg)) {
++		struct nlattr *extfilt;
++
++		extfilt = nlmsg_find_attr(cb->nlh, sizeof(struct ifinfomsg),
++					  IFLA_EXT_MASK);
++		if (extfilt) {
++			if (nla_len(extfilt) < sizeof(filter_mask))
++				return -EINVAL;
++
++			filter_mask = nla_get_u32(extfilt);
++		}
++	}
  
- 	nla_for_each_nested(attr, br_spec, rem) {
- 		if (nla_type(attr) != IFLA_BRIDGE_MODE)
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index dff9905..cc51554 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7669,6 +7669,8 @@ static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
- 		return -EOPNOTSUPP;
- 
- 	br_spec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
-+	if (!br_spec)
-+		return -EINVAL;
- 
- 	nla_for_each_nested(attr, br_spec, rem) {
- 		__u16 mode;
+ 	rcu_read_lock();
+ 	for_each_netdev_rcu(net, dev) {
 -- 
 1.9.3
