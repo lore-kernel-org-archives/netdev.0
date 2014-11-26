@@ -1,114 +1,80 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next v3 09/17] bridge: add API to notify bridge driver
- of learned FBD on offloaded device
-Date: Tue, 25 Nov 2014 16:40:59 -1000
-Message-ID: <CAE4R7bCcB+HHDtULEdYA9uZUOtNJYL7edQQtfjh74wKQxxy-Lw@mail.gmail.com>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
-	<1416911328-10979-10-git-send-email-jiri@resnulli.us>
-	<54750669.4090406@gmail.com>
-	<CAE4R7bBQnxKh7y+ViB-s-7b7Ro=gTQLavUTcNLA1u=3UJHa1Rg@mail.gmail.com>
-	<54753C1F.1080109@gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH 1/5] etherdevice: Add function for handling padding
+ frame to ETH_ZLEN
+Date: Tue, 25 Nov 2014 18:44:46 -0800
+Message-ID: <54753E9E.9040801@gmail.com>
+References: <20141125223727.1867.43890.stgit@ahduyck-vm-fedora20> <20141125224400.1867.48907.stgit@ahduyck-vm-fedora20> <54752525.4040509@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	"dborkman@redhat.com" <dborkman@redhat.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"pshelar@nicira.com" <pshelar@nicira.com>,
-	"azhou@nicira.com" <azhou@nicira.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:55686 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751750AbaKZClA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 21:41:00 -0500
-Received: by mail-wg0-f42.google.com with SMTP id z12so2513211wgg.1
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 18:40:59 -0800 (PST)
-In-Reply-To: <54753C1F.1080109@gmail.com>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:39124 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751132AbaKZCor (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 21:44:47 -0500
+Received: by mail-pd0-f179.google.com with SMTP id w10so1819824pde.38
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 18:44:47 -0800 (PST)
+In-Reply-To: <54752525.4040509@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 25, 2014 at 4:34 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 25/11/14 18:03, Scott Feldman wrote:
->> On Tue, Nov 25, 2014 at 12:44 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->>> On 25/11/14 02:28, Jiri Pirko wrote:
->>>> From: Scott Feldman <sfeldma@gmail.com>
->>>>
->>>> When the swdev device learns a new mac/vlan on a port, it sends some async
->>>> notification to the driver and the driver installs an FDB in the device.
->>>> To give a holistic system view, the learned mac/vlan should be reflected
->>>> in the bridge's FBD table, so the user, using normal iproute2 cmds, can view
->>>> what is currently learned by the device.  This API on the bridge driver gives
->>>> a way for the swdev driver to install an FBD entry in the bridge FBD table.
->>>> (And remove one).
->>>>
->>>> This is equivalent to the device running these cmds:
->>>>
->>>>   bridge fdb [add|del] <mac> dev <dev> vid <vlan id> master
->>>>
->>>> This patch needs some extra eyeballs for review, in paricular around the
->>>> locking and contexts.
->>>>
->>>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->>>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>>> ---
->>>
->>> [snip]
->>>
->>>> +     head = &br->hash[br_mac_hash(addr, vid)];
->>>> +     fdb = fdb_find(head, addr, vid);
->>>> +     if (!fdb) {
->>>> +             fdb = fdb_create(head, p, addr, vid);
->>>> +             if (!fdb) {
->>>> +                     err = -ENOMEM;
->>>> +                     goto err_unlock;
->>>> +             }
->>>> +             fdb->added_by_external_learn = 1;
->>>> +             fdb_notify(br, fdb, RTM_NEWNEIGH);
->>>> +     } else if (fdb->added_by_external_learn) {
->>>> +             /* Refresh entry */
->>>> +             fdb->updated = fdb->used = jiffies;
->>>> +     } else if (!fdb->added_by_user) {
->>>> +             /* Take over SW learned entry */
->>>> +             fdb->added_by_external_learn = 1;
->>>> +             fdb->updated = jiffies;
->>>> +             fdb_notify(br, fdb, RTM_NEWNEIGH);
->>>> +     }
->>>
->>> Is there any case where this fdb entry gets re-used and is no longer
->>> added by an external learning? Should we clear this flag somewhere?
+On 11/25/2014 04:56 PM, Florian Fainelli wrote:
+> On 25/11/14 14:44, Alexander Duyck wrote:
+>> This patch adds a simple function for padding a frame up to the minimum
+>> size for for Ethernet.  The motivation behind it is that there are a number
+>> of implementations throughout the network device drivers that are all doing
+>> the same thing, but each a little bit differently and as a result several
+>> implementations contain bugs such as updating the length without updating
+>> the tail offset and other similar issues.
 >>
->> Once the FDB entry is marked "added_by_external_learn" it stays marked
->> as such until removed by aging cleanup process (or flushed due to
->> interface down, etc).  If aged out (and now deleted), the FDB entry
->> may come back either by SW learn or by HW learn.  If SW learn comes
->> first, and then HW learn, HW learn will override and mark the existing
->> FDB entry "added_by_external_learn".  So there is take-over by HW but
->> no give-back to SW.  And there is no explicit clearing of the mark
->> short of deleting the FDB entry.  The mark is mostly for letting
->> user's know which FDB entries where learned by HW and synced to the
->> bridge's FDB.
->
-> Thanks, makes sense now. This is probably obvious in this context, but
-> maybe it would not hurt to come up with a documentation that describe
-> the offload API, FDB entry lifetime and HW/SW ownership etc...
+>> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+>> ---
+>>  include/linux/etherdevice.h |   21 +++++++++++++++++++++
+>>  1 file changed, 21 insertions(+)
+>>
+>> diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+>> index 733980f..7e436f3 100644
+>> --- a/include/linux/etherdevice.h
+>> +++ b/include/linux/etherdevice.h
+>> @@ -392,4 +392,25 @@ static inline unsigned long compare_ether_header(const void *a, const void *b)
+>>  #endif
+>>  }
+>>  
+>> +/**
+>> + * eth_skb_pad - Pad buffer to mininum number of octets for Ethernet frame
+>> + * @skb: Buffer to pad
+>> + *
+>> + * An Ethernet frame should have a minimum size of 60 bytes.  This function
+>> + * takes short frames and pads them with zeros up to the 60 byte limit.
+> 
+> minimum size without FCS
+> 
+>> + */
+>> +static inline int eth_skb_pad(struct sk_buff *skb)
+>> +{
+>> +	unsigned int size = skb->len;
+>> +
+>> +	if (unlikely(size < ETH_ZLEN)) {
+>> +		size = ETH_ZLEN - size;
+>> +		if (skb_pad(skb, size))
+>> +			return -ENOMEM;
+>> +		__skb_put(skb, size);
+>> +	}
+> 
+> most drivers call skb_padto(skb, ETH_ZLEN), besides the extra
+> __skb_put() here, this is not different.
 
-I have an updated Documentation/networking/switchdev.txt that covers
-the swdev APIs and usage and notes, but Jiri is being stingy with it.
-Will get this out, either in v4 or follow-on patches.  There is enough
-going on just with L2 offload that we're going to need some good
-documentation to guide implementers.
+Yes, but the __skb_put is the difference.  Calling skb_padto() only
+zeros out the bytes following the tail, but it doesn't add the extra
+bytes to the frame nor does it update the tail.  As such if we only call
+skb_padto() before handing a short frame off to the network stack the
+network stack will still have issues with it being too short.
+
+The difference between the two is that skb_padto() is really meant for
+transmit, whereas eth_skb_pad is really meant for receive.
+
+- Alex
