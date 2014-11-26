@@ -1,55 +1,44 @@
-From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH v4 0/7] kernel tinification: optionally compile out
- splice family of syscalls (splice, vmsplice, tee and sendfile)
-Date: Wed, 26 Nov 2014 12:19:03 +0000
-Message-ID: <20141126121903.5231c854@lxorguk.ukuu.org.uk>
-References: <5474ABB6.3030400@infradead.org>
-	<20141125.121305.2094097848188324942.davem@davemloft.net>
-	<20141125185310.GA24891@cloud>
-	<20141125.140441.401150380839514113.davem@davemloft.net>
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH v4 20/42] virtio_net: pass vi around
+Date: Wed, 26 Nov 2014 13:35:24 +0100
+Message-ID: <20141126133524.27e9beb6.cornelia.huck@de.ibm.com>
+References: <1416933600-21398-1-git-send-email-mst@redhat.com>
+	<1416933600-21398-21-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: josh@joshtriplett.org, rdunlap@infradead.org, pieter@boesman.nl,
-	alexander.h.duyck@intel.com, viro@zeniv.linux.org.uk,
-	ast@plumgrid.com, akpm@linux-foundation.org, beber@meleeweb.net,
-	catalina.mocanu@gmail.com, dborkman@redhat.com,
-	edumazet@google.com, ebiederm@xmission.com, fabf@skynet.be,
-	fuse-devel@lists.sourceforge.net, geert@linux-m68k.org,
-	hughd@google.com, iulia.manda21@gmail.com, JBeulich@suse.com,
-	bfields@fieldses.org, jlayton@poochiereds.net,
-	linux-api@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
-	mcgrof@suse.com, mattst88@gmail.com, mgorman@suse.de,
-	mst@redhat.com, miklos@szeredi.hu, netdev@vger.kernel.org,
-	oleg@redhat.com, Paul.Durrant@citrix.com,
-	paulmck@linux.vnet.ibm.com, pefoley2@pefoley.com, tgraf@suug.ch,
-	therbert@google.com, trond.myklebust@primarydata.com,
-	willemb@google.com, xiaoguangrong@l
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141125.140441.401150380839514113.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: rusty@au1.ibm.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, pbonzini@redhat.com,
+	David Miller <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1416933600-21398-21-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 25 Nov 2014 14:04:41 -0500 (EST)
-David Miller <davem@davemloft.net> wrote:
+On Tue, 25 Nov 2014 18:42:49 +0200
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
 
-> From: josh@joshtriplett.org
-> Date: Tue, 25 Nov 2014 10:53:10 -0800
+> Too many places poke at [rs]q->vq->vdev->priv just to get
+> the the vi structure.  Let's just pass the pointer around: seems
+
+s/the the/the/
+
+> cleaner, and might even be faster.
 > 
-> > It's not a "slippery slope"; it's been our standard practice for ages.
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>  drivers/net/virtio_net.c | 38 ++++++++++++++++++++------------------
+>  1 file changed, 20 insertions(+), 18 deletions(-)
 > 
-> We've never put an entire class of generic system calls behind
-> a config option.
+Looks reasonable.
 
-Try running an original MCC Linux binary and C lib on a current kernel
-
-We've put *entire binary formats* behind a config option. We've put older
-syscalls behind it, we've put sysfs behind it, sysctl behind it, the
-older microcode interfaces behind it, ISA bus as a concept behind
-options. VDSO, IPC, even 32bit support ... the list goes on and on.
-
-I'd say those were far more generic on the whole than splice/sendfile.
-
-Alan
+Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
