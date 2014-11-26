@@ -1,19 +1,18 @@
 From: Scott Feldman <sfeldma@gmail.com>
 Subject: Re: [patch net-next v3 09/17] bridge: add API to notify bridge driver
  of learned FBD on offloaded device
-Date: Tue, 25 Nov 2014 15:48:04 -1000
-Message-ID: <CAE4R7bApe59sT6G2oORWP=jOOy=h=Da=EQq98fzR1s+ESZOGFQ@mail.gmail.com>
+Date: Tue, 25 Nov 2014 16:03:30 -1000
+Message-ID: <CAE4R7bBQnxKh7y+ViB-s-7b7Ro=gTQLavUTcNLA1u=3UJHa1Rg@mail.gmail.com>
 References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
 	<1416911328-10979-10-git-send-email-jiri@resnulli.us>
-	<20141125163853.GJ27416@gospo.rtplab.test>
-	<20141125223643.GH3912@casper.infradead.org>
+	<54750669.4090406@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
 	Andy Gospodarek <andy@greyhouse.net>,
+	Thomas Graf <tgraf@suug.ch>,
 	"dborkman@redhat.com" <dborkman@redhat.com>,
 	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
 	"jesse@nicira.com" <jesse@nicira.com>,
@@ -27,64 +26,93 @@ Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
 	"Fastabend, John R" <john.r.fastabend@intel.com>,
 	Eric Dumazet <edumazet@google.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cu
-To: Thomas Graf <tgraf@suug.ch>
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	John Linville <linville@tuxdriver.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:65131 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751146AbaKZBsG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 20:48:06 -0500
-Received: by mail-wi0-f175.google.com with SMTP id l15so11028231wiw.2
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 17:48:05 -0800 (PST)
-In-Reply-To: <20141125223643.GH3912@casper.infradead.org>
+Received: from mail-wg0-f52.google.com ([74.125.82.52]:49121 "EHLO
+	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751005AbaKZCDc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 21:03:32 -0500
+Received: by mail-wg0-f52.google.com with SMTP id a1so2444240wgh.25
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 18:03:30 -0800 (PST)
+In-Reply-To: <54750669.4090406@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 25, 2014 at 12:36 PM, Thomas Graf <tgraf@suug.ch> wrote:
-> On 11/25/14 at 11:38am, Andy Gospodarek wrote:
->> On Tue, Nov 25, 2014 at 11:28:40AM +0100, Jiri Pirko wrote:
->> > From: Scott Feldman <sfeldma@gmail.com>
->> >
->> > When the swdev device learns a new mac/vlan on a port, it sends some async
->> > notification to the driver and the driver installs an FDB in the device.
->> > To give a holistic system view, the learned mac/vlan should be reflected
->> > in the bridge's FBD table, so the user, using normal iproute2 cmds, can view
->> > what is currently learned by the device.  This API on the bridge driver gives
->> > a way for the swdev driver to install an FBD entry in the bridge FBD table.
->> > (And remove one).
->> >
->> > This is equivalent to the device running these cmds:
->> >
->> >   bridge fdb [add|del] <mac> dev <dev> vid <vlan id> master
->> >
->> > This patch needs some extra eyeballs for review, in paricular around the
->> > locking and contexts.
->> >
->> > Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->> > Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->
-> I like the simplicity of this. That said, given we'll have multiple
-> users of swdev including OVS, shouldn't this be a notifier or a
-> callback that depends on who is controlling the device?
-
-I like the idea.  When the switch port joins Linux bridge or OVS
-datapath, a callback is registered with the driver.  That way the
-driver doesn't really care if the port is a bridge member or an OVS
-vport in a datapath.  It's just passing up the FDB entry
-(port/mac/vlan) details to the container device.  Can we hold this
-idea until this patchset sticks?  I think once OVS support comes back
-into the swdev model would be the time to address this.
-
->
->> > +   spin_lock(&br->hash_lock);
->> (Since you asked to check locking...)
+On Tue, Nov 25, 2014 at 12:44 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 25/11/14 02:28, Jiri Pirko wrote:
+>> From: Scott Feldman <sfeldma@gmail.com>
 >>
->> Most of the other fdb_add/delete/insert/update calls take this with
->> spin_lock_bh.  Did you try this with lockdep enabled just to see if that
->> is needed here?  I suspect that anytime br->hash_lock is taken it will
->> need to be with softirqs disabled from this point forward.
+>> When the swdev device learns a new mac/vlan on a port, it sends some async
+>> notification to the driver and the driver installs an FDB in the device.
+>> To give a holistic system view, the learned mac/vlan should be reflected
+>> in the bridge's FBD table, so the user, using normal iproute2 cmds, can view
+>> what is currently learned by the device.  This API on the bridge driver gives
+>> a way for the swdev driver to install an FBD entry in the bridge FBD table.
+>> (And remove one).
+>>
+>> This is equivalent to the device running these cmds:
+>>
+>>   bridge fdb [add|del] <mac> dev <dev> vid <vlan id> master
+>>
+>> This patch needs some extra eyeballs for review, in paricular around the
+>> locking and contexts.
+>>
+>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
 >
-> At least br_fdb_update() seems to be called from BH context so I would
-> agree and argue the lock in br_fdb_cleanup() and br_fdb_update() need a
-> fix too. I'll send a patch.
+> [snip]
+>
+>> +     head = &br->hash[br_mac_hash(addr, vid)];
+>> +     fdb = fdb_find(head, addr, vid);
+>> +     if (!fdb) {
+>> +             fdb = fdb_create(head, p, addr, vid);
+>> +             if (!fdb) {
+>> +                     err = -ENOMEM;
+>> +                     goto err_unlock;
+>> +             }
+>> +             fdb->added_by_external_learn = 1;
+>> +             fdb_notify(br, fdb, RTM_NEWNEIGH);
+>> +     } else if (fdb->added_by_external_learn) {
+>> +             /* Refresh entry */
+>> +             fdb->updated = fdb->used = jiffies;
+>> +     } else if (!fdb->added_by_user) {
+>> +             /* Take over SW learned entry */
+>> +             fdb->added_by_external_learn = 1;
+>> +             fdb->updated = jiffies;
+>> +             fdb_notify(br, fdb, RTM_NEWNEIGH);
+>> +     }
+>
+> Is there any case where this fdb entry gets re-used and is no longer
+> added by an external learning? Should we clear this flag somewhere?
+
+Once the FDB entry is marked "added_by_external_learn" it stays marked
+as such until removed by aging cleanup process (or flushed due to
+interface down, etc).  If aged out (and now deleted), the FDB entry
+may come back either by SW learn or by HW learn.  If SW learn comes
+first, and then HW learn, HW learn will override and mark the existing
+FDB entry "added_by_external_learn".  So there is take-over by HW but
+no give-back to SW.  And there is no explicit clearing of the mark
+short of deleting the FDB entry.  The mark is mostly for letting
+user's know which FDB entries where learned by HW and synced to the
+bridge's FDB.
+
+> [snip]
+>
+>> +EXPORT_SYMBOL(br_fdb_external_learn_del);
+>> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+>> index 4f577c4..02cd63b 100644
+>> --- a/net/bridge/br_private.h
+>> +++ b/net/bridge/br_private.h
+>> @@ -101,6 +101,7 @@ struct net_bridge_fdb_entry
+>>       unsigned char                   is_local;
+>>       unsigned char                   is_static;
+>>       unsigned char                   added_by_user;
+>> +     unsigned char                   added_by_external_learn;
+>
+> Pheww, we could be saving some memory footprint here by using different
+> types here ;)
+> --
+> Florian
