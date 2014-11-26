@@ -1,53 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net-timestamp: make tcp_recvmsg call
- ipv6_recv_error for AF_INET6 socks
-Date: Wed, 26 Nov 2014 16:37:47 -0500 (EST)
-Message-ID: <20141126.163747.1248122024527332519.davem@davemloft.net>
-References: <1417031582-16480-1-git-send-email-willemb@google.com>
-	<CA+FuTSdf=3cw7rGhAmPo+hh2qnn_GgPG3Xy8Er259_FxjTur3w@mail.gmail.com>
+Subject: Re: pull request: wireless 2014-11-26
+Date: Wed, 26 Nov 2014 16:39:20 -0500 (EST)
+Message-ID: <20141126.163920.2254225978631403023.davem@davemloft.net>
+References: <20141126194743.GA12284@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: willemb@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50973 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751107AbaKZVht (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 16:37:49 -0500
-In-Reply-To: <CA+FuTSdf=3cw7rGhAmPo+hh2qnn_GgPG3Xy8Er259_FxjTur3w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141126194743.GA12284@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemb@google.com>
-Date: Wed, 26 Nov 2014 15:03:01 -0500
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 26 Nov 2014 14:47:43 -0500
 
-> On Wed, Nov 26, 2014 at 2:53 PM, Willem de Bruijn <willemb@google.com> wrote:
->> From: Willem de Bruijn <willemb@google.com>
->>
->> TCP timestamping introduced MSG_ERRQUEUE handling for TCP sockets.
->> If the socket is of family AF_INET6, call ipv6_recv_error instead
->> of ip_recv_error.
->>
->> This change is more complex than a single branch due to the loadable
->> ipv6 module. It reuses a pre-existing indirect function call from
->> ping. The ping code is safe to call, because it is part of the core
->> ipv6 module and always present when AF_INET6 sockets are active.
+> Please pull this little batch of fixes intended for the 3.18 stream...
 > 
-> I forgot to add:
+> For the iwlwifi one, Emmanuel says:
 > 
-> Fixes: 4ed2d765 (net-timestamp: TCP timestamping)
+> "Not all the firmware know how to handle the HOT_SPOT_CMD.
+> Make sure that the firmware will know this command before
+> sending it. This avoids a firmware crash."
 > 
->> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> Along with that, Larry sends a pair of rtlwifi fixes to address some
+> discrepancies from moving drivers out of staging.  Larry says:
+> 
+> "These two patches are needed to fix a regression introduced when
+> driver rtl8821ae was moved from staging to the regular wireless tree."
+> 
+> Please let me know if there are problems!
 
-Applied and queued up for -stable, thanks.
-
->> It may also be worthwhile to add WARN_ON_ONCE(sk->family == AF_INET6)
->> to ip_recv_error.
-
-Agreed.  This kind of mistakes do happen, and these routines end up
-essentially referencing garbage when it happens.
-
-Thanks again.
+Pulled John, thanks a lot!
