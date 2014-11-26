@@ -1,108 +1,56 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 2/2] net: dsa: bcm_sf2: reset switch prior to initialization
-Date: Tue, 25 Nov 2014 18:08:49 -0800
-Message-ID: <1416967729-717-3-git-send-email-f.fainelli@gmail.com>
-References: <1416967729-717-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Zhu Yanjun <zyjzyj2000@gmail.com>
+Subject: [PATCH V2 1/1] ipv6: Remove unnecessary test
+Date: Wed, 26 Nov 2014 10:23:40 +0800
+Message-ID: <1416968620-19582-1-git-send-email-Yanjun.Zhu@windriver.com>
+Cc: Zhu Yanjun <Yanjun.Zhu@windriver.com>,
+	Hong Zhiguo <honkiko@gmail.com>,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	Cong Wang <cwang@twopensource.com>
+To: zyjzyj2000@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:43523 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751389AbaKZCIy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 21:08:54 -0500
-Received: by mail-pd0-f169.google.com with SMTP id fp1so1771475pdb.0
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 18:08:54 -0800 (PST)
-In-Reply-To: <1416967729-717-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:51598 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751005AbaKZCXy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 21:23:54 -0500
+Received: by mail-pd0-f171.google.com with SMTP id y13so1788342pdi.16
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 18:23:53 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Our boot agent may have left the switch in an certain configuration
-state, make sure we issue a software reset prior to configuring the
-switch in order to ensure the HW is in a consistent state, in particular
-transmit queues and internal buffers.
+The "init_net" condition judgement in function addrconf_exit_net is introduced
+in commit 44a6bd29 [Create ipv6 devconf-s for namespaces] to avoid freeing
+init_net. In commit c900a800 [ipv6: fix bad free of addrconf_init_net],
+function addrconf_init_net will allocate memory for every net regardless of
+init_net. In this case, it is unnecessary to make "init_net" condition judgement.
 
-Fixes: 246d7f773c13 ("net: dsa: add Broadcom SF2 switch driver")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+CC: Hong Zhiguo <honkiko@gmail.com>
+CC: Octavian Purdila <opurdila@ixiacom.com>
+CC: Pavel Emelyanov <xemul@openvz.org>
+CC: Cong Wang <cwang@twopensource.com>
+Suggested-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+
 ---
- drivers/net/dsa/bcm_sf2.c | 52 ++++++++++++++++++++++++++---------------------
- 1 file changed, 29 insertions(+), 23 deletions(-)
+ net/ipv6/addrconf.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 46632e8b6336..4f4c2a7888e5 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -377,6 +377,29 @@ static irqreturn_t bcm_sf2_switch_1_isr(int irq, void *dev_id)
- 	return IRQ_HANDLED;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 0169ccf..b8724fc 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -5336,10 +5336,8 @@ static void __net_exit addrconf_exit_net(struct net *net)
+ 	__addrconf_sysctl_unregister(net->ipv6.devconf_dflt);
+ 	__addrconf_sysctl_unregister(net->ipv6.devconf_all);
+ #endif
+-	if (!net_eq(net, &init_net)) {
+-		kfree(net->ipv6.devconf_dflt);
+-		kfree(net->ipv6.devconf_all);
+-	}
++	kfree(net->ipv6.devconf_dflt);
++	kfree(net->ipv6.devconf_all);
  }
  
-+static int bcm_sf2_sw_rst(struct bcm_sf2_priv *priv)
-+{
-+	unsigned int timeout = 1000;
-+	u32 reg;
-+
-+	reg = core_readl(priv, CORE_WATCHDOG_CTRL);
-+	reg |= SOFTWARE_RESET | EN_CHIP_RST | EN_SW_RESET;
-+	core_writel(priv, reg, CORE_WATCHDOG_CTRL);
-+
-+	do {
-+		reg = core_readl(priv, CORE_WATCHDOG_CTRL);
-+		if (!(reg & SOFTWARE_RESET))
-+			break;
-+
-+		usleep_range(1000, 2000);
-+	} while (timeout-- > 0);
-+
-+	if (timeout == 0)
-+		return -ETIMEDOUT;
-+
-+	return 0;
-+}
-+
- static int bcm_sf2_sw_setup(struct dsa_switch *ds)
- {
- 	const char *reg_names[BCM_SF2_REGS_NUM] = BCM_SF2_REGS_NAME;
-@@ -410,6 +433,12 @@ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
- 		base++;
- 	}
- 
-+	ret = bcm_sf2_sw_rst(priv);
-+	if (ret) {
-+		pr_err("unable to software reset switch: %d\n", ret);
-+		goto out_unmap;
-+	}
-+
- 	/* Disable all interrupts and request them */
- 	intrl2_0_writel(priv, 0xffffffff, INTRL2_CPU_MASK_SET);
- 	intrl2_0_writel(priv, 0xffffffff, INTRL2_CPU_CLEAR);
-@@ -735,29 +764,6 @@ static int bcm_sf2_sw_suspend(struct dsa_switch *ds)
- 	return 0;
- }
- 
--static int bcm_sf2_sw_rst(struct bcm_sf2_priv *priv)
--{
--	unsigned int timeout = 1000;
--	u32 reg;
--
--	reg = core_readl(priv, CORE_WATCHDOG_CTRL);
--	reg |= SOFTWARE_RESET | EN_CHIP_RST | EN_SW_RESET;
--	core_writel(priv, reg, CORE_WATCHDOG_CTRL);
--
--	do {
--		reg = core_readl(priv, CORE_WATCHDOG_CTRL);
--		if (!(reg & SOFTWARE_RESET))
--			break;
--
--		usleep_range(1000, 2000);
--	} while (timeout-- > 0);
--
--	if (timeout == 0)
--		return -ETIMEDOUT;
--
--	return 0;
--}
--
- static int bcm_sf2_sw_resume(struct dsa_switch *ds)
- {
- 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
+ static struct pernet_operations addrconf_ops = {
 -- 
-2.1.0
+1.9.1
