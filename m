@@ -1,259 +1,207 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH rfc] packet: zerocopy packet_snd
-Date: Wed, 26 Nov 2014 23:20:38 +0200
-Message-ID: <20141126212038.GA12118@redhat.com>
-References: <1416602694-7540-1-git-send-email-willemb@google.com>
- <20141126182445.GA15744@redhat.com>
- <CA+FuTSdYB4rDMH3gAAMwaRdbqN58f_SxLz=C3fcCACw_KosGXw@mail.gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless 2014-11-26
+Date: Wed, 26 Nov 2014 14:47:43 -0500
+Message-ID: <20141126194743.GA12284@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38727 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750888AbaKZVUo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Nov 2014 16:20:44 -0500
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="MGYHOYXEY6WxJCY8"
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CA+FuTSdYB4rDMH3gAAMwaRdbqN58f_SxLz=C3fcCACw_KosGXw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 26, 2014 at 02:59:34PM -0500, Willem de Bruijn wrote:
-> > The main problem with zero copy ATM is with queueing disciplines
-> > which might keep the socket around essentially forever.
-> > The case was described here:
-> > https://lkml.org/lkml/2014/1/17/105
-> > and of course this will make it more serious now that
-> > more applications will be able to do this, so
-> > chances that an administrator enables this
-> > are higher.
-> 
-> The denial of service issue raised there, that a single queue can
-> block an entire virtio-net device, is less problematic in the case of
-> packet sockets. A socket can run out of sk_wmem_alloc, but a prudent
-> application can increase the limit or use separate sockets for
-> separate flows.
 
-Sounds like this interface is very hard to use correctly.
+--MGYHOYXEY6WxJCY8
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> > One possible solution is some kind of timer orphaning frags
-> > for skbs that have been around for too long.
-> 
-> Perhaps this can be approximated without an explicit timer by calling
-> skb_copy_ubufs on enqueue whenever qlen exceeds a threshold value?
+Dave,
 
-Not sure.  I'll have to see that patch to judge.
+Please pull this little batch of fixes intended for the 3.18 stream...
 
-> >
-> >> ---
-> >>  include/linux/skbuff.h        |   1 +
-> >>  include/linux/socket.h        |   1 +
-> >>  include/uapi/linux/errqueue.h |   1 +
-> >>  net/packet/af_packet.c        | 110 ++++++++++++++++++++++++++++++++++++++----
-> >>  4 files changed, 103 insertions(+), 10 deletions(-)
-> >>
-> >> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> >> index 78c299f..8e661d2 100644
-> >> --- a/include/linux/skbuff.h
-> >> +++ b/include/linux/skbuff.h
-> >> @@ -295,6 +295,7 @@ struct ubuf_info {
-> >>       void (*callback)(struct ubuf_info *, bool zerocopy_success);
-> >>       void *ctx;
-> >>       unsigned long desc;
-> >> +     void *callback_priv;
-> >>  };
-> >>
-> >>  /* This data is invariant across clones and lives at
-> >> diff --git a/include/linux/socket.h b/include/linux/socket.h
-> >> index de52228..0a2e0ea 100644
-> >> --- a/include/linux/socket.h
-> >> +++ b/include/linux/socket.h
-> >> @@ -265,6 +265,7 @@ struct ucred {
-> >>  #define MSG_SENDPAGE_NOTLAST 0x20000 /* sendpage() internal : not the last page */
-> >>  #define MSG_EOF         MSG_FIN
-> >>
-> >> +#define MSG_ZEROCOPY 0x4000000       /* Pin user pages */
-> >>  #define MSG_FASTOPEN 0x20000000      /* Send data in TCP SYN */
-> >>  #define MSG_CMSG_CLOEXEC 0x40000000  /* Set close_on_exec for file
-> >>                                          descriptor received through
-> >> diff --git a/include/uapi/linux/errqueue.h b/include/uapi/linux/errqueue.h
-> >> index 07bdce1..61bf318 100644
-> >> --- a/include/uapi/linux/errqueue.h
-> >> +++ b/include/uapi/linux/errqueue.h
-> >> @@ -19,6 +19,7 @@ struct sock_extended_err {
-> >>  #define SO_EE_ORIGIN_ICMP6   3
-> >>  #define SO_EE_ORIGIN_TXSTATUS        4
-> >>  #define SO_EE_ORIGIN_TIMESTAMPING SO_EE_ORIGIN_TXSTATUS
-> >> +#define SO_EE_ORIGIN_UPAGE   5
-> >>
-> >>  #define SO_EE_OFFENDER(ee)   ((struct sockaddr*)((ee)+1))
-> >>
-> >> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> >> index 58af5802..367c23a 100644
-> >> --- a/net/packet/af_packet.c
-> >> +++ b/net/packet/af_packet.c
-> >> @@ -2370,28 +2370,112 @@ out:
-> >>
-> >>  static struct sk_buff *packet_alloc_skb(struct sock *sk, size_t prepad,
-> >>                                       size_t reserve, size_t len,
-> >> -                                     size_t linear, int noblock,
-> >> +                                     size_t linear, int flags,
-> >>                                       int *err)
-> >>  {
-> >>       struct sk_buff *skb;
-> >> +     size_t data_len;
-> >>
-> >> -     /* Under a page?  Don't bother with paged skb. */
-> >> -     if (prepad + len < PAGE_SIZE || !linear)
-> >> -             linear = len;
-> >> +     if (flags & MSG_ZEROCOPY) {
-> >> +             /* Minimize linear, but respect header lower bound */
-> >> +             linear = min(len, max_t(size_t, linear, MAX_HEADER));
-> >> +             data_len = 0;
-> >> +     } else {
-> >> +             /* Under a page? Don't bother with paged skb. */
-> >> +             if (prepad + len < PAGE_SIZE || !linear)
-> >> +                     linear = len;
-> >> +             data_len = len - linear;
-> >> +     }
-> >>
-> >> -     skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
-> >> -                                err, 0);
-> >> +     skb = sock_alloc_send_pskb(sk, prepad + linear, data_len,
-> >> +                                flags & MSG_DONTWAIT, err, 0);
-> >>       if (!skb)
-> >>               return NULL;
-> >>
-> >>       skb_reserve(skb, reserve);
-> >>       skb_put(skb, linear);
-> >> -     skb->data_len = len - linear;
-> >> -     skb->len += len - linear;
-> >> +     skb->data_len = data_len;
-> >> +     skb->len += data_len;
-> >>
-> >>       return skb;
-> >>  }
-> >>
-> >> +/* release zerocopy resources and avoid destructor callback on kfree */
-> >> +static void packet_snd_zerocopy_free(struct sk_buff *skb)
-> >> +{
-> >> +     struct ubuf_info *uarg = skb_shinfo(skb)->destructor_arg;
-> >> +
-> >> +     if (uarg) {
-> >> +             kfree_skb(uarg->callback_priv);
-> >> +             sock_put((struct sock *) uarg->ctx);
-> >> +             kfree(uarg);
-> >> +
-> >> +             skb_shinfo(skb)->destructor_arg = NULL;
-> >> +             skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
-> >> +     }
-> >> +}
-> >> +
-> >> +static void packet_snd_zerocopy_callback(struct ubuf_info *uarg,
-> >> +                                      bool zerocopy_success)
-> >> +{
-> >> +     struct sk_buff *err_skb;
-> >> +     struct sock *err_sk;
-> >> +     struct sock_exterr_skb *serr;
-> >> +
-> >> +     err_sk = uarg->ctx;
-> >> +     err_skb = uarg->callback_priv;
-> >> +
-> >> +     serr = SKB_EXT_ERR(err_skb);
-> >> +     memset(serr, 0, sizeof(*serr));
-> >> +     serr->ee.ee_errno = ENOMSG;
-> >> +     serr->ee.ee_origin = SO_EE_ORIGIN_UPAGE;
-> >> +     serr->ee.ee_data = uarg->desc & 0xFFFFFFFF;
-> >> +     serr->ee.ee_info = ((u64) uarg->desc) >> 32;
-> >> +     if (sock_queue_err_skb(err_sk, err_skb))
-> >> +             kfree_skb(err_skb);
-> >> +
-> >> +     kfree(uarg);
-> >> +     sock_put(err_sk);
-> >> +}
-> >> +
-> >> +static int packet_zerocopy_sg_from_iovec(struct sk_buff *skb,
-> >> +                                      struct msghdr *msg)
-> >> +{
-> >> +     struct ubuf_info *uarg = NULL;
-> >> +     int ret;
-> >> +
-> >> +     if (iov_pages(msg->msg_iov, 0, msg->msg_iovlen) > MAX_SKB_FRAGS)
-> >> +             return -EMSGSIZE;
-> >> +
-> >> +     uarg = kzalloc(sizeof(*uarg), GFP_KERNEL);
-> >> +     if (!uarg)
-> >> +             return -ENOMEM;
-> >> +
-> >> +     uarg->callback_priv = alloc_skb(0, GFP_KERNEL);
-> >> +     if (!uarg->callback_priv) {
-> >> +             kfree(uarg);
-> >> +             return -ENOMEM;
-> >> +     }
-> >> +
-> >> +     ret = zerocopy_sg_from_iovec(skb, msg->msg_iov, 0, msg->msg_iovlen);
-> >> +     if (ret) {
-> >> +             kfree_skb(uarg->callback_priv);
-> >> +             kfree(uarg);
-> >> +             return -EIO;
-> >> +     }
-> >> +
-> >> +     sock_hold(skb->sk);
-> >> +     uarg->ctx = skb->sk;
-> >> +     uarg->callback = packet_snd_zerocopy_callback;
-> >> +     uarg->desc = (unsigned long) msg->msg_iov[0].iov_base;
-> >> +
-> >> +     skb_shinfo(skb)->destructor_arg = uarg;
-> >> +     skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-> >> +     skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
-> >> +
-> >> +     return 0;
-> >> +}
-> >> +
-> >>  static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
-> >>  {
-> >>       struct sock *sk = sock->sk;
-> >> @@ -2408,6 +2492,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
-> >>       unsigned short gso_type = 0;
-> >>       int hlen, tlen;
-> >>       int extra_len = 0;
-> >> +     bool zerocopy = msg->msg_flags & MSG_ZEROCOPY;
-> >>
-> >>       /*
-> >>        *      Get and verify the address.
-> >> @@ -2501,7 +2586,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
-> >>       hlen = LL_RESERVED_SPACE(dev);
-> >>       tlen = dev->needed_tailroom;
-> >>       skb = packet_alloc_skb(sk, hlen + tlen, hlen, len, vnet_hdr.hdr_len,
-> >> -                            msg->msg_flags & MSG_DONTWAIT, &err);
-> >> +                            msg->msg_flags, &err);
-> >>       if (skb == NULL)
-> >>               goto out_unlock;
-> >>
-> >> @@ -2518,7 +2603,11 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
-> >>       }
-> >>
-> >>       /* Returns -EFAULT on error */
-> >> -     err = skb_copy_datagram_from_iovec(skb, offset, msg->msg_iov, 0, len);
-> >> +     if (zerocopy)
-> >> +             err = packet_zerocopy_sg_from_iovec(skb, msg);
-> >> +     else
-> >> +             err = skb_copy_datagram_from_iovec(skb, offset, msg->msg_iov,
-> >> +                                                0, len);
-> >>       if (err)
-> >>               goto out_free;
-> >>
-> >> @@ -2578,6 +2667,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
-> >>       return len;
-> >>
-> >>  out_free:
-> >> +     packet_snd_zerocopy_free(skb);
-> >>       kfree_skb(skb);
-> >>  out_unlock:
-> >>       if (dev)
-> >> --
-> >> 2.1.0.rc2.206.gedb03e5
+For the iwlwifi one, Emmanuel says:
+
+"Not all the firmware know how to handle the HOT_SPOT_CMD.
+Make sure that the firmware will know this command before
+sending it. This avoids a firmware crash."
+
+Along with that, Larry sends a pair of rtlwifi fixes to address some
+discrepancies from moving drivers out of staging.  Larry says:
+
+"These two patches are needed to fix a regression introduced when
+driver rtl8821ae was moved from staging to the regular wireless tree."
+
+Please let me know if there are problems!
+
+Thanks,
+
+John
+
+---
+
+The following changes since commit a1d69c60c44134f64945bbf6a6dfda22eaf4a214:
+
+  brcmfmac: don't include linux/unaligned/access_ok.h (2014-11-20 14:46:45 =
+-0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git tags/=
+master-2014-11-25
+
+for you to fetch changes up to 7d63a5f9b25ba6b130da8eb2d32a72b1462d0249:
+
+  rtlwifi: Change order in device startup (2014-11-25 14:22:22 -0500)
+
+----------------------------------------------------------------
+John W. Linville (1):
+      Merge tag 'iwlwifi-for-john-2014-11-23' of git://git.kernel.org/.../i=
+wlwifi/iwlwifi-fixes
+
+Larry Finger (2):
+      rtlwifi: rtl8821ae: Fix 5G detection problem
+      rtlwifi: Change order in device startup
+
+Luciano Coelho (1):
+      iwlwifi: mvm: check TLV flag before trying to use hotspot firmware co=
+mmands
+
+ drivers/net/wireless/iwlwifi/iwl-fw.h       |  2 ++
+ drivers/net/wireless/iwlwifi/mvm/mac80211.c | 12 +++++++++---
+ drivers/net/wireless/rtlwifi/pci.c          | 20 ++++++++++----------
+ drivers/net/wireless/rtlwifi/rtl8821ae/hw.c |  5 +++--
+ 4 files changed, 24 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/wireless/iwlwifi/iwl-fw.h b/drivers/net/wireless/i=
+wlwifi/iwl-fw.h
+index 4f6e66892acc..b894a84e8393 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-fw.h
++++ b/drivers/net/wireless/iwlwifi/iwl-fw.h
+@@ -155,6 +155,7 @@ enum iwl_ucode_tlv_api {
+  * @IWL_UCODE_TLV_CAPA_QUIET_PERIOD_SUPPORT: supports Quiet Period requests
+  * @IWL_UCODE_TLV_CAPA_DQA_SUPPORT: supports dynamic queue allocation (DQA=
+),
+  *	which also implies support for the scheduler configuration command
++ * @IWL_UCODE_TLV_CAPA_HOTSPOT_SUPPORT: supports Hot Spot Command
+  */
+ enum iwl_ucode_tlv_capa {
+ 	IWL_UCODE_TLV_CAPA_D0I3_SUPPORT			=3D BIT(0),
+@@ -163,6 +164,7 @@ enum iwl_ucode_tlv_capa {
+ 	IWL_UCODE_TLV_CAPA_WFA_TPC_REP_IE_SUPPORT	=3D BIT(10),
+ 	IWL_UCODE_TLV_CAPA_QUIET_PERIOD_SUPPORT		=3D BIT(11),
+ 	IWL_UCODE_TLV_CAPA_DQA_SUPPORT			=3D BIT(12),
++	IWL_UCODE_TLV_CAPA_HOTSPOT_SUPPORT		=3D BIT(18),
+ };
+=20
+ /* The default calibrate table size if not specified by firmware file */
+diff --git a/drivers/net/wireless/iwlwifi/mvm/mac80211.c b/drivers/net/wire=
+less/iwlwifi/mvm/mac80211.c
+index b62405865b25..b6d2683da3a9 100644
+--- a/drivers/net/wireless/iwlwifi/mvm/mac80211.c
++++ b/drivers/net/wireless/iwlwifi/mvm/mac80211.c
+@@ -2448,9 +2448,15 @@ static int iwl_mvm_roc(struct ieee80211_hw *hw,
+=20
+ 	switch (vif->type) {
+ 	case NL80211_IFTYPE_STATION:
+-		/* Use aux roc framework (HS20) */
+-		ret =3D iwl_mvm_send_aux_roc_cmd(mvm, channel,
+-					       vif, duration);
++		if (mvm->fw->ucode_capa.capa[0] &
++		    IWL_UCODE_TLV_CAPA_HOTSPOT_SUPPORT) {
++			/* Use aux roc framework (HS20) */
++			ret =3D iwl_mvm_send_aux_roc_cmd(mvm, channel,
++						       vif, duration);
++			goto out_unlock;
++		}
++		IWL_ERR(mvm, "hotspot not supported\n");
++		ret =3D -EINVAL;
+ 		goto out_unlock;
+ 	case NL80211_IFTYPE_P2P_DEVICE:
+ 		/* handle below */
+diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlw=
+ifi/pci.c
+index 61f5d36eca6a..846a2e6e34d8 100644
+--- a/drivers/net/wireless/rtlwifi/pci.c
++++ b/drivers/net/wireless/rtlwifi/pci.c
+@@ -2249,6 +2249,16 @@ int rtl_pci_probe(struct pci_dev *pdev,
+ 	/*like read eeprom and so on */
+ 	rtlpriv->cfg->ops->read_eeprom_info(hw);
+=20
++	if (rtlpriv->cfg->ops->init_sw_vars(hw)) {
++		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG, "Can't init_sw_vars\n");
++		err =3D -ENODEV;
++		goto fail3;
++	}
++	rtlpriv->cfg->ops->init_sw_leds(hw);
++
++	/*aspm */
++	rtl_pci_init_aspm(hw);
++
+ 	/* Init mac80211 sw */
+ 	err =3D rtl_init_core(hw);
+ 	if (err) {
+@@ -2264,16 +2274,6 @@ int rtl_pci_probe(struct pci_dev *pdev,
+ 		goto fail3;
+ 	}
+=20
+-	if (rtlpriv->cfg->ops->init_sw_vars(hw)) {
+-		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG, "Can't init_sw_vars\n");
+-		err =3D -ENODEV;
+-		goto fail3;
+-	}
+-	rtlpriv->cfg->ops->init_sw_leds(hw);
+-
+-	/*aspm */
+-	rtl_pci_init_aspm(hw);
+-
+ 	err =3D ieee80211_register_hw(hw);
+ 	if (err) {
+ 		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
+diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c b/drivers/net/wire=
+less/rtlwifi/rtl8821ae/hw.c
+index 310d3163dc5b..8ec8200002c7 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8821ae/hw.c
+@@ -3672,8 +3672,9 @@ static void rtl8821ae_update_hal_rate_mask(struct iee=
+e80211_hw *hw,
+ 		mac->opmode =3D=3D NL80211_IFTYPE_ADHOC)
+ 		macid =3D sta->aid + 1;
+ 	if (wirelessmode =3D=3D WIRELESS_MODE_N_5G ||
+-	    wirelessmode =3D=3D WIRELESS_MODE_AC_5G)
+-		ratr_bitmap =3D sta->supp_rates[NL80211_BAND_5GHZ];
++	    wirelessmode =3D=3D WIRELESS_MODE_AC_5G ||
++	    wirelessmode =3D=3D WIRELESS_MODE_A)
++		ratr_bitmap =3D sta->supp_rates[NL80211_BAND_5GHZ] << 4;
+ 	else
+ 		ratr_bitmap =3D sta->supp_rates[NL80211_BAND_2GHZ];
+=20
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
+
+--MGYHOYXEY6WxJCY8
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJUdi5fAAoJEJctW/TcYTgGJ0sP/jdQ3RboevsAJE/9RWu8mH3C
+Z1qc7rGlpsgb9HnPYqfFVaWHJsHBRZ9AEWwbsSv2seefY75dbK/HYcbOcyMhpvHD
+7xCu9DSUQnkgK38Do2j9/USrWUsmTSZ96QhC1fymmCRft2nM3iOHWCx/DaXNIm94
+yzqY59GllUrxH25iuH/2ohlxzqAnsGzAzCyFEGS3k2oXO7ijeWk35cz8Y47hUobz
+b83vJ8Mb4qwvn1ZbdvMvnWGCSIIOrUvpnfFIIWXi65r3gkWy9Zm21itupGgKvicV
+Bf4wehrqmBIy02C86aqK6iS+nZvQ7e668wCr8QJdo0gPc/rjPQ8cxFtL3K9rRYCS
+BHryTONxBByIidvoC410w0/sDWtHtIOe8Z2wJzfpFbOqVE08rtVFYY9Tw3bvARK/
+jJcpVwvZpQAJjG7zRbSWAh8LyoRqVP5LTL/BZ/LTnDArVGAEWnyGXVw7BBfbgpME
+R8PHh2JOOFYIBqS3mqGrzAW3X3TjtZMJd+oDPalE4RbvofBMHXtOgi8cW2jIbSum
+6eB6IJbflSc9r2SPLxxU5sT5eubmqganOoaYHEqOZ9Xf8KJQNyYwrKZy9IJ5IAMh
+j+JsyubBSXYACd3HxXlohReHrxlZNn3YLrWDTCBjRQtaYJzqSgLbJMHeI3vSkBg7
+dTWPh1KOayc9AXRaOI6Q
+=kt4Y
+-----END PGP SIGNATURE-----
+
+--MGYHOYXEY6WxJCY8--
