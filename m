@@ -1,8 +1,8 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 06/11] tipc: remove unused
-	between routine
-Date: Wed, 26 Nov 2014 11:41:50 +0800
-Message-ID: <1416973315-6047-7-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 07/11] tipc: use
+	skb_queue_walk_safe marco to simplify link_prepare_wakeup routine
+Date: Wed, 26 Nov 2014 11:41:51 +0800
+Message-ID: <1416973315-6047-8-git-send-email-ying.xue@windriver.com>
 References: <1416973315-6047-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,29 +25,35 @@ List-Id: netdev.vger.kernel.org
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/link.h |    9 ---------
- 1 file changed, 9 deletions(-)
+ net/tipc/link.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 1681076..7711234 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -253,15 +253,6 @@ static inline u32 mod(u32 x)
- 	return x & 0xffffu;
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 8eb885e..ddee498 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -367,15 +367,15 @@ static bool link_schedule_user(struct tipc_link *link, u32 oport,
+  */
+ static void link_prepare_wakeup(struct tipc_link *link)
+ {
+-	struct sk_buff_head *wq = &link->waiting_sks;
+-	struct sk_buff *buf;
+ 	uint pend_qsz = link->out_queue_size;
++	struct sk_buff *skb, *tmp;
+ 
+-	for (buf = skb_peek(wq); buf; buf = skb_peek(wq)) {
+-		if (pend_qsz >= link->queue_limit[TIPC_SKB_CB(buf)->chain_imp])
++	skb_queue_walk_safe(&link->waiting_sks, skb, tmp) {
++		if (pend_qsz >= link->queue_limit[TIPC_SKB_CB(skb)->chain_imp])
+ 			break;
+-		pend_qsz += TIPC_SKB_CB(buf)->chain_sz;
+-		__skb_queue_tail(&link->owner->waiting_sks, __skb_dequeue(wq));
++		pend_qsz += TIPC_SKB_CB(skb)->chain_sz;
++		__skb_unlink(skb, &link->waiting_sks);
++		__skb_queue_tail(&link->owner->waiting_sks, skb);
+ 	}
  }
  
--static inline int between(u32 lower, u32 upper, u32 n)
--{
--	if ((lower < n) && (n < upper))
--		return 1;
--	if ((upper < lower) && ((n > lower) || (n < upper)))
--		return 1;
--	return 0;
--}
--
- static inline int less_eq(u32 left, u32 right)
- {
- 	return mod(right - left) < 32768u;
 -- 
 1.7.9.5
 
