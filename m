@@ -1,46 +1,34 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net] r8152: drop the tx packet with invalid length
-Date: Wed, 26 Nov 2014 17:56:26 +0800
-Message-ID: <1394712342-15778-104-Taiwan-albertk@realtek.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH v2] net: netfilter: Fix undefined reference to
+ nf_nat_redirect_* functions
+Date: Wed, 26 Nov 2014 11:24:02 +0100
+Message-ID: <20141126102402.GA24801@breakpoint.cc>
+References: <1416928034-10882-1-git-send-email-rupran@einserver.de>
+ <1416994537-1592-1-git-send-email-rupran@einserver.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andreas Ruprecht <rupran@einserver.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1416994537-1592-1-git-send-email-rupran@einserver.de>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Drop the tx packet which is more than the size of agg_buf_sz. When
-creating a bridge with the device, we may get the tx packet with
-TSO and the length is more than the gso_max_size which is set by
-the driver through netif_set_gso_max_size(). Such packets couldn't
-be transmitted and should be dropped directly.
+Andreas Ruprecht <rupran@einserver.de> wrote:
+> Additionally it is necessary to provide stubs for the
+> nf_nat_redirect_ipv{4,6} functions in case the header is included but
+> the corresponding Kconfig feature is not enabled.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+Hmmm, not following.
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index c6554c7..ebdaff7 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -1897,6 +1897,15 @@ static netdev_tx_t rtl8152_start_xmit(struct sk_buff *skb,
- {
- 	struct r8152 *tp = netdev_priv(netdev);
- 
-+	if ((skb->len + sizeof(struct tx_desc)) > agg_buf_sz) {
-+		struct net_device_stats *stats = &netdev->stats;
-+
-+		dev_kfree_skb_any(skb);
-+		stats->tx_dropped++;
-+		WARN_ON_ONCE(1);
-+		return NETDEV_TX_OK;
-+	}
-+
- 	skb_tx_timestamp(skb);
- 
- 	skb_queue_tail(&tp->tx_queue, skb);
--- 
-1.9.3
+Can you elaborate?
+
+Under which circumstances do we have a call to nf_nat_redirect_ipv4()
+(i.e., linker error) but can safely do a noop operation instead of the
+requested nat redirect...?
