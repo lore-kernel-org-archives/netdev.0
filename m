@@ -1,98 +1,62 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v3 09/17] bridge: add API to notify bridge
- driver of learned FBD on offloaded device
-Date: Wed, 26 Nov 2014 11:26:48 +0100
-Message-ID: <20141126102648.GG1875@nanopsycho.orion>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
- <1416911328-10979-10-git-send-email-jiri@resnulli.us>
- <20141125163853.GJ27416@gospo.rtplab.test>
- <20141125223643.GH3912@casper.infradead.org>
- <CAE4R7bApe59sT6G2oORWP=jOOy=h=Da=EQq98fzR1s+ESZOGFQ@mail.gmail.com>
+From: Andreas Ruprecht <rupran@einserver.de>
+Subject: Re: [PATCH v2] net: netfilter: Fix undefined reference to nf_nat_redirect_*
+ functions
+Date: Wed, 26 Nov 2014 11:33:19 +0100
+Message-ID: <5475AC6F.9010902@einserver.de>
+References: <1416928034-10882-1-git-send-email-rupran@einserver.de> <1416994537-1592-1-git-send-email-rupran@einserver.de> <20141126102402.GA24801@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
 	"David S. Miller" <davem@davemloft.net>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"dborkman@redhat.com" <dborkman@redhat.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"pshelar@nicira.com" <pshelar@nicira.com>,
-	"azhou@nicira.com" <azhou@nicira.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cum
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:64511 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750811AbaKZK0u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 05:26:50 -0500
-Received: by mail-wg0-f48.google.com with SMTP id y19so3245654wgg.21
-        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 02:26:49 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bApe59sT6G2oORWP=jOOy=h=Da=EQq98fzR1s+ESZOGFQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20141126102402.GA24801@breakpoint.cc>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Nov 26, 2014 at 02:48:04AM CET, sfeldma@gmail.com wrote:
->On Tue, Nov 25, 2014 at 12:36 PM, Thomas Graf <tgraf@suug.ch> wrote:
->> On 11/25/14 at 11:38am, Andy Gospodarek wrote:
->>> On Tue, Nov 25, 2014 at 11:28:40AM +0100, Jiri Pirko wrote:
->>> > From: Scott Feldman <sfeldma@gmail.com>
->>> >
->>> > When the swdev device learns a new mac/vlan on a port, it sends some async
->>> > notification to the driver and the driver installs an FDB in the device.
->>> > To give a holistic system view, the learned mac/vlan should be reflected
->>> > in the bridge's FBD table, so the user, using normal iproute2 cmds, can view
->>> > what is currently learned by the device.  This API on the bridge driver gives
->>> > a way for the swdev driver to install an FBD entry in the bridge FBD table.
->>> > (And remove one).
->>> >
->>> > This is equivalent to the device running these cmds:
->>> >
->>> >   bridge fdb [add|del] <mac> dev <dev> vid <vlan id> master
->>> >
->>> > This patch needs some extra eyeballs for review, in paricular around the
->>> > locking and contexts.
->>> >
->>> > Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->>> > Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>
->> I like the simplicity of this. That said, given we'll have multiple
->> users of swdev including OVS, shouldn't this be a notifier or a
->> callback that depends on who is controlling the device?
->
->I like the idea.  When the switch port joins Linux bridge or OVS
->datapath, a callback is registered with the driver.  That way the
->driver doesn't really care if the port is a bridge member or an OVS
->vport in a datapath.  It's just passing up the FDB entry
->(port/mac/vlan) details to the container device.  Can we hold this
->idea until this patchset sticks?  I think once OVS support comes back
->into the swdev model would be the time to address this.
+Sure.
 
-Yep, I agree this is a good idea and I also vote for implemeting this as
-a follow-up. Thanks.
+When the file is compiled, i.e. CONFIG_NETFILTER_XT_TARGET_REDIRECT is
+selected, all headers will be included and all functions inside the file
+will be compiled, regardless of other Kconfig options.
 
->
->>
->>> > +   spin_lock(&br->hash_lock);
->>> (Since you asked to check locking...)
->>>
->>> Most of the other fdb_add/delete/insert/update calls take this with
->>> spin_lock_bh.  Did you try this with lockdep enabled just to see if that
->>> is needed here?  I suspect that anytime br->hash_lock is taken it will
->>> need to be with softirqs disabled from this point forward.
->>
->> At least br_fdb_update() seems to be called from BH context so I would
->> agree and argue the lock in br_fdb_cleanup() and br_fdb_update() need a
->> fix too. I'll send a patch.
+This means redirect_tg6 and redirect_tg4 will be compiled (which doesn't
+necessarily mean they will be _called_) but the linker needs to resolve
+nf_nat_redirect_ipv4() due to the compilation of the redirect_tg4()
+function.
+
+nf_nat_redirect_ip4() is defined in
+net/ipv4/netfilter/nf_nat_redirect_ipv4.c but this file is only included
+into the build when CONFIG_NF_NAT_REDIRECT_IPV4 is enabled.
+
+Now when a kernel config enables CONFIG_NETFILTER_XT_TARGET_REDIRECT but
+_not_ CONFIG_NF_NAT_REDIRECT_IPV4, the declaration of
+nf_nat_redirect_ipv4() from the header
+<net/netfilter/ipv4/nf_nat_redirect.h> will have no definition (i.e., no
+implementation), causing the linker to report an "undefined reference".
+
+Same logic goes for nf_nat_redirect_ipv6().
+
+Hope this helps,
+
+Andreas
+
+On 26.11.2014 11:24, Florian Westphal wrote:
+> Andreas Ruprecht <rupran@einserver.de> wrote:
+>> Additionally it is necessary to provide stubs for the
+>> nf_nat_redirect_ipv{4,6} functions in case the header is included but
+>> the corresponding Kconfig feature is not enabled.
+> 
+> Hmmm, not following.
+> 
+> Can you elaborate?
+> 
+> Under which circumstances do we have a call to nf_nat_redirect_ipv4()
+> (i.e., linker error) but can safely do a noop operation instead of the
+> requested nat redirect...?
+> 
