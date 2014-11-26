@@ -1,62 +1,54 @@
-From: Andreas Ruprecht <rupran@einserver.de>
-Subject: Re: [PATCH v2] net: netfilter: Fix undefined reference to nf_nat_redirect_*
- functions
-Date: Wed, 26 Nov 2014 11:33:19 +0100
-Message-ID: <5475AC6F.9010902@einserver.de>
-References: <1416928034-10882-1-git-send-email-rupran@einserver.de> <1416994537-1592-1-git-send-email-rupran@einserver.de> <20141126102402.GA24801@breakpoint.cc>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next v3 16/17] bridge: add brport flags to dflt
+ bridge_getlink
+Date: Wed, 26 Nov 2014 10:48:10 +0000
+Message-ID: <20141126104810.GB4321@casper.infradead.org>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
+ <1416911328-10979-17-git-send-email-jiri@resnulli.us>
+ <20141125220753.GD3912@casper.infradead.org>
+ <20141126092512.GE1875@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20141126102402.GA24801@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:59864 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750951AbaKZKsS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 05:48:18 -0500
+Content-Disposition: inline
+In-Reply-To: <20141126092512.GE1875@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sure.
-
-When the file is compiled, i.e. CONFIG_NETFILTER_XT_TARGET_REDIRECT is
-selected, all headers will be included and all functions inside the file
-will be compiled, regardless of other Kconfig options.
-
-This means redirect_tg6 and redirect_tg4 will be compiled (which doesn't
-necessarily mean they will be _called_) but the linker needs to resolve
-nf_nat_redirect_ipv4() due to the compilation of the redirect_tg4()
-function.
-
-nf_nat_redirect_ip4() is defined in
-net/ipv4/netfilter/nf_nat_redirect_ipv4.c but this file is only included
-into the build when CONFIG_NF_NAT_REDIRECT_IPV4 is enabled.
-
-Now when a kernel config enables CONFIG_NETFILTER_XT_TARGET_REDIRECT but
-_not_ CONFIG_NF_NAT_REDIRECT_IPV4, the declaration of
-nf_nat_redirect_ipv4() from the header
-<net/netfilter/ipv4/nf_nat_redirect.h> will have no definition (i.e., no
-implementation), causing the linker to report an "undefined reference".
-
-Same logic goes for nf_nat_redirect_ipv6().
-
-Hope this helps,
-
-Andreas
-
-On 26.11.2014 11:24, Florian Westphal wrote:
-> Andreas Ruprecht <rupran@einserver.de> wrote:
->> Additionally it is necessary to provide stubs for the
->> nf_nat_redirect_ipv{4,6} functions in case the header is included but
->> the corresponding Kconfig feature is not enabled.
+On 11/26/14 at 10:25am, Jiri Pirko wrote:
+> Tue, Nov 25, 2014 at 11:07:53PM CET, tgraf@suug.ch wrote:
+> >> +static int brport_nla_put_flag(struct sk_buff *skb, u32 flags, u32 mask,
+> >> +			       unsigned int attrnum, unsigned int flag)
+> >> +{
+> >> +	if (mask & flag)
+> >> +		return nla_put_u8(skb, attrnum, !!(flags & flag));
+> >
+> >nla_put_flag()?
 > 
-> Hmmm, not following.
-> 
-> Can you elaborate?
-> 
-> Under which circumstances do we have a call to nf_nat_redirect_ipv4()
-> (i.e., linker error) but can safely do a noop operation instead of the
-> requested nat redirect...?
-> 
+> No, that is not the same. nla_put_flag works differently. The attr is
+> either present or not. But in this case, attr is always present and has
+> value of either 0 or 1.
+
+So this reports the driver capabilities through this interface as
+well.  Cool. Wasn't obvious to me before but that justifies the waste.
