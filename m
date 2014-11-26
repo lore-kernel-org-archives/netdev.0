@@ -1,49 +1,87 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: [PATCH v5 2/4] arch: Add lightweight memory barriers dma_rmb()
- and dma_wmb()
-Date: Wed, 26 Nov 2014 16:04:56 +0000
-Message-ID: <20141126160456.GJ14866@arm.com>
-References: <20141119012205.9563.95544.stgit@ahduyck-server>
- <20141119012400.9563.21117.stgit@ahduyck-server>
- <20141125140130.GC8541@arm.com>
- <5474ADB4.5070200@redhat.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next v3 04/17] net: introduce generic switch devices
+ support
+Date: Wed, 26 Nov 2014 16:08:59 +0000
+Message-ID: <20141126160859.GB13786@casper.infradead.org>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
+ <1416911328-10979-5-git-send-email-jiri@resnulli.us>
+ <5474A567.4040401@mojatatu.com>
+ <20141125164954.GJ1971@nanopsycho.orion>
+ <5474B795.3080204@mojatatu.com>
+ <20141125215402.GA3912@casper.infradead.org>
+ <54754A10.6020601@mojatatu.com>
+ <CAE4R7bCYwWt5cem5_v8Y0jOSz5ER5_33bMRE2xkTPOqYvM6dUg@mail.gmail.com>
+ <5475BB53.3070200@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mathieu.desnoyers@polymtl.ca" <mathieu.desnoyers@polymtl.ca>,
-	"peterz@infradead.org" <peterz@infradead.org>,
-	"benh@kernel.crashing.org" <benh@kernel.crashing.org>,
-	"heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>,
-	"mingo@kernel.org" <mingo@kernel.org>,
-	"mikey@neuling.org" <mikey@neuling.org>,
-	"linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
-	"donald.c.skidmore@intel.com" <donald.c.skidmore@intel.com>,
-	"matthew.vick@intel.com" <matthew.vick@intel.com>,
-	"geert@linux-m68k.org" <geert@linux-m68k.org>,
-	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-	"romieu@fr.zoreil.com" <romieu@fr.zoreil.com>,
-	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
-	"nic_swsd@realtek.com" <nic_
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"dborkman@redhat.com" <dborkman@redhat.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"jesse@nicira.com" <jesse@nicira.com>,
+	"pshelar@nicira.com" <pshelar@nicira.com>,
+	"azhou@nicira.com" <azhou@nicira.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	John Linville <linville@tux
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:33426 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752224AbaKZQJG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 11:09:06 -0500
 Content-Disposition: inline
-In-Reply-To: <5474ADB4.5070200@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <5475BB53.3070200@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 25, 2014 at 04:26:28PM +0000, Alexander Duyck wrote:
-> On 11/25/2014 06:01 AM, Will Deacon wrote:
-> > If we ever see platforms using Linux/dma_alloc_coherent with devices
-> > mastering from a different outer-shareable domain that the one containing
-> > the CPUs, then we'll need to revisit this.
+On 11/26/14 at 06:36am, Jamal Hadi Salim wrote:
+> On 11/25/14 23:18, Scott Feldman wrote:
+> >On Tue, Nov 25, 2014 at 5:33 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 > 
-> Would we just need a system wide memory barrier in that case instead of 
-> an outer shareable memory barrier, or would we need to look as something 
-> like a sync barrier?
+> >
+> >You have a pointer to the kernel driver for that HW?
+> 
+> I wasnt sure if that was a passive aggressive move there to
+> question what i am claiming?(Only Canadians are allowed to be
+> passive aggressive Scott). To answer your question, no
+> code currently littered with vendor SDK unfortunately (as you
+> would know!).
+> But hopefully if we get these changes in correctly it would
+> not be hard to show the driver working fully in the kernel.
+> There are definetely a few other pieces of hardware that are
+> making me come back here and invest time and effort in these
+> long discussions.
+> 
+> >Can you show how
+> >you're using Linux tc netlink msg in kernel to program HW?  I'd like
+> >to see the in-kernel API.
+> >
+> 
+> Lets do the L2/port thing first. But yes, I am using Linux tc in
+> kernel.
 
-I think dmb(sy) would do the trick, but let's cross that bridge if/when we
-have to.
+Jamal,
 
-Will
+What is irriating in this context is that you are pushing back on
+Jiri and others while referring to properitary and closed code which
+you are unwilling or unable to share. I don't see this as being
+passive aggressive, everybody is treated the same way in this regard.
+
+It is exactly the point of this API and related discussions to
+decouple the control plane (tc) from any vendor specifics while
+allowing them to innovate, compete, and solve different use cases.
+
+I think it's absolutely the right thing to write the API against
+code that is public, which in this case is rocker and the existing
+in-kernel NIC drivers.
