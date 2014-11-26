@@ -1,60 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipvlan: fix sparse warnings
-Date: Wed, 26 Nov 2014 15:13:50 -0500 (EST)
-Message-ID: <20141126.151350.986852543042979789.davem@davemloft.net>
-References: <1416979483-30610-1-git-send-email-maheshb@google.com>
+Subject: Re: [PATCH net-next] sky2: Fix crash inside sky2_rx_clean
+Date: Wed, 26 Nov 2014 15:17:32 -0500 (EST)
+Message-ID: <20141126.151732.832218547273018783.davem@davemloft.net>
+References: <5475E012.3060607@marvell.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: maheshb@google.com
+To: mlindner@marvell.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50329 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50354 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752176AbaKZUNw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 15:13:52 -0500
-In-Reply-To: <1416979483-30610-1-git-send-email-maheshb@google.com>
+	with ESMTP id S1752607AbaKZURe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 15:17:34 -0500
+In-Reply-To: <5475E012.3060607@marvell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTWFoZXNoIEJhbmRld2FyIDxtYWhlc2hiQGdvb2dsZS5jb20+DQpEYXRlOiBUdWUsIDI1
-IE5vdiAyMDE0IDIxOjI0OjQzIC0wODAwDQoNCj4gRml4IHNwYXJzZSB3YXJuaW5ncyByZXBvcnRl
-ZCBieSBrYnVpbGQgcm9ib3QNCj4gDQo+IGRyaXZlcnMvbmV0L2lwdmxhbi9pcHZsYW5fbWFpbi5j
-OjE3MjoxMzogd2FybmluZzogc3ltYm9sICdpcHZsYW5fc3RhcnRfeG1pdCcgd2FzIG5vdCBkZWNs
-YXJlZC4gU2hvdWxkIGl0IGJlIHN0YXRpYz8NCj4gZHJpdmVycy9uZXQvaXB2bGFuL2lwdmxhbl9t
-YWluLmM6MjU2OjMzOiB3YXJuaW5nOiBpbmNvcnJlY3QgdHlwZSBpbiBpbml0aWFsaXplciAoZGlm
-ZmVyZW50IGFkZHJlc3Mgc3BhY2VzKQ0KPiBkcml2ZXJzL25ldC9pcHZsYW4vaXB2bGFuX21haW4u
-YzoyNTY6MzM6ICAgIGV4cGVjdGVkIHZvaWQgY29uc3QgW25vZGVyZWZdIDxhc246Mz4qX192cHBf
-dmVyaWZ5DQo+IGRyaXZlcnMvbmV0L2lwdmxhbi9pcHZsYW5fbWFpbi5jOjI1NjozMzogICAgZ290
-IHN0cnVjdCBpcHZsX3BjcHVfc3RhdHMgKjxub2lkZW50Pg0KPiBkcml2ZXJzL25ldC9pcHZsYW4v
-aXB2bGFuX21haW4uYzo1NDQ6NTogd2FybmluZzogc3ltYm9sICdpcHZsYW5fbGlua19yZWdpc3Rl
-cicgd2FzIG5vdCBkZWNsYXJlZC4gU2hvdWxkIGl0IGJlIHN0YXRpYw0KPiANCj4gUmVwb3J0ZWQt
-Ynk6IGtidWlsZCB0ZXN0IHJvYm90IDxmZW5nZ3Vhbmcud3VAaW50ZWwuY29tPg0KPiBTaWduZWQt
-b2ZmLWJ5OiBNYWhlc2ggQmFuZGV3YXIgPG1haGVzaGJAZ29vZ2xlLmNvbT4NCg0KQXBwbGllZCwg
-Y2FuIHlvdSBwbGVhc2UgZml4IHRoZSBidWlsZCBmYWlsdXJlcyB0aGF0IGhhdmUgYmVlbg0KcmVw
-b3J0ZWQ/ICBUaG9zZSBhcmUgbW9yZSBpbXBvcnRhbnQuICBOYW1lbHk6DQoNCj09PT09PT09PT09
-PT09PT09PT09DQpCdWlsZGluZyB3aXRoIHRoZSBhdHRhY2hlZCByYW5kb20gY29uZmlndXJhdGlv
-biBmaWxlLA0KDQpJbiBmaWxlIGluY2x1ZGVkIGZyb20gZHJpdmVycy9uZXQvaXB2bGFuL2lwdmxh
-bi5oOjI3OjAsDQogICAgICAgICAgICAgICAgIGZyb20gZHJpdmVycy9uZXQvaXB2bGFuL2lwdmxh
-bl9jb3JlLmM6MTA6DQppbmNsdWRlL25ldC9ncmUuaDogSW4gZnVuY3Rpb24goWdyZV9oYW5kbGVf
-b2ZmbG9hZHOiOg0KaW5jbHVkZS9uZXQvZ3JlLmg6NDI6MjogZXJyb3I6IGltcGxpY2l0IGRlY2xh
-cmF0aW9uIG9mIGZ1bmN0aW9uDQqhaXB0dW5uZWxfaGFuZGxlX29mZmxvYWRzoiBbLVdlcnJvcj1p
-bXBsaWNpdC1mdW5jdGlvbi1kZWNsYXJhdGlvbl0NCiAgcmV0dXJuIGlwdHVubmVsX2hhbmRsZV9v
-ZmZsb2Fkcyhza2IsIGNzdW0sDQogIF4NCmluY2x1ZGUvbmV0L2dyZS5oOjQyOjI6IHdhcm5pbmc6
-IHJldHVybiBtYWtlcyBwb2ludGVyIGZyb20gaW50ZWdlcg0Kd2l0aG91dCBhIGNhc3QgW2VuYWJs
-ZWQgYnkgZGVmYXVsdF0NCmRyaXZlcnMvbmV0L2lwdmxhbi9pcHZsYW5fY29yZS5jOiBJbiBmdW5j
-dGlvbiChaXB2bGFuX3Byb2Nlc3NfdjZfb3V0Ym91bmSiOg0KZHJpdmVycy9uZXQvaXB2bGFuL2lw
-dmxhbl9jb3JlLmM6Mzc5OjI6IGVycm9yOiBpbXBsaWNpdCBkZWNsYXJhdGlvbiBvZiBmdW5jdGlv
-bg0KoWlwNl9yb3V0ZV9vdXRwdXSiIFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0
-aW9uXQ0KICBkc3QgPSBpcDZfcm91dGVfb3V0cHV0KGRldl9uZXQoZGV2KSwgTlVMTCwgJmZsNik7
-DQogIF4NCmRyaXZlcnMvbmV0L2lwdmxhbi9pcHZsYW5fY29yZS5jOjM3OTo2OiB3YXJuaW5nOiBh
-c3NpZ25tZW50IG1ha2VzDQpwb2ludGVyIGZyb20gaW50ZWdlciB3aXRob3V0IGEgY2FzdCBbZW5h
-YmxlZCBieSBkZWZhdWx0XQ0KICBkc3QgPSBpcDZfcm91dGVfb3V0cHV0KGRldl9uZXQoZGV2KSwg
-TlVMTCwgJmZsNik7DQogICAgICBeDQogIENDIFtNXSAgZHJpdmVycy9tdGQvbXRkYmxvY2tfcm8u
-bw0KY2MxOiBzb21lIHdhcm5pbmdzIGJlaW5nIHRyZWF0ZWQgYXMgZXJyb3JzDQptYWtlWzNdOiAq
-KiogW2RyaXZlcnMvbmV0L2lwdmxhbi9pcHZsYW5fY29yZS5vXSBFcnJvciAxDQo9PT09PT09PT09
-PT09PT09PT09PQ0KDQpZb3UgcHJvYmFibHkgbmVlZCB0byBhZGQgYSBidW5jaCBvZiBtaXNzaW5n
-IGRlcGVuZGVuY2llcyB0bw0KdGhlIEtjb25maWcgZW50cnkgZm9yIHRoZSBpcHZsYW4gZHJpdmVy
-Lg0KDQpGb3Igb25lIHRoaW5nIGl0IGRlZmluaXRlbHkgbmVlZHMgIklORVQiIGFuZCB0aGF0IGV4
-cGxhaW5zDQp0aGUgbGFjayBvZiBpcHR1bm5lbF9oYW5kbGVfb2ZmbG9hZHMoKSB3aGVuIGluY2x1
-ZGluZyBuZXQvZ3JlLmgNCg0KTGlrZXdpc2UgZm9yIHRoZSBpcHY2IHN0dWZmLg0K
+From: Mirko Lindner <mlindner@marvell.com>
+Date: Wed, 26 Nov 2014 15:13:38 +0100
+
+> If sky2->tx_le = pci_alloc_consistent() or sky2->tx_ring = kcalloc() in
+> sky2_alloc_buffers() fails, sky2->rx_ring = kcalloc() will never be called.
+> In this error case handling, sky2_rx_clean() is called from within
+> sky2_free_buffers().
+> 
+> In sky2_rx_clean() we find the following:
+> 
+> ...
+>    memset(sky2->rx_le, 0, RX_LE_BYTES);
+> ...
+> 
+> This results in a memset using a NULL pointer and will crash the system.
+> 
+> Signed-off-by: Mirko Lindner <mlindner@marvell.com>
+
+Applied, thanks.
