@@ -1,13 +1,18 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [patch net-next v3 09/17] bridge: add API to notify bridge driver
- of learned FBD on offloaded device
-Date: Tue, 25 Nov 2014 18:34:07 -0800
-Message-ID: <54753C1F.1080109@gmail.com>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>	<1416911328-10979-10-git-send-email-jiri@resnulli.us>	<54750669.4090406@gmail.com> <CAE4R7bBQnxKh7y+ViB-s-7b7Ro=gTQLavUTcNLA1u=3UJHa1Rg@mail.gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch net-next v3 02/17] net: make vid as a parameter for ndo_fdb_add/ndo_fdb_del
+Date: Tue, 25 Nov 2014 16:36:11 -1000
+Message-ID: <CAE4R7bD1Hi+fnKp-Sg6Tn4AcpOu2pwgEYecP8LVA1ioO4FkgRQ@mail.gmail.com>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
+	<1416911328-10979-3-git-send-email-jiri@resnulli.us>
+	<5474A25C.3080505@mojatatu.com>
+	<5474A7EE.8000300@intel.com>
+	<5474ABF0.60901@mojatatu.com>
+	<5474AE9B.6000500@intel.com>
+	<5474B353.10802@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=UTF-8
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
 	Andy Gospodarek <andy@greyhouse.net>,
@@ -22,102 +27,81 @@ Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
 	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
 	"vyasevic@redhat.com" <vyasevic@redhat.com>,
 	Cong Wang <xiyou.wangcong@gmail.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
 	Eric Dumazet <edumazet@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
 	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver.com
-To: Scott Feldman <sfeldma@gmail.com>
+	John Linville <linville@tuxdriver.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:41115 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751134AbaKZCeL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 21:34:11 -0500
-Received: by mail-pa0-f43.google.com with SMTP id kx10so1867610pab.2
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 18:34:10 -0800 (PST)
-In-Reply-To: <CAE4R7bBQnxKh7y+ViB-s-7b7Ro=gTQLavUTcNLA1u=3UJHa1Rg@mail.gmail.com>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:33884 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751132AbaKZCgM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 21:36:12 -0500
+Received: by mail-wi0-f175.google.com with SMTP id l15so11095283wiw.2
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 18:36:11 -0800 (PST)
+In-Reply-To: <5474B353.10802@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25/11/14 18:03, Scott Feldman wrote:
-> On Tue, Nov 25, 2014 at 12:44 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->> On 25/11/14 02:28, Jiri Pirko wrote:
->>> From: Scott Feldman <sfeldma@gmail.com>
->>>
->>> When the swdev device learns a new mac/vlan on a port, it sends some async
->>> notification to the driver and the driver installs an FDB in the device.
->>> To give a holistic system view, the learned mac/vlan should be reflected
->>> in the bridge's FBD table, so the user, using normal iproute2 cmds, can view
->>> what is currently learned by the device.  This API on the bridge driver gives
->>> a way for the swdev driver to install an FBD entry in the bridge FBD table.
->>> (And remove one).
->>>
->>> This is equivalent to the device running these cmds:
->>>
->>>   bridge fdb [add|del] <mac> dev <dev> vid <vlan id> master
->>>
->>> This patch needs some extra eyeballs for review, in paricular around the
->>> locking and contexts.
->>>
->>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>> ---
+On Tue, Nov 25, 2014 at 6:50 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 11/25/14 11:30, John Fastabend wrote:
 >>
->> [snip]
+>> On 11/25/2014 08:18 AM, Jamal Hadi Salim wrote:
+>>>
+>>> On 11/25/14 11:01, John Fastabend wrote:
+>>>>
+>>>> On 11/25/2014 07:38 AM, Jamal Hadi Salim wrote:
+>>>>>
+>>>>> On 11/25/14 05:28, Jiri Pirko wrote:
+>>>>>>
+>>>>>> Do the work of parsing NDA_VLAN directly in rtnetlink code, pass
+>>>>>> simple
+>>>>>> u16 vid to drivers from there.
+>>>>>>
+>>>>>
+>
+>
+>> Actually (after having some coffee) this becomes much more useful
+>> if you return which items failed. Then you can slam the hardware
+>> with your 100 entries, probably a lot more then that, and come back
+>> later and clean it up.
 >>
->>> +     head = &br->hash[br_mac_hash(addr, vid)];
->>> +     fdb = fdb_find(head, addr, vid);
->>> +     if (!fdb) {
->>> +             fdb = fdb_create(head, p, addr, vid);
->>> +             if (!fdb) {
->>> +                     err = -ENOMEM;
->>> +                     goto err_unlock;
->>> +             }
->>> +             fdb->added_by_external_learn = 1;
->>> +             fdb_notify(br, fdb, RTM_NEWNEIGH);
->>> +     } else if (fdb->added_by_external_learn) {
->>> +             /* Refresh entry */
->>> +             fdb->updated = fdb->used = jiffies;
->>> +     } else if (!fdb->added_by_user) {
->>> +             /* Take over SW learned entry */
->>> +             fdb->added_by_external_learn = 1;
->>> +             fdb->updated = jiffies;
->>> +             fdb_notify(br, fdb, RTM_NEWNEIGH);
->>> +     }
+>
+> Yes, that is the general use case.
+> Unfortunately at the moment we only return codes on a netlink set
+> direction - but would be a beauty if we could return what succeeded
+> and didnt in some form of vector.
+> Note: all is not lost because you can always do a get afterwards and
+> find what is missing if you got a return code of "partial success".
+> Just a little less efficient..
+>
+>
+>> We return a bitmask of which operations were successful. So if SW fails
+>> we have both bits cleared and we abort. When SW is successful we set the
+>> SW bit and try to program the HW. If its sucessful we set the HW bit if
+>> its not we abort with an err. Converting this to (1) is not much work
+>> just skip the abort.
 >>
->> Is there any case where this fdb entry gets re-used and is no longer
->> added by an external learning? Should we clear this flag somewhere?
-> 
-> Once the FDB entry is marked "added_by_external_learn" it stays marked
-> as such until removed by aging cleanup process (or flushed due to
-> interface down, etc).  If aged out (and now deleted), the FDB entry
-> may come back either by SW learn or by HW learn.  If SW learn comes
-> first, and then HW learn, HW learn will override and mark the existing
-> FDB entry "added_by_external_learn".  So there is take-over by HW but
-> no give-back to SW.  And there is no explicit clearing of the mark
-> short of deleting the FDB entry.  The mark is mostly for letting
-> user's know which FDB entries where learned by HW and synced to the
-> bridge's FDB.
+>
+> Ok, guess i am gonna have to go stare at the code some more.
+> I thought we returned one of the error codes?
+> A bitmask would work for a single entry - because you have two
+> options add to h/ware and/or s/ware. So response is easy to encode.
+> But if i have 1000 and they are sparsely populated (think an indexed
+> table and i have indices 1, 23, 45, etc), then a bitmask would be
+> hard to use.
 
-Thanks, makes sense now. This is probably obvious in this context, but
-maybe it would not hurt to come up with a documentation that describe
-the offload API, FDB entry lifetime and HW/SW ownership etc...
+I'm confused by this discussion.  Do I have this right: You want to
+send 1000 RTM_NEWNEIGHs to PF_BRIDGE with both NTF_MASTER and NTF_SELF
+set such that 1000 new FBD entries are installed in both (SW) the
+bridge's FDB and (HW) the port driver's FDB.  My first confusion is
+why do you want these FBD entries in bridge's FDB?  We're offloading
+the switching to HW so HW should be handling fwd plane.  If ctrl pkt
+make it to SW, it can learn those FDB entries; no need for manual
+install of FDB entry in SW.  It seems to me you only want to use
+NTF_SELF to install the FDB entry in HW using the port driver.  And an
+error code is returned for that install.  Since there is only one
+target (NTF_SELF) there is no need for bitmask return.
 
-> 
->> [snip]
->>
->>> +EXPORT_SYMBOL(br_fdb_external_learn_del);
->>> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
->>> index 4f577c4..02cd63b 100644
->>> --- a/net/bridge/br_private.h
->>> +++ b/net/bridge/br_private.h
->>> @@ -101,6 +101,7 @@ struct net_bridge_fdb_entry
->>>       unsigned char                   is_local;
->>>       unsigned char                   is_static;
->>>       unsigned char                   added_by_user;
->>> +     unsigned char                   added_by_external_learn;
->>
->> Pheww, we could be saving some memory footprint here by using different
->> types here ;)
->> --
->> Florian
+> cheers,
+> jamal
