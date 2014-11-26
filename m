@@ -1,52 +1,51 @@
-From: Mirko Lindner <mlindner@marvell.com>
-Subject: [PATCH net-next] sky2: Fix crash inside sky2_rx_clean
-Date: Wed, 26 Nov 2014 15:13:38 +0100
-Message-ID: <5475E012.3060607@marvell.com>
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH v4 25/42] vhost: add memory access wrappers
+Date: Wed, 26 Nov 2014 15:17:50 +0100
+Message-ID: <20141126151750.61a40fe4.cornelia.huck@de.ibm.com>
+References: <1416933600-21398-1-git-send-email-mst@redhat.com>
+	<1416933600-21398-26-git-send-email-mst@redhat.com>
+	<20141126145438.4421c00d.cornelia.huck@de.ibm.com>
+	<20141126140539.GA5528@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:39403 "EHLO
-	mx0a-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750828AbaKZONr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 09:13:47 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, rusty@au1.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, pbonzini@redhat.com,
+	David Miller <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20141126140539.GA5528@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-If sky2->tx_le = pci_alloc_consistent() or sky2->tx_ring = kcalloc() in
-sky2_alloc_buffers() fails, sky2->rx_ring = kcalloc() will never be called.
-In this error case handling, sky2_rx_clean() is called from within
-sky2_free_buffers().
+On Wed, 26 Nov 2014 16:05:39 +0200
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
 
-In sky2_rx_clean() we find the following:
+> On Wed, Nov 26, 2014 at 02:54:38PM +0100, Cornelia Huck wrote:
+> > On Tue, 25 Nov 2014 18:43:10 +0200
+> > "Michael S. Tsirkin" <mst@redhat.com> wrote:
 
-...
-   memset(sky2->rx_le, 0, RX_LE_BYTES);
-...
+> > > @@ -174,6 +174,37 @@ enum {
+> > > 
+> > >  static inline int vhost_has_feature(struct vhost_virtqueue *vq, int bit)
+> > >  {
+> > > -	return vq->acked_features & (1 << bit);
+> > > +	return vq->acked_features & (1ULL << bit);
+> > 
+> > Should this hunk go into patch 28?
+> 
+> Well, this is needed here since 1 << 32 is not legal C.
+> 
+> I can move it - this means patch 28 will have to move earlier
+> in series though.
 
-This results in a memset using a NULL pointer and will crash the system.
-
-Signed-off-by: Mirko Lindner <mlindner@marvell.com>
----
- drivers/net/ethernet/marvell/sky2.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-index 53a1cc5..f8ab220 100644
---- a/drivers/net/ethernet/marvell/sky2.c
-+++ b/drivers/net/ethernet/marvell/sky2.c
-@@ -1361,7 +1361,9 @@ static void sky2_rx_clean(struct sky2_port *sky2)
- {
- 	unsigned i;
- 
--	memset(sky2->rx_le, 0, RX_LE_BYTES);
-+	if (sky2->rx_le)
-+		memset(sky2->rx_le, 0, RX_LE_BYTES);
-+
- 	for (i = 0; i < sky2->rx_pending; i++) {
- 		struct rx_ring_info *re = sky2->rx_ring + i;
- 
--- 
-2.1.3
+Yes, I think it makes sense to move patch 28 earlier.
