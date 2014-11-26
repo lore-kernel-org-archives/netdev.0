@@ -1,86 +1,66 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v3 04/17] net: introduce generic switch devices
- support
-Date: Wed, 26 Nov 2014 18:59:44 +0100
-Message-ID: <20141126175944.GW1875@nanopsycho.orion>
-References: <1416911328-10979-5-git-send-email-jiri@resnulli.us>
- <5474A567.4040401@mojatatu.com>
- <20141125164954.GJ1971@nanopsycho.orion>
- <5474B795.3080204@mojatatu.com>
- <20141125215402.GA3912@casper.infradead.org>
- <54754A10.6020601@mojatatu.com>
- <CAE4R7bCYwWt5cem5_v8Y0jOSz5ER5_33bMRE2xkTPOqYvM6dUg@mail.gmail.com>
- <5475BB53.3070200@mojatatu.com>
- <20141126160859.GB13786@casper.infradead.org>
- <54760939.8050805@mojatatu.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] x86: bpf_jit_comp: simplify trivial boolean return
+Date: Wed, 26 Nov 2014 10:02:45 -0800
+Message-ID: <1417024965.19695.7.camel@perches.com>
+References: <CAADnVQKtYkKtsd9rUFm2yfMoh7F_SRFPVP8hpvSY00KpmB-NNg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Quentin Lambert <lambert.quentin@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"dborkman@redhat.com" <dborkman@redhat.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"pshelar@nicira.com" <pshelar@nicira.com>,
-	"azhou@nicira.com" <azhou@nicira.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tuxdr
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:54861 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752986AbaKZR7r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 12:59:47 -0500
-Received: by mail-wi0-f173.google.com with SMTP id r20so13344228wiv.12
-        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 09:59:46 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <54760939.8050805@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAADnVQKtYkKtsd9rUFm2yfMoh7F_SRFPVP8hpvSY00KpmB-NNg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Nov 26, 2014 at 06:09:13PM CET, jhs@mojatatu.com wrote:
->On 11/26/14 11:08, Thomas Graf wrote:
->>On 11/26/14 at 06:36am, Jamal Hadi Salim wrote:
->>
->>
->>Jamal,
->>
->>What is irriating in this context is that you are pushing back on
->>Jiri and others while referring to properitary and closed code which
->>you are unwilling or unable to share. I don't see this as being
->>passive aggressive, everybody is treated the same way in this regard.
->>
->
->WTF? I said i have hardware that is not a switch because it doesnt
->do switching. This all started with the name being "switch" which
->I objected to. You ask me to describe hardware and then you come
->back and say I am using that to stop progress?
+On Wed, 2014-11-26 at 09:23 -0800, Alexei Starovoitov wrote:
+> On Wed, Nov 26, 2014 at 8:58 AM, Joe Perches <joe@perches.com> wrote:
 
-Stay calm, I'm sure that this is just a misunderstanding.
+> > Is there any value in reordering these tests for frequency
+> > or maybe using | instead of || to avoid multiple jumps?
+> 
+> probably not. It's not a critical path.
+> compiler may fuse conditions depending on values anyway.
+> If it was a critical path, we could have used
+> (1 << reg) & mask trick.
+> I picked explicit 'return true' else 'return false' here,
+> because it felt easier to read. Just a matter of taste.
 
->Where the hell did i push back on Jiri? Stop going around
->telling people i do. I invest my time and effort reviewing code,
->proposing ideas, posting etc calling meetings. Infact i initiated
->this whole effort to begin with.
+There is a size difference though: (allyesconfig)
 
-I thought I started this :) Anyway, I much appreciate your involvement
-in this Jamal with putting the meetings together and stuff, that's for sure.
-
-We need to join forces, not to fight with each other.
-
-
->
->There is no point to responding to any of your other comments.
->
->cheers,
->jamal
+$ size arch/x86/net/built-in.o*
+   text	   data	    bss	    dec	    hex	filename
+  12999	   1012	   4336	  18347	   47ab	arch/x86/net/built-in.o.new
+  13177	   1076	   4592	  18845	   499d	arch/x86/net/built-in.o.old
+---
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index 3f62734..09e2cea 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -135,11 +135,11 @@ static const int reg2hex[] = {
+  */
+ static inline bool is_ereg(u32 reg)
+ {
+-	if (reg == BPF_REG_5 || reg == AUX_REG ||
+-	    (reg >= BPF_REG_7 && reg <= BPF_REG_9))
+-		return true;
+-	else
+-		return false;
++	return (1 << reg) & (BIT(BPF_REG_5) |
++			     BIT(AUX_REG) |
++			     BIT(BPF_REG_7) |
++			     BIT(BPF_REG_8) |
++			     BIT(BPF_REG_9));
+ }
+ 
+ /* add modifiers if 'reg' maps to x64 registers r8..r15 */
