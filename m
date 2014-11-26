@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xen-netfront: Remove BUGs on paged skb data which
- crosses a page boundary
-Date: Wed, 26 Nov 2014 12:28:12 -0500 (EST)
-Message-ID: <20141126.122812.223757363894961994.davem@davemloft.net>
-References: <1416968904-70874-1-git-send-email-seth.forshee@canonical.com>
+Subject: Re: [PATCH] stmmac: platform: fix default values of the filter
+ bins setting
+Date: Wed, 26 Nov 2014 12:29:21 -0500 (EST)
+Message-ID: <20141126.122921.2229047704394133858.davem@davemloft.net>
+References: <1416969486-9047-1-git-send-email-chenhc@lemote.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
-	david.vrabel@citrix.com, zoltan.kiss@linaro.org,
-	eric.dumazet@gmail.com, stefan.bader@canonical.com,
-	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: seth.forshee@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1416968904-70874-1-git-send-email-seth.forshee@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: peppe.cavallaro@st.com, vbridgers2013@gmail.com,
+	netdev@vger.kernel.org
+To: chenhc@lemote.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48913 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750881AbaKZR3X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 12:29:23 -0500
+In-Reply-To: <1416969486-9047-1-git-send-email-chenhc@lemote.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Seth Forshee <seth.forshee@canonical.com>
-Date: Tue, 25 Nov 2014 20:28:24 -0600
+From: Huacai Chen <chenhc@lemote.com>
+Date: Wed, 26 Nov 2014 10:38:06 +0800
 
-> These BUGs can be erroneously triggered by frags which refer to
-> tail pages within a compound page. The data in these pages may
-> overrun the hardware page while still being contained within the
-> compound page, but since compound_order() evaluates to 0 for tail
-> pages the assertion fails. The code already iterates through
-> subsequent pages correctly in this scenario, so the BUGs are
-> unnecessary and can be removed.
+> The commit 3b57de958e2a brought the support for a different amount of
+> the filter bins, but didn't update the platform driver that without
+> CONFIG_OF.
 > 
-> Fixes: f36c374782e4 ("xen/netfront: handle compound page fragments on transmit")
-> Cc: <stable@vger.kernel.org> # 3.7+
-> Signed-off-by: Seth Forshee <seth.forshee@canonical.com>
+> Fixes: 3b57de958e2a (net: stmmac: Support devicetree configs for mcast
+> and ucast filter entries)
+> 
+> Signed-off-by: Huacai Chen <chenhc@lemote.com>
 
-Can I get some Xen developer reviews?
-
-Thanks.
+Applied, thanks.
