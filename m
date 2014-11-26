@@ -1,80 +1,55 @@
-From: Eyal perry <eyalpe@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next V1 1/2] ethtool: Support for configurable RSS
- hash function
-Date: Wed, 26 Nov 2014 22:29:33 +0200
-Message-ID: <5476382D.2020209@dev.mellanox.co.il>
-References: <1416493610-8966-1-git-send-email-amirv@mellanox.com>	<1416493610-8966-2-git-send-email-amirv@mellanox.com> <20141122.165407.641057904952001007.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] r8152: drop the tx packet with invalid length
+Date: Wed, 26 Nov 2014 15:33:56 -0500 (EST)
+Message-ID: <20141126.153356.461494573591656082.davem@davemloft.net>
+References: <1417020748.29427.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20141126.120658.498602780456343676.davem@davemloft.net>
+	<1417027459.29427.63.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amirv@mellanox.com, netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	yevgenyp@mellanox.com, eyalpe@mellanox.com,
-	Tom Lendacky <thomas.lendacky@amd.com>, ariel.elior@qlogic.com,
-	prashant@broadcom.com, mchan@broadcom.com, hariprasad@chelsio.com,
-	sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
-	ajit.khaparde@emulex.com, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	gregory.v.rose@intel.com, matthew.vick@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	linux-net-drivers@solarflare.com, sshah@solarflare.com,
-	sbhatewara@vmware.com, pv-drivers@vmware.com
-To: David Miller <davem@davemloft.net>, ben@decadent.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:64953 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750804AbaKZU3k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 15:29:40 -0500
-Received: by mail-wi0-f182.google.com with SMTP id h11so6234753wiw.9
-        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 12:29:38 -0800 (PST)
-In-Reply-To: <20141122.165407.641057904952001007.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hayeswang@realtek.com, netdev@vger.kernel.org,
+	nic_swsd@realtek.com, linux-kernel@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1417027459.29427.63.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/22/2014 11:54 PM, David Miller wrote:
-> From: Amir Vadai <amirv@mellanox.com>
-> Date: Thu, 20 Nov 2014 16:26:49 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 26 Nov 2014 10:44:19 -0800
+
+> On Wed, 2014-11-26 at 12:06 -0500, David Miller wrote:
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Wed, 26 Nov 2014 08:52:28 -0800
+>> 
+>> > On Wed, 2014-11-26 at 17:56 +0800, Hayes Wang wrote:
+>> >> Drop the tx packet which is more than the size of agg_buf_sz. When
+>> >> creating a bridge with the device, we may get the tx packet with
+>> >> TSO and the length is more than the gso_max_size which is set by
+>> >> the driver through netif_set_gso_max_size(). Such packets couldn't
+>> >> be transmitted and should be dropped directly.
+>> >> 
+>> >> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+>>  ...
+>> > Looks like a candidate for ndo_gso_check(), so that we do not drop, but
+>> > instead segment from netif_needs_gso()/validate_xmit_skb()
+>> 
+>> You mean have the bridge implement the ndo_gso_check() method right?
 > 
->> +	/* We require at least one supported parameter to be changed and no
->> +	 * change in any of the unsupported parameters
->> +	 */
->> +	if ((!indir && !key) || hfunc != ETH_RSS_HASH_NO_CHANGE)
->> +		return -EOPNOTSUPP;
->> +
+> No, I meant this particular driver.
 > 
-> I know it will make more work for you, but all of these driver
-> implementations of this hook should:
+> Note that netif_skb_features() does only this check :
 > 
-> 1) Accept hfunc of whatever hash function the chip is using,
->    not just ETH_RSS_HASH_NO_CHANGE.
+> if (gso_segs > dev->gso_max_segs || gso_segs < dev->gso_min_segs)
+>       features &= ~NETIF_F_GSO_MASK;
 > 
-> 2) Provide an accurate hfunc value in the ->get() call.
-Hello David, Ben, et al,
-Before submitting V2, I'd like to consult you regarding the
-implementation shown above. I thought of skipping the validity check
-which I've described above as "We require at least one supported
-parameter...", instead, I think it's better to fail the ->set() call
-only in case of unsupported action requested, e.g.:
-+	if (hfunc != ETH_RSS_HASH_NO_CHANGE &&
-+	    hfunc != ETH_RSS_HASH_TOP)
-+		return -EOPNOTSUPP;
-+	if (indir)
-+		/* set indirection table code ... */
-+	if (key)
-+		/* set hash key code ... */
-The drawbacks are the change of previous behavior (only requests for at
-least one change were supported), however it seems more reasonable and
-makes the code much more readable.
-In similar manner, for the ->get() call, remove the validity checks (as
-I suggested in V1), and just protect against NULL pointer dereference, e.g:
--	if (!indir && !key)
--		return -EOPNOTSUPP;
-+	if (indir)
-+		/* fill in the given indirection table array */
-+	if (key)
-+		/* fill in the given hash key array */
-+	if (hfunc)
-+		*hfunc = ETH_RSS_HASH_TOP;
-Please advise,
-Thanks,
-Eyal.
+> Ie not testing gso_max_size
+> 
+> It looks like all these particular tests should be moved on
+> ndo_gso_check(), to remove code from netif_skb_features()
+
+A check against gso_max_size is generic enough that it ought to be put
+right into netif_needs_gso() rather then duplicating it into every
+driver's ndo_gso_check() method don't you think?
