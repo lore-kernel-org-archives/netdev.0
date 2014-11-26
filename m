@@ -1,39 +1,42 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 0/5 net] bridge: Fix missing Netlink message validations
-Date: Wed, 26 Nov 2014 23:14:36 +0000
-Message-ID: <20141126231436.GF32174@casper.infradead.org>
-References: <cover.1417005245.git.tgraf@suug.ch>
- <547606B3.3060808@gmail.com>
- <20141126170610.GA2399@casper.infradead.org>
- <54760D1D.3070201@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, davem@davemloft.net,
-	stephen@networkplumber.org, netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>
+Subject: [PATCH net] bond: Check length of IFLA_BOND_ARP_IP_TARGET attributes
+Date: Thu, 27 Nov 2014 00:22:33 +0100
+Message-ID: <a7c193909c30dbc19b4f279a3f7ba757107641d3.1417044113.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, Scott Feldman <sfeldma@cumulusnetworks.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:35291 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:35323 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750811AbaKZXOj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 18:14:39 -0500
-Content-Disposition: inline
-In-Reply-To: <54760D1D.3070201@gmail.com>
+	with ESMTP id S1753050AbaKZXWg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 18:22:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/26/14 at 09:25am, John Fastabend wrote:
-> >--- a/net/ipv4/devinet.c
-> >+++ b/net/ipv4/devinet.c
-> >@@ -1687,8 +1687,11 @@ static int inet_set_link_af(struct net_device *dev, const struct nlattr *nla)
-> >                BUG();
-> >
-> >        if (tb[IFLA_INET_CONF]) {
-> >-               nla_for_each_nested(a, tb[IFLA_INET_CONF], rem)
-> >+               nla_for_each_nested(a, tb[IFLA_INET_CONF], rem) {
-> >+                       if (nla_len(a) < sizeof(u32))
-> >+                               return -EINVAL;
-> >                        ipv4_devconf_set(in_dev, nla_type(a), nla_get_u32(a));
-> >+               }
+Fixes: 7f28fa10 ("bonding: add arp_ip_target netlink support")
+Reported-by: John Fastabend <john.fastabend@gmail.com>
+Cc: Scott Feldman <sfeldma@cumulusnetworks.com>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ drivers/net/bonding/bond_netlink.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-Looked into this and found a validation function
-inet_validate_link_af(). It's split to keep the updates atomic.
+diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
+index c13d83e..45f09a6 100644
+--- a/drivers/net/bonding/bond_netlink.c
++++ b/drivers/net/bonding/bond_netlink.c
+@@ -225,7 +225,12 @@ static int bond_changelink(struct net_device *bond_dev,
+ 
+ 		bond_option_arp_ip_targets_clear(bond);
+ 		nla_for_each_nested(attr, data[IFLA_BOND_ARP_IP_TARGET], rem) {
+-			__be32 target = nla_get_be32(attr);
++			__be32 target;
++
++			if (nla_len(attr) < sizeof(target))
++				return -EINVAL;
++
++			target = nla_get_be32(attr);
+ 
+ 			bond_opt_initval(&newval, (__force u64)target);
+ 			err = __bond_opt_set(bond, BOND_OPT_ARP_TARGETS,
+-- 
+1.9.3
