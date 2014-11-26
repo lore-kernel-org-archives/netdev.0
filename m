@@ -1,12 +1,10 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [patch net-next v3 16/17] bridge: add brport flags to dflt
- bridge_getlink
-Date: Wed, 26 Nov 2014 10:48:10 +0000
-Message-ID: <20141126104810.GB4321@casper.infradead.org>
+Subject: Re: [patch net-next v3 17/17] rocker: add ndo_bridge_setlnk/getlink
+ support for learning policy
+Date: Wed, 26 Nov 2014 11:07:09 +0000
+Message-ID: <20141126110709.GC4321@casper.infradead.org>
 References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
- <1416911328-10979-17-git-send-email-jiri@resnulli.us>
- <20141125220753.GD3912@casper.infradead.org>
- <20141126092512.GE1875@nanopsycho.orion>
+ <1416911328-10979-18-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
@@ -27,28 +25,43 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
 	bcrl@kvack.org
 To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:59864 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:59973 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750951AbaKZKsS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 05:48:18 -0500
+	with ESMTP id S1751053AbaKZLHN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 06:07:13 -0500
 Content-Disposition: inline
-In-Reply-To: <20141126092512.GE1875@nanopsycho.orion>
+In-Reply-To: <1416911328-10979-18-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/26/14 at 10:25am, Jiri Pirko wrote:
-> Tue, Nov 25, 2014 at 11:07:53PM CET, tgraf@suug.ch wrote:
-> >> +static int brport_nla_put_flag(struct sk_buff *skb, u32 flags, u32 mask,
-> >> +			       unsigned int attrnum, unsigned int flag)
-> >> +{
-> >> +	if (mask & flag)
-> >> +		return nla_put_u8(skb, attrnum, !!(flags & flag));
-> >
-> >nla_put_flag()?
-> 
-> No, that is not the same. nla_put_flag works differently. The attr is
-> either present or not. But in this case, attr is always present and has
-> value of either 0 or 1.
+On 11/25/14 at 11:28am, Jiri Pirko wrote:
+> @@ -3657,6 +3693,64 @@ skip:
+>  	return idx;
+>  }
+>  
+> +static int rocker_port_bridge_setlink(struct net_device *dev,
+> +				      struct nlmsghdr *nlh)
+> +{
+> +	struct rocker_port *rocker_port = netdev_priv(dev);
+> +	struct nlattr *protinfo;
+> +	struct nlattr *afspec;
+> +	struct nlattr *attr;
+> +	u16 mode;
+> +	int err;
+> +
+> +	protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
+> +				   IFLA_PROTINFO);
+> +	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
+> +
+> +	if (afspec) {
+> +		attr = nla_find_nested(afspec, IFLA_BRIDGE_MODE);
+> +		if (attr) {
+> +			mode = nla_get_u16(attr);
+> +			if (mode != BRIDGE_MODE_SWDEV)
+> +				return -EINVAL;
+> +		}
+> +	}
 
-So this reports the driver capabilities through this interface as
-well.  Cool. Wasn't obvious to me before but that justifies the waste.
+The Netlink message is completely unverified at this point. All
+rtnl_bridge_setlink() does is verify that msgsize >= ifinfomsg.
+All of the drivers but br_setlink() need fixing in this regard.
