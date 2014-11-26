@@ -1,50 +1,34 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 0/5 net] bridge: Fix missing Netlink message validations
-Date: Wed, 26 Nov 2014 17:06:10 +0000
-Message-ID: <20141126170610.GA2399@casper.infradead.org>
-References: <cover.1417005245.git.tgraf@suug.ch>
- <547606B3.3060808@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] r8152: drop the tx packet with invalid length
+Date: Wed, 26 Nov 2014 12:06:58 -0500 (EST)
+Message-ID: <20141126.120658.498602780456343676.davem@davemloft.net>
+References: <1394712342-15778-104-Taiwan-albertk@realtek.com>
+	<1417020748.29427.59.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, davem@davemloft.net,
-	stephen@networkplumber.org, netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:33802 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752628AbaKZRGM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 12:06:12 -0500
-Content-Disposition: inline
-In-Reply-To: <547606B3.3060808@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hayeswang@realtek.com, netdev@vger.kernel.org,
+	nic_swsd@realtek.com, linux-kernel@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1417020748.29427.59.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/26/14 at 08:58am, John Fastabend wrote:
-> On 11/26/2014 04:42 AM, Thomas Graf wrote:
-> >Adds various missing length checks in the bridging code for Netlink
-> >messages and corresponding attributes provided by user space.
-> >
-> >Thomas Graf (5):
-> >   bridge: Validate IFLA_BRIDGE_FLAGS attribute length
-> >   net: Validate IFLA_BRIDGE_MODE attribute length
-> >   net: Check for presence of IFLA_AF_SPEC
-> >   bridge: Add missing policy entry for IFLA_BRPORT_FAST_LEAVE
-> >   bridge: Sanitize IFLA_EXT_MASK for AF_BRIDGE:RTM_GETLINK
-> >
-> >  drivers/net/ethernet/emulex/benet/be_main.c   |  5 +++++
-> >  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  5 +++++
-> >  net/bridge/br_netlink.c                       |  1 +
-> >  net/core/rtnetlink.c                          | 23 ++++++++++++++++++-----
-> >  4 files changed, 29 insertions(+), 5 deletions(-)
-> >
-> 
-> +Jiri
-> 
-> Looks like a miss in bond_netlink also? Seems like writing
-> a smatch or cocci check for this would be worthwhile.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 26 Nov 2014 08:52:28 -0800
 
-Thanks, I'll take a look.
+> On Wed, 2014-11-26 at 17:56 +0800, Hayes Wang wrote:
+>> Drop the tx packet which is more than the size of agg_buf_sz. When
+>> creating a bridge with the device, we may get the tx packet with
+>> TSO and the length is more than the gso_max_size which is set by
+>> the driver through netif_set_gso_max_size(). Such packets couldn't
+>> be transmitted and should be dropped directly.
+>> 
+>> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+ ...
+> Looks like a candidate for ndo_gso_check(), so that we do not drop, but
+> instead segment from netif_needs_gso()/validate_xmit_skb()
 
-The cocci check is somewhat difficult as validation is often
-centralized and decoupled from actual access to implement atomic
-operations. I'll give it a try though.
+You mean have the bridge implement the ndo_gso_check() method right?
