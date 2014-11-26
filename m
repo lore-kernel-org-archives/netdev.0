@@ -1,51 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] r8152: drop the tx packet with invalid length
-Date: Wed, 26 Nov 2014 08:52:28 -0800
-Message-ID: <1417020748.29427.59.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1394712342-15778-104-Taiwan-albertk@realtek.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH 0/5 net] bridge: Fix missing Netlink message validations
+Date: Wed, 26 Nov 2014 08:58:27 -0800
+Message-ID: <547606B3.3060808@gmail.com>
+References: <cover.1417005245.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-104-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+	netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:35540 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753233AbaKZQ6k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 11:58:40 -0500
+Received: by mail-ob0-f172.google.com with SMTP id wn1so2476620obc.17
+        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 08:58:39 -0800 (PST)
+In-Reply-To: <cover.1417005245.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-11-26 at 17:56 +0800, Hayes Wang wrote:
-> Drop the tx packet which is more than the size of agg_buf_sz. When
-> creating a bridge with the device, we may get the tx packet with
-> TSO and the length is more than the gso_max_size which is set by
-> the driver through netif_set_gso_max_size(). Such packets couldn't
-> be transmitted and should be dropped directly.
-> 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> ---
->  drivers/net/usb/r8152.c | 9 +++++++++
->  1 file changed, 9 insertions(+)
-> 
-> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-> index c6554c7..ebdaff7 100644
-> --- a/drivers/net/usb/r8152.c
-> +++ b/drivers/net/usb/r8152.c
-> @@ -1897,6 +1897,15 @@ static netdev_tx_t rtl8152_start_xmit(struct sk_buff *skb,
->  {
->  	struct r8152 *tp = netdev_priv(netdev);
->  
-> +	if ((skb->len + sizeof(struct tx_desc)) > agg_buf_sz) {
-> +		struct net_device_stats *stats = &netdev->stats;
-> +
-> +		dev_kfree_skb_any(skb);
-> +		stats->tx_dropped++;
-> +		WARN_ON_ONCE(1);
-> +		return NETDEV_TX_OK;
-> +	}
-> +
->  	skb_tx_timestamp(skb);
->  
->  	skb_queue_tail(&tp->tx_queue, skb);
+On 11/26/2014 04:42 AM, Thomas Graf wrote:
+> Adds various missing length checks in the bridging code for Netlink
+> messages and corresponding attributes provided by user space.
+>
+> Thomas Graf (5):
+>    bridge: Validate IFLA_BRIDGE_FLAGS attribute length
+>    net: Validate IFLA_BRIDGE_MODE attribute length
+>    net: Check for presence of IFLA_AF_SPEC
+>    bridge: Add missing policy entry for IFLA_BRPORT_FAST_LEAVE
+>    bridge: Sanitize IFLA_EXT_MASK for AF_BRIDGE:RTM_GETLINK
+>
+>   drivers/net/ethernet/emulex/benet/be_main.c   |  5 +++++
+>   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  5 +++++
+>   net/bridge/br_netlink.c                       |  1 +
+>   net/core/rtnetlink.c                          | 23 ++++++++++++++++++-----
+>   4 files changed, 29 insertions(+), 5 deletions(-)
+>
 
-Looks like a candidate for ndo_gso_check(), so that we do not drop, but
-instead segment from netif_needs_gso()/validate_xmit_skb()
++Jiri
+
+Looks like a miss in bond_netlink also? Seems like writing
+a smatch or cocci check for this would be worthwhile.
+
+>
+> diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
+> index 3e6eebd..7b11243 100644
+> --- a/drivers/net/bonding/bond_netlink.c
+> +++ b/drivers/net/bonding/bond_netlink.c
+> @@ -225,7 +225,12 @@ static int bond_changelink(struct net_device *bond_dev,
+>
+>                 bond_option_arp_ip_targets_clear(bond);
+>                 nla_for_each_nested(attr, data[IFLA_BOND_ARP_IP_TARGET], rem) {
+> -                       __be32 target = nla_get_be32(attr);
+> +                       __be32 target;
+> +
+> +                       if (nla_len(attr) < sizeof(target))
+> +                               return -EINVAL;
+> +
+> +                       target = nla_get_be32(attr);
+>
+>                         bond_opt_initval(&newval, (__force u64)target);
+>                         err = __bond_opt_set(bond, BOND_OPT_ARP_TARGETS,
+
+-- 
+John Fastabend         Intel Corporation
