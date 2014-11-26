@@ -1,63 +1,39 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 2/5] net: Validate IFLA_BRIDGE_MODE attribute length
-Date: Wed, 26 Nov 2014 13:42:17 +0100
-Message-ID: <4a88a0350064b5c2ec4e2adcef5afdfcab3e45dd.1417005245.git.tgraf@suug.ch>
+Subject: [PATCH 4/5] bridge: Add missing policy entry for IFLA_BRPORT_FAST_LEAVE
+Date: Wed, 26 Nov 2014 13:42:19 +0100
+Message-ID: <d9840a68ab796c1826304f5f9a3b8f498ccba626.1417005245.git.tgraf@suug.ch>
 References: <cover.1417005245.git.tgraf@suug.ch>
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	Ajit Khaparde <ajit.khaparde@emulex.com>,
-	John Fastabend <john.r.fastabend@intel.com>
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:56857 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:56911 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750884AbaKZMma (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 07:42:30 -0500
+	with ESMTP id S1750884AbaKZMmd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 07:42:33 -0500
 In-Reply-To: <cover.1417005245.git.tgraf@suug.ch>
 In-Reply-To: <cover.1417005245.git.tgraf@suug.ch>
 References: <cover.1417005245.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Payload is currently accessed blindly and may exceed valid message
-boundaries.
-
-Fixes: a77dcb8c8 ("be2net: set and query VEB/VEPA mode of the PF interface")
-Fixes: 815cccbf1 ("ixgbe: add setlink, getlink support to ixgbe and ixgbevf")
-Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>
+Fixes: c2d3babf ("bridge: implement multicast fast leave")
+Cc: David S. Miller <davem@davemloft.net>
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c   | 3 +++
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 3 +++
- 2 files changed, 6 insertions(+)
+ net/bridge/br_netlink.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 3e8475c..337e4cd 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4314,6 +4314,9 @@ static int be_ndo_bridge_setlink(struct net_device *dev, struct nlmsghdr *nlh)
- 		if (nla_type(attr) != IFLA_BRIDGE_MODE)
- 			continue;
- 
-+		if (nla_len(attr) < sizeof(mode))
-+			return -EINVAL;
-+
- 		mode = nla_get_u16(attr);
- 		if (mode != BRIDGE_MODE_VEPA && mode != BRIDGE_MODE_VEB)
- 			return -EINVAL;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 82ffe8b..dff9905 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7677,6 +7677,9 @@ static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
- 		if (nla_type(attr) != IFLA_BRIDGE_MODE)
- 			continue;
- 
-+		if (nla_len(attr) < sizeof(mode))
-+			return -EINVAL;
-+
- 		mode = nla_get_u16(attr);
- 		if (mode == BRIDGE_MODE_VEPA) {
- 			reg = 0;
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 2ff9706..e5ec470 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -280,6 +280,7 @@ static const struct nla_policy br_port_policy[IFLA_BRPORT_MAX + 1] = {
+ 	[IFLA_BRPORT_MODE]	= { .type = NLA_U8 },
+ 	[IFLA_BRPORT_GUARD]	= { .type = NLA_U8 },
+ 	[IFLA_BRPORT_PROTECT]	= { .type = NLA_U8 },
++	[IFLA_BRPORT_FAST_LEAVE]= { .type = NLA_U8 },
+ 	[IFLA_BRPORT_LEARNING]	= { .type = NLA_U8 },
+ 	[IFLA_BRPORT_UNICAST_FLOOD] = { .type = NLA_U8 },
+ };
 -- 
 1.9.3
