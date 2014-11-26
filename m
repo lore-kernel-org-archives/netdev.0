@@ -1,80 +1,142 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH 1/5] etherdevice: Add function for handling padding
- frame to ETH_ZLEN
-Date: Tue, 25 Nov 2014 18:44:46 -0800
-Message-ID: <54753E9E.9040801@gmail.com>
-References: <20141125223727.1867.43890.stgit@ahduyck-vm-fedora20> <20141125224400.1867.48907.stgit@ahduyck-vm-fedora20> <54752525.4040509@gmail.com>
+From: Roger <roger.chen@rock-chips.com>
+Subject: Re: [PATCH 3/4] GMAC: dts: add gmac info for rk3288
+Date: Wed, 26 Nov 2014 10:49:17 +0800
+Message-ID: <54753FAD.8040908@rock-chips.com>
+References: <1416906536-26158-1-git-send-email-roger.chen@rock-chips.com> <547486EB.5080702@cogentembedded.com> <1773507.kOcjDCLbcs@diego>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:39124 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751132AbaKZCor (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 21:44:47 -0500
-Received: by mail-pd0-f179.google.com with SMTP id w10so1819824pde.38
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 18:44:47 -0800 (PST)
-In-Reply-To: <54752525.4040509@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
+	kever.yang@rock-chips.com, mark.yao@rock-chips.com,
+	eddie.cai@rock-chips.com
+To: =?windows-1252?Q?Heiko_St=FCbner?= <heiko@sntech.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1773507.kOcjDCLbcs@diego>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/25/2014 04:56 PM, Florian Fainelli wrote:
-> On 25/11/14 14:44, Alexander Duyck wrote:
->> This patch adds a simple function for padding a frame up to the minimum
->> size for for Ethernet.  The motivation behind it is that there are a number
->> of implementations throughout the network device drivers that are all doing
->> the same thing, but each a little bit differently and as a result several
->> implementations contain bugs such as updating the length without updating
->> the tail offset and other similar issues.
+
+On 2014/11/25 22:39, Heiko St=FCbner wrote:
+> Am Dienstag, 25. November 2014, 16:40:59 schrieb Sergei Shtylyov:
+>> Hello.
 >>
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
->> ---
->>  include/linux/etherdevice.h |   21 +++++++++++++++++++++
->>  1 file changed, 21 insertions(+)
+>> On 11/25/2014 12:08 PM, Roger Chen wrote:
+>>> add gmac info in rk3288.dtsi for GMAC driver
+>>>
+>>> Signed-off-by: Roger Chen <roger.chen@rock-chips.com>
+>>> ---
+>>>
+>>>    arch/arm/boot/dts/rk3288.dtsi |   59
+>>>    +++++++++++++++++++++++++++++++++++++++++ 1 file changed, 59
+>>>    insertions(+)
+>>>
+>>> diff --git a/arch/arm/boot/dts/rk3288.dtsi b/arch/arm/boot/dts/rk32=
+88.dtsi
+>>> index 0f50d5d..949675d 100644
+>>> --- a/arch/arm/boot/dts/rk3288.dtsi
+>>> +++ b/arch/arm/boot/dts/rk3288.dtsi
+>> [...]
 >>
->> diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
->> index 733980f..7e436f3 100644
->> --- a/include/linux/etherdevice.h
->> +++ b/include/linux/etherdevice.h
->> @@ -392,4 +392,25 @@ static inline unsigned long compare_ether_header(const void *a, const void *b)
->>  #endif
->>  }
->>  
->> +/**
->> + * eth_skb_pad - Pad buffer to mininum number of octets for Ethernet frame
->> + * @skb: Buffer to pad
->> + *
->> + * An Ethernet frame should have a minimum size of 60 bytes.  This function
->> + * takes short frames and pads them with zeros up to the 60 byte limit.
-> 
-> minimum size without FCS
-> 
->> + */
->> +static inline int eth_skb_pad(struct sk_buff *skb)
->> +{
->> +	unsigned int size = skb->len;
->> +
->> +	if (unlikely(size < ETH_ZLEN)) {
->> +		size = ETH_ZLEN - size;
->> +		if (skb_pad(skb, size))
->> +			return -ENOMEM;
->> +		__skb_put(skb, size);
->> +	}
-> 
-> most drivers call skb_padto(skb, ETH_ZLEN), besides the extra
-> __skb_put() here, this is not different.
+>>> @@ -490,6 +497,25 @@
+>>>
+>>>    		reg =3D <0xff740000 0x1000>;
+>>>    =09
+>>>    	};
+>>>
+>>> +	gmac: eth@ff290000 {
+>>      Please name the node "ethernet@ff290000" to comply with the ePA=
+PR
+>> standard.
+>>> +		compatible =3D "rockchip,rk3288-gmac";
+>>> +		reg =3D <0xff290000 0x10000>;
+>>> +		interrupts =3D <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;  /*irq=3D59*/
+>>> +		interrupt-names =3D "macirq";
+>>> +		rockchip,grf =3D <&grf>;
+>>> +		clocks =3D <&cru SCLK_MAC>, <&cru SCLK_MAC_PLL>,
+>>> +			<&cru SCLK_MAC_RX>, <&cru SCLK_MAC_TX>,
+>>> +			<&cru SCLK_MACREF>, <&cru SCLK_MACREF_OUT>,
+>>> +			<&cru ACLK_GMAC>, <&cru PCLK_GMAC>;
+>>> +		clock-names =3D "stmmaceth", "clk_mac_pll",
+>>> +			"mac_clk_rx", "mac_clk_tx",
+>>> +			"clk_mac_ref", "clk_mac_refout",
+>>> +			"aclk_mac", "pclk_mac";
+>>> +		phy-mode =3D "rgmii";
+>>> +		pinctrl-names =3D "default";
+>>> +		pinctrl-0 =3D <&rgmii_pin /*&rmii_pin*/>;
+>>      Hm, pinctrl props in a .dtsi file? Those are usually board depe=
+ndent.
+> yep, especially as there is a board-dependent selection needed of wha=
+t to use
+> [rgmii or rmii] depending on the phy on the board.
 
-Yes, but the __skb_put is the difference.  Calling skb_padto() only
-zeros out the bytes following the tail, but it doesn't add the extra
-bytes to the frame nor does it update the tail.  As such if we only call
-skb_padto() before handing a short frame off to the network stack the
-network stack will still have issues with it being too short.
+of course pinctrl props is redefined in the rk3288-evb-rk808.dts,
+IMO, pinctrl props in .dtsi is used to fit for the "phy-mode" prop as d=
+efault.
+if pinctrl props should be removed, how about "phy-mode" prop?
 
-The difference between the two is that skb_padto() is really meant for
-transmit, whereas eth_skb_pad is really meant for receive.
-
-- Alex
+>> [...]
+>>
+>>> @@ -1040,5 +1066,38 @@
+>>>
+>>>    				rockchip,pins =3D <7 23 3 &pcfg_pull_none>;
+>>>    		=09
+>>>    			};
+>>>    	=09
+>>>    		};
+>>>
+>>> +
+>>> +		gmac {
+>>> +			rgmii_pin: rgmii-pins {
+> please add the "s" to the label - "rgmii_pins"
+>
+>
+>>> +				rockchip,pins =3D <3 30 3 &pcfg_pull_none>,
+>>> +						<3 31 3 &pcfg_pull_none>,
+>>> +						<3 26 3 &pcfg_pull_none>,
+>>> +						<3 27 3 &pcfg_pull_none>,
+>>> +						<3 28 3 &pcfg_pull_none>,
+>>> +						<3 29 3 &pcfg_pull_none>,
+>>> +						<3 24 3 &pcfg_pull_none>,
+>>> +						<3 25 3 &pcfg_pull_none>,
+>>> +						<4 0 3 &pcfg_pull_none>,
+>>> +						<4 5 3 &pcfg_pull_none>,
+>>> +						<4 6 3 &pcfg_pull_none>,
+>>> +						<4 9 3 &pcfg_pull_none>,
+>>> +						<4 4 3 &pcfg_pull_none>,
+>>> +						<4 1 3 &pcfg_pull_none>,
+>>> +						<4 3 3 &pcfg_pull_none>;
+>>> +			};
+>>> +
+>>> +			rmii_pin: rmii-pins {
+> same here
+>
+>
+>>> +				rockchip,pins =3D <3 30 3 &pcfg_pull_none>,
+>>> +						<3 31 3 &pcfg_pull_none>,
+>>> +						<3 28 3 &pcfg_pull_none>,
+>>> +						<3 29 3 &pcfg_pull_none>,
+>>> +						<4 0 3 &pcfg_pull_none>,
+>>> +						<4 5 3 &pcfg_pull_none>,
+>>> +						<4 4 3 &pcfg_pull_none>,
+>>> +						<4 1 3 &pcfg_pull_none>,
+>>> +						<4 2 3 &pcfg_pull_none>,
+>>> +						<4 3 3 &pcfg_pull_none>;
+>>> +			};
+>>> +		};
+>>      These are usually define in the board .dts file...
+> The pinctrl settings itself are soc-specific, i.e. the pins and their=
+ settings
+> to use to enable r{g}mii functionality are the same for all boards us=
+ing this
+> soc, so the pinctrl definitions should stay here and not be redefined=
+ in each
+> and every board file.
+>
+>
+> Heiko
+>
+>
+>
