@@ -1,50 +1,57 @@
-From: "Arad, Ronen" <ronen.arad@intel.com>
-Subject: RE: [patch net-next v3 09/17] bridge: add API to notify bridge
- driver of learned FBD on offloaded device
-Date: Wed, 26 Nov 2014 07:37:13 +0000
-Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505D7E13E@ORSMSX101.amr.corp.intel.com>
+From: Pankaj Gupta <pagupta@redhat.com>
+Subject: Re: [PATCH v2 net-next 3/3] tuntap: reduce the size of tun_struct
+ by using flex array.
+Date: Wed, 26 Nov 2014 02:40:14 -0500 (EST)
+Message-ID: <538874253.4658840.1416987614805.JavaMail.zimbra@redhat.com>
+References: <1416854044-10124-1-git-send-email-pagupta@redhat.com> <20141125.132717.122094133335261929.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:56768 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752098AbaKZHhT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Nov 2014 02:37:19 -0500
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jasowang@redhat.com, dgibson@redhat.com, vfalico@gmail.com,
+	edumazet@google.com, vyasevic@redhat.com, hkchu@google.com,
+	xemul@parallels.com, therbert@google.com,
+	bhutchings@solarflare.com, xii@google.com,
+	stephen@networkplumber.org, jiri@resnulli.us,
+	sergei shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141125.132717.122094133335261929.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiA+Pj4NCj4gPj4+IElzIHRoZXJlIGFueSBjYXNlIHdoZXJlIHRoaXMgZmRiIGVudHJ5IGdldHMg
-cmUtdXNlZCBhbmQgaXMgbm8gDQo+ID4+PiBsb25nZXIgYWRkZWQgYnkgYW4gZXh0ZXJuYWwgbGVh
-cm5pbmc/IFNob3VsZCB3ZSBjbGVhciB0aGlzIGZsYWcgc29tZXdoZXJlPw0KPiA+Pg0KPiA+PiBP
-bmNlIHRoZSBGREIgZW50cnkgaXMgbWFya2VkICJhZGRlZF9ieV9leHRlcm5hbF9sZWFybiIgaXQg
-c3RheXMgDQo+ID4+IG1hcmtlZCBhcyBzdWNoIHVudGlsIHJlbW92ZWQgYnkgYWdpbmcgY2xlYW51
-cCBwcm9jZXNzIChvciBmbHVzaGVkIA0KPiA+PiBkdWUgdG8gaW50ZXJmYWNlIGRvd24sIGV0Yyku
-ICBJZiBhZ2VkIG91dCAoYW5kIG5vdyBkZWxldGVkKSwgdGhlIA0KPiA+PiBGREIgZW50cnkgbWF5
-IGNvbWUgYmFjayBlaXRoZXIgYnkgU1cgbGVhcm4gb3IgYnkgSFcgbGVhcm4uICBJZiBTVyANCj4g
-Pj4gbGVhcm4gY29tZXMgZmlyc3QsIGFuZCB0aGVuIEhXIGxlYXJuLCBIVyBsZWFybiB3aWxsIG92
-ZXJyaWRlIGFuZCANCj4gPj4gbWFyayB0aGUgZXhpc3RpbmcgRkRCIGVudHJ5ICJhZGRlZF9ieV9l
-eHRlcm5hbF9sZWFybiIuICBTbyB0aGVyZSBpcyANCj4gPj4gdGFrZS1vdmVyIGJ5IEhXIGJ1dCBu
-byBnaXZlLWJhY2sgdG8gU1cuICBBbmQgdGhlcmUgaXMgbm8gZXhwbGljaXQgDQo+ID4+IGNsZWFy
-aW5nIG9mIHRoZSBtYXJrIHNob3J0IG9mIGRlbGV0aW5nIHRoZSBGREIgZW50cnkuICBUaGUgbWFy
-ayBpcyANCj4gPj4gbW9zdGx5IGZvciBsZXR0aW5nIHVzZXIncyBrbm93IHdoaWNoIEZEQiBlbnRy
-aWVzIHdoZXJlIGxlYXJuZWQgYnkgDQo+ID4+IEhXIGFuZCBzeW5jZWQgdG8gdGhlIGJyaWRnZSdz
-IEZEQi4NCj4gPg0KPiA+IFRoYW5rcywgbWFrZXMgc2Vuc2Ugbm93LiBUaGlzIGlzIHByb2JhYmx5
-IG9idmlvdXMgaW4gdGhpcyBjb250ZXh0LCANCj4gPiBidXQgbWF5YmUgaXQgd291bGQgbm90IGh1
-cnQgdG8gY29tZSB1cCB3aXRoIGEgZG9jdW1lbnRhdGlvbiB0aGF0IA0KPiA+IGRlc2NyaWJlIHRo
-ZSBvZmZsb2FkIEFQSSwgRkRCIGVudHJ5IGxpZmV0aW1lIGFuZCBIVy9TVyBvd25lcnNoaXAgZXRj
-Li4uDQo+IA0KPiBJIGhhdmUgYW4gdXBkYXRlZCBEb2N1bWVudGF0aW9uL25ldHdvcmtpbmcvc3dp
-dGNoZGV2LnR4dCB0aGF0IGNvdmVycyANCj4gdGhlIHN3ZGV2IEFQSXMgYW5kIHVzYWdlIGFuZCBu
-b3RlcywgYnV0IEppcmkgaXMgYmVpbmcgc3Rpbmd5IHdpdGggaXQuDQo+IFdpbGwgZ2V0IHRoaXMg
-b3V0LCBlaXRoZXIgaW4gdjQgb3IgZm9sbG93LW9uIHBhdGNoZXMuICBUaGVyZSBpcyBlbm91Z2gg
-DQo+IGdvaW5nIG9uIGp1c3Qgd2l0aCBMMiBvZmZsb2FkIHRoYXQgd2UncmUgZ29pbmcgdG8gbmVl
-ZCBzb21lIGdvb2QgDQo+IGRvY3VtZW50YXRpb24gdG8gZ3VpZGUgaW1wbGVtZW50ZXJzLg0KPiAt
-LQ0KDQpUbyBjb250cm9sIHRoZSBsaWZldGltZSBvZiBhbiBleHRlcm5hbGx5IGxlYXJuZWQgRkRC
-IGVudHJ5LCB0aGUgYnJpZGdlIHNoYWxsIHByb3ZpZGUgYW4gQVBJIGZvciB0aGUgc3dpdGNoIGRy
-aXZlciB0byB1cGRhdGUgdGhlIGZyZXNobmVzcyBvZiBleHRlcm5hbGx5IGxlYXJuZWQgZW50cmll
-cy4gT3RoZXJ3aXNlLCB0aGUgYnJpZGdlIGFnaW5nIHdpbGwgYWdlIGVudHJpZXMgd2hpY2ggYXJl
-IGN1cnJlbnRseSBvciBmcmVxdWVudGx5IHVzZWQgYnkgdGhlIEhXLg0KSXMgdGhpcyBjb3ZlcmVk
-IGluIHRoZSB1cGRhdGVkIGRvY3VtZW50Pw0KSXMgdGhpcyBmdW5jdGlvbmFsaXR5IHBsYW5uZWQg
-Zm9yIHY0Pw0KIA0K
+
+> 
+> From: Pankaj Gupta <pagupta@redhat.com>
+> Date: Tue, 25 Nov 2014 00:04:04 +0530
+> 
+> > This patch switches to flex array to implement the flow caches, it brings
+> > several advantages:
+> > 
+> > - Reduce the size of the tun_struct structure, which allows us to increase
+> > the
+> >   upper limit of queues in future.
+> > - Avoid higher order memory allocation. It will be useful when switching to
+> >   pure hashing in flow cache which may demand a larger size array in
+> >   future.
+> > 
+> > After this patch, the size of tun_struct on x86_64 reduced from 8512 to
+> > 328
+> > 
+> > Signed-off-by: Jason Wang <jasowang@redhat.com>
+> > Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
+> > Reviewed-by: David Gibson <dgibson@redhat.com>
+> 
+> I see no reason to use flex arrays for this, you are preallocaing the
+> memory so if anything flex array is adding an unnecessary level of
+> redirection for every access in return for no real gains.
+> 
+> Just allocate the thing normally using kzalloc() or whatever.
+
+I agree. Will do the changes and submit v3.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
