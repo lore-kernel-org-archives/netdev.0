@@ -1,41 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: fix possible NULL dereference in
- tcp_vX_send_reset()
-Date: Wed, 26 Nov 2014 12:09:51 -0500 (EST)
-Message-ID: <20141126.120951.631006073056672211.davem@davemloft.net>
-References: <1416930004.29427.21.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] stmmac: platform: fix default values of the filter bins
+ setting
+Date: Wed, 26 Nov 2014 18:16:25 +0100
+Message-ID: <54760AE9.1000006@st.com>
+References: <1416969486-9047-1-git-send-email-chenhc@lemote.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, dborkman@redhat.com, jasa.bartelj@gmail.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Vince Bridgers <vbridgers2013@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Huacai Chen <chenhc@lemote.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48707 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750881AbaKZRJx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 12:09:53 -0500
-In-Reply-To: <1416930004.29427.21.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:60105 "EHLO
+	mx08-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750881AbaKZRQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 12:16:43 -0500
+In-Reply-To: <1416969486-9047-1-git-send-email-chenhc@lemote.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 25 Nov 2014 07:40:04 -0800
+On 11/26/2014 3:38 AM, Huacai Chen wrote:
+> The commit 3b57de958e2a brought the support for a different amount of
+> the filter bins, but didn't update the platform driver that without
+> CONFIG_OF.
+>
+> Fixes: 3b57de958e2a (net: stmmac: Support devicetree configs for mcast
+> and ucast filter entries)
+>
+> Signed-off-by: Huacai Chen <chenhc@lemote.com>
 
-> From: Eric Dumazet <edumazet@google.com>
->=20
-> After commit ca777eff51f7 ("tcp: remove dst refcount false sharing fo=
-r
-> prequeue mode") we have to relax check against skb dst in
-> tcp_v[46]_send_reset() if prequeue dropped the dst.
->=20
-> If a socket is provided, a full lookup was done to find this socket,
-> so the dst test can be skipped.
->=20
-> Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=3D88191
-> Reported-by: Ja=A8a Bartelj <jasa.bartelj@gmail.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Daniel Borkmann <dborkman@redhat.com>
-> Fixes: ca777eff51f7 ("tcp: remove dst refcount false sharing for preq=
-ueue mode")
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-Applied, thanks Eric.
+> ---
+>   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   13 +++++++------
+>   1 files changed, 7 insertions(+), 6 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> index db56fa7..5b0da39 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> @@ -177,12 +177,6 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
+>   	 */
+>   	plat->maxmtu = JUMBO_LEN;
+>
+> -	/* Set default value for multicast hash bins */
+> -	plat->multicast_filter_bins = HASH_TABLE_SIZE;
+> -
+> -	/* Set default value for unicast filter entries */
+> -	plat->unicast_filter_entries = 1;
+> -
+>   	/*
+>   	 * Currently only the properties needed on SPEAr600
+>   	 * are provided. All other properties should be added
+> @@ -270,6 +264,13 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
+>   		return PTR_ERR(addr);
+>
+>   	plat_dat = dev_get_platdata(&pdev->dev);
+> +
+> +	/* Set default value for multicast hash bins */
+> +	plat_dat->multicast_filter_bins = HASH_TABLE_SIZE;
+> +
+> +	/* Set default value for unicast filter entries */
+> +	plat_dat->unicast_filter_entries = 1;
+> +
+>   	if (pdev->dev.of_node) {
+>   		if (!plat_dat)
+>   			plat_dat = devm_kzalloc(&pdev->dev,
+>
