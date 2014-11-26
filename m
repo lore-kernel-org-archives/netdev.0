@@ -1,59 +1,49 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v3 02/17] net: make vid as a parameter for ndo_fdb_add/ndo_fdb_del
-Date: Wed, 26 Nov 2014 07:06:04 -0500
-Message-ID: <5475C22C.1060604@mojatatu.com>
-References: <1416911328-10979-3-git-send-email-jiri@resnulli.us> <5474A25C.3080505@mojatatu.com> <5474A7EE.8000300@intel.com> <5474ABF0.60901@mojatatu.com> <5474AE9B.6000500@intel.com> <5474B353.10802@mojatatu.com> <CAE4R7bD1Hi+fnKp-Sg6Tn4AcpOu2pwgEYecP8LVA1ioO4FkgRQ@mail.gmail.com> <547546C5.3060207@mojatatu.com> <CAE4R7bA2VPZ3tm2MrsXAm4XfNX0TguT=vUma-3HrZSu98hBGyA@mail.gmail.com> <5475B952.2080500@mojatatu.com> <20141126114035.GM1875@nanopsycho.orion> <5475BF72.1060606@mojatatu.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v3 13/17] bridge: move private brport flags to
+ if_bridge.h so port drivers can use flags
+Date: Wed, 26 Nov 2014 13:12:43 +0100
+Message-ID: <20141126121243.GO1875@nanopsycho.orion>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
+ <1416911328-10979-14-git-send-email-jiri@resnulli.us>
+ <20141125224856.GI3912@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <sfeldma@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	"dborkman@redhat.com" <dborkman@redhat.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"pshelar@nicira.com" <pshelar@nicira.com>,
-	"azhou@nicira.com" <azhou@nicira.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:36339 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750863AbaKZMGK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 07:06:10 -0500
-Received: by mail-ie0-f175.google.com with SMTP id at20so2398045iec.6
-        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 04:06:09 -0800 (PST)
-In-Reply-To: <5475BF72.1060606@mojatatu.com>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:39576 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750804AbaKZMMq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 07:12:46 -0500
+Received: by mail-wi0-f180.google.com with SMTP id n3so4730977wiv.1
+        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 04:12:45 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20141125224856.GI3912@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/26/14 06:54, Jamal Hadi Salim wrote:
-> On 11/26/14 06:40, Jiri Pirko wrote:
-
->> Sure this is something that is reasonable to request. But that would
->> require a major changes to userspace api. At this moment, when we are
->> using the existing api, I would leave this out for phase 1. Let this be
->> resolved later as a separate work. Does that make sense?
->>
+Tue, Nov 25, 2014 at 11:48:56PM CET, tgraf@suug.ch wrote:
+>On 11/25/14 at 11:28am, Jiri Pirko wrote:
+>> From: Scott Feldman <sfeldma@gmail.com>
+>> 
+>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 >
-> I think these are just discussions so we know where we are going.
-> I ACKed the patch already but added that we should consider these
-> policies. Scott take note.
->
+>Could be ported to BIT() if you respin.
 
-In case i wasnt clear - yes, the patch as is fine ;->
-
-cheers,
-jamal
+Done, thanks.
