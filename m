@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [PATCH rfc] packet: zerocopy packet_snd
-Date: Wed, 26 Nov 2014 23:17:48 +0200
-Message-ID: <20141126211748.GA11904@redhat.com>
+Date: Wed, 26 Nov 2014 23:20:38 +0200
+Message-ID: <20141126212038.GA12118@redhat.com>
 References: <1416602694-7540-1-git-send-email-willemb@google.com>
  <20141126182445.GA15744@redhat.com>
  <CA+FuTSdYB4rDMH3gAAMwaRdbqN58f_SxLz=C3fcCACw_KosGXw@mail.gmail.com>
@@ -13,10 +13,10 @@ Cc: Network Development <netdev@vger.kernel.org>,
 	Daniel Borkmann <dborkman@redhat.com>
 To: Willem de Bruijn <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55301 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:38727 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751240AbaKZVTb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Nov 2014 16:19:31 -0500
+	id S1750888AbaKZVUo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Nov 2014 16:20:44 -0500
 Content-Disposition: inline
 In-Reply-To: <CA+FuTSdYB4rDMH3gAAMwaRdbqN58f_SxLz=C3fcCACw_KosGXw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
@@ -38,8 +38,7 @@ On Wed, Nov 26, 2014 at 02:59:34PM -0500, Willem de Bruijn wrote:
 > application can increase the limit or use separate sockets for
 > separate flows.
 
-Socket per flow? Maybe just use TCP then?  increasing the limit
-sounds like a wrong solution, it hurts security.
+Sounds like this interface is very hard to use correctly.
 
 > > One possible solution is some kind of timer orphaning frags
 > > for skbs that have been around for too long.
@@ -47,8 +46,7 @@ sounds like a wrong solution, it hurts security.
 > Perhaps this can be approximated without an explicit timer by calling
 > skb_copy_ubufs on enqueue whenever qlen exceeds a threshold value?
 
-Hard to say. Will have to see that patch to judge how robust this is.
-
+Not sure.  I'll have to see that patch to judge.
 
 > >
 > >> ---
