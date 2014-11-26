@@ -1,82 +1,106 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [net-next PATCH 2/5] ethernet/intel: Use eth_skb_pad helper
-Date: Tue, 25 Nov 2014 17:05:06 -0800
-Message-ID: <54752742.4040508@gmail.com>
-References: <20141125223727.1867.43890.stgit@ahduyck-vm-fedora20>	 <20141125224406.1867.97911.stgit@ahduyck-vm-fedora20> <1416957251.29427.39.camel@edumazet-glaptop2.roam.corp.google.com> <54752263.2040204@gmail.com>
+From: Wengang <wen.gang.wang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] bonding: move ipoib_header_ops to vmlinux
+Date: Wed, 26 Nov 2014 09:30:52 +0800
+Message-ID: <54752D4C.7000603@oracle.com>
+References: <20141125.010741.450666241983239119.davem@davemloft.net>	<54742D6E.9030605@mellanox.com>	<19740.1416940877@famine> <20141125.134450.1265438298771389292.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	davem@davemloft.net
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:46175 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750975AbaKZBFJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2014 20:05:09 -0500
-Received: by mail-pa0-f41.google.com with SMTP id rd3so1703491pab.14
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2014 17:05:08 -0800 (PST)
-In-Reply-To: <54752263.2040204@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, jay.vosburgh-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20141125.134450.1265438298771389292.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 25/11/14 16:44, Alexander Duyck wrote:
-> On 11/25/2014 03:14 PM, Eric Dumazet wrote:
->> On Tue, 2014-11-25 at 14:44 -0800, Alexander Duyck wrote:
->>> Update the Intel Ethernet drivers to use eth_skb_pad() instead of doing
->>> their own implementations of the function.
->>>
->>> Also this cleans up two other spots where skb_pad was called but the length
->>> and tail pointers were being manipulated directly instead of just having
->>> the padding length added via __skb_put.
->>>
->>> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->>> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
->>> ---
->>>  drivers/net/ethernet/intel/e1000/e1000_main.c     |    8 ++------
->>>  drivers/net/ethernet/intel/fm10k/fm10k_main.c     |   11 +++--------
->>>  drivers/net/ethernet/intel/igb/igb_main.c         |   11 +++--------
->>>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |   11 +++--------
->>>  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   11 +++--------
->>>  5 files changed, 14 insertions(+), 38 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
->>> index 24f3986..862d198 100644
->>> --- a/drivers/net/ethernet/intel/e1000/e1000_main.c
->>> +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
->>> @@ -3136,12 +3136,8 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
->>>  	 * packets may get corrupted during padding by HW.
->>>  	 * To WA this issue, pad all small packets manually.
->>>  	 */
->>> -	if (skb->len < ETH_ZLEN) {
->>> -		if (skb_pad(skb, ETH_ZLEN - skb->len))
->>> -			return NETDEV_TX_OK;
->>> -		skb->len = ETH_ZLEN;
->>> -		skb_set_tail_pointer(skb, ETH_ZLEN);
->>> -	}
->>> +	if (eth_skb_pad(skb))
->>> +		return NETDEV_TX_OK;
->>>  
->> Its a bit sad almost no driver increments some drop counter.
+=E4=BA=8E 2014=E5=B9=B411=E6=9C=8826=E6=97=A5 02:44, David Miller =E5=86=
+=99=E9=81=93:
+> From: Jay Vosburgh <jay.vosburgh-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> Date: Tue, 25 Nov 2014 10:41:17 -0800
+>
+>> Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
 >>
->> This probably could be generically done in eth_skb_pad()
+>>> On 11/25/2014 8:07 AM, David Miller wrote:
+>>>> IPOIB should not work over bonding as it requires that the device
+>>>> use ARPHRD_ETHER.
+>>> Hi Dave,
+>>>
+>>> IPoIB devices can be enslaved to both bonding and teaming in their =
+HA mode,
+>>> the bond device type becomes ARPHRD_INFINIBAND when this happens.
+>> 	The point was that pktgen disallows ARPHRD_INFINIBAND, not that
+>> bonding does.
 >>
->> atomic_long_inc(&skb->dev->tx_dropped)
-> 
-> The only problem is eth_skb_pad is called in the Rx path of some drivers
-> as well.
-> 
-> I wonder if we couldn't make this some sort of netdevice attribute to
-> indicate what the smallest frame we can handle is and then just pad the
-> frame to that as a part of __dev_xmit_skb.  Then we could do that
-> outside of the locks and take care of it before we even hit the qdisc layer.
+>> 	Pktgen specifically checks for type !=3D ARPHRD_ETHER, so the
+>> IPoIB bond should not be able to be used with pkgten.  My suspicion =
+is
+>> that pktgen is being configured on the bond first, then an IPoIB sla=
+ve
+>> is added to the bond; this would change its type in a way that pktge=
+n
+>> wouldn't notice.
+> +1
 
-One potential problem could be that the padding size varies at runtime
-based on e.g: netdev features, connection to an Ethernet switch etc...
-we could probably just advertise whatever maximum padding we need once
-and for all and just assume that any skb we get called with in a
-driver's xmit() has the required padding, that is probably fine too.
+I think it go this way:
+
+1) bond_master is ready
+2) bond_enslave enslave a IPOIB interface calling bond_setup_by_slave
+3) then bond_setup_by_slave set change master type to ARPHRD_INFINIBAND=
+=2E
+
+code is like this:
+
+1 /* enslave device <slave> to bond device <master> */
+2 int bond_enslave(struct net_device *bond_dev, struct net_device=20
+*slave_dev)
+3 {
+4 <snip>...
+5 /* set bonding device ether type by slave - bonding netdevices are
+6 * created with ether_setup, so when the slave type is not ARPHRD_ETHE=
+R
+7 * there is a need to override some of the type dependent attribs/func=
+s.
+8 *
+9 * bond ether type mutual exclusion - don't allow slaves of dissimilar
+10 * ether type (eg ARPHRD_ETHER and ARPHRD_INFINIBAND) share the same =
+bond
+11 */
+12 if (!bond_has_slaves(bond)) {
+13 if (bond_dev->type !=3D slave_dev->type) {
+14 <snip>...
+15 if (slave_dev->type !=3D ARPHRD_ETHER)
+16 bond_setup_by_slave(bond_dev, slave_dev);
+17 else {
+18 ether_setup(bond_dev);
+19 bond_dev->priv_flags &=3D ~IFF_TX_SKB_SHARING;
+20 }
+21
+22 call_netdevice_notifiers(NETDEV_POST_TYPE_CHANGE,
+23 bond_dev);
+24 }
+25 <snip>...
+26 }
+27
+28 static void bond_setup_by_slave(struct net_device *bond_dev,
+29 struct net_device *slave_dev)
+30 {
+31 bond_dev->header_ops =3D slave_dev->header_ops;
+32
+33 bond_dev->type =3D slave_dev->type;
+34 bond_dev->hard_header_len =3D slave_dev->hard_header_len;
+35 bond_dev->addr_len =3D slave_dev->addr_len;
+36
+37 memcpy(bond_dev->broadcast, slave_dev->broadcast,
+38 slave_dev->addr_len);
+39 }
+40
+
+thanks
+wengang
 --
-Florian
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
