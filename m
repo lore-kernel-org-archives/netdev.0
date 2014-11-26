@@ -1,61 +1,46 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net-next v4] ipvlan: Initial check-in of the IPVLAN driver.
-Date: Wed, 26 Nov 2014 15:41:53 +0900
-Message-ID: <54757631.8090604@lab.ntt.co.jp>
-References: <1416812866-13401-1-git-send-email-maheshb@google.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 1/2] virito: introduce methods of fixing device features
+Date: Wed, 26 Nov 2014 02:09:00 -0500 (EST)
+Message-ID: <848153913.16119602.1416985740195.JavaMail.zimbra@redhat.com>
+References: <1415857974-23326-1-git-send-email-jasowang@redhat.com>
+	<87sih9xv5u.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>,
-	Laurent Chavey <chavey@google.com>,
-	Tim Hockin <thockin@google.com>,
-	David Miller <davem@davemloft.net>,
-	Brandon Philips <brandon.philips@coreos.com>,
-	Pavel Emelianov <xemul@parallels.com>
-To: Mahesh Bandewar <maheshb@google.com>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:59074 "EHLO
-	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751821AbaKZGm4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 01:42:56 -0500
-In-Reply-To: <1416812866-13401-1-git-send-email-maheshb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <87sih9xv5u.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi Mahesh,
 
-I found that deleting the last ipvlan device triggers WARN_ON() in
-rtmsg_ifinfo().
-ipvlan_nl_fillinfo() seems to return -EINVAL in that case.
 
-> +static int ipvlan_nl_fillinfo(struct sk_buff *skb,
-> +			      const struct net_device *dev)
-> +{
-> +	struct ipvl_dev *ipvlan = netdev_priv(dev);
-> +	struct ipvl_port *port = ipvlan_port_get_rtnl(ipvlan->phy_dev);
-> +	int ret = -EINVAL;
-> +
-> +	if (!port)
-> +		goto err;
-> +
-> +	ret = -EMSGSIZE;
-> +	if (nla_put_u16(skb, IFLA_IPVLAN_MODE, port->mode))
-> +		goto err;
-> +
-> +	return 0;
-> +
-> +err:
-> +	return ret;
-> +}
+----- Original Message -----
+> Jason Wang <jasowang@redhat.com> writes:
+> > Buggy host may advertised buggy host features (a usual case is that host
+> > advertise a feature whose dependencies were missed). In this case, driver
+> > should detect and disable the buggy features by itself.
+> 
+> Sorry, I've been focussing elsewhere.
+> 
+> I would really prefer that drivers offer a "feature_depends" table,
+> which can indicate that feature A depends on feature B, and have the
+> core iterate, complain and fixup as necessary.
+> 
+> Is that expressive enough, or do we need more?
+> 
+> Thanks,
+> Rusty.
 
-rollback_registered_many() calls rtmsg_ifinfo() after calling ndo_uninit().
-ndo_uninit() (ipvlan_uninit() -> ipvlan_port_destroy() ->
-netdev_rx_handler_unregister()) sets rx_handler_data into NULL.
-So, we cannot dereference "port" in ipvlan_nl_fillinfo().
-
-Maybe "mode" should belong to struct ipvl_dev?
-
-Thanks,
-Toshiaki Makita
+I suggested something like this in https://lkml.org/lkml/2014/11/19/132, but
+Michael does not like it ...
