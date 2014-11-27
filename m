@@ -1,289 +1,52 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH] e1000: remove unused variables
-Date: Thu, 27 Nov 2014 10:52:08 +0530
-Message-ID: <1417065728-5592-1-git-send-email-sudipm.mukherjee@gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [RFC PATCH 1/3] net: Split netdev_alloc_frag into
+ __alloc_page_frag and add __napi_alloc_frag
+Date: Wed, 26 Nov 2014 21:29:17 -0800
+Message-ID: <CAMEtUuxChWng-QFF=ziq=PLUkSZu1CD1brHUH9OHBg_4AL3FxQ@mail.gmail.com>
+References: <20141126235900.1617.10008.stgit@ahduyck-vm-fedora20>
+	<20141127000557.1617.88261.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Sudip Mukherjee <sudipm.mukherjee@gmail.com>, linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Linux NICS <linux.nics@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f180.google.com ([209.85.216.180]:51502 "EHLO
+	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750714AbaK0F3S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 00:29:18 -0500
+Received: by mail-qc0-f180.google.com with SMTP id i8so3042025qcq.25
+        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 21:29:17 -0800 (PST)
+In-Reply-To: <20141127000557.1617.88261.stgit@ahduyck-vm-fedora20>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-these variables were only being assigned some values, but were never
-used.
+On Wed, Nov 26, 2014 at 4:05 PM, Alexander Duyck
+<alexander.h.duyck@redhat.com> wrote:
+> This patch splits the netdev_alloc_frag function up so that it can be used
+> on one of two page frag pools instead of being fixed on the
+> netdev_alloc_cache.  By doing this we can add a NAPI specific function
+> __napi_alloc_frag that accesses a pool that is only used from softirq
+> context.  The advantage to this is that we do not need to call
+> local_irq_save/restore which can be a significant savings.
+>
+> I also took the opportunity to refactor the core bits that were placed in
+> __alloc_page_frag.  First I updated the allocation to do either a 32K
+> allocation or an order 0 page.  Then I also rewrote the logic to work from
+> the end of the page to the start.  By doing this the size value doesn't
+> have to be used unless we have run out of space for page fragments.
+> Finally I cleaned up the atomic bits so that we just do an
+> atomic_sub_return and if that returns 0 then we set the page->_count via an
+> atomic_set.  This way we can remove the extra conditional for the
+> atomic_read since it would have led to an atomic_inc in the case of success
+> anyway.
 
-Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
----
- drivers/net/ethernet/intel/e1000/e1000_hw.c   | 142 ++++++++++++--------------
- drivers/net/ethernet/intel/e1000/e1000_main.c |   3 -
- 2 files changed, 66 insertions(+), 79 deletions(-)
+Nice simplification. Complicated, but looks good to me.
+I think only replacement of loop with 32k+page begs
+better explanation in the commit log. I'm guessing you're
+killing intermediate sizes to simplify the code?
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_hw.c b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-index 45c8c864..7812f59 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_hw.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-@@ -154,7 +154,6 @@ static s32 e1000_set_phy_type(struct e1000_hw *hw)
-  */
- static void e1000_phy_init_script(struct e1000_hw *hw)
- {
--	u32 ret_val;
- 	u16 phy_saved_data;
- 
- 	if (hw->phy_init_script) {
-@@ -163,7 +162,7 @@ static void e1000_phy_init_script(struct e1000_hw *hw)
- 		/* Save off the current value of register 0x2F5B to be restored
- 		 * at the end of this routine.
- 		 */
--		ret_val = e1000_read_phy_reg(hw, 0x2F5B, &phy_saved_data);
-+		e1000_read_phy_reg(hw, 0x2F5B, &phy_saved_data);
- 
- 		/* Disabled the PHY transmitter */
- 		e1000_write_phy_reg(hw, 0x2F5B, 0x0003);
-@@ -402,7 +401,6 @@ s32 e1000_reset_hw(struct e1000_hw *hw)
- {
- 	u32 ctrl;
- 	u32 ctrl_ext;
--	u32 icr;
- 	u32 manc;
- 	u32 led_ctrl;
- 	s32 ret_val;
-@@ -527,7 +525,7 @@ s32 e1000_reset_hw(struct e1000_hw *hw)
- 	ew32(IMC, 0xffffffff);
- 
- 	/* Clear any pending interrupt events. */
--	icr = er32(ICR);
-+	er32(ICR);
- 
- 	/* If MWI was previously enabled, reenable it. */
- 	if (hw->mac_type == e1000_82542_rev2_0) {
-@@ -2396,16 +2394,13 @@ static s32 e1000_check_for_serdes_link_generic(struct e1000_hw *hw)
-  */
- s32 e1000_check_for_link(struct e1000_hw *hw)
- {
--	u32 rxcw = 0;
--	u32 ctrl;
- 	u32 status;
- 	u32 rctl;
- 	u32 icr;
--	u32 signal = 0;
- 	s32 ret_val;
- 	u16 phy_data;
- 
--	ctrl = er32(CTRL);
-+	er32(CTRL);
- 	status = er32(STATUS);
- 
- 	/* On adapters with a MAC newer than 82544, SW Definable pin 1 will be
-@@ -2414,12 +2409,9 @@ s32 e1000_check_for_link(struct e1000_hw *hw)
- 	 */
- 	if ((hw->media_type == e1000_media_type_fiber) ||
- 	    (hw->media_type == e1000_media_type_internal_serdes)) {
--		rxcw = er32(RXCW);
-+		er32(RXCW);
- 
- 		if (hw->media_type == e1000_media_type_fiber) {
--			signal =
--			    (hw->mac_type >
--			     e1000_82544) ? E1000_CTRL_SWDPIN1 : 0;
- 			if (status & E1000_STATUS_LU)
- 				hw->get_link_status = false;
- 		}
-@@ -4698,78 +4690,76 @@ s32 e1000_led_off(struct e1000_hw *hw)
-  */
- static void e1000_clear_hw_cntrs(struct e1000_hw *hw)
- {
--	volatile u32 temp;
--
--	temp = er32(CRCERRS);
--	temp = er32(SYMERRS);
--	temp = er32(MPC);
--	temp = er32(SCC);
--	temp = er32(ECOL);
--	temp = er32(MCC);
--	temp = er32(LATECOL);
--	temp = er32(COLC);
--	temp = er32(DC);
--	temp = er32(SEC);
--	temp = er32(RLEC);
--	temp = er32(XONRXC);
--	temp = er32(XONTXC);
--	temp = er32(XOFFRXC);
--	temp = er32(XOFFTXC);
--	temp = er32(FCRUC);
--
--	temp = er32(PRC64);
--	temp = er32(PRC127);
--	temp = er32(PRC255);
--	temp = er32(PRC511);
--	temp = er32(PRC1023);
--	temp = er32(PRC1522);
--
--	temp = er32(GPRC);
--	temp = er32(BPRC);
--	temp = er32(MPRC);
--	temp = er32(GPTC);
--	temp = er32(GORCL);
--	temp = er32(GORCH);
--	temp = er32(GOTCL);
--	temp = er32(GOTCH);
--	temp = er32(RNBC);
--	temp = er32(RUC);
--	temp = er32(RFC);
--	temp = er32(ROC);
--	temp = er32(RJC);
--	temp = er32(TORL);
--	temp = er32(TORH);
--	temp = er32(TOTL);
--	temp = er32(TOTH);
--	temp = er32(TPR);
--	temp = er32(TPT);
--
--	temp = er32(PTC64);
--	temp = er32(PTC127);
--	temp = er32(PTC255);
--	temp = er32(PTC511);
--	temp = er32(PTC1023);
--	temp = er32(PTC1522);
--
--	temp = er32(MPTC);
--	temp = er32(BPTC);
-+	er32(CRCERRS);
-+	er32(SYMERRS);
-+	er32(MPC);
-+	er32(SCC);
-+	er32(ECOL);
-+	er32(MCC);
-+	er32(LATECOL);
-+	er32(COLC);
-+	er32(DC);
-+	er32(SEC);
-+	er32(RLEC);
-+	er32(XONRXC);
-+	er32(XONTXC);
-+	er32(XOFFRXC);
-+	er32(XOFFTXC);
-+	er32(FCRUC);
-+
-+	er32(PRC64);
-+	er32(PRC127);
-+	er32(PRC255);
-+	er32(PRC511);
-+	er32(PRC1023);
-+	er32(PRC1522);
-+
-+	er32(GPRC);
-+	er32(BPRC);
-+	er32(MPRC);
-+	er32(GPTC);
-+	er32(GORCL);
-+	er32(GORCH);
-+	er32(GOTCL);
-+	er32(GOTCH);
-+	er32(RNBC);
-+	er32(RUC);
-+	er32(RFC);
-+	er32(ROC);
-+	er32(RJC);
-+	er32(TORL);
-+	er32(TORH);
-+	er32(TOTL);
-+	er32(TOTH);
-+	er32(TPR);
-+	er32(TPT);
-+
-+	er32(PTC64);
-+	er32(PTC127);
-+	er32(PTC255);
-+	er32(PTC511);
-+	er32(PTC1023);
-+	er32(PTC1522);
-+
-+	er32(MPTC);
-+	er32(BPTC);
- 
- 	if (hw->mac_type < e1000_82543)
- 		return;
- 
--	temp = er32(ALGNERRC);
--	temp = er32(RXERRC);
--	temp = er32(TNCRS);
--	temp = er32(CEXTERR);
--	temp = er32(TSCTC);
--	temp = er32(TSCTFC);
-+	er32(ALGNERRC);
-+	er32(RXERRC);
-+	er32(TNCRS);
-+	er32(CEXTERR);
-+	er32(TSCTC);
-+	er32(TSCTFC);
- 
- 	if (hw->mac_type <= e1000_82544)
- 		return;
- 
--	temp = er32(MGTPRC);
--	temp = er32(MGTPDC);
--	temp = er32(MGTPTC);
-+	er32(MGTPRC);
-+	er32(MGTPDC);
-+	er32(MGTPTC);
- }
- 
- /**
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 24f3986..a70ea46 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -2443,7 +2443,6 @@ static void e1000_watchdog(struct work_struct *work)
- 	if (link) {
- 		if (!netif_carrier_ok(netdev)) {
- 			u32 ctrl;
--			bool txb2b = true;
- 			/* update snapshot of PHY registers on LSC */
- 			e1000_get_speed_and_duplex(hw,
- 						   &adapter->link_speed,
-@@ -2465,11 +2464,9 @@ static void e1000_watchdog(struct work_struct *work)
- 			adapter->tx_timeout_factor = 1;
- 			switch (adapter->link_speed) {
- 			case SPEED_10:
--				txb2b = false;
- 				adapter->tx_timeout_factor = 16;
- 				break;
- 			case SPEED_100:
--				txb2b = false;
- 				/* maybe add some timeout factor ? */
- 				break;
- 			}
--- 
-1.8.1.2
-
-
-------------------------------------------------------------------------------
-Download BIRT iHub F-Type - The Free Enterprise-Grade BIRT Server
-from Actuate! Instantly Supercharge Your Business Reports and Dashboards
-with Interactivity, Sharing, Native Excel Exports, App Integration & more
-Get technology previously reserved for billion-dollar corporations, FREE
-http://pubads.g.doubleclick.net/gampad/clk?id=157005751&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Thank you for doing it. It's a great improvement.
