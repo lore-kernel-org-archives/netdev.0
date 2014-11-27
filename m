@@ -1,285 +1,55 @@
-From: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
-Subject: [PATCH v3] can: Convert to runtime_pm
-Date: Thu, 27 Nov 2014 18:38:53 +0530
-Message-ID: <6b6db31d46074512a322eae6e4ef64d4@BN1BFFO11FD038.protection.gbl>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next v4 09/21] bridge: call netdev_sw_port_stp_update
+ when bridge port STP status changes
+Date: Thu, 27 Nov 2014 08:14:20 -0500
+Message-ID: <547723AC.1070907@mojatatu.com>
+References: <1417084826-9875-1-git-send-email-jiri@resnulli.us> <1417084826-9875-10-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
-	Kedareswara rao Appana <appanad@xilinx.com>
-To: <wg@grandegger.com>, <mkl@pengutronix.de>,
-	<michal.simek@xilinx.com>, <soren.brinkmann@xilinx.com>,
-	<grant.likely@linaro.org>, <robh+dt@kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
+	roopa@cumulusnetworks.com, linville@tuxdriver.com,
+	jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org, hemal@broadcom.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:52467 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750784AbaK0NOY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 08:14:24 -0500
+Received: by mail-ie0-f178.google.com with SMTP id tp5so4515851ieb.37
+        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 05:14:24 -0800 (PST)
+In-Reply-To: <1417084826-9875-10-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Instead of enabling/disabling clocks at several locations in the driver,
-use the runtime_pm framework. This consolidates the actions for
-runtime PM in the appropriate callbacks and makes the driver more
-readable and mantainable.
+On 11/27/14 05:40, Jiri Pirko wrote:
+> From: Scott Feldman <sfeldma@gmail.com>
+>
+> To notify switch driver of change in STP state of bridge port, add new
+> .ndo op and provide switchdev wrapper func to call ndo op. Use it in bridge
+> code then.
+>
 
-Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
-Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
----
-Changes for v3:
-  - Converted the driver to use runtime_pm.
-Changes for v2:
-  - Removed the struct platform_device* from suspend/resume
-    as suggest by Lothar.
+As it stands right now we are going to pollute the ndo ops and grow
+it fatter like the skb (its probably as fat).
+If i am not mistaken ethtool has some scheme it uses to pass opaque
+objects to different functions. Having a generic
+set/get_netdev_offload_attr() would be the right thing to do.
+An {id, *value} or {id, len, *value} or a void * would do.
+So not objecting - but not ACKing either.
 
- drivers/net/can/xilinx_can.c |  119 +++++++++++++++++++++++++----------------
- 1 files changed, 72 insertions(+), 47 deletions(-)
-
-diff --git a/drivers/net/can/xilinx_can.c b/drivers/net/can/xilinx_can.c
-index 8a998e3..1be28ed 100644
---- a/drivers/net/can/xilinx_can.c
-+++ b/drivers/net/can/xilinx_can.c
-@@ -32,6 +32,7 @@
- #include <linux/can/dev.h>
- #include <linux/can/error.h>
- #include <linux/can/led.h>
-+#include <linux/pm_runtime.h>
- 
- #define DRIVER_NAME	"xilinx_can"
- 
-@@ -138,7 +139,7 @@ struct xcan_priv {
- 	u32 (*read_reg)(const struct xcan_priv *priv, enum xcan_reg reg);
- 	void (*write_reg)(const struct xcan_priv *priv, enum xcan_reg reg,
- 			u32 val);
--	struct net_device *dev;
-+	struct device *dev;
- 	void __iomem *reg_base;
- 	unsigned long irq_flags;
- 	struct clk *bus_clk;
-@@ -842,6 +843,13 @@ static int xcan_open(struct net_device *ndev)
- 	struct xcan_priv *priv = netdev_priv(ndev);
- 	int ret;
- 
-+	ret = pm_runtime_get_sync(priv->dev);
-+	if (ret < 0) {
-+		netdev_err(ndev, "%s: runtime CAN resume failed(%d)\n\r",
-+				__func__, ret);
-+		return ret;
-+	}
-+
- 	ret = request_irq(ndev->irq, xcan_interrupt, priv->irq_flags,
- 			ndev->name, ndev);
- 	if (ret < 0) {
-@@ -849,29 +857,17 @@ static int xcan_open(struct net_device *ndev)
- 		goto err;
- 	}
- 
--	ret = clk_prepare_enable(priv->can_clk);
--	if (ret) {
--		netdev_err(ndev, "unable to enable device clock\n");
--		goto err_irq;
--	}
--
--	ret = clk_prepare_enable(priv->bus_clk);
--	if (ret) {
--		netdev_err(ndev, "unable to enable bus clock\n");
--		goto err_can_clk;
--	}
--
- 	/* Set chip into reset mode */
- 	ret = set_reset_mode(ndev);
- 	if (ret < 0) {
- 		netdev_err(ndev, "mode resetting failed!\n");
--		goto err_bus_clk;
-+		goto err_irq;
- 	}
- 
- 	/* Common open */
- 	ret = open_candev(ndev);
- 	if (ret)
--		goto err_bus_clk;
-+		goto err_irq;
- 
- 	ret = xcan_chip_start(ndev);
- 	if (ret < 0) {
-@@ -887,13 +883,11 @@ static int xcan_open(struct net_device *ndev)
- 
- err_candev:
- 	close_candev(ndev);
--err_bus_clk:
--	clk_disable_unprepare(priv->bus_clk);
--err_can_clk:
--	clk_disable_unprepare(priv->can_clk);
- err_irq:
- 	free_irq(ndev->irq, ndev);
- err:
-+	pm_runtime_put(priv->dev);
-+
- 	return ret;
- }
- 
-@@ -910,12 +904,11 @@ static int xcan_close(struct net_device *ndev)
- 	netif_stop_queue(ndev);
- 	napi_disable(&priv->napi);
- 	xcan_chip_stop(ndev);
--	clk_disable_unprepare(priv->bus_clk);
--	clk_disable_unprepare(priv->can_clk);
- 	free_irq(ndev->irq, ndev);
- 	close_candev(ndev);
- 
- 	can_led_event(ndev, CAN_LED_EVENT_STOP);
-+	pm_runtime_put(priv->dev);
- 
- 	return 0;
- }
-@@ -934,27 +927,21 @@ static int xcan_get_berr_counter(const struct net_device *ndev,
- 	struct xcan_priv *priv = netdev_priv(ndev);
- 	int ret;
- 
--	ret = clk_prepare_enable(priv->can_clk);
--	if (ret)
--		goto err;
-+	ret = pm_runtime_get_sync(priv->dev);
-+	if (ret < 0) {
-+		netdev_err(ndev, "%s: runtime resume failed(%d)\n\r",
-+				__func__, ret);
-+		return ret;
-+	}
- 
--	ret = clk_prepare_enable(priv->bus_clk);
--	if (ret)
--		goto err_clk;
- 
- 	bec->txerr = priv->read_reg(priv, XCAN_ECR_OFFSET) & XCAN_ECR_TEC_MASK;
- 	bec->rxerr = ((priv->read_reg(priv, XCAN_ECR_OFFSET) &
- 			XCAN_ECR_REC_MASK) >> XCAN_ESR_REC_SHIFT);
- 
--	clk_disable_unprepare(priv->bus_clk);
--	clk_disable_unprepare(priv->can_clk);
-+	pm_runtime_put(priv->dev);
- 
- 	return 0;
--
--err_clk:
--	clk_disable_unprepare(priv->can_clk);
--err:
--	return ret;
- }
- 
- 
-@@ -967,15 +954,45 @@ static const struct net_device_ops xcan_netdev_ops = {
- 
- /**
-  * xcan_suspend - Suspend method for the driver
-- * @dev:	Address of the platform_device structure
-+ * @dev:	Address of the net_device structure
-  *
-  * Put the driver into low power mode.
-- * Return: 0 always
-+ * Return: 0 on success and failure value on error
-  */
- static int __maybe_unused xcan_suspend(struct device *dev)
- {
--	struct platform_device *pdev = dev_get_drvdata(dev);
--	struct net_device *ndev = platform_get_drvdata(pdev);
-+	if (!device_may_wakeup(dev))
-+		return pm_runtime_force_suspend(dev);
-+
-+	return 0;
-+}
-+
-+/**
-+ * xcan_resume - Resume from suspend
-+ * @dev:	Address of the net_device structure
-+ *
-+ * Resume operation after suspend.
-+ * Return: 0 on success and failure value on error
-+ */
-+static int __maybe_unused xcan_resume(struct device *dev)
-+{
-+	if (!device_may_wakeup(dev))
-+		return pm_runtime_force_resume(dev);
-+
-+	return 0;
-+
-+}
-+
-+/**
-+ * xcan_runtime_suspend - Runtime suspend method for the driver
-+ * @dev:	Address of the net_device structure
-+ *
-+ * Put the driver into low power mode.
-+ * Return: 0 always
-+ */
-+static int __maybe_unused xcan_runtime_suspend(struct device *dev)
-+{
-+	struct net_device *ndev = dev_get_drvdata(dev);
- 	struct xcan_priv *priv = netdev_priv(ndev);
- 
- 	if (netif_running(ndev)) {
-@@ -993,16 +1010,15 @@ static int __maybe_unused xcan_suspend(struct device *dev)
- }
- 
- /**
-- * xcan_resume - Resume from suspend
-- * @dev:	Address of the platformdevice structure
-+ * xcan_runtime_resume - Runtime resume from suspend
-+ * @dev:	Address of the net_device structure
-  *
-  * Resume operation after suspend.
-  * Return: 0 on success and failure value on error
-  */
--static int __maybe_unused xcan_resume(struct device *dev)
-+static int __maybe_unused xcan_runtime_resume(struct device *dev)
- {
--	struct platform_device *pdev = dev_get_drvdata(dev);
--	struct net_device *ndev = platform_get_drvdata(pdev);
-+	struct net_device *ndev = dev_get_drvdata(dev);
- 	struct xcan_priv *priv = netdev_priv(ndev);
- 	int ret;
- 
-@@ -1030,7 +1046,10 @@ static int __maybe_unused xcan_resume(struct device *dev)
- 	return 0;
- }
- 
--static SIMPLE_DEV_PM_OPS(xcan_dev_pm_ops, xcan_suspend, xcan_resume);
-+static const struct dev_pm_ops xcan_dev_pm_ops = {
-+	SET_SYSTEM_SLEEP_PM_OPS(xcan_suspend, xcan_resume)
-+	SET_PM_RUNTIME_PM_OPS(xcan_runtime_suspend, xcan_runtime_resume, NULL)
-+};
- 
- /**
-  * xcan_probe - Platform registration call
-@@ -1071,7 +1090,7 @@ static int xcan_probe(struct platform_device *pdev)
- 		return -ENOMEM;
- 
- 	priv = netdev_priv(ndev);
--	priv->dev = ndev;
-+	priv->dev = &pdev->dev;
- 	priv->can.bittiming_const = &xcan_bittiming_const;
- 	priv->can.do_set_mode = xcan_do_set_mode;
- 	priv->can.do_get_berr_counter = xcan_get_berr_counter;
-@@ -1137,6 +1156,11 @@ static int xcan_probe(struct platform_device *pdev)
- 
- 	netif_napi_add(ndev, &priv->napi, xcan_rx_poll, rx_max);
- 
-+	pm_runtime_set_active(&pdev->dev);
-+	pm_runtime_irq_safe(&pdev->dev);
-+	pm_runtime_enable(&pdev->dev);
-+	pm_runtime_get_sync(&pdev->dev);
-+
- 	ret = register_candev(ndev);
- 	if (ret) {
- 		dev_err(&pdev->dev, "fail to register failed (err=%d)\n", ret);
-@@ -1144,8 +1168,9 @@ static int xcan_probe(struct platform_device *pdev)
- 	}
- 
- 	devm_can_led_init(ndev);
--	clk_disable_unprepare(priv->bus_clk);
--	clk_disable_unprepare(priv->can_clk);
-+
-+	pm_runtime_put(&pdev->dev);
-+
- 	netdev_dbg(ndev, "reg_base=0x%p irq=%d clock=%d, tx fifo depth:%d\n",
- 			priv->reg_base, ndev->irq, priv->can.clock.freq,
- 			priv->tx_max);
--- 
-1.7.4
-
+cheers,
+jamal
