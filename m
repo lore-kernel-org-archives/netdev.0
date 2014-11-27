@@ -1,76 +1,118 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [RFC PATCH 3/3] fm10k/igb/ixgbe: Use napi_alloc_skb
-Date: Wed, 26 Nov 2014 16:06:11 -0800
-Message-ID: <20141127000611.1617.27320.stgit@ahduyck-vm-fedora20>
-References: <20141126235900.1617.10008.stgit@ahduyck-vm-fedora20>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH rfc 1/4] net-timestamp: pull headers for SOCK_STREAM
+Date: Wed, 26 Nov 2014 16:36:39 -0800
+Message-ID: <CALCETrW+2Q-R8ekVW=u=3Xb5YvYK=4RnuuWCvAG8pyc9eG6DQg@mail.gmail.com>
+References: <1416938286-14147-2-git-send-email-willemb@google.com>
+ <20141125.134240.861582393401487675.davem@davemloft.net> <CA+FuTSdT9=Hi7K3OnMxVRiK8PmS4=DvVqLumWx74OEz3okx23A@mail.gmail.com>
+ <20141125.145434.1790615963499624322.davem@davemloft.net> <CALCETrXHdSVC-YLsdjHxAp3rU2gGFZaz8NNgaTKYgjM-ah3z+A@mail.gmail.com>
+ <CA+FuTScmwYyrU-LOK5dvbdcp4n=wig7GTdV1gmViS-2gJ4Q9ZA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, brouer@redhat.com,
-	jeffrey.t.kirsher@intel.com, eric.dumazet@gmail.com,
-	ast@plumgrid.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Richard Cochran <richardcochran@gmail.com>
+To: Willem de Bruijn <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57082 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751659AbaK0AGT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Nov 2014 19:06:19 -0500
-In-Reply-To: <20141126235900.1617.10008.stgit@ahduyck-vm-fedora20>
+Received: from mail-la0-f47.google.com ([209.85.215.47]:43474 "EHLO
+	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753099AbaK0AhB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 19:37:01 -0500
+Received: by mail-la0-f47.google.com with SMTP id hz20so3287513lab.20
+        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 16:36:59 -0800 (PST)
+In-Reply-To: <CA+FuTScmwYyrU-LOK5dvbdcp4n=wig7GTdV1gmViS-2gJ4Q9ZA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change replaces calls to netdev_alloc_skb_ip_align with
-napi_alloc_skb.  The advantage of napi_alloc_skb is currently the fact that
-the page allocation doesn't make use of any irq disable calls.
+On Wed, Nov 26, 2014 at 1:03 PM, Willem de Bruijn <willemb@google.com> wrote:
+> On Tue, Nov 25, 2014 at 4:39 PM, Andy Lutomirski <luto@amacapital.net> wrote:
+>> On Tue, Nov 25, 2014 at 11:54 AM, David Miller <davem@davemloft.net> wrote:
+>>> From: Willem de Bruijn <willemb@google.com>
+>>> Date: Tue, 25 Nov 2014 14:52:00 -0500
+>>>
+>>>> On Tue, Nov 25, 2014 at 1:42 PM, David Miller <davem@davemloft.net> wrote:
+>>>>> From: Willem de Bruijn <willemb@google.com>
+>>>>> Date: Tue, 25 Nov 2014 12:58:03 -0500
+>>>>>
+>>>>> What's the harm in exposing the headers?  Either it's harmful, and
+>>>>> therefore doing so for UDP is bad too, or it's harmless and
+>>>>
+>>>> Headers may expose information not available otherwise. I don't
+>>>> immediately see critical problems, but that does not mean that they
+>>>> might not lurk there.
+>>>>
+>>>> We so far avoid exposing the sequence number, though keeping it hidden
+>>>> is more about third parties. More in general, unprivileged processes
+>>>> may start requesting timestamps only to learn tcp state that they
+>>>> should either get from tcpinfo or cannot currently get at all, likely
+>>>> for good reason. A far-fetched example is identifying admin iptables
+>>>> tos mangling rules by reading the tos bits at the driver layer. At least
+>>>> on my machine, iptables -L is privileged.
+>>>>
+>>>>> we should probably leave it alone to not risk breaking anyone.
+>>>>
+>>>> That's fair. I sent it for rfc first for that reason. I won't resubmit
+>>>> unless more serious concerns are raised.
+>>>
+>>> I just worry about the potential breakage.
+>>>
+>>> Your concerns are valid... I honestly don't know what we should do here.
+>>> Both choices have merit.
+>>
+>> Here's a scenario in which giving the headers might be dangerous:
+>>
+>> Suppose I create a network namespace that's designed to contain
+>> something, e.g. a Tor or Tor-like client, that shouldn't know any of
+>> its public addressing information.  I might assign something like a
+>> tunnel interface to the namespace, but, if the contained code can get
+>> lower-level headers, it might learn something that would identify the
+>> *other* end of the tunnel, which wouldn't be so good.  Admittedly,
+>> this would be just one of several things that would require care to
+>> get this right.
+>
+> network namespaces are an interesting case, indeed.
+>
+>>
+>> Also, what happens if the output is transformed by ipsec?  Does the
+>> timestamp message show the ciphertext?
+>>
+>> TBH, I'd rather send no payload at all and have an scm message that
+>> the sender provides that specifies a cookie identifying the particular
+>> sent data.  But that ship mostly sailed awhile ago.
+>>
+>> For bytestreams, though, isn't this all new in 3.18?  Or am I off by a release.
+>
+> It was added in 3.17. That is still very recent.
+>
+> One third option, though hardly pretty, is to put display of headers
+> under administrator control. An application cannot easily infer whether
+> headers are stripped, and legacy applications do not even know to try.
+> So, this is a bit too crude:
+>
+> +    if (sk->sk_protocol == IPPROTO_TCP && sysctl_net_blind_errqueue)
+> +        skb_pull(skb, skb_transport_offset(skb) + tcp_hdrlen(skb));
+> +    else if (sk->sk_protocol == IPPROTO_UDP && sysctl_net_blind_errqueue >= 2)
+> +        skb_pull(skb, skb_transport_offset(skb) + sizeof(struct udphdr));
+>
+> An alternative is to add a timestamping option to skip headers (or
+> even full payload, basically
+> http://patchwork.ozlabs.org/patch/366967/) and give the administrator
+> a sysctl to drop all requests that do not pass this flag. The intent
+> is that future proof applications will start requesting the flag, and
+> relying on the ts counter. Hardened installations can set the sysctl
+> from the start, accepting possible breakage.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
- drivers/net/ethernet/intel/fm10k/fm10k_main.c |    4 ++--
- drivers/net/ethernet/intel/igb/igb_main.c     |    3 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
- 3 files changed, 5 insertions(+), 6 deletions(-)
+Is there any reason to believe that unconditionally dropping the
+headers would break anything?  I find it a bit hard to believe that
+anyone has actually implemented logic to figure out *what* L2 header
+type should be decoded and decode it.
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index 3acdec3..7eff7c6 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -310,8 +310,8 @@ static struct sk_buff *fm10k_fetch_rx_buffer(struct fm10k_ring *rx_ring,
- #endif
- 
- 		/* allocate a skb to store the frags */
--		skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
--						FM10K_RX_HDR_LEN);
-+		skb = napi_alloc_skb(&rx_ring->q_vector->napi,
-+				     FM10K_RX_HDR_LEN);
- 		if (unlikely(!skb)) {
- 			rx_ring->rx_stats.alloc_failed++;
- 			return NULL;
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 536ef9d..922d78c 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -6638,8 +6638,7 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
- #endif
- 
- 		/* allocate a skb to store the frags */
--		skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
--						IGB_RX_HDR_LEN);
-+		skb = napi_alloc_skb(&rx_ring->q_vector->napi, IGB_RX_HDR_LEN);
- 		if (unlikely(!skb)) {
- 			rx_ring->rx_stats.alloc_failed++;
- 			return NULL;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index a195d24..03df91f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1858,8 +1858,8 @@ static struct sk_buff *ixgbe_fetch_rx_buffer(struct ixgbe_ring *rx_ring,
- #endif
- 
- 		/* allocate a skb to store the frags */
--		skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
--						IXGBE_RX_HDR_SIZE);
-+		skb = napi_alloc_skb(&rx_ring->q_vector->napi,
-+				     IXGBE_RX_HDR_SIZE);
- 		if (unlikely(!skb)) {
- 			rx_ring->rx_stats.alloc_rx_buff_failed++;
- 			return NULL;
+I can imagine that someone has hardcoded an assumption that the
+underlying interface is Ethernet, but there's still the whole pile of
+vlan, random datacenter encapsulation protocols and such to worry
+about.
+
+--Andy
+
+-- 
+Andy Lutomirski
+AMA Capital Management, LLC
