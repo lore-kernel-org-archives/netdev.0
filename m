@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 12/21] bridge: add new brport flag LEARNING_SYNC
-Date: Thu, 27 Nov 2014 11:40:17 +0100
-Message-ID: <1417084826-9875-13-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v4 03/21] bridge: convert flags in fbd entry into bitfields
+Date: Thu, 27 Nov 2014 11:40:08 +0100
+Message-ID: <1417084826-9875-4-git-send-email-jiri@resnulli.us>
 References: <1417084826-9875-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
@@ -21,59 +21,40 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	bcrl@kvack.org, hemal@broadcom.co
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:54955 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754432AbaK0Kko (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 05:40:44 -0500
-Received: by mail-wg0-f52.google.com with SMTP id a1so6089058wgh.11
-        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 02:40:43 -0800 (PST)
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:61315 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754184AbaK0Kkd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 05:40:33 -0500
+Received: by mail-wi0-f174.google.com with SMTP id h11so15348530wiw.1
+        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 02:40:32 -0800 (PST)
 In-Reply-To: <1417084826-9875-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
-
-This policy flag controls syncing of learned FDB entries to bridge's FDB.  If
-on, FDB entries learned on bridge port device will be synced.  If off, device
-may still learn new FDB entries but they will not be synced with bridge's FDB.
-
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
-Acked-by: Andy Gospodarek <gospo@cumulusnetworks.com>
 ---
-v3->v4:
--just resolved conflict caused by BIT change of previous patch
-new in v3
+new in v4
 ---
- include/linux/if_bridge.h    | 1 +
- include/uapi/linux/if_link.h | 1 +
- 2 files changed, 2 insertions(+)
+ net/bridge/br_private.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
-index 2c81a8e..0a8ce76 100644
---- a/include/linux/if_bridge.h
-+++ b/include/linux/if_bridge.h
-@@ -43,6 +43,7 @@ struct br_ip_list {
- #define BR_AUTO_MASK		(BR_FLOOD | BR_LEARNING)
- #define BR_PROMISC		BIT(7)
- #define BR_PROXYARP		BIT(8)
-+#define BR_LEARNING_SYNC	BIT(9)
- 
- extern void brioctl_set(int (*ioctl_hook)(struct net *, unsigned int, void __user *));
- 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 623f1a7..f7d0d2d 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -245,6 +245,7 @@ enum {
- 	IFLA_BRPORT_LEARNING,	/* mac learning */
- 	IFLA_BRPORT_UNICAST_FLOOD, /* flood unicast traffic */
- 	IFLA_BRPORT_PROXYARP,	/* proxy ARP */
-+	IFLA_BRPORT_LEARNING_SYNC, /* mac learning sync from device */
- 	__IFLA_BRPORT_MAX
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 8f3f081..5b37077 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -98,9 +98,9 @@ struct net_bridge_fdb_entry
+ 	unsigned long			updated;
+ 	unsigned long			used;
+ 	mac_addr			addr;
+-	unsigned char			is_local;
+-	unsigned char			is_static;
+-	unsigned char			added_by_user;
++	unsigned char			is_local:1,
++					is_static:1,
++					added_by_user:1;
+ 	__u16				vlan_id;
  };
- #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
+ 
 -- 
 1.9.3
