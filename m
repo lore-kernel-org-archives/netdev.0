@@ -1,94 +1,66 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH net-next v4] ipvlan: Initial check-in of the IPVLAN driver.
-Date: Wed, 26 Nov 2014 22:55:23 -0800
-Message-ID: <CAF2d9jiTCmYU5sGK4SdZyPw=vyYenwwmjM3NEJcHi8rduE-xBw@mail.gmail.com>
-References: <1416812866-13401-1-git-send-email-maheshb@google.com>
- <54757631.8090604@lab.ntt.co.jp> <CAF2d9jgZkgk4kOyS7K959vEq_55DuEnkVdxzKPdmPiTxFfPvsg@mail.gmail.com>
- <5476859E.609@lab.ntt.co.jp>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch net-next v3 09/17] bridge: add API to notify bridge driver
+ of learned FBD on offloaded device
+Date: Wed, 26 Nov 2014 21:03:30 -1000
+Message-ID: <CAE4R7bC9o4ucO_Erb0tU4EwJNYj8SrapbKxNWvUTL8YD=RMBJQ@mail.gmail.com>
+References: <E4CD12F19ABA0C4D8729E087A761DC3505D7E13E@ORSMSX101.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>,
-	Laurent Chavey <chavey@google.com>,
-	Tim Hockin <thockin@google.com>,
-	David Miller <davem@davemloft.net>,
-	Brandon Philips <brandon.philips@coreos.com>,
-	Pavel Emelianov <xemul@parallels.com>
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Arad, Ronen" <ronen.arad@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:59425 "EHLO
-	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750834AbaK0Gzo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 01:55:44 -0500
-Received: by mail-oi0-f47.google.com with SMTP id v63so3101758oia.6
-        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 22:55:43 -0800 (PST)
-In-Reply-To: <5476859E.609@lab.ntt.co.jp>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:59494 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750905AbaK0HDb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 02:03:31 -0500
+Received: by mail-wi0-f182.google.com with SMTP id h11so7287170wiw.3
+        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 23:03:30 -0800 (PST)
+In-Reply-To: <E4CD12F19ABA0C4D8729E087A761DC3505D7E13E@ORSMSX101.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 26, 2014 at 5:59 PM, Toshiaki Makita
-<makita.toshiaki@lab.ntt.co.jp> wrote:
-> On 2014/11/27 2:05, Mahesh Bandewar wrote:
->> On Tue, Nov 25, 2014 at 10:41 PM, Toshiaki Makita
->> <makita.toshiaki@lab.ntt.co.jp> wrote:
->>> Hi Mahesh,
->>>
->>> I found that deleting the last ipvlan device triggers WARN_ON() in
->>> rtmsg_ifinfo().
->>> ipvlan_nl_fillinfo() seems to return -EINVAL in that case.
->>>
->>>> +static int ipvlan_nl_fillinfo(struct sk_buff *skb,
->>>> +                           const struct net_device *dev)
->>>> +{
->>>> +     struct ipvl_dev *ipvlan = netdev_priv(dev);
->>>> +     struct ipvl_port *port = ipvlan_port_get_rtnl(ipvlan->phy_dev);
->>>> +     int ret = -EINVAL;
->>>> +
->>>> +     if (!port)
->>>> +             goto err;
->>>> +
->>>> +     ret = -EMSGSIZE;
->>>> +     if (nla_put_u16(skb, IFLA_IPVLAN_MODE, port->mode))
->>>> +             goto err;
->>>> +
->>>> +     return 0;
->>>> +
->>>> +err:
->>>> +     return ret;
->>>> +}
->>>
->>> rollback_registered_many() calls rtmsg_ifinfo() after calling ndo_uninit().
->>> ndo_uninit() (ipvlan_uninit() -> ipvlan_port_destroy() ->
->>> netdev_rx_handler_unregister()) sets rx_handler_data into NULL.
->>> So, we cannot dereference "port" in ipvlan_nl_fillinfo().
->>>
->> Calling fillinfo() after calling uninit() seems pointless on any
->> device.
->
-> bonding needs calling rtmsg_ifinfo() after calling ndo_uninit().
-> 56bfa7ee7c88 ("unregister_netdevice : move RTM_DELLINK to until after
-> ndo_uninit")
->
-Thanks I'll take a look.
-
->> But how are you hitting this case? Can you share the command
->> sequence with me?
->
-> # ip link add link eth0 name ipvl0 type ipvlan
-> # ip link del ipvl0
->
-Yes, I could reproduce the issue when the master device is a bond.
-
-> Thanks,
-> Toshiaki Makita
->
+On Tue, Nov 25, 2014 at 9:37 PM, Arad, Ronen <ronen.arad@intel.com> wrote:
+>> >>>
+>> >>> Is there any case where this fdb entry gets re-used and is no
+>> >>> longer added by an external learning? Should we clear this flag somewhere?
+>> >>
+>> >> Once the FDB entry is marked "added_by_external_learn" it stays
+>> >> marked as such until removed by aging cleanup process (or flushed
+>> >> due to interface down, etc).  If aged out (and now deleted), the
+>> >> FDB entry may come back either by SW learn or by HW learn.  If SW
+>> >> learn comes first, and then HW learn, HW learn will override and
+>> >> mark the existing FDB entry "added_by_external_learn".  So there is
+>> >> take-over by HW but no give-back to SW.  And there is no explicit
+>> >> clearing of the mark short of deleting the FDB entry.  The mark is
+>> >> mostly for letting user's know which FDB entries where learned by
+>> >> HW and synced to the bridge's FDB.
+>> >
+>> > Thanks, makes sense now. This is probably obvious in this context,
+>> > but maybe it would not hurt to come up with a documentation that
+>> > describe the offload API, FDB entry lifetime and HW/SW ownership etc...
 >>
->> Thanks,
->> --mahesh..
->>
->>> Maybe "mode" should belong to struct ipvl_dev?
->>>
->>> Thanks,
->>> Toshiaki Makita
+>> I have an updated Documentation/networking/switchdev.txt that covers
+>> the swdev APIs and usage and notes, but Jiri is being stingy with it.
+>> Will get this out, either in v4 or follow-on patches.  There is enough
+>> going on just with L2 offload that we're going to need some good
+>> documentation to guide implementers.
+>> --
 >
+> To control the lifetime of an externally learned FDB entry, the bridge shall provide an API for the switch driver to update the freshness of externally learned entries. Otherwise, the bridge aging will age entries which are currently or frequently used by the HW.
+> Is this covered in the updated document?
+> Is this functionality planned for v4?
+
+Hi Ronen,
+
+It's already there: driver calls br_fdb_external_learn_add() to
+refresh FBD entry, which updates the fdb->updated and fdb->used
+timestamps, preventing bridge from prematurely aging out the entry.
+We'll make sure that detail gets in the doc.  It's up to the driver on
+how frequently it calls br_fdb_external_learn_add().  Maybe it just
+blindly makes the call every 1s.  That's what rocker driver does (as
+long as the FDB entry continues to get hits).  From the user's
+perspective, 1s update is nice when looking at the stats dump for
+fdbs, since the timestamps are in secs.
+
+-scott
