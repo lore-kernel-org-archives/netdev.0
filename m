@@ -1,47 +1,94 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net] rtnetlink: release net refcnt on error in do_setlink()
-Date: Thu, 27 Nov 2014 09:48:39 -0600
-Message-ID: <871toozlt4.fsf@x220.int.ebiederm.org>
-References: <1417079775-9287-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: wl1251: NVS firmware data
+Date: Thu, 27 Nov 2014 07:58:40 -0800
+Message-ID: <20141127155840.GC24149@kroah.com>
+References: <201411271506.20457@pali>
+ <201411271543.23527@pali>
+ <20141127151655.GB23064@kroah.com>
+ <201411271622.58916@pali>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:52953 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750830AbaK0Pt5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 10:49:57 -0500
-In-Reply-To: <1417079775-9287-1-git-send-email-nicolas.dichtel@6wind.com>
-	(Nicolas Dichtel's message of "Thu, 27 Nov 2014 10:16:15 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ming Lei <ming.lei@canonical.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Grazvydas Ignotas <notasas@gmail.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Pavel Machek <pavel@ucw.cz>,
+	Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+	Aaro Koskinen <aaro.koskinen@iki.fi>,
+	Kalle Valo <kvalo@adurom.com>,
+	Sebastian Reichel <sre@ring0.de>,
+	David Gnedt <david.gnedt@davizone.at>
+To: Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201411271622.58916@pali>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
+On Thu, Nov 27, 2014 at 04:22:58PM +0100, Pali Roh=E1r wrote:
+> On Thursday 27 November 2014 16:16:55 Greg Kroah-Hartman wrote:
+> > On Thu, Nov 27, 2014 at 03:43:23PM +0100, Pali Roh=E1r wrote:
+> > > On Thursday 27 November 2014 15:21:44 Ming Lei wrote:
+> > > > On Thu, Nov 27, 2014 at 10:06 PM, Pali Roh=E1r
+> > >=20
+> > > <pali.rohar@gmail.com> wrote:
+> > > > > Hello,
+> > > > >=20
+> > > > > wifi driver wl1251 needs NVS calibration data for
+> > > > > working. These data are loaded by driver via
+> > > > > request_firmware from userspace file:
+> > > > > ti-connectivity/wl1251-nvs.bin. In linux-fimrware git
+> > > > > tree there is generic wl1251-nvs.bin file which is used
+> > > > > by default.
+> > > > >=20
+> > > > > Driver wl1251 is used on Nokia N900 cellphone for its
+> > > > > wifi chip. This cellphone has one special MTD partition
+> > > > > (called CAL) where are stored some configuration data
+> > > > > in special binary (key-value) format. And there is also
+> > > > > stored correct calibration data for specific device
+> > > > > (each device has different data). It is preferred to
+> > > > > use those data instead generic one (provided by
+> > > > > linux-firmware git tree).
+> > > > >=20
+> > > > > Now my question is: How to correctly load calibration
+> > > > > data from special Nokia N900 CAL partition into wl1251
+> > > > > kernel driver?
+> > > >=20
+> > > > It is better to let user space script handle the request.
+> > >=20
+> > > Yes, this makes sense. Implementing CAL parser in kernel
+> > > wl1251 driver would be hard...
+> > >=20
+> > > > > By default kernel reads ti-connectivity/wl1251-nvs.bin
+> > > > > file from VFS if exists without any userspace support.
+> > > > > If it fails then it fallback to loading via udev.
+> > > >=20
+> > > > You can remove or rename this file so that loading from
+> > > > user space can be triggered.
+> > >=20
+> > > It is no so easy... In case when CAL does not contains NVS
+> > > data then we want to use this generic NVS file. And telling
+> > > everybody to rename this is file is not good solution...
+> >=20
+> > But that's up to your system configuration, not the kernel.=20
+> > Make a userspace package for the firmware that creates it in
+> > the format you need it to be in, for the hardware you have,
+> > and then there would not be any need for a kernel change,
+> > right?
+> >=20
+> > greg k-h
+>=20
+> Not so simple as you think. Some parts of NVS data are configured=20
+> based on location and cellular station. Data are not static.
 
-> rtnl_link_get_net() holds a reference on the 'struct net', we need to release
-> it in case of error.
->
-> CC: Eric W. Biederman <ebiederm@xmission.com>
-> Fixes: b51642f6d77b ("net: Enable a userns root rtnl calls that are safe for unprivilged users")
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Then you need a dynamic program that you control, in userspace, to dump
+the needed data into the kernel.  Don't try to do it with "static"
+firmware files.  Use the binary sysfs file interface for this if you
+want.
 
-Doh!
-Reviewed-by: "Eric W. Biederman" <ebiederm@xmission.com>
+good luck,
 
-> ---
->  net/core/rtnetlink.c | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index b9b7dfaf202b..76321ea442c3 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -1498,6 +1498,7 @@ static int do_setlink(const struct sk_buff *skb,
->  			goto errout;
->  		}
->  		if (!netlink_ns_capable(skb, net->user_ns, CAP_NET_ADMIN)) {
-> +			put_net(net);
->  			err = -EPERM;
->  			goto errout;
->  		}
+greg k-h
