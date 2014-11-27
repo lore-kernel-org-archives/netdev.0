@@ -1,101 +1,70 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH rfc] packet: zerocopy packet_snd
-Date: Thu, 27 Nov 2014 12:44:45 +0200
-Message-ID: <20141127104445.GA8961@redhat.com>
-References: <1416602694-7540-1-git-send-email-willemb@google.com>
- <20141126182445.GA15744@redhat.com>
- <CA+FuTSdYB4rDMH3gAAMwaRdbqN58f_SxLz=C3fcCACw_KosGXw@mail.gmail.com>
- <20141126211748.GA11904@redhat.com>
- <1417079412.18179.3@smtp.corp.redhat.com>
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Subject: Re: [PATCH v2] sh_eth: Fix skb alloc size and alignment adjust rule.
+Date: Thu, 27 Nov 2014 20:26:39 +0900
+Message-ID: <CAH1o70+iTTPDebguJMg_gLC=zJgPHxaYU9tSta1rX=VkX+9XHw@mail.gmail.com>
+References: <1416479721-23089-1-git-send-email-ykaneko0929@gmail.com>
+	<20141121.150544.2240809721107766779.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Willem de Bruijn <willemb@google.com>,
-	Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57880 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752666AbaK0Kox (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Nov 2014 05:44:53 -0500
-Content-Disposition: inline
-In-Reply-To: <1417079412.18179.3@smtp.corp.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Linux-sh list <linux-sh@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20141121.150544.2240809721107766779.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 27, 2014 at 09:18:12AM +0008, Jason Wang wrote:
-> 
-> 
-> On Thu, Nov 27, 2014 at 5:17 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> >On Wed, Nov 26, 2014 at 02:59:34PM -0500, Willem de Bruijn wrote:
-> >> > The main problem with zero copy ATM is with queueing disciplines
-> >> > which might keep the socket around essentially forever.
-> >> > The case was described here:
-> >> > https://lkml.org/lkml/2014/1/17/105
-> >> > and of course this will make it more serious now that
-> >> > more applications will be able to do this, so
-> >> > chances that an administrator enables this
-> >> > are higher.
-> >> The denial of service issue raised there, that a single queue can
-> >> block an entire virtio-net device, is less problematic in the case of
-> >> packet sockets. A socket can run out of sk_wmem_alloc, but a prudent
-> >> application can increase the limit or use separate sockets for
-> >> separate flows.
-> >
-> >Socket per flow? Maybe just use TCP then?  increasing the limit
-> >sounds like a wrong solution, it hurts security.
-> >
-> >> > One possible solution is some kind of timer orphaning frags
-> >> > for skbs that have been around for too long.
-> >>   Perhaps this can be approximated without an explicit timer by calling
-> >> skb_copy_ubufs on enqueue whenever qlen exceeds a threshold value?
-> >
-> >Hard to say. Will have to see that patch to judge how robust this is.
-> 
-> This could not work, consider if the threshold is greater than vring size
-> or vhost_net pending limit, transmission may still be blocked.
+Hello David,
 
-Well, application can e.g. just switch to non zero copy after
-reaching a specific number of requests.
-I think the real problem isn't reaching the queue full
-condition, it's the fact a specific buffer might never
-get freed. This API isn't half as useful as it could be
-if applications had a way to force the memory
-to be reclaimed.
+I'm very sorry for the late response.
 
+2014-11-22 5:05 GMT+09:00 David Miller <davem@davemloft.net>:
+> From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+> Date: Thu, 20 Nov 2014 19:35:21 +0900
+>
+>> From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+>>
+>> In the current driver, allocation size of skb does not care the alig=
+nment
+>> adjust after allocation.
+>> And also, in the current implementation, buffer alignment method by
+>> sh_eth_set_receive_align function has a bug that this function displ=
+ace
+>> buffer start address forcedly when the alignment is corrected.
+>> In the result, tail of the skb will exceed allocated area and kernel=
+ panic
+>> will be occurred.
+>> This patch fix this issue.
+>>
+>> Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+>> ---
+>>
+>> The previous version of this patch was a part of the patch series as=
+ follows:
+>> [PATCH 2/3] sh_eth: Fix skb alloc size and alignment adjust rule.
+>>
+>> This series is based on net tree.
+>>
+>> v2 [Yoshihiro Kaneko]
+>> * Update as suggested by Sergei Shtylyov
+>>   - Fixed the coding style
+>>   - Corrected the comment
+>>   - Removed {SH2_SH3|SH4}_SKB_RX_ALIGN
+>
+> Please compile test your changes on 64-bit platforms:
+>
+> drivers/net/ethernet/renesas/sh_eth.c: In function =E2=80=98sh_eth_se=
+t_receive_align=E2=80=99:
+> drivers/net/ethernet/renesas/sh_eth.c:922:16: warning: cast from poin=
+ter to integer of different size [-Wpointer-to-int-cast]
 
-And actually, I see a way for applications to reclaim the memory:
-application could invoke something like MADV_SOFT_OFFLINE on the memory
-submitted for zero copy transmit, to invalidate PTEs, and make next
-access fault new pages in.
-If dedicated memory is used for packets, you could even use
-MADV_DONTNEED - but this doesn't work in many cases, certainly
-not for virtualization type workloads.
+I have never seen that warning message because I had done compile test
+for ARM platform.
+I saw the warning after I do compile test for x86_64.
+I'll post the new version of this patch.
 
-Playting with PTEs needs to invalidate the TLB so it is not fast,
-but it does not need to be: we are talking about ability to close the
-socket, which should be rare.
-
-For example, an application/hypervisor can detect a timeout when a
-packet is not transmitted within a predefined time period, and trigger
-such reclaim.
-Making this period shorter than network watchdog timer of the VM
-will ensure that watchdog does not trigger within VM.
-Alternatively, VM network watchdog could trigger this reclaim
-in order to recover packet memory.
-
-With this idea, if application merely reads memory, we incur a lot of
-overhead with pagefaults. So maybe a new call to enable COW for a range
-of pages would be a good idea.
-
-
-We'd have to make sure whatever's used for reclaim works for
-a wide range of memory types: mmap-ed file, hugetlbfs, anonymous memory.
-
-
-Thoughts?
-
--- 
-MST
+Thanks,
+Kaneko
