@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 14/21] bridge: add brport flags to dflt bridge_getlink
-Date: Thu, 27 Nov 2014 11:40:19 +0100
-Message-ID: <1417084826-9875-15-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v4 18/21] rocker: implement ndo_fdb_dump
+Date: Thu, 27 Nov 2014 11:40:23 +0100
+Message-ID: <1417084826-9875-19-git-send-email-jiri@resnulli.us>
 References: <1417084826-9875-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
@@ -21,138 +21,116 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	bcrl@kvack.org, hemal@broadcom.co
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:42649 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754377AbaK0Kkq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 05:40:46 -0500
-Received: by mail-wg0-f49.google.com with SMTP id x12so6069311wgg.22
-        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 02:40:45 -0800 (PST)
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:44752 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754481AbaK0Kkx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 05:40:53 -0500
+Received: by mail-wi0-f177.google.com with SMTP id l15so7866700wiw.4
+        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 02:40:51 -0800 (PST)
 In-Reply-To: <1417084826-9875-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
-
-To allow brport device to return current brport flags set on port.  Add
-returned flags to nested IFLA_PROTINFO netlink msg built in dflt getlink.
-With this change, netlink msg returned for bridge_getlink contains the port's
-offloaded flag settings (the port's SELF settings).
-
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-Acked-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-Acked-by: Thomas Graf <tgraf@suug.ch>
 ---
 v3->v4:
--no change
+-ndm->ndm_flags set to NTF_SELF as pointed out by Scott
+-use err to store retval of rocker_fdb_fill_info and break only in case < 0
 new in v3
 ---
- drivers/net/ethernet/emulex/benet/be_main.c   |  3 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  2 +-
- include/linux/rtnetlink.h                     |  3 ++-
- net/core/rtnetlink.c                          | 39 ++++++++++++++++++++++++++-
- 4 files changed, 43 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/rocker/rocker.c | 73 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 73 insertions(+)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 9070b98..6510ec8 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4362,7 +4362,8 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 
- 	return ndo_dflt_bridge_getlink(skb, pid, seq, dev,
- 				       hsw_mode == PORT_FWD_TYPE_VEPA ?
--				       BRIDGE_MODE_VEPA : BRIDGE_MODE_VEB);
-+				       BRIDGE_MODE_VEPA : BRIDGE_MODE_VEB,
-+				       0, 0);
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 6c15aa1..fea49e8 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -3587,6 +3587,78 @@ static int rocker_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
+ 	return rocker_port_fdb(rocker_port, addr, vlan_id, flags);
  }
  
- #ifdef CONFIG_BE2NET_VXLAN
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 1bad9f4..eb2a04b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7773,7 +7773,7 @@ static int ixgbe_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 	else
- 		mode = BRIDGE_MODE_VEPA;
- 
--	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode);
-+	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode, 0, 0);
- }
- 
- static void *ixgbe_fwd_add(struct net_device *pdev, struct net_device *vdev)
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index 063f0f5..3b04190 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -103,5 +103,6 @@ extern int ndo_dflt_fdb_del(struct ndmsg *ndm,
- 			    u16 vid);
- 
- extern int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
--				   struct net_device *dev, u16 mode);
-+				   struct net_device *dev, u16 mode,
-+				   u32 flags, u32 mask);
- #endif	/* __LINUX_RTNETLINK_H */
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index b6541f2..7525ba3 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2687,12 +2687,22 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	return skb->len;
- }
- 
-+static int brport_nla_put_flag(struct sk_buff *skb, u32 flags, u32 mask,
-+			       unsigned int attrnum, unsigned int flag)
++static int rocker_fdb_fill_info(struct sk_buff *skb,
++				struct rocker_port *rocker_port,
++				const unsigned char *addr, u16 vid,
++				u32 portid, u32 seq, int type,
++				unsigned int flags)
 +{
-+	if (mask & flag)
-+		return nla_put_u8(skb, attrnum, !!(flags & flag));
-+	return 0;
++	struct nlmsghdr *nlh;
++	struct ndmsg *ndm;
++
++	nlh = nlmsg_put(skb, portid, seq, type, sizeof(*ndm), flags);
++	if (!nlh)
++		return -EMSGSIZE;
++
++	ndm = nlmsg_data(nlh);
++	ndm->ndm_family	 = AF_BRIDGE;
++	ndm->ndm_pad1    = 0;
++	ndm->ndm_pad2    = 0;
++	ndm->ndm_flags	 = NTF_SELF;
++	ndm->ndm_type	 = 0;
++	ndm->ndm_ifindex = rocker_port->dev->ifindex;
++	ndm->ndm_state   = NUD_REACHABLE;
++
++	if (nla_put(skb, NDA_LLADDR, ETH_ALEN, addr))
++		goto nla_put_failure;
++
++	if (vid && nla_put_u16(skb, NDA_VLAN, vid))
++		goto nla_put_failure;
++
++	return nlmsg_end(skb, nlh);
++
++nla_put_failure:
++	nlmsg_cancel(skb, nlh);
++	return -EMSGSIZE;
 +}
 +
- int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
--			    struct net_device *dev, u16 mode)
-+			    struct net_device *dev, u16 mode,
-+			    u32 flags, u32 mask)
- {
- 	struct nlmsghdr *nlh;
- 	struct ifinfomsg *ifm;
- 	struct nlattr *br_afspec;
-+	struct nlattr *protinfo;
- 	u8 operstate = netif_running(dev) ? dev->operstate : IF_OPER_DOWN;
- 	struct net_device *br_dev = netdev_master_upper_dev_get(dev);
- 
-@@ -2731,6 +2741,33 @@ int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 	}
- 	nla_nest_end(skb, br_afspec);
- 
-+	protinfo = nla_nest_start(skb, IFLA_PROTINFO | NLA_F_NESTED);
-+	if (!protinfo)
-+		goto nla_put_failure;
++static int rocker_port_fdb_dump(struct sk_buff *skb,
++				struct netlink_callback *cb,
++				struct net_device *dev,
++				struct net_device *filter_dev,
++				int idx)
++{
++	struct rocker_port *rocker_port = netdev_priv(dev);
++	struct rocker *rocker = rocker_port->rocker;
++	struct rocker_fdb_tbl_entry *found;
++	struct hlist_node *tmp;
++	int bkt;
++	unsigned long lock_flags;
++	const unsigned char *addr;
++	u16 vid;
++	int err;
 +
-+	if (brport_nla_put_flag(skb, flags, mask,
-+				IFLA_BRPORT_MODE, BR_HAIRPIN_MODE) ||
-+	    brport_nla_put_flag(skb, flags, mask,
-+				IFLA_BRPORT_GUARD, BR_BPDU_GUARD) ||
-+	    brport_nla_put_flag(skb, flags, mask,
-+				IFLA_BRPORT_FAST_LEAVE,
-+				BR_MULTICAST_FAST_LEAVE) ||
-+	    brport_nla_put_flag(skb, flags, mask,
-+				IFLA_BRPORT_PROTECT, BR_ROOT_BLOCK) ||
-+	    brport_nla_put_flag(skb, flags, mask,
-+				IFLA_BRPORT_LEARNING, BR_LEARNING) ||
-+	    brport_nla_put_flag(skb, flags, mask,
-+				IFLA_BRPORT_LEARNING_SYNC, BR_LEARNING_SYNC) ||
-+	    brport_nla_put_flag(skb, flags, mask,
-+				IFLA_BRPORT_UNICAST_FLOOD, BR_FLOOD) ||
-+	    brport_nla_put_flag(skb, flags, mask,
-+				IFLA_BRPORT_PROXYARP, BR_PROXYARP)) {
-+		nla_nest_cancel(skb, protinfo);
-+		goto nla_put_failure;
++	spin_lock_irqsave(&rocker->fdb_tbl_lock, lock_flags);
++	hash_for_each_safe(rocker->fdb_tbl, bkt, tmp, found, entry) {
++		if (found->key.lport != rocker_port->lport)
++			continue;
++		if (idx < cb->args[0])
++			goto skip;
++		addr = found->key.addr;
++		vid = rocker_port_vlan_to_vid(rocker_port, found->key.vlan_id);
++		err = rocker_fdb_fill_info(skb, rocker_port, addr, vid,
++					   NETLINK_CB(cb->skb).portid,
++					   cb->nlh->nlmsg_seq,
++					   RTM_NEWNEIGH, NLM_F_MULTI);
++		if (err < 0)
++			break;
++skip:
++		++idx;
 +	}
++	spin_unlock_irqrestore(&rocker->fdb_tbl_lock, lock_flags);
++	return idx;
++}
 +
-+	nla_nest_end(skb, protinfo);
-+
- 	return nlmsg_end(skb, nlh);
- nla_put_failure:
- 	nlmsg_cancel(skb, nlh);
+ static int rocker_port_switch_parent_id_get(struct net_device *dev,
+ 					    struct netdev_phys_item_id *psid)
+ {
+@@ -3614,6 +3686,7 @@ static const struct net_device_ops rocker_port_netdev_ops = {
+ 	.ndo_vlan_rx_kill_vid		= rocker_port_vlan_rx_kill_vid,
+ 	.ndo_fdb_add			= rocker_port_fdb_add,
+ 	.ndo_fdb_del			= rocker_port_fdb_del,
++	.ndo_fdb_dump			= rocker_port_fdb_dump,
+ 	.ndo_switch_parent_id_get	= rocker_port_switch_parent_id_get,
+ 	.ndo_switch_port_stp_update	= rocker_port_switch_port_stp_update,
+ };
 -- 
 1.9.3
