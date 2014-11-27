@@ -1,92 +1,81 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net] bpf: x86: fix epilogue generation for eBPF programs
-Date: Thu, 27 Nov 2014 10:52:49 +0100
-Message-ID: <5476F471.80500@redhat.com>
-References: <1417064546-4129-1-git-send-email-ast@plumgrid.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: Is this 32-bit NCM?
+Date: Thu, 27 Nov 2014 11:03:24 +0100
+Message-ID: <874mtl55ar.fsf@nemi.mork.no>
+References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
+	<87ppc957h1.fsf@nemi.mork.no>
+	<alpine.LNX.2.03.1411271037050.9464@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Zi Shen Lim <zlim.lnx@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417064546-4129-1-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: youtux@gmail.com, alexxst@gmail.com, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Enrico Mioso <mrkiko.rs@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:49053 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754182AbaK0KDe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 05:03:34 -0500
+In-Reply-To: <alpine.LNX.2.03.1411271037050.9464@gmail.com> (Enrico Mioso's
+	message of "Thu, 27 Nov 2014 10:45:59 +0100 (CET)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/27/2014 06:02 AM, Alexei Starovoitov wrote:
-> classic BPF has a restriction that last insn is always BPF_RET.
-> eBPF doesn't have BPF_RET instruction and this restriction.
-> It has BPF_EXIT insn which can appear anywhere in the program
-> one or more times and it doesn't have to be last insn.
-> Fix eBPF JIT to emit epilogue when first BPF_EXIT is seen
-> and all other BPF_EXIT instructions will be emitted as jump.
->
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> ---
-> Note, this bug is applicable only to native eBPF programs
-> which first were introduced in 3.18, so no need to send it
-> to stable and therefore no 'Fixes' tag.
+Enrico Mioso <mrkiko.rs@gmail.com> writes:
 
-Btw, even if it's not sent to -stable, a 'Fixes:' tag is useful
-information for backporting and regression tracking, preferably
-always mentioned where it can clearly be identified.
+> Ok - we can arrive to some ocnclusions regarding the E3272.
+> First of all - the modem seems buggy enough to not be able to handle =
+requests=20
+> for different formats. You need to unplug and re-plug it, but this is=
+ onlyan=20
+> impression and is reasonable.
+>
+> Then - the modem will accept to ndisdup the connection with
+> at^ndisdup=3D1,1,"internet"
+> but - if we use huawei_cdc_ncm + cdc_ncm we have no flow handling mes=
+sages and=20
+> the modem stops here.
+> If we use the cdc_ncm 32-bit driver (modified) we get lotfs of
+> ^dsflorpt
+> that's how it should be.
+> So I think we can say that something is changing.
+> Then there's the alignment problem you mentioned in your previous rep=
+ly. And=20
+> this is hard to solve.
+> could you try to help me understand where the problem is?
+> I feel like we are very close to the solution but something isn't wor=
+king.
+> Or might be just try to change the 16 bit driver?
 
-> arm64 JIT has the same problem, but the fix is not as trivial,
-> so will be done as separate patch.
->
-> Since 3.18 can only load eBPF programs and cannot execute them,
-> this patch can even be done in net-next only, but I think it's worth
-> to apply it to 3.18(net), so that JITed output for native eBPF
-> programs is correct when bpf syscall loads it with net.core.bpf_jit_enable=2
+If you use a recent version of the driver as a basis, then you get the
+CDC NCM NTB parameters in sysfs (if not, then you need to enable
+debugging and look in the log for these values).  For example:
 
-Yes, sounds good to me, the condition insn_cnt - 1 is still held
-with BPF to eBPF transformations.
+bjorn@nemi:~$ grep . /sys/class/net/wwan0/cdc_ncm/*
+/sys/class/net/wwan0/cdc_ncm/bmNtbFormatsSupported:0x0001
+/sys/class/net/wwan0/cdc_ncm/dwNtbInMaxSize:15360
+/sys/class/net/wwan0/cdc_ncm/dwNtbOutMaxSize:15360
+/sys/class/net/wwan0/cdc_ncm/min_tx_pkt:13824
+/sys/class/net/wwan0/cdc_ncm/rx_max:15360
+/sys/class/net/wwan0/cdc_ncm/tx_max:15360
+/sys/class/net/wwan0/cdc_ncm/tx_timer_usecs:400
+/sys/class/net/wwan0/cdc_ncm/wNdpInAlignment:4
+/sys/class/net/wwan0/cdc_ncm/wNdpInDivisor:1
+/sys/class/net/wwan0/cdc_ncm/wNdpInPayloadRemainder:0
+/sys/class/net/wwan0/cdc_ncm/wNdpOutAlignment:4
+/sys/class/net/wwan0/cdc_ncm/wNdpOutDivisor:32
+/sys/class/net/wwan0/cdc_ncm/wNdpOutPayloadRemainder:0
+/sys/class/net/wwan0/cdc_ncm/wNtbOutMaxDatagrams:32
 
->   arch/x86/net/bpf_jit_comp.c |    6 ++++--
->   1 file changed, 4 insertions(+), 2 deletions(-)
->
-> diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-> index 3f62734..7e90244 100644
-> --- a/arch/x86/net/bpf_jit_comp.c
-> +++ b/arch/x86/net/bpf_jit_comp.c
-> @@ -178,7 +178,7 @@ static void jit_fill_hole(void *area, unsigned int size)
->   }
->
->   struct jit_context {
-> -	unsigned int cleanup_addr; /* epilogue code offset */
-> +	int cleanup_addr; /* epilogue code offset */
 
-Why this type change here? This seems a bit out of context (I would
-have expected a mention of this in the commit message, otherwise).
+The possible problem I am thinking of is proper handling of the
+wNdp*PayloadRemainder values. See section 3.3.4 "NCM Ethernet Frame
+Alignment" in the spec.  Which is confusing as hell, but if I understan=
+d
+it correctly then we are supposed to align the start of the IP packets
+(the "payload", _not_ the ethernet frame) to a whole wNdp*Divisor numbe=
+r
+as long as the wNdp*PayloadRemainder is 0.
 
->   	bool seen_ld_abs;
->   };
->
-> @@ -192,6 +192,7 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
->   	struct bpf_insn *insn = bpf_prog->insnsi;
->   	int insn_cnt = bpf_prog->len;
->   	bool seen_ld_abs = ctx->seen_ld_abs | (oldproglen == 0);
-> +	bool seen_exit = false;
->   	u8 temp[BPF_MAX_INSN_SIZE + BPF_INSN_SAFETY];
->   	int i;
->   	int proglen = 0;
-> @@ -854,10 +855,11 @@ common_load:
->   			goto common_load;
->
->   		case BPF_JMP | BPF_EXIT:
-> -			if (i != insn_cnt - 1) {
-> +			if (seen_exit) {
->   				jmp_offset = ctx->cleanup_addr - addrs[i];
->   				goto emit_jmp;
->   			}
-> +			seen_exit = true;
->   			/* update cleanup_addr */
->   			ctx->cleanup_addr = proglen;
->   			/* mov rbx, qword ptr [rbp-X] */
->
+
+Bj=C3=B8rn
