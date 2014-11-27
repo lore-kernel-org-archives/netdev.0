@@ -1,98 +1,75 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH rfc] packet: zerocopy packet_snd
-Date: Thu, 27 Nov 2014 09:27:17 +0200
-Message-ID: <20141127072717.GA8644@redhat.com>
-References: <1416602694-7540-1-git-send-email-willemb@google.com>
- <20141126182445.GA15744@redhat.com>
- <CA+FuTSdYB4rDMH3gAAMwaRdbqN58f_SxLz=C3fcCACw_KosGXw@mail.gmail.com>
- <20141126212038.GA12118@redhat.com>
- <CA+FuTSf_qiO964ZK1gB9skd1iQMj3iodcccscCt=vo6j92MsuA@mail.gmail.com>
+From: "Arad, Ronen" <ronen.arad@intel.com>
+Subject: RE: [patch net-next v3 09/17] bridge: add API to notify bridge
+ driver of learned FBD on offloaded device
+Date: Thu, 27 Nov 2014 07:37:21 +0000
+Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505D7EBC7@ORSMSX101.amr.corp.intel.com>
+References: <E4CD12F19ABA0C4D8729E087A761DC3505D7E13E@ORSMSX101.amr.corp.intel.com>
+ <CAE4R7bC9o4ucO_Erb0tU4EwJNYj8SrapbKxNWvUTL8YD=RMBJQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Willem de Bruijn <willemb@google.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53970 "EHLO mx1.redhat.com"
+Received: from mga01.intel.com ([192.55.52.88]:54686 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750884AbaK0H1X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Nov 2014 02:27:23 -0500
-Content-Disposition: inline
-In-Reply-To: <CA+FuTSf_qiO964ZK1gB9skd1iQMj3iodcccscCt=vo6j92MsuA@mail.gmail.com>
+	id S1752471AbaK0HhX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Nov 2014 02:37:23 -0500
+In-Reply-To: <CAE4R7bC9o4ucO_Erb0tU4EwJNYj8SrapbKxNWvUTL8YD=RMBJQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 26, 2014 at 06:05:16PM -0500, Willem de Bruijn wrote:
-> On Wed, Nov 26, 2014 at 4:20 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> > On Wed, Nov 26, 2014 at 02:59:34PM -0500, Willem de Bruijn wrote:
-> >> > The main problem with zero copy ATM is with queueing disciplines
-> >> > which might keep the socket around essentially forever.
-> >> > The case was described here:
-> >> > https://lkml.org/lkml/2014/1/17/105
-> >> > and of course this will make it more serious now that
-> >> > more applications will be able to do this, so
-> >> > chances that an administrator enables this
-> >> > are higher.
-> >>
-> >> The denial of service issue raised there, that a single queue can
-> >> block an entire virtio-net device, is less problematic in the case of
-> >> packet sockets. A socket can run out of sk_wmem_alloc, but a prudent
-> >> application can increase the limit or use separate sockets for
-> >> separate flows.
-> >
-> > Sounds like this interface is very hard to use correctly.
-> 
-> Actually, this socket alloc issue is the same for zerocopy and
-> non-zerocopy. Packets can be held in deep queues at which point
-> the packet socket is blocked. This is accepted behavior.
->
-> >From the above thread:
-> 
-> "It's ok for non-zerocopy packet to be blocked since VM1 thought the
-> packets has been sent instead of pending in the virtqueue. So VM1 can
-> still send packet to other destination."
-> 
-> This is very specific to virtio and vhost-net. I don't think that that
-> concern applies to a packet interface.
-
-Well, you are obviously building the interface with some use-case in mind.
-Let's try to make it work for multiple use-cases.
-
-So at some level, you are right.  The issue is not running out of wmem.
-But I think I'm right too - this is hard to use correctly.
-
-I think the difference is that with your patch, application
-can't reuse the memory until packet is transmitted, otherwise junk goes
-out on the network. Even closing the socket won't help.
-Is this true?
-
-I see this as a problem.
-
-I'm trying to figure out how would one use this interface, one obvious
-use would be to tunnel out raw packets directly from VM memory.
-For this application, a zero copy packet never completing is a problem:
-at minimum, you want to be able to remove the device, which
-translates to a requirement that closing the socket effectively stops
-using userspace memory. In case you want to be able to run e.g. a watchdog,
-ability to specify a deadline also seems benefitial.
-
-
-> Another issue, though, is that the method currently really only helps
-> TSO because ll other paths cause a deep copy. There are more use
-> cases once it can send up to 64KB MTU over loopback or send out
-> GSO datagrams without triggering skb_copy_ubufs. I have not looked
-> into how (or if) that can be achieved yet.
-
-I think this was done intentionally at some point,
-try to look at git history to find out the reasons.
-
-> >
-> >> > One possible solution is some kind of timer orphaning frags
-> >> > for skbs that have been around for too long.
-> >>
-> >> Perhaps this can be approximated without an explicit timer by calling
-> >> skb_copy_ubufs on enqueue whenever qlen exceeds a threshold value?
-> >
-> > Not sure.  I'll have to see that patch to judge.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogU2NvdHQgRmVsZG1hbiBb
+bWFpbHRvOnNmZWxkbWFAZ21haWwuY29tXQ0KPiBTZW50OiBXZWRuZXNkYXksIE5vdmVtYmVyIDI2
+LCAyMDE0IDExOjA0IFBNDQo+IFRvOiBBcmFkLCBSb25lbg0KPiBDYzogbmV0ZGV2QHZnZXIua2Vy
+bmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW3BhdGNoIG5ldC1uZXh0IHYzIDA5LzE3XSBicmlkZ2U6
+IGFkZCBBUEkgdG8gbm90aWZ5IGJyaWRnZSBkcml2ZXINCj4gb2YgbGVhcm5lZCBGQkQgb24gb2Zm
+bG9hZGVkIGRldmljZQ0KPiANCj4gT24gVHVlLCBOb3YgMjUsIDIwMTQgYXQgOTozNyBQTSwgQXJh
+ZCwgUm9uZW4gPHJvbmVuLmFyYWRAaW50ZWwuY29tPg0KPiB3cm90ZToNCj4gPj4gPj4+DQo+ID4+
+ID4+PiBJcyB0aGVyZSBhbnkgY2FzZSB3aGVyZSB0aGlzIGZkYiBlbnRyeSBnZXRzIHJlLXVzZWQg
+YW5kIGlzIG5vDQo+ID4+ID4+PiBsb25nZXIgYWRkZWQgYnkgYW4gZXh0ZXJuYWwgbGVhcm5pbmc/
+IFNob3VsZCB3ZSBjbGVhciB0aGlzIGZsYWcNCj4gc29tZXdoZXJlPw0KPiA+PiA+Pg0KPiA+PiA+
+PiBPbmNlIHRoZSBGREIgZW50cnkgaXMgbWFya2VkICJhZGRlZF9ieV9leHRlcm5hbF9sZWFybiIg
+aXQgc3RheXMNCj4gPj4gPj4gbWFya2VkIGFzIHN1Y2ggdW50aWwgcmVtb3ZlZCBieSBhZ2luZyBj
+bGVhbnVwIHByb2Nlc3MgKG9yIGZsdXNoZWQNCj4gPj4gPj4gZHVlIHRvIGludGVyZmFjZSBkb3du
+LCBldGMpLiAgSWYgYWdlZCBvdXQgKGFuZCBub3cgZGVsZXRlZCksIHRoZQ0KPiA+PiA+PiBGREIg
+ZW50cnkgbWF5IGNvbWUgYmFjayBlaXRoZXIgYnkgU1cgbGVhcm4gb3IgYnkgSFcgbGVhcm4uICBJ
+ZiBTVw0KPiA+PiA+PiBsZWFybiBjb21lcyBmaXJzdCwgYW5kIHRoZW4gSFcgbGVhcm4sIEhXIGxl
+YXJuIHdpbGwgb3ZlcnJpZGUgYW5kDQo+ID4+ID4+IG1hcmsgdGhlIGV4aXN0aW5nIEZEQiBlbnRy
+eSAiYWRkZWRfYnlfZXh0ZXJuYWxfbGVhcm4iLiAgU28gdGhlcmUNCj4gPj4gPj4gaXMgdGFrZS1v
+dmVyIGJ5IEhXIGJ1dCBubyBnaXZlLWJhY2sgdG8gU1cuICBBbmQgdGhlcmUgaXMgbm8NCj4gPj4g
+Pj4gZXhwbGljaXQgY2xlYXJpbmcgb2YgdGhlIG1hcmsgc2hvcnQgb2YgZGVsZXRpbmcgdGhlIEZE
+QiBlbnRyeS4NCj4gPj4gPj4gVGhlIG1hcmsgaXMgbW9zdGx5IGZvciBsZXR0aW5nIHVzZXIncyBr
+bm93IHdoaWNoIEZEQiBlbnRyaWVzIHdoZXJlDQo+ID4+ID4+IGxlYXJuZWQgYnkgSFcgYW5kIHN5
+bmNlZCB0byB0aGUgYnJpZGdlJ3MgRkRCLg0KPiA+PiA+DQo+ID4+ID4gVGhhbmtzLCBtYWtlcyBz
+ZW5zZSBub3cuIFRoaXMgaXMgcHJvYmFibHkgb2J2aW91cyBpbiB0aGlzIGNvbnRleHQsDQo+ID4+
+ID4gYnV0IG1heWJlIGl0IHdvdWxkIG5vdCBodXJ0IHRvIGNvbWUgdXAgd2l0aCBhIGRvY3VtZW50
+YXRpb24gdGhhdA0KPiA+PiA+IGRlc2NyaWJlIHRoZSBvZmZsb2FkIEFQSSwgRkRCIGVudHJ5IGxp
+ZmV0aW1lIGFuZCBIVy9TVyBvd25lcnNoaXAgZXRjLi4uDQo+ID4+DQo+ID4+IEkgaGF2ZSBhbiB1
+cGRhdGVkIERvY3VtZW50YXRpb24vbmV0d29ya2luZy9zd2l0Y2hkZXYudHh0IHRoYXQgY292ZXJz
+DQo+ID4+IHRoZSBzd2RldiBBUElzIGFuZCB1c2FnZSBhbmQgbm90ZXMsIGJ1dCBKaXJpIGlzIGJl
+aW5nIHN0aW5neSB3aXRoIGl0Lg0KPiA+PiBXaWxsIGdldCB0aGlzIG91dCwgZWl0aGVyIGluIHY0
+IG9yIGZvbGxvdy1vbiBwYXRjaGVzLiAgVGhlcmUgaXMNCj4gPj4gZW5vdWdoIGdvaW5nIG9uIGp1
+c3Qgd2l0aCBMMiBvZmZsb2FkIHRoYXQgd2UncmUgZ29pbmcgdG8gbmVlZCBzb21lDQo+ID4+IGdv
+b2QgZG9jdW1lbnRhdGlvbiB0byBndWlkZSBpbXBsZW1lbnRlcnMuDQo+ID4+IC0tDQo+ID4NCj4g
+PiBUbyBjb250cm9sIHRoZSBsaWZldGltZSBvZiBhbiBleHRlcm5hbGx5IGxlYXJuZWQgRkRCIGVu
+dHJ5LCB0aGUgYnJpZGdlIHNoYWxsDQo+IHByb3ZpZGUgYW4gQVBJIGZvciB0aGUgc3dpdGNoIGRy
+aXZlciB0byB1cGRhdGUgdGhlIGZyZXNobmVzcyBvZiBleHRlcm5hbGx5DQo+IGxlYXJuZWQgZW50
+cmllcy4gT3RoZXJ3aXNlLCB0aGUgYnJpZGdlIGFnaW5nIHdpbGwgYWdlIGVudHJpZXMgd2hpY2gg
+YXJlDQo+IGN1cnJlbnRseSBvciBmcmVxdWVudGx5IHVzZWQgYnkgdGhlIEhXLg0KPiA+IElzIHRo
+aXMgY292ZXJlZCBpbiB0aGUgdXBkYXRlZCBkb2N1bWVudD8NCj4gPiBJcyB0aGlzIGZ1bmN0aW9u
+YWxpdHkgcGxhbm5lZCBmb3IgdjQ/DQo+IA0KPiBIaSBSb25lbiwNCj4gDQo+IEl0J3MgYWxyZWFk
+eSB0aGVyZTogZHJpdmVyIGNhbGxzIGJyX2ZkYl9leHRlcm5hbF9sZWFybl9hZGQoKSB0byByZWZy
+ZXNoIEZCRA0KPiBlbnRyeSwgd2hpY2ggdXBkYXRlcyB0aGUgZmRiLT51cGRhdGVkIGFuZCBmZGIt
+PnVzZWQgdGltZXN0YW1wcywNCj4gcHJldmVudGluZyBicmlkZ2UgZnJvbSBwcmVtYXR1cmVseSBh
+Z2luZyBvdXQgdGhlIGVudHJ5Lg0KPiBXZSdsbCBtYWtlIHN1cmUgdGhhdCBkZXRhaWwgZ2V0cyBp
+biB0aGUgZG9jLiAgSXQncyB1cCB0byB0aGUgZHJpdmVyIG9uIGhvdw0KPiBmcmVxdWVudGx5IGl0
+IGNhbGxzIGJyX2ZkYl9leHRlcm5hbF9sZWFybl9hZGQoKS4gIE1heWJlIGl0IGp1c3QgYmxpbmRs
+eSBtYWtlcw0KPiB0aGUgY2FsbCBldmVyeSAxcy4gIFRoYXQncyB3aGF0IHJvY2tlciBkcml2ZXIg
+ZG9lcyAoYXMgbG9uZyBhcyB0aGUgRkRCIGVudHJ5DQo+IGNvbnRpbnVlcyB0byBnZXQgaGl0cyku
+ICBGcm9tIHRoZSB1c2VyJ3MgcGVyc3BlY3RpdmUsIDFzIHVwZGF0ZSBpcyBuaWNlIHdoZW4NCj4g
+bG9va2luZyBhdCB0aGUgc3RhdHMgZHVtcCBmb3IgZmRicywgc2luY2UgdGhlIHRpbWVzdGFtcHMg
+YXJlIGluIHNlY3MuDQo+IA0KPiAtc2NvdHQNCg0KSGkgU2NvdHQsDQoNClRoYW5rcy4gVGhpcyBz
+aG91bGQgd29yay4gSSBvdmVybG9va2VkIHRoYXQgYnV0IG5vdyBJIHNlZSBpdCBpbiB0aGUgY29k
+ZSB3aXRoIGEgY2xlYXIgY29tbWVudC4NCg0KLXJvbmVuDQoNCg==
