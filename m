@@ -1,68 +1,50 @@
-From: Huacai Chen <chenhc@lemote.com>
-Subject: [PATCH] stmmac: platform: Move plat_dat checking earlier
-Date: Thu, 27 Nov 2014 11:14:32 +0800
-Message-ID: <1417058072-22527-1-git-send-email-chenhc@lemote.com>
-Cc: Vince Bridgers <vbridgers2013@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Huacai Chen <chenhc@lemote.com>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:62019 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753347AbaK0DOm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2014 22:14:42 -0500
-Received: by mail-pd0-f171.google.com with SMTP id y13so4049127pdi.2
-        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 19:14:42 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Seth Forshee <seth.forshee@canonical.com>
+Subject: Re: [PATCH] xen-netfront: Remove BUGs on paged skb data which
+ crosses a page boundary
+Date: Wed, 26 Nov 2014 21:53:50 -0600
+Message-ID: <20141127035350.GA10833@ubuntu-mba51>
+References: <1416968904-70874-1-git-send-email-seth.forshee@canonical.com>
+ <20141126.122812.223757363894961994.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
+	david.vrabel@citrix.com, zoltan.kiss@linaro.org,
+	eric.dumazet@gmail.com, stefan.bader@canonical.com,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141126.122812.223757363894961994.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Original code only check/alloc plat_dat for the CONFIG_OF case, this
-patch check/alloc it earlier and unconditionally to avoid kernel build
-warnings:
+On Wed, Nov 26, 2014 at 12:28:12PM -0500, David Miller wrote:
+> From: Seth Forshee <seth.forshee@canonical.com>
+> Date: Tue, 25 Nov 2014 20:28:24 -0600
+> 
+> > These BUGs can be erroneously triggered by frags which refer to
+> > tail pages within a compound page. The data in these pages may
+> > overrun the hardware page while still being contained within the
+> > compound page, but since compound_order() evaluates to 0 for tail
+> > pages the assertion fails. The code already iterates through
+> > subsequent pages correctly in this scenario, so the BUGs are
+> > unnecessary and can be removed.
+> > 
+> > Fixes: f36c374782e4 ("xen/netfront: handle compound page fragments on transmit")
+> > Cc: <stable@vger.kernel.org> # 3.7+
+> > Signed-off-by: Seth Forshee <seth.forshee@canonical.com>
+> 
+> Can I get some Xen developer reviews?
 
-drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c:275
-stmmac_pltfr_probe() warn: variable dereferenced before check 'plat_dat'
+Fwiw this issue was discussed previously and this was the recommended
+fix.
 
-Signed-off-by: Huacai Chen <chenhc@lemote.com>
----
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   18 +++++++++---------
- 1 files changed, 9 insertions(+), 9 deletions(-)
+ http://article.gmane.org/gmane.linux.kernel/1825381
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 5b0da39..d254950 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -265,6 +265,15 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
- 
- 	plat_dat = dev_get_platdata(&pdev->dev);
- 
-+	if (!plat_dat)
-+		plat_dat = devm_kzalloc(&pdev->dev,
-+				sizeof(struct plat_stmmacenet_data),
-+				GFP_KERNEL);
-+	if (!plat_dat) {
-+		pr_err("%s: ERROR: no memory", __func__);
-+		return  -ENOMEM;
-+	}
-+
- 	/* Set default value for multicast hash bins */
- 	plat_dat->multicast_filter_bins = HASH_TABLE_SIZE;
- 
-@@ -272,15 +281,6 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
- 	plat_dat->unicast_filter_entries = 1;
- 
- 	if (pdev->dev.of_node) {
--		if (!plat_dat)
--			plat_dat = devm_kzalloc(&pdev->dev,
--					sizeof(struct plat_stmmacenet_data),
--					GFP_KERNEL);
--		if (!plat_dat) {
--			pr_err("%s: ERROR: no memory", __func__);
--			return  -ENOMEM;
--		}
--
- 		ret = stmmac_probe_config_dt(pdev, plat_dat, &mac);
- 		if (ret) {
- 			pr_err("%s: main dt probe failed", __func__);
--- 
-1.7.7.3
+Since then I got some feedback from a tester that he didn't see any
+problems with the BUGs removed (actually replaced with a WARN so I know
+that he actually saw the condition which triggered the BUG).
+
+Thanks,
+Seth
