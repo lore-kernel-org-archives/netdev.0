@@ -1,170 +1,62 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v5 39/45] tun: TUN_VNET_LE support, fix sparse warnings for
- virtio headers
-Date: Thu, 27 Nov 2014 14:33:21 +0200
-Message-ID: <1417091078-24611-40-git-send-email-mst@redhat.com>
-References: <1417091078-24611-1-git-send-email-mst@redhat.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next v3 04/17] net: introduce generic switch devices
+ support
+Date: Thu, 27 Nov 2014 07:46:01 -0500
+Message-ID: <54771D09.5010601@mojatatu.com>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>	<1416911328-10979-5-git-send-email-jiri@resnulli.us>	<5474A567.4040401@mojatatu.com>	<20141125164954.GJ1971@nanopsycho.orion>	<5474B795.3080204@mojatatu.com>	<20141125215402.GA3912@casper.infradead.org>	<54754A10.6020601@mojatatu.com>	<CAE4R7bCYwWt5cem5_v8Y0jOSz5ER5_33bMRE2xkTPOqYvM6dUg@mail.gmail.com>	<5475BB53.3070200@mojatatu.com> <CAE4R7bC2GTOAHm6uN9CboQ8HRFQ0+-7yoK+XF3wUysA9Sbo=gw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
-	rusty@au1.ibm.com, nab@linux-iscsi.org, pbonzini@redhat.com,
-	thuth@linux.vnet.ibm.com, dahi@linux.vnet.ibm.com,
-	Jason Wang <jasowang@redhat.com>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Tom Herbert <therbert@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1417091078-24611-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"dborkman@redhat.com" <dborkman@redhat.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"jesse@nicira.com" <jesse@nicira.com>,
+	"pshelar@nicira.com" <pshelar@nicira.com>,
+	"azhou@nicira.com" <azhou@nicira.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	John Linville <linville@tuxdriver
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:40023 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750866AbaK0MqG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 07:46:06 -0500
+Received: by mail-ig0-f171.google.com with SMTP id z20so4423120igj.4
+        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 04:46:05 -0800 (PST)
+In-Reply-To: <CAE4R7bC2GTOAHm6uN9CboQ8HRFQ0+-7yoK+XF3wUysA9Sbo=gw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pretty straight-forward: convert all fields to/from
-virtio endian-ness.
+On 11/27/14 00:58, Scott Feldman wrote:
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/net/tun.c | 48 +++++++++++++++++++++++++++++-------------------
- 1 file changed, 29 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 61c000c..f411ffd 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -111,7 +111,7 @@ do {								\
- #define TUN_FASYNC	IFF_ATTACH_QUEUE
- 
- #define TUN_FEATURES (IFF_NO_PI | IFF_ONE_QUEUE | IFF_VNET_HDR | \
--		      IFF_MULTI_QUEUE)
-+		      IFF_VNET_LE | IFF_MULTI_QUEUE)
- #define GOODCOPY_LEN 128
- 
- #define FLT_EXACT_COUNT 8
-@@ -205,6 +205,16 @@ struct tun_struct {
- 	u32 flow_count;
- };
- 
-+static inline u16 tun16_to_cpu(struct tun_struct *tun, __virtio16 val)
-+{
-+	return __virtio16_to_cpu(tun->flags & IFF_VNET_LE, val);
-+}
-+
-+static inline __virtio16 cpu_to_tun16(struct tun_struct *tun, u16 val)
-+{
-+	return __cpu_to_virtio16(tun->flags & IFF_VNET_LE, val);
-+}
-+
- static inline u32 tun_hashfn(u32 rxhash)
- {
- 	return rxhash & 0x3ff;
-@@ -1053,10 +1063,10 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 			return -EFAULT;
- 
- 		if ((gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
--		    gso.csum_start + gso.csum_offset + 2 > gso.hdr_len)
--			gso.hdr_len = gso.csum_start + gso.csum_offset + 2;
-+		    tun16_to_cpu(tun, gso.csum_start) + tun16_to_cpu(tun, gso.csum_offset) + 2 > tun16_to_cpu(tun, gso.hdr_len))
-+			gso.hdr_len = cpu_to_tun16(tun, tun16_to_cpu(tun, gso.csum_start) + tun16_to_cpu(tun, gso.csum_offset) + 2);
- 
--		if (gso.hdr_len > len)
-+		if (tun16_to_cpu(tun, gso.hdr_len) > len)
- 			return -EINVAL;
- 		offset += tun->vnet_hdr_sz;
- 	}
-@@ -1064,7 +1074,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	if ((tun->flags & TUN_TYPE_MASK) == IFF_TAP) {
- 		align += NET_IP_ALIGN;
- 		if (unlikely(len < ETH_HLEN ||
--			     (gso.hdr_len && gso.hdr_len < ETH_HLEN)))
-+			     (gso.hdr_len && tun16_to_cpu(tun, gso.hdr_len) < ETH_HLEN)))
- 			return -EINVAL;
- 	}
- 
-@@ -1075,7 +1085,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		 * enough room for skb expand head in case it is used.
- 		 * The rest of the buffer is mapped from userspace.
- 		 */
--		copylen = gso.hdr_len ? gso.hdr_len : GOODCOPY_LEN;
-+		copylen = gso.hdr_len ? tun16_to_cpu(tun, gso.hdr_len) : GOODCOPY_LEN;
- 		if (copylen > good_linear)
- 			copylen = good_linear;
- 		linear = copylen;
-@@ -1085,10 +1095,10 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 
- 	if (!zerocopy) {
- 		copylen = len;
--		if (gso.hdr_len > good_linear)
-+		if (tun16_to_cpu(tun, gso.hdr_len) > good_linear)
- 			linear = good_linear;
- 		else
--			linear = gso.hdr_len;
-+			linear = tun16_to_cpu(tun, gso.hdr_len);
- 	}
- 
- 	skb = tun_alloc_skb(tfile, align, copylen, linear, noblock);
-@@ -1115,8 +1125,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	}
- 
- 	if (gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
--		if (!skb_partial_csum_set(skb, gso.csum_start,
--					  gso.csum_offset)) {
-+		if (!skb_partial_csum_set(skb, tun16_to_cpu(tun, gso.csum_start),
-+					  tun16_to_cpu(tun, gso.csum_offset))) {
- 			tun->dev->stats.rx_frame_errors++;
- 			kfree_skb(skb);
- 			return -EINVAL;
-@@ -1184,7 +1194,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		if (gso.gso_type & VIRTIO_NET_HDR_GSO_ECN)
- 			skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_ECN;
- 
--		skb_shinfo(skb)->gso_size = gso.gso_size;
-+		skb_shinfo(skb)->gso_size = tun16_to_cpu(tun, gso.gso_size);
- 		if (skb_shinfo(skb)->gso_size == 0) {
- 			tun->dev->stats.rx_frame_errors++;
- 			kfree_skb(skb);
-@@ -1276,8 +1286,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 			struct skb_shared_info *sinfo = skb_shinfo(skb);
- 
- 			/* This is a hint as to how much should be linear. */
--			gso.hdr_len = skb_headlen(skb);
--			gso.gso_size = sinfo->gso_size;
-+			gso.hdr_len = cpu_to_tun16(tun, skb_headlen(skb));
-+			gso.gso_size = cpu_to_tun16(tun, sinfo->gso_size);
- 			if (sinfo->gso_type & SKB_GSO_TCPV4)
- 				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
- 			else if (sinfo->gso_type & SKB_GSO_TCPV6)
-@@ -1285,12 +1295,12 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 			else {
- 				pr_err("unexpected GSO type: "
- 				       "0x%x, gso_size %d, hdr_len %d\n",
--				       sinfo->gso_type, gso.gso_size,
--				       gso.hdr_len);
-+				       sinfo->gso_type, tun16_to_cpu(tun, gso.gso_size),
-+				       tun16_to_cpu(tun, gso.hdr_len));
- 				print_hex_dump(KERN_ERR, "tun: ",
- 					       DUMP_PREFIX_NONE,
- 					       16, 1, skb->head,
--					       min((int)gso.hdr_len, 64), true);
-+					       min((int)tun16_to_cpu(tun, gso.hdr_len), 64), true);
- 				WARN_ON_ONCE(1);
- 				return -EINVAL;
- 			}
-@@ -1301,9 +1311,9 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 
- 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 			gso.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
--			gso.csum_start = skb_checksum_start_offset(skb) +
--					 vlan_hlen;
--			gso.csum_offset = skb->csum_offset;
-+			gso.csum_start = cpu_to_tun16(tun, skb_checksum_start_offset(skb) +
-+						      vlan_hlen);
-+			gso.csum_offset = cpu_to_tun16(tun, skb->csum_offset);
- 		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
- 			gso.flags = VIRTIO_NET_HDR_F_DATA_VALID;
- 		} /* else everything is zero */
--- 
-MST
+> You have access to the inside scope.  We don't.  Ok, I don't.  We
+> (think we) know what the traditional L2/L3 and OVS-style flow stuff
+> looks like, but you know more, but you can't show us in code so it's
+> frustrating.  Not your fault.  Just continue to guide us and give some
+> disclaimer when we're your close to some proprietary knowledge, but it
+> is relevant to the discussion.
+>
+
+
+Scott, I am asking to offload basic functionality that Linux supports.
+I may be blind-sided and getting frustrated thinking it is obvious
+because i live through this stuff everyday; but I am trying all i can
+to share what you call proprietary knowledge whenever i can. If you
+think of this as "we need to offload all packet processing linux
+supports" you'll see where i am coming from.
+
+cheers,
+jamal
