@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v6 35/46] vhost/net: enable virtio 1.0
-Date: Thu, 27 Nov 2014 22:10:44 +0200
-Message-ID: <1417118789-18231-36-git-send-email-mst@redhat.com>
+Subject: [PATCH v6 36/46] vhost/net: suppress compiler warning
+Date: Thu, 27 Nov 2014 22:10:49 +0200
+Message-ID: <1417118789-18231-37-git-send-email-mst@redhat.com>
 References: <1417118789-18231-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,24 +25,25 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
+len is always initialized since function is called with size > 0.
+
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/vhost/net.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/vhost/net.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 1ac58d0..984242e 100644
+index 984242e..54ffbb0 100644
 --- a/drivers/vhost/net.c
 +++ b/drivers/vhost/net.c
-@@ -61,7 +61,8 @@ MODULE_PARM_DESC(experimental_zcopytx, "Enable Zero Copy TX;"
- enum {
- 	VHOST_NET_FEATURES = VHOST_FEATURES |
- 			 (1ULL << VHOST_NET_F_VIRTIO_NET_HDR) |
--			 (1ULL << VIRTIO_NET_F_MRG_RXBUF),
-+			 (1ULL << VIRTIO_NET_F_MRG_RXBUF) |
-+			 (1ULL << VIRTIO_F_VERSION_1),
- };
+@@ -501,7 +501,7 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
+ 	int headcount = 0;
+ 	unsigned d;
+ 	int r, nlogs = 0;
+-	u32 len;
++	u32 uninitialized_var(len);
  
- enum {
+ 	while (datalen > 0 && headcount < quota) {
+ 		if (unlikely(seg >= UIO_MAXIOV)) {
 -- 
 MST
