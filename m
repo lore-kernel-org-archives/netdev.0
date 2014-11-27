@@ -1,99 +1,382 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next v4 21/21] rocker: Use logical operators on booleans
-Date: Thu, 27 Nov 2014 11:04:16 -1000
-Message-ID: <CAE4R7bCAfn_bjPoq_pFYDb4S7cR=3jtqS8XQQZc97CHab2561Q@mail.gmail.com>
-References: <1417084826-9875-1-git-send-email-jiri@resnulli.us>
-	<1417084826-9875-22-git-send-email-jiri@resnulli.us>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v3] can: Convert to runtime_pm
+Date: Thu, 27 Nov 2014 22:17:53 +0100
+Message-ID: <54779501.8060009@pengutronix.de>
+References: <6b6db31d46074512a322eae6e4ef64d4@BN1BFFO11FD038.protection.gbl>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="iAgmuCPp4DrAM3bOXGRkOemdjPOtrEBK7"
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org,
+	Kedareswara rao Appana <appanad@xilinx.com>
+To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
+	wg@grandegger.com, michal.simek@xilinx.com,
+	soren.brinkmann@xilinx.com, grant.likely@linaro.org,
+	robh+dt@kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <6b6db31d46074512a322eae6e4ef64d4@BN1BFFO11FD038.protection.gbl>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--iAgmuCPp4DrAM3bOXGRkOemdjPOtrEBK7
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	"dborkman@redhat.com" <dborkman@redhat.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"pshelar@nicira.com" <pshelar@nicira.com>,
-	"azhou@nicira.com" <azhou@nicira.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tu
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:35898 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751115AbaK0VER (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 16:04:17 -0500
-Received: by mail-wg0-f42.google.com with SMTP id z12so7377436wgg.1
-        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 13:04:16 -0800 (PST)
-In-Reply-To: <1417084826-9875-22-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+On 11/27/2014 02:08 PM, Kedareswara rao Appana wrote:
+> Instead of enabling/disabling clocks at several locations in the driver=
+,
+> use the runtime_pm framework. This consolidates the actions for
+> runtime PM in the appropriate callbacks and makes the driver more
+> readable and mantainable.
+>=20
+> Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
+> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
+> ---
+> Changes for v3:
+>   - Converted the driver to use runtime_pm.
+> Changes for v2:
+>   - Removed the struct platform_device* from suspend/resume
+>     as suggest by Lothar.
+>=20
+>  drivers/net/can/xilinx_can.c |  119 +++++++++++++++++++++++++---------=
+-------
+>  1 files changed, 72 insertions(+), 47 deletions(-)
+>=20
+> diff --git a/drivers/net/can/xilinx_can.c b/drivers/net/can/xilinx_can.=
+c
+> index 8a998e3..1be28ed 100644
+> --- a/drivers/net/can/xilinx_can.c
+> +++ b/drivers/net/can/xilinx_can.c
+> @@ -32,6 +32,7 @@
+>  #include <linux/can/dev.h>
+>  #include <linux/can/error.h>
+>  #include <linux/can/led.h>
+> +#include <linux/pm_runtime.h>
+> =20
+>  #define DRIVER_NAME	"xilinx_can"
+> =20
+> @@ -138,7 +139,7 @@ struct xcan_priv {
+>  	u32 (*read_reg)(const struct xcan_priv *priv, enum xcan_reg reg);
+>  	void (*write_reg)(const struct xcan_priv *priv, enum xcan_reg reg,
+>  			u32 val);
+> -	struct net_device *dev;
+> +	struct device *dev;
+>  	void __iomem *reg_base;
+>  	unsigned long irq_flags;
+>  	struct clk *bus_clk;
+> @@ -842,6 +843,13 @@ static int xcan_open(struct net_device *ndev)
+>  	struct xcan_priv *priv =3D netdev_priv(ndev);
+>  	int ret;
+> =20
+> +	ret =3D pm_runtime_get_sync(priv->dev);
+> +	if (ret < 0) {
+> +		netdev_err(ndev, "%s: runtime CAN resume failed(%d)\n\r",
+> +				__func__, ret);
+> +		return ret;
+> +	}
+> +
+>  	ret =3D request_irq(ndev->irq, xcan_interrupt, priv->irq_flags,
+>  			ndev->name, ndev);
+>  	if (ret < 0) {
+> @@ -849,29 +857,17 @@ static int xcan_open(struct net_device *ndev)
+>  		goto err;
+>  	}
+> =20
+> -	ret =3D clk_prepare_enable(priv->can_clk);
+> -	if (ret) {
+> -		netdev_err(ndev, "unable to enable device clock\n");
+> -		goto err_irq;
+> -	}
+> -
+> -	ret =3D clk_prepare_enable(priv->bus_clk);
+> -	if (ret) {
+> -		netdev_err(ndev, "unable to enable bus clock\n");
+> -		goto err_can_clk;
+> -	}
+> -
+>  	/* Set chip into reset mode */
+>  	ret =3D set_reset_mode(ndev);
+>  	if (ret < 0) {
+>  		netdev_err(ndev, "mode resetting failed!\n");
+> -		goto err_bus_clk;
+> +		goto err_irq;
+>  	}
+> =20
+>  	/* Common open */
+>  	ret =3D open_candev(ndev);
+>  	if (ret)
+> -		goto err_bus_clk;
+> +		goto err_irq;
+> =20
+>  	ret =3D xcan_chip_start(ndev);
+>  	if (ret < 0) {
+> @@ -887,13 +883,11 @@ static int xcan_open(struct net_device *ndev)
+> =20
+>  err_candev:
+>  	close_candev(ndev);
+> -err_bus_clk:
+> -	clk_disable_unprepare(priv->bus_clk);
+> -err_can_clk:
+> -	clk_disable_unprepare(priv->can_clk);
+>  err_irq:
+>  	free_irq(ndev->irq, ndev);
+>  err:
+> +	pm_runtime_put(priv->dev);
+> +
+>  	return ret;
+>  }
+> =20
+> @@ -910,12 +904,11 @@ static int xcan_close(struct net_device *ndev)
+>  	netif_stop_queue(ndev);
+>  	napi_disable(&priv->napi);
+>  	xcan_chip_stop(ndev);
+> -	clk_disable_unprepare(priv->bus_clk);
+> -	clk_disable_unprepare(priv->can_clk);
+>  	free_irq(ndev->irq, ndev);
+>  	close_candev(ndev);
+> =20
+>  	can_led_event(ndev, CAN_LED_EVENT_STOP);
+> +	pm_runtime_put(priv->dev);
+> =20
+>  	return 0;
+>  }
+> @@ -934,27 +927,21 @@ static int xcan_get_berr_counter(const struct net=
+_device *ndev,
+>  	struct xcan_priv *priv =3D netdev_priv(ndev);
+>  	int ret;
+> =20
+> -	ret =3D clk_prepare_enable(priv->can_clk);
+> -	if (ret)
+> -		goto err;
+> +	ret =3D pm_runtime_get_sync(priv->dev);
+> +	if (ret < 0) {
+> +		netdev_err(ndev, "%s: runtime resume failed(%d)\n\r",
+> +				__func__, ret);
+> +		return ret;
+> +	}
+> =20
+> -	ret =3D clk_prepare_enable(priv->bus_clk);
+> -	if (ret)
+> -		goto err_clk;
+> =20
+>  	bec->txerr =3D priv->read_reg(priv, XCAN_ECR_OFFSET) & XCAN_ECR_TEC_M=
+ASK;
+>  	bec->rxerr =3D ((priv->read_reg(priv, XCAN_ECR_OFFSET) &
+>  			XCAN_ECR_REC_MASK) >> XCAN_ESR_REC_SHIFT);
+> =20
+> -	clk_disable_unprepare(priv->bus_clk);
+> -	clk_disable_unprepare(priv->can_clk);
+> +	pm_runtime_put(priv->dev);
+> =20
+>  	return 0;
+> -
+> -err_clk:
+> -	clk_disable_unprepare(priv->can_clk);
+> -err:
+> -	return ret;
+>  }
+> =20
+> =20
+> @@ -967,15 +954,45 @@ static const struct net_device_ops xcan_netdev_op=
+s =3D {
+> =20
+>  /**
+>   * xcan_suspend - Suspend method for the driver
+> - * @dev:	Address of the platform_device structure
+> + * @dev:	Address of the net_device structure
+>   *
+>   * Put the driver into low power mode.
+> - * Return: 0 always
+> + * Return: 0 on success and failure value on error
+>   */
+>  static int __maybe_unused xcan_suspend(struct device *dev)
+>  {
+> -	struct platform_device *pdev =3D dev_get_drvdata(dev);
+> -	struct net_device *ndev =3D platform_get_drvdata(pdev);
+> +	if (!device_may_wakeup(dev))
+> +		return pm_runtime_force_suspend(dev);
+> +
+> +	return 0;
+> +}
+> +
+> +/**
+> + * xcan_resume - Resume from suspend
+> + * @dev:	Address of the net_device structure
+> + *
+> + * Resume operation after suspend.
+> + * Return: 0 on success and failure value on error
+> + */
+> +static int __maybe_unused xcan_resume(struct device *dev)
+> +{
+> +	if (!device_may_wakeup(dev))
+> +		return pm_runtime_force_resume(dev);
+> +
+> +	return 0;
+> +
+> +}
+> +
+> +/**
+> + * xcan_runtime_suspend - Runtime suspend method for the driver
+> + * @dev:	Address of the net_device structure
+> + *
+> + * Put the driver into low power mode.
+> + * Return: 0 always
+> + */
+> +static int __maybe_unused xcan_runtime_suspend(struct device *dev)
+> +{
+> +	struct net_device *ndev =3D dev_get_drvdata(dev);
+>  	struct xcan_priv *priv =3D netdev_priv(ndev);
+> =20
+>  	if (netif_running(ndev)) {
+> @@ -993,16 +1010,15 @@ static int __maybe_unused xcan_suspend(struct de=
+vice *dev)
+>  }
+> =20
+>  /**
+> - * xcan_resume - Resume from suspend
+> - * @dev:	Address of the platformdevice structure
+> + * xcan_runtime_resume - Runtime resume from suspend
+> + * @dev:	Address of the net_device structure
+>   *
+>   * Resume operation after suspend.
+>   * Return: 0 on success and failure value on error
+>   */
+> -static int __maybe_unused xcan_resume(struct device *dev)
+> +static int __maybe_unused xcan_runtime_resume(struct device *dev)
+>  {
+> -	struct platform_device *pdev =3D dev_get_drvdata(dev);
+> -	struct net_device *ndev =3D platform_get_drvdata(pdev);
+> +	struct net_device *ndev =3D dev_get_drvdata(dev);
+>  	struct xcan_priv *priv =3D netdev_priv(ndev);
+>  	int ret;
 
-On Thu, Nov 27, 2014 at 12:40 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> From: Thomas Graf <tgraf@suug.ch>
->
-> Silences various sparse warnings
->
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
-> new in v4
-> ---
->  drivers/net/ethernet/rocker/rocker.c | 16 ++++++++--------
->  1 file changed, 8 insertions(+), 8 deletions(-)
->
-> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-> index 30687bf..fded127 100644
-> --- a/drivers/net/ethernet/rocker/rocker.c
-> +++ b/drivers/net/ethernet/rocker/rocker.c
-> @@ -2404,17 +2404,17 @@ static int rocker_flow_tbl_bridge(struct rocker_port *rocker_port,
->         }
->
->         priority = ROCKER_PRIORITY_UNKNOWN;
-> -       if (vlan_bridging & dflt & wild)
-> +       if (vlan_bridging && dflt && wild)
->                 priority = ROCKER_PRIORITY_BRIDGING_VLAN_DFLT_WILD;
-> -       else if (vlan_bridging & dflt & !wild)
-> +       else if (vlan_bridging && dflt && !wild)
->                 priority = ROCKER_PRIORITY_BRIDGING_VLAN_DFLT_EXACT;
-> -       else if (vlan_bridging & !dflt)
-> +       else if (vlan_bridging && !dflt)
->                 priority = ROCKER_PRIORITY_BRIDGING_VLAN;
-> -       else if (!vlan_bridging & dflt & wild)
-> +       else if (!vlan_bridging && dflt && wild)
->                 priority = ROCKER_PRIORITY_BRIDGING_TENANT_DFLT_WILD;
-> -       else if (!vlan_bridging & dflt & !wild)
-> +       else if (!vlan_bridging && dflt && !wild)
->                 priority = ROCKER_PRIORITY_BRIDGING_TENANT_DFLT_EXACT;
-> -       else if (!vlan_bridging & !dflt)
-> +       else if (!vlan_bridging && !dflt)
->                 priority = ROCKER_PRIORITY_BRIDGING_TENANT;
->
->         entry->key.priority = priority;
-> @@ -3010,9 +3010,9 @@ static void rocker_port_fdb_learn_work(struct work_struct *work)
->         bool removing = (lw->flags & ROCKER_OP_FLAG_REMOVE);
->         bool learned = (lw->flags & ROCKER_OP_FLAG_LEARNED);
->
-> -       if (learned & removing)
-> +       if (learned && removing)
->                 br_fdb_external_learn_del(lw->dev, lw->addr, lw->vid);
-> -       else if (learned & !removing)
-> +       else if (learned && !removing)
->                 br_fdb_external_learn_add(lw->dev, lw->addr, lw->vid);
->
->         kfree(work);
-> --
-> 1.9.3
->
+=2E..adding the rest of the function to comment it:
+
+> 	ret =3D clk_enable(priv->bus_clk);
+> 	if (ret) {
+> 		dev_err(dev, "Cannot enable clock.\n");
+> 		return ret;
+> 	}
+> 	ret =3D clk_enable(priv->can_clk);
+> 	if (ret) {
+> 		dev_err(dev, "Cannot enable clock.\n");
+> 		clk_disable_unprepare(priv->bus_clk);
+> 		return ret;
+> 	}
+>=20
+> 	priv->write_reg(priv, XCAN_MSR_OFFSET, 0);
+> 	priv->write_reg(priv, XCAN_SRR_OFFSET, XCAN_SRR_CEN_MASK);
+> 	priv->can.state =3D CAN_STATE_ERROR_ACTIVE;
+
+Does it have any side effects, when writing these values when the CAN
+device is not UP? (e.g. when running the berr callback?) Setting its
+state to ERROR active is probably wrong. Do you have to move it into the
+if(netif_running())?
+
+> 	if (netif_running(ndev)) {
+> 		netif_device_attach(ndev);
+> 		netif_start_queue(ndev);
+> 	}
+>=20
+> 	return 0;
+> }
+
+> =20
+> @@ -1030,7 +1046,10 @@ static int __maybe_unused xcan_resume(struct dev=
+ice *dev)
+>  	return 0;
+>  }
+> =20
+> -static SIMPLE_DEV_PM_OPS(xcan_dev_pm_ops, xcan_suspend, xcan_resume);
+> +static const struct dev_pm_ops xcan_dev_pm_ops =3D {
+> +	SET_SYSTEM_SLEEP_PM_OPS(xcan_suspend, xcan_resume)
+> +	SET_PM_RUNTIME_PM_OPS(xcan_runtime_suspend, xcan_runtime_resume, NULL=
+)
+> +};
+> =20
+>  /**
+>   * xcan_probe - Platform registration call
+> @@ -1071,7 +1090,7 @@ static int xcan_probe(struct platform_device *pde=
+v)
+>  		return -ENOMEM;
+> =20
+>  	priv =3D netdev_priv(ndev);
+> -	priv->dev =3D ndev;
+> +	priv->dev =3D &pdev->dev;
+>  	priv->can.bittiming_const =3D &xcan_bittiming_const;
+>  	priv->can.do_set_mode =3D xcan_do_set_mode;
+>  	priv->can.do_get_berr_counter =3D xcan_get_berr_counter;
+> @@ -1137,6 +1156,11 @@ static int xcan_probe(struct platform_device *pd=
+ev)
+> =20
+>  	netif_napi_add(ndev, &priv->napi, xcan_rx_poll, rx_max);
+> =20
+> +	pm_runtime_set_active(&pdev->dev);
+> +	pm_runtime_irq_safe(&pdev->dev);
+
+You use just clock_enable()/disable() in the runtime functions, thus you
+can say they are irq_safe. On the other the the zync grpio driver uses
+"full" prepare_enable/disable_unprepare calls. What's best practice here?=
+
+
+> +	pm_runtime_enable(&pdev->dev);
+> +	pm_runtime_get_sync(&pdev->dev);
+> +
+>  	ret =3D register_candev(ndev);
+>  	if (ret) {
+>  		dev_err(&pdev->dev, "fail to register failed (err=3D%d)\n", ret);
+
+I think in case of an error, you have to call pm_runtime_put() here
+
+> @@ -1144,8 +1168,9 @@ static int xcan_probe(struct platform_device *pde=
+v)
+>  	}
+> =20
+>  	devm_can_led_init(ndev);
+> -	clk_disable_unprepare(priv->bus_clk);
+> -	clk_disable_unprepare(priv->can_clk);
+> +
+> +	pm_runtime_put(&pdev->dev);
+> +
+>  	netdev_dbg(ndev, "reg_base=3D0x%p irq=3D%d clock=3D%d, tx fifo depth:=
+%d\n",
+>  			priv->reg_base, ndev->irq, priv->can.clock.freq,
+>  			priv->tx_max);
+>=20
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--iAgmuCPp4DrAM3bOXGRkOemdjPOtrEBK7
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJUd5UBAAoJECte4hHFiupU/DUP/2UP2/o4NcR+DVCvhI/UMiZw
+XmGOLnTuZyLMGT3hAxsAE3FexbHlJmBotjVYGiZTlawhSPm+mdrQ3XinviSP2MU1
+smbROFQ9suGqC6wPvsol2CU5U5uL4Od+UN1T94fsDR+Ou+XXIR7dzcLWmmhNbSDZ
+BN/CKpUmShM2REQq0xQuIq7EVamOSxJZc+LfTldAexMfno0yFlQK3eRO2WAR8XYb
+LBOvbTRihl0RL14/AWYn9n4ale94jsXawCEI+J5DyPABYijk5AKBEW/RMvXWeYqV
+6p7YYyA314sIEDT+cqjfMsO19TUiLNaBaEAk/aogpQGf12HMVMLJ1I7hZG7vFlYx
+rEmXjGRdy/hv07FX9xMqQSFU3VyitzunG4Z2fAiqiWUD5UuAJ8pfQKsEsuCRtZIS
+dZ1tAGDKd9RAxdbvLc9GUoUPfKc/SBIvCN3kjuMObv6LS14l2ctp6xpRIXcAZzuy
+8knZJLjwrwWV3ijh73JrUxmIPa06RyPpymDXmpMSfV9XHuybKC7/yeU3ajizh729
+gD3q0HrLzjCMYcfHZCzORsrB37x/5nRng2jgrHeyBOiq3ICj+5kqu5IEBzCELbPV
+i6mVIj31G4xFJxDaJGzsN3TYwHo6YiDVjaRriu24g72Ds9dX0xQ9sZr+qECBvyvE
+uOqcWxKdlgQ93M8QXRuk
+=Y+EF
+-----END PGP SIGNATURE-----
+
+--iAgmuCPp4DrAM3bOXGRkOemdjPOtrEBK7--
