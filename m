@@ -1,161 +1,126 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: [PATCH v3] sh_eth: Fix skb alloc size and alignment adjust rule.
-Date: Thu, 27 Nov 2014 20:34:00 +0900
-Message-ID: <1417088040-32144-1-git-send-email-ykaneko0929@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH 0/3] net: Alloc NAPI page frags from their own pool
+Date: Thu, 27 Nov 2014 13:00:57 +0100
+Message-ID: <20141127130057.5403429c@redhat.com>
+References: <20141126235900.1617.10008.stgit@ahduyck-vm-fedora20>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, eric.dumazet@gmail.com,
+	ast@plumgrid.com, brouer@redhat.com
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37566 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753382AbaK0MBH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Nov 2014 07:01:07 -0500
+In-Reply-To: <20141126235900.1617.10008.stgit@ahduyck-vm-fedora20>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+On Wed, 26 Nov 2014 16:05:50 -0800
+Alexander Duyck <alexander.h.duyck@redhat.com> wrote:
 
-In the current driver, allocation size of skb does not care the alignment
-adjust after allocation.
-And also, in the current implementation, buffer alignment method by
-sh_eth_set_receive_align function has a bug that this function displace
-buffer start address forcedly when the alignment is corrected.
-In the result, tail of the skb will exceed allocated area and kernel panic
-will be occurred.
-This patch fix this issue.
+> This patch series implements a means of allocating page fragments without
+> the need for the local_irq_save/restore in __netdev_alloc_frag.  By doing
+> this I am able to decrease packet processing time by 11ns per packet in my
+> test environment.
 
-Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
-Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
----
+This is really good work!
 
-The first version of this patch was a part of the patch series as follows:   
-[PATCH 2/3] sh_eth: Fix skb alloc size and alignment adjust rule.
+I've tested the patchset (detail see below).  Two different packet
+sizes 64bytes and 272bytes, due to "copy-break" point in driver.
 
-This patch is based on net tree.
+Notice, these tests are single flow, resulting in single CPU getting
+activated on receiver.
 
-v3 [Yoshihiro Kaneko]
-* use uintptr_t instead of u32 in sh_eth_set_receive_align()
+If I drop packets very early in iptables "raw" table, I see an
+improvement 10.51 ns to 13.22 ns (for 272bytes between 9.64 ns to 11.97
+ns).  Which corrospond with Alex'es observations.
 
-v2 [Yoshihiro Kaneko]
-* Update as suggested by Sergei Shtylyov
-  - Fixed the coding style
-  - Corrected the comment
-  - Removed {SH2_SH3|SH4}_SKB_RX_ALIGN
+A little surprising, when doing full forwarding (IP-routing), I see a
+much larger "nanosec" improvement, for 64bytes of between 47.64ns to
+58.15ns (for 272bytes between 29.08ns to 30.14ns).  This improvement is
+larger than I expected.  One pitfall is with full forwarding, we can
+only forwards approx 1Mpps (single CPU), and the accuracy between tests
+runs vary more.
 
- drivers/net/ethernet/renesas/sh_eth.c | 32 +++++++++++++-------------------
- drivers/net/ethernet/renesas/sh_eth.h |  4 ++--
- 2 files changed, 15 insertions(+), 21 deletions(-)
+Setup
+-----
+Generator: ixgbe, pktgen (3x CPUs), sending 10G wirespeed
+ - Single flow pktgen, resulting in single CPU activation on target
+ - pkt@64bytes:  tx:14900856 pps (wirespeed)
+ - pkt@272bytes: tx: 4228696 pps (wirespeed)
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 60e9c2c..f9e30b8 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -917,21 +917,13 @@ static int sh_eth_reset(struct net_device *ndev)
- 	return ret;
- }
- 
--#if defined(CONFIG_CPU_SH4) || defined(CONFIG_ARCH_SHMOBILE)
- static void sh_eth_set_receive_align(struct sk_buff *skb)
- {
--	int reserve;
-+	uintptr_t reserve = (uintptr_t)skb->data & (SH_ETH_RX_ALIGN - 1);
- 
--	reserve = SH4_SKB_RX_ALIGN - ((u32)skb->data & (SH4_SKB_RX_ALIGN - 1));
- 	if (reserve)
--		skb_reserve(skb, reserve);
-+		skb_reserve(skb, SH_ETH_RX_ALIGN - reserve);
- }
--#else
--static void sh_eth_set_receive_align(struct sk_buff *skb)
--{
--	skb_reserve(skb, SH2_SH3_SKB_RX_ALIGN);
--}
--#endif
- 
- 
- /* CPU <-> EDMAC endian convert */
-@@ -1119,6 +1111,7 @@ static void sh_eth_ring_format(struct net_device *ndev)
- 	struct sh_eth_txdesc *txdesc = NULL;
- 	int rx_ringsize = sizeof(*rxdesc) * mdp->num_rx_ring;
- 	int tx_ringsize = sizeof(*txdesc) * mdp->num_tx_ring;
-+	int skbuff_size = mdp->rx_buf_sz + SH_ETH_RX_ALIGN - 1;
- 
- 	mdp->cur_rx = 0;
- 	mdp->cur_tx = 0;
-@@ -1131,21 +1124,21 @@ static void sh_eth_ring_format(struct net_device *ndev)
- 	for (i = 0; i < mdp->num_rx_ring; i++) {
- 		/* skb */
- 		mdp->rx_skbuff[i] = NULL;
--		skb = netdev_alloc_skb(ndev, mdp->rx_buf_sz);
-+		skb = netdev_alloc_skb(ndev, skbuff_size);
- 		mdp->rx_skbuff[i] = skb;
- 		if (skb == NULL)
- 			break;
--		dma_map_single(&ndev->dev, skb->data, mdp->rx_buf_sz,
--			       DMA_FROM_DEVICE);
- 		sh_eth_set_receive_align(skb);
- 
- 		/* RX descriptor */
- 		rxdesc = &mdp->rx_ring[i];
-+		/* The size of the buffer is a multiple of 16 bytes. */
-+		rxdesc->buffer_length = ALIGN(mdp->rx_buf_sz, 16);
-+		dma_map_single(&ndev->dev, skb->data, rxdesc->buffer_length,
-+			       DMA_FROM_DEVICE);
- 		rxdesc->addr = virt_to_phys(PTR_ALIGN(skb->data, 4));
- 		rxdesc->status = cpu_to_edmac(mdp, RD_RACT | RD_RFP);
- 
--		/* The size of the buffer is 16 byte boundary. */
--		rxdesc->buffer_length = ALIGN(mdp->rx_buf_sz, 16);
- 		/* Rx descriptor address set */
- 		if (i == 0) {
- 			sh_eth_write(ndev, mdp->rx_desc_dma, RDLAR);
-@@ -1397,6 +1390,7 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 	struct sk_buff *skb;
- 	u16 pkt_len = 0;
- 	u32 desc_status;
-+	int skbuff_size = mdp->rx_buf_sz + SH_ETH_RX_ALIGN - 1;
- 
- 	rxdesc = &mdp->rx_ring[entry];
- 	while (!(rxdesc->status & cpu_to_edmac(mdp, RD_RACT))) {
-@@ -1448,7 +1442,7 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 			if (mdp->cd->rpadir)
- 				skb_reserve(skb, NET_IP_ALIGN);
- 			dma_sync_single_for_cpu(&ndev->dev, rxdesc->addr,
--						mdp->rx_buf_sz,
-+						ALIGN(mdp->rx_buf_sz, 16),
- 						DMA_FROM_DEVICE);
- 			skb_put(skb, pkt_len);
- 			skb->protocol = eth_type_trans(skb, ndev);
-@@ -1468,13 +1462,13 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 		rxdesc->buffer_length = ALIGN(mdp->rx_buf_sz, 16);
- 
- 		if (mdp->rx_skbuff[entry] == NULL) {
--			skb = netdev_alloc_skb(ndev, mdp->rx_buf_sz);
-+			skb = netdev_alloc_skb(ndev, skbuff_size);
- 			mdp->rx_skbuff[entry] = skb;
- 			if (skb == NULL)
- 				break;	/* Better luck next round. */
--			dma_map_single(&ndev->dev, skb->data, mdp->rx_buf_sz,
--				       DMA_FROM_DEVICE);
- 			sh_eth_set_receive_align(skb);
-+			dma_map_single(&ndev->dev, skb->data,
-+				       rxdesc->buffer_length, DMA_FROM_DEVICE);
- 
- 			skb_checksum_none_assert(skb);
- 			rxdesc->addr = virt_to_phys(PTR_ALIGN(skb->data, 4));
-diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-index b37c427..9fa9332 100644
---- a/drivers/net/ethernet/renesas/sh_eth.h
-+++ b/drivers/net/ethernet/renesas/sh_eth.h
-@@ -162,9 +162,9 @@ enum {
- 
- /* Driver's parameters */
- #if defined(CONFIG_CPU_SH4) || defined(CONFIG_ARCH_SHMOBILE)
--#define SH4_SKB_RX_ALIGN	32
-+#define SH_ETH_RX_ALIGN		32
- #else
--#define SH2_SH3_SKB_RX_ALIGN	2
-+#define SH_ETH_RX_ALIGN		2
- #endif
- 
- /* Register's bits
+Ethernet wirespeed:
+ * (1/((64+20)*8))*(10*10^9)  = 14880952
+ * (1/((272+20)*8))*(10*10^9) =  4280822
+
+Receiver CPU E5-2695 running state-c0@2.8GHz
+
+baseline
+--------
+
+Baseline: Full forwarding (no-netfilter):
+
+ * pkt@64bytes: tx:977414 pps
+ * pkt@64bytes: tx:974404 pps
+ * test-variation@64bytes: 3010pps (1/977414*10^9)-(1/974404*10^9) = -3.16ns
+
+ * pkt@272bytes: tx:911657 pps
+ * pkt@272bytes: tx:906229 pps
+ * test-variation@272bytes: 5428pps -6.57ns
+
+Baseline: Drop in iptables RAW:
+
+ * pkt@64bytes: rx:2801058 pps
+ * pkt@64bytes: rx:2785579 pps
+ * test-variation@64bytes: 15479pps -1.98 ns
+
+ * pkt@272bytes: rx:2559718 pps
+ * pkt@272bytes: rx:2544577 pps
+ * test-variation@64bytes diff: 6230pps 0.746ns
+
+With patch: alex'es napi_alloc_skb
+----------------------------------
+
+Full forwarding (no-netfilter) (pkt@64bytes):
+
+ * pkt@64bytes: tx:1025150 pps
+ * pkt@64bytes: tx:1032930 pps
+ * test-variation@64bytes: -7780pps 7.34ns
+ * Patchset improvements@64-fwd:
+ - 977414 -> 1025150 = 47736pps -> 47.64ns
+ - 974404 -> 1032930 = 58526pps -> 58.15ns
+
+ * pkt@272bytes: tx:937416 pps
+ * pkt@272bytes: tx:930761 pps
+ * test-variation@272bytes: 6655pps -7.62ns
+ * Patchset improvements@272-fwd:
+  - 911657 -> 937416 = 25759pps -> 30.14ns
+  - 906229 -> 930761 = 24532pps -> 29.08ns
+
+Drop in iptables RAW (pkt@64bytes):
+
+ * pkt@64bytes: rx:2885820 pps
+ * pkt@64bytes: rx:2892050 pps
+ * test-variation@64bytes diff: 6230pps 0.746ns
+ * Patchset improvements@64-drop:
+  - 2800896 -> 2885820 =  84924pps -> 10.51 ns
+  - 2785579 -> 2892050 = 106471pps -> 13.22 ns
+
+ * pkt@272bytes: rx:2624484 pps
+ * pkt@272bytes: rx:2624492 pps
+ * test-variation: pkt@272bytes diff: 8pps 0ns
+ * Patchset improvements@272-drop:
+  - 2624484 -> 2559718 = 64766 pps ->  9.64 ns
+  - 2624492 -> 2544577 = 79915 pps -> 11.97 ns
+
+
 -- 
-1.9.1
-
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
