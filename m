@@ -1,76 +1,58 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net] bpf: x86: fix epilogue generation for eBPF programs
-Date: Wed, 26 Nov 2014 21:02:26 -0800
-Message-ID: <1417064546-4129-1-git-send-email-ast@plumgrid.com>
-Cc: Zi Shen Lim <zlim.lnx@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH net-next] ipvlan: ipvlan depends on INET and IPV6
+Date: Wed, 26 Nov 2014 21:13:45 -0800
+Message-ID: <1417065225-784-1-git-send-email-maheshb@google.com>
+Cc: David Miller <davem@davemloft.net>,
+	Jim Davis <jim.epost@gmail.com>,
+	Mahesh Bandewar <maheshb@google.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f202.google.com ([209.85.214.202]:42795 "EHLO
+	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751476AbaK0FNt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 00:13:49 -0500
+Received: by mail-ob0-f202.google.com with SMTP id va2so470583obc.1
+        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 21:13:49 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-classic BPF has a restriction that last insn is always BPF_RET.
-eBPF doesn't have BPF_RET instruction and this restriction.
-It has BPF_EXIT insn which can appear anywhere in the program
-one or more times and it doesn't have to be last insn.
-Fix eBPF JIT to emit epilogue when first BPF_EXIT is seen
-and all other BPF_EXIT instructions will be emitted as jump.
+This driver uses ip_out_local() and ip6_route_output() which are
+defined only if CONFIG_INET and CONFIG_IPV6 are enabled respectively.
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Reported-by: Jim Davis <jim.epost@gmail.com>
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 ---
-Note, this bug is applicable only to native eBPF programs
-which first were introduced in 3.18, so no need to send it
-to stable and therefore no 'Fixes' tag.
+ drivers/net/Kconfig         | 2 ++
+ drivers/net/ipvlan/ipvlan.h | 3 ++-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
 
-arm64 JIT has the same problem, but the fix is not as trivial,
-so will be done as separate patch.
-
-Since 3.18 can only load eBPF programs and cannot execute them,
-this patch can even be done in net-next only, but I think it's worth
-to apply it to 3.18(net), so that JITed output for native eBPF
-programs is correct when bpf syscall loads it with net.core.bpf_jit_enable=2
-
- arch/x86/net/bpf_jit_comp.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index 3f62734..7e90244 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -178,7 +178,7 @@ static void jit_fill_hole(void *area, unsigned int size)
- }
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index b6d64f546574..d6607ee9c855 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -148,6 +148,8 @@ config MACVTAP
  
- struct jit_context {
--	unsigned int cleanup_addr; /* epilogue code offset */
-+	int cleanup_addr; /* epilogue code offset */
- 	bool seen_ld_abs;
- };
+ config IPVLAN
+     tristate "IP-VLAN support"
++    depends on INET
++    depends on IPV6
+     ---help---
+       This allows one to create virtual devices off of a main interface
+       and packets will be delivered based on the dest L3 (IPv6/IPv4 addr)
+diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
+index ab3e7614ed71..c44d29eca6c0 100644
+--- a/drivers/net/ipvlan/ipvlan.h
++++ b/drivers/net/ipvlan/ipvlan.h
+@@ -23,8 +23,9 @@
+ #include <linux/if_vlan.h>
+ #include <linux/ip.h>
+ #include <linux/inetdevice.h>
++#include <net/ip.h>
++#include <net/ip6_route.h>
+ #include <net/rtnetlink.h>
+-#include <net/gre.h>
+ #include <net/route.h>
+ #include <net/addrconf.h>
  
-@@ -192,6 +192,7 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
- 	struct bpf_insn *insn = bpf_prog->insnsi;
- 	int insn_cnt = bpf_prog->len;
- 	bool seen_ld_abs = ctx->seen_ld_abs | (oldproglen == 0);
-+	bool seen_exit = false;
- 	u8 temp[BPF_MAX_INSN_SIZE + BPF_INSN_SAFETY];
- 	int i;
- 	int proglen = 0;
-@@ -854,10 +855,11 @@ common_load:
- 			goto common_load;
- 
- 		case BPF_JMP | BPF_EXIT:
--			if (i != insn_cnt - 1) {
-+			if (seen_exit) {
- 				jmp_offset = ctx->cleanup_addr - addrs[i];
- 				goto emit_jmp;
- 			}
-+			seen_exit = true;
- 			/* update cleanup_addr */
- 			ctx->cleanup_addr = proglen;
- 			/* mov rbx, qword ptr [rbp-X] */
 -- 
-1.7.9.5
+2.2.0.rc0.207.ga3a616c
