@@ -1,88 +1,200 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v3 04/17] net: introduce generic switch devices
- support
-Date: Thu, 27 Nov 2014 07:35:23 -0500
-Message-ID: <54771A8B.2030305@mojatatu.com>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us> <1416911328-10979-5-git-send-email-jiri@resnulli.us> <5474A567.4040401@mojatatu.com> <20141125164954.GJ1971@nanopsycho.orion> <5474B795.3080204@mojatatu.com> <20141125215402.GA3912@casper.infradead.org> <54754A10.6020601@mojatatu.com> <20141127031315.GD1649@vergenet.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH v5 40/45] macvtap: TUN_VNET_HDR support
+Date: Thu, 27 Nov 2014 14:33:27 +0200
+Message-ID: <1417091078-24611-41-git-send-email-mst@redhat.com>
+References: <1417091078-24611-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
-	netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, alexander.h.duyck@redhat.com,
-	john.ronciak@intel.com, mleitner@redhat.com, shrijeet@gmail.com,
-	gospo@cumulusnetworks.com, bcrl@kvack
-To: Simon Horman <simon.horman@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:62046 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754658AbaK0Mf3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 07:35:29 -0500
-Received: by mail-ie0-f173.google.com with SMTP id y20so4473990ier.32
-        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 04:35:29 -0800 (PST)
-In-Reply-To: <20141127031315.GD1649@vergenet.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
+	rusty@au1.ibm.com, nab@linux-iscsi.org, pbonzini@redhat.com,
+	thuth@linux.vnet.ibm.com, dahi@linux.vnet.ibm.com,
+	Jason Wang <jasowang@redhat.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	Tom Herbert <therbert@google.com>,
+	Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1417091078-24611-1-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/26/14 22:13, Simon Horman wrote:
-> On Tue, Nov 25, 2014 at 10:33:36PM -0500, Jamal Hadi Salim wrote:
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/net/macvtap.c | 68 ++++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 43 insertions(+), 25 deletions(-)
 
-[..]
-> I may be missing the point but I see two problems that are solved by
-> the switch abstraction.
->
-> - Cases where no ports are configured.
->
->    Perhaps no such use cases exist for the API in question.
->    But it does seem plausible to me that non-physical ports could
->    be added at run-time and that thus a "switch" could initially
->    exist with no configured port. Something like how bridges
->    initially have no ports (IIRC).
->
-> - Discovering the association between ports and "switches".
->
-> My recollection from the double round table discussion on the last da=
-y of
-> the D=C3=BCsseldorf sessions was that these were reasons that simply =
-accessing
-> any port belonging to the "switch" were not entirely satisfactory.
->
-
-So in Du I illustrated in a slide the internals of the Realtek that
-Ben had patches on. Ben first exposes the realtek ports and when
-you wish you can build a bridge and attach the exposed ports
-and then hardware switching functionality is used. What is interesting
-about it is infact you didnt need to use the switching on it. You
-could attach a filter to any of the exposed ports, then specify an
-action to do a redirect to another port for example.
-(Scott i know you were not there, but i cant find where those slides
-are posted; will send them when i do - or ask Thomas).
-This is very easy to map to port/ingress classifier/actions in Linux.
-I was hoping i could produce a patch to do this - but waiting on Ben
-to complete the reverse engineering.
-In any case the realtek is a toy example but there's millions deployed
-and producing a patch for tc (if Jiri doesnt beat me to it) is a useful
-exercise.
-My devices (as would a netronome) would apply the same concept.
-Essentially, you take an ingress packet arriving on a port,
-you apply a classifier to it, apply actions to i and eventually
-ingress it to a port. i.e
-
-Ingress packet-->port->classifier-->...actions..->egress port
-
-I can model the above with tc.
-
-cheers,
-jamal
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 880cc09..af90ab5 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -45,6 +45,18 @@ struct macvtap_queue {
+ 	struct list_head next;
+ };
+ 
++#define MACVTAP_FEATURES (IFF_VNET_HDR | IFF_VNET_LE | IFF_MULTI_QUEUE)
++
++static inline u16 macvtap16_to_cpu(struct macvtap_queue *q, __virtio16 val)
++{
++	return __virtio16_to_cpu(q->flags & IFF_VNET_LE, val);
++}
++
++static inline __virtio16 cpu_to_macvtap16(struct macvtap_queue *q, u16 val)
++{
++	return __cpu_to_virtio16(q->flags & IFF_VNET_LE, val);
++}
++
+ static struct proto macvtap_proto = {
+ 	.name = "macvtap",
+ 	.owner = THIS_MODULE,
+@@ -557,7 +569,8 @@ static inline struct sk_buff *macvtap_alloc_skb(struct sock *sk, size_t prepad,
+  * macvtap_skb_from_vnet_hdr and macvtap_skb_to_vnet_hdr should
+  * be shared with the tun/tap driver.
+  */
+-static int macvtap_skb_from_vnet_hdr(struct sk_buff *skb,
++static int macvtap_skb_from_vnet_hdr(struct macvtap_queue *q,
++				     struct sk_buff *skb,
+ 				     struct virtio_net_hdr *vnet_hdr)
+ {
+ 	unsigned short gso_type = 0;
+@@ -588,13 +601,13 @@ static int macvtap_skb_from_vnet_hdr(struct sk_buff *skb,
+ 	}
+ 
+ 	if (vnet_hdr->flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
+-		if (!skb_partial_csum_set(skb, vnet_hdr->csum_start,
+-					  vnet_hdr->csum_offset))
++		if (!skb_partial_csum_set(skb, macvtap16_to_cpu(q, vnet_hdr->csum_start),
++					  macvtap16_to_cpu(q, vnet_hdr->csum_offset)))
+ 			return -EINVAL;
+ 	}
+ 
+ 	if (vnet_hdr->gso_type != VIRTIO_NET_HDR_GSO_NONE) {
+-		skb_shinfo(skb)->gso_size = vnet_hdr->gso_size;
++		skb_shinfo(skb)->gso_size = macvtap16_to_cpu(q, vnet_hdr->gso_size);
+ 		skb_shinfo(skb)->gso_type = gso_type;
+ 
+ 		/* Header must be checked, and gso_segs computed. */
+@@ -604,8 +617,9 @@ static int macvtap_skb_from_vnet_hdr(struct sk_buff *skb,
+ 	return 0;
+ }
+ 
+-static void macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
+-				   struct virtio_net_hdr *vnet_hdr)
++static void macvtap_skb_to_vnet_hdr(struct macvtap_queue *q,
++				    const struct sk_buff *skb,
++				    struct virtio_net_hdr *vnet_hdr)
+ {
+ 	memset(vnet_hdr, 0, sizeof(*vnet_hdr));
+ 
+@@ -613,8 +627,8 @@ static void macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
+ 		struct skb_shared_info *sinfo = skb_shinfo(skb);
+ 
+ 		/* This is a hint as to how much should be linear. */
+-		vnet_hdr->hdr_len = skb_headlen(skb);
+-		vnet_hdr->gso_size = sinfo->gso_size;
++		vnet_hdr->hdr_len = cpu_to_macvtap16(q, skb_headlen(skb));
++		vnet_hdr->gso_size = cpu_to_macvtap16(q, sinfo->gso_size);
+ 		if (sinfo->gso_type & SKB_GSO_TCPV4)
+ 			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+ 		else if (sinfo->gso_type & SKB_GSO_TCPV6)
+@@ -628,10 +642,13 @@ static void macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
+ 
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		vnet_hdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+-		vnet_hdr->csum_start = skb_checksum_start_offset(skb);
+ 		if (vlan_tx_tag_present(skb))
+-			vnet_hdr->csum_start += VLAN_HLEN;
+-		vnet_hdr->csum_offset = skb->csum_offset;
++			vnet_hdr->csum_start = cpu_to_macvtap16(q,
++				skb_checksum_start_offset(skb) + VLAN_HLEN);
++		else
++			vnet_hdr->csum_start = cpu_to_macvtap16(q,
++				skb_checksum_start_offset(skb));
++		vnet_hdr->csum_offset = cpu_to_macvtap16(q, skb->csum_offset);
+ 	} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+ 		vnet_hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
+ 	} /* else everything is zero */
+@@ -666,12 +683,14 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 		if (err < 0)
+ 			goto err;
+ 		if ((vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
+-		     vnet_hdr.csum_start + vnet_hdr.csum_offset + 2 >
+-							vnet_hdr.hdr_len)
+-			vnet_hdr.hdr_len = vnet_hdr.csum_start +
+-						vnet_hdr.csum_offset + 2;
++		     macvtap16_to_cpu(q, vnet_hdr.csum_start) +
++		     macvtap16_to_cpu(q, vnet_hdr.csum_offset) + 2 >
++			     macvtap16_to_cpu(q, vnet_hdr.hdr_len))
++			vnet_hdr.hdr_len = cpu_to_macvtap16(q,
++				 macvtap16_to_cpu(q, vnet_hdr.csum_start) +
++				 macvtap16_to_cpu(q, vnet_hdr.csum_offset) + 2);
+ 		err = -EINVAL;
+-		if (vnet_hdr.hdr_len > len)
++		if (macvtap16_to_cpu(q, vnet_hdr.hdr_len) > len)
+ 			goto err;
+ 	}
+ 
+@@ -684,7 +703,8 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 		goto err;
+ 
+ 	if (m && m->msg_control && sock_flag(&q->sk, SOCK_ZEROCOPY)) {
+-		copylen = vnet_hdr.hdr_len ? vnet_hdr.hdr_len : GOODCOPY_LEN;
++		copylen = vnet_hdr.hdr_len ?
++			macvtap16_to_cpu(q, vnet_hdr.hdr_len) : GOODCOPY_LEN;
+ 		if (copylen > good_linear)
+ 			copylen = good_linear;
+ 		linear = copylen;
+@@ -695,10 +715,10 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 
+ 	if (!zerocopy) {
+ 		copylen = len;
+-		if (vnet_hdr.hdr_len > good_linear)
++		if (macvtap16_to_cpu(q, vnet_hdr.hdr_len) > good_linear)
+ 			linear = good_linear;
+ 		else
+-			linear = vnet_hdr.hdr_len;
++			linear = macvtap16_to_cpu(q, vnet_hdr.hdr_len);
+ 	}
+ 
+ 	skb = macvtap_alloc_skb(&q->sk, NET_IP_ALIGN, copylen,
+@@ -725,7 +745,7 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 	skb->protocol = eth_hdr(skb)->h_proto;
+ 
+ 	if (vnet_hdr_len) {
+-		err = macvtap_skb_from_vnet_hdr(skb, &vnet_hdr);
++		err = macvtap_skb_from_vnet_hdr(q, skb, &vnet_hdr);
+ 		if (err)
+ 			goto err_kfree;
+ 	}
+@@ -791,7 +811,7 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+ 		if ((len -= vnet_hdr_len) < 0)
+ 			return -EINVAL;
+ 
+-		macvtap_skb_to_vnet_hdr(skb, &vnet_hdr);
++		macvtap_skb_to_vnet_hdr(q, skb, &vnet_hdr);
+ 
+ 		if (memcpy_toiovecend(iv, (void *)&vnet_hdr, 0, sizeof(vnet_hdr)))
+ 			return -EFAULT;
+@@ -1003,8 +1023,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 			return -EFAULT;
+ 
+ 		ret = 0;
+-		if ((u & ~(IFF_VNET_HDR | IFF_MULTI_QUEUE)) !=
+-		    (IFF_NO_PI | IFF_TAP))
++		if ((u & ~MACVTAP_FEATURES) != (IFF_NO_PI | IFF_TAP))
+ 			ret = -EINVAL;
+ 		else
+ 			q->flags = u;
+@@ -1036,8 +1055,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 		return ret;
+ 
+ 	case TUNGETFEATURES:
+-		if (put_user(IFF_TAP | IFF_NO_PI | IFF_VNET_HDR |
+-			     IFF_MULTI_QUEUE, up))
++		if (put_user(IFF_TAP | IFF_NO_PI | MACVTAP_FEATURES, up))
+ 			return -EFAULT;
+ 		return 0;
+ 
+-- 
+MST
