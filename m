@@ -1,352 +1,81 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v3] can: Convert to runtime_pm
-Date: Thu, 27 Nov 2014 22:17:53 +0100
-Message-ID: <54779501.8060009@pengutronix.de>
-References: <6b6db31d46074512a322eae6e4ef64d4@BN1BFFO11FD038.protection.gbl>
+Subject: Re: [PATCH v7 6/8] net: can: c_can: Disable pins when CAN interface
+ is down
+Date: Thu, 27 Nov 2014 22:19:32 +0100
+Message-ID: <54779564.7010309@pengutronix.de>
+References: <1415371762-29885-1-git-send-email-rogerq@ti.com>	<1415371762-29885-7-git-send-email-rogerq@ti.com>	<5464CCFF.5010004@ti.com>	<5466225D.2070202@ti.com> <CACRpkdbVXPi7fNjGEzChayQ1KQg8h2R6sm0TNRsVOFJmAT=YMQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
  protocol="application/pgp-signature";
- boundary="iAgmuCPp4DrAM3bOXGRkOemdjPOtrEBK7"
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	devicetree@vger.kernel.org,
-	Kedareswara rao Appana <appanad@xilinx.com>
-To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
-	wg@grandegger.com, michal.simek@xilinx.com,
-	soren.brinkmann@xilinx.com, grant.likely@linaro.org,
-	robh+dt@kernel.org
+ boundary="Nob98WK4JRpvj27hLKKiPP4bDNp2AElkm"
+Cc: wg@grandegger.com, Wolfram Sang <wsa@the-dreams.de>,
+	Tony Lindgren <tony@atomide.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	George Cherian <george.cherian@ti.com>,
+	Felipe Balbi <balbi@ti.com>, Sekhar Nori <nsekhar@ti.com>,
+	Nishanth Menon <nm@ti.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Linux-OMAP <linux-omap@vger.kernel.org>,
+	linux-can@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Linus Walleij <linus.walleij@linaro.org>,
+	Roger Quadros <rogerq@ti.com>
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <6b6db31d46074512a322eae6e4ef64d4@BN1BFFO11FD038.protection.gbl>
+In-Reply-To: <CACRpkdbVXPi7fNjGEzChayQ1KQg8h2R6sm0TNRsVOFJmAT=YMQ@mail.gmail.com>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---iAgmuCPp4DrAM3bOXGRkOemdjPOtrEBK7
+--Nob98WK4JRpvj27hLKKiPP4bDNp2AElkm
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
 
-On 11/27/2014 02:08 PM, Kedareswara rao Appana wrote:
-> Instead of enabling/disabling clocks at several locations in the driver=
-,
-> use the runtime_pm framework. This consolidates the actions for
-> runtime PM in the appropriate callbacks and makes the driver more
-> readable and mantainable.
+On 11/27/2014 02:26 PM, Linus Walleij wrote:
+> On Fri, Nov 14, 2014 at 4:40 PM, Roger Quadros <rogerq@ti.com> wrote:
 >=20
-> Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
-> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
-> ---
-> Changes for v3:
->   - Converted the driver to use runtime_pm.
-> Changes for v2:
->   - Removed the struct platform_device* from suspend/resume
->     as suggest by Lothar.
+>> DRA7 CAN IP suffers from a problem which causes it to be prevented
+>> from fully turning OFF (i.e. stuck in transition) if the module was
+>> disabled while there was traffic on the CAN_RX line.
+>>
+>> To work around this issue we select the SLEEP pin state by default
+>> on probe and use the DEFAULT pin state on CAN up and back to the
+>> SLEEP pin state on CAN down.
+>>
+>> Signed-off-by: Roger Quadros <rogerq@ti.com>
 >=20
->  drivers/net/can/xilinx_can.c |  119 +++++++++++++++++++++++++---------=
--------
->  1 files changed, 72 insertions(+), 47 deletions(-)
+> Reviewed-by: Linus Walleij <linus.walleij@linaro.org>
+
+Thanks, however the patch is already upstream.
+
 >=20
-> diff --git a/drivers/net/can/xilinx_can.c b/drivers/net/can/xilinx_can.=
-c
-> index 8a998e3..1be28ed 100644
-> --- a/drivers/net/can/xilinx_can.c
-> +++ b/drivers/net/can/xilinx_can.c
-> @@ -32,6 +32,7 @@
->  #include <linux/can/dev.h>
->  #include <linux/can/error.h>
->  #include <linux/can/led.h>
-> +#include <linux/pm_runtime.h>
-> =20
->  #define DRIVER_NAME	"xilinx_can"
-> =20
-> @@ -138,7 +139,7 @@ struct xcan_priv {
->  	u32 (*read_reg)(const struct xcan_priv *priv, enum xcan_reg reg);
->  	void (*write_reg)(const struct xcan_priv *priv, enum xcan_reg reg,
->  			u32 val);
-> -	struct net_device *dev;
-> +	struct device *dev;
->  	void __iomem *reg_base;
->  	unsigned long irq_flags;
->  	struct clk *bus_clk;
-> @@ -842,6 +843,13 @@ static int xcan_open(struct net_device *ndev)
->  	struct xcan_priv *priv =3D netdev_priv(ndev);
->  	int ret;
-> =20
-> +	ret =3D pm_runtime_get_sync(priv->dev);
-> +	if (ret < 0) {
-> +		netdev_err(ndev, "%s: runtime CAN resume failed(%d)\n\r",
-> +				__func__, ret);
-> +		return ret;
-> +	}
-> +
->  	ret =3D request_irq(ndev->irq, xcan_interrupt, priv->irq_flags,
->  			ndev->name, ndev);
->  	if (ret < 0) {
-> @@ -849,29 +857,17 @@ static int xcan_open(struct net_device *ndev)
->  		goto err;
->  	}
-> =20
-> -	ret =3D clk_prepare_enable(priv->can_clk);
-> -	if (ret) {
-> -		netdev_err(ndev, "unable to enable device clock\n");
-> -		goto err_irq;
-> -	}
-> -
-> -	ret =3D clk_prepare_enable(priv->bus_clk);
-> -	if (ret) {
-> -		netdev_err(ndev, "unable to enable bus clock\n");
-> -		goto err_can_clk;
-> -	}
-> -
->  	/* Set chip into reset mode */
->  	ret =3D set_reset_mode(ndev);
->  	if (ret < 0) {
->  		netdev_err(ndev, "mode resetting failed!\n");
-> -		goto err_bus_clk;
-> +		goto err_irq;
->  	}
-> =20
->  	/* Common open */
->  	ret =3D open_candev(ndev);
->  	if (ret)
-> -		goto err_bus_clk;
-> +		goto err_irq;
-> =20
->  	ret =3D xcan_chip_start(ndev);
->  	if (ret < 0) {
-> @@ -887,13 +883,11 @@ static int xcan_open(struct net_device *ndev)
-> =20
->  err_candev:
->  	close_candev(ndev);
-> -err_bus_clk:
-> -	clk_disable_unprepare(priv->bus_clk);
-> -err_can_clk:
-> -	clk_disable_unprepare(priv->can_clk);
->  err_irq:
->  	free_irq(ndev->irq, ndev);
->  err:
-> +	pm_runtime_put(priv->dev);
-> +
->  	return ret;
->  }
-> =20
-> @@ -910,12 +904,11 @@ static int xcan_close(struct net_device *ndev)
->  	netif_stop_queue(ndev);
->  	napi_disable(&priv->napi);
->  	xcan_chip_stop(ndev);
-> -	clk_disable_unprepare(priv->bus_clk);
-> -	clk_disable_unprepare(priv->can_clk);
->  	free_irq(ndev->irq, ndev);
->  	close_candev(ndev);
-> =20
->  	can_led_event(ndev, CAN_LED_EVENT_STOP);
-> +	pm_runtime_put(priv->dev);
-> =20
->  	return 0;
->  }
-> @@ -934,27 +927,21 @@ static int xcan_get_berr_counter(const struct net=
-_device *ndev,
->  	struct xcan_priv *priv =3D netdev_priv(ndev);
->  	int ret;
-> =20
-> -	ret =3D clk_prepare_enable(priv->can_clk);
-> -	if (ret)
-> -		goto err;
-> +	ret =3D pm_runtime_get_sync(priv->dev);
-> +	if (ret < 0) {
-> +		netdev_err(ndev, "%s: runtime resume failed(%d)\n\r",
-> +				__func__, ret);
-> +		return ret;
-> +	}
-> =20
-> -	ret =3D clk_prepare_enable(priv->bus_clk);
-> -	if (ret)
-> -		goto err_clk;
-> =20
->  	bec->txerr =3D priv->read_reg(priv, XCAN_ECR_OFFSET) & XCAN_ECR_TEC_M=
-ASK;
->  	bec->rxerr =3D ((priv->read_reg(priv, XCAN_ECR_OFFSET) &
->  			XCAN_ECR_REC_MASK) >> XCAN_ESR_REC_SHIFT);
-> =20
-> -	clk_disable_unprepare(priv->bus_clk);
-> -	clk_disable_unprepare(priv->can_clk);
-> +	pm_runtime_put(priv->dev);
-> =20
->  	return 0;
-> -
-> -err_clk:
-> -	clk_disable_unprepare(priv->can_clk);
-> -err:
-> -	return ret;
->  }
-> =20
-> =20
-> @@ -967,15 +954,45 @@ static const struct net_device_ops xcan_netdev_op=
-s =3D {
-> =20
->  /**
->   * xcan_suspend - Suspend method for the driver
-> - * @dev:	Address of the platform_device structure
-> + * @dev:	Address of the net_device structure
->   *
->   * Put the driver into low power mode.
-> - * Return: 0 always
-> + * Return: 0 on success and failure value on error
->   */
->  static int __maybe_unused xcan_suspend(struct device *dev)
->  {
-> -	struct platform_device *pdev =3D dev_get_drvdata(dev);
-> -	struct net_device *ndev =3D platform_get_drvdata(pdev);
-> +	if (!device_may_wakeup(dev))
-> +		return pm_runtime_force_suspend(dev);
-> +
-> +	return 0;
-> +}
-> +
-> +/**
-> + * xcan_resume - Resume from suspend
-> + * @dev:	Address of the net_device structure
-> + *
-> + * Resume operation after suspend.
-> + * Return: 0 on success and failure value on error
-> + */
-> +static int __maybe_unused xcan_resume(struct device *dev)
-> +{
-> +	if (!device_may_wakeup(dev))
-> +		return pm_runtime_force_resume(dev);
-> +
-> +	return 0;
-> +
-> +}
-> +
-> +/**
-> + * xcan_runtime_suspend - Runtime suspend method for the driver
-> + * @dev:	Address of the net_device structure
-> + *
-> + * Put the driver into low power mode.
-> + * Return: 0 always
-> + */
-> +static int __maybe_unused xcan_runtime_suspend(struct device *dev)
-> +{
-> +	struct net_device *ndev =3D dev_get_drvdata(dev);
->  	struct xcan_priv *priv =3D netdev_priv(ndev);
-> =20
->  	if (netif_running(ndev)) {
-> @@ -993,16 +1010,15 @@ static int __maybe_unused xcan_suspend(struct de=
-vice *dev)
->  }
-> =20
->  /**
-> - * xcan_resume - Resume from suspend
-> - * @dev:	Address of the platformdevice structure
-> + * xcan_runtime_resume - Runtime resume from suspend
-> + * @dev:	Address of the net_device structure
->   *
->   * Resume operation after suspend.
->   * Return: 0 on success and failure value on error
->   */
-> -static int __maybe_unused xcan_resume(struct device *dev)
-> +static int __maybe_unused xcan_runtime_resume(struct device *dev)
->  {
-> -	struct platform_device *pdev =3D dev_get_drvdata(dev);
-> -	struct net_device *ndev =3D platform_get_drvdata(pdev);
-> +	struct net_device *ndev =3D dev_get_drvdata(dev);
->  	struct xcan_priv *priv =3D netdev_priv(ndev);
->  	int ret;
-
-=2E..adding the rest of the function to comment it:
-
-> 	ret =3D clk_enable(priv->bus_clk);
-> 	if (ret) {
-> 		dev_err(dev, "Cannot enable clock.\n");
-> 		return ret;
-> 	}
-> 	ret =3D clk_enable(priv->can_clk);
-> 	if (ret) {
-> 		dev_err(dev, "Cannot enable clock.\n");
-> 		clk_disable_unprepare(priv->bus_clk);
-> 		return ret;
-> 	}
+> I see you figured it out all by yourselves :D
 >=20
-> 	priv->write_reg(priv, XCAN_MSR_OFFSET, 0);
-> 	priv->write_reg(priv, XCAN_SRR_OFFSET, XCAN_SRR_CEN_MASK);
-> 	priv->can.state =3D CAN_STATE_ERROR_ACTIVE;
-
-Does it have any side effects, when writing these values when the CAN
-device is not UP? (e.g. when running the berr callback?) Setting its
-state to ERROR active is probably wrong. Do you have to move it into the
-if(netif_running())?
-
-> 	if (netif_running(ndev)) {
-> 		netif_device_attach(ndev);
-> 		netif_start_queue(ndev);
-> 	}
+> (Sorry for being absent.)
 >=20
-> 	return 0;
-> }
-
-> =20
-> @@ -1030,7 +1046,10 @@ static int __maybe_unused xcan_resume(struct dev=
-ice *dev)
->  	return 0;
->  }
-> =20
-> -static SIMPLE_DEV_PM_OPS(xcan_dev_pm_ops, xcan_suspend, xcan_resume);
-> +static const struct dev_pm_ops xcan_dev_pm_ops =3D {
-> +	SET_SYSTEM_SLEEP_PM_OPS(xcan_suspend, xcan_resume)
-> +	SET_PM_RUNTIME_PM_OPS(xcan_runtime_suspend, xcan_runtime_resume, NULL=
-)
-> +};
-> =20
->  /**
->   * xcan_probe - Platform registration call
-> @@ -1071,7 +1090,7 @@ static int xcan_probe(struct platform_device *pde=
-v)
->  		return -ENOMEM;
-> =20
->  	priv =3D netdev_priv(ndev);
-> -	priv->dev =3D ndev;
-> +	priv->dev =3D &pdev->dev;
->  	priv->can.bittiming_const =3D &xcan_bittiming_const;
->  	priv->can.do_set_mode =3D xcan_do_set_mode;
->  	priv->can.do_get_berr_counter =3D xcan_get_berr_counter;
-> @@ -1137,6 +1156,11 @@ static int xcan_probe(struct platform_device *pd=
-ev)
-> =20
->  	netif_napi_add(ndev, &priv->napi, xcan_rx_poll, rx_max);
-> =20
-> +	pm_runtime_set_active(&pdev->dev);
-> +	pm_runtime_irq_safe(&pdev->dev);
-
-You use just clock_enable()/disable() in the runtime functions, thus you
-can say they are irq_safe. On the other the the zync grpio driver uses
-"full" prepare_enable/disable_unprepare calls. What's best practice here?=
-
-
-> +	pm_runtime_enable(&pdev->dev);
-> +	pm_runtime_get_sync(&pdev->dev);
-> +
->  	ret =3D register_candev(ndev);
->  	if (ret) {
->  		dev_err(&pdev->dev, "fail to register failed (err=3D%d)\n", ret);
-
-I think in case of an error, you have to call pm_runtime_put() here
-
-> @@ -1144,8 +1168,9 @@ static int xcan_probe(struct platform_device *pde=
-v)
->  	}
-> =20
->  	devm_can_led_init(ndev);
-> -	clk_disable_unprepare(priv->bus_clk);
-> -	clk_disable_unprepare(priv->can_clk);
-> +
-> +	pm_runtime_put(&pdev->dev);
-> +
->  	netdev_dbg(ndev, "reg_base=3D0x%p irq=3D%d clock=3D%d, tx fifo depth:=
-%d\n",
->  			priv->reg_base, ndev->irq, priv->can.clock.freq,
->  			priv->tx_max);
+>> +#include <linux/pinctrl/consumer.h>
+>> +       pinctrl_pm_select_default_state(dev->dev.parent);
+>> +       pinctrl_pm_select_sleep_state(dev->dev.parent);
+>> +       pinctrl_pm_select_sleep_state(dev->dev.parent);
 >=20
+> NB: in drivers/base/pinctrl.c:
+>=20
+> #ifdef CONFIG_PM
+>         /*
+>          * If power management is enabled, we also look for the optiona=
+l
+>          * sleep and idle pin states, with semantics as defined in
+>          * <linux/pinctrl/pinctrl-state.h>
+>          */
+>         dev->pins->sleep_state =3D pinctrl_lookup_state(dev->pins->p,
+>                                         PINCTRL_STATE_SLEEP);
+>=20
+> So if these states are necessary for the driver to work, put
+> depends on PM or select PM in the Kconfig.
 
+Roger, you can prepare a patch, if needed.
+
+Thanks,
 Marc
 
 --=20
@@ -356,7 +85,7 @@ Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
 Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
---iAgmuCPp4DrAM3bOXGRkOemdjPOtrEBK7
+--Nob98WK4JRpvj27hLKKiPP4bDNp2AElkm
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -364,19 +93,19 @@ Content-Disposition: attachment; filename="signature.asc"
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIcBAEBAgAGBQJUd5UBAAoJECte4hHFiupU/DUP/2UP2/o4NcR+DVCvhI/UMiZw
-XmGOLnTuZyLMGT3hAxsAE3FexbHlJmBotjVYGiZTlawhSPm+mdrQ3XinviSP2MU1
-smbROFQ9suGqC6wPvsol2CU5U5uL4Od+UN1T94fsDR+Ou+XXIR7dzcLWmmhNbSDZ
-BN/CKpUmShM2REQq0xQuIq7EVamOSxJZc+LfTldAexMfno0yFlQK3eRO2WAR8XYb
-LBOvbTRihl0RL14/AWYn9n4ale94jsXawCEI+J5DyPABYijk5AKBEW/RMvXWeYqV
-6p7YYyA314sIEDT+cqjfMsO19TUiLNaBaEAk/aogpQGf12HMVMLJ1I7hZG7vFlYx
-rEmXjGRdy/hv07FX9xMqQSFU3VyitzunG4Z2fAiqiWUD5UuAJ8pfQKsEsuCRtZIS
-dZ1tAGDKd9RAxdbvLc9GUoUPfKc/SBIvCN3kjuMObv6LS14l2ctp6xpRIXcAZzuy
-8knZJLjwrwWV3ijh73JrUxmIPa06RyPpymDXmpMSfV9XHuybKC7/yeU3ajizh729
-gD3q0HrLzjCMYcfHZCzORsrB37x/5nRng2jgrHeyBOiq3ICj+5kqu5IEBzCELbPV
-i6mVIj31G4xFJxDaJGzsN3TYwHo6YiDVjaRriu24g72Ds9dX0xQ9sZr+qECBvyvE
-uOqcWxKdlgQ93M8QXRuk
-=Y+EF
+iQIcBAEBAgAGBQJUd5VkAAoJECte4hHFiupUY2wP+gK7cXqMZR8Ngqh0Mz4Ktw1y
+nb1IR8xoeQDeIZPeH5j7FiqcmrQlxipC8ux32KsSN34XzLa6ptopV+6MaDeaOl4H
+//7NIkJrdsc4SVKF54rEycn345F3IpM46MmjrISDApSZswk4pn66wql3BrTLiCEH
+EN88x4XA2Am4i8UXBRuGtrRXJ0YFEeWE1ut60Cu9IDdJR32keUnWjGpVAy0fIwJb
+IZsd/svOuAHN14lc2dTO0t4jZAVQmcyDC0ePggXGRMs6vL9kmkYUO6DzTMyG30eC
+eS69oR4+QvEuoG4PfLksvdAD7kY4vlPCfJBzjM2O+ImWjMrMd7l6LRRwgvdaS3dU
+C2i5G6rUi3eBbE4f6XyIwLut5lWQmXW8h30pdClXV0kK5MpfapuGr9+Ix8oB78KP
+L31EcN9TdbEQUjwBHi5bm2308xk0AgShR+tK7QnQ/OorjF1A5RL3TGqSPomKrq65
+rLj5s96i0Z9DNtQs3z+//DKOx3S1Z/IlxqlH6OCmUZNZEVsPwC+MFivz+j0kgSFK
+ZqDWoNhLelfqjguqEIzU6b/b5Uu53tIcZsW5fCVOURGTL/BTLLZAuz2Pn0fSsJEH
+jiKhg5ubmEkCIcyeF9tlbRohLyfAyGE6X/fOPevzKbrXIM5hOI4Utrpozwa7cIp+
+pUDqpOkG3DkpIzAFXMlk
+=YtwN
 -----END PGP SIGNATURE-----
 
---iAgmuCPp4DrAM3bOXGRkOemdjPOtrEBK7--
+--Nob98WK4JRpvj27hLKKiPP4bDNp2AElkm--
