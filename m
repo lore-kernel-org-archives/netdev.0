@@ -1,83 +1,200 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [patch net-next v3 09/17] bridge: add API to notify bridge driver
- of learned FBD on offloaded device
-Date: Thu, 27 Nov 2014 11:36:26 -0800
-Message-ID: <54777D3A.6070903@gmail.com>
-References: <E4CD12F19ABA0C4D8729E087A761DC3505D7E13E@ORSMSX101.amr.corp.intel.com> <CAE4R7bC9o4ucO_Erb0tU4EwJNYj8SrapbKxNWvUTL8YD=RMBJQ@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH v6 15/46] virtio_net: v1.0 endianness
+Date: Thu, 27 Nov 2014 22:09:02 +0200
+Message-ID: <1417118789-18231-16-git-send-email-mst@redhat.com>
+References: <1417118789-18231-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Arad, Ronen" <ronen.arad@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:36660 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750887AbaK0Tgt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 14:36:49 -0500
-Received: by mail-ob0-f175.google.com with SMTP id wp4so4123093obc.20
-        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 11:36:48 -0800 (PST)
-In-Reply-To: <CAE4R7bC9o4ucO_Erb0tU4EwJNYj8SrapbKxNWvUTL8YD=RMBJQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
+	rusty@au1.ibm.com, nab@linux-iscsi.org, pbonzini@redhat.com,
+	thuth@linux.vnet.ibm.com, dahi@linux.vnet.ibm.com,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-api@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1417118789-18231-1-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/26/2014 11:03 PM, Scott Feldman wrote:
-> On Tue, Nov 25, 2014 at 9:37 PM, Arad, Ronen <ronen.arad@intel.com> wrote:
->>>>>>
->>>>>> Is there any case where this fdb entry gets re-used and is no
->>>>>> longer added by an external learning? Should we clear this flag somewhere?
->>>>>
->>>>> Once the FDB entry is marked "added_by_external_learn" it stays
->>>>> marked as such until removed by aging cleanup process (or flushed
->>>>> due to interface down, etc).  If aged out (and now deleted), the
->>>>> FDB entry may come back either by SW learn or by HW learn.  If SW
->>>>> learn comes first, and then HW learn, HW learn will override and
->>>>> mark the existing FDB entry "added_by_external_learn".  So there is
->>>>> take-over by HW but no give-back to SW.  And there is no explicit
->>>>> clearing of the mark short of deleting the FDB entry.  The mark is
->>>>> mostly for letting user's know which FDB entries where learned by
->>>>> HW and synced to the bridge's FDB.
->>>>
->>>> Thanks, makes sense now. This is probably obvious in this context,
->>>> but maybe it would not hurt to come up with a documentation that
->>>> describe the offload API, FDB entry lifetime and HW/SW ownership etc...
->>>
->>> I have an updated Documentation/networking/switchdev.txt that covers
->>> the swdev APIs and usage and notes, but Jiri is being stingy with it.
->>> Will get this out, either in v4 or follow-on patches.  There is enough
->>> going on just with L2 offload that we're going to need some good
->>> documentation to guide implementers.
->>> --
->>
->> To control the lifetime of an externally learned FDB entry, the bridge shall provide an API for the switch driver to update the freshness of externally learned entries. Otherwise, the bridge aging will age entries which are currently or frequently used by the HW.
->> Is this covered in the updated document?
->> Is this functionality planned for v4?
->
-> Hi Ronen,
->
-> It's already there: driver calls br_fdb_external_learn_add() to
-> refresh FBD entry, which updates the fdb->updated and fdb->used
-> timestamps, preventing bridge from prematurely aging out the entry.
-> We'll make sure that detail gets in the doc.  It's up to the driver on
-> how frequently it calls br_fdb_external_learn_add().  Maybe it just
-> blindly makes the call every 1s.  That's what rocker driver does (as
-> long as the FDB entry continues to get hits).  From the user's
-> perspective, 1s update is nice when looking at the stats dump for
-> fdbs, since the timestamps are in secs.
->
-> -scott
+Based on patches by Rusty Russell, Cornelia Huck.
+Note: more code changes are needed for 1.0 support
+(due to different header size).
+So we don't advertize support for 1.0 yet.
 
-We could at some point add a driver knob to set the timing of the
-updates as well, but I don't see the need for it yet. Rocker switch
-doesn't need it but if vendors devices want to do this it wouldn't
-be difficult.
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ include/uapi/linux/virtio_net.h | 15 ++++++++-------
+ drivers/net/virtio_net.c        | 33 ++++++++++++++++++++-------------
+ 2 files changed, 28 insertions(+), 20 deletions(-)
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-
-
+diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
+index 172a7f0..b5f1677 100644
+--- a/include/uapi/linux/virtio_net.h
++++ b/include/uapi/linux/virtio_net.h
+@@ -28,6 +28,7 @@
+ #include <linux/types.h>
+ #include <linux/virtio_ids.h>
+ #include <linux/virtio_config.h>
++#include <linux/virtio_types.h>
+ #include <linux/if_ether.h>
+ 
+ /* The feature bitmap for virtio net */
+@@ -84,17 +85,17 @@ struct virtio_net_hdr {
+ #define VIRTIO_NET_HDR_GSO_TCPV6	4	// GSO frame, IPv6 TCP
+ #define VIRTIO_NET_HDR_GSO_ECN		0x80	// TCP has ECN set
+ 	__u8 gso_type;
+-	__u16 hdr_len;		/* Ethernet + IP + tcp/udp hdrs */
+-	__u16 gso_size;		/* Bytes to append to hdr_len per frame */
+-	__u16 csum_start;	/* Position to start checksumming from */
+-	__u16 csum_offset;	/* Offset after that to place checksum */
++	__virtio16 hdr_len;		/* Ethernet + IP + tcp/udp hdrs */
++	__virtio16 gso_size;		/* Bytes to append to hdr_len per frame */
++	__virtio16 csum_start;	/* Position to start checksumming from */
++	__virtio16 csum_offset;	/* Offset after that to place checksum */
+ };
+ 
+ /* This is the version of the header to use when the MRG_RXBUF
+  * feature has been negotiated. */
+ struct virtio_net_hdr_mrg_rxbuf {
+ 	struct virtio_net_hdr hdr;
+-	__u16 num_buffers;	/* Number of merged rx buffers */
++	__virtio16 num_buffers;	/* Number of merged rx buffers */
+ };
+ 
+ /*
+@@ -149,7 +150,7 @@ typedef __u8 virtio_net_ctrl_ack;
+  * VIRTIO_NET_F_CTRL_MAC_ADDR feature is available.
+  */
+ struct virtio_net_ctrl_mac {
+-	__u32 entries;
++	__virtio32 entries;
+ 	__u8 macs[][ETH_ALEN];
+ } __attribute__((packed));
+ 
+@@ -193,7 +194,7 @@ struct virtio_net_ctrl_mac {
+  * specified.
+  */
+ struct virtio_net_ctrl_mq {
+-	__u16 virtqueue_pairs;
++	__virtio16 virtqueue_pairs;
+ };
+ 
+ #define VIRTIO_NET_CTRL_MQ   4
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index b0bc8ea..c07e030 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -347,13 +347,14 @@ err:
+ }
+ 
+ static struct sk_buff *receive_mergeable(struct net_device *dev,
++					 struct virtnet_info *vi,
+ 					 struct receive_queue *rq,
+ 					 unsigned long ctx,
+ 					 unsigned int len)
+ {
+ 	void *buf = mergeable_ctx_to_buf_address(ctx);
+ 	struct skb_vnet_hdr *hdr = buf;
+-	int num_buf = hdr->mhdr.num_buffers;
++	u16 num_buf = virtio16_to_cpu(rq->vq->vdev, hdr->mhdr.num_buffers);
+ 	struct page *page = virt_to_head_page(buf);
+ 	int offset = buf - page_address(page);
+ 	unsigned int truesize = max(len, mergeable_ctx_to_buf_truesize(ctx));
+@@ -369,7 +370,9 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 		ctx = (unsigned long)virtqueue_get_buf(rq->vq, &len);
+ 		if (unlikely(!ctx)) {
+ 			pr_debug("%s: rx error: %d buffers out of %d missing\n",
+-				 dev->name, num_buf, hdr->mhdr.num_buffers);
++				 dev->name, num_buf,
++				 virtio16_to_cpu(rq->vq->vdev,
++						 hdr->mhdr.num_buffers));
+ 			dev->stats.rx_length_errors++;
+ 			goto err_buf;
+ 		}
+@@ -454,7 +457,7 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+ 	}
+ 
+ 	if (vi->mergeable_rx_bufs)
+-		skb = receive_mergeable(dev, rq, (unsigned long)buf, len);
++		skb = receive_mergeable(dev, vi, rq, (unsigned long)buf, len);
+ 	else if (vi->big_packets)
+ 		skb = receive_big(dev, rq, buf, len);
+ 	else
+@@ -473,8 +476,8 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+ 	if (hdr->hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
+ 		pr_debug("Needs csum!\n");
+ 		if (!skb_partial_csum_set(skb,
+-					  hdr->hdr.csum_start,
+-					  hdr->hdr.csum_offset))
++			  virtio16_to_cpu(vi->vdev, hdr->hdr.csum_start),
++			  virtio16_to_cpu(vi->vdev, hdr->hdr.csum_offset)))
+ 			goto frame_err;
+ 	} else if (hdr->hdr.flags & VIRTIO_NET_HDR_F_DATA_VALID) {
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+@@ -514,7 +517,8 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+ 		if (hdr->hdr.gso_type & VIRTIO_NET_HDR_GSO_ECN)
+ 			skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_ECN;
+ 
+-		skb_shinfo(skb)->gso_size = hdr->hdr.gso_size;
++		skb_shinfo(skb)->gso_size = virtio16_to_cpu(vi->vdev,
++							    hdr->hdr.gso_size);
+ 		if (skb_shinfo(skb)->gso_size == 0) {
+ 			net_warn_ratelimited("%s: zero gso size.\n", dev->name);
+ 			goto frame_err;
+@@ -876,16 +880,19 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+ 
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		hdr->hdr.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+-		hdr->hdr.csum_start = skb_checksum_start_offset(skb);
+-		hdr->hdr.csum_offset = skb->csum_offset;
++		hdr->hdr.csum_start = cpu_to_virtio16(vi->vdev,
++						skb_checksum_start_offset(skb));
++		hdr->hdr.csum_offset = cpu_to_virtio16(vi->vdev,
++							 skb->csum_offset);
+ 	} else {
+ 		hdr->hdr.flags = 0;
+ 		hdr->hdr.csum_offset = hdr->hdr.csum_start = 0;
+ 	}
+ 
+ 	if (skb_is_gso(skb)) {
+-		hdr->hdr.hdr_len = skb_headlen(skb);
+-		hdr->hdr.gso_size = skb_shinfo(skb)->gso_size;
++		hdr->hdr.hdr_len = cpu_to_virtio16(vi->vdev, skb_headlen(skb));
++		hdr->hdr.gso_size = cpu_to_virtio16(vi->vdev,
++						    skb_shinfo(skb)->gso_size);
+ 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
+ 			hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+ 		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
+@@ -1112,7 +1119,7 @@ static int virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
+ 	if (!vi->has_cvq || !virtio_has_feature(vi->vdev, VIRTIO_NET_F_MQ))
+ 		return 0;
+ 
+-	s.virtqueue_pairs = queue_pairs;
++	s.virtqueue_pairs = cpu_to_virtio16(vi->vdev, queue_pairs);
+ 	sg_init_one(&sg, &s, sizeof(s));
+ 
+ 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MQ,
+@@ -1189,7 +1196,7 @@ static void virtnet_set_rx_mode(struct net_device *dev)
+ 	sg_init_table(sg, 2);
+ 
+ 	/* Store the unicast list and count in the front of the buffer */
+-	mac_data->entries = uc_count;
++	mac_data->entries = cpu_to_virtio32(vi->vdev, uc_count);
+ 	i = 0;
+ 	netdev_for_each_uc_addr(ha, dev)
+ 		memcpy(&mac_data->macs[i++][0], ha->addr, ETH_ALEN);
+@@ -1200,7 +1207,7 @@ static void virtnet_set_rx_mode(struct net_device *dev)
+ 	/* multicast list and count fill the end */
+ 	mac_data = (void *)&mac_data->macs[uc_count][0];
+ 
+-	mac_data->entries = mc_count;
++	mac_data->entries = cpu_to_virtio32(vi->vdev, mc_count);
+ 	i = 0;
+ 	netdev_for_each_mc_addr(ha, dev)
+ 		memcpy(&mac_data->macs[i++][0], ha->addr, ETH_ALEN);
 -- 
-John Fastabend         Intel Corporation
+MST
