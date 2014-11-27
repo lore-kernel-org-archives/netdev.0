@@ -1,58 +1,42 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH net-next] ipvlan: ipvlan depends on INET and IPV6
-Date: Wed, 26 Nov 2014 21:13:45 -0800
-Message-ID: <1417065225-784-1-git-send-email-maheshb@google.com>
-Cc: David Miller <davem@davemloft.net>,
-	Jim Davis <jim.epost@gmail.com>,
-	Mahesh Bandewar <maheshb@google.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f202.google.com ([209.85.214.202]:42795 "EHLO
-	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751476AbaK0FNt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 00:13:49 -0500
-Received: by mail-ob0-f202.google.com with SMTP id va2so470583obc.1
-        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 21:13:49 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] macvlan: delay the header check for dodgy packets
+ into lower device
+Date: Thu, 27 Nov 2014 13:14:28 +0800
+Message-ID: <5476B334.1050706@redhat.com>
+References: <1416993674-11177-1-git-send-email-jasowang@redhat.com> <20141126.153736.1815789848350571029.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, vyasevic@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141126.153736.1815789848350571029.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This driver uses ip_out_local() and ip6_route_output() which are
-defined only if CONFIG_INET and CONFIG_IPV6 are enabled respectively.
 
-Reported-by: Jim Davis <jim.epost@gmail.com>
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
- drivers/net/Kconfig         | 2 ++
- drivers/net/ipvlan/ipvlan.h | 3 ++-
- 2 files changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index b6d64f546574..d6607ee9c855 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -148,6 +148,8 @@ config MACVTAP
- 
- config IPVLAN
-     tristate "IP-VLAN support"
-+    depends on INET
-+    depends on IPV6
-     ---help---
-       This allows one to create virtual devices off of a main interface
-       and packets will be delivered based on the dest L3 (IPv6/IPv4 addr)
-diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
-index ab3e7614ed71..c44d29eca6c0 100644
---- a/drivers/net/ipvlan/ipvlan.h
-+++ b/drivers/net/ipvlan/ipvlan.h
-@@ -23,8 +23,9 @@
- #include <linux/if_vlan.h>
- #include <linux/ip.h>
- #include <linux/inetdevice.h>
-+#include <net/ip.h>
-+#include <net/ip6_route.h>
- #include <net/rtnetlink.h>
--#include <net/gre.h>
- #include <net/route.h>
- #include <net/addrconf.h>
- 
--- 
-2.2.0.rc0.207.ga3a616c
+On 11/27/2014 04:37 AM, David Miller wrote:
+> From: Jason Wang <jasowang@redhat.com>
+> Date: Wed, 26 Nov 2014 17:21:14 +0800
+>
+>> We do header check twice for a dodgy packet. One is done before
+>> macvlan_start_xmit(), another is done before lower device's
+>> ndo_start_xmit(). The first one seems redundant so this patch tries to
+>> delay header check until a packet reaches its lower device (or macvtap)
+>> through always enabling NETIF_F_GSO_ROBUST for macvlan device.
+>>
+>> Cc: Patrick McHardy <kaber@trash.net>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>
+> Hmmm, it's the idea that if we have a dodgy packet, we want to
+> notice that as early as possible in the packet processing path?
+>
+
+Not late even with this patch. The check will be done immediately after 
+macvlan passing a packet to lower device which should be sufficient.
+
+For good packets, this patch saves one time of header checking. For bad 
+packets, this patch just lets the dropping happens during the validation 
+before ndo_start_xmit() of lower device.
