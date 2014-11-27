@@ -1,9 +1,8 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v4 09/21] bridge: call netdev_sw_port_stp_update
- when bridge port STP status changes
-Date: Thu, 27 Nov 2014 08:14:20 -0500
-Message-ID: <547723AC.1070907@mojatatu.com>
-References: <1417084826-9875-1-git-send-email-jiri@resnulli.us> <1417084826-9875-10-git-send-email-jiri@resnulli.us>
+Subject: Re: [patch net-next v4 14/21] bridge: add brport flags to dflt bridge_getlink
+Date: Thu, 27 Nov 2014 08:17:00 -0500
+Message-ID: <5477244C.2030507@mojatatu.com>
+References: <1417084826-9875-1-git-send-email-jiri@resnulli.us> <1417084826-9875-15-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -25,31 +24,26 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	bcrl@kvack.org, hemal@broadcom.com
 To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:52467 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750784AbaK0NOY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 08:14:24 -0500
-Received: by mail-ie0-f178.google.com with SMTP id tp5so4515851ieb.37
-        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 05:14:24 -0800 (PST)
-In-Reply-To: <1417084826-9875-10-git-send-email-jiri@resnulli.us>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:50210 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751136AbaK0NRF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 08:17:05 -0500
+Received: by mail-ie0-f170.google.com with SMTP id rd18so4580472iec.1
+        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 05:17:03 -0800 (PST)
+In-Reply-To: <1417084826-9875-15-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 11/27/14 05:40, Jiri Pirko wrote:
 > From: Scott Feldman <sfeldma@gmail.com>
 >
-> To notify switch driver of change in STP state of bridge port, add new
-> .ndo op and provide switchdev wrapper func to call ndo op. Use it in bridge
-> code then.
->
+> To allow brport device to return current brport flags set on port.  Add
+> returned flags to nested IFLA_PROTINFO netlink msg built in dflt getlink.
+> With this change, netlink msg returned for bridge_getlink contains the port's
+> offloaded flag settings (the port's SELF settings).
 
-As it stands right now we are going to pollute the ndo ops and grow
-it fatter like the skb (its probably as fat).
-If i am not mistaken ethtool has some scheme it uses to pass opaque
-objects to different functions. Having a generic
-set/get_netdev_offload_attr() would be the right thing to do.
-An {id, *value} or {id, len, *value} or a void * would do.
-So not objecting - but not ACKing either.
+Am i missing something or we already have this stuff showing up in user
+space today?
 
 cheers,
 jamal
