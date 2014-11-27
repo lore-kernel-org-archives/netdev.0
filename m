@@ -1,75 +1,82 @@
-From: "Arad, Ronen" <ronen.arad@intel.com>
-Subject: RE: [patch net-next v3 09/17] bridge: add API to notify bridge
- driver of learned FBD on offloaded device
-Date: Thu, 27 Nov 2014 07:37:21 +0000
-Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505D7EBC7@ORSMSX101.amr.corp.intel.com>
-References: <E4CD12F19ABA0C4D8729E087A761DC3505D7E13E@ORSMSX101.amr.corp.intel.com>
- <CAE4R7bC9o4ucO_Erb0tU4EwJNYj8SrapbKxNWvUTL8YD=RMBJQ@mail.gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: 3.12.33 Bug with ipvs
+Date: Thu, 27 Nov 2014 10:08:41 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1411270945240.7068@ja.home.ssi.bg>
+References: <54763E3F.4020306@smart-weblications.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Smart Weblications GmbH - Florian Wiessner
+	<f.wiessner@smart-weblications.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:54686 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752471AbaK0HhX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Nov 2014 02:37:23 -0500
-In-Reply-To: <CAE4R7bC9o4ucO_Erb0tU4EwJNYj8SrapbKxNWvUTL8YD=RMBJQ@mail.gmail.com>
-Content-Language: en-US
+Received: from ja.ssi.bg ([178.16.129.10]:36015 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752482AbaK0II5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Nov 2014 03:08:57 -0500
+In-Reply-To: <54763E3F.4020306@smart-weblications.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogU2NvdHQgRmVsZG1hbiBb
-bWFpbHRvOnNmZWxkbWFAZ21haWwuY29tXQ0KPiBTZW50OiBXZWRuZXNkYXksIE5vdmVtYmVyIDI2
-LCAyMDE0IDExOjA0IFBNDQo+IFRvOiBBcmFkLCBSb25lbg0KPiBDYzogbmV0ZGV2QHZnZXIua2Vy
-bmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW3BhdGNoIG5ldC1uZXh0IHYzIDA5LzE3XSBicmlkZ2U6
-IGFkZCBBUEkgdG8gbm90aWZ5IGJyaWRnZSBkcml2ZXINCj4gb2YgbGVhcm5lZCBGQkQgb24gb2Zm
-bG9hZGVkIGRldmljZQ0KPiANCj4gT24gVHVlLCBOb3YgMjUsIDIwMTQgYXQgOTozNyBQTSwgQXJh
-ZCwgUm9uZW4gPHJvbmVuLmFyYWRAaW50ZWwuY29tPg0KPiB3cm90ZToNCj4gPj4gPj4+DQo+ID4+
-ID4+PiBJcyB0aGVyZSBhbnkgY2FzZSB3aGVyZSB0aGlzIGZkYiBlbnRyeSBnZXRzIHJlLXVzZWQg
-YW5kIGlzIG5vDQo+ID4+ID4+PiBsb25nZXIgYWRkZWQgYnkgYW4gZXh0ZXJuYWwgbGVhcm5pbmc/
-IFNob3VsZCB3ZSBjbGVhciB0aGlzIGZsYWcNCj4gc29tZXdoZXJlPw0KPiA+PiA+Pg0KPiA+PiA+
-PiBPbmNlIHRoZSBGREIgZW50cnkgaXMgbWFya2VkICJhZGRlZF9ieV9leHRlcm5hbF9sZWFybiIg
-aXQgc3RheXMNCj4gPj4gPj4gbWFya2VkIGFzIHN1Y2ggdW50aWwgcmVtb3ZlZCBieSBhZ2luZyBj
-bGVhbnVwIHByb2Nlc3MgKG9yIGZsdXNoZWQNCj4gPj4gPj4gZHVlIHRvIGludGVyZmFjZSBkb3du
-LCBldGMpLiAgSWYgYWdlZCBvdXQgKGFuZCBub3cgZGVsZXRlZCksIHRoZQ0KPiA+PiA+PiBGREIg
-ZW50cnkgbWF5IGNvbWUgYmFjayBlaXRoZXIgYnkgU1cgbGVhcm4gb3IgYnkgSFcgbGVhcm4uICBJ
-ZiBTVw0KPiA+PiA+PiBsZWFybiBjb21lcyBmaXJzdCwgYW5kIHRoZW4gSFcgbGVhcm4sIEhXIGxl
-YXJuIHdpbGwgb3ZlcnJpZGUgYW5kDQo+ID4+ID4+IG1hcmsgdGhlIGV4aXN0aW5nIEZEQiBlbnRy
-eSAiYWRkZWRfYnlfZXh0ZXJuYWxfbGVhcm4iLiAgU28gdGhlcmUNCj4gPj4gPj4gaXMgdGFrZS1v
-dmVyIGJ5IEhXIGJ1dCBubyBnaXZlLWJhY2sgdG8gU1cuICBBbmQgdGhlcmUgaXMgbm8NCj4gPj4g
-Pj4gZXhwbGljaXQgY2xlYXJpbmcgb2YgdGhlIG1hcmsgc2hvcnQgb2YgZGVsZXRpbmcgdGhlIEZE
-QiBlbnRyeS4NCj4gPj4gPj4gVGhlIG1hcmsgaXMgbW9zdGx5IGZvciBsZXR0aW5nIHVzZXIncyBr
-bm93IHdoaWNoIEZEQiBlbnRyaWVzIHdoZXJlDQo+ID4+ID4+IGxlYXJuZWQgYnkgSFcgYW5kIHN5
-bmNlZCB0byB0aGUgYnJpZGdlJ3MgRkRCLg0KPiA+PiA+DQo+ID4+ID4gVGhhbmtzLCBtYWtlcyBz
-ZW5zZSBub3cuIFRoaXMgaXMgcHJvYmFibHkgb2J2aW91cyBpbiB0aGlzIGNvbnRleHQsDQo+ID4+
-ID4gYnV0IG1heWJlIGl0IHdvdWxkIG5vdCBodXJ0IHRvIGNvbWUgdXAgd2l0aCBhIGRvY3VtZW50
-YXRpb24gdGhhdA0KPiA+PiA+IGRlc2NyaWJlIHRoZSBvZmZsb2FkIEFQSSwgRkRCIGVudHJ5IGxp
-ZmV0aW1lIGFuZCBIVy9TVyBvd25lcnNoaXAgZXRjLi4uDQo+ID4+DQo+ID4+IEkgaGF2ZSBhbiB1
-cGRhdGVkIERvY3VtZW50YXRpb24vbmV0d29ya2luZy9zd2l0Y2hkZXYudHh0IHRoYXQgY292ZXJz
-DQo+ID4+IHRoZSBzd2RldiBBUElzIGFuZCB1c2FnZSBhbmQgbm90ZXMsIGJ1dCBKaXJpIGlzIGJl
-aW5nIHN0aW5neSB3aXRoIGl0Lg0KPiA+PiBXaWxsIGdldCB0aGlzIG91dCwgZWl0aGVyIGluIHY0
-IG9yIGZvbGxvdy1vbiBwYXRjaGVzLiAgVGhlcmUgaXMNCj4gPj4gZW5vdWdoIGdvaW5nIG9uIGp1
-c3Qgd2l0aCBMMiBvZmZsb2FkIHRoYXQgd2UncmUgZ29pbmcgdG8gbmVlZCBzb21lDQo+ID4+IGdv
-b2QgZG9jdW1lbnRhdGlvbiB0byBndWlkZSBpbXBsZW1lbnRlcnMuDQo+ID4+IC0tDQo+ID4NCj4g
-PiBUbyBjb250cm9sIHRoZSBsaWZldGltZSBvZiBhbiBleHRlcm5hbGx5IGxlYXJuZWQgRkRCIGVu
-dHJ5LCB0aGUgYnJpZGdlIHNoYWxsDQo+IHByb3ZpZGUgYW4gQVBJIGZvciB0aGUgc3dpdGNoIGRy
-aXZlciB0byB1cGRhdGUgdGhlIGZyZXNobmVzcyBvZiBleHRlcm5hbGx5DQo+IGxlYXJuZWQgZW50
-cmllcy4gT3RoZXJ3aXNlLCB0aGUgYnJpZGdlIGFnaW5nIHdpbGwgYWdlIGVudHJpZXMgd2hpY2gg
-YXJlDQo+IGN1cnJlbnRseSBvciBmcmVxdWVudGx5IHVzZWQgYnkgdGhlIEhXLg0KPiA+IElzIHRo
-aXMgY292ZXJlZCBpbiB0aGUgdXBkYXRlZCBkb2N1bWVudD8NCj4gPiBJcyB0aGlzIGZ1bmN0aW9u
-YWxpdHkgcGxhbm5lZCBmb3IgdjQ/DQo+IA0KPiBIaSBSb25lbiwNCj4gDQo+IEl0J3MgYWxyZWFk
-eSB0aGVyZTogZHJpdmVyIGNhbGxzIGJyX2ZkYl9leHRlcm5hbF9sZWFybl9hZGQoKSB0byByZWZy
-ZXNoIEZCRA0KPiBlbnRyeSwgd2hpY2ggdXBkYXRlcyB0aGUgZmRiLT51cGRhdGVkIGFuZCBmZGIt
-PnVzZWQgdGltZXN0YW1wcywNCj4gcHJldmVudGluZyBicmlkZ2UgZnJvbSBwcmVtYXR1cmVseSBh
-Z2luZyBvdXQgdGhlIGVudHJ5Lg0KPiBXZSdsbCBtYWtlIHN1cmUgdGhhdCBkZXRhaWwgZ2V0cyBp
-biB0aGUgZG9jLiAgSXQncyB1cCB0byB0aGUgZHJpdmVyIG9uIGhvdw0KPiBmcmVxdWVudGx5IGl0
-IGNhbGxzIGJyX2ZkYl9leHRlcm5hbF9sZWFybl9hZGQoKS4gIE1heWJlIGl0IGp1c3QgYmxpbmRs
-eSBtYWtlcw0KPiB0aGUgY2FsbCBldmVyeSAxcy4gIFRoYXQncyB3aGF0IHJvY2tlciBkcml2ZXIg
-ZG9lcyAoYXMgbG9uZyBhcyB0aGUgRkRCIGVudHJ5DQo+IGNvbnRpbnVlcyB0byBnZXQgaGl0cyku
-ICBGcm9tIHRoZSB1c2VyJ3MgcGVyc3BlY3RpdmUsIDFzIHVwZGF0ZSBpcyBuaWNlIHdoZW4NCj4g
-bG9va2luZyBhdCB0aGUgc3RhdHMgZHVtcCBmb3IgZmRicywgc2luY2UgdGhlIHRpbWVzdGFtcHMg
-YXJlIGluIHNlY3MuDQo+IA0KPiAtc2NvdHQNCg0KSGkgU2NvdHQsDQoNClRoYW5rcy4gVGhpcyBz
-aG91bGQgd29yay4gSSBvdmVybG9va2VkIHRoYXQgYnV0IG5vdyBJIHNlZSBpdCBpbiB0aGUgY29k
-ZSB3aXRoIGEgY2xlYXIgY29tbWVudC4NCg0KLXJvbmVuDQoNCg==
+
+	Hello,
+
+On Wed, 26 Nov 2014, Smart Weblications GmbH - Florian Wiessner wrote:
+
+> Hi netdev,
+> 
+> On 3.12.33 i see this every 3 hours or so on a box with ip_vs running with a
+> setup which made no problems on 3.10.40. Could someone give me hints how to
+> debug this? It seems to happen instantly, when i add ip_vs_ftp and have some nat
+> rules. Setup is like this:
+> 
+
+> [13230.431740] RIP  [<ffffffff814ff2fc>] xfrm_selector_match+0x25/0x2f6
+> [13230.431772]  RSP <ffff88083fd83a68>
+> [13230.431795] CR2: 00000000000600d0
+> [13230.432240] ---[ end trace 103912aa204977dc ]---
+> 
+> node01:/ocfs2/usr/src/linux-3.12.33/scripts# ./decodecode </tmp/oops.log
+> [13230.431464] Code: 5d 41 5e 41 5f c3 41 55 66 83 fa 02 41 54 55 48 89 fd 53 48
+> 89 f3 41 50 74 11 31 c0 66 83 fa 0a 0f 85 ce 02 00 00 e9 fd 00 00 00 <0f> b6 47
+> 2a 8b 17 8b 76 18 84 c0 74 1a b9 20 00 00 00 31 f2 29
+> All code
+> ========
+>    0:   5d                      pop    %rbp
+>    1:   41 5e                   pop    %r14
+>    3:   41 5f                   pop    %r15
+>    5:   c3                      retq
+>    6:   41 55                   push   %r13
+>    8:   66 83 fa 02             cmp    $0x2,%dx
+>    c:   41 54                   push   %r12
+>    e:   55                      push   %rbp
+>    f:   48 89 fd                mov    %rdi,%rbp
+>   12:   53                      push   %rbx
+>   13:   48 89 f3                mov    %rsi,%rbx
+>   16:   41 50                   push   %r8
+>   18:   74 11                   je     0x2b
+>   1a:   31 c0                   xor    %eax,%eax
+>   1c:   66 83 fa 0a             cmp    $0xa,%dx
+>   20:   0f 85 ce 02 00 00       jne    0x2f4
+>   26:   e9 fd 00 00 00          jmpq   0x128
+>   2b:*  0f b6 47 2a             movzbl 0x2a(%rdi),%eax          <-- trapping
+> instruction
+
+	Above instruction is 'sel->prefixlen_d' from
+the addr4_match call in __xfrm4_selector_match. Looks like
+we dereference sel (%rdi) with bad value of 00000000000600a6.
+xfrm_sk_policy_lookup() provides &pol->selector to
+xfrm_selector_match, so pol has a bad value. I don't remember
+for such problem, not sure if the 3-hour period is some timer
+in xfrm.
+
+> Could someone shed some light on the decoded output and point me somewhere so i
+> can debug this further?
+
+	If noone else has idea what can be wrong, can you try
+some kernels between 3.10.40 and 3.12.33 or even some lastest
+kernel?
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
