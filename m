@@ -1,136 +1,101 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 00/21] introduce rocker switch driver with hardware accelerated datapath api - phase 1: bridge fdb offload
-Date: Thu, 27 Nov 2014 11:40:05 +0100
-Message-ID: <1417084826-9875-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.org, hemal@broadcom.co
-To: netdev@vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH rfc] packet: zerocopy packet_snd
+Date: Thu, 27 Nov 2014 12:44:45 +0200
+Message-ID: <20141127104445.GA8961@redhat.com>
+References: <1416602694-7540-1-git-send-email-willemb@google.com>
+ <20141126182445.GA15744@redhat.com>
+ <CA+FuTSdYB4rDMH3gAAMwaRdbqN58f_SxLz=C3fcCACw_KosGXw@mail.gmail.com>
+ <20141126211748.GA11904@redhat.com>
+ <1417079412.18179.3@smtp.corp.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Willem de Bruijn <willemb@google.com>,
+	Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:43580 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753251AbaK0Kk3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 05:40:29 -0500
-Received: by mail-wi0-f181.google.com with SMTP id r20so7861121wiv.14
-        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 02:40:27 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:57880 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752666AbaK0Kox (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Nov 2014 05:44:53 -0500
+Content-Disposition: inline
+In-Reply-To: <1417079412.18179.3@smtp.corp.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all.
+On Thu, Nov 27, 2014 at 09:18:12AM +0008, Jason Wang wrote:
+> 
+> 
+> On Thu, Nov 27, 2014 at 5:17 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> >On Wed, Nov 26, 2014 at 02:59:34PM -0500, Willem de Bruijn wrote:
+> >> > The main problem with zero copy ATM is with queueing disciplines
+> >> > which might keep the socket around essentially forever.
+> >> > The case was described here:
+> >> > https://lkml.org/lkml/2014/1/17/105
+> >> > and of course this will make it more serious now that
+> >> > more applications will be able to do this, so
+> >> > chances that an administrator enables this
+> >> > are higher.
+> >> The denial of service issue raised there, that a single queue can
+> >> block an entire virtio-net device, is less problematic in the case of
+> >> packet sockets. A socket can run out of sk_wmem_alloc, but a prudent
+> >> application can increase the limit or use separate sockets for
+> >> separate flows.
+> >
+> >Socket per flow? Maybe just use TCP then?  increasing the limit
+> >sounds like a wrong solution, it hurts security.
+> >
+> >> > One possible solution is some kind of timer orphaning frags
+> >> > for skbs that have been around for too long.
+> >>   Perhaps this can be approximated without an explicit timer by calling
+> >> skb_copy_ubufs on enqueue whenever qlen exceeds a threshold value?
+> >
+> >Hard to say. Will have to see that patch to judge how robust this is.
+> 
+> This could not work, consider if the threshold is greater than vring size
+> or vhost_net pending limit, transmission may still be blocked.
 
-This patchset is just the first phase of switch and switch-ish device
-support api in kernel. Note that the api will extend.
+Well, application can e.g. just switch to non zero copy after
+reaching a specific number of requests.
+I think the real problem isn't reaching the queue full
+condition, it's the fact a specific buffer might never
+get freed. This API isn't half as useful as it could be
+if applications had a way to force the memory
+to be reclaimed.
 
-So what this patchset includes:
-- introduce switchdev api skeleton for implementing switch drivers
-- introduce rocker switch driver which implements switchdev api fdb and
-  bridge set/get link ndos
 
-As to the discussion if there is need to have specific class of device
-representing the switch itself, so far we found no need to introduce that.
-But we are generally ok with the idea and when the time comes and it will
-be needed, it can be easily introduced without any disturbance.
+And actually, I see a way for applications to reclaim the memory:
+application could invoke something like MADV_SOFT_OFFLINE on the memory
+submitted for zero copy transmit, to invalidate PTEs, and make next
+access fault new pages in.
+If dedicated memory is used for packets, you could even use
+MADV_DONTNEED - but this doesn't work in many cases, certainly
+not for virtualization type workloads.
 
-This patchset introduces switch id export through rtnetlink and sysfs,
-which is similar to what we have for port id in SR-IOV. I will send iproute2
-patchset for showing the switch id for port netdevs once this is applied.
-This applies also for the PF_BRIDGE and fdb iproute2 patches.
+Playting with PTEs needs to invalidate the TLB so it is not fast,
+but it does not need to be: we are talking about ability to close the
+socket, which should be rare.
 
-iproute2 patches are now available here:
-https://github.com/jpirko/iproute2-rocker
+For example, an application/hypervisor can detect a timeout when a
+packet is not transmitted within a predefined time period, and trigger
+such reclaim.
+Making this period shorter than network watchdog timer of the VM
+will ensure that watchdog does not trigger within VM.
+Alternatively, VM network watchdog could trigger this reclaim
+in order to recover packet memory.
 
-For detailed description and version history, please see individual patches.
+With this idea, if application merely reads memory, we incur a lot of
+overhead with pagefaults. So maybe a new call to enable COW for a range
+of pages would be a good idea.
 
-In v4 I reordered the patches leaving rocker patches on the end of the patchset.
 
-Jiri Pirko (10):
-  bridge: rename fdb_*_hw to fdb_*_hw_addr to avoid confusion
-  neigh: sort Neighbor Cache Entry Flags
-  bridge: convert flags in fbd entry into bitfields
-  net: make vid as a parameter for ndo_fdb_add/ndo_fdb_del
-  net: rename netdev_phys_port_id to more generic name
-  net: introduce generic switch devices support
-  rtnl: expose physical switch id for particular device
-  net-sysfs: expose physical switch id for particular device
-  rocker: introduce rocker switch driver
-  rocker: implement ndo_fdb_dump
+We'd have to make sure whatever's used for reclaim works for
+a wide range of memory types: mmap-ed file, hugetlbfs, anonymous memory.
 
-Scott Feldman (9):
-  bridge: call netdev_sw_port_stp_update when bridge port STP status
-    changes
-  bridge: add API to notify bridge driver of learned FBD on offloaded
-    device
-  bridge: move private brport flags to if_bridge.h so port drivers can
-    use flags
-  bridge: add new brport flag LEARNING_SYNC
-  bridge: add new hwmode swdev
-  bridge: add brport flags to dflt bridge_getlink
-  rocker: implement rocker ofdpa flow table manipulation
-  rocker: implement L2 bridge offloading
-  rocker: add ndo_bridge_setlink/getlink support for learning policy
 
-Thomas Graf (2):
-  rocker: Add proper validation of Netlink attributes
-  rocker: Use logical operators on booleans
-
- Documentation/ABI/testing/sysfs-class-net        |    8 +
- Documentation/networking/switchdev.txt           |   59 +
- MAINTAINERS                                      |   14 +
- drivers/net/ethernet/Kconfig                     |    1 +
- drivers/net/ethernet/Makefile                    |    1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    2 +-
- drivers/net/ethernet/emulex/benet/be_main.c      |    3 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c      |    4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |    6 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |    2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   11 +-
- drivers/net/ethernet/rocker/Kconfig              |   27 +
- drivers/net/ethernet/rocker/Makefile             |    5 +
- drivers/net/ethernet/rocker/rocker.c             | 4374 ++++++++++++++++++++++
- drivers/net/ethernet/rocker/rocker.h             |  428 +++
- drivers/net/macvlan.c                            |    4 +-
- drivers/net/vxlan.c                              |    4 +-
- include/linux/if_bridge.h                        |   31 +
- include/linux/netdevice.h                        |   39 +-
- include/linux/rtnetlink.h                        |    9 +-
- include/net/switchdev.h                          |   37 +
- include/uapi/linux/if_bridge.h                   |    1 +
- include/uapi/linux/if_link.h                     |    2 +
- include/uapi/linux/neighbour.h                   |    6 +-
- net/Kconfig                                      |    1 +
- net/Makefile                                     |    3 +
- net/bridge/br_fdb.c                              |  144 +-
- net/bridge/br_private.h                          |   21 +-
- net/bridge/br_stp.c                              |    7 +
- net/core/dev.c                                   |    2 +-
- net/core/net-sysfs.c                             |   26 +-
- net/core/rtnetlink.c                             |  119 +-
- net/switchdev/Kconfig                            |   13 +
- net/switchdev/Makefile                           |    5 +
- net/switchdev/switchdev.c                        |   52 +
- 35 files changed, 5366 insertions(+), 105 deletions(-)
- create mode 100644 Documentation/networking/switchdev.txt
- create mode 100644 drivers/net/ethernet/rocker/Kconfig
- create mode 100644 drivers/net/ethernet/rocker/Makefile
- create mode 100644 drivers/net/ethernet/rocker/rocker.c
- create mode 100644 drivers/net/ethernet/rocker/rocker.h
- create mode 100644 include/net/switchdev.h
- create mode 100644 net/switchdev/Kconfig
- create mode 100644 net/switchdev/Makefile
- create mode 100644 net/switchdev/switchdev.c
+Thoughts?
 
 -- 
-1.9.3
+MST
