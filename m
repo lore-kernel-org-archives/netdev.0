@@ -1,70 +1,95 @@
-From: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-Subject: Re: [PATCH v2 11/19] selftests/memory-hotplug: add install target
- to enable installing test
-Date: Thu, 27 Nov 2014 14:49:59 +0900
-Message-ID: <5476BB87.6010808@hitachi.com>
-References: <cover.1415735831.git.shuahkh@osg.samsung.com> <8cdb2abb6eaa794801548e04ee6b9f403778e126.1415735831.git.shuahkh@osg.samsung.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch net-next v3 04/17] net: introduce generic switch devices support
+Date: Wed, 26 Nov 2014 19:58:12 -1000
+Message-ID: <CAE4R7bC2GTOAHm6uN9CboQ8HRFQ0+-7yoK+XF3wUysA9Sbo=gw@mail.gmail.com>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
+	<1416911328-10979-5-git-send-email-jiri@resnulli.us>
+	<5474A567.4040401@mojatatu.com>
+	<20141125164954.GJ1971@nanopsycho.orion>
+	<5474B795.3080204@mojatatu.com>
+	<20141125215402.GA3912@casper.infradead.org>
+	<54754A10.6020601@mojatatu.com>
+	<CAE4R7bCYwWt5cem5_v8Y0jOSz5ER5_33bMRE2xkTPOqYvM6dUg@mail.gmail.com>
+	<5475BB53.3070200@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, akpm@linux-foundation.org,
-	mmarek@suse.cz, davem@davemloft.net, keescook@chromium.org,
-	tranmanphong@gmail.com, dh.herrmann@gmail.com, hughd@google.com,
-	bobby.prani@gmail.com, ebiederm@xmission.com,
-	serge.hallyn@ubuntu.com, linux-kbuild@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org,
-	"yrl.pp-manager.tt@hitachi.com" <yrl.pp-manager.tt@hitachi.com>
-To: Shuah Khan <shuahkh@osg.samsung.com>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <8cdb2abb6eaa794801548e04ee6b9f403778e126.1415735831.git.shuahkh@osg.samsung.com>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"dborkman@redhat.com" <dborkman@redhat.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"jesse@nicira.com" <jesse@nicira.com>,
+	"pshelar@nicira.com" <pshelar@nicira.com>,
+	"azhou@nicira.com" <azhou@nicira.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	John Linville <linville@tuxdriver
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:61277 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751040AbaK0F6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 00:58:13 -0500
+Received: by mail-wg0-f54.google.com with SMTP id l2so5528063wgh.13
+        for <netdev@vger.kernel.org>; Wed, 26 Nov 2014 21:58:12 -0800 (PST)
+In-Reply-To: <5475BB53.3070200@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(2014/11/12 5:27), Shuah Khan wrote:
-> Add a new make target to enable installing test. This target
-> installs test in the kselftest install location and add to the
-> kselftest script to run the test. Install target can be run
-> only from top level source dir.
-> 
-> Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
-> ---
->  tools/testing/selftests/memory-hotplug/Makefile    |  17 +-
->  .../selftests/memory-hotplug/mem-on-off-test.sh    | 238 +++++++++++++++++++++
->  .../selftests/memory-hotplug/on-off-test.sh        | 238 ---------------------
->  3 files changed, 253 insertions(+), 240 deletions(-)
->  create mode 100644 tools/testing/selftests/memory-hotplug/mem-on-off-test.sh
->  delete mode 100644 tools/testing/selftests/memory-hotplug/on-off-test.sh
-> 
-> diff --git a/tools/testing/selftests/memory-hotplug/Makefile b/tools/testing/selftests/memory-hotplug/Makefile
-> index d46b8d4..8921631 100644
-> --- a/tools/testing/selftests/memory-hotplug/Makefile
-> +++ b/tools/testing/selftests/memory-hotplug/Makefile
-> @@ -1,9 +1,22 @@
-> +TEST_STR=/bin/bash ./mem-on-off-test.sh -r 2 || echo memory-hotplug selftests: [FAIL]
-> +
->  all:
->  
-> +install:
-> +ifdef INSTALL_KSFT_PATH
-> +	install ./mem-on-off-test.sh $(INSTALL_KSFT_PATH)/mem-on-off-test.sh
-> +	@echo echo Start memory hotplug test .... >> $(KSELFTEST)
-> +	@echo "$(TEST_STR)" >> $(KSELFTEST) >> $(KSELFTEST)
-> +	@echo echo End memory hotplug test .... >> $(KSELFTEST)
-> +	@echo echo ============================== >> $(KSELFTEST)
-> +else
-> +	@echo Run make kselftest_install in top level source directory
-> +endif
+On Wed, Nov 26, 2014 at 1:36 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 11/25/14 23:18, Scott Feldman wrote:
+>>
+>> On Tue, Nov 25, 2014 at 5:33 PM, Jamal Hadi Salim <jhs@mojatatu.com>
+>> wrote:
+>
+>
+>>
+>> You have a pointer to the kernel driver for that HW?
+>
+>
+> I wasnt sure if that was a passive aggressive move there to
+> question what i am claiming?(Only Canadians are allowed to be
+> passive aggressive Scott). To answer your question, no
+> code currently littered with vendor SDK unfortunately (as you
+> would know!).
 
-I saw this pattern repeated many times in this series.
-Can we make it a macro and include it instead of repeating this code?
+Drats, I was hoping there might be Open Source here.  I'm actually not
+familiar with Netronome offerings.  I went to their web page and all
+their Docs downloads require registration, so I should have guessed
+same-old-same-old.  But you teased us with it, so I thought I would
+ask.  Sorry for the trouble XOXOXOXO.  I'm not Canadian, as far as I
+know.
 
-Thank you,
+> But hopefully if we get these changes in correctly it would
+> not be hard to show the driver working fully in the kernel.
+> There are definetely a few other pieces of hardware that are
+> making me come back here and invest time and effort in these
+> long discussions.
 
--- 
-Masami HIRAMATSU
-Software Platform Research Dept. Linux Technology Research Center
-Hitachi, Ltd., Yokohama Research Laboratory
-E-mail: masami.hiramatsu.pt@hitachi.com
+You have access to the inside scope.  We don't.  Ok, I don't.  We
+(think we) know what the traditional L2/L3 and OVS-style flow stuff
+looks like, but you know more, but you can't show us in code so it's
+frustrating.  Not your fault.  Just continue to guide us and give some
+disclaimer when we're your close to some proprietary knowledge, but it
+is relevant to the discussion.
 
 
+>> Can you show how
+>> you're using Linux tc netlink msg in kernel to program HW?  I'd like
+>> to see the in-kernel API.
+>>
+>
+> Lets do the L2/port thing first. But yes, I am using Linux tc in
+> kernel.
+>
+> cheers,
+> jamal
