@@ -1,7 +1,7 @@
 From: Roger Chen <roger.chen@rock-chips.com>
-Subject: [PATCH v2 4/6] ARM: dts: rockchip: add gmac info for rk3288
-Date: Thu, 27 Nov 2014 10:53:10 +0800
-Message-ID: <1417056790-3753-1-git-send-email-roger.chen@rock-chips.com>
+Subject: [PATCH v2 5/6] ARM: dts: rockchip: enable gmac on RK3288 evb board
+Date: Thu, 27 Nov 2014 10:53:20 +0800
+Message-ID: <1417056800-3789-1-git-send-email-roger.chen@rock-chips.com>
 References: <1417056591-3570-1-git-send-email-roger.chen@rock-chips.com>
 Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
@@ -13,78 +13,51 @@ In-Reply-To: <1417056591-3570-1-git-send-email-roger.chen@rock-chips.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-add gmac info in rk3288.dtsi for GMAC driver
+enable gmac in rk3288-evb-rk808.dts
 
 Signed-off-by: Roger Chen <roger.chen@rock-chips.com>
 ---
- arch/arm/boot/dts/rk3288.dtsi |   49 +++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 49 insertions(+)
+ arch/arm/boot/dts/rk3288-evb-rk808.dts |   24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
 
-diff --git a/arch/arm/boot/dts/rk3288.dtsi b/arch/arm/boot/dts/rk3288.dtsi
-index 0f50d5d..22f7019 100644
---- a/arch/arm/boot/dts/rk3288.dtsi
-+++ b/arch/arm/boot/dts/rk3288.dtsi
-@@ -358,6 +358,22 @@
- 		status = "disabled";
- 	};
+diff --git a/arch/arm/boot/dts/rk3288-evb-rk808.dts b/arch/arm/boot/dts/rk3288-evb-rk808.dts
+index d8c775e6..13ad2d2 100644
+--- a/arch/arm/boot/dts/rk3288-evb-rk808.dts
++++ b/arch/arm/boot/dts/rk3288-evb-rk808.dts
+@@ -15,6 +15,13 @@
  
-+	gmac: ethernet@ff290000 {
-+		compatible = "rockchip,rk3288-gmac";
-+		reg = <0xff290000 0x10000>;
-+		interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
-+		interrupt-names = "macirq";
-+		rockchip,grf = <&grf>;
-+		clocks = <&cru SCLK_MAC>, <&cru SCLK_MAC_PLL>,
-+			<&cru SCLK_MAC_RX>, <&cru SCLK_MAC_TX>,
-+			<&cru SCLK_MACREF>, <&cru SCLK_MACREF_OUT>,
-+			<&cru ACLK_GMAC>, <&cru PCLK_GMAC>;
-+		clock-names = "stmmaceth", "clk_mac_pll",
-+			"mac_clk_rx", "mac_clk_tx",
-+			"clk_mac_ref", "clk_mac_refout",
-+			"aclk_mac", "pclk_mac";
+ / {
+ 	compatible = "rockchip,rk3288-evb-rk808", "rockchip,rk3288";
++
++	ext_gmac: external-gmac-clock {
++		compatible = "fixed-clock";
++		clock-frequency = <125000000>;
++		clock-output-names = "ext_gmac";
++		#clock-cells = <0>;
 +	};
-+
- 	usb_host0_ehci: usb@ff500000 {
- 		compatible = "generic-ehci";
- 		reg = <0xff500000 0x100>;
-@@ -1040,5 +1056,38 @@
- 				rockchip,pins = <7 23 3 &pcfg_pull_none>;
- 			};
+ };
+ 
+ &cpu0 {
+@@ -152,3 +159,20 @@
  		};
-+
-+		gmac {
-+			rgmii_pins: rgmii-pins {
-+				rockchip,pins = <3 30 3 &pcfg_pull_none>,
-+						<3 31 3 &pcfg_pull_none>,
-+						<3 26 3 &pcfg_pull_none>,
-+						<3 27 3 &pcfg_pull_none>,
-+						<3 28 3 &pcfg_pull_none>,
-+						<3 29 3 &pcfg_pull_none>,
-+						<3 24 3 &pcfg_pull_none>,
-+						<3 25 3 &pcfg_pull_none>,
-+						<4 0 3 &pcfg_pull_none>,
-+						<4 5 3 &pcfg_pull_none>,
-+						<4 6 3 &pcfg_pull_none>,
-+						<4 9 3 &pcfg_pull_none>,
-+						<4 4 3 &pcfg_pull_none>,
-+						<4 1 3 &pcfg_pull_none>,
-+						<4 3 3 &pcfg_pull_none>;
-+			};
-+
-+			rmii_pins: rmii-pins {
-+				rockchip,pins = <3 30 3 &pcfg_pull_none>,
-+						<3 31 3 &pcfg_pull_none>,
-+						<3 28 3 &pcfg_pull_none>,
-+						<3 29 3 &pcfg_pull_none>,
-+						<4 0 3 &pcfg_pull_none>,
-+						<4 5 3 &pcfg_pull_none>,
-+						<4 4 3 &pcfg_pull_none>,
-+						<4 1 3 &pcfg_pull_none>,
-+						<4 2 3 &pcfg_pull_none>,
-+						<4 3 3 &pcfg_pull_none>;
-+			};
-+		};
  	};
  };
++
++&gmac {
++	//pmu_regulator = "act_ldo5";
++	//pmu_enable_level = <1>; //1->HIGH, 0->LOW
++	power-gpio = <&gpio0 6 GPIO_ACTIVE_HIGH>;
++	reset-gpio = <&gpio4 7 GPIO_ACTIVE_LOW>;
++	//phyirq-gpio = <&gpio4 2 GPIO_ACTIVE_LOW>;
++	phy-mode = "rgmii";
++	clock_in_out = "input";
++	assigned-clocks = <&cru SCLK_MAC>;
++	assigned-clock-parents = <&ext_gmac>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&rgmii_pins>;
++	tx_delay = <0x30>;
++	rx_delay = <0x10>;
++	status = "ok";
++};
 -- 
 1.7.9.5
