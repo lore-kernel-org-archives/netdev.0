@@ -1,15 +1,15 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v5 28/45] vhost: add memory access wrappers
-Date: Thu, 27 Nov 2014 14:32:24 +0200
-Message-ID: <1417091078-24611-29-git-send-email-mst@redhat.com>
+Subject: [PATCH v5 25/45] virtio_net: bigger header when VERSION_1 is set
+Date: Thu, 27 Nov 2014 14:32:10 +0200
+Message-ID: <1417091078-24611-26-git-send-email-mst@redhat.com>
 References: <1417091078-24611-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
 	rusty@au1.ibm.com, nab@linux-iscsi.org, pbonzini@redhat.com,
 	thuth@linux.vnet.ibm.com, dahi@linux.vnet.ibm.com,
-	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org
+	Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
@@ -17,53 +17,28 @@ In-Reply-To: <1417091078-24611-1-git-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add guest memory access wrappers to handle virtio endianness
-conversions.
+With VERSION_1 virtio_net uses same header size
+whether mergeable buffers are enabled or not.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
 ---
- drivers/vhost/vhost.h | 31 +++++++++++++++++++++++++++++++
- 1 file changed, 31 insertions(+)
+ drivers/net/virtio_net.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index c624b09..1f321fd 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -176,4 +176,35 @@ static inline int vhost_has_feature(struct vhost_virtqueue *vq, int bit)
- {
- 	return vq->acked_features & (1ULL << bit);
- }
-+
-+/* Memory accessors */
-+static inline u16 vhost16_to_cpu(struct vhost_virtqueue *vq, __virtio16 val)
-+{
-+	return __virtio16_to_cpu(vhost_has_feature(vq, VIRTIO_F_VERSION_1), val);
-+}
-+
-+static inline __virtio16 cpu_to_vhost16(struct vhost_virtqueue *vq, u16 val)
-+{
-+	return __cpu_to_virtio16(vhost_has_feature(vq, VIRTIO_F_VERSION_1), val);
-+}
-+
-+static inline u32 vhost32_to_cpu(struct vhost_virtqueue *vq, __virtio32 val)
-+{
-+	return __virtio32_to_cpu(vhost_has_feature(vq, VIRTIO_F_VERSION_1), val);
-+}
-+
-+static inline __virtio32 cpu_to_vhost32(struct vhost_virtqueue *vq, u32 val)
-+{
-+	return __cpu_to_virtio32(vhost_has_feature(vq, VIRTIO_F_VERSION_1), val);
-+}
-+
-+static inline u64 vhost64_to_cpu(struct vhost_virtqueue *vq, __virtio64 val)
-+{
-+	return __virtio64_to_cpu(vhost_has_feature(vq, VIRTIO_F_VERSION_1), val);
-+}
-+
-+static inline __virtio64 cpu_to_vhost64(struct vhost_virtqueue *vq, u64 val)
-+{
-+	return __cpu_to_virtio64(vhost_has_feature(vq, VIRTIO_F_VERSION_1), val);
-+}
- #endif
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 098f443..a0e64cf 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1805,7 +1805,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
+ 		vi->mergeable_rx_bufs = true;
+ 
+-	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
++	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF) ||
++	    virtio_has_feature(vdev, VIRTIO_F_VERSION_1))
+ 		vi->hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+ 	else
+ 		vi->hdr_len = sizeof(struct virtio_net_hdr);
 -- 
 MST
