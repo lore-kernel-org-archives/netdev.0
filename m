@@ -1,119 +1,157 @@
-From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Is this 32-bit NCM?
-Date: Thu, 27 Nov 2014 19:34:46 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1411271932510.1548@gmail.com>
-References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] x86: bpf_jit_comp: simplify trivial boolean return
+Date: Thu, 27 Nov 2014 10:35:21 -0800
+Message-ID: <1417113321.4305.1.camel@perches.com>
+References: <CAADnVQK3iui8cAmhi28=65p2CJbTu45fR98ri8Uh8xLRb=cwnA@mail.gmail.com>
+	 <1417032059.16355.4.camel@perches.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1C9FDA63@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-842611585-1417113292=:1548"
-Cc: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org, Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org,
-	youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org
-To: Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Quentin Lambert <lambert.quentin@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	"x86@kernel.org" <x86@kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1C9FDA63@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Thu, 2014-11-27 at 12:25 +0000, David Laight wrote:
+> From: Joe Perches
+> > On Wed, 2014-11-26 at 10:34 -0800, Alexei Starovoitov wrote:
+> > > On Wed, Nov 26, 2014 at 10:02 AM, Joe Perches <joe@perches.com> wrote:
+> > > > On Wed, 2014-11-26 at 09:23 -0800, Alexei Starovoitov wrote:
+> > > >> On Wed, Nov 26, 2014 at 8:58 AM, Joe Perches <joe@perches.com> wrote:
+> > > >
+> > > >> > Is there any value in reordering these tests for frequency
+> > > >> > or maybe using | instead of || to avoid multiple jumps?
+> > > >>
+> > > >> probably not. It's not a critical path.
+> > > >> compiler may fuse conditions depending on values anyway.
+> > > >> If it was a critical path, we could have used
+> > > >> (1 << reg) & mask trick.
+> > > >> I picked explicit 'return true' else 'return false' here,
+> > > >> because it felt easier to read. Just a matter of taste.
+> > > >
+> > > > There is a size difference though: (allyesconfig)
+> > > >
+> > > > $ size arch/x86/net/built-in.o*
+> > > >    text    data     bss     dec     hex filename
+> > > >   12999    1012    4336   18347    47ab arch/x86/net/built-in.o.new
+> > > >   13177    1076    4592   18845    499d arch/x86/net/built-in.o.old
+> > >
+> > > interesting. Compiler obviously thinks that 178 byte increase
+> > > with -O2 is the right trade off. Which I agree with :)
+> > >
+> > > If I think dropping 'inline' and using -Os will give bigger savings...
+> > 
+> > This was allyesconfig which already uses -Os
+> > 
+> > Using -O2, there is no difference using inline
+> > or not, but the size delta with the bitmask is
+> > much larger
+> > 
+> > $ size arch/x86/net/built-in.o* (allyesconfig, but not -Os)
+> >    text	   data	    bss	    dec	    hex	filename
+> >   13410	    820	   3624	  17854	   45be	arch/x86/net/built-in.o.new
+> >   16130	    884	   4200	  21214	   52de	arch/x86/net/built-in.o.old
+> >   16130	    884	   4200	  21214	   52de	arch/x86/net/built-in.o.static
+> 
+> That is quite a big % change in the code size.
+> Why the change in data?
 
---8323328-842611585-1417113292=:1548
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-
-What I suspect, is that all this mess started when Huawei introduce new 
-firmware releases that changed something in the IPV6 support.
-Bjorn - do you remember when a guy called Thomas reported us a problem about an 
-LTE huawei modem that wasn't working with huawei_cdc_ncm?
-And you then discovered the problem was originated from some changes in the 
-ordering of cdc_ncm actions; what happened then?
-Did Thomas get his modem back to working state?
-Sorry Thomas - you wilol read this message but I don't remember your surname, 
-and might get confused with other people called Thomas.
-
-
-On Thu, 27 Nov 2014, Alex Strizhevsky wrote:
-
-==Date: Thu, 27 Nov 2014 13:36:37
-==From: Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-==To: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>, ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org,
-==    Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org
-==Cc: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-==    linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-==    Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org
-==Subject: Re: Is this 32-bit NCM?
-==
-==Adding my colleagues - Eli, Kevin & Midge.
-==
-==Any ideas are welcome ;)
-==
-==
-==On Thu, Nov 27, 2014 at 12:03 PM, Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote:
-==      Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
-==
-==      > Ok - we can arrive to some ocnclusions regarding the E3272.
-==      > First of all - the modem seems buggy enough to not be able to
-==      handle requests
-==      > for different formats. You need to unplug and re-plug it, but
-==      this is onlyan
-==      > impression and is reasonable.
-==      >
-==      > Then - the modem will accept to ndisdup the connection with
-==      > at^ndisdup=1,1,"internet"
-==      > but - if we use huawei_cdc_ncm + cdc_ncm we have no flow
-==      handling messages and
-==      > the modem stops here.
-==      > If we use the cdc_ncm 32-bit driver (modified) we get lotfs of
-==      > ^dsflorpt
-==      > that's how it should be.
-==      > So I think we can say that something is changing.
-==      > Then there's the alignment problem you mentioned in your
-==      previous reply. And
-==      > this is hard to solve.
-==      > could you try to help me understand where the problem is?
-==      > I feel like we are very close to the solution but something
-==      isn't working.
-==      > Or might be just try to change the 16 bit driver?
-==
-==If you use a recent version of the driver as a basis, then you get the
-==CDC NCM NTB parameters in sysfs (if not, then you need to enable
-==debugging and look in the log for these values).  For example:
-==
-==bjorn@nemi:~$ grep . /sys/class/net/wwan0/cdc_ncm/*
-==/sys/class/net/wwan0/cdc_ncm/bmNtbFormatsSupported:0x0001
-==/sys/class/net/wwan0/cdc_ncm/dwNtbInMaxSize:15360
-==/sys/class/net/wwan0/cdc_ncm/dwNtbOutMaxSize:15360
-==/sys/class/net/wwan0/cdc_ncm/min_tx_pkt:13824
-==/sys/class/net/wwan0/cdc_ncm/rx_max:15360
-==/sys/class/net/wwan0/cdc_ncm/tx_max:15360
-==/sys/class/net/wwan0/cdc_ncm/tx_timer_usecs:400
-==/sys/class/net/wwan0/cdc_ncm/wNdpInAlignment:4
-==/sys/class/net/wwan0/cdc_ncm/wNdpInDivisor:1
-==/sys/class/net/wwan0/cdc_ncm/wNdpInPayloadRemainder:0
-==/sys/class/net/wwan0/cdc_ncm/wNdpOutAlignment:4
-==/sys/class/net/wwan0/cdc_ncm/wNdpOutDivisor:32
-==/sys/class/net/wwan0/cdc_ncm/wNdpOutPayloadRemainder:0
-==/sys/class/net/wwan0/cdc_ncm/wNtbOutMaxDatagrams:32
-==
-==
-==The possible problem I am thinking of is proper handling of the
-==wNdp*PayloadRemainder values. See section 3.3.4 "NCM Ethernet Frame
-==Alignment" in the spec.  Which is confusing as hell, but if I
-==understand
-==it correctly then we are supposed to align the start of the IP packets
-==(the "payload", _not_ the ethernet frame) to a whole wNdp*Divisor
-==number
-==as long as the wNdp*PayloadRemainder is 0.
-==
-==
-==Bjørn
-==
-==
-==
-==
---8323328-842611585-1417113292=:1548--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+$ objdump -t arch/x86/net/bpf_jit_comp.o.new  > new
+$ objdump -t arch/x86/net/bpf_jit_comp.o.old  > old
+$ diff -urN old new
+--- old	2014-11-27 10:31:36.654373756 -0800
++++ new	2014-11-27 10:31:31.254373453 -0800
+@@ -1,5 +1,5 @@
+ 
+-arch/x86/net/bpf_jit_comp.o.old:     file format elf64-x86-64
++arch/x86/net/bpf_jit_comp.o.new:     file format elf64-x86-64
+ 
+ SYMBOL TABLE:
+ 0000000000000000 l    df *ABS*	0000000000000000 bpf_jit_comp.c
+@@ -8,28 +8,26 @@
+ 0000000000000000 l    d  .bss	0000000000000000 .bss
+ 0000000000000000 l    d  .text.unlikely	0000000000000000 .text.unlikely
+ 0000000000000000 l     F .text	000000000000001f jit_fill_hole
+-0000000000000098 l     O .bss	0000000000000008 __gcov0.jit_fill_hole
++0000000000000060 l     O .bss	0000000000000008 __gcov0.jit_fill_hole
+ 0000000000000000 l    d  .rodata.str1.1	0000000000000000 .rodata.str1.1
+ 0000000000000000 l    d  .rodata.str1.8	0000000000000000 .rodata.str1.8
+-0000000000000020 l     F .text	00000000000030a2 do_jit
+-00000000000000c0 l     O .bss	0000000000000b68 __gcov0.do_jit
++0000000000000020 l     F .text	000000000000260b do_jit
++0000000000000080 l     O .bss	0000000000000970 __gcov0.do_jit
+ 00000000000006e0 l     O .rodata	0000000000000034 reg2hex
+ 0000000000000000 l    d  .rodata	0000000000000000 .rodata
+-0000000000000060 l     O .bss	0000000000000038 __gcov0.add_2mod
+-0000000000000c28 l     O .bss	0000000000000008 __gcov0.bpf_jit_compile
+-0000000000000c40 l     O .bss	00000000000003f0 __gcov0.bpf_int_jit_compile
++00000000000009f0 l     O .bss	0000000000000008 __gcov0.bpf_jit_compile
++0000000000000a00 l     O .bss	00000000000003f0 __gcov0.bpf_int_jit_compile
+ 0000000000000040 l     O .bss	0000000000000020 __gcov0.bpf_jit_dump
+-0000000000001040 l     O .bss	0000000000000028 __gcov0.bpf_jit_free
++0000000000000e00 l     O .bss	0000000000000028 __gcov0.bpf_jit_free
+ 0000000000000010 l     O .bss	0000000000000018 __gcov0.bpf_prog_unlock_free
+ 0000000000000000 l    d  .text.startup	0000000000000000 .text.startup
+ 0000000000000000 l     F .text.startup	0000000000000012 _GLOBAL__sub_I_65535_0_bpf_jit_compile
+ 0000000000000000 l    d  .init_array	0000000000000000 .init_array
+-0000000000000340 l     O .data	0000000000000028 __gcov_.bpf_jit_free
+-0000000000000260 l     O .data	0000000000000028 __gcov_.bpf_int_jit_compile
+-0000000000000220 l     O .data	0000000000000028 __gcov_.bpf_jit_compile
+-00000000000001e0 l     O .data	0000000000000028 __gcov_.do_jit
+-00000000000001a0 l     O .data	0000000000000028 __gcov_.jit_fill_hole
+-0000000000000160 l     O .data	0000000000000028 __gcov_.add_2mod
++0000000000000300 l     O .data	0000000000000028 __gcov_.bpf_jit_free
++0000000000000220 l     O .data	0000000000000028 __gcov_.bpf_int_jit_compile
++00000000000001e0 l     O .data	0000000000000028 __gcov_.bpf_jit_compile
++00000000000001a0 l     O .data	0000000000000028 __gcov_.do_jit
++0000000000000160 l     O .data	0000000000000028 __gcov_.jit_fill_hole
+ 0000000000000120 l     O .data	0000000000000028 __gcov_.bpf_jit_dump
+ 00000000000000e0 l     O .data	0000000000000028 __gcov_.bpf_prog_unlock_free
+ 00000000000000a0 l     O .data	0000000000000028 __gcov_.__get_order
+@@ -43,17 +41,17 @@
+ 0000000000000000         *UND*	0000000000000000 memset
+ 0000000000000000         *UND*	0000000000000000 sk_load_half
+ 0000000000000000         *UND*	0000000000000000 printk
++0000000000000000         *UND*	0000000000000000 sk_load_byte
++0000000000000000         *UND*	0000000000000000 sk_load_word
+ 0000000000000000         *UND*	0000000000000000 sk_load_half_positive_offset
+ 0000000000000000         *UND*	0000000000000000 sk_load_half_negative_offset
+-0000000000000000         *UND*	0000000000000000 sk_load_word_positive_offset
+-0000000000000000         *UND*	0000000000000000 sk_load_byte
+ 0000000000000000         *UND*	0000000000000000 sk_load_byte_positive_offset
+ 0000000000000000         *UND*	0000000000000000 sk_load_byte_negative_offset
+-0000000000000000         *UND*	0000000000000000 sk_load_word
++0000000000000000         *UND*	0000000000000000 sk_load_word_positive_offset
+ 0000000000000000         *UND*	0000000000000000 __bpf_call_base
+ 0000000000000000         *UND*	0000000000000000 sk_load_word_negative_offset
+-00000000000030d0 g     F .text	0000000000000013 bpf_jit_compile
+-00000000000030f0 g     F .text	0000000000000352 bpf_int_jit_compile
++0000000000002630 g     F .text	0000000000000013 bpf_jit_compile
++0000000000002650 g     F .text	0000000000000352 bpf_int_jit_compile
+ 0000000000000000 g     O .data..read_mostly	0000000000000004 bpf_jit_enable
+ 0000000000000000         *UND*	0000000000000000 __kmalloc
+ 0000000000000000         *UND*	0000000000000000 bpf_jit_binary_alloc
+@@ -62,7 +60,7 @@
+ 0000000000000000         *UND*	0000000000000000 set_memory_ro
+ 0000000000000000         *UND*	0000000000000000 kfree
+ 0000000000000000         *UND*	0000000000000000 bpf_jit_binary_free
+-0000000000003450 g     F .text	000000000000008c bpf_jit_free
++00000000000029b0 g     F .text	000000000000008c bpf_jit_free
+ 0000000000000000         *UND*	0000000000000000 set_memory_rw
+ 0000000000000000         *UND*	0000000000000000 __bpf_prog_free
+ 0000000000000000         *UND*	0000000000000000 __gcov_init
