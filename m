@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 07/21] rtnl: expose physical switch id for particular device
-Date: Thu, 27 Nov 2014 11:40:12 +0100
-Message-ID: <1417084826-9875-8-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v4 08/21] net-sysfs: expose physical switch id for particular device
+Date: Thu, 27 Nov 2014 11:40:13 +0100
+Message-ID: <1417084826-9875-9-git-send-email-jiri@resnulli.us>
 References: <1417084826-9875-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
@@ -21,112 +21,98 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	bcrl@kvack.org, hemal@broadcom.co
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:39434 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754244AbaK0Kki (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 05:40:38 -0500
-Received: by mail-wg0-f52.google.com with SMTP id a1so6088834wgh.11
-        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 02:40:37 -0800 (PST)
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:61913 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754403AbaK0Kkj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 05:40:39 -0500
+Received: by mail-wg0-f45.google.com with SMTP id b13so6088469wgh.32
+        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 02:40:38 -0800 (PST)
 In-Reply-To: <1417084826-9875-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
-The netdevice represents a port in a switch, it will expose
-IFLA_PHYS_SWITCH_ID value via rtnl. Two netdevices with the same value
-belong to one physical switch.
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 Reviewed-by: Thomas Graf <tgraf@suug.ch>
 Acked-by: John Fastabend <john.r.fastabend@intel.com>
 Acked-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
 v3->v4:
--no change
+-added entry to Documentation/ABI/testing/sysfs-class-net as suggested
+ by Florian
 v2->v3:
 -changed "sw" string to "switch" to avoid confusion
 v1->v2:
 -no change
 ---
- include/uapi/linux/if_link.h |  1 +
- net/core/rtnetlink.c         | 26 +++++++++++++++++++++++++-
- 2 files changed, 26 insertions(+), 1 deletion(-)
+ Documentation/ABI/testing/sysfs-class-net |  8 ++++++++
+ net/core/net-sysfs.c                      | 24 ++++++++++++++++++++++++
+ 2 files changed, 32 insertions(+)
 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 36bddc2..623f1a7 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -145,6 +145,7 @@ enum {
- 	IFLA_CARRIER,
- 	IFLA_PHYS_PORT_ID,
- 	IFLA_CARRIER_CHANGES,
-+	IFLA_PHYS_SWITCH_ID,
- 	__IFLA_MAX
- };
- 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 7c59c02..b6541f2 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -44,6 +44,7 @@
- 
- #include <linux/inet.h>
+diff --git a/Documentation/ABI/testing/sysfs-class-net b/Documentation/ABI/testing/sysfs-class-net
+index e1b2e78..beb8ec4 100644
+--- a/Documentation/ABI/testing/sysfs-class-net
++++ b/Documentation/ABI/testing/sysfs-class-net
+@@ -216,3 +216,11 @@ Contact:	netdev@vger.kernel.org
+ Description:
+ 		Indicates the interface protocol type as a decimal value. See
+ 		include/uapi/linux/if_arp.h for all possible values.
++
++What:		/sys/class/net/<iface>/phys_switch_id
++Date:		November 2014
++KernelVersion:	3.19
++Contact:	netdev@vger.kernel.org
++Description:
++		Indicates the unique physical switch identifier of a switch this
++		port belongs to, as a string.
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 26c46f4..9993412 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -12,6 +12,7 @@
+ #include <linux/capability.h>
+ #include <linux/kernel.h>
  #include <linux/netdevice.h>
 +#include <net/switchdev.h>
- #include <net/ip.h>
- #include <net/protocol.h>
- #include <net/arp.h>
-@@ -869,7 +870,8 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
- 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
- 	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
--	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_PORT_ID */
-+	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
-+	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_SWITCH_ID */
+ #include <linux/if_arp.h>
+ #include <linux/slab.h>
+ #include <linux/nsproxy.h>
+@@ -416,6 +417,28 @@ static ssize_t phys_port_id_show(struct device *dev,
  }
+ static DEVICE_ATTR_RO(phys_port_id);
  
- static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
-@@ -968,6 +970,24 @@ static int rtnl_phys_port_id_fill(struct sk_buff *skb, struct net_device *dev)
- 	return 0;
- }
- 
-+static int rtnl_phys_switch_id_fill(struct sk_buff *skb, struct net_device *dev)
++static ssize_t phys_switch_id_show(struct device *dev,
++				   struct device_attribute *attr, char *buf)
 +{
-+	int err;
-+	struct netdev_phys_item_id psid;
++	struct net_device *netdev = to_net_dev(dev);
++	ssize_t ret = -EINVAL;
 +
-+	err = netdev_switch_parent_id_get(dev, &psid);
-+	if (err) {
-+		if (err == -EOPNOTSUPP)
-+			return 0;
-+		return err;
++	if (!rtnl_trylock())
++		return restart_syscall();
++
++	if (dev_isalive(netdev)) {
++		struct netdev_phys_item_id ppid;
++
++		ret = netdev_switch_parent_id_get(netdev, &ppid);
++		if (!ret)
++			ret = sprintf(buf, "%*phN\n", ppid.id_len, ppid.id);
 +	}
++	rtnl_unlock();
 +
-+	if (nla_put(skb, IFLA_PHYS_SWITCH_ID, psid.id_len, psid.id))
-+		return -EMSGSIZE;
-+
-+	return 0;
++	return ret;
 +}
++static DEVICE_ATTR_RO(phys_switch_id);
 +
- static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			    int type, u32 pid, u32 seq, u32 change,
- 			    unsigned int flags, u32 ext_filter_mask)
-@@ -1040,6 +1060,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	if (rtnl_phys_port_id_fill(skb, dev))
- 		goto nla_put_failure;
- 
-+	if (rtnl_phys_switch_id_fill(skb, dev))
-+		goto nla_put_failure;
-+
- 	attr = nla_reserve(skb, IFLA_STATS,
- 			sizeof(struct rtnl_link_stats));
- 	if (attr == NULL)
-@@ -1199,6 +1222,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
- 	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
- 	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
-+	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+ static struct attribute *net_class_attrs[] = {
+ 	&dev_attr_netdev_group.attr,
+ 	&dev_attr_type.attr,
+@@ -441,6 +464,7 @@ static struct attribute *net_class_attrs[] = {
+ 	&dev_attr_tx_queue_len.attr,
+ 	&dev_attr_gro_flush_timeout.attr,
+ 	&dev_attr_phys_port_id.attr,
++	&dev_attr_phys_switch_id.attr,
+ 	NULL,
  };
- 
- static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
+ ATTRIBUTE_GROUPS(net_class);
 -- 
 1.9.3
