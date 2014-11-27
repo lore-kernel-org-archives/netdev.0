@@ -1,113 +1,96 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v3 02/17] net: make vid as a parameter for
- ndo_fdb_add/ndo_fdb_del
-Date: Thu, 27 Nov 2014 22:55:29 +0100
-Message-ID: <20141127215529.GA17784@nanopsycho.orion>
-References: <5474ABF0.60901@mojatatu.com>
- <5474AE9B.6000500@intel.com>
- <5474B353.10802@mojatatu.com>
- <CAE4R7bD1Hi+fnKp-Sg6Tn4AcpOu2pwgEYecP8LVA1ioO4FkgRQ@mail.gmail.com>
- <547546C5.3060207@mojatatu.com>
- <CAE4R7bA2VPZ3tm2MrsXAm4XfNX0TguT=vUma-3HrZSu98hBGyA@mail.gmail.com>
- <5475B952.2080500@mojatatu.com>
- <CAE4R7bAM+orLXdEn0qCu2rKj+W5_681RHmvgW4CY5H7jZ0ijfQ@mail.gmail.com>
- <54771598.80806@mojatatu.com>
- <CAE4R7bDzxo1xY-MHzqtQ70s+nf+3dkWhr7neV-atk1YkMP3KJw@mail.gmail.com>
+From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
+Subject: Re: [PATCH v3] can: Convert to runtime_pm
+Date: Thu, 27 Nov 2014 14:47:41 -0800
+Message-ID: <820358d5369f465188dfa9306eae5658@BL2FFO11FD009.protection.gbl>
+References: <6b6db31d46074512a322eae6e4ef64d4@BN1BFFO11FD038.protection.gbl>
+ <54779501.8060009@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	"dborkman@redhat.com" <dborkman@redhat.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"pshelar@nicira.com" <pshelar@nicira.com>,
-	"azhou@nicira.com" <azhou@nicira.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tuxdriv
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:56699 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750756AbaK0Vzb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 16:55:31 -0500
-Received: by mail-wg0-f46.google.com with SMTP id x12so7479368wgg.33
-        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 13:55:30 -0800 (PST)
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
+	<wg@grandegger.com>, <michal.simek@xilinx.com>,
+	<grant.likely@linaro.org>, <robh+dt@kernel.org>,
+	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	Kedareswara rao Appana <appanad@xilinx.com>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAE4R7bDzxo1xY-MHzqtQ70s+nf+3dkWhr7neV-atk1YkMP3KJw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <54779501.8060009@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thu, Nov 27, 2014 at 09:59:37PM CET, sfeldma@gmail.com wrote:
->Ya right now the driver just doesn't call br_fdb_external_learn_add()
->if LEARNING_SYNC is not set.  It's a port driver setting so it seems
->fine to handle it in the port driver.  You could move the check up to
->br_fdb_external_learn_add(), but then you have an extra call every 1s
->for each fdb entry being refreshed.  (1s or whatever the refresh
->frequency is).  Easier to avoid this overhead and make the decision at
->the source.
+On Thu, 2014-11-27 at 10:17PM +0100, Marc Kleine-Budde wrote:
+> On 11/27/2014 02:08 PM, Kedareswara rao Appana wrote:
+> > Instead of enabling/disabling clocks at several locations in the dr=
+iver,
+> > use the runtime_pm framework. This consolidates the actions for
+> > runtime PM in the appropriate callbacks and makes the driver more
+> > readable and mantainable.
+> >=20
+> > Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
+> > Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
+> > ---
+> > Changes for v3:
+> >   - Converted the driver to use runtime_pm.
+> > Changes for v2:
+> >   - Removed the struct platform_device* from suspend/resume
+> >     as suggest by Lothar.
+> >=20
+> >  drivers/net/can/xilinx_can.c |  119 +++++++++++++++++++++++++-----=
+-----------
+> >  1 files changed, 72 insertions(+), 47 deletions(-)
+> >=20
+> > diff --git a/drivers/net/can/xilinx_can.c b/drivers/net/can/xilinx_=
+can.c
+> > index 8a998e3..1be28ed 100644
+> > --- a/drivers/net/can/xilinx_can.c
+> > +++ b/drivers/net/can/xilinx_can.c
+[...]
+> > @@ -1030,7 +1046,10 @@ static int __maybe_unused xcan_resume(struct=
+ device *dev)
+> >  	return 0;
+> >  }
+> > =20
+> > -static SIMPLE_DEV_PM_OPS(xcan_dev_pm_ops, xcan_suspend, xcan_resum=
+e);
+> > +static const struct dev_pm_ops xcan_dev_pm_ops =3D {
+> > +	SET_SYSTEM_SLEEP_PM_OPS(xcan_suspend, xcan_resume)
+> > +	SET_PM_RUNTIME_PM_OPS(xcan_runtime_suspend, xcan_runtime_resume, =
+NULL)
+> > +};
+> > =20
+> >  /**
+> >   * xcan_probe - Platform registration call
+> > @@ -1071,7 +1090,7 @@ static int xcan_probe(struct platform_device =
+*pdev)
+> >  		return -ENOMEM;
+> > =20
+> >  	priv =3D netdev_priv(ndev);
+> > -	priv->dev =3D ndev;
+> > +	priv->dev =3D &pdev->dev;
+> >  	priv->can.bittiming_const =3D &xcan_bittiming_const;
+> >  	priv->can.do_set_mode =3D xcan_do_set_mode;
+> >  	priv->can.do_get_berr_counter =3D xcan_get_berr_counter;
+> > @@ -1137,6 +1156,11 @@ static int xcan_probe(struct platform_device=
+ *pdev)
+> > =20
+> >  	netif_napi_add(ndev, &priv->napi, xcan_rx_poll, rx_max);
+> > =20
+> > +	pm_runtime_set_active(&pdev->dev);
+> > +	pm_runtime_irq_safe(&pdev->dev);
+>=20
+> You use just clock_enable()/disable() in the runtime functions, thus =
+you
+> can say they are irq_safe. On the other the the zync grpio driver use=
+s
+> "full" prepare_enable/disable_unprepare calls. What's best practice h=
+ere?
 
-I have been thinking about moving the check into bridge code, it to make
-it there as well as in drivers. This is easily changeable on demenad
-later though, so I left this for now.
+IIRC, the prepare/unprepare functions can sleep. xcan_get_berr_counter
+is called from atomic context. So, I think we have to use the
+disable/enable functions without the prepare/unprepare.
+In the GPIO driver the that problem does not exist.
 
->
->-scott
->
->On Thu, Nov 27, 2014 at 2:14 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->> On 11/27/14 01:50, Scott Feldman wrote:
->>
->> [..]
->>
->>>
->>> It's there: IFLA_BRPORT_LEARNING_SYNC.  From iproute2:
->>>
->>> $ bridge -d link show dev swp1
->>> 2: swp1 state UNKNOWN : <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500
->>> master br0 state forwarding priority 32 cost 2
->>>      hairpin off guard off root_block off fastleave off learning off flood
->>> off
->>> 2: swp1 state UNKNOWN : <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 master
->>> br0
->>>      learning on learning_sync on hwmode swdev
->>>
->>> Turn it off:
->>>
->>> $ bridge link set dev swp1 hwmode swdev learning_sync off
->>>
->>> And now:
->>>
->>> $ bridge -d link show dev swp1
->>> 2: swp1 state UNKNOWN : <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500
->>> master br0 state forwarding priority 32 cost 2
->>>      hairpin off guard off root_block off fastleave off learning off flood
->>> off
->>> 2: swp1 state UNKNOWN : <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 master
->>> br0
->>>      learning on learning_sync off hwmode swdev
->>>
->>>
->>
->> Yes, this is the nice control portion.
->> From reviewing the patches, I didnt see how the core to the driver was
->> using the  learning_sync. IOW, how do i turn off the drivers sync
->> from being activated? Maybe you are doing this in the rocker patches
->> which i didnt review? i think this needs to be core infrastructure i.e
->> if you are doing this in a timer (as opposed to interrupt driven), then
->> the core sync timer would kick in and call some driver ops.
->> In any case, details that can be ironed out later..
->>
->> cheers,
->> jamal
->>
+	S=C3=B6ren
