@@ -1,63 +1,71 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v4 09/21] bridge: call netdev_sw_port_stp_update
- when bridge port STP status changes
-Date: Thu, 27 Nov 2014 14:43:41 +0100
-Message-ID: <20141127134341.GC1877@nanopsycho.orion>
-References: <1417084826-9875-1-git-send-email-jiri@resnulli.us>
- <1417084826-9875-10-git-send-email-jiri@resnulli.us>
- <547723AC.1070907@mojatatu.com>
+Subject: Re: [patch net-next v3 04/17] net: introduce generic switch devices
+ support
+Date: Thu, 27 Nov 2014 14:50:50 +0100
+Message-ID: <20141127135050.GD1877@nanopsycho.orion>
+References: <54754A10.6020601@mojatatu.com>
+ <CAE4R7bCYwWt5cem5_v8Y0jOSz5ER5_33bMRE2xkTPOqYvM6dUg@mail.gmail.com>
+ <5475BB53.3070200@mojatatu.com>
+ <20141126160859.GB13786@casper.infradead.org>
+ <54760939.8050805@mojatatu.com>
+ <20141126175944.GW1875@nanopsycho.orion>
+ <20141126215034.GA32174@casper.infradead.org>
+ <547662F4.3060408@mojatatu.com>
+ <20141127130345.GB27041@casper.infradead.org>
+ <547727F0.7020105@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
-	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
-	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.org, hemal@broad
+Cc: Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"dborkman@redhat.com" <dborkman@redhat.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"jesse@nicira.com" <jesse@nicira.com>,
+	"pshelar@nicira.com" <pshelar@nicira.com>,
+	"azhou@nicira.com" <azhou@nicira.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	John Linville <linville@tuxdr
 To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:33197 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750886AbaK0Nnp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 08:43:45 -0500
-Received: by mail-wg0-f54.google.com with SMTP id l2so6531293wgh.27
-        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 05:43:44 -0800 (PST)
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:48637 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751310AbaK0Nux (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 08:50:53 -0500
+Received: by mail-wi0-f174.google.com with SMTP id h11so15813093wiw.13
+        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 05:50:52 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <547723AC.1070907@mojatatu.com>
+In-Reply-To: <547727F0.7020105@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Nov 27, 2014 at 02:14:20PM CET, jhs@mojatatu.com wrote:
->On 11/27/14 05:40, Jiri Pirko wrote:
->>From: Scott Feldman <sfeldma@gmail.com>
->>
->>To notify switch driver of change in STP state of bridge port, add new
->>.ndo op and provide switchdev wrapper func to call ndo op. Use it in bridge
->>code then.
+Thu, Nov 27, 2014 at 02:32:32PM CET, jhs@mojatatu.com wrote:
+>On 11/27/14 08:03, Thomas Graf wrote:
+>
+>>So what is your name suggestion?
 >>
 >
->As it stands right now we are going to pollute the ndo ops and grow
->it fatter like the skb (its probably as fat).
->If i am not mistaken ethtool has some scheme it uses to pass opaque
->objects to different functions. Having a generic
->set/get_netdev_offload_attr() would be the right thing to do.
->An {id, *value} or {id, len, *value} or a void * would do.
->So not objecting - but not ACKing either.
+>I would have gone for _offload_ either as a prefix or suffix
+>somewhere.
 
-Yeah, this will be changed in future when more and more info will need
-to be passed to offloads.
+$ git grep offload net
+Wouldn't it be confusing to add this another different "offload". That's
+just confusing.
+
+I still like "switch" the best. If it passes packets around, it's a
+"switch", +-. Everybody understand what's going on if you use "switch".
+If you use "offload", everybody is confused...
+
 
 >
 >cheers,
 >jamal
->
