@@ -1,13 +1,15 @@
 From: Roger Chen <roger.chen@rock-chips.com>
 Subject: [PATCH v2 0/6] support GMAC driver for RK3288
-Date: Thu, 27 Nov 2014 10:49:51 +0800
-Message-ID: <1417056591-3570-1-git-send-email-roger.chen@rock-chips.com>
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+Date: Thu, 27 Nov 2014 10:51:05 +0800
+Message-ID: <1417056665-3606-1-git-send-email-roger.chen@rock-chips.com>
+References: <1417056591-3570-1-git-send-email-roger.chen@rock-chips.com>
+Cc: heiko@sntech.de, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
 	kever.yang@rock-chips.com, eddie.cai@rock-chips.com,
 	roger.chen@rock-chips.com
-To: heiko@sntech.de
+To: peppe.cavallaro@st.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1417056591-3570-1-git-send-email-roger.chen@rock-chips.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
