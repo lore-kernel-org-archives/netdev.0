@@ -1,65 +1,88 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v5 29/45] vhost/net: force len for TX to host endian
-Date: Thu, 27 Nov 2014 14:32:29 +0200
-Message-ID: <1417091078-24611-30-git-send-email-mst@redhat.com>
-References: <1417091078-24611-1-git-send-email-mst@redhat.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next v3 04/17] net: introduce generic switch devices
+ support
+Date: Thu, 27 Nov 2014 07:35:23 -0500
+Message-ID: <54771A8B.2030305@mojatatu.com>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us> <1416911328-10979-5-git-send-email-jiri@resnulli.us> <5474A567.4040401@mojatatu.com> <20141125164954.GJ1971@nanopsycho.orion> <5474B795.3080204@mojatatu.com> <20141125215402.GA3912@casper.infradead.org> <54754A10.6020601@mojatatu.com> <20141127031315.GD1649@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: thuth@linux.vnet.ibm.com, kvm@vger.kernel.org, rusty@au1.ibm.com,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	dahi@linux.vnet.ibm.com, pbonzini@redhat.com,
-	David Miller <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1417091078-24611-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
+	roopa@cumulusnetworks.com, linville@tuxdriver.com,
+	jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, alexander.h.duyck@redhat.com,
+	john.ronciak@intel.com, mleitner@redhat.com, shrijeet@gmail.com,
+	gospo@cumulusnetworks.com, bcrl@kvack
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:62046 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754658AbaK0Mf3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 07:35:29 -0500
+Received: by mail-ie0-f173.google.com with SMTP id y20so4473990ier.32
+        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 04:35:29 -0800 (PST)
+In-Reply-To: <20141127031315.GD1649@vergenet.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-vhost/net keeps a copy of some used ring but (ab)uses length
-field for internal house-keeping. This works because
-for tx used length is always 0.
-Suppress sparse errors: we use native endian-ness internally but never
-expose it to guest.
+On 11/26/14 22:13, Simon Horman wrote:
+> On Tue, Nov 25, 2014 at 10:33:36PM -0500, Jamal Hadi Salim wrote:
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/vhost/net.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+[..]
+> I may be missing the point but I see two problems that are solved by
+> the switch abstraction.
+>
+> - Cases where no ports are configured.
+>
+>    Perhaps no such use cases exist for the API in question.
+>    But it does seem plausible to me that non-physical ports could
+>    be added at run-time and that thus a "switch" could initially
+>    exist with no configured port. Something like how bridges
+>    initially have no ports (IIRC).
+>
+> - Discovering the association between ports and "switches".
+>
+> My recollection from the double round table discussion on the last da=
+y of
+> the D=C3=BCsseldorf sessions was that these were reasons that simply =
+accessing
+> any port belonging to the "switch" were not entirely satisfactory.
+>
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 8dae2f7..dce5c58 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -48,15 +48,15 @@ MODULE_PARM_DESC(experimental_zcopytx, "Enable Zero Copy TX;"
-  * status internally; used for zerocopy tx only.
-  */
- /* Lower device DMA failed */
--#define VHOST_DMA_FAILED_LEN	3
-+#define VHOST_DMA_FAILED_LEN	((__force __virtio32)3)
- /* Lower device DMA done */
--#define VHOST_DMA_DONE_LEN	2
-+#define VHOST_DMA_DONE_LEN	((__force __virtio32)2)
- /* Lower device DMA in progress */
--#define VHOST_DMA_IN_PROGRESS	1
-+#define VHOST_DMA_IN_PROGRESS	((__force __virtio32)1)
- /* Buffer unused */
--#define VHOST_DMA_CLEAR_LEN	0
-+#define VHOST_DMA_CLEAR_LEN	((__force __virtio32)0)
- 
--#define VHOST_DMA_IS_DONE(len) ((len) >= VHOST_DMA_DONE_LEN)
-+#define VHOST_DMA_IS_DONE(len) ((__force u32)(len) >= (__force u32)VHOST_DMA_DONE_LEN)
- 
- enum {
- 	VHOST_NET_FEATURES = VHOST_FEATURES |
--- 
-MST
+So in Du I illustrated in a slide the internals of the Realtek that
+Ben had patches on. Ben first exposes the realtek ports and when
+you wish you can build a bridge and attach the exposed ports
+and then hardware switching functionality is used. What is interesting
+about it is infact you didnt need to use the switching on it. You
+could attach a filter to any of the exposed ports, then specify an
+action to do a redirect to another port for example.
+(Scott i know you were not there, but i cant find where those slides
+are posted; will send them when i do - or ask Thomas).
+This is very easy to map to port/ingress classifier/actions in Linux.
+I was hoping i could produce a patch to do this - but waiting on Ben
+to complete the reverse engineering.
+In any case the realtek is a toy example but there's millions deployed
+and producing a patch for tc (if Jiri doesnt beat me to it) is a useful
+exercise.
+My devices (as would a netronome) would apply the same concept.
+Essentially, you take an ingress packet arriving on a port,
+you apply a classifier to it, apply actions to i and eventually
+ingress it to a port. i.e
+
+Ingress packet-->port->classifier-->...actions..->egress port
+
+I can model the above with tc.
+
+cheers,
+jamal
