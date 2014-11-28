@@ -1,187 +1,217 @@
-From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
 Subject: Re: Is this 32-bit NCM?
-Date: Fri, 28 Nov 2014 08:23:16 +0000
-Message-ID: <547830EE.8060302@audiocodes.com>
-References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
- <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com>
- <874mtl55ar.fsf@nemi.mork.no>
- <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
+Date: Fri, 28 Nov 2014 09:24:25 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1411280923230.3997@gmail.com>
+References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
  <54781523.6030600@audiocodes.com>
- <alpine.LNX.2.03.1411280915310.3981@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1089341220-1417163066=:3997"
 Cc: Alex Strizhevsky <alexxst@gmail.com>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
-	"Midge Shaojun Tan" <ShaojunMidge.Tan@audiocodes.com>,
+	=?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
+	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
 	"youtux@gmail.com" <youtux@gmail.com>,
 	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Eli Britstein <Eli.Britstein@audiocodes.com>
-To: Enrico Mioso <mrkiko.rs@gmail.com>
+To: Kevin Zhu <Mingying.Zhu@audiocodes.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1lrp0011.outbound.protection.outlook.com ([213.199.154.11]:29600
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750904AbaK1IXX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Nov 2014 03:23:23 -0500
-In-Reply-To: <alpine.LNX.2.03.1411280915310.3981@gmail.com>
-Content-Language: en-US
-Content-ID: <F9CABEA00F0BF7488D01F133152295CD@eurprd06.prod.outlook.com>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:61238 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751160AbaK1IX5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 03:23:57 -0500
+In-Reply-To: <54781523.6030600@audiocodes.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SXQncyBhbiBwaW5nIHBhY2tldC4gV2luZG93cyBwYWRzIGl0IHdpdGggJ2FiY2RlZi4uLicuDQoN
-ClJlZ2FyZHMsDQpLZXZpbg0KDQpPbiAxMS8yOC8yMDE0IDA0OjE3IFBNLCBFbnJpY28gTWlvc28g
-d3JvdGU6DQo+IEFuZC4uLndoeSBpbiBXaW5kb3dzIHdlIGhhdmUgdGhpcyBsaW5lPw0KPiAwMDUw
-ICAgNzUgNzYgNzcgNjEgNjIgNjMgNjQgNjUgNjYgNjcgNjggNjkgNmUgNjMgNmQgMzAgIHV2d2Fi
-Y2RlZmdoaW5jbTANCj4gSXMgdGhpcyBqdXN0IHBhZGRpbmcgc3R1ZmYgYmVmb3JlIHRoZSAibmNt
-MCIgc3RyaW5nPw0KPiBTbyBpbiBwYXJ0aWN1bGFyIGEgc2ltcGxlIGxpbmUgbmVlZHMgdG8gYmUg
-bW9kaWZpZWQgaW4gcHJhY3RpY2UgaW4gdGhlIGRyaXZlciwNCj4gb3IgYW0gSSB0b3RhbGx5IG1p
-c2d1aXNlZD8NCj4gSXMgb3VyICJvZmZzZXQiIHBhcmFtZXRlciBjYWxjdWxhdGVkc3VpdGFibHkg
-aW4gdGhlIGRyaXZlcj8gTG9va2luZyBhdCBpdCwgYW55DQo+IGNvbW1lbnQgYXBwcmVjaWF0ZWQu
-DQo+DQo+DQo+IE9uIEZyaSwgMjggTm92IDIwMTQsIEtldmluIFpodSB3cm90ZToNCj4NCj4gPT1E
-YXRlOiBGcmksIDI4IE5vdiAyMDE0IDA3OjI0OjQ5DQo+ID09RnJvbTogS2V2aW4gWmh1IDxNaW5n
-eWluZy5aaHVAYXVkaW9jb2Rlcy5jb20+DQo+ID09VG86IEFsZXggU3RyaXpoZXZza3kgPGFsZXh4
-c3RAZ21haWwuY29tPiwgQmrDuHJuIE1vcmsgPGJqb3JuQG1vcmsubm8+LA0KPiA9PSAgICBNaWRn
-ZSBTaGFvanVuICBUYW4gPFNoYW9qdW5NaWRnZS5UYW5AYXVkaW9jb2Rlcy5jb20+DQo+ID09Q2M6
-IEVucmljbyBNaW9zbyA8bXJraWtvLnJzQGdtYWlsLmNvbT4sICJ5b3V0dXhAZ21haWwuY29tIiA8
-eW91dHV4QGdtYWlsLmNvbT4sDQo+ID09ICAgICJsaW51eC11c2JAdmdlci5rZXJuZWwub3JnIiA8
-bGludXgtdXNiQHZnZXIua2VybmVsLm9yZz4sDQo+ID09ICAgICJuZXRkZXZAdmdlci5rZXJuZWwu
-b3JnIiA8bmV0ZGV2QHZnZXIua2VybmVsLm9yZz4sDQo+ID09ICAgIEVsaSBCcml0c3RlaW4gPEVs
-aS5Ccml0c3RlaW5AYXVkaW9jb2Rlcy5jb20+DQo+ID09U3ViamVjdDogUmU6IElzIHRoaXMgMzIt
-Yml0IE5DTT8NCj4gPT0NCj4gPT1IaSBhbGwsDQo+ID09DQo+ID09SSdtIGFibGUgdG8gZ2V0IHRo
-ZSBmb2xsb3dpbmcgcHJpbnRzIHdpdGggdGhlIG9yaWdpbmFsIGh1YXdlaV9jZGNfbmNtIGRyaXZl
-cg0KPiA9PWZyb20gVWJ1bnR1IDEyLjA0LjMuIEl0IGtlZXBzIG9uIHByaW50aW5nLiBJJ20gYWxz
-byBhYmxlIHRvIGdldCBhbiBJUCwgYnV0DQo+ID09bm8gSW50ZXJuZXQgYWNjZXNzLg0KPiA9PQ0K
-PiA9PV5IQ1NROiJXQ0RNQSIsNjQsNTksNTUNCj4gPT0NCj4gPT1eRFNGTE9XUlBUOjAwMDAwMDBF
-LDAwMDAwMDAwLDAwMDAwMDAwLDAwMDAwMDAwMDAwMDAwMDAsMDAwMDAwMDAwMDAwMDAwMCwwMDAN
-Cj4gPT0wMDAwMCwwMDAwMDAwMA0KPiA9PQ0KPiA9PU9LDQo+ID09DQo+ID09Xk5ESVNTVEFUOjEs
-LCwiSVBWNCINCj4gPT0NCj4gPT1eU1RJTjogMSwgMCwgMA0KPiA9PQ0KPiA9PV5EU0ZMT1dSUFQ6
-MDAwMDAwMTAsMDAwMDAwMDAsMDAwMDAwMDAsMDAwMDAwMDAwMDAwMDAwMCwwMDAwMDAwMDAwMDAw
-MDAwLDAwMA0KPiA9PTAwMDAwLDAwMDAwMDAwDQo+ID09DQo+ID09XkRTRkxPV1JQVDowMDAwMDAx
-MiwwMDAwMDAwMCwwMDAwMDAwMCwwMDAwMDAwMDAwMDAwMDAwLDAwMDAwMDAwMDAwMDAwMDAsMDAw
-DQo+ID09MDAwMDAsMDAwMDAwMDANCj4gPT0NCj4gPT1eRFNGTE9XUlBUOjAwMDAwMDE0LDAwMDAw
-MDAwLDAwMDAwMDAwLDAwMDAwMDAwMDAwMDAwMDAsMDAwMDAwMDAwMDAwMDAwMCwwMDANCj4gPT0w
-MDAwMCwwMDAwMDAwMA0KPiA9PQ0KPiA9PV5TVElOOiAxLCAwLCAwDQo+ID09DQo+ID09DQo+ID09
-Li4uDQo+ID09XlNUSU46IDEsIDAsIDANCj4gPT0NCj4gPT1eRFNGTE9XUlBUOjAwMDAwMDhDLDAw
-MDAwMDAwLDAwMDAwMDAwLDAwMDAwMDAwMDAwMDBCMzYsMDAwMDAwMDAwMDAwMDAwMCwwMDANCj4g
-PT0wMDAwMCwwMDAwMDAwMA0KPiA9PQ0KPiA9PV5EU0ZMT1dSUFQ6MDAwMDAwOEUsMDAwMDAwMDAs
-MDAwMDAwMDAsMDAwMDAwMDAwMDAwMEIzNiwwMDAwMDAwMDAwMDAwMDAwLDAwMA0KPiA9PTAwMDAw
-LDAwMDAwMDAwDQo+ID09DQo+ID09UmVnYXJkaW5nIHRoZSBhbGlnbm1lbnQsIEkgdGhpbmsgd2Ug
-aGF2ZSBzb21lIGRpZmZlcmVuY2UgYmV0d2VlbiBXaW5kb3dzIGFuZA0KPiA9PUxpbnV4LiBUaGUg
-c3BlYyBzYXlzIGl0IHNob3VsZCBzYXRpc2Z5IHRoZSBmb2xsb3dpbmcgY29uc3RyYWludC4NCj4g
-PT0NCj4gPT1PZmZzZXQgJSB3TmRwT3V0RGl2aXNvciA9PSB3TmRwT3V0UGF5bG9hZFJlbWFpbmRl
-ciAoZm9yIE9VVCBkYXRhZ3JhbXMpDQo+ID09DQo+ID09SXQgc2VlbXMgdGhlIEh1YXdlaSBkZXZp
-Y2UgdGFrZSB0aGUgTkRQIG9mZnNldCAoRXRoZXJuZXQgSGVhZGVyIE9mZnNldCkgYXMNCj4gPT10
-aGUgcGFyYW1ldGVyICdPZmZzZXQnIGluIHRoZSBhYm92ZSBjb25zdHJhaW50LiBBbmQgaW4gdGhl
-IExpbnV4IGNhcHR1cmUsIGl0DQo+ID09ZG9lcyBub3QgY29tcGx5IHdpdGggaXQuDQo+ID09DQo+
-ID09DQo+ID09ZHdOdGJJbk1heFNpemU9MTMxMDcyIGR3TnRiT3V0TWF4U2l6ZT0xNjM4NCB3TmRw
-T3V0UGF5bG9hZFJlbWFpbmRlcj0yDQo+ID09d05kcE91dERpdmlzb3I9NCB3TmRwT3V0QWxpZ25t
-ZW50PTQgd050Yk91dE1heERhdGFncmFtcz0wIGZsYWdzPTB4MWYNCj4gPT0NCj4gPT1XaW5kb3dz
-Og0KPiA9PQ0KPiA9PTAwMDAgICA2ZSA2MyA2ZCA2OCAxMCAwMCBiNiAwMCA3YyAwMCAwMCAwMCA1
-YyAwMCAwMCAwMCAgbmNtaC4uLi58Li4uXC4uLg0KPiA9PTAwMTAgICAwMCAwMCAwMCAwMCAwMCAw
-MCAwMCAwMCAwMCAxZSAxMCAxZiAwMCAwMCAwOCAwMCAgLi4uLi4uLi4uLi4uLi4uLg0KPiA9PTAw
-MjAgICA0NSAwMCAwMCAzYyAwMCA5YiAwMCAwMCA4MCAwMSBhMCBmZSAwYSA3MSBhMyAwZSAgRS4u
-PC4uLi4uLi4uLnEuLg0KPiA9PTAwMzAgICBjYSA2YyAyMSAzYyAwOCAwMCA0YiA0YiAwMCAwMSAw
-MiAxMCA2MSA2MiA2MyA2NCAgLmwhPC4uS0suLi4uYWJjZA0KPiA9PTAwNDAgICA2NSA2NiA2NyA2
-OCA2OSA2YSA2YiA2YyA2ZCA2ZSA2ZiA3MCA3MSA3MiA3MyA3NCAgZWZnaGlqa2xtbm9wcXJzdA0K
-PiA9PTAwNTAgICA3NSA3NiA3NyA2MSA2MiA2MyA2NCA2NSA2NiA2NyA2OCA2OSA2ZSA2MyA2ZCAz
-MCAgdXZ3YWJjZGVmZ2hpbmNtMA0KPiA9PTAwNjAgICAyMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAw
-MCAwMCAwMCAwMCAxMiAwMCAwMCAwMCAgIC4uLi4uLi4uLi4uLi4uLg0KPiA9PTAwNzAgICA0YSAw
-MCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAgICAgICAgICAgICAgSi4uLi4uLi4uLi4u
-DQo+ID09DQo+ID09TGludXg6ICh0aG91Z2h0IGl0J3MgYSAxNmJpdCBmb3JtYXQgY2FwdHVyZSwg
-YnV0IGl0J3MgdGhlIHNhbWUgYXMgMzJiaXQsDQo+ID09cmVnYXJkaW5nIHRoZSBhbGlnbm1lbnQp
-DQo+ID09DQo+ID09MDAwMCAgIDRlIDQzIDRkIDQ4IDBjIDAwIDQwIDAwIGUyIDAwIDBjIDAwIDRl
-IDQzIDRkIDMwICBOQ01ILi5ALi4uLi5OQ00wDQo+ID09MDAxMCAgIDEwIDAwIDAwIDAwIGI4IDAw
-IDJhIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwICAuLi4uLi4qLi4uLi4uLi4uDQo+ID09MDAy
-MCAgIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwICAuLi4u
-Li4uLi4uLi4uLi4uDQo+ID09MDAzMCAgIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAw
-IDAwIDAwIDAwIDAwIDAwICAuLi4uLi4uLi4uLi4uLi4uDQo+ID09MDA0MCAgIDAwIDAwIDAwIDAw
-IDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwICAuLi4uLi4uLi4uLi4uLi4uDQo+
-ID09MDA1MCAgIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAw
-ICAuLi4uLi4uLi4uLi4uLi4uDQo+ID09MDA2MCAgIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAw
-IDAwIDAwIDAwIDAwIDAwIDAwIDAwICAuLi4uLi4uLi4uLi4uLi4uDQo+ID09MDA3MCAgIDAwIDAw
-IDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwICAuLi4uLi4uLi4uLi4u
-Li4uDQo+ID09MDA4MCAgIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAw
-IDAwIDAwICAuLi4uLi4uLi4uLi4uLi4uDQo+ID09MDA5MCAgIDAwIDAwIDAwIDAwIDAwIDAwIDAw
-IDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwICAuLi4uLi4uLi4uLi4uLi4uDQo+ID09MDBhMCAg
-IDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwICAuLi4uLi4u
-Li4uLi4uLi4uDQo+ID09MDBiMCAgIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIGZmIGZmIGZmIGZm
-IGZmIGZmIDAwIDFlICAuLi4uLi4uLi4uLi4uLi4uDQo+ID09MDBjMCAgIDEwIDFmIDAwIDAwIDA4
-IDA2IDAwIDAxIDA4IDAwIDA2IDA0IDAwIDAxIDAwIDFlICAuLi4uLi4uLi4uLi4uLi4uDQo+ID09
-MDBkMCAgIDEwIDFmIDAwIDAwIDBhIDcxIGNjIGE2IDAwIDAwIDAwIDAwIDAwIDAwIDcwIDUwICAu
-Li4uLnEuLi4uLi4uLnBQDQo+ID09MDBlMCAgIGY4IDQ5ICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAuSQ0KPiA9PQ0KPiA9PQ0KPiA9PVJlZ2FyZHMsDQo+ID09S2V2
-aW4NCj4gPT1PbiAxMS8yNy8yMDE0IDA4OjM2IFBNLCBBbGV4IFN0cml6aGV2c2t5IHdyb3RlOg0K
-PiA9PSAgICAgIEFkZGluZyBteSBjb2xsZWFndWVzIC0gRWxpLCBLZXZpbiAmIE1pZGdlLg0KPiA9
-PQ0KPiA9PUFueSBpZGVhcyBhcmUgd2VsY29tZSA7KQ0KPiA9PQ0KPiA9PQ0KPiA9PU9uIFRodSwg
-Tm92IDI3LCAyMDE0IGF0IDEyOjAzIFBNLCBCasO4cm4gTW9yayA8Ympvcm5AbW9yay5ubz4gd3Jv
-dGU6DQo+ID09ICAgICAgRW5yaWNvIE1pb3NvIDxtcmtpa28ucnNAZ21haWwuY29tPiB3cml0ZXM6
-DQo+ID09DQo+ID09ICAgICAgPiBPayAtIHdlIGNhbiBhcnJpdmUgdG8gc29tZSBvY25jbHVzaW9u
-cyByZWdhcmRpbmcgdGhlDQo+ID09ICAgICAgRTMyNzIuDQo+ID09ICAgICAgPiBGaXJzdCBvZiBh
-bGwgLSB0aGUgbW9kZW0gc2VlbXMgYnVnZ3kgZW5vdWdoIHRvIG5vdCBiZQ0KPiA9PSAgICAgIGFi
-bGUgdG8gaGFuZGxlIHJlcXVlc3RzDQo+ID09ICAgICAgPiBmb3IgZGlmZmVyZW50IGZvcm1hdHMu
-IFlvdSBuZWVkIHRvIHVucGx1ZyBhbmQgcmUtcGx1Zw0KPiA9PSAgICAgIGl0LCBidXQgdGhpcyBp
-cyBvbmx5YW4NCj4gPT0gICAgICA+IGltcHJlc3Npb24gYW5kIGlzIHJlYXNvbmFibGUuDQo+ID09
-ICAgICAgPg0KPiA9PSAgICAgID4gVGhlbiAtIHRoZSBtb2RlbSB3aWxsIGFjY2VwdCB0byBuZGlz
-ZHVwIHRoZSBjb25uZWN0aW9uDQo+ID09ICAgICAgd2l0aA0KPiA9PSAgICAgID4gYXRebmRpc2R1
-cD0xLDEsImludGVybmV0Ig0KPiA9PSAgICAgID4gYnV0IC0gaWYgd2UgdXNlIGh1YXdlaV9jZGNf
-bmNtICsgY2RjX25jbSB3ZSBoYXZlIG5vIGZsb3cNCj4gPT0gICAgICBoYW5kbGluZyBtZXNzYWdl
-cyBhbmQNCj4gPT0gICAgICA+IHRoZSBtb2RlbSBzdG9wcyBoZXJlLg0KPiA9PSAgICAgID4gSWYg
-d2UgdXNlIHRoZSBjZGNfbmNtIDMyLWJpdCBkcml2ZXIgKG1vZGlmaWVkKSB3ZSBnZXQNCj4gPT0g
-ICAgICBsb3RmcyBvZg0KPiA9PSAgICAgID4gXmRzZmxvcnB0DQo+ID09ICAgICAgPiB0aGF0J3Mg
-aG93IGl0IHNob3VsZCBiZS4NCj4gPT0gICAgICA+IFNvIEkgdGhpbmsgd2UgY2FuIHNheSB0aGF0
-IHNvbWV0aGluZyBpcyBjaGFuZ2luZy4NCj4gPT0gICAgICA+IFRoZW4gdGhlcmUncyB0aGUgYWxp
-Z25tZW50IHByb2JsZW0geW91IG1lbnRpb25lZCBpbiB5b3VyDQo+ID09ICAgICAgcHJldmlvdXMg
-cmVwbHkuIEFuZA0KPiA9PSAgICAgID4gdGhpcyBpcyBoYXJkIHRvIHNvbHZlLg0KPiA9PSAgICAg
-ID4gY291bGQgeW91IHRyeSB0byBoZWxwIG1lIHVuZGVyc3RhbmQgd2hlcmUgdGhlIHByb2JsZW0N
-Cj4gPT0gICAgICBpcz8NCj4gPT0gICAgICA+IEkgZmVlbCBsaWtlIHdlIGFyZSB2ZXJ5IGNsb3Nl
-IHRvIHRoZSBzb2x1dGlvbiBidXQNCj4gPT0gICAgICBzb21ldGhpbmcgaXNuJ3Qgd29ya2luZy4N
-Cj4gPT0gICAgICA+IE9yIG1pZ2h0IGJlIGp1c3QgdHJ5IHRvIGNoYW5nZSB0aGUgMTYgYml0IGRy
-aXZlcj8NCj4gPT0NCj4gPT1JZiB5b3UgdXNlIGEgcmVjZW50IHZlcnNpb24gb2YgdGhlIGRyaXZl
-ciBhcyBhIGJhc2lzLCB0aGVuIHlvdQ0KPiA9PWdldCB0aGUNCj4gPT1DREMgTkNNIE5UQiBwYXJh
-bWV0ZXJzIGluIHN5c2ZzIChpZiBub3QsIHRoZW4geW91IG5lZWQgdG8gZW5hYmxlDQo+ID09ZGVi
-dWdnaW5nIGFuZCBsb29rIGluIHRoZSBsb2cgZm9yIHRoZXNlIHZhbHVlcykuICBGb3IgZXhhbXBs
-ZToNCj4gPT0NCj4gPT1iam9ybkBuZW1pOn4kIGdyZXAgLiAvc3lzL2NsYXNzL25ldC93d2FuMC9j
-ZGNfbmNtLyoNCj4gPT0vc3lzL2NsYXNzL25ldC93d2FuMC9jZGNfbmNtL2JtTnRiRm9ybWF0c1N1
-cHBvcnRlZDoweDAwMDENCj4gPT0vc3lzL2NsYXNzL25ldC93d2FuMC9jZGNfbmNtL2R3TnRiSW5N
-YXhTaXplOjE1MzYwDQo+ID09L3N5cy9jbGFzcy9uZXQvd3dhbjAvY2RjX25jbS9kd050Yk91dE1h
-eFNpemU6MTUzNjANCj4gPT0vc3lzL2NsYXNzL25ldC93d2FuMC9jZGNfbmNtL21pbl90eF9wa3Q6
-MTM4MjQNCj4gPT0vc3lzL2NsYXNzL25ldC93d2FuMC9jZGNfbmNtL3J4X21heDoxNTM2MA0KPiA9
-PS9zeXMvY2xhc3MvbmV0L3d3YW4wL2NkY19uY20vdHhfbWF4OjE1MzYwDQo+ID09L3N5cy9jbGFz
-cy9uZXQvd3dhbjAvY2RjX25jbS90eF90aW1lcl91c2Vjczo0MDANCj4gPT0vc3lzL2NsYXNzL25l
-dC93d2FuMC9jZGNfbmNtL3dOZHBJbkFsaWdubWVudDo0DQo+ID09L3N5cy9jbGFzcy9uZXQvd3dh
-bjAvY2RjX25jbS93TmRwSW5EaXZpc29yOjENCj4gPT0vc3lzL2NsYXNzL25ldC93d2FuMC9jZGNf
-bmNtL3dOZHBJblBheWxvYWRSZW1haW5kZXI6MA0KPiA9PS9zeXMvY2xhc3MvbmV0L3d3YW4wL2Nk
-Y19uY20vd05kcE91dEFsaWdubWVudDo0DQo+ID09L3N5cy9jbGFzcy9uZXQvd3dhbjAvY2RjX25j
-bS93TmRwT3V0RGl2aXNvcjozMg0KPiA9PS9zeXMvY2xhc3MvbmV0L3d3YW4wL2NkY19uY20vd05k
-cE91dFBheWxvYWRSZW1haW5kZXI6MA0KPiA9PS9zeXMvY2xhc3MvbmV0L3d3YW4wL2NkY19uY20v
-d050Yk91dE1heERhdGFncmFtczozMg0KPiA9PQ0KPiA9PQ0KPiA9PVRoZSBwb3NzaWJsZSBwcm9i
-bGVtIEkgYW0gdGhpbmtpbmcgb2YgaXMgcHJvcGVyIGhhbmRsaW5nIG9mIHRoZQ0KPiA9PXdOZHAq
-UGF5bG9hZFJlbWFpbmRlciB2YWx1ZXMuIFNlZSBzZWN0aW9uIDMuMy40ICJOQ00gRXRoZXJuZXQN
-Cj4gPT1GcmFtZQ0KPiA9PUFsaWdubWVudCIgaW4gdGhlIHNwZWMuICBXaGljaCBpcyBjb25mdXNp
-bmcgYXMgaGVsbCwgYnV0IGlmIEkNCj4gPT11bmRlcnN0YW5kDQo+ID09aXQgY29ycmVjdGx5IHRo
-ZW4gd2UgYXJlIHN1cHBvc2VkIHRvIGFsaWduIHRoZSBzdGFydCBvZiB0aGUgSVANCj4gPT1wYWNr
-ZXRzDQo+ID09KHRoZSAicGF5bG9hZCIsIF9ub3RfIHRoZSBldGhlcm5ldCBmcmFtZSkgdG8gYSB3
-aG9sZQ0KPiA9PXdOZHAqRGl2aXNvciBudW1iZXINCj4gPT1hcyBsb25nIGFzIHRoZSB3TmRwKlBh
-eWxvYWRSZW1haW5kZXIgaXMgMC4NCj4gPT0NCj4gPT0NCj4gPT1CasO4cm4NCj4gPT0NCj4gPT0N
-Cj4gPT0NCj4gPT1UaGlzIGVtYWlsIGFuZCBhbnkgZmlsZXMgdHJhbnNtaXR0ZWQgd2l0aCBpdCBh
-cmUgY29uZmlkZW50aWFsIG1hdGVyaWFsLiBUaGV5DQo+ID09YXJlIGludGVuZGVkIHNvbGVseSBm
-b3IgdGhlIHVzZSBvZiB0aGUgZGVzaWduYXRlZCBpbmRpdmlkdWFsIG9yIGVudGl0eSB0bw0KPiA9
-PXdob20gdGhleSBhcmUgYWRkcmVzc2VkLiBJZiB0aGUgcmVhZGVyIG9mIHRoaXMgbWVzc2FnZSBp
-cyBub3QgdGhlIGludGVuZGVkDQo+ID09cmVjaXBpZW50LCB5b3UgYXJlIGhlcmVieSBub3RpZmll
-ZCB0aGF0IGFueSBkaXNzZW1pbmF0aW9uLCB1c2UsIGRpc3RyaWJ1dGlvbg0KPiA9PW9yIGNvcHlp
-bmcgb2YgdGhpcyBjb21tdW5pY2F0aW9uIGlzIHN0cmljdGx5IHByb2hpYml0ZWQgYW5kIG1heSBi
-ZSB1bmxhd2Z1bC4NCj4gPT0NCj4gPT1JZiB5b3UgaGF2ZSByZWNlaXZlZCB0aGlzIGVtYWlsIGlu
-IGVycm9yIHBsZWFzZSBpbW1lZGlhdGVseSBub3RpZnkgdGhlDQo+ID09c2VuZGVyIGFuZCBkZWxl
-dGUgb3IgZGVzdHJveSBhbnkgY29weSBvZiB0aGlzIG1lc3NhZ2UNCj4gPT0NClRoaXMgZW1haWwg
-YW5kIGFueSBmaWxlcyB0cmFuc21pdHRlZCB3aXRoIGl0IGFyZSBjb25maWRlbnRpYWwgbWF0ZXJp
-YWwuIFRoZXkgYXJlIGludGVuZGVkIHNvbGVseSBmb3IgdGhlIHVzZSBvZiB0aGUgZGVzaWduYXRl
-ZCBpbmRpdmlkdWFsIG9yIGVudGl0eSB0byB3aG9tIHRoZXkgYXJlIGFkZHJlc3NlZC4gSWYgdGhl
-IHJlYWRlciBvZiB0aGlzIG1lc3NhZ2UgaXMgbm90IHRoZSBpbnRlbmRlZCByZWNpcGllbnQsIHlv
-dSBhcmUgaGVyZWJ5IG5vdGlmaWVkIHRoYXQgYW55IGRpc3NlbWluYXRpb24sIHVzZSwgZGlzdHJp
-YnV0aW9uIG9yIGNvcHlpbmcgb2YgdGhpcyBjb21tdW5pY2F0aW9uIGlzIHN0cmljdGx5IHByb2hp
-Yml0ZWQgYW5kIG1heSBiZSB1bmxhd2Z1bC4NCg0KSWYgeW91IGhhdmUgcmVjZWl2ZWQgdGhpcyBl
-bWFpbCBpbiBlcnJvciBwbGVhc2UgaW1tZWRpYXRlbHkgbm90aWZ5IHRoZSBzZW5kZXIgYW5kIGRl
-bGV0ZSBvciBkZXN0cm95IGFueSBjb3B5IG9mIHRoaXMgbWVzc2FnZQ0K
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+--8323328-1089341220-1417163066=:3997
+Content-Type: TEXT/PLAIN; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+
+The driver effectively uses the wNdpOutDivisor indirectly - see standard 
+cdc_ncm deriver as in kernel git tree, line 490.
+
+
+On Fri, 28 Nov 2014, Kevin Zhu wrote:
+
+==Date: Fri, 28 Nov 2014 07:24:49
+==From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
+==To: Alex Strizhevsky <alexxst@gmail.com>, Bjørn Mork <bjorn@mork.no>,
+==    Midge Shaojun  Tan <ShaojunMidge.Tan@audiocodes.com>
+==Cc: Enrico Mioso <mrkiko.rs@gmail.com>, "youtux@gmail.com" <youtux@gmail.com>,
+==    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+==    "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+==    Eli Britstein <Eli.Britstein@audiocodes.com>
+==Subject: Re: Is this 32-bit NCM?
+==
+==Hi all,
+==
+==I'm able to get the following prints with the original huawei_cdc_ncm driver
+==from Ubuntu 12.04.3. It keeps on printing. I'm also able to get an IP, but
+==no Internet access.
+==
+==^HCSQ:"WCDMA",64,59,55
+==
+==^DSFLOWRPT:0000000E,00000000,00000000,0000000000000000,0000000000000000,000
+==00000,00000000
+==
+==OK
+==
+==^NDISSTAT:1,,,"IPV4"
+==
+==^STIN: 1, 0, 0
+==
+==^DSFLOWRPT:00000010,00000000,00000000,0000000000000000,0000000000000000,000
+==00000,00000000
+==
+==^DSFLOWRPT:00000012,00000000,00000000,0000000000000000,0000000000000000,000
+==00000,00000000
+==
+==^DSFLOWRPT:00000014,00000000,00000000,0000000000000000,0000000000000000,000
+==00000,00000000
+==
+==^STIN: 1, 0, 0
+==
+==
+==...
+==^STIN: 1, 0, 0
+==
+==^DSFLOWRPT:0000008C,00000000,00000000,0000000000000B36,0000000000000000,000
+==00000,00000000
+==
+==^DSFLOWRPT:0000008E,00000000,00000000,0000000000000B36,0000000000000000,000
+==00000,00000000
+==
+==Regarding the alignment, I think we have some difference between Windows and
+==Linux. The spec says it should satisfy the following constraint.
+==
+==Offset % wNdpOutDivisor == wNdpOutPayloadRemainder (for OUT datagrams)
+==
+==It seems the Huawei device take the NDP offset (Ethernet Header Offset) as
+==the parameter 'Offset' in the above constraint. And in the Linux capture, it
+==does not comply with it.
+==
+==
+==dwNtbInMaxSize=131072 dwNtbOutMaxSize=16384 wNdpOutPayloadRemainder=2
+==wNdpOutDivisor=4 wNdpOutAlignment=4 wNtbOutMaxDatagrams=0 flags=0x1f
+==
+==Windows:
+==
+==0000   6e 63 6d 68 10 00 b6 00 7c 00 00 00 5c 00 00 00  ncmh....|...\...
+==0010   00 00 00 00 00 00 00 00 00 1e 10 1f 00 00 08 00  ................
+==0020   45 00 00 3c 00 9b 00 00 80 01 a0 fe 0a 71 a3 0e  E..<.........q..
+==0030   ca 6c 21 3c 08 00 4b 4b 00 01 02 10 61 62 63 64  .l!<..KK....abcd
+==0040   65 66 67 68 69 6a 6b 6c 6d 6e 6f 70 71 72 73 74  efghijklmnopqrst
+==0050   75 76 77 61 62 63 64 65 66 67 68 69 6e 63 6d 30  uvwabcdefghincm0
+==0060   20 00 00 00 00 00 00 00 00 00 00 00 12 00 00 00   ...............
+==0070   4a 00 00 00 00 00 00 00 00 00 00 00              J...........
+==
+==Linux: (thought it's a 16bit format capture, but it's the same as 32bit,
+==regarding the alignment)
+==
+==0000   4e 43 4d 48 0c 00 40 00 e2 00 0c 00 4e 43 4d 30  NCMH..@.....NCM0
+==0010   10 00 00 00 b8 00 2a 00 00 00 00 00 00 00 00 00  ......*.........
+==0020   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+==0030   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+==0040   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+==0050   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+==0060   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+==0070   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+==0080   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+==0090   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+==00a0   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+==00b0   00 00 00 00 00 00 00 00 ff ff ff ff ff ff 00 1e  ................
+==00c0   10 1f 00 00 08 06 00 01 08 00 06 04 00 01 00 1e  ................
+==00d0   10 1f 00 00 0a 71 cc a6 00 00 00 00 00 00 70 50  .....q........pP
+==00e0   f8 49                                            .I
+==
+==
+==Regards,
+==Kevin
+==On 11/27/2014 08:36 PM, Alex Strizhevsky wrote:
+==      Adding my colleagues - Eli, Kevin & Midge.
+==
+==Any ideas are welcome ;)
+==
+==
+==On Thu, Nov 27, 2014 at 12:03 PM, Bjørn Mork <bjorn@mork.no> wrote:
+==      Enrico Mioso <mrkiko.rs@gmail.com> writes:
+==
+==      > Ok - we can arrive to some ocnclusions regarding the
+==      E3272.
+==      > First of all - the modem seems buggy enough to not be
+==      able to handle requests
+==      > for different formats. You need to unplug and re-plug
+==      it, but this is onlyan
+==      > impression and is reasonable.
+==      >
+==      > Then - the modem will accept to ndisdup the connection
+==      with
+==      > at^ndisdup=1,1,"internet"
+==      > but - if we use huawei_cdc_ncm + cdc_ncm we have no flow
+==      handling messages and
+==      > the modem stops here.
+==      > If we use the cdc_ncm 32-bit driver (modified) we get
+==      lotfs of
+==      > ^dsflorpt
+==      > that's how it should be.
+==      > So I think we can say that something is changing.
+==      > Then there's the alignment problem you mentioned in your
+==      previous reply. And
+==      > this is hard to solve.
+==      > could you try to help me understand where the problem
+==      is?
+==      > I feel like we are very close to the solution but
+==      something isn't working.
+==      > Or might be just try to change the 16 bit driver?
+==
+==If you use a recent version of the driver as a basis, then you
+==get the
+==CDC NCM NTB parameters in sysfs (if not, then you need to enable
+==debugging and look in the log for these values).  For example:
+==
+==bjorn@nemi:~$ grep . /sys/class/net/wwan0/cdc_ncm/*
+==/sys/class/net/wwan0/cdc_ncm/bmNtbFormatsSupported:0x0001
+==/sys/class/net/wwan0/cdc_ncm/dwNtbInMaxSize:15360
+==/sys/class/net/wwan0/cdc_ncm/dwNtbOutMaxSize:15360
+==/sys/class/net/wwan0/cdc_ncm/min_tx_pkt:13824
+==/sys/class/net/wwan0/cdc_ncm/rx_max:15360
+==/sys/class/net/wwan0/cdc_ncm/tx_max:15360
+==/sys/class/net/wwan0/cdc_ncm/tx_timer_usecs:400
+==/sys/class/net/wwan0/cdc_ncm/wNdpInAlignment:4
+==/sys/class/net/wwan0/cdc_ncm/wNdpInDivisor:1
+==/sys/class/net/wwan0/cdc_ncm/wNdpInPayloadRemainder:0
+==/sys/class/net/wwan0/cdc_ncm/wNdpOutAlignment:4
+==/sys/class/net/wwan0/cdc_ncm/wNdpOutDivisor:32
+==/sys/class/net/wwan0/cdc_ncm/wNdpOutPayloadRemainder:0
+==/sys/class/net/wwan0/cdc_ncm/wNtbOutMaxDatagrams:32
+==
+==
+==The possible problem I am thinking of is proper handling of the
+==wNdp*PayloadRemainder values. See section 3.3.4 "NCM Ethernet
+==Frame
+==Alignment" in the spec.  Which is confusing as hell, but if I
+==understand
+==it correctly then we are supposed to align the start of the IP
+==packets
+==(the "payload", _not_ the ethernet frame) to a whole
+==wNdp*Divisor number
+==as long as the wNdp*PayloadRemainder is 0.
+==
+==
+==Bjørn
+==
+==
+==
+==This email and any files transmitted with it are confidential material. They
+==are intended solely for the use of the designated individual or entity to
+==whom they are addressed. If the reader of this message is not the intended
+==recipient, you are hereby notified that any dissemination, use, distribution
+==or copying of this communication is strictly prohibited and may be unlawful.
+==
+==If you have received this email in error please immediately notify the
+==sender and delete or destroy any copy of this message
+==
+--8323328-1089341220-1417163066=:3997--
