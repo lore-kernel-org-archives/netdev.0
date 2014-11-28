@@ -1,190 +1,52 @@
-From: Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v6 37/46] tun: move internal flag defines out of uapi
-Date: Fri, 28 Nov 2014 08:15:32 +0008
-Message-ID: <1417162052.5822.0@smtp.corp.redhat.com>
-References: <1417118789-18231-1-git-send-email-mst@redhat.com>
-	<1417118789-18231-38-git-send-email-mst@redhat.com>
+From: FengYu LeiDian <fengyuleidian0615@gmail.com>
+Subject: Re: [PATCH iproute2] ip xfrm: support 64bit kernel and 32bit userspace
+Date: Fri, 28 Nov 2014 16:07:40 +0800
+Message-ID: <54782D4C.60407@gmail.com>
+References: <1417157936-5522-1-git-send-email-roy.qing.li@gmail.com> <54781F55.5040603@gmail.com> <CAJFZqHyHaD7+6fqjmsVh_JeDrto5SmN2D6rZkjWa3axfM0+AiA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	cornelia.huck-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, rusty-8fk3Idey6ehBDgjK7y7TUQ@public.gmane.org, nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org,
-	pbonzini-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, thuth-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	dahi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, Zhi Yong Wu <wuzhy-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-	Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Masatake YAMATO <yamato-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Xi Wang <xii-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1417118789-18231-38-git-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Li RongQing <roy.qing.li@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:61010 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750981AbaK1IKO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 03:10:14 -0500
+Received: by mail-pa0-f42.google.com with SMTP id et14so6411083pad.29
+        for <netdev@vger.kernel.org>; Fri, 28 Nov 2014 00:10:13 -0800 (PST)
+In-Reply-To: <CAJFZqHyHaD7+6fqjmsVh_JeDrto5SmN2D6rZkjWa3axfM0+AiA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+=D3=DA 2014=C4=EA11=D4=C228=C8=D5 15:35, Li RongQing =D0=B4=B5=C0:
+> On Fri, Nov 28, 2014 at 3:08 PM, FengYu LeiDian
+> <fengyuleidian0615@gmail.com>  wrote:
+>> >=D3=DA 2014=C4=EA11=D4=C228=C8=D5 14:58,roy.qing.li@gmail.com  =D0=B4=
+=B5=C0:
+>>> >>From: Li RongQing<roy.qing.li@gmail.com>
+>>> >>
+>>> >>The size of struct xfrm_userpolicy_info is 168 bytes for 64bit ke=
+rnel, and
+>>> >>164 bytes for 32bit userspace because of the different alignment.=
+ and lead
+>>> >>to "ip xfrm" be unable to work.
+>>> >>
+>>> >>add a pad in struct xfrm_userpolicy_info, and enable it by set
+>>> >>KERNEL_64_USERSPACE_32 to y
+>> >
+>> >
+>> >It's not easy to fix it like this.
+>> >
+>> >Refer:
+>> >http://marc.info/?l=3Dlinux-netdev&m=3D139280143513650&w=3D2
+>> >http://thread.gmane.org/gmane.linux.network/157118/focus=3D157122
+>> >
+> is it be practical to find all structures which has the issue for
+> 64bit kernel and 32 bit
+> userspace, and conditionally add a pad for them
 
-
-On Fri, Nov 28, 2014 at 4:10 AM, Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> 
-wrote:
-> TUN_ flags are internal and never exposed
-> to userspace. Any application using it is almost
-> certainly buggy.
-> 
-> Move them out to tun.c, we'll remove them in follow-up patches.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> ---
->  include/uapi/linux/if_tun.h | 16 ++--------
->  drivers/net/tun.c           | 74 
-> ++++++++++++++-------------------------------
->  2 files changed, 26 insertions(+), 64 deletions(-)
-> 
-> diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
-> index e9502dd..277a260 100644
-> --- a/include/uapi/linux/if_tun.h
-> +++ b/include/uapi/linux/if_tun.h
-> @@ -22,21 +22,11 @@
->  
->  /* Read queue size */
->  #define TUN_READQ_SIZE	500
-> -
-> -/* TUN device flags */
-> -#define TUN_TUN_DEV 	0x0001	
-> -#define TUN_TAP_DEV	0x0002
-> +/* TUN device type flags: deprecated. Use IFF_TUN/IFF_TAP instead. */
-> +#define TUN_TUN_DEV 	IFF_TUN
-> +#define TUN_TAP_DEV	IFF_TAP
->  #define TUN_TYPE_MASK   0x000f
->  
-> -#define TUN_FASYNC	0x0010
-> -#define TUN_NOCHECKSUM	0x0020
-> -#define TUN_NO_PI	0x0040
-> -/* This flag has no real effect */
-> -#define TUN_ONE_QUEUE	0x0080
-> -#define TUN_PERSIST 	0x0100	
-> -#define TUN_VNET_HDR 	0x0200
-> -#define TUN_TAP_MQ      0x0400
-> -
->  /* Ioctl defines */
->  #define TUNSETNOCSUM  _IOW('T', 200, int) 
->  #define TUNSETDEBUG   _IOW('T', 201, int) 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 9dd3746..bc89d07 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -103,6 +103,21 @@ do {								\
->  } while (0)
->  #endif
->  
-> +/* TUN device flags */
-> +
-> +/* IFF_ATTACH_QUEUE is never stored in device flags,
-> + * overload it to mean fasync when stored there.
-> + */
-> +#define TUN_FASYNC	IFF_ATTACH_QUEUE
-> +#define TUN_NO_PI	IFF_NO_PI
-> +/* This flag has no real effect */
-> +#define TUN_ONE_QUEUE	IFF_ONE_QUEUE
-> +#define TUN_PERSIST 	IFF_PERSIST
-> +#define TUN_VNET_HDR 	IFF_VNET_HDR
-> +#define TUN_TAP_MQ      IFF_MULTI_QUEUE
-> +
-> +#define TUN_FEATURES (IFF_NO_PI | IFF_ONE_QUEUE | IFF_VNET_HDR | \
-> +		      IFF_MULTI_QUEUE)
->  #define GOODCOPY_LEN 128
->  
->  #define FLT_EXACT_COUNT 8
-> @@ -1521,32 +1536,7 @@ static struct proto tun_proto = {
->  
->  static int tun_flags(struct tun_struct *tun)
->  {
-> -	int flags = 0;
-> -
-> -	if (tun->flags & TUN_TUN_DEV)
-> -		flags |= IFF_TUN;
-> -	else
-> -		flags |= IFF_TAP;
-> -
-> -	if (tun->flags & TUN_NO_PI)
-> -		flags |= IFF_NO_PI;
-> -
-> -	/* This flag has no real effect.  We track the value for backwards
-> -	 * compatibility.
-> -	 */
-> -	if (tun->flags & TUN_ONE_QUEUE)
-> -		flags |= IFF_ONE_QUEUE;
-> -
-> -	if (tun->flags & TUN_VNET_HDR)
-> -		flags |= IFF_VNET_HDR;
-> -
-> -	if (tun->flags & TUN_TAP_MQ)
-> -		flags |= IFF_MULTI_QUEUE;
-> -
-> -	if (tun->flags & TUN_PERSIST)
-> -		flags |= IFF_PERSIST;
-> -
-> -	return flags;
-> +	return tun->flags & (TUN_FEATURES | IFF_PERSIST | IFF_TUN | 
-> IFF_TAP);
->  }
->  
->  static ssize_t tun_show_flags(struct device *dev, struct 
-> device_attribute *attr,
-> @@ -1706,28 +1696,8 @@ static int tun_set_iff(struct net *net, struct 
-> file *file, struct ifreq *ifr)
->  
->  	tun_debug(KERN_INFO, tun, "tun_set_iff\n");
->  
-> -	if (ifr->ifr_flags & IFF_NO_PI)
-> -		tun->flags |= TUN_NO_PI;
-> -	else
-> -		tun->flags &= ~TUN_NO_PI;
-> -
-> -	/* This flag has no real effect.  We track the value for backwards
-> -	 * compatibility.
-> -	 */
-> -	if (ifr->ifr_flags & IFF_ONE_QUEUE)
-> -		tun->flags |= TUN_ONE_QUEUE;
-> -	else
-> -		tun->flags &= ~TUN_ONE_QUEUE;
-> -
-> -	if (ifr->ifr_flags & IFF_VNET_HDR)
-> -		tun->flags |= TUN_VNET_HDR;
-> -	else
-> -		tun->flags &= ~TUN_VNET_HDR;
-> -
-> -	if (ifr->ifr_flags & IFF_MULTI_QUEUE)
-> -		tun->flags |= TUN_TAP_MQ;
-> -	else
-> -		tun->flags &= ~TUN_TAP_MQ;
-> +	tun->flags = (tun->flags & ~TUN_FEATURES) |
-> +		(ifr->ifr_flags & TUN_FEATURES);
->  
->  	/* Make sure persistent devices do not get stuck in
->  	 * xoff state.
-> @@ -1890,9 +1860,11 @@ static long __tun_chr_ioctl(struct file *file, 
-> unsigned int cmd,
->  	if (cmd == TUNGETFEATURES) {
->  		/* Currently this just means: "what IFF flags are valid?".
->  		 * This is needed because we never checked for invalid flags on
-> -		 * TUNSETIFF. */
-> -		return put_user(IFF_TUN | IFF_TAP | IFF_NO_PI | IFF_ONE_QUEUE |
-> -				IFF_VNET_HDR | IFF_MULTI_QUEUE,
-> +		 * TUNSETIFF.  Why do we report IFF_TUN and IFF_TAP which are
-> +		 * not legal for TUNSETIFF here?  It's probably a bug, but it
-> +		 * doesn't seem to be worth fixing.
-> +		 */
-
-The question is not very clear. IFF_TUN and IFF_TAP are legal for 
- ifr.ifr_flags during TUNSETIFF. No?
-> 
-> +		return put_user(IFF_TUN | IFF_TAP | TUN_FEATURES,
->  				(unsigned int __user*)argp);
->  	} else if (cmd == TUNSETQUEUE)
->  		return tun_set_queue(file, &ifr);
-> -- 
-> MST
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Apparently struct xfrm_userpolicy_info is not the only one,
+you could try to set SA as well, it breaks also...
+=46ix those where it hurts, hehe :) Otherwise, the "compat layer"
+fix style is good choice.
