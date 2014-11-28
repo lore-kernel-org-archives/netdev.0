@@ -1,113 +1,103 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: ipv4: Use standard iovec primitive in raw_probe_proto_opt
-Date: Fri, 28 Nov 2014 05:14:18 +0000
-Message-ID: <20141128051417.GA9306@ZenIV.linux.org.uk>
-References: <20141105.155054.2198151263164321219.davem@davemloft.net>
- <20141105210745.GT7996@ZenIV.linux.org.uk>
- <20141105.165719.835728206041332333.davem@davemloft.net>
- <20141106032533.GU7996@ZenIV.linux.org.uk>
- <20141106055023.GA28865@gondor.apana.org.au>
- <20141106064318.GW7996@ZenIV.linux.org.uk>
- <20141106064629.GA29321@gondor.apana.org.au>
- <20141106071109.GX7996@ZenIV.linux.org.uk>
- <A2BAEFC30C8FD34388F02C9B3121859D1C3087CA@eusaamb103.ericsson.se>
- <20141106221608.GA7996@ZenIV.linux.org.uk>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net] bpf: x86: fix epilogue generation for eBPF programs
+Date: Thu, 27 Nov 2014 21:55:40 -0800
+Message-ID: <CAMEtUuyzDs2Nz8WHdEZXmY9JOZx=w2UwUF06Kq5qcgkaaRKs3A@mail.gmail.com>
+References: <1417064546-4129-1-git-send-email-ast@plumgrid.com>
+	<5476F471.80500@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"bcrl@kvack.org" <bcrl@kvack.org>,
-	Masahide Nakamura <nakam@linux-ipv6.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Jon Maloy <jon.maloy@ericsson.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141106221608.GA7996@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Zi Shen Lim <zlim.lnx@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f42.google.com ([209.85.192.42]:55415 "EHLO
+	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750832AbaK1Fzl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 00:55:41 -0500
+Received: by mail-qg0-f42.google.com with SMTP id z107so4391618qgd.15
+        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 21:55:41 -0800 (PST)
+In-Reply-To: <5476F471.80500@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 06, 2014 at 10:16:08PM +0000, Al Viro wrote:
-> On Thu, Nov 06, 2014 at 09:55:31AM +0000, Jon Maloy wrote:
-> > > Point, but that might very well be a pattern to watch for - there's at least one
-> > > more instance in TIPC (also not exploitable, according to TIPC folks) and such
-> > 
-> > I don't recall this, and I can't see where it would be either. Can you please
-> > point to where it is?
-> 
-> The same dest_name_check() thing.  This
->         if (copy_from_user(&hdr, m->msg_iov[0].iov_base, sizeof(hdr)))
->                 return -EFAULT;
->         if ((ntohs(hdr.tcm_type) & 0xC000) && (!capable(CAP_NET_ADMIN)))
->                 return -EACCES;
-> is easily bypassed.  Suppose you want to send a packet with these two
-> bits in ->tcm_type not being 00, and you don't have CAP_NET_ADMIN.
-> Not a problem - spawn two threads sharing memory, have one trying to
-> call sendmsg() while another keeps flipping these two bits.  Sooner
-> of later you'll get the timing right and have these bits observed as 00
-> in dest_name_check() and 11 when it comes to memcpy_fromiovecend() actually
-> copying the whole thing.  And considering that the interval between those
-> two is much longer than the loop in the second thread would take on
-> each iteration, I'd expect the odds around 25% per attempted sendmsg().
-> 
-> IOW, this test is either pointless and can be removed completely, or there's
-> an exploitable race.  As far as I understand from your replies both back then
-> and in another branch of this thread, it's the former and the proper fix is
-> to remove at least that part of dest_name_check().  So this case is also
-> not something exploitable, but it certainly matches the same pattern.
-> 
-> My point was simply that this pattern is worth watching for - recurrent bug
-> classes like that have a good chance to spawn an instance that will be
-> exploitable.
+On Thu, Nov 27, 2014 at 1:52 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> On 11/27/2014 06:02 AM, Alexei Starovoitov wrote:
+>>
+>> classic BPF has a restriction that last insn is always BPF_RET.
+>> eBPF doesn't have BPF_RET instruction and this restriction.
+>> It has BPF_EXIT insn which can appear anywhere in the program
+>> one or more times and it doesn't have to be last insn.
+>> Fix eBPF JIT to emit epilogue when first BPF_EXIT is seen
+>> and all other BPF_EXIT instructions will be emitted as jump.
+>>
+>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+>> ---
+>> Note, this bug is applicable only to native eBPF programs
+>> which first were introduced in 3.18, so no need to send it
+>> to stable and therefore no 'Fixes' tag.
+>
+>
+> Btw, even if it's not sent to -stable, a 'Fixes:' tag is useful
+> information for backporting and regression tracking, preferably
+> always mentioned where it can clearly be identified.
 
-Ping?  Can we simply remove dest_name_check() completely?  That's one of the
-few remaining obstacles to making ->sendmsg() iov_iter-clean.  For now I'm
-simply commenting its call out in tipc_sendmsg(); if it _is_ needed for
-anything, we'll need to get rid of that double copying from userland.  I can
-do that, but my impression from your comments back in April is that you
-planned to removed the damn check anyway.
+Well I didn't mention it, as I said, because I don't think it
+needs backporting. Otherwise with the tag the tools might
+pick it up automatically? Just a guess.
+Anyway:
+Fixes: 622582786c9e ("net: filter: x86: internal BPF JIT")
 
-Another question: in tipc_send_stream() we have
-        mtu = tsk->max_pkt;
-        send = min_t(uint, dsz - sent, TIPC_MAX_USER_MSG_SIZE);
-        __skb_queue_head_init(&head);
-        rc = tipc_msg_build(mhdr, m, sent, send, mtu, &head);
-        if (unlikely(rc < 0))
-                goto exit;
-        do {   
-                if (likely(!tsk_conn_cong(tsk))) {
-                        rc = tipc_link_xmit(&head, dnode, ref);
-                        if (likely(!rc)) {
-                                tsk->sent_unacked++;
-                                sent += send;
-                                if (sent == dsz)
-                                        break;
-                                goto next;
-                        }
-                        if (rc == -EMSGSIZE) {
-                                tsk->max_pkt = tipc_node_get_mtu(dnode, ref);
-                                goto next;
-                        }
+>> arm64 JIT has the same problem, but the fix is not as trivial,
+>> so will be done as separate patch.
+>>
+>> Since 3.18 can only load eBPF programs and cannot execute them,
+>> this patch can even be done in net-next only, but I think it's worth
+>> to apply it to 3.18(net), so that JITed output for native eBPF
+>> programs is correct when bpf syscall loads it with
+>> net.core.bpf_jit_enable=2
+>
+>
+> Yes, sounds good to me, the condition insn_cnt - 1 is still held
+> with BPF to eBPF transformations.
 
-How can it hit that EMSGSIZE?  AFAICS, it can come only from
-int __tipc_link_xmit(struct tipc_link *link, struct sk_buff_head *list)
-{
-        struct tipc_msg *msg = buf_msg(skb_peek(list));
-        uint psz = msg_size(msg);
-...
-        uint mtu = link->max_pkt;
-...
-        /* Has valid packet limit been used ? */   
-        if (unlikely(psz > mtu)) {
-                __skb_queue_purge(list);
-                return -EMSGSIZE;
-        }
+Correct. That's what I meant that prior to 3.18 it's not needed.
+and 'insn_cnt - 1' condition will still hold for classic in the future.
 
-and msg_size() is basically the bits copied into skb by tipc_msg_build() and
-set by msg_set_size() in there.  And unless I'm seriously misreading that
-function, it can't be more than pktmax argument, i.e. mtu.  So unless something
-manages to crap into our skb or change mtu right under us, it shouldn't be
-possible.  And mtu (i.e. ->max_pkt) ought to be protected by lock_sock() there.
+>>   arch/x86/net/bpf_jit_comp.c |    6 ++++--
+>>   1 file changed, 4 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+>> index 3f62734..7e90244 100644
+>> --- a/arch/x86/net/bpf_jit_comp.c
+>> +++ b/arch/x86/net/bpf_jit_comp.c
+>> @@ -178,7 +178,7 @@ static void jit_fill_hole(void *area, unsigned int
+>> size)
+>>   }
+>>
+>>   struct jit_context {
+>> -       unsigned int cleanup_addr; /* epilogue code offset */
+>> +       int cleanup_addr; /* epilogue code offset */
+>
+>
+> Why this type change here? This seems a bit out of context (I would
+> have expected a mention of this in the commit message, otherwise).
 
-What's going on there?
+Ok. Will respin with updated commit msg.
+The reason for signed is the following:
+jmp offset to epilogue is computed as:
+jmp_offset = ctx->cleanup_addr - addrs[i]
+when cleanup_addr was always last insn it wasn't a problem,
+since result of subtraction was positive.
+Now, since epilogue will be in the middle of JITed
+code the jmps to epilogue may be negative, so
+signed int is need to do the math correctly.
+In other words, it should be:
+(long long) ((int)20 - (int)30)
+instead of:
+(long long) ((unsigned int)20 - (int)30)
