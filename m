@@ -1,57 +1,220 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH iproute2] ip xfrm: support 64bit kernel and 32bit
- userspace
-Date: Fri, 28 Nov 2014 10:47:59 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1C9FE52D@AcuExch.aculab.com>
-References: <1417157936-5522-1-git-send-email-roy.qing.li@gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch net-next v3 08/17] bridge: call netdev_sw_port_stp_update
+ when bridge port STP status changes
+Date: Fri, 28 Nov 2014 02:51:08 -0800
+Message-ID: <CAE4R7bCfi-90pccDJN350bdeQi2R4H5Xbu3-BADZ29vWhfkJiA@mail.gmail.com>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
+	<1416911328-10979-9-git-send-email-jiri@resnulli.us>
+	<5475073E.70503@cumulusnetworks.com>
+	<CAE4R7bAiEyztdGo2BMVGXq9phfASHsMU+QW4oocTmr9=4antxw@mail.gmail.com>
+	<547848D8.1060203@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: "'roy.qing.li@gmail.com'" <roy.qing.li@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Thomas Graf <tgraf@suug.ch>,
+	"dborkman@redhat.com" <dborkman@redhat.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"jesse@nicira.com" <jesse@nicira.com>,
+	"pshelar@nicira.com" <pshelar@nicira.com>,
+	"azhou@nicira.com" <azhou@nicira.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	John Linville <linville@tuxdriver.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:45973 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751176AbaK1KtR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 05:49:17 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 00339-04 for <netdev@vger.kernel.org>;
- Fri, 28 Nov 2014 10:49:08 +0000 (GMT)
-In-Reply-To: <1417157936-5522-1-git-send-email-roy.qing.li@gmail.com>
-Content-Language: en-US
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:36204 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751053AbaK1KvM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 05:51:12 -0500
+Received: by mail-wg0-f49.google.com with SMTP id n12so273474wgh.22
+        for <netdev@vger.kernel.org>; Fri, 28 Nov 2014 02:51:08 -0800 (PST)
+In-Reply-To: <547848D8.1060203@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: roy.qing.li@gmail.com
-> From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> The size of struct xfrm_userpolicy_info is 168 bytes for 64bit kernel, and
-> 164 bytes for 32bit userspace because of the different alignment. and lead
-> to "ip xfrm" be unable to work.
-> 
-> add a pad in struct xfrm_userpolicy_info, and enable it by set
-> KERNEL_64_USERSPACE_32 to y
-...
-> diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-> index fa2ecb2..009510c 100644
-> --- a/include/linux/xfrm.h
-> +++ b/include/linux/xfrm.h
-> @@ -407,6 +407,9 @@ struct xfrm_userpolicy_info {
->  	/* Automatically expand selector to include matching ICMP payloads. */
->  #define XFRM_POLICY_ICMP	2
->  	__u8				share;
-> +#ifdef KNL_64_US_32
-> +	int				pad;
-> +#endif
->  };
+On Fri, Nov 28, 2014 at 2:05 AM, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+> On 11/25/14, 5:35 PM, Scott Feldman wrote:
+>>
+>>   The
+>> bridge driver or external STP process (msptd) is still controlling STP
+>> state for the port and processing the BPDUs.  When the state changes
+>> on the port, the bridge driver is letting HW know, that's it.
+>
+>
+> I understand that. In which case, we should not call it stp state.
+> It is just port state.
 
-You could add __attribute__((aligned(8))) to the structure to pad it on
-all systems.
+Sure, call it port state but it takes on BR_STATE_xxx values which
+just so happen to correspond exactly to STP states.
 
-Or find the 64bit member and add __attribute__((aligned(4))) to that member
-so that the 64bit version doesn't get padded.
-That will make the field more expensive to access on systems that can't
-do misaligned memory transfers.
+> And since it is yet another port attribute like port
+> priority,
+> we should be able to use the same api to offload it to hw just like the
+> other port attributes.
 
-	David
+Well it does...see ndo_bridge_setlink in bridge driver, br_setport
+where IFLA_BRPORT_STATE is handled...it calls br_set_port_state(),
+which calls into the swdev port driver.  That's for the case where
+user or external processing is setting STP state.  For the case where
+the bridge itself is managing the STP state, the bridge will make the
+same br_set_port_state() call to adjust the port state.
+
+> And, Thats why i tried to generalize all bridge port attribute set by
+> introducing one generic netdev_sw_port_set_attr api.
+> https://marc.info/?l=linux-netdev&m=141661018619712&w=2
+>
+>
+> And coming back to my original comment in this thread,
+> the port state should be offloaded to hw only when the swdev mode (or hw
+> offload mode ;) is set.
+>
+>
+>>   If the
+>> port driver can't do anything with that notification, then it should
+>> not implement ndo_switch_port_stp_update.  If it does implement
+>> ndo_switch_port_stp_update, then it can adjust its HW (e.g. disable
+>> port if BR_DISABLED, etc), and return err code if somehow it failed
+>> while adjusting HW.
+>>
+>> This is not offloading STP state ctrl plane to HW.  The ctrl plane is
+>> kept in bridge driver (or mstpd) in SW.  HW stays dumb in this model.
+>> The bridge currently has policy control to turn on/off STP per bridge
+>> and a netlink hook for external processes to change STP state.
+>>
+>> On Tue, Nov 25, 2014 at 12:48 PM, Roopa Prabhu
+>> <roopa@cumulusnetworks.com> wrote:
+>>>
+>>> On 11/25/14, 2:28 AM, Jiri Pirko wrote:
+>>>>
+>>>> From: Scott Feldman <sfeldma@gmail.com>
+>>>>
+>>>> To notify switch driver of change in STP state of bridge port, add new
+>>>> .ndo op and provide switchdev wrapper func to call ndo op. Use it in
+>>>> bridge
+>>>> code then.
+>>>>
+>>>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>>>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>>>> ---
+>>>> v2->v3:
+>>>> -changed "sw" string to "switch" to avoid confusion
+>>>> v1->v2:
+>>>> -no change
+>>>> ---
+>>>>    include/linux/netdevice.h |  5 +++++
+>>>>    include/net/switchdev.h   |  7 +++++++
+>>>>    net/bridge/br_stp.c       |  2 ++
+>>>>    net/switchdev/switchdev.c | 19 +++++++++++++++++++
+>>>>    4 files changed, 33 insertions(+)
+>>>>
+>>>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>>>> index ce096dc..66cb64e 100644
+>>>> --- a/include/linux/netdevice.h
+>>>> +++ b/include/linux/netdevice.h
+>>>> @@ -1024,6 +1024,9 @@ typedef u16 (*select_queue_fallback_t)(struct
+>>>> net_device *dev,
+>>>>     *    Called to get an ID of the switch chip this port is part of.
+>>>>     *    If driver implements this, it indicates that it represents a
+>>>> port
+>>>>     *    of a switch chip.
+>>>> + * int (*ndo_switch_port_stp_update)(struct net_device *dev, u8 state);
+>>>> + *     Called to notify switch device port of bridge port STP
+>>>> + *     state change.
+>>>>     */
+>>>>    struct net_device_ops {
+>>>>          int                     (*ndo_init)(struct net_device *dev);
+>>>> @@ -1180,6 +1183,8 @@ struct net_device_ops {
+>>>>    #ifdef CONFIG_NET_SWITCHDEV
+>>>>          int                     (*ndo_switch_parent_id_get)(struct
+>>>> net_device *dev,
+>>>>                                                              struct
+>>>> netdev_phys_item_id *psid);
+>>>> +       int                     (*ndo_switch_port_stp_update)(struct
+>>>> net_device *dev,
+>>>> +                                                             u8 state);
+>>>>    #endif
+>>>>    };
+>>>>    diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+>>>> index 7a52360..8a6d164 100644
+>>>> --- a/include/net/switchdev.h
+>>>> +++ b/include/net/switchdev.h
+>>>> @@ -16,6 +16,7 @@
+>>>>      int netdev_switch_parent_id_get(struct net_device *dev,
+>>>>                                  struct netdev_phys_item_id *psid);
+>>>> +int netdev_switch_port_stp_update(struct net_device *dev, u8 state);
+>>>>      #else
+>>>>    @@ -25,6 +26,12 @@ static inline int
+>>>> netdev_switch_parent_id_get(struct
+>>>> net_device *dev,
+>>>>          return -EOPNOTSUPP;
+>>>>    }
+>>>>    +static inline int netdev_switch_port_stp_update(struct net_device
+>>>> *dev,
+>>>> +                                               u8 state)
+>>>> +{
+>>>> +       return -EOPNOTSUPP;
+>>>> +}
+>>>> +
+>>>>    #endif
+>>>>      #endif /* _LINUX_SWITCHDEV_H_ */
+>>>> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+>>>> index 2b047bc..35e016c 100644
+>>>> --- a/net/bridge/br_stp.c
+>>>> +++ b/net/bridge/br_stp.c
+>>>> @@ -12,6 +12,7 @@
+>>>>     */
+>>>>    #include <linux/kernel.h>
+>>>>    #include <linux/rculist.h>
+>>>> +#include <net/switchdev.h>
+>>>>      #include "br_private.h"
+>>>>    #include "br_private_stp.h"
+>>>> @@ -39,6 +40,7 @@ void br_log_state(const struct net_bridge_port *p)
+>>>>    void br_set_state(struct net_bridge_port *p, unsigned int state)
+>>>>    {
+>>>>          p->state = state;
+>>>> +       netdev_switch_port_stp_update(p->dev, state);
+>>>>    }
+>>>>      /* called under bridge lock */
+>>>> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+>>>> index 66973de..d162b21 100644
+>>>> --- a/net/switchdev/switchdev.c
+>>>> +++ b/net/switchdev/switchdev.c
+>>>> @@ -31,3 +31,22 @@ int netdev_switch_parent_id_get(struct net_device
+>>>> *dev,
+>>>>          return ops->ndo_switch_parent_id_get(dev, psid);
+>>>>    }
+>>>>    EXPORT_SYMBOL(netdev_switch_parent_id_get);
+>>>> +
+>>>> +/**
+>>>> + *     netdev_switch_port_stp_update - Notify switch device port of STP
+>>>> + *                                     state change
+>>>> + *     @dev: port device
+>>>> + *     @state: port STP state
+>>>> + *
+>>>> + *     Notify switch device port of bridge port STP state change.
+>>>> + */
+>>>> +int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
+>>>> +{
+>>>> +       const struct net_device_ops *ops = dev->netdev_ops;
+>>>> +
+>>>> +       if (!ops->ndo_switch_port_stp_update)
+>>>> +               return -EOPNOTSUPP;
+>>>> +       WARN_ON(!ops->ndo_switch_parent_id_get);
+>>>> +       return ops->ndo_switch_port_stp_update(dev, state);
+>>>> +}
+>>>> +EXPORT_SYMBOL(netdev_switch_port_stp_update);
+>>>
+>>>
+>>> This should also check  if offload is enabled on the bridge/port ?
+>>>
+>
