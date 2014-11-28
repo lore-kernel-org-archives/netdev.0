@@ -1,76 +1,53 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: Re: [PATCH v7 6/8] net: can: c_can: Disable pins when CAN interface
- is down
-Date: Fri, 28 Nov 2014 11:22:12 +0200
-Message-ID: <54783EC4.5000909@ti.com>
-References: <1415371762-29885-1-git-send-email-rogerq@ti.com>	<1415371762-29885-7-git-send-email-rogerq@ti.com>	<5464CCFF.5010004@ti.com>	<5466225D.2070202@ti.com> <CACRpkdbVXPi7fNjGEzChayQ1KQg8h2R6sm0TNRsVOFJmAT=YMQ@mail.gmail.com> <54779564.7010309@pengutronix.de>
+From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
+Subject: Re: Is this 32-bit NCM?
+Date: Fri, 28 Nov 2014 09:23:43 +0000
+Message-ID: <54783F18.1070709@audiocodes.com>
+References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
+ <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com>
+ <874mtl55ar.fsf@nemi.mork.no>
+ <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
+ <54781523.6030600@audiocodes.com>
+ <alpine.LNX.2.03.1411280923230.3997@gmail.com>
+ <54783443.50700@audiocodes.com>
+ <alpine.LNX.2.03.1411280944200.4040@gmail.com>
+ <54783A1D.3090607@audiocodes.com>
+ <alpine.LNX.2.03.1411281014450.4101@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <wg@grandegger.com>, Wolfram Sang <wsa@the-dreams.de>,
-	Tony Lindgren <tony@atomide.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	George Cherian <george.cherian@ti.com>,
-	Felipe Balbi <balbi@ti.com>, Sekhar Nori <nsekhar@ti.com>,
-	Nishanth Menon <nm@ti.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Linux-OMAP <linux-omap@vger.kernel.org>,
-	<linux-can@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Linus Walleij <linus.walleij@linaro.org>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <54779564.7010309@pengutronix.de>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Alex Strizhevsky <alexxst@gmail.com>,
+	=?Windows-1252?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
+	"Midge Shaojun Tan" <ShaojunMidge.Tan@audiocodes.com>,
+	"youtux@gmail.com" <youtux@gmail.com>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eli Britstein <Eli.Britstein@audiocodes.com>
+To: Enrico Mioso <mrkiko.rs@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3lrp0076.outbound.protection.outlook.com ([213.199.154.76]:59520
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751166AbaK1JXt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 04:23:49 -0500
+In-Reply-To: <alpine.LNX.2.03.1411281014450.4101@gmail.com>
+Content-Language: en-US
+Content-ID: <8EED0A1E275C7643AC7ADBC43468054B@eurprd06.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 27/11/14 23:19, Marc Kleine-Budde wrote:
-> On 11/27/2014 02:26 PM, Linus Walleij wrote:
->> On Fri, Nov 14, 2014 at 4:40 PM, Roger Quadros <rogerq@ti.com> wrote:
->>
->>> DRA7 CAN IP suffers from a problem which causes it to be prevented
->>> from fully turning OFF (i.e. stuck in transition) if the module was
->>> disabled while there was traffic on the CAN_RX line.
->>>
->>> To work around this issue we select the SLEEP pin state by default
->>> on probe and use the DEFAULT pin state on CAN up and back to the
->>> SLEEP pin state on CAN down.
->>>
->>> Signed-off-by: Roger Quadros <rogerq@ti.com>
->>
->> Reviewed-by: Linus Walleij <linus.walleij@linaro.org>
-> 
-> Thanks, however the patch is already upstream.
-> 
->>
->> I see you figured it out all by yourselves :D
->>
->> (Sorry for being absent.)
->>
->>> +#include <linux/pinctrl/consumer.h>
->>> +       pinctrl_pm_select_default_state(dev->dev.parent);
->>> +       pinctrl_pm_select_sleep_state(dev->dev.parent);
->>> +       pinctrl_pm_select_sleep_state(dev->dev.parent);
->>
->> NB: in drivers/base/pinctrl.c:
->>
->> #ifdef CONFIG_PM
->>         /*
->>          * If power management is enabled, we also look for the optional
->>          * sleep and idle pin states, with semantics as defined in
->>          * <linux/pinctrl/pinctrl-state.h>
->>          */
->>         dev->pins->sleep_state = pinctrl_lookup_state(dev->pins->p,
->>                                         PINCTRL_STATE_SLEEP);
->>
->> So if these states are necessary for the driver to work, put
->> depends on PM or select PM in the Kconfig.
-> 
-> Roger, you can prepare a patch, if needed.
+Yes. The MACs are right. When I started Wireshark, promisc mode was set.
 
-As pinctrl sleep is an optional driver feature we don't need to do any changes.
-For the DRA7 specific case, the platform configs ensure that PM is enabled.
+Regards,
+Kevin
 
-cheers,
--roger
+On 11/28/2014 05:17 PM, Enrico Mioso wrote:
+> Sorry - resending message to all.
+> Is the MAC right? In my case it was, but ... you never know.
+> And - have you tried the promisc mode, just in case... don't know if this might
+> even be implementedi n the driver, think not, but...
+> I don't know what to think anymore.
+> this ARP packet seems the same as with windows... but might be it's only my
+> impression.
+This email and any files transmitted with it are confidential material. They are intended solely for the use of the designated individual or entity to whom they are addressed. If the reader of this message is not the intended recipient, you are hereby notified that any dissemination, use, distribution or copying of this communication is strictly prohibited and may be unlawful.
+
+If you have received this email in error please immediately notify the sender and delete or destroy any copy of this message
