@@ -1,253 +1,231 @@
-From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
 Subject: Re: Is this 32-bit NCM?
-Date: Fri, 28 Nov 2014 09:45:10 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1411280944200.4040@gmail.com>
-References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com> <54781523.6030600@audiocodes.com>
- <alpine.LNX.2.03.1411280923230.3997@gmail.com> <54783443.50700@audiocodes.com>
+Date: Fri, 28 Nov 2014 08:46:03 +0000
+Message-ID: <54783643.9040509@audiocodes.com>
+References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
+ <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com>
+ <874mtl55ar.fsf@nemi.mork.no>
+ <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
+ <54781523.6030600@audiocodes.com>
+ <alpine.LNX.2.03.1411280923230.3997@gmail.com>
+ <54783443.50700@audiocodes.com>
+ <alpine.LNX.2.03.1411280941350.4020@gmail.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1673189312-1417164311=:4040"
-Cc: Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	=?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	Midge Shaojun Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-	"youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-To: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <54783443.50700-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Alex Strizhevsky <alexxst@gmail.com>,
+	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
+	"Midge Shaojun Tan" <ShaojunMidge.Tan@audiocodes.com>,
+	"youtux@gmail.com" <youtux@gmail.com>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eli Britstein <Eli.Britstein@audiocodes.com>
+To: Enrico Mioso <mrkiko.rs@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3lrp0076.outbound.protection.outlook.com ([213.199.154.76]:50061
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750990AbaK1IqM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Nov 2014 03:46:12 -0500
+In-Reply-To: <alpine.LNX.2.03.1411280941350.4020@gmail.com>
+Content-Language: en-US
+Content-ID: <1328CA2BBA2CB04AA436F203E2687957@eurprd06.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
---8323328-1673189312-1417164311=:4040
-Content-Type: TEXT/PLAIN; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-
-To test our 32-bit driver, you need at least Ubuntu 14.04 and install the 3.16 
-kernel; or install a kernel >= 3.16 anyway, as our modification is based on the 
-cdc_ncm.c file from the git tree for logical reason.
-
-
-On Fri, 28 Nov 2014, Kevin Zhu wrote:
-
-==Date: Fri, 28 Nov 2014 09:37:30
-==From: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-==To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-==Cc: Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>,
-==    Midge Shaojun  Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-==    "youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-==    "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-==    "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-==    Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-==Subject: Re: Is this 32-bit NCM?
-==
-==As the remainder (wNdpOutPayloadRemainder) is overwritten by the
-==following lines, whose finally value is 0, I modified the code not to
-==change it. Let it remain 2. And now the capture shows the Ethernet
-==header offset is the same as windows, however, it's not working yet.
-==
-==     /* adjust TX-remainder according to NCM specification. */
-==     ctx->tx_remainder = ((ctx->tx_remainder - eth_hlen) &
-==                  (ctx->tx_modulus - 1));
-==
-==
-==Regards,
-==Kevin
-==
-==On 11/28/2014 04:24 PM, Enrico Mioso wrote:
-==> The driver effectively uses the wNdpOutDivisor indirectly - see standard
-==> cdc_ncm deriver as in kernel git tree, line 490.
-==>
-==>
-==> On Fri, 28 Nov 2014, Kevin Zhu wrote:
-==>
-==> ==Date: Fri, 28 Nov 2014 07:24:49
-==> ==From: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-==> ==To: Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>,
-==> ==    Midge Shaojun  Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-==> ==Cc: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, "youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-==> ==    "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-==> ==    "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-==> ==    Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-==> ==Subject: Re: Is this 32-bit NCM?
-==> ==
-==> ==Hi all,
-==> ==
-==> ==I'm able to get the following prints with the original huawei_cdc_ncm driver
-==> ==from Ubuntu 12.04.3. It keeps on printing. I'm also able to get an IP, but
-==> ==no Internet access.
-==> ==
-==> ==^HCSQ:"WCDMA",64,59,55
-==> ==
-==> ==^DSFLOWRPT:0000000E,00000000,00000000,0000000000000000,0000000000000000,000
-==> ==00000,00000000
-==> ==
-==> ==OK
-==> ==
-==> ==^NDISSTAT:1,,,"IPV4"
-==> ==
-==> ==^STIN: 1, 0, 0
-==> ==
-==> ==^DSFLOWRPT:00000010,00000000,00000000,0000000000000000,0000000000000000,000
-==> ==00000,00000000
-==> ==
-==> ==^DSFLOWRPT:00000012,00000000,00000000,0000000000000000,0000000000000000,000
-==> ==00000,00000000
-==> ==
-==> ==^DSFLOWRPT:00000014,00000000,00000000,0000000000000000,0000000000000000,000
-==> ==00000,00000000
-==> ==
-==> ==^STIN: 1, 0, 0
-==> ==
-==> ==
-==> ==...
-==> ==^STIN: 1, 0, 0
-==> ==
-==> ==^DSFLOWRPT:0000008C,00000000,00000000,0000000000000B36,0000000000000000,000
-==> ==00000,00000000
-==> ==
-==> ==^DSFLOWRPT:0000008E,00000000,00000000,0000000000000B36,0000000000000000,000
-==> ==00000,00000000
-==> ==
-==> ==Regarding the alignment, I think we have some difference between Windows and
-==> ==Linux. The spec says it should satisfy the following constraint.
-==> ==
-==> ==Offset % wNdpOutDivisor == wNdpOutPayloadRemainder (for OUT datagrams)
-==> ==
-==> ==It seems the Huawei device take the NDP offset (Ethernet Header Offset) as
-==> ==the parameter 'Offset' in the above constraint. And in the Linux capture, it
-==> ==does not comply with it.
-==> ==
-==> ==
-==> ==dwNtbInMaxSize=131072 dwNtbOutMaxSize=16384 wNdpOutPayloadRemainder=2
-==> ==wNdpOutDivisor=4 wNdpOutAlignment=4 wNtbOutMaxDatagrams=0 flags=0x1f
-==> ==
-==> ==Windows:
-==> ==
-==> ==0000   6e 63 6d 68 10 00 b6 00 7c 00 00 00 5c 00 00 00  ncmh....|...\...
-==> ==0010   00 00 00 00 00 00 00 00 00 1e 10 1f 00 00 08 00  ................
-==> ==0020   45 00 00 3c 00 9b 00 00 80 01 a0 fe 0a 71 a3 0e  E..<.........q..
-==> ==0030   ca 6c 21 3c 08 00 4b 4b 00 01 02 10 61 62 63 64  .l!<..KK....abcd
-==> ==0040   65 66 67 68 69 6a 6b 6c 6d 6e 6f 70 71 72 73 74  efghijklmnopqrst
-==> ==0050   75 76 77 61 62 63 64 65 66 67 68 69 6e 63 6d 30  uvwabcdefghincm0
-==> ==0060   20 00 00 00 00 00 00 00 00 00 00 00 12 00 00 00   ...............
-==> ==0070   4a 00 00 00 00 00 00 00 00 00 00 00              J...........
-==> ==
-==> ==Linux: (thought it's a 16bit format capture, but it's the same as 32bit,
-==> ==regarding the alignment)
-==> ==
-==> ==0000   4e 43 4d 48 0c 00 40 00 e2 00 0c 00 4e 43 4d 30  NCMH..@.....NCM0
-==> ==0010   10 00 00 00 b8 00 2a 00 00 00 00 00 00 00 00 00  ......*.........
-==> ==0020   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-==> ==0030   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-==> ==0040   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-==> ==0050   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-==> ==0060   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-==> ==0070   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-==> ==0080   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-==> ==0090   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-==> ==00a0   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-==> ==00b0   00 00 00 00 00 00 00 00 ff ff ff ff ff ff 00 1e  ................
-==> ==00c0   10 1f 00 00 08 06 00 01 08 00 06 04 00 01 00 1e  ................
-==> ==00d0   10 1f 00 00 0a 71 cc a6 00 00 00 00 00 00 70 50  .....q........pP
-==> ==00e0   f8 49                                            .I
-==> ==
-==> ==
-==> ==Regards,
-==> ==Kevin
-==> ==On 11/27/2014 08:36 PM, Alex Strizhevsky wrote:
-==> ==      Adding my colleagues - Eli, Kevin & Midge.
-==> ==
-==> ==Any ideas are welcome ;)
-==> ==
-==> ==
-==> ==On Thu, Nov 27, 2014 at 12:03 PM, Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote:
-==> ==      Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
-==> ==
-==> ==      > Ok - we can arrive to some ocnclusions regarding the
-==> ==      E3272.
-==> ==      > First of all - the modem seems buggy enough to not be
-==> ==      able to handle requests
-==> ==      > for different formats. You need to unplug and re-plug
-==> ==      it, but this is onlyan
-==> ==      > impression and is reasonable.
-==> ==      >
-==> ==      > Then - the modem will accept to ndisdup the connection
-==> ==      with
-==> ==      > at^ndisdup=1,1,"internet"
-==> ==      > but - if we use huawei_cdc_ncm + cdc_ncm we have no flow
-==> ==      handling messages and
-==> ==      > the modem stops here.
-==> ==      > If we use the cdc_ncm 32-bit driver (modified) we get
-==> ==      lotfs of
-==> ==      > ^dsflorpt
-==> ==      > that's how it should be.
-==> ==      > So I think we can say that something is changing.
-==> ==      > Then there's the alignment problem you mentioned in your
-==> ==      previous reply. And
-==> ==      > this is hard to solve.
-==> ==      > could you try to help me understand where the problem
-==> ==      is?
-==> ==      > I feel like we are very close to the solution but
-==> ==      something isn't working.
-==> ==      > Or might be just try to change the 16 bit driver?
-==> ==
-==> ==If you use a recent version of the driver as a basis, then you
-==> ==get the
-==> ==CDC NCM NTB parameters in sysfs (if not, then you need to enable
-==> ==debugging and look in the log for these values).  For example:
-==> ==
-==> ==bjorn@nemi:~$ grep . /sys/class/net/wwan0/cdc_ncm/*
-==> ==/sys/class/net/wwan0/cdc_ncm/bmNtbFormatsSupported:0x0001
-==> ==/sys/class/net/wwan0/cdc_ncm/dwNtbInMaxSize:15360
-==> ==/sys/class/net/wwan0/cdc_ncm/dwNtbOutMaxSize:15360
-==> ==/sys/class/net/wwan0/cdc_ncm/min_tx_pkt:13824
-==> ==/sys/class/net/wwan0/cdc_ncm/rx_max:15360
-==> ==/sys/class/net/wwan0/cdc_ncm/tx_max:15360
-==> ==/sys/class/net/wwan0/cdc_ncm/tx_timer_usecs:400
-==> ==/sys/class/net/wwan0/cdc_ncm/wNdpInAlignment:4
-==> ==/sys/class/net/wwan0/cdc_ncm/wNdpInDivisor:1
-==> ==/sys/class/net/wwan0/cdc_ncm/wNdpInPayloadRemainder:0
-==> ==/sys/class/net/wwan0/cdc_ncm/wNdpOutAlignment:4
-==> ==/sys/class/net/wwan0/cdc_ncm/wNdpOutDivisor:32
-==> ==/sys/class/net/wwan0/cdc_ncm/wNdpOutPayloadRemainder:0
-==> ==/sys/class/net/wwan0/cdc_ncm/wNtbOutMaxDatagrams:32
-==> ==
-==> ==
-==> ==The possible problem I am thinking of is proper handling of the
-==> ==wNdp*PayloadRemainder values. See section 3.3.4 "NCM Ethernet
-==> ==Frame
-==> ==Alignment" in the spec.  Which is confusing as hell, but if I
-==> ==understand
-==> ==it correctly then we are supposed to align the start of the IP
-==> ==packets
-==> ==(the "payload", _not_ the ethernet frame) to a whole
-==> ==wNdp*Divisor number
-==> ==as long as the wNdp*PayloadRemainder is 0.
-==> ==
-==> ==
-==> ==Bjørn
-==> ==
-==> ==
-==> ==
-==> ==This email and any files transmitted with it are confidential material. They
-==> ==are intended solely for the use of the designated individual or entity to
-==> ==whom they are addressed. If the reader of this message is not the intended
-==> ==recipient, you are hereby notified that any dissemination, use, distribution
-==> ==or copying of this communication is strictly prohibited and may be unlawful.
-==> ==
-==> ==If you have received this email in error please immediately notify the
-==> ==sender and delete or destroy any copy of this message
-==> ==
-==This email and any files transmitted with it are confidential material. They are intended solely for the use of the designated individual or entity to whom they are addressed. If the reader of this message is not the intended recipient, you are hereby notified that any dissemination, use, distribution or copying of this communication is strictly prohibited and may be unlawful.
-==
-==If you have received this email in error please immediately notify the sender and delete or destroy any copy of this message
-==
---8323328-1673189312-1417164311=:4040--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Tm8uIEkgYWxzbyB0cmllZCB0aGUgMzJiaXQgdmVyc2lvbi4gVGhlIHJlc3VsdCBpcyB0aGUgc2Ft
+ZS4NCg0KUmVnYXJkcywNCktldmluDQoNCk9uIDExLzI4LzIwMTQgMDQ6NDIgUE0sIEVucmljbyBN
+aW9zbyB3cm90ZToNCj4gQnV0IHlvdSBhcmUgc3RpbGwgaW4gMTYtYml0IG1vZGUsIHJpZ2h0Pw0K
+PiBIYXZlIHlvdSB0cmllZCBieSBjaGFuY2UgaW4gMzItYml0IG1vZGU/IEkgYW0gY29udmluY2Vk
+IHRoaXMgaXMgbm90IHRoZSBwcm9ibGVtDQo+IC4uLiBidXQsIGp1c3RpIG4gY2FzZT8NCj4gdGhh
+bmsgeW91IEtldmluIGZvciB5b3VyIHdvcmsgLSBhbmQgc29ycnkgZm9yIGJlaW5nIG5vdCBzbyBo
+ZWxwZnVsLi4uDQo+DQo+DQo+IE9uIEZyaSwgMjggTm92IDIwMTQsIEtldmluIFpodSB3cm90ZToN
+Cj4NCj4gPT1EYXRlOiBGcmksIDI4IE5vdiAyMDE0IDA5OjM3OjMwDQo+ID09RnJvbTogS2V2aW4g
+Wmh1IDxNaW5neWluZy5aaHVAYXVkaW9jb2Rlcy5jb20+DQo+ID09VG86IEVucmljbyBNaW9zbyA8
+bXJraWtvLnJzQGdtYWlsLmNvbT4NCj4gPT1DYzogQWxleCBTdHJpemhldnNreSA8YWxleHhzdEBn
+bWFpbC5jb20+LCBCasO4cm4gTW9yayA8Ympvcm5AbW9yay5ubz4sDQo+ID09ICAgIE1pZGdlIFNo
+YW9qdW4gIFRhbiA8U2hhb2p1bk1pZGdlLlRhbkBhdWRpb2NvZGVzLmNvbT4sDQo+ID09ICAgICJ5
+b3V0dXhAZ21haWwuY29tIiA8eW91dHV4QGdtYWlsLmNvbT4sDQo+ID09ICAgICJsaW51eC11c2JA
+dmdlci5rZXJuZWwub3JnIiA8bGludXgtdXNiQHZnZXIua2VybmVsLm9yZz4sDQo+ID09ICAgICJu
+ZXRkZXZAdmdlci5rZXJuZWwub3JnIiA8bmV0ZGV2QHZnZXIua2VybmVsLm9yZz4sDQo+ID09ICAg
+IEVsaSBCcml0c3RlaW4gPEVsaS5Ccml0c3RlaW5AYXVkaW9jb2Rlcy5jb20+DQo+ID09U3ViamVj
+dDogUmU6IElzIHRoaXMgMzItYml0IE5DTT8NCj4gPT0NCj4gPT1BcyB0aGUgcmVtYWluZGVyICh3
+TmRwT3V0UGF5bG9hZFJlbWFpbmRlcikgaXMgb3ZlcndyaXR0ZW4gYnkgdGhlDQo+ID09Zm9sbG93
+aW5nIGxpbmVzLCB3aG9zZSBmaW5hbGx5IHZhbHVlIGlzIDAsIEkgbW9kaWZpZWQgdGhlIGNvZGUg
+bm90IHRvDQo+ID09Y2hhbmdlIGl0LiBMZXQgaXQgcmVtYWluIDIuIEFuZCBub3cgdGhlIGNhcHR1
+cmUgc2hvd3MgdGhlIEV0aGVybmV0DQo+ID09aGVhZGVyIG9mZnNldCBpcyB0aGUgc2FtZSBhcyB3
+aW5kb3dzLCBob3dldmVyLCBpdCdzIG5vdCB3b3JraW5nIHlldC4NCj4gPT0NCj4gPT0gICAgIC8q
+IGFkanVzdCBUWC1yZW1haW5kZXIgYWNjb3JkaW5nIHRvIE5DTSBzcGVjaWZpY2F0aW9uLiAqLw0K
+PiA9PSAgICAgY3R4LT50eF9yZW1haW5kZXIgPSAoKGN0eC0+dHhfcmVtYWluZGVyIC0gZXRoX2hs
+ZW4pICYNCj4gPT0gICAgICAgICAgICAgICAgICAoY3R4LT50eF9tb2R1bHVzIC0gMSkpOw0KPiA9
+PQ0KPiA9PQ0KPiA9PVJlZ2FyZHMsDQo+ID09S2V2aW4NCj4gPT0NCj4gPT1PbiAxMS8yOC8yMDE0
+IDA0OjI0IFBNLCBFbnJpY28gTWlvc28gd3JvdGU6DQo+ID09PiBUaGUgZHJpdmVyIGVmZmVjdGl2
+ZWx5IHVzZXMgdGhlIHdOZHBPdXREaXZpc29yIGluZGlyZWN0bHkgLSBzZWUgc3RhbmRhcmQNCj4g
+PT0+IGNkY19uY20gZGVyaXZlciBhcyBpbiBrZXJuZWwgZ2l0IHRyZWUsIGxpbmUgNDkwLg0KPiA9
+PT4NCj4gPT0+DQo+ID09PiBPbiBGcmksIDI4IE5vdiAyMDE0LCBLZXZpbiBaaHUgd3JvdGU6DQo+
+ID09Pg0KPiA9PT4gPT1EYXRlOiBGcmksIDI4IE5vdiAyMDE0IDA3OjI0OjQ5DQo+ID09PiA9PUZy
+b206IEtldmluIFpodSA8TWluZ3lpbmcuWmh1QGF1ZGlvY29kZXMuY29tPg0KPiA9PT4gPT1Ubzog
+QWxleCBTdHJpemhldnNreSA8YWxleHhzdEBnbWFpbC5jb20+LCBCasO4cm4gTW9yayA8Ympvcm5A
+bW9yay5ubz4sDQo+ID09PiA9PSAgICBNaWRnZSBTaGFvanVuICBUYW4gPFNoYW9qdW5NaWRnZS5U
+YW5AYXVkaW9jb2Rlcy5jb20+DQo+ID09PiA9PUNjOiBFbnJpY28gTWlvc28gPG1ya2lrby5yc0Bn
+bWFpbC5jb20+LCAieW91dHV4QGdtYWlsLmNvbSIgPHlvdXR1eEBnbWFpbC5jb20+LA0KPiA9PT4g
+PT0gICAgImxpbnV4LXVzYkB2Z2VyLmtlcm5lbC5vcmciIDxsaW51eC11c2JAdmdlci5rZXJuZWwu
+b3JnPiwNCj4gPT0+ID09ICAgICJuZXRkZXZAdmdlci5rZXJuZWwub3JnIiA8bmV0ZGV2QHZnZXIu
+a2VybmVsLm9yZz4sDQo+ID09PiA9PSAgICBFbGkgQnJpdHN0ZWluIDxFbGkuQnJpdHN0ZWluQGF1
+ZGlvY29kZXMuY29tPg0KPiA9PT4gPT1TdWJqZWN0OiBSZTogSXMgdGhpcyAzMi1iaXQgTkNNPw0K
+PiA9PT4gPT0NCj4gPT0+ID09SGkgYWxsLA0KPiA9PT4gPT0NCj4gPT0+ID09SSdtIGFibGUgdG8g
+Z2V0IHRoZSBmb2xsb3dpbmcgcHJpbnRzIHdpdGggdGhlIG9yaWdpbmFsIGh1YXdlaV9jZGNfbmNt
+IGRyaXZlcg0KPiA9PT4gPT1mcm9tIFVidW50dSAxMi4wNC4zLiBJdCBrZWVwcyBvbiBwcmludGlu
+Zy4gSSdtIGFsc28gYWJsZSB0byBnZXQgYW4gSVAsIGJ1dA0KPiA9PT4gPT1ubyBJbnRlcm5ldCBh
+Y2Nlc3MuDQo+ID09PiA9PQ0KPiA9PT4gPT1eSENTUToiV0NETUEiLDY0LDU5LDU1DQo+ID09PiA9
+PQ0KPiA9PT4gPT1eRFNGTE9XUlBUOjAwMDAwMDBFLDAwMDAwMDAwLDAwMDAwMDAwLDAwMDAwMDAw
+MDAwMDAwMDAsMDAwMDAwMDAwMDAwMDAwMCwwMDANCj4gPT0+ID09MDAwMDAsMDAwMDAwMDANCj4g
+PT0+ID09DQo+ID09PiA9PU9LDQo+ID09PiA9PQ0KPiA9PT4gPT1eTkRJU1NUQVQ6MSwsLCJJUFY0
+Ig0KPiA9PT4gPT0NCj4gPT0+ID09XlNUSU46IDEsIDAsIDANCj4gPT0+ID09DQo+ID09PiA9PV5E
+U0ZMT1dSUFQ6MDAwMDAwMTAsMDAwMDAwMDAsMDAwMDAwMDAsMDAwMDAwMDAwMDAwMDAwMCwwMDAw
+MDAwMDAwMDAwMDAwLDAwMA0KPiA9PT4gPT0wMDAwMCwwMDAwMDAwMA0KPiA9PT4gPT0NCj4gPT0+
+ID09XkRTRkxPV1JQVDowMDAwMDAxMiwwMDAwMDAwMCwwMDAwMDAwMCwwMDAwMDAwMDAwMDAwMDAw
+LDAwMDAwMDAwMDAwMDAwMDAsMDAwDQo+ID09PiA9PTAwMDAwLDAwMDAwMDAwDQo+ID09PiA9PQ0K
+PiA9PT4gPT1eRFNGTE9XUlBUOjAwMDAwMDE0LDAwMDAwMDAwLDAwMDAwMDAwLDAwMDAwMDAwMDAw
+MDAwMDAsMDAwMDAwMDAwMDAwMDAwMCwwMDANCj4gPT0+ID09MDAwMDAsMDAwMDAwMDANCj4gPT0+
+ID09DQo+ID09PiA9PV5TVElOOiAxLCAwLCAwDQo+ID09PiA9PQ0KPiA9PT4gPT0NCj4gPT0+ID09
+Li4uDQo+ID09PiA9PV5TVElOOiAxLCAwLCAwDQo+ID09PiA9PQ0KPiA9PT4gPT1eRFNGTE9XUlBU
+OjAwMDAwMDhDLDAwMDAwMDAwLDAwMDAwMDAwLDAwMDAwMDAwMDAwMDBCMzYsMDAwMDAwMDAwMDAw
+MDAwMCwwMDANCj4gPT0+ID09MDAwMDAsMDAwMDAwMDANCj4gPT0+ID09DQo+ID09PiA9PV5EU0ZM
+T1dSUFQ6MDAwMDAwOEUsMDAwMDAwMDAsMDAwMDAwMDAsMDAwMDAwMDAwMDAwMEIzNiwwMDAwMDAw
+MDAwMDAwMDAwLDAwMA0KPiA9PT4gPT0wMDAwMCwwMDAwMDAwMA0KPiA9PT4gPT0NCj4gPT0+ID09
+UmVnYXJkaW5nIHRoZSBhbGlnbm1lbnQsIEkgdGhpbmsgd2UgaGF2ZSBzb21lIGRpZmZlcmVuY2Ug
+YmV0d2VlbiBXaW5kb3dzIGFuZA0KPiA9PT4gPT1MaW51eC4gVGhlIHNwZWMgc2F5cyBpdCBzaG91
+bGQgc2F0aXNmeSB0aGUgZm9sbG93aW5nIGNvbnN0cmFpbnQuDQo+ID09PiA9PQ0KPiA9PT4gPT1P
+ZmZzZXQgJSB3TmRwT3V0RGl2aXNvciA9PSB3TmRwT3V0UGF5bG9hZFJlbWFpbmRlciAoZm9yIE9V
+VCBkYXRhZ3JhbXMpDQo+ID09PiA9PQ0KPiA9PT4gPT1JdCBzZWVtcyB0aGUgSHVhd2VpIGRldmlj
+ZSB0YWtlIHRoZSBORFAgb2Zmc2V0IChFdGhlcm5ldCBIZWFkZXIgT2Zmc2V0KSBhcw0KPiA9PT4g
+PT10aGUgcGFyYW1ldGVyICdPZmZzZXQnIGluIHRoZSBhYm92ZSBjb25zdHJhaW50LiBBbmQgaW4g
+dGhlIExpbnV4IGNhcHR1cmUsIGl0DQo+ID09PiA9PWRvZXMgbm90IGNvbXBseSB3aXRoIGl0Lg0K
+PiA9PT4gPT0NCj4gPT0+ID09DQo+ID09PiA9PWR3TnRiSW5NYXhTaXplPTEzMTA3MiBkd050Yk91
+dE1heFNpemU9MTYzODQgd05kcE91dFBheWxvYWRSZW1haW5kZXI9Mg0KPiA9PT4gPT13TmRwT3V0
+RGl2aXNvcj00IHdOZHBPdXRBbGlnbm1lbnQ9NCB3TnRiT3V0TWF4RGF0YWdyYW1zPTAgZmxhZ3M9
+MHgxZg0KPiA9PT4gPT0NCj4gPT0+ID09V2luZG93czoNCj4gPT0+ID09DQo+ID09PiA9PTAwMDAg
+ICA2ZSA2MyA2ZCA2OCAxMCAwMCBiNiAwMCA3YyAwMCAwMCAwMCA1YyAwMCAwMCAwMCAgbmNtaC4u
+Li58Li4uXC4uLg0KPiA9PT4gPT0wMDEwICAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMWUg
+MTAgMWYgMDAgMDAgMDggMDAgIC4uLi4uLi4uLi4uLi4uLi4NCj4gPT0+ID09MDAyMCAgIDQ1IDAw
+IDAwIDNjIDAwIDliIDAwIDAwIDgwIDAxIGEwIGZlIDBhIDcxIGEzIDBlICBFLi48Li4uLi4uLi4u
+cS4uDQo+ID09PiA9PTAwMzAgICBjYSA2YyAyMSAzYyAwOCAwMCA0YiA0YiAwMCAwMSAwMiAxMCA2
+MSA2MiA2MyA2NCAgLmwhPC4uS0suLi4uYWJjZA0KPiA9PT4gPT0wMDQwICAgNjUgNjYgNjcgNjgg
+NjkgNmEgNmIgNmMgNmQgNmUgNmYgNzAgNzEgNzIgNzMgNzQgIGVmZ2hpamtsbW5vcHFyc3QNCj4g
+PT0+ID09MDA1MCAgIDc1IDc2IDc3IDYxIDYyIDYzIDY0IDY1IDY2IDY3IDY4IDY5IDZlIDYzIDZk
+IDMwICB1dndhYmNkZWZnaGluY20wDQo+ID09PiA9PTAwNjAgICAyMCAwMCAwMCAwMCAwMCAwMCAw
+MCAwMCAwMCAwMCAwMCAwMCAxMiAwMCAwMCAwMCAgIC4uLi4uLi4uLi4uLi4uLg0KPiA9PT4gPT0w
+MDcwICAgNGEgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgICAgICAgICAgICAgIEou
+Li4uLi4uLi4uLg0KPiA9PT4gPT0NCj4gPT0+ID09TGludXg6ICh0aG91Z2h0IGl0J3MgYSAxNmJp
+dCBmb3JtYXQgY2FwdHVyZSwgYnV0IGl0J3MgdGhlIHNhbWUgYXMgMzJiaXQsDQo+ID09PiA9PXJl
+Z2FyZGluZyB0aGUgYWxpZ25tZW50KQ0KPiA9PT4gPT0NCj4gPT0+ID09MDAwMCAgIDRlIDQzIDRk
+IDQ4IDBjIDAwIDQwIDAwIGUyIDAwIDBjIDAwIDRlIDQzIDRkIDMwICBOQ01ILi5ALi4uLi5OQ00w
+DQo+ID09PiA9PTAwMTAgICAxMCAwMCAwMCAwMCBiOCAwMCAyYSAwMCAwMCAwMCAwMCAwMCAwMCAw
+MCAwMCAwMCAgLi4uLi4uKi4uLi4uLi4uLg0KPiA9PT4gPT0wMDIwICAgMDAgMDAgMDAgMDAgMDAg
+MDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgIC4uLi4uLi4uLi4uLi4uLi4NCj4gPT0+
+ID09MDAzMCAgIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAw
+ICAuLi4uLi4uLi4uLi4uLi4uDQo+ID09PiA9PTAwNDAgICAwMCAwMCAwMCAwMCAwMCAwMCAwMCAw
+MCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAgLi4uLi4uLi4uLi4uLi4uLg0KPiA9PT4gPT0wMDUw
+ICAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgIC4uLi4u
+Li4uLi4uLi4uLi4NCj4gPT0+ID09MDA2MCAgIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAw
+IDAwIDAwIDAwIDAwIDAwIDAwICAuLi4uLi4uLi4uLi4uLi4uDQo+ID09PiA9PTAwNzAgICAwMCAw
+MCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAgLi4uLi4uLi4uLi4u
+Li4uLg0KPiA9PT4gPT0wMDgwICAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAgMDAg
+MDAgMDAgMDAgMDAgIC4uLi4uLi4uLi4uLi4uLi4NCj4gPT0+ID09MDA5MCAgIDAwIDAwIDAwIDAw
+IDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwICAuLi4uLi4uLi4uLi4uLi4uDQo+
+ID09PiA9PTAwYTAgICAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAw
+MCAwMCAgLi4uLi4uLi4uLi4uLi4uLg0KPiA9PT4gPT0wMGIwICAgMDAgMDAgMDAgMDAgMDAgMDAg
+MDAgMDAgZmYgZmYgZmYgZmYgZmYgZmYgMDAgMWUgIC4uLi4uLi4uLi4uLi4uLi4NCj4gPT0+ID09
+MDBjMCAgIDEwIDFmIDAwIDAwIDA4IDA2IDAwIDAxIDA4IDAwIDA2IDA0IDAwIDAxIDAwIDFlICAu
+Li4uLi4uLi4uLi4uLi4uDQo+ID09PiA9PTAwZDAgICAxMCAxZiAwMCAwMCAwYSA3MSBjYyBhNiAw
+MCAwMCAwMCAwMCAwMCAwMCA3MCA1MCAgLi4uLi5xLi4uLi4uLi5wUA0KPiA9PT4gPT0wMGUwICAg
+ZjggNDkgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC5JDQo+ID09
+PiA9PQ0KPiA9PT4gPT0NCj4gPT0+ID09UmVnYXJkcywNCj4gPT0+ID09S2V2aW4NCj4gPT0+ID09
+T24gMTEvMjcvMjAxNCAwODozNiBQTSwgQWxleCBTdHJpemhldnNreSB3cm90ZToNCj4gPT0+ID09
+ICAgICAgQWRkaW5nIG15IGNvbGxlYWd1ZXMgLSBFbGksIEtldmluICYgTWlkZ2UuDQo+ID09PiA9
+PQ0KPiA9PT4gPT1BbnkgaWRlYXMgYXJlIHdlbGNvbWUgOykNCj4gPT0+ID09DQo+ID09PiA9PQ0K
+PiA9PT4gPT1PbiBUaHUsIE5vdiAyNywgMjAxNCBhdCAxMjowMyBQTSwgQmrDuHJuIE1vcmsgPGJq
+b3JuQG1vcmsubm8+IHdyb3RlOg0KPiA9PT4gPT0gICAgICBFbnJpY28gTWlvc28gPG1ya2lrby5y
+c0BnbWFpbC5jb20+IHdyaXRlczoNCj4gPT0+ID09DQo+ID09PiA9PSAgICAgID4gT2sgLSB3ZSBj
+YW4gYXJyaXZlIHRvIHNvbWUgb2NuY2x1c2lvbnMgcmVnYXJkaW5nIHRoZQ0KPiA9PT4gPT0gICAg
+ICBFMzI3Mi4NCj4gPT0+ID09ICAgICAgPiBGaXJzdCBvZiBhbGwgLSB0aGUgbW9kZW0gc2VlbXMg
+YnVnZ3kgZW5vdWdoIHRvIG5vdCBiZQ0KPiA9PT4gPT0gICAgICBhYmxlIHRvIGhhbmRsZSByZXF1
+ZXN0cw0KPiA9PT4gPT0gICAgICA+IGZvciBkaWZmZXJlbnQgZm9ybWF0cy4gWW91IG5lZWQgdG8g
+dW5wbHVnIGFuZCByZS1wbHVnDQo+ID09PiA9PSAgICAgIGl0LCBidXQgdGhpcyBpcyBvbmx5YW4N
+Cj4gPT0+ID09ICAgICAgPiBpbXByZXNzaW9uIGFuZCBpcyByZWFzb25hYmxlLg0KPiA9PT4gPT0g
+ICAgICA+DQo+ID09PiA9PSAgICAgID4gVGhlbiAtIHRoZSBtb2RlbSB3aWxsIGFjY2VwdCB0byBu
+ZGlzZHVwIHRoZSBjb25uZWN0aW9uDQo+ID09PiA9PSAgICAgIHdpdGgNCj4gPT0+ID09ICAgICAg
+PiBhdF5uZGlzZHVwPTEsMSwiaW50ZXJuZXQiDQo+ID09PiA9PSAgICAgID4gYnV0IC0gaWYgd2Ug
+dXNlIGh1YXdlaV9jZGNfbmNtICsgY2RjX25jbSB3ZSBoYXZlIG5vIGZsb3cNCj4gPT0+ID09ICAg
+ICAgaGFuZGxpbmcgbWVzc2FnZXMgYW5kDQo+ID09PiA9PSAgICAgID4gdGhlIG1vZGVtIHN0b3Bz
+IGhlcmUuDQo+ID09PiA9PSAgICAgID4gSWYgd2UgdXNlIHRoZSBjZGNfbmNtIDMyLWJpdCBkcml2
+ZXIgKG1vZGlmaWVkKSB3ZSBnZXQNCj4gPT0+ID09ICAgICAgbG90ZnMgb2YNCj4gPT0+ID09ICAg
+ICAgPiBeZHNmbG9ycHQNCj4gPT0+ID09ICAgICAgPiB0aGF0J3MgaG93IGl0IHNob3VsZCBiZS4N
+Cj4gPT0+ID09ICAgICAgPiBTbyBJIHRoaW5rIHdlIGNhbiBzYXkgdGhhdCBzb21ldGhpbmcgaXMg
+Y2hhbmdpbmcuDQo+ID09PiA9PSAgICAgID4gVGhlbiB0aGVyZSdzIHRoZSBhbGlnbm1lbnQgcHJv
+YmxlbSB5b3UgbWVudGlvbmVkIGluIHlvdXINCj4gPT0+ID09ICAgICAgcHJldmlvdXMgcmVwbHku
+IEFuZA0KPiA9PT4gPT0gICAgICA+IHRoaXMgaXMgaGFyZCB0byBzb2x2ZS4NCj4gPT0+ID09ICAg
+ICAgPiBjb3VsZCB5b3UgdHJ5IHRvIGhlbHAgbWUgdW5kZXJzdGFuZCB3aGVyZSB0aGUgcHJvYmxl
+bQ0KPiA9PT4gPT0gICAgICBpcz8NCj4gPT0+ID09ICAgICAgPiBJIGZlZWwgbGlrZSB3ZSBhcmUg
+dmVyeSBjbG9zZSB0byB0aGUgc29sdXRpb24gYnV0DQo+ID09PiA9PSAgICAgIHNvbWV0aGluZyBp
+c24ndCB3b3JraW5nLg0KPiA9PT4gPT0gICAgICA+IE9yIG1pZ2h0IGJlIGp1c3QgdHJ5IHRvIGNo
+YW5nZSB0aGUgMTYgYml0IGRyaXZlcj8NCj4gPT0+ID09DQo+ID09PiA9PUlmIHlvdSB1c2UgYSBy
+ZWNlbnQgdmVyc2lvbiBvZiB0aGUgZHJpdmVyIGFzIGEgYmFzaXMsIHRoZW4geW91DQo+ID09PiA9
+PWdldCB0aGUNCj4gPT0+ID09Q0RDIE5DTSBOVEIgcGFyYW1ldGVycyBpbiBzeXNmcyAoaWYgbm90
+LCB0aGVuIHlvdSBuZWVkIHRvIGVuYWJsZQ0KPiA9PT4gPT1kZWJ1Z2dpbmcgYW5kIGxvb2sgaW4g
+dGhlIGxvZyBmb3IgdGhlc2UgdmFsdWVzKS4gIEZvciBleGFtcGxlOg0KPiA9PT4gPT0NCj4gPT0+
+ID09Ympvcm5AbmVtaTp+JCBncmVwIC4gL3N5cy9jbGFzcy9uZXQvd3dhbjAvY2RjX25jbS8qDQo+
+ID09PiA9PS9zeXMvY2xhc3MvbmV0L3d3YW4wL2NkY19uY20vYm1OdGJGb3JtYXRzU3VwcG9ydGVk
+OjB4MDAwMQ0KPiA9PT4gPT0vc3lzL2NsYXNzL25ldC93d2FuMC9jZGNfbmNtL2R3TnRiSW5NYXhT
+aXplOjE1MzYwDQo+ID09PiA9PS9zeXMvY2xhc3MvbmV0L3d3YW4wL2NkY19uY20vZHdOdGJPdXRN
+YXhTaXplOjE1MzYwDQo+ID09PiA9PS9zeXMvY2xhc3MvbmV0L3d3YW4wL2NkY19uY20vbWluX3R4
+X3BrdDoxMzgyNA0KPiA9PT4gPT0vc3lzL2NsYXNzL25ldC93d2FuMC9jZGNfbmNtL3J4X21heDox
+NTM2MA0KPiA9PT4gPT0vc3lzL2NsYXNzL25ldC93d2FuMC9jZGNfbmNtL3R4X21heDoxNTM2MA0K
+PiA9PT4gPT0vc3lzL2NsYXNzL25ldC93d2FuMC9jZGNfbmNtL3R4X3RpbWVyX3VzZWNzOjQwMA0K
+PiA9PT4gPT0vc3lzL2NsYXNzL25ldC93d2FuMC9jZGNfbmNtL3dOZHBJbkFsaWdubWVudDo0DQo+
+ID09PiA9PS9zeXMvY2xhc3MvbmV0L3d3YW4wL2NkY19uY20vd05kcEluRGl2aXNvcjoxDQo+ID09
+PiA9PS9zeXMvY2xhc3MvbmV0L3d3YW4wL2NkY19uY20vd05kcEluUGF5bG9hZFJlbWFpbmRlcjow
+DQo+ID09PiA9PS9zeXMvY2xhc3MvbmV0L3d3YW4wL2NkY19uY20vd05kcE91dEFsaWdubWVudDo0
+DQo+ID09PiA9PS9zeXMvY2xhc3MvbmV0L3d3YW4wL2NkY19uY20vd05kcE91dERpdmlzb3I6MzIN
+Cj4gPT0+ID09L3N5cy9jbGFzcy9uZXQvd3dhbjAvY2RjX25jbS93TmRwT3V0UGF5bG9hZFJlbWFp
+bmRlcjowDQo+ID09PiA9PS9zeXMvY2xhc3MvbmV0L3d3YW4wL2NkY19uY20vd050Yk91dE1heERh
+dGFncmFtczozMg0KPiA9PT4gPT0NCj4gPT0+ID09DQo+ID09PiA9PVRoZSBwb3NzaWJsZSBwcm9i
+bGVtIEkgYW0gdGhpbmtpbmcgb2YgaXMgcHJvcGVyIGhhbmRsaW5nIG9mIHRoZQ0KPiA9PT4gPT13
+TmRwKlBheWxvYWRSZW1haW5kZXIgdmFsdWVzLiBTZWUgc2VjdGlvbiAzLjMuNCAiTkNNIEV0aGVy
+bmV0DQo+ID09PiA9PUZyYW1lDQo+ID09PiA9PUFsaWdubWVudCIgaW4gdGhlIHNwZWMuICBXaGlj
+aCBpcyBjb25mdXNpbmcgYXMgaGVsbCwgYnV0IGlmIEkNCj4gPT0+ID09dW5kZXJzdGFuZA0KPiA9
+PT4gPT1pdCBjb3JyZWN0bHkgdGhlbiB3ZSBhcmUgc3VwcG9zZWQgdG8gYWxpZ24gdGhlIHN0YXJ0
+IG9mIHRoZSBJUA0KPiA9PT4gPT1wYWNrZXRzDQo+ID09PiA9PSh0aGUgInBheWxvYWQiLCBfbm90
+XyB0aGUgZXRoZXJuZXQgZnJhbWUpIHRvIGEgd2hvbGUNCj4gPT0+ID09d05kcCpEaXZpc29yIG51
+bWJlcg0KPiA9PT4gPT1hcyBsb25nIGFzIHRoZSB3TmRwKlBheWxvYWRSZW1haW5kZXIgaXMgMC4N
+Cj4gPT0+ID09DQo+ID09PiA9PQ0KPiA9PT4gPT1CasO4cm4NCj4gPT0+ID09DQo+ID09PiA9PQ0K
+PiA9PT4gPT0NCj4gPT0+ID09VGhpcyBlbWFpbCBhbmQgYW55IGZpbGVzIHRyYW5zbWl0dGVkIHdp
+dGggaXQgYXJlIGNvbmZpZGVudGlhbCBtYXRlcmlhbC4gVGhleQ0KPiA9PT4gPT1hcmUgaW50ZW5k
+ZWQgc29sZWx5IGZvciB0aGUgdXNlIG9mIHRoZSBkZXNpZ25hdGVkIGluZGl2aWR1YWwgb3IgZW50
+aXR5IHRvDQo+ID09PiA9PXdob20gdGhleSBhcmUgYWRkcmVzc2VkLiBJZiB0aGUgcmVhZGVyIG9m
+IHRoaXMgbWVzc2FnZSBpcyBub3QgdGhlIGludGVuZGVkDQo+ID09PiA9PXJlY2lwaWVudCwgeW91
+IGFyZSBoZXJlYnkgbm90aWZpZWQgdGhhdCBhbnkgZGlzc2VtaW5hdGlvbiwgdXNlLCBkaXN0cmli
+dXRpb24NCj4gPT0+ID09b3IgY29weWluZyBvZiB0aGlzIGNvbW11bmljYXRpb24gaXMgc3RyaWN0
+bHkgcHJvaGliaXRlZCBhbmQgbWF5IGJlIHVubGF3ZnVsLg0KPiA9PT4gPT0NCj4gPT0+ID09SWYg
+eW91IGhhdmUgcmVjZWl2ZWQgdGhpcyBlbWFpbCBpbiBlcnJvciBwbGVhc2UgaW1tZWRpYXRlbHkg
+bm90aWZ5IHRoZQ0KPiA9PT4gPT1zZW5kZXIgYW5kIGRlbGV0ZSBvciBkZXN0cm95IGFueSBjb3B5
+IG9mIHRoaXMgbWVzc2FnZQ0KPiA9PT4gPT0NCj4gPT1UaGlzIGVtYWlsIGFuZCBhbnkgZmlsZXMg
+dHJhbnNtaXR0ZWQgd2l0aCBpdCBhcmUgY29uZmlkZW50aWFsIG1hdGVyaWFsLiBUaGV5IGFyZSBp
+bnRlbmRlZCBzb2xlbHkgZm9yIHRoZSB1c2Ugb2YgdGhlIGRlc2lnbmF0ZWQgaW5kaXZpZHVhbCBv
+ciBlbnRpdHkgdG8gd2hvbSB0aGV5IGFyZSBhZGRyZXNzZWQuIElmIHRoZSByZWFkZXIgb2YgdGhp
+cyBtZXNzYWdlIGlzIG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50LCB5b3UgYXJlIGhlcmVieSBu
+b3RpZmllZCB0aGF0IGFueSBkaXNzZW1pbmF0aW9uLCB1c2UsIGRpc3RyaWJ1dGlvbiBvciBjb3B5
+aW5nIG9mIHRoaXMgY29tbXVuaWNhdGlvbiBpcyBzdHJpY3RseSBwcm9oaWJpdGVkIGFuZCBtYXkg
+YmUgdW5sYXdmdWwuDQo+ID09DQo+ID09SWYgeW91IGhhdmUgcmVjZWl2ZWQgdGhpcyBlbWFpbCBp
+biBlcnJvciBwbGVhc2UgaW1tZWRpYXRlbHkgbm90aWZ5IHRoZSBzZW5kZXIgYW5kIGRlbGV0ZSBv
+ciBkZXN0cm95IGFueSBjb3B5IG9mIHRoaXMgbWVzc2FnZQ0KPiA9PQ0KVGhpcyBlbWFpbCBhbmQg
+YW55IGZpbGVzIHRyYW5zbWl0dGVkIHdpdGggaXQgYXJlIGNvbmZpZGVudGlhbCBtYXRlcmlhbC4g
+VGhleSBhcmUgaW50ZW5kZWQgc29sZWx5IGZvciB0aGUgdXNlIG9mIHRoZSBkZXNpZ25hdGVkIGlu
+ZGl2aWR1YWwgb3IgZW50aXR5IHRvIHdob20gdGhleSBhcmUgYWRkcmVzc2VkLiBJZiB0aGUgcmVh
+ZGVyIG9mIHRoaXMgbWVzc2FnZSBpcyBub3QgdGhlIGludGVuZGVkIHJlY2lwaWVudCwgeW91IGFy
+ZSBoZXJlYnkgbm90aWZpZWQgdGhhdCBhbnkgZGlzc2VtaW5hdGlvbiwgdXNlLCBkaXN0cmlidXRp
+b24gb3IgY29weWluZyBvZiB0aGlzIGNvbW11bmljYXRpb24gaXMgc3RyaWN0bHkgcHJvaGliaXRl
+ZCBhbmQgbWF5IGJlIHVubGF3ZnVsLg0KDQpJZiB5b3UgaGF2ZSByZWNlaXZlZCB0aGlzIGVtYWls
+IGluIGVycm9yIHBsZWFzZSBpbW1lZGlhdGVseSBub3RpZnkgdGhlIHNlbmRlciBhbmQgZGVsZXRl
+IG9yIGRlc3Ryb3kgYW55IGNvcHkgb2YgdGhpcyBtZXNzYWdlDQo=
