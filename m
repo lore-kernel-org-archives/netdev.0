@@ -1,99 +1,168 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH 2/3 for 3.18] rtlwifi: rtl8192ce: Fix kernel crashes due to missing callback entry
-Date: Fri, 28 Nov 2014 10:41:15 -0600
-Message-ID: <1417192876-12101-3-git-send-email-Larry.Finger@lwfinger.net>
-References: <1417192876-12101-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Catalin Iacob <iacobcatalin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1417192876-12101-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next v4 00/21] introduce rocker switch driver with
+ hardware accelerated datapath api - phase 1: bridge fdb offload
+Date: Fri, 28 Nov 2014 08:52:27 -0800
+Message-ID: <5478A84B.90209@cumulusnetworks.com>
+References: <1417084826-9875-1-git-send-email-jiri@resnulli.us> <CAE4R7bDNbyfxx+XExmej8-p=E3X4cHc+Sr75S=aO67XMYcmU8g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Thomas Graf <tgraf@suug.ch>,
+	"dborkman@redhat.com" <dborkman@redhat.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"jesse@nicira.com" <jesse@nicira.com>,
+	"pshelar@nicira.com" <pshelar@nicira.com>,
+	"azhou@nicira.com" <azhou@nicira.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	John Linville <linville@tuxdriver.com>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:43806 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751163AbaK1Qwi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 11:52:38 -0500
+In-Reply-To: <CAE4R7bDNbyfxx+XExmej8-p=E3X4cHc+Sr75S=aO67XMYcmU8g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In the major update of the rtlwifi-family of drivers, one of the callback entries
-was missed, which leads to memory corruption. Unfortunately, this corruption
-never caused a kernel oops, but showed up in other parts of the system.
-This patch is one of three needed to fix the kernel regression reported at
-https://bugzilla.kernel.org/show_bug.cgi?id=88951.
+On 11/28/14, 3:59 AM, Scott Feldman wrote:
+> Thanks Jiri for coordinating this effort.  It looks like we're close
+> to convergence on this first patch set.  I sifted thru review comments
+> and compiled a list of items for follow-on work.  I hope it's OK to
+> use etherpad for this:
+>
+> https://etherpad.wikimedia.org/p/netdev-swdev-todo
+>
+> Feel free to edit as needed and claim an item if you intend to work on
+> it.  Don't turn the etherpad into a discussion board...try to keep it
+> as list of work items.  I don't think any of these items should hold
+> up current patch set.
 
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Reported-by: Catalin Iacob <iacobcatalin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Tested-by: Catalin Iacob <iacobcatalin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Cc: Catalin Iacob <iacobcatalin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/wireless/rtlwifi/rtl8192ce/sw.c  |  3 +++
- drivers/net/wireless/rtlwifi/rtl8192ce/trx.c | 17 +++++++++++++++++
- drivers/net/wireless/rtlwifi/rtl8192ce/trx.h |  2 ++
- 3 files changed, 22 insertions(+)
+Thanks scott/jiri for putting this together. I made sure all my concerns 
+are covered on the ether-pad ;)
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/sw.c b/drivers/net/wireless/rtlwifi/rtl8192ce/sw.c
-index 46ea076..dd5aa08 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ce/sw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ce/sw.c
-@@ -228,6 +228,7 @@ static struct rtl_hal_ops rtl8192ce_hal_ops = {
- 	.led_control = rtl92ce_led_control,
- 	.set_desc = rtl92ce_set_desc,
- 	.get_desc = rtl92ce_get_desc,
-+	.is_tx_desc_closed = rtl92ce_is_tx_desc_closed,
- 	.tx_polling = rtl92ce_tx_polling,
- 	.enable_hw_sec = rtl92ce_enable_hw_security_config,
- 	.set_key = rtl92ce_set_key,
-@@ -271,6 +272,8 @@ static struct rtl_hal_cfg rtl92ce_hal_cfg = {
- 	.maps[MAC_RCR_ACRC32] = ACRC32,
- 	.maps[MAC_RCR_ACF] = ACF,
- 	.maps[MAC_RCR_AAP] = AAP,
-+	.maps[MAC_HIMR] = REG_HIMR,
-+	.maps[MAC_HIMRE] = REG_HIMRE,
- 
- 	.maps[EFUSE_TEST] = REG_EFUSE_TEST,
- 	.maps[EFUSE_CTRL] = REG_EFUSE_CTRL,
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c b/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
-index 0916275..e88dcd0 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
-@@ -739,6 +739,23 @@ u32 rtl92ce_get_desc(u8 *p_desc, bool istx, u8 desc_name)
- 	return ret;
- }
- 
-+bool rtl92ce_is_tx_desc_closed(struct ieee80211_hw *hw,
-+			       u8 hw_queue, u16 index)
-+{
-+	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
-+	struct rtl8192_tx_ring *ring = &rtlpci->tx_ring[hw_queue];
-+	u8 *entry = (u8 *)(&ring->desc[ring->idx]);
-+	u8 own = (u8)rtl92ce_get_desc(entry, true, HW_DESC_OWN);
-+
-+	/*beacon packet will only use the first
-+	 *descriptor defautly,and the own may not
-+	 *be cleared by the hardware
-+	 */
-+	if (own)
-+		return false;
-+	return true;
-+}
-+
- void rtl92ce_tx_polling(struct ieee80211_hw *hw, u8 hw_queue)
- {
- 	struct rtl_priv *rtlpriv = rtl_priv(hw);
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/trx.h b/drivers/net/wireless/rtlwifi/rtl8192ce/trx.h
-index 9a39ec4..4bec4b0 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ce/trx.h
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ce/trx.h
-@@ -723,6 +723,8 @@ bool rtl92ce_rx_query_desc(struct ieee80211_hw *hw,
- void rtl92ce_set_desc(struct ieee80211_hw *hw, u8 *pdesc, bool istx,
- 		      u8 desc_name, u8 *val);
- u32 rtl92ce_get_desc(u8 *pdesc, bool istx, u8 desc_name);
-+bool rtl92ce_is_tx_desc_closed(struct ieee80211_hw *hw,
-+			       u8 hw_queue, u16 index);
- void rtl92ce_tx_polling(struct ieee80211_hw *hw, u8 hw_queue);
- void rtl92ce_tx_fill_cmddesc(struct ieee80211_hw *hw, u8 *pdesc,
- 			     bool b_firstseg, bool b_lastseg,
--- 
-2.1.2
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+On Thu, Nov 27, 2014 at 2:40 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Hi all.
+>>
+>> This patchset is just the first phase of switch and switch-ish device
+>> support api in kernel. Note that the api will extend.
+>>
+>> So what this patchset includes:
+>> - introduce switchdev api skeleton for implementing switch drivers
+>> - introduce rocker switch driver which implements switchdev api fdb and
+>>    bridge set/get link ndos
+>>
+>> As to the discussion if there is need to have specific class of device
+>> representing the switch itself, so far we found no need to introduce that.
+>> But we are generally ok with the idea and when the time comes and it will
+>> be needed, it can be easily introduced without any disturbance.
+>>
+>> This patchset introduces switch id export through rtnetlink and sysfs,
+>> which is similar to what we have for port id in SR-IOV. I will send iproute2
+>> patchset for showing the switch id for port netdevs once this is applied.
+>> This applies also for the PF_BRIDGE and fdb iproute2 patches.
+>>
+>> iproute2 patches are now available here:
+>> https://github.com/jpirko/iproute2-rocker
+>>
+>> For detailed description and version history, please see individual patches.
+>>
+>> In v4 I reordered the patches leaving rocker patches on the end of the patchset.
+>>
+>> Jiri Pirko (10):
+>>    bridge: rename fdb_*_hw to fdb_*_hw_addr to avoid confusion
+>>    neigh: sort Neighbor Cache Entry Flags
+>>    bridge: convert flags in fbd entry into bitfields
+>>    net: make vid as a parameter for ndo_fdb_add/ndo_fdb_del
+>>    net: rename netdev_phys_port_id to more generic name
+>>    net: introduce generic switch devices support
+>>    rtnl: expose physical switch id for particular device
+>>    net-sysfs: expose physical switch id for particular device
+>>    rocker: introduce rocker switch driver
+>>    rocker: implement ndo_fdb_dump
+>>
+>> Scott Feldman (9):
+>>    bridge: call netdev_sw_port_stp_update when bridge port STP status
+>>      changes
+>>    bridge: add API to notify bridge driver of learned FBD on offloaded
+>>      device
+>>    bridge: move private brport flags to if_bridge.h so port drivers can
+>>      use flags
+>>    bridge: add new brport flag LEARNING_SYNC
+>>    bridge: add new hwmode swdev
+>>    bridge: add brport flags to dflt bridge_getlink
+>>    rocker: implement rocker ofdpa flow table manipulation
+>>    rocker: implement L2 bridge offloading
+>>    rocker: add ndo_bridge_setlink/getlink support for learning policy
+>>
+>> Thomas Graf (2):
+>>    rocker: Add proper validation of Netlink attributes
+>>    rocker: Use logical operators on booleans
+>>
+>>   Documentation/ABI/testing/sysfs-class-net        |    8 +
+>>   Documentation/networking/switchdev.txt           |   59 +
+>>   MAINTAINERS                                      |   14 +
+>>   drivers/net/ethernet/Kconfig                     |    1 +
+>>   drivers/net/ethernet/Makefile                    |    1 +
+>>   drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    2 +-
+>>   drivers/net/ethernet/emulex/benet/be_main.c      |    3 +-
+>>   drivers/net/ethernet/intel/i40e/i40e_main.c      |    4 +-
+>>   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |    6 +-
+>>   drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |    2 +-
+>>   drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   11 +-
+>>   drivers/net/ethernet/rocker/Kconfig              |   27 +
+>>   drivers/net/ethernet/rocker/Makefile             |    5 +
+>>   drivers/net/ethernet/rocker/rocker.c             | 4374 ++++++++++++++++++++++
+>>   drivers/net/ethernet/rocker/rocker.h             |  428 +++
+>>   drivers/net/macvlan.c                            |    4 +-
+>>   drivers/net/vxlan.c                              |    4 +-
+>>   include/linux/if_bridge.h                        |   31 +
+>>   include/linux/netdevice.h                        |   39 +-
+>>   include/linux/rtnetlink.h                        |    9 +-
+>>   include/net/switchdev.h                          |   37 +
+>>   include/uapi/linux/if_bridge.h                   |    1 +
+>>   include/uapi/linux/if_link.h                     |    2 +
+>>   include/uapi/linux/neighbour.h                   |    6 +-
+>>   net/Kconfig                                      |    1 +
+>>   net/Makefile                                     |    3 +
+>>   net/bridge/br_fdb.c                              |  144 +-
+>>   net/bridge/br_private.h                          |   21 +-
+>>   net/bridge/br_stp.c                              |    7 +
+>>   net/core/dev.c                                   |    2 +-
+>>   net/core/net-sysfs.c                             |   26 +-
+>>   net/core/rtnetlink.c                             |  119 +-
+>>   net/switchdev/Kconfig                            |   13 +
+>>   net/switchdev/Makefile                           |    5 +
+>>   net/switchdev/switchdev.c                        |   52 +
+>>   35 files changed, 5366 insertions(+), 105 deletions(-)
+>>   create mode 100644 Documentation/networking/switchdev.txt
+>>   create mode 100644 drivers/net/ethernet/rocker/Kconfig
+>>   create mode 100644 drivers/net/ethernet/rocker/Makefile
+>>   create mode 100644 drivers/net/ethernet/rocker/rocker.c
+>>   create mode 100644 drivers/net/ethernet/rocker/rocker.h
+>>   create mode 100644 include/net/switchdev.h
+>>   create mode 100644 net/switchdev/Kconfig
+>>   create mode 100644 net/switchdev/Makefile
+>>   create mode 100644 net/switchdev/switchdev.c
+>>
+>> --
+>> 1.9.3
+>>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
