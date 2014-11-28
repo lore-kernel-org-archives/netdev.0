@@ -1,126 +1,136 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: [PATCH v3] can: Convert to runtime_pm
-Date: Fri, 28 Nov 2014 01:49:12 +0000
-Message-ID: <d306383c84b9479d933b15c4b38da532@BN1AFFO11FD025.protection.gbl>
-References: <6b6db31d46074512a322eae6e4ef64d4@BN1BFFO11FD038.protection.gbl>
- <20141127182337.GF17884@xsjandreislx>
+From: Smart Weblications GmbH - Florian Wiessner
+	<f.wiessner@smart-weblications.de>
+Subject: Re: 3.12.33 Bug with ipvs
+Date: Fri, 28 Nov 2014 03:02:46 +0100
+Message-ID: <5477D7C6.4070709@smart-weblications.de>
+References: <54763E3F.4020306@smart-weblications.de> <alpine.LFD.2.11.1411270945240.7068@ja.home.ssi.bg>
+Reply-To: f.wiessner@smart-weblications.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "wg@grandegger.com" <wg@grandegger.com>,
-	"mkl@pengutronix.de" <mkl@pengutronix.de>,
-	Michal Simek <michals@xilinx.com>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Soren Brinkmann <sorenb@xilinx.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20141127182337.GF17884@xsjandreislx>
-Content-Language: en-US
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.smart-weblications.de ([188.65.144.61]:56768 "EHLO
+	mail.smart-weblications.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750926AbaK1CDL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 21:03:11 -0500
+In-Reply-To: <alpine.LFD.2.11.1411270945240.7068@ja.home.ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgU29yZW4sDQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBTw7ZyZW4gQnJp
-bmttYW5uIFttYWlsdG86c29yZW4uYnJpbmttYW5uQHhpbGlueC5jb21dDQpTZW50OiBUaHVyc2Rh
-eSwgTm92ZW1iZXIgMjcsIDIwMTQgMTE6NTQgUE0NClRvOiBBcHBhbmEgRHVyZ2EgS2VkYXJlc3dh
-cmEgUmFvDQpDYzogd2dAZ3JhbmRlZ2dlci5jb207IG1rbEBwZW5ndXRyb25peC5kZTsgTWljaGFs
-IFNpbWVrOyBncmFudC5saWtlbHlAbGluYXJvLm9yZzsgcm9iaCtkdEBrZXJuZWwub3JnOyBkZXZp
-Y2V0cmVlQHZnZXIua2VybmVsLm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2Vy
-bmVsQHZnZXIua2VybmVsLm9yZzsgbGludXgtY2FuQHZnZXIua2VybmVsLm9yZzsgQXBwYW5hIER1
-cmdhIEtlZGFyZXN3YXJhIFJhbzsgbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3Jn
-DQpTdWJqZWN0OiBSZTogW1BBVENIIHYzXSBjYW46IENvbnZlcnQgdG8gcnVudGltZV9wbQ0KDQpI
-aSBLZWRhciwNCg0KT24gVGh1LCAyMDE0LTExLTI3IGF0IDA2OjM4UE0gKzA1MzAsIEtlZGFyZXN3
-YXJhIHJhbyBBcHBhbmEgd3JvdGU6DQo+IEluc3RlYWQgb2YgZW5hYmxpbmcvZGlzYWJsaW5nIGNs
-b2NrcyBhdCBzZXZlcmFsIGxvY2F0aW9ucyBpbiB0aGUNCj4gZHJpdmVyLCB1c2UgdGhlIHJ1bnRp
-bWVfcG0gZnJhbWV3b3JrLiBUaGlzIGNvbnNvbGlkYXRlcyB0aGUgYWN0aW9ucw0KPiBmb3IgcnVu
-dGltZSBQTSBpbiB0aGUgYXBwcm9wcmlhdGUgY2FsbGJhY2tzIGFuZCBtYWtlcyB0aGUgZHJpdmVy
-IG1vcmUNCj4gcmVhZGFibGUgYW5kIG1hbnRhaW5hYmxlLg0KPg0KPiBTaWduZWQtb2ZmLWJ5OiBT
-b3JlbiBCcmlua21hbm4gPHNvcmVuLmJyaW5rbWFubkB4aWxpbnguY29tPg0KPiBTaWduZWQtb2Zm
-LWJ5OiBLZWRhcmVzd2FyYSByYW8gQXBwYW5hIDxhcHBhbmFkQHhpbGlueC5jb20+DQo+IC0tLQ0K
-PiBDaGFuZ2VzIGZvciB2MzoNCj4gICAtIENvbnZlcnRlZCB0aGUgZHJpdmVyIHRvIHVzZSBydW50
-aW1lX3BtLg0KPiBDaGFuZ2VzIGZvciB2MjoNCj4gICAtIFJlbW92ZWQgdGhlIHN0cnVjdCBwbGF0
-Zm9ybV9kZXZpY2UqIGZyb20gc3VzcGVuZC9yZXN1bWUNCj4gICAgIGFzIHN1Z2dlc3QgYnkgTG90
-aGFyLg0KPg0KPiAgZHJpdmVycy9uZXQvY2FuL3hpbGlueF9jYW4uYyB8ICAxMTkNCj4gKysrKysr
-KysrKysrKysrKysrKysrKysrKy0tLS0tLS0tLS0tLS0tLS0NCj4gIDEgZmlsZXMgY2hhbmdlZCwg
-NzIgaW5zZXJ0aW9ucygrKSwgNDcgZGVsZXRpb25zKC0pDQo+DQo+IGRpZmYgLS1naXQgYS9kcml2
-ZXJzL25ldC9jYW4veGlsaW54X2Nhbi5jDQo+IGIvZHJpdmVycy9uZXQvY2FuL3hpbGlueF9jYW4u
-YyBpbmRleCA4YTk5OGUzLi4xYmUyOGVkIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC9jYW4v
-eGlsaW54X2Nhbi5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2Nhbi94aWxpbnhfY2FuLmMNCj4gQEAg
-LTMyLDYgKzMyLDcgQEANCj4gICNpbmNsdWRlIDxsaW51eC9jYW4vZGV2Lmg+DQo+ICAjaW5jbHVk
-ZSA8bGludXgvY2FuL2Vycm9yLmg+DQo+ICAjaW5jbHVkZSA8bGludXgvY2FuL2xlZC5oPg0KPiAr
-I2luY2x1ZGUgPGxpbnV4L3BtX3J1bnRpbWUuaD4NCj4NCj4gICNkZWZpbmUgRFJJVkVSX05BTUUg
-ICJ4aWxpbnhfY2FuIg0KPg0KPiBAQCAtMTM4LDcgKzEzOSw3IEBAIHN0cnVjdCB4Y2FuX3ByaXYg
-ew0KPiAgICAgICB1MzIgKCpyZWFkX3JlZykoY29uc3Qgc3RydWN0IHhjYW5fcHJpdiAqcHJpdiwg
-ZW51bSB4Y2FuX3JlZyByZWcpOw0KPiAgICAgICB2b2lkICgqd3JpdGVfcmVnKShjb25zdCBzdHJ1
-Y3QgeGNhbl9wcml2ICpwcml2LCBlbnVtIHhjYW5fcmVnIHJlZywNCj4gICAgICAgICAgICAgICAg
-ICAgICAgIHUzMiB2YWwpOw0KPiAtICAgICBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2Ow0KPiArICAg
-ICBzdHJ1Y3QgZGV2aWNlICpkZXY7DQo+ICAgICAgIHZvaWQgX19pb21lbSAqcmVnX2Jhc2U7DQo+
-ICAgICAgIHVuc2lnbmVkIGxvbmcgaXJxX2ZsYWdzOw0KPiAgICAgICBzdHJ1Y3QgY2xrICpidXNf
-Y2xrOw0KPiBAQCAtODQyLDYgKzg0MywxMyBAQCBzdGF0aWMgaW50IHhjYW5fb3BlbihzdHJ1Y3Qg
-bmV0X2RldmljZSAqbmRldikNCj4gICAgICAgc3RydWN0IHhjYW5fcHJpdiAqcHJpdiA9IG5ldGRl
-dl9wcml2KG5kZXYpOw0KPiAgICAgICBpbnQgcmV0Ow0KPg0KPiArICAgICByZXQgPSBwbV9ydW50
-aW1lX2dldF9zeW5jKHByaXYtPmRldik7DQo+ICsgICAgIGlmIChyZXQgPCAwKSB7DQo+ICsgICAg
-ICAgICAgICAgbmV0ZGV2X2VycihuZGV2LCAiJXM6IHJ1bnRpbWUgQ0FOIHJlc3VtZSBmYWlsZWQo
-JWQpXG5cciIsDQoNClRoZXJlIG1pZ2h0IGJlIG90aGVyIGlzc3VlcyB0aGFuIHRoZSByZXN1bWUg
-dGhhdCBtYWtlIHRoaXMgZmFpbC4gSXQgc2hvdWxkIHByb2JhYmx5IGp1c3Qgc2F5ICdwbV9ydW50
-aW1lX2dldCBmYWlsZWQnLg0KVGhlIENBTiBpbiB0aGUgc3RyaW5nIHNob3VsZCBub3QgYmUgbmVl
-ZGVkLCB0aGUgbmV0ZGV2X2VyciBtYWNybyBtYWtlcyBzdXJlIHRoZSBkZXZpY2UgbmFtZSBpcyBw
-cmludGVkLg0KQ2FuIHdlIGhhdmUgYSBzcGFjZSBiZXR3ZWVuICdmYWlsZWQnIGFuZCB0aGUgZXJy
-b3IgY29kZT8NClRoZXJlIHNob3VsZCBub3QgYmUgYSAnXHInDQoNCksgc3VyZSB3aWxsIG1vZGlm
-eSB0aGUgZXJyb3IgbWVzc2FnZSBhcyB5b3UgZXhwbGFpbmVkIGFib3ZlLg0KDQo+ICsgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgIF9fZnVuY19fLCByZXQpOw0KPiArICAgICAgICAgICAgIHJl
-dHVybiByZXQ7DQo+ICsgICAgIH0NCj4gKw0KPiAgICAgICByZXQgPSByZXF1ZXN0X2lycShuZGV2
-LT5pcnEsIHhjYW5faW50ZXJydXB0LCBwcml2LT5pcnFfZmxhZ3MsDQo+ICAgICAgICAgICAgICAg
-ICAgICAgICBuZGV2LT5uYW1lLCBuZGV2KTsNCj4gICAgICAgaWYgKHJldCA8IDApIHsNCj4gQEAg
-LTg0OSwyOSArODU3LDE3IEBAIHN0YXRpYyBpbnQgeGNhbl9vcGVuKHN0cnVjdCBuZXRfZGV2aWNl
-ICpuZGV2KQ0KPiAgICAgICAgICAgICAgIGdvdG8gZXJyOw0KPiAgICAgICB9DQo+DQo+IC0gICAg
-IHJldCA9IGNsa19wcmVwYXJlX2VuYWJsZShwcml2LT5jYW5fY2xrKTsNCj4gLSAgICAgaWYgKHJl
-dCkgew0KPiAtICAgICAgICAgICAgIG5ldGRldl9lcnIobmRldiwgInVuYWJsZSB0byBlbmFibGUg
-ZGV2aWNlIGNsb2NrXG4iKTsNCj4gLSAgICAgICAgICAgICBnb3RvIGVycl9pcnE7DQo+IC0gICAg
-IH0NCj4gLQ0KPiAtICAgICByZXQgPSBjbGtfcHJlcGFyZV9lbmFibGUocHJpdi0+YnVzX2Nsayk7
-DQo+IC0gICAgIGlmIChyZXQpIHsNCj4gLSAgICAgICAgICAgICBuZXRkZXZfZXJyKG5kZXYsICJ1
-bmFibGUgdG8gZW5hYmxlIGJ1cyBjbG9ja1xuIik7DQo+IC0gICAgICAgICAgICAgZ290byBlcnJf
-Y2FuX2NsazsNCj4gLSAgICAgfQ0KPiAtDQo+ICAgICAgIC8qIFNldCBjaGlwIGludG8gcmVzZXQg
-bW9kZSAqLw0KPiAgICAgICByZXQgPSBzZXRfcmVzZXRfbW9kZShuZGV2KTsNCj4gICAgICAgaWYg
-KHJldCA8IDApIHsNCj4gICAgICAgICAgICAgICBuZXRkZXZfZXJyKG5kZXYsICJtb2RlIHJlc2V0
-dGluZyBmYWlsZWQhXG4iKTsNCj4gLSAgICAgICAgICAgICBnb3RvIGVycl9idXNfY2xrOw0KPiAr
-ICAgICAgICAgICAgIGdvdG8gZXJyX2lycTsNCj4gICAgICAgfQ0KPg0KPiAgICAgICAvKiBDb21t
-b24gb3BlbiAqLw0KPiAgICAgICByZXQgPSBvcGVuX2NhbmRldihuZGV2KTsNCj4gICAgICAgaWYg
-KHJldCkNCj4gLSAgICAgICAgICAgICBnb3RvIGVycl9idXNfY2xrOw0KPiArICAgICAgICAgICAg
-IGdvdG8gZXJyX2lycTsNCj4NCj4gICAgICAgcmV0ID0geGNhbl9jaGlwX3N0YXJ0KG5kZXYpOw0K
-PiAgICAgICBpZiAocmV0IDwgMCkgew0KPiBAQCAtODg3LDEzICs4ODMsMTEgQEAgc3RhdGljIGlu
-dCB4Y2FuX29wZW4oc3RydWN0IG5ldF9kZXZpY2UgKm5kZXYpDQo+DQo+ICBlcnJfY2FuZGV2Og0K
-PiAgICAgICBjbG9zZV9jYW5kZXYobmRldik7DQo+IC1lcnJfYnVzX2NsazoNCj4gLSAgICAgY2xr
-X2Rpc2FibGVfdW5wcmVwYXJlKHByaXYtPmJ1c19jbGspOw0KPiAtZXJyX2Nhbl9jbGs6DQo+IC0g
-ICAgIGNsa19kaXNhYmxlX3VucHJlcGFyZShwcml2LT5jYW5fY2xrKTsNCj4gIGVycl9pcnE6DQo+
-ICAgICAgIGZyZWVfaXJxKG5kZXYtPmlycSwgbmRldik7DQo+ICBlcnI6DQo+ICsgICAgIHBtX3J1
-bnRpbWVfcHV0KHByaXYtPmRldik7DQo+ICsNCj4gICAgICAgcmV0dXJuIHJldDsNCj4gIH0NCj4N
-Cj4gQEAgLTkxMCwxMiArOTA0LDExIEBAIHN0YXRpYyBpbnQgeGNhbl9jbG9zZShzdHJ1Y3QgbmV0
-X2RldmljZSAqbmRldikNCj4gICAgICAgbmV0aWZfc3RvcF9xdWV1ZShuZGV2KTsNCj4gICAgICAg
-bmFwaV9kaXNhYmxlKCZwcml2LT5uYXBpKTsNCj4gICAgICAgeGNhbl9jaGlwX3N0b3AobmRldik7
-DQo+IC0gICAgIGNsa19kaXNhYmxlX3VucHJlcGFyZShwcml2LT5idXNfY2xrKTsNCj4gLSAgICAg
-Y2xrX2Rpc2FibGVfdW5wcmVwYXJlKHByaXYtPmNhbl9jbGspOw0KPiAgICAgICBmcmVlX2lycShu
-ZGV2LT5pcnEsIG5kZXYpOw0KPiAgICAgICBjbG9zZV9jYW5kZXYobmRldik7DQo+DQo+ICAgICAg
-IGNhbl9sZWRfZXZlbnQobmRldiwgQ0FOX0xFRF9FVkVOVF9TVE9QKTsNCj4gKyAgICAgcG1fcnVu
-dGltZV9wdXQocHJpdi0+ZGV2KTsNCj4NCj4gICAgICAgcmV0dXJuIDA7DQo+ICB9DQo+IEBAIC05
-MzQsMjcgKzkyNywyMSBAQCBzdGF0aWMgaW50IHhjYW5fZ2V0X2JlcnJfY291bnRlcihjb25zdCBz
-dHJ1Y3QgbmV0X2RldmljZSAqbmRldiwNCj4gICAgICAgc3RydWN0IHhjYW5fcHJpdiAqcHJpdiA9
-IG5ldGRldl9wcml2KG5kZXYpOw0KPiAgICAgICBpbnQgcmV0Ow0KPg0KPiAtICAgICByZXQgPSBj
-bGtfcHJlcGFyZV9lbmFibGUocHJpdi0+Y2FuX2Nsayk7DQo+IC0gICAgIGlmIChyZXQpDQo+IC0g
-ICAgICAgICAgICAgZ290byBlcnI7DQo+ICsgICAgIHJldCA9IHBtX3J1bnRpbWVfZ2V0X3N5bmMo
-cHJpdi0+ZGV2KTsNCj4gKyAgICAgaWYgKHJldCA8IDApIHsNCj4gKyAgICAgICAgICAgICBuZXRk
-ZXZfZXJyKG5kZXYsICIlczogcnVudGltZSByZXN1bWUgZmFpbGVkKCVkKVxuXHIiLA0KPiArICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICBfX2Z1bmNfXywgcmV0KTsNCg0KQXMgYWJvdmUuDQoN
-Cksgd2lsbCBtb2RpZnkgdGhpcyB0b28uDQoNClJlZ2FyZHMsDQpLZWRhci4NCiAgICAgICAgU8O2
-cmVuDQoNCg0KVGhpcyBlbWFpbCBhbmQgYW55IGF0dGFjaG1lbnRzIGFyZSBpbnRlbmRlZCBmb3Ig
-dGhlIHNvbGUgdXNlIG9mIHRoZSBuYW1lZCByZWNpcGllbnQocykgYW5kIGNvbnRhaW4ocykgY29u
-ZmlkZW50aWFsIGluZm9ybWF0aW9uIHRoYXQgbWF5IGJlIHByb3ByaWV0YXJ5LCBwcml2aWxlZ2Vk
-IG9yIGNvcHlyaWdodGVkIHVuZGVyIGFwcGxpY2FibGUgbGF3LiBJZiB5b3UgYXJlIG5vdCB0aGUg
-aW50ZW5kZWQgcmVjaXBpZW50LCBkbyBub3QgcmVhZCwgY29weSwgb3IgZm9yd2FyZCB0aGlzIGVt
-YWlsIG1lc3NhZ2Ugb3IgYW55IGF0dGFjaG1lbnRzLiBEZWxldGUgdGhpcyBlbWFpbCBtZXNzYWdl
-IGFuZCBhbnkgYXR0YWNobWVudHMgaW1tZWRpYXRlbHkuDQoNCg==
+Hi,
+
+Am 27.11.2014 09:08, schrieb Julian Anastasov:
+>=20
+> 	Hello,
+>=20
+> On Wed, 26 Nov 2014, Smart Weblications GmbH - Florian Wiessner wrote=
+:
+>=20
+>> Hi netdev,
+>>
+>> On 3.12.33 i see this every 3 hours or so on a box with ip_vs runnin=
+g with a
+>> setup which made no problems on 3.10.40. Could someone give me hints=
+ how to
+>> debug this? It seems to happen instantly, when i add ip_vs_ftp and h=
+ave some nat
+>> rules. Setup is like this:
+>>
+>=20
+>> [13230.431740] RIP  [<ffffffff814ff2fc>] xfrm_selector_match+0x25/0x=
+2f6
+>> [13230.431772]  RSP <ffff88083fd83a68>
+>> [13230.431795] CR2: 00000000000600d0
+>> [13230.432240] ---[ end trace 103912aa204977dc ]---
+>>
+>> node01:/ocfs2/usr/src/linux-3.12.33/scripts# ./decodecode </tmp/oops=
+=2Elog
+>> [13230.431464] Code: 5d 41 5e 41 5f c3 41 55 66 83 fa 02 41 54 55 48=
+ 89 fd 53 48
+>> 89 f3 41 50 74 11 31 c0 66 83 fa 0a 0f 85 ce 02 00 00 e9 fd 00 00 00=
+ <0f> b6 47
+>> 2a 8b 17 8b 76 18 84 c0 74 1a b9 20 00 00 00 31 f2 29
+>> All code
+>> =3D=3D=3D=3D=3D=3D=3D=3D
+>>    0:   5d                      pop    %rbp
+>>    1:   41 5e                   pop    %r14
+>>    3:   41 5f                   pop    %r15
+>>    5:   c3                      retq
+>>    6:   41 55                   push   %r13
+>>    8:   66 83 fa 02             cmp    $0x2,%dx
+>>    c:   41 54                   push   %r12
+>>    e:   55                      push   %rbp
+>>    f:   48 89 fd                mov    %rdi,%rbp
+>>   12:   53                      push   %rbx
+>>   13:   48 89 f3                mov    %rsi,%rbx
+>>   16:   41 50                   push   %r8
+>>   18:   74 11                   je     0x2b
+>>   1a:   31 c0                   xor    %eax,%eax
+>>   1c:   66 83 fa 0a             cmp    $0xa,%dx
+>>   20:   0f 85 ce 02 00 00       jne    0x2f4
+>>   26:   e9 fd 00 00 00          jmpq   0x128
+>>   2b:*  0f b6 47 2a             movzbl 0x2a(%rdi),%eax          <-- =
+trapping
+>> instruction
+>=20
+> 	Above instruction is 'sel->prefixlen_d' from
+> the addr4_match call in __xfrm4_selector_match. Looks like
+> we dereference sel (%rdi) with bad value of 00000000000600a6.
+> xfrm_sk_policy_lookup() provides &pol->selector to
+> xfrm_selector_match, so pol has a bad value. I don't remember
+> for such problem, not sure if the 3-hour period is some timer
+> in xfrm.
+>=20
+
+In fact it could be timer related:
+1st. try
+[13061.933733] IP: [<ffffffff8154f5a3>] xfrm_selector_match+0x25/0x2f6
+[13061.934440] RIP: 0010:[<ffffffff8154f5a3>]  [<ffffffff8154f5a3>]
+xfrm_selector_match+0x25/0x2f6
+[13061.936477] RIP  [<ffffffff8154f5a3>] xfrm_selector_match+0x25/0x2f6
+2nd. try
+[13230.422541] IP: [<ffffffff814ff2fc>] xfrm_selector_match+0x25/0x2f6
+[13230.423440] RIP: 0010:[<ffffffff814ff2fc>]  [<ffffffff814ff2fc>]
+xfrm_selector_match+0x25/0x2f6
+[13230.431740] RIP  [<ffffffff814ff2fc>] xfrm_selector_match+0x25/0x2f6
+
+
+>> Could someone shed some light on the decoded output and point me som=
+ewhere so i
+>> can debug this further?
+>=20
+> 	If noone else has idea what can be wrong, can you try
+> some kernels between 3.10.40 and 3.12.33 or even some lastest
+> kernel?
+>=20
+
+I tried 3.17.4 which seems not have this issue any more, but has anothe=
+r
+regression in ocfs2 which is why we cannot use it.
+
+3.10.61 looks fine so far, but i cannot tell for sure, uptime is 1:23 r=
+ight now,
+i'll keep you updated.
+
+--=20
+
+Mit freundlichen Gr=FC=DFen,
+
+=46lorian Wiessner
+
+Smart Weblications GmbH
+Martinsberger Str. 1
+D-95119 Naila
+
+fon.: +49 9282 9638 200
+fax.: +49 9282 9638 205
+24/7: +49 900 144 000 00 - 0,99 EUR/Min*
+http://www.smart-weblications.de
+
+--
+Sitz der Gesellschaft: Naila
+Gesch=E4ftsf=FChrer: Florian Wiessner
+HRB-Nr.: HRB 3840 Amtsgericht Hof
+*aus dem dt. Festnetz, ggf. abweichende Preise aus dem Mobilfunknetz
