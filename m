@@ -1,11 +1,11 @@
 From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: Is this 32-bit NCM?
-Date: Fri, 28 Nov 2014 09:42:30 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1411280941350.4020@gmail.com>
+Date: Fri, 28 Nov 2014 09:45:10 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1411280944200.4040@gmail.com>
 References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com> <54781523.6030600@audiocodes.com>
  <alpine.LNX.2.03.1411280923230.3997@gmail.com> <54783443.50700@audiocodes.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-304491489-1417164151=:4020"
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1673189312-1417164311=:4040"
 Cc: Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
 	=?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
 	Midge Shaojun Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
@@ -22,14 +22,13 @@ List-Id: netdev.vger.kernel.org
   This message is in MIME format.  The first part should be readable text,
   while the remaining parts are likely unreadable without MIME-aware tools.
 
---8323328-304491489-1417164151=:4020
+--8323328-1673189312-1417164311=:4040
 Content-Type: TEXT/PLAIN; charset=utf-8
 Content-Transfer-Encoding: 8BIT
 
-But you are still in 16-bit mode, right?
-Have you tried by chance in 32-bit mode? I am convinced this is not the problem 
-... but, justi n case?
-thank you Kevin for your work - and sorry for being not so helpful...
+To test our 32-bit driver, you need at least Ubuntu 14.04 and install the 3.16 
+kernel; or install a kernel >= 3.16 anyway, as our modification is based on the 
+cdc_ncm.c file from the git tree for logical reason.
 
 
 On Fri, 28 Nov 2014, Kevin Zhu wrote:
@@ -247,7 +246,7 @@ On Fri, 28 Nov 2014, Kevin Zhu wrote:
 ==
 ==If you have received this email in error please immediately notify the sender and delete or destroy any copy of this message
 ==
---8323328-304491489-1417164151=:4020--
+--8323328-1673189312-1417164311=:4040--
 --
 To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
