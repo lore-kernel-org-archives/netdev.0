@@ -1,179 +1,268 @@
-From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH v2 net] sh_eth: Fix sleeping function called from invalid context
-Date: Fri, 28 Nov 2014 10:04:15 +0900
-Message-ID: <1417136655-20052-1-git-send-email-horms+renesas@verge.net.au>
-Cc: linux-arm-kernel@lists.infradead.org,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Yoshihiro Kaneko <ykaneko0929@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
+From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
+Subject: RE: [PATCH v3] can: Convert to runtime_pm
+Date: Fri, 28 Nov 2014 01:47:42 +0000
+Message-ID: <9b39dc479fae4456a9868770bea3d95c@BN1AFFO11FD035.protection.gbl>
+References: <1417093733-29576-1-git-send-email-appanad@xilinx.com>
+ <54773948.2070605@xilinx.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Michal Simek <michals@xilinx.com>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	"mkl@pengutronix.de" <mkl@pengutronix.de>,
+	Michal Simek <michals@xilinx.com>,
+	Soren Brinkmann <sorenb@xilinx.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <54773948.2070605@xilinx.com>
+Content-Language: en-US
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+Hi Michal,
 
-This resolves the following bug which can be reproduced by building the
-kernel with CONFIG_DEBUG_ATOMIC_SLEEP=y and reading network statistics
-while the network interface is down.
+-----Original Message-----
+From: Michal Simek [mailto:michal.simek@xilinx.com]
+Sent: Thursday, November 27, 2014 8:17 PM
+To: Appana Durga Kedareswara Rao; wg@grandegger.com; mkl@pengutronix.de; Michal Simek; Soren Brinkmann; grant.likely@linaro.org; robh+dt@kernel.org
+Cc: linux-can@vger.kernel.org; netdev@vger.kernel.org; linux-arm-kernel@lists.infradead.org; linux-kernel@vger.kernel.org; devicetree@vger.kernel.org; Appana Durga Kedareswara Rao
+Subject: Re: [PATCH v3] can: Convert to runtime_pm
 
-e.g.:
+On 11/27/2014 02:08 PM, Kedareswara rao Appana wrote:
+> Instead of enabling/disabling clocks at several locations in the
+> driver, use the runtime_pm framework. This consolidates the actions
+> for runtime PM in the appropriate callbacks and makes the driver more
+> readable and mantainable.
+>
+> Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
+> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
+> ---
+> Changes for v3:
+>   - Converted the driver to use runtime_pm.
+> Changes for v2:
+>   - Removed the struct platform_device* from suspend/resume
+>     as suggest by Lothar.
+>
+>  drivers/net/can/xilinx_can.c |  119
+> +++++++++++++++++++++++++----------------
+>  1 files changed, 72 insertions(+), 47 deletions(-)
+>
+> diff --git a/drivers/net/can/xilinx_can.c
+> b/drivers/net/can/xilinx_can.c index 8a998e3..1be28ed 100644
+> --- a/drivers/net/can/xilinx_can.c
+> +++ b/drivers/net/can/xilinx_can.c
+> @@ -32,6 +32,7 @@
+>  #include <linux/can/dev.h>
+>  #include <linux/can/error.h>
+>  #include <linux/can/led.h>
+> +#include <linux/pm_runtime.h>
+>
+>  #define DRIVER_NAME  "xilinx_can"
+>
+> @@ -138,7 +139,7 @@ struct xcan_priv {
+>       u32 (*read_reg)(const struct xcan_priv *priv, enum xcan_reg reg);
+>       void (*write_reg)(const struct xcan_priv *priv, enum xcan_reg reg,
+>                       u32 val);
+> -     struct net_device *dev;
+> +     struct device *dev;
+>       void __iomem *reg_base;
+>       unsigned long irq_flags;
+>       struct clk *bus_clk;
+> @@ -842,6 +843,13 @@ static int xcan_open(struct net_device *ndev)
+>       struct xcan_priv *priv = netdev_priv(ndev);
+>       int ret;
+>
+> +     ret = pm_runtime_get_sync(priv->dev);
+> +     if (ret < 0) {
+> +             netdev_err(ndev, "%s: runtime CAN resume failed(%d)\n\r",
+> +                             __func__, ret);
+> +             return ret;
+> +     }
+> +
+>       ret = request_irq(ndev->irq, xcan_interrupt, priv->irq_flags,
+>                       ndev->name, ndev);
+>       if (ret < 0) {
+> @@ -849,29 +857,17 @@ static int xcan_open(struct net_device *ndev)
+>               goto err;
+>       }
+>
+> -     ret = clk_prepare_enable(priv->can_clk);
+> -     if (ret) {
+> -             netdev_err(ndev, "unable to enable device clock\n");
+> -             goto err_irq;
+> -     }
+> -
+> -     ret = clk_prepare_enable(priv->bus_clk);
+> -     if (ret) {
+> -             netdev_err(ndev, "unable to enable bus clock\n");
+> -             goto err_can_clk;
+> -     }
+> -
+>       /* Set chip into reset mode */
+>       ret = set_reset_mode(ndev);
+>       if (ret < 0) {
+>               netdev_err(ndev, "mode resetting failed!\n");
+> -             goto err_bus_clk;
+> +             goto err_irq;
+>       }
+>
+>       /* Common open */
+>       ret = open_candev(ndev);
+>       if (ret)
+> -             goto err_bus_clk;
+> +             goto err_irq;
+>
+>       ret = xcan_chip_start(ndev);
+>       if (ret < 0) {
+> @@ -887,13 +883,11 @@ static int xcan_open(struct net_device *ndev)
+>
+>  err_candev:
+>       close_candev(ndev);
+> -err_bus_clk:
+> -     clk_disable_unprepare(priv->bus_clk);
+> -err_can_clk:
+> -     clk_disable_unprepare(priv->can_clk);
+>  err_irq:
+>       free_irq(ndev->irq, ndev);
+>  err:
+> +     pm_runtime_put(priv->dev);
+> +
+>       return ret;
+>  }
+>
+> @@ -910,12 +904,11 @@ static int xcan_close(struct net_device *ndev)
+>       netif_stop_queue(ndev);
+>       napi_disable(&priv->napi);
+>       xcan_chip_stop(ndev);
+> -     clk_disable_unprepare(priv->bus_clk);
+> -     clk_disable_unprepare(priv->can_clk);
+>       free_irq(ndev->irq, ndev);
+>       close_candev(ndev);
+>
+>       can_led_event(ndev, CAN_LED_EVENT_STOP);
+> +     pm_runtime_put(priv->dev);
+>
+>       return 0;
+>  }
+> @@ -934,27 +927,21 @@ static int xcan_get_berr_counter(const struct net_device *ndev,
+>       struct xcan_priv *priv = netdev_priv(ndev);
+>       int ret;
+>
+> -     ret = clk_prepare_enable(priv->can_clk);
+> -     if (ret)
+> -             goto err;
+> +     ret = pm_runtime_get_sync(priv->dev);
+> +     if (ret < 0) {
+> +             netdev_err(ndev, "%s: runtime resume failed(%d)\n\r",
+> +                             __func__, ret);
+> +             return ret;
+> +     }
+>
+> -     ret = clk_prepare_enable(priv->bus_clk);
+> -     if (ret)
+> -             goto err_clk;
+>
+>       bec->txerr = priv->read_reg(priv, XCAN_ECR_OFFSET) & XCAN_ECR_TEC_MASK;
+>       bec->rxerr = ((priv->read_reg(priv, XCAN_ECR_OFFSET) &
+>                       XCAN_ECR_REC_MASK) >> XCAN_ESR_REC_SHIFT);
+>
+> -     clk_disable_unprepare(priv->bus_clk);
+> -     clk_disable_unprepare(priv->can_clk);
+> +     pm_runtime_put(priv->dev);
+>
+>       return 0;
+> -
+> -err_clk:
+> -     clk_disable_unprepare(priv->can_clk);
+> -err:
+> -     return ret;
+>  }
+>
+>
+> @@ -967,15 +954,45 @@ static const struct net_device_ops
+> xcan_netdev_ops = {
+>
+>  /**
+>   * xcan_suspend - Suspend method for the driver
+> - * @dev:     Address of the platform_device structure
+> + * @dev:     Address of the net_device structure
 
-ifconfig eth0 down
-cat /sys/class/net/eth0/statistics/tx_errors
+This is just the device structure.
 
-----
-[ 1238.161349] BUG: sleeping function called from invalid context at drivers/base/power/runtime.c:952
-[ 1238.188279] in_atomic(): 1, irqs_disabled(): 0, pid: 1388, name: cat
-[ 1238.207425] CPU: 0 PID: 1388 Comm: cat Not tainted 3.10.31-ltsi-00046-gefa0b46 #1087
-[ 1238.230737] Backtrace:
-[ 1238.238123] [<c0012e64>] (dump_backtrace+0x0/0x10c) from [<c0013000>] (show_stack+0x18/0x1c)
-[ 1238.263499]  r6:000003b8 r5:c06160c0 r4:c0669e00 r3:00404000
-[ 1238.280583] [<c0012fe8>] (show_stack+0x0/0x1c) from [<c04515a4>] (dump_stack+0x20/0x28)
-[ 1238.304631] [<c0451584>] (dump_stack+0x0/0x28) from [<c004970c>] (__might_sleep+0xf8/0x118)
-[ 1238.329734] [<c0049614>] (__might_sleep+0x0/0x118) from [<c02465ac>] (__pm_runtime_resume+0x38/0x90)
-[ 1238.357170]  r7:d616f000 r6:c049c458 r5:00000004 r4:d6a17210
-[ 1238.374251] [<c0246574>] (__pm_runtime_resume+0x0/0x90) from [<c029b1c4>] (sh_eth_get_stats+0x44/0x280)
-[ 1238.402468]  r7:d616f000 r6:c049c458 r5:d5c21000 r4:d5c21000
-[ 1238.419552] [<c029b180>] (sh_eth_get_stats+0x0/0x280) from [<c03ae39c>] (dev_get_stats+0x54/0x88)
-[ 1238.446204]  r5:d5c21000 r4:d5ed7e08
-[ 1238.456980] [<c03ae348>] (dev_get_stats+0x0/0x88) from [<c03c677c>] (netstat_show.isra.15+0x54/0x9c)
-[ 1238.484413]  r6:d5c21000 r5:d5c21238 r4:00000028 r3:00000001
-[ 1238.501495] [<c03c6728>] (netstat_show.isra.15+0x0/0x9c) from [<c03c69b8>] (show_tx_errors+0x18/0x1c)
-[ 1238.529196]  r7:d5f945d8 r6:d5f945c0 r5:c049716c r4:c0650e7c
-[ 1238.546279] [<c03c69a0>] (show_tx_errors+0x0/0x1c) from [<c023963c>] (dev_attr_show+0x24/0x50)
-[ 1238.572157] [<c0239618>] (dev_attr_show+0x0/0x50) from [<c010c148>] (sysfs_read_file+0xb0/0x140)
-[ 1238.598554]  r5:c049716c r4:d5c21240
-[ 1238.609326] [<c010c098>] (sysfs_read_file+0x0/0x140) from [<c00b9ee4>] (vfs_read+0xb0/0x13c)
-[ 1238.634679] [<c00b9e34>] (vfs_read+0x0/0x13c) from [<c00ba0ac>] (SyS_read+0x44/0x74)
-[ 1238.657944]  r8:bef45bf0 r7:00000000 r6:d6ac0600 r5:00000000 r4:00000000
-[ 1238.678172] [<c00ba068>] (SyS_read+0x0/0x74) from [<c000eec0>] (ret_fast_syscall+0x0/0x30)
-----
+K will modify in the next version of the patch .
 
-Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
-Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+>   *
+>   * Put the driver into low power mode.
+> - * Return: 0 always
+> + * Return: 0 on success and failure value on error
+>   */
+>  static int __maybe_unused xcan_suspend(struct device *dev)  {
+> -     struct platform_device *pdev = dev_get_drvdata(dev);
+> -     struct net_device *ndev = platform_get_drvdata(pdev);
+> +     if (!device_may_wakeup(dev))
+> +             return pm_runtime_force_suspend(dev);
+> +
+> +     return 0;
+> +}
+> +
+> +/**
+> + * xcan_resume - Resume from suspend
+> + * @dev:     Address of the net_device structure
 
----
-v2 [Simon Horman]
-* Enhance changelog to describe how the problem may be reproduced.
-* Use bitfield rather than boolean for is_opened field of
-  struct sh_eth_private. As suggested by Sergei Shtylyov.
----
- drivers/net/ethernet/renesas/sh_eth.c | 64 +++++++++++++++++++----------------
- drivers/net/ethernet/renesas/sh_eth.h |  1 +
- 2 files changed, 36 insertions(+), 29 deletions(-)
+ditto
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 60e9c2c..862a691 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2042,6 +2042,8 @@ static int sh_eth_open(struct net_device *ndev)
- 	if (ret)
- 		goto out_free_irq;
- 
-+	mdp->is_opened = 1;
-+
- 	return ret;
- 
- out_free_irq:
-@@ -2131,6 +2133,36 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	return NETDEV_TX_OK;
- }
- 
-+static struct net_device_stats *sh_eth_get_stats(struct net_device *ndev)
-+{
-+	struct sh_eth_private *mdp = netdev_priv(ndev);
-+
-+	if (sh_eth_is_rz_fast_ether(mdp))
-+		return &ndev->stats;
-+
-+	if (!mdp->is_opened)
-+		return &ndev->stats;
-+
-+	ndev->stats.tx_dropped += sh_eth_read(ndev, TROCR);
-+	sh_eth_write(ndev, 0, TROCR);	/* (write clear) */
-+	ndev->stats.collisions += sh_eth_read(ndev, CDCR);
-+	sh_eth_write(ndev, 0, CDCR);	/* (write clear) */
-+	ndev->stats.tx_carrier_errors += sh_eth_read(ndev, LCCR);
-+	sh_eth_write(ndev, 0, LCCR);	/* (write clear) */
-+
-+	if (sh_eth_is_gether(mdp)) {
-+		ndev->stats.tx_carrier_errors += sh_eth_read(ndev, CERCR);
-+		sh_eth_write(ndev, 0, CERCR);	/* (write clear) */
-+		ndev->stats.tx_carrier_errors += sh_eth_read(ndev, CEECR);
-+		sh_eth_write(ndev, 0, CEECR);	/* (write clear) */
-+	} else {
-+		ndev->stats.tx_carrier_errors += sh_eth_read(ndev, CNDCR);
-+		sh_eth_write(ndev, 0, CNDCR);	/* (write clear) */
-+	}
-+
-+	return &ndev->stats;
-+}
-+
- /* device close function */
- static int sh_eth_close(struct net_device *ndev)
- {
-@@ -2145,6 +2177,7 @@ static int sh_eth_close(struct net_device *ndev)
- 	sh_eth_write(ndev, 0, EDTRR);
- 	sh_eth_write(ndev, 0, EDRRR);
- 
-+	sh_eth_get_stats(ndev);
- 	/* PHY Disconnect */
- 	if (mdp->phydev) {
- 		phy_stop(mdp->phydev);
-@@ -2163,36 +2196,9 @@ static int sh_eth_close(struct net_device *ndev)
- 
- 	pm_runtime_put_sync(&mdp->pdev->dev);
- 
--	return 0;
--}
--
--static struct net_device_stats *sh_eth_get_stats(struct net_device *ndev)
--{
--	struct sh_eth_private *mdp = netdev_priv(ndev);
--
--	if (sh_eth_is_rz_fast_ether(mdp))
--		return &ndev->stats;
--
--	pm_runtime_get_sync(&mdp->pdev->dev);
--
--	ndev->stats.tx_dropped += sh_eth_read(ndev, TROCR);
--	sh_eth_write(ndev, 0, TROCR);	/* (write clear) */
--	ndev->stats.collisions += sh_eth_read(ndev, CDCR);
--	sh_eth_write(ndev, 0, CDCR);	/* (write clear) */
--	ndev->stats.tx_carrier_errors += sh_eth_read(ndev, LCCR);
--	sh_eth_write(ndev, 0, LCCR);	/* (write clear) */
--	if (sh_eth_is_gether(mdp)) {
--		ndev->stats.tx_carrier_errors += sh_eth_read(ndev, CERCR);
--		sh_eth_write(ndev, 0, CERCR);	/* (write clear) */
--		ndev->stats.tx_carrier_errors += sh_eth_read(ndev, CEECR);
--		sh_eth_write(ndev, 0, CEECR);	/* (write clear) */
--	} else {
--		ndev->stats.tx_carrier_errors += sh_eth_read(ndev, CNDCR);
--		sh_eth_write(ndev, 0, CNDCR);	/* (write clear) */
--	}
--	pm_runtime_put_sync(&mdp->pdev->dev);
-+	mdp->is_opened = 0;
- 
--	return &ndev->stats;
-+	return 0;
- }
- 
- /* ioctl to device function */
-diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-index b37c427..81fcab3 100644
---- a/drivers/net/ethernet/renesas/sh_eth.h
-+++ b/drivers/net/ethernet/renesas/sh_eth.h
-@@ -522,6 +522,7 @@ struct sh_eth_private {
- 
- 	unsigned no_ether_link:1;
- 	unsigned ether_link_active_low:1;
-+	unsigned is_opened:1;
- };
- 
- static inline void sh_eth_soft_swap(char *src, int len)
--- 
-2.1.3
+K will modify in the next version of the patch .
+
+> + *
+> + * Resume operation after suspend.
+> + * Return: 0 on success and failure value on error  */ static int
+> +__maybe_unused xcan_resume(struct device *dev) {
+> +     if (!device_may_wakeup(dev))
+> +             return pm_runtime_force_resume(dev);
+> +
+> +     return 0;
+> +
+> +}
+> +
+> +/**
+> + * xcan_runtime_suspend - Runtime suspend method for the driver
+> + * @dev:     Address of the net_device structure
+
+ditto.
+K will modify in the next version of the patch .
+> + *
+> + * Put the driver into low power mode.
+> + * Return: 0 always
+> + */
+> +static int __maybe_unused xcan_runtime_suspend(struct device *dev) {
+> +     struct net_device *ndev = dev_get_drvdata(dev);
+>       struct xcan_priv *priv = netdev_priv(ndev);
+>
+>       if (netif_running(ndev)) {
+> @@ -993,16 +1010,15 @@ static int __maybe_unused xcan_suspend(struct
+> device *dev)  }
+>
+>  /**
+> - * xcan_resume - Resume from suspend
+> - * @dev:     Address of the platformdevice structure
+> + * xcan_runtime_resume - Runtime resume from suspend
+> + * @dev:     Address of the net_device structure
+
+ditto.
+K will modify in the next version of the patch .
+
+Regards,
+Kedar.
+Thanks,
+Michal
+
+
+This email and any attachments are intended for the sole use of the named recipient(s) and contain(s) confidential information that may be proprietary, privileged or copyrighted under applicable law. If you are not the intended recipient, do not read, copy, or forward this email message or any attachments. Delete this email message and any attachments immediately.
 
