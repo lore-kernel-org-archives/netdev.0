@@ -1,48 +1,47 @@
-From: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] drivers:net:wireless: Add mutex locking for function,
- b43_op_beacon_set_time in main.c
-Date: Fri, 28 Nov 2014 17:16:53 -0500
-Message-ID: <1417213013-19758-1-git-send-email-xerofoify@gmail.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: tun issue after e0b46d0ee9c: tun: Use iovec iterators
+Date: Fri, 28 Nov 2014 22:35:03 +0000
+Message-ID: <20141128223503.GE29748@ZenIV.linux.org.uk>
+References: <5478CC27.9040705@redhat.com>
+ <20141128203733.GD29748@ZenIV.linux.org.uk>
+ <5478F2BB.9050409@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org
-Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
-List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, netdev <netdev@vger.kernel.org>
+To: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:55882 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751209AbaK1WfH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 17:35:07 -0500
+Content-Disposition: inline
+In-Reply-To: <5478F2BB.9050409@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Adds needed mutex lockng  of wl->mutex in order to prevent issues with separate threads executing on
-the b43_update_templates function call in the function, b43_op_beacon_set_time at the same time.
+On Fri, Nov 28, 2014 at 08:10:03PM -0200, Marcelo Ricardo Leitner wrote:
+> >Could you print vnet_hdr_sz and sizeof(gso) right after that
+> >copy_from_iter(&gso, ...)?
+> 
+> Did a:
+>         else {
+>                 err = skb_copy_datagram_from_iter(skb, 0, from, len);
+> +               pr_err("vnet_hdr_sz=%d sizeof(gso)=%lu\n",
+> tun->vnet_hdr_sz, sizeof(gso));
+>                 if (!err && msg_control) {
+> 
+> Got, for tun:
+> [   50.514165] tun: vnet_hdr_sz=12 sizeof(gso)=10
+> 
+> for tap:
+> [   82.911840] tun: vnet_hdr_sz=10 sizeof(gso)=10
+> 
+> other values were just as before.
 
-Signed-off-by: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/wireless/b43/main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Hmm...  Do you have
+commit 8c847d254146d32c86574a1b16923ff91bb784dd
+Author: Jason Wang <jasowang@redhat.com>
+Date:   Thu Nov 13 16:54:14 2014 +0800
 
-diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
-index 5d4173e..19ddc72 100644
---- a/drivers/net/wireless/b43/main.c
-+++ b/drivers/net/wireless/b43/main.c
-@@ -5094,8 +5094,9 @@ static int b43_op_beacon_set_tim(struct ieee80211_hw *hw,
- {
- 	struct b43_wl *wl = hw_to_b43_wl(hw);
- 
--	/* FIXME: add locking */
-+	mutex_lock(&wl->mutex);
- 	b43_update_templates(wl);
-+	mutex_unlock(&wl->mutex);
- 
- 	return 0;
- }
--- 
-2.1.0
+    tun: fix issues of iovec iterators using in tun_put_user()
+in your tree?
