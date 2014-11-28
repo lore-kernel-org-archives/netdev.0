@@ -1,223 +1,191 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: Re: Is this 32-bit NCM?
-Date: Fri, 28 Nov 2014 09:17:22 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1411280915310.3981@gmail.com>
-References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
- <54781523.6030600@audiocodes.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH v6 40/46] tun: TUN_VNET_LE support, fix sparse warnings
+ for virtio headers
+Date: Fri, 28 Nov 2014 08:27:48 +0008
+Message-ID: <1417162788.5822.2@smtp.corp.redhat.com>
+References: <1417118789-18231-1-git-send-email-mst@redhat.com>
+	<1417118789-18231-41-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1152767112-1417162644=:3981"
-Cc: Alex Strizhevsky <alexxst@gmail.com>,
-	=?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
-	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
-	Enrico Mioso <mrkiko.rs@gmail.com>,
-	"youtux@gmail.com" <youtux@gmail.com>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eli Britstein <Eli.Britstein@audiocodes.com>
-To: Kevin Zhu <Mingying.Zhu@audiocodes.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:49445 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750904AbaK1IQz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 03:16:55 -0500
-In-Reply-To: <54781523.6030600@audiocodes.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
---8323328-1152767112-1417162644=:3981
-Content-Type: TEXT/PLAIN; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-
-And...why in Windows we have this line?
-0050   75 76 77 61 62 63 64 65 66 67 68 69 6e 63 6d 30  uvwabcdefghincm0
-Is this just padding stuff before the "ncm0" string?
-So in particular a simple line needs to be modified in practice in the driver, 
-or am I totally misguised?
-Is our "offset" parameter calculatedsuitably in the driver? Looking at it, any 
-comment appreciated.
+Content-Type: text/plain; charset=utf-8; format=flowed
+Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	cornelia.huck@de.ibm.com, rusty@au1.ibm.com, nab@linux-iscsi.org,
+	pbonzini@redhat.com, thuth@linux.vnet.ibm.com,
+	dahi@linux.vnet.ibm.com, Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Tom Herbert <therbert@google.com>,
+	Masatake YAMATO <yamato@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Xi Wang <xii@google.com>, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1417118789-18231-41-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-On Fri, 28 Nov 2014, Kevin Zhu wrote:
 
-==Date: Fri, 28 Nov 2014 07:24:49
-==From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
-==To: Alex Strizhevsky <alexxst@gmail.com>, Bjørn Mork <bjorn@mork.no>,
-==    Midge Shaojun  Tan <ShaojunMidge.Tan@audiocodes.com>
-==Cc: Enrico Mioso <mrkiko.rs@gmail.com>, "youtux@gmail.com" <youtux@gmail.com>,
-==    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-==    "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-==    Eli Britstein <Eli.Britstein@audiocodes.com>
-==Subject: Re: Is this 32-bit NCM?
-==
-==Hi all,
-==
-==I'm able to get the following prints with the original huawei_cdc_ncm driver
-==from Ubuntu 12.04.3. It keeps on printing. I'm also able to get an IP, but
-==no Internet access.
-==
-==^HCSQ:"WCDMA",64,59,55
-==
-==^DSFLOWRPT:0000000E,00000000,00000000,0000000000000000,0000000000000000,000
-==00000,00000000
-==
-==OK
-==
-==^NDISSTAT:1,,,"IPV4"
-==
-==^STIN: 1, 0, 0
-==
-==^DSFLOWRPT:00000010,00000000,00000000,0000000000000000,0000000000000000,000
-==00000,00000000
-==
-==^DSFLOWRPT:00000012,00000000,00000000,0000000000000000,0000000000000000,000
-==00000,00000000
-==
-==^DSFLOWRPT:00000014,00000000,00000000,0000000000000000,0000000000000000,000
-==00000,00000000
-==
-==^STIN: 1, 0, 0
-==
-==
-==...
-==^STIN: 1, 0, 0
-==
-==^DSFLOWRPT:0000008C,00000000,00000000,0000000000000B36,0000000000000000,000
-==00000,00000000
-==
-==^DSFLOWRPT:0000008E,00000000,00000000,0000000000000B36,0000000000000000,000
-==00000,00000000
-==
-==Regarding the alignment, I think we have some difference between Windows and
-==Linux. The spec says it should satisfy the following constraint.
-==
-==Offset % wNdpOutDivisor == wNdpOutPayloadRemainder (for OUT datagrams)
-==
-==It seems the Huawei device take the NDP offset (Ethernet Header Offset) as
-==the parameter 'Offset' in the above constraint. And in the Linux capture, it
-==does not comply with it.
-==
-==
-==dwNtbInMaxSize=131072 dwNtbOutMaxSize=16384 wNdpOutPayloadRemainder=2
-==wNdpOutDivisor=4 wNdpOutAlignment=4 wNtbOutMaxDatagrams=0 flags=0x1f
-==
-==Windows:
-==
-==0000   6e 63 6d 68 10 00 b6 00 7c 00 00 00 5c 00 00 00  ncmh....|...\...
-==0010   00 00 00 00 00 00 00 00 00 1e 10 1f 00 00 08 00  ................
-==0020   45 00 00 3c 00 9b 00 00 80 01 a0 fe 0a 71 a3 0e  E..<.........q..
-==0030   ca 6c 21 3c 08 00 4b 4b 00 01 02 10 61 62 63 64  .l!<..KK....abcd
-==0040   65 66 67 68 69 6a 6b 6c 6d 6e 6f 70 71 72 73 74  efghijklmnopqrst
-==0050   75 76 77 61 62 63 64 65 66 67 68 69 6e 63 6d 30  uvwabcdefghincm0
-==0060   20 00 00 00 00 00 00 00 00 00 00 00 12 00 00 00   ...............
-==0070   4a 00 00 00 00 00 00 00 00 00 00 00              J...........
-==
-==Linux: (thought it's a 16bit format capture, but it's the same as 32bit,
-==regarding the alignment)
-==
-==0000   4e 43 4d 48 0c 00 40 00 e2 00 0c 00 4e 43 4d 30  NCMH..@.....NCM0
-==0010   10 00 00 00 b8 00 2a 00 00 00 00 00 00 00 00 00  ......*.........
-==0020   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-==0030   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-==0040   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-==0050   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-==0060   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-==0070   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-==0080   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-==0090   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-==00a0   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-==00b0   00 00 00 00 00 00 00 00 ff ff ff ff ff ff 00 1e  ................
-==00c0   10 1f 00 00 08 06 00 01 08 00 06 04 00 01 00 1e  ................
-==00d0   10 1f 00 00 0a 71 cc a6 00 00 00 00 00 00 70 50  .....q........pP
-==00e0   f8 49                                            .I
-==
-==
-==Regards,
-==Kevin
-==On 11/27/2014 08:36 PM, Alex Strizhevsky wrote:
-==      Adding my colleagues - Eli, Kevin & Midge.
-==
-==Any ideas are welcome ;)
-==
-==
-==On Thu, Nov 27, 2014 at 12:03 PM, Bjørn Mork <bjorn@mork.no> wrote:
-==      Enrico Mioso <mrkiko.rs@gmail.com> writes:
-==
-==      > Ok - we can arrive to some ocnclusions regarding the
-==      E3272.
-==      > First of all - the modem seems buggy enough to not be
-==      able to handle requests
-==      > for different formats. You need to unplug and re-plug
-==      it, but this is onlyan
-==      > impression and is reasonable.
-==      >
-==      > Then - the modem will accept to ndisdup the connection
-==      with
-==      > at^ndisdup=1,1,"internet"
-==      > but - if we use huawei_cdc_ncm + cdc_ncm we have no flow
-==      handling messages and
-==      > the modem stops here.
-==      > If we use the cdc_ncm 32-bit driver (modified) we get
-==      lotfs of
-==      > ^dsflorpt
-==      > that's how it should be.
-==      > So I think we can say that something is changing.
-==      > Then there's the alignment problem you mentioned in your
-==      previous reply. And
-==      > this is hard to solve.
-==      > could you try to help me understand where the problem
-==      is?
-==      > I feel like we are very close to the solution but
-==      something isn't working.
-==      > Or might be just try to change the 16 bit driver?
-==
-==If you use a recent version of the driver as a basis, then you
-==get the
-==CDC NCM NTB parameters in sysfs (if not, then you need to enable
-==debugging and look in the log for these values).  For example:
-==
-==bjorn@nemi:~$ grep . /sys/class/net/wwan0/cdc_ncm/*
-==/sys/class/net/wwan0/cdc_ncm/bmNtbFormatsSupported:0x0001
-==/sys/class/net/wwan0/cdc_ncm/dwNtbInMaxSize:15360
-==/sys/class/net/wwan0/cdc_ncm/dwNtbOutMaxSize:15360
-==/sys/class/net/wwan0/cdc_ncm/min_tx_pkt:13824
-==/sys/class/net/wwan0/cdc_ncm/rx_max:15360
-==/sys/class/net/wwan0/cdc_ncm/tx_max:15360
-==/sys/class/net/wwan0/cdc_ncm/tx_timer_usecs:400
-==/sys/class/net/wwan0/cdc_ncm/wNdpInAlignment:4
-==/sys/class/net/wwan0/cdc_ncm/wNdpInDivisor:1
-==/sys/class/net/wwan0/cdc_ncm/wNdpInPayloadRemainder:0
-==/sys/class/net/wwan0/cdc_ncm/wNdpOutAlignment:4
-==/sys/class/net/wwan0/cdc_ncm/wNdpOutDivisor:32
-==/sys/class/net/wwan0/cdc_ncm/wNdpOutPayloadRemainder:0
-==/sys/class/net/wwan0/cdc_ncm/wNtbOutMaxDatagrams:32
-==
-==
-==The possible problem I am thinking of is proper handling of the
-==wNdp*PayloadRemainder values. See section 3.3.4 "NCM Ethernet
-==Frame
-==Alignment" in the spec.  Which is confusing as hell, but if I
-==understand
-==it correctly then we are supposed to align the start of the IP
-==packets
-==(the "payload", _not_ the ethernet frame) to a whole
-==wNdp*Divisor number
-==as long as the wNdp*PayloadRemainder is 0.
-==
-==
-==Bjørn
-==
-==
-==
-==This email and any files transmitted with it are confidential material. They
-==are intended solely for the use of the designated individual or entity to
-==whom they are addressed. If the reader of this message is not the intended
-==recipient, you are hereby notified that any dissemination, use, distribution
-==or copying of this communication is strictly prohibited and may be unlawful.
-==
-==If you have received this email in error please immediately notify the
-==sender and delete or destroy any copy of this message
-==
---8323328-1152767112-1417162644=:3981--
+On Fri, Nov 28, 2014 at 4:11 AM, Michael S. Tsirkin <mst@redhat.com> 
+wrote:
+> Pretty straight-forward: convert all fields to/from
+> virtio endian-ness.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>  drivers/net/tun.c | 48 
+> +++++++++++++++++++++++++++++-------------------
+>  1 file changed, 29 insertions(+), 19 deletions(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 61c000c..f411ffd 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -111,7 +111,7 @@ do {								\
+>  #define TUN_FASYNC	IFF_ATTACH_QUEUE
+>  
+>  #define TUN_FEATURES (IFF_NO_PI | IFF_ONE_QUEUE | IFF_VNET_HDR | \
+> -		      IFF_MULTI_QUEUE)
+> +		      IFF_VNET_LE | IFF_MULTI_QUEUE)
+>  #define GOODCOPY_LEN 128
+>  
+>  #define FLT_EXACT_COUNT 8
+> @@ -205,6 +205,16 @@ struct tun_struct {
+>  	u32 flow_count;
+>  };
+>  
+> +static inline u16 tun16_to_cpu(struct tun_struct *tun, __virtio16 
+> val)
+> +{
+> +	return __virtio16_to_cpu(tun->flags & IFF_VNET_LE, val);
+> +}
+> +
+> +static inline __virtio16 cpu_to_tun16(struct tun_struct *tun, u16 
+> val)
+> +{
+> +	return __cpu_to_virtio16(tun->flags & IFF_VNET_LE, val);
+> +}
+> +
+>  static inline u32 tun_hashfn(u32 rxhash)
+>  {
+>  	return rxhash & 0x3ff;
+> @@ -1053,10 +1063,10 @@ static ssize_t tun_get_user(struct tun_struct 
+> *tun, struct tun_file *tfile,
+>  			return -EFAULT;
+>  
+>  		if ((gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
+> -		    gso.csum_start + gso.csum_offset + 2 > gso.hdr_len)
+> -			gso.hdr_len = gso.csum_start + gso.csum_offset + 2;
+> +		    tun16_to_cpu(tun, gso.csum_start) + tun16_to_cpu(tun, 
+> gso.csum_offset) + 2 > tun16_to_cpu(tun, gso.hdr_len))
+> +			gso.hdr_len = cpu_to_tun16(tun, tun16_to_cpu(tun, gso.csum_start) 
+> + tun16_to_cpu(tun, gso.csum_offset) + 2);
+>  
+> -		if (gso.hdr_len > len)
+> +		if (tun16_to_cpu(tun, gso.hdr_len) > len)
+>  			return -EINVAL;
+>  		offset += tun->vnet_hdr_sz;
+>  	}
+> @@ -1064,7 +1074,7 @@ static ssize_t tun_get_user(struct tun_struct 
+> *tun, struct tun_file *tfile,
+>  	if ((tun->flags & TUN_TYPE_MASK) == IFF_TAP) {
+>  		align += NET_IP_ALIGN;
+>  		if (unlikely(len < ETH_HLEN ||
+> -			     (gso.hdr_len && gso.hdr_len < ETH_HLEN)))
+> +			     (gso.hdr_len && tun16_to_cpu(tun, gso.hdr_len) < ETH_HLEN)))
+>  			return -EINVAL;
+>  	}
+>  
+> @@ -1075,7 +1085,7 @@ static ssize_t tun_get_user(struct tun_struct 
+> *tun, struct tun_file *tfile,
+>  		 * enough room for skb expand head in case it is used.
+>  		 * The rest of the buffer is mapped from userspace.
+>  		 */
+> -		copylen = gso.hdr_len ? gso.hdr_len : GOODCOPY_LEN;
+> +		copylen = gso.hdr_len ? tun16_to_cpu(tun, gso.hdr_len) : 
+> GOODCOPY_LEN;
+>  		if (copylen > good_linear)
+>  			copylen = good_linear;
+>  		linear = copylen;
+> @@ -1085,10 +1095,10 @@ static ssize_t tun_get_user(struct tun_struct 
+> *tun, struct tun_file *tfile,
+>  
+>  	if (!zerocopy) {
+>  		copylen = len;
+> -		if (gso.hdr_len > good_linear)
+> +		if (tun16_to_cpu(tun, gso.hdr_len) > good_linear)
+>  			linear = good_linear;
+>  		else
+> -			linear = gso.hdr_len;
+> +			linear = tun16_to_cpu(tun, gso.hdr_len);
+>  	}
+>  
+>  	skb = tun_alloc_skb(tfile, align, copylen, linear, noblock);
+> @@ -1115,8 +1125,8 @@ static ssize_t tun_get_user(struct tun_struct 
+> *tun, struct tun_file *tfile,
+>  	}
+>  
+>  	if (gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
+> -		if (!skb_partial_csum_set(skb, gso.csum_start,
+> -					  gso.csum_offset)) {
+> +		if (!skb_partial_csum_set(skb, tun16_to_cpu(tun, gso.csum_start),
+> +					  tun16_to_cpu(tun, gso.csum_offset))) {
+>  			tun->dev->stats.rx_frame_errors++;
+>  			kfree_skb(skb);
+>  			return -EINVAL;
+> @@ -1184,7 +1194,7 @@ static ssize_t tun_get_user(struct tun_struct 
+> *tun, struct tun_file *tfile,
+>  		if (gso.gso_type & VIRTIO_NET_HDR_GSO_ECN)
+>  			skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_ECN;
+>  
+> -		skb_shinfo(skb)->gso_size = gso.gso_size;
+> +		skb_shinfo(skb)->gso_size = tun16_to_cpu(tun, gso.gso_size);
+>  		if (skb_shinfo(skb)->gso_size == 0) {
+>  			tun->dev->stats.rx_frame_errors++;
+>  			kfree_skb(skb);
+> @@ -1276,8 +1286,8 @@ static ssize_t tun_put_user(struct tun_struct 
+> *tun,
+>  			struct skb_shared_info *sinfo = skb_shinfo(skb);
+>  
+>  			/* This is a hint as to how much should be linear. */
+> -			gso.hdr_len = skb_headlen(skb);
+> -			gso.gso_size = sinfo->gso_size;
+> +			gso.hdr_len = cpu_to_tun16(tun, skb_headlen(skb));
+> +			gso.gso_size = cpu_to_tun16(tun, sinfo->gso_size);
+>  			if (sinfo->gso_type & SKB_GSO_TCPV4)
+>  				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+>  			else if (sinfo->gso_type & SKB_GSO_TCPV6)
+> @@ -1285,12 +1295,12 @@ static ssize_t tun_put_user(struct tun_struct 
+> *tun,
+>  			else {
+>  				pr_err("unexpected GSO type: "
+>  				       "0x%x, gso_size %d, hdr_len %d\n",
+> -				       sinfo->gso_type, gso.gso_size,
+> -				       gso.hdr_len);
+> +				       sinfo->gso_type, tun16_to_cpu(tun, gso.gso_size),
+> +				       tun16_to_cpu(tun, gso.hdr_len));
+>  				print_hex_dump(KERN_ERR, "tun: ",
+>  					       DUMP_PREFIX_NONE,
+>  					       16, 1, skb->head,
+> -					       min((int)gso.hdr_len, 64), true);
+> +					       min((int)tun16_to_cpu(tun, gso.hdr_len), 64), true);
+>  				WARN_ON_ONCE(1);
+>  				return -EINVAL;
+>  			}
+> @@ -1301,9 +1311,9 @@ static ssize_t tun_put_user(struct tun_struct 
+> *tun,
+>  
+>  		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+>  			gso.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+> -			gso.csum_start = skb_checksum_start_offset(skb) +
+> -					 vlan_hlen;
+> -			gso.csum_offset = skb->csum_offset;
+> +			gso.csum_start = cpu_to_tun16(tun, skb_checksum_start_offset(skb) 
+> +
+> +						      vlan_hlen);
+> +			gso.csum_offset = cpu_to_tun16(tun, skb->csum_offset);
+>  		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+>  			gso.flags = VIRTIO_NET_HDR_F_DATA_VALID;
+>  		} /* else everything is zero */
+> -- 
+> MST
+
+Reviewed-by: Jason Wang <jasowang@redhat.com>
