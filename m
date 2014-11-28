@@ -1,48 +1,75 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
 Subject: Re: [PATCH] drivers:net:wireless: Add mutex locking for function,
  b43_op_beacon_set_time in main.c
-Date: Fri, 28 Nov 2014 23:40:46 +0100
-Message-ID: <CACna6rxmOC0h9hOpa=5iWFM1THQ8Q4hCi8MnmqkZJbB_U0PJ0A@mail.gmail.com>
+Date: Sat, 29 Nov 2014 00:21:48 +0100
+Message-ID: <20141129002148.1beb21d9@wiggum>
 References: <1417213013-19758-1-git-send-email-xerofoify@gmail.com>
+	<CACna6rxmOC0h9hOpa=5iWFM1THQ8Q4hCi8MnmqkZJbB_U0PJ0A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stefano Brivio <stefano.brivio@polimi.it>,
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ boundary="Sig_/a9VZzheb11hdlXkyH8hfJby"; protocol="application/pgp-signature"
+Cc: Nicholas Krause <xerofoify@gmail.com>,
+	Stefano Brivio <stefano.brivio@polimi.it>,
 	Network Development <netdev@vger.kernel.org>,
 	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	b43-dev <b43-dev@lists.infradead.org>
-To: Nicholas Krause <xerofoify@gmail.com>,
-	=?UTF-8?Q?Michael_B=C3=BCsch?= <m@bues.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:50116 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751209AbaK1Wkr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 17:40:47 -0500
-In-Reply-To: <1417213013-19758-1-git-send-email-xerofoify@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACna6rxmOC0h9hOpa=5iWFM1THQ8Q4hCi8MnmqkZJbB_U0PJ0A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 28 November 2014 at 23:16, Nicholas Krause <xerofoify@gmail.com> wrote:
-> Adds needed mutex lockng  of wl->mutex in order to prevent issues with separate threads executing on
-> the b43_update_templates function call in the function, b43_op_beacon_set_time at the same time.
+--Sig_/a9VZzheb11hdlXkyH8hfJby
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-For all kind of kernel documentation / descriptions we try to fit 72
-chars limit and we really try to avoid exceeding 80 chars.
+On Fri, 28 Nov 2014 23:40:46 +0100
+Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> wrote:
 
+> > @@ -5094,8 +5094,9 @@ static int b43_op_beacon_set_tim(struct ieee80211=
+_hw *hw,
+> >  {
+> >         struct b43_wl *wl =3D hw_to_b43_wl(hw);
+> >
+> > -       /* FIXME: add locking */
+> > +       mutex_lock(&wl->mutex);
+> >         b43_update_templates(wl);
+> > +       mutex_unlock(&wl->mutex);
+> >
+> >         return 0;
+> >  }
+>=20
+> Does anyone remember why this simple solution wasn't implemented
+> earlier? Michael?
 
-> @@ -5094,8 +5094,9 @@ static int b43_op_beacon_set_tim(struct ieee80211_hw *hw,
->  {
->         struct b43_wl *wl = hw_to_b43_wl(hw);
->
-> -       /* FIXME: add locking */
-> +       mutex_lock(&wl->mutex);
->         b43_update_templates(wl);
-> +       mutex_unlock(&wl->mutex);
->
->         return 0;
->  }
+I think the callback used to be (is?) in atomic context.
 
-Does anyone remember why this simple solution wasn't implemented
-earlier? Michael?
+> Nicholas: did you test it anyhow?
 
-Nicholas: did you test it anyhow?
+--=20
+Michael
+
+--Sig_/a9VZzheb11hdlXkyH8hfJby
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBAgAGBQJUeQOPAAoJEPUyvh2QjYsOko8P/j/erXMBLKii9IzxSByO5DCs
+jxsXn8p4OBE+e5K8uVEr7CSorMlzZCU+D7Vi9h6OiUS5TnXikKx1O2fE9SRLnm4A
+N7pc/3b1HuIUCtnOdQYIRJjFglU4Ng8TV4UHJwKtCEehlgIBp3DgaR9yECv+BCd1
+cYZxWy5+Acdh/OLMEdy73vNcSYAKxiJ8ViU1fSJCVuCxRN0Z5LP/DG0Hy2dnO7c/
+/TLBkbQ8JBkzyi0k6nczEVdR5/5K8X9EN3BzE0ZsJny0BRzsQKTcQvOdMx9CaFJn
+X2zP9X2PtYLCgyl33Vr0YLXX03VXNLzgzR68g6xOa2h0tKlylMB2gYuCr0S2NR2i
+F63MhHNRYgSMnbHxCH9IAJQstVZe3p0pArnriAElNCMJbMBnI5nWy+sHsqjdOp/L
+3sL5fWwWgMvtkVeTnrTZFZ+fA2cwK2+MSRPvc11N5v3dDnZBdkfUkgW7fEdWQP0J
+/XJCNWecIW0PtpNT1xsm2WEtaq75boGgfcGW8+HXAdVTy97a4H5+5Zwn2ZpRYWst
+ClN1W34bvm9akcPxUpDp/GZMd0ij7jeo112nXVKBEwQNO/HMgq2w6FyvnJoBQrk/
+CBybaHhL4bj5+DclI8YeDATI6DPOrPBZD2ospmAqxm8w+vUpd7/2Q0Upn5QfIAey
+uRCU1p7D7b28DFDvN8zB
+=ef5U
+-----END PGP SIGNATURE-----
+
+--Sig_/a9VZzheb11hdlXkyH8hfJby--
