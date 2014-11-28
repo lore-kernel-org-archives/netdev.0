@@ -1,77 +1,53 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [patch net-next v3 08/17] bridge: call netdev_sw_port_stp_update
- when bridge port STP status changes
-Date: Fri, 28 Nov 2014 08:23:32 -0800
-Message-ID: <5478A184.90405@cumulusnetworks.com>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>	<1416911328-10979-9-git-send-email-jiri@resnulli.us>	<5475073E.70503@cumulusnetworks.com>	<CAE4R7bAiEyztdGo2BMVGXq9phfASHsMU+QW4oocTmr9=4antxw@mail.gmail.com>	<547848D8.1060203@cumulusnetworks.com> <CAE4R7bCfi-90pccDJN350bdeQi2R4H5Xbu3-BADZ29vWhfkJiA@mail.gmail.com> <547875F1.9080204@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	"dborkman@redhat.com" <dborkman@redhat.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"pshelar@nicira.com" <pshelar@nicira.com>,
-	"azhou@nicira.com" <azhou@nicira.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	John Linville <linville@tuxdriver.com>,
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 3/3 for 3.18] rtlwifi: rtl8192ce: Fix missing interrupt ready flag
+Date: Fri, 28 Nov 2014 10:41:16 -0600
+Message-ID: <1417192876-12101-4-git-send-email-Larry.Finger@lwfinger.net>
+References: <1417192876-12101-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, Catalin Iacob <iacobcatalin@gmail.com>
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:41771 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751111AbaK1QXn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 11:23:43 -0500
-In-Reply-To: <547875F1.9080204@mojatatu.com>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:60128 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752048AbaK1Ql2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 11:41:28 -0500
+In-Reply-To: <1417192876-12101-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/28/14, 5:17 AM, Jamal Hadi Salim wrote:
-> On 11/28/14 05:51, Scott Feldman wrote:
->> On Fri, Nov 28, 2014 at 2:05 AM, Roopa Prabhu 
->> <roopa@cumulusnetworks.com> wrote:
->>> On 11/25/14, 5:35 PM, Scott Feldman wrote:
->>>>
->>>>    The
->>>> bridge driver or external STP process (msptd) is still controlling STP
->>>> state for the port and processing the BPDUs.  When the state changes
->>>> on the port, the bridge driver is letting HW know, that's it.
->>>
->>>
->>> I understand that. In which case, we should not call it stp state.
->>> It is just port state.
->>
->> Sure, call it port state but it takes on BR_STATE_xxx values which
->> just so happen to correspond exactly to STP states.
->>
->>> And since it is yet another port attribute like port
->>> priority,
->>> we should be able to use the same api to offload it to hw just like the
->>> other port attributes.
->>
->> Well it does...see ndo_bridge_setlink in bridge driver, br_setport
->> where IFLA_BRPORT_STATE is handled...it calls br_set_port_state(),
->> which calls into the swdev port driver.  That's for the case where
->> user or external processing is setting STP state.  For the case where
->> the bridge itself is managing the STP state, the bridge will make the
->> same br_set_port_state() call to adjust the port state.
->>
->
-> What Roopa is requesting for if i am not mistaken is the same issue i
-> raised earlier as well. We need an opaque way to set and get these
-> attributes. We cant afford an ndo ops per bridge or the next thing.
-> Its a port level issue - what it is depends on what the underlying
-> hardware does.
+Proper operation with the rewritten PCI mini driver requires that a flag be set
+when interrupts are enabled. This flag was missed.  This patch is one of three needed to
+fix the kernel regression reported at https://bugzilla.kernel.org/show_bug.cgi?id=88951.
 
-yep, Ack...
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Reported-by: Catalin Iacob <iacobcatalin@gmail.com>
+Tested-by: Catalin Iacob <iacobcatalin@gmail.com>
+Cc: Catalin Iacob <iacobcatalin@gmail.com>
+---
+ drivers/net/wireless/rtlwifi/rtl8192ce/hw.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+index 55357d6..d2ec516 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+@@ -1287,6 +1287,7 @@ void rtl92ce_enable_interrupt(struct ieee80211_hw *hw)
+ 
+ 	rtl_write_dword(rtlpriv, REG_HIMR, rtlpci->irq_mask[0] & 0xFFFFFFFF);
+ 	rtl_write_dword(rtlpriv, REG_HIMRE, rtlpci->irq_mask[1] & 0xFFFFFFFF);
++	rtlpci->irq_enabled = true;
+ }
+ 
+ void rtl92ce_disable_interrupt(struct ieee80211_hw *hw)
+@@ -1296,7 +1297,7 @@ void rtl92ce_disable_interrupt(struct ieee80211_hw *hw)
+ 
+ 	rtl_write_dword(rtlpriv, REG_HIMR, IMR8190_DISABLED);
+ 	rtl_write_dword(rtlpriv, REG_HIMRE, IMR8190_DISABLED);
+-	synchronize_irq(rtlpci->pdev->irq);
++	rtlpci->irq_enabled = false;
+ }
+ 
+ static void _rtl92ce_poweroff_adapter(struct ieee80211_hw *hw)
+-- 
+2.1.2
