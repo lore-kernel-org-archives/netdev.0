@@ -1,45 +1,77 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [PATCH][v3] mdio-mux-gpio: Use GPIO descriptor interface and new
- gpiod_set_array function
-Date: Fri, 28 Nov 2014 16:56:08 +0100
-Message-ID: <CACRpkdbUZ309SCh2bJD_q5wieNZyRPsGjyUS+-g_Yxg13SPc5A@mail.gmail.com>
-References: <1581158.UhESICdgeM@pcimr>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next v3 08/17] bridge: call netdev_sw_port_stp_update
+ when bridge port STP status changes
+Date: Fri, 28 Nov 2014 08:23:32 -0800
+Message-ID: <5478A184.90405@cumulusnetworks.com>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>	<1416911328-10979-9-git-send-email-jiri@resnulli.us>	<5475073E.70503@cumulusnetworks.com>	<CAE4R7bAiEyztdGo2BMVGXq9phfASHsMU+QW4oocTmr9=4antxw@mail.gmail.com>	<547848D8.1060203@cumulusnetworks.com> <CAE4R7bCfi-90pccDJN350bdeQi2R4H5Xbu3-BADZ29vWhfkJiA@mail.gmail.com> <547875F1.9080204@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Alexandre Courbot <acourbot@nvidia.com>,
-	David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Thomas Graf <tgraf@suug.ch>,
+	"dborkman@redhat.com" <dborkman@redhat.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"jesse@nicira.com" <jesse@nicira.com>,
+	"pshelar@nicira.com" <pshelar@nicira.com>,
+	"azhou@nicira.com" <azhou@nicira.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
 	Florian Fainelli <f.fainelli@gmail.com>,
-	David Daney <david.daney@cavium.com>
-To: Rojhalat Ibrahim <imr@rtschenk.de>
+	John Linville <linville@tuxdriver.com>,
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:51137 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750812AbaK1P4I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 10:56:08 -0500
-Received: by mail-ig0-f182.google.com with SMTP id hn15so5867262igb.15
-        for <netdev@vger.kernel.org>; Fri, 28 Nov 2014 07:56:08 -0800 (PST)
-In-Reply-To: <1581158.UhESICdgeM@pcimr>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:41771 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751111AbaK1QXn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 11:23:43 -0500
+In-Reply-To: <547875F1.9080204@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 25, 2014 at 2:57 PM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
-
-> Convert mdio-mux-gpio to the GPIO descriptor interface and use the new
-> gpiod_set_array function to set all output signals simultaneously.
+On 11/28/14, 5:17 AM, Jamal Hadi Salim wrote:
+> On 11/28/14 05:51, Scott Feldman wrote:
+>> On Fri, Nov 28, 2014 at 2:05 AM, Roopa Prabhu 
+>> <roopa@cumulusnetworks.com> wrote:
+>>> On 11/25/14, 5:35 PM, Scott Feldman wrote:
+>>>>
+>>>>    The
+>>>> bridge driver or external STP process (msptd) is still controlling STP
+>>>> state for the port and processing the BPDUs.  When the state changes
+>>>> on the port, the bridge driver is letting HW know, that's it.
+>>>
+>>>
+>>> I understand that. In which case, we should not call it stp state.
+>>> It is just port state.
+>>
+>> Sure, call it port state but it takes on BR_STATE_xxx values which
+>> just so happen to correspond exactly to STP states.
+>>
+>>> And since it is yet another port attribute like port
+>>> priority,
+>>> we should be able to use the same api to offload it to hw just like the
+>>> other port attributes.
+>>
+>> Well it does...see ndo_bridge_setlink in bridge driver, br_setport
+>> where IFLA_BRPORT_STATE is handled...it calls br_set_port_state(),
+>> which calls into the swdev port driver.  That's for the case where
+>> user or external processing is setting STP state.  For the case where
+>> the bridge itself is managing the STP state, the bridge will make the
+>> same br_set_port_state() call to adjust the port state.
+>>
 >
-> Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
-> Acked-by: David S. Miller <davem@davemloft.net>
-> --
-> This patch depends on the gpiod_set_array function, which is available in
-> the linux-gpio devel tree.
->
-> Change log:
->   v3: remove unnecessary braces
->   v2: fix gpiod_get_index usage
+> What Roopa is requesting for if i am not mistaken is the same issue i
+> raised earlier as well. We need an opaque way to set and get these
+> attributes. We cant afford an ndo ops per bridge or the next thing.
+> Its a port level issue - what it is depends on what the underlying
+> hardware does.
 
-I already merged v2 and removed the braces myself.
-
-Yours,
-Linus Walleij
+yep, Ack...
