@@ -1,34 +1,42 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Multiple DSA switch on shared MII
-Date: Fri, 28 Nov 2014 04:21:29 -0800
-Message-ID: <547868C9.90903@gmail.com>
-References: <CAOi_9k8NwpVFxg=9VOagVt3m6hn2uLKuCZ_0-+4PciJNRWuTmA@mail.gmail.com>	<CAGVrzcaG_uYpmmgC252ObHJ9Cmt91-BUtB3uOfPJHV6RhkRU1Q@mail.gmail.com>	<CAOi_9k8WySmjm5cdFn1kJQuE7cJ1rDyM9SV2RvbcmbB+UeTVdQ@mail.gmail.com>	<547636B7.3060706@gmail.com>	<CAOi_9k_3+9U4q=SHdeEJOi_efHkRvYdTQ=UBqZtafgDAv_oOHg@mail.gmail.com> <CAOi_9k9h4N-uPf7shapytV+rCtHFWiVco26hCVjTMN=00o8KAg@mail.gmail.com>
+From: Alexandre Courbot <gnurou@gmail.com>
+Subject: Re: [PATCH][v3] mdio-mux-gpio: Use GPIO descriptor interface and new
+ gpiod_set_array function
+Date: Fri, 28 Nov 2014 13:30:40 +0900
+Message-ID: <CAAVeFuLDgLXGAedBYOWJqEJvxFAOAv_z6rwHpPyYVZyXx5XHgQ@mail.gmail.com>
+References: <1581158.UhESICdgeM@pcimr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Rajib Karmakar <rajibkit@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:52298 "EHLO
-	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751077AbaK1EVb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 23:21:31 -0500
-Received: by mail-oi0-f48.google.com with SMTP id u20so4190488oif.21
-        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 20:21:31 -0800 (PST)
-In-Reply-To: <CAOi_9k9h4N-uPf7shapytV+rCtHFWiVco26hCVjTMN=00o8KAg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Alexandre Courbot <acourbot@nvidia.com>,
+	David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	David Daney <david.daney@cavium.com>
+To: Rojhalat Ibrahim <imr@rtschenk.de>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+In-Reply-To: <1581158.UhESICdgeM@pcimr>
+Sender: linux-gpio-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 26/11/2014 23:18, Rajib Karmakar a =C3=A9crit :
-> This could be a naive question; but can I add all LAN and WAN
-> interfaces in a single DSA switch (one cpu port, one netdev)?
+On Tue, Nov 25, 2014 at 10:57 PM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
+> Convert mdio-mux-gpio to the GPIO descriptor interface and use the new
+> gpiod_set_array function to set all output signals simultaneously.
+>
+> Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
+> Acked-by: David S. Miller <davem@davemloft.net>
+> --
+> This patch depends on the gpiod_set_array function, which is available in
+> the linux-gpio devel tree.
+>
+> Change log:
+>   v3: remove unnecessary braces
+>   v2: fix gpiod_get_index usage
+>
+>  drivers/net/phy/mdio-mux-gpio.c |   37 +++++++++++++------------------------
+>  1 file changed, 13 insertions(+), 24 deletions(-)
 
-One DSA switch is backed by a single netdev, I would rather register tw=
-o
-dsa switches, even if they actually map to the same physical switch,
-rather than hacking around a single instance to work with multiple
-network devices.
+Looks all good to me! Nice use of this new interface, leading to
+simpler client code.
 
-Thanks
---
-=46lorian
+Reviewed-by: Alexandre Courbot <acourbot@nvidia.com>
