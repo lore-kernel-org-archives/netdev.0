@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v5 00/21] introduce rocker switch driver with hardware accelerated datapath api - phase 1: bridge fdb offload
-Date: Fri, 28 Nov 2014 14:34:11 +0100
-Message-ID: <1417181672-11531-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v5 07/21] rtnl: expose physical switch id for particular device
+Date: Fri, 28 Nov 2014 14:34:18 +0100
+Message-ID: <1417181672-11531-8-git-send-email-jiri@resnulli.us>
+References: <1417181672-11531-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
 	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
@@ -20,122 +21,112 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	bcrl@kvack.org, hemal@broadcom.co
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:44817 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751298AbaK1Nee (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 08:34:34 -0500
-Received: by mail-wg0-f50.google.com with SMTP id k14so8853346wgh.37
-        for <netdev@vger.kernel.org>; Fri, 28 Nov 2014 05:34:33 -0800 (PST)
+Received: from mail-wg0-f52.google.com ([74.125.82.52]:56849 "EHLO
+	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751590AbaK1Nen (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 08:34:43 -0500
+Received: by mail-wg0-f52.google.com with SMTP id a1so8870800wgh.25
+        for <netdev@vger.kernel.org>; Fri, 28 Nov 2014 05:34:41 -0800 (PST)
+In-Reply-To: <1417181672-11531-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all.
+The netdevice represents a port in a switch, it will expose
+IFLA_PHYS_SWITCH_ID value via rtnl. Two netdevices with the same value
+belong to one physical switch.
 
-This patchset is just the first phase of switch and switch-ish device
-support api in kernel. Note that the api will extend.
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Reviewed-by: Thomas Graf <tgraf@suug.ch>
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
+Acked-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+---
+v3->v4->v5:
+-no change
+v2->v3:
+-changed "sw" string to "switch" to avoid confusion
+v1->v2:
+-no change
+---
+ include/uapi/linux/if_link.h |  1 +
+ net/core/rtnetlink.c         | 26 +++++++++++++++++++++++++-
+ 2 files changed, 26 insertions(+), 1 deletion(-)
 
-So what this patchset includes:
-- introduce switchdev api skeleton for implementing switch drivers
-- introduce rocker switch driver which implements switchdev api fdb and
-  bridge set/get link ndos
-
-As to the discussion if there is need to have specific class of device
-representing the switch itself, so far we found no need to introduce that.
-But we are generally ok with the idea and when the time comes and it will
-be needed, it can be easily introduced without any disturbance.
-
-This patchset introduces switch id export through rtnetlink and sysfs,
-which is similar to what we have for port id in SR-IOV. I will send iproute2
-patchset for showing the switch id for port netdevs once this is applied.
-This applies also for the PF_BRIDGE and fdb iproute2 patches.
-
-iproute2 patches are now available here:
-https://github.com/jpirko/iproute2-rocker
-
-For detailed description and version history, please see individual patches.
-
-In v4 I reordered the patches leaving rocker patches on the end of the patchset.
-
-In v5 I only fixed whitespace issues of patch #13
-
-We have a TODO for related items we want to work on in near future:
-https://etherpad.wikimedia.org/p/netdev-swdev-todo
-
-Jiri Pirko (10):
-  bridge: rename fdb_*_hw to fdb_*_hw_addr to avoid confusion
-  neigh: sort Neighbor Cache Entry Flags
-  bridge: convert flags in fbd entry into bitfields
-  net: make vid as a parameter for ndo_fdb_add/ndo_fdb_del
-  net: rename netdev_phys_port_id to more generic name
-  net: introduce generic switch devices support
-  rtnl: expose physical switch id for particular device
-  net-sysfs: expose physical switch id for particular device
-  rocker: introduce rocker switch driver
-  rocker: implement ndo_fdb_dump
-
-Scott Feldman (9):
-  bridge: call netdev_sw_port_stp_update when bridge port STP status
-    changes
-  bridge: add API to notify bridge driver of learned FBD on offloaded
-    device
-  bridge: move private brport flags to if_bridge.h so port drivers can
-    use flags
-  bridge: add new brport flag LEARNING_SYNC
-  bridge: add new hwmode swdev
-  bridge: add brport flags to dflt bridge_getlink
-  rocker: implement rocker ofdpa flow table manipulation
-  rocker: implement L2 bridge offloading
-  rocker: add ndo_bridge_setlink/getlink support for learning policy
-
-Thomas Graf (2):
-  rocker: Add proper validation of Netlink attributes
-  rocker: Use logical operators on booleans
-
- Documentation/ABI/testing/sysfs-class-net        |    8 +
- Documentation/networking/switchdev.txt           |   59 +
- MAINTAINERS                                      |   14 +
- drivers/net/ethernet/Kconfig                     |    1 +
- drivers/net/ethernet/Makefile                    |    1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    2 +-
- drivers/net/ethernet/emulex/benet/be_main.c      |    3 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c      |    4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |    6 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |    2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   11 +-
- drivers/net/ethernet/rocker/Kconfig              |   27 +
- drivers/net/ethernet/rocker/Makefile             |    5 +
- drivers/net/ethernet/rocker/rocker.c             | 4374 ++++++++++++++++++++++
- drivers/net/ethernet/rocker/rocker.h             |  428 +++
- drivers/net/macvlan.c                            |    4 +-
- drivers/net/vxlan.c                              |    4 +-
- include/linux/if_bridge.h                        |   31 +
- include/linux/netdevice.h                        |   39 +-
- include/linux/rtnetlink.h                        |    9 +-
- include/net/switchdev.h                          |   37 +
- include/uapi/linux/if_bridge.h                   |    1 +
- include/uapi/linux/if_link.h                     |    2 +
- include/uapi/linux/neighbour.h                   |    6 +-
- net/Kconfig                                      |    1 +
- net/Makefile                                     |    3 +
- net/bridge/br_fdb.c                              |  144 +-
- net/bridge/br_private.h                          |   21 +-
- net/bridge/br_stp.c                              |    7 +
- net/core/dev.c                                   |    2 +-
- net/core/net-sysfs.c                             |   26 +-
- net/core/rtnetlink.c                             |  119 +-
- net/switchdev/Kconfig                            |   13 +
- net/switchdev/Makefile                           |    5 +
- net/switchdev/switchdev.c                        |   52 +
- 35 files changed, 5366 insertions(+), 105 deletions(-)
- create mode 100644 Documentation/networking/switchdev.txt
- create mode 100644 drivers/net/ethernet/rocker/Kconfig
- create mode 100644 drivers/net/ethernet/rocker/Makefile
- create mode 100644 drivers/net/ethernet/rocker/rocker.c
- create mode 100644 drivers/net/ethernet/rocker/rocker.h
- create mode 100644 include/net/switchdev.h
- create mode 100644 net/switchdev/Kconfig
- create mode 100644 net/switchdev/Makefile
- create mode 100644 net/switchdev/switchdev.c
-
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 36bddc2..623f1a7 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -145,6 +145,7 @@ enum {
+ 	IFLA_CARRIER,
+ 	IFLA_PHYS_PORT_ID,
+ 	IFLA_CARRIER_CHANGES,
++	IFLA_PHYS_SWITCH_ID,
+ 	__IFLA_MAX
+ };
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 7c59c02..b6541f2 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -44,6 +44,7 @@
+ 
+ #include <linux/inet.h>
+ #include <linux/netdevice.h>
++#include <net/switchdev.h>
+ #include <net/ip.h>
+ #include <net/protocol.h>
+ #include <net/arp.h>
+@@ -869,7 +870,8 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
+ 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
+ 	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
+-	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_PORT_ID */
++	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
++	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_SWITCH_ID */
+ }
+ 
+ static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
+@@ -968,6 +970,24 @@ static int rtnl_phys_port_id_fill(struct sk_buff *skb, struct net_device *dev)
+ 	return 0;
+ }
+ 
++static int rtnl_phys_switch_id_fill(struct sk_buff *skb, struct net_device *dev)
++{
++	int err;
++	struct netdev_phys_item_id psid;
++
++	err = netdev_switch_parent_id_get(dev, &psid);
++	if (err) {
++		if (err == -EOPNOTSUPP)
++			return 0;
++		return err;
++	}
++
++	if (nla_put(skb, IFLA_PHYS_SWITCH_ID, psid.id_len, psid.id))
++		return -EMSGSIZE;
++
++	return 0;
++}
++
+ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			    int type, u32 pid, u32 seq, u32 change,
+ 			    unsigned int flags, u32 ext_filter_mask)
+@@ -1040,6 +1060,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	if (rtnl_phys_port_id_fill(skb, dev))
+ 		goto nla_put_failure;
+ 
++	if (rtnl_phys_switch_id_fill(skb, dev))
++		goto nla_put_failure;
++
+ 	attr = nla_reserve(skb, IFLA_STATS,
+ 			sizeof(struct rtnl_link_stats));
+ 	if (attr == NULL)
+@@ -1199,6 +1222,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
+ 	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+ 	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
++	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+ };
+ 
+ static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
 -- 
 1.9.3
