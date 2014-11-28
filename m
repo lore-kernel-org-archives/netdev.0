@@ -1,47 +1,48 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: tun issue after e0b46d0ee9c: tun: Use iovec iterators
-Date: Fri, 28 Nov 2014 22:35:03 +0000
-Message-ID: <20141128223503.GE29748@ZenIV.linux.org.uk>
-References: <5478CC27.9040705@redhat.com>
- <20141128203733.GD29748@ZenIV.linux.org.uk>
- <5478F2BB.9050409@redhat.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH] drivers:net:wireless: Add mutex locking for function,
+ b43_op_beacon_set_time in main.c
+Date: Fri, 28 Nov 2014 23:40:46 +0100
+Message-ID: <CACna6rxmOC0h9hOpa=5iWFM1THQ8Q4hCi8MnmqkZJbB_U0PJ0A@mail.gmail.com>
+References: <1417213013-19758-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev <netdev@vger.kernel.org>
-To: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Stefano Brivio <stefano.brivio@polimi.it>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	b43-dev <b43-dev@lists.infradead.org>
+To: Nicholas Krause <xerofoify@gmail.com>,
+	=?UTF-8?Q?Michael_B=C3=BCsch?= <m@bues.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:55882 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751209AbaK1WfH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 17:35:07 -0500
-Content-Disposition: inline
-In-Reply-To: <5478F2BB.9050409@redhat.com>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:50116 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751209AbaK1Wkr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 17:40:47 -0500
+In-Reply-To: <1417213013-19758-1-git-send-email-xerofoify@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 28, 2014 at 08:10:03PM -0200, Marcelo Ricardo Leitner wrote:
-> >Could you print vnet_hdr_sz and sizeof(gso) right after that
-> >copy_from_iter(&gso, ...)?
-> 
-> Did a:
->         else {
->                 err = skb_copy_datagram_from_iter(skb, 0, from, len);
-> +               pr_err("vnet_hdr_sz=%d sizeof(gso)=%lu\n",
-> tun->vnet_hdr_sz, sizeof(gso));
->                 if (!err && msg_control) {
-> 
-> Got, for tun:
-> [   50.514165] tun: vnet_hdr_sz=12 sizeof(gso)=10
-> 
-> for tap:
-> [   82.911840] tun: vnet_hdr_sz=10 sizeof(gso)=10
-> 
-> other values were just as before.
+On 28 November 2014 at 23:16, Nicholas Krause <xerofoify@gmail.com> wrote:
+> Adds needed mutex lockng  of wl->mutex in order to prevent issues with separate threads executing on
+> the b43_update_templates function call in the function, b43_op_beacon_set_time at the same time.
 
-Hmm...  Do you have
-commit 8c847d254146d32c86574a1b16923ff91bb784dd
-Author: Jason Wang <jasowang@redhat.com>
-Date:   Thu Nov 13 16:54:14 2014 +0800
+For all kind of kernel documentation / descriptions we try to fit 72
+chars limit and we really try to avoid exceeding 80 chars.
 
-    tun: fix issues of iovec iterators using in tun_put_user()
-in your tree?
+
+> @@ -5094,8 +5094,9 @@ static int b43_op_beacon_set_tim(struct ieee80211_hw *hw,
+>  {
+>         struct b43_wl *wl = hw_to_b43_wl(hw);
+>
+> -       /* FIXME: add locking */
+> +       mutex_lock(&wl->mutex);
+>         b43_update_templates(wl);
+> +       mutex_unlock(&wl->mutex);
+>
+>         return 0;
+>  }
+
+Does anyone remember why this simple solution wasn't implemented
+earlier? Michael?
+
+Nicholas: did you test it anyhow?
