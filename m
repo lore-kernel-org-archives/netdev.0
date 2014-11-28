@@ -1,79 +1,63 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] e1000: remove unused variables
-Date: Fri, 28 Nov 2014 15:28:55 -0800
-Message-ID: <54790537.809@gmail.com>
-References: <1417065728-5592-1-git-send-email-sudipm.mukherjee@gmail.com>
-	<alpine.NEB.2.11.1411262157110.1481@chris.i8u.org>
-	<20141127130725.GA12406@sudip-PC>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: tun issue after e0b46d0ee9c: tun: Use iovec iterators
+Date: Sat, 29 Nov 2014 07:59:35 +0800
+Message-ID: <20141128235935.GA2178@gondor.apana.org.au>
+References: <5478CC27.9040705@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Linux NICS <linux.nics@intel.com>, e1000-devel@lists.sourceforge.net,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org,
-	John Ronciak <john.ronciak@intel.com>, netdev@vger.kernel.org
-To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
-	Hisashi T Fujinaka <htodd@twofifty.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20141127130725.GA12406@sudip-PC>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:53164 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751345AbaK2AAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 19:00:10 -0500
+Content-Disposition: inline
+In-Reply-To: <5478CC27.9040705@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TGUgMjcvMTEvMjAxNCAwNTowNywgU3VkaXAgTXVraGVyamVlIGEgw6ljcml0IDoKPiBPbiBXZWQs
-IE5vdiAyNiwgMjAxNCBhdCAwOTo1OToyOFBNIC0wODAwLCBIaXNhc2hpIFQgRnVqaW5ha2Egd3Jv
-dGU6Cj4+IEknbSBwcmV0dHkgc3VyZSB0aG9zZSBkb3VibGUgcmVhZHMgYXJlIHRoZXJlIGZvciBh
-IHJlYXNvbiwgc28gbW9zdCBvZgo+PiB0aGlzIEknbSBnb2luZyB0byBoYXZlIHRvIGNoZWNrIG9u
-IE1vbmRheS4gV2UgaGF2ZSBhIGxvbmcgaG9saWRheQo+PiB3ZWVrZW5kIGhlcmUgaW4gdGhlIFVT
-Lgo+IAo+IGlmIHRoZSBkb3VibGUgcmVhZHMgYXJlIHRoZXJlIGZvciBzb21lIHJlYXNvbiwgY2Fu
-IHlvdSBwbGVhc2UgbGV0IG1lIGtub3cgd2hhdCB0aGF0IHJlYXNvbiBtaWdodCBiZS4uCgpDb3Vs
-ZCBiZSBsYXRjaGluZywgZXNwZWNpYWxseSBpbiB0aGUgY29udGV4dCBvZiByZWFkaW5nIGZyb20g
-RXRoZXJuZXQKUEhZcywgc29tZSByZWdpc3RlcnMgYXJlIGxhdGNoZWQsIHNvIHlvdSBtYXkgaGF2
-ZSB0byBkbyBhIGRvdWJsZSByZWFkIHRvCmVuc3VyZSB0aGUgdmFsdWUgeW91IGdldCBpcyBjb25z
-aXN0ZW50LgoKQWxzbywgaWYgeW91IGRvIGEgcmVhZCB0aGF0IGlzIG5vdCBzdG9yZWQgaW4gYW55
-IHJldHVybiB2YWx1ZSwgdGhlCmNvbXBpbGVyIGlzIG5vdyBmcmVlIHRvIHJlbW92ZSB0aGF0IGFj
-dHVhbCByZWFkLCBhbmQgdGhhdCBtYXkgaGF2ZSBvdGhlcgpzaWRlIGVmZmVjdHMgZm9yIHJlZ2lz
-dGVycyB3aGljaCBhcmUgZS5nOiByZWFkIHRvIGNsZWFyLCBvciBhbnkgb2YgdGhlIGxpa2UuCgo+
-IAo+Pgo+PiBJJ20gbm90IHN1cmUgd2h5IHlvdSdyZSBib3RoZXJpbmcgd2l0aCBhbiBvbGQgZHJp
-dmVyIGxpa2UgdGhpcywgYnV0IGlmCj4+IHlvdSBoYXZlbid0IGFjdHVhbGx5IHRyaWVkIHRoaXMg
-b24gYWxsIHRoZSBoYXJkd2FyZSBpdCBwZXJ0YWlucyB0bywgSSdtCj4+IGdvaW5nIHdhbnQgdG8g
-TkFLIHRoaXMuCj4gCj4gbm8gaXQgaGFzIG5vdCBiZWVuIHRlc3RlZCBvbiBoYXJkd2FyZS4gIDoo
-Cj4gCj4gaSBhbSBzdGlsbCBpbiB0aGUgbGVhcm5pbmcgcHJvY2VzcywgTkFLIGlzIGFsc28gcGFy
-dCBvZiBsZWFybmluZy4KPiAKPiBpbmZhY3QgdGhlcmUgaXMgYW5vdGhlciBwYXJ0IG9mIHRoZSBj
-b2RlLCB3aGljaCwgdGhlb3JldGljYWxseSwgd2lsbCBuZXZlciBnZXQgZXhlY3V0ZWQuIGJ1dCBp
-IGRpZG5vdCBkYXJlIHRvIHNlbmQgdGhhdCByZW1vdmFsIHBhdGNoIHdpdGhvdXQgdGVzdGluZyBv
-biB0aGUgaGFyZHdhcmUuCj4gCj4gdGhhbmtzCj4gc3VkaXAKPiAKPj4KPj4gSSBzaG91bGQgZG8g
-dGhpcyBmcm9tIG15IHRvZGQuZnVqaW5ha2FAaW50ZWwuY29tIGFjY291bnQgYnV0IGl0J3MgMTBQ
-TQo+PiBvbiB0aGUgZmlyc3QgZGF5IG9mIGEgbG9uZyBob2xpZGF5IHdlZWtlbmQuCj4+Cj4+IE9u
-IFRodSwgMjcgTm92IDIwMTQsIFN1ZGlwIE11a2hlcmplZSB3cm90ZToKPj4KPj4+IHRoZXNlIHZh
-cmlhYmxlcyB3ZXJlIG9ubHkgYmVpbmcgYXNzaWduZWQgc29tZSB2YWx1ZXMsIGJ1dCB3ZXJlIG5l
-dmVyCj4+PiB1c2VkLgo+Pj4KPj4+IFNpZ25lZC1vZmYtYnk6IFN1ZGlwIE11a2hlcmplZSA8c3Vk
-aXBAdmVjdG9yaW5kaWEub3JnPgo+Pj4gLS0tCj4+PiBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRl
-bC9lMTAwMC9lMTAwMF9ody5jICAgfCAxNDIgKysrKysrKysrKysrLS0tLS0tLS0tLS0tLS0KPiA8
-c25pcD4KPj4+IAkJCWNhc2UgU1BFRURfMTAwOgo+Pj4gLQkJCQl0eGIyYiA9IGZhbHNlOwo+Pj4g
-CQkJCS8qIG1heWJlIGFkZCBzb21lIHRpbWVvdXQgZmFjdG9yID8gKi8KPj4+IAkJCQlicmVhazsK
-Pj4+IAkJCX0KPj4+Cj4+Cj4+IC0tIAo+PiBIaXNhc2hpIFQgRnVqaW5ha2EgLSBodG9kZEB0d29m
-aWZ0eS5jb20KPj4gQlNFRSArIEJTQ2hlbSArIEJBRW5nbGlzaCArIE1TQ1MgKyAkMi41MCA9IGNv
-ZmZlZQo+IC0tCj4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUg
-InVuc3Vic2NyaWJlIG5ldGRldiIgaW4KPiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jk
-b21vQHZnZXIua2VybmVsLm9yZwo+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2Vy
-Lmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbAo+IAoKCi0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LQpEb3dubG9hZCBCSVJUIGlIdWIgRi1UeXBlIC0gVGhlIEZyZWUgRW50ZXJwcmlzZS1HcmFkZSBC
-SVJUIFNlcnZlcgpmcm9tIEFjdHVhdGUhIEluc3RhbnRseSBTdXBlcmNoYXJnZSBZb3VyIEJ1c2lu
-ZXNzIFJlcG9ydHMgYW5kIERhc2hib2FyZHMKd2l0aCBJbnRlcmFjdGl2aXR5LCBTaGFyaW5nLCBO
-YXRpdmUgRXhjZWwgRXhwb3J0cywgQXBwIEludGVncmF0aW9uICYgbW9yZQpHZXQgdGVjaG5vbG9n
-eSBwcmV2aW91c2x5IHJlc2VydmVkIGZvciBiaWxsaW9uLWRvbGxhciBjb3Jwb3JhdGlvbnMsIEZS
-RUUKaHR0cDovL3B1YmFkcy5nLmRvdWJsZWNsaWNrLm5ldC9nYW1wYWQvY2xrP2lkPTE1NzAwNTc1
-MSZpdT0vNDE0MC9vc3RnLmNsa3RyawpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMu
-c291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3Rp
-bmZvL2UxMDAwLWRldmVsClRvIGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwmIzE3NDsgRXRoZXJuZXQs
-IHZpc2l0IGh0dHA6Ly9jb21tdW5pdGllcy5pbnRlbC5jb20vY29tbXVuaXR5L3dpcmVkCg==
+On Fri, Nov 28, 2014 at 05:25:27PM -0200, Marcelo Ricardo Leitner wrote:
+> 
+> I saw there are tun updates on Dave's queue but none seemed to handle this.
+> 
+> I can't use current net-next
+> (799d2fff1858004526ad75d66a5dd8a5cce6ad40) on a kvm hypervisor
+> because tun got clogged somehow. Bisected down to:
+> 
+> commit e0b46d0ee9c240c7430a47e9b0365674d4a04522
+> Author: Herbert Xu <herbert@gondor.apana.org.au>
+> Date:   Fri Nov 7 21:22:23 2014 +0800
+
+Does this patch help?
+
+-- >8 --
+Subject: tun: Fix GSO meta-data handling in tun_get_user
+
+When we write the GSO meta-data in tun_get_user we end up advancing
+the IO vector twice, thus exhausting the user buffer before we can
+finish writing the packet.
+
+Fixes: f5ff53b4d97c ("{macvtap,tun}_get_user(): switch to iov_iter")
+Reported-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 4b743c6..9357871 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1052,7 +1052,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 
+ 		if (gso.hdr_len > len)
+ 			return -EINVAL;
+-		iov_iter_advance(from, tun->vnet_hdr_sz);
++		iov_iter_advance(iter, tun->vnet_hdr_sz - sizeof(gso));
+ 	}
+ 
+ 	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV) {
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
