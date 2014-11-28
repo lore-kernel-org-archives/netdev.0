@@ -1,108 +1,179 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH rfc] packet: zerocopy packet_snd
-Date: Thu, 27 Nov 2014 19:39:47 -0500
-Message-ID: <CA+FuTSdp7k_vcpZ_0GGM0teg80-UAh0dB0u=6HF90MZ=FCjOCA@mail.gmail.com>
-References: <1416602694-7540-1-git-send-email-willemb@google.com>
- <20141126182445.GA15744@redhat.com> <CA+FuTSdYB4rDMH3gAAMwaRdbqN58f_SxLz=C3fcCACw_KosGXw@mail.gmail.com>
- <20141126211748.GA11904@redhat.com> <1417079412.18179.3@smtp.corp.redhat.com> <20141127104445.GA8961@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jason Wang <jasowang@redhat.com>,
-	Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f177.google.com ([209.85.216.177]:41837 "EHLO
-	mail-qc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750754AbaK1AkS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2014 19:40:18 -0500
-Received: by mail-qc0-f177.google.com with SMTP id x3so4146672qcv.22
-        for <netdev@vger.kernel.org>; Thu, 27 Nov 2014 16:40:17 -0800 (PST)
-In-Reply-To: <20141127104445.GA8961@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms+renesas@verge.net.au>
+Subject: [PATCH v2 net] sh_eth: Fix sleeping function called from invalid context
+Date: Fri, 28 Nov 2014 10:04:15 +0900
+Message-ID: <1417136655-20052-1-git-send-email-horms+renesas@verge.net.au>
+Cc: linux-arm-kernel@lists.infradead.org,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Yoshihiro Kaneko <ykaneko0929@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 27, 2014 at 5:44 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> On Thu, Nov 27, 2014 at 09:18:12AM +0008, Jason Wang wrote:
->>
->>
->> On Thu, Nov 27, 2014 at 5:17 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
->> >On Wed, Nov 26, 2014 at 02:59:34PM -0500, Willem de Bruijn wrote:
->> >> > The main problem with zero copy ATM is with queueing disciplines
->> >> > which might keep the socket around essentially forever.
->> >> > The case was described here:
->> >> > https://lkml.org/lkml/2014/1/17/105
->> >> > and of course this will make it more serious now that
->> >> > more applications will be able to do this, so
->> >> > chances that an administrator enables this
->> >> > are higher.
->> >> The denial of service issue raised there, that a single queue can
->> >> block an entire virtio-net device, is less problematic in the case of
->> >> packet sockets. A socket can run out of sk_wmem_alloc, but a prudent
->> >> application can increase the limit or use separate sockets for
->> >> separate flows.
->> >
->> >Socket per flow? Maybe just use TCP then?  increasing the limit
->> >sounds like a wrong solution, it hurts security.
->> >
->> >> > One possible solution is some kind of timer orphaning frags
->> >> > for skbs that have been around for too long.
->> >>   Perhaps this can be approximated without an explicit timer by calling
->> >> skb_copy_ubufs on enqueue whenever qlen exceeds a threshold value?
->> >
->> >Hard to say. Will have to see that patch to judge how robust this is.
->>
->> This could not work, consider if the threshold is greater than vring size
->> or vhost_net pending limit, transmission may still be blocked.
->
->
-> Well, application can e.g. just switch to non zero copy after
-> reaching a specific number of requests.
-> I think the real problem isn't reaching the queue full
-> condition, it's the fact a specific buffer might never
-> get freed. This API isn't half as useful as it could be
-> if applications had a way to force the memory
-> to be reclaimed.
->
->
-> And actually, I see a way for applications to reclaim the memory:
-> application could invoke something like MADV_SOFT_OFFLINE on the memory
-> submitted for zero copy transmit, to invalidate PTEs, and make next
-> access fault new pages in.
-> If dedicated memory is used for packets, you could even use
-> MADV_DONTNEED - but this doesn't work in many cases, certainly
-> not for virtualization type workloads.
+From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
 
-Why not?
+This resolves the following bug which can be reproduced by building the
+kernel with CONFIG_DEBUG_ATOMIC_SLEEP=y and reading network statistics
+while the network interface is down.
 
->
->
-> Playting with PTEs needs to invalidate the TLB so it is not fast,
-> but it does not need to be: we are talking about ability to close the
-> socket, which should be rare.
->
-> For example, an application/hypervisor can detect a timeout when a
-> packet is not transmitted within a predefined time period, and trigger
-> such reclaim.
-> Making this period shorter than network watchdog timer of the VM
-> will ensure that watchdog does not trigger within VM.
-> Alternatively, VM network watchdog could trigger this reclaim
-> in order to recover packet memory.
->
-> With this idea, if application merely reads memory, we incur a lot of
-> overhead with pagefaults. So maybe a new call to enable COW for a range
-> of pages would be a good idea.
->
->
-> We'd have to make sure whatever's used for reclaim works for
-> a wide range of memory types: mmap-ed file, hugetlbfs, anonymous memory.
->
->
-> Thoughts?
+e.g.:
 
-Very nice. When exactly are these madvise hints preferable over munmap?
+ifconfig eth0 down
+cat /sys/class/net/eth0/statistics/tx_errors
 
-> --
-> MST
+----
+[ 1238.161349] BUG: sleeping function called from invalid context at drivers/base/power/runtime.c:952
+[ 1238.188279] in_atomic(): 1, irqs_disabled(): 0, pid: 1388, name: cat
+[ 1238.207425] CPU: 0 PID: 1388 Comm: cat Not tainted 3.10.31-ltsi-00046-gefa0b46 #1087
+[ 1238.230737] Backtrace:
+[ 1238.238123] [<c0012e64>] (dump_backtrace+0x0/0x10c) from [<c0013000>] (show_stack+0x18/0x1c)
+[ 1238.263499]  r6:000003b8 r5:c06160c0 r4:c0669e00 r3:00404000
+[ 1238.280583] [<c0012fe8>] (show_stack+0x0/0x1c) from [<c04515a4>] (dump_stack+0x20/0x28)
+[ 1238.304631] [<c0451584>] (dump_stack+0x0/0x28) from [<c004970c>] (__might_sleep+0xf8/0x118)
+[ 1238.329734] [<c0049614>] (__might_sleep+0x0/0x118) from [<c02465ac>] (__pm_runtime_resume+0x38/0x90)
+[ 1238.357170]  r7:d616f000 r6:c049c458 r5:00000004 r4:d6a17210
+[ 1238.374251] [<c0246574>] (__pm_runtime_resume+0x0/0x90) from [<c029b1c4>] (sh_eth_get_stats+0x44/0x280)
+[ 1238.402468]  r7:d616f000 r6:c049c458 r5:d5c21000 r4:d5c21000
+[ 1238.419552] [<c029b180>] (sh_eth_get_stats+0x0/0x280) from [<c03ae39c>] (dev_get_stats+0x54/0x88)
+[ 1238.446204]  r5:d5c21000 r4:d5ed7e08
+[ 1238.456980] [<c03ae348>] (dev_get_stats+0x0/0x88) from [<c03c677c>] (netstat_show.isra.15+0x54/0x9c)
+[ 1238.484413]  r6:d5c21000 r5:d5c21238 r4:00000028 r3:00000001
+[ 1238.501495] [<c03c6728>] (netstat_show.isra.15+0x0/0x9c) from [<c03c69b8>] (show_tx_errors+0x18/0x1c)
+[ 1238.529196]  r7:d5f945d8 r6:d5f945c0 r5:c049716c r4:c0650e7c
+[ 1238.546279] [<c03c69a0>] (show_tx_errors+0x0/0x1c) from [<c023963c>] (dev_attr_show+0x24/0x50)
+[ 1238.572157] [<c0239618>] (dev_attr_show+0x0/0x50) from [<c010c148>] (sysfs_read_file+0xb0/0x140)
+[ 1238.598554]  r5:c049716c r4:d5c21240
+[ 1238.609326] [<c010c098>] (sysfs_read_file+0x0/0x140) from [<c00b9ee4>] (vfs_read+0xb0/0x13c)
+[ 1238.634679] [<c00b9e34>] (vfs_read+0x0/0x13c) from [<c00ba0ac>] (SyS_read+0x44/0x74)
+[ 1238.657944]  r8:bef45bf0 r7:00000000 r6:d6ac0600 r5:00000000 r4:00000000
+[ 1238.678172] [<c00ba068>] (SyS_read+0x0/0x74) from [<c000eec0>] (ret_fast_syscall+0x0/0x30)
+----
+
+Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+
+---
+v2 [Simon Horman]
+* Enhance changelog to describe how the problem may be reproduced.
+* Use bitfield rather than boolean for is_opened field of
+  struct sh_eth_private. As suggested by Sergei Shtylyov.
+---
+ drivers/net/ethernet/renesas/sh_eth.c | 64 +++++++++++++++++++----------------
+ drivers/net/ethernet/renesas/sh_eth.h |  1 +
+ 2 files changed, 36 insertions(+), 29 deletions(-)
+
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 60e9c2c..862a691 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -2042,6 +2042,8 @@ static int sh_eth_open(struct net_device *ndev)
+ 	if (ret)
+ 		goto out_free_irq;
+ 
++	mdp->is_opened = 1;
++
+ 	return ret;
+ 
+ out_free_irq:
+@@ -2131,6 +2133,36 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	return NETDEV_TX_OK;
+ }
+ 
++static struct net_device_stats *sh_eth_get_stats(struct net_device *ndev)
++{
++	struct sh_eth_private *mdp = netdev_priv(ndev);
++
++	if (sh_eth_is_rz_fast_ether(mdp))
++		return &ndev->stats;
++
++	if (!mdp->is_opened)
++		return &ndev->stats;
++
++	ndev->stats.tx_dropped += sh_eth_read(ndev, TROCR);
++	sh_eth_write(ndev, 0, TROCR);	/* (write clear) */
++	ndev->stats.collisions += sh_eth_read(ndev, CDCR);
++	sh_eth_write(ndev, 0, CDCR);	/* (write clear) */
++	ndev->stats.tx_carrier_errors += sh_eth_read(ndev, LCCR);
++	sh_eth_write(ndev, 0, LCCR);	/* (write clear) */
++
++	if (sh_eth_is_gether(mdp)) {
++		ndev->stats.tx_carrier_errors += sh_eth_read(ndev, CERCR);
++		sh_eth_write(ndev, 0, CERCR);	/* (write clear) */
++		ndev->stats.tx_carrier_errors += sh_eth_read(ndev, CEECR);
++		sh_eth_write(ndev, 0, CEECR);	/* (write clear) */
++	} else {
++		ndev->stats.tx_carrier_errors += sh_eth_read(ndev, CNDCR);
++		sh_eth_write(ndev, 0, CNDCR);	/* (write clear) */
++	}
++
++	return &ndev->stats;
++}
++
+ /* device close function */
+ static int sh_eth_close(struct net_device *ndev)
+ {
+@@ -2145,6 +2177,7 @@ static int sh_eth_close(struct net_device *ndev)
+ 	sh_eth_write(ndev, 0, EDTRR);
+ 	sh_eth_write(ndev, 0, EDRRR);
+ 
++	sh_eth_get_stats(ndev);
+ 	/* PHY Disconnect */
+ 	if (mdp->phydev) {
+ 		phy_stop(mdp->phydev);
+@@ -2163,36 +2196,9 @@ static int sh_eth_close(struct net_device *ndev)
+ 
+ 	pm_runtime_put_sync(&mdp->pdev->dev);
+ 
+-	return 0;
+-}
+-
+-static struct net_device_stats *sh_eth_get_stats(struct net_device *ndev)
+-{
+-	struct sh_eth_private *mdp = netdev_priv(ndev);
+-
+-	if (sh_eth_is_rz_fast_ether(mdp))
+-		return &ndev->stats;
+-
+-	pm_runtime_get_sync(&mdp->pdev->dev);
+-
+-	ndev->stats.tx_dropped += sh_eth_read(ndev, TROCR);
+-	sh_eth_write(ndev, 0, TROCR);	/* (write clear) */
+-	ndev->stats.collisions += sh_eth_read(ndev, CDCR);
+-	sh_eth_write(ndev, 0, CDCR);	/* (write clear) */
+-	ndev->stats.tx_carrier_errors += sh_eth_read(ndev, LCCR);
+-	sh_eth_write(ndev, 0, LCCR);	/* (write clear) */
+-	if (sh_eth_is_gether(mdp)) {
+-		ndev->stats.tx_carrier_errors += sh_eth_read(ndev, CERCR);
+-		sh_eth_write(ndev, 0, CERCR);	/* (write clear) */
+-		ndev->stats.tx_carrier_errors += sh_eth_read(ndev, CEECR);
+-		sh_eth_write(ndev, 0, CEECR);	/* (write clear) */
+-	} else {
+-		ndev->stats.tx_carrier_errors += sh_eth_read(ndev, CNDCR);
+-		sh_eth_write(ndev, 0, CNDCR);	/* (write clear) */
+-	}
+-	pm_runtime_put_sync(&mdp->pdev->dev);
++	mdp->is_opened = 0;
+ 
+-	return &ndev->stats;
++	return 0;
+ }
+ 
+ /* ioctl to device function */
+diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
+index b37c427..81fcab3 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.h
++++ b/drivers/net/ethernet/renesas/sh_eth.h
+@@ -522,6 +522,7 @@ struct sh_eth_private {
+ 
+ 	unsigned no_ether_link:1;
+ 	unsigned ether_link_active_low:1;
++	unsigned is_opened:1;
+ };
+ 
+ static inline void sh_eth_soft_swap(char *src, int len)
+-- 
+2.1.3
+
