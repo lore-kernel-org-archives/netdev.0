@@ -1,7 +1,7 @@
 From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
 Subject: Re: Is this 32-bit NCM?
-Date: Fri, 28 Nov 2014 09:23:43 +0000
-Message-ID: <54783F18.1070709@audiocodes.com>
+Date: Fri, 28 Nov 2014 09:25:33 +0000
+Message-ID: <54783F84.20105@audiocodes.com>
 References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
  <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com>
  <874mtl55ar.fsf@nemi.mork.no>
@@ -24,18 +24,19 @@ Cc: Alex Strizhevsky <alexxst@gmail.com>,
 	Eli Britstein <Eli.Britstein@audiocodes.com>
 To: Enrico Mioso <mrkiko.rs@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3lrp0076.outbound.protection.outlook.com ([213.199.154.76]:59520
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+Received: from mail-am1lrp0013.outbound.protection.outlook.com ([213.199.154.13]:27776
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751166AbaK1JXt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 04:23:49 -0500
+	id S1751824AbaK1JZg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 04:25:36 -0500
 In-Reply-To: <alpine.LNX.2.03.1411281014450.4101@gmail.com>
 Content-Language: en-US
-Content-ID: <8EED0A1E275C7643AC7ADBC43468054B@eurprd06.prod.outlook.com>
+Content-ID: <F637F184FA315542AF6FB8FE8D8F0582@eurprd06.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yes. The MACs are right. When I started Wireshark, promisc mode was set.
+The only difference I can tell now is windows does not pack the NDP with
+zeros, it just sends whatever the skb buffer has, except the alignment.
 
 Regards,
 Kevin
