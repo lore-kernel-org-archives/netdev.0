@@ -1,17 +1,17 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v3 04/17] net: introduce generic switch devices
- support
-Date: Fri, 28 Nov 2014 08:13:06 -0500
-Message-ID: <547874E2.7010200@mojatatu.com>
-References: <54754A10.6020601@mojatatu.com> <CAE4R7bCYwWt5cem5_v8Y0jOSz5ER5_33bMRE2xkTPOqYvM6dUg@mail.gmail.com> <5475BB53.3070200@mojatatu.com> <20141126160859.GB13786@casper.infradead.org> <54760939.8050805@mojatatu.com> <20141126175944.GW1875@nanopsycho.orion> <20141126215034.GA32174@casper.infradead.org> <547662F4.3060408@mojatatu.com> <20141127130345.GB27041@casper.infradead.org> <547727F0.7020105@mojatatu.com> <20141127135050.GD1877@nanopsycho.orion>
+Subject: Re: [patch net-next v3 08/17] bridge: call netdev_sw_port_stp_update
+ when bridge port STP status changes
+Date: Fri, 28 Nov 2014 08:17:37 -0500
+Message-ID: <547875F1.9080204@mojatatu.com>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>	<1416911328-10979-9-git-send-email-jiri@resnulli.us>	<5475073E.70503@cumulusnetworks.com>	<CAE4R7bAiEyztdGo2BMVGXq9phfASHsMU+QW4oocTmr9=4antxw@mail.gmail.com>	<547848D8.1060203@cumulusnetworks.com> <CAE4R7bCfi-90pccDJN350bdeQi2R4H5Xbu3-BADZ29vWhfkJiA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
+Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
 	Andy Gospodarek <andy@greyhouse.net>,
+	Thomas Graf <tgraf@suug.ch>,
 	"dborkman@redhat.com" <dborkman@redhat.com>,
 	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
 	"jesse@nicira.com" <jesse@nicira.com>,
@@ -25,34 +25,55 @@ Cc: Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>,
 	"Fastabend, John R" <john.r.fastabend@intel.com>,
 	Eric Dumazet <edumazet@google.com>,
 	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tuxdr
-To: Jiri Pirko <jiri@resnulli.us>
+	John Linville <linville@tuxdriver.com>,
+	"jasowang@redhat.com" <jasowang@red
+To: Scott Feldman <sfeldma@gmail.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:60166 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750901AbaK1NNK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 08:13:10 -0500
-Received: by mail-ie0-f177.google.com with SMTP id rd18so5984220iec.22
-        for <netdev@vger.kernel.org>; Fri, 28 Nov 2014 05:13:10 -0800 (PST)
-In-Reply-To: <20141127135050.GD1877@nanopsycho.orion>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:41876 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750901AbaK1NRl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 08:17:41 -0500
+Received: by mail-ig0-f172.google.com with SMTP id hl2so9855707igb.17
+        for <netdev@vger.kernel.org>; Fri, 28 Nov 2014 05:17:41 -0800 (PST)
+In-Reply-To: <CAE4R7bCfi-90pccDJN350bdeQi2R4H5Xbu3-BADZ29vWhfkJiA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/27/14 08:50, Jiri Pirko wrote:
-
-> $ git grep offload net
-> Wouldn't it be confusing to add this another different "offload". That's
-> just confusing.
+On 11/28/14 05:51, Scott Feldman wrote:
+> On Fri, Nov 28, 2014 at 2:05 AM, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+>> On 11/25/14, 5:35 PM, Scott Feldman wrote:
+>>>
+>>>    The
+>>> bridge driver or external STP process (msptd) is still controlling STP
+>>> state for the port and processing the BPDUs.  When the state changes
+>>> on the port, the bridge driver is letting HW know, that's it.
+>>
+>>
+>> I understand that. In which case, we should not call it stp state.
+>> It is just port state.
 >
-> I still like "switch" the best. If it passes packets around, it's a
-> "switch", +-. Everybody understand what's going on if you use "switch".
-> If you use "offload", everybody is confused...
+> Sure, call it port state but it takes on BR_STATE_xxx values which
+> just so happen to correspond exactly to STP states.
+>
+>> And since it is yet another port attribute like port
+>> priority,
+>> we should be able to use the same api to offload it to hw just like the
+>> other port attributes.
+>
+> Well it does...see ndo_bridge_setlink in bridge driver, br_setport
+> where IFLA_BRPORT_STATE is handled...it calls br_set_port_state(),
+> which calls into the swdev port driver.  That's for the case where
+> user or external processing is setting STP state.  For the case where
+> the bridge itself is managing the STP state, the bridge will make the
+> same br_set_port_state() call to adjust the port state.
 >
 
-Those are all *legitimate offloads* ;->
-The macvlan one looks a little creepy. Perhaps we could eventually
-merge all that stuff together with this effort.
+What Roopa is requesting for if i am not mistaken is the same issue i
+raised earlier as well. We need an opaque way to set and get these
+attributes. We cant afford an ndo ops per bridge or the next thing.
+Its a port level issue - what it is depends on what the underlying
+hardware does.
 
 cheers,
 jamal
