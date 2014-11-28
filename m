@@ -1,191 +1,187 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH v6 40/46] tun: TUN_VNET_LE support, fix sparse warnings
- for virtio headers
-Date: Fri, 28 Nov 2014 08:27:48 +0008
-Message-ID: <1417162788.5822.2@smtp.corp.redhat.com>
-References: <1417118789-18231-1-git-send-email-mst@redhat.com>
-	<1417118789-18231-41-git-send-email-mst@redhat.com>
+From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
+Subject: Re: Is this 32-bit NCM?
+Date: Fri, 28 Nov 2014 08:23:16 +0000
+Message-ID: <547830EE.8060302@audiocodes.com>
+References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
+ <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com>
+ <874mtl55ar.fsf@nemi.mork.no>
+ <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
+ <54781523.6030600@audiocodes.com>
+ <alpine.LNX.2.03.1411280915310.3981@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	cornelia.huck@de.ibm.com, rusty@au1.ibm.com, nab@linux-iscsi.org,
-	pbonzini@redhat.com, thuth@linux.vnet.ibm.com,
-	dahi@linux.vnet.ibm.com, Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Tom Herbert <therbert@google.com>,
-	Masatake YAMATO <yamato@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Xi Wang <xii@google.com>, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417118789-18231-41-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Alex Strizhevsky <alexxst@gmail.com>,
+	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
+	"Midge Shaojun Tan" <ShaojunMidge.Tan@audiocodes.com>,
+	"youtux@gmail.com" <youtux@gmail.com>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eli Britstein <Eli.Britstein@audiocodes.com>
+To: Enrico Mioso <mrkiko.rs@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-am1lrp0011.outbound.protection.outlook.com ([213.199.154.11]:29600
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750904AbaK1IXX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Nov 2014 03:23:23 -0500
+In-Reply-To: <alpine.LNX.2.03.1411280915310.3981@gmail.com>
+Content-Language: en-US
+Content-ID: <F9CABEA00F0BF7488D01F133152295CD@eurprd06.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On Fri, Nov 28, 2014 at 4:11 AM, Michael S. Tsirkin <mst@redhat.com> 
-wrote:
-> Pretty straight-forward: convert all fields to/from
-> virtio endian-ness.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
->  drivers/net/tun.c | 48 
-> +++++++++++++++++++++++++++++-------------------
->  1 file changed, 29 insertions(+), 19 deletions(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 61c000c..f411ffd 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -111,7 +111,7 @@ do {								\
->  #define TUN_FASYNC	IFF_ATTACH_QUEUE
->  
->  #define TUN_FEATURES (IFF_NO_PI | IFF_ONE_QUEUE | IFF_VNET_HDR | \
-> -		      IFF_MULTI_QUEUE)
-> +		      IFF_VNET_LE | IFF_MULTI_QUEUE)
->  #define GOODCOPY_LEN 128
->  
->  #define FLT_EXACT_COUNT 8
-> @@ -205,6 +205,16 @@ struct tun_struct {
->  	u32 flow_count;
->  };
->  
-> +static inline u16 tun16_to_cpu(struct tun_struct *tun, __virtio16 
-> val)
-> +{
-> +	return __virtio16_to_cpu(tun->flags & IFF_VNET_LE, val);
-> +}
-> +
-> +static inline __virtio16 cpu_to_tun16(struct tun_struct *tun, u16 
-> val)
-> +{
-> +	return __cpu_to_virtio16(tun->flags & IFF_VNET_LE, val);
-> +}
-> +
->  static inline u32 tun_hashfn(u32 rxhash)
->  {
->  	return rxhash & 0x3ff;
-> @@ -1053,10 +1063,10 @@ static ssize_t tun_get_user(struct tun_struct 
-> *tun, struct tun_file *tfile,
->  			return -EFAULT;
->  
->  		if ((gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
-> -		    gso.csum_start + gso.csum_offset + 2 > gso.hdr_len)
-> -			gso.hdr_len = gso.csum_start + gso.csum_offset + 2;
-> +		    tun16_to_cpu(tun, gso.csum_start) + tun16_to_cpu(tun, 
-> gso.csum_offset) + 2 > tun16_to_cpu(tun, gso.hdr_len))
-> +			gso.hdr_len = cpu_to_tun16(tun, tun16_to_cpu(tun, gso.csum_start) 
-> + tun16_to_cpu(tun, gso.csum_offset) + 2);
->  
-> -		if (gso.hdr_len > len)
-> +		if (tun16_to_cpu(tun, gso.hdr_len) > len)
->  			return -EINVAL;
->  		offset += tun->vnet_hdr_sz;
->  	}
-> @@ -1064,7 +1074,7 @@ static ssize_t tun_get_user(struct tun_struct 
-> *tun, struct tun_file *tfile,
->  	if ((tun->flags & TUN_TYPE_MASK) == IFF_TAP) {
->  		align += NET_IP_ALIGN;
->  		if (unlikely(len < ETH_HLEN ||
-> -			     (gso.hdr_len && gso.hdr_len < ETH_HLEN)))
-> +			     (gso.hdr_len && tun16_to_cpu(tun, gso.hdr_len) < ETH_HLEN)))
->  			return -EINVAL;
->  	}
->  
-> @@ -1075,7 +1085,7 @@ static ssize_t tun_get_user(struct tun_struct 
-> *tun, struct tun_file *tfile,
->  		 * enough room for skb expand head in case it is used.
->  		 * The rest of the buffer is mapped from userspace.
->  		 */
-> -		copylen = gso.hdr_len ? gso.hdr_len : GOODCOPY_LEN;
-> +		copylen = gso.hdr_len ? tun16_to_cpu(tun, gso.hdr_len) : 
-> GOODCOPY_LEN;
->  		if (copylen > good_linear)
->  			copylen = good_linear;
->  		linear = copylen;
-> @@ -1085,10 +1095,10 @@ static ssize_t tun_get_user(struct tun_struct 
-> *tun, struct tun_file *tfile,
->  
->  	if (!zerocopy) {
->  		copylen = len;
-> -		if (gso.hdr_len > good_linear)
-> +		if (tun16_to_cpu(tun, gso.hdr_len) > good_linear)
->  			linear = good_linear;
->  		else
-> -			linear = gso.hdr_len;
-> +			linear = tun16_to_cpu(tun, gso.hdr_len);
->  	}
->  
->  	skb = tun_alloc_skb(tfile, align, copylen, linear, noblock);
-> @@ -1115,8 +1125,8 @@ static ssize_t tun_get_user(struct tun_struct 
-> *tun, struct tun_file *tfile,
->  	}
->  
->  	if (gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
-> -		if (!skb_partial_csum_set(skb, gso.csum_start,
-> -					  gso.csum_offset)) {
-> +		if (!skb_partial_csum_set(skb, tun16_to_cpu(tun, gso.csum_start),
-> +					  tun16_to_cpu(tun, gso.csum_offset))) {
->  			tun->dev->stats.rx_frame_errors++;
->  			kfree_skb(skb);
->  			return -EINVAL;
-> @@ -1184,7 +1194,7 @@ static ssize_t tun_get_user(struct tun_struct 
-> *tun, struct tun_file *tfile,
->  		if (gso.gso_type & VIRTIO_NET_HDR_GSO_ECN)
->  			skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_ECN;
->  
-> -		skb_shinfo(skb)->gso_size = gso.gso_size;
-> +		skb_shinfo(skb)->gso_size = tun16_to_cpu(tun, gso.gso_size);
->  		if (skb_shinfo(skb)->gso_size == 0) {
->  			tun->dev->stats.rx_frame_errors++;
->  			kfree_skb(skb);
-> @@ -1276,8 +1286,8 @@ static ssize_t tun_put_user(struct tun_struct 
-> *tun,
->  			struct skb_shared_info *sinfo = skb_shinfo(skb);
->  
->  			/* This is a hint as to how much should be linear. */
-> -			gso.hdr_len = skb_headlen(skb);
-> -			gso.gso_size = sinfo->gso_size;
-> +			gso.hdr_len = cpu_to_tun16(tun, skb_headlen(skb));
-> +			gso.gso_size = cpu_to_tun16(tun, sinfo->gso_size);
->  			if (sinfo->gso_type & SKB_GSO_TCPV4)
->  				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
->  			else if (sinfo->gso_type & SKB_GSO_TCPV6)
-> @@ -1285,12 +1295,12 @@ static ssize_t tun_put_user(struct tun_struct 
-> *tun,
->  			else {
->  				pr_err("unexpected GSO type: "
->  				       "0x%x, gso_size %d, hdr_len %d\n",
-> -				       sinfo->gso_type, gso.gso_size,
-> -				       gso.hdr_len);
-> +				       sinfo->gso_type, tun16_to_cpu(tun, gso.gso_size),
-> +				       tun16_to_cpu(tun, gso.hdr_len));
->  				print_hex_dump(KERN_ERR, "tun: ",
->  					       DUMP_PREFIX_NONE,
->  					       16, 1, skb->head,
-> -					       min((int)gso.hdr_len, 64), true);
-> +					       min((int)tun16_to_cpu(tun, gso.hdr_len), 64), true);
->  				WARN_ON_ONCE(1);
->  				return -EINVAL;
->  			}
-> @@ -1301,9 +1311,9 @@ static ssize_t tun_put_user(struct tun_struct 
-> *tun,
->  
->  		if (skb->ip_summed == CHECKSUM_PARTIAL) {
->  			gso.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
-> -			gso.csum_start = skb_checksum_start_offset(skb) +
-> -					 vlan_hlen;
-> -			gso.csum_offset = skb->csum_offset;
-> +			gso.csum_start = cpu_to_tun16(tun, skb_checksum_start_offset(skb) 
-> +
-> +						      vlan_hlen);
-> +			gso.csum_offset = cpu_to_tun16(tun, skb->csum_offset);
->  		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
->  			gso.flags = VIRTIO_NET_HDR_F_DATA_VALID;
->  		} /* else everything is zero */
-> -- 
-> MST
-
-Reviewed-by: Jason Wang <jasowang@redhat.com>
+SXQncyBhbiBwaW5nIHBhY2tldC4gV2luZG93cyBwYWRzIGl0IHdpdGggJ2FiY2RlZi4uLicuDQoN
+ClJlZ2FyZHMsDQpLZXZpbg0KDQpPbiAxMS8yOC8yMDE0IDA0OjE3IFBNLCBFbnJpY28gTWlvc28g
+d3JvdGU6DQo+IEFuZC4uLndoeSBpbiBXaW5kb3dzIHdlIGhhdmUgdGhpcyBsaW5lPw0KPiAwMDUw
+ICAgNzUgNzYgNzcgNjEgNjIgNjMgNjQgNjUgNjYgNjcgNjggNjkgNmUgNjMgNmQgMzAgIHV2d2Fi
+Y2RlZmdoaW5jbTANCj4gSXMgdGhpcyBqdXN0IHBhZGRpbmcgc3R1ZmYgYmVmb3JlIHRoZSAibmNt
+MCIgc3RyaW5nPw0KPiBTbyBpbiBwYXJ0aWN1bGFyIGEgc2ltcGxlIGxpbmUgbmVlZHMgdG8gYmUg
+bW9kaWZpZWQgaW4gcHJhY3RpY2UgaW4gdGhlIGRyaXZlciwNCj4gb3IgYW0gSSB0b3RhbGx5IG1p
+c2d1aXNlZD8NCj4gSXMgb3VyICJvZmZzZXQiIHBhcmFtZXRlciBjYWxjdWxhdGVkc3VpdGFibHkg
+aW4gdGhlIGRyaXZlcj8gTG9va2luZyBhdCBpdCwgYW55DQo+IGNvbW1lbnQgYXBwcmVjaWF0ZWQu
+DQo+DQo+DQo+IE9uIEZyaSwgMjggTm92IDIwMTQsIEtldmluIFpodSB3cm90ZToNCj4NCj4gPT1E
+YXRlOiBGcmksIDI4IE5vdiAyMDE0IDA3OjI0OjQ5DQo+ID09RnJvbTogS2V2aW4gWmh1IDxNaW5n
+eWluZy5aaHVAYXVkaW9jb2Rlcy5jb20+DQo+ID09VG86IEFsZXggU3RyaXpoZXZza3kgPGFsZXh4
+c3RAZ21haWwuY29tPiwgQmrDuHJuIE1vcmsgPGJqb3JuQG1vcmsubm8+LA0KPiA9PSAgICBNaWRn
+ZSBTaGFvanVuICBUYW4gPFNoYW9qdW5NaWRnZS5UYW5AYXVkaW9jb2Rlcy5jb20+DQo+ID09Q2M6
+IEVucmljbyBNaW9zbyA8bXJraWtvLnJzQGdtYWlsLmNvbT4sICJ5b3V0dXhAZ21haWwuY29tIiA8
+eW91dHV4QGdtYWlsLmNvbT4sDQo+ID09ICAgICJsaW51eC11c2JAdmdlci5rZXJuZWwub3JnIiA8
+bGludXgtdXNiQHZnZXIua2VybmVsLm9yZz4sDQo+ID09ICAgICJuZXRkZXZAdmdlci5rZXJuZWwu
+b3JnIiA8bmV0ZGV2QHZnZXIua2VybmVsLm9yZz4sDQo+ID09ICAgIEVsaSBCcml0c3RlaW4gPEVs
+aS5Ccml0c3RlaW5AYXVkaW9jb2Rlcy5jb20+DQo+ID09U3ViamVjdDogUmU6IElzIHRoaXMgMzIt
+Yml0IE5DTT8NCj4gPT0NCj4gPT1IaSBhbGwsDQo+ID09DQo+ID09SSdtIGFibGUgdG8gZ2V0IHRo
+ZSBmb2xsb3dpbmcgcHJpbnRzIHdpdGggdGhlIG9yaWdpbmFsIGh1YXdlaV9jZGNfbmNtIGRyaXZl
+cg0KPiA9PWZyb20gVWJ1bnR1IDEyLjA0LjMuIEl0IGtlZXBzIG9uIHByaW50aW5nLiBJJ20gYWxz
+byBhYmxlIHRvIGdldCBhbiBJUCwgYnV0DQo+ID09bm8gSW50ZXJuZXQgYWNjZXNzLg0KPiA9PQ0K
+PiA9PV5IQ1NROiJXQ0RNQSIsNjQsNTksNTUNCj4gPT0NCj4gPT1eRFNGTE9XUlBUOjAwMDAwMDBF
+LDAwMDAwMDAwLDAwMDAwMDAwLDAwMDAwMDAwMDAwMDAwMDAsMDAwMDAwMDAwMDAwMDAwMCwwMDAN
+Cj4gPT0wMDAwMCwwMDAwMDAwMA0KPiA9PQ0KPiA9PU9LDQo+ID09DQo+ID09Xk5ESVNTVEFUOjEs
+LCwiSVBWNCINCj4gPT0NCj4gPT1eU1RJTjogMSwgMCwgMA0KPiA9PQ0KPiA9PV5EU0ZMT1dSUFQ6
+MDAwMDAwMTAsMDAwMDAwMDAsMDAwMDAwMDAsMDAwMDAwMDAwMDAwMDAwMCwwMDAwMDAwMDAwMDAw
+MDAwLDAwMA0KPiA9PTAwMDAwLDAwMDAwMDAwDQo+ID09DQo+ID09XkRTRkxPV1JQVDowMDAwMDAx
+MiwwMDAwMDAwMCwwMDAwMDAwMCwwMDAwMDAwMDAwMDAwMDAwLDAwMDAwMDAwMDAwMDAwMDAsMDAw
+DQo+ID09MDAwMDAsMDAwMDAwMDANCj4gPT0NCj4gPT1eRFNGTE9XUlBUOjAwMDAwMDE0LDAwMDAw
+MDAwLDAwMDAwMDAwLDAwMDAwMDAwMDAwMDAwMDAsMDAwMDAwMDAwMDAwMDAwMCwwMDANCj4gPT0w
+MDAwMCwwMDAwMDAwMA0KPiA9PQ0KPiA9PV5TVElOOiAxLCAwLCAwDQo+ID09DQo+ID09DQo+ID09
+Li4uDQo+ID09XlNUSU46IDEsIDAsIDANCj4gPT0NCj4gPT1eRFNGTE9XUlBUOjAwMDAwMDhDLDAw
+MDAwMDAwLDAwMDAwMDAwLDAwMDAwMDAwMDAwMDBCMzYsMDAwMDAwMDAwMDAwMDAwMCwwMDANCj4g
+PT0wMDAwMCwwMDAwMDAwMA0KPiA9PQ0KPiA9PV5EU0ZMT1dSUFQ6MDAwMDAwOEUsMDAwMDAwMDAs
+MDAwMDAwMDAsMDAwMDAwMDAwMDAwMEIzNiwwMDAwMDAwMDAwMDAwMDAwLDAwMA0KPiA9PTAwMDAw
+LDAwMDAwMDAwDQo+ID09DQo+ID09UmVnYXJkaW5nIHRoZSBhbGlnbm1lbnQsIEkgdGhpbmsgd2Ug
+aGF2ZSBzb21lIGRpZmZlcmVuY2UgYmV0d2VlbiBXaW5kb3dzIGFuZA0KPiA9PUxpbnV4LiBUaGUg
+c3BlYyBzYXlzIGl0IHNob3VsZCBzYXRpc2Z5IHRoZSBmb2xsb3dpbmcgY29uc3RyYWludC4NCj4g
+PT0NCj4gPT1PZmZzZXQgJSB3TmRwT3V0RGl2aXNvciA9PSB3TmRwT3V0UGF5bG9hZFJlbWFpbmRl
+ciAoZm9yIE9VVCBkYXRhZ3JhbXMpDQo+ID09DQo+ID09SXQgc2VlbXMgdGhlIEh1YXdlaSBkZXZp
+Y2UgdGFrZSB0aGUgTkRQIG9mZnNldCAoRXRoZXJuZXQgSGVhZGVyIE9mZnNldCkgYXMNCj4gPT10
+aGUgcGFyYW1ldGVyICdPZmZzZXQnIGluIHRoZSBhYm92ZSBjb25zdHJhaW50LiBBbmQgaW4gdGhl
+IExpbnV4IGNhcHR1cmUsIGl0DQo+ID09ZG9lcyBub3QgY29tcGx5IHdpdGggaXQuDQo+ID09DQo+
+ID09DQo+ID09ZHdOdGJJbk1heFNpemU9MTMxMDcyIGR3TnRiT3V0TWF4U2l6ZT0xNjM4NCB3TmRw
+T3V0UGF5bG9hZFJlbWFpbmRlcj0yDQo+ID09d05kcE91dERpdmlzb3I9NCB3TmRwT3V0QWxpZ25t
+ZW50PTQgd050Yk91dE1heERhdGFncmFtcz0wIGZsYWdzPTB4MWYNCj4gPT0NCj4gPT1XaW5kb3dz
+Og0KPiA9PQ0KPiA9PTAwMDAgICA2ZSA2MyA2ZCA2OCAxMCAwMCBiNiAwMCA3YyAwMCAwMCAwMCA1
+YyAwMCAwMCAwMCAgbmNtaC4uLi58Li4uXC4uLg0KPiA9PTAwMTAgICAwMCAwMCAwMCAwMCAwMCAw
+MCAwMCAwMCAwMCAxZSAxMCAxZiAwMCAwMCAwOCAwMCAgLi4uLi4uLi4uLi4uLi4uLg0KPiA9PTAw
+MjAgICA0NSAwMCAwMCAzYyAwMCA5YiAwMCAwMCA4MCAwMSBhMCBmZSAwYSA3MSBhMyAwZSAgRS4u
+PC4uLi4uLi4uLnEuLg0KPiA9PTAwMzAgICBjYSA2YyAyMSAzYyAwOCAwMCA0YiA0YiAwMCAwMSAw
+MiAxMCA2MSA2MiA2MyA2NCAgLmwhPC4uS0suLi4uYWJjZA0KPiA9PTAwNDAgICA2NSA2NiA2NyA2
+OCA2OSA2YSA2YiA2YyA2ZCA2ZSA2ZiA3MCA3MSA3MiA3MyA3NCAgZWZnaGlqa2xtbm9wcXJzdA0K
+PiA9PTAwNTAgICA3NSA3NiA3NyA2MSA2MiA2MyA2NCA2NSA2NiA2NyA2OCA2OSA2ZSA2MyA2ZCAz
+MCAgdXZ3YWJjZGVmZ2hpbmNtMA0KPiA9PTAwNjAgICAyMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAw
+MCAwMCAwMCAwMCAxMiAwMCAwMCAwMCAgIC4uLi4uLi4uLi4uLi4uLg0KPiA9PTAwNzAgICA0YSAw
+MCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAwMCAgICAgICAgICAgICAgSi4uLi4uLi4uLi4u
+DQo+ID09DQo+ID09TGludXg6ICh0aG91Z2h0IGl0J3MgYSAxNmJpdCBmb3JtYXQgY2FwdHVyZSwg
+YnV0IGl0J3MgdGhlIHNhbWUgYXMgMzJiaXQsDQo+ID09cmVnYXJkaW5nIHRoZSBhbGlnbm1lbnQp
+DQo+ID09DQo+ID09MDAwMCAgIDRlIDQzIDRkIDQ4IDBjIDAwIDQwIDAwIGUyIDAwIDBjIDAwIDRl
+IDQzIDRkIDMwICBOQ01ILi5ALi4uLi5OQ00wDQo+ID09MDAxMCAgIDEwIDAwIDAwIDAwIGI4IDAw
+IDJhIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwICAuLi4uLi4qLi4uLi4uLi4uDQo+ID09MDAy
+MCAgIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwICAuLi4u
+Li4uLi4uLi4uLi4uDQo+ID09MDAzMCAgIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAw
+IDAwIDAwIDAwIDAwIDAwICAuLi4uLi4uLi4uLi4uLi4uDQo+ID09MDA0MCAgIDAwIDAwIDAwIDAw
+IDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwICAuLi4uLi4uLi4uLi4uLi4uDQo+
+ID09MDA1MCAgIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAw
+ICAuLi4uLi4uLi4uLi4uLi4uDQo+ID09MDA2MCAgIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAw
+IDAwIDAwIDAwIDAwIDAwIDAwIDAwICAuLi4uLi4uLi4uLi4uLi4uDQo+ID09MDA3MCAgIDAwIDAw
+IDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwICAuLi4uLi4uLi4uLi4u
+Li4uDQo+ID09MDA4MCAgIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAw
+IDAwIDAwICAuLi4uLi4uLi4uLi4uLi4uDQo+ID09MDA5MCAgIDAwIDAwIDAwIDAwIDAwIDAwIDAw
+IDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwICAuLi4uLi4uLi4uLi4uLi4uDQo+ID09MDBhMCAg
+IDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwICAuLi4uLi4u
+Li4uLi4uLi4uDQo+ID09MDBiMCAgIDAwIDAwIDAwIDAwIDAwIDAwIDAwIDAwIGZmIGZmIGZmIGZm
+IGZmIGZmIDAwIDFlICAuLi4uLi4uLi4uLi4uLi4uDQo+ID09MDBjMCAgIDEwIDFmIDAwIDAwIDA4
+IDA2IDAwIDAxIDA4IDAwIDA2IDA0IDAwIDAxIDAwIDFlICAuLi4uLi4uLi4uLi4uLi4uDQo+ID09
+MDBkMCAgIDEwIDFmIDAwIDAwIDBhIDcxIGNjIGE2IDAwIDAwIDAwIDAwIDAwIDAwIDcwIDUwICAu
+Li4uLnEuLi4uLi4uLnBQDQo+ID09MDBlMCAgIGY4IDQ5ICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAuSQ0KPiA9PQ0KPiA9PQ0KPiA9PVJlZ2FyZHMsDQo+ID09S2V2
+aW4NCj4gPT1PbiAxMS8yNy8yMDE0IDA4OjM2IFBNLCBBbGV4IFN0cml6aGV2c2t5IHdyb3RlOg0K
+PiA9PSAgICAgIEFkZGluZyBteSBjb2xsZWFndWVzIC0gRWxpLCBLZXZpbiAmIE1pZGdlLg0KPiA9
+PQ0KPiA9PUFueSBpZGVhcyBhcmUgd2VsY29tZSA7KQ0KPiA9PQ0KPiA9PQ0KPiA9PU9uIFRodSwg
+Tm92IDI3LCAyMDE0IGF0IDEyOjAzIFBNLCBCasO4cm4gTW9yayA8Ympvcm5AbW9yay5ubz4gd3Jv
+dGU6DQo+ID09ICAgICAgRW5yaWNvIE1pb3NvIDxtcmtpa28ucnNAZ21haWwuY29tPiB3cml0ZXM6
+DQo+ID09DQo+ID09ICAgICAgPiBPayAtIHdlIGNhbiBhcnJpdmUgdG8gc29tZSBvY25jbHVzaW9u
+cyByZWdhcmRpbmcgdGhlDQo+ID09ICAgICAgRTMyNzIuDQo+ID09ICAgICAgPiBGaXJzdCBvZiBh
+bGwgLSB0aGUgbW9kZW0gc2VlbXMgYnVnZ3kgZW5vdWdoIHRvIG5vdCBiZQ0KPiA9PSAgICAgIGFi
+bGUgdG8gaGFuZGxlIHJlcXVlc3RzDQo+ID09ICAgICAgPiBmb3IgZGlmZmVyZW50IGZvcm1hdHMu
+IFlvdSBuZWVkIHRvIHVucGx1ZyBhbmQgcmUtcGx1Zw0KPiA9PSAgICAgIGl0LCBidXQgdGhpcyBp
+cyBvbmx5YW4NCj4gPT0gICAgICA+IGltcHJlc3Npb24gYW5kIGlzIHJlYXNvbmFibGUuDQo+ID09
+ICAgICAgPg0KPiA9PSAgICAgID4gVGhlbiAtIHRoZSBtb2RlbSB3aWxsIGFjY2VwdCB0byBuZGlz
+ZHVwIHRoZSBjb25uZWN0aW9uDQo+ID09ICAgICAgd2l0aA0KPiA9PSAgICAgID4gYXRebmRpc2R1
+cD0xLDEsImludGVybmV0Ig0KPiA9PSAgICAgID4gYnV0IC0gaWYgd2UgdXNlIGh1YXdlaV9jZGNf
+bmNtICsgY2RjX25jbSB3ZSBoYXZlIG5vIGZsb3cNCj4gPT0gICAgICBoYW5kbGluZyBtZXNzYWdl
+cyBhbmQNCj4gPT0gICAgICA+IHRoZSBtb2RlbSBzdG9wcyBoZXJlLg0KPiA9PSAgICAgID4gSWYg
+d2UgdXNlIHRoZSBjZGNfbmNtIDMyLWJpdCBkcml2ZXIgKG1vZGlmaWVkKSB3ZSBnZXQNCj4gPT0g
+ICAgICBsb3RmcyBvZg0KPiA9PSAgICAgID4gXmRzZmxvcnB0DQo+ID09ICAgICAgPiB0aGF0J3Mg
+aG93IGl0IHNob3VsZCBiZS4NCj4gPT0gICAgICA+IFNvIEkgdGhpbmsgd2UgY2FuIHNheSB0aGF0
+IHNvbWV0aGluZyBpcyBjaGFuZ2luZy4NCj4gPT0gICAgICA+IFRoZW4gdGhlcmUncyB0aGUgYWxp
+Z25tZW50IHByb2JsZW0geW91IG1lbnRpb25lZCBpbiB5b3VyDQo+ID09ICAgICAgcHJldmlvdXMg
+cmVwbHkuIEFuZA0KPiA9PSAgICAgID4gdGhpcyBpcyBoYXJkIHRvIHNvbHZlLg0KPiA9PSAgICAg
+ID4gY291bGQgeW91IHRyeSB0byBoZWxwIG1lIHVuZGVyc3RhbmQgd2hlcmUgdGhlIHByb2JsZW0N
+Cj4gPT0gICAgICBpcz8NCj4gPT0gICAgICA+IEkgZmVlbCBsaWtlIHdlIGFyZSB2ZXJ5IGNsb3Nl
+IHRvIHRoZSBzb2x1dGlvbiBidXQNCj4gPT0gICAgICBzb21ldGhpbmcgaXNuJ3Qgd29ya2luZy4N
+Cj4gPT0gICAgICA+IE9yIG1pZ2h0IGJlIGp1c3QgdHJ5IHRvIGNoYW5nZSB0aGUgMTYgYml0IGRy
+aXZlcj8NCj4gPT0NCj4gPT1JZiB5b3UgdXNlIGEgcmVjZW50IHZlcnNpb24gb2YgdGhlIGRyaXZl
+ciBhcyBhIGJhc2lzLCB0aGVuIHlvdQ0KPiA9PWdldCB0aGUNCj4gPT1DREMgTkNNIE5UQiBwYXJh
+bWV0ZXJzIGluIHN5c2ZzIChpZiBub3QsIHRoZW4geW91IG5lZWQgdG8gZW5hYmxlDQo+ID09ZGVi
+dWdnaW5nIGFuZCBsb29rIGluIHRoZSBsb2cgZm9yIHRoZXNlIHZhbHVlcykuICBGb3IgZXhhbXBs
+ZToNCj4gPT0NCj4gPT1iam9ybkBuZW1pOn4kIGdyZXAgLiAvc3lzL2NsYXNzL25ldC93d2FuMC9j
+ZGNfbmNtLyoNCj4gPT0vc3lzL2NsYXNzL25ldC93d2FuMC9jZGNfbmNtL2JtTnRiRm9ybWF0c1N1
+cHBvcnRlZDoweDAwMDENCj4gPT0vc3lzL2NsYXNzL25ldC93d2FuMC9jZGNfbmNtL2R3TnRiSW5N
+YXhTaXplOjE1MzYwDQo+ID09L3N5cy9jbGFzcy9uZXQvd3dhbjAvY2RjX25jbS9kd050Yk91dE1h
+eFNpemU6MTUzNjANCj4gPT0vc3lzL2NsYXNzL25ldC93d2FuMC9jZGNfbmNtL21pbl90eF9wa3Q6
+MTM4MjQNCj4gPT0vc3lzL2NsYXNzL25ldC93d2FuMC9jZGNfbmNtL3J4X21heDoxNTM2MA0KPiA9
+PS9zeXMvY2xhc3MvbmV0L3d3YW4wL2NkY19uY20vdHhfbWF4OjE1MzYwDQo+ID09L3N5cy9jbGFz
+cy9uZXQvd3dhbjAvY2RjX25jbS90eF90aW1lcl91c2Vjczo0MDANCj4gPT0vc3lzL2NsYXNzL25l
+dC93d2FuMC9jZGNfbmNtL3dOZHBJbkFsaWdubWVudDo0DQo+ID09L3N5cy9jbGFzcy9uZXQvd3dh
+bjAvY2RjX25jbS93TmRwSW5EaXZpc29yOjENCj4gPT0vc3lzL2NsYXNzL25ldC93d2FuMC9jZGNf
+bmNtL3dOZHBJblBheWxvYWRSZW1haW5kZXI6MA0KPiA9PS9zeXMvY2xhc3MvbmV0L3d3YW4wL2Nk
+Y19uY20vd05kcE91dEFsaWdubWVudDo0DQo+ID09L3N5cy9jbGFzcy9uZXQvd3dhbjAvY2RjX25j
+bS93TmRwT3V0RGl2aXNvcjozMg0KPiA9PS9zeXMvY2xhc3MvbmV0L3d3YW4wL2NkY19uY20vd05k
+cE91dFBheWxvYWRSZW1haW5kZXI6MA0KPiA9PS9zeXMvY2xhc3MvbmV0L3d3YW4wL2NkY19uY20v
+d050Yk91dE1heERhdGFncmFtczozMg0KPiA9PQ0KPiA9PQ0KPiA9PVRoZSBwb3NzaWJsZSBwcm9i
+bGVtIEkgYW0gdGhpbmtpbmcgb2YgaXMgcHJvcGVyIGhhbmRsaW5nIG9mIHRoZQ0KPiA9PXdOZHAq
+UGF5bG9hZFJlbWFpbmRlciB2YWx1ZXMuIFNlZSBzZWN0aW9uIDMuMy40ICJOQ00gRXRoZXJuZXQN
+Cj4gPT1GcmFtZQ0KPiA9PUFsaWdubWVudCIgaW4gdGhlIHNwZWMuICBXaGljaCBpcyBjb25mdXNp
+bmcgYXMgaGVsbCwgYnV0IGlmIEkNCj4gPT11bmRlcnN0YW5kDQo+ID09aXQgY29ycmVjdGx5IHRo
+ZW4gd2UgYXJlIHN1cHBvc2VkIHRvIGFsaWduIHRoZSBzdGFydCBvZiB0aGUgSVANCj4gPT1wYWNr
+ZXRzDQo+ID09KHRoZSAicGF5bG9hZCIsIF9ub3RfIHRoZSBldGhlcm5ldCBmcmFtZSkgdG8gYSB3
+aG9sZQ0KPiA9PXdOZHAqRGl2aXNvciBudW1iZXINCj4gPT1hcyBsb25nIGFzIHRoZSB3TmRwKlBh
+eWxvYWRSZW1haW5kZXIgaXMgMC4NCj4gPT0NCj4gPT0NCj4gPT1CasO4cm4NCj4gPT0NCj4gPT0N
+Cj4gPT0NCj4gPT1UaGlzIGVtYWlsIGFuZCBhbnkgZmlsZXMgdHJhbnNtaXR0ZWQgd2l0aCBpdCBh
+cmUgY29uZmlkZW50aWFsIG1hdGVyaWFsLiBUaGV5DQo+ID09YXJlIGludGVuZGVkIHNvbGVseSBm
+b3IgdGhlIHVzZSBvZiB0aGUgZGVzaWduYXRlZCBpbmRpdmlkdWFsIG9yIGVudGl0eSB0bw0KPiA9
+PXdob20gdGhleSBhcmUgYWRkcmVzc2VkLiBJZiB0aGUgcmVhZGVyIG9mIHRoaXMgbWVzc2FnZSBp
+cyBub3QgdGhlIGludGVuZGVkDQo+ID09cmVjaXBpZW50LCB5b3UgYXJlIGhlcmVieSBub3RpZmll
+ZCB0aGF0IGFueSBkaXNzZW1pbmF0aW9uLCB1c2UsIGRpc3RyaWJ1dGlvbg0KPiA9PW9yIGNvcHlp
+bmcgb2YgdGhpcyBjb21tdW5pY2F0aW9uIGlzIHN0cmljdGx5IHByb2hpYml0ZWQgYW5kIG1heSBi
+ZSB1bmxhd2Z1bC4NCj4gPT0NCj4gPT1JZiB5b3UgaGF2ZSByZWNlaXZlZCB0aGlzIGVtYWlsIGlu
+IGVycm9yIHBsZWFzZSBpbW1lZGlhdGVseSBub3RpZnkgdGhlDQo+ID09c2VuZGVyIGFuZCBkZWxl
+dGUgb3IgZGVzdHJveSBhbnkgY29weSBvZiB0aGlzIG1lc3NhZ2UNCj4gPT0NClRoaXMgZW1haWwg
+YW5kIGFueSBmaWxlcyB0cmFuc21pdHRlZCB3aXRoIGl0IGFyZSBjb25maWRlbnRpYWwgbWF0ZXJp
+YWwuIFRoZXkgYXJlIGludGVuZGVkIHNvbGVseSBmb3IgdGhlIHVzZSBvZiB0aGUgZGVzaWduYXRl
+ZCBpbmRpdmlkdWFsIG9yIGVudGl0eSB0byB3aG9tIHRoZXkgYXJlIGFkZHJlc3NlZC4gSWYgdGhl
+IHJlYWRlciBvZiB0aGlzIG1lc3NhZ2UgaXMgbm90IHRoZSBpbnRlbmRlZCByZWNpcGllbnQsIHlv
+dSBhcmUgaGVyZWJ5IG5vdGlmaWVkIHRoYXQgYW55IGRpc3NlbWluYXRpb24sIHVzZSwgZGlzdHJp
+YnV0aW9uIG9yIGNvcHlpbmcgb2YgdGhpcyBjb21tdW5pY2F0aW9uIGlzIHN0cmljdGx5IHByb2hp
+Yml0ZWQgYW5kIG1heSBiZSB1bmxhd2Z1bC4NCg0KSWYgeW91IGhhdmUgcmVjZWl2ZWQgdGhpcyBl
+bWFpbCBpbiBlcnJvciBwbGVhc2UgaW1tZWRpYXRlbHkgbm90aWZ5IHRoZSBzZW5kZXIgYW5kIGRl
+bGV0ZSBvciBkZXN0cm95IGFueSBjb3B5IG9mIHRoaXMgbWVzc2FnZQ0K
