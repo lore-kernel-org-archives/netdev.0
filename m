@@ -1,16 +1,12 @@
 From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next v3 08/17] bridge: call netdev_sw_port_stp_update
- when bridge port STP status changes
-Date: Fri, 28 Nov 2014 02:51:08 -0800
-Message-ID: <CAE4R7bCfi-90pccDJN350bdeQi2R4H5Xbu3-BADZ29vWhfkJiA@mail.gmail.com>
-References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
-	<1416911328-10979-9-git-send-email-jiri@resnulli.us>
-	<5475073E.70503@cumulusnetworks.com>
-	<CAE4R7bAiEyztdGo2BMVGXq9phfASHsMU+QW4oocTmr9=4antxw@mail.gmail.com>
-	<547848D8.1060203@cumulusnetworks.com>
+Subject: Re: [patch net-next v4 00/21] introduce rocker switch driver with
+ hardware accelerated datapath api - phase 1: bridge fdb offload
+Date: Fri, 28 Nov 2014 03:59:17 -0800
+Message-ID: <CAE4R7bDNbyfxx+XExmej8-p=E3X4cHc+Sr75S=aO67XMYcmU8g@mail.gmail.com>
+References: <1417084826-9875-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+Cc: Netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
 	Andy Gospodarek <andy@greyhouse.net>,
@@ -29,192 +25,138 @@ Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
 	Florian Fainelli <f.fainelli@gmail.com>,
-	John Linville <linville@tuxdriver.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	John Linville <linville@tu
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:36204 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751053AbaK1KvM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 05:51:12 -0500
-Received: by mail-wg0-f49.google.com with SMTP id n12so273474wgh.22
-        for <netdev@vger.kernel.org>; Fri, 28 Nov 2014 02:51:08 -0800 (PST)
-In-Reply-To: <547848D8.1060203@cumulusnetworks.com>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:57276 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751134AbaK1L7T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 06:59:19 -0500
+Received: by mail-wi0-f170.google.com with SMTP id bs8so20916852wib.5
+        for <netdev@vger.kernel.org>; Fri, 28 Nov 2014 03:59:18 -0800 (PST)
+In-Reply-To: <1417084826-9875-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 28, 2014 at 2:05 AM, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
-> On 11/25/14, 5:35 PM, Scott Feldman wrote:
->>
->>   The
->> bridge driver or external STP process (msptd) is still controlling STP
->> state for the port and processing the BPDUs.  When the state changes
->> on the port, the bridge driver is letting HW know, that's it.
->
->
-> I understand that. In which case, we should not call it stp state.
-> It is just port state.
+Thanks Jiri for coordinating this effort.  It looks like we're close
+to convergence on this first patch set.  I sifted thru review comments
+and compiled a list of items for follow-on work.  I hope it's OK to
+use etherpad for this:
 
-Sure, call it port state but it takes on BR_STATE_xxx values which
-just so happen to correspond exactly to STP states.
+https://etherpad.wikimedia.org/p/netdev-swdev-todo
 
-> And since it is yet another port attribute like port
-> priority,
-> we should be able to use the same api to offload it to hw just like the
-> other port attributes.
+Feel free to edit as needed and claim an item if you intend to work on
+it.  Don't turn the etherpad into a discussion board...try to keep it
+as list of work items.  I don't think any of these items should hold
+up current patch set.
 
-Well it does...see ndo_bridge_setlink in bridge driver, br_setport
-where IFLA_BRPORT_STATE is handled...it calls br_set_port_state(),
-which calls into the swdev port driver.  That's for the case where
-user or external processing is setting STP state.  For the case where
-the bridge itself is managing the STP state, the bridge will make the
-same br_set_port_state() call to adjust the port state.
+-scott
 
-> And, Thats why i tried to generalize all bridge port attribute set by
-> introducing one generic netdev_sw_port_set_attr api.
-> https://marc.info/?l=linux-netdev&m=141661018619712&w=2
+On Thu, Nov 27, 2014 at 2:40 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Hi all.
 >
+> This patchset is just the first phase of switch and switch-ish device
+> support api in kernel. Note that the api will extend.
 >
-> And coming back to my original comment in this thread,
-> the port state should be offloaded to hw only when the swdev mode (or hw
-> offload mode ;) is set.
+> So what this patchset includes:
+> - introduce switchdev api skeleton for implementing switch drivers
+> - introduce rocker switch driver which implements switchdev api fdb and
+>   bridge set/get link ndos
 >
+> As to the discussion if there is need to have specific class of device
+> representing the switch itself, so far we found no need to introduce that.
+> But we are generally ok with the idea and when the time comes and it will
+> be needed, it can be easily introduced without any disturbance.
 >
->>   If the
->> port driver can't do anything with that notification, then it should
->> not implement ndo_switch_port_stp_update.  If it does implement
->> ndo_switch_port_stp_update, then it can adjust its HW (e.g. disable
->> port if BR_DISABLED, etc), and return err code if somehow it failed
->> while adjusting HW.
->>
->> This is not offloading STP state ctrl plane to HW.  The ctrl plane is
->> kept in bridge driver (or mstpd) in SW.  HW stays dumb in this model.
->> The bridge currently has policy control to turn on/off STP per bridge
->> and a netlink hook for external processes to change STP state.
->>
->> On Tue, Nov 25, 2014 at 12:48 PM, Roopa Prabhu
->> <roopa@cumulusnetworks.com> wrote:
->>>
->>> On 11/25/14, 2:28 AM, Jiri Pirko wrote:
->>>>
->>>> From: Scott Feldman <sfeldma@gmail.com>
->>>>
->>>> To notify switch driver of change in STP state of bridge port, add new
->>>> .ndo op and provide switchdev wrapper func to call ndo op. Use it in
->>>> bridge
->>>> code then.
->>>>
->>>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->>>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>>> ---
->>>> v2->v3:
->>>> -changed "sw" string to "switch" to avoid confusion
->>>> v1->v2:
->>>> -no change
->>>> ---
->>>>    include/linux/netdevice.h |  5 +++++
->>>>    include/net/switchdev.h   |  7 +++++++
->>>>    net/bridge/br_stp.c       |  2 ++
->>>>    net/switchdev/switchdev.c | 19 +++++++++++++++++++
->>>>    4 files changed, 33 insertions(+)
->>>>
->>>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->>>> index ce096dc..66cb64e 100644
->>>> --- a/include/linux/netdevice.h
->>>> +++ b/include/linux/netdevice.h
->>>> @@ -1024,6 +1024,9 @@ typedef u16 (*select_queue_fallback_t)(struct
->>>> net_device *dev,
->>>>     *    Called to get an ID of the switch chip this port is part of.
->>>>     *    If driver implements this, it indicates that it represents a
->>>> port
->>>>     *    of a switch chip.
->>>> + * int (*ndo_switch_port_stp_update)(struct net_device *dev, u8 state);
->>>> + *     Called to notify switch device port of bridge port STP
->>>> + *     state change.
->>>>     */
->>>>    struct net_device_ops {
->>>>          int                     (*ndo_init)(struct net_device *dev);
->>>> @@ -1180,6 +1183,8 @@ struct net_device_ops {
->>>>    #ifdef CONFIG_NET_SWITCHDEV
->>>>          int                     (*ndo_switch_parent_id_get)(struct
->>>> net_device *dev,
->>>>                                                              struct
->>>> netdev_phys_item_id *psid);
->>>> +       int                     (*ndo_switch_port_stp_update)(struct
->>>> net_device *dev,
->>>> +                                                             u8 state);
->>>>    #endif
->>>>    };
->>>>    diff --git a/include/net/switchdev.h b/include/net/switchdev.h
->>>> index 7a52360..8a6d164 100644
->>>> --- a/include/net/switchdev.h
->>>> +++ b/include/net/switchdev.h
->>>> @@ -16,6 +16,7 @@
->>>>      int netdev_switch_parent_id_get(struct net_device *dev,
->>>>                                  struct netdev_phys_item_id *psid);
->>>> +int netdev_switch_port_stp_update(struct net_device *dev, u8 state);
->>>>      #else
->>>>    @@ -25,6 +26,12 @@ static inline int
->>>> netdev_switch_parent_id_get(struct
->>>> net_device *dev,
->>>>          return -EOPNOTSUPP;
->>>>    }
->>>>    +static inline int netdev_switch_port_stp_update(struct net_device
->>>> *dev,
->>>> +                                               u8 state)
->>>> +{
->>>> +       return -EOPNOTSUPP;
->>>> +}
->>>> +
->>>>    #endif
->>>>      #endif /* _LINUX_SWITCHDEV_H_ */
->>>> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
->>>> index 2b047bc..35e016c 100644
->>>> --- a/net/bridge/br_stp.c
->>>> +++ b/net/bridge/br_stp.c
->>>> @@ -12,6 +12,7 @@
->>>>     */
->>>>    #include <linux/kernel.h>
->>>>    #include <linux/rculist.h>
->>>> +#include <net/switchdev.h>
->>>>      #include "br_private.h"
->>>>    #include "br_private_stp.h"
->>>> @@ -39,6 +40,7 @@ void br_log_state(const struct net_bridge_port *p)
->>>>    void br_set_state(struct net_bridge_port *p, unsigned int state)
->>>>    {
->>>>          p->state = state;
->>>> +       netdev_switch_port_stp_update(p->dev, state);
->>>>    }
->>>>      /* called under bridge lock */
->>>> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->>>> index 66973de..d162b21 100644
->>>> --- a/net/switchdev/switchdev.c
->>>> +++ b/net/switchdev/switchdev.c
->>>> @@ -31,3 +31,22 @@ int netdev_switch_parent_id_get(struct net_device
->>>> *dev,
->>>>          return ops->ndo_switch_parent_id_get(dev, psid);
->>>>    }
->>>>    EXPORT_SYMBOL(netdev_switch_parent_id_get);
->>>> +
->>>> +/**
->>>> + *     netdev_switch_port_stp_update - Notify switch device port of STP
->>>> + *                                     state change
->>>> + *     @dev: port device
->>>> + *     @state: port STP state
->>>> + *
->>>> + *     Notify switch device port of bridge port STP state change.
->>>> + */
->>>> +int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
->>>> +{
->>>> +       const struct net_device_ops *ops = dev->netdev_ops;
->>>> +
->>>> +       if (!ops->ndo_switch_port_stp_update)
->>>> +               return -EOPNOTSUPP;
->>>> +       WARN_ON(!ops->ndo_switch_parent_id_get);
->>>> +       return ops->ndo_switch_port_stp_update(dev, state);
->>>> +}
->>>> +EXPORT_SYMBOL(netdev_switch_port_stp_update);
->>>
->>>
->>> This should also check  if offload is enabled on the bridge/port ?
->>>
+> This patchset introduces switch id export through rtnetlink and sysfs,
+> which is similar to what we have for port id in SR-IOV. I will send iproute2
+> patchset for showing the switch id for port netdevs once this is applied.
+> This applies also for the PF_BRIDGE and fdb iproute2 patches.
+>
+> iproute2 patches are now available here:
+> https://github.com/jpirko/iproute2-rocker
+>
+> For detailed description and version history, please see individual patches.
+>
+> In v4 I reordered the patches leaving rocker patches on the end of the patchset.
+>
+> Jiri Pirko (10):
+>   bridge: rename fdb_*_hw to fdb_*_hw_addr to avoid confusion
+>   neigh: sort Neighbor Cache Entry Flags
+>   bridge: convert flags in fbd entry into bitfields
+>   net: make vid as a parameter for ndo_fdb_add/ndo_fdb_del
+>   net: rename netdev_phys_port_id to more generic name
+>   net: introduce generic switch devices support
+>   rtnl: expose physical switch id for particular device
+>   net-sysfs: expose physical switch id for particular device
+>   rocker: introduce rocker switch driver
+>   rocker: implement ndo_fdb_dump
+>
+> Scott Feldman (9):
+>   bridge: call netdev_sw_port_stp_update when bridge port STP status
+>     changes
+>   bridge: add API to notify bridge driver of learned FBD on offloaded
+>     device
+>   bridge: move private brport flags to if_bridge.h so port drivers can
+>     use flags
+>   bridge: add new brport flag LEARNING_SYNC
+>   bridge: add new hwmode swdev
+>   bridge: add brport flags to dflt bridge_getlink
+>   rocker: implement rocker ofdpa flow table manipulation
+>   rocker: implement L2 bridge offloading
+>   rocker: add ndo_bridge_setlink/getlink support for learning policy
+>
+> Thomas Graf (2):
+>   rocker: Add proper validation of Netlink attributes
+>   rocker: Use logical operators on booleans
+>
+>  Documentation/ABI/testing/sysfs-class-net        |    8 +
+>  Documentation/networking/switchdev.txt           |   59 +
+>  MAINTAINERS                                      |   14 +
+>  drivers/net/ethernet/Kconfig                     |    1 +
+>  drivers/net/ethernet/Makefile                    |    1 +
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    2 +-
+>  drivers/net/ethernet/emulex/benet/be_main.c      |    3 +-
+>  drivers/net/ethernet/intel/i40e/i40e_main.c      |    4 +-
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |    6 +-
+>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |    2 +-
+>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   11 +-
+>  drivers/net/ethernet/rocker/Kconfig              |   27 +
+>  drivers/net/ethernet/rocker/Makefile             |    5 +
+>  drivers/net/ethernet/rocker/rocker.c             | 4374 ++++++++++++++++++++++
+>  drivers/net/ethernet/rocker/rocker.h             |  428 +++
+>  drivers/net/macvlan.c                            |    4 +-
+>  drivers/net/vxlan.c                              |    4 +-
+>  include/linux/if_bridge.h                        |   31 +
+>  include/linux/netdevice.h                        |   39 +-
+>  include/linux/rtnetlink.h                        |    9 +-
+>  include/net/switchdev.h                          |   37 +
+>  include/uapi/linux/if_bridge.h                   |    1 +
+>  include/uapi/linux/if_link.h                     |    2 +
+>  include/uapi/linux/neighbour.h                   |    6 +-
+>  net/Kconfig                                      |    1 +
+>  net/Makefile                                     |    3 +
+>  net/bridge/br_fdb.c                              |  144 +-
+>  net/bridge/br_private.h                          |   21 +-
+>  net/bridge/br_stp.c                              |    7 +
+>  net/core/dev.c                                   |    2 +-
+>  net/core/net-sysfs.c                             |   26 +-
+>  net/core/rtnetlink.c                             |  119 +-
+>  net/switchdev/Kconfig                            |   13 +
+>  net/switchdev/Makefile                           |    5 +
+>  net/switchdev/switchdev.c                        |   52 +
+>  35 files changed, 5366 insertions(+), 105 deletions(-)
+>  create mode 100644 Documentation/networking/switchdev.txt
+>  create mode 100644 drivers/net/ethernet/rocker/Kconfig
+>  create mode 100644 drivers/net/ethernet/rocker/Makefile
+>  create mode 100644 drivers/net/ethernet/rocker/rocker.c
+>  create mode 100644 drivers/net/ethernet/rocker/rocker.h
+>  create mode 100644 include/net/switchdev.h
+>  create mode 100644 net/switchdev/Kconfig
+>  create mode 100644 net/switchdev/Makefile
+>  create mode 100644 net/switchdev/switchdev.c
+>
+> --
+> 1.9.3
 >
