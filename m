@@ -1,33 +1,24 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] bridge: add vlan id to mdb notifications
-Date: Fri, 28 Nov 2014 02:18:52 -0800
-Message-ID: <54784C0C.30409@cumulusnetworks.com>
-References: <1417010013-31454-1-git-send-email-roopa@cumulusnetworks.com> <20141126105614.6a42d697@urahara> <54763AA6.4000804@cumulusnetworks.com> <20141126215327.GC13786@casper.infradead.org>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: Re: Is this 32-bit NCM?
+Date: Fri, 28 Nov 2014 11:27:40 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1411281126150.4468@gmail.com>
+References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
+ <alpine.LNX.2.03.1411271932510.1548@gmail.com> <87ppc71xne.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	vyasevich@gmail.com, netdev@vger.kernel.org,
-	wkok@cumulusnetworks.com, gospo@cumulusnetworks.com,
-	jtoppins@cumulusnetworks.com, sashok@cumulusnetworks.com,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Alex Strizhevsky <alexxst@gmail.com>,
+	ShaojunMidge.Tan@audiocodes.com, Mingying.Zhu@audiocodes.com,
+	youtux@gmail.com, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, Eli.Britstein@audiocodes.com
+To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:53143 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750827AbaK1KS5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 05:18:57 -0500
-In-Reply-To: <20141126215327.GC13786@casper.infradead.org>
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:54006 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750888AbaK1K1M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 05:27:12 -0500
+In-Reply-To: <87ppc71xne.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/26/14, 1:53 PM, Thomas Graf wrote:
-> On 11/26/14 at 12:40pm, Roopa Prabhu wrote:
->> I have always wondered, if binary netlink attributes have this restriction,
->> they should be discouraged. especially when the other extensible option is
->> to add them as a separate netlink attribute.
-> This is pretty much exactly the reason why attributes have been
-> introduced ;-)
-
-thanks for confirming that thomas :). Will resubmit the patch with vlan 
-information as a separate attribute.
+... and what do you think regarding the last arp packet Kevin shared with us 
+after having changed the remainder fixed value.
