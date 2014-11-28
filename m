@@ -1,69 +1,44 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: tun issue after e0b46d0ee9c: tun: Use iovec iterators
-Date: Fri, 28 Nov 2014 20:37:34 +0000
-Message-ID: <20141128203733.GD29748@ZenIV.linux.org.uk>
-References: <5478CC27.9040705@redhat.com>
+From: nick <xerofoify@gmail.com>
+Subject: Fix me in htc.c relating to skb_reserve
+Date: Fri, 28 Nov 2014 16:43:18 -0500
+Message-ID: <5478EC76.40102@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev <netdev@vger.kernel.org>
-To: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:55768 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751209AbaK1Uhi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2014 15:37:38 -0500
-Content-Disposition: inline
-In-Reply-To: <5478CC27.9040705@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+ linville@tuxdriver.com, ath10k@lists.infradead.org,
+ linux-kernel@vger.kernel.org
+To: kvalo@qca.qualcomm.com
+Return-path: <ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/ath10k>,
+ <mailto:ath10k-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/ath10k/>
+List-Post: <mailto:ath10k@lists.infradead.org>
+List-Help: <mailto:ath10k-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/ath10k>,
+ <mailto:ath10k-request@lists.infradead.org?subject=subscribe>
+Sender: "ath10k" <ath10k-bounces@lists.infradead.org>
+Errors-To: ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 28, 2014 at 05:25:27PM -0200, Marcelo Ricardo Leitner wrote:
-> Hi,
-> 
-> I saw there are tun updates on Dave's queue but none seemed to handle this.
-> 
-> I can't use current net-next
-> (799d2fff1858004526ad75d66a5dd8a5cce6ad40) on a kvm hypervisor
-> because tun got clogged somehow. Bisected down to:
+Greetings Kalle, John and others,
+I am wondering why this file is complaining about the code below, if someone can explain to me the issue I would be 
+very glad :).
+ static struct sk_buff *ath10k_htc_build_tx_ctrl_skb(void *ar)
+{
+       struct sk_buff *skb;
+       struct ath10k_skb_cb *skb_cb;
 
-Umm...  In host, presumably?
+       skb = dev_alloc_skb(ATH10K_HTC_CONTROL_BUFFER_SIZE);
+       if (!skb)
+               return NULL;
 
-> And net/core/datagram.c, skb_copy_datagram_from_iter():
->         if (copy > 0) {
->                 int ret;
->                 if (copy > len)
->                         copy = len;
->                 ret = copy_from_iter(skb->data + offset, copy, from);
->                 if (ret != copy) {
->                         pr_err("%d ret=%d copy=%d offset=%d
-> len=%d\n", __LINE__, ret, copy, offset, len);
->                         goto fault;
->                 }
-> 
-> 
-> I get, for tun interfaces:
-> [   75.435552] 506 ret=80 copy=90 offset=0 len=90
-> [   75.435563] tun: 1124 0 -14           (null)
-> [   75.499528] 506 ret=80 copy=90 offset=0 len=90
-> [   75.499540] tun: 1124 0 -14           (null)
-> 
-> These were 1 drop on 1 interface each
-> 
-> And for tap interfaces:
-> [  301.982639] 506 ret=80 copy=90 offset=0 len=90
-> [  301.982649] tun: 1124 0 -14           (null)
-> [  301.988625] 506 ret=80 copy=90 offset=0 len=90
-> [  301.988635] tun: 1124 0 -14           (null)
-> [  301.994762] 506 ret=80 copy=90 offset=0 len=90
-> [  301.994773] tun: 1124 0 -14           (null)
-> [  302.229962] 506 ret=332 copy=342 offset=0 len=342
-> [  302.229972] tun: 1124 0 -14           (null)
-> [  302.230621] 506 ret=332 copy=342 offset=0 len=342
-> [  302.230627] tun: 1124 0 -14           (null)
-> [  302.239065] 506 ret=332 copy=342 offset=0 len=342
-> [  302.239071] tun: 1124 0 -14           (null)
-> 
-> It's returning 10 bytes less than the expected... ideas?
+  skb_reserve(skb, 20); /* FIXME: why 20 bytes? */
+  WARN_ONCE((unsigned long)skb->data & 3, "unaligned skb");
 
-Could you print vnet_hdr_sz and sizeof(gso) right after that
-copy_from_iter(&gso, ...)?
+  skb_cb = ATH10K_SKB_CB(skb);
+  memset(skb_cb, 0, sizeof(*skb_cb));
+
+  ath10k_dbg(ar, ATH10K_DBG_HTC, "%s: skb %p\n", __func__, skb);
+  return skb;
+}
