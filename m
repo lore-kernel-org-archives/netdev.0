@@ -1,38 +1,33 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH] drivers:net:wireless: Add mutex locking for function,
- b43_op_beacon_set_time in main.c
-Date: Sat, 29 Nov 2014 12:54:17 -0600
-Message-ID: <547A1659.9070605@lwfinger.net>
-References: <1417213013-19758-1-git-send-email-xerofoify@gmail.com>	<CACna6rxmOC0h9hOpa=5iWFM1THQ8Q4hCi8MnmqkZJbB_U0PJ0A@mail.gmail.com>	<20141129002148.1beb21d9@wiggum>	<54793E4E.7050602@gmail.com>	<20141129095632.69361457@wiggum> <CACna6ryjZ-LY06wAMzoL77Wca3McUUT+VYsO4EPO87NqjBnaNw@mail.gmail.com> <547A0BC5.2080005@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] vxlan: Add support for enabling UDP checksums
+Date: Sat, 29 Nov 2014 11:08:33 -0800
+Message-ID: <20141129110833.30095401@urahara>
+References: <1415376334-29292-1-git-send-email-therbert@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>,
-	b43-dev <b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: nick <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	=?UTF-8?B?TWljaGFlbCBCw7xzY2g=?= <m@bues.ch>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <547A0BC5.2080005-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:57351 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751671AbaK2TIo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Nov 2014 14:08:44 -0500
+Received: by mail-pd0-f178.google.com with SMTP id g10so8330027pdj.23
+        for <netdev@vger.kernel.org>; Sat, 29 Nov 2014 11:08:43 -0800 (PST)
+In-Reply-To: <1415376334-29292-1-git-send-email-therbert@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2014 12:09 PM, nick wrote:
-> Sorry about that, next time I will be more careful.
+On Fri,  7 Nov 2014 08:05:34 -0800
+Tom Herbert <therbert@google.com> wrote:
 
-One other thing would be to change the initial part of the subject. Yes, the 
-device is in drivers/net/wireless/, but it is much more common to not include 
-those in patches that are sent to Linville. I would have used "b43: Add ...". 
-That catches the eye more quickly. As they say in the newspaper business, "Don't 
-bury the lead."
+> Add udpcsum option to enable transmitting UDP checksums when doing
+> VXLAN/IPv4. Add udp6zerocsumtx, and udp6zerocsumrx options to enable
+> sending zero checksums and receiving zero checksums in VXLAN/IPv6.
+> 
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-Larry
+Applied.
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+You probably want to update man page as well.
