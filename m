@@ -1,52 +1,44 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 1/1] net-PA Semi: Deletion of unnecessary checks before the
- function call "pci_dev_put"
-Date: Sat, 29 Nov 2014 19:00:17 +0100
-Message-ID: <547A09B1.9090102@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
- urceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Olof Johansson <olof@lixom.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5317A59D.4@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH net] gre: Set inner mac header in gro complete
+Date: Sat, 29 Nov 2014 09:59:45 -0800
+Message-ID: <1417283985-22269-1-git-send-email-therbert@google.com>
+To: davem@davemloft.net, linux@stwm.de, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:58562 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751351AbaK2SDR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Nov 2014 13:03:17 -0500
+Received: by mail-ig0-f182.google.com with SMTP id hn15so6971945igb.15
+        for <netdev@vger.kernel.org>; Sat, 29 Nov 2014 10:03:17 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sat, 29 Nov 2014 18:55:40 +0100
+Set the inner mac header to point to the GRE payload when
+doing GRO. This is needed if we proceed to send the packet
+through GRE GSO which now uses the inner mac header instead
+of inner network header to determine the length of encapsulation
+headers.
 
-The pci_dev_put() function tests whether its argument is NULL
-and then returns immediately. Thus the test around the call
-is not needed.
-
-This issue was detected by using the Coccinelle software.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Fixes: 14051f0452a2 ("gre: Use inner mac length when computing tunnel length")
+Reported-by: Wolfgang Walter <linux@stwm.de>
+Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- drivers/net/ethernet/pasemi/pasemi_mac.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ net/ipv4/gre_offload.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/ethernet/pasemi/pasemi_mac.c b/drivers/net/ethernet/pasemi/pasemi_mac.c
-index 30d934d..44e8d7d 100644
---- a/drivers/net/ethernet/pasemi/pasemi_mac.c
-+++ b/drivers/net/ethernet/pasemi/pasemi_mac.c
-@@ -1837,10 +1837,8 @@ pasemi_mac_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
+index bb5947b..51973dd 100644
+--- a/net/ipv4/gre_offload.c
++++ b/net/ipv4/gre_offload.c
+@@ -247,6 +247,9 @@ static int gre_gro_complete(struct sk_buff *skb, int nhoff)
+ 		err = ptype->callbacks.gro_complete(skb, nhoff + grehlen);
+ 
+ 	rcu_read_unlock();
++
++	skb_set_inner_mac_header(skb, nhoff + grehlen);
++
  	return err;
+ }
  
- out:
--	if (mac->iob_pdev)
--		pci_dev_put(mac->iob_pdev);
--	if (mac->dma_pdev)
--		pci_dev_put(mac->dma_pdev);
-+	pci_dev_put(mac->iob_pdev);
-+	pci_dev_put(mac->dma_pdev);
- 
- 	free_netdev(dev);
- out_disable_device:
 -- 
-2.1.3
+2.2.0.rc0.207.ga3a616c
