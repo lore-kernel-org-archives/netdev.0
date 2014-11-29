@@ -1,59 +1,52 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net] bond: Check length of IFLA_BOND_ARP_IP_TARGET attributes
-Date: Sat, 29 Nov 2014 09:53:27 -0800
-Message-ID: <547A0817.6010804@gmail.com>
-References: <a7c193909c30dbc19b4f279a3f7ba757107641d3.1417044113.git.tgraf@suug.ch>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 1/1] net-PA Semi: Deletion of unnecessary checks before the
+ function call "pci_dev_put"
+Date: Sat, 29 Nov 2014 19:00:17 +0100
+Message-ID: <547A09B1.9090102@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Scott Feldman <sfeldma@cumulusnetworks.com>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:51839 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751713AbaK2Rxi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Nov 2014 12:53:38 -0500
-Received: by mail-ob0-f180.google.com with SMTP id wp4so6101456obc.25
-        for <netdev@vger.kernel.org>; Sat, 29 Nov 2014 09:53:38 -0800 (PST)
-In-Reply-To: <a7c193909c30dbc19b4f279a3f7ba757107641d3.1417044113.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Olof Johansson <olof@lixom.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/26/2014 03:22 PM, Thomas Graf wrote:
-> Fixes: 7f28fa10 ("bonding: add arp_ip_target netlink support")
-> Reported-by: John Fastabend <john.fastabend@gmail.com>
-> Cc: Scott Feldman <sfeldma@cumulusnetworks.com>
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> ---
->   drivers/net/bonding/bond_netlink.c | 7 ++++++-
->   1 file changed, 6 insertions(+), 1 deletion(-)
->
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Sat, 29 Nov 2014 18:55:40 +0100
 
-Looks good thanks! For what its worth...
+The pci_dev_put() function tests whether its argument is NULL
+and then returns immediately. Thus the test around the call
+is not needed.
 
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
+This issue was detected by using the Coccinelle software.
 
-> diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
-> index c13d83e..45f09a6 100644
-> --- a/drivers/net/bonding/bond_netlink.c
-> +++ b/drivers/net/bonding/bond_netlink.c
-> @@ -225,7 +225,12 @@ static int bond_changelink(struct net_device *bond_dev,
->
->   		bond_option_arp_ip_targets_clear(bond);
->   		nla_for_each_nested(attr, data[IFLA_BOND_ARP_IP_TARGET], rem) {
-> -			__be32 target = nla_get_be32(attr);
-> +			__be32 target;
-> +
-> +			if (nla_len(attr) < sizeof(target))
-> +				return -EINVAL;
-> +
-> +			target = nla_get_be32(attr);
->
->   			bond_opt_initval(&newval, (__force u64)target);
->   			err = __bond_opt_set(bond, BOND_OPT_ARP_TARGETS,
->
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/net/ethernet/pasemi/pasemi_mac.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-
+diff --git a/drivers/net/ethernet/pasemi/pasemi_mac.c b/drivers/net/ethernet/pasemi/pasemi_mac.c
+index 30d934d..44e8d7d 100644
+--- a/drivers/net/ethernet/pasemi/pasemi_mac.c
++++ b/drivers/net/ethernet/pasemi/pasemi_mac.c
+@@ -1837,10 +1837,8 @@ pasemi_mac_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	return err;
+ 
+ out:
+-	if (mac->iob_pdev)
+-		pci_dev_put(mac->iob_pdev);
+-	if (mac->dma_pdev)
+-		pci_dev_put(mac->dma_pdev);
++	pci_dev_put(mac->iob_pdev);
++	pci_dev_put(mac->dma_pdev);
+ 
+ 	free_netdev(dev);
+ out_disable_device:
 -- 
-John Fastabend         Intel Corporation
+2.1.3
