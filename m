@@ -1,48 +1,52 @@
-From: nick <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] drivers:net:wireless: Add mutex locking for function,
- b43_op_beacon_set_time in main.c
-Date: Fri, 28 Nov 2014 22:32:30 -0500
-Message-ID: <54793E4E.7050602@gmail.com>
-References: <1417213013-19758-1-git-send-email-xerofoify@gmail.com>	<CACna6rxmOC0h9hOpa=5iWFM1THQ8Q4hCi8MnmqkZJbB_U0PJ0A@mail.gmail.com>
- <20141129002148.1beb21d9@wiggum>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: tun issue after e0b46d0ee9c: tun: Use iovec iterators
+Date: Sat, 29 Nov 2014 02:49:51 -0200
+Message-ID: <5479506F.6000803@redhat.com>
+References: <5478CC27.9040705@redhat.com> <20141128203733.GD29748@ZenIV.linux.org.uk> <5478F2BB.9050409@redhat.com> <20141128223503.GE29748@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>,
- b43-dev <b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: =?UTF-8?B?TWljaGFlbCBCw7xzY2g=?= <m@bues.ch>, =?UTF-8?B?UmFmYcWCIE1pxYI=?=
- =?UTF-8?B?ZWNraQ==?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20141129002148.1beb21d9@wiggum>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
-List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev <netdev@vger.kernel.org>
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:47713 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750996AbaK2EuA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Nov 2014 23:50:00 -0500
+In-Reply-To: <20141128223503.GE29748@ZenIV.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TWljaGFlbCwKSSBkb24ndCBoYXZlIGhhcmR3YXJlIGZvciB0aGlzIGRyaXZlciBvbiBtZSwgc28g
-SSBkaWRuJ3QgdGVzdCBpdC4gSG93ZXZlciB0aGlzIHNlZW1zIHRvIApiZSBjb3JyZWN0IGZyb20g
-bXkgcmVhZGluZyBvZiB0aGUgY29kZSBhcm91bmQgdGhpcyBmdW5jdGlvbiBhbmQgb3RoZXIgbG9j
-a2luZyByZWxhdGVkCnRvIHRoaXMgZHJpdmVyLgpDaGVlcnMgTmljawoKT24gMjAxNC0xMS0yOCAw
-NjoyMSBQTSwgTWljaGFlbCBCw7xzY2ggd3JvdGU6Cj4gT24gRnJpLCAyOCBOb3YgMjAxNCAyMzo0
-MDo0NiArMDEwMAo+IFJhZmHFgiBNacWCZWNraSA8emFqZWM1QGdtYWlsLmNvbT4gd3JvdGU6Cj4g
-Cj4+PiBAQCAtNTA5NCw4ICs1MDk0LDkgQEAgc3RhdGljIGludCBiNDNfb3BfYmVhY29uX3NldF90
-aW0oc3RydWN0IGllZWU4MDIxMV9odyAqaHcsCj4+PiAgewo+Pj4gICAgICAgICBzdHJ1Y3QgYjQz
-X3dsICp3bCA9IGh3X3RvX2I0M193bChodyk7Cj4+Pgo+Pj4gLSAgICAgICAvKiBGSVhNRTogYWRk
-IGxvY2tpbmcgKi8KPj4+ICsgICAgICAgbXV0ZXhfbG9jaygmd2wtPm11dGV4KTsKPj4+ICAgICAg
-ICAgYjQzX3VwZGF0ZV90ZW1wbGF0ZXMod2wpOwo+Pj4gKyAgICAgICBtdXRleF91bmxvY2soJnds
-LT5tdXRleCk7Cj4+Pgo+Pj4gICAgICAgICByZXR1cm4gMDsKPj4+ICB9Cj4+Cj4+IERvZXMgYW55
-b25lIHJlbWVtYmVyIHdoeSB0aGlzIHNpbXBsZSBzb2x1dGlvbiB3YXNuJ3QgaW1wbGVtZW50ZWQK
-Pj4gZWFybGllcj8gTWljaGFlbD8KPiAKPiBJIHRoaW5rIHRoZSBjYWxsYmFjayB1c2VkIHRvIGJl
-IChpcz8pIGluIGF0b21pYyBjb250ZXh0Lgo+IAo+PiBOaWNob2xhczogZGlkIHlvdSB0ZXN0IGl0
-IGFueWhvdz8KPiAKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fCmI0My1kZXYgbWFpbGluZyBsaXN0CmI0My1kZXZAbGlzdHMuaW5mcmFkZWFkLm9yZwpodHRw
-Oi8vbGlzdHMuaW5mcmFkZWFkLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2I0My1kZXYK
+On 28-11-2014 20:35, Al Viro wrote:
+> On Fri, Nov 28, 2014 at 08:10:03PM -0200, Marcelo Ricardo Leitner wrote:
+>>> Could you print vnet_hdr_sz and sizeof(gso) right after that
+>>> copy_from_iter(&gso, ...)?
+>>
+>> Did a:
+>>          else {
+>>                  err = skb_copy_datagram_from_iter(skb, 0, from, len);
+>> +               pr_err("vnet_hdr_sz=%d sizeof(gso)=%lu\n",
+>> tun->vnet_hdr_sz, sizeof(gso));
+>>                  if (!err && msg_control) {
+>>
+>> Got, for tun:
+>> [   50.514165] tun: vnet_hdr_sz=12 sizeof(gso)=10
+>>
+>> for tap:
+>> [   82.911840] tun: vnet_hdr_sz=10 sizeof(gso)=10
+>>
+>> other values were just as before.
+>
+> Hmm...  Do you have
+> commit 8c847d254146d32c86574a1b16923ff91bb784dd
+> Author: Jason Wang <jasowang@redhat.com>
+> Date:   Thu Nov 13 16:54:14 2014 +0800
+>
+>      tun: fix issues of iovec iterators using in tun_put_user()
+> in your tree?
+>
+
+Yes I have. I'm using based on net-next's 
+799d2fff1858004526ad75d66a5dd8a5cce6ad40.
+
+Marcelo
