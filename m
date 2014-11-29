@@ -1,52 +1,69 @@
 From: Marcelo Ricardo Leitner <mleitner@redhat.com>
 Subject: Re: tun issue after e0b46d0ee9c: tun: Use iovec iterators
-Date: Sat, 29 Nov 2014 02:49:51 -0200
-Message-ID: <5479506F.6000803@redhat.com>
-References: <5478CC27.9040705@redhat.com> <20141128203733.GD29748@ZenIV.linux.org.uk> <5478F2BB.9050409@redhat.com> <20141128223503.GE29748@ZenIV.linux.org.uk>
+Date: Sat, 29 Nov 2014 03:08:09 -0200
+Message-ID: <547954B9.2050804@redhat.com>
+References: <5478CC27.9040705@redhat.com> <20141128235935.GA2178@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev <netdev@vger.kernel.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>
+Cc: netdev <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47713 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:40939 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750996AbaK2EuA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Nov 2014 23:50:00 -0500
-In-Reply-To: <20141128223503.GE29748@ZenIV.linux.org.uk>
+	id S1750730AbaK2FIS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Nov 2014 00:08:18 -0500
+In-Reply-To: <20141128235935.GA2178@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 28-11-2014 20:35, Al Viro wrote:
-> On Fri, Nov 28, 2014 at 08:10:03PM -0200, Marcelo Ricardo Leitner wrote:
->>> Could you print vnet_hdr_sz and sizeof(gso) right after that
->>> copy_from_iter(&gso, ...)?
+On 28-11-2014 21:59, Herbert Xu wrote:
+> On Fri, Nov 28, 2014 at 05:25:27PM -0200, Marcelo Ricardo Leitner wrote:
 >>
->> Did a:
->>          else {
->>                  err = skb_copy_datagram_from_iter(skb, 0, from, len);
->> +               pr_err("vnet_hdr_sz=%d sizeof(gso)=%lu\n",
->> tun->vnet_hdr_sz, sizeof(gso));
->>                  if (!err && msg_control) {
+>> I saw there are tun updates on Dave's queue but none seemed to handle this.
 >>
->> Got, for tun:
->> [   50.514165] tun: vnet_hdr_sz=12 sizeof(gso)=10
+>> I can't use current net-next
+>> (799d2fff1858004526ad75d66a5dd8a5cce6ad40) on a kvm hypervisor
+>> because tun got clogged somehow. Bisected down to:
 >>
->> for tap:
->> [   82.911840] tun: vnet_hdr_sz=10 sizeof(gso)=10
->>
->> other values were just as before.
+>> commit e0b46d0ee9c240c7430a47e9b0365674d4a04522
+>> Author: Herbert Xu <herbert@gondor.apana.org.au>
+>> Date:   Fri Nov 7 21:22:23 2014 +0800
 >
-> Hmm...  Do you have
-> commit 8c847d254146d32c86574a1b16923ff91bb784dd
-> Author: Jason Wang <jasowang@redhat.com>
-> Date:   Thu Nov 13 16:54:14 2014 +0800
->
->      tun: fix issues of iovec iterators using in tun_put_user()
-> in your tree?
->
+> Does this patch help?
 
-Yes I have. I'm using based on net-next's 
-799d2fff1858004526ad75d66a5dd8a5cce6ad40.
+Yay, it does! Works for me, thanks Herbert.
+I didn't test performance, but dhcp could get through.
 
+Are you sure about the Fixes tag? Because bisect really pointed to e0b46d0ee9c.
+
+Cheers,
 Marcelo
+
+> -- >8 --
+> Subject: tun: Fix GSO meta-data handling in tun_get_user
+>
+> When we write the GSO meta-data in tun_get_user we end up advancing
+> the IO vector twice, thus exhausting the user buffer before we can
+> finish writing the packet.
+>
+> Fixes: f5ff53b4d97c ("{macvtap,tun}_get_user(): switch to iov_iter")
+> Reported-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 4b743c6..9357871 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1052,7 +1052,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+>
+>   		if (gso.hdr_len > len)
+>   			return -EINVAL;
+> -		iov_iter_advance(from, tun->vnet_hdr_sz);
+> +		iov_iter_advance(iter, tun->vnet_hdr_sz - sizeof(gso));
+>   	}
+>
+>   	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV) {
+>
+> Cheers,
+>
