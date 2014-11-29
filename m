@@ -1,119 +1,83 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] ss: Use generic handle_netlink_request for packet
-Date: Sat, 29 Nov 2014 23:44:32 +0200
-Message-ID: <1417297472-32716-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:53000 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751163AbaK2VyM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Nov 2014 16:54:12 -0500
-Received: by mail-wg0-f50.google.com with SMTP id k14so11131768wgh.23
-        for <netdev@vger.kernel.org>; Sat, 29 Nov 2014 13:54:10 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v2 net] bpf: x86: fix epilogue generation for eBPF programs
+Date: Sat, 29 Nov 2014 14:46:13 -0800
+Message-ID: <1417301173-23691-1-git-send-email-ast@plumgrid.com>
+Cc: Zi Shen Lim <zlim.lnx@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@kernel.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Get rid of self-handling and creating of Netlink socket for show packet
-socket stats.
+classic BPF has a restriction that last insn is always BPF_RET.
+eBPF doesn't have BPF_RET instruction and this restriction.
+It has BPF_EXIT insn which can appear anywhere in the program
+one or more times and it doesn't have to be last insn.
+Fix eBPF JIT to emit epilogue when first BPF_EXIT is seen
+and all other BPF_EXIT instructions will be emitted as jump.
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+Since jump offset to epilogue is computed as:
+jmp_offset = ctx->cleanup_addr - addrs[i]
+we need to change type of cleanup_addr to signed to compute the offset as:
+(long long) ((int)20 - (int)30)
+instead of:
+(long long) ((unsigned int)20 - (int)30)
+
+Fixes: 622582786c9e ("net: filter: x86: internal BPF JIT")
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- misc/ss.c | 77 ++-------------------------------------------------------------
- 1 file changed, 2 insertions(+), 75 deletions(-)
+Note, this bug is applicable only to native eBPF programs
+which first were introduced in 3.18, so no need for stable.
 
-diff --git a/misc/ss.c b/misc/ss.c
-index 0526205..a99294d 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -2788,86 +2788,13 @@ static int packet_show_sock(struct nlmsghdr *nlh, struct filter *f)
- 
- static int packet_show_netlink(struct filter *f, FILE *dump_fp)
- {
--	int fd;
- 	DIAG_REQUEST(req, struct packet_diag_req r);
--	char	buf[16384];
--
--	if ((fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_INET_DIAG)) < 0)
--		return -1;
- 
- 	req.r.sdiag_family = AF_PACKET;
- 	req.r.pdiag_show = PACKET_SHOW_INFO | PACKET_SHOW_MEMINFO | PACKET_SHOW_FILTER;
- 
--	if (send(fd, &req, sizeof(req), 0) < 0) {
--		close(fd);
--		return -1;
--	}
--
--	while (1) {
--		ssize_t status;
--		struct nlmsghdr *h;
--		struct sockaddr_nl nladdr;
--		socklen_t slen = sizeof(nladdr);
--
--		status = recvfrom(fd, buf, sizeof(buf), 0,
--				  (struct sockaddr *) &nladdr, &slen);
--		if (status < 0) {
--			if (errno == EINTR)
--				continue;
--			perror("OVERRUN");
--			continue;
--		}
--		if (status == 0) {
--			fprintf(stderr, "EOF on netlink\n");
--			goto close_it;
--		}
--
--		if (dump_fp)
--			fwrite(buf, 1, NLMSG_ALIGN(status), dump_fp);
--
--		h = (struct nlmsghdr*)buf;
--		while (NLMSG_OK(h, status)) {
--			int err;
--
--			if (h->nlmsg_seq != 123456)
--				goto skip_it;
--
--			if (h->nlmsg_type == NLMSG_DONE)
--				goto close_it;
--
--			if (h->nlmsg_type == NLMSG_ERROR) {
--				struct nlmsgerr *err = (struct nlmsgerr*)NLMSG_DATA(h);
--				if (h->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
--					fprintf(stderr, "ERROR truncated\n");
--				} else {
--					errno = -err->error;
--					if (errno != ENOENT)
--						fprintf(stderr, "UDIAG answers %d\n", errno);
--				}
--				close(fd);
--				return -1;
--			}
--			if (!dump_fp) {
--				err = packet_show_sock(h, f);
--				if (err < 0) {
--					close(fd);
--					return err;
--				}
--			}
--
--skip_it:
--			h = NLMSG_NEXT(h, status);
--		}
--
--		if (status) {
--			fprintf(stderr, "!!!Remnant of size %zd\n", status);
--			exit(1);
--		}
--	}
--
--close_it:
--	close(fd);
--	return 0;
-+	return handle_netlink_request(f, dump_fp, &req.nlh, sizeof(req),
-+			packet_show_sock);
+arm64 JIT has the same problem, but the fix is not as trivial,
+so will be done as separate patch.
+
+Since 3.18 can only load eBPF programs and cannot execute them,
+this patch can even be done in net-next only, but I think it's worth
+to apply it to 3.18(net), so that JITed output for native eBPF
+programs is correct when bpf syscall loads it with net.core.bpf_jit_enable=2
+
+ arch/x86/net/bpf_jit_comp.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index 3f62734..7e90244 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -178,7 +178,7 @@ static void jit_fill_hole(void *area, unsigned int size)
  }
  
+ struct jit_context {
+-	unsigned int cleanup_addr; /* epilogue code offset */
++	int cleanup_addr; /* epilogue code offset */
+ 	bool seen_ld_abs;
+ };
  
+@@ -192,6 +192,7 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
+ 	struct bpf_insn *insn = bpf_prog->insnsi;
+ 	int insn_cnt = bpf_prog->len;
+ 	bool seen_ld_abs = ctx->seen_ld_abs | (oldproglen == 0);
++	bool seen_exit = false;
+ 	u8 temp[BPF_MAX_INSN_SIZE + BPF_INSN_SAFETY];
+ 	int i;
+ 	int proglen = 0;
+@@ -854,10 +855,11 @@ common_load:
+ 			goto common_load;
+ 
+ 		case BPF_JMP | BPF_EXIT:
+-			if (i != insn_cnt - 1) {
++			if (seen_exit) {
+ 				jmp_offset = ctx->cleanup_addr - addrs[i];
+ 				goto emit_jmp;
+ 			}
++			seen_exit = true;
+ 			/* update cleanup_addr */
+ 			ctx->cleanup_addr = proglen;
+ 			/* mov rbx, qword ptr [rbp-X] */
 -- 
-2.1.3
+1.7.9.5
