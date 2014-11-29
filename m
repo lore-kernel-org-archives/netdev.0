@@ -1,69 +1,35 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: tun issue after e0b46d0ee9c: tun: Use iovec iterators
-Date: Sat, 29 Nov 2014 03:08:09 -0200
-Message-ID: <547954B9.2050804@redhat.com>
-References: <5478CC27.9040705@redhat.com> <20141128235935.GA2178@gondor.apana.org.au>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH] drivers:net:wireless: Add mutex locking for function,
+ b43_op_beacon_set_time in main.c
+Date: Sat, 29 Nov 2014 09:54:29 +0100
+Message-ID: <CACna6rzfZjKg4diAEE9hFcN5DFadhxC-Uv9aS1RDMXmJ4zbgVQ@mail.gmail.com>
+References: <1417213013-19758-1-git-send-email-xerofoify@gmail.com>
+	<CACna6rxmOC0h9hOpa=5iWFM1THQ8Q4hCi8MnmqkZJbB_U0PJ0A@mail.gmail.com>
+	<20141129002148.1beb21d9@wiggum>
+	<54793E4E.7050602@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40939 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750730AbaK2FIS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Nov 2014 00:08:18 -0500
-In-Reply-To: <20141128235935.GA2178@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: =?UTF-8?Q?Michael_B=C3=BCsch?= <m@bues.ch>,
+	Stefano Brivio <stefano.brivio@polimi.it>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	b43-dev <b43-dev@lists.infradead.org>
+To: nick <xerofoify@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54793E4E.7050602@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 28-11-2014 21:59, Herbert Xu wrote:
-> On Fri, Nov 28, 2014 at 05:25:27PM -0200, Marcelo Ricardo Leitner wrote:
->>
->> I saw there are tun updates on Dave's queue but none seemed to handle this.
->>
->> I can't use current net-next
->> (799d2fff1858004526ad75d66a5dd8a5cce6ad40) on a kvm hypervisor
->> because tun got clogged somehow. Bisected down to:
->>
->> commit e0b46d0ee9c240c7430a47e9b0365674d4a04522
->> Author: Herbert Xu <herbert@gondor.apana.org.au>
->> Date:   Fri Nov 7 21:22:23 2014 +0800
->
-> Does this patch help?
+On 29 November 2014 at 04:32, nick <xerofoify@gmail.com> wrote:
+> I don't have hardware for this driver on me, so I didn't test it. However this seems to
+> be correct from my reading of the code around this function and other locking related
+> to this driver.
 
-Yay, it does! Works for me, thanks Herbert.
-I didn't test performance, but dhcp could get through.
+So do you say it's not executed in an atomic?
 
-Are you sure about the Fixes tag? Because bisect really pointed to e0b46d0ee9c.
-
-Cheers,
-Marcelo
-
-> -- >8 --
-> Subject: tun: Fix GSO meta-data handling in tun_get_user
->
-> When we write the GSO meta-data in tun_get_user we end up advancing
-> the IO vector twice, thus exhausting the user buffer before we can
-> finish writing the packet.
->
-> Fixes: f5ff53b4d97c ("{macvtap,tun}_get_user(): switch to iov_iter")
-> Reported-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
->
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 4b743c6..9357871 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -1052,7 +1052,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
->
->   		if (gso.hdr_len > len)
->   			return -EINVAL;
-> -		iov_iter_advance(from, tun->vnet_hdr_sz);
-> +		iov_iter_advance(iter, tun->vnet_hdr_sz - sizeof(gso));
->   	}
->
->   	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV) {
->
-> Cheers,
->
+>From *early* look it seems b43_update_templates is called from
+b43_op_beacon_set_tim and b43_op_bss_info_changed, both or them are
+mac80211 callbacks. That also should be safe, however I didn't check
+if it may conflict with some in-kernel code (still, assuming it's not
+atomic code, which I don't know!).
