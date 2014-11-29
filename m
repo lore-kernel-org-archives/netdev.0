@@ -1,136 +1,234 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH, regression against -rc6] net/stmmac: fix one more regression from filter bins setting
-Date: Sat, 29 Nov 2014 13:03:19 +0100
-Message-ID: <5388366.Y15J6TLmlA@wuerfel>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: [bisected] xfrm: TCP connection initiating PMTU discovery stalls on v3.12+
+Date: Sat, 29 Nov 2014 12:44:07 +0100
+Message-ID: <1709726.jUgUSQI9sl@pikkukde.a.i2n>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: multipart/mixed; boundary="nextPart2046400.nKnNPQkjt9"
 Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, khilman@kernel.org,
-	Huacai Chen <chenhc@lemote.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>, olof@lixom.net,
-	linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>
+Cc: Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.130]:63223 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751477AbaK2MDb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Nov 2014 07:03:31 -0500
+Received: from rs04.intra2net.com ([85.214.66.2]:52958 "EHLO
+	rs04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751477AbaK2MK0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Nov 2014 07:10:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 571dcfde2371 ("stmmac: platform: fix default values of the filter
-bins setting") tries to fix a regression in the stmmac driver, but instead
-it also causes a new regression and makes all DT-based users of this
-driver fail, as found by the automated ARM boot testing:
+This is a multi-part message in MIME format.
 
-[    0.881667] Unable to handle kernel NULL pointer dereference at virtual address 00000048
-[    0.889784] pgd = c0204000
-[    0.892502] [00000048] *pgd=00000000
-[    0.896090] Internal error: Oops: 805 [#1] SMP ARM
-[    0.900874] Modules linked in:
-[    0.903943] CPU: 0 PID: 1 Comm: swapper/0 Not tainted 3.18.0-rc6-00150-g8891063 #1
-[    0.911502] task: ee06c000 ti: ee070000 task.ti: ee070000
-[    0.916899] PC is at stmmac_pltfr_probe+0x40/0x5d0
-[    0.921689] LR is at devm_ioremap_nocache+0x54/0x74
-[    0.926561] pc : [<c0642df8>]    lr : [<c0430508>]    psr: 80000153
-[    0.926561] sp : ee071e50  ip : 00000000  fp : 00000000
-[    0.938020] r10: c0c14f74  r9 : ee3ca2c0  r8 : ee101c10
-[    0.943237] r7 : f00c0000  r6 : ee101c00  r5 : ee101c10  r4 : 00000000
-[    0.949755] r3 : 00000001  r2 : 00000040  r1 : a0000153  r0 : f00c0000
-[    0.956274] Flags: Nzcv  IRQs on  FIQs off  Mode SVC_32  ISA ARM  Segment kernel
-[    0.963658] Control: 10c5387d  Table: 4020406a  DAC: 00000015
-[    0.969395] Process swapper/0 (pid: 1, stack limit = 0xee070248)
-[    0.975384] Stack: (0xee071e50 to 0xee072000)
-[    0.979738] 1e40:                                     c0d83aa0 ee101c10 c0cfc030 fffffdfb
-[    0.987906] 1e60: 00000000 ee3ca2c0 c0c14f74 c056c6d0 c056c68c c0d83aa0 ee101c10 00000000
-[    0.996075] 1e80: c0cfc030 c056af54 ee101c10 c0cfc030 ee101c44 c0cf15f8 c0c616a0 c056b158
-[    1.004243] 1ea0: 00000000 c0cfc030 c056b0cc c0569514 ee01675c ee0d86b4 c0cfc030 ee3c9300
-[    1.012412] 1ec0: 00000000 c056a77c c0ad7be0 ee071ef8 c0cfc030 c0cfc030 ee070000 c0be0ca8
-[    1.020580] 1ee0: 00000000 c056b77c 00000000 c0c616a0 ee070000 c0be0cbc c0c616a0 c0208cb0
-[    1.028750] 1f00: ee011900 c0d6c324 ee0b6600 c08a6748 00000000 00000000 00006a40 c034782c
-[    1.036918] 1f20: 00000000 c0ca1aac 60000153 00000001 c0b9f598 ef7fcd9c ef7fcd99 c025ffa0
-[    1.045087] 1f40: c0ae650c ef7fcda0 00000006 00000006 c0ca1a94 c0c50d44 00000006 c0c14f6c
-[    1.053255] 1f60: c0d46a40 c0d46a40 000000ff c0c14f74 00000000 c0b9fda4 00000006 00000006
-[    1.061423] 1f80: c0b9f598 9c041042 00000000 c089460c 00000000 00000000 00000000 00000000
-[    1.069591] 1fa0: 00000000 c0894614 00000000 c020e878 00000000 00000000 00000000 00000000
-[    1.077759] 1fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-[    1.085926] 1fe0: 00000000 00000000 00000000 00000000 00000013 00000000 18044434 8a444414
-[    1.094113] [<c0642df8>] (stmmac_pltfr_probe) from [<c056c6d0>] (platform_drv_probe+0x44/0xa4)
-[    1.102719] [<c056c6d0>] (platform_drv_probe) from [<c056af54>] (driver_probe_device+0x108/0x23c)
-[    1.111582] [<c056af54>] (driver_probe_device) from [<c056b158>] (__driver_attach+0x8c/0x90)
-[    1.120011] [<c056b158>] (__driver_attach) from [<c0569514>] (bus_for_each_dev+0x6c/0xa0)
-[    1.128182] [<c0569514>] (bus_for_each_dev) from [<c056a77c>] (bus_add_driver+0x148/0x1f0)
-[    1.136438] [<c056a77c>] (bus_add_driver) from [<c056b77c>] (driver_register+0x78/0xf8)
-[    1.144434] [<c056b77c>] (driver_register) from [<c0be0cbc>] (stmmac_init+0x14/0x3c)
-[    1.152176] [<c0be0cbc>] (stmmac_init) from [<c0208cb0>] (do_one_initcall+0x8c/0x1c4)
-[    1.160004] [<c0208cb0>] (do_one_initcall) from [<c0b9fda4>] (kernel_init_freeable+0x13c/0x1dc)
-[    1.168699] [<c0b9fda4>] (kernel_init_freeable) from [<c0894614>] (kernel_init+0x8/0xe8)
-[    1.176785] [<c0894614>] (kernel_init) from [<c020e878>] (ret_from_fork+0x14/0x3c)
-[    1.184348] Code: 8a0000fe e5964064 e3a02040 e3a03001 (e5842048)
-[    1.190501] ---[ end trace 724411f6ae142767 ]---
-[    1.195158] Kernel panic - not syncing: Attempted to kill init! exitcode=0x0000000b
+--nextPart2046400.nKnNPQkjt9
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="utf-8"
 
-Where the original patch left out the non-DT probe method, the fix that
-was merged for -rc7 instead broke the DT path by dereferencing a NULL
-pointer.
+Hello,
 
-This patch reverts the broken fix and tries to put the initialization
-for multicast_filter_bins/unicast_filter_entries in the right place,
-which prevents non-DT users from overriding the defaults as a side
-effect, as before. Alternatively, one could change all instances of
-the platform_data definition to set the values themselves, but it's
-probably safer to do that as a follow-up.
+we're in the process of updating production level machines
+from kernel 3.4.101 to kernel 3.14.25. On one mail server
+we noticed that emails destined for an IPSec tunnel sometimes
+get stuck in the mail queue with TCP timeouts.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 571dcfde2371 ("stmmac: platform: fix default values of the filter bins setting")
-Link: http://arm-soc.lixom.net/bootlogs/mainline/v3.18-rc6-150-g8891063/cubie2-arm-multi_v7_defconfig.html
----
-I've sent this off to the build bots, but it will probably take some more
-time before it's been tested on all the ARM machines and I might not be
-there to see the results, so I'm sending it out now for review. I will
-reply once I am sure the problem is fixed.
+To make a long story short: When the VPN connection is initially
+set up or re-newed, the path MTU for the xfrm tunnel is undetermined.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 5b0da3986216..94c3cefaa2c3 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -177,6 +177,12 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
- 	 */
- 	plat->maxmtu = JUMBO_LEN;
- 
-+	/* Set default value for multicast hash bins */
-+	plat->multicast_filter_bins = HASH_TABLE_SIZE;
-+
-+	/* Set default value for unicast filter entries */
-+	plat->unicast_filter_entries = 1;
-+
- 	/*
- 	 * Currently only the properties needed on SPEAr600
- 	 * are provided. All other properties should be added
-@@ -264,13 +270,6 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
- 		return PTR_ERR(addr);
- 
- 	plat_dat = dev_get_platdata(&pdev->dev);
--
--	/* Set default value for multicast hash bins */
--	plat_dat->multicast_filter_bins = HASH_TABLE_SIZE;
--
--	/* Set default value for unicast filter entries */
--	plat_dat->unicast_filter_entries = 1;
--
- 	if (pdev->dev.of_node) {
- 		if (!plat_dat)
- 			plat_dat = devm_kzalloc(&pdev->dev,
-@@ -286,6 +285,12 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
- 			pr_err("%s: main dt probe failed", __func__);
- 			return ret;
- 		}
-+	} else {
-+		/* Set default value for multicast hash bins */
-+		plat_dat->multicast_filter_bins = HASH_TABLE_SIZE;
-+
-+		/* Set default value for unicast filter entries */
-+		plat_dat->unicast_filter_entries = 1;
- 	}
- 
- 	/* Custom setup (if needed) */
+As soon as a TCP client starts to send large packets,
+it triggers path MTU detection. Some middlebox on the
+way to the final server has a lower MTU and sends back
+an "ICMP fragmentation needed" packet as normal.
+
+With the old kernel, the packet size for the TCP connection inside
+the xfrm tunnel gets adjusted and all is fine. With kernel v3.12+,
+the connection stalls completely. Same thing with kernel v3.18-rc6.
+
+We wrote a small tool to mimic postfix's TCP behavior (see attached fil=
+e).
+In the end it's a normal TCP client sending large packets.
+The server side is just "socat - tcp4-listen:667".
+
+If you run "socket_client" a second time, the path MTU
+for the xfrm tunnel is already known and packets flow normal, too.
+
+
+The "evil" commit in question is this one:
+---------------------------------------------------------------------
+commit 8f26fb1c1ed81c33f5d87c5936f4d9d1b4118918
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Tue Oct 15 12:24:54 2013 -0700
+
+    tcp: remove the sk_can_gso() check from tcp_set_skb_tso_segs()
+
+    sk_can_gso() should only be used as a hint in tcp_sendmsg() to buil=
+d GSO
+    packets in the first place. (As a performance hint)
+
+    Once we have GSO packets in write queue, we can not decide they are=
+ no
+    longer GSO only because flow now uses a route which doesn't handle
+    TSO/GSO.
+
+    Core networking stack handles the case very well for us, all we nee=
+d
+    is keeping track of packet counts in MSS terms, regardless of
+    segmentation done later (in GSO or hardware)
+
+    Right now, if  tcp_fragment() splits a GSO packet in two parts,
+    @left and @right, and route changed through a non GSO device,
+    both @left and @right have pcount set to 1, which is wrong,
+    and leads to incorrect packet_count tracking.
+
+    This problem was added in commit d5ac99a648 ("[TCP]: skb pcount wit=
+h MTU
+    discovery")
+
+    Signed-off-by: Eric Dumazet <edumazet@google.com>
+    Signed-off-by: Neal Cardwell <ncardwell@google.com>
+    Signed-off-by: Yuchung Cheng <ycheng@google.com>
+    Reported-by: Maciej =C5=BBenczykowski <maze@google.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 8fad1c1..d46f214 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -989,8 +989,7 @@ static void tcp_set_skb_tso_segs(const struct sock =
+*sk, struct sk_buff *skb,
+        /* Make sure we own this skb before messing gso_size/gso_segs *=
+/
+        WARN_ON_ONCE(skb_cloned(skb));
+=20
+-       if (skb->len <=3D mss_now || !sk_can_gso(sk) ||
+-           skb->ip_summed =3D=3D CHECKSUM_NONE) {
++       if (skb->len <=3D mss_now || skb->ip_summed =3D=3D CHECKSUM_NON=
+E) {
+                /* Avoid the costly divide in the normal
+                 * non-TSO case.
+                 */
+---------------------------------------------------------------------
+
+When I revert it, even kernel v3.18-rc6 starts working.
+But I doubt this is the root problem, may be just hiding another issue.=
+
+
+--- Sample output of socket_client using vanilla v3.12 kernel ---
+[1417258063 SEND result: 4096, strerror: Success]
+tcp max seg: res: 0, max_seg: 1370
+[1417258063 SEND result: 4096, strerror: Success]
+tcp max seg: res: 0, max_seg: 1370
+[1417258063 SEND result: 4096, strerror: Success]
+tcp max seg: res: 0, max_seg: 1370
+[1417258063 SEND result: 4096, strerror: Success]
+tcp max seg: res: 0, max_seg: 1370
+[1417258063 SEND result: 4096, strerror: Success]
+tcp max seg: res: 0, max_seg: 1338
+[1417258063 SEND result: 4096, strerror: Success]
+tcp max seg: res: 0, max_seg: 1338
+*STUCK*
+--------------------------------------------------------
+
+The "machine" is running on KVM and using "virtio_net" as NIC driver.
+I've played with the ethtool offload settings:
+
+*** eth1 defaults ***
+Offload parameters for eth1:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp-segmentation-offload: on
+udp-fragmentation-offload: on
+generic-segmentation-offload: on
+generic-receive-offload: on
+large-receive-offload: off
+
+*** eth1 working (no stalls) using vanilla kernel ***
+Offload parameters for eth1:
+rx-checksumming: on
+tx-checksumming: off  <-- the magic switch
+scatter-gather: off
+tcp-segmentation-offload: off
+udp-fragmentation-offload: off
+generic-segmentation-offload: off
+generic-receive-offload: off
+large-receive-offload: off
+
+When I turn "tx-checksumming" back on, it fails again.
+Though that is probably also just a side effect.
+
+I can provide tcpdumps if needed but they are no real help
+since you can just see the kernel stops sending TCP packets.
+(and the outgoing TCP packets are encrypted in ESP packets)
+
+
+Any vague idea what might be the root cause?
+
+I also tried reverting commit 4d53eff48b5f03ce67f4f301d6acca1d2145cb7a
+("xfrm: Don't queue retransmitted packets if the original is still on t=
+he host")
+but that didn't change the situation. In fact it wasn't even triggered.=
+
+
+Please CC: comments. Thanks.
+
+Best regards,
+Thomas
+
+--nextPart2046400.nKnNPQkjt9
+Content-Disposition: attachment; filename="socket_client.c"
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/x-csrc; charset="UTF-8"; name="socket_client.c"
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <errno.h>
+#include <time.h>
+
+/*
+    Remote server: socat - tcp4-listen:667
+*/
+
+int main()
+{
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+
+    struct sockaddr_in servaddr;
+    bzero(&servaddr,sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr=inet_addr("192.168.12.254");
+    servaddr.sin_port=htons(667);
+
+    int result = connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+    if(result != 0)
+    {
+        perror("failed to connect");
+        exit(1);
+    }
+
+    char sendbuf[4096];
+    memset(sendbuf, 0, sizeof(sendbuf));
+    strcpy(sendbuf, "NOOP\n");
+
+    int max_seg = 0, max_seg_len = sizeof(max_seg), get_res = 0;
+
+    for (int i = 0; i < 10; ++i)
+    {
+        errno = 0;
+        int send_res = send(sockfd, sendbuf, sizeof(sendbuf), 0);
+        printf("[%d SEND result: %d, strerror: %s]\n", time(NULL), send_res, strerror(errno));
+
+        get_res = getsockopt(sockfd, SOL_TCP, TCP_MAXSEG, &max_seg, &max_seg_len);
+        printf("tcp max seg: res: %d, max_seg: %d\n", get_res, max_seg);
+    }
+
+    printf("All sent.\n");
+
+    close(sockfd);
+    exit(0);
+}
+
+--nextPart2046400.nKnNPQkjt9--
