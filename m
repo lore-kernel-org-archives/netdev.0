@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vhost: remove unnecessary forward
-	declarations in vhost.h
-Date: Sat, 29 Nov 2014 21:04:22 -0800 (PST)
-Message-ID: <20141129.210422.2298555198780052887.davem@davemloft.net>
-References: <1417070481-10331-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH net] rtnetlink: release net refcnt on error in
+ do_setlink()
+Date: Sat, 29 Nov 2014 21:07:29 -0800 (PST)
+Message-ID: <20141129.210729.1619791248311435624.davem@davemloft.net>
+References: <1417079775-9287-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
-To: jasowang@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1417070481-10331-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54885 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751705AbaK3FDR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2014 00:03:17 -0500
+In-Reply-To: <1417079775-9287-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Thu, 27 Nov 2014 14:41:21 +0800
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Thu, 27 Nov 2014 10:16:15 +0100
 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> rtnl_link_get_net() holds a reference on the 'struct net', we need to release
+> it in case of error.
+> 
+> CC: Eric W. Biederman <ebiederm@xmission.com>
+> Fixes: b51642f6d77b ("net: Enable a userns root rtnl calls that are safe for unprivilged users")
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-I don't think generic vhost patches should go via my tree.
-
-If you disagree, let me know why, thanks :)
+Applied and queued up for -stable, thanks.
