@@ -1,20 +1,18 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v7 38/46] tun: drop most type defines
-Date: Sun, 30 Nov 2014 17:12:25 +0200
-Message-ID: <1417359787-10138-39-git-send-email-mst@redhat.com>
+Subject: [PATCH v7 46/46] af_packet: virtio 1.0 stubs
+Date: Sun, 30 Nov 2014 17:13:08 +0200
+Message-ID: <1417359787-10138-47-git-send-email-mst@redhat.com>
 References: <1417359787-10138-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
 	rusty@au1.ibm.com, nab@linux-iscsi.org, pbonzini@redhat.com,
 	thuth@linux.vnet.ibm.com, dahi@linux.vnet.ibm.com,
-	Jason Wang <jasowang@redhat.com>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Tom Herbert <therbert@google.com>,
-	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
-	netdev@vger.kernel.org
+	Daniel Borkmann <dborkman@redhat.com>,
+	Atzm Watanabe <atzm@stratosphere.co.jp>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
@@ -22,242 +20,97 @@ In-Reply-To: <1417359787-10138-1-git-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It's just as easy to use IFF_ flags directly,
-there's no point in adding our own defines.
+This merely fixes sparse warnings, without actually
+adding support for the new APIs.
+
+Still working out the best way to enable the new
+functionality.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/net/tun.c | 62 +++++++++++++++++++++++++------------------------------
- 1 file changed, 28 insertions(+), 34 deletions(-)
+ net/packet/af_packet.c | 35 ++++++++++++++++++++++-------------
+ 1 file changed, 22 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index b4e4ca0..36be4fd 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -109,12 +109,6 @@ do {								\
-  * overload it to mean fasync when stored there.
-  */
- #define TUN_FASYNC	IFF_ATTACH_QUEUE
--#define TUN_NO_PI	IFF_NO_PI
--/* This flag has no real effect */
--#define TUN_ONE_QUEUE	IFF_ONE_QUEUE
--#define TUN_PERSIST 	IFF_PERSIST
--#define TUN_VNET_HDR 	IFF_VNET_HDR
--#define TUN_TAP_MQ      IFF_MULTI_QUEUE
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 87d20f4..d4a877e 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2444,13 +2444,15 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 			goto out_unlock;
  
- #define TUN_FEATURES (IFF_NO_PI | IFF_ONE_QUEUE | IFF_VNET_HDR | \
- 		      IFF_MULTI_QUEUE)
-@@ -487,7 +481,7 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
- 		if (tun && tun->numqueues == 0 && tun->numdisabled == 0) {
- 			netif_carrier_off(tun->dev);
+ 		if ((vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
+-		    (vnet_hdr.csum_start + vnet_hdr.csum_offset + 2 >
+-		      vnet_hdr.hdr_len))
+-			vnet_hdr.hdr_len = vnet_hdr.csum_start +
+-						 vnet_hdr.csum_offset + 2;
++		    (__virtio16_to_cpu(false, vnet_hdr.csum_start) +
++		     __virtio16_to_cpu(false, vnet_hdr.csum_offset) + 2 >
++		      __virtio16_to_cpu(false, vnet_hdr.hdr_len)))
++			vnet_hdr.hdr_len = __cpu_to_virtio16(false,
++				 __virtio16_to_cpu(false, vnet_hdr.csum_start) +
++				__virtio16_to_cpu(false, vnet_hdr.csum_offset) + 2);
  
--			if (!(tun->flags & TUN_PERSIST) &&
-+			if (!(tun->flags & IFF_PERSIST) &&
- 			    tun->dev->reg_state == NETREG_REGISTERED)
- 				unregister_netdevice(tun->dev);
- 		}
-@@ -538,7 +532,7 @@ static void tun_detach_all(struct net_device *dev)
- 	}
- 	BUG_ON(tun->numdisabled != 0);
+ 		err = -EINVAL;
+-		if (vnet_hdr.hdr_len > len)
++		if (__virtio16_to_cpu(false, vnet_hdr.hdr_len) > len)
+ 			goto out_unlock;
  
--	if (tun->flags & TUN_PERSIST)
-+	if (tun->flags & IFF_PERSIST)
- 		module_put(THIS_MODULE);
- }
+ 		if (vnet_hdr.gso_type != VIRTIO_NET_HDR_GSO_NONE) {
+@@ -2492,7 +2494,8 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 	err = -ENOBUFS;
+ 	hlen = LL_RESERVED_SPACE(dev);
+ 	tlen = dev->needed_tailroom;
+-	skb = packet_alloc_skb(sk, hlen + tlen, hlen, len, vnet_hdr.hdr_len,
++	skb = packet_alloc_skb(sk, hlen + tlen, hlen, len,
++			       __virtio16_to_cpu(false, vnet_hdr.hdr_len),
+ 			       msg->msg_flags & MSG_DONTWAIT, &err);
+ 	if (skb == NULL)
+ 		goto out_unlock;
+@@ -2534,14 +2537,16 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
  
-@@ -556,7 +550,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file, bool skip_filte
- 		goto out;
- 
- 	err = -EBUSY;
--	if (!(tun->flags & TUN_TAP_MQ) && tun->numqueues == 1)
-+	if (!(tun->flags & IFF_MULTI_QUEUE) && tun->numqueues == 1)
- 		goto out;
- 
- 	err = -E2BIG;
-@@ -935,7 +929,7 @@ static void tun_net_init(struct net_device *dev)
- 	struct tun_struct *tun = netdev_priv(dev);
- 
- 	switch (tun->flags & TUN_TYPE_MASK) {
--	case TUN_TUN_DEV:
-+	case IFF_TUN:
- 		dev->netdev_ops = &tun_netdev_ops;
- 
- 		/* Point-to-Point TUN Device */
-@@ -949,7 +943,7 @@ static void tun_net_init(struct net_device *dev)
- 		dev->tx_queue_len = TUN_READQ_SIZE;  /* We prefer our own queue length */
- 		break;
- 
--	case TUN_TAP_DEV:
-+	case IFF_TAP:
- 		dev->netdev_ops = &tap_netdev_ops;
- 		/* Ethernet TAP Device */
- 		ether_setup(dev);
-@@ -1040,7 +1034,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	int err;
- 	u32 rxhash;
- 
--	if (!(tun->flags & TUN_NO_PI)) {
-+	if (!(tun->flags & IFF_NO_PI)) {
- 		if (len < sizeof(pi))
- 			return -EINVAL;
- 		len -= sizeof(pi);
-@@ -1050,7 +1044,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		offset += sizeof(pi);
- 	}
- 
--	if (tun->flags & TUN_VNET_HDR) {
-+	if (tun->flags & IFF_VNET_HDR) {
- 		if (len < tun->vnet_hdr_sz)
- 			return -EINVAL;
- 		len -= tun->vnet_hdr_sz;
-@@ -1067,7 +1061,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		offset += tun->vnet_hdr_sz;
- 	}
- 
--	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV) {
-+	if ((tun->flags & TUN_TYPE_MASK) == IFF_TAP) {
- 		align += NET_IP_ALIGN;
- 		if (unlikely(len < ETH_HLEN ||
- 			     (gso.hdr_len && gso.hdr_len < ETH_HLEN)))
-@@ -1130,8 +1124,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	}
- 
- 	switch (tun->flags & TUN_TYPE_MASK) {
--	case TUN_TUN_DEV:
--		if (tun->flags & TUN_NO_PI) {
-+	case IFF_TUN:
-+		if (tun->flags & IFF_NO_PI) {
- 			switch (skb->data[0] & 0xf0) {
- 			case 0x40:
- 				pi.proto = htons(ETH_P_IP);
-@@ -1150,7 +1144,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		skb->protocol = pi.proto;
- 		skb->dev = tun->dev;
- 		break;
--	case TUN_TAP_DEV:
-+	case IFF_TAP:
- 		skb->protocol = eth_type_trans(skb, tun->dev);
- 		break;
- 	}
-@@ -1256,10 +1250,10 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 	if (vlan_tx_tag_present(skb))
- 		vlan_hlen = VLAN_HLEN;
- 
--	if (tun->flags & TUN_VNET_HDR)
-+	if (tun->flags & IFF_VNET_HDR)
- 		vnet_hdr_sz = tun->vnet_hdr_sz;
- 
--	if (!(tun->flags & TUN_NO_PI)) {
-+	if (!(tun->flags & IFF_NO_PI)) {
- 		if ((len -= sizeof(pi)) < 0)
- 			return -EINVAL;
- 
-@@ -1592,7 +1586,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 			return -EINVAL;
- 
- 		if (!!(ifr->ifr_flags & IFF_MULTI_QUEUE) !=
--		    !!(tun->flags & TUN_TAP_MQ))
-+		    !!(tun->flags & IFF_MULTI_QUEUE))
- 			return -EINVAL;
- 
- 		if (tun_not_capable(tun))
-@@ -1605,7 +1599,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		if (err < 0)
- 			return err;
- 
--		if (tun->flags & TUN_TAP_MQ &&
-+		if (tun->flags & IFF_MULTI_QUEUE &&
- 		    (tun->numqueues + tun->numdisabled > 1)) {
- 			/* One or more queue has already been attached, no need
- 			 * to initialize the device again.
-@@ -1628,11 +1622,11 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		/* Set dev type */
- 		if (ifr->ifr_flags & IFF_TUN) {
- 			/* TUN device */
--			flags |= TUN_TUN_DEV;
-+			flags |= IFF_TUN;
- 			name = "tun%d";
- 		} else if (ifr->ifr_flags & IFF_TAP) {
- 			/* TAP device */
--			flags |= TUN_TAP_DEV;
-+			flags |= IFF_TAP;
- 			name = "tap%d";
- 		} else
- 			return -EINVAL;
-@@ -1825,7 +1819,7 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
- 		ret = tun_attach(tun, file, false);
- 	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE) {
- 		tun = rtnl_dereference(tfile->tun);
--		if (!tun || !(tun->flags & TUN_TAP_MQ) || tfile->detached)
-+		if (!tun || !(tun->flags & IFF_MULTI_QUEUE) || tfile->detached)
- 			ret = -EINVAL;
- 		else
- 			__tun_detach(tfile, false);
-@@ -1929,12 +1923,12 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 		/* Disable/Enable persist mode. Keep an extra reference to the
- 		 * module to prevent the module being unprobed.
- 		 */
--		if (arg && !(tun->flags & TUN_PERSIST)) {
--			tun->flags |= TUN_PERSIST;
-+		if (arg && !(tun->flags & IFF_PERSIST)) {
-+			tun->flags |= IFF_PERSIST;
- 			__module_get(THIS_MODULE);
- 		}
--		if (!arg && (tun->flags & TUN_PERSIST)) {
--			tun->flags &= ~TUN_PERSIST;
-+		if (!arg && (tun->flags & IFF_PERSIST)) {
-+			tun->flags &= ~IFF_PERSIST;
- 			module_put(THIS_MODULE);
+ 	if (po->has_vnet_hdr) {
+ 		if (vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
+-			if (!skb_partial_csum_set(skb, vnet_hdr.csum_start,
+-						  vnet_hdr.csum_offset)) {
++			u16 s = __virtio16_to_cpu(false, vnet_hdr.csum_start);
++			u16 o = __virtio16_to_cpu(false, vnet_hdr.csum_offset);
++			if (!skb_partial_csum_set(skb, s, o)) {
+ 				err = -EINVAL;
+ 				goto out_free;
+ 			}
  		}
  
-@@ -1992,7 +1986,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	case TUNSETTXFILTER:
- 		/* Can be set only for TAPs */
- 		ret = -EINVAL;
--		if ((tun->flags & TUN_TYPE_MASK) != TUN_TAP_DEV)
-+		if ((tun->flags & TUN_TYPE_MASK) != IFF_TAP)
- 			break;
- 		ret = update_filter(&tun->txflt, (void __user *)arg);
- 		break;
-@@ -2051,7 +2045,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	case TUNATTACHFILTER:
- 		/* Can be set only for TAPs */
- 		ret = -EINVAL;
--		if ((tun->flags & TUN_TYPE_MASK) != TUN_TAP_DEV)
-+		if ((tun->flags & TUN_TYPE_MASK) != IFF_TAP)
- 			break;
- 		ret = -EFAULT;
- 		if (copy_from_user(&tun->fprog, argp, sizeof(tun->fprog)))
-@@ -2063,7 +2057,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	case TUNDETACHFILTER:
- 		/* Can be set only for TAPs */
- 		ret = -EINVAL;
--		if ((tun->flags & TUN_TYPE_MASK) != TUN_TAP_DEV)
-+		if ((tun->flags & TUN_TYPE_MASK) != IFF_TAP)
- 			break;
- 		ret = 0;
- 		tun_detach_filter(tun, tun->numqueues);
-@@ -2071,7 +2065,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+-		skb_shinfo(skb)->gso_size = vnet_hdr.gso_size;
++		skb_shinfo(skb)->gso_size =
++			__virtio16_to_cpu(false, vnet_hdr.gso_size);
+ 		skb_shinfo(skb)->gso_type = gso_type;
  
- 	case TUNGETFILTER:
- 		ret = -EINVAL;
--		if ((tun->flags & TUN_TYPE_MASK) != TUN_TAP_DEV)
-+		if ((tun->flags & TUN_TYPE_MASK) != IFF_TAP)
- 			break;
- 		ret = -EFAULT;
- 		if (copy_to_user(argp, &tun->fprog, sizeof(tun->fprog)))
-@@ -2264,10 +2258,10 @@ static void tun_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info
- 	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
+ 		/* Header must be checked, and gso_segs computed. */
+@@ -2912,8 +2917,10 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 			struct skb_shared_info *sinfo = skb_shinfo(skb);
  
- 	switch (tun->flags & TUN_TYPE_MASK) {
--	case TUN_TUN_DEV:
-+	case IFF_TUN:
- 		strlcpy(info->bus_info, "tun", sizeof(info->bus_info));
- 		break;
--	case TUN_TAP_DEV:
-+	case IFF_TAP:
- 		strlcpy(info->bus_info, "tap", sizeof(info->bus_info));
- 		break;
- 	}
+ 			/* This is a hint as to how much should be linear. */
+-			vnet_hdr.hdr_len = skb_headlen(skb);
+-			vnet_hdr.gso_size = sinfo->gso_size;
++			vnet_hdr.hdr_len =
++				__cpu_to_virtio16(false, skb_headlen(skb));
++			vnet_hdr.gso_size =
++				__cpu_to_virtio16(false, sinfo->gso_size);
+ 			if (sinfo->gso_type & SKB_GSO_TCPV4)
+ 				vnet_hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+ 			else if (sinfo->gso_type & SKB_GSO_TCPV6)
+@@ -2931,8 +2938,10 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 
+ 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 			vnet_hdr.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+-			vnet_hdr.csum_start = skb_checksum_start_offset(skb);
+-			vnet_hdr.csum_offset = skb->csum_offset;
++			vnet_hdr.csum_start = __cpu_to_virtio16(false,
++					  skb_checksum_start_offset(skb));
++			vnet_hdr.csum_offset = __cpu_to_virtio16(false,
++							 skb->csum_offset);
+ 		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+ 			vnet_hdr.flags = VIRTIO_NET_HDR_F_DATA_VALID;
+ 		} /* else everything is zero */
 -- 
 MST
