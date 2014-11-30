@@ -1,54 +1,105 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 3/3] net-PPP: Delete an unnecessary assignment
-Date: Sun, 30 Nov 2014 17:47:49 +0100
-Message-ID: <547B4A35.7000500@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
- urceforge.net> <547B4886.4080406@users.sourceforge.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next v2] bridge: make proxy arp configurable
+Date: Sun, 30 Nov 2014 09:20:01 -0800
+Message-ID: <20141130092001.7168dc72@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <547B4886.4080406@users.sourceforge.net>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Kyeyoon Park <kyeyoonp@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:51032 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752061AbaK3RUL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2014 12:20:11 -0500
+Received: by mail-pa0-f47.google.com with SMTP id kq14so9481210pab.6
+        for <netdev@vger.kernel.org>; Sun, 30 Nov 2014 09:20:11 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sun, 30 Nov 2014 17:17:36 +0100
 
-The data structure element "arc4" was assigned a null pointer by the
-mppe_alloc() function if a previous function call "crypto_alloc_blkcipher"
-failed. This assignment became unnecessary with previous source
-code adjustments.
-Let us delete it from the affected implementation because the element "arc4"
-will not be accessible outside the function after the detected
-allocation failure.
+This solves kernel build without INET enabled, and allows user
+to control enabling this feature.
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+
 ---
- drivers/net/ppp/ppp_mppe.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ net/bridge/Kconfig       |   15 +++++++++++++++
+ net/bridge/br_input.c    |    4 ++++
+ net/bridge/br_sysfs_if.c |    4 ++++
+ 3 files changed, 23 insertions(+)
 
-diff --git a/drivers/net/ppp/ppp_mppe.c b/drivers/net/ppp/ppp_mppe.c
-index 962c1a0..d913bc9 100644
---- a/drivers/net/ppp/ppp_mppe.c
-+++ b/drivers/net/ppp/ppp_mppe.c
-@@ -205,10 +205,8 @@ static void *mppe_alloc(unsigned char *options, int optlen)
+--- a/net/bridge/Kconfig	2014-11-25 09:42:34.687891662 -0800
++++ b/net/bridge/Kconfig	2014-11-25 09:42:34.683891643 -0800
+@@ -60,3 +60,18 @@ config BRIDGE_VLAN_FILTERING
+ 	  Say N to exclude this support and reduce the binary size.
  
+ 	  If unsure, say Y.
++
++config BRIDGE_ARP_PROXY
++	bool "ARP proxying"
++	depends on BRIDGE
++	depends on INET
++	default y
++	---help---
++	  If you say Y here, then the Ethernet bridge to keep track of
++	  the hardware address to IP address mapping.
++
++	  It is most useful when used as a wireless AP.
++
++	  Say N to exclude this support and reduce the binary size.
++
++	  If unsure, say Y.
+--- a/net/bridge/br_input.c	2014-11-25 09:42:34.687891662 -0800
++++ b/net/bridge/br_input.c	2014-11-25 09:42:34.683891643 -0800
+@@ -59,6 +59,7 @@ static int br_pass_frame_up(struct sk_bu
+ 		       netif_receive_skb);
+ }
  
- 	state->arc4 = crypto_alloc_blkcipher("ecb(arc4)", 0, CRYPTO_ALG_ASYNC);
--	if (IS_ERR(state->arc4)) {
--		state->arc4 = NULL;
-+	if (IS_ERR(state->arc4))
- 		goto out_free;
--	}
++#ifdef CONFIG_BRIDGE_PROXY_ARP
+ static void br_do_proxy_arp(struct sk_buff *skb, struct net_bridge *br,
+ 			    u16 vid)
+ {
+@@ -112,6 +113,7 @@ static void br_do_proxy_arp(struct sk_bu
+ 		neigh_release(n);
+ 	}
+ }
++#endif
  
- 	state->sha1 = crypto_alloc_hash("sha1", 0, CRYPTO_ALG_ASYNC);
- 	if (IS_ERR(state->sha1)) {
--- 
-2.1.3
-
+ /* note: already called with rcu_read_lock */
+ int br_handle_frame_finish(struct sk_buff *skb)
+@@ -154,9 +156,11 @@ int br_handle_frame_finish(struct sk_buf
+ 	dst = NULL;
+ 
+ 	if (is_broadcast_ether_addr(dest)) {
++#ifdef CONFIG_BRIDGE_PROXY_ARP
+ 		if (p->flags & BR_PROXYARP &&
+ 		    skb->protocol == htons(ETH_P_ARP))
+ 			br_do_proxy_arp(skb, br, vid);
++#endif
+ 
+ 		skb2 = skb;
+ 		unicast = false;
+--- a/net/bridge/br_sysfs_if.c	2014-11-25 09:42:34.687891662 -0800
++++ b/net/bridge/br_sysfs_if.c	2014-11-25 09:42:34.687891662 -0800
+@@ -170,7 +170,9 @@ BRPORT_ATTR_FLAG(bpdu_guard, BR_BPDU_GUA
+ BRPORT_ATTR_FLAG(root_block, BR_ROOT_BLOCK);
+ BRPORT_ATTR_FLAG(learning, BR_LEARNING);
+ BRPORT_ATTR_FLAG(unicast_flood, BR_FLOOD);
++#ifdef CONFIG_BRIDGE_PROXY_ARP
+ BRPORT_ATTR_FLAG(proxyarp, BR_PROXYARP);
++#endif
+ 
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+ static ssize_t show_multicast_router(struct net_bridge_port *p, char *buf)
+@@ -214,7 +216,9 @@ static const struct brport_attribute *br
+ 	&brport_attr_multicast_router,
+ 	&brport_attr_multicast_fast_leave,
+ #endif
++#ifdef CONFIG_BRIDGE_PROXY_ARP
+ 	&brport_attr_proxyarp,
++#endif
+ 	NULL
+ };
+ 
