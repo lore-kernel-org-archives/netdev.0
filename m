@@ -1,60 +1,45 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH 1/1] net-PA Semi: Deletion of unnecessary checks before
- the function call "pci_dev_put"
-Date: Sun, 30 Nov 2014 18:47:29 +0100 (CET)
-Message-ID: <alpine.DEB.2.10.1411301846560.2522@hadrien>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net>
- <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net>
- <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
- <5317A59D.4@users.sourceforge.net> <547A09B1.9090102@users.sourceforge.net> <547B579F.10709@gmx.de>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] configure: Add check for the doc tools
+Date: Sun, 30 Nov 2014 09:51:09 -0800
+Message-ID: <20141130095109.2110836a@urahara>
+References: <1417363705-560-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
-	Olof Johansson <olof@lixom.net>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <547B579F.10709@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:44836 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752293AbaK3RvT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2014 12:51:19 -0500
+Received: by mail-pa0-f42.google.com with SMTP id et14so9559971pad.15
+        for <netdev@vger.kernel.org>; Sun, 30 Nov 2014 09:51:19 -0800 (PST)
+In-Reply-To: <1417363705-560-1-git-send-email-vadim4j@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sun, 30 Nov 2014 18:08:25 +0200
+Vadim Kochan <vadim4j@gmail.com> wrote:
 
+> Added checking existence of the doc files converters.
+> If the XXX tool exists then HAVE_XXX:=y will be written
+> to the Config file. Example of the configure script output:
+> 
+> TC schedulers
+>  ATM	no
+>  IPT	using xtables
+>  IPSET  yes
+> 
+> iptables modules directory: /usr/lib/iptables
+> libc has setns: yes
+> SELinux support: no
+> 
+> Docs
+>  latex: no
+>  WARNING: no docs can be built from LaTeX files
+>  sgml2html: yes
+> 
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 
-On Sun, 30 Nov 2014, Lino Sanfilippo wrote:
-
-> On 29.11.2014 19:00, SF Markus Elfring wrote:
->
-> >  out:
-> > -	if (mac->iob_pdev)
-> > -		pci_dev_put(mac->iob_pdev);
-> > -	if (mac->dma_pdev)
-> > -		pci_dev_put(mac->dma_pdev);
-> > +	pci_dev_put(mac->iob_pdev);
-> > +	pci_dev_put(mac->dma_pdev);
-> >
-> >  	free_netdev(dev);
-> >  out_disable_device:
-> >
->
-> Hi,
->
-> I know there has been some criticism about those kind of "code
-> improvements" already but i would like to point out just one more thing:
->
-> Some of those NULL pointer checks on input parameters may have been
-> added subsequently to functions. So there may be older kernel versions
-> out there in which those checks dont exists in some cases. If some of
-> the now "cleaned up" code is backported to such a kernel chances are
-> good that those missing checks are overseen. And then neither caller nor
-> callee is doing the NULL pointer check.
->
-> Quite frankly i would vote for the opposite approach: Never rely on the
-> callee do to checks for NULL and do it always in the caller. An
-> exception could be for calls on a fast path. But most of those checks
-> are done on error paths anyway.
-
-I have heard of at least one case where the problem you are raising
-happened in practice...
-
-julia
+Applied
