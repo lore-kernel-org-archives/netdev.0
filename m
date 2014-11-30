@@ -1,15 +1,14 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v7 33/46] vhost/net: larger header for virtio 1.0
-Date: Sun, 30 Nov 2014 17:11:59 +0200
-Message-ID: <1417359787-10138-34-git-send-email-mst@redhat.com>
+Subject: [PATCH v7 39/46] tun: add VNET_LE flag
+Date: Sun, 30 Nov 2014 17:12:32 +0200
+Message-ID: <1417359787-10138-40-git-send-email-mst@redhat.com>
 References: <1417359787-10138-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
 	rusty@au1.ibm.com, nab@linux-iscsi.org, pbonzini@redhat.com,
 	thuth@linux.vnet.ibm.com, dahi@linux.vnet.ibm.com,
-	Jason Wang <jasowang@redhat.com>, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+	netdev@vger.kernel.org, linux-api@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
@@ -17,25 +16,36 @@ In-Reply-To: <1417359787-10138-1-git-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Reviewed-by: Jason Wang <jasowang@redhat.com>
----
- drivers/vhost/net.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+virtio 1.0 modified virtio net header format,
+making all fields little endian.
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index cae22f9..1ac58d0 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -1027,7 +1027,8 @@ static int vhost_net_set_features(struct vhost_net *n, u64 features)
- 	size_t vhost_hlen, sock_hlen, hdr_len;
- 	int i;
- 
--	hdr_len = (features & (1 << VIRTIO_NET_F_MRG_RXBUF)) ?
-+	hdr_len = (features & ((1ULL << VIRTIO_NET_F_MRG_RXBUF) |
-+			       (1ULL << VIRTIO_F_VERSION_1))) ?
- 			sizeof(struct virtio_net_hdr_mrg_rxbuf) :
- 			sizeof(struct virtio_net_hdr);
- 	if (features & (1 << VHOST_NET_F_VIRTIO_NET_HDR)) {
+Users can tweak header format before submitting it to tun,
+but this means more data copies where none were necessary.
+And if the iovec is in RO memory, this means we might
+need to split iovec also means we might in theory overflow
+iovec max size.
+
+This patch adds a simpler way for applications to handle this,
+using new "little endian" flag in tun.
+As a result, tun simply byte-swaps header fields as appropriate.
+This is a NOP on LE architectures.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ include/uapi/linux/if_tun.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
+index 277a260..18b2403 100644
+--- a/include/uapi/linux/if_tun.h
++++ b/include/uapi/linux/if_tun.h
+@@ -57,6 +57,7 @@
+ #define IFF_ONE_QUEUE	0x2000
+ #define IFF_VNET_HDR	0x4000
+ #define IFF_TUN_EXCL	0x8000
++#define IFF_VNET_LE	0x10000
+ #define IFF_MULTI_QUEUE 0x0100
+ #define IFF_ATTACH_QUEUE 0x0200
+ #define IFF_DETACH_QUEUE 0x0400
 -- 
 MST
