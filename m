@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v7 32/46] vhost/net: virtio 1.0 byte swap
-Date: Sun, 30 Nov 2014 17:11:54 +0200
-Message-ID: <1417359787-10138-33-git-send-email-mst@redhat.com>
+Subject: [PATCH v7 35/46] vhost/net: enable virtio 1.0
+Date: Sun, 30 Nov 2014 17:12:08 +0200
+Message-ID: <1417359787-10138-36-git-send-email-mst@redhat.com>
 References: <1417359787-10138-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -27,48 +27,22 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/vhost/net.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+ drivers/vhost/net.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index dce5c58..cae22f9 100644
+index 1ac58d0..984242e 100644
 --- a/drivers/vhost/net.c
 +++ b/drivers/vhost/net.c
-@@ -416,7 +416,7 @@ static void handle_tx(struct vhost_net *net)
- 			struct ubuf_info *ubuf;
- 			ubuf = nvq->ubuf_info + nvq->upend_idx;
+@@ -61,7 +61,8 @@ MODULE_PARM_DESC(experimental_zcopytx, "Enable Zero Copy TX;"
+ enum {
+ 	VHOST_NET_FEATURES = VHOST_FEATURES |
+ 			 (1ULL << VHOST_NET_F_VIRTIO_NET_HDR) |
+-			 (1ULL << VIRTIO_NET_F_MRG_RXBUF),
++			 (1ULL << VIRTIO_NET_F_MRG_RXBUF) |
++			 (1ULL << VIRTIO_F_VERSION_1),
+ };
  
--			vq->heads[nvq->upend_idx].id = head;
-+			vq->heads[nvq->upend_idx].id = cpu_to_vhost32(vq, head);
- 			vq->heads[nvq->upend_idx].len = VHOST_DMA_IN_PROGRESS;
- 			ubuf->callback = vhost_zerocopy_callback;
- 			ubuf->ctx = nvq->ubufs;
-@@ -500,6 +500,7 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
- 	int headcount = 0;
- 	unsigned d;
- 	int r, nlogs = 0;
-+	u32 len;
- 
- 	while (datalen > 0 && headcount < quota) {
- 		if (unlikely(seg >= UIO_MAXIOV)) {
-@@ -527,13 +528,14 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
- 			nlogs += *log_num;
- 			log += *log_num;
- 		}
--		heads[headcount].id = d;
--		heads[headcount].len = iov_length(vq->iov + seg, in);
--		datalen -= heads[headcount].len;
-+		heads[headcount].id = cpu_to_vhost32(vq, d);
-+		len = iov_length(vq->iov + seg, in);
-+		heads[headcount].len = cpu_to_vhost32(vq, len);
-+		datalen -= len;
- 		++headcount;
- 		seg += in;
- 	}
--	heads[headcount - 1].len += datalen;
-+	heads[headcount - 1].len = cpu_to_vhost32(vq, len - datalen);
- 	*iovcount = seg;
- 	if (unlikely(log))
- 		*log_num = nlogs;
+ enum {
 -- 
 MST
