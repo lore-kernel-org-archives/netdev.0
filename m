@@ -1,49 +1,43 @@
 From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: [PATCH] ioc3: fix incorrect use of htons/ntohs
-Date: Sun, 30 Nov 2014 11:40:54 +0100
-Message-ID: <1417344054-4374-1-git-send-email-LinoSanfilippo@gmx.de>
-Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org,
+Subject: [PATCH] pxa168: close race between napi and irq activation
+Date: Sun, 30 Nov 2014 11:49:36 +0100
+Message-ID: <1417344576-4940-1-git-send-email-LinoSanfilippo@gmx.de>
+Cc: paul.gortmaker@windriver.com, w-lkml@lebenslange-mailadresse.de,
+	f.fainelli@gmail.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org,
 	Lino Sanfilippo <LinoSanfilippo@gmx.de>
-To: ralf@linux-mips.org
+To: arnd@arndb.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The protocol type in the ip header struct is a single byte variable. So there
-is no need to swap bytes depending on host endianness.
+In pxa168_eth_open() the irqs are enabled before napi. This opens a tiny time
+window in which the irq handler is processed, disables irqs but then is not able
+to schedule the not yet activated napi, leaving irqs disabled forever (since
+irqs are reenabled in napi poll function).
+Fix this race by activating napi before irqs are activated.
 
 Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
 ---
-
-Please note that I could not test this, since I dont have access to the
+Please note that i could not test this since I dont have access to the
 concerning hardware.
 
- drivers/net/ethernet/sgi/ioc3-eth.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/marvell/pxa168_eth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/sgi/ioc3-eth.c b/drivers/net/ethernet/sgi/ioc3-eth.c
-index 7a254da..0bb303d 100644
---- a/drivers/net/ethernet/sgi/ioc3-eth.c
-+++ b/drivers/net/ethernet/sgi/ioc3-eth.c
-@@ -540,8 +540,7 @@ static void ioc3_tcpudp_checksum(struct sk_buff *skb, uint32_t hwsum, int len)
- 
- 	/* Same as tx - compute csum of pseudo header  */
- 	csum = hwsum +
--	       (ih->tot_len - (ih->ihl << 2)) +
--	       htons((uint16_t)ih->protocol) +
-+	       (ih->tot_len - (ih->ihl << 2)) + ih->protocol +
- 	       (ih->saddr >> 16) + (ih->saddr & 0xffff) +
- 	       (ih->daddr >> 16) + (ih->daddr & 0xffff);
- 
-@@ -1417,7 +1416,7 @@ static int ioc3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 */
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 		const struct iphdr *ih = ip_hdr(skb);
--		const int proto = ntohs(ih->protocol);
-+		const int proto = ih->protocol;
- 		unsigned int csoff;
- 		uint32_t csum, ehsum;
- 		uint16_t *eh;
+diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
+index c3b209c..a3e394c 100644
+--- a/drivers/net/ethernet/marvell/pxa168_eth.c
++++ b/drivers/net/ethernet/marvell/pxa168_eth.c
+@@ -1153,8 +1153,8 @@ static int pxa168_eth_open(struct net_device *dev)
+ 	pep->rx_used_desc_q = 0;
+ 	pep->rx_curr_desc_q = 0;
+ 	netif_carrier_off(dev);
+-	eth_port_start(dev);
+ 	napi_enable(&pep->napi);
++	eth_port_start(dev);
+ 	return 0;
+ out_free_rx_skb:
+ 	rxq_deinit(dev);
 -- 
 1.9.1
