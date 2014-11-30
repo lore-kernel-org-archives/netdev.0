@@ -1,170 +1,59 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v7 40/46] tun: TUN_VNET_LE support, fix sparse warnings for
- virtio headers
-Date: Sun, 30 Nov 2014 17:12:36 +0200
-Message-ID: <1417359787-10138-41-git-send-email-mst@redhat.com>
-References: <1417359787-10138-1-git-send-email-mst@redhat.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net] gso: do GSO for local skb with size bigger than MTU
+Date: Sun, 30 Nov 2014 16:11:14 +0100
+Message-ID: <20141130151114.GA4462@breakpoint.cc>
+References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
+ <20141130102640.GA19726@breakpoint.cc>
+ <5A90DA2E42F8AE43BC4A093BF0678848DED957@SHSMSX104.ccr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
-	rusty@au1.ibm.com, nab@linux-iscsi.org, pbonzini@redhat.com,
-	thuth@linux.vnet.ibm.com, dahi@linux.vnet.ibm.com,
-	Jason Wang <jasowang@redhat.com>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Tom Herbert <therbert@google.com>,
-	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Florian Westphal <fw@strlen.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "Du, Fan" <fan.du@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:56794 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752701AbaK3PLT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2014 10:11:19 -0500
 Content-Disposition: inline
-In-Reply-To: <1417359787-10138-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <5A90DA2E42F8AE43BC4A093BF0678848DED957@SHSMSX104.ccr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pretty straight-forward: convert all fields to/from
-virtio endian-ness.
+Du, Fan <fan.du@intel.com> wrote:
+> All interface MTU in the test scenario is the default one, 1500.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Reviewed-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/tun.c | 48 +++++++++++++++++++++++++++++-------------------
- 1 file changed, 29 insertions(+), 19 deletions(-)
+Not really, unless I misunderstand the setup.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 36be4fd..c052bd6b 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -111,7 +111,7 @@ do {								\
- #define TUN_FASYNC	IFF_ATTACH_QUEUE
- 
- #define TUN_FEATURES (IFF_NO_PI | IFF_ONE_QUEUE | IFF_VNET_HDR | \
--		      IFF_MULTI_QUEUE)
-+		      IFF_VNET_LE | IFF_MULTI_QUEUE)
- #define GOODCOPY_LEN 128
- 
- #define FLT_EXACT_COUNT 8
-@@ -205,6 +205,16 @@ struct tun_struct {
- 	u32 flow_count;
- };
- 
-+static inline u16 tun16_to_cpu(struct tun_struct *tun, __virtio16 val)
-+{
-+	return __virtio16_to_cpu(tun->flags & IFF_VNET_LE, val);
-+}
-+
-+static inline __virtio16 cpu_to_tun16(struct tun_struct *tun, u16 val)
-+{
-+	return __cpu_to_virtio16(tun->flags & IFF_VNET_LE, val);
-+}
-+
- static inline u32 tun_hashfn(u32 rxhash)
- {
- 	return rxhash & 0x3ff;
-@@ -1053,10 +1063,10 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 			return -EFAULT;
- 
- 		if ((gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
--		    gso.csum_start + gso.csum_offset + 2 > gso.hdr_len)
--			gso.hdr_len = gso.csum_start + gso.csum_offset + 2;
-+		    tun16_to_cpu(tun, gso.csum_start) + tun16_to_cpu(tun, gso.csum_offset) + 2 > tun16_to_cpu(tun, gso.hdr_len))
-+			gso.hdr_len = cpu_to_tun16(tun, tun16_to_cpu(tun, gso.csum_start) + tun16_to_cpu(tun, gso.csum_offset) + 2);
- 
--		if (gso.hdr_len > len)
-+		if (tun16_to_cpu(tun, gso.hdr_len) > len)
- 			return -EINVAL;
- 		offset += tun->vnet_hdr_sz;
- 	}
-@@ -1064,7 +1074,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	if ((tun->flags & TUN_TYPE_MASK) == IFF_TAP) {
- 		align += NET_IP_ALIGN;
- 		if (unlikely(len < ETH_HLEN ||
--			     (gso.hdr_len && gso.hdr_len < ETH_HLEN)))
-+			     (gso.hdr_len && tun16_to_cpu(tun, gso.hdr_len) < ETH_HLEN)))
- 			return -EINVAL;
- 	}
- 
-@@ -1075,7 +1085,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		 * enough room for skb expand head in case it is used.
- 		 * The rest of the buffer is mapped from userspace.
- 		 */
--		copylen = gso.hdr_len ? gso.hdr_len : GOODCOPY_LEN;
-+		copylen = gso.hdr_len ? tun16_to_cpu(tun, gso.hdr_len) : GOODCOPY_LEN;
- 		if (copylen > good_linear)
- 			copylen = good_linear;
- 		linear = copylen;
-@@ -1085,10 +1095,10 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 
- 	if (!zerocopy) {
- 		copylen = len;
--		if (gso.hdr_len > good_linear)
-+		if (tun16_to_cpu(tun, gso.hdr_len) > good_linear)
- 			linear = good_linear;
- 		else
--			linear = gso.hdr_len;
-+			linear = tun16_to_cpu(tun, gso.hdr_len);
- 	}
- 
- 	skb = tun_alloc_skb(tfile, align, copylen, linear, noblock);
-@@ -1115,8 +1125,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	}
- 
- 	if (gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
--		if (!skb_partial_csum_set(skb, gso.csum_start,
--					  gso.csum_offset)) {
-+		if (!skb_partial_csum_set(skb, tun16_to_cpu(tun, gso.csum_start),
-+					  tun16_to_cpu(tun, gso.csum_offset))) {
- 			tun->dev->stats.rx_frame_errors++;
- 			kfree_skb(skb);
- 			return -EINVAL;
-@@ -1184,7 +1194,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		if (gso.gso_type & VIRTIO_NET_HDR_GSO_ECN)
- 			skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_ECN;
- 
--		skb_shinfo(skb)->gso_size = gso.gso_size;
-+		skb_shinfo(skb)->gso_size = tun16_to_cpu(tun, gso.gso_size);
- 		if (skb_shinfo(skb)->gso_size == 0) {
- 			tun->dev->stats.rx_frame_errors++;
- 			kfree_skb(skb);
-@@ -1276,8 +1286,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 			struct skb_shared_info *sinfo = skb_shinfo(skb);
- 
- 			/* This is a hint as to how much should be linear. */
--			gso.hdr_len = skb_headlen(skb);
--			gso.gso_size = sinfo->gso_size;
-+			gso.hdr_len = cpu_to_tun16(tun, skb_headlen(skb));
-+			gso.gso_size = cpu_to_tun16(tun, sinfo->gso_size);
- 			if (sinfo->gso_type & SKB_GSO_TCPV4)
- 				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
- 			else if (sinfo->gso_type & SKB_GSO_TCPV6)
-@@ -1285,12 +1295,12 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 			else {
- 				pr_err("unexpected GSO type: "
- 				       "0x%x, gso_size %d, hdr_len %d\n",
--				       sinfo->gso_type, gso.gso_size,
--				       gso.hdr_len);
-+				       sinfo->gso_type, tun16_to_cpu(tun, gso.gso_size),
-+				       tun16_to_cpu(tun, gso.hdr_len));
- 				print_hex_dump(KERN_ERR, "tun: ",
- 					       DUMP_PREFIX_NONE,
- 					       16, 1, skb->head,
--					       min((int)gso.hdr_len, 64), true);
-+					       min((int)tun16_to_cpu(tun, gso.hdr_len), 64), true);
- 				WARN_ON_ONCE(1);
- 				return -EINVAL;
- 			}
-@@ -1301,9 +1311,9 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 
- 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 			gso.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
--			gso.csum_start = skb_checksum_start_offset(skb) +
--					 vlan_hlen;
--			gso.csum_offset = skb->csum_offset;
-+			gso.csum_start = cpu_to_tun16(tun, skb_checksum_start_offset(skb) +
-+						      vlan_hlen);
-+			gso.csum_offset = cpu_to_tun16(tun, skb->csum_offset);
- 		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
- 			gso.flags = VIRTIO_NET_HDR_F_DATA_VALID;
- 		} /* else everything is zero */
--- 
-MST
+You have a l2 network where part of the machines are connected by a
+l2 tunnel.
+
+All machines within that network ought to assume that MTU is equal for
+all machines within the same L2 network.
+
+> >It seems to me to only clean solution is to set tap0 MTU so that it accounts for the
+> >bridge encap overhead.
+> 
+> This will force _ALL_ deploy instances requiring tap0 MTU change in every cloud env.
+
+Yes, alternatively emply routing, then PMTU should work.
+
+> Current behavior leads over-mtu-sized packet push down to NIC, which should not
+> happen anyway. And as I putted in another threads:
+> Perform GSO for skb, then try to do ip segmentation if possible, If DF set, send back
+> ICMP message. If DF is not set, apparently user want stack do ip segmentation, and
+> All the GSO-ed skb will be sent out correctly as expected.
+
+Well, the linux bridge implementation (especially bridge netfilter)
+did/allows for a lot of layering violations and this has usually caused
+a myriad of followup kludges to make one-more scenario work.
+
+I still think that trying to make this work is a bad idea.
+If hosts have different MTUs they should be in different l2 networks.
+
+Alternatively, the Tunneling implementation should be opaque and do the
+needed fragmentation to provide the illusion of identical MTUs.
+
+That said, I don't see anything wrong with the patch per se, I just
+dislike the concept.
