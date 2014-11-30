@@ -1,86 +1,36 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] configure: Add check for the doc tools
-Date: Sun, 30 Nov 2014 18:08:25 +0200
-Message-ID: <1417363705-560-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:34282 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751857AbaK3QSF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2014 11:18:05 -0500
-Received: by mail-wi0-f176.google.com with SMTP id ex7so22329375wid.15
-        for <netdev@vger.kernel.org>; Sun, 30 Nov 2014 08:18:04 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 0/3] net-PPP: Deletion of a few unnecessary checks
+Date: Sun, 30 Nov 2014 17:40:38 +0100
+Message-ID: <547B4886.4080406@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Added checking existence of the doc files converters.
-If the XXX tool exists then HAVE_XXX:=y will be written
-to the Config file. Example of the configure script output:
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Sun, 30 Nov 2014 17:25:40 +0100
 
-TC schedulers
- ATM	no
- IPT	using xtables
- IPSET  yes
+Further update suggestions were taken into account after a patch was applied
+from static source code analysis.
 
-iptables modules directory: /usr/lib/iptables
-libc has setns: yes
-SELinux support: no
+Markus Elfring (3):
+  Deletion of unnecessary checks before the function call "kfree"
+  Less function calls in mppe_alloc() after error detection
+  Delete an unnecessary assignment
 
-Docs
- latex: no
- WARNING: no docs can be built from LaTeX files
- sgml2html: yes
+ drivers/net/ppp/ppp_mppe.c | 32 +++++++++++++-------------------
+ 1 file changed, 13 insertions(+), 19 deletions(-)
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- configure | 23 ++++++++++++++++++++++-
- 1 file changed, 22 insertions(+), 1 deletion(-)
-
-diff --git a/configure b/configure
-index d5170f0..c3dacdb 100755
---- a/configure
-+++ b/configure
-@@ -7,6 +7,24 @@ INCLUDE=${1:-"$PWD/include"}
- TMPDIR=$(mktemp -d config.XXXXXX)
- trap 'status=$?; rm -rf $TMPDIR; exit $status' EXIT HUP INT QUIT TERM
- 
-+check_prog()
-+{
-+    echo -n "$2"
-+    command -v $1 >/dev/null 2>&1 && (echo "$3:=y" >> Config; echo "yes") || (echo "no"; return 1)
-+}
-+
-+check_docs()
-+{
-+    if check_prog latex " latex: " HAVE_LATEX; then
-+        check_prog pdflatex " pdflatex: " HAVE_PDFLATEX || echo " WARNING: no PDF docs can be built from LaTeX files"
-+        check_prog sgml2latex " sgml2latex: " HAVE_SGML2LATEX || echo " WARNING: no LaTeX files can be build from SGML files"
-+    else
-+        echo " WARNING: no docs can be built from LaTeX files"
-+    fi
-+
-+    check_prog sgml2html " sgml2html: " HAVE_SGML2HTML || echo " WARNING: no HTML docs can be built from SGML"
-+}
-+
- check_toolchain()
- {
-     : ${PKG_CONFIG:=pkg-config}
-@@ -260,7 +278,7 @@ check_ipt
- echo -n " IPSET  "
- check_ipset
- 
--echo -n "iptables modules directory: "
-+echo -n -e "\niptables modules directory: "
- check_ipt_lib_dir
- 
- echo -n "libc has setns: "
-@@ -268,3 +286,6 @@ check_setns
- 
- echo -n "SELinux support: "
- check_selinux
-+
-+echo -e "\nDocs"
-+check_docs
 -- 
 2.1.3
+
