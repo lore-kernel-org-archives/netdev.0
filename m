@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v7 29/46] vhost: add memory access wrappers
-Date: Sun, 30 Nov 2014 17:11:39 +0200
-Message-ID: <1417359787-10138-30-git-send-email-mst@redhat.com>
+Subject: [PATCH v7 32/46] vhost/net: virtio 1.0 byte swap
+Date: Sun, 30 Nov 2014 17:11:54 +0200
+Message-ID: <1417359787-10138-33-git-send-email-mst@redhat.com>
 References: <1417359787-10138-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,54 +25,50 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Add guest memory access wrappers to handle virtio endianness
-conversions.
-
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Reviewed-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/vhost/vhost.h | 31 +++++++++++++++++++++++++++++++
- 1 file changed, 31 insertions(+)
+ drivers/vhost/net.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index c624b09..1f321fd 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -176,4 +176,35 @@ static inline int vhost_has_feature(struct vhost_virtqueue *vq, int bit)
- {
- 	return vq->acked_features & (1ULL << bit);
- }
-+
-+/* Memory accessors */
-+static inline u16 vhost16_to_cpu(struct vhost_virtqueue *vq, __virtio16 val)
-+{
-+	return __virtio16_to_cpu(vhost_has_feature(vq, VIRTIO_F_VERSION_1), val);
-+}
-+
-+static inline __virtio16 cpu_to_vhost16(struct vhost_virtqueue *vq, u16 val)
-+{
-+	return __cpu_to_virtio16(vhost_has_feature(vq, VIRTIO_F_VERSION_1), val);
-+}
-+
-+static inline u32 vhost32_to_cpu(struct vhost_virtqueue *vq, __virtio32 val)
-+{
-+	return __virtio32_to_cpu(vhost_has_feature(vq, VIRTIO_F_VERSION_1), val);
-+}
-+
-+static inline __virtio32 cpu_to_vhost32(struct vhost_virtqueue *vq, u32 val)
-+{
-+	return __cpu_to_virtio32(vhost_has_feature(vq, VIRTIO_F_VERSION_1), val);
-+}
-+
-+static inline u64 vhost64_to_cpu(struct vhost_virtqueue *vq, __virtio64 val)
-+{
-+	return __virtio64_to_cpu(vhost_has_feature(vq, VIRTIO_F_VERSION_1), val);
-+}
-+
-+static inline __virtio64 cpu_to_vhost64(struct vhost_virtqueue *vq, u64 val)
-+{
-+	return __cpu_to_virtio64(vhost_has_feature(vq, VIRTIO_F_VERSION_1), val);
-+}
- #endif
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index dce5c58..cae22f9 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -416,7 +416,7 @@ static void handle_tx(struct vhost_net *net)
+ 			struct ubuf_info *ubuf;
+ 			ubuf = nvq->ubuf_info + nvq->upend_idx;
+ 
+-			vq->heads[nvq->upend_idx].id = head;
++			vq->heads[nvq->upend_idx].id = cpu_to_vhost32(vq, head);
+ 			vq->heads[nvq->upend_idx].len = VHOST_DMA_IN_PROGRESS;
+ 			ubuf->callback = vhost_zerocopy_callback;
+ 			ubuf->ctx = nvq->ubufs;
+@@ -500,6 +500,7 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
+ 	int headcount = 0;
+ 	unsigned d;
+ 	int r, nlogs = 0;
++	u32 len;
+ 
+ 	while (datalen > 0 && headcount < quota) {
+ 		if (unlikely(seg >= UIO_MAXIOV)) {
+@@ -527,13 +528,14 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
+ 			nlogs += *log_num;
+ 			log += *log_num;
+ 		}
+-		heads[headcount].id = d;
+-		heads[headcount].len = iov_length(vq->iov + seg, in);
+-		datalen -= heads[headcount].len;
++		heads[headcount].id = cpu_to_vhost32(vq, d);
++		len = iov_length(vq->iov + seg, in);
++		heads[headcount].len = cpu_to_vhost32(vq, len);
++		datalen -= len;
+ 		++headcount;
+ 		seg += in;
+ 	}
+-	heads[headcount - 1].len += datalen;
++	heads[headcount - 1].len = cpu_to_vhost32(vq, len - datalen);
+ 	*iovcount = seg;
+ 	if (unlikely(log))
+ 		*log_num = nlogs;
 -- 
 MST
