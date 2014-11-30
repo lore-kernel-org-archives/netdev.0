@@ -1,59 +1,65 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net] gso: do GSO for local skb with size bigger than MTU
-Date: Sun, 30 Nov 2014 16:11:14 +0100
-Message-ID: <20141130151114.GA4462@breakpoint.cc>
-References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
- <20141130102640.GA19726@breakpoint.cc>
- <5A90DA2E42F8AE43BC4A093BF0678848DED957@SHSMSX104.ccr.corp.intel.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v7 28/46] vhost: make features 64 bit
+Date: Sun, 30 Nov 2014 18:44:33 +0300
+Message-ID: <547B3B61.3090801@cogentembedded.com>
+References: <1417359787-10138-1-git-send-email-mst@redhat.com>
+	<1417359787-10138-29-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "Du, Fan" <fan.du@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:56794 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752701AbaK3PLT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2014 10:11:19 -0500
-Content-Disposition: inline
-In-Reply-To: <5A90DA2E42F8AE43BC4A093BF0678848DED957@SHSMSX104.ccr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: thuth@linux.vnet.ibm.com, kvm@vger.kernel.org, rusty@au1.ibm.com,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	dahi@linux.vnet.ibm.com, pbonzini@redhat.com,
+	David Miller <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1417359787-10138-29-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Du, Fan <fan.du@intel.com> wrote:
-> All interface MTU in the test scenario is the default one, 1500.
+Hello.
 
-Not really, unless I misunderstand the setup.
+On 11/30/2014 6:11 PM, Michael S. Tsirkin wrote:
 
-You have a l2 network where part of the machines are connected by a
-l2 tunnel.
+> We need to use bit 32 for virtio 1.0
 
-All machines within that network ought to assume that MTU is equal for
-all machines within the same L2 network.
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Reviewed-by: Jason Wang <jasowang@redhat.com>
+> ---
+>   drivers/vhost/vhost.h | 4 ++--
+>   1 file changed, 2 insertions(+), 2 deletions(-)
 
-> >It seems to me to only clean solution is to set tap0 MTU so that it accounts for the
-> >bridge encap overhead.
-> 
-> This will force _ALL_ deploy instances requiring tap0 MTU change in every cloud env.
+> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+> index 3eda654..c624b09 100644
+> --- a/drivers/vhost/vhost.h
+> +++ b/drivers/vhost/vhost.h
+> @@ -106,7 +106,7 @@ struct vhost_virtqueue {
+>   	/* Protected by virtqueue mutex. */
+>   	struct vhost_memory *memory;
+>   	void *private_data;
+> -	unsigned acked_features;
+> +	u64 acked_features;
+>   	/* Log write descriptors */
+>   	void __user *log_base;
+>   	struct vhost_log *log;
+> @@ -174,6 +174,6 @@ enum {
+>
+>   static inline int vhost_has_feature(struct vhost_virtqueue *vq, int bit)
+>   {
+> -	return vq->acked_features & (1 << bit);
+> +	return vq->acked_features & (1ULL << bit);
 
-Yes, alternatively emply routing, then PMTU should work.
+    Erm, wouldn't the high word be just dropped when returning *int*? I think 
+you need !!(vq->acked_features & (1ULL << bit)).
 
-> Current behavior leads over-mtu-sized packet push down to NIC, which should not
-> happen anyway. And as I putted in another threads:
-> Perform GSO for skb, then try to do ip segmentation if possible, If DF set, send back
-> ICMP message. If DF is not set, apparently user want stack do ip segmentation, and
-> All the GSO-ed skb will be sent out correctly as expected.
+[...]
 
-Well, the linux bridge implementation (especially bridge netfilter)
-did/allows for a lot of layering violations and this has usually caused
-a myriad of followup kludges to make one-more scenario work.
-
-I still think that trying to make this work is a bad idea.
-If hosts have different MTUs they should be in different l2 networks.
-
-Alternatively, the Tunneling implementation should be opaque and do the
-needed fragmentation to provide the illusion of identical MTUs.
-
-That said, I don't see anything wrong with the patch per se, I just
-dislike the concept.
+WBR, Sergei
