@@ -1,59 +1,124 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net] gso: do GSO for local skb with size bigger than MTU
-Date: Sun, 30 Nov 2014 11:26:40 +0100
-Message-ID: <20141130102640.GA19726@breakpoint.cc>
-References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: Re: Is this 32-bit NCM?
+Date: Sun, 30 Nov 2014 11:31:04 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1411301129250.1938@gmail.com>
+References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com> <54781523.6030600@audiocodes.com>
+ <alpine.LNX.2.03.1411280923230.3997@gmail.com> <54783443.50700@audiocodes.com> <alpine.LNX.2.03.1411280944200.4040@gmail.com> <54783A1D.3090607@audiocodes.com> <alpine.LNX.2.03.1411281014450.4101@gmail.com> <54783F84.20105@audiocodes.com>
+ <alpine.LNX.2.03.1411300202310.4742@gmail.com> <CAPChA0czA3vxPZdwk-SgO1Wr83zOV1UoWcL4=05qtBktwq5=TA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, fw@strlen.de
-To: Fan Du <fan.du@intel.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-2075623575-1417343467=:1938"
+Cc: Eli Britstein <Eli.Britstein@audiocodes.com>,
+	linux-usb@vger.kernel.org, "youtux@gmail.com" <youtux@gmail.com>,
+	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Kevin Zhu <Mingying.Zhu@audiocodes.com>,
+	=?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+To: Alex Strizhevsky <alexxst@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:48316 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751051AbaK3K0q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2014 05:26:46 -0500
-Content-Disposition: inline
-In-Reply-To: <1417156385-18276-1-git-send-email-fan.du@intel.com>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:48267 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751142AbaK3Kai (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2014 05:30:38 -0500
+In-Reply-To: <CAPChA0czA3vxPZdwk-SgO1Wr83zOV1UoWcL4=05qtBktwq5=TA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fan Du <fan.du@intel.com> wrote:
-> Test scenario: two KVM guests sitting in different
-> hosts communicate to each other with a vxlan tunnel.
-> 
-> All interface MTU is default 1500 Bytes, from guest point
-> of view, its skb gso_size could be as bigger as 1448Bytes,
-> however after guest skb goes through vxlan encapuslation,
-> individual segments length of a gso packet could exceed
-> physical NIC MTU 1500, which will be lost at recevier side.
-> 
-> So it's possible in virtualized environment, locally created
-> skb len after encapslation could be bigger than underlayer
-> MTU. In such case, it's reasonable to do GSO first,
-> then fragment any packet bigger than MTU as possible.
-> 
-> +---------------+ TX     RX +---------------+
-> |   KVM Guest   | -> ... -> |   KVM Guest   |
-> +-+-----------+-+           +-+-----------+-+
->   |Qemu/VirtIO|               |Qemu/VirtIO|
->   +-----------+               +-----------+
->        |                            |
->        v tap0                  tap0 v
->   +-----------+               +-----------+
->   | ovs bridge|               | ovs bridge|
->   +-----------+               +-----------+
->        | vxlan                vxlan |
->        v                            v
->   +-----------+               +-----------+
->   |    NIC    |    <------>   |    NIC    |
->   +-----------+               +-----------+
-> 
-> Steps to reproduce:
->  1. Using kernel builtin openvswitch module to setup ovs bridge.
->  2. Runing iperf without -M, communication will stuck.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Hmm, do we really want to suport bridges containing interfaces with
-different MTUs?
+--8323328-2075623575-1417343467=:1938
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
 
-It seems to me to only clean solution is to set tap0 MTU so that it
-accounts for the bridge encap overhead.
+Here are two USB captures.
+In m1 - the computer is "silent": and it can listen to ARP traffic coming from 
+the modem.
+In m2, the computer tries to talk, performing DHCP with dhclient from Ubuntu.
+Any strange thing?
+Is the device really interpreting ndpOffset as Offset in the specs Kevin?
+If so we might elaborate on this.
+
+On Sun, 30 Nov 2014, Alex Strizhevsky wrote:
+
+==Date: Sun, 30 Nov 2014 05:22:20
+==From: Alex Strizhevsky <alexxst@gmail.com>
+==To: Mrkiko Rs <mrkiko.rs@gmail.com>
+==Cc: Eli Britstein <Eli.Britstein@audiocodes.com>, linux-usb@vger.kernel.org,
+==    "youtux@gmail.com" <youtux@gmail.com>,
+==    Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
+==    "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+==    Kevin Zhu <Mingying.Zhu@audiocodes.com>, Bjørn Mork <bjorn@mork.no>
+==Subject: Re: Is this 32-bit NCM?
+==
+==
+==Hi Enrico,
+==
+==Actually I have two dongles with different firmwares (23.128.00.00.00 &
+==21.286.03.01.209).
+==Probably have sent to you the USB  capture with the first one.
+==
+==In fact we have to make work the second one, this dongle has relevant SW.
+==
+==On Nov 30, 2014 3:13 AM, "Enrico Mioso" <mrkiko.rs@gmail.com> wrote:
+==      Hi guys.
+==      Sorry for the late our but ... I was trying to figure out
+==      something new about
+==      this dongle.
+==      I also searched for it in my city shops without finding it
+==      actually.
+==      But then I came back and ... tried to look at some things.
+==
+==      Alex, Kevin: in the Windows USB captures you sent me (and that I
+==      sent on the
+==      List), I can notiche something very strange.
+==      with a shell on a computer connected to a test device I can see
+==      the following:
+==      at+gmr
+==      21.286.03.01.209
+==      OK
+==      and so why in the Windows sniff the dongle answers to the same
+==      question
+==      something like
+==      23.128.00.00.00
+==      ?
+==      Alex - was it the same dongle?
+==      Kevin or anyone: can you use putty to interact with the dongle
+==      under Windows
+==      and type some commands, like:
+==      at+gmr
+==      and other similar commands?
+==      If the dongle reports different firmware versions under Linux
+==      and Windows, then
+==      guys... we need to figure out the Windows switch message.
+==      Overmore - in the device installation sh*t, you can see there is
+==      a firmware
+==      updater... Why?
+==
+==      Alex: I used the
+==      at^reset
+==      command to get the modem back to normal state once; and so it
+==      restored the
+==      nvram to default or something.
+==      If you reconnect it to windows ... i hope it gets re-setup as
+==      before.
+==      But - nothing harmful to the device, only to it's settings,
+==      sorry.
+==      I restored the relevant settings and it connects again, but no
+==      dhcp. But - be
+==      peaceful: other modems out there seems to not get dhcp anyway.
+==      this is the state the modem arrives when you buy it, so windows
+==      should know
+==      Wwhat To Say To The Modem (TM).
+==      Another thing - note that:
+==      [14170.048693] cdc_ncm 1-2:1.2: GET_MAX_DATAGRAM_SIZE failed
+==
+==      Any ideas, comments, suggestions are highly appreciated guys.
+==      Of any type.
+==
+==      Bjorn - unfortunately it seems this problem is related to E3727
+==      and E3276
+==      sticks; they can get IP from DHCP but not go ahead.
+==
+==
+==
+--8323328-2075623575-1417343467=:1938--
