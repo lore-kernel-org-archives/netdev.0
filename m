@@ -1,22 +1,38 @@
-From: "Liliane Bettencourt" <mrsliliane@hotmail.com>
-Subject: =?utf-8?B?RG9icsOhIHpwcsOhdmE=?= pro =?utf-8?B?dsOhcy4=?=
-Date: Sun, 30 Nov 2014 07:33:40 -0300
-Message-ID: <web-15596358@b5.vtr.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from iron12.vtr.com ([190.160.0.179]:31269 "EHLO iron12.vtr.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752079AbaK3LLE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Nov 2014 06:11:04 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: [PATCH] skge: Unmask interrupts in case of spurious interrupts
+Date: Sun, 30 Nov 2014 12:51:31 +0100
+Message-ID: <1417348291-1302-1-git-send-email-LinoSanfilippo@gmx.de>
+Cc: mlindner@marvell.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Lino Sanfilippo <LinoSanfilippo@gmx.de>
+To: stephen@networkplumber.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dobr=C3=A1 zpr=C3=A1va pro v=C3=A1s.
+In case of a spurious interrupt dont forget to reenable the interrupts that
+have been masked by reading the interrupt source register.
 
-3,5 milionu americk=C3=BDch dolar=C5=AF v=C4=9Bnov=C3=A1n na v=C3=A1s, =
-Kontakt=20
-(mrsliliane@hotmail.com) pro v=C3=ADce informac=C3=AD.
+Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+---
+ drivers/net/ethernet/marvell/skge.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
+index 264eab7..7173836 100644
+--- a/drivers/net/ethernet/marvell/skge.c
++++ b/drivers/net/ethernet/marvell/skge.c
+@@ -3433,10 +3433,9 @@ static irqreturn_t skge_intr(int irq, void *dev_id)
+ 
+ 	if (status & IS_HW_ERR)
+ 		skge_error_irq(hw);
+-
++out:
+ 	skge_write32(hw, B0_IMSK, hw->intr_mask);
+ 	skge_read32(hw, B0_IMSK);
+-out:
+ 	spin_unlock(&hw->hw_lock);
+ 
+ 	return IRQ_RETVAL(handled);
+-- 
+1.9.1
