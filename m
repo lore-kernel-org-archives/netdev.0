@@ -1,48 +1,77 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: Non Explained TODOs in halbtcoutsrc.c
-Date: Sun, 30 Nov 2014 13:52:31 -0600
-Message-ID: <547B757F.2040900@lwfinger.net>
-References: <547A581A.7040609@gmail.com> <547A9D91.9080406@lwfinger.net> <547A9F9D.8050103@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 3/3] net-PPP: Delete an unnecessary assignment
+Date: Sun, 30 Nov 2014 11:59:43 -0800
+Message-ID: <1417377583.4442.11.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5307CAA2.8060406@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
+	 <530A086E.8010901@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
+	 <530A72AA.3000601@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
+	 <530B5FB6.6010207@users.sourceforge.net>
+	 <alpine.DEB.2.10.1402241710370.2074@hadrien>
+	 <530C5E18.1020800@users.sourceforge.net>
+	 <alpine.DEB.2.10.1402251014170.2080@hadrien>
+	 <530CD2C4.4050903@users.sourceforge.net>
+	 <alpine.DEB.2.10.1402251840450.7035@hadrien>
+	 <530CF8FF.8080600@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+	 <530DD06F.4090703@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+	 <5317A59D.4@users.sourceforge.net> <547B4886.4080406@users.sourceforge.net>
+	 <547B4A35.7000500@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: nick <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <547A9F9D.8050103-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <547B4A35.7000500@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/29/2014 10:39 PM, nick wrote:
-> Larry,
-> Do you known who wrote that code as this I can email them for the explanations for them.
-> If not I assume we can remove them as the code makes logical sense unless there are
-> hardware or other quirks that need to be handled. :)
-> Cheers and Thanks for Your Time,
-> Nick
->
-> On 2014-11-29 11:31 PM, Larry Finger wrote:
->> On 11/29/2014 05:34 PM, nick wrote:
->>> Greetings Larry,
->>> After reading the code around the TODOS, I can't understand you reasoning for them in this file as they seem to
->>> unneeded as the logic for the switch statement with them seems to be fine. If there are reasons for them in this
->>> file, it would be nice to hear from you on why they are needed as TODO as a comment is rather unclear for anybody
->>> reading this file.
->>> Nick
->>
->> I did not write that code. I merely make it available through the git repo, and modify it so that it will build on all kernel versions. I do not understand the TODOs any more than you do.
->>
->> Larry
+On Sun, 2014-11-30 at 17:47 +0100, SF Markus Elfring wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Sun, 30 Nov 2014 17:17:36 +0100
+> 
+> The data structure element "arc4" was assigned a null pointer by the
+> mppe_alloc() function if a previous function call "crypto_alloc_blkcipher"
+> failed. This assignment became unnecessary with previous source
+> code adjustments.
+> Let us delete it from the affected implementation because the element "arc4"
+> will not be accessible outside the function after the detected
+> allocation failure.
+> 
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> ---
+>  drivers/net/ppp/ppp_mppe.c | 4 +---
+>  1 file changed, 1 insertion(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ppp/ppp_mppe.c b/drivers/net/ppp/ppp_mppe.c
+> index 962c1a0..d913bc9 100644
+> --- a/drivers/net/ppp/ppp_mppe.c
+> +++ b/drivers/net/ppp/ppp_mppe.c
+> @@ -205,10 +205,8 @@ static void *mppe_alloc(unsigned char *options, int optlen)
+>  
+> 
+>  	state->arc4 = crypto_alloc_blkcipher("ecb(arc4)", 0, CRYPTO_ALG_ASYNC);
+> -	if (IS_ERR(state->arc4)) {
+> -		state->arc4 = NULL;
+> +	if (IS_ERR(state->arc4))
+>  		goto out_free;
+> -	}
+>  
+>  	state->sha1 = crypto_alloc_hash("sha1", 0, CRYPTO_ALG_ASYNC);
+>  	if (IS_ERR(state->sha1)) {
 
-Sorry, I do not have permission to reveal the E-mail addresses of any Realtek 
-software developers. I have added the appropriate developer as a Bcc to this 
-E-mail. That will leave it up to that individual to respond to you.
+I have no idea why its a patch on its own, and why state->arc4 gets
+special treatment while state->sha1 does not.
 
-Larry
+This definitely belongs to the previous patch, refactoring error
+handling in mppe_alloc()
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Also, it seems your patches do not fix bugs, so so you need to target
+net-next tree, as explained in Documentation/networking/netdev-FAQ.txt
