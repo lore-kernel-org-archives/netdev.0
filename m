@@ -1,7 +1,8 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v7 37/46] tun: move internal flag defines out of uapi
-Date: Sun, 30 Nov 2014 17:12:18 +0200
-Message-ID: <1417359787-10138-38-git-send-email-mst@redhat.com>
+Subject: [PATCH v7 40/46] tun: TUN_VNET_LE support, fix sparse warnings for
+ virtio headers
+Date: Sun, 30 Nov 2014 17:12:36 +0200
+Message-ID: <1417359787-10138-41-git-send-email-mst@redhat.com>
 References: <1417359787-10138-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -12,9 +13,8 @@ Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
 	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	Tom Herbert <therbert@google.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
 	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
-	netdev@vger.kernel.org, linux-api@vger.kernel.org
+	netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
@@ -22,153 +22,149 @@ In-Reply-To: <1417359787-10138-1-git-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-TUN_ flags are internal and never exposed
-to userspace. Any application using it is almost
-certainly buggy.
-
-Move them out to tun.c.
-
-Note: we remove these completely in follow-up patches,
-this code movement is split out for ease of review.
+Pretty straight-forward: convert all fields to/from
+virtio endian-ness.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Reviewed-by: Jason Wang <jasowang@redhat.com>
 ---
- include/uapi/linux/if_tun.h | 16 ++--------
- drivers/net/tun.c           | 72 +++++++++++++--------------------------------
- 2 files changed, 24 insertions(+), 64 deletions(-)
+ drivers/net/tun.c | 48 +++++++++++++++++++++++++++++-------------------
+ 1 file changed, 29 insertions(+), 19 deletions(-)
 
-diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
-index e9502dd..277a260 100644
---- a/include/uapi/linux/if_tun.h
-+++ b/include/uapi/linux/if_tun.h
-@@ -22,21 +22,11 @@
- 
- /* Read queue size */
- #define TUN_READQ_SIZE	500
--
--/* TUN device flags */
--#define TUN_TUN_DEV 	0x0001	
--#define TUN_TAP_DEV	0x0002
-+/* TUN device type flags: deprecated. Use IFF_TUN/IFF_TAP instead. */
-+#define TUN_TUN_DEV 	IFF_TUN
-+#define TUN_TAP_DEV	IFF_TAP
- #define TUN_TYPE_MASK   0x000f
- 
--#define TUN_FASYNC	0x0010
--#define TUN_NOCHECKSUM	0x0020
--#define TUN_NO_PI	0x0040
--/* This flag has no real effect */
--#define TUN_ONE_QUEUE	0x0080
--#define TUN_PERSIST 	0x0100	
--#define TUN_VNET_HDR 	0x0200
--#define TUN_TAP_MQ      0x0400
--
- /* Ioctl defines */
- #define TUNSETNOCSUM  _IOW('T', 200, int) 
- #define TUNSETDEBUG   _IOW('T', 201, int) 
 diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 9dd3746..b4e4ca0 100644
+index 36be4fd..c052bd6b 100644
 --- a/drivers/net/tun.c
 +++ b/drivers/net/tun.c
-@@ -103,6 +103,21 @@ do {								\
- } while (0)
- #endif
+@@ -111,7 +111,7 @@ do {								\
+ #define TUN_FASYNC	IFF_ATTACH_QUEUE
  
-+/* TUN device flags */
-+
-+/* IFF_ATTACH_QUEUE is never stored in device flags,
-+ * overload it to mean fasync when stored there.
-+ */
-+#define TUN_FASYNC	IFF_ATTACH_QUEUE
-+#define TUN_NO_PI	IFF_NO_PI
-+/* This flag has no real effect */
-+#define TUN_ONE_QUEUE	IFF_ONE_QUEUE
-+#define TUN_PERSIST 	IFF_PERSIST
-+#define TUN_VNET_HDR 	IFF_VNET_HDR
-+#define TUN_TAP_MQ      IFF_MULTI_QUEUE
-+
-+#define TUN_FEATURES (IFF_NO_PI | IFF_ONE_QUEUE | IFF_VNET_HDR | \
-+		      IFF_MULTI_QUEUE)
+ #define TUN_FEATURES (IFF_NO_PI | IFF_ONE_QUEUE | IFF_VNET_HDR | \
+-		      IFF_MULTI_QUEUE)
++		      IFF_VNET_LE | IFF_MULTI_QUEUE)
  #define GOODCOPY_LEN 128
  
  #define FLT_EXACT_COUNT 8
-@@ -1521,32 +1536,7 @@ static struct proto tun_proto = {
+@@ -205,6 +205,16 @@ struct tun_struct {
+ 	u32 flow_count;
+ };
  
- static int tun_flags(struct tun_struct *tun)
++static inline u16 tun16_to_cpu(struct tun_struct *tun, __virtio16 val)
++{
++	return __virtio16_to_cpu(tun->flags & IFF_VNET_LE, val);
++}
++
++static inline __virtio16 cpu_to_tun16(struct tun_struct *tun, u16 val)
++{
++	return __cpu_to_virtio16(tun->flags & IFF_VNET_LE, val);
++}
++
+ static inline u32 tun_hashfn(u32 rxhash)
  {
--	int flags = 0;
--
--	if (tun->flags & TUN_TUN_DEV)
--		flags |= IFF_TUN;
--	else
--		flags |= IFF_TAP;
--
--	if (tun->flags & TUN_NO_PI)
--		flags |= IFF_NO_PI;
--
--	/* This flag has no real effect.  We track the value for backwards
--	 * compatibility.
--	 */
--	if (tun->flags & TUN_ONE_QUEUE)
--		flags |= IFF_ONE_QUEUE;
--
--	if (tun->flags & TUN_VNET_HDR)
--		flags |= IFF_VNET_HDR;
--
--	if (tun->flags & TUN_TAP_MQ)
--		flags |= IFF_MULTI_QUEUE;
--
--	if (tun->flags & TUN_PERSIST)
--		flags |= IFF_PERSIST;
--
--	return flags;
-+	return tun->flags & (TUN_FEATURES | IFF_PERSIST | IFF_TUN | IFF_TAP);
- }
+ 	return rxhash & 0x3ff;
+@@ -1053,10 +1063,10 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 			return -EFAULT;
  
- static ssize_t tun_show_flags(struct device *dev, struct device_attribute *attr,
-@@ -1706,28 +1696,8 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 		if ((gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
+-		    gso.csum_start + gso.csum_offset + 2 > gso.hdr_len)
+-			gso.hdr_len = gso.csum_start + gso.csum_offset + 2;
++		    tun16_to_cpu(tun, gso.csum_start) + tun16_to_cpu(tun, gso.csum_offset) + 2 > tun16_to_cpu(tun, gso.hdr_len))
++			gso.hdr_len = cpu_to_tun16(tun, tun16_to_cpu(tun, gso.csum_start) + tun16_to_cpu(tun, gso.csum_offset) + 2);
  
- 	tun_debug(KERN_INFO, tun, "tun_set_iff\n");
+-		if (gso.hdr_len > len)
++		if (tun16_to_cpu(tun, gso.hdr_len) > len)
+ 			return -EINVAL;
+ 		offset += tun->vnet_hdr_sz;
+ 	}
+@@ -1064,7 +1074,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	if ((tun->flags & TUN_TYPE_MASK) == IFF_TAP) {
+ 		align += NET_IP_ALIGN;
+ 		if (unlikely(len < ETH_HLEN ||
+-			     (gso.hdr_len && gso.hdr_len < ETH_HLEN)))
++			     (gso.hdr_len && tun16_to_cpu(tun, gso.hdr_len) < ETH_HLEN)))
+ 			return -EINVAL;
+ 	}
  
--	if (ifr->ifr_flags & IFF_NO_PI)
--		tun->flags |= TUN_NO_PI;
--	else
--		tun->flags &= ~TUN_NO_PI;
--
--	/* This flag has no real effect.  We track the value for backwards
--	 * compatibility.
--	 */
--	if (ifr->ifr_flags & IFF_ONE_QUEUE)
--		tun->flags |= TUN_ONE_QUEUE;
--	else
--		tun->flags &= ~TUN_ONE_QUEUE;
--
--	if (ifr->ifr_flags & IFF_VNET_HDR)
--		tun->flags |= TUN_VNET_HDR;
--	else
--		tun->flags &= ~TUN_VNET_HDR;
--
--	if (ifr->ifr_flags & IFF_MULTI_QUEUE)
--		tun->flags |= TUN_TAP_MQ;
--	else
--		tun->flags &= ~TUN_TAP_MQ;
-+	tun->flags = (tun->flags & ~TUN_FEATURES) |
-+		(ifr->ifr_flags & TUN_FEATURES);
+@@ -1075,7 +1085,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		 * enough room for skb expand head in case it is used.
+ 		 * The rest of the buffer is mapped from userspace.
+ 		 */
+-		copylen = gso.hdr_len ? gso.hdr_len : GOODCOPY_LEN;
++		copylen = gso.hdr_len ? tun16_to_cpu(tun, gso.hdr_len) : GOODCOPY_LEN;
+ 		if (copylen > good_linear)
+ 			copylen = good_linear;
+ 		linear = copylen;
+@@ -1085,10 +1095,10 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
  
- 	/* Make sure persistent devices do not get stuck in
- 	 * xoff state.
-@@ -1890,9 +1860,9 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	if (cmd == TUNGETFEATURES) {
- 		/* Currently this just means: "what IFF flags are valid?".
- 		 * This is needed because we never checked for invalid flags on
--		 * TUNSETIFF. */
--		return put_user(IFF_TUN | IFF_TAP | IFF_NO_PI | IFF_ONE_QUEUE |
--				IFF_VNET_HDR | IFF_MULTI_QUEUE,
-+		 * TUNSETIFF.
-+		 */
-+		return put_user(IFF_TUN | IFF_TAP | TUN_FEATURES,
- 				(unsigned int __user*)argp);
- 	} else if (cmd == TUNSETQUEUE)
- 		return tun_set_queue(file, &ifr);
+ 	if (!zerocopy) {
+ 		copylen = len;
+-		if (gso.hdr_len > good_linear)
++		if (tun16_to_cpu(tun, gso.hdr_len) > good_linear)
+ 			linear = good_linear;
+ 		else
+-			linear = gso.hdr_len;
++			linear = tun16_to_cpu(tun, gso.hdr_len);
+ 	}
+ 
+ 	skb = tun_alloc_skb(tfile, align, copylen, linear, noblock);
+@@ -1115,8 +1125,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	}
+ 
+ 	if (gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
+-		if (!skb_partial_csum_set(skb, gso.csum_start,
+-					  gso.csum_offset)) {
++		if (!skb_partial_csum_set(skb, tun16_to_cpu(tun, gso.csum_start),
++					  tun16_to_cpu(tun, gso.csum_offset))) {
+ 			tun->dev->stats.rx_frame_errors++;
+ 			kfree_skb(skb);
+ 			return -EINVAL;
+@@ -1184,7 +1194,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		if (gso.gso_type & VIRTIO_NET_HDR_GSO_ECN)
+ 			skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_ECN;
+ 
+-		skb_shinfo(skb)->gso_size = gso.gso_size;
++		skb_shinfo(skb)->gso_size = tun16_to_cpu(tun, gso.gso_size);
+ 		if (skb_shinfo(skb)->gso_size == 0) {
+ 			tun->dev->stats.rx_frame_errors++;
+ 			kfree_skb(skb);
+@@ -1276,8 +1286,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 			struct skb_shared_info *sinfo = skb_shinfo(skb);
+ 
+ 			/* This is a hint as to how much should be linear. */
+-			gso.hdr_len = skb_headlen(skb);
+-			gso.gso_size = sinfo->gso_size;
++			gso.hdr_len = cpu_to_tun16(tun, skb_headlen(skb));
++			gso.gso_size = cpu_to_tun16(tun, sinfo->gso_size);
+ 			if (sinfo->gso_type & SKB_GSO_TCPV4)
+ 				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+ 			else if (sinfo->gso_type & SKB_GSO_TCPV6)
+@@ -1285,12 +1295,12 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 			else {
+ 				pr_err("unexpected GSO type: "
+ 				       "0x%x, gso_size %d, hdr_len %d\n",
+-				       sinfo->gso_type, gso.gso_size,
+-				       gso.hdr_len);
++				       sinfo->gso_type, tun16_to_cpu(tun, gso.gso_size),
++				       tun16_to_cpu(tun, gso.hdr_len));
+ 				print_hex_dump(KERN_ERR, "tun: ",
+ 					       DUMP_PREFIX_NONE,
+ 					       16, 1, skb->head,
+-					       min((int)gso.hdr_len, 64), true);
++					       min((int)tun16_to_cpu(tun, gso.hdr_len), 64), true);
+ 				WARN_ON_ONCE(1);
+ 				return -EINVAL;
+ 			}
+@@ -1301,9 +1311,9 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 
+ 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 			gso.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+-			gso.csum_start = skb_checksum_start_offset(skb) +
+-					 vlan_hlen;
+-			gso.csum_offset = skb->csum_offset;
++			gso.csum_start = cpu_to_tun16(tun, skb_checksum_start_offset(skb) +
++						      vlan_hlen);
++			gso.csum_offset = cpu_to_tun16(tun, skb->csum_offset);
+ 		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+ 			gso.flags = VIRTIO_NET_HDR_F_DATA_VALID;
+ 		} /* else everything is zero */
 -- 
 MST
