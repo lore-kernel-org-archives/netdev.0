@@ -1,86 +1,42 @@
-From: "Du, Fan" <fan.du@intel.com>
-Subject: RE: [PATCH net] gso: do GSO for local skb with size bigger than MTU
-Date: Sun, 30 Nov 2014 10:08:32 +0000
-Message-ID: <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com>
-References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
- <1417158128.3268.2@smtp.corp.redhat.com>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: Re: Is this 32-bit NCM?
+Date: Sun, 30 Nov 2014 11:18:06 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1411301112330.1477@gmail.com>
+References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com> <54781523.6030600@audiocodes.com>
+ <alpine.LNX.2.03.1411280923230.3997@gmail.com> <54783443.50700@audiocodes.com> <alpine.LNX.2.03.1411280944200.4040@gmail.com> <54783A1D.3090607@audiocodes.com> <alpine.LNX.2.03.1411281014450.4101@gmail.com> <54783F84.20105@audiocodes.com>
+ <alpine.LNX.2.03.1411300202310.4742@gmail.com> <CAPChA0czA3vxPZdwk-SgO1Wr83zOV1UoWcL4=05qtBktwq5=TA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"fw@strlen.de" <fw@strlen.de>, "Du, Fan" <fan.du@intel.com>
-To: 'Jason Wang' <jasowang@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eli Britstein <Eli.Britstein@audiocodes.com>,
+	linux-usb@vger.kernel.org, "youtux@gmail.com" <youtux@gmail.com>,
+	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Kevin Zhu <Mingying.Zhu@audiocodes.com>,
+	=?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+To: Alex Strizhevsky <alexxst@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:62412 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751561AbaK3KIh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Nov 2014 05:08:37 -0500
-In-Reply-To: <1417158128.3268.2@smtp.corp.redhat.com>
-Content-Language: en-US
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:37102 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751228AbaK3KRj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2014 05:17:39 -0500
+In-Reply-To: <CAPChA0czA3vxPZdwk-SgO1Wr83zOV1UoWcL4=05qtBktwq5=TA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IEphc29uIFdhbmcgW21haWx0
-bzpqYXNvd2FuZ0ByZWRoYXQuY29tXQ0KPlNlbnQ6IEZyaWRheSwgTm92ZW1iZXIgMjgsIDIwMTQg
-MzowMiBQTQ0KPlRvOiBEdSwgRmFuDQo+Q2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGRhdmVt
-QGRhdmVtbG9mdC5uZXQ7IGZ3QHN0cmxlbi5kZTsgRHUsIEZhbg0KPlN1YmplY3Q6IFJlOiBbUEFU
-Q0ggbmV0XSBnc286IGRvIEdTTyBmb3IgbG9jYWwgc2tiIHdpdGggc2l6ZSBiaWdnZXIgdGhhbiBN
-VFUNCj4NCj4NCj4NCj5PbiBGcmksIE5vdiAyOCwgMjAxNCBhdCAyOjMzIFBNLCBGYW4gRHUgPGZh
-bi5kdUBpbnRlbC5jb20+IHdyb3RlOg0KPj4gVGVzdCBzY2VuYXJpbzogdHdvIEtWTSBndWVzdHMg
-c2l0dGluZyBpbiBkaWZmZXJlbnQgaG9zdHMgY29tbXVuaWNhdGUNCj4+IHRvIGVhY2ggb3RoZXIg
-d2l0aCBhIHZ4bGFuIHR1bm5lbC4NCj4+DQo+PiBBbGwgaW50ZXJmYWNlIE1UVSBpcyBkZWZhdWx0
-IDE1MDAgQnl0ZXMsIGZyb20gZ3Vlc3QgcG9pbnQgb2YgdmlldywgaXRzDQo+PiBza2IgZ3NvX3Np
-emUgY291bGQgYmUgYXMgYmlnZ2VyIGFzIDE0NDhCeXRlcywgaG93ZXZlciBhZnRlciBndWVzdCBz
-a2INCj4+IGdvZXMgdGhyb3VnaCB2eGxhbiBlbmNhcHVzbGF0aW9uLCBpbmRpdmlkdWFsIHNlZ21l
-bnRzIGxlbmd0aCBvZiBhIGdzbw0KPj4gcGFja2V0IGNvdWxkIGV4Y2VlZCBwaHlzaWNhbCBOSUMg
-TVRVIDE1MDAsIHdoaWNoIHdpbGwgYmUgbG9zdCBhdA0KPj4gcmVjZXZpZXIgc2lkZS4NCj4+DQo+
-PiBTbyBpdCdzIHBvc3NpYmxlIGluIHZpcnR1YWxpemVkIGVudmlyb25tZW50LCBsb2NhbGx5IGNy
-ZWF0ZWQgc2tiIGxlbg0KPj4gYWZ0ZXIgZW5jYXBzbGF0aW9uIGNvdWxkIGJlIGJpZ2dlciB0aGFu
-IHVuZGVybGF5ZXIgTVRVLiBJbiBzdWNoIGNhc2UsDQo+PiBpdCdzIHJlYXNvbmFibGUgdG8gZG8g
-R1NPIGZpcnN0LCB0aGVuIGZyYWdtZW50IGFueSBwYWNrZXQgYmlnZ2VyIHRoYW4NCj4+IE1UVSBh
-cyBwb3NzaWJsZS4NCj4+DQo+PiArLS0tLS0tLS0tLS0tLS0tKyBUWCAgICAgUlggKy0tLS0tLS0t
-LS0tLS0tLSsNCj4+IHwgICBLVk0gR3Vlc3QgICB8IC0+IC4uLiAtPiB8ICAgS1ZNIEd1ZXN0ICAg
-fA0KPj4gKy0rLS0tLS0tLS0tLS0rLSsgICAgICAgICAgICstKy0tLS0tLS0tLS0tKy0rDQo+PiAg
-IHxRZW11L1ZpcnRJT3wgICAgICAgICAgICAgICB8UWVtdS9WaXJ0SU98DQo+PiAgICstLS0tLS0t
-LS0tLSsgICAgICAgICAgICAgICArLS0tLS0tLS0tLS0rDQo+PiAgICAgICAgfCAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICB8DQo+PiAgICAgICAgdiB0YXAwICAgICAgICAgICAgICAgICAgdGFw
-MCB2DQo+PiAgICstLS0tLS0tLS0tLSsgICAgICAgICAgICAgICArLS0tLS0tLS0tLS0rDQo+PiAg
-IHwgb3ZzIGJyaWRnZXwgICAgICAgICAgICAgICB8IG92cyBicmlkZ2V8DQo+PiAgICstLS0tLS0t
-LS0tLSsgICAgICAgICAgICAgICArLS0tLS0tLS0tLS0rDQo+PiAgICAgICAgfCB2eGxhbiAgICAg
-ICAgICAgICAgICB2eGxhbiB8DQo+PiAgICAgICAgdiAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICB2DQo+PiAgICstLS0tLS0tLS0tLSsgICAgICAgICAgICAgICArLS0tLS0tLS0tLS0rDQo+PiAg
-IHwgICAgTklDICAgIHwgICAgPC0tLS0tLT4gICB8ICAgIE5JQyAgICB8DQo+PiAgICstLS0tLS0t
-LS0tLSsgICAgICAgICAgICAgICArLS0tLS0tLS0tLS0rDQo+Pg0KPj4gU3RlcHMgdG8gcmVwcm9k
-dWNlOg0KPj4gIDEuIFVzaW5nIGtlcm5lbCBidWlsdGluIG9wZW52c3dpdGNoIG1vZHVsZSB0byBz
-ZXR1cCBvdnMgYnJpZGdlLg0KPj4gIDIuIFJ1bmluZyBpcGVyZiB3aXRob3V0IC1NLCBjb21tdW5p
-Y2F0aW9uIHdpbGwgc3R1Y2suDQo+DQo+SXMgdGhpcyBpc3N1ZSBzcGVjaWZpYyB0byBvdnMgb3Ig
-aXB2ND8gUGF0aCBNVFUgZGlzY292ZXJ5IHNob3VsZCBoZWxwIGluIHRoaXMgY2FzZSBJDQo+YmVs
-aWV2ZS4NCg0KUHJvYmxlbSBoZXJlIGlzIGhvc3Qgc3RhY2sgcHVzaCBsb2NhbCBvdmVyLXNpemVk
-IGdzbyBza2IgZG93biB0byBOSUMsIGFuZCBwZXJmb3JtIEdTTyB0aGVyZQ0Kd2l0aG91dCBhbnkg
-ZnVydGhlciBpcCBzZWdtZW50YXRpb24uDQoNClJlYXNvbmFibGUgYmVoYXZpb3IgaXMgZG8gZ3Nv
-IGZpcnN0IGF0IGlwIGxldmVsLCBpZiBnc28tZWQgc2tiIGlzIGJpZ2dlciB0aGFuIE1UVSAmJiBk
-ZiBpcyBzZXQsIA0KVGhlbiBwdXNoIElDTVBfREVTVF9VTlJFQUNIL0lDTVBfRlJBR19ORUVERUQg
-bWVzc2FnZSBiYWNrIHRvIHNlbmRlciB0byBhZGp1c3QgbXR1Lg0KDQpGb3IgUE1UVSB0byB3b3Jr
-LCB0aGF0J3MgYW5vdGhlciBpc3N1ZSBJIHdpbGwgdHJ5IHRvIGFkZHJlc3MgbGF0ZXIgb24uDQoN
-Cj4+DQo+Pg0KPj4gU2lnbmVkLW9mZi1ieTogRmFuIER1IDxmYW4uZHVAaW50ZWwuY29tPg0KPj4g
-LS0tDQo+PiAgbmV0L2lwdjQvaXBfb3V0cHV0LmMgfCAgICA3ICsrKystLS0NCj4+ICAxIGZpbGVz
-IGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKSwgMyBkZWxldGlvbnMoLSkNCj4+DQo+PiBkaWZmIC0t
-Z2l0IGEvbmV0L2lwdjQvaXBfb3V0cHV0LmMgYi9uZXQvaXB2NC9pcF9vdXRwdXQuYyBpbmRleA0K
-Pj4gYmM2NDcxZC4uNTU4YjVmOCAxMDA2NDQNCj4+IC0tLSBhL25ldC9pcHY0L2lwX291dHB1dC5j
-DQo+PiArKysgYi9uZXQvaXB2NC9pcF9vdXRwdXQuYw0KPj4gQEAgLTIxNyw5ICsyMTcsMTAgQEAg
-c3RhdGljIGludCBpcF9maW5pc2hfb3V0cHV0X2dzbyhzdHJ1Y3Qgc2tfYnVmZg0KPj4gKnNrYikN
-Cj4+ICAJc3RydWN0IHNrX2J1ZmYgKnNlZ3M7DQo+PiAgCWludCByZXQgPSAwOw0KPj4NCj4+IC0J
-LyogY29tbW9uIGNhc2U6IGxvY2FsbHkgY3JlYXRlZCBza2Igb3Igc2VnbGVuIGlzIDw9IG10dSAq
-Lw0KPj4gLQlpZiAoKChJUENCKHNrYiktPmZsYWdzICYgSVBTS0JfRk9SV0FSREVEKSA9PSAwKSB8
-fA0KPj4gLQkgICAgICBza2JfZ3NvX25ldHdvcmtfc2VnbGVuKHNrYikgPD0gaXBfc2tiX2RzdF9t
-dHUoc2tiKSkNCj4+ICsJLyogQm90aCBsb2NhbGx5IGNyZWF0ZWQgc2tiIGFuZCBmb3J3YXJkZWQg
-c2tiIGNvdWxkIGV4Y2VlZA0KPj4gKwkgKiBNVFUgc2l6ZSwgc28gbWFrZSBhIHVuaWZpZWQgcnVs
-ZSBmb3IgdGhlbSBhbGwuDQo+PiArCSAqLw0KPj4gKwlpZiAoc2tiX2dzb19uZXR3b3JrX3NlZ2xl
-bihza2IpIDw9IGlwX3NrYl9kc3RfbXR1KHNrYikpDQo+PiAgCQlyZXR1cm4gaXBfZmluaXNoX291
-dHB1dDIoc2tiKTsNCj4+DQo+PiAgCS8qIFNsb3dwYXRoIC0gIEdTTyBzZWdtZW50IGxlbmd0aCBp
-cyBleGNlZWRpbmcgdGhlIGRzdCBNVFUuDQo+PiAtLQ0KPj4gMS43LjENCj4+DQo+PiAtLQ0KPj4g
-VG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJl
-IG5ldGRldiIgaW4NCj4+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5r
-ZXJuZWwub3JnIE1vcmUgbWFqb3Jkb21vIGluZm8NCj4+IGF0ICBodHRwOi8vdmdlci5rZXJuZWwu
-b3JnL21ham9yZG9tby1pbmZvLmh0bWwNCg0K
+Sorry - by error I did not send the message to all.
+Hi everyone, and good Sunday!
+The problem is that - between those two firmwares things might change, and so 
+we don't know what Windows does when it meets this specific branch /version of 
+the firmware.
+I am desperately suspecting that we would not get anything hinting a lot even 
+looking at the usb capture of this specific firmware, but... in any case it 
+might be interesting to have it.
+(at+gmr returns the firmware revision)
+Is the dongles with 23 firmwares working under Linux?
+Or, you might upgrade all dongles firmware until all of then are running the 23 
+version and so workaround the problem differently in case.
+Bjorn: I noticed that anyway, as Alex suggested, tcpdump can reveal some
+traffic: in particular you can see the gateway asking for us ... but no
+traffic can flow out, only flow in.
+The system can see traffic coming in, not generate it. Any idea or comment
+from anyone is welcome.
