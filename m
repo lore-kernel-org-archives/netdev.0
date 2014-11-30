@@ -1,77 +1,55 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] ip xfrm: support 64bit kernel and 32bit
- userspace
-Date: Sun, 30 Nov 2014 09:42:48 -0800
-Message-ID: <20141130094248.1fbc81a4@urahara>
-References: <1417157936-5522-1-git-send-email-roy.qing.li@gmail.com>
-	<1417311202.7215.109.camel@decadent.org.uk>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH 1/1] net-PA Semi: Deletion of unnecessary checks before
+ the function call "pci_dev_put"
+Date: Sun, 30 Nov 2014 18:45:03 +0100
+Message-ID: <547B579F.10709@gmx.de>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net> <547A09B1.9090102@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/rTCILj++dH4INpWmYb4r5z2"; protocol="application/pgp-signature"
-Cc: roy.qing.li@gmail.com, netdev@vger.kernel.org
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:51555 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752370AbaK3Rm6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2014 12:42:58 -0500
-Received: by mail-pa0-f46.google.com with SMTP id lj1so9511783pab.19
-        for <netdev@vger.kernel.org>; Sun, 30 Nov 2014 09:42:58 -0800 (PST)
-In-Reply-To: <1417311202.7215.109.camel@decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
+	Olof Johansson <olof@lixom.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <547A09B1.9090102@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---Sig_/rTCILj++dH4INpWmYb4r5z2
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On 29.11.2014 19:00, SF Markus Elfring wrote:
 
-On Sun, 30 Nov 2014 01:33:22 +0000
-Ben Hutchings <ben@decadent.org.uk> wrote:
+>  out:
+> -	if (mac->iob_pdev)
+> -		pci_dev_put(mac->iob_pdev);
+> -	if (mac->dma_pdev)
+> -		pci_dev_put(mac->dma_pdev);
+> +	pci_dev_put(mac->iob_pdev);
+> +	pci_dev_put(mac->dma_pdev);
+>  
+>  	free_netdev(dev);
+>  out_disable_device:
+> 
 
-> On Fri, 2014-11-28 at 14:58 +0800, roy.qing.li@gmail.com wrote:
-> > From: Li RongQing <roy.qing.li@gmail.com>=20
-> >=20
-> > The size of struct xfrm_userpolicy_info is 168 bytes for 64bit kernel, =
-and
-> > 164 bytes for 32bit userspace because of the different alignment.
->=20
-> I think it's specific to x86 as other architectures have the same type
-> alignments for 32- and 64-bit variants.
->=20
-> > and lead to "ip xfrm" be unable to work.
-> >=20
-> > add a pad in struct xfrm_userpolicy_info, and enable it by set
-> > KERNEL_64_USERSPACE_32 to y
-> [...]
->=20
-> This doesn't make sense.  32-bit compat needs to work like 32-bit native
-> - no exceptions, no workarounds in userland.  And if you really want to
-> work around this in userland you'll need a run-time, not compile-time,
-> check.
+Hi,
 
-I agree with Ben, this is not a good solution.
-It creates a 3rd ABI (32, 64, and 32/64).
+I know there has been some criticism about those kind of "code
+improvements" already but i would like to point out just one more thing:
 
---Sig_/rTCILj++dH4INpWmYb4r5z2
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
+Some of those NULL pointer checks on input parameters may have been
+added subsequently to functions. So there may be older kernel versions
+out there in which those checks dont exists in some cases. If some of
+the now "cleaned up" code is backported to such a kernel chances are
+good that those missing checks are overseen. And then neither caller nor
+callee is doing the NULL pointer check.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Quite frankly i would vote for the opposite approach: Never rely on the
+callee do to checks for NULL and do it always in the caller. An
+exception could be for calls on a fast path. But most of those checks
+are done on error paths anyway.
 
-iQIcBAEBCAAGBQJUe1cYAAoJEICnf2CVzeR+F5UP+QHm+0ozekO2XuR5MWYKlsiz
-xJBboCqMVqKdD85I1KuKe9t/DWNVxskopN4sKOBcUuDfxTLN/ChexmEwWaNXFpPv
-wNgNwEI35/6cB7d4VOFS/vZmweT6PTwimreA53MlkdH6qRzZzXYvuoj7vtXY7Xra
-pj1vRZ3cns/ar6Tu6e5UBoC93yYXniM7MlhcFGyl/X8mvLPiCGIigmXL/5hgmNO2
-YRgcz2URanzR3H5rmCZLoy5TbM6LUKSrfsPiDRgrTnUX+vzax89Jn5vfjT92dpoz
-zTYfVBeP2PvClkbjAoEUzodFD9YDu/hCYfji/IuXNFcve7XRdhuGyNBIKFs4eqPn
-Obp5wE/36mu3bT0ab7QCRiNnepWk/E65RCr9dFa5qXx8aC18tmMaFnK6aUw/ccv9
-x1PSJPnYQDzc8e4GNqOhatvc8UqoR2O9S7bP0cW8XpP4wkVSlzwcFSk31Nq73MEq
-p9gVsERSs8Yq6FXOv4sXuqWRA/07ENJ1BYDzpyLfQncsCwt3NZY2L0vc7/iRsI5G
-xope2AzsWOA5bO0HDpgjRNKSEAgQn3M0zbHHOX7XdN6wExcT9CYONRv0AmekAEuY
-aZBYrIPSZKUa0MLDDCJ9cf3L8uFtIf9UtyVt0UKC+7KvY/0NV0Coebr5e26jMeLr
-RwaXAXbCUiCcYzuSYUW0
-=BU7/
------END PGP SIGNATURE-----
+Just my 2 cents.
 
---Sig_/rTCILj++dH4INpWmYb4r5z2--
+Regards,
+Lino
