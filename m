@@ -1,64 +1,51 @@
-From: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Subject: Re: Re: [bisected] xfrm: TCP connection initiating PMTU discovery stalls on v3.12+
-Date: Mon, 01 Dec 2014 12:20:09 +0100
-Message-ID: <1647323.BnLExmnE1g@storm>
-References: <20141201102522.GA16579@gondor.apana.org.au>
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH v7 27/46] virtio_net: enable v1.0 support
+Date: Mon, 1 Dec 2014 12:40:08 +0100
+Message-ID: <20141201124008.3d8ca343.cornelia.huck@de.ibm.com>
+References: <1417359787-10138-1-git-send-email-mst@redhat.com>
+	<1417359787-10138-28-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, edumazet@google.com,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rs04.intra2net.com ([85.214.66.2]:51827 "EHLO
-	rs04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753180AbaLALUN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2014 06:20:13 -0500
-In-Reply-To: <20141201102522.GA16579@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: thuth@linux.vnet.ibm.com, rusty@au1.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	dahi@linux.vnet.ibm.com, pbonzini@redhat.com,
+	David Miller <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1417359787-10138-28-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Monday, 1. December 2014 18:25:22 Herbert Xu wrote:
-> Thomas Jarosch <thomas.jarosch@intra2net.com> wrote:
-> > When I revert it, even kernel v3.18-rc6 starts working.
-> > But I doubt this is the root problem, may be just hiding another issue.
+On Sun, 30 Nov 2014 17:11:30 +0200
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
+
+> Now that we have completed 1.0 support, enable it in our driver.
 > 
-> Can you do a tcpdump with this patch reverted? I would like to
-> see the size of the packets that are sent out vs. the ICMP message
-> that came back.
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>  drivers/net/virtio_net.c | 1 +
+>  1 file changed, 1 insertion(+)
 > 
-> My guess is that the IPsec GSO path is buggy since as you rightly
-> pointed out it couldn't have been heavily tested prior to this
-> patch.
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index a0e64cf..c6a72d3 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -2003,6 +2003,7 @@ static unsigned int features[] = {
+>  	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
+>  	VIRTIO_NET_F_CTRL_MAC_ADDR,
+>  	VIRTIO_F_ANY_LAYOUT,
+> +	VIRTIO_F_VERSION_1,
+>  };
 > 
-> Though I am surprised that it only breaks when you have a PMTU event
-> so it might be something else after all.
+>  static struct virtio_driver virtio_net_driver = {
 
-I've sent you two pcap files off list. One with the reverted patch
-and one I created on Saturday showing the stalling TCP connection.
-(though the mail currently seems greylisted by the receiving mail server)
-
-One thing I can say from looking at the tcpdump with the reverted patch
-is that the ESP packet size drops from 1510 to 1478. The announced MTU
-of the next hop in the ICMP message is 1464. It also contains seven
-duplicated ACK packets later on.
-
-
-Without the reverted patch, it sends four ESP packets:
-1. 1498 bytes
-2. 1498 bytes
-3. 1498 bytes
-4. 234 bytes
-
-That triggers the  ICMP "fragmentation needed" message. I can only spot one 
-ESP packet of size 1466 afterwards that's sent from time to time. Only one
-duplicated ACK packet can be seen. The other packets are just not resent. 
-May be it's stuck in some in-kernel queue because it's too big to send
-and stays there until it expires?
-
-Today I also tried changing the NIC driver on the virtual machine
-from virtio_net to e1000. Luckily still the same behavior,
-so it's probably not related to the virtio_net driver.
-
-Cheers,
-Thomas
+Shouldn't you move this after the patch disabling mac address writing?
