@@ -1,172 +1,73 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: Re: Is this 32-bit NCM?
-Date: Mon, 1 Dec 2014 06:28:05 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1412010626590.1576@gmail.com>
-References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com> <54781523.6030600@audiocodes.com>
- <alpine.LNX.2.03.1411280923230.3997@gmail.com> <54783443.50700@audiocodes.com> <alpine.LNX.2.03.1411280944200.4040@gmail.com> <54783A1D.3090607@audiocodes.com> <alpine.LNX.2.03.1411281014450.4101@gmail.com> <54783F84.20105@audiocodes.com>
- <alpine.LNX.2.03.1411300202310.4742@gmail.com> <CAPChA0czA3vxPZdwk-SgO1Wr83zOV1UoWcL4=05qtBktwq5=TA@mail.gmail.com> <alpine.LNX.2.03.1411301139290.1972@gmail.com> <547BDCF5.8070705@audiocodes.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: tun issue after e0b46d0ee9c: tun: Use iovec iterators
+Date: Mon, 01 Dec 2014 05:41:00 +0008
+Message-ID: <1417411980.7521.0@smtp.corp.redhat.com>
+References: <5478CC27.9040705@redhat.com>
+	<20141128235935.GA2178@gondor.apana.org.au>
+	<20141130100331.GA10050@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1847173585-1417411686=:1576"
-Cc: Alex Strizhevsky <alexxst@gmail.com>,
-	Eli Britstein <Eli.Britstein@audiocodes.com>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"youtux@gmail.com" <youtux@gmail.com>,
-	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	=?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
-To: Kevin Zhu <Mingying.Zhu@audiocodes.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Cc: Marcelo Ricardo Leitner <mleitner@redhat.com>,
+	netdev <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:50896 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752269AbaLAF1g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2014 00:27:36 -0500
-In-Reply-To: <547BDCF5.8070705@audiocodes.com>
+Received: from mx1.redhat.com ([209.132.183.28]:55379 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751627AbaLAFdI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Dec 2014 00:33:08 -0500
+In-Reply-To: <20141130100331.GA10050@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
---8323328-1847173585-1417411686=:1576
-Content-Type: TEXT/PLAIN; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-
-Sorry.
-I am a visually impaired person - and use a braille display to read your 
-messages; can't have access to files that don't contain ascii-based content.
-Sorry Kevin.
-
-And thank you for everything. Don't worry about the lateness.
-It was sunday.
 
 
-On Mon, 1 Dec 2014, Kevin Zhu wrote:
+On Sun, Nov 30, 2014 at 6:03 PM, Herbert Xu 
+<herbert@gondor.apana.org.au> wrote:
+> On Sat, Nov 29, 2014 at 07:59:35AM +0800, Herbert Xu wrote:
+>>  On Fri, Nov 28, 2014 at 05:25:27PM -0200, Marcelo Ricardo Leitner 
+>> wrote:
+>>  > 
+>>  > I saw there are tun updates on Dave's queue but none seemed to 
+>> handle this.
+>>  > 
+>>  > I can't use current net-next
+>>  > (799d2fff1858004526ad75d66a5dd8a5cce6ad40) on a kvm hypervisor
+>>  > because tun got clogged somehow. Bisected down to:
+>>  > 
+>>  > commit e0b46d0ee9c240c7430a47e9b0365674d4a04522
+>>  > Author: Herbert Xu <herbert@gondor.apana.org.au>
+>>  > Date:   Fri Nov 7 21:22:23 2014 +0800
+>>  
+>>  Does this patch help?
+> 
+> Oops, there was an embarrassing typo in the patch which causes
+> it to not even build.  Here is the corrected version.
+> 
+> -- >8 --
+> Subject: tun: Fix GSO meta-data handling in tun_get_user
+>     
+> When we write the GSO meta-data in tun_get_user we end up advancing
+> the IO vector twice, thus exhausting the user buffer before we can
+> finish writing the packet.
+>     
+> Fixes: f5ff53b4d97c ("{macvtap,tun}_get_user(): switch to iov_iter")
+> Reported-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 4b743c6..6d44da1 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1052,7 +1052,7 @@ static ssize_t tun_get_user(struct tun_struct 
+> *tun, struct tun_file *tfile,
+>  
+>  		if (gso.hdr_len > len)
+>  			return -EINVAL;
+> -		iov_iter_advance(from, tun->vnet_hdr_sz);
+> +		iov_iter_advance(from, tun->vnet_hdr_sz - sizeof(gso));
+>  	}
+>  
+>  	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV) {
+> 
 
-==Date: Mon, 1 Dec 2014 04:14:10
-==From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
-==To: Enrico Mioso <mrkiko.rs@gmail.com>, Alex Strizhevsky <alexxst@gmail.com>
-==Cc: Eli Britstein <Eli.Britstein@audiocodes.com>,
-==    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-==    "youtux@gmail.com" <youtux@gmail.com>,
-==    Midge Shaojun  Tan <ShaojunMidge.Tan@audiocodes.com>,
-==    "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-==    Bjørn Mork <bjorn@mork.no>
-==Subject: Re: Is this 32-bit NCM?
-==
-==Hi Enrico,
-==
-==I think those packets are some interrupt status. Please check my capture by
-==wireshark.
-==
-==[IMAGE]
-==
-==And this is a ping packet from window, which indicates it's an NCM packet.
-==
-==[IMAGE]
-==
-==Regards,
-==Kevin
-==On 11/30/2014 06:39 PM, Enrico Mioso wrote:
-==
-==My impression guys is that this is not cdc_ncm protocol.
-==Look how many short packets you can see in there.
-==Without any ncm signature.
-==right?
-==
-==
-==On Sun, 30 Nov 2014, Alex Strizhevsky wrote:
-==
-====Date: Sun, 30 Nov 2014 05:22:20
-====From: Alex Strizhevsky <alexxst@gmail.com>
-====To: Mrkiko Rs <mrkiko.rs@gmail.com>
-====Cc: Eli Britstein <Eli.Britstein@audiocodes.com>, linux-usb@vger.kernel.or
-==g,
-====    "youtux@gmail.com" <youtux@gmail.com>,
-====    Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
-====    "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-====    Kevin Zhu <Mingying.Zhu@audiocodes.com>, Bjørn Mork <bjorn@mork.no>
-====Subject: Re: Is this 32-bit NCM?
-====
-====
-====Hi Enrico,
-====
-====Actually I have two dongles with different firmwares (23.128.00.00.00 &
-====21.286.03.01.209).
-====Probably have sent to you the USB  capture with the first one.
-====
-====In fact we have to make work the second one, this dongle has relevant SW.
-====
-====On Nov 30, 2014 3:13 AM, "Enrico Mioso" <mrkiko.rs@gmail.com> wrote:
-====      Hi guys.
-====      Sorry for the late our but ... I was trying to figure out
-====      something new about
-====      this dongle.
-====      I also searched for it in my city shops without finding it
-====      actually.
-====      But then I came back and ... tried to look at some things.
-====
-====      Alex, Kevin: in the Windows USB captures you sent me (and that I
-====      sent on the
-====      List), I can notiche something very strange.
-====      with a shell on a computer connected to a test device I can see
-====      the following:
-====      at+gmr
-====      21.286.03.01.209
-====      OK
-====      and so why in the Windows sniff the dongle answers to the same
-====      question
-====      something like
-====      23.128.00.00.00
-====      ?
-====      Alex - was it the same dongle?
-====      Kevin or anyone: can you use putty to interact with the dongle
-====      under Windows
-====      and type some commands, like:
-====      at+gmr
-====      and other similar commands?
-====      If the dongle reports different firmware versions under Linux
-====      and Windows, then
-====      guys... we need to figure out the Windows switch message.
-====      Overmore - in the device installation sh*t, you can see there is
-====      a firmware
-====      updater... Why?
-====
-====      Alex: I used the
-====      at^reset
-====      command to get the modem back to normal state once; and so it
-====      restored the
-====      nvram to default or something.
-====      If you reconnect it to windows ... i hope it gets re-setup as
-====      before.
-====      But - nothing harmful to the device, only to it's settings,
-====      sorry.
-====      I restored the relevant settings and it connects again, but no
-====      dhcp. But - be
-====      peaceful: other modems out there seems to not get dhcp anyway.
-====      this is the state the modem arrives when you buy it, so windows
-====      should know
-====      Wwhat To Say To The Modem (TM).
-====      Another thing - note that:
-====      [14170.048693] cdc_ncm 1-2:1.2: GET_MAX_DATAGRAM_SIZE failed
-====
-====      Any ideas, comments, suggestions are highly appreciated guys.
-====      Of any type.
-====
-====      Bjorn - unfortunately it seems this problem is related to E3727
-====      and E3276
-====      sticks; they can get IP from DHCP but not go ahead.
-====
-====
-====
-==
-==
-==This email and any files transmitted with it are confidential material. They
-==are intended solely for the use of the designated individual or entity to
-==whom they are addressed. If the reader of this message is not the intended
-==recipient, you are hereby notified that any dissemination, use, distribution
-==or copying of this communication is strictly prohibited and may be unlawful.
-==
-==If you have received this email in error please immediately notify the
-==sender and delete or destroy any copy of this message
-==
---8323328-1847173585-1417411686=:1576--
+Acked-by: Jason Wang <jasowang@redhat.com>
