@@ -1,27 +1,46 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net] openvswitch: Fix flow mask validation.
-Date: Mon, 1 Dec 2014 09:42:44 +0000
-Message-ID: <20141201094244.GA619@casper.infradead.org>
-References: <1417417457-1492-1-git-send-email-pshelar@nicira.com>
+From: Mirko Lindner <mlindner@marvell.com>
+Subject: Re: [PATCH] skge: Unmask interrupts in case of spurious interrupts
+Date: Mon, 1 Dec 2014 10:53:31 +0100
+Message-ID: <547C3A9B.4060407@marvell.com>
+References: <1417348291-1302-1-git-send-email-LinoSanfilippo@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Pravin B Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:57296 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752722AbaLAJms (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2014 04:42:48 -0500
-Content-Disposition: inline
-In-Reply-To: <1417417457-1492-1-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <stephen@networkplumber.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1417348291-1302-1-git-send-email-LinoSanfilippo@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/30/14 at 11:04pm, Pravin B Shelar wrote:
-> Following patch fixes typo in the flow validation. This prevented
-> installation of ARP and IPv6 flows.
+On 30/11/14 12:51, Lino Sanfilippo wrote:
+> In case of a spurious interrupt dont forget to reenable the interrupts that
+> have been masked by reading the interrupt source register.
 > 
-> Fixes: 19e7a3df72 ("openvswitch: Fix NDP flow mask validation")
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+> ---
+>  drivers/net/ethernet/marvell/skge.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
+> index 264eab7..7173836 100644
+> --- a/drivers/net/ethernet/marvell/skge.c
+> +++ b/drivers/net/ethernet/marvell/skge.c
+> @@ -3433,10 +3433,9 @@ static irqreturn_t skge_intr(int irq, void *dev_id)
+>  
+>  	if (status & IS_HW_ERR)
+>  		skge_error_irq(hw);
+> -
+> +out:
+>  	skge_write32(hw, B0_IMSK, hw->intr_mask);
+>  	skge_read32(hw, B0_IMSK);
+> -out:
+>  	spin_unlock(&hw->hw_lock);
+>  
+>  	return IRQ_RETVAL(handled);
+> 
 
-Reviewed-by: Thomas Graf <tgraf@suug.ch>
+Looks OK.
+
+Acked-by: Mirko Lindner <mlindner@marvell.com>
