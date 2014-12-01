@@ -1,263 +1,69 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v8 38/50] tun: drop most type defines
-Date: Mon, 1 Dec 2014 18:05:55 +0200
-Message-ID: <1417449619-24896-39-git-send-email-mst@redhat.com>
-References: <1417449619-24896-1-git-send-email-mst@redhat.com>
+From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Is this 32-bit NCM?
+Date: Mon, 1 Dec 2014 17:54:35 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1412011753230.13971@gmail.com>
+References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com> <54781523.6030600@audiocodes.com>
+ <alpine.LNX.2.03.1411280923230.3997@gmail.com> <54783443.50700@audiocodes.com> <alpine.LNX.2.03.1411280944200.4040@gmail.com> <54783A1D.3090607@audiocodes.com> <alpine.LNX.2.03.1411281014450.4101@gmail.com> <54783F18.1070709@audiocodes.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
-	rusty@au1.ibm.com, nab@linux-iscsi.org, pbonzini@redhat.com,
-	thuth@linux.vnet.ibm.com, dahi@linux.vnet.ibm.com,
-	Jason Wang <jasowang@redhat.com>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Tom Herbert <therbert@google.com>,
-	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1417449619-24896-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-857807932-1417452876=:13971"
+Cc: Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	=?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	Midge Shaojun Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	"youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
+To: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <54783F18.1070709-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-It's just as easy to use IFF_ flags directly,
-there's no point in adding our own defines.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/net/tun.c | 62 +++++++++++++++++++++++++------------------------------
- 1 file changed, 28 insertions(+), 34 deletions(-)
+--8323328-857807932-1417452876=:13971
+Content-Type: TEXT/PLAIN; charset=Windows-1252
+Content-Transfer-Encoding: 8BIT
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index b4e4ca0..36be4fd 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -109,12 +109,6 @@ do {								\
-  * overload it to mean fasync when stored there.
-  */
- #define TUN_FASYNC	IFF_ATTACH_QUEUE
--#define TUN_NO_PI	IFF_NO_PI
--/* This flag has no real effect */
--#define TUN_ONE_QUEUE	IFF_ONE_QUEUE
--#define TUN_PERSIST 	IFF_PERSIST
--#define TUN_VNET_HDR 	IFF_VNET_HDR
--#define TUN_TAP_MQ      IFF_MULTI_QUEUE
- 
- #define TUN_FEATURES (IFF_NO_PI | IFF_ONE_QUEUE | IFF_VNET_HDR | \
- 		      IFF_MULTI_QUEUE)
-@@ -487,7 +481,7 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
- 		if (tun && tun->numqueues == 0 && tun->numdisabled == 0) {
- 			netif_carrier_off(tun->dev);
- 
--			if (!(tun->flags & TUN_PERSIST) &&
-+			if (!(tun->flags & IFF_PERSIST) &&
- 			    tun->dev->reg_state == NETREG_REGISTERED)
- 				unregister_netdevice(tun->dev);
- 		}
-@@ -538,7 +532,7 @@ static void tun_detach_all(struct net_device *dev)
- 	}
- 	BUG_ON(tun->numdisabled != 0);
- 
--	if (tun->flags & TUN_PERSIST)
-+	if (tun->flags & IFF_PERSIST)
- 		module_put(THIS_MODULE);
- }
- 
-@@ -556,7 +550,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file, bool skip_filte
- 		goto out;
- 
- 	err = -EBUSY;
--	if (!(tun->flags & TUN_TAP_MQ) && tun->numqueues == 1)
-+	if (!(tun->flags & IFF_MULTI_QUEUE) && tun->numqueues == 1)
- 		goto out;
- 
- 	err = -E2BIG;
-@@ -935,7 +929,7 @@ static void tun_net_init(struct net_device *dev)
- 	struct tun_struct *tun = netdev_priv(dev);
- 
- 	switch (tun->flags & TUN_TYPE_MASK) {
--	case TUN_TUN_DEV:
-+	case IFF_TUN:
- 		dev->netdev_ops = &tun_netdev_ops;
- 
- 		/* Point-to-Point TUN Device */
-@@ -949,7 +943,7 @@ static void tun_net_init(struct net_device *dev)
- 		dev->tx_queue_len = TUN_READQ_SIZE;  /* We prefer our own queue length */
- 		break;
- 
--	case TUN_TAP_DEV:
-+	case IFF_TAP:
- 		dev->netdev_ops = &tap_netdev_ops;
- 		/* Ethernet TAP Device */
- 		ether_setup(dev);
-@@ -1040,7 +1034,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	int err;
- 	u32 rxhash;
- 
--	if (!(tun->flags & TUN_NO_PI)) {
-+	if (!(tun->flags & IFF_NO_PI)) {
- 		if (len < sizeof(pi))
- 			return -EINVAL;
- 		len -= sizeof(pi);
-@@ -1050,7 +1044,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		offset += sizeof(pi);
- 	}
- 
--	if (tun->flags & TUN_VNET_HDR) {
-+	if (tun->flags & IFF_VNET_HDR) {
- 		if (len < tun->vnet_hdr_sz)
- 			return -EINVAL;
- 		len -= tun->vnet_hdr_sz;
-@@ -1067,7 +1061,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		offset += tun->vnet_hdr_sz;
- 	}
- 
--	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV) {
-+	if ((tun->flags & TUN_TYPE_MASK) == IFF_TAP) {
- 		align += NET_IP_ALIGN;
- 		if (unlikely(len < ETH_HLEN ||
- 			     (gso.hdr_len && gso.hdr_len < ETH_HLEN)))
-@@ -1130,8 +1124,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	}
- 
- 	switch (tun->flags & TUN_TYPE_MASK) {
--	case TUN_TUN_DEV:
--		if (tun->flags & TUN_NO_PI) {
-+	case IFF_TUN:
-+		if (tun->flags & IFF_NO_PI) {
- 			switch (skb->data[0] & 0xf0) {
- 			case 0x40:
- 				pi.proto = htons(ETH_P_IP);
-@@ -1150,7 +1144,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		skb->protocol = pi.proto;
- 		skb->dev = tun->dev;
- 		break;
--	case TUN_TAP_DEV:
-+	case IFF_TAP:
- 		skb->protocol = eth_type_trans(skb, tun->dev);
- 		break;
- 	}
-@@ -1256,10 +1250,10 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 	if (vlan_tx_tag_present(skb))
- 		vlan_hlen = VLAN_HLEN;
- 
--	if (tun->flags & TUN_VNET_HDR)
-+	if (tun->flags & IFF_VNET_HDR)
- 		vnet_hdr_sz = tun->vnet_hdr_sz;
- 
--	if (!(tun->flags & TUN_NO_PI)) {
-+	if (!(tun->flags & IFF_NO_PI)) {
- 		if ((len -= sizeof(pi)) < 0)
- 			return -EINVAL;
- 
-@@ -1592,7 +1586,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 			return -EINVAL;
- 
- 		if (!!(ifr->ifr_flags & IFF_MULTI_QUEUE) !=
--		    !!(tun->flags & TUN_TAP_MQ))
-+		    !!(tun->flags & IFF_MULTI_QUEUE))
- 			return -EINVAL;
- 
- 		if (tun_not_capable(tun))
-@@ -1605,7 +1599,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		if (err < 0)
- 			return err;
- 
--		if (tun->flags & TUN_TAP_MQ &&
-+		if (tun->flags & IFF_MULTI_QUEUE &&
- 		    (tun->numqueues + tun->numdisabled > 1)) {
- 			/* One or more queue has already been attached, no need
- 			 * to initialize the device again.
-@@ -1628,11 +1622,11 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		/* Set dev type */
- 		if (ifr->ifr_flags & IFF_TUN) {
- 			/* TUN device */
--			flags |= TUN_TUN_DEV;
-+			flags |= IFF_TUN;
- 			name = "tun%d";
- 		} else if (ifr->ifr_flags & IFF_TAP) {
- 			/* TAP device */
--			flags |= TUN_TAP_DEV;
-+			flags |= IFF_TAP;
- 			name = "tap%d";
- 		} else
- 			return -EINVAL;
-@@ -1825,7 +1819,7 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
- 		ret = tun_attach(tun, file, false);
- 	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE) {
- 		tun = rtnl_dereference(tfile->tun);
--		if (!tun || !(tun->flags & TUN_TAP_MQ) || tfile->detached)
-+		if (!tun || !(tun->flags & IFF_MULTI_QUEUE) || tfile->detached)
- 			ret = -EINVAL;
- 		else
- 			__tun_detach(tfile, false);
-@@ -1929,12 +1923,12 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 		/* Disable/Enable persist mode. Keep an extra reference to the
- 		 * module to prevent the module being unprobed.
- 		 */
--		if (arg && !(tun->flags & TUN_PERSIST)) {
--			tun->flags |= TUN_PERSIST;
-+		if (arg && !(tun->flags & IFF_PERSIST)) {
-+			tun->flags |= IFF_PERSIST;
- 			__module_get(THIS_MODULE);
- 		}
--		if (!arg && (tun->flags & TUN_PERSIST)) {
--			tun->flags &= ~TUN_PERSIST;
-+		if (!arg && (tun->flags & IFF_PERSIST)) {
-+			tun->flags &= ~IFF_PERSIST;
- 			module_put(THIS_MODULE);
- 		}
- 
-@@ -1992,7 +1986,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	case TUNSETTXFILTER:
- 		/* Can be set only for TAPs */
- 		ret = -EINVAL;
--		if ((tun->flags & TUN_TYPE_MASK) != TUN_TAP_DEV)
-+		if ((tun->flags & TUN_TYPE_MASK) != IFF_TAP)
- 			break;
- 		ret = update_filter(&tun->txflt, (void __user *)arg);
- 		break;
-@@ -2051,7 +2045,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	case TUNATTACHFILTER:
- 		/* Can be set only for TAPs */
- 		ret = -EINVAL;
--		if ((tun->flags & TUN_TYPE_MASK) != TUN_TAP_DEV)
-+		if ((tun->flags & TUN_TYPE_MASK) != IFF_TAP)
- 			break;
- 		ret = -EFAULT;
- 		if (copy_from_user(&tun->fprog, argp, sizeof(tun->fprog)))
-@@ -2063,7 +2057,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	case TUNDETACHFILTER:
- 		/* Can be set only for TAPs */
- 		ret = -EINVAL;
--		if ((tun->flags & TUN_TYPE_MASK) != TUN_TAP_DEV)
-+		if ((tun->flags & TUN_TYPE_MASK) != IFF_TAP)
- 			break;
- 		ret = 0;
- 		tun_detach_filter(tun, tun->numqueues);
-@@ -2071,7 +2065,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 
- 	case TUNGETFILTER:
- 		ret = -EINVAL;
--		if ((tun->flags & TUN_TYPE_MASK) != TUN_TAP_DEV)
-+		if ((tun->flags & TUN_TYPE_MASK) != IFF_TAP)
- 			break;
- 		ret = -EFAULT;
- 		if (copy_to_user(argp, &tun->fprog, sizeof(tun->fprog)))
-@@ -2264,10 +2258,10 @@ static void tun_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info
- 	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
- 
- 	switch (tun->flags & TUN_TYPE_MASK) {
--	case TUN_TUN_DEV:
-+	case IFF_TUN:
- 		strlcpy(info->bus_info, "tun", sizeof(info->bus_info));
- 		break;
--	case TUN_TAP_DEV:
-+	case IFF_TAP:
- 		strlcpy(info->bus_info, "tap", sizeof(info->bus_info));
- 		break;
- 	}
--- 
-MST
+Evne to thank you for giving me a test device / shell, I am now modifying 
+thedriver to be extra debug-ful. I don't know where exactly this will lead if 
+anywhere, and really have no clue of whatto do next, since all seems normal. 
+But at least I'll have a clue of what happens.
+
+
+On Fri, 28 Nov 2014, Kevin Zhu wrote:
+
+==Date: Fri, 28 Nov 2014 10:23:43
+==From: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
+==To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+==Cc: Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>,
+==    Midge Shaojun  Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+==    "youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+==    "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+==    "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+==    Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
+==Subject: Re: Is this 32-bit NCM?
+==
+==Yes. The MACs are right. When I started Wireshark, promisc mode was set.
+==
+==Regards,
+==Kevin
+==
+==On 11/28/2014 05:17 PM, Enrico Mioso wrote:
+==> Sorry - resending message to all.
+==> Is the MAC right? In my case it was, but ... you never know.
+==> And - have you tried the promisc mode, just in case... don't know if this might
+==> even be implementedi n the driver, think not, but...
+==> I don't know what to think anymore.
+==> this ARP packet seems the same as with windows... but might be it's only my
+==> impression.
+==This email and any files transmitted with it are confidential material. They are intended solely for the use of the designated individual or entity to whom they are addressed. If the reader of this message is not the intended recipient, you are hereby notified that any dissemination, use, distribution or copying of this communication is strictly prohibited and may be unlawful.
+==
+==If you have received this email in error please immediately notify the sender and delete or destroy any copy of this message
+==
+--8323328-857807932-1417452876=:13971--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
