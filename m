@@ -1,61 +1,139 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: Re: [PATCH 1/1] net-PA Semi: Deletion of unnecessary checks before
- the function call "pci_dev_put"
-Date: Mon, 1 Dec 2014 12:36:33 -0800
-Message-ID: <CAOesGMi+=ue34aQcDH0wPBjrvi+3cSJG1=m9fbj+tgds_twkPg@mail.gmail.com>
-References: <5307CAA2.8060406@users.sourceforge.net>
-	<alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
-	<530A086E.8010901@users.sourceforge.net>
-	<alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
-	<530A72AA.3000601@users.sourceforge.net>
-	<alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
-	<530B5FB6.6010207@users.sourceforge.net>
-	<alpine.DEB.2.10.1402241710370.2074@hadrien>
-	<530C5E18.1020800@users.sourceforge.net>
-	<alpine.DEB.2.10.1402251014170.2080@hadrien>
-	<530CD2C4.4050903@users.sourceforge.net>
-	<alpine.DEB.2.10.1402251840450.7035@hadrien>
-	<530CF8FF.8080600@users.sourceforge.net>
-	<alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
-	<530DD06F.4090703@users.sourceforge.net>
-	<alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
-	<5317A59D.4@users.sourceforge.net>
-	<547A09B1.9090102@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
+From: Andrey Skvortsov <andrej.skvortzov@gmail.com>
+Subject: [PATCH] SSB / B44: fix WOL for BCM4401
+Date: Mon,  1 Dec 2014 23:46:38 +0300
+Message-ID: <1417466798-15735-1-git-send-email-Andrej.Skvortzov@gmail.com>
+References: <20141201111125.GA11974@localhost.localdomain>
+Cc: Andrey Skvortsov <Andrej.Skvortzov@gmail.com>
+To: "Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	Gary Zambrano <zambrano@broadcom.com>,
+	Michael Buesch <m@bues.ch>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <547A09B1.9090102@users.sourceforge.net>
+In-Reply-To: <20141201111125.GA11974@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 29, 2014 at 10:00 AM, SF Markus Elfring
-<elfring@users.sourceforge.net> wrote:
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Sat, 29 Nov 2014 18:55:40 +0100
->
-> The pci_dev_put() function tests whether its argument is NULL
-> and then returns immediately. Thus the test around the call
-> is not needed.
->
-> This issue was detected by using the Coccinelle software.
->
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Wake On Lan was not working on laptop DELL Vostro 1500.
+If WOL was turned on, BCM4401 was powered up in suspend mode. LEDs blinked.
+But the laptop could not be woken up with the Magic Packet. The reason for
+that was that PCIE was not enabled as a system wakeup source and
+therefore the host PCI bridge was not powered up in suspend mode.
+PCIE was not enabled in suspend by PM because no child devices were
+registered as wakeup source during suspend process.
+On laptop BCM4401 is connected through the SSB bus, that is connected to the
+PCI-Express bus. SSB and B44 did not use standard PM wakeup functions
+and did not forward wakeup settings to their parents.
+To fix that B44 driver enables PM wakeup and registers new wakeup source
+using device_set_wakeup_enable(). Wakeup is automatically reported to the parent SSB
+bus via power.wakeup_path. SSB bus enables wakeup for the parent PCI bridge, if there is any
+child devices with enabled wakeup functionality. All other steps are
+done by PM core code.
 
-For this particular case:
+Signed-off-by: Andrey Skvortsov <Andrej.Skvortzov@gmail.com>
+---
+ drivers/net/ethernet/broadcom/b44.c |    2 ++
+ drivers/ssb/pcihost_wrapper.c       |   33 ++++++++++++++++++++++-----------
+ 2 files changed, 24 insertions(+), 11 deletions(-)
 
-Acked-by: Olof Johansson <olof@lixom.net>
-
-Note that the "this might cause problems with backports" case is
-mostly academic in the scope of _this particular driver_. It's still a
-very valid discussion and issue though.
-
-So I'll be happy to give the ack on this driver, but the larger
-problem needs consideration still.
-
-
--Olof
+diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
+index 416620f..ffeaf47 100644
+--- a/drivers/net/ethernet/broadcom/b44.c
++++ b/drivers/net/ethernet/broadcom/b44.c
+@@ -2104,6 +2104,7 @@ static int b44_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+ 		bp->flags &= ~B44_FLAG_WOL_ENABLE;
+ 	spin_unlock_irq(&bp->lock);
+ 
++	device_set_wakeup_enable(bp->sdev->dev, wol->wolopts & WAKE_MAGIC);
+ 	return 0;
+ }
+ 
+@@ -2452,6 +2453,7 @@ static int b44_init_one(struct ssb_device *sdev,
+ 		}
+ 	}
+ 
++	device_set_wakeup_capable(sdev->dev, true);
+ 	netdev_info(dev, "%s %pM\n", DRV_DESCRIPTION, dev->dev_addr);
+ 
+ 	return 0;
+diff --git a/drivers/ssb/pcihost_wrapper.c b/drivers/ssb/pcihost_wrapper.c
+index 69161bb..410215c 100644
+--- a/drivers/ssb/pcihost_wrapper.c
++++ b/drivers/ssb/pcihost_wrapper.c
+@@ -11,15 +11,17 @@
+  * Licensed under the GNU/GPL. See COPYING for details.
+  */
+ 
++#include <linux/pm.h>
+ #include <linux/pci.h>
+ #include <linux/export.h>
+ #include <linux/slab.h>
+ #include <linux/ssb/ssb.h>
+ 
+ 
+-#ifdef CONFIG_PM
+-static int ssb_pcihost_suspend(struct pci_dev *dev, pm_message_t state)
++#ifdef CONFIG_PM_SLEEP
++static int ssb_pcihost_suspend(struct device *d)
+ {
++	struct pci_dev *dev = to_pci_dev(d);
+ 	struct ssb_bus *ssb = pci_get_drvdata(dev);
+ 	int err;
+ 
+@@ -28,17 +30,23 @@ static int ssb_pcihost_suspend(struct pci_dev *dev, pm_message_t state)
+ 		return err;
+ 	pci_save_state(dev);
+ 	pci_disable_device(dev);
+-	pci_set_power_state(dev, pci_choose_state(dev, state));
++
++	/* if there is a wakeup enabled child device on ssb bus,
++	   enable pci wakeup posibility. */
++	device_set_wakeup_enable(d, d->power.wakeup_path);
++
++	pci_prepare_to_sleep(dev);
+ 
+ 	return 0;
+ }
+ 
+-static int ssb_pcihost_resume(struct pci_dev *dev)
++static int ssb_pcihost_resume(struct device *d)
+ {
++	struct pci_dev *dev = to_pci_dev(d);
+ 	struct ssb_bus *ssb = pci_get_drvdata(dev);
+ 	int err;
+ 
+-	pci_set_power_state(dev, PCI_D0);
++	pci_back_from_sleep(dev);
+ 	err = pci_enable_device(dev);
+ 	if (err)
+ 		return err;
+@@ -49,10 +57,12 @@ static int ssb_pcihost_resume(struct pci_dev *dev)
+ 
+ 	return 0;
+ }
+-#else /* CONFIG_PM */
+-# define ssb_pcihost_suspend	NULL
+-# define ssb_pcihost_resume	NULL
+-#endif /* CONFIG_PM */
++
++static const struct dev_pm_ops ssb_pcihost_pm_ops = {
++	SET_SYSTEM_SLEEP_PM_OPS(ssb_pcihost_suspend, ssb_pcihost_resume)
++};
++
++#endif /* CONFIG_PM_SLEEP */
+ 
+ static int ssb_pcihost_probe(struct pci_dev *dev,
+ 			     const struct pci_device_id *id)
+@@ -115,8 +125,9 @@ int ssb_pcihost_register(struct pci_driver *driver)
+ {
+ 	driver->probe = ssb_pcihost_probe;
+ 	driver->remove = ssb_pcihost_remove;
+-	driver->suspend = ssb_pcihost_suspend;
+-	driver->resume = ssb_pcihost_resume;
++#ifdef CONFIG_PM_SLEEP
++	driver->driver.pm = &ssb_pcihost_pm_ops;
++#endif
+ 
+ 	return pci_register_driver(driver);
+ }
+-- 
+1.7.2.5
