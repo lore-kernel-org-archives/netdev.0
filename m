@@ -1,51 +1,34 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: linux-next: manual merge of the driver-core tree with the net-next
- tree
-Date: Mon, 1 Dec 2014 08:34:05 +0100
-Message-ID: <547C19ED.10201@broadcom.com>
-References: <20141201181933.6dfaad66@canb.auug.org.au>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next 0/3] timestamping updates
+Date: Mon, 1 Dec 2014 09:49:17 +0100
+Message-ID: <20141201084917.GA4778@localhost.localdomain>
+References: <1417404155-28607-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-next@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	"Felix Fietkau" <nbd@openwrt.org>,
-	Ben Greear <greearb@candelatech.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>, Greg KH <greg@kroah.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20141201181933.6dfaad66@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, luto@amacapital.net
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:46451 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752479AbaLAItW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2014 03:49:22 -0500
+Received: by mail-wi0-f173.google.com with SMTP id r20so23789275wiv.0
+        for <netdev@vger.kernel.org>; Mon, 01 Dec 2014 00:49:21 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1417404155-28607-1-git-send-email-willemb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01-12-14 08:19, Stephen Rothwell wrote:
-> Hi Greg,
+On Sun, Nov 30, 2014 at 10:22:32PM -0500, Willem de Bruijn wrote:
+> From: Willem de Bruijn <willemb@google.com>
 > 
-> Today's linux-next merge of the driver-core tree got a conflict in
-> drivers/net/wireless/ath/ath9k/debug.c between commits 70e535ed0029
-> ("ath9k: clean up debugfs print of reset causes"), 7b8aaead958e
-> ("ath9k: restart hardware after noise floor calibration failure") and
-> 325e18817668 ("ath9k: fix misc debugfs when not using chan context")
-> from the net-next tree and commit 631bee257bd5 ("ath: use seq_file api
-> for ath9k debugfs files") from the driver-core tree.
+> The main goal for this patchset is to allow correlating timestamps
+> with the egress interface. Also introduce a warning, as discussed
+> previously, and update the tests to verify the new feature.
 > 
-> I fixed it up (see below) and can carry the fix as necessary (no action
-> is required).
-> 
-> Greg, I am not sure why those 2 commits are even in your tree.  Do they
-> depend on something else in your tree?
+> Willem de Bruijn (3):
+>   ipv4: warn once on passing AF_INET6 socket to ip_recv_error
+>   net-timestamp: allow reading recv cmsg on errqueue with origin tstamp
+>   net-timestamp: expand documentation and test
 
-They do. The three commits below are related:
-
-d32394f ath: ath9k: use debugfs_create_devm_seqfile() helper for
-seq_file entrie
-631bee2 ath: use seq_file api for ath9k debugfs files
-98210b7 debugfs: add helper function to create device related seq_file
-
-The ath patches were made to provide example of using the new helper
-function and get some idea about code savings. Greg and John discussed
-who would take them. I noticed other ath changes in net-next so I kinda
-expected this email ;-)
-
-Regards,
-Arend
+Acked-by: Richard Cochran <richardcochran@gmail.com>
