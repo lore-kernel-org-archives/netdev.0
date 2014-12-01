@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v8 26/50] virtio_net: bigger header when VERSION_1 is set
-Date: Mon, 1 Dec 2014 18:04:55 +0200
-Message-ID: <1417449619-24896-27-git-send-email-mst@redhat.com>
+Subject: [PATCH v8 27/50] virtio_net: disable mac write for virtio 1.0
+Date: Mon, 1 Dec 2014 18:05:00 +0200
+Message-ID: <1417449619-24896-28-git-send-email-mst@redhat.com>
 References: <1417449619-24896-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,29 +25,30 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-With VERSION_1 virtio_net uses same header size
-whether mergeable buffers are enabled or not.
+The spec states that mac in config space is only driver-writable in the
+legacy case.  Fence writing it in virtnet_set_mac_address() in the
+virtio 1.0 case.
 
+Suggested-by: Cornelia Huck <cornelia.huck@de.ibm.com>
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
-Reviewed-by: Jason Wang <jasowang@redhat.com>
 ---
  drivers/net/virtio_net.c | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 098f443..a0e64cf 100644
+index a0e64cf..b8bd719 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -1805,7 +1805,8 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
- 		vi->mergeable_rx_bufs = true;
+@@ -1030,7 +1030,8 @@ static int virtnet_set_mac_address(struct net_device *dev, void *p)
+ 				 "Failed to set mac address by vq command.\n");
+ 			return -EINVAL;
+ 		}
+-	} else if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC)) {
++	} else if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC) &&
++		   !virtio_has_feature(vdev, VIRTIO_F_VERSION_1)) {
+ 		unsigned int i;
  
--	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
-+	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF) ||
-+	    virtio_has_feature(vdev, VIRTIO_F_VERSION_1))
- 		vi->hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
- 	else
- 		vi->hdr_len = sizeof(struct virtio_net_hdr);
+ 		/* Naturally, this has an atomicity problem. */
 -- 
 MST
