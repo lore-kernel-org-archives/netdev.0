@@ -1,63 +1,52 @@
-From: Markos Chandras <Markos.Chandras@imgtec.com>
-Subject: Re: [PATCH] mips: bpf: Fix broken BPF_MOD
-Date: Mon, 1 Dec 2014 10:13:03 +0000
-Message-ID: <547C3F2F.3070708@imgtec.com>
-References: <1417427822-12729-1-git-send-email-kda@linux-powerpc.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH RFC v3 0/3] virtio_net: enabling tx interrupts
+Date: Mon, 01 Dec 2014 18:14:36 +0800
+Message-ID: <547C3F8C.8000006@redhat.com>
+References: <1413787824-16130-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Denis Kirjanov <kda@linux-powerpc.org>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailapp01.imgtec.com ([195.59.15.196]:55432 "EHLO
-	mailapp01.imgtec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752869AbaLAKNG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2014 05:13:06 -0500
-In-Reply-To: <1417427822-12729-1-git-send-email-kda@linux-powerpc.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1413787824-16130-1-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/01/2014 09:57 AM, Denis Kirjanov wrote:
-> Remove optimize_div() from BPF_MOD | BPF_K case
-> since we don't know the dividend and fix the
-> emit_mod() by reading the mod operation result from HI register
-> 
-> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
-> ---
->  arch/mips/net/bpf_jit.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
-> index 9b55143..9fd6834 100644
-> --- a/arch/mips/net/bpf_jit.c
-> +++ b/arch/mips/net/bpf_jit.c
-> @@ -426,7 +426,7 @@ static inline void emit_mod(unsigned int dst, unsigned int src,
->  		u32 *p = &ctx->target[ctx->idx];
->  		uasm_i_divu(&p, dst, src);
->  		p = &ctx->target[ctx->idx + 1];
-> -		uasm_i_mflo(&p, dst);
-> +		uasm_i_mfhi(&p, dst);
 
-That looks correct.
 
->  	}
->  	ctx->idx += 2; /* 2 insts */
->  }
-> @@ -971,7 +971,7 @@ load_ind:
->  			break;
->  		case BPF_ALU | BPF_MOD | BPF_K:
->  			/* A %= k */
-> -			if (k == 1 || optimize_div(&k)) {
-> +			if (k == 1) {
->  				ctx->flags |= SEEN_A;
->  				emit_jit_reg_move(r_A, r_zero, ctx);
->  			} else {
-> 
+On 10/20/2014 02:52 PM, Michael S. Tsirkin wrote:
+> RFC patches to enable tx interrupts.
+> This is to demonstrate how this can be done without
+> core virtio changes, and to make sure I understand
+> the new APIs correctly.
+>
+> Testing TBD, I was asked for a version for early testing.
+>
+> Applies on top of patch: "virtio_net: fix use after free"
+> that I recently sent.
+>
+> Changes from v3:
+> 	clean up code, address issues raised by Jason
+> Changes from v1:
+>          address comments by Jason Wang, use delayed cb everywhere
+>          rebased Jason's patch on top of mine and include it (with some tweaks)
+>
+> Jason Wang (1):
+>    virtio-net: optimize free_old_xmit_skbs stats
+>
+> Michael S. Tsirkin (2):
+>    virtio_net: enable tx interrupt
+>    virtio_net: bql
+>
+>   drivers/net/virtio_net.c | 144 +++++++++++++++++++++++++++++++++--------------
+>   1 file changed, 101 insertions(+), 43 deletions(-)
+>
 
-That looks correct too. Thanks for fixing these.
+I've run a full tests on this series and see huge regression when 
+zerocopy is disabled. Looks like the reason is zerocopy could coalescing 
+tx completion which greatly reduce the number of tx interrupts.
 
-Can you also CC stable for inclusion in >=3.16?
-
-Reviewed-by: Markos Chandras <markos.chandras@imgtec.com>
-
--- 
-markos
+I will post RFC V4 shortly with interrupt coalescing support. In this 
+version I remove the tx packet cleanup in ndo_start_xmit() since it may 
+reduce the effects of interrupt coalescing.
