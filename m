@@ -1,201 +1,291 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v8 41/50] macvtap: TUN_VNET_LE support
-Date: Mon, 1 Dec 2014 18:06:12 +0200
-Message-ID: <1417449619-24896-42-git-send-email-mst@redhat.com>
+Subject: [PATCH v8 24/50] virtio_net: get rid of virtio_net_hdr/skb_vnet_hdr
+Date: Mon, 1 Dec 2014 18:04:45 +0200
+Message-ID: <1417449619-24896-25-git-send-email-mst@redhat.com>
 References: <1417449619-24896-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
-	rusty@au1.ibm.com, nab@linux-iscsi.org, pbonzini@redhat.com,
-	thuth@linux.vnet.ibm.com, dahi@linux.vnet.ibm.com,
-	Jason Wang <jasowang@redhat.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	Tom Herbert <therbert@google.com>,
-	Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: thuth@linux.vnet.ibm.com, rusty@au1.ibm.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	dahi@linux.vnet.ibm.com, pbonzini@redhat.com,
+	David Miller <davem@davemloft.net>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
 In-Reply-To: <1417449619-24896-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
+virtio 1.0 doesn't use virtio_net_hdr anymore, and in fact, it's not
+really useful since virtio_net_hdr_mrg_rxbuf includes that as the first
+field anyway.
+
+Let's drop it, precalculate header len and store within vi instead.
+
+This way we can also remove struct skb_vnet_hdr.
+
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
 Reviewed-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/macvtap.c | 68 ++++++++++++++++++++++++++++++++-------------------
- 1 file changed, 43 insertions(+), 25 deletions(-)
+ drivers/net/virtio_net.c | 90 ++++++++++++++++++++++--------------------------
+ 1 file changed, 41 insertions(+), 49 deletions(-)
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 880cc09..af90ab5 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -45,6 +45,18 @@ struct macvtap_queue {
- 	struct list_head next;
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 1630c21..516f2cb 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -123,6 +123,9 @@ struct virtnet_info {
+ 	/* Host can handle any s/g split between our header and packet data */
+ 	bool any_header_sg;
+ 
++	/* Packet virtio header size */
++	u8 hdr_len;
++
+ 	/* Active statistics */
+ 	struct virtnet_stats __percpu *stats;
+ 
+@@ -139,21 +142,14 @@ struct virtnet_info {
+ 	struct notifier_block nb;
  };
  
-+#define MACVTAP_FEATURES (IFF_VNET_HDR | IFF_VNET_LE | IFF_MULTI_QUEUE)
-+
-+static inline u16 macvtap16_to_cpu(struct macvtap_queue *q, __virtio16 val)
-+{
-+	return __virtio16_to_cpu(q->flags & IFF_VNET_LE, val);
-+}
-+
-+static inline __virtio16 cpu_to_macvtap16(struct macvtap_queue *q, u16 val)
-+{
-+	return __cpu_to_virtio16(q->flags & IFF_VNET_LE, val);
-+}
-+
- static struct proto macvtap_proto = {
- 	.name = "macvtap",
- 	.owner = THIS_MODULE,
-@@ -557,7 +569,8 @@ static inline struct sk_buff *macvtap_alloc_skb(struct sock *sk, size_t prepad,
-  * macvtap_skb_from_vnet_hdr and macvtap_skb_to_vnet_hdr should
-  * be shared with the tun/tap driver.
-  */
--static int macvtap_skb_from_vnet_hdr(struct sk_buff *skb,
-+static int macvtap_skb_from_vnet_hdr(struct macvtap_queue *q,
-+				     struct sk_buff *skb,
- 				     struct virtio_net_hdr *vnet_hdr)
- {
- 	unsigned short gso_type = 0;
-@@ -588,13 +601,13 @@ static int macvtap_skb_from_vnet_hdr(struct sk_buff *skb,
- 	}
+-struct skb_vnet_hdr {
+-	union {
+-		struct virtio_net_hdr hdr;
+-		struct virtio_net_hdr_mrg_rxbuf mhdr;
+-	};
+-};
+-
+ struct padded_vnet_hdr {
+-	struct virtio_net_hdr hdr;
++	struct virtio_net_hdr_mrg_rxbuf hdr;
+ 	/*
+-	 * virtio_net_hdr should be in a separated sg buffer because of a
+-	 * QEMU bug, and data sg buffer shares same page with this header sg.
+-	 * This padding makes next sg 16 byte aligned after virtio_net_hdr.
++	 * hdr is in a separate sg buffer, and data sg buffer shares same page
++	 * with this header sg. This padding makes next sg 16 byte aligned
++	 * after the header.
+ 	 */
+-	char padding[6];
++	char padding[4];
+ };
  
- 	if (vnet_hdr->flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
--		if (!skb_partial_csum_set(skb, vnet_hdr->csum_start,
--					  vnet_hdr->csum_offset))
-+		if (!skb_partial_csum_set(skb, macvtap16_to_cpu(q, vnet_hdr->csum_start),
-+					  macvtap16_to_cpu(q, vnet_hdr->csum_offset)))
- 			return -EINVAL;
- 	}
- 
- 	if (vnet_hdr->gso_type != VIRTIO_NET_HDR_GSO_NONE) {
--		skb_shinfo(skb)->gso_size = vnet_hdr->gso_size;
-+		skb_shinfo(skb)->gso_size = macvtap16_to_cpu(q, vnet_hdr->gso_size);
- 		skb_shinfo(skb)->gso_type = gso_type;
- 
- 		/* Header must be checked, and gso_segs computed. */
-@@ -604,8 +617,9 @@ static int macvtap_skb_from_vnet_hdr(struct sk_buff *skb,
- 	return 0;
+ /* Converting between virtqueue no. and kernel tx/rx queue no.
+@@ -179,9 +175,9 @@ static int rxq2vq(int rxq)
+ 	return rxq * 2;
  }
  
--static void macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
--				   struct virtio_net_hdr *vnet_hdr)
-+static void macvtap_skb_to_vnet_hdr(struct macvtap_queue *q,
-+				    const struct sk_buff *skb,
-+				    struct virtio_net_hdr *vnet_hdr)
+-static inline struct skb_vnet_hdr *skb_vnet_hdr(struct sk_buff *skb)
++static inline struct virtio_net_hdr_mrg_rxbuf *skb_vnet_hdr(struct sk_buff *skb)
  {
- 	memset(vnet_hdr, 0, sizeof(*vnet_hdr));
+-	return (struct skb_vnet_hdr *)skb->cb;
++	return (struct virtio_net_hdr_mrg_rxbuf *)skb->cb;
+ }
  
-@@ -613,8 +627,8 @@ static void macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
- 		struct skb_shared_info *sinfo = skb_shinfo(skb);
+ /*
+@@ -247,7 +243,7 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+ 				   unsigned int len, unsigned int truesize)
+ {
+ 	struct sk_buff *skb;
+-	struct skb_vnet_hdr *hdr;
++	struct virtio_net_hdr_mrg_rxbuf *hdr;
+ 	unsigned int copy, hdr_len, hdr_padded_len;
+ 	char *p;
  
- 		/* This is a hint as to how much should be linear. */
--		vnet_hdr->hdr_len = skb_headlen(skb);
--		vnet_hdr->gso_size = sinfo->gso_size;
-+		vnet_hdr->hdr_len = cpu_to_macvtap16(q, skb_headlen(skb));
-+		vnet_hdr->gso_size = cpu_to_macvtap16(q, sinfo->gso_size);
- 		if (sinfo->gso_type & SKB_GSO_TCPV4)
- 			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
- 		else if (sinfo->gso_type & SKB_GSO_TCPV6)
-@@ -628,10 +642,13 @@ static void macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
+@@ -260,13 +256,11 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
  
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 		vnet_hdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
--		vnet_hdr->csum_start = skb_checksum_start_offset(skb);
- 		if (vlan_tx_tag_present(skb))
--			vnet_hdr->csum_start += VLAN_HLEN;
--		vnet_hdr->csum_offset = skb->csum_offset;
-+			vnet_hdr->csum_start = cpu_to_macvtap16(q,
-+				skb_checksum_start_offset(skb) + VLAN_HLEN);
-+		else
-+			vnet_hdr->csum_start = cpu_to_macvtap16(q,
-+				skb_checksum_start_offset(skb));
-+		vnet_hdr->csum_offset = cpu_to_macvtap16(q, skb->csum_offset);
- 	} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
- 		vnet_hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
- 	} /* else everything is zero */
-@@ -666,12 +683,14 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
- 		if (err < 0)
- 			goto err;
- 		if ((vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
--		     vnet_hdr.csum_start + vnet_hdr.csum_offset + 2 >
--							vnet_hdr.hdr_len)
--			vnet_hdr.hdr_len = vnet_hdr.csum_start +
--						vnet_hdr.csum_offset + 2;
-+		     macvtap16_to_cpu(q, vnet_hdr.csum_start) +
-+		     macvtap16_to_cpu(q, vnet_hdr.csum_offset) + 2 >
-+			     macvtap16_to_cpu(q, vnet_hdr.hdr_len))
-+			vnet_hdr.hdr_len = cpu_to_macvtap16(q,
-+				 macvtap16_to_cpu(q, vnet_hdr.csum_start) +
-+				 macvtap16_to_cpu(q, vnet_hdr.csum_offset) + 2);
- 		err = -EINVAL;
--		if (vnet_hdr.hdr_len > len)
-+		if (macvtap16_to_cpu(q, vnet_hdr.hdr_len) > len)
- 			goto err;
- 	}
+ 	hdr = skb_vnet_hdr(skb);
  
-@@ -684,7 +703,8 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
- 		goto err;
+-	if (vi->mergeable_rx_bufs) {
+-		hdr_len = sizeof hdr->mhdr;
+-		hdr_padded_len = sizeof hdr->mhdr;
+-	} else {
+-		hdr_len = sizeof hdr->hdr;
++	hdr_len = vi->hdr_len;
++	if (vi->mergeable_rx_bufs)
++		hdr_padded_len = sizeof *hdr;
++	else
+ 		hdr_padded_len = sizeof(struct padded_vnet_hdr);
+-	}
  
- 	if (m && m->msg_control && sock_flag(&q->sk, SOCK_ZEROCOPY)) {
--		copylen = vnet_hdr.hdr_len ? vnet_hdr.hdr_len : GOODCOPY_LEN;
-+		copylen = vnet_hdr.hdr_len ?
-+			macvtap16_to_cpu(q, vnet_hdr.hdr_len) : GOODCOPY_LEN;
- 		if (copylen > good_linear)
- 			copylen = good_linear;
- 		linear = copylen;
-@@ -695,10 +715,10 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 	memcpy(hdr, p, hdr_len);
  
- 	if (!zerocopy) {
- 		copylen = len;
--		if (vnet_hdr.hdr_len > good_linear)
-+		if (macvtap16_to_cpu(q, vnet_hdr.hdr_len) > good_linear)
- 			linear = good_linear;
+@@ -317,11 +311,11 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+ 	return skb;
+ }
+ 
+-static struct sk_buff *receive_small(void *buf, unsigned int len)
++static struct sk_buff *receive_small(struct virtnet_info *vi, void *buf, unsigned int len)
+ {
+ 	struct sk_buff * skb = buf;
+ 
+-	len -= sizeof(struct virtio_net_hdr);
++	len -= vi->hdr_len;
+ 	skb_trim(skb, len);
+ 
+ 	return skb;
+@@ -354,8 +348,8 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 					 unsigned int len)
+ {
+ 	void *buf = mergeable_ctx_to_buf_address(ctx);
+-	struct skb_vnet_hdr *hdr = buf;
+-	u16 num_buf = virtio16_to_cpu(rq->vq->vdev, hdr->mhdr.num_buffers);
++	struct virtio_net_hdr_mrg_rxbuf *hdr = buf;
++	u16 num_buf = virtio16_to_cpu(vi->vdev, hdr->num_buffers);
+ 	struct page *page = virt_to_head_page(buf);
+ 	int offset = buf - page_address(page);
+ 	unsigned int truesize = max(len, mergeable_ctx_to_buf_truesize(ctx));
+@@ -373,8 +367,8 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 		if (unlikely(!ctx)) {
+ 			pr_debug("%s: rx error: %d buffers out of %d missing\n",
+ 				 dev->name, num_buf,
+-				 virtio16_to_cpu(rq->vq->vdev,
+-						 hdr->mhdr.num_buffers));
++				 virtio16_to_cpu(vi->vdev,
++						 hdr->num_buffers));
+ 			dev->stats.rx_length_errors++;
+ 			goto err_buf;
+ 		}
+@@ -441,7 +435,7 @@ static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
+ 	struct net_device *dev = vi->dev;
+ 	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
+ 	struct sk_buff *skb;
+-	struct skb_vnet_hdr *hdr;
++	struct virtio_net_hdr_mrg_rxbuf *hdr;
+ 
+ 	if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
+ 		pr_debug("%s: short packet %i\n", dev->name, len);
+@@ -463,7 +457,7 @@ static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
+ 	else if (vi->big_packets)
+ 		skb = receive_big(dev, vi, rq, buf, len);
+ 	else
+-		skb = receive_small(buf, len);
++		skb = receive_small(vi, buf, len);
+ 
+ 	if (unlikely(!skb))
+ 		return;
+@@ -545,7 +539,7 @@ static int add_recvbuf_small(struct virtnet_info *vi, struct receive_queue *rq,
+ 			     gfp_t gfp)
+ {
+ 	struct sk_buff *skb;
+-	struct skb_vnet_hdr *hdr;
++	struct virtio_net_hdr_mrg_rxbuf *hdr;
+ 	int err;
+ 
+ 	skb = __netdev_alloc_skb_ip_align(vi->dev, GOOD_PACKET_LEN, gfp);
+@@ -556,7 +550,7 @@ static int add_recvbuf_small(struct virtnet_info *vi, struct receive_queue *rq,
+ 
+ 	hdr = skb_vnet_hdr(skb);
+ 	sg_init_table(rq->sg, MAX_SKB_FRAGS + 2);
+-	sg_set_buf(rq->sg, &hdr->hdr, sizeof hdr->hdr);
++	sg_set_buf(rq->sg, hdr, vi->hdr_len);
+ 	skb_to_sgvec(skb, rq->sg + 1, 0, skb->len);
+ 
+ 	err = virtqueue_add_inbuf(rq->vq, rq->sg, 2, skb, gfp);
+@@ -566,7 +560,8 @@ static int add_recvbuf_small(struct virtnet_info *vi, struct receive_queue *rq,
+ 	return err;
+ }
+ 
+-static int add_recvbuf_big(struct receive_queue *rq, gfp_t gfp)
++static int add_recvbuf_big(struct virtnet_info *vi, struct receive_queue *rq,
++			   gfp_t gfp)
+ {
+ 	struct page *first, *list = NULL;
+ 	char *p;
+@@ -597,8 +592,8 @@ static int add_recvbuf_big(struct receive_queue *rq, gfp_t gfp)
+ 	p = page_address(first);
+ 
+ 	/* rq->sg[0], rq->sg[1] share the same page */
+-	/* a separated rq->sg[0] for virtio_net_hdr only due to QEMU bug */
+-	sg_set_buf(&rq->sg[0], p, sizeof(struct virtio_net_hdr));
++	/* a separated rq->sg[0] for header - required in case !any_header_sg */
++	sg_set_buf(&rq->sg[0], p, vi->hdr_len);
+ 
+ 	/* rq->sg[1] for data packet, from offset */
+ 	offset = sizeof(struct padded_vnet_hdr);
+@@ -677,7 +672,7 @@ static bool try_fill_recv(struct virtnet_info *vi, struct receive_queue *rq,
+ 		if (vi->mergeable_rx_bufs)
+ 			err = add_recvbuf_mergeable(rq, gfp);
+ 		else if (vi->big_packets)
+-			err = add_recvbuf_big(rq, gfp);
++			err = add_recvbuf_big(vi, rq, gfp);
  		else
--			linear = vnet_hdr.hdr_len;
-+			linear = macvtap16_to_cpu(q, vnet_hdr.hdr_len);
+ 			err = add_recvbuf_small(vi, rq, gfp);
+ 
+@@ -857,18 +852,14 @@ static void free_old_xmit_skbs(struct send_queue *sq)
+ 
+ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+ {
+-	struct skb_vnet_hdr *hdr;
++	struct virtio_net_hdr_mrg_rxbuf *hdr;
+ 	const unsigned char *dest = ((struct ethhdr *)skb->data)->h_dest;
+ 	struct virtnet_info *vi = sq->vq->vdev->priv;
+ 	unsigned num_sg;
+-	unsigned hdr_len;
++	unsigned hdr_len = vi->hdr_len;
+ 	bool can_push;
+ 
+ 	pr_debug("%s: xmit %p %pM\n", vi->dev->name, skb, dest);
+-	if (vi->mergeable_rx_bufs)
+-		hdr_len = sizeof hdr->mhdr;
+-	else
+-		hdr_len = sizeof hdr->hdr;
+ 
+ 	can_push = vi->any_header_sg &&
+ 		!((unsigned long)skb->data & (__alignof__(*hdr) - 1)) &&
+@@ -876,7 +867,7 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+ 	/* Even if we can, don't push here yet as this would skew
+ 	 * csum_start offset below. */
+ 	if (can_push)
+-		hdr = (struct skb_vnet_hdr *)(skb->data - hdr_len);
++		hdr = (struct virtio_net_hdr_mrg_rxbuf *)(skb->data - hdr_len);
+ 	else
+ 		hdr = skb_vnet_hdr(skb);
+ 
+@@ -909,7 +900,7 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
  	}
  
- 	skb = macvtap_alloc_skb(&q->sk, NET_IP_ALIGN, copylen,
-@@ -725,7 +745,7 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
- 	skb->protocol = eth_hdr(skb)->h_proto;
+ 	if (vi->mergeable_rx_bufs)
+-		hdr->mhdr.num_buffers = 0;
++		hdr->num_buffers = 0;
  
- 	if (vnet_hdr_len) {
--		err = macvtap_skb_from_vnet_hdr(skb, &vnet_hdr);
-+		err = macvtap_skb_from_vnet_hdr(q, skb, &vnet_hdr);
- 		if (err)
- 			goto err_kfree;
- 	}
-@@ -791,7 +811,7 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
- 		if ((len -= vnet_hdr_len) < 0)
- 			return -EINVAL;
+ 	sg_init_table(sq->sg, MAX_SKB_FRAGS + 2);
+ 	if (can_push) {
+@@ -1814,18 +1805,19 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
+ 		vi->mergeable_rx_bufs = true;
  
--		macvtap_skb_to_vnet_hdr(skb, &vnet_hdr);
-+		macvtap_skb_to_vnet_hdr(q, skb, &vnet_hdr);
++	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
++		vi->hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
++	else
++		vi->hdr_len = sizeof(struct virtio_net_hdr);
++
+ 	if (virtio_has_feature(vdev, VIRTIO_F_ANY_LAYOUT))
+ 		vi->any_header_sg = true;
  
- 		if (memcpy_toiovecend(iv, (void *)&vnet_hdr, 0, sizeof(vnet_hdr)))
- 			return -EFAULT;
-@@ -1003,8 +1023,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
- 			return -EFAULT;
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
+ 		vi->has_cvq = true;
  
- 		ret = 0;
--		if ((u & ~(IFF_VNET_HDR | IFF_MULTI_QUEUE)) !=
--		    (IFF_NO_PI | IFF_TAP))
-+		if ((u & ~MACVTAP_FEATURES) != (IFF_NO_PI | IFF_TAP))
- 			ret = -EINVAL;
- 		else
- 			q->flags = u;
-@@ -1036,8 +1055,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
- 		return ret;
+-	if (vi->any_header_sg) {
+-		if (vi->mergeable_rx_bufs)
+-			dev->needed_headroom = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+-		else
+-			dev->needed_headroom = sizeof(struct virtio_net_hdr);
+-	}
++	if (vi->any_header_sg)
++		dev->needed_headroom = vi->hdr_len;
  
- 	case TUNGETFEATURES:
--		if (put_user(IFF_TAP | IFF_NO_PI | IFF_VNET_HDR |
--			     IFF_MULTI_QUEUE, up))
-+		if (put_user(IFF_TAP | IFF_NO_PI | MACVTAP_FEATURES, up))
- 			return -EFAULT;
- 		return 0;
- 
+ 	/* Use single tx/rx queue pair as default */
+ 	vi->curr_queue_pairs = 1;
 -- 
 MST
