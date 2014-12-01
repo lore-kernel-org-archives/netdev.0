@@ -1,186 +1,48 @@
-From: Wolfgang Walter <linux@stwm.de>
-Subject: Re: [bisected] xfrm: TCP connection initiating PMTU discovery stalls on v3.12+
-Date: Mon, 01 Dec 2014 14:17:28 +0100
-Message-ID: <2335530.7OPnEQXbmV@h2o.as.studentenwerk.mhn.de>
-References: <1709726.jUgUSQI9sl@pikkukde.a.i2n>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH] xen-netfront: Remove BUGs on paged skb data
+ which crosses a page boundary
+Date: Mon, 1 Dec 2014 13:27:32 +0000
+Message-ID: <547C6CC4.9070605@citrix.com>
+References: <1416968904-70874-1-git-send-email-seth.forshee@canonical.com> <20141126.122812.223757363894961994.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
-To: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <zoltan.kiss@linaro.org>, <eric.dumazet@gmail.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<stefan.bader@canonical.com>, <david.vrabel@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <boris.ostrovsky@oracle.com>
+To: David Miller <davem@davemloft.net>, <seth.forshee@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailin.studentenwerk.mhn.de ([141.84.225.229]:40107 "EHLO
-	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753357AbaLANRb convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Dec 2014 08:17:31 -0500
-In-Reply-To: <1709726.jUgUSQI9sl@pikkukde.a.i2n>
+Received: from smtp02.citrix.com ([66.165.176.63]:39288 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753532AbaLAN1v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2014 08:27:51 -0500
+In-Reply-To: <20141126.122812.223757363894961994.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Samstag, 29. November 2014, 12:44:07 schrieb Thomas Jarosch:
-> Hello,
->=20
-> we're in the process of updating production level machines
-> from kernel 3.4.101 to kernel 3.14.25. On one mail server
-> we noticed that emails destined for an IPSec tunnel sometimes
-> get stuck in the mail queue with TCP timeouts.
->=20
-> To make a long story short: When the VPN connection is initially
-> set up or re-newed, the path MTU for the xfrm tunnel is undetermined.
->=20
-> As soon as a TCP client starts to send large packets,
-> it triggers path MTU detection. Some middlebox on the
-> way to the final server has a lower MTU and sends back
-> an "ICMP fragmentation needed" packet as normal.
->=20
-> With the old kernel, the packet size for the TCP connection inside
-> the xfrm tunnel gets adjusted and all is fine. With kernel v3.12+,
-> the connection stalls completely. Same thing with kernel v3.18-rc6.
+On 26/11/14 17:28, David Miller wrote:
+> From: Seth Forshee <seth.forshee@canonical.com>
+> Date: Tue, 25 Nov 2014 20:28:24 -0600
+> 
+>> These BUGs can be erroneously triggered by frags which refer to
+>> tail pages within a compound page. The data in these pages may
+>> overrun the hardware page while still being contained within the
+>> compound page, but since compound_order() evaluates to 0 for tail
+>> pages the assertion fails. The code already iterates through
+>> subsequent pages correctly in this scenario, so the BUGs are
+>> unnecessary and can be removed.
+>>
+>> Fixes: f36c374782e4 ("xen/netfront: handle compound page fragments on transmit")
+>> Cc: <stable@vger.kernel.org> # 3.7+
+>> Signed-off-by: Seth Forshee <seth.forshee@canonical.com>
+> 
+> Can I get some Xen developer reviews?
 
-We see something similar with real nic (RTL8139). In our case only the =
-first=20
-tcp-connection which triggers PMTU stalls. Later tcp-connections then w=
-ork=20
-fine.
+Sorry for the delay, I've been on holiday.
 
-I will revert that patch and see if that fixes the problem.
+Reviewed-by: David Vrabel <david.vrabel@citrix.com>
 
->=20
-> We wrote a small tool to mimic postfix's TCP behavior (see attached f=
-ile).
-> In the end it's a normal TCP client sending large packets.
-> The server side is just "socat - tcp4-listen:667".
->=20
-> If you run "socket_client" a second time, the path MTU
-> for the xfrm tunnel is already known and packets flow normal, too.
->=20
->=20
-> The "evil" commit in question is this one:
-> ---------------------------------------------------------------------
-> commit 8f26fb1c1ed81c33f5d87c5936f4d9d1b4118918
-> Author: Eric Dumazet <edumazet@google.com>
-> Date:   Tue Oct 15 12:24:54 2013 -0700
->=20
->     tcp: remove the sk_can_gso() check from tcp_set_skb_tso_segs()
->=20
->     sk_can_gso() should only be used as a hint in tcp_sendmsg() to bu=
-ild GSO
-> packets in the first place. (As a performance hint)
->=20
->     Once we have GSO packets in write queue, we can not decide they a=
-re no
->     longer GSO only because flow now uses a route which doesn't handl=
-e
->     TSO/GSO.
->=20
->     Core networking stack handles the case very well for us, all we n=
-eed
->     is keeping track of packet counts in MSS terms, regardless of
->     segmentation done later (in GSO or hardware)
->=20
->     Right now, if  tcp_fragment() splits a GSO packet in two parts,
->     @left and @right, and route changed through a non GSO device,
->     both @left and @right have pcount set to 1, which is wrong,
->     and leads to incorrect packet_count tracking.
->=20
->     This problem was added in commit d5ac99a648 ("[TCP]: skb pcount w=
-ith MTU
-> discovery")
->=20
->     Signed-off-by: Eric Dumazet <edumazet@google.com>
->     Signed-off-by: Neal Cardwell <ncardwell@google.com>
->     Signed-off-by: Yuchung Cheng <ycheng@google.com>
->     Reported-by: Maciej =C5=BBenczykowski <maze@google.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->=20
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 8fad1c1..d46f214 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -989,8 +989,7 @@ static void tcp_set_skb_tso_segs(const struct soc=
-k *sk,
-> struct sk_buff *skb, /* Make sure we own this skb before messing
-> gso_size/gso_segs */ WARN_ON_ONCE(skb_cloned(skb));
->=20
-> -       if (skb->len <=3D mss_now || !sk_can_gso(sk) ||
-> -           skb->ip_summed =3D=3D CHECKSUM_NONE) {
-> +       if (skb->len <=3D mss_now || skb->ip_summed =3D=3D CHECKSUM_N=
-ONE) {
->                 /* Avoid the costly divide in the normal
->                  * non-TSO case.
->                  */
-> ---------------------------------------------------------------------
->=20
-> When I revert it, even kernel v3.18-rc6 starts working.
-> But I doubt this is the root problem, may be just hiding another issu=
-e.
->=20
-> --- Sample output of socket_client using vanilla v3.12 kernel ---
-> [1417258063 SEND result: 4096, strerror: Success]
-> tcp max seg: res: 0, max_seg: 1370
-> [1417258063 SEND result: 4096, strerror: Success]
-> tcp max seg: res: 0, max_seg: 1370
-> [1417258063 SEND result: 4096, strerror: Success]
-> tcp max seg: res: 0, max_seg: 1370
-> [1417258063 SEND result: 4096, strerror: Success]
-> tcp max seg: res: 0, max_seg: 1370
-> [1417258063 SEND result: 4096, strerror: Success]
-> tcp max seg: res: 0, max_seg: 1338
-> [1417258063 SEND result: 4096, strerror: Success]
-> tcp max seg: res: 0, max_seg: 1338
-> *STUCK*
-> --------------------------------------------------------
->=20
-> The "machine" is running on KVM and using "virtio_net" as NIC driver.
-> I've played with the ethtool offload settings:
->=20
-> *** eth1 defaults ***
-> Offload parameters for eth1:
-> rx-checksumming: on
-> tx-checksumming: on
-> scatter-gather: on
-> tcp-segmentation-offload: on
-> udp-fragmentation-offload: on
-> generic-segmentation-offload: on
-> generic-receive-offload: on
-> large-receive-offload: off
->=20
-> *** eth1 working (no stalls) using vanilla kernel ***
-> Offload parameters for eth1:
-> rx-checksumming: on
-> tx-checksumming: off  <-- the magic switch
-> scatter-gather: off
-> tcp-segmentation-offload: off
-> udp-fragmentation-offload: off
-> generic-segmentation-offload: off
-> generic-receive-offload: off
-> large-receive-offload: off
->=20
-> When I turn "tx-checksumming" back on, it fails again.
-> Though that is probably also just a side effect.
->=20
-> I can provide tcpdumps if needed but they are no real help
-> since you can just see the kernel stops sending TCP packets.
-> (and the outgoing TCP packets are encrypted in ESP packets)
->=20
->=20
-> Any vague idea what might be the root cause?
->=20
-> I also tried reverting commit 4d53eff48b5f03ce67f4f301d6acca1d2145cb7=
-a
-> ("xfrm: Don't queue retransmitted packets if the original is still on=
- the
-> host") but that didn't change the situation. In fact it wasn't even
-> triggered.
->=20
-> Please CC: comments. Thanks.
->=20
-> Best regards,
-> Thomas
+Thanks.
 
-Regards,
---=20
-Wolfgang Walter
-Studentenwerk M=C3=BCnchen
-Anstalt des =C3=B6ffentlichen Rechts
+David
