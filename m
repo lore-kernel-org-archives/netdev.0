@@ -1,117 +1,224 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v8 46/50] af_packet: virtio 1.0 stubs
-Date: Mon, 1 Dec 2014 18:06:39 +0200
-Message-ID: <1417449619-24896-47-git-send-email-mst@redhat.com>
-References: <1417449619-24896-1-git-send-email-mst@redhat.com>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: Re: Is this 32-bit NCM?
+Date: Mon, 1 Dec 2014 17:11:35 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1412011710080.13834@gmail.com>
+References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com> <54781523.6030600@audiocodes.com>
+ <alpine.LNX.2.03.1411280923230.3997@gmail.com> <54783443.50700@audiocodes.com> <alpine.LNX.2.03.1411280944200.4040@gmail.com> <54783A1D.3090607@audiocodes.com> <alpine.LNX.2.03.1411281014450.4101@gmail.com> <54783F84.20105@audiocodes.com>
+ <alpine.LNX.2.03.1411300202310.4742@gmail.com> <CAPChA0czA3vxPZdwk-SgO1Wr83zOV1UoWcL4=05qtBktwq5=TA@mail.gmail.com> <alpine.LNX.2.03.1411301139290.1972@gmail.com> <547BDCF5.8070705@audiocodes.com> <alpine.LNX.2.03.1412010626590.1576@gmail.com>
+ <547C01DF.8030001@audiocodes.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
-	rusty@au1.ibm.com, nab@linux-iscsi.org, pbonzini@redhat.com,
-	thuth@linux.vnet.ibm.com, dahi@linux.vnet.ibm.com,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Atzm Watanabe <atzm@stratosphere.co.jp>,
-	Tom Herbert <therbert@google.com>,
-	Willem de Bruijn <willemb@google.com>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1417449619-24896-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-339384677-1417450296=:13834"
+Cc: Alex Strizhevsky <alexxst@gmail.com>,
+	Eli Britstein <Eli.Britstein@audiocodes.com>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"youtux@gmail.com" <youtux@gmail.com>,
+	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	=?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+To: Kevin Zhu <Mingying.Zhu@audiocodes.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:58497 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932131AbaLAQLG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2014 11:11:06 -0500
+In-Reply-To: <547C01DF.8030001@audiocodes.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This merely fixes sparse warnings, without actually
-adding support for the new APIs.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Still working out the best way to enable the new
-functionality.
+--8323328-339384677-1417450296=:13834
+Content-Type: TEXT/PLAIN; charset=utf-8
+Content-Transfer-Encoding: 8BIT
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- net/packet/af_packet.c | 35 ++++++++++++++++++++++-------------
- 1 file changed, 22 insertions(+), 13 deletions(-)
+thank you.
+The interesting thing is that, by the way, I am not even able to use the dongle 
+via PPP - it is not relevant, but curious.
+Ok - at the moment I don't have other ideas.
+I am sorry.
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 87d20f4..d4a877e 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2444,13 +2444,15 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
- 			goto out_unlock;
- 
- 		if ((vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
--		    (vnet_hdr.csum_start + vnet_hdr.csum_offset + 2 >
--		      vnet_hdr.hdr_len))
--			vnet_hdr.hdr_len = vnet_hdr.csum_start +
--						 vnet_hdr.csum_offset + 2;
-+		    (__virtio16_to_cpu(false, vnet_hdr.csum_start) +
-+		     __virtio16_to_cpu(false, vnet_hdr.csum_offset) + 2 >
-+		      __virtio16_to_cpu(false, vnet_hdr.hdr_len)))
-+			vnet_hdr.hdr_len = __cpu_to_virtio16(false,
-+				 __virtio16_to_cpu(false, vnet_hdr.csum_start) +
-+				__virtio16_to_cpu(false, vnet_hdr.csum_offset) + 2);
- 
- 		err = -EINVAL;
--		if (vnet_hdr.hdr_len > len)
-+		if (__virtio16_to_cpu(false, vnet_hdr.hdr_len) > len)
- 			goto out_unlock;
- 
- 		if (vnet_hdr.gso_type != VIRTIO_NET_HDR_GSO_NONE) {
-@@ -2492,7 +2494,8 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
- 	err = -ENOBUFS;
- 	hlen = LL_RESERVED_SPACE(dev);
- 	tlen = dev->needed_tailroom;
--	skb = packet_alloc_skb(sk, hlen + tlen, hlen, len, vnet_hdr.hdr_len,
-+	skb = packet_alloc_skb(sk, hlen + tlen, hlen, len,
-+			       __virtio16_to_cpu(false, vnet_hdr.hdr_len),
- 			       msg->msg_flags & MSG_DONTWAIT, &err);
- 	if (skb == NULL)
- 		goto out_unlock;
-@@ -2534,14 +2537,16 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
- 
- 	if (po->has_vnet_hdr) {
- 		if (vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
--			if (!skb_partial_csum_set(skb, vnet_hdr.csum_start,
--						  vnet_hdr.csum_offset)) {
-+			u16 s = __virtio16_to_cpu(false, vnet_hdr.csum_start);
-+			u16 o = __virtio16_to_cpu(false, vnet_hdr.csum_offset);
-+			if (!skb_partial_csum_set(skb, s, o)) {
- 				err = -EINVAL;
- 				goto out_free;
- 			}
- 		}
- 
--		skb_shinfo(skb)->gso_size = vnet_hdr.gso_size;
-+		skb_shinfo(skb)->gso_size =
-+			__virtio16_to_cpu(false, vnet_hdr.gso_size);
- 		skb_shinfo(skb)->gso_type = gso_type;
- 
- 		/* Header must be checked, and gso_segs computed. */
-@@ -2912,8 +2917,10 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
- 			struct skb_shared_info *sinfo = skb_shinfo(skb);
- 
- 			/* This is a hint as to how much should be linear. */
--			vnet_hdr.hdr_len = skb_headlen(skb);
--			vnet_hdr.gso_size = sinfo->gso_size;
-+			vnet_hdr.hdr_len =
-+				__cpu_to_virtio16(false, skb_headlen(skb));
-+			vnet_hdr.gso_size =
-+				__cpu_to_virtio16(false, sinfo->gso_size);
- 			if (sinfo->gso_type & SKB_GSO_TCPV4)
- 				vnet_hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
- 			else if (sinfo->gso_type & SKB_GSO_TCPV6)
-@@ -2931,8 +2938,10 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
- 
- 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 			vnet_hdr.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
--			vnet_hdr.csum_start = skb_checksum_start_offset(skb);
--			vnet_hdr.csum_offset = skb->csum_offset;
-+			vnet_hdr.csum_start = __cpu_to_virtio16(false,
-+					  skb_checksum_start_offset(skb));
-+			vnet_hdr.csum_offset = __cpu_to_virtio16(false,
-+							 skb->csum_offset);
- 		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
- 			vnet_hdr.flags = VIRTIO_NET_HDR_F_DATA_VALID;
- 		} /* else everything is zero */
--- 
-MST
+On Mon, 1 Dec 2014, Kevin Zhu wrote:
+
+==Date: Mon, 1 Dec 2014 06:51:31
+==From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
+==To: Enrico Mioso <mrkiko.rs@gmail.com>
+==Cc: Alex Strizhevsky <alexxst@gmail.com>,
+==    Eli Britstein <Eli.Britstein@audiocodes.com>,
+==    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+==    "youtux@gmail.com" <youtux@gmail.com>,
+==    Midge Shaojun  Tan <ShaojunMidge.Tan@audiocodes.com>,
+==    "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+==    Bjørn Mork <bjorn@mork.no>
+==Subject: Re: Is this 32-bit NCM?
+==
+==I'm sorry.
+==
+==According to the wireshark capture, those packets without NCM signature
+==are probably some periodical status checking interrupts. And some other
+==packets in the same capture do show the NCM signature. Those packets are
+==ping packets.
+==
+==Regarding the offset and alignment definition, the specification says as
+==below:
+==
+==Alignment requirements are met by controlling the location of the
+==payload (the data following the Ether-
+==net header in each datagram). This alignment is specified by indicating
+==a constraint as a divisor and a
+==remainder. The agent formatting a given NTB aligns the payload of each
+==datagram by inserting padding,
+==such that the offset of each datagram satisfies the constraint:
+==
+==Offset % wNdpInDivisor == wNdpInPayloadRemainder (for IN datagrams)
+==Or
+==Offset % wNdpOutDivisor == wNdpOutPayloadRemainder (for OUT datagrams)
+==
+==
+==Regards,
+==Kevin
+==
+==On 12/01/2014 01:28 PM, Enrico Mioso wrote:
+==> Sorry.
+==> I am a visually impaired person - and use a braille display to read your
+==> messages; can't have access to files that don't contain ascii-based content.
+==> Sorry Kevin.
+==>
+==> And thank you for everything. Don't worry about the lateness.
+==> It was sunday.
+==>
+==>
+==> On Mon, 1 Dec 2014, Kevin Zhu wrote:
+==>
+==> ==Date: Mon, 1 Dec 2014 04:14:10
+==> ==From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
+==> ==To: Enrico Mioso <mrkiko.rs@gmail.com>, Alex Strizhevsky <alexxst@gmail.com>
+==> ==Cc: Eli Britstein <Eli.Britstein@audiocodes.com>,
+==> ==    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+==> ==    "youtux@gmail.com" <youtux@gmail.com>,
+==> ==    Midge Shaojun  Tan <ShaojunMidge.Tan@audiocodes.com>,
+==> ==    "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+==> ==    Bjørn Mork <bjorn@mork.no>
+==> ==Subject: Re: Is this 32-bit NCM?
+==> ==
+==> ==Hi Enrico,
+==> ==
+==> ==I think those packets are some interrupt status. Please check my capture by
+==> ==wireshark.
+==> ==
+==> ==[IMAGE]
+==> ==
+==> ==And this is a ping packet from window, which indicates it's an NCM packet.
+==> ==
+==> ==[IMAGE]
+==> ==
+==> ==Regards,
+==> ==Kevin
+==> ==On 11/30/2014 06:39 PM, Enrico Mioso wrote:
+==> ==
+==> ==My impression guys is that this is not cdc_ncm protocol.
+==> ==Look how many short packets you can see in there.
+==> ==Without any ncm signature.
+==> ==right?
+==> ==
+==> ==
+==> ==On Sun, 30 Nov 2014, Alex Strizhevsky wrote:
+==> ==
+==> ====Date: Sun, 30 Nov 2014 05:22:20
+==> ====From: Alex Strizhevsky <alexxst@gmail.com>
+==> ====To: Mrkiko Rs <mrkiko.rs@gmail.com>
+==> ====Cc: Eli Britstein <Eli.Britstein@audiocodes.com>, linux-usb@vger.kernel.or
+==> ==g,
+==> ====    "youtux@gmail.com" <youtux@gmail.com>,
+==> ====    Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
+==> ====    "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+==> ====    Kevin Zhu <Mingying.Zhu@audiocodes.com>, Bjørn Mork <bjorn@mork.no>
+==> ====Subject: Re: Is this 32-bit NCM?
+==> ====
+==> ====
+==> ====Hi Enrico,
+==> ====
+==> ====Actually I have two dongles with different firmwares (23.128.00.00.00 &
+==> ====21.286.03.01.209).
+==> ====Probably have sent to you the USB  capture with the first one.
+==> ====
+==> ====In fact we have to make work the second one, this dongle has relevant SW.
+==> ====
+==> ====On Nov 30, 2014 3:13 AM, "Enrico Mioso" <mrkiko.rs@gmail.com> wrote:
+==> ====      Hi guys.
+==> ====      Sorry for the late our but ... I was trying to figure out
+==> ====      something new about
+==> ====      this dongle.
+==> ====      I also searched for it in my city shops without finding it
+==> ====      actually.
+==> ====      But then I came back and ... tried to look at some things.
+==> ====
+==> ====      Alex, Kevin: in the Windows USB captures you sent me (and that I
+==> ====      sent on the
+==> ====      List), I can notiche something very strange.
+==> ====      with a shell on a computer connected to a test device I can see
+==> ====      the following:
+==> ====      at+gmr
+==> ====      21.286.03.01.209
+==> ====      OK
+==> ====      and so why in the Windows sniff the dongle answers to the same
+==> ====      question
+==> ====      something like
+==> ====      23.128.00.00.00
+==> ====      ?
+==> ====      Alex - was it the same dongle?
+==> ====      Kevin or anyone: can you use putty to interact with the dongle
+==> ====      under Windows
+==> ====      and type some commands, like:
+==> ====      at+gmr
+==> ====      and other similar commands?
+==> ====      If the dongle reports different firmware versions under Linux
+==> ====      and Windows, then
+==> ====      guys... we need to figure out the Windows switch message.
+==> ====      Overmore - in the device installation sh*t, you can see there is
+==> ====      a firmware
+==> ====      updater... Why?
+==> ====
+==> ====      Alex: I used the
+==> ====      at^reset
+==> ====      command to get the modem back to normal state once; and so it
+==> ====      restored the
+==> ====      nvram to default or something.
+==> ====      If you reconnect it to windows ... i hope it gets re-setup as
+==> ====      before.
+==> ====      But - nothing harmful to the device, only to it's settings,
+==> ====      sorry.
+==> ====      I restored the relevant settings and it connects again, but no
+==> ====      dhcp. But - be
+==> ====      peaceful: other modems out there seems to not get dhcp anyway.
+==> ====      this is the state the modem arrives when you buy it, so windows
+==> ====      should know
+==> ====      Wwhat To Say To The Modem (TM).
+==> ====      Another thing - note that:
+==> ====      [14170.048693] cdc_ncm 1-2:1.2: GET_MAX_DATAGRAM_SIZE failed
+==> ====
+==> ====      Any ideas, comments, suggestions are highly appreciated guys.
+==> ====      Of any type.
+==> ====
+==> ====      Bjorn - unfortunately it seems this problem is related to E3727
+==> ====      and E3276
+==> ====      sticks; they can get IP from DHCP but not go ahead.
+==> ====
+==> ====
+==> ====
+==> ==
+==> ==
+==> ==This email and any files transmitted with it are confidential material. They
+==> ==are intended solely for the use of the designated individual or entity to
+==> ==whom they are addressed. If the reader of this message is not the intended
+==> ==recipient, you are hereby notified that any dissemination, use, distribution
+==> ==or copying of this communication is strictly prohibited and may be unlawful.
+==> ==
+==> ==If you have received this email in error please immediately notify the
+==> ==sender and delete or destroy any copy of this message
+==> ==
+==This email and any files transmitted with it are confidential material. They are intended solely for the use of the designated individual or entity to whom they are addressed. If the reader of this message is not the intended recipient, you are hereby notified that any dissemination, use, distribution or copying of this communication is strictly prohibited and may be unlawful.
+==
+==If you have received this email in error please immediately notify the sender and delete or destroy any copy of this message
+==
+--8323328-339384677-1417450296=:13834--
