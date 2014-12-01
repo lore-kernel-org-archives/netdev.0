@@ -1,7 +1,8 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH RFC v4 net-next 2/5] virtio_net: bql
-Date: Mon,  1 Dec 2014 18:17:05 +0800
-Message-ID: <1417429028-11971-3-git-send-email-jasowang@redhat.com>
+Subject: [PATCH RFC v4 net-next 3/5] virtio-net: optimize free_old_xmit_skbs
+	stats
+Date: Mon,  1 Dec 2014 18:17:06 +0800
+Message-ID: <1417429028-11971-4-git-send-email-jasowang@redhat.com>
 References: <1417429028-11971-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,63 +23,52 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
+We already have counters for sent packets and sent bytes.
+Use them to reduce the number of u64_stats_update_begin/end().
 
-Improve tx batching using byte queue limits.
-Should be especially effective for MQ.
+Take care not to bother with stats update when called
+speculatively.
 
 Cc: Rusty Russell <rusty@rustcorp.com.au>
 Cc: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/net/virtio_net.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/net/virtio_net.c | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index f68114e..0ed24ff 100644
+index 0ed24ff..9f420c9 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -224,6 +224,7 @@ static unsigned int free_old_xmit_skbs(struct netdev_queue *txq,
- 	struct virtnet_info *vi = sq->vq->vdev->priv;
- 	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
- 	unsigned int packets = 0;
-+	unsigned int bytes = 0;
- 
- 	while (packets < budget &&
+@@ -230,16 +230,23 @@ static unsigned int free_old_xmit_skbs(struct netdev_queue *txq,
  	       (skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
-@@ -231,6 +232,7 @@ static unsigned int free_old_xmit_skbs(struct netdev_queue *txq,
+ 		pr_debug("Sent skb %p\n", skb);
  
- 		u64_stats_update_begin(&stats->tx_syncp);
- 		stats->tx_bytes += skb->len;
-+		bytes += skb->len;
- 		stats->tx_packets++;
- 		u64_stats_update_end(&stats->tx_syncp);
+-		u64_stats_update_begin(&stats->tx_syncp);
+-		stats->tx_bytes += skb->len;
+ 		bytes += skb->len;
+-		stats->tx_packets++;
+-		u64_stats_update_end(&stats->tx_syncp);
++		packets++;
  
-@@ -238,6 +240,8 @@ static unsigned int free_old_xmit_skbs(struct netdev_queue *txq,
- 		packets++;
+ 		dev_kfree_skb_any(skb);
+-		packets++;
  	}
  
-+	netdev_tx_completed_queue(txq, packets, bytes);
++	/* Avoid overhead when no packets have been processed
++	 * happens when called speculatively from start_xmit.
++	 */
++	if (!packets)
++		return 0;
 +
++	u64_stats_update_begin(&stats->tx_syncp);
++	stats->tx_bytes += bytes;
++	stats->tx_packets += packets;
++	u64_stats_update_end(&stats->tx_syncp);
++
+ 	netdev_tx_completed_queue(txq, packets, bytes);
+ 
  	if (sq->vq->num_free >= 2+MAX_SKB_FRAGS)
- 		netif_tx_start_queue(txq);
- 
-@@ -964,6 +968,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	int err;
- 	struct netdev_queue *txq = netdev_get_tx_queue(dev, qnum);
- 	bool kick = !skb->xmit_more;
-+	unsigned int bytes = skb->len;
- 
- 	virtqueue_disable_cb(sq->vq);
- 
-@@ -981,6 +986,8 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		return NETDEV_TX_OK;
- 	}
- 
-+	netdev_tx_sent_queue(txq, bytes);
-+
- 	/* Apparently nice girls don't return TX_BUSY; stop the queue
- 	 * before it gets out of hand.  Naturally, this wastes entries. */
- 	if (sq->vq->num_free < 2+MAX_SKB_FRAGS)
 -- 
 1.8.3.1
