@@ -1,69 +1,74 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] test: bpf: expand DIV_KX to DIV_MOD_KX
-Date: Mon, 1 Dec 2014 09:44:55 -0800
-Message-ID: <CAMEtUuwPkvCP1=nc3V+grc_Gp-7JG8GZLpJtDEeMr5mR-T-w1A@mail.gmail.com>
+From: "Fujinaka, Todd" <todd.fujinaka@intel.com>
+Subject: RE: [linux-nics] [PATCH] e1000: remove unused variables
+Date: Mon, 1 Dec 2014 18:56:46 +0000
+Message-ID: <9B4A1B1917080E46B64F07F2989DADD653454C69@ORSMSX114.amr.corp.intel.com>
+References: <1417065728-5592-1-git-send-email-sudipm.mukherjee@gmail.com>
+	<alpine.NEB.2.11.1411262157110.1481@chris.i8u.org>
+	<1417311913.7215.111.camel@decadent.org.uk> <20141201045446.GA3277@sudip-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>
-To: Denis Kirjanov <kda@linux-powerpc.org>,
-	Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:60223 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751868AbaLARo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2014 12:44:59 -0500
-Received: by mail-qa0-f53.google.com with SMTP id bm13so7455189qab.26
-        for <netdev@vger.kernel.org>; Mon, 01 Dec 2014 09:44:58 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Linux NICS <Linux-nics@isotope.jf.intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	Hisashi T Fujinaka <htodd@twofifty.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Greg@isotope.jf.intel.com" <Greg@isotope.jf.intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"John@isotope.jf.intel.com" <John@isotope.jf.intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
+	Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141201045446.GA3277@sudip-PC>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 1, 2014 at 2:12 AM, Denis Kirjanov <kda@linux-powerpc.org> wrote:
-> Expand DIV_KX to use BPF_MOD operation in the
-> DIV_KX bpf 'classic' test.
->
-> CC: Alexei Starovoitov <ast@plumgrid.com>
-> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+After discussing this locally, I'd like to NAK it because this could cause regressions to parts that are still in use but we don't have access to. Also, the assignment was necessary in the past for some versions of gcc and since this may be used in embedded systems using older compilers, we should leave it be.
 
-Increases test coverage. Makes sense. Thanks
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+Thanks.
 
-> ---
->  lib/test_bpf.c |   10 ++++++++--
->  1 file changed, 8 insertions(+), 2 deletions(-)
->
-> diff --git a/lib/test_bpf.c b/lib/test_bpf.c
-> index 3f167d2..80d78c5 100644
-> --- a/lib/test_bpf.c
-> +++ b/lib/test_bpf.c
-> @@ -124,7 +124,7 @@ static struct bpf_test tests[] = {
->                 { { 0, 0xfffffffd } }
->         },
->         {
-> -               "DIV_KX",
-> +               "DIV_MOD_KX",
->                 .u.insns = {
->                         BPF_STMT(BPF_LD | BPF_IMM, 8),
->                         BPF_STMT(BPF_ALU | BPF_DIV | BPF_K, 2),
-> @@ -134,12 +134,18 @@ static struct bpf_test tests[] = {
->                         BPF_STMT(BPF_MISC | BPF_TAX, 0),
->                         BPF_STMT(BPF_LD | BPF_IMM, 0xffffffff),
->                         BPF_STMT(BPF_ALU | BPF_DIV | BPF_K, 0x70000000),
-> +                       BPF_STMT(BPF_MISC | BPF_TAX, 0),
-> +                       BPF_STMT(BPF_LD | BPF_IMM, 0xffffffff),
-> +                       BPF_STMT(BPF_ALU | BPF_MOD | BPF_X, 0),
-> +                       BPF_STMT(BPF_MISC | BPF_TAX, 0),
-> +                       BPF_STMT(BPF_LD | BPF_IMM, 0xffffffff),
-> +                       BPF_STMT(BPF_ALU | BPF_MOD | BPF_K, 0x70000000),
->                         BPF_STMT(BPF_ALU | BPF_ADD | BPF_X, 0),
->                         BPF_STMT(BPF_RET | BPF_A, 0)
->                 },
->                 CLASSIC | FLAG_NO_DATA,
->                 { },
-> -               { { 0, 0x40000001 } }
-> +               { { 0, 0x20000000 } }
->         },
->         {
->                 "AND_OR_LSH_K",
+Todd Fujinaka
+Software Application Engineer
+Networking Division (ND)
+Intel Corporation
+todd.fujinaka@intel.com
+(503) 712-4565
+
+-----Original Message-----
+From: linux-nics-bounces@isotope.jf.intel.com [mailto:linux-nics-bounces@isotope.jf.intel.com] On Behalf Of Sudip Mukherjee
+Sent: Sunday, November 30, 2014 8:55 PM
+To: Ben Hutchings
+Cc: Linux NICS; e1000-devel@lists.sourceforge.net; Hisashi T Fujinaka; Vick, Matthew; Greg@isotope.jf.intel.com; Kirsher, Jeffrey T; netdev@vger.kernel.org; Wyborny, Carolyn; John@isotope.jf.intel.com; linux-kernel@vger.kernel.org
+Subject: Re: [linux-nics] [PATCH] e1000: remove unused variables
+
+On Sun, Nov 30, 2014 at 01:45:13AM +0000, Ben Hutchings wrote:
+> On Wed, 2014-11-26 at 21:59 -0800, Hisashi T Fujinaka wrote:
+> > I'm pretty sure those double reads are there for a reason, so most 
+> > of this I'm going to have to check on Monday. We have a long holiday 
+> > weekend here in the US.
+> [...]
+> 
+> If there were double register reads being replaced with single 
+> register reads, I'd agree this was likely to introduce a regression.  
+> But all I see is var = er32(REG) being changed to er32(REG).
+
+no, double register reads are not modified. only the unused variables are removed.
+
+thanks
+sudip
+
+> 
+> Ben.
+> 
 > --
-> 1.7.10.4
->
+> Ben Hutchings
+> The world is coming to an end.	Please log off.
+
+
+_______________________________________________
+Linux-nics mailing list
+Linux-nics@intel.com
