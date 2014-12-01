@@ -1,8 +1,8 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH RFC v4 net-next 3/5] virtio-net: optimize free_old_xmit_skbs
-	stats
-Date: Mon,  1 Dec 2014 18:17:06 +0800
-Message-ID: <1417429028-11971-4-git-send-email-jasowang@redhat.com>
+Subject: [PATCH RFC v4 net-next 4/5] virtio-net: add basic interrupt
+	coalescing support
+Date: Mon,  1 Dec 2014 18:17:07 +0800
+Message-ID: <1417429028-11971-5-git-send-email-jasowang@redhat.com>
 References: <1417429028-11971-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,52 +23,141 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-We already have counters for sent packets and sent bytes.
-Use them to reduce the number of u64_stats_update_begin/end().
-
-Take care not to bother with stats update when called
-speculatively.
+This patch enables the interrupt coalescing setting through ethtool.
 
 Cc: Rusty Russell <rusty@rustcorp.com.au>
 Cc: Michael S. Tsirkin <mst@redhat.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/net/virtio_net.c | 17 ++++++++++++-----
- 1 file changed, 12 insertions(+), 5 deletions(-)
+ drivers/net/virtio_net.c        | 67 +++++++++++++++++++++++++++++++++++++++++
+ include/uapi/linux/virtio_net.h | 12 ++++++++
+ 2 files changed, 79 insertions(+)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 0ed24ff..9f420c9 100644
+index 9f420c9..2a3551a 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -230,16 +230,23 @@ static unsigned int free_old_xmit_skbs(struct netdev_queue *txq,
- 	       (skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
- 		pr_debug("Sent skb %p\n", skb);
+@@ -142,6 +142,11 @@ struct virtnet_info {
  
--		u64_stats_update_begin(&stats->tx_syncp);
--		stats->tx_bytes += skb->len;
- 		bytes += skb->len;
--		stats->tx_packets++;
--		u64_stats_update_end(&stats->tx_syncp);
-+		packets++;
- 
- 		dev_kfree_skb_any(skb);
--		packets++;
- 	}
- 
-+	/* Avoid overhead when no packets have been processed
-+	 * happens when called speculatively from start_xmit.
-+	 */
-+	if (!packets)
-+		return 0;
+ 	/* Budget for polling tx completion */
+ 	u32 tx_work_limit;
 +
-+	u64_stats_update_begin(&stats->tx_syncp);
-+	stats->tx_bytes += bytes;
-+	stats->tx_packets += packets;
-+	u64_stats_update_end(&stats->tx_syncp);
-+
- 	netdev_tx_completed_queue(txq, packets, bytes);
++	__u32 rx_coalesce_usecs;
++	__u32 rx_max_coalesced_frames;
++	__u32 tx_coalesce_usecs;
++	__u32 tx_max_coalesced_frames;
+ };
  
- 	if (sq->vq->num_free >= 2+MAX_SKB_FRAGS)
+ struct skb_vnet_hdr {
+@@ -1419,12 +1424,73 @@ static void virtnet_get_channels(struct net_device *dev,
+ 	channels->other_count = 0;
+ }
+ 
++static int virtnet_set_coalesce(struct net_device *dev,
++				struct ethtool_coalesce *ec)
++{
++	struct virtnet_info *vi = netdev_priv(dev);
++	struct scatterlist sg;
++	struct virtio_net_ctrl_coalesce c;
++
++	if (!vi->has_cvq ||
++	    !virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_COALESCE))
++		return -EOPNOTSUPP;
++	if (vi->rx_coalesce_usecs != ec->rx_coalesce_usecs ||
++	    vi->rx_max_coalesced_frames != ec->rx_max_coalesced_frames) {
++		c.coalesce_usecs = ec->rx_coalesce_usecs;
++		c.max_coalesced_frames = ec->rx_max_coalesced_frames;
++		sg_init_one(&sg, &c, sizeof(c));
++		if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_COALESCE,
++					  VIRTIO_NET_CTRL_COALESCE_RX_SET,
++					  &sg)) {
++			dev_warn(&dev->dev, "Fail to set rx coalescing\n");
++			return -EINVAL;
++		}
++		vi->rx_coalesce_usecs = ec->rx_coalesce_usecs;
++		vi->rx_max_coalesced_frames = ec->rx_max_coalesced_frames;
++	}
++
++	if (vi->tx_coalesce_usecs != ec->tx_coalesce_usecs ||
++	    vi->tx_max_coalesced_frames != ec->tx_max_coalesced_frames) {
++		c.coalesce_usecs = ec->tx_coalesce_usecs;
++		c.max_coalesced_frames = ec->tx_max_coalesced_frames;
++		sg_init_one(&sg, &c, sizeof(c));
++		if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_COALESCE,
++					  VIRTIO_NET_CTRL_COALESCE_TX_SET,
++					  &sg)) {
++			dev_warn(&dev->dev, "Fail to set tx coalescing\n");
++			return -EINVAL;
++		}
++		vi->tx_coalesce_usecs = ec->tx_coalesce_usecs;
++		vi->tx_max_coalesced_frames = ec->tx_max_coalesced_frames;
++	}
++
++	vi->tx_work_limit = ec->tx_max_coalesced_frames_irq;
++
++	return 0;
++}
++
++static int virtnet_get_coalesce(struct net_device *dev,
++				struct ethtool_coalesce *ec)
++{
++	struct virtnet_info *vi = netdev_priv(dev);
++
++	ec->rx_coalesce_usecs = vi->rx_coalesce_usecs;
++	ec->rx_max_coalesced_frames = vi->rx_max_coalesced_frames;
++	ec->tx_coalesce_usecs = vi->tx_coalesce_usecs;
++	ec->tx_max_coalesced_frames = vi->tx_max_coalesced_frames;
++	ec->tx_max_coalesced_frames_irq = vi->tx_work_limit;
++
++	return 0;
++}
++
+ static const struct ethtool_ops virtnet_ethtool_ops = {
+ 	.get_drvinfo = virtnet_get_drvinfo,
+ 	.get_link = ethtool_op_get_link,
+ 	.get_ringparam = virtnet_get_ringparam,
+ 	.set_channels = virtnet_set_channels,
+ 	.get_channels = virtnet_get_channels,
++	.set_coalesce = virtnet_set_coalesce,
++	.get_coalesce = virtnet_get_coalesce,
+ };
+ 
+ #define MIN_MTU 68
+@@ -2022,6 +2088,7 @@ static unsigned int features[] = {
+ 	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
+ 	VIRTIO_NET_F_CTRL_MAC_ADDR,
+ 	VIRTIO_F_ANY_LAYOUT,
++	VIRTIO_NET_F_CTRL_COALESCE,
+ };
+ 
+ static struct virtio_driver virtio_net_driver = {
+diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
+index 172a7f0..cdafb57 100644
+--- a/include/uapi/linux/virtio_net.h
++++ b/include/uapi/linux/virtio_net.h
+@@ -33,6 +33,7 @@
+ /* The feature bitmap for virtio net */
+ #define VIRTIO_NET_F_CSUM	0	/* Host handles pkts w/ partial csum */
+ #define VIRTIO_NET_F_GUEST_CSUM	1	/* Guest handles pkts w/ partial csum */
++#define VIRTIO_NET_F_CTRL_COALESCE 3	/* Set coalescing */
+ #define VIRTIO_NET_F_MAC	5	/* Host has given MAC address. */
+ #define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
+ #define VIRTIO_NET_F_GUEST_TSO4	7	/* Guest can handle TSOv4 in. */
+@@ -201,4 +202,15 @@ struct virtio_net_ctrl_mq {
+  #define VIRTIO_NET_CTRL_MQ_VQ_PAIRS_MIN        1
+  #define VIRTIO_NET_CTRL_MQ_VQ_PAIRS_MAX        0x8000
+ 
++struct virtio_net_ctrl_coalesce {
++	__u32 coalesce_usecs;
++	__u32 max_coalesced_frames;
++};
++
++#define VIRTIO_NET_CTRL_COALESCE 6
++ #define VIRTIO_NET_CTRL_COALESCE_TX_SET 0
++ #define VIRTIO_NET_CTRL_COALESCE_TX_GET 1
++ #define VIRTIO_NET_CTRL_COALESCE_RX_SET 2
++ #define VIRTIO_NET_CTRL_COALESCE_RX_GET 3
++
+ #endif /* _LINUX_VIRTIO_NET_H */
 -- 
 1.8.3.1
