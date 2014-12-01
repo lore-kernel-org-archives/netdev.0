@@ -1,84 +1,64 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC v3 0/3] virtio_net: enabling tx interrupts
-Date: Mon, 1 Dec 2014 12:48:08 +0200
-Message-ID: <20141201104808.GA16661@redhat.com>
-References: <1413787824-16130-1-git-send-email-mst@redhat.com>
- <547C3F8C.8000006@redhat.com>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: Re: Re: [bisected] xfrm: TCP connection initiating PMTU discovery stalls on v3.12+
+Date: Mon, 01 Dec 2014 12:20:09 +0100
+Message-ID: <1647323.BnLExmnE1g@storm>
+References: <20141201102522.GA16579@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36835 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752800AbaLAKsL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Dec 2014 05:48:11 -0500
-Content-Disposition: inline
-In-Reply-To: <547C3F8C.8000006@redhat.com>
+Received: from rs04.intra2net.com ([85.214.66.2]:51827 "EHLO
+	rs04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753180AbaLALUN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2014 06:20:13 -0500
+In-Reply-To: <20141201102522.GA16579@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 01, 2014 at 06:14:36PM +0800, Jason Wang wrote:
+On Monday, 1. December 2014 18:25:22 Herbert Xu wrote:
+> Thomas Jarosch <thomas.jarosch@intra2net.com> wrote:
+> > When I revert it, even kernel v3.18-rc6 starts working.
+> > But I doubt this is the root problem, may be just hiding another issue.
 > 
+> Can you do a tcpdump with this patch reverted? I would like to
+> see the size of the packets that are sent out vs. the ICMP message
+> that came back.
 > 
-> On 10/20/2014 02:52 PM, Michael S. Tsirkin wrote:
-> >RFC patches to enable tx interrupts.
-> >This is to demonstrate how this can be done without
-> >core virtio changes, and to make sure I understand
-> >the new APIs correctly.
-> >
-> >Testing TBD, I was asked for a version for early testing.
-> >
-> >Applies on top of patch: "virtio_net: fix use after free"
-> >that I recently sent.
-> >
-> >Changes from v3:
-> >	clean up code, address issues raised by Jason
-> >Changes from v1:
-> >         address comments by Jason Wang, use delayed cb everywhere
-> >         rebased Jason's patch on top of mine and include it (with some tweaks)
-> >
-> >Jason Wang (1):
-> >   virtio-net: optimize free_old_xmit_skbs stats
-> >
-> >Michael S. Tsirkin (2):
-> >   virtio_net: enable tx interrupt
-> >   virtio_net: bql
-> >
-> >  drivers/net/virtio_net.c | 144 +++++++++++++++++++++++++++++++++--------------
-> >  1 file changed, 101 insertions(+), 43 deletions(-)
-> >
+> My guess is that the IPsec GSO path is buggy since as you rightly
+> pointed out it couldn't have been heavily tested prior to this
+> patch.
 > 
-> I've run a full tests on this series and see huge regression when zerocopy
-> is disabled. Looks like the reason is zerocopy could coalescing tx
-> completion which greatly reduce the number of tx interrupts.
+> Though I am surprised that it only breaks when you have a PMTU event
+> so it might be something else after all.
 
-I think you refer to this code:
+I've sent you two pcap files off list. One with the reverted patch
+and one I created on Saturday showing the stalling TCP connection.
+(though the mail currently seems greylisted by the receiving mail server)
 
-        /*
-         * Trigger polling thread if guest stopped submitting new
-         * buffers:
-         * in this case, the refcount after decrement will eventually
-         * reach 1.
-         * We also trigger polling periodically after each 16 packets
-         * (the value 16 here is more or less arbitrary, it's tuned to
-         * trigger
-         * less than 10% of times).
-         */
-        if (cnt <= 1 || !(cnt % 16))
-                vhost_poll_queue(&vq->poll);
-
-?
-This seems unrelated to interrupt coalescing.
-We can easily enable something similar for all tx
-packets, without need for guest configuration.
-
-If it's not clear how to do this, let me know, I'll try to put out a
-patch like this in a couple of days.
+One thing I can say from looking at the tcpdump with the reverted patch
+is that the ESP packet size drops from 1510 to 1478. The announced MTU
+of the next hop in the ICMP message is 1464. It also contains seven
+duplicated ACK packets later on.
 
 
-> I will post RFC V4 shortly with interrupt coalescing support. In this
-> version I remove the tx packet cleanup in ndo_start_xmit() since it may
-> reduce the effects of interrupt coalescing.
+Without the reverted patch, it sends four ESP packets:
+1. 1498 bytes
+2. 1498 bytes
+3. 1498 bytes
+4. 234 bytes
 
-Maybe split this in a separate patch?
+That triggers the  ICMP "fragmentation needed" message. I can only spot one 
+ESP packet of size 1466 afterwards that's sent from time to time. Only one
+duplicated ACK packet can be seen. The other packets are just not resent. 
+May be it's stuck in some in-kernel queue because it's too big to send
+and stays there until it expires?
+
+Today I also tried changing the NIC driver on the virtual machine
+from virtio_net to e1000. Luckily still the same behavior,
+so it's probably not related to the virtio_net driver.
+
+Cheers,
+Thomas
