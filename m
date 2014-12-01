@@ -1,102 +1,130 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v2 net-next 0/6] allow eBPF programs to be attached to sockets
-Date: Mon,  1 Dec 2014 15:06:33 -0800
-Message-ID: <1417475199-15950-1-git-send-email-ast@plumgrid.com>
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: bcmgenet: enable driver to work without
+ a device tree
+Date: Mon, 01 Dec 2014 15:23:38 -0800
+Message-ID: <547CF87A.3010605@gmail.com>
+References: <20141201220828.942A7220726@puck.mtv.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Kevin Cernekee <cernekee@gmail.com>
+To: Petri Gynther <pgynther@google.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:43024 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932690AbaLAXXp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2014 18:23:45 -0500
+Received: by mail-pd0-f175.google.com with SMTP id y10so11893040pdj.20
+        for <netdev@vger.kernel.org>; Mon, 01 Dec 2014 15:23:45 -0800 (PST)
+In-Reply-To: <20141201220828.942A7220726@puck.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-V1->V2:
+On 01/12/14 14:08, Petri Gynther wrote:
+> Broadcom 7xxx MIPS-based STB platforms do not use device trees.
+> Modify bcmgenet driver so that it can be used on those platforms.
 
-fixed comments in sample code to state clearly that packet data is accessed
-with LD_ABS instructions and not internal skb fields.
-Also replaced constants in:
-BPF_LD_ABS(BPF_B, 14 + 9 /* R0 = ip->proto */),
-with:
-BPF_LD_ABS(BPF_B, ETH_HLEN + offsetof(struct iphdr, protocol) /* R0 = ip->proto */),
+Well, that statement is technically not true anymore thanks to Kevin's
+recent efforts, but this is not exactly what we have been
+advertising/supporting so far.
 
-V1 cover:
+Looks mostly good to me, some minor nits below:
 
-Introduce BPF_PROG_TYPE_SOCKET_FILTER type of eBPF programs that can be
-attached to sockets with setsockopt().
-Allow such programs to access maps via lookup/update/delete helpers.
+> 
+> Signed-off-by: Petri Gynther <pgynther@google.com>
+> ---
+[snip]
+> +	if (dn) {
+> +		of_id = of_match_node(bcmgenet_match, dn);
+> +		if (!of_id)
+> +			return -EINVAL;
+> +	} else {
+> +		of_id = NULL;
+> +	}
 
-This feature was previewed by bpf manpage in commit b4fc1a460f30("Merge branch 'bpf-next'")
-Now it can actually run.
+You could probably get way with this else condition by assigning of_id
+to NULL by default.
 
-1st patch adds LD_ABS/LD_IND instruction verification and
-2nd patch adds new setsockopt() flag.
-Patches 3-6 are examples in assembler and in C.
+[snip]
 
-Though native eBPF programs are way more powerful than classic filters
-(attachable through similar setsockopt() call), they don't have skb field
-accessors yet. Like skb->pkt_type, skb->dev->ifindex are not accessible.
-There are sevaral ways to achieve that. That will be in the next set of patches.
-So in this set native eBPF programs can only read data from packet and
-access maps.
+> +		if (pd->phy_addr >= 0 && pd->phy_addr < PHY_MAX_ADDR) {
+> +			phydev = mdio->phy_map[pd->phy_addr];
+> +		} else {
+> +			phydev = NULL;
+> +			for (i = 0; i < PHY_MAX_ADDR; i++) {
+> +				if (mdio->phy_map[i]) {
+> +					phydev = mdio->phy_map[i];
+> +					break;
+> +				}
+> +			}
 
-The most powerful example is sockex2_kern.c from patch 6 where ~200 lines of C
-are compiled into ~300 of eBPF instructions.
-It shows how quite complex packet parsing can be done.
+phy_find_first() might provide a shorter version of this.
 
-LLVM used to build examples is at https://github.com/iovisor/llvm
-which is fork of llvm trunk that I'm cleaning up for upstreaming.
+> +		}
+> +
+> +		if (!phydev) {
+> +			dev_err(kdev, "failed to register PHY device\n");
+> +			mdiobus_unregister(mdio);
+> +			return -ENODEV;
+> +		}
+> +	} else {
+> +		/*
+> +		 * MoCA port or no MDIO access.
+> +		 * Use 1000/FD fixed PHY to represent the link layer.
+> +		 */
+> +		struct fixed_phy_status fphy_status = {
+> +			.link = 1,
+> +			.duplex = DUPLEX_FULL,
+> +			.speed = SPEED_1000,
+> +			.pause = 0,
+> +			.asym_pause = 0,
+> +		};
+> +
+> +		phydev = fixed_phy_register(PHY_POLL, &fphy_status, NULL);
+> +		if (!phydev || IS_ERR(phydev)) {
+> +			dev_err(kdev, "failed to register fixed PHY device\n");
+> +			return -ENODEV;
+> +		}
 
-Alexei Starovoitov (6):
-  bpf: verifier: add checks for BPF_ABS | BPF_IND instructions
-  net: sock: allow eBPF programs to be attached to sockets
-  samples: bpf: example of stateful socket filtering
-  samples: bpf: elf_bpf file loader
-  samples: bpf: trivial eBPF program in C
-  samples: bpf: large eBPF program in C
+This is typically done by platform code (not necessarily for good
+reasons though) but I cannot seen any problems with doing this here as well.
 
- arch/alpha/include/uapi/asm/socket.h   |    3 +
- arch/avr32/include/uapi/asm/socket.h   |    3 +
- arch/cris/include/uapi/asm/socket.h    |    3 +
- arch/frv/include/uapi/asm/socket.h     |    3 +
- arch/ia64/include/uapi/asm/socket.h    |    3 +
- arch/m32r/include/uapi/asm/socket.h    |    3 +
- arch/mips/include/uapi/asm/socket.h    |    3 +
- arch/mn10300/include/uapi/asm/socket.h |    3 +
- arch/parisc/include/uapi/asm/socket.h  |    3 +
- arch/powerpc/include/uapi/asm/socket.h |    3 +
- arch/s390/include/uapi/asm/socket.h    |    3 +
- arch/sparc/include/uapi/asm/socket.h   |    3 +
- arch/xtensa/include/uapi/asm/socket.h  |    3 +
- include/linux/bpf.h                    |    4 +
- include/linux/filter.h                 |    1 +
- include/uapi/asm-generic/socket.h      |    3 +
- include/uapi/linux/bpf.h               |    1 +
- kernel/bpf/verifier.c                  |   70 ++++++++++-
- net/core/filter.c                      |   97 +++++++++++++-
- net/core/sock.c                        |   13 ++
- samples/bpf/Makefile                   |   20 +++
- samples/bpf/bpf_helpers.h              |   40 ++++++
- samples/bpf/bpf_load.c                 |  203 ++++++++++++++++++++++++++++++
- samples/bpf/bpf_load.h                 |   24 ++++
- samples/bpf/libbpf.c                   |   28 +++++
- samples/bpf/libbpf.h                   |   15 ++-
- samples/bpf/sock_example.c             |  101 +++++++++++++++
- samples/bpf/sockex1_kern.c             |   25 ++++
- samples/bpf/sockex1_user.c             |   49 ++++++++
- samples/bpf/sockex2_kern.c             |  215 ++++++++++++++++++++++++++++++++
- samples/bpf/sockex2_user.c             |   44 +++++++
- 31 files changed, 987 insertions(+), 5 deletions(-)
- create mode 100644 samples/bpf/bpf_helpers.h
- create mode 100644 samples/bpf/bpf_load.c
- create mode 100644 samples/bpf/bpf_load.h
- create mode 100644 samples/bpf/sock_example.c
- create mode 100644 samples/bpf/sockex1_kern.c
- create mode 100644 samples/bpf/sockex1_user.c
- create mode 100644 samples/bpf/sockex2_kern.c
- create mode 100644 samples/bpf/sockex2_user.c
+[snip]
 
--- 
-1.7.9.5
+> diff --git a/include/linux/platform_data/bcmgenet.h b/include/linux/platform_data/bcmgenet.h
+> new file mode 100644
+> index 0000000..3660133
+> --- /dev/null
+> +++ b/include/linux/platform_data/bcmgenet.h
+> @@ -0,0 +1,18 @@
+> +#ifndef __LINUX_PLATFORM_DATA_BCMGENET_H__
+> +#define __LINUX_PLATFORM_DATA_BCMGENET_H__
+> +
+> +#include <linux/compiler.h>
+
+That include does not look necessary, you might want linux/types.h for
+"u8" though.
+
+> +#include <linux/if_ether.h>
+> +
+> +struct bcmgenet_platform_data {
+> +	void __iomem *base_reg;
+> +	int           irq0;
+> +	int           irq1;
+
+These 3 members are unused and should be communicated to the driver as
+resources, not side parameters, can you get rid of them?
+
+> +	bool          mdio_enabled;
+> +	int           phy_type;
+
+This is essentially phy_interface_t, so let's use that type directly here.
+
+> +	int           phy_addr;
+> +	u8            macaddr[ETH_ALEN];
+> +	int           genet_version;
+
+That is also an enum, if that helps, you could move it from
+drivers/net/ethernet/broadcom/bcmgenet.h there as well.
+--
+Florian
