@@ -1,19 +1,65 @@
-From: <luv2charitys@gmail.com>
-Subject: Charity Work
-Date: Sun, 30 Nov 2014 22:38:08 -0600
-Message-ID: <HO-SRV2u0lYZgDa4SiX000e4b40@office.horkans.com>
-Reply-To: <paucharity@gmail.com>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: Re: [PATCH] e1000: remove unused variables
+Date: Mon, 1 Dec 2014 10:24:46 +0530
+Message-ID: <20141201045446.GA3277@sudip-PC>
+References: <1417065728-5592-1-git-send-email-sudipm.mukherjee@gmail.com>
+	<alpine.NEB.2.11.1411262157110.1481@chris.i8u.org>
+	<1417311913.7215.111.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.vodafone.ie ([213.233.128.43]:25646 "EHLO
-	mail1.vodafone.ie" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751701AbaLAEiM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2014 23:38:12 -0500
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Linux NICS <linux.nics@intel.com>, e1000-devel@lists.sourceforge.net,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org,
+	John Ronciak <john.ronciak@intel.com>, netdev@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <1417311913.7215.111.camel@decadent.org.uk>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Hello,this is Mr Paul N,i sent you an email on charity work but i am yet to hear fom you,do reply with this code CHA-2015 to my email address paulcharity@qq.com  i Look forward to hearing from you this time,God bless  Brother Paul
+On Sun, Nov 30, 2014 at 01:45:13AM +0000, Ben Hutchings wrote:
+> On Wed, 2014-11-26 at 21:59 -0800, Hisashi T Fujinaka wrote:
+> > I'm pretty sure those double reads are there for a reason, so most of
+> > this I'm going to have to check on Monday. We have a long holiday
+> > weekend here in the US.
+> [...]
+> 
+> If there were double register reads being replaced with single register
+> reads, I'd agree this was likely to introduce a regression.  But all I
+> see is var = er32(REG) being changed to er32(REG).
+
+no, double register reads are not modified. only the unused variables are removed.
+
+thanks
+sudip
+
+> 
+> Ben.
+> 
+> -- 
+> Ben Hutchings
+> The world is coming to an end.	Please log off.
+
+
+
+------------------------------------------------------------------------------
+Download BIRT iHub F-Type - The Free Enterprise-Grade BIRT Server
+from Actuate! Instantly Supercharge Your Business Reports and Dashboards
+with Interactivity, Sharing, Native Excel Exports, App Integration & more
+Get technology previously reserved for billion-dollar corporations, FREE
+http://pubads.g.doubleclick.net/gampad/clk?id=157005751&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
