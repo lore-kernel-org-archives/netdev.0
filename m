@@ -1,74 +1,74 @@
-From: "Fujinaka, Todd" <todd.fujinaka@intel.com>
-Subject: RE: [linux-nics] [PATCH] e1000: remove unused variables
-Date: Mon, 1 Dec 2014 18:56:46 +0000
-Message-ID: <9B4A1B1917080E46B64F07F2989DADD653454C69@ORSMSX114.amr.corp.intel.com>
-References: <1417065728-5592-1-git-send-email-sudipm.mukherjee@gmail.com>
-	<alpine.NEB.2.11.1411262157110.1481@chris.i8u.org>
-	<1417311913.7215.111.camel@decadent.org.uk> <20141201045446.GA3277@sudip-PC>
+From: "Vatsavayi, Raghu" <Raghu.Vatsavayi@caviumnetworks.com>
+Subject: RE: [PATCH v2] Add support of Cavium Liquidio ethernet adapters
+Date: Mon, 1 Dec 2014 19:57:20 +0000
+Message-ID: <feba8d6dd1904fc3936864ae332df6d8@CO2PR0701MB744.namprd07.prod.outlook.com>
+References: <1416799190-23789-1-git-send-email-rvatsavayi@caviumnetworks.com>
+	<54739C92.5070309@gmail.com>
+ <20141124.160837.1008717214755094566.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: Linux NICS <Linux-nics@isotope.jf.intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	Hisashi T Fujinaka <htodd@twofifty.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"Greg@isotope.jf.intel.com" <Greg@isotope.jf.intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"John@isotope.jf.intel.com" <John@isotope.jf.intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
-	Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141201045446.GA3277@sudip-PC>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Chickles, Derek" <Derek.Chickles@caviumnetworks.com>,
+	"Burla, Satananda" <Satananda.Burla@caviumnetworks.com>,
+	"Manlunas, Felix" <Felix.Manlunas@caviumnetworks.com>
+To: David Miller <davem@davemloft.net>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0069.outbound.protection.outlook.com ([65.55.169.69]:59234
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932101AbaLAT52 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2014 14:57:28 -0500
+In-Reply-To: <20141124.160837.1008717214755094566.davem@davemloft.net>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-After discussing this locally, I'd like to NAK it because this could cause regressions to parts that are still in use but we don't have access to. Also, the assignment was necessary in the past for some versions of gcc and since this may be used in embedded systems using older compilers, we should leave it be.
 
-Thanks.
-
-Todd Fujinaka
-Software Application Engineer
-Networking Division (ND)
-Intel Corporation
-todd.fujinaka@intel.com
-(503) 712-4565
-
------Original Message-----
-From: linux-nics-bounces@isotope.jf.intel.com [mailto:linux-nics-bounces@isotope.jf.intel.com] On Behalf Of Sudip Mukherjee
-Sent: Sunday, November 30, 2014 8:55 PM
-To: Ben Hutchings
-Cc: Linux NICS; e1000-devel@lists.sourceforge.net; Hisashi T Fujinaka; Vick, Matthew; Greg@isotope.jf.intel.com; Kirsher, Jeffrey T; netdev@vger.kernel.org; Wyborny, Carolyn; John@isotope.jf.intel.com; linux-kernel@vger.kernel.org
-Subject: Re: [linux-nics] [PATCH] e1000: remove unused variables
-
-On Sun, Nov 30, 2014 at 01:45:13AM +0000, Ben Hutchings wrote:
-> On Wed, 2014-11-26 at 21:59 -0800, Hisashi T Fujinaka wrote:
-> > I'm pretty sure those double reads are there for a reason, so most 
-> > of this I'm going to have to check on Monday. We have a long holiday 
-> > weekend here in the US.
-> [...]
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Monday, November 24, 2014 1:09 PM
+> To: f.fainelli@gmail.com
+> Cc: Vatsavayi, Raghu; netdev@vger.kernel.org; Chickles, Derek; Burla,
+> Satananda; Manlunas, Felix; Vatsavayi, Raghu
+> Subject: Re: [PATCH v2] Add support of Cavium Liquidio ethernet adapters
 > 
-> If there were double register reads being replaced with single 
-> register reads, I'd agree this was likely to introduce a regression.  
-> But all I see is var = er32(REG) being changed to er32(REG).
-
-no, double register reads are not modified. only the unused variables are removed.
-
-thanks
-sudip
-
+> From: Florian Fainelli <f.fainelli@gmail.com>
+> Date: Mon, 24 Nov 2014 13:01:06 -0800
 > 
-> Ben.
+> > On 11/23/2014 07:19 PM, Raghu Vatsavayi wrote:
+> >> +if LIQUIDIO
+> >> +
+> >> +config LIQUIDIO_NAPI
+> >> +	bool "Enable NAPI for LiquidIO"
+> >> +	default y
+> >> +	---help---
+> >> +	  NAPI is a new driver API designed to reduce CPU and interrupt load
+> >> +	  when the driver is receiving lots of packets from the card. You
+> >> +	  would only disable this feature in very specific instances, like
+> >> +	  an application that very rapidly sets up and tears down connections.
+> >> +
+> >> +	  If in doubt, say Y.
+> >
+> > You probably do not want to offer a non-NAPI variant, pretty much all
+> > drivers have NAPI built-in now.
 > 
-> --
-> Ben Hutchings
-> The world is coming to an end.	Please log off.
+> +1.
+> 
+> >> +config LIQUIDIO_DEBUG
+> >> +	int "Debug level for LiquidIO"
+> >> +	range 0 4
+> >> +	default 0
+> >
+> > This should be moved to dynamic_debug/ethtools' msglvl control knob.
+> 
+> +1
 
+Thanks for the comments. We are in the process of removing Kconfig based non-NAPI
+selection and enabling NAPI by default. We are also removing  separate debug section
+and integrating it with ethtool based msglvl debug infrastructure. Additionally we are
+planning to clean up non-kerneldoc style comments.
 
-_______________________________________________
-Linux-nics mailing list
-Linux-nics@intel.com
+Regards
+Raghu
