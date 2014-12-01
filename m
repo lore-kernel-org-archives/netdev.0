@@ -1,60 +1,79 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/3] net-PPP: Deletion of unnecessary checks before the
- function call "kfree"
-Date: Mon, 01 Dec 2014 15:19:08 +0300
-Message-ID: <547C5CBC.6060607@cogentembedded.com>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
- urceforge.net> <547B4886.4080406@users.sourceforge.net> <547B496E.604@users.sourceforge.net>
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH v7 30/46] vhost/net: force len for TX to host endian
+Date: Mon, 1 Dec 2014 13:20:51 +0100
+Message-ID: <20141201132051.4ab028d9.cornelia.huck@de.ibm.com>
+References: <1417359787-10138-1-git-send-email-mst@redhat.com>
+	<1417359787-10138-31-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>,
-	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <547B496E.604@users.sourceforge.net>
-Sender: kernel-janitors-owner@vger.kernel.org
+Cc: thuth@linux.vnet.ibm.com, kvm@vger.kernel.org, rusty@au1.ibm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	dahi@linux.vnet.ibm.com, pbonzini@redhat.com,
+	David Miller <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1417359787-10138-31-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Sun, 30 Nov 2014 17:11:44 +0200
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
 
-On 11/30/2014 7:44 PM, SF Markus Elfring wrote:
+> vhost/net keeps a copy of some used ring but (ab)uses length
+> field for internal house-keeping. This works because
+> for tx used length is always 0.
+> Suppress sparse errors: we use native endian-ness internally but never
+> expose it to guest.
 
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Sun, 30 Nov 2014 17:02:07 +0100
+I admit that I find this patch description hard to read :)
 
-> The kfree() function tests whether its argument is NULL and then
-> returns immediately. Thus the test around the call is not needed.
 
-> This issue was detected by using the Coccinelle software.
+"vhost/net keeps a copy of the used ring in host memory but (ab)uses
+the length field for internal house-keeping. This works because the
+length in the used ring for tx is always 0. In order to suppress sparse
+errors, we need to force native endianness."
 
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+?
+
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Reviewed-by: Jason Wang <jasowang@redhat.com>
 > ---
->   drivers/net/ppp/ppp_mppe.c | 14 ++++++--------
->   1 file changed, 6 insertions(+), 8 deletions(-)
-
-> diff --git a/drivers/net/ppp/ppp_mppe.c b/drivers/net/ppp/ppp_mppe.c
-> index 911b216..7e44212 100644
-> --- a/drivers/net/ppp/ppp_mppe.c
-> +++ b/drivers/net/ppp/ppp_mppe.c
-> @@ -238,8 +238,7 @@ static void *mppe_alloc(unsigned char *options, int optlen)
->   	return (void *)state;
->
->   	out_free:
-> -	    if (state->sha1_digest)
-> -		kfree(state->sha1_digest);
-> +	kfree(state->sha1_digest);
-
-    Please keep this line aligned to the others.
-
->   	    if (state->sha1)
->   		crypto_free_hash(state->sha1);
->   	    if (state->arc4)
-
-[...]
-
-WBR, Sergei
-
+>  drivers/vhost/net.c | 10 +++++-----
+>  1 file changed, 5 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 8dae2f7..dce5c58 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -48,15 +48,15 @@ MODULE_PARM_DESC(experimental_zcopytx, "Enable Zero Copy TX;"
+>   * status internally; used for zerocopy tx only.
+>   */
+>  /* Lower device DMA failed */
+> -#define VHOST_DMA_FAILED_LEN	3
+> +#define VHOST_DMA_FAILED_LEN	((__force __virtio32)3)
+>  /* Lower device DMA done */
+> -#define VHOST_DMA_DONE_LEN	2
+> +#define VHOST_DMA_DONE_LEN	((__force __virtio32)2)
+>  /* Lower device DMA in progress */
+> -#define VHOST_DMA_IN_PROGRESS	1
+> +#define VHOST_DMA_IN_PROGRESS	((__force __virtio32)1)
+>  /* Buffer unused */
+> -#define VHOST_DMA_CLEAR_LEN	0
+> +#define VHOST_DMA_CLEAR_LEN	((__force __virtio32)0)
+> 
+> -#define VHOST_DMA_IS_DONE(len) ((len) >= VHOST_DMA_DONE_LEN)
+> +#define VHOST_DMA_IS_DONE(len) ((__force u32)(len) >= (__force u32)VHOST_DMA_DONE_LEN)
+> 
+>  enum {
+>  	VHOST_NET_FEATURES = VHOST_FEATURES |
