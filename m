@@ -1,15 +1,20 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v8 45/50] vhost/scsi: partial virtio 1.0 support
-Date: Mon, 1 Dec 2014 18:06:34 +0200
-Message-ID: <1417449619-24896-46-git-send-email-mst@redhat.com>
+Subject: [PATCH v8 50/50] virtio: drop VIRTIO_F_VERSION_1 from drivers
+Date: Mon, 1 Dec 2014 18:06:59 +0200
+Message-ID: <1417449619-24896-51-git-send-email-mst@redhat.com>
 References: <1417449619-24896-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
 	rusty@au1.ibm.com, nab@linux-iscsi.org, pbonzini@redhat.com,
 	thuth@linux.vnet.ibm.com, dahi@linux.vnet.ibm.com,
-	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Amit Shah <amit.shah@redhat.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
@@ -17,96 +22,64 @@ In-Reply-To: <1417449619-24896-1-git-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Include all endian conversions as required by virtio 1.0.
-Don't set virtio 1.0 yet, since that requires ANY_LAYOUT
-which we don't yet support.
+Core activates this bit automatically now,
+drop it from drivers that set it explicitly.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
 ---
- drivers/vhost/scsi.c | 22 ++++++++++++----------
- 1 file changed, 12 insertions(+), 10 deletions(-)
+ drivers/block/virtio_blk.c    | 1 -
+ drivers/char/virtio_console.c | 1 -
+ drivers/net/virtio_net.c      | 1 -
+ drivers/scsi/virtio_scsi.c    | 1 -
+ 4 files changed, 4 deletions(-)
 
-diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
-index a17f118..01c01cb 100644
---- a/drivers/vhost/scsi.c
-+++ b/drivers/vhost/scsi.c
-@@ -168,6 +168,7 @@ enum {
- 	VHOST_SCSI_VQ_IO = 2,
+diff --git a/drivers/block/virtio_blk.c b/drivers/block/virtio_blk.c
+index 1f8b111..1fb9e09 100644
+--- a/drivers/block/virtio_blk.c
++++ b/drivers/block/virtio_blk.c
+@@ -836,7 +836,6 @@ static unsigned int features[] = {
+ 	VIRTIO_BLK_F_RO, VIRTIO_BLK_F_BLK_SIZE,
+ 	VIRTIO_BLK_F_TOPOLOGY,
+ 	VIRTIO_BLK_F_MQ,
+-	VIRTIO_F_VERSION_1,
  };
  
-+/* Note: can't set VIRTIO_F_VERSION_1 yet, since that implies ANY_LAYOUT. */
- enum {
- 	VHOST_SCSI_FEATURES = VHOST_FEATURES | (1ULL << VIRTIO_SCSI_F_HOTPLUG) |
- 					       (1ULL << VIRTIO_SCSI_F_T10_PI)
-@@ -577,8 +578,8 @@ tcm_vhost_allocate_evt(struct vhost_scsi *vs,
- 		return NULL;
- 	}
+ static struct virtio_driver virtio_blk = {
+diff --git a/drivers/char/virtio_console.c b/drivers/char/virtio_console.c
+index 775c898..6cc832b 100644
+--- a/drivers/char/virtio_console.c
++++ b/drivers/char/virtio_console.c
+@@ -2130,7 +2130,6 @@ static struct virtio_device_id id_table[] = {
+ static unsigned int features[] = {
+ 	VIRTIO_CONSOLE_F_SIZE,
+ 	VIRTIO_CONSOLE_F_MULTIPORT,
+-	VIRTIO_F_VERSION_1,
+ };
  
--	evt->event.event = event;
--	evt->event.reason = reason;
-+	evt->event.event = cpu_to_vhost32(vq, event);
-+	evt->event.reason = cpu_to_vhost32(vq, reason);
- 	vs->vs_events_nr++;
+ static struct virtio_device_id rproc_serial_id_table[] = {
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 9ab3c50..b8bd719 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -2004,7 +2004,6 @@ static unsigned int features[] = {
+ 	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
+ 	VIRTIO_NET_F_CTRL_MAC_ADDR,
+ 	VIRTIO_F_ANY_LAYOUT,
+-	VIRTIO_F_VERSION_1,
+ };
  
- 	return evt;
-@@ -636,7 +637,7 @@ again:
- 	}
+ static struct virtio_driver virtio_net_driver = {
+diff --git a/drivers/scsi/virtio_scsi.c b/drivers/scsi/virtio_scsi.c
+index d9ec806..2308278 100644
+--- a/drivers/scsi/virtio_scsi.c
++++ b/drivers/scsi/virtio_scsi.c
+@@ -1085,7 +1085,6 @@ static unsigned int features[] = {
+ 	VIRTIO_SCSI_F_HOTPLUG,
+ 	VIRTIO_SCSI_F_CHANGE,
+ 	VIRTIO_SCSI_F_T10_PI,
+-	VIRTIO_F_VERSION_1,
+ };
  
- 	if (vs->vs_events_missed) {
--		event->event |= VIRTIO_SCSI_T_EVENTS_MISSED;
-+		event->event |= cpu_to_vhost32(vq, VIRTIO_SCSI_T_EVENTS_MISSED);
- 		vs->vs_events_missed = false;
- 	}
- 
-@@ -695,12 +696,13 @@ static void vhost_scsi_complete_cmd_work(struct vhost_work *work)
- 			cmd, se_cmd->residual_count, se_cmd->scsi_status);
- 
- 		memset(&v_rsp, 0, sizeof(v_rsp));
--		v_rsp.resid = se_cmd->residual_count;
-+		v_rsp.resid = cpu_to_vhost32(cmd->tvc_vq, se_cmd->residual_count);
- 		/* TODO is status_qualifier field needed? */
- 		v_rsp.status = se_cmd->scsi_status;
--		v_rsp.sense_len = se_cmd->scsi_sense_length;
-+		v_rsp.sense_len = cpu_to_vhost32(cmd->tvc_vq,
-+						 se_cmd->scsi_sense_length);
- 		memcpy(v_rsp.sense, cmd->tvc_sense_buf,
--		       v_rsp.sense_len);
-+		       se_cmd->scsi_sense_length);
- 		ret = copy_to_user(cmd->tvc_resp, &v_rsp, sizeof(v_rsp));
- 		if (likely(ret == 0)) {
- 			struct vhost_scsi_virtqueue *q;
-@@ -1095,14 +1097,14 @@ vhost_scsi_handle_vq(struct vhost_scsi *vs, struct vhost_virtqueue *vq)
- 						", but wrong data_direction\n");
- 					goto err_cmd;
- 				}
--				prot_bytes = v_req_pi.pi_bytesout;
-+				prot_bytes = vhost32_to_cpu(vq, v_req_pi.pi_bytesout);
- 			} else if (v_req_pi.pi_bytesin) {
- 				if (data_direction != DMA_FROM_DEVICE) {
- 					vq_err(vq, "Received non zero di_pi_niov"
- 						", but wrong data_direction\n");
- 					goto err_cmd;
- 				}
--				prot_bytes = v_req_pi.pi_bytesin;
-+				prot_bytes = vhost32_to_cpu(vq, v_req_pi.pi_bytesin);
- 			}
- 			if (prot_bytes) {
- 				int tmp = 0;
-@@ -1117,12 +1119,12 @@ vhost_scsi_handle_vq(struct vhost_scsi *vs, struct vhost_virtqueue *vq)
- 				data_first += prot_niov;
- 				data_niov = data_num - prot_niov;
- 			}
--			tag = v_req_pi.tag;
-+			tag = vhost64_to_cpu(vq, v_req_pi.tag);
- 			task_attr = v_req_pi.task_attr;
- 			cdb = &v_req_pi.cdb[0];
- 			lun = ((v_req_pi.lun[2] << 8) | v_req_pi.lun[3]) & 0x3FFF;
- 		} else {
--			tag = v_req.tag;
-+			tag = vhost64_to_cpu(vq, v_req.tag);
- 			task_attr = v_req.task_attr;
- 			cdb = &v_req.cdb[0];
- 			lun = ((v_req.lun[2] << 8) | v_req.lun[3]) & 0x3FFF;
+ static struct virtio_driver virtio_scsi_driver = {
 -- 
 MST
