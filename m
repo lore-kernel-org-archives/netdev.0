@@ -1,94 +1,65 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next] hyperv: Add support for vNIC hot removal
-Date: Mon,  1 Dec 2014 13:28:39 -0800
-Message-ID: <1417469319-7356-1-git-send-email-haiyangz@microsoft.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: net-PA Semi: Deletion of unnecessary checks before the function
+ call "pci_dev_put"
+Date: Mon, 01 Dec 2014 21:29:05 +0100
+Message-ID: <1417465745.28610.0.camel@sipsolutions.net>
+References: <5307CAA2.8060406@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
+	 <530A086E.8010901@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
+	 <530A72AA.3000601@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
+	 <530B5FB6.6010207@users.sourceforge.net>
+	 <alpine.DEB.2.10.1402241710370.2074@hadrien>
+	 <530C5E18.1020800@users.sourceforge.net>
+	 <alpine.DEB.2.10.1402251014170.2080@hadrien>
+	 <530CD2C4.4050903@users.sourceforge.net>
+	 <alpine.DEB.2.10.1402251840450.7035@hadrien>
+	 <530CF8FF.8080600@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+	 <530DD06F.4090703@users.sourceforge.net>
+	 <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+	 <5317A59D.4@users.sourceforge.net> <547A09B1.9090102@users.sourceforge.net>
+	 <547B579F.10709@gmx.de> <547BC5AD.6090500@users.sourceforge.net>
+	 (sfid-20141201_023451_153915_6CFB474F)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, haiyangz@microsoft.com
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+	Olof Johansson <olof@lixom.net>, netdev@vger.kernel.org,
+	backports@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	"Luis R. Rodriguez" <mcgrof@suse.com>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:60008 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932158AbaLAU3S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Dec 2014 15:29:18 -0500
+In-Reply-To: <547BC5AD.6090500@users.sourceforge.net> (sfid-20141201_023451_153915_6CFB474F)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds proper handling of the vNIC hot removal event, which includes
-a rescind-channel-offer message from the host side that triggers vNIC close and
-removal. In this case, the notices to the host during close and removal is not
-necessary because the channel is rescinded. This patch blocks these unnecessary 
-messages, and lets vNIC removal process complete normally.
+On Mon, 2014-12-01 at 02:34 +0100, SF Markus Elfring wrote:
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/hv/channel_mgmt.c         |    2 ++
- drivers/net/hyperv/netvsc.c       |    3 +++
- drivers/net/hyperv/rndis_filter.c |    3 +++
- include/linux/hyperv.h            |    2 ++
- 4 files changed, 10 insertions(+), 0 deletions(-)
+> > Some of those NULL pointer checks on input parameters may have been
+> > added subsequently to functions. So there may be older kernel versions
+> > out there in which those checks dont exists in some cases. If some of
+> > the now "cleaned up" code is backported to such a kernel chances are
+> > good that those missing checks are overseen. And then neither caller nor
+> > callee is doing the NULL pointer check.
 
-diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
-index a2d1a96..191a6a3 100644
---- a/drivers/hv/channel_mgmt.c
-+++ b/drivers/hv/channel_mgmt.c
-@@ -517,6 +517,8 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
- 		/* Just return here, no channel found */
- 		return;
- 
-+	channel->rescind = true;
-+
- 	/* work is initialized for vmbus_process_rescind_offer() from
- 	 * vmbus_process_offer() where the channel got created */
- 	queue_work(channel->controlwq, &channel->work);
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 6fc834e..dd867e6 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -764,6 +764,9 @@ int netvsc_send(struct hv_device *device,
- 		out_channel = device->channel;
- 	packet->channel = out_channel;
- 
-+	if (out_channel->rescind)
-+		return -ENODEV;
-+
- 	if (packet->page_buf_cnt) {
- 		ret = vmbus_sendpacket_pagebuffer(out_channel,
- 						  packet->page_buf,
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 7b2c5d1..ec0c40a 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -958,6 +958,9 @@ static int rndis_filter_close_device(struct rndis_device *dev)
- 		return 0;
- 
- 	ret = rndis_filter_set_packet_filter(dev, 0);
-+	if (ret == -ENODEV)
-+		ret = 0;
-+
- 	if (ret == 0)
- 		dev->state = RNDIS_DEV_INITIALIZED;
- 
-diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-index 08cfaff..476c685 100644
---- a/include/linux/hyperv.h
-+++ b/include/linux/hyperv.h
-@@ -650,6 +650,8 @@ struct vmbus_channel {
- 	u8 monitor_grp;
- 	u8 monitor_bit;
- 
-+	bool rescind; /* got rescind msg */
-+
- 	u32 ringbuffer_gpadlhandle;
- 
- 	/* Allocated memory for ring buffer */
--- 
-1.7.1
+> I assume that a few backporters can tell you more about their corresponding
+> software development experiences.
+> http://www.do-not-panic.com/2014/04/automatic-linux-kernel-backporting-with-coccinelle.html
+
+In such cases we just provide an appropriate wrapper and replace callers
+of the original function by callers of the wrapper, typically with a
+#define.
+
+So this kind of evolution is no problem for the (automated) backports
+using the backports project - although it can be difficult to detect
+such a thing is needed.
+
+johannes
