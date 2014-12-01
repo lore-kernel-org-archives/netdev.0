@@ -1,65 +1,41 @@
-From: Cornelia Huck <cornelia.huck@de.ibm.com>
-Subject: Re: [PATCH v7 36/46] vhost/net: suppress compiler warning
-Date: Mon, 1 Dec 2014 15:21:03 +0100
-Message-ID: <20141201152103.0f375544.cornelia.huck@de.ibm.com>
-References: <1417359787-10138-1-git-send-email-mst@redhat.com>
-	<1417359787-10138-37-git-send-email-mst@redhat.com>
-	<20141201133740.56d7d6d8.cornelia.huck@de.ibm.com>
-	<20141201134839.GB18305@redhat.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: [PATCH 1/3] net-PPP: Deletion of unnecessary checks before the
+ function call "kfree"
+Date: Mon, 01 Dec 2014 16:00:54 +0100
+Message-ID: <547C82A6.2030808@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net> <547B4886.4080406@users.sourceforge.net> <547B496E.604@users.sourceforge.net> <547C5CBC.6060607@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: thuth@linux.vnet.ibm.com, kvm@vger.kernel.org, rusty@au1.ibm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	dahi@linux.vnet.ibm.com, pbonzini@redhat.com,
-	David Miller <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20141201134839.GB18305@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <547C5CBC.6060607@cogentembedded.com>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 1 Dec 2014 15:48:39 +0200
-"Michael S. Tsirkin" <mst@redhat.com> wrote:
-
-> On Mon, Dec 01, 2014 at 01:37:40PM +0100, Cornelia Huck wrote:
-> > On Sun, 30 Nov 2014 17:12:13 +0200
-> > "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> > 
-> > > len is always initialized since function is called with size > 0.
-> > > 
-> > > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > > ---
-> > >  drivers/vhost/net.c | 2 +-
-> > >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > > 
-> > > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> > > index 984242e..54ffbb0 100644
-> > > --- a/drivers/vhost/net.c
-> > > +++ b/drivers/vhost/net.c
-> > > @@ -501,7 +501,7 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
-> > >  	int headcount = 0;
-> > >  	unsigned d;
-> > >  	int r, nlogs = 0;
-> > > -	u32 len;
-> > > +	u32 uninitialized_var(len);
-> > > 
-> > >  	while (datalen > 0 && headcount < quota) {
-> > >  		if (unlikely(seg >= UIO_MAXIOV)) {
-> > 
-> > Want to merge this with the patch introducing the variable and add a
-> > comment there?
+>> diff --git a/drivers/net/ppp/ppp_mppe.c b/drivers/net/ppp/ppp_mppe.c
+>> index 911b216..7e44212 100644
+>> --- a/drivers/net/ppp/ppp_mppe.c
+>> +++ b/drivers/net/ppp/ppp_mppe.c
+>> @@ -238,8 +238,7 @@ static void *mppe_alloc(unsigned char *options, int optlen)
+>>       return (void *)state;
+>>
+>>       out_free:
+>> -        if (state->sha1_digest)
+>> -        kfree(state->sha1_digest);
+>> +    kfree(state->sha1_digest);
 > 
-> Not really. Warnings in bisect are fine  I think.
+>    Please keep this line aligned to the others.
 
-I'm not sure what a separate patch buys us, though, as it should be
-trivial to merge.
+Can it be that the previous source code contained unwanted space
+characters at this place?
+Do you want indentation fixes as a separate update step?
+
+Regards,
+Markus
