@@ -1,20 +1,19 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v8 50/50] virtio: drop VIRTIO_F_VERSION_1 from drivers
-Date: Mon, 1 Dec 2014 18:06:59 +0200
-Message-ID: <1417449619-24896-51-git-send-email-mst@redhat.com>
+Subject: [PATCH v8 46/50] af_packet: virtio 1.0 stubs
+Date: Mon, 1 Dec 2014 18:06:39 +0200
+Message-ID: <1417449619-24896-47-git-send-email-mst@redhat.com>
 References: <1417449619-24896-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
 	rusty@au1.ibm.com, nab@linux-iscsi.org, pbonzini@redhat.com,
 	thuth@linux.vnet.ibm.com, dahi@linux.vnet.ibm.com,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Amit Shah <amit.shah@redhat.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-scsi@vger.kernel.org
+	Daniel Borkmann <dborkman@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Atzm Watanabe <atzm@stratosphere.co.jp>,
+	Tom Herbert <therbert@google.com>,
+	Willem de Bruijn <willemb@google.com>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
@@ -22,64 +21,97 @@ In-Reply-To: <1417449619-24896-1-git-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Core activates this bit automatically now,
-drop it from drivers that set it explicitly.
+This merely fixes sparse warnings, without actually
+adding support for the new APIs.
+
+Still working out the best way to enable the new
+functionality.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/block/virtio_blk.c    | 1 -
- drivers/char/virtio_console.c | 1 -
- drivers/net/virtio_net.c      | 1 -
- drivers/scsi/virtio_scsi.c    | 1 -
- 4 files changed, 4 deletions(-)
+ net/packet/af_packet.c | 35 ++++++++++++++++++++++-------------
+ 1 file changed, 22 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/block/virtio_blk.c b/drivers/block/virtio_blk.c
-index 1f8b111..1fb9e09 100644
---- a/drivers/block/virtio_blk.c
-+++ b/drivers/block/virtio_blk.c
-@@ -836,7 +836,6 @@ static unsigned int features[] = {
- 	VIRTIO_BLK_F_RO, VIRTIO_BLK_F_BLK_SIZE,
- 	VIRTIO_BLK_F_TOPOLOGY,
- 	VIRTIO_BLK_F_MQ,
--	VIRTIO_F_VERSION_1,
- };
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 87d20f4..d4a877e 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2444,13 +2444,15 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 			goto out_unlock;
  
- static struct virtio_driver virtio_blk = {
-diff --git a/drivers/char/virtio_console.c b/drivers/char/virtio_console.c
-index 775c898..6cc832b 100644
---- a/drivers/char/virtio_console.c
-+++ b/drivers/char/virtio_console.c
-@@ -2130,7 +2130,6 @@ static struct virtio_device_id id_table[] = {
- static unsigned int features[] = {
- 	VIRTIO_CONSOLE_F_SIZE,
- 	VIRTIO_CONSOLE_F_MULTIPORT,
--	VIRTIO_F_VERSION_1,
- };
+ 		if ((vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
+-		    (vnet_hdr.csum_start + vnet_hdr.csum_offset + 2 >
+-		      vnet_hdr.hdr_len))
+-			vnet_hdr.hdr_len = vnet_hdr.csum_start +
+-						 vnet_hdr.csum_offset + 2;
++		    (__virtio16_to_cpu(false, vnet_hdr.csum_start) +
++		     __virtio16_to_cpu(false, vnet_hdr.csum_offset) + 2 >
++		      __virtio16_to_cpu(false, vnet_hdr.hdr_len)))
++			vnet_hdr.hdr_len = __cpu_to_virtio16(false,
++				 __virtio16_to_cpu(false, vnet_hdr.csum_start) +
++				__virtio16_to_cpu(false, vnet_hdr.csum_offset) + 2);
  
- static struct virtio_device_id rproc_serial_id_table[] = {
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 9ab3c50..b8bd719 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -2004,7 +2004,6 @@ static unsigned int features[] = {
- 	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
- 	VIRTIO_NET_F_CTRL_MAC_ADDR,
- 	VIRTIO_F_ANY_LAYOUT,
--	VIRTIO_F_VERSION_1,
- };
+ 		err = -EINVAL;
+-		if (vnet_hdr.hdr_len > len)
++		if (__virtio16_to_cpu(false, vnet_hdr.hdr_len) > len)
+ 			goto out_unlock;
  
- static struct virtio_driver virtio_net_driver = {
-diff --git a/drivers/scsi/virtio_scsi.c b/drivers/scsi/virtio_scsi.c
-index d9ec806..2308278 100644
---- a/drivers/scsi/virtio_scsi.c
-+++ b/drivers/scsi/virtio_scsi.c
-@@ -1085,7 +1085,6 @@ static unsigned int features[] = {
- 	VIRTIO_SCSI_F_HOTPLUG,
- 	VIRTIO_SCSI_F_CHANGE,
- 	VIRTIO_SCSI_F_T10_PI,
--	VIRTIO_F_VERSION_1,
- };
+ 		if (vnet_hdr.gso_type != VIRTIO_NET_HDR_GSO_NONE) {
+@@ -2492,7 +2494,8 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 	err = -ENOBUFS;
+ 	hlen = LL_RESERVED_SPACE(dev);
+ 	tlen = dev->needed_tailroom;
+-	skb = packet_alloc_skb(sk, hlen + tlen, hlen, len, vnet_hdr.hdr_len,
++	skb = packet_alloc_skb(sk, hlen + tlen, hlen, len,
++			       __virtio16_to_cpu(false, vnet_hdr.hdr_len),
+ 			       msg->msg_flags & MSG_DONTWAIT, &err);
+ 	if (skb == NULL)
+ 		goto out_unlock;
+@@ -2534,14 +2537,16 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
  
- static struct virtio_driver virtio_scsi_driver = {
+ 	if (po->has_vnet_hdr) {
+ 		if (vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
+-			if (!skb_partial_csum_set(skb, vnet_hdr.csum_start,
+-						  vnet_hdr.csum_offset)) {
++			u16 s = __virtio16_to_cpu(false, vnet_hdr.csum_start);
++			u16 o = __virtio16_to_cpu(false, vnet_hdr.csum_offset);
++			if (!skb_partial_csum_set(skb, s, o)) {
+ 				err = -EINVAL;
+ 				goto out_free;
+ 			}
+ 		}
+ 
+-		skb_shinfo(skb)->gso_size = vnet_hdr.gso_size;
++		skb_shinfo(skb)->gso_size =
++			__virtio16_to_cpu(false, vnet_hdr.gso_size);
+ 		skb_shinfo(skb)->gso_type = gso_type;
+ 
+ 		/* Header must be checked, and gso_segs computed. */
+@@ -2912,8 +2917,10 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 			struct skb_shared_info *sinfo = skb_shinfo(skb);
+ 
+ 			/* This is a hint as to how much should be linear. */
+-			vnet_hdr.hdr_len = skb_headlen(skb);
+-			vnet_hdr.gso_size = sinfo->gso_size;
++			vnet_hdr.hdr_len =
++				__cpu_to_virtio16(false, skb_headlen(skb));
++			vnet_hdr.gso_size =
++				__cpu_to_virtio16(false, sinfo->gso_size);
+ 			if (sinfo->gso_type & SKB_GSO_TCPV4)
+ 				vnet_hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+ 			else if (sinfo->gso_type & SKB_GSO_TCPV6)
+@@ -2931,8 +2938,10 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 
+ 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 			vnet_hdr.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+-			vnet_hdr.csum_start = skb_checksum_start_offset(skb);
+-			vnet_hdr.csum_offset = skb->csum_offset;
++			vnet_hdr.csum_start = __cpu_to_virtio16(false,
++					  skb_checksum_start_offset(skb));
++			vnet_hdr.csum_offset = __cpu_to_virtio16(false,
++							 skb->csum_offset);
+ 		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+ 			vnet_hdr.flags = VIRTIO_NET_HDR_F_DATA_VALID;
+ 		} /* else everything is zero */
 -- 
 MST
