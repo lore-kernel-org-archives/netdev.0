@@ -1,309 +1,65 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: [PATCH v2 net-next] net: bcmgenet: enable driver to work without a device tree
-Date: Mon,  1 Dec 2014 14:08:28 -0800 (PST)
-Message-ID: <20141201220828.942A7220726@puck.mtv.corp.google.com>
-Cc: davem@davemloft.net, f.fainelli@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f202.google.com ([209.85.223.202]:47630 "EHLO
-	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753934AbaLAWIa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2014 17:08:30 -0500
-Received: by mail-ie0-f202.google.com with SMTP id rl12so1202594iec.3
-        for <netdev@vger.kernel.org>; Mon, 01 Dec 2014 14:08:29 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
+Subject: Re: Is this 32-bit NCM?
+Date: Mon, 1 Dec 2014 22:02:16 +0000
+Message-ID: <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com>
+References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
+ <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com>
+ <874mtl55ar.fsf@nemi.mork.no>
+ <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
+ <alpine.LNX.2.03.1411271932510.1548@gmail.com>
+ <87ppc71xne.fsf@nemi.mork.no>,<alpine.LNX.2.03.1412012202480.1301@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Midge Shaojun Tan" <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	"youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.LNX.2.03.1412012202480.1301-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Content-Language: en-US
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Broadcom 7xxx MIPS-based STB platforms do not use device trees.
-Modify bcmgenet driver so that it can be used on those platforms.
-
-Signed-off-by: Petri Gynther <pgynther@google.com>
----
- drivers/net/ethernet/broadcom/Kconfig          |   1 -
- drivers/net/ethernet/broadcom/genet/bcmgenet.c |  31 ++++--
- drivers/net/ethernet/broadcom/genet/bcmmii.c   | 134 +++++++++++++++++++++----
- include/linux/platform_data/bcmgenet.h         |  18 ++++
- 4 files changed, 152 insertions(+), 32 deletions(-)
- create mode 100644 include/linux/platform_data/bcmgenet.h
-
-diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
-index c3e260c..888247a 100644
---- a/drivers/net/ethernet/broadcom/Kconfig
-+++ b/drivers/net/ethernet/broadcom/Kconfig
-@@ -62,7 +62,6 @@ config BCM63XX_ENET
- 
- config BCMGENET
- 	tristate "Broadcom GENET internal MAC support"
--	depends on OF
- 	select MII
- 	select PHYLIB
- 	select FIXED_PHY if BCMGENET=y
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index f2fadb0..861c298 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -42,6 +42,7 @@
- #include <linux/ip.h>
- #include <linux/ipv6.h>
- #include <linux/phy.h>
-+#include <linux/platform_data/bcmgenet.h>
- 
- #include <asm/unaligned.h>
- 
-@@ -2586,6 +2587,7 @@ static const struct of_device_id bcmgenet_match[] = {
- 
- static int bcmgenet_probe(struct platform_device *pdev)
- {
-+	struct bcmgenet_platform_data *pd = pdev->dev.platform_data;
- 	struct device_node *dn = pdev->dev.of_node;
- 	const struct of_device_id *of_id;
- 	struct bcmgenet_priv *priv;
-@@ -2601,9 +2603,13 @@ static int bcmgenet_probe(struct platform_device *pdev)
- 		return -ENOMEM;
- 	}
- 
--	of_id = of_match_node(bcmgenet_match, dn);
--	if (!of_id)
--		return -EINVAL;
-+	if (dn) {
-+		of_id = of_match_node(bcmgenet_match, dn);
-+		if (!of_id)
-+			return -EINVAL;
-+	} else {
-+		of_id = NULL;
-+	}
- 
- 	priv = netdev_priv(dev);
- 	priv->irq0 = platform_get_irq(pdev, 0);
-@@ -2615,11 +2621,15 @@ static int bcmgenet_probe(struct platform_device *pdev)
- 		goto err;
- 	}
- 
--	macaddr = of_get_mac_address(dn);
--	if (!macaddr) {
--		dev_err(&pdev->dev, "can't find MAC address\n");
--		err = -EINVAL;
--		goto err;
-+	if (dn) {
-+		macaddr = of_get_mac_address(dn);
-+		if (!macaddr) {
-+			dev_err(&pdev->dev, "can't find MAC address\n");
-+			err = -EINVAL;
-+			goto err;
-+		}
-+	} else {
-+		macaddr = pd->macaddr;
- 	}
- 
- 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-@@ -2659,7 +2669,10 @@ static int bcmgenet_probe(struct platform_device *pdev)
- 
- 	priv->dev = dev;
- 	priv->pdev = pdev;
--	priv->version = (enum bcmgenet_version)of_id->data;
-+	if (of_id)
-+		priv->version = (enum bcmgenet_version)of_id->data;
-+	else
-+		priv->version = pd->genet_version;
- 
- 	priv->clk = devm_clk_get(&priv->pdev->dev, "enet");
- 	if (IS_ERR(priv->clk))
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-index 933cd7e..f758686 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-@@ -23,6 +23,7 @@
- #include <linux/of.h>
- #include <linux/of_net.h>
- #include <linux/of_mdio.h>
-+#include <linux/platform_data/bcmgenet.h>
- 
- #include "bcmgenet.h"
- 
-@@ -312,22 +313,6 @@ static int bcmgenet_mii_probe(struct net_device *dev)
- 	u32 phy_flags;
- 	int ret;
- 
--	if (priv->phydev) {
--		pr_info("PHY already attached\n");
--		return 0;
--	}
--
--	/* In the case of a fixed PHY, the DT node associated
--	 * to the PHY is the Ethernet MAC DT node.
--	 */
--	if (!priv->phy_dn && of_phy_is_fixed_link(dn)) {
--		ret = of_phy_register_fixed_link(dn);
--		if (ret)
--			return ret;
--
--		priv->phy_dn = of_node_get(dn);
--	}
--
- 	/* Communicate the integrated PHY revision */
- 	phy_flags = priv->gphy_rev;
- 
-@@ -337,11 +322,39 @@ static int bcmgenet_mii_probe(struct net_device *dev)
- 	priv->old_duplex = -1;
- 	priv->old_pause = -1;
- 
--	phydev = of_phy_connect(dev, priv->phy_dn, bcmgenet_mii_setup,
--				phy_flags, priv->phy_interface);
--	if (!phydev) {
--		pr_err("could not attach to PHY\n");
--		return -ENODEV;
-+	if (dn) {
-+		if (priv->phydev) {
-+			pr_info("PHY already attached\n");
-+			return 0;
-+		}
-+
-+		/* In the case of a fixed PHY, the DT node associated
-+		 * to the PHY is the Ethernet MAC DT node.
-+		 */
-+		if (!priv->phy_dn && of_phy_is_fixed_link(dn)) {
-+			ret = of_phy_register_fixed_link(dn);
-+			if (ret)
-+				return ret;
-+
-+			priv->phy_dn = of_node_get(dn);
-+		}
-+
-+		phydev = of_phy_connect(dev, priv->phy_dn, bcmgenet_mii_setup,
-+					phy_flags, priv->phy_interface);
-+		if (!phydev) {
-+			pr_err("could not attach to PHY\n");
-+			return -ENODEV;
-+		}
-+	} else {
-+		phydev = priv->phydev;
-+		phydev->dev_flags = phy_flags;
-+
-+		ret = phy_connect_direct(dev, phydev, bcmgenet_mii_setup,
-+					 priv->phy_interface);
-+		if (ret) {
-+			pr_err("could not attach to PHY\n");
-+			return -ENODEV;
-+		}
- 	}
- 
- 	priv->phydev = phydev;
-@@ -438,6 +451,83 @@ static int bcmgenet_mii_of_init(struct bcmgenet_priv *priv)
- 	return 0;
- }
- 
-+static int bcmgenet_mii_pd_init(struct bcmgenet_priv *priv)
-+{
-+	struct device *kdev = &priv->pdev->dev;
-+	struct bcmgenet_platform_data *pd = kdev->platform_data;
-+	struct mii_bus *mdio = priv->mii_bus;
-+	struct phy_device *phydev;
-+	int ret;
-+	int i;
-+
-+	if (pd->phy_type != PHY_INTERFACE_MODE_MOCA && pd->mdio_enabled) {
-+		/*
-+		 * Internal or external PHY with MDIO access
-+		 */
-+		if (pd->phy_addr >= 0 && pd->phy_addr < PHY_MAX_ADDR)
-+			mdio->phy_mask = ~(1 << pd->phy_addr);
-+		else
-+			mdio->phy_mask = 0;
-+
-+		ret = mdiobus_register(mdio);
-+		if (ret) {
-+			dev_err(kdev, "failed to register MDIO bus\n");
-+			return ret;
-+		}
-+
-+		if (pd->phy_addr >= 0 && pd->phy_addr < PHY_MAX_ADDR) {
-+			phydev = mdio->phy_map[pd->phy_addr];
-+		} else {
-+			phydev = NULL;
-+			for (i = 0; i < PHY_MAX_ADDR; i++) {
-+				if (mdio->phy_map[i]) {
-+					phydev = mdio->phy_map[i];
-+					break;
-+				}
-+			}
-+		}
-+
-+		if (!phydev) {
-+			dev_err(kdev, "failed to register PHY device\n");
-+			mdiobus_unregister(mdio);
-+			return -ENODEV;
-+		}
-+	} else {
-+		/*
-+		 * MoCA port or no MDIO access.
-+		 * Use 1000/FD fixed PHY to represent the link layer.
-+		 */
-+		struct fixed_phy_status fphy_status = {
-+			.link = 1,
-+			.duplex = DUPLEX_FULL,
-+			.speed = SPEED_1000,
-+			.pause = 0,
-+			.asym_pause = 0,
-+		};
-+
-+		phydev = fixed_phy_register(PHY_POLL, &fphy_status, NULL);
-+		if (!phydev || IS_ERR(phydev)) {
-+			dev_err(kdev, "failed to register fixed PHY device\n");
-+			return -ENODEV;
-+		}
-+	}
-+
-+	priv->phydev = phydev;
-+	priv->phy_interface = pd->phy_type;
-+
-+	return 0;
-+}
-+
-+static int bcmgenet_mii_bus_init(struct bcmgenet_priv *priv)
-+{
-+	struct device_node *dn = priv->pdev->dev.of_node;
-+
-+	if (dn)
-+		return bcmgenet_mii_of_init(priv);
-+	else
-+		return bcmgenet_mii_pd_init(priv);
-+}
-+
- int bcmgenet_mii_init(struct net_device *dev)
- {
- 	struct bcmgenet_priv *priv = netdev_priv(dev);
-@@ -447,7 +537,7 @@ int bcmgenet_mii_init(struct net_device *dev)
- 	if (ret)
- 		return ret;
- 
--	ret = bcmgenet_mii_of_init(priv);
-+	ret = bcmgenet_mii_bus_init(priv);
- 	if (ret)
- 		goto out_free;
- 
-diff --git a/include/linux/platform_data/bcmgenet.h b/include/linux/platform_data/bcmgenet.h
-new file mode 100644
-index 0000000..3660133
---- /dev/null
-+++ b/include/linux/platform_data/bcmgenet.h
-@@ -0,0 +1,18 @@
-+#ifndef __LINUX_PLATFORM_DATA_BCMGENET_H__
-+#define __LINUX_PLATFORM_DATA_BCMGENET_H__
-+
-+#include <linux/compiler.h>
-+#include <linux/if_ether.h>
-+
-+struct bcmgenet_platform_data {
-+	void __iomem *base_reg;
-+	int           irq0;
-+	int           irq1;
-+	bool          mdio_enabled;
-+	int           phy_type;
-+	int           phy_addr;
-+	u8            macaddr[ETH_ALEN];
-+	int           genet_version;
-+};
-+
-+#endif
--- 
-2.2.0.rc0.207.ga3a616c
+SGkgRW5yaWNvIGFuZCBhbGwsDQoNCk1heWJlIEkgbWlzc2VkIHNvbWV0aGluZyBidXQgd2hhdCBp
+cyB0aGUgZGlmZmVyZW5jZSBieSB0aGUgZHJpdmVyIHBvaW50IG9mIHZpZXcgYmV0d2VlbiB0aGUg
+ZGhjcCBkaXNjb3ZlciBhbmQgcmVxdWVzdCAodGhhdCBhcmUgb2spIHRvIG90aGVycyAobGlrZSBh
+cnAsIHRoYXQgaXMgbm9rKT8NCk1heWJlIHdlIGNhbiB0cmFjZSB0byBjb21wYXJlIHRoZW0/DQoN
+ClNlbnQgZnJvbSBteSBpUGhvbmUNCg0KPiBPbiAxINeR15PXpteeIDIwMTQsIGF0IDIzOjExLCAi
+RW5yaWNvIE1pb3NvIiA8bXJraWtvLnJzQGdtYWlsLmNvbT4gd3JvdGU6DQo+DQo+IFNvIC4uLiBJ
+IGhhdmUgdHdvIGlkZWFzIGxlZnQgZm9yIG5vdy4NCj4gV2Uga25vdyBmb3Igc3VyZSB0aGUgcHJv
+YmxlbSBpcyBpbiB0aGUgd2F5IHdlIFRYIGZyYW1lcywgbm90IHRoZSB3YXkgd2UgUlggdGhlbQ0K
+PiAodGhlIHdheSB3ZSBzZW5kLCBnZW5lcmF0ZSB0aGVtLCBub3QgdGhlIHdheSB3ZSByZWNlaXZl
+IHRoZW0pLg0KPiBTaSBJIGhhdmUgdHdvIGlkZWFzLCBhbmQgSSBhc2sgZm9yIGhlbHAgZnJvbSB0
+aGUgTGludXgtdXNiIG1haWxpbmcgbGlzdCBmb3INCj4gdGhpcyBmaXJzdCBvbmUuDQo+DQo+IDEg
+LSBEb2VzIGEgd2F5ZXhpc3QgdG8gInJlcGxheSIgdHJhZmZpYyBjcm9tIGEgdXNiIGNhcHR1cmU/
+DQo+IFdlIG1pZ2h0IHRyeSB0byB0YWtlIHRoZSB1c2IgZnJhbWVzIGdlbmVyYXRlZCBieSBXaW5k
+b3dzLCBhbmQgc2VuZCB0aGVtIHRvIHRoZQ0KPiBkZXZpY2UgdG8gc2VlIGlmIHRoZXJlIGlzIGFu
+eSByZWFjdGlvbi4gSXQgc2hvdWxkIG5vdCBiZSBzY2llbmNlIGZpY3Rpb24sIEkgc2F3DQo+IHRo
+ZW0gZG8gdGhhdCBpbiB0aGUgZWNpYWRzbCBvbGQgcHJvamVjdC4NCj4gMiAtIFRoZSBodWF3ZWkg
+bmRpcyBkcml2ZXI6IGRvZXMgaXQgd29yayB3aXRoIHRoZXNlIGRldmljZXM/DQo+IEl0IHNob3Vs
+ZCBiZSBhIGxpdHRsZSBiaXQgb3V0LWRhdGVkIG5vdyAoYXQgbGVhc3QgaW4gdGVybXMgb2YgZGF0
+ZXMsIGl0IG1pZ2h0DQo+IHdvcmsgYXMgd2VsbCk6IHRoZSBjb2RlIGlzIEEgTE9UIGJ1dCwganVz
+dCBpbiBjYXNlLCB0byBzZWUgaWYgdGhlcmUgaXMgYW55DQo+IGNoYW5jZXMgaXQnbGwgd29yay4g
+SXQgcmVtYWlucyB0byBiZSBzZWVuIGluIHdoaWNoIGtlcm5lbHMgaXQgY2FuIGFjdHVhbGx5DQo+
+IGNvbXBpbGUgYWdhaW4uDQo+DQo+IElmIHRoaXMgd29ya3Mgd2UgbWlnaHQgYW5hbHlzZSB3aGF0
+J3MgaGFwcGVuaW5nIGFuZCB0cnkgdG8gZGVidWcgdGhpcyBvdXQuDQo+IEJ1dCBJIHJlYWxseSB3
+b3VsZCBsaWtlIHRoaXMgdG8gd29yayBpbiB0aGUgY2RjX25jbSBkcml2ZXIgKyBodWF3ZWlfY2Rj
+X25jbS4NCj4gVGhhbmsgeW91Lg0KDQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXw0K
+DQpUaGlzIGVtYWlsIGFuZCBhbnkgZmlsZXMgdHJhbnNtaXR0ZWQgd2l0aCBpdCBhcmUgY29uZmlk
+ZW50aWFsIG1hdGVyaWFsLiBUaGV5IGFyZSBpbnRlbmRlZCBzb2xlbHkgZm9yIHRoZSB1c2Ugb2Yg
+dGhlIGRlc2lnbmF0ZWQgaW5kaXZpZHVhbCBvciBlbnRpdHkgdG8gd2hvbSB0aGV5IGFyZSBhZGRy
+ZXNzZWQuIElmIHRoZSByZWFkZXIgb2YgdGhpcyBtZXNzYWdlIGlzIG5vdCB0aGUgaW50ZW5kZWQg
+cmVjaXBpZW50LCB5b3UgYXJlIGhlcmVieSBub3RpZmllZCB0aGF0IGFueSBkaXNzZW1pbmF0aW9u
+LCB1c2UsIGRpc3RyaWJ1dGlvbiBvciBjb3B5aW5nIG9mIHRoaXMgY29tbXVuaWNhdGlvbiBpcyBz
+dHJpY3RseSBwcm9oaWJpdGVkIGFuZCBtYXkgYmUgdW5sYXdmdWwuDQoNCklmIHlvdSBoYXZlIHJl
+Y2VpdmVkIHRoaXMgZW1haWwgaW4gZXJyb3IgcGxlYXNlIGltbWVkaWF0ZWx5IG5vdGlmeSB0aGUg
+c2VuZGVyIGFuZCBkZWxldGUgb3IgZGVzdHJveSBhbnkgY29weSBvZiB0aGlzIG1lc3NhZ2UNCg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
