@@ -1,338 +1,201 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v8 33/50] vhost: virtio 1.0 endian-ness support
-Date: Mon, 1 Dec 2014 18:05:30 +0200
-Message-ID: <1417449619-24896-34-git-send-email-mst@redhat.com>
+Subject: [PATCH v8 41/50] macvtap: TUN_VNET_LE support
+Date: Mon, 1 Dec 2014 18:06:12 +0200
+Message-ID: <1417449619-24896-42-git-send-email-mst@redhat.com>
 References: <1417449619-24896-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: thuth@linux.vnet.ibm.com, kvm@vger.kernel.org, rusty@au1.ibm.com,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	dahi@linux.vnet.ibm.com, pbonzini@redhat.com,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
+	rusty@au1.ibm.com, nab@linux-iscsi.org, pbonzini@redhat.com,
+	thuth@linux.vnet.ibm.com, dahi@linux.vnet.ibm.com,
+	Jason Wang <jasowang@redhat.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	Tom Herbert <therbert@google.com>,
+	Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <1417449619-24896-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Reviewed-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/vhost/vhost.c | 86 +++++++++++++++++++++++++++++----------------------
- 1 file changed, 49 insertions(+), 37 deletions(-)
+ drivers/net/macvtap.c | 68 ++++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 43 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 6a40837..ed71b53 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -33,8 +33,8 @@ enum {
- 	VHOST_MEMORY_F_LOG = 0x1,
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 880cc09..af90ab5 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -45,6 +45,18 @@ struct macvtap_queue {
+ 	struct list_head next;
  };
  
--#define vhost_used_event(vq) ((u16 __user *)&vq->avail->ring[vq->num])
--#define vhost_avail_event(vq) ((u16 __user *)&vq->used->ring[vq->num])
-+#define vhost_used_event(vq) ((__virtio16 __user *)&vq->avail->ring[vq->num])
-+#define vhost_avail_event(vq) ((__virtio16 __user *)&vq->used->ring[vq->num])
- 
- static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
- 			    poll_table *pt)
-@@ -1001,7 +1001,7 @@ EXPORT_SYMBOL_GPL(vhost_log_write);
- static int vhost_update_used_flags(struct vhost_virtqueue *vq)
- {
- 	void __user *used;
--	if (__put_user(vq->used_flags, &vq->used->flags) < 0)
-+	if (__put_user(cpu_to_vhost16(vq, vq->used_flags), &vq->used->flags) < 0)
- 		return -EFAULT;
- 	if (unlikely(vq->log_used)) {
- 		/* Make sure the flag is seen before log. */
-@@ -1019,7 +1019,7 @@ static int vhost_update_used_flags(struct vhost_virtqueue *vq)
- 
- static int vhost_update_avail_event(struct vhost_virtqueue *vq, u16 avail_event)
- {
--	if (__put_user(vq->avail_idx, vhost_avail_event(vq)))
-+	if (__put_user(cpu_to_vhost16(vq, vq->avail_idx), vhost_avail_event(vq)))
- 		return -EFAULT;
- 	if (unlikely(vq->log_used)) {
- 		void __user *used;
-@@ -1038,7 +1038,7 @@ static int vhost_update_avail_event(struct vhost_virtqueue *vq, u16 avail_event)
- 
- int vhost_init_used(struct vhost_virtqueue *vq)
- {
--	u16 last_used_idx;
-+	__virtio16 last_used_idx;
- 	int r;
- 	if (!vq->private_data)
- 		return 0;
-@@ -1052,7 +1052,7 @@ int vhost_init_used(struct vhost_virtqueue *vq)
- 	r = __get_user(last_used_idx, &vq->used->idx);
- 	if (r)
- 		return r;
--	vq->last_used_idx = last_used_idx;
-+	vq->last_used_idx = vhost16_to_cpu(vq, last_used_idx);
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(vhost_init_used);
-@@ -1094,16 +1094,16 @@ static int translate_desc(struct vhost_virtqueue *vq, u64 addr, u32 len,
- /* Each buffer in the virtqueues is actually a chain of descriptors.  This
-  * function returns the next descriptor in the chain,
-  * or -1U if we're at the end. */
--static unsigned next_desc(struct vring_desc *desc)
-+static unsigned next_desc(struct vhost_virtqueue *vq, struct vring_desc *desc)
- {
- 	unsigned int next;
- 
- 	/* If this descriptor says it doesn't chain, we're done. */
--	if (!(desc->flags & VRING_DESC_F_NEXT))
-+	if (!(desc->flags & cpu_to_vhost16(vq, VRING_DESC_F_NEXT)))
- 		return -1U;
- 
- 	/* Check they're not leading us off end of descriptors. */
--	next = desc->next;
-+	next = vhost16_to_cpu(vq, desc->next);
- 	/* Make sure compiler knows to grab that: we don't want it changing! */
- 	/* We will use the result as an index in an array, so most
- 	 * architectures only need a compiler barrier here. */
-@@ -1120,18 +1120,19 @@ static int get_indirect(struct vhost_virtqueue *vq,
- {
- 	struct vring_desc desc;
- 	unsigned int i = 0, count, found = 0;
-+	u32 len = vhost32_to_cpu(vq, indirect->len);
- 	int ret;
- 
- 	/* Sanity check */
--	if (unlikely(indirect->len % sizeof desc)) {
-+	if (unlikely(len % sizeof desc)) {
- 		vq_err(vq, "Invalid length in indirect descriptor: "
- 		       "len 0x%llx not multiple of 0x%zx\n",
--		       (unsigned long long)indirect->len,
-+		       (unsigned long long)len,
- 		       sizeof desc);
- 		return -EINVAL;
- 	}
- 
--	ret = translate_desc(vq, indirect->addr, indirect->len, vq->indirect,
-+	ret = translate_desc(vq, vhost64_to_cpu(vq, indirect->addr), len, vq->indirect,
- 			     UIO_MAXIOV);
- 	if (unlikely(ret < 0)) {
- 		vq_err(vq, "Translation failure %d in indirect.\n", ret);
-@@ -1142,7 +1143,7 @@ static int get_indirect(struct vhost_virtqueue *vq,
- 	 * architectures only need a compiler barrier here. */
- 	read_barrier_depends();
- 
--	count = indirect->len / sizeof desc;
-+	count = len / sizeof desc;
- 	/* Buffers are chained via a 16 bit next field, so
- 	 * we can have at most 2^16 of these. */
- 	if (unlikely(count > USHRT_MAX + 1)) {
-@@ -1162,16 +1163,17 @@ static int get_indirect(struct vhost_virtqueue *vq,
- 		if (unlikely(memcpy_fromiovec((unsigned char *)&desc,
- 					      vq->indirect, sizeof desc))) {
- 			vq_err(vq, "Failed indirect descriptor: idx %d, %zx\n",
--			       i, (size_t)indirect->addr + i * sizeof desc);
-+			       i, (size_t)vhost64_to_cpu(vq, indirect->addr) + i * sizeof desc);
- 			return -EINVAL;
- 		}
--		if (unlikely(desc.flags & VRING_DESC_F_INDIRECT)) {
-+		if (unlikely(desc.flags & cpu_to_vhost16(vq, VRING_DESC_F_INDIRECT))) {
- 			vq_err(vq, "Nested indirect descriptor: idx %d, %zx\n",
--			       i, (size_t)indirect->addr + i * sizeof desc);
-+			       i, (size_t)vhost64_to_cpu(vq, indirect->addr) + i * sizeof desc);
- 			return -EINVAL;
- 		}
- 
--		ret = translate_desc(vq, desc.addr, desc.len, iov + iov_count,
-+		ret = translate_desc(vq, vhost64_to_cpu(vq, desc.addr),
-+				     vhost32_to_cpu(vq, desc.len), iov + iov_count,
- 				     iov_size - iov_count);
- 		if (unlikely(ret < 0)) {
- 			vq_err(vq, "Translation failure %d indirect idx %d\n",
-@@ -1179,11 +1181,11 @@ static int get_indirect(struct vhost_virtqueue *vq,
- 			return ret;
- 		}
- 		/* If this is an input descriptor, increment that count. */
--		if (desc.flags & VRING_DESC_F_WRITE) {
-+		if (desc.flags & cpu_to_vhost16(vq, VRING_DESC_F_WRITE)) {
- 			*in_num += ret;
- 			if (unlikely(log)) {
--				log[*log_num].addr = desc.addr;
--				log[*log_num].len = desc.len;
-+				log[*log_num].addr = vhost64_to_cpu(vq, desc.addr);
-+				log[*log_num].len = vhost32_to_cpu(vq, desc.len);
- 				++*log_num;
- 			}
- 		} else {
-@@ -1196,7 +1198,7 @@ static int get_indirect(struct vhost_virtqueue *vq,
- 			}
- 			*out_num += ret;
- 		}
--	} while ((i = next_desc(&desc)) != -1);
-+	} while ((i = next_desc(vq, &desc)) != -1);
- 	return 0;
- }
- 
-@@ -1216,15 +1218,18 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
- 	struct vring_desc desc;
- 	unsigned int i, head, found = 0;
- 	u16 last_avail_idx;
-+	__virtio16 avail_idx;
-+	__virtio16 ring_head;
- 	int ret;
- 
- 	/* Check it isn't doing very strange things with descriptor numbers. */
- 	last_avail_idx = vq->last_avail_idx;
--	if (unlikely(__get_user(vq->avail_idx, &vq->avail->idx))) {
-+	if (unlikely(__get_user(avail_idx, &vq->avail->idx))) {
- 		vq_err(vq, "Failed to access avail idx at %p\n",
- 		       &vq->avail->idx);
- 		return -EFAULT;
- 	}
-+	vq->avail_idx = vhost16_to_cpu(vq, avail_idx);
- 
- 	if (unlikely((u16)(vq->avail_idx - last_avail_idx) > vq->num)) {
- 		vq_err(vq, "Guest moved used index from %u to %u",
-@@ -1241,7 +1246,7 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
- 
- 	/* Grab the next descriptor number they're advertising, and increment
- 	 * the index we've seen. */
--	if (unlikely(__get_user(head,
-+	if (unlikely(__get_user(ring_head,
- 				&vq->avail->ring[last_avail_idx % vq->num]))) {
- 		vq_err(vq, "Failed to read head: idx %d address %p\n",
- 		       last_avail_idx,
-@@ -1249,6 +1254,8 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
- 		return -EFAULT;
- 	}
- 
-+	head = vhost16_to_cpu(vq, ring_head);
++#define MACVTAP_FEATURES (IFF_VNET_HDR | IFF_VNET_LE | IFF_MULTI_QUEUE)
 +
- 	/* If their number is silly, that's an error. */
- 	if (unlikely(head >= vq->num)) {
- 		vq_err(vq, "Guest says index %u > %u is available",
-@@ -1281,7 +1288,7 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
- 			       i, vq->desc + i);
++static inline u16 macvtap16_to_cpu(struct macvtap_queue *q, __virtio16 val)
++{
++	return __virtio16_to_cpu(q->flags & IFF_VNET_LE, val);
++}
++
++static inline __virtio16 cpu_to_macvtap16(struct macvtap_queue *q, u16 val)
++{
++	return __cpu_to_virtio16(q->flags & IFF_VNET_LE, val);
++}
++
+ static struct proto macvtap_proto = {
+ 	.name = "macvtap",
+ 	.owner = THIS_MODULE,
+@@ -557,7 +569,8 @@ static inline struct sk_buff *macvtap_alloc_skb(struct sock *sk, size_t prepad,
+  * macvtap_skb_from_vnet_hdr and macvtap_skb_to_vnet_hdr should
+  * be shared with the tun/tap driver.
+  */
+-static int macvtap_skb_from_vnet_hdr(struct sk_buff *skb,
++static int macvtap_skb_from_vnet_hdr(struct macvtap_queue *q,
++				     struct sk_buff *skb,
+ 				     struct virtio_net_hdr *vnet_hdr)
+ {
+ 	unsigned short gso_type = 0;
+@@ -588,13 +601,13 @@ static int macvtap_skb_from_vnet_hdr(struct sk_buff *skb,
+ 	}
+ 
+ 	if (vnet_hdr->flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
+-		if (!skb_partial_csum_set(skb, vnet_hdr->csum_start,
+-					  vnet_hdr->csum_offset))
++		if (!skb_partial_csum_set(skb, macvtap16_to_cpu(q, vnet_hdr->csum_start),
++					  macvtap16_to_cpu(q, vnet_hdr->csum_offset)))
+ 			return -EINVAL;
+ 	}
+ 
+ 	if (vnet_hdr->gso_type != VIRTIO_NET_HDR_GSO_NONE) {
+-		skb_shinfo(skb)->gso_size = vnet_hdr->gso_size;
++		skb_shinfo(skb)->gso_size = macvtap16_to_cpu(q, vnet_hdr->gso_size);
+ 		skb_shinfo(skb)->gso_type = gso_type;
+ 
+ 		/* Header must be checked, and gso_segs computed. */
+@@ -604,8 +617,9 @@ static int macvtap_skb_from_vnet_hdr(struct sk_buff *skb,
+ 	return 0;
+ }
+ 
+-static void macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
+-				   struct virtio_net_hdr *vnet_hdr)
++static void macvtap_skb_to_vnet_hdr(struct macvtap_queue *q,
++				    const struct sk_buff *skb,
++				    struct virtio_net_hdr *vnet_hdr)
+ {
+ 	memset(vnet_hdr, 0, sizeof(*vnet_hdr));
+ 
+@@ -613,8 +627,8 @@ static void macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
+ 		struct skb_shared_info *sinfo = skb_shinfo(skb);
+ 
+ 		/* This is a hint as to how much should be linear. */
+-		vnet_hdr->hdr_len = skb_headlen(skb);
+-		vnet_hdr->gso_size = sinfo->gso_size;
++		vnet_hdr->hdr_len = cpu_to_macvtap16(q, skb_headlen(skb));
++		vnet_hdr->gso_size = cpu_to_macvtap16(q, sinfo->gso_size);
+ 		if (sinfo->gso_type & SKB_GSO_TCPV4)
+ 			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+ 		else if (sinfo->gso_type & SKB_GSO_TCPV6)
+@@ -628,10 +642,13 @@ static void macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
+ 
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		vnet_hdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+-		vnet_hdr->csum_start = skb_checksum_start_offset(skb);
+ 		if (vlan_tx_tag_present(skb))
+-			vnet_hdr->csum_start += VLAN_HLEN;
+-		vnet_hdr->csum_offset = skb->csum_offset;
++			vnet_hdr->csum_start = cpu_to_macvtap16(q,
++				skb_checksum_start_offset(skb) + VLAN_HLEN);
++		else
++			vnet_hdr->csum_start = cpu_to_macvtap16(q,
++				skb_checksum_start_offset(skb));
++		vnet_hdr->csum_offset = cpu_to_macvtap16(q, skb->csum_offset);
+ 	} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+ 		vnet_hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
+ 	} /* else everything is zero */
+@@ -666,12 +683,14 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 		if (err < 0)
+ 			goto err;
+ 		if ((vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
+-		     vnet_hdr.csum_start + vnet_hdr.csum_offset + 2 >
+-							vnet_hdr.hdr_len)
+-			vnet_hdr.hdr_len = vnet_hdr.csum_start +
+-						vnet_hdr.csum_offset + 2;
++		     macvtap16_to_cpu(q, vnet_hdr.csum_start) +
++		     macvtap16_to_cpu(q, vnet_hdr.csum_offset) + 2 >
++			     macvtap16_to_cpu(q, vnet_hdr.hdr_len))
++			vnet_hdr.hdr_len = cpu_to_macvtap16(q,
++				 macvtap16_to_cpu(q, vnet_hdr.csum_start) +
++				 macvtap16_to_cpu(q, vnet_hdr.csum_offset) + 2);
+ 		err = -EINVAL;
+-		if (vnet_hdr.hdr_len > len)
++		if (macvtap16_to_cpu(q, vnet_hdr.hdr_len) > len)
+ 			goto err;
+ 	}
+ 
+@@ -684,7 +703,8 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 		goto err;
+ 
+ 	if (m && m->msg_control && sock_flag(&q->sk, SOCK_ZEROCOPY)) {
+-		copylen = vnet_hdr.hdr_len ? vnet_hdr.hdr_len : GOODCOPY_LEN;
++		copylen = vnet_hdr.hdr_len ?
++			macvtap16_to_cpu(q, vnet_hdr.hdr_len) : GOODCOPY_LEN;
+ 		if (copylen > good_linear)
+ 			copylen = good_linear;
+ 		linear = copylen;
+@@ -695,10 +715,10 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 
+ 	if (!zerocopy) {
+ 		copylen = len;
+-		if (vnet_hdr.hdr_len > good_linear)
++		if (macvtap16_to_cpu(q, vnet_hdr.hdr_len) > good_linear)
+ 			linear = good_linear;
+ 		else
+-			linear = vnet_hdr.hdr_len;
++			linear = macvtap16_to_cpu(q, vnet_hdr.hdr_len);
+ 	}
+ 
+ 	skb = macvtap_alloc_skb(&q->sk, NET_IP_ALIGN, copylen,
+@@ -725,7 +745,7 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 	skb->protocol = eth_hdr(skb)->h_proto;
+ 
+ 	if (vnet_hdr_len) {
+-		err = macvtap_skb_from_vnet_hdr(skb, &vnet_hdr);
++		err = macvtap_skb_from_vnet_hdr(q, skb, &vnet_hdr);
+ 		if (err)
+ 			goto err_kfree;
+ 	}
+@@ -791,7 +811,7 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+ 		if ((len -= vnet_hdr_len) < 0)
+ 			return -EINVAL;
+ 
+-		macvtap_skb_to_vnet_hdr(skb, &vnet_hdr);
++		macvtap_skb_to_vnet_hdr(q, skb, &vnet_hdr);
+ 
+ 		if (memcpy_toiovecend(iv, (void *)&vnet_hdr, 0, sizeof(vnet_hdr)))
  			return -EFAULT;
- 		}
--		if (desc.flags & VRING_DESC_F_INDIRECT) {
-+		if (desc.flags & cpu_to_vhost16(vq, VRING_DESC_F_INDIRECT)) {
- 			ret = get_indirect(vq, iov, iov_size,
- 					   out_num, in_num,
- 					   log, log_num, &desc);
-@@ -1293,20 +1300,21 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
- 			continue;
- 		}
+@@ -1003,8 +1023,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 			return -EFAULT;
  
--		ret = translate_desc(vq, desc.addr, desc.len, iov + iov_count,
-+		ret = translate_desc(vq, vhost64_to_cpu(vq, desc.addr),
-+				     vhost32_to_cpu(vq, desc.len), iov + iov_count,
- 				     iov_size - iov_count);
- 		if (unlikely(ret < 0)) {
- 			vq_err(vq, "Translation failure %d descriptor idx %d\n",
- 			       ret, i);
- 			return ret;
- 		}
--		if (desc.flags & VRING_DESC_F_WRITE) {
-+		if (desc.flags & cpu_to_vhost16(vq, VRING_DESC_F_WRITE)) {
- 			/* If this is an input descriptor,
- 			 * increment that count. */
- 			*in_num += ret;
- 			if (unlikely(log)) {
--				log[*log_num].addr = desc.addr;
--				log[*log_num].len = desc.len;
-+				log[*log_num].addr = vhost64_to_cpu(vq, desc.addr);
-+				log[*log_num].len = vhost32_to_cpu(vq, desc.len);
- 				++*log_num;
- 			}
- 		} else {
-@@ -1319,7 +1327,7 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
- 			}
- 			*out_num += ret;
- 		}
--	} while ((i = next_desc(&desc)) != -1);
-+	} while ((i = next_desc(vq, &desc)) != -1);
+ 		ret = 0;
+-		if ((u & ~(IFF_VNET_HDR | IFF_MULTI_QUEUE)) !=
+-		    (IFF_NO_PI | IFF_TAP))
++		if ((u & ~MACVTAP_FEATURES) != (IFF_NO_PI | IFF_TAP))
+ 			ret = -EINVAL;
+ 		else
+ 			q->flags = u;
+@@ -1036,8 +1055,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 		return ret;
  
- 	/* On success, increment avail index. */
- 	vq->last_avail_idx++;
-@@ -1342,7 +1350,10 @@ EXPORT_SYMBOL_GPL(vhost_discard_vq_desc);
-  * want to notify the guest, using eventfd. */
- int vhost_add_used(struct vhost_virtqueue *vq, unsigned int head, int len)
- {
--	struct vring_used_elem heads = { head, len };
-+	struct vring_used_elem heads = {
-+		cpu_to_vhost32(vq, head),
-+		cpu_to_vhost32(vq, len)
-+	};
- 
- 	return vhost_add_used_n(vq, &heads, 1);
- }
-@@ -1411,7 +1422,7 @@ int vhost_add_used_n(struct vhost_virtqueue *vq, struct vring_used_elem *heads,
- 
- 	/* Make sure buffer is written before we update index. */
- 	smp_wmb();
--	if (__put_user(vq->last_used_idx, &vq->used->idx)) {
-+	if (__put_user(cpu_to_vhost16(vq, vq->last_used_idx), &vq->used->idx)) {
- 		vq_err(vq, "Failed to increment used idx");
- 		return -EFAULT;
- 	}
-@@ -1429,7 +1440,8 @@ EXPORT_SYMBOL_GPL(vhost_add_used_n);
- 
- static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
- {
--	__u16 old, new, event;
-+	__u16 old, new;
-+	__virtio16 event;
- 	bool v;
- 	/* Flush out used index updates. This is paired
- 	 * with the barrier that the Guest executes when enabling
-@@ -1441,12 +1453,12 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
- 		return true;
- 
- 	if (!vhost_has_feature(vq, VIRTIO_RING_F_EVENT_IDX)) {
--		__u16 flags;
-+		__virtio16 flags;
- 		if (__get_user(flags, &vq->avail->flags)) {
- 			vq_err(vq, "Failed to get flags");
- 			return true;
- 		}
--		return !(flags & VRING_AVAIL_F_NO_INTERRUPT);
-+		return !(flags & cpu_to_vhost16(vq, VRING_AVAIL_F_NO_INTERRUPT));
- 	}
- 	old = vq->signalled_used;
- 	v = vq->signalled_used_valid;
-@@ -1460,7 +1472,7 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
- 		vq_err(vq, "Failed to get used event idx");
- 		return true;
- 	}
--	return vring_need_event(event, new, old);
-+	return vring_need_event(vhost16_to_cpu(vq, event), new, old);
- }
- 
- /* This actually signals the guest, using eventfd. */
-@@ -1495,7 +1507,7 @@ EXPORT_SYMBOL_GPL(vhost_add_used_and_signal_n);
- /* OK, now we need to know about added descriptors. */
- bool vhost_enable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
- {
--	u16 avail_idx;
-+	__virtio16 avail_idx;
- 	int r;
- 
- 	if (!(vq->used_flags & VRING_USED_F_NO_NOTIFY))
-@@ -1526,7 +1538,7 @@ bool vhost_enable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
- 		return false;
- 	}
- 
--	return avail_idx != vq->avail_idx;
-+	return vhost16_to_cpu(vq, avail_idx) != vq->avail_idx;
- }
- EXPORT_SYMBOL_GPL(vhost_enable_notify);
+ 	case TUNGETFEATURES:
+-		if (put_user(IFF_TAP | IFF_NO_PI | IFF_VNET_HDR |
+-			     IFF_MULTI_QUEUE, up))
++		if (put_user(IFF_TAP | IFF_NO_PI | MACVTAP_FEATURES, up))
+ 			return -EFAULT;
+ 		return 0;
  
 -- 
 MST
