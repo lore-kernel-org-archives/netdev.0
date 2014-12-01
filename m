@@ -1,51 +1,74 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH 0/7] Fix sti drivers whcih mix reg address spaces
-Date: Mon, 01 Dec 2014 16:36:51 +0100
-Message-ID: <8237128.RmunIxMfYX@wuerfel>
-References: <1416385632-5832-1-git-send-email-peter.griffin@linaro.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 4/7] ARM: STi: DT: STiH410: Add usb2 picophy dt nodes
+Date: Mon, 01 Dec 2014 16:40:35 +0100
+Message-ID: <4736928.ouoSJRV5Ml@wuerfel>
+References: <1416385632-5832-1-git-send-email-peter.griffin@linaro.org> <1416385632-5832-5-git-send-email-peter.griffin@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
-Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	srinivas.kandagatla-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, maxime.coquelin-qxv4g6HH51o@public.gmane.org,
-	patrice.chotard-qxv4g6HH51o@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org, kishon-l0cyMroinI0@public.gmane.org,
-	lee.jones-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org
-To: Peter Griffin <peter.griffin-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1416385632-5832-1-git-send-email-peter.griffin-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Peter Griffin <peter.griffin@linaro.org>,
+	linux-kernel@vger.kernel.org, srinivas.kandagatla@gmail.com,
+	maxime.coquelin@st.com, patrice.chotard@st.com,
+	peppe.cavallaro@st.com, kishon@ti.com, netdev@vger.kernel.org,
+	lee.jones@linaro.org, alexandre.torgue@st.com,
+	devicetree@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1416385632-5832-5-git-send-email-peter.griffin@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 19 November 2014 08:27:05 Peter Griffin wrote:
-> Hi,
-> 
-> Following on from Arnds comments about the picophy driver here
-> https://lkml.org/lkml/2014/11/13/161, this series fixes the
-> remaining upstreamed drivers for STI, which are mixing address spaces
-> in the reg property. We do this in a way similar to the keystone
-> and bcm7445 platforms, by having sysconfig phandle/ offset pair (
-> where only one register is required). Or phandle / integer array
-> where multiple offsets in the same bank are needed).
-> 
-> This series breaks DT compatability! But the platform support
-> is WIP and only being used by the few developers who are upstreaming
-> support for it. I've made each change to the driver / dt doc / dt
-> file as a single atomic commit so the kernel will remain bisectable. 
-> 
-> This series then also enables the picophy driver, and adds back in
-> the ehci/ohci dt nodes for stih410 which make use of the picophy.
+On Wednesday 19 November 2014 08:27:09 Peter Griffin wrote:
+> +       soc {
+> +               usb2_picophy1: phy@1 {
+> +                       compatible = "st,stih407-usb2-phy";
+> +                       #phy-cells = <0>;
+> +                       st,syscfg = <&syscfg_core 0xf8 0xf4>;
+> +                       resets = <&softreset STIH407_PICOPHY_SOFTRESET>,
+> +                                <&picophyreset STIH407_PICOPHY0_RESET>;
+> +                       reset-names = "global", "port";
+> +               };
+>  
+> +               usb2_picophy2: phy@2 {
+> +                       compatible = "st,stih407-usb2-phy";
+> +                       #phy-cells = <0>;
+> +                       st,syscfg = <&syscfg_core 0xfc 0xf4>;
+> +                       resets = <&softreset STIH407_PICOPHY_SOFTRESET>,
+> +                                <&picophyreset STIH407_PICOPHY1_RESET>;
+> +                       reset-names = "global", "port";
+> +               };
+> +       };
 
-This all looks very good to me, nice work!
+In theory the unit-address (the @1 and @2 part of the name) is supposed to
+match the 'reg' property value, but of course that doesn't work any
+more with the changed binding. The same problem keeps coming up, so
+I wonder if anyone has an idea how this is supposed to be handled properly.
 
-Reviewed-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Should we just make up unit-address numbers? I guess a more elaborate
+variant would be to have a parent node with #address-cells = <1> and
+no ranges, to make up a new address space with arbitrarily assigned
+reg values, like
 
-I have one comment for patch 4, but I don't have a good solution for
-that, hopefully someone on the devicetree-discuss list has some insight,
-otherwise we just keep your version.
+	phys {
+		#address-cells = <1>; /* just counting the nodes */
+		#size-cells = <0>;
+
+               usb2_picophy1: phy@0 {
+                       compatible = "st,stih407-usb2-phy";
+			reg = <0>;
+                       #phy-cells = <0>;
+                       st,syscfg = <&syscfg_core 0xf8 0xf4>;
+               };
+
+               usb2_picophy2: phy@1 {
+                       compatible = "st,stih407-usb2-phy";
+			reg = <0>;
+                       #phy-cells = <0>;
+                       st,syscfg = <&syscfg_core 0xf8 0xf4>;
+               };
+	}
+
+Should we try to do it like this, or is that overcomplicating
+things?
 
 	Arnd
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
