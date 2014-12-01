@@ -1,409 +1,181 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v2 net-next 2/6] net: sock: allow eBPF programs to be attached to sockets
-Date: Mon,  1 Dec 2014 15:06:35 -0800
-Message-ID: <1417475199-15950-3-git-send-email-ast@plumgrid.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v2 net-next 5/6] samples: bpf: trivial eBPF program in C
+Date: Mon,  1 Dec 2014 15:06:38 -0800
+Message-ID: <1417475199-15950-6-git-send-email-ast@plumgrid.com>
 References: <1417475199-15950-1-git-send-email-ast@plumgrid.com>
-Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1417475199-15950-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1417475199-15950-1-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-introduce new setsockopt() command:
+this example does the same task as previous socket example
+in assembler, but this one does it in C.
 
-setsockopt(sock, SOL_SOCKET, SO_ATTACH_BPF, &prog_fd, sizeof(prog_fd))
+eBPF program in kernel does:
+    /* assume that packet is IPv4, load one byte of IP->proto */
+    int index = load_byte(skb, ETH_HLEN + offsetof(struct iphdr, protocol));
+    long *value;
 
-where prog_fd was received from syscall bpf(BPF_PROG_LOAD, attr, ...)
-and attr->prog_type == BPF_PROG_TYPE_SOCKET_FILTER
+    value = bpf_map_lookup_elem(&my_map, &index);
+    if (value)
+        __sync_fetch_and_add(value, 1);
 
-setsockopt() calls bpf_prog_get() which increments refcnt of the program,
-so it doesn't get unloaded while socket is using the program.
+Corresponding user space reads map[tcp], map[udp], map[icmp]
+and prints protocol stats every second
 
-The same eBPF program can be attached to multiple sockets.
-
-User task exit automatically closes socket which calls sk_filter_uncharge()
-which decrements refcnt of eBPF program
-
-Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
-v2: no changes
+V1->V2:
 
-Note, I'm not happy about 'ifdef', but 'select or depend BPF_SYSCALL' will
-make tinification folks cringe, so use ifdef until native eBPF use cases
-become widespread.
+replaced constants in:
+load_byte(skb, 14 + 9)
+with:
+load_byte(skb, ETH_HLEN + offsetof(struct iphdr, protocol))
 
- arch/alpha/include/uapi/asm/socket.h   |    3 +
- arch/avr32/include/uapi/asm/socket.h   |    3 +
- arch/cris/include/uapi/asm/socket.h    |    3 +
- arch/frv/include/uapi/asm/socket.h     |    3 +
- arch/ia64/include/uapi/asm/socket.h    |    3 +
- arch/m32r/include/uapi/asm/socket.h    |    3 +
- arch/mips/include/uapi/asm/socket.h    |    3 +
- arch/mn10300/include/uapi/asm/socket.h |    3 +
- arch/parisc/include/uapi/asm/socket.h  |    3 +
- arch/powerpc/include/uapi/asm/socket.h |    3 +
- arch/s390/include/uapi/asm/socket.h    |    3 +
- arch/sparc/include/uapi/asm/socket.h   |    3 +
- arch/xtensa/include/uapi/asm/socket.h  |    3 +
- include/linux/bpf.h                    |    4 ++
- include/linux/filter.h                 |    1 +
- include/uapi/asm-generic/socket.h      |    3 +
- net/core/filter.c                      |   97 +++++++++++++++++++++++++++++++-
- net/core/sock.c                        |   13 +++++
- 18 files changed, 155 insertions(+), 2 deletions(-)
+ samples/bpf/Makefile       |   14 +++++++++++++
+ samples/bpf/libbpf.h       |    2 +-
+ samples/bpf/sockex1_kern.c |   25 ++++++++++++++++++++++
+ samples/bpf/sockex1_user.c |   49 ++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 89 insertions(+), 1 deletion(-)
+ create mode 100644 samples/bpf/sockex1_kern.c
+ create mode 100644 samples/bpf/sockex1_user.c
 
-diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
-index e2fe0700b3b4..9a20821b111c 100644
---- a/arch/alpha/include/uapi/asm/socket.h
-+++ b/arch/alpha/include/uapi/asm/socket.h
-@@ -89,4 +89,7 @@
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index f46d3492d032..770d145186c3 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -4,12 +4,26 @@ obj- := dummy.o
+ # List of programs to build
+ hostprogs-y := test_verifier test_maps
+ hostprogs-y += sock_example
++hostprogs-y += sockex1
  
- #define SO_INCOMING_CPU		49
+ test_verifier-objs := test_verifier.o libbpf.o
+ test_maps-objs := test_maps.o libbpf.o
+ sock_example-objs := sock_example.o libbpf.o
++sockex1-objs := bpf_load.o libbpf.o sockex1_user.o
  
-+#define SO_ATTACH_BPF		50
-+#define SO_DETACH_BPF		SO_DETACH_FILTER
+ # Tell kbuild to always build the programs
+ always := $(hostprogs-y)
++always += sockex1_kern.o
+ 
+ HOSTCFLAGS += -I$(objtree)/usr/include
 +
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/avr32/include/uapi/asm/socket.h b/arch/avr32/include/uapi/asm/socket.h
-index 92121b0f5b98..2b65ed6b277c 100644
---- a/arch/avr32/include/uapi/asm/socket.h
-+++ b/arch/avr32/include/uapi/asm/socket.h
-@@ -82,4 +82,7 @@
- 
- #define SO_INCOMING_CPU		49
- 
-+#define SO_ATTACH_BPF		50
-+#define SO_DETACH_BPF		SO_DETACH_FILTER
++HOSTCFLAGS_bpf_load.o += -I$(objtree)/usr/include -Wno-unused-variable
++HOSTLOADLIBES_sockex1 += -lelf
 +
- #endif /* _UAPI__ASM_AVR32_SOCKET_H */
-diff --git a/arch/cris/include/uapi/asm/socket.h b/arch/cris/include/uapi/asm/socket.h
-index 60f60f5b9b35..e2503d9f1869 100644
---- a/arch/cris/include/uapi/asm/socket.h
-+++ b/arch/cris/include/uapi/asm/socket.h
-@@ -84,6 +84,9 @@
- 
- #define SO_INCOMING_CPU		49
- 
-+#define SO_ATTACH_BPF		50
-+#define SO_DETACH_BPF		SO_DETACH_FILTER
++# point this to your LLVM backend with bpf support
++LLC=$(srctree)/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
 +
- #endif /* _ASM_SOCKET_H */
++%.o: %.c
++	clang $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
++		-D__KERNEL__ -Wno-unused-value -Wno-pointer-sign \
++		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
+diff --git a/samples/bpf/libbpf.h b/samples/bpf/libbpf.h
+index cc62ad4d95de..58c5fe1bdba1 100644
+--- a/samples/bpf/libbpf.h
++++ b/samples/bpf/libbpf.h
+@@ -15,7 +15,7 @@ int bpf_prog_load(enum bpf_prog_type prog_type,
+ 		  const struct bpf_insn *insns, int insn_len,
+ 		  const char *license);
  
+-#define LOG_BUF_SIZE 8192
++#define LOG_BUF_SIZE 65536
+ extern char bpf_log_buf[LOG_BUF_SIZE];
  
-diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
-index 2c6890209ea6..4823ad125578 100644
---- a/arch/frv/include/uapi/asm/socket.h
-+++ b/arch/frv/include/uapi/asm/socket.h
-@@ -82,5 +82,8 @@
- 
- #define SO_INCOMING_CPU		49
- 
-+#define SO_ATTACH_BPF		50
-+#define SO_DETACH_BPF		SO_DETACH_FILTER
+ /* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
+diff --git a/samples/bpf/sockex1_kern.c b/samples/bpf/sockex1_kern.c
+new file mode 100644
+index 000000000000..066892662915
+--- /dev/null
++++ b/samples/bpf/sockex1_kern.c
+@@ -0,0 +1,25 @@
++#include <uapi/linux/bpf.h>
++#include <uapi/linux/if_ether.h>
++#include <uapi/linux/ip.h>
++#include "bpf_helpers.h"
 +
- #endif /* _ASM_SOCKET_H */
- 
-diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
-index 09a93fb566f6..59be3d87f86d 100644
---- a/arch/ia64/include/uapi/asm/socket.h
-+++ b/arch/ia64/include/uapi/asm/socket.h
-@@ -91,4 +91,7 @@
- 
- #define SO_INCOMING_CPU		49
- 
-+#define SO_ATTACH_BPF		50
-+#define SO_DETACH_BPF		SO_DETACH_FILTER
++struct bpf_map_def SEC("maps") my_map = {
++	.type = BPF_MAP_TYPE_ARRAY,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(long),
++	.max_entries = 256,
++};
 +
- #endif /* _ASM_IA64_SOCKET_H */
-diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
-index e8589819c274..7bc4cb273856 100644
---- a/arch/m32r/include/uapi/asm/socket.h
-+++ b/arch/m32r/include/uapi/asm/socket.h
-@@ -82,4 +82,7 @@
- 
- #define SO_INCOMING_CPU		49
- 
-+#define SO_ATTACH_BPF		50
-+#define SO_DETACH_BPF		SO_DETACH_FILTER
++SEC("socket1")
++int bpf_prog1(struct sk_buff *skb)
++{
++	int index = load_byte(skb, ETH_HLEN + offsetof(struct iphdr, protocol));
++	long *value;
 +
- #endif /* _ASM_M32R_SOCKET_H */
-diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
-index 2e9ee8c55a10..dec3c850f36b 100644
---- a/arch/mips/include/uapi/asm/socket.h
-+++ b/arch/mips/include/uapi/asm/socket.h
-@@ -100,4 +100,7 @@
- 
- #define SO_INCOMING_CPU		49
- 
-+#define SO_ATTACH_BPF		50
-+#define SO_DETACH_BPF		SO_DETACH_FILTER
++	value = bpf_map_lookup_elem(&my_map, &index);
++	if (value)
++		__sync_fetch_and_add(value, 1);
 +
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
-index f3492e8c9f70..cab7d6d50051 100644
---- a/arch/mn10300/include/uapi/asm/socket.h
-+++ b/arch/mn10300/include/uapi/asm/socket.h
-@@ -82,4 +82,7 @@
- 
- #define SO_INCOMING_CPU		49
- 
-+#define SO_ATTACH_BPF		50
-+#define SO_DETACH_BPF		SO_DETACH_FILTER
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
-index 7984a1cab3da..a5cd40cd8ee1 100644
---- a/arch/parisc/include/uapi/asm/socket.h
-+++ b/arch/parisc/include/uapi/asm/socket.h
-@@ -81,4 +81,7 @@
- 
- #define SO_INCOMING_CPU		0x402A
- 
-+#define SO_ATTACH_BPF		0x402B
-+#define SO_DETACH_BPF		SO_DETACH_FILTER
-+
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
-index 3474e4ef166d..c046666038f8 100644
---- a/arch/powerpc/include/uapi/asm/socket.h
-+++ b/arch/powerpc/include/uapi/asm/socket.h
-@@ -89,4 +89,7 @@
- 
- #define SO_INCOMING_CPU		49
- 
-+#define SO_ATTACH_BPF		50
-+#define SO_DETACH_BPF		SO_DETACH_FILTER
-+
- #endif	/* _ASM_POWERPC_SOCKET_H */
-diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
-index 8457636c33e1..296942d56e6a 100644
---- a/arch/s390/include/uapi/asm/socket.h
-+++ b/arch/s390/include/uapi/asm/socket.h
-@@ -88,4 +88,7 @@
- 
- #define SO_INCOMING_CPU		49
- 
-+#define SO_ATTACH_BPF		50
-+#define SO_DETACH_BPF		SO_DETACH_FILTER
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
-index 4a8003a94163..e6a16c40be5f 100644
---- a/arch/sparc/include/uapi/asm/socket.h
-+++ b/arch/sparc/include/uapi/asm/socket.h
-@@ -78,6 +78,9 @@
- 
- #define SO_INCOMING_CPU		0x0033
- 
-+#define SO_ATTACH_BPF		0x0034
-+#define SO_DETACH_BPF		SO_DETACH_FILTER
-+
- /* Security levels - as per NRL IPv6 - don't actually do anything */
- #define SO_SECURITY_AUTHENTICATION		0x5001
- #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
-diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
-index c46f6a696849..4120af086160 100644
---- a/arch/xtensa/include/uapi/asm/socket.h
-+++ b/arch/xtensa/include/uapi/asm/socket.h
-@@ -93,4 +93,7 @@
- 
- #define SO_INCOMING_CPU		49
- 
-+#define SO_ATTACH_BPF		50
-+#define SO_DETACH_BPF		SO_DETACH_FILTER
-+
- #endif	/* _XTENSA_SOCKET_H */
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 75e94eaa228b..bbfceb756452 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -128,7 +128,11 @@ struct bpf_prog_aux {
- 	struct work_struct work;
- };
- 
-+#ifdef CONFIG_BPF_SYSCALL
- void bpf_prog_put(struct bpf_prog *prog);
-+#else
-+static inline void bpf_prog_put(struct bpf_prog *prog) {}
-+#endif
- struct bpf_prog *bpf_prog_get(u32 ufd);
- /* verify correctness of eBPF program */
- int bpf_check(struct bpf_prog *fp, union bpf_attr *attr);
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index ca95abd2bed1..caac2087a4d5 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -381,6 +381,7 @@ int bpf_prog_create(struct bpf_prog **pfp, struct sock_fprog_kern *fprog);
- void bpf_prog_destroy(struct bpf_prog *fp);
- 
- int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
-+int sk_attach_bpf(u32 ufd, struct sock *sk);
- int sk_detach_filter(struct sock *sk);
- 
- int bpf_check_classic(const struct sock_filter *filter, unsigned int flen);
-diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
-index f541ccefd4ac..5c15c2a5c123 100644
---- a/include/uapi/asm-generic/socket.h
-+++ b/include/uapi/asm-generic/socket.h
-@@ -84,4 +84,7 @@
- 
- #define SO_INCOMING_CPU		49
- 
-+#define SO_ATTACH_BPF		50
-+#define SO_DETACH_BPF		SO_DETACH_FILTER
-+
- #endif /* __ASM_GENERIC_SOCKET_H */
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 647b12265e18..8cc3c03078b3 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -44,6 +44,7 @@
- #include <linux/ratelimit.h>
- #include <linux/seccomp.h>
- #include <linux/if_vlan.h>
++	return 0;
++}
++char _license[] SEC("license") = "GPL";
+diff --git a/samples/bpf/sockex1_user.c b/samples/bpf/sockex1_user.c
+new file mode 100644
+index 000000000000..34a443ff3831
+--- /dev/null
++++ b/samples/bpf/sockex1_user.c
+@@ -0,0 +1,49 @@
++#include <stdio.h>
++#include <assert.h>
 +#include <linux/bpf.h>
- 
- /**
-  *	sk_filter - run a packet through a socket filter
-@@ -813,8 +814,12 @@ static void bpf_release_orig_filter(struct bpf_prog *fp)
- 
- static void __bpf_prog_release(struct bpf_prog *prog)
- {
--	bpf_release_orig_filter(prog);
--	bpf_prog_free(prog);
-+	if (prog->aux->prog_type == BPF_PROG_TYPE_SOCKET_FILTER) {
-+		bpf_prog_put(prog);
-+	} else {
-+		bpf_release_orig_filter(prog);
-+		bpf_prog_free(prog);
-+	}
- }
- 
- static void __sk_filter_release(struct sk_filter *fp)
-@@ -1088,6 +1093,94 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
- }
- EXPORT_SYMBOL_GPL(sk_attach_filter);
- 
-+#ifdef CONFIG_BPF_SYSCALL
-+int sk_attach_bpf(u32 ufd, struct sock *sk)
++#include "libbpf.h"
++#include "bpf_load.h"
++#include <unistd.h>
++#include <arpa/inet.h>
++
++int main(int ac, char **argv)
 +{
-+	struct sk_filter *fp, *old_fp;
-+	struct bpf_prog *prog;
++	char filename[256];
++	FILE *f;
++	int i, sock;
 +
-+	if (sock_flag(sk, SOCK_FILTER_LOCKED))
-+		return -EPERM;
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
 +
-+	prog = bpf_prog_get(ufd);
-+	if (!prog)
-+		return -EINVAL;
-+
-+	if (prog->aux->prog_type != BPF_PROG_TYPE_SOCKET_FILTER) {
-+		/* valid fd, but invalid program type */
-+		bpf_prog_put(prog);
-+		return -EINVAL;
++	if (load_bpf_file(filename)) {
++		printf("%s", bpf_log_buf);
++		return 1;
 +	}
 +
-+	fp = kmalloc(sizeof(*fp), GFP_KERNEL);
-+	if (!fp) {
-+		bpf_prog_put(prog);
-+		return -ENOMEM;
++	sock = open_raw_sock("lo");
++
++	assert(setsockopt(sock, SOL_SOCKET, SO_ATTACH_BPF, prog_fd,
++			  sizeof(prog_fd[0])) == 0);
++
++	f = popen("ping -c5 localhost", "r");
++	(void) f;
++
++	for (i = 0; i < 5; i++) {
++		long long tcp_cnt, udp_cnt, icmp_cnt;
++		int key;
++
++		key = IPPROTO_TCP;
++		assert(bpf_lookup_elem(map_fd[0], &key, &tcp_cnt) == 0);
++
++		key = IPPROTO_UDP;
++		assert(bpf_lookup_elem(map_fd[0], &key, &udp_cnt) == 0);
++
++		key = IPPROTO_ICMP;
++		assert(bpf_lookup_elem(map_fd[0], &key, &icmp_cnt) == 0);
++
++		printf("TCP %lld UDP %lld ICMP %lld packets\n",
++		       tcp_cnt, udp_cnt, icmp_cnt);
++		sleep(1);
 +	}
-+	fp->prog = prog;
-+
-+	atomic_set(&fp->refcnt, 0);
-+
-+	if (!sk_filter_charge(sk, fp)) {
-+		__sk_filter_release(fp);
-+		return -ENOMEM;
-+	}
-+
-+	old_fp = rcu_dereference_protected(sk->sk_filter,
-+					   sock_owned_by_user(sk));
-+	rcu_assign_pointer(sk->sk_filter, fp);
-+
-+	if (old_fp)
-+		sk_filter_uncharge(sk, old_fp);
 +
 +	return 0;
 +}
-+
-+/* allow socket filters to call
-+ * bpf_map_lookup_elem(), bpf_map_update_elem(), bpf_map_delete_elem()
-+ */
-+static const struct bpf_func_proto *sock_filter_func_proto(enum bpf_func_id func_id)
-+{
-+	switch (func_id) {
-+	case BPF_FUNC_map_lookup_elem:
-+		return &bpf_map_lookup_elem_proto;
-+	case BPF_FUNC_map_update_elem:
-+		return &bpf_map_update_elem_proto;
-+	case BPF_FUNC_map_delete_elem:
-+		return &bpf_map_delete_elem_proto;
-+	default:
-+		return NULL;
-+	}
-+}
-+
-+static bool sock_filter_is_valid_access(int off, int size, enum bpf_access_type type)
-+{
-+	/* skb fields cannot be accessed yet */
-+	return false;
-+}
-+
-+static struct bpf_verifier_ops sock_filter_ops = {
-+	.get_func_proto = sock_filter_func_proto,
-+	.is_valid_access = sock_filter_is_valid_access,
-+};
-+
-+static struct bpf_prog_type_list tl = {
-+	.ops = &sock_filter_ops,
-+	.type = BPF_PROG_TYPE_SOCKET_FILTER,
-+};
-+
-+static int __init register_sock_filter_ops(void)
-+{
-+	bpf_register_prog_type(&tl);
-+	return 0;
-+}
-+late_initcall(register_sock_filter_ops);
-+#else
-+int sk_attach_bpf(u32 ufd, struct sock *sk)
-+{
-+	return -EOPNOTSUPP;
-+}
-+#endif
- int sk_detach_filter(struct sock *sk)
- {
- 	int ret = -ENOENT;
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 0725cf0cb685..9a56b2000c3f 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -888,6 +888,19 @@ set_rcvbuf:
- 		}
- 		break;
- 
-+	case SO_ATTACH_BPF:
-+		ret = -EINVAL;
-+		if (optlen == sizeof(u32)) {
-+			u32 ufd;
-+
-+			ret = -EFAULT;
-+			if (copy_from_user(&ufd, optval, sizeof(ufd)))
-+				break;
-+
-+			ret = sk_attach_bpf(ufd, sk);
-+		}
-+		break;
-+
- 	case SO_DETACH_FILTER:
- 		ret = sk_detach_filter(sk);
- 		break;
 -- 
 1.7.9.5
