@@ -1,94 +1,22 @@
-From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net] gso: do GSO for local skb with size
-	bigger than MTU
-Date: Mon, 1 Dec 2014 17:06:31 +0200
-Message-ID: <20141201150631.GD18305@redhat.com>
-References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
- <1417158128.3268.2@smtp.corp.redhat.com>
- <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com>
- <20141201135225.GA16814@casper.infradead.org>
+From: Finance Department <vdelgado@inavi.gob.ve>
+Subject: Payment
+Date: Mon, 1 Dec 2014 10:05:08 -0430 (VET)
+Message-ID: <1511732970.906902.1417444508788.JavaMail.zimbra@inavi.gob.ve>
+Reply-To: Finance Department <defnce@qq.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- 'Jason Wang' <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "Du, Fan" <fan.du-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- "fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org" <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20141201135225.GA16814-FZi0V3Vbi30CUdFEqe4BF2D2FQJk+8+b@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 201-249-174-170.estatic.cantv.net ([201.249.174.170]:40019 "EHLO
+	correo.inavi.gob.ve" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753649AbaLAPJy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2014 10:09:54 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBEZWMgMDEsIDIwMTQgYXQgMDE6NTI6MjVQTSArMDAwMCwgVGhvbWFzIEdyYWYgd3Jv
-dGU6Cj4gT24gMTEvMzAvMTQgYXQgMTA6MDhhbSwgRHUsIEZhbiB3cm90ZToKPiA+ID4tLS0tLU9y
-aWdpbmFsIE1lc3NhZ2UtLS0tLQo+ID4gPkZyb206IEphc29uIFdhbmcgW21haWx0bzpqYXNvd2Fu
-Z0ByZWRoYXQuY29tXQo+ID4gPlNlbnQ6IEZyaWRheSwgTm92ZW1iZXIgMjgsIDIwMTQgMzowMiBQ
-TQo+ID4gPlRvOiBEdSwgRmFuCj4gPiA+Q2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGRhdmVt
-QGRhdmVtbG9mdC5uZXQ7IGZ3QHN0cmxlbi5kZTsgRHUsIEZhbgo+ID4gPlN1YmplY3Q6IFJlOiBb
-UEFUQ0ggbmV0XSBnc286IGRvIEdTTyBmb3IgbG9jYWwgc2tiIHdpdGggc2l6ZSBiaWdnZXIgdGhh
-biBNVFUKPiA+ID5PbiBGcmksIE5vdiAyOCwgMjAxNCBhdCAyOjMzIFBNLCBGYW4gRHUgPGZhbi5k
-dUBpbnRlbC5jb20+IHdyb3RlOgo+ID4gPj4gVGVzdCBzY2VuYXJpbzogdHdvIEtWTSBndWVzdHMg
-c2l0dGluZyBpbiBkaWZmZXJlbnQgaG9zdHMgY29tbXVuaWNhdGUKPiA+ID4+IHRvIGVhY2ggb3Ro
-ZXIgd2l0aCBhIHZ4bGFuIHR1bm5lbC4KPiA+ID4+Cj4gPiA+PiBBbGwgaW50ZXJmYWNlIE1UVSBp
-cyBkZWZhdWx0IDE1MDAgQnl0ZXMsIGZyb20gZ3Vlc3QgcG9pbnQgb2YgdmlldywgaXRzCj4gPiA+
-PiBza2IgZ3NvX3NpemUgY291bGQgYmUgYXMgYmlnZ2VyIGFzIDE0NDhCeXRlcywgaG93ZXZlciBh
-ZnRlciBndWVzdCBza2IKPiA+ID4+IGdvZXMgdGhyb3VnaCB2eGxhbiBlbmNhcHVzbGF0aW9uLCBp
-bmRpdmlkdWFsIHNlZ21lbnRzIGxlbmd0aCBvZiBhIGdzbwo+ID4gPj4gcGFja2V0IGNvdWxkIGV4
-Y2VlZCBwaHlzaWNhbCBOSUMgTVRVIDE1MDAsIHdoaWNoIHdpbGwgYmUgbG9zdCBhdAo+ID4gPj4g
-cmVjZXZpZXIgc2lkZS4KPiA+ID4+Cj4gPiA+PiBTbyBpdCdzIHBvc3NpYmxlIGluIHZpcnR1YWxp
-emVkIGVudmlyb25tZW50LCBsb2NhbGx5IGNyZWF0ZWQgc2tiIGxlbgo+ID4gPj4gYWZ0ZXIgZW5j
-YXBzbGF0aW9uIGNvdWxkIGJlIGJpZ2dlciB0aGFuIHVuZGVybGF5ZXIgTVRVLiBJbiBzdWNoIGNh
-c2UsCj4gPiA+PiBpdCdzIHJlYXNvbmFibGUgdG8gZG8gR1NPIGZpcnN0LCB0aGVuIGZyYWdtZW50
-IGFueSBwYWNrZXQgYmlnZ2VyIHRoYW4KPiA+ID4+IE1UVSBhcyBwb3NzaWJsZS4KPiA+ID4+Cj4g
-PiA+PiArLS0tLS0tLS0tLS0tLS0tKyBUWCAgICAgUlggKy0tLS0tLS0tLS0tLS0tLSsKPiA+ID4+
-IHwgICBLVk0gR3Vlc3QgICB8IC0+IC4uLiAtPiB8ICAgS1ZNIEd1ZXN0ICAgfAo+ID4gPj4gKy0r
-LS0tLS0tLS0tLS0rLSsgICAgICAgICAgICstKy0tLS0tLS0tLS0tKy0rCj4gPiA+PiAgIHxRZW11
-L1ZpcnRJT3wgICAgICAgICAgICAgICB8UWVtdS9WaXJ0SU98Cj4gPiA+PiAgICstLS0tLS0tLS0t
-LSsgICAgICAgICAgICAgICArLS0tLS0tLS0tLS0rCj4gPiA+PiAgICAgICAgfCAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICB8Cj4gPiA+PiAgICAgICAgdiB0YXAwICAgICAgICAgICAgICAgICAg
-dGFwMCB2Cj4gPiA+PiAgICstLS0tLS0tLS0tLSsgICAgICAgICAgICAgICArLS0tLS0tLS0tLS0r
-Cj4gPiA+PiAgIHwgb3ZzIGJyaWRnZXwgICAgICAgICAgICAgICB8IG92cyBicmlkZ2V8Cj4gPiA+
-PiAgICstLS0tLS0tLS0tLSsgICAgICAgICAgICAgICArLS0tLS0tLS0tLS0rCj4gPiA+PiAgICAg
-ICAgfCB2eGxhbiAgICAgICAgICAgICAgICB2eGxhbiB8Cj4gPiA+PiAgICAgICAgdiAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICB2Cj4gPiA+PiAgICstLS0tLS0tLS0tLSsgICAgICAgICAgICAg
-ICArLS0tLS0tLS0tLS0rCj4gPiA+PiAgIHwgICAgTklDICAgIHwgICAgPC0tLS0tLT4gICB8ICAg
-IE5JQyAgICB8Cj4gPiA+PiAgICstLS0tLS0tLS0tLSsgICAgICAgICAgICAgICArLS0tLS0tLS0t
-LS0rCj4gPiA+Pgo+ID4gPj4gU3RlcHMgdG8gcmVwcm9kdWNlOgo+ID4gPj4gIDEuIFVzaW5nIGtl
-cm5lbCBidWlsdGluIG9wZW52c3dpdGNoIG1vZHVsZSB0byBzZXR1cCBvdnMgYnJpZGdlLgo+ID4g
-Pj4gIDIuIFJ1bmluZyBpcGVyZiB3aXRob3V0IC1NLCBjb21tdW5pY2F0aW9uIHdpbGwgc3R1Y2su
-Cj4gPiA+Cj4gPiA+SXMgdGhpcyBpc3N1ZSBzcGVjaWZpYyB0byBvdnMgb3IgaXB2ND8gUGF0aCBN
-VFUgZGlzY292ZXJ5IHNob3VsZCBoZWxwIGluIHRoaXMgY2FzZSBJCj4gPiA+YmVsaWV2ZS4KPiA+
-IAo+ID4gUHJvYmxlbSBoZXJlIGlzIGhvc3Qgc3RhY2sgcHVzaCBsb2NhbCBvdmVyLXNpemVkIGdz
-byBza2IgZG93biB0byBOSUMsIGFuZCBwZXJmb3JtIEdTTyB0aGVyZQo+ID4gd2l0aG91dCBhbnkg
-ZnVydGhlciBpcCBzZWdtZW50YXRpb24uCj4gPiAKPiA+IFJlYXNvbmFibGUgYmVoYXZpb3IgaXMg
-ZG8gZ3NvIGZpcnN0IGF0IGlwIGxldmVsLCBpZiBnc28tZWQgc2tiIGlzIGJpZ2dlciB0aGFuIE1U
-VSAmJiBkZiBpcyBzZXQsIAo+ID4gVGhlbiBwdXNoIElDTVBfREVTVF9VTlJFQUNIL0lDTVBfRlJB
-R19ORUVERUQgbWVzc2FnZSBiYWNrIHRvIHNlbmRlciB0byBhZGp1c3QgbXR1LgoKU291bmRzIGFi
-b3V0IHJpZ2h0LgoKPiBBc2lkZSBmcm9tIHRoaXMuIEkgdGhpbmsgVmlydGlvIHNob3VsZCBwcm92
-aWRlIGEgTVRVIGhpbnQgdG8gdGhlIGd1ZXN0Cj4gdG8gYWRqdXN0IE1UVSBpbiB0aGUgdk5JQyB0
-byBhY2NvdW50IGZvciBib3RoIG92ZXJoZWFkIG9yIHN1cHBvcnQgZm9yCj4ganVtYm8gZnJhbWVz
-IGluIHRoZSB1bmRlcmxheSB0cmFuc3BhcmVudGx5IHdpdGhvdXQgcmVseWluZyBvbiBQTVRVIG9y
-Cj4gTVNTIGhpbnRzLiBJIHJlbWVtYmVyIHdlIHRhbGtlZCBhYm91dCB0aGlzIGEgd2hpbGUgYWdv
-IHdpdGggYXQgbGVhc3QKPiBNaWNoYWVsIGJ1dCBoYXZlbid0IGRvbmUgYWN0dWFsIGNvZGUgd29y
-ayBvbiBpdCB5ZXQuCgpUaGlzIGNhbiBiZSBhbiBvcHRpbWl6YXRpb24gYnV0IGNhbid0IHJlcGxh
-Y2UgZml4aW5nIFBNVFUuCkluIHBhcnRpY3VsYXIgdGhpcyBjYW4ndCBoZWxwIGxlZ2FjeSBndWVz
-dHMuCgo+ID4gRm9yIFBNVFUgdG8gd29yaywgdGhhdCdzIGFub3RoZXIgaXNzdWUgSSB3aWxsIHRy
-eSB0byBhZGRyZXNzIGxhdGVyIG9uLgo+IAo+IFBNVFUgZGlzY292ZXJ5IHdhcyBleHBsaWNpdGx5
-IHJlbW92ZWQgZnJvbSB0aGUgT1ZTIGRhdGFwYXRoLiBNYXliZQo+IFByYXZpbiBvciBKZXNzZSBj
-YW4gcHJvdmlkZSBzb21lIGJhY2tncm91bmQgb24gdGhhdAoKUE1UVSB3YXMgbmV2ZXIgd29ya2lu
-ZyBwcm9wZXJseSBmb3IgT1ZTIHVzZXJzLiAgVGhlcmUgd2FzIGFuIHVnbHkgaGFjayB0aGF0IGtp
-bmQKb2Ygd29ya2VkIHBhcnQgb2YgdGhlIHRpbWUuICBUaGF0IHdhcyBkcm9wcGVkLCBhbmQgZ29v
-ZCByaWRkYW5jZS4KUHJvcGVyIFBNVFUgc3VwcG9ydCBmb3IgYWxsIGtpbmQgb2YgdHVubmVsaW5n
-IHNvbHV0aW9ucywgZS5nLiBhbG9uZyB0aGUKbGluZXMgeW91IG91dGxpbmUgYWJvdmUsIGJlbG9u
-Z3MgaW4gaG9zdCBjb3JlLgoKLS0gCk1TVApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0
-cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+Dear Recipient,
+
+You have been awarded the sum of  8,000,000.00 (Eight Million Pounds sterling) with reference number 77100146 by office of the ministry of finance UK.Send us your personal details to deliver your funds.
+
+Gloria Peter
