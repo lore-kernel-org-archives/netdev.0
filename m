@@ -1,50 +1,171 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v8 35/50] vhost/net: larger header for virtio 1.0
-Date: Mon, 1 Dec 2014 18:05:39 +0200
-Message-ID: <1417449619-24896-36-git-send-email-mst@redhat.com>
+Subject: [PATCH v8 40/50] tun: TUN_VNET_LE support, fix sparse warnings for
+ virtio headers
+Date: Mon, 1 Dec 2014 18:06:06 +0200
+Message-ID: <1417449619-24896-41-git-send-email-mst@redhat.com>
 References: <1417449619-24896-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: thuth@linux.vnet.ibm.com, kvm@vger.kernel.org, rusty@au1.ibm.com,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	dahi@linux.vnet.ibm.com, pbonzini@redhat.com,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
+	rusty@au1.ibm.com, nab@linux-iscsi.org, pbonzini@redhat.com,
+	thuth@linux.vnet.ibm.com, dahi@linux.vnet.ibm.com,
+	Jason Wang <jasowang@redhat.com>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	Tom Herbert <therbert@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Masatake YAMATO <yamato@redhat.com>,
+	Ben Hutchings <ben@decadent.org.uk>, Xi Wang <xii@google.com>,
+	netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <1417449619-24896-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+Pretty straight-forward: convert all fields to/from
+virtio endian-ness.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 Reviewed-by: Jason Wang <jasowang@redhat.com>
-Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
 ---
- drivers/vhost/net.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/tun.c | 48 +++++++++++++++++++++++++++++-------------------
+ 1 file changed, 29 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index c218188..8ff4a6d 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -1030,7 +1030,8 @@ static int vhost_net_set_features(struct vhost_net *n, u64 features)
- 	size_t vhost_hlen, sock_hlen, hdr_len;
- 	int i;
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 36be4fd..c052bd6b 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -111,7 +111,7 @@ do {								\
+ #define TUN_FASYNC	IFF_ATTACH_QUEUE
  
--	hdr_len = (features & (1 << VIRTIO_NET_F_MRG_RXBUF)) ?
-+	hdr_len = (features & ((1ULL << VIRTIO_NET_F_MRG_RXBUF) |
-+			       (1ULL << VIRTIO_F_VERSION_1))) ?
- 			sizeof(struct virtio_net_hdr_mrg_rxbuf) :
- 			sizeof(struct virtio_net_hdr);
- 	if (features & (1 << VHOST_NET_F_VIRTIO_NET_HDR)) {
+ #define TUN_FEATURES (IFF_NO_PI | IFF_ONE_QUEUE | IFF_VNET_HDR | \
+-		      IFF_MULTI_QUEUE)
++		      IFF_VNET_LE | IFF_MULTI_QUEUE)
+ #define GOODCOPY_LEN 128
+ 
+ #define FLT_EXACT_COUNT 8
+@@ -205,6 +205,16 @@ struct tun_struct {
+ 	u32 flow_count;
+ };
+ 
++static inline u16 tun16_to_cpu(struct tun_struct *tun, __virtio16 val)
++{
++	return __virtio16_to_cpu(tun->flags & IFF_VNET_LE, val);
++}
++
++static inline __virtio16 cpu_to_tun16(struct tun_struct *tun, u16 val)
++{
++	return __cpu_to_virtio16(tun->flags & IFF_VNET_LE, val);
++}
++
+ static inline u32 tun_hashfn(u32 rxhash)
+ {
+ 	return rxhash & 0x3ff;
+@@ -1053,10 +1063,10 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 			return -EFAULT;
+ 
+ 		if ((gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
+-		    gso.csum_start + gso.csum_offset + 2 > gso.hdr_len)
+-			gso.hdr_len = gso.csum_start + gso.csum_offset + 2;
++		    tun16_to_cpu(tun, gso.csum_start) + tun16_to_cpu(tun, gso.csum_offset) + 2 > tun16_to_cpu(tun, gso.hdr_len))
++			gso.hdr_len = cpu_to_tun16(tun, tun16_to_cpu(tun, gso.csum_start) + tun16_to_cpu(tun, gso.csum_offset) + 2);
+ 
+-		if (gso.hdr_len > len)
++		if (tun16_to_cpu(tun, gso.hdr_len) > len)
+ 			return -EINVAL;
+ 		offset += tun->vnet_hdr_sz;
+ 	}
+@@ -1064,7 +1074,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	if ((tun->flags & TUN_TYPE_MASK) == IFF_TAP) {
+ 		align += NET_IP_ALIGN;
+ 		if (unlikely(len < ETH_HLEN ||
+-			     (gso.hdr_len && gso.hdr_len < ETH_HLEN)))
++			     (gso.hdr_len && tun16_to_cpu(tun, gso.hdr_len) < ETH_HLEN)))
+ 			return -EINVAL;
+ 	}
+ 
+@@ -1075,7 +1085,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		 * enough room for skb expand head in case it is used.
+ 		 * The rest of the buffer is mapped from userspace.
+ 		 */
+-		copylen = gso.hdr_len ? gso.hdr_len : GOODCOPY_LEN;
++		copylen = gso.hdr_len ? tun16_to_cpu(tun, gso.hdr_len) : GOODCOPY_LEN;
+ 		if (copylen > good_linear)
+ 			copylen = good_linear;
+ 		linear = copylen;
+@@ -1085,10 +1095,10 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 
+ 	if (!zerocopy) {
+ 		copylen = len;
+-		if (gso.hdr_len > good_linear)
++		if (tun16_to_cpu(tun, gso.hdr_len) > good_linear)
+ 			linear = good_linear;
+ 		else
+-			linear = gso.hdr_len;
++			linear = tun16_to_cpu(tun, gso.hdr_len);
+ 	}
+ 
+ 	skb = tun_alloc_skb(tfile, align, copylen, linear, noblock);
+@@ -1115,8 +1125,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	}
+ 
+ 	if (gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
+-		if (!skb_partial_csum_set(skb, gso.csum_start,
+-					  gso.csum_offset)) {
++		if (!skb_partial_csum_set(skb, tun16_to_cpu(tun, gso.csum_start),
++					  tun16_to_cpu(tun, gso.csum_offset))) {
+ 			tun->dev->stats.rx_frame_errors++;
+ 			kfree_skb(skb);
+ 			return -EINVAL;
+@@ -1184,7 +1194,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		if (gso.gso_type & VIRTIO_NET_HDR_GSO_ECN)
+ 			skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_ECN;
+ 
+-		skb_shinfo(skb)->gso_size = gso.gso_size;
++		skb_shinfo(skb)->gso_size = tun16_to_cpu(tun, gso.gso_size);
+ 		if (skb_shinfo(skb)->gso_size == 0) {
+ 			tun->dev->stats.rx_frame_errors++;
+ 			kfree_skb(skb);
+@@ -1276,8 +1286,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 			struct skb_shared_info *sinfo = skb_shinfo(skb);
+ 
+ 			/* This is a hint as to how much should be linear. */
+-			gso.hdr_len = skb_headlen(skb);
+-			gso.gso_size = sinfo->gso_size;
++			gso.hdr_len = cpu_to_tun16(tun, skb_headlen(skb));
++			gso.gso_size = cpu_to_tun16(tun, sinfo->gso_size);
+ 			if (sinfo->gso_type & SKB_GSO_TCPV4)
+ 				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+ 			else if (sinfo->gso_type & SKB_GSO_TCPV6)
+@@ -1285,12 +1295,12 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 			else {
+ 				pr_err("unexpected GSO type: "
+ 				       "0x%x, gso_size %d, hdr_len %d\n",
+-				       sinfo->gso_type, gso.gso_size,
+-				       gso.hdr_len);
++				       sinfo->gso_type, tun16_to_cpu(tun, gso.gso_size),
++				       tun16_to_cpu(tun, gso.hdr_len));
+ 				print_hex_dump(KERN_ERR, "tun: ",
+ 					       DUMP_PREFIX_NONE,
+ 					       16, 1, skb->head,
+-					       min((int)gso.hdr_len, 64), true);
++					       min((int)tun16_to_cpu(tun, gso.hdr_len), 64), true);
+ 				WARN_ON_ONCE(1);
+ 				return -EINVAL;
+ 			}
+@@ -1301,9 +1311,9 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 
+ 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 			gso.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+-			gso.csum_start = skb_checksum_start_offset(skb) +
+-					 vlan_hlen;
+-			gso.csum_offset = skb->csum_offset;
++			gso.csum_start = cpu_to_tun16(tun, skb_checksum_start_offset(skb) +
++						      vlan_hlen);
++			gso.csum_offset = cpu_to_tun16(tun, skb->csum_offset);
+ 		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+ 			gso.flags = VIRTIO_NET_HDR_F_DATA_VALID;
+ 		} /* else everything is zero */
 -- 
 MST
