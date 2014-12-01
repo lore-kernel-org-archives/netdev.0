@@ -1,83 +1,94 @@
-From: Dinh Nguyen <dinguyen@opensource.altera.com>
-Subject: Re: [PATCH] stmmac: platform: fix stmmac probe failure
-Date: Mon, 1 Dec 2014 14:14:31 -0600
-Message-ID: <547CCC27.4050404@opensource.altera.com>
-References: <1417464054-8777-1-git-send-email-dinguyen@opensource.altera.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next] hyperv: Add support for vNIC hot removal
+Date: Mon,  1 Dec 2014 13:28:39 -0800
+Message-ID: <1417469319-7356-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <dinh.linux@gmail.com>, <maxime.ripard@free-electrons.com>,
-	<olof@lixom.net>, <vbridger@opensource.altera.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: <davem@davemloft.net>, <peppe.cavallaro@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417464054-8777-1-git-send-email-dinguyen@opensource.altera.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
+ linux-kernel@vger.kernel.org, haiyangz@microsoft.com
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Apologies for the noise, but it looks like Arnd has already send a patch
-for this.
+This patch adds proper handling of the vNIC hot removal event, which includes
+a rescind-channel-offer message from the host side that triggers vNIC close and
+removal. In this case, the notices to the host during close and removal is not
+necessary because the channel is rescinded. This patch blocks these unnecessary 
+messages, and lets vNIC removal process complete normally.
 
-http://www.spinics.net/lists/netdev/msg306603.html
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/hv/channel_mgmt.c         |    2 ++
+ drivers/net/hyperv/netvsc.c       |    3 +++
+ drivers/net/hyperv/rndis_filter.c |    3 +++
+ include/linux/hyperv.h            |    2 ++
+ 4 files changed, 10 insertions(+), 0 deletions(-)
 
-Dinh
-
-On 12/1/14, 2:00 PM, dinguyen@opensource.altera.com wrote:
-> From: Dinh Nguyen <dinguyen@opensource.altera.com>
-> 
-> The commit 571dcfde23712b ("stmmac: platform: fix default values of the filter
-> bins setting") broke support for stmmac probe for all CONFIG_OF platforms.
-> 
-> [    0.743567] Unable to handle kernel NULL pointer dereference at virtual address 00000048
-> [    0.751679] pgd = c0004000
-> [    0.754384] [00000048] *pgd=00000000
-> [    0.757983] Internal error: Oops: 805 [#1] SMP ARM
-> [    0.762774] CPU: 0 PID: 1 Comm: swapper/0 Not tainted 3.18.0-rc7 #1
-> [    0.769034] task: ee86c000 ti: ee870000 task.ti: ee870000
-> [    0.774429] PC is at stmmac_pltfr_probe+0x40/0x5d0
-> [    0.779217] LR is at devm_ioremap_nocache+0x54/0x74
-> ...
-> [    0.951644] [<c0287938>] (stmmac_pltfr_probe) from [<c0234c4c>] (platform_drv_probe+0x44/0xa4)
-> [    0.960250] [<c0234c4c>] (platform_drv_probe) from [<c023390c>] (driver_probe_device+0x10c/0x240)
-> [    0.969113] [<c023390c>] (driver_probe_device) from [<c0233b10>] (__driver_attach+0x8c/0x90)
-> [    0.977544] [<c0233b10>] (__driver_attach) from [<c02320fc>] (bus_for_each_dev+0x6c/0xa0)
-> 
-> The reason is that in stmmac_pltfr_probe(), the plat_dat on a CONFIG_OF
-> platform is NULL until devm_kzalloc() is called to allocate plat_dat.
-> 
-> Signed-off-by: Dinh Nguyen <dinguyen@opensource.altera.com>
-> ---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 12 ++++++------
->  1 file changed, 6 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> index 5b0da39..62c9e75 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> @@ -265,12 +265,6 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
->  
->  	plat_dat = dev_get_platdata(&pdev->dev);
->  
-> -	/* Set default value for multicast hash bins */
-> -	plat_dat->multicast_filter_bins = HASH_TABLE_SIZE;
-> -
-> -	/* Set default value for unicast filter entries */
-> -	plat_dat->unicast_filter_entries = 1;
-> -
->  	if (pdev->dev.of_node) {
->  		if (!plat_dat)
->  			plat_dat = devm_kzalloc(&pdev->dev,
-> @@ -288,6 +282,12 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
->  		}
->  	}
->  
-> +	/* Set default value for multicast hash bins */
-> +	plat_dat->multicast_filter_bins = HASH_TABLE_SIZE;
-> +
-> +	/* Set default value for unicast filter entries */
-> +	plat_dat->unicast_filter_entries = 1;
-> +
->  	/* Custom setup (if needed) */
->  	if (plat_dat->setup) {
->  		plat_dat->bsp_priv = plat_dat->setup(pdev);
-> 
+diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
+index a2d1a96..191a6a3 100644
+--- a/drivers/hv/channel_mgmt.c
++++ b/drivers/hv/channel_mgmt.c
+@@ -517,6 +517,8 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
+ 		/* Just return here, no channel found */
+ 		return;
+ 
++	channel->rescind = true;
++
+ 	/* work is initialized for vmbus_process_rescind_offer() from
+ 	 * vmbus_process_offer() where the channel got created */
+ 	queue_work(channel->controlwq, &channel->work);
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 6fc834e..dd867e6 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -764,6 +764,9 @@ int netvsc_send(struct hv_device *device,
+ 		out_channel = device->channel;
+ 	packet->channel = out_channel;
+ 
++	if (out_channel->rescind)
++		return -ENODEV;
++
+ 	if (packet->page_buf_cnt) {
+ 		ret = vmbus_sendpacket_pagebuffer(out_channel,
+ 						  packet->page_buf,
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 7b2c5d1..ec0c40a 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -958,6 +958,9 @@ static int rndis_filter_close_device(struct rndis_device *dev)
+ 		return 0;
+ 
+ 	ret = rndis_filter_set_packet_filter(dev, 0);
++	if (ret == -ENODEV)
++		ret = 0;
++
+ 	if (ret == 0)
+ 		dev->state = RNDIS_DEV_INITIALIZED;
+ 
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index 08cfaff..476c685 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -650,6 +650,8 @@ struct vmbus_channel {
+ 	u8 monitor_grp;
+ 	u8 monitor_bit;
+ 
++	bool rescind; /* got rescind msg */
++
+ 	u32 ringbuffer_gpadlhandle;
+ 
+ 	/* Allocated memory for ring buffer */
+-- 
+1.7.1
