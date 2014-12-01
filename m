@@ -1,68 +1,49 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v7 31/46] vhost: virtio 1.0 endian-ness support
-Date: Mon, 1 Dec 2014 14:49:57 +0200
-Message-ID: <20141201124957.GA18106@redhat.com>
-References: <1417359787-10138-1-git-send-email-mst@redhat.com>
-	<1417359787-10138-32-git-send-email-mst@redhat.com>
-	<20141201133353.0bbaa2e1.cornelia.huck@de.ibm.com>
-	<20141201123701.GB17958@redhat.com>
-	<20141201134247.55e68161.cornelia.huck@de.ibm.com>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: tun issue after e0b46d0ee9c: tun: Use iovec iterators
+Date: Mon, 01 Dec 2014 11:05:55 -0200
+Message-ID: <547C67B3.7040505@redhat.com>
+References: <5478CC27.9040705@redhat.com> <20141128235935.GA2178@gondor.apana.org.au> <547954B9.2050804@redhat.com> <20141130082106.GA9531@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: thuth@linux.vnet.ibm.com, kvm@vger.kernel.org, rusty@au1.ibm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	dahi@linux.vnet.ibm.com, pbonzini@redhat.com,
-	David Miller <davem@davemloft.net>
-To: Cornelia Huck <cornelia.huck@de.ibm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20141201134247.55e68161.cornelia.huck@de.ibm.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41330 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752404AbaLANGB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Dec 2014 08:06:01 -0500
+In-Reply-To: <20141130082106.GA9531@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 01, 2014 at 01:42:47PM +0100, Cornelia Huck wrote:
-> On Mon, 1 Dec 2014 14:37:01 +0200
-> "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> 
-> > On Mon, Dec 01, 2014 at 01:33:53PM +0100, Cornelia Huck wrote:
-> > > On Sun, 30 Nov 2014 17:11:49 +0200
-> > > "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> > > 
-> > > > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > > > ---
-> > > >  drivers/vhost/vhost.c | 93 +++++++++++++++++++++++++++++++--------------------
-> > > >  1 file changed, 56 insertions(+), 37 deletions(-)
-> > > > 
-> > > 
-> > > > @@ -1113,18 +1120,19 @@ static int get_indirect(struct vhost_virtqueue *vq,
-> > > >  {
-> > > >  	struct vring_desc desc;
-> > > >  	unsigned int i = 0, count, found = 0;
-> > > > +	u32 len = vhost32_to_cpu(vq, indirect->len);
-> > > >  	int ret;
-> > > > 
-> > > >  	/* Sanity check */
-> > > > -	if (unlikely(indirect->len % sizeof desc)) {
-> > > > +	if (unlikely(len % sizeof desc)) {
-> > > >  		vq_err(vq, "Invalid length in indirect descriptor: "
-> > > >  		       "len 0x%llx not multiple of 0x%zx\n",
-> > > > -		       (unsigned long long)indirect->len,
-> > > > +		       (unsigned long long)vhost32_to_cpu(vq, indirect->len),
-> > > 
-> > > Can't you use len here?
-> > 
-> > Not if I want error message to be readable.
-> 
-> Huh? Both have the same value.
+On 30-11-2014 06:21, Herbert Xu wrote:
+> On Sat, Nov 29, 2014 at 03:08:09AM -0200, Marcelo Ricardo Leitner wrote:
+>> On 28-11-2014 21:59, Herbert Xu wrote:
+>>> On Fri, Nov 28, 2014 at 05:25:27PM -0200, Marcelo Ricardo Leitner wrote:
+>>>>
+>>>> I saw there are tun updates on Dave's queue but none seemed to handle this.
+>>>>
+>>>> I can't use current net-next
+>>>> (799d2fff1858004526ad75d66a5dd8a5cce6ad40) on a kvm hypervisor
+>>>> because tun got clogged somehow. Bisected down to:
+>>>>
+>>>> commit e0b46d0ee9c240c7430a47e9b0365674d4a04522
+>>>> Author: Herbert Xu <herbert@gondor.apana.org.au>
+>>>> Date:   Fri Nov 7 21:22:23 2014 +0800
+>>>
+>>> Does this patch help?
+>>
+>> Yay, it does! Works for me, thanks Herbert.
+>> I didn't test performance, but dhcp could get through.
+>>
+>> Are you sure about the Fixes tag? Because bisect really pointed to e0b46d0ee9c.
+>
+> Well according to your report you were having problems with
+> tun_get_user.  The bug I introduced was in tun_put_user and has
+> already been fixed by Jason Wang.
 
-Ah, good point.
+Ahh yes, ok. Thanks
+
+Cheers,
+Marcelo
