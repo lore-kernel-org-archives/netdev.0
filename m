@@ -1,67 +1,62 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH] xen-netfront: Fix handling packets on compound
- pages with skb_linearize
-Date: Mon, 1 Dec 2014 13:36:54 +0000
-Message-ID: <547C6EF6.8020604@citrix.com>
-References: <1407778343-13622-1-git-send-email-zoltan.kiss@citrix.com> <547C2CFC.7060908@canonical.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v7 36/46] vhost/net: suppress compiler warning
+Date: Mon, 1 Dec 2014 15:48:39 +0200
+Message-ID: <20141201134839.GB18305@redhat.com>
+References: <1417359787-10138-1-git-send-email-mst@redhat.com>
+	<1417359787-10138-37-git-send-email-mst@redhat.com>
+	<20141201133740.56d7d6d8.cornelia.huck@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Paul Durrant <paul.durrant@citrix.com>,
-	<xen-devel@lists.xenproject.org>
-To: Stefan Bader <stefan.bader@canonical.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	David Vrabel <david.vrabel@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <547C2CFC.7060908@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: thuth@linux.vnet.ibm.com, kvm@vger.kernel.org, rusty@au1.ibm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	dahi@linux.vnet.ibm.com, pbonzini@redhat.com,
+	David Miller <davem@davemloft.net>
+To: Cornelia Huck <cornelia.huck@de.ibm.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20141201133740.56d7d6d8.cornelia.huck@de.ibm.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 01/12/14 08:55, Stefan Bader wrote:
-> On 11.08.2014 19:32, Zoltan Kiss wrote:
->> There is a long known problem with the netfront/netback interface: if the guest
->> tries to send a packet which constitues more than MAX_SKB_FRAGS + 1 ring slots,
->> it gets dropped. The reason is that netback maps these slots to a frag in the
->> frags array, which is limited by size. Having so many slots can occur since
->> compound pages were introduced, as the ring protocol slice them up into
->> individual (non-compound) page aligned slots. The theoretical worst case
->> scenario looks like this (note, skbs are limited to 64 Kb here):
->> linear buffer: at most PAGE_SIZE - 17 * 2 bytes, overlapping page boundary,
->> using 2 slots
->> first 15 frags: 1 + PAGE_SIZE + 1 bytes long, first and last bytes are at the
->> end and the beginning of a page, therefore they use 3 * 15 = 45 slots
->> last 2 frags: 1 + 1 bytes, overlapping page boundary, 2 * 2 = 4 slots
->> Although I don't think this 51 slots skb can really happen, we need a solution
->> which can deal with every scenario. In real life there is only a few slots
->> overdue, but usually it causes the TCP stream to be blocked, as the retry will
->> most likely have the same buffer layout.
->> This patch solves this problem by linearizing the packet. This is not the
->> fastest way, and it can fail much easier as it tries to allocate a big linear
->> area for the whole packet, but probably easier by an order of magnitude than
->> anything else. Probably this code path is not touched very frequently anyway.
->>
->> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
->> Cc: Wei Liu <wei.liu2@citrix.com>
->> Cc: Ian Campbell <Ian.Campbell@citrix.com>
->> Cc: Paul Durrant <paul.durrant@citrix.com>
->> Cc: netdev@vger.kernel.org
->> Cc: linux-kernel@vger.kernel.org
->> Cc: xen-devel@lists.xenproject.org
+On Mon, Dec 01, 2014 at 01:37:40PM +0100, Cornelia Huck wrote:
+> On Sun, 30 Nov 2014 17:12:13 +0200
+> "Michael S. Tsirkin" <mst@redhat.com> wrote:
 > 
-> This does not seem to be marked explicitly as stable. Has someone already asked
-> David Miller to put it on his stable queue? IMO it qualifies quite well and the
-> actual change should be simple to pick/backport.
+> > len is always initialized since function is called with size > 0.
+> > 
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > ---
+> >  drivers/vhost/net.c | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > 
+> > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> > index 984242e..54ffbb0 100644
+> > --- a/drivers/vhost/net.c
+> > +++ b/drivers/vhost/net.c
+> > @@ -501,7 +501,7 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
+> >  	int headcount = 0;
+> >  	unsigned d;
+> >  	int r, nlogs = 0;
+> > -	u32 len;
+> > +	u32 uninitialized_var(len);
+> > 
+> >  	while (datalen > 0 && headcount < quota) {
+> >  		if (unlikely(seg >= UIO_MAXIOV)) {
+> 
+> Want to merge this with the patch introducing the variable and add a
+> comment there?
 
-I think it's a candidate, yes.
+Not really. Warnings in bisect are fine  I think.
 
-Can you expand on the user visible impact of the bug this patch fixes?
-I think it results in certain types of traffic not working (because the
-domU always generates skb's with the problematic frag layout), but I
-can't remember the details.
-
-David
+-- 
+MST
