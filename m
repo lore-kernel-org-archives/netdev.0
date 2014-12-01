@@ -1,65 +1,39 @@
-From: Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-Subject: Re: Is this 32-bit NCM?
-Date: Mon, 1 Dec 2014 22:02:16 +0000
-Message-ID: <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com>
-References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
- <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com>
- <874mtl55ar.fsf@nemi.mork.no>
- <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
- <alpine.LNX.2.03.1411271932510.1548@gmail.com>
- <87ppc71xne.fsf@nemi.mork.no>,<alpine.LNX.2.03.1412012202480.1301@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Midge Shaojun Tan" <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-	"youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LNX.2.03.1412012202480.1301-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Content-Language: en-US
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next 1/4] openvswitch: Set inner-most protocol for MPLS.
+Date: Mon,  1 Dec 2014 14:30:33 -0800
+Message-ID: <1417473033-2136-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog123.obsmtp.com ([74.125.149.149]:40862 "HELO
+	na3sys009aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932423AbaLAWag (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2014 17:30:36 -0500
+Received: by mail-pa0-f41.google.com with SMTP id rd3so12003036pab.28
+        for <netdev@vger.kernel.org>; Mon, 01 Dec 2014 14:30:35 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgRW5yaWNvIGFuZCBhbGwsDQoNCk1heWJlIEkgbWlzc2VkIHNvbWV0aGluZyBidXQgd2hhdCBp
-cyB0aGUgZGlmZmVyZW5jZSBieSB0aGUgZHJpdmVyIHBvaW50IG9mIHZpZXcgYmV0d2VlbiB0aGUg
-ZGhjcCBkaXNjb3ZlciBhbmQgcmVxdWVzdCAodGhhdCBhcmUgb2spIHRvIG90aGVycyAobGlrZSBh
-cnAsIHRoYXQgaXMgbm9rKT8NCk1heWJlIHdlIGNhbiB0cmFjZSB0byBjb21wYXJlIHRoZW0/DQoN
-ClNlbnQgZnJvbSBteSBpUGhvbmUNCg0KPiBPbiAxINeR15PXpteeIDIwMTQsIGF0IDIzOjExLCAi
-RW5yaWNvIE1pb3NvIiA8bXJraWtvLnJzQGdtYWlsLmNvbT4gd3JvdGU6DQo+DQo+IFNvIC4uLiBJ
-IGhhdmUgdHdvIGlkZWFzIGxlZnQgZm9yIG5vdy4NCj4gV2Uga25vdyBmb3Igc3VyZSB0aGUgcHJv
-YmxlbSBpcyBpbiB0aGUgd2F5IHdlIFRYIGZyYW1lcywgbm90IHRoZSB3YXkgd2UgUlggdGhlbQ0K
-PiAodGhlIHdheSB3ZSBzZW5kLCBnZW5lcmF0ZSB0aGVtLCBub3QgdGhlIHdheSB3ZSByZWNlaXZl
-IHRoZW0pLg0KPiBTaSBJIGhhdmUgdHdvIGlkZWFzLCBhbmQgSSBhc2sgZm9yIGhlbHAgZnJvbSB0
-aGUgTGludXgtdXNiIG1haWxpbmcgbGlzdCBmb3INCj4gdGhpcyBmaXJzdCBvbmUuDQo+DQo+IDEg
-LSBEb2VzIGEgd2F5ZXhpc3QgdG8gInJlcGxheSIgdHJhZmZpYyBjcm9tIGEgdXNiIGNhcHR1cmU/
-DQo+IFdlIG1pZ2h0IHRyeSB0byB0YWtlIHRoZSB1c2IgZnJhbWVzIGdlbmVyYXRlZCBieSBXaW5k
-b3dzLCBhbmQgc2VuZCB0aGVtIHRvIHRoZQ0KPiBkZXZpY2UgdG8gc2VlIGlmIHRoZXJlIGlzIGFu
-eSByZWFjdGlvbi4gSXQgc2hvdWxkIG5vdCBiZSBzY2llbmNlIGZpY3Rpb24sIEkgc2F3DQo+IHRo
-ZW0gZG8gdGhhdCBpbiB0aGUgZWNpYWRzbCBvbGQgcHJvamVjdC4NCj4gMiAtIFRoZSBodWF3ZWkg
-bmRpcyBkcml2ZXI6IGRvZXMgaXQgd29yayB3aXRoIHRoZXNlIGRldmljZXM/DQo+IEl0IHNob3Vs
-ZCBiZSBhIGxpdHRsZSBiaXQgb3V0LWRhdGVkIG5vdyAoYXQgbGVhc3QgaW4gdGVybXMgb2YgZGF0
-ZXMsIGl0IG1pZ2h0DQo+IHdvcmsgYXMgd2VsbCk6IHRoZSBjb2RlIGlzIEEgTE9UIGJ1dCwganVz
-dCBpbiBjYXNlLCB0byBzZWUgaWYgdGhlcmUgaXMgYW55DQo+IGNoYW5jZXMgaXQnbGwgd29yay4g
-SXQgcmVtYWlucyB0byBiZSBzZWVuIGluIHdoaWNoIGtlcm5lbHMgaXQgY2FuIGFjdHVhbGx5DQo+
-IGNvbXBpbGUgYWdhaW4uDQo+DQo+IElmIHRoaXMgd29ya3Mgd2UgbWlnaHQgYW5hbHlzZSB3aGF0
-J3MgaGFwcGVuaW5nIGFuZCB0cnkgdG8gZGVidWcgdGhpcyBvdXQuDQo+IEJ1dCBJIHJlYWxseSB3
-b3VsZCBsaWtlIHRoaXMgdG8gd29yayBpbiB0aGUgY2RjX25jbSBkcml2ZXIgKyBodWF3ZWlfY2Rj
-X25jbS4NCj4gVGhhbmsgeW91Lg0KDQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXw0K
-DQpUaGlzIGVtYWlsIGFuZCBhbnkgZmlsZXMgdHJhbnNtaXR0ZWQgd2l0aCBpdCBhcmUgY29uZmlk
-ZW50aWFsIG1hdGVyaWFsLiBUaGV5IGFyZSBpbnRlbmRlZCBzb2xlbHkgZm9yIHRoZSB1c2Ugb2Yg
-dGhlIGRlc2lnbmF0ZWQgaW5kaXZpZHVhbCBvciBlbnRpdHkgdG8gd2hvbSB0aGV5IGFyZSBhZGRy
-ZXNzZWQuIElmIHRoZSByZWFkZXIgb2YgdGhpcyBtZXNzYWdlIGlzIG5vdCB0aGUgaW50ZW5kZWQg
-cmVjaXBpZW50LCB5b3UgYXJlIGhlcmVieSBub3RpZmllZCB0aGF0IGFueSBkaXNzZW1pbmF0aW9u
-LCB1c2UsIGRpc3RyaWJ1dGlvbiBvciBjb3B5aW5nIG9mIHRoaXMgY29tbXVuaWNhdGlvbiBpcyBz
-dHJpY3RseSBwcm9oaWJpdGVkIGFuZCBtYXkgYmUgdW5sYXdmdWwuDQoNCklmIHlvdSBoYXZlIHJl
-Y2VpdmVkIHRoaXMgZW1haWwgaW4gZXJyb3IgcGxlYXNlIGltbWVkaWF0ZWx5IG5vdGlmeSB0aGUg
-c2VuZGVyIGFuZCBkZWxldGUgb3IgZGVzdHJveSBhbnkgY29weSBvZiB0aGlzIG1lc3NhZ2UNCg==
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+MPLS GSO needs to know inner most protocol to process GSO packets.
+
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+---
+ net/openvswitch/actions.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 764fdc3..770064c 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -147,7 +147,8 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+ 	hdr = eth_hdr(skb);
+ 	hdr->h_proto = mpls->mpls_ethertype;
+ 
+-	skb_set_inner_protocol(skb, skb->protocol);
++	if (!skb->inner_protocol)
++		skb_set_inner_protocol(skb, skb->protocol);
+ 	skb->protocol = mpls->mpls_ethertype;
+ 
+ 	invalidate_flow_key(key);
+-- 
+1.7.1
