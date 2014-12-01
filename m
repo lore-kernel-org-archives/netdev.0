@@ -1,145 +1,207 @@
-From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: Re: [PATCH v2 03/19] selftests: add install target to enable installing
- selftests
-Date: Mon, 01 Dec 2014 09:16:25 -0700
-Message-ID: <547C9459.9000708@osg.samsung.com>
-References: <cover.1415735831.git.shuahkh@osg.samsung.com> <5e33b40696debde24fd04f6711e795a8860b7aee.1415735831.git.shuahkh@osg.samsung.com> <5476BA67.6020305@hitachi.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH v8 15/50] virtio_net: v1.0 endianness
+Date: Mon, 1 Dec 2014 18:04:01 +0200
+Message-ID: <1417449619-24896-16-git-send-email-mst@redhat.com>
+References: <1417449619-24896-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, akpm@linux-foundation.org,
-	mmarek@suse.cz, davem@davemloft.net, keescook@chromium.org,
-	tranmanphong@gmail.com, dh.herrmann@gmail.com, hughd@google.com,
-	bobby.prani@gmail.com, ebiederm@xmission.com,
-	serge.hallyn@ubuntu.com, linux-kbuild@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org,
-	"yrl.pp-manager.tt@hitachi.com" <yrl.pp-manager.tt@hitachi.com>,
-	Shuah Khan <shuahkh@osg.samsung.com>
-To: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5476BA67.6020305@hitachi.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: thuth@linux.vnet.ibm.com, rusty@au1.ibm.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	dahi@linux.vnet.ibm.com, linux-api@vger.kernel.org,
+	pbonzini@redhat.com, David Miller <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1417449619-24896-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 11/26/2014 10:45 PM, Masami Hiramatsu wrote:
-> (2014/11/12 5:27), Shuah Khan wrote:
->> Add a new make target to enable installing selftests. This
->> new target will call install targets for the tests that are
->> specified in INSTALL_TARGETS. During install, a script is
->> generated to run tests that are installed. This script will
->> be installed in the selftest install directory. Individual
->> test Makefiles are changed to add to the script. This will
->> allow new tests to add install and run test commands to the
->> generated kselftest script. run_tests target runs the
->> generated kselftest script to run tests when it is initiated
->> from from "make kselftest" from top level source directory.
->>
->> Approach:
->>
->> make kselftest_target:
->> -- exports kselftest INSTALL_KSFT_PATH
->>    default $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
->> -- exports path for ksefltest.sh
->> -- runs selftests make install target:
->>
->> selftests make install target
->> -- creates kselftest.sh script in install install dir
->> -- runs install targets for all INSTALL_TARGETS
->>    (Note: ftrace and powerpc aren't included in INSTALL_TARGETS,
->>           to not add more content to patch v1 series. This work
->>           will happen soon. In this series these two targets are
->>           run after running the generated kselftest script, without
->>           any regression in the way these tests are run with
->>           "make kselftest" prior to this work.)
->> -- install target can be run only from top level source dir.
->>
->> Individual test make install targets:
->> -- install test programs and/or scripts in install dir
->> -- append to the ksefltest.sh file to add commands to run test
->> -- install target can be run only from top level source dir.
->>
->> Adds the following new ways to initiate selftests:
->> -- Installing and running kselftest from install directory
->>    by running  "make kselftest"
->> -- Running kselftest script from install directory
->>
->> Maintains the following ways to run tests:
->> -- make -C tools/testing/selftests run_tests
->> -- make -C tools/testing/selftests TARGETS=target run_tests
->>    Ability specify targets: e.g TARGETS=net
->> -- make run_tests from tools/testing/selftests
->> -- make run_tests from individual test directories:
->>    e.g: make run_tests in tools/testing/selftests/breakpoints
->>
->> Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
->> ---
->>  tools/testing/selftests/Makefile | 31 ++++++++++++++++++++++++++++++-
->>  1 file changed, 30 insertions(+), 1 deletion(-)
->>
->> diff --git a/tools/testing/selftests/Makefile b/tools/testing/selftests/Makefile
->> index 45f145c..b9bdc1d 100644
->> --- a/tools/testing/selftests/Makefile
->> +++ b/tools/testing/selftests/Makefile
->> @@ -16,6 +16,10 @@ TARGETS += sysctl
->>  TARGETS += firmware
->>  TARGETS += ftrace
->>  
->> +INSTALL_TARGETS = breakpoints cpu-hotplug efivarfs firmware ipc
->> +INSTALL_TARGETS += kcmp memfd memory-hotplug mqueue mount net
->> +INSTALL_TARGETS += ptrace sysctl timers user vm
->> +
->>  TARGETS_HOTPLUG = cpu-hotplug
->>  TARGETS_HOTPLUG += memory-hotplug
->>  
-> 
-> I think KSELFTEST itself should be defined here, since that is not
-> a parameter.
+Based on patches by Rusty Russell, Cornelia Huck.
+Note: more code changes are needed for 1.0 support
+(due to different header size).
+So we don't advertize support for 1.0 yet.
 
-I can do that.
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ include/uapi/linux/virtio_net.h | 15 ++++++++-------
+ drivers/net/virtio_net.c        | 33 ++++++++++++++++++++-------------
+ 2 files changed, 28 insertions(+), 20 deletions(-)
 
-> 
->> @@ -24,10 +28,35 @@ all:
->>  		make -C $$TARGET; \
->>  	done;
->>  
->> -run_tests: all
->> +install:
->> +ifdef INSTALL_KSFT_PATH
->> +	make all
->> +	@echo #!/bin/sh\n# Kselftest Run Tests .... >> $(KSELFTEST)
->> +	@echo # This file is generated during kselftest_install >> $(KSELFTEST)
->> +	@echo # Please don't change it !!\n  >> $(KSELFTEST)
->> +	@echo echo ============================== >> $(KSELFTEST)
->> +	for TARGET in $(INSTALL_TARGETS); do \
->> +		echo Installing $$TARGET; \
->> +		make -C $$TARGET install; \
-> 
-> Please pass O= option and others here.
-
-I will change that.
-
-> 
->> +	done;
->> +	chmod +x $(KSELFTEST)
->> +else
->> +	@echo Run make kselftest_install in top level source directory
->> +endif
->> +
->> +run_tests:
->> +ifdef INSTALL_KSFT_PATH
->> +	@cd $(INSTALL_KSFT_PATH); ./kselftest.sh; cd -
-> 
-> We'd better use some macro instead of ./kselftest.sh?
-> 
-
-I can play with this and see if there is a better way.
-
-thanks,
--- Shuah
-
+diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
+index 172a7f0..b5f1677 100644
+--- a/include/uapi/linux/virtio_net.h
++++ b/include/uapi/linux/virtio_net.h
+@@ -28,6 +28,7 @@
+ #include <linux/types.h>
+ #include <linux/virtio_ids.h>
+ #include <linux/virtio_config.h>
++#include <linux/virtio_types.h>
+ #include <linux/if_ether.h>
+ 
+ /* The feature bitmap for virtio net */
+@@ -84,17 +85,17 @@ struct virtio_net_hdr {
+ #define VIRTIO_NET_HDR_GSO_TCPV6	4	// GSO frame, IPv6 TCP
+ #define VIRTIO_NET_HDR_GSO_ECN		0x80	// TCP has ECN set
+ 	__u8 gso_type;
+-	__u16 hdr_len;		/* Ethernet + IP + tcp/udp hdrs */
+-	__u16 gso_size;		/* Bytes to append to hdr_len per frame */
+-	__u16 csum_start;	/* Position to start checksumming from */
+-	__u16 csum_offset;	/* Offset after that to place checksum */
++	__virtio16 hdr_len;		/* Ethernet + IP + tcp/udp hdrs */
++	__virtio16 gso_size;		/* Bytes to append to hdr_len per frame */
++	__virtio16 csum_start;	/* Position to start checksumming from */
++	__virtio16 csum_offset;	/* Offset after that to place checksum */
+ };
+ 
+ /* This is the version of the header to use when the MRG_RXBUF
+  * feature has been negotiated. */
+ struct virtio_net_hdr_mrg_rxbuf {
+ 	struct virtio_net_hdr hdr;
+-	__u16 num_buffers;	/* Number of merged rx buffers */
++	__virtio16 num_buffers;	/* Number of merged rx buffers */
+ };
+ 
+ /*
+@@ -149,7 +150,7 @@ typedef __u8 virtio_net_ctrl_ack;
+  * VIRTIO_NET_F_CTRL_MAC_ADDR feature is available.
+  */
+ struct virtio_net_ctrl_mac {
+-	__u32 entries;
++	__virtio32 entries;
+ 	__u8 macs[][ETH_ALEN];
+ } __attribute__((packed));
+ 
+@@ -193,7 +194,7 @@ struct virtio_net_ctrl_mac {
+  * specified.
+  */
+ struct virtio_net_ctrl_mq {
+-	__u16 virtqueue_pairs;
++	__virtio16 virtqueue_pairs;
+ };
+ 
+ #define VIRTIO_NET_CTRL_MQ   4
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index b0bc8ea..c07e030 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -347,13 +347,14 @@ err:
+ }
+ 
+ static struct sk_buff *receive_mergeable(struct net_device *dev,
++					 struct virtnet_info *vi,
+ 					 struct receive_queue *rq,
+ 					 unsigned long ctx,
+ 					 unsigned int len)
+ {
+ 	void *buf = mergeable_ctx_to_buf_address(ctx);
+ 	struct skb_vnet_hdr *hdr = buf;
+-	int num_buf = hdr->mhdr.num_buffers;
++	u16 num_buf = virtio16_to_cpu(rq->vq->vdev, hdr->mhdr.num_buffers);
+ 	struct page *page = virt_to_head_page(buf);
+ 	int offset = buf - page_address(page);
+ 	unsigned int truesize = max(len, mergeable_ctx_to_buf_truesize(ctx));
+@@ -369,7 +370,9 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 		ctx = (unsigned long)virtqueue_get_buf(rq->vq, &len);
+ 		if (unlikely(!ctx)) {
+ 			pr_debug("%s: rx error: %d buffers out of %d missing\n",
+-				 dev->name, num_buf, hdr->mhdr.num_buffers);
++				 dev->name, num_buf,
++				 virtio16_to_cpu(rq->vq->vdev,
++						 hdr->mhdr.num_buffers));
+ 			dev->stats.rx_length_errors++;
+ 			goto err_buf;
+ 		}
+@@ -454,7 +457,7 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+ 	}
+ 
+ 	if (vi->mergeable_rx_bufs)
+-		skb = receive_mergeable(dev, rq, (unsigned long)buf, len);
++		skb = receive_mergeable(dev, vi, rq, (unsigned long)buf, len);
+ 	else if (vi->big_packets)
+ 		skb = receive_big(dev, rq, buf, len);
+ 	else
+@@ -473,8 +476,8 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+ 	if (hdr->hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
+ 		pr_debug("Needs csum!\n");
+ 		if (!skb_partial_csum_set(skb,
+-					  hdr->hdr.csum_start,
+-					  hdr->hdr.csum_offset))
++			  virtio16_to_cpu(vi->vdev, hdr->hdr.csum_start),
++			  virtio16_to_cpu(vi->vdev, hdr->hdr.csum_offset)))
+ 			goto frame_err;
+ 	} else if (hdr->hdr.flags & VIRTIO_NET_HDR_F_DATA_VALID) {
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+@@ -514,7 +517,8 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+ 		if (hdr->hdr.gso_type & VIRTIO_NET_HDR_GSO_ECN)
+ 			skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_ECN;
+ 
+-		skb_shinfo(skb)->gso_size = hdr->hdr.gso_size;
++		skb_shinfo(skb)->gso_size = virtio16_to_cpu(vi->vdev,
++							    hdr->hdr.gso_size);
+ 		if (skb_shinfo(skb)->gso_size == 0) {
+ 			net_warn_ratelimited("%s: zero gso size.\n", dev->name);
+ 			goto frame_err;
+@@ -876,16 +880,19 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+ 
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		hdr->hdr.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+-		hdr->hdr.csum_start = skb_checksum_start_offset(skb);
+-		hdr->hdr.csum_offset = skb->csum_offset;
++		hdr->hdr.csum_start = cpu_to_virtio16(vi->vdev,
++						skb_checksum_start_offset(skb));
++		hdr->hdr.csum_offset = cpu_to_virtio16(vi->vdev,
++							 skb->csum_offset);
+ 	} else {
+ 		hdr->hdr.flags = 0;
+ 		hdr->hdr.csum_offset = hdr->hdr.csum_start = 0;
+ 	}
+ 
+ 	if (skb_is_gso(skb)) {
+-		hdr->hdr.hdr_len = skb_headlen(skb);
+-		hdr->hdr.gso_size = skb_shinfo(skb)->gso_size;
++		hdr->hdr.hdr_len = cpu_to_virtio16(vi->vdev, skb_headlen(skb));
++		hdr->hdr.gso_size = cpu_to_virtio16(vi->vdev,
++						    skb_shinfo(skb)->gso_size);
+ 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
+ 			hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+ 		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
+@@ -1112,7 +1119,7 @@ static int virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
+ 	if (!vi->has_cvq || !virtio_has_feature(vi->vdev, VIRTIO_NET_F_MQ))
+ 		return 0;
+ 
+-	s.virtqueue_pairs = queue_pairs;
++	s.virtqueue_pairs = cpu_to_virtio16(vi->vdev, queue_pairs);
+ 	sg_init_one(&sg, &s, sizeof(s));
+ 
+ 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MQ,
+@@ -1189,7 +1196,7 @@ static void virtnet_set_rx_mode(struct net_device *dev)
+ 	sg_init_table(sg, 2);
+ 
+ 	/* Store the unicast list and count in the front of the buffer */
+-	mac_data->entries = uc_count;
++	mac_data->entries = cpu_to_virtio32(vi->vdev, uc_count);
+ 	i = 0;
+ 	netdev_for_each_uc_addr(ha, dev)
+ 		memcpy(&mac_data->macs[i++][0], ha->addr, ETH_ALEN);
+@@ -1200,7 +1207,7 @@ static void virtnet_set_rx_mode(struct net_device *dev)
+ 	/* multicast list and count fill the end */
+ 	mac_data = (void *)&mac_data->macs[uc_count][0];
+ 
+-	mac_data->entries = mc_count;
++	mac_data->entries = cpu_to_virtio32(vi->vdev, mc_count);
+ 	i = 0;
+ 	netdev_for_each_mc_addr(ha, dev)
+ 		memcpy(&mac_data->macs[i++][0], ha->addr, ETH_ALEN);
 -- 
-Shuah Khan
-Sr. Linux Kernel Developer
-Samsung Research America (Silicon Valley)
-shuahkh@osg.samsung.com | (970) 217-8978
+MST
