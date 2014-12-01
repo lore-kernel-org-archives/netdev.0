@@ -1,173 +1,140 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v8 37/50] tun: move internal flag defines out of uapi
-Date: Mon, 1 Dec 2014 18:05:49 +0200
-Message-ID: <1417449619-24896-38-git-send-email-mst@redhat.com>
-References: <1417449619-24896-1-git-send-email-mst@redhat.com>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: Re: [PATCH v2 02/19] kbuild: kselftest_install - add a new make target
+ to install selftests
+Date: Mon, 01 Dec 2014 09:39:18 -0700
+Message-ID: <547C99B6.7070903@osg.samsung.com>
+References: <cover.1415735831.git.shuahkh@osg.samsung.com> <a2344d4df903d673afe1631118f40917f773cc9a.1415735831.git.shuahkh@osg.samsung.com> <547C8D81.1030605@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, cornelia.huck@de.ibm.com,
-	rusty@au1.ibm.com, nab@linux-iscsi.org, pbonzini@redhat.com,
-	thuth@linux.vnet.ibm.com, dahi@linux.vnet.ibm.com,
-	Jason Wang <jasowang@redhat.com>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	Tom Herbert <therbert@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
-	netdev@vger.kernel.org, linux-api@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	"masami.hiramatsu.pt@hitachi.com >> Masami Hiramatsu"
+	<masami.hiramatsu.pt@hitachi.com>,
+	Shuah Khan <shuahkh@osg.samsung.com>
+To: Michal Marek <mmarek@suse.cz>, gregkh@linuxfoundation.org,
+	akpm@linux-foundation.org, davem@davemloft.net,
+	keescook@chromium.org, tranmanphong@gmail.com,
+	dh.herrmann@gmail.com, hughd@google.com, bobby.prani@gmail.com,
+	ebiederm@xmission.com, serge.hallyn@ubuntu.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1417449619-24896-1-git-send-email-mst@redhat.com>
+In-Reply-To: <547C8D81.1030605@suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-TUN_ flags are internal and never exposed
-to userspace. Any application using it is almost
-certainly buggy.
+On 12/01/2014 08:47 AM, Michal Marek wrote:
+> On 2014-11-11 21:27, Shuah Khan wrote:
+>> Add a new make target to install to install kernel selftests.
+>> This new target will build and install selftests. kselftest
+>> target now depends on kselftest_install and runs the generated
+>> kselftest script to reduce duplicate work and for common look
+>> and feel when running tests.
+>>
+>> Approach:
+>>
+>> make kselftest_target:
+>> -- exports kselftest INSTALL_KSFT_PATH
+>>    default $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
+>> -- exports path for ksefltest.sh
+>> -- runs selftests make install target:
+>>
+>> selftests make install target
+>> -- creates kselftest.sh script in install install dir
+>> -- runs install targets for all INSTALL_TARGETS
+>>    (Note: ftrace and powerpc aren't included in INSTALL_TARGETS,
+>>           to not add more content to patch v1 series. This work
+>>           will happen soon. In this series these two targets are
+>>           run after running the generated kselftest script, without
+>>           any regression in the way these tests are run with
+>>           "make kselftest" prior to this work.)
+>> -- install target can be run only from top level source dir.
+>>
+>> Individual test make install targets:
+>> -- install test programs and/or scripts in install dir
+>> -- append to the ksefltest.sh file to add commands to run test
+>> -- install target can be run only from top level source dir.
+>>
+>> Adds the following new ways to initiate selftests:
+>> -- Installing and running kselftest from install directory
+>>    by running  "make kselftest"
+>> -- Running kselftest script from install directory
+>>
+>> Maintains the following ways to run tests:
+>> -- make -C tools/testing/selftests run_tests
+>> -- make -C tools/testing/selftests TARGETS=target run_tests
+>>    Ability specify targets: e.g TARGETS=net
+>> -- make run_tests from tools/testing/selftests
+>> -- make run_tests from individual test directories:
+>>    e.g: make run_tests in tools/testing/selftests/breakpoints
+>>
+>> Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
+>> ---
+>>  Makefile | 21 +++++++++++++++++++--
+>>  1 file changed, 19 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/Makefile b/Makefile
+>> index 05d67af..ccbd2e1 100644
+>> --- a/Makefile
+>> +++ b/Makefile
+>> @@ -1071,12 +1071,26 @@ headers_check: headers_install
+>>  	$(Q)$(MAKE) $(hdr-inst)=arch/$(hdr-arch)/include/uapi/asm $(hdr-dst) HDRCHECK=1
+>>  
+>>  # ---------------------------------------------------------------------------
+>> -# Kernel selftest
+>> +# Kernel selftest targets
+>> +
+>> +PHONY += __kselftest_configure
+>> +INSTALL_KSFT_PATH=$(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
+>> +export INSTALL_KSFT_PATH
+>> +KSELFTEST=$(INSTALL_KSFT_PATH)/kselftest.sh
+>> +export KSELFTEST
+> 
+> Can this be moved to tools/testing/selftests/Makefile? It's only used in
+> this part of the tree.
 
-Move them out to tun.c.
+I looked into doing that. KERNELRELEASE will have to be exported for
+tools/testing/selftests/Makefile to use it? Does that sound okay?
 
-Note: we remove these completely in follow-up patches,
-this code movement is split out for ease of review.
+> 
+> 
+>>  PHONY += kselftest
+>> -kselftest:
+>> +kselftest: kselftest_install
+>>  	$(Q)$(MAKE) -C tools/testing/selftests run_tests
+>>  
+>> +# Kernel selftest install
+>> +
+>> +PHONY += kselftest_install
+>> +kselftest_install: __kselftest_configure
+>> +	@rm -rf $(INSTALL_KSFT_PATH)
+>> +	@mkdir -p $(INSTALL_KSFT_PATH)
+> 
+> Please use $(Q) insteaf od hardcoding the @.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- include/uapi/linux/if_tun.h | 16 ++--------
- drivers/net/tun.c           | 72 +++++++++++++--------------------------------
- 2 files changed, 24 insertions(+), 64 deletions(-)
+I can do that.
 
-diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
-index e9502dd..277a260 100644
---- a/include/uapi/linux/if_tun.h
-+++ b/include/uapi/linux/if_tun.h
-@@ -22,21 +22,11 @@
- 
- /* Read queue size */
- #define TUN_READQ_SIZE	500
--
--/* TUN device flags */
--#define TUN_TUN_DEV 	0x0001	
--#define TUN_TAP_DEV	0x0002
-+/* TUN device type flags: deprecated. Use IFF_TUN/IFF_TAP instead. */
-+#define TUN_TUN_DEV 	IFF_TUN
-+#define TUN_TAP_DEV	IFF_TAP
- #define TUN_TYPE_MASK   0x000f
- 
--#define TUN_FASYNC	0x0010
--#define TUN_NOCHECKSUM	0x0020
--#define TUN_NO_PI	0x0040
--/* This flag has no real effect */
--#define TUN_ONE_QUEUE	0x0080
--#define TUN_PERSIST 	0x0100	
--#define TUN_VNET_HDR 	0x0200
--#define TUN_TAP_MQ      0x0400
--
- /* Ioctl defines */
- #define TUNSETNOCSUM  _IOW('T', 200, int) 
- #define TUNSETDEBUG   _IOW('T', 201, int) 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 9dd3746..b4e4ca0 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -103,6 +103,21 @@ do {								\
- } while (0)
- #endif
- 
-+/* TUN device flags */
-+
-+/* IFF_ATTACH_QUEUE is never stored in device flags,
-+ * overload it to mean fasync when stored there.
-+ */
-+#define TUN_FASYNC	IFF_ATTACH_QUEUE
-+#define TUN_NO_PI	IFF_NO_PI
-+/* This flag has no real effect */
-+#define TUN_ONE_QUEUE	IFF_ONE_QUEUE
-+#define TUN_PERSIST 	IFF_PERSIST
-+#define TUN_VNET_HDR 	IFF_VNET_HDR
-+#define TUN_TAP_MQ      IFF_MULTI_QUEUE
-+
-+#define TUN_FEATURES (IFF_NO_PI | IFF_ONE_QUEUE | IFF_VNET_HDR | \
-+		      IFF_MULTI_QUEUE)
- #define GOODCOPY_LEN 128
- 
- #define FLT_EXACT_COUNT 8
-@@ -1521,32 +1536,7 @@ static struct proto tun_proto = {
- 
- static int tun_flags(struct tun_struct *tun)
- {
--	int flags = 0;
--
--	if (tun->flags & TUN_TUN_DEV)
--		flags |= IFF_TUN;
--	else
--		flags |= IFF_TAP;
--
--	if (tun->flags & TUN_NO_PI)
--		flags |= IFF_NO_PI;
--
--	/* This flag has no real effect.  We track the value for backwards
--	 * compatibility.
--	 */
--	if (tun->flags & TUN_ONE_QUEUE)
--		flags |= IFF_ONE_QUEUE;
--
--	if (tun->flags & TUN_VNET_HDR)
--		flags |= IFF_VNET_HDR;
--
--	if (tun->flags & TUN_TAP_MQ)
--		flags |= IFF_MULTI_QUEUE;
--
--	if (tun->flags & TUN_PERSIST)
--		flags |= IFF_PERSIST;
--
--	return flags;
-+	return tun->flags & (TUN_FEATURES | IFF_PERSIST | IFF_TUN | IFF_TAP);
- }
- 
- static ssize_t tun_show_flags(struct device *dev, struct device_attribute *attr,
-@@ -1706,28 +1696,8 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 
- 	tun_debug(KERN_INFO, tun, "tun_set_iff\n");
- 
--	if (ifr->ifr_flags & IFF_NO_PI)
--		tun->flags |= TUN_NO_PI;
--	else
--		tun->flags &= ~TUN_NO_PI;
--
--	/* This flag has no real effect.  We track the value for backwards
--	 * compatibility.
--	 */
--	if (ifr->ifr_flags & IFF_ONE_QUEUE)
--		tun->flags |= TUN_ONE_QUEUE;
--	else
--		tun->flags &= ~TUN_ONE_QUEUE;
--
--	if (ifr->ifr_flags & IFF_VNET_HDR)
--		tun->flags |= TUN_VNET_HDR;
--	else
--		tun->flags &= ~TUN_VNET_HDR;
--
--	if (ifr->ifr_flags & IFF_MULTI_QUEUE)
--		tun->flags |= TUN_TAP_MQ;
--	else
--		tun->flags &= ~TUN_TAP_MQ;
-+	tun->flags = (tun->flags & ~TUN_FEATURES) |
-+		(ifr->ifr_flags & TUN_FEATURES);
- 
- 	/* Make sure persistent devices do not get stuck in
- 	 * xoff state.
-@@ -1890,9 +1860,9 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	if (cmd == TUNGETFEATURES) {
- 		/* Currently this just means: "what IFF flags are valid?".
- 		 * This is needed because we never checked for invalid flags on
--		 * TUNSETIFF. */
--		return put_user(IFF_TUN | IFF_TAP | IFF_NO_PI | IFF_ONE_QUEUE |
--				IFF_VNET_HDR | IFF_MULTI_QUEUE,
-+		 * TUNSETIFF.
-+		 */
-+		return put_user(IFF_TUN | IFF_TAP | TUN_FEATURES,
- 				(unsigned int __user*)argp);
- 	} else if (cmd == TUNSETQUEUE)
- 		return tun_set_queue(file, &ifr);
+> 
+> 
+>> +	$(Q)$(MAKE) -C tools/testing/selftests install
+> 
+> The install target is only added by the next patch, which in turn
+> depends on changes done by later patches. The order (in the current
+> numbering) should be 01/19, 04/19, ... 19/19, 03/19 and 02/19.
+> 
+
+Right. I can re-order the patches in my next version and make other
+changes you recommended.
+
+Also, it might be easier to get this series in, if you can Ack the main
+Makefile patch (when we are ready i.e), so I can take it through
+kselftest tree.
+
+thanks,
+-- Shuah
+
+
 -- 
-MST
+Shuah Khan
+Sr. Linux Kernel Developer
+Samsung Research America (Silicon Valley)
+shuahkh@osg.samsung.com | (970) 217-8978
