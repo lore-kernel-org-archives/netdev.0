@@ -1,56 +1,113 @@
-From: Chunhao Lin <hau@realtek.com>
-Subject: [PATCH net-next 1/2] r8169:prevent enable hardware tx/rx too early
-Date: Tue, 2 Dec 2014 16:48:30 +0800
-Message-ID: <1417510111-3568-2-git-send-email-hau@realtek.com>
-References: <1417510111-3568-1-git-send-email-hau@realtek.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC v4 net-next 0/5] virtio_net: enabling tx interrupts
+Date: Tue, 2 Dec 2014 11:43:18 +0200
+Message-ID: <20141202094318.GB7732@redhat.com>
+References: <1417429028-11971-1-git-send-email-jasowang@redhat.com>
+	<20141201104223.GB16108@redhat.com>
+	<1417490120.4405.2@smtp.corp.redhat.com>
+	<1417507622.12638.0@smtp.corp.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	Chunhao Lin <hau@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417510111-3568-1-git-send-email-hau@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: pagupta@redhat.com, netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1417507622.12638.0@smtp.corp.redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-For RTL8168G/GU/H/EP and RTL8411B remove enable tx/rx from its own hw_start
-function. This will prevent enable tx/rx before complete hardware tx/rx
-setting.
+On Tue, Dec 02, 2014 at 08:15:02AM +0008, Jason Wang wrote:
+> 
+> 
+> On Tue, Dec 2, 2014 at 11:15 AM, Jason Wang <jasowang@redhat.com> wrote:
+> >
+> >
+> >On Mon, Dec 1, 2014 at 6:42 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> >>On Mon, Dec 01, 2014 at 06:17:03PM +0800, Jason Wang wrote:
+> >>> Hello:
+> >>>  We used to orphan packets before transmission for virtio-net. This
+> >>>breaks
+> >>> socket accounting and can lead serveral functions won't work, e.g:
+> >>>  - Byte Queue Limit depends on tx completion nofication to work.
+> >>> - Packet Generator depends on tx completion nofication for the last
+> >>>   transmitted packet to complete.
+> >>> - TCP Small Queue depends on proper accounting of sk_wmem_alloc to
+> >>>work.
+> >>>  This series tries to solve the issue by enabling tx interrupts. To
+> >>>minize
+> >>> the performance impacts of this, several optimizations were used:
+> >>>  - In guest side, virtqueue_enable_cb_delayed() was used to delay the
+> >>>tx
+> >>>   interrupt untile 3/4 pending packets were sent.
+> >>> - In host side, interrupt coalescing were used to reduce tx
+> >>>interrupts.
+> >>>  Performance test results[1] (tx-frames 16 tx-usecs 16) shows:
+> >>>  - For guest receiving. No obvious regression on throughput were
+> >>>   noticed. More cpu utilization were noticed in few cases.
+> >>> - For guest transmission. Very huge improvement on througput for
+> >>>small
+> >>>   packet transmission were noticed. This is expected since TSQ and
+> >>>other
+> >>>   optimization for small packet transmission work after tx interrupt.
+> >>>But
+> >>>   will use more cpu for large packets.
+> >>> - For TCP_RR, regression (10% on transaction rate and cpu
+> >>>utilization) were
+> >>>   found. Tx interrupt won't help but cause overhead in this case.
+> >>>Using
+> >>>   more aggressive coalescing parameters may help to reduce the
+> >>>regression.
+> >>
+> >>OK, you do have posted coalescing patches - does it help any?
+> >
+> >Helps a lot.
+> >
+> >For RX, it saves about 5% - 10% cpu. (reduce 60%-90% tx intrs)
+> >For small packet TX, it increases 33% - 245% throughput. (reduce about 60%
+> >inters)
+> >For TCP_RR, it increase the 3%-10% trans.rate. (reduce 40%-80% tx intrs)
+> >
+> >>
+> >>I'm not sure the regression is due to interrupts.
+> >>It would make sense for CPU but why would it
+> >>hurt transaction rate?
+> >
+> >Anyway guest need to take some cycles to handle tx interrupts.
+> >And transaction rate does increase if we coalesces more tx interurpts.
+> >>
+> >>
+> >>It's possible that we are deferring kicks too much due to BQL.
+> >>
+> >>As an experiment: do we get any of it back if we do
+> >>-        if (kick || netif_xmit_stopped(txq))
+> >>-                virtqueue_kick(sq->vq);
+> >>+        virtqueue_kick(sq->vq);
+> >>?
+> >
+> >
+> >I will try, but during TCP_RR, at most 1 packets were pending,
+> >I suspect if BQL can help in this case.
+> 
+> Looks like this helps a lot in multiple sessions of TCP_RR.
 
-Tx/Rx will be enabled in the end of function rtl_hw_start_8168.
+so what's faster
+	BQL + kick each packet
+	no BQL
+?
 
-Signed-off-by: Chunhao Lin <hau@realtek.com>
----
- drivers/net/ethernet/realtek/r8169.c | 3 ---
- 1 file changed, 3 deletions(-)
+> How about move the BQL patch out of this series?
+> 
+> Let's first converge tx interrupt and then introduce it?
+> (e.g with kicking after queuing X bytes?)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index cf154f7..7f4515f 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -5934,7 +5934,6 @@ static void rtl_hw_start_8168g_1(struct rtl8169_private *tp)
- 	rtl_w0w1_eri(tp, 0xdc, ERIAR_MASK_0001, 0x01, 0x00, ERIAR_EXGMAC);
- 	rtl_eri_write(tp, 0x2f8, ERIAR_MASK_0011, 0x1d8f, ERIAR_EXGMAC);
- 
--	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
- 	RTL_W32(MISC, RTL_R32(MISC) & ~RXDV_GATED_EN);
- 	RTL_W8(MaxTxPacketSize, EarlySize);
- 
-@@ -6027,7 +6026,6 @@ static void rtl_hw_start_8168h_1(struct rtl8169_private *tp)
- 
- 	rtl_eri_write(tp, 0x5f0, ERIAR_MASK_0011, 0x4f87, ERIAR_EXGMAC);
- 
--	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
- 	RTL_W32(MISC, RTL_R32(MISC) & ~RXDV_GATED_EN);
- 	RTL_W8(MaxTxPacketSize, EarlySize);
- 
-@@ -6109,7 +6107,6 @@ static void rtl_hw_start_8168ep(struct rtl8169_private *tp)
- 
- 	rtl_eri_write(tp, 0x5f0, ERIAR_MASK_0011, 0x4f87, ERIAR_EXGMAC);
- 
--	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
- 	RTL_W32(MISC, RTL_R32(MISC) & ~RXDV_GATED_EN);
- 	RTL_W8(MaxTxPacketSize, EarlySize);
- 
--- 
-1.9.1
+Sounds good.
