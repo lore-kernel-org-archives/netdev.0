@@ -1,67 +1,198 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Out-of-bounds access in nfnetlink_bind
-Date: Tue, 2 Dec 2014 11:53:09 +0400
-Message-ID: <CACT4Y+bZu5UHu90F8wWqckcE13D5H2LDexna6vVEMBy+X4RiZw@mail.gmail.com>
+From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
+Subject: Re: Is this 32-bit NCM?
+Date: Tue, 2 Dec 2014 07:53:47 +0000
+Message-ID: <547D6FCE.4090007@audiocodes.com>
+References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
+ <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com>
+ <874mtl55ar.fsf@nemi.mork.no>
+ <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
+ <alpine.LNX.2.03.1411271932510.1548@gmail.com>
+ <87ppc71xne.fsf@nemi.mork.no>,<alpine.LNX.2.03.1412012202480.1301@gmail.com>
+ <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com>
+ <547D37CA.7050506@audiocodes.com>
+ <alpine.LNX.2.03.1412020729470.1351@gmail.com>
+ <547D5F84.6020608@audiocodes.com>
+ <alpine.LNX.2.03.1412020747360.1921@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	kasan-dev <kasan-dev@googlegroups.com>,
-	Dmitry Chernenkov <dmitryc@google.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Andrey Konovalov <andreyknvl@google.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="_002_547D6FCE4090007audiocodescom_"
+Cc: Eli Britstein <Eli.Britstein@audiocodes.com>,
+	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
+	Alex Strizhevsky <alexxst@gmail.com>,
+	"Midge Shaojun Tan" <ShaojunMidge.Tan@audiocodes.com>,
+	"youtux@gmail.com" <youtux@gmail.com>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Enrico Mioso <mrkiko.rs@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3lrp0078.outbound.protection.outlook.com ([213.199.154.78]:48768
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932829AbaLBHxv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Dec 2014 02:53:51 -0500
+In-Reply-To: <alpine.LNX.2.03.1412020747360.1921@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+--_002_547D6FCE4090007audiocodescom_
+Content-Type: text/plain; charset="utf-8"
+Content-ID: <C5994C1E9C3A7A44B01172117F7E902C@eurprd06.prod.outlook.com>
+Content-Transfer-Encoding: base64
 
-I am working on Kernel AddressSanitizer, a fast memory error detector
-for kernel:
-https://code.google.com/p/address-sanitizer/wiki/AddressSanitizerForKernel
+cmVhdHRhY2ggdGhlIHJlZ2lzdHJ5Lg0KDQpSZWdhcmRzLA0KS2V2aW4NCg0KT24gMTIvMDIvMjAx
+NCAwMjo0OSBQTSwgRW5yaWNvIE1pb3NvIHdyb3RlOg0KPiBDYW4geW91IHRyeSB0byBsb29rIGF0
+IFdpbmRvd3MgcmVnaXN0cnkga2V5cyBiYXNlZCBvbiB0aGUgSU5GIGZpbGUgYXMgc3VnZ2VzdGVk
+DQo+IG9yIHdvdWxkIHRoaXMgYmUgYSBwcm9ibGVtIGZvciB5b3U/DQo+IEFuZC4uLiBpZiB5b3Ug
+aGF2ZSBhbnkgSHVhd2VpIG1hbnV0YWwgdGFsa2luZyBhYm91dCBpdDogZXZlbiBkZXZpY2Uncw0K
+PiBeRFNGTE9XUlBUDQo+IG1pZ2h0IGJlIHVzZWZ1bCB0byBzb21lIGV4dGVudCwgYnV0IC4uLiB0
+aGlzIGlzIG9ubHkganVzdCBhIG5vdGUgaW4gY2FzZSB3ZQ0KPiBkb24ndCBmaW5kIGFueXRoaW5n
+IGVsc2UuDQo+IFJlZ2FyZHMgLi4uIGFuZCBnb29kIGRheSB0byBhbGwgb2YgeW91LA0KPiBFbnJp
+Y28NCj4NCj4NCj4gT24gVHVlLCAyIERlYyAyMDE0LCBLZXZpbiBaaHUgd3JvdGU6DQo+DQo+ID09
+RGF0ZTogVHVlLCAyIERlYyAyMDE0IDA3OjQzOjI0DQo+ID09RnJvbTogS2V2aW4gWmh1IDxNaW5n
+eWluZy5aaHVAYXVkaW9jb2Rlcy5jb20+DQo+ID09VG86IEVucmljbyBNaW9zbyA8bXJraWtvLnJz
+QGdtYWlsLmNvbT4NCj4gPT1DYzogRWxpIEJyaXRzdGVpbiA8RWxpLkJyaXRzdGVpbkBhdWRpb2Nv
+ZGVzLmNvbT4sIEJqw7hybiBNb3JrIDxiam9ybkBtb3JrLm5vPiwNCj4gPT0gICAgQWxleCBTdHJp
+emhldnNreSA8YWxleHhzdEBnbWFpbC5jb20+LA0KPiA9PSAgICBNaWRnZSBTaGFvanVuICBUYW4g
+PFNoYW9qdW5NaWRnZS5UYW5AYXVkaW9jb2Rlcy5jb20+LA0KPiA9PSAgICAieW91dHV4QGdtYWls
+LmNvbSIgPHlvdXR1eEBnbWFpbC5jb20+LA0KPiA9PSAgICAibGludXgtdXNiQHZnZXIua2VybmVs
+Lm9yZyIgPGxpbnV4LXVzYkB2Z2VyLmtlcm5lbC5vcmc+LA0KPiA9PSAgICAibmV0ZGV2QHZnZXIu
+a2VybmVsLm9yZyIgPG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc+DQo+ID09U3ViamVjdDogUmU6IElz
+IHRoaXMgMzItYml0IE5DTT8NCj4gPT0NCj4gPT1JIGFsc28gdHJpZWQgdG8gZGVmaW5lIENEQ19O
+Q01fRFBUX0RBVEFHUkFNU19NQVggYXMgMSB0byBlbGltaW5hdGUgdGhlDQo+ID09cGFkZGluZ3Ms
+IGJ1dCBpdCBkaWQgbm90IHdvcmsgZWl0aGVyLCBub3QgZXZlbiBESENQLg0KPiA9PQ0KPiA9PVJl
+Z2FyZHMsDQo+ID09S2V2aW4NCj4gPT0NCj4gPT1PbiAxMi8wMi8yMDE0IDAyOjMyIFBNLCBFbnJp
+Y28gTWlvc28gd3JvdGU6DQo+ID09PiBIaSBhZ2FpbiBFbGksDQo+ID09PiBIaSBLZXZpbiwNCj4g
+PT0+IEhpIGV2ZXJ5b25lLi4uDQo+ID09Pg0KPiA9PT4gQXMgSSB1bmRlcnN0YW5kIGl0IGFueXdh
+eSAtIHRoZSBkaXN0aW5jdGlvbiBoZXJlIHRlbmRzIG5vdCB0byBiZSBiZXR3ZWVuDQo+ID09PiBk
+aWZmZXJlbnQgdHlwZXMgb2YgcGFja2V0cy4NCj4gPT0+IEl0IHRlbmRzIHRvIGJlIGJldHdlZW4g
+cmVjZWl2ZWQgYW5kIHNlbnQgcGFja2V0Lg0KPiA9PT4gV2UgYXJlIG5vdCBhYmxlIHRvIGdlbmVy
+YXRlIHBhY2tldHMgdGhhdCB0aGUgZGV2aWNlIHJldGFpbnMgdmFsaWQuDQo+ID09PiBJZiB5b3Ug
+bWFudWFsbHkgY29uZmlndXJlIHRoZSBJUCB0aGUgZGV2aWNlIHdvdWxkIGhhdmUgYXNzaWduZWQg
+eW91IHZpYSBESENQLA0KPiA9PT4geW91ciBzeXN0ZW0gd2lsbCBzdGFydCBhbnN3ZXJpbmcgQVJQ
+IHJlcXVlc3QsIHNheWluZyB0aGF0IHRoZSBob3N0IHdpdGggSVANCj4gPT0+IGFhLmJiLmNjLmRk
+IGlzIGF0IGFhOmJiOmNjOmRkOmVlICh1c2luZyB0aGUgTUMgYWRkcmVzcyBvZiB0aGUgZG9uZ2xl
+KS4NCj4gPT0+IEhvd2V2ZXIsIHRoZSBvdGhlciBob3N0IChnYXRld2F5KSB3aWxsIG5ldmVyIGtu
+b3cgdGhhdC4gSW5kZWVkLCBpdCdsbCBjb250aW51ZQ0KPiA9PT4gYXNraW5nIHdoby1pcyBhdCBh
+YS5iYi5jYy5kZCA/DQo+ID09PiBBdCBsZWFzdCwgdGhpcyBpcyB0aGUgc2l0dWF0aW9uIEkgb2Jz
+ZXJ2ZWQgaW4gdGhlIHRlc3Qgc3lzdGVtLg0KPiA9PT4NCj4gPT0+DQo+ID09PiBPbiBUdWUsIDIg
+RGVjIDIwMTQsIEtldmluIFpodSB3cm90ZToNCj4gPT0+DQo+ID09PiA9PURhdGU6IFR1ZSwgMiBE
+ZWMgMjAxNCAwNDo1Mzo1Mw0KPiA9PT4gPT1Gcm9tOiBLZXZpbiBaaHUgPE1pbmd5aW5nLlpodUBh
+dWRpb2NvZGVzLmNvbT4NCj4gPT0+ID09VG86IEVsaSBCcml0c3RlaW4gPEVsaS5Ccml0c3RlaW5A
+YXVkaW9jb2Rlcy5jb20+LA0KPiA9PT4gPT0gICAgRW5yaWNvIE1pb3NvIDxtcmtpa28ucnNAZ21h
+aWwuY29tPg0KPiA9PT4gPT1DYzogQmrDuHJuIE1vcmsgPGJqb3JuQG1vcmsubm8+LCBBbGV4IFN0
+cml6aGV2c2t5IDxhbGV4eHN0QGdtYWlsLmNvbT4sDQo+ID09PiA9PSAgICBNaWRnZSBTaGFvanVu
+ICBUYW4gPFNoYW9qdW5NaWRnZS5UYW5AYXVkaW9jb2Rlcy5jb20+LA0KPiA9PT4gPT0gICAgInlv
+dXR1eEBnbWFpbC5jb20iIDx5b3V0dXhAZ21haWwuY29tPiwNCj4gPT0+ID09ICAgICJsaW51eC11
+c2JAdmdlci5rZXJuZWwub3JnIiA8bGludXgtdXNiQHZnZXIua2VybmVsLm9yZz4sDQo+ID09PiA9
+PSAgICAibmV0ZGV2QHZnZXIua2VybmVsLm9yZyIgPG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc+DQo+
+ID09PiA9PVN1YmplY3Q6IFJlOiBJcyB0aGlzIDMyLWJpdCBOQ00/DQo+ID09PiA9PQ0KPiA9PT4g
+PT1IaSwNCj4gPT0+ID09DQo+ID09PiA9PVRoZSBESENQIHBhY2tldHMgaGF2ZSB0aGUgbWF4aW11
+bSBzaXplIG9mIGR3TnRiT3V0TWF4U2l6ZT0xNjM4NCwgd2hpbGUNCj4gPT0+ID09dGhlIG90aGVy
+IHBhY2tldHMgYXJlIGxlc3MgdGhhbiB0aGF0LiBIb3dldmVyLCB0aGUgREhDUCBxdWVyaWVzIGFy
+ZSBub3QNCj4gPT0+ID09cmVwbGllZCBpbiB0aW1lIGVpdGhlciwgdGhlcmUncyBhbHdheXMgc29t
+ZSBkZWxheS4NCj4gPT0+ID09DQo+ID09PiA9PUJ5IHRoZSB3YXksIHRob3VnaCB0aGUgZGV2aWNl
+IGNsYWltcyB0byBzdXBwb3J0IEdFVF9NQVhfREFUQUdSQU1fU0laRSwNCj4gPT0+ID09YnV0IGl0
+IHJldHVybnMgZXJyb3Igd2hlbiB0aGUgaG9zdCBzZW5kcyB0aGlzIGNvbW1hbmQgdG8gaXQuIEkg
+ZGlzYWJsZWQNCj4gPT0+ID09dGhpcyBjb21tYW5kIGluIE5DTSBkcml2ZXIgYW5kIHRyaWVkLCBi
+dXQgaXQncyB0aGUgc2FtZSByZXN1bHQuDQo+ID09PiA9PQ0KPiA9PT4gPT1SZWdhcmRzLA0KPiA9
+PT4gPT1LZXZpbg0KPiA9PT4gPT0NCj4gPT0+ID09T24gMTIvMDIvMjAxNCAwNjowMiBBTSwgRWxp
+IEJyaXRzdGVpbiB3cm90ZToNCj4gPT0+ID09PiBIaSBFbnJpY28gYW5kIGFsbCwNCj4gPT0+ID09
+Pg0KPiA9PT4gPT0+IE1heWJlIEkgbWlzc2VkIHNvbWV0aGluZyBidXQgd2hhdCBpcyB0aGUgZGlm
+ZmVyZW5jZSBieSB0aGUgZHJpdmVyIHBvaW50IG9mIHZpZXcgYmV0d2VlbiB0aGUgZGhjcCBkaXNj
+b3ZlciBhbmQgcmVxdWVzdCAodGhhdCBhcmUgb2spIHRvIG90aGVycyAobGlrZSBhcnAsIHRoYXQg
+aXMgbm9rKT8NCj4gPT0+ID09PiBNYXliZSB3ZSBjYW4gdHJhY2UgdG8gY29tcGFyZSB0aGVtPw0K
+PiA9PT4gPT0+DQo+ID09PiA9PT4gU2VudCBmcm9tIG15IGlQaG9uZQ0KPiA9PT4gPT0+DQo+ID09
+PiA9PT4+IE9uIDEg15HXk9em154gMjAxNCwgYXQgMjM6MTEsICJFbnJpY28gTWlvc28iIDxtcmtp
+a28ucnNAZ21haWwuY29tPiB3cm90ZToNCj4gPT0+ID09Pj4NCj4gPT0+ID09Pj4gU28gLi4uIEkg
+aGF2ZSB0d28gaWRlYXMgbGVmdCBmb3Igbm93Lg0KPiA9PT4gPT0+PiBXZSBrbm93IGZvciBzdXJl
+IHRoZSBwcm9ibGVtIGlzIGluIHRoZSB3YXkgd2UgVFggZnJhbWVzLCBub3QgdGhlIHdheSB3ZSBS
+WCB0aGVtDQo+ID09PiA9PT4+ICh0aGUgd2F5IHdlIHNlbmQsIGdlbmVyYXRlIHRoZW0sIG5vdCB0
+aGUgd2F5IHdlIHJlY2VpdmUgdGhlbSkuDQo+ID09PiA9PT4+IFNpIEkgaGF2ZSB0d28gaWRlYXMs
+IGFuZCBJIGFzayBmb3IgaGVscCBmcm9tIHRoZSBMaW51eC11c2IgbWFpbGluZyBsaXN0IGZvcg0K
+PiA9PT4gPT0+PiB0aGlzIGZpcnN0IG9uZS4NCj4gPT0+ID09Pj4NCj4gPT0+ID09Pj4gMSAtIERv
+ZXMgYSB3YXlleGlzdCB0byAicmVwbGF5IiB0cmFmZmljIGNyb20gYSB1c2IgY2FwdHVyZT8NCj4g
+PT0+ID09Pj4gV2UgbWlnaHQgdHJ5IHRvIHRha2UgdGhlIHVzYiBmcmFtZXMgZ2VuZXJhdGVkIGJ5
+IFdpbmRvd3MsIGFuZCBzZW5kIHRoZW0gdG8gdGhlDQo+ID09PiA9PT4+IGRldmljZSB0byBzZWUg
+aWYgdGhlcmUgaXMgYW55IHJlYWN0aW9uLiBJdCBzaG91bGQgbm90IGJlIHNjaWVuY2UgZmljdGlv
+biwgSSBzYXcNCj4gPT0+ID09Pj4gdGhlbSBkbyB0aGF0IGluIHRoZSBlY2lhZHNsIG9sZCBwcm9q
+ZWN0Lg0KPiA9PT4gPT0+PiAyIC0gVGhlIGh1YXdlaSBuZGlzIGRyaXZlcjogZG9lcyBpdCB3b3Jr
+IHdpdGggdGhlc2UgZGV2aWNlcz8NCj4gPT0+ID09Pj4gSXQgc2hvdWxkIGJlIGEgbGl0dGxlIGJp
+dCBvdXQtZGF0ZWQgbm93IChhdCBsZWFzdCBpbiB0ZXJtcyBvZiBkYXRlcywgaXQgbWlnaHQNCj4g
+PT0+ID09Pj4gd29yayBhcyB3ZWxsKTogdGhlIGNvZGUgaXMgQSBMT1QgYnV0LCBqdXN0IGluIGNh
+c2UsIHRvIHNlZSBpZiB0aGVyZSBpcyBhbnkNCj4gPT0+ID09Pj4gY2hhbmNlcyBpdCdsbCB3b3Jr
+LiBJdCByZW1haW5zIHRvIGJlIHNlZW4gaW4gd2hpY2gga2VybmVscyBpdCBjYW4gYWN0dWFsbHkN
+Cj4gPT0+ID09Pj4gY29tcGlsZSBhZ2Fpbi4NCj4gPT0+ID09Pj4NCj4gPT0+ID09Pj4gSWYgdGhp
+cyB3b3JrcyB3ZSBtaWdodCBhbmFseXNlIHdoYXQncyBoYXBwZW5pbmcgYW5kIHRyeSB0byBkZWJ1
+ZyB0aGlzIG91dC4NCj4gPT0+ID09Pj4gQnV0IEkgcmVhbGx5IHdvdWxkIGxpa2UgdGhpcyB0byB3
+b3JrIGluIHRoZSBjZGNfbmNtIGRyaXZlciArIGh1YXdlaV9jZGNfbmNtLg0KPiA9PT4gPT0+PiBU
+aGFuayB5b3UuDQo+ID09PiA9PVRoaXMgZW1haWwgYW5kIGFueSBmaWxlcyB0cmFuc21pdHRlZCB3
+aXRoIGl0IGFyZSBjb25maWRlbnRpYWwgbWF0ZXJpYWwuIFRoZXkgYXJlIGludGVuZGVkIHNvbGVs
+eSBmb3IgdGhlIHVzZSBvZiB0aGUgZGVzaWduYXRlZCBpbmRpdmlkdWFsIG9yIGVudGl0eSB0byB3
+aG9tIHRoZXkgYXJlIGFkZHJlc3NlZC4gSWYgdGhlIHJlYWRlciBvZiB0aGlzIG1lc3NhZ2UgaXMg
+bm90IHRoZSBpbnRlbmRlZCByZWNpcGllbnQsIHlvdSBhcmUgaGVyZWJ5IG5vdGlmaWVkIHRoYXQg
+YW55IGRpc3NlbWluYXRpb24sIHVzZSwgZGlzdHJpYnV0aW9uIG9yIGNvcHlpbmcgb2YgdGhpcyBj
+b21tdW5pY2F0aW9uIGlzIHN0cmljdGx5IHByb2hpYml0ZWQgYW5kIG1heSBiZSB1bmxhd2Z1bC4N
+Cj4gPT0+ID09DQo+ID09PiA9PUlmIHlvdSBoYXZlIHJlY2VpdmVkIHRoaXMgZW1haWwgaW4gZXJy
+b3IgcGxlYXNlIGltbWVkaWF0ZWx5IG5vdGlmeSB0aGUgc2VuZGVyIGFuZCBkZWxldGUgb3IgZGVz
+dHJveSBhbnkgY29weSBvZiB0aGlzIG1lc3NhZ2UNCj4gPT0+ID09DQo+ID09VGhpcyBlbWFpbCBh
+bmQgYW55IGZpbGVzIHRyYW5zbWl0dGVkIHdpdGggaXQgYXJlIGNvbmZpZGVudGlhbCBtYXRlcmlh
+bC4gVGhleSBhcmUgaW50ZW5kZWQgc29sZWx5IGZvciB0aGUgdXNlIG9mIHRoZSBkZXNpZ25hdGVk
+IGluZGl2aWR1YWwgb3IgZW50aXR5IHRvIHdob20gdGhleSBhcmUgYWRkcmVzc2VkLiBJZiB0aGUg
+cmVhZGVyIG9mIHRoaXMgbWVzc2FnZSBpcyBub3QgdGhlIGludGVuZGVkIHJlY2lwaWVudCwgeW91
+IGFyZSBoZXJlYnkgbm90aWZpZWQgdGhhdCBhbnkgZGlzc2VtaW5hdGlvbiwgdXNlLCBkaXN0cmli
+dXRpb24gb3IgY29weWluZyBvZiB0aGlzIGNvbW11bmljYXRpb24gaXMgc3RyaWN0bHkgcHJvaGli
+aXRlZCBhbmQgbWF5IGJlIHVubGF3ZnVsLg0KPiA9PQ0KPiA9PUlmIHlvdSBoYXZlIHJlY2VpdmVk
+IHRoaXMgZW1haWwgaW4gZXJyb3IgcGxlYXNlIGltbWVkaWF0ZWx5IG5vdGlmeSB0aGUgc2VuZGVy
+IGFuZCBkZWxldGUgb3IgZGVzdHJveSBhbnkgY29weSBvZiB0aGlzIG1lc3NhZ2UNCj4gPT0NCg0K
+VGhpcyBlbWFpbCBhbmQgYW55IGZpbGVzIHRyYW5zbWl0dGVkIHdpdGggaXQgYXJlIGNvbmZpZGVu
+dGlhbCBtYXRlcmlhbC4gVGhleSBhcmUgaW50ZW5kZWQgc29sZWx5IGZvciB0aGUgdXNlIG9mIHRo
+ZSBkZXNpZ25hdGVkIGluZGl2aWR1YWwgb3IgZW50aXR5IHRvIHdob20gdGhleSBhcmUgYWRkcmVz
+c2VkLiBJZiB0aGUgcmVhZGVyIG9mIHRoaXMgbWVzc2FnZSBpcyBub3QgdGhlIGludGVuZGVkIHJl
+Y2lwaWVudCwgeW91IGFyZSBoZXJlYnkgbm90aWZpZWQgdGhhdCBhbnkgZGlzc2VtaW5hdGlvbiwg
+dXNlLCBkaXN0cmlidXRpb24gb3IgY29weWluZyBvZiB0aGlzIGNvbW11bmljYXRpb24gaXMgc3Ry
+aWN0bHkgcHJvaGliaXRlZCBhbmQgbWF5IGJlIHVubGF3ZnVsLg0KDQpJZiB5b3UgaGF2ZSByZWNl
+aXZlZCB0aGlzIGVtYWlsIGluIGVycm9yIHBsZWFzZSBpbW1lZGlhdGVseSBub3RpZnkgdGhlIHNl
+bmRlciBhbmQgZGVsZXRlIG9yIGRlc3Ryb3kgYW55IGNvcHkgb2YgdGhpcyBtZXNzYWdlDQo=
 
-Here is an error report that I got while running trinity:
+--_002_547D6FCE4090007audiocodescom_
+Content-Type: application/x-gzip; name="e3372.reg.gz"
+Content-Description: e3372.reg.gz
+Content-Disposition: attachment; filename="e3372.reg.gz"; size=1719;
+	creation-date="Tue, 02 Dec 2014 07:53:47 GMT";
+	modification-date="Tue, 02 Dec 2014 07:53:47 GMT"
+Content-ID: <2BF84ECDDA32D94C9094C58078668A36@eurprd06.prod.outlook.com>
+Content-Transfer-Encoding: base64
 
-==================================================================
-BUG: AddressSanitizer: out of bounds access in
-nfnetlink_bind+0xbf/0xe0 at addr ffffffff82eef710
-Read of size 4 by task trinity-main/2533
-Out-of-bounds access to the global variable 'nfnl_group2type'
-[ffffffff82eef6e0-ffffffff82eef704) defined at
-net/netfilter/nfnetlink.c:43:18
-CPU: 0 PID: 2533 Comm: trinity-main Not tainted 3.18.0-rc1+ #44
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
- ffffffff835173e8 ffff8800b989fd18 ffffffff82a3d66f 0000000000000007
- ffff8800b989fdc0 ffff8800b989fda8 ffffffff813a3826 0000000000000012
- 0000000000000000 0000000100000018 0000000000000296 ffff8800b989fd88
-Call Trace:
- [<ffffffff813a39c1>] __asan_report_load4_noabort+0x41/0x50
-mm/kasan/report.c:236
- [<ffffffff824769cf>] nfnetlink_bind+0xbf/0xe0 net/netfilter/nfnetlink.c:467
- [<ffffffff82469b71>] netlink_bind+0x221/0x7e0 net/netlink/af_netlink.c:1472
- [<ffffffff8238bf77>] SYSC_bind+0x117/0x170 net/socket.c:1541
- [<ffffffff8238dc29>] SyS_bind+0x9/0x10 net/socket.c:1527
- [<ffffffff82a522a9>] system_call_fastpath+0x12/0x17
-arch/x86/kernel/entry_64.S:422
-Memory state around the buggy address:
- ffffffff82eef480: 00 00 00 00 00 00 00 00 00 00 00 00 00 f8 f8 f8
- ffffffff82eef500: f8 f8 f8 f8 00 00 00 00 f8 f8 f8 f8 00 00 00 01
- ffffffff82eef580: f8 f8 f8 f8 00 00 00 00 05 f8 f8 f8 f8 f8 f8 f8
- ffffffff82eef600: 00 00 04 f8 f8 f8 f8 f8 00 00 f8 f8 f8 f8 f8 f8
- ffffffff82eef680: 00 00 00 00 07 f8 f8 f8 f8 f8 f8 f8 00 00 00 00
->ffffffff82eef700: 04 f8 f8 f8 f8 f8 f8 f8 00 06 f8 f8 f8 f8 f8 f8
-                         ^
- ffffffff82eef780: 00 00 00 05 f8 f8 f8 f8 00 00 00 00 00 f8 f8 f8
- ffffffff82eef800: f8 f8 f8 f8 00 00 00 00 02 f8 f8 f8 f8 f8 f8 f8
- ffffffff82eef880: 00 00 00 00 06 f8 f8 f8 f8 f8 f8 f8 00 00 00 04
- ffffffff82eef900: f8 f8 f8 f8 00 00 00 00 00 04 f8 f8 f8 f8 f8 f8
- ffffffff82eef980: 00 00 00 07 f8 f8 f8 f8 00 00 00 06 f8 f8 f8 f8
-==================================================================
+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
+H7P4gbs0KAAA
 
-My source is on revision f114040e3ea6e07372334ade75d1ee0
-
-As far as I see netlink_bind just calls nfnetlink_bind with whatever
-groups user has requested; nfnetlink_bind in turn do not do any checks
-before indexing the global nfnl_group2type array with the group.
+--_002_547D6FCE4090007audiocodescom_--
