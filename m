@@ -1,90 +1,95 @@
-From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
-Subject: Re: [PATCH] SSB / B44: fix WOL for BCM4401
-Date: Tue, 2 Dec 2014 21:12:11 +0100
-Message-ID: <20141202211211.7e08b935@wiggum>
-References: <20141201111125.GA11974@localhost.localdomain>
-	<1417466798-15735-1-git-send-email-Andrej.Skvortzov@gmail.com>
-	<20141201221023.79ffb40d@wiggum>
-	<20141202200129.GA4580@crion89>
+From: "Luis R. Rodriguez" <mcgrof-IBi9RG/b67k@public.gmane.org>
+Subject: Re: net-PA Semi: Deletion of unnecessary checks before the
+	function call "pci_dev_put"
+Date: Tue, 2 Dec 2014 21:18:25 +0100
+Message-ID: <20141202201825.GP25677@wotan.suse.de>
+References: <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.sourceforge.net> <547BC5AD.6090500@users.sourceforge.net> <1417465745.28610.0.camel@sipsolutions.net> <alpine.DEB.2.02.1412012134290.2076@localhost6.localdomain6> <1417539208.1841.1.camel@sipsolutions.net> <20141202183509.GI4994@mwanda>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- boundary="Sig_/KgW+yCt0KOyVeLsvDfBVbb3"; protocol="application/pgp-signature"
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>, Gary.Zambrano@qlogic.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	b43-dev <b43-dev@lists.infradead.org>,
-	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>
-To: Andrey Skvortsov <andrej.skvortzov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141202200129.GA4580@crion89>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>,
+	SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Lino Sanfilippo <LinoSanfilippo-Mmb7MZpHnFY@public.gmane.org>,
+	Olof Johansson <olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	backports-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Return-path: <backports-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20141202183509.GI4994@mwanda>
+Sender: backports-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/KgW+yCt0KOyVeLsvDfBVbb3
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On Tue, Dec 02, 2014 at 09:35:09PM +0300, Dan Carpenter wrote:
+> On Tue, Dec 02, 2014 at 05:53:28PM +0100, Johannes Berg wrote:
+> > On Mon, 2014-12-01 at 21:34 +0100, Julia Lawall wrote:
+> > 
+> > > > So this kind of evolution is no problem for the (automated) backports
+> > > > using the backports project - although it can be difficult to detect
+> > > > such a thing is needed.
+> > > 
+> > > That is exactly the problem...
+> > 
+> > I'm not convinced though that it should stop such progress in mainline.
+> 
+> Is it progress? 
 
-On Tue, 2 Dec 2014 23:01:29 +0300
-Andrey Skvortsov <andrej.skvortzov@gmail.com> wrote:
+I like to think of progress as using tools to help fix code where we know
+it can be made simpler with a small ammendment: if you can extend the tools
+to also vet for safety for backports to avoid crashes even better.
 
-> On Mon, Dec 01, 2014 at 10:10:23PM +0100, Michael B=C3=BCsch wrote:
-> > On Mon,  1 Dec 2014 23:46:38 +0300
-> > Andrey Skvortsov <andrej.skvortzov@gmail.com> wrote:
-> >=20
-> > > Wake On Lan was not working on laptop DELL Vostro 1500.
-> > > If WOL was turned on, BCM4401 was powered up in suspend mode. LEDs bl=
-inked.
-> > > But the laptop could not be woken up with the Magic Packet. The reaso=
-n for
-> > > that was that PCIE was not enabled as a system wakeup source and
-> > > therefore the host PCI bridge was not powered up in suspend mode.
-> > > PCIE was not enabled in suspend by PM because no child devices were
-> > > registered as wakeup source during suspend process.
-> > > On laptop BCM4401 is connected through the SSB bus, that is connected=
- to the
-> > > PCI-Express bus. SSB and B44 did not use standard PM wakeup functions
-> > > and did not forward wakeup settings to their parents.
-> > > To fix that B44 driver enables PM wakeup and registers new wakeup sou=
-rce
-> > > using device_set_wakeup_enable(). Wakeup is automatically reported to=
- the parent SSB
-> > > bus via power.wakeup_path. SSB bus enables wakeup for the parent PCI =
-bridge, if there is any
-> > > child devices with enabled wakeup functionality. All other steps are
-> > > done by PM core code.
-> >=20
-> > Thanks, this looks good.
-> > I assume you tested this (I currently don't have a device to test this).
->=20
-> Sure, I've tested it. WOL from suspend is working and after resume from h=
-ibernate Ethernet is working too.
+So its a small evolution but we can do better, which is the point you and
+Julia are making.
 
-That sounds good, indeed.
-I'd still prefer, if someone with b43 (wireless) would test it, too.
+> These patches match the code look simpler by passing
+> hiding the NULL check inside a function call.  Calling pci_dev_put(NULL)
+> doesn't make sense.  Just because a sanity check exists doesn't mean we
+> should do insane things.
 
---=20
-Michael
+It'd crash the system if the function call didn't have the check in place
+but having the code in question call pci_dev_put(NULL) is also ludicrious.
+Either way in this case I think we shouldn't go beyond analyzing the
+function call and if the error check was present before as it is a real
+case that has introduced crashes before which Julia wanted to flag.
 
---Sig_/KgW+yCt0KOyVeLsvDfBVbb3
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
+> It's easy enough to store which functions have a sanity check in a
+> database,
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+This is easy but it adds complexities which I'd prefer to keep on
+some other people's workstations. For the developer I think we should
+strive to only have: a) git b) Coccinelle c) smatch.
 
-iQIcBAEBAgAGBQJUfh0hAAoJEPUyvh2QjYsOcnUP/3n1QQK1TWvMvKKpTZgU18hR
-eEyxRP+/jtSWnInzRwkXUM39rdNCTWkBdinpNlS67lAxoC3OoLJ+vYn+O38Owmva
-Kj49MAFj8MQ3Zfl8OO82/O54FZzW+Umv7yne6twRHm8M57I5F/oolrgWiHlSbQj6
-a38s1SQESH7JJhVMwzBwDXm/H6Z5upURfJ155XhGo1GsEV4hr00okPSt6EWLLQNX
-xPmU1C9Ev4UmwhwABsxmRb7wdZhkpb5JUCi5zAh2YAypEng95VDTwC/aRaSQRsNJ
-AcBMhP+PFJsZXJL9WcnhfcltOwx2u5bVXGyAm0E+Ca3ALNlR65TNeAeCz5k/vQex
-xiNOSZb7K/SjOB6YISyj6ngKY0aLS1oUEay9uX9P6F4A7sscdgg91ZVWxc3nZpJa
-HSUCkWtTGx5u1Ck4zSCgmrFAYZuzW6K9ES4CFknWuHYg/5WC0JVD41HhwK7D1Vy8
-iH18M5nk9YINAle8NxX0FkACLTP+fPnzHhZ2C02n5S6lbzFV3Y0c9U5gav4Uy9jp
-o1YbQonpX5WEnzWfdWD+uW+3YNatf3sP5Yl057InSMDnIaKAA5YxUgLHhvXNG0vc
-19sL7Bt4TJILb1RxjYoPelfuauWQCsRmuqLqB3n/fwaUdpP/TVaA/3rH0T3abPwR
-dEPyqbxyLcmgcRgGeQPv
-=DYTK
------END PGP SIGNATURE-----
+> but to rememember all that as a human being trying to read the
+> code is impossible.
 
---Sig_/KgW+yCt0KOyVeLsvDfBVbb3--
+Agreed. The problem statement presented by Julia is part of the effort
+of addressing the "how do we evolve faster" problem on Linux kernel development,
+what you describe adds to the mix of the complexities, and while Oleg does
+note that part of this is academic there are those of us who are making things
+which are academic immediately practical and a reality for Linux. This is also
+how we evolve faster :)
+
+> If we really wanted to make this code cleaner we would introduce more
+> error labels with better names.
+
+Can you describe a bit more what you mean here? If we had a label *in code*
+on the caller, perhaps a comment, I can see tool-wise how it'd remove the
+requirement for a database for immediate analysis for safety here, ie,
+we hunt for a label on the code; but other than that its unclear what
+you mean here.
+
+If you folks agree with my simplication tool analsysi for safety can
+we devise a tag for whitelisting this check for a series of routines?
+Where would we put it, in the kernel or a tools package? If in the kernel
+we could end up sharing it, so I think that's be better. Perhaps scripts/safety/ ?
+Maybe use a header that describes the safety check that is vetted by the rule
+present, followed by a list of routines vetted?
+
+Then the Cocci file can preload this and a rule that wants this paranoid check
+can include this db file for safety ?
+
+The safety here would require vetting thirough history in git that the routine
+has a check in place throughout the routines's history up to a certain point.
+I propose we only care up to what kernels are listed on kernel.org as supported.
+
+ Luis
