@@ -1,58 +1,63 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCHv2 net] i40e: Implement ndo_gso_check()
-Date: Mon, 1 Dec 2014 15:58:45 -0800
-Message-ID: <CANr6G5zK3MPYeco6QmfuxUpGR1Qx2PkkCexiTPQRETHnem_-nA@mail.gmail.com>
-References: <1416525081-27779-1-git-send-email-joestringer@nicira.com>
- <CAEP_g=-VEWi2Qo6gcJGr2+NXWEhkuMyu7BiAke6H=x+PTLcNcg@mail.gmail.com>
- <CANr6G5zrA6NUtcyhX1cwEO1Hiq9jnarB36P6m5eoHUFqWWc26Q@mail.gmail.com>
- <CANr6G5xRbG=UnJEdBEN_5ZRjNikCjuUseb1VbQmjjfb36jDP0g@mail.gmail.com>
- <CA+mtBx-Q=Ebrx_8NVB5mWURj-oWB3gdNs5fSAL=Frr9sOmyvHw@mail.gmail.com> <CAEP_g=979u0baWXGmCxo61a-KYEUwkruqBNof_zQpsvJxRFqSA@mail.gmail.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH 1/1] net-ipvlan: Deletion of an unnecessary check before
+ the function call "free_percpu"
+Date: Mon, 1 Dec 2014 16:01:23 -0800
+Message-ID: <CAF2d9ji2FRX0hdh-R-PQZoNG59s+74Tff=BeAHfhTtLo590-rw@mail.gmail.com>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
+ <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
+ <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
+ <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien>
+ <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien>
+ <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien>
+ <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+ <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+ <5317A59D.4@users.sourceforge.net> <5479E693.3010200@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <therbert@google.com>, netdev <netdev@vger.kernel.org>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"linux.nics" <linux.nics@intel.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEP_g=979u0baWXGmCxo61a-KYEUwkruqBNof_zQpsvJxRFqSA@mail.gmail.com>
+In-Reply-To: <5479E693.3010200@users.sourceforge.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1 December 2014 at 15:53, Jesse Gross <jesse@nicira.com> wrote:
-> On Mon, Dec 1, 2014 at 3:47 PM, Tom Herbert <therbert@google.com> wrote:
->> On Mon, Dec 1, 2014 at 3:35 PM, Joe Stringer <joestringer@nicira.com> wrote:
->>> On 21 November 2014 at 09:59, Joe Stringer <joestringer@nicira.com> wrote:
->>>> On 20 November 2014 16:19, Jesse Gross <jesse@nicira.com> wrote:
->>>>> I don't know if we need to have the check at all for IPIP though -
->>>>> after all the driver doesn't expose support for it all (actually it
->>>>> doesn't expose GRE either). This raises kind of an interesting
->>>>> question about the checks though - it's pretty easy to add support to
->>>>> the driver for a new GSO type (and I imagine that people will be
->>>>> adding GRE soon) and forget to update the check.
->>>>
->>>> If the check is more conservative, then testing would show that it's
->>>> not working and lead people to figure out why (and update the check).
->>>
->>> More concretely, one suggestion would be something like following at
->>> the start of each gso_check():
->>>
->>> +       const int supported = SKB_GSO_TCPV4 | SKB_GSO_TCPV6 | SKB_GSO_FCOE |
->>> +                             SKB_GSO_UDP | SKB_GSO_UDP_TUNNEL;
->>> +
->>> +       if (skb_shinfo(skb)->gso_type & ~supported)
->>> +               return false;
->>
->> This should already be handled by net_gso_ok.
+On Sat, Nov 29, 2014 at 7:30 AM, SF Markus Elfring
+<elfring@users.sourceforge.net> wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Sat, 29 Nov 2014 16:23:20 +0100
 >
-> My original point wasn't so much that this isn't handled at the moment
-> but that it's easy to add a supported GSO type but then forget to
-> update this check - i.e. if a driver already supports UDP_TUNNEL and
-> adds support for GRE with the same constraints. It seems not entirely
-> ideal that this function is acting as a blacklist rather than a
-> whitelist.
-
-How much less ideal is it to forget to update the check than to make
-this a blacklist?
+> The free_percpu() function tests whether its argument is NULL and then
+> returns immediately. Thus the test around the call is not needed.
+>
+> This issue was detected by using the Coccinelle software.
+>
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Acked-by: Mahesh Bandewar <maheshb@google.com>
+> ---
+>  drivers/net/ipvlan/ipvlan_main.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+> index 96b71b0..feb1853 100644
+> --- a/drivers/net/ipvlan/ipvlan_main.c
+> +++ b/drivers/net/ipvlan/ipvlan_main.c
+> @@ -125,8 +125,7 @@ static void ipvlan_uninit(struct net_device *dev)
+>         struct ipvl_dev *ipvlan = netdev_priv(dev);
+>         struct ipvl_port *port = ipvlan->port;
+>
+> -       if (ipvlan->pcpu_stats)
+> -               free_percpu(ipvlan->pcpu_stats);
+> +       free_percpu(ipvlan->pcpu_stats);
+>
+>         port->count -= 1;
+>         if (!port->count)
+> --
+> 2.1.3
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
