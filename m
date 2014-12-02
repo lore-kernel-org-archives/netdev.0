@@ -1,59 +1,33 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC PATCH] netfilter: conntrack: cache route for forwarded
- connections
-Date: Tue, 2 Dec 2014 09:15:32 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1412020827260.1593@ja.home.ssi.bg>
-References: <1417480114-3002-1-git-send-email-fw@strlen.de>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v3 net-next] net: bcmgenet: enable driver to work without
+ a device tree
+Date: Mon, 1 Dec 2014 23:24:51 -0800
+Message-ID: <CAGVrzca+T5=6ssero4yQ8z5o10mujqG_M1vZHFADkVo44pD5tw@mail.gmail.com>
+References: <20141202001808.9B0E6220728@puck.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netfilter-devel@vger.kernel.org, brouer@redhat.com,
-	netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Petri Gynther <pgynther@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:52314 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754059AbaLBHPt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Dec 2014 02:15:49 -0500
-In-Reply-To: <1417480114-3002-1-git-send-email-fw@strlen.de>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:41696 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750869AbaLBHZc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 02:25:32 -0500
+Received: by mail-ie0-f176.google.com with SMTP id tr6so11240405ieb.35
+        for <netdev@vger.kernel.org>; Mon, 01 Dec 2014 23:25:31 -0800 (PST)
+In-Reply-To: <20141202001808.9B0E6220728@puck.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+2014-12-01 16:18 GMT-08:00 Petri Gynther <pgynther@google.com>:
+> Modify bcmgenet driver so that it can be used on Broadcom 7xxx
+> MIPS-based STB platforms without a device tree.
 
-	Hello,
+Have not seen any regressions with DT-only platforms, thanks!
 
-On Tue, 2 Dec 2014, Florian Westphal wrote:
+>
+> Signed-off-by: Petri Gynther <pgynther@google.com>
 
-> ... to avoid per-packet FIB lookup if possible.
-> 
-> The cached dst is re-used provided the input interface
-> is the same as that of the previous packet in the same direction.
-> 
-> If not, the cached dst is invalidated.
-> 
-> This should speed up forwarding when conntrack is already in use
-> anyway, especially when using reverse path filtering -- active RPF
-> enforces two FIB lookups for each packet.
-> 
-> Before the routing cache removal this didn't matter since RPF
-> was performed only when route cache didn't yield a result; but without
-> route cache it comes at high price.
-> 
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
->  Sending as RFC since I haven't tested this yet (aside from
->  single-forwarded-flow), so no performance data either.
-> 
->   - doesn't work when iif changes (it invalidates cached dst), don't
->   think its a problem
-
-	The idea is good. But code that caches dsts should
-also handle at least NETDEV_UNREGISTER (NETDEV_DOWN being
-another option) to release dsts. Holding dsts for frozen
-conns in EST state for long time is a problem. IIRC, such dsts
-are not under dst_dev_event() control. nf_nat_masquerade_ipv4.c
-has something like this but for masq_index.
-
-Regards
-
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 --
-Julian Anastasov <ja@ssi.bg>
+Florian
