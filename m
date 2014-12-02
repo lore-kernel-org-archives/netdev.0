@@ -1,326 +1,59 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH V2 net-next] udp: Neaten and reduce size of compute_score
- functions
-Date: Mon, 01 Dec 2014 20:29:06 -0800
-Message-ID: <1417494546.4894.12.camel@perches.com>
-References: <1417484341.4894.6.camel@perches.com>
-	 <1417489141.4442.24.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1417489760.4894.8.camel@perches.com>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH] Documentation: bindings: net: DPAA corenet binding
+ document
+Date: Mon, 1 Dec 2014 22:39:49 -0600
+Message-ID: <1417495189.15957.209.camel@freescale.com>
+References: <1417169426-11823-1-git-send-email-madalin.bucur@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417489760.4894.8.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <devicetree@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
+	<netdev@vger.kernel.org>, <Emilian.Medve@freescale.com>,
+	<Igal.Liberman@freescale.com>
+To: <madalin.bucur@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bon0142.outbound.protection.outlook.com ([157.56.111.142]:21953
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752806AbaLBEj6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Dec 2014 23:39:58 -0500
+In-Reply-To: <1417169426-11823-1-git-send-email-madalin.bucur@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The compute_score functions are a bit difficult to read.
+On Fri, 2014-11-28 at 12:10 +0200, Madalin Bucur wrote:
+> Add the device tree binding document for the DPAA corenet node
+> and DPAA Ethernet nodes.
+> 
+> Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
+> ---
+>  Documentation/devicetree/bindings/net/fsl-dpaa.txt | 31 ++++++++++++++++++++++
+>  1 file changed, 31 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/fsl-dpaa.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/fsl-dpaa.txt b/Documentation/devicetree/bindings/net/fsl-dpaa.txt
+> new file mode 100644
+> index 0000000..822c668
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/fsl-dpaa.txt
+> @@ -0,0 +1,31 @@
+> +*DPAA corenet
+> +
+> +The corenet bus containing all DPAA Ethernet nodes.
 
-Neaten them a bit to reduce object sizes and make them a
-bit more intelligible.
+What does this have to do with corenet?
 
-Return early to avoid indentation and avoid unnecessary
-initializations.
+> +Required property
+> + - compatible: string property.  Must include "fsl,dpaa". Can include
+> +   also "fsl,<SoC>-dpaa".
 
-(allyesconfig, but w/ -O2 and no profiling)
+No need for the <SoC> part.  As we previously discussed, the only
+purpose of this node is backwards compatibility with the U-Boot MAC
+address fixup -- if U-Boot doesn't look for the <SoC> version, then
+don't complicate things.
 
-$ size net/ipv[46]/udp.o.*
-   text    data     bss     dec     hex filename
-  28680    1184      25   29889    74c1 net/ipv4/udp.o.new
-  28756    1184      25   29965    750d net/ipv4/udp.o.old
-  17600    1010       2   18612    48b4 net/ipv6/udp.o.new
-  17632    1010       2   18644    48d4 net/ipv6/udp.o.old
+Though, I can't find where U-Boot references this node.  Are you sure
+it's not using the ethernet%d aliases like everything else, in which
+case why do we need this node at all?
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
-
-Change the && == blocks to || !=
-No change in compiled object files.
-Keeps Eric happy too.
-
- net/ipv4/udp.c | 111 +++++++++++++++++++++++++++++++-------------------------
- net/ipv6/udp.c | 113 ++++++++++++++++++++++++++++++++-------------------------
- 2 files changed, 125 insertions(+), 99 deletions(-)
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index b2d6068..dd8e006 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -336,38 +336,45 @@ int udp_v4_get_port(struct sock *sk, unsigned short snum)
- 	return udp_lib_get_port(sk, snum, ipv4_rcv_saddr_equal, hash2_nulladdr);
- }
- 
--static inline int compute_score(struct sock *sk, struct net *net, __be32 saddr,
--			 unsigned short hnum,
--			 __be16 sport, __be32 daddr, __be16 dport, int dif)
-+static inline int compute_score(struct sock *sk, struct net *net,
-+				__be32 saddr, unsigned short hnum, __be16 sport,
-+				__be32 daddr, __be16 dport, int dif)
- {
--	int score = -1;
-+	int score;
-+	struct inet_sock *inet;
- 
--	if (net_eq(sock_net(sk), net) && udp_sk(sk)->udp_port_hash == hnum &&
--			!ipv6_only_sock(sk)) {
--		struct inet_sock *inet = inet_sk(sk);
-+	if (!net_eq(sock_net(sk), net) ||
-+	    udp_sk(sk)->udp_port_hash != hnum ||
-+	    ipv6_only_sock(sk))
-+		return -1;
- 
--		score = (sk->sk_family == PF_INET ? 2 : 1);
--		if (inet->inet_rcv_saddr) {
--			if (inet->inet_rcv_saddr != daddr)
--				return -1;
--			score += 4;
--		}
--		if (inet->inet_daddr) {
--			if (inet->inet_daddr != saddr)
--				return -1;
--			score += 4;
--		}
--		if (inet->inet_dport) {
--			if (inet->inet_dport != sport)
--				return -1;
--			score += 4;
--		}
--		if (sk->sk_bound_dev_if) {
--			if (sk->sk_bound_dev_if != dif)
--				return -1;
--			score += 4;
--		}
-+	score = (sk->sk_family == PF_INET) ? 2 : 1;
-+	inet = inet_sk(sk);
-+
-+	if (inet->inet_rcv_saddr) {
-+		if (inet->inet_rcv_saddr != daddr)
-+			return -1;
-+		score += 4;
-+	}
-+
-+	if (inet->inet_daddr) {
-+		if (inet->inet_daddr != saddr)
-+			return -1;
-+		score += 4;
- 	}
-+
-+	if (inet->inet_dport) {
-+		if (inet->inet_dport != sport)
-+			return -1;
-+		score += 4;
-+	}
-+
-+	if (sk->sk_bound_dev_if) {
-+		if (sk->sk_bound_dev_if != dif)
-+			return -1;
-+		score += 4;
-+	}
-+
- 	return score;
- }
- 
-@@ -378,33 +385,39 @@ static inline int compute_score2(struct sock *sk, struct net *net,
- 				 __be32 saddr, __be16 sport,
- 				 __be32 daddr, unsigned int hnum, int dif)
- {
--	int score = -1;
-+	int score;
-+	struct inet_sock *inet;
-+
-+	if (!net_eq(sock_net(sk), net) ||
-+	    ipv6_only_sock(sk))
-+		return -1;
- 
--	if (net_eq(sock_net(sk), net) && !ipv6_only_sock(sk)) {
--		struct inet_sock *inet = inet_sk(sk);
-+	inet = inet_sk(sk);
- 
--		if (inet->inet_rcv_saddr != daddr)
-+	if (inet->inet_rcv_saddr != daddr ||
-+	    inet->inet_num != hnum)
-+		return -1;
-+
-+	score = (sk->sk_family == PF_INET) ? 2 : 1;
-+
-+	if (inet->inet_daddr) {
-+		if (inet->inet_daddr != saddr)
- 			return -1;
--		if (inet->inet_num != hnum)
-+		score += 4;
-+	}
-+
-+	if (inet->inet_dport) {
-+		if (inet->inet_dport != sport)
- 			return -1;
-+		score += 4;
-+	}
- 
--		score = (sk->sk_family == PF_INET ? 2 : 1);
--		if (inet->inet_daddr) {
--			if (inet->inet_daddr != saddr)
--				return -1;
--			score += 4;
--		}
--		if (inet->inet_dport) {
--			if (inet->inet_dport != sport)
--				return -1;
--			score += 4;
--		}
--		if (sk->sk_bound_dev_if) {
--			if (sk->sk_bound_dev_if != dif)
--				return -1;
--			score += 4;
--		}
-+	if (sk->sk_bound_dev_if) {
-+		if (sk->sk_bound_dev_if != dif)
-+			return -1;
-+		score += 4;
- 	}
-+
- 	return score;
- }
- 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 7cfb5d7..7f964322 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -148,72 +148,85 @@ static inline int compute_score(struct sock *sk, struct net *net,
- 				const struct in6_addr *daddr, __be16 dport,
- 				int dif)
- {
--	int score = -1;
-+	int score;
-+	struct inet_sock *inet;
- 
--	if (net_eq(sock_net(sk), net) && udp_sk(sk)->udp_port_hash == hnum &&
--			sk->sk_family == PF_INET6) {
--		struct inet_sock *inet = inet_sk(sk);
-+	if (!net_eq(sock_net(sk), net) ||
-+	    udp_sk(sk)->udp_port_hash != hnum ||
-+	    sk->sk_family != PF_INET6)
-+		return -1;
- 
--		score = 0;
--		if (inet->inet_dport) {
--			if (inet->inet_dport != sport)
--				return -1;
--			score++;
--		}
--		if (!ipv6_addr_any(&sk->sk_v6_rcv_saddr)) {
--			if (!ipv6_addr_equal(&sk->sk_v6_rcv_saddr, daddr))
--				return -1;
--			score++;
--		}
--		if (!ipv6_addr_any(&sk->sk_v6_daddr)) {
--			if (!ipv6_addr_equal(&sk->sk_v6_daddr, saddr))
--				return -1;
--			score++;
--		}
--		if (sk->sk_bound_dev_if) {
--			if (sk->sk_bound_dev_if != dif)
--				return -1;
--			score++;
--		}
-+	score = 0;
-+	inet = inet_sk(sk);
-+
-+	if (inet->inet_dport) {
-+		if (inet->inet_dport != sport)
-+			return -1;
-+		score++;
- 	}
-+
-+	if (!ipv6_addr_any(&sk->sk_v6_rcv_saddr)) {
-+		if (!ipv6_addr_equal(&sk->sk_v6_rcv_saddr, daddr))
-+			return -1;
-+		score++;
-+	}
-+
-+	if (!ipv6_addr_any(&sk->sk_v6_daddr)) {
-+		if (!ipv6_addr_equal(&sk->sk_v6_daddr, saddr))
-+			return -1;
-+		score++;
-+	}
-+
-+	if (sk->sk_bound_dev_if) {
-+		if (sk->sk_bound_dev_if != dif)
-+			return -1;
-+		score++;
-+	}
-+
- 	return score;
- }
- 
- #define SCORE2_MAX (1 + 1 + 1)
- static inline int compute_score2(struct sock *sk, struct net *net,
--				const struct in6_addr *saddr, __be16 sport,
--				const struct in6_addr *daddr, unsigned short hnum,
--				int dif)
-+				 const struct in6_addr *saddr, __be16 sport,
-+				 const struct in6_addr *daddr,
-+				 unsigned short hnum, int dif)
- {
--	int score = -1;
-+	int score;
-+	struct inet_sock *inet;
- 
--	if (net_eq(sock_net(sk), net) && udp_sk(sk)->udp_port_hash == hnum &&
--			sk->sk_family == PF_INET6) {
--		struct inet_sock *inet = inet_sk(sk);
-+	if (!net_eq(sock_net(sk), net) ||
-+	    udp_sk(sk)->udp_port_hash != hnum ||
-+	    sk->sk_family != PF_INET6)
-+		return -1;
- 
--		if (!ipv6_addr_equal(&sk->sk_v6_rcv_saddr, daddr))
-+	if (!ipv6_addr_equal(&sk->sk_v6_rcv_saddr, daddr))
-+		return -1;
-+
-+	score = 0;
-+	inet = inet_sk(sk);
-+
-+	if (inet->inet_dport) {
-+		if (inet->inet_dport != sport)
- 			return -1;
--		score = 0;
--		if (inet->inet_dport) {
--			if (inet->inet_dport != sport)
--				return -1;
--			score++;
--		}
--		if (!ipv6_addr_any(&sk->sk_v6_daddr)) {
--			if (!ipv6_addr_equal(&sk->sk_v6_daddr, saddr))
--				return -1;
--			score++;
--		}
--		if (sk->sk_bound_dev_if) {
--			if (sk->sk_bound_dev_if != dif)
--				return -1;
--			score++;
--		}
-+		score++;
- 	}
-+
-+	if (!ipv6_addr_any(&sk->sk_v6_daddr)) {
-+		if (!ipv6_addr_equal(&sk->sk_v6_daddr, saddr))
-+			return -1;
-+		score++;
-+	}
-+
-+	if (sk->sk_bound_dev_if) {
-+		if (sk->sk_bound_dev_if != dif)
-+			return -1;
-+		score++;
-+	}
-+
- 	return score;
- }
- 
--
- /* called with read_rcu_lock() */
- static struct sock *udp6_lib_lookup2(struct net *net,
- 		const struct in6_addr *saddr, __be16 sport,
+-Scott
