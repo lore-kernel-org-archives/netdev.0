@@ -1,76 +1,98 @@
-From: Eyal Perry <eyalpe@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next V2 1/2] ethtool: Support for configurable RSS
- hash function
-Date: Tue, 02 Dec 2014 17:21:29 +0200
-Message-ID: <547DD8F9.8030403@dev.mellanox.co.il>
-References: <1417530049-6943-1-git-send-email-amirv@mellanox.com> <1417530049-6943-2-git-send-email-amirv@mellanox.com> <547DD74C.9070603@solarflare.com>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: Re: Is this 32-bit NCM?
+Date: Tue, 2 Dec 2014 16:28:47 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1412021627360.8131@gmail.com>
+References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
+ <alpine.LNX.2.03.1411271932510.1548@gmail.com> <87ppc71xne.fsf@nemi.mork.no> <alpine.LNX.2.03.1412012202480.1301@gmail.com> <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com> <547D37CA.7050506@audiocodes.com> <alpine.LNX.2.03.1412020729470.1351@gmail.com>
+ <547D5F84.6020608@audiocodes.com> <alpine.LNX.2.03.1412020747360.1921@gmail.com> <547D6D7B.5090704@audiocodes.com> <E0C3DF2A36210C42B1AB4626A0E10F1FD949424C@aclmbx01.corp.audiocodes.com> <547D7243.80508@audiocodes.com> <alpine.LNX.2.03.1412021130410.2697@gmail.com>
+ <87fvcyqoup.fsf@nemi.mork.no> <alpine.LNX.2.03.1412021410270.29633@gmail.com> <87lhmqp400.fsf@nemi.mork.no>,<alpine.LNX.2.03.1412021453340.7488@gmail.com> <1417532733483.89987@audiocodes.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	netdev <netdev@vger.kernel.org>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	Shradha Shah <sshah@solarflare.com>
-To: Edward Cree <ecree@solarflare.com>, Amir Vadai <amirv@mellanox.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1118172378-1417534128=:8131"
+Cc: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
+	Eli Britstein <Eli.Britstein@audiocodes.com>,
+	Alex Strizhevsky <alexxst@gmail.com>,
+	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
+	"youtux@gmail.com" <youtux@gmail.com>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Kevin Zhu <Mingying.Zhu@audiocodes.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:34746 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752533AbaLBPVd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 10:21:33 -0500
-Received: by mail-wg0-f50.google.com with SMTP id k14so17294469wgh.37
-        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 07:21:31 -0800 (PST)
-In-Reply-To: <547DD74C.9070603@solarflare.com>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:37370 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753353AbaLBP2R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 10:28:17 -0500
+In-Reply-To: <1417532733483.89987@audiocodes.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/2/2014 17:14 PM, Edward Cree wrote:
-> On 02/12/14 14:20, Amir Vadai wrote:
->> diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
->> index cad258a..2ac07c9 100644
->> --- a/drivers/net/ethernet/sfc/ethtool.c
->> +++ b/drivers/net/ethernet/sfc/ethtool.c
->> @@ -1086,19 +1086,29 @@ static u32 efx_ethtool_get_rxfh_indir_size(struct net_device *net_dev)
->>  		0 : ARRAY_SIZE(efx->rx_indir_table));
->>  }
->>  
->> -static int efx_ethtool_get_rxfh(struct net_device *net_dev, u32 *indir, u8 *key)
->> +static int efx_ethtool_get_rxfh(struct net_device *net_dev, u32 *indir, u8 *key,
->> +				u8 *hfunc)
->>  {
->>  	struct efx_nic *efx = netdev_priv(net_dev);
->>  
->> -	memcpy(indir, efx->rx_indir_table, sizeof(efx->rx_indir_table));
->> +	if (hfunc)
->> +		*hfunc = ETH_RSS_HASH_UNKNOWN;
-> This should be ETH_RSS_HASH_TOP, especially as that's what you test
-> against in the _set_ function below.
-> (I don't know if we responded to your query.  If not, I can confirm
-> we're using Toeplitz.)
-Sending V3...
->> +	if (indir)
->> +		memcpy(indir, efx->rx_indir_table, sizeof(efx->rx_indir_table));
->>  	return 0;
->>  }
->>  
->> -static int efx_ethtool_set_rxfh(struct net_device *net_dev,
->> -				const u32 *indir, const u8 *key)
->> +static int efx_ethtool_set_rxfh(struct net_device *net_dev, const u32 *indir,
->> +				const u8 *key, const u8 hfunc)
->>  {
->>  	struct efx_nic *efx = netdev_priv(net_dev);
->>  
->> +	/* We do not allow change in unsupported parameters */
->> +	if (key ||
->> +	    (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP))
->> +		return -EOPNOTSUPP;
->> +	if (!indir)
->> +		return 0;
->>  	memcpy(efx->rx_indir_table, indir, sizeof(efx->rx_indir_table));
->>  	efx->type->rx_push_rss_config(efx);
->>  	return 0;
-> -Edward
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+--8323328-1118172378-1417534128=:8131
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+
+... And what do you think about the source code of their ndis driver?
+We at least know now the device work with it, so we have something to mimic :D
+thank you for your work and patience Kevin.
+
+On Tue, 2 Dec 2014, Kevin Zhu wrote:
+
+==Date: Tue, 2 Dec 2014 16:04:25
+==From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
+==To: Enrico Mioso <mrkiko.rs@gmail.com>, Bjørn Mork <bjorn@mork.no>
+==Cc: Eli Britstein <Eli.Britstein@audiocodes.com>,
+==    Alex Strizhevsky <alexxst@gmail.com>,
+==    Midge Shaojun  Tan <ShaojunMidge.Tan@audiocodes.com>,
+==    "youtux@gmail.com" <youtux@gmail.com>,
+==    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+==    "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+==Subject: Re: Is this 32-bit NCM?
+==
+==I do not understand why the wSequence matters. By the way, I think I see some NDPs are right after NTH headers in the windows capture.
+==
+==________________________________________
+==From: Enrico Mioso <mrkiko.rs@gmail.com>
+==Sent: Tuesday, December 2, 2014 21:53
+==To: Bjørn Mork
+==Cc: Kevin Zhu; Eli Britstein; Alex Strizhevsky; Midge Shaojun  Tan; youtux@gmail.com; linux-usb@vger.kernel.org; netdev@vger.kernel.org
+==Subject: Re: Is this 32-bit NCM?
+==
+==Thank you very much Bjorn.
+==
+==
+==On Tue, 2 Dec 2014, Bjørn Mork wrote:
+==
+====Date: Tue, 2 Dec 2014 14:37:03
+====From: Bjørn Mork <bjorn@mork.no>
+====To: Enrico Mioso <mrkiko.rs@gmail.com>
+====Cc: Kevin Zhu <Mingying.Zhu@audiocodes.com>,
+====    Eli Britstein <Eli.Britstein@audiocodes.com>,
+====    Alex Strizhevsky <alexxst@gmail.com>,
+====    Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
+====    "youtux@gmail.com" <youtux@gmail.com>,
+====    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+====    "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+====Subject: Re: Is this 32-bit NCM?
+====
+====Enrico Mioso <mrkiko.rs@gmail.com> writes:
+====
+====> ... but out of curiosity: are NCM specs allowing to change order of things in
+====> the package or not?
+====> This is not to start philosofical falames or something, but to understand
+====> better how things work. And, if they do: how much arbitrarily?
+====
+====Only the NTB header has a fixed location. The rest can be anywhere and
+====in any order. Quoting from section 3 Data Transport:
+====
+====  "Within any given NTB, the NTH always must be first; but the other
+====   items may occur in arbitrary order."
+====
+====
+====Bjørn
+====
+==This email and any files transmitted with it are confidential material. They are intended solely for the use of the designated individual or entity to whom they are addressed. If the reader of this message is not the intended recipient, you are hereby notified that any dissemination, use, distribution or copying of this communication is strictly prohibited and may be unlawful.
+==
+==If you have received this email in error please immediately notify the sender and delete or destroy any copy of this message
+==
+--8323328-1118172378-1417534128=:8131--
