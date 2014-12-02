@@ -1,86 +1,48 @@
-From: Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net] gso: do GSO for local skb with size
-	bigger than MTU
-Date: Tue, 2 Dec 2014 13:48:39 -0200
-Message-ID: <20141202154839.GB5344@t520.home>
-References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
- <1417158128.3268.2@smtp.corp.redhat.com>
- <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com>
- <20141201135225.GA16814@casper.infradead.org>
+From: =?us-ascii?B?PT9VVEYtOD9xP1BhdmVsPTIwPUM1PUEwaW1lcmRhPz0=?=
+	<psimerda@redhat.com>
+Subject: [PATCH iproute2] ip route: don't assume default route
+Date: Tue, 2 Dec 2014 17:45:10 +0100
+Message-ID: <20141202164510.GA9005@mole.pavlix.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- 'Jason Wang' <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "Du, Fan" <fan.du-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- "fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org" <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemming@brocade.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fox.pavlix.net ([84.246.161.104]:38340 "EHLO fox.pavlix.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932252AbaLBQwG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Dec 2014 11:52:06 -0500
 Content-Disposition: inline
-In-Reply-To: <20141201135225.GA16814-FZi0V3Vbi30CUdFEqe4BF2D2FQJk+8+b@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBEZWMgMDEsIDIwMTQgYXQgMDE6NTI6MjVQTSArMDAwMCwgVGhvbWFzIEdyYWYgd3Jv
-dGU6Cj4gT24gMTEvMzAvMTQgYXQgMTA6MDhhbSwgRHUsIEZhbiB3cm90ZToKPiA+ID4tLS0tLU9y
-aWdpbmFsIE1lc3NhZ2UtLS0tLQo+ID4gPkZyb206IEphc29uIFdhbmcgW21haWx0bzpqYXNvd2Fu
-Z0ByZWRoYXQuY29tXQo+ID4gPlNlbnQ6IEZyaWRheSwgTm92ZW1iZXIgMjgsIDIwMTQgMzowMiBQ
-TQo+ID4gPlRvOiBEdSwgRmFuCj4gPiA+Q2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGRhdmVt
-QGRhdmVtbG9mdC5uZXQ7IGZ3QHN0cmxlbi5kZTsgRHUsIEZhbgo+ID4gPlN1YmplY3Q6IFJlOiBb
-UEFUQ0ggbmV0XSBnc286IGRvIEdTTyBmb3IgbG9jYWwgc2tiIHdpdGggc2l6ZSBiaWdnZXIgdGhh
-biBNVFUKPiA+ID5PbiBGcmksIE5vdiAyOCwgMjAxNCBhdCAyOjMzIFBNLCBGYW4gRHUgPGZhbi5k
-dUBpbnRlbC5jb20+IHdyb3RlOgo+ID4gPj4gVGVzdCBzY2VuYXJpbzogdHdvIEtWTSBndWVzdHMg
-c2l0dGluZyBpbiBkaWZmZXJlbnQgaG9zdHMgY29tbXVuaWNhdGUKPiA+ID4+IHRvIGVhY2ggb3Ro
-ZXIgd2l0aCBhIHZ4bGFuIHR1bm5lbC4KPiA+ID4+Cj4gPiA+PiBBbGwgaW50ZXJmYWNlIE1UVSBp
-cyBkZWZhdWx0IDE1MDAgQnl0ZXMsIGZyb20gZ3Vlc3QgcG9pbnQgb2YgdmlldywgaXRzCj4gPiA+
-PiBza2IgZ3NvX3NpemUgY291bGQgYmUgYXMgYmlnZ2VyIGFzIDE0NDhCeXRlcywgaG93ZXZlciBh
-ZnRlciBndWVzdCBza2IKPiA+ID4+IGdvZXMgdGhyb3VnaCB2eGxhbiBlbmNhcHVzbGF0aW9uLCBp
-bmRpdmlkdWFsIHNlZ21lbnRzIGxlbmd0aCBvZiBhIGdzbwo+ID4gPj4gcGFja2V0IGNvdWxkIGV4
-Y2VlZCBwaHlzaWNhbCBOSUMgTVRVIDE1MDAsIHdoaWNoIHdpbGwgYmUgbG9zdCBhdAo+ID4gPj4g
-cmVjZXZpZXIgc2lkZS4KPiA+ID4+Cj4gPiA+PiBTbyBpdCdzIHBvc3NpYmxlIGluIHZpcnR1YWxp
-emVkIGVudmlyb25tZW50LCBsb2NhbGx5IGNyZWF0ZWQgc2tiIGxlbgo+ID4gPj4gYWZ0ZXIgZW5j
-YXBzbGF0aW9uIGNvdWxkIGJlIGJpZ2dlciB0aGFuIHVuZGVybGF5ZXIgTVRVLiBJbiBzdWNoIGNh
-c2UsCj4gPiA+PiBpdCdzIHJlYXNvbmFibGUgdG8gZG8gR1NPIGZpcnN0LCB0aGVuIGZyYWdtZW50
-IGFueSBwYWNrZXQgYmlnZ2VyIHRoYW4KPiA+ID4+IE1UVSBhcyBwb3NzaWJsZS4KPiA+ID4+Cj4g
-PiA+PiArLS0tLS0tLS0tLS0tLS0tKyBUWCAgICAgUlggKy0tLS0tLS0tLS0tLS0tLSsKPiA+ID4+
-IHwgICBLVk0gR3Vlc3QgICB8IC0+IC4uLiAtPiB8ICAgS1ZNIEd1ZXN0ICAgfAo+ID4gPj4gKy0r
-LS0tLS0tLS0tLS0rLSsgICAgICAgICAgICstKy0tLS0tLS0tLS0tKy0rCj4gPiA+PiAgIHxRZW11
-L1ZpcnRJT3wgICAgICAgICAgICAgICB8UWVtdS9WaXJ0SU98Cj4gPiA+PiAgICstLS0tLS0tLS0t
-LSsgICAgICAgICAgICAgICArLS0tLS0tLS0tLS0rCj4gPiA+PiAgICAgICAgfCAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICB8Cj4gPiA+PiAgICAgICAgdiB0YXAwICAgICAgICAgICAgICAgICAg
-dGFwMCB2Cj4gPiA+PiAgICstLS0tLS0tLS0tLSsgICAgICAgICAgICAgICArLS0tLS0tLS0tLS0r
-Cj4gPiA+PiAgIHwgb3ZzIGJyaWRnZXwgICAgICAgICAgICAgICB8IG92cyBicmlkZ2V8Cj4gPiA+
-PiAgICstLS0tLS0tLS0tLSsgICAgICAgICAgICAgICArLS0tLS0tLS0tLS0rCj4gPiA+PiAgICAg
-ICAgfCB2eGxhbiAgICAgICAgICAgICAgICB2eGxhbiB8Cj4gPiA+PiAgICAgICAgdiAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICB2Cj4gPiA+PiAgICstLS0tLS0tLS0tLSsgICAgICAgICAgICAg
-ICArLS0tLS0tLS0tLS0rCj4gPiA+PiAgIHwgICAgTklDICAgIHwgICAgPC0tLS0tLT4gICB8ICAg
-IE5JQyAgICB8Cj4gPiA+PiAgICstLS0tLS0tLS0tLSsgICAgICAgICAgICAgICArLS0tLS0tLS0t
-LS0rCj4gPiA+Pgo+ID4gPj4gU3RlcHMgdG8gcmVwcm9kdWNlOgo+ID4gPj4gIDEuIFVzaW5nIGtl
-cm5lbCBidWlsdGluIG9wZW52c3dpdGNoIG1vZHVsZSB0byBzZXR1cCBvdnMgYnJpZGdlLgo+ID4g
-Pj4gIDIuIFJ1bmluZyBpcGVyZiB3aXRob3V0IC1NLCBjb21tdW5pY2F0aW9uIHdpbGwgc3R1Y2su
-Cj4gPiA+Cj4gPiA+SXMgdGhpcyBpc3N1ZSBzcGVjaWZpYyB0byBvdnMgb3IgaXB2ND8gUGF0aCBN
-VFUgZGlzY292ZXJ5IHNob3VsZCBoZWxwIGluIHRoaXMgY2FzZSBJCj4gPiA+YmVsaWV2ZS4KPiA+
-IAo+ID4gUHJvYmxlbSBoZXJlIGlzIGhvc3Qgc3RhY2sgcHVzaCBsb2NhbCBvdmVyLXNpemVkIGdz
-byBza2IgZG93biB0byBOSUMsIGFuZCBwZXJmb3JtIEdTTyB0aGVyZQo+ID4gd2l0aG91dCBhbnkg
-ZnVydGhlciBpcCBzZWdtZW50YXRpb24uCj4gPiAKPiA+IFJlYXNvbmFibGUgYmVoYXZpb3IgaXMg
-ZG8gZ3NvIGZpcnN0IGF0IGlwIGxldmVsLCBpZiBnc28tZWQgc2tiIGlzIGJpZ2dlciB0aGFuIE1U
-VSAmJiBkZiBpcyBzZXQsIAo+ID4gVGhlbiBwdXNoIElDTVBfREVTVF9VTlJFQUNIL0lDTVBfRlJB
-R19ORUVERUQgbWVzc2FnZSBiYWNrIHRvIHNlbmRlciB0byBhZGp1c3QgbXR1Lgo+IAo+IEFzaWRl
-IGZyb20gdGhpcy4gSSB0aGluayBWaXJ0aW8gc2hvdWxkIHByb3ZpZGUgYSBNVFUgaGludCB0byB0
-aGUgZ3Vlc3QKPiB0byBhZGp1c3QgTVRVIGluIHRoZSB2TklDIHRvIGFjY291bnQgZm9yIGJvdGgg
-b3ZlcmhlYWQgb3Igc3VwcG9ydCBmb3IKPiBqdW1ibyBmcmFtZXMgaW4gdGhlIHVuZGVybGF5IHRy
-YW5zcGFyZW50bHkgd2l0aG91dCByZWx5aW5nIG9uIFBNVFUgb3IKPiBNU1MgaGludHMuIEkgcmVt
-ZW1iZXIgd2UgdGFsa2VkIGFib3V0IHRoaXMgYSB3aGlsZSBhZ28gd2l0aCBhdCBsZWFzdAo+IE1p
-Y2hhZWwgYnV0IGhhdmVuJ3QgZG9uZSBhY3R1YWwgY29kZSB3b3JrIG9uIGl0IHlldC4KCldoYXQg
-YWJvdXQgY29udGFpbmVycyBvciBhbnkgb3RoZXIgdmlydHVhbGl6YXRpb24gZW52aXJvbm1lbnQg
-dGhhdApkb2Vzbid0IHVzZSBWaXJ0aW8/CgpmYmwKX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3Jn
-Cmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+Just print the help when "ip route del" is called without any other
+arguments.
+
+Resolves:
+
+ * https://bugzilla.redhat.com/show_bug.cgi?id=3D997965
+
+Signed-off-by: Pavel =C5=A0imerda <psimerda@redhat.com>
+---
+ ip/iproute.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/ip/iproute.c b/ip/iproute.c
+index d77b1e3..c171f29 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -975,6 +975,9 @@ static int iproute_modify(int cmd, unsigned flags, =
+int argc, char **argv)
+ 		argc--; argv++;
+ 	}
+=20
++	if (!dst_ok)
++		usage();
++
+ 	if (d || nhs_ok)  {
+ 		int idx;
+=20
+--=20
+1.8.5.5
