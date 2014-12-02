@@ -1,507 +1,157 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 8/8] tipc: convert name table
-	read-write lock to RCU
-Date: Tue, 2 Dec 2014 15:00:30 +0800
-Message-ID: <1417503630-31352-9-git-send-email-ying.xue@windriver.com>
-References: <1417503630-31352-1-git-send-email-ying.xue@windriver.com>
+From: Eli Britstein <Eli.Britstein@audiocodes.com>
+Subject: Re: Is this 32-bit NCM?
+Date: Tue, 2 Dec 2014 07:11:32 +0000
+Message-ID: <A6FB85DC-A033-439B-A814-1515380F6F6A@audiocodes.com>
+References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
+ <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com>
+ <874mtl55ar.fsf@nemi.mork.no>
+ <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
+ <alpine.LNX.2.03.1411271932510.1548@gmail.com>
+ <87ppc71xne.fsf@nemi.mork.no>,<alpine.LNX.2.03.1412012202480.1301@gmail.com>
+ <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com>
+ <547D37CA.7050506@audiocodes.com>
+ <alpine.LNX.2.03.1412020729470.1351@gmail.com>
+ <547D5F84.6020608@audiocodes.com>
+ <alpine.LNX.2.03.1412020747360.1921@gmail.com>,<547D61C0.2080904@audiocodes.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	Paul.Gortmaker@windriver.com, tipc-discussion@lists.sourceforge.net
-To: <davem@davemloft.net>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1417503630-31352-1-git-send-email-ying.xue@windriver.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Enrico Mioso <mrkiko.rs@gmail.com>,
+	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
+	Alex Strizhevsky <alexxst@gmail.com>,
+	"Midge Shaojun Tan" <ShaojunMidge.Tan@audiocodes.com>,
+	"youtux@gmail.com" <youtux@gmail.com>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Kevin Zhu <Mingying.Zhu@audiocodes.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.audiocodes.com ([195.189.193.19]:60573 "EHLO
+	incoming.audiocodes.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753893AbaLBHLk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 02:11:40 -0500
+In-Reply-To: <547D61C0.2080904@audiocodes.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Convert tipc name table read-write lock to RCU. After this change,
-a new spin lock is used to protect name table on write side while
-RCU is applied on read side.
-
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-Tested-by: Erik Hugne <erik.hugne@ericsson.com>
----
- include/linux/rculist.h |    9 +++++
- net/tipc/name_distr.c   |   28 +++++++--------
- net/tipc/name_table.c   |   87 +++++++++++++++++++++++------------------------
- net/tipc/name_table.h   |    4 ++-
- 4 files changed, 69 insertions(+), 59 deletions(-)
-
-diff --git a/include/linux/rculist.h b/include/linux/rculist.h
-index 372ad5e..aa79b3c 100644
---- a/include/linux/rculist.h
-+++ b/include/linux/rculist.h
-@@ -542,6 +542,15 @@ static inline void hlist_add_behind_rcu(struct hlist_node *n,
- 	     pos = hlist_entry_safe(rcu_dereference_bh((pos)->member.next),\
- 			typeof(*(pos)), member))
- 
-+/**
-+ * hlist_for_each_entry_from_rcu - iterate over a hlist continuing from current point
-+ * @pos:	the type * to use as a loop cursor.
-+ * @member:	the name of the hlist_node within the struct.
-+ */
-+#define hlist_for_each_entry_from_rcu(pos, member)			\
-+	for (; pos;							\
-+	     pos = hlist_entry_safe(rcu_dereference((pos)->member.next),\
-+			typeof(*(pos)), member))
- 
- #endif	/* __KERNEL__ */
- #endif
-diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
-index ed00929..ba6083d 100644
---- a/net/tipc/name_distr.c
-+++ b/net/tipc/name_distr.c
-@@ -113,8 +113,8 @@ struct sk_buff *tipc_named_publish(struct publication *publ)
- 	struct sk_buff *buf;
- 	struct distr_item *item;
- 
--	list_add_tail(&publ->local_list,
--		      &tipc_nametbl->publ_list[publ->scope]);
-+	list_add_tail_rcu(&publ->local_list,
-+			  &tipc_nametbl->publ_list[publ->scope]);
- 
- 	if (publ->scope == TIPC_NODE_SCOPE)
- 		return NULL;
-@@ -208,12 +208,12 @@ void tipc_named_node_up(u32 dnode)
- 
- 	__skb_queue_head_init(&head);
- 
--	read_lock_bh(&tipc_nametbl_lock);
-+	rcu_read_lock();
- 	named_distribute(&head, dnode,
- 			 &tipc_nametbl->publ_list[TIPC_CLUSTER_SCOPE]);
- 	named_distribute(&head, dnode,
- 			 &tipc_nametbl->publ_list[TIPC_ZONE_SCOPE]);
--	read_unlock_bh(&tipc_nametbl_lock);
-+	rcu_read_unlock();
- 
- 	tipc_link_xmit(&head, dnode, dnode);
- }
-@@ -260,12 +260,12 @@ static void tipc_publ_purge(struct publication *publ, u32 addr)
- {
- 	struct publication *p;
- 
--	write_lock_bh(&tipc_nametbl_lock);
-+	spin_lock_bh(&tipc_nametbl_lock);
- 	p = tipc_nametbl_remove_publ(publ->type, publ->lower,
- 				     publ->node, publ->ref, publ->key);
- 	if (p)
- 		tipc_publ_unsubscribe(p, addr);
--	write_unlock_bh(&tipc_nametbl_lock);
-+	spin_unlock_bh(&tipc_nametbl_lock);
- 
- 	if (p != publ) {
- 		pr_err("Unable to remove publication from failed node\n"
-@@ -274,7 +274,7 @@ static void tipc_publ_purge(struct publication *publ, u32 addr)
- 		       publ->key);
- 	}
- 
--	kfree(p);
-+	kfree_rcu(p, rcu);
- }
- 
- void tipc_publ_notify(struct list_head *nsub_list, u32 addr)
-@@ -311,7 +311,7 @@ static bool tipc_update_nametbl(struct distr_item *i, u32 node, u32 dtype)
- 						ntohl(i->key));
- 		if (publ) {
- 			tipc_publ_unsubscribe(publ, node);
--			kfree(publ);
-+			kfree_rcu(publ, rcu);
- 			return true;
- 		}
- 	} else {
-@@ -376,14 +376,14 @@ void tipc_named_rcv(struct sk_buff *buf)
- 	u32 count = msg_data_sz(msg) / ITEM_SIZE;
- 	u32 node = msg_orignode(msg);
- 
--	write_lock_bh(&tipc_nametbl_lock);
-+	spin_lock_bh(&tipc_nametbl_lock);
- 	while (count--) {
- 		if (!tipc_update_nametbl(item, node, msg_type(msg)))
- 			tipc_named_add_backlog(item, msg_type(msg), node);
- 		item++;
- 	}
- 	tipc_named_process_backlog();
--	write_unlock_bh(&tipc_nametbl_lock);
-+	spin_unlock_bh(&tipc_nametbl_lock);
- 	kfree_skb(buf);
- }
- 
-@@ -399,12 +399,12 @@ void tipc_named_reinit(void)
- 	struct publication *publ;
- 	int scope;
- 
--	write_lock_bh(&tipc_nametbl_lock);
-+	spin_lock_bh(&tipc_nametbl_lock);
- 
- 	for (scope = TIPC_ZONE_SCOPE; scope <= TIPC_NODE_SCOPE; scope++)
--		list_for_each_entry(publ, &tipc_nametbl->publ_list[scope],
--				    local_list)
-+		list_for_each_entry_rcu(publ, &tipc_nametbl->publ_list[scope],
-+					local_list)
- 			publ->node = tipc_own_addr;
- 
--	write_unlock_bh(&tipc_nametbl_lock);
-+	spin_unlock_bh(&tipc_nametbl_lock);
- }
-diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
-index 3c2e0c3..aafa684c 100644
---- a/net/tipc/name_table.c
-+++ b/net/tipc/name_table.c
-@@ -92,6 +92,7 @@ struct sub_seq {
-  * @ns_list: links to adjacent name sequences in hash chain
-  * @subscriptions: list of subscriptions for this 'type'
-  * @lock: spinlock controlling access to publication lists of all sub-sequences
-+ * @rcu: RCU callback head used for deferred freeing
-  */
- struct name_seq {
- 	u32 type;
-@@ -101,10 +102,11 @@ struct name_seq {
- 	struct hlist_node ns_list;
- 	struct list_head subscriptions;
- 	spinlock_t lock;
-+	struct rcu_head rcu;
- };
- 
- struct name_table *tipc_nametbl;
--DEFINE_RWLOCK(tipc_nametbl_lock);
-+DEFINE_SPINLOCK(tipc_nametbl_lock);
- 
- static int hash(int x)
- {
-@@ -166,7 +168,7 @@ static struct name_seq *tipc_nameseq_create(u32 type, struct hlist_head *seq_hea
- 	nseq->alloc = 1;
- 	INIT_HLIST_NODE(&nseq->ns_list);
- 	INIT_LIST_HEAD(&nseq->subscriptions);
--	hlist_add_head(&nseq->ns_list, seq_head);
-+	hlist_add_head_rcu(&nseq->ns_list, seq_head);
- 	return nseq;
- }
- 
-@@ -451,7 +453,7 @@ static struct name_seq *nametbl_find_seq(u32 type)
- 	struct name_seq *ns;
- 
- 	seq_head = &tipc_nametbl->seq_hlist[hash(type)];
--	hlist_for_each_entry(ns, seq_head, ns_list) {
-+	hlist_for_each_entry_rcu(ns, seq_head, ns_list) {
- 		if (ns->type == type)
- 			return ns;
- 	}
-@@ -498,10 +500,10 @@ struct publication *tipc_nametbl_remove_publ(u32 type, u32 lower,
- 	spin_lock_bh(&seq->lock);
- 	publ = tipc_nameseq_remove_publ(seq, lower, node, ref, key);
- 	if (!seq->first_free && list_empty(&seq->subscriptions)) {
--		hlist_del_init(&seq->ns_list);
--		spin_unlock_bh(&seq->lock);
-+		hlist_del_init_rcu(&seq->ns_list);
- 		kfree(seq->sseqs);
--		kfree(seq);
-+		spin_unlock_bh(&seq->lock);
-+		kfree_rcu(seq, rcu);
- 		return publ;
- 	}
- 	spin_unlock_bh(&seq->lock);
-@@ -533,7 +535,7 @@ u32 tipc_nametbl_translate(u32 type, u32 instance, u32 *destnode)
- 	if (!tipc_in_scope(*destnode, tipc_own_addr))
- 		return 0;
- 
--	read_lock_bh(&tipc_nametbl_lock);
-+	rcu_read_lock();
- 	seq = nametbl_find_seq(type);
- 	if (unlikely(!seq))
- 		goto not_found;
-@@ -590,7 +592,7 @@ u32 tipc_nametbl_translate(u32 type, u32 instance, u32 *destnode)
- no_match:
- 	spin_unlock_bh(&seq->lock);
- not_found:
--	read_unlock_bh(&tipc_nametbl_lock);
-+	rcu_read_unlock();
- 	*destnode = node;
- 	return ref;
- }
-@@ -616,7 +618,7 @@ int tipc_nametbl_mc_translate(u32 type, u32 lower, u32 upper, u32 limit,
- 	struct name_info *info;
- 	int res = 0;
- 
--	read_lock_bh(&tipc_nametbl_lock);
-+	rcu_read_lock();
- 	seq = nametbl_find_seq(type);
- 	if (!seq)
- 		goto exit;
-@@ -641,7 +643,7 @@ int tipc_nametbl_mc_translate(u32 type, u32 lower, u32 upper, u32 limit,
- 	}
- 	spin_unlock_bh(&seq->lock);
- exit:
--	read_unlock_bh(&tipc_nametbl_lock);
-+	rcu_read_unlock();
- 	return res;
- }
- 
-@@ -654,11 +656,11 @@ struct publication *tipc_nametbl_publish(u32 type, u32 lower, u32 upper,
- 	struct publication *publ;
- 	struct sk_buff *buf = NULL;
- 
--	write_lock_bh(&tipc_nametbl_lock);
-+	spin_lock_bh(&tipc_nametbl_lock);
- 	if (tipc_nametbl->local_publ_count >= TIPC_MAX_PUBLICATIONS) {
- 		pr_warn("Publication failed, local publication limit reached (%u)\n",
- 			TIPC_MAX_PUBLICATIONS);
--		write_unlock_bh(&tipc_nametbl_lock);
-+		spin_unlock_bh(&tipc_nametbl_lock);
- 		return NULL;
- 	}
- 
-@@ -670,7 +672,7 @@ struct publication *tipc_nametbl_publish(u32 type, u32 lower, u32 upper,
- 		/* Any pending external events? */
- 		tipc_named_process_backlog();
- 	}
--	write_unlock_bh(&tipc_nametbl_lock);
-+	spin_unlock_bh(&tipc_nametbl_lock);
- 
- 	if (buf)
- 		named_cluster_distribute(buf);
-@@ -685,7 +687,7 @@ int tipc_nametbl_withdraw(u32 type, u32 lower, u32 ref, u32 key)
- 	struct publication *publ;
- 	struct sk_buff *skb = NULL;
- 
--	write_lock_bh(&tipc_nametbl_lock);
-+	spin_lock_bh(&tipc_nametbl_lock);
- 	publ = tipc_nametbl_remove_publ(type, lower, tipc_own_addr, ref, key);
- 	if (likely(publ)) {
- 		tipc_nametbl->local_publ_count--;
-@@ -693,13 +695,13 @@ int tipc_nametbl_withdraw(u32 type, u32 lower, u32 ref, u32 key)
- 		/* Any pending external events? */
- 		tipc_named_process_backlog();
- 		list_del_init(&publ->pport_list);
--		kfree(publ);
-+		kfree_rcu(publ, rcu);
- 	} else {
- 		pr_err("Unable to remove local publication\n"
- 		       "(type=%u, lower=%u, ref=%u, key=%u)\n",
- 		       type, lower, ref, key);
- 	}
--	write_unlock_bh(&tipc_nametbl_lock);
-+	spin_unlock_bh(&tipc_nametbl_lock);
- 
- 	if (skb) {
- 		named_cluster_distribute(skb);
-@@ -717,7 +719,7 @@ void tipc_nametbl_subscribe(struct tipc_subscription *s)
- 	int index = hash(type);
- 	struct name_seq *seq;
- 
--	write_lock_bh(&tipc_nametbl_lock);
-+	spin_lock_bh(&tipc_nametbl_lock);
- 	seq = nametbl_find_seq(type);
- 	if (!seq)
- 		seq = tipc_nameseq_create(type,
-@@ -730,7 +732,7 @@ void tipc_nametbl_subscribe(struct tipc_subscription *s)
- 		pr_warn("Failed to create subscription for {%u,%u,%u}\n",
- 			s->seq.type, s->seq.lower, s->seq.upper);
- 	}
--	write_unlock_bh(&tipc_nametbl_lock);
-+	spin_unlock_bh(&tipc_nametbl_lock);
- }
- 
- /**
-@@ -740,24 +742,23 @@ void tipc_nametbl_unsubscribe(struct tipc_subscription *s)
- {
- 	struct name_seq *seq;
- 
--	write_lock_bh(&tipc_nametbl_lock);
-+	spin_lock_bh(&tipc_nametbl_lock);
- 	seq = nametbl_find_seq(s->seq.type);
- 	if (seq != NULL) {
- 		spin_lock_bh(&seq->lock);
- 		list_del_init(&s->nameseq_list);
- 		if (!seq->first_free && list_empty(&seq->subscriptions)) {
--			hlist_del_init(&seq->ns_list);
--			spin_unlock_bh(&seq->lock);
-+			hlist_del_init_rcu(&seq->ns_list);
- 			kfree(seq->sseqs);
--			kfree(seq);
-+			spin_unlock_bh(&seq->lock);
-+			kfree_rcu(seq, rcu);
- 		} else {
- 			spin_unlock_bh(&seq->lock);
- 		}
- 	}
--	write_unlock_bh(&tipc_nametbl_lock);
-+	spin_unlock_bh(&tipc_nametbl_lock);
- }
- 
--
- /**
-  * subseq_list - print specified sub-sequence contents into the given buffer
-  */
-@@ -880,7 +881,7 @@ static int nametbl_list(char *buf, int len, u32 depth_info,
- 		upbound = ~0;
- 		for (i = 0; i < TIPC_NAMETBL_SIZE; i++) {
- 			seq_head = &tipc_nametbl->seq_hlist[i];
--			hlist_for_each_entry(seq, seq_head, ns_list) {
-+			hlist_for_each_entry_rcu(seq, seq_head, ns_list) {
- 				ret += nameseq_list(seq, buf + ret, len - ret,
- 						   depth, seq->type,
- 						   lowbound, upbound, i);
-@@ -896,7 +897,7 @@ static int nametbl_list(char *buf, int len, u32 depth_info,
- 		ret += nametbl_header(buf + ret, len - ret, depth);
- 		i = hash(type);
- 		seq_head = &tipc_nametbl->seq_hlist[i];
--		hlist_for_each_entry(seq, seq_head, ns_list) {
-+		hlist_for_each_entry_rcu(seq, seq_head, ns_list) {
- 			if (seq->type == type) {
- 				ret += nameseq_list(seq, buf + ret, len - ret,
- 						   depth, type,
-@@ -928,11 +929,11 @@ struct sk_buff *tipc_nametbl_get(const void *req_tlv_area, int req_tlv_space)
- 	pb = TLV_DATA(rep_tlv);
- 	pb_len = ULTRA_STRING_MAX_LEN;
- 	argv = (struct tipc_name_table_query *)TLV_DATA(req_tlv_area);
--	read_lock_bh(&tipc_nametbl_lock);
-+	rcu_read_lock();
- 	str_len = nametbl_list(pb, pb_len, ntohl(argv->depth),
- 			       ntohl(argv->type),
- 			       ntohl(argv->lowbound), ntohl(argv->upbound));
--	read_unlock_bh(&tipc_nametbl_lock);
-+	rcu_read_unlock();
- 	str_len += 1;	/* for "\0" */
- 	skb_put(buf, TLV_SPACE(str_len));
- 	TLV_SET(rep_tlv, TIPC_TLV_ULTRA_STRING, NULL, str_len);
-@@ -974,13 +975,13 @@ static void tipc_purge_publications(struct name_seq *seq)
- 	list_for_each_entry_safe(publ, safe, &info->zone_list, zone_list) {
- 		tipc_nametbl_remove_publ(publ->type, publ->lower, publ->node,
- 					 publ->ref, publ->key);
--		kfree(publ);
-+		kfree_rcu(publ, rcu);
- 	}
--	hlist_del_init(&seq->ns_list);
-+	hlist_del_init_rcu(&seq->ns_list);
-+	kfree(seq->sseqs);
- 	spin_lock_bh(&seq->lock);
- 
--	kfree(seq->sseqs);
--	kfree(seq);
-+	kfree_rcu(seq, rcu);
- }
- 
- void tipc_nametbl_stop(void)
-@@ -988,22 +989,22 @@ void tipc_nametbl_stop(void)
- 	u32 i;
- 	struct name_seq *seq;
- 	struct hlist_head *seq_head;
--	struct hlist_node *safe;
- 
- 	/* Verify name table is empty and purge any lingering
- 	 * publications, then release the name table
- 	 */
--	write_lock_bh(&tipc_nametbl_lock);
-+	spin_lock_bh(&tipc_nametbl_lock);
- 	for (i = 0; i < TIPC_NAMETBL_SIZE; i++) {
- 		if (hlist_empty(&tipc_nametbl->seq_hlist[i]))
- 			continue;
- 		seq_head = &tipc_nametbl->seq_hlist[i];
--		hlist_for_each_entry_safe(seq, safe, seq_head, ns_list) {
-+		hlist_for_each_entry_rcu(seq, seq_head, ns_list) {
- 			tipc_purge_publications(seq);
- 		}
- 	}
--	write_unlock_bh(&tipc_nametbl_lock);
-+	spin_unlock_bh(&tipc_nametbl_lock);
- 
-+	synchronize_net();
- 	kfree(tipc_nametbl);
- 
- }
-@@ -1109,7 +1110,7 @@ static int __tipc_nl_seq_list(struct tipc_nl_msg *msg, u32 *last_type,
- 			      u32 *last_lower, u32 *last_publ)
- {
- 	struct hlist_head *seq_head;
--	struct name_seq *seq;
-+	struct name_seq *seq = NULL;
- 	int err;
- 	int i;
- 
-@@ -1126,13 +1127,13 @@ static int __tipc_nl_seq_list(struct tipc_nl_msg *msg, u32 *last_type,
- 			if (!seq)
- 				return -EPIPE;
- 		} else {
--			seq = hlist_entry_safe((seq_head)->first,
--					       struct name_seq, ns_list);
-+			hlist_for_each_entry_rcu(seq, seq_head, ns_list)
-+				break;
- 			if (!seq)
- 				continue;
- 		}
- 
--		hlist_for_each_entry_from(seq, ns_list) {
-+		hlist_for_each_entry_from_rcu(seq, ns_list) {
- 			spin_lock_bh(&seq->lock);
- 			err = __tipc_nl_subseq_list(msg, seq, last_lower,
- 						    last_publ);
-@@ -1165,8 +1166,7 @@ int tipc_nl_name_table_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	msg.portid = NETLINK_CB(cb->skb).portid;
- 	msg.seq = cb->nlh->nlmsg_seq;
- 
--	read_lock_bh(&tipc_nametbl_lock);
--
-+	rcu_read_lock();
- 	err = __tipc_nl_seq_list(&msg, &last_type, &last_lower, &last_publ);
- 	if (!err) {
- 		done = 1;
-@@ -1179,8 +1179,7 @@ int tipc_nl_name_table_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 		 */
- 		cb->prev_seq = 1;
- 	}
--
--	read_unlock_bh(&tipc_nametbl_lock);
-+	rcu_read_unlock();
- 
- 	cb->args[0] = last_type;
- 	cb->args[1] = last_lower;
-diff --git a/net/tipc/name_table.h b/net/tipc/name_table.h
-index c1fd734..5f0dee9 100644
---- a/net/tipc/name_table.h
-+++ b/net/tipc/name_table.h
-@@ -62,6 +62,7 @@ struct tipc_port_list;
-  * @node_list: adjacent matching name seq publications with >= node scope
-  * @cluster_list: adjacent matching name seq publications with >= cluster scope
-  * @zone_list: adjacent matching name seq publications with >= zone scope
-+ * @rcu: RCU callback head used for deferred freeing
-  *
-  * Note that the node list, cluster list, and zone list are circular lists.
-  */
-@@ -79,6 +80,7 @@ struct publication {
- 	struct list_head node_list;
- 	struct list_head cluster_list;
- 	struct list_head zone_list;
-+	struct rcu_head rcu;
- };
- 
- /**
-@@ -93,7 +95,7 @@ struct name_table {
- 	u32 local_publ_count;
- };
- 
--extern rwlock_t tipc_nametbl_lock;
-+extern spinlock_t tipc_nametbl_lock;
- extern struct name_table *tipc_nametbl;
- 
- int tipc_nl_name_table_dump(struct sk_buff *skb, struct netlink_callback *cb);
--- 
-1.7.9.5
-
-
-------------------------------------------------------------------------------
-Download BIRT iHub F-Type - The Free Enterprise-Grade BIRT Server
-from Actuate! Instantly Supercharge Your Business Reports and Dashboards
-with Interactivity, Sharing, Native Excel Exports, App Integration & more
-Get technology previously reserved for billion-dollar corporations, FREE
-http://pubads.g.doubleclick.net/gampad/clk?id=157005751&iu=/4140/ostg.clktrk
+TWF5YmUgdGhlIEZXIGV4cGVjdHMgc29tZSBraW5kIG9mIGNoZWNrc3VtIG9yIGNyYyBpbiB0aGUg
+cGFkZGluZyBhcmVhPw0KDQpTZW50IGZyb20gbXkgaVBob25lDQoNCj4gT24gMiDXkdeT16bXniAy
+MDE0LCBhdCAwODo1MiwgIktldmluIFpodSIgPE1pbmd5aW5nLlpodUBhdWRpb2NvZGVzLmNvbT4g
+d3JvdGU6DQo+DQo+IE9LLiBJIHdpbGwgbG9vayBhdCB0aGUgd2luZG93cyBkcml2ZXIgYW5kIHJl
+Z2lzdHJ5LiBJIGRvbid0IGhhdmUgYW55DQo+IG1hbnVhbCBvZiBpdC4NCj4NCj4gUmVnYXJkcywN
+Cj4gS2V2aW4NCj4NCj4+IE9uIDEyLzAyLzIwMTQgMDI6NDkgUE0sIEVucmljbyBNaW9zbyB3cm90
+ZToNCj4+IENhbiB5b3UgdHJ5IHRvIGxvb2sgYXQgV2luZG93cyByZWdpc3RyeSBrZXlzIGJhc2Vk
+IG9uIHRoZSBJTkYgZmlsZSBhcyBzdWdnZXN0ZWQNCj4+IG9yIHdvdWxkIHRoaXMgYmUgYSBwcm9i
+bGVtIGZvciB5b3U/DQo+PiBBbmQuLi4gaWYgeW91IGhhdmUgYW55IEh1YXdlaSBtYW51dGFsIHRh
+bGtpbmcgYWJvdXQgaXQ6IGV2ZW4gZGV2aWNlJ3MNCj4+IF5EU0ZMT1dSUFQNCj4+IG1pZ2h0IGJl
+IHVzZWZ1bCB0byBzb21lIGV4dGVudCwgYnV0IC4uLiB0aGlzIGlzIG9ubHkganVzdCBhIG5vdGUg
+aW4gY2FzZSB3ZQ0KPj4gZG9uJ3QgZmluZCBhbnl0aGluZyBlbHNlLg0KPj4gUmVnYXJkcyAuLi4g
+YW5kIGdvb2QgZGF5IHRvIGFsbCBvZiB5b3UsDQo+PiBFbnJpY28NCj4+DQo+Pg0KPj4gT24gVHVl
+LCAyIERlYyAyMDE0LCBLZXZpbiBaaHUgd3JvdGU6DQo+Pg0KPj4gPT1EYXRlOiBUdWUsIDIgRGVj
+IDIwMTQgMDc6NDM6MjQNCj4+ID09RnJvbTogS2V2aW4gWmh1IDxNaW5neWluZy5aaHVAYXVkaW9j
+b2Rlcy5jb20+DQo+PiA9PVRvOiBFbnJpY28gTWlvc28gPG1ya2lrby5yc0BnbWFpbC5jb20+DQo+
+PiA9PUNjOiBFbGkgQnJpdHN0ZWluIDxFbGkuQnJpdHN0ZWluQGF1ZGlvY29kZXMuY29tPiwgQmrD
+uHJuIE1vcmsgPGJqb3JuQG1vcmsubm8+LA0KPj4gPT0gICAgQWxleCBTdHJpemhldnNreSA8YWxl
+eHhzdEBnbWFpbC5jb20+LA0KPj4gPT0gICAgTWlkZ2UgU2hhb2p1biAgVGFuIDxTaGFvanVuTWlk
+Z2UuVGFuQGF1ZGlvY29kZXMuY29tPiwNCj4+ID09ICAgICJ5b3V0dXhAZ21haWwuY29tIiA8eW91
+dHV4QGdtYWlsLmNvbT4sDQo+PiA9PSAgICAibGludXgtdXNiQHZnZXIua2VybmVsLm9yZyIgPGxp
+bnV4LXVzYkB2Z2VyLmtlcm5lbC5vcmc+LA0KPj4gPT0gICAgIm5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmciIDxuZXRkZXZAdmdlci5rZXJuZWwub3JnPg0KPj4gPT1TdWJqZWN0OiBSZTogSXMgdGhpcyAz
+Mi1iaXQgTkNNPw0KPj4gPT0NCj4+ID09SSBhbHNvIHRyaWVkIHRvIGRlZmluZSBDRENfTkNNX0RQ
+VF9EQVRBR1JBTVNfTUFYIGFzIDEgdG8gZWxpbWluYXRlIHRoZQ0KPj4gPT1wYWRkaW5ncywgYnV0
+IGl0IGRpZCBub3Qgd29yayBlaXRoZXIsIG5vdCBldmVuIERIQ1AuDQo+PiA9PQ0KPj4gPT1SZWdh
+cmRzLA0KPj4gPT1LZXZpbg0KPj4gPT0NCj4+ID09T24gMTIvMDIvMjAxNCAwMjozMiBQTSwgRW5y
+aWNvIE1pb3NvIHdyb3RlOg0KPj4gPT0+IEhpIGFnYWluIEVsaSwNCj4+ID09PiBIaSBLZXZpbiwN
+Cj4+ID09PiBIaSBldmVyeW9uZS4uLg0KPj4gPT0+DQo+PiA9PT4gQXMgSSB1bmRlcnN0YW5kIGl0
+IGFueXdheSAtIHRoZSBkaXN0aW5jdGlvbiBoZXJlIHRlbmRzIG5vdCB0byBiZSBiZXR3ZWVuDQo+
+PiA9PT4gZGlmZmVyZW50IHR5cGVzIG9mIHBhY2tldHMuDQo+PiA9PT4gSXQgdGVuZHMgdG8gYmUg
+YmV0d2VlbiByZWNlaXZlZCBhbmQgc2VudCBwYWNrZXQuDQo+PiA9PT4gV2UgYXJlIG5vdCBhYmxl
+IHRvIGdlbmVyYXRlIHBhY2tldHMgdGhhdCB0aGUgZGV2aWNlIHJldGFpbnMgdmFsaWQuDQo+PiA9
+PT4gSWYgeW91IG1hbnVhbGx5IGNvbmZpZ3VyZSB0aGUgSVAgdGhlIGRldmljZSB3b3VsZCBoYXZl
+IGFzc2lnbmVkIHlvdSB2aWEgREhDUCwNCj4+ID09PiB5b3VyIHN5c3RlbSB3aWxsIHN0YXJ0IGFu
+c3dlcmluZyBBUlAgcmVxdWVzdCwgc2F5aW5nIHRoYXQgdGhlIGhvc3Qgd2l0aCBJUA0KPj4gPT0+
+IGFhLmJiLmNjLmRkIGlzIGF0IGFhOmJiOmNjOmRkOmVlICh1c2luZyB0aGUgTUMgYWRkcmVzcyBv
+ZiB0aGUgZG9uZ2xlKS4NCj4+ID09PiBIb3dldmVyLCB0aGUgb3RoZXIgaG9zdCAoZ2F0ZXdheSkg
+d2lsbCBuZXZlciBrbm93IHRoYXQuIEluZGVlZCwgaXQnbGwgY29udGludWUNCj4+ID09PiBhc2tp
+bmcgd2hvLWlzIGF0IGFhLmJiLmNjLmRkID8NCj4+ID09PiBBdCBsZWFzdCwgdGhpcyBpcyB0aGUg
+c2l0dWF0aW9uIEkgb2JzZXJ2ZWQgaW4gdGhlIHRlc3Qgc3lzdGVtLg0KPj4gPT0+DQo+PiA9PT4N
+Cj4+ID09PiBPbiBUdWUsIDIgRGVjIDIwMTQsIEtldmluIFpodSB3cm90ZToNCj4+ID09Pg0KPj4g
+PT0+ID09RGF0ZTogVHVlLCAyIERlYyAyMDE0IDA0OjUzOjUzDQo+PiA9PT4gPT1Gcm9tOiBLZXZp
+biBaaHUgPE1pbmd5aW5nLlpodUBhdWRpb2NvZGVzLmNvbT4NCj4+ID09PiA9PVRvOiBFbGkgQnJp
+dHN0ZWluIDxFbGkuQnJpdHN0ZWluQGF1ZGlvY29kZXMuY29tPiwNCj4+ID09PiA9PSAgICBFbnJp
+Y28gTWlvc28gPG1ya2lrby5yc0BnbWFpbC5jb20+DQo+PiA9PT4gPT1DYzogQmrDuHJuIE1vcmsg
+PGJqb3JuQG1vcmsubm8+LCBBbGV4IFN0cml6aGV2c2t5IDxhbGV4eHN0QGdtYWlsLmNvbT4sDQo+
+PiA9PT4gPT0gICAgTWlkZ2UgU2hhb2p1biAgVGFuIDxTaGFvanVuTWlkZ2UuVGFuQGF1ZGlvY29k
+ZXMuY29tPiwNCj4+ID09PiA9PSAgICAieW91dHV4QGdtYWlsLmNvbSIgPHlvdXR1eEBnbWFpbC5j
+b20+LA0KPj4gPT0+ID09ICAgICJsaW51eC11c2JAdmdlci5rZXJuZWwub3JnIiA8bGludXgtdXNi
+QHZnZXIua2VybmVsLm9yZz4sDQo+PiA9PT4gPT0gICAgIm5ldGRldkB2Z2VyLmtlcm5lbC5vcmci
+IDxuZXRkZXZAdmdlci5rZXJuZWwub3JnPg0KPj4gPT0+ID09U3ViamVjdDogUmU6IElzIHRoaXMg
+MzItYml0IE5DTT8NCj4+ID09PiA9PQ0KPj4gPT0+ID09SGksDQo+PiA9PT4gPT0NCj4+ID09PiA9
+PVRoZSBESENQIHBhY2tldHMgaGF2ZSB0aGUgbWF4aW11bSBzaXplIG9mIGR3TnRiT3V0TWF4U2l6
+ZT0xNjM4NCwgd2hpbGUNCj4+ID09PiA9PXRoZSBvdGhlciBwYWNrZXRzIGFyZSBsZXNzIHRoYW4g
+dGhhdC4gSG93ZXZlciwgdGhlIERIQ1AgcXVlcmllcyBhcmUgbm90DQo+PiA9PT4gPT1yZXBsaWVk
+IGluIHRpbWUgZWl0aGVyLCB0aGVyZSdzIGFsd2F5cyBzb21lIGRlbGF5Lg0KPj4gPT0+ID09DQo+
+PiA9PT4gPT1CeSB0aGUgd2F5LCB0aG91Z2ggdGhlIGRldmljZSBjbGFpbXMgdG8gc3VwcG9ydCBH
+RVRfTUFYX0RBVEFHUkFNX1NJWkUsDQo+PiA9PT4gPT1idXQgaXQgcmV0dXJucyBlcnJvciB3aGVu
+IHRoZSBob3N0IHNlbmRzIHRoaXMgY29tbWFuZCB0byBpdC4gSSBkaXNhYmxlZA0KPj4gPT0+ID09
+dGhpcyBjb21tYW5kIGluIE5DTSBkcml2ZXIgYW5kIHRyaWVkLCBidXQgaXQncyB0aGUgc2FtZSBy
+ZXN1bHQuDQo+PiA9PT4gPT0NCj4+ID09PiA9PVJlZ2FyZHMsDQo+PiA9PT4gPT1LZXZpbg0KPj4g
+PT0+ID09DQo+PiA9PT4gPT1PbiAxMi8wMi8yMDE0IDA2OjAyIEFNLCBFbGkgQnJpdHN0ZWluIHdy
+b3RlOg0KPj4gPT0+ID09PiBIaSBFbnJpY28gYW5kIGFsbCwNCj4+ID09PiA9PT4NCj4+ID09PiA9
+PT4gTWF5YmUgSSBtaXNzZWQgc29tZXRoaW5nIGJ1dCB3aGF0IGlzIHRoZSBkaWZmZXJlbmNlIGJ5
+IHRoZSBkcml2ZXIgcG9pbnQgb2YgdmlldyBiZXR3ZWVuIHRoZSBkaGNwIGRpc2NvdmVyIGFuZCBy
+ZXF1ZXN0ICh0aGF0IGFyZSBvaykgdG8gb3RoZXJzIChsaWtlIGFycCwgdGhhdCBpcyBub2spPw0K
+Pj4gPT0+ID09PiBNYXliZSB3ZSBjYW4gdHJhY2UgdG8gY29tcGFyZSB0aGVtPw0KPj4gPT0+ID09
+Pg0KPj4gPT0+ID09PiBTZW50IGZyb20gbXkgaVBob25lDQo+PiA9PT4gPT0+DQo+PiA9PT4gPT0+
+PiBPbiAxINeR15PXpteeIDIwMTQsIGF0IDIzOjExLCAiRW5yaWNvIE1pb3NvIiA8bXJraWtvLnJz
+QGdtYWlsLmNvbT4gd3JvdGU6DQo+PiA9PT4gPT0+Pg0KPj4gPT0+ID09Pj4gU28gLi4uIEkgaGF2
+ZSB0d28gaWRlYXMgbGVmdCBmb3Igbm93Lg0KPj4gPT0+ID09Pj4gV2Uga25vdyBmb3Igc3VyZSB0
+aGUgcHJvYmxlbSBpcyBpbiB0aGUgd2F5IHdlIFRYIGZyYW1lcywgbm90IHRoZSB3YXkgd2UgUlgg
+dGhlbQ0KPj4gPT0+ID09Pj4gKHRoZSB3YXkgd2Ugc2VuZCwgZ2VuZXJhdGUgdGhlbSwgbm90IHRo
+ZSB3YXkgd2UgcmVjZWl2ZSB0aGVtKS4NCj4+ID09PiA9PT4+IFNpIEkgaGF2ZSB0d28gaWRlYXMs
+IGFuZCBJIGFzayBmb3IgaGVscCBmcm9tIHRoZSBMaW51eC11c2IgbWFpbGluZyBsaXN0IGZvcg0K
+Pj4gPT0+ID09Pj4gdGhpcyBmaXJzdCBvbmUuDQo+PiA9PT4gPT0+Pg0KPj4gPT0+ID09Pj4gMSAt
+IERvZXMgYSB3YXlleGlzdCB0byAicmVwbGF5IiB0cmFmZmljIGNyb20gYSB1c2IgY2FwdHVyZT8N
+Cj4+ID09PiA9PT4+IFdlIG1pZ2h0IHRyeSB0byB0YWtlIHRoZSB1c2IgZnJhbWVzIGdlbmVyYXRl
+ZCBieSBXaW5kb3dzLCBhbmQgc2VuZCB0aGVtIHRvIHRoZQ0KPj4gPT0+ID09Pj4gZGV2aWNlIHRv
+IHNlZSBpZiB0aGVyZSBpcyBhbnkgcmVhY3Rpb24uIEl0IHNob3VsZCBub3QgYmUgc2NpZW5jZSBm
+aWN0aW9uLCBJIHNhdw0KPj4gPT0+ID09Pj4gdGhlbSBkbyB0aGF0IGluIHRoZSBlY2lhZHNsIG9s
+ZCBwcm9qZWN0Lg0KPj4gPT0+ID09Pj4gMiAtIFRoZSBodWF3ZWkgbmRpcyBkcml2ZXI6IGRvZXMg
+aXQgd29yayB3aXRoIHRoZXNlIGRldmljZXM/DQo+PiA9PT4gPT0+PiBJdCBzaG91bGQgYmUgYSBs
+aXR0bGUgYml0IG91dC1kYXRlZCBub3cgKGF0IGxlYXN0IGluIHRlcm1zIG9mIGRhdGVzLCBpdCBt
+aWdodA0KPj4gPT0+ID09Pj4gd29yayBhcyB3ZWxsKTogdGhlIGNvZGUgaXMgQSBMT1QgYnV0LCBq
+dXN0IGluIGNhc2UsIHRvIHNlZSBpZiB0aGVyZSBpcyBhbnkNCj4+ID09PiA9PT4+IGNoYW5jZXMg
+aXQnbGwgd29yay4gSXQgcmVtYWlucyB0byBiZSBzZWVuIGluIHdoaWNoIGtlcm5lbHMgaXQgY2Fu
+IGFjdHVhbGx5DQo+PiA9PT4gPT0+PiBjb21waWxlIGFnYWluLg0KPj4gPT0+ID09Pj4NCj4+ID09
+PiA9PT4+IElmIHRoaXMgd29ya3Mgd2UgbWlnaHQgYW5hbHlzZSB3aGF0J3MgaGFwcGVuaW5nIGFu
+ZCB0cnkgdG8gZGVidWcgdGhpcyBvdXQuDQo+PiA9PT4gPT0+PiBCdXQgSSByZWFsbHkgd291bGQg
+bGlrZSB0aGlzIHRvIHdvcmsgaW4gdGhlIGNkY19uY20gZHJpdmVyICsgaHVhd2VpX2NkY19uY20u
+DQo+PiA9PT4gPT0+PiBUaGFuayB5b3UuDQo+PiA9PT4gPT1UaGlzIGVtYWlsIGFuZCBhbnkgZmls
+ZXMgdHJhbnNtaXR0ZWQgd2l0aCBpdCBhcmUgY29uZmlkZW50aWFsIG1hdGVyaWFsLiBUaGV5IGFy
+ZSBpbnRlbmRlZCBzb2xlbHkgZm9yIHRoZSB1c2Ugb2YgdGhlIGRlc2lnbmF0ZWQgaW5kaXZpZHVh
+bCBvciBlbnRpdHkgdG8gd2hvbSB0aGV5IGFyZSBhZGRyZXNzZWQuIElmIHRoZSByZWFkZXIgb2Yg
+dGhpcyBtZXNzYWdlIGlzIG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50LCB5b3UgYXJlIGhlcmVi
+eSBub3RpZmllZCB0aGF0IGFueSBkaXNzZW1pbmF0aW9uLCB1c2UsIGRpc3RyaWJ1dGlvbiBvciBj
+b3B5aW5nIG9mIHRoaXMgY29tbXVuaWNhdGlvbiBpcyBzdHJpY3RseSBwcm9oaWJpdGVkIGFuZCBt
+YXkgYmUgdW5sYXdmdWwuDQo+PiA9PT4gPT0NCj4+ID09PiA9PUlmIHlvdSBoYXZlIHJlY2VpdmVk
+IHRoaXMgZW1haWwgaW4gZXJyb3IgcGxlYXNlIGltbWVkaWF0ZWx5IG5vdGlmeSB0aGUgc2VuZGVy
+IGFuZCBkZWxldGUgb3IgZGVzdHJveSBhbnkgY29weSBvZiB0aGlzIG1lc3NhZ2UNCj4+ID09PiA9
+PQ0KPj4gPT1UaGlzIGVtYWlsIGFuZCBhbnkgZmlsZXMgdHJhbnNtaXR0ZWQgd2l0aCBpdCBhcmUg
+Y29uZmlkZW50aWFsIG1hdGVyaWFsLiBUaGV5IGFyZSBpbnRlbmRlZCBzb2xlbHkgZm9yIHRoZSB1
+c2Ugb2YgdGhlIGRlc2lnbmF0ZWQgaW5kaXZpZHVhbCBvciBlbnRpdHkgdG8gd2hvbSB0aGV5IGFy
+ZSBhZGRyZXNzZWQuIElmIHRoZSByZWFkZXIgb2YgdGhpcyBtZXNzYWdlIGlzIG5vdCB0aGUgaW50
+ZW5kZWQgcmVjaXBpZW50LCB5b3UgYXJlIGhlcmVieSBub3RpZmllZCB0aGF0IGFueSBkaXNzZW1p
+bmF0aW9uLCB1c2UsIGRpc3RyaWJ1dGlvbiBvciBjb3B5aW5nIG9mIHRoaXMgY29tbXVuaWNhdGlv
+biBpcyBzdHJpY3RseSBwcm9oaWJpdGVkIGFuZCBtYXkgYmUgdW5sYXdmdWwuDQo+PiA9PQ0KPj4g
+PT1JZiB5b3UgaGF2ZSByZWNlaXZlZCB0aGlzIGVtYWlsIGluIGVycm9yIHBsZWFzZSBpbW1lZGlh
+dGVseSBub3RpZnkgdGhlIHNlbmRlciBhbmQgZGVsZXRlIG9yIGRlc3Ryb3kgYW55IGNvcHkgb2Yg
+dGhpcyBtZXNzYWdlDQo+PiA9PQ0KDQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXw0K
+DQpUaGlzIGVtYWlsIGFuZCBhbnkgZmlsZXMgdHJhbnNtaXR0ZWQgd2l0aCBpdCBhcmUgY29uZmlk
+ZW50aWFsIG1hdGVyaWFsLiBUaGV5IGFyZSBpbnRlbmRlZCBzb2xlbHkgZm9yIHRoZSB1c2Ugb2Yg
+dGhlIGRlc2lnbmF0ZWQgaW5kaXZpZHVhbCBvciBlbnRpdHkgdG8gd2hvbSB0aGV5IGFyZSBhZGRy
+ZXNzZWQuIElmIHRoZSByZWFkZXIgb2YgdGhpcyBtZXNzYWdlIGlzIG5vdCB0aGUgaW50ZW5kZWQg
+cmVjaXBpZW50LCB5b3UgYXJlIGhlcmVieSBub3RpZmllZCB0aGF0IGFueSBkaXNzZW1pbmF0aW9u
+LCB1c2UsIGRpc3RyaWJ1dGlvbiBvciBjb3B5aW5nIG9mIHRoaXMgY29tbXVuaWNhdGlvbiBpcyBz
+dHJpY3RseSBwcm9oaWJpdGVkIGFuZCBtYXkgYmUgdW5sYXdmdWwuDQoNCklmIHlvdSBoYXZlIHJl
+Y2VpdmVkIHRoaXMgZW1haWwgaW4gZXJyb3IgcGxlYXNlIGltbWVkaWF0ZWx5IG5vdGlmeSB0aGUg
+c2VuZGVyIGFuZCBkZWxldGUgb3IgZGVzdHJveSBhbnkgY29weSBvZiB0aGlzIG1lc3NhZ2UNCg==
