@@ -1,157 +1,83 @@
-From: Eli Britstein <Eli.Britstein@audiocodes.com>
-Subject: Re: Is this 32-bit NCM?
-Date: Tue, 2 Dec 2014 07:11:32 +0000
-Message-ID: <A6FB85DC-A033-439B-A814-1515380F6F6A@audiocodes.com>
-References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
- <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com>
- <874mtl55ar.fsf@nemi.mork.no>
- <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
- <alpine.LNX.2.03.1411271932510.1548@gmail.com>
- <87ppc71xne.fsf@nemi.mork.no>,<alpine.LNX.2.03.1412012202480.1301@gmail.com>
- <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com>
- <547D37CA.7050506@audiocodes.com>
- <alpine.LNX.2.03.1412020729470.1351@gmail.com>
- <547D5F84.6020608@audiocodes.com>
- <alpine.LNX.2.03.1412020747360.1921@gmail.com>,<547D61C0.2080904@audiocodes.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: [PATCH] net: mvneta: fix Tx interrupt delay
+Date: Tue, 2 Dec 2014 08:13:04 +0100
+Message-ID: <20141202071304.GA22512@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Enrico Mioso <mrkiko.rs@gmail.com>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
-	Alex Strizhevsky <alexxst@gmail.com>,
-	"Midge Shaojun Tan" <ShaojunMidge.Tan@audiocodes.com>,
-	"youtux@gmail.com" <youtux@gmail.com>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Kevin Zhu <Mingying.Zhu@audiocodes.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Maggie Mae Roxas <maggie.mae.roxas@gmail.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.audiocodes.com ([195.189.193.19]:60573 "EHLO
-	incoming.audiocodes.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753893AbaLBHLk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 02:11:40 -0500
-In-Reply-To: <547D61C0.2080904@audiocodes.com>
-Content-Language: en-US
+Received: from 1wt.eu ([62.212.114.60]:28715 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752642AbaLBHNH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Dec 2014 02:13:07 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-TWF5YmUgdGhlIEZXIGV4cGVjdHMgc29tZSBraW5kIG9mIGNoZWNrc3VtIG9yIGNyYyBpbiB0aGUg
-cGFkZGluZyBhcmVhPw0KDQpTZW50IGZyb20gbXkgaVBob25lDQoNCj4gT24gMiDXkdeT16bXniAy
-MDE0LCBhdCAwODo1MiwgIktldmluIFpodSIgPE1pbmd5aW5nLlpodUBhdWRpb2NvZGVzLmNvbT4g
-d3JvdGU6DQo+DQo+IE9LLiBJIHdpbGwgbG9vayBhdCB0aGUgd2luZG93cyBkcml2ZXIgYW5kIHJl
-Z2lzdHJ5LiBJIGRvbid0IGhhdmUgYW55DQo+IG1hbnVhbCBvZiBpdC4NCj4NCj4gUmVnYXJkcywN
-Cj4gS2V2aW4NCj4NCj4+IE9uIDEyLzAyLzIwMTQgMDI6NDkgUE0sIEVucmljbyBNaW9zbyB3cm90
-ZToNCj4+IENhbiB5b3UgdHJ5IHRvIGxvb2sgYXQgV2luZG93cyByZWdpc3RyeSBrZXlzIGJhc2Vk
-IG9uIHRoZSBJTkYgZmlsZSBhcyBzdWdnZXN0ZWQNCj4+IG9yIHdvdWxkIHRoaXMgYmUgYSBwcm9i
-bGVtIGZvciB5b3U/DQo+PiBBbmQuLi4gaWYgeW91IGhhdmUgYW55IEh1YXdlaSBtYW51dGFsIHRh
-bGtpbmcgYWJvdXQgaXQ6IGV2ZW4gZGV2aWNlJ3MNCj4+IF5EU0ZMT1dSUFQNCj4+IG1pZ2h0IGJl
-IHVzZWZ1bCB0byBzb21lIGV4dGVudCwgYnV0IC4uLiB0aGlzIGlzIG9ubHkganVzdCBhIG5vdGUg
-aW4gY2FzZSB3ZQ0KPj4gZG9uJ3QgZmluZCBhbnl0aGluZyBlbHNlLg0KPj4gUmVnYXJkcyAuLi4g
-YW5kIGdvb2QgZGF5IHRvIGFsbCBvZiB5b3UsDQo+PiBFbnJpY28NCj4+DQo+Pg0KPj4gT24gVHVl
-LCAyIERlYyAyMDE0LCBLZXZpbiBaaHUgd3JvdGU6DQo+Pg0KPj4gPT1EYXRlOiBUdWUsIDIgRGVj
-IDIwMTQgMDc6NDM6MjQNCj4+ID09RnJvbTogS2V2aW4gWmh1IDxNaW5neWluZy5aaHVAYXVkaW9j
-b2Rlcy5jb20+DQo+PiA9PVRvOiBFbnJpY28gTWlvc28gPG1ya2lrby5yc0BnbWFpbC5jb20+DQo+
-PiA9PUNjOiBFbGkgQnJpdHN0ZWluIDxFbGkuQnJpdHN0ZWluQGF1ZGlvY29kZXMuY29tPiwgQmrD
-uHJuIE1vcmsgPGJqb3JuQG1vcmsubm8+LA0KPj4gPT0gICAgQWxleCBTdHJpemhldnNreSA8YWxl
-eHhzdEBnbWFpbC5jb20+LA0KPj4gPT0gICAgTWlkZ2UgU2hhb2p1biAgVGFuIDxTaGFvanVuTWlk
-Z2UuVGFuQGF1ZGlvY29kZXMuY29tPiwNCj4+ID09ICAgICJ5b3V0dXhAZ21haWwuY29tIiA8eW91
-dHV4QGdtYWlsLmNvbT4sDQo+PiA9PSAgICAibGludXgtdXNiQHZnZXIua2VybmVsLm9yZyIgPGxp
-bnV4LXVzYkB2Z2VyLmtlcm5lbC5vcmc+LA0KPj4gPT0gICAgIm5ldGRldkB2Z2VyLmtlcm5lbC5v
-cmciIDxuZXRkZXZAdmdlci5rZXJuZWwub3JnPg0KPj4gPT1TdWJqZWN0OiBSZTogSXMgdGhpcyAz
-Mi1iaXQgTkNNPw0KPj4gPT0NCj4+ID09SSBhbHNvIHRyaWVkIHRvIGRlZmluZSBDRENfTkNNX0RQ
-VF9EQVRBR1JBTVNfTUFYIGFzIDEgdG8gZWxpbWluYXRlIHRoZQ0KPj4gPT1wYWRkaW5ncywgYnV0
-IGl0IGRpZCBub3Qgd29yayBlaXRoZXIsIG5vdCBldmVuIERIQ1AuDQo+PiA9PQ0KPj4gPT1SZWdh
-cmRzLA0KPj4gPT1LZXZpbg0KPj4gPT0NCj4+ID09T24gMTIvMDIvMjAxNCAwMjozMiBQTSwgRW5y
-aWNvIE1pb3NvIHdyb3RlOg0KPj4gPT0+IEhpIGFnYWluIEVsaSwNCj4+ID09PiBIaSBLZXZpbiwN
-Cj4+ID09PiBIaSBldmVyeW9uZS4uLg0KPj4gPT0+DQo+PiA9PT4gQXMgSSB1bmRlcnN0YW5kIGl0
-IGFueXdheSAtIHRoZSBkaXN0aW5jdGlvbiBoZXJlIHRlbmRzIG5vdCB0byBiZSBiZXR3ZWVuDQo+
-PiA9PT4gZGlmZmVyZW50IHR5cGVzIG9mIHBhY2tldHMuDQo+PiA9PT4gSXQgdGVuZHMgdG8gYmUg
-YmV0d2VlbiByZWNlaXZlZCBhbmQgc2VudCBwYWNrZXQuDQo+PiA9PT4gV2UgYXJlIG5vdCBhYmxl
-IHRvIGdlbmVyYXRlIHBhY2tldHMgdGhhdCB0aGUgZGV2aWNlIHJldGFpbnMgdmFsaWQuDQo+PiA9
-PT4gSWYgeW91IG1hbnVhbGx5IGNvbmZpZ3VyZSB0aGUgSVAgdGhlIGRldmljZSB3b3VsZCBoYXZl
-IGFzc2lnbmVkIHlvdSB2aWEgREhDUCwNCj4+ID09PiB5b3VyIHN5c3RlbSB3aWxsIHN0YXJ0IGFu
-c3dlcmluZyBBUlAgcmVxdWVzdCwgc2F5aW5nIHRoYXQgdGhlIGhvc3Qgd2l0aCBJUA0KPj4gPT0+
-IGFhLmJiLmNjLmRkIGlzIGF0IGFhOmJiOmNjOmRkOmVlICh1c2luZyB0aGUgTUMgYWRkcmVzcyBv
-ZiB0aGUgZG9uZ2xlKS4NCj4+ID09PiBIb3dldmVyLCB0aGUgb3RoZXIgaG9zdCAoZ2F0ZXdheSkg
-d2lsbCBuZXZlciBrbm93IHRoYXQuIEluZGVlZCwgaXQnbGwgY29udGludWUNCj4+ID09PiBhc2tp
-bmcgd2hvLWlzIGF0IGFhLmJiLmNjLmRkID8NCj4+ID09PiBBdCBsZWFzdCwgdGhpcyBpcyB0aGUg
-c2l0dWF0aW9uIEkgb2JzZXJ2ZWQgaW4gdGhlIHRlc3Qgc3lzdGVtLg0KPj4gPT0+DQo+PiA9PT4N
-Cj4+ID09PiBPbiBUdWUsIDIgRGVjIDIwMTQsIEtldmluIFpodSB3cm90ZToNCj4+ID09Pg0KPj4g
-PT0+ID09RGF0ZTogVHVlLCAyIERlYyAyMDE0IDA0OjUzOjUzDQo+PiA9PT4gPT1Gcm9tOiBLZXZp
-biBaaHUgPE1pbmd5aW5nLlpodUBhdWRpb2NvZGVzLmNvbT4NCj4+ID09PiA9PVRvOiBFbGkgQnJp
-dHN0ZWluIDxFbGkuQnJpdHN0ZWluQGF1ZGlvY29kZXMuY29tPiwNCj4+ID09PiA9PSAgICBFbnJp
-Y28gTWlvc28gPG1ya2lrby5yc0BnbWFpbC5jb20+DQo+PiA9PT4gPT1DYzogQmrDuHJuIE1vcmsg
-PGJqb3JuQG1vcmsubm8+LCBBbGV4IFN0cml6aGV2c2t5IDxhbGV4eHN0QGdtYWlsLmNvbT4sDQo+
-PiA9PT4gPT0gICAgTWlkZ2UgU2hhb2p1biAgVGFuIDxTaGFvanVuTWlkZ2UuVGFuQGF1ZGlvY29k
-ZXMuY29tPiwNCj4+ID09PiA9PSAgICAieW91dHV4QGdtYWlsLmNvbSIgPHlvdXR1eEBnbWFpbC5j
-b20+LA0KPj4gPT0+ID09ICAgICJsaW51eC11c2JAdmdlci5rZXJuZWwub3JnIiA8bGludXgtdXNi
-QHZnZXIua2VybmVsLm9yZz4sDQo+PiA9PT4gPT0gICAgIm5ldGRldkB2Z2VyLmtlcm5lbC5vcmci
-IDxuZXRkZXZAdmdlci5rZXJuZWwub3JnPg0KPj4gPT0+ID09U3ViamVjdDogUmU6IElzIHRoaXMg
-MzItYml0IE5DTT8NCj4+ID09PiA9PQ0KPj4gPT0+ID09SGksDQo+PiA9PT4gPT0NCj4+ID09PiA9
-PVRoZSBESENQIHBhY2tldHMgaGF2ZSB0aGUgbWF4aW11bSBzaXplIG9mIGR3TnRiT3V0TWF4U2l6
-ZT0xNjM4NCwgd2hpbGUNCj4+ID09PiA9PXRoZSBvdGhlciBwYWNrZXRzIGFyZSBsZXNzIHRoYW4g
-dGhhdC4gSG93ZXZlciwgdGhlIERIQ1AgcXVlcmllcyBhcmUgbm90DQo+PiA9PT4gPT1yZXBsaWVk
-IGluIHRpbWUgZWl0aGVyLCB0aGVyZSdzIGFsd2F5cyBzb21lIGRlbGF5Lg0KPj4gPT0+ID09DQo+
-PiA9PT4gPT1CeSB0aGUgd2F5LCB0aG91Z2ggdGhlIGRldmljZSBjbGFpbXMgdG8gc3VwcG9ydCBH
-RVRfTUFYX0RBVEFHUkFNX1NJWkUsDQo+PiA9PT4gPT1idXQgaXQgcmV0dXJucyBlcnJvciB3aGVu
-IHRoZSBob3N0IHNlbmRzIHRoaXMgY29tbWFuZCB0byBpdC4gSSBkaXNhYmxlZA0KPj4gPT0+ID09
-dGhpcyBjb21tYW5kIGluIE5DTSBkcml2ZXIgYW5kIHRyaWVkLCBidXQgaXQncyB0aGUgc2FtZSBy
-ZXN1bHQuDQo+PiA9PT4gPT0NCj4+ID09PiA9PVJlZ2FyZHMsDQo+PiA9PT4gPT1LZXZpbg0KPj4g
-PT0+ID09DQo+PiA9PT4gPT1PbiAxMi8wMi8yMDE0IDA2OjAyIEFNLCBFbGkgQnJpdHN0ZWluIHdy
-b3RlOg0KPj4gPT0+ID09PiBIaSBFbnJpY28gYW5kIGFsbCwNCj4+ID09PiA9PT4NCj4+ID09PiA9
-PT4gTWF5YmUgSSBtaXNzZWQgc29tZXRoaW5nIGJ1dCB3aGF0IGlzIHRoZSBkaWZmZXJlbmNlIGJ5
-IHRoZSBkcml2ZXIgcG9pbnQgb2YgdmlldyBiZXR3ZWVuIHRoZSBkaGNwIGRpc2NvdmVyIGFuZCBy
-ZXF1ZXN0ICh0aGF0IGFyZSBvaykgdG8gb3RoZXJzIChsaWtlIGFycCwgdGhhdCBpcyBub2spPw0K
-Pj4gPT0+ID09PiBNYXliZSB3ZSBjYW4gdHJhY2UgdG8gY29tcGFyZSB0aGVtPw0KPj4gPT0+ID09
-Pg0KPj4gPT0+ID09PiBTZW50IGZyb20gbXkgaVBob25lDQo+PiA9PT4gPT0+DQo+PiA9PT4gPT0+
-PiBPbiAxINeR15PXpteeIDIwMTQsIGF0IDIzOjExLCAiRW5yaWNvIE1pb3NvIiA8bXJraWtvLnJz
-QGdtYWlsLmNvbT4gd3JvdGU6DQo+PiA9PT4gPT0+Pg0KPj4gPT0+ID09Pj4gU28gLi4uIEkgaGF2
-ZSB0d28gaWRlYXMgbGVmdCBmb3Igbm93Lg0KPj4gPT0+ID09Pj4gV2Uga25vdyBmb3Igc3VyZSB0
-aGUgcHJvYmxlbSBpcyBpbiB0aGUgd2F5IHdlIFRYIGZyYW1lcywgbm90IHRoZSB3YXkgd2UgUlgg
-dGhlbQ0KPj4gPT0+ID09Pj4gKHRoZSB3YXkgd2Ugc2VuZCwgZ2VuZXJhdGUgdGhlbSwgbm90IHRo
-ZSB3YXkgd2UgcmVjZWl2ZSB0aGVtKS4NCj4+ID09PiA9PT4+IFNpIEkgaGF2ZSB0d28gaWRlYXMs
-IGFuZCBJIGFzayBmb3IgaGVscCBmcm9tIHRoZSBMaW51eC11c2IgbWFpbGluZyBsaXN0IGZvcg0K
-Pj4gPT0+ID09Pj4gdGhpcyBmaXJzdCBvbmUuDQo+PiA9PT4gPT0+Pg0KPj4gPT0+ID09Pj4gMSAt
-IERvZXMgYSB3YXlleGlzdCB0byAicmVwbGF5IiB0cmFmZmljIGNyb20gYSB1c2IgY2FwdHVyZT8N
-Cj4+ID09PiA9PT4+IFdlIG1pZ2h0IHRyeSB0byB0YWtlIHRoZSB1c2IgZnJhbWVzIGdlbmVyYXRl
-ZCBieSBXaW5kb3dzLCBhbmQgc2VuZCB0aGVtIHRvIHRoZQ0KPj4gPT0+ID09Pj4gZGV2aWNlIHRv
-IHNlZSBpZiB0aGVyZSBpcyBhbnkgcmVhY3Rpb24uIEl0IHNob3VsZCBub3QgYmUgc2NpZW5jZSBm
-aWN0aW9uLCBJIHNhdw0KPj4gPT0+ID09Pj4gdGhlbSBkbyB0aGF0IGluIHRoZSBlY2lhZHNsIG9s
-ZCBwcm9qZWN0Lg0KPj4gPT0+ID09Pj4gMiAtIFRoZSBodWF3ZWkgbmRpcyBkcml2ZXI6IGRvZXMg
-aXQgd29yayB3aXRoIHRoZXNlIGRldmljZXM/DQo+PiA9PT4gPT0+PiBJdCBzaG91bGQgYmUgYSBs
-aXR0bGUgYml0IG91dC1kYXRlZCBub3cgKGF0IGxlYXN0IGluIHRlcm1zIG9mIGRhdGVzLCBpdCBt
-aWdodA0KPj4gPT0+ID09Pj4gd29yayBhcyB3ZWxsKTogdGhlIGNvZGUgaXMgQSBMT1QgYnV0LCBq
-dXN0IGluIGNhc2UsIHRvIHNlZSBpZiB0aGVyZSBpcyBhbnkNCj4+ID09PiA9PT4+IGNoYW5jZXMg
-aXQnbGwgd29yay4gSXQgcmVtYWlucyB0byBiZSBzZWVuIGluIHdoaWNoIGtlcm5lbHMgaXQgY2Fu
-IGFjdHVhbGx5DQo+PiA9PT4gPT0+PiBjb21waWxlIGFnYWluLg0KPj4gPT0+ID09Pj4NCj4+ID09
-PiA9PT4+IElmIHRoaXMgd29ya3Mgd2UgbWlnaHQgYW5hbHlzZSB3aGF0J3MgaGFwcGVuaW5nIGFu
-ZCB0cnkgdG8gZGVidWcgdGhpcyBvdXQuDQo+PiA9PT4gPT0+PiBCdXQgSSByZWFsbHkgd291bGQg
-bGlrZSB0aGlzIHRvIHdvcmsgaW4gdGhlIGNkY19uY20gZHJpdmVyICsgaHVhd2VpX2NkY19uY20u
-DQo+PiA9PT4gPT0+PiBUaGFuayB5b3UuDQo+PiA9PT4gPT1UaGlzIGVtYWlsIGFuZCBhbnkgZmls
-ZXMgdHJhbnNtaXR0ZWQgd2l0aCBpdCBhcmUgY29uZmlkZW50aWFsIG1hdGVyaWFsLiBUaGV5IGFy
-ZSBpbnRlbmRlZCBzb2xlbHkgZm9yIHRoZSB1c2Ugb2YgdGhlIGRlc2lnbmF0ZWQgaW5kaXZpZHVh
-bCBvciBlbnRpdHkgdG8gd2hvbSB0aGV5IGFyZSBhZGRyZXNzZWQuIElmIHRoZSByZWFkZXIgb2Yg
-dGhpcyBtZXNzYWdlIGlzIG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50LCB5b3UgYXJlIGhlcmVi
-eSBub3RpZmllZCB0aGF0IGFueSBkaXNzZW1pbmF0aW9uLCB1c2UsIGRpc3RyaWJ1dGlvbiBvciBj
-b3B5aW5nIG9mIHRoaXMgY29tbXVuaWNhdGlvbiBpcyBzdHJpY3RseSBwcm9oaWJpdGVkIGFuZCBt
-YXkgYmUgdW5sYXdmdWwuDQo+PiA9PT4gPT0NCj4+ID09PiA9PUlmIHlvdSBoYXZlIHJlY2VpdmVk
-IHRoaXMgZW1haWwgaW4gZXJyb3IgcGxlYXNlIGltbWVkaWF0ZWx5IG5vdGlmeSB0aGUgc2VuZGVy
-IGFuZCBkZWxldGUgb3IgZGVzdHJveSBhbnkgY29weSBvZiB0aGlzIG1lc3NhZ2UNCj4+ID09PiA9
-PQ0KPj4gPT1UaGlzIGVtYWlsIGFuZCBhbnkgZmlsZXMgdHJhbnNtaXR0ZWQgd2l0aCBpdCBhcmUg
-Y29uZmlkZW50aWFsIG1hdGVyaWFsLiBUaGV5IGFyZSBpbnRlbmRlZCBzb2xlbHkgZm9yIHRoZSB1
-c2Ugb2YgdGhlIGRlc2lnbmF0ZWQgaW5kaXZpZHVhbCBvciBlbnRpdHkgdG8gd2hvbSB0aGV5IGFy
-ZSBhZGRyZXNzZWQuIElmIHRoZSByZWFkZXIgb2YgdGhpcyBtZXNzYWdlIGlzIG5vdCB0aGUgaW50
-ZW5kZWQgcmVjaXBpZW50LCB5b3UgYXJlIGhlcmVieSBub3RpZmllZCB0aGF0IGFueSBkaXNzZW1p
-bmF0aW9uLCB1c2UsIGRpc3RyaWJ1dGlvbiBvciBjb3B5aW5nIG9mIHRoaXMgY29tbXVuaWNhdGlv
-biBpcyBzdHJpY3RseSBwcm9oaWJpdGVkIGFuZCBtYXkgYmUgdW5sYXdmdWwuDQo+PiA9PQ0KPj4g
-PT1JZiB5b3UgaGF2ZSByZWNlaXZlZCB0aGlzIGVtYWlsIGluIGVycm9yIHBsZWFzZSBpbW1lZGlh
-dGVseSBub3RpZnkgdGhlIHNlbmRlciBhbmQgZGVsZXRlIG9yIGRlc3Ryb3kgYW55IGNvcHkgb2Yg
-dGhpcyBtZXNzYWdlDQo+PiA9PQ0KDQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXw0K
-DQpUaGlzIGVtYWlsIGFuZCBhbnkgZmlsZXMgdHJhbnNtaXR0ZWQgd2l0aCBpdCBhcmUgY29uZmlk
-ZW50aWFsIG1hdGVyaWFsLiBUaGV5IGFyZSBpbnRlbmRlZCBzb2xlbHkgZm9yIHRoZSB1c2Ugb2Yg
-dGhlIGRlc2lnbmF0ZWQgaW5kaXZpZHVhbCBvciBlbnRpdHkgdG8gd2hvbSB0aGV5IGFyZSBhZGRy
-ZXNzZWQuIElmIHRoZSByZWFkZXIgb2YgdGhpcyBtZXNzYWdlIGlzIG5vdCB0aGUgaW50ZW5kZWQg
-cmVjaXBpZW50LCB5b3UgYXJlIGhlcmVieSBub3RpZmllZCB0aGF0IGFueSBkaXNzZW1pbmF0aW9u
-LCB1c2UsIGRpc3RyaWJ1dGlvbiBvciBjb3B5aW5nIG9mIHRoaXMgY29tbXVuaWNhdGlvbiBpcyBz
-dHJpY3RseSBwcm9oaWJpdGVkIGFuZCBtYXkgYmUgdW5sYXdmdWwuDQoNCklmIHlvdSBoYXZlIHJl
-Y2VpdmVkIHRoaXMgZW1haWwgaW4gZXJyb3IgcGxlYXNlIGltbWVkaWF0ZWx5IG5vdGlmeSB0aGUg
-c2VuZGVyIGFuZCBkZWxldGUgb3IgZGVzdHJveSBhbnkgY29weSBvZiB0aGlzIG1lc3NhZ2UNCg==
+The mvneta driver sets the amount of Tx coalesce packets to 16 by
+default. Normally that does not cause any trouble since the driver
+uses a much larger Tx ring size (532 packets). But some sockets
+might run with very small buffers, much smaller than the equivalent
+of 16 packets. This is what ping is doing for example, by setting
+SNDBUF to 324 bytes rounded up to 2kB by the kernel.
+
+The problem is that there is no documented method to force a specific
+packet to emit an interrupt (eg: the last of the ring) nor is it
+possible to make the NIC emit an interrupt after a given delay.
+
+In this case, it causes trouble, because when ping sends packets over
+its raw socket, the few first packets leave the system, and the first
+15 packets will be emitted without an IRQ being generated, so without
+the skbs being freed. And since the socket's buffer is small, there's
+no way to reach that amount of packets, and the ping ends up with
+"send: no buffer available" after sending 6 packets. Running with 3
+instances of ping in parallel is enough to hide the problem, because
+with 6 packets per instance, that's 18 packets total, which is enough
+to grant a Tx interrupt before all are sent.
+
+The original driver in the LSP kernel worked around this design flaw
+by using a software timer to clean up the Tx descriptors. This timer
+was slow and caused terrible network performance on some Tx-bound
+workloads (such as routing) but was enough to make tools like ping
+work correctly.
+
+Instead here, we simply set the packet counts before interrupt to 1.
+This ensures that each packet sent will produce an interrupt. NAPI
+takes care of coalescing interrupts since the interrupt is disabled
+once generated.
+
+No measurable performance impact nor CPU usage were observed on small
+nor large packets, including when saturating the link on Tx, and this
+fixes tools like ping which rely on too small a send buffer. If one
+wants to increase this value for certain workloads where it is safe
+to do so, "ethtool -C $dev tx-frames" will override this default
+setting.
+
+This fix needs to be applied to stable kernels starting with 3.10.
+
+Tested-By: Maggie Mae Roxas <maggie.mae.roxas@gmail.com>
+Signed-off-by: Willy Tarreau <w@1wt.eu>
+
+---
+ drivers/net/ethernet/marvell/mvneta.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 4762994..35bfba7 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -214,7 +214,7 @@
+ /* Various constants */
+ 
+ /* Coalescing */
+-#define MVNETA_TXDONE_COAL_PKTS		16
++#define MVNETA_TXDONE_COAL_PKTS		1
+ #define MVNETA_RX_COAL_PKTS		32
+ #define MVNETA_RX_COAL_USEC		100
+ 
+-- 
+1.7.12.2.21.g234cd45.dirty
