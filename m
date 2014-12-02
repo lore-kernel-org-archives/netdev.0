@@ -1,68 +1,75 @@
-From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Is this 32-bit NCM?
-Date: Tue, 2 Dec 2014 14:53:50 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1412021453340.7488@gmail.com>
-References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
- <alpine.LNX.2.03.1411271932510.1548@gmail.com> <87ppc71xne.fsf@nemi.mork.no> <alpine.LNX.2.03.1412012202480.1301@gmail.com> <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com> <547D37CA.7050506@audiocodes.com> <alpine.LNX.2.03.1412020729470.1351@gmail.com>
- <547D5F84.6020608@audiocodes.com> <alpine.LNX.2.03.1412020747360.1921@gmail.com> <547D6D7B.5090704@audiocodes.com> <E0C3DF2A36210C42B1AB4626A0E10F1FD949424C@aclmbx01.corp.audiocodes.com> <547D7243.80508@audiocodes.com> <alpine.LNX.2.03.1412021130410.2697@gmail.com>
- <87fvcyqoup.fsf@nemi.mork.no> <alpine.LNX.2.03.1412021410270.29633@gmail.com> <87lhmqp400.fsf@nemi.mork.no>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net] cxgb4: Add a check for flashing FW using ethtool
+Date: Tue, 02 Dec 2014 17:18:45 +0300
+Message-ID: <547DCA45.7060702@cogentembedded.com>
+References: <1417522177-14842-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1082746179-1417528432=:7488"
-Cc: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-	Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-	Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Midge Shaojun Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-	"youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87lhmqp400.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com
+To: Hariprasad Shenai <hariprasad@chelsio.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:51693 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751699AbaLBOSs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 09:18:48 -0500
+Received: by mail-lb0-f179.google.com with SMTP id z11so10437410lbi.10
+        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 06:18:46 -0800 (PST)
+In-Reply-To: <1417522177-14842-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hello.
 
---8323328-1082746179-1417528432=:7488
-Content-Type: TEXT/PLAIN; charset=utf-8
-Content-Transfer-Encoding: 8BIT
+On 12/2/2014 3:09 PM, Hariprasad Shenai wrote:
 
-Thank you very much Bjorn.
+> Don't let T4 firmware flash on a T5 adapter and vice-versa
+> using ethtool
 
+> Based on original work by Casey Leedom <leedom@chelsio.com>
 
-On Tue, 2 Dec 2014, Bjørn Mork wrote:
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+> ---
+>   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |   26 ++++++++++++++++++++++++++
+>   1 files changed, 26 insertions(+), 0 deletions(-)
 
-==Date: Tue, 2 Dec 2014 14:37:03
-==From: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-==To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-==Cc: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-==    Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-==    Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-==    Midge Shaojun Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-==    "youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-==    "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-==    "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-==Subject: Re: Is this 32-bit NCM?
-==
-==Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
-==
-==> ... but out of curiosity: are NCM specs allowing to change order of things in 
-==> the package or not?
-==> This is not to start philosofical falames or something, but to understand 
-==> better how things work. And, if they do: how much arbitrarily?
-==
-==Only the NTB header has a fixed location. The rest can be anywhere and
-==in any order. Quoting from section 3 Data Transport:
-==
-==  "Within any given NTB, the NTH always must be first; but the other
-==   items may occur in arbitrary order."
-==
-==
-==Bjørn
-==
---8323328-1082746179-1417528432=:7488--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+> index 163a2a1..fae205a 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+> @@ -1131,6 +1131,27 @@ unsigned int t4_flash_cfg_addr(struct adapter *adapter)
+>   		return FLASH_CFG_START;
+>   }
+>
+> +/* Return TRUE if the specified firmware matches the adapter.  I.e. T4
+> + * firmware for T4 adapters, T5 firmware for T5 adapters, etc.  We go ahead
+> + * and emit an error message for mismatched firmware to save our caller the
+> + * effort ...
+> + */
+> +static int t4_fw_matches_chip(const struct adapter *adap,
+
+    s/int/bool/?
+
+> +			      const struct fw_hdr *hdr)
+> +{
+> +	/* The expression below will return FALSE for any unsupported adapter
+> +	 * which will keep us "honest" in the future ...
+> +	 */
+> +	if ((is_t4(adap->params.chip) && hdr->chip == FW_HDR_CHIP_T4) ||
+> +	    (is_t5(adap->params.chip) && hdr->chip == FW_HDR_CHIP_T5))
+> +		return 1;
+
+    s/1/true/?
+
+> +
+> +	dev_err(adap->pdev_dev,
+> +		"FW image (%d) is not suitable for this adapter (%d)\n",
+> +		hdr->chip, CHELSIO_CHIP_VERSION(adap->params.chip));
+> +	return 0;
+
+    s/0/false/?
+
+[...]
+
+WBR, Sergei
