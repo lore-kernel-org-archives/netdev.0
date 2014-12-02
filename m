@@ -1,58 +1,62 @@
-From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
 Subject: Re: Is this 32-bit NCM?
-Date: Tue, 2 Dec 2014 07:07:47 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1412020705170.1320@gmail.com>
+Date: Tue, 2 Dec 2014 07:12:36 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1412020708440.1335@gmail.com>
 References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
  <alpine.LNX.2.03.1411271932510.1548@gmail.com> <87ppc71xne.fsf@nemi.mork.no>,<alpine.LNX.2.03.1412012202480.1301@gmail.com> <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-347538177-1417500468=:1320"
-Cc: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-	=?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Midge Shaojun Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-	"youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <B315C8AC-3B33-406B-A728-14F8FAAAE986-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1177973235-1417500757=:1335"
+Cc: Kevin Zhu <Mingying.Zhu@audiocodes.com>,
+	=?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
+	Alex Strizhevsky <alexxst@gmail.com>,
+	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
+	"youtux@gmail.com" <youtux@gmail.com>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eli Britstein <Eli.Britstein@audiocodes.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:39887 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932200AbaLBGMH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 01:12:07 -0500
+In-Reply-To: <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
   This message is in MIME format.  The first part should be readable text,
   while the remaining parts are likely unreadable without MIME-aware tools.
 
---8323328-347538177-1417500468=:1320
+--8323328-1177973235-1417500757=:1335
 Content-Type: TEXT/PLAIN; charset=UTF-8
 Content-Transfer-Encoding: 8BIT
 
-Hi Eli,
-Hi Kevin,
-Hi everyone.
-
-Hoping Kevin answered your question - as he did so in a way I could not have 
-done better.
-It seems a matter of the size, even if I am suspecting this could also all 
-relate to some strange behaviour from the firmware side.
-However - I tried also changing the MTU to smaller values, and "shortcircuit" 
-the negotiation of some NCM parameters, with no results.
-Yes - confirming the device returns an error in this case.
-Interesting also to note that the device claims to be
-"before NCM errata".
-See specs.
+And - let's be precise: Eli is right, in some cases (with some dongles / 
+firmwares, including the one I was / am testing remotely), sometimes DHCP is 
+answered.
+On forums, people experience intermittent results.
+The only thing I am thinking now is thet the firmware cares about the content 
+of the padding area. Crazy, stupid but... I don't know what to think about it 
+now.
+I looked at the .inf file values: and I would suggest to all of you who can run 
+the installation of the product under Windows, to look at the registry key that 
+are set and that the drivers are caring about.
+In my opinion here should be something interesting.
+Looking at the inf files of the *ecm* drivers and tracking down registry values 
+might be effectively useful.
+Enrico.
 
 
 On Mon, 1 Dec 2014, Eli Britstein wrote:
 
 ==Date: Mon, 1 Dec 2014 23:02:16
-==From: Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-==To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-==Cc: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>, Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>,
-==    Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-==    Midge Shaojun  Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-==    "youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-==    "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-==    "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+==From: Eli Britstein <Eli.Britstein@audiocodes.com>
+==To: Enrico Mioso <mrkiko.rs@gmail.com>
+==Cc: Kevin Zhu <Mingying.Zhu@audiocodes.com>, Bjørn Mork <bjorn@mork.no>,
+==    Alex Strizhevsky <alexxst@gmail.com>,
+==    Midge Shaojun  Tan <ShaojunMidge.Tan@audiocodes.com>,
+==    "youtux@gmail.com" <youtux@gmail.com>,
+==    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+==    "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 ==Subject: Re: Is this 32-bit NCM?
 ==
 ==Hi Enrico and all,
@@ -62,7 +66,7 @@ On Mon, 1 Dec 2014, Eli Britstein wrote:
 ==
 ==Sent from my iPhone
 ==
-==> On 1 בדצמ 2014, at 23:11, "Enrico Mioso" <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+==> On 1 בדצמ 2014, at 23:11, "Enrico Mioso" <mrkiko.rs@gmail.com> wrote:
 ==>
 ==> So ... I have two ideas left for now.
 ==> We know for sure the problem is in the way we TX frames, not the way we RX them
@@ -90,8 +94,4 @@ On Mon, 1 Dec 2014, Eli Britstein wrote:
 ==
 ==If you have received this email in error please immediately notify the sender and delete or destroy any copy of this message
 ==
---8323328-347538177-1417500468=:1320--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--8323328-1177973235-1417500757=:1335--
