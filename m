@@ -1,167 +1,165 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net] gso: do GSO for local skb with size bigger than MTU
-Date: Tue, 2 Dec 2014 13:47:07 -0800
-Message-ID: <CAEP_g=_oyUkM=XK0cqLaKa2mS759hrh_ksd8GxbCJJLce-c_DQ@mail.gmail.com>
-References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
- <1417158128.3268.2@smtp.corp.redhat.com> <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com>
- <20141202154425.GA5344@t520.home> <CAEP_g=-wh3rJ2g4Ly=+JGJGOTGa10hbfA5n=8ZS5FF+=XMsxTg@mail.gmail.com>
- <20141202213232.GC5344@t520.home>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2] ip link: Show devices by link type
+Date: Wed, 3 Dec 2014 00:01:37 +0200
+Message-ID: <CAMw6YJJe_u1nL85J8mHR_71E_WY_aHJEC2fs9mynj4NuyQd1Sg@mail.gmail.com>
+References: <1417370335-15772-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: Jesse Gross <jesse@nicira.com>, "Du, Fan" <fan.du@intel.com>,
-	Jason Wang <jasowang@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"fw@strlen.de" <fw@strlen.de>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na6sys009bog019.obsmtp.com ([74.125.150.78]:58776 "HELO
-	na6sys009bog019.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754007AbaLBVre (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 16:47:34 -0500
-Received: by mail-qg0-f45.google.com with SMTP id f51so10029624qge.32
-        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 13:47:27 -0800 (PST)
-In-Reply-To: <20141202213232.GC5344@t520.home>
+Received: from mail-wg0-f53.google.com ([74.125.82.53]:55241 "EHLO
+	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932980AbaLBWBj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 17:01:39 -0500
+Received: by mail-wg0-f53.google.com with SMTP id l18so18270428wgh.40
+        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 14:01:37 -0800 (PST)
+In-Reply-To: <1417370335-15772-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 2, 2014 at 1:32 PM, Flavio Leitner <fbl@redhat.com> wrote:
-> On Tue, Dec 02, 2014 at 10:06:53AM -0800, Jesse Gross wrote:
->> On Tue, Dec 2, 2014 at 7:44 AM, Flavio Leitner <fbl@redhat.com> wrote:
->> > On Sun, Nov 30, 2014 at 10:08:32AM +0000, Du, Fan wrote:
->> >>
->> >>
->> >> >-----Original Message-----
->> >> >From: Jason Wang [mailto:jasowang@redhat.com]
->> >> >Sent: Friday, November 28, 2014 3:02 PM
->> >> >To: Du, Fan
->> >> >Cc: netdev@vger.kernel.org; davem@davemloft.net; fw@strlen.de; Du, Fan
->> >> >Subject: Re: [PATCH net] gso: do GSO for local skb with size bigger than MTU
->> >> >
->> >> >
->> >> >
->> >> >On Fri, Nov 28, 2014 at 2:33 PM, Fan Du <fan.du@intel.com> wrote:
->> >> >> Test scenario: two KVM guests sitting in different hosts communicate
->> >> >> to each other with a vxlan tunnel.
->> >> >>
->> >> >> All interface MTU is default 1500 Bytes, from guest point of view, its
->> >> >> skb gso_size could be as bigger as 1448Bytes, however after guest skb
->> >> >> goes through vxlan encapuslation, individual segments length of a gso
->> >> >> packet could exceed physical NIC MTU 1500, which will be lost at
->> >> >> recevier side.
->> >> >>
->> >> >> So it's possible in virtualized environment, locally created skb len
->> >> >> after encapslation could be bigger than underlayer MTU. In such case,
->> >> >> it's reasonable to do GSO first, then fragment any packet bigger than
->> >> >> MTU as possible.
->> >> >>
->> >> >> +---------------+ TX     RX +---------------+
->> >> >> |   KVM Guest   | -> ... -> |   KVM Guest   |
->> >> >> +-+-----------+-+           +-+-----------+-+
->> >> >>   |Qemu/VirtIO|               |Qemu/VirtIO|
->> >> >>   +-----------+               +-----------+
->> >> >>        |                            |
->> >> >>        v tap0                  tap0 v
->> >> >>   +-----------+               +-----------+
->> >> >>   | ovs bridge|               | ovs bridge|
->> >> >>   +-----------+               +-----------+
->> >> >>        | vxlan                vxlan |
->> >> >>        v                            v
->> >> >>   +-----------+               +-----------+
->> >> >>   |    NIC    |    <------>   |    NIC    |
->> >> >>   +-----------+               +-----------+
->> >> >>
->> >> >> Steps to reproduce:
->> >> >>  1. Using kernel builtin openvswitch module to setup ovs bridge.
->> >> >>  2. Runing iperf without -M, communication will stuck.
->> >> >
->> >> >Is this issue specific to ovs or ipv4? Path MTU discovery should help in this case I
->> >> >believe.
->> >>
->> >> Problem here is host stack push local over-sized gso skb down to NIC, and perform GSO there
->> >> without any further ip segmentation.
->> >>
->> >> Reasonable behavior is do gso first at ip level, if gso-ed skb is bigger than MTU && df is set,
->> >> Then push ICMP_DEST_UNREACH/ICMP_FRAG_NEEDED message back to sender to adjust mtu.
->> >>
->> >> For PMTU to work, that's another issue I will try to address later on.
->> >>
->> >> >>
->> >> >>
->> >> >> Signed-off-by: Fan Du <fan.du@intel.com>
->> >> >> ---
->> >> >>  net/ipv4/ip_output.c |    7 ++++---
->> >> >>  1 files changed, 4 insertions(+), 3 deletions(-)
->> >> >>
->> >> >> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c index
->> >> >> bc6471d..558b5f8 100644
->> >> >> --- a/net/ipv4/ip_output.c
->> >> >> +++ b/net/ipv4/ip_output.c
->> >> >> @@ -217,9 +217,10 @@ static int ip_finish_output_gso(struct sk_buff
->> >> >> *skb)
->> >> >>    struct sk_buff *segs;
->> >> >>    int ret = 0;
->> >> >>
->> >> >> -  /* common case: locally created skb or seglen is <= mtu */
->> >> >> -  if (((IPCB(skb)->flags & IPSKB_FORWARDED) == 0) ||
->> >> >> -        skb_gso_network_seglen(skb) <= ip_skb_dst_mtu(skb))
->> >> >> +  /* Both locally created skb and forwarded skb could exceed
->> >> >> +   * MTU size, so make a unified rule for them all.
->> >> >> +   */
->> >> >> +  if (skb_gso_network_seglen(skb) <= ip_skb_dst_mtu(skb))
->> >> >>            return ip_finish_output2(skb);
->> >
->> >
->> > Are you using kernel's vxlan device or openvswitch's vxlan device?
->> >
->> > Because for kernel's vxlan devices the MTU accounts for the header
->> > overhead so I believe your patch would work.  However, the MTU is
->> > not visible for the ovs's vxlan devices, so that wouldn't work.
->>
->> This is being called after the tunnel code, so the MTU that is being
->> looked at in all cases is the physical device's. Since the packet has
->> already been encapsulated, tunnel header overhead is already accounted
->> for in skb_gso_network_seglen() and this should be fine for both OVS
->> and non-OVS cases.
->
-> Right, it didn't work on my first try and that explanation came to mind.
->
-> Anyway, I am testing this with containers instead of VMs, so I am using
-> veth and not Virtio-net.
->
-> This is the actual stack trace:
->
-> [...]
->   do_output
->   ovs_vport_send
->   vxlan_tnl_send
->   vxlan_xmit_skb
->   udp_tunnel_xmit_skb
->   iptunnel_xmit
->    \ skb_scrub_packet => skb->ignore_df = 0;
->   ip_local_out_sk
->   ip_output
->   ip_finish_output (_gso is inlined)
->   ip_fragment
->
-> and on ip_fragment() it does:
->
->  503         if (unlikely(((iph->frag_off & htons(IP_DF)) && !skb->ignore_df) ||
->  504                      (IPCB(skb)->frag_max_size &&
->  505                       IPCB(skb)->frag_max_size > mtu))) {
->  506                 IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
->  507                 icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
->  508                           htonl(mtu));
->  509                 kfree_skb(skb);
->  510                 return -EMSGSIZE;
->  511         }
->
-> Since IP_DF is set and skb->ignore_df is reset to 0, in my case
-> the packet is dropped and an ICMP is sent back. The connection
-> remains stuck as before. Doesn't virtio-net set DF bit?
+Hi,
 
-I see now - I agree it's not clear how the original patch worked. The
-DF bit is actually set by the encapsulator so it should be the same
-regardless of how the packet got there (in OVS it is on by default).
-It seems like skb_scrub_packet() shouldn't clear skb->ignore_df (or if
-it should in other cases then it seems we need an option to do not it
-for tunnels).
+The few things which were confused me a little:
+
+#1 I think, I was not correct by calling it 'link type' in
+descriptions, because it is rather the interface/device type than
+link type ... so I can resend updated subject + man page in v2.
+
+#2 Another think is that may be it would be better to consider the
+ll_type_n2a too by the same 'ip link show type' or it is better to add
+another option like 'ip link show link ether' and use ll_type_n2a to
+filter devices by link type.
+
+On Sun, Nov 30, 2014 at 7:58 PM, Vadim Kochan <vadim4j@gmail.com> wrote:
+> Added new option 'type' to 'ip link show'
+> command which allows to filter devices by
+> link type name:
+>
+>     ip link show type bridge
+>     ip link show type vlan
+>
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+> ---
+>  ip/ipaddress.c        | 24 ++++++++++++++++++++++++
+>  ip/iplink.c           |  2 +-
+>  man/man8/ip-link.8.in | 20 +++++++++++++++++++-
+>  3 files changed, 44 insertions(+), 2 deletions(-)
+>
+> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+> index 4d99324..a2f7a83 100644
+> --- a/ip/ipaddress.c
+> +++ b/ip/ipaddress.c
+> @@ -57,6 +57,7 @@ static struct
+>         int flushe;
+>         int group;
+>         int master;
+> +       char *link_kind;
+>  } filter;
+>
+>  static int do_link;
+> @@ -189,6 +190,18 @@ static void print_linkmode(FILE *f, struct rtattr *tb)
+>                 fprintf(f, "mode %s ", link_modes[mode]);
+>  }
+>
+> +static char *parse_link_kind(struct rtattr *tb)
+> +{
+> +       struct rtattr *linkinfo[IFLA_INFO_MAX+1];
+> +
+> +       parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb);
+> +
+> +       if (linkinfo[IFLA_INFO_KIND])
+> +               return RTA_DATA(linkinfo[IFLA_INFO_KIND]);
+> +
+> +       return "";
+> +}
+> +
+>  static void print_linktype(FILE *fp, struct rtattr *tb)
+>  {
+>         struct rtattr *linkinfo[IFLA_INFO_MAX+1];
+> @@ -551,6 +564,14 @@ int print_linkinfo(const struct sockaddr_nl *who,
+>         else if (filter.master > 0)
+>                 return -1;
+>
+> +       if (filter.link_kind && tb[IFLA_LINKINFO]) {
+> +               char *link_kind = parse_link_kind(tb[IFLA_LINKINFO]);
+> +               if (strcmp(link_kind, filter.link_kind)) {
+> +                       return -1;
+> +               }
+> +       } else if (filter.link_kind)
+> +               return -1;
+> +
+>         if (n->nlmsg_type == RTM_DELLINK)
+>                 fprintf(fp, "Deleted ");
+>
+> @@ -1293,6 +1314,9 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
+>                         if (!ifindex)
+>                                 invarg("Device does not exist\n", *argv);
+>                         filter.master = ifindex;
+> +               } else if (do_link && strcmp(*argv, "type") == 0) {
+> +                       NEXT_ARG();
+> +                       filter.link_kind = *argv;
+>                 } else {
+>                         if (strcmp(*argv, "dev") == 0) {
+>                                 NEXT_ARG();
+> diff --git a/ip/iplink.c b/ip/iplink.c
+> index ce6eb3e..f9a75d5 100644
+> --- a/ip/iplink.c
+> +++ b/ip/iplink.c
+> @@ -82,7 +82,7 @@ void iplink_usage(void)
+>         fprintf(stderr, "                         [ master DEVICE ]\n");
+>         fprintf(stderr, "                         [ nomaster ]\n");
+>         fprintf(stderr, "                         [ addrgenmode { eui64 | none } ]\n");
+> -       fprintf(stderr, "       ip link show [ DEVICE | group GROUP ] [up] [master DEV]\n");
+> +       fprintf(stderr, "       ip link show [ DEVICE | group GROUP ] [up] [master DEV] [type TYPE]\n");
+>
+>         if (iplink_have_newlink()) {
+>                 fprintf(stderr, "       ip link help [ TYPE ]\n");
+> diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+> index 9d4e3da..4233291 100644
+> --- a/man/man8/ip-link.8.in
+> +++ b/man/man8/ip-link.8.in
+> @@ -148,7 +148,9 @@ ip-link \- network device configuration
+>  .IR GROUP " | "
+>  .BR up " | "
+>  .B master
+> -.IR DEVICE " ]"
+> +.IR DEVICE " | "
+> +.B type
+> +.IR TYPE " ]"
+>
+>  .ti -8
+>  .B ip link help
+> @@ -688,6 +690,12 @@ only display running interfaces.
+>  .I DEVICE
+>  specifies the master device which enslaves devices to show.
+>
+> +.TP
+> +.BI type " TYPE "
+> +.I TYPE
+> +specifies the link type of devices to show.
+> +
+> +.TP
+>  The show command has additional formatting options:
+>
+>  .TP
+> @@ -719,6 +727,16 @@ ip link show
+>  Shows the state of all network interfaces on the system.
+>  .RE
+>  .PP
+> +ip link show type bridge
+> +.RS 4
+> +Shows the bridge devices.
+> +.RE
+> +.PP
+> +ip link show type vlan
+> +.RS 4
+> +Shows the vlan devices.
+> +.RE
+> +.PP
+>  ip link set dev ppp0 mtu 1400
+>  .RS 4
+>  Change the MTU the ppp0 device.
+> --
+> 2.1.3
+>
