@@ -1,42 +1,43 @@
-From: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: [PATCH net-next 2/9] net/mlx5_core: Fix min vectors value in mlx5_enable_msix
-Date: Tue,  2 Dec 2014 12:26:12 +0200
-Message-ID: <1417515979-22418-3-git-send-email-eli@mellanox.com>
+From: Eli Cohen <eli@dev.mellanox.co.il>
+Subject: [PATCH net-next 3/9] net/mlx5_core: Fix command queue size enforcement
+Date: Tue,  2 Dec 2014 12:26:13 +0200
+Message-ID: <1417515979-22418-4-git-send-email-eli@mellanox.com>
 References: <1417515979-22418-1-git-send-email-eli@mellanox.com>
-Cc: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1417515979-22418-1-git-send-email-eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: roland@kernel.org, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, ogerlitz@mellanox.com, amirv@mellanox.com,
+	Eli Cohen <eli@mellanox.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:35760 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753571AbaLBK0h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 05:26:37 -0500
+Received: by mail-wg0-f41.google.com with SMTP id y19so16575840wgg.28
+        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 02:26:36 -0800 (PST)
+In-Reply-To: <1417515979-22418-1-git-send-email-eli@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-mlx5 requires at least one interrupt vector for completions so fix the minvec
-argument to pci_enable_msix_range() accordingly.
+Command queue descriptor page size is 4KB and not the page size used by the
+kernel.
 
-Signed-off-by: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Eli Cohen <eli@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c | 2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 4e3c27e77768..c9d4a024f186 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -226,7 +226,7 @@ static int mlx5_enable_msix(struct mlx5_core_dev *dev)
- 		table->msix_arr[i].entry = i;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index 368c6c5ea014..a2853057c779 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -1363,7 +1363,7 @@ int mlx5_cmd_init(struct mlx5_core_dev *dev)
+ 		goto err_map;
+ 	}
  
- 	nvec = pci_enable_msix_range(dev->pdev, table->msix_arr,
--				     MLX5_EQ_VEC_COMP_BASE, nvec);
-+				     MLX5_EQ_VEC_COMP_BASE + 1, nvec);
- 	if (nvec < 0)
- 		return nvec;
- 
+-	if (cmd->log_sz + cmd->log_stride > PAGE_SHIFT) {
++	if (cmd->log_sz + cmd->log_stride > MLX5_ADAPTER_PAGE_SHIFT) {
+ 		dev_err(&dev->pdev->dev, "command queue size overflow\n");
+ 		err = -EINVAL;
+ 		goto err_map;
 -- 
 2.1.3
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
