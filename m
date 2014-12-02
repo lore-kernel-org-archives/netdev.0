@@ -1,7 +1,7 @@
 From: David L Stevens <david.stevens@oracle.com>
-Subject: [PATCH net-next 3/6] sunvnet: add scatter/gather support
-Date: Tue, 02 Dec 2014 15:31:13 -0500
-Message-ID: <547E2191.2090909@oracle.com>
+Subject: [PATCH net-next 4/6] sunvnet: add checksum offload support
+Date: Tue, 02 Dec 2014 15:31:22 -0500
+Message-ID: <547E219A.7010706@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -9,190 +9,98 @@ Cc: netdev@vger.kernel.org,
 	Sowmini Varadhan <sowmini.varadhan@oracle.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:31027 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933360AbaLBUbS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 15:31:18 -0500
+Received: from aserp1040.oracle.com ([141.146.126.69]:31305 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933360AbaLBUb1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 15:31:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds scatter/gather support to the sunvnet driver.
+This patch adds support for sender-side checksum offloading.
 
 Signed-off-by: David L Stevens <david.stevens@oracle.com>
 ---
- drivers/net/ethernet/sun/sunvnet.c |   97 ++++++++++++++++++++++++++++--------
- 1 files changed, 76 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/sun/sunvnet.c |   37 +++++++++++++++++++++++++++++++++--
+ 1 files changed, 34 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index 7a8da56..b6a5336 100644
+index b6a5336..b172eda 100644
 --- a/drivers/net/ethernet/sun/sunvnet.c
 +++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -15,6 +15,7 @@
- #include <linux/ethtool.h>
- #include <linux/etherdevice.h>
- #include <linux/mutex.h>
-+#include <linux/highmem.h>
- #include <linux/if_vlan.h>
- 
- #if IS_ENABLED(CONFIG_IPV6)
-@@ -978,11 +979,54 @@ static void vnet_clean_timer_expire(unsigned long port0)
- 		del_timer(&port->clean_timer);
- }
- 
--static inline struct sk_buff *vnet_skb_shape(struct sk_buff *skb, void **pstart,
--					     int *plen)
-+static inline int vnet_skb_map(struct ldc_channel *lp, struct sk_buff *skb,
-+			       struct ldc_trans_cookie *cookies, int ncookies,
-+			       unsigned int map_perm)
-+{
-+	int i, nc, err, blen;
-+
-+	/* header */
-+	blen = skb_headlen(skb);
-+	if (blen < ETH_ZLEN)
-+		blen = ETH_ZLEN;
-+	blen += VNET_PACKET_SKIP;
-+	blen += 8 - (blen & 7);
-+
-+	err = ldc_map_single(lp, skb->data-VNET_PACKET_SKIP, blen, cookies,
-+			     ncookies, map_perm);
-+	if (err < 0)
-+		return err;
-+	nc = err;
-+
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
-+		u8 *vaddr;
-+
-+		if (nc < ncookies) {
-+			vaddr = kmap_atomic(skb_frag_page(f));
-+			blen = skb_frag_size(f);
-+			blen += 8 - (blen & 7);
-+			err = ldc_map_single(lp, vaddr + f->page_offset,
-+					     blen, cookies + nc, ncookies - nc,
-+					     map_perm);
-+			kunmap_atomic(vaddr);
-+		} else {
-+			err = -EMSGSIZE;
-+		}
-+
-+		if (err < 0) {
-+			ldc_unmap(lp, cookies, nc);
-+			return err;
-+		}
-+		nc += err;
-+	}
-+	return nc;
-+}
-+
-+static inline struct sk_buff *vnet_skb_shape(struct sk_buff *skb, int ncookies)
- {
- 	struct sk_buff *nskb;
--	int len, pad;
-+	int i, len, pad, docopy;
- 
- 	len = skb->len;
- 	pad = 0;
-@@ -992,14 +1036,25 @@ static inline struct sk_buff *vnet_skb_shape(struct sk_buff *skb, void **pstart,
+@@ -375,6 +375,8 @@ static int vnet_rx_one(struct vnet_port *port, struct vio_net_desc *desc)
+ 		}
  	}
- 	len += VNET_PACKET_SKIP;
- 	pad += 8 - (len & 7);
--	len += 8 - (len & 7);
  
-+	/* make sure we have enough cookies and alignment in every frag */
-+	docopy = skb_shinfo(skb)->nr_frags >= ncookies;
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
++	skb->ip_summed = port->switch_port ? CHECKSUM_NONE : CHECKSUM_PARTIAL;
 +
-+		docopy |= f->page_offset & 7;
-+	}
+ 	dev->stats.rx_packets++;
+ 	dev->stats.rx_bytes += len;
+ 	napi_gro_receive(&port->napi, skb);
+@@ -1047,7 +1049,8 @@ static inline struct sk_buff *vnet_skb_shape(struct sk_buff *skb, int ncookies)
  	if (((unsigned long)skb->data & 7) != VNET_PACKET_SKIP ||
  	    skb_tailroom(skb) < pad ||
--	    skb_headroom(skb) < VNET_PACKET_SKIP) {
-+	    skb_headroom(skb) < VNET_PACKET_SKIP || docopy) {
- 		int offset;
+ 	    skb_headroom(skb) < VNET_PACKET_SKIP || docopy) {
+-		int offset;
++		int start = 0, offset;
++		__wsum csum;
  
--		nskb = alloc_and_align_skb(skb->dev, skb->len);
-+		len = skb->len > ETH_ZLEN ? skb->len : ETH_ZLEN;
-+		nskb = alloc_and_align_skb(skb->dev, len);
-+		if (nskb == NULL) {
-+			dev_kfree_skb(skb);
-+			return NULL;
-+		}
- 		skb_reserve(nskb, VNET_PACKET_SKIP);
+ 		len = skb->len > ETH_ZLEN ? skb->len : ETH_ZLEN;
+ 		nskb = alloc_and_align_skb(skb->dev, len);
+@@ -1065,10 +1068,35 @@ static inline struct sk_buff *vnet_skb_shape(struct sk_buff *skb, int ncookies)
+ 		offset = skb_transport_header(skb) - skb->data;
+ 		skb_set_transport_header(nskb, offset);
  
- 		nskb->protocol = skb->protocol;
-@@ -1022,9 +1077,6 @@ static inline struct sk_buff *vnet_skb_shape(struct sk_buff *skb, void **pstart,
- 		dev_kfree_skb(skb);
- 		skb = nskb;
- 	}
--
--	*pstart = skb->data - VNET_PACKET_SKIP;
--	*plen = len;
- 	return skb;
- }
++		offset = 0;
+ 		nskb->csum_offset = skb->csum_offset;
+ 		nskb->ip_summed = skb->ip_summed;
  
-@@ -1049,15 +1101,9 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	unsigned int len;
- 	struct sk_buff *freeskbs = NULL;
- 	int i, err, txi;
--	void *start = NULL;
--	int nlen = 0;
- 	unsigned pending = 0;
- 	struct netdev_queue *txq;
- 
--	skb = vnet_skb_shape(skb, &start, &nlen);
--	if (unlikely(!skb))
--		goto out_dropped;
--
- 	rcu_read_lock();
- 	port = __tx_port_find(vp, skb);
- 	if (unlikely(!port)) {
-@@ -1097,6 +1143,13 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+-		if (skb_copy_bits(skb, 0, nskb->data, skb->len)) {
++		if (skb->ip_summed == CHECKSUM_PARTIAL)
++			start = skb_checksum_start_offset(skb);
++		if (start) {
++			struct iphdr *iph = ip_hdr(nskb);
++			int offset = start + nskb->csum_offset;
++
++			if (skb_copy_bits(skb, 0, nskb->data, start)) {
++				dev_kfree_skb(nskb);
++				dev_kfree_skb(skb);
++				return NULL;
++			}
++			*(__sum16 *)(skb->data + offset) = 0;
++			csum = skb_copy_and_csum_bits(skb, start,
++						      nskb->data + start,
++						      skb->len - start, 0);
++			if (iph->protocol == IPPROTO_TCP ||
++			    iph->protocol == IPPROTO_UDP) {
++				csum = csum_tcpudp_magic(iph->saddr, iph->daddr,
++							 skb->len - start,
++							 iph->protocol, csum);
++			}
++			*(__sum16 *)(nskb->data + offset) = csum;
++
++			nskb->ip_summed = CHECKSUM_NONE;
++		} else if (skb_copy_bits(skb, 0, nskb->data, skb->len)) {
+ 			dev_kfree_skb(nskb);
+ 			dev_kfree_skb(skb);
+ 			return NULL;
+@@ -1150,6 +1178,9 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
  		goto out_dropped;
  	}
  
-+	skb = vnet_skb_shape(skb, 2);
-+
-+	if (unlikely(!skb)) {
-+		rcu_read_unlock();
-+		goto out_dropped;
-+	}
++	if (skb->ip_summed == CHECKSUM_PARTIAL)
++		vnet_fullcsum(skb);
 +
  	dr = &port->vio.drings[VIO_DRIVER_TX_RING];
  	i = skb_get_queue_mapping(skb);
  	txq = netdev_get_tx_queue(dev, i);
-@@ -1124,16 +1177,15 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (len < ETH_ZLEN)
- 		len = ETH_ZLEN;
- 
--	port->tx_bufs[txi].skb = skb;
--	skb = NULL;
--
--	err = ldc_map_single(port->vio.lp, start, nlen,
--			     port->tx_bufs[txi].cookies, VNET_MAXCOOKIES,
--			     (LDC_MAP_SHADOW | LDC_MAP_DIRECT | LDC_MAP_RW));
-+	err = vnet_skb_map(port->vio.lp, skb, port->tx_bufs[txi].cookies, 2,
-+			   (LDC_MAP_SHADOW | LDC_MAP_DIRECT | LDC_MAP_RW));
- 	if (err < 0) {
- 		netdev_info(dev, "tx buffer map error %d\n", err);
- 		goto out_dropped;
- 	}
-+
-+	port->tx_bufs[txi].skb = skb;
-+	skb = NULL;
- 	port->tx_bufs[txi].ncookies = err;
- 
- 	/* We don't rely on the ACKs to free the skb in vnet_start_xmit(),
-@@ -1559,6 +1611,9 @@ static struct vnet *vnet_new(const u64 *local_mac)
+@@ -1611,7 +1642,7 @@ static struct vnet *vnet_new(const u64 *local_mac)
  	dev->ethtool_ops = &vnet_ethtool_ops;
  	dev->watchdog_timeo = VNET_TX_TIMEOUT;
  
-+	dev->hw_features = NETIF_F_SG;
-+	dev->features = dev->hw_features;
-+
+-	dev->hw_features = NETIF_F_SG;
++	dev->hw_features = NETIF_F_HW_CSUM | NETIF_F_SG;
+ 	dev->features = dev->hw_features;
+ 
  	err = register_netdev(dev);
- 	if (err) {
- 		pr_err("Cannot register net device, aborting\n");
 -- 
 1.7.1
