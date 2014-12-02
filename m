@@ -1,37 +1,103 @@
-From: Michael Tokarev <mjt-XAri/EZa3C4vJsYlp49lxw@public.gmane.org>
-Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
-Date: Wed, 03 Dec 2014 00:40:13 +0300
-Message-ID: <547E31BD.8090302@msgid.tls.msk.ru>
-References: <53FDACD1.8090805@msgid.tls.msk.ru> <54363ED0.605@broadcom.com> <CACna6rw3XgdJz0uKkAuas8RTzozTdFp2mgF5g1uo7LHJVSMt4g@mail.gmail.com> <3543341.FmUQFH9nrl@eisbaer> <546C5D1F.108@msgid.tls.msk.ru> <546CD94D.9060509@broadcom.com> <546CF66A.3000207@msgid.tls.msk.ru> <546D04EE.1030200@msgid.tls.msk.ru> <5471AC29.6040009@broadcom.com> <5475A2DC.80502@msgid.tls.msk.ru> <547B07CF.90501@broadcom.com>
+From: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
+Subject: [PATCH v7 0/3] net: Add Keystone NetCP ethernet driver support
+Date: Tue, 2 Dec 2014 16:41:40 -0500
+Message-ID: <1417556503-22290-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Maximilian Engelhardt <maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>,
-	=?UTF-8?B?UmFmYcWCIE1pxYJl?= =?UTF-8?B?Y2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Seth Forshee <seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	brcm80211 development <brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <547B07CF.90501-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
+	Sandeep Nair <sandeepn02-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Santosh Shilimkar <santosh.shilimkar-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-30.11.2014 15:04, Arend van Spriel wrote:
+v6->v7
+Fixed some minor documentation error and also modified the netcp driver
+to fix the set* functions to include correct le/be macros.
 
-> Thanks. Did not find what I was looking for, but I started working on
-> integrating btcoex related functionality. The attached patch will print
-> some info so I can focus on the required functionality for your device.
-> It is based on 3.18-rc5.
+v5->v6
+updated version after incorporating comments [6] from David Miller,
+David Laight & Geert Uytterhoeven on v5. I would like get this in
+for v3.19 merge window if the latest version is acceptable.
 
-With this patch applied against 3.18-rc5, the machine instantly reboots
-once brcmsmac module is loaded.  I'm still debugging this.
+v4->v5
+Sorry to spin v5 quickly but I missed few check-patch warnings which
+were pointed by Joe Perches(thanks). I folded his changes [5] along with
+few more check-patch warning fixes. I would like get this in for v3.18
+merge window if David is happy with this version.
 
-Thanks,
+v3->v4
+Couple of fixes in in error path as pointed [4] out by David. Rest of
+the patches are unchanged from v3. 
 
-/mjt
+v2->v3
+Update v3 after incorporating Jamal and David Miller's comment/suggestion
+from earlier versions [1] [2].  After per the discussion here [3], the
+controversial custom exports have been dropped now. And for future
+future offload support additions, we will plug into generic frameworks
+as an when they are available.
+
+The network coprocessor (NetCP) is a hardware accelerator that processes
+Ethernet packets. NetCP has a gigabit Ethernet (GbE) subsystem with a ethernet
+switch sub-module to send and receive packets. NetCP also includes a packet
+accelerator (PA) module to perform packet classification operations such as
+header matching, and packet modification operations such as checksum
+generation. NetCP can also optionally include a Security Accelerator(SA)
+capable of performing IPSec operations on ingress/egress packets.
+    
+Keystone SoC's also have a 10 Gigabit Ethernet Subsystem (XGbE) which
+includes a 3-port Ethernet switch sub-module capable of 10Gb/s and
+1Gb/s rates per Ethernet port.
+    
+Both GBE and XGBE network processors supported using common driver. It
+is also designed to handle future variants of NetCP.
+
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Cc: Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Cc: Sandeep Nair <sandeepn02-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: Santosh Shilimkar <santosh.shilimkar-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+
+Murali Karicheri (1):
+  MAINTAINER: net: Add TI NETCP Ethernet driver entry
+
+Sandeep Nair (2):
+  Documentation: dt: net: Add binding doc for Keystone NetCP ethernet
+    driver
+  net: Add Keystone NetCP ethernet driver
+
+ .../devicetree/bindings/net/keystone-netcp.txt     |  197 ++
+ MAINTAINERS                                        |    8 +
+ drivers/net/ethernet/ti/Kconfig                    |   12 +-
+ drivers/net/ethernet/ti/Makefile                   |    4 +
+ drivers/net/ethernet/ti/netcp.h                    |  227 ++
+ drivers/net/ethernet/ti/netcp_core.c               | 2262 ++++++++++++++++++++
+ drivers/net/ethernet/ti/netcp_ethss.c              | 2159 +++++++++++++++++++
+ drivers/net/ethernet/ti/netcp_sgmii.c              |  130 ++
+ drivers/net/ethernet/ti/netcp_xgbepcsr.c           |  501 +++++
+ 9 files changed, 5499 insertions(+), 1 deletion(-)
+ create mode 100644 Documentation/devicetree/bindings/net/keystone-netcp.txt
+ create mode 100644 drivers/net/ethernet/ti/netcp.h
+ create mode 100644 drivers/net/ethernet/ti/netcp_core.c
+ create mode 100644 drivers/net/ethernet/ti/netcp_ethss.c
+ create mode 100644 drivers/net/ethernet/ti/netcp_sgmii.c
+ create mode 100644 drivers/net/ethernet/ti/netcp_xgbepcsr.c
+
+[1] https://lkml.org/lkml/2014/4/22/805
+[2] https://lkml.org/lkml/2014/8/15/218
+[3] https://lkml.org/lkml/2014/9/11/691
+[4] https://lkml.org/lkml/2014/9/15/403
+[5] https://lkml.org/lkml/2014/9/25/332
+[6] https://lkml.org/lkml/2014/9/29/639
+
+-- 
+1.7.9.5
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
