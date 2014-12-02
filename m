@@ -1,77 +1,81 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 1/2] net: bcmgenet: add support for new GENET PHY revision scheme
-Date: Tue,  2 Dec 2014 15:28:01 -0800
-Message-ID: <1417562882-2511-2-git-send-email-f.fainelli@gmail.com>
-References: <1417562882-2511-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: stmmac: platform: fix default values of the filter bins setting
+Date: Tue, 2 Dec 2014 16:41:08 -0700
+Message-ID: <CAErSpo4-Kd2WTQHO01Syce4oj_w+Oui6kMcucLZNsWi-v8u4WA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Vince Bridgers <vbridgers2013@gmail.com>
+To: Huacai Chen <chenhc@lemote.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:64258 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933263AbaLBX2O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 18:28:14 -0500
-Received: by mail-pd0-f170.google.com with SMTP id fp1so14205600pdb.29
-        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 15:28:13 -0800 (PST)
-In-Reply-To: <1417562882-2511-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-qa0-f51.google.com ([209.85.216.51]:61236 "EHLO
+	mail-qa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933192AbaLBXl3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 18:41:29 -0500
+Received: by mail-qa0-f51.google.com with SMTP id k15so9753107qaq.10
+        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 15:41:28 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Starting with GPHY revision G0, the GENET register layout has changed to
-use the same numbering scheme as the Starfighter 2 switch. This means
-that GPHY major revision is in bits 15:12, minor in bits 11:8 and patch
-level is in bits 7:4.
+Looks like 571dcfde2371 ("stmmac: platform: fix default values of the
+filter bins setting") introduced the following error.  Either
 
-Introduce a small heuristic which checks for the old scheme first, tests
-for the new scheme and finally attempts to catch reserved values and
-aborts.
+  1) "plat_dat" can never be NULL, and the test and associated code
+should be removed, or
+  2) "plat_dat" may be NULL, and we may now dereference it and cause an oops.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 24 +++++++++++++++++++++++-
- 1 file changed, 23 insertions(+), 1 deletion(-)
+---------- Forwarded message ----------
+From:  <scan-admin@coverity.com>
+Date: Tue, Dec 2, 2014 at 4:16 PM
+Subject: New Defects reported by Coverity Scan for Linux
+To: bhelgaas@google.com
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index f2fadb053d52..23e283174c4e 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -2503,6 +2503,7 @@ static void bcmgenet_set_hw_params(struct bcmgenet_priv *priv)
- 	struct bcmgenet_hw_params *params;
- 	u32 reg;
- 	u8 major;
-+	u16 gphy_rev;
- 
- 	if (GENET_IS_V4(priv)) {
- 		bcmgenet_dma_regs = bcmgenet_dma_regs_v3plus;
-@@ -2551,8 +2552,29 @@ static void bcmgenet_set_hw_params(struct bcmgenet_priv *priv)
- 	 * to pass this information to the PHY driver. The PHY driver expects
- 	 * to find the PHY major revision in bits 15:8 while the GENET register
- 	 * stores that information in bits 7:0, account for that.
-+	 *
-+	 * On newer chips, starting with PHY revision G0, a new scheme is
-+	 * deployed similar to the Starfighter 2 switch with GPHY major
-+	 * revision in bits 15:8 and patch level in bits 7:0. Major revision 0
-+	 * is reserved as well as special value 0x01ff, we have a small
-+	 * heuristic to check for the new GPHY revision and re-arrange things
-+	 * so the GPHY driver is happy.
- 	 */
--	priv->gphy_rev = (reg & 0xffff) << 8;
-+	gphy_rev = (reg & 0xffff);
-+
-+	/* This the good old scheme, just GPHY major, no minor nor patch */
-+	if ((gphy_rev & 0xf0) != 0)
-+		priv->gphy_rev = gphy_rev << 8;
-+
-+	/* This is the new scheme, GPHY major rolls over with 0x10 = rev G0 */
-+	else if ((gphy_rev & 0xff00) != 0)
-+		priv->gphy_rev = gphy_rev;
-+
-+	/* This is reserved so should require special treatment */
-+	else if (gphy_rev == 0 || gphy_rev == 0x01ff) {
-+		pr_warn("Invalid GPHY revision detected: 0x%04x\n", gphy_rev);
-+		return;
-+	}
- 
- #ifdef CONFIG_PHYS_ADDR_T_64BIT
- 	if (!(params->flags & GENET_HAS_40BITS))
--- 
-2.1.0
+
+
+Hi,
+
+Please find the latest report on new defect(s) introduced to Linux
+found with Coverity Scan.
+
+1 new defect(s) introduced to Linux found with Coverity Scan.
+5 defect(s), reported by Coverity Scan earlier, were marked fixed in
+the recent build analyzed by Coverity Scan.
+
+New defect(s) Reported-by: Coverity Scan
+Showing 1 of 1 defect(s)
+
+
+** CID 1256529:  Dereference before null check  (REVERSE_INULL)
+/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c: 275 in
+stmmac_pltfr_probe()
+
+
+________________________________________________________________________________________________________
+*** CID 1256529:  Dereference before null check  (REVERSE_INULL)
+/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c: 275 in
+stmmac_pltfr_probe()
+269             plat_dat->multicast_filter_bins = HASH_TABLE_SIZE;
+270
+271             /* Set default value for unicast filter entries */
+272             plat_dat->unicast_filter_entries = 1;
+273
+274             if (pdev->dev.of_node) {
+>>>     CID 1256529:  Dereference before null check  (REVERSE_INULL)
+>>>     Null-checking "plat_dat" suggests that it may be null, but it has already been dereferenced on all paths leading to the check.
+275                     if (!plat_dat)
+276                             plat_dat = devm_kzalloc(&pdev->dev,
+277                                             sizeof(struct
+plat_stmmacenet_data),
+278                                             GFP_KERNEL);
+279                     if (!plat_dat) {
+280                             pr_err("%s: ERROR: no memory", __func__);
+
+
+________________________________________________________________________________________________________
+To view the defects in Coverity Scan visit,
+http://scan.coverity.com/projects/128?tab=overview
+
+To unsubscribe from the email notification for new defects,
+http://scan5.coverity.com/cgi-bin/unsubscribe.py
