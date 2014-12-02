@@ -1,40 +1,34 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 5/6] net_sched: cls_flow: remove duplicate assignments
-Date: Tue,  2 Dec 2014 18:00:35 +0100
-Message-ID: <1417539636-12710-6-git-send-email-jiri@resnulli.us>
-References: <1417539636-12710-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com
-To: netdev@vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net] gso: do GSO for local skb with size bigger than MTU
+Date: Tue, 2 Dec 2014 17:09:27 +0000
+Message-ID: <20141202170927.GA9457@casper.infradead.org>
+References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
+ <1417158128.3268.2@smtp.corp.redhat.com>
+ <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com>
+ <20141201135225.GA16814@casper.infradead.org>
+ <20141202154839.GB5344@t520.home>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: "Du, Fan" <fan.du@intel.com>, 'Jason Wang' <jasowang@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"fw@strlen.de" <fw@strlen.de>, dev@openvswitch.org, mst@redhat.com,
+	jesse@nicira.com, pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f51.google.com ([74.125.82.51]:42613 "EHLO
-	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754121AbaLBRH5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 12:07:57 -0500
-Received: by mail-wg0-f51.google.com with SMTP id k14so17363852wgh.24
-        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 09:07:56 -0800 (PST)
-In-Reply-To: <1417539636-12710-1-git-send-email-jiri@resnulli.us>
+Received: from casper.infradead.org ([85.118.1.10]:37713 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753306AbaLBRJc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 12:09:32 -0500
+Content-Disposition: inline
+In-Reply-To: <20141202154839.GB5344@t520.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/sched/cls_flow.c | 3 ---
- 1 file changed, 3 deletions(-)
+On 12/02/14 at 01:48pm, Flavio Leitner wrote:
+> What about containers or any other virtualization environment that
+> doesn't use Virtio?
 
-diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
-index a605739..819c230 100644
---- a/net/sched/cls_flow.c
-+++ b/net/sched/cls_flow.c
-@@ -426,10 +426,7 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
- 			goto err2;
- 
- 		/* Copy fold into fnew */
--		fnew->handle = fold->handle;
--		fnew->keymask = fold->keymask;
- 		fnew->tp = fold->tp;
--
- 		fnew->handle = fold->handle;
- 		fnew->nkeys = fold->nkeys;
- 		fnew->keymask = fold->keymask;
--- 
-1.9.3
+The host can dictate the MTU in that case for both veth or OVS
+internal which would be primary container plumbing techniques.
+
+ivshmem would need it's own fix.
