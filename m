@@ -1,57 +1,66 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH RFC v4 net-next 0/5] virtio_net: enabling tx interrupts
-Date: Tue, 2 Dec 2014 10:00:06 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CA007CC@AcuExch.aculab.com>
-References: <1417429028-11971-1-git-send-email-jasowang@redhat.com>
-	<20141201104223.GB16108@redhat.com>
-	<1417490120.4405.2@smtp.corp.redhat.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next] rtnetlink: delay RTM_DELLINK notification until
+ after ndo_uninit()
+Date: Tue, 2 Dec 2014 10:07:46 +0000
+Message-ID: <20141202100746.GA13717@casper.infradead.org>
+References: <1417499650-29176-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "pagupta@redhat.com" <pagupta@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>
-To: 'Jason Wang' <jasowang@redhat.com>, "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1417490120.4405.2@smtp.corp.redhat.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+To: Mahesh Bandewar <maheshb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:35654 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751371AbaLBKHv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 05:07:51 -0500
+Content-Disposition: inline
+In-Reply-To: <1417499650-29176-1-git-send-email-maheshb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang
-> > On Mon, Dec 01, 2014 at 06:17:03PM +0800, Jason Wang wrote:
-> >>  Hello:
-> >>
-> >>  We used to orphan packets before transmission for virtio-net. This
-> >> breaks
-> >>  socket accounting and can lead serveral functions won't work, e.g:
-> >>
-> >>  - Byte Queue Limit depends on tx completion nofication to work.
-> >>  - Packet Generator depends on tx completion nofication for the last
-> >>    transmitted packet to complete.
-> >>  - TCP Small Queue depends on proper accounting of sk_wmem_alloc to
-> >> work.
-> >>
-> >>  This series tries to solve the issue by enabling tx interrupts. To
-> >> minize
-> >>  the performance impacts of this, several optimizations were used:
-> >>
-> >>  - In guest side, virtqueue_enable_cb_delayed() was used to delay the tx
-> >>    interrupt untile 3/4 pending packets were sent.
+On 12/01/14 at 09:54pm, Mahesh Bandewar wrote:
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -2220,8 +2220,16 @@ static int rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb)
+>  	return skb->len;
+>  }
+>  
+> -void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
+> -		  gfp_t flags)
+> +void rtmsg_ifinfo_send(struct sk_buff *skb, struct net_device *dev, gfp_t flags)
+> +{
+> +	struct net *net = dev_net(dev);
+> +
+> +	rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, flags);
+> +}
+> +EXPORT_SYMBOL(rtmsg_ifinfo_send);
+> +
+> +struct sk_buff *rtmsg_ifinfo(int type, struct net_device *dev,
+> +			     unsigned int change, gfp_t flags, bool fill_only)
+>  {
+>  	struct net *net = dev_net(dev);
+>  	struct sk_buff *skb;
+> @@ -2239,11 +2247,15 @@ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
+>  		kfree_skb(skb);
+>  		goto errout;
+>  	}
+> +	if (fill_only)
+> +	    return skb;
+> +
+>  	rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, flags);
+> -	return;
+> +	return NULL;
+>  errout:
+>  	if (err < 0)
+>  		rtnl_set_sk_err(net, RTNLGRP_LINK, err);
+> +	return NULL;
+>  }
 
-Doesn't that give problems for intermittent transmits?
-
-...
-
-	David
+I think it would be cleaner to introduce a new function, for example
+rtmsg_ifinfo_build_skb() which is called from rtmsg_ifinfo(). The
+single caller that requires delayed sending can use the build skb
+function directly and then send it off.
