@@ -1,7 +1,7 @@
 From: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: [PATCH net-next 1/9] net/mlx5_core: Request the mlx5 IB module on driver load
-Date: Tue,  2 Dec 2014 12:26:11 +0200
-Message-ID: <1417515979-22418-2-git-send-email-eli@mellanox.com>
+Subject: [PATCH net-next 2/9] net/mlx5_core: Fix min vectors value in mlx5_enable_msix
+Date: Tue,  2 Dec 2014 12:26:12 +0200
+Message-ID: <1417515979-22418-3-git-send-email-eli@mellanox.com>
 References: <1417515979-22418-1-git-send-email-eli@mellanox.com>
 Cc: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
@@ -12,46 +12,27 @@ In-Reply-To: <1417515979-22418-1-git-send-email-eli-VPRAkNaXOzVWk0Htik3J/w@publi
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Call request module on mlx5_ib so it will be available for applications
-requiring it, such as installers that require boot over IB.
+mlx5 requires at least one interrupt vector for completions so fix the minvec
+argument to pci_enable_msix_range() accordingly.
 
 Signed-off-by: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 71b10b210792..4e3c27e77768 100644
+index 4e3c27e77768..c9d4a024f186 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -43,6 +43,7 @@
- #include <linux/mlx5/qp.h>
- #include <linux/mlx5/srq.h>
- #include <linux/debugfs.h>
-+#include <linux/kmod.h>
- #include <linux/mlx5/mlx5_ifc.h>
- #include "mlx5_core.h"
+@@ -226,7 +226,7 @@ static int mlx5_enable_msix(struct mlx5_core_dev *dev)
+ 		table->msix_arr[i].entry = i;
  
-@@ -840,6 +841,8 @@ struct mlx5_core_event_handler {
- 		      void *data);
- };
+ 	nvec = pci_enable_msix_range(dev->pdev, table->msix_arr,
+-				     MLX5_EQ_VEC_COMP_BASE, nvec);
++				     MLX5_EQ_VEC_COMP_BASE + 1, nvec);
+ 	if (nvec < 0)
+ 		return nvec;
  
-+#define MLX5_IB_MOD "mlx5_ib"
-+
- static int init_one(struct pci_dev *pdev,
- 		    const struct pci_device_id *id)
- {
-@@ -878,6 +881,10 @@ static int init_one(struct pci_dev *pdev,
- 		goto out_init;
- 	}
- 
-+	err = request_module_nowait(MLX5_IB_MOD);
-+	if (err)
-+		pr_info("failed request module on %s\n", MLX5_IB_MOD);
-+
- 	return 0;
- 
- out_init:
 -- 
 2.1.3
 
