@@ -1,65 +1,79 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net] gso: do GSO for local skb with size bigger than MTU
-Date: Tue, 2 Dec 2014 10:12:04 -0800
-Message-ID: <CAEP_g=-86Z6pxNow-wjnbx_v9er_TSn6x5waigqVqYHa7tEQJw@mail.gmail.com>
-References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
- <1417158128.3268.2@smtp.corp.redhat.com> <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com>
- <20141201135225.GA16814@casper.infradead.org> <20141202154839.GB5344@t520.home>
- <20141202170927.GA9457@casper.infradead.org> <20141202173401.GB4126@redhat.com>
- <20141202174158.GB9457@casper.infradead.org>
+Subject: Re: [PATCHv2 net] i40e: Implement ndo_gso_check()
+Date: Tue, 2 Dec 2014 10:26:31 -0800
+Message-ID: <CAEP_g=9Yg-pZf9-Wb4qrZhAMSB=edqDxBXSRskWCturt-nnxTg@mail.gmail.com>
+References: <1416525081-27779-1-git-send-email-joestringer@nicira.com>
+ <CAEP_g=-VEWi2Qo6gcJGr2+NXWEhkuMyu7BiAke6H=x+PTLcNcg@mail.gmail.com>
+ <CANr6G5zrA6NUtcyhX1cwEO1Hiq9jnarB36P6m5eoHUFqWWc26Q@mail.gmail.com>
+ <CANr6G5xRbG=UnJEdBEN_5ZRjNikCjuUseb1VbQmjjfb36jDP0g@mail.gmail.com>
+ <CA+mtBx-Q=Ebrx_8NVB5mWURj-oWB3gdNs5fSAL=Frr9sOmyvHw@mail.gmail.com>
+ <CAEP_g=979u0baWXGmCxo61a-KYEUwkruqBNof_zQpsvJxRFqSA@mail.gmail.com> <CA+mtBx9RwkJ9b84d_OkCtOunFBsuqw276=5E+Qhoqq75utCR4w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	"Du, Fan" <fan.du@intel.com>, Jason Wang <jasowang@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"fw@strlen.de" <fw@strlen.de>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	Pravin Shelar <pshelar@nicira.com>
-To: Thomas Graf <tgraf@suug.ch>
+Cc: Joe Stringer <joestringer@nicira.com>,
+	netdev <netdev@vger.kernel.org>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"linux.nics" <linux.nics@intel.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na6sys009bog017.obsmtp.com ([74.125.150.74]:39384 "HELO
-	na6sys009bog017.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S932551AbaLBSM0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 13:12:26 -0500
-Received: by mail-qa0-f43.google.com with SMTP id bm13so9088473qab.2
-        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 10:12:25 -0800 (PST)
-In-Reply-To: <20141202174158.GB9457@casper.infradead.org>
+Received: from na6sys009bog028.obsmtp.com ([74.125.150.102]:35868 "HELO
+	na6sys009bog028.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754386AbaLBS0x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 13:26:53 -0500
+Received: by mail-qc0-f171.google.com with SMTP id r5so9993804qcx.30
+        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 10:26:51 -0800 (PST)
+In-Reply-To: <CA+mtBx9RwkJ9b84d_OkCtOunFBsuqw276=5E+Qhoqq75utCR4w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 2, 2014 at 9:41 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> On 12/02/14 at 07:34pm, Michael S. Tsirkin wrote:
->> On Tue, Dec 02, 2014 at 05:09:27PM +0000, Thomas Graf wrote:
->> > On 12/02/14 at 01:48pm, Flavio Leitner wrote:
->> > > What about containers or any other virtualization environment that
->> > > doesn't use Virtio?
->> >
->> > The host can dictate the MTU in that case for both veth or OVS
->> > internal which would be primary container plumbing techniques.
+On Mon, Dec 1, 2014 at 4:09 PM, Tom Herbert <therbert@google.com> wrote:
+> On Mon, Dec 1, 2014 at 3:53 PM, Jesse Gross <jesse@nicira.com> wrote:
+>> On Mon, Dec 1, 2014 at 3:47 PM, Tom Herbert <therbert@google.com> wrote:
+>>> On Mon, Dec 1, 2014 at 3:35 PM, Joe Stringer <joestringer@nicira.com> wrote:
+>>>> On 21 November 2014 at 09:59, Joe Stringer <joestringer@nicira.com> wrote:
+>>>>> On 20 November 2014 16:19, Jesse Gross <jesse@nicira.com> wrote:
+>>>>>> I don't know if we need to have the check at all for IPIP though -
+>>>>>> after all the driver doesn't expose support for it all (actually it
+>>>>>> doesn't expose GRE either). This raises kind of an interesting
+>>>>>> question about the checks though - it's pretty easy to add support to
+>>>>>> the driver for a new GSO type (and I imagine that people will be
+>>>>>> adding GRE soon) and forget to update the check.
+>>>>>
+>>>>> If the check is more conservative, then testing would show that it's
+>>>>> not working and lead people to figure out why (and update the check).
+>>>>
+>>>> More concretely, one suggestion would be something like following at
+>>>> the start of each gso_check():
+>>>>
+>>>> +       const int supported = SKB_GSO_TCPV4 | SKB_GSO_TCPV6 | SKB_GSO_FCOE |
+>>>> +                             SKB_GSO_UDP | SKB_GSO_UDP_TUNNEL;
+>>>> +
+>>>> +       if (skb_shinfo(skb)->gso_type & ~supported)
+>>>> +               return false;
+>>>
+>>> This should already be handled by net_gso_ok.
 >>
->> It typically can't do this easily for VMs with emulated devices:
->> real ethernet uses a fixed MTU.
->>
->> IMHO it's confusing to suggest MTU as a fix for this bug, it's
->> an unrelated optimization.
->> ICMP_DEST_UNREACH/ICMP_FRAG_NEEDED is the right fix here.
+>> My original point wasn't so much that this isn't handled at the moment
+>> but that it's easy to add a supported GSO type but then forget to
+>> update this check - i.e. if a driver already supports UDP_TUNNEL and
+>> adds support for GRE with the same constraints. It seems not entirely
+>> ideal that this function is acting as a blacklist rather than a
+>> whitelist.
 >
-> PMTU discovery only resolves the issue if an actual IP stack is
-> running inside the VM. This may not be the case at all.
+> Agreed, it would be nice to have all the checking logic in one place.
+> If all the drivers end up implementing ndo_gso_check then we could
+> potentially get rid of the GSO types as features. This probably
+> wouldn't be a bad thing since we already know that the features
+> mechanism doesn't scale (for instance there's no way to indicate that
+> certain combinations of GSO types are supported by a device).
 
-It's also only really a correct thing to do if the ICMP packet is
-coming from an L3 node. If you are doing straight bridging then you
-have to resort to hacks like OVS had before, which I agree are not
-particularly desirable.
-
-> I agree that exposing an MTU towards the guest is not applicable
-> in all situations, in particular because it is difficult to decide
-> what MTU to expose. It is a relatively elegant solution in a lot
-> of virtualization host cases hooked up to an orchestration system
-> though.
-
-I also think this is the right thing to do as a common case
-optimization and I know other platforms (such as Hyper-V) do it. It's
-not a complete solution so we still need the original patch in this
-thread to handle things transparently.
+This crossed my mind and I agree that it's pretty clear that the
+features mechanism isn't scaling very well. Presumably, the logical
+extension of this is that each driver would have a function that looks
+at a packet and returns a set of offload operations that it can
+support rather than exposing a set of protocols. However, it seems
+like it would probably result in a bunch of duplicate code in each
+driver.
