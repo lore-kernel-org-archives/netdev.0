@@ -1,74 +1,89 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] SSB / B44: fix WOL for BCM4401
-Date: Tue, 02 Dec 2014 16:23:49 -0600
-Message-ID: <547E3BF5.5060201@lwfinger.net>
-References: <20141201111125.GA11974@localhost.localdomain>	<1417466798-15735-1-git-send-email-Andrej.Skvortzov@gmail.com>	<20141201221023.79ffb40d@wiggum>	<20141202200129.GA4580@crion89> <20141202211211.7e08b935@wiggum>
+From: Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Subject: Re: [PATCH] Documentation: bindings: net: DPAA corenet binding
+ document
+Date: Tue, 2 Dec 2014 17:03:40 -0600
+Message-ID: <1417561420.15957.221.camel@freescale.com>
+References: <1417169426-11823-1-git-send-email-madalin.bucur@freescale.com>
+	 <1417495189.15957.209.camel@freescale.com>
+	 <BL2PR03MB545CC342CA6A408D2FD5CF6E67A0@BL2PR03MB545.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>, Gary.Zambrano@qlogic.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	b43-dev <b43-dev@lists.infradead.org>,
-	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-To: =?UTF-8?B?TWljaGFlbCBCw7xzY2g=?= <m@bues.ch>,
-	Andrey Skvortsov <andrej.skvortzov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141202211211.7e08b935@wiggum>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Medve Emilian-EMMEDVE1 <Emilian.Medve-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Liberman Igal-B31950 <Igal.Liberman-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	"galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+To: Bucur Madalin-Cristian-B32716 <madalin.bucur-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <BL2PR03MB545CC342CA6A408D2FD5CF6E67A0-AZ66ij2kwaa1tTsckATbNOO6mTEJWrR4XA4E9RH9d+qIuWR1G4zioA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 12/02/2014 02:12 PM, Michael B=C3=BCsch wrote:
-> On Tue, 2 Dec 2014 23:01:29 +0300
-> Andrey Skvortsov <andrej.skvortzov@gmail.com> wrote:
->
->> On Mon, Dec 01, 2014 at 10:10:23PM +0100, Michael B=C3=BCsch wrote:
->>> On Mon,  1 Dec 2014 23:46:38 +0300
->>> Andrey Skvortsov <andrej.skvortzov@gmail.com> wrote:
->>>
->>>> Wake On Lan was not working on laptop DELL Vostro 1500.
->>>> If WOL was turned on, BCM4401 was powered up in suspend mode. LEDs=
- blinked.
->>>> But the laptop could not be woken up with the Magic Packet. The re=
-ason for
->>>> that was that PCIE was not enabled as a system wakeup source and
->>>> therefore the host PCI bridge was not powered up in suspend mode.
->>>> PCIE was not enabled in suspend by PM because no child devices wer=
-e
->>>> registered as wakeup source during suspend process.
->>>> On laptop BCM4401 is connected through the SSB bus, that is connec=
-ted to the
->>>> PCI-Express bus. SSB and B44 did not use standard PM wakeup functi=
-ons
->>>> and did not forward wakeup settings to their parents.
->>>> To fix that B44 driver enables PM wakeup and registers new wakeup =
-source
->>>> using device_set_wakeup_enable(). Wakeup is automatically reported=
- to the parent SSB
->>>> bus via power.wakeup_path. SSB bus enables wakeup for the parent P=
-CI bridge, if there is any
->>>> child devices with enabled wakeup functionality. All other steps a=
-re
->>>> done by PM core code.
->>>
->>> Thanks, this looks good.
->>> I assume you tested this (I currently don't have a device to test t=
-his).
->>
->> Sure, I've tested it. WOL from suspend is working and after resume f=
-rom hibernate Ethernet is working too.
->
-> That sounds good, indeed.
-> I'd still prefer, if someone with b43 (wireless) would test it, too.
+On Tue, 2014-12-02 at 06:12 -0600, Bucur Madalin-Cristian-B32716 wrote:
+> > -----Original Message-----
+> > From: Wood Scott-B07421
+> > Sent: Tuesday, December 02, 2014 6:40 AM
+> > On Fri, 2014-11-28 at 12:10 +0200, Madalin Bucur wrote:
+> > > Add the device tree binding document for the DPAA corenet node
+> > > and DPAA Ethernet nodes.
+> > >
+> > > Signed-off-by: Madalin Bucur <madalin.bucur-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+> > > ---
+> > >  Documentation/devicetree/bindings/net/fsl-dpaa.txt | 31
+> > ++++++++++++++++++++++
+> > >  1 file changed, 31 insertions(+)
+> > >  create mode 100644 Documentation/devicetree/bindings/net/fsl-dpaa.txt
+> > >
+> > > diff --git a/Documentation/devicetree/bindings/net/fsl-dpaa.txt
+> > b/Documentation/devicetree/bindings/net/fsl-dpaa.txt
+> > > new file mode 100644
+> > > index 0000000..822c668
+> > > --- /dev/null
+> > > +++ b/Documentation/devicetree/bindings/net/fsl-dpaa.txt
+> > > @@ -0,0 +1,31 @@
+> > > +*DPAA corenet
+> > > +
+> > > +The corenet bus containing all DPAA Ethernet nodes.
+> > 
+> > What does this have to do with corenet?
+> > 
+> The corenet-generic platform code uses this compatible.
 
-I did a partial test with my PowerBook G4. With the patch installed, it=
- would=20
-both suspend and hibernate, but WOL would be impossible. This computer =
-uses a=20
-PCMCIA version of the BCM4318, and power is turned off to the PCMCIA ca=
-rd when=20
-suspended or hibernating.
+That doesn't make it a "corenet bus".  It's not a bus at all.
 
-If WOL works for the OP, then I think we can ACK this patch.
+> > > +Required property
+> > > + - compatible: string property.  Must include "fsl,dpaa". Can include
+> > > +   also "fsl,<SoC>-dpaa".
+> > 
+> > No need for the <SoC> part.  As we previously discussed, the only
+> > purpose of this node is backwards compatibility with the U-Boot MAC
+> > address fixup -- if U-Boot doesn't look for the <SoC> version, then
+> > don't complicate things.
+> > 
+> > Though, I can't find where U-Boot references this node.  Are you sure
+> > it's not using the ethernet%d aliases like everything else, in which
+> > case why do we need this node at all?
+> > 
+> > -Scott
+> > 
+> 
+> The initial (Freescale SDK) binding document contained those compatibles,
+> not sure what the initial intent was for the <SoC> variants.
+> 
+> The "fsl,dpaa" node is of interest to the DPAA Ethernet because it is
+> the parent of the "fsl,dpa-ethernet" nodes.
 
-Larry
+I'm not interested in what the SDK binding says, or what the SDK kernel
+does.  I'm interested in whether there's a U-Boot compatibility issue,
+as was previously alleged.  If there isn't, then there's no need for
+fsl,dpaa *or* fsl,dpa-ethernet.
+
+-Scott
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
