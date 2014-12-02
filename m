@@ -1,77 +1,326 @@
-From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
-Subject: Re: Is this 32-bit NCM?
-Date: Tue, 2 Dec 2014 03:53:53 +0000
-Message-ID: <547D37CA.7050506@audiocodes.com>
-References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
- <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com>
- <874mtl55ar.fsf@nemi.mork.no>
- <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
- <alpine.LNX.2.03.1411271932510.1548@gmail.com>
- <87ppc71xne.fsf@nemi.mork.no>,<alpine.LNX.2.03.1412012202480.1301@gmail.com>
- <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH V2 net-next] udp: Neaten and reduce size of compute_score
+ functions
+Date: Mon, 01 Dec 2014 20:29:06 -0800
+Message-ID: <1417494546.4894.12.camel@perches.com>
+References: <1417484341.4894.6.camel@perches.com>
+	 <1417489141.4442.24.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1417489760.4894.8.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: =?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
-	Alex Strizhevsky <alexxst@gmail.com>,
-	"Midge Shaojun Tan" <ShaojunMidge.Tan@audiocodes.com>,
-	"youtux@gmail.com" <youtux@gmail.com>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eli Britstein <Eli.Britstein@audiocodes.com>,
-	Enrico Mioso <mrkiko.rs@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3lrp0081.outbound.protection.outlook.com ([213.199.154.81]:41376
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932850AbaLBDx6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Dec 2014 22:53:58 -0500
-In-Reply-To: <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com>
-Content-Language: en-US
-Content-ID: <2D741AEEFA9D734E98DEA417630502FE@eurprd06.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1417489760.4894.8.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SGksDQoNClRoZSBESENQIHBhY2tldHMgaGF2ZSB0aGUgbWF4aW11bSBzaXplIG9mIGR3TnRiT3V0
-TWF4U2l6ZT0xNjM4NCwgd2hpbGUNCnRoZSBvdGhlciBwYWNrZXRzIGFyZSBsZXNzIHRoYW4gdGhh
-dC4gSG93ZXZlciwgdGhlIERIQ1AgcXVlcmllcyBhcmUgbm90DQpyZXBsaWVkIGluIHRpbWUgZWl0
-aGVyLCB0aGVyZSdzIGFsd2F5cyBzb21lIGRlbGF5Lg0KDQpCeSB0aGUgd2F5LCB0aG91Z2ggdGhl
-IGRldmljZSBjbGFpbXMgdG8gc3VwcG9ydCBHRVRfTUFYX0RBVEFHUkFNX1NJWkUsDQpidXQgaXQg
-cmV0dXJucyBlcnJvciB3aGVuIHRoZSBob3N0IHNlbmRzIHRoaXMgY29tbWFuZCB0byBpdC4gSSBk
-aXNhYmxlZA0KdGhpcyBjb21tYW5kIGluIE5DTSBkcml2ZXIgYW5kIHRyaWVkLCBidXQgaXQncyB0
-aGUgc2FtZSByZXN1bHQuDQoNClJlZ2FyZHMsDQpLZXZpbg0KDQpPbiAxMi8wMi8yMDE0IDA2OjAy
-IEFNLCBFbGkgQnJpdHN0ZWluIHdyb3RlOg0KPiBIaSBFbnJpY28gYW5kIGFsbCwNCj4NCj4gTWF5
-YmUgSSBtaXNzZWQgc29tZXRoaW5nIGJ1dCB3aGF0IGlzIHRoZSBkaWZmZXJlbmNlIGJ5IHRoZSBk
-cml2ZXIgcG9pbnQgb2YgdmlldyBiZXR3ZWVuIHRoZSBkaGNwIGRpc2NvdmVyIGFuZCByZXF1ZXN0
-ICh0aGF0IGFyZSBvaykgdG8gb3RoZXJzIChsaWtlIGFycCwgdGhhdCBpcyBub2spPw0KPiBNYXli
-ZSB3ZSBjYW4gdHJhY2UgdG8gY29tcGFyZSB0aGVtPw0KPg0KPiBTZW50IGZyb20gbXkgaVBob25l
-DQo+DQo+PiBPbiAxINeR15PXpteeIDIwMTQsIGF0IDIzOjExLCAiRW5yaWNvIE1pb3NvIiA8bXJr
-aWtvLnJzQGdtYWlsLmNvbT4gd3JvdGU6DQo+Pg0KPj4gU28gLi4uIEkgaGF2ZSB0d28gaWRlYXMg
-bGVmdCBmb3Igbm93Lg0KPj4gV2Uga25vdyBmb3Igc3VyZSB0aGUgcHJvYmxlbSBpcyBpbiB0aGUg
-d2F5IHdlIFRYIGZyYW1lcywgbm90IHRoZSB3YXkgd2UgUlggdGhlbQ0KPj4gKHRoZSB3YXkgd2Ug
-c2VuZCwgZ2VuZXJhdGUgdGhlbSwgbm90IHRoZSB3YXkgd2UgcmVjZWl2ZSB0aGVtKS4NCj4+IFNp
-IEkgaGF2ZSB0d28gaWRlYXMsIGFuZCBJIGFzayBmb3IgaGVscCBmcm9tIHRoZSBMaW51eC11c2Ig
-bWFpbGluZyBsaXN0IGZvcg0KPj4gdGhpcyBmaXJzdCBvbmUuDQo+Pg0KPj4gMSAtIERvZXMgYSB3
-YXlleGlzdCB0byAicmVwbGF5IiB0cmFmZmljIGNyb20gYSB1c2IgY2FwdHVyZT8NCj4+IFdlIG1p
-Z2h0IHRyeSB0byB0YWtlIHRoZSB1c2IgZnJhbWVzIGdlbmVyYXRlZCBieSBXaW5kb3dzLCBhbmQg
-c2VuZCB0aGVtIHRvIHRoZQ0KPj4gZGV2aWNlIHRvIHNlZSBpZiB0aGVyZSBpcyBhbnkgcmVhY3Rp
-b24uIEl0IHNob3VsZCBub3QgYmUgc2NpZW5jZSBmaWN0aW9uLCBJIHNhdw0KPj4gdGhlbSBkbyB0
-aGF0IGluIHRoZSBlY2lhZHNsIG9sZCBwcm9qZWN0Lg0KPj4gMiAtIFRoZSBodWF3ZWkgbmRpcyBk
-cml2ZXI6IGRvZXMgaXQgd29yayB3aXRoIHRoZXNlIGRldmljZXM/DQo+PiBJdCBzaG91bGQgYmUg
-YSBsaXR0bGUgYml0IG91dC1kYXRlZCBub3cgKGF0IGxlYXN0IGluIHRlcm1zIG9mIGRhdGVzLCBp
-dCBtaWdodA0KPj4gd29yayBhcyB3ZWxsKTogdGhlIGNvZGUgaXMgQSBMT1QgYnV0LCBqdXN0IGlu
-IGNhc2UsIHRvIHNlZSBpZiB0aGVyZSBpcyBhbnkNCj4+IGNoYW5jZXMgaXQnbGwgd29yay4gSXQg
-cmVtYWlucyB0byBiZSBzZWVuIGluIHdoaWNoIGtlcm5lbHMgaXQgY2FuIGFjdHVhbGx5DQo+PiBj
-b21waWxlIGFnYWluLg0KPj4NCj4+IElmIHRoaXMgd29ya3Mgd2UgbWlnaHQgYW5hbHlzZSB3aGF0
-J3MgaGFwcGVuaW5nIGFuZCB0cnkgdG8gZGVidWcgdGhpcyBvdXQuDQo+PiBCdXQgSSByZWFsbHkg
-d291bGQgbGlrZSB0aGlzIHRvIHdvcmsgaW4gdGhlIGNkY19uY20gZHJpdmVyICsgaHVhd2VpX2Nk
-Y19uY20uDQo+PiBUaGFuayB5b3UuDQpUaGlzIGVtYWlsIGFuZCBhbnkgZmlsZXMgdHJhbnNtaXR0
-ZWQgd2l0aCBpdCBhcmUgY29uZmlkZW50aWFsIG1hdGVyaWFsLiBUaGV5IGFyZSBpbnRlbmRlZCBz
-b2xlbHkgZm9yIHRoZSB1c2Ugb2YgdGhlIGRlc2lnbmF0ZWQgaW5kaXZpZHVhbCBvciBlbnRpdHkg
-dG8gd2hvbSB0aGV5IGFyZSBhZGRyZXNzZWQuIElmIHRoZSByZWFkZXIgb2YgdGhpcyBtZXNzYWdl
-IGlzIG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50LCB5b3UgYXJlIGhlcmVieSBub3RpZmllZCB0
-aGF0IGFueSBkaXNzZW1pbmF0aW9uLCB1c2UsIGRpc3RyaWJ1dGlvbiBvciBjb3B5aW5nIG9mIHRo
-aXMgY29tbXVuaWNhdGlvbiBpcyBzdHJpY3RseSBwcm9oaWJpdGVkIGFuZCBtYXkgYmUgdW5sYXdm
-dWwuDQoNCklmIHlvdSBoYXZlIHJlY2VpdmVkIHRoaXMgZW1haWwgaW4gZXJyb3IgcGxlYXNlIGlt
-bWVkaWF0ZWx5IG5vdGlmeSB0aGUgc2VuZGVyIGFuZCBkZWxldGUgb3IgZGVzdHJveSBhbnkgY29w
-eSBvZiB0aGlzIG1lc3NhZ2UNCg==
+The compute_score functions are a bit difficult to read.
+
+Neaten them a bit to reduce object sizes and make them a
+bit more intelligible.
+
+Return early to avoid indentation and avoid unnecessary
+initializations.
+
+(allyesconfig, but w/ -O2 and no profiling)
+
+$ size net/ipv[46]/udp.o.*
+   text    data     bss     dec     hex filename
+  28680    1184      25   29889    74c1 net/ipv4/udp.o.new
+  28756    1184      25   29965    750d net/ipv4/udp.o.old
+  17600    1010       2   18612    48b4 net/ipv6/udp.o.new
+  17632    1010       2   18644    48d4 net/ipv6/udp.o.old
+
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+
+Change the && == blocks to || !=
+No change in compiled object files.
+Keeps Eric happy too.
+
+ net/ipv4/udp.c | 111 +++++++++++++++++++++++++++++++-------------------------
+ net/ipv6/udp.c | 113 ++++++++++++++++++++++++++++++++-------------------------
+ 2 files changed, 125 insertions(+), 99 deletions(-)
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index b2d6068..dd8e006 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -336,38 +336,45 @@ int udp_v4_get_port(struct sock *sk, unsigned short snum)
+ 	return udp_lib_get_port(sk, snum, ipv4_rcv_saddr_equal, hash2_nulladdr);
+ }
+ 
+-static inline int compute_score(struct sock *sk, struct net *net, __be32 saddr,
+-			 unsigned short hnum,
+-			 __be16 sport, __be32 daddr, __be16 dport, int dif)
++static inline int compute_score(struct sock *sk, struct net *net,
++				__be32 saddr, unsigned short hnum, __be16 sport,
++				__be32 daddr, __be16 dport, int dif)
+ {
+-	int score = -1;
++	int score;
++	struct inet_sock *inet;
+ 
+-	if (net_eq(sock_net(sk), net) && udp_sk(sk)->udp_port_hash == hnum &&
+-			!ipv6_only_sock(sk)) {
+-		struct inet_sock *inet = inet_sk(sk);
++	if (!net_eq(sock_net(sk), net) ||
++	    udp_sk(sk)->udp_port_hash != hnum ||
++	    ipv6_only_sock(sk))
++		return -1;
+ 
+-		score = (sk->sk_family == PF_INET ? 2 : 1);
+-		if (inet->inet_rcv_saddr) {
+-			if (inet->inet_rcv_saddr != daddr)
+-				return -1;
+-			score += 4;
+-		}
+-		if (inet->inet_daddr) {
+-			if (inet->inet_daddr != saddr)
+-				return -1;
+-			score += 4;
+-		}
+-		if (inet->inet_dport) {
+-			if (inet->inet_dport != sport)
+-				return -1;
+-			score += 4;
+-		}
+-		if (sk->sk_bound_dev_if) {
+-			if (sk->sk_bound_dev_if != dif)
+-				return -1;
+-			score += 4;
+-		}
++	score = (sk->sk_family == PF_INET) ? 2 : 1;
++	inet = inet_sk(sk);
++
++	if (inet->inet_rcv_saddr) {
++		if (inet->inet_rcv_saddr != daddr)
++			return -1;
++		score += 4;
++	}
++
++	if (inet->inet_daddr) {
++		if (inet->inet_daddr != saddr)
++			return -1;
++		score += 4;
+ 	}
++
++	if (inet->inet_dport) {
++		if (inet->inet_dport != sport)
++			return -1;
++		score += 4;
++	}
++
++	if (sk->sk_bound_dev_if) {
++		if (sk->sk_bound_dev_if != dif)
++			return -1;
++		score += 4;
++	}
++
+ 	return score;
+ }
+ 
+@@ -378,33 +385,39 @@ static inline int compute_score2(struct sock *sk, struct net *net,
+ 				 __be32 saddr, __be16 sport,
+ 				 __be32 daddr, unsigned int hnum, int dif)
+ {
+-	int score = -1;
++	int score;
++	struct inet_sock *inet;
++
++	if (!net_eq(sock_net(sk), net) ||
++	    ipv6_only_sock(sk))
++		return -1;
+ 
+-	if (net_eq(sock_net(sk), net) && !ipv6_only_sock(sk)) {
+-		struct inet_sock *inet = inet_sk(sk);
++	inet = inet_sk(sk);
+ 
+-		if (inet->inet_rcv_saddr != daddr)
++	if (inet->inet_rcv_saddr != daddr ||
++	    inet->inet_num != hnum)
++		return -1;
++
++	score = (sk->sk_family == PF_INET) ? 2 : 1;
++
++	if (inet->inet_daddr) {
++		if (inet->inet_daddr != saddr)
+ 			return -1;
+-		if (inet->inet_num != hnum)
++		score += 4;
++	}
++
++	if (inet->inet_dport) {
++		if (inet->inet_dport != sport)
+ 			return -1;
++		score += 4;
++	}
+ 
+-		score = (sk->sk_family == PF_INET ? 2 : 1);
+-		if (inet->inet_daddr) {
+-			if (inet->inet_daddr != saddr)
+-				return -1;
+-			score += 4;
+-		}
+-		if (inet->inet_dport) {
+-			if (inet->inet_dport != sport)
+-				return -1;
+-			score += 4;
+-		}
+-		if (sk->sk_bound_dev_if) {
+-			if (sk->sk_bound_dev_if != dif)
+-				return -1;
+-			score += 4;
+-		}
++	if (sk->sk_bound_dev_if) {
++		if (sk->sk_bound_dev_if != dif)
++			return -1;
++		score += 4;
+ 	}
++
+ 	return score;
+ }
+ 
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 7cfb5d7..7f964322 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -148,72 +148,85 @@ static inline int compute_score(struct sock *sk, struct net *net,
+ 				const struct in6_addr *daddr, __be16 dport,
+ 				int dif)
+ {
+-	int score = -1;
++	int score;
++	struct inet_sock *inet;
+ 
+-	if (net_eq(sock_net(sk), net) && udp_sk(sk)->udp_port_hash == hnum &&
+-			sk->sk_family == PF_INET6) {
+-		struct inet_sock *inet = inet_sk(sk);
++	if (!net_eq(sock_net(sk), net) ||
++	    udp_sk(sk)->udp_port_hash != hnum ||
++	    sk->sk_family != PF_INET6)
++		return -1;
+ 
+-		score = 0;
+-		if (inet->inet_dport) {
+-			if (inet->inet_dport != sport)
+-				return -1;
+-			score++;
+-		}
+-		if (!ipv6_addr_any(&sk->sk_v6_rcv_saddr)) {
+-			if (!ipv6_addr_equal(&sk->sk_v6_rcv_saddr, daddr))
+-				return -1;
+-			score++;
+-		}
+-		if (!ipv6_addr_any(&sk->sk_v6_daddr)) {
+-			if (!ipv6_addr_equal(&sk->sk_v6_daddr, saddr))
+-				return -1;
+-			score++;
+-		}
+-		if (sk->sk_bound_dev_if) {
+-			if (sk->sk_bound_dev_if != dif)
+-				return -1;
+-			score++;
+-		}
++	score = 0;
++	inet = inet_sk(sk);
++
++	if (inet->inet_dport) {
++		if (inet->inet_dport != sport)
++			return -1;
++		score++;
+ 	}
++
++	if (!ipv6_addr_any(&sk->sk_v6_rcv_saddr)) {
++		if (!ipv6_addr_equal(&sk->sk_v6_rcv_saddr, daddr))
++			return -1;
++		score++;
++	}
++
++	if (!ipv6_addr_any(&sk->sk_v6_daddr)) {
++		if (!ipv6_addr_equal(&sk->sk_v6_daddr, saddr))
++			return -1;
++		score++;
++	}
++
++	if (sk->sk_bound_dev_if) {
++		if (sk->sk_bound_dev_if != dif)
++			return -1;
++		score++;
++	}
++
+ 	return score;
+ }
+ 
+ #define SCORE2_MAX (1 + 1 + 1)
+ static inline int compute_score2(struct sock *sk, struct net *net,
+-				const struct in6_addr *saddr, __be16 sport,
+-				const struct in6_addr *daddr, unsigned short hnum,
+-				int dif)
++				 const struct in6_addr *saddr, __be16 sport,
++				 const struct in6_addr *daddr,
++				 unsigned short hnum, int dif)
+ {
+-	int score = -1;
++	int score;
++	struct inet_sock *inet;
+ 
+-	if (net_eq(sock_net(sk), net) && udp_sk(sk)->udp_port_hash == hnum &&
+-			sk->sk_family == PF_INET6) {
+-		struct inet_sock *inet = inet_sk(sk);
++	if (!net_eq(sock_net(sk), net) ||
++	    udp_sk(sk)->udp_port_hash != hnum ||
++	    sk->sk_family != PF_INET6)
++		return -1;
+ 
+-		if (!ipv6_addr_equal(&sk->sk_v6_rcv_saddr, daddr))
++	if (!ipv6_addr_equal(&sk->sk_v6_rcv_saddr, daddr))
++		return -1;
++
++	score = 0;
++	inet = inet_sk(sk);
++
++	if (inet->inet_dport) {
++		if (inet->inet_dport != sport)
+ 			return -1;
+-		score = 0;
+-		if (inet->inet_dport) {
+-			if (inet->inet_dport != sport)
+-				return -1;
+-			score++;
+-		}
+-		if (!ipv6_addr_any(&sk->sk_v6_daddr)) {
+-			if (!ipv6_addr_equal(&sk->sk_v6_daddr, saddr))
+-				return -1;
+-			score++;
+-		}
+-		if (sk->sk_bound_dev_if) {
+-			if (sk->sk_bound_dev_if != dif)
+-				return -1;
+-			score++;
+-		}
++		score++;
+ 	}
++
++	if (!ipv6_addr_any(&sk->sk_v6_daddr)) {
++		if (!ipv6_addr_equal(&sk->sk_v6_daddr, saddr))
++			return -1;
++		score++;
++	}
++
++	if (sk->sk_bound_dev_if) {
++		if (sk->sk_bound_dev_if != dif)
++			return -1;
++		score++;
++	}
++
+ 	return score;
+ }
+ 
+-
+ /* called with read_rcu_lock() */
+ static struct sock *udp6_lib_lookup2(struct net *net,
+ 		const struct in6_addr *saddr, __be16 sport,
