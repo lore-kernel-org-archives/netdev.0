@@ -1,106 +1,79 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/1] net: dsa: replacing the hard-coded sized array "dsa_switch"
- by dynamic one
-Date: Tue, 02 Dec 2014 12:40:33 -0800
-Message-ID: <547E23C1.2040007@gmail.com>
-References: <547DD1C6.2090304@nexvision.fr>
+From: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+Subject: linux-next Problems with VPN tunnel - no packets sent
+Date: Tue, 02 Dec 2014 15:41:39 -0500
+Message-ID: <17929.1417552899@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: multipart/signed; boundary="==_Exmh_1417552899_7336P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-To: Andrey Volkov <andrey.volkov@nexvision.fr>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:57293 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932814AbaLBUkk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 15:40:40 -0500
-Received: by mail-pa0-f41.google.com with SMTP id rd3so14268497pab.0
-        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 12:40:40 -0800 (PST)
-In-Reply-To: <547DD1C6.2090304@nexvision.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/12/14 06:50, Andrey Volkov wrote:
-> Hello,
-> 
-> In time of developing one of our devices (with huge, more then 6, number of onboard switches),
-> I've bumped with this ancient, I hope, restriction in the 'struct dsa_switch_tree' definition. 
-> So this simple patch remove this restriction and make dsa_switch_tree more scalable for 
-> the "usual" 1-2 switches configuration too.
+--==_Exmh_1417552899_7336P
+Content-Type: text/plain; charset=us-ascii
 
-Sounds reasonable to me, you probably want to resubmit and trim the
-"Hello" form your commit message.
+Recent linux-next has broken my Juniper VPN client.  The tunnel gets created,
+routes get added, but trying to actually send packets across results in packets
+just disappearing. 'ifconfig' consistently reports exactly 1 packet sent (even
+after a 'ping' command or similar should have sent multiple packets.
 
-> 
-> P.S. I've plans to fix hardcoded number of ports too, but it is not so easy as with number of switches.
-> So if someone have any objections/suggestions I'll happy to discuss them.
+tun0: flags=4305<UP,POINTOPOINT,RUNNING,NOARP,MULTICAST>  mtu 1400
+        inet 172.27.1.40  netmask 255.255.255.255  destination 172.27.1.40
+        unspec 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  txqueuelen 500  (UNSPEC)
+        RX packets 1  bytes 355 (355.0 B)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 1  bytes 61 (61.0 B)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
 
-I think the number of ports in a switch is something that should come
-from the switch driver, and eventually intersected with what the
-platform configuration has provided.
+Still broken in next-20141201, and bisection fingers this commit:
 
-The difficulty is in case of sparse port number allocation because you
-still want to allocate e.g: 6 ports even though Port 0 and 5 are used, I
-don't think we want to introduce a logical to physical mapping, that
-would be too error prone.
+commit e0b46d0ee9c240c7430a47e9b0365674d4a04522
+Author: Herbert Xu <herbert@gondor.apana.org.au>
+Date:   Fri Nov 7 21:22:23 2014 +0800
 
-> 
-> Signed-off-by: Andrey Volkov <andrey.volkov@nexvision.fr>                                                                                                                                                                                    
-> ---                                                                                                                                                                                                                                          
->  include/net/dsa.h |    3 +--                                                                                                                                                                                                                
->  net/dsa/dsa.c     |    7 +++----                                                                                                                                                                                                            
->  2 files changed, 4 insertions(+), 6 deletions(-)                                                                                                                                                                                            
->                                                                                                                                                                                                                                              
-> diff --git a/include/net/dsa.h b/include/net/dsa.h                                                                                                                                                                                           
-> index ed3c34b..733db2e 100644                                                                                                                                                                                                                
-> --- a/include/net/dsa.h
-> +++ b/include/net/dsa.h
-> @@ -28,7 +28,6 @@ enum dsa_tag_protocol {
->         DSA_TAG_PROTO_BRCM,
->  };
->  
-> -#define DSA_MAX_SWITCHES       4
->  #define DSA_MAX_PORTS          12
->  
->  struct dsa_chip_data {
-> @@ -117,7 +116,7 @@ struct dsa_switch_tree {
->         /*
->          * Data for the individual switch chips.
->          */
-> -       struct dsa_switch       *ds[DSA_MAX_SWITCHES];
-> +       struct dsa_switch       *ds[];
->  };
->  
->  struct dsa_switch {
-> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-> index 322c778..c081a19 100644
-> --- a/net/dsa/dsa.c
-> +++ b/net/dsa/dsa.c
-> @@ -604,8 +604,6 @@ static int dsa_of_probe(struct platform_device *pdev)
->         pdev->dev.platform_data = pd;
->         pd->netdev = &ethernet_dev->dev;
->         pd->nr_chips = of_get_child_count(np);
-> -       if (pd->nr_chips > DSA_MAX_SWITCHES)
-> -               pd->nr_chips = DSA_MAX_SWITCHES;
->  
->         pd->chip = kcalloc(pd->nr_chips, sizeof(struct dsa_chip_data),
->                            GFP_KERNEL);
-> @@ -717,7 +715,7 @@ static int dsa_probe(struct platform_device *pdev)
->                 pd = pdev->dev.platform_data;
->         }
->  
-> -       if (pd == NULL || pd->netdev == NULL)
-> +       if (pd == NULL || pd->netdev == NULL || pd->nr_chips == 0)
->                 return -EINVAL;
->  
->         dev = dev_to_net_device(pd->netdev);
-> @@ -732,7 +730,8 @@ static int dsa_probe(struct platform_device *pdev)
->                 goto out;
->         }
->  
-> -       dst = kzalloc(sizeof(*dst), GFP_KERNEL);
-> +       dst = kzalloc(sizeof(*dst) +
-> +                       sizeof(struct dsa_switch *) * pd->nr_chips, GFP_KERNEL);
->         if (dst == NULL) {
->                 dev_put(dev);
->                 ret = -ENOMEM;
-> 
+    tun: Use iovec iterators
+
+    This patch removes the use of skb_copy_datagram_const_iovec in
+    favour of the iovec iterator-based skb_copy_datagram_iter.
+
+This commit is in the kernel, and does *not* fix the problem:
+
+commit 8c847d254146d32c86574a1b16923ff91bb784dd
+Author: Jason Wang <jasowang@redhat.com>
+Date:   Thu Nov 13 16:54:14 2014 +0800
+
+    tun: fix issues of iovec iterators using in tun_put_user()
+
+So there's apparently additional issues that Jason didn't address. I tried to
+revert Herbert's patch for testing, but there's at  least 5 or 6 other patches
+that need reverting first, so I abandoned that unless it becomes necessary...
+
+What's the best way to proceed?
+
+--==_Exmh_1417552899_7336P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Exmh version 2.5 07/13/2001
+
+iQIVAwUBVH4kAwdmEQWDXROgAQL2XBAAjsij8ySSYMOJZ77nN+/YI2HJVl6xt5ma
+9vupieu2xMptaWrjhW9IEYdGkdzsDTsANGv4K8nr80m6cI3AmRkXKYiYIVsGUpmL
+tSxIbs+S9ks7zJCtHECB3+WwWpG6HGfCaxHGY+/BVdSGbdUrTOgIzlC30tpizUJ0
+3VgpkiKGwjdzx2TVLu47JMpokynq8+xogFAmT+hiJ/mNKKq8FESPeL9Q/GlnPz4K
+jujrLvluzz3ff5uaYKQ/dJLisxsVdBMnBEHQ2rp+XnVTOf5d2D1XWu1am5+cjX/C
+v9a3iphUxwaUSZ9VYQSanlF3DoLV6S3lFsV5kB/sTBhMr/yQKJrc0haLm4unZ8+O
+QM0iHdnjs35v2EGUEh8bvObR3Sg5ZZjnrWXRQeiXMG8BCGJy5RXX0XnldoU5FG8C
+1Y6D3fxk7yP1+VUN6VNyeXMvEZ03LtOWodbinZOMSkYjbEpRTxBu089529G8t/T4
+UcVCBcZmxBCo5iWUBVId3wIC8L/jUekcu3GpEyQ8B6t3bIRVJ9rUyIj/zI061Y3i
+55XW/oEbP5r5tcjOBibFoo62cvxTuwgcMyhhc6kyj/aiwhztNg6OdtoLFvCz2Vbw
+uhj0jwTlhw3Z7HCBr8hpEwz9mesgEhtGKlM79sJhG0kP0/Qqdzxx71OuESl9iZXI
+X51IEV4SVxE=
+=dIq8
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1417552899_7336P--
