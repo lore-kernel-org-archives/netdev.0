@@ -1,45 +1,26 @@
-From: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
-Subject: [PATCH v7 0/3] net: Add Keystone NetCP ethernet driver support
-Date: Tue, 2 Dec 2014 16:41:40 -0500
-Message-ID: <1417556503-22290-1-git-send-email-m-karicheri2@ti.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: [PATCH v7 1/3] Documentation: dt: net: Add binding doc for Keystone NetCP ethernet driver
+Date: Tue, 2 Dec 2014 16:41:41 -0500
+Message-ID: <1417556503-22290-2-git-send-email-m-karicheri2@ti.com>
+References: <1417556503-22290-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
-	Sandeep Nair <sandeepn02-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Santosh Shilimkar <santosh.shilimkar-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Sandeep Nair <sandeep_n@ti.com>, Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Santosh Shilimkar <santosh.shilimkar@kernel.org>,
+	Murali Karicheri <m-karicheri2@ti.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	<robh+dt@kernel.org>, <grant.likely@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1417556503-22290-1-git-send-email-m-karicheri2@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-v6->v7
-Fixed some minor documentation error and also modified the netcp driver
-to fix the set* functions to include correct le/be macros.
-
-v5->v6
-updated version after incorporating comments [6] from David Miller,
-David Laight & Geert Uytterhoeven on v5. I would like get this in
-for v3.19 merge window if the latest version is acceptable.
-
-v4->v5
-Sorry to spin v5 quickly but I missed few check-patch warnings which
-were pointed by Joe Perches(thanks). I folded his changes [5] along with
-few more check-patch warning fixes. I would like get this in for v3.18
-merge window if David is happy with this version.
-
-v3->v4
-Couple of fixes in in error path as pointed [4] out by David. Rest of
-the patches are unchanged from v3. 
-
-v2->v3
-Update v3 after incorporating Jamal and David Miller's comment/suggestion
-from earlier versions [1] [2].  After per the discussion here [3], the
-controversial custom exports have been dropped now. And for future
-future offload support additions, we will plug into generic frameworks
-as an when they are available.
+From: Sandeep Nair <sandeep_n@ti.com>
 
 The network coprocessor (NetCP) is a hardware accelerator that processes
 Ethernet packets. NetCP has a gigabit Ethernet (GbE) subsystem with a ethernet
@@ -48,56 +29,255 @@ accelerator (PA) module to perform packet classification operations such as
 header matching, and packet modification operations such as checksum
 generation. NetCP can also optionally include a Security Accelerator(SA)
 capable of performing IPSec operations on ingress/egress packets.
-    
+
 Keystone SoC's also have a 10 Gigabit Ethernet Subsystem (XGbE) which
 includes a 3-port Ethernet switch sub-module capable of 10Gb/s and
 1Gb/s rates per Ethernet port.
-    
-Both GBE and XGBE network processors supported using common driver. It
-is also designed to handle future variants of NetCP.
 
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Cc: Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Cc: Sandeep Nair <sandeepn02-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Cc: Santosh Shilimkar <santosh.shilimkar-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+NetCP Subsystem device tree layout looks something like below:
 
-Murali Karicheri (1):
-  MAINTAINER: net: Add TI NETCP Ethernet driver entry
+-----------------------------
+  NetCP subsystem(10G or 1G)
+-----------------------------
+	|
+	|-> NetCP Devices ->	|
+	|			|-> GBE/XGBE Switch
+	|			|
+	|			|-> Packet Accelerator
+	|			|
+	|			|-> Security Accelerator
+	|
+	|
+	|
+	|-> NetCP Interfaces ->	|
+				|-> Ethernet Port 0
+				|
+				|-> Ethernet Port 1
+				|
+				|-> Ethernet Port 2
+				|
+				|-> Ethernet Port 3
 
-Sandeep Nair (2):
-  Documentation: dt: net: Add binding doc for Keystone NetCP ethernet
-    driver
-  net: Add Keystone NetCP ethernet driver
+Common driver supports GBE as well XGBE network processors.
 
- .../devicetree/bindings/net/keystone-netcp.txt     |  197 ++
- MAINTAINERS                                        |    8 +
- drivers/net/ethernet/ti/Kconfig                    |   12 +-
- drivers/net/ethernet/ti/Makefile                   |    4 +
- drivers/net/ethernet/ti/netcp.h                    |  227 ++
- drivers/net/ethernet/ti/netcp_core.c               | 2262 ++++++++++++++++++++
- drivers/net/ethernet/ti/netcp_ethss.c              | 2159 +++++++++++++++++++
- drivers/net/ethernet/ti/netcp_sgmii.c              |  130 ++
- drivers/net/ethernet/ti/netcp_xgbepcsr.c           |  501 +++++
- 9 files changed, 5499 insertions(+), 1 deletion(-)
+Cc: Rob Herring <robh+dt@kernel.org>
+Cc: Grant Likely <grant.likely@linaro.org>
+Cc: Pawel Moll <pawel.moll@arm.com>
+Cc: Mark Rutland <mark.rutland@arm.com>
+Cc: Ian Campbell <ijc+devicetree@hellion.org.uk>
+Cc: Kumar Gala <galak@codeaurora.org>
+Cc: David Miller <davem@davemloft.net>
+Cc: Santosh Shilimkar <santosh.shilimkar@kernel.org>
+
+Signed-off-by: Sandeep Nair <sandeep_n@ti.com>
+Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+---
+ .../devicetree/bindings/net/keystone-netcp.txt     |  197 ++++++++++++++++++++
+ 1 file changed, 197 insertions(+)
  create mode 100644 Documentation/devicetree/bindings/net/keystone-netcp.txt
- create mode 100644 drivers/net/ethernet/ti/netcp.h
- create mode 100644 drivers/net/ethernet/ti/netcp_core.c
- create mode 100644 drivers/net/ethernet/ti/netcp_ethss.c
- create mode 100644 drivers/net/ethernet/ti/netcp_sgmii.c
- create mode 100644 drivers/net/ethernet/ti/netcp_xgbepcsr.c
 
-[1] https://lkml.org/lkml/2014/4/22/805
-[2] https://lkml.org/lkml/2014/8/15/218
-[3] https://lkml.org/lkml/2014/9/11/691
-[4] https://lkml.org/lkml/2014/9/15/403
-[5] https://lkml.org/lkml/2014/9/25/332
-[6] https://lkml.org/lkml/2014/9/29/639
-
+diff --git a/Documentation/devicetree/bindings/net/keystone-netcp.txt b/Documentation/devicetree/bindings/net/keystone-netcp.txt
+new file mode 100644
+index 0000000..f9c0771
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/keystone-netcp.txt
+@@ -0,0 +1,197 @@
++This document describes the device tree bindings associated with the
++keystone network coprocessor(NetCP) driver support.
++
++The network coprocessor (NetCP) is a hardware accelerator that processes
++Ethernet packets. NetCP has a gigabit Ethernet (GbE) subsytem with a ethernet
++switch sub-module to send and receive packets. NetCP also includes a packet
++accelerator (PA) module to perform packet classification operations such as
++header matching, and packet modification operations such as checksum
++generation. NetCP can also optionally include a Security Accelerator (SA)
++capable of performing IPSec operations on ingress/egress packets.
++
++Keystone II SoC's also have a 10 Gigabit Ethernet Subsystem (XGbE) which
++includes a 3-port Ethernet switch sub-module capable of 10Gb/s and 1Gb/s rates
++per Ethernet port.
++
++Keystone NetCP driver has a plug-in module architecture where each of the NetCP
++sub-modules exist as a loadable kernel module which plug in to the netcp core.
++These sub-modules are represented as "netcp-devices" in the dts bindings. It is
++mandatory to have the ethernet switch sub-module for the ethernet interface to
++be operational. Any other sub-module like the PA is optional.
++
++NetCP Ethernet SubSystem Layout:
++
++-----------------------------
++  NetCP subsystem(10G or 1G)
++-----------------------------
++	|
++	|-> NetCP Devices ->	|
++	|			|-> GBE/XGBE Switch
++	|			|
++	|			|-> Packet Accelerator
++	|			|
++	|			|-> Security Accelerator
++	|
++	|
++	|
++	|-> NetCP Interfaces ->	|
++				|-> Ethernet Port 0
++				|
++				|-> Ethernet Port 1
++				|
++				|-> Ethernet Port 2
++				|
++				|-> Ethernet Port 3
++
++
++NetCP subsystem properties:
++Required properties:
++- compatible:	Should be "ti,netcp-1.0"
++- clocks:	phandle to the reference clocks for the subsystem.
++- dma-id:	Navigator packet dma instance id.
++
++Optional properties:
++- reg:		register location and the size for the following register
++		regions in the specified order.
++		- Efuse MAC address register
++- dma-coherent:	Present if dma operations are coherent
++- big-endian:	Keystone devices can be operated in a mode where the DSP is in
++		the big endian mode. In such cases enable this option. This
++		option should also be enabled if the ARM is operated in
++		big endian mode with the DSP in little endian.
++
++NetCP device properties: Device specification for NetCP sub-modules.
++1Gb/10Gb (gbe/xgbe) ethernet switch sub-module specifications.
++Required properties:
++- label:	Must be "netcp-gbe" for 1Gb & "netcp-xgbe" for 10Gb.
++- reg:		register location and the size for the following register
++		regions in the specified order.
++		- subsystem registers
++		- serdes registers
++- tx-channel:	the navigator packet dma channel name for tx.
++- tx-queue:	the navigator queue number associated with the tx dma channel.
++- interfaces:	specification for each of the switch port to be registered as a
++		network interface in the stack.
++-- slave-port:	Switch port number, 0 based numbering.
++-- link-interface:	type of link interface, supported options are
++			- mac<->mac auto negotiate mode: 0
++			- mac<->phy mode: 1
++			- mac<->mac forced mode: 2
++			- mac<->fiber mode: 3
++			- mac<->phy mode with no mdio: 4
++			- 10Gb mac<->phy mode : 10
++			- 10Gb mac<->mac forced mode : 11
++----phy-handle:	phandle to PHY device
++
++Optional properties:
++- enable-ale:	NetCP driver keeps the address learning feature in the ethernet
++		switch module disabled. This attribute is to enable the address
++		learning.
++- secondary-slave-ports:	specification for each of the switch port not be
++				registered as a network interface. NetCP driver
++				will only initialize these ports and attach PHY
++				driver to them if needed.
++
++NetCP interface properties: Interface specification for NetCP sub-modules.
++Required properties:
++- rx-channel:	the navigator packet dma channel name for rx.
++- rx-queue:	the navigator queue number associated with rx dma channel.
++- rx-pool:	specifies the number of descriptors to be used & the region-id
++		for creating the rx descriptor pool.
++- tx-pool:	specifies the number of descriptors to be used & the region-id
++		for creating the tx descriptor pool.
++- rx-queue-depth:	number of descriptors in each of the free descriptor
++			queue (FDQ) for the pktdma Rx flow. There can be at
++			present a maximum of 4 queues per Rx flow.
++- rx-buffer-size:	the buffer size for each of the Rx flow FDQ.
++- tx-completion-queue:	the navigator queue number where the descriptors are
++			recycled after Tx DMA completion.
++
++Optional properties:
++- efuse-mac:	If this is 1, then the MAC address for the interface is
++		obtained from the device efuse mac address register
++- local-mac-address:	the driver is designed to use the of_get_mac_address api
++			only if efuse-mac is 0. When efuse-mac is 0, the MAC
++			address is obtained from local-mac-address. If this
++			attribute is not present, then the driver will use a
++			random MAC address.
++- "netcp-device label":	phandle to the device specification for each of NetCP
++			sub-module attached to this interface.
++
++Example binding:
++
++netcp: netcp@2090000 {
++	reg = <0x2620110 0x8>;
++	reg-names = "efuse";
++	compatible = "ti,netcp-1.0";
++	#address-cells = <1>;
++	#size-cells = <1>;
++	ranges;
++
++	clocks = <&papllclk>, <&clkcpgmac>, <&chipclk12>;
++	dma-coherent;
++	/* big-endian; */
++	dma-id = <0>;
++
++	netcp-devices {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		ranges;
++		gbe@0x2090000 {
++			label = "netcp-gbe";
++			reg = <0x2090000 0xf00>;
++			/* enable-ale; */
++			tx-queue = <648>;
++			tx-channel = <8>;
++
++			interfaces {
++				gbe0: interface-0 {
++					slave-port = <0>;
++					link-interface	= <4>;
++				};
++				gbe1: interface-1 {
++					slave-port = <1>;
++					link-interface	= <4>;
++				};
++			};
++
++			secondary-slave-ports {
++				port-2 {
++					slave-port = <2>;
++					link-interface	= <2>;
++				};
++				port-3 {
++					slave-port = <3>;
++					link-interface	= <2>;
++				};
++			};
++		};
++	};
++
++	netcp-interfaces {
++		interface-0 {
++			rx-channel = <22>;
++			rx-pool = <1024 12>;
++			tx-pool = <1024 12>;
++			rx-queue-depth = <128 128 0 0>;
++			rx-buffer-size = <1518 4096 0 0>;
++			rx-queue = <8704>;
++			tx-completion-queue = <8706>;
++			efuse-mac = <1>;
++			netcp-gbe = <&gbe0>;
++
++		};
++		interface-1 {
++			rx-channel = <23>;
++			rx-pool = <1024 12>;
++			tx-pool = <1024 12>;
++			rx-queue-depth = <128 128 0 0>;
++			rx-buffer-size = <1518 4096 0 0>;
++			rx-queue = <8705>;
++			tx-completion-queue = <8707>;
++			efuse-mac = <0>;
++			local-mac-address = [02 18 31 7e 3e 6f];
++			netcp-gbe = <&gbe1>;
++		};
++	};
++};
 -- 
 1.7.9.5
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
