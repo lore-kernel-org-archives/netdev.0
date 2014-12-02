@@ -1,13 +1,13 @@
 From: Enrico Mioso <mrkiko.rs@gmail.com>
 Subject: Re: Is this 32-bit NCM?
-Date: Tue, 2 Dec 2014 12:28:36 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1412021228220.26526@gmail.com>
+Date: Tue, 2 Dec 2014 12:39:38 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1412021238280.29454@gmail.com>
 References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
  <alpine.LNX.2.03.1411271932510.1548@gmail.com> <87ppc71xne.fsf@nemi.mork.no> <alpine.LNX.2.03.1412012202480.1301@gmail.com> <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com> <547D37CA.7050506@audiocodes.com> <alpine.LNX.2.03.1412020729470.1351@gmail.com>
  <547D5F84.6020608@audiocodes.com> <alpine.LNX.2.03.1412020747360.1921@gmail.com> <547D6D7B.5090704@audiocodes.com> <E0C3DF2A36210C42B1AB4626A0E10F1FD949424C@aclmbx01.corp.audiocodes.com> <547D7243.80508@audiocodes.com> <alpine.LNX.2.03.1412021130410.2697@gmail.com>
  <87fvcyqoup.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-756842403-1417519717=:26526"
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1669091443-1417520380=:29454"
 Cc: Kevin Zhu <Mingying.Zhu@audiocodes.com>,
 	Eli Britstein <Eli.Britstein@audiocodes.com>,
 	Alex Strizhevsky <alexxst@gmail.com>,
@@ -17,10 +17,10 @@ Cc: Kevin Zhu <Mingying.Zhu@audiocodes.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:36395 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752133AbaLBL2G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 06:28:06 -0500
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:55287 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932760AbaLBLjI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 06:39:08 -0500
 In-Reply-To: <87fvcyqoup.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -28,12 +28,23 @@ List-ID: <netdev.vger.kernel.org>
   This message is in MIME format.  The first part should be readable text,
   while the remaining parts are likely unreadable without MIME-aware tools.
 
---8323328-756842403-1417519717=:26526
+--8323328-1669091443-1417520380=:29454
 Content-Type: TEXT/PLAIN; charset=utf-8
 Content-Transfer-Encoding: 8BIT
 
-Testing it right now - let you know in a moment.
+To be clear - I also rebooted the remote system to power cycle the modem, 
+wanting to avoid
+at^reset
 
+But this modification of the driver unfortunately seems to lead to no changes. 
+Thank you so much Bjorn.
+
+Interetingly - a misbehaviour of the firmware was observed - I wasn't able to
+at^ndisdup=1,0
+... the firmware seemed to ignore it.
+But this might not be related to the patch.
+Thank you again.
+Enrico
 
 On Tue, 2 Dec 2014, Bjørn Mork wrote:
 
@@ -86,4 +97,4 @@ On Tue, 2 Dec 2014, Bjørn Mork wrote:
 ==
 ==Bjørn
 ==
---8323328-756842403-1417519717=:26526--
+--8323328-1669091443-1417520380=:29454--
