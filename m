@@ -1,101 +1,46 @@
-From: Dave Taht <dave.taht@gmail.com>
-Subject: Re: [PATCH] net: mvneta: fix Tx interrupt delay
-Date: Tue, 2 Dec 2014 09:31:20 -0800
-Message-ID: <CAA93jw4H4MBMgP-gpF6R35RZhYnpZ78r5RQ=6GT2TtGfuECadQ@mail.gmail.com>
-References: <20141202071304.GA22512@1wt.eu>
-	<1417522688.5303.35.camel@edumazet-glaptop2.roam.corp.google.com>
-	<547DF2EA.2020908@free-electrons.com>
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net] gso: do GSO for local skb with size
+	bigger than MTU
+Date: Tue, 2 Dec 2014 19:34:01 +0200
+Message-ID: <20141202173401.GB4126@redhat.com>
+References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
+ <1417158128.3268.2@smtp.corp.redhat.com>
+ <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com>
+ <20141201135225.GA16814@casper.infradead.org>
+ <20141202154839.GB5344@t520.home>
+ <20141202170927.GA9457@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Willy Tarreau <w@1wt.eu>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Maggie Mae Roxas <maggie.mae.roxas@gmail.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>
-To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:57038 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753984AbaLBRbV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 12:31:21 -0500
-Received: by mail-ob0-f172.google.com with SMTP id wn1so10245668obc.31
-        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 09:31:20 -0800 (PST)
-In-Reply-To: <547DF2EA.2020908@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ 'Jason Wang' <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "Du, Fan" <fan.du-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ "fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org" <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20141202170927.GA9457-FZi0V3Vbi30CUdFEqe4BF2D2FQJk+8+b@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 2, 2014 at 9:12 AM, Ezequiel Garcia
-<ezequiel.garcia@free-electrons.com> wrote:
-> Eric,
->
-> On 12/02/2014 09:18 AM, Eric Dumazet wrote:
-> [..]
->>
->> I am surprised TCP even worked correctly with this problem.
->>
->> I highly suggest BQL for this driver, now this issue is fixed.
->>
->
-> Implementing BQL for the mvneta driver was something I wanted to do a
-> while ago, but you explained that these kind drivers (i.e. those with
-> software TSO) didn't need BQL, because the latency that resulted from
-> the ring was too small.
->
-> Quoting (http://www.spinics.net/lists/netdev/msg284439.html):
-> ""
-> Note that a full size TSO packet (44 or 45 MSS) requires about 88 or =
-90
-> descriptors.
->
-> So I do not think BQL is really needed, because a 512 slots TX ring w=
-ont
-> add a big latency : About 5 ms max.
-
-at a gigabit.
-
-Wildly variable with pause frames. And: 50ms at 100mbit. 500ms at 10mbi=
-t.
-
-Secondly, why accept any latency in the driver when you can get it well=
- below
-2ms in most circumstances with a couple lines of BQL code?
-
->
-> BQL is generally nice for NIC supporting hardware TSO, where a 64KB T=
-SO
-> packet consumes 3 or 4 descriptors.
-
-BQL is nice at any speed, and darn useful at lower speeds,
-as well.
-
->
-> Also note that TCP Small Queues should limit TX ring occupancy of a
-> single bulk flow anyway.
-
-We only do one upload or one download at a time on our systems,
-followed by a ping measurement... never do more than one flow
-at the same time, right?
-
-
-> ""
->
-> Maybe I misunderstood something?
-
-Try it, test it, you'll like it.
-
-> --
-> Ezequiel Garc=C3=ADa, Free Electrons
-> Embedded Linux, Kernel and Android Engineering
-> http://free-electrons.com
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
-
---=20
-Dave T=C3=A4ht
-
-http://www.bufferbloat.net/projects/bloat/wiki/Upcoming_Talks
+T24gVHVlLCBEZWMgMDIsIDIwMTQgYXQgMDU6MDk6MjdQTSArMDAwMCwgVGhvbWFzIEdyYWYgd3Jv
+dGU6Cj4gT24gMTIvMDIvMTQgYXQgMDE6NDhwbSwgRmxhdmlvIExlaXRuZXIgd3JvdGU6Cj4gPiBX
+aGF0IGFib3V0IGNvbnRhaW5lcnMgb3IgYW55IG90aGVyIHZpcnR1YWxpemF0aW9uIGVudmlyb25t
+ZW50IHRoYXQKPiA+IGRvZXNuJ3QgdXNlIFZpcnRpbz8KPiAKPiBUaGUgaG9zdCBjYW4gZGljdGF0
+ZSB0aGUgTVRVIGluIHRoYXQgY2FzZSBmb3IgYm90aCB2ZXRoIG9yIE9WUwo+IGludGVybmFsIHdo
+aWNoIHdvdWxkIGJlIHByaW1hcnkgY29udGFpbmVyIHBsdW1iaW5nIHRlY2huaXF1ZXMuCgpJdCB0
+eXBpY2FsbHkgY2FuJ3QgZG8gdGhpcyBlYXNpbHkgZm9yIFZNcyB3aXRoIGVtdWxhdGVkIGRldmlj
+ZXM6CnJlYWwgZXRoZXJuZXQgdXNlcyBhIGZpeGVkIE1UVS4KCklNSE8gaXQncyBjb25mdXNpbmcg
+dG8gc3VnZ2VzdCBNVFUgYXMgYSBmaXggZm9yIHRoaXMgYnVnLCBpdCdzCmFuIHVucmVsYXRlZCBv
+cHRpbWl6YXRpb24uCklDTVBfREVTVF9VTlJFQUNIL0lDTVBfRlJBR19ORUVERUQgaXMgdGhlIHJp
+Z2h0IGZpeCBoZXJlLgoKCj4gaXZzaG1lbSB3b3VsZCBuZWVkIGl0J3Mgb3duIGZpeC4KX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlz
+dApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0
+aW5mby9kZXYK
