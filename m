@@ -1,92 +1,46 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: Re: Is this 32-bit NCM?
-Date: Tue, 2 Dec 2014 14:11:47 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1412021410270.29633@gmail.com>
-References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
- <alpine.LNX.2.03.1411271932510.1548@gmail.com> <87ppc71xne.fsf@nemi.mork.no> <alpine.LNX.2.03.1412012202480.1301@gmail.com> <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com> <547D37CA.7050506@audiocodes.com> <alpine.LNX.2.03.1412020729470.1351@gmail.com>
- <547D5F84.6020608@audiocodes.com> <alpine.LNX.2.03.1412020747360.1921@gmail.com> <547D6D7B.5090704@audiocodes.com> <E0C3DF2A36210C42B1AB4626A0E10F1FD949424C@aclmbx01.corp.audiocodes.com> <547D7243.80508@audiocodes.com> <alpine.LNX.2.03.1412021130410.2697@gmail.com>
- <87fvcyqoup.fsf@nemi.mork.no>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] net: mvneta: fix Tx interrupt delay
+Date: Tue, 2 Dec 2014 14:24:12 +0100
+Message-ID: <20141202132412.GC16347@1wt.eu>
+References: <20141202071304.GA22512@1wt.eu> <1417522688.5303.35.camel@edumazet-glaptop2.roam.corp.google.com> <20141202123951.GA16347@1wt.eu> <1417525458.5303.48.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-289725666-1417525908=:29633"
-Cc: Kevin Zhu <Mingying.Zhu@audiocodes.com>,
-	Eli Britstein <Eli.Britstein@audiocodes.com>,
-	Alex Strizhevsky <alexxst@gmail.com>,
-	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
-	"youtux@gmail.com" <youtux@gmail.com>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Maggie Mae Roxas <maggie.mae.roxas@gmail.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:48024 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754537AbaLBNLS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 08:11:18 -0500
-In-Reply-To: <87fvcyqoup.fsf@nemi.mork.no>
+Received: from 1wt.eu ([62.212.114.60]:29172 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754592AbaLBNYP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Dec 2014 08:24:15 -0500
+Content-Disposition: inline
+In-Reply-To: <1417525458.5303.48.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Tue, Dec 02, 2014 at 05:04:18AM -0800, Eric Dumazet wrote:
+> On Tue, 2014-12-02 at 13:39 +0100, Willy Tarreau wrote:
+> > Hi Eric,
+> > 
+> > On Tue, Dec 02, 2014 at 04:18:08AM -0800, Eric Dumazet wrote:
+> > 
+> > > I highly suggest BQL for this driver, now this issue is fixed.
+> > 
+> > How does that work ?
+> 
+> This works very well ;)
+> 
+> Its super easy to implement, take a look at commits
+> bdbc063129e811264cd6c311d8c2d9b95de01231 or
+> 7070ce0a6419a118842298bc967061ad6cea40db
 
---8323328-289725666-1417525908=:29633
-Content-Type: TEXT/PLAIN; charset=utf-8
-Content-Transfer-Encoding: 8BIT
+Thanks but I'm not sure I entirely understand the concept. Is it to
+notify the sender that the packets were already queued for the NIC ?
+And if so, how does that improve the situation ? I'm sorry if this
+sounds like a stupid question, it's just that the concept by itself
+is not clear to me.
 
-... but out of curiosity: are NCM specs allowing to change order of things in 
-the package or not?
-This is not to start philosofical falames or something, but to understand 
-better how things work. And, if they do: how much arbitrarily?
-
-
-On Tue, 2 Dec 2014, Bjørn Mork wrote:
-
-==Date: Tue, 2 Dec 2014 12:21:18
-==From: Bjørn Mork <bjorn@mork.no>
-==To: Enrico Mioso <mrkiko.rs@gmail.com>
-==Cc: Kevin Zhu <Mingying.Zhu@audiocodes.com>,
-==    Eli Britstein <Eli.Britstein@audiocodes.com>,
-==    Alex Strizhevsky <alexxst@gmail.com>,
-==    Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
-==    "youtux@gmail.com" <youtux@gmail.com>,
-==    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-==    "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-==Subject: Re: Is this 32-bit NCM?
-==
-==Enrico Mioso <mrkiko.rs@gmail.com> writes:
-==
-==> Kevin - it works! the key seems to be in the tx_fixup function; there is a 
-==> special handling for frames effectively.
-==> Please ... help me backport those changes to the standard Linux driver - it 
-==> will be a gain for us all, and in general you'll have a more probable 
-==> maintenance than you would with the driver from huawei.
-==
-==Very interesting.  The NCM code in the huawei driver has a different
-==origin, so it is quite different and not too easy to merge into the
-==existing Linux cdc_ncm driver.
-==
-==But this does pinpoint differences we should explore.  One is the
-==placement of the NDP: The Huawei driver puts it at the end.  Another,
-==which is much easier to test out quickly, is the sequence numbering: The
-==Huawei driver doesn't use it.
-==
-==So I wonder if this makes any difference:
-==
-==diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-==index 80a844e0ae03..37f11770acb6 100644
-==--- a/drivers/net/usb/cdc_ncm.c
-==+++ b/drivers/net/usb/cdc_ncm.c
-==@@ -1049,7 +1049,7 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_buff *skb, __le32 sign)
-== 		nth16 = (struct usb_cdc_ncm_nth16 *)memset(skb_put(skb_out, sizeof(struct usb_cdc_ncm_nth16)), 0, sizeof(struct usb_cdc_ncm_nth16));
-== 		nth16->dwSignature = cpu_to_le32(USB_CDC_NCM_NTH16_SIGN);
-== 		nth16->wHeaderLength = cpu_to_le16(sizeof(struct usb_cdc_ncm_nth16));
-==-		nth16->wSequence = cpu_to_le16(ctx->tx_seq++);
-==+//		nth16->wSequence = cpu_to_le16(ctx->tx_seq++);
-== 
-== 		/* count total number of frames in this NTB */
-== 		ctx->tx_curr_frame_num = 0;
-==
-==
-==
-==Bjørn
-==
---8323328-289725666-1417525908=:29633--
+Willy
