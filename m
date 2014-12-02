@@ -1,75 +1,76 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net] cxgb4: Add a check for flashing FW using ethtool
-Date: Tue, 02 Dec 2014 17:18:45 +0300
-Message-ID: <547DCA45.7060702@cogentembedded.com>
-References: <1417522177-14842-1-git-send-email-hariprasad@chelsio.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
-	nirranjan@chelsio.com, kumaras@chelsio.com
-To: Hariprasad Shenai <hariprasad@chelsio.com>, netdev@vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next V2 0/2] ethtool, net/mlx4_en: RSS hash function selection
+Date: Tue,  2 Dec 2014 16:20:47 +0200
+Message-ID: <1417530049-6943-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Eyal Perry <eyalpe@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:51693 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751699AbaLBOSs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 09:18:48 -0500
-Received: by mail-lb0-f179.google.com with SMTP id z11so10437410lbi.10
-        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 06:18:46 -0800 (PST)
-In-Reply-To: <1417522177-14842-1-git-send-email-hariprasad@chelsio.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:58345 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753860AbaLBOVB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Dec 2014 09:21:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi,
 
-On 12/2/2014 3:09 PM, Hariprasad Shenai wrote:
+This patchset by Eyal adds support in set/get of RSS hash function. Current
+supported functions are Toeplitz and XOR. The API is design to enable adding
+new hash functions without breaking backward compatibility.
+Userspace patch will be sent after API is available in kernel.
 
-> Don't let T4 firmware flash on a T5 adapter and vice-versa
-> using ethtool
 
-> Based on original work by Casey Leedom <leedom@chelsio.com>
+The patchset was applied and tested over commit cd4c910 ("netpoll: delete
+defconfig references to obsolete NETPOLL_TRAP")
 
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
-> ---
->   drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |   26 ++++++++++++++++++++++++++
->   1 files changed, 26 insertions(+), 0 deletions(-)
+Amir
 
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-> index 163a2a1..fae205a 100644
-> --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-> +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-> @@ -1131,6 +1131,27 @@ unsigned int t4_flash_cfg_addr(struct adapter *adapter)
->   		return FLASH_CFG_START;
->   }
->
-> +/* Return TRUE if the specified firmware matches the adapter.  I.e. T4
-> + * firmware for T4 adapters, T5 firmware for T5 adapters, etc.  We go ahead
-> + * and emit an error message for mismatched firmware to save our caller the
-> + * effort ...
-> + */
-> +static int t4_fw_matches_chip(const struct adapter *adap,
+Changes from V1:
+- Patch 1/2 - ethtool: Support for configurable RSS hash function:
+   - Accept an hfunc the chip is using instead of only ETH_RSS_HASH_NO_CHANGE.
+   - Provide an accurate hfunc value in get_rxfh() call.
+   - Changed the behavior of the get_rxfh() w.r.t the validation of the
+     arguments. Function will return 0 instead of -EOPNOSUPP when all arguments
+     are NULL.
 
-    s/int/bool/?
+Changes from V0:
+- Patch 1/2 - ethtool: Support for configurable RSS hash function:
+ - Add ETH prefix to RSS_HASH_* definitions
+ - Moved the strings array to ethtool.c
+ - Extend {get,set}_rxfh with additional arg instead of adding new
+   ethtool_option and adopt the change into drivers implementations.
+ - Moved indir_size and key_size validation into drivers implantation
+ - Documented hfunc filed in ethtool_rxfh struct
+- Patch 2/2 - net/mlx4_en: Support for configurable RSS hash function
+ - Remove redundant priv->rss_hash_fn_caps 
+ - Use == operator instead & when determining requested hash function. 
 
-> +			      const struct fw_hdr *hdr)
-> +{
-> +	/* The expression below will return FALSE for any unsupported adapter
-> +	 * which will keep us "honest" in the future ...
-> +	 */
-> +	if ((is_t4(adap->params.chip) && hdr->chip == FW_HDR_CHIP_T4) ||
-> +	    (is_t5(adap->params.chip) && hdr->chip == FW_HDR_CHIP_T5))
-> +		return 1;
+Eyal Perry (2):
+  ethtool: Support for configurable RSS hash function
+  net/mlx4_en: Support for configurable RSS hash function
 
-    s/1/true/?
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c       | 11 +++-
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    | 20 ++++++-
+ drivers/net/ethernet/broadcom/tg3.c                | 20 ++++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    | 18 +++++-
+ drivers/net/ethernet/emulex/benet/be_ethtool.c     | 12 +++-
+ drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c   | 12 +++-
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 17 +++++-
+ drivers/net/ethernet/intel/igb/igb_ethtool.c       | 16 ++++-
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    | 37 +++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     | 11 ++++
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c         | 14 ++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h       |  2 +-
+ drivers/net/ethernet/sfc/ethtool.c                 | 18 ++++--
+ drivers/net/vmxnet3/vmxnet3_ethtool.c              | 15 ++++-
+ include/linux/ethtool.h                            | 42 +++++++++----
+ include/uapi/linux/ethtool.h                       | 10 +++-
+ net/core/ethtool.c                                 | 69 ++++++++++++----------
+ 17 files changed, 272 insertions(+), 72 deletions(-)
 
-> +
-> +	dev_err(adap->pdev_dev,
-> +		"FW image (%d) is not suitable for this adapter (%d)\n",
-> +		hdr->chip, CHELSIO_CHIP_VERSION(adap->params.chip));
-> +	return 0;
-
-    s/0/false/?
-
-[...]
-
-WBR, Sergei
+-- 
+1.8.3.4
