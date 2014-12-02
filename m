@@ -1,143 +1,152 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
+From: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
 Subject: Re: Is this 32-bit NCM?
-Date: Tue, 2 Dec 2014 07:49:45 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1412020747360.1921@gmail.com>
-References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
- <alpine.LNX.2.03.1411271932510.1548@gmail.com> <87ppc71xne.fsf@nemi.mork.no>,<alpine.LNX.2.03.1412012202480.1301@gmail.com> <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com> <547D37CA.7050506@audiocodes.com> <alpine.LNX.2.03.1412020729470.1351@gmail.com>
+Date: Tue, 2 Dec 2014 06:52:54 +0000
+Message-ID: <547D61C0.2080904@audiocodes.com>
+References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
+ <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com>
+ <874mtl55ar.fsf@nemi.mork.no>
+ <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
+ <alpine.LNX.2.03.1411271932510.1548@gmail.com>
+ <87ppc71xne.fsf@nemi.mork.no>,<alpine.LNX.2.03.1412012202480.1301@gmail.com>
+ <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com>
+ <547D37CA.7050506@audiocodes.com>
+ <alpine.LNX.2.03.1412020729470.1351@gmail.com>
  <547D5F84.6020608@audiocodes.com>
+ <alpine.LNX.2.03.1412020747360.1921@gmail.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1624549810-1417502991=:1921"
-Cc: Eli Britstein <Eli.Britstein@audiocodes.com>,
-	=?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
-	Alex Strizhevsky <alexxst@gmail.com>,
-	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
-	"youtux@gmail.com" <youtux@gmail.com>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Kevin Zhu <Mingying.Zhu@audiocodes.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:60783 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752638AbaLBGtV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 01:49:21 -0500
-In-Reply-To: <547D5F84.6020608@audiocodes.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Midge Shaojun Tan" <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	"youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.LNX.2.03.1412020747360.1921-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Content-Language: en-US
+Content-ID: <90E66A8423F2DD4BA7856FA140C94079-NhzUejbdEhGcE4WynfumptQqCkab/8FMAL8bYrjMMd8@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
---8323328-1624549810-1417502991=:1921
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-
-Can you try to look at Windows registry keys based on the INF file as suggested 
-or would this be a problem for you?
-And... if you have any Huawei manutal talking about it: even device's 
-^DSFLOWRPT
-might be useful to some extent, but ... this is only just a note in case we 
-don't find anything else.
-Regards ... and good day to all of you,
-Enrico
-
-
-On Tue, 2 Dec 2014, Kevin Zhu wrote:
-
-==Date: Tue, 2 Dec 2014 07:43:24
-==From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
-==To: Enrico Mioso <mrkiko.rs@gmail.com>
-==Cc: Eli Britstein <Eli.Britstein@audiocodes.com>, Bjørn Mork <bjorn@mork.no>,
-==    Alex Strizhevsky <alexxst@gmail.com>,
-==    Midge Shaojun  Tan <ShaojunMidge.Tan@audiocodes.com>,
-==    "youtux@gmail.com" <youtux@gmail.com>,
-==    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-==    "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-==Subject: Re: Is this 32-bit NCM?
-==
-==I also tried to define CDC_NCM_DPT_DATAGRAMS_MAX as 1 to eliminate the
-==paddings, but it did not work either, not even DHCP.
-==
-==Regards,
-==Kevin
-==
-==On 12/02/2014 02:32 PM, Enrico Mioso wrote:
-==> Hi again Eli,
-==> Hi Kevin,
-==> Hi everyone...
-==>
-==> As I understand it anyway - the distinction here tends not to be between
-==> different types of packets.
-==> It tends to be between received and sent packet.
-==> We are not able to generate packets that the device retains valid.
-==> If you manually configure the IP the device would have assigned you via DHCP,
-==> your system will start answering ARP request, saying that the host with IP
-==> aa.bb.cc.dd is at aa:bb:cc:dd:ee (using the MC address of the dongle).
-==> However, the other host (gateway) will never know that. Indeed, it'll continue
-==> asking who-is at aa.bb.cc.dd ?
-==> At least, this is the situation I observed in the test system.
-==>
-==>
-==> On Tue, 2 Dec 2014, Kevin Zhu wrote:
-==>
-==> ==Date: Tue, 2 Dec 2014 04:53:53
-==> ==From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
-==> ==To: Eli Britstein <Eli.Britstein@audiocodes.com>,
-==> ==    Enrico Mioso <mrkiko.rs@gmail.com>
-==> ==Cc: Bjørn Mork <bjorn@mork.no>, Alex Strizhevsky <alexxst@gmail.com>,
-==> ==    Midge Shaojun  Tan <ShaojunMidge.Tan@audiocodes.com>,
-==> ==    "youtux@gmail.com" <youtux@gmail.com>,
-==> ==    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-==> ==    "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-==> ==Subject: Re: Is this 32-bit NCM?
-==> ==
-==> ==Hi,
-==> ==
-==> ==The DHCP packets have the maximum size of dwNtbOutMaxSize=16384, while
-==> ==the other packets are less than that. However, the DHCP queries are not
-==> ==replied in time either, there's always some delay.
-==> ==
-==> ==By the way, though the device claims to support GET_MAX_DATAGRAM_SIZE,
-==> ==but it returns error when the host sends this command to it. I disabled
-==> ==this command in NCM driver and tried, but it's the same result.
-==> ==
-==> ==Regards,
-==> ==Kevin
-==> ==
-==> ==On 12/02/2014 06:02 AM, Eli Britstein wrote:
-==> ==> Hi Enrico and all,
-==> ==>
-==> ==> Maybe I missed something but what is the difference by the driver point of view between the dhcp discover and request (that are ok) to others (like arp, that is nok)?
-==> ==> Maybe we can trace to compare them?
-==> ==>
-==> ==> Sent from my iPhone
-==> ==>
-==> ==>> On 1 בדצמ 2014, at 23:11, "Enrico Mioso" <mrkiko.rs@gmail.com> wrote:
-==> ==>>
-==> ==>> So ... I have two ideas left for now.
-==> ==>> We know for sure the problem is in the way we TX frames, not the way we RX them
-==> ==>> (the way we send, generate them, not the way we receive them).
-==> ==>> Si I have two ideas, and I ask for help from the Linux-usb mailing list for
-==> ==>> this first one.
-==> ==>>
-==> ==>> 1 - Does a wayexist to "replay" traffic crom a usb capture?
-==> ==>> We might try to take the usb frames generated by Windows, and send them to the
-==> ==>> device to see if there is any reaction. It should not be science fiction, I saw
-==> ==>> them do that in the eciadsl old project.
-==> ==>> 2 - The huawei ndis driver: does it work with these devices?
-==> ==>> It should be a little bit out-dated now (at least in terms of dates, it might
-==> ==>> work as well): the code is A LOT but, just in case, to see if there is any
-==> ==>> chances it'll work. It remains to be seen in which kernels it can actually
-==> ==>> compile again.
-==> ==>>
-==> ==>> If this works we might analyse what's happening and try to debug this out.
-==> ==>> But I really would like this to work in the cdc_ncm driver + huawei_cdc_ncm.
-==> ==>> Thank you.
-==> ==This email and any files transmitted with it are confidential material. They are intended solely for the use of the designated individual or entity to whom they are addressed. If the reader of this message is not the intended recipient, you are hereby notified that any dissemination, use, distribution or copying of this communication is strictly prohibited and may be unlawful.
-==> ==
-==> ==If you have received this email in error please immediately notify the sender and delete or destroy any copy of this message
-==> ==
-==This email and any files transmitted with it are confidential material. They are intended solely for the use of the designated individual or entity to whom they are addressed. If the reader of this message is not the intended recipient, you are hereby notified that any dissemination, use, distribution or copying of this communication is strictly prohibited and may be unlawful.
-==
-==If you have received this email in error please immediately notify the sender and delete or destroy any copy of this message
-==
---8323328-1624549810-1417502991=:1921--
+T0suIEkgd2lsbCBsb29rIGF0IHRoZSB3aW5kb3dzIGRyaXZlciBhbmQgcmVnaXN0cnkuIEkgZG9u
+J3QgaGF2ZSBhbnkNCm1hbnVhbCBvZiBpdC4NCg0KUmVnYXJkcywNCktldmluDQoNCk9uIDEyLzAy
+LzIwMTQgMDI6NDkgUE0sIEVucmljbyBNaW9zbyB3cm90ZToNCj4gQ2FuIHlvdSB0cnkgdG8gbG9v
+ayBhdCBXaW5kb3dzIHJlZ2lzdHJ5IGtleXMgYmFzZWQgb24gdGhlIElORiBmaWxlIGFzIHN1Z2dl
+c3RlZA0KPiBvciB3b3VsZCB0aGlzIGJlIGEgcHJvYmxlbSBmb3IgeW91Pw0KPiBBbmQuLi4gaWYg
+eW91IGhhdmUgYW55IEh1YXdlaSBtYW51dGFsIHRhbGtpbmcgYWJvdXQgaXQ6IGV2ZW4gZGV2aWNl
+J3MNCj4gXkRTRkxPV1JQVA0KPiBtaWdodCBiZSB1c2VmdWwgdG8gc29tZSBleHRlbnQsIGJ1dCAu
+Li4gdGhpcyBpcyBvbmx5IGp1c3QgYSBub3RlIGluIGNhc2Ugd2UNCj4gZG9uJ3QgZmluZCBhbnl0
+aGluZyBlbHNlLg0KPiBSZWdhcmRzIC4uLiBhbmQgZ29vZCBkYXkgdG8gYWxsIG9mIHlvdSwNCj4g
+RW5yaWNvDQo+DQo+DQo+IE9uIFR1ZSwgMiBEZWMgMjAxNCwgS2V2aW4gWmh1IHdyb3RlOg0KPg0K
+PiA9PURhdGU6IFR1ZSwgMiBEZWMgMjAxNCAwNzo0MzoyNA0KPiA9PUZyb206IEtldmluIFpodSA8
+TWluZ3lpbmcuWmh1QGF1ZGlvY29kZXMuY29tPg0KPiA9PVRvOiBFbnJpY28gTWlvc28gPG1ya2lr
+by5yc0BnbWFpbC5jb20+DQo+ID09Q2M6IEVsaSBCcml0c3RlaW4gPEVsaS5Ccml0c3RlaW5AYXVk
+aW9jb2Rlcy5jb20+LCBCasO4cm4gTW9yayA8Ympvcm5AbW9yay5ubz4sDQo+ID09ICAgIEFsZXgg
+U3RyaXpoZXZza3kgPGFsZXh4c3RAZ21haWwuY29tPiwNCj4gPT0gICAgTWlkZ2UgU2hhb2p1biAg
+VGFuIDxTaGFvanVuTWlkZ2UuVGFuQGF1ZGlvY29kZXMuY29tPiwNCj4gPT0gICAgInlvdXR1eEBn
+bWFpbC5jb20iIDx5b3V0dXhAZ21haWwuY29tPiwNCj4gPT0gICAgImxpbnV4LXVzYkB2Z2VyLmtl
+cm5lbC5vcmciIDxsaW51eC11c2JAdmdlci5rZXJuZWwub3JnPiwNCj4gPT0gICAgIm5ldGRldkB2
+Z2VyLmtlcm5lbC5vcmciIDxuZXRkZXZAdmdlci5rZXJuZWwub3JnPg0KPiA9PVN1YmplY3Q6IFJl
+OiBJcyB0aGlzIDMyLWJpdCBOQ00/DQo+ID09DQo+ID09SSBhbHNvIHRyaWVkIHRvIGRlZmluZSBD
+RENfTkNNX0RQVF9EQVRBR1JBTVNfTUFYIGFzIDEgdG8gZWxpbWluYXRlIHRoZQ0KPiA9PXBhZGRp
+bmdzLCBidXQgaXQgZGlkIG5vdCB3b3JrIGVpdGhlciwgbm90IGV2ZW4gREhDUC4NCj4gPT0NCj4g
+PT1SZWdhcmRzLA0KPiA9PUtldmluDQo+ID09DQo+ID09T24gMTIvMDIvMjAxNCAwMjozMiBQTSwg
+RW5yaWNvIE1pb3NvIHdyb3RlOg0KPiA9PT4gSGkgYWdhaW4gRWxpLA0KPiA9PT4gSGkgS2V2aW4s
+DQo+ID09PiBIaSBldmVyeW9uZS4uLg0KPiA9PT4NCj4gPT0+IEFzIEkgdW5kZXJzdGFuZCBpdCBh
+bnl3YXkgLSB0aGUgZGlzdGluY3Rpb24gaGVyZSB0ZW5kcyBub3QgdG8gYmUgYmV0d2Vlbg0KPiA9
+PT4gZGlmZmVyZW50IHR5cGVzIG9mIHBhY2tldHMuDQo+ID09PiBJdCB0ZW5kcyB0byBiZSBiZXR3
+ZWVuIHJlY2VpdmVkIGFuZCBzZW50IHBhY2tldC4NCj4gPT0+IFdlIGFyZSBub3QgYWJsZSB0byBn
+ZW5lcmF0ZSBwYWNrZXRzIHRoYXQgdGhlIGRldmljZSByZXRhaW5zIHZhbGlkLg0KPiA9PT4gSWYg
+eW91IG1hbnVhbGx5IGNvbmZpZ3VyZSB0aGUgSVAgdGhlIGRldmljZSB3b3VsZCBoYXZlIGFzc2ln
+bmVkIHlvdSB2aWEgREhDUCwNCj4gPT0+IHlvdXIgc3lzdGVtIHdpbGwgc3RhcnQgYW5zd2VyaW5n
+IEFSUCByZXF1ZXN0LCBzYXlpbmcgdGhhdCB0aGUgaG9zdCB3aXRoIElQDQo+ID09PiBhYS5iYi5j
+Yy5kZCBpcyBhdCBhYTpiYjpjYzpkZDplZSAodXNpbmcgdGhlIE1DIGFkZHJlc3Mgb2YgdGhlIGRv
+bmdsZSkuDQo+ID09PiBIb3dldmVyLCB0aGUgb3RoZXIgaG9zdCAoZ2F0ZXdheSkgd2lsbCBuZXZl
+ciBrbm93IHRoYXQuIEluZGVlZCwgaXQnbGwgY29udGludWUNCj4gPT0+IGFza2luZyB3aG8taXMg
+YXQgYWEuYmIuY2MuZGQgPw0KPiA9PT4gQXQgbGVhc3QsIHRoaXMgaXMgdGhlIHNpdHVhdGlvbiBJ
+IG9ic2VydmVkIGluIHRoZSB0ZXN0IHN5c3RlbS4NCj4gPT0+DQo+ID09Pg0KPiA9PT4gT24gVHVl
+LCAyIERlYyAyMDE0LCBLZXZpbiBaaHUgd3JvdGU6DQo+ID09Pg0KPiA9PT4gPT1EYXRlOiBUdWUs
+IDIgRGVjIDIwMTQgMDQ6NTM6NTMNCj4gPT0+ID09RnJvbTogS2V2aW4gWmh1IDxNaW5neWluZy5a
+aHVAYXVkaW9jb2Rlcy5jb20+DQo+ID09PiA9PVRvOiBFbGkgQnJpdHN0ZWluIDxFbGkuQnJpdHN0
+ZWluQGF1ZGlvY29kZXMuY29tPiwNCj4gPT0+ID09ICAgIEVucmljbyBNaW9zbyA8bXJraWtvLnJz
+QGdtYWlsLmNvbT4NCj4gPT0+ID09Q2M6IEJqw7hybiBNb3JrIDxiam9ybkBtb3JrLm5vPiwgQWxl
+eCBTdHJpemhldnNreSA8YWxleHhzdEBnbWFpbC5jb20+LA0KPiA9PT4gPT0gICAgTWlkZ2UgU2hh
+b2p1biAgVGFuIDxTaGFvanVuTWlkZ2UuVGFuQGF1ZGlvY29kZXMuY29tPiwNCj4gPT0+ID09ICAg
+ICJ5b3V0dXhAZ21haWwuY29tIiA8eW91dHV4QGdtYWlsLmNvbT4sDQo+ID09PiA9PSAgICAibGlu
+dXgtdXNiQHZnZXIua2VybmVsLm9yZyIgPGxpbnV4LXVzYkB2Z2VyLmtlcm5lbC5vcmc+LA0KPiA9
+PT4gPT0gICAgIm5ldGRldkB2Z2VyLmtlcm5lbC5vcmciIDxuZXRkZXZAdmdlci5rZXJuZWwub3Jn
+Pg0KPiA9PT4gPT1TdWJqZWN0OiBSZTogSXMgdGhpcyAzMi1iaXQgTkNNPw0KPiA9PT4gPT0NCj4g
+PT0+ID09SGksDQo+ID09PiA9PQ0KPiA9PT4gPT1UaGUgREhDUCBwYWNrZXRzIGhhdmUgdGhlIG1h
+eGltdW0gc2l6ZSBvZiBkd050Yk91dE1heFNpemU9MTYzODQsIHdoaWxlDQo+ID09PiA9PXRoZSBv
+dGhlciBwYWNrZXRzIGFyZSBsZXNzIHRoYW4gdGhhdC4gSG93ZXZlciwgdGhlIERIQ1AgcXVlcmll
+cyBhcmUgbm90DQo+ID09PiA9PXJlcGxpZWQgaW4gdGltZSBlaXRoZXIsIHRoZXJlJ3MgYWx3YXlz
+IHNvbWUgZGVsYXkuDQo+ID09PiA9PQ0KPiA9PT4gPT1CeSB0aGUgd2F5LCB0aG91Z2ggdGhlIGRl
+dmljZSBjbGFpbXMgdG8gc3VwcG9ydCBHRVRfTUFYX0RBVEFHUkFNX1NJWkUsDQo+ID09PiA9PWJ1
+dCBpdCByZXR1cm5zIGVycm9yIHdoZW4gdGhlIGhvc3Qgc2VuZHMgdGhpcyBjb21tYW5kIHRvIGl0
+LiBJIGRpc2FibGVkDQo+ID09PiA9PXRoaXMgY29tbWFuZCBpbiBOQ00gZHJpdmVyIGFuZCB0cmll
+ZCwgYnV0IGl0J3MgdGhlIHNhbWUgcmVzdWx0Lg0KPiA9PT4gPT0NCj4gPT0+ID09UmVnYXJkcywN
+Cj4gPT0+ID09S2V2aW4NCj4gPT0+ID09DQo+ID09PiA9PU9uIDEyLzAyLzIwMTQgMDY6MDIgQU0s
+IEVsaSBCcml0c3RlaW4gd3JvdGU6DQo+ID09PiA9PT4gSGkgRW5yaWNvIGFuZCBhbGwsDQo+ID09
+PiA9PT4NCj4gPT0+ID09PiBNYXliZSBJIG1pc3NlZCBzb21ldGhpbmcgYnV0IHdoYXQgaXMgdGhl
+IGRpZmZlcmVuY2UgYnkgdGhlIGRyaXZlciBwb2ludCBvZiB2aWV3IGJldHdlZW4gdGhlIGRoY3Ag
+ZGlzY292ZXIgYW5kIHJlcXVlc3QgKHRoYXQgYXJlIG9rKSB0byBvdGhlcnMgKGxpa2UgYXJwLCB0
+aGF0IGlzIG5vayk/DQo+ID09PiA9PT4gTWF5YmUgd2UgY2FuIHRyYWNlIHRvIGNvbXBhcmUgdGhl
+bT8NCj4gPT0+ID09Pg0KPiA9PT4gPT0+IFNlbnQgZnJvbSBteSBpUGhvbmUNCj4gPT0+ID09Pg0K
+PiA9PT4gPT0+PiBPbiAxINeR15PXpteeIDIwMTQsIGF0IDIzOjExLCAiRW5yaWNvIE1pb3NvIiA8
+bXJraWtvLnJzQGdtYWlsLmNvbT4gd3JvdGU6DQo+ID09PiA9PT4+DQo+ID09PiA9PT4+IFNvIC4u
+LiBJIGhhdmUgdHdvIGlkZWFzIGxlZnQgZm9yIG5vdy4NCj4gPT0+ID09Pj4gV2Uga25vdyBmb3Ig
+c3VyZSB0aGUgcHJvYmxlbSBpcyBpbiB0aGUgd2F5IHdlIFRYIGZyYW1lcywgbm90IHRoZSB3YXkg
+d2UgUlggdGhlbQ0KPiA9PT4gPT0+PiAodGhlIHdheSB3ZSBzZW5kLCBnZW5lcmF0ZSB0aGVtLCBu
+b3QgdGhlIHdheSB3ZSByZWNlaXZlIHRoZW0pLg0KPiA9PT4gPT0+PiBTaSBJIGhhdmUgdHdvIGlk
+ZWFzLCBhbmQgSSBhc2sgZm9yIGhlbHAgZnJvbSB0aGUgTGludXgtdXNiIG1haWxpbmcgbGlzdCBm
+b3INCj4gPT0+ID09Pj4gdGhpcyBmaXJzdCBvbmUuDQo+ID09PiA9PT4+DQo+ID09PiA9PT4+IDEg
+LSBEb2VzIGEgd2F5ZXhpc3QgdG8gInJlcGxheSIgdHJhZmZpYyBjcm9tIGEgdXNiIGNhcHR1cmU/
+DQo+ID09PiA9PT4+IFdlIG1pZ2h0IHRyeSB0byB0YWtlIHRoZSB1c2IgZnJhbWVzIGdlbmVyYXRl
+ZCBieSBXaW5kb3dzLCBhbmQgc2VuZCB0aGVtIHRvIHRoZQ0KPiA9PT4gPT0+PiBkZXZpY2UgdG8g
+c2VlIGlmIHRoZXJlIGlzIGFueSByZWFjdGlvbi4gSXQgc2hvdWxkIG5vdCBiZSBzY2llbmNlIGZp
+Y3Rpb24sIEkgc2F3DQo+ID09PiA9PT4+IHRoZW0gZG8gdGhhdCBpbiB0aGUgZWNpYWRzbCBvbGQg
+cHJvamVjdC4NCj4gPT0+ID09Pj4gMiAtIFRoZSBodWF3ZWkgbmRpcyBkcml2ZXI6IGRvZXMgaXQg
+d29yayB3aXRoIHRoZXNlIGRldmljZXM/DQo+ID09PiA9PT4+IEl0IHNob3VsZCBiZSBhIGxpdHRs
+ZSBiaXQgb3V0LWRhdGVkIG5vdyAoYXQgbGVhc3QgaW4gdGVybXMgb2YgZGF0ZXMsIGl0IG1pZ2h0
+DQo+ID09PiA9PT4+IHdvcmsgYXMgd2VsbCk6IHRoZSBjb2RlIGlzIEEgTE9UIGJ1dCwganVzdCBp
+biBjYXNlLCB0byBzZWUgaWYgdGhlcmUgaXMgYW55DQo+ID09PiA9PT4+IGNoYW5jZXMgaXQnbGwg
+d29yay4gSXQgcmVtYWlucyB0byBiZSBzZWVuIGluIHdoaWNoIGtlcm5lbHMgaXQgY2FuIGFjdHVh
+bGx5DQo+ID09PiA9PT4+IGNvbXBpbGUgYWdhaW4uDQo+ID09PiA9PT4+DQo+ID09PiA9PT4+IElm
+IHRoaXMgd29ya3Mgd2UgbWlnaHQgYW5hbHlzZSB3aGF0J3MgaGFwcGVuaW5nIGFuZCB0cnkgdG8g
+ZGVidWcgdGhpcyBvdXQuDQo+ID09PiA9PT4+IEJ1dCBJIHJlYWxseSB3b3VsZCBsaWtlIHRoaXMg
+dG8gd29yayBpbiB0aGUgY2RjX25jbSBkcml2ZXIgKyBodWF3ZWlfY2RjX25jbS4NCj4gPT0+ID09
+Pj4gVGhhbmsgeW91Lg0KPiA9PT4gPT1UaGlzIGVtYWlsIGFuZCBhbnkgZmlsZXMgdHJhbnNtaXR0
+ZWQgd2l0aCBpdCBhcmUgY29uZmlkZW50aWFsIG1hdGVyaWFsLiBUaGV5IGFyZSBpbnRlbmRlZCBz
+b2xlbHkgZm9yIHRoZSB1c2Ugb2YgdGhlIGRlc2lnbmF0ZWQgaW5kaXZpZHVhbCBvciBlbnRpdHkg
+dG8gd2hvbSB0aGV5IGFyZSBhZGRyZXNzZWQuIElmIHRoZSByZWFkZXIgb2YgdGhpcyBtZXNzYWdl
+IGlzIG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50LCB5b3UgYXJlIGhlcmVieSBub3RpZmllZCB0
+aGF0IGFueSBkaXNzZW1pbmF0aW9uLCB1c2UsIGRpc3RyaWJ1dGlvbiBvciBjb3B5aW5nIG9mIHRo
+aXMgY29tbXVuaWNhdGlvbiBpcyBzdHJpY3RseSBwcm9oaWJpdGVkIGFuZCBtYXkgYmUgdW5sYXdm
+dWwuDQo+ID09PiA9PQ0KPiA9PT4gPT1JZiB5b3UgaGF2ZSByZWNlaXZlZCB0aGlzIGVtYWlsIGlu
+IGVycm9yIHBsZWFzZSBpbW1lZGlhdGVseSBub3RpZnkgdGhlIHNlbmRlciBhbmQgZGVsZXRlIG9y
+IGRlc3Ryb3kgYW55IGNvcHkgb2YgdGhpcyBtZXNzYWdlDQo+ID09PiA9PQ0KPiA9PVRoaXMgZW1h
+aWwgYW5kIGFueSBmaWxlcyB0cmFuc21pdHRlZCB3aXRoIGl0IGFyZSBjb25maWRlbnRpYWwgbWF0
+ZXJpYWwuIFRoZXkgYXJlIGludGVuZGVkIHNvbGVseSBmb3IgdGhlIHVzZSBvZiB0aGUgZGVzaWdu
+YXRlZCBpbmRpdmlkdWFsIG9yIGVudGl0eSB0byB3aG9tIHRoZXkgYXJlIGFkZHJlc3NlZC4gSWYg
+dGhlIHJlYWRlciBvZiB0aGlzIG1lc3NhZ2UgaXMgbm90IHRoZSBpbnRlbmRlZCByZWNpcGllbnQs
+IHlvdSBhcmUgaGVyZWJ5IG5vdGlmaWVkIHRoYXQgYW55IGRpc3NlbWluYXRpb24sIHVzZSwgZGlz
+dHJpYnV0aW9uIG9yIGNvcHlpbmcgb2YgdGhpcyBjb21tdW5pY2F0aW9uIGlzIHN0cmljdGx5IHBy
+b2hpYml0ZWQgYW5kIG1heSBiZSB1bmxhd2Z1bC4NCj4gPT0NCj4gPT1JZiB5b3UgaGF2ZSByZWNl
+aXZlZCB0aGlzIGVtYWlsIGluIGVycm9yIHBsZWFzZSBpbW1lZGlhdGVseSBub3RpZnkgdGhlIHNl
+bmRlciBhbmQgZGVsZXRlIG9yIGRlc3Ryb3kgYW55IGNvcHkgb2YgdGhpcyBtZXNzYWdlDQo+ID09
+DQpUaGlzIGVtYWlsIGFuZCBhbnkgZmlsZXMgdHJhbnNtaXR0ZWQgd2l0aCBpdCBhcmUgY29uZmlk
+ZW50aWFsIG1hdGVyaWFsLiBUaGV5IGFyZSBpbnRlbmRlZCBzb2xlbHkgZm9yIHRoZSB1c2Ugb2Yg
+dGhlIGRlc2lnbmF0ZWQgaW5kaXZpZHVhbCBvciBlbnRpdHkgdG8gd2hvbSB0aGV5IGFyZSBhZGRy
+ZXNzZWQuIElmIHRoZSByZWFkZXIgb2YgdGhpcyBtZXNzYWdlIGlzIG5vdCB0aGUgaW50ZW5kZWQg
+cmVjaXBpZW50LCB5b3UgYXJlIGhlcmVieSBub3RpZmllZCB0aGF0IGFueSBkaXNzZW1pbmF0aW9u
+LCB1c2UsIGRpc3RyaWJ1dGlvbiBvciBjb3B5aW5nIG9mIHRoaXMgY29tbXVuaWNhdGlvbiBpcyBz
+dHJpY3RseSBwcm9oaWJpdGVkIGFuZCBtYXkgYmUgdW5sYXdmdWwuDQoNCklmIHlvdSBoYXZlIHJl
+Y2VpdmVkIHRoaXMgZW1haWwgaW4gZXJyb3IgcGxlYXNlIGltbWVkaWF0ZWx5IG5vdGlmeSB0aGUg
+c2VuZGVyIGFuZCBkZWxldGUgb3IgZGVzdHJveSBhbnkgY29weSBvZiB0aGlzIG1lc3NhZ2UNCg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
