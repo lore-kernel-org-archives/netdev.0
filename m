@@ -1,62 +1,73 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net PATCH] fib_trie: Fix /proc/net/fib_trie when
- CONFIG_IP_MULTIPLE_TABLES is not defined
-Date: Tue, 02 Dec 2014 10:58:21 -0800
-Message-ID: <20141202185238.1540.48554.stgit@ahduyck-vm-fedora20>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next] rtnetlink: delay RTM_DELLINK notification until
+ after ndo_uninit()
+Date: Tue, 2 Dec 2014 11:53:32 -0800
+Message-ID: <CAADnVQKLCWa3tZu2akkJzF6nUPoS4m-mmetQYbtWiuPEN1vFGg@mail.gmail.com>
+References: <1417499650-29176-1-git-send-email-maheshb@google.com>
+	<20141202100746.GA13717@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49537 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752442AbaLBS6X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Dec 2014 13:58:23 -0500
+Received: from mail-qg0-f45.google.com ([209.85.192.45]:54413 "EHLO
+	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933179AbaLBTxd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 14:53:33 -0500
+Received: by mail-qg0-f45.google.com with SMTP id f51so9866059qge.32
+        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 11:53:32 -0800 (PST)
+In-Reply-To: <20141202100746.GA13717@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In recent testing I had disabled CONFIG_IP_MULTIPLE_TABLES and as a result
-when I ran "cat /proc/net/fib_trie" the main trie was displayed multiple
-times.  I found that the problem line of code was in the function
-fib_trie_seq_next.  Specifically the line below caused the indexes to go in
-the opposite direction of our traversal:
+On Tue, Dec 2, 2014 at 2:07 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 12/01/14 at 09:54pm, Mahesh Bandewar wrote:
+>> --- a/net/core/rtnetlink.c
+>> +++ b/net/core/rtnetlink.c
+>> @@ -2220,8 +2220,16 @@ static int rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb)
+>>       return skb->len;
+>>  }
+>>
+>> -void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
+>> -               gfp_t flags)
+>> +void rtmsg_ifinfo_send(struct sk_buff *skb, struct net_device *dev, gfp_t flags)
+>> +{
+>> +     struct net *net = dev_net(dev);
+>> +
+>> +     rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, flags);
+>> +}
+>> +EXPORT_SYMBOL(rtmsg_ifinfo_send);
+>> +
+>> +struct sk_buff *rtmsg_ifinfo(int type, struct net_device *dev,
+>> +                          unsigned int change, gfp_t flags, bool fill_only)
+>>  {
+>>       struct net *net = dev_net(dev);
+>>       struct sk_buff *skb;
+>> @@ -2239,11 +2247,15 @@ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
+>>               kfree_skb(skb);
+>>               goto errout;
+>>       }
+>> +     if (fill_only)
+>> +         return skb;
+>> +
+>>       rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, flags);
+>> -     return;
+>> +     return NULL;
+>>  errout:
+>>       if (err < 0)
+>>               rtnl_set_sk_err(net, RTNLGRP_LINK, err);
+>> +     return NULL;
+>>  }
+>
+> I think it would be cleaner to introduce a new function, for example
+> rtmsg_ifinfo_build_skb() which is called from rtmsg_ifinfo(). The
+> single caller that requires delayed sending can use the build skb
+> function directly and then send it off.
 
-	h = tb->tb_id & (FIB_TABLE_HASHSZ - 1);
-
-This issue was that the RT tables are defined such that RT_TABLE_LOCAL is ID
-255, while it is located at TABLE_LOCAL_INDEX of 0, and RT_TABLE_MAIN is 254
-with a TABLE_MAIN_INDEX of 1.  This means that the above line will return 1
-for the local table and 0 for main.  The result is that fib_trie_seq_next
-will return NULL at the end of the local table, fib_trie_seq_start will
-return the start of the main table, and then fib_trie_seq_next will loop on
-main forever as h will always return 0.
-
-The fix for this is to reverse the ordering of the two tables.  It has the
-advantage of making it so that the tables now print in the same order
-regardless of if multiple tables are enabled or not.  In order to make the
-definition consistent with the multiple tables case I simply masked the to
-RT_TABLE_XXX values by (FIB_TABLE_HASHSZ - 1).  This way the two table
-layouts should always stay consistent.
-
-Fixes: 93456b6 ("[IPV4]: Unify access to the routing tables")
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
- include/net/ip_fib.h |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index dc9d2a2..09a819e 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -201,8 +201,8 @@ void fib_free_table(struct fib_table *tb);
- 
- #ifndef CONFIG_IP_MULTIPLE_TABLES
- 
--#define TABLE_LOCAL_INDEX	0
--#define TABLE_MAIN_INDEX	1
-+#define TABLE_LOCAL_INDEX	(RT_TABLE_LOCAL & (FIB_TABLE_HASHSZ - 1))
-+#define TABLE_MAIN_INDEX	(RT_TABLE_MAIN  & (FIB_TABLE_HASHSZ - 1))
- 
- static inline struct fib_table *fib_get_table(struct net *net, u32 id)
- {
++1
+that would make patch much smaller.
