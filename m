@@ -1,98 +1,90 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: Re: Is this 32-bit NCM?
-Date: Tue, 2 Dec 2014 16:28:47 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1412021627360.8131@gmail.com>
-References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
- <alpine.LNX.2.03.1411271932510.1548@gmail.com> <87ppc71xne.fsf@nemi.mork.no> <alpine.LNX.2.03.1412012202480.1301@gmail.com> <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com> <547D37CA.7050506@audiocodes.com> <alpine.LNX.2.03.1412020729470.1351@gmail.com>
- <547D5F84.6020608@audiocodes.com> <alpine.LNX.2.03.1412020747360.1921@gmail.com> <547D6D7B.5090704@audiocodes.com> <E0C3DF2A36210C42B1AB4626A0E10F1FD949424C@aclmbx01.corp.audiocodes.com> <547D7243.80508@audiocodes.com> <alpine.LNX.2.03.1412021130410.2697@gmail.com>
- <87fvcyqoup.fsf@nemi.mork.no> <alpine.LNX.2.03.1412021410270.29633@gmail.com> <87lhmqp400.fsf@nemi.mork.no>,<alpine.LNX.2.03.1412021453340.7488@gmail.com> <1417532733483.89987@audiocodes.com>
+From: Andrey Volkov <andrey.volkov@nexvision.fr>
+Subject: [PATCH 1/1] net: dsa: replacing the hard-coded sized array "dsa_switch"
+ by dynamic one
+Date: Tue, 02 Dec 2014 15:50:46 +0100
+Message-ID: <547DD1C6.2090304@nexvision.fr>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1118172378-1417534128=:8131"
-Cc: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
-	Eli Britstein <Eli.Britstein@audiocodes.com>,
-	Alex Strizhevsky <alexxst@gmail.com>,
-	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
-	"youtux@gmail.com" <youtux@gmail.com>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Kevin Zhu <Mingying.Zhu@audiocodes.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:37370 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753353AbaLBP2R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 10:28:17 -0500
-In-Reply-To: <1417532733483.89987@audiocodes.com>
+Received: from 15.mo4.mail-out.ovh.net ([91.121.62.11]:48905 "EHLO
+	mo4.mail-out.ovh.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753824AbaLBPfz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 10:35:55 -0500
+Received: from mail178.ha.ovh.net (b9.ovh.net [213.186.33.59])
+	by mo4.mail-out.ovh.net (Postfix) with SMTP id D77C2FF949A
+	for <netdev@vger.kernel.org>; Tue,  2 Dec 2014 15:50:57 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hello,
 
---8323328-1118172378-1417534128=:8131
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+In time of developing one of our devices (with huge, more then 6, number of onboard switches),
+I've bumped with this ancient, I hope, restriction in the 'struct dsa_switch_tree' definition. 
+So this simple patch remove this restriction and make dsa_switch_tree more scalable for 
+the "usual" 1-2 switches configuration too.
 
-... And what do you think about the source code of their ndis driver?
-We at least know now the device work with it, so we have something to mimic :D
-thank you for your work and patience Kevin.
+P.S. I've plans to fix hardcoded number of ports too, but it is not so easy as with number of switches.
+So if someone have any objections/suggestions I'll happy to discuss them.
 
-On Tue, 2 Dec 2014, Kevin Zhu wrote:
-
-==Date: Tue, 2 Dec 2014 16:04:25
-==From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
-==To: Enrico Mioso <mrkiko.rs@gmail.com>, Bjørn Mork <bjorn@mork.no>
-==Cc: Eli Britstein <Eli.Britstein@audiocodes.com>,
-==    Alex Strizhevsky <alexxst@gmail.com>,
-==    Midge Shaojun  Tan <ShaojunMidge.Tan@audiocodes.com>,
-==    "youtux@gmail.com" <youtux@gmail.com>,
-==    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-==    "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-==Subject: Re: Is this 32-bit NCM?
-==
-==I do not understand why the wSequence matters. By the way, I think I see some NDPs are right after NTH headers in the windows capture.
-==
-==________________________________________
-==From: Enrico Mioso <mrkiko.rs@gmail.com>
-==Sent: Tuesday, December 2, 2014 21:53
-==To: Bjørn Mork
-==Cc: Kevin Zhu; Eli Britstein; Alex Strizhevsky; Midge Shaojun  Tan; youtux@gmail.com; linux-usb@vger.kernel.org; netdev@vger.kernel.org
-==Subject: Re: Is this 32-bit NCM?
-==
-==Thank you very much Bjorn.
-==
-==
-==On Tue, 2 Dec 2014, Bjørn Mork wrote:
-==
-====Date: Tue, 2 Dec 2014 14:37:03
-====From: Bjørn Mork <bjorn@mork.no>
-====To: Enrico Mioso <mrkiko.rs@gmail.com>
-====Cc: Kevin Zhu <Mingying.Zhu@audiocodes.com>,
-====    Eli Britstein <Eli.Britstein@audiocodes.com>,
-====    Alex Strizhevsky <alexxst@gmail.com>,
-====    Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
-====    "youtux@gmail.com" <youtux@gmail.com>,
-====    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-====    "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-====Subject: Re: Is this 32-bit NCM?
-====
-====Enrico Mioso <mrkiko.rs@gmail.com> writes:
-====
-====> ... but out of curiosity: are NCM specs allowing to change order of things in
-====> the package or not?
-====> This is not to start philosofical falames or something, but to understand
-====> better how things work. And, if they do: how much arbitrarily?
-====
-====Only the NTB header has a fixed location. The rest can be anywhere and
-====in any order. Quoting from section 3 Data Transport:
-====
-====  "Within any given NTB, the NTH always must be first; but the other
-====   items may occur in arbitrary order."
-====
-====
-====Bjørn
-====
-==This email and any files transmitted with it are confidential material. They are intended solely for the use of the designated individual or entity to whom they are addressed. If the reader of this message is not the intended recipient, you are hereby notified that any dissemination, use, distribution or copying of this communication is strictly prohibited and may be unlawful.
-==
-==If you have received this email in error please immediately notify the sender and delete or destroy any copy of this message
-==
---8323328-1118172378-1417534128=:8131--
+Signed-off-by: Andrey Volkov <andrey.volkov@nexvision.fr>                                                                                                                                                                                    
+---                                                                                                                                                                                                                                          
+ include/net/dsa.h |    3 +--                                                                                                                                                                                                                
+ net/dsa/dsa.c     |    7 +++----                                                                                                                                                                                                            
+ 2 files changed, 4 insertions(+), 6 deletions(-)                                                                                                                                                                                            
+                                                                                                                                                                                                                                             
+diff --git a/include/net/dsa.h b/include/net/dsa.h                                                                                                                                                                                           
+index ed3c34b..733db2e 100644                                                                                                                                                                                                                
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -28,7 +28,6 @@ enum dsa_tag_protocol {
+        DSA_TAG_PROTO_BRCM,
+ };
+ 
+-#define DSA_MAX_SWITCHES       4
+ #define DSA_MAX_PORTS          12
+ 
+ struct dsa_chip_data {
+@@ -117,7 +116,7 @@ struct dsa_switch_tree {
+        /*
+         * Data for the individual switch chips.
+         */
+-       struct dsa_switch       *ds[DSA_MAX_SWITCHES];
++       struct dsa_switch       *ds[];
+ };
+ 
+ struct dsa_switch {
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 322c778..c081a19 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -604,8 +604,6 @@ static int dsa_of_probe(struct platform_device *pdev)
+        pdev->dev.platform_data = pd;
+        pd->netdev = &ethernet_dev->dev;
+        pd->nr_chips = of_get_child_count(np);
+-       if (pd->nr_chips > DSA_MAX_SWITCHES)
+-               pd->nr_chips = DSA_MAX_SWITCHES;
+ 
+        pd->chip = kcalloc(pd->nr_chips, sizeof(struct dsa_chip_data),
+                           GFP_KERNEL);
+@@ -717,7 +715,7 @@ static int dsa_probe(struct platform_device *pdev)
+                pd = pdev->dev.platform_data;
+        }
+ 
+-       if (pd == NULL || pd->netdev == NULL)
++       if (pd == NULL || pd->netdev == NULL || pd->nr_chips == 0)
+                return -EINVAL;
+ 
+        dev = dev_to_net_device(pd->netdev);
+@@ -732,7 +730,8 @@ static int dsa_probe(struct platform_device *pdev)
+                goto out;
+        }
+ 
+-       dst = kzalloc(sizeof(*dst), GFP_KERNEL);
++       dst = kzalloc(sizeof(*dst) +
++                       sizeof(struct dsa_switch *) * pd->nr_chips, GFP_KERNEL);
+        if (dst == NULL) {
+                dev_put(dev);
+                ret = -ENOMEM;
