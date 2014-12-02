@@ -1,92 +1,85 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Fwd: [Bug 89161] New: Regression in bonding driver with devices that
- have no MAC address
-Date: Tue, 02 Dec 2014 11:56:46 +0100
-Message-ID: <547D9AEE.6050102@redhat.com>
-References: <bug-89161-65011@https.bugzilla.kernel.org/>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: Is this 32-bit NCM?
+Date: Tue, 02 Dec 2014 12:21:18 +0100
+Message-ID: <87fvcyqoup.fsf@nemi.mork.no>
+References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
+	<87ppc957h1.fsf@nemi.mork.no>
+	<alpine.LNX.2.03.1411271037050.9464@gmail.com>
+	<874mtl55ar.fsf@nemi.mork.no>
+	<CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
+	<alpine.LNX.2.03.1411271932510.1548@gmail.com>
+	<87ppc71xne.fsf@nemi.mork.no>
+	<alpine.LNX.2.03.1412012202480.1301@gmail.com>
+	<B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com>
+	<547D37CA.7050506@audiocodes.com>
+	<alpine.LNX.2.03.1412020729470.1351@gmail.com>
+	<547D5F84.6020608@audiocodes.com>
+	<alpine.LNX.2.03.1412020747360.1921@gmail.com>
+	<547D6D7B.5090704@audiocodes.com>
+	<E0C3DF2A36210C42B1AB4626A0E10F1FD949424C@aclmbx01.corp.audiocodes.com>
+	<547D7243.80508@audiocodes.com>
+	<alpine.LNX.2.03.1412021130410.2697@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vfalico@gmail.com
-To: tjc@wintrmute.net
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kevin Zhu <Mingying.Zhu@audiocodes.com>,
+	Eli Britstein <Eli.Britstein@audiocodes.com>,
+	Alex Strizhevsky <alexxst@gmail.com>,
+	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
+	"youtux\@gmail.com" <youtux@gmail.com>,
+	"linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+To: Enrico Mioso <mrkiko.rs@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52128 "EHLO mx1.redhat.com"
+Received: from canardo.mork.no ([148.122.252.1]:39045 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751021AbaLBK4w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Dec 2014 05:56:52 -0500
-In-Reply-To: <bug-89161-65011@https.bugzilla.kernel.org/>
+	id S933013AbaLBLV2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 06:21:28 -0500
+In-Reply-To: <alpine.LNX.2.03.1412021130410.2697@gmail.com> (Enrico Mioso's
+	message of "Tue, 2 Dec 2014 11:32:37 +0100 (CET)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Enrico Mioso <mrkiko.rs@gmail.com> writes:
 
--------- Original Message --------
-Subject: [Bug 89161] New: Regression in bonding driver with devices that have no MAC address
-Date: Tue, 02 Dec 2014 10:14:56 +0000
-From: bugzilla-daemon@bugzilla.kernel.org
-To: dborkman@redhat.com
+> Kevin - it works! the key seems to be in the tx_fixup function; there=
+ is a=20
+> special handling for frames effectively.
+> Please ... help me backport those changes to the standard Linux drive=
+r - it=20
+> will be a gain for us all, and in general you'll have a more probable=
+=20
+> maintenance than you would with the driver from huawei.
 
-https://bugzilla.kernel.org/show_bug.cgi?id=89161
+Very interesting.  The NCM code in the huawei driver has a different
+origin, so it is quite different and not too easy to merge into the
+existing Linux cdc_ncm driver.
 
-             Bug ID: 89161
-            Summary: Regression in bonding driver with devices that have no
-                     MAC address
-            Product: Networking
-            Version: 2.5
-     Kernel Version: 3.17.4
-           Hardware: All
-                 OS: Linux
-               Tree: Mainline
-             Status: NEW
-           Severity: normal
-           Priority: P1
-          Component: Other
-           Assignee: shemminger@linux-foundation.org
-           Reporter: tjc@wintrmute.net
-         Regression: No
+But this does pinpoint differences we should explore.  One is the
+placement of the NDP: The Huawei driver puts it at the end.  Another,
+which is much easier to test out quickly, is the sequence numbering: Th=
+e
+Huawei driver doesn't use it.
 
-In kernel 3.13 and earlier, a user could use the "bonding" network module to
-enslave devices without MAC addresses, such as ppp devices, in certain modes
-(such as balance-rr).
+So I wonder if this makes any difference:
 
-At some point between 3.13 and 3.17, this ability was removed -- even though
-apparently a commit was made to specifically ALLOW this to happen:
-https://github.com/torvalds/linux/commit/f54424412b6b2f64cae4d7c39d981ca14ce0052c
-
-
-On kernel 3.13, this was printed to syslog upon enslaving ppp0:
-bonding: bond0: Warning: The first slave device specified does not support
-setting the MAC address. Setting fail_over_mac to active.
-bonding: bond0: enslaving ppp0 as an active interface with an up link.
-
-On kernel 3.17.2 and 3.17.4 (and probably others) instead this error comes up:
-bond0: Adding slave ppp0
-bond0: The slave device specified does not support setting the MAC address
-
-And the slave is not added.
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 80a844e0ae03..37f11770acb6 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -1049,7 +1049,7 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struct =
+sk_buff *skb, __le32 sign)
+ 		nth16 =3D (struct usb_cdc_ncm_nth16 *)memset(skb_put(skb_out, sizeof=
+(struct usb_cdc_ncm_nth16)), 0, sizeof(struct usb_cdc_ncm_nth16));
+ 		nth16->dwSignature =3D cpu_to_le32(USB_CDC_NCM_NTH16_SIGN);
+ 		nth16->wHeaderLength =3D cpu_to_le16(sizeof(struct usb_cdc_ncm_nth16=
+));
+-		nth16->wSequence =3D cpu_to_le16(ctx->tx_seq++);
++//		nth16->wSequence =3D cpu_to_le16(ctx->tx_seq++);
+=20
+ 		/* count total number of frames in this NTB */
+ 		ctx->tx_curr_frame_num =3D 0;
 
 
-In case it was relevant, I resorted to manually creating the bond0 with
-appropriate options (including fail_over_mac) preset, and yet the problem
-persists.
 
-To replicate the problem, setup at least one ppp connection, and then follow
-these instructions:
-
-     modprobe bonding
-     echo '+bond0' > /sys/class/net/bonding_masters
-     echo 'active' > /sys/class/net/bond0/bonding/fail_over_mac
-     ifconfig bond0 down
-     echo 'balance-rr' > /sys/class/net/bond0/bonding/mode
-     ifconfig bond0 202.xx.xx.xx netmask 255.255.255.255 mtu 1492 up
-     echo '500' > /sys/class/net/bond0/bonding/miimon
-
-     ifconfig ppp0 down
-     echo '+ppp0' > /sys/class/net/bond0/bonding/slaves
-
-
-Under earlier kernel versions, that would work -- but current stable kernels
-fail.
-
--- 
-You are receiving this mail because:
-You are watching the assignee of the bug.
+Bj=C3=B8rn
