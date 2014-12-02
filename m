@@ -1,8 +1,8 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 2/8] tipc: make name table
-	allocated dynamically
-Date: Tue, 2 Dec 2014 15:00:24 +0800
-Message-ID: <1417503630-31352-3-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 4/8] tipc: ensure all name
+	sequences are properly protected with its lock
+Date: Tue, 2 Dec 2014 15:00:26 +0800
+Message-ID: <1417503630-31352-5-git-send-email-ying.xue@windriver.com>
 References: <1417503630-31352-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,321 +22,156 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Name table locking policy is going to be adjusted from read-write
-lock protection to RCU lock protection in the future commits. But
-its essential precondition is to convert the allocation way of name
-table from static to dynamic mode.
+TIPC internally created a name table which is used to store name
+sequences. Now there is a read-write lock - tipc_nametbl_lock to
+protect the table, and each name sequence saved in the table is
+protected with its private lock. When a name sequence is inserted
+or removed to or from the table, its members might need to change.
+Therefore, in normal case, the two locks must be held while TIPC
+operates the table. However, there are still several places where
+we only hold tipc_nametbl_lock without proprerly obtaining name
+sequence lock, which might cause the corruption of name sequence.
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 Tested-by: Erik Hugne <erik.hugne@ericsson.com>
 ---
- net/tipc/name_distr.c |   44 +++++++++---------------------------
- net/tipc/name_table.c |   60 ++++++++++++++++++++++++-------------------------
- net/tipc/name_table.h |   16 ++++++++++++-
- 3 files changed, 55 insertions(+), 65 deletions(-)
+ net/tipc/name_table.c |   48 +++++++++++++++++++++++++++---------------------
+ 1 file changed, 27 insertions(+), 21 deletions(-)
 
-diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
-index 628cd85..ed00929 100644
---- a/net/tipc/name_distr.c
-+++ b/net/tipc/name_distr.c
-@@ -38,34 +38,6 @@
- #include "link.h"
- #include "name_distr.h"
- 
--/**
-- * struct publ_list - list of publications made by this node
-- * @list: circular list of publications
-- */
--struct publ_list {
--	struct list_head list;
--};
--
--static struct publ_list publ_zone = {
--	.list = LIST_HEAD_INIT(publ_zone.list),
--};
--
--static struct publ_list publ_cluster = {
--	.list = LIST_HEAD_INIT(publ_cluster.list),
--};
--
--static struct publ_list publ_node = {
--	.list = LIST_HEAD_INIT(publ_node.list),
--};
--
--static struct publ_list *publ_lists[] = {
--	NULL,
--	&publ_zone,	/* publ_lists[TIPC_ZONE_SCOPE]		*/
--	&publ_cluster,	/* publ_lists[TIPC_CLUSTER_SCOPE]	*/
--	&publ_node	/* publ_lists[TIPC_NODE_SCOPE]		*/
--};
--
--
- int sysctl_tipc_named_timeout __read_mostly = 2000;
- 
- /**
-@@ -141,7 +113,8 @@ struct sk_buff *tipc_named_publish(struct publication *publ)
- 	struct sk_buff *buf;
- 	struct distr_item *item;
- 
--	list_add_tail(&publ->local_list, &publ_lists[publ->scope]->list);
-+	list_add_tail(&publ->local_list,
-+		      &tipc_nametbl->publ_list[publ->scope]);
- 
- 	if (publ->scope == TIPC_NODE_SCOPE)
- 		return NULL;
-@@ -188,7 +161,7 @@ struct sk_buff *tipc_named_withdraw(struct publication *publ)
-  * @pls: linked list of publication items to be packed into buffer chain
-  */
- static void named_distribute(struct sk_buff_head *list, u32 dnode,
--			     struct publ_list *pls)
-+			     struct list_head *pls)
- {
- 	struct publication *publ;
- 	struct sk_buff *skb = NULL;
-@@ -196,7 +169,7 @@ static void named_distribute(struct sk_buff_head *list, u32 dnode,
- 	uint msg_dsz = (tipc_node_get_mtu(dnode, 0) / ITEM_SIZE) * ITEM_SIZE;
- 	uint msg_rem = msg_dsz;
- 
--	list_for_each_entry(publ, &pls->list, local_list) {
-+	list_for_each_entry(publ, pls, local_list) {
- 		/* Prepare next buffer: */
- 		if (!skb) {
- 			skb = named_prepare_buf(PUBLICATION, msg_rem, dnode);
-@@ -236,8 +209,10 @@ void tipc_named_node_up(u32 dnode)
- 	__skb_queue_head_init(&head);
- 
- 	read_lock_bh(&tipc_nametbl_lock);
--	named_distribute(&head, dnode, &publ_cluster);
--	named_distribute(&head, dnode, &publ_zone);
-+	named_distribute(&head, dnode,
-+			 &tipc_nametbl->publ_list[TIPC_CLUSTER_SCOPE]);
-+	named_distribute(&head, dnode,
-+			 &tipc_nametbl->publ_list[TIPC_ZONE_SCOPE]);
- 	read_unlock_bh(&tipc_nametbl_lock);
- 
- 	tipc_link_xmit(&head, dnode, dnode);
-@@ -427,7 +402,8 @@ void tipc_named_reinit(void)
- 	write_lock_bh(&tipc_nametbl_lock);
- 
- 	for (scope = TIPC_ZONE_SCOPE; scope <= TIPC_NODE_SCOPE; scope++)
--		list_for_each_entry(publ, &publ_lists[scope]->list, local_list)
-+		list_for_each_entry(publ, &tipc_nametbl->publ_list[scope],
-+				    local_list)
- 			publ->node = tipc_own_addr;
- 
- 	write_unlock_bh(&tipc_nametbl_lock);
 diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
-index 772be1c..df3da29 100644
+index ba0ee3e..0d61f58 100644
 --- a/net/tipc/name_table.c
 +++ b/net/tipc/name_table.c
-@@ -2,7 +2,7 @@
-  * net/tipc/name_table.c: TIPC name table code
-  *
-  * Copyright (c) 2000-2006, 2014, Ericsson AB
-- * Copyright (c) 2004-2008, 2010-2011, Wind River Systems
-+ * Copyright (c) 2004-2008, 2010-2014, Wind River Systems
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -103,18 +103,7 @@ struct name_seq {
- 	spinlock_t lock;
- };
+@@ -172,18 +172,6 @@ static struct name_seq *tipc_nameseq_create(u32 type, struct hlist_head *seq_hea
+ 	return nseq;
+ }
  
--/**
-- * struct name_table - table containing all existing port name publications
-- * @types: pointer to fixed-sized array of name sequence lists,
-- *         accessed via hashing on 'type'; name sequence lists are *not* sorted
-- * @local_publ_count: number of publications issued by this node
+-/*
+- * nameseq_delete_empty - deletes a name sequence structure if now unused
 - */
--struct name_table {
--	struct hlist_head *types;
--	u32 local_publ_count;
--};
+-static void nameseq_delete_empty(struct name_seq *seq)
+-{
+-	if (!seq->first_free && list_empty(&seq->subscriptions)) {
+-		hlist_del_init(&seq->ns_list);
+-		kfree(seq->sseqs);
+-		kfree(seq);
+-	}
+-}
 -
--static struct name_table table;
-+struct name_table *tipc_nametbl;
- DEFINE_RWLOCK(tipc_nametbl_lock);
- 
- static int hash(int x)
-@@ -475,7 +464,7 @@ static struct name_seq *nametbl_find_seq(u32 type)
- 	struct hlist_head *seq_head;
- 	struct name_seq *ns;
- 
--	seq_head = &table.types[hash(type)];
-+	seq_head = &tipc_nametbl->seq_hlist[hash(type)];
- 	hlist_for_each_entry(ns, seq_head, ns_list) {
- 		if (ns->type == type)
- 			return ns;
-@@ -488,6 +477,7 @@ struct publication *tipc_nametbl_insert_publ(u32 type, u32 lower, u32 upper,
+ /**
+  * nameseq_find_subseq - find sub-sequence (if any) matching a name instance
+  *
+@@ -476,6 +464,7 @@ static struct name_seq *nametbl_find_seq(u32 type)
+ struct publication *tipc_nametbl_insert_publ(u32 type, u32 lower, u32 upper,
  					     u32 scope, u32 node, u32 port, u32 key)
  {
++	struct publication *publ;
  	struct name_seq *seq = nametbl_find_seq(type);
-+	int index = hash(type);
+ 	int index = hash(type);
  
- 	if ((scope < TIPC_ZONE_SCOPE) || (scope > TIPC_NODE_SCOPE) ||
- 	    (lower > upper)) {
-@@ -497,7 +487,8 @@ struct publication *tipc_nametbl_insert_publ(u32 type, u32 lower, u32 upper,
- 	}
- 
- 	if (!seq)
--		seq = tipc_nameseq_create(type, &table.types[hash(type)]);
-+		seq = tipc_nameseq_create(type,
-+					  &tipc_nametbl->seq_hlist[index]);
+@@ -492,8 +481,11 @@ struct publication *tipc_nametbl_insert_publ(u32 type, u32 lower, u32 upper,
  	if (!seq)
  		return NULL;
  
-@@ -667,7 +658,7 @@ struct publication *tipc_nametbl_publish(u32 type, u32 lower, u32 upper,
- 	struct publication *publ;
- 	struct sk_buff *buf = NULL;
+-	return tipc_nameseq_insert_publ(seq, type, lower, upper,
++	spin_lock_bh(&seq->lock);
++	publ = tipc_nameseq_insert_publ(seq, type, lower, upper,
+ 					scope, node, port, key);
++	spin_unlock_bh(&seq->lock);
++	return publ;
+ }
  
--	if (table.local_publ_count >= TIPC_MAX_PUBLICATIONS) {
-+	if (tipc_nametbl->local_publ_count >= TIPC_MAX_PUBLICATIONS) {
- 		pr_warn("Publication failed, local publication limit reached (%u)\n",
- 			TIPC_MAX_PUBLICATIONS);
+ struct publication *tipc_nametbl_remove_publ(u32 type, u32 lower,
+@@ -505,8 +497,16 @@ struct publication *tipc_nametbl_remove_publ(u32 type, u32 lower,
+ 	if (!seq)
  		return NULL;
-@@ -677,7 +668,7 @@ struct publication *tipc_nametbl_publish(u32 type, u32 lower, u32 upper,
- 	publ = tipc_nametbl_insert_publ(type, lower, upper, scope,
- 				   tipc_own_addr, port_ref, key);
- 	if (likely(publ)) {
--		table.local_publ_count++;
-+		tipc_nametbl->local_publ_count++;
- 		buf = tipc_named_publish(publ);
- 		/* Any pending external events? */
- 		tipc_named_process_backlog();
-@@ -700,7 +691,7 @@ int tipc_nametbl_withdraw(u32 type, u32 lower, u32 ref, u32 key)
- 	write_lock_bh(&tipc_nametbl_lock);
- 	publ = tipc_nametbl_remove_publ(type, lower, tipc_own_addr, ref, key);
- 	if (likely(publ)) {
--		table.local_publ_count--;
-+		tipc_nametbl->local_publ_count--;
- 		buf = tipc_named_withdraw(publ);
- 		/* Any pending external events? */
- 		tipc_named_process_backlog();
-@@ -725,12 +716,14 @@ int tipc_nametbl_withdraw(u32 type, u32 lower, u32 ref, u32 key)
- void tipc_nametbl_subscribe(struct tipc_subscription *s)
- {
- 	u32 type = s->seq.type;
-+	int index = hash(type);
- 	struct name_seq *seq;
  
- 	write_lock_bh(&tipc_nametbl_lock);
++	spin_lock_bh(&seq->lock);
+ 	publ = tipc_nameseq_remove_publ(seq, lower, node, ref, key);
+-	nameseq_delete_empty(seq);
++	if (!seq->first_free && list_empty(&seq->subscriptions)) {
++		hlist_del_init(&seq->ns_list);
++		spin_unlock_bh(&seq->lock);
++		kfree(seq->sseqs);
++		kfree(seq);
++		return publ;
++	}
++	spin_unlock_bh(&seq->lock);
+ 	return publ;
+ }
+ 
+@@ -539,10 +539,10 @@ u32 tipc_nametbl_translate(u32 type, u32 instance, u32 *destnode)
  	seq = nametbl_find_seq(type);
- 	if (!seq)
--		seq = tipc_nameseq_create(type, &table.types[hash(type)]);
-+		seq = tipc_nameseq_create(type,
-+					  &tipc_nametbl->seq_hlist[index]);
- 	if (seq) {
- 		spin_lock_bh(&seq->lock);
- 		tipc_nameseq_subscribe(seq, s);
-@@ -882,7 +875,7 @@ static int nametbl_list(char *buf, int len, u32 depth_info,
- 		lowbound = 0;
- 		upbound = ~0;
- 		for (i = 0; i < TIPC_NAMETBL_SIZE; i++) {
--			seq_head = &table.types[i];
-+			seq_head = &tipc_nametbl->seq_hlist[i];
- 			hlist_for_each_entry(seq, seq_head, ns_list) {
- 				ret += nameseq_list(seq, buf + ret, len - ret,
- 						   depth, seq->type,
-@@ -898,7 +891,7 @@ static int nametbl_list(char *buf, int len, u32 depth_info,
- 		}
- 		ret += nametbl_header(buf + ret, len - ret, depth);
- 		i = hash(type);
--		seq_head = &table.types[i];
-+		seq_head = &tipc_nametbl->seq_hlist[i];
- 		hlist_for_each_entry(seq, seq_head, ns_list) {
- 			if (seq->type == type) {
- 				ret += nameseq_list(seq, buf + ret, len - ret,
-@@ -945,12 +938,18 @@ struct sk_buff *tipc_nametbl_get(const void *req_tlv_area, int req_tlv_space)
+ 	if (unlikely(!seq))
+ 		goto not_found;
++	spin_lock_bh(&seq->lock);
+ 	sseq = nameseq_find_subseq(seq, instance);
+ 	if (unlikely(!sseq))
+-		goto not_found;
+-	spin_lock_bh(&seq->lock);
++		goto no_match;
+ 	info = sseq->info;
  
- int tipc_nametbl_init(void)
- {
--	table.types = kcalloc(TIPC_NAMETBL_SIZE, sizeof(struct hlist_head),
--			      GFP_ATOMIC);
--	if (!table.types)
-+	int i;
-+
-+	tipc_nametbl = kzalloc(sizeof(*tipc_nametbl), GFP_ATOMIC);
-+	if (!tipc_nametbl)
- 		return -ENOMEM;
+ 	/* Closest-First Algorithm */
+@@ -624,7 +624,6 @@ int tipc_nametbl_mc_translate(u32 type, u32 lower, u32 upper, u32 limit,
+ 		goto exit;
  
--	table.local_publ_count = 0;
-+	for (i = 0; i < TIPC_NAMETBL_SIZE; i++)
-+		INIT_HLIST_HEAD(&tipc_nametbl->seq_hlist[i]);
-+
-+	INIT_LIST_HEAD(&tipc_nametbl->publ_list[TIPC_ZONE_SCOPE]);
-+	INIT_LIST_HEAD(&tipc_nametbl->publ_list[TIPC_CLUSTER_SCOPE]);
-+	INIT_LIST_HEAD(&tipc_nametbl->publ_list[TIPC_NODE_SCOPE]);
- 	return 0;
- }
- 
-@@ -990,16 +989,17 @@ void tipc_nametbl_stop(void)
- 	 */
- 	write_lock_bh(&tipc_nametbl_lock);
- 	for (i = 0; i < TIPC_NAMETBL_SIZE; i++) {
--		if (hlist_empty(&table.types[i]))
-+		if (hlist_empty(&tipc_nametbl->seq_hlist[i]))
- 			continue;
--		seq_head = &table.types[i];
-+		seq_head = &tipc_nametbl->seq_hlist[i];
- 		hlist_for_each_entry_safe(seq, safe, seq_head, ns_list) {
- 			tipc_purge_publications(seq);
- 		}
+ 	spin_lock_bh(&seq->lock);
+-
+ 	sseq = seq->sseqs + nameseq_locate_subseq(seq, lower);
+ 	sseq_stop = seq->sseqs + seq->first_free;
+ 	for (; sseq != sseq_stop; sseq++) {
+@@ -642,7 +641,6 @@ int tipc_nametbl_mc_translate(u32 type, u32 lower, u32 upper, u32 limit,
+ 		if (info->cluster_list_size != info->node_list_size)
+ 			res = 1;
  	}
--	kfree(table.types);
--	table.types = NULL;
+-
+ 	spin_unlock_bh(&seq->lock);
+ exit:
+ 	read_unlock_bh(&tipc_nametbl_lock);
+@@ -747,8 +745,14 @@ void tipc_nametbl_unsubscribe(struct tipc_subscription *s)
+ 	if (seq != NULL) {
+ 		spin_lock_bh(&seq->lock);
+ 		list_del_init(&s->nameseq_list);
+-		spin_unlock_bh(&seq->lock);
+-		nameseq_delete_empty(seq);
++		if (!seq->first_free && list_empty(&seq->subscriptions)) {
++			hlist_del_init(&seq->ns_list);
++			spin_unlock_bh(&seq->lock);
++			kfree(seq->sseqs);
++			kfree(seq);
++		} else {
++			spin_unlock_bh(&seq->lock);
++		}
+ 	}
  	write_unlock_bh(&tipc_nametbl_lock);
-+
-+	kfree(tipc_nametbl);
-+
  }
+@@ -964,6 +968,7 @@ static void tipc_purge_publications(struct name_seq *seq)
+ 	struct sub_seq *sseq;
+ 	struct name_info *info;
  
- static int __tipc_nl_add_nametable_publ(struct tipc_nl_msg *msg,
-@@ -1113,7 +1113,7 @@ static int __tipc_nl_seq_list(struct tipc_nl_msg *msg, u32 *last_type,
- 		i = 0;
++	spin_lock_bh(&seq->lock);
+ 	sseq = seq->sseqs;
+ 	info = sseq->info;
+ 	list_for_each_entry_safe(publ, safe, &info->zone_list, zone_list) {
+@@ -972,6 +977,8 @@ static void tipc_purge_publications(struct name_seq *seq)
+ 		kfree(publ);
+ 	}
+ 	hlist_del_init(&seq->ns_list);
++	spin_lock_bh(&seq->lock);
++
+ 	kfree(seq->sseqs);
+ 	kfree(seq);
+ }
+@@ -1127,7 +1134,6 @@ static int __tipc_nl_seq_list(struct tipc_nl_msg *msg, u32 *last_type,
  
- 	for (; i < TIPC_NAMETBL_SIZE; i++) {
--		seq_head = &table.types[i];
-+		seq_head = &tipc_nametbl->seq_hlist[i];
- 
- 		if (*last_type) {
- 			seq = nametbl_find_seq(*last_type);
-diff --git a/net/tipc/name_table.h b/net/tipc/name_table.h
-index c628778..c1fd734 100644
---- a/net/tipc/name_table.h
-+++ b/net/tipc/name_table.h
-@@ -43,7 +43,9 @@ struct tipc_port_list;
- /*
-  * TIPC name types reserved for internal TIPC use (both current and planned)
-  */
--#define TIPC_ZM_SRV 3		/* zone master service name type */
-+#define TIPC_ZM_SRV		3	/* zone master service name type */
-+#define TIPC_PUBL_SCOPE_NUM	(TIPC_NODE_SCOPE + 1)
-+#define TIPC_NAMETBL_SIZE	1024	/* must be a power of 2 */
- 
- /**
-  * struct publication - info about a published (name or) name sequence
-@@ -79,8 +81,20 @@ struct publication {
- 	struct list_head zone_list;
- };
- 
-+/**
-+ * struct name_table - table containing all existing port name publications
-+ * @seq_hlist: name sequence hash lists
-+ * @publ_list: pulication lists
-+ * @local_publ_count: number of publications issued by this node
-+ */
-+struct name_table {
-+	struct hlist_head seq_hlist[TIPC_NAMETBL_SIZE];
-+	struct list_head publ_list[TIPC_PUBL_SCOPE_NUM];
-+	u32 local_publ_count;
-+};
- 
- extern rwlock_t tipc_nametbl_lock;
-+extern struct name_table *tipc_nametbl;
- 
- int tipc_nl_name_table_dump(struct sk_buff *skb, struct netlink_callback *cb);
+ 		hlist_for_each_entry_from(seq, ns_list) {
+ 			spin_lock_bh(&seq->lock);
+-
+ 			err = __tipc_nl_subseq_list(msg, seq, last_lower,
+ 						    last_publ);
  
 -- 
 1.7.9.5
