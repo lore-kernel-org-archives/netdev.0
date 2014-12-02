@@ -1,14 +1,13 @@
 From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: Is this 32-bit NCM?
-Date: Tue, 2 Dec 2014 11:37:49 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1412021136170.2716@gmail.com>
+Date: Tue, 2 Dec 2014 11:45:19 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1412021143580.2739@gmail.com>
 References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
  <alpine.LNX.2.03.1411271932510.1548@gmail.com> <87ppc71xne.fsf@nemi.mork.no>,<alpine.LNX.2.03.1412012202480.1301@gmail.com> <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com> <547D37CA.7050506@audiocodes.com> <alpine.LNX.2.03.1412020729470.1351@gmail.com>
  <547D5F84.6020608@audiocodes.com> <alpine.LNX.2.03.1412020747360.1921@gmail.com> <547D6D7B.5090704@audiocodes.com> <E0C3DF2A36210C42B1AB4626A0E10F1FD949424C@aclmbx01.corp.audiocodes.com> <547D7243.80508@audiocodes.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1602404904-1417516670=:2716"
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-749983420-1417517120=:2739"
 Cc: Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-	Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
 	=?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
 	Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
 	Midge Shaojun Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
@@ -24,16 +23,16 @@ List-Id: netdev.vger.kernel.org
   This message is in MIME format.  The first part should be readable text,
   while the remaining parts are likely unreadable without MIME-aware tools.
 
---8323328-1602404904-1417516670=:2716
+--8323328-749983420-1417517120=:2739
 Content-Type: TEXT/PLAIN; charset=UTF-8
 Content-Transfer-Encoding: 8BIT
 
-So, we can say that:
-1 - They use 32-bit NCM if I am not wrong: so we where in the right direction 
-Alex!
-2 - The driver is "all-in-one": it supports QMI also, not only cdc_ncm.
-3 - It #undefs some things from the headers and might be redefine them... 
-mhm...
+Oh - they define even custom structs for NCM_NTH32! :)
+Mhm... unfortunately reading all the driver will be needed to find out the 
+details.
+Probably using 16 or 32 bit is ok, but you have the choise now that a cdc_ncm.c 
+32-bit capable driver exists. But in that case an eventual merge will be 
+needed, and I might try.
 
 
 On Tue, 2 Dec 2014, Kevin Zhu wrote:
@@ -465,7 +464,7 @@ On Tue, 2 Dec 2014, Kevin Zhu wrote:
 ==
 ==If you have received this email in error please immediately notify the sender and delete or destroy any copy of this message
 ==
---8323328-1602404904-1417516670=:2716--
+--8323328-749983420-1417517120=:2739--
 --
 To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
