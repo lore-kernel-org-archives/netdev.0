@@ -1,46 +1,61 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH] net: mvneta: fix Tx interrupt delay
-Date: Tue, 2 Dec 2014 14:24:12 +0100
-Message-ID: <20141202132412.GC16347@1wt.eu>
-References: <20141202071304.GA22512@1wt.eu> <1417522688.5303.35.camel@edumazet-glaptop2.roam.corp.google.com> <20141202123951.GA16347@1wt.eu> <1417525458.5303.48.camel@edumazet-glaptop2.roam.corp.google.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: Is this 32-bit NCM?
+Date: Tue, 02 Dec 2014 14:37:03 +0100
+Message-ID: <87lhmqp400.fsf@nemi.mork.no>
+References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
+	<87ppc957h1.fsf@nemi.mork.no>
+	<alpine.LNX.2.03.1411271037050.9464@gmail.com>
+	<874mtl55ar.fsf@nemi.mork.no>
+	<CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
+	<alpine.LNX.2.03.1411271932510.1548@gmail.com>
+	<87ppc71xne.fsf@nemi.mork.no>
+	<alpine.LNX.2.03.1412012202480.1301@gmail.com>
+	<B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com>
+	<547D37CA.7050506@audiocodes.com>
+	<alpine.LNX.2.03.1412020729470.1351@gmail.com>
+	<547D5F84.6020608@audiocodes.com>
+	<alpine.LNX.2.03.1412020747360.1921@gmail.com>
+	<547D6D7B.5090704@audiocodes.com>
+	<E0C3DF2A36210C42B1AB4626A0E10F1FD949424C@aclmbx01.corp.audiocodes.com>
+	<547D7243.80508@audiocodes.com>
+	<alpine.LNX.2.03.1412021130410.2697@gmail.com>
+	<87fvcyqoup.fsf@nemi.mork.no>
+	<alpine.LNX.2.03.1412021410270.29633@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Maggie Mae Roxas <maggie.mae.roxas@gmail.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:29172 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754592AbaLBNYP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Dec 2014 08:24:15 -0500
-Content-Disposition: inline
-In-Reply-To: <1417525458.5303.48.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Midge Shaojun Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	"youtux\@gmail.com" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-usb\@vger.kernel.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.LNX.2.03.1412021410270.29633-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (Enrico Mioso's
+	message of "Tue, 2 Dec 2014 14:11:47 +0100 (CET)")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 02, 2014 at 05:04:18AM -0800, Eric Dumazet wrote:
-> On Tue, 2014-12-02 at 13:39 +0100, Willy Tarreau wrote:
-> > Hi Eric,
-> > 
-> > On Tue, Dec 02, 2014 at 04:18:08AM -0800, Eric Dumazet wrote:
-> > 
-> > > I highly suggest BQL for this driver, now this issue is fixed.
-> > 
-> > How does that work ?
-> 
-> This works very well ;)
-> 
-> Its super easy to implement, take a look at commits
-> bdbc063129e811264cd6c311d8c2d9b95de01231 or
-> 7070ce0a6419a118842298bc967061ad6cea40db
+Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
-Thanks but I'm not sure I entirely understand the concept. Is it to
-notify the sender that the packets were already queued for the NIC ?
-And if so, how does that improve the situation ? I'm sorry if this
-sounds like a stupid question, it's just that the concept by itself
-is not clear to me.
+> ... but out of curiosity: are NCM specs allowing to change order of t=
+hings in=20
+> the package or not?
+> This is not to start philosofical falames or something, but to unders=
+tand=20
+> better how things work. And, if they do: how much arbitrarily?
 
-Willy
+Only the NTB header has a fixed location. The rest can be anywhere and
+in any order. Quoting from section 3 Data Transport:
+
+  "Within any given NTB, the NTH always must be first; but the other
+   items may occur in arbitrary order."
+
+
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
