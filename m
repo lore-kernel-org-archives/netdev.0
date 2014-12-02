@@ -1,100 +1,79 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: Re: Is this 32-bit NCM?
-Date: Tue, 2 Dec 2014 12:39:38 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1412021238280.29454@gmail.com>
-References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
- <alpine.LNX.2.03.1411271932510.1548@gmail.com> <87ppc71xne.fsf@nemi.mork.no> <alpine.LNX.2.03.1412012202480.1301@gmail.com> <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com> <547D37CA.7050506@audiocodes.com> <alpine.LNX.2.03.1412020729470.1351@gmail.com>
- <547D5F84.6020608@audiocodes.com> <alpine.LNX.2.03.1412020747360.1921@gmail.com> <547D6D7B.5090704@audiocodes.com> <E0C3DF2A36210C42B1AB4626A0E10F1FD949424C@aclmbx01.corp.audiocodes.com> <547D7243.80508@audiocodes.com> <alpine.LNX.2.03.1412021130410.2697@gmail.com>
- <87fvcyqoup.fsf@nemi.mork.no>
-Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1669091443-1417520380=:29454"
-Cc: Kevin Zhu <Mingying.Zhu@audiocodes.com>,
-	Eli Britstein <Eli.Britstein@audiocodes.com>,
-	Alex Strizhevsky <alexxst@gmail.com>,
-	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
-	"youtux@gmail.com" <youtux@gmail.com>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net] cxgb4: Add a check for flashing FW using ethtool
+Date: Tue,  2 Dec 2014 17:39:37 +0530
+Message-ID: <1417522177-14842-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:55287 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932760AbaLBLjI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 06:39:08 -0500
-In-Reply-To: <87fvcyqoup.fsf@nemi.mork.no>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:52524
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754508AbaLBMDv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 07:03:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Don't let T4 firmware flash on a T5 adapter and vice-versa
+using ethtool
 
---8323328-1669091443-1417520380=:29454
-Content-Type: TEXT/PLAIN; charset=utf-8
-Content-Transfer-Encoding: 8BIT
+Based on original work by Casey Leedom <leedom@chelsio.com>
 
-To be clear - I also rebooted the remote system to power cycle the modem, 
-wanting to avoid
-at^reset
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |   26 ++++++++++++++++++++++++++
+ 1 files changed, 26 insertions(+), 0 deletions(-)
 
-But this modification of the driver unfortunately seems to lead to no changes. 
-Thank you so much Bjorn.
-
-Interetingly - a misbehaviour of the firmware was observed - I wasn't able to
-at^ndisdup=1,0
-... the firmware seemed to ignore it.
-But this might not be related to the patch.
-Thank you again.
-Enrico
-
-On Tue, 2 Dec 2014, Bjørn Mork wrote:
-
-==Date: Tue, 2 Dec 2014 12:21:18
-==From: Bjørn Mork <bjorn@mork.no>
-==To: Enrico Mioso <mrkiko.rs@gmail.com>
-==Cc: Kevin Zhu <Mingying.Zhu@audiocodes.com>,
-==    Eli Britstein <Eli.Britstein@audiocodes.com>,
-==    Alex Strizhevsky <alexxst@gmail.com>,
-==    Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
-==    "youtux@gmail.com" <youtux@gmail.com>,
-==    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-==    "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-==Subject: Re: Is this 32-bit NCM?
-==
-==Enrico Mioso <mrkiko.rs@gmail.com> writes:
-==
-==> Kevin - it works! the key seems to be in the tx_fixup function; there is a 
-==> special handling for frames effectively.
-==> Please ... help me backport those changes to the standard Linux driver - it 
-==> will be a gain for us all, and in general you'll have a more probable 
-==> maintenance than you would with the driver from huawei.
-==
-==Very interesting.  The NCM code in the huawei driver has a different
-==origin, so it is quite different and not too easy to merge into the
-==existing Linux cdc_ncm driver.
-==
-==But this does pinpoint differences we should explore.  One is the
-==placement of the NDP: The Huawei driver puts it at the end.  Another,
-==which is much easier to test out quickly, is the sequence numbering: The
-==Huawei driver doesn't use it.
-==
-==So I wonder if this makes any difference:
-==
-==diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-==index 80a844e0ae03..37f11770acb6 100644
-==--- a/drivers/net/usb/cdc_ncm.c
-==+++ b/drivers/net/usb/cdc_ncm.c
-==@@ -1049,7 +1049,7 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_buff *skb, __le32 sign)
-== 		nth16 = (struct usb_cdc_ncm_nth16 *)memset(skb_put(skb_out, sizeof(struct usb_cdc_ncm_nth16)), 0, sizeof(struct usb_cdc_ncm_nth16));
-== 		nth16->dwSignature = cpu_to_le32(USB_CDC_NCM_NTH16_SIGN);
-== 		nth16->wHeaderLength = cpu_to_le16(sizeof(struct usb_cdc_ncm_nth16));
-==-		nth16->wSequence = cpu_to_le16(ctx->tx_seq++);
-==+//		nth16->wSequence = cpu_to_le16(ctx->tx_seq++);
-== 
-== 		/* count total number of frames in this NTB */
-== 		ctx->tx_curr_frame_num = 0;
-==
-==
-==
-==Bjørn
-==
---8323328-1669091443-1417520380=:29454--
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 163a2a1..fae205a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -1131,6 +1131,27 @@ unsigned int t4_flash_cfg_addr(struct adapter *adapter)
+ 		return FLASH_CFG_START;
+ }
+ 
++/* Return TRUE if the specified firmware matches the adapter.  I.e. T4
++ * firmware for T4 adapters, T5 firmware for T5 adapters, etc.  We go ahead
++ * and emit an error message for mismatched firmware to save our caller the
++ * effort ...
++ */
++static int t4_fw_matches_chip(const struct adapter *adap,
++			      const struct fw_hdr *hdr)
++{
++	/* The expression below will return FALSE for any unsupported adapter
++	 * which will keep us "honest" in the future ...
++	 */
++	if ((is_t4(adap->params.chip) && hdr->chip == FW_HDR_CHIP_T4) ||
++	    (is_t5(adap->params.chip) && hdr->chip == FW_HDR_CHIP_T5))
++		return 1;
++
++	dev_err(adap->pdev_dev,
++		"FW image (%d) is not suitable for this adapter (%d)\n",
++		hdr->chip, CHELSIO_CHIP_VERSION(adap->params.chip));
++	return 0;
++}
++
+ /**
+  *	t4_load_fw - download firmware
+  *	@adap: the adapter
+@@ -1170,6 +1191,8 @@ int t4_load_fw(struct adapter *adap, const u8 *fw_data, unsigned int size)
+ 			FW_MAX_SIZE);
+ 		return -EFBIG;
+ 	}
++	if (!t4_fw_matches_chip(adap, hdr))
++		return -EINVAL;
+ 
+ 	for (csum = 0, i = 0; i < size / sizeof(csum); i++)
+ 		csum += ntohl(p[i]);
+@@ -3080,6 +3103,9 @@ int t4_fw_upgrade(struct adapter *adap, unsigned int mbox,
+ 	const struct fw_hdr *fw_hdr = (const struct fw_hdr *)fw_data;
+ 	int reset, ret;
+ 
++	if (!t4_fw_matches_chip(adap, fw_hdr))
++		return -EINVAL;
++
+ 	ret = t4_fw_halt(adap, mbox, force);
+ 	if (ret < 0 && !force)
+ 		return ret;
+-- 
+1.7.1
