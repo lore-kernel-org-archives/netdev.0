@@ -1,167 +1,67 @@
-From: Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-Subject: RE: Is this 32-bit NCM?
-Date: Tue, 2 Dec 2014 07:45:39 +0000
-Message-ID: <E0C3DF2A36210C42B1AB4626A0E10F1FD949424C@aclmbx01.corp.audiocodes.com>
-References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
- <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com>
- <874mtl55ar.fsf@nemi.mork.no>
- <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
- <alpine.LNX.2.03.1411271932510.1548@gmail.com>
- <87ppc71xne.fsf@nemi.mork.no>,<alpine.LNX.2.03.1412012202480.1301@gmail.com>
- <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com>
- <547D37CA.7050506@audiocodes.com>
- <alpine.LNX.2.03.1412020729470.1351@gmail.com>
- <547D5F84.6020608@audiocodes.com>
- <alpine.LNX.2.03.1412020747360.1921@gmail.com>
- <547D6D7B.5090704@audiocodes.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Out-of-bounds access in nfnetlink_bind
+Date: Tue, 2 Dec 2014 11:53:09 +0400
+Message-ID: <CACT4Y+bZu5UHu90F8wWqckcE13D5H2LDexna6vVEMBy+X4RiZw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: =?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Midge Shaojun Tan" <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-	"youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-	Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <547D6D7B.5090704-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-Content-Language: en-US
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	kasan-dev <kasan-dev@googlegroups.com>,
+	Dmitry Chernenkov <dmitryc@google.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Andrey Konovalov <andreyknvl@google.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T3V0bG9vayBibG9ja2VkIHRoZSBhdHRhY2htZW50LiBQbGVhc2UgemlwIGl0IGFuZCByZXNlbmQu
-DQoNClRoYW5rcywNCkJlc3QgcmVnYXJkcywNCg0KRWxpIEJyaXRzdGVpbg0KU1cgVGVhbSBMZWFk
-ZXIgYW5kIFByb2plY3QgTWFuYWdlcg0KTVAyeHggUmVzaWRlbnRpYWwgR2F0ZXdheXMNCg0KVGVs
-OiAgICAgICAgICs5NzItMy05NzY0MTQ4DQpNb2JpbGU6ICArOTcyLTU0LTIzMTI2NzcNCkZheDog
-ICAgICAgICs5NzItMy05NzY0MDQwDQpFbWFpbDogICAgICBFbGkuQnJpdHN0ZWluQGF1ZGlvY29k
-ZXMuY29tDQpXZWI6ICAgICAgICB3d3cuYXVkaW9jb2Rlcy5jb20NCg0KDQoNCi0tLS0tT3JpZ2lu
-YWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBLZXZpbiBaaHUNClNlbnQ6IFR1ZXNkYXksIERlY2VtYmVy
-IDAyLCAyMDE0IDk6NDQNClRvOiBFbnJpY28gTWlvc28NCkNjOiBFbGkgQnJpdHN0ZWluOyBCasO4
-cm4gTW9yazsgQWxleCBTdHJpemhldnNreTsgTWlkZ2UgU2hhb2p1biBUYW47IHlvdXR1eEBnbWFp
-bC5jb207IGxpbnV4LXVzYkB2Z2VyLmtlcm5lbC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcN
-ClN1YmplY3Q6IFJlOiBJcyB0aGlzIDMyLWJpdCBOQ00/DQoNCkhpIGFsbCwNCg0KSGVyZSdzIHRo
-ZSByZWdpc3RyeSBmcm9tIHdpbmRvd3MgNy4gQXR0YWNoZWQuIE9uZSBwYXJhbWV0ZXIgdGhhdCBt
-aWdodCBiZSBpbnRlcmVzdGluZyBpcyBNYXhOdW1PZkRhdGFncmFtSW5OVEIsIHdoaWNoIGlzIDY0
-LiBJIHdvbmRlciBpZiBpdCBoYXMgc29tZXRoaW5nIHRvIGRvIHdpdGggTWF4RGF0YWdyYW1TaXpl
-LiBDYW4gc29tZW9uZSBhbHNvIGNoZWNrIHRoZSByZWdpc3RyeSwgaW4gY2FzZSBJIG1pc3NlZCBz
-b21ldGhpbmc/DQoNClJlZ2FyZHMsDQpLZXZpbg0KDQpPbiAxMi8wMi8yMDE0IDAyOjQ5IFBNLCBF
-bnJpY28gTWlvc28gd3JvdGU6DQo+IENhbiB5b3UgdHJ5IHRvIGxvb2sgYXQgV2luZG93cyByZWdp
-c3RyeSBrZXlzIGJhc2VkIG9uIHRoZSBJTkYgZmlsZSBhcw0KPiBzdWdnZXN0ZWQgb3Igd291bGQg
-dGhpcyBiZSBhIHByb2JsZW0gZm9yIHlvdT8NCj4gQW5kLi4uIGlmIHlvdSBoYXZlIGFueSBIdWF3
-ZWkgbWFudXRhbCB0YWxraW5nIGFib3V0IGl0OiBldmVuIGRldmljZSdzDQo+IF5EU0ZMT1dSUFQg
-bWlnaHQgYmUgdXNlZnVsIHRvIHNvbWUgZXh0ZW50LCBidXQgLi4uIHRoaXMgaXMgb25seSBqdXN0
-IGENCj4gbm90ZSBpbiBjYXNlIHdlIGRvbid0IGZpbmQgYW55dGhpbmcgZWxzZS4NCj4gUmVnYXJk
-cyAuLi4gYW5kIGdvb2QgZGF5IHRvIGFsbCBvZiB5b3UsIEVucmljbw0KPg0KPg0KPiBPbiBUdWUs
-IDIgRGVjIDIwMTQsIEtldmluIFpodSB3cm90ZToNCj4NCj4gPT1EYXRlOiBUdWUsIDIgRGVjIDIw
-MTQgMDc6NDM6MjQNCj4gPT1Gcm9tOiBLZXZpbiBaaHUgPE1pbmd5aW5nLlpodUBhdWRpb2NvZGVz
-LmNvbT4NCj4gPT1UbzogRW5yaWNvIE1pb3NvIDxtcmtpa28ucnNAZ21haWwuY29tPg0KPiA9PUNj
-OiBFbGkgQnJpdHN0ZWluIDxFbGkuQnJpdHN0ZWluQGF1ZGlvY29kZXMuY29tPiwgQmrDuHJuIE1v
-cmsgPGJqb3JuQG1vcmsubm8+LA0KPiA9PSAgICBBbGV4IFN0cml6aGV2c2t5IDxhbGV4eHN0QGdt
-YWlsLmNvbT4sDQo+ID09ICAgIE1pZGdlIFNoYW9qdW4gIFRhbiA8U2hhb2p1bk1pZGdlLlRhbkBh
-dWRpb2NvZGVzLmNvbT4sDQo+ID09ICAgICJ5b3V0dXhAZ21haWwuY29tIiA8eW91dHV4QGdtYWls
-LmNvbT4sDQo+ID09ICAgICJsaW51eC11c2JAdmdlci5rZXJuZWwub3JnIiA8bGludXgtdXNiQHZn
-ZXIua2VybmVsLm9yZz4sDQo+ID09ICAgICJuZXRkZXZAdmdlci5rZXJuZWwub3JnIiA8bmV0ZGV2
-QHZnZXIua2VybmVsLm9yZz4NCj4gPT1TdWJqZWN0OiBSZTogSXMgdGhpcyAzMi1iaXQgTkNNPw0K
-PiA9PQ0KPiA9PUkgYWxzbyB0cmllZCB0byBkZWZpbmUgQ0RDX05DTV9EUFRfREFUQUdSQU1TX01B
-WCBhcyAxIHRvIGVsaW1pbmF0ZQ0KPiB0aGUgPT1wYWRkaW5ncywgYnV0IGl0IGRpZCBub3Qgd29y
-ayBlaXRoZXIsIG5vdCBldmVuIERIQ1AuDQo+ID09DQo+ID09UmVnYXJkcywNCj4gPT1LZXZpbg0K
-PiA9PQ0KPiA9PU9uIDEyLzAyLzIwMTQgMDI6MzIgUE0sIEVucmljbyBNaW9zbyB3cm90ZToNCj4g
-PT0+IEhpIGFnYWluIEVsaSwNCj4gPT0+IEhpIEtldmluLA0KPiA9PT4gSGkgZXZlcnlvbmUuLi4N
-Cj4gPT0+DQo+ID09PiBBcyBJIHVuZGVyc3RhbmQgaXQgYW55d2F5IC0gdGhlIGRpc3RpbmN0aW9u
-IGhlcmUgdGVuZHMgbm90IHRvIGJlDQo+IGJldHdlZW4gPT0+IGRpZmZlcmVudCB0eXBlcyBvZiBw
-YWNrZXRzLg0KPiA9PT4gSXQgdGVuZHMgdG8gYmUgYmV0d2VlbiByZWNlaXZlZCBhbmQgc2VudCBw
-YWNrZXQuDQo+ID09PiBXZSBhcmUgbm90IGFibGUgdG8gZ2VuZXJhdGUgcGFja2V0cyB0aGF0IHRo
-ZSBkZXZpY2UgcmV0YWlucyB2YWxpZC4NCj4gPT0+IElmIHlvdSBtYW51YWxseSBjb25maWd1cmUg
-dGhlIElQIHRoZSBkZXZpY2Ugd291bGQgaGF2ZSBhc3NpZ25lZA0KPiB5b3UgdmlhIERIQ1AsID09
-PiB5b3VyIHN5c3RlbSB3aWxsIHN0YXJ0IGFuc3dlcmluZyBBUlAgcmVxdWVzdCwgc2F5aW5nDQo+
-IHRoYXQgdGhlIGhvc3Qgd2l0aCBJUCA9PT4gYWEuYmIuY2MuZGQgaXMgYXQgYWE6YmI6Y2M6ZGQ6
-ZWUgKHVzaW5nIHRoZSBNQyBhZGRyZXNzIG9mIHRoZSBkb25nbGUpLg0KPiA9PT4gSG93ZXZlciwg
-dGhlIG90aGVyIGhvc3QgKGdhdGV3YXkpIHdpbGwgbmV2ZXIga25vdyB0aGF0LiBJbmRlZWQsDQo+
-IGl0J2xsIGNvbnRpbnVlID09PiBhc2tpbmcgd2hvLWlzIGF0IGFhLmJiLmNjLmRkID8NCj4gPT0+
-IEF0IGxlYXN0LCB0aGlzIGlzIHRoZSBzaXR1YXRpb24gSSBvYnNlcnZlZCBpbiB0aGUgdGVzdCBz
-eXN0ZW0uDQo+ID09Pg0KPiA9PT4NCj4gPT0+IE9uIFR1ZSwgMiBEZWMgMjAxNCwgS2V2aW4gWmh1
-IHdyb3RlOg0KPiA9PT4NCj4gPT0+ID09RGF0ZTogVHVlLCAyIERlYyAyMDE0IDA0OjUzOjUzDQo+
-ID09PiA9PUZyb206IEtldmluIFpodSA8TWluZ3lpbmcuWmh1QGF1ZGlvY29kZXMuY29tPiA9PT4g
-PT1UbzogRWxpDQo+IEJyaXRzdGVpbiA8RWxpLkJyaXRzdGVpbkBhdWRpb2NvZGVzLmNvbT4sDQo+
-ID09PiA9PSAgICBFbnJpY28gTWlvc28gPG1ya2lrby5yc0BnbWFpbC5jb20+DQo+ID09PiA9PUNj
-OiBCasO4cm4gTW9yayA8Ympvcm5AbW9yay5ubz4sIEFsZXggU3RyaXpoZXZza3kgPGFsZXh4c3RA
-Z21haWwuY29tPiwNCj4gPT0+ID09ICAgIE1pZGdlIFNoYW9qdW4gIFRhbiA8U2hhb2p1bk1pZGdl
-LlRhbkBhdWRpb2NvZGVzLmNvbT4sDQo+ID09PiA9PSAgICAieW91dHV4QGdtYWlsLmNvbSIgPHlv
-dXR1eEBnbWFpbC5jb20+LA0KPiA9PT4gPT0gICAgImxpbnV4LXVzYkB2Z2VyLmtlcm5lbC5vcmci
-IDxsaW51eC11c2JAdmdlci5rZXJuZWwub3JnPiwNCj4gPT0+ID09ICAgICJuZXRkZXZAdmdlci5r
-ZXJuZWwub3JnIiA8bmV0ZGV2QHZnZXIua2VybmVsLm9yZz4NCj4gPT0+ID09U3ViamVjdDogUmU6
-IElzIHRoaXMgMzItYml0IE5DTT8NCj4gPT0+ID09DQo+ID09PiA9PUhpLA0KPiA9PT4gPT0NCj4g
-PT0+ID09VGhlIERIQ1AgcGFja2V0cyBoYXZlIHRoZSBtYXhpbXVtIHNpemUgb2YgZHdOdGJPdXRN
-YXhTaXplPTE2Mzg0LA0KPiB3aGlsZSA9PT4gPT10aGUgb3RoZXIgcGFja2V0cyBhcmUgbGVzcyB0
-aGFuIHRoYXQuIEhvd2V2ZXIsIHRoZSBESENQDQo+IHF1ZXJpZXMgYXJlIG5vdCA9PT4gPT1yZXBs
-aWVkIGluIHRpbWUgZWl0aGVyLCB0aGVyZSdzIGFsd2F5cyBzb21lIGRlbGF5Lg0KPiA9PT4gPT0N
-Cj4gPT0+ID09QnkgdGhlIHdheSwgdGhvdWdoIHRoZSBkZXZpY2UgY2xhaW1zIHRvIHN1cHBvcnQN
-Cj4gR0VUX01BWF9EQVRBR1JBTV9TSVpFLCA9PT4gPT1idXQgaXQgcmV0dXJucyBlcnJvciB3aGVu
-IHRoZSBob3N0IHNlbmRzDQo+IHRoaXMgY29tbWFuZCB0byBpdC4gSSBkaXNhYmxlZCA9PT4gPT10
-aGlzIGNvbW1hbmQgaW4gTkNNIGRyaXZlciBhbmQgdHJpZWQsIGJ1dCBpdCdzIHRoZSBzYW1lIHJl
-c3VsdC4NCj4gPT0+ID09DQo+ID09PiA9PVJlZ2FyZHMsDQo+ID09PiA9PUtldmluDQo+ID09PiA9
-PQ0KPiA9PT4gPT1PbiAxMi8wMi8yMDE0IDA2OjAyIEFNLCBFbGkgQnJpdHN0ZWluIHdyb3RlOg0K
-PiA9PT4gPT0+IEhpIEVucmljbyBhbmQgYWxsLA0KPiA9PT4gPT0+DQo+ID09PiA9PT4gTWF5YmUg
-SSBtaXNzZWQgc29tZXRoaW5nIGJ1dCB3aGF0IGlzIHRoZSBkaWZmZXJlbmNlIGJ5IHRoZSBkcml2
-ZXIgcG9pbnQgb2YgdmlldyBiZXR3ZWVuIHRoZSBkaGNwIGRpc2NvdmVyIGFuZCByZXF1ZXN0ICh0
-aGF0IGFyZSBvaykgdG8gb3RoZXJzIChsaWtlIGFycCwgdGhhdCBpcyBub2spPw0KPiA9PT4gPT0+
-IE1heWJlIHdlIGNhbiB0cmFjZSB0byBjb21wYXJlIHRoZW0/DQo+ID09PiA9PT4NCj4gPT0+ID09
-PiBTZW50IGZyb20gbXkgaVBob25lDQo+ID09PiA9PT4NCj4gPT0+ID09Pj4gT24gMSDXkdeT16bX
-niAyMDE0LCBhdCAyMzoxMSwgIkVucmljbyBNaW9zbyIgPG1ya2lrby5yc0BnbWFpbC5jb20+IHdy
-b3RlOg0KPiA9PT4gPT0+Pg0KPiA9PT4gPT0+PiBTbyAuLi4gSSBoYXZlIHR3byBpZGVhcyBsZWZ0
-IGZvciBub3cuDQo+ID09PiA9PT4+IFdlIGtub3cgZm9yIHN1cmUgdGhlIHByb2JsZW0gaXMgaW4g
-dGhlIHdheSB3ZSBUWCBmcmFtZXMsIG5vdA0KPiB0aGUgd2F5IHdlIFJYIHRoZW0gPT0+ID09Pj4g
-KHRoZSB3YXkgd2Ugc2VuZCwgZ2VuZXJhdGUgdGhlbSwgbm90IHRoZSB3YXkgd2UgcmVjZWl2ZSB0
-aGVtKS4NCj4gPT0+ID09Pj4gU2kgSSBoYXZlIHR3byBpZGVhcywgYW5kIEkgYXNrIGZvciBoZWxw
-IGZyb20gdGhlIExpbnV4LXVzYg0KPiBtYWlsaW5nIGxpc3QgZm9yID09PiA9PT4+IHRoaXMgZmly
-c3Qgb25lLg0KPiA9PT4gPT0+Pg0KPiA9PT4gPT0+PiAxIC0gRG9lcyBhIHdheWV4aXN0IHRvICJy
-ZXBsYXkiIHRyYWZmaWMgY3JvbSBhIHVzYiBjYXB0dXJlPw0KPiA9PT4gPT0+PiBXZSBtaWdodCB0
-cnkgdG8gdGFrZSB0aGUgdXNiIGZyYW1lcyBnZW5lcmF0ZWQgYnkgV2luZG93cywgYW5kDQo+IHNl
-bmQgdGhlbSB0byB0aGUgPT0+ID09Pj4gZGV2aWNlIHRvIHNlZSBpZiB0aGVyZSBpcyBhbnkgcmVh
-Y3Rpb24uIEl0DQo+IHNob3VsZCBub3QgYmUgc2NpZW5jZSBmaWN0aW9uLCBJIHNhdyA9PT4gPT0+
-PiB0aGVtIGRvIHRoYXQgaW4gdGhlIGVjaWFkc2wgb2xkIHByb2plY3QuDQo+ID09PiA9PT4+IDIg
-LSBUaGUgaHVhd2VpIG5kaXMgZHJpdmVyOiBkb2VzIGl0IHdvcmsgd2l0aCB0aGVzZSBkZXZpY2Vz
-Pw0KPiA9PT4gPT0+PiBJdCBzaG91bGQgYmUgYSBsaXR0bGUgYml0IG91dC1kYXRlZCBub3cgKGF0
-IGxlYXN0IGluIHRlcm1zIG9mDQo+IGRhdGVzLCBpdCBtaWdodCA9PT4gPT0+PiB3b3JrIGFzIHdl
-bGwpOiB0aGUgY29kZSBpcyBBIExPVCBidXQsIGp1c3QgaW4NCj4gY2FzZSwgdG8gc2VlIGlmIHRo
-ZXJlIGlzIGFueSA9PT4gPT0+PiBjaGFuY2VzIGl0J2xsIHdvcmsuIEl0IHJlbWFpbnMNCj4gdG8g
-YmUgc2VlbiBpbiB3aGljaCBrZXJuZWxzIGl0IGNhbiBhY3R1YWxseSA9PT4gPT0+PiBjb21waWxl
-IGFnYWluLg0KPiA9PT4gPT0+Pg0KPiA9PT4gPT0+PiBJZiB0aGlzIHdvcmtzIHdlIG1pZ2h0IGFu
-YWx5c2Ugd2hhdCdzIGhhcHBlbmluZyBhbmQgdHJ5IHRvIGRlYnVnIHRoaXMgb3V0Lg0KPiA9PT4g
-PT0+PiBCdXQgSSByZWFsbHkgd291bGQgbGlrZSB0aGlzIHRvIHdvcmsgaW4gdGhlIGNkY19uY20g
-ZHJpdmVyICsgaHVhd2VpX2NkY19uY20uDQo+ID09PiA9PT4+IFRoYW5rIHlvdS4NCj4gPT0+ID09
-VGhpcyBlbWFpbCBhbmQgYW55IGZpbGVzIHRyYW5zbWl0dGVkIHdpdGggaXQgYXJlIGNvbmZpZGVu
-dGlhbCBtYXRlcmlhbC4gVGhleSBhcmUgaW50ZW5kZWQgc29sZWx5IGZvciB0aGUgdXNlIG9mIHRo
-ZSBkZXNpZ25hdGVkIGluZGl2aWR1YWwgb3IgZW50aXR5IHRvIHdob20gdGhleSBhcmUgYWRkcmVz
-c2VkLiBJZiB0aGUgcmVhZGVyIG9mIHRoaXMgbWVzc2FnZSBpcyBub3QgdGhlIGludGVuZGVkIHJl
-Y2lwaWVudCwgeW91IGFyZSBoZXJlYnkgbm90aWZpZWQgdGhhdCBhbnkgZGlzc2VtaW5hdGlvbiwg
-dXNlLCBkaXN0cmlidXRpb24gb3IgY29weWluZyBvZiB0aGlzIGNvbW11bmljYXRpb24gaXMgc3Ry
-aWN0bHkgcHJvaGliaXRlZCBhbmQgbWF5IGJlIHVubGF3ZnVsLg0KPiA9PT4gPT0NCj4gPT0+ID09
-SWYgeW91IGhhdmUgcmVjZWl2ZWQgdGhpcyBlbWFpbCBpbiBlcnJvciBwbGVhc2UgaW1tZWRpYXRl
-bHkNCj4gbm90aWZ5IHRoZSBzZW5kZXIgYW5kIGRlbGV0ZSBvciBkZXN0cm95IGFueSBjb3B5IG9m
-IHRoaXMgbWVzc2FnZSA9PT4NCj4gPT0gPT1UaGlzIGVtYWlsIGFuZCBhbnkgZmlsZXMgdHJhbnNt
-aXR0ZWQgd2l0aCBpdCBhcmUgY29uZmlkZW50aWFsIG1hdGVyaWFsLiBUaGV5IGFyZSBpbnRlbmRl
-ZCBzb2xlbHkgZm9yIHRoZSB1c2Ugb2YgdGhlIGRlc2lnbmF0ZWQgaW5kaXZpZHVhbCBvciBlbnRp
-dHkgdG8gd2hvbSB0aGV5IGFyZSBhZGRyZXNzZWQuIElmIHRoZSByZWFkZXIgb2YgdGhpcyBtZXNz
-YWdlIGlzIG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50LCB5b3UgYXJlIGhlcmVieSBub3RpZmll
-ZCB0aGF0IGFueSBkaXNzZW1pbmF0aW9uLCB1c2UsIGRpc3RyaWJ1dGlvbiBvciBjb3B5aW5nIG9m
-IHRoaXMgY29tbXVuaWNhdGlvbiBpcyBzdHJpY3RseSBwcm9oaWJpdGVkIGFuZCBtYXkgYmUgdW5s
-YXdmdWwuDQo+ID09DQo+ID09SWYgeW91IGhhdmUgcmVjZWl2ZWQgdGhpcyBlbWFpbCBpbiBlcnJv
-ciBwbGVhc2UgaW1tZWRpYXRlbHkgbm90aWZ5DQo+IHRoZSBzZW5kZXIgYW5kIGRlbGV0ZSBvciBk
-ZXN0cm95IGFueSBjb3B5IG9mIHRoaXMgbWVzc2FnZSA9PQ0KDQoNCg0KX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX18NCg0KVGhpcyBlbWFpbCBhbmQgYW55IGZpbGVzIHRyYW5zbWl0dGVk
-IHdpdGggaXQgYXJlIGNvbmZpZGVudGlhbCBtYXRlcmlhbC4gVGhleSBhcmUgaW50ZW5kZWQgc29s
-ZWx5IGZvciB0aGUgdXNlIG9mIHRoZSBkZXNpZ25hdGVkIGluZGl2aWR1YWwgb3IgZW50aXR5IHRv
-IHdob20gdGhleSBhcmUgYWRkcmVzc2VkLiBJZiB0aGUgcmVhZGVyIG9mIHRoaXMgbWVzc2FnZSBp
-cyBub3QgdGhlIGludGVuZGVkIHJlY2lwaWVudCwgeW91IGFyZSBoZXJlYnkgbm90aWZpZWQgdGhh
-dCBhbnkgZGlzc2VtaW5hdGlvbiwgdXNlLCBkaXN0cmlidXRpb24gb3IgY29weWluZyBvZiB0aGlz
-IGNvbW11bmljYXRpb24gaXMgc3RyaWN0bHkgcHJvaGliaXRlZCBhbmQgbWF5IGJlIHVubGF3ZnVs
-Lg0KDQpJZiB5b3UgaGF2ZSByZWNlaXZlZCB0aGlzIGVtYWlsIGluIGVycm9yIHBsZWFzZSBpbW1l
-ZGlhdGVseSBub3RpZnkgdGhlIHNlbmRlciBhbmQgZGVsZXRlIG9yIGRlc3Ryb3kgYW55IGNvcHkg
-b2YgdGhpcyBtZXNzYWdlDQo=
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Hi,
+
+I am working on Kernel AddressSanitizer, a fast memory error detector
+for kernel:
+https://code.google.com/p/address-sanitizer/wiki/AddressSanitizerForKernel
+
+Here is an error report that I got while running trinity:
+
+==================================================================
+BUG: AddressSanitizer: out of bounds access in
+nfnetlink_bind+0xbf/0xe0 at addr ffffffff82eef710
+Read of size 4 by task trinity-main/2533
+Out-of-bounds access to the global variable 'nfnl_group2type'
+[ffffffff82eef6e0-ffffffff82eef704) defined at
+net/netfilter/nfnetlink.c:43:18
+CPU: 0 PID: 2533 Comm: trinity-main Not tainted 3.18.0-rc1+ #44
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ ffffffff835173e8 ffff8800b989fd18 ffffffff82a3d66f 0000000000000007
+ ffff8800b989fdc0 ffff8800b989fda8 ffffffff813a3826 0000000000000012
+ 0000000000000000 0000000100000018 0000000000000296 ffff8800b989fd88
+Call Trace:
+ [<ffffffff813a39c1>] __asan_report_load4_noabort+0x41/0x50
+mm/kasan/report.c:236
+ [<ffffffff824769cf>] nfnetlink_bind+0xbf/0xe0 net/netfilter/nfnetlink.c:467
+ [<ffffffff82469b71>] netlink_bind+0x221/0x7e0 net/netlink/af_netlink.c:1472
+ [<ffffffff8238bf77>] SYSC_bind+0x117/0x170 net/socket.c:1541
+ [<ffffffff8238dc29>] SyS_bind+0x9/0x10 net/socket.c:1527
+ [<ffffffff82a522a9>] system_call_fastpath+0x12/0x17
+arch/x86/kernel/entry_64.S:422
+Memory state around the buggy address:
+ ffffffff82eef480: 00 00 00 00 00 00 00 00 00 00 00 00 00 f8 f8 f8
+ ffffffff82eef500: f8 f8 f8 f8 00 00 00 00 f8 f8 f8 f8 00 00 00 01
+ ffffffff82eef580: f8 f8 f8 f8 00 00 00 00 05 f8 f8 f8 f8 f8 f8 f8
+ ffffffff82eef600: 00 00 04 f8 f8 f8 f8 f8 00 00 f8 f8 f8 f8 f8 f8
+ ffffffff82eef680: 00 00 00 00 07 f8 f8 f8 f8 f8 f8 f8 00 00 00 00
+>ffffffff82eef700: 04 f8 f8 f8 f8 f8 f8 f8 00 06 f8 f8 f8 f8 f8 f8
+                         ^
+ ffffffff82eef780: 00 00 00 05 f8 f8 f8 f8 00 00 00 00 00 f8 f8 f8
+ ffffffff82eef800: f8 f8 f8 f8 00 00 00 00 02 f8 f8 f8 f8 f8 f8 f8
+ ffffffff82eef880: 00 00 00 00 06 f8 f8 f8 f8 f8 f8 f8 00 00 00 04
+ ffffffff82eef900: f8 f8 f8 f8 00 00 00 00 00 04 f8 f8 f8 f8 f8 f8
+ ffffffff82eef980: 00 00 00 07 f8 f8 f8 f8 00 00 00 06 f8 f8 f8 f8
+==================================================================
+
+My source is on revision f114040e3ea6e07372334ade75d1ee0
+
+As far as I see netlink_bind just calls nfnetlink_bind with whatever
+groups user has requested; nfnetlink_bind in turn do not do any checks
+before indexing the global nfnl_group2type array with the group.
