@@ -1,302 +1,478 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: [PATCH v3 net-next] net: bcmgenet: enable driver to work without a device tree
-Date: Mon,  1 Dec 2014 16:18:08 -0800 (PST)
-Message-ID: <20141202001808.9B0E6220728@puck.mtv.corp.google.com>
-Cc: davem@davemloft.net, f.fainelli@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f201.google.com ([209.85.192.201]:57726 "EHLO
-	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751415AbaLBASK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2014 19:18:10 -0500
-Received: by mail-pd0-f201.google.com with SMTP id ft15so1510250pdb.0
-        for <netdev@vger.kernel.org>; Mon, 01 Dec 2014 16:18:09 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: [RFC PATCH] netfilter: conntrack: cache route for forwarded connections
+Date: Tue,  2 Dec 2014 01:28:34 +0100
+Message-ID: <1417480114-3002-1-git-send-email-fw@strlen.de>
+Cc: brouer@redhat.com, netdev@vger.kernel.org,
+	Florian Westphal <fw@strlen.de>
+To: <netfilter-devel@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Modify bcmgenet driver so that it can be used on Broadcom 7xxx
-MIPS-based STB platforms without a device tree.
+... to avoid per-packet FIB lookup if possible.
 
-Signed-off-by: Petri Gynther <pgynther@google.com>
+The cached dst is re-used provided the input interface
+is the same as that of the previous packet in the same direction.
+
+If not, the cached dst is invalidated.
+
+This should speed up forwarding when conntrack is already in use
+anyway, especially when using reverse path filtering -- active RPF
+enforces two FIB lookups for each packet.
+
+Before the routing cache removal this didn't matter since RPF
+was performed only when route cache didn't yield a result; but without
+route cache it comes at high price.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- drivers/net/ethernet/broadcom/Kconfig          |   1 -
- drivers/net/ethernet/broadcom/genet/bcmgenet.c |  31 ++++--
- drivers/net/ethernet/broadcom/genet/bcmmii.c   | 126 ++++++++++++++++++++-----
- include/linux/platform_data/bcmgenet.h         |  18 ++++
- 4 files changed, 143 insertions(+), 33 deletions(-)
- create mode 100644 include/linux/platform_data/bcmgenet.h
+ Sending as RFC since I haven't tested this yet (aside from
+ single-forwarded-flow), so no performance data either.
 
-diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
-index c3e260c..888247a 100644
---- a/drivers/net/ethernet/broadcom/Kconfig
-+++ b/drivers/net/ethernet/broadcom/Kconfig
-@@ -62,7 +62,6 @@ config BCM63XX_ENET
+  - doesn't work when iif changes (it invalidates cached dst), don't
+  think its a problem
+  - auto-active when module is loaded (and always active when =y).
+  - cache becomes used after conntrack enters ASSURED state.
+
+  TODOs:
+  - integrate with netfilter ipv4/ipv6 rpfilter match (already working on this)
+
+  Things to consider:
+  - perhaps extend it for local connections too; could cache
+  socket to get sk from conntrack (and then fetchg dst from sk).
+
+ include/net/netfilter/nf_conntrack_extend.h  |   4 +
+ include/net/netfilter/nf_conntrack_rtcache.h |  28 +++
+ net/netfilter/Kconfig                        |  11 +
+ net/netfilter/Makefile                       |   1 +
+ net/netfilter/nf_conntrack_rtcache.c         | 327 +++++++++++++++++++++++++++
+ 5 files changed, 371 insertions(+)
+ create mode 100644 include/net/netfilter/nf_conntrack_rtcache.h
+ create mode 100644 net/netfilter/nf_conntrack_rtcache.c
+
+diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
+index 55d1504..1b00d57 100644
+--- a/include/net/netfilter/nf_conntrack_extend.h
++++ b/include/net/netfilter/nf_conntrack_extend.h
+@@ -30,6 +30,9 @@ enum nf_ct_ext_id {
+ #if IS_ENABLED(CONFIG_NETFILTER_SYNPROXY)
+ 	NF_CT_EXT_SYNPROXY,
+ #endif
++#if IS_ENABLED(CONFIG_NF_CONNTRACK_RTCACHE)
++	NF_CT_EXT_RTCACHE,
++#endif
+ 	NF_CT_EXT_NUM,
+ };
  
- config BCMGENET
- 	tristate "Broadcom GENET internal MAC support"
--	depends on OF
- 	select MII
- 	select PHYLIB
- 	select FIXED_PHY if BCMGENET=y
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index f2fadb0..adfef5c 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -42,6 +42,7 @@
- #include <linux/ip.h>
- #include <linux/ipv6.h>
- #include <linux/phy.h>
-+#include <linux/platform_data/bcmgenet.h>
+@@ -43,6 +46,7 @@ enum nf_ct_ext_id {
+ #define NF_CT_EXT_TIMEOUT_TYPE struct nf_conn_timeout
+ #define NF_CT_EXT_LABELS_TYPE struct nf_conn_labels
+ #define NF_CT_EXT_SYNPROXY_TYPE struct nf_conn_synproxy
++#define NF_CT_EXT_RTCACHE_TYPE struct nf_conn_rtcache
  
- #include <asm/unaligned.h>
- 
-@@ -2586,8 +2587,9 @@ static const struct of_device_id bcmgenet_match[] = {
- 
- static int bcmgenet_probe(struct platform_device *pdev)
- {
-+	struct bcmgenet_platform_data *pd = pdev->dev.platform_data;
- 	struct device_node *dn = pdev->dev.of_node;
--	const struct of_device_id *of_id;
-+	const struct of_device_id *of_id = NULL;
- 	struct bcmgenet_priv *priv;
- 	struct net_device *dev;
- 	const void *macaddr;
-@@ -2601,9 +2603,11 @@ static int bcmgenet_probe(struct platform_device *pdev)
- 		return -ENOMEM;
- 	}
- 
--	of_id = of_match_node(bcmgenet_match, dn);
--	if (!of_id)
--		return -EINVAL;
-+	if (dn) {
-+		of_id = of_match_node(bcmgenet_match, dn);
-+		if (!of_id)
-+			return -EINVAL;
-+	}
- 
- 	priv = netdev_priv(dev);
- 	priv->irq0 = platform_get_irq(pdev, 0);
-@@ -2615,11 +2619,15 @@ static int bcmgenet_probe(struct platform_device *pdev)
- 		goto err;
- 	}
- 
--	macaddr = of_get_mac_address(dn);
--	if (!macaddr) {
--		dev_err(&pdev->dev, "can't find MAC address\n");
--		err = -EINVAL;
--		goto err;
-+	if (dn) {
-+		macaddr = of_get_mac_address(dn);
-+		if (!macaddr) {
-+			dev_err(&pdev->dev, "can't find MAC address\n");
-+			err = -EINVAL;
-+			goto err;
-+		}
-+	} else {
-+		macaddr = pd->mac_address;
- 	}
- 
- 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-@@ -2659,7 +2667,10 @@ static int bcmgenet_probe(struct platform_device *pdev)
- 
- 	priv->dev = dev;
- 	priv->pdev = pdev;
--	priv->version = (enum bcmgenet_version)of_id->data;
-+	if (of_id)
-+		priv->version = (enum bcmgenet_version)of_id->data;
-+	else
-+		priv->version = pd->genet_version;
- 
- 	priv->clk = devm_clk_get(&priv->pdev->dev, "enet");
- 	if (IS_ERR(priv->clk))
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-index 933cd7e..446889c 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-@@ -23,6 +23,7 @@
- #include <linux/of.h>
- #include <linux/of_net.h>
- #include <linux/of_mdio.h>
-+#include <linux/platform_data/bcmgenet.h>
- 
- #include "bcmgenet.h"
- 
-@@ -312,22 +313,6 @@ static int bcmgenet_mii_probe(struct net_device *dev)
- 	u32 phy_flags;
- 	int ret;
- 
--	if (priv->phydev) {
--		pr_info("PHY already attached\n");
--		return 0;
--	}
--
--	/* In the case of a fixed PHY, the DT node associated
--	 * to the PHY is the Ethernet MAC DT node.
--	 */
--	if (!priv->phy_dn && of_phy_is_fixed_link(dn)) {
--		ret = of_phy_register_fixed_link(dn);
--		if (ret)
--			return ret;
--
--		priv->phy_dn = of_node_get(dn);
--	}
--
- 	/* Communicate the integrated PHY revision */
- 	phy_flags = priv->gphy_rev;
- 
-@@ -337,11 +322,39 @@ static int bcmgenet_mii_probe(struct net_device *dev)
- 	priv->old_duplex = -1;
- 	priv->old_pause = -1;
- 
--	phydev = of_phy_connect(dev, priv->phy_dn, bcmgenet_mii_setup,
--				phy_flags, priv->phy_interface);
--	if (!phydev) {
--		pr_err("could not attach to PHY\n");
--		return -ENODEV;
-+	if (dn) {
-+		if (priv->phydev) {
-+			pr_info("PHY already attached\n");
-+			return 0;
-+		}
-+
-+		/* In the case of a fixed PHY, the DT node associated
-+		 * to the PHY is the Ethernet MAC DT node.
-+		 */
-+		if (!priv->phy_dn && of_phy_is_fixed_link(dn)) {
-+			ret = of_phy_register_fixed_link(dn);
-+			if (ret)
-+				return ret;
-+
-+			priv->phy_dn = of_node_get(dn);
-+		}
-+
-+		phydev = of_phy_connect(dev, priv->phy_dn, bcmgenet_mii_setup,
-+					phy_flags, priv->phy_interface);
-+		if (!phydev) {
-+			pr_err("could not attach to PHY\n");
-+			return -ENODEV;
-+		}
-+	} else {
-+		phydev = priv->phydev;
-+		phydev->dev_flags = phy_flags;
-+
-+		ret = phy_connect_direct(dev, phydev, bcmgenet_mii_setup,
-+					 priv->phy_interface);
-+		if (ret) {
-+			pr_err("could not attach to PHY\n");
-+			return -ENODEV;
-+		}
- 	}
- 
- 	priv->phydev = phydev;
-@@ -438,6 +451,75 @@ static int bcmgenet_mii_of_init(struct bcmgenet_priv *priv)
- 	return 0;
- }
- 
-+static int bcmgenet_mii_pd_init(struct bcmgenet_priv *priv)
-+{
-+	struct device *kdev = &priv->pdev->dev;
-+	struct bcmgenet_platform_data *pd = kdev->platform_data;
-+	struct mii_bus *mdio = priv->mii_bus;
-+	struct phy_device *phydev;
-+	int ret;
-+
-+	if (pd->phy_interface != PHY_INTERFACE_MODE_MOCA && pd->mdio_enabled) {
-+		/*
-+		 * Internal or external PHY with MDIO access
-+		 */
-+		if (pd->phy_address >= 0 && pd->phy_address < PHY_MAX_ADDR)
-+			mdio->phy_mask = ~(1 << pd->phy_address);
-+		else
-+			mdio->phy_mask = 0;
-+
-+		ret = mdiobus_register(mdio);
-+		if (ret) {
-+			dev_err(kdev, "failed to register MDIO bus\n");
-+			return ret;
-+		}
-+
-+		if (pd->phy_address >= 0 && pd->phy_address < PHY_MAX_ADDR)
-+			phydev = mdio->phy_map[pd->phy_address];
-+		else
-+			phydev = phy_find_first(mdio);
-+
-+		if (!phydev) {
-+			dev_err(kdev, "failed to register PHY device\n");
-+			mdiobus_unregister(mdio);
-+			return -ENODEV;
-+		}
-+	} else {
-+		/*
-+		 * MoCA port or no MDIO access.
-+		 * Use fixed PHY to represent the link layer.
-+		 */
-+		struct fixed_phy_status fphy_status = {
-+			.link = 1,
-+			.speed = pd->phy_speed,
-+			.duplex = pd->phy_duplex,
-+			.pause = 0,
-+			.asym_pause = 0,
-+		};
-+
-+		phydev = fixed_phy_register(PHY_POLL, &fphy_status, NULL);
-+		if (!phydev || IS_ERR(phydev)) {
-+			dev_err(kdev, "failed to register fixed PHY device\n");
-+			return -ENODEV;
-+		}
-+	}
-+
-+	priv->phydev = phydev;
-+	priv->phy_interface = pd->phy_interface;
-+
-+	return 0;
-+}
-+
-+static int bcmgenet_mii_bus_init(struct bcmgenet_priv *priv)
-+{
-+	struct device_node *dn = priv->pdev->dev.of_node;
-+
-+	if (dn)
-+		return bcmgenet_mii_of_init(priv);
-+	else
-+		return bcmgenet_mii_pd_init(priv);
-+}
-+
- int bcmgenet_mii_init(struct net_device *dev)
- {
- 	struct bcmgenet_priv *priv = netdev_priv(dev);
-@@ -447,7 +529,7 @@ int bcmgenet_mii_init(struct net_device *dev)
- 	if (ret)
- 		return ret;
- 
--	ret = bcmgenet_mii_of_init(priv);
-+	ret = bcmgenet_mii_bus_init(priv);
- 	if (ret)
- 		goto out_free;
- 
-diff --git a/include/linux/platform_data/bcmgenet.h b/include/linux/platform_data/bcmgenet.h
+ /* Extensions: optional stuff which isn't permanently in struct. */
+ struct nf_ct_ext {
+diff --git a/include/net/netfilter/nf_conntrack_rtcache.h b/include/net/netfilter/nf_conntrack_rtcache.h
 new file mode 100644
-index 0000000..26af543
+index 0000000..e8d215d
 --- /dev/null
-+++ b/include/linux/platform_data/bcmgenet.h
-@@ -0,0 +1,18 @@
-+#ifndef __LINUX_PLATFORM_DATA_BCMGENET_H__
-+#define __LINUX_PLATFORM_DATA_BCMGENET_H__
++++ b/include/net/netfilter/nf_conntrack_rtcache.h
+@@ -0,0 +1,28 @@
++#include <linux/gfp.h>
++#include <net/netfilter/nf_conntrack.h>
++#include <net/netfilter/nf_conntrack_extend.h>
 +
-+#include <linux/types.h>
-+#include <linux/if_ether.h>
-+#include <linux/phy.h>
-+
-+struct bcmgenet_platform_data {
-+	bool		mdio_enabled;
-+	phy_interface_t	phy_interface;
-+	int		phy_address;
-+	int		phy_speed;
-+	int		phy_duplex;
-+	u8		mac_address[ETH_ALEN];
-+	int		genet_version;
++struct dst_entry;
++union nf_conn_cache_ptr {
++	struct dst_entry *dst;
 +};
 +
++struct nf_conn_rtcache {
++	union nf_conn_cache_ptr ptr[IP_CT_DIR_MAX];
++	int iif[IP_CT_DIR_MAX];
++};
++
++static inline struct nf_conn_rtcache *nf_ct_rtcache_find(const struct nf_conn *ct)
++{
++#if IS_ENABLED(CONFIG_NF_CONNTRACK_RTCACHE)
++	return nf_ct_ext_find(ct, NF_CT_EXT_RTCACHE);
++#else
++	return NULL;
 +#endif
++}
++
++static inline int nf_conn_rtcache_iif_get(const struct nf_conn_rtcache *rtc,
++					  enum ip_conntrack_dir dir)
++{
++	return rtc->iif[dir];
++}
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index b02660f..4a8b7e7 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -106,6 +106,17 @@ config NF_CONNTRACK_EVENTS
+ 
+ 	  If unsure, say `N'.
+ 
++config NF_CONNTRACK_RTCACHE
++	tristate "Cache route entries in conntrack objects"
++	depends on NETFILTER_ADVANCED
++	depends on NF_CONNTRACK
++	help
++	  If this option is enabled, the connection tracking code will
++	  cache routing information for each connection that is being
++	  forwarded.
++
++	  If unsure, say `N'.
++
+ config NF_CONNTRACK_TIMEOUT
+ 	bool  'Connection tracking timeout'
+ 	depends on NETFILTER_ADVANCED
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 89f73a9..ac830c9 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -5,6 +5,7 @@ nf_conntrack-$(CONFIG_NF_CONNTRACK_TIMEOUT) += nf_conntrack_timeout.o
+ nf_conntrack-$(CONFIG_NF_CONNTRACK_TIMESTAMP) += nf_conntrack_timestamp.o
+ nf_conntrack-$(CONFIG_NF_CONNTRACK_EVENTS) += nf_conntrack_ecache.o
+ nf_conntrack-$(CONFIG_NF_CONNTRACK_LABELS) += nf_conntrack_labels.o
++nf_conntrack-$(CONFIG_NF_CONNTRACK_RTCACHE) += nf_conntrack_rtcache.o
+ 
+ obj-$(CONFIG_NETFILTER) = netfilter.o
+ 
+diff --git a/net/netfilter/nf_conntrack_rtcache.c b/net/netfilter/nf_conntrack_rtcache.c
+new file mode 100644
+index 0000000..1013987
+--- /dev/null
++++ b/net/netfilter/nf_conntrack_rtcache.c
+@@ -0,0 +1,327 @@
++/* route cache for netfilter.
++ *
++ * (C) 2014 Red Hat GmbH
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/types.h>
++#include <linux/netfilter.h>
++#include <linux/skbuff.h>
++#include <linux/stddef.h>
++#include <linux/kernel.h>
++#include <linux/netdevice.h>
++#include <linux/export.h>
++#include <linux/module.h>
++
++#include <net/dst.h>
++
++#include <net/netfilter/nf_conntrack.h>
++#include <net/netfilter/nf_conntrack_core.h>
++#include <net/netfilter/nf_conntrack_extend.h>
++#include <net/netfilter/nf_conntrack_rtcache.h>
++
++static void __nf_conn_rtcache_destroy(struct nf_conn_rtcache *rtc, int dir)
++{
++	struct dst_entry *dst;
++
++	if (rtc->iif[dir] < 0)
++		return;
++
++	dst = rtc->ptr[dir].dst;
++	pr_debug("release dst %p, refcnt %d, dir %d\n", dst, atomic_read(&dst->__refcnt), dir);
++	dst_release(dst);
++}
++
++static void nf_conn_rtcache_destroy(struct nf_conn *ct)
++{
++	struct nf_conn_rtcache *rtc = nf_ct_rtcache_find(ct);
++
++	if (!rtc)
++		return;
++
++	__nf_conn_rtcache_destroy(rtc, IP_CT_DIR_ORIGINAL);
++	__nf_conn_rtcache_destroy(rtc, IP_CT_DIR_REPLY);
++}
++
++static void nf_ct_rtcache_ext_add(struct nf_conn *ct)
++{
++	struct nf_conn_rtcache *rtc;
++
++	rtc = nf_ct_ext_add(ct, NF_CT_EXT_RTCACHE, GFP_ATOMIC);
++	if (rtc) {
++		rtc->iif[IP_CT_DIR_ORIGINAL] = -1;
++		rtc->iif[IP_CT_DIR_REPLY] = -1;
++	}
++}
++
++static bool nf_rtcache_ignore_ct(struct nf_conn *ct)
++{
++	if (nf_ct_is_untracked(ct))
++		return true;
++
++	if (!test_bit(IPS_ASSURED_BIT, &ct->status))
++		return true;
++	return false;
++}
++
++static struct nf_conn_rtcache *nf_ct_rtcache_find_usable(struct nf_conn *ct)
++{
++	if (nf_rtcache_ignore_ct(ct))
++		return NULL;
++	return nf_ct_rtcache_find(ct);
++}
++
++static struct dst_entry *
++nf_conn_rtcache_dst_get(const struct nf_conn_rtcache *rtc,
++		        enum ip_conntrack_dir dir)
++{
++	return rtc->ptr[dir].dst;
++}
++
++static void nf_conn_rtcache_dst_set(struct nf_conn_rtcache *rtc,
++				    struct dst_entry *dst,
++				    enum ip_conntrack_dir dir, int iif)
++{
++	if (rtc->iif[dir] != iif)
++		rtc->iif[dir] = iif;
++
++	if (rtc->ptr[dir].dst != dst) {
++		struct dst_entry *old;
++
++		dst_hold(dst);
++
++		old = xchg(&rtc->ptr[dir].dst, dst);
++		dst_release(old);
++	}
++}
++
++static void nf_conn_rtcache_dst_obsolete(struct nf_conn_rtcache *rtc,
++					 enum ip_conntrack_dir dir)
++{
++	struct dst_entry *old;
++
++	pr_debug("Invalidate iif %d for dir %d on cache %p\n",
++		   rtc->iif[dir], dir, rtc);
++
++	old = xchg(&rtc->ptr[dir].dst, NULL);
++	dst_release(old);
++	rtc->iif[dir] = -1;
++}
++
++static unsigned int nf_rtcache_in(const struct nf_hook_ops *ops,
++				  struct sk_buff *skb,
++				  const struct net_device *in,
++				  const struct net_device *out,
++				  int (*okfn)(struct sk_buff *))
++{
++	struct nf_conn_rtcache *ct_rtcache;
++	enum ip_conntrack_info ctinfo;
++	enum ip_conntrack_dir dir;
++	struct dst_entry *dst;
++	struct nf_conn *ct;
++	int iif;
++
++	if (in == NULL || skb_dst(skb))
++		return NF_ACCEPT;
++
++	ct = nf_ct_get(skb, &ctinfo);
++	if (!ct)
++		return NF_ACCEPT;
++
++	ct_rtcache = nf_ct_rtcache_find_usable(ct);
++	if (!ct_rtcache)
++		return NF_ACCEPT;
++
++	/* if iif changes, don't use cache and let ip stack
++	 * do route lookup.
++	 *
++	 * If rp_filter is enabled it might toss skb, so
++	 * we don't want to avoid these checks.
++	 */
++	dir = CTINFO2DIR(ctinfo);
++	iif = nf_conn_rtcache_iif_get(ct_rtcache, dir);
++	if (in->ifindex != iif) {
++		pr_debug("iif %d did not match cached iif %d of ct %p\n\n", iif, in->ifindex, ct);
++		return NF_ACCEPT;
++	}
++	dst = nf_conn_rtcache_dst_get(ct_rtcache, dir);
++	if (dst == NULL)
++		return NF_ACCEPT;
++	dst = dst_check(dst, 0);
++	if (likely(dst)) {
++		pr_debug("using cached dst %p for skb %p\n", dst, skb);
++		skb_dst_set_noref_force(skb, dst);
++	} else {
++		nf_conn_rtcache_dst_obsolete(ct_rtcache, dir);
++	}
++	return NF_ACCEPT;
++}
++
++static unsigned int nf_rtcache_forward(const struct nf_hook_ops *ops,
++				       struct sk_buff *skb,
++				       const struct net_device *in,
++				       const struct net_device *out,
++				       int (*okfn)(struct sk_buff *))
++{
++	struct nf_conn_rtcache *ct_rtcache;
++	enum ip_conntrack_info ctinfo;
++	enum ip_conntrack_dir dir;
++	struct dst_entry *dst;
++	struct nf_conn *ct;
++	int iif;
++
++	dst = skb_dst(skb);
++	if (WARN_ON_ONCE(dst == NULL || in == NULL))
++		return NF_ACCEPT;
++
++	ct = nf_ct_get(skb, &ctinfo);
++	if (!ct)
++		return NF_ACCEPT;
++
++	if (!nf_ct_is_confirmed(ct)) {
++		pr_debug("new ct %p, skb %p, adding rtcache extension\n", ct, skb);
++		BUG_ON(nf_ct_rtcache_find(ct));
++		nf_ct_rtcache_ext_add(ct);
++		return NF_ACCEPT;
++	}
++
++	ct_rtcache = nf_ct_rtcache_find_usable(ct);
++	if (!ct_rtcache)
++		return NF_ACCEPT;
++
++	dir = CTINFO2DIR(ctinfo);
++	iif = nf_conn_rtcache_iif_get(ct_rtcache, dir);
++	pr_debug("ct %p, skb %p, dir %d, iif %d, cached iif %d\n", ct, skb, dir, iif, in->ifindex);
++	if (likely(in->ifindex == iif))
++		return NF_ACCEPT;
++
++	nf_conn_rtcache_dst_set(ct_rtcache, dst, dir, in->ifindex);
++	return NF_ACCEPT;
++}
++
++static struct nf_hook_ops rtcache_ops[] = {
++	{
++		.hook		= nf_rtcache_in,
++		.owner		= THIS_MODULE,
++		.pf		= NFPROTO_IPV4,
++		.hooknum	= NF_INET_PRE_ROUTING,
++		.priority       = NF_IP_PRI_LAST,
++	},
++	{
++		.hook           = nf_rtcache_forward,
++		.owner          = THIS_MODULE,
++		.pf             = NFPROTO_IPV4,
++		.hooknum        = NF_INET_FORWARD,
++		.priority       = NF_IP_PRI_LAST,
++	},
++#if IS_ENABLED(CONFIG_NF_CONNTRACK_IPV6)
++	{
++		.hook		= nf_rtcache_in,
++		.owner		= THIS_MODULE,
++		.pf		= NFPROTO_IPV6,
++		.hooknum	= NF_INET_PRE_ROUTING,
++		.priority       = NF_IP_PRI_LAST,
++	},
++	{
++		.hook           = nf_rtcache_forward,
++		.owner          = THIS_MODULE,
++		.pf             = NFPROTO_IPV6,
++		.hooknum        = NF_INET_FORWARD,
++		.priority       = NF_IP_PRI_LAST,
++	},
++#endif
++};
++
++static struct nf_ct_ext_type rtcache_extend __read_mostly = {
++	.len	= sizeof(struct nf_conn_rtcache),
++	.align	= __alignof__(struct nf_conn_rtcache),
++	.id	= NF_CT_EXT_RTCACHE,
++	.destroy = nf_conn_rtcache_destroy,
++};
++
++int __init nf_conntrack_rtcache_init(void)
++{
++	int ret = nf_ct_extend_register(&rtcache_extend);
++	if (ret < 0) {
++		pr_err("nf_conntrack_rtcache: Unable to register extension\n");
++		return ret;
++	}
++
++	ret = nf_register_hooks(rtcache_ops, ARRAY_SIZE(rtcache_ops));
++	if (ret < 0) {
++		nf_ct_extend_unregister(&rtcache_extend);
++		return ret;
++	}
++
++	return ret;
++}
++
++static int nf_rtcache_ext_remove(struct nf_conn *ct, void *data)
++{
++	struct nf_conn_rtcache *rtc = nf_ct_rtcache_find(ct);
++	return rtc != NULL;
++}
++
++void __exit nf_conntrack_rtcache_fini(void)
++{
++	struct net *net;
++	bool wait;
++	int cpu, count = 0;
++
++	/* first remove hooks so no new connections get rtcache extension */
++	nf_unregister_hooks(rtcache_ops, ARRAY_SIZE(rtcache_ops));
++
++	synchronize_net();
++
++	/* zap all conntracks with rtcache extension */
++	for_each_net(net)
++		nf_ct_iterate_cleanup(net, nf_rtcache_ext_remove, NULL, 0, 0);
++
++	/* again, so that affected conntracks on the unconfirmed list are now
++	 * free'd or on dying list */
++	synchronize_net();
++
++	/* ... and wait until dying list contains no affected items any more */
++	do {
++		wait = false;
++		for_each_possible_cpu(cpu) {
++			struct nf_conntrack_tuple_hash *h;
++			struct hlist_nulls_node *n;
++			struct nf_conn *ct;
++			struct ct_pcpu *pcpu = per_cpu_ptr(net->ct.pcpu_lists, cpu);
++
++			rcu_read_lock();
++			spin_lock_bh(&pcpu->lock);
++
++			hlist_nulls_for_each_entry(h, n, &pcpu->unconfirmed, hnnode) {
++				ct = nf_ct_tuplehash_to_ctrack(h);
++				if (nf_ct_rtcache_find(ct) != NULL) {
++					wait = true;
++					break;
++				}
++			}
++			spin_unlock_bh(&pcpu->lock);
++			rcu_read_unlock();
++
++			if (wait) {
++				/* conntrack on dying list, i.e. waiting for
++				 * some event, e.g. reinject or whatever */
++				msleep(200);
++				WARN_ONCE(++count > 25, "Waiting for all rtcache conntracks to go away\n");
++			}
++		}
++	} while (wait);
++
++	nf_ct_extend_unregister(&rtcache_extend);
++}
++module_init(nf_conntrack_rtcache_init);
++module_exit(nf_conntrack_rtcache_fini);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Florian Westphal <fw@strlen.de>");
++MODULE_DESCRIPTION("Conntrack route cache extension");
 -- 
-2.2.0.rc0.207.ga3a616c
+2.0.4
+
