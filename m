@@ -1,59 +1,82 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH] Documentation: bindings: net: DPAA corenet binding
- document
-Date: Mon, 1 Dec 2014 22:39:49 -0600
-Message-ID: <1417495189.15957.209.camel@freescale.com>
-References: <1417169426-11823-1-git-send-email-madalin.bucur@freescale.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] udp: Neaten and reduce size of compute_score
+ functions
+Date: Mon, 01 Dec 2014 20:44:51 -0800
+Message-ID: <1417495491.5303.11.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1417484341.4894.6.camel@perches.com>
+	 <1417489141.4442.24.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1417489760.4894.8.camel@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <devicetree@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
-	<netdev@vger.kernel.org>, <Emilian.Medve@freescale.com>,
-	<Igal.Liberman@freescale.com>
-To: <madalin.bucur@freescale.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0142.outbound.protection.outlook.com ([157.56.111.142]:21953
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752806AbaLBEj6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Dec 2014 23:39:58 -0500
-In-Reply-To: <1417169426-11823-1-git-send-email-madalin.bucur@freescale.com>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:33877 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752641AbaLBEox (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2014 23:44:53 -0500
+In-Reply-To: <1417489760.4894.8.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-11-28 at 12:10 +0200, Madalin Bucur wrote:
-> Add the device tree binding document for the DPAA corenet node
-> and DPAA Ethernet nodes.
+On Mon, 2014-12-01 at 19:09 -0800, Joe Perches wrote:
+> On Mon, 2014-12-01 at 18:59 -0800, Eric Dumazet wrote:
+> > On Mon, 2014-12-01 at 17:39 -0800, Joe Perches wrote:
+> > > The compute_score functions are a bit difficult to read.
+> > > 
+> > > Neaten them a bit to reduce object sizes and make them a
+> > > bit more intelligible.
+> > > 
+> > > Return early to avoid indentation and avoid unnecessary
+> > > initializations.
+> []
+> > > +	if (!(net_eq(sock_net(sk), net) &&
+> > > +	      udp_sk(sk)->udp_port_hash == hnum &&
+> > > +	      !ipv6_only_sock(sk)))
+> > > +		return -1
+> > 
+> > Or even better :
+> > 
+> > 
+> > 	if (!net_eq(sock_net(sk), net) ||
+> > 	    udp_sk(sk)->udp_port_hash != hnum ||
+> > 	    ipv6_only_sock(sk))
+> > 		return -1;
 > 
-> Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
-> ---
->  Documentation/devicetree/bindings/net/fsl-dpaa.txt | 31 ++++++++++++++++++++++
->  1 file changed, 31 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/fsl-dpaa.txt
+> Hi Eric.
 > 
-> diff --git a/Documentation/devicetree/bindings/net/fsl-dpaa.txt b/Documentation/devicetree/bindings/net/fsl-dpaa.txt
-> new file mode 100644
-> index 0000000..822c668
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/fsl-dpaa.txt
-> @@ -0,0 +1,31 @@
-> +*DPAA corenet
-> +
-> +The corenet bus containing all DPAA Ethernet nodes.
+> Yeah, I thought about it but thought it
+> simpler to not change the logic.
+> 
+> Either way is fine with me.
 
-What does this have to do with corenet?
 
-> +Required property
-> + - compatible: string property.  Must include "fsl,dpaa". Can include
-> +   also "fsl,<SoC>-dpaa".
+Your patch does not change the logic at all.
 
-No need for the <SoC> part.  As we previously discussed, the only
-purpose of this node is backwards compatibility with the U-Boot MAC
-address fixup -- if U-Boot doesn't look for the <SoC> version, then
-don't complicate things.
+My suggestion is about avoiding double negates which are really hard to
+read. This is simple boolean logic rules.
 
-Though, I can't find where U-Boot references this node.  Are you sure
-it's not using the ethernet%d aliases like everything else, in which
-case why do we need this node at all?
+Code was :
 
--Scott
+if (a && x == y && !ipv6_only_sock(sk))) {
+    EXPR1;
+} else {
+    return -1;
+}
+
+So the 'logical' way of negating the condition is actually to not add
+double negations and use :
+
+if (!a || x != y || ipv6_only_sock(sk)))
+    return -1;
+EXPR1;
+
+Instead of the less readable form :
+
+if (!(a && x == y && !ipv6_only_sock(sk))))
+    return -1;
+EXPR1;
+
+You do not have to ask David permission for this, really.
