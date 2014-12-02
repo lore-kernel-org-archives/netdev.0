@@ -1,179 +1,135 @@
-From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Is this 32-bit NCM?
-Date: Tue, 2 Dec 2014 10:55:13 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1412021048020.2347@gmail.com>
-References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
- <alpine.LNX.2.03.1411271932510.1548@gmail.com> <87ppc71xne.fsf@nemi.mork.no>,<alpine.LNX.2.03.1412012202480.1301@gmail.com> <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com> <547D37CA.7050506@audiocodes.com> <alpine.LNX.2.03.1412020729470.1351@gmail.com>
- <547D5F84.6020608@audiocodes.com> <alpine.LNX.2.03.1412020747360.1921@gmail.com> <547D6D7B.5090704@audiocodes.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC v4 net-next 0/5] virtio_net: enabling tx interrupts
+Date: Tue, 2 Dec 2014 11:55:23 +0200
+Message-ID: <20141202095523.GA7877@redhat.com>
+References: <1417429028-11971-1-git-send-email-jasowang@redhat.com>
+	<20141201104223.GB16108@redhat.com>
+	<1417490120.4405.2@smtp.corp.redhat.com>
+	<1417507622.12638.0@smtp.corp.redhat.com>
+	<20141202094318.GB7732@redhat.com>
+	<1417513908.16540.0@smtp.corp.redhat.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1226662755-1417514114=:2347"
-Cc: Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-	=?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Midge Shaojun Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-	"youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <547D6D7B.5090704-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: pagupta@redhat.com, netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1417513908.16540.0@smtp.corp.redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Tue, Dec 02, 2014 at 09:59:48AM +0008, Jason Wang wrote:
+> 
+> 
+> On Tue, Dec 2, 2014 at 5:43 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> >On Tue, Dec 02, 2014 at 08:15:02AM +0008, Jason Wang wrote:
+> >>     On Tue, Dec 2, 2014 at 11:15 AM, Jason Wang <jasowang@redhat.com>
+> >>wrote:
+> >> >
+> >> >
+> >> >On Mon, Dec 1, 2014 at 6:42 PM, Michael S. Tsirkin <mst@redhat.com>
+> >>wrote:
+> >> >>On Mon, Dec 01, 2014 at 06:17:03PM +0800, Jason Wang wrote:
+> >> >>> Hello:
+> >> >>>  We used to orphan packets before transmission for virtio-net. This
+> >> >>>breaks
+> >> >>> socket accounting and can lead serveral functions won't work, e.g:
+> >> >>>  - Byte Queue Limit depends on tx completion nofication to work.
+> >> >>> - Packet Generator depends on tx completion nofication for the last
+> >> >>>   transmitted packet to complete.
+> >> >>> - TCP Small Queue depends on proper accounting of sk_wmem_alloc to
+> >> >>>work.
+> >> >>>  This series tries to solve the issue by enabling tx interrupts. To
+> >> >>>minize
+> >> >>> the performance impacts of this, several optimizations were used:
+> >> >>>  - In guest side, virtqueue_enable_cb_delayed() was used to delay
+> >>the
+> >> >>>tx
+> >> >>>   interrupt untile 3/4 pending packets were sent.
+> >> >>> - In host side, interrupt coalescing were used to reduce tx
+> >> >>>interrupts.
+> >> >>>  Performance test results[1] (tx-frames 16 tx-usecs 16) shows:
+> >> >>>  - For guest receiving. No obvious regression on throughput were
+> >> >>>   noticed. More cpu utilization were noticed in few cases.
+> >> >>> - For guest transmission. Very huge improvement on througput for
+> >> >>>small
+> >> >>>   packet transmission were noticed. This is expected since TSQ and
+> >> >>>other
+> >> >>>   optimization for small packet transmission work after tx
+> >>interrupt.
+> >> >>>But
+> >> >>>   will use more cpu for large packets.
+> >> >>> - For TCP_RR, regression (10% on transaction rate and cpu
+> >> >>>utilization) were
+> >> >>>   found. Tx interrupt won't help but cause overhead in this case.
+> >> >>>Using
+> >> >>>   more aggressive coalescing parameters may help to reduce the
+> >> >>>regression.
+> >> >>
+> >> >>OK, you do have posted coalescing patches - does it help any?
+> >> >
+> >> >Helps a lot.
+> >> >
+> >> >For RX, it saves about 5% - 10% cpu. (reduce 60%-90% tx intrs)
+> >> >For small packet TX, it increases 33% - 245% throughput. (reduce about
+> >>60%
+> >> >inters)
+> >> >For TCP_RR, it increase the 3%-10% trans.rate. (reduce 40%-80% tx
+> >>intrs)
+> >> >
+> >> >>
+> >> >>I'm not sure the regression is due to interrupts.
+> >> >>It would make sense for CPU but why would it
+> >> >>hurt transaction rate?
+> >> >
+> >> >Anyway guest need to take some cycles to handle tx interrupts.
+> >> >And transaction rate does increase if we coalesces more tx interurpts.
+> >> >>
+> >> >>
+> >> >>It's possible that we are deferring kicks too much due to BQL.
+> >> >>
+> >> >>As an experiment: do we get any of it back if we do
+> >> >>-        if (kick || netif_xmit_stopped(txq))
+> >> >>-                virtqueue_kick(sq->vq);
+> >> >>+        virtqueue_kick(sq->vq);
+> >> >>?
+> >> >
+> >> >
+> >> >I will try, but during TCP_RR, at most 1 packets were pending,
+> >> >I suspect if BQL can help in this case.
+> >> Looks like this helps a lot in multiple sessions of TCP_RR.
+> >
+> >so what's faster
+> >	BQL + kick each packet
+> >	no BQL
+> >?
+> 
+> Quick and manual tests (TCP_RR 64, TCP_STREAM 512) does not show obvious
+> differences.
+> 
+> May need a complete benchmark to see.
 
---8323328-1226662755-1417514114=:2347
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-
-Mhmhm; trying to change different values in the cdc_ncm.c driver might be the 
-only way.
-I am sorry - I am not noticing strange things, but fixed parameters.
-Try to change them ... I can not do that, I lost my test system due to a 
-kernel-related programming error, so for now I am a passive observer.
+Okay so going forward something like BQL + kick each packet
+might be a good solution.
+The advantage of BQL is that it works without GSO.
+For example, now that we don't do UFO, you might
+see significant gains with UDP.
 
 
-On Tue, 2 Dec 2014, Kevin Zhu wrote:
-
-==Date: Tue, 2 Dec 2014 08:44:11
-==From: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-==To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-==Cc: Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>, Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>,
-==    Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-==    Midge Shaojun  Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-==    "youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-==    "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-==    "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-==Subject: Re: Is this 32-bit NCM?
-==
-==Hi all,
-==
-==Here's the registry from windows 7. Attached. One parameter that might
-==be interesting is MaxNumOfDatagramInNTB, which is 64. I wonder if it has
-==something to do with MaxDatagramSize. Can someone also check the
-==registry, in case I missed something?
-==
-==Regards,
-==Kevin
-==
-==On 12/02/2014 02:49 PM, Enrico Mioso wrote:
-==> Can you try to look at Windows registry keys based on the INF file as suggested
-==> or would this be a problem for you?
-==> And... if you have any Huawei manutal talking about it: even device's
-==> ^DSFLOWRPT
-==> might be useful to some extent, but ... this is only just a note in case we
-==> don't find anything else.
-==> Regards ... and good day to all of you,
-==> Enrico
-==>
-==>
-==> On Tue, 2 Dec 2014, Kevin Zhu wrote:
-==>
-==> ==Date: Tue, 2 Dec 2014 07:43:24
-==> ==From: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-==> ==To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-==> ==Cc: Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>, Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>,
-==> ==    Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-==> ==    Midge Shaojun  Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-==> ==    "youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-==> ==    "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-==> ==    "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-==> ==Subject: Re: Is this 32-bit NCM?
-==> ==
-==> ==I also tried to define CDC_NCM_DPT_DATAGRAMS_MAX as 1 to eliminate the
-==> ==paddings, but it did not work either, not even DHCP.
-==> ==
-==> ==Regards,
-==> ==Kevin
-==> ==
-==> ==On 12/02/2014 02:32 PM, Enrico Mioso wrote:
-==> ==> Hi again Eli,
-==> ==> Hi Kevin,
-==> ==> Hi everyone...
-==> ==>
-==> ==> As I understand it anyway - the distinction here tends not to be between
-==> ==> different types of packets.
-==> ==> It tends to be between received and sent packet.
-==> ==> We are not able to generate packets that the device retains valid.
-==> ==> If you manually configure the IP the device would have assigned you via DHCP,
-==> ==> your system will start answering ARP request, saying that the host with IP
-==> ==> aa.bb.cc.dd is at aa:bb:cc:dd:ee (using the MC address of the dongle).
-==> ==> However, the other host (gateway) will never know that. Indeed, it'll continue
-==> ==> asking who-is at aa.bb.cc.dd ?
-==> ==> At least, this is the situation I observed in the test system.
-==> ==>
-==> ==>
-==> ==> On Tue, 2 Dec 2014, Kevin Zhu wrote:
-==> ==>
-==> ==> ==Date: Tue, 2 Dec 2014 04:53:53
-==> ==> ==From: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-==> ==> ==To: Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-==> ==> ==    Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-==> ==> ==Cc: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>, Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-==> ==> ==    Midge Shaojun  Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-==> ==> ==    "youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-==> ==> ==    "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-==> ==> ==    "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-==> ==> ==Subject: Re: Is this 32-bit NCM?
-==> ==> ==
-==> ==> ==Hi,
-==> ==> ==
-==> ==> ==The DHCP packets have the maximum size of dwNtbOutMaxSize=16384, while
-==> ==> ==the other packets are less than that. However, the DHCP queries are not
-==> ==> ==replied in time either, there's always some delay.
-==> ==> ==
-==> ==> ==By the way, though the device claims to support GET_MAX_DATAGRAM_SIZE,
-==> ==> ==but it returns error when the host sends this command to it. I disabled
-==> ==> ==this command in NCM driver and tried, but it's the same result.
-==> ==> ==
-==> ==> ==Regards,
-==> ==> ==Kevin
-==> ==> ==
-==> ==> ==On 12/02/2014 06:02 AM, Eli Britstein wrote:
-==> ==> ==> Hi Enrico and all,
-==> ==> ==>
-==> ==> ==> Maybe I missed something but what is the difference by the driver point of view between the dhcp discover and request (that are ok) to others (like arp, that is nok)?
-==> ==> ==> Maybe we can trace to compare them?
-==> ==> ==>
-==> ==> ==> Sent from my iPhone
-==> ==> ==>
-==> ==> ==>> On 1 בדצמ 2014, at 23:11, "Enrico Mioso" <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-==> ==> ==>>
-==> ==> ==>> So ... I have two ideas left for now.
-==> ==> ==>> We know for sure the problem is in the way we TX frames, not the way we RX them
-==> ==> ==>> (the way we send, generate them, not the way we receive them).
-==> ==> ==>> Si I have two ideas, and I ask for help from the Linux-usb mailing list for
-==> ==> ==>> this first one.
-==> ==> ==>>
-==> ==> ==>> 1 - Does a wayexist to "replay" traffic crom a usb capture?
-==> ==> ==>> We might try to take the usb frames generated by Windows, and send them to the
-==> ==> ==>> device to see if there is any reaction. It should not be science fiction, I saw
-==> ==> ==>> them do that in the eciadsl old project.
-==> ==> ==>> 2 - The huawei ndis driver: does it work with these devices?
-==> ==> ==>> It should be a little bit out-dated now (at least in terms of dates, it might
-==> ==> ==>> work as well): the code is A LOT but, just in case, to see if there is any
-==> ==> ==>> chances it'll work. It remains to be seen in which kernels it can actually
-==> ==> ==>> compile again.
-==> ==> ==>>
-==> ==> ==>> If this works we might analyse what's happening and try to debug this out.
-==> ==> ==>> But I really would like this to work in the cdc_ncm driver + huawei_cdc_ncm.
-==> ==> ==>> Thank you.
-==> ==> ==This email and any files transmitted with it are confidential material. They are intended solely for the use of the designated individual or entity to whom they are addressed. If the reader of this message is not the intended recipient, you are hereby notified that any dissemination, use, distribution or copying of this communication is strictly prohibited and may be unlawful.
-==> ==> ==
-==> ==> ==If you have received this email in error please immediately notify the sender and delete or destroy any copy of this message
-==> ==> ==
-==> ==This email and any files transmitted with it are confidential material. They are intended solely for the use of the designated individual or entity to whom they are addressed. If the reader of this message is not the intended recipient, you are hereby notified that any dissemination, use, distribution or copying of this communication is strictly prohibited and may be unlawful.
-==> ==
-==> ==If you have received this email in error please immediately notify the sender and delete or destroy any copy of this message
-==> ==
-==
-==This email and any files transmitted with it are confidential material. They are intended solely for the use of the designated individual or entity to whom they are addressed. If the reader of this message is not the intended recipient, you are hereby notified that any dissemination, use, distribution or copying of this communication is strictly prohibited and may be unlawful.
-==
-==If you have received this email in error please immediately notify the sender and delete or destroy any copy of this message
-==
---8323328-1226662755-1417514114=:2347--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >
+> >
+> >> How about move the BQL patch out of this series?
+> >> Let's first converge tx interrupt and then introduce it?
+> >> (e.g with kicking after queuing X bytes?)
+> >
+> >Sounds good.
