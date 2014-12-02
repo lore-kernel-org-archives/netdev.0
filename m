@@ -1,18 +1,17 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH RFC v4 net-next 1/5] virtio_net: enable tx interrupt
-Date: Tue, 02 Dec 2014 03:17:17 +0008
-Message-ID: <1417489757.4405.1@smtp.corp.redhat.com>
+Subject: Re: [PATCH RFC v4 net-next 0/5] virtio_net: enabling tx interrupts
+Date: Tue, 02 Dec 2014 03:23:20 +0008
+Message-ID: <1417490120.4405.2@smtp.corp.redhat.com>
 References: <1417429028-11971-1-git-send-email-jasowang@redhat.com>
-	<1417429028-11971-2-git-send-email-jasowang@redhat.com>
-	<20141201103536.GA16108@redhat.com>
+	<20141201104223.GB16108@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: pagupta@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, davem@davemloft.net
+Cc: pagupta@redhat.com, netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
 To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20141201103536.GA16108@redhat.com>
+In-Reply-To: <20141201104223.GB16108@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -26,332 +25,200 @@ List-Id: netdev.vger.kernel.org
 
 
 
-On Mon, Dec 1, 2014 at 6:35 PM, Michael S. Tsirkin <mst@redhat.com> 
+On Mon, Dec 1, 2014 at 6:42 PM, Michael S. Tsirkin <mst@redhat.com> 
 wrote:
-> On Mon, Dec 01, 2014 at 06:17:04PM +0800, Jason Wang wrote:
->>  On newer hosts that support delayed tx interrupts,
->>  we probably don't have much to gain from orphaning
->>  packets early.
+> On Mon, Dec 01, 2014 at 06:17:03PM +0800, Jason Wang wrote:
+>>  Hello:
 >>  
->>  Note: this might degrade performance for
->>  hosts without event idx support.
->>  Should be addressed by the next patch.
->> 
->>  Cc: Rusty Russell <rusty@rustcorp.com.au>
->>  Cc: Michael S. Tsirkin <mst@redhat.com>
->>  Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->>  Signed-off-by: Jason Wang <jasowang@redhat.com>
-> 
-> Could you document the changes from the RFC I sent please?
-
-Okay, I will sent a V5 add document more.
-> 
-> Are there optimizations?
-
-Two optimizations.
-
-- Don't do tx packets free in ndo_start_xmit(), tests shows it reduce 
-  the effect of coalescing.
-- Let ethtool can change the number of packets freed in one tx napi run
-  through tx-frames-irq. This is necessary, since user may coalesce more
-  than 64 packets per irq.
-
-> 
-> If yes, it might be easier to review (at least for me), if you 
-> refactor this,
-> e.g. applying the straight-forward rfc patch and then optimizations if
-> any on top. If it's taking a different approach, pls feel free to
-> disregard this.
-> 
-> 
->>  ---
->>   drivers/net/virtio_net.c | 132 
->> +++++++++++++++++++++++++++++++----------------
->>   1 file changed, 88 insertions(+), 44 deletions(-)
+>>  We used to orphan packets before transmission for virtio-net. This 
+>> breaks
+>>  socket accounting and can lead serveral functions won't work, e.g:
 >>  
->>  diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->>  index ec2a8b4..f68114e 100644
->>  --- a/drivers/net/virtio_net.c
->>  +++ b/drivers/net/virtio_net.c
->>  @@ -72,6 +72,8 @@ struct send_queue {
->>   
->>   	/* Name of the send queue: output.$index */
->>   	char name[40];
->>  +
->>  +	struct napi_struct napi;
->>   };
->>   
->>   /* Internal representation of a receive virtqueue */
->>  @@ -137,6 +139,9 @@ struct virtnet_info {
->>   
->>   	/* CPU hot plug notifier */
->>   	struct notifier_block nb;
->>  +
->>  +	/* Budget for polling tx completion */
->>  +	u32 tx_work_limit;
->>   };
->>   
->>   struct skb_vnet_hdr {
->>  @@ -211,15 +216,41 @@ static struct page *get_a_page(struct 
->> receive_queue *rq, gfp_t gfp_mask)
->>   	return p;
->>   }
->>   
->>  +static unsigned int free_old_xmit_skbs(struct netdev_queue *txq,
->>  +				       struct send_queue *sq, int budget)
->>  +{
->>  +	struct sk_buff *skb;
->>  +	unsigned int len;
->>  +	struct virtnet_info *vi = sq->vq->vdev->priv;
->>  +	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
->>  +	unsigned int packets = 0;
->>  +
->>  +	while (packets < budget &&
->>  +	       (skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
->>  +		pr_debug("Sent skb %p\n", skb);
->>  +
->>  +		u64_stats_update_begin(&stats->tx_syncp);
->>  +		stats->tx_bytes += skb->len;
->>  +		stats->tx_packets++;
->>  +		u64_stats_update_end(&stats->tx_syncp);
->>  +
->>  +		dev_kfree_skb_any(skb);
->>  +		packets++;
->>  +	}
->>  +
->>  +	if (sq->vq->num_free >= 2+MAX_SKB_FRAGS)
->>  +		netif_tx_start_queue(txq);
->>  +
->>  +	return packets;
->>  +}
->>  +
->>   static void skb_xmit_done(struct virtqueue *vq)
->>   {
->>   	struct virtnet_info *vi = vq->vdev->priv;
->>  +	struct send_queue *sq = &vi->sq[vq2txq(vq)];
->>   
->>  -	/* Suppress further interrupts. */
->>  -	virtqueue_disable_cb(vq);
->>  -
->>  -	/* We were probably waiting for more output buffers. */
->>  -	netif_wake_subqueue(vi->dev, vq2txq(vq));
->>  +	virtqueue_disable_cb(sq->vq);
->>  +	napi_schedule(&sq->napi);
->>   }
->>   
->>   static unsigned int mergeable_ctx_to_buf_truesize(unsigned long 
->> mrg_ctx)
->>  @@ -777,6 +808,32 @@ again:
->>   	return received;
->>   }
->>   
->>  +static int virtnet_poll_tx(struct napi_struct *napi, int budget)
->>  +{
->>  +	struct send_queue *sq =
->>  +		container_of(napi, struct send_queue, napi);
->>  +	struct virtnet_info *vi = sq->vq->vdev->priv;
->>  +	struct netdev_queue *txq = netdev_get_tx_queue(vi->dev, 
->> vq2txq(sq->vq));
->>  +	u32 limit = vi->tx_work_limit;
->>  +	unsigned int sent;
->>  +
->>  +	__netif_tx_lock(txq, smp_processor_id());
->>  +	sent = free_old_xmit_skbs(txq, sq, limit);
->>  +	if (sent < limit) {
->>  +		napi_complete(napi);
->>  +		/* Note: we must enable cb *after* napi_complete, because
->>  +		 * napi_schedule calls from callbacks that trigger before
->>  +		 * napi_complete are ignored.
->>  +		 */
->>  +		if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
->>  +			virtqueue_disable_cb(sq->vq);
->>  +			napi_schedule(&sq->napi);
->>  +		}
->>  +	}
->>  +	__netif_tx_unlock(txq);
->>  +	return sent < limit ? 0 : budget;
->>  +}
->>  +
+>>  - Byte Queue Limit depends on tx completion nofication to work.
+>>  - Packet Generator depends on tx completion nofication for the last
+>>    transmitted packet to complete.
+>>  - TCP Small Queue depends on proper accounting of sk_wmem_alloc to 
+>> work.
+>>  
+>>  This series tries to solve the issue by enabling tx interrupts. To 
+>> minize
+>>  the performance impacts of this, several optimizations were used:
+>>  
+>>  - In guest side, virtqueue_enable_cb_delayed() was used to delay 
+>> the tx
+>>    interrupt untile 3/4 pending packets were sent.
+>>  - In host side, interrupt coalescing were used to reduce tx 
+>> interrupts.
+>>  
+>>  Performance test results[1] (tx-frames 16 tx-usecs 16) shows:
+>>  
+>>  - For guest receiving. No obvious regression on throughput were
+>>    noticed. More cpu utilization were noticed in few cases.
+>>  - For guest transmission. Very huge improvement on througput for 
+>> small
+>>    packet transmission were noticed. This is expected since TSQ and 
+>> other
+>>    optimization for small packet transmission work after tx 
+>> interrupt. But
+>>    will use more cpu for large packets.
+>>  - For TCP_RR, regression (10% on transaction rate and cpu 
+>> utilization) were
+>>    found. Tx interrupt won't help but cause overhead in this case. 
+>> Using
+>>    more aggressive coalescing parameters may help to reduce the 
+>> regression.
 > 
-> Unlike the patch I sent, this seems to ignore the budget,
-> and always poll the full napi_weight.
-> Seems strange.  What is the reason for this?
-> 
+> OK, you do have posted coalescing patches - does it help any?
 
-The budget were in fact the tx_work_limit (by default 64).
-This could be tuned by ethtool tx-frames-irq to control
-how many packets at most could be processed by on tx napi.
+Helps a lot.
 
-Use may want to coalesce more than 64 packets per irq, so
-something like this is necessary for user.
+For RX, it saves about 5% - 10% cpu. (reduce 60%-90% tx intrs)
+For small packet TX, it increases 33% - 245% throughput. (reduce 
+ about 60% inters)
+For TCP_RR, it increase the 3%-10% trans.rate. (reduce 40%-80% tx intrs)
+
+> 
+> I'm not sure the regression is due to interrupts.
+> It would make sense for CPU but why would it
+> hurt transaction rate?
+
+Anyway guest need to take some cycles to handle tx interrupts.
+And transaction rate does increase if we coalesces more tx interurpts. 
 > 
 > 
->>   #ifdef CONFIG_NET_RX_BUSY_POLL
->>   /* must be called with local_bh_disable()d */
->>   static int virtnet_busy_poll(struct napi_struct *napi)
->>  @@ -825,30 +882,12 @@ static int virtnet_open(struct net_device 
->> *dev)
->>   			if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
->>   				schedule_delayed_work(&vi->refill, 0);
->>   		virtnet_napi_enable(&vi->rq[i]);
->>  +		napi_enable(&vi->sq[i].napi);
->>   	}
->>   
->>   	return 0;
->>   }
->>   
->>  -static void free_old_xmit_skbs(struct send_queue *sq)
->>  -{
->>  -	struct sk_buff *skb;
->>  -	unsigned int len;
->>  -	struct virtnet_info *vi = sq->vq->vdev->priv;
->>  -	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
->>  -
->>  -	while ((skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
->>  -		pr_debug("Sent skb %p\n", skb);
->>  -
->>  -		u64_stats_update_begin(&stats->tx_syncp);
->>  -		stats->tx_bytes += skb->len;
->>  -		stats->tx_packets++;
->>  -		u64_stats_update_end(&stats->tx_syncp);
->>  -
->>  -		dev_kfree_skb_any(skb);
->>  -	}
->>  -}
->>  -
->>   static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
->>   {
->>   	struct skb_vnet_hdr *hdr;
->>  @@ -912,7 +951,9 @@ static int xmit_skb(struct send_queue *sq, 
->> struct sk_buff *skb)
->>   		sg_set_buf(sq->sg, hdr, hdr_len);
->>   		num_sg = skb_to_sgvec(skb, sq->sg + 1, 0, skb->len) + 1;
->>   	}
->>  -	return virtqueue_add_outbuf(sq->vq, sq->sg, num_sg, skb, 
->> GFP_ATOMIC);
->>  +
->>  +	return virtqueue_add_outbuf(sq->vq, sq->sg, num_sg, skb,
->>  +				    GFP_ATOMIC);
->>   }
->>   
->>   static netdev_tx_t start_xmit(struct sk_buff *skb, struct 
->> net_device *dev)
->>  @@ -924,8 +965,7 @@ static netdev_tx_t start_xmit(struct sk_buff 
->> *skb, struct net_device *dev)
->>   	struct netdev_queue *txq = netdev_get_tx_queue(dev, qnum);
->>   	bool kick = !skb->xmit_more;
->>   
->>  -	/* Free up any pending old buffers before queueing new ones. */
->>  -	free_old_xmit_skbs(sq);
->>  +	virtqueue_disable_cb(sq->vq);
->>   
->>   	/* Try to transmit */
->>   	err = xmit_skb(sq, skb);
->>  @@ -941,27 +981,19 @@ static netdev_tx_t start_xmit(struct sk_buff 
->> *skb, struct net_device *dev)
->>   		return NETDEV_TX_OK;
->>   	}
->>   
->>  -	/* Don't wait up for transmitted skbs to be freed. */
->>  -	skb_orphan(skb);
->>  -	nf_reset(skb);
->>  -
->>   	/* Apparently nice girls don't return TX_BUSY; stop the queue
->>   	 * before it gets out of hand.  Naturally, this wastes entries. */
->>  -	if (sq->vq->num_free < 2+MAX_SKB_FRAGS) {
->>  +	if (sq->vq->num_free < 2+MAX_SKB_FRAGS)
->>   		netif_stop_subqueue(dev, qnum);
->>  -		if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
->>  -			/* More just got used, free them then recheck. */
->>  -			free_old_xmit_skbs(sq);
->>  -			if (sq->vq->num_free >= 2+MAX_SKB_FRAGS) {
->>  -				netif_start_subqueue(dev, qnum);
->>  -				virtqueue_disable_cb(sq->vq);
->>  -			}
->>  -		}
->>  -	}
->>   
->>   	if (kick || netif_xmit_stopped(txq))
->>   		virtqueue_kick(sq->vq);
->>   
->>  +	if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
->>  +		virtqueue_disable_cb(sq->vq);
->>  +		napi_schedule(&sq->napi);
->>  +	}
->>  +
->>   	return NETDEV_TX_OK;
->>   }
->>   
->>  @@ -1138,8 +1170,10 @@ static int virtnet_close(struct net_device 
->> *dev)
->>   	/* Make sure refill_work doesn't re-enable napi! */
->>   	cancel_delayed_work_sync(&vi->refill);
->>   
->>  -	for (i = 0; i < vi->max_queue_pairs; i++)
->>  +	for (i = 0; i < vi->max_queue_pairs; i++) {
->>   		napi_disable(&vi->rq[i].napi);
->>  +		napi_disable(&vi->sq[i].napi);
->>  +	}
->>   
->>   	return 0;
->>   }
->>  @@ -1452,8 +1486,10 @@ static void virtnet_free_queues(struct 
->> virtnet_info *vi)
->>   {
->>   	int i;
->>   
->>  -	for (i = 0; i < vi->max_queue_pairs; i++)
->>  +	for (i = 0; i < vi->max_queue_pairs; i++) {
->>   		netif_napi_del(&vi->rq[i].napi);
->>  +		netif_napi_del(&vi->sq[i].napi);
->>  +	}
->>   
->>   	kfree(vi->rq);
->>   	kfree(vi->sq);
->>  @@ -1607,6 +1643,8 @@ static int virtnet_alloc_queues(struct 
->> virtnet_info *vi)
->>   		netif_napi_add(vi->dev, &vi->rq[i].napi, virtnet_poll,
->>   			       napi_weight);
->>   		napi_hash_add(&vi->rq[i].napi);
->>  +		netif_napi_add(vi->dev, &vi->sq[i].napi, virtnet_poll_tx,
->>  +			       napi_weight);
->>   
->>   		sg_init_table(vi->rq[i].sg, ARRAY_SIZE(vi->rq[i].sg));
->>   		ewma_init(&vi->rq[i].mrg_avg_pkt_len, 1, RECEIVE_AVG_WEIGHT);
->>  @@ -1790,6 +1828,8 @@ static int virtnet_probe(struct virtio_device 
->> *vdev)
->>   	if (err)
->>   		goto free_stats;
->>   
->>  +	vi->tx_work_limit = napi_weight;
->>  +
->>   #ifdef CONFIG_SYSFS
->>   	if (vi->mergeable_rx_bufs)
->>   		dev->sysfs_rx_queue_group = &virtio_net_mrg_rx_group;
->>  @@ -1904,8 +1944,10 @@ static int virtnet_freeze(struct 
->> virtio_device *vdev)
->>   	if (netif_running(vi->dev)) {
->>   		for (i = 0; i < vi->max_queue_pairs; i++) {
->>   			napi_disable(&vi->rq[i].napi);
->>  +			napi_disable(&vi->sq[i].napi);
->>   			napi_hash_del(&vi->rq[i].napi);
->>   			netif_napi_del(&vi->rq[i].napi);
->>  +			netif_napi_del(&vi->sq[i].napi);
->>   		}
->>   	}
->>   
->>  @@ -1930,8 +1972,10 @@ static int virtnet_restore(struct 
->> virtio_device *vdev)
->>   			if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
->>   				schedule_delayed_work(&vi->refill, 0);
->>   
->>  -		for (i = 0; i < vi->max_queue_pairs; i++)
->>  +		for (i = 0; i < vi->max_queue_pairs; i++) {
->>   			virtnet_napi_enable(&vi->rq[i]);
->>  +			napi_enable(&vi->sq[i].napi);
->>  +		}
->>   	}
->>   
->>   	netif_device_attach(vi->dev);
+> It's possible that we are deferring kicks too much due to BQL.
+> 
+> As an experiment: do we get any of it back if we do
+> -        if (kick || netif_xmit_stopped(txq))
+> -                virtqueue_kick(sq->vq);
+> +        virtqueue_kick(sq->vq);
+> ?
+
+
+I will try, but during TCP_RR, at most 1 packets were pending,
+I suspect if BQL can help in this case.
+> 
+> 
+> If yes, we can just kick e.g. periodically, e.g. after queueing each
+> X bytes.
+
+Okay, let me try to see if this help.
+> 
+>>  Changes from RFC V3:
+>>  - Don't free tx packets in ndo_start_xmit()
+>>  - Add interrupt coalescing support for virtio-net
+>>  Changes from RFC v2:
+>>  - clean up code, address issues raised by Jason
+>>  Changes from RFC v1:
+>>  - address comments by Jason Wang, use delayed cb everywhere
+>>  - rebased Jason's patch on top of mine and include it (with some 
+>> tweaks)
+>>  
+>>  Please reivew. Comments were more than welcomed.
+>>  
+>>  [1] Performance Test result:
+>>  
+>>  Environment:
+>>  - Two Intel(R) Xeon(R) CPU E5620 @ 2.40GHz machines connected back 
+>> to back
+>>    with 82599ES cards.
+>>  - Both host and guest were net-next.git plus the patch
+>>  - Coalescing parameters for the card:
+>>    Adaptive RX: off  TX: off
+>>    rx-usecs: 1
+>>    rx-frames: 0
+>>    tx-usecs: 0
+>>    tx-frames: 0
+>>  - Vhost_net was enabled and zerocopy was disabled
+>>  - Tests was done by netperf-2.6
+>>  - Guest has 2 vcpus with single queue virtio-net
+>>  
+>>  Results:
+>>  - Numbers of square brackets are whose significance is grater than 
+>> 95%
+>>  
+>>  Guest RX:
+>>  
+>>  size/sessions/+throughput/+cpu/+per_cpu_throughput/
+>>  64/1/+2.0326/[+6.2807%]/-3.9970%/
+>>  64/2/-0.2104%/[+3.2012%]/[-3.3058%]/
+>>  64/4/+1.5956%/+2.2451%/-0.6353%/
+>>  64/8/+1.1732%/+3.5123%/-2.2598%/
+>>  256/1/+3.7619%/[+5.8117%]/-1.9372%/
+>>  256/2/-0.0661%/[+3.2511%]/-3.2127%/
+>>  256/4/+1.1435%/[-8.1842%]/[+10.1591%]/
+>>  256/8/[+2.2447%]/[+6.2044%]/[-3.7283%]/
+>>  1024/1/+9.1479%/[+12.0997%]/[-2.6332%]/
+>>  1024/2/[-17.3341%]/[+0.0000%]/[-17.3341%]/
+>>  1024/4/[-0.6284%]/-1.0376%/+0.4135%/
+>>  1024/8/+1.1444%/-1.6069%/+2.7961%/
+>>  4096/1/+0.0401%/-0.5993%/+0.6433%/
+>>  4096/2/[-0.5894%]/-2.2071%/+1.6542%/
+>>  4096/4/[-0.5560%]/-1.4969%/+0.9553%/
+>>  4096/8/-0.3362%/+2.7086%/-2.9645%/
+>>  16384/1/-0.0285%/+0.7247%/-0.7478%/
+>>  16384/2/-0.5286%/+0.3287%/-0.8545%/
+>>  16384/4/-0.3297%/-2.0543%/+1.7608%/
+>>  16384/8/+1.0932%/+4.0253%/-2.8187%/
+>>  65535/1/+0.0003%/-0.1502%/+0.1508%/
+>>  65535/2/[-0.6065%]/+0.2309%/-0.8355%/
+>>  65535/4/[-0.6861%]/[+3.9451%]/[-4.4554%]/
+>>  65535/8/+1.8359%/+3.1590%/-1.2825%/
+>>  
+>>  Guest RX:
+>>  size/sessions/+throughput/+cpu/+per_cpu_throughput/
+>>  64/1/[+65.0961%]/[-8.6807%]/[+80.7900%]/
+>>  64/2/[+6.0288%]/[-2.2823%]/[+8.5052%]/
+>>  64/4/[+5.9038%]/[-2.1834%]/[+8.2677%]/
+>>  64/8/[+5.4154%]/[-2.1804%]/[+7.7651%]/
+>>  256/1/[+184.6462%]/[+4.8906%]/[+171.3742%]/
+>>  256/2/[+46.0731%]/[-8.9626%]/[+60.4539%]/
+>>  256/4/[+45.8547%]/[-8.3027%]/[+59.0612%]/
+>>  256/8/[+45.3486%]/[-8.4024%]/[+58.6817%]/
+>>  1024/1/[+432.5372%]/[+3.9566%]/[+412.2689%]/
+>>  1024/2/[-1.4207%]/[-23.6426%]/[+29.1025%]/
+>>  1024/4/-0.1003%/[-13.6416%]/[+15.6804%]/
+>>  1024/8/[+0.2200%]/[+2.0634%]/[-1.8061%]/
+>>  4096/1/[+18.4835%]/[-46.1508%]/[+120.0283%]/
+>>  4096/2/+0.1770%/[-26.2780%]/[+35.8848%]/
+>>  4096/4/-0.1012%/-0.7353%/+0.6388%/
+>>  4096/8/-0.6091%/+1.4159%/-1.9968%/
+>>  16384/1/-0.0424%/[+11.9373%]/[-10.7021%]/
+>>  16384/2/+0.0482%/+2.4685%/-2.3620%/
+>>  16384/4/+0.0840%/[+5.3587%]/[-5.0064%]/
+>>  16384/8/+0.0048%/[+5.0176%]/[-4.7733%]/
+>>  65535/1/-0.0095%/[+10.9408%]/[-9.8705%]/
+>>  65535/2/+0.1515%/[+8.1709%]/[-7.4137%]/
+>>  65535/4/+0.0203%/[+5.4316%]/[-5.1325%]/
+>>  65535/8/+0.1427%/[+6.2753%]/[-5.7705%]/
+>>  
+>>  size/sessions/+trans.rate/+cpu/+per_cpu_trans.rate/
+>>  64/1/+0.2346%/[+11.5080%]/[-10.1099%]/
+>>  64/25/[-10.7893%]/-0.5791%/[-10.2697%]/
+>>  64/50/[-11.5997%]/-0.3429%/[-11.2956%]/
+>>  256/1/+0.7219%/[+13.2374%]/[-11.0524%]/
+>>  256/25/-6.9567%/+0.8887%/[-7.7763%]/
+>>  256/50/[-4.8814%]/-0.0338%/[-4.8492%]/
+>>  4096/1/-1.6061%/-0.7561%/-0.8565%/
+>>  4096/25/[+2.2120%]/[+1.0839%]/+1.1161%/
+>>  4096/50/[+5.6180%]/[+3.2116%]/[+2.3315%]/
+>>  
+>>  Jason Wang (4):
+>>    virtio_net: enable tx interrupt
+>>    virtio-net: optimize free_old_xmit_skbs stats
+>>    virtio-net: add basic interrupt coalescing support
+>>    vhost_net: interrupt coalescing support
+>>  
+>>  Michael S. Tsirkin (1):
+>>    virtio_net: bql
+>>  
+>>   drivers/net/virtio_net.c        | 211 
+>> ++++++++++++++++++++++++++++++++--------
+>>   drivers/vhost/net.c             | 200 
+>> +++++++++++++++++++++++++++++++++++--
+>>   include/uapi/linux/vhost.h      |  12 +++
+>>   include/uapi/linux/virtio_net.h |  12 +++
+>>   4 files changed, 383 insertions(+), 52 deletions(-)
+>>  
 >>  -- 
 >>  1.8.3.1
