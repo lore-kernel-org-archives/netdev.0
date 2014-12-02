@@ -1,78 +1,58 @@
-From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-Subject: RE: [PATCH] Documentation: bindings: net: DPAA corenet binding
- document
-Date: Tue, 2 Dec 2014 12:12:47 +0000
-Message-ID: <BL2PR03MB545CC342CA6A408D2FD5CF6E67A0@BL2PR03MB545.namprd03.prod.outlook.com>
-References: <1417169426-11823-1-git-send-email-madalin.bucur@freescale.com>
- <1417495189.15957.209.camel@freescale.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: mvneta: fix race condition in mvneta_tx()
+Date: Tue, 02 Dec 2014 04:30:59 -0800
+Message-ID: <1417523459.5303.39.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20141202071304.GA22512@1wt.eu>
+	 <1417522688.5303.35.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- Emilian Medve <Emilian.Medve@freescale.com>,
- "Igal.Liberman@freescale.com" <Igal.Liberman@freescale.com>,
- "galak@codeaurora.org" <galak@codeaurora.org>,
- "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
-To: Scott Wood <scottwood@freescale.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1417495189.15957.209.camel@freescale.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Maggie Mae Roxas <maggie.mae.roxas@gmail.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:53857 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752645AbaLBMbB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 07:31:01 -0500
+Received: by mail-ig0-f180.google.com with SMTP id h15so10716070igd.1
+        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 04:31:00 -0800 (PST)
+In-Reply-To: <1417522688.5303.35.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBXb29kIFNjb3R0LUIwNzQyMQ0K
-PiBTZW50OiBUdWVzZGF5LCBEZWNlbWJlciAwMiwgMjAxNCA2OjQwIEFNDQo+IE9uIEZyaSwgMjAx
-NC0xMS0yOCBhdCAxMjoxMCArMDIwMCwgTWFkYWxpbiBCdWN1ciB3cm90ZToNCj4gPiBBZGQgdGhl
-IGRldmljZSB0cmVlIGJpbmRpbmcgZG9jdW1lbnQgZm9yIHRoZSBEUEFBIGNvcmVuZXQgbm9kZQ0K
-PiA+IGFuZCBEUEFBIEV0aGVybmV0IG5vZGVzLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogTWFk
-YWxpbiBCdWN1ciA8bWFkYWxpbi5idWN1ckBmcmVlc2NhbGUuY29tPg0KPiA+IC0tLQ0KPiA+ICBE
-b2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGluZ3MvbmV0L2ZzbC1kcGFhLnR4dCB8IDMxDQo+
-ICsrKysrKysrKysrKysrKysrKysrKysNCj4gPiAgMSBmaWxlIGNoYW5nZWQsIDMxIGluc2VydGlv
-bnMoKykNCj4gPiAgY3JlYXRlIG1vZGUgMTAwNjQ0IERvY3VtZW50YXRpb24vZGV2aWNldHJlZS9i
-aW5kaW5ncy9uZXQvZnNsLWRwYWEudHh0DQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvRG9jdW1lbnRh
-dGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL25ldC9mc2wtZHBhYS50eHQNCj4gYi9Eb2N1bWVudGF0
-aW9uL2RldmljZXRyZWUvYmluZGluZ3MvbmV0L2ZzbC1kcGFhLnR4dA0KPiA+IG5ldyBmaWxlIG1v
-ZGUgMTAwNjQ0DQo+ID4gaW5kZXggMDAwMDAwMC4uODIyYzY2OA0KPiA+IC0tLSAvZGV2L251bGwN
-Cj4gPiArKysgYi9Eb2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGluZ3MvbmV0L2ZzbC1kcGFh
-LnR4dA0KPiA+IEBAIC0wLDAgKzEsMzEgQEANCj4gPiArKkRQQUEgY29yZW5ldA0KPiA+ICsNCj4g
-PiArVGhlIGNvcmVuZXQgYnVzIGNvbnRhaW5pbmcgYWxsIERQQUEgRXRoZXJuZXQgbm9kZXMuDQo+
-IA0KPiBXaGF0IGRvZXMgdGhpcyBoYXZlIHRvIGRvIHdpdGggY29yZW5ldD8NCj4gDQpUaGUgY29y
-ZW5ldC1nZW5lcmljIHBsYXRmb3JtIGNvZGUgdXNlcyB0aGlzIGNvbXBhdGlibGUuIEhlcmUgYXJl
-IHNvbWUgZXhjZXJwdHMNCmZyb20gdGhlIHBsYXRmb3JtIGNvZGUgZm91bmQgaW4gU0RLIGFyY2gv
-cG93ZXJwYy9wbGF0Zm9ybXMvODV4eC9jb3JlbmV0X2dlbmVyaWMuYw0KLi4uDQogKiBDb3JlbmV0
-IGJhc2VkIFNvQyBEUyBTZXR1cA0KICoNCiAqIE1haW50YWluZWQgYnkgS3VtYXIgR2FsYSAoc2Vl
-IE1BSU5UQUlORVJTIGZvciBjb250YWN0IGluZm9ybWF0aW9uKQ0KICoNCiAqIENvcHlyaWdodCAy
-MDA5LTIwMTEgRnJlZXNjYWxlIFNlbWljb25kdWN0b3IgSW5jLg0KLi4uDQpzdGF0aWMgY29uc3Qg
-c3RydWN0IG9mX2RldmljZV9pZCBvZl9kZXZpY2VfaWRzW10gPSB7DQogICAgICAgIHsNCiAgICAg
-ICAgICAgICAgICAuY29tcGF0aWJsZSAgICAgPSAic2ltcGxlLWJ1cyINCiAgICAgICAgfSwNCiAg
-ICAgICAgew0KICAgICAgICAgICAgICAgIC5jb21wYXRpYmxlICAgICA9ICJmc2wsZHBhYSINCiAg
-ICAgICAgfSwNCi4uLg0KaW50IF9faW5pdCBjb3JlbmV0X2dlbl9wdWJsaXNoX2RldmljZXModm9p
-ZCkNCnsNCiAgICAgICAgcmV0dXJuIG9mX3BsYXRmb3JtX2J1c19wcm9iZShOVUxMLCBvZl9kZXZp
-Y2VfaWRzLCBOVUxMKTsNCn0NCi4uLg0KPiA+ICtSZXF1aXJlZCBwcm9wZXJ0eQ0KPiA+ICsgLSBj
-b21wYXRpYmxlOiBzdHJpbmcgcHJvcGVydHkuICBNdXN0IGluY2x1ZGUgImZzbCxkcGFhIi4gQ2Fu
-IGluY2x1ZGUNCj4gPiArICAgYWxzbyAiZnNsLDxTb0M+LWRwYWEiLg0KPiANCj4gTm8gbmVlZCBm
-b3IgdGhlIDxTb0M+IHBhcnQuICBBcyB3ZSBwcmV2aW91c2x5IGRpc2N1c3NlZCwgdGhlIG9ubHkN
-Cj4gcHVycG9zZSBvZiB0aGlzIG5vZGUgaXMgYmFja3dhcmRzIGNvbXBhdGliaWxpdHkgd2l0aCB0
-aGUgVS1Cb290IE1BQw0KPiBhZGRyZXNzIGZpeHVwIC0tIGlmIFUtQm9vdCBkb2Vzbid0IGxvb2sg
-Zm9yIHRoZSA8U29DPiB2ZXJzaW9uLCB0aGVuDQo+IGRvbid0IGNvbXBsaWNhdGUgdGhpbmdzLg0K
-PiANCj4gVGhvdWdoLCBJIGNhbid0IGZpbmQgd2hlcmUgVS1Cb290IHJlZmVyZW5jZXMgdGhpcyBu
-b2RlLiAgQXJlIHlvdSBzdXJlDQo+IGl0J3Mgbm90IHVzaW5nIHRoZSBldGhlcm5ldCVkIGFsaWFz
-ZXMgbGlrZSBldmVyeXRoaW5nIGVsc2UsIGluIHdoaWNoDQo+IGNhc2Ugd2h5IGRvIHdlIG5lZWQg
-dGhpcyBub2RlIGF0IGFsbD8NCj4gDQo+IC1TY290dA0KPiANCg0KVGhlIGluaXRpYWwgKEZyZWVz
-Y2FsZSBTREspIGJpbmRpbmcgZG9jdW1lbnQgY29udGFpbmVkIHRob3NlIGNvbXBhdGlibGVzLA0K
-bm90IHN1cmUgd2hhdCB0aGUgaW5pdGlhbCBpbnRlbnQgd2FzIGZvciB0aGUgPFNvQz4gdmFyaWFu
-dHMuDQoNClRoZSAiZnNsLGRwYWEiIG5vZGUgaXMgb2YgaW50ZXJlc3QgdG8gdGhlIERQQUEgRXRo
-ZXJuZXQgYmVjYXVzZSBpdCBpcw0KdGhlIHBhcmVudCBvZiB0aGUgImZzbCxkcGEtZXRoZXJuZXQi
-IG5vZGVzLg0KDQpNYWRhbGluDQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5v
-emxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
+From: Eric Dumazet <edumazet@google.com>
+
+mvneta_tx() dereferences skb to get skb->len too late,
+as hardware might have completed the transmit and TX completion
+could have freed the skb from another cpu.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ drivers/net/ethernet/marvell/mvneta.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index ccc3ce2e8c8c7c8d929b2ff5e271bf62948c7012..34f58150d693b4215b58285c1dcbb4b16cc03697 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -1721,6 +1721,7 @@ static int mvneta_tx(struct sk_buff *skb, struct net_device *dev)
+ 	u16 txq_id = skb_get_queue_mapping(skb);
+ 	struct mvneta_tx_queue *txq = &pp->txqs[txq_id];
+ 	struct mvneta_tx_desc *tx_desc;
++	int len = skb->len;
+ 	int frags = 0;
+ 	u32 tx_cmd;
+ 
+@@ -1788,7 +1789,7 @@ out:
+ 
+ 		u64_stats_update_begin(&stats->syncp);
+ 		stats->tx_packets++;
+-		stats->tx_bytes  += skb->len;
++		stats->tx_bytes  += len;
+ 		u64_stats_update_end(&stats->syncp);
+ 	} else {
+ 		dev->stats.tx_dropped++;
