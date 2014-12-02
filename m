@@ -1,58 +1,60 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: Re: [PATCH] net: mvneta: fix Tx interrupt delay
-Date: Tue, 02 Dec 2014 14:12:10 -0300
-Message-ID: <547DF2EA.2020908@free-electrons.com>
-References: <20141202071304.GA22512@1wt.eu> <1417522688.5303.35.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] rtnetlink: delay RTM_DELLINK notification until
+ after ndo_uninit()
+Date: Tue, 02 Dec 2014 09:19:29 -0800
+Message-ID: <547DF4A1.6070900@cumulusnetworks.com>
+References: <1417499650-29176-1-git-send-email-maheshb@google.com>  <547DE418.9000309@cumulusnetworks.com>  <1417537150.5303.67.camel@edumazet-glaptop2.roam.corp.google.com>  <547DEBAC.5000005@cumulusnetworks.com> <1417539160.5303.73.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Maggie Mae Roxas <maggie.mae.roxas@gmail.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>, Willy Tarreau <w@1wt.eu>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:34180 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754139AbaLBROD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 12:14:03 -0500
-In-Reply-To: <1417522688.5303.35.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:36179 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754270AbaLBRTq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 12:19:46 -0500
+In-Reply-To: <1417539160.5303.73.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric,
+On 12/2/14, 8:52 AM, Eric Dumazet wrote:
+> On Tue, 2014-12-02 at 08:41 -0800, Roopa Prabhu wrote:
+>
+>> fair point. But the commit that moved things around was done to handle
+>> cases where,
+>> the ndo_uninit() already sends some notifications to userspace for the
+>> changes
+>> during uninit (example bond driver).
+>>
+>> The only point i was making was that the dellink after the ndo_uninit in
+>> your
+>> case now contains state that was prior to uninit for these drivers.
+> I think Mahesh forgot to mention your patch probably broke some drivers.
+>
+> calling rtmsg_ifinfo() after uninit() is probably breaking dummy device,
+> as it does :
+>
+> static void dummy_dev_uninit(struct net_device *dev)
+> {
+> 	free_percpu(dev->dstats);
+> }
+>
+> It looks like 'fixing' ipvlan is not going to help.
+>
+> Instead of checking all drivers for such interesting side effects,
+> and revert your patch, we had the idea of this solution.
 
-On 12/02/2014 09:18 AM, Eric Dumazet wrote:
-[..]
->=20
-> I am surprised TCP even worked correctly with this problem.
->=20
-> I highly suggest BQL for this driver, now this issue is fixed.
->=20
+ok fair enough. I could go through all drivers again and check and fix them.
+but dont want to miss any such cases.
+The patch idea is good.
+Worth a comment in the source regarding the state in the dellink. 
+Hopefully the drivers that are affected by this are very few.
 
-Implementing BQL for the mvneta driver was something I wanted to do a
-while ago, but you explained that these kind drivers (i.e. those with
-software TSO) didn't need BQL, because the latency that resulted from
-the ring was too small.
+Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Quoting (http://www.spinics.net/lists/netdev/msg284439.html):
-""
-Note that a full size TSO packet (44 or 45 MSS) requires about 88 or 90
-descriptors.
-
-So I do not think BQL is really needed, because a 512 slots TX ring won=
-t
-add a big latency : About 5 ms max.
-
-BQL is generally nice for NIC supporting hardware TSO, where a 64KB TSO
-packet consumes 3 or 4 descriptors.
-
-Also note that TCP Small Queues should limit TX ring occupancy of a
-single bulk flow anyway.
-""
-
-Maybe I misunderstood something?
---=20
-Ezequiel Garc=C3=ADa, Free Electrons
-Embedded Linux, Kernel and Android Engineering
-http://free-electrons.com
+Thanks!.
