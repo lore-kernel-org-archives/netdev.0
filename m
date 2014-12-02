@@ -1,105 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: mvneta: fix Tx interrupt delay
-Date: Tue, 02 Dec 2014 04:18:08 -0800
-Message-ID: <1417522688.5303.35.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20141202071304.GA22512@1wt.eu>
+From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+Subject: RE: [PATCH] Documentation: bindings: net: DPAA corenet binding
+ document
+Date: Tue, 2 Dec 2014 12:12:47 +0000
+Message-ID: <BL2PR03MB545CC342CA6A408D2FD5CF6E67A0@BL2PR03MB545.namprd03.prod.outlook.com>
+References: <1417169426-11823-1-git-send-email-madalin.bucur@freescale.com>
+ <1417495189.15957.209.camel@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Maggie Mae Roxas <maggie.mae.roxas@gmail.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:55930 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753796AbaLBMSK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 07:18:10 -0500
-Received: by mail-ie0-f173.google.com with SMTP id y20so11342903ier.4
-        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 04:18:09 -0800 (PST)
-In-Reply-To: <20141202071304.GA22512@1wt.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Emilian Medve <Emilian.Medve@freescale.com>,
+ "Igal.Liberman@freescale.com" <Igal.Liberman@freescale.com>,
+ "galak@codeaurora.org" <galak@codeaurora.org>,
+ "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
+To: Scott Wood <scottwood@freescale.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1417495189.15957.209.camel@freescale.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-12-02 at 08:13 +0100, Willy Tarreau wrote:
-> The mvneta driver sets the amount of Tx coalesce packets to 16 by
-> default. Normally that does not cause any trouble since the driver
-> uses a much larger Tx ring size (532 packets). But some sockets
-> might run with very small buffers, much smaller than the equivalent
-> of 16 packets. This is what ping is doing for example, by setting
-> SNDBUF to 324 bytes rounded up to 2kB by the kernel.
-> 
-> The problem is that there is no documented method to force a specific
-> packet to emit an interrupt (eg: the last of the ring) nor is it
-> possible to make the NIC emit an interrupt after a given delay.
-> 
-> In this case, it causes trouble, because when ping sends packets over
-> its raw socket, the few first packets leave the system, and the first
-> 15 packets will be emitted without an IRQ being generated, so without
-> the skbs being freed. And since the socket's buffer is small, there's
-> no way to reach that amount of packets, and the ping ends up with
-> "send: no buffer available" after sending 6 packets. Running with 3
-> instances of ping in parallel is enough to hide the problem, because
-> with 6 packets per instance, that's 18 packets total, which is enough
-> to grant a Tx interrupt before all are sent.
-> 
-> The original driver in the LSP kernel worked around this design flaw
-> by using a software timer to clean up the Tx descriptors. This timer
-> was slow and caused terrible network performance on some Tx-bound
-> workloads (such as routing) but was enough to make tools like ping
-> work correctly.
-> 
-> Instead here, we simply set the packet counts before interrupt to 1.
-> This ensures that each packet sent will produce an interrupt. NAPI
-> takes care of coalescing interrupts since the interrupt is disabled
-> once generated.
-> 
-> No measurable performance impact nor CPU usage were observed on small
-> nor large packets, including when saturating the link on Tx, and this
-> fixes tools like ping which rely on too small a send buffer. If one
-> wants to increase this value for certain workloads where it is safe
-> to do so, "ethtool -C $dev tx-frames" will override this default
-> setting.
-> 
-> This fix needs to be applied to stable kernels starting with 3.10.
-> 
-> Tested-By: Maggie Mae Roxas <maggie.mae.roxas@gmail.com>
-> Signed-off-by: Willy Tarreau <w@1wt.eu>
-> 
-> ---
->  drivers/net/ethernet/marvell/mvneta.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> index 4762994..35bfba7 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -214,7 +214,7 @@
->  /* Various constants */
->  
->  /* Coalescing */
-> -#define MVNETA_TXDONE_COAL_PKTS		16
-> +#define MVNETA_TXDONE_COAL_PKTS		1
->  #define MVNETA_RX_COAL_PKTS		32
->  #define MVNETA_RX_COAL_USEC		100
->  
-
-
-I am surprised TCP even worked correctly with this problem.
-
-I highly suggest BQL for this driver, now this issue is fixed.
-
-I wonder if this high setting was not because of race conditions in the
-driver :
-
-mvneta_tx() seems to access skb->len too late, TX completion might have
-already freed skb :
-
-                u64_stats_update_begin(&stats->syncp);
-                stats->tx_packets++;
-                stats->tx_bytes  += skb->len;         // potential use after free
-                u64_stats_update_end(&stats->syncp);
-
-Thanks Willy !
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBXb29kIFNjb3R0LUIwNzQyMQ0K
+PiBTZW50OiBUdWVzZGF5LCBEZWNlbWJlciAwMiwgMjAxNCA2OjQwIEFNDQo+IE9uIEZyaSwgMjAx
+NC0xMS0yOCBhdCAxMjoxMCArMDIwMCwgTWFkYWxpbiBCdWN1ciB3cm90ZToNCj4gPiBBZGQgdGhl
+IGRldmljZSB0cmVlIGJpbmRpbmcgZG9jdW1lbnQgZm9yIHRoZSBEUEFBIGNvcmVuZXQgbm9kZQ0K
+PiA+IGFuZCBEUEFBIEV0aGVybmV0IG5vZGVzLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogTWFk
+YWxpbiBCdWN1ciA8bWFkYWxpbi5idWN1ckBmcmVlc2NhbGUuY29tPg0KPiA+IC0tLQ0KPiA+ICBE
+b2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGluZ3MvbmV0L2ZzbC1kcGFhLnR4dCB8IDMxDQo+
+ICsrKysrKysrKysrKysrKysrKysrKysNCj4gPiAgMSBmaWxlIGNoYW5nZWQsIDMxIGluc2VydGlv
+bnMoKykNCj4gPiAgY3JlYXRlIG1vZGUgMTAwNjQ0IERvY3VtZW50YXRpb24vZGV2aWNldHJlZS9i
+aW5kaW5ncy9uZXQvZnNsLWRwYWEudHh0DQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvRG9jdW1lbnRh
+dGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL25ldC9mc2wtZHBhYS50eHQNCj4gYi9Eb2N1bWVudGF0
+aW9uL2RldmljZXRyZWUvYmluZGluZ3MvbmV0L2ZzbC1kcGFhLnR4dA0KPiA+IG5ldyBmaWxlIG1v
+ZGUgMTAwNjQ0DQo+ID4gaW5kZXggMDAwMDAwMC4uODIyYzY2OA0KPiA+IC0tLSAvZGV2L251bGwN
+Cj4gPiArKysgYi9Eb2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGluZ3MvbmV0L2ZzbC1kcGFh
+LnR4dA0KPiA+IEBAIC0wLDAgKzEsMzEgQEANCj4gPiArKkRQQUEgY29yZW5ldA0KPiA+ICsNCj4g
+PiArVGhlIGNvcmVuZXQgYnVzIGNvbnRhaW5pbmcgYWxsIERQQUEgRXRoZXJuZXQgbm9kZXMuDQo+
+IA0KPiBXaGF0IGRvZXMgdGhpcyBoYXZlIHRvIGRvIHdpdGggY29yZW5ldD8NCj4gDQpUaGUgY29y
+ZW5ldC1nZW5lcmljIHBsYXRmb3JtIGNvZGUgdXNlcyB0aGlzIGNvbXBhdGlibGUuIEhlcmUgYXJl
+IHNvbWUgZXhjZXJwdHMNCmZyb20gdGhlIHBsYXRmb3JtIGNvZGUgZm91bmQgaW4gU0RLIGFyY2gv
+cG93ZXJwYy9wbGF0Zm9ybXMvODV4eC9jb3JlbmV0X2dlbmVyaWMuYw0KLi4uDQogKiBDb3JlbmV0
+IGJhc2VkIFNvQyBEUyBTZXR1cA0KICoNCiAqIE1haW50YWluZWQgYnkgS3VtYXIgR2FsYSAoc2Vl
+IE1BSU5UQUlORVJTIGZvciBjb250YWN0IGluZm9ybWF0aW9uKQ0KICoNCiAqIENvcHlyaWdodCAy
+MDA5LTIwMTEgRnJlZXNjYWxlIFNlbWljb25kdWN0b3IgSW5jLg0KLi4uDQpzdGF0aWMgY29uc3Qg
+c3RydWN0IG9mX2RldmljZV9pZCBvZl9kZXZpY2VfaWRzW10gPSB7DQogICAgICAgIHsNCiAgICAg
+ICAgICAgICAgICAuY29tcGF0aWJsZSAgICAgPSAic2ltcGxlLWJ1cyINCiAgICAgICAgfSwNCiAg
+ICAgICAgew0KICAgICAgICAgICAgICAgIC5jb21wYXRpYmxlICAgICA9ICJmc2wsZHBhYSINCiAg
+ICAgICAgfSwNCi4uLg0KaW50IF9faW5pdCBjb3JlbmV0X2dlbl9wdWJsaXNoX2RldmljZXModm9p
+ZCkNCnsNCiAgICAgICAgcmV0dXJuIG9mX3BsYXRmb3JtX2J1c19wcm9iZShOVUxMLCBvZl9kZXZp
+Y2VfaWRzLCBOVUxMKTsNCn0NCi4uLg0KPiA+ICtSZXF1aXJlZCBwcm9wZXJ0eQ0KPiA+ICsgLSBj
+b21wYXRpYmxlOiBzdHJpbmcgcHJvcGVydHkuICBNdXN0IGluY2x1ZGUgImZzbCxkcGFhIi4gQ2Fu
+IGluY2x1ZGUNCj4gPiArICAgYWxzbyAiZnNsLDxTb0M+LWRwYWEiLg0KPiANCj4gTm8gbmVlZCBm
+b3IgdGhlIDxTb0M+IHBhcnQuICBBcyB3ZSBwcmV2aW91c2x5IGRpc2N1c3NlZCwgdGhlIG9ubHkN
+Cj4gcHVycG9zZSBvZiB0aGlzIG5vZGUgaXMgYmFja3dhcmRzIGNvbXBhdGliaWxpdHkgd2l0aCB0
+aGUgVS1Cb290IE1BQw0KPiBhZGRyZXNzIGZpeHVwIC0tIGlmIFUtQm9vdCBkb2Vzbid0IGxvb2sg
+Zm9yIHRoZSA8U29DPiB2ZXJzaW9uLCB0aGVuDQo+IGRvbid0IGNvbXBsaWNhdGUgdGhpbmdzLg0K
+PiANCj4gVGhvdWdoLCBJIGNhbid0IGZpbmQgd2hlcmUgVS1Cb290IHJlZmVyZW5jZXMgdGhpcyBu
+b2RlLiAgQXJlIHlvdSBzdXJlDQo+IGl0J3Mgbm90IHVzaW5nIHRoZSBldGhlcm5ldCVkIGFsaWFz
+ZXMgbGlrZSBldmVyeXRoaW5nIGVsc2UsIGluIHdoaWNoDQo+IGNhc2Ugd2h5IGRvIHdlIG5lZWQg
+dGhpcyBub2RlIGF0IGFsbD8NCj4gDQo+IC1TY290dA0KPiANCg0KVGhlIGluaXRpYWwgKEZyZWVz
+Y2FsZSBTREspIGJpbmRpbmcgZG9jdW1lbnQgY29udGFpbmVkIHRob3NlIGNvbXBhdGlibGVzLA0K
+bm90IHN1cmUgd2hhdCB0aGUgaW5pdGlhbCBpbnRlbnQgd2FzIGZvciB0aGUgPFNvQz4gdmFyaWFu
+dHMuDQoNClRoZSAiZnNsLGRwYWEiIG5vZGUgaXMgb2YgaW50ZXJlc3QgdG8gdGhlIERQQUEgRXRo
+ZXJuZXQgYmVjYXVzZSBpdCBpcw0KdGhlIHBhcmVudCBvZiB0aGUgImZzbCxkcGEtZXRoZXJuZXQi
+IG5vZGVzLg0KDQpNYWRhbGluDQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5v
+emxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
