@@ -1,117 +1,143 @@
-From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
 Subject: Re: Is this 32-bit NCM?
-Date: Tue, 2 Dec 2014 06:43:24 +0000
-Message-ID: <547D5F84.6020608@audiocodes.com>
-References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
- <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com>
- <874mtl55ar.fsf@nemi.mork.no>
- <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
- <alpine.LNX.2.03.1411271932510.1548@gmail.com>
- <87ppc71xne.fsf@nemi.mork.no>,<alpine.LNX.2.03.1412012202480.1301@gmail.com>
- <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com>
- <547D37CA.7050506@audiocodes.com>
- <alpine.LNX.2.03.1412020729470.1351@gmail.com>
+Date: Tue, 2 Dec 2014 07:49:45 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1412020747360.1921@gmail.com>
+References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <87ppc957h1.fsf@nemi.mork.no> <alpine.LNX.2.03.1411271037050.9464@gmail.com> <874mtl55ar.fsf@nemi.mork.no> <CAPChA0cLuvRpYTYuFoi3bewqASgf_oZHSz5yQQ8JYm96dZ4-TQ@mail.gmail.com>
+ <alpine.LNX.2.03.1411271932510.1548@gmail.com> <87ppc71xne.fsf@nemi.mork.no>,<alpine.LNX.2.03.1412012202480.1301@gmail.com> <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com> <547D37CA.7050506@audiocodes.com> <alpine.LNX.2.03.1412020729470.1351@gmail.com>
+ <547D5F84.6020608@audiocodes.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1624549810-1417502991=:1921"
 Cc: Eli Britstein <Eli.Britstein@audiocodes.com>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
+	=?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
 	Alex Strizhevsky <alexxst@gmail.com>,
-	"Midge Shaojun Tan" <ShaojunMidge.Tan@audiocodes.com>,
+	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
 	"youtux@gmail.com" <youtux@gmail.com>,
 	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Enrico Mioso <mrkiko.rs@gmail.com>
+To: Kevin Zhu <Mingying.Zhu@audiocodes.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1lrp0019.outbound.protection.outlook.com ([213.199.154.19]:18801
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753512AbaLBGni (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Dec 2014 01:43:38 -0500
-In-Reply-To: <alpine.LNX.2.03.1412020729470.1351@gmail.com>
-Content-Language: en-US
-Content-ID: <55D1514010BC2E4AAB106546B3D5E28E@eurprd06.prod.outlook.com>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:60783 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752638AbaLBGtV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 01:49:21 -0500
+In-Reply-To: <547D5F84.6020608@audiocodes.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SSBhbHNvIHRyaWVkIHRvIGRlZmluZSBDRENfTkNNX0RQVF9EQVRBR1JBTVNfTUFYIGFzIDEgdG8g
-ZWxpbWluYXRlIHRoZQ0KcGFkZGluZ3MsIGJ1dCBpdCBkaWQgbm90IHdvcmsgZWl0aGVyLCBub3Qg
-ZXZlbiBESENQLg0KDQpSZWdhcmRzLA0KS2V2aW4NCg0KT24gMTIvMDIvMjAxNCAwMjozMiBQTSwg
-RW5yaWNvIE1pb3NvIHdyb3RlOg0KPiBIaSBhZ2FpbiBFbGksDQo+IEhpIEtldmluLA0KPiBIaSBl
-dmVyeW9uZS4uLg0KPg0KPiBBcyBJIHVuZGVyc3RhbmQgaXQgYW55d2F5IC0gdGhlIGRpc3RpbmN0
-aW9uIGhlcmUgdGVuZHMgbm90IHRvIGJlIGJldHdlZW4NCj4gZGlmZmVyZW50IHR5cGVzIG9mIHBh
-Y2tldHMuDQo+IEl0IHRlbmRzIHRvIGJlIGJldHdlZW4gcmVjZWl2ZWQgYW5kIHNlbnQgcGFja2V0
-Lg0KPiBXZSBhcmUgbm90IGFibGUgdG8gZ2VuZXJhdGUgcGFja2V0cyB0aGF0IHRoZSBkZXZpY2Ug
-cmV0YWlucyB2YWxpZC4NCj4gSWYgeW91IG1hbnVhbGx5IGNvbmZpZ3VyZSB0aGUgSVAgdGhlIGRl
-dmljZSB3b3VsZCBoYXZlIGFzc2lnbmVkIHlvdSB2aWEgREhDUCwNCj4geW91ciBzeXN0ZW0gd2ls
-bCBzdGFydCBhbnN3ZXJpbmcgQVJQIHJlcXVlc3QsIHNheWluZyB0aGF0IHRoZSBob3N0IHdpdGgg
-SVANCj4gYWEuYmIuY2MuZGQgaXMgYXQgYWE6YmI6Y2M6ZGQ6ZWUgKHVzaW5nIHRoZSBNQyBhZGRy
-ZXNzIG9mIHRoZSBkb25nbGUpLg0KPiBIb3dldmVyLCB0aGUgb3RoZXIgaG9zdCAoZ2F0ZXdheSkg
-d2lsbCBuZXZlciBrbm93IHRoYXQuIEluZGVlZCwgaXQnbGwgY29udGludWUNCj4gYXNraW5nIHdo
-by1pcyBhdCBhYS5iYi5jYy5kZCA/DQo+IEF0IGxlYXN0LCB0aGlzIGlzIHRoZSBzaXR1YXRpb24g
-SSBvYnNlcnZlZCBpbiB0aGUgdGVzdCBzeXN0ZW0uDQo+DQo+DQo+IE9uIFR1ZSwgMiBEZWMgMjAx
-NCwgS2V2aW4gWmh1IHdyb3RlOg0KPg0KPiA9PURhdGU6IFR1ZSwgMiBEZWMgMjAxNCAwNDo1Mzo1
-Mw0KPiA9PUZyb206IEtldmluIFpodSA8TWluZ3lpbmcuWmh1QGF1ZGlvY29kZXMuY29tPg0KPiA9
-PVRvOiBFbGkgQnJpdHN0ZWluIDxFbGkuQnJpdHN0ZWluQGF1ZGlvY29kZXMuY29tPiwNCj4gPT0g
-ICAgRW5yaWNvIE1pb3NvIDxtcmtpa28ucnNAZ21haWwuY29tPg0KPiA9PUNjOiBCasO4cm4gTW9y
-ayA8Ympvcm5AbW9yay5ubz4sIEFsZXggU3RyaXpoZXZza3kgPGFsZXh4c3RAZ21haWwuY29tPiwN
-Cj4gPT0gICAgTWlkZ2UgU2hhb2p1biAgVGFuIDxTaGFvanVuTWlkZ2UuVGFuQGF1ZGlvY29kZXMu
-Y29tPiwNCj4gPT0gICAgInlvdXR1eEBnbWFpbC5jb20iIDx5b3V0dXhAZ21haWwuY29tPiwNCj4g
-PT0gICAgImxpbnV4LXVzYkB2Z2VyLmtlcm5lbC5vcmciIDxsaW51eC11c2JAdmdlci5rZXJuZWwu
-b3JnPiwNCj4gPT0gICAgIm5ldGRldkB2Z2VyLmtlcm5lbC5vcmciIDxuZXRkZXZAdmdlci5rZXJu
-ZWwub3JnPg0KPiA9PVN1YmplY3Q6IFJlOiBJcyB0aGlzIDMyLWJpdCBOQ00/DQo+ID09DQo+ID09
-SGksDQo+ID09DQo+ID09VGhlIERIQ1AgcGFja2V0cyBoYXZlIHRoZSBtYXhpbXVtIHNpemUgb2Yg
-ZHdOdGJPdXRNYXhTaXplPTE2Mzg0LCB3aGlsZQ0KPiA9PXRoZSBvdGhlciBwYWNrZXRzIGFyZSBs
-ZXNzIHRoYW4gdGhhdC4gSG93ZXZlciwgdGhlIERIQ1AgcXVlcmllcyBhcmUgbm90DQo+ID09cmVw
-bGllZCBpbiB0aW1lIGVpdGhlciwgdGhlcmUncyBhbHdheXMgc29tZSBkZWxheS4NCj4gPT0NCj4g
-PT1CeSB0aGUgd2F5LCB0aG91Z2ggdGhlIGRldmljZSBjbGFpbXMgdG8gc3VwcG9ydCBHRVRfTUFY
-X0RBVEFHUkFNX1NJWkUsDQo+ID09YnV0IGl0IHJldHVybnMgZXJyb3Igd2hlbiB0aGUgaG9zdCBz
-ZW5kcyB0aGlzIGNvbW1hbmQgdG8gaXQuIEkgZGlzYWJsZWQNCj4gPT10aGlzIGNvbW1hbmQgaW4g
-TkNNIGRyaXZlciBhbmQgdHJpZWQsIGJ1dCBpdCdzIHRoZSBzYW1lIHJlc3VsdC4NCj4gPT0NCj4g
-PT1SZWdhcmRzLA0KPiA9PUtldmluDQo+ID09DQo+ID09T24gMTIvMDIvMjAxNCAwNjowMiBBTSwg
-RWxpIEJyaXRzdGVpbiB3cm90ZToNCj4gPT0+IEhpIEVucmljbyBhbmQgYWxsLA0KPiA9PT4NCj4g
-PT0+IE1heWJlIEkgbWlzc2VkIHNvbWV0aGluZyBidXQgd2hhdCBpcyB0aGUgZGlmZmVyZW5jZSBi
-eSB0aGUgZHJpdmVyIHBvaW50IG9mIHZpZXcgYmV0d2VlbiB0aGUgZGhjcCBkaXNjb3ZlciBhbmQg
-cmVxdWVzdCAodGhhdCBhcmUgb2spIHRvIG90aGVycyAobGlrZSBhcnAsIHRoYXQgaXMgbm9rKT8N
-Cj4gPT0+IE1heWJlIHdlIGNhbiB0cmFjZSB0byBjb21wYXJlIHRoZW0/DQo+ID09Pg0KPiA9PT4g
-U2VudCBmcm9tIG15IGlQaG9uZQ0KPiA9PT4NCj4gPT0+PiBPbiAxINeR15PXpteeIDIwMTQsIGF0
-IDIzOjExLCAiRW5yaWNvIE1pb3NvIiA8bXJraWtvLnJzQGdtYWlsLmNvbT4gd3JvdGU6DQo+ID09
-Pj4NCj4gPT0+PiBTbyAuLi4gSSBoYXZlIHR3byBpZGVhcyBsZWZ0IGZvciBub3cuDQo+ID09Pj4g
-V2Uga25vdyBmb3Igc3VyZSB0aGUgcHJvYmxlbSBpcyBpbiB0aGUgd2F5IHdlIFRYIGZyYW1lcywg
-bm90IHRoZSB3YXkgd2UgUlggdGhlbQ0KPiA9PT4+ICh0aGUgd2F5IHdlIHNlbmQsIGdlbmVyYXRl
-IHRoZW0sIG5vdCB0aGUgd2F5IHdlIHJlY2VpdmUgdGhlbSkuDQo+ID09Pj4gU2kgSSBoYXZlIHR3
-byBpZGVhcywgYW5kIEkgYXNrIGZvciBoZWxwIGZyb20gdGhlIExpbnV4LXVzYiBtYWlsaW5nIGxp
-c3QgZm9yDQo+ID09Pj4gdGhpcyBmaXJzdCBvbmUuDQo+ID09Pj4NCj4gPT0+PiAxIC0gRG9lcyBh
-IHdheWV4aXN0IHRvICJyZXBsYXkiIHRyYWZmaWMgY3JvbSBhIHVzYiBjYXB0dXJlPw0KPiA9PT4+
-IFdlIG1pZ2h0IHRyeSB0byB0YWtlIHRoZSB1c2IgZnJhbWVzIGdlbmVyYXRlZCBieSBXaW5kb3dz
-LCBhbmQgc2VuZCB0aGVtIHRvIHRoZQ0KPiA9PT4+IGRldmljZSB0byBzZWUgaWYgdGhlcmUgaXMg
-YW55IHJlYWN0aW9uLiBJdCBzaG91bGQgbm90IGJlIHNjaWVuY2UgZmljdGlvbiwgSSBzYXcNCj4g
-PT0+PiB0aGVtIGRvIHRoYXQgaW4gdGhlIGVjaWFkc2wgb2xkIHByb2plY3QuDQo+ID09Pj4gMiAt
-IFRoZSBodWF3ZWkgbmRpcyBkcml2ZXI6IGRvZXMgaXQgd29yayB3aXRoIHRoZXNlIGRldmljZXM/
-DQo+ID09Pj4gSXQgc2hvdWxkIGJlIGEgbGl0dGxlIGJpdCBvdXQtZGF0ZWQgbm93IChhdCBsZWFz
-dCBpbiB0ZXJtcyBvZiBkYXRlcywgaXQgbWlnaHQNCj4gPT0+PiB3b3JrIGFzIHdlbGwpOiB0aGUg
-Y29kZSBpcyBBIExPVCBidXQsIGp1c3QgaW4gY2FzZSwgdG8gc2VlIGlmIHRoZXJlIGlzIGFueQ0K
-PiA9PT4+IGNoYW5jZXMgaXQnbGwgd29yay4gSXQgcmVtYWlucyB0byBiZSBzZWVuIGluIHdoaWNo
-IGtlcm5lbHMgaXQgY2FuIGFjdHVhbGx5DQo+ID09Pj4gY29tcGlsZSBhZ2Fpbi4NCj4gPT0+Pg0K
-PiA9PT4+IElmIHRoaXMgd29ya3Mgd2UgbWlnaHQgYW5hbHlzZSB3aGF0J3MgaGFwcGVuaW5nIGFu
-ZCB0cnkgdG8gZGVidWcgdGhpcyBvdXQuDQo+ID09Pj4gQnV0IEkgcmVhbGx5IHdvdWxkIGxpa2Ug
-dGhpcyB0byB3b3JrIGluIHRoZSBjZGNfbmNtIGRyaXZlciArIGh1YXdlaV9jZGNfbmNtLg0KPiA9
-PT4+IFRoYW5rIHlvdS4NCj4gPT1UaGlzIGVtYWlsIGFuZCBhbnkgZmlsZXMgdHJhbnNtaXR0ZWQg
-d2l0aCBpdCBhcmUgY29uZmlkZW50aWFsIG1hdGVyaWFsLiBUaGV5IGFyZSBpbnRlbmRlZCBzb2xl
-bHkgZm9yIHRoZSB1c2Ugb2YgdGhlIGRlc2lnbmF0ZWQgaW5kaXZpZHVhbCBvciBlbnRpdHkgdG8g
-d2hvbSB0aGV5IGFyZSBhZGRyZXNzZWQuIElmIHRoZSByZWFkZXIgb2YgdGhpcyBtZXNzYWdlIGlz
-IG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50LCB5b3UgYXJlIGhlcmVieSBub3RpZmllZCB0aGF0
-IGFueSBkaXNzZW1pbmF0aW9uLCB1c2UsIGRpc3RyaWJ1dGlvbiBvciBjb3B5aW5nIG9mIHRoaXMg
-Y29tbXVuaWNhdGlvbiBpcyBzdHJpY3RseSBwcm9oaWJpdGVkIGFuZCBtYXkgYmUgdW5sYXdmdWwu
-DQo+ID09DQo+ID09SWYgeW91IGhhdmUgcmVjZWl2ZWQgdGhpcyBlbWFpbCBpbiBlcnJvciBwbGVh
-c2UgaW1tZWRpYXRlbHkgbm90aWZ5IHRoZSBzZW5kZXIgYW5kIGRlbGV0ZSBvciBkZXN0cm95IGFu
-eSBjb3B5IG9mIHRoaXMgbWVzc2FnZQ0KPiA9PQ0KVGhpcyBlbWFpbCBhbmQgYW55IGZpbGVzIHRy
-YW5zbWl0dGVkIHdpdGggaXQgYXJlIGNvbmZpZGVudGlhbCBtYXRlcmlhbC4gVGhleSBhcmUgaW50
-ZW5kZWQgc29sZWx5IGZvciB0aGUgdXNlIG9mIHRoZSBkZXNpZ25hdGVkIGluZGl2aWR1YWwgb3Ig
-ZW50aXR5IHRvIHdob20gdGhleSBhcmUgYWRkcmVzc2VkLiBJZiB0aGUgcmVhZGVyIG9mIHRoaXMg
-bWVzc2FnZSBpcyBub3QgdGhlIGludGVuZGVkIHJlY2lwaWVudCwgeW91IGFyZSBoZXJlYnkgbm90
-aWZpZWQgdGhhdCBhbnkgZGlzc2VtaW5hdGlvbiwgdXNlLCBkaXN0cmlidXRpb24gb3IgY29weWlu
-ZyBvZiB0aGlzIGNvbW11bmljYXRpb24gaXMgc3RyaWN0bHkgcHJvaGliaXRlZCBhbmQgbWF5IGJl
-IHVubGF3ZnVsLg0KDQpJZiB5b3UgaGF2ZSByZWNlaXZlZCB0aGlzIGVtYWlsIGluIGVycm9yIHBs
-ZWFzZSBpbW1lZGlhdGVseSBub3RpZnkgdGhlIHNlbmRlciBhbmQgZGVsZXRlIG9yIGRlc3Ryb3kg
-YW55IGNvcHkgb2YgdGhpcyBtZXNzYWdlDQo=
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+--8323328-1624549810-1417502991=:1921
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+
+Can you try to look at Windows registry keys based on the INF file as suggested 
+or would this be a problem for you?
+And... if you have any Huawei manutal talking about it: even device's 
+^DSFLOWRPT
+might be useful to some extent, but ... this is only just a note in case we 
+don't find anything else.
+Regards ... and good day to all of you,
+Enrico
+
+
+On Tue, 2 Dec 2014, Kevin Zhu wrote:
+
+==Date: Tue, 2 Dec 2014 07:43:24
+==From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
+==To: Enrico Mioso <mrkiko.rs@gmail.com>
+==Cc: Eli Britstein <Eli.Britstein@audiocodes.com>, Bjørn Mork <bjorn@mork.no>,
+==    Alex Strizhevsky <alexxst@gmail.com>,
+==    Midge Shaojun  Tan <ShaojunMidge.Tan@audiocodes.com>,
+==    "youtux@gmail.com" <youtux@gmail.com>,
+==    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+==    "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+==Subject: Re: Is this 32-bit NCM?
+==
+==I also tried to define CDC_NCM_DPT_DATAGRAMS_MAX as 1 to eliminate the
+==paddings, but it did not work either, not even DHCP.
+==
+==Regards,
+==Kevin
+==
+==On 12/02/2014 02:32 PM, Enrico Mioso wrote:
+==> Hi again Eli,
+==> Hi Kevin,
+==> Hi everyone...
+==>
+==> As I understand it anyway - the distinction here tends not to be between
+==> different types of packets.
+==> It tends to be between received and sent packet.
+==> We are not able to generate packets that the device retains valid.
+==> If you manually configure the IP the device would have assigned you via DHCP,
+==> your system will start answering ARP request, saying that the host with IP
+==> aa.bb.cc.dd is at aa:bb:cc:dd:ee (using the MC address of the dongle).
+==> However, the other host (gateway) will never know that. Indeed, it'll continue
+==> asking who-is at aa.bb.cc.dd ?
+==> At least, this is the situation I observed in the test system.
+==>
+==>
+==> On Tue, 2 Dec 2014, Kevin Zhu wrote:
+==>
+==> ==Date: Tue, 2 Dec 2014 04:53:53
+==> ==From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
+==> ==To: Eli Britstein <Eli.Britstein@audiocodes.com>,
+==> ==    Enrico Mioso <mrkiko.rs@gmail.com>
+==> ==Cc: Bjørn Mork <bjorn@mork.no>, Alex Strizhevsky <alexxst@gmail.com>,
+==> ==    Midge Shaojun  Tan <ShaojunMidge.Tan@audiocodes.com>,
+==> ==    "youtux@gmail.com" <youtux@gmail.com>,
+==> ==    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+==> ==    "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+==> ==Subject: Re: Is this 32-bit NCM?
+==> ==
+==> ==Hi,
+==> ==
+==> ==The DHCP packets have the maximum size of dwNtbOutMaxSize=16384, while
+==> ==the other packets are less than that. However, the DHCP queries are not
+==> ==replied in time either, there's always some delay.
+==> ==
+==> ==By the way, though the device claims to support GET_MAX_DATAGRAM_SIZE,
+==> ==but it returns error when the host sends this command to it. I disabled
+==> ==this command in NCM driver and tried, but it's the same result.
+==> ==
+==> ==Regards,
+==> ==Kevin
+==> ==
+==> ==On 12/02/2014 06:02 AM, Eli Britstein wrote:
+==> ==> Hi Enrico and all,
+==> ==>
+==> ==> Maybe I missed something but what is the difference by the driver point of view between the dhcp discover and request (that are ok) to others (like arp, that is nok)?
+==> ==> Maybe we can trace to compare them?
+==> ==>
+==> ==> Sent from my iPhone
+==> ==>
+==> ==>> On 1 בדצמ 2014, at 23:11, "Enrico Mioso" <mrkiko.rs@gmail.com> wrote:
+==> ==>>
+==> ==>> So ... I have two ideas left for now.
+==> ==>> We know for sure the problem is in the way we TX frames, not the way we RX them
+==> ==>> (the way we send, generate them, not the way we receive them).
+==> ==>> Si I have two ideas, and I ask for help from the Linux-usb mailing list for
+==> ==>> this first one.
+==> ==>>
+==> ==>> 1 - Does a wayexist to "replay" traffic crom a usb capture?
+==> ==>> We might try to take the usb frames generated by Windows, and send them to the
+==> ==>> device to see if there is any reaction. It should not be science fiction, I saw
+==> ==>> them do that in the eciadsl old project.
+==> ==>> 2 - The huawei ndis driver: does it work with these devices?
+==> ==>> It should be a little bit out-dated now (at least in terms of dates, it might
+==> ==>> work as well): the code is A LOT but, just in case, to see if there is any
+==> ==>> chances it'll work. It remains to be seen in which kernels it can actually
+==> ==>> compile again.
+==> ==>>
+==> ==>> If this works we might analyse what's happening and try to debug this out.
+==> ==>> But I really would like this to work in the cdc_ncm driver + huawei_cdc_ncm.
+==> ==>> Thank you.
+==> ==This email and any files transmitted with it are confidential material. They are intended solely for the use of the designated individual or entity to whom they are addressed. If the reader of this message is not the intended recipient, you are hereby notified that any dissemination, use, distribution or copying of this communication is strictly prohibited and may be unlawful.
+==> ==
+==> ==If you have received this email in error please immediately notify the sender and delete or destroy any copy of this message
+==> ==
+==This email and any files transmitted with it are confidential material. They are intended solely for the use of the designated individual or entity to whom they are addressed. If the reader of this message is not the intended recipient, you are hereby notified that any dissemination, use, distribution or copying of this communication is strictly prohibited and may be unlawful.
+==
+==If you have received this email in error please immediately notify the sender and delete or destroy any copy of this message
+==
+--8323328-1624549810-1417502991=:1921--
