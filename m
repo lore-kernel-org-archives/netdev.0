@@ -1,239 +1,546 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: [PATCH net-next 6/6] sunvnet: add TSO support
-Date: Tue, 02 Dec 2014 15:31:38 -0500
-Message-ID: <547E21AA.6080603@oracle.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH net-next] tcp: Add TCP tracer
+Date: Tue, 2 Dec 2014 12:37:42 -0800
+Message-ID: <1417552662-16398-1-git-send-email-kafai@fb.com>
+References: <1413837765-5446-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:31335 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932711AbaLBUbq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 15:31:46 -0500
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:57380 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932179AbaLBUhr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 15:37:47 -0500
+Received: from pps.filterd (m0004348 [127.0.0.1])
+	by m0004348.ppops.net (8.14.5/8.14.5) with SMTP id sB2K8TsU025347
+	for <netdev@vger.kernel.org>; Tue, 2 Dec 2014 12:37:47 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0004348.ppops.net with ESMTP id 1r1jrprc70-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 12:37:45 -0800
+Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
+ mx-out.facebook.com (10.212.236.89) with ESMTP	id
+ 1097b73c7a6311e4937c0002c95209d8-22ad6390 for <netdev@vger.kernel.org>;	Tue,
+ 02 Dec 2014 12:37:42 -0800
+In-Reply-To: <1413837765-5446-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds TSO support for the sunvnet driver.
-
-Signed-off-by: David L Stevens <david.stevens@oracle.com>
+Define probes and register them to the TCP tracepoints.  The probes
+collect the data defined in struct tcp_sk_trace and record them to
+the tracing's ring_buffer.
 ---
- drivers/net/ethernet/sun/sunvnet.c |   95 +++++++++++++++++++++++++++++++++---
- drivers/net/ethernet/sun/sunvnet.h |    9 +++-
- 2 files changed, 95 insertions(+), 9 deletions(-)
+ include/uapi/linux/tcp_trace.h |   9 +-
+ kernel/trace/tcp_trace.c       | 448 +++++++++++++++++++++++++++++++++++++++++
+ kernel/trace/trace.h           |   1 +
+ 3 files changed, 451 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index d19b358..b883add 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -120,8 +120,15 @@ static int vnet_send_attr(struct vio_driver_state *vio)
- 		pkt.mtu = framelen + VLAN_HLEN;
- 	}
+diff --git a/include/uapi/linux/tcp_trace.h b/include/uapi/linux/tcp_trace.h
+index 2644f7f..d913a3c 100644
+--- a/include/uapi/linux/tcp_trace.h
++++ b/include/uapi/linux/tcp_trace.h
+@@ -22,11 +22,11 @@ struct tcp_stats {
+ 	__u32	other_segs_retrans;
+ 	__u32	other_octets_retrans;
+ 	__u32	loss_segs_retrans;
+-	__u32	loss_octects_retrans;
++	__u32	loss_octets_retrans;
+ 	__u32	segs_in;
+ 	__u32	data_segs_in;
+-	__u64	rtt_sample_us;
+ 	__u64	data_octets_in;
++	__u64	rtt_sample_us;
+ 	__u64	max_rtt_us;
+ 	__u64	min_rtt_us;
+ 	__u64   sum_rtt_us;
+@@ -64,9 +64,4 @@ struct tcp_trace_stats {
+         struct tcp_stats stats;
+ } __packed;
  
--	pkt.plnk_updt = PHYSLINK_UPDATE_NONE;
- 	pkt.cflags = 0;
-+	if (vio_version_after_eq(vio, 1, 7) && port->tso) {
-+		pkt.cflags |= VNET_LSO_IPV4_CAPAB;
-+		if (!port->tsolen)
-+			port->tsolen = VNET_MAXTSO;
-+		pkt.ipv4_lso_maxlen = port->tsolen;
-+	}
+-typedef struct tcp_trace_basic tcp_trace_establish;
+-typedef struct tcp_trace_basic tcp_trace_retrans;
+-typedef struct tcp_trace_stats tcp_trace_periodic;
+-typedef struct tcp_trace_stats tcp_trace_close;
+-
+ #endif /* UAPI_TCP_TRACE_H */
+diff --git a/kernel/trace/tcp_trace.c b/kernel/trace/tcp_trace.c
+index 9d09fd0..376580b 100644
+--- a/kernel/trace/tcp_trace.c
++++ b/kernel/trace/tcp_trace.c
+@@ -1,9 +1,27 @@
+ #include <net/tcp_trace.h>
++#include <net/tcp.h>
++#include <trace/events/tcp.h>
+ #include <linux/tcp.h>
++#include <linux/ipv6.h>
++#include <linux/ftrace_event.h>
++#include <linux/jiffies.h>
+ #include <uapi/linux/tcp_trace.h>
+ 
++#include "trace_output.h"
 +
-+	pkt.plnk_updt = PHYSLINK_UPDATE_NONE;
++#define REPORT_INTERVAL_MS 2000
++
++static struct trace_array *tcp_tr;
+ static bool tcp_trace_enabled __read_mostly;
  
- 	viodbg(HS, "SEND NET ATTR xmode[0x%x] atype[0x%x] addr[%llx] "
- 	       "ackfreq[%u] plnk_updt[0x%02x] opts[0x%02x] mtu[%llu] "
-@@ -175,6 +182,26 @@ static int handle_attr_info(struct vio_driver_state *vio,
- 	}
- 	port->rmtu = localmtu;
- 
-+	/* LSO negotiation */
-+	if (vio_version_after_eq(vio, 1, 7))
-+		port->tso &= !!(pkt->cflags & VNET_LSO_IPV4_CAPAB);
-+	else
-+		port->tso = false;
-+	if (port->tso) {
-+		if (!port->tsolen)
-+			port->tsolen = VNET_MAXTSO;
-+		port->tsolen = min(port->tsolen, pkt->ipv4_lso_maxlen);
-+		if (port->tsolen < VNET_MINTSO) {
-+			port->tso = false;
-+			port->tsolen = 0;
-+			pkt->cflags &= ~VNET_LSO_IPV4_CAPAB;
-+		}
-+		pkt->ipv4_lso_maxlen = port->tsolen;
++static struct trace_print_flags tcp_trace_event_names[] = {
++	{ TCP_TRACE_EVENT_ESTABLISHED, "established" },
++	{ TCP_TRACE_EVENT_PERIODIC, "periodic" },
++	{ TCP_TRACE_EVENT_RETRANS, "retrans" },
++	{ TCP_TRACE_EVENT_RETRANS_LOSS, "retrans_loss" },
++	{ TCP_TRACE_EVENT_CLOSE, "close" }
++};
++
+ struct tcp_sk_trace {
+ 	struct tcp_stats stats;
+ 	unsigned long start_ts;
+@@ -35,3 +53,433 @@ void tcp_sk_trace_destruct(struct sock *sk)
+ {
+ 	kfree(tcp_sk(sk)->trace);
+ }
++
++static void tcp_trace_init(struct tcp_trace *tr,
++			   enum tcp_trace_events trev,
++			   struct sock *sk)
++{
++	tr->event = trev;
++	if (sk->sk_family == AF_INET) {
++		tr->ipv6 = 0;
++		tr->local_addr[0] = inet_sk(sk)->inet_saddr;
++		tr->remote_addr[0] = inet_sk(sk)->inet_daddr;
 +	} else {
-+		pkt->cflags &= ~VNET_LSO_IPV4_CAPAB;
-+		pkt->ipv4_lso_maxlen = 0;
++		BUG_ON(sk->sk_family != AF_INET6);
++		tr->ipv6 = 1;
++		memcpy(tr->local_addr, inet6_sk(sk)->saddr.s6_addr32,
++		       sizeof(tr->local_addr));
++		memcpy(tr->remote_addr, sk->sk_v6_daddr.s6_addr32,
++		       sizeof(tr->remote_addr));
 +	}
++	tr->local_port = inet_sk(sk)->inet_sport;
++	tr->remote_port = inet_sk(sk)->inet_dport;
++}
 +
- 	/* for version >= 1.6, ACK packet mode we support */
- 	if (vio_version_after_eq(vio, 1, 6)) {
- 		pkt->xfer_mode = VIO_NEW_DRING_MODE;
-@@ -721,6 +748,8 @@ ldc_ctrl:
- 
- 		if (event == LDC_EVENT_RESET) {
- 			port->rmtu = 0;
-+			port->tso = true;
-+			port->tsolen = 0;
- 			vio_port_up(vio);
- 		}
- 		port->rx_event = 0;
-@@ -1131,10 +1160,36 @@ static int vnet_handle_offloads(struct vnet_port *port, struct sk_buff *skb)
- 	struct net_device *dev = port->vp->dev;
- 	struct vio_dring_state *dr = &port->vio.drings[VIO_DRIVER_TX_RING];
- 	struct sk_buff *segs;
--	int maclen;
-+	int maclen, datalen;
- 	int status;
-+	int gso_size, gso_type, gso_segs;
-+	int hlen = skb_transport_header(skb) - skb_mac_header(skb);
-+	int proto = IPPROTO_IP;
++static void tcp_trace_basic_init(struct tcp_trace_basic *trb,
++				 enum tcp_trace_events trev,
++				 struct sock *sk)
++{
++	struct tcp_sk_trace *sktr = tcp_sk(sk)->trace;
++	tcp_trace_init((struct tcp_trace *)trb, trev, sk);
++	trb->snd_cwnd = tcp_sk(sk)->snd_cwnd * tcp_sk(sk)->mss_cache;
++	trb->mss = tcp_sk(sk)->mss_cache;
++	trb->ssthresh = tcp_current_ssthresh(sk);
++	trb->srtt_us = tcp_sk(sk)->srtt_us >> 3;
++	trb->rto_ms = jiffies_to_msecs(inet_csk(sk)->icsk_rto);
++	trb->life_ms = jiffies_to_msecs(jiffies - sktr->start_ts);
++}
 +
-+	if (skb->protocol == htons(ETH_P_IP))
-+		proto = ip_hdr(skb)->protocol;
-+	else if (skb->protocol == htons(ETH_P_IPV6))
-+		proto = ipv6_hdr(skb)->nexthdr;
++static void tcp_trace_basic_add(enum tcp_trace_events trev, struct sock *sk)
++{
++	struct ring_buffer *buffer;
++	int pc;
++	struct ring_buffer_event *event;
++	struct tcp_trace_basic *trb;
++	struct tcp_sk_trace *sktr = tcp_sk(sk)->trace;
 +
-+	if (proto == IPPROTO_TCP)
-+		hlen += tcp_hdr(skb)->doff * 4;
-+	else if (proto == IPPROTO_UDP)
-+		hlen += sizeof(struct udphdr);
-+	else {
-+		pr_err("vnet_handle_offloads GSO with unknown transport "
-+		       "protocol %d tproto %d\n", skb->protocol, proto);
-+		hlen = 128; /* XXX */
-+	}
-+	datalen = port->tsolen - hlen;
++	if (!sktr)
++		return;
 +
-+	gso_size = skb_shinfo(skb)->gso_size;
-+	gso_type = skb_shinfo(skb)->gso_type;
-+	gso_segs = skb_shinfo(skb)->gso_segs;
++	tracing_record_cmdline(current);
++	buffer = tcp_tr->trace_buffer.buffer;
++	pc = preempt_count();
++	event = trace_buffer_lock_reserve(buffer, TRACE_TCP,
++					  sizeof(*trb), 0, pc);
++	if (!event)
++		return;
++	trb = ring_buffer_event_data(event);
++	tcp_trace_basic_init(trb, trev, sk);
++	trace_buffer_unlock_commit(buffer, event, 0, pc);
++}
 +
-+	if (port->tso && gso_size < datalen)
-+		gso_segs = DIV_ROUND_UP(skb->len - hlen, datalen);
- 
--	if (unlikely(vnet_tx_dring_avail(dr) < skb_shinfo(skb)->gso_segs)) {
-+	if (unlikely(vnet_tx_dring_avail(dr) < gso_segs)) {
- 		struct netdev_queue *txq;
- 
- 		txq  = netdev_get_tx_queue(dev, port->q_index);
-@@ -1147,7 +1202,19 @@ static int vnet_handle_offloads(struct vnet_port *port, struct sk_buff *skb)
- 	maclen = skb_network_header(skb) - skb_mac_header(skb);
- 	skb_pull(skb, maclen);
- 
--	segs = skb_gso_segment(skb, dev->features & ~NETIF_F_TSO);
-+	if (port->tso && gso_size < datalen) {
-+		/* segment to TSO size */
-+		skb_shinfo(skb)->gso_size = datalen;
-+		skb_shinfo(skb)->gso_segs = gso_segs;
++static void tcp_trace_stats_init(struct tcp_trace_stats *trs,
++				 enum tcp_trace_events trev,
++				 struct sock *sk)
++{
++	struct tcp_sk_trace *sktr = tcp_sk(sk)->trace;
 +
-+		segs = skb_gso_segment(skb, dev->features & ~NETIF_F_TSO);
++	tcp_trace_basic_init((struct tcp_trace_basic *)trs, trev, sk);
++	memcpy(&trs->stats, &sktr->stats, sizeof(sktr->stats));
++}
 +
-+		/* restore gso_size & gso_segs */
-+		skb_shinfo(skb)->gso_size = gso_size;
-+		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len - hlen,
-+							 gso_size);
-+	} else
-+		segs = skb_gso_segment(skb, dev->features & ~NETIF_F_TSO);
- 	if (IS_ERR(segs)) {
- 		dev->stats.tx_dropped++;
- 		return NETDEV_TX_OK;
-@@ -1162,6 +1229,13 @@ static int vnet_handle_offloads(struct vnet_port *port, struct sk_buff *skb)
- 
- 		segs = segs->next;
- 		curr->next = NULL;
-+		if (port->tso && curr->len > dev->mtu) {
-+			skb_shinfo(curr)->gso_size = gso_size;
-+			skb_shinfo(curr)->gso_type = gso_type;
-+			skb_shinfo(curr)->gso_segs = 
-+				DIV_ROUND_UP(curr->len - hlen, gso_size);
-+		} else
-+			skb_shinfo(curr)->gso_size = 0;
- 
- 		skb_push(curr, maclen);
- 		skb_reset_mac_header(curr);
-@@ -1203,13 +1277,13 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		goto out_dropped;
- 	}
- 
--	if (skb_is_gso(skb)) {
-+	if (skb_is_gso(skb) && skb->len > port->tsolen) {
- 		err = vnet_handle_offloads(port, skb);
- 		rcu_read_unlock();
- 		return err;
- 	}
- 
--	if (skb->len > port->rmtu) {
-+	if (!skb_is_gso(skb) && skb->len > port->rmtu) {
- 		unsigned long localmtu = port->rmtu - ETH_HLEN;
- 
- 		if (vio_version_after_eq(&port->vio, 1, 3))
-@@ -1306,6 +1380,11 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		struct vio_net_dext *dext = vio_net_ext(d);
- 
- 		memset(dext, 0, sizeof(*dext));
-+		if (skb_is_gso(port->tx_bufs[txi].skb)) {
-+			dext->ipv4_lso_mss = skb_shinfo(port->tx_bufs[txi].skb)
-+					     ->gso_size;
-+			dext->flags |= VNET_PKT_IPV4_LSO;
++static void tcp_trace_stats_add(enum tcp_trace_events trev, struct sock *sk)
++{
++	struct ring_buffer *buffer;
++	int pc;
++	struct ring_buffer_event *event;
++	struct tcp_trace_stats *trs;
++	struct tcp_sk_trace *sktr = tcp_sk(sk)->trace;
++
++	if (!sktr)
++		return;
++
++	tracing_record_cmdline(current);
++	buffer = tcp_tr->trace_buffer.buffer;
++	pc = preempt_count();
++	event = trace_buffer_lock_reserve(buffer, TRACE_TCP,
++					  sizeof(*trs), 0, pc);
++	if (!event)
++		return;
++	trs = ring_buffer_event_data(event);
++
++	tcp_trace_stats_init(trs, trev, sk);
++
++	trace_buffer_unlock_commit(buffer, event, 0, pc);
++}
++
++static void tcp_trace_established(void *ignore, struct sock *sk)
++{
++	tcp_trace_basic_add(TCP_TRACE_EVENT_ESTABLISHED, sk);
++}
++
++static void tcp_trace_transmit_skb(void *ignore, struct sock *sk,
++				   struct sk_buff *skb)
++{
++	int pcount;
++	struct tcp_sk_trace *sktr;
++	struct tcp_skb_cb *tcb;
++	unsigned int data_len;
++	bool retrans = false;
++
++	sktr = tcp_sk(sk)->trace;
++	if (!sktr)
++		return;
++
++	tcb = TCP_SKB_CB(skb);
++	pcount = tcp_skb_pcount(skb);
++	data_len = tcb->end_seq - tcb->seq;
++
++	sktr->stats.segs_out += pcount;
++
++	if (!data_len)
++		goto out;
++
++	sktr->stats.data_segs_out += pcount;
++	sktr->stats.data_octets_out += data_len;
++
++	if (before(tcb->seq, tcp_sk(sk)->snd_nxt)) {
++		enum tcp_trace_events trev;
++		retrans = true;
++		if (inet_csk(sk)->icsk_ca_state == TCP_CA_Loss) {
++			sktr->stats.loss_segs_retrans += pcount;
++			sktr->stats.loss_octets_retrans += data_len;
++			trev = TCP_TRACE_EVENT_RETRANS_LOSS;
++		} else {
++			sktr->stats.other_segs_retrans += pcount;
++			sktr->stats.other_octets_retrans += data_len;
++			trev = TCP_TRACE_EVENT_RETRANS;
 +		}
- 		if (vio_version_after_eq(&port->vio, 1, 8) &&
- 		    !port->switch_port) {
- 			dext->flags |= VNET_PKT_HCK_IPV4_HDRCKSUM_OK;
-@@ -1712,7 +1791,7 @@ static struct vnet *vnet_new(const u64 *local_mac)
- 	dev->ethtool_ops = &vnet_ethtool_ops;
- 	dev->watchdog_timeo = VNET_TX_TIMEOUT;
- 
--	dev->hw_features = NETIF_F_GSO | NETIF_F_GSO_SOFTWARE |
-+	dev->hw_features = NETIF_F_TSO | NETIF_F_GSO | NETIF_F_GSO_SOFTWARE |
- 			   NETIF_F_HW_CSUM | NETIF_F_SG;
- 	dev->features = dev->hw_features;
- 
-@@ -1892,6 +1971,8 @@ static int vnet_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
- 	if (mdesc_get_property(hp, vdev->mp, "switch-port", NULL) != NULL)
- 		switch_port = 1;
- 	port->switch_port = switch_port;
-+	port->tso = true;
-+	port->tsolen = 0;
- 
- 	spin_lock_irqsave(&vp->lock, flags);
- 	if (switch_port)
-diff --git a/drivers/net/ethernet/sun/sunvnet.h b/drivers/net/ethernet/sun/sunvnet.h
-index cd5d343..01ca781 100644
---- a/drivers/net/ethernet/sun/sunvnet.h
-+++ b/drivers/net/ethernet/sun/sunvnet.h
-@@ -20,6 +20,9 @@
- #define VNET_TX_RING_SIZE		512
- #define VNET_TX_WAKEUP_THRESH(dr)	((dr)->pending / 4)
- 
-+#define	VNET_MINTSO	 2048	/* VIO protocol's minimum TSO len */
-+#define	VNET_MAXTSO	65535	/* VIO protocol's maximum TSO len */
++		tcp_trace_stats_add(trev, sk);
++		return;
++	}
 +
- /* VNET packets are sent in buffers with the first 6 bytes skipped
-  * so that after the ethernet header the IPv4/IPv6 headers are aligned
-  * properly.
-@@ -40,8 +43,9 @@ struct vnet_port {
++out:
++	if (jiffies_to_msecs(jiffies - sktr->last_ts) >=
++	    REPORT_INTERVAL_MS) {
++		sktr->last_ts = jiffies;
++		tcp_trace_stats_add(TCP_TRACE_EVENT_PERIODIC, sk);
++	}
++}
++
++static void tcp_trace_rcv_established(void *ignore, struct sock *sk,
++				      struct sk_buff *skb)
++{
++	struct tcp_sk_trace *sktr;
++	unsigned int data_len;
++	struct tcphdr *th;
++
++	sktr = tcp_sk(sk)->trace;
++	if (!sktr)
++		return;
++
++	th = tcp_hdr(skb);
++	WARN_ON_ONCE(skb->len < th->doff << 2);
++
++	sktr->stats.segs_in++;
++	data_len = skb->len - (th->doff << 2);
++	if (data_len) {
++		if (TCP_SKB_CB(skb)->ack_seq == tcp_sk(sk)->snd_una)
++			sktr->stats.dup_acks_in++;
++	} else {
++		sktr->stats.data_segs_in++;
++		sktr->stats.data_segs_in += data_len;
++	}
++
++	if (jiffies_to_msecs(jiffies - sktr->last_ts) >=
++	    REPORT_INTERVAL_MS) {
++		sktr->last_ts = jiffies;
++		tcp_trace_stats_add(TCP_TRACE_EVENT_PERIODIC, sk);
++	}
++}
++
++static void tcp_trace_close(void *ignore, struct sock *sk)
++{
++	struct tcp_sk_trace *sktr;
++	sktr = tcp_sk(sk)->trace;
++	if (!sktr)
++		return;
++
++	tcp_trace_stats_add(TCP_TRACE_EVENT_CLOSE, sk);
++}
++
++static void tcp_trace_ooo_rcv(void *ignore, struct sock *sk)
++{
++	struct tcp_sk_trace *sktr;
++
++	sktr = tcp_sk(sk)->trace;
++	if (!sktr)
++		return;
++
++	sktr->stats.ooo_in++;
++}
++
++static void tcp_trace_sacks_rcv(void *ignore, struct sock *sk, int num_sacks)
++{
++	struct tcp_sk_trace *sktr;
++
++	sktr = tcp_sk(sk)->trace;
++	if (!sktr)
++		return;
++
++	sktr->stats.sacks_in++;
++	sktr->stats.sack_blks_in += num_sacks;
++}
++
++void tcp_trace_rtt_sample(void *ignore, struct sock *sk,
++			  long rtt_sample_us)
++{
++	struct tcp_sk_trace *sktr;
++        u32 rto_ms;
++
++	sktr = tcp_sk(sk)->trace;
++	if (!sktr)
++		return;
++
++	rto_ms = jiffies_to_msecs(inet_csk(sk)->icsk_rto);
++
++	sktr->stats.rtt_sample_us = rtt_sample_us;
++	sktr->stats.max_rtt_us = max_t(u64, sktr->stats.max_rtt_us, rtt_sample_us);
++	sktr->stats.min_rtt_us = min_t(u64, sktr->stats.min_rtt_us, rtt_sample_us);
++
++	sktr->stats.count_rtt++;
++	sktr->stats.sum_rtt_us += rtt_sample_us;
++
++	sktr->stats.max_rto_ms = max_t(u32, sktr->stats.max_rto_ms, rto_ms);
++	sktr->stats.min_rto_ms = min_t(u32, sktr->stats.min_rto_ms, rto_ms);
++}
++
++static enum print_line_t
++tcp_trace_print(struct trace_iterator *iter)
++{
++	struct trace_seq *s = &iter->seq;
++	struct tcp_trace *tr = (struct tcp_trace *)iter->ent;
++	struct tcp_trace_basic *trb;
++	struct tcp_stats *stats;
++	const char *last_seq_bptr, *cur_seq_bptr;
++	int ret = 0;
++
++	union {
++		struct sockaddr_in v4;
++		struct sockaddr_in6 v6;
++	} local_sa, remote_sa;
++
++	local_sa.v4.sin_port = tr->local_port;
++	remote_sa.v4.sin_port = tr->remote_port;
++	if (tr->ipv6) {
++		local_sa.v6.sin6_family = AF_INET6;
++		remote_sa.v6.sin6_family = AF_INET6;
++		memcpy(local_sa.v6.sin6_addr.s6_addr, tr->local_addr, 4);
++		memcpy(remote_sa.v6.sin6_addr.s6_addr, tr->remote_addr, 4);
++	} else {
++		local_sa.v4.sin_family = AF_INET;
++		remote_sa.v4.sin_family =AF_INET;
++		local_sa.v4.sin_addr.s_addr =  tr->local_addr[0];
++		remote_sa.v4.sin_addr.s_addr = tr->remote_addr[0];
++	}
++
++	last_seq_bptr = ftrace_print_symbols_seq(s, tr->event,
++						tcp_trace_event_names);
++	cur_seq_bptr = trace_seq_buffer_ptr(s);
++	if (last_seq_bptr == cur_seq_bptr)
++		goto out;
++
++	trb = (struct tcp_trace_basic *)tr;
++	ret = trace_seq_printf(s,
++			       " %pISpc %pISpc snd_cwnd=%u mss=%u ssthresh=%u"
++			       " srtt_us=%llu rto_ms=%u life_ms=%u",
++			       &local_sa, &remote_sa,
++			       trb->snd_cwnd, trb->mss, trb->ssthresh,
++			       trb->srtt_us, trb->rto_ms, trb->life_ms);
++
++	if (tr->event == TCP_TRACE_EVENT_ESTABLISHED || ret == 0)
++		goto out;
++
++	stats = &(((struct tcp_trace_stats *)tr)->stats);
++	ret = trace_seq_printf(s,
++		" segs_out=%u data_segs_out=%u data_octets_out=%llu"
++		" other_segs_retrans=%u other_octets_retrans=%u"
++		" loss_segs_retrans=%u loss_octets_retrans=%u"
++		" segs_in=%u data_segs_in=%u data_octets_in=%llu"
++		" max_rtt_us=%llu min_rtt_us=%llu"
++		" count_rtt=%u sum_rtt_us=%llu"
++		" rtt_sample_us=%llu"
++		" max_rto_ms=%u min_rto_ms=%u"
++		" dup_acks_in=%u sacks_in=%u"
++		" sack_blks_in=%u ooo_in=%u",
++		stats->segs_out, stats->data_segs_out, stats->data_octets_out,
++		stats->other_segs_retrans, stats->other_octets_retrans,
++		stats->loss_segs_retrans, stats->loss_octets_retrans,
++		stats->segs_in, stats->data_segs_in, stats->data_octets_in,
++		stats->max_rtt_us, stats->min_rtt_us,
++		stats->count_rtt, stats->sum_rtt_us,
++		stats->rtt_sample_us,
++		stats->max_rto_ms, stats->min_rto_ms,
++		stats->dup_acks_in, stats->sacks_in,
++		stats->sack_blks_in, stats->ooo_in);
++
++out:
++	if (ret)
++		ret = trace_seq_putc(s, '\n');
++
++	return ret ? TRACE_TYPE_HANDLED : TRACE_TYPE_PARTIAL_LINE;
++}
++
++static enum print_line_t
++tcp_trace_print_binary(struct trace_iterator *iter)
++{
++	int ret;
++	struct trace_seq *s = &iter->seq;
++	struct tcp_trace *tr = (struct tcp_trace *)iter->ent;
++	u32 magic = TCP_TRACE_MAGIC_VERSION;
++
++	ret = trace_seq_putmem(s, &magic, sizeof(magic));
++	if (!ret)
++		goto out;
++
++	if (tr->event == TCP_TRACE_EVENT_ESTABLISHED)
++		ret = trace_seq_putmem(s, tr + sizeof(magic),
++					sizeof(struct tcp_trace_basic));
++	else
++		ret = trace_seq_putmem(s, tr + sizeof(magic),
++				       sizeof(struct tcp_trace_stats));
++
++out:
++	return ret ? TRACE_TYPE_HANDLED : TRACE_TYPE_PARTIAL_LINE;
++}
++
++static enum print_line_t
++tcp_tracer_print_line(struct trace_iterator *iter)
++{
++	return (trace_flags & TRACE_ITER_BIN) ?
++		tcp_trace_print_binary(iter) :
++		tcp_trace_print(iter);
++}
++
++static void tcp_register_tracepoints(void)
++{
++	int ret;
++
++	ret = register_trace_tcp_established(tcp_trace_established, NULL);
++	WARN_ON(ret);
++	ret = register_trace_tcp_close(tcp_trace_close, NULL);
++	WARN_ON(ret);
++	ret = register_trace_tcp_rcv_established(tcp_trace_rcv_established, NULL);
++	WARN_ON(ret);
++	ret = register_trace_tcp_transmit_skb(tcp_trace_transmit_skb, NULL);
++	WARN_ON(ret);
++	ret = register_trace_tcp_ooo_rcv(tcp_trace_ooo_rcv, NULL);
++	WARN_ON(ret);
++	ret = register_trace_tcp_sacks_rcv(tcp_trace_sacks_rcv, NULL);
++	WARN_ON(ret);
++	ret = register_trace_tcp_rtt_sample(tcp_trace_rtt_sample, NULL);
++	WARN_ON(ret);
++}
++
++static void tcp_unregister_tracepoints(void)
++{
++	unregister_trace_tcp_established(tcp_trace_established, NULL);
++	unregister_trace_tcp_rcv_established(tcp_trace_rcv_established, NULL);
++	unregister_trace_tcp_transmit_skb(tcp_trace_transmit_skb, NULL);
++	unregister_trace_tcp_ooo_rcv(tcp_trace_ooo_rcv, NULL);
++	unregister_trace_tcp_sacks_rcv(tcp_trace_sacks_rcv, NULL);
++	unregister_trace_tcp_rtt_sample(tcp_trace_rtt_sample, NULL);
++
++	tracepoint_synchronize_unregister();
++}
++
++static void tcp_tracer_start(struct trace_array *tr)
++{
++	tcp_register_tracepoints();
++	tcp_trace_enabled = true;
++}
++
++static void tcp_tracer_stop(struct trace_array *tr)
++{
++	tcp_unregister_tracepoints();
++	tcp_trace_enabled = false;
++}
++
++static void tcp_tracer_reset(struct trace_array *tr)
++{
++	tcp_tracer_stop(tr);
++}
++
++static int tcp_tracer_init(struct trace_array *tr)
++{
++	tcp_tr = tr;
++	tcp_tracer_start(tr);
++	return 0;
++}
++
++static struct tracer tcp_tracer __read_mostly = {
++        .name           = "tcp",
++        .init           = tcp_tracer_init,
++        .reset          = tcp_tracer_reset,
++        .start          = tcp_tracer_start,
++        .stop           = tcp_tracer_stop,
++	.print_line	= tcp_tracer_print_line,
++};
++
++static struct trace_event_functions tcp_trace_event_funcs;
++
++static struct trace_event tcp_trace_event = {
++        .type           = TRACE_TCP,
++        .funcs          = &tcp_trace_event_funcs,
++};
++
++static int __init init_tcp_tracer(void)
++{
++        if (!register_ftrace_event(&tcp_trace_event)) {
++                pr_warning("Cannot register TCP trace event\n");
++                return 1;
++        }
++
++        if (register_tracer(&tcp_tracer) != 0) {
++                pr_warning("Cannot register TCP tracer\n");
++                unregister_ftrace_event(&tcp_trace_event);
++                return 1;
++        }
++        return 0;
++}
++
++device_initcall(init_tcp_tracer);
+diff --git a/kernel/trace/trace.h b/kernel/trace/trace.h
+index 385391f..5dc5962 100644
+--- a/kernel/trace/trace.h
++++ b/kernel/trace/trace.h
+@@ -37,6 +37,7 @@ enum trace_type {
+ 	TRACE_USER_STACK,
+ 	TRACE_BLK,
+ 	TRACE_BPUTS,
++	TRACE_TCP,
  
- 	struct hlist_node	hash;
- 	u8			raddr[ETH_ALEN];
--	u8			switch_port;
--	u8			__pad;
-+	unsigned		switch_port:1;
-+	unsigned		tso:1;
-+	unsigned		__pad:14;
- 
- 	struct vnet		*vp;
- 
-@@ -56,6 +60,7 @@ struct vnet_port {
- 	struct timer_list	clean_timer;
- 
- 	u64			rmtu;
-+	u16			tsolen;
- 
- 	struct napi_struct	napi;
- 	u32			napi_stop_idx;
+ 	__TRACE_LAST_TYPE,
+ };
 -- 
-1.7.1
+1.8.1
