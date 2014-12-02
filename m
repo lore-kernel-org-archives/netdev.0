@@ -1,44 +1,43 @@
-From: Eli Cohen <eli@dev.mellanox.co.il>
-Subject: [PATCH net-next 5/9] net/mlx5_core: Print resource number on QP/SRQ async events
-Date: Tue,  2 Dec 2014 12:26:15 +0200
-Message-ID: <1417515979-22418-6-git-send-email-eli@mellanox.com>
+From: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: [PATCH net-next 6/9] net/mlx5_core: Clear outbox of dealloc uar
+Date: Tue,  2 Dec 2014 12:26:16 +0200
+Message-ID: <1417515979-22418-7-git-send-email-eli@mellanox.com>
 References: <1417515979-22418-1-git-send-email-eli@mellanox.com>
-Cc: roland@kernel.org, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, ogerlitz@mellanox.com, amirv@mellanox.com,
-	Eli Cohen <eli@mellanox.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:43904 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754363AbaLBK0m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 05:26:42 -0500
-Received: by mail-wi0-f174.google.com with SMTP id h11so27514347wiw.13
-        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 02:26:41 -0800 (PST)
-In-Reply-To: <1417515979-22418-1-git-send-email-eli@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1417515979-22418-1-git-send-email-eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Useful for debugging purposes.
+From: Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-Signed-off-by: Eli Cohen <eli@mellanox.com>
+The outbox should be cleared before executing the command.
+
+Signed-off-by: Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eq.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/uar.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-index dfd3ad0a39c1..ab684463780b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-@@ -225,8 +225,8 @@ static int mlx5_eq_int(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
- 		case MLX5_EVENT_TYPE_WQ_INVAL_REQ_ERROR:
- 		case MLX5_EVENT_TYPE_WQ_ACCESS_ERROR:
- 			rsn = be32_to_cpu(eqe->data.qp_srq.qp_srq_n) & 0xffffff;
--			mlx5_core_dbg(dev, "event %s(%d) arrived\n",
--				      eqe_type_str(eqe->type), eqe->type);
-+			mlx5_core_dbg(dev, "event %s(%d) arrived on resource 0x%x\n",
-+				      eqe_type_str(eqe->type), eqe->type, rsn);
- 			mlx5_rsc_event(dev, rsn, eqe->type);
- 			break;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/uar.c b/drivers/net/ethernet/mellanox/mlx5/core/uar.c
+index 0a6348cefc01..06801d6f595e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/uar.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/uar.c
+@@ -96,6 +96,7 @@ int mlx5_cmd_free_uar(struct mlx5_core_dev *dev, u32 uarn)
+ 	int err;
  
+ 	memset(&in, 0, sizeof(in));
++	memset(&out, 0, sizeof(out));
+ 	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_DEALLOC_UAR);
+ 	in.uarn = cpu_to_be32(uarn);
+ 	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
 -- 
 2.1.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
