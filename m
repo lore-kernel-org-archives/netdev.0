@@ -1,83 +1,59 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: [PATCH] net: mvneta: fix Tx interrupt delay
-Date: Tue, 2 Dec 2014 08:13:04 +0100
-Message-ID: <20141202071304.GA22512@1wt.eu>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC PATCH] netfilter: conntrack: cache route for forwarded
+ connections
+Date: Tue, 2 Dec 2014 09:15:32 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1412020827260.1593@ja.home.ssi.bg>
+References: <1417480114-3002-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Maggie Mae Roxas <maggie.mae.roxas@gmail.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netfilter-devel@vger.kernel.org, brouer@redhat.com,
+	netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:28715 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752642AbaLBHNH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Dec 2014 02:13:07 -0500
-Content-Disposition: inline
+Received: from ja.ssi.bg ([178.16.129.10]:52314 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754059AbaLBHPt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Dec 2014 02:15:49 -0500
+In-Reply-To: <1417480114-3002-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mvneta driver sets the amount of Tx coalesce packets to 16 by
-default. Normally that does not cause any trouble since the driver
-uses a much larger Tx ring size (532 packets). But some sockets
-might run with very small buffers, much smaller than the equivalent
-of 16 packets. This is what ping is doing for example, by setting
-SNDBUF to 324 bytes rounded up to 2kB by the kernel.
 
-The problem is that there is no documented method to force a specific
-packet to emit an interrupt (eg: the last of the ring) nor is it
-possible to make the NIC emit an interrupt after a given delay.
+	Hello,
 
-In this case, it causes trouble, because when ping sends packets over
-its raw socket, the few first packets leave the system, and the first
-15 packets will be emitted without an IRQ being generated, so without
-the skbs being freed. And since the socket's buffer is small, there's
-no way to reach that amount of packets, and the ping ends up with
-"send: no buffer available" after sending 6 packets. Running with 3
-instances of ping in parallel is enough to hide the problem, because
-with 6 packets per instance, that's 18 packets total, which is enough
-to grant a Tx interrupt before all are sent.
+On Tue, 2 Dec 2014, Florian Westphal wrote:
 
-The original driver in the LSP kernel worked around this design flaw
-by using a software timer to clean up the Tx descriptors. This timer
-was slow and caused terrible network performance on some Tx-bound
-workloads (such as routing) but was enough to make tools like ping
-work correctly.
+> ... to avoid per-packet FIB lookup if possible.
+> 
+> The cached dst is re-used provided the input interface
+> is the same as that of the previous packet in the same direction.
+> 
+> If not, the cached dst is invalidated.
+> 
+> This should speed up forwarding when conntrack is already in use
+> anyway, especially when using reverse path filtering -- active RPF
+> enforces two FIB lookups for each packet.
+> 
+> Before the routing cache removal this didn't matter since RPF
+> was performed only when route cache didn't yield a result; but without
+> route cache it comes at high price.
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
+>  Sending as RFC since I haven't tested this yet (aside from
+>  single-forwarded-flow), so no performance data either.
+> 
+>   - doesn't work when iif changes (it invalidates cached dst), don't
+>   think its a problem
 
-Instead here, we simply set the packet counts before interrupt to 1.
-This ensures that each packet sent will produce an interrupt. NAPI
-takes care of coalescing interrupts since the interrupt is disabled
-once generated.
+	The idea is good. But code that caches dsts should
+also handle at least NETDEV_UNREGISTER (NETDEV_DOWN being
+another option) to release dsts. Holding dsts for frozen
+conns in EST state for long time is a problem. IIRC, such dsts
+are not under dst_dev_event() control. nf_nat_masquerade_ipv4.c
+has something like this but for masq_index.
 
-No measurable performance impact nor CPU usage were observed on small
-nor large packets, including when saturating the link on Tx, and this
-fixes tools like ping which rely on too small a send buffer. If one
-wants to increase this value for certain workloads where it is safe
-to do so, "ethtool -C $dev tx-frames" will override this default
-setting.
+Regards
 
-This fix needs to be applied to stable kernels starting with 3.10.
-
-Tested-By: Maggie Mae Roxas <maggie.mae.roxas@gmail.com>
-Signed-off-by: Willy Tarreau <w@1wt.eu>
-
----
- drivers/net/ethernet/marvell/mvneta.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 4762994..35bfba7 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -214,7 +214,7 @@
- /* Various constants */
- 
- /* Coalescing */
--#define MVNETA_TXDONE_COAL_PKTS		16
-+#define MVNETA_TXDONE_COAL_PKTS		1
- #define MVNETA_RX_COAL_PKTS		32
- #define MVNETA_RX_COAL_USEC		100
- 
--- 
-1.7.12.2.21.g234cd45.dirty
+--
+Julian Anastasov <ja@ssi.bg>
