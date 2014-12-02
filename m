@@ -1,90 +1,115 @@
-From: Andrey Volkov <andrey.volkov@nexvision.fr>
-Subject: [PATCH 1/1] net: dsa: replacing the hard-coded sized array "dsa_switch"
- by dynamic one
-Date: Tue, 02 Dec 2014 15:50:46 +0100
-Message-ID: <547DD1C6.2090304@nexvision.fr>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH net] gso: do GSO for local skb with size bigger than MTU
+Date: Tue, 2 Dec 2014 13:44:26 -0200
+Message-ID: <20141202154425.GA5344@t520.home>
+References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
+ <1417158128.3268.2@smtp.corp.redhat.com>
+ <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "'Jason Wang'" <jasowang@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"fw@strlen.de" <fw@strlen.de>
+To: "Du, Fan" <fan.du@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 15.mo4.mail-out.ovh.net ([91.121.62.11]:48905 "EHLO
-	mo4.mail-out.ovh.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753824AbaLBPfz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 10:35:55 -0500
-Received: from mail178.ha.ovh.net (b9.ovh.net [213.186.33.59])
-	by mo4.mail-out.ovh.net (Postfix) with SMTP id D77C2FF949A
-	for <netdev@vger.kernel.org>; Tue,  2 Dec 2014 15:50:57 +0100 (CET)
+Received: from mx1.redhat.com ([209.132.183.28]:43059 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753603AbaLBPok (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Dec 2014 10:44:40 -0500
+Content-Disposition: inline
+In-Reply-To: <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Sun, Nov 30, 2014 at 10:08:32AM +0000, Du, Fan wrote:
+> 
+> 
+> >-----Original Message-----
+> >From: Jason Wang [mailto:jasowang@redhat.com]
+> >Sent: Friday, November 28, 2014 3:02 PM
+> >To: Du, Fan
+> >Cc: netdev@vger.kernel.org; davem@davemloft.net; fw@strlen.de; Du, Fan
+> >Subject: Re: [PATCH net] gso: do GSO for local skb with size bigger than MTU
+> >
+> >
+> >
+> >On Fri, Nov 28, 2014 at 2:33 PM, Fan Du <fan.du@intel.com> wrote:
+> >> Test scenario: two KVM guests sitting in different hosts communicate
+> >> to each other with a vxlan tunnel.
+> >>
+> >> All interface MTU is default 1500 Bytes, from guest point of view, its
+> >> skb gso_size could be as bigger as 1448Bytes, however after guest skb
+> >> goes through vxlan encapuslation, individual segments length of a gso
+> >> packet could exceed physical NIC MTU 1500, which will be lost at
+> >> recevier side.
+> >>
+> >> So it's possible in virtualized environment, locally created skb len
+> >> after encapslation could be bigger than underlayer MTU. In such case,
+> >> it's reasonable to do GSO first, then fragment any packet bigger than
+> >> MTU as possible.
+> >>
+> >> +---------------+ TX     RX +---------------+
+> >> |   KVM Guest   | -> ... -> |   KVM Guest   |
+> >> +-+-----------+-+           +-+-----------+-+
+> >>   |Qemu/VirtIO|               |Qemu/VirtIO|
+> >>   +-----------+               +-----------+
+> >>        |                            |
+> >>        v tap0                  tap0 v
+> >>   +-----------+               +-----------+
+> >>   | ovs bridge|               | ovs bridge|
+> >>   +-----------+               +-----------+
+> >>        | vxlan                vxlan |
+> >>        v                            v
+> >>   +-----------+               +-----------+
+> >>   |    NIC    |    <------>   |    NIC    |
+> >>   +-----------+               +-----------+
+> >>
+> >> Steps to reproduce:
+> >>  1. Using kernel builtin openvswitch module to setup ovs bridge.
+> >>  2. Runing iperf without -M, communication will stuck.
+> >
+> >Is this issue specific to ovs or ipv4? Path MTU discovery should help in this case I
+> >believe.
+> 
+> Problem here is host stack push local over-sized gso skb down to NIC, and perform GSO there
+> without any further ip segmentation.
+> 
+> Reasonable behavior is do gso first at ip level, if gso-ed skb is bigger than MTU && df is set, 
+> Then push ICMP_DEST_UNREACH/ICMP_FRAG_NEEDED message back to sender to adjust mtu.
+> 
+> For PMTU to work, that's another issue I will try to address later on.
+> 
+> >>
+> >>
+> >> Signed-off-by: Fan Du <fan.du@intel.com>
+> >> ---
+> >>  net/ipv4/ip_output.c |    7 ++++---
+> >>  1 files changed, 4 insertions(+), 3 deletions(-)
+> >>
+> >> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c index
+> >> bc6471d..558b5f8 100644
+> >> --- a/net/ipv4/ip_output.c
+> >> +++ b/net/ipv4/ip_output.c
+> >> @@ -217,9 +217,10 @@ static int ip_finish_output_gso(struct sk_buff
+> >> *skb)
+> >>  	struct sk_buff *segs;
+> >>  	int ret = 0;
+> >>
+> >> -	/* common case: locally created skb or seglen is <= mtu */
+> >> -	if (((IPCB(skb)->flags & IPSKB_FORWARDED) == 0) ||
+> >> -	      skb_gso_network_seglen(skb) <= ip_skb_dst_mtu(skb))
+> >> +	/* Both locally created skb and forwarded skb could exceed
+> >> +	 * MTU size, so make a unified rule for them all.
+> >> +	 */
+> >> +	if (skb_gso_network_seglen(skb) <= ip_skb_dst_mtu(skb))
+> >>  		return ip_finish_output2(skb);
 
-In time of developing one of our devices (with huge, more then 6, number of onboard switches),
-I've bumped with this ancient, I hope, restriction in the 'struct dsa_switch_tree' definition. 
-So this simple patch remove this restriction and make dsa_switch_tree more scalable for 
-the "usual" 1-2 switches configuration too.
 
-P.S. I've plans to fix hardcoded number of ports too, but it is not so easy as with number of switches.
-So if someone have any objections/suggestions I'll happy to discuss them.
+Are you using kernel's vxlan device or openvswitch's vxlan device?
 
-Signed-off-by: Andrey Volkov <andrey.volkov@nexvision.fr>                                                                                                                                                                                    
----                                                                                                                                                                                                                                          
- include/net/dsa.h |    3 +--                                                                                                                                                                                                                
- net/dsa/dsa.c     |    7 +++----                                                                                                                                                                                                            
- 2 files changed, 4 insertions(+), 6 deletions(-)                                                                                                                                                                                            
-                                                                                                                                                                                                                                             
-diff --git a/include/net/dsa.h b/include/net/dsa.h                                                                                                                                                                                           
-index ed3c34b..733db2e 100644                                                                                                                                                                                                                
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -28,7 +28,6 @@ enum dsa_tag_protocol {
-        DSA_TAG_PROTO_BRCM,
- };
- 
--#define DSA_MAX_SWITCHES       4
- #define DSA_MAX_PORTS          12
- 
- struct dsa_chip_data {
-@@ -117,7 +116,7 @@ struct dsa_switch_tree {
-        /*
-         * Data for the individual switch chips.
-         */
--       struct dsa_switch       *ds[DSA_MAX_SWITCHES];
-+       struct dsa_switch       *ds[];
- };
- 
- struct dsa_switch {
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 322c778..c081a19 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -604,8 +604,6 @@ static int dsa_of_probe(struct platform_device *pdev)
-        pdev->dev.platform_data = pd;
-        pd->netdev = &ethernet_dev->dev;
-        pd->nr_chips = of_get_child_count(np);
--       if (pd->nr_chips > DSA_MAX_SWITCHES)
--               pd->nr_chips = DSA_MAX_SWITCHES;
- 
-        pd->chip = kcalloc(pd->nr_chips, sizeof(struct dsa_chip_data),
-                           GFP_KERNEL);
-@@ -717,7 +715,7 @@ static int dsa_probe(struct platform_device *pdev)
-                pd = pdev->dev.platform_data;
-        }
- 
--       if (pd == NULL || pd->netdev == NULL)
-+       if (pd == NULL || pd->netdev == NULL || pd->nr_chips == 0)
-                return -EINVAL;
- 
-        dev = dev_to_net_device(pd->netdev);
-@@ -732,7 +730,8 @@ static int dsa_probe(struct platform_device *pdev)
-                goto out;
-        }
- 
--       dst = kzalloc(sizeof(*dst), GFP_KERNEL);
-+       dst = kzalloc(sizeof(*dst) +
-+                       sizeof(struct dsa_switch *) * pd->nr_chips, GFP_KERNEL);
-        if (dst == NULL) {
-                dev_put(dev);
-                ret = -ENOMEM;
+Because for kernel's vxlan devices the MTU accounts for the header
+overhead so I believe your patch would work.  However, the MTU is
+not visible for the ovs's vxlan devices, so that wouldn't work.
+
+fbl
