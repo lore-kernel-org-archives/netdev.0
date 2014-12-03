@@ -1,57 +1,71 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 6/6] net_sched: cls_cgroup: remove unnecessary if
-Date: Wed, 3 Dec 2014 14:18:15 +0100
-Message-ID: <20141203131815.GF1860@nanopsycho.orion>
+Subject: Re: [patch net-next 3/6] net_sched: cls_bpf: remove faulty use of
+ list_for_each_entry_rcu
+Date: Wed, 3 Dec 2014 14:21:42 +0100
+Message-ID: <20141203132142.GG1860@nanopsycho.orion>
 References: <1417539636-12710-1-git-send-email-jiri@resnulli.us>
- <1417539636-12710-7-git-send-email-jiri@resnulli.us>
- <547F0AFA.7090001@mojatatu.com>
+ <1417539636-12710-4-git-send-email-jiri@resnulli.us>
+ <20141203121949.GA24370@salvia>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:65027 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751149AbaLCNSS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 08:18:18 -0500
-Received: by mail-wg0-f47.google.com with SMTP id n12so19704402wgh.6
-        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 05:18:17 -0800 (PST)
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:48766 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751194AbaLCNVo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 08:21:44 -0500
+Received: by mail-wg0-f45.google.com with SMTP id b13so20052421wgh.18
+        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 05:21:43 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <547F0AFA.7090001@mojatatu.com>
+In-Reply-To: <20141203121949.GA24370@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Dec 03, 2014 at 02:07:06PM CET, jhs@mojatatu.com wrote:
->On 12/02/14 12:00, Jiri Pirko wrote:
->>since head->handle == handle (checked before), just assign handle.
->>
->>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>---
->>  net/sched/cls_cgroup.c | 6 +-----
->>  1 file changed, 1 insertion(+), 5 deletions(-)
->>
->>diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
->>index d61a801..dbee65e 100644
->>--- a/net/sched/cls_cgroup.c
->>+++ b/net/sched/cls_cgroup.c
->>@@ -117,11 +117,7 @@ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
->>  		return -ENOBUFS;
->>
->>  	tcf_exts_init(&new->exts, TCA_CGROUP_ACT, TCA_CGROUP_POLICE);
->>-	if (head)
->>-		new->handle = head->handle;
->>-	else
->>-		new->handle = handle;
->>-
->>+	new->handle = handle;
+Wed, Dec 03, 2014 at 01:19:49PM CET, pablo@netfilter.org wrote:
+>On Tue, Dec 02, 2014 at 06:00:33PM +0100, Jiri Pirko wrote:
+>> rcu variant is not correct here. The code is called by updater (rtnl
+>> lock is held), not by reader (no rcu_read_lock is held).
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
+>>  net/sched/cls_bpf.c | 4 ++--
+>>  1 file changed, 2 insertions(+), 2 deletions(-)
+>> 
+>> diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+>> index cbfaf6f..d0de979 100644
+>> --- a/net/sched/cls_bpf.c
+>> +++ b/net/sched/cls_bpf.c
+>> @@ -141,7 +141,7 @@ static unsigned long cls_bpf_get(struct tcf_proto *tp, u32 handle)
+>>  	if (head == NULL)
+>>  		return 0UL;
+>>  
+>> -	list_for_each_entry_rcu(prog, &head->plist, link) {
+>> +	list_for_each_entry(prog, &head->plist, link) {
+>>  		if (prog->handle == handle) {
+>>  			ret = (unsigned long) prog;
+>>  			break;
+>> @@ -337,7 +337,7 @@ static void cls_bpf_walk(struct tcf_proto *tp, struct tcf_walker *arg)
+>>  	struct cls_bpf_head *head = rtnl_dereference(tp->root);
+>>  	struct cls_bpf_prog *prog;
+>>  
+>> -	list_for_each_entry_rcu(prog, &head->plist, link) {
+>> +	list_for_each_entry(prog, &head->plist, link) {
 >
->
->Hrm. head could be NULL, no?
+>We still need the _rcu here in the walk path. IIRC, this is called from the
+>dump path and we hold no rtnl_lock there.
 
-Sure it can. But that is not a problem. Not sure what you are trying to
-point at...
+It is called from tc_dump_tfilter only. And tc_dump_tfilter is always
+called with rtnl_lock
 
 >
->cheers,
->jamal
->
+>>  		if (arg->count < arg->skip)
+>>  			goto skip;
+>>  		if (arg->fn(tp, (unsigned long) prog, arg) < 0) {
+>> -- 
+>> 1.9.3
+>> 
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
