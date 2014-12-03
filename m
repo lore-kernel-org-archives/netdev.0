@@ -1,91 +1,91 @@
-From: Jeremiah Mahler <jmmahler@gmail.com>
-Subject: Re: linux-next: manual merge of the driver-core tree with the
- net-next tree
-Date: Wed, 3 Dec 2014 00:36:55 -0800
-Message-ID: <20141203083655.GA5418@hudson.localdomain>
-References: <20141201181933.6dfaad66@canb.auug.org.au>
- <547C19ED.10201@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>, Greg KH <greg@kroah.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Felix Fietkau <nbd@openwrt.org>,
-	Ben Greear <greearb@candelatech.com>
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <547C19ED.10201@broadcom.com>
-Sender: linux-next-owner@vger.kernel.org
+From: Zi Shen Lim <zlim.lnx@gmail.com>
+Subject: [PATCH] bpf: arm64: lift restriction on last instruction
+Date: Wed,  3 Dec 2014 00:38:01 -0800
+Message-ID: <1417595881-32218-1-git-send-email-zlim.lnx@gmail.com>
+Cc: Zi Shen Lim <zlim.lnx@gmail.com>,
+	Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-all,
+Earlier implementation assumed last instruction is BPF_EXIT.
+Since this is no longer a restriction in eBPF, we remove this
+limitation.
 
-On Mon, Dec 01, 2014 at 08:34:05AM +0100, Arend van Spriel wrote:
-> On 01-12-14 08:19, Stephen Rothwell wrote:
-> > Hi Greg,
-> > 
-> > Today's linux-next merge of the driver-core tree got a conflict in
-> > drivers/net/wireless/ath/ath9k/debug.c between commits 70e535ed0029
-> > ("ath9k: clean up debugfs print of reset causes"), 7b8aaead958e
-> > ("ath9k: restart hardware after noise floor calibration failure") and
-> > 325e18817668 ("ath9k: fix misc debugfs when not using chan context")
-> > from the net-next tree and commit 631bee257bd5 ("ath: use seq_file api
-> > for ath9k debugfs files") from the driver-core tree.
-> > 
-> > I fixed it up (see below) and can carry the fix as necessary (no action
-> > is required).
-> > 
-> > Greg, I am not sure why those 2 commits are even in your tree.  Do they
-> > depend on something else in your tree?
-> 
-> They do. The three commits below are related:
-> 
-> d32394f ath: ath9k: use debugfs_create_devm_seqfile() helper for
-> seq_file entrie
-> 631bee2 ath: use seq_file api for ath9k debugfs files
-> 98210b7 debugfs: add helper function to create device related seq_file
-> 
-> The ath patches were made to provide example of using the new helper
-> function and get some idea about code savings. Greg and John discussed
-> who would take them. I noticed other ath changes in net-next so I kinda
-> expected this email ;-)
-> 
-> Regards,
-> Arend
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Per Alexei Starovoitov [1]:
+> classic BPF has a restriction that last insn is always BPF_RET.
+> eBPF doesn't have BPF_RET instruction and this restriction.
+> It has BPF_EXIT insn which can appear anywhere in the program
+> one or more times and it doesn't have to be last insn.
 
-I just ran in to a problem with one of these commits.
+[1] https://lkml.org/lkml/2014/11/27/2
 
-On an Acer C720 laptop if a suspend is performed the screen freezes,
-the machine locks up, and according to the indicator lights it does
-not enter suspend.  A hard reset is required to get it running again.
+Fixes: e54bcde3d69d ("arm64: eBPF JIT compiler")
+Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
+---
+ arch/arm64/net/bpf_jit_comp.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
 
-I have bisected the kernel and found that the following is the first bad
-commit.
-
-  commit d32394fae95741d733b174ec1446f27765f80233
-  Author: Arend van Spriel <arend@broadcom.com>
-  Date:   Sun Nov 9 11:32:00 2014 +0100
-  
-      ath: ath9k: use debugfs_create_devm_seqfile() helper for seq_file
-  entries
-      
-      Use the helper to get rid of the file operations per debugfs file.
-  The
-      struct ath9k_softc pointer is set as device driver data to be
-  obtained
-      in the seq_file read operation.
-      
-      Signed-off-by: Arend van Spriel <arend@broadcom.com>
-      Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-
-Let me know if I can do anything else to help.
-
+diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
+index 41f1e3e..edba042 100644
+--- a/arch/arm64/net/bpf_jit_comp.c
++++ b/arch/arm64/net/bpf_jit_comp.c
+@@ -60,7 +60,7 @@ struct jit_ctx {
+ 	const struct bpf_prog *prog;
+ 	int idx;
+ 	int tmp_used;
+-	int body_offset;
++	int epilogue_offset;
+ 	int *offset;
+ 	u32 *image;
+ };
+@@ -130,8 +130,8 @@ static void jit_fill_hole(void *area, unsigned int size)
+ 
+ static inline int epilogue_offset(const struct jit_ctx *ctx)
+ {
+-	int to = ctx->offset[ctx->prog->len - 1];
+-	int from = ctx->idx - ctx->body_offset;
++	int to = ctx->epilogue_offset;
++	int from = ctx->idx;
+ 
+ 	return to - from;
+ }
+@@ -463,6 +463,8 @@ emit_cond_jmp:
+ 	}
+ 	/* function return */
+ 	case BPF_JMP | BPF_EXIT:
++		/* Optimization: when last instruction is EXIT,
++		   simply fallthrough to epilogue. */
+ 		if (i == ctx->prog->len - 1)
+ 			break;
+ 		jmp_offset = epilogue_offset(ctx);
+@@ -685,11 +687,13 @@ void bpf_int_jit_compile(struct bpf_prog *prog)
+ 
+ 	/* 1. Initial fake pass to compute ctx->idx. */
+ 
+-	/* Fake pass to fill in ctx->offset. */
++	/* Fake pass to fill in ctx->offset and ctx->tmp_used. */
+ 	if (build_body(&ctx))
+ 		goto out;
+ 
+ 	build_prologue(&ctx);
++
++	ctx.epilogue_offset = ctx.idx;
+ 	build_epilogue(&ctx);
+ 
+ 	/* Now we know the actual image size. */
+@@ -706,7 +710,6 @@ void bpf_int_jit_compile(struct bpf_prog *prog)
+ 
+ 	build_prologue(&ctx);
+ 
+-	ctx.body_offset = ctx.idx;
+ 	if (build_body(&ctx)) {
+ 		bpf_jit_binary_free(header);
+ 		goto out;
 -- 
-- Jeremiah Mahler
+1.9.1
