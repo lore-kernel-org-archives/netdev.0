@@ -1,76 +1,66 @@
-From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: Re: [PATCH v2 02/19] kbuild: kselftest_install - add a new make target
- to install selftests
-Date: Wed, 03 Dec 2014 07:14:18 -0700
-Message-ID: <547F1ABA.5040601@osg.samsung.com>
-References: <cover.1415735831.git.shuahkh@osg.samsung.com> <a2344d4df903d673afe1631118f40917f773cc9a.1415735831.git.shuahkh@osg.samsung.com> <547C8D81.1030605@suse.cz> <547C99B6.7070903@osg.samsung.com> <547EFD6F.2010204@suse.cz>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: Re: [PATCH net v1 1/2] amd-xgbe: Do not clear interrupt indicator
+Date: Wed, 3 Dec 2014 08:27:58 -0600
+Message-ID: <547F1DEE.2070808@amd.com>
+References: <20141203001642.17582.32777.stgit@tlendack-t1.amdoffice.net>
+ <20141203001648.17582.48766.stgit@tlendack-t1.amdoffice.net>
+ <547EF54B.1050308@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	masami.hiramatsu.pt@hitachi.com,
-	Shuah Khan <shuahkh@osg.samsung.com>
-To: Michal Marek <mmarek@suse.cz>, gregkh@linuxfoundation.org,
-	akpm@linux-foundation.org, davem@davemloft.net,
-	keescook@chromium.org, tranmanphong@gmail.com,
-	dh.herrmann@gmail.com, hughd@google.com, bobby.prani@gmail.com,
-	ebiederm@xmission.com, serge.hallyn@ubuntu.com
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <547EFD6F.2010204@suse.cz>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bn0104.outbound.protection.outlook.com ([157.56.110.104]:9312
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752882AbaLCO2J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Dec 2014 09:28:09 -0500
+In-Reply-To: <547EF54B.1050308@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/03/2014 05:09 AM, Michal Marek wrote:
-> On 2014-12-01 17:39, Shuah Khan wrote:
->> On 12/01/2014 08:47 AM, Michal Marek wrote:
->>> On 2014-11-11 21:27, Shuah Khan wrote:
->>>> diff --git a/Makefile b/Makefile
->>>> index 05d67af..ccbd2e1 100644
->>>> --- a/Makefile
->>>> +++ b/Makefile
->>>> @@ -1071,12 +1071,26 @@ headers_check: headers_install
->>>>  	$(Q)$(MAKE) $(hdr-inst)=arch/$(hdr-arch)/include/uapi/asm $(hdr-dst) HDRCHECK=1
->>>>  
->>>>  # ---------------------------------------------------------------------------
->>>> -# Kernel selftest
->>>> +# Kernel selftest targets
->>>> +
->>>> +PHONY += __kselftest_configure
->>>> +INSTALL_KSFT_PATH=$(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
->>>> +export INSTALL_KSFT_PATH
->>>> +KSELFTEST=$(INSTALL_KSFT_PATH)/kselftest.sh
->>>> +export KSELFTEST
->>>
->>> Can this be moved to tools/testing/selftests/Makefile? It's only used in
->>> this part of the tree.
+On 12/03/2014 05:34 AM, Sergei Shtylyov wrote:
+> Hello.
+>
+> On 12/3/2014 3:16 AM, Tom Lendacky wrote:
+>
+>> The interrupt value within the xgbe_ring_data structure is used as an
+>> indicator of which Rx descriptor should have the INTE bit set to
+>> generate an interrupt when that Rx descriptor is used.  This bit was
+>> mistakenly cleared in the xgbe_unmap_rdata function, effectively
+>
+>     Not xgbe_unmap_skb() (as seems to follow from the patch)?
+
+Yup, I'm mixing up my versions between net-next and net. I'll send
+an updated version with a more appropriate comment.
+
+Thanks,
+Tom
+
+>
+>> nullifying the ethtool rx-frames support.
+>
+>> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+>> ---
+>>   drivers/net/ethernet/amd/xgbe/xgbe-desc.c |    1 -
+>>   1 file changed, 1 deletion(-)
+>
+>> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
+>> b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
+>> index 6fc5da0..43b7d2e 100644
+>> --- a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
+>> +++ b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
+>> @@ -356,7 +356,6 @@ static void xgbe_unmap_skb(struct xgbe_prv_data
+>> *pdata,
 >>
->> I looked into doing that. KERNELRELEASE will have to be exported for
->> tools/testing/selftests/Makefile to use it? Does that sound okay?
-> 
-> In fact, KERNELRELEASE is already exported. So go ahead.
-
-Good.
-
-> 
-> 
->> Also, it might be easier to get this series in, if you can Ack the main
->> Makefile patch (when we are ready i.e), so I can take it through
->> kselftest tree.
-> 
-> Sure. The Makefile change will only consist of redirecting the
-> kselftest_install target to tools/testing/selftests, right?
-> 
-
-Correct. I plan to keep the selftests specific work under the
-selftests related Makefiles.
-
-thanks,
--- Shuah
-
-
--- 
-Shuah Khan
-Sr. Linux Kernel Developer
-Samsung Research America (Silicon Valley)
-shuahkh@osg.samsung.com | (970) 217-8978
+>>       rdata->tso_header = 0;
+>>       rdata->len = 0;
+>> -    rdata->interrupt = 0;
+>>       rdata->mapped_as_page = 0;
+>>
+>>       if (rdata->state_saved) {
+>
+> WBR, Sergei
+>
