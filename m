@@ -1,36 +1,66 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [patch net-next 3/6] net_sched: cls_bpf: remove faulty use of
- list_for_each_entry_rcu
-Date: Thu, 04 Dec 2014 00:15:13 +0100
-Message-ID: <547F9981.8050809@redhat.com>
-References: <1417539636-12710-1-git-send-email-jiri@resnulli.us> <1417539636-12710-4-git-send-email-jiri@resnulli.us> <547F0743.4040301@mojatatu.com> <20141203132635.GH1860@nanopsycho.orion> <547F203A.3080208@mojatatu.com> <20141203152051.GK1860@nanopsycho.orion> <547F7D6D.3000709@mojatatu.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net] Update old iproute2 and Xen Remus links
+Date: Wed, 3 Dec 2014 15:34:02 -0800
+Message-ID: <20141203153402.03406b23@urahara>
+References: <1417644451-7305-1-git-send-email-agshew@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+Cc: linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, corbet@lwn.net, jhs@mojatatu.com,
 	davem@davemloft.net
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36182 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752520AbaLCXPY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Dec 2014 18:15:24 -0500
-In-Reply-To: <547F7D6D.3000709@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Andrew Shewmaker <agshew@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1417644451-7305-1-git-send-email-agshew@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/03/2014 10:15 PM, Jamal Hadi Salim wrote:
-...
-> I am not an rcu officionado. So if the control path is doing a non-rcu
-> get + rcu-del/change (update) then as long as the fastpath is (read)
-> rcu locking we are fine  and nothing will actually happen until the
-> fastpath releases and rcu grace period ends, correct?
+On Wed,  3 Dec 2014 14:07:31 -0800
+Andrew Shewmaker <agshew@gmail.com> wrote:
 
-So if the control path does a list_del_rcu() and call_rcu() under
-lock and iterates over list_for_each_entry{,safe}() [which we do
-in cls_bpf_delete()], while the fast path [cls_bpf_classify()] uses
-a rcu_read_{un,}lock() with *_rcu list iterator, that's fine then,
-as it's still guaranteed to be deleted after the grace period. So
-Jiri's change looks good to me.
+> Signed-off-by: Andrew Shewmaker <agshew@gmail.com>
+> ---
+>  Documentation/Changes | 2 +-
+>  net/sched/Kconfig     | 7 ++++---
+>  2 files changed, 5 insertions(+), 4 deletions(-)
+> 
+> diff --git a/Documentation/Changes b/Documentation/Changes
+> index 1de131b..74bdda9 100644
+> --- a/Documentation/Changes
+> +++ b/Documentation/Changes
+> @@ -383,7 +383,7 @@ o  <http://www.iptables.org/downloads.html>
+>  
+>  Ip-route2
+>  ---------
+> -o  <ftp://ftp.tux.org/pub/net/ip-routing/iproute2-2.2.4-now-ss991023.tar.gz>
+> +o  <https://www.kernel.org/pub/linux/utils/net/iproute2/>
+>  
+>  OProfile
+>  --------
+> diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+> index a1a8e29..d17053d 100644
+> --- a/net/sched/Kconfig
+> +++ b/net/sched/Kconfig
+> @@ -22,8 +22,9 @@ menuconfig NET_SCHED
+>  	  This code is considered to be experimental.
+>  
+>  	  To administer these schedulers, you'll need the user-level utilities
+> -	  from the package iproute2+tc at <ftp://ftp.tux.org/pub/net/ip-routing/>.
+> -	  That package also contains some documentation; for more, check out
+> +	  from the package iproute2+tc at
+> +	  <https://www.kernel.org/pub/linux/utils/net/iproute2/>.  That package
+> +	  also contains some documentation; for more, check out
+>  	  <http://www.linuxfoundation.org/collaborate/workgroups/networking/iproute2>.
+>  
+>  	  This Quality of Service (QoS) support will enable you to use
+> @@ -336,7 +337,7 @@ config NET_SCH_PLUG
+>  	  of virtual machines by allowing the generated network output to be rolled
+>  	  back if needed.
+>  
+> -	  For more information, please refer to http://wiki.xensource.com/xenwiki/Remus
+> +	  For more information, please refer to <http://wiki.xenproject.org/wiki/Remus>
+>  
+>  	  Say Y here if you are using this kernel for Xen dom0 and
+>  	  want to protect Xen guests with Remus.
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+Acked-by: Stephen Hemminger <stephen@networkplumber.org>
