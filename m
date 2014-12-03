@@ -1,48 +1,40 @@
-From: "Du, Fan" <fan.du@intel.com>
-Subject: RE: [PATCH net] gso: do GSO for local skb with size bigger than MTU
-Date: Wed, 3 Dec 2014 06:53:08 +0000
-Message-ID: <5A90DA2E42F8AE43BC4A093BF0678848DEE22D@SHSMSX104.ccr.corp.intel.com>
-References: <5A90DA2E42F8AE43BC4A093BF0678848DEE09A@SHSMSX104.ccr.corp.intel.com>
-	<20141202.203511.1346917579566370675.davem@davemloft.net>
-	<5A90DA2E42F8AE43BC4A093BF0678848DEE0DC@SHSMSX104.ccr.corp.intel.com>
- <20141202.211449.2074426768363313524.davem@davemloft.net>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next] r8152: reduce memory copy for rx
+Date: Wed, 3 Dec 2014 07:05:10 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2ED360A@RTITMBSV03.realtek.com.tw>
+References: <1394712342-15778-105-Taiwan-albertk@realtek.com>
+ <1417586858.5303.118.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"fw@strlen.de" <fw@strlen.de>, "Du, Fan" <fan.du@intel.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:25840 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750896AbaLCGz5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 01:55:57 -0500
-In-Reply-To: <20141202.211449.2074426768363313524.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	nic_swsd <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1417586858.5303.118.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: zh-TW
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Eric Dumazet [mailto:eric.dumazet@gmail.com] 
+> Sent: Wednesday, December 03, 2014 2:08 PM
+[...]
+> Better performance for what workload exactly ?
 
+I test it by using Chariot with 4 Tx and 4 Rx.
+It has about 4% improvement.
 
->-----Original Message-----
->From: David Miller [mailto:davem@davemloft.net]
->Sent: Wednesday, December 3, 2014 1:15 PM
->To: Du, Fan
->Cc: netdev@vger.kernel.org; fw@strlen.de
->Subject: Re: [PATCH net] gso: do GSO for local skb with size bigger than MTU
->
->From: "Du, Fan" <fan.du@intel.com>
->Date: Wed, 3 Dec 2014 04:50:21 +0000
->
->> Do you have any better idea to achieve what you said besides this
->> patch approach without both fragmentation and ICMP message at the same
->> time to cater for all kinds tunnel tech?
->
->I am not obligated to figure out for you how to design a correctly implemented
->patch.
->
->But I am obligated to keep a bad change from going into the tree and that is what I
->am doing.
+> cloning in rx path has many drawbacks, with skb->truesize 
+> being usually wrong.
 
-"bad" is not depending whether you say it or not, but what the real world needs and what
-proper solution could be provided at the time being.
+Excuse me. I find the skb_clone() would copy the
+truesize from original skb. Do you mean the value
+may not be suitable for the cloned skb?
+
+Could other method do the same thing? Or, do you
+think keeping the original one is better?
+ 
+Best Regards,
+Hayes
