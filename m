@@ -1,56 +1,55 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: Re: [PATCH] net: less interrupt masking in NAPI
-Date: Wed, 3 Dec 2014 15:31:50 +0800
-Message-ID: <547EBC66.4040301@huawei.com>
-References: <1414937973.31792.37.camel@edumazet-glaptop2.roam.corp.google.com> <20141103.122538.387451917276174830.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v3] rtnetlink: delay RTM_DELLINK notification
+ until after ndo_uninit()
+Date: Tue, 02 Dec 2014 23:39:17 -0800
+Message-ID: <1417592357.5303.130.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1417591497-24246-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <willemb@google.com>
-To: David Miller <davem@davemloft.net>, <eric.dumazet@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:54299 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750815AbaLCHcG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 02:32:06 -0500
-In-Reply-To: <20141103.122538.387451917276174830.davem@davemloft.net>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:50837 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750707AbaLCHjU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 02:39:20 -0500
+Received: by mail-ig0-f172.google.com with SMTP id hl2so16368557igb.11
+        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 23:39:19 -0800 (PST)
+In-Reply-To: <1417591497-24246-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/11/4 1:25, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Sun, 02 Nov 2014 06:19:33 -0800
-> 
->> From: Eric Dumazet <edumazet@google.com>
->>
->> net_rx_action() can mask irqs a single time to transfert sd->poll_list
->> into a private list, for a very short duration.
->>
->> Then, napi_complete() can avoid masking irqs again,
->> and net_rx_action() only needs to mask irq again in slow path.
->>
->> This patch removes 2 couples of irq mask/unmask per typical NAPI run,
->> more if multiple napi were triggered.
->>
->> Note this also allows to give control back to caller (do_softirq())
->> more often, so that other softirq handlers can be called a bit earlier,
->> or ksoftirqd can be wakeup earlier under pressure.
->>
->> This was developed while testing an alternative to RX interrupt
->> mitigation to reduce latencies while keeping or improving GRO
->> aggregation on fast NIC.
->>
->> Idea is to test napi->gro_list at the end of a napi->poll() and
->> reschedule one NAPI poll, but after servicing a full round of
->> softirqs (timers, TX, rcu, ...). This will be allowed only if softirq
->> is currently serviced by idle task or ksoftirqd, and resched not needed.
->>
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> 
-> Also applied, thanks Eric.
+On Tue, 2014-12-02 at 23:24 -0800, Mahesh Bandewar wrote:
 
-This patch can resolve my performance problem.
-Will/Can this patch queue for stable ?
+> +EXPORT_SYMBOL(rtmsg_ifinfo_build_skb);
+> +
+> +void rtmsg_ifinfo_send(struct sk_buff *skb, struct net_device *dev, gfp_t flags)
+> +{
+> +	struct net *net = dev_net(dev);
+> +
+> +	rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, flags);
+> +}
+> +EXPORT_SYMBOL(rtmsg_ifinfo_send);
+> +
+> +void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
+> +		  gfp_t flags)
+> +{
+> +	struct sk_buff *skb;
+> +
+> +	skb = rtmsg_ifinfo_build_skb(type, dev, change, flags);
+> +	if (skb)
+> +		rtmsg_ifinfo_send(skb, dev, flags);
+>  }
+>  EXPORT_SYMBOL(rtmsg_ifinfo);
 
-Regards,
-Yang
+One last point :
+
+Only rtmsg_ifinfo() needs the EXPORT_SYMBOL(...)
+
+rtmsg_ifinfo_build_skb() and rtmsg_ifinfo_send() are used from core networking stack,
+not a module.
