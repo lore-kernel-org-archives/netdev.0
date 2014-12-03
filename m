@@ -1,44 +1,29 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
-Date: Wed, 3 Dec 2014 13:43:33 +0100
-Message-ID: <547F0575.7010104@broadcom.com>
-References: <53FDACD1.8090805@msgid.tls.msk.ru> <54363ED0.605@broadcom.com> <CACna6rw3XgdJz0uKkAuas8RTzozTdFp2mgF5g1uo7LHJVSMt4g@mail.gmail.com> <3543341.FmUQFH9nrl@eisbaer> <546C5D1F.108@msgid.tls.msk.ru> <546CD94D.9060509@broadcom.com> <546CF66A.3000207@msgid.tls.msk.ru> <546D04EE.1030200@msgid.tls.msk.ru> <5471AC29.6040009@broadcom.com> <5475A2DC.80502@msgid.tls.msk.ru> <547B07CF.90501@broadcom.com> <547E31BD.8090302@msgid.tls.msk.ru>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next 1/6] net_sched: cls_basic: remove unnecessary
+ iteration and use passed arg
+Date: Wed, 03 Dec 2014 07:45:14 -0500
+Message-ID: <547F05DA.7020702@mojatatu.com>
+References: <1417539636-12710-1-git-send-email-jiri@resnulli.us> <1417539636-12710-2-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Maximilian Engelhardt <maxi@daemonizer.de>,
-	=?UTF-8?B?UmFmYcWCIE1pxYJl?= =?UTF-8?B?Y2tp?= <zajec5@gmail.com>,
-	Seth Forshee <seth.forshee@canonical.com>,
-	brcm80211 development <brcm80211-dev-list@broadcom.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Michael Tokarev <mjt@tls.msk.ru>
+Cc: davem@davemloft.net
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:61402 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751537AbaLCMnh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 07:43:37 -0500
-In-Reply-To: <547E31BD.8090302@msgid.tls.msk.ru>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:52090 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752011AbaLCMpQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 07:45:16 -0500
+Received: by mail-ie0-f174.google.com with SMTP id rl12so13576670iec.33
+        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 04:45:16 -0800 (PST)
+In-Reply-To: <1417539636-12710-2-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/02/14 22:40, Michael Tokarev wrote:
-> 30.11.2014 15:04, Arend van Spriel wrote:
->
->> Thanks. Did not find what I was looking for, but I started working on
->> integrating btcoex related functionality. The attached patch will print
->> some info so I can focus on the required functionality for your device.
->> It is based on 3.18-rc5.
->
-> With this patch applied against 3.18-rc5, the machine instantly reboots
-> once brcmsmac module is loaded.  I'm still debugging this.
+On 12/02/14 12:00, Jiri Pirko wrote:
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Argh. Probably the register access I added end up in limbo land or some 
-other stupid mistake. I will double check my patch.
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Regards,
-Arend
-
-> Thanks,
->
-> /mjt
+cheers,
+jamal
