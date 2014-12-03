@@ -1,114 +1,44 @@
-From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net] gso: do GSO for local skb with size
-	bigger than MTU
-Date: Wed, 3 Dec 2014 20:38:59 +0200
-Message-ID: <20141203183859.GB16447@redhat.com>
-References: <1417158128.3268.2@smtp.corp.redhat.com>
- <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com>
- <20141201135225.GA16814@casper.infradead.org>
- <20141202154839.GB5344@t520.home>
- <20141202170927.GA9457@casper.infradead.org>
- <20141202173401.GB4126@redhat.com>
- <20141202174158.GB9457@casper.infradead.org>
- <CAEP_g=-86Z6pxNow-wjnbx_v9er_TSn6x5waigqVqYHa7tEQJw@mail.gmail.com>
- <20141203090339.GA9299@redhat.com>
- <CAEP_g=9C+D3gbjJ4n1t6xuyjqEAMYi4ZfqPoe92UAoQJH-UsKg@mail.gmail.com>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [PATCHv11 net-next 2/2] openvswitch: Add support for unique flow IDs.
+Date: Wed, 3 Dec 2014 10:47:26 -0800
+Message-ID: <CANr6G5z-kokWkBs3bb=bXrBmBUhaqHKH1QfeXycFWxSNf00qFw@mail.gmail.com>
+References: <1417575363-13770-1-git-send-email-joestringer@nicira.com> <1417575363-13770-2-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "Du, Fan" <fan.du-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- "fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org" <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=9C+D3gbjJ4n1t6xuyjqEAMYi4ZfqPoe92UAoQJH-UsKg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1417575363-13770-2-git-send-email-joestringer@nicira.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCBEZWMgMDMsIDIwMTQgYXQgMTA6MDc6NDJBTSAtMDgwMCwgSmVzc2UgR3Jvc3Mgd3Jv
-dGU6Cj4gT24gV2VkLCBEZWMgMywgMjAxNCBhdCAxOjAzIEFNLCBNaWNoYWVsIFMuIFRzaXJraW4g
-PG1zdEByZWRoYXQuY29tPiB3cm90ZToKPiA+IE9uIFR1ZSwgRGVjIDAyLCAyMDE0IGF0IDEwOjEy
-OjA0QU0gLTA4MDAsIEplc3NlIEdyb3NzIHdyb3RlOgo+ID4+IE9uIFR1ZSwgRGVjIDIsIDIwMTQg
-YXQgOTo0MSBBTSwgVGhvbWFzIEdyYWYgPHRncmFmQHN1dWcuY2g+IHdyb3RlOgo+ID4+ID4gT24g
-MTIvMDIvMTQgYXQgMDc6MzRwbSwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+ID4+ID4+IE9u
-IFR1ZSwgRGVjIDAyLCAyMDE0IGF0IDA1OjA5OjI3UE0gKzAwMDAsIFRob21hcyBHcmFmIHdyb3Rl
-Ogo+ID4+ID4+ID4gT24gMTIvMDIvMTQgYXQgMDE6NDhwbSwgRmxhdmlvIExlaXRuZXIgd3JvdGU6
-Cj4gPj4gPj4gPiA+IFdoYXQgYWJvdXQgY29udGFpbmVycyBvciBhbnkgb3RoZXIgdmlydHVhbGl6
-YXRpb24gZW52aXJvbm1lbnQgdGhhdAo+ID4+ID4+ID4gPiBkb2Vzbid0IHVzZSBWaXJ0aW8/Cj4g
-Pj4gPj4gPgo+ID4+ID4+ID4gVGhlIGhvc3QgY2FuIGRpY3RhdGUgdGhlIE1UVSBpbiB0aGF0IGNh
-c2UgZm9yIGJvdGggdmV0aCBvciBPVlMKPiA+PiA+PiA+IGludGVybmFsIHdoaWNoIHdvdWxkIGJl
-IHByaW1hcnkgY29udGFpbmVyIHBsdW1iaW5nIHRlY2huaXF1ZXMuCj4gPj4gPj4KPiA+PiA+PiBJ
-dCB0eXBpY2FsbHkgY2FuJ3QgZG8gdGhpcyBlYXNpbHkgZm9yIFZNcyB3aXRoIGVtdWxhdGVkIGRl
-dmljZXM6Cj4gPj4gPj4gcmVhbCBldGhlcm5ldCB1c2VzIGEgZml4ZWQgTVRVLgo+ID4+ID4+Cj4g
-Pj4gPj4gSU1ITyBpdCdzIGNvbmZ1c2luZyB0byBzdWdnZXN0IE1UVSBhcyBhIGZpeCBmb3IgdGhp
-cyBidWcsIGl0J3MKPiA+PiA+PiBhbiB1bnJlbGF0ZWQgb3B0aW1pemF0aW9uLgo+ID4+ID4+IElD
-TVBfREVTVF9VTlJFQUNIL0lDTVBfRlJBR19ORUVERUQgaXMgdGhlIHJpZ2h0IGZpeCBoZXJlLgo+
-ID4+ID4KPiA+PiA+IFBNVFUgZGlzY292ZXJ5IG9ubHkgcmVzb2x2ZXMgdGhlIGlzc3VlIGlmIGFu
-IGFjdHVhbCBJUCBzdGFjayBpcwo+ID4+ID4gcnVubmluZyBpbnNpZGUgdGhlIFZNLiBUaGlzIG1h
-eSBub3QgYmUgdGhlIGNhc2UgYXQgYWxsLgo+ID4+Cj4gPj4gSXQncyBhbHNvIG9ubHkgcmVhbGx5
-IGEgY29ycmVjdCB0aGluZyB0byBkbyBpZiB0aGUgSUNNUCBwYWNrZXQgaXMKPiA+PiBjb21pbmcg
-ZnJvbSBhbiBMMyBub2RlLiBJZiB5b3UgYXJlIGRvaW5nIHN0cmFpZ2h0IGJyaWRnaW5nIHRoZW4g
-eW91Cj4gPj4gaGF2ZSB0byByZXNvcnQgdG8gaGFja3MgbGlrZSBPVlMgaGFkIGJlZm9yZSwgd2hp
-Y2ggSSBhZ3JlZSBhcmUgbm90Cj4gPj4gcGFydGljdWxhcmx5IGRlc2lyYWJsZS4KPiA+Cj4gPiBU
-aGUgaXNzdWUgc2VlbXMgdG8gYmUgdGhhdCBmdW5kYW1lbnRhbGx5LCB0aGlzIGlzCj4gPiBicmlk
-Z2luZyBpbnRlcmZhY2VzIHdpdGggdmFyaWFibGUgTVRVcyAoZXZlbiBpZiBNVFUgdmFsdWVzCj4g
-PiBvbiBkZXZpY2VzIGRvbid0IGxldCB1cyBmaWd1cmUgdGhpcyBvdXQpLQo+ID4gdGhhdCBpcyBh
-bHJlYWR5IG5vdCBzdHJhaWdodCBicmlkZ2luZywgYW5kCj4gPiBJIHdvdWxkIGFyZ3VlIHNlbmRp
-bmcgSUNNUHMgYmFjayBpcyB0aGUgcmlnaHQgdGhpbmcgdG8gZG8uCj4gCj4gSG93IGRvIHlvdSBk
-ZWFsIHdpdGggdGhlIGZhY3QgdGhhdCB0aGVyZSBpcyBubyBob3N0IElQIHN0YWNrIGluc2lkZQo+
-IHRoZSB0dW5uZWw/IEFuZCBpc24ndCB0aGlzIGV4YWN0bHkgdGhlIHNhbWUgYXMgdGhlIGZvcm1l
-ciBPVlMKPiBpbXBsZW1lbnRhdGlvbiB0aGF0IHlvdSBzYWlkIHlvdSBkaWRuJ3QgbGlrZT8KCkkg
-d2FzIHRhbGtpbmcgYWJvdXQgdGhlIGhpZ2ggbGV2ZWwgcmVxdWlyZW1lbnQsIG5vdCB0aGUgaW1w
-bGVtZW50YXRpb24KaGVyZS4gSSBhZ3JlZSBpdCdzIG5vdCBhdCBhbGwgdHJpdmlhbCwgd2UgbmVl
-ZCB0byBwcm9wYWdhdGUgdGhpcyBhY3Jvc3MKdHVubmVscy4KCkJ1dCBsZXQncyBhZ3JlZSBvbiB3
-aGF0IHdlIGFyZSB0cnlpbmcgdG8gYWNjb21wbGlzaCBmaXJzdC4KCgo+ID4+ID4gSSBhZ3JlZSB0
-aGF0IGV4cG9zaW5nIGFuIE1UVSB0b3dhcmRzIHRoZSBndWVzdCBpcyBub3QgYXBwbGljYWJsZQo+
-ID4+ID4gaW4gYWxsIHNpdHVhdGlvbnMsIGluIHBhcnRpY3VsYXIgYmVjYXVzZSBpdCBpcyBkaWZm
-aWN1bHQgdG8gZGVjaWRlCj4gPj4gPiB3aGF0IE1UVSB0byBleHBvc2UuIEl0IGlzIGEgcmVsYXRp
-dmVseSBlbGVnYW50IHNvbHV0aW9uIGluIGEgbG90Cj4gPj4gPiBvZiB2aXJ0dWFsaXphdGlvbiBo
-b3N0IGNhc2VzIGhvb2tlZCB1cCB0byBhbiBvcmNoZXN0cmF0aW9uIHN5c3RlbQo+ID4+ID4gdGhv
-dWdoLgo+ID4+Cj4gPj4gSSBhbHNvIHRoaW5rIHRoaXMgaXMgdGhlIHJpZ2h0IHRoaW5nIHRvIGRv
-IGFzIGEgY29tbW9uIGNhc2UKPiA+PiBvcHRpbWl6YXRpb24gYW5kIEkga25vdyBvdGhlciBwbGF0
-Zm9ybXMgKHN1Y2ggYXMgSHlwZXItVikgZG8gaXQuIEl0J3MKPiA+PiBub3QgYSBjb21wbGV0ZSBz
-b2x1dGlvbiBzbyB3ZSBzdGlsbCBuZWVkIHRoZSBvcmlnaW5hbCBwYXRjaCBpbiB0aGlzCj4gPj4g
-dGhyZWFkIHRvIGhhbmRsZSB0aGluZ3MgdHJhbnNwYXJlbnRseS4KPiA+Cj4gPiBXZWxsLCBhcyBJ
-IGJlbGlldmUgRGF2aWQgKGFuZCBpbmRlcGVuZGVudGx5IEphc29uKSBpcyBzYXlpbmcsIGl0IGxv
-b2tzIGxpa2UKPiA+IHRoZSBJQ01QcyB3ZSBhcmUgc2VuZGluZyBiYWNrIGFmdGVyIGFwcGx5aW5n
-IHRoZSBvcmlnaW5hbCBwYXRjaCBoYXZlIHRoZQo+ID4gd3JvbmcgTVRVLgo+IAo+IFRoZSBwcm9i
-bGVtIGlzIGFjdHVhbGx5IHRoYXQgdGhlIElDTVAgbWVzc2FnZXMgd29uJ3QgZXZlbiBnbyB0byB0
-aGUKPiBzZW5kaW5nIFZNIGJlY2F1c2UgdGhlIGhvc3QgSVAgc3RhY2sgYW5kIHRoZSBWTSBhcmUg
-aXNvbGF0ZWQgZnJvbSBlYWNoCj4gb3RoZXIgYW5kIHRoZXJlIGlzIG5vIHJvdXRlLgoKRXhhY3Rs
-eS4KQnV0IGFsbCB0aGlzIGlzIHRhbGtpbmcgYWJvdXQgaW1wbGVtZW50YXRpb24uCgpMZXQncyBh
-Z3JlZSBvbiB3aGF0IHdlIHdhbnQgdG8gZG8gZmlyc3QuCgpBbmQgaW4gbXkgbWluZCwgd2UgdHlw
-aWNhbGx5IHdhbnQgb3JpZ2luYXRvciB0byBhZGp1c3QgaXRzIFBNVFUsCmp1c3QgZm9yIGEgZ2l2
-ZW4gZGVzdGluYXRpb24uClNlbmRpbmcgSUNNUCB0byBvcmlnaW5hdGluZyBWTSB3aWxsIHR5cGlj
-YWxseSBhY2NvbXBsaXNoIHRoaXMuCgoKCgo+ID4gQW5kIGlmIEkgdW5kZXJzdGFuZCB3aGF0IERh
-dmlkIGlzIHNheWluZyBoZXJlLCBJUCBpcyBhbHNvIHRoZSB3cm9uZyBwbGFjZSB0bwo+ID4gZG8g
-aXQuCj4gCj4gSUNNUCBjYW4ndCBiZSB0aGUgY29tcGxldGUgc29sdXRpb24gaW4gYW55IGNhc2Ug
-YmVjYXVzZSBpdCBvbmx5IHdvcmtzCj4gZm9yIElQIHRyYWZmaWMuCgpMZXQncyBiZSBzcGVjaWZp
-YyBwbGVhc2UuICBXaGF0IHByb3RvY29scyBkbyB5b3UgbW9zdCBjYXJlIGFib3V0PyBJUFg/Cgo+
-IEkgdGhpbmsgdGhlcmUgYXJlIG9ubHkgdHdvIGZ1bGwgc29sdXRpb25zOiBmaW5kIGEgd2F5Cj4g
-dG8gYWRqdXN0IHRoZSBndWVzdCBNVFUgdG8gdGhlIG1pbmltdW0gTVRVIHRoYXQgaXRzIHRyYWZm
-aWMgY291bGQgaGl0Cj4gaW4gYW4gTDIgZG9tYWluIG9yIGZyYWdtZW50YXRpb24uIElDTVAgY291
-bGQgYmUgYSBwb3NzaWJsZQo+IG9wdGltaXphdGlvbiBpbiB0aGUgZnJhZ21lbnRhdGlvbiBjYXNl
-LgoKQm90aCBhcHByb2FjaGVzIHNlZW0gc3RyYW5nZS4gWW91IGFyZSBzZW5kaW5nIDEgcGFja2V0
-IGFuIGhvdXIgdG8Kc29tZSBkZXN0aW5hdGlvbiBiZWhpbmQgMTAwIHR1bm5lbHMuIFdoeSB3b3Vs
-ZCB5b3Ugd2FudCB0bwpjdXQgZG93biB5b3VyIE1UVSBmb3IgYWxsIHBhY2tldHM/IE9uIHRoZSBv
-dGhlciBoYW5kLApkb3VibGluZyB0aGUgYW1vdW50IG9mIHBhY2tldHMgYmVjYXVzZSB5b3VyIE1U
-VSBpcyBvZmYKYnkgYSBjb3VwbGUgb2YgYnl0ZXMgd2lsbCBodXJ0IHBlcmZvcm1hbmNlIHNpZ25p
-ZmljYW50bHkuCgpTdGlsbCwgaWYgeW91IHdhbnQgdG8gY3V0IGRvd24gdGhlIE1UVSB3aXRoaW4g
-Z3Vlc3QsCnRoYXQncyBvbmx5IGFuIGlmY29uZmlnIGF3YXkuCk1vc3QgcGVvcGxlIHdvdWxkIG5v
-dCB3YW50IHRvIGJvdGhlciwgSSB0aGluayBpdCdzIGEgZ29vZAppZGVhIHRvIG1ha2UgUE1UVSB3
-b3JrIHByb3Blcmx5IGZvciB0aGVtLgoKLS0gCk1TVApfX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5v
-cmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+I forgot to mention that this is the first post based against net-next.
+
+On 2 December 2014 at 18:56, Joe Stringer <joestringer@nicira.com> wrote:
+> <....snip...>
+> diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+> index a8b30f3..7f31dbf 100644
+> --- a/net/openvswitch/flow.h
+> +++ b/net/openvswitch/flow.h
+> @@ -197,6 +197,13 @@ struct sw_flow_match {
+>         struct sw_flow_mask *mask;
+>  };
+>
+> +#define MAX_UFID_LENGTH 256
+> +
+> +struct sw_flow_id {
+> +       u32 ufid_len;
+> +       u32 ufid[MAX_UFID_LENGTH / 4];
+> +};
+> +
+>  struct sw_flow_actions {
+>         struct rcu_head rcu;
+>         u32 actions_len;
+
+Pravin, I changed the 'struct sw_flow_id' to the above after feedback
+from the previous round, but it doesn't seem quite right. Is this what
+you meant? Given that current ovs-vswitchd userspace only generates
+128bit UFIDs, it seems wasteful to be allocating so much for this. Did
+you have in mind for this to be united with the unmasked_key?
