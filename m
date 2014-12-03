@@ -1,66 +1,98 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] Update old iproute2 and Xen Remus links
-Date: Wed, 3 Dec 2014 15:34:02 -0800
-Message-ID: <20141203153402.03406b23@urahara>
-References: <1417644451-7305-1-git-send-email-agshew@gmail.com>
+From: vadim4j@gmail.com
+Subject: Re: [PATCH iproute2] ss: Use rtnl_dump_filter in
+ handle_netlink_request
+Date: Thu, 4 Dec 2014 01:28:19 +0200
+Message-ID: <20141203232819.GA12656@angus-think.lan>
+References: <1417531984-3522-1-git-send-email-vadim4j@gmail.com>
+ <20141203092129.49f16769@urahara>
+ <20141203172010.GA8639@angus-think.wlc.globallogic.com>
+ <20141203095123.40429f4c@urahara>
+ <20141203174506.GA12511@angus-think.wlc.globallogic.com>
+ <CAMw6YJ+W0KCvGrfij990+BU2EsW6E4SEWJRsrRgk=vnq-okjzQ@mail.gmail.com>
+ <20141203150748.001d481e@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, corbet@lwn.net, jhs@mojatatu.com,
-	davem@davemloft.net
-To: Andrew Shewmaker <agshew@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417644451-7305-1-git-send-email-agshew@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f41.google.com ([209.85.215.41]:53043 "EHLO
+	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751391AbaLCXiD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 18:38:03 -0500
+Received: by mail-la0-f41.google.com with SMTP id hv19so8778072lab.0
+        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 15:38:01 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20141203150748.001d481e@urahara>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed,  3 Dec 2014 14:07:31 -0800
-Andrew Shewmaker <agshew@gmail.com> wrote:
-
-> Signed-off-by: Andrew Shewmaker <agshew@gmail.com>
-> ---
->  Documentation/Changes | 2 +-
->  net/sched/Kconfig     | 7 ++++---
->  2 files changed, 5 insertions(+), 4 deletions(-)
+On Wed, Dec 03, 2014 at 03:07:48PM -0800, Stephen Hemminger wrote:
+> On Thu, 4 Dec 2014 00:15:54 +0200
+> Vadim Kochan <vadim4j@gmail.com> wrote:
 > 
-> diff --git a/Documentation/Changes b/Documentation/Changes
-> index 1de131b..74bdda9 100644
-> --- a/Documentation/Changes
-> +++ b/Documentation/Changes
-> @@ -383,7 +383,7 @@ o  <http://www.iptables.org/downloads.html>
->  
->  Ip-route2
->  ---------
-> -o  <ftp://ftp.tux.org/pub/net/ip-routing/iproute2-2.2.4-now-ss991023.tar.gz>
-> +o  <https://www.kernel.org/pub/linux/utils/net/iproute2/>
->  
->  OProfile
->  --------
-> diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-> index a1a8e29..d17053d 100644
-> --- a/net/sched/Kconfig
-> +++ b/net/sched/Kconfig
-> @@ -22,8 +22,9 @@ menuconfig NET_SCHED
->  	  This code is considered to be experimental.
->  
->  	  To administer these schedulers, you'll need the user-level utilities
-> -	  from the package iproute2+tc at <ftp://ftp.tux.org/pub/net/ip-routing/>.
-> -	  That package also contains some documentation; for more, check out
-> +	  from the package iproute2+tc at
-> +	  <https://www.kernel.org/pub/linux/utils/net/iproute2/>.  That package
-> +	  also contains some documentation; for more, check out
->  	  <http://www.linuxfoundation.org/collaborate/workgroups/networking/iproute2>.
->  
->  	  This Quality of Service (QoS) support will enable you to use
-> @@ -336,7 +337,7 @@ config NET_SCH_PLUG
->  	  of virtual machines by allowing the generated network output to be rolled
->  	  back if needed.
->  
-> -	  For more information, please refer to http://wiki.xensource.com/xenwiki/Remus
-> +	  For more information, please refer to <http://wiki.xenproject.org/wiki/Remus>
->  
->  	  Say Y here if you are using this kernel for Xen dom0 and
->  	  want to protect Xen guests with Remus.
+> > I established some simple OpenVPN connection (at least by the logs and
+> > ss I see that peer is connected), but
+> > I dont get any errors with ss.
+> > 
+> > So can you please provide some more info how did you tested this patch
+> > ? I am surprised that this is caused only
+> > by these changes ...
+> > 
+> > On Wed, Dec 3, 2014 at 7:45 PM,  <vadim4j@gmail.com> wrote:
+> > > On Wed, Dec 03, 2014 at 09:51:23AM -0800, Stephen Hemminger wrote:
+> > >> On Wed, 3 Dec 2014 19:20:10 +0200
+> > >> vadim4j@gmail.com wrote:
+> > >>
+> > >> > On Wed, Dec 03, 2014 at 09:21:29AM -0800, Stephen Hemminger wrote:
+> > >> > > On Tue,  2 Dec 2014 16:53:04 +0200
+> > >> > > Vadim Kochan <vadim4j@gmail.com> wrote:
+> > >> > >
+> > >> > > > Replaced handling netlink messages by rtnl_dump_filter
+> > >> > > > from lib/libnetlink.c, also:
+> > >> > > >
+> > >> > > >     - removed unused dump_fp arg;
+> > >> > > >     - added MAGIC_SEQ #define for 123456 seq id
+> > >> > > >
+> > >> > > > Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+> > >> > >
+> > >> > > This doesn't work correctly.
+> > >> > >
+> > >> > > Simple test
+> > >> > >   $ misc/ss >/dev/null
+> > >> > > RTNETLINK answers: No such file or directory
+> > >> > > RTNETLINK answers: No such file or directory
+> > >> > > RTNETLINK answers: No such file or directory
+> > >> >
+> > >> > Just tried, I did not get such errors.
+> > >>
+> > >> I have OpenVPN running.
+> > >
+> > > Hm, it is reproduced only with this patch ?
+> > > If so I will try to setup OpenVPN ... can't imagine how it can be
+> > > related ...
+> 
+> I am running on 3.17.4 kernel if that helps.
 
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+OK, thank you!
+
+I see a reason why it was caused by this patch. So the difference is in
+the way how the libnetlink/rtnl_* and original ss.c handles the
+NLMSG_ERROR, ss.c netlink handler checks errno ENOENT (No such file or directory)
+and silently closes file end returns -1, but rtnl_* prints the error message.
+
+Meanwhile I dont know the real reason why ENOENT error is happaned, may
+be it is OK in context of diagnostic messages. But I grepped over the
+commits and found that this ENOENT checking was added by Eric in:
+
+    commit a3fd8e58c1787af186f5c4b234ff974544f840b6
+    Author: Eric Dumazet <eric.dumazet@gmail.com>
+    Date:   Mon Jan 30 17:05:45 2012 +0100
+
+    ss: should support CONFIG_INET_UDP_DIAG=n kernels
+
+    ss -x currently fails if CONFIG_INET_UDP_DIAG=n or old kernels
+
+    Also close file descriptors while we are at it.
+
+    Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+    Cc: Pavel Emelyanov <xemul@parallels.com>
