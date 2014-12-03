@@ -1,43 +1,73 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next v4] rtnetlink: delay RTM_DELLINK notification
- until after ndo_uninit()
-Date: Wed, 3 Dec 2014 22:25:10 +0000
-Message-ID: <20141203222510.GB8822@casper.infradead.org>
-References: <1417643184-23440-1-git-send-email-maheshb@google.com>
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net] gso: do GSO for local skb with size
+	bigger than MTU
+Date: Thu, 4 Dec 2014 00:50:56 +0200
+Message-ID: <20141203225056.GA17122@redhat.com>
+References: <20141202154839.GB5344@t520.home>
+ <20141202170927.GA9457@casper.infradead.org>
+ <20141202173401.GB4126@redhat.com>
+ <20141202174158.GB9457@casper.infradead.org>
+ <CAEP_g=-86Z6pxNow-wjnbx_v9er_TSn6x5waigqVqYHa7tEQJw@mail.gmail.com>
+ <20141203090339.GA9299@redhat.com>
+ <CAEP_g=9C+D3gbjJ4n1t6xuyjqEAMYi4ZfqPoe92UAoQJH-UsKg@mail.gmail.com>
+ <20141203183859.GB16447@redhat.com>
+ <CAEP_g=_Y2YQg0wDRJLXsNH6p3fOc5G0KSJb12x_b4OE238ophg@mail.gmail.com>
+ <20141203220244.GA8822@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-To: Mahesh Bandewar <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:46242 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751375AbaLCWZO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 17:25:14 -0500
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "Du, Fan" <fan.du-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ "fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org" <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1417643184-23440-1-git-send-email-maheshb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20141203220244.GA8822-FZi0V3Vbi30CUdFEqe4BF2D2FQJk+8+b@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 12/03/14 at 01:46pm, Mahesh Bandewar wrote:
-> The commit 56bfa7ee7c ("unregister_netdevice : move RTM_DELLINK to
-> until after ndo_uninit") tried to do this ealier but while doing so
-> it created a problem. Unfortunately the delayed rtmsg_ifinfo() also
-> delayed call to fill_info(). So this translated into asking driver
-> to remove private state and then query it's private state. This
-> could have catastropic consequences.
-> 
-[...]
-> 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> Reported-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Cc: David S. Miller <davem@davemloft.net>
-
-LGTM, thanks!
-
-Acked-by: Thomas Graf <tgraf@suug.ch>
+T24gV2VkLCBEZWMgMDMsIDIwMTQgYXQgMTA6MDI6NDRQTSArMDAwMCwgVGhvbWFzIEdyYWYgd3Jv
+dGU6Cj4gT24gMTIvMDMvMTQgYXQgMTE6MzhhbSwgSmVzc2UgR3Jvc3Mgd3JvdGU6Cj4gPiBPbiBX
+ZWQsIERlYyAzLCAyMDE0IGF0IDEwOjM4IEFNLCBNaWNoYWVsIFMuIFRzaXJraW4gPG1zdEByZWRo
+YXQuY29tPiB3cm90ZToKPiA+ID4gQm90aCBhcHByb2FjaGVzIHNlZW0gc3RyYW5nZS4gWW91IGFy
+ZSBzZW5kaW5nIDEgcGFja2V0IGFuIGhvdXIgdG8KPiA+ID4gc29tZSBkZXN0aW5hdGlvbiBiZWhp
+bmQgMTAwIHR1bm5lbHMuIFdoeSB3b3VsZCB5b3Ugd2FudCB0bwo+ID4gPiBjdXQgZG93biB5b3Vy
+IE1UVSBmb3IgYWxsIHBhY2tldHM/IE9uIHRoZSBvdGhlciBoYW5kLAo+ID4gPiBkb3VibGluZyB0
+aGUgYW1vdW50IG9mIHBhY2tldHMgYmVjYXVzZSB5b3VyIE1UVSBpcyBvZmYKPiA+ID4gYnkgYSBj
+b3VwbGUgb2YgYnl0ZXMgd2lsbCBodXJ0IHBlcmZvcm1hbmNlIHNpZ25pZmljYW50bHkuCj4gPiA+
+Cj4gPiA+IFN0aWxsLCBpZiB5b3Ugd2FudCB0byBjdXQgZG93biB0aGUgTVRVIHdpdGhpbiBndWVz
+dCwKPiA+ID4gdGhhdCdzIG9ubHkgYW4gaWZjb25maWcgYXdheS4KPiA+ID4gTW9zdCBwZW9wbGUg
+d291bGQgbm90IHdhbnQgdG8gYm90aGVyLCBJIHRoaW5rIGl0J3MgYSBnb29kCj4gPiA+IGlkZWEg
+dG8gbWFrZSBQTVRVIHdvcmsgcHJvcGVybHkgZm9yIHRoZW0uCj4gPiAKPiA+IEkgY2FyZSBhYm91
+dCBjb3JyZWN0bmVzcyBmaXJzdCwgd2hpY2ggbWVhbnMgdGhhdCBhbiBFdGhlcm5ldCBsaW5rCj4g
+PiBiZWluZyBleHBvc2VkIHRvIHRoZSBndWVzdCBzaG91bGQgYmVoYXZlIGxpa2UgRXRoZXJuZXQu
+IFNvLCB5ZXMsIElQWAo+ID4gc2hvdWxkIHdvcmsgaWYgc29tZWJvZHkgY2hvb3NlcyB0byBkbyB0
+aGF0Lgo+ID4gCj4gPiBZb3VyIGNvbW1lbnRzIGFyZSBhYm91dCBwZXJmb3JtYW5jZSBvcHRpbWl6
+YXRpb24uIFRoYXQncyBmaW5lIGJ1dAo+ID4gd2l0aG91dCBhIGNvcnJlY3QgYmFzZSB0byBzdGFy
+dCBmcm9tIGl0IHNlZW1zIGxpa2UgcHV0dGluZyB0aGUgY2FydAo+ID4gYmVmb3JlIHRoZSBob3Jz
+ZSBhbmQgaXMgaGFyZCB0byByZWFzb24gYWJvdXQuCj4gCj4gSSBhZ3JlZSB3aXRoIEplc3NlIGlu
+IHBhcnRpY3VsYXIgYWJvdXQgY29ycmVjdG5lcyBidXQgTWljaGFlbCBoYXMgYQo+IHBvaW50ICh3
+aGljaCBJIHRoaW5nIG5vYm9kIG9iamVjdHMgdG8pIHdoaWNoIGlzIHRoYXQgaXQgbWF5IG5vdCBh
+bHdheXMKPiBtYWtlIHNlbnNlIHRvIGZvcmNlIHRoZSBNVFUgb250byB0aGUgZ3Vlc3QuIEl0IGNs
+ZWFybHkgbWFrZXMgc2Vuc2UgZm9yCj4gdGhlIGVkZ2Ugc2VydmVyIGNvbm5lY3RlZCB0byBhbiBv
+dmVybGF5IGJ1dCBpdCBtYXkgbm90IGJlIGlkZWFsIGlmCj4gV0FOIHRyYWZmaWMgaXMgVlhMQU4g
+ZW5jYXBwZWQgYW5kIGxvY2FsIERDIHRyYWZmaWMgaXMgcHV0IG9udG8gYSBWTEFOLgoKQW5kIGl0
+J3Mgbm90IGxpa2UgdHdlYWtpbmcgbG9jYWwgTVRVIGZvciBvbmUgaW50ZXJmYWNlIHdpbGwKbWFn
+aWNhbGx5IGZpeCBldmVyeXRoaW5nLgoKPiBUaGF0IHNhaWQsIEkgdGhpbmsgaXQgaXMgZmFpciB0
+byBhc3N1bWUgdGhhdCB0aGUgaG9zdCBrbm93cyB3aGF0IHJvbGUKPiBpdCBwbGF5cyBhbmQgY2Fu
+IGJlIGNvbmZpZ3VyZWQgYWNjb3JkaW5nbHksIGkuZS4gYSBOZXRsaW5rIEFQSSB3aGljaAo+IGV4
+cG9zZXMgdGhlIGVuY2FwIG92ZXJoZWFkIHNvIGxpYnZpcnQgY2FuIG1heCgpIG92ZXIgaXQgZm9y
+Y2UgaXQgb250bwo+IHRoZSBndWVzdCBvciBzb21ldGhpbmcgYWxvbmcgdGhvc2UgbGluZXMuCgpJ
+J2Qgc2F5IGxldCdzIHRyeSB0byBhdCBsZWFzdCBmaXggSVAgdHJhZmZpYyBwcm9wZXJseS4KCi0t
+IApNU1QKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2
+IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcv
+bWFpbG1hbi9saXN0aW5mby9kZXYK
