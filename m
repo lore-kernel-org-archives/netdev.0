@@ -1,194 +1,128 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH net-next v2] rtnetlink: delay RTM_DELLINK notification until after ndo_uninit()
-Date: Tue,  2 Dec 2014 18:43:37 -0800
-Message-ID: <1417574617-27560-1-git-send-email-maheshb@google.com>
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Mahesh Bandewar <maheshb@google.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f73.google.com ([209.85.218.73]:50954 "EHLO
-	mail-oi0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750969AbaLCCnl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 21:43:41 -0500
-Received: by mail-oi0-f73.google.com with SMTP id a141so1585595oig.4
-        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 18:43:41 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCHv11 net-next 1/2] openvswitch: Refactor
+	ovs_nla_fill_match().
+Date: Tue,  2 Dec 2014 18:56:02 -0800
+Message-ID: <1417575363-13770-1-git-send-email-joestringer@nicira.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-The commit 56bfa7ee7c ("unregister_netdevice : move RTM_DELLINK to
-until after ndo_uninit") tried to do this ealier but while doing so
-it created a problem. Unfortunately the delayed rtmsg_ifinfo() also
-delayed call to fill_info(). So this translated into asking driver
-to remove private state and then query it's private state. This
-could have catastropic consequences.
-
-This change breaks the rtmsg_ifinfo() into two parts - one takes the
-precise snapshot of the device by called fill_info() before calling
-the ndo_uninit() and the second part sends the notification using
-collected snapshot.
-
-It was brought to notice when last link is deleted from an ipvlan device
-when it has free-ed the port and the subsequent .fill_info() call is
-trying to get the info from the port.
-
-kernel: [  255.139429] ------------[ cut here ]------------
-kernel: [  255.139439] WARNING: CPU: 12 PID: 11173 at net/core/rtnetlink.c:2238 rtmsg_ifinfo+0x100/0x110()
-kernel: [  255.139493] Modules linked in: ipvlan bonding w1_therm ds2482 wire cdc_acm ehci_pci ehci_hcd i2c_dev i2c_i801 i2c_core msr cpuid bnx2x ptp pps_core mdio libcrc32c
-kernel: [  255.139513] CPU: 12 PID: 11173 Comm: ip Not tainted 3.18.0-smp-DEV #167
-kernel: [  255.139514] Hardware name: Intel RML,PCH/Ibis_QC_18, BIOS 1.0.10 05/15/2012
-kernel: [  255.139515]  0000000000000009 ffff880851b6b828 ffffffff815d87f4 00000000000000e0
-kernel: [  255.139516]  0000000000000000 ffff880851b6b868 ffffffff8109c29c 0000000000000000
-kernel: [  255.139518]  00000000ffffffa6 00000000000000d0 ffffffff81aaf580 0000000000000011
-kernel: [  255.139520] Call Trace:
-kernel: [  255.139527]  [<ffffffff815d87f4>] dump_stack+0x46/0x58
-kernel: [  255.139531]  [<ffffffff8109c29c>] warn_slowpath_common+0x8c/0xc0
-kernel: [  255.139540]  [<ffffffff8109c2ea>] warn_slowpath_null+0x1a/0x20
-kernel: [  255.139544]  [<ffffffff8150d570>] rtmsg_ifinfo+0x100/0x110
-kernel: [  255.139547]  [<ffffffff814f78b5>] rollback_registered_many+0x1d5/0x2d0
-kernel: [  255.139549]  [<ffffffff814f79cf>] unregister_netdevice_many+0x1f/0xb0
-kernel: [  255.139551]  [<ffffffff8150acab>] rtnl_dellink+0xbb/0x110
-kernel: [  255.139553]  [<ffffffff8150da90>] rtnetlink_rcv_msg+0xa0/0x240
-kernel: [  255.139557]  [<ffffffff81329283>] ? rhashtable_lookup_compare+0x43/0x80
-kernel: [  255.139558]  [<ffffffff8150d9f0>] ? __rtnl_unlock+0x20/0x20
-kernel: [  255.139562]  [<ffffffff8152cb11>] netlink_rcv_skb+0xb1/0xc0
-kernel: [  255.139563]  [<ffffffff8150a495>] rtnetlink_rcv+0x25/0x40
-kernel: [  255.139565]  [<ffffffff8152c398>] netlink_unicast+0x178/0x230
-kernel: [  255.139567]  [<ffffffff8152c75f>] netlink_sendmsg+0x30f/0x420
-kernel: [  255.139571]  [<ffffffff814e0b0c>] sock_sendmsg+0x9c/0xd0
-kernel: [  255.139575]  [<ffffffff811d1d7f>] ? rw_copy_check_uvector+0x6f/0x130
-kernel: [  255.139577]  [<ffffffff814e11c9>] ? copy_msghdr_from_user+0x139/0x1b0
-kernel: [  255.139578]  [<ffffffff814e1774>] ___sys_sendmsg+0x304/0x310
-kernel: [  255.139581]  [<ffffffff81198723>] ? handle_mm_fault+0xca3/0xde0
-kernel: [  255.139585]  [<ffffffff811ebc4c>] ? destroy_inode+0x3c/0x70
-kernel: [  255.139589]  [<ffffffff8108e6ec>] ? __do_page_fault+0x20c/0x500
-kernel: [  255.139597]  [<ffffffff811e8336>] ? dput+0xb6/0x190
-kernel: [  255.139606]  [<ffffffff811f05f6>] ? mntput+0x26/0x40
-kernel: [  255.139611]  [<ffffffff811d2b94>] ? __fput+0x174/0x1e0
-kernel: [  255.139613]  [<ffffffff814e2129>] __sys_sendmsg+0x49/0x90
-kernel: [  255.139615]  [<ffffffff814e2182>] SyS_sendmsg+0x12/0x20
-kernel: [  255.139617]  [<ffffffff815df092>] system_call_fastpath+0x12/0x17
-kernel: [  255.139619] ---[ end trace 5e6703e87d984f6b ]---
-
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-Report-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>
-Cc: David S. Miller <davem@davemloft.net>
----
-v1:
-	Initial version
-v2:
-	Keep the rtmsg_ifinfo() return type as it is but break the function into
-	two minimizing the changes all over places
-
- include/linux/rtnetlink.h |  5 +++++
- net/core/dev.c            | 12 +++++++++---
- net/core/rtnetlink.c      | 27 +++++++++++++++++++++++----
- 3 files changed, 37 insertions(+), 7 deletions(-)
-
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index 6cacbce1a06c..19dc0bce9c2b 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -17,6 +17,11 @@ extern int rtnl_put_cacheinfo(struct sk_buff *skb, struct dst_entry *dst,
- 			      u32 id, long expires, u32 error);
- 
- void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change, gfp_t flags);
-+struct sk_buff *rtmsg_ifinfo_build_skb(int type, struct net_device *dev,
-+				       unsigned change, gfp_t flags);
-+void rtmsg_ifinfo_send(struct sk_buff *skb, struct net_device *dev,
-+		       gfp_t flags);
-+
- 
- /* RTNL is used as a global lock for all changes to network configuration  */
- extern void rtnl_lock(void);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ac4836241a96..98f6563b68b6 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5925,6 +5925,8 @@ static void rollback_registered_many(struct list_head *head)
- 	synchronize_net();
- 
- 	list_for_each_entry(dev, head, unreg_list) {
-+		struct sk_buff *skb = NULL;
-+
- 		/* Shutdown queueing discipline. */
- 		dev_shutdown(dev);
- 
-@@ -5934,6 +5936,11 @@ static void rollback_registered_many(struct list_head *head)
- 		*/
- 		call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
- 
-+		if (!dev->rtnl_link_ops ||
-+		    dev->rtnl_link_state == RTNL_LINK_INITIALIZED)
-+			skb = rtmsg_ifinfo_build_skb(RTM_DELLINK, dev, ~0U,
-+						     GFP_KERNEL);
-+
- 		/*
- 		 *	Flush the unicast and multicast chains
- 		 */
-@@ -5943,9 +5950,8 @@ static void rollback_registered_many(struct list_head *head)
- 		if (dev->netdev_ops->ndo_uninit)
- 			dev->netdev_ops->ndo_uninit(dev);
- 
--		if (!dev->rtnl_link_ops ||
--		    dev->rtnl_link_state == RTNL_LINK_INITIALIZED)
--			rtmsg_ifinfo(RTM_DELLINK, dev, ~0U, GFP_KERNEL);
-+		if (skb)
-+			rtmsg_ifinfo_send(skb, dev, GFP_KERNEL);
- 
- 		/* Notifier chain MUST detach us all upper devices. */
- 		WARN_ON(netdev_has_any_upper_dev(dev));
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index b9b7dfaf202b..fddddebc1aa6 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2220,8 +2220,16 @@ static int rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb)
- 	return skb->len;
- }
- 
--void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
--		  gfp_t flags)
-+void rtmsg_ifinfo_send(struct sk_buff *skb, struct net_device *dev, gfp_t flags)
-+{
-+	struct net *net = dev_net(dev);
-+
-+	rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, flags);
-+}
-+EXPORT_SYMBOL(rtmsg_ifinfo_send);
-+
-+struct sk_buff *rtmsg_ifinfo_build_skb(int type, struct net_device *dev,
-+				       unsigned int change, gfp_t flags)
- {
- 	struct net *net = dev_net(dev);
- 	struct sk_buff *skb;
-@@ -2239,11 +2247,22 @@ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
- 		kfree_skb(skb);
- 		goto errout;
- 	}
--	rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, flags);
--	return;
-+	return skb;
- errout:
- 	if (err < 0)
- 		rtnl_set_sk_err(net, RTNLGRP_LINK, err);
-+	return NULL;
-+}
-+EXPORT_SYMBOL(rtmsg_ifinfo_build_skb);
-+
-+void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
-+		  gfp_t flags)
-+{
-+	struct sk_buff *skb;
-+
-+	skb = rtmsg_ifinfo_build_skb(type, dev, change, flags);
-+	if (!skb)
-+		rtmsg_ifinfo_send(skb, dev, flags);
- }
- EXPORT_SYMBOL(rtmsg_ifinfo);
- 
--- 
-2.2.0.rc0.207.ga3a616c
+UmVmYWN0b3IgdGhlIG92c19ubGFfZmlsbF9tYXRjaCgpIGZ1bmN0aW9uIGludG8gc2VwYXJhdGUg
+bmV0bGluawpzZXJpYWxpemF0aW9uIGZ1bmN0aW9ucyBvdnNfbmxhX3B1dF97dW5tYXNrZWRfa2V5
+LG1hc2tlZF9rZXksbWFza30oKS4KTW9kaWZ5IG92c19ubGFfcHV0X2Zsb3coKSB0byBoYW5kbGUg
+YXR0cmlidXRlIG5lc3RpbmcgYW5kIGV4cG9zZSB0aGUKJ2lzX21hc2snIHBhcmFtZXRlciAtIGFs
+bCBjYWxsZXJzIG5lZWQgdG8gbmVzdCB0aGUgZmxvdywgYW5kIGNhbGxlcnMKaGF2ZSBiZXR0ZXIg
+a25vd2xlZGdlIGFib3V0IHdoZXRoZXIgaXQgaXMgc2VyaWFsaXppbmcgYSBtYXNrIG9yIG5vdC4K
+VGhlIG5leHQgcGF0Y2ggd2lsbCBiZSB0aGUgZmlyc3QgdXNlciBvZiBvdnNfbmxhX3B1dF9tYXNr
+ZWRfa2V5KCkuCgpTaWduZWQtb2ZmLWJ5OiBKb2UgU3RyaW5nZXIgPGpvZXN0cmluZ2VyQG5pY2ly
+YS5jb20+Ci0tLQp2MTE6IFNoaWZ0IG5ldGxpbmsgc2VyaWFsaXphdGlvbiBvZiBrZXkvbWFzayB0
+byBmbG93X25ldGxpbmsuYwogICAgIEFkZCBwdXRfe3VubWFza2VkX2tleSxrZXksbWFza30gaGVs
+cGVycy4KICAgICBQZXJmb3JtIG5lc3RpbmcgaW4gb3ZzX25sYV9wdXRfZmxvdygpLgp2MTA6IEZp
+cnN0IHBvc3QuCi0tLQogbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMgICAgIHwgICA0MSArKysr
+KystLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KIG5ldC9vcGVudnN3aXRjaC9mbG93X25l
+dGxpbmsuYyB8ICAgNDUgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLQog
+bmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5oIHwgICAgOCArKysrKy0tCiAzIGZpbGVzIGNo
+YW5nZWQsIDU0IGluc2VydGlvbnMoKyksIDQwIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL25l
+dC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jIGIvbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMKaW5k
+ZXggMzMyYjVhMC4uYjJhMzc5NiAxMDA2NDQKLS0tIGEvbmV0L29wZW52c3dpdGNoL2RhdGFwYXRo
+LmMKKysrIGIvbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMKQEAgLTQ2MiwxMCArNDYyLDggQEAg
+c3RhdGljIGludCBxdWV1ZV91c2Vyc3BhY2VfcGFja2V0KHN0cnVjdCBkYXRhcGF0aCAqZHAsIHN0
+cnVjdCBza19idWZmICpza2IsCiAJCQkgICAgIDAsIHVwY2FsbF9pbmZvLT5jbWQpOwogCXVwY2Fs
+bC0+ZHBfaWZpbmRleCA9IGRwX2lmaW5kZXg7CiAKLQlubGEgPSBubGFfbmVzdF9zdGFydCh1c2Vy
+X3NrYiwgT1ZTX1BBQ0tFVF9BVFRSX0tFWSk7Ci0JZXJyID0gb3ZzX25sYV9wdXRfZmxvdyhrZXks
+IGtleSwgdXNlcl9za2IpOworCWVyciA9IG92c19ubGFfcHV0X2Zsb3coa2V5LCBrZXksIE9WU19Q
+QUNLRVRfQVRUUl9LRVksIGZhbHNlLCB1c2VyX3NrYik7CiAJQlVHX09OKGVycik7Ci0JbmxhX25l
+c3RfZW5kKHVzZXJfc2tiLCBubGEpOwogCiAJaWYgKHVwY2FsbF9pbmZvLT51c2VyZGF0YSkKIAkJ
+X19ubGFfcHV0KHVzZXJfc2tiLCBPVlNfUEFDS0VUX0FUVFJfVVNFUkRBVEEsCkBAIC02NzYsMzcg
+KzY3NCw2IEBAIHN0YXRpYyBzaXplX3Qgb3ZzX2Zsb3dfY21kX21zZ19zaXplKGNvbnN0IHN0cnVj
+dCBzd19mbG93X2FjdGlvbnMgKmFjdHMpCiB9CiAKIC8qIENhbGxlZCB3aXRoIG92c19tdXRleCBv
+ciBSQ1UgcmVhZCBsb2NrLiAqLwotc3RhdGljIGludCBvdnNfZmxvd19jbWRfZmlsbF9tYXRjaChj
+b25zdCBzdHJ1Y3Qgc3dfZmxvdyAqZmxvdywKLQkJCQkgICBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQot
+ewotCXN0cnVjdCBubGF0dHIgKm5sYTsKLQlpbnQgZXJyOwotCi0JLyogRmlsbCBmbG93IGtleS4g
+Ki8KLQlubGEgPSBubGFfbmVzdF9zdGFydChza2IsIE9WU19GTE9XX0FUVFJfS0VZKTsKLQlpZiAo
+IW5sYSkKLQkJcmV0dXJuIC1FTVNHU0laRTsKLQotCWVyciA9IG92c19ubGFfcHV0X2Zsb3coJmZs
+b3ctPnVubWFza2VkX2tleSwgJmZsb3ctPnVubWFza2VkX2tleSwgc2tiKTsKLQlpZiAoZXJyKQot
+CQlyZXR1cm4gZXJyOwotCi0JbmxhX25lc3RfZW5kKHNrYiwgbmxhKTsKLQotCS8qIEZpbGwgZmxv
+dyBtYXNrLiAqLwotCW5sYSA9IG5sYV9uZXN0X3N0YXJ0KHNrYiwgT1ZTX0ZMT1dfQVRUUl9NQVNL
+KTsKLQlpZiAoIW5sYSkKLQkJcmV0dXJuIC1FTVNHU0laRTsKLQotCWVyciA9IG92c19ubGFfcHV0
+X2Zsb3coJmZsb3ctPmtleSwgJmZsb3ctPm1hc2stPmtleSwgc2tiKTsKLQlpZiAoZXJyKQotCQly
+ZXR1cm4gZXJyOwotCi0JbmxhX25lc3RfZW5kKHNrYiwgbmxhKTsKLQlyZXR1cm4gMDsKLX0KLQot
+LyogQ2FsbGVkIHdpdGggb3ZzX211dGV4IG9yIFJDVSByZWFkIGxvY2suICovCiBzdGF0aWMgaW50
+IG92c19mbG93X2NtZF9maWxsX3N0YXRzKGNvbnN0IHN0cnVjdCBzd19mbG93ICpmbG93LAogCQkJ
+CSAgIHN0cnVjdCBza19idWZmICpza2IpCiB7CkBAIC03ODcsNyArNzU0LDExIEBAIHN0YXRpYyBp
+bnQgb3ZzX2Zsb3dfY21kX2ZpbGxfaW5mbyhjb25zdCBzdHJ1Y3Qgc3dfZmxvdyAqZmxvdywgaW50
+IGRwX2lmaW5kZXgsCiAKIAlvdnNfaGVhZGVyLT5kcF9pZmluZGV4ID0gZHBfaWZpbmRleDsKIAot
+CWVyciA9IG92c19mbG93X2NtZF9maWxsX21hdGNoKGZsb3csIHNrYik7CisJZXJyID0gb3ZzX25s
+YV9wdXRfdW5tYXNrZWRfa2V5KGZsb3csIHNrYik7CisJaWYgKGVycikKKwkJZ290byBlcnJvcjsK
+KworCWVyciA9IG92c19ubGFfcHV0X21hc2soZmxvdywgc2tiKTsKIAlpZiAoZXJyKQogCQlnb3Rv
+IGVycm9yOwogCmRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMgYi9u
+ZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMKaW5kZXggZGYzYzdmMi4uN2JiNTcxZiAxMDA2
+NDQKLS0tIGEvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jCisrKyBiL25ldC9vcGVudnN3
+aXRjaC9mbG93X25ldGxpbmsuYwpAQCAtMTEzMSwxMiArMTEzMSwxMiBAQCBpbnQgb3ZzX25sYV9n
+ZXRfZmxvd19tZXRhZGF0YShjb25zdCBzdHJ1Y3QgbmxhdHRyICphdHRyLAogCXJldHVybiBtZXRh
+ZGF0YV9mcm9tX25sYXR0cnMoJm1hdGNoLCAmYXR0cnMsIGEsIGZhbHNlLCBsb2cpOwogfQogCi1p
+bnQgb3ZzX25sYV9wdXRfZmxvdyhjb25zdCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKnN3a2V5LAotCQkg
+ICAgIGNvbnN0IHN0cnVjdCBzd19mbG93X2tleSAqb3V0cHV0LCBzdHJ1Y3Qgc2tfYnVmZiAqc2ti
+KQoraW50IF9fb3ZzX25sYV9wdXRfZmxvdyhjb25zdCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKnN3a2V5
+LAorCQkgICAgICAgY29uc3Qgc3RydWN0IHN3X2Zsb3dfa2V5ICpvdXRwdXQsIGJvb2wgaXNfbWFz
+aywKKwkJICAgICAgIHN0cnVjdCBza19idWZmICpza2IpCiB7CiAJc3RydWN0IG92c19rZXlfZXRo
+ZXJuZXQgKmV0aF9rZXk7CiAJc3RydWN0IG5sYXR0ciAqbmxhLCAqZW5jYXA7Ci0JYm9vbCBpc19t
+YXNrID0gKHN3a2V5ICE9IG91dHB1dCk7CiAKIAlpZiAobmxhX3B1dF91MzIoc2tiLCBPVlNfS0VZ
+X0FUVFJfUkVDSVJDX0lELCBvdXRwdXQtPnJlY2lyY19pZCkpCiAJCWdvdG8gbmxhX3B1dF9mYWls
+dXJlOwpAQCAtMTM0Niw2ICsxMzQ2LDQ1IEBAIG5sYV9wdXRfZmFpbHVyZToKIAlyZXR1cm4gLUVN
+U0dTSVpFOwogfQogCitpbnQgb3ZzX25sYV9wdXRfZmxvdyhjb25zdCBzdHJ1Y3Qgc3dfZmxvd19r
+ZXkgKnN3a2V5LAorCQkgICAgIGNvbnN0IHN0cnVjdCBzd19mbG93X2tleSAqb3V0cHV0LCBpbnQg
+YXR0ciwgYm9vbCBpc19tYXNrLAorCQkgICAgIHN0cnVjdCBza19idWZmICpza2IpCit7CisJaW50
+IGVycjsKKwlzdHJ1Y3QgbmxhdHRyICpubGE7CisKKwlubGEgPSBubGFfbmVzdF9zdGFydChza2Is
+IGF0dHIpOworCWlmICghbmxhKQorCQlyZXR1cm4gLUVNU0dTSVpFOworCWVyciA9IF9fb3ZzX25s
+YV9wdXRfZmxvdyhzd2tleSwgb3V0cHV0LCBpc19tYXNrLCBza2IpOworCWlmIChlcnIpCisJCXJl
+dHVybiBlcnI7CisJbmxhX25lc3RfZW5kKHNrYiwgbmxhKTsKKworCXJldHVybiAwOworfQorCisv
+KiBDYWxsZWQgd2l0aCBvdnNfbXV0ZXggb3IgUkNVIHJlYWQgbG9jay4gKi8KK2ludCBvdnNfbmxh
+X3B1dF91bm1hc2tlZF9rZXkoY29uc3Qgc3RydWN0IHN3X2Zsb3cgKmZsb3csIHN0cnVjdCBza19i
+dWZmICpza2IpCit7CisJcmV0dXJuIG92c19ubGFfcHV0X2Zsb3coJmZsb3ctPnVubWFza2VkX2tl
+eSwgJmZsb3ctPnVubWFza2VkX2tleSwKKwkJCQlPVlNfRkxPV19BVFRSX0tFWSwgZmFsc2UsIHNr
+Yik7Cit9CisKKy8qIENhbGxlZCB3aXRoIG92c19tdXRleCBvciBSQ1UgcmVhZCBsb2NrLiAqLwor
+aW50IG92c19ubGFfcHV0X21hc2tlZF9rZXkoY29uc3Qgc3RydWN0IHN3X2Zsb3cgKmZsb3csIHN0
+cnVjdCBza19idWZmICpza2IpCit7CisJcmV0dXJuIG92c19ubGFfcHV0X2Zsb3coJmZsb3ctPm1h
+c2stPmtleSwgJmZsb3ctPmtleSwKKwkJCQlPVlNfRkxPV19BVFRSX0tFWSwgZmFsc2UsIHNrYik7
+Cit9CisKKy8qIENhbGxlZCB3aXRoIG92c19tdXRleCBvciBSQ1UgcmVhZCBsb2NrLiAqLworaW50
+IG92c19ubGFfcHV0X21hc2soY29uc3Qgc3RydWN0IHN3X2Zsb3cgKmZsb3csIHN0cnVjdCBza19i
+dWZmICpza2IpCit7CisJcmV0dXJuIG92c19ubGFfcHV0X2Zsb3coJmZsb3ctPmtleSwgJmZsb3ct
+Pm1hc2stPmtleSwKKwkJCQlPVlNfRkxPV19BVFRSX01BU0ssIHRydWUsIHNrYik7Cit9CisKICNk
+ZWZpbmUgTUFYX0FDVElPTlNfQlVGU0laRQkoMzIgKiAxMDI0KQogCiBzdGF0aWMgc3RydWN0IHN3
+X2Zsb3dfYWN0aW9ucyAqbmxhX2FsbG9jX2Zsb3dfYWN0aW9ucyhpbnQgc2l6ZSwgYm9vbCBsb2cp
+CmRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmggYi9uZXQvb3BlbnZz
+d2l0Y2gvZmxvd19uZXRsaW5rLmgKaW5kZXggNTc3ZjEyYi4uZWE1NDU2NCAxMDA2NDQKLS0tIGEv
+bmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5oCisrKyBiL25ldC9vcGVudnN3aXRjaC9mbG93
+X25ldGxpbmsuaApAQCAtNDMsMTEgKzQzLDE1IEBAIHNpemVfdCBvdnNfa2V5X2F0dHJfc2l6ZSh2
+b2lkKTsKIHZvaWQgb3ZzX21hdGNoX2luaXQoc3RydWN0IHN3X2Zsb3dfbWF0Y2ggKm1hdGNoLAog
+CQkgICAgc3RydWN0IHN3X2Zsb3dfa2V5ICprZXksIHN0cnVjdCBzd19mbG93X21hc2sgKm1hc2sp
+OwogCi1pbnQgb3ZzX25sYV9wdXRfZmxvdyhjb25zdCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKiwKLQkJ
+ICAgICBjb25zdCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKiwgc3RydWN0IHNrX2J1ZmYgKik7CitpbnQg
+b3ZzX25sYV9wdXRfZmxvdyhjb25zdCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKiwgY29uc3Qgc3RydWN0
+IHN3X2Zsb3dfa2V5ICosCisJCSAgICAgaW50IGF0dHIsIGJvb2wgaXNfbWFzaywgc3RydWN0IHNr
+X2J1ZmYgKik7CiBpbnQgb3ZzX25sYV9nZXRfZmxvd19tZXRhZGF0YShjb25zdCBzdHJ1Y3Qgbmxh
+dHRyICosIHN0cnVjdCBzd19mbG93X2tleSAqLAogCQkJICAgICAgYm9vbCBsb2cpOwogCitpbnQg
+b3ZzX25sYV9wdXRfdW5tYXNrZWRfa2V5KGNvbnN0IHN0cnVjdCBzd19mbG93ICpmbG93LCBzdHJ1
+Y3Qgc2tfYnVmZiAqc2tiKTsKK2ludCBvdnNfbmxhX3B1dF9tYXNrZWRfa2V5KGNvbnN0IHN0cnVj
+dCBzd19mbG93ICpmbG93LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKTsKK2ludCBvdnNfbmxhX3B1dF9t
+YXNrKGNvbnN0IHN0cnVjdCBzd19mbG93ICpmbG93LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKTsKKwog
+aW50IG92c19ubGFfZ2V0X21hdGNoKHN0cnVjdCBzd19mbG93X21hdGNoICosIGNvbnN0IHN0cnVj
+dCBubGF0dHIgKmtleSwKIAkJICAgICAgY29uc3Qgc3RydWN0IG5sYXR0ciAqbWFzaywgYm9vbCBs
+b2cpOwogaW50IG92c19ubGFfcHV0X2VncmVzc190dW5uZWxfa2V5KHN0cnVjdCBza19idWZmICos
+Ci0tIAoxLjcuMTAuNAoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3
+aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
