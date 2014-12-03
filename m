@@ -1,54 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v4] rtnetlink: delay RTM_DELLINK notification
- until after ndo_uninit()
-Date: Wed, 03 Dec 2014 14:07:55 -0800
-Message-ID: <1417644475.5303.135.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1417643184-23440-1-git-send-email-maheshb@google.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2] ss: Use rtnl_dump_filter in handle_netlink_request
+Date: Thu, 4 Dec 2014 00:15:54 +0200
+Message-ID: <CAMw6YJ+W0KCvGrfij990+BU2EsW6E4SEWJRsrRgk=vnq-okjzQ@mail.gmail.com>
+References: <1417531984-3522-1-git-send-email-vadim4j@gmail.com>
+	<20141203092129.49f16769@urahara>
+	<20141203172010.GA8639@angus-think.wlc.globallogic.com>
+	<20141203095123.40429f4c@urahara>
+	<20141203174506.GA12511@angus-think.wlc.globallogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-To: Mahesh Bandewar <maheshb@google.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:59203 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751275AbaLCWH5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 17:07:57 -0500
-Received: by mail-ig0-f178.google.com with SMTP id hl2so13611471igb.11
-        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 14:07:57 -0800 (PST)
-In-Reply-To: <1417643184-23440-1-git-send-email-maheshb@google.com>
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:38166 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751334AbaLCWPz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 17:15:55 -0500
+Received: by mail-wg0-f48.google.com with SMTP id y19so21134516wgg.35
+        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 14:15:54 -0800 (PST)
+In-Reply-To: <20141203174506.GA12511@angus-think.wlc.globallogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-12-03 at 13:46 -0800, Mahesh Bandewar wrote:
-> The commit 56bfa7ee7c ("unregister_netdevice : move RTM_DELLINK to
-> until after ndo_uninit") tried to do this ealier but while doing so
-> it created a problem. Unfortunately the delayed rtmsg_ifinfo() also
-> delayed call to fill_info(). So this translated into asking driver
-> to remove private state and then query it's private state. This
-> could have catastropic consequences.
+I established some simple OpenVPN connection (at least by the logs and
+ss I see that peer is connected), but
+I dont get any errors with ss.
 
+So can you please provide some more info how did you tested this patch
+? I am surprised that this is caused only
+by these changes ...
 
-> 
-> This change breaks the rtmsg_ifinfo() into two parts - one takes the
-> precise snapshot of the device by called fill_info() before calling
-> the ndo_uninit() and the second part sends the notification using
-> collected snapshot.
-> 
-> It was brought to notice when last link is deleted from an ipvlan device
-> when it has free-ed the port and the subsequent .fill_info() call is
-> trying to get the info from the port.
-
-
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> Reported-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> ---
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+On Wed, Dec 3, 2014 at 7:45 PM,  <vadim4j@gmail.com> wrote:
+> On Wed, Dec 03, 2014 at 09:51:23AM -0800, Stephen Hemminger wrote:
+>> On Wed, 3 Dec 2014 19:20:10 +0200
+>> vadim4j@gmail.com wrote:
+>>
+>> > On Wed, Dec 03, 2014 at 09:21:29AM -0800, Stephen Hemminger wrote:
+>> > > On Tue,  2 Dec 2014 16:53:04 +0200
+>> > > Vadim Kochan <vadim4j@gmail.com> wrote:
+>> > >
+>> > > > Replaced handling netlink messages by rtnl_dump_filter
+>> > > > from lib/libnetlink.c, also:
+>> > > >
+>> > > >     - removed unused dump_fp arg;
+>> > > >     - added MAGIC_SEQ #define for 123456 seq id
+>> > > >
+>> > > > Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+>> > >
+>> > > This doesn't work correctly.
+>> > >
+>> > > Simple test
+>> > >   $ misc/ss >/dev/null
+>> > > RTNETLINK answers: No such file or directory
+>> > > RTNETLINK answers: No such file or directory
+>> > > RTNETLINK answers: No such file or directory
+>> >
+>> > Just tried, I did not get such errors.
+>>
+>> I have OpenVPN running.
+>
+> Hm, it is reproduced only with this patch ?
+> If so I will try to setup OpenVPN ... can't imagine how it can be
+> related ...
