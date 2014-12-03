@@ -1,86 +1,65 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH iproute2] ip link: Show devices by link type
-Date: Wed, 3 Dec 2014 16:47:25 +0200
-Message-ID: <CAMw6YJKxPK_MKbCdxVwGSBXbZ7MqtXBA3FJ_ovw4-8heB6ci9w@mail.gmail.com>
-References: <1417370335-15772-1-git-send-email-vadim4j@gmail.com>
-	<547E5F90.2060105@cumulusnetworks.com>
-	<20141203011305.GA5945@angus-think.lan>
-	<547F20CA.4060501@cumulusnetworks.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: linux-next Problems with VPN tunnel - no packets sent
+Date: Wed, 03 Dec 2014 09:51:20 -0500
+Message-ID: <7763.1417618280@turing-police.cc.vt.edu>
+References: <17929.1417552899@turing-police.cc.vt.edu>
+            <1417576339.19959.0@smtp.corp.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:50579 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750991AbaLCOr0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 09:47:26 -0500
-Received: by mail-wi0-f174.google.com with SMTP id h11so31599116wiw.13
-        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 06:47:25 -0800 (PST)
-In-Reply-To: <547F20CA.4060501@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; boundary="==_Exmh_1417618280_7177P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: Your message of "Wed, 03 Dec 2014 03:20:19 +0008."
+             <1417576339.19959.0@smtp.corp.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-OK, I can use it)
+--==_Exmh_1417618280_7177P
+Content-Type: text/plain; charset=us-ascii
 
-Thanks,
+On Wed, 03 Dec 2014 03:20:19 +0008, Jason Wang said:
 
-On Wed, Dec 3, 2014 at 4:40 PM, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
-> On 12/2/14, 5:13 PM, vadim4j@gmail.com wrote:
->>
->> On Tue, Dec 02, 2014 at 04:55:44PM -0800, Roopa Prabhu wrote:
->>>>
->>>>         int master;
->>>> +       char *link_kind;
->>>
->>> The name can be just "kind", given all the others dont use the link
->>> prefix
->>>>
->>>>   } filter;
->>
->> OK
->>
->>>> +       if (filter.link_kind && tb[IFLA_LINKINFO]) {
->>>> +               char *link_kind = parse_link_kind(tb[IFLA_LINKINFO]);
->>>> +               if (strcmp(link_kind, filter.link_kind)) {
->>>> +                       return -1;
->>>> +               }
->>>
->>> you can skip the braces
->>>>
->>>> +       } else if (filter.link_kind)
->>>
->>> you have if (filter.link_kind) twice, you can use a single if without the
->>> else.
->>>>
->>>> +               return -1;
->>>> +
->>
->> I need to skip interfaces which has not IFLA_LINKINFO attribute,
->> w/o "else if(...)" I get bridges with normal ether devices:
->>           bash# ip link show type bridge
->>
->>      1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
->> mode DEFAULT group default
->>          link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->>      2: enp0s25: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc
->> pfifo_fast state DOWN mode DEFAULT group default qlen 1000
->>          link/ether XX:XX:XX:XX:XX:XX brd ff:ff:ff:ff:ff:ff
->>      5: br0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
->> DEFAULT group default
->>          link/ether 6e:02:f9:17:7f:10 brd ff:ff:ff:ff:ff:ff
->>
->> but expected result should be only bridges.
+> > Still broken in next-20141201, and bisection fingers this commit:
+> >
+> > commit e0b46d0ee9c240c7430a47e9b0365674d4a04522
+> > Author: Herbert Xu <herbert@gondor.apana.org.au>
+> > Date:   Fri Nov 7 21:22:23 2014 +0800
+> >
+> >     tun: Use iovec iterators
+
+> > What's the best way to proceed?
 >
+> See another fixes from Herbert, it probably fixes your issue:
 >
-> I was just saying, it could be:
->
-> if (filter.link_kind) {
->     if (tb[IFLA_LINKINFO]) {
->         char *kind = parse_link_kind(tb[IFLA_LINKINFO]);
->         if (strcmp(kind, filter.kind))
->             return -1;
->     } else {
->       return -1;
->     }
-> }
+> http://marc.info/?l=linux-netdev&m=141734182302021&w=2
+
+Unfortunately, I'm still seeing the same behavior with that patch
+applied to next-20141201....
+
+
+--==_Exmh_1417618280_7177P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Exmh version 2.5 07/13/2001
+
+iQIVAwUBVH8jaAdmEQWDXROgAQJW0g/+MHfjfND4Q6yMqjZuKgLMT28bkumu1d6s
+nuL9xlBTkX/uXBtKVlki5+ndfGPqitBnFvWG/HoxKMQzarpYEY89j/4s+iAWt/fl
+MPay2LEoFsJPfoCMR1VfXZ9uEvEDk1Wx+StitBcdCqFCbeS9KmvlJk5Qmw92VE5Y
+MElHT7kEcQRwTXRYqfTQyR+orf5Tnc4CE9k5rXWfXiC/owaXQ8771M1qOuvldRAX
+Bogwc9raddYwvJRpJe2BDMdlfmptirnDcRCNUxe1yUoA5YEK0VCR0blQ2KT8/XlE
+uKJu/Zwx7WTb/Ww5Mr1Nk2J2agyB1oJ06YR2J87EF37eWwOJOOXoNcHKUoScxZSZ
+u//A5R5h9EqY+kCTKqzq+h9T3uMyAQ3HUKHZYKnKMtPd14XTyVUMZaCzRFDfI9FE
+qqC5atdaHJvKiLE/R+JACvscxX+gf1rmCkXx/IA+woP0/S1/e/yy623DXZ70nlbV
+dnrBSrO5z/VJPVOpIuvQhnN9p6HBBBizbwMfTOl/GdU7+2SLzrtDE0eggeErPvky
+oep3vM6Z+BCdvBJVdscKkA7/BLM+kgSq9IBIeOPRUdfSqhq1yMLGW2cMBm14rK1g
+uRXvar+VnCFGtp3reiaAPNfdhTELhW3zepqZHlWa3HvH0zabP7e1LMoC+gre0EuT
+dWgTzpCzHTc=
+=Y47g
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1417618280_7177P--
