@@ -1,48 +1,79 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] tcp: Add TCP tracer
-Date: Tue, 2 Dec 2014 17:51:15 -0800
-Message-ID: <20141202175115.53f1f56b@urahara>
-References: <1413837765-5446-1-git-send-email-kafai@fb.com>
-	<1417552662-16398-1-git-send-email-kafai@fb.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the
+ kselftest-fixes tree
+Date: Wed, 3 Dec 2014 12:52:38 +1100
+Message-ID: <20141203125238.48fa7380@canb.auug.org.au>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/+PSmxa3y_RuCJsG7Uphl6rI"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Michael Ellerman <mpe@ellerman.id.au>,
+	stephen hemminger <stephen@networkplumber.org>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Shuah Khan <shuahkh@osg.samsung.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Sig_/+PSmxa3y_RuCJsG7Uphl6rI
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Martin KaFai Lau <kafai@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:46969 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750860AbaLCBv0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 20:51:26 -0500
-Received: by mail-pa0-f47.google.com with SMTP id kq14so14698153pab.20
-        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 17:51:26 -0800 (PST)
-In-Reply-To: <1417552662-16398-1-git-send-email-kafai@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-On Tue, 2 Dec 2014 12:37:42 -0800
-Martin KaFai Lau <kafai@fb.com> wrote:
+Hi all,
 
-> diff --git a/include/uapi/linux/tcp_trace.h b/include/uapi/linux/tcp_trace.h
-> index 2644f7f..d913a3c 100644
-> --- a/include/uapi/linux/tcp_trace.h
-> +++ b/include/uapi/linux/tcp_trace.h
-> @@ -22,11 +22,11 @@ struct tcp_stats {
->  	__u32	other_segs_retrans;
->  	__u32	other_octets_retrans;
->  	__u32	loss_segs_retrans;
-> -	__u32	loss_octects_retrans;
-> +	__u32	loss_octets_retrans;
->  	__u32	segs_in;
->  	__u32	data_segs_in;
-> -	__u64	rtt_sample_us;
->  	__u64	data_octets_in;
-> +	__u64	rtt_sample_us;
->  	__u64	max_rtt_us;
->  	__u64	min_rtt_us;
->  	__u64   sum_rtt_us;
-> @@ -64,9 +64,4 @@ struct tcp_trace_stats {
->          struct tcp_stats stats;
->  } __packed;
+Today's linux-next merge of the net-next tree got a conflict in
+include/uapi/linux/Kbuild between commit 3f4994cfc15f ("kcmp: Move
+kcmp.h into uapi") from the kselftest-fixes tree and commit
+df32dd2054b6 ("uapi: resort Kbuild entries") from the net-next tree.
 
-You can't change exposed kernel API like that.
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc include/uapi/linux/Kbuild
+index d78fecf216bf,a1e8175cc488..000000000000
+--- a/include/uapi/linux/Kbuild
++++ b/include/uapi/linux/Kbuild
+@@@ -211,12 -211,11 +211,12 @@@ header-y +=3D ivtv.
+  header-y +=3D ixjuser.h
+  header-y +=3D jffs2.h
+  header-y +=3D joystick.h
+ +header-y +=3D kcmp.h
+- header-y +=3D kd.h
+  header-y +=3D kdev_t.h
+- header-y +=3D kernel-page-flags.h
+- header-y +=3D kernel.h
++ header-y +=3D kd.h
+  header-y +=3D kernelcapi.h
++ header-y +=3D kernel.h
++ header-y +=3D kernel-page-flags.h
+  header-y +=3D kexec.h
+  header-y +=3D keyboard.h
+  header-y +=3D keyctl.h
+
+--Sig_/+PSmxa3y_RuCJsG7Uphl6rI
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJUfmzwAAoJEMDTa8Ir7ZwVzdEP/R2dC4soe0tC9SXyYdOUzCZe
+/6Ajh6yFu21DHZM5mkaR6DhHSUYWjX1nnUt20VxhueFUhVIe9ImE37dgs7AkNRoU
+fWtBz2tfbklWnleIrbuoarAeVtWdn603O2IV/bari51pbHNGbcHv3FyckHUEEnEo
+8GHtHt7rEAqQ/LStF4tBXtbqoH+NKateRdRf9vV7rgVX+6gRrfIdBglvEGTcME83
+HxUCE8NJA3bkCdaal+PkPP7HDqrNFfnTkT2EsFKaRfFs4YSEy0/6Xx5PLzp6No7a
+FAjmWf8Wxxxn33eJCjUEI9YFpfWYKmITOugtlVMGx8UtfQ6qwVfq0gw6MxR5Ru4D
+vMPzmFs286rQpvyulO44Ns04EFTQYasFHrOj2RWbLhOfO38EqjUK2I1Zo4p6Li+E
+CGe2Njxy5gkiU6DBIMKnakFwBWXrIWnEB7HxvUvcWrcq8QIjqx39udc93nEKqQWz
+rwraArb3JEdCaa6mVchHPfuhsferLIN3xHPPuh30GIqO4k7sOabAi/WR7QiVRhoq
+1ZW6pwHQYtKU3i+7Ik8q70/gGDnK8sidtdBmqumfQvYzh7z+eL72tRtVNTzE6/fw
+QSDK0oPBlwWScyRwKRvsv9s1sFllYoA4F7kf8MXEJZweAtgrKpBAJVWGqb7C+KGU
+TlMKk1LlBj3RS1mab5uL
+=y44f
+-----END PGP SIGNATURE-----
+
+--Sig_/+PSmxa3y_RuCJsG7Uphl6rI--
