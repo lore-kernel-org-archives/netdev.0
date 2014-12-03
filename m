@@ -1,56 +1,38 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: ovs datapath complains on unexpected mask for netlink commands
-Date: Wed, 3 Dec 2014 09:09:09 -0800
-Message-ID: <CAEP_g=_dqDuEaKvSt3CwCXJug6GbHjF4P_HCOX_z1cNQosAORg@mail.gmail.com>
-References: <54775D61.6090300@mellanox.com> <CAEP_g=-g7hH2NtOzdzRMiv+1onk74e0Tny8H0v7zHoqqTvog7Q@mail.gmail.com>
- <CAJ3xEMjL-ngoniJP9Lrw-UYMuHfQsEB8+OoR7W1GRQDD8aOnmw@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] ip monitor: Fixed printing timestamp few times
+Date: Wed, 3 Dec 2014 09:13:38 -0800
+Message-ID: <20141203091338.2d32de2c@urahara>
+References: <1417389262-25189-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Pravin Shelar <pshelar@nicira.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na6sys009bog031.obsmtp.com ([74.125.150.105]:35025 "HELO
-	na6sys009bog031.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750969AbaLCRJb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 12:09:31 -0500
-Received: by mail-qc0-f181.google.com with SMTP id m20so11537600qcx.12
-        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 09:09:30 -0800 (PST)
-In-Reply-To: <CAJ3xEMjL-ngoniJP9Lrw-UYMuHfQsEB8+OoR7W1GRQDD8aOnmw@mail.gmail.com>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:46956 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750877AbaLCRNt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 12:13:49 -0500
+Received: by mail-pd0-f178.google.com with SMTP id g10so15928267pdj.9
+        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 09:13:49 -0800 (PST)
+In-Reply-To: <1417389262-25189-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 3, 2014 at 9:01 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
-> On Tue, Dec 2, 2014 at 1:39 AM, Jesse Gross <jesse@nicira.com> wrote:
->> On Thu, Nov 27, 2014 at 9:20 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
->>> Hi Jesse,
->>>
->>> I am running with net-next as of commit 2ad7bf36 "ipvlan: Initial check-in
->>> [...]"
->>> and user-space OVS v2.0.90 built from the upstream git.
->>>
->>> I suddenly realized that my kernel logs gets filled with the below
->>> prints which effectively take place for each ovs-vsctl command I run...
->>>
->>> openvswitch: netlink: Unexpected mask (mask=1205c, allowed=19805c)
->>> openvswitch: netlink: Unexpected mask (mask=1205c, allowed=19805c)
->>> openvswitch: netlink: Unexpected mask (mask=1205c, allowed=19805c)
->>> openvswitch: netlink: Unexpected mask (mask=1205c, allowed=19805c)
->>> openvswitch: netlink: Unexpected mask (mask=1205c, allowed=19805c)
->>
->> Thanks I see the problem. It looks like Pravin just sent out a patch
->> to fix this issue last night - "[PATCH net] openvswitch: Fix flow mask
->> validation.".
->
-> I see, now (I know the patch wasn't applied yet) on my net clone, the
-> complaint is a bit different...
->
-> openvswitch: netlink: Contain more than allowed mask fields
-> (mask_attrs=1205c, mask_allowed=19805c).
-> openvswitch: netlink: Contain more than allowed mask fields
-> (mask_attrs=19a05c, mask_allowed=19805c).
->
-> so same fix for that too?
+On Mon,  1 Dec 2014 01:14:22 +0200
+Vadim Kochan <vadim4j@gmail.com> wrote:
 
-It's the same problem, only the text string was changed in the meantime.
+> Another fix when timestamp is printed few times
+> before the event message.
+> 
+> Fixed by skipping the message types which are not supported.
+> 
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+
+I don't see how you could get into accept_msg and cause this.
+
+The filtering should already be done by kernel for most things.
+The code already filters TC messages in kernel. Other types
+should be done as well.
+
+Ps: this code is crying to be a switch statement.
