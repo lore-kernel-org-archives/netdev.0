@@ -1,44 +1,32 @@
-From: vadim4j@gmail.com
-Subject: Re: [PATCH iproute2] ss: Use rtnl_dump_filter in
- handle_netlink_request
-Date: Wed, 3 Dec 2014 19:20:10 +0200
-Message-ID: <20141203172010.GA8639@angus-think.wlc.globallogic.com>
-References: <1417531984-3522-1-git-send-email-vadim4j@gmail.com>
- <20141203092129.49f16769@urahara>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next] tc_act: export uapi header file
+Date: Wed, 3 Dec 2014 09:33:17 -0800
+Message-ID: <20141203093317.3c482872@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+To: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:47024 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751556AbaLCRaA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 12:30:00 -0500
-Received: by mail-wi0-f178.google.com with SMTP id em10so5728031wid.17
-        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 09:29:58 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20141203092129.49f16769@urahara>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:63697 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751173AbaLCRd1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 12:33:27 -0500
+Received: by mail-pa0-f46.google.com with SMTP id lj1so16080594pab.19
+        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 09:33:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 03, 2014 at 09:21:29AM -0800, Stephen Hemminger wrote:
-> On Tue,  2 Dec 2014 16:53:04 +0200
-> Vadim Kochan <vadim4j@gmail.com> wrote:
-> 
-> > Replaced handling netlink messages by rtnl_dump_filter
-> > from lib/libnetlink.c, also:
-> > 
-> >     - removed unused dump_fp arg;
-> >     - added MAGIC_SEQ #define for 123456 seq id
-> > 
-> > Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
-> 
-> This doesn't work correctly.
-> 
-> Simple test
->   $ misc/ss >/dev/null
-> RTNETLINK answers: No such file or directory
-> RTNETLINK answers: No such file or directory
-> RTNETLINK answers: No such file or directory
+This file is used by iproute2 and should be exported.
 
-Just tried, I did not get such errors.
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+
+
+--- a/include/uapi/linux/tc_act/Kbuild	2014-02-12 08:21:56.614859066 -0800
++++ b/include/uapi/linux/tc_act/Kbuild	2014-12-03 09:31:10.619225148 -0800
+@@ -7,3 +7,4 @@ header-y += tc_mirred.h
+ header-y += tc_nat.h
+ header-y += tc_pedit.h
+ header-y += tc_skbedit.h
++header-y += tc_vlan.h
