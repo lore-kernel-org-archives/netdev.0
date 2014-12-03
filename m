@@ -1,50 +1,41 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next 6/6] net_sched: cls_cgroup: remove unnecessary
- if
-Date: Wed, 03 Dec 2014 08:07:06 -0500
-Message-ID: <547F0AFA.7090001@mojatatu.com>
-References: <1417539636-12710-1-git-send-email-jiri@resnulli.us> <1417539636-12710-7-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 2/2] rocker: fix eth_type type in struct rocker_ctrl
+Date: Wed,  3 Dec 2014 14:14:54 +0100
+Message-ID: <1417612494-3788-2-git-send-email-jiri@resnulli.us>
+References: <1417612494-3788-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, sfeldma@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:54953 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751149AbaLCNHI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 08:07:08 -0500
-Received: by mail-ie0-f176.google.com with SMTP id tr6so13606203ieb.21
-        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 05:07:08 -0800 (PST)
-In-Reply-To: <1417539636-12710-7-git-send-email-jiri@resnulli.us>
+Received: from mail-wg0-f53.google.com ([74.125.82.53]:46689 "EHLO
+	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751819AbaLCNO7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 08:14:59 -0500
+Received: by mail-wg0-f53.google.com with SMTP id l18so19508875wgh.26
+        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 05:14:57 -0800 (PST)
+In-Reply-To: <1417612494-3788-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/02/14 12:00, Jiri Pirko wrote:
-> since head->handle == handle (checked before), just assign handle.
->
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->   net/sched/cls_cgroup.c | 6 +-----
->   1 file changed, 1 insertion(+), 5 deletions(-)
->
-> diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-> index d61a801..dbee65e 100644
-> --- a/net/sched/cls_cgroup.c
-> +++ b/net/sched/cls_cgroup.c
-> @@ -117,11 +117,7 @@ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
->   		return -ENOBUFS;
->
->   	tcf_exts_init(&new->exts, TCA_CGROUP_ACT, TCA_CGROUP_POLICE);
-> -	if (head)
-> -		new->handle = head->handle;
-> -	else
-> -		new->handle = handle;
-> -
-> +	new->handle = handle;
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+v1->v2:
+-fixed typo in subject pointed out by Sergei
+---
+ drivers/net/ethernet/rocker/rocker.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-
-Hrm. head could be NULL, no?
-
-cheers,
-jamal
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 4b060fb..5536435 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -2753,7 +2753,7 @@ static int rocker_port_vlan_l2_groups(struct rocker_port *rocker_port,
+ static struct rocker_ctrl {
+ 	const u8 *eth_dst;
+ 	const u8 *eth_dst_mask;
+-	u16 eth_type;
++	__be16 eth_type;
+ 	bool acl;
+ 	bool bridge;
+ 	bool term;
+-- 
+1.9.3
