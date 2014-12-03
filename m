@@ -1,54 +1,60 @@
-From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git)] stmmac: fix max coal timer parameter
-Date: Wed, 3 Dec 2014 12:32:58 +0100
-Message-ID: <1417606378-8179-1-git-send-email-peppe.cavallaro@st.com>
+From: Michal Marek <mmarek@suse.cz>
+Subject: Re: [PATCH v2 02/19] kbuild: kselftest_install - add a new make target
+ to install selftests
+Date: Wed, 03 Dec 2014 13:09:19 +0100
+Message-ID: <547EFD6F.2010204@suse.cz>
+References: <cover.1415735831.git.shuahkh@osg.samsung.com> <a2344d4df903d673afe1631118f40917f773cc9a.1415735831.git.shuahkh@osg.samsung.com> <547C8D81.1030605@suse.cz> <547C99B6.7070903@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:58462 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752664AbaLCLyY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 06:54:24 -0500
-Received: from pps.filterd (m0046670.ppops.net [127.0.0.1])
-	by mx07-00178001.pphosted.com (8.14.5/8.14.5) with SMTP id sB3Bq1eu032179
-	for <netdev@vger.kernel.org>; Wed, 3 Dec 2014 12:54:22 +0100
-Received: from beta.dmz-eu.st.com (beta.dmz-eu.st.com [164.129.1.35])
-	by mx07-00178001.pphosted.com with ESMTP id 1r0qb6b68a-1
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 12:54:22 +0100
-Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 4CE8B3A
-	for <netdev@vger.kernel.org>; Wed,  3 Dec 2014 11:53:45 +0000 (GMT)
-Received: from Webmail-eu.st.com (Safex1hubcas21.st.com [10.75.90.44])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 63A665A596
-	for <netdev@vger.kernel.org>; Wed,  3 Dec 2014 11:54:19 +0000 (GMT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	"masami.hiramatsu.pt@hitachi.com >> Masami Hiramatsu"
+	<masami.hiramatsu.pt@hitachi.com>
+To: Shuah Khan <shuahkh@osg.samsung.com>, gregkh@linuxfoundation.org,
+	akpm@linux-foundation.org, davem@davemloft.net,
+	keescook@chromium.org, tranmanphong@gmail.com,
+	dh.herrmann@gmail.com, hughd@google.com, bobby.prani@gmail.com,
+	ebiederm@xmission.com, serge.hallyn@ubuntu.com
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <547C99B6.7070903@osg.samsung.com>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch is to fix the max coalesce timer setting that can be provided
-by ethtool.
-The default value (STMMAC_COAL_TX_TIMER) was used in the set_coalesce helper
-instead of the max one (STMMAC_MAX_COAL_TX_TICK, so defined but not used).
+On 2014-12-01 17:39, Shuah Khan wrote:
+> On 12/01/2014 08:47 AM, Michal Marek wrote:
+>> On 2014-11-11 21:27, Shuah Khan wrote:
+>>> diff --git a/Makefile b/Makefile
+>>> index 05d67af..ccbd2e1 100644
+>>> --- a/Makefile
+>>> +++ b/Makefile
+>>> @@ -1071,12 +1071,26 @@ headers_check: headers_install
+>>>  	$(Q)$(MAKE) $(hdr-inst)=arch/$(hdr-arch)/include/uapi/asm $(hdr-dst) HDRCHECK=1
+>>>  
+>>>  # ---------------------------------------------------------------------------
+>>> -# Kernel selftest
+>>> +# Kernel selftest targets
+>>> +
+>>> +PHONY += __kselftest_configure
+>>> +INSTALL_KSFT_PATH=$(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
+>>> +export INSTALL_KSFT_PATH
+>>> +KSELFTEST=$(INSTALL_KSFT_PATH)/kselftest.sh
+>>> +export KSELFTEST
+>>
+>> Can this be moved to tools/testing/selftests/Makefile? It's only used in
+>> this part of the tree.
+> 
+> I looked into doing that. KERNELRELEASE will have to be exported for
+> tools/testing/selftests/Makefile to use it? Does that sound okay?
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+In fact, KERNELRELEASE is already exported. So go ahead.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 3a08a1f..771cda2 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -696,7 +696,7 @@ static int stmmac_set_coalesce(struct net_device *dev,
- 	    (ec->tx_max_coalesced_frames == 0))
- 		return -EINVAL;
- 
--	if ((ec->tx_coalesce_usecs > STMMAC_COAL_TX_TIMER) ||
-+	if ((ec->tx_coalesce_usecs > STMMAC_MAX_COAL_TX_TICK) ||
- 	    (ec->tx_max_coalesced_frames > STMMAC_TX_MAX_FRAMES))
- 		return -EINVAL;
- 
--- 
-1.7.4.4
+
+> Also, it might be easier to get this series in, if you can Ack the main
+> Makefile patch (when we are ready i.e), so I can take it through
+> kselftest tree.
+
+Sure. The Makefile change will only consist of redirecting the
+kselftest_install target to tools/testing/selftests, right?
+
+Michal
