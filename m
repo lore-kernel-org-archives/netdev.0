@@ -1,78 +1,46 @@
-From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net] gso: do GSO for local skb with size
-	bigger than MTU
-Date: Wed, 3 Dec 2014 11:03:39 +0200
-Message-ID: <20141203090339.GA9299@redhat.com>
-References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
- <1417158128.3268.2@smtp.corp.redhat.com>
- <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com>
- <20141201135225.GA16814@casper.infradead.org>
- <20141202154839.GB5344@t520.home>
- <20141202170927.GA9457@casper.infradead.org>
- <20141202173401.GB4126@redhat.com>
- <20141202174158.GB9457@casper.infradead.org>
- <CAEP_g=-86Z6pxNow-wjnbx_v9er_TSn6x5waigqVqYHa7tEQJw@mail.gmail.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next] r8152: reduce memory copy for rx
+Date: Wed, 3 Dec 2014 09:09:12 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2ED364C@RTITMBSV03.realtek.com.tw>
+References: <1394712342-15778-105-Taiwan-albertk@realtek.com>
+	 <1417586858.5303.118.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <0835B3720019904CB8F7AA43166CEEB2ED360A@RTITMBSV03.realtek.com.tw>
+ <1417590925.5303.127.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "Du, Fan" <fan.du-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- "fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org" <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=-86Z6pxNow-wjnbx_v9er_TSn6x5waigqVqYHa7tEQJw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	nic_swsd <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1417590925.5303.127.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: zh-TW
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCBEZWMgMDIsIDIwMTQgYXQgMTA6MTI6MDRBTSAtMDgwMCwgSmVzc2UgR3Jvc3Mgd3Jv
-dGU6Cj4gT24gVHVlLCBEZWMgMiwgMjAxNCBhdCA5OjQxIEFNLCBUaG9tYXMgR3JhZiA8dGdyYWZA
-c3V1Zy5jaD4gd3JvdGU6Cj4gPiBPbiAxMi8wMi8xNCBhdCAwNzozNHBtLCBNaWNoYWVsIFMuIFRz
-aXJraW4gd3JvdGU6Cj4gPj4gT24gVHVlLCBEZWMgMDIsIDIwMTQgYXQgMDU6MDk6MjdQTSArMDAw
-MCwgVGhvbWFzIEdyYWYgd3JvdGU6Cj4gPj4gPiBPbiAxMi8wMi8xNCBhdCAwMTo0OHBtLCBGbGF2
-aW8gTGVpdG5lciB3cm90ZToKPiA+PiA+ID4gV2hhdCBhYm91dCBjb250YWluZXJzIG9yIGFueSBv
-dGhlciB2aXJ0dWFsaXphdGlvbiBlbnZpcm9ubWVudCB0aGF0Cj4gPj4gPiA+IGRvZXNuJ3QgdXNl
-IFZpcnRpbz8KPiA+PiA+Cj4gPj4gPiBUaGUgaG9zdCBjYW4gZGljdGF0ZSB0aGUgTVRVIGluIHRo
-YXQgY2FzZSBmb3IgYm90aCB2ZXRoIG9yIE9WUwo+ID4+ID4gaW50ZXJuYWwgd2hpY2ggd291bGQg
-YmUgcHJpbWFyeSBjb250YWluZXIgcGx1bWJpbmcgdGVjaG5pcXVlcy4KPiA+Pgo+ID4+IEl0IHR5
-cGljYWxseSBjYW4ndCBkbyB0aGlzIGVhc2lseSBmb3IgVk1zIHdpdGggZW11bGF0ZWQgZGV2aWNl
-czoKPiA+PiByZWFsIGV0aGVybmV0IHVzZXMgYSBmaXhlZCBNVFUuCj4gPj4KPiA+PiBJTUhPIGl0
-J3MgY29uZnVzaW5nIHRvIHN1Z2dlc3QgTVRVIGFzIGEgZml4IGZvciB0aGlzIGJ1ZywgaXQncwo+
-ID4+IGFuIHVucmVsYXRlZCBvcHRpbWl6YXRpb24uCj4gPj4gSUNNUF9ERVNUX1VOUkVBQ0gvSUNN
-UF9GUkFHX05FRURFRCBpcyB0aGUgcmlnaHQgZml4IGhlcmUuCj4gPgo+ID4gUE1UVSBkaXNjb3Zl
-cnkgb25seSByZXNvbHZlcyB0aGUgaXNzdWUgaWYgYW4gYWN0dWFsIElQIHN0YWNrIGlzCj4gPiBy
-dW5uaW5nIGluc2lkZSB0aGUgVk0uIFRoaXMgbWF5IG5vdCBiZSB0aGUgY2FzZSBhdCBhbGwuCj4g
-Cj4gSXQncyBhbHNvIG9ubHkgcmVhbGx5IGEgY29ycmVjdCB0aGluZyB0byBkbyBpZiB0aGUgSUNN
-UCBwYWNrZXQgaXMKPiBjb21pbmcgZnJvbSBhbiBMMyBub2RlLiBJZiB5b3UgYXJlIGRvaW5nIHN0
-cmFpZ2h0IGJyaWRnaW5nIHRoZW4geW91Cj4gaGF2ZSB0byByZXNvcnQgdG8gaGFja3MgbGlrZSBP
-VlMgaGFkIGJlZm9yZSwgd2hpY2ggSSBhZ3JlZSBhcmUgbm90Cj4gcGFydGljdWxhcmx5IGRlc2ly
-YWJsZS4KClRoZSBpc3N1ZSBzZWVtcyB0byBiZSB0aGF0IGZ1bmRhbWVudGFsbHksIHRoaXMgaXMK
-YnJpZGdpbmcgaW50ZXJmYWNlcyB3aXRoIHZhcmlhYmxlIE1UVXMgKGV2ZW4gaWYgTVRVIHZhbHVl
-cwpvbiBkZXZpY2VzIGRvbid0IGxldCB1cyBmaWd1cmUgdGhpcyBvdXQpLQp0aGF0IGlzIGFscmVh
-ZHkgbm90IHN0cmFpZ2h0IGJyaWRnaW5nLCBhbmQKSSB3b3VsZCBhcmd1ZSBzZW5kaW5nIElDTVBz
-IGJhY2sgaXMgdGhlIHJpZ2h0IHRoaW5nIHRvIGRvLgoKCj4gPiBJIGFncmVlIHRoYXQgZXhwb3Np
-bmcgYW4gTVRVIHRvd2FyZHMgdGhlIGd1ZXN0IGlzIG5vdCBhcHBsaWNhYmxlCj4gPiBpbiBhbGwg
-c2l0dWF0aW9ucywgaW4gcGFydGljdWxhciBiZWNhdXNlIGl0IGlzIGRpZmZpY3VsdCB0byBkZWNp
-ZGUKPiA+IHdoYXQgTVRVIHRvIGV4cG9zZS4gSXQgaXMgYSByZWxhdGl2ZWx5IGVsZWdhbnQgc29s
-dXRpb24gaW4gYSBsb3QKPiA+IG9mIHZpcnR1YWxpemF0aW9uIGhvc3QgY2FzZXMgaG9va2VkIHVw
-IHRvIGFuIG9yY2hlc3RyYXRpb24gc3lzdGVtCj4gPiB0aG91Z2guCj4gCj4gSSBhbHNvIHRoaW5r
-IHRoaXMgaXMgdGhlIHJpZ2h0IHRoaW5nIHRvIGRvIGFzIGEgY29tbW9uIGNhc2UKPiBvcHRpbWl6
-YXRpb24gYW5kIEkga25vdyBvdGhlciBwbGF0Zm9ybXMgKHN1Y2ggYXMgSHlwZXItVikgZG8gaXQu
-IEl0J3MKPiBub3QgYSBjb21wbGV0ZSBzb2x1dGlvbiBzbyB3ZSBzdGlsbCBuZWVkIHRoZSBvcmln
-aW5hbCBwYXRjaCBpbiB0aGlzCj4gdGhyZWFkIHRvIGhhbmRsZSB0aGluZ3MgdHJhbnNwYXJlbnRs
-eS4KCldlbGwsIGFzIEkgYmVsaWV2ZSBEYXZpZCAoYW5kIGluZGVwZW5kZW50bHkgSmFzb24pIGlz
-IHNheWluZywgaXQgbG9va3MgbGlrZQp0aGUgSUNNUHMgd2UgYXJlIHNlbmRpbmcgYmFjayBhZnRl
-ciBhcHBseWluZyB0aGUgb3JpZ2luYWwgcGF0Y2ggaGF2ZSB0aGUKd3JvbmcgTVRVLgoKQW5kIGlm
-IEkgdW5kZXJzdGFuZCB3aGF0IERhdmlkIGlzIHNheWluZyBoZXJlLCBJUCBpcyBhbHNvIHRoZSB3
-cm9uZyBwbGFjZSB0bwpkbyBpdC4KCi0tIApNU1QKX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3Jn
-Cmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+Eric Dumazet [mailto:eric.dumazet@gmail.com] 
+> Sent: Wednesday, December 03, 2014 3:15 PM
+[...]
+> Have you tried using more concurrent RX flows, in a possibly lossy
+> environment (so that TCP is forced to queue packets in out of order
+> queue) ?
+
+I don't do the test. I would check it next time.
+
+> skb cloning prevents GRO and TCP coalescing from working.
+> 
+> netfilter might also be forced to copy whole frame in case a mangle is
+> needed (eg with NAT ...)
+> 
+> I would rather try to implement GRO, and/or using fragments instead of
+> pure linear skbs.
+> 
+> (skb->head would be around 128 or 256 bytes, and you attach to skb the
+> frame as a page fragment)
+
+Thanks for your response. I would study the GRO first.
+ 
+Best Regards,
+Hayes
