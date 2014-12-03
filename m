@@ -1,190 +1,57 @@
-From: "Du, Fan" <fan.du@intel.com>
-Subject: RE: [PATCH net] gso: do GSO for local skb with size bigger than MTU
-Date: Wed, 3 Dec 2014 01:58:00 +0000
-Message-ID: <5A90DA2E42F8AE43BC4A093BF0678848DEDFA6@SHSMSX104.ccr.corp.intel.com>
-References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
- <1417158128.3268.2@smtp.corp.redhat.com>
- <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com>
- <20141202154425.GA5344@t520.home>
- <CAEP_g=-wh3rJ2g4Ly=+JGJGOTGa10hbfA5n=8ZS5FF+=XMsxTg@mail.gmail.com>
- <20141202213232.GC5344@t520.home>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: Re: [PATCH net-next] ipv6: remove useless spin_lock/spin_unlock
+Date: Wed, 3 Dec 2014 10:05:19 +0800
+Message-ID: <547E6FDF.2040809@cn.fujitsu.com>
+References: <547E6832.4070403@cn.fujitsu.com> <1417571879.5303.83.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Jason Wang <jasowang@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"fw@strlen.de" <fw@strlen.de>, "Du, Fan" <fan.du@intel.com>
-To: Flavio Leitner <fbl@redhat.com>, Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:49195 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751413AbaLCB6Q convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 20:58:16 -0500
-In-Reply-To: <20141202213232.GC5344@t520.home>
-Content-Language: en-US
+Received: from cn.fujitsu.com ([59.151.112.132]:34785 "EHLO
+	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750862AbaLCCIA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 21:08:00 -0500
+In-Reply-To: <1417571879.5303.83.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
->-----Original Message-----
->From: Flavio Leitner [mailto:fbl@redhat.com]
->Sent: Wednesday, December 3, 2014 5:33 AM
->To: Jesse Gross
->Cc: Du, Fan; Jason Wang; netdev@vger.kernel.org; davem@davemloft.net;
->fw@strlen.de
->Subject: Re: [PATCH net] gso: do GSO for local skb with size bigger than MTU
->
->On Tue, Dec 02, 2014 at 10:06:53AM -0800, Jesse Gross wrote:
->> On Tue, Dec 2, 2014 at 7:44 AM, Flavio Leitner <fbl@redhat.com> wrote:
->> > On Sun, Nov 30, 2014 at 10:08:32AM +0000, Du, Fan wrote:
->> >>
->> >>
->> >> >-----Original Message-----
->> >> >From: Jason Wang [mailto:jasowang@redhat.com]
->> >> >Sent: Friday, November 28, 2014 3:02 PM
->> >> >To: Du, Fan
->> >> >Cc: netdev@vger.kernel.org; davem@davemloft.net; fw@strlen.de; Du,
->> >> >Fan
->> >> >Subject: Re: [PATCH net] gso: do GSO for local skb with size
->> >> >bigger than MTU
->> >> >
->> >> >
->> >> >
->> >> >On Fri, Nov 28, 2014 at 2:33 PM, Fan Du <fan.du@intel.com> wrote:
->> >> >> Test scenario: two KVM guests sitting in different hosts
->> >> >> communicate to each other with a vxlan tunnel.
->> >> >>
->> >> >> All interface MTU is default 1500 Bytes, from guest point of
->> >> >> view, its skb gso_size could be as bigger as 1448Bytes, however
->> >> >> after guest skb goes through vxlan encapuslation, individual
->> >> >> segments length of a gso packet could exceed physical NIC MTU
->> >> >> 1500, which will be lost at recevier side.
->> >> >>
->> >> >> So it's possible in virtualized environment, locally created skb
->> >> >> len after encapslation could be bigger than underlayer MTU. In
->> >> >> such case, it's reasonable to do GSO first, then fragment any
->> >> >> packet bigger than MTU as possible.
->> >> >>
->> >> >> +---------------+ TX     RX +---------------+
->> >> >> |   KVM Guest   | -> ... -> |   KVM Guest   |
->> >> >> +-+-----------+-+           +-+-----------+-+
->> >> >>   |Qemu/VirtIO|               |Qemu/VirtIO|
->> >> >>   +-----------+               +-----------+
->> >> >>        |                            |
->> >> >>        v tap0                  tap0 v
->> >> >>   +-----------+               +-----------+
->> >> >>   | ovs bridge|               | ovs bridge|
->> >> >>   +-----------+               +-----------+
->> >> >>        | vxlan                vxlan |
->> >> >>        v                            v
->> >> >>   +-----------+               +-----------+
->> >> >>   |    NIC    |    <------>   |    NIC    |
->> >> >>   +-----------+               +-----------+
->> >> >>
->> >> >> Steps to reproduce:
->> >> >>  1. Using kernel builtin openvswitch module to setup ovs bridge.
->> >> >>  2. Runing iperf without -M, communication will stuck.
->> >> >
->> >> >Is this issue specific to ovs or ipv4? Path MTU discovery should
->> >> >help in this case I believe.
->> >>
->> >> Problem here is host stack push local over-sized gso skb down to
->> >> NIC, and perform GSO there without any further ip segmentation.
->> >>
->> >> Reasonable behavior is do gso first at ip level, if gso-ed skb is
->> >> bigger than MTU && df is set, Then push
->ICMP_DEST_UNREACH/ICMP_FRAG_NEEDED message back to sender to adjust
->mtu.
->> >>
->> >> For PMTU to work, that's another issue I will try to address later on.
->> >>
->> >> >>
->> >> >>
->> >> >> Signed-off-by: Fan Du <fan.du@intel.com>
->> >> >> ---
->> >> >>  net/ipv4/ip_output.c |    7 ++++---
->> >> >>  1 files changed, 4 insertions(+), 3 deletions(-)
->> >> >>
->> >> >> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c index
->> >> >> bc6471d..558b5f8 100644
->> >> >> --- a/net/ipv4/ip_output.c
->> >> >> +++ b/net/ipv4/ip_output.c
->> >> >> @@ -217,9 +217,10 @@ static int ip_finish_output_gso(struct
->> >> >> sk_buff
->> >> >> *skb)
->> >> >>    struct sk_buff *segs;
->> >> >>    int ret = 0;
->> >> >>
->> >> >> -  /* common case: locally created skb or seglen is <= mtu */
->> >> >> -  if (((IPCB(skb)->flags & IPSKB_FORWARDED) == 0) ||
->> >> >> -        skb_gso_network_seglen(skb) <= ip_skb_dst_mtu(skb))
->> >> >> +  /* Both locally created skb and forwarded skb could exceed
->> >> >> +   * MTU size, so make a unified rule for them all.
->> >> >> +   */
->> >> >> +  if (skb_gso_network_seglen(skb) <= ip_skb_dst_mtu(skb))
->> >> >>            return ip_finish_output2(skb);
->> >
->> >
->> > Are you using kernel's vxlan device or openvswitch's vxlan device?
->> >
->> > Because for kernel's vxlan devices the MTU accounts for the header
->> > overhead so I believe your patch would work.  However, the MTU is
->> > not visible for the ovs's vxlan devices, so that wouldn't work.
+On 12/03/2014 09:57 AM, Eric Dumazet wrote:
+> On Wed, 2014-12-03 at 09:32 +0800, Duan Jiong wrote:
+>> xchg is atomic, so there is no necessary to use spin_lock/spin_unlock
+>> to protect it.
 >>
->> This is being called after the tunnel code, so the MTU that is being
->> looked at in all cases is the physical device's. Since the packet has
->> already been encapsulated, tunnel header overhead is already accounted
->> for in skb_gso_network_seglen() and this should be fine for both OVS
->> and non-OVS cases.
->
->Right, it didn't work on my first try and that explanation came to mind.
->
->Anyway, I am testing this with containers instead of VMs, so I am using veth and
->not Virtio-net.
->
->This is the actual stack trace:
->
->[...]
->  do_output
->  ovs_vport_send
->  vxlan_tnl_send
->  vxlan_xmit_skb
->  udp_tunnel_xmit_skb
->  iptunnel_xmit
->   \ skb_scrub_packet => skb->ignore_df = 0;
->  ip_local_out_sk
->  ip_output
->  ip_finish_output (_gso is inlined)
->  ip_fragment
->
->and on ip_fragment() it does:
->
-> 503         if (unlikely(((iph->frag_off & htons(IP_DF)) && !skb->ignore_df) ||
-> 504                      (IPCB(skb)->frag_max_size &&
-> 505                       IPCB(skb)->frag_max_size > mtu))) {
-> 506                 IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
-> 507                 icmp_send(skb, ICMP_DEST_UNREACH,
->ICMP_FRAG_NEEDED,
-> 508                           htonl(mtu));
-> 509                 kfree_skb(skb);
-> 510                 return -EMSGSIZE;
-> 511         }
->
->Since IP_DF is set and skb->ignore_df is reset to 0, in my case the packet is
->dropped and an ICMP is sent back. The connection remains stuck as before.
->Doesn't virtio-net set DF bit?
+>> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>> ---
+>>  net/ipv6/ipv6_sockglue.c | 2 --
+>>  1 file changed, 2 deletions(-)
+>>
+>> diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+>> index e1a9583..92ca907 100644
+>> --- a/net/ipv6/ipv6_sockglue.c
+>> +++ b/net/ipv6/ipv6_sockglue.c
+>> @@ -112,9 +112,7 @@ struct ipv6_txoptions *ipv6_update_options(struct sock *sk,
+>>  		}
+>>  		opt = xchg(&inet6_sk(sk)->opt, opt);
+>>  	} else {
+>> -		spin_lock(&sk->sk_dst_lock);
+>>  		opt = xchg(&inet6_sk(sk)->opt, opt);
+>> -		spin_unlock(&sk->sk_dst_lock);
+>>  	}
+>>  	sk_dst_reset(sk);
+>>  
+> 
+> Why keeping 2 copies of opt = xchg(&inet6_sk(sk)->opt, opt); then ?
+> 
 
-Thanks for giving it a try and see what really happens. 
+Thanks for you remind, i didn't notice that.
+The else statement could be removed, opt = xchg(&inet6_sk(sk)->opt, opt); should be
+moved out, and i will send v2.
 
-You almost there! Ip_segment honor IP_DF, this is bit is take care of by vxlan interface.
-In practical env, vxlan interface should take a conservative attitude to allow fragmentation
-by appending "options: df_default=false" when creating vxlan interface.
+Thanks,
+  Duan
 
-Why allow fragmentation? Because Guest or Container may send over-MTU-sized packet downwards.
-Host is expected to be prepared to such incident. This is just what happens in real world cloud env.
-
-
->Thanks,
->fbl
+> 
+> 
+> 
