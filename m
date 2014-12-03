@@ -1,27 +1,51 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] tc_act: export uapi header file
-Date: Wed, 3 Dec 2014 20:42:47 +0100
-Message-ID: <20141203194247.GA1841@nanopsycho.orion>
-References: <20141203093317.3c482872@urahara>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCHv11 net-next 2/2] openvswitch: Add support for unique flow IDs.
+Date: Wed, 3 Dec 2014 11:45:12 -0800
+Message-ID: <CALnjE+qfdFu4Vv3RaUmOtXuvrY+_iCFLNDXhFu2+zDHBJx0L0A@mail.gmail.com>
+References: <1417575363-13770-1-git-send-email-joestringer@nicira.com>
+	<1417575363-13770-2-git-send-email-joestringer@nicira.com>
+	<CANr6G5z-kokWkBs3bb=bXrBmBUhaqHKH1QfeXycFWxSNf00qFw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:49905 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751291AbaLCTmu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 14:42:50 -0500
-Received: by mail-wg0-f46.google.com with SMTP id a1so12526381wgh.19
-        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 11:42:49 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20141203093317.3c482872@urahara>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Joe Stringer <joestringer@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANr6G5z-kokWkBs3bb=bXrBmBUhaqHKH1QfeXycFWxSNf00qFw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Dec 03, 2014 at 06:33:17PM CET, stephen@networkplumber.org wrote:
->This file is used by iproute2 and should be exported.
+On Wed, Dec 3, 2014 at 10:47 AM, Joe Stringer <joestringer@nicira.com> wrote:
+> I forgot to mention that this is the first post based against net-next.
 >
->Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-Acked-by: Jiri Pirko <jiri@resnulli.us>
+> On 2 December 2014 at 18:56, Joe Stringer <joestringer@nicira.com> wrote:
+>> <....snip...>
+>> diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+>> index a8b30f3..7f31dbf 100644
+>> --- a/net/openvswitch/flow.h
+>> +++ b/net/openvswitch/flow.h
+>> @@ -197,6 +197,13 @@ struct sw_flow_match {
+>>         struct sw_flow_mask *mask;
+>>  };
+>>
+>> +#define MAX_UFID_LENGTH 256
+>> +
+>> +struct sw_flow_id {
+>> +       u32 ufid_len;
+>> +       u32 ufid[MAX_UFID_LENGTH / 4];
+>> +};
+>> +
+>>  struct sw_flow_actions {
+>>         struct rcu_head rcu;
+>>         u32 actions_len;
+>
+> Pravin, I changed the 'struct sw_flow_id' to the above after feedback
+> from the previous round, but it doesn't seem quite right. Is this what
+> you meant? Given that current ovs-vswitchd userspace only generates
+> 128bit UFIDs, it seems wasteful to be allocating so much for this. Did
+> you have in mind for this to be united with the unmasked_key?
+
+I am fine with 128bits of ufid, we can extend it later if we need it.
+But what do you mean by united unmasked key? Can you define the struct
+here?
