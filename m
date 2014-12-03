@@ -1,57 +1,42 @@
-From: vadim4j@gmail.com
-Subject: Re: [PATCH iproute2] ip link: Show devices by link type
-Date: Wed, 3 Dec 2014 03:13:05 +0200
-Message-ID: <20141203011305.GA5945@angus-think.lan>
-References: <1417370335-15772-1-git-send-email-vadim4j@gmail.com>
- <547E5F90.2060105@cumulusnetworks.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: [PATCH net-next] ipv6: remove useless spin_lock/spin_unlock
+Date: Wed, 3 Dec 2014 09:32:34 +0800
+Message-ID: <547E6832.4070403@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:35634 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750896AbaLCBWr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 20:22:47 -0500
-Received: by mail-wi0-f169.google.com with SMTP id r20so31458130wiv.4
-        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 17:22:46 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <547E5F90.2060105@cumulusnetworks.com>
+Received: from cn.fujitsu.com ([59.151.112.132]:44208 "EHLO
+	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751157AbaLCBfL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 20:35:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 02, 2014 at 04:55:44PM -0800, Roopa Prabhu wrote:
-> >  	int master;
-> >+	char *link_kind;
-> The name can be just "kind", given all the others dont use the link prefix
-> >  } filter;
-OK
 
-> >+	if (filter.link_kind && tb[IFLA_LINKINFO]) {
-> >+		char *link_kind = parse_link_kind(tb[IFLA_LINKINFO]);
-> >+		if (strcmp(link_kind, filter.link_kind)) {
-> >+			return -1;
-> >+		}
-> you can skip the braces
-> >+	} else if (filter.link_kind)
-> 
-> you have if (filter.link_kind) twice, you can use a single if without the
-> else.
-> >+		return -1;
-> >+
-I need to skip interfaces which has not IFLA_LINKINFO attribute,
-w/o "else if(...)" I get bridges with normal ether devices:
-    
-    bash# ip link show type bridge
+xchg is atomic, so there is no necessary to use spin_lock/spin_unlock
+to protect it.
 
-    1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default 
-        link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    2: enp0s25: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000
-        link/ether XX:XX:XX:XX:XX:XX brd ff:ff:ff:ff:ff:ff
-    5: br0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default 
-        link/ether 6e:02:f9:17:7f:10 brd ff:ff:ff:ff:ff:ff
+Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+---
+ net/ipv6/ipv6_sockglue.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-but expected result should be only bridges.
-
-Regards,
-Vadim
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index e1a9583..92ca907 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -112,9 +112,7 @@ struct ipv6_txoptions *ipv6_update_options(struct sock *sk,
+ 		}
+ 		opt = xchg(&inet6_sk(sk)->opt, opt);
+ 	} else {
+-		spin_lock(&sk->sk_dst_lock);
+ 		opt = xchg(&inet6_sk(sk)->opt, opt);
+-		spin_unlock(&sk->sk_dst_lock);
+ 	}
+ 	sk_dst_reset(sk);
+ 
+-- 
+1.8.3.1
