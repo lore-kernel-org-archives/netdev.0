@@ -1,121 +1,48 @@
-From: Wengang Wang <wen.gang.wang@oracle.com>
-Subject: Re: [PATCH] bonding: move ipoib_header_ops to vmlinux
-Date: Wed, 03 Dec 2014 09:50:40 +0800
-Message-ID: <547E6C70.7040809@oracle.com>
-References: <20141125.010741.450666241983239119.davem@davemloft.net>	<54742D6E.9030605@mellanox.com>	<19740.1416940877@famine> <20141125.134450.1265438298771389292.davem@davemloft.net> <54752D4C.7000603@oracle.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next] tcp: Add TCP tracer
+Date: Tue, 2 Dec 2014 17:51:15 -0800
+Message-ID: <20141202175115.53f1f56b@urahara>
+References: <1413837765-5446-1-git-send-email-kafai@fb.com>
+	<1417552662-16398-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ogerlitz@mellanox.com, netdev@vger.kernel.org,
-	linux-rdma@vger.kernel.org
-To: David Miller <davem@davemloft.net>, jay.vosburgh@canonical.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:31023 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750845AbaLCBuy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 20:50:54 -0500
-In-Reply-To: <54752D4C.7000603@oracle.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:46969 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750860AbaLCBv0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 20:51:26 -0500
+Received: by mail-pa0-f47.google.com with SMTP id kq14so14698153pab.20
+        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 17:51:26 -0800 (PST)
+In-Reply-To: <1417552662-16398-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David and Jay,
+On Tue, 2 Dec 2014 12:37:42 -0800
+Martin KaFai Lau <kafai@fb.com> wrote:
 
-Then about about the change in this patch?
+> diff --git a/include/uapi/linux/tcp_trace.h b/include/uapi/linux/tcp_trace.h
+> index 2644f7f..d913a3c 100644
+> --- a/include/uapi/linux/tcp_trace.h
+> +++ b/include/uapi/linux/tcp_trace.h
+> @@ -22,11 +22,11 @@ struct tcp_stats {
+>  	__u32	other_segs_retrans;
+>  	__u32	other_octets_retrans;
+>  	__u32	loss_segs_retrans;
+> -	__u32	loss_octects_retrans;
+> +	__u32	loss_octets_retrans;
+>  	__u32	segs_in;
+>  	__u32	data_segs_in;
+> -	__u64	rtt_sample_us;
+>  	__u64	data_octets_in;
+> +	__u64	rtt_sample_us;
+>  	__u64	max_rtt_us;
+>  	__u64	min_rtt_us;
+>  	__u64   sum_rtt_us;
+> @@ -64,9 +64,4 @@ struct tcp_trace_stats {
+>          struct tcp_stats stats;
+>  } __packed;
 
-thanks,
-wengang
-
-=E5=9C=A8 2014=E5=B9=B411=E6=9C=8826=E6=97=A5 09:30, Wengang =E5=86=99=E9=
-=81=93:
-> =E4=BA=8E 2014=E5=B9=B411=E6=9C=8826=E6=97=A5 02:44, David Miller =E5=
-=86=99=E9=81=93:
->> From: Jay Vosburgh <jay.vosburgh@canonical.com>
->> Date: Tue, 25 Nov 2014 10:41:17 -0800
->>
->>> Or Gerlitz <ogerlitz@mellanox.com> wrote:
->>>
->>>> On 11/25/2014 8:07 AM, David Miller wrote:
->>>>> IPOIB should not work over bonding as it requires that the device
->>>>> use ARPHRD_ETHER.
->>>> Hi Dave,
->>>>
->>>> IPoIB devices can be enslaved to both bonding and teaming in their=
-=20
->>>> HA mode,
->>>> the bond device type becomes ARPHRD_INFINIBAND when this happens.
->>>     The point was that pktgen disallows ARPHRD_INFINIBAND, not that
->>> bonding does.
->>>
->>>     Pktgen specifically checks for type !=3D ARPHRD_ETHER, so the
->>> IPoIB bond should not be able to be used with pkgten.  My suspicion=
- is
->>> that pktgen is being configured on the bond first, then an IPoIB sl=
-ave
->>> is added to the bond; this would change its type in a way that pktg=
-en
->>> wouldn't notice.
->> +1
->
-> I think it go this way:
->
-> 1) bond_master is ready
-> 2) bond_enslave enslave a IPOIB interface calling bond_setup_by_slave
-> 3) then bond_setup_by_slave set change master type to ARPHRD_INFINIBA=
-ND.
->
-> code is like this:
->
-> 1 /* enslave device <slave> to bond device <master> */
-> 2 int bond_enslave(struct net_device *bond_dev, struct net_device=20
-> *slave_dev)
-> 3 {
-> 4 <snip>...
-> 5 /* set bonding device ether type by slave - bonding netdevices are
-> 6 * created with ether_setup, so when the slave type is not ARPHRD_ET=
-HER
-> 7 * there is a need to override some of the type dependent attribs/fu=
-ncs.
-> 8 *
-> 9 * bond ether type mutual exclusion - don't allow slaves of dissimil=
-ar
-> 10 * ether type (eg ARPHRD_ETHER and ARPHRD_INFINIBAND) share the sam=
-e=20
-> bond
-> 11 */
-> 12 if (!bond_has_slaves(bond)) {
-> 13 if (bond_dev->type !=3D slave_dev->type) {
-> 14 <snip>...
-> 15 if (slave_dev->type !=3D ARPHRD_ETHER)
-> 16 bond_setup_by_slave(bond_dev, slave_dev);
-> 17 else {
-> 18 ether_setup(bond_dev);
-> 19 bond_dev->priv_flags &=3D ~IFF_TX_SKB_SHARING;
-> 20 }
-> 21
-> 22 call_netdevice_notifiers(NETDEV_POST_TYPE_CHANGE,
-> 23 bond_dev);
-> 24 }
-> 25 <snip>...
-> 26 }
-> 27
-> 28 static void bond_setup_by_slave(struct net_device *bond_dev,
-> 29 struct net_device *slave_dev)
-> 30 {
-> 31 bond_dev->header_ops =3D slave_dev->header_ops;
-> 32
-> 33 bond_dev->type =3D slave_dev->type;
-> 34 bond_dev->hard_header_len =3D slave_dev->hard_header_len;
-> 35 bond_dev->addr_len =3D slave_dev->addr_len;
-> 36
-> 37 memcpy(bond_dev->broadcast, slave_dev->broadcast,
-> 38 slave_dev->addr_len);
-> 39 }
-> 40
->
-> thanks
-> wengang
-> --=20
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+You can't change exposed kernel API like that.
