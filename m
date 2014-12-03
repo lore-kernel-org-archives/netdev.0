@@ -1,61 +1,85 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net] net: sctp: use MAX_HEADER for headroom reserve in output path
-Date: Wed,  3 Dec 2014 12:13:58 +0100
-Message-ID: <1417605238-9936-1-git-send-email-dborkman@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 1/2] net: bcmgenet: add support for new GENET
+ PHY revision scheme
+Date: Wed, 03 Dec 2014 14:23:40 +0300
+Message-ID: <547EF2BC.60504@cogentembedded.com>
+References: <1417562882-2511-1-git-send-email-f.fainelli@gmail.com> <1417562882-2511-2-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	robert@swiecki.net
-To: davem@davemloft.net
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46662 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751982AbaLCLOE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Dec 2014 06:14:04 -0500
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:63384 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751717AbaLCLXn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 06:23:43 -0500
+Received: by mail-lb0-f179.google.com with SMTP id z11so11979543lbi.38
+        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 03:23:41 -0800 (PST)
+In-Reply-To: <1417562882-2511-2-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To accomodate for enough headroom for tunnels, use MAX_HEADER instead
-of LL_MAX_HEADER. Robert reported that he has hit after roughly 40hrs
-of trinity an skb_under_panic() via SCTP output path (see reference).
-I couldn't reproduce it from here, but not using MAX_HEADER as elsewher=
-e
-in other protocols might be one possible cause for this.
+Hello.
 
-In any case, it looks like accounting on chunks themself seems to look
-good as the skb already passed the SCTP output path and did not hit
-any skb_over_panic(). Given tunneling was enabled in his .config, the
-headroom would have been expanded by MAX_HEADER in this case.
+On 12/3/2014 2:28 AM, Florian Fainelli wrote:
 
-Reported-by: Robert =C5=9Awi=C4=99cki <robert@swiecki.net>
-Reference: https://lkml.org/lkml/2014/12/1/507
-=46ixes: 594ccc14dfe4d ("[SCTP] Replace incorrect use of dev_alloc_skb =
-with alloc_skb in sctp_packet_transmit().")
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/sctp/output.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> Starting with GPHY revision G0, the GENET register layout has changed to
+> use the same numbering scheme as the Starfighter 2 switch. This means
+> that GPHY major revision is in bits 15:12, minor in bits 11:8 and patch
+> level is in bits 7:4.
 
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 42dffd4..fc5e45b 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -401,12 +401,12 @@ int sctp_packet_transmit(struct sctp_packet *pack=
-et)
- 	sk =3D chunk->skb->sk;
-=20
- 	/* Allocate the new skb.  */
--	nskb =3D alloc_skb(packet->size + LL_MAX_HEADER, GFP_ATOMIC);
-+	nskb =3D alloc_skb(packet->size + MAX_HEADER, GFP_ATOMIC);
- 	if (!nskb)
- 		goto nomem;
-=20
- 	/* Make sure the outbound skb has enough header room reserved. */
--	skb_reserve(nskb, packet->overhead + LL_MAX_HEADER);
-+	skb_reserve(nskb, packet->overhead + MAX_HEADER);
-=20
- 	/* Set the owning socket so that we know where to get the
- 	 * destination IP address.
---=20
-1.7.11.7
+> Introduce a small heuristic which checks for the old scheme first, tests
+> for the new scheme and finally attempts to catch reserved values and
+> aborts.
+
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>   drivers/net/ethernet/broadcom/genet/bcmgenet.c | 24 +++++++++++++++++++++++-
+>   1 file changed, 23 insertions(+), 1 deletion(-)
+
+> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> index f2fadb053d52..23e283174c4e 100644
+> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+[...]
+> @@ -2551,8 +2552,29 @@ static void bcmgenet_set_hw_params(struct bcmgenet_priv *priv)
+>   	 * to pass this information to the PHY driver. The PHY driver expects
+>   	 * to find the PHY major revision in bits 15:8 while the GENET register
+>   	 * stores that information in bits 7:0, account for that.
+> +	 *
+> +	 * On newer chips, starting with PHY revision G0, a new scheme is
+> +	 * deployed similar to the Starfighter 2 switch with GPHY major
+> +	 * revision in bits 15:8 and patch level in bits 7:0. Major revision 0
+> +	 * is reserved as well as special value 0x01ff, we have a small
+> +	 * heuristic to check for the new GPHY revision and re-arrange things
+> +	 * so the GPHY driver is happy.
+>   	 */
+> -	priv->gphy_rev = (reg & 0xffff) << 8;
+> +	gphy_rev = (reg & 0xffff);
+
+    Parens not needed anymore.
+
+> +
+> +	/* This the good old scheme, just GPHY major, no minor nor patch */
+
+    Missing "is" after "This"?
+
+> +	if ((gphy_rev & 0xf0) != 0)
+> +		priv->gphy_rev = gphy_rev << 8;
+> +
+> +	/* This is the new scheme, GPHY major rolls over with 0x10 = rev G0 */
+> +	else if ((gphy_rev & 0xff00) != 0)
+> +		priv->gphy_rev = gphy_rev;
+> +
+> +	/* This is reserved so should require special treatment */
+> +	else if (gphy_rev == 0 || gphy_rev == 0x01ff) {
+> +		pr_warn("Invalid GPHY revision detected: 0x%04x\n", gphy_rev);
+> +		return;
+> +	}
+
+    Hm, {} are needed on all *if* branches.
+
+[...]
+
+WBR, Sergei
