@@ -1,214 +1,115 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [PATCH v2 2/6] ethernet/intel: Use eth_skb_pad and skb_put_padto
- helpers
-Date: Wed, 03 Dec 2014 08:17:39 -0800
-Message-ID: <20141203161739.9223.52060.stgit@ahduyck-vm-fedora20>
-References: <20141203161440.9223.39633.stgit@ahduyck-vm-fedora20>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 89201] New: sendto changes buffer used by recvfrom of
+ other proccesses
+Date: Wed, 3 Dec 2014 08:32:41 -0800
+Message-ID: <20141203083241.7e2f77bf@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42195 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751576AbaLCQcm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Dec 2014 11:32:42 -0500
-In-Reply-To: <20141203161440.9223.39633.stgit@ahduyck-vm-fedora20>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:34757 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751371AbaLCQc7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 11:32:59 -0500
+Received: by mail-pa0-f53.google.com with SMTP id kq14so15828882pab.26
+        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 08:32:59 -0800 (PST)
+Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
+        by mx.google.com with ESMTPSA id hc10sm23434823pbd.78.2014.12.03.08.32.57
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Wed, 03 Dec 2014 08:32:58 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update the Intel Ethernet drivers to use eth_skb_pad() and skb_put_padto
-instead of doing their own implementations of the function.
 
-Also this cleans up two other spots where skb_pad was called but the length
-and tail pointers were being manipulated directly instead of just having
-the padding length added via __skb_put.
 
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
- drivers/net/ethernet/intel/e1000/e1000_main.c     |    8 ++------
- drivers/net/ethernet/intel/e1000e/netdev.c        |    8 ++------
- drivers/net/ethernet/intel/fm10k/fm10k_main.c     |   11 +++--------
- drivers/net/ethernet/intel/i40e/i40e_txrx.c       |    8 ++------
- drivers/net/ethernet/intel/igb/igb_main.c         |   19 +++++--------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |   19 +++++--------------
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   11 +++--------
- 7 files changed, 22 insertions(+), 62 deletions(-)
+Begin forwarded message:
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 24f3986..862d198 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -3136,12 +3136,8 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
- 	 * packets may get corrupted during padding by HW.
- 	 * To WA this issue, pad all small packets manually.
- 	 */
--	if (skb->len < ETH_ZLEN) {
--		if (skb_pad(skb, ETH_ZLEN - skb->len))
--			return NETDEV_TX_OK;
--		skb->len = ETH_ZLEN;
--		skb_set_tail_pointer(skb, ETH_ZLEN);
--	}
-+	if (eth_skb_pad(skb))
-+		return NETDEV_TX_OK;
+Date: Wed, 3 Dec 2014 05:51:34 -0800
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 89201] New: sendto changes buffer used by recvfrom of other proccesses
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=89201
+
+            Bug ID: 89201
+           Summary: sendto changes buffer used by recvfrom of other
+                    proccesses
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.4.0-perf-ga6edd5e
+          Hardware: All
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Other
+          Assignee: shemminger@linux-foundation.org
+          Reporter: tuxmind.bug@gmail.com
+        Regression: No
+
+hi,
+i found a bug with recvfrom/sendto.
+
+the affected kernel is the android one, sources can be found there:
+https://android.googlesource.com/kernel/msm/+/android-msm-mako-3.4-kitkat-mr2
+
+configuration:
+https://android.googlesource.com/kernel/msm/+/android-msm-mako-3.4-kitkat-mr2/arch/arm/configs/mako_defconfig
+
+description:
+when a process call recvfrom on a PF_PACKET/SOCK_RAW socket when another
+process
+call sendto/write on a socket that use the same interface, the ethernet address
+is weird.
+
+recvfrom returns the following ethernet header:
+
+UU:XX:00:00:00:00:AA:AA:03:00:00:00:YY:ZZ
+
+instead of
+
+UU:XX:VV:VV:VV:VV:HH:HH:HH:HH:HH:HH:YY:ZZ
+
+where:
+
+  HH:HH:HH:HH:HH:HH is the source MAC address
+  UU:XX:VV:VV:VV:VV is the destination MAC address
+  YY:ZZ is the ethernet type
+
+i think that recvfrom save the user buffer pointer somewhere because
+perform some 'long' work on the buffer ( like using a printf to debug this
+problem ) increase the error rate from 2/9480 bad headers to about 779/4301.
+
+i already opened various bug reports and questions.
+
+external references:
  
- 	mss = skb_shinfo(skb)->gso_size;
- 	/* The controller does a simple calculation to
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 370cfa2..88936aa 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -5554,12 +5554,8 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
- 	/* The minimum packet size with TCTL.PSP set is 17 bytes so
- 	 * pad skb in order to meet this minimum size requirement
- 	 */
--	if (unlikely(skb->len < 17)) {
--		if (skb_pad(skb, 17 - skb->len))
--			return NETDEV_TX_OK;
--		skb->len = 17;
--		skb_set_tail_pointer(skb, 17);
--	}
-+	if (skb_put_padto(skb, 17))
-+		return NETDEV_TX_OK;
- 
- 	mss = skb_shinfo(skb)->gso_size;
- 	if (mss) {
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index 8c8deec..a05d228 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -578,14 +578,9 @@ static bool fm10k_cleanup_headers(struct fm10k_ring *rx_ring,
- 	if (skb_is_nonlinear(skb))
- 		fm10k_pull_tail(rx_ring, rx_desc, skb);
- 
--	/* if skb_pad returns an error the skb was freed */
--	if (unlikely(skb->len < 60)) {
--		int pad_len = 60 - skb->len;
--
--		if (skb_pad(skb, pad_len))
--			return true;
--		__skb_put(skb, pad_len);
--	}
-+	/* if eth_skb_pad returns an error the skb was freed */
-+	if (eth_skb_pad(skb))
-+		return true;
- 
- 	return false;
- }
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 3195d82..04b4414 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -2399,12 +2399,8 @@ netdev_tx_t i40e_lan_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 	/* hardware can't handle really short frames, hardware padding works
- 	 * beyond this point
- 	 */
--	if (unlikely(skb->len < I40E_MIN_TX_LEN)) {
--		if (skb_pad(skb, I40E_MIN_TX_LEN - skb->len))
--			return NETDEV_TX_OK;
--		skb->len = I40E_MIN_TX_LEN;
--		skb_set_tail_pointer(skb, I40E_MIN_TX_LEN);
--	}
-+	if (skb_put_padto(skb, I40E_MIN_TX_LEN))
-+		return NETDEV_TX_OK;
- 
- 	return i40e_xmit_frame_ring(skb, tx_ring);
- }
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 6261399..36467cf 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -5091,12 +5091,8 @@ static netdev_tx_t igb_xmit_frame(struct sk_buff *skb,
- 	/* The minimum packet size with TCTL.PSP set is 17 so pad the skb
- 	 * in order to meet this minimum size requirement.
- 	 */
--	if (unlikely(skb->len < 17)) {
--		if (skb_pad(skb, 17 - skb->len))
--			return NETDEV_TX_OK;
--		skb->len = 17;
--		skb_set_tail_pointer(skb, 17);
--	}
-+	if (skb_put_padto(skb, 17))
-+		return NETDEV_TX_OK;
- 
- 	return igb_xmit_frame_ring(skb, igb_tx_queue_mapping(adapter, skb));
- }
-@@ -6847,14 +6843,9 @@ static bool igb_cleanup_headers(struct igb_ring *rx_ring,
- 	if (skb_is_nonlinear(skb))
- 		igb_pull_tail(rx_ring, rx_desc, skb);
- 
--	/* if skb_pad returns an error the skb was freed */
--	if (unlikely(skb->len < 60)) {
--		int pad_len = 60 - skb->len;
--
--		if (skb_pad(skb, pad_len))
--			return true;
--		__skb_put(skb, pad_len);
--	}
-+	/* if eth_skb_pad returns an error the skb was freed */
-+	if (eth_skb_pad(skb))
-+		return true;
- 
- 	return false;
- }
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 23d72a2..702cc64 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1755,14 +1755,9 @@ static bool ixgbe_cleanup_headers(struct ixgbe_ring *rx_ring,
- 		return false;
- 
- #endif
--	/* if skb_pad returns an error the skb was freed */
--	if (unlikely(skb->len < 60)) {
--		int pad_len = 60 - skb->len;
--
--		if (skb_pad(skb, pad_len))
--			return true;
--		__skb_put(skb, pad_len);
--	}
-+	/* if eth_skb_pad returns an error the skb was freed */
-+	if (eth_skb_pad(skb))
-+		return true;
- 
- 	return false;
- }
-@@ -7248,12 +7243,8 @@ static netdev_tx_t __ixgbe_xmit_frame(struct sk_buff *skb,
- 	 * The minimum packet size for olinfo paylen is 17 so pad the skb
- 	 * in order to meet this minimum size requirement.
- 	 */
--	if (unlikely(skb->len < 17)) {
--		if (skb_pad(skb, 17 - skb->len))
--			return NETDEV_TX_OK;
--		skb->len = 17;
--		skb_set_tail_pointer(skb, 17);
--	}
-+	if (skb_put_padto(skb, 17))
-+		return NETDEV_TX_OK;
- 
- 	tx_ring = ring ? ring : adapter->tx_ring[skb->queue_mapping];
- 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 755f71f..465d6a8 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -612,14 +612,9 @@ static bool ixgbevf_cleanup_headers(struct ixgbevf_ring *rx_ring,
- 	if (skb_is_nonlinear(skb))
- 		ixgbevf_pull_tail(rx_ring, skb);
- 
--	/* if skb_pad returns an error the skb was freed */
--	if (unlikely(skb->len < 60)) {
--		int pad_len = 60 - skb->len;
--
--		if (skb_pad(skb, pad_len))
--			return true;
--		__skb_put(skb, pad_len);
--	}
-+	/* if eth_skb_pad returns an error the skb was freed */
-+	if (eth_skb_pad(skb))
-+		return true;
- 
- 	return false;
- }
+http://stackoverflow.com/questions/27251904/recvfrom-read-wrong-ethernet-address-from-raw-socket
+  https://code.google.com/p/android/issues/detail?id=81370
+
+step to reproduce:
+
+sample program: http://pastebin.com/kkjUrft9
+( you have to change the hardcoded ip address )
+
+  > gcc -g -o -DSENDER main.c -o sender
+  > gcc -g -o main.c -o receiver
+  > ./receiver wlan0 &
+  > ./sender wlan0
+  > Ctrl+C ( SIGINT ) after a while
+  > fg
+  > Ctrl+C ( SIGINT )
+
+you should see the amount of sniffed packets and the amount of bad ones.
+
+commenting out the fprintf/fflush calls drastically reduce bad packets count.
+
+thanks in advance for any help.
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
