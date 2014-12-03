@@ -1,91 +1,78 @@
-From: Zi Shen Lim <zlim.lnx@gmail.com>
-Subject: [PATCH] bpf: arm64: lift restriction on last instruction
-Date: Wed,  3 Dec 2014 00:38:01 -0800
-Message-ID: <1417595881-32218-1-git-send-email-zlim.lnx@gmail.com>
-Cc: Zi Shen Lim <zlim.lnx@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net] gso: do GSO for local skb with size
+	bigger than MTU
+Date: Wed, 3 Dec 2014 11:03:39 +0200
+Message-ID: <20141203090339.GA9299@redhat.com>
+References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
+ <1417158128.3268.2@smtp.corp.redhat.com>
+ <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com>
+ <20141201135225.GA16814@casper.infradead.org>
+ <20141202154839.GB5344@t520.home>
+ <20141202170927.GA9457@casper.infradead.org>
+ <20141202173401.GB4126@redhat.com>
+ <20141202174158.GB9457@casper.infradead.org>
+ <CAEP_g=-86Z6pxNow-wjnbx_v9er_TSn6x5waigqVqYHa7tEQJw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "Du, Fan" <fan.du-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ "fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org" <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=-86Z6pxNow-wjnbx_v9er_TSn6x5waigqVqYHa7tEQJw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Earlier implementation assumed last instruction is BPF_EXIT.
-Since this is no longer a restriction in eBPF, we remove this
-limitation.
-
-Per Alexei Starovoitov [1]:
-> classic BPF has a restriction that last insn is always BPF_RET.
-> eBPF doesn't have BPF_RET instruction and this restriction.
-> It has BPF_EXIT insn which can appear anywhere in the program
-> one or more times and it doesn't have to be last insn.
-
-[1] https://lkml.org/lkml/2014/11/27/2
-
-Fixes: e54bcde3d69d ("arm64: eBPF JIT compiler")
-Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
----
- arch/arm64/net/bpf_jit_comp.c | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
-
-diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
-index 41f1e3e..edba042 100644
---- a/arch/arm64/net/bpf_jit_comp.c
-+++ b/arch/arm64/net/bpf_jit_comp.c
-@@ -60,7 +60,7 @@ struct jit_ctx {
- 	const struct bpf_prog *prog;
- 	int idx;
- 	int tmp_used;
--	int body_offset;
-+	int epilogue_offset;
- 	int *offset;
- 	u32 *image;
- };
-@@ -130,8 +130,8 @@ static void jit_fill_hole(void *area, unsigned int size)
- 
- static inline int epilogue_offset(const struct jit_ctx *ctx)
- {
--	int to = ctx->offset[ctx->prog->len - 1];
--	int from = ctx->idx - ctx->body_offset;
-+	int to = ctx->epilogue_offset;
-+	int from = ctx->idx;
- 
- 	return to - from;
- }
-@@ -463,6 +463,8 @@ emit_cond_jmp:
- 	}
- 	/* function return */
- 	case BPF_JMP | BPF_EXIT:
-+		/* Optimization: when last instruction is EXIT,
-+		   simply fallthrough to epilogue. */
- 		if (i == ctx->prog->len - 1)
- 			break;
- 		jmp_offset = epilogue_offset(ctx);
-@@ -685,11 +687,13 @@ void bpf_int_jit_compile(struct bpf_prog *prog)
- 
- 	/* 1. Initial fake pass to compute ctx->idx. */
- 
--	/* Fake pass to fill in ctx->offset. */
-+	/* Fake pass to fill in ctx->offset and ctx->tmp_used. */
- 	if (build_body(&ctx))
- 		goto out;
- 
- 	build_prologue(&ctx);
-+
-+	ctx.epilogue_offset = ctx.idx;
- 	build_epilogue(&ctx);
- 
- 	/* Now we know the actual image size. */
-@@ -706,7 +710,6 @@ void bpf_int_jit_compile(struct bpf_prog *prog)
- 
- 	build_prologue(&ctx);
- 
--	ctx.body_offset = ctx.idx;
- 	if (build_body(&ctx)) {
- 		bpf_jit_binary_free(header);
- 		goto out;
--- 
-1.9.1
+T24gVHVlLCBEZWMgMDIsIDIwMTQgYXQgMTA6MTI6MDRBTSAtMDgwMCwgSmVzc2UgR3Jvc3Mgd3Jv
+dGU6Cj4gT24gVHVlLCBEZWMgMiwgMjAxNCBhdCA5OjQxIEFNLCBUaG9tYXMgR3JhZiA8dGdyYWZA
+c3V1Zy5jaD4gd3JvdGU6Cj4gPiBPbiAxMi8wMi8xNCBhdCAwNzozNHBtLCBNaWNoYWVsIFMuIFRz
+aXJraW4gd3JvdGU6Cj4gPj4gT24gVHVlLCBEZWMgMDIsIDIwMTQgYXQgMDU6MDk6MjdQTSArMDAw
+MCwgVGhvbWFzIEdyYWYgd3JvdGU6Cj4gPj4gPiBPbiAxMi8wMi8xNCBhdCAwMTo0OHBtLCBGbGF2
+aW8gTGVpdG5lciB3cm90ZToKPiA+PiA+ID4gV2hhdCBhYm91dCBjb250YWluZXJzIG9yIGFueSBv
+dGhlciB2aXJ0dWFsaXphdGlvbiBlbnZpcm9ubWVudCB0aGF0Cj4gPj4gPiA+IGRvZXNuJ3QgdXNl
+IFZpcnRpbz8KPiA+PiA+Cj4gPj4gPiBUaGUgaG9zdCBjYW4gZGljdGF0ZSB0aGUgTVRVIGluIHRo
+YXQgY2FzZSBmb3IgYm90aCB2ZXRoIG9yIE9WUwo+ID4+ID4gaW50ZXJuYWwgd2hpY2ggd291bGQg
+YmUgcHJpbWFyeSBjb250YWluZXIgcGx1bWJpbmcgdGVjaG5pcXVlcy4KPiA+Pgo+ID4+IEl0IHR5
+cGljYWxseSBjYW4ndCBkbyB0aGlzIGVhc2lseSBmb3IgVk1zIHdpdGggZW11bGF0ZWQgZGV2aWNl
+czoKPiA+PiByZWFsIGV0aGVybmV0IHVzZXMgYSBmaXhlZCBNVFUuCj4gPj4KPiA+PiBJTUhPIGl0
+J3MgY29uZnVzaW5nIHRvIHN1Z2dlc3QgTVRVIGFzIGEgZml4IGZvciB0aGlzIGJ1ZywgaXQncwo+
+ID4+IGFuIHVucmVsYXRlZCBvcHRpbWl6YXRpb24uCj4gPj4gSUNNUF9ERVNUX1VOUkVBQ0gvSUNN
+UF9GUkFHX05FRURFRCBpcyB0aGUgcmlnaHQgZml4IGhlcmUuCj4gPgo+ID4gUE1UVSBkaXNjb3Zl
+cnkgb25seSByZXNvbHZlcyB0aGUgaXNzdWUgaWYgYW4gYWN0dWFsIElQIHN0YWNrIGlzCj4gPiBy
+dW5uaW5nIGluc2lkZSB0aGUgVk0uIFRoaXMgbWF5IG5vdCBiZSB0aGUgY2FzZSBhdCBhbGwuCj4g
+Cj4gSXQncyBhbHNvIG9ubHkgcmVhbGx5IGEgY29ycmVjdCB0aGluZyB0byBkbyBpZiB0aGUgSUNN
+UCBwYWNrZXQgaXMKPiBjb21pbmcgZnJvbSBhbiBMMyBub2RlLiBJZiB5b3UgYXJlIGRvaW5nIHN0
+cmFpZ2h0IGJyaWRnaW5nIHRoZW4geW91Cj4gaGF2ZSB0byByZXNvcnQgdG8gaGFja3MgbGlrZSBP
+VlMgaGFkIGJlZm9yZSwgd2hpY2ggSSBhZ3JlZSBhcmUgbm90Cj4gcGFydGljdWxhcmx5IGRlc2ly
+YWJsZS4KClRoZSBpc3N1ZSBzZWVtcyB0byBiZSB0aGF0IGZ1bmRhbWVudGFsbHksIHRoaXMgaXMK
+YnJpZGdpbmcgaW50ZXJmYWNlcyB3aXRoIHZhcmlhYmxlIE1UVXMgKGV2ZW4gaWYgTVRVIHZhbHVl
+cwpvbiBkZXZpY2VzIGRvbid0IGxldCB1cyBmaWd1cmUgdGhpcyBvdXQpLQp0aGF0IGlzIGFscmVh
+ZHkgbm90IHN0cmFpZ2h0IGJyaWRnaW5nLCBhbmQKSSB3b3VsZCBhcmd1ZSBzZW5kaW5nIElDTVBz
+IGJhY2sgaXMgdGhlIHJpZ2h0IHRoaW5nIHRvIGRvLgoKCj4gPiBJIGFncmVlIHRoYXQgZXhwb3Np
+bmcgYW4gTVRVIHRvd2FyZHMgdGhlIGd1ZXN0IGlzIG5vdCBhcHBsaWNhYmxlCj4gPiBpbiBhbGwg
+c2l0dWF0aW9ucywgaW4gcGFydGljdWxhciBiZWNhdXNlIGl0IGlzIGRpZmZpY3VsdCB0byBkZWNp
+ZGUKPiA+IHdoYXQgTVRVIHRvIGV4cG9zZS4gSXQgaXMgYSByZWxhdGl2ZWx5IGVsZWdhbnQgc29s
+dXRpb24gaW4gYSBsb3QKPiA+IG9mIHZpcnR1YWxpemF0aW9uIGhvc3QgY2FzZXMgaG9va2VkIHVw
+IHRvIGFuIG9yY2hlc3RyYXRpb24gc3lzdGVtCj4gPiB0aG91Z2guCj4gCj4gSSBhbHNvIHRoaW5r
+IHRoaXMgaXMgdGhlIHJpZ2h0IHRoaW5nIHRvIGRvIGFzIGEgY29tbW9uIGNhc2UKPiBvcHRpbWl6
+YXRpb24gYW5kIEkga25vdyBvdGhlciBwbGF0Zm9ybXMgKHN1Y2ggYXMgSHlwZXItVikgZG8gaXQu
+IEl0J3MKPiBub3QgYSBjb21wbGV0ZSBzb2x1dGlvbiBzbyB3ZSBzdGlsbCBuZWVkIHRoZSBvcmln
+aW5hbCBwYXRjaCBpbiB0aGlzCj4gdGhyZWFkIHRvIGhhbmRsZSB0aGluZ3MgdHJhbnNwYXJlbnRs
+eS4KCldlbGwsIGFzIEkgYmVsaWV2ZSBEYXZpZCAoYW5kIGluZGVwZW5kZW50bHkgSmFzb24pIGlz
+IHNheWluZywgaXQgbG9va3MgbGlrZQp0aGUgSUNNUHMgd2UgYXJlIHNlbmRpbmcgYmFjayBhZnRl
+ciBhcHBseWluZyB0aGUgb3JpZ2luYWwgcGF0Y2ggaGF2ZSB0aGUKd3JvbmcgTVRVLgoKQW5kIGlm
+IEkgdW5kZXJzdGFuZCB3aGF0IERhdmlkIGlzIHNheWluZyBoZXJlLCBJUCBpcyBhbHNvIHRoZSB3
+cm9uZyBwbGFjZSB0bwpkbyBpdC4KCi0tIApNU1QKX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3Jn
+Cmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
