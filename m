@@ -1,51 +1,42 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 2/4] vlan: Fix mac_len adjustment.
-Date: Wed, 3 Dec 2014 15:32:41 +0100
-Message-ID: <20141203153241.5866bb75@griffin>
-References: <1417473038-2165-1-git-send-email-pshelar@nicira.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net v2 0/2] amd-xgbe: AMD XGBE driver fixes 2014-12-02
+Date: Wed, 3 Dec 2014 08:36:31 -0600
+Message-ID: <20141203143630.25084.91079.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Pravin B Shelar <pshelar@nicira.com>
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45549 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752139AbaLCOcq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Dec 2014 09:32:46 -0500
-In-Reply-To: <1417473038-2165-1-git-send-email-pshelar@nicira.com>
+Received: from mail-bl2on0123.outbound.protection.outlook.com ([65.55.169.123]:3904
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752139AbaLCOgg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Dec 2014 09:36:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon,  1 Dec 2014 14:30:38 -0800, Pravin B Shelar wrote:
-> skb_reset_mac_len() sets length according to ethernet and network
-> offsets, but mpls expects mac-length to be offset to mpls header (ref.
-> skb_mpls_header()). Therefore rather than reset we need to subtract
-> VLAN_HLEN from mac_len.
-> 
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-> ---
->  net/core/skbuff.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 92116df..c45888f 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -4178,7 +4178,7 @@ static int __skb_vlan_pop(struct sk_buff *skb, u16 *vlan_tci)
->  	if (skb_network_offset(skb) < ETH_HLEN)
->  		skb_set_network_header(skb, ETH_HLEN);
->  
-> -	skb_reset_mac_len(skb);
-> +	skb->mac_len -= VLAN_HLEN;
->  pull:
->  	__skb_pull(skb, offset);
->  
+The following series of patches includes two bug fixes. Unfortunately,
+the first patch will create a conflict when eventually merged into
+net-next but should be very easy to resolve.
 
-See my previous explanation why this patch is wrong with the current
-code: http://article.gmane.org/gmane.linux.network/339457
+- Do not clear the interrupt bit in the xgbe_ring_data structure
+- Associate a Tx SKB with the proper xgbe_ring_data structure
 
- Jiri
+This patch series is based on net.
+
+Changes from v1:
+- Update the commit message associated with the first patch
+
+---
+
+Tom Lendacky (2):
+      amd-xgbe: Do not clear interrupt indicator
+      amd-xgbe: Associate Tx SKB with proper ring descriptor
+
+
+ drivers/net/ethernet/amd/xgbe/xgbe-desc.c |    7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
 -- 
-Jiri Benc
+Tom Lendacky
