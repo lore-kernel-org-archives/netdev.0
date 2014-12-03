@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 08/12] netfilter: ipset: Alignment problem between 64bit kernel 32bit userspace
-Date: Wed,  3 Dec 2014 13:55:38 +0100
-Message-ID: <1417611342-25257-9-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 12/12] netfilter: ipset: Explicitly add padding elements to hash:net, net and hash:net, port, net
+Date: Wed,  3 Dec 2014 13:55:42 +0100
+Message-ID: <1417611342-25257-13-git-send-email-pablo@netfilter.org>
 References: <1417611342-25257-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -12,184 +12,55 @@ List-Id: netdev.vger.kernel.org
 
 From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-Sven-Haegar Koch reported the issue:
-
-sims:~# iptables -A OUTPUT -m set --match-set testset src -j ACCEPT
-iptables: Invalid argument. Run `dmesg' for more information.
-
-In syslog:
-x_tables: ip_tables: set.3 match: invalid size 48 (kernel) != (user) 32
-
-which was introduced by the counter extension in ipset.
-
-The patch fixes the alignment issue with introducing a new set match
-revision with the fixed underlying 'struct ip_set_counter_match'
-structure.
+The elements must be u32 sized for the used hash function.
 
 Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/ipset/ip_set.h |    8 ++-
- include/uapi/linux/netfilter/xt_set.h       |   13 ++++-
- net/netfilter/xt_set.c                      |   73 +++++++++++++++++++++++++--
- 3 files changed, 88 insertions(+), 6 deletions(-)
+ net/netfilter/ipset/ip_set_hash_netnet.c     |    2 ++
+ net/netfilter/ipset/ip_set_hash_netportnet.c |    2 ++
+ 2 files changed, 4 insertions(+)
 
-diff --git a/include/uapi/linux/netfilter/ipset/ip_set.h b/include/uapi/linux/netfilter/ipset/ip_set.h
-index ca03119..5ab4e60 100644
---- a/include/uapi/linux/netfilter/ipset/ip_set.h
-+++ b/include/uapi/linux/netfilter/ipset/ip_set.h
-@@ -256,11 +256,17 @@ enum {
- 	IPSET_COUNTER_GT,
+diff --git a/net/netfilter/ipset/ip_set_hash_netnet.c b/net/netfilter/ipset/ip_set_hash_netnet.c
+index da00284..ea8772a 100644
+--- a/net/netfilter/ipset/ip_set_hash_netnet.c
++++ b/net/netfilter/ipset/ip_set_hash_netnet.c
+@@ -46,6 +46,7 @@ struct hash_netnet4_elem {
+ 		__be64 ipcmp;
+ 	};
+ 	u8 nomatch;
++	u8 padding;
+ 	union {
+ 		u8 cidr[2];
+ 		u16 ccmp;
+@@ -271,6 +272,7 @@ hash_netnet4_uadt(struct ip_set *set, struct nlattr *tb[],
+ struct hash_netnet6_elem {
+ 	union nf_inet_addr ip[2];
+ 	u8 nomatch;
++	u8 padding;
+ 	union {
+ 		u8 cidr[2];
+ 		u16 ccmp;
+diff --git a/net/netfilter/ipset/ip_set_hash_netportnet.c b/net/netfilter/ipset/ip_set_hash_netportnet.c
+index b8053d6..bfaa94c 100644
+--- a/net/netfilter/ipset/ip_set_hash_netportnet.c
++++ b/net/netfilter/ipset/ip_set_hash_netportnet.c
+@@ -53,6 +53,7 @@ struct hash_netportnet4_elem {
+ 		u8 cidr[2];
+ 		u16 ccmp;
+ 	};
++	u16 padding;
+ 	u8 nomatch:1;
+ 	u8 proto;
  };
- 
--struct ip_set_counter_match {
-+/* Backward compatibility for set match v3 */
-+struct ip_set_counter_match0 {
- 	__u8 op;
- 	__u64 value;
+@@ -324,6 +325,7 @@ struct hash_netportnet6_elem {
+ 		u8 cidr[2];
+ 		u16 ccmp;
+ 	};
++	u16 padding;
+ 	u8 nomatch:1;
+ 	u8 proto;
  };
- 
-+struct ip_set_counter_match {
-+	__aligned_u64 value;
-+	__u8 op;
-+};
-+
- /* Interface to iptables/ip6tables */
- 
- #define SO_IP_SET		83
-diff --git a/include/uapi/linux/netfilter/xt_set.h b/include/uapi/linux/netfilter/xt_set.h
-index d6a1df1..d4e0234 100644
---- a/include/uapi/linux/netfilter/xt_set.h
-+++ b/include/uapi/linux/netfilter/xt_set.h
-@@ -66,8 +66,8 @@ struct xt_set_info_target_v2 {
- 
- struct xt_set_info_match_v3 {
- 	struct xt_set_info match_set;
--	struct ip_set_counter_match packets;
--	struct ip_set_counter_match bytes;
-+	struct ip_set_counter_match0 packets;
-+	struct ip_set_counter_match0 bytes;
- 	__u32 flags;
- };
- 
-@@ -81,4 +81,13 @@ struct xt_set_info_target_v3 {
- 	__u32 timeout;
- };
- 
-+/* Revision 4 match */
-+
-+struct xt_set_info_match_v4 {
-+	struct xt_set_info match_set;
-+	struct ip_set_counter_match packets;
-+	struct ip_set_counter_match bytes;
-+	__u32 flags;
-+};
-+
- #endif /*_XT_SET_H*/
-diff --git a/net/netfilter/xt_set.c b/net/netfilter/xt_set.c
-index 5732cd6..0d47afe 100644
---- a/net/netfilter/xt_set.c
-+++ b/net/netfilter/xt_set.c
-@@ -157,7 +157,7 @@ set_match_v1_destroy(const struct xt_mtdtor_param *par)
- /* Revision 3 match */
- 
- static bool
--match_counter(u64 counter, const struct ip_set_counter_match *info)
-+match_counter0(u64 counter, const struct ip_set_counter_match0 *info)
- {
- 	switch (info->op) {
- 	case IPSET_COUNTER_NONE:
-@@ -192,14 +192,60 @@ set_match_v3(const struct sk_buff *skb, struct xt_action_param *par)
- 	if (!(ret && opt.cmdflags & IPSET_FLAG_MATCH_COUNTERS))
- 		return ret;
- 
--	if (!match_counter(opt.ext.packets, &info->packets))
-+	if (!match_counter0(opt.ext.packets, &info->packets))
- 		return 0;
--	return match_counter(opt.ext.bytes, &info->bytes);
-+	return match_counter0(opt.ext.bytes, &info->bytes);
- }
- 
- #define set_match_v3_checkentry	set_match_v1_checkentry
- #define set_match_v3_destroy	set_match_v1_destroy
- 
-+/* Revision 4 match */
-+
-+static bool
-+match_counter(u64 counter, const struct ip_set_counter_match *info)
-+{
-+	switch (info->op) {
-+	case IPSET_COUNTER_NONE:
-+		return true;
-+	case IPSET_COUNTER_EQ:
-+		return counter == info->value;
-+	case IPSET_COUNTER_NE:
-+		return counter != info->value;
-+	case IPSET_COUNTER_LT:
-+		return counter < info->value;
-+	case IPSET_COUNTER_GT:
-+		return counter > info->value;
-+	}
-+	return false;
-+}
-+
-+static bool
-+set_match_v4(const struct sk_buff *skb, struct xt_action_param *par)
-+{
-+	const struct xt_set_info_match_v4 *info = par->matchinfo;
-+	ADT_OPT(opt, par->family, info->match_set.dim,
-+		info->match_set.flags, info->flags, UINT_MAX);
-+	int ret;
-+
-+	if (info->packets.op != IPSET_COUNTER_NONE ||
-+	    info->bytes.op != IPSET_COUNTER_NONE)
-+		opt.cmdflags |= IPSET_FLAG_MATCH_COUNTERS;
-+
-+	ret = match_set(info->match_set.index, skb, par, &opt,
-+			info->match_set.flags & IPSET_INV_MATCH);
-+
-+	if (!(ret && opt.cmdflags & IPSET_FLAG_MATCH_COUNTERS))
-+		return ret;
-+
-+	if (!match_counter(opt.ext.packets, &info->packets))
-+		return 0;
-+	return match_counter(opt.ext.bytes, &info->bytes);
-+}
-+
-+#define set_match_v4_checkentry	set_match_v1_checkentry
-+#define set_match_v4_destroy	set_match_v1_destroy
-+
- /* Revision 0 interface: backward compatible with netfilter/iptables */
- 
- static unsigned int
-@@ -573,6 +619,27 @@ static struct xt_match set_matches[] __read_mostly = {
- 		.destroy	= set_match_v3_destroy,
- 		.me		= THIS_MODULE
- 	},
-+	/* new revision for counters support: update, match */
-+	{
-+		.name		= "set",
-+		.family		= NFPROTO_IPV4,
-+		.revision	= 4,
-+		.match		= set_match_v4,
-+		.matchsize	= sizeof(struct xt_set_info_match_v4),
-+		.checkentry	= set_match_v4_checkentry,
-+		.destroy	= set_match_v4_destroy,
-+		.me		= THIS_MODULE
-+	},
-+	{
-+		.name		= "set",
-+		.family		= NFPROTO_IPV6,
-+		.revision	= 4,
-+		.match		= set_match_v4,
-+		.matchsize	= sizeof(struct xt_set_info_match_v4),
-+		.checkentry	= set_match_v4_checkentry,
-+		.destroy	= set_match_v4_destroy,
-+		.me		= THIS_MODULE
-+	},
- };
- 
- static struct xt_target set_targets[] __read_mostly = {
 -- 
 1.7.10.4
 
