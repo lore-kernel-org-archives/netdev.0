@@ -1,72 +1,36 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] ss: Use rtnl_dump_filter in
- handle_netlink_request
-Date: Wed, 3 Dec 2014 15:07:48 -0800
-Message-ID: <20141203150748.001d481e@urahara>
-References: <1417531984-3522-1-git-send-email-vadim4j@gmail.com>
-	<20141203092129.49f16769@urahara>
-	<20141203172010.GA8639@angus-think.wlc.globallogic.com>
-	<20141203095123.40429f4c@urahara>
-	<20141203174506.GA12511@angus-think.wlc.globallogic.com>
-	<CAMw6YJ+W0KCvGrfij990+BU2EsW6E4SEWJRsrRgk=vnq-okjzQ@mail.gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [patch net-next 3/6] net_sched: cls_bpf: remove faulty use of
+ list_for_each_entry_rcu
+Date: Thu, 04 Dec 2014 00:15:13 +0100
+Message-ID: <547F9981.8050809@redhat.com>
+References: <1417539636-12710-1-git-send-email-jiri@resnulli.us> <1417539636-12710-4-git-send-email-jiri@resnulli.us> <547F0743.4040301@mojatatu.com> <20141203132635.GH1860@nanopsycho.orion> <547F203A.3080208@mojatatu.com> <20141203152051.GK1860@nanopsycho.orion> <547F7D6D.3000709@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Vadim Kochan <vadim4j@gmail.com>
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:65505 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752273AbaLCXH6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 18:07:58 -0500
-Received: by mail-pa0-f49.google.com with SMTP id eu11so16672750pac.36
-        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 15:07:57 -0800 (PST)
-In-Reply-To: <CAMw6YJ+W0KCvGrfij990+BU2EsW6E4SEWJRsrRgk=vnq-okjzQ@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:36182 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752520AbaLCXPY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Dec 2014 18:15:24 -0500
+In-Reply-To: <547F7D6D.3000709@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 4 Dec 2014 00:15:54 +0200
-Vadim Kochan <vadim4j@gmail.com> wrote:
+On 12/03/2014 10:15 PM, Jamal Hadi Salim wrote:
+...
+> I am not an rcu officionado. So if the control path is doing a non-rcu
+> get + rcu-del/change (update) then as long as the fastpath is (read)
+> rcu locking we are fine  and nothing will actually happen until the
+> fastpath releases and rcu grace period ends, correct?
 
-> I established some simple OpenVPN connection (at least by the logs and
-> ss I see that peer is connected), but
-> I dont get any errors with ss.
-> 
-> So can you please provide some more info how did you tested this patch
-> ? I am surprised that this is caused only
-> by these changes ...
-> 
-> On Wed, Dec 3, 2014 at 7:45 PM,  <vadim4j@gmail.com> wrote:
-> > On Wed, Dec 03, 2014 at 09:51:23AM -0800, Stephen Hemminger wrote:
-> >> On Wed, 3 Dec 2014 19:20:10 +0200
-> >> vadim4j@gmail.com wrote:
-> >>
-> >> > On Wed, Dec 03, 2014 at 09:21:29AM -0800, Stephen Hemminger wrote:
-> >> > > On Tue,  2 Dec 2014 16:53:04 +0200
-> >> > > Vadim Kochan <vadim4j@gmail.com> wrote:
-> >> > >
-> >> > > > Replaced handling netlink messages by rtnl_dump_filter
-> >> > > > from lib/libnetlink.c, also:
-> >> > > >
-> >> > > >     - removed unused dump_fp arg;
-> >> > > >     - added MAGIC_SEQ #define for 123456 seq id
-> >> > > >
-> >> > > > Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
-> >> > >
-> >> > > This doesn't work correctly.
-> >> > >
-> >> > > Simple test
-> >> > >   $ misc/ss >/dev/null
-> >> > > RTNETLINK answers: No such file or directory
-> >> > > RTNETLINK answers: No such file or directory
-> >> > > RTNETLINK answers: No such file or directory
-> >> >
-> >> > Just tried, I did not get such errors.
-> >>
-> >> I have OpenVPN running.
-> >
-> > Hm, it is reproduced only with this patch ?
-> > If so I will try to setup OpenVPN ... can't imagine how it can be
-> > related ...
+So if the control path does a list_del_rcu() and call_rcu() under
+lock and iterates over list_for_each_entry{,safe}() [which we do
+in cls_bpf_delete()], while the fast path [cls_bpf_classify()] uses
+a rcu_read_{un,}lock() with *_rcu list iterator, that's fine then,
+as it's still guaranteed to be deleted after the grace period. So
+Jiri's change looks good to me.
 
-I am running on 3.17.4 kernel if that helps.
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
