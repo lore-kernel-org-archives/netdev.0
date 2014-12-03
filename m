@@ -1,96 +1,101 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 04/12] netfilter: nf_tables_bridge: set the pktinfo for IPv4/IPv6 traffic
-Date: Wed,  3 Dec 2014 13:55:34 +0100
-Message-ID: <1417611342-25257-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 02/12] netfilter: conntrack: avoid zeroing timer
+Date: Wed,  3 Dec 2014 13:55:32 +0100
+Message-ID: <1417611342-25257-3-git-send-email-pablo@netfilter.org>
 References: <1417611342-25257-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48612 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:48597 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751443AbaLCMxc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Dec 2014 07:53:32 -0500
+	id S1752317AbaLCMxa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Dec 2014 07:53:30 -0500
 In-Reply-To: <1417611342-25257-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alvaro Neira <alvaroneay@gmail.com>
+From: Florian Westphal <fw@strlen.de>
 
-This patch adds the missing bits to allow to match per meta l4proto from
-the bridge. Example:
+add a __nfct_init_offset annotation member to struct nf_conn to make
+it clear which members are covered by the memset when the conntrack
+is allocated.
 
-  nft add rule bridge filter input ether type {ip, ip6} meta l4proto udp counter
+This avoids zeroing timer_list and ct_net; both are already inited
+explicitly.
 
-Signed-off-by: Alvaro Neira Ayuso <alvaroneay@gmail.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/bridge/netfilter/nf_tables_bridge.c |   40 ++++++++++++++++++++++++++++++-
- 1 file changed, 39 insertions(+), 1 deletion(-)
+ include/net/netfilter/nf_conntrack.h |   15 +++++++++------
+ net/netfilter/nf_conntrack_core.c    |   11 ++++-------
+ 2 files changed, 13 insertions(+), 13 deletions(-)
 
-diff --git a/net/bridge/netfilter/nf_tables_bridge.c b/net/bridge/netfilter/nf_tables_bridge.c
-index d468c19..19473a9 100644
---- a/net/bridge/netfilter/nf_tables_bridge.c
-+++ b/net/bridge/netfilter/nf_tables_bridge.c
-@@ -16,6 +16,8 @@
- #include <net/netfilter/nf_tables_bridge.h>
- #include <linux/ip.h>
- #include <linux/ipv6.h>
-+#include <net/netfilter/nf_tables_ipv4.h>
-+#include <net/netfilter/nf_tables_ipv6.h>
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index c8a7db6..f0daed2 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -92,12 +92,18 @@ struct nf_conn {
+ 	/* Have we seen traffic both ways yet? (bitset) */
+ 	unsigned long status;
  
- int nft_bridge_iphdr_validate(struct sk_buff *skb)
- {
-@@ -62,6 +64,32 @@ int nft_bridge_ip6hdr_validate(struct sk_buff *skb)
- }
- EXPORT_SYMBOL_GPL(nft_bridge_ip6hdr_validate);
+-	/* If we were expected by an expectation, this will be it */
+-	struct nf_conn *master;
+-
+ 	/* Timer function; drops refcnt when it goes off. */
+ 	struct timer_list timeout;
  
-+static inline void nft_bridge_set_pktinfo_ipv4(struct nft_pktinfo *pkt,
-+					       const struct nf_hook_ops *ops,
-+					       struct sk_buff *skb,
-+					       const struct net_device *in,
-+					       const struct net_device *out)
-+{
-+	if (nft_bridge_iphdr_validate(skb))
-+		nft_set_pktinfo_ipv4(pkt, ops, skb, in, out);
-+	else
-+		nft_set_pktinfo(pkt, ops, skb, in, out);
-+}
-+
-+static inline void nft_bridge_set_pktinfo_ipv6(struct nft_pktinfo *pkt,
-+					      const struct nf_hook_ops *ops,
-+					      struct sk_buff *skb,
-+					      const struct net_device *in,
-+					      const struct net_device *out)
-+{
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (nft_bridge_ip6hdr_validate(skb) &&
-+	    nft_set_pktinfo_ipv6(pkt, ops, skb, in, out) == 0)
-+		return;
++#ifdef CONFIG_NET_NS
++	struct net *ct_net;
 +#endif
-+	nft_set_pktinfo(pkt, ops, skb, in, out);
-+}
++	/* all members below initialized via memset */
++	u8 __nfct_init_offset[0];
 +
- static unsigned int
- nft_do_chain_bridge(const struct nf_hook_ops *ops,
- 		    struct sk_buff *skb,
-@@ -71,7 +99,17 @@ nft_do_chain_bridge(const struct nf_hook_ops *ops,
- {
- 	struct nft_pktinfo pkt;
++	/* If we were expected by an expectation, this will be it */
++	struct nf_conn *master;
++
+ #if defined(CONFIG_NF_CONNTRACK_MARK)
+ 	u_int32_t mark;
+ #endif
+@@ -108,9 +114,6 @@ struct nf_conn {
  
--	nft_set_pktinfo(&pkt, ops, skb, in, out);
-+	switch (eth_hdr(skb)->h_proto) {
-+	case htons(ETH_P_IP):
-+		nft_bridge_set_pktinfo_ipv4(&pkt, ops, skb, in, out);
-+		break;
-+	case htons(ETH_P_IPV6):
-+		nft_bridge_set_pktinfo_ipv6(&pkt, ops, skb, in, out);
-+		break;
-+	default:
-+		nft_set_pktinfo(&pkt, ops, skb, in, out);
-+		break;
-+	}
+ 	/* Extensions */
+ 	struct nf_ct_ext *ext;
+-#ifdef CONFIG_NET_NS
+-	struct net *ct_net;
+-#endif
  
- 	return nft_do_chain(&pkt, ops);
- }
+ 	/* Storage reserved for other modules, must be the last member */
+ 	union nf_conntrack_proto proto;
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 2c69975..9ef88c8 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -826,22 +826,19 @@ __nf_conntrack_alloc(struct net *net, u16 zone,
+ 		atomic_dec(&net->ct.count);
+ 		return ERR_PTR(-ENOMEM);
+ 	}
+-	/*
+-	 * Let ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode.next
+-	 * and ct->tuplehash[IP_CT_DIR_REPLY].hnnode.next unchanged.
+-	 */
+-	memset(&ct->tuplehash[IP_CT_DIR_MAX], 0,
+-	       offsetof(struct nf_conn, proto) -
+-	       offsetof(struct nf_conn, tuplehash[IP_CT_DIR_MAX]));
+ 	spin_lock_init(&ct->lock);
+ 	ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple = *orig;
+ 	ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode.pprev = NULL;
+ 	ct->tuplehash[IP_CT_DIR_REPLY].tuple = *repl;
+ 	/* save hash for reusing when confirming */
+ 	*(unsigned long *)(&ct->tuplehash[IP_CT_DIR_REPLY].hnnode.pprev) = hash;
++	ct->status = 0;
+ 	/* Don't set timer yet: wait for confirmation */
+ 	setup_timer(&ct->timeout, death_by_timeout, (unsigned long)ct);
+ 	write_pnet(&ct->ct_net, net);
++	memset(&ct->__nfct_init_offset[0], 0,
++	       offsetof(struct nf_conn, proto) -
++	       offsetof(struct nf_conn, __nfct_init_offset[0]));
+ #ifdef CONFIG_NF_CONNTRACK_ZONES
+ 	if (zone) {
+ 		struct nf_conntrack_zone *nf_ct_zone;
 -- 
 1.7.10.4
