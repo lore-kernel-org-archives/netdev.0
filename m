@@ -1,31 +1,34 @@
-From: Qin Chuanyu <qinchuanyu@huawei.com>
-Subject: What's the concern about setting irq thread's policy as SCHED_FIFO
-Date: Wed, 3 Dec 2014 16:06:59 +0800
-Message-ID: <547EC4A3.6060408@huawei.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: wireless workshop - was: Netdev 0.1 Call for Proposals
+Date: Wed, 03 Dec 2014 09:24:57 +0100
+Message-ID: <1417595097.2640.3.camel@sipsolutions.net>
+References: <20141203022815.GM4612@toccata2.tricolour.ca>
+	 (sfid-20141203_033529_861866_D2E3478C)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	lwn.net@toccata2.tricolour.ca, netdev01@lists.netfilter.org
+To: Richard Guy Briggs <rgb@tricolour.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:39636 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751013AbaLCIZD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Dec 2014 03:25:03 -0500
+In-Reply-To: <20141203022815.GM4612@toccata2.tricolour.ca> (sfid-20141203_033529_861866_D2E3478C)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I am doing network performance test under suse11sp3 and intel 82599 nic,
-Becasuse the softirq is out of schedule policy's control, so netserver 
-thread couldn't always get 100% cpu usage, then packet dropped in kernel 
-udp socket's receive queue.
+On Tue, 2014-12-02 at 21:28 -0500, Richard Guy Briggs wrote:
 
-In order to get a stable result, I did some patch in ixgbe driver and 
-then use irq_thread instead of softirq to handle rx.
-It seems work well, but irq_thread's SCHED_FIFO schedule policy cause 
-that when the cpu is limited, netserver couldn't work at all.
+> 1) Workshops (day 1)
 
-So I change the irq_thread's schedule policy from SCHED_FIFO to 
-SCHED_NORMAL, then the irq_thread could share the cpu usage with 
-netserver thread.
+FWIW, we're planning a wireless summit as a workshop here, which should
+give us a little more breathing room than e.g. the 3-hour slot at LPC.
+I'll put up the wiki page and other things and start working on an
+agenda when I'm back home next week.
 
-the question is:
-What's the concrete reason about setting irq thread's policy as SCHED_FIFO?
-Except the priority affecting the cpu usage, any function would be 
-broken if irq thread change to SCHED_NORMAL?
+Wireless-related submissions for the remainder of the conference are
+also very welcome and encouraged!
+
+johannes
