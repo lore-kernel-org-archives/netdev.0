@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xen-netfront: Remove BUGs on paged skb data which
- crosses a page boundary
-Date: Tue, 02 Dec 2014 19:25:30 -0800 (PST)
-Message-ID: <20141202.192530.460426718376541462.davem@davemloft.net>
-References: <1416968904-70874-1-git-send-email-seth.forshee@canonical.com>
+Subject: Re: [RFC PATCH 0/3] net: Alloc NAPI page frags from their own pool
+Date: Tue, 02 Dec 2014 19:30:44 -0800 (PST)
+Message-ID: <20141202.193044.1797294415230563067.davem@davemloft.net>
+References: <20141126235900.1617.10008.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
-	david.vrabel@citrix.com, zoltan.kiss@linaro.org,
-	eric.dumazet@gmail.com, stefan.bader@canonical.com,
-	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: seth.forshee@canonical.com
+Cc: netdev@vger.kernel.org, brouer@redhat.com,
+	jeffrey.t.kirsher@intel.com, eric.dumazet@gmail.com,
+	ast@plumgrid.com
+To: alexander.h.duyck@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55940 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55959 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750931AbaLCDVJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 22:21:09 -0500
-In-Reply-To: <1416968904-70874-1-git-send-email-seth.forshee@canonical.com>
+	with ESMTP id S1751281AbaLCD0X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2014 22:26:23 -0500
+In-Reply-To: <20141126235900.1617.10008.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Seth Forshee <seth.forshee@canonical.com>
-Date: Tue, 25 Nov 2014 20:28:24 -0600
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Date: Wed, 26 Nov 2014 16:05:50 -0800
 
-> These BUGs can be erroneously triggered by frags which refer to
-> tail pages within a compound page. The data in these pages may
-> overrun the hardware page while still being contained within the
-> compound page, but since compound_order() evaluates to 0 for tail
-> pages the assertion fails. The code already iterates through
-> subsequent pages correctly in this scenario, so the BUGs are
-> unnecessary and can be removed.
-> 
-> Fixes: f36c374782e4 ("xen/netfront: handle compound page fragments on transmit")
-> Cc: <stable@vger.kernel.org> # 3.7+
-> Signed-off-by: Seth Forshee <seth.forshee@canonical.com>
+> This patch series implements a means of allocating page fragments without
+> the need for the local_irq_save/restore in __netdev_alloc_frag.  By doing
+> this I am able to decrease packet processing time by 11ns per packet in my
+> test environment.
 
-Applied, thanks.
+No fundamental objections from me.
