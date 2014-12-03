@@ -1,32 +1,58 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] tc_act: export uapi header file
-Date: Wed, 3 Dec 2014 09:33:17 -0800
-Message-ID: <20141203093317.3c482872@urahara>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH v2 4/7] fs/proc/task_mmu.c: shift mm_access() from
+	m_start() to proc_maps_open()
+Date: Wed, 3 Dec 2014 18:34:48 +0100
+Message-ID: <20141203173448.GA4003@redhat.com>
+References: <20140805194627.GA30693@redhat.com> <20140805194655.GA30728@redhat.com> <20141203141433.GA25683@node.dhcp.inet.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:63697 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751173AbaLCRd1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 12:33:27 -0500
-Received: by mail-pa0-f46.google.com with SMTP id lj1so16080594pab.19
-        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 09:33:26 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Alexander Viro <viro@zeniv.linux.org.uk>,
+	Cyrill Gorcunov <gorcunov@openvz.org>,
+	David Howells <dhowells@redhat.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Sasha Levin <levinsasha928@gmail.com>,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org
+To: "Kirill A. Shutemov" <kirill@shutemov.name>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141203141433.GA25683@node.dhcp.inet.fi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This file is used by iproute2 and should be exported.
+On 12/03, Kirill A. Shutemov wrote:
+>
+> On Tue, Aug 05, 2014 at 09:46:55PM +0200, Oleg Nesterov wrote:
+> > A simple test-case from Kirill Shutemov
+> >
+> > 	cat /proc/self/maps >/dev/null
+> > 	chmod +x /proc/self/net/packet
+> > 	exec /proc/self/net/packet
+> >
+> > makes lockdep unhappy, cat/exec take seq_file->lock + cred_guard_mutex in
+> > the opposite order.
+>
+> Oleg, I see it again with almost the same test-case:
+>
+> 	cat /proc/self/stack >/dev/null
+> 	chmod +x /proc/self/net/packet
+> 	exec /proc/self/net/packet
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Yes, there are more lock_trace/mm_access (ab)users. Fortunately, they
+are much simpler than proc/pid/maps (which also asked for other cleanups
+and fixes).
 
+I'll try to take a look, thanks for reminding.
 
---- a/include/uapi/linux/tc_act/Kbuild	2014-02-12 08:21:56.614859066 -0800
-+++ b/include/uapi/linux/tc_act/Kbuild	2014-12-03 09:31:10.619225148 -0800
-@@ -7,3 +7,4 @@ header-y += tc_mirred.h
- header-y += tc_nat.h
- header-y += tc_pedit.h
- header-y += tc_skbedit.h
-+header-y += tc_vlan.h
+And I agree with Eric, chmod+x probably makes no sense. Still I think
+this code deserves some cleanups regardless. To the point I think that
+lock_trace() should probably die.
+
+Thanks!
+
+Oleg.
