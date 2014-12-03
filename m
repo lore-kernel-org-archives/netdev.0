@@ -1,62 +1,110 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [patch net-next 3/6] net_sched: cls_bpf: remove faulty use of
- list_for_each_entry_rcu
-Date: Wed, 3 Dec 2014 14:50:48 +0100
-Message-ID: <20141203135048.GA25676@salvia>
-References: <1417539636-12710-1-git-send-email-jiri@resnulli.us>
- <1417539636-12710-4-git-send-email-jiri@resnulli.us>
- <20141203121949.GA24370@salvia>
- <20141203132142.GG1860@nanopsycho.orion>
+From: <erik.hugne@ericsson.com>
+Subject: [PATCH net-next] tipc: drop tx side permission
+	checks
+Date: Wed, 3 Dec 2014 14:44:44 +0100
+Message-ID: <1417614284-24125-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:38720 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752203AbaLCNse (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Dec 2014 08:48:34 -0500
-Content-Disposition: inline
-In-Reply-To: <20141203132142.GG1860@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net, Erik
+To: <netdev@vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 03, 2014 at 02:21:42PM +0100, Jiri Pirko wrote:
-> Wed, Dec 03, 2014 at 01:19:49PM CET, pablo@netfilter.org wrote:
-> >On Tue, Dec 02, 2014 at 06:00:33PM +0100, Jiri Pirko wrote:
-> >> rcu variant is not correct here. The code is called by updater (rtnl
-> >> lock is held), not by reader (no rcu_read_lock is held).
-> >> 
-> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> >> ---
-> >>  net/sched/cls_bpf.c | 4 ++--
-> >>  1 file changed, 2 insertions(+), 2 deletions(-)
-> >> 
-> >> diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-> >> index cbfaf6f..d0de979 100644
-> >> --- a/net/sched/cls_bpf.c
-> >> +++ b/net/sched/cls_bpf.c
-> >> @@ -141,7 +141,7 @@ static unsigned long cls_bpf_get(struct tcf_proto *tp, u32 handle)
-> >>  	if (head == NULL)
-> >>  		return 0UL;
-> >>  
-> >> -	list_for_each_entry_rcu(prog, &head->plist, link) {
-> >> +	list_for_each_entry(prog, &head->plist, link) {
-> >>  		if (prog->handle == handle) {
-> >>  			ret = (unsigned long) prog;
-> >>  			break;
-> >> @@ -337,7 +337,7 @@ static void cls_bpf_walk(struct tcf_proto *tp, struct tcf_walker *arg)
-> >>  	struct cls_bpf_head *head = rtnl_dereference(tp->root);
-> >>  	struct cls_bpf_prog *prog;
-> >>  
-> >> -	list_for_each_entry_rcu(prog, &head->plist, link) {
-> >> +	list_for_each_entry(prog, &head->plist, link) {
-> >
-> >We still need the _rcu here in the walk path. IIRC, this is called from the
-> >dump path and we hold no rtnl_lock there.
-> 
-> It is called from tc_dump_tfilter only. And tc_dump_tfilter is always
-> called with rtnl_lock
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-Right, nlk->cb_mutex is set to rtnl_lock so netlink_dump() grabs it
-for each recvmsg() invocation.
+Part of the old remote management feature is a piece of code
+that checked permissions on the local system to see if a certain
+operation was permitted, and if so pass the command to a remote
+node. This serves no purpose after the removal of remote management
+with commit 5902385a2440 ("tipc: obsolete the remote management
+feature") so we remove it.
+
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
+---
+ net/tipc/socket.c | 38 +-------------------------------------
+ 1 file changed, 1 insertion(+), 37 deletions(-)
+
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 9658d9b..4731cad 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -827,39 +827,6 @@ exit:
+ 	return TIPC_OK;
+ }
+ 
+-/**
+- * dest_name_check - verify user is permitted to send to specified port name
+- * @dest: destination address
+- * @m: descriptor for message to be sent
+- *
+- * Prevents restricted configuration commands from being issued by
+- * unauthorized users.
+- *
+- * Returns 0 if permission is granted, otherwise errno
+- */
+-static int dest_name_check(struct sockaddr_tipc *dest, struct msghdr *m)
+-{
+-	struct tipc_cfg_msg_hdr hdr;
+-
+-	if (unlikely(dest->addrtype == TIPC_ADDR_ID))
+-		return 0;
+-	if (likely(dest->addr.name.name.type >= TIPC_RESERVED_TYPES))
+-		return 0;
+-	if (likely(dest->addr.name.name.type == TIPC_TOP_SRV))
+-		return 0;
+-	if (likely(dest->addr.name.name.type != TIPC_CFG_SRV))
+-		return -EACCES;
+-
+-	if (!m->msg_iovlen || (m->msg_iov[0].iov_len < sizeof(hdr)))
+-		return -EMSGSIZE;
+-	if (copy_from_user(&hdr, m->msg_iov[0].iov_base, sizeof(hdr)))
+-		return -EFAULT;
+-	if ((ntohs(hdr.tcm_type) & 0xC000) && (!capable(CAP_NET_ADMIN)))
+-		return -EACCES;
+-
+-	return 0;
+-}
+-
+ static int tipc_wait_for_sndmsg(struct socket *sock, long *timeo_p)
+ {
+ 	struct sock *sk = sock->sk;
+@@ -912,7 +879,7 @@ static int tipc_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	struct tipc_name_seq *seq = &dest->addr.nameseq;
+ 	u32 mtu;
+ 	long timeo;
+-	int rc = -EINVAL;
++	int rc;
+ 
+ 	if (unlikely(!dest))
+ 		return -EDESTADDRREQ;
+@@ -945,9 +912,6 @@ static int tipc_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 			tsk->conn_instance = dest->addr.name.name.instance;
+ 		}
+ 	}
+-	rc = dest_name_check(dest, m);
+-	if (rc)
+-		goto exit;
+ 
+ 	timeo = sock_sndtimeo(sk, m->msg_flags & MSG_DONTWAIT);
+ 
+-- 
+2.1.3
+
+
+------------------------------------------------------------------------------
+Download BIRT iHub F-Type - The Free Enterprise-Grade BIRT Server
+from Actuate! Instantly Supercharge Your Business Reports and Dashboards
+with Interactivity, Sharing, Native Excel Exports, App Integration & more
+Get technology previously reserved for billion-dollar corporations, FREE
+http://pubads.g.doubleclick.net/gampad/clk?id=164703151&iu=/4140/ostg.clktrk
