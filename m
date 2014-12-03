@@ -1,43 +1,43 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net v2 1/2] amd-xgbe: Do not clear interrupt indicator
-Date: Wed, 3 Dec 2014 08:36:36 -0600
-Message-ID: <20141203143636.25084.33707.stgit@tlendack-t1.amdoffice.net>
-References: <20141203143630.25084.91079.stgit@tlendack-t1.amdoffice.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next 3/6] net_sched: cls_bpf: remove faulty use of
+ list_for_each_entry_rcu
+Date: Wed, 03 Dec 2014 09:37:46 -0500
+Message-ID: <547F203A.3080208@mojatatu.com>
+References: <1417539636-12710-1-git-send-email-jiri@resnulli.us> <1417539636-12710-4-git-send-email-jiri@resnulli.us> <547F0743.4040301@mojatatu.com> <20141203132635.GH1860@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0117.outbound.protection.outlook.com ([207.46.100.117]:18386
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752818AbaLCOgl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Dec 2014 09:36:41 -0500
-In-Reply-To: <20141203143630.25084.91079.stgit@tlendack-t1.amdoffice.net>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:44463 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752409AbaLCOhs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 09:37:48 -0500
+Received: by mail-ig0-f177.google.com with SMTP id z20so12790300igj.4
+        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 06:37:48 -0800 (PST)
+In-Reply-To: <20141203132635.GH1860@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The interrupt value within the xgbe_ring_data structure is used as an
-indicator of which Rx descriptor should have the INTE bit set to
-generate an interrupt when that Rx descriptor is used.  This bit was
-mistakenly cleared when unmapping the associated ring data, effectively
-nullifying the ethtool rx-frames support.
+On 12/03/14 08:26, Jiri Pirko wrote:
+> Wed, Dec 03, 2014 at 01:51:15PM CET, jhs@mojatatu.com wrote:
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
----
- drivers/net/ethernet/amd/xgbe/xgbe-desc.c |    1 -
- 1 file changed, 1 deletion(-)
+>> I think this may be problematic. Doesnt a flush operation also use the
+>> walker?
+>
+> I don't believe so. Just look at tc_dump_tfilter.
+>
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
-index 6fc5da0..43b7d2e 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
-@@ -356,7 +356,6 @@ static void xgbe_unmap_skb(struct xgbe_prv_data *pdata,
- 
- 	rdata->tso_header = 0;
- 	rdata->len = 0;
--	rdata->interrupt = 0;
- 	rdata->mapped_as_page = 0;
- 
- 	if (rdata->state_saved) {
+Actually we cant flush filters (we could actions).
+
+> But even if that would the the case, _rcu variant is wrong (yep, it
+> would have to be replaced by _safe variant then).
+>
+
+Sorry, still humping on the get part:
+that gets invoked for del for a filter that may be in use in the
+datapath. del uses rcu - should get not use rcu in such a case?
+
+cheers,
+jamal
