@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 10/12] netfilter: ipset: Simplify cidr handling for hash:*net* types
-Date: Wed,  3 Dec 2014 13:55:40 +0100
-Message-ID: <1417611342-25257-11-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 08/12] netfilter: ipset: Alignment problem between 64bit kernel 32bit userspace
+Date: Wed,  3 Dec 2014 13:55:38 +0100
+Message-ID: <1417611342-25257-9-git-send-email-pablo@netfilter.org>
 References: <1417611342-25257-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -12,156 +12,184 @@ List-Id: netdev.vger.kernel.org
 
 From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
+Sven-Haegar Koch reported the issue:
+
+sims:~# iptables -A OUTPUT -m set --match-set testset src -j ACCEPT
+iptables: Invalid argument. Run `dmesg' for more information.
+
+In syslog:
+x_tables: ip_tables: set.3 match: invalid size 48 (kernel) != (user) 32
+
+which was introduced by the counter extension in ipset.
+
+The patch fixes the alignment issue with introducing a new set match
+revision with the fixed underlying 'struct ip_set_counter_match'
+structure.
+
 Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipset/ip_set_hash_gen.h |   56 ++++++++++++++++-----------------
- 1 file changed, 28 insertions(+), 28 deletions(-)
+ include/uapi/linux/netfilter/ipset/ip_set.h |    8 ++-
+ include/uapi/linux/netfilter/xt_set.h       |   13 ++++-
+ net/netfilter/xt_set.c                      |   73 +++++++++++++++++++++++++--
+ 3 files changed, 88 insertions(+), 6 deletions(-)
 
-diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
-index 9428fa5..8ef9135 100644
---- a/net/netfilter/ipset/ip_set_hash_gen.h
-+++ b/net/netfilter/ipset/ip_set_hash_gen.h
-@@ -147,11 +147,17 @@ hbucket_elem_add(struct hbucket *n, u8 ahash_max, size_t dsize)
- #else
- #define __CIDR(cidr, i)		(cidr)
- #endif
-+
-+/* cidr + 1 is stored in net_prefixes to support /0 */
-+#define SCIDR(cidr, i)		(__CIDR(cidr, i) + 1)
-+
- #ifdef IP_SET_HASH_WITH_NETS_PACKED
--/* When cidr is packed with nomatch, cidr - 1 is stored in the entry */
--#define CIDR(cidr, i)		(__CIDR(cidr, i) + 1)
-+/* When cidr is packed with nomatch, cidr - 1 is stored in the data entry */
-+#define GCIDR(cidr, i)		(__CIDR(cidr, i) + 1)
-+#define NCIDR(cidr)		(cidr)
- #else
--#define CIDR(cidr, i)		(__CIDR(cidr, i))
-+#define GCIDR(cidr, i)		(__CIDR(cidr, i))
-+#define NCIDR(cidr)		(cidr - 1)
- #endif
+diff --git a/include/uapi/linux/netfilter/ipset/ip_set.h b/include/uapi/linux/netfilter/ipset/ip_set.h
+index ca03119..5ab4e60 100644
+--- a/include/uapi/linux/netfilter/ipset/ip_set.h
++++ b/include/uapi/linux/netfilter/ipset/ip_set.h
+@@ -256,11 +256,17 @@ enum {
+ 	IPSET_COUNTER_GT,
+ };
  
- #define SET_HOST_MASK(family)	(family == AF_INET ? 32 : 128)
-@@ -292,24 +298,22 @@ mtype_add_cidr(struct htype *h, u8 cidr, u8 nets_length, u8 n)
- 	int i, j;
+-struct ip_set_counter_match {
++/* Backward compatibility for set match v3 */
++struct ip_set_counter_match0 {
+ 	__u8 op;
+ 	__u64 value;
+ };
  
- 	/* Add in increasing prefix order, so larger cidr first */
--	for (i = 0, j = -1; i < nets_length && h->nets[i].nets[n]; i++) {
-+	for (i = 0, j = -1; i < nets_length && h->nets[i].cidr[n]; i++) {
- 		if (j != -1)
- 			continue;
- 		else if (h->nets[i].cidr[n] < cidr)
- 			j = i;
- 		else if (h->nets[i].cidr[n] == cidr) {
--			h->nets[i].nets[n]++;
-+			h->nets[cidr - 1].nets[n]++;
- 			return;
- 		}
- 	}
- 	if (j != -1) {
--		for (; i > j; i--) {
-+		for (; i > j; i--)
- 			h->nets[i].cidr[n] = h->nets[i - 1].cidr[n];
--			h->nets[i].nets[n] = h->nets[i - 1].nets[n];
--		}
- 	}
- 	h->nets[i].cidr[n] = cidr;
--	h->nets[i].nets[n] = 1;
-+	h->nets[cidr - 1].nets[n] = 1;
++struct ip_set_counter_match {
++	__aligned_u64 value;
++	__u8 op;
++};
++
+ /* Interface to iptables/ip6tables */
+ 
+ #define SO_IP_SET		83
+diff --git a/include/uapi/linux/netfilter/xt_set.h b/include/uapi/linux/netfilter/xt_set.h
+index d6a1df1..d4e0234 100644
+--- a/include/uapi/linux/netfilter/xt_set.h
++++ b/include/uapi/linux/netfilter/xt_set.h
+@@ -66,8 +66,8 @@ struct xt_set_info_target_v2 {
+ 
+ struct xt_set_info_match_v3 {
+ 	struct xt_set_info match_set;
+-	struct ip_set_counter_match packets;
+-	struct ip_set_counter_match bytes;
++	struct ip_set_counter_match0 packets;
++	struct ip_set_counter_match0 bytes;
+ 	__u32 flags;
+ };
+ 
+@@ -81,4 +81,13 @@ struct xt_set_info_target_v3 {
+ 	__u32 timeout;
+ };
+ 
++/* Revision 4 match */
++
++struct xt_set_info_match_v4 {
++	struct xt_set_info match_set;
++	struct ip_set_counter_match packets;
++	struct ip_set_counter_match bytes;
++	__u32 flags;
++};
++
+ #endif /*_XT_SET_H*/
+diff --git a/net/netfilter/xt_set.c b/net/netfilter/xt_set.c
+index 5732cd6..0d47afe 100644
+--- a/net/netfilter/xt_set.c
++++ b/net/netfilter/xt_set.c
+@@ -157,7 +157,7 @@ set_match_v1_destroy(const struct xt_mtdtor_param *par)
+ /* Revision 3 match */
+ 
+ static bool
+-match_counter(u64 counter, const struct ip_set_counter_match *info)
++match_counter0(u64 counter, const struct ip_set_counter_match0 *info)
+ {
+ 	switch (info->op) {
+ 	case IPSET_COUNTER_NONE:
+@@ -192,14 +192,60 @@ set_match_v3(const struct sk_buff *skb, struct xt_action_param *par)
+ 	if (!(ret && opt.cmdflags & IPSET_FLAG_MATCH_COUNTERS))
+ 		return ret;
+ 
+-	if (!match_counter(opt.ext.packets, &info->packets))
++	if (!match_counter0(opt.ext.packets, &info->packets))
+ 		return 0;
+-	return match_counter(opt.ext.bytes, &info->bytes);
++	return match_counter0(opt.ext.bytes, &info->bytes);
  }
  
- static void
-@@ -320,16 +324,12 @@ mtype_del_cidr(struct htype *h, u8 cidr, u8 nets_length, u8 n)
- 	for (i = 0; i < nets_length; i++) {
- 	        if (h->nets[i].cidr[n] != cidr)
- 	                continue;
--                if (h->nets[i].nets[n] > 1 || i == net_end ||
--                    h->nets[i + 1].nets[n] == 0) {
--                        h->nets[i].nets[n]--;
-+		h->nets[cidr -1].nets[n]--;
-+		if (h->nets[cidr -1].nets[n] > 0)
-                         return;
--                }
--                for (j = i; j < net_end && h->nets[j].nets[n]; j++) {
-+		for (j = i; j < net_end && h->nets[j].cidr[n]; j++)
- 		        h->nets[j].cidr[n] = h->nets[j + 1].cidr[n];
--		        h->nets[j].nets[n] = h->nets[j + 1].nets[n];
--                }
--                h->nets[j].nets[n] = 0;
-+		h->nets[j].cidr[n] = 0;
-                 return;
- 	}
- }
-@@ -486,7 +486,7 @@ mtype_expire(struct ip_set *set, struct htype *h, u8 nets_length, size_t dsize)
- 				pr_debug("expired %u/%u\n", i, j);
- #ifdef IP_SET_HASH_WITH_NETS
- 				for (k = 0; k < IPSET_NET_COUNT; k++)
--					mtype_del_cidr(h, CIDR(data->cidr, k),
-+					mtype_del_cidr(h, SCIDR(data->cidr, k),
- 						       nets_length, k);
- #endif
- 				ip_set_ext_destroy(set, data);
-@@ -680,9 +680,9 @@ reuse_slot:
- 		data = ahash_data(n, j, set->dsize);
- #ifdef IP_SET_HASH_WITH_NETS
- 		for (i = 0; i < IPSET_NET_COUNT; i++) {
--			mtype_del_cidr(h, CIDR(data->cidr, i),
-+			mtype_del_cidr(h, SCIDR(data->cidr, i),
- 				       NLEN(set->family), i);
--			mtype_add_cidr(h, CIDR(d->cidr, i),
-+			mtype_add_cidr(h, SCIDR(d->cidr, i),
- 				       NLEN(set->family), i);
- 		}
- #endif
-@@ -699,7 +699,7 @@ reuse_slot:
- 		data = ahash_data(n, n->pos++, set->dsize);
- #ifdef IP_SET_HASH_WITH_NETS
- 		for (i = 0; i < IPSET_NET_COUNT; i++)
--			mtype_add_cidr(h, CIDR(d->cidr, i), NLEN(set->family),
-+			mtype_add_cidr(h, SCIDR(d->cidr, i), NLEN(set->family),
- 				       i);
- #endif
- 		h->elements++;
-@@ -760,7 +760,7 @@ mtype_del(struct ip_set *set, void *value, const struct ip_set_ext *ext,
- 		h->elements--;
- #ifdef IP_SET_HASH_WITH_NETS
- 		for (j = 0; j < IPSET_NET_COUNT; j++)
--			mtype_del_cidr(h, CIDR(d->cidr, j), NLEN(set->family),
-+			mtype_del_cidr(h, SCIDR(d->cidr, j), NLEN(set->family),
- 				       j);
- #endif
- 		ip_set_ext_destroy(set, data);
-@@ -821,15 +821,15 @@ mtype_test_cidrs(struct ip_set *set, struct mtype_elem *d,
- 	u8 nets_length = NLEN(set->family);
+ #define set_match_v3_checkentry	set_match_v1_checkentry
+ #define set_match_v3_destroy	set_match_v1_destroy
  
- 	pr_debug("test by nets\n");
--	for (; j < nets_length && h->nets[j].nets[0] && !multi; j++) {
-+	for (; j < nets_length && h->nets[j].cidr[0] && !multi; j++) {
- #if IPSET_NET_COUNT == 2
- 		mtype_data_reset_elem(d, &orig);
--		mtype_data_netmask(d, h->nets[j].cidr[0], false);
--		for (k = 0; k < nets_length && h->nets[k].nets[1] && !multi;
-+		mtype_data_netmask(d, NCIDR(h->nets[j].cidr[0]), false);
-+		for (k = 0; k < nets_length && h->nets[k].cidr[1] && !multi;
- 		     k++) {
--			mtype_data_netmask(d, h->nets[k].cidr[1], true);
-+			mtype_data_netmask(d, NCIDR(h->nets[k].cidr[1]), true);
- #else
--		mtype_data_netmask(d, h->nets[j].cidr[0]);
-+		mtype_data_netmask(d, NCIDR(h->nets[j].cidr[0]));
- #endif
- 		key = HKEY(d, h->initval, t->htable_bits);
- 		n = hbucket(t, key);
-@@ -877,7 +877,7 @@ mtype_test(struct ip_set *set, void *value, const struct ip_set_ext *ext,
- 	/* If we test an IP address and not a network address,
- 	 * try all possible network sizes */
- 	for (i = 0; i < IPSET_NET_COUNT; i++)
--		if (CIDR(d->cidr, i) != SET_HOST_MASK(set->family))
-+		if (GCIDR(d->cidr, i) != SET_HOST_MASK(set->family))
- 			break;
- 	if (i == IPSET_NET_COUNT) {
- 		ret = mtype_test_cidrs(set, d, ext, mext, flags);
++/* Revision 4 match */
++
++static bool
++match_counter(u64 counter, const struct ip_set_counter_match *info)
++{
++	switch (info->op) {
++	case IPSET_COUNTER_NONE:
++		return true;
++	case IPSET_COUNTER_EQ:
++		return counter == info->value;
++	case IPSET_COUNTER_NE:
++		return counter != info->value;
++	case IPSET_COUNTER_LT:
++		return counter < info->value;
++	case IPSET_COUNTER_GT:
++		return counter > info->value;
++	}
++	return false;
++}
++
++static bool
++set_match_v4(const struct sk_buff *skb, struct xt_action_param *par)
++{
++	const struct xt_set_info_match_v4 *info = par->matchinfo;
++	ADT_OPT(opt, par->family, info->match_set.dim,
++		info->match_set.flags, info->flags, UINT_MAX);
++	int ret;
++
++	if (info->packets.op != IPSET_COUNTER_NONE ||
++	    info->bytes.op != IPSET_COUNTER_NONE)
++		opt.cmdflags |= IPSET_FLAG_MATCH_COUNTERS;
++
++	ret = match_set(info->match_set.index, skb, par, &opt,
++			info->match_set.flags & IPSET_INV_MATCH);
++
++	if (!(ret && opt.cmdflags & IPSET_FLAG_MATCH_COUNTERS))
++		return ret;
++
++	if (!match_counter(opt.ext.packets, &info->packets))
++		return 0;
++	return match_counter(opt.ext.bytes, &info->bytes);
++}
++
++#define set_match_v4_checkentry	set_match_v1_checkentry
++#define set_match_v4_destroy	set_match_v1_destroy
++
+ /* Revision 0 interface: backward compatible with netfilter/iptables */
+ 
+ static unsigned int
+@@ -573,6 +619,27 @@ static struct xt_match set_matches[] __read_mostly = {
+ 		.destroy	= set_match_v3_destroy,
+ 		.me		= THIS_MODULE
+ 	},
++	/* new revision for counters support: update, match */
++	{
++		.name		= "set",
++		.family		= NFPROTO_IPV4,
++		.revision	= 4,
++		.match		= set_match_v4,
++		.matchsize	= sizeof(struct xt_set_info_match_v4),
++		.checkentry	= set_match_v4_checkentry,
++		.destroy	= set_match_v4_destroy,
++		.me		= THIS_MODULE
++	},
++	{
++		.name		= "set",
++		.family		= NFPROTO_IPV6,
++		.revision	= 4,
++		.match		= set_match_v4,
++		.matchsize	= sizeof(struct xt_set_info_match_v4),
++		.checkentry	= set_match_v4_checkentry,
++		.destroy	= set_match_v4_destroy,
++		.me		= THIS_MODULE
++	},
+ };
+ 
+ static struct xt_target set_targets[] __read_mostly = {
 -- 
 1.7.10.4
 
