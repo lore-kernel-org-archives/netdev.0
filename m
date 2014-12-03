@@ -1,42 +1,76 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: Re: [PATCH] net: less interrupt masking in NAPI
-Date: Wed, 3 Dec 2014 17:26:00 +0800
-Message-ID: <547ED728.2010703@huawei.com>
-References: <1414937973.31792.37.camel@edumazet-glaptop2.roam.corp.google.com>	 <20141103.122538.387451917276174830.davem@davemloft.net>	 <547EBC66.4040301@huawei.com> <1417592482.5303.132.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] virtio-net: don't do header check for dodgy gso
+	packets
+Date: Wed, 3 Dec 2014 11:31:49 +0200
+Message-ID: <20141203093149.GA9487@redhat.com>
+References: <1417588844-11095-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<willemb@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:39296 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751061AbaLCJ1W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 04:27:22 -0500
-In-Reply-To: <1417592482.5303.132.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1417588844-11095-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/12/3 15:41, Eric Dumazet wrote:
-> On Wed, 2014-12-03 at 15:31 +0800, Yang Yingliang wrote:
-> 
->> This patch can resolve my performance problem.
->> Will/Can this patch queue for stable ?
-> 
-> Hmm.. please give us more details, I am surprised it can have
-> a big impact.
-> 
-> 
-> 
-> 
-Before this patch, when a large network flow arrives, some other processes
-response slowly or even don't response because the cpu is dealing with softirq.
+On Wed, Dec 03, 2014 at 02:40:44PM +0800, Jason Wang wrote:
+> There's no need to do header check for virito-net since:
 
-After this patch, under pressure, much more softirq is doing in ksoftirqd. The other
-processes be scheduled.
+s/virito/virtio/
 
-My system has dual core.
+> 
+> - Host set dodgy for all gso packets from guest and check the header.
 
-Regards,
-Yang
+s/set/sets/
+
+> - Host should prepare for all kinds of evil packets from guest, since
+
+s/prepare/be prepared/
+
+>   malicious guest can send any kinds of packet.
+> 
+> So this patch sets NETIF_F_GSO_ROBUST for virtio-net to skip the check.
+> 
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+
+with the comment fixes:
+
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+> ---
+>  drivers/net/virtio_net.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index b0bc8ea..4cd242b 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1760,6 +1760,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_ECN))
+>  			dev->hw_features |= NETIF_F_TSO_ECN;
+>  
+> +		dev->features |= NETIF_F_GSO_ROBUST;
+> +
+>  		if (gso)
+>  			dev->features |= dev->hw_features & NETIF_F_ALL_TSO;
+>  		/* (!csum && gso) case will be fixed by register_netdev() */
+> -- 
+> 1.9.1
+> 
+> _______________________________________________
+> Virtualization mailing list
+> Virtualization@lists.linux-foundation.org
+> https://lists.linuxfoundation.org/mailman/listinfo/virtualization
