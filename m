@@ -1,53 +1,45 @@
-From: Du Fan <fengyuleidian0615@gmail.com>
-Subject: [Discussion] About over-MTU-sized skb in virtualized env
-Date: Wed, 03 Dec 2014 14:39:37 +0800
-Message-ID: <547EB029.5010102@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Graf <tgraf@suug.ch>, "Michael S. Tsirkin" <mst@redhat.com>,
-	Jesse Gross <jesse@nicira.com>,
-	Flavio Leitner <fbl@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>, pshelar@nicira.com,
-	netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	"Du, Fan" <fan.du@intel.com>
-To: Florian Westphal <fw@strlen.de>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net] cxgb4: Update FW version string to match FW binary version 1.12.25.0
+Date: Wed,  3 Dec 2014 12:29:31 +0530
+Message-ID: <1417589971-28524-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:58232 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750707AbaLCGmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 01:42:20 -0500
-Received: by mail-pa0-f50.google.com with SMTP id bj1so15149866pad.37
-        for <netdev@vger.kernel.org>; Tue, 02 Dec 2014 22:42:20 -0800 (PST)
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:55052
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751233AbaLCGxp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 01:53:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry for resend this mail, because my company email is rejected by net=
-dev.
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-
-Hi Florian
-
-  214 static int ip_finish_output_gso(struct sk_buff *skb)
-  215 {
-  216     netdev_features_t features;
-  217     struct sk_buff *segs;
-  218     int ret =3D 0;
-  219
-  220     /* common case: locally created skb or seglen is <=3D mtu */
-  221     if (((IPCB(skb)->flags & IPSKB_FORWARDED) =3D=3D 0) ||
-  222           skb_gso_network_seglen(skb) <=3D ip_skb_dst_mtu(skb))
-  223         return ip_finish_output2(skb);
-
-Could you please state _concrete_ reason why locally created skb
-length is =EF=BC=BFalways=EF=BC=BF fitting into MTU size? or why we nee=
-ds this
-checking.
-Especially in below scenario:
-http://docs.openstack.org/admin-guide-cloud/content/figures/14/a/a/comm=
-on/figures/under-the-hood-scenario-1-ovs-compute.png
-
-As many people have discuss it in this thread:
-http://marc.info/?t=3D141715669700004&r=3D1&w=3D2
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 3c481b2..0514b74 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -50,13 +50,13 @@
+ #include "cxgb4_uld.h"
+ 
+ #define T4FW_VERSION_MAJOR 0x01
+-#define T4FW_VERSION_MINOR 0x0B
+-#define T4FW_VERSION_MICRO 0x1B
++#define T4FW_VERSION_MINOR 0x0C
++#define T4FW_VERSION_MICRO 0x19
+ #define T4FW_VERSION_BUILD 0x00
+ 
+ #define T5FW_VERSION_MAJOR 0x01
+-#define T5FW_VERSION_MINOR 0x0B
+-#define T5FW_VERSION_MICRO 0x1B
++#define T5FW_VERSION_MINOR 0x0C
++#define T5FW_VERSION_MICRO 0x19
+ #define T5FW_VERSION_BUILD 0x00
+ 
+ #define CH_WARN(adap, fmt, ...) dev_warn(adap->pdev_dev, fmt, ## __VA_ARGS__)
+-- 
+1.7.1
