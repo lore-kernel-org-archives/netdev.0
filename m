@@ -1,48 +1,72 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net] gso: do GSO for local skb with size bigger than MTU
-Date: Wed, 3 Dec 2014 23:05:51 +0000
-Message-ID: <20141203230551.GC8822@casper.infradead.org>
-References: <20141202170927.GA9457@casper.infradead.org>
- <20141202173401.GB4126@redhat.com>
- <20141202174158.GB9457@casper.infradead.org>
- <CAEP_g=-86Z6pxNow-wjnbx_v9er_TSn6x5waigqVqYHa7tEQJw@mail.gmail.com>
- <20141203090339.GA9299@redhat.com>
- <CAEP_g=9C+D3gbjJ4n1t6xuyjqEAMYi4ZfqPoe92UAoQJH-UsKg@mail.gmail.com>
- <20141203183859.GB16447@redhat.com>
- <CAEP_g=_Y2YQg0wDRJLXsNH6p3fOc5G0KSJb12x_b4OE238ophg@mail.gmail.com>
- <20141203220244.GA8822@casper.infradead.org>
- <CAEP_g=90nC2HhmBNKh-hKJ5MJ85Z-_ER14roDxMsZAKog+dFhw@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] ss: Use rtnl_dump_filter in
+ handle_netlink_request
+Date: Wed, 3 Dec 2014 15:07:48 -0800
+Message-ID: <20141203150748.001d481e@urahara>
+References: <1417531984-3522-1-git-send-email-vadim4j@gmail.com>
+	<20141203092129.49f16769@urahara>
+	<20141203172010.GA8639@angus-think.wlc.globallogic.com>
+	<20141203095123.40429f4c@urahara>
+	<20141203174506.GA12511@angus-think.wlc.globallogic.com>
+	<CAMw6YJ+W0KCvGrfij990+BU2EsW6E4SEWJRsrRgk=vnq-okjzQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	"Du, Fan" <fan.du@intel.com>, Jason Wang <jasowang@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"fw@strlen.de" <fw@strlen.de>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	Pravin Shelar <pshelar@nicira.com>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:46461 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751309AbaLCXFz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 18:05:55 -0500
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=90nC2HhmBNKh-hKJ5MJ85Z-_ER14roDxMsZAKog+dFhw@mail.gmail.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:65505 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752273AbaLCXH6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 18:07:58 -0500
+Received: by mail-pa0-f49.google.com with SMTP id eu11so16672750pac.36
+        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 15:07:57 -0800 (PST)
+In-Reply-To: <CAMw6YJ+W0KCvGrfij990+BU2EsW6E4SEWJRsrRgk=vnq-okjzQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/03/14 at 02:51pm, Jesse Gross wrote:
-> My proposal would be something like this:
->  * For L2, reduce the VM MTU to the lowest common denominator on the segment.
->  * For L3, use path MTU discovery or fragment inner packet (i.e.
-> normal routing behavior).
->  * As a last resort (such as if using an old version of virtio in the
-> guest), fragment the tunnel packet.
+On Thu, 4 Dec 2014 00:15:54 +0200
+Vadim Kochan <vadim4j@gmail.com> wrote:
 
-That's what I had in mind as well although using a differentiator bit
-which indicates to the output path whether the packet is to be
-considered switched or routed and thus send ICMPs. The bit would be set
-per flow, thus allowing arbitary granularity of behaviour.
+> I established some simple OpenVPN connection (at least by the logs and
+> ss I see that peer is connected), but
+> I dont get any errors with ss.
+> 
+> So can you please provide some more info how did you tested this patch
+> ? I am surprised that this is caused only
+> by these changes ...
+> 
+> On Wed, Dec 3, 2014 at 7:45 PM,  <vadim4j@gmail.com> wrote:
+> > On Wed, Dec 03, 2014 at 09:51:23AM -0800, Stephen Hemminger wrote:
+> >> On Wed, 3 Dec 2014 19:20:10 +0200
+> >> vadim4j@gmail.com wrote:
+> >>
+> >> > On Wed, Dec 03, 2014 at 09:21:29AM -0800, Stephen Hemminger wrote:
+> >> > > On Tue,  2 Dec 2014 16:53:04 +0200
+> >> > > Vadim Kochan <vadim4j@gmail.com> wrote:
+> >> > >
+> >> > > > Replaced handling netlink messages by rtnl_dump_filter
+> >> > > > from lib/libnetlink.c, also:
+> >> > > >
+> >> > > >     - removed unused dump_fp arg;
+> >> > > >     - added MAGIC_SEQ #define for 123456 seq id
+> >> > > >
+> >> > > > Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+> >> > >
+> >> > > This doesn't work correctly.
+> >> > >
+> >> > > Simple test
+> >> > >   $ misc/ss >/dev/null
+> >> > > RTNETLINK answers: No such file or directory
+> >> > > RTNETLINK answers: No such file or directory
+> >> > > RTNETLINK answers: No such file or directory
+> >> >
+> >> > Just tried, I did not get such errors.
+> >>
+> >> I have OpenVPN running.
+> >
+> > Hm, it is reproduced only with this patch ?
+> > If so I will try to setup OpenVPN ... can't imagine how it can be
+> > related ...
 
-I haven't fully thought this through yet though.
+I am running on 3.17.4 kernel if that helps.
