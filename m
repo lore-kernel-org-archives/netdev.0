@@ -1,66 +1,48 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 5/5] vti6: Add a lookup method for tunnels with wildcard endpoints.
-Date: Wed, 3 Dec 2014 11:05:01 +0100
-Message-ID: <1417601101-18625-6-git-send-email-steffen.klassert@secunet.com>
-References: <1417601101-18625-1-git-send-email-steffen.klassert@secunet.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] ipvs: uninitialized data with IP_VS_IPV6
+Date: Wed, 3 Dec 2014 13:12:13 +0300
+Message-ID: <20141203101213.GC29583@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:33460 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751629AbaLCKFa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Dec 2014 05:05:30 -0500
-In-Reply-To: <1417601101-18625-1-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, kernel-janitors@vger.kernel.org
+To: Wensong Zhang <wensong@linux-vs.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently we can't lookup tunnels with wildcard endpoints.
-This patch adds a method to lookup these tunnels in the
-receive path.
+The app_tcp_pkt_out() function expects "*diff" to be set and ends up
+using uninitialized data if CONFIG_IP_VS_IPV6 is turned on.
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 ---
- net/ipv6/ip6_vti.c | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+This bug is very old.
 
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index d440bb5..6101919 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -95,6 +95,7 @@ vti6_tnl_lookup(struct net *net, const struct in6_addr *remote,
- 	unsigned int hash = HASH(remote, local);
- 	struct ip6_tnl *t;
- 	struct vti6_net *ip6n = net_generic(net, vti6_net_id);
-+	struct in6_addr any;
+diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+index 1d5341f..f93f974 100644
+--- a/net/netfilter/ipvs/ip_vs_ftp.c
++++ b/net/netfilter/ipvs/ip_vs_ftp.c
+@@ -183,6 +183,8 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 	struct nf_conn *ct;
+ 	struct net *net;
  
- 	for_each_vti6_tunnel_rcu(ip6n->tnls_r_l[hash]) {
- 		if (ipv6_addr_equal(local, &t->parms.laddr) &&
-@@ -102,6 +103,22 @@ vti6_tnl_lookup(struct net *net, const struct in6_addr *remote,
- 		    (t->dev->flags & IFF_UP))
- 			return t;
- 	}
++	*diff = 0;
 +
-+	memset(&any, 0, sizeof(any));
-+	hash = HASH(&any, local);
-+	for_each_vti6_tunnel_rcu(ip6n->tnls_r_l[hash]) {
-+		if (ipv6_addr_equal(local, &t->parms.laddr) &&
-+		    (t->dev->flags & IFF_UP))
-+			return t;
-+	}
-+
-+	hash = HASH(remote, &any);
-+	for_each_vti6_tunnel_rcu(ip6n->tnls_r_l[hash]) {
-+		if (ipv6_addr_equal(remote, &t->parms.raddr) &&
-+		    (t->dev->flags & IFF_UP))
-+			return t;
-+	}
-+
- 	t = rcu_dereference(ip6n->tnls_wc[0]);
- 	if (t && (t->dev->flags & IFF_UP))
- 		return t;
--- 
-1.9.1
+ #ifdef CONFIG_IP_VS_IPV6
+ 	/* This application helper doesn't work with IPv6 yet,
+ 	 * so turn this into a no-op for IPv6 packets
+@@ -191,8 +193,6 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 		return 1;
+ #endif
+ 
+-	*diff = 0;
+-
+ 	/* Only useful for established sessions */
+ 	if (cp->state != IP_VS_TCP_S_ESTABLISHED)
+ 		return 1;
