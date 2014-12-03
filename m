@@ -1,63 +1,44 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [patch net-next 3/6] net_sched: cls_bpf: remove faulty use of
- list_for_each_entry_rcu
-Date: Wed, 3 Dec 2014 13:19:49 +0100
-Message-ID: <20141203121949.GA24370@salvia>
-References: <1417539636-12710-1-git-send-email-jiri@resnulli.us>
- <1417539636-12710-4-git-send-email-jiri@resnulli.us>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
+Date: Wed, 3 Dec 2014 13:43:33 +0100
+Message-ID: <547F0575.7010104@broadcom.com>
+References: <53FDACD1.8090805@msgid.tls.msk.ru> <54363ED0.605@broadcom.com> <CACna6rw3XgdJz0uKkAuas8RTzozTdFp2mgF5g1uo7LHJVSMt4g@mail.gmail.com> <3543341.FmUQFH9nrl@eisbaer> <546C5D1F.108@msgid.tls.msk.ru> <546CD94D.9060509@broadcom.com> <546CF66A.3000207@msgid.tls.msk.ru> <546D04EE.1030200@msgid.tls.msk.ru> <5471AC29.6040009@broadcom.com> <5475A2DC.80502@msgid.tls.msk.ru> <547B07CF.90501@broadcom.com> <547E31BD.8090302@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Maximilian Engelhardt <maxi@daemonizer.de>,
+	=?UTF-8?B?UmFmYcWCIE1pxYJl?= =?UTF-8?B?Y2tp?= <zajec5@gmail.com>,
+	Seth Forshee <seth.forshee@canonical.com>,
+	brcm80211 development <brcm80211-dev-list@broadcom.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Michael Tokarev <mjt@tls.msk.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:37636 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752429AbaLCMRe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Dec 2014 07:17:34 -0500
-Content-Disposition: inline
-In-Reply-To: <1417539636-12710-4-git-send-email-jiri@resnulli.us>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:61402 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751537AbaLCMnh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 07:43:37 -0500
+In-Reply-To: <547E31BD.8090302@msgid.tls.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 02, 2014 at 06:00:33PM +0100, Jiri Pirko wrote:
-> rcu variant is not correct here. The code is called by updater (rtnl
-> lock is held), not by reader (no rcu_read_lock is held).
-> 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->  net/sched/cls_bpf.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-> index cbfaf6f..d0de979 100644
-> --- a/net/sched/cls_bpf.c
-> +++ b/net/sched/cls_bpf.c
-> @@ -141,7 +141,7 @@ static unsigned long cls_bpf_get(struct tcf_proto *tp, u32 handle)
->  	if (head == NULL)
->  		return 0UL;
->  
-> -	list_for_each_entry_rcu(prog, &head->plist, link) {
-> +	list_for_each_entry(prog, &head->plist, link) {
->  		if (prog->handle == handle) {
->  			ret = (unsigned long) prog;
->  			break;
-> @@ -337,7 +337,7 @@ static void cls_bpf_walk(struct tcf_proto *tp, struct tcf_walker *arg)
->  	struct cls_bpf_head *head = rtnl_dereference(tp->root);
->  	struct cls_bpf_prog *prog;
->  
-> -	list_for_each_entry_rcu(prog, &head->plist, link) {
-> +	list_for_each_entry(prog, &head->plist, link) {
+On 12/02/14 22:40, Michael Tokarev wrote:
+> 30.11.2014 15:04, Arend van Spriel wrote:
+>
+>> Thanks. Did not find what I was looking for, but I started working on
+>> integrating btcoex related functionality. The attached patch will print
+>> some info so I can focus on the required functionality for your device.
+>> It is based on 3.18-rc5.
+>
+> With this patch applied against 3.18-rc5, the machine instantly reboots
+> once brcmsmac module is loaded.  I'm still debugging this.
 
-We still need the _rcu here in the walk path. IIRC, this is called from the
-dump path and we hold no rtnl_lock there.
+Argh. Probably the register access I added end up in limbo land or some 
+other stupid mistake. I will double check my patch.
 
->  		if (arg->count < arg->skip)
->  			goto skip;
->  		if (arg->fn(tp, (unsigned long) prog, arg) < 0) {
-> -- 
-> 1.9.3
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+Arend
+
+> Thanks,
+>
+> /mjt
