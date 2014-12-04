@@ -1,68 +1,88 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] x86: bpf_jit_comp: simplify trivial boolean return
-Date: Thu, 04 Dec 2014 10:05:24 -0800
-Message-ID: <1417716324.2721.9.camel@perches.com>
-References: <CAADnVQK3iui8cAmhi28=65p2CJbTu45fR98ri8Uh8xLRb=cwnA@mail.gmail.com>
-	 <1417032059.16355.4.camel@perches.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1C9FDA63@AcuExch.aculab.com>
-	 <1417114175.4305.3.camel@perches.com> <1417685187.2721.1.camel@perches.com>
-	 <CAADnVQJawht6+sARaP=s9PyPERjrVOBKiJLrCK0OwnLtzT2CAA@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] net: ethernet: rocker: Add select to CONFIG_BRIDGE in
+ Kconfig
+Date: Thu, 4 Dec 2014 19:15:48 +0100
+Message-ID: <20141204181548.GH1861@nanopsycho.orion>
+References: <CA+r1ZhhJQuwXbs+Et-ihsGP3QXDUWZ1nJ-5_hcjioFt5s8zMrA@mail.gmail.com>
+ <54809BA5.7030901@rupran.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@aculab.com>,
-	Quentin Lambert <lambert.quentin@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	"x86@kernel.org" <x86@kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAADnVQJawht6+sARaP=s9PyPERjrVOBKiJLrCK0OwnLtzT2CAA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jim Davis <jim.epost@gmail.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next <linux-next@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>, sfeldma@gmail.com,
+	netdev <netdev@vger.kernel.org>
+To: Andreas Ruprecht <mail@rupran.de>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <54809BA5.7030901@rupran.de>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-12-04 at 07:56 -0800, Alexei Starovoitov wrote:
-> On Thu, Dec 4, 2014 at 1:26 AM, Joe Perches <joe@perches.com> wrote:
-> > On Thu, 2014-11-27 at 10:49 -0800, Joe Perches wrote:
-> >> On Thu, 2014-11-27 at 12:25 +0000, David Laight wrote:
-> >> > Why the change in data?
-> >>
-> >> btw: without gcov and using -O2
-> >>
-> >> $ size arch/x86/net/bpf_jit_comp.o*
-> >>    text          data     bss     dec     hex filename
-> >>    9671             4       0    9675    25cb arch/x86/net/bpf_jit_comp.o.new
-> >>   10679             4       0   10683    29bb arch/x86/net/bpf_jit_comp.o.old
-> >
-> > Alexei?
-> >
-> > Is this 10% reduction in size a good reason to change the code?
+Thu, Dec 04, 2014 at 06:36:37PM CET, mail@rupran.de wrote:
+>On 04.12.2014 17:34, Jim Davis wrote:
+>> Building with the attached random configuration file,
+>> 
+>> drivers/built-in.o: In function `rocker_port_fdb_learn_work':
+>> /home/jim/linux/drivers/net/ethernet/rocker/rocker.c:3014: undefined
+>> reference to `br_fdb_external_learn_del'
+>> /home/jim/linux/drivers/net/ethernet/rocker/rocker.c:3016: undefined
+>> reference to `br_fdb_external_learn_add'
+>> 
+>
+>Hi,
+>
+>the problem here is that CONFIG_BRIDGE is set to 'm' (leading to
+>inclusion of the two functions above in the kernel module) while
+>CONFIG_ROCKER is set to 'y', requiring the functions at link time.
+>
+>Is the attached patch sufficient to fix this?
+>
+>Regards,
+>
+>Andreas
+
+>From 0529c3cbe381338dc3337e07a71e15b3d22a3255 Mon Sep 17 00:00:00 2001
+>From: Andreas Ruprecht <rupran@einserver.de>
+>Date: Thu, 4 Dec 2014 18:28:09 +0100
+>Subject: [PATCH] net: ethernet: rocker: Add select to CONFIG_BRIDGE in Kconfig
+>
+>In a configuration with CONFIG_BRIDGE set to 'm' and CONFIG_ROCKER
+>set to 'y', undefined references occur at link time:
+>
+>> drivers/built-in.o: In function `rocker_port_fdb_learn_work':
+>> /home/jim/linux/drivers/net/ethernet/rocker/rocker.c:3014: undefined
+>> reference to `br_fdb_external_learn_del'
+>> /home/jim/linux/drivers/net/ethernet/rocker/rocker.c:3016: undefined
+>> reference to `br_fdb_external_learn_add'
+>
+>This patch fixes these by selecting CONFIG_BRIDGE from CONFIG_ROCKER.
+>
+>Reported-by: Jim Davis <jim.epost@gmail.com>
+>Signed-off-by: Andreas Ruprecht <rupran@einserver.de>
+Acked-by: Jiri Pirko <jiri@resnulli.us>
+
+this is ok for now. There is a plan to replace
+br_fdb_external_learn_add/del a by notifier which will fix this as well.
+
+Thanks.
+
+>---
+> drivers/net/ethernet/rocker/Kconfig | 1 +
+> 1 file changed, 1 insertion(+)
+>
+>diff --git a/drivers/net/ethernet/rocker/Kconfig b/drivers/net/ethernet/rocker/Kconfig
+>index 11a850eab628..ade10ec4c78d 100644
+>--- a/drivers/net/ethernet/rocker/Kconfig
+>+++ b/drivers/net/ethernet/rocker/Kconfig
+>@@ -18,6 +18,7 @@ if NET_VENDOR_ROCKER
+> config ROCKER
+> 	tristate "Rocker switch driver (EXPERIMENTAL)"
+> 	depends on PCI && NET_SWITCHDEV
+>+	select BRIDGE
+> 	---help---
+> 	  This driver supports Rocker switch device.
 > 
-> yes.
-> I believe you're seeing it with gcc 4.9. I wanted to double
-> check what 4.6 and 4.7 are doing. If they're not suddenly
-> increase code size then resubmit it for inclusion please.
-
-I get these sizes for these compilers
-(x86-64, -O2, without profiling)
-
-$ size arch/x86/net/bpf_jit_comp.o*
-   text	   data	    bss	    dec	    hex	filename
-   9266	      4	      0	   9270	   2436	arch/x86/net/bpf_jit_comp.o.4.4.new
-  10042	      4	      0	  10046	   273e	arch/x86/net/bpf_jit_comp.o.4.4.old
-   9109	      4	      0	   9113	   2399	arch/x86/net/bpf_jit_comp.o.4.6.new
-   9717	      4	      0	   9721	   25f9	arch/x86/net/bpf_jit_comp.o.4.6.old
-   8789	      4	      0	   8793	   2259	arch/x86/net/bpf_jit_comp.o.4.7.new
-  10245	      4	      0	  10249	   2809	arch/x86/net/bpf_jit_comp.o.4.7.old
-   9671	      4	      0	   9675	   25cb	arch/x86/net/bpf_jit_comp.o.4.9.new
-  10679	      4	      0	  10683	   29bb	arch/x86/net/bpf_jit_comp.o.4.9.old
-
-I am a bit surprised by the size variations
+>-- 
+>1.9.1
+>
