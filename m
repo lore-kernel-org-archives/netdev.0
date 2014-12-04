@@ -1,41 +1,67 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: Where exactly will arch_fast_hash be used
-Date: Thu, 4 Dec 2014 15:56:30 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CA0284A@AcuExch.aculab.com>
-References: <20141204081147.GA19030@gondor.apana.org.au>
- <20141204152637.GA32140@casper.infradead.org>
- <20141204152929.GA22075@gondor.apana.org.au>
- <20141204153938.GC32140@casper.infradead.org> <54808123.8000704@redhat.com>
- <20141204154708.GA22185@gondor.apana.org.au>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: Possible regression: "gre: Use inner mac length when computing
+ tunnel length"
+Date: Thu, 4 Dec 2014 08:00:19 -0800
+Message-ID: <CA+mtBx-se+u4j8WHzZ+AXeiFN2uevrvcTb6xFpeNrhjOv=EVng@mail.gmail.com>
+References: <20141204141616.185b88c4@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Thomas Graf <tgraf@suug.ch>,
-	"David S. Miller" <davem@davemloft.net>,
-	Theodore Ts'o <tytso@mit.edu>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: 'Herbert Xu' <herbert@gondor.apana.org.au>,
-	Daniel Borkmann <dborkman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141204154708.GA22185@gondor.apana.org.au>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Timo Teras <timo.teras@iki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:54540 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932248AbaLDQA1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 11:00:27 -0500
+Received: by mail-ie0-f176.google.com with SMTP id tr6so15468824ieb.7
+        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 08:00:26 -0800 (PST)
+In-Reply-To: <20141204141616.185b88c4@vostro>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu
-> On Thu, Dec 04, 2014 at 04:43:31PM +0100, Daniel Borkmann wrote:
-> >
-> > Hm, I thought the kernel doc on arch_fast_hash() in include/linux/hash.h
-> > would give enough of a hint ...
-> 
-> I think something more explicit like "do not use this in a hash
-> table unless you know what you're doing" might be needed.
+A fix is pending for net. Please try if you can.
 
-That isn't really helpful. Maybe something more like:
+Tom
 
-"This CRC algorithm used by this hash is 'linear', ie hash(a xor b) ==
-hash(a) xor hash(b). This means that it is relatively easy for a remote
-attacker to generate multiple items with the same hash."
+diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
+index bb5947b..51973dd 100644
+--- a/net/ipv4/gre_offload.c
++++ b/net/ipv4/gre_offload.c
+@@ -247,6 +247,9 @@ static int gre_gro_complete(struct sk_buff *skb, int nhoff)
+                err = ptype->callbacks.gro_complete(skb, nhoff + grehlen);
 
-	David
+        rcu_read_unlock();
++
++       skb_set_inner_mac_header(skb, nhoff + grehlen);
++
+        return err;
+ }
+
+On Thu, Dec 4, 2014 at 4:16 AM, Timo Teras <timo.teras@iki.fi> wrote:
+> Hi,
+>
+> After upgrading to latest 3.14.24 or newer, I noticed a weird TSO bug
+> in the "dmvpn" setup I use. And seems 3.14.23 works just fine. So the
+> commit 14051f0452a2c26a "gre: Use inner mac length when computing
+> tunnel length" would appear to be the related commit (but have not yet
+> tested this).
+>
+> In practice what happens is that forwarding path between ethX (or vlanX)
+> and gre1 gets broken.
+>
+> There's probably two differences to the "regular" gre tunnel case:
+> - it's nbma mode, meaning the gre header is inserted via slightly
+>   different code path
+> - the gre1 packets are IPsec encrypted in transport mode
+>
+> As additional detail, doing "ethtool -K gre1 tso off" will workaround
+> the issue, so it is clearly tso issue pointing even further to the
+> commit in question.
+>
+> Is this something the suspected patch could cause? Any suggestions
+> what to test more?
+>
+> Thanks,
+> Timo
+>
