@@ -1,80 +1,48 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next] r8152: redefine REALTEK_USB_DEVICE
-Date: Thu, 4 Dec 2014 10:43:11 +0800
-Message-ID: <1394712342-15778-106-Taiwan-albertk@realtek.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: less interrupt masking in NAPI
+Date: Wed, 03 Dec 2014 18:51:45 -0800
+Message-ID: <1417661505.22424.1.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1414937973.31792.37.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20141103.122538.387451917276174830.davem@davemloft.net>
+	 <547EBC66.4040301@huawei.com>
+	 <1417592482.5303.132.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <547ED728.2010703@huawei.com>
+	 <1417607546.5303.133.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <547FC2A1.60105@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	willemb@google.com
+To: Yang Yingliang <yangyingliang@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:58599 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751349AbaLDCvy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 21:51:54 -0500
+Received: by mail-ie0-f176.google.com with SMTP id tr6so15002812ieb.21
+        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 18:51:53 -0800 (PST)
+In-Reply-To: <547FC2A1.60105@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Redefine REALTEK_USB_DEVICE for the desired USB interface for probe().
-There are three USB interfaces for the device. USB_CLASS_COMM and
-USB_CLASS_CDC_DATA are for ECM mode (config #2). USB_CLASS_VENDOR_SPEC
-is for the vendor mode (config #1). However, we are not interesting
-in USB_CLASS_CDC_DATA for probe(), so redefine REALTEK_USB_DEVICE
-to ignore the USB interface class of USB_CLASS_CDC_DATA.
+On Thu, 2014-12-04 at 10:10 +0800, Yang Yingliang wrote:
+> On 2014/12/3 19:52, Eric Dumazet wrote:
+> > On Wed, 2014-12-03 at 17:26 +0800, Yang Yingliang wrote:
+> > 
+> >> Before this patch, when a large network flow arrives, some other processes
+> >> response slowly or even don't response because the cpu is dealing with softirq.
+> >>
+> >> After this patch, under pressure, much more softirq is doing in ksoftirqd. The other
+> >> processes be scheduled.
+> >>
+> >> My system has dual core.
+> > 
+> > Which NIC driver are you using ?
+> > 
+> The driver we developed ourself, it's not upstreamed.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 26 ++++++++++++++++++++------
- 1 file changed, 20 insertions(+), 6 deletions(-)
+Is it a NAPI driver ?
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 4a9ece0..2d1c77e 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -24,6 +24,7 @@
- #include <net/ip6_checksum.h>
- #include <uapi/linux/mdio.h>
- #include <linux/mdio.h>
-+#include <linux/usb/cdc.h>
- 
- /* Version Information */
- #define DRIVER_VERSION "v1.07.0 (2014/10/09)"
-@@ -466,9 +467,6 @@ enum rtl8152_flags {
- #define MCU_TYPE_PLA			0x0100
- #define MCU_TYPE_USB			0x0000
- 
--#define REALTEK_USB_DEVICE(vend, prod)	\
--	USB_DEVICE_INTERFACE_CLASS(vend, prod, USB_CLASS_VENDOR_SPEC)
--
- struct tally_counter {
- 	__le64	tx_packets;
- 	__le64	rx_packets;
-@@ -3915,11 +3913,27 @@ static void rtl8152_disconnect(struct usb_interface *intf)
- 	}
- }
- 
-+#define REALTEK_USB_DEVICE(vend, prod)	\
-+	.match_flags = USB_DEVICE_ID_MATCH_DEVICE | \
-+		       USB_DEVICE_ID_MATCH_INT_CLASS, \
-+	.idVendor = (vend), \
-+	.idProduct = (prod), \
-+	.bInterfaceClass = USB_CLASS_VENDOR_SPEC \
-+}, \
-+{ \
-+	.match_flags = USB_DEVICE_ID_MATCH_INT_INFO | \
-+		       USB_DEVICE_ID_MATCH_DEVICE, \
-+	.idVendor = (vend), \
-+	.idProduct = (prod), \
-+	.bInterfaceClass = USB_CLASS_COMM, \
-+	.bInterfaceSubClass = USB_CDC_SUBCLASS_ETHERNET, \
-+	.bInterfaceProtocol = USB_CDC_PROTO_NONE
-+
- /* table of devices that work with this driver */
- static struct usb_device_id rtl8152_table[] = {
--	{USB_DEVICE(VENDOR_ID_REALTEK, 0x8152)},
--	{USB_DEVICE(VENDOR_ID_REALTEK, 0x8153)},
--	{USB_DEVICE(VENDOR_ID_SAMSUNG, 0xa101)},
-+	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8152)},
-+	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8153)},
-+	{REALTEK_USB_DEVICE(VENDOR_ID_SAMSUNG, 0xa101)},
- 	{}
- };
- 
--- 
-1.9.3
+Quite frankly this patch is not a stable candidate, as it was a
+performance improvement, with some regressions in a couple of drivers.
