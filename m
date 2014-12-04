@@ -1,165 +1,143 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 3/3] ip: Add support for IP_CHECKSUM cmsg
-Date: Wed, 03 Dec 2014 16:56:32 -0800
-Message-ID: <1417654592.5303.148.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1417653868-14922-1-git-send-email-therbert@google.com>
-	 <1417653868-14922-4-git-send-email-therbert@google.com>
+Subject: [PATCH net-next] net: avoid two atomic operations in fast clones
+Date: Wed, 03 Dec 2014 17:04:39 -0800
+Message-ID: <1417655079.5303.152.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>,
-	Michael Kerrisk <mtk.manpages@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>, Chris Mason <clm@fb.com>,
+	Sabrina Dubroca <sd@queasysnail.net>,
+	Vijay Subramanian <subramanian.vijay@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:37001 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752067AbaLDA4f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 19:56:35 -0500
-Received: by mail-ig0-f169.google.com with SMTP id hl2so19006268igb.4
-        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 16:56:34 -0800 (PST)
-In-Reply-To: <1417653868-14922-4-git-send-email-therbert@google.com>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:41151 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750840AbaLDBEl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 20:04:41 -0500
+Received: by mail-ie0-f170.google.com with SMTP id rd18so15024849iec.15
+        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 17:04:41 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CC Michael Kerrisk <mtk.manpages@gmail.com> for man pages...
+From: Eric Dumazet <edumazet@google.com>
 
-On Wed, 2014-12-03 at 16:44 -0800, Tom Herbert wrote:
-> New cmsg type is IP_CHECKSUM under SOL_IP. Enabled by standard
-> setsockopt.
-> 
-> The value returned is the unfolded 32 bit checksum of the packet
-> being received starting from the first byte returned in recvmsg
-> through the end of the packet (truncation is disregarded).
-> 
-> Modified UDP to postpull checksum beyond UDP header before returning
-> checksum for UDP data to userspace.
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
->  include/net/inet_sock.h |  1 +
->  include/uapi/linux/in.h |  1 +
->  net/ipv4/ip_sockglue.c  | 34 +++++++++++++++++++++++++++++++++-
->  net/ipv4/udp.c          | 10 +++++++++-
->  4 files changed, 44 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-> index 4091fab..2823fc0 100644
-> --- a/include/net/inet_sock.h
-> +++ b/include/net/inet_sock.h
-> @@ -203,6 +203,7 @@ struct inet_sock {
->  #define IP_CMSG_RETOPTS		(1 << 4)
->  #define IP_CMSG_PASSSEC		(1 << 5)
->  #define IP_CMSG_ORIGDSTADDR	(1 << 6)
-> +#define IP_CMSG_CHECKSUM	(1 << 7)
->  
->  static inline struct inet_sock *inet_sk(const struct sock *sk)
->  {
-> diff --git a/include/uapi/linux/in.h b/include/uapi/linux/in.h
-> index c33a65e..589ced0 100644
-> --- a/include/uapi/linux/in.h
-> +++ b/include/uapi/linux/in.h
-> @@ -109,6 +109,7 @@ struct in_addr {
->  
->  #define IP_MINTTL       21
->  #define IP_NODEFRAG     22
-> +#define IP_CHECKSUM	23
->  
->  /* IP_MTU_DISCOVER values */
->  #define IP_PMTUDISC_DONT		0	/* Never send DF frames */
-> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-> index d4406aa..054280f 100644
-> --- a/net/ipv4/ip_sockglue.c
-> +++ b/net/ipv4/ip_sockglue.c
-> @@ -96,6 +96,14 @@ static void ip_cmsg_recv_retopts(struct msghdr *msg, struct sk_buff *skb)
->  	put_cmsg(msg, SOL_IP, IP_RETOPTS, opt->optlen, opt->__data);
->  }
->  
-> +static void ip_cmsg_recv_checksum(struct msghdr *msg, struct sk_buff *skb)
-> +{
-> +	if (skb->ip_summed != CHECKSUM_COMPLETE)
-> +		return;
-> +
-> +	put_cmsg(msg, SOL_IP, IP_CHECKSUM, sizeof(__wsum), &skb->csum);
-> +}
-> +
->  static void ip_cmsg_recv_security(struct msghdr *msg, struct sk_buff *skb)
->  {
->  	char *secdata;
-> @@ -190,9 +198,16 @@ void ip_cmsg_recv(struct msghdr *msg, struct sk_buff *skb)
->  			return;
->  	}
->  
-> -	if (flags & IP_CMSG_ORIGDSTADDR)
-> +	if (flags & IP_CMSG_ORIGDSTADDR) {
->  		ip_cmsg_recv_dstaddr(msg, skb);
->  
-> +		flags &= ~IP_CMSG_ORIGDSTADDR;
-> +		if (!flags)
-> +			return;
-> +	}
-> +
-> +	if (flags & IP_CMSG_CHECKSUM)
-> +		ip_cmsg_recv_checksum(msg, skb);
->  }
->  EXPORT_SYMBOL(ip_cmsg_recv);
->  
-> @@ -512,6 +527,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
->  	case IP_MULTICAST_ALL:
->  	case IP_MULTICAST_LOOP:
->  	case IP_RECVORIGDSTADDR:
-> +	case IP_CHECKSUM:
->  		if (optlen >= sizeof(int)) {
->  			if (get_user(val, (int __user *) optval))
->  				return -EFAULT;
-> @@ -609,6 +625,19 @@ static int do_ip_setsockopt(struct sock *sk, int level,
->  		else
->  			inet->cmsg_flags &= ~IP_CMSG_ORIGDSTADDR;
->  		break;
-> +	case IP_CHECKSUM:
-> +		if (val) {
-> +			if (!(inet->cmsg_flags & IP_CMSG_CHECKSUM)) {
-> +				inet_inc_convert_csum(sk);
-> +				inet->cmsg_flags |= IP_CMSG_CHECKSUM;
-> +			}
-> +		} else {
-> +			if (inet->cmsg_flags & IP_CMSG_CHECKSUM) {
-> +				inet_dec_convert_csum(sk);
-> +				inet->cmsg_flags &= ~IP_CMSG_CHECKSUM;
-> +			}
-> +		}
-> +		break;
->  	case IP_TOS:	/* This sets both TOS and Precedence */
->  		if (sk->sk_type == SOCK_STREAM) {
->  			val &= ~INET_ECN_MASK;
-> @@ -1212,6 +1241,9 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
->  	case IP_RECVORIGDSTADDR:
->  		val = (inet->cmsg_flags & IP_CMSG_ORIGDSTADDR) != 0;
->  		break;
-> +	case IP_CHECKSUM:
-> +		val = (inet->cmsg_flags & IP_CMSG_CHECKSUM) != 0;
-> +		break;
->  	case IP_TOS:
->  		val = inet->tos;
->  		break;
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index 221b53f..bba2e06 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -1315,8 +1315,16 @@ try_again:
->  		memset(sin->sin_zero, 0, sizeof(sin->sin_zero));
->  		*addr_len = sizeof(*sin);
->  	}
-> -	if (inet->cmsg_flags)
-> +	if (inet->cmsg_flags) {
-> +		/* Pull checksum past UDP header in case we are providing
-> +		 * checksum in cmsg.
-> +		 */
-> +		if (inet->cmsg_flags & IP_CMSG_CHECKSUM)
-> +			skb_postpull_rcsum(skb, skb->data,
-> +					   sizeof(struct udphdr));
-> +
->  		ip_cmsg_recv(msg, skb);
-> +	}
->  
->  	err = copied;
->  	if (flags & MSG_TRUNC)
+Commit ce1a4ea3f125 ("net: avoid one atomic operation in skb_clone()")
+took the wrong way to save one atomic operation.
+
+It is actually possible to avoid two atomic operations, if we
+do not change skb->fclone values, and only rely on clone_ref
+content to signal if the clone is available or not.
+
+skb_clone() can simply use the fast clone if clone_ref is 1.
+
+kfree_skbmem() can avoid the atomic_dec_and_test() if clone_ref is 1.
+
+Note that because we usually free the clone before the original skb,
+this particular attempt is only done for the original skb to have better
+branch prediction.
+
+SKB_FCLONE_FREE is removed.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Chris Mason <clm@fb.com>
+Cc: Sabrina Dubroca <sd@queasysnail.net>
+Cc: Vijay Subramanian <subramanian.vijay@gmail.com>
+---
+ include/linux/skbuff.h |    3 +--
+ net/core/skbuff.c      |   35 ++++++++++++++++++-----------------
+ 2 files changed, 19 insertions(+), 19 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 7691ad5b4771..27b64d5f7c94 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -344,7 +344,6 @@ enum {
+ 	SKB_FCLONE_UNAVAILABLE,	/* skb has no fclone (from head_cache) */
+ 	SKB_FCLONE_ORIG,	/* orig skb (from fclone_cache) */
+ 	SKB_FCLONE_CLONE,	/* companion fclone skb (from fclone_cache) */
+-	SKB_FCLONE_FREE,	/* this companion fclone skb is available */
+ };
+ 
+ enum {
+@@ -818,7 +817,7 @@ static inline bool skb_fclone_busy(const struct sock *sk,
+ 	fclones = container_of(skb, struct sk_buff_fclones, skb1);
+ 
+ 	return skb->fclone == SKB_FCLONE_ORIG &&
+-	       fclones->skb2.fclone == SKB_FCLONE_CLONE &&
++	       atomic_read(&fclones->fclone_ref) > 1 &&
+ 	       fclones->skb2.sk == sk;
+ }
+ 
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 92116dfe827c..7a338fb55cc4 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -265,7 +265,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ 		skb->fclone = SKB_FCLONE_ORIG;
+ 		atomic_set(&fclones->fclone_ref, 1);
+ 
+-		fclones->skb2.fclone = SKB_FCLONE_FREE;
++		fclones->skb2.fclone = SKB_FCLONE_CLONE;
+ 		fclones->skb2.pfmemalloc = pfmemalloc;
+ 	}
+ out:
+@@ -541,26 +541,27 @@ static void kfree_skbmem(struct sk_buff *skb)
+ 	switch (skb->fclone) {
+ 	case SKB_FCLONE_UNAVAILABLE:
+ 		kmem_cache_free(skbuff_head_cache, skb);
+-		break;
++		return;
+ 
+ 	case SKB_FCLONE_ORIG:
+ 		fclones = container_of(skb, struct sk_buff_fclones, skb1);
+-		if (atomic_dec_and_test(&fclones->fclone_ref))
+-			kmem_cache_free(skbuff_fclone_cache, fclones);
+-		break;
+-
+-	case SKB_FCLONE_CLONE:
+-		fclones = container_of(skb, struct sk_buff_fclones, skb2);
+ 
+-		/* The clone portion is available for
+-		 * fast-cloning again.
++		/* We usually free the clone (TX completion) before original skb
++		 * This test would have no chance to be true for the clone,
++		 * while here, branch prediction will be good.
+ 		 */
+-		skb->fclone = SKB_FCLONE_FREE;
++		if (atomic_read(&fclones->fclone_ref) == 1)
++			goto fastpath;
++		break;
+ 
+-		if (atomic_dec_and_test(&fclones->fclone_ref))
+-			kmem_cache_free(skbuff_fclone_cache, fclones);
++	default: /* SKB_FCLONE_CLONE */
++		fclones = container_of(skb, struct sk_buff_fclones, skb2);
+ 		break;
+ 	}
++	if (!atomic_dec_and_test(&fclones->fclone_ref))
++		return;
++fastpath:
++	kmem_cache_free(skbuff_fclone_cache, fclones);
+ }
+ 
+ static void skb_release_head_state(struct sk_buff *skb)
+@@ -872,15 +873,15 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
+ 	struct sk_buff_fclones *fclones = container_of(skb,
+ 						       struct sk_buff_fclones,
+ 						       skb1);
+-	struct sk_buff *n = &fclones->skb2;
++	struct sk_buff *n;
+ 
+ 	if (skb_orphan_frags(skb, gfp_mask))
+ 		return NULL;
+ 
+ 	if (skb->fclone == SKB_FCLONE_ORIG &&
+-	    n->fclone == SKB_FCLONE_FREE) {
+-		n->fclone = SKB_FCLONE_CLONE;
+-		atomic_inc(&fclones->fclone_ref);
++	    atomic_read(&fclones->fclone_ref) == 1) {
++		n = &fclones->skb2;
++		atomic_set(&fclones->fclone_ref, 2);
+ 	} else {
+ 		if (skb_pfmemalloc(skb))
+ 			gfp_mask |= __GFP_MEMALLOC;
