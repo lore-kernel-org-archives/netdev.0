@@ -1,95 +1,60 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Subject: [PATCH] e1000e / igb / PM: Eliminate CONFIG_PM_RUNTIME
-Date: Thu, 04 Dec 2014 02:15:06 +0100
-Message-ID: <2389302.4ImTL0YnUc@vostro.rjw.lan>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net] gso: do GSO for local skb with size
+	bigger than MTU
+Date: Wed, 3 Dec 2014 16:54:36 -0800
+Message-ID: <CAEP_g=-y_-=r+BHk3VfzxMNwH=B-26DvQrzQ7gkKG8fDG7Mx3g@mail.gmail.com>
+References: <20141202170927.GA9457@casper.infradead.org>
+ <20141202173401.GB4126@redhat.com>
+ <20141202174158.GB9457@casper.infradead.org>
+ <CAEP_g=-86Z6pxNow-wjnbx_v9er_TSn6x5waigqVqYHa7tEQJw@mail.gmail.com>
+ <20141203090339.GA9299@redhat.com>
+ <CAEP_g=9C+D3gbjJ4n1t6xuyjqEAMYi4ZfqPoe92UAoQJH-UsKg@mail.gmail.com>
+ <20141203183859.GB16447@redhat.com>
+ <CAEP_g=_Y2YQg0wDRJLXsNH6p3fOc5G0KSJb12x_b4OE238ophg@mail.gmail.com>
+ <20141203220244.GA8822@casper.infradead.org>
+ <CAEP_g=90nC2HhmBNKh-hKJ5MJ85Z-_ER14roDxMsZAKog+dFhw@mail.gmail.com>
+ <20141203230551.GC8822@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	Linux NICS <linux.nics@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux PM list <linux-pm@vger.kernel.org>
-To: e1000-devel@lists.sourceforge.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "Du, Fan" <fan.du-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ "fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org" <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20141203230551.GC8822-FZi0V3Vbi30CUdFEqe4BF2D2FQJk+8+b@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
-
-After commit b2b49ccbdd54 (PM: Kconfig: Set PM_RUNTIME if PM_SLEEP is
-selected) PM_RUNTIME is always set if PM is set, so #ifdef blocks
-depending on CONFIG_PM_RUNTIME within #ifdef blocks depending on
-CONFIG_PM may be dropped now.
-
-Do that in the e1000e and igb network drivers.
-
-Signed-off-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
----
-
-Note: This depends on commit b2b49ccbdd54 (PM: Kconfig: Set PM_RUNTIME if
-PM_SLEEP is selected) which is only in linux-next at the moment (via the
-linux-pm tree).
-
-Please let me know if it is OK to take this one into linux-pm.
-
----
- drivers/net/ethernet/intel/e1000e/netdev.c |    2 --
- drivers/net/ethernet/intel/igb/igb_main.c  |    6 +-----
- 2 files changed, 1 insertion(+), 7 deletions(-)
-
-Index: linux-pm/drivers/net/ethernet/intel/e1000e/netdev.c
-===================================================================
---- linux-pm.orig/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ linux-pm/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -6372,7 +6372,6 @@ static int e1000e_pm_resume(struct devic
- }
- #endif /* CONFIG_PM_SLEEP */
- 
--#ifdef CONFIG_PM_RUNTIME
- static int e1000e_pm_runtime_idle(struct device *dev)
- {
- 	struct pci_dev *pdev = to_pci_dev(dev);
-@@ -6432,7 +6431,6 @@ static int e1000e_pm_runtime_suspend(str
- 
- 	return 0;
- }
--#endif /* CONFIG_PM_RUNTIME */
- #endif /* CONFIG_PM */
- 
- static void e1000_shutdown(struct pci_dev *pdev)
-Index: linux-pm/drivers/net/ethernet/intel/igb/igb_main.c
-===================================================================
---- linux-pm.orig/drivers/net/ethernet/intel/igb/igb_main.c
-+++ linux-pm/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -186,11 +186,9 @@ static int igb_pci_enable_sriov(struct p
- static int igb_suspend(struct device *);
- #endif
- static int igb_resume(struct device *);
--#ifdef CONFIG_PM_RUNTIME
- static int igb_runtime_suspend(struct device *dev);
- static int igb_runtime_resume(struct device *dev);
- static int igb_runtime_idle(struct device *dev);
--#endif
- static const struct dev_pm_ops igb_pm_ops = {
- 	SET_SYSTEM_SLEEP_PM_OPS(igb_suspend, igb_resume)
- 	SET_RUNTIME_PM_OPS(igb_runtime_suspend, igb_runtime_resume,
-@@ -7441,7 +7439,6 @@ static int igb_resume(struct device *dev
- 	return 0;
- }
- 
--#ifdef CONFIG_PM_RUNTIME
- static int igb_runtime_idle(struct device *dev)
- {
- 	struct pci_dev *pdev = to_pci_dev(dev);
-@@ -7478,8 +7475,7 @@ static int igb_runtime_resume(struct dev
- {
- 	return igb_resume(dev);
- }
--#endif /* CONFIG_PM_RUNTIME */
--#endif
-+#endif /* CONFIG_PM */
- 
- static void igb_shutdown(struct pci_dev *pdev)
- {
+T24gV2VkLCBEZWMgMywgMjAxNCBhdCAzOjA1IFBNLCBUaG9tYXMgR3JhZiA8dGdyYWZAc3V1Zy5j
+aD4gd3JvdGU6Cj4gT24gMTIvMDMvMTQgYXQgMDI6NTFwbSwgSmVzc2UgR3Jvc3Mgd3JvdGU6Cj4+
+IE15IHByb3Bvc2FsIHdvdWxkIGJlIHNvbWV0aGluZyBsaWtlIHRoaXM6Cj4+ICAqIEZvciBMMiwg
+cmVkdWNlIHRoZSBWTSBNVFUgdG8gdGhlIGxvd2VzdCBjb21tb24gZGVub21pbmF0b3Igb24gdGhl
+IHNlZ21lbnQuCj4+ICAqIEZvciBMMywgdXNlIHBhdGggTVRVIGRpc2NvdmVyeSBvciBmcmFnbWVu
+dCBpbm5lciBwYWNrZXQgKGkuZS4KPj4gbm9ybWFsIHJvdXRpbmcgYmVoYXZpb3IpLgo+PiAgKiBB
+cyBhIGxhc3QgcmVzb3J0IChzdWNoIGFzIGlmIHVzaW5nIGFuIG9sZCB2ZXJzaW9uIG9mIHZpcnRp
+byBpbiB0aGUKPj4gZ3Vlc3QpLCBmcmFnbWVudCB0aGUgdHVubmVsIHBhY2tldC4KPgo+IFRoYXQn
+cyB3aGF0IEkgaGFkIGluIG1pbmQgYXMgd2VsbCBhbHRob3VnaCB1c2luZyBhIGRpZmZlcmVudGlh
+dG9yIGJpdAo+IHdoaWNoIGluZGljYXRlcyB0byB0aGUgb3V0cHV0IHBhdGggd2hldGhlciB0aGUg
+cGFja2V0IGlzIHRvIGJlCj4gY29uc2lkZXJlZCBzd2l0Y2hlZCBvciByb3V0ZWQgYW5kIHRodXMg
+c2VuZCBJQ01Qcy4gVGhlIGJpdCB3b3VsZCBiZSBzZXQKPiBwZXIgZmxvdywgdGh1cyBhbGxvd2lu
+ZyBhcmJpdGFyeSBncmFudWxhcml0eSBvZiBiZWhhdmlvdXIuCgpJIGRvbid0IHRoaW5rIHRoYXQg
+d2UgYWN0dWFsbHkgbmVlZCBhIGJpdC4gSSB3b3VsZCBleHBlY3QgdGhhdCBJQ01QCmdlbmVyYXRp
+b24gdG8gYmUgY291cGxlZCB3aXRoIHJvdXRpbmcgKGFsdGhvdWdoIHRoaXMgcmVxdWlyZXMgYmVp
+bmcKYWJsZSB0byBrbm93IHdoYXQgdGhlIHVsdGltYXRlIE1UVSBpcyBhdCB0aGUgdGltZSBvZiBy
+b3V0aW5nIHRoZSBpbm5lcgpwYWNrZXQpLiBJZiB0aGF0J3MgdGhlIGNhc2UsIHlvdSBqdXN0IG5l
+ZWQgdG8gc3RlZXIgYmV0d2VlbiBMMiBhbmQgTDMKcHJvY2Vzc2luZyBpbiB0aGUgc2FtZSB3YXkg
+dGhhdCB5b3Ugd291bGQgdG9kYXkgYW5kIElDTVAgd291bGQganVzdApjb21lIGluIHRoZSByaWdo
+dCBjYXNlcy4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
+ZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5v
+cmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
