@@ -1,239 +1,118 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: Re: Is this 32-bit NCM?y
-Date: Thu, 4 Dec 2014 09:56:36 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1412040955140.3516@gmail.com>
-References: <alpine.LNX.2.03.1411262250160.4356@gmail.com> <alpine.LNX.2.03.1412012202480.1301@gmail.com> <B315C8AC-3B33-406B-A728-14F8FAAAE986@audiocodes.com> <547D37CA.7050506@audiocodes.com> <alpine.LNX.2.03.1412020729470.1351@gmail.com>
- <547D5F84.6020608@audiocodes.com> <alpine.LNX.2.03.1412020747360.1921@gmail.com> <547D6D7B.5090704@audiocodes.com> <E0C3DF2A36210C42B1AB4626A0E10F1FD949424C@aclmbx01.corp.audiocodes.com> <547D7243.80508@audiocodes.com> <alpine.LNX.2.03.1412021130410.2697@gmail.com>
- <87fvcyqoup.fsf@nemi.mork.no> <alpine.LNX.2.03.1412021410270.29633@gmail.com> <87lhmqp400.fsf@nemi.mork.no>,<alpine.LNX.2.03.1412021453340.7488@gmail.com> <1417532733483.89987@audiocodes.com> <alpine.LNX.2.03.1412021627360.8131@gmail.com>
- <547EA1D1.8010202@audiocodes.com> <alpine.LNX.2.03.1412030659001.1288@gmail.com> <547EA82F.5050500@audiocodes.com> <alpine.LNX.2.03.1412040730480.1320@gmail.com> <548020DD.3030705@audiocodes.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: ipip6 - integer underrun when handlince icmpv4 unreachable
+ messages
+Date: Thu, 4 Dec 2014 09:56:29 +0100
+Message-ID: <20141204085628.GG6390@secunet.com>
+References: <546A6E04.30603@web.de>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-727914516-1417683398=:3516"
-Cc: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
-	Eli Britstein <Eli.Britstein@audiocodes.com>,
-	Alex Strizhevsky <alexxst@gmail.com>,
-	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
-	"youtux@gmail.com" <youtux@gmail.com>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Kevin Zhu <Mingying.Zhu@audiocodes.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <roque@di.fc.ul.p>,
+	<kuznet@ms2.inr.ac.ru>, <r.venning@telstra.com>, <nate@thebog.net>
+To: Alexander Wetzel <alexander.wetzel@web.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:42575 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753081AbaLDI4F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 03:56:05 -0500
-In-Reply-To: <548020DD.3030705@audiocodes.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:50803 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753233AbaLDI4h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Dec 2014 03:56:37 -0500
+Content-Disposition: inline
+In-Reply-To: <546A6E04.30603@web.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
---8323328-727914516-1417683398=:3516
-Content-Type: TEXT/PLAIN; charset=Windows-1252; format=flowed
-Content-Transfer-Encoding: 8BIT
-
-Hi Kevin.
-Thank you for your hints and work.
-Only a note - why disabling ARP? I think it could be a good iea... or does the hw_cdc_driver do that?
-thank you again,
-Enrico
-
-
-
-On Thu, 4 Dec 2014, Kevin Zhu wrote:
-
-> Date: Thu, 4 Dec 2014 09:52:49
-> From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
-> To: Enrico Mioso <mrkiko.rs@gmail.com>
-> Cc: Bjørn Mork <bjorn@mork.no>, Eli Britstein <Eli.Britstein@audiocodes.com>,
->     Alex Strizhevsky <alexxst@gmail.com>,
->     Midge Shaojun  Tan <ShaojunMidge.Tan@audiocodes.com>,
->     "youtux@gmail.com" <youtux@gmail.com>,
->     "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
->     "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-> Subject: Re: Is this 32-bit NCM?y
+On Mon, Nov 17, 2014 at 10:52:04PM +0100, Alexander Wetzel wrote:
+> Hello netdev,
 > 
-> Guys,
->
-> After rearranging the padding, putting NCM0 right after NTH, and disable
-> ARP (FLAG_NOARP) and handling the offset alignment issue, it seems it
-> begins to work, though there's still problem with DHCP. It's able to
-> ping, though my Ubuntu network manage does not notice this network
-> interface. So no DNS.
->
-> I have to specify the network interface and IP in the ping command.
->
-> The DHCP packet's size becomes a large one after the TX function, which
-> is 16384, the maximum. And the dongle does not reply it in time. For
-> now, I just simple rearrange the code to meet Huawei's alignment
-> requirement. I think other devices may be different, regarding the
-> 'offset' definition. We may need to handle it. And also need to double
-> check if the code has bugs.
->
-> Regards,
-> Kevin
->
-> On 12/04/2014 02:31 PM, Enrico Mioso wrote:
->> Hello guys!
->> I am writing this message to hear if there is any progress,
->> Enrico
->>
->>
->> On Wed, 3 Dec 2014, Kevin Zhu wrote:
->>
->>> Date: Wed, 3 Dec 2014 07:05:37
->>> From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
->>> To: Enrico Mioso <mrkiko.rs@gmail.com>
->>> Cc: Bjørn Mork <bjorn@mork.no>, Eli Britstein
->>> <Eli.Britstein@audiocodes.com>,
->>>     Alex Strizhevsky <alexxst@gmail.com>,
->>>     Midge Shaojun  Tan <ShaojunMidge.Tan@audiocodes.com>,
->>>     "youtux@gmail.com" <youtux@gmail.com>,
->>>     "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
->>>     "netdev@vger.kernel.org" <netdev@vger.kernel.org>
->>> Subject: Re: Is this 32-bit NCM?
->>>
->>> OK. I will. Thank you for everything!
->>>
->>> Regards,
->>> Kevin
->>>
->>> On 12/03/2014 02:00 PM, Enrico Mioso wrote:
->>>> Yes - I think this would be ok. You might try this with the 16-bit
->>>> river first,
->>>> and then with the 32-bit one to see how things work.
->>>> I hope for the best.
->>>> Let us all know,
->>>> Enrico
->>>>
->>>>
->>>> On Wed, 3 Dec 2014, Kevin Zhu wrote:
->>>>
->>>> ==Date: Wed, 3 Dec 2014 06:38:27
->>>> ==From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
->>>> ==To: Enrico Mioso <mrkiko.rs@gmail.com>
->>>> ==Cc: Bjørn Mork <bjorn@mork.no>, Eli Britstein
->>>> <Eli.Britstein@audiocodes.com>,
->>>> ==    Alex Strizhevsky <alexxst@gmail.com>,
->>>> ==    Midge Shaojun  Tan <ShaojunMidge.Tan@audiocodes.com>,
->>>> ==    "youtux@gmail.com" <youtux@gmail.com>,
->>>> ==    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
->>>> ==    "netdev@vger.kernel.org" <netdev@vger.kernel.org>
->>>> ==Subject: Re: Is this 32-bit NCM?
->>>> ==
->>>> ==My dongle also works with the huawei driver. I think only the 32bit
->>>> ==format and NDP location matter. We may modify the TX function to
->>>> put NTH
->>>> ==and NDP at the beginning of a NTB and see if it will work with the
->>>> ==driver cdc_ncm.
->>>> ==
->>>> ==Regards,
->>>> ==Kevin
->>>> ==
->>>> ==On 12/02/2014 11:28 PM, Enrico Mioso wrote:
->>>> ==> ... And what do you think about the source code of their ndis
->>>> driver?
->>>> ==> We at least know now the device work with it, so we have
->>>> something to mimic :D
->>>> ==> thank you for your work and patience Kevin.
->>>> ==>
->>>> ==> On Tue, 2 Dec 2014, Kevin Zhu wrote:
->>>> ==>
->>>> ==> ==Date: Tue, 2 Dec 2014 16:04:25
->>>> ==> ==From: Kevin Zhu <Mingying.Zhu@audiocodes.com>
->>>> ==> ==To: Enrico Mioso <mrkiko.rs@gmail.com>, Bjørn Mork
->>>> <bjorn@mork.no>
->>>> ==> ==Cc: Eli Britstein <Eli.Britstein@audiocodes.com>,
->>>> ==> ==    Alex Strizhevsky <alexxst@gmail.com>,
->>>> ==> ==    Midge Shaojun  Tan <ShaojunMidge.Tan@audiocodes.com>,
->>>> ==> ==    "youtux@gmail.com" <youtux@gmail.com>,
->>>> ==> ==    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
->>>> ==> ==    "netdev@vger.kernel.org" <netdev@vger.kernel.org>
->>>> ==> ==Subject: Re: Is this 32-bit NCM?
->>>> ==> ==
->>>> ==> ==I do not understand why the wSequence matters. By the way, I
->>>> think I see some NDPs are right after NTH headers in the windows
->>>> capture.
->>>> ==> ==
->>>> ==> ==________________________________________
->>>> ==> ==From: Enrico Mioso <mrkiko.rs@gmail.com>
->>>> ==> ==Sent: Tuesday, December 2, 2014 21:53
->>>> ==> ==To: Bjørn Mork
->>>> ==> ==Cc: Kevin Zhu; Eli Britstein; Alex Strizhevsky; Midge Shaojun
->>>> Tan; youtux@gmail.com; linux-usb@vger.kernel.org;
->>>> netdev@vger.kernel.org
->>>> ==> ==Subject: Re: Is this 32-bit NCM?
->>>> ==> ==
->>>> ==> ==Thank you very much Bjorn.
->>>> ==> ==
->>>> ==> ==
->>>> ==> ==On Tue, 2 Dec 2014, Bjørn Mork wrote:
->>>> ==> ==
->>>> ==> ====Date: Tue, 2 Dec 2014 14:37:03
->>>> ==> ====From: Bjørn Mork <bjorn@mork.no>
->>>> ==> ====To: Enrico Mioso <mrkiko.rs@gmail.com>
->>>> ==> ====Cc: Kevin Zhu <Mingying.Zhu@audiocodes.com>,
->>>> ==> ====    Eli Britstein <Eli.Britstein@audiocodes.com>,
->>>> ==> ====    Alex Strizhevsky <alexxst@gmail.com>,
->>>> ==> ====    Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
->>>> ==> ====    "youtux@gmail.com" <youtux@gmail.com>,
->>>> ==> ====    "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
->>>> ==> ====    "netdev@vger.kernel.org" <netdev@vger.kernel.org>
->>>> ==> ====Subject: Re: Is this 32-bit NCM?
->>>> ==> ====
->>>> ==> ====Enrico Mioso <mrkiko.rs@gmail.com> writes:
->>>> ==> ====
->>>> ==> ====> ... but out of curiosity: are NCM specs allowing to change
->>>> order of things in
->>>> ==> ====> the package or not?
->>>> ==> ====> This is not to start philosofical falames or something,
->>>> but to understand
->>>> ==> ====> better how things work. And, if they do: how much
->>>> arbitrarily?
->>>> ==> ====
->>>> ==> ====Only the NTB header has a fixed location. The rest can be
->>>> anywhere and
->>>> ==> ====in any order. Quoting from section 3 Data Transport:
->>>> ==> ====
->>>> ==> ====  "Within any given NTB, the NTH always must be first; but
->>>> the other
->>>> ==> ====   items may occur in arbitrary order."
->>>> ==> ====
->>>> ==> ====
->>>> ==> ====Bjørn
->>>> ==> ====
->>>> ==> ==This email and any files transmitted with it are confidential
->>>> material. They are intended solely for the use of the designated
->>>> individual or entity to whom they are addressed. If the reader of
->>>> this message is not the intended recipient, you are hereby notified
->>>> that any dissemination, use, distribution or copying of this
->>>> communication is strictly prohibited and may be unlawful.
->>>> ==> ==
->>>> ==> ==If you have received this email in error please immediately
->>>> notify the sender and delete or destroy any copy of this message
->>>> ==> ==
->>>> ==This email and any files transmitted with it are confidential
->>>> material. They are intended solely for the use of the designated
->>>> individual or entity to whom they are addressed. If the reader of
->>>> this message is not the intended recipient, you are hereby notified
->>>> that any dissemination, use, distribution or copying of this
->>>> communication is strictly prohibited and may be unlawful.
->>>> ==
->>>> ==If you have received this email in error please immediately notify
->>>> the sender and delete or destroy any copy of this message
->>>> ==
->>> This email and any files transmitted with it are confidential
->>> material. They are intended solely for the use of the designated
->>> individual or entity to whom they are addressed. If the reader of
->>> this message is not the intended recipient, you are hereby notified
->>> that any dissemination, use, distribution or copying of this
->>> communication is strictly prohibited and may be unlawful.
->>>
->>> If you have received this email in error please immediately notify
->>> the sender and delete or destroy any copy of this message
->>>
-> This email and any files transmitted with it are confidential material. They are intended solely for the use of the designated individual or entity to whom they are addressed. If the reader of this message is not the intended recipient, you are hereby notified that any dissemination, use, distribution or copying of this communication is strictly prohibited and may be unlawful.
->
-> If you have received this email in error please immediately notify the sender and delete or destroy any copy of this message
->
---8323328-727914516-1417683398=:3516--
+> the current code to translate icmpv4 "destination unreachable" packets
+> to icmpv6 is later generating an integer underrun when calling
+> icmpv6_send, by later calling skb_network_header_len and subtracting a
+> bigger number from a lower one.
+
+I'd guess the call to skb_network_header_len() in _decode_session6()
+is the problematic one, right?
+
+> 
+> The issue is not visible for vanilla kernels and works correctly from
+> a user perspective, but a kernel with the PAX patches and enabled
+> "size overflow protection" will panic immediately when it's getting an
+> icmpv4 destination unreachable packet back for an encapsulated ipv6
+> packet. (Remote tunnel endpoint not reachable.)
+> 
+> I think I've tracked the issue down and can show you the problem with
+> the code... as I understand it as non-programmer greping the sources
+> and googeling functions. I was even able to find a fix which passes
+> the functionality test, but I'm unqualified to rate the correctness of
+> it and so are reaching out to you for that.
+> 
+> What happens (output of printk's) with transport_header and
+> network_header around "skb_reset_network_header" is described below
+> the function.
+> 
+> Near the end of the mail there are two links to the gentoo bug tracker
+> and pax forum, suggesting to put this forward to the lkml/netdev for
+> review, also including more details on the panics.
+> 
+> So here the function "ipip6_err_gen_icmpv6_unreach" from
+> net/ipv6/sit.c with some remarks and one new line which seems to fix
+> the problem:
+> 
+> ************************************************************************
+> static int ipip6_err_gen_icmpv6_unreach(struct sk_buff *skb)
+> {
+>         int ihl = ((const struct iphdr *)skb->data)->ihl*4;
+>         struct rt6_info *rt;
+>         struct sk_buff *skb2;
+> 
+>         if (!pskb_may_pull(skb, ihl + sizeof(struct ipv6hdr) + 8))
+>                 return 1;
+> 
+> // we clone the ipv4 skb in skb2 to prepare the icmpv6 packet
+>         skb2 = skb_clone(skb, GFP_ATOMIC);
+> 
+>         if (!skb2)
+>                 return 1;
+> 
+> // we clean up the cloned skb2
+>         skb_dst_drop(skb2);
+>         skb_pull(skb2, ihl);
+> // The network header is reset
+>         skb_reset_network_header(skb2);
+> 
+> //THE PROPOSED FIX: The following line is NOT in the current code
+>         skb_reset_transport_header(skb2);
+
+This will make your panic with PAX go away, but the offset to
+the transport header is still wrong. Also, it is not just the
+sit tunnel that has this problem. All ipv6 tunnels are affected.
+
+I think the easiest is to fix it in _decode_session6().
+Could you please try the patch below?
+
+Subject: [PATCH] xfrm6: Fix transport header offset in _decode_session6.
+
+skb->transport_header might not be valid when we do a reverse
+decode because the ipv6 tunnel error handlers don't update it
+to the inner transport header. This leads to a wrong offset
+calculation and to wrong layer 4 informations. We fix this
+by using the size of the ipv6 header as the first offset.
+
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv6/xfrm6_policy.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index ac49f84..576fc42 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -130,8 +130,8 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
+ {
+ 	struct flowi6 *fl6 = &fl->u.ip6;
+ 	int onlyproto = 0;
+-	u16 offset = skb_network_header_len(skb);
+ 	const struct ipv6hdr *hdr = ipv6_hdr(skb);
++	u16 offset = sizeof(*hdr);
+ 	struct ipv6_opt_hdr *exthdr;
+ 	const unsigned char *nh = skb_network_header(skb);
+ 	u8 nexthdr = nh[IP6CB(skb)->nhoff];
+-- 
+1.9.1
