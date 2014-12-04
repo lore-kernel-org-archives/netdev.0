@@ -1,73 +1,78 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCHv3 net] i40e: Implement ndo_gso_check()
-Date: Thu,  4 Dec 2014 10:39:26 -0800
-Message-ID: <1417718366-14310-1-git-send-email-joestringer@nicira.com>
-Cc: linux-kernel@vger.kernel.org, jesse@nicira.com,
-	shannon.nelson@intel.com, jesse.brandeburg@intel.com,
-	jeffrey.t.kirsher@intel.com, therbert@google.com,
-	linux.nics@intel.com
-To: netdev@vger.kernel.org
+Subject: Re: [PATCHv2 net] i40e: Implement ndo_gso_check()
+Date: Thu, 4 Dec 2014 10:41:34 -0800
+Message-ID: <CANr6G5zVA=hZLuo5Z2MaXy9A7zzt1-3RQCAS6aZY2iFudOGfYQ@mail.gmail.com>
+References: <1416525081-27779-1-git-send-email-joestringer@nicira.com>
+ <CAEP_g=-VEWi2Qo6gcJGr2+NXWEhkuMyu7BiAke6H=x+PTLcNcg@mail.gmail.com>
+ <CANr6G5zrA6NUtcyhX1cwEO1Hiq9jnarB36P6m5eoHUFqWWc26Q@mail.gmail.com>
+ <CANr6G5xRbG=UnJEdBEN_5ZRjNikCjuUseb1VbQmjjfb36jDP0g@mail.gmail.com>
+ <CA+mtBx-Q=Ebrx_8NVB5mWURj-oWB3gdNs5fSAL=Frr9sOmyvHw@mail.gmail.com>
+ <CAEP_g=979u0baWXGmCxo61a-KYEUwkruqBNof_zQpsvJxRFqSA@mail.gmail.com>
+ <CA+mtBx9RwkJ9b84d_OkCtOunFBsuqw276=5E+Qhoqq75utCR4w@mail.gmail.com> <CAEP_g=9Yg-pZf9-Wb4qrZhAMSB=edqDxBXSRskWCturt-nnxTg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <therbert@google.com>, netdev <netdev@vger.kernel.org>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"linux.nics" <linux.nics@intel.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAEP_g=9Yg-pZf9-Wb4qrZhAMSB=edqDxBXSRskWCturt-nnxTg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ndo_gso_check() was recently introduced to allow NICs to report the
-offloading support that they have on a per-skb basis. Add an
-implementation for this driver which checks for IPIP, GRE, UDP tunnels.
+On 2 December 2014 at 10:26, Jesse Gross <jesse@nicira.com> wrote:
+> On Mon, Dec 1, 2014 at 4:09 PM, Tom Herbert <therbert@google.com> wrote:
+>> On Mon, Dec 1, 2014 at 3:53 PM, Jesse Gross <jesse@nicira.com> wrote:
+>>> On Mon, Dec 1, 2014 at 3:47 PM, Tom Herbert <therbert@google.com> wrote:
+>>>> On Mon, Dec 1, 2014 at 3:35 PM, Joe Stringer <joestringer@nicira.com> wrote:
+>>>>> On 21 November 2014 at 09:59, Joe Stringer <joestringer@nicira.com> wrote:
+>>>>>> On 20 November 2014 16:19, Jesse Gross <jesse@nicira.com> wrote:
+>>>>>>> I don't know if we need to have the check at all for IPIP though -
+>>>>>>> after all the driver doesn't expose support for it all (actually it
+>>>>>>> doesn't expose GRE either). This raises kind of an interesting
+>>>>>>> question about the checks though - it's pretty easy to add support to
+>>>>>>> the driver for a new GSO type (and I imagine that people will be
+>>>>>>> adding GRE soon) and forget to update the check.
+>>>>>>
+>>>>>> If the check is more conservative, then testing would show that it's
+>>>>>> not working and lead people to figure out why (and update the check).
+>>>>>
+>>>>> More concretely, one suggestion would be something like following at
+>>>>> the start of each gso_check():
+>>>>>
+>>>>> +       const int supported = SKB_GSO_TCPV4 | SKB_GSO_TCPV6 | SKB_GSO_FCOE |
+>>>>> +                             SKB_GSO_UDP | SKB_GSO_UDP_TUNNEL;
+>>>>> +
+>>>>> +       if (skb_shinfo(skb)->gso_type & ~supported)
+>>>>> +               return false;
+>>>>
+>>>> This should already be handled by net_gso_ok.
+>>>
+>>> My original point wasn't so much that this isn't handled at the moment
+>>> but that it's easy to add a supported GSO type but then forget to
+>>> update this check - i.e. if a driver already supports UDP_TUNNEL and
+>>> adds support for GRE with the same constraints. It seems not entirely
+>>> ideal that this function is acting as a blacklist rather than a
+>>> whitelist.
+>>
+>> Agreed, it would be nice to have all the checking logic in one place.
+>> If all the drivers end up implementing ndo_gso_check then we could
+>> potentially get rid of the GSO types as features. This probably
+>> wouldn't be a bad thing since we already know that the features
+>> mechanism doesn't scale (for instance there's no way to indicate that
+>> certain combinations of GSO types are supported by a device).
+>
+> This crossed my mind and I agree that it's pretty clear that the
+> features mechanism isn't scaling very well. Presumably, the logical
+> extension of this is that each driver would have a function that looks
+> at a packet and returns a set of offload operations that it can
+> support rather than exposing a set of protocols. However, it seems
+> like it would probably result in a bunch of duplicate code in each
+> driver.
 
-Signed-off-by: Joe Stringer <joestringer@nicira.com>
----
-v3: Drop IPIP and GRE (no driver support even though hw supports it).
-    Check for UDP outer protocol for UDP tunnels.
-v2: Expand to include IP in IP and IPv4/IPv6 inside GRE/UDP tunnels.
-    Add MAX_INNER_LENGTH (as 80).
----
- drivers/net/ethernet/intel/i40e/i40e_main.c |   26 ++++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index c3a7f4a..0d6493a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7447,6 +7447,31 @@ static int i40e_ndo_fdb_dump(struct sk_buff *skb,
- 
- #endif /* USE_DEFAULT_FDB_DEL_DUMP */
- #endif /* HAVE_FDB_OPS */
-+static bool i40e_gso_check(struct sk_buff *skb, struct net_device *dev)
-+{
-+	if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) {
-+		unsigned char *ihdr;
-+
-+		if (skb->protocol != IPPROTO_UDP ||
-+		    skb->inner_protocol_type != ENCAP_TYPE_ETHER)
-+			return false;
-+
-+		if (skb->inner_protocol == htons(ETH_P_TEB))
-+			ihdr = skb_inner_mac_header(skb);
-+		else if (skb->inner_protocol == htons(ETH_P_IP) ||
-+			 skb->inner_protocol == htons(ETH_P_IPV6))
-+			ihdr = skb_inner_network_header(skb);
-+		else
-+			return false;
-+
-+#define MAX_TUNNEL_HDR_LEN	80
-+		if (ihdr - skb_transport_header(skb) > MAX_TUNNEL_HDR_LEN)
-+			return false;
-+	}
-+
-+	return true;
-+}
-+
- static const struct net_device_ops i40e_netdev_ops = {
- 	.ndo_open		= i40e_open,
- 	.ndo_stop		= i40e_close,
-@@ -7487,6 +7512,7 @@ static const struct net_device_ops i40e_netdev_ops = {
- 	.ndo_fdb_dump		= i40e_ndo_fdb_dump,
- #endif
- #endif
-+	.ndo_gso_check		= i40e_gso_check,
- };
- 
- /**
--- 
-1.7.10.4
+Given the discussion is still pretty open-ended, I've made the basic
+feedback changes for v3 and haven't tried to address the concern about
+forgetting to update this check when a driver adds support.
