@@ -1,10 +1,9 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch iproute2 1/6] iproute2: ipa: show switch id
-Date: Thu, 4 Dec 2014 15:33:06 +0100
-Message-ID: <20141204143306.GB1861@nanopsycho.orion>
+Subject: Re: [patch iproute2 0/6] iproute2: add changes for switchdev
+Date: Thu, 4 Dec 2014 15:34:00 +0100
+Message-ID: <20141204143400.GC1861@nanopsycho.orion>
 References: <1417683438-10935-1-git-send-email-jiri@resnulli.us>
- <1417683438-10935-2-git-send-email-jiri@resnulli.us>
- <20141204142015.GR27416@gospo.rtplab.test>
+ <54806F2A.2050109@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
@@ -14,108 +13,55 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
 	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
 	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
 	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, bcrl@kvack.org,
-	hemal@broadcom.com
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+	f.fainelli@gmail.com, linville@tuxdriver.com, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com,
+	simon.horman@netronome.com, alexander.h.duyck@redhat.com,
+	john.ronciak@intel.com, mleitner@redhat.com, shrijeet@gmail.com,
+	gospo@cumulusnetworks.com, bcrl@kvack.org, hemal@broadcom.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:40862 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754062AbaLDOdJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 09:33:09 -0500
-Received: by mail-wg0-f47.google.com with SMTP id n12so22653775wgh.6
-        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 06:33:08 -0800 (PST)
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:54647 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754581AbaLDOeD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 09:34:03 -0500
+Received: by mail-wg0-f46.google.com with SMTP id a1so14712185wgh.33
+        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 06:34:01 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20141204142015.GR27416@gospo.rtplab.test>
+In-Reply-To: <54806F2A.2050109@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Dec 04, 2014 at 03:20:15PM CET, gospo@cumulusnetworks.com wrote:
->On Thu, Dec 04, 2014 at 09:57:13AM +0100, Jiri Pirko wrote:
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> ---
->>  include/linux/if_link.h | 1 +
->>  ip/ipaddress.c          | 8 ++++++++
->>  2 files changed, 9 insertions(+)
->> 
->> diff --git a/include/linux/if_link.h b/include/linux/if_link.h
->> index 4732063..a6e2594 100644
->> --- a/include/linux/if_link.h
->> +++ b/include/linux/if_link.h
->> @@ -145,6 +145,7 @@ enum {
->>  	IFLA_CARRIER,
->>  	IFLA_PHYS_PORT_ID,
->>  	IFLA_CARRIER_CHANGES,
->> +	IFLA_PHYS_SWITCH_ID,
->
->Serious question for Stephen et al, once we take this to iproute2 are we
->going to be able to change the name but the string diplayed if needed?
->
->I had a patch that called this IFLA_PARENT_ID that I was using with the
->older github tree used by Jiri and Scott before these were in net-next.
->I wanted to submit that as a change to what became
->82f2841291cfaf4d225aa1766424280254d3e3b2, but was waiting for things to
->be accepted and the dust settled.
->
->I like the parent/child/sibling nomenclature better for 4 reasons:
->
->- Most did not seem to like the term 'offload' since that term would be
->  confusing with, GRO, GSO, etc.
->- A *significant* use case for many of the high-end ASICs in datacenters
->  is routing.
->- switchid does not make sense in the OVS/flow case because it is all
->  about flows, not switches or routers, and parent made sense there.
+Thu, Dec 04, 2014 at 03:26:50PM CET, roopa@cumulusnetworks.com wrote:
+>On 12/4/14, 12:57 AM, Jiri Pirko wrote:
+>>Jiri Pirko (1):
+>>   iproute2: ipa: show switch id
+>>
+>>Scott Feldman (5):
+>>   bridge/fdb: fix statistics output spacing
+>>   bridge/fdb: add flag/indication for FDB entry synced from offload
+>>     device
+>>   bridge/link: add new offload hwmode swdev
+>Ack to most patches but nack on this one. The todo list still has a note to
+>revist the flag to indicate switchdev offloads.
+>Exposing this to userspace does not help that.
 
-well ovs is all about flows and has the "switch" word in the name. I
-believe that people are talking about "switches" in case of these "flow
-devices" as well. I see nothing wrong in that. I think that "switch"
-became generic name for "packet forwarding machines".
-
-"parent" is very generic and may mean 100 things...
-
-
->- I wanted to combine this for use with SR-IOV use case, so one can more
->  easily map PF->VF using this.
-
-Ugh, please don't mix this up with pf, vf. That is completely different
-thing.
-
-pf vf mapping is done in sysfs. In netlink, physportid is used for that
-purpose. We can expose this phys port id for pf as well (as a different
-attr) and we are done.
+Hmm, note that this is already exposed to userspace, this patchset is
+for iproute2 (userspace tool).
 
 >
->Can you give me a bit (a day) to clean-up that patch and submit an
->alternative proposal to these?
+>>   link: add missing IFLA_BRPORT_PROXYARP
+>>   bridge/link: add learning_sync policy flag
+>>
+>>  bridge/fdb.c              |  4 +++-
+>>  bridge/link.c             | 17 +++++++++++++++--
+>>  include/linux/if_bridge.h |  1 +
+>>  include/linux/if_link.h   |  3 +++
+>>  include/linux/neighbour.h |  1 +
+>>  ip/ipaddress.c            |  8 ++++++++
+>>  man/man8/bridge.8         | 19 ++++++++++++++-----
+>>  7 files changed, 45 insertions(+), 8 deletions(-)
+>>
 >
->>  	__IFLA_MAX
->>  };
->>  
->> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
->> index 4d99324..bd36a07 100644
->> --- a/ip/ipaddress.c
->> +++ b/ip/ipaddress.c
->> @@ -589,6 +589,14 @@ int print_linkinfo(const struct sockaddr_nl *who,
->>  				      b1, sizeof(b1)));
->>  	}
->>  
->> +	if (tb[IFLA_PHYS_SWITCH_ID]) {
->> +		SPRINT_BUF(b1);
->> +		fprintf(fp, "switchid %s ",
->> +			hexstring_n2a(RTA_DATA(tb[IFLA_PHYS_SWITCH_ID]),
->> +				      RTA_PAYLOAD(tb[IFLA_PHYS_SWITCH_ID]),
->> +				      b1, sizeof(b1)));
->> +	}
->> +
->>  	if (tb[IFLA_OPERSTATE])
->>  		print_operstate(fp, rta_getattr_u8(tb[IFLA_OPERSTATE]));
->>  
->> -- 
->> 1.9.3
->> 
