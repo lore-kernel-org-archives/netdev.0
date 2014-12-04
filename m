@@ -1,75 +1,75 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] net: sctp: use MAX_HEADER for headroom reserve in
- output path
-Date: Thu, 4 Dec 2014 08:41:48 -0500
-Message-ID: <20141204134148.GC16249@hmsreliant.think-freely.org>
-References: <1417605238-9936-1-git-send-email-dborkman@redhat.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [patch iproute2 0/6] iproute2: add changes for switchdev
+Date: Thu, 4 Dec 2014 08:56:21 -0500
+Message-ID: <20141204135621.GQ27416@gospo.rtplab.test>
+References: <1417683438-10935-1-git-send-email-jiri@resnulli.us>
+ <54805EB6.2010901@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, robert@swiecki.net
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
+	roopa@cumulusnetworks.com, linville@tuxdriver.com,
+	jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, bcrl@kvack.org,
+	hemal@
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:58806 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754278AbaLDNmH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 08:42:07 -0500
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:35674 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932284AbaLDN4j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 08:56:39 -0500
 Content-Disposition: inline
-In-Reply-To: <1417605238-9936-1-git-send-email-dborkman@redhat.com>
+In-Reply-To: <54805EB6.2010901@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 03, 2014 at 12:13:58PM +0100, Daniel Borkmann wrote:
-> To accomodate for enough headroom for tunnels, use MAX_HEADER instead
-> of LL_MAX_HEADER. Robert reported that he has hit after roughly 40hrs
-> of trinity an skb_under_panic() via SCTP output path (see reference).
-> I couldn't reproduce it from here, but not using MAX_HEADER as elsewh=
-ere
-> in other protocols might be one possible cause for this.
->=20
-> In any case, it looks like accounting on chunks themself seems to loo=
-k
-> good as the skb already passed the SCTP output path and did not hit
-> any skb_over_panic(). Given tunneling was enabled in his .config, the
-> headroom would have been expanded by MAX_HEADER in this case.
->=20
-> Reported-by: Robert =C5=9Awi=C4=99cki <robert@swiecki.net>
-> Reference: https://lkml.org/lkml/2014/12/1/507
-> Fixes: 594ccc14dfe4d ("[SCTP] Replace incorrect use of dev_alloc_skb =
-with alloc_skb in sctp_packet_transmit().")
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  net/sctp/output.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->=20
-> diff --git a/net/sctp/output.c b/net/sctp/output.c
-> index 42dffd4..fc5e45b 100644
-> --- a/net/sctp/output.c
-> +++ b/net/sctp/output.c
-> @@ -401,12 +401,12 @@ int sctp_packet_transmit(struct sctp_packet *pa=
-cket)
->  	sk =3D chunk->skb->sk;
-> =20
->  	/* Allocate the new skb.  */
-> -	nskb =3D alloc_skb(packet->size + LL_MAX_HEADER, GFP_ATOMIC);
-> +	nskb =3D alloc_skb(packet->size + MAX_HEADER, GFP_ATOMIC);
->  	if (!nskb)
->  		goto nomem;
-> =20
->  	/* Make sure the outbound skb has enough header room reserved. */
-> -	skb_reserve(nskb, packet->overhead + LL_MAX_HEADER);
-> +	skb_reserve(nskb, packet->overhead + MAX_HEADER);
-> =20
->  	/* Set the owning socket so that we know where to get the
->  	 * destination IP address.
-> --=20
-> 1.7.11.7
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp"=
- in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+On Thu, Dec 04, 2014 at 08:16:38AM -0500, Jamal Hadi Salim wrote:
+> 
+> General comment:
+> iproute2 patches need to be addressed to the maintainer
+> stephen@networkplumber.org
+> And are we mainstream enough now we can drop the 1000 people on the
+> To: list? I doubt most of these people are even following the discussion (I
+> planted an easter egg for Aviad and didnt see him
+> reacting) ;->
+
+I actually don't mind them coming here since it is a change to netlink.
+Thanks for sending them to netdev, Jiri.
+
+> 
+> cheers,
+> jamal
+> 
+> On 12/04/14 03:57, Jiri Pirko wrote:
+> >Jiri Pirko (1):
+> >   iproute2: ipa: show switch id
+> >
+> >Scott Feldman (5):
+> >   bridge/fdb: fix statistics output spacing
+> >   bridge/fdb: add flag/indication for FDB entry synced from offload
+> >     device
+> >   bridge/link: add new offload hwmode swdev
+> >   link: add missing IFLA_BRPORT_PROXYARP
+> >   bridge/link: add learning_sync policy flag
+> >
+> >  bridge/fdb.c              |  4 +++-
+> >  bridge/link.c             | 17 +++++++++++++++--
+> >  include/linux/if_bridge.h |  1 +
+> >  include/linux/if_link.h   |  3 +++
+> >  include/linux/neighbour.h |  1 +
+> >  ip/ipaddress.c            |  8 ++++++++
+> >  man/man8/bridge.8         | 19 ++++++++++++++-----
+> >  7 files changed, 45 insertions(+), 8 deletions(-)
+> >
+> 
