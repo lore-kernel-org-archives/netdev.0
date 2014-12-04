@@ -1,96 +1,116 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v3 net-next 2/2 tuntap: Increase the number of queues in
- tun.
-Date: Thu, 4 Dec 2014 12:20:13 +0200
-Message-ID: <20141204102013.GC17122@redhat.com>
-References: <1417591177-7985-1-git-send-email-pagupta@redhat.com>
- <1417591177-7985-3-git-send-email-pagupta@redhat.com>
- <20141203095210.GC9487@redhat.com>
- <1417661734.16500.0@smtp.corp.redhat.com>
+From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Is this 32-bit NCM?y
+Date: Thu, 4 Dec 2014 11:24:59 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1412041124250.9684@gmail.com>
+References: <AMSPR06MB6011E001029C251790CB923EE780@AMSPR06MB601.eurprd06.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pankaj Gupta <pagupta@redhat.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, davem@davemloft.net, dgibson@redhat.com,
-	vfalico@gmail.com, edumazet@google.com, vyasevic@redhat.com,
-	hkchu@google.com, wuzhy@linux.vnet.ibm.com, xemul@parallels.com,
-	therbert@google.com, bhutchings@solarflare.com, xii@google.com,
-	stephen@networkplumber.org, jiri@resnulli.us,
-	sergei.shtylyov@cogentembedded.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1417661734.16500.0@smtp.corp.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-364784635-1417688700=:9684"
+Cc: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Midge Shaojun Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <AMSPR06MB6011E001029C251790CB923EE780-MyG0ARRHH/drF+2gGhmTpL9PrO6axcR4XA4E9RH9d+qIuWR1G4zioA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 04, 2014 at 03:03:34AM +0008, Jason Wang wrote:
-> 
-> 
-> On Wed, Dec 3, 2014 at 5:52 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> >On Wed, Dec 03, 2014 at 12:49:37PM +0530, Pankaj Gupta wrote:
-> >> Networking under kvm works best if we allocate a per-vCPU RX and TX
-> >> queue in a virtual NIC. This requires a per-vCPU queue on the host
-> >>side.
-> >> It is now safe to increase the maximum number of queues.
-> >> Preceding patche: 'net: allow large number of rx queues'
-> >
-> >s/patche/patch/
-> >
-> >> made sure this won't cause failures due to high order memory
-> >> allocations. Increase it to 256: this is the max number of vCPUs
-> >> KVM supports.
-> >> Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
-> >> Reviewed-by: David Gibson <dgibson@redhat.com>
-> >
-> >Hmm it's kind of nasty that each tun device is now using x16 memory.
-> >Maybe we should look at using a flex array instead, and removing the
-> >limitation altogether (e.g. make it INT_MAX)?
-> 
-> But this only happens when IFF_MULTIQUEUE were used.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-I refer to this field:
-        struct tun_file __rcu   *tfiles[MAX_TAP_QUEUES];
-if we make MAX_TAP_QUEUES 256, this will use 4K bytes,
-apparently unconditionally.
+--8323328-364784635-1417688700=:9684
+Content-Type: TEXT/PLAIN; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8BIT
+
+Congratulations!
+Your modification to the driver work; the disable of padding itself alone did not.
+With the modified file version I am able to use the device with no problems.
+Congratulations guys.
 
 
-> And core has vmalloc() fallback.
-> So probably not a big issue?
-> >
-> >
-> >
-> >> ---
-> >>  drivers/net/tun.c | 9 +++++----
-> >>  1 file changed, 5 insertions(+), 4 deletions(-)
-> >> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> >> index e3fa65a..a19dc5f8 100644
-> >> --- a/drivers/net/tun.c
-> >> +++ b/drivers/net/tun.c
-> >> @@ -113,10 +113,11 @@ struct tap_filter {
-> >>  	unsigned char	addr[FLT_EXACT_COUNT][ETH_ALEN];
-> >>  };
-> >>    -/* DEFAULT_MAX_NUM_RSS_QUEUES were chosen to let the rx/tx queues
-> >>allocated for
-> >> - * the netdevice to be fit in one page. So we can make sure the
-> >>success of
-> >> - * memory allocation. TODO: increase the limit. */
-> >> -#define MAX_TAP_QUEUES DEFAULT_MAX_NUM_RSS_QUEUES
-> >> +/* MAX_TAP_QUEUES 256 is chosen to allow rx/tx queues to be equal
-> >> + * to max number of vCPUS in guest. Also, we are making sure here
-> >> + * queue memory allocation do not fail.
-> >
-> >It's not queue memory allocation anymore, is it?
-> >I would say "
-> >This also helps the tfiles field fit in 4K, so the whole tun
-> >device only needs an order-1 allocation.
-> >"
-> >
-> >> + */
-> >> +#define MAX_TAP_QUEUES 256
-> >>  #define MAX_TAP_FLOWS  4096
-> >>  #define TUN_FLOW_EXPIRE (3 * HZ)
-> >> --  1.8.3.1
-> >> --
-> >> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> >> the body of a message to majordomo@vger.kernel.org
-> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+On Thu, 4 Dec 2014, Midge Shaojun  Tan wrote:
+
+> Date: Thu, 4 Dec 2014 11:10:16
+> From: Midge Shaojun  Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
+> To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+> Cc: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+>     Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+>     Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+>     "youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+>     "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+>     "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+> Subject: Re: Is this 32-bit NCM?y
+> 
+> Hi all,
+>
+> I test OK with kervel 3.16.4
+> Need disable other Ethernet network, just like eth1. (Then the DNS and route is OK)
+> And also need disable arp, (ifconfig wwan0 -arp up), because China UNICOM don't respond the ARP message.
+> With new mode switch string: /etc/usb_modeswitch.d/12d1:14fe
+> Please see the patch and check whether it is correct?
+>
+>
+> -----邮件原件-----
+> 发件人: Enrico Mioso [mailto:mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org]
+> 发送时间: 2014年12月4日 17:54
+> 收件人: Bjørn Mork
+> 抄送: Kevin Zhu; Eli Britstein; Alex Strizhevsky; Midge Shaojun Tan; youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org; linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> 主题: Re: Is this 32-bit NCM?y
+>
+> Guys!
+> Don't forget I can test it - since I have a remote machine with 3.16 kernel and the device, at least for now.
+> So - Bjorn: do I need just to disable padding or do I need also to perform some other changes? I am sorry if I ask this a little bit stupidly, but I was alittle bit busy here.
+>
+>
+>
+>
+>
+> On Thu, 4 Dec 2014, Bjørn Mork wrote:
+>
+>> Date: Thu, 4 Dec 2014 10:19:11
+>> From: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+>> To: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
+>> Cc: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+>>     Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+>>     Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+>>     Midge Shaojun Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+>>     "youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+>>     "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+>>     "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+>> Subject: Re: Is this 32-bit NCM?y
+>>
+>> Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org> writes:
+>>
+>>> Guys,
+>>>
+>>> After rearranging the padding, putting NCM0 right after NTH, and
+>>> disable ARP (FLAG_NOARP) and handling the offset alignment issue, it
+>>> seems it begins to work, though there's still problem with DHCP.
+>>
+>> Great!  But it would be good to know if _one_ of these changes is
+>> enough to make it work.
+>>
+>>> The DHCP packet's size becomes a large one after the TX function,
+>>> which is 16384, the maximum.
+>>
+>> You can now (from v3.16) disable the padding by setting min_tx_pkt >= tx_max.
+>> Something like this should do for a simple test:
+>>
+>> echo 16384 >/sys/class/net/wwan0/cdc_ncm/min_tx_pkt
+>>
+>>
+>> Bjørn
+>>
+> This email and any files transmitted with it are confidential material. They are intended solely for the use of the designated individual or entity to whom they are addressed. If the reader of this message is not the intended recipient, you are hereby notified that any dissemination, use, distribution or copying of this communication is strictly prohibited and may be unlawful.
+>
+> If you have received this email in error please immediately notify the sender and delete or destroy any copy of this message
+>
+--8323328-364784635-1417688700=:9684--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
