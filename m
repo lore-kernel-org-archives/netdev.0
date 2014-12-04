@@ -1,44 +1,53 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] x86: bpf_jit_comp: simplify trivial boolean return
-Date: Thu, 04 Dec 2014 01:26:27 -0800
-Message-ID: <1417685187.2721.1.camel@perches.com>
-References: <CAADnVQK3iui8cAmhi28=65p2CJbTu45fR98ri8Uh8xLRb=cwnA@mail.gmail.com>
-	 <1417032059.16355.4.camel@perches.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1C9FDA63@AcuExch.aculab.com>
-	 <1417114175.4305.3.camel@perches.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net] gso: do GSO for local skb with size bigger than MTU
+Date: Thu, 4 Dec 2014 09:26:50 +0000
+Message-ID: <20141204092650.GA13660@casper.infradead.org>
+References: <20141203090339.GA9299@redhat.com>
+ <CAEP_g=9C+D3gbjJ4n1t6xuyjqEAMYi4ZfqPoe92UAoQJH-UsKg@mail.gmail.com>
+ <20141203183859.GB16447@redhat.com>
+ <CAEP_g=_Y2YQg0wDRJLXsNH6p3fOc5G0KSJb12x_b4OE238ophg@mail.gmail.com>
+ <20141203220244.GA8822@casper.infradead.org>
+ <CAEP_g=90nC2HhmBNKh-hKJ5MJ85Z-_ER14roDxMsZAKog+dFhw@mail.gmail.com>
+ <20141203230551.GC8822@casper.infradead.org>
+ <CAEP_g=-y_-=r+BHk3VfzxMNwH=B-26DvQrzQ7gkKG8fDG7Mx3g@mail.gmail.com>
+ <20141204011515.GA15666@casper.infradead.org>
+ <CAEP_g=8U_w+dxUHsTH2JQ9dGNHaJp-ai8pdmrfeYBin9NZ46jQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	Quentin Lambert <lambert.quentin@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	"x86@kernel.org" <x86@kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	"Du, Fan" <fan.du@intel.com>, Jason Wang <jasowang@redhat.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417114175.4305.3.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"fw@strlen.de" <fw@strlen.de>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Pravin Shelar <pshelar@nicira.com>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:49577 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753137AbaLDJ0z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 04:26:55 -0500
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=8U_w+dxUHsTH2JQ9dGNHaJp-ai8pdmrfeYBin9NZ46jQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-11-27 at 10:49 -0800, Joe Perches wrote:
-> On Thu, 2014-11-27 at 12:25 +0000, David Laight wrote:
-> > Why the change in data?
-> 
-> btw: without gcov and using -O2
-> 
-> $ size arch/x86/net/bpf_jit_comp.o*
->    text	   data	    bss	    dec	    hex	filename
->    9671	      4	      0	   9675	   25cb	arch/x86/net/bpf_jit_comp.o.new
->   10679	      4	      0	  10683	   29bb	arch/x86/net/bpf_jit_comp.o.old
+On 12/03/14 at 05:51pm, Jesse Gross wrote:
+> I think it depends on where you put the PMTU check. If routing is
+> happening in OVS where it is decomposed in several discrete actions
+> like set MAC and decrement TTL then perhaps there is another explicit
+> action to check the MTU. If it is happening in the context of the IP
+> stack, then ICMP generation occurs automatically and if you get that
+> if you write a flow to send a packet there. In each case, it seems
+> like a flow would be steering you by way of an action to do routing so
+> you would have fine grained control. I don't see this as conflicting
+> with L3 ACLs in an L2 context in the same way that you don't have to
+> automatically decrement the TTL.
 
-Alexei?
+OK, I was under the impression that you would detect L3 behaviour
+desire in OVS without an explicit action. Hence the worry on wrong
+classification for L3 ACLs.
 
-Is this 10% reduction in size a good reason to change the code?
+Whether we mark the packet and defer the MTU check or we check right
+in the action is an implementation detail in the end. I think we
+agree on concept level that we need an API to control behaviour.
