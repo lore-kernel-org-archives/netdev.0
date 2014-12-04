@@ -1,67 +1,119 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [RFC][PATCHES] iov_iter.c rewrite
-Date: Thu, 4 Dec 2014 20:20:11 +0000
-Message-ID: <20141204202011.GO29748@ZenIV.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Subject: [RFC][PATCH 03/13] iov_iter.c: convert iov_iter_npages() to iterate_all_kinds
+Date: Thu,  4 Dec 2014 20:23:07 +0000
+Message-ID: <1417724597-17099-3-git-send-email-viro@ZenIV.linux.org.uk>
+References: <20141204202011.GO29748@ZenIV.linux.org.uk>
 Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	netdev@vger.kernel.org
 To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <20141204202011.GO29748@ZenIV.linux.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-	First of all, I want to apologize for the nastiness of preprocessor
-use in this series.  Seeing that the whole "macros that look like new kinds
-of C statements" thing (including list_for_each_...(), etc) is very much not
-to my liking, I really don't trust my taste on finer details and I'd very
-much like some feedback.
+From: Al Viro <viro@zeniv.linux.org.uk>
 
-	The reason for doing that kind of tricks is that iov_iter.c keeps
-growing more and more boilerplate code.  For iov_iter-net series we need
-	* csum_and_copy_from_iter()
-	* csum_and_copy_to_iter()
-	* copy_from_iter_nocache()
-That's 3 new primitives, each in 2 variants (iovec and bvec).
-	* ITER_KVEC handled without going through uaccess.h stuff (and
-independent of set_fs() state).
-And *that* means 3 variants intstead of 2 for most of the existing primitives.
-That's far too much, and the amount of copies of the same logics would pretty
-much guarantee that it will be a breeding ground for hard-to-kill bugs.
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+---
+ mm/iov_iter.c | 73 ++++++++++++++++-------------------------------------------
+ 1 file changed, 19 insertions(+), 54 deletions(-)
 
-	The following series (also in vfs.git#iov_iter) actually manages to
-do all of the above *and* shrink the damn thing quite a bit.  The generated
-code appears to be no worse than before.  The price is a couple of iterator
-macros - iterate_all_kinds() and iterate_and_advance().  They are given an
-iov_iter, size (i.e. the amount of data in iov_iter beginning we want to go
-through), name of the loop variable and 3 variants of loop body - for iovec,
-bvec and kvec resp.  Loop variable is declared *inside* the expansion of those
-suckers according to the kind of iov_iter - it's struct iovec, struct bio_vec
-or struct kvec, covering the current range to deal with.
-	The difference between those two is that iterate_and_advance() will
-advance the iov_iter by the amount it has handled and iterate_all_kinds()
-will leave iov_iter unchanged.
-
-	Unless I hear anybody yelling, it goes into vfs.git#for-next today,
-so if you have objections, suggestions, etc., give those *now*.
-
-Al Viro (13):
-      iov_iter.c: macros for iterating over iov_iter
-      iov_iter.c: iterate_and_advance
-      iov_iter.c: convert iov_iter_npages() to iterate_all_kinds
-      iov_iter.c: convert iov_iter_get_pages() to iterate_all_kinds
-      iov_iter.c: convert iov_iter_get_pages_alloc() to iterate_all_kinds
-      iov_iter.c: convert iov_iter_zero() to iterate_and_advance
-      iov_iter.c: get rid of bvec_copy_page_{to,from}_iter()
-      iov_iter.c: convert copy_from_iter() to iterate_and_advance
-      iov_iter.c: convert copy_to_iter() to iterate_and_advance
-      iov_iter.c: handle ITER_KVEC directly
-      csum_and_copy_..._iter()
-      new helper: iov_iter_kvec()
-      copy_from_iter_nocache()
-
-Diffstat:
- include/linux/uio.h |    6 +
- mm/iov_iter.c       | 1077 +++++++++++++++++++++------------------------------
- 2 files changed, 445 insertions(+), 638 deletions(-)
+diff --git a/mm/iov_iter.c b/mm/iov_iter.c
+index e91bf0a..bc666e7 100644
+--- a/mm/iov_iter.c
++++ b/mm/iov_iter.c
+@@ -493,32 +493,6 @@ static ssize_t get_pages_alloc_iovec(struct iov_iter *i,
+ 	return (res == n ? len : res * PAGE_SIZE) - *start;
+ }
+ 
+-static int iov_iter_npages_iovec(const struct iov_iter *i, int maxpages)
+-{
+-	size_t offset = i->iov_offset;
+-	size_t size = i->count;
+-	const struct iovec *iov = i->iov;
+-	int npages = 0;
+-	int n;
+-
+-	for (n = 0; size && n < i->nr_segs; n++, iov++) {
+-		unsigned long addr = (unsigned long)iov->iov_base + offset;
+-		size_t len = iov->iov_len - offset;
+-		offset = 0;
+-		if (unlikely(!len))	/* empty segment */
+-			continue;
+-		if (len > size)
+-			len = size;
+-		npages += (addr + len + PAGE_SIZE - 1) / PAGE_SIZE
+-			  - addr / PAGE_SIZE;
+-		if (npages >= maxpages)	/* don't bother going further */
+-			return maxpages;
+-		size -= len;
+-		offset = 0;
+-	}
+-	return min(npages, maxpages);
+-}
+-
+ static void memcpy_from_page(char *to, struct page *page, size_t offset, size_t len)
+ {
+ 	char *from = kmap_atomic(page);
+@@ -715,30 +689,6 @@ static ssize_t get_pages_alloc_bvec(struct iov_iter *i,
+ 	return len;
+ }
+ 
+-static int iov_iter_npages_bvec(const struct iov_iter *i, int maxpages)
+-{
+-	size_t offset = i->iov_offset;
+-	size_t size = i->count;
+-	const struct bio_vec *bvec = i->bvec;
+-	int npages = 0;
+-	int n;
+-
+-	for (n = 0; size && n < i->nr_segs; n++, bvec++) {
+-		size_t len = bvec->bv_len - offset;
+-		offset = 0;
+-		if (unlikely(!len))	/* empty segment */
+-			continue;
+-		if (len > size)
+-			len = size;
+-		npages++;
+-		if (npages >= maxpages)	/* don't bother going further */
+-			return maxpages;
+-		size -= len;
+-		offset = 0;
+-	}
+-	return min(npages, maxpages);
+-}
+-
+ size_t copy_page_to_iter(struct page *page, size_t offset, size_t bytes,
+ 			 struct iov_iter *i)
+ {
+@@ -862,9 +812,24 @@ EXPORT_SYMBOL(iov_iter_get_pages_alloc);
+ 
+ int iov_iter_npages(const struct iov_iter *i, int maxpages)
+ {
+-	if (i->type & ITER_BVEC)
+-		return iov_iter_npages_bvec(i, maxpages);
+-	else
+-		return iov_iter_npages_iovec(i, maxpages);
++	size_t size = i->count;
++	int npages = 0;
++
++	if (!size)
++		return 0;
++
++	iterate_all_kinds(i, size, v, ({
++		unsigned long p = (unsigned long)v.iov_base;
++		npages += DIV_ROUND_UP(p + v.iov_len, PAGE_SIZE)
++			- p / PAGE_SIZE;
++		if (npages >= maxpages)
++			return maxpages;
++	0;}),({
++		npages++;
++		if (npages >= maxpages)
++			return maxpages;
++	})
++	)
++	return npages;
+ }
+ EXPORT_SYMBOL(iov_iter_npages);
+-- 
+2.1.3
