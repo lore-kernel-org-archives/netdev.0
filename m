@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2 1/6] iproute2: ipa: show switch id
-Date: Thu,  4 Dec 2014 09:57:13 +0100
-Message-ID: <1417683438-10935-2-git-send-email-jiri@resnulli.us>
+Subject: [patch iproute2 3/6] bridge/fdb: add flag/indication for FDB entry synced from offload device
+Date: Thu,  4 Dec 2014 09:57:15 +0100
+Message-ID: <1417683438-10935-4-git-send-email-jiri@resnulli.us>
 References: <1417683438-10935-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
@@ -21,52 +21,61 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	bcrl@kvack.org, hemal@broadcom.co
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:52557 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753211AbaLDI5X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 03:57:23 -0500
-Received: by mail-wg0-f49.google.com with SMTP id n12so13739095wgh.22
-        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 00:57:22 -0800 (PST)
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:40366 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753211AbaLDI5Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 03:57:25 -0500
+Received: by mail-wi0-f172.google.com with SMTP id n3so33904052wiv.17
+        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 00:57:24 -0800 (PST)
 In-Reply-To: <1417683438-10935-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Scott Feldman <sfeldma@gmail.com>
+
+Add NTF_EXT_LEARNED flag to neigh flags to indicate FDB entry learned by
+device has been learned externally to bridge FDB.  For these entries,
+add "external" annotation in bridge fdb show output:
+
+  00:02:00:00:03:00 dev swp2 used 2/2 master br0 external
+  00:02:00:00:03:00 dev swp2 self permanent
+
+In the example above, 00:02:00:00:03:00 is shown twice on dev swp2.  The
+first entry if from the bridge (master) and is marked as "external" by
+the offload device.  The second entry is from the brport offload device (self),
+and was learned by the device.
+
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/linux/if_link.h | 1 +
- ip/ipaddress.c          | 8 ++++++++
- 2 files changed, 9 insertions(+)
+ bridge/fdb.c              | 2 ++
+ include/linux/neighbour.h | 1 +
+ 2 files changed, 3 insertions(+)
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 4732063..a6e2594 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -145,6 +145,7 @@ enum {
- 	IFLA_CARRIER,
- 	IFLA_PHYS_PORT_ID,
- 	IFLA_CARRIER_CHANGES,
-+	IFLA_PHYS_SWITCH_ID,
- 	__IFLA_MAX
- };
+diff --git a/bridge/fdb.c b/bridge/fdb.c
+index d678342..c01a502 100644
+--- a/bridge/fdb.c
++++ b/bridge/fdb.c
+@@ -154,6 +154,8 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 		fprintf(fp, "master ");
+ 	if (r->ndm_flags & NTF_ROUTER)
+ 		fprintf(fp, "router ");
++	if (r->ndm_flags & NTF_EXT_LEARNED)
++		fprintf(fp, "external ");
  
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 4d99324..bd36a07 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -589,6 +589,14 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 				      b1, sizeof(b1)));
- 	}
+ 	fprintf(fp, "%s\n", state_n2a(r->ndm_state));
+ 	return 0;
+diff --git a/include/linux/neighbour.h b/include/linux/neighbour.h
+index 4a1d7e9..3a9b0df 100644
+--- a/include/linux/neighbour.h
++++ b/include/linux/neighbour.h
+@@ -40,6 +40,7 @@ enum {
  
-+	if (tb[IFLA_PHYS_SWITCH_ID]) {
-+		SPRINT_BUF(b1);
-+		fprintf(fp, "switchid %s ",
-+			hexstring_n2a(RTA_DATA(tb[IFLA_PHYS_SWITCH_ID]),
-+				      RTA_PAYLOAD(tb[IFLA_PHYS_SWITCH_ID]),
-+				      b1, sizeof(b1)));
-+	}
-+
- 	if (tb[IFLA_OPERSTATE])
- 		print_operstate(fp, rta_getattr_u8(tb[IFLA_OPERSTATE]));
+ #define NTF_SELF	0x02
+ #define NTF_MASTER	0x04
++#define NTF_EXT_LEARNED	0x10
  
+ /*
+  *	Neighbor Cache Entry States.
 -- 
 1.9.3
