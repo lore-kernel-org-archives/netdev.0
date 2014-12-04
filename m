@@ -1,112 +1,71 @@
-From: Grant Grundler <grantgrundler@gmail.com>
-Subject: Re: [PATCH] net: tulip: Remove private "strncmp"
-Date: Thu, 4 Dec 2014 11:35:55 -0800
-Message-ID: <CAP6odjhYiRCAtb01R-R=a=6Fe+2yvKPL_t3FpzOY+jMquuBW4A@mail.gmail.com>
-References: <1417689040-14958-1-git-send-email-linux@rasmusvillemoes.dk>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch iproute2 1/6] iproute2: ipa: show switch id
+Date: Thu, 4 Dec 2014 20:54:39 +0100
+Message-ID: <20141204195439.GL1861@nanopsycho.orion>
+References: <1417683438-10935-1-git-send-email-jiri@resnulli.us>
+ <1417683438-10935-2-git-send-email-jiri@resnulli.us>
+ <87y4qne6if.fsf@x220.int.ebiederm.org>
+ <20141204163024.GG1861@nanopsycho.orion>
+ <87388v9ua6.fsf@x220.int.ebiederm.org>
+ <20141204182451.GI1861@nanopsycho.orion>
+ <87k327450a.fsf@x220.int.ebiederm.org>
+ <20141204191926.GK1861@nanopsycho.orion>
+ <87wq672p49.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Grant Grundler <grundler@parisc-linux.org>,
-	"open list:TULIP NETWORK DRI..." <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417689040-14958-1-git-send-email-linux@rasmusvillemoes.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org, hemal@broadcom.c
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:53759 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753877AbaLDTym (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 14:54:42 -0500
+Received: by mail-wg0-f41.google.com with SMTP id y19so23538745wgg.14
+        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 11:54:41 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <87wq672p49.fsf@x220.int.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 4, 2014 at 2:30 AM, Rasmus Villemoes
-<linux@rasmusvillemoes.dk> wrote:
-> The comment says that the built-in strncmp didn't work. That is not
-> surprising, as apparently "str" semantics are not really what is
-> wanted (hint: de4x5_strncmp only stops when two different bytes are
-> encountered or the end is reached; not if either byte happens to be
-> 0). de4x5_strncmp is actually a memcmp (except for the signature and
-> that bytes are not necessarily treated as unsigned char); since only
-> the boolean value of the result is used we can just replace
-> de4x5_strncmp with memcmp.
+Thu, Dec 04, 2014 at 08:26:14PM CET, ebiederm@xmission.com wrote:
+>Jiri Pirko <jiri@resnulli.us> writes:
 >
-> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-> ---
+>>>So this id needs to be globally unique?
+>>
+>> No. It is enough to be unique within a single system. It serves for no
+>> more than to find out 2 ids are same or not, no other info value.
+>>
+>> So when the drivers uses sane ids (like mac for example, or in case of
+>> rocker an id which is passed by qemu command line), the chances of
+>> collision are very very close to none (never say never).
 >
-> Notes:
->     I don't know if the comment meant to say 3 bytes, or if the code
->     compares meaningful chunks of memory (the first three bytes of
->     &lp->srom span 1.5 fields, and the three bytes from (char*)&lp->srom +
->     0x10 are &lp->srom.{id_block_crc,reserved2,version} - it seems odd
->     that these chunks should ever be equal to each other and to the
->     enet_det[i]). Whether or not the current code works, this patch
->     shouldn't change the semantics, and I'd like to get rid of
->     de4x5_strncmp since it is not, in fact, a strncmp.
+>So the switch id isn't necessarily even as good as a manufacturers
+>serial number that changes between different models, and anyone who uses
+>this id must look at the driver to get uniqueness.
+>
+>Yes what is needed in the comparison to get uniqueness in a single
+>system badly needs to be documented because that switch id is very much
+>not enough on it's own.
+>
+>phys_port_id on the other hand is globally unique.  So please stop
+>saying that this is anything like phys_port_id.
 
-+1 I think your analysis is correct. The function appears to be
-checking against a black list of MAC addresses that has two "broken"
-devices MAC addresses.
-
-Acked-by: Grant Grundler <grundler@parisc-linux.org>
-
-thanks,
-grant
-
-ps. I don't like how de4x5_bad_srom() is structured but I can't test
-these devices either.  Specifically, the offset of the MAC address
-should be known and we should only be testing that offset to see if
-it's "that vendor".
-
->  drivers/net/ethernet/dec/tulip/de4x5.c | 20 +++-----------------
->  1 file changed, 3 insertions(+), 17 deletions(-)
->
-> diff --git a/drivers/net/ethernet/dec/tulip/de4x5.c b/drivers/net/ethernet/dec/tulip/de4x5.c
-> index cf8b6ff..badff18 100644
-> --- a/drivers/net/ethernet/dec/tulip/de4x5.c
-> +++ b/drivers/net/ethernet/dec/tulip/de4x5.c
-> @@ -995,7 +995,6 @@ static void    de4x5_dbg_mii(struct net_device *dev, int k);
->  static void    de4x5_dbg_media(struct net_device *dev);
->  static void    de4x5_dbg_srom(struct de4x5_srom *p);
->  static void    de4x5_dbg_rx(struct sk_buff *skb, int len);
-> -static int     de4x5_strncmp(char *a, char *b, int n);
->  static int     dc21041_infoleaf(struct net_device *dev);
->  static int     dc21140_infoleaf(struct net_device *dev);
->  static int     dc21142_infoleaf(struct net_device *dev);
-> @@ -4102,8 +4101,7 @@ get_hw_addr(struct net_device *dev)
->  }
->
->  /*
-> -** Test for enet addresses in the first 32 bytes. The built-in strncmp
-> -** didn't seem to work here...?
-> +** Test for enet addresses in the first 32 bytes.
->  */
->  static int
->  de4x5_bad_srom(struct de4x5_private *lp)
-> @@ -4111,8 +4109,8 @@ de4x5_bad_srom(struct de4x5_private *lp)
->      int i, status = 0;
->
->      for (i = 0; i < ARRAY_SIZE(enet_det); i++) {
-> -       if (!de4x5_strncmp((char *)&lp->srom, (char *)&enet_det[i], 3) &&
-> -           !de4x5_strncmp((char *)&lp->srom+0x10, (char *)&enet_det[i], 3)) {
-> +       if (!memcmp(&lp->srom, &enet_det[i], 3) &&
-> +           !memcmp((char *)&lp->srom+0x10, &enet_det[i], 3)) {
->             if (i == 0) {
->                 status = SMC;
->             } else if (i == 1) {
-> @@ -4125,18 +4123,6 @@ de4x5_bad_srom(struct de4x5_private *lp)
->      return status;
->  }
->
-> -static int
-> -de4x5_strncmp(char *a, char *b, int n)
-> -{
-> -    int ret=0;
-> -
-> -    for (;n && !ret; n--) {
-> -       ret = *a++ - *b++;
-> -    }
-> -
-> -    return ret;
-> -}
-> -
->  static void
->  srom_repair(struct net_device *dev, int card)
->  {
-> --
-> 2.0.4
->
+I'm sorry. But is is the same. And the purpose is very similar. In case
+of phys port id to find out if 2 netdevices share the same physical port.
+In case of phys switch id to find out if 2 netdevices share the same
+switch parent.
