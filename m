@@ -1,86 +1,94 @@
-From: Andrey Volkov <andrey.volkov@nexvision.fr>
-Subject: [PATCH v2 1/1] net: dsa: replacing the hard-coded sized array "dsa_switch"
- by dynamic one
-Date: Thu, 04 Dec 2014 16:54:32 +0100
-Message-ID: <548083B8.5090900@nexvision.fr>
-References: <547DD1C6.2090304@nexvision.fr> <547E23C1.2040007@gmail.com>
+From: Andreas Ruprecht <mail@rupran.de>
+Subject: [PATCH] net: ethernet: rocker: Add select to CONFIG_BRIDGE in Kconfig
+Date: Thu, 04 Dec 2014 18:36:37 +0100
+Message-ID: <54809BA5.7030901@rupran.de>
+References: <CA+r1ZhhJQuwXbs+Et-ihsGP3QXDUWZ1nJ-5_hcjioFt5s8zMrA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 3.mo1.mail-out.ovh.net ([46.105.60.232]:53497 "EHLO
-	mo1.mail-out.ovh.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932256AbaLDRKz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 12:10:55 -0500
-Received: from mail140.ha.ovh.net (gw6.ovh.net [213.251.189.206])
-	by mo1.mail-out.ovh.net (Postfix) with SMTP id A7A17FFAE06
-	for <netdev@vger.kernel.org>; Thu,  4 Dec 2014 16:54:34 +0100 (CET)
-In-Reply-To: <547E23C1.2040007@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------060500090600040505030303"
+To: Jim Davis <jim.epost@gmail.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next <linux-next@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>, jiri@resnulli.us,
+	sfeldma@gmail.com, netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+r1ZhhJQuwXbs+Et-ihsGP3QXDUWZ1nJ-5_hcjioFt5s8zMrA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Replacing the hard-coded sized array "dsa_switch" by dynamic one
-and remove useless DSA_MAX_SWITCHES define.
-This patch also make dsa_switch_tree scalable from the "usual"
-1-2 up to 10th switches configuration.
+This is a multi-part message in MIME format.
+--------------060500090600040505030303
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
 
-Signed-off-by: Andrey Volkov <andrey.volkov@nexvision.fr>
+On 04.12.2014 17:34, Jim Davis wrote:
+> Building with the attached random configuration file,
+> 
+> drivers/built-in.o: In function `rocker_port_fdb_learn_work':
+> /home/jim/linux/drivers/net/ethernet/rocker/rocker.c:3014: undefined
+> reference to `br_fdb_external_learn_del'
+> /home/jim/linux/drivers/net/ethernet/rocker/rocker.c:3016: undefined
+> reference to `br_fdb_external_learn_add'
+> 
+
+Hi,
+
+the problem here is that CONFIG_BRIDGE is set to 'm' (leading to
+inclusion of the two functions above in the kernel module) while
+CONFIG_ROCKER is set to 'y', requiring the functions at link time.
+
+Is the attached patch sufficient to fix this?
+
+Regards,
+
+Andreas
+
+--------------060500090600040505030303
+Content-Type: text/x-patch;
+ name="0001-net-ethernet-rocker-Add-select-to-CONFIG_BRIDGE-in-K.patch"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment;
+ filename*0="0001-net-ethernet-rocker-Add-select-to-CONFIG_BRIDGE-in-K.pa";
+ filename*1="tch"
+
+=46rom 0529c3cbe381338dc3337e07a71e15b3d22a3255 Mon Sep 17 00:00:00 2001
+From: Andreas Ruprecht <rupran@einserver.de>
+Date: Thu, 4 Dec 2014 18:28:09 +0100
+Subject: [PATCH] net: ethernet: rocker: Add select to CONFIG_BRIDGE in Kc=
+onfig
+
+In a configuration with CONFIG_BRIDGE set to 'm' and CONFIG_ROCKER
+set to 'y', undefined references occur at link time:
+
+> drivers/built-in.o: In function `rocker_port_fdb_learn_work':
+> /home/jim/linux/drivers/net/ethernet/rocker/rocker.c:3014: undefined
+> reference to `br_fdb_external_learn_del'
+> /home/jim/linux/drivers/net/ethernet/rocker/rocker.c:3016: undefined
+> reference to `br_fdb_external_learn_add'
+
+This patch fixes these by selecting CONFIG_BRIDGE from CONFIG_ROCKER.
+
+Reported-by: Jim Davis <jim.epost@gmail.com>
+Signed-off-by: Andreas Ruprecht <rupran@einserver.de>
 ---
- include/net/dsa.h |    3 +--
- net/dsa/dsa.c     |    7 +++----
- 2 files changed, 4 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/rocker/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index ed3c34b..733db2e 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -28,7 +28,6 @@ enum dsa_tag_protocol {
-     DSA_TAG_PROTO_BRCM,
- };
- 
--#define DSA_MAX_SWITCHES    4
- #define DSA_MAX_PORTS        12
- 
- struct dsa_chip_data {
-@@ -117,7 +116,7 @@ struct dsa_switch_tree {
-     /*
-      * Data for the individual switch chips.
-      */
--    struct dsa_switch    *ds[DSA_MAX_SWITCHES];
-+    struct dsa_switch    *ds[];
- };
- 
- struct dsa_switch {
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 322c778..c081a19 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -604,8 +604,6 @@ static int dsa_of_probe(struct platform_device *pdev)
-     pdev->dev.platform_data = pd;
-     pd->netdev = &ethernet_dev->dev;
-     pd->nr_chips = of_get_child_count(np);
--    if (pd->nr_chips > DSA_MAX_SWITCHES)
--        pd->nr_chips = DSA_MAX_SWITCHES;
- 
-     pd->chip = kcalloc(pd->nr_chips, sizeof(struct dsa_chip_data),
-                GFP_KERNEL);
-@@ -717,7 +715,7 @@ static int dsa_probe(struct platform_device *pdev)
-         pd = pdev->dev.platform_data;
-     }
- 
--    if (pd == NULL || pd->netdev == NULL)
-+    if (pd == NULL || pd->netdev == NULL || pd->nr_chips == 0)
-         return -EINVAL;
- 
-     dev = dev_to_net_device(pd->netdev);
-@@ -732,7 +730,8 @@ static int dsa_probe(struct platform_device *pdev)
-         goto out;
-     }
- 
--    dst = kzalloc(sizeof(*dst), GFP_KERNEL);
-+    dst = kzalloc(sizeof(*dst) +
-+            sizeof(struct dsa_switch *) * pd->nr_chips, GFP_KERNEL);
-     if (dst == NULL) {
-         dev_put(dev);
-         ret = -ENOMEM;
+diff --git a/drivers/net/ethernet/rocker/Kconfig b/drivers/net/ethernet/r=
+ocker/Kconfig
+index 11a850eab628..ade10ec4c78d 100644
+--- a/drivers/net/ethernet/rocker/Kconfig
++++ b/drivers/net/ethernet/rocker/Kconfig
+@@ -18,6 +18,7 @@ if NET_VENDOR_ROCKER
+ config ROCKER
+ 	tristate "Rocker switch driver (EXPERIMENTAL)"
+ 	depends on PCI && NET_SWITCHDEV
++	select BRIDGE
+ 	---help---
+ 	  This driver supports Rocker switch device.
+=20
+--=20
+1.9.1
+
+
+--------------060500090600040505030303--
