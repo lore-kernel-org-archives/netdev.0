@@ -1,69 +1,62 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCHv3 net] i40e: Implement ndo_gso_check()
-Date: Thu, 04 Dec 2014 10:46:25 -0800
-Message-ID: <1417718785.2404.5.camel@jtkirshe-mobl>
-References: <1417718366-14310-1-git-send-email-joestringer@nicira.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [patch iproute2 5/6] link: add missing IFLA_BRPORT_PROXYARP
+Date: Thu, 4 Dec 2014 10:53:59 -0800
+Message-ID: <20141204105359.0fbd5b69@urahara>
+References: <1417683438-10935-1-git-send-email-jiri@resnulli.us>
+	<1417683438-10935-6-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-jC5Fd97JZ91L62YSU9P6"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jesse@nicira.com, shannon.nelson@intel.com,
-	jesse.brandeburg@intel.com, therbert@google.com,
-	linux.nics@intel.com
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417718366-14310-1-git-send-email-joestringer@nicira.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---=-jC5Fd97JZ91L62YSU9P6
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2014-12-04 at 10:39 -0800, Joe Stringer wrote:
-> ndo_gso_check() was recently introduced to allow NICs to report the
-> offloading support that they have on a per-skb basis. Add an
-> implementation for this driver which checks for IPIP, GRE, UDP
-> tunnels.
->=20
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
-> ---
-> v3: Drop IPIP and GRE (no driver support even though hw supports it).
->     Check for UDP outer protocol for UDP tunnels.
-> v2: Expand to include IP in IP and IPv4/IPv6 inside GRE/UDP tunnels.
->     Add MAX_INNER_LENGTH (as 80).
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_main.c |   26
-> ++++++++++++++++++++++++++
->  1 file changed, 26 insertions(+)
-
-Thanks Joe, I will add your patch to my queue.
-
-Jesse Gross/Tom- If you guys are OK with the latest patch, I will move
-forward with adding this patch to my queue.
-
---=-jC5Fd97JZ91L62YSU9P6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, jeffrey.t.kirsher@intel.com,
+	vyasevic@redhat.com, xiyou.wangcong@gmail.com,
+	john.r.fastabend@intel.com, edumazet@google.com, jhs@mojatatu.com,
+	sfeldma@gmail.com, f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org, hemal@broadcom.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:54900 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932464AbaLDSyV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 13:54:21 -0500
+Received: by mail-pa0-f51.google.com with SMTP id ey11so18649549pad.10
+        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 10:54:21 -0800 (PST)
+In-Reply-To: <1417683438-10935-6-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+On Thu,  4 Dec 2014 09:57:17 +0100
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-iQIcBAABCgAGBQJUgKwBAAoJEOVv75VaS+3OGSoP/3IiURx6dK43zFEZlCbTo1mz
-beoWD2k0SQylvCwxnbbDp9dmjsg3zKwiIaQhBFPfhrHMKETw4+EFPLcpYF45ugvF
-2v3sODD/UdtttJZ3Hi5F22fElQRmT5ZQHX0X+JkDMSwsOsHVG6CruGv2SpvD4kyE
-HSVJNAcokTzHqGVfSSaILM1KchafwzeWneSQfLhoIS1/c5sQsxo2o7By8C3KnT5v
-RDu+zYHIrdVarGoyx+Jz5OBn/WOv8x1ypyOmaVCu45VGrP21G4gfldw2bqSAJsBv
-9qhO2Z+T2RswRqOUI9wNyzmdM/oFT1w6LIS6QuADqubwRxkd7MUSZXw1650Iue7k
-yrCTuS4mXr3TWcq18AyWIinlopUmIzwEhnVm68fLUnPQhr55UmHZlb3xfaY28UJQ
-oMBvknLBGSfrrmmnhDLjeM9h7NmeI2XQPDar4sj9HElOKP7ri3796UbQP/TU4Xjx
-zDEmKlyttV7nwchyLziBtm9+SXNPUF4h5ltkQbcoV51O/oZYJvy4PfgtsO7F16T0
-ZY6LLqR9RxXsJDULpzFywm4R8WeiHBmjMG4HCYR1IsLmdLmEtxd22rm3tXXjlb+k
-X4ukVsO/AwJ0Qp3HeV66tACFDuCcRN95a6MZsmstJZOK2Kl4q56veRs3Sd4UOw+P
-3ANgpYr/6OPQPhvgA58x
-=OGxd
------END PGP SIGNATURE-----
+> From: Scott Feldman <sfeldma@gmail.com>
+> 
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>  include/linux/if_link.h | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+> index a6e2594..06efa2d 100644
+> --- a/include/linux/if_link.h
+> +++ b/include/linux/if_link.h
+> @@ -242,6 +242,7 @@ enum {
+>  	IFLA_BRPORT_FAST_LEAVE,	/* multicast fast leave    */
+>  	IFLA_BRPORT_LEARNING,	/* mac learning */
+>  	IFLA_BRPORT_UNICAST_FLOOD, /* flood unicast traffic */
+> +	IFLA_BRPORT_PROXYARP,   /* proxy ARP */
+>  	__IFLA_BRPORT_MAX
+>  };
+>  #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
 
---=-jC5Fd97JZ91L62YSU9P6--
+Unnecessary patch since I pick up headers from upstream.
+Already on net-next branch.
