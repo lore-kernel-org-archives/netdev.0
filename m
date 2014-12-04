@@ -1,256 +1,156 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] net: sched: cls: remove unused op put from tcf_proto_ops
-Date: Thu,  4 Dec 2014 21:41:18 +0100
-Message-ID: <1417725678-24968-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com
-To: netdev@vger.kernel.org
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch iproute2 0/6] iproute2: add changes for switchdev
+Date: Thu, 4 Dec 2014 12:49:26 -0800
+Message-ID: <CAE4R7bCyf7VBFWqEme37rf0YbTc3-s5Qka+1HMOsdMgVC3qZ-A@mail.gmail.com>
+References: <1417683438-10935-1-git-send-email-jiri@resnulli.us>
+	<54806F2A.2050109@cumulusnetworks.com>
+	<20141204143400.GC1861@nanopsycho.orion>
+	<54807398.40201@cumulusnetworks.com>
+	<20141204160444.GF1861@nanopsycho.orion>
+	<5480921D.60108@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Thomas Graf <tgraf@suug.ch>,
+	"dborkman@redhat.com" <dborkman@redhat.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"jesse@nicira.com" <jesse@nicira.com>,
+	"pshelar@nicira.com" <pshelar@nicira.com>,
+	"azhou@nicira.com" <azhou@nicira.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	John Linville <linville@tuxdriver.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:60479 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750934AbaLDUlV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 15:41:21 -0500
-Received: by mail-wi0-f169.google.com with SMTP id r20so37448130wiv.2
-        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 12:41:20 -0800 (PST)
+Received: from mail-wg0-f53.google.com ([74.125.82.53]:64643 "EHLO
+	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753014AbaLDUt2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 15:49:28 -0500
+Received: by mail-wg0-f53.google.com with SMTP id l18so23378026wgh.26
+        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 12:49:26 -0800 (PST)
+In-Reply-To: <5480921D.60108@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is never called and implementations are void. So just remove it.
+On Thu, Dec 4, 2014 at 8:55 AM, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+> On 12/4/14, 8:04 AM, Jiri Pirko wrote:
+>>
+>> Thu, Dec 04, 2014 at 03:45:44PM CET, roopa@cumulusnetworks.com wrote:
+>>>
+>>> On 12/4/14, 6:34 AM, Jiri Pirko wrote:
+>>>>
+>>>> Thu, Dec 04, 2014 at 03:26:50PM CET, roopa@cumulusnetworks.com wrote:
+>>>>>
+>>>>> On 12/4/14, 12:57 AM, Jiri Pirko wrote:
+>>>>>>
+>>>>>> Jiri Pirko (1):
+>>>>>>    iproute2: ipa: show switch id
+>>>>>>
+>>>>>> Scott Feldman (5):
+>>>>>>    bridge/fdb: fix statistics output spacing
+>>>>>>    bridge/fdb: add flag/indication for FDB entry synced from offload
+>>>>>>      device
+>>>>>>    bridge/link: add new offload hwmode swdev
+>>>>>
+>>>>> Ack to most patches but nack on this one. The todo list still has a
+>>>>> note to
+>>>>> revist the flag to indicate switchdev offloads.
+>>>>> Exposing this to userspace does not help that.
+>>>>
+>>>> Hmm, note that this is already exposed to userspace, this patchset is
+>>>> for iproute2 (userspace tool).
+>>>
+>>> hmmm, all feedback on the switchdev patches seemed to indicate we can
+>>> change
+>>> this later.
+>>> I don't see swdev mode being used in the kernel anywhere today.
+>>
+>> Well, it is, in rocker:
+>> $ git grep BRIDGE_MODE_SWDEV
+>> drivers/net/ethernet/rocker/rocker.c:                   if (mode !=
+>> BRIDGE_MODE_SWDEV)
+>> drivers/net/ethernet/rocker/rocker.c:   u16 mode = BRIDGE_MODE_SWDEV;
+>> include/uapi/linux/if_bridge.h:#define BRIDGE_MODE_SWDEV        2       /*
+>> Full switch device offload */
+>
+>
+> The problem is rocker is not the only one who is going to be using this. And
+> so, we need something that fits everybody.
+> And i am not going to make my user set a mode for him to enable offload to
+> hw.
+>
+>>
+>>> I will send a patch to remove it. Its still in net-next and so can be
+>>> changed
+>>> ?.
+>>> I was going to resend my patch to introduce a common offload flag for all
+>>> link objects.
+>>> It would be nice if all of them had a consistent flag to indicate hw
+>>> offload
+>>> and iproute2 could display the same flag for all.
+>>> Including bonds and vxlan's.
+>>
+>> I do not understand the connection with BRIDGE_MODE_SWDEV. We discussed
+>> this already. BRIDGE_MODE_SWDEV is a bridge mode, similar to for example
+>> BRIDGE_MODE_VEPA and makes perfect sense to have it.
+>
+> I dont think everybody acked it. But it went in with a note saying that it
+> can be changed.
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- include/net/sch_generic.h | 1 -
- net/sched/cls_basic.c     | 5 -----
- net/sched/cls_bpf.c       | 5 -----
- net/sched/cls_cgroup.c    | 5 -----
- net/sched/cls_flow.c      | 5 -----
- net/sched/cls_fw.c        | 5 -----
- net/sched/cls_route.c     | 5 -----
- net/sched/cls_rsvp.h      | 5 -----
- net/sched/cls_tcindex.c   | 8 --------
- net/sched/cls_u32.c       | 5 -----
- 10 files changed, 49 deletions(-)
+I thought that was the plan: this new mode goes in now for net-next
+and iproute2, and you would supply follow up patch for each to move to
+your switch port flag.  That will give us time to review your work
+without have net-next and iproute2 out-of-sync.
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index d17ed6f..3d282cb 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -219,7 +219,6 @@ struct tcf_proto_ops {
- 	void			(*destroy)(struct tcf_proto*);
- 
- 	unsigned long		(*get)(struct tcf_proto*, u32 handle);
--	void			(*put)(struct tcf_proto*, unsigned long);
- 	int			(*change)(struct net *net, struct sk_buff *,
- 					struct tcf_proto*, unsigned long,
- 					u32 handle, struct nlattr **,
-diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
-index 1c122c7..7cf0a62 100644
---- a/net/sched/cls_basic.c
-+++ b/net/sched/cls_basic.c
-@@ -72,10 +72,6 @@ static unsigned long basic_get(struct tcf_proto *tp, u32 handle)
- 	return l;
- }
- 
--static void basic_put(struct tcf_proto *tp, unsigned long f)
--{
--}
--
- static int basic_init(struct tcf_proto *tp)
- {
- 	struct basic_head *head;
-@@ -287,7 +283,6 @@ static struct tcf_proto_ops cls_basic_ops __read_mostly = {
- 	.init		=	basic_init,
- 	.destroy	=	basic_destroy,
- 	.get		=	basic_get,
--	.put		=	basic_put,
- 	.change		=	basic_change,
- 	.delete		=	basic_delete,
- 	.walk		=	basic_walk,
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index d0de979..84c8219 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -151,10 +151,6 @@ static unsigned long cls_bpf_get(struct tcf_proto *tp, u32 handle)
- 	return ret;
- }
- 
--static void cls_bpf_put(struct tcf_proto *tp, unsigned long f)
--{
--}
--
- static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
- 				   struct cls_bpf_prog *prog,
- 				   unsigned long base, struct nlattr **tb,
-@@ -356,7 +352,6 @@ static struct tcf_proto_ops cls_bpf_ops __read_mostly = {
- 	.init		=	cls_bpf_init,
- 	.destroy	=	cls_bpf_destroy,
- 	.get		=	cls_bpf_get,
--	.put		=	cls_bpf_put,
- 	.change		=	cls_bpf_change,
- 	.delete		=	cls_bpf_delete,
- 	.walk		=	cls_bpf_walk,
-diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-index dbee65e..741bfa7 100644
---- a/net/sched/cls_cgroup.c
-+++ b/net/sched/cls_cgroup.c
-@@ -67,10 +67,6 @@ static unsigned long cls_cgroup_get(struct tcf_proto *tp, u32 handle)
- 	return 0UL;
- }
- 
--static void cls_cgroup_put(struct tcf_proto *tp, unsigned long f)
--{
--}
--
- static int cls_cgroup_init(struct tcf_proto *tp)
- {
- 	return 0;
-@@ -213,7 +209,6 @@ static struct tcf_proto_ops cls_cgroup_ops __read_mostly = {
- 	.classify	=	cls_cgroup_classify,
- 	.destroy	=	cls_cgroup_destroy,
- 	.get		=	cls_cgroup_get,
--	.put		=	cls_cgroup_put,
- 	.delete		=	cls_cgroup_delete,
- 	.walk		=	cls_cgroup_walk,
- 	.dump		=	cls_cgroup_dump,
-diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
-index 819c230..8e22718 100644
---- a/net/sched/cls_flow.c
-+++ b/net/sched/cls_flow.c
-@@ -581,10 +581,6 @@ static unsigned long flow_get(struct tcf_proto *tp, u32 handle)
- 	return 0;
- }
- 
--static void flow_put(struct tcf_proto *tp, unsigned long f)
--{
--}
--
- static int flow_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 		     struct sk_buff *skb, struct tcmsg *t)
- {
-@@ -671,7 +667,6 @@ static struct tcf_proto_ops cls_flow_ops __read_mostly = {
- 	.change		= flow_change,
- 	.delete		= flow_delete,
- 	.get		= flow_get,
--	.put		= flow_put,
- 	.dump		= flow_dump,
- 	.walk		= flow_walk,
- 	.owner		= THIS_MODULE,
-diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
-index dbfdfd1..23fda2a 100644
---- a/net/sched/cls_fw.c
-+++ b/net/sched/cls_fw.c
-@@ -111,10 +111,6 @@ static unsigned long fw_get(struct tcf_proto *tp, u32 handle)
- 	return 0;
- }
- 
--static void fw_put(struct tcf_proto *tp, unsigned long f)
--{
--}
--
- static int fw_init(struct tcf_proto *tp)
- {
- 	return 0;
-@@ -411,7 +407,6 @@ static struct tcf_proto_ops cls_fw_ops __read_mostly = {
- 	.init		=	fw_init,
- 	.destroy	=	fw_destroy,
- 	.get		=	fw_get,
--	.put		=	fw_put,
- 	.change		=	fw_change,
- 	.delete		=	fw_delete,
- 	.walk		=	fw_walk,
-diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
-index 109a329..098a273 100644
---- a/net/sched/cls_route.c
-+++ b/net/sched/cls_route.c
-@@ -256,10 +256,6 @@ static unsigned long route4_get(struct tcf_proto *tp, u32 handle)
- 	return 0;
- }
- 
--static void route4_put(struct tcf_proto *tp, unsigned long f)
--{
--}
--
- static int route4_init(struct tcf_proto *tp)
- {
- 	return 0;
-@@ -649,7 +645,6 @@ static struct tcf_proto_ops cls_route4_ops __read_mostly = {
- 	.init		=	route4_init,
- 	.destroy	=	route4_destroy,
- 	.get		=	route4_get,
--	.put		=	route4_put,
- 	.change		=	route4_change,
- 	.delete		=	route4_delete,
- 	.walk		=	route4_walk,
-diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
-index 6bb55f2..b7af362 100644
---- a/net/sched/cls_rsvp.h
-+++ b/net/sched/cls_rsvp.h
-@@ -271,10 +271,6 @@ static unsigned long rsvp_get(struct tcf_proto *tp, u32 handle)
- 	return 0;
- }
- 
--static void rsvp_put(struct tcf_proto *tp, unsigned long f)
--{
--}
--
- static int rsvp_init(struct tcf_proto *tp)
- {
- 	struct rsvp_head *data;
-@@ -708,7 +704,6 @@ static struct tcf_proto_ops RSVP_OPS __read_mostly = {
- 	.init		=	rsvp_init,
- 	.destroy	=	rsvp_destroy,
- 	.get		=	rsvp_get,
--	.put		=	rsvp_put,
- 	.change		=	rsvp_change,
- 	.delete		=	rsvp_delete,
- 	.walk		=	rsvp_walk,
-diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
-index 30f10fb..0d9d891 100644
---- a/net/sched/cls_tcindex.c
-+++ b/net/sched/cls_tcindex.c
-@@ -116,13 +116,6 @@ static unsigned long tcindex_get(struct tcf_proto *tp, u32 handle)
- 	return r && tcindex_filter_is_set(r) ? (unsigned long) r : 0UL;
- }
- 
--
--static void tcindex_put(struct tcf_proto *tp, unsigned long f)
--{
--	pr_debug("tcindex_put(tp %p,f 0x%lx)\n", tp, f);
--}
--
--
- static int tcindex_init(struct tcf_proto *tp)
- {
- 	struct tcindex_data *p;
-@@ -560,7 +553,6 @@ static struct tcf_proto_ops cls_tcindex_ops __read_mostly = {
- 	.init		=	tcindex_init,
- 	.destroy	=	tcindex_destroy,
- 	.get		=	tcindex_get,
--	.put		=	tcindex_put,
- 	.change		=	tcindex_change,
- 	.delete		=	tcindex_delete,
- 	.walk		=	tcindex_walk,
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index 0472909..09487af 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -299,10 +299,6 @@ static unsigned long u32_get(struct tcf_proto *tp, u32 handle)
- 	return (unsigned long)u32_lookup_key(ht, handle);
- }
- 
--static void u32_put(struct tcf_proto *tp, unsigned long f)
--{
--}
--
- static u32 gen_new_htid(struct tc_u_common *tp_c)
- {
- 	int i = 0x800;
-@@ -1021,7 +1017,6 @@ static struct tcf_proto_ops cls_u32_ops __read_mostly = {
- 	.init		=	u32_init,
- 	.destroy	=	u32_destroy,
- 	.get		=	u32_get,
--	.put		=	u32_put,
- 	.change		=	u32_change,
- 	.delete		=	u32_delete,
- 	.walk		=	u32_walk,
--- 
-1.9.3
+>>
+>>
+>> How vxlan and bonds come into the mixture, that is a puzzler for me.
+>> Maybe I have to see patches.
+>
+>
+> I had posted a version of the patch previously:
+> http://www.spinics.net/lists/netdev/msg305472.html
+>
+> I have a v2 patch in my stack which does not touch the netlink header.
+> But in the past hour, i have been thinking about it some more. Do we really
+> need this set by the user ?. In my use case i don't need it.
+
+Look at how iproute2 figures out if SELF should be set or not.  It's
+only set if hwmode is set, otherwise it defaults to MASTER.  So with
+SWDEV a new hwmode, we can push settings (learning, leraning_sync) to
+port with SELF set.  It's probably not an ideal arrangement having to
+set hwmode each time, but this was the low-touch change to iproute2 to
+push port settings.
+
+I'm hoping your new patch will kind of straighten this all out.  But
+you've got extra work to make sure backward compat with older iproute2
+still works, including this weirdness around hwmode.
+
+>
+> We do need a feature flag (or net_device_flags), but it does not need to be
+> set by the user explicitly.
+> This flag can be set by the switch port driver on the switch ports. And the
+> logical device: bridge/bond/vxlan
+> can inherit it from the port. There was a need of a flag in some usecases,
+> to control offloading of specific bridge port flags
+> to hw/sw (example learning in hw or sw). example patch:
+> https://patchwork.ozlabs.org/patch/413211/
+>
+> I will post something today.
+
+Can you include matching iproute2 changes?  (Assuming you'll building
+on top of what's already in net-next and this iproute2 set Jiri sent
+out).  It's helpful to see the iproute2 changes to see what the new
+cmd structure is and how legacy is handled.
+
+-scott
