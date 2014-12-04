@@ -1,8 +1,9 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch iproute2 1/6] iproute2: ipa: show switch id
-Date: Thu, 04 Dec 2014 08:17:22 -0500
-Message-ID: <54805EE2.8000302@mojatatu.com>
-References: <1417683438-10935-1-git-send-email-jiri@resnulli.us> <1417683438-10935-2-git-send-email-jiri@resnulli.us>
+Subject: Re: [patch iproute2 3/6] bridge/fdb: add flag/indication for FDB
+ entry synced from offload device
+Date: Thu, 04 Dec 2014 08:19:02 -0500
+Message-ID: <54805F46.8040204@mojatatu.com>
+References: <1417683438-10935-1-git-send-email-jiri@resnulli.us> <1417683438-10935-4-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -24,35 +25,21 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	bcrl@kvack.org, hemal@broadcom.com
 To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:58655 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753819AbaLDNR1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 08:17:27 -0500
-Received: by mail-ig0-f174.google.com with SMTP id hn15so18636580igb.13
-        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 05:17:27 -0800 (PST)
-In-Reply-To: <1417683438-10935-2-git-send-email-jiri@resnulli.us>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:47216 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751322AbaLDNTH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 08:19:07 -0500
+Received: by mail-ig0-f171.google.com with SMTP id z20so14586405igj.4
+        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 05:19:06 -0800 (PST)
+In-Reply-To: <1417683438-10935-4-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 12/04/14 03:57, Jiri Pirko wrote:
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->   include/linux/if_link.h | 1 +
->   ip/ipaddress.c          | 8 ++++++++
->   2 files changed, 9 insertions(+)
+> From: Scott Feldman <sfeldma@gmail.com>
 >
-> diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-> index 4732063..a6e2594 100644
-> --- a/include/linux/if_link.h
-> +++ b/include/linux/if_link.h
-> @@ -145,6 +145,7 @@ enum {
->   	IFLA_CARRIER,
->   	IFLA_PHYS_PORT_ID,
->   	IFLA_CARRIER_CHANGES,
-> +	IFLA_PHYS_SWITCH_ID,
->   	__IFLA_MAX
->   };
->
+
+Did i say i like it already?;->
 
 Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
