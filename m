@@ -1,47 +1,93 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net] gso: do GSO for local skb with size bigger than MTU
-Date: Thu, 4 Dec 2014 01:15:15 +0000
-Message-ID: <20141204011515.GA15666@casper.infradead.org>
-References: <20141202174158.GB9457@casper.infradead.org>
- <CAEP_g=-86Z6pxNow-wjnbx_v9er_TSn6x5waigqVqYHa7tEQJw@mail.gmail.com>
- <20141203090339.GA9299@redhat.com>
- <CAEP_g=9C+D3gbjJ4n1t6xuyjqEAMYi4ZfqPoe92UAoQJH-UsKg@mail.gmail.com>
- <20141203183859.GB16447@redhat.com>
- <CAEP_g=_Y2YQg0wDRJLXsNH6p3fOc5G0KSJb12x_b4OE238ophg@mail.gmail.com>
- <20141203220244.GA8822@casper.infradead.org>
- <CAEP_g=90nC2HhmBNKh-hKJ5MJ85Z-_ER14roDxMsZAKog+dFhw@mail.gmail.com>
- <20141203230551.GC8822@casper.infradead.org>
- <CAEP_g=-y_-=r+BHk3VfzxMNwH=B-26DvQrzQ7gkKG8fDG7Mx3g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	"Du, Fan" <fan.du@intel.com>, Jason Wang <jasowang@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"fw@strlen.de" <fw@strlen.de>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	Pravin Shelar <pshelar@nicira.com>
-To: Jesse Gross <jesse@nicira.com>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: kernel panic receiving flooded VXLAN traffic with OVS
+Date: Wed, 03 Dec 2014 17:45:47 -0800
+Message-ID: <8549.1417657547@famine>
+References: <19014.1415325508@famine>
+Cc: Pravin Shelar <pshelar@nicira.com>, Jesse Gross <jesse@nicira.com>
+To: netdev@vger.kernel.org, discuss@openvswitch.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:47091 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751106AbaLDBPU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 20:15:20 -0500
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=-y_-=r+BHk3VfzxMNwH=B-26DvQrzQ7gkKG8fDG7Mx3g@mail.gmail.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:54901 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752117AbaLDBpw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 20:45:52 -0500
+In-reply-to: <19014.1415325508@famine>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/03/14 at 04:54pm, Jesse Gross wrote:
-> I don't think that we actually need a bit. I would expect that ICMP
-> generation to be coupled with routing (although this requires being
-> able to know what the ultimate MTU is at the time of routing the inner
-> packet). If that's the case, you just need to steer between L2 and L3
-> processing in the same way that you would today and ICMP would just
-> come in the right cases.
 
-I think the MTU awareness is solveable but how do you steer between
-L2 and L3? How do you differentiate between an L3 ACL rule in L2 mode
-and an actual L3 based forward? dec_ttl? This is what drove me to
-the user controlled bit and it became appealing as it allows to
-enable/disable PMTU per guest or even per flow/route.
+Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
+
+>	I am able to reproduce a kernel panic on an system using
+>openvswitch when receiving VXLAN traffic under a very specific set of
+>circumstances.  This occurs with a recent net-next as well as an Ubuntu
+>3.13 kernel.  I'm not sure if the error lies in OVS, GRO, or elsewhere.
+>
+>	In summary, when the system receives multiple VXLAN encapsulated
+>TCP segments for a different system (not intended for local reception)
+>that are from the middle of an active connection (received due to a switch
+>flood), and are tagged to a VLAN not configured on the local host, then
+>the system panics in skb_segment when OVS calls __skb_gso_segment on the
+>GRO skb prior to performing an upcall to user space.
+>
+>	The panic occurs in skbuff.c:skb_segment(), at the BUG_ON around
+>line 3036:
+>
+>struct sk_buff *skb_segment(struct sk_buff *head_skb,
+>			    netdev_features_t features)
+>{
+>[...]
+>		skb_shinfo(nskb)->tx_flags = skb_shinfo(head_skb)->tx_flags &
+>			SKBTX_SHARED_FRAG;
+>
+>		while (pos < offset + len) {
+>			if (i >= nfrags) {
+>				BUG_ON(skb_headlen(list_skb));
+>
+>				i = 0;
+>
+>
+>	The BUG_ON triggers because the skbs that have been GRO
+>accumulated are partially or entirely linear, depending upon the receiving
+>network device (sky2 is partial, enic is entire).  The receive buffers end
+>up being linear evidently because the mtu is set to 9000, and
+>__netdev_alloc_skb calls __alloc_skb (and thus kmalloc) instead of
+>__netdev_alloc_frag followed by build_skb.
+>
+>	The foreign-VLAN VXLAN TCP segments are not processed as normal
+>VXLAN traffic, as there is no listener on the VLAN in question, so once
+>GRO processes them, they are sent directly to ovs_vport_receive.  The
+>panic stack appears as follows:
+
+	I've worked out some more details on this with regards to the
+cause.
+
+	There seems to be a mismatch between GRO and the packet receive
+processing.  GRO only looks at the receiving port number in order to
+trigger VXLAN GRO accumulation (which will in turn perform TCP
+accumulation on the encapsulated segment).  For the panicking case, the
+packet receive processing doesn't deliver the GRO skb to VXLAN because
+there is no VXLAN listener on the foreign VLAN.
+
+	The GRO skb is not processed through iptunnel_pull_header by
+vxlan_udp_encap_recv, so the GRO skb is left with the skb header
+pointing to the UDP header, not the inner TCP header.  Note that second
+and later skbs within the GRO skb have their headers pointing to the
+inner TCP header.  
+
+	Then, when ovs_dp_upcall later ends up in inet_gso_segment, it
+passes the GRO skb to udp4_ufo_fragment, not tcp_gso_segment.
+
+	GRO and the skb_segment call from ovs_dp_upcall appear to work
+fine on TCP-in-VXLAN segments that do pass through the VXLAN receive
+processing.
+
+	I'm not sure how best to resolve this; adding a check to the GRO
+processing that an skb destined for the VXLAN port would actually be
+received by VXLAN sounds like a possible solution, but that doesn't seem
+to be simple to implement (because the skb->dev at the time GRO runs may
+not match what it becomes later if the VXLAN runs on a VLAN).
+
+	-J
+
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
