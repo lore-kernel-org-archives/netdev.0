@@ -1,113 +1,122 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: am335x: cpsw: interrupt failure
-Date: Thu, 4 Dec 2014 10:56:09 -0600
-Message-ID: <20141204165609.GJ18045@saruman>
-References: <CAGm1_ksPkFXV_S6541cK1TQb_eRTHbspZy4zWxY5GMrrjGD2tA@mail.gmail.com>
-Reply-To: <balbi@ti.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch iproute2 0/6] iproute2: add changes for switchdev
+Date: Thu, 04 Dec 2014 08:55:57 -0800
+Message-ID: <5480921D.60108@cumulusnetworks.com>
+References: <1417683438-10935-1-git-send-email-jiri@resnulli.us> <54806F2A.2050109@cumulusnetworks.com> <20141204143400.GC1861@nanopsycho.orion> <54807398.40201@cumulusnetworks.com> <20141204160444.GF1861@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="pMCBjikF2xGw87uL"
-Cc: netdev <netdev@vger.kernel.org>,
-	"N, Mugunthan V" <mugunthanvnm@ti.com>, Felipe Balbi <balbi@ti.com>
-To: Yegor Yefremov <yegorslists@googlemail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, linville@tuxdriver.com, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com,
+	simon.horman@netronome.com, alexander.h.duyck@redhat.com,
+	john.ronciak@intel.com, mleitner@redhat.com, shrijeet@gmail.com,
+	gospo@cumulusnetworks.com, bcrl@kvack.org, hemal@broadcom.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:36035 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932482AbaLDQ4I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Dec 2014 11:56:08 -0500
-Content-Disposition: inline
-In-Reply-To: <CAGm1_ksPkFXV_S6541cK1TQb_eRTHbspZy4zWxY5GMrrjGD2tA@mail.gmail.com>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:38421 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754253AbaLDQ4d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 11:56:33 -0500
+In-Reply-To: <20141204160444.GF1861@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---pMCBjikF2xGw87uL
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On 12/4/14, 8:04 AM, Jiri Pirko wrote:
+> Thu, Dec 04, 2014 at 03:45:44PM CET, roopa@cumulusnetworks.com wrote:
+>> On 12/4/14, 6:34 AM, Jiri Pirko wrote:
+>>> Thu, Dec 04, 2014 at 03:26:50PM CET, roopa@cumulusnetworks.com wrote:
+>>>> On 12/4/14, 12:57 AM, Jiri Pirko wrote:
+>>>>> Jiri Pirko (1):
+>>>>>    iproute2: ipa: show switch id
+>>>>>
+>>>>> Scott Feldman (5):
+>>>>>    bridge/fdb: fix statistics output spacing
+>>>>>    bridge/fdb: add flag/indication for FDB entry synced from offload
+>>>>>      device
+>>>>>    bridge/link: add new offload hwmode swdev
+>>>> Ack to most patches but nack on this one. The todo list still has a note to
+>>>> revist the flag to indicate switchdev offloads.
+>>>> Exposing this to userspace does not help that.
+>>> Hmm, note that this is already exposed to userspace, this patchset is
+>>> for iproute2 (userspace tool).
+>> hmmm, all feedback on the switchdev patches seemed to indicate we can change
+>> this later.
+>> I don't see swdev mode being used in the kernel anywhere today.
+> Well, it is, in rocker:
+> $ git grep BRIDGE_MODE_SWDEV
+> drivers/net/ethernet/rocker/rocker.c:                   if (mode != BRIDGE_MODE_SWDEV)
+> drivers/net/ethernet/rocker/rocker.c:   u16 mode = BRIDGE_MODE_SWDEV;
+> include/uapi/linux/if_bridge.h:#define BRIDGE_MODE_SWDEV        2       /* Full switch device offload */
 
-Hi,
+The problem is rocker is not the only one who is going to be using this. 
+And so, we need something that fits everybody.
+And i am not going to make my user set a mode for him to enable offload 
+to hw.
 
-On Thu, Dec 04, 2014 at 05:41:38PM +0100, Yegor Yefremov wrote:
-> I have following problem. My systems reboots at high network load
-> after this commit (found via git bissect):
->=20
-> commit 55601c9f24670ba926ebdd4d712ac3b177232330
-> Author: Felipe Balbi <balbi@ti.com>
-> Date:   Mon Sep 8 17:54:58 2014 -0700
->=20
->     arm: omap: intc: switch over to linear irq domain
->=20
->     now that we don't need to support legacy board-files,
->     we can completely switch over to a linear irq domain
->     and make use of irq_alloc_domain_generic_chips() to
->     allocate all generic irq chips for us.
->=20
->     Signed-off-by: Felipe Balbi <balbi@ti.com>
->     Signed-off-by: Tony Lindgren <tony@atomide.com>
->=20
-> and I get following error messages:
->=20
-> irq 0, desc: cf004000, depth: 1, count: 0, unhandled: 0
+>
+>> I will send a patch to remove it. Its still in net-next and so can be changed
+>> ?.
+>> I was going to resend my patch to introduce a common offload flag for all
+>> link objects.
+>> It would be nice if all of them had a consistent flag to indicate hw offload
+>> and iproute2 could display the same flag for all.
+>> Including bonds and vxlan's.
+> I do not understand the connection with BRIDGE_MODE_SWDEV. We discussed
+> this already. BRIDGE_MODE_SWDEV is a bridge mode, similar to for example
+> BRIDGE_MODE_VEPA and makes perfect sense to have it.
+I dont think everybody acked it. But it went in with a note saying that 
+it can be changed.
+>
+> How vxlan and bonds come into the mixture, that is a puzzler for me.
+> Maybe I have to see patches.
 
-irq 0 ? Weird, that's not a valid IRQ.
+I had posted a version of the patch previously: 
+http://www.spinics.net/lists/netdev/msg305472.html
 
-> ->handle_irq():  c0087fc0, handle_bad_irq+0x0/0x258
-> ->irq_data.chip(): c08e7174, no_irq_chip+0x0/0x68
-> ->action():   (null)
->    IRQ_NOPROBE set
->  IRQ_NOREQUEST set
-> irq 0, desc: cf004000, depth: 1, count: 0, unhandled: 0
-> ->handle_irq():  c0087fc0, handle_bad_irq+0x0/0x258
-> ->irq_data.chip(): c08e7174, no_irq_chip+0x0/0x68
-> ->action():   (null)
->    IRQ_NOPROBE set
->  IRQ_NOREQUEST set
-> irq 0, desc: cf004000, depth: 1, count: 0, unhandled: 0
-> ->handle_irq():  c0087fc0, handle_bad_irq+0x0/0x258
-> ->irq_data.chip(): c08e7174, no_irq_chip+0x0/0x68
-> ->action():   (null)
->    IRQ_NOPROBE set
->  IRQ_NOREQUEST set
-> irq 0, desc: cf004000, depth: 1, count: 0, unhandled: 0
-> ->handle_irq():  c0087fc0, handle_bad_irq+0x0/0x258
-> ->irq_data.chip(): c08e7174, no_irq_chip+0x0/0x68
-> ->action():   (null)
->=20
-> My system: am335x with fast ethernet on the first slave and gigabit
-> Ethernet on second CPSW slave. This issue occurs, when I ran nuttcp
-> with default settings.
->=20
-> With commit above I can at least see these messages, but 3.18-rc7 for
-> example reboots without any messages.
->=20
-> Any idea?
+I have a v2 patch in my stack which does not touch the netlink header.
+But in the past hour, i have been thinking about it some more. Do we 
+really need this set by the user ?. In my use case i don't need it.
 
-if you take v3.18-rc7 and just revert that commit, does the problem go
-away ?
+We do need a feature flag (or net_device_flags), but it does not need to 
+be set by the user explicitly.
+This flag can be set by the switch port driver on the switch ports. And 
+the logical device: bridge/bond/vxlan
+can inherit it from the port. There was a need of a flag in some 
+usecases, to control offloading of specific bridge port flags
+to hw/sw (example learning in hw or sw). example patch: 
+https://patchwork.ozlabs.org/patch/413211/
 
---=20
-balbi
+I will post something today.
 
---pMCBjikF2xGw87uL
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
 
-iQIcBAEBAgAGBQJUgJIpAAoJEIaOsuA1yqREYM4P/j8wd0dB1U75U6AZxxTsZJ2L
-eGPVq7QYjbOjOI46kIFi8TrtF2QDS8ecQybhV940Ons97sQrhOdW5wqtDmrwnrCQ
-lno8XLFsVqvBGJG5oxxyUEO7Ruj8o37oMQ/4iecsvI0P21MriY1mTmd05emuvJE0
-tJ/Y9iDZol1ZCaOPPYrzPkBxeQvZ0iXv4Vpbk3xGLzclhiJcsZd/YDlob15t1R9b
-yIz+Wm43VFFSCwl4TWhR4WB4tRjFe8scfLuXCTsm+n5/0fcda8oCTUh/7mey0NUR
-I4BrkM/PkDIKu6H8IGGK0RErTpusKxbvK+taabKLoFA7aWixo+K2/EHkUgeHPGeG
-SKepUMo54lONMKe9JIy1Dy2pMYQdNDjWjX3l+47qJDxTOMIZ+AQL82CN3/0n+CKs
-lu096FVN4gwbXEgWIXwfHJ1ZZHXOVRb5ktjz7hm04XPgtQFyXmYmqaxaLseS0Qpa
-uCfW0Qs1UQQaZF8akvjT970oLxQcSihOprxTVkc+Y1f2HYCs3ILMv4j8OK+2oP0I
-4mS1mvxmfmpfKT9GWaZkhyfKfftjbXc4gMHtwzXSSu6RiXRAF0j0JVMJjUz3a4Na
-tdBBiTYwRqStw/YSnniljjJxbNZGjNWDtL5vzbtZubfHyE5SXgrJI3R63fUMPB4t
-cG8G5UAdEpyYizZ34/7J
-=f5Rr
------END PGP SIGNATURE-----
 
---pMCBjikF2xGw87uL--
+
+
+>
+>>>>>    link: add missing IFLA_BRPORT_PROXYARP
+>>>>>    bridge/link: add learning_sync policy flag
+>>>>>
+>>>>>   bridge/fdb.c              |  4 +++-
+>>>>>   bridge/link.c             | 17 +++++++++++++++--
+>>>>>   include/linux/if_bridge.h |  1 +
+>>>>>   include/linux/if_link.h   |  3 +++
+>>>>>   include/linux/neighbour.h |  1 +
+>>>>>   ip/ipaddress.c            |  8 ++++++++
+>>>>>   man/man8/bridge.8         | 19 ++++++++++++++-----
+>>>>>   7 files changed, 45 insertions(+), 8 deletions(-)
+>>>>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
