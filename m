@@ -1,63 +1,57 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: Is this 32-bit NCM?y
-Date: Thu, 04 Dec 2014 11:02:19 +0100
-Message-ID: <87iohrn36c.fsf@nemi.mork.no>
-References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
-	<alpine.LNX.2.03.1412020729470.1351@gmail.com>
-	<547D5F84.6020608@audiocodes.com>
-	<alpine.LNX.2.03.1412020747360.1921@gmail.com>
-	<547D6D7B.5090704@audiocodes.com>
-	<E0C3DF2A36210C42B1AB4626A0E10F1FD949424C@aclmbx01.corp.audiocodes.com>
-	<547D7243.80508@audiocodes.com>
-	<alpine.LNX.2.03.1412021130410.2697@gmail.com>
-	<87fvcyqoup.fsf@nemi.mork.no>
-	<alpine.LNX.2.03.1412021410270.29633@gmail.com>
-	<87lhmqp400.fsf@nemi.mork.no>
-	<alpine.LNX.2.03.1412021453340.7488@gmail.com>
-	<1417532733483.89987@audiocodes.com>
-	<alpine.LNX.2.03.1412021627360.8131@gmail.com>
-	<547EA1D1.8010202@audiocodes.com>
-	<alpine.LNX.2.03.1412030659001.1288@gmail.com>
-	<547EA82F.5050500@audiocodes.com>
-	<alpine.LNX.2.03.1412040730480.1320@gmail.com>
-	<548020DD.3030705@audiocodes.com> <874mtbojqo.fsf@nemi.mork.no>
-	<alpine.LNX.2.03.1412041052310.3861@gmail.com>
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net] gso: do GSO for local skb with size
+	bigger than MTU
+Date: Thu, 4 Dec 2014 12:17:07 +0200
+Message-ID: <20141204101707.GB17122@redhat.com>
+References: <20141201135225.GA16814@casper.infradead.org>
+ <20141202154839.GB5344@t520.home>
+ <20141202170927.GA9457@casper.infradead.org>
+ <20141202173401.GB4126@redhat.com>
+ <20141202174158.GB9457@casper.infradead.org>
+ <CAEP_g=-86Z6pxNow-wjnbx_v9er_TSn6x5waigqVqYHa7tEQJw@mail.gmail.com>
+ <20141203090339.GA9299@redhat.com>
+ <CAEP_g=9C+D3gbjJ4n1t6xuyjqEAMYi4ZfqPoe92UAoQJH-UsKg@mail.gmail.com>
+ <20141203183859.GB16447@redhat.com> <547F5CC2.8000908@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kevin Zhu <Mingying.Zhu@audiocodes.com>,
-	Eli Britstein <Eli.Britstein@audiocodes.com>,
-	Alex Strizhevsky <alexxst@gmail.com>,
-	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
-	"youtux\@gmail.com" <youtux@gmail.com>,
-	"linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Enrico Mioso <mrkiko.rs@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:55025 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753284AbaLDKCc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 05:02:32 -0500
-In-Reply-To: <alpine.LNX.2.03.1412041052310.3861@gmail.com> (Enrico Mioso's
-	message of "Thu, 4 Dec 2014 10:53:49 +0100 (CET)")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "Du, Fan" <fan.du-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ "fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org" <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Rick Jones <rick.jones2-VXdhtT5mjnY@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <547F5CC2.8000908-VXdhtT5mjnY@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Enrico Mioso <mrkiko.rs@gmail.com> writes:
-
-> Guys!
-> Don't forget I can test it - since I have a remote machine with 3.16
-> kernel and the device, at least for now.
-> So - Bjorn: do I need just to disable padding or do I need also to
-> perform some other changes? I am sorry if I ask this a little bit
-> stupidly, but I was alittle bit busy here.
-
-I don't know.  I just mentioned it because it is easy to test, although
-the method isn't too obvious.  Someone should document this somewhere.
-Hey, wait...  Someone did :-)
-
-https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-net-cd=
-c_ncm
-
-
-Bj=C3=B8rn
+T24gV2VkLCBEZWMgMDMsIDIwMTQgYXQgMTA6NTY6MDJBTSAtMDgwMCwgUmljayBKb25lcyB3cm90
+ZToKPiBUcnlpbmcgdG8gImZha2Utb3V0IiBhbiBJQ01QIG1lc3NhZ2UgdG8gcGFwZXItb3ZlciAi
+ZGV2aWNlcyIgaW4gdGhlICJtaWRkbGUiCj4gb2Ygc2FtZSBMYXllcjIgbmV0d29yayBoYXZpbmcg
+ZGlmZmVyZW50IE1UVXMgZnJvbSB0aGUgZW5kcyBnb2VzIGJhY2sgdG8gYXQKPiBsZWFzdCB0aGUg
+ZGF5cyB3aGVuIHBlb3BsZSBzdGFydGVkIGpvaW5pbmcgRkRESSBuZXR3b3JrcyB0byBFdGhlcm5l
+dAo+IG5ldHdvcmtzIHdpdGggYnJpZGdlcyByYXRoZXIgdGhhbiByb3V0ZXJzLiAgUGVyaGFwcyBi
+YWNrIGV2ZW4gZnVydGhlci4gIEl0Cj4gaGFkIHByb2JsZW1zIHRoZW0gKGluY2x1ZGluZyBub3Qg
+YWxsIHRyYWZmaWMgYmVpbmcgSVApLCBJIGRvdWJ0IHRvZGF5IHdvdWxkCj4gYmUgYW55IGRpZmZl
+cmVudC4KPiAKPiBBbGwgZGV2aWNlcyBpbiBhIExheWVyMiBuZXR3b3JrIG11c3QgaGF2ZSB0aGUg
+c2FtZSBNVFUuICgqKQo+IAo+IFRoZSBvbmx5IGV4Y2VwdGlvbiB0byB0aGF0IHdoaWNoIGRvZXMg
+bm90IGxlYWQgb25lIGRvd24gYSByYXRob2xlIGlzIHRoYXQKPiB5b3UgY2FuIGhhdmUgdGhlIE1U
+VSBhdCB0aGUgImVkZ2VzIiBvZiB0aGUgTGF5ZXIgMiBuZXR3b3JrIGJlIHNtYWxsZXIgdGhhbgo+
+IHRoZSBNVFUgaW4gdGhlICJtaWRkbGUuIiAgQW5kIHRoZW4gb25seSBpZiB0aGUgbWlkZGxlICJu
+ZXZlciIgdHJpZXMgdG8gdGFsawo+IGl0c2VsZiB0byB0aGUgZWRnZXMgZGlyZWN0bHkuCj4gCj4g
+cmljayBqb25lcwo+IAo+ICgqKSBPciBhdCBsZWFzdCBhbnkgY29tbXVuaWNhdGluZyBkZXZpY2Ug
+bXVzdCBiZSBrZXB0IGlnbm9yYW50IG9mIHdoYXQgb25lCj4gZG9lcyB0byBoYXZlIGEgc21hbGxl
+ciBNVFUgaW4gdGhlcmUgc29tZXdoZXJlLgoKV2hhdCBJJ3ZlIGJlZW4gcG9pbnRpbmcgb3V0IGlz
+IHRoYXQganVzdCBiZWNhdXNlIHNvbWV0aGluZyBpcyB3aXRoaW4gYSBWTSwKd2UgY2FuJ3QgYXNz
+dW1lIGl0J3MgYW4gZWRnZS4KCi0tIApNU1QKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0
+dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
