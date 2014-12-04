@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
 Subject: Re: [patch iproute2 1/6] iproute2: ipa: show switch id
-Date: Thu, 4 Dec 2014 16:12:18 +0100
-Message-ID: <20141204151218.GD1861@nanopsycho.orion>
+Date: Thu, 4 Dec 2014 16:15:12 +0100
+Message-ID: <20141204151512.GE1861@nanopsycho.orion>
 References: <1417683438-10935-1-git-send-email-jiri@resnulli.us>
  <1417683438-10935-2-git-send-email-jiri@resnulli.us>
  <20141204142015.GR27416@gospo.rtplab.test>
@@ -27,12 +27,12 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
 	hemal@broadcom.com
 To: Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:40182 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753832AbaLDPMV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 10:12:21 -0500
-Received: by mail-wg0-f52.google.com with SMTP id a1so22975492wgh.39
-        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 07:12:19 -0800 (PST)
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:50957 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750907AbaLDPPO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 10:15:14 -0500
+Received: by mail-wg0-f46.google.com with SMTP id a1so14621635wgh.5
+        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 07:15:13 -0800 (PST)
 Content-Disposition: inline
 In-Reply-To: <20141204145743.GS27416@gospo.rtplab.test>
 Sender: netdev-owner@vger.kernel.org
@@ -89,14 +89,6 @@ Thu, Dec 04, 2014 at 03:57:43PM CET, gospo@cumulusnetworks.com wrote:
 >But in this case, it means 1 thing.  The netdev you are using is
 >connected to another device that controls it rather than being just a
 >NIC.
-
-when we discussed linkage now called upper/lower devices, there was a
-proposal to use "parent" as well. And then it ment only 1 thing as well.
-Why for example pf is not parent of vf? Using "parent" word here and
-assume that it just makes sense for this case is IMHO wrong. Too
-generic. "switch_parent" - that I am okay with.
-
-
 >
 >> 
 >> 
@@ -111,31 +103,17 @@ generic. "switch_parent" - that I am okay with.
 >> attr) and we are done.
 >
 >I know that attribute is there, but I find it more valuable for
->solutions like nPAR than for PF/VF use-case.
-
-Why it is not good enough for pf/vf? There are SR-IOV drivers using
-this:
-$ git grep ndo_get_phys_port_id
-drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c:       .ndo_get_phys_port_id   = bnx2x_get_phys_port_id,
-drivers/net/ethernet/intel/i40e/i40e_main.c:    .ndo_get_phys_port_id   = i40e_get_phys_port_id,
-drivers/net/ethernet/mellanox/mlx4/en_netdev.c: .ndo_get_phys_port_id   = mlx4_en_get_phys_port_id,
-drivers/net/ethernet/mellanox/mlx4/en_netdev.c: .ndo_get_phys_port_id   = mlx4_en_get_phys_port_id,
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c:       .ndo_get_phys_port_id   = qlcnic_get_phys_port_id,
-
-
->Parent/child relationship
+>solutions like nPAR than for PF/VF use-case.  Parent/child relationship
 >makes more sense to me since for forwarding will be controlled by the
 >embedded switch on those devices.  (Notice I specifically chose not to
+
+see, "embedded switch", not "embedded parent" or "embedded offload". And
+yes, the "embedded switch" also may (and some of them do today) work
+with flows.
+
+
 >use 'master' since that is already overloaded by bridge, bonding,
 >teaming, etc.)
-
-But is that embedded switch the same thing as PF? I doubt that. Let the
-aspect of PF/VF aside and look at it as on ordinary switch. The eswitch
-driver needs te be implemented and add netdevs for internal ports (they
-do not exist now).
-
-You have to look at PF/VF and eSwitch as on separate things.
-
 >
 >> 
 >> >
