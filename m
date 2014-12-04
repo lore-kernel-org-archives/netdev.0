@@ -1,215 +1,256 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next v2 1/2] rocker: introduce be put/get variants and
- use it when appropriate
-Date: Thu, 4 Dec 2014 12:33:59 -0800
-Message-ID: <CAE4R7bAgSji_rt3147Kt8jqyT5_yqBCbKjSLgZVa8xkRc0dndA@mail.gmail.com>
-References: <1417612494-3788-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jiri Pirko <jiri@resnulli.us>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] net: sched: cls: remove unused op put from tcf_proto_ops
+Date: Thu,  4 Dec 2014 21:41:18 +0100
+Message-ID: <1417725678-24968-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:37511 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753025AbaLDUeB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 15:34:01 -0500
-Received: by mail-wi0-f170.google.com with SMTP id bs8so37386086wib.3
-        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 12:33:59 -0800 (PST)
-In-Reply-To: <1417612494-3788-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:60479 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750934AbaLDUlV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 15:41:21 -0500
+Received: by mail-wi0-f169.google.com with SMTP id r20so37448130wiv.2
+        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 12:41:20 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+It is never called and implementations are void. So just remove it.
 
-On Wed, Dec 3, 2014 at 5:14 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> This kills the sparse warnings.
->
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
-> v1->v2:
-> -no change
-> ---
->  drivers/net/ethernet/rocker/rocker.c | 79 ++++++++++++++++++++++--------------
->  1 file changed, 48 insertions(+), 31 deletions(-)
->
-> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-> index fded127..4b060fb 100644
-> --- a/drivers/net/ethernet/rocker/rocker.c
-> +++ b/drivers/net/ethernet/rocker/rocker.c
-> @@ -648,6 +648,11 @@ static u16 rocker_tlv_get_u16(const struct rocker_tlv *tlv)
->         return *(u16 *) rocker_tlv_data(tlv);
->  }
->
-> +static __be16 rocker_tlv_get_be16(const struct rocker_tlv *tlv)
-> +{
-> +       return *(__be16 *) rocker_tlv_data(tlv);
-> +}
-> +
->  static u32 rocker_tlv_get_u32(const struct rocker_tlv *tlv)
->  {
->         return *(u32 *) rocker_tlv_data(tlv);
-> @@ -726,12 +731,24 @@ static int rocker_tlv_put_u16(struct rocker_desc_info *desc_info,
->         return rocker_tlv_put(desc_info, attrtype, sizeof(u16), &value);
->  }
->
-> +static int rocker_tlv_put_be16(struct rocker_desc_info *desc_info,
-> +                              int attrtype, __be16 value)
-> +{
-> +       return rocker_tlv_put(desc_info, attrtype, sizeof(__be16), &value);
-> +}
-> +
->  static int rocker_tlv_put_u32(struct rocker_desc_info *desc_info,
->                               int attrtype, u32 value)
->  {
->         return rocker_tlv_put(desc_info, attrtype, sizeof(u32), &value);
->  }
->
-> +static int rocker_tlv_put_be32(struct rocker_desc_info *desc_info,
-> +                              int attrtype, __be32 value)
-> +{
-> +       return rocker_tlv_put(desc_info, attrtype, sizeof(__be32), &value);
-> +}
-> +
->  static int rocker_tlv_put_u64(struct rocker_desc_info *desc_info,
->                               int attrtype, u64 value)
->  {
-> @@ -1343,7 +1360,7 @@ static int rocker_event_mac_vlan_seen(struct rocker *rocker,
->         port_number =
->                 rocker_tlv_get_u32(attrs[ROCKER_TLV_EVENT_MAC_VLAN_LPORT]) - 1;
->         addr = rocker_tlv_data(attrs[ROCKER_TLV_EVENT_MAC_VLAN_MAC]);
-> -       vlan_id = rocker_tlv_get_u16(attrs[ROCKER_TLV_EVENT_MAC_VLAN_VLAN_ID]);
-> +       vlan_id = rocker_tlv_get_be16(attrs[ROCKER_TLV_EVENT_MAC_VLAN_VLAN_ID]);
->
->         if (port_number >= rocker->port_count)
->                 return -EINVAL;
-> @@ -1717,18 +1734,18 @@ static int rocker_cmd_flow_tbl_add_vlan(struct rocker_desc_info *desc_info,
->         if (rocker_tlv_put_u32(desc_info, ROCKER_TLV_OF_DPA_IN_LPORT,
->                                entry->key.vlan.in_lport))
->                 return -EMSGSIZE;
-> -       if (rocker_tlv_put_u16(desc_info, ROCKER_TLV_OF_DPA_VLAN_ID,
-> -                              entry->key.vlan.vlan_id))
-> +       if (rocker_tlv_put_be16(desc_info, ROCKER_TLV_OF_DPA_VLAN_ID,
-> +                               entry->key.vlan.vlan_id))
->                 return -EMSGSIZE;
-> -       if (rocker_tlv_put_u16(desc_info, ROCKER_TLV_OF_DPA_VLAN_ID_MASK,
-> -                              entry->key.vlan.vlan_id_mask))
-> +       if (rocker_tlv_put_be16(desc_info, ROCKER_TLV_OF_DPA_VLAN_ID_MASK,
-> +                               entry->key.vlan.vlan_id_mask))
->                 return -EMSGSIZE;
->         if (rocker_tlv_put_u16(desc_info, ROCKER_TLV_OF_DPA_GOTO_TABLE_ID,
->                                entry->key.vlan.goto_tbl))
->                 return -EMSGSIZE;
->         if (entry->key.vlan.untagged &&
-> -           rocker_tlv_put_u16(desc_info, ROCKER_TLV_OF_DPA_NEW_VLAN_ID,
-> -                              entry->key.vlan.new_vlan_id))
-> +           rocker_tlv_put_be16(desc_info, ROCKER_TLV_OF_DPA_NEW_VLAN_ID,
-> +                               entry->key.vlan.new_vlan_id))
->                 return -EMSGSIZE;
->
->         return 0;
-> @@ -1743,8 +1760,8 @@ static int rocker_cmd_flow_tbl_add_term_mac(struct rocker_desc_info *desc_info,
->         if (rocker_tlv_put_u32(desc_info, ROCKER_TLV_OF_DPA_IN_LPORT_MASK,
->                                entry->key.term_mac.in_lport_mask))
->                 return -EMSGSIZE;
-> -       if (rocker_tlv_put_u16(desc_info, ROCKER_TLV_OF_DPA_ETHERTYPE,
-> -                              entry->key.term_mac.eth_type))
-> +       if (rocker_tlv_put_be16(desc_info, ROCKER_TLV_OF_DPA_ETHERTYPE,
-> +                               entry->key.term_mac.eth_type))
->                 return -EMSGSIZE;
->         if (rocker_tlv_put(desc_info, ROCKER_TLV_OF_DPA_DST_MAC,
->                            ETH_ALEN, entry->key.term_mac.eth_dst))
-> @@ -1752,11 +1769,11 @@ static int rocker_cmd_flow_tbl_add_term_mac(struct rocker_desc_info *desc_info,
->         if (rocker_tlv_put(desc_info, ROCKER_TLV_OF_DPA_DST_MAC_MASK,
->                            ETH_ALEN, entry->key.term_mac.eth_dst_mask))
->                 return -EMSGSIZE;
-> -       if (rocker_tlv_put_u16(desc_info, ROCKER_TLV_OF_DPA_VLAN_ID,
-> -                              entry->key.term_mac.vlan_id))
-> +       if (rocker_tlv_put_be16(desc_info, ROCKER_TLV_OF_DPA_VLAN_ID,
-> +                               entry->key.term_mac.vlan_id))
->                 return -EMSGSIZE;
-> -       if (rocker_tlv_put_u16(desc_info, ROCKER_TLV_OF_DPA_VLAN_ID_MASK,
-> -                              entry->key.term_mac.vlan_id_mask))
-> +       if (rocker_tlv_put_be16(desc_info, ROCKER_TLV_OF_DPA_VLAN_ID_MASK,
-> +                               entry->key.term_mac.vlan_id_mask))
->                 return -EMSGSIZE;
->         if (rocker_tlv_put_u16(desc_info, ROCKER_TLV_OF_DPA_GOTO_TABLE_ID,
->                                entry->key.term_mac.goto_tbl))
-> @@ -1773,14 +1790,14 @@ static int
->  rocker_cmd_flow_tbl_add_ucast_routing(struct rocker_desc_info *desc_info,
->                                       struct rocker_flow_tbl_entry *entry)
->  {
-> -       if (rocker_tlv_put_u16(desc_info, ROCKER_TLV_OF_DPA_ETHERTYPE,
-> -                              entry->key.ucast_routing.eth_type))
-> +       if (rocker_tlv_put_be16(desc_info, ROCKER_TLV_OF_DPA_ETHERTYPE,
-> +                               entry->key.ucast_routing.eth_type))
->                 return -EMSGSIZE;
-> -       if (rocker_tlv_put_u32(desc_info, ROCKER_TLV_OF_DPA_DST_IP,
-> -                              entry->key.ucast_routing.dst4))
-> +       if (rocker_tlv_put_be32(desc_info, ROCKER_TLV_OF_DPA_DST_IP,
-> +                               entry->key.ucast_routing.dst4))
->                 return -EMSGSIZE;
-> -       if (rocker_tlv_put_u32(desc_info, ROCKER_TLV_OF_DPA_DST_IP_MASK,
-> -                              entry->key.ucast_routing.dst4_mask))
-> +       if (rocker_tlv_put_be32(desc_info, ROCKER_TLV_OF_DPA_DST_IP_MASK,
-> +                               entry->key.ucast_routing.dst4_mask))
->                 return -EMSGSIZE;
->         if (rocker_tlv_put_u16(desc_info, ROCKER_TLV_OF_DPA_GOTO_TABLE_ID,
->                                entry->key.ucast_routing.goto_tbl))
-> @@ -1804,8 +1821,8 @@ static int rocker_cmd_flow_tbl_add_bridge(struct rocker_desc_info *desc_info,
->                            ETH_ALEN, entry->key.bridge.eth_dst_mask))
->                 return -EMSGSIZE;
->         if (entry->key.bridge.vlan_id &&
-> -           rocker_tlv_put_u16(desc_info, ROCKER_TLV_OF_DPA_VLAN_ID,
-> -                              entry->key.bridge.vlan_id))
-> +           rocker_tlv_put_be16(desc_info, ROCKER_TLV_OF_DPA_VLAN_ID,
-> +                               entry->key.bridge.vlan_id))
->                 return -EMSGSIZE;
->         if (entry->key.bridge.tunnel_id &&
->             rocker_tlv_put_u32(desc_info, ROCKER_TLV_OF_DPA_TUNNEL_ID,
-> @@ -1846,14 +1863,14 @@ static int rocker_cmd_flow_tbl_add_acl(struct rocker_desc_info *desc_info,
->         if (rocker_tlv_put(desc_info, ROCKER_TLV_OF_DPA_DST_MAC_MASK,
->                            ETH_ALEN, entry->key.acl.eth_dst_mask))
->                 return -EMSGSIZE;
-> -       if (rocker_tlv_put_u16(desc_info, ROCKER_TLV_OF_DPA_ETHERTYPE,
-> -                              entry->key.acl.eth_type))
-> +       if (rocker_tlv_put_be16(desc_info, ROCKER_TLV_OF_DPA_ETHERTYPE,
-> +                               entry->key.acl.eth_type))
->                 return -EMSGSIZE;
-> -       if (rocker_tlv_put_u16(desc_info, ROCKER_TLV_OF_DPA_VLAN_ID,
-> -                              entry->key.acl.vlan_id))
-> +       if (rocker_tlv_put_be16(desc_info, ROCKER_TLV_OF_DPA_VLAN_ID,
-> +                               entry->key.acl.vlan_id))
->                 return -EMSGSIZE;
-> -       if (rocker_tlv_put_u16(desc_info, ROCKER_TLV_OF_DPA_VLAN_ID_MASK,
-> -                              entry->key.acl.vlan_id_mask))
-> +       if (rocker_tlv_put_be16(desc_info, ROCKER_TLV_OF_DPA_VLAN_ID_MASK,
-> +                               entry->key.acl.vlan_id_mask))
->                 return -EMSGSIZE;
->
->         switch (ntohs(entry->key.acl.eth_type)) {
-> @@ -2002,8 +2019,8 @@ rocker_cmd_group_tbl_add_l2_rewrite(struct rocker_desc_info *desc_info,
->                            ETH_ALEN, entry->l2_rewrite.eth_dst))
->                 return -EMSGSIZE;
->         if (entry->l2_rewrite.vlan_id &&
-> -           rocker_tlv_put_u16(desc_info, ROCKER_TLV_OF_DPA_VLAN_ID,
-> -                              entry->l2_rewrite.vlan_id))
-> +           rocker_tlv_put_be16(desc_info, ROCKER_TLV_OF_DPA_VLAN_ID,
-> +                               entry->l2_rewrite.vlan_id))
->                 return -EMSGSIZE;
->
->         return 0;
-> @@ -2048,8 +2065,8 @@ rocker_cmd_group_tbl_add_l3_unicast(struct rocker_desc_info *desc_info,
->                            ETH_ALEN, entry->l3_unicast.eth_dst))
->                 return -EMSGSIZE;
->         if (entry->l3_unicast.vlan_id &&
-> -           rocker_tlv_put_u16(desc_info, ROCKER_TLV_OF_DPA_VLAN_ID,
-> -                              entry->l3_unicast.vlan_id))
-> +           rocker_tlv_put_be16(desc_info, ROCKER_TLV_OF_DPA_VLAN_ID,
-> +                               entry->l3_unicast.vlan_id))
->                 return -EMSGSIZE;
->         if (rocker_tlv_put_u8(desc_info, ROCKER_TLV_OF_DPA_TTL_CHECK,
->                               entry->l3_unicast.ttl_check))
-> --
-> 1.9.3
->
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ include/net/sch_generic.h | 1 -
+ net/sched/cls_basic.c     | 5 -----
+ net/sched/cls_bpf.c       | 5 -----
+ net/sched/cls_cgroup.c    | 5 -----
+ net/sched/cls_flow.c      | 5 -----
+ net/sched/cls_fw.c        | 5 -----
+ net/sched/cls_route.c     | 5 -----
+ net/sched/cls_rsvp.h      | 5 -----
+ net/sched/cls_tcindex.c   | 8 --------
+ net/sched/cls_u32.c       | 5 -----
+ 10 files changed, 49 deletions(-)
+
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index d17ed6f..3d282cb 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -219,7 +219,6 @@ struct tcf_proto_ops {
+ 	void			(*destroy)(struct tcf_proto*);
+ 
+ 	unsigned long		(*get)(struct tcf_proto*, u32 handle);
+-	void			(*put)(struct tcf_proto*, unsigned long);
+ 	int			(*change)(struct net *net, struct sk_buff *,
+ 					struct tcf_proto*, unsigned long,
+ 					u32 handle, struct nlattr **,
+diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
+index 1c122c7..7cf0a62 100644
+--- a/net/sched/cls_basic.c
++++ b/net/sched/cls_basic.c
+@@ -72,10 +72,6 @@ static unsigned long basic_get(struct tcf_proto *tp, u32 handle)
+ 	return l;
+ }
+ 
+-static void basic_put(struct tcf_proto *tp, unsigned long f)
+-{
+-}
+-
+ static int basic_init(struct tcf_proto *tp)
+ {
+ 	struct basic_head *head;
+@@ -287,7 +283,6 @@ static struct tcf_proto_ops cls_basic_ops __read_mostly = {
+ 	.init		=	basic_init,
+ 	.destroy	=	basic_destroy,
+ 	.get		=	basic_get,
+-	.put		=	basic_put,
+ 	.change		=	basic_change,
+ 	.delete		=	basic_delete,
+ 	.walk		=	basic_walk,
+diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+index d0de979..84c8219 100644
+--- a/net/sched/cls_bpf.c
++++ b/net/sched/cls_bpf.c
+@@ -151,10 +151,6 @@ static unsigned long cls_bpf_get(struct tcf_proto *tp, u32 handle)
+ 	return ret;
+ }
+ 
+-static void cls_bpf_put(struct tcf_proto *tp, unsigned long f)
+-{
+-}
+-
+ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
+ 				   struct cls_bpf_prog *prog,
+ 				   unsigned long base, struct nlattr **tb,
+@@ -356,7 +352,6 @@ static struct tcf_proto_ops cls_bpf_ops __read_mostly = {
+ 	.init		=	cls_bpf_init,
+ 	.destroy	=	cls_bpf_destroy,
+ 	.get		=	cls_bpf_get,
+-	.put		=	cls_bpf_put,
+ 	.change		=	cls_bpf_change,
+ 	.delete		=	cls_bpf_delete,
+ 	.walk		=	cls_bpf_walk,
+diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+index dbee65e..741bfa7 100644
+--- a/net/sched/cls_cgroup.c
++++ b/net/sched/cls_cgroup.c
+@@ -67,10 +67,6 @@ static unsigned long cls_cgroup_get(struct tcf_proto *tp, u32 handle)
+ 	return 0UL;
+ }
+ 
+-static void cls_cgroup_put(struct tcf_proto *tp, unsigned long f)
+-{
+-}
+-
+ static int cls_cgroup_init(struct tcf_proto *tp)
+ {
+ 	return 0;
+@@ -213,7 +209,6 @@ static struct tcf_proto_ops cls_cgroup_ops __read_mostly = {
+ 	.classify	=	cls_cgroup_classify,
+ 	.destroy	=	cls_cgroup_destroy,
+ 	.get		=	cls_cgroup_get,
+-	.put		=	cls_cgroup_put,
+ 	.delete		=	cls_cgroup_delete,
+ 	.walk		=	cls_cgroup_walk,
+ 	.dump		=	cls_cgroup_dump,
+diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
+index 819c230..8e22718 100644
+--- a/net/sched/cls_flow.c
++++ b/net/sched/cls_flow.c
+@@ -581,10 +581,6 @@ static unsigned long flow_get(struct tcf_proto *tp, u32 handle)
+ 	return 0;
+ }
+ 
+-static void flow_put(struct tcf_proto *tp, unsigned long f)
+-{
+-}
+-
+ static int flow_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 		     struct sk_buff *skb, struct tcmsg *t)
+ {
+@@ -671,7 +667,6 @@ static struct tcf_proto_ops cls_flow_ops __read_mostly = {
+ 	.change		= flow_change,
+ 	.delete		= flow_delete,
+ 	.get		= flow_get,
+-	.put		= flow_put,
+ 	.dump		= flow_dump,
+ 	.walk		= flow_walk,
+ 	.owner		= THIS_MODULE,
+diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
+index dbfdfd1..23fda2a 100644
+--- a/net/sched/cls_fw.c
++++ b/net/sched/cls_fw.c
+@@ -111,10 +111,6 @@ static unsigned long fw_get(struct tcf_proto *tp, u32 handle)
+ 	return 0;
+ }
+ 
+-static void fw_put(struct tcf_proto *tp, unsigned long f)
+-{
+-}
+-
+ static int fw_init(struct tcf_proto *tp)
+ {
+ 	return 0;
+@@ -411,7 +407,6 @@ static struct tcf_proto_ops cls_fw_ops __read_mostly = {
+ 	.init		=	fw_init,
+ 	.destroy	=	fw_destroy,
+ 	.get		=	fw_get,
+-	.put		=	fw_put,
+ 	.change		=	fw_change,
+ 	.delete		=	fw_delete,
+ 	.walk		=	fw_walk,
+diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
+index 109a329..098a273 100644
+--- a/net/sched/cls_route.c
++++ b/net/sched/cls_route.c
+@@ -256,10 +256,6 @@ static unsigned long route4_get(struct tcf_proto *tp, u32 handle)
+ 	return 0;
+ }
+ 
+-static void route4_put(struct tcf_proto *tp, unsigned long f)
+-{
+-}
+-
+ static int route4_init(struct tcf_proto *tp)
+ {
+ 	return 0;
+@@ -649,7 +645,6 @@ static struct tcf_proto_ops cls_route4_ops __read_mostly = {
+ 	.init		=	route4_init,
+ 	.destroy	=	route4_destroy,
+ 	.get		=	route4_get,
+-	.put		=	route4_put,
+ 	.change		=	route4_change,
+ 	.delete		=	route4_delete,
+ 	.walk		=	route4_walk,
+diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
+index 6bb55f2..b7af362 100644
+--- a/net/sched/cls_rsvp.h
++++ b/net/sched/cls_rsvp.h
+@@ -271,10 +271,6 @@ static unsigned long rsvp_get(struct tcf_proto *tp, u32 handle)
+ 	return 0;
+ }
+ 
+-static void rsvp_put(struct tcf_proto *tp, unsigned long f)
+-{
+-}
+-
+ static int rsvp_init(struct tcf_proto *tp)
+ {
+ 	struct rsvp_head *data;
+@@ -708,7 +704,6 @@ static struct tcf_proto_ops RSVP_OPS __read_mostly = {
+ 	.init		=	rsvp_init,
+ 	.destroy	=	rsvp_destroy,
+ 	.get		=	rsvp_get,
+-	.put		=	rsvp_put,
+ 	.change		=	rsvp_change,
+ 	.delete		=	rsvp_delete,
+ 	.walk		=	rsvp_walk,
+diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
+index 30f10fb..0d9d891 100644
+--- a/net/sched/cls_tcindex.c
++++ b/net/sched/cls_tcindex.c
+@@ -116,13 +116,6 @@ static unsigned long tcindex_get(struct tcf_proto *tp, u32 handle)
+ 	return r && tcindex_filter_is_set(r) ? (unsigned long) r : 0UL;
+ }
+ 
+-
+-static void tcindex_put(struct tcf_proto *tp, unsigned long f)
+-{
+-	pr_debug("tcindex_put(tp %p,f 0x%lx)\n", tp, f);
+-}
+-
+-
+ static int tcindex_init(struct tcf_proto *tp)
+ {
+ 	struct tcindex_data *p;
+@@ -560,7 +553,6 @@ static struct tcf_proto_ops cls_tcindex_ops __read_mostly = {
+ 	.init		=	tcindex_init,
+ 	.destroy	=	tcindex_destroy,
+ 	.get		=	tcindex_get,
+-	.put		=	tcindex_put,
+ 	.change		=	tcindex_change,
+ 	.delete		=	tcindex_delete,
+ 	.walk		=	tcindex_walk,
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index 0472909..09487af 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -299,10 +299,6 @@ static unsigned long u32_get(struct tcf_proto *tp, u32 handle)
+ 	return (unsigned long)u32_lookup_key(ht, handle);
+ }
+ 
+-static void u32_put(struct tcf_proto *tp, unsigned long f)
+-{
+-}
+-
+ static u32 gen_new_htid(struct tc_u_common *tp_c)
+ {
+ 	int i = 0x800;
+@@ -1021,7 +1017,6 @@ static struct tcf_proto_ops cls_u32_ops __read_mostly = {
+ 	.init		=	u32_init,
+ 	.destroy	=	u32_destroy,
+ 	.get		=	u32_get,
+-	.put		=	u32_put,
+ 	.change		=	u32_change,
+ 	.delete		=	u32_delete,
+ 	.walk		=	u32_walk,
+-- 
+1.9.3
