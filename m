@@ -1,62 +1,69 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: Where exactly will arch_fast_hash be used
-Date: Thu, 04 Dec 2014 14:14:24 +0100
-Message-ID: <54805E30.4090109@redhat.com>
-References: <20141204081147.GA19030@gondor.apana.org.au> <1417696468.5386.23.camel@localhost>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch iproute2 0/6] iproute2: add changes for switchdev
+Date: Thu, 04 Dec 2014 08:16:38 -0500
+Message-ID: <54805EB6.2010901@mojatatu.com>
+References: <1417683438-10935-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Thomas Graf <tgraf@suug.ch>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Theodore Ts'o" <tytso@mit.edu>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	fusco@ntop.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417696468.5386.23.camel@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
+	roopa@cumulusnetworks.com, linville@tuxdriver.com,
+	jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org, hemal@broadcom.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:65407 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751322AbaLDNQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 08:16:43 -0500
+Received: by mail-ie0-f178.google.com with SMTP id tp5so15387295ieb.23
+        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 05:16:42 -0800 (PST)
+In-Reply-To: <1417683438-10935-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/04/2014 01:34 PM, Hannes Frederic Sowa wrote:
-> On Do, 2014-12-04 at 16:11 +0800, Herbert Xu wrote:
->> While working on rhashtable it came to me that this whole concept
->> of arch_fast_hash is flawed.  CRCs are linear functions so it's
->> fairly easy for an attacker to identify collisions or at least
->> eliminate a large amount of search space (e.g., controlling the
->> last bit of the hash result is almost trivial, even when you add
->> a random seed).
->>
->> So what exactly are we going to use arch_fast_hash for? Presumably
->> it's places where security is never goint to be an issue, right?
 
-The original proposal [1] targeted ovs-only as a closed-door user in
-order to speed up the worst case of calculating a hash over the extracted
-flow key, that is, struct sw_flow_key (which nowadays consumes up to
-7 cachelines on x86_64 ...).
+General comment:
+iproute2 patches need to be addressed to the maintainer
+stephen@networkplumber.org
+And are we mainstream enough now we can drop the 1000 people on the
+To: list? I doubt most of these people are even following the discussion 
+(I planted an easter egg for Aviad and didnt see him
+reacting) ;->
 
-   [1] http://thread.gmane.org/gmane.linux.network/293981/
+cheers,
+jamal
 
->> Even if security wasn't an issue, straight CRC32 has really poor
->> lower-order bit distribution, which makes it a terrible choice for
->> a hash table that simply uses the lower-order bits.
+On 12/04/14 03:57, Jiri Pirko wrote:
+> Jiri Pirko (1):
+>    iproute2: ipa: show switch id
 >
-> I wondered the same while trying to use arch_fast_hash in a lot more
-> places (I did a new implementation in assembler I'll send later on, it
-> is mostly optimized to deal with ovs flow keys).
+> Scott Feldman (5):
+>    bridge/fdb: fix statistics output spacing
+>    bridge/fdb: add flag/indication for FDB entry synced from offload
+>      device
+>    bridge/link: add new offload hwmode swdev
+>    link: add missing IFLA_BRPORT_PROXYARP
+>    bridge/link: add learning_sync policy flag
 >
-> While the uniformity of crc32 does actually look good and IMHO this even
-> holds for the lower bits of the hash, I totally agree on the linearity
-> matters.
+>   bridge/fdb.c              |  4 +++-
+>   bridge/link.c             | 17 +++++++++++++++--
+>   include/linux/if_bridge.h |  1 +
+>   include/linux/if_link.h   |  3 +++
+>   include/linux/neighbour.h |  1 +
+>   ip/ipaddress.c            |  8 ++++++++
+>   man/man8/bridge.8         | 19 ++++++++++++++-----
+>   7 files changed, 45 insertions(+), 8 deletions(-)
 >
-> The easiest way to make arch_fast_hash non-linear would be to build up
-> on the crc32 instruction like e.g. the cityhash function family does and
-> it seems not too hard to do that by combining two crc32c outputs of the
-> original and cyclic shifted input data. I have doubts if this is faster
-> than jhash in the end. There are proposals from Intel to do so, but they
-> are patent encumbered. :/
->
-> For most consumers in the networking stack, security and DoS resistence
-> is an issue. OVS, for which this was designed at first does do rehashing
-> from time to time, but still there is a possible DoS attack vector with
-> this hashing algorithm.
