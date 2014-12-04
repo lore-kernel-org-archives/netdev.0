@@ -1,40 +1,55 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
+From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: Is this 32-bit NCM?y
-Date: Thu, 4 Dec 2014 13:17:17 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1412041302260.9926@gmail.com>
+Date: Thu, 4 Dec 2014 13:28:24 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1412041326160.9926@gmail.com>
 References: <AMSPR06MB6011E001029C251790CB923EE780@AMSPR06MB601.eurprd06.prod.outlook.com> <877fy7myfb.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1850245393-1417695440=:9926"
-Cc: Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
-	Kevin Zhu <Mingying.Zhu@audiocodes.com>,
-	Eli Britstein <Eli.Britstein@audiocodes.com>,
-	Alex Strizhevsky <alexxst@gmail.com>,
-	"youtux@gmail.com" <youtux@gmail.com>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:63363 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753531AbaLDMQr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 07:16:47 -0500
-In-Reply-To: <877fy7myfb.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-735099337-1417696107=:9926"
+Cc: Midge Shaojun Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <877fy7myfb.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
   This message is in MIME format.  The first part should be readable text,
   while the remaining parts are likely unreadable without MIME-aware tools.
 
---8323328-1850245393-1417695440=:9926
+--8323328-735099337-1417696107=:9926
 Content-Type: TEXT/PLAIN; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 8BIT
 
+... DHCP will work with some DHCPNACKS in the meanwhile, but ping stops working at all.
+Otherwise, it works with the standard value:
 
+--- 8.8.8.8 ping statistics ---
+48 packets transmitted, 48 received, 0% packet loss, time 47004ms
+rtt min/avg/max/mdev = 362.084/392.878/523.132/33.636 ms
+
+And I was expecting effectively to see some lost packets, but instead... no.
 
 
 On Thu, 4 Dec 2014, Bjørn Mork wrote:
 
-> "Midge Shaojun  Tan" <ShaojunMidge.Tan@audiocodes.com> writes:
+> Date: Thu, 4 Dec 2014 12:44:56
+> From: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+> To: Midge Shaojun Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
+> Cc: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+>     Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+>     Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+>     Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+>     "youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+>     "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+>     "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+> Subject: Re: Is this 32-bit NCM?y
+> 
+> "Midge Shaojun  Tan" <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org> writes:
 >
 >> Hi all,
 >>
@@ -68,30 +83,7 @@ On Thu, 4 Dec 2014, Bjørn Mork wrote:
 > have to assume that this goes both ways.  Which means that moving the
 > NDP to the end of the NTB might break some other device.  We just don't
 > know that since we haven't ever tried it.
-
-Guys - this is a little hard moment for my life, so sorry if I sound negative 
-too, really. No humor here.
-
-Bjorn, I am starting to think that we might need to (sadly) differentiate how
-we threat "standard" NCM devices in respect to Huawei ones, a little bit more.
-As you said - changing the handling in any way would be too risky - and
-definitely, I am starting to think that different firmware versions have
-different bugs in this regard (might be not in NCM handling itself, but in
-respect to other areas, like ARP handling / faking ).
-At the end we might come out with a good enough solution - but we would start 
-to complicate things more and more, and definitely we might end up complicating
-more and more the driver itself. At some point, we might also end up finding 
-out that we need a different workarounds for different firmwares, not even 
-compatible one another.
-so - my idea, that is hypotetical:
-1 - Factorize out cdc_ncm more
-2 - Creating new {tx,rx}_fixup routines applying different workarounds.
-
-then, when the need to apply different workarounds for difference device (or 
-firmware versions) arise, we might also think of a way to communicate to the 
-driver the firmware version, allowing it to select some quirks to apply.
-What do you all think about it?
-
+>
 > And your fix doesn't really move it to the end either.  It just places
 > the NDP after the first ethernet packet.  Which happens to be the end if
 > there is only one packet in the NTB. But if we aggregate more packets
@@ -122,5 +114,8 @@ What do you all think about it?
 > Bjørn
 >
 >
-I'll test this now.
---8323328-1850245393-1417695440=:9926--
+--8323328-735099337-1417696107=:9926--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
