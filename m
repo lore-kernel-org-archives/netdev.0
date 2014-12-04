@@ -1,112 +1,141 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: [PATCH v2] drivers: net : cpsw: Update Kconfig for CPSW
-Date: Thu, 4 Dec 2014 08:48:30 -0600
-Message-ID: <20141204144830.GB18045@saruman>
-References: <1417668869-25616-1-git-send-email-lokeshvutla@ti.com>
-Reply-To: <balbi@ti.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [patch iproute2 1/6] iproute2: ipa: show switch id
+Date: Thu, 4 Dec 2014 09:57:43 -0500
+Message-ID: <20141204145743.GS27416@gospo.rtplab.test>
+References: <1417683438-10935-1-git-send-email-jiri@resnulli.us>
+ <1417683438-10935-2-git-send-email-jiri@resnulli.us>
+ <20141204142015.GR27416@gospo.rtplab.test>
+ <20141204143306.GB1861@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="Yylu36WmvOXNoKYn"
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<mugunthanvnm@ti.com>, <linux-omap@vger.kernel.org>,
-	<grygorii.strashko@ti.com>, <balbi@ti.com>, <nsekhar@ti.com>,
-	<t-kristo@ti.com>
-To: Lokesh Vutla <lokeshvutla@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1417668869-25616-1-git-send-email-lokeshvutla@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---Yylu36WmvOXNoKYn
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, bcrl@kvack.org,
+	hemal@broadcom.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:40954 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754023AbaLDO6A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 09:58:00 -0500
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <20141204143306.GB1861@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 04, 2014 at 10:24:29AM +0530, Lokesh Vutla wrote:
-> CPSW is present in AM33xx, AM43xx, DRA7xx.
-> Updating the Kconfig to depend on ARCH_OMAP2PLUS instead of listing
-> all SoC's.
->=20
-> Signed-off-by: Lokesh Vutla <lokeshvutla@ti.com>
+On Thu, Dec 04, 2014 at 03:33:06PM +0100, Jiri Pirko wrote:
+> Thu, Dec 04, 2014 at 03:20:15PM CET, gospo@cumulusnetworks.com wrote:
+> >On Thu, Dec 04, 2014 at 09:57:13AM +0100, Jiri Pirko wrote:
+> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> >> ---
+> >>  include/linux/if_link.h | 1 +
+> >>  ip/ipaddress.c          | 8 ++++++++
+> >>  2 files changed, 9 insertions(+)
+> >> 
+> >> diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+> >> index 4732063..a6e2594 100644
+> >> --- a/include/linux/if_link.h
+> >> +++ b/include/linux/if_link.h
+> >> @@ -145,6 +145,7 @@ enum {
+> >>  	IFLA_CARRIER,
+> >>  	IFLA_PHYS_PORT_ID,
+> >>  	IFLA_CARRIER_CHANGES,
+> >> +	IFLA_PHYS_SWITCH_ID,
+> >
+> >Serious question for Stephen et al, once we take this to iproute2 are we
+> >going to be able to change the name but the string diplayed if needed?
+> >
+> >I had a patch that called this IFLA_PARENT_ID that I was using with the
+> >older github tree used by Jiri and Scott before these were in net-next.
+> >I wanted to submit that as a change to what became
+> >82f2841291cfaf4d225aa1766424280254d3e3b2, but was waiting for things to
+> >be accepted and the dust settled.
+> >
+> >I like the parent/child/sibling nomenclature better for 4 reasons:
+> >
+> >- Most did not seem to like the term 'offload' since that term would be
+> >  confusing with, GRO, GSO, etc.
+> >- A *significant* use case for many of the high-end ASICs in datacenters
+> >  is routing.
+> >- switchid does not make sense in the OVS/flow case because it is all
+> >  about flows, not switches or routers, and parent made sense there.
+> 
+> well ovs is all about flows and has the "switch" word in the name. I
+> believe that people are talking about "switches" in case of these "flow
+> devices" as well. I see nothing wrong in that. I think that "switch"
+> became generic name for "packet forwarding machines".
 
-Reviewed-by: Felipe Balbi <balbi@ti.com>
+Just because one chose to use it that way does not mean I agree with it
+and that we should copy their bad decision.  :-)
 
-> ---
->  drivers/net/ethernet/ti/Kconfig | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kc=
-onfig
-> index 5d8cb79..7051255 100644
-> --- a/drivers/net/ethernet/ti/Kconfig
-> +++ b/drivers/net/ethernet/ti/Kconfig
-> @@ -5,7 +5,7 @@
->  config NET_VENDOR_TI
->  	bool "Texas Instruments (TI) devices"
->  	default y
-> -	depends on PCI || EISA || AR7 || (ARM && (ARCH_DAVINCI || ARCH_OMAP3 ||=
- SOC_AM33XX || ARCH_KEYSTONE))
-> +	depends on PCI || EISA || AR7 || ARCH_DAVINCI || ARCH_OMAP2PLUS || ARCH=
-_KEYSTONE
->  	---help---
->  	  If you have a network (Ethernet) card belonging to this class, say Y
->  	  and read the Ethernet-HOWTO, available from
-> @@ -32,7 +32,7 @@ config TI_DAVINCI_EMAC
-> =20
->  config TI_DAVINCI_MDIO
->  	tristate "TI DaVinci MDIO Support"
-> -	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX || ARCH_KE=
-YSTONE )
-> +	depends on ARCH_DAVINCI || ARCH_OMAP2PLUS || ARCH_KEYSTONE
->  	select PHYLIB
->  	---help---
->  	  This driver supports TI's DaVinci MDIO module.
-> @@ -42,7 +42,7 @@ config TI_DAVINCI_MDIO
-> =20
->  config TI_DAVINCI_CPDMA
->  	tristate "TI DaVinci CPDMA Support"
-> -	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX )
-> +	depends on ARCH_DAVINCI || ARCH_OMAP2PLUS
->  	---help---
->  	  This driver supports TI's DaVinci CPDMA dma engine.
-> =20
-> @@ -58,7 +58,7 @@ config TI_CPSW_PHY_SEL
-> =20
->  config TI_CPSW
->  	tristate "TI CPSW Switch Support"
-> -	depends on ARM && (ARCH_DAVINCI || SOC_AM33XX)
-> +	depends on ARCH_DAVINCI || ARCH_OMAP2PLUS
->  	select TI_DAVINCI_CPDMA
->  	select TI_DAVINCI_MDIO
->  	select TI_CPSW_PHY_SEL
-> --=20
-> 1.9.1
->=20
+> "parent" is very generic and may mean 100 things...
 
---=20
-balbi
+But in this case, it means 1 thing.  The netdev you are using is
+connected to another device that controls it rather than being just a
+NIC.
 
---Yylu36WmvOXNoKYn
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+> 
+> 
+> >- I wanted to combine this for use with SR-IOV use case, so one can more
+> >  easily map PF->VF using this.
+> 
+> Ugh, please don't mix this up with pf, vf. That is completely different
+> thing.
+> 
+> pf vf mapping is done in sysfs. In netlink, physportid is used for that
+> purpose. We can expose this phys port id for pf as well (as a different
+> attr) and we are done.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+I know that attribute is there, but I find it more valuable for
+solutions like nPAR than for PF/VF use-case.  Parent/child relationship
+makes more sense to me since for forwarding will be controlled by the
+embedded switch on those devices.  (Notice I specifically chose not to
+use 'master' since that is already overloaded by bridge, bonding,
+teaming, etc.)
 
-iQIcBAEBAgAGBQJUgHQ+AAoJEIaOsuA1yqREuZMP/RuJtb2Fy+UpqZPtSTQ/q8/Y
-CBkQ8M+azi2yQIb+NlEKgE/DLLCIJfMjTOk67Ac6AzgP4OaJLl9N/X/3axyeHuTd
-GYPXM89xmQdz9LD6R5bUEIrRK2J3zXsJ+lJh/CPKRPYP1vMZoqdl3eZv2IJt3wb2
-prYaZseXWdSY/OzsVwflLB1DnhI/6fgy9j3M0zRQsnWHZokc6Deg9EP+YGYdoDP7
-7XVS1kmHPlpw4VQJubL+VpECglLxVuKAmMD7S+UKWJUKVe8aYgRNnBi8AyTN7MKn
-glPEi8cDZYhFdShMozuR31pJojiTgS8IWXMcNXXu1sJzsHSWq7gDc58o2JQ9toDU
-LwCCt2TlShlqdpVnG7d2T3/FPGjJbweKKU/XIZwWqVBAnh8kPZWIezQlqUN8ttjg
-vdGCU/LgzsyXGtHDVcQZkYUmOShYLS5iSffFGajdCu1O9uIOeclQ7eML3xix/L43
-oJwb0byXfkJpAH5a1BICRcQr0BI303usroMuENr88PLo0BsQ+MEqFHzTav464y2g
-PIrq9tjYh74MmTOlsqKOFBv/Ihey3jnipEIho0KnKkDsK2QQaoyqCQQeIiPbN6ST
-DXvtJCxlLVrNHdz6xUrIi5MvqIevERKcNQKWSdET4DHV30rZbL1IdYKXBsS9Z0eU
-av5FOlsLmi2rW0n7PeIV
-=B3YQ
------END PGP SIGNATURE-----
-
---Yylu36WmvOXNoKYn--
+> 
+> >
+> >Can you give me a bit (a day) to clean-up that patch and submit an
+> >alternative proposal to these?
+> >
+> >>  	__IFLA_MAX
+> >>  };
+> >>  
+> >> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+> >> index 4d99324..bd36a07 100644
+> >> --- a/ip/ipaddress.c
+> >> +++ b/ip/ipaddress.c
+> >> @@ -589,6 +589,14 @@ int print_linkinfo(const struct sockaddr_nl *who,
+> >>  				      b1, sizeof(b1)));
+> >>  	}
+> >>  
+> >> +	if (tb[IFLA_PHYS_SWITCH_ID]) {
+> >> +		SPRINT_BUF(b1);
+> >> +		fprintf(fp, "switchid %s ",
+> >> +			hexstring_n2a(RTA_DATA(tb[IFLA_PHYS_SWITCH_ID]),
+> >> +				      RTA_PAYLOAD(tb[IFLA_PHYS_SWITCH_ID]),
+> >> +				      b1, sizeof(b1)));
+> >> +	}
+> >> +
+> >>  	if (tb[IFLA_OPERSTATE])
+> >>  		print_operstate(fp, rta_getattr_u8(tb[IFLA_OPERSTATE]));
+> >>  
+> >> -- 
+> >> 1.9.3
+> >> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
