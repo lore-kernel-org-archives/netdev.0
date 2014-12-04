@@ -1,11 +1,11 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] x86: bpf_jit_comp: Reduce is_ereg() code size
-Date: Thu, 04 Dec 2014 15:00:48 -0800
-Message-ID: <1417734048.2721.22.camel@perches.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH] x86: bpf_jit_comp: Reduce is_ereg() code size
+Date: Thu, 4 Dec 2014 15:12:11 -0800
+Message-ID: <CAADnVQKJHXbhJFtibj34ZQ2HLbYUFURt0S3Ho4bX7LFf_GsPQw@mail.gmail.com>
 References: <CAADnVQKtYkKtsd9rUFm2yfMoh7F_SRFPVP8hpvSY00KpmB-NNg@mail.gmail.com>
+	<1417734048.2721.22.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
 Cc: Quentin Lambert <lambert.quentin@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
@@ -14,55 +14,40 @@ Cc: Quentin Lambert <lambert.quentin@gmail.com>,
 	Patrick McHardy <kaber@trash.net>,
 	Thomas Gleixner <tglx@linutronix.de>,
 	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	"x86@kernel.org" <x86@kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Joe Perches <joe@perches.com>,
+	Daniel Borkmann <dborkman@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAADnVQKtYkKtsd9rUFm2yfMoh7F_SRFPVP8hpvSY00KpmB-NNg@mail.gmail.com>
+In-Reply-To: <1417734048.2721.22.camel@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use the (1 << reg) & mask trick to reduce code size.
+On Thu, Dec 4, 2014 at 3:00 PM, Joe Perches <joe@perches.com> wrote:
+> Use the (1 << reg) & mask trick to reduce code size.
+>
+> x86-64 size difference -O2 without profiling for various
+> gcc versions:
+>
+> $ size arch/x86/net/bpf_jit_comp.o*
+>    text    data     bss     dec     hex filename
+>    9266       4       0    9270    2436 arch/x86/net/bpf_jit_comp.o.4.4.new
+>   10042       4       0   10046    273e arch/x86/net/bpf_jit_comp.o.4.4.old
+>    9109       4       0    9113    2399 arch/x86/net/bpf_jit_comp.o.4.6.new
+>    9717       4       0    9721    25f9 arch/x86/net/bpf_jit_comp.o.4.6.old
+>    8789       4       0    8793    2259 arch/x86/net/bpf_jit_comp.o.4.7.new
+>   10245       4       0   10249    2809 arch/x86/net/bpf_jit_comp.o.4.7.old
+>    9671       4       0    9675    25cb arch/x86/net/bpf_jit_comp.o.4.9.new
+>   10679       4       0   10683    29bb arch/x86/net/bpf_jit_comp.o.4.9.old
+>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-x86-64 size difference -O2 without profiling for various
-gcc versions:
+probably it was worth noting in comment that
+reg is 4-bit value and AUX_REG==12, so it won't overflow.
 
-$ size arch/x86/net/bpf_jit_comp.o*
-   text    data     bss     dec     hex filename
-   9266       4       0    9270    2436 arch/x86/net/bpf_jit_comp.o.4.4.new
-  10042       4       0   10046    273e arch/x86/net/bpf_jit_comp.o.4.4.old
-   9109       4       0    9113    2399 arch/x86/net/bpf_jit_comp.o.4.6.new
-   9717       4       0    9721    25f9 arch/x86/net/bpf_jit_comp.o.4.6.old
-   8789       4       0    8793    2259 arch/x86/net/bpf_jit_comp.o.4.7.new
-  10245       4       0   10249    2809 arch/x86/net/bpf_jit_comp.o.4.7.old
-   9671       4       0    9675    25cb arch/x86/net/bpf_jit_comp.o.4.9.new
-  10679       4       0   10683    29bb arch/x86/net/bpf_jit_comp.o.4.9.old
+Dave, it's for net-next of course.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
-
-compiled, untested by me, but per Alexei Starovoitov this passes
-the test_bpf suite
-
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index 3f62734..09e2cea 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -135,11 +135,11 @@ static const int reg2hex[] = {
-  */
- static inline bool is_ereg(u32 reg)
- {
--	if (reg == BPF_REG_5 || reg == AUX_REG ||
--	    (reg >= BPF_REG_7 && reg <= BPF_REG_9))
--		return true;
--	else
--		return false;
-+	return (1 << reg) & (BIT(BPF_REG_5) |
-+			     BIT(AUX_REG) |
-+			     BIT(BPF_REG_7) |
-+			     BIT(BPF_REG_8) |
-+			     BIT(BPF_REG_9));
- }
- 
- /* add modifiers if 'reg' maps to x64 registers r8..r15 */
+Suggested-by: Alexei Starovoitov <ast@plumgrid.com>
+Tested-by: Alexei Starovoitov <ast@plumgrid.com>
