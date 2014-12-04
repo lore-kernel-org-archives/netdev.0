@@ -1,98 +1,67 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCHv3 net] i40e: Implement ndo_gso_check()
-Date: Thu, 4 Dec 2014 12:17:24 -0800
-Message-ID: <CA+mtBx_BiJ526jop1tLhx1ji4beRufQRhiN9nfFBWLnr25DMww@mail.gmail.com>
-References: <1417718366-14310-1-git-send-email-joestringer@nicira.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: [RFC][PATCHES] iov_iter.c rewrite
+Date: Thu, 4 Dec 2014 20:20:11 +0000
+Message-ID: <20141204202011.GO29748@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Jesse Gross <jesse@nicira.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"linux.nics" <linux.nics@intel.com>
-To: Joe Stringer <joestringer@nicira.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417718366-14310-1-git-send-email-joestringer@nicira.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 4, 2014 at 10:39 AM, Joe Stringer <joestringer@nicira.com> wrote:
-> ndo_gso_check() was recently introduced to allow NICs to report the
-> offloading support that they have on a per-skb basis. Add an
-> implementation for this driver which checks for IPIP, GRE, UDP tunnels.
->
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
-> ---
-> v3: Drop IPIP and GRE (no driver support even though hw supports it).
->     Check for UDP outer protocol for UDP tunnels.
-> v2: Expand to include IP in IP and IPv4/IPv6 inside GRE/UDP tunnels.
->     Add MAX_INNER_LENGTH (as 80).
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_main.c |   26 ++++++++++++++++++++++++++
->  1 file changed, 26 insertions(+)
->
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> index c3a7f4a..0d6493a 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> @@ -7447,6 +7447,31 @@ static int i40e_ndo_fdb_dump(struct sk_buff *skb,
->
->  #endif /* USE_DEFAULT_FDB_DEL_DUMP */
->  #endif /* HAVE_FDB_OPS */
-> +static bool i40e_gso_check(struct sk_buff *skb, struct net_device *dev)
-> +{
-> +       if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) {
-> +               unsigned char *ihdr;
-> +
-> +               if (skb->protocol != IPPROTO_UDP ||
-> +                   skb->inner_protocol_type != ENCAP_TYPE_ETHER)
-> +                       return false;
-> +
-> +               if (skb->inner_protocol == htons(ETH_P_TEB))
-> +                       ihdr = skb_inner_mac_header(skb);
-> +               else if (skb->inner_protocol == htons(ETH_P_IP) ||
-> +                        skb->inner_protocol == htons(ETH_P_IPV6))
-> +                       ihdr = skb_inner_network_header(skb);
-> +               else
-> +                       return false;
-> +
+	First of all, I want to apologize for the nastiness of preprocessor
+use in this series.  Seeing that the whole "macros that look like new kinds
+of C statements" thing (including list_for_each_...(), etc) is very much not
+to my liking, I really don't trust my taste on finer details and I'd very
+much like some feedback.
 
-Wow, this is getting complicated! :-( It's not clear that the protocol
-specific checks are needed here since it looks like the header length
-is being passed to the device later on. Also, I think we need
-skb_inner_mac_header(skb) - skb_transport_header(skb) to always work
-to give the length of the encapsulation headers (in case there is no
-real inner mac header, then that offset should be for the network
-header).
+	The reason for doing that kind of tricks is that iov_iter.c keeps
+growing more and more boilerplate code.  For iov_iter-net series we need
+	* csum_and_copy_from_iter()
+	* csum_and_copy_to_iter()
+	* copy_from_iter_nocache()
+That's 3 new primitives, each in 2 variants (iovec and bvec).
+	* ITER_KVEC handled without going through uaccess.h stuff (and
+independent of set_fs() state).
+And *that* means 3 variants intstead of 2 for most of the existing primitives.
+That's far too much, and the amount of copies of the same logics would pretty
+much guarantee that it will be a breeding ground for hard-to-kill bugs.
 
-So would a simple check like this work:
+	The following series (also in vfs.git#iov_iter) actually manages to
+do all of the above *and* shrink the damn thing quite a bit.  The generated
+code appears to be no worse than before.  The price is a couple of iterator
+macros - iterate_all_kinds() and iterate_and_advance().  They are given an
+iov_iter, size (i.e. the amount of data in iov_iter beginning we want to go
+through), name of the loop variable and 3 variants of loop body - for iovec,
+bvec and kvec resp.  Loop variable is declared *inside* the expansion of those
+suckers according to the kind of iov_iter - it's struct iovec, struct bio_vec
+or struct kvec, covering the current range to deal with.
+	The difference between those two is that iterate_and_advance() will
+advance the iov_iter by the amount it has handled and iterate_all_kinds()
+will leave iov_iter unchanged.
 
-if (skb->encapsulation &&
-    (skb_inner_mac_header(skb) - skb_transport_header(skb)) >
-MAX_TUNNEL_HDR_LEN)
-       return false;
+	Unless I hear anybody yelling, it goes into vfs.git#for-next today,
+so if you have objections, suggestions, etc., give those *now*.
 
-> +#define MAX_TUNNEL_HDR_LEN     80
-> +               if (ihdr - skb_transport_header(skb) > MAX_TUNNEL_HDR_LEN)
-> +                       return false;
-> +       }
-> +
-> +       return true;
-> +}
-> +
->  static const struct net_device_ops i40e_netdev_ops = {
->         .ndo_open               = i40e_open,
->         .ndo_stop               = i40e_close,
-> @@ -7487,6 +7512,7 @@ static const struct net_device_ops i40e_netdev_ops = {
->         .ndo_fdb_dump           = i40e_ndo_fdb_dump,
->  #endif
->  #endif
-> +       .ndo_gso_check          = i40e_gso_check,
->  };
->
->  /**
-> --
-> 1.7.10.4
->
+Al Viro (13):
+      iov_iter.c: macros for iterating over iov_iter
+      iov_iter.c: iterate_and_advance
+      iov_iter.c: convert iov_iter_npages() to iterate_all_kinds
+      iov_iter.c: convert iov_iter_get_pages() to iterate_all_kinds
+      iov_iter.c: convert iov_iter_get_pages_alloc() to iterate_all_kinds
+      iov_iter.c: convert iov_iter_zero() to iterate_and_advance
+      iov_iter.c: get rid of bvec_copy_page_{to,from}_iter()
+      iov_iter.c: convert copy_from_iter() to iterate_and_advance
+      iov_iter.c: convert copy_to_iter() to iterate_and_advance
+      iov_iter.c: handle ITER_KVEC directly
+      csum_and_copy_..._iter()
+      new helper: iov_iter_kvec()
+      copy_from_iter_nocache()
+
+Diffstat:
+ include/linux/uio.h |    6 +
+ mm/iov_iter.c       | 1077 +++++++++++++++++++++------------------------------
+ 2 files changed, 445 insertions(+), 638 deletions(-)
