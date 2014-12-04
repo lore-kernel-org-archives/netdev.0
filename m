@@ -1,44 +1,64 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: Re: [PATCH] net: less interrupt masking in NAPI
-Date: Thu, 4 Dec 2014 11:09:43 +0800
-Message-ID: <547FD077.4060807@huawei.com>
-References: <1414937973.31792.37.camel@edumazet-glaptop2.roam.corp.google.com>	 <20141103.122538.387451917276174830.davem@davemloft.net>	 <547EBC66.4040301@huawei.com>	 <1417592482.5303.132.camel@edumazet-glaptop2.roam.corp.google.com>	 <547ED728.2010703@huawei.com>	 <1417607546.5303.133.camel@edumazet-glaptop2.roam.corp.google.com>	 <547FC2A1.60105@huawei.com> <1417661505.22424.1.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Qin Chuanyu <qinchuanyu@huawei.com>
+Subject: Re: What's the concern about setting irq thread's policy as SCHED_FIFO
+Date: Thu, 4 Dec 2014 11:12:12 +0800
+Message-ID: <547FD10C.8040900@huawei.com>
+References: <547EC4A3.6060408@huawei.com> <547F3F92.2050501@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<willemb@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:10376 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751106AbaLDDJ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 22:09:56 -0500
-In-Reply-To: <1417661505.22424.1.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <547F3F92.2050501@hp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/12/4 10:51, Eric Dumazet wrote:
-> On Thu, 2014-12-04 at 10:10 +0800, Yang Yingliang wrote:
->> On 2014/12/3 19:52, Eric Dumazet wrote:
->>> On Wed, 2014-12-03 at 17:26 +0800, Yang Yingliang wrote:
->>>
->>>> Before this patch, when a large network flow arrives, some other processes
->>>> response slowly or even don't response because the cpu is dealing with softirq.
->>>>
->>>> After this patch, under pressure, much more softirq is doing in ksoftirqd. The other
->>>> processes be scheduled.
->>>>
->>>> My system has dual core.
->>>
->>> Which NIC driver are you using ?
->>>
->> The driver we developed ourself, it's not upstreamed.
-> 
-> Is it a NAPI driver ?
-Yes.
-> 
-> Quite frankly this patch is not a stable candidate, as it was a
-> performance improvement, with some regressions in a couple of drivers.
-> 
-OK, thanks for your reply.
+On 2014/12/4 0:51, Rick Jones wrote:
+> On 12/03/2014 12:06 AM, Qin Chuanyu wrote:
+>> I am doing network performance test under suse11sp3 and intel 82599 nic,
+>> Becasuse the softirq is out of schedule policy's control, so netserver
+>> thread couldn't always get 100% cpu usage, then packet dropped in kernel
+>> udp socket's receive queue.
+>>
+>> In order to get a stable result, I did some patch in ixgbe driver and
+>> then use irq_thread instead of softirq to handle rx.
+>> It seems work well, but irq_thread's SCHED_FIFO schedule policy cause
+>> that when the cpu is limited, netserver couldn't work at all.
+>
+> I cannot speak to any scheduling issues/questions, but can ask if you
+> tried binding netserver to a CPU other than the one servicing the
+> interrupts via the -T option on the netperf command line:
+>
+> netperf -T <netperfCPU>,<netserverCPU>  ...
+>
+> http://www.netperf.org/svn/netperf2/trunk/doc/netperf.html#index-g_t_002dT_002c-Global-41
+>
+Yes, I had done this try, the irq_thread and netserver worked well 
+without competition after binding them separately.
+I also had tried this test case in kernel 3.10, and without binding 
+irq_thread and netserver work well separately.
+
+So, the question is:
+	3.10:    irq_thread netserver  good
+	3.0.93:  irq_thread netserver  bad(compete single cpu)
+normal thread in both kernel version is OK.
+
+There must be a schedule policy change lead to this difference.
+Could anyone give some hint?
+
+>
+> happy benchnmarking,
+>
+> rick jones
+>
+>>
+>> So I change the irq_thread's schedule policy from SCHED_FIFO to
+>> SCHED_NORMAL, then the irq_thread could share the cpu usage with
+>> netserver thread.
+>>
+>> the question is:
+>> What's the concrete reason about setting irq thread's policy as
+>> SCHED_FIFO?
+>> Except the priority affecting the cpu usage, any function would be
+>> broken if irq thread change to SCHED_NORMAL?
+>>
