@@ -1,81 +1,130 @@
-From: "Kirill A. Shutemov" <kirill@shutemov.name>
-Subject: Re: [PATCH v2 4/7] fs/proc/task_mmu.c: shift mm_access() from
- m_start() to proc_maps_open()
-Date: Thu, 4 Dec 2014 18:17:32 +0200
-Message-ID: <20141204161732.GA8545@node.dhcp.inet.fi>
-References: <20140805194627.GA30693@redhat.com>
- <20140805194655.GA30728@redhat.com>
- <20141203141433.GA25683@node.dhcp.inet.fi>
- <87fvcwk6sy.fsf@x220.int.ebiederm.org>
+From: Alexander Wetzel <alexander.wetzel@web.de>
+Subject: Re: ipip6 - integer underrun when handlince icmpv4 unreachable messages
+Date: Thu, 04 Dec 2014 17:22:52 +0100
+Message-ID: <54808A5C.1050205@web.de>
+References: <546A6E04.30603@web.de> <20141204085628.GG6390@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	Cyrill Gorcunov <gorcunov@openvz.org>,
-	David Howells <dhowells@redhat.com>,
-	"Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Sasha Levin <levinsasha928@gmail.com>,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87fvcwk6sy.fsf@x220.int.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, roque@di.fc.ul.p, kuznet@ms2.inr.ac.ru,
+	r.venning@telstra.com, nate@thebog.net
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo4-p05-ob.smtp.rzone.de ([81.169.146.183]:39674 "EHLO
+	mo4-p05-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753692AbaLDQW7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 11:22:59 -0500
+In-Reply-To: <20141204085628.GG6390@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 03, 2014 at 10:59:57AM -0600, Eric W. Biederman wrote:
-> "Kirill A. Shutemov" <kirill@shutemov.name> writes:
+Hello,
+
+The patch works for me, thank you very much.
+
+Rejecting the ipv4 tunel packets with icmp unreachable is producing the
+expected "Destination unreachable: Address unreachable" messages for the
+inside ipv6 client and everything works as expected. Without the call in
+sit.c to skb_reset_transport_header.
+
+I'll continue to use the patch on my ipv6 tunnel router but I'm sure it
+works as intended.
+
+
+On 04.12.2014 09:56, Steffen Klassert wrote:
+> On Mon, Nov 17, 2014 at 10:52:04PM +0100, Alexander Wetzel wrote:
+>> Hello netdev,
+>>
+>> the current code to translate icmpv4 "destination unreachable" packets
+>> to icmpv6 is later generating an integer underrun when calling
+>> icmpv6_send, by later calling skb_network_header_len and subtracting a
+>> bigger number from a lower one.
 > 
-> > On Tue, Aug 05, 2014 at 09:46:55PM +0200, Oleg Nesterov wrote:
-> >> A simple test-case from Kirill Shutemov
-> >> 
-> >> 	cat /proc/self/maps >/dev/null
-> >> 	chmod +x /proc/self/net/packet
-> >> 	exec /proc/self/net/packet
-> >> 
-> >> makes lockdep unhappy, cat/exec take seq_file->lock + cred_guard_mutex in
-> >> the opposite order.
-> >
-> > Oleg, I see it again with almost the same test-case:
-> >
-> > 	cat /proc/self/stack >/dev/null
-> > 	chmod +x /proc/self/net/packet
-> > 	exec /proc/self/net/packet
-> >
-> > Looks like bunch of proc files were converted to use seq_file by Alexey
-> > Dobriyan around the same time you've fixed the issue for /proc/pid/maps.
-> >
-> > More generic test-case:
-> >
-> > 	find /proc/self/ -type f -exec dd if='{}' of=/dev/null bs=1 count=1 ';' 2>/dev/null
-> > 	chmod +x /proc/self/net/packet
-> > 	exec /proc/self/net/packet
-> >
-> > David, any justification for allowing chmod +x for files under
-> > /proc/pid/net?
+> I'd guess the call to skb_network_header_len() in _decode_session6()
+> is the problematic one, right?
 > 
-> I don't think there are any good reasons for allowing chmod +x for the
-> proc generic files.   Certainly executing any of them is nonsense.
+>>
+>> The issue is not visible for vanilla kernels and works correctly from
+>> a user perspective, but a kernel with the PAX patches and enabled
+>> "size overflow protection" will panic immediately when it's getting an
+>> icmpv4 destination unreachable packet back for an encapsulated ipv6
+>> packet. (Remote tunnel endpoint not reachable.)
+>>
+>> I think I've tracked the issue down and can show you the problem with
+>> the code... as I understand it as non-programmer greping the sources
+>> and googeling functions. I was even able to find a fix which passes
+>> the functionality test, but I'm unqualified to rate the correctness of
+>> it and so are reaching out to you for that.
+>>
+>> What happens (output of printk's) with transport_header and
+>> network_header around "skb_reset_network_header" is described below
+>> the function.
+>>
+>> Near the end of the mail there are two links to the gentoo bug tracker
+>> and pax forum, suggesting to put this forward to the lkml/netdev for
+>> review, also including more details on the panics.
+>>
+>> So here the function "ipip6_err_gen_icmpv6_unreach" from
+>> net/ipv6/sit.c with some remarks and one new line which seems to fix
+>> the problem:
+>>
+>> ************************************************************************
+>> static int ipip6_err_gen_icmpv6_unreach(struct sk_buff *skb)
+>> {
+>>         int ihl = ((const struct iphdr *)skb->data)->ihl*4;
+>>         struct rt6_info *rt;
+>>         struct sk_buff *skb2;
+>>
+>>         if (!pskb_may_pull(skb, ihl + sizeof(struct ipv6hdr) + 8))
+>>                 return 1;
+>>
+>> // we clone the ipv4 skb in skb2 to prepare the icmpv6 packet
+>>         skb2 = skb_clone(skb, GFP_ATOMIC);
+>>
+>>         if (!skb2)
+>>                 return 1;
+>>
+>> // we clean up the cloned skb2
+>>         skb_dst_drop(skb2);
+>>         skb_pull(skb2, ihl);
+>> // The network header is reset
+>>         skb_reset_network_header(skb2);
+>>
+>> //THE PROPOSED FIX: The following line is NOT in the current code
+>>         skb_reset_transport_header(skb2);
 > 
-> I do recall some weird conner cases existing.  I think they resulted
-> in a need to preserve chmod if not chmod +x.  This is just me saying
-> tread carefully before you change anything.
+> This will make your panic with PAX go away, but the offset to
+> the transport header is still wrong. Also, it is not just the
+> sit tunnel that has this problem. All ipv6 tunnels are affected.
 > 
-> It really should be safe to tweak proc_notify_change to not allow
-> messing with the executable bits of proc files.
-
-BTW, we have MS_NOSUID and MS_NOEXEC set in ->s_flags for procfs since
-2006 -- see 92d032855e64.
-
-But there's no code which would translate them into vfsmount->mnt_flags |=
-MNT_NOSUID/MNT_NOEXEC and we bypast nosuid/noexec checks on exec path.
-
-Hm?..
-
--- 
- Kirill A. Shutemov
+> I think the easiest is to fix it in _decode_session6().
+> Could you please try the patch below?
+> 
+> Subject: [PATCH] xfrm6: Fix transport header offset in _decode_session6.
+> 
+> skb->transport_header might not be valid when we do a reverse
+> decode because the ipv6 tunnel error handlers don't update it
+> to the inner transport header. This leads to a wrong offset
+> calculation and to wrong layer 4 informations. We fix this
+> by using the size of the ipv6 header as the first offset.
+> 
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> ---
+>  net/ipv6/xfrm6_policy.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+> index ac49f84..576fc42 100644
+> --- a/net/ipv6/xfrm6_policy.c
+> +++ b/net/ipv6/xfrm6_policy.c
+> @@ -130,8 +130,8 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
+>  {
+>  	struct flowi6 *fl6 = &fl->u.ip6;
+>  	int onlyproto = 0;
+> -	u16 offset = skb_network_header_len(skb);
+>  	const struct ipv6hdr *hdr = ipv6_hdr(skb);
+> +	u16 offset = sizeof(*hdr);
+>  	struct ipv6_opt_hdr *exthdr;
+>  	const unsigned char *nh = skb_network_header(skb);
+>  	u8 nexthdr = nh[IP6CB(skb)->nhoff];
+> 
