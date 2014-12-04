@@ -1,78 +1,69 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCHv2 net] i40e: Implement ndo_gso_check()
-Date: Thu, 4 Dec 2014 10:41:34 -0800
-Message-ID: <CANr6G5zVA=hZLuo5Z2MaXy9A7zzt1-3RQCAS6aZY2iFudOGfYQ@mail.gmail.com>
-References: <1416525081-27779-1-git-send-email-joestringer@nicira.com>
- <CAEP_g=-VEWi2Qo6gcJGr2+NXWEhkuMyu7BiAke6H=x+PTLcNcg@mail.gmail.com>
- <CANr6G5zrA6NUtcyhX1cwEO1Hiq9jnarB36P6m5eoHUFqWWc26Q@mail.gmail.com>
- <CANr6G5xRbG=UnJEdBEN_5ZRjNikCjuUseb1VbQmjjfb36jDP0g@mail.gmail.com>
- <CA+mtBx-Q=Ebrx_8NVB5mWURj-oWB3gdNs5fSAL=Frr9sOmyvHw@mail.gmail.com>
- <CAEP_g=979u0baWXGmCxo61a-KYEUwkruqBNof_zQpsvJxRFqSA@mail.gmail.com>
- <CA+mtBx9RwkJ9b84d_OkCtOunFBsuqw276=5E+Qhoqq75utCR4w@mail.gmail.com> <CAEP_g=9Yg-pZf9-Wb4qrZhAMSB=edqDxBXSRskWCturt-nnxTg@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCHv3 net] i40e: Implement ndo_gso_check()
+Date: Thu, 04 Dec 2014 10:46:25 -0800
+Message-ID: <1417718785.2404.5.camel@jtkirshe-mobl>
+References: <1417718366-14310-1-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <therbert@google.com>, netdev <netdev@vger.kernel.org>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"linux.nics" <linux.nics@intel.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-jC5Fd97JZ91L62YSU9P6"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jesse@nicira.com, shannon.nelson@intel.com,
+	jesse.brandeburg@intel.com, therbert@google.com,
+	linux.nics@intel.com
+To: Joe Stringer <joestringer@nicira.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEP_g=9Yg-pZf9-Wb4qrZhAMSB=edqDxBXSRskWCturt-nnxTg@mail.gmail.com>
+In-Reply-To: <1417718366-14310-1-git-send-email-joestringer@nicira.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2 December 2014 at 10:26, Jesse Gross <jesse@nicira.com> wrote:
-> On Mon, Dec 1, 2014 at 4:09 PM, Tom Herbert <therbert@google.com> wrote:
->> On Mon, Dec 1, 2014 at 3:53 PM, Jesse Gross <jesse@nicira.com> wrote:
->>> On Mon, Dec 1, 2014 at 3:47 PM, Tom Herbert <therbert@google.com> wrote:
->>>> On Mon, Dec 1, 2014 at 3:35 PM, Joe Stringer <joestringer@nicira.com> wrote:
->>>>> On 21 November 2014 at 09:59, Joe Stringer <joestringer@nicira.com> wrote:
->>>>>> On 20 November 2014 16:19, Jesse Gross <jesse@nicira.com> wrote:
->>>>>>> I don't know if we need to have the check at all for IPIP though -
->>>>>>> after all the driver doesn't expose support for it all (actually it
->>>>>>> doesn't expose GRE either). This raises kind of an interesting
->>>>>>> question about the checks though - it's pretty easy to add support to
->>>>>>> the driver for a new GSO type (and I imagine that people will be
->>>>>>> adding GRE soon) and forget to update the check.
->>>>>>
->>>>>> If the check is more conservative, then testing would show that it's
->>>>>> not working and lead people to figure out why (and update the check).
->>>>>
->>>>> More concretely, one suggestion would be something like following at
->>>>> the start of each gso_check():
->>>>>
->>>>> +       const int supported = SKB_GSO_TCPV4 | SKB_GSO_TCPV6 | SKB_GSO_FCOE |
->>>>> +                             SKB_GSO_UDP | SKB_GSO_UDP_TUNNEL;
->>>>> +
->>>>> +       if (skb_shinfo(skb)->gso_type & ~supported)
->>>>> +               return false;
->>>>
->>>> This should already be handled by net_gso_ok.
->>>
->>> My original point wasn't so much that this isn't handled at the moment
->>> but that it's easy to add a supported GSO type but then forget to
->>> update this check - i.e. if a driver already supports UDP_TUNNEL and
->>> adds support for GRE with the same constraints. It seems not entirely
->>> ideal that this function is acting as a blacklist rather than a
->>> whitelist.
->>
->> Agreed, it would be nice to have all the checking logic in one place.
->> If all the drivers end up implementing ndo_gso_check then we could
->> potentially get rid of the GSO types as features. This probably
->> wouldn't be a bad thing since we already know that the features
->> mechanism doesn't scale (for instance there's no way to indicate that
->> certain combinations of GSO types are supported by a device).
->
-> This crossed my mind and I agree that it's pretty clear that the
-> features mechanism isn't scaling very well. Presumably, the logical
-> extension of this is that each driver would have a function that looks
-> at a packet and returns a set of offload operations that it can
-> support rather than exposing a set of protocols. However, it seems
-> like it would probably result in a bunch of duplicate code in each
-> driver.
 
-Given the discussion is still pretty open-ended, I've made the basic
-feedback changes for v3 and haven't tried to address the concern about
-forgetting to update this check when a driver adds support.
+--=-jC5Fd97JZ91L62YSU9P6
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2014-12-04 at 10:39 -0800, Joe Stringer wrote:
+> ndo_gso_check() was recently introduced to allow NICs to report the
+> offloading support that they have on a per-skb basis. Add an
+> implementation for this driver which checks for IPIP, GRE, UDP
+> tunnels.
+>=20
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> ---
+> v3: Drop IPIP and GRE (no driver support even though hw supports it).
+>     Check for UDP outer protocol for UDP tunnels.
+> v2: Expand to include IP in IP and IPv4/IPv6 inside GRE/UDP tunnels.
+>     Add MAX_INNER_LENGTH (as 80).
+> ---
+>  drivers/net/ethernet/intel/i40e/i40e_main.c |   26
+> ++++++++++++++++++++++++++
+>  1 file changed, 26 insertions(+)
+
+Thanks Joe, I will add your patch to my queue.
+
+Jesse Gross/Tom- If you guys are OK with the latest patch, I will move
+forward with adding this patch to my queue.
+
+--=-jC5Fd97JZ91L62YSU9P6
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJUgKwBAAoJEOVv75VaS+3OGSoP/3IiURx6dK43zFEZlCbTo1mz
+beoWD2k0SQylvCwxnbbDp9dmjsg3zKwiIaQhBFPfhrHMKETw4+EFPLcpYF45ugvF
+2v3sODD/UdtttJZ3Hi5F22fElQRmT5ZQHX0X+JkDMSwsOsHVG6CruGv2SpvD4kyE
+HSVJNAcokTzHqGVfSSaILM1KchafwzeWneSQfLhoIS1/c5sQsxo2o7By8C3KnT5v
+RDu+zYHIrdVarGoyx+Jz5OBn/WOv8x1ypyOmaVCu45VGrP21G4gfldw2bqSAJsBv
+9qhO2Z+T2RswRqOUI9wNyzmdM/oFT1w6LIS6QuADqubwRxkd7MUSZXw1650Iue7k
+yrCTuS4mXr3TWcq18AyWIinlopUmIzwEhnVm68fLUnPQhr55UmHZlb3xfaY28UJQ
+oMBvknLBGSfrrmmnhDLjeM9h7NmeI2XQPDar4sj9HElOKP7ri3796UbQP/TU4Xjx
+zDEmKlyttV7nwchyLziBtm9+SXNPUF4h5ltkQbcoV51O/oZYJvy4PfgtsO7F16T0
+ZY6LLqR9RxXsJDULpzFywm4R8WeiHBmjMG4HCYR1IsLmdLmEtxd22rm3tXXjlb+k
+X4ukVsO/AwJ0Qp3HeV66tACFDuCcRN95a6MZsmstJZOK2Kl4q56veRs3Sd4UOw+P
+3ANgpYr/6OPQPhvgA58x
+=OGxd
+-----END PGP SIGNATURE-----
+
+--=-jC5Fd97JZ91L62YSU9P6--
