@@ -1,78 +1,98 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [patch iproute2 1/6] iproute2: ipa: show switch id
-Date: Thu, 04 Dec 2014 14:06:14 -0600
-Message-ID: <87h9xbxjrd.fsf@x220.int.ebiederm.org>
-References: <1417683438-10935-1-git-send-email-jiri@resnulli.us>
-	<1417683438-10935-2-git-send-email-jiri@resnulli.us>
-	<87y4qne6if.fsf@x220.int.ebiederm.org>
-	<20141204163024.GG1861@nanopsycho.orion>
-	<87388v9ua6.fsf@x220.int.ebiederm.org>
-	<20141204182451.GI1861@nanopsycho.orion>
-	<87k327450a.fsf@x220.int.ebiederm.org>
-	<20141204191926.GK1861@nanopsycho.orion>
-	<87wq672p49.fsf@x220.int.ebiederm.org>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCHv3 net] i40e: Implement ndo_gso_check()
+Date: Thu, 4 Dec 2014 12:17:24 -0800
+Message-ID: <CA+mtBx_BiJ526jop1tLhx1ji4beRufQRhiN9nfFBWLnr25DMww@mail.gmail.com>
+References: <1417718366-14310-1-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
-	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
-	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.org, hemal@broadcom.c
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:59482 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751590AbaLDUIe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 15:08:34 -0500
-In-Reply-To: <87wq672p49.fsf@x220.int.ebiederm.org> (Eric W. Biederman's
-	message of "Thu, 04 Dec 2014 13:26:14 -0600")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Jesse Gross <jesse@nicira.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"linux.nics" <linux.nics@intel.com>
+To: Joe Stringer <joestringer@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1417718366-14310-1-git-send-email-joestringer@nicira.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-ebiederm@xmission.com (Eric W. Biederman) writes:
-
-> Jiri Pirko <jiri@resnulli.us> writes:
+On Thu, Dec 4, 2014 at 10:39 AM, Joe Stringer <joestringer@nicira.com> wrote:
+> ndo_gso_check() was recently introduced to allow NICs to report the
+> offloading support that they have on a per-skb basis. Add an
+> implementation for this driver which checks for IPIP, GRE, UDP tunnels.
 >
->>>So this id needs to be globally unique?
->>
->> No. It is enough to be unique within a single system. It serves for no
->> more than to find out 2 ids are same or not, no other info value.
->>
->> So when the drivers uses sane ids (like mac for example, or in case of
->> rocker an id which is passed by qemu command line), the chances of
->> collision are very very close to none (never say never).
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> ---
+> v3: Drop IPIP and GRE (no driver support even though hw supports it).
+>     Check for UDP outer protocol for UDP tunnels.
+> v2: Expand to include IP in IP and IPv4/IPv6 inside GRE/UDP tunnels.
+>     Add MAX_INNER_LENGTH (as 80).
+> ---
+>  drivers/net/ethernet/intel/i40e/i40e_main.c |   26 ++++++++++++++++++++++++++
+>  1 file changed, 26 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> index c3a7f4a..0d6493a 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> @@ -7447,6 +7447,31 @@ static int i40e_ndo_fdb_dump(struct sk_buff *skb,
+>
+>  #endif /* USE_DEFAULT_FDB_DEL_DUMP */
+>  #endif /* HAVE_FDB_OPS */
+> +static bool i40e_gso_check(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +       if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) {
+> +               unsigned char *ihdr;
+> +
+> +               if (skb->protocol != IPPROTO_UDP ||
+> +                   skb->inner_protocol_type != ENCAP_TYPE_ETHER)
+> +                       return false;
+> +
+> +               if (skb->inner_protocol == htons(ETH_P_TEB))
+> +                       ihdr = skb_inner_mac_header(skb);
+> +               else if (skb->inner_protocol == htons(ETH_P_IP) ||
+> +                        skb->inner_protocol == htons(ETH_P_IPV6))
+> +                       ihdr = skb_inner_network_header(skb);
+> +               else
+> +                       return false;
+> +
 
-Thinking about what you said a little more.
+Wow, this is getting complicated! :-( It's not clear that the protocol
+specific checks are needed here since it looks like the header length
+is being passed to the device later on. Also, I think we need
+skb_inner_mac_header(skb) - skb_transport_header(skb) to always work
+to give the length of the encapsulation headers (in case there is no
+real inner mac header, then that offset should be for the network
+header).
 
-Two different sources of persistent numbers picking numbers by
-completely different algorithms can give you no assurance that you don't
-produce conflicts.
+So would a simple check like this work:
 
-The switch id as desisgned can not work.
+if (skb->encapsulation &&
+    (skb_inner_mac_header(skb) - skb_transport_header(skb)) >
+MAX_TUNNEL_HDR_LEN)
+       return false;
 
-There are expected to be between 2**36 to 2**40 devices in this world.
-Your first switch id is a 64it number.  At the very best by the birthday
-pardox predicts there will be a conflict ever 2**32 devices or between
-2**4 and 2**8 devices in the world with conflicts.  If the ids are not
-randomly distributed (which they won't be) things could easily be much
-much worse.
-
-That is just good enough the code could get out there and run for years
-before you have the nightmare of having to fix all of userspace.   That
-is a nightmare no one needs.
-
-So please remove this broken code, and this broken concept from the
-kernel and go back to the drawing board.
-
-Eric
+> +#define MAX_TUNNEL_HDR_LEN     80
+> +               if (ihdr - skb_transport_header(skb) > MAX_TUNNEL_HDR_LEN)
+> +                       return false;
+> +       }
+> +
+> +       return true;
+> +}
+> +
+>  static const struct net_device_ops i40e_netdev_ops = {
+>         .ndo_open               = i40e_open,
+>         .ndo_stop               = i40e_close,
+> @@ -7487,6 +7512,7 @@ static const struct net_device_ops i40e_netdev_ops = {
+>         .ndo_fdb_dump           = i40e_ndo_fdb_dump,
+>  #endif
+>  #endif
+> +       .ndo_gso_check          = i40e_gso_check,
+>  };
+>
+>  /**
+> --
+> 1.7.10.4
+>
