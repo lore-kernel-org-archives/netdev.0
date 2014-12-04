@@ -1,143 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: avoid two atomic operations in fast clones
-Date: Wed, 03 Dec 2014 17:04:39 -0800
-Message-ID: <1417655079.5303.152.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net] gso: do GSO for local skb with size bigger than MTU
+Date: Thu, 4 Dec 2014 01:15:15 +0000
+Message-ID: <20141204011515.GA15666@casper.infradead.org>
+References: <20141202174158.GB9457@casper.infradead.org>
+ <CAEP_g=-86Z6pxNow-wjnbx_v9er_TSn6x5waigqVqYHa7tEQJw@mail.gmail.com>
+ <20141203090339.GA9299@redhat.com>
+ <CAEP_g=9C+D3gbjJ4n1t6xuyjqEAMYi4ZfqPoe92UAoQJH-UsKg@mail.gmail.com>
+ <20141203183859.GB16447@redhat.com>
+ <CAEP_g=_Y2YQg0wDRJLXsNH6p3fOc5G0KSJb12x_b4OE238ophg@mail.gmail.com>
+ <20141203220244.GA8822@casper.infradead.org>
+ <CAEP_g=90nC2HhmBNKh-hKJ5MJ85Z-_ER14roDxMsZAKog+dFhw@mail.gmail.com>
+ <20141203230551.GC8822@casper.infradead.org>
+ <CAEP_g=-y_-=r+BHk3VfzxMNwH=B-26DvQrzQ7gkKG8fDG7Mx3g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Chris Mason <clm@fb.com>,
-	Sabrina Dubroca <sd@queasysnail.net>,
-	Vijay Subramanian <subramanian.vijay@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	"Du, Fan" <fan.du@intel.com>, Jason Wang <jasowang@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"fw@strlen.de" <fw@strlen.de>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Pravin Shelar <pshelar@nicira.com>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:41151 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750840AbaLDBEl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 20:04:41 -0500
-Received: by mail-ie0-f170.google.com with SMTP id rd18so15024849iec.15
-        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 17:04:41 -0800 (PST)
+Received: from casper.infradead.org ([85.118.1.10]:47091 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751106AbaLDBPU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 20:15:20 -0500
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=-y_-=r+BHk3VfzxMNwH=B-26DvQrzQ7gkKG8fDG7Mx3g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 12/03/14 at 04:54pm, Jesse Gross wrote:
+> I don't think that we actually need a bit. I would expect that ICMP
+> generation to be coupled with routing (although this requires being
+> able to know what the ultimate MTU is at the time of routing the inner
+> packet). If that's the case, you just need to steer between L2 and L3
+> processing in the same way that you would today and ICMP would just
+> come in the right cases.
 
-Commit ce1a4ea3f125 ("net: avoid one atomic operation in skb_clone()")
-took the wrong way to save one atomic operation.
-
-It is actually possible to avoid two atomic operations, if we
-do not change skb->fclone values, and only rely on clone_ref
-content to signal if the clone is available or not.
-
-skb_clone() can simply use the fast clone if clone_ref is 1.
-
-kfree_skbmem() can avoid the atomic_dec_and_test() if clone_ref is 1.
-
-Note that because we usually free the clone before the original skb,
-this particular attempt is only done for the original skb to have better
-branch prediction.
-
-SKB_FCLONE_FREE is removed.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Chris Mason <clm@fb.com>
-Cc: Sabrina Dubroca <sd@queasysnail.net>
-Cc: Vijay Subramanian <subramanian.vijay@gmail.com>
----
- include/linux/skbuff.h |    3 +--
- net/core/skbuff.c      |   35 ++++++++++++++++++-----------------
- 2 files changed, 19 insertions(+), 19 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 7691ad5b4771..27b64d5f7c94 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -344,7 +344,6 @@ enum {
- 	SKB_FCLONE_UNAVAILABLE,	/* skb has no fclone (from head_cache) */
- 	SKB_FCLONE_ORIG,	/* orig skb (from fclone_cache) */
- 	SKB_FCLONE_CLONE,	/* companion fclone skb (from fclone_cache) */
--	SKB_FCLONE_FREE,	/* this companion fclone skb is available */
- };
- 
- enum {
-@@ -818,7 +817,7 @@ static inline bool skb_fclone_busy(const struct sock *sk,
- 	fclones = container_of(skb, struct sk_buff_fclones, skb1);
- 
- 	return skb->fclone == SKB_FCLONE_ORIG &&
--	       fclones->skb2.fclone == SKB_FCLONE_CLONE &&
-+	       atomic_read(&fclones->fclone_ref) > 1 &&
- 	       fclones->skb2.sk == sk;
- }
- 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 92116dfe827c..7a338fb55cc4 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -265,7 +265,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 		skb->fclone = SKB_FCLONE_ORIG;
- 		atomic_set(&fclones->fclone_ref, 1);
- 
--		fclones->skb2.fclone = SKB_FCLONE_FREE;
-+		fclones->skb2.fclone = SKB_FCLONE_CLONE;
- 		fclones->skb2.pfmemalloc = pfmemalloc;
- 	}
- out:
-@@ -541,26 +541,27 @@ static void kfree_skbmem(struct sk_buff *skb)
- 	switch (skb->fclone) {
- 	case SKB_FCLONE_UNAVAILABLE:
- 		kmem_cache_free(skbuff_head_cache, skb);
--		break;
-+		return;
- 
- 	case SKB_FCLONE_ORIG:
- 		fclones = container_of(skb, struct sk_buff_fclones, skb1);
--		if (atomic_dec_and_test(&fclones->fclone_ref))
--			kmem_cache_free(skbuff_fclone_cache, fclones);
--		break;
--
--	case SKB_FCLONE_CLONE:
--		fclones = container_of(skb, struct sk_buff_fclones, skb2);
- 
--		/* The clone portion is available for
--		 * fast-cloning again.
-+		/* We usually free the clone (TX completion) before original skb
-+		 * This test would have no chance to be true for the clone,
-+		 * while here, branch prediction will be good.
- 		 */
--		skb->fclone = SKB_FCLONE_FREE;
-+		if (atomic_read(&fclones->fclone_ref) == 1)
-+			goto fastpath;
-+		break;
- 
--		if (atomic_dec_and_test(&fclones->fclone_ref))
--			kmem_cache_free(skbuff_fclone_cache, fclones);
-+	default: /* SKB_FCLONE_CLONE */
-+		fclones = container_of(skb, struct sk_buff_fclones, skb2);
- 		break;
- 	}
-+	if (!atomic_dec_and_test(&fclones->fclone_ref))
-+		return;
-+fastpath:
-+	kmem_cache_free(skbuff_fclone_cache, fclones);
- }
- 
- static void skb_release_head_state(struct sk_buff *skb)
-@@ -872,15 +873,15 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
- 	struct sk_buff_fclones *fclones = container_of(skb,
- 						       struct sk_buff_fclones,
- 						       skb1);
--	struct sk_buff *n = &fclones->skb2;
-+	struct sk_buff *n;
- 
- 	if (skb_orphan_frags(skb, gfp_mask))
- 		return NULL;
- 
- 	if (skb->fclone == SKB_FCLONE_ORIG &&
--	    n->fclone == SKB_FCLONE_FREE) {
--		n->fclone = SKB_FCLONE_CLONE;
--		atomic_inc(&fclones->fclone_ref);
-+	    atomic_read(&fclones->fclone_ref) == 1) {
-+		n = &fclones->skb2;
-+		atomic_set(&fclones->fclone_ref, 2);
- 	} else {
- 		if (skb_pfmemalloc(skb))
- 			gfp_mask |= __GFP_MEMALLOC;
+I think the MTU awareness is solveable but how do you steer between
+L2 and L3? How do you differentiate between an L3 ACL rule in L2 mode
+and an actual L3 based forward? dec_ttl? This is what drove me to
+the user controlled bit and it became appealing as it allows to
+enable/disable PMTU per guest or even per flow/route.
