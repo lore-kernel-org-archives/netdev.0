@@ -1,50 +1,41 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH] x86: bpf_jit_comp: simplify trivial boolean return
-Date: Thu, 4 Dec 2014 07:56:54 -0800
-Message-ID: <CAADnVQJawht6+sARaP=s9PyPERjrVOBKiJLrCK0OwnLtzT2CAA@mail.gmail.com>
-References: <CAADnVQK3iui8cAmhi28=65p2CJbTu45fR98ri8Uh8xLRb=cwnA@mail.gmail.com>
-	<1417032059.16355.4.camel@perches.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1C9FDA63@AcuExch.aculab.com>
-	<1417114175.4305.3.camel@perches.com>
-	<1417685187.2721.1.camel@perches.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: Where exactly will arch_fast_hash be used
+Date: Thu, 4 Dec 2014 15:56:30 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CA0284A@AcuExch.aculab.com>
+References: <20141204081147.GA19030@gondor.apana.org.au>
+ <20141204152637.GA32140@casper.infradead.org>
+ <20141204152929.GA22075@gondor.apana.org.au>
+ <20141204153938.GC32140@casper.infradead.org> <54808123.8000704@redhat.com>
+ <20141204154708.GA22185@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Laight <David.Laight@aculab.com>,
-	Quentin Lambert <lambert.quentin@gmail.com>,
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Thomas Graf <tgraf@suug.ch>,
 	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	"x86@kernel.org" <x86@kernel.org>,
+	Theodore Ts'o <tytso@mit.edu>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: 'Herbert Xu' <herbert@gondor.apana.org.au>,
+	Daniel Borkmann <dborkman@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417685187.2721.1.camel@perches.com>
+In-Reply-To: <20141204154708.GA22185@gondor.apana.org.au>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 4, 2014 at 1:26 AM, Joe Perches <joe@perches.com> wrote:
-> On Thu, 2014-11-27 at 10:49 -0800, Joe Perches wrote:
->> On Thu, 2014-11-27 at 12:25 +0000, David Laight wrote:
->> > Why the change in data?
->>
->> btw: without gcov and using -O2
->>
->> $ size arch/x86/net/bpf_jit_comp.o*
->>    text          data     bss     dec     hex filename
->>    9671             4       0    9675    25cb arch/x86/net/bpf_jit_comp.o.new
->>   10679             4       0   10683    29bb arch/x86/net/bpf_jit_comp.o.old
->
-> Alexei?
->
-> Is this 10% reduction in size a good reason to change the code?
+From: Herbert Xu
+> On Thu, Dec 04, 2014 at 04:43:31PM +0100, Daniel Borkmann wrote:
+> >
+> > Hm, I thought the kernel doc on arch_fast_hash() in include/linux/hash.h
+> > would give enough of a hint ...
+> 
+> I think something more explicit like "do not use this in a hash
+> table unless you know what you're doing" might be needed.
 
-yes.
-I believe you're seeing it with gcc 4.9. I wanted to double
-check what 4.6 and 4.7 are doing. If they're not suddenly
-increase code size then resubmit it for inclusion please.
+That isn't really helpful. Maybe something more like:
+
+"This CRC algorithm used by this hash is 'linear', ie hash(a xor b) ==
+hash(a) xor hash(b). This means that it is relatively easy for a remote
+attacker to generate multiple items with the same hash."
+
+	David
