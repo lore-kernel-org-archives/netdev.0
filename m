@@ -1,64 +1,90 @@
-From: Qin Chuanyu <qinchuanyu@huawei.com>
-Subject: Re: What's the concern about setting irq thread's policy as SCHED_FIFO
-Date: Thu, 4 Dec 2014 11:12:12 +0800
-Message-ID: <547FD10C.8040900@huawei.com>
-References: <547EC4A3.6060408@huawei.com> <547F3F92.2050501@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <547F3F92.2050501@hp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Petri Gynther <pgynther@google.com>
+Subject: [PATCH 1/4 net-next] net: bcmgenet: bcmgenet_init_tx_ring() cleanup
+Date: Wed,  3 Dec 2014 20:11:31 -0800 (PST)
+Message-ID: <20141204041131.830CB2200C7@puck.mtv.corp.google.com>
+Cc: davem@davemloft.net, f.fainelli@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f73.google.com ([209.85.213.73]:49178 "EHLO
+	mail-yh0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752540AbaLDELd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 23:11:33 -0500
+Received: by mail-yh0-f73.google.com with SMTP id f10so919086yha.4
+        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 20:11:32 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2014/12/4 0:51, Rick Jones wrote:
-> On 12/03/2014 12:06 AM, Qin Chuanyu wrote:
->> I am doing network performance test under suse11sp3 and intel 82599 nic,
->> Becasuse the softirq is out of schedule policy's control, so netserver
->> thread couldn't always get 100% cpu usage, then packet dropped in kernel
->> udp socket's receive queue.
->>
->> In order to get a stable result, I did some patch in ixgbe driver and
->> then use irq_thread instead of softirq to handle rx.
->> It seems work well, but irq_thread's SCHED_FIFO schedule policy cause
->> that when the cpu is limited, netserver couldn't work at all.
->
-> I cannot speak to any scheduling issues/questions, but can ask if you
-> tried binding netserver to a CPU other than the one servicing the
-> interrupts via the -T option on the netperf command line:
->
-> netperf -T <netperfCPU>,<netserverCPU>  ...
->
-> http://www.netperf.org/svn/netperf2/trunk/doc/netperf.html#index-g_t_002dT_002c-Global-41
->
-Yes, I had done this try, the irq_thread and netserver worked well 
-without competition after binding them separately.
-I also had tried this test case in kernel 3.10, and without binding 
-irq_thread and netserver work well separately.
+Signed-off-by: Petri Gynther <pgynther@google.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 23 +++++++++--------------
+ 1 file changed, 9 insertions(+), 14 deletions(-)
 
-So, the question is:
-	3.10:    irq_thread netserver  good
-	3.0.93:  irq_thread netserver  bad(compete single cpu)
-normal thread in both kernel version is OK.
-
-There must be a schedule policy change lead to this difference.
-Could anyone give some hint?
-
->
-> happy benchnmarking,
->
-> rick jones
->
->>
->> So I change the irq_thread's schedule policy from SCHED_FIFO to
->> SCHED_NORMAL, then the irq_thread could share the cpu usage with
->> netserver thread.
->>
->> the question is:
->> What's the concrete reason about setting irq thread's policy as
->> SCHED_FIFO?
->> Except the priority affecting the cpu usage, any function would be
->> broken if irq thread change to SCHED_NORMAL?
->>
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index f2fadb0..78ab733 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -1679,17 +1679,16 @@ static int init_umac(struct bcmgenet_priv *priv)
+ 	return 0;
+ }
+ 
+-/* Initialize all house-keeping variables for a TX ring, along
+- * with corresponding hardware registers
++/*
++ * Initialize a Tx ring along with corresponding hardware registers.
+  */
+ static void bcmgenet_init_tx_ring(struct bcmgenet_priv *priv,
+ 				  unsigned int index, unsigned int size,
+-				  unsigned int write_ptr, unsigned int end_ptr)
++				  unsigned int start_ptr, unsigned int end_ptr)
+ {
+ 	struct bcmgenet_tx_ring *ring = &priv->tx_rings[index];
+ 	u32 words_per_bd = WORDS_PER_BD(priv);
+ 	u32 flow_period_val = 0;
+-	unsigned int first_bd;
+ 
+ 	spin_lock_init(&ring->lock);
+ 	ring->index = index;
+@@ -1702,12 +1701,12 @@ static void bcmgenet_init_tx_ring(struct bcmgenet_priv *priv,
+ 		ring->int_enable = bcmgenet_tx_ring_int_enable;
+ 		ring->int_disable = bcmgenet_tx_ring_int_disable;
+ 	}
+-	ring->cbs = priv->tx_cbs + write_ptr;
++	ring->cbs = priv->tx_cbs + start_ptr;
+ 	ring->size = size;
+ 	ring->c_index = 0;
+ 	ring->free_bds = size;
+-	ring->write_ptr = write_ptr;
+-	ring->cb_ptr = write_ptr;
++	ring->write_ptr = start_ptr;
++	ring->cb_ptr = start_ptr;
+ 	ring->end_ptr = end_ptr - 1;
+ 	ring->prod_index = 0;
+ 
+@@ -1718,22 +1717,18 @@ static void bcmgenet_init_tx_ring(struct bcmgenet_priv *priv,
+ 	bcmgenet_tdma_ring_writel(priv, index, 0, TDMA_PROD_INDEX);
+ 	bcmgenet_tdma_ring_writel(priv, index, 0, TDMA_CONS_INDEX);
+ 	bcmgenet_tdma_ring_writel(priv, index, 1, DMA_MBUF_DONE_THRESH);
+-	/* Disable rate control for now */
+ 	bcmgenet_tdma_ring_writel(priv, index, flow_period_val,
+ 				  TDMA_FLOW_PERIOD);
+-	/* Unclassified traffic goes to ring 16 */
+ 	bcmgenet_tdma_ring_writel(priv, index,
+ 				  ((size << DMA_RING_SIZE_SHIFT) |
+ 				   RX_BUF_LENGTH), DMA_RING_BUF_SIZE);
+ 
+-	first_bd = write_ptr;
+-
+ 	/* Set start and end address, read and write pointers */
+-	bcmgenet_tdma_ring_writel(priv, index, first_bd * words_per_bd,
++	bcmgenet_tdma_ring_writel(priv, index, start_ptr * words_per_bd,
+ 				  DMA_START_ADDR);
+-	bcmgenet_tdma_ring_writel(priv, index, first_bd * words_per_bd,
++	bcmgenet_tdma_ring_writel(priv, index, start_ptr * words_per_bd,
+ 				  TDMA_READ_PTR);
+-	bcmgenet_tdma_ring_writel(priv, index, first_bd,
++	bcmgenet_tdma_ring_writel(priv, index, start_ptr * words_per_bd,
+ 				  TDMA_WRITE_PTR);
+ 	bcmgenet_tdma_ring_writel(priv, index, end_ptr * words_per_bd - 1,
+ 				  DMA_END_ADDR);
+-- 
+2.2.0.rc0.207.ga3a616c
