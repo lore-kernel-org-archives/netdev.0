@@ -1,7 +1,7 @@
 From: Pieter Smith <pieter@boesman.nl>
-Subject: [PATCH v6 3/7] fs/splice: support compiling out splice-family syscalls
-Date: Thu,  4 Dec 2014 18:50:51 +0100
-Message-ID: <1417715473-24110-4-git-send-email-pieter@boesman.nl>
+Subject: [PATCH v6 1/7] fs: move sendfile syscall into fs/splice
+Date: Thu,  4 Dec 2014 18:50:49 +0100
+Message-ID: <1417715473-24110-2-git-send-email-pieter@boesman.nl>
 References: <1417715473-24110-1-git-send-email-pieter@boesman.nl>
 Cc: Josh Triplett <josh@joshtriplett.org>,
 	Pieter Smith <pieter@boesman.nl>,
@@ -31,116 +31,403 @@ In-Reply-To: <1417715473-24110-1-git-send-email-pieter@boesman.nl>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Many embedded systems will not need the splice-family syscalls (splice,
-vmsplice, tee and sendfile). Omitting them saves space.  This adds a new EXPERT
-config option CONFIG_SYSCALL_SPLICE (default y) to support compiling them out.
+sendfile functionally forms part of the splice group of syscalls (splice,
+vmsplice and tee). Grouping sendfile with splice paves the way to compiling out
+the splice group of syscalls for embedded systems that do not need these.
 
-The goal is to completely compile out fs/splice along with the syscalls. To
-achieve this, the remaining patch-set will deal with fs/splice exports. As far
-as possible, the impact on other device drivers will be minimized so as to
-reduce the overal maintenance burden of CONFIG_SYSCALL_SPLICE.
-
-The use of exported functions will be solved by transparently mocking them out
-with static inlines. Uses of the exported pipe_buf_operations struct however
-require direct modification in fs/fuse and net/core. The next two patches will
-deal with this.
-
-The last change required before fs/splice can be comipled out is making fs/nfsd
-aware of the lacking splice support in file-systems when CONFIG_SYSCALL_SPLICE
-is undefined.
-
-The bloat benefit of this patch given a tinyconfig is:
-
-add/remove: 0/16 grow/shrink: 2/5 up/down: 114/-3693 (-3579)
+add/remove: 0/0 grow/shrink: 7/2 up/down: 86/-61 (25)
 function                                     old     new   delta
-splice_direct_to_actor                       348     416     +68
-splice_to_pipe                               371     417     +46
-splice_from_pipe_next                        107     106      -1
-fdput                                         11       -     -11
-signal_pending                                39      26     -13
-fdget                                         56      42     -14
-user_page_pipe_buf_ops                        20       -     -20
-user_page_pipe_buf_steal                      25       -     -25
-file_end_write                                58      29     -29
-file_start_write                              68      34     -34
-pipe_to_user                                  43       -     -43
-wakeup_pipe_readers                           54       -     -54
-do_splice_to                                  87       -     -87
-ipipe_prep.part                               92       -     -92
-opipe_prep.part                              119       -    -119
-sys_sendfile                                 122       -    -122
-sys_sendfile64                               126       -    -126
-sys_vmsplice                                 137       -    -137
-vmsplice_to_user                             205       -    -205
-sys_tee                                      491       -    -491
-do_sendfile                                  492       -    -492
-vmsplice_to_pipe                             558       -    -558
-sys_splice                                  1020       -   -1020
+file_start_write                              34      68     +34
+file_end_write                                29      58     +29
+sys_pwritev                                  115     122      +7
+sys_preadv                                   115     122      +7
+fdput_pos                                     29      36      +7
+sys_pwrite64                                 115     116      +1
+sys_pread64                                  115     116      +1
+sys_tee                                      497     491      -6
+sys_splice                                  1075    1020     -55
 
 Signed-off-by: Pieter Smith <pieter@boesman.nl>
 ---
- fs/splice.c     |  2 ++
- init/Kconfig    | 10 ++++++++++
- kernel/sys_ni.c |  8 ++++++++
- 3 files changed, 20 insertions(+)
+ fs/read_write.c | 175 -------------------------------------------------------
+ fs/splice.c     | 178 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 178 insertions(+), 175 deletions(-)
 
-diff --git a/fs/splice.c b/fs/splice.c
-index 44b201b..7c4c695 100644
---- a/fs/splice.c
-+++ b/fs/splice.c
-@@ -1316,6 +1316,7 @@ long do_splice_direct(struct file *in, loff_t *ppos, struct file *out,
- 	return ret;
- }
- 
-+#ifdef CONFIG_SYSCALL_SPLICE
- static int splice_pipe_to_pipe(struct pipe_inode_info *ipipe,
- 			       struct pipe_inode_info *opipe,
- 			       size_t len, unsigned int flags);
-@@ -2200,4 +2201,5 @@ COMPAT_SYSCALL_DEFINE4(sendfile64, int, out_fd, int, in_fd,
- 	return do_sendfile(out_fd, in_fd, NULL, count, 0);
+diff --git a/fs/read_write.c b/fs/read_write.c
+index 7d9318c..d9451ba 100644
+--- a/fs/read_write.c
++++ b/fs/read_write.c
+@@ -1191,178 +1191,3 @@ COMPAT_SYSCALL_DEFINE5(pwritev, compat_ulong_t, fd,
  }
  #endif
-+#endif
  
-diff --git a/init/Kconfig b/init/Kconfig
-index d811d5f..dec9819 100644
---- a/init/Kconfig
-+++ b/init/Kconfig
-@@ -1571,6 +1571,16 @@ config NTP
- 	  system clock to an NTP server, you can disable this option to save
- 	  space.
+-static ssize_t do_sendfile(int out_fd, int in_fd, loff_t *ppos,
+-		  	   size_t count, loff_t max)
+-{
+-	struct fd in, out;
+-	struct inode *in_inode, *out_inode;
+-	loff_t pos;
+-	loff_t out_pos;
+-	ssize_t retval;
+-	int fl;
+-
+-	/*
+-	 * Get input file, and verify that it is ok..
+-	 */
+-	retval = -EBADF;
+-	in = fdget(in_fd);
+-	if (!in.file)
+-		goto out;
+-	if (!(in.file->f_mode & FMODE_READ))
+-		goto fput_in;
+-	retval = -ESPIPE;
+-	if (!ppos) {
+-		pos = in.file->f_pos;
+-	} else {
+-		pos = *ppos;
+-		if (!(in.file->f_mode & FMODE_PREAD))
+-			goto fput_in;
+-	}
+-	retval = rw_verify_area(READ, in.file, &pos, count);
+-	if (retval < 0)
+-		goto fput_in;
+-	count = retval;
+-
+-	/*
+-	 * Get output file, and verify that it is ok..
+-	 */
+-	retval = -EBADF;
+-	out = fdget(out_fd);
+-	if (!out.file)
+-		goto fput_in;
+-	if (!(out.file->f_mode & FMODE_WRITE))
+-		goto fput_out;
+-	retval = -EINVAL;
+-	in_inode = file_inode(in.file);
+-	out_inode = file_inode(out.file);
+-	out_pos = out.file->f_pos;
+-	retval = rw_verify_area(WRITE, out.file, &out_pos, count);
+-	if (retval < 0)
+-		goto fput_out;
+-	count = retval;
+-
+-	if (!max)
+-		max = min(in_inode->i_sb->s_maxbytes, out_inode->i_sb->s_maxbytes);
+-
+-	if (unlikely(pos + count > max)) {
+-		retval = -EOVERFLOW;
+-		if (pos >= max)
+-			goto fput_out;
+-		count = max - pos;
+-	}
+-
+-	fl = 0;
+-#if 0
+-	/*
+-	 * We need to debate whether we can enable this or not. The
+-	 * man page documents EAGAIN return for the output at least,
+-	 * and the application is arguably buggy if it doesn't expect
+-	 * EAGAIN on a non-blocking file descriptor.
+-	 */
+-	if (in.file->f_flags & O_NONBLOCK)
+-		fl = SPLICE_F_NONBLOCK;
+-#endif
+-	file_start_write(out.file);
+-	retval = do_splice_direct(in.file, &pos, out.file, &out_pos, count, fl);
+-	file_end_write(out.file);
+-
+-	if (retval > 0) {
+-		add_rchar(current, retval);
+-		add_wchar(current, retval);
+-		fsnotify_access(in.file);
+-		fsnotify_modify(out.file);
+-		out.file->f_pos = out_pos;
+-		if (ppos)
+-			*ppos = pos;
+-		else
+-			in.file->f_pos = pos;
+-	}
+-
+-	inc_syscr(current);
+-	inc_syscw(current);
+-	if (pos > max)
+-		retval = -EOVERFLOW;
+-
+-fput_out:
+-	fdput(out);
+-fput_in:
+-	fdput(in);
+-out:
+-	return retval;
+-}
+-
+-SYSCALL_DEFINE4(sendfile, int, out_fd, int, in_fd, off_t __user *, offset, size_t, count)
+-{
+-	loff_t pos;
+-	off_t off;
+-	ssize_t ret;
+-
+-	if (offset) {
+-		if (unlikely(get_user(off, offset)))
+-			return -EFAULT;
+-		pos = off;
+-		ret = do_sendfile(out_fd, in_fd, &pos, count, MAX_NON_LFS);
+-		if (unlikely(put_user(pos, offset)))
+-			return -EFAULT;
+-		return ret;
+-	}
+-
+-	return do_sendfile(out_fd, in_fd, NULL, count, 0);
+-}
+-
+-SYSCALL_DEFINE4(sendfile64, int, out_fd, int, in_fd, loff_t __user *, offset, size_t, count)
+-{
+-	loff_t pos;
+-	ssize_t ret;
+-
+-	if (offset) {
+-		if (unlikely(copy_from_user(&pos, offset, sizeof(loff_t))))
+-			return -EFAULT;
+-		ret = do_sendfile(out_fd, in_fd, &pos, count, 0);
+-		if (unlikely(put_user(pos, offset)))
+-			return -EFAULT;
+-		return ret;
+-	}
+-
+-	return do_sendfile(out_fd, in_fd, NULL, count, 0);
+-}
+-
+-#ifdef CONFIG_COMPAT
+-COMPAT_SYSCALL_DEFINE4(sendfile, int, out_fd, int, in_fd,
+-		compat_off_t __user *, offset, compat_size_t, count)
+-{
+-	loff_t pos;
+-	off_t off;
+-	ssize_t ret;
+-
+-	if (offset) {
+-		if (unlikely(get_user(off, offset)))
+-			return -EFAULT;
+-		pos = off;
+-		ret = do_sendfile(out_fd, in_fd, &pos, count, MAX_NON_LFS);
+-		if (unlikely(put_user(pos, offset)))
+-			return -EFAULT;
+-		return ret;
+-	}
+-
+-	return do_sendfile(out_fd, in_fd, NULL, count, 0);
+-}
+-
+-COMPAT_SYSCALL_DEFINE4(sendfile64, int, out_fd, int, in_fd,
+-		compat_loff_t __user *, offset, compat_size_t, count)
+-{
+-	loff_t pos;
+-	ssize_t ret;
+-
+-	if (offset) {
+-		if (unlikely(copy_from_user(&pos, offset, sizeof(loff_t))))
+-			return -EFAULT;
+-		ret = do_sendfile(out_fd, in_fd, &pos, count, 0);
+-		if (unlikely(put_user(pos, offset)))
+-			return -EFAULT;
+-		return ret;
+-	}
+-
+-	return do_sendfile(out_fd, in_fd, NULL, count, 0);
+-}
+-#endif
+diff --git a/fs/splice.c b/fs/splice.c
+index f5cb9ba..c1a2861 100644
+--- a/fs/splice.c
++++ b/fs/splice.c
+@@ -28,6 +28,7 @@
+ #include <linux/export.h>
+ #include <linux/syscalls.h>
+ #include <linux/uio.h>
++#include <linux/fsnotify.h>
+ #include <linux/security.h>
+ #include <linux/gfp.h>
+ #include <linux/socket.h>
+@@ -2039,3 +2040,180 @@ SYSCALL_DEFINE4(tee, int, fdin, int, fdout, size_t, len, unsigned int, flags)
  
-+config SYSCALL_SPLICE
-+	bool "Enable splice/vmsplice/tee/sendfile syscalls" if EXPERT
-+	default y
-+	help
-+	  This option enables the splice, vmsplice, tee and sendfile syscalls. These
-+	  are used by applications to: move data between buffers and arbitrary file
-+	  descriptors; "copy" data between buffers; or copy data from userspace into
-+	  buffers. If building an embedded system where no applications use these
-+	  syscalls, you can disable this option to save space.
+ 	return error;
+ }
 +
- config PCI_QUIRKS
- 	default y
- 	bool "Enable PCI quirk workarounds" if EXPERT
-diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
-index d2f5b00..25d5551 100644
---- a/kernel/sys_ni.c
-+++ b/kernel/sys_ni.c
-@@ -170,6 +170,14 @@ cond_syscall(sys_fstat);
- cond_syscall(sys_stat);
- cond_syscall(sys_uname);
- cond_syscall(sys_olduname);
-+cond_syscall(sys_vmsplice);
-+cond_syscall(sys_splice);
-+cond_syscall(sys_tee);
-+cond_syscall(sys_sendfile);
-+cond_syscall(sys_sendfile64);
-+cond_syscall(compat_sys_vmsplice);
-+cond_syscall(compat_sys_sendfile);
-+cond_syscall(compat_sys_sendfile64);
- 
- /* arch-specific weak syscall entries */
- cond_syscall(sys_pciconfig_read);
++static ssize_t do_sendfile(int out_fd, int in_fd, loff_t *ppos,
++			   size_t count, loff_t max)
++{
++	struct fd in, out;
++	struct inode *in_inode, *out_inode;
++	loff_t pos;
++	loff_t out_pos;
++	ssize_t retval;
++	int fl;
++
++	/*
++	 * Get input file, and verify that it is ok..
++	 */
++	retval = -EBADF;
++	in = fdget(in_fd);
++	if (!in.file)
++		goto out;
++	if (!(in.file->f_mode & FMODE_READ))
++		goto fput_in;
++	retval = -ESPIPE;
++	if (!ppos) {
++		pos = in.file->f_pos;
++	} else {
++		pos = *ppos;
++		if (!(in.file->f_mode & FMODE_PREAD))
++			goto fput_in;
++	}
++	retval = rw_verify_area(READ, in.file, &pos, count);
++	if (retval < 0)
++		goto fput_in;
++	count = retval;
++
++	/*
++	 * Get output file, and verify that it is ok..
++	 */
++	retval = -EBADF;
++	out = fdget(out_fd);
++	if (!out.file)
++		goto fput_in;
++	if (!(out.file->f_mode & FMODE_WRITE))
++		goto fput_out;
++	retval = -EINVAL;
++	in_inode = file_inode(in.file);
++	out_inode = file_inode(out.file);
++	out_pos = out.file->f_pos;
++	retval = rw_verify_area(WRITE, out.file, &out_pos, count);
++	if (retval < 0)
++		goto fput_out;
++	count = retval;
++
++	if (!max)
++		max = min(in_inode->i_sb->s_maxbytes, out_inode->i_sb->s_maxbytes);
++
++	if (unlikely(pos + count > max)) {
++		retval = -EOVERFLOW;
++		if (pos >= max)
++			goto fput_out;
++		count = max - pos;
++	}
++
++	fl = 0;
++#if 0
++	/*
++	 * We need to debate whether we can enable this or not. The
++	 * man page documents EAGAIN return for the output at least,
++	 * and the application is arguably buggy if it doesn't expect
++	 * EAGAIN on a non-blocking file descriptor.
++	 */
++	if (in.file->f_flags & O_NONBLOCK)
++		fl = SPLICE_F_NONBLOCK;
++#endif
++	file_start_write(out.file);
++	retval = do_splice_direct(in.file, &pos, out.file, &out_pos, count, fl);
++	file_end_write(out.file);
++
++	if (retval > 0) {
++		add_rchar(current, retval);
++		add_wchar(current, retval);
++		fsnotify_access(in.file);
++		fsnotify_modify(out.file);
++		out.file->f_pos = out_pos;
++		if (ppos)
++			*ppos = pos;
++		else
++			in.file->f_pos = pos;
++	}
++
++	inc_syscr(current);
++	inc_syscw(current);
++	if (pos > max)
++		retval = -EOVERFLOW;
++
++fput_out:
++	fdput(out);
++fput_in:
++	fdput(in);
++out:
++	return retval;
++}
++
++SYSCALL_DEFINE4(sendfile, int, out_fd, int, in_fd, off_t __user *, offset, size_t, count)
++{
++	loff_t pos;
++	off_t off;
++	ssize_t ret;
++
++	if (offset) {
++		if (unlikely(get_user(off, offset)))
++			return -EFAULT;
++		pos = off;
++		ret = do_sendfile(out_fd, in_fd, &pos, count, MAX_NON_LFS);
++		if (unlikely(put_user(pos, offset)))
++			return -EFAULT;
++		return ret;
++	}
++
++	return do_sendfile(out_fd, in_fd, NULL, count, 0);
++}
++
++SYSCALL_DEFINE4(sendfile64, int, out_fd, int, in_fd, loff_t __user *, offset, size_t, count)
++{
++	loff_t pos;
++	ssize_t ret;
++
++	if (offset) {
++		if (unlikely(copy_from_user(&pos, offset, sizeof(loff_t))))
++			return -EFAULT;
++		ret = do_sendfile(out_fd, in_fd, &pos, count, 0);
++		if (unlikely(put_user(pos, offset)))
++			return -EFAULT;
++		return ret;
++	}
++
++	return do_sendfile(out_fd, in_fd, NULL, count, 0);
++}
++
++#ifdef CONFIG_COMPAT
++COMPAT_SYSCALL_DEFINE4(sendfile, int, out_fd, int, in_fd,
++		compat_off_t __user *, offset, compat_size_t, count)
++{
++	loff_t pos;
++	off_t off;
++	ssize_t ret;
++
++	if (offset) {
++		if (unlikely(get_user(off, offset)))
++			return -EFAULT;
++		pos = off;
++		ret = do_sendfile(out_fd, in_fd, &pos, count, MAX_NON_LFS);
++		if (unlikely(put_user(pos, offset)))
++			return -EFAULT;
++		return ret;
++	}
++
++	return do_sendfile(out_fd, in_fd, NULL, count, 0);
++}
++
++COMPAT_SYSCALL_DEFINE4(sendfile64, int, out_fd, int, in_fd,
++		compat_loff_t __user *, offset, compat_size_t, count)
++{
++	loff_t pos;
++	ssize_t ret;
++
++	if (offset) {
++		if (unlikely(copy_from_user(&pos, offset, sizeof(loff_t))))
++			return -EFAULT;
++		ret = do_sendfile(out_fd, in_fd, &pos, count, 0);
++		if (unlikely(put_user(pos, offset)))
++			return -EFAULT;
++		return ret;
++	}
++
++	return do_sendfile(out_fd, in_fd, NULL, count, 0);
++}
++#endif
++
 -- 
 2.1.0
