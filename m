@@ -1,68 +1,83 @@
-From: Smart Weblications GmbH - Florian Wiessner
-	<f.wiessner@smart-weblications.de>
-Subject: Re: 3.12.33 - BUG xfrm_selector_match+0x25/0x2f6
-Date: Thu, 04 Dec 2014 17:40:24 +0100
-Message-ID: <54808E78.6070603@smart-weblications.de>
-References: <547F2462.6040405@smart-weblications.de> <54802D14.9030509@suse.cz>
-Reply-To: f.wiessner@smart-weblications.de
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Jiri Slaby <jslaby@suse.cz>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, stable@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54802D14.9030509@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH v2 iproute2] ipaddress: enable -details option
+Date: Thu,  4 Dec 2014 17:41:07 +0100
+Message-ID: <1417711267-13334-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <20141125061023.GA8819@unicorn.suse.cz>
+Cc: netdev@vger.kernel.org, mkubecek@suse.cz, jbenc@redhat.com,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:50228 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932197AbaLDQlN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 11:41:13 -0500
+In-Reply-To: <20141125061023.GA8819@unicorn.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jiri,
+This option was used only for 'ip link', but it can be useful to have it for
+'ip address'. Thus it is possible to display link details and addresses with one
+command.
 
-Am 04.12.2014 10:44, schrieb Jiri Slaby:
-> On 12/03/2014, 03:55 PM, Smart Weblications GmbH - Florian Wiessner w=
-rote:
+Example:
+$ ip -d a ls dev gre1
+9: gre1@NONE: <POINTOPOINT,NOARP,UP,LOWER_UP> mtu 1468 qdisc noqueue state UNKNOWN group default
+    link/gre 10.16.0.249 peer 10.16.0.121 promiscuity 0
+    gre remote 10.16.0.121 local 10.16.0.249 ttl inherit ikey 0.0.0.10 okey 0.0.0.10 icsum ocsum
+    inet 192.168.0.249 peer 192.168.0.121/32 scope global gre1
+       valid_lft forever preferred_lft forever
+    inet6 fe80::5efe:a10:f9/64 scope link
+       valid_lft forever preferred_lft forever
 
->> [16623.095403] BUG: unable to handle kernel paging request at 000000=
-00010600d0
-[...]
->> [16623.096721] Call Trace:
-[...]
+Suggested-by: Christophe Gouault <christophe.gouault@6wind.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
 
->> This happens again and again with 3.12.33
->>
->>
->> see also: http://www.spinics.net/lists/netdev/msg306283.html
->>
->> is this already fixed somehow?
->=20
-> Hi, I doubt so, as you are the first one letting me know. Could you
-> check whether 3.12.30 works OK for you?
->=20
+v2: patch 'ip address' to display link details instead
+    of patching 'ip link' to display addresses
 
-I can try that, but it will take me some time as i currently try a kern=
-el
-without xfrm support to calm down my users.
+ ip/ipaddress.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-Could you please look at my other mail first, before i downgrade the ke=
-rnel?
-
-
---=20
-
-Mit freundlichen Gr=FC=DFen,
-
-=46lorian Wiessner
-
-Smart Weblications GmbH
-Martinsberger Str. 1
-D-95119 Naila
-
-fon.: +49 9282 9638 200
-fax.: +49 9282 9638 205
-24/7: +49 900 144 000 00 - 0,99 EUR/Min*
-http://www.smart-weblications.de
-
---
-Sitz der Gesellschaft: Naila
-Gesch=E4ftsf=FChrer: Florian Wiessner
-HRB-Nr.: HRB 3840 Amtsgericht Hof
-*aus dem dt. Festnetz, ggf. abweichende Preise aus dem Mobilfunknetz
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 4d993243d5f8..221ae1fc054a 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -604,7 +604,7 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 	if (filter.showqueue)
+ 		print_queuelen(fp, tb);
+ 
+-	if (!filter.family || filter.family == AF_PACKET) {
++	if (!filter.family || filter.family == AF_PACKET || show_details) {
+ 		SPRINT_BUF(b1);
+ 		fprintf(fp, "%s", _SL_);
+ 		fprintf(fp, "    link/%s ", ll_type_n2a(ifi->ifi_type, b1, sizeof(b1)));
+@@ -627,14 +627,14 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 		}
+ 	}
+ 
+-	if (do_link && tb[IFLA_PROMISCUITY] && show_details)
++	if (tb[IFLA_PROMISCUITY] && show_details)
+ 		fprintf(fp, " promiscuity %u ",
+ 			*(int*)RTA_DATA(tb[IFLA_PROMISCUITY]));
+ 
+-	if (do_link && tb[IFLA_LINKINFO] && show_details)
++	if (tb[IFLA_LINKINFO] && show_details)
+ 		print_linktype(fp, tb[IFLA_LINKINFO]);
+ 
+-	if (do_link && tb[IFLA_IFALIAS]) {
++	if ((do_link || show_details) && tb[IFLA_IFALIAS]) {
+ 		fprintf(fp, "%s    alias %s", _SL_,
+ 			rta_getattr_str(tb[IFLA_IFALIAS]));
+ 	}
+@@ -644,7 +644,7 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 		__print_link_stats(fp, tb);
+ 	}
+ 
+-	if (do_link && tb[IFLA_VFINFO_LIST] && tb[IFLA_NUM_VF]) {
++	if ((do_link || show_details) && tb[IFLA_VFINFO_LIST] && tb[IFLA_NUM_VF]) {
+ 		struct rtattr *i, *vflist = tb[IFLA_VFINFO_LIST];
+ 		int rem = RTA_PAYLOAD(vflist);
+ 		for (i = RTA_DATA(vflist); RTA_OK(i, rem); i = RTA_NEXT(i, rem))
+-- 
+2.1.0
