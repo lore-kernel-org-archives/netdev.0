@@ -1,44 +1,71 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: [PATCH v2 1/6] net-PPP: Replacement of a printk() call by pr_warn()
- in mppe_rekey()
-Date: Thu, 04 Dec 2014 23:27:01 +0100
-Message-ID: <5480DFB5.4090708@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net>	 <530A72AA.3000601@users.sourceforge.net>	 <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>	 <530B5FB6.6010207@users.sourceforge.net>	 <alpine.DEB.2.10.1402241710370.2074@hadrien>	 <530C5E18.1020800@users.sourceforge.net>	 <alpine.DEB.2.10.1402251014170.2080@hadrien>	 <530CD2C4.4050903@users.sourceforge.net>	 <alpine.DEB.2.10.1402251840450.7035@hadrien>	 <530CF8FF.8080600@users.sourceforge.net>	 <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>	 <530DD06F.4090703@users.sourceforge.net>	 <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>	 <5317A59D.4@users.sourceforge.net> <547B4886.4080406@users.sourceforge.net>	 <547B496E.604@users.sourceforge.net> <547C5CBC.6060607@cogentembedded.com>	 <547C82A6.2030808
- @users.sourceforge.net>	 <547CA157.1080401@cogentembedded.com>	 <5480DA32.8000201@users.sourceforge.net>	 <5480DBDE.7040604@users.sourceforge.net> <1417731809.2721.17.camel@perches.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH] x86: bpf_jit_comp: simplify trivial boolean return
+Date: Thu, 4 Dec 2014 14:44:01 -0800
+Message-ID: <CAADnVQJ8CinXDXDGsPjd++Ru+sun81eygGnW58NKAuR2xh6KEA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Laight <David.Laight@aculab.com>,
+	Quentin Lambert <lambert.quentin@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	"x86@kernel.org" <x86@kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 To: Joe Perches <joe@perches.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <1417731809.2721.17.camel@perches.com>
-Sender: linux-ppp-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> diff --git a/drivers/net/ppp/ppp_mppe.c b/drivers/net/ppp/ppp_mppe.c
-> []
->> @@ -172,9 +172,8 @@ static void mppe_rekey(struct ppp_mppe_state * state, int initial_key)
->>  		setup_sg(sg_in, state->sha1_digest, state->keylen);
->>  		setup_sg(sg_out, state->session_key, state->keylen);
->>  		if (crypto_blkcipher_encrypt(&desc, sg_out, sg_in,
->> -					     state->keylen) != 0) {
->> -    		    printk(KERN_WARNING "mppe_rekey: cipher_encrypt failed\n");
->> -		}
->> +					     state->keylen) != 0)
->> +			pr_warn("mppe_rekey: cipher_encrypt failed\n");
-> 
-> It's generally nicer to replace embedded function names
-> with "%s: ", __func__
-> 
-> 			pr_warn("%s: cipher_encrypt failed\n", __func__);
+On Thu, Dec 4, 2014 at 10:05 AM, Joe Perches <joe@perches.com> wrote:
+> On Thu, 2014-12-04 at 07:56 -0800, Alexei Starovoitov wrote:
+>> On Thu, Dec 4, 2014 at 1:26 AM, Joe Perches <joe@perches.com> wrote:
+>> > On Thu, 2014-11-27 at 10:49 -0800, Joe Perches wrote:
+>> >> On Thu, 2014-11-27 at 12:25 +0000, David Laight wrote:
+>> >> > Why the change in data?
+>> >>
+>> >> btw: without gcov and using -O2
+>> >>
+>> >> $ size arch/x86/net/bpf_jit_comp.o*
+>> >>    text          data     bss     dec     hex filename
+>> >>    9671             4       0    9675    25cb arch/x86/net/bpf_jit_comp.o.new
+>> >>   10679             4       0   10683    29bb arch/x86/net/bpf_jit_comp.o.old
+>> >
+>> > Alexei?
+>> >
+>> > Is this 10% reduction in size a good reason to change the code?
+>>
+>> yes.
+>> I believe you're seeing it with gcc 4.9. I wanted to double
+>> check what 4.6 and 4.7 are doing. If they're not suddenly
+>> increase code size then resubmit it for inclusion please.
+>
+> I get these sizes for these compilers
+> (x86-64, -O2, without profiling)
+>
+> $ size arch/x86/net/bpf_jit_comp.o*
+>    text    data     bss     dec     hex filename
+>    9266       4       0    9270    2436 arch/x86/net/bpf_jit_comp.o.4.4.new
+>   10042       4       0   10046    273e arch/x86/net/bpf_jit_comp.o.4.4.old
+>    9109       4       0    9113    2399 arch/x86/net/bpf_jit_comp.o.4.6.new
+>    9717       4       0    9721    25f9 arch/x86/net/bpf_jit_comp.o.4.6.old
+>    8789       4       0    8793    2259 arch/x86/net/bpf_jit_comp.o.4.7.new
+>   10245       4       0   10249    2809 arch/x86/net/bpf_jit_comp.o.4.7.old
+>    9671       4       0    9675    25cb arch/x86/net/bpf_jit_comp.o.4.9.new
+>   10679       4       0   10683    29bb arch/x86/net/bpf_jit_comp.o.4.9.old
+>
+> I am a bit surprised by the size variations
 
-Do you want that I send a third patch series for the fine-tuning of these parameters?
-
-Regards,
-Martkus
-
+yeah. the difference is surprising.
+Just tried with 4.7 and my regular config and I see the same difference.
+Looks like gcc wasn't able to fold conditions into cmov
+and used a bunch of cmp/jmp
+Since is_ereg() was inlined ~70 times on its own and as
+part of other functions, the difference of 3-4 instructions
+may a large difference in total size.
+test_bpf also passes, so please resubmit properly.
