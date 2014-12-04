@@ -1,88 +1,78 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [patch iproute2 1/6] iproute2: ipa: show switch id
-Date: Thu, 04 Dec 2014 10:15:04 -0600
-Message-ID: <87y4qne6if.fsf@x220.int.ebiederm.org>
-References: <1417683438-10935-1-git-send-email-jiri@resnulli.us>
-	<1417683438-10935-2-git-send-email-jiri@resnulli.us>
+From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v4 0/4] netns: allow to identify peer netns
+Date: Thu, 04 Dec 2014 17:21:09 +0100
+Message-ID: <548089F5.30202@6wind.com>
+References: <1412257690-31253-1-git-send-email-nicolas.dichtel@6wind.com>	<1414682728-4532-1-git-send-email-nicolas.dichtel@6wind.com>	<871tpph03k.fsf@x220.int.ebiederm.org>
+	<54535B00.5090708@6wind.com> <87wq7g831b.fsf@x220.int.ebiederm.org>
+	<545A32C4.7070108@6wind.com>
+Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
-	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
-	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.org, hemal@broadcom.c
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:43629 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932212AbaLDQRX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 11:17:23 -0500
-In-Reply-To: <1417683438-10935-2-git-send-email-jiri@resnulli.us> (Jiri
-	Pirko's message of "Thu, 4 Dec 2014 09:57:13 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org,
+	stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <545A32C4.7070108-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Jiri Pirko <jiri@resnulli.us> writes:
-
-Would someone please explain to me what a switch id is?
-
-I looked in the kernel source, and I looked here and while I know
-switches I don't have a clue what a switch id is.
-
-My primary concern at this point is that you have introduced a global
-identifier that is isn't a hardware property (it certainly does not look
-like a mac address) and that is unique across network namespaces and
-thus breaks checkpoint/restart (aka CRIU).
-
-Also what in the world does PHYS mean in IFLA_PHYS_SWITCH_ID?  Does that
-mean we can't have a purely software implementation of this interface?
-Given that we will want a software implementation at some point
-including PHYS in the name seems completely wrong.
-
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->  include/linux/if_link.h | 1 +
->  ip/ipaddress.c          | 8 ++++++++
->  2 files changed, 9 insertions(+)
->
-> diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-> index 4732063..a6e2594 100644
-> --- a/include/linux/if_link.h
-> +++ b/include/linux/if_link.h
-> @@ -145,6 +145,7 @@ enum {
->  	IFLA_CARRIER,
->  	IFLA_PHYS_PORT_ID,
->  	IFLA_CARRIER_CHANGES,
-> +	IFLA_PHYS_SWITCH_ID,
->  	__IFLA_MAX
->  };
->  
-> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-> index 4d99324..bd36a07 100644
-> --- a/ip/ipaddress.c
-> +++ b/ip/ipaddress.c
-> @@ -589,6 +589,14 @@ int print_linkinfo(const struct sockaddr_nl *who,
->  				      b1, sizeof(b1)));
->  	}
->  
-> +	if (tb[IFLA_PHYS_SWITCH_ID]) {
-> +		SPRINT_BUF(b1);
-> +		fprintf(fp, "switchid %s ",
-> +			hexstring_n2a(RTA_DATA(tb[IFLA_PHYS_SWITCH_ID]),
-> +				      RTA_PAYLOAD(tb[IFLA_PHYS_SWITCH_ID]),
-> +				      b1, sizeof(b1)));
-> +	}
-> +
->  	if (tb[IFLA_OPERSTATE])
->  		print_operstate(fp, rta_getattr_u8(tb[IFLA_OPERSTATE]));
+TGUgMDUvMTEvMjAxNCAxNToyMywgTmljb2xhcyBEaWNodGVsIGEgw6ljcml0IDoKPiBMZSAzMS8x
+MC8yMDE0IDIwOjE0LCBFcmljIFcuIEJpZWRlcm1hbiBhIMOpY3JpdCA6Cj4+IE5pY29sYXMgRGlj
+aHRlbCA8bmljb2xhcy5kaWNodGVsQDZ3aW5kLmNvbT4gd3JpdGVzOgo+Pgo+Pj4gTGUgMzAvMTAv
+MjAxNCAxOTo0MSwgRXJpYyBXLiBCaWVkZXJtYW4gYSDDqWNyaXQgOgo+Pj4+IE5pY29sYXMgRGlj
+aHRlbCA8bmljb2xhcy5kaWNodGVsQDZ3aW5kLmNvbT4gd3JpdGVzOgo+Pj4+Cj4+Pj4+IFRoZSBn
+b2FsIG9mIHRoaXMgc2VyaWUgaXMgdG8gYmUgYWJsZSB0byBtdWx0aWNhc3QgbmV0bGluayBtZXNz
+YWdlcyB3aXRoIGFuCj4+Pj4+IGF0dHJpYnV0ZSB0aGF0IGlkZW50aWZ5IGEgcGVlciBuZXRucy4K
+Pj4+Pj4gVGhpcyBpcyBuZWVkZWQgYnkgdGhlIHVzZXJsYW5kIHRvIGludGVycHJldCBzb21lIGlu
+Zm9ybWF0aW9ucyBjb250YWluZWQgaW4KPj4+Pj4gbmV0bGluayBtZXNzYWdlcyAobGlrZSBJRkxB
+X0xJTksgdmFsdWUsIGJ1dCBhbHNvIHNvbWUgb3RoZXIgYXR0cmlidXRlcyBpbiBjYXNlCj4+Pj4+
+IG9mIHgtbmV0bnMgbmV0ZGV2aWNlIChzZWUgYWxzbwo+Pj4+PiBodHRwOi8vdGhyZWFkLmdtYW5l
+Lm9yZy9nbWFuZS5saW51eC5uZXR3b3JrLzMxNTkzMy9mb2N1cz0zMTYwNjQgYW5kCj4+Pj4+IGh0
+dHA6Ly90aHJlYWQuZ21hbmUub3JnL2dtYW5lLmxpbnV4Lmtlcm5lbC5jb250YWluZXJzLzI4MzAx
+L2ZvY3VzPTQyMzkpKS4KPj4+Pj4KPj4+Pj4gSWRzIG9mIHBlZXIgbmV0bnMgYXJlIHNldCBieSB1
+c2VybGFuZCB2aWEgYSBuZXcgZ2VubCBtZXNzYWdlcy4gVGhlc2UgaWRzIGFyZQo+Pj4+PiBzdG9y
+ZWQgcGVyIG5ldG5zIGFuZCBhcmUgbG9jYWwgKGllIG9ubHkgdmFsaWQgaW4gdGhlIG5ldG5zIHdo
+ZXJlIHRoZXkgYXJlCj4+Pj4+IHNldCkuCj4+Pj4+IFRvIGF2b2lkIGFsbG9jYXRpbmcgYW4gaW50
+IGZvciBlYWNoIHBlZXIgbmV0bnMsIEkgdXNlIGlkcl9mb3JfZWFjaCgpIHRvCj4+Pj4+IHJldHJp
+ZXZlCj4+Pj4+IHRoZSBpZCBvZiBhIHBlZXIgbmV0bnMuIE5vdGUgdGhhdCBpdCB3aWxsIGJlIHBv
+c3NpYmxlIHRvIGFkZCBhIHRhYmxlCj4+Pj4+IChzdHJ1Y3QgbmV0Cj4+Pj4+IC0+IGlkKSBsYXRl
+ciB0byBvcHRpbWl6ZSB0aGlzIGxvb2t1cCBpZiBuZWVkZWQuCj4+Pj4+Cj4+Pj4+IFBhdGNoIDEv
+NCBpbnRyb2R1Y2VzIHRoZSBuZXRsaW5rIEFQSSBtZWNoYW5pc20gdG8gc2V0IGFuZCBnZXQgdGhl
+c2UgaWRzLgo+Pj4+PiBQYXRjaCAyLzQgYW5kIDMvNCBpbXBsZW1lbnRzIGFuIGV4YW1wbGUgb2Yg
+aG93IHRvIHVzZSB0aGVzZSBpZHMgaW4gcnRuZXRsaW5rCj4+Pj4+IG1lc3NhZ2VzLiBBbmQgcGF0
+Y2ggNC80IHNob3dzIHRoYXQgdGhlIG5ldGxpbmsgbWVzc2FnZXMgY2FuIGJlIHN5bWV0cmljCj4+
+Pj4+IGJldHdlZW4KPj4+Pj4gYSBHRVQgYW5kIGEgU0VULgo+Pj4+Pgo+Pj4+PiBpcHJvdXRlMiBw
+YXRjaGVzIGFyZSBhdmFpbGFibGUsIEkgY2FuIHNlbmQgdGhlbSBvbiBkZW1hbmQuCj4+Pj4KPj4+
+PiBBIHF1aWNrIHJlcGx5LiAgSSB0aGluayB0aGlzIHBhdGNoc2V0IGlzIGluIHRoZSByaWdodCBn
+ZW5lcmFsIGRpcmVjdGlvbi4KPj4+PiBUaGVyZSBhcmUgc29tZSBvZGRiYWxsIGRldGFpbHMgdGhh
+dCBzZWVtIG9kZC9hd2t3YXJkIHRvIG1lIHN1Y2ggYXMgdXNpbmcKPj4+PiBnZW5ldGxpbmsgaW5z
+dGVhZCBvZiBydG5ldGxpbmsgdG8gZ2V0IGFuZCBzZXQgdGhlIGlkcywgYW5kIG5vdCBoYXZpbmcK
+Pj4+PiBpZHMgaWYgdGhleSBhcmUgbm90IHNldCAodGhhdCBmZWVscyBsaWtlIGEgbWFpbnRlbmFu
+Y2UvdXNhYmlsaXR5IGNoYWxsZW5nZSkuCj4+PiBObyBwcm9ibGVtIHRvIHVzZSBydG5ldGxpbmss
+IGluIGZhY3QsIEkgaGVzaXRhdGVkLgo+Pj4KPj4+IEZvciB0aGUgc2Vjb25kIHBvaW50LCBJJ20g
+bm90IHN1cmUgdG8gZm9sbG93IHlvdTogaG93IHRvIGhhdmUgYW4gaWQsIHdoaWNoIHdpbGwKPj4+
+IG5vdCBicmVhayBtaWdyYXRpb24sIHdpdGhvdXQgYXNraW5nIHRoZSB1c2VyIHRvIHNldCBpdD8K
+Pj4KPj4gV2UgaGF2ZSB0aGF0IHNpdHV0YXRpb24gd2l0aCBpZmluZGV4IGFscmVhZHkuICBCYXNp
+Y2FsbHkgdGhlIHRob3VnaHQgaXMKPj4gdG8gYWxsb3cgYW4gaWQgdG8gYmUgc2V0LCBidXQgYWxz
+byBhbGxvdyBhbiBpZCB0byBiZSBhdXRvLWdlbmVyYXRlZCBpZgo+PiB3ZSB1c2UgYW4gbmFtZXNw
+YWNlIHdpdGhvdXQgYW4gaWQgYmVpbmcgc2V0Lgo+IElmIG15IHVuZGVyc3RhbmRpbmcgaXMgY29y
+cmVjdCwgdGhlIGRpZmZlcmVuY2UgaXMgdGhhdCB3ZSB3YW50IHRvIGhpZGUgc29tZQo+IG5ldG5z
+Lgo+IERvIHlvdSB0aGluayB3ZSBjYW4gZ2VuZXJhdGUgYW4gaWQgZm9yIGVhY2ggbmV0bnMgdGhh
+dCBkb2VzIG5vdCBoYXZlIG9uZSBhbmQKPiByZWx5aW5nIG9uIHRoZSBmYWN0IHRoYXQgdGhpcyBp
+ZCBoYXMgbm8gbWVhbmluZyB1bmxlc3MgeW91IGhhdmUgYSBuZXRucyBmaWxlCj4gZGVzY3JpcHRv
+ciB0aGF0IGFsbG93IHlvdSB0byBnZXQgdGhlIGlkIG9mIHRoaXMgbmV0bnM/CkFueSBjb21tZW50
+IEVyaWMgPwoKClRoYW5rIHlvdSwKTmljb2xhcwpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fXwpDb250YWluZXJzIG1haWxpbmcgbGlzdApDb250YWluZXJzQGxp
+c3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9y
+Zy9tYWlsbWFuL2xpc3RpbmZvL2NvbnRhaW5lcnM=
