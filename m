@@ -1,63 +1,65 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 05/10] net/mlx4: Add a check if there are too many reserved QPs
-Date: Thu,  4 Dec 2014 15:13:50 +0200
-Message-ID: <1417698835-11050-6-git-send-email-ogerlitz@mellanox.com>
-References: <1417698835-11050-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 00/10] mlx4 driver update
+Date: Thu,  4 Dec 2014 15:13:45 +0200
+Message-ID: <1417698835-11050-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
 	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Dotan Barak <dotanb@dev.mellanox.co.il>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:48877 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:55028 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753885AbaLDNOF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Dec 2014 08:14:05 -0500
-In-Reply-To: <1417698835-11050-1-git-send-email-ogerlitz@mellanox.com>
+	id S1751606AbaLDNOE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Dec 2014 08:14:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dotan Barak <dotanb@dev.mellanox.co.il>
+Hi Dave, 
 
-The number of reserved QPs is affected both from the firmware and
-from the driver's requirements. This patch adds a check that
-validates that this number is indeed feasable.
+This series from Matan, Jenny, Dotan and myself is mostly about adding
+support to a new performance optimized flow steering mode (patches 4-10).
 
-Signed-off-by: Dotan Barak <dotanb@dev.mellanox.co.il>
-Signed-off-by: Matan Barak <matanb@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/qp.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
+The 1st two patches are small fixes (one for VXLAN and one for SRIOV),
+and the third patch is a fix to avoid hard-lockup situation when many
+(hunderds) processes holding user-space QPs/CQs get events.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
-index 40e82ed..8720428 100644
---- a/drivers/net/ethernet/mellanox/mlx4/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
-@@ -478,6 +478,7 @@ int mlx4_init_qp_table(struct mlx4_dev *dev)
- 	struct mlx4_qp_table *qp_table = &mlx4_priv(dev)->qp_table;
- 	int err;
- 	int reserved_from_top = 0;
-+	int reserved_from_bot;
- 	int k;
- 
- 	spin_lock_init(&qp_table->lock);
-@@ -534,9 +535,14 @@ int mlx4_init_qp_table(struct mlx4_dev *dev)
- 	* b. All the proxy SQPs (8 per function)
- 	* c. All the tunnel QPs (8 per function)
- 	*/
-+	reserved_from_bot = mlx4_num_reserved_sqps(dev);
-+	if (reserved_from_bot + reserved_from_top > dev->caps.num_qps) {
-+		mlx4_err(dev, "Number of reserved QPs is higher than number of QPs\n");
-+		return -EINVAL;
-+	}
- 
- 	err = mlx4_bitmap_init(&qp_table->bitmap, dev->caps.num_qps,
--			       (1 << 23) - 1, mlx4_num_reserved_sqps(dev),
-+			       (1 << 23) - 1, reserved_from_bot,
- 			       reserved_from_top);
- 	if (err)
- 		return err;
--- 
-1.7.1
+Matan and Or. 
+
+Dotan Barak (1):
+  net/mlx4: Add a check if there are too many reserved QPs
+
+Eugenia Emantayev (1):
+  net/mlx4: Change QP allocation scheme
+
+Matan Barak (6):
+  net/mlx4_core: Use tasklet for user-space CQ completion events
+  net/mlx4: Add mlx4_bitmap zone allocator
+  net/mlx4: Add A0 hybrid steering
+  net/mlx4_core: Add explicit error message when rule doesn't meet configuration
+  net/mlx4: Refactor QUERY_PORT
+  net/mlx4: Add support for A0 steering
+
+Or Gerlitz (2):
+  net/mlx4_en: Set csum level for encapsulated packets
+  net/mlx4_core: Mask out host side virtualization features for guests
+
+ drivers/infiniband/hw/mlx4/cq.c                    |    5 +-
+ drivers/infiniband/hw/mlx4/main.c                  |    2 +-
+ drivers/infiniband/hw/mlx4/qp.c                    |   13 +-
+ drivers/net/ethernet/mellanox/mlx4/alloc.c         |  435 +++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/cq.c            |   49 +++
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |   13 +-
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c         |    7 +-
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c         |   14 +-
+ drivers/net/ethernet/mellanox/mlx4/eq.c            |   16 +-
+ drivers/net/ethernet/mellanox/mlx4/fw.c            |  220 +++++++---
+ drivers/net/ethernet/mellanox/mlx4/fw.h            |   42 ++-
+ drivers/net/ethernet/mellanox/mlx4/main.c          |  217 +++++++++--
+ drivers/net/ethernet/mellanox/mlx4/mcg.c           |   21 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   97 +++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h       |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/qp.c            |  303 +++++++++++++-
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    7 +-
+ include/linux/mlx4/device.h                        |   51 ++-
+ 18 files changed, 1345 insertions(+), 169 deletions(-)
