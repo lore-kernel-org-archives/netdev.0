@@ -1,13 +1,10 @@
 From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch iproute2 0/6] iproute2: add changes for switchdev
-Date: Thu, 4 Dec 2014 12:49:26 -0800
-Message-ID: <CAE4R7bCyf7VBFWqEme37rf0YbTc3-s5Qka+1HMOsdMgVC3qZ-A@mail.gmail.com>
+Subject: Re: [patch iproute2 4/6] bridge/link: add new offload hwmode swdev
+Date: Thu, 4 Dec 2014 12:55:54 -0800
+Message-ID: <CAE4R7bBW4rvJeet_4XvO5KnEvyT=eyB4yOTUznUWpOBPrqXZUg@mail.gmail.com>
 References: <1417683438-10935-1-git-send-email-jiri@resnulli.us>
-	<54806F2A.2050109@cumulusnetworks.com>
-	<20141204143400.GC1861@nanopsycho.orion>
-	<54807398.40201@cumulusnetworks.com>
-	<20141204160444.GF1861@nanopsycho.orion>
-	<5480921D.60108@cumulusnetworks.com>
+	<1417683438-10935-5-git-send-email-jiri@resnulli.us>
+	<54806042.5010007@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
@@ -27,130 +24,35 @@ Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
 	Cong Wang <xiyou.wangcong@gmail.com>,
 	"Fastabend, John R" <john.r.fastabend@intel.com>,
 	Eric Dumazet <edumazet@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
 	Florian Fainelli <f.fainelli@gmail.com>,
-	John Linville <linville@tuxdriver.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	John Linville <linville@tuxdriver
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f53.google.com ([74.125.82.53]:64643 "EHLO
-	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753014AbaLDUt2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 15:49:28 -0500
-Received: by mail-wg0-f53.google.com with SMTP id l18so23378026wgh.26
-        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 12:49:26 -0800 (PST)
-In-Reply-To: <5480921D.60108@cumulusnetworks.com>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:43065 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753165AbaLDUzz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 15:55:55 -0500
+Received: by mail-wg0-f54.google.com with SMTP id l2so23693823wgh.13
+        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 12:55:54 -0800 (PST)
+In-Reply-To: <54806042.5010007@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 4, 2014 at 8:55 AM, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
-> On 12/4/14, 8:04 AM, Jiri Pirko wrote:
+On Thu, Dec 4, 2014 at 5:23 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 12/04/14 03:57, Jiri Pirko wrote:
 >>
->> Thu, Dec 04, 2014 at 03:45:44PM CET, roopa@cumulusnetworks.com wrote:
->>>
->>> On 12/4/14, 6:34 AM, Jiri Pirko wrote:
->>>>
->>>> Thu, Dec 04, 2014 at 03:26:50PM CET, roopa@cumulusnetworks.com wrote:
->>>>>
->>>>> On 12/4/14, 12:57 AM, Jiri Pirko wrote:
->>>>>>
->>>>>> Jiri Pirko (1):
->>>>>>    iproute2: ipa: show switch id
->>>>>>
->>>>>> Scott Feldman (5):
->>>>>>    bridge/fdb: fix statistics output spacing
->>>>>>    bridge/fdb: add flag/indication for FDB entry synced from offload
->>>>>>      device
->>>>>>    bridge/link: add new offload hwmode swdev
->>>>>
->>>>> Ack to most patches but nack on this one. The todo list still has a
->>>>> note to
->>>>> revist the flag to indicate switchdev offloads.
->>>>> Exposing this to userspace does not help that.
->>>>
->>>> Hmm, note that this is already exposed to userspace, this patchset is
->>>> for iproute2 (userspace tool).
->>>
->>> hmmm, all feedback on the switchdev patches seemed to indicate we can
->>> change
->>> this later.
->>> I don't see swdev mode being used in the kernel anywhere today.
+>> From: Scott Feldman <sfeldma@gmail.com>
 >>
->> Well, it is, in rocker:
->> $ git grep BRIDGE_MODE_SWDEV
->> drivers/net/ethernet/rocker/rocker.c:                   if (mode !=
->> BRIDGE_MODE_SWDEV)
->> drivers/net/ethernet/rocker/rocker.c:   u16 mode = BRIDGE_MODE_SWDEV;
->> include/uapi/linux/if_bridge.h:#define BRIDGE_MODE_SWDEV        2       /*
->> Full switch device offload */
->
->
-> The problem is rocker is not the only one who is going to be using this. And
-> so, we need something that fits everybody.
-> And i am not going to make my user set a mode for him to enable offload to
-> hw.
->
+>> To support full-featured switch devices offloading bridge funtionality,
+>> add new hwmode 'swdev'.  Like 'vepa' and 'veb', 'swdev' indicated bridge
+>> port functionality is being offloaded to hardware.
 >>
->>> I will send a patch to remove it. Its still in net-next and so can be
->>> changed
->>> ?.
->>> I was going to resend my patch to introduce a common offload flag for all
->>> link objects.
->>> It would be nice if all of them had a consistent flag to indicate hw
->>> offload
->>> and iproute2 could display the same flag for all.
->>> Including bonds and vxlan's.
->>
->> I do not understand the connection with BRIDGE_MODE_SWDEV. We discussed
->> this already. BRIDGE_MODE_SWDEV is a bridge mode, similar to for example
->> BRIDGE_MODE_VEPA and makes perfect sense to have it.
 >
-> I dont think everybody acked it. But it went in with a note saying that it
-> can be changed.
+> Unhappy with the name swdev ..
+> Ok, go ahead and beat up on me.
 
-I thought that was the plan: this new mode goes in now for net-next
-and iproute2, and you would supply follow up patch for each to move to
-your switch port flag.  That will give us time to review your work
-without have net-next and iproute2 out-of-sync.
+Lack of creativity, I know.  But, I doubt anyone is confused by the name.
 
->>
->>
->> How vxlan and bonds come into the mixture, that is a puzzler for me.
->> Maybe I have to see patches.
->
->
-> I had posted a version of the patch previously:
-> http://www.spinics.net/lists/netdev/msg305472.html
->
-> I have a v2 patch in my stack which does not touch the netlink header.
-> But in the past hour, i have been thinking about it some more. Do we really
-> need this set by the user ?. In my use case i don't need it.
-
-Look at how iproute2 figures out if SELF should be set or not.  It's
-only set if hwmode is set, otherwise it defaults to MASTER.  So with
-SWDEV a new hwmode, we can push settings (learning, leraning_sync) to
-port with SELF set.  It's probably not an ideal arrangement having to
-set hwmode each time, but this was the low-touch change to iproute2 to
-push port settings.
-
-I'm hoping your new patch will kind of straighten this all out.  But
-you've got extra work to make sure backward compat with older iproute2
-still works, including this weirdness around hwmode.
-
->
-> We do need a feature flag (or net_device_flags), but it does not need to be
-> set by the user explicitly.
-> This flag can be set by the switch port driver on the switch ports. And the
-> logical device: bridge/bond/vxlan
-> can inherit it from the port. There was a need of a flag in some usecases,
-> to control offloading of specific bridge port flags
-> to hw/sw (example learning in hw or sw). example patch:
-> https://patchwork.ozlabs.org/patch/413211/
->
-> I will post something today.
-
-Can you include matching iproute2 changes?  (Assuming you'll building
-on top of what's already in net-next and this iproute2 set Jiri sent
-out).  It's helpful to see the iproute2 changes to see what the new
-cmd structure is and how legacy is handled.
-
--scott
+Hopefully it's short-lived and replace with what Roopa comes up with
+for switch port offload flag.
