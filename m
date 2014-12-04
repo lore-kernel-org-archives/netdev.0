@@ -1,153 +1,49 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [RFC][PATCH 08/13] iov_iter.c: convert copy_from_iter() to iterate_and_advance
-Date: Thu,  4 Dec 2014 20:23:12 +0000
-Message-ID: <1417724597-17099-8-git-send-email-viro@ZenIV.linux.org.uk>
-References: <20141204202011.GO29748@ZenIV.linux.org.uk>
-Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141204202011.GO29748@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch net-next v2 2/2] rocker: fix eth_type type in struct rocker_ctrl
+Date: Thu, 4 Dec 2014 12:33:43 -0800
+Message-ID: <CAE4R7bBm0xt9EiqAjTwZoAuYD6Vx6i=4ix+euWP02COkXEfvng@mail.gmail.com>
+References: <1417612494-3788-1-git-send-email-jiri@resnulli.us>
+	<1417612494-3788-2-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:45199 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753025AbaLDUdp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 15:33:45 -0500
+Received: by mail-wi0-f172.google.com with SMTP id n3so35956629wiv.11
+        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 12:33:43 -0800 (PST)
+In-Reply-To: <1417612494-3788-2-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
----
- mm/iov_iter.c | 106 +++++++++-------------------------------------------------
- 1 file changed, 15 insertions(+), 91 deletions(-)
-
-diff --git a/mm/iov_iter.c b/mm/iov_iter.c
-index 17b7144..791429d 100644
---- a/mm/iov_iter.c
-+++ b/mm/iov_iter.c
-@@ -142,51 +142,6 @@ static size_t copy_to_iter_iovec(void *from, size_t bytes, struct iov_iter *i)
- 	return wanted - bytes;
- }
- 
--static size_t copy_from_iter_iovec(void *to, size_t bytes, struct iov_iter *i)
--{
--	size_t skip, copy, left, wanted;
--	const struct iovec *iov;
--	char __user *buf;
--
--	if (unlikely(bytes > i->count))
--		bytes = i->count;
--
--	if (unlikely(!bytes))
--		return 0;
--
--	wanted = bytes;
--	iov = i->iov;
--	skip = i->iov_offset;
--	buf = iov->iov_base + skip;
--	copy = min(bytes, iov->iov_len - skip);
--
--	left = __copy_from_user(to, buf, copy);
--	copy -= left;
--	skip += copy;
--	to += copy;
--	bytes -= copy;
--	while (unlikely(!left && bytes)) {
--		iov++;
--		buf = iov->iov_base;
--		copy = min(bytes, iov->iov_len);
--		left = __copy_from_user(to, buf, copy);
--		copy -= left;
--		skip = copy;
--		to += copy;
--		bytes -= copy;
--	}
--
--	if (skip == iov->iov_len) {
--		iov++;
--		skip = 0;
--	}
--	i->count -= wanted - bytes;
--	i->nr_segs -= iov - i->iov;
--	i->iov = iov;
--	i->iov_offset = skip;
--	return wanted - bytes;
--}
--
- static size_t copy_page_to_iter_iovec(struct page *page, size_t offset, size_t bytes,
- 			 struct iov_iter *i)
- {
-@@ -444,48 +399,6 @@ static size_t copy_to_iter_bvec(void *from, size_t bytes, struct iov_iter *i)
- 	return wanted - bytes;
- }
- 
--static size_t copy_from_iter_bvec(void *to, size_t bytes, struct iov_iter *i)
--{
--	size_t skip, copy, wanted;
--	const struct bio_vec *bvec;
--
--	if (unlikely(bytes > i->count))
--		bytes = i->count;
--
--	if (unlikely(!bytes))
--		return 0;
--
--	wanted = bytes;
--	bvec = i->bvec;
--	skip = i->iov_offset;
--
--	copy = min(bytes, bvec->bv_len - skip);
--
--	memcpy_from_page(to, bvec->bv_page, bvec->bv_offset + skip, copy);
--
--	to += copy;
--	skip += copy;
--	bytes -= copy;
--
--	while (bytes) {
--		bvec++;
--		copy = min(bytes, (size_t)bvec->bv_len);
--		memcpy_from_page(to, bvec->bv_page, bvec->bv_offset, copy);
--		skip = copy;
--		to += copy;
--		bytes -= copy;
--	}
--	if (skip == bvec->bv_len) {
--		bvec++;
--		skip = 0;
--	}
--	i->count -= wanted;
--	i->nr_segs -= bvec - i->bvec;
--	i->bvec = bvec;
--	i->iov_offset = skip;
--	return wanted;
--}
--
- size_t copy_to_iter(void *addr, size_t bytes, struct iov_iter *i)
- {
- 	if (i->type & ITER_BVEC)
-@@ -497,10 +410,21 @@ EXPORT_SYMBOL(copy_to_iter);
- 
- size_t copy_from_iter(void *addr, size_t bytes, struct iov_iter *i)
- {
--	if (i->type & ITER_BVEC)
--		return copy_from_iter_bvec(addr, bytes, i);
--	else
--		return copy_from_iter_iovec(addr, bytes, i);
-+	char *to = addr;
-+	if (unlikely(bytes > i->count))
-+		bytes = i->count;
-+
-+	if (unlikely(!bytes))
-+		return 0;
-+
-+	iterate_and_advance(i, bytes, v,
-+		__copy_from_user((to += v.iov_len) - v.iov_len, v.iov_base,
-+				 v.iov_len),
-+		memcpy_from_page((to += v.bv_len) - v.bv_len, v.bv_page,
-+				 v.bv_offset, v.bv_len)
-+	)
-+
-+	return bytes;
- }
- EXPORT_SYMBOL(copy_from_iter);
- 
--- 
-2.1.3
+On Wed, Dec 3, 2014 at 5:14 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+> v1->v2:
+> -fixed typo in subject pointed out by Sergei
+> ---
+>  drivers/net/ethernet/rocker/rocker.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+> index 4b060fb..5536435 100644
+> --- a/drivers/net/ethernet/rocker/rocker.c
+> +++ b/drivers/net/ethernet/rocker/rocker.c
+> @@ -2753,7 +2753,7 @@ static int rocker_port_vlan_l2_groups(struct rocker_port *rocker_port,
+>  static struct rocker_ctrl {
+>         const u8 *eth_dst;
+>         const u8 *eth_dst_mask;
+> -       u16 eth_type;
+> +       __be16 eth_type;
+>         bool acl;
+>         bool bridge;
+>         bool term;
+> --
+> 1.9.3
+>
