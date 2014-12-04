@@ -1,48 +1,95 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: less interrupt masking in NAPI
-Date: Wed, 03 Dec 2014 18:51:45 -0800
-Message-ID: <1417661505.22424.1.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1414937973.31792.37.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20141103.122538.387451917276174830.davem@davemloft.net>
-	 <547EBC66.4040301@huawei.com>
-	 <1417592482.5303.132.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <547ED728.2010703@huawei.com>
-	 <1417607546.5303.133.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <547FC2A1.60105@huawei.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH v3 net-next 2/2 tuntap: Increase the number of queues in
+ tun.
+Date: Thu, 04 Dec 2014 03:03:34 +0008
+Message-ID: <1417661734.16500.0@smtp.corp.redhat.com>
+References: <1417591177-7985-1-git-send-email-pagupta@redhat.com>
+	<1417591177-7985-3-git-send-email-pagupta@redhat.com>
+	<20141203095210.GC9487@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	willemb@google.com
-To: Yang Yingliang <yangyingliang@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:58599 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751349AbaLDCvy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 21:51:54 -0500
-Received: by mail-ie0-f176.google.com with SMTP id tr6so15002812ieb.21
-        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 18:51:53 -0800 (PST)
-In-Reply-To: <547FC2A1.60105@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Cc: Pankaj Gupta <pagupta@redhat.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net, dgibson@redhat.com,
+	vfalico@gmail.com, edumazet@google.com, vyasevic@redhat.com,
+	hkchu@google.com, wuzhy@linux.vnet.ibm.com, xemul@parallels.com,
+	therbert@google.com, bhutchings@solarflare.com, xii@google.com,
+	stephen@networkplumber.org, jiri@resnulli.us,
+	sergei.shtylyov@cogentembedded.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141203095210.GC9487@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-12-04 at 10:10 +0800, Yang Yingliang wrote:
-> On 2014/12/3 19:52, Eric Dumazet wrote:
-> > On Wed, 2014-12-03 at 17:26 +0800, Yang Yingliang wrote:
-> > 
-> >> Before this patch, when a large network flow arrives, some other processes
-> >> response slowly or even don't response because the cpu is dealing with softirq.
-> >>
-> >> After this patch, under pressure, much more softirq is doing in ksoftirqd. The other
-> >> processes be scheduled.
-> >>
-> >> My system has dual core.
-> > 
-> > Which NIC driver are you using ?
-> > 
-> The driver we developed ourself, it's not upstreamed.
 
-Is it a NAPI driver ?
 
-Quite frankly this patch is not a stable candidate, as it was a
-performance improvement, with some regressions in a couple of drivers.
+On Wed, Dec 3, 2014 at 5:52 PM, Michael S. Tsirkin <mst@redhat.com> 
+wrote:
+> On Wed, Dec 03, 2014 at 12:49:37PM +0530, Pankaj Gupta wrote:
+>>  Networking under kvm works best if we allocate a per-vCPU RX and TX
+>>  queue in a virtual NIC. This requires a per-vCPU queue on the host 
+>> side.
+>>  
+>>  It is now safe to increase the maximum number of queues.
+>>  Preceding patche: 'net: allow large number of rx queues'
+> 
+> s/patche/patch/
+> 
+>>  made sure this won't cause failures due to high order memory
+>>  allocations. Increase it to 256: this is the max number of vCPUs
+>>  KVM supports.
+>>  
+>>  Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
+>>  Reviewed-by: David Gibson <dgibson@redhat.com>
+> 
+> Hmm it's kind of nasty that each tun device is now using x16 memory.
+> Maybe we should look at using a flex array instead, and removing the
+> limitation altogether (e.g. make it INT_MAX)?
+
+But this only happens when IFF_MULTIQUEUE were used.
+And core has vmalloc() fallback.
+So probably not a big issue?
+
+> 
+> 
+> 
+>>  ---
+>>   drivers/net/tun.c | 9 +++++----
+>>   1 file changed, 5 insertions(+), 4 deletions(-)
+>>  
+>>  diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>>  index e3fa65a..a19dc5f8 100644
+>>  --- a/drivers/net/tun.c
+>>  +++ b/drivers/net/tun.c
+>>  @@ -113,10 +113,11 @@ struct tap_filter {
+>>   	unsigned char	addr[FLT_EXACT_COUNT][ETH_ALEN];
+>>   };
+>>   
+>>  -/* DEFAULT_MAX_NUM_RSS_QUEUES were chosen to let the rx/tx queues 
+>> allocated for
+>>  - * the netdevice to be fit in one page. So we can make sure the 
+>> success of
+>>  - * memory allocation. TODO: increase the limit. */
+>>  -#define MAX_TAP_QUEUES DEFAULT_MAX_NUM_RSS_QUEUES
+>>  +/* MAX_TAP_QUEUES 256 is chosen to allow rx/tx queues to be equal
+>>  + * to max number of vCPUS in guest. Also, we are making sure here
+>>  + * queue memory allocation do not fail.
+> 
+> It's not queue memory allocation anymore, is it?
+> I would say "
+> This also helps the tfiles field fit in 4K, so the whole tun
+> device only needs an order-1 allocation.
+> "
+> 
+>>  + */
+>>  +#define MAX_TAP_QUEUES 256
+>>   #define MAX_TAP_FLOWS  4096
+>>   
+>>   #define TUN_FLOW_EXPIRE (3 * HZ)
+>>  -- 
+>>  1.8.3.1
+>>  
+>>  --
+>>  To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>  the body of a message to majordomo@vger.kernel.org
+>>  More majordomo info at  http://vger.kernel.org/majordomo-info.html
