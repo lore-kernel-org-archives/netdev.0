@@ -1,90 +1,160 @@
 From: Petri Gynther <pgynther@google.com>
-Subject: [PATCH 1/4 net-next] net: bcmgenet: bcmgenet_init_tx_ring() cleanup
-Date: Wed,  3 Dec 2014 20:11:31 -0800 (PST)
-Message-ID: <20141204041131.830CB2200C7@puck.mtv.corp.google.com>
+Subject: [PATCH 2/4 net-next] net: bcmgenet: rework Tx queue init
+Date: Wed,  3 Dec 2014 20:11:40 -0800 (PST)
+Message-ID: <20141204041140.8D0612200C7@puck.mtv.corp.google.com>
 Cc: davem@davemloft.net, f.fainelli@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f73.google.com ([209.85.213.73]:49178 "EHLO
+Received: from mail-yh0-f73.google.com ([209.85.213.73]:51482 "EHLO
 	mail-yh0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752540AbaLDELd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 23:11:33 -0500
-Received: by mail-yh0-f73.google.com with SMTP id f10so919086yha.4
-        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 20:11:32 -0800 (PST)
+	with ESMTP id S1752540AbaLDELm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2014 23:11:42 -0500
+Received: by mail-yh0-f73.google.com with SMTP id f10so919089yha.4
+        for <netdev@vger.kernel.org>; Wed, 03 Dec 2014 20:11:41 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+1. Rename bcmgenet_init_multiq() to bcmgenet_init_tx_queues()
+2. Move Tx default queue init inside bcmgenet_init_tx_queues()
+
 Signed-off-by: Petri Gynther <pgynther@google.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 23 +++++++++--------------
- 1 file changed, 9 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 82 +++++++++++---------------
+ 1 file changed, 36 insertions(+), 46 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index f2fadb0..78ab733 100644
+index 78ab733..eba310a 100644
 --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
 +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -1679,17 +1679,16 @@ static int init_umac(struct bcmgenet_priv *priv)
- 	return 0;
+@@ -1776,78 +1776,74 @@ static int bcmgenet_init_rx_ring(struct bcmgenet_priv *priv,
+ 	return ret;
  }
  
--/* Initialize all house-keeping variables for a TX ring, along
-- * with corresponding hardware registers
+-/* init multi xmit queues, only available for GENET2+
+- * the queue is partitioned as follows:
 +/*
-+ * Initialize a Tx ring along with corresponding hardware registers.
++ * Initialize Tx queues
+  *
+- * queue 0 - 3 is priority based, each one has 32 descriptors,
++ * Queues 0-3 are priority-based, each one has 32 descriptors,
+  * with queue 0 being the highest priority queue.
+  *
+- * queue 16 is the default tx queue with GENET_DEFAULT_BD_CNT
+- * descriptors: 256 - (number of tx queues * bds per queues) = 128
+- * descriptors.
++ * Queue 16 is the default Tx queue with
++ * GENET_DEFAULT_BD_CNT = 256 - 4 * 32 = 128 descriptors.
+  *
+- * The transmit control block pool is then partitioned as following:
+- * - tx_cbs[0...127] are for queue 16
+- * - tx_ring_cbs[0] points to tx_cbs[128..159]
+- * - tx_ring_cbs[1] points to tx_cbs[160..191]
+- * - tx_ring_cbs[2] points to tx_cbs[192..223]
+- * - tx_ring_cbs[3] points to tx_cbs[224..255]
++ * The transmit control block pool is then partitioned as follows:
++ * - Tx queue 0 uses tx_cbs[0..31]
++ * - Tx queue 1 uses tx_cbs[32..63]
++ * - Tx queue 2 uses tx_cbs[64..95]
++ * - Tx queue 3 uses tx_cbs[96..127]
++ * - Tx queue 16 uses tx_cbs[128..255]
   */
- static void bcmgenet_init_tx_ring(struct bcmgenet_priv *priv,
- 				  unsigned int index, unsigned int size,
--				  unsigned int write_ptr, unsigned int end_ptr)
-+				  unsigned int start_ptr, unsigned int end_ptr)
+-static void bcmgenet_init_multiq(struct net_device *dev)
++static void bcmgenet_init_tx_queues(struct net_device *dev)
  {
- 	struct bcmgenet_tx_ring *ring = &priv->tx_rings[index];
- 	u32 words_per_bd = WORDS_PER_BD(priv);
- 	u32 flow_period_val = 0;
--	unsigned int first_bd;
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+-	unsigned int i, dma_enable;
+-	u32 reg, dma_ctrl, ring_cfg = 0;
++	u32 i, dma_enable;
++	u32 dma_ctrl, ring_cfg;
+ 	u32 dma_priority[3] = {0, 0, 0};
  
- 	spin_lock_init(&ring->lock);
- 	ring->index = index;
-@@ -1702,12 +1701,12 @@ static void bcmgenet_init_tx_ring(struct bcmgenet_priv *priv,
- 		ring->int_enable = bcmgenet_tx_ring_int_enable;
- 		ring->int_disable = bcmgenet_tx_ring_int_disable;
- 	}
--	ring->cbs = priv->tx_cbs + write_ptr;
-+	ring->cbs = priv->tx_cbs + start_ptr;
- 	ring->size = size;
- 	ring->c_index = 0;
- 	ring->free_bds = size;
--	ring->write_ptr = write_ptr;
--	ring->cb_ptr = write_ptr;
-+	ring->write_ptr = start_ptr;
-+	ring->cb_ptr = start_ptr;
- 	ring->end_ptr = end_ptr - 1;
- 	ring->prod_index = 0;
- 
-@@ -1718,22 +1717,18 @@ static void bcmgenet_init_tx_ring(struct bcmgenet_priv *priv,
- 	bcmgenet_tdma_ring_writel(priv, index, 0, TDMA_PROD_INDEX);
- 	bcmgenet_tdma_ring_writel(priv, index, 0, TDMA_CONS_INDEX);
- 	bcmgenet_tdma_ring_writel(priv, index, 1, DMA_MBUF_DONE_THRESH);
--	/* Disable rate control for now */
- 	bcmgenet_tdma_ring_writel(priv, index, flow_period_val,
- 				  TDMA_FLOW_PERIOD);
--	/* Unclassified traffic goes to ring 16 */
- 	bcmgenet_tdma_ring_writel(priv, index,
- 				  ((size << DMA_RING_SIZE_SHIFT) |
- 				   RX_BUF_LENGTH), DMA_RING_BUF_SIZE);
- 
--	first_bd = write_ptr;
+-	if (!netif_is_multiqueue(dev)) {
+-		netdev_warn(dev, "called with non multi queue aware HW\n");
+-		return;
+-	}
 -
- 	/* Set start and end address, read and write pointers */
--	bcmgenet_tdma_ring_writel(priv, index, first_bd * words_per_bd,
-+	bcmgenet_tdma_ring_writel(priv, index, start_ptr * words_per_bd,
- 				  DMA_START_ADDR);
--	bcmgenet_tdma_ring_writel(priv, index, first_bd * words_per_bd,
-+	bcmgenet_tdma_ring_writel(priv, index, start_ptr * words_per_bd,
- 				  TDMA_READ_PTR);
--	bcmgenet_tdma_ring_writel(priv, index, first_bd,
-+	bcmgenet_tdma_ring_writel(priv, index, start_ptr * words_per_bd,
- 				  TDMA_WRITE_PTR);
- 	bcmgenet_tdma_ring_writel(priv, index, end_ptr * words_per_bd - 1,
- 				  DMA_END_ADDR);
+ 	dma_ctrl = bcmgenet_tdma_readl(priv, DMA_CTRL);
+ 	dma_enable = dma_ctrl & DMA_EN;
+ 	dma_ctrl &= ~DMA_EN;
+ 	bcmgenet_tdma_writel(priv, dma_ctrl, DMA_CTRL);
+ 
++	dma_ctrl = 0;
++	ring_cfg = 0;
++
+ 	/* Enable strict priority arbiter mode */
+ 	bcmgenet_tdma_writel(priv, DMA_ARBITER_SP, DMA_ARB_CTRL);
+ 
++	/* Initialize Tx priority queues */
+ 	for (i = 0; i < priv->hw_params->tx_queues; i++) {
+-		/* first 64 tx_cbs are reserved for default tx queue
+-		 * (ring 16)
+-		 */
+ 		bcmgenet_init_tx_ring(priv, i, priv->hw_params->bds_cnt,
+ 				      i * priv->hw_params->bds_cnt,
+ 				      (i + 1) * priv->hw_params->bds_cnt);
+-
+-		/* Configure ring as descriptor ring and setup priority */
+-		ring_cfg |= 1 << i;
+-		dma_ctrl |= 1 << (i + DMA_RING_BUF_EN_SHIFT);
+-
++		ring_cfg |= (1 << i);
++		dma_ctrl |= (1 << (i + DMA_RING_BUF_EN_SHIFT));
+ 		dma_priority[DMA_PRIO_REG_INDEX(i)] |=
+ 			((GENET_Q0_PRIORITY + i) << DMA_PRIO_REG_SHIFT(i));
+ 	}
+ 
+-	/* Set ring 16 priority and program the hardware registers */
++	/* Initialize Tx default queue 16 */
++	bcmgenet_init_tx_ring(priv, DESC_INDEX, GENET_DEFAULT_BD_CNT,
++			      priv->hw_params->tx_queues *
++			      priv->hw_params->bds_cnt,
++			      TOTAL_DESC);
++	ring_cfg |= (1 << DESC_INDEX);
++	dma_ctrl |= (1 << (DESC_INDEX + DMA_RING_BUF_EN_SHIFT));
+ 	dma_priority[DMA_PRIO_REG_INDEX(DESC_INDEX)] |=
+ 		((GENET_Q0_PRIORITY + priv->hw_params->tx_queues) <<
+ 		 DMA_PRIO_REG_SHIFT(DESC_INDEX));
++
++	/* Set Tx queue priorities */
+ 	bcmgenet_tdma_writel(priv, dma_priority[0], DMA_PRIORITY_0);
+ 	bcmgenet_tdma_writel(priv, dma_priority[1], DMA_PRIORITY_1);
+ 	bcmgenet_tdma_writel(priv, dma_priority[2], DMA_PRIORITY_2);
+ 
+-	/* Enable rings */
+-	reg = bcmgenet_tdma_readl(priv, DMA_RING_CFG);
+-	reg |= ring_cfg;
+-	bcmgenet_tdma_writel(priv, reg, DMA_RING_CFG);
++	/* Enable Tx queues */
++	bcmgenet_tdma_writel(priv, ring_cfg, DMA_RING_CFG);
+ 
+-	/* Configure ring as descriptor ring and re-enable DMA if enabled */
+-	reg = bcmgenet_tdma_readl(priv, DMA_CTRL);
+-	reg |= dma_ctrl;
++	/* Enable Tx DMA */
+ 	if (dma_enable)
+-		reg |= DMA_EN;
+-	bcmgenet_tdma_writel(priv, reg, DMA_CTRL);
++		dma_ctrl |= DMA_EN;
++	bcmgenet_tdma_writel(priv, dma_ctrl, DMA_CTRL);
+ }
+ 
+ static int bcmgenet_dma_teardown(struct bcmgenet_priv *priv)
+@@ -1950,14 +1946,8 @@ static int bcmgenet_init_dma(struct bcmgenet_priv *priv)
+ 		return -ENOMEM;
+ 	}
+ 
+-	/* initialize multi xmit queue */
+-	bcmgenet_init_multiq(priv->dev);
+-
+-	/* initialize special ring 16 */
+-	bcmgenet_init_tx_ring(priv, DESC_INDEX, GENET_DEFAULT_BD_CNT,
+-			      priv->hw_params->tx_queues *
+-			      priv->hw_params->bds_cnt,
+-			      TOTAL_DESC);
++	/* Initialize Tx queues */
++	bcmgenet_init_tx_queues(priv->dev);
+ 
+ 	return 0;
+ }
 -- 
 2.2.0.rc0.207.ga3a616c
