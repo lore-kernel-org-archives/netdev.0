@@ -1,7 +1,7 @@
 From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
 Subject: Re: Is this 32-bit NCM?y
-Date: Thu, 04 Dec 2014 10:55:06 +0100
-Message-ID: <87mw73n3id.fsf@nemi.mork.no>
+Date: Thu, 04 Dec 2014 11:02:19 +0100
+Message-ID: <87iohrn36c.fsf@nemi.mork.no>
 References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
 	<alpine.LNX.2.03.1412020729470.1351@gmail.com>
 	<547D5F84.6020608@audiocodes.com>
@@ -21,43 +21,43 @@ References: <alpine.LNX.2.03.1411262250160.4356@gmail.com>
 	<547EA82F.5050500@audiocodes.com>
 	<alpine.LNX.2.03.1412040730480.1320@gmail.com>
 	<548020DD.3030705@audiocodes.com> <874mtbojqo.fsf@nemi.mork.no>
-	<548028A0.5000909@audiocodes.com>
+	<alpine.LNX.2.03.1412041052310.3861@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Enrico Mioso <mrkiko.rs@gmail.com>,
+Cc: Kevin Zhu <Mingying.Zhu@audiocodes.com>,
 	Eli Britstein <Eli.Britstein@audiocodes.com>,
 	Alex Strizhevsky <alexxst@gmail.com>,
-	"Midge Shaojun Tan" <ShaojunMidge.Tan@audiocodes.com>,
+	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
 	"youtux\@gmail.com" <youtux@gmail.com>,
 	"linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>,
 	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Kevin Zhu <Mingying.Zhu@audiocodes.com>
+To: Enrico Mioso <mrkiko.rs@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:54895 "EHLO canardo.mork.no"
+Received: from canardo.mork.no ([148.122.252.1]:55025 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753086AbaLDJzT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 04:55:19 -0500
-In-Reply-To: <548028A0.5000909@audiocodes.com> (Kevin Zhu's message of "Thu, 4
-	Dec 2014 09:26:20 +0000")
+	id S1753284AbaLDKCc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 05:02:32 -0500
+In-Reply-To: <alpine.LNX.2.03.1412041052310.3861@gmail.com> (Enrico Mioso's
+	message of "Thu, 4 Dec 2014 10:53:49 +0100 (CET)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kevin Zhu <Mingying.Zhu@audiocodes.com> writes:
+Enrico Mioso <mrkiko.rs@gmail.com> writes:
 
-> I will find it out. And I don't have v3.16 and I'm not going to upgra=
-de
-> my OS to that. Sorry. So I would just stick to v3.13.
+> Guys!
+> Don't forget I can test it - since I have a remote machine with 3.16
+> kernel and the device, at least for now.
+> So - Bjorn: do I need just to disable padding or do I need also to
+> perform some other changes? I am sorry if I ask this a little bit
+> stupidly, but I was alittle bit busy here.
 
-Ouch.  well, OK.  I certainly hope you are at v3.13.10 or newer at
-least.  Otherwise we know very well what the problem is...
+I don't know.  I just mentioned it because it is easy to test, although
+the method isn't too obvious.  Someone should document this somewhere.
+Hey, wait...  Someone did :-)
 
-One of the reasons for the series that went into v3.16 was making this
-sort of debugging easier, enabling on-the-fly NCM aggregation parameter
-tuning.  I'd certainly recommend taking advantage of it instead of
-rebulding the driver every time you want to test the effect of some
-minor change to the aggregation scheme.  And do feel free to add more
-knobs if you need them.
+https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-net-cd=
+c_ncm
 
 
 Bj=C3=B8rn
