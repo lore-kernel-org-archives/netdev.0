@@ -1,40 +1,57 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH v2 0/6] net-PPP: Deletion of a few unnecessary checks
-Date: Thu, 04 Dec 2014 23:03:30 +0100
-Message-ID: <5480DA32.8000201@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.sourceforge.net> <547B4886.4080406@users.sourceforge.net> <547B
- 496E.604@users.sourceforge.net> <547C5CBC.6060607@cogentembedded.com> <547C82A6.2030808@users.sourceforge.net> <547CA157.1080401@cogentembedded.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch iproute2 1/6] iproute2: ipa: show switch id
+Date: Thu, 4 Dec 2014 22:07:44 +0000
+Message-ID: <20141204220744.GA26761@casper.infradead.org>
+References: <20141204163024.GG1861@nanopsycho.orion>
+ <87388v9ua6.fsf@x220.int.ebiederm.org>
+ <20141204182451.GI1861@nanopsycho.orion>
+ <87k327450a.fsf@x220.int.ebiederm.org>
+ <20141204191926.GK1861@nanopsycho.orion>
+ <87wq672p49.fsf@x220.int.ebiederm.org>
+ <87h9xbxjrd.fsf@x220.int.ebiederm.org>
+ <20141204202742.GM1861@nanopsycho.orion>
+ <87388vw2xg.fsf@x220.int.ebiederm.org>
+ <20141204211041.GN1861@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <547CA157.1080401@cogentembedded.com>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	b
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:54178 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751663AbaLDWHw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 17:07:52 -0500
+Content-Disposition: inline
+In-Reply-To: <20141204211041.GN1861@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Thu, 4 Dec 2014 22:50:28 +0100
+On 12/04/14 at 10:10pm, Jiri Pirko wrote:
+> Thu, Dec 04, 2014 at 09:55:07PM CET, ebiederm@xmission.com wrote:
+> >My intuition says we want something like ifindex, but I am not at all
+> >certain how switch id is planned to be used.  Given that it is single
+> >box I don't expect you are sending it out over the wire.
+> 
+> No, it is not to be send out.
 
-Further update suggestions were taken into account before and after a patch
-was applied from static source code analysis.
+We discussed this before and stated we would fix this as soon as it's
+merged. Let's just define a simple and quick switch id prefix generator
+ala ifindex which serves as a unique prefix to all switch ids.
 
-Markus Elfring (6):
-  Replacement of a printk() call by pr_warn() in mppe_rekey()
-  Fix indentation
-  Deletion of unnecessary checks before the function call "kfree"
-  Less function calls in mppe_alloc() after error detection
-  Delete an unnecessary assignment in mppe_alloc()
-  Delete another unnecessary assignment in mppe_alloc()
-
- drivers/net/ppp/ppp_mppe.c | 49 +++++++++++++++++++---------------------------
- 1 file changed, 20 insertions(+), 29 deletions(-)
-
--- 
-2.1.3
-
+I have time early next week if Jiri doesn't.
