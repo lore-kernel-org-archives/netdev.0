@@ -1,75 +1,155 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH] ixgbe,
- ixgbevf: Add new mbox API to enable MC promiscuous mode
-Date: Thu, 04 Dec 2014 09:43:51 -0800
-Message-ID: <54809D57.9060804@gmail.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05DBFDAD@BPXM14GP.gisp.nec.co.jp>
+From: Andrey Volkov <andrey.volkov@nexvision.fr>
+Subject: Re: [PATCH 1/1] net: dsa: replacing the hard-coded sized array "dsa_switch"
+ by dynamic one
+Date: Thu, 04 Dec 2014 18:29:55 +0100
+Message-ID: <54809A13.8080703@nexvision.fr>
+References: <547DD1C6.2090304@nexvision.fr> <547E23C1.2040007@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Choi,
-	Sy Jong" <sy.jong.choi@intel.com>, Hayato Momma <h-momma@ce.jp.nec.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05DBFDAD@BPXM14GP.gisp.nec.co.jp>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 15.mo1.mail-out.ovh.net ([188.165.38.232]:46924 "EHLO
+	mo1.mail-out.ovh.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932164AbaLDRqE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 12:46:04 -0500
+Received: from mail140.ha.ovh.net (gw6.ovh.net [213.251.189.206])
+	by mo1.mail-out.ovh.net (Postfix) with SMTP id 84A2EFFADF2
+	for <netdev@vger.kernel.org>; Thu,  4 Dec 2014 18:30:00 +0100 (CET)
+In-Reply-To: <547E23C1.2040007@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/27/2014 02:39 AM, Hiroshi Shimamoto wrote:
-> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
->
-> The limitation of the number of multicast address for VF is not enough
-> for the large scale server with SR-IOV feature.
-> IPv6 requires the multicast MAC address for each IP address to handle
-> the Neighbor Solicitation message.
-> We couldn't assign over 30 IPv6 addresses to a single VF interface.
->
-> The easy way to solve this is enabling multicast promiscuous mode.
-> It is good to have a functionality to enable multicast promiscuous mode
-> for each VF from VF driver.
->
-> This patch introduces the new mbox API, IXGBE_VF_SET_MC_PROMISC, to
-> enable/disable multicast promiscuous mode in VF. If multicast promiscuous
-> mode is enabled the VF can receive all multicast packets.
->
-> With this patch, the ixgbevf driver automatically enable multicast
-> promiscuous mode when the number of multicast addresses is over than 30
-> if possible.
->
-> This also bump the API version up to 1.2 to check whether the API,
-> IXGBE_VF_SET_MC_PROMISC is available.
->
-> Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-> CC: Choi, Sy Jong <sy.jong.choi@intel.com>
-> Reviewed-by: Hayato Momma <h-momma@ce.jp.nec.com>
 
-This is a REALLY bad idea unless you plan to limit this to privileged VFs.
+Le 02/12/2014 21:40, Florian Fainelli a =C3=A9crit :
+> On 02/12/14 06:50, Andrey Volkov wrote:
+>> Hello,
+>>
+>> In time of developing one of our devices (with huge, more then 6, nu=
+mber of onboard switches),
+>> I've bumped with this ancient, I hope, restriction in the 'struct ds=
+a_switch_tree' definition.=20
+>> So this simple patch remove this restriction and make dsa_switch_tre=
+e more scalable for=20
+>> the "usual" 1-2 switches configuration too.
+> Sounds reasonable to me, you probably want to resubmit and trim the
+> "Hello" form your commit message.
+>
+>> P.S. I've plans to fix hardcoded number of ports too, but it is not =
+so easy as with number of switches.
+>> So if someone have any objections/suggestions I'll happy to discuss =
+them.
+> I think the number of ports in a switch is something that should come
+> from the switch driver, and eventually intersected with what the
+> platform configuration has provided.
+Yes it's exactly what I've in my mind. Also in our project I need to ha=
+ndle currently unsupported case:
+when switches combined into the stacks by more than one hardwired links=
+, i.e. some ports must be
+configured as part of 'hard-coded' trunks.
 
-I would recommend looking at adding an ndo operation to control this
-feature so that it could be disabled by default in the PF and only
-enabled on the host side if specifically requested.  Otherwise the
-problem is I can easily see this leading security issues as the VFs
-might begin getting access to messages that they aren't supposed to.
+> The difficulty is in case of sparse port number allocation because yo=
+u
+> still want to allocate e.g: 6 ports even though Port 0 and 5 are used=
+, I
+> don't think we want to introduce a logical to physical mapping, that
+> would be too error prone.
+Agree.
 
-- Alex
 
-------------------------------------------------------------------------------
-Download BIRT iHub F-Type - The Free Enterprise-Grade BIRT Server
-from Actuate! Instantly Supercharge Your Business Reports and Dashboards
-with Interactivity, Sharing, Native Excel Exports, App Integration & more
-Get technology previously reserved for billion-dollar corporations, FREE
-http://pubads.g.doubleclick.net/gampad/clk?id=164703151&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+>
+>> Signed-off-by: Andrey Volkov <andrey.volkov@nexvision.fr>           =
+                                                                       =
+                                                                       =
+                          =20
+>> ---                                                                 =
+                                                                       =
+                                                                       =
+                          =20
+>>  include/net/dsa.h |    3 +--                                       =
+                                                                       =
+                                                                       =
+                          =20
+>>  net/dsa/dsa.c     |    7 +++----                                   =
+                                                                       =
+                                                                       =
+                          =20
+>>  2 files changed, 4 insertions(+), 6 deletions(-)                   =
+                                                                       =
+                                                                       =
+                          =20
+>>                                                                     =
+                                                                       =
+                                                                       =
+                          =20
+>> diff --git a/include/net/dsa.h b/include/net/dsa.h                  =
+                                                                       =
+                                                                       =
+                          =20
+>> index ed3c34b..733db2e 100644                                       =
+                                                                       =
+                                                                       =
+                          =20
+>> --- a/include/net/dsa.h
+>> +++ b/include/net/dsa.h
+>> @@ -28,7 +28,6 @@ enum dsa_tag_protocol {
+>>         DSA_TAG_PROTO_BRCM,
+>>  };
+>> =20
+>> -#define DSA_MAX_SWITCHES       4
+>>  #define DSA_MAX_PORTS          12
+>> =20
+>>  struct dsa_chip_data {
+>> @@ -117,7 +116,7 @@ struct dsa_switch_tree {
+>>         /*
+>>          * Data for the individual switch chips.
+>>          */
+>> -       struct dsa_switch       *ds[DSA_MAX_SWITCHES];
+>> +       struct dsa_switch       *ds[];
+>>  };
+>> =20
+>>  struct dsa_switch {
+>> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+>> index 322c778..c081a19 100644
+>> --- a/net/dsa/dsa.c
+>> +++ b/net/dsa/dsa.c
+>> @@ -604,8 +604,6 @@ static int dsa_of_probe(struct platform_device *=
+pdev)
+>>         pdev->dev.platform_data =3D pd;
+>>         pd->netdev =3D &ethernet_dev->dev;
+>>         pd->nr_chips =3D of_get_child_count(np);
+>> -       if (pd->nr_chips > DSA_MAX_SWITCHES)
+>> -               pd->nr_chips =3D DSA_MAX_SWITCHES;
+>> =20
+>>         pd->chip =3D kcalloc(pd->nr_chips, sizeof(struct dsa_chip_da=
+ta),
+>>                            GFP_KERNEL);
+>> @@ -717,7 +715,7 @@ static int dsa_probe(struct platform_device *pde=
+v)
+>>                 pd =3D pdev->dev.platform_data;
+>>         }
+>> =20
+>> -       if (pd =3D=3D NULL || pd->netdev =3D=3D NULL)
+>> +       if (pd =3D=3D NULL || pd->netdev =3D=3D NULL || pd->nr_chips=
+ =3D=3D 0)
+>>                 return -EINVAL;
+>> =20
+>>         dev =3D dev_to_net_device(pd->netdev);
+>> @@ -732,7 +730,8 @@ static int dsa_probe(struct platform_device *pde=
+v)
+>>                 goto out;
+>>         }
+>> =20
+>> -       dst =3D kzalloc(sizeof(*dst), GFP_KERNEL);
+>> +       dst =3D kzalloc(sizeof(*dst) +
+>> +                       sizeof(struct dsa_switch *) * pd->nr_chips, =
+GFP_KERNEL);
+>>         if (dst =3D=3D NULL) {
+>>                 dev_put(dev);
+>>                 ret =3D -ENOMEM;
+>>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
