@@ -1,55 +1,32 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH v2 1/6] net-PPP: Replacement of a printk() call by
- pr_warn() in mppe_rekey()
-Date: Fri, 5 Dec 2014 08:21:15 +0100 (CET)
-Message-ID: <alpine.DEB.2.02.1412050820290.2059@localhost6.localdomain6>
-References: <1417731809.2721.17.camel@perches.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [patch] ipvs: uninitialized data with IP_VS_IPV6
+Date: Fri, 5 Dec 2014 10:25:32 +0300
+Message-ID: <20141205072531.GA4912@mwanda>
+References: <20141203101213.GC29583@mwanda>
+ <alpine.LFD.2.11.1412042308100.4841@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417731809.2721.17.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, kernel-janitors@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.11.1412042308100.4841@ja.home.ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On Thu, 4 Dec 2014, Joe Perches wrote:
-
-> On Thu, 2014-12-04 at 23:10 +0100, SF Markus Elfring wrote:
-> > The mppe_rekey() function contained a few update candidates.
-> > * Curly brackets were still used around a single function call "printk".
-> > * Unwanted space characters
-> > 
-> > Let us improve these implementation details according to the current Linux
-> > coding style convention.
+On Thu, Dec 04, 2014 at 11:19:34PM +0200, Julian Anastasov wrote:
 > 
-> trivia:
-> 
-> > diff --git a/drivers/net/ppp/ppp_mppe.c b/drivers/net/ppp/ppp_mppe.c
-> []
-> > @@ -172,9 +172,8 @@ static void mppe_rekey(struct ppp_mppe_state * state, int initial_key)
-> >  		setup_sg(sg_in, state->sha1_digest, state->keylen);
-> >  		setup_sg(sg_out, state->session_key, state->keylen);
-> >  		if (crypto_blkcipher_encrypt(&desc, sg_out, sg_in,
-> > -					     state->keylen) != 0) {
-> > -    		    printk(KERN_WARNING "mppe_rekey: cipher_encrypt failed\n");
-> > -		}
-> > +					     state->keylen) != 0)
-> > +			pr_warn("mppe_rekey: cipher_encrypt failed\n");
-> 
-> It's generally nicer to replace embedded function names
-> with "%s: ", __func__
-> 
-> 			pr_warn("%s: cipher_encrypt failed\n", __func__);
+> 	I guess ip_vs_ftp_in() needs the same fix?
 
-Doing so may potentially allow some strings to be shared, thus saving a 
-little space.  Perhaps not in this case, though.
+Good catch.  Thanks for noticing that.  I'll send a v2.
 
-julia
+regards,
+dan carpenter
+
