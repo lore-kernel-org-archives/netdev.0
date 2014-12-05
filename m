@@ -1,141 +1,86 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 03/12] ip_generic_getfrag, udplite_getfrag: switch to passing msghdr
-Date: Fri,  5 Dec 2014 05:58:44 +0000
-Message-ID: <1417759133-18370-3-git-send-email-viro@ZenIV.linux.org.uk>
-References: <20141205055623.GQ29748@ZenIV.linux.org.uk>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH 1/3] netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD
+ feature flag for switch device offloads
+Date: Thu, 4 Dec 2014 22:08:21 -0800
+Message-ID: <CAE4R7bBC+W+9F3cmR5TVuO+BbhK+zBuiQhNtk6gCvK5CC2MkMg@mail.gmail.com>
+References: <1417746401-8140-2-git-send-email-roopa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
+	john fastabend <john.fastabend@gmail.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	John Linville <linville@tuxdriver.com>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"buytenh@wantstofly.org" <buytenh@wantstofly.org>,
+	Aviad Raveh <aviadr@mellanox.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, shm@cumulusnetworks.com,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:51299 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750909AbaLEF6z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 00:58:55 -0500
-In-Reply-To: <20141205055623.GQ29748@ZenIV.linux.org.uk>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:50003 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750877AbaLEGIX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 01:08:23 -0500
+Received: by mail-wi0-f169.google.com with SMTP id r20so418109wiv.0
+        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 22:08:21 -0800 (PST)
+In-Reply-To: <1417746401-8140-2-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Al Viro <viro@zeniv.linux.org.uk>
+On Thu, Dec 4, 2014 at 6:26 PM,  <roopa@cumulusnetworks.com> wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> This is a generic high level feature flag for all switch asic features today.
+>
+> switch drivers set this flag on switch ports. Logical devices like
+> bridge, bonds, vxlans can inherit this flag from their slaves/ports.
+>
+> I had to use SWITCH in the name to avoid ambiguity with other feature
+> flags. But, since i have been harping about not calling it 'switch',
+> I am welcome to any suggestions :)
+>
+> An alternative to using a feature flag is to use a IFF_HW_OFFLOAD
+> in net_device_flags.
+> ---
+>  include/linux/netdev_features.h |    2 ++
+>  1 file changed, 2 insertions(+)
+>
+> diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+> index 8e30685..68db1de 100644
+> --- a/include/linux/netdev_features.h
+> +++ b/include/linux/netdev_features.h
+> @@ -66,6 +66,7 @@ enum {
+>         NETIF_F_HW_VLAN_STAG_FILTER_BIT,/* Receive filtering on VLAN STAGs */
+>         NETIF_F_HW_L2FW_DOFFLOAD_BIT,   /* Allow L2 Forwarding in Hardware */
+>         NETIF_F_BUSY_POLL_BIT,          /* Busy poll */
+> +       NETIF_F_HW_SWITCH_OFFLOAD_BIT,  /* HW switch offload */
+>
+>         /*
+>          * Add your fresh new feature above and remember to update
+> @@ -124,6 +125,7 @@ enum {
+>  #define NETIF_F_HW_VLAN_STAG_TX        __NETIF_F(HW_VLAN_STAG_TX)
+>  #define NETIF_F_HW_L2FW_DOFFLOAD       __NETIF_F(HW_L2FW_DOFFLOAD)
+>  #define NETIF_F_BUSY_POLL      __NETIF_F(BUSY_POLL)
+> +#define NETIF_F_HW_SWITCH_OFFLOAD      __NETIF_F(HW_SWITCH_OFFLOAD)
 
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
----
- include/net/udplite.h | 3 ++-
- net/ipv4/ip_output.c  | 6 +++---
- net/ipv4/raw.c        | 2 +-
- net/ipv4/udp.c        | 4 ++--
- net/ipv6/raw.c        | 2 +-
- net/ipv6/udp.c        | 2 +-
- net/l2tp/l2tp_ip6.c   | 2 +-
- 7 files changed, 11 insertions(+), 10 deletions(-)
+Can we use existing flag NETIF_F_HW_L2FW_DOFFLOAD?  The comment above
+on that flag suggests it would be perfect for what we're doing with L2
+bridging: offloading the L2 forwarding path in HW.
 
-diff --git a/include/net/udplite.h b/include/net/udplite.h
-index 9a28a51..d5baaba 100644
---- a/include/net/udplite.h
-+++ b/include/net/udplite.h
-@@ -19,7 +19,8 @@ extern struct udp_table		udplite_table;
- static __inline__ int udplite_getfrag(void *from, char *to, int  offset,
- 				      int len, int odd, struct sk_buff *skb)
- {
--	return memcpy_fromiovecend(to, (struct iovec *) from, offset, len);
-+	struct msghdr *msg = from;
-+	return memcpy_fromiovecend(to, msg->msg_iov, offset, len);
- }
- 
- /* Designate sk as UDP-Lite socket */
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 4a929ad..cdedcf1 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -752,14 +752,14 @@ EXPORT_SYMBOL(ip_fragment);
- int
- ip_generic_getfrag(void *from, char *to, int offset, int len, int odd, struct sk_buff *skb)
- {
--	struct iovec *iov = from;
-+	struct msghdr *msg = from;
- 
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		if (memcpy_fromiovecend(to, iov, offset, len) < 0)
-+		if (memcpy_fromiovecend(to, msg->msg_iov, offset, len) < 0)
- 			return -EFAULT;
- 	} else {
- 		__wsum csum = 0;
--		if (csum_partial_copy_fromiovecend(to, iov, offset, len, &csum) < 0)
-+		if (csum_partial_copy_fromiovecend(to, msg->msg_iov, offset, len, &csum) < 0)
- 			return -EFAULT;
- 		skb->csum = csum_block_add(skb->csum, csum, odd);
- 	}
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 5c901eb..5d83bd2 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -478,7 +478,7 @@ static int raw_getfrag(void *from, char *to, int offset, int len, int odd,
- 
- 	offset -= rfv->hlen;
- 
--	return ip_generic_getfrag(rfv->msg->msg_iov, to, offset, len, odd, skb);
-+	return ip_generic_getfrag(rfv->msg, to, offset, len, odd, skb);
- }
- 
- static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index b2d6068..0cac250 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1036,7 +1036,7 @@ back_from_confirm:
- 
- 	/* Lockless fast path for the non-corking case. */
- 	if (!corkreq) {
--		skb = ip_make_skb(sk, fl4, getfrag, msg->msg_iov, ulen,
-+		skb = ip_make_skb(sk, fl4, getfrag, msg, ulen,
- 				  sizeof(struct udphdr), &ipc, &rt,
- 				  msg->msg_flags);
- 		err = PTR_ERR(skb);
-@@ -1067,7 +1067,7 @@ back_from_confirm:
- 
- do_append_data:
- 	up->len += ulen;
--	err = ip_append_data(sk, fl4, getfrag, msg->msg_iov, ulen,
-+	err = ip_append_data(sk, fl4, getfrag, msg, ulen,
- 			     sizeof(struct udphdr), &ipc, &rt,
- 			     corkreq ? msg->msg_flags|MSG_MORE : msg->msg_flags);
- 	if (err)
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 942f67b..11a9283 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -727,7 +727,7 @@ static int raw6_getfrag(void *from, char *to, int offset, int len, int odd,
- 
- 	offset -= rfv->hlen;
- 
--	return ip_generic_getfrag(rfv->msg->msg_iov, to, offset, len, odd, skb);
-+	return ip_generic_getfrag(rfv->msg, to, offset, len, odd, skb);
- }
- 
- static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 7cfb5d74..5a164b6 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1299,7 +1299,7 @@ do_append_data:
- 		dontfrag = np->dontfrag;
- 	up->len += ulen;
- 	getfrag  =  is_udplite ?  udplite_getfrag : ip_generic_getfrag;
--	err = ip6_append_data(sk, getfrag, msg->msg_iov, ulen,
-+	err = ip6_append_data(sk, getfrag, msg, ulen,
- 		sizeof(struct udphdr), hlimit, tclass, opt, &fl6,
- 		(struct rt6_info *)dst,
- 		corkreq ? msg->msg_flags|MSG_MORE : msg->msg_flags, dontfrag);
-diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
-index 2177b96..8611f1b 100644
---- a/net/l2tp/l2tp_ip6.c
-+++ b/net/l2tp/l2tp_ip6.c
-@@ -619,7 +619,7 @@ static int l2tp_ip6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 
- back_from_confirm:
- 	lock_sock(sk);
--	err = ip6_append_data(sk, ip_generic_getfrag, msg->msg_iov,
-+	err = ip6_append_data(sk, ip_generic_getfrag, msg,
- 			      ulen, transhdrlen, hlimit, tclass, opt,
- 			      &fl6, (struct rt6_info *)dst,
- 			      msg->msg_flags, dontfrag);
--- 
-2.1.3
+NETIF_F_HW_L2FW_DOFFLOAD seems to be orphaned in current net-next, so
+I'm not sure of it's status, but see if it makes sense to recycle it.
+
+I could see a NETIF_F_HW_L3FW_DOFFLOAD for L3 fwd offload, down the road.
+
+
+>  /* Features valid for ethtool to change */
+>  /* = all defined minus driver/device-class-related */
+> --
+> 1.7.10.4
+>
