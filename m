@@ -1,88 +1,42 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH 1/3] netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD feature
- flag for switch device offloads
-Date: Fri, 05 Dec 2014 06:16:07 -0800
-Message-ID: <5481BE27.6000505@cumulusnetworks.com>
-References: <1417746401-8140-2-git-send-email-roopa@cumulusnetworks.com> <20141205074127.GB1866@nanopsycho.orion>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH][net-next] net: avoid to call skb_queue_len again
+Date: Fri, 05 Dec 2014 06:31:10 -0800
+Message-ID: <1417789870.15618.1.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1417772948-17909-1-git-send-email-roy.qing.li@gmail.com>
+	 <5481BBF2.40806@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
-	john.fastabend@gmail.com, stephen@networkplumber.org,
-	linville@tuxdriver.com, nhorman@tuxdriver.com,
-	nicolas.dichtel@6wind.com, vyasevic@redhat.com,
-	f.fainelli@gmail.com, buytenh@wantstofly.org, aviadr@mellanox.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: roy.qing.li@gmail.com, netdev@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:35668 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750907AbaLEOQ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 09:16:26 -0500
-In-Reply-To: <20141205074127.GB1866@nanopsycho.orion>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:51612 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750965AbaLEObM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 09:31:12 -0500
+Received: by mail-ig0-f176.google.com with SMTP id l13so913088iga.9
+        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 06:31:11 -0800 (PST)
+In-Reply-To: <5481BBF2.40806@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/4/14, 11:41 PM, Jiri Pirko wrote:
-> Fri, Dec 05, 2014 at 03:26:39AM CET, roopa@cumulusnetworks.com wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> This is a generic high level feature flag for all switch asic features today.
->>
->> switch drivers set this flag on switch ports. Logical devices like
->> bridge, bonds, vxlans can inherit this flag from their slaves/ports.
->
-> Can you please elaborate on how exactly would this inheritance look
-> like?
+On Fri, 2014-12-05 at 17:06 +0300, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 12/5/2014 12:49 PM, roy.qing.li@gmail.com wrote:
+> 
+> > From: Li RongQing <roy.qing.li@gmail.com>
+> 
+> > the queue length of sd->input_pkt_queue has been putted into qlen,
+> 
+>     s/putted/put/, it's irregular verb.
+> 
+> > and impossible to change, since hold the lock
+> 
+>     I can't parse that. Who holds the lock?
 
-My thought there was, when a port with the hw offload flag is added to 
-the bridge, the same flag gets set on the bridge. And, for any bridge 
-attributes (not port attributes), this flag on the bridge can be used to 
-offload those bridge attributes.
-bridge attribute examples: IFLA_BR_FORWARD_DELAY, IFLA_BR_HELLO_TIME, 
-IFLA_BR_MAX_AGE.
-I don't think offloads for these are handled today. I was going to look 
-at them as part of continued work on this.
-The current patches only target bridge port attributes and the flag for 
-this is already set by the port driver.
+This thread/cpu holds the lock to manipulate input_pkt_queue.
 
-I believe netdev_update_features() takes care of the updating the flag 
-on the bridge part. I plan to check on that.
+Otherwise, the following would break horribly....
 
-
->
->
->> I had to use SWITCH in the name to avoid ambiguity with other feature
->> flags. But, since i have been harping about not calling it 'switch',
->> I am welcome to any suggestions :)
->>
->> An alternative to using a feature flag is to use a IFF_HW_OFFLOAD
->> in net_device_flags.
->> ---
->> include/linux/netdev_features.h |    2 ++
->> 1 file changed, 2 insertions(+)
->>
->> diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
->> index 8e30685..68db1de 100644
->> --- a/include/linux/netdev_features.h
->> +++ b/include/linux/netdev_features.h
->> @@ -66,6 +66,7 @@ enum {
->> 	NETIF_F_HW_VLAN_STAG_FILTER_BIT,/* Receive filtering on VLAN STAGs */
->> 	NETIF_F_HW_L2FW_DOFFLOAD_BIT,	/* Allow L2 Forwarding in Hardware */
->> 	NETIF_F_BUSY_POLL_BIT,		/* Busy poll */
->> +	NETIF_F_HW_SWITCH_OFFLOAD_BIT,  /* HW switch offload */
->>
->> 	/*
->> 	 * Add your fresh new feature above and remember to update
->> @@ -124,6 +125,7 @@ enum {
->> #define NETIF_F_HW_VLAN_STAG_TX	__NETIF_F(HW_VLAN_STAG_TX)
->> #define NETIF_F_HW_L2FW_DOFFLOAD	__NETIF_F(HW_L2FW_DOFFLOAD)
->> #define NETIF_F_BUSY_POLL	__NETIF_F(BUSY_POLL)
->> +#define NETIF_F_HW_SWITCH_OFFLOAD	__NETIF_F(HW_SWITCH_OFFLOAD)
->>
->> /* Features valid for ethtool to change */
->> /* = all defined minus driver/device-class-related */
->> -- 
->> 1.7.10.4
->>
+__skb_queue_tail(&sd->input_pkt_queue, skb);
