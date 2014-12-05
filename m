@@ -1,7 +1,7 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 10/12] ppp_read(): switch to skb_copy_datagram_iter()
-Date: Fri,  5 Dec 2014 05:58:51 +0000
-Message-ID: <1417759133-18370-10-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH 04/12] switch tcp_sock->ucopy from iovec (ucopy.iov) to msghdr (ucopy.msg)
+Date: Fri,  5 Dec 2014 05:58:45 +0000
+Message-ID: <1417759133-18370-4-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20141205055623.GQ29748@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
@@ -14,30 +14,62 @@ From: Al Viro <viro@zeniv.linux.org.uk>
 
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- drivers/net/ppp/ppp_generic.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ include/linux/tcp.h  | 2 +-
+ net/ipv4/tcp.c       | 2 +-
+ net/ipv4/tcp_input.c | 7 +++----
+ 3 files changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-index 794a473..af034db 100644
---- a/drivers/net/ppp/ppp_generic.c
-+++ b/drivers/net/ppp/ppp_generic.c
-@@ -417,6 +417,7 @@ static ssize_t ppp_read(struct file *file, char __user *buf,
- 	ssize_t ret;
- 	struct sk_buff *skb = NULL;
- 	struct iovec iov;
-+	struct iov_iter to;
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index f566b85..5d9cc9c 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -162,7 +162,7 @@ struct tcp_sock {
+ 	struct {
+ 		struct sk_buff_head	prequeue;
+ 		struct task_struct	*task;
+-		struct iovec		*iov;
++		struct msghdr		*msg;
+ 		int			memory;
+ 		int			len;
+ 	} ucopy;
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index dc13a36..4a96f37 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1729,7 +1729,7 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 			if (!user_recv && !(flags & (MSG_TRUNC | MSG_PEEK))) {
+ 				user_recv = current;
+ 				tp->ucopy.task = user_recv;
+-				tp->ucopy.iov = msg->msg_iov;
++				tp->ucopy.msg = msg;
+ 			}
  
- 	ret = count;
+ 			tp->ucopy.len = len;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 69de1a1..075ab4d 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4421,7 +4421,7 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
+ 			__set_current_state(TASK_RUNNING);
  
-@@ -462,7 +463,8 @@ static ssize_t ppp_read(struct file *file, char __user *buf,
- 	ret = -EFAULT;
- 	iov.iov_base = buf;
- 	iov.iov_len = count;
--	if (skb_copy_datagram_iovec(skb, 0, &iov, skb->len))
-+	iov_iter_init(&to, READ, &iov, 1, count);
-+	if (skb_copy_datagram_iter(skb, 0, &to, skb->len))
- 		goto outf;
- 	ret = skb->len;
+ 			local_bh_enable();
+-			if (!skb_copy_datagram_iovec(skb, 0, tp->ucopy.iov, chunk)) {
++			if (!skb_copy_datagram_msg(skb, 0, tp->ucopy.msg, chunk)) {
+ 				tp->ucopy.len -= chunk;
+ 				tp->copied_seq += chunk;
+ 				eaten = (chunk == skb->len);
+@@ -4941,10 +4941,9 @@ static int tcp_copy_to_iovec(struct sock *sk, struct sk_buff *skb, int hlen)
  
+ 	local_bh_enable();
+ 	if (skb_csum_unnecessary(skb))
+-		err = skb_copy_datagram_iovec(skb, hlen, tp->ucopy.iov, chunk);
++		err = skb_copy_datagram_msg(skb, hlen, tp->ucopy.msg, chunk);
+ 	else
+-		err = skb_copy_and_csum_datagram_iovec(skb, hlen,
+-						       tp->ucopy.iov);
++		err = skb_copy_and_csum_datagram_msg(skb, hlen, tp->ucopy.msg);
+ 
+ 	if (!err) {
+ 		tp->ucopy.len -= chunk;
 -- 
 2.1.3
