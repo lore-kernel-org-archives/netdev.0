@@ -1,17 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/14] ixgbevf: fix possible crashes in probe and remove
-Date: Fri,  5 Dec 2014 09:52:53 -0800
-Message-ID: <1417801973-28793-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/14] ixgbevf: add support for X550 VFs
+Date: Fri,  5 Dec 2014 09:52:52 -0800
+Message-ID: <1417801973-28793-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Daniel Borkmann <dborkman@redhat.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:7187 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:7195 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751913AbaLERyB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751911AbaLERyB (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 5 Dec 2014 12:54:01 -0500
 In-Reply-To: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,92 +18,142 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This patch resolves couple of issues in ixgbevf_probe/remove():
+This patch adds initial support for VFs on a new mac - X550.
 
-1. Fix a case where adapter->state is tested after free_netdev() this is
-same as the patch for ixgbe from Daniel Borkmann <dborkman@redhat.com>:
-commit b5b2ffc0574e1f27 ("ixgbe: fix use after free adapter->state test in ixgbe_remove/ixgbe_probe")
+The patch adds the basic structures and device IDs for the X550 VFs
+that would allow the driver to load and pass traffic.
 
-2. Move pci_set_drvdata() after all the error checks in ixgbevf_probe() and
-then add a check in ixgbevf_probe() to avoid running the cleanup functions
-twice in cases where probe failed.
-
-CC: Daniel Borkmann <dborkman@redhat.com>
 Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 17 +++++++++++++----
- 1 file changed, 13 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/defines.h      |  2 ++
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  4 ++++
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 25 ++++++++++++++++++-----
+ drivers/net/ethernet/intel/ixgbevf/vf.c           | 10 +++++++++
+ drivers/net/ethernet/intel/ixgbevf/vf.h           |  2 ++
+ 5 files changed, 38 insertions(+), 5 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbevf/defines.h b/drivers/net/ethernet/intel/ixgbevf/defines.h
+index 05e4f32..7412d37 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/defines.h
++++ b/drivers/net/ethernet/intel/ixgbevf/defines.h
+@@ -31,6 +31,8 @@
+ /* Device IDs */
+ #define IXGBE_DEV_ID_82599_VF           0x10ED
+ #define IXGBE_DEV_ID_X540_VF            0x1515
++#define IXGBE_DEV_ID_X550_VF		0x1565
++#define IXGBE_DEV_ID_X550EM_X_VF	0x15A8
+ 
+ #define IXGBE_VF_IRQ_CLEAR_MASK         7
+ #define IXGBE_VF_MAX_TX_QUEUES          8
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index bb6726c..8c44ab2 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -432,10 +432,14 @@ enum ixbgevf_state_t {
+ enum ixgbevf_boards {
+ 	board_82599_vf,
+ 	board_X540_vf,
++	board_X550_vf,
++	board_X550EM_x_vf,
+ };
+ 
+ extern const struct ixgbevf_info ixgbevf_82599_vf_info;
+ extern const struct ixgbevf_info ixgbevf_X540_vf_info;
++extern const struct ixgbevf_info ixgbevf_X550_vf_info;
++extern const struct ixgbevf_info ixgbevf_X550EM_x_vf_info;
+ extern const struct ixgbe_mbx_operations ixgbevf_mbx_ops;
+ 
+ /* needed by ethtool.c */
 diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 54f7f9cd..3b0ddf7 100644
+index 755f71f..54f7f9cd 100644
 --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
 +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -3737,6 +3737,7 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	struct ixgbe_hw *hw = NULL;
- 	const struct ixgbevf_info *ii = ixgbevf_info_tbl[ent->driver_data];
- 	int err, pci_using_dac;
-+	bool disable_dev = false;
+@@ -66,6 +66,8 @@ static char ixgbevf_copyright[] =
+ static const struct ixgbevf_info *ixgbevf_info_tbl[] = {
+ 	[board_82599_vf] = &ixgbevf_82599_vf_info,
+ 	[board_X540_vf]  = &ixgbevf_X540_vf_info,
++	[board_X550_vf]  = &ixgbevf_X550_vf_info,
++	[board_X550EM_x_vf] = &ixgbevf_X550EM_x_vf_info,
+ };
  
- 	err = pci_enable_device(pdev);
- 	if (err)
-@@ -3771,7 +3772,6 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	SET_NETDEV_DEV(netdev, &pdev->dev);
- 
--	pci_set_drvdata(pdev, netdev);
- 	adapter = netdev_priv(netdev);
- 
- 	adapter->netdev = netdev;
-@@ -3860,6 +3860,7 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (err)
- 		goto err_register;
- 
-+	pci_set_drvdata(pdev, netdev);
- 	netif_carrier_off(netdev);
+ /* ixgbevf_pci_tbl - PCI Device ID Table
+@@ -79,6 +81,8 @@ static const struct ixgbevf_info *ixgbevf_info_tbl[] = {
+ static const struct pci_device_id ixgbevf_pci_tbl[] = {
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_VF), board_82599_vf },
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X540_VF), board_X540_vf },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550_VF), board_X550_vf },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550EM_X_VF), board_X550EM_x_vf },
+ 	/* required last entry */
+ 	{0, }
+ };
+@@ -3529,7 +3533,7 @@ static int ixgbevf_change_mtu(struct net_device *netdev, int new_mtu)
+ 		max_possible_frame = IXGBE_MAX_JUMBO_FRAME_SIZE;
+ 		break;
+ 	default:
+-		if (adapter->hw.mac.type == ixgbe_mac_X540_vf)
++		if (adapter->hw.mac.type != ixgbe_mac_82599_vf)
+ 			max_possible_frame = IXGBE_MAX_JUMBO_FRAME_SIZE;
+ 		break;
+ 	}
+@@ -3860,12 +3864,23 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  
  	ixgbevf_init_last_counter_stats(adapter);
-@@ -3889,12 +3890,13 @@ err_sw_init:
- 	ixgbevf_reset_interrupt_capability(adapter);
- 	iounmap(adapter->io_addr);
- err_ioremap:
-+	disable_dev = !test_and_set_bit(__IXGBEVF_DISABLED, &adapter->state);
- 	free_netdev(netdev);
- err_alloc_etherdev:
- 	pci_release_regions(pdev);
- err_pci_reg:
- err_dma:
--	if (!test_and_set_bit(__IXGBEVF_DISABLED, &adapter->state))
-+	if (!adapter || disable_dev)
- 		pci_disable_device(pdev);
- 	return err;
- }
-@@ -3911,7 +3913,13 @@ err_dma:
- static void ixgbevf_remove(struct pci_dev *pdev)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
--	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
-+	struct ixgbevf_adapter *adapter;
-+	bool disable_dev;
+ 
+-	/* print the MAC address */
+-	hw_dbg(hw, "%pM\n", netdev->dev_addr);
++	/* print the VF info */
++	dev_info(&pdev->dev, "%pM\n", netdev->dev_addr);
++	dev_info(&pdev->dev, "MAC: %d\n", hw->mac.type);
+ 
+-	hw_dbg(hw, "MAC: %d\n", hw->mac.type);
++	switch (hw->mac.type) {
++	case ixgbe_mac_X550_vf:
++		dev_info(&pdev->dev, "Intel(R) X550 Virtual Function\n");
++		break;
++	case ixgbe_mac_X540_vf:
++		dev_info(&pdev->dev, "Intel(R) X540 Virtual Function\n");
++		break;
++	case ixgbe_mac_82599_vf:
++	default:
++		dev_info(&pdev->dev, "Intel(R) 82599 Virtual Function\n");
++		break;
++	}
+ 
+-	hw_dbg(hw, "Intel(R) 82599 Virtual Function\n");
+ 	return 0;
+ 
+ err_register:
+diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
+index 9cddd56..cdb53be 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/vf.c
++++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
+@@ -617,3 +617,13 @@ const struct ixgbevf_info ixgbevf_X540_vf_info = {
+ 	.mac = ixgbe_mac_X540_vf,
+ 	.mac_ops = &ixgbevf_mac_ops,
+ };
 +
-+	if (!netdev)
-+		return;
++const struct ixgbevf_info ixgbevf_X550_vf_info = {
++	.mac = ixgbe_mac_X550_vf,
++	.mac_ops = &ixgbevf_mac_ops,
++};
 +
-+	adapter = netdev_priv(netdev);
- 
- 	set_bit(__IXGBEVF_REMOVING, &adapter->state);
- 
-@@ -3931,9 +3939,10 @@ static void ixgbevf_remove(struct pci_dev *pdev)
- 
- 	hw_dbg(&adapter->hw, "Remove complete\n");
- 
-+	disable_dev = !test_and_set_bit(__IXGBEVF_DISABLED, &adapter->state);
- 	free_netdev(netdev);
- 
--	if (!test_and_set_bit(__IXGBEVF_DISABLED, &adapter->state))
-+	if (disable_dev)
- 		pci_disable_device(pdev);
- }
++const struct ixgbevf_info ixgbevf_X550EM_x_vf_info = {
++	.mac = ixgbe_mac_X550EM_x_vf,
++	.mac_ops = &ixgbevf_mac_ops,
++};
+diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
+index aa8cc8d..5b17242 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/vf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
+@@ -74,6 +74,8 @@ enum ixgbe_mac_type {
+ 	ixgbe_mac_unknown = 0,
+ 	ixgbe_mac_82599_vf,
+ 	ixgbe_mac_X540_vf,
++	ixgbe_mac_X550_vf,
++	ixgbe_mac_X550EM_x_vf,
+ 	ixgbe_num_macs
+ };
  
 -- 
 1.9.3
