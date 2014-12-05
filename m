@@ -1,17 +1,15 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH 3/3] rocker: set feature NETIF_F_HW_SWITCH_OFFLOAD
-Date: Thu, 04 Dec 2014 22:38:56 -0800
-Message-ID: <54815300.2050600@gmail.com>
-References: <1417746401-8140-4-git-send-email-roopa@cumulusnetworks.com> <5481259C.3040707@freescale.com> <CAE4R7bDCcE94WQE50J+suAr9F=OFvQnC73txA+xrC2JxMseYkw@mail.gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH 2/3] bridge: offload bridge port attributes to switch asic
+ if feature flag set
+Date: Thu, 4 Dec 2014 22:41:26 -0800
+Message-ID: <CAE4R7bBOCgoH0zL6+82jj2qjcP8n3kSo51x+i5SoqkN8Ff1CBQ@mail.gmail.com>
+References: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jianhua Xie <jianhua.xie@freescale.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+Content-Type: text/plain; charset=UTF-8
+Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
 	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
+	john fastabend <john.fastabend@gmail.com>,
 	"stephen@networkplumber.org" <stephen@networkplumber.org>,
 	John Linville <linville@tuxdriver.com>,
 	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
@@ -23,67 +21,102 @@ Cc: Jianhua Xie <jianhua.xie@freescale.com>,
 	Netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>, shm@cumulusnetworks.com,
 	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: Scott Feldman <sfeldma@gmail.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f42.google.com ([209.85.218.42]:39772 "EHLO
-	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751740AbaLEGj2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 01:39:28 -0500
-Received: by mail-oi0-f42.google.com with SMTP id v63so48787oia.15
-        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 22:39:28 -0800 (PST)
-In-Reply-To: <CAE4R7bDCcE94WQE50J+suAr9F=OFvQnC73txA+xrC2JxMseYkw@mail.gmail.com>
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:40670 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750942AbaLEGl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 01:41:27 -0500
+Received: by mail-wg0-f47.google.com with SMTP id n12so90130wgh.6
+        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 22:41:26 -0800 (PST)
+In-Reply-To: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/04/2014 10:16 PM, Scott Feldman wrote:
-> On Thu, Dec 4, 2014 at 7:25 PM, Jianhua Xie <jianhua.xie@freescale.co=
-m> wrote:
->>
->> =E5=9C=A8 2014=E5=B9=B412=E6=9C=8805=E6=97=A5 10:26, roopa@cumulusne=
-tworks.com =E5=86=99=E9=81=93:
->>
->>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>
->>> This patch just sets the feature flag on rocker ports
->>> ---
->>>    drivers/net/ethernet/rocker/rocker.c |    3 ++-
->>>    1 file changed, 2 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/drivers/net/ethernet/rocker/rocker.c
->>> b/drivers/net/ethernet/rocker/rocker.c
->>> index fded127..3fe19b0 100644
->>> --- a/drivers/net/ethernet/rocker/rocker.c
->>> +++ b/drivers/net/ethernet/rocker/rocker.c
->>> @@ -4003,7 +4003,8 @@ static int rocker_probe_port(struct rocker *r=
-ocker,
->>> unsigned int port_number)
->>>                         NAPI_POLL_WEIGHT);
->>>          rocker_carrier_init(rocker_port);
->>>    -     dev->features |=3D NETIF_F_HW_VLAN_CTAG_FILTER;
->>> +       dev->features |=3D NETIF_F_HW_VLAN_CTAG_FILTER |
->>> +                                        NETIF_F_HW_SWITCH_OFFLOAD;
->>
->> Do you have a plan on enabling/disabling  this flag dynamically by e=
-thtool?
+On Thu, Dec 4, 2014 at 6:26 PM,  <roopa@cumulusnetworks.com> wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 >
-> Might get it for free if we recycle NETIF_F_HW_L2FW_DOFFLOAD;
-> NETIF_F_HW_L2FW_DOFFLOAD seems to be supported by ethtool already.
-
-See my other note but ethtool support for feature flags makes
-this pretty close to trivial to implement these days.
-
-Take a look @ netdev_features_strings.
-
+> This allows offloading to switch asic without having the user to set
+> any flag. And this is done in the bridge driver to rollback kernel settings
+> on hw offload failure if required in the future.
 >
->>
->> Thanks & B.R
->> Jianhua
->>
->>>          err =3D register_netdev(dev);
->>>          if (err) {
->>
->>
+> With this, it also makes sure a notification goes out only after the
+> attributes are set both in the kernel and hw.
 
+I like this approach as it streamlines the steps for the user in
+setting port flags.  There is one case for FLOODING where you'll have
+to turn off flooding for both, and then turn on flooding in hw.  You
+don't want flooding turned on on kernel and hw.
 
---=20
-John Fastabend         Intel Corporation
+> ---
+>  net/bridge/br_netlink.c |   27 ++++++++++++++++++++++++++-
+>  1 file changed, 26 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+> index 9f5eb55..ce173f0 100644
+> --- a/net/bridge/br_netlink.c
+> +++ b/net/bridge/br_netlink.c
+> @@ -407,9 +407,21 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
+>                                 afspec, RTM_SETLINK);
+>         }
+>
+> +       if ((dev->features & NETIF_F_HW_SWITCH_OFFLOAD) &&
+> +                       dev->netdev_ops->ndo_bridge_setlink) {
+> +               int ret = dev->netdev_ops->ndo_bridge_setlink(dev, nlh);
+
+I think you want to up-level this to net/core/rtnetlink.c because
+you're only enabling the feature for one instance of a driver that
+implements ndo_bridge_setlink: the bridge driver.  If another driver
+was MASTER and implemented ndo_bridge_setlink, you'd want same check
+to push setting down to SELF port driver.
+
+> +               if (ret && ret != -EOPNOTSUPP) {
+> +                       /* XXX Fix this in the future to rollback
+> +                        * kernel settings and return error
+> +                        */
+
+The future is now.  Let's fix this now for the rollback case (again up
+in rtnetlink.c).  So then a general question comes to mind: for these
+dual target sets, is it best to try HW first and then SW, or the other
+way around?  Either way, on failure on second you need to rollback
+first.  And, on failure, you need to know rollback value for first, so
+you have to do a getlink on first before attempting set.
+
+> +                       br_warn(p->br, "error offloading bridge attributes "
+> +                                       "on port %u(%s)\n", (unsigned int) p->port_no,
+> +                                       p->dev->name);
+> +               }
+> +       }
+> +
+>         if (err == 0)
+>                 br_ifinfo_notify(RTM_NEWLINK, p);
+> -
+>  out:
+>         return err;
+>  }
+> @@ -433,6 +445,19 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh)
+>         err = br_afspec((struct net_bridge *)netdev_priv(dev), p,
+>                         afspec, RTM_DELLINK);
+>
+> +       if (dev->features & NETIF_F_HW_SWITCH_OFFLOAD
+> +                       && dev->netdev_ops->ndo_bridge_setlink) {
+> +               int ret = dev->netdev_ops->ndo_bridge_dellink(dev, nlh);
+> +               if (ret && ret != -EOPNOTSUPP) {
+> +                       /* XXX Fix this in the future to rollback
+> +                        * kernel settings and return error
+> +                        */
+> +                       br_warn(p->br, "error offloading bridge attributes "
+> +                                       "on port %u(%s)\n", (unsigned int) p->port_no,
+> +                                       p->dev->name);
+> +               }
+> +       }
+> +
+
+Same comments as setlink above.
+
+>         return err;
+>  }
+>  static int br_validate(struct nlattr *tb[], struct nlattr *data[])
+> --
+> 1.7.10.4
+>
