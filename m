@@ -1,123 +1,98 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [patch iproute2 1/6] iproute2: ipa: show switch id
-Date: Fri, 5 Dec 2014 09:54:33 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CA0339B@AcuExch.aculab.com>
-References: <1417683438-10935-1-git-send-email-jiri@resnulli.us>
-	<1417683438-10935-2-git-send-email-jiri@resnulli.us>
-	<87y4qne6if.fsf@x220.int.ebiederm.org>
-	<20141204163024.GG1861@nanopsycho.orion>
-	<87388v9ua6.fsf@x220.int.ebiederm.org>
-	<20141204182451.GI1861@nanopsycho.orion>
-	<87k327450a.fsf@x220.int.ebiederm.org>
-	<20141204191926.GK1861@nanopsycho.orion>
-	<87wq672p49.fsf@x220.int.ebiederm.org>
-	<87h9xbxjrd.fsf@x220.int.ebiederm.org>
-	<20141204202742.GM1861@nanopsycho.orion>
- <87388vw2xg.fsf@x220.int.ebiederm.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: 3.12.33 - BUG xfrm_selector_match+0x25/0x2f6
+Date: Fri, 5 Dec 2014 11:55:23 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1412051126090.2522@ja.home.ssi.bg>
+References: <547F2462.6040405@smart-weblications.de> <20141204075627.GE6390@secunet.com> <alpine.LFD.2.11.1412042338370.4841@ja.home.ssi.bg> <5481173A.9060308@smart-weblications.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	"andy@greyhouse.net" <andy@greyhouse.net>,
-	"tgraf@suug.ch" <tgraf@suug.ch>,
-	"dborkman@redhat.com" <dborkman@redhat.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"pshelar@nicira.com" <pshelar@nicira.com>,
-	"azhou@nicira.com" <azhou@nicira.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	"xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"sfeldma@gmail.com" <sfeldma@gmail
-To: "'Eric W. Biederman'" <ebiederm@xmission.com>,
-	Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:45439 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753208AbaLEJzR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 04:55:17 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 06399-02 for <netdev@vger.kernel.org>;
- Fri,  5 Dec 2014 09:55:07 +0000 (GMT)
-In-Reply-To: <87388vw2xg.fsf@x220.int.ebiederm.org>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	stable@vger.kernel.org, Simon Horman <horms@verge.net.au>,
+	lvs-devel@vger.kernel.org
+To: Smart Weblications GmbH - Florian Wiessner
+	<f.wiessner@smart-weblications.de>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <5481173A.9060308@smart-weblications.de>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric W. Biederman
-> Jiri Pirko <jiri@resnulli.us> writes:
+
+	Hello,
+
+	Adding Simon to CC...
+
+On Fri, 5 Dec 2014, Smart Weblications GmbH - Florian Wiessner wrote:
+
+> i tried with 3.12.33 without any XFRM and now got this one (which is reproducable):
 > 
-> > Thu, Dec 04, 2014 at 09:06:14PM CET, ebiederm@xmission.com wrote:
-> >>ebiederm@xmission.com (Eric W. Biederman) writes:
-> >>
-> >>> Jiri Pirko <jiri@resnulli.us> writes:
-> >>>
-> >>>>>So this id needs to be globally unique?
-> >>>>
-> >>>> No. It is enough to be unique within a single system. It serves for no
-> >>>> more than to find out 2 ids are same or not, no other info value.
-> >>>>
-> >>>> So when the drivers uses sane ids (like mac for example, or in case of
-> >>>> rocker an id which is passed by qemu command line), the chances of
-> >>>> collision are very very close to none (never say never).
-> >>
-> >>Thinking about what you said a little more.
-> >>
-> >>Two different sources of persistent numbers picking numbers by
-> >>completely different algorithms can give you no assurance that you don't
-> >>produce conflicts.
-> >>
-> >>The switch id as desisgned can not work.
-> >>
-> >>There are expected to be between 2**36 to 2**40 devices in this world.
-> >>Your first switch id is a 64it number.  At the very best by the birthday
-> >>pardox predicts there will be a conflict ever 2**32 devices or between
-> >>2**4 and 2**8 devices in the world with conflicts.  If the ids are not
-> >>randomly distributed (which they won't be) things could easily be much
-> >>much worse.
-> >>
-> >>That is just good enough the code could get out there and run for years
-> >>before you have the nightmare of having to fix all of userspace.   That
-> >>is a nightmare no one needs.
-> >>
-> >>So please remove this broken code, and this broken concept from the
-> >>kernel and go back to the drawing board.
-> >
-> > In that case the phys port id is broken in the same way. Let's rather
-> > think about how to avoid conflicts for both. Given the fact the
-> > conflicts should be avoided only on a single baremetal, that should be
-> > doable (for (bad) example using driver name mixed with driver created
-> > id).
+> [  233.956012] BUG: unable to handle kernel NULL pointer dereference at 00000000
+>                                    00000014
+> [  233.956218] IP: [<ffffffffa013a470>] nf_ct_seqadj_set+0x60/0x90 [nf_conntrack
+
+	It seems fix from 3.13 was not sent to 3.12 stable:
+
+commit b25adce1606427fd8 ("ipvs: correct usage/allocation of seqadj ext in 
+ipvs")
+
+	There was related change but it is not needed
+for stable kernels:
+
+commit db12cf27435356017e ("netfilter: WARN about wrong usage of sequence 
+number adjustments"
+
+	Simon, can we try commit b25adce1606427fd8 for 3.12?
+
+> setup is like this:
 > 
-> No.  phys_port_id is not broken in the same way, and phys_port_id does
-> not have the same set of properties.
 > 
-> phys_port_id's in practice all have an IEEE prefix that identifies the
-> manufacturer and a manufacture assigned serial number.  Aka a mac
-> address or a EUID-64.  What the mlx4 ethernet driver is doing retunring
-> a 64bit EUID-64 I don't know.  If there are problems in the worst
-> case issues with phys_port_id are fixable by simple driver tweaks,
-> because fundamentally we are working with globally uniuqe identifiers.
-> Well globally unique baring manufacturing bugs in eeproms.
+> #virtual=<myVIP>:21
+> #       real=10.10.1.20:21 masq
+> #       real=10.10.1.21:21 masq
+> #       real=10.10.1.22:21 masq
+> #       real=10.10.1.23:21 masq
+> #       persistent=600
+> #       service=ftp
+> #       scheduler=rr
+> #       protocol=tcp
+> #       checktype=connect
+> 
+> ( i remarked it to prevent fruther crashes...)
+> 
+> when ip_vs_ftp is loaded and someone trying to make a ftp connection, the system
+> panics instantly.
+> 
+> 10.10.1.20 - 10.10.1.23 are lxc-containers using veth connected to the bridge
+> running on 4 different nodes. The node running ldirector/ipvsadm has also one of
+> those containers running (don't know if that matters)
 
-Manufacturers have to generate unique MAC addresses - otherwise people complain.
-But can't be assumed to put different 'serial numbers' in other devices.
-If you look at USB memory sticks you are likely to find that the serial
-number in the (equivalent of the) ATA identify response isn't unique.
-So I doubt you can use the value to distinguish between devices.
+	It is always good to know the setup. Do you access VIP
+from local clients (from director)?
 
-You also get the situation where ethernet MAC addresses only have to be
-unique within a collision domain. Many old sun systems used a single MAC
-address - valid because they assumed/required that multiple interfaces
-be connected to different networks.
-So even MAC addresses aren't per-interface.
+> brctl show
+> bridge name     bridge id               STP enabled     interfaces
+> br0             8000.00259052bbf4       no              bond0
+>                                                         vethMKELUc
+>                                                         vethXdWGqf
+>                                                         vethgJMmEb
+>                                                         vethmKNqFc
+> 
+> 
+> I disabled the ftp server lxc container on the node doing ip_vs, so that the
+> endpoint of the connection is not on the same node and tried again but with the
+> same result.
+> 
+> Unfortunatelly i cannot test with newer kernels than 3.12, because ocfs2 is
+> somehow broken in >= 3.14
 
-	David
+	Before I create patch to avoid rerouting for
+LOCAL_IN you can try to set IPVS sysctl var "snat_reroute" to 0
+or even to change ip_vs_route_me_harder() function just to return 0.
+snat_reroute=1 (a default value) is needed if you have
+multiple links to clients and use ip rules to select
+correct route by src ip (after SNAT). If you have single
+uplink snat_reroute can be 0.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
