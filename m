@@ -1,100 +1,60 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH 2/3] bridge: offload bridge port attributes to switch
- asic if feature flag set
-Date: Fri, 05 Dec 2014 06:37:45 -0800
-Message-ID: <5481C339.7050704@cumulusnetworks.com>
-References: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com> <20141205073840.GA1866@nanopsycho.orion>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH 1/1] net: macb: Remove obsolete comment from Kconfig
+Date: Fri, 5 Dec 2014 15:42:27 +0100
+Message-ID: <5481C453.7060907@atmel.com>
+References: <1417784633-13360-1-git-send-email-james.byrne@origamienergy.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
-	john.fastabend@gmail.com, stephen@networkplumber.org,
-	linville@tuxdriver.com, nhorman@tuxdriver.com,
-	nicolas.dichtel@6wind.com, vyasevic@redhat.com,
-	f.fainelli@gmail.com, buytenh@wantstofly.org, aviadr@mellanox.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+To: James Byrne <james.byrne@origamienergy.com>,
+	<netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:37383 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750896AbaLEOh7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 09:37:59 -0500
-In-Reply-To: <20141205073840.GA1866@nanopsycho.orion>
+Received: from eusmtp01.atmel.com ([212.144.249.242]:53185 "EHLO
+	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750965AbaLEOmb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 09:42:31 -0500
+In-Reply-To: <1417784633-13360-1-git-send-email-james.byrne@origamienergy.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/4/14, 11:38 PM, Jiri Pirko wrote:
-> Fri, Dec 05, 2014 at 03:26:40AM CET, roopa@cumulusnetworks.com wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> This allows offloading to switch asic without having the user to set
->> any flag. And this is done in the bridge driver to rollback kernel settings
->> on hw offload failure if required in the future.
->>
->> With this, it also makes sure a notification goes out only after the
->> attributes are set both in the kernel and hw.
->> ---
->> net/bridge/br_netlink.c |   27 ++++++++++++++++++++++++++-
->> 1 file changed, 26 insertions(+), 1 deletion(-)
->>
->> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
->> index 9f5eb55..ce173f0 100644
->> --- a/net/bridge/br_netlink.c
->> +++ b/net/bridge/br_netlink.c
->> @@ -407,9 +407,21 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
->> 				afspec, RTM_SETLINK);
->> 	}
->>
->> +	if ((dev->features & NETIF_F_HW_SWITCH_OFFLOAD) &&
->> +			dev->netdev_ops->ndo_bridge_setlink) {
->> +		int ret = dev->netdev_ops->ndo_bridge_setlink(dev, nlh);
-> 	This (and I suspect other patches as well) has many issues which
-> 	are pointed out by scripts/checkpatch.pl sctipts. For example
-> 	here, there should be an empty line. Please run your patches by
-> 	this script before you send them.
->
->> +		if (ret && ret != -EOPNOTSUPP) {
->> +			/* XXX Fix this in the future to rollback
->> +			 * kernel settings and return error
->> +			 */
->> +			br_warn(p->br, "error offloading bridge attributes "
->> +					"on port %u(%s)\n", (unsigned int) p->port_no,
->> +					p->dev->name);
->> +		}
->> +	}
->> +
->> 	if (err == 0)
->> 		br_ifinfo_notify(RTM_NEWLINK, p);
->> -
->> out:
->> 	return err;
->> }
->> @@ -433,6 +445,19 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh)
->> 	err = br_afspec((struct net_bridge *)netdev_priv(dev), p,
->> 			afspec, RTM_DELLINK);
->>
->> +	if (dev->features & NETIF_F_HW_SWITCH_OFFLOAD
->> +			&& dev->netdev_ops->ndo_bridge_setlink) {
->> +		int ret = dev->netdev_ops->ndo_bridge_dellink(dev, nlh);
-> 	c&p issue, there should be check for dellink here.
->
->> +		if (ret && ret != -EOPNOTSUPP) {
->> +			/* XXX Fix this in the future to rollback
->> +			 * kernel settings and return error
->> +			 */
->> +			br_warn(p->br, "error offloading bridge attributes "
->> +					"on port %u(%s)\n", (unsigned int) p->port_no,
->> +					p->dev->name);
->> +		}
->> +	}
->> +
->
-> 	I agree with Scott that this code should be moved to rtnetlink.c
+Le 05/12/2014 14:03, James Byrne a =E9crit :
+> The Kconfig file says that Gigabit mode is not supported, but it has =
+been
+> supported since commit 140b7552fdff04bbceeb842f0e04f0b4015fe97b ("net=
+/macb:
+> Add support for Gigabit Ethernet mode").
+>=20
+> Signed-off-by: James Byrne <james.byrne@origamienergy.com>
 
-I moved it here to make rollback easier. Plus i don't want software 
-notification to go out before hardware is programmed.
-And the software notification goes out from here.
+Yes indeed:
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-I don't intend to implement rollback in v2 (that will be a separate series).
-  But, i do want to take care of the notification problem.
+> ---
+>  drivers/net/ethernet/cadence/Kconfig | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/ether=
+net/cadence/Kconfig
+> index 9e089d2..6932be0 100644
+> --- a/drivers/net/ethernet/cadence/Kconfig
+> +++ b/drivers/net/ethernet/cadence/Kconfig
+> @@ -35,8 +35,8 @@ config MACB
+>  	---help---
+>  	  The Cadence MACB ethernet interface is found on many Atmel AT32 a=
+nd
+>  	  AT91 parts.  This driver also supports the Cadence GEM (Gigabit
+> -	  Ethernet MAC found in some ARM SoC devices).  Note: the Gigabit m=
+ode
+> -	  is not yet supported.  Say Y to include support for the MACB/GEM =
+chip.
+> +	  Ethernet MAC found in some ARM SoC devices).  Say Y to include
+> +	  support for the MACB/GEM chip.
+> =20
+>  	  To compile this driver as a module, choose M here: the module
+>  	  will be called macb.
+>=20
+
+
+--=20
+Nicolas Ferre
