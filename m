@@ -1,77 +1,56 @@
-From: Gu Zheng <guz.fnst@cn.fujitsu.com>
-Subject: [RESEND PATCH] net/socket.c : introduce helper function do_sock_sendmsg
- to replace reduplicate code
-Date: Fri, 5 Dec 2014 15:14:23 +0800
-Message-ID: <54815B4F.50408@cn.fujitsu.com>
-References: <1416799125-13972-1-git-send-email-guz.fnst@cn.fujitsu.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH v3 net-next 2/2 tuntap: Increase the number of queues
+ in tun.
+Date: Fri, 05 Dec 2014 15:35:10 +0800
+Message-ID: <5481602E.1030508@redhat.com>
+References: <1417591177-7985-1-git-send-email-pagupta@redhat.com> <1417591177-7985-3-git-send-email-pagupta@redhat.com> <20141203095210.GC9487@redhat.com> <1417661734.16500.0@smtp.corp.redhat.com> <20141204102013.GC17122@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Gu Zheng <guz.fnst@cn.fujitsu.com>
-To: <davem@davemloft.net>
+Cc: Pankaj Gupta <pagupta@redhat.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net, dgibson@redhat.com,
+	vfalico@gmail.com, edumazet@google.com, vyasevic@redhat.com,
+	hkchu@google.com, wuzhy@linux.vnet.ibm.com, xemul@parallels.com,
+	therbert@google.com, bhutchings@solarflare.com, xii@google.com,
+	stephen@networkplumber.org, jiri@resnulli.us,
+	sergei.shtylyov@cogentembedded.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1416799125-13972-1-git-send-email-guz.fnst@cn.fujitsu.com>
+In-Reply-To: <20141204102013.GC17122@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Introduce helper function do_sock_sendmsg() to simplify sock_sendmsg{_nosec},
-and replace reduplicate code.
 
-Signed-off-by: Gu Zheng <guz.fnst@cn.fujitsu.com>
----
- net/socket.c |   22 ++++++++++------------
- 1 files changed, 10 insertions(+), 12 deletions(-)
+On 12/04/2014 06:20 PM, Michael S. Tsirkin wrote:
+> On Thu, Dec 04, 2014 at 03:03:34AM +0008, Jason Wang wrote:
+>> > 
+>> > 
+>> > On Wed, Dec 3, 2014 at 5:52 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+>>> > >On Wed, Dec 03, 2014 at 12:49:37PM +0530, Pankaj Gupta wrote:
+>>>> > >> Networking under kvm works best if we allocate a per-vCPU RX and TX
+>>>> > >> queue in a virtual NIC. This requires a per-vCPU queue on the host
+>>>> > >>side.
+>>>> > >> It is now safe to increase the maximum number of queues.
+>>>> > >> Preceding patche: 'net: allow large number of rx queues'
+>>> > >
+>>> > >s/patche/patch/
+>>> > >
+>>>> > >> made sure this won't cause failures due to high order memory
+>>>> > >> allocations. Increase it to 256: this is the max number of vCPUs
+>>>> > >> KVM supports.
+>>>> > >> Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
+>>>> > >> Reviewed-by: David Gibson <dgibson@redhat.com>
+>>> > >
+>>> > >Hmm it's kind of nasty that each tun device is now using x16 memory.
+>>> > >Maybe we should look at using a flex array instead, and removing the
+>>> > >limitation altogether (e.g. make it INT_MAX)?
+>> > 
+>> > But this only happens when IFF_MULTIQUEUE were used.
+> I refer to this field:
+>         struct tun_file __rcu   *tfiles[MAX_TAP_QUEUES];
+> if we make MAX_TAP_QUEUES 256, this will use 4K bytes,
+> apparently unconditionally.
+>
+>
 
-diff --git a/net/socket.c b/net/socket.c
-index fe20c31..2a6f3c6 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -651,7 +651,8 @@ static inline int __sock_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	return err ?: __sock_sendmsg_nosec(iocb, sock, msg, size);
- }
- 
--int sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
-+static int do_sock_sendmsg(struct socket *sock, struct msghdr *msg,
-+			   size_t size, bool nosec)
- {
- 	struct kiocb iocb;
- 	struct sock_iocb siocb;
-@@ -659,25 +660,22 @@ int sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
- 
- 	init_sync_kiocb(&iocb, NULL);
- 	iocb.private = &siocb;
--	ret = __sock_sendmsg(&iocb, sock, msg, size);
-+	ret = nosec ? __sock_sendmsg_nosec(&iocb, sock, msg, size) :
-+		      __sock_sendmsg(&iocb, sock, msg, size);
- 	if (-EIOCBQUEUED == ret)
- 		ret = wait_on_sync_kiocb(&iocb);
- 	return ret;
- }
-+
-+int sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
-+{
-+	return do_sock_sendmsg(sock, msg, size, false);
-+}
- EXPORT_SYMBOL(sock_sendmsg);
- 
- static int sock_sendmsg_nosec(struct socket *sock, struct msghdr *msg, size_t size)
- {
--	struct kiocb iocb;
--	struct sock_iocb siocb;
--	int ret;
--
--	init_sync_kiocb(&iocb, NULL);
--	iocb.private = &siocb;
--	ret = __sock_sendmsg_nosec(&iocb, sock, msg, size);
--	if (-EIOCBQUEUED == ret)
--		ret = wait_on_sync_kiocb(&iocb);
--	return ret;
-+	return do_sock_sendmsg(sock, msg, size, true);
- }
- 
- int kernel_sendmsg(struct socket *sock, struct msghdr *msg,
--- 
-1.7.7
-
-.
+How about just allocate one tfile if IFF_MULTIQUEUE were disabled?
