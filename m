@@ -1,41 +1,78 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH v2 6/6] net-PPP: Delete another unnecessary assignment in
- mppe_alloc()
-Date: Fri, 5 Dec 2014 15:23:15 +0300
-Message-ID: <20141205122315.GC4912@mwanda>
-References: <530DD06F.4090703@users.sourceforge.net>
- <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
- <5317A59D.4@users.sourceforge.net>
- <547B4886.4080406@users.sourceforge.net>
- <547B496E.604@users.sourceforge.net>
- <547C5CBC.6060607@cogentembedded.com>
- <547C82A6.2030808@users.sourceforge.net>
- <547CA157.1080401@cogentembedded.com>
- <5480DA32.8000201@users.sourceforge.net>
- <5480DE25.2020802@users.sourceforge.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [RFC][PATCH 07/13] iov_iter.c: get rid of bvec_copy_page_{to,from}_iter()
+Date: Fri, 05 Dec 2014 15:28:14 +0300
+Message-ID: <5481A4DE.8040803@cogentembedded.com>
+References: <20141204202011.GO29748@ZenIV.linux.org.uk> <1417724597-17099-7-git-send-email-viro@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5480DE25.2020802@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Al Viro <viro@ZenIV.linux.org.uk>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <1417724597-17099-7-git-send-email-viro@ZenIV.linux.org.uk>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 04, 2014 at 11:20:21PM +0100, SF Markus Elfring wrote:
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Thu, 4 Dec 2014 22:42:30 +0100
-> 
-> The data structure element "sha1" was assigned a null pointer by the
-> mppe_alloc() after a function call "crypto_alloc_hash" failed.
+Hello.
 
-This patch is also buggy.
+On 12/4/2014 11:23 PM, Al Viro wrote:
 
-regards,
-dan carpenter
+    Looks like you've erred in the subject as you seem to be getting rid of 
+copy_page_{to|from}_iter_bvec() instead of bvec_copy_page_{to|from}_iter()...
+
+> From: Al Viro <viro@zeniv.linux.org.uk>
+
+> Just have copy_page_{to,from}_iter() fall back to kmap_atomic +
+> copy_{to,from}_iter() + kunmap_atomic() in ITER_BVEC case.  As
+> the matter of fact, that's what we want to do for any iov_iter
+> kind that isn't blocking - e.g. ITER_KVEC will also go that way
+> once we recognize it on iov_iter.c primitives level
+
+> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+> ---
+>   mm/iov_iter.c | 60 ++++++++++++++++++++++++-----------------------------------
+>   1 file changed, 24 insertions(+), 36 deletions(-)
+
+> diff --git a/mm/iov_iter.c b/mm/iov_iter.c
+> index 39ad713..17b7144 100644
+> --- a/mm/iov_iter.c
+> +++ b/mm/iov_iter.c
+> @@ -486,30 +486,33 @@ static size_t copy_from_iter_bvec(void *to, size_t bytes, struct iov_iter *i)
+>   	return wanted;
+>   }
+>
+> -static size_t copy_page_to_iter_bvec(struct page *page, size_t offset,
+> -					size_t bytes, struct iov_iter *i)
+> +size_t copy_to_iter(void *addr, size_t bytes, struct iov_iter *i)
+>   {
+> -	void *kaddr = kmap_atomic(page);
+> -	size_t wanted = copy_to_iter_bvec(kaddr + offset, bytes, i);
+> -	kunmap_atomic(kaddr);
+> -	return wanted;
+> +	if (i->type & ITER_BVEC)
+> +		return copy_to_iter_bvec(addr, bytes, i);
+> +	else
+> +		return copy_to_iter_iovec(addr, bytes, i);
+>   }
+> +EXPORT_SYMBOL(copy_to_iter);
+>
+> -static size_t copy_page_from_iter_bvec(struct page *page, size_t offset,
+> -					size_t bytes, struct iov_iter *i)
+> +size_t copy_from_iter(void *addr, size_t bytes, struct iov_iter *i)
+>   {
+> -	void *kaddr = kmap_atomic(page);
+> -	size_t wanted = copy_from_iter_bvec(kaddr + offset, bytes, i);
+> -	kunmap_atomic(kaddr);
+> -	return wanted;
+> +	if (i->type & ITER_BVEC)
+> +		return copy_from_iter_bvec(addr, bytes, i);
+> +	else
+> +		return copy_from_iter_iovec(addr, bytes, i);
+>   }
+> +EXPORT_SYMBOL(copy_from_iter);
+[...]
+
+WBR, Sergei
+
