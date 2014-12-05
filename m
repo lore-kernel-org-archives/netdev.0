@@ -1,98 +1,46 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: 3.12.33 - BUG xfrm_selector_match+0x25/0x2f6
-Date: Fri, 5 Dec 2014 11:55:23 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1412051126090.2522@ja.home.ssi.bg>
-References: <547F2462.6040405@smart-weblications.de> <20141204075627.GE6390@secunet.com> <alpine.LFD.2.11.1412042338370.4841@ja.home.ssi.bg> <5481173A.9060308@smart-weblications.de>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [patch net-next v2 1/2] rocker: introduce be put/get variants
+ and use it when appropriate
+Date: Fri, 5 Dec 2014 09:57:43 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CA033CC@AcuExch.aculab.com>
+References: <1417612494-3788-1-git-send-email-jiri@resnulli.us>
+ <CAE4R7bAgSji_rt3147Kt8jqyT5_yqBCbKjSLgZVa8xkRc0dndA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	stable@vger.kernel.org, Simon Horman <horms@verge.net.au>,
-	lvs-devel@vger.kernel.org
-To: Smart Weblications GmbH - Florian Wiessner
-	<f.wiessner@smart-weblications.de>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <5481173A.9060308@smart-weblications.de>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: 'Scott Feldman' <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:45609 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753289AbaLEJ61 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Dec 2014 04:58:27 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 07098-03 for <netdev@vger.kernel.org>;
+ Fri,  5 Dec 2014 09:58:18 +0000 (GMT)
+In-Reply-To: <CAE4R7bAgSji_rt3147Kt8jqyT5_yqBCbKjSLgZVa8xkRc0dndA@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-	Hello,
-
-	Adding Simon to CC...
-
-On Fri, 5 Dec 2014, Smart Weblications GmbH - Florian Wiessner wrote:
-
-> i tried with 3.12.33 without any XFRM and now got this one (which is reproducable):
-> 
-> [  233.956012] BUG: unable to handle kernel NULL pointer dereference at 00000000
->                                    00000014
-> [  233.956218] IP: [<ffffffffa013a470>] nf_ct_seqadj_set+0x60/0x90 [nf_conntrack
-
-	It seems fix from 3.13 was not sent to 3.12 stable:
-
-commit b25adce1606427fd8 ("ipvs: correct usage/allocation of seqadj ext in 
-ipvs")
-
-	There was related change but it is not needed
-for stable kernels:
-
-commit db12cf27435356017e ("netfilter: WARN about wrong usage of sequence 
-number adjustments"
-
-	Simon, can we try commit b25adce1606427fd8 for 3.12?
-
-> setup is like this:
-> 
-> 
-> #virtual=<myVIP>:21
-> #       real=10.10.1.20:21 masq
-> #       real=10.10.1.21:21 masq
-> #       real=10.10.1.22:21 masq
-> #       real=10.10.1.23:21 masq
-> #       persistent=600
-> #       service=ftp
-> #       scheduler=rr
-> #       protocol=tcp
-> #       checktype=connect
-> 
-> ( i remarked it to prevent fruther crashes...)
-> 
-> when ip_vs_ftp is loaded and someone trying to make a ftp connection, the system
-> panics instantly.
-> 
-> 10.10.1.20 - 10.10.1.23 are lxc-containers using veth connected to the bridge
-> running on 4 different nodes. The node running ldirector/ipvsadm has also one of
-> those containers running (don't know if that matters)
-
-	It is always good to know the setup. Do you access VIP
-from local clients (from director)?
-
-> brctl show
-> bridge name     bridge id               STP enabled     interfaces
-> br0             8000.00259052bbf4       no              bond0
->                                                         vethMKELUc
->                                                         vethXdWGqf
->                                                         vethgJMmEb
->                                                         vethmKNqFc
-> 
-> 
-> I disabled the ftp server lxc container on the node doing ip_vs, so that the
-> endpoint of the connection is not on the same node and tried again but with the
-> same result.
-> 
-> Unfortunatelly i cannot test with newer kernels than 3.12, because ocfs2 is
-> somehow broken in >= 3.14
-
-	Before I create patch to avoid rerouting for
-LOCAL_IN you can try to set IPVS sysctl var "snat_reroute" to 0
-or even to change ip_vs_route_me_harder() function just to return 0.
-snat_reroute=1 (a default value) is needed if you have
-multiple links to clients and use ip rules to select
-correct route by src ip (after SNAT). If you have single
-uplink snat_reroute can be 0.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+RnJvbTogU2NvdHQgRmVsZG1hbg0KPiBTaWduZWQtb2ZmLWJ5OiBTY290dCBGZWxkbWFuIDxzZmVs
+ZG1hQGdtYWlsLmNvbT4NCj4gDQo+IE9uIFdlZCwgRGVjIDMsIDIwMTQgYXQgNToxNCBBTSwgSmly
+aSBQaXJrbyA8amlyaUByZXNudWxsaS51cz4gd3JvdGU6DQo+ID4gVGhpcyBraWxscyB0aGUgc3Bh
+cnNlIHdhcm5pbmdzLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogSmlyaSBQaXJrbyA8amlyaUBy
+ZXNudWxsaS51cz4NCj4gPiAtLS0NCj4gPiB2MS0+djI6DQo+ID4gLW5vIGNoYW5nZQ0KPiA+IC0t
+LQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9yb2NrZXIvcm9ja2VyLmMgfCA3OSArKysrKysr
+KysrKysrKysrKysrKysrLS0tLS0tLS0tLS0tLS0NCj4gPiAgMSBmaWxlIGNoYW5nZWQsIDQ4IGlu
+c2VydGlvbnMoKyksIDMxIGRlbGV0aW9ucygtKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L3JvY2tlci9yb2NrZXIuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Jv
+Y2tlci9yb2NrZXIuYw0KPiA+IGluZGV4IGZkZWQxMjcuLjRiMDYwZmIgMTAwNjQ0DQo+ID4gLS0t
+IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvcm9ja2VyL3JvY2tlci5jDQo+ID4gKysrIGIvZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvcm9ja2VyL3JvY2tlci5jDQo+ID4gQEAgLTY0OCw2ICs2NDgsMTEgQEAg
+c3RhdGljIHUxNiByb2NrZXJfdGx2X2dldF91MTYoY29uc3Qgc3RydWN0IHJvY2tlcl90bHYgKnRs
+dikNCj4gPiAgICAgICAgIHJldHVybiAqKHUxNiAqKSByb2NrZXJfdGx2X2RhdGEodGx2KTsNCj4g
+PiAgfQ0KPiA+DQo+ID4gK3N0YXRpYyBfX2JlMTYgcm9ja2VyX3Rsdl9nZXRfYmUxNihjb25zdCBz
+dHJ1Y3Qgcm9ja2VyX3RsdiAqdGx2KQ0KPiA+ICt7DQo+ID4gKyAgICAgICByZXR1cm4gKihfX2Jl
+MTYgKikgcm9ja2VyX3Rsdl9kYXRhKHRsdik7DQo+ID4gK30NCg0KKihpbnRfdHlwZSAqKWZvbyBh
+bHdheXMgcmluZ3MgYWxhcm0gYmVsbHMuLi4uLg0KDQpUaGF0IGxvb2tzIGR1YmlvdXMgb24gc3lz
+dGVtcyB3aGVyZSBtaXNhbGlnbmVkIHRyYW5zZmVycyBmYXVsdC4NCg0KCURhdmlkDQoNCg==
