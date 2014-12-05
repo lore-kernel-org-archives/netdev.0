@@ -1,177 +1,42 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: Re: [PATCH 2/2] gianfar: handle map error in gfar_start_xmit()
-Date: Fri, 5 Dec 2014 16:42:08 +0400
-Message-ID: <CAOJe8K27AZ10Z==d6OSKjD_6B4CTYT4OsePjhGh3Br9M-Pe-9A@mail.gmail.com>
-References: <1417775874-17775-1-git-send-email-asolokha@kb.kras.ru>
-	<1417775874-17775-3-git-send-email-asolokha@kb.kras.ru>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: [PATCH v2 5/6] net-PPP: Delete an unnecessary assignment in mppe_alloc()
+Date: Fri, 05 Dec 2014 13:44:30 +0100
+Message-ID: <5481A8AE.9050506@users.sourceforge.net>
+References: <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.sourceforge.net> <547B4886.4080406@users.sourceforge.net> <547B496E.604@users.sourceforge.net> <547C5CBC.6060607@cogentembedded.com> <547C82A6.2030808@users.sourceforge.net> <547CA157.1080401@cogentembedded.com> <5480DA32.8000201@users.sourceforge.net> <5480DDC1.6040101@users.sourceforge.net> <20141205122214.GB4912@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Claudiu Manoil <claudiu.manoil@freescale.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arseny Solokha <asolokha@kb.kras.ru>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
+	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417775874-17775-3-git-send-email-asolokha@kb.kras.ru>
+In-Reply-To: <20141205122214.GB4912@mwanda>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/5/14, Arseny Solokha <asolokha@kb.kras.ru> wrote:
-> From: Arseny Solokha <asolokha@kb.kras.ru>
->
-> When DMA-API debugging is enabled in the kernel, it spews the following
-> upon upping the link:
->
-> WARNING: at lib/dma-debug.c:1135
-> Modules linked in:
-> CPU: 0 PID: 0 Comm: swapper/0 Tainted: G        W  O   3.18.0-rc7 #1
-> task: c0720340 ti: effe2000 task.ti: c0750000
-> NIP: c01d7c1c LR: c01d7c1c CTR: c02250fc
-> REGS: effe3d40 TRAP: 0700   Tainted: G        W  O    (3.18.0-rc7)
-> MSR: 00021000 <CE,ME>  CR: 22044242  XER: 20000000
->
-> GPR00: c01d7c1c effe3df0 c0720340 00000095 c201e404 c201e9f0 00021000
-> 01a9d000
-> GPR08: 00000007 00000000 01a9d000 00000313 22044242 00583f60 05f41012
-> 00000000
-> GPR16: 00000000 000000ff 00000000 00000000 00000000 c5dc3b40 c5677720
-> 00000001
-> GPR24: c0730000 00029000 c0d0d828 c072c394 effe3e48 c075baec c0d0f020
-> ee31e600
-> NIP [c01d7c1c] check_unmap+0x5b4/0xae4
-> LR [c01d7c1c] check_unmap+0x5b4/0xae4
-> Call Trace:
-> [effe3df0] [c01d7c1c] check_unmap+0x5b4/0xae4 (unreliable)
-> [effe3e40] [c01d81c4] debug_dma_unmap_page+0x78/0x8c
-> [effe3ec0] [c0286ba0] gfar_clean_tx_ring+0x120/0x3c0
-> [effe3f30] [c0286f90] gfar_poll_tx_sq+0x48/0x94
-> o[effe3f50] [c030c388] net_rx_action+0x130/0x1ac
-> [effe3f80] [c00319e0] __do_softirq+0x134/0x240
-> [effe3fe0] [c0031dd0] irq_exit+0xa4/0xc8
-> [effe3ff0] [c000e01c] call_do_irq+0x24/0x3c
-> [c0751e70] [c0004a04] do_IRQ+0x8c/0x108
-> [c0751e90] [c0010068] ret_from_except+0x0/0x18
-> --- interrupt: 501 at arch_cpu_idle+0x24/0x5c
->     LR = arch_cpu_idle+0x24/0x5c
-> [c0751f50] [c007d2e4] rcu_idle_enter+0xc8/0xcc (unreliable)
-> [c0751f60] [c006587c] cpu_startup_entry+0x1d4/0x29c
-> [c0751fb0] [c054399c] start_kernel+0x338/0x34c
-> [c0751ff0] [c000046c] set_ivor+0x154/0x190
-> Instruction dump:
-> 394adb30 80fc0018 811c001c 3c60c04f 5529103a 7cca482e 38639e60 813c0020
-> 815c0024 90c10008 4cc63182 48240b01 <0fe00000> 3c60c04f 3863971c 4cc63182
-> ---[ end trace 3eb7bf62ba1b80f9 ]---
-> Mapped at:
->  [<c0287420>] gfar_start_xmit+0x424/0x910
->  [<c030e964>] dev_hard_start_xmit+0x20c/0x3d8
->  [<c032cc3c>] sch_direct_xmit+0x124/0x22c
->  [<c030ede8>] __dev_queue_xmit+0x2b8/0x674
->
-> Or the following upon starting transmission of some large chunks
-> of data:
->
-> fsl-gianfar ffe25000.ethernet: DMA-API: device driver failed to check map
-> error[device address=0x0000000005fa8000]
-> ------------[ cut here ]------------
-> WARNING: at lib/dma-debug.c:1135
-> Modules linked in:
-> CPU: 0 PID: 0 Comm: swapper/0 Tainted: G           O   3.18.0-rc7 #35
-> task: c071d340 ti: effe2000 task.ti: c074e000
-> NIP: c01d7c1c LR: c01d7c1c CTR: c022339c
-> REGS: effe3d40 TRAP: 0700   Tainted: G           O    (3.18.0-rc7)
-> MSR: 00021000 <CE,ME>  CR: 22044242  XER: 20000000
->
-> GPR00: c01d7c1c effe3df0 c071d340 00000094 00000001 c0071750 00000000
-> 00000001
-> GPR08: 00000000 00000000 effe2000 00000000 20044242 00581f60 05fa8000
-> 000001c4
-> GPR16: 00000000 000000ff 00000000 000000e4 00000039 c5b1a9c0 c5679c60
-> 00000002
-> GPR24: c0730000 00029000 c0d0c528 c0729394 effe3e48 c0759aec c0d0d020
-> ee315900
-> NIP [c01d7c1c] check_unmap+0x5b4/0xae4
-> LR [c01d7c1c] check_unmap+0x5b4/0xae4
-> Call Trace:
-> [effe3df0] [c01d7c1c] check_unmap+0x5b4/0xae4 (unreliable)
-> [effe3e40] [c01d81c4] debug_dma_unmap_page+0x78/0x8c
-> [effe3ec0] [c0284c78] gfar_clean_tx_ring+0x1b4/0x3c0
-> [effe3f30] [c0284fd4] gfar_poll_tx_sq+0x48/0x94
-> [effe3f50] [c030a5c4] net_rx_action+0x130/0x1ac
-> [effe3f80] [c00319e0] __do_softirq+0x134/0x240
-> [effe3fe0] [c0031dd0] irq_exit+0xa4/0xc8
-> [effe3ff0] [c000e01c] call_do_irq+0x24/0x3c
-> [c074fe70] [c0004a04] do_IRQ+0x8c/0x108
-> [c074fe90] [c0010068] ret_from_except+0x0/0x18
-> --- interrupt: 501 at arch_cpu_idle+0x24/0x5c
->     LR = arch_cpu_idle+0x24/0x5c
-> [c074ff50] [c007d2e4] rcu_idle_enter+0xc8/0xcc (unreliable)
-> [c074ff60] [c006587c] cpu_startup_entry+0x1d4/0x29c
-> [c074ffb0] [c054199c] start_kernel+0x338/0x34c
-> [c074fff0] [c000046c] set_ivor+0x154/0x190
-> Instruction dump:
-> 394abb30 80fc0018 811c001c 3c60c04e 5529103a 7cca482e 386379f0 813c0020
-> 815c0024 90c10008 4cc63182 4823ed39 <0fe00000> 3c60c04e 386372ac 4cc63182
-> ---[ end trace 008c59ca7ca1f712 ]---
-> Mapped at:
->  [<c0285264>] gfar_start_xmit+0x224/0x95c
->  [<c030cba0>] dev_hard_start_xmit+0x20c/0x3d8
->  [<c032ae78>] sch_direct_xmit+0x124/0x22c
->  [<c032b008>] __qdisc_run+0x88/0x1c0
->  [<c0307920>] net_tx_action+0xf0/0x19c
->
-> Ignore these mapping failures in hope we'll have more luck next time.
->
-> Signed-off-by: Arseny Solokha <asolokha@kb.kras.ru>
-> ---
->  drivers/net/ethernet/freescale/gianfar.c | 17 +++++++++++++++--
->  1 file changed, 15 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/freescale/gianfar.c
-> b/drivers/net/ethernet/freescale/gianfar.c
-> index f34ca55..9ea887e 100644
-> --- a/drivers/net/ethernet/freescale/gianfar.c
-> +++ b/drivers/net/ethernet/freescale/gianfar.c
-> @@ -2296,6 +2296,12 @@ static int gfar_start_xmit(struct sk_buff *skb,
-> struct net_device *dev)
->  						   0,
->  						   frag_len,
->  						   DMA_TO_DEVICE);
-> +			if (unlikely(dma_mapping_error(priv->dev, bufaddr))) {
-> +				/* As DMA mapping failed, pretend the TX path
-> +				 * is busy to retry later
-> +				 */
-> +				return NETDEV_TX_BUSY;
-> +			}
->
->  			/* set the TxBD length and buffer pointer */
->  			txbdp->bufPtr = bufaddr;
-> @@ -2345,8 +2351,15 @@ static int gfar_start_xmit(struct sk_buff *skb,
-> struct net_device *dev)
->  		fcb->ptp = 1;
->  	}
->
-> -	txbdp_start->bufPtr = dma_map_single(priv->dev, skb->data,
-> -					     skb_headlen(skb), DMA_TO_DEVICE);
-> +	bufaddr = dma_map_single(priv->dev, skb->data, skb_headlen(skb),
-> +				 DMA_TO_DEVICE);
-> +	if (unlikely(dma_mapping_error(priv->dev, bufaddr))) {
-> +		/* As DMA mapping failed, pretend the TX path is busy to retry
-> +		 * later
-> +		 */
-> +		return NETDEV_TX_BUSY;
-> +	}
-> +	txbdp_start->bufPtr = bufaddr;
->
->  	/* If time stamping is requested one additional TxBD must be set up. The
->  	 * first TxBD points to the FCB and must have a data length of
-> --
+>> The data structure element "arc4" was assigned a null pointer by the
+>> mppe_alloc() function if a previous function call "crypto_alloc_blkcipher"
+>> failed.
+> 
+> crypto_alloc_blkcipher() returns error pointers and not NULL.
 
-You have to return TX_BUSY in the case of the full hw queue.
+That is true.
 
-Have you tested your changes with fault injection?
 
-> 2.2.0
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+> This patch creates a bug.
+
+Please explain: How?
+
+Did you notice that the data structure element "arc4" was reset
+to a null pointer if a failure was detected for the function
+call "crypto_alloc_blkcipher"?
+
+Do you find this specific assignment still necessary for exception
+handling in the implementation of mppe_alloc() function?
+
+Regards,
+Markus
