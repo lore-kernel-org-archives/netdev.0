@@ -1,140 +1,141 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 06/12] vmci: propagate msghdr all way down to __qp_memcpy_from_queue()
-Date: Fri,  5 Dec 2014 05:58:47 +0000
-Message-ID: <1417759133-18370-6-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH 03/12] ip_generic_getfrag, udplite_getfrag: switch to passing msghdr
+Date: Fri,  5 Dec 2014 05:58:44 +0000
+Message-ID: <1417759133-18370-3-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20141205055623.GQ29748@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:51299 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750909AbaLEF6z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 00:58:55 -0500
 In-Reply-To: <20141205055623.GQ29748@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Al Viro <viro@zeniv.linux.org.uk>
 
-... and switch it to memcpy_to_msg()
-
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- drivers/misc/vmw_vmci/vmci_queue_pair.c | 17 +++++++++--------
- include/linux/vmw_vmci_api.h            |  5 +++--
- net/vmw_vsock/vmci_transport.c          |  4 ++--
- 3 files changed, 14 insertions(+), 12 deletions(-)
+ include/net/udplite.h | 3 ++-
+ net/ipv4/ip_output.c  | 6 +++---
+ net/ipv4/raw.c        | 2 +-
+ net/ipv4/udp.c        | 4 ++--
+ net/ipv6/raw.c        | 2 +-
+ net/ipv6/udp.c        | 2 +-
+ net/l2tp/l2tp_ip6.c   | 2 +-
+ 7 files changed, 11 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/misc/vmw_vmci/vmci_queue_pair.c b/drivers/misc/vmw_vmci/vmci_queue_pair.c
-index 1b7b303..7aaaf51 100644
---- a/drivers/misc/vmw_vmci/vmci_queue_pair.c
-+++ b/drivers/misc/vmw_vmci/vmci_queue_pair.c
-@@ -27,6 +27,7 @@
- #include <linux/uio.h>
- #include <linux/wait.h>
- #include <linux/vmalloc.h>
-+#include <linux/skbuff.h>
- 
- #include "vmci_handle_array.h"
- #include "vmci_queue_pair.h"
-@@ -429,11 +430,11 @@ static int __qp_memcpy_from_queue(void *dest,
- 			to_copy = size - bytes_copied;
- 
- 		if (is_iovec) {
--			struct iovec *iov = (struct iovec *)dest;
-+			struct msghdr *msg = dest;
- 			int err;
- 
- 			/* The iovec will track bytes_copied internally. */
--			err = memcpy_toiovec(iov, (u8 *)va + page_offset,
-+			err = memcpy_to_msg(msg, (u8 *)va + page_offset,
- 					     to_copy);
- 			if (err != 0) {
- 				if (kernel_if->host)
-@@ -3264,13 +3265,13 @@ EXPORT_SYMBOL_GPL(vmci_qpair_enquev);
-  * of bytes dequeued or < 0 on error.
-  */
- ssize_t vmci_qpair_dequev(struct vmci_qp *qpair,
--			  void *iov,
-+			  struct msghdr *msg,
- 			  size_t iov_size,
- 			  int buf_type)
+diff --git a/include/net/udplite.h b/include/net/udplite.h
+index 9a28a51..d5baaba 100644
+--- a/include/net/udplite.h
++++ b/include/net/udplite.h
+@@ -19,7 +19,8 @@ extern struct udp_table		udplite_table;
+ static __inline__ int udplite_getfrag(void *from, char *to, int  offset,
+ 				      int len, int odd, struct sk_buff *skb)
  {
- 	ssize_t result;
- 
--	if (!qpair || !iov)
-+	if (!qpair)
- 		return VMCI_ERROR_INVALID_ARGS;
- 
- 	qp_lock(qpair);
-@@ -3279,7 +3280,7 @@ ssize_t vmci_qpair_dequev(struct vmci_qp *qpair,
- 		result = qp_dequeue_locked(qpair->produce_q,
- 					   qpair->consume_q,
- 					   qpair->consume_q_size,
--					   iov, iov_size,
-+					   msg, iov_size,
- 					   qp_memcpy_from_queue_iov,
- 					   true);
- 
-@@ -3308,13 +3309,13 @@ EXPORT_SYMBOL_GPL(vmci_qpair_dequev);
-  * of bytes peeked or < 0 on error.
-  */
- ssize_t vmci_qpair_peekv(struct vmci_qp *qpair,
--			 void *iov,
-+			 struct msghdr *msg,
- 			 size_t iov_size,
- 			 int buf_type)
- {
- 	ssize_t result;
- 
--	if (!qpair || !iov)
-+	if (!qpair)
- 		return VMCI_ERROR_INVALID_ARGS;
- 
- 	qp_lock(qpair);
-@@ -3323,7 +3324,7 @@ ssize_t vmci_qpair_peekv(struct vmci_qp *qpair,
- 		result = qp_dequeue_locked(qpair->produce_q,
- 					   qpair->consume_q,
- 					   qpair->consume_q_size,
--					   iov, iov_size,
-+					   msg, iov_size,
- 					   qp_memcpy_from_queue_iov,
- 					   false);
- 
-diff --git a/include/linux/vmw_vmci_api.h b/include/linux/vmw_vmci_api.h
-index 023430e..5691f75 100644
---- a/include/linux/vmw_vmci_api.h
-+++ b/include/linux/vmw_vmci_api.h
-@@ -24,6 +24,7 @@
- #define VMCI_KERNEL_API_VERSION_2 2
- #define VMCI_KERNEL_API_VERSION   VMCI_KERNEL_API_VERSION_2
- 
-+struct msghdr;
- typedef void (vmci_device_shutdown_fn) (void *device_registration,
- 					void *user_data);
- 
-@@ -75,8 +76,8 @@ ssize_t vmci_qpair_peek(struct vmci_qp *qpair, void *buf, size_t buf_size,
- ssize_t vmci_qpair_enquev(struct vmci_qp *qpair,
- 			  void *iov, size_t iov_size, int mode);
- ssize_t vmci_qpair_dequev(struct vmci_qp *qpair,
--			  void *iov, size_t iov_size, int mode);
--ssize_t vmci_qpair_peekv(struct vmci_qp *qpair, void *iov, size_t iov_size,
-+			  struct msghdr *msg, size_t iov_size, int mode);
-+ssize_t vmci_qpair_peekv(struct vmci_qp *qpair, struct msghdr *msg, size_t iov_size,
- 			 int mode);
- 
- #endif /* !__VMW_VMCI_API_H__ */
-diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transport.c
-index c1c0389..20a0ba3 100644
---- a/net/vmw_vsock/vmci_transport.c
-+++ b/net/vmw_vsock/vmci_transport.c
-@@ -1840,9 +1840,9 @@ static ssize_t vmci_transport_stream_dequeue(
- 	int flags)
- {
- 	if (flags & MSG_PEEK)
--		return vmci_qpair_peekv(vmci_trans(vsk)->qpair, msg->msg_iov, len, 0);
-+		return vmci_qpair_peekv(vmci_trans(vsk)->qpair, msg, len, 0);
- 	else
--		return vmci_qpair_dequev(vmci_trans(vsk)->qpair, msg->msg_iov, len, 0);
-+		return vmci_qpair_dequev(vmci_trans(vsk)->qpair, msg, len, 0);
+-	return memcpy_fromiovecend(to, (struct iovec *) from, offset, len);
++	struct msghdr *msg = from;
++	return memcpy_fromiovecend(to, msg->msg_iov, offset, len);
  }
  
- static ssize_t vmci_transport_stream_enqueue(
+ /* Designate sk as UDP-Lite socket */
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 4a929ad..cdedcf1 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -752,14 +752,14 @@ EXPORT_SYMBOL(ip_fragment);
+ int
+ ip_generic_getfrag(void *from, char *to, int offset, int len, int odd, struct sk_buff *skb)
+ {
+-	struct iovec *iov = from;
++	struct msghdr *msg = from;
+ 
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-		if (memcpy_fromiovecend(to, iov, offset, len) < 0)
++		if (memcpy_fromiovecend(to, msg->msg_iov, offset, len) < 0)
+ 			return -EFAULT;
+ 	} else {
+ 		__wsum csum = 0;
+-		if (csum_partial_copy_fromiovecend(to, iov, offset, len, &csum) < 0)
++		if (csum_partial_copy_fromiovecend(to, msg->msg_iov, offset, len, &csum) < 0)
+ 			return -EFAULT;
+ 		skb->csum = csum_block_add(skb->csum, csum, odd);
+ 	}
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 5c901eb..5d83bd2 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -478,7 +478,7 @@ static int raw_getfrag(void *from, char *to, int offset, int len, int odd,
+ 
+ 	offset -= rfv->hlen;
+ 
+-	return ip_generic_getfrag(rfv->msg->msg_iov, to, offset, len, odd, skb);
++	return ip_generic_getfrag(rfv->msg, to, offset, len, odd, skb);
+ }
+ 
+ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index b2d6068..0cac250 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1036,7 +1036,7 @@ back_from_confirm:
+ 
+ 	/* Lockless fast path for the non-corking case. */
+ 	if (!corkreq) {
+-		skb = ip_make_skb(sk, fl4, getfrag, msg->msg_iov, ulen,
++		skb = ip_make_skb(sk, fl4, getfrag, msg, ulen,
+ 				  sizeof(struct udphdr), &ipc, &rt,
+ 				  msg->msg_flags);
+ 		err = PTR_ERR(skb);
+@@ -1067,7 +1067,7 @@ back_from_confirm:
+ 
+ do_append_data:
+ 	up->len += ulen;
+-	err = ip_append_data(sk, fl4, getfrag, msg->msg_iov, ulen,
++	err = ip_append_data(sk, fl4, getfrag, msg, ulen,
+ 			     sizeof(struct udphdr), &ipc, &rt,
+ 			     corkreq ? msg->msg_flags|MSG_MORE : msg->msg_flags);
+ 	if (err)
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 942f67b..11a9283 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -727,7 +727,7 @@ static int raw6_getfrag(void *from, char *to, int offset, int len, int odd,
+ 
+ 	offset -= rfv->hlen;
+ 
+-	return ip_generic_getfrag(rfv->msg->msg_iov, to, offset, len, odd, skb);
++	return ip_generic_getfrag(rfv->msg, to, offset, len, odd, skb);
+ }
+ 
+ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 7cfb5d74..5a164b6 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1299,7 +1299,7 @@ do_append_data:
+ 		dontfrag = np->dontfrag;
+ 	up->len += ulen;
+ 	getfrag  =  is_udplite ?  udplite_getfrag : ip_generic_getfrag;
+-	err = ip6_append_data(sk, getfrag, msg->msg_iov, ulen,
++	err = ip6_append_data(sk, getfrag, msg, ulen,
+ 		sizeof(struct udphdr), hlimit, tclass, opt, &fl6,
+ 		(struct rt6_info *)dst,
+ 		corkreq ? msg->msg_flags|MSG_MORE : msg->msg_flags, dontfrag);
+diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
+index 2177b96..8611f1b 100644
+--- a/net/l2tp/l2tp_ip6.c
++++ b/net/l2tp/l2tp_ip6.c
+@@ -619,7 +619,7 @@ static int l2tp_ip6_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 
+ back_from_confirm:
+ 	lock_sock(sk);
+-	err = ip6_append_data(sk, ip_generic_getfrag, msg->msg_iov,
++	err = ip6_append_data(sk, ip_generic_getfrag, msg,
+ 			      ulen, transhdrlen, hlimit, tclass, opt,
+ 			      &fl6, (struct rt6_info *)dst,
+ 			      msg->msg_flags, dontfrag);
 -- 
 2.1.3
