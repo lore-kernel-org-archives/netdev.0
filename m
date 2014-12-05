@@ -1,55 +1,64 @@
-From: Nikita Edward Baruzdin <nebaruzdin@gmail.com>
-Subject: [PATCH] iproute2: Add support for CAN presume-ack feature
-Date: Fri,  5 Dec 2014 11:41:42 +0300
-Message-ID: <1417768902-5404-2-git-send-email-nebaruzdin@gmail.com>
-References: <1417766390-4587-1-git-send-email-nebaruzdin@gmail.com>
- <1417768902-5404-1-git-send-email-nebaruzdin@gmail.com>
-To: linux-can@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1417768902-5404-1-git-send-email-nebaruzdin@gmail.com>
-Sender: linux-can-owner@vger.kernel.org
+From: Gu Zheng <guz.fnst@cn.fujitsu.com>
+Subject: Re: [RESEND PATCH] net: introduce helper macra CMSG_FOREACH_HDR
+Date: Fri, 5 Dec 2014 16:29:07 +0800
+Message-ID: <54816CD3.90107@cn.fujitsu.com>
+References: <54815B40.1050909@cn.fujitsu.com> <1417766552.2721.45.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1417766552.2721.45.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes CAN_CTRLMODE_PRESUME_ACK netlink feature configurable.
-When enabled, the feature sets CAN controller in mode in which
-acknowledgement absence is ignored.
+Hi Joe,
+Thanks for your comment.
+On 12/05/2014 04:02 PM, Joe Perches wrote:
 
-Signed-off-by: Nikita Edward Baruzdin <nebaruzdin@gmail.com>
----
- ip/iplink_can.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+> On Fri, 2014-12-05 at 15:14 +0800, Gu Zheng wrote:
+>> Introduce helper macra
+> 
+> macro
 
-diff --git a/ip/iplink_can.c b/ip/iplink_can.c
-index 5b92426..fb50332 100644
---- a/ip/iplink_can.c
-+++ b/ip/iplink_can.c
-@@ -37,6 +37,7 @@ static void print_usage(FILE *f)
- 		"\t[ one-shot { on | off } ]\n"
- 		"\t[ berr-reporting { on | off } ]\n"
- 		"\t[ fd { on | off } ]\n"
-+		"\t[ presume-ack { on | off } ]\n"
- 		"\n"
- 		"\t[ restart-ms TIME-MS ]\n"
- 		"\t[ restart ]\n"
-@@ -99,6 +100,7 @@ static void print_ctrlmode(FILE *f, __u32 cm)
- 	_PF(CAN_CTRLMODE_ONE_SHOT, "ONE-SHOT");
- 	_PF(CAN_CTRLMODE_BERR_REPORTING, "BERR-REPORTING");
- 	_PF(CAN_CTRLMODE_FD, "FD");
-+	_PF(CAN_CTRLMODE_PRESUME_ACK, "PRESUME-ACK");
- #undef _PF
- 	if (cm)
- 		fprintf(f, "%x", cm);
-@@ -201,6 +203,10 @@ static int can_parse_opt(struct link_util *lu, int argc, char **argv,
- 			NEXT_ARG();
- 			set_ctrlmode("fd", *argv, &cm,
- 				     CAN_CTRLMODE_FD);
-+		} else if (matches(*argv, "presume-ack") == 0) {
-+			NEXT_ARG();
-+			set_ctrlmode("presume-ack", *argv, &cm,
-+				     CAN_CTRLMODE_PRESUME_ACK);
- 		} else if (matches(*argv, "restart") == 0) {
- 			__u32 val = 1;
- 
--- 
-2.1.3
+Ah~, it's a typo.
 
+> 
+>> CMSG_FOREACH_HDR as a wrapper of the enumerating
+>> cmsghdr from msghdr, just cleanup. 
+> 
+> maybe better to use lower case "for_each_cmsg_hdr"
+> or some such.
+
+But this will make it out of the ordinary, as the existed ones
+are all upper.
+
+David, what's your opinion?
+
+Regards,
+Gu
+
+> 
+> checkpatch would recognize that too as long as it
+> uses "for_each".
+> 
+>> diff --git a/include/linux/socket.h b/include/linux/socket.h
+> []
+>> @@ -94,6 +94,10 @@ struct cmsghdr {
+>>  			     (cmsg)->cmsg_len <= (unsigned long) \
+>>  			     ((mhdr)->msg_controllen - \
+>>  			      ((char *)(cmsg) - (char *)(mhdr)->msg_control)))
+>> +#define CMSG_FOREACH_HDR(cmsg, msg)  \
+>> +	for (cmsg = CMSG_FIRSTHDR(msg); \
+>> +	     cmsg; \
+>> +	     cmsg = CMSG_NXTHDR(msg, cmsg))
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+> 
