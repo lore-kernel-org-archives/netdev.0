@@ -1,202 +1,153 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 4/4] net: tcp: add per route congestion control
-Date: Fri,  5 Dec 2014 16:24:52 +0100
-Message-ID: <1417793092-6263-5-git-send-email-dborkman@redhat.com>
-References: <1417793092-6263-1-git-send-email-dborkman@redhat.com>
+Subject: [PATCH iproute2 -next] ip: route: add congestion control setting
+Date: Fri,  5 Dec 2014 16:28:18 +0100
+Message-ID: <1417793298-6439-1-git-send-email-dborkman@redhat.com>
 Cc: hannes@stressinduktion.org, fw@strlen.de, netdev@vger.kernel.org
-To: davem@davemloft.net
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33401 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51566 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751466AbaLEPZz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2014 10:25:55 -0500
-In-Reply-To: <1417793092-6263-1-git-send-email-dborkman@redhat.com>
+	id S1750749AbaLEP27 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Dec 2014 10:28:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This work adds the possibility to define a per route/destination congestion
-control algorithm. Generally, this opens up the possibility for a machine
-with different links to enforce specific congestion control algorithms with
-optimal strategies for each of them based on their network characteristics,
-even transparently for a single application listening on all links.
+This patch adds configuration and dumping of congestion control metric
+for ip route, f.e.:  ip route add <dst> dev <dev> congctl [lock] <name>
 
-For our specific use case, this additionally facilitates deployment of DCTCP,
-for example, applications can easily serve internal traffic/dsts in DCTCP and
-external one with CUBIC. Other scenarios would also allow for utilizing e.g.
-long living, low priority background flows for certain destinations/routes
-while still being able for normal traffic to utilize the default congestion
-control algorithm. We also thought about a per netns setting (where different
-defaults are possible), but given its actually a link specific property, we
-argue that a per route/destination setting is the most natural and flexible.
-
-The administrator can utilize this through ip-route(8) by appending "congctl
-[lock] <name>", where <name> denotes the name of a loaded congestion control
-algorithm and the optional lock parameter allows to enforce the given algorithm
-so that applications in user space would not be allowed to overwrite that
-algorithm for that destination.
-
-The dst metric lookups are being done when a dst entry is already available
-in order to avoid a costly lookup and still before the algorithms are being
-initialized, thus overhead is very low when the feature is not being used.
-While the client side would need to drop the current reference on the module,
-on server side this can actually even be avoided as we just got a flat-copied
-socket clone.
-
-In case a dst metric contains a key to a congestion control module that has
-just been removed from the kernel, it will fallback to the default congestion
-control discipline for those and not reassign anything. Should at a later
-point in time that module be reinserted into the kernel, then this algorithm
-will be used again as keys are deterministic/static.
-
-Joint work with Florian Westphal.
-
-Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- include/net/tcp.h        |  6 ++++++
- net/ipv4/tcp_ipv4.c      |  2 ++
- net/ipv4/tcp_minisocks.c | 30 ++++++++++++++++++++++++++----
- net/ipv4/tcp_output.c    | 21 +++++++++++++++++++++
- net/ipv6/tcp_ipv6.c      |  2 ++
- 5 files changed, 57 insertions(+), 4 deletions(-)
+ Stephen, this patch is already rebased on top of Florian's
+ ECN patch [1]. Thanks!
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 95bb237..b8fdc6b 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -448,6 +448,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb);
- struct sock *tcp_create_openreq_child(struct sock *sk,
- 				      struct request_sock *req,
- 				      struct sk_buff *skb);
-+void tcp_ca_openreq_child(struct sock *sk, const struct dst_entry *dst);
- struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 				  struct request_sock *req,
- 				  struct dst_entry *dst);
-@@ -636,6 +637,11 @@ static inline u32 tcp_rto_min_us(struct sock *sk)
- 	return jiffies_to_usecs(tcp_rto_min(sk));
- }
+   [1] http://patchwork.ozlabs.org/patch/407729/
+
+ include/linux/rtnetlink.h |  2 ++
+ ip/iproute.c              | 24 +++++++++++++++++++++---
+ man/man8/ip-route.8.in    | 25 ++++++++++++++++++++++++-
+ 3 files changed, 47 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index ae23d94..0c68a1a 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -390,6 +390,8 @@ enum {
+ #define RTAX_INITRWND RTAX_INITRWND
+ 	RTAX_QUICKACK,
+ #define RTAX_QUICKACK RTAX_QUICKACK
++	RTAX_CC_ALGO,
++#define RTAX_CC_ALGO RTAX_CC_ALGO
+ 	__RTAX_MAX
+ };
  
-+static inline bool tcp_ca_dst_locked(const struct dst_entry *dst)
-+{
-+	return dst_metric_locked(dst, RTAX_CC_ALGO);
-+}
+diff --git a/ip/iproute.c b/ip/iproute.c
+index 5a496a9..18f7de7 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -53,6 +53,7 @@ static const char *mx_names[RTAX_MAX+1] = {
+ 	[RTAX_RTO_MIN]	= "rto_min",
+ 	[RTAX_INITRWND]	= "initrwnd",
+ 	[RTAX_QUICKACK]	= "quickack",
++	[RTAX_CC_ALGO]	= "congctl",
+ };
+ static void usage(void) __attribute__((noreturn));
+ 
+@@ -80,8 +81,7 @@ static void usage(void)
+ 	fprintf(stderr, "           [ window NUMBER] [ cwnd NUMBER ] [ initcwnd NUMBER ]\n");
+ 	fprintf(stderr, "           [ ssthresh NUMBER ] [ realms REALM ] [ src ADDRESS ]\n");
+ 	fprintf(stderr, "           [ rto_min TIME ] [ hoplimit NUMBER ] [ initrwnd NUMBER ]\n");
+-	fprintf(stderr, "           [ features FEATURES ]\n");
+-	fprintf(stderr, "           [ quickack BOOL ]\n");
++	fprintf(stderr, "           [ features FEATURES ] [ quickack BOOL ] [ congctl NAME ]\n");
+ 	fprintf(stderr, "TYPE := [ unicast | local | broadcast | multicast | throw |\n");
+ 	fprintf(stderr, "          unreachable | prohibit | blackhole | nat ]\n");
+ 	fprintf(stderr, "TABLE_ID := [ local | main | default | all | NUMBER ]\n");
+@@ -545,10 +545,12 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 				fprintf(fp, " %s", mx_names[i]);
+ 			else
+ 				fprintf(fp, " metric %d", i);
 +
- /* Compute the actual receive window we are currently advertising.
-  * Rcv_nxt can be after the window if our peer push more data
-  * than the offered window.
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 33f5ff0..ed94fdc 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1340,6 +1340,8 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 			if (mxlock & (1<<i))
+ 				fprintf(fp, " lock");
++			if (i != RTAX_CC_ALGO)
++				val = *(unsigned*)RTA_DATA(mxrta[i]);
+ 
+-			val = *(unsigned*)RTA_DATA(mxrta[i]);
+ 			switch (i) {
+ 			case RTAX_FEATURES:
+ 				print_rtax_features(fp, val);
+@@ -573,6 +575,10 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 					fprintf(fp, " %gs", val/1e3);
+ 				else
+ 					fprintf(fp, " %ums", val);
++				break;
++			case RTAX_CC_ALGO:
++				fprintf(fp, " %s", (char *)RTA_DATA(mxrta[i]));
++				break;
+ 			}
+ 		}
  	}
- 	sk_setup_caps(newsk, dst);
+@@ -925,6 +931,18 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
+ 			if (quickack != 1 && quickack != 0)
+ 				invarg("\"quickack\" value should be 0 or 1\n", *argv);
+ 			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_QUICKACK, quickack);
++		} else if (matches(*argv, "congctl") == 0) {
++			char cc[16];
++			NEXT_ARG();
++			memset(cc, 0, sizeof(cc));
++			if (strcmp(*argv, "lock") == 0) {
++				mxlock |= (1<<RTAX_CC_ALGO);
++				NEXT_ARG();
++			}
++			strncpy(cc, *argv, sizeof(cc) - 1);
++			if (strlen(cc) == 0)
++				invarg("\"conctl\" value must be a algorithm name\n", *argv);
++			rta_addattr_l(mxrta, sizeof(mxbuf), RTAX_CC_ALGO, cc, strlen(cc));
+ 		} else if (matches(*argv, "rttvar") == 0) {
+ 			unsigned win;
+ 			NEXT_ARG();
+diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
+index 89960c1..6e4b94c 100644
+--- a/man/man8/ip-route.8.in
++++ b/man/man8/ip-route.8.in
+@@ -116,7 +116,9 @@ replace " } "
+ .B  features
+ .IR FEATURES " ] [ "
+ .B  quickack
+-.IR BOOL " ]"
++.IR BOOL " ] [ "
++.B  congctl
++.IR NAME " ]"
  
-+	tcp_ca_openreq_child(newsk, dst);
-+
- 	tcp_sync_mss(newsk, dst_mtu(dst));
- 	newtp->advmss = dst_metric_advmss(dst);
- 	if (tcp_sk(sk)->rx_opt.user_mss &&
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 63d2680..bc9216d 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -399,6 +399,32 @@ static void tcp_ecn_openreq_child(struct tcp_sock *tp,
- 	tp->ecn_flags = inet_rsk(req)->ecn_ok ? TCP_ECN_OK : 0;
- }
+ .ti -8
+ .IR TYPE " := [ "
+@@ -433,6 +435,27 @@ sysctl is set to 0.
+ Enable or disable quick ack for connections to this destination.
  
-+void tcp_ca_openreq_child(struct sock *sk, const struct dst_entry *dst)
-+{
-+	struct inet_connection_sock *icsk = inet_csk(sk);
-+	u32 ca_key = dst_metric(dst, RTAX_CC_ALGO);
-+	bool ca_got_dst = false;
+ .TP
++.BI congctl " NAME " "(3.19+ only)"
++.TP
++.BI "congctl lock" " NAME " "(3.19+ only)"
++Sets a specific TCP congestion control algorithm only for a given destination.
++If not specified, Linux keeps the current global default TCP congestion control
++algorithm, or the one set from the application. If the modifier
++.B lock
++is not used, an application may nevertheless overwrite the suggested congestion
++control algorithm for that destination. If the modifier
++.B lock
++is used, then an application is not allowed to overwrite the specified congestion
++control algorithm for that destination, thus it will be enforced/guaranteed to
++use the proposed algorithm. Should a congestion control module be unloaded, the
++specified congestion control algorithm will fall back to the current global
++default on connection establishment. In case the same congestion control module
++will be reloaded at a later point in time into the kernel and the congctl route
++attribute has not been modified until then, new connections for that destination
++will make use of it again. Note that the kernel will not try to autoload non-present
++congestion control modules.
 +
-+	if (ca_key != TCP_CA_UNSPEC) {
-+		const struct tcp_congestion_ops *ca;
-+
-+		rcu_read_lock();
-+		ca = tcp_ca_find_key(ca_key);
-+		if (likely(ca && try_module_get(ca->owner))) {
-+			icsk->icsk_ca_dst_locked = tcp_ca_dst_locked(dst);
-+			icsk->icsk_ca_ops = ca;
-+			ca_got_dst = true;
-+		}
-+		rcu_read_unlock();
-+	}
-+
-+	if (!ca_got_dst && !try_module_get(icsk->icsk_ca_ops->owner))
-+		tcp_assign_congestion_control(sk);
-+
-+	tcp_set_ca_state(sk, TCP_CA_Open);
-+}
-+EXPORT_SYMBOL_GPL(tcp_ca_openreq_child);
-+
- /* This is not only more efficient than what we used to do, it eliminates
-  * a lot of code duplication between IPv4/IPv6 SYN recv processing. -DaveM
-  *
-@@ -451,10 +477,6 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
- 		newtp->snd_cwnd = TCP_INIT_CWND;
- 		newtp->snd_cwnd_cnt = 0;
- 
--		if (!try_module_get(newicsk->icsk_ca_ops->owner))
--			tcp_assign_congestion_control(newsk);
--
--		tcp_set_ca_state(newsk, TCP_CA_Open);
- 		tcp_init_xmit_timers(newsk);
- 		__skb_queue_head_init(&newtp->out_of_order_queue);
- 		newtp->write_seq = newtp->pushed_seq = treq->snt_isn + 1;
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index f5bd4bd..5eb5676 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2916,6 +2916,25 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
- }
- EXPORT_SYMBOL(tcp_make_synack);
- 
-+static void tcp_ca_dst_init(struct sock *sk, const struct dst_entry *dst)
-+{
-+	struct inet_connection_sock *icsk = inet_csk(sk);
-+	const struct tcp_congestion_ops *ca;
-+	u32 ca_key = dst_metric(dst, RTAX_CC_ALGO);
-+
-+	if (ca_key == TCP_CA_UNSPEC)
-+		return;
-+
-+	rcu_read_lock();
-+	ca = tcp_ca_find_key(ca_key);
-+	if (likely(ca && try_module_get(ca->owner))) {
-+		module_put(icsk->icsk_ca_ops->owner);
-+		icsk->icsk_ca_dst_locked = tcp_ca_dst_locked(dst);
-+		icsk->icsk_ca_ops = ca;
-+	}
-+	rcu_read_unlock();
-+}
-+
- /* Do all connect socket setups that can be done AF independent. */
- static void tcp_connect_init(struct sock *sk)
- {
-@@ -2941,6 +2960,8 @@ static void tcp_connect_init(struct sock *sk)
- 	tcp_mtup_init(sk);
- 	tcp_sync_mss(sk, dst_mtu(dst));
- 
-+	tcp_ca_dst_init(sk, dst);
-+
- 	if (!tp->window_clamp)
- 		tp->window_clamp = dst_metric(dst, RTAX_WINDOW);
- 	tp->advmss = dst_metric_advmss(dst);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index d06af89..20f44fe 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1199,6 +1199,8 @@ static struct sock *tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 		inet_csk(newsk)->icsk_ext_hdr_len = (newnp->opt->opt_nflen +
- 						     newnp->opt->opt_flen);
- 
-+	tcp_ca_openreq_child(newsk, dst);
-+
- 	tcp_sync_mss(newsk, dst_mtu(dst));
- 	newtp->advmss = dst_metric_advmss(dst);
- 	if (tcp_sk(sk)->rx_opt.user_mss &&
++.TP
+ .BI advmss " NUMBER " "(2.3.15+ only)"
+ the MSS ('Maximal Segment Size') to advertise to these
+ destinations when establishing TCP connections.  If it is not given,
 -- 
-1.7.11.7
+1.9.3
