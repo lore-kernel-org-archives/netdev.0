@@ -1,121 +1,242 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/14] ixgbe: Remove tail write abstraction and add missing barrier
-Date: Fri,  5 Dec 2014 09:52:41 -0800
-Message-ID: <1417801973-28793-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/14] ixgbe: remove CIAA/D register reads from bad VF check
+Date: Fri,  5 Dec 2014 09:52:43 -0800
+Message-ID: <1417801973-28793-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Don Skidmore <donald.c.skidmore@intel.com>,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Alex Williamson <alex.williamson@redhat.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:7122 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751539AbaLERxr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2014 12:53:47 -0500
+	id S1751819AbaLERxu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Dec 2014 12:53:50 -0500
 In-Reply-To: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This change cleans up the tail writes for the ixgbe descriptor queues.  The
-current implementation had me confused as I wasn't sure if it was still
-making use of the surprise remove logic or not.
+Accessing the CIAA/D register can block access to the PCI config space.
 
-It also adds the mmiowb which is needed on ia64, mips, and a couple other
-architectures in order to synchronize the MMIO writes with the Tx queue
-_xmit_lock spinlock.
+This patch removes the read/write operations to the CIAA/D registers
+and makes use of standard kernel functions for accessing the PCI config
+space.
 
-Cc: Don Skidmore <donald.c.skidmore@intel.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+In addition it moves ixgbevf_check_for_bad_vf() into the watchdog subtask
+which reduces the frequency of the checks.
+
+CC: Alex Williamson <alex.williamson@redhat.com>
+Reported-by: Alex Williamson <alex.williamson@redhat.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  5 ----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 40 +++++++++++++--------------
- 2 files changed, 20 insertions(+), 25 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 145 +++++++++++++-------------
+ 1 file changed, 74 insertions(+), 71 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 5032a60..86fa607 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -553,11 +553,6 @@ static inline u16 ixgbe_desc_unused(struct ixgbe_ring *ring)
- 	return ((ntc > ntu) ? 0 : ring->count) + ntc - ntu - 1;
- }
- 
--static inline void ixgbe_write_tail(struct ixgbe_ring *ring, u32 value)
--{
--	writel(value, ring->tail);
--}
--
- #define IXGBE_RX_DESC(R, i)	    \
- 	(&(((union ixgbe_adv_rx_desc *)((R)->desc))[i]))
- #define IXGBE_TX_DESC(R, i)	    \
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 3c1d4ea..73cd0fe 100644
+index 18ddffb..b519b89 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1416,22 +1416,6 @@ static inline void ixgbe_rx_checksum(struct ixgbe_ring *ring,
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+@@ -6318,6 +6318,66 @@ static void ixgbe_watchdog_flush_tx(struct ixgbe_adapter *adapter)
+ 	}
  }
  
--static inline void ixgbe_release_rx_desc(struct ixgbe_ring *rx_ring, u32 val)
++#ifdef CONFIG_PCI_IOV
++static inline void ixgbe_issue_vf_flr(struct ixgbe_adapter *adapter,
++				      struct pci_dev *vfdev)
++{
++	if (!pci_wait_for_pending_transaction(vfdev))
++		e_dev_warn("Issuing VFLR with pending transactions\n");
++
++	e_dev_err("Issuing VFLR for VF %s\n", pci_name(vfdev));
++	pcie_capability_set_word(vfdev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_BCR_FLR);
++
++	msleep(100);
++}
++
++static void ixgbe_check_for_bad_vf(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	struct pci_dev *pdev = adapter->pdev;
++	struct pci_dev *vfdev;
++	u32 gpc;
++	int pos;
++	unsigned short vf_id;
++
++	if (!(netif_carrier_ok(adapter->netdev)))
++		return;
++
++	gpc = IXGBE_READ_REG(hw, IXGBE_TXDGPC);
++	if (gpc) /* If incrementing then no need for the check below */
++		return;
++	/* Check to see if a bad DMA write target from an errant or
++	 * malicious VF has caused a PCIe error.  If so then we can
++	 * issue a VFLR to the offending VF(s) and then resume without
++	 * requesting a full slot reset.
++	 */
++
++	if (!pdev)
++		return;
++
++	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_SRIOV);
++	if (!pos)
++		return;
++
++	/* get the device ID for the VF */
++	pci_read_config_word(pdev, pos + PCI_SRIOV_VF_DID, &vf_id);
++
++	/* check status reg for all VFs owned by this PF */
++	vfdev = pci_get_device(pdev->vendor, vf_id, NULL);
++	while (vfdev) {
++		if (vfdev->is_virtfn && (vfdev->physfn == pdev)) {
++			u16 status_reg;
++
++			pci_read_config_word(vfdev, PCI_STATUS, &status_reg);
++			if (status_reg & PCI_STATUS_REC_MASTER_ABORT)
++				/* issue VFLR */
++				ixgbe_issue_vf_flr(adapter, vfdev);
++		}
++
++		vfdev = pci_get_device(pdev->vendor, vf_id, vfdev);
++	}
++}
++
+ static void ixgbe_spoof_check(struct ixgbe_adapter *adapter)
+ {
+ 	u32 ssvpc;
+@@ -6338,6 +6398,17 @@ static void ixgbe_spoof_check(struct ixgbe_adapter *adapter)
+ 
+ 	e_warn(drv, "%u Spoofed packets detected\n", ssvpc);
+ }
++#else
++static void ixgbe_spoof_check(struct ixgbe_adapter __always_unused *adapter)
++{
++}
++
++static void
++ixgbe_check_for_bad_vf(struct ixgbe_adapter __always_unused *adapter)
++{
++}
++#endif /* CONFIG_PCI_IOV */
++
+ 
+ /**
+  * ixgbe_watchdog_subtask - check and bring link up
+@@ -6358,6 +6429,7 @@ static void ixgbe_watchdog_subtask(struct ixgbe_adapter *adapter)
+ 	else
+ 		ixgbe_watchdog_link_is_down(adapter);
+ 
++	ixgbe_check_for_bad_vf(adapter);
+ 	ixgbe_spoof_check(adapter);
+ 	ixgbe_update_stats(adapter);
+ 
+@@ -6469,51 +6541,6 @@ static void ixgbe_sfp_link_config_subtask(struct ixgbe_adapter *adapter)
+ 	clear_bit(__IXGBE_IN_SFP_INIT, &adapter->state);
+ }
+ 
+-#ifdef CONFIG_PCI_IOV
+-static void ixgbe_check_for_bad_vf(struct ixgbe_adapter *adapter)
 -{
--	rx_ring->next_to_use = val;
+-	int vf;
+-	struct ixgbe_hw *hw = &adapter->hw;
+-	struct net_device *netdev = adapter->netdev;
+-	u32 gpc;
+-	u32 ciaa, ciad;
 -
--	/* update next to alloc since we have filled the ring */
--	rx_ring->next_to_alloc = val;
+-	gpc = IXGBE_READ_REG(hw, IXGBE_TXDGPC);
+-	if (gpc) /* If incrementing then no need for the check below */
+-		return;
 -	/*
--	 * Force memory writes to complete before letting h/w
--	 * know there are new descriptors to fetch.  (Only
--	 * applicable for weak-ordered memory model archs,
--	 * such as IA-64).
+-	 * Check to see if a bad DMA write target from an errant or
+-	 * malicious VF has caused a PCIe error.  If so then we can
+-	 * issue a VFLR to the offending VF(s) and then resume without
+-	 * requesting a full slot reset.
 -	 */
--	wmb();
--	ixgbe_write_tail(rx_ring, val);
+-
+-	for (vf = 0; vf < adapter->num_vfs; vf++) {
+-		ciaa = (vf << 16) | 0x80000000;
+-		/* 32 bit read so align, we really want status at offset 6 */
+-		ciaa |= PCI_COMMAND;
+-		IXGBE_WRITE_REG(hw, IXGBE_CIAA_BY_MAC(hw), ciaa);
+-		ciad = IXGBE_READ_REG(hw, IXGBE_CIAD_BY_MAC(hw));
+-		ciaa &= 0x7FFFFFFF;
+-		/* disable debug mode asap after reading data */
+-		IXGBE_WRITE_REG(hw, IXGBE_CIAA_BY_MAC(hw), ciaa);
+-		/* Get the upper 16 bits which will be the PCI status reg */
+-		ciad >>= 16;
+-		if (ciad & PCI_STATUS_REC_MASTER_ABORT) {
+-			netdev_err(netdev, "VF %d Hung DMA\n", vf);
+-			/* Issue VFLR */
+-			ciaa = (vf << 16) | 0x80000000;
+-			ciaa |= 0xA8;
+-			IXGBE_WRITE_REG(hw, IXGBE_CIAA_BY_MAC(hw), ciaa);
+-			ciad = 0x00008000;  /* VFLR */
+-			IXGBE_WRITE_REG(hw, IXGBE_CIAD_BY_MAC(hw), ciad);
+-			ciaa &= 0x7FFFFFFF;
+-			IXGBE_WRITE_REG(hw, IXGBE_CIAA_BY_MAC(hw), ciaa);
+-		}
+-	}
 -}
 -
- static bool ixgbe_alloc_mapped_page(struct ixgbe_ring *rx_ring,
- 				    struct ixgbe_rx_buffer *bi)
+-#endif
+ /**
+  * ixgbe_service_timer - Timer Call-back
+  * @data: pointer to adapter cast into an unsigned long
+@@ -6522,7 +6549,6 @@ static void ixgbe_service_timer(unsigned long data)
  {
-@@ -1517,8 +1501,20 @@ void ixgbe_alloc_rx_buffers(struct ixgbe_ring *rx_ring, u16 cleaned_count)
+ 	struct ixgbe_adapter *adapter = (struct ixgbe_adapter *)data;
+ 	unsigned long next_event_offset;
+-	bool ready = true;
  
- 	i += rx_ring->count;
+ 	/* poll faster when waiting for link */
+ 	if (adapter->flags & IXGBE_FLAG_NEED_LINK_UPDATE)
+@@ -6530,32 +6556,10 @@ static void ixgbe_service_timer(unsigned long data)
+ 	else
+ 		next_event_offset = HZ * 2;
  
--	if (rx_ring->next_to_use != i)
--		ixgbe_release_rx_desc(rx_ring, i);
-+	if (rx_ring->next_to_use != i) {
-+		rx_ring->next_to_use = i;
-+
-+		/* update next to alloc since we have filled the ring */
-+		rx_ring->next_to_alloc = i;
-+
-+		/* Force memory writes to complete before letting h/w
-+		 * know there are new descriptors to fetch.  (Only
-+		 * applicable for weak-ordered memory model archs,
-+		 * such as IA-64).
-+		 */
-+		wmb();
-+		writel(i, rx_ring->tail);
-+	}
+-#ifdef CONFIG_PCI_IOV
+-	/*
+-	 * don't bother with SR-IOV VF DMA hang check if there are
+-	 * no VFs or the link is down
+-	 */
+-	if (!adapter->num_vfs ||
+-	    (adapter->flags & IXGBE_FLAG_NEED_LINK_UPDATE))
+-		goto normal_timer_service;
+-
+-	/* If we have VFs allocated then we must check for DMA hangs */
+-	ixgbe_check_for_bad_vf(adapter);
+-	next_event_offset = HZ / 50;
+-	adapter->timer_event_accumulator++;
+-
+-	if (adapter->timer_event_accumulator >= 100)
+-		adapter->timer_event_accumulator = 0;
+-	else
+-		ready = false;
+-
+-normal_timer_service:
+-#endif
+ 	/* Reset the timer */
+ 	mod_timer(&adapter->service_timer, next_event_offset + jiffies);
+ 
+-	if (ready)
+-		ixgbe_service_event_schedule(adapter);
++	ixgbe_service_event_schedule(adapter);
  }
  
- static void ixgbe_set_rsc_gso_size(struct ixgbe_ring *ring,
-@@ -6954,8 +6950,12 @@ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
- 	ixgbe_maybe_stop_tx(tx_ring, DESC_NEEDED);
- 
- 	if (netif_xmit_stopped(txring_txq(tx_ring)) || !skb->xmit_more) {
--		/* notify HW of packet */
--		ixgbe_write_tail(tx_ring, i);
-+		writel(i, tx_ring->tail);
-+
-+		/* we need this if more than one processor can write to our tail
-+		 * at a time, it synchronizes IO on IA64/Altix systems
-+		 */
-+		mmiowb();
- 	}
- 
- 	return;
+ static void ixgbe_reset_subtask(struct ixgbe_adapter *adapter)
+@@ -8643,8 +8647,7 @@ static pci_ers_result_t ixgbe_io_error_detected(struct pci_dev *pdev,
+ 		 * VFLR.  Just clean up the AER in that case.
+ 		 */
+ 		if (vfdev) {
+-			e_dev_err("Issuing VFLR to VF %d\n", vf);
+-			pci_write_config_dword(vfdev, 0xA8, 0x00008000);
++			ixgbe_issue_vf_flr(adapter, vfdev);
+ 			/* Free device reference count */
+ 			pci_dev_put(vfdev);
+ 		}
 -- 
 1.9.3
