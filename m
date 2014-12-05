@@ -1,45 +1,90 @@
-From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next] openvswitch: set correct protocol on
-	route lookup
-Date: Fri, 5 Dec 2014 09:43:33 -0800
-Message-ID: <CALnjE+p9dKTmf=BpjZbM7Yzn58GfgcOQrjKBTsrtjh8LXv8M1A@mail.gmail.com>
-References: <0ead411e38bc57a8971ffd9826f7bf9bfdc6ccf1.1417796557.git.jbenc@redhat.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH] net: fix the flow limitation computation
+Date: Fri, 5 Dec 2014 12:52:22 -0500
+Message-ID: <CA+FuTScVxFHTogMbXRkbYALPXKF0=USw=27XZpcMAVFSd9VJXw@mail.gmail.com>
+References: <1417772919-17744-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <0ead411e38bc57a8971ffd9826f7bf9bfdc6ccf1.1417796557.git.jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>
+To: roy.qing.li@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f45.google.com ([209.85.192.45]:53514 "EHLO
+	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751081AbaLERwx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 12:52:53 -0500
+Received: by mail-qg0-f45.google.com with SMTP id f51so812673qge.4
+        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 09:52:52 -0800 (PST)
+In-Reply-To: <1417772919-17744-1-git-send-email-roy.qing.li@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBEZWMgNSwgMjAxNCBhdCA4OjI0IEFNLCBKaXJpIEJlbmMgPGpiZW5jQHJlZGhhdC5j
-b20+IHdyb3RlOgo+IFJlc3BlY3Qgd2hhdCB0aGUgY2FsbGVyIHBhc3NlZCB0byBvdnNfdHVubmVs
-X2dldF9lZ3Jlc3NfaW5mby4KPgo+IEZpeGVzOiA4ZjBhYWQ2ZjM1ZjdlICgib3BlbnZzd2l0Y2g6
-IEV4dGVuZCBwYWNrZXQgYXR0cmlidXRlIGZvciBlZ3Jlc3MgdHVubmVsIGluZm8iKQo+IFNpZ25l
-ZC1vZmYtYnk6IEppcmkgQmVuYyA8amJlbmNAcmVkaGF0LmNvbT4KClRoYW5rcyBmb3IgdGhlIGZp
-eC4KQWNrZWQtYnk6IFByYXZpbiBCIFNoZWxhciA8cHNoZWxhckBuaWNpcmEuY29tPgoKPiAtLS0K
-PiAgbmV0L29wZW52c3dpdGNoL3Zwb3J0LmMgfCAyICstCj4gIDEgZmlsZSBjaGFuZ2VkLCAxIGlu
-c2VydGlvbigrKSwgMSBkZWxldGlvbigtKQo+Cj4gZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRj
-aC92cG9ydC5jIGIvbmV0L29wZW52c3dpdGNoL3Zwb3J0LmMKPiBpbmRleCBlNzcxYTQ2OTMzZTUu
-Ljk1ODQ1MjZjMDc3OCAxMDA2NDQKPiAtLS0gYS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQuYwo+ICsr
-KyBiL25ldC9vcGVudnN3aXRjaC92cG9ydC5jCj4gQEAgLTYwMCw3ICs2MDAsNyBAQCBpbnQgb3Zz
-X3R1bm5lbF9nZXRfZWdyZXNzX2luZm8oc3RydWN0IG92c190dW5uZWxfaW5mbyAqZWdyZXNzX3R1
-bl9pbmZvLAo+ICAgICAgICAgZmwuc2FkZHIgPSB0dW5fa2V5LT5pcHY0X3NyYzsKPiAgICAgICAg
-IGZsLmZsb3dpNF90b3MgPSBSVF9UT1ModHVuX2tleS0+aXB2NF90b3MpOwo+ICAgICAgICAgZmwu
-Zmxvd2k0X21hcmsgPSBza2JfbWFyazsKPiAtICAgICAgIGZsLmZsb3dpNF9wcm90byA9IElQUFJP
-VE9fR1JFOwo+ICsgICAgICAgZmwuZmxvd2k0X3Byb3RvID0gaXBwcm90bzsKPgo+ICAgICAgICAg
-cnQgPSBpcF9yb3V0ZV9vdXRwdXRfa2V5KG5ldCwgJmZsKTsKPiAgICAgICAgIGlmIChJU19FUlIo
-cnQpKQo+IC0tCj4gMS44LjMuMQo+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8v
-b3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+On Fri, Dec 5, 2014 at 4:48 AM,  <roy.qing.li@gmail.com> wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
+>
+> Once RPS is enabled, the skb maybe enqueue to different CPU, so the
+> flow limitation computation should use the enqueued CPU, not the local
+> CPU
+
+No, the decision to do accounting on the initial cpu was deliberate,
+to avoids cache line contention with other cpus.
+
+The goal is to detect under stress a single four-tuple that is
+responsible for the majority of traffic, based on the assumption
+that traffic is spread across many flows under normal conditions.
+
+Accounting on the destination rps cpus is the more obviously
+correct solution. Accounting on the source cpu is generally
+fine, too, since it still only blocks a flow if that flow sends
+> 50% of all packets from that cpu.
+
+The only false positive occurs if multiple cpus have flows that
+are large in proportion to their own packet rate, but only a subset
+of these cpus actually generate a lot of traffic. Then, the
+proportionally large flows from the cpus that generate little
+traffic are incorrectly throttled. Throttling is still proportional
+to aggregate packet rate, so should be low.
+
+>
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> ---
+>  net/core/dev.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 945bbd0..e70507d 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -3250,7 +3250,7 @@ static int rps_ipi_queued(struct softnet_data *sd)
+>  int netdev_flow_limit_table_len __read_mostly = (1 << 12);
+>  #endif
+>
+> -static bool skb_flow_limit(struct sk_buff *skb, unsigned int qlen)
+> +static bool skb_flow_limit(struct sk_buff *skb, unsigned int qlen, int cpu)
+>  {
+>  #ifdef CONFIG_NET_FLOW_LIMIT
+>         struct sd_flow_limit *fl;
+> @@ -3260,7 +3260,7 @@ static bool skb_flow_limit(struct sk_buff *skb, unsigned int qlen)
+>         if (qlen < (netdev_max_backlog >> 1))
+>                 return false;
+>
+> -       sd = this_cpu_ptr(&softnet_data);
+> +       sd = &per_cpu(softnet_data, cpu);
+>
+>         rcu_read_lock();
+>         fl = rcu_dereference(sd->flow_limit);
+> @@ -3303,7 +3303,7 @@ static int enqueue_to_backlog(struct sk_buff *skb, int cpu,
+>
+>         rps_lock(sd);
+>         qlen = skb_queue_len(&sd->input_pkt_queue);
+> -       if (qlen <= netdev_max_backlog && !skb_flow_limit(skb, qlen)) {
+> +       if (qlen <= netdev_max_backlog && !skb_flow_limit(skb, qlen, cpu)) {
+>                 if (skb_queue_len(&sd->input_pkt_queue)) {
+>  enqueue:
+>                         __skb_queue_tail(&sd->input_pkt_queue, skb);
+> --
+> 2.1.0
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
