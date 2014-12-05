@@ -1,10 +1,9 @@
 From: Jianhua Xie <jianhua.xie@freescale.com>
-Subject: Re: [PATCH 1/3] netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD feature
- flag for switch device offloads
-Date: Fri, 5 Dec 2014 12:43:30 +0800
-Message-ID: <548137F2.5080906@freescale.com>
-References: <1417746401-8140-2-git-send-email-roopa@cumulusnetworks.com>
- <5481249E.7020902@freescale.com> <548131EB.3060502@cumulusnetworks.com>
+Subject: Re: [PATCH 3/3] rocker: set feature NETIF_F_HW_SWITCH_OFFLOAD
+Date: Fri, 5 Dec 2014 12:44:47 +0800
+Message-ID: <5481383F.8010206@freescale.com>
+References: <1417746401-8140-4-git-send-email-roopa@cumulusnetworks.com>
+ <5481259C.3040707@freescale.com> <5481312D.6080708@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8;
 	format=flowed
@@ -16,71 +15,54 @@ Cc: <jiri@resnulli.us>, <sfeldma@gmail.com>, <jhs@mojatatu.com>,
 	<vyasevic@redhat.com>, <f.fainelli@gmail.com>,
 	<buytenh@wantstofly.org>, <aviadr@mellanox.com>,
 	<netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<shm@cumulusnetworks.com>, <gospo@cumulusnetworks.com>
+	<shm@cumulusnetworks.com>, <gospo@cumulusnetworks.com>,
+	jianhua Xie <jianhua.xie@freescale.com>
 To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0133.outbound.protection.outlook.com ([207.46.100.133]:56398
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+Received: from mail-bn1bbn0109.outbound.protection.outlook.com ([157.56.111.109]:29794
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751788AbaLEEnl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Dec 2014 23:43:41 -0500
-In-Reply-To: <548131EB.3060502@cumulusnetworks.com>
+	id S1751788AbaLEEo5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Dec 2014 23:44:57 -0500
+In-Reply-To: <5481312D.6080708@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-=E5=9C=A8 2014=E5=B9=B412=E6=9C=8805=E6=97=A5 12:17, Roopa Prabhu =E5=86=
+=E5=9C=A8 2014=E5=B9=B412=E6=9C=8805=E6=97=A5 12:14, Roopa Prabhu =E5=86=
 =99=E9=81=93:
-> On 12/4/14, 7:21 PM, Jianhua Xie wrote:
+> On 12/4/14, 7:25 PM, Jianhua Xie wrote:
 >>
 >> =E5=9C=A8 2014=E5=B9=B412=E6=9C=8805=E6=97=A5 10:26, roopa@cumulusne=
 tworks.com =E5=86=99=E9=81=93:
 >>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 >>>
->>> This is a generic high level feature flag for all switch asic=20
->>> features today.
->>>
->>> switch drivers set this flag on switch ports. Logical devices like
->>> bridge, bonds, vxlans can inherit this flag from their slaves/ports=
-=2E
->>>
->>> I had to use SWITCH in the name to avoid ambiguity with other featu=
-re
->>> flags. But, since i have been harping about not calling it 'switch'=
-,
->>> I am welcome to any suggestions :)
->>>
->>> An alternative to using a feature flag is to use a IFF_HW_OFFLOAD
->>> in net_device_flags.
+>>> This patch just sets the feature flag on rocker ports
 >>> ---
->>>   include/linux/netdev_features.h |    2 ++
->>>   1 file changed, 2 insertions(+)
+>>>   drivers/net/ethernet/rocker/rocker.c |    3 ++-
+>>>   1 file changed, 2 insertions(+), 1 deletion(-)
 >>>
->>> diff --git a/include/linux/netdev_features.h=20
->>> b/include/linux/netdev_features.h
->>> index 8e30685..68db1de 100644
->>> --- a/include/linux/netdev_features.h
->>> +++ b/include/linux/netdev_features.h
->>> @@ -66,6 +66,7 @@ enum {
->>>       NETIF_F_HW_VLAN_STAG_FILTER_BIT,/* Receive filtering on VLAN=20
->>> STAGs */
->>>       NETIF_F_HW_L2FW_DOFFLOAD_BIT,    /* Allow L2 Forwarding in=20
->>> Hardware */
->>>       NETIF_F_BUSY_POLL_BIT,        /* Busy poll */
->>> +    NETIF_F_HW_SWITCH_OFFLOAD_BIT,  /* HW switch offload */
->> I am interested in this flag very much, but I am not very clear
->> how many offload capabilities does this flag imply.  If this flag
->> belongs to a general flag and can be accepted by all vendors,
->> I will reuse this flag to introduce another out going data traffics
->> distribution offload method to bonding driver.
-> Right now its a one global offload flag for switch asics. Some may no=
-t=20
-> want to tune it more. But others may and so i do expect more flags in=
+>>> diff --git a/drivers/net/ethernet/rocker/rocker.c=20
+>>> b/drivers/net/ethernet/rocker/rocker.c
+>>> index fded127..3fe19b0 100644
+>>> --- a/drivers/net/ethernet/rocker/rocker.c
+>>> +++ b/drivers/net/ethernet/rocker/rocker.c
+>>> @@ -4003,7 +4003,8 @@ static int rocker_probe_port(struct rocker=20
+>>> *rocker, unsigned int port_number)
+>>>                  NAPI_POLL_WEIGHT);
+>>>       rocker_carrier_init(rocker_port);
+>>>   -    dev->features |=3D NETIF_F_HW_VLAN_CTAG_FILTER;
+>>> +    dev->features |=3D NETIF_F_HW_VLAN_CTAG_FILTER |
+>>> +                     NETIF_F_HW_SWITCH_OFFLOAD;
+>> Do you have a plan on enabling/disabling  this flag dynamically by=20
+>> ethtool?
+>
+> I have not thought about it yet. But if this gets accepted, then yes,=
 =20
-> this category.
+> I will have an ethtool way for drivers who want it.
+> if we have a IFF_ flag for this (which is also one of my alternate=20
+> proposals), there will be a netlink way to set it on and off.
 >
 Got it with thanks.
 Best Regards.
-> Thanks,
-> Roopa
->
+Jianhua
