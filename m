@@ -1,107 +1,92 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 REGRESSIONS] ss: Fix layout issues introduced by regression
-Date: Fri,  5 Dec 2014 13:16:09 +0200
-Message-ID: <1417778169-12339-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f43.google.com ([209.85.215.43]:36656 "EHLO
-	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750749AbaLELZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 06:25:57 -0500
-Received: by mail-la0-f43.google.com with SMTP id ge10so491707lab.16
-        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 03:25:55 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: Re: [PATCH] ixgbe,
+ ixgbevf: Add new mbox API to enable MC promiscuous mode
+Date: Fri, 5 Dec 2014 11:39:30 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05DCEB13@BPXM14GP.gisp.nec.co.jp>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05DBFDAD@BPXM14GP.gisp.nec.co.jp>
+	<54809D57.9060804@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Choi,
+	Sy Jong" <sy.jong.choi@intel.com>, Hayato Momma <h-momma@ce.jp.nec.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <54809D57.9060804@gmail.com>
+Content-Language: ja-JP
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-This patch fixes the following issues which was introduced
-by me in commits:
+> Subject: Re: [E1000-devel] [PATCH] ixgbe, ixgbevf: Add new mbox API to enable MC promiscuous mode
+> 
+> On 11/27/2014 02:39 AM, Hiroshi Shimamoto wrote:
+> > From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> >
+> > The limitation of the number of multicast address for VF is not enough
+> > for the large scale server with SR-IOV feature.
+> > IPv6 requires the multicast MAC address for each IP address to handle
+> > the Neighbor Solicitation message.
+> > We couldn't assign over 30 IPv6 addresses to a single VF interface.
+> >
+> > The easy way to solve this is enabling multicast promiscuous mode.
+> > It is good to have a functionality to enable multicast promiscuous mode
+> > for each VF from VF driver.
+> >
+> > This patch introduces the new mbox API, IXGBE_VF_SET_MC_PROMISC, to
+> > enable/disable multicast promiscuous mode in VF. If multicast promiscuous
+> > mode is enabled the VF can receive all multicast packets.
+> >
+> > With this patch, the ixgbevf driver automatically enable multicast
+> > promiscuous mode when the number of multicast addresses is over than 30
+> > if possible.
+> >
+> > This also bump the API version up to 1.2 to check whether the API,
+> > IXGBE_VF_SET_MC_PROMISC is available.
+> >
+> > Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> > CC: Choi, Sy Jong <sy.jong.choi@intel.com>
+> > Reviewed-by: Hayato Momma <h-momma@ce.jp.nec.com>
+> 
+> This is a REALLY bad idea unless you plan to limit this to privileged VFs.
+> 
+> I would recommend looking at adding an ndo operation to control this
+> feature so that it could be disabled by default in the PF and only
+> enabled on the host side if specifically requested.  Otherwise the
 
-    #1 (2dc854854b7f1b) ss: Fixed broken output for Netlink 'Peer Address:Port' column
-    ISSUE: Broken layout when all sockets are printed out
+Do you mean that PF driver should have the flag to enable or disable per VF
+and disallow the request from VF?
 
-    #2 (eef43b5052afb7) ss: Identify more netlink protocol names
-    ISSUE: PID is not printed if only numbers output was specified (-n)
+> problem is I can easily see this leading security issues as the VFs
+> might begin getting access to messages that they aren't supposed to.
 
-Also aligned the width of the local/peer ports to be more wider.
+OK, by the way, I think that the current ixgbe and ixgbevf implementation
+has already such issue. The guest can add hash entry to receive MAC and it
+can get every multicast MAC frame with the current mbox API.
+Does your concern come from the easiness of doing that?
 
-I tested with a lot of option combinations (I may miss some test cases),
-but layout seems to me better even on the previous released version
-of iproute2/ss.
+thanks,
+Hiroshi
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- misc/ss.c | 30 ++++++++++--------------------
- 1 file changed, 10 insertions(+), 20 deletions(-)
+> 
+> - Alex
 
-diff --git a/misc/ss.c b/misc/ss.c
-index a99294d..8abaaff 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -101,8 +101,6 @@ int state_width;
- int addrp_width;
- int addr_width;
- int serv_width;
--int paddr_width;
--int pserv_width;
- int screen_width;
- 
- static const char *TCP_PROTO = "tcp";
-@@ -2912,11 +2910,12 @@ static void netlink_show_one(struct filter *f,
- 		printf("%-*s ", state_width, "UNCONN");
- 	printf("%-6d %-6d ", rq, wq);
- 
--	if (resolve_services)
--	{
-+	if (resolve_services) {
- 		printf("%*s:", addr_width, nl_proto_n2a(prot, prot_name,
- 					sizeof(prot_name)));
--	}
-+	} else
-+		printf("%*d:", addr_width, prot);
-+
- 
- 	if (pid == -1) {
- 		printf("%-*s ", serv_width, "*");
-@@ -2947,10 +2946,10 @@ static void netlink_show_one(struct filter *f,
- 
- 	if (state == NETLINK_CONNECTED) {
- 		printf("%*d:%-*d",
--		       paddr_width, dst_group, pserv_width, dst_pid);
-+		       addr_width, dst_group, serv_width, dst_pid);
- 	} else {
- 		printf("%*s*%-*s",
--		       paddr_width, "", pserv_width, "");
-+		       addr_width, "", serv_width, "");
- 	}
- 
- 	char *pid_context = NULL;
-@@ -3684,22 +3683,13 @@ int main(int argc, char *argv[])
- 		printf("%-*s ", state_width, "State");
- 	printf("%-6s %-6s ", "Recv-Q", "Send-Q");
- 
--	paddr_width = addr_width;
--	pserv_width = serv_width;
--
--	/* Netlink service column can be resolved as process name/pid thus it
--	 * can be much wider than address column which is just a
--	 * protocol name/id.
--	 */
--	if (current_filter.dbs & (1<<NETLINK_DB)) {
--		serv_width = addr_width - 10;
--		paddr_width = 13;
--		pserv_width = 13;
--	}
-+	/* Make enough space for the local/remote port field */
-+	addr_width -= 13;
-+	serv_width += 13;
- 
- 	printf("%*s:%-*s %*s:%-*s\n",
- 	       addr_width, "Local Address", serv_width, "Port",
--	       paddr_width, "Peer Address", pserv_width, "Port");
-+	       addr_width, "Peer Address", serv_width, "Port");
- 
- 	fflush(stdout);
- 
--- 
-2.1.3
+------------------------------------------------------------------------------
+Download BIRT iHub F-Type - The Free Enterprise-Grade BIRT Server
+from Actuate! Instantly Supercharge Your Business Reports and Dashboards
+with Interactivity, Sharing, Native Excel Exports, App Integration & more
+Get technology previously reserved for billion-dollar corporations, FREE
+http://pubads.g.doubleclick.net/gampad/clk?id=164703151&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
