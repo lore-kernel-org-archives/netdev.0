@@ -1,92 +1,86 @@
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: Re: [PATCH] net/mlx4: Fix EEH recovery failure
-Date: Fri, 5 Dec 2014 15:28:10 +1100
-Message-ID: <20141205042810.GB31214@shangw>
-References: <1416653807-4859-1-git-send-email-gwshan@linux.vnet.ibm.com>
-Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+From: Jianhua Xie <jianhua.xie@freescale.com>
+Subject: Re: [PATCH 1/3] netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD feature
+ flag for switch device offloads
+Date: Fri, 5 Dec 2014 12:43:30 +0800
+Message-ID: <548137F2.5080906@freescale.com>
+References: <1417746401-8140-2-git-send-email-roopa@cumulusnetworks.com>
+ <5481249E.7020902@freescale.com> <548131EB.3060502@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, amirv@mellanox.com, davem@davemloft.net,
-	yishaih@mellanox.com
-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <jiri@resnulli.us>, <sfeldma@gmail.com>, <jhs@mojatatu.com>,
+	<bcrl@kvack.org>, <tgraf@suug.ch>, <john.fastabend@gmail.com>,
+	<stephen@networkplumber.org>, <linville@tuxdriver.com>,
+	<nhorman@tuxdriver.com>, <nicolas.dichtel@6wind.com>,
+	<vyasevic@redhat.com>, <f.fainelli@gmail.com>,
+	<buytenh@wantstofly.org>, <aviadr@mellanox.com>,
+	<netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<shm@cumulusnetworks.com>, <gospo@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp07.au.ibm.com ([202.81.31.140]:33014 "EHLO
-	e23smtp07.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933291AbaLEE2Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 23:28:16 -0500
-Received: from /spool/local
-	by e23smtp07.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-	Fri, 5 Dec 2014 14:28:14 +1000
-Received: from d23relay06.au.ibm.com (d23relay06.au.ibm.com [9.185.63.219])
-	by d23dlp03.au.ibm.com (Postfix) with ESMTP id DCE22357804F
-	for <netdev@vger.kernel.org>; Fri,  5 Dec 2014 15:28:11 +1100 (EST)
-Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
-	by d23relay06.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id sB54SBin31195316
-	for <netdev@vger.kernel.org>; Fri, 5 Dec 2014 15:28:11 +1100
-Received: from d23av02.au.ibm.com (localhost [127.0.0.1])
-	by d23av02.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id sB54SBCu021418
-	for <netdev@vger.kernel.org>; Fri, 5 Dec 2014 15:28:11 +1100
-Content-Disposition: inline
-In-Reply-To: <1416653807-4859-1-git-send-email-gwshan@linux.vnet.ibm.com>
+Received: from mail-by2on0133.outbound.protection.outlook.com ([207.46.100.133]:56398
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751788AbaLEEnl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Dec 2014 23:43:41 -0500
+In-Reply-To: <548131EB.3060502@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 22, 2014 at 09:56:47PM +1100, Gavin Shan wrote:
 
-Yishai already had patches fixing the issue. So please ignore
-this patch and drop it.
-
-Thanks,
-Gavin
-
->The patch fixes couple of EEH recovery failures on PPC PowerNV
->platform:
+=E5=9C=A8 2014=E5=B9=B412=E6=9C=8805=E6=97=A5 12:17, Roopa Prabhu =E5=86=
+=99=E9=81=93:
+> On 12/4/14, 7:21 PM, Jianhua Xie wrote:
+>>
+>> =E5=9C=A8 2014=E5=B9=B412=E6=9C=8805=E6=97=A5 10:26, roopa@cumulusne=
+tworks.com =E5=86=99=E9=81=93:
+>>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>>
+>>> This is a generic high level feature flag for all switch asic=20
+>>> features today.
+>>>
+>>> switch drivers set this flag on switch ports. Logical devices like
+>>> bridge, bonds, vxlans can inherit this flag from their slaves/ports=
+=2E
+>>>
+>>> I had to use SWITCH in the name to avoid ambiguity with other featu=
+re
+>>> flags. But, since i have been harping about not calling it 'switch'=
+,
+>>> I am welcome to any suggestions :)
+>>>
+>>> An alternative to using a feature flag is to use a IFF_HW_OFFLOAD
+>>> in net_device_flags.
+>>> ---
+>>>   include/linux/netdev_features.h |    2 ++
+>>>   1 file changed, 2 insertions(+)
+>>>
+>>> diff --git a/include/linux/netdev_features.h=20
+>>> b/include/linux/netdev_features.h
+>>> index 8e30685..68db1de 100644
+>>> --- a/include/linux/netdev_features.h
+>>> +++ b/include/linux/netdev_features.h
+>>> @@ -66,6 +66,7 @@ enum {
+>>>       NETIF_F_HW_VLAN_STAG_FILTER_BIT,/* Receive filtering on VLAN=20
+>>> STAGs */
+>>>       NETIF_F_HW_L2FW_DOFFLOAD_BIT,    /* Allow L2 Forwarding in=20
+>>> Hardware */
+>>>       NETIF_F_BUSY_POLL_BIT,        /* Busy poll */
+>>> +    NETIF_F_HW_SWITCH_OFFLOAD_BIT,  /* HW switch offload */
+>> I am interested in this flag very much, but I am not very clear
+>> how many offload capabilities does this flag imply.  If this flag
+>> belongs to a general flag and can be accepted by all vendors,
+>> I will reuse this flag to introduce another out going data traffics
+>> distribution offload method to bonding driver.
+> Right now its a one global offload flag for switch asics. Some may no=
+t=20
+> want to tune it more. But others may and so i do expect more flags in=
+=20
+> this category.
 >
->   * Release reserved memory regions in mlx4_pci_err_detected().
->     Otherwise, __mlx4_init_one() fails because of reserving
->     same memory regions recursively.
->   * Disable PCI device in mlx4_pci_err_detected(). Otherwise,
->     pci_enable_device() in __mlx4_init_one() doesn't enable
->     the PCI device because it's already in enabled state indicated
->     by struct pci_dev::enable_cnt.
->   * Don't clear struct mlx4_priv instance in mlx4_pci_err_detected().
->     Otherwise, __mlx4_init_one() runs into kernel crash because
->     of dereferencing to NULL pointer.
->
->With the patch applied, EEH recovery for mlx4 adapter succeeds on PPC
->PowerNV platform.
->
->   # lspci
->   0003:0f:00.0 Network controller: Mellanox Technologies \
->   MT27500 Family [ConnectX-3]
->
->Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
->---
-> drivers/net/ethernet/mellanox/mlx4/main.c | 3 ++-
-> 1 file changed, 2 insertions(+), 1 deletion(-)
->
->diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
->index 90de6e1..e118ac9 100644
->--- a/drivers/net/ethernet/mellanox/mlx4/main.c
->+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
->@@ -2809,7 +2809,6 @@ static void mlx4_unload_one(struct pci_dev *pdev)
-> 	kfree(dev->caps.qp1_proxy);
-> 	kfree(dev->dev_vfs);
->
->-	memset(priv, 0, sizeof(*priv));
-> 	priv->pci_dev_data = pci_dev_data;
-> 	priv->removed = 1;
-> }
->@@ -2900,6 +2899,8 @@ static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
-> 					      pci_channel_state_t state)
-> {
-> 	mlx4_unload_one(pdev);
->+	pci_release_regions(pdev);
->+	pci_disable_device(pdev);
->
-> 	return state == pci_channel_io_perm_failure ?
-> 		PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_NEED_RESET;
->-- 
->1.8.3.2
+Got it with thanks.
+Best Regards.
+> Thanks,
+> Roopa
 >
