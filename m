@@ -1,61 +1,55 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH 3.14 64/73] net/ping: handle protocol mismatching scenario
-Date: Fri,  5 Dec 2014 14:45:10 -0800
-Message-ID: <20141205224435.849117278@linuxfoundation.org>
-References: <20141205224433.921659956@linuxfoundation.org>
+From: terry white <twhite@aniota.com>
+Subject: Re: [PATCH v2 1/6] net-PPP: Replacement of a printk() call by
+ pr_warn() in mppe_rekey()
+Date: Fri, 5 Dec 2014 14:35:54 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.1412051403160.20522@yossarian>
+References: <5307CAA2.8060406@users.sourceforge.net>  <530B5FB6.6010207@users.sourceforge.net>
+  <alpine.DEB.2.10.1402241710370.2074@hadrien>  <530C5E18.1020800@users.sourceforge.net>
+  <alpine.DEB.2.10.1402251014170.2080@hadrien>  <530CD2C4.4050903@users.sourceforge.net>
+  <alpine.DEB.2.10.1402251840450.7035@hadrien>  <530CF8FF.8080600@users.sourceforge.net>
+  <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+ <530DD06F.4090703@users.sourceforge.net>  <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+  <5317A59D.4@users.sourceforge.net> <547C5CBC.6060607@cogentembedded.com>
+ <547C82A6.2030808@users.sourceforge.net>  <547CA157.1080401@cogentembedded.com>
+  <5480DA32.8000201@users.sourceforge.net>  <5480DBDE.7040604@users.sourceforge.net>
+  <1417731809.2721.17.camel@perches.com>  <5480DFB5.4090708@users.sourceforge.net>
+  <1417733101.2721.20.camel@perches.com>  <54815C5F.8090702@users.sourceforge.net>
+ <1417766255.2721.43.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	stable@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	Jane Zhou <a17711@motorola.com>,
-	Yiwei Zhao <gbjc64@motorola.com>
-To: linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-ppp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: joe@perches.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141205224433.921659956@linuxfoundation.org>
+In-Reply-To: <1417766255.2721.43.camel@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-3.14-stable review patch.  If anyone has any objections, please let me know.
+... ciao:
 
-------------------
-
-From: Jane Zhou <a17711@motorola.com>
-
-commit 91a0b603469069cdcce4d572b7525ffc9fd352a6 upstream.
-
-ping_lookup() may return a wrong sock if sk_buff's and sock's protocols
-dont' match. For example, sk_buff's protocol is ETH_P_IPV6, but sock's
-sk_family is AF_INET, in that case, if sk->sk_bound_dev_if is zero, a wrong
-sock will be returned.
-the fix is to "continue" the searching, if no matching, return NULL.
-
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Jane Zhou <a17711@motorola.com>
-Signed-off-by: Yiwei Zhao <gbjc64@motorola.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-
----
- net/ipv4/ping.c |    2 ++
- 1 file changed, 2 insertions(+)
-
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -217,6 +217,8 @@ static struct sock *ping_lookup(struct n
- 					     &ipv6_hdr(skb)->daddr))
- 				continue;
- #endif
-+		} else {
-+			continue;
- 		}
+: on "12-4-2014" "Joe Perches" writ:
+: > Does it make sense to express such implementation details in the Linux 
+: > coding style documentation more explicitly (besides the fact that this 
+: > update suggestion was also triggered by a warning from the script 
+: > "checkpatch.pl".
+: 
+: Probably not.
+: 
+: Overly formalized coding style rules are perhaps
+: more of a barrier to entry than most want.
  
- 		if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif)
+   funny you should mention that.  as nothing more than a casual observer, 
+i'm noticing a "TIRED" sensation reading this thread.  i have "0" 
+confidence a "SERIOUS" participant's enthusiasm would remain untested.
+ 
+   however, the "checkpatch.pl" warning suggests an assumed 'custom'. i 
+can't tell if this a 'serious' issue, or "pickin' fly shit out of pepper".
+ 
+   but from my reading of it, the "CODE" , and the "logic" driving it, is 
+not the problem.
+
+    season's best ...
+
+-- 
+... it's not what you see ,
+    but in stead , notice ...
