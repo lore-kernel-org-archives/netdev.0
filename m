@@ -1,61 +1,64 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: Is this 32-bit NCM?y
-Date: Fri, 05 Dec 2014 10:42:46 +0100
-Message-ID: <8761dqjuuh.fsf@nemi.mork.no>
-References: <AMSPR06MB6011E001029C251790CB923EE780@AMSPR06MB601.eurprd06.prod.outlook.com>
-	<877fy7myfb.fsf@nemi.mork.no>
-	<alpine.LNX.2.03.1412041326160.9926@gmail.com>
-	<54811670.5030703@audiocodes.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Midge Shaojun Tan" <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-	Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
-	Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"youtux\@gmail.com" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-usb\@vger.kernel.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <54811670.5030703-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org> (Kevin Zhu's message of "Fri, 5
-	Dec 2014 02:20:36 +0000")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: roy.qing.li@gmail.com
+Subject: [PATCH] net: fix the flow limitation computation
+Date: Fri,  5 Dec 2014 17:48:39 +0800
+Message-ID: <1417772919-17744-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:44660 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752490AbaLEJsp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 04:48:45 -0500
+Received: by mail-pd0-f180.google.com with SMTP id p10so386325pdj.25
+        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 01:48:45 -0800 (PST)
+Received: from localhost ([106.120.101.38])
+        by mx.google.com with ESMTPSA id nt6sm28576623pdb.26.2014.12.05.01.48.43
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Fri, 05 Dec 2014 01:48:44 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org> writes:
+From: Li RongQing <roy.qing.li@gmail.com>
 
-> Regarding the location of NDP, it should be easy to fix. It can be ad=
-ded
-> to the end of the NTB only after it's ready to send.
+Once RPS is enabled, the skb maybe enqueue to different CPU, so the
+flow limitation computation should use the enqueued CPU, not the local
+CPU
 
-Yes, but this will require a bit of redesign.  Note that this code is
-shared with cdc_mbim, which might have to add multiple NDPs for
-multiplexed sessions.  In theory up to 512 different, but that is so
-unlinkely that we can ignore it.  We could set a fixed limit
-significantly lower than that if necessary.
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/core/dev.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-I'd really like to refactor this code to simply queue the skbs, creatin=
-g
-the linear NTB only when the queue is flushed.  Then we'll have all the
-info we need and can order the contents any way we want without adding
-unnecessary padding.
-
-> Regarding the
-> concern to other devices, as there's a particular driver for Huawei
-> devices in kernel, which is huawei_cdc_ncm, maybe we can just fix the=
- TX
-> function there to avoid breaking other devices.
-
-Sure.  That is definitely an alternative if we don't want to touch the
-generic driver.
-
-But making the generic driver flexible enough to accommodate any device
-would be preferable.  I do hope we can do that.
-
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 945bbd0..e70507d 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3250,7 +3250,7 @@ static int rps_ipi_queued(struct softnet_data *sd)
+ int netdev_flow_limit_table_len __read_mostly = (1 << 12);
+ #endif
+ 
+-static bool skb_flow_limit(struct sk_buff *skb, unsigned int qlen)
++static bool skb_flow_limit(struct sk_buff *skb, unsigned int qlen, int cpu)
+ {
+ #ifdef CONFIG_NET_FLOW_LIMIT
+ 	struct sd_flow_limit *fl;
+@@ -3260,7 +3260,7 @@ static bool skb_flow_limit(struct sk_buff *skb, unsigned int qlen)
+ 	if (qlen < (netdev_max_backlog >> 1))
+ 		return false;
+ 
+-	sd = this_cpu_ptr(&softnet_data);
++	sd = &per_cpu(softnet_data, cpu);
+ 
+ 	rcu_read_lock();
+ 	fl = rcu_dereference(sd->flow_limit);
+@@ -3303,7 +3303,7 @@ static int enqueue_to_backlog(struct sk_buff *skb, int cpu,
+ 
+ 	rps_lock(sd);
+ 	qlen = skb_queue_len(&sd->input_pkt_queue);
+-	if (qlen <= netdev_max_backlog && !skb_flow_limit(skb, qlen)) {
++	if (qlen <= netdev_max_backlog && !skb_flow_limit(skb, qlen, cpu)) {
+ 		if (skb_queue_len(&sd->input_pkt_queue)) {
+ enqueue:
+ 			__skb_queue_tail(&sd->input_pkt_queue, skb);
+-- 
+2.1.0
