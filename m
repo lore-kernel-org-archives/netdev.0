@@ -1,225 +1,84 @@
-From: Wolfgang Walter <linux@stwm.de>
-Subject: Re: [bisected] xfrm: TCP connection initiating PMTU discovery stalls on v3.12+
-Date: Fri, 05 Dec 2014 13:09:59 +0100
-Message-ID: <1841985.3SsQX9ZHP0@h2o.as.studentenwerk.mhn.de>
-References: <1709726.jUgUSQI9sl@pikkukde.a.i2n> <2335530.7OPnEQXbmV@h2o.as.studentenwerk.mhn.de> <1769392.YOU9Lj6NQS@h2o.as.studentenwerk.mhn.de>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH 1/3] netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD
+ feature flag for switch device offloads
+Date: Fri, 5 Dec 2014 13:17:30 +0100
+Message-ID: <20141205121730.GK1866@nanopsycho.orion>
+References: <1417746401-8140-2-git-send-email-roopa@cumulusnetworks.com>
+ <54819FDA.2030405@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Jarosch <thomas.jarosch@intra2net.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: roopa@cumulusnetworks.com, sfeldma@gmail.com, bcrl@kvack.org,
+	tgraf@suug.ch, john.fastabend@gmail.com,
+	stephen@networkplumber.org, linville@tuxdriver.com,
+	nhorman@tuxdriver.com, nicolas.dichtel@6wind.com,
+	vyasevic@redhat.com, f.fainelli@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, netdev@vger.kernel.org, davem@davemloft.net,
+	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:48142 "EHLO
-	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751266AbaLEMKE convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2014 07:10:04 -0500
-In-Reply-To: <1769392.YOU9Lj6NQS@h2o.as.studentenwerk.mhn.de>
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:34037 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752062AbaLEMRc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 07:17:32 -0500
+Received: by mail-wg0-f47.google.com with SMTP id n12so733450wgh.20
+        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 04:17:31 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <54819FDA.2030405@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Fri, Dec 05, 2014 at 01:06:50PM CET, jhs@mojatatu.com wrote:
+>On 12/04/14 21:26, roopa@cumulusnetworks.com wrote:
+>>From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>>This is a generic high level feature flag for all switch asic features today.
+>>
+>>switch drivers set this flag on switch ports. Logical devices like
+>>bridge, bonds, vxlans can inherit this flag from their slaves/ports.
+>>
+>>I had to use SWITCH in the name to avoid ambiguity with other feature
+>>flags. But, since i have been harping about not calling it 'switch',
+>>I am welcome to any suggestions :)
+>>
+>
+>I know  in this use case it is a switch. But please dont use that term
+>for things that we are going to use as generic offload descriptors.
+>How about just simple: NETIF_F_HW_DEV_OFFLOAD_BIT
 
-as reverting this patch fixes this rather annoying problem: is it dange=
-rous to=20
-revert it as a workaround until the root cause is found?
+What that should tell it stands for? I think we need something more
+specific.
 
 
-Am Montag, 1. Dezember 2014, 17:41:23 schrieb Wolfgang Walter:
-> Am Montag, 1. Dezember 2014, 14:17:28 schrieb Wolfgang Walter:
-> > Am Samstag, 29. November 2014, 12:44:07 schrieb Thomas Jarosch:
-> > > Hello,
-> > >=20
-> > > we're in the process of updating production level machines
-> > > from kernel 3.4.101 to kernel 3.14.25. On one mail server
-> > > we noticed that emails destined for an IPSec tunnel sometimes
-> > > get stuck in the mail queue with TCP timeouts.
-> > >=20
-> > > To make a long story short: When the VPN connection is initially
-> > > set up or re-newed, the path MTU for the xfrm tunnel is undetermi=
-ned.
-> > >=20
-> > > As soon as a TCP client starts to send large packets,
-> > > it triggers path MTU detection. Some middlebox on the
-> > > way to the final server has a lower MTU and sends back
-> > > an "ICMP fragmentation needed" packet as normal.
-> > >=20
-> > > With the old kernel, the packet size for the TCP connection insid=
-e
-> > > the xfrm tunnel gets adjusted and all is fine. With kernel v3.12+=
-,
-> > > the connection stalls completely. Same thing with kernel v3.18-rc=
-6.
-> >=20
-> > We see something similar with real nic (RTL8139). In our case only =
-the
-> > first tcp-connection which triggers PMTU stalls. Later tcp-connecti=
-ons
-> > then work fine.
-> >=20
-> > I will revert that patch and see if that fixes the problem.
->=20
-> Reverting the commit fixes the problem here, too.
->=20
-> > > We wrote a small tool to mimic postfix's TCP behavior (see attach=
-ed
-> > > file).
-> > > In the end it's a normal TCP client sending large packets.
-> > > The server side is just "socat - tcp4-listen:667".
-> > >=20
-> > > If you run "socket_client" a second time, the path MTU
-> > > for the xfrm tunnel is already known and packets flow normal, too=
-=2E
-> > >=20
-> > >=20
-> > > The "evil" commit in question is this one:
-> > > -----------------------------------------------------------------=
-----
-> > > commit 8f26fb1c1ed81c33f5d87c5936f4d9d1b4118918
-> > > Author: Eric Dumazet <edumazet@google.com>
-> > > Date:   Tue Oct 15 12:24:54 2013 -0700
-> > >=20
-> > >     tcp: remove the sk_can_gso() check from tcp_set_skb_tso_segs(=
-)
-> > >    =20
-> > >     sk_can_gso() should only be used as a hint in tcp_sendmsg() t=
-o build
-> > >     GSO
-> > >=20
-> > > packets in the first place. (As a performance hint)
-> > >=20
-> > >     Once we have GSO packets in write queue, we can not decide th=
-ey are
-> > >     no
-> > >     longer GSO only because flow now uses a route which doesn't h=
-andle
-> > >     TSO/GSO.
-> > >    =20
-> > >     Core networking stack handles the case very well for us, all =
-we need
-> > >     is keeping track of packet counts in MSS terms, regardless of
-> > >     segmentation done later (in GSO or hardware)
-> > >    =20
-> > >     Right now, if  tcp_fragment() splits a GSO packet in two part=
-s,
-> > >     @left and @right, and route changed through a non GSO device,
-> > >     both @left and @right have pcount set to 1, which is wrong,
-> > >     and leads to incorrect packet_count tracking.
-> > >    =20
-> > >     This problem was added in commit d5ac99a648 ("[TCP]: skb pcou=
-nt with
-> > >     MTU
-> > >=20
-> > > discovery")
-> > >=20
-> > >     Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > >     Signed-off-by: Neal Cardwell <ncardwell@google.com>
-> > >     Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> > >     Reported-by: Maciej =C5=BBenczykowski <maze@google.com>
-> > >     Signed-off-by: David S. Miller <davem@davemloft.net>
-> > >=20
-> > > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> > > index 8fad1c1..d46f214 100644
-> > > --- a/net/ipv4/tcp_output.c
-> > > +++ b/net/ipv4/tcp_output.c
-> > > @@ -989,8 +989,7 @@ static void tcp_set_skb_tso_segs(const struct=
- sock
-> > > *sk,
-> > > struct sk_buff *skb, /* Make sure we own this skb before messing
-> > > gso_size/gso_segs */ WARN_ON_ONCE(skb_cloned(skb));
-> > >=20
-> > > -       if (skb->len <=3D mss_now || !sk_can_gso(sk) ||
-> > > -           skb->ip_summed =3D=3D CHECKSUM_NONE) {
-> > > +       if (skb->len <=3D mss_now || skb->ip_summed =3D=3D CHECKS=
-UM_NONE) {
-> > >=20
-> > >                 /* Avoid the costly divide in the normal
-> > >                =20
-> > >                  * non-TSO case.
-> > >                  */
-> > >=20
-> > > -----------------------------------------------------------------=
-----
-> > >=20
-> > > When I revert it, even kernel v3.18-rc6 starts working.
-> > > But I doubt this is the root problem, may be just hiding another =
-issue.
-> > >=20
-> > > --- Sample output of socket_client using vanilla v3.12 kernel ---
-> > > [1417258063 SEND result: 4096, strerror: Success]
-> > > tcp max seg: res: 0, max_seg: 1370
-> > > [1417258063 SEND result: 4096, strerror: Success]
-> > > tcp max seg: res: 0, max_seg: 1370
-> > > [1417258063 SEND result: 4096, strerror: Success]
-> > > tcp max seg: res: 0, max_seg: 1370
-> > > [1417258063 SEND result: 4096, strerror: Success]
-> > > tcp max seg: res: 0, max_seg: 1370
-> > > [1417258063 SEND result: 4096, strerror: Success]
-> > > tcp max seg: res: 0, max_seg: 1338
-> > > [1417258063 SEND result: 4096, strerror: Success]
-> > > tcp max seg: res: 0, max_seg: 1338
-> > > *STUCK*
-> > > --------------------------------------------------------
-> > >=20
-> > > The "machine" is running on KVM and using "virtio_net" as NIC dri=
-ver.
-> > > I've played with the ethtool offload settings:
-> > >=20
-> > > *** eth1 defaults ***
-> > > Offload parameters for eth1:
-> > > rx-checksumming: on
-> > > tx-checksumming: on
-> > > scatter-gather: on
-> > > tcp-segmentation-offload: on
-> > > udp-fragmentation-offload: on
-> > > generic-segmentation-offload: on
-> > > generic-receive-offload: on
-> > > large-receive-offload: off
-> > >=20
-> > > *** eth1 working (no stalls) using vanilla kernel ***
-> > > Offload parameters for eth1:
-> > > rx-checksumming: on
-> > > tx-checksumming: off  <-- the magic switch
-> > > scatter-gather: off
-> > > tcp-segmentation-offload: off
-> > > udp-fragmentation-offload: off
-> > > generic-segmentation-offload: off
-> > > generic-receive-offload: off
-> > > large-receive-offload: off
-> > >=20
-> > > When I turn "tx-checksumming" back on, it fails again.
-> > > Though that is probably also just a side effect.
-> > >=20
-> > > I can provide tcpdumps if needed but they are no real help
-> > > since you can just see the kernel stops sending TCP packets.
-> > > (and the outgoing TCP packets are encrypted in ESP packets)
-> > >=20
-> > >=20
-> > > Any vague idea what might be the root cause?
-> > >=20
-> > > I also tried reverting commit 4d53eff48b5f03ce67f4f301d6acca1d214=
-5cb7a
-> > > ("xfrm: Don't queue retransmitted packets if the original is stil=
-l on
-> > > the
-> > > host") but that didn't change the situation. In fact it wasn't ev=
-en
-> > > triggered.
-> > >=20
-> > > Please CC: comments. Thanks.
-> > >=20
-> > > Best regards,
-> > > Thomas
-> >=20
-> > Regards,
->=20
-> Regards,
-
-Regards,
---=20
-Wolfgang Walter
-Studentenwerk M=C3=BCnchen
-Anstalt des =C3=B6ffentlichen Rechts
+>BTW: Didnt you already have a netdev specific offload feature flag?
+>
+>cheers,
+>jamal
+>
+>>An alternative to using a feature flag is to use a IFF_HW_OFFLOAD
+>>in net_device_flags.
+>>---
+>>  include/linux/netdev_features.h |    2 ++
+>>  1 file changed, 2 insertions(+)
+>>
+>>diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+>>index 8e30685..68db1de 100644
+>>--- a/include/linux/netdev_features.h
+>>+++ b/include/linux/netdev_features.h
+>>@@ -66,6 +66,7 @@ enum {
+>>  	NETIF_F_HW_VLAN_STAG_FILTER_BIT,/* Receive filtering on VLAN STAGs */
+>>  	NETIF_F_HW_L2FW_DOFFLOAD_BIT,	/* Allow L2 Forwarding in Hardware */
+>>  	NETIF_F_BUSY_POLL_BIT,		/* Busy poll */
+>>+	NETIF_F_HW_SWITCH_OFFLOAD_BIT,  /* HW switch offload */
+>>
+>>  	/*
+>>  	 * Add your fresh new feature above and remember to update
+>>@@ -124,6 +125,7 @@ enum {
+>>  #define NETIF_F_HW_VLAN_STAG_TX	__NETIF_F(HW_VLAN_STAG_TX)
+>>  #define NETIF_F_HW_L2FW_DOFFLOAD	__NETIF_F(HW_L2FW_DOFFLOAD)
+>>  #define NETIF_F_BUSY_POLL	__NETIF_F(BUSY_POLL)
+>>+#define NETIF_F_HW_SWITCH_OFFLOAD	__NETIF_F(HW_SWITCH_OFFLOAD)
+>>
+>>  /* Features valid for ethtool to change */
+>>  /* = all defined minus driver/device-class-related */
+>>
+>
