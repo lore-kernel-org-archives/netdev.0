@@ -1,150 +1,57 @@
-From: "Arad, Ronen" <ronen.arad@intel.com>
-Subject: RE: [PATCH 2/3] bridge: offload bridge port attributes to switch
- asic if feature flag set
-Date: Fri, 5 Dec 2014 23:21:26 +0000
-Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505D842BA@ORSMSX101.amr.corp.intel.com>
-References: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com>
- <CAE4R7bBOCgoH0zL6+82jj2qjcP8n3kSo51x+i5SoqkN8Ff1CBQ@mail.gmail.com>
- <54815883.80909@cumulusnetworks.com>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: iproute2/nstat: Bug in displaying icmp stats
+Date: Fri, 5 Dec 2014 15:35:10 -0800
+Message-ID: <CAGK4HS_ty2=f0PNU-w8QPP9BoP67E+4MaDxLTLV4G22dx_7A-Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: =?utf-8?B?Smlyw60gUMOtcmtv?= <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
-	john fastabend <john.fastabend@gmail.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	John Linville <linville@tuxdriver.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"buytenh@wantstofly.org" <buytenh@wantstofly.org>,
-	Aviad Raveh <aviadr@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:39309 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751925AbaLEXV3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2014 18:21:29 -0500
-In-Reply-To: <54815883.80909@cumulusnetworks.com>
-Content-Language: en-US
+Received: from mail-wg0-f51.google.com ([74.125.82.51]:36665 "EHLO
+	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753111AbaLEXfL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 18:35:11 -0500
+Received: by mail-wg0-f51.google.com with SMTP id k14so2093744wgh.38
+        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 15:35:10 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
-ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj4gb3duZXJAdmdlci5rZXJuZWwub3JnXSBP
-biBCZWhhbGYgT2YgUm9vcGEgUHJhYmh1DQo+IFNlbnQ6IFRodXJzZGF5LCBEZWNlbWJlciAwNCwg
-MjAxNCAxMTowMiBQTQ0KPiBUbzogU2NvdHQgRmVsZG1hbg0KPiBDYzogSmnFmcOtIFDDrXJrbzsg
-SmFtYWwgSGFkaSBTYWxpbTsgQmVuamFtaW4gTGFIYWlzZTsgVGhvbWFzIEdyYWY7IGpvaG4NCj4g
-ZmFzdGFiZW5kOyBzdGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9yZzsgSm9obiBMaW52aWxsZTsNCj4g
-bmhvcm1hbkB0dXhkcml2ZXIuY29tOyBOaWNvbGFzIERpY2h0ZWw7IHZ5YXNldmljQHJlZGhhdC5j
-b207IEZsb3JpYW4NCj4gRmFpbmVsbGk7IGJ1eXRlbmhAd2FudHN0b2ZseS5vcmc7IEF2aWFkIFJh
-dmVoOyBOZXRkZXY7IERhdmlkIFMuIE1pbGxlcjsNCj4gc2htQGN1bXVsdXNuZXR3b3Jrcy5jb207
-IEFuZHkgR29zcG9kYXJlaw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIDIvM10gYnJpZGdlOiBvZmZs
-b2FkIGJyaWRnZSBwb3J0IGF0dHJpYnV0ZXMgdG8gc3dpdGNoIGFzaWMNCj4gaWYgZmVhdHVyZSBm
-bGFnIHNldA0KPiANCj4gT24gMTIvNC8xNCwgMTA6NDEgUE0sIFNjb3R0IEZlbGRtYW4gd3JvdGU6
-DQo+ID4gT24gVGh1LCBEZWMgNCwgMjAxNCBhdCA2OjI2IFBNLCAgPHJvb3BhQGN1bXVsdXNuZXR3
-b3Jrcy5jb20+IHdyb3RlOg0KPiA+PiBGcm9tOiBSb29wYSBQcmFiaHUgPHJvb3BhQGN1bXVsdXNu
-ZXR3b3Jrcy5jb20+DQo+ID4+DQo+ID4+IFRoaXMgYWxsb3dzIG9mZmxvYWRpbmcgdG8gc3dpdGNo
-IGFzaWMgd2l0aG91dCBoYXZpbmcgdGhlIHVzZXIgdG8gc2V0DQo+ID4+IGFueSBmbGFnLiBBbmQg
-dGhpcyBpcyBkb25lIGluIHRoZSBicmlkZ2UgZHJpdmVyIHRvIHJvbGxiYWNrIGtlcm5lbA0KPiA+
-PiBzZXR0aW5ncyBvbiBodyBvZmZsb2FkIGZhaWx1cmUgaWYgcmVxdWlyZWQgaW4gdGhlIGZ1dHVy
-ZS4NCj4gPj4NCj4gPj4gV2l0aCB0aGlzLCBpdCBhbHNvIG1ha2VzIHN1cmUgYSBub3RpZmljYXRp
-b24gZ29lcyBvdXQgb25seSBhZnRlciB0aGUNCj4gPj4gYXR0cmlidXRlcyBhcmUgc2V0IGJvdGgg
-aW4gdGhlIGtlcm5lbCBhbmQgaHcuDQo+ID4gSSBsaWtlIHRoaXMgYXBwcm9hY2ggYXMgaXQgc3Ry
-ZWFtbGluZXMgdGhlIHN0ZXBzIGZvciB0aGUgdXNlciBpbg0KPiA+IHNldHRpbmcgcG9ydCBmbGFn
-cy4gIFRoZXJlIGlzIG9uZSBjYXNlIGZvciBGTE9PRElORyB3aGVyZSB5b3UnbGwgaGF2ZQ0KPiA+
-IHRvIHR1cm4gb2ZmIGZsb29kaW5nIGZvciBib3RoLCBhbmQgdGhlbiB0dXJuIG9uIGZsb29kaW5n
-IGluIGh3LiAgWW91DQo+ID4gZG9uJ3Qgd2FudCBmbG9vZGluZyB0dXJuZWQgb24gb24ga2VybmVs
-IGFuZCBody4NCj4gb2ssIG1heWJlIHVzaW5nIHRoZSBoaWdoZXIgYml0cyBhcyBpbg0KPiBodHRw
-czovL3BhdGNod29yay5vemxhYnMub3JnL3BhdGNoLzQxMzIxMS8NCj4gDQo+IG1pZ2h0IGhlbHAg
-d2l0aCB0aGF0LiBMZXQgbWUgdGhpbmsgc29tZSBtb3JlLg0KPiA+DQo+ID4+IC0tLQ0KPiA+PiAg
-IG5ldC9icmlkZ2UvYnJfbmV0bGluay5jIHwgICAyNyArKysrKysrKysrKysrKysrKysrKysrKysr
-Ky0NCj4gPj4gICAxIGZpbGUgY2hhbmdlZCwgMjYgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigt
-KQ0KPiA+Pg0KPiA+PiBkaWZmIC0tZ2l0IGEvbmV0L2JyaWRnZS9icl9uZXRsaW5rLmMgYi9uZXQv
-YnJpZGdlL2JyX25ldGxpbmsuYyBpbmRleA0KPiA+PiA5ZjVlYjU1Li5jZTE3M2YwIDEwMDY0NA0K
-PiA+PiAtLS0gYS9uZXQvYnJpZGdlL2JyX25ldGxpbmsuYw0KPiA+PiArKysgYi9uZXQvYnJpZGdl
-L2JyX25ldGxpbmsuYw0KPiA+PiBAQCAtNDA3LDkgKzQwNywyMSBAQCBpbnQgYnJfc2V0bGluayhz
-dHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1Y3QNCj4gbmxtc2doZHIgKm5saCkNCj4gPj4gICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgYWZzcGVjLCBSVE1fU0VUTElOSyk7DQo+ID4+
-ICAgICAgICAgIH0NCj4gPj4NCj4gPj4gKyAgICAgICBpZiAoKGRldi0+ZmVhdHVyZXMgJiBORVRJ
-Rl9GX0hXX1NXSVRDSF9PRkZMT0FEKSAmJg0KPiA+PiArICAgICAgICAgICAgICAgICAgICAgICBk
-ZXYtPm5ldGRldl9vcHMtPm5kb19icmlkZ2Vfc2V0bGluaykgew0KPiA+PiArICAgICAgICAgICAg
-ICAgaW50IHJldCA9IGRldi0+bmV0ZGV2X29wcy0+bmRvX2JyaWRnZV9zZXRsaW5rKGRldiwNCj4g
-Pj4gKyBubGgpOw0KPiA+IEkgdGhpbmsgeW91IHdhbnQgdG8gdXAtbGV2ZWwgdGhpcyB0byBuZXQv
-Y29yZS9ydG5ldGxpbmsuYyBiZWNhdXNlDQo+ID4geW91J3JlIG9ubHkgZW5hYmxpbmcgdGhlIGZl
-YXR1cmUgZm9yIG9uZSBpbnN0YW5jZSBvZiBhIGRyaXZlciB0aGF0DQo+ID4gaW1wbGVtZW50cyBu
-ZG9fYnJpZGdlX3NldGxpbms6IHRoZSBicmlkZ2UgZHJpdmVyLiAgSWYgYW5vdGhlciBkcml2ZXIN
-Cj4gPiB3YXMgTUFTVEVSIGFuZCBpbXBsZW1lbnRlZCBuZG9fYnJpZGdlX3NldGxpbmssIHlvdSdk
-IHdhbnQgc2FtZSBjaGVjaw0KPiA+IHRvIHB1c2ggc2V0dGluZyBkb3duIHRvIFNFTEYgcG9ydCBk
-cml2ZXIuDQo+IA0KPiB5ZWFoLCBpIHRob3VnaHQgYWJvdXQgdGhhdC4gQnV0IGkgbW92ZWQgaXQg
-aGVyZSBzbyB0aGF0IHJvbGxiYWNrIHdvdWxkIGJlDQo+IGVhc2llci4NCg0KVGhlcmUgaXMgYSBu
-ZWVkIGZvciBwcm9wYWdhdGluZyBzZXRsaW5rL2RlbGxpbmsgcmVxdWVzdHMgZG93biBtdWx0aXBs
-ZSBsZXZlbHMuDQpUaGUgdXNlLWNhc2UgSSBoYXZlIGluIG1pbmQgaXMgYSBicmlkZ2UgYXQgdGhl
-IHRvcCwgdGVhbS9ib25kIGluIHRoZSBtaWRkbGUsIGFuZCBwb3J0IGRldmljZXMgYXQgdGhlIGJv
-dHRvbS4NCkEgc2V0bGluayBmb3IgVkxBTiBmaWx0ZXJpbmcgYXR0cmlidXRlcyB3b3VsZCBjb21l
-IHdpdGggTUFTVEVSIGZsYWcgc2V0LCBhbmQgZWl0aGVyIHBvcnQgb3IgYm9uZC90ZWFtIG5ldGRl
-di4NCkhvdyB3b3VsZCB0aGlzIGJlIGhhbmRsZWQ/DQoNClRoZSBwcm9wYWdhdGlvbiBydWxlcyBi
-ZXR3ZWVuIGJyaWRnZSBhbmQgZW5zbGF2ZWQgcG9ydCBkZXZpY2UgY291bGQgYmUgZGlmZmVyZW50
-IGZyb20gdGhvc2UgYmV0d2VlbiBib25kL3RlYW0gYW5kIGVuc2xhdmVkIGRldmljZXMuDQpUaGUg
-Y3VycmVudCBicmlkZ2UgZHJpdmVyIGRvZXMgbm90IHByb3BhZ2F0ZSBWTEFOIGZpbHRlcmluZyBm
-cm9tIGJyaWRnZSB0byBpdHMgcG9ydHMgYXMgZWFjaCBwb3J0IGNvdWxkIGhhdmUgZGlmZmVyZW50
-IGNvbmZpZ3VyYXRpb24uIEluIGEgY2FzZSBvZiBhIGJvbmQvdGVhbSBhbGwgbWVtYmVycyBuZWVk
-IHRvIGhhdmUgdGhlIHNhbWUgY29uZmlndXJhdGlvbiBzdWNoIHRoYXQgdGhlIGEgYm9uZC90ZWFt
-IHdvdWxkIGJlIGluZGlzdGluZ3Vpc2hhYmxlIGZyb20gYSBzaW1wbGUgcG9ydC4NCg0KVGhlcmVm
-b3JlIHJ0bmV0bGluay5jIG1pZ2h0IG5vdCBoYXZlIHRoZSBrbm93bGVkZ2UgZm9yIHByb3BhZ2F0
-aW9uIGFjcm9zcyBtdWx0aXBsZSBsZXZlbHMuDQpJdCBzZWVtcyB0aGF0IGVhY2ggZGV2aWNlIHdo
-aWNoIGltcGxlbWVudHMgbmRvX2JyaWRnZV9zZXRsaW5rL25kb19icmlkZ2VfZGVsbGluayAgYW5k
-IGNvdWxkIGhhdmUgbWFzdGVyIHJvbGUsIG5lZWQgdG8gdGFrZSBjYXJlIG9mIHByb3BhZ2F0aW9u
-IHRvIGl0cyBzbGF2ZXMuDQogDQo+ID4NCj4gPj4gKyAgICAgICAgICAgICAgIGlmIChyZXQgJiYg
-cmV0ICE9IC1FT1BOT1RTVVBQKSB7DQo+ID4+ICsgICAgICAgICAgICAgICAgICAgICAgIC8qIFhY
-WCBGaXggdGhpcyBpbiB0aGUgZnV0dXJlIHRvIHJvbGxiYWNrDQo+ID4+ICsgICAgICAgICAgICAg
-ICAgICAgICAgICAqIGtlcm5lbCBzZXR0aW5ncyBhbmQgcmV0dXJuIGVycm9yDQo+ID4+ICsgICAg
-ICAgICAgICAgICAgICAgICAgICAqLw0KPiA+IFRoZSBmdXR1cmUgaXMgbm93LiAgTGV0J3MgZml4
-IHRoaXMgbm93IGZvciB0aGUgcm9sbGJhY2sgY2FzZSAoYWdhaW4gdXANCj4gPiBpbiBydG5ldGxp
-bmsuYykuICBTbyB0aGVuIGEgZ2VuZXJhbCBxdWVzdGlvbiBjb21lcyB0byBtaW5kOiBmb3IgdGhl
-c2UNCj4gPiBkdWFsIHRhcmdldCBzZXRzLCBpcyBpdCBiZXN0IHRvIHRyeSBIVyBmaXJzdCBhbmQg
-dGhlbiBTVywgb3IgdGhlIG90aGVyDQo+ID4gd2F5IGFyb3VuZD8gIEVpdGhlciB3YXksIG9uIGZh
-aWx1cmUgb24gc2Vjb25kIHlvdSBuZWVkIHRvIHJvbGxiYWNrDQo+ID4gZmlyc3QuICBBbmQsIG9u
-IGZhaWx1cmUsIHlvdSBuZWVkIHRvIGtub3cgcm9sbGJhY2sgdmFsdWUgZm9yIGZpcnN0LCBzbw0K
-PiA+IHlvdSBoYXZlIHRvIGRvIGEgZ2V0bGluayBvbiBmaXJzdCBiZWZvcmUgYXR0ZW1wdGluZyBz
-ZXQuDQo+IHllcCwgZXhhY3RseSwgSSB3ZW50IHRocm91Z2ggdGhlIHNhbWUgdGhvdWdodCBwcm9j
-ZXNzIHllc3RlcmRheSB3aGVuIGkgd2FzDQo+IHRyeWluZyB0byBpbXBsZW1lbnQgcm9sbGJhY2su
-DQo+ID4NCj4gPj4gKyAgICAgICAgICAgICAgICAgICAgICAgYnJfd2FybihwLT5iciwgImVycm9y
-IG9mZmxvYWRpbmcgYnJpZGdlIGF0dHJpYnV0ZXMgIg0KPiA+PiArICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgIm9uIHBvcnQgJXUoJXMpXG4iLCAodW5zaWduZWQgaW50KSBw
-LT5wb3J0X25vLA0KPiA+PiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-cC0+ZGV2LT5uYW1lKTsNCj4gPj4gKyAgICAgICAgICAgICAgIH0NCj4gPj4gKyAgICAgICB9DQo+
-ID4+ICsNCj4gPj4gICAgICAgICAgaWYgKGVyciA9PSAwKQ0KPiA+PiAgICAgICAgICAgICAgICAg
-IGJyX2lmaW5mb19ub3RpZnkoUlRNX05FV0xJTkssIHApOw0KPiA+PiAtDQo+ID4+ICAgb3V0Og0K
-PiA+PiAgICAgICAgICByZXR1cm4gZXJyOw0KPiA+PiAgIH0NCj4gPj4gQEAgLTQzMyw2ICs0NDUs
-MTkgQEAgaW50IGJyX2RlbGxpbmsoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0DQo+IG5s
-bXNnaGRyICpubGgpDQo+ID4+ICAgICAgICAgIGVyciA9IGJyX2Fmc3BlYygoc3RydWN0IG5ldF9i
-cmlkZ2UgKiluZXRkZXZfcHJpdihkZXYpLCBwLA0KPiA+PiAgICAgICAgICAgICAgICAgICAgICAg
-ICAgYWZzcGVjLCBSVE1fREVMTElOSyk7DQo+ID4+DQo+ID4+ICsgICAgICAgaWYgKGRldi0+ZmVh
-dHVyZXMgJiBORVRJRl9GX0hXX1NXSVRDSF9PRkZMT0FEDQo+ID4+ICsgICAgICAgICAgICAgICAg
-ICAgICAgICYmIGRldi0+bmV0ZGV2X29wcy0+bmRvX2JyaWRnZV9zZXRsaW5rKSB7DQo+ID4+ICsg
-ICAgICAgICAgICAgICBpbnQgcmV0ID0gZGV2LT5uZXRkZXZfb3BzLT5uZG9fYnJpZGdlX2RlbGxp
-bmsoZGV2LCBubGgpOw0KPiA+PiArICAgICAgICAgICAgICAgaWYgKHJldCAmJiByZXQgIT0gLUVP
-UE5PVFNVUFApIHsNCj4gPj4gKyAgICAgICAgICAgICAgICAgICAgICAgLyogWFhYIEZpeCB0aGlz
-IGluIHRoZSBmdXR1cmUgdG8gcm9sbGJhY2sNCj4gPj4gKyAgICAgICAgICAgICAgICAgICAgICAg
-ICoga2VybmVsIHNldHRpbmdzIGFuZCByZXR1cm4gZXJyb3INCj4gPj4gKyAgICAgICAgICAgICAg
-ICAgICAgICAgICovDQo+ID4+ICsgICAgICAgICAgICAgICAgICAgICAgIGJyX3dhcm4ocC0+YnIs
-ICJlcnJvciBvZmZsb2FkaW5nIGJyaWRnZSBhdHRyaWJ1dGVzICINCj4gPj4gKyAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICJvbiBwb3J0ICV1KCVzKVxuIiwgKHVuc2lnbmVk
-IGludCkgcC0+cG9ydF9ubywNCj4gPj4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgIHAtPmRldi0+bmFtZSk7DQo+ID4+ICsgICAgICAgICAgICAgICB9DQo+ID4+ICsgICAg
-ICAgfQ0KPiA+PiArDQo+ID4gU2FtZSBjb21tZW50cyBhcyBzZXRsaW5rIGFib3ZlLg0KPiA+DQo+
-ID4+ICAgICAgICAgIHJldHVybiBlcnI7DQo+ID4+ICAgfQ0KPiA+PiAgIHN0YXRpYyBpbnQgYnJf
-dmFsaWRhdGUoc3RydWN0IG5sYXR0ciAqdGJbXSwgc3RydWN0IG5sYXR0ciAqZGF0YVtdKQ0KPiA+
-PiAtLQ0KPiA+PiAxLjcuMTAuNA0KPiA+Pg0KPiANCj4gLS0NCj4gVG8gdW5zdWJzY3JpYmUgZnJv
-bSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRldiIgaW4gdGhlIGJv
-ZHkNCj4gb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcgTW9yZSBtYWpv
-cmRvbW8gaW5mbyBhdA0KPiBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0
-bWwNCg==
+Hi,
+
+I noticed nstat is displaying icmp stats incorrectly.
+
+$ cat /proc/net/snmp | grep Icmp | head -2 | awk '{print $1 " " $2 " "
+$3 " " $4}'
+Icmp: InMsgs InErrors InCsumErrors
+Icmp: 215 0 0
+
+$ nstat  -az | grep IcmpIn  | head -3
+IcmpInMsgs                      0                  0.0
+IcmpInErrors                    215                0.0
+IcmpInCsumErrors                0                  0.0
+
+For example, as seen in /proc/net/snmp, IcmpInMsgs should be 215 but
+that value is assigned to IcmpInErrors.
+
+The issue seems to be the way the values are populated.
+
+$vim +209 misc/nstat.c
+-----x----
+
+                       /* Trick to skip "dummy" trailing ICMP MIB in 2.4 */
+
+                        if (strcmp(idbuf, "IcmpOutAddrMaskReps") == 0)
+
+                                idbuf[5] = 0;
+
+                        else
+
+                                n = n->next;
+
+-----x------
+
+It seems "IcmpOutAddrMaskReps" is processed twice and values assigned
+are off by one.
+
+Any idea what the code is doing for 2.4 kernel and how to fix this?
+
+vijay
