@@ -1,66 +1,52 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [linux-nics] [PATCHv4 net] i40e: Implement ndo_gso_check()
-Date: Fri, 05 Dec 2014 11:12:18 -0800
-Message-ID: <1417806738.2404.42.camel@jtkirshe-mobl>
-References: <1417804872-58635-1-git-send-email-joestringer@nicira.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-/JLSzmwM3fWPYUpVgLir"
-Cc: netdev@vger.kernel.org, linux.nics@intel.com, jesse@nicira.com,
-	linux-kernel@vger.kernel.org, therbert@google.com
-To: Joe Stringer <joestringer@nicira.com>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: [PATCH net] bnx2x: Implement ndo_gso_check()
+Date: Fri,  5 Dec 2014 11:35:46 -0800
+Message-ID: <1417808146-3436-1-git-send-email-joestringer@nicira.com>
+Cc: ariel.elior@qlogic.com, jesse@nicira.com, therbert@google.com,
+	linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417804872-58635-1-git-send-email-joestringer@nicira.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Use vxlan_gso_check() to advertise offload support for this NIC.
 
---=-/JLSzmwM3fWPYUpVgLir
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Joe Stringer <joestringer@nicira.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    7 +++++++
+ 1 file changed, 7 insertions(+)
 
-On Fri, 2014-12-05 at 10:41 -0800, Joe Stringer wrote:
-> ndo_gso_check() was recently introduced to allow NICs to report the
-> offloading support that they have on a per-skb basis. Add an
-> implementation for this driver which checks for IPIP, GRE, UDP
-> tunnels.
->=20
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
-> ---
-> v4: Simplify the check to just do tunnel header length.
->     Fix #define style issue.
-> v3: Drop IPIP and GRE (no driver support even though hw supports it).
->     Check for UDP outer protocol for UDP tunnels.
-> v2: Expand to include IP in IP and IPv4/IPv6 inside GRE/UDP tunnels.
->     Add MAX_INNER_LENGTH (as 80).
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_main.c |   12 ++++++++++++
->  1 file changed, 12 insertions(+)
-
-Thanks Joe, I will update the patch in my queue with your latest
-version.
-
---=-/JLSzmwM3fWPYUpVgLir
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJUggOSAAoJEOVv75VaS+3ORPQP/icXPGo54pqmCAvn6/vxqjwC
-xdSXAMJXlwESSlqEaMQBj3Y3s4diGVRDZKsF04wSu3f780fflmdVcmgsPuJSNl0D
-2b1A3QV+Jz6H3co/asKni0pdmzk8NuuoT3J7cj1ZmInHJyaM1SYfYgqLRTvBgAsL
-XQ+OhAC1NLSJO4LS3sGB0NDc2ZdBc/hA0ZpyrVL9CEkOhJZEw/LSMg6OT17LlMo+
-BtmKxlsGrOQKC6HfyFazKm3sQ1jOML2IPhDcI9Oqu6xB0PQn3M5125qJWwyeKcU2
-sghS2ZK3UQO/WDjeRcV00EIE7SuLhFV5eizImXxDE6+atmIafkAEFgvCpV5PcNW8
-kSw8+lijY9Uo54JSVKaMwCoOik+Q0PMOyyJa4IS1AyqQ1ZUzDmWXVN5L18Lf2knc
-4OP7H9k7vnpA10C33fVs221vRuXnx/YqDYQ8PoOosRqhvfVsjFFzJSeEur1HgNDs
-meu+eUC9wNQqPqsZTIutmfMVd702N3Jughkyvl8uWvumuaiZlwt5nZ727m/MT4ej
-deAyZcUJoBpQp8ObDtUYUVJbaZbMKeqcwka0EK59TeE1zmwu620N6OkJyxNmzw7f
-9BCGzaF88MLJ18w2hN4ldwHxR7+P3W1ATpxuTLBeljkaBoJaGVPAqLHGwP6HViFn
-i8kdW3QSX6zeGwIkdQAV
-=nqLs
------END PGP SIGNATURE-----
-
---=-/JLSzmwM3fWPYUpVgLir--
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 74fbf9e..893cdb6 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -45,6 +45,7 @@
+ #include <net/ip.h>
+ #include <net/ipv6.h>
+ #include <net/tcp.h>
++#include <net/vxlan.h>
+ #include <net/checksum.h>
+ #include <net/ip6_checksum.h>
+ #include <linux/workqueue.h>
+@@ -12550,6 +12551,11 @@ static int bnx2x_get_phys_port_id(struct net_device *netdev,
+ 	return 0;
+ }
+ 
++static bool bnx2x_gso_check(struct sk_buff *skb, struct net_device *dev)
++{
++	return vxlan_gso_check(skb);
++}
++
+ static const struct net_device_ops bnx2x_netdev_ops = {
+ 	.ndo_open		= bnx2x_open,
+ 	.ndo_stop		= bnx2x_close,
+@@ -12581,6 +12587,7 @@ static const struct net_device_ops bnx2x_netdev_ops = {
+ #endif
+ 	.ndo_get_phys_port_id	= bnx2x_get_phys_port_id,
+ 	.ndo_set_vf_link_state	= bnx2x_set_vf_link_state,
++	.ndo_gso_check		= bnx2x_gso_check,
+ };
+ 
+ static int bnx2x_set_coherency_mask(struct bnx2x *bp)
+-- 
+1.7.10.4
