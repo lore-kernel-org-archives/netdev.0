@@ -1,52 +1,76 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCH net] bnx2x: Implement ndo_gso_check()
-Date: Fri,  5 Dec 2014 11:35:46 -0800
-Message-ID: <1417808146-3436-1-git-send-email-joestringer@nicira.com>
-Cc: ariel.elior@qlogic.com, jesse@nicira.com, therbert@google.com,
-	linux-kernel@vger.kernel.org
+From: Nick H <nickkvm@gmail.com>
+Subject: KVM vs Xen-PV netperf numbers
+Date: Fri, 5 Dec 2014 12:02:18 -0800
+Message-ID: <CAMou0=xqzcSTxmw_NXjF96Na2RwLB6LDqjGaVFD0gtA=AFsJOg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:33079 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750779AbaLEUCT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 15:02:19 -0500
+Received: by mail-pd0-f172.google.com with SMTP id y13so1321461pdi.3
+        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 12:02:18 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use vxlan_gso_check() to advertise offload support for this NIC.
+Hello
 
-Signed-off-by: Joe Stringer <joestringer@nicira.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    7 +++++++
- 1 file changed, 7 insertions(+)
+Not sure I have the right audience, I have two VM's on similar hosts.
+One VM is KVM + virtio + vhost based while other is Xen PV with xen
+netfront driver. Running a simple netperf test for 1400 byte packets
+on both VM's, I see wider difference between throughput as follows.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 74fbf9e..893cdb6 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -45,6 +45,7 @@
- #include <net/ip.h>
- #include <net/ipv6.h>
- #include <net/tcp.h>
-+#include <net/vxlan.h>
- #include <net/checksum.h>
- #include <net/ip6_checksum.h>
- #include <linux/workqueue.h>
-@@ -12550,6 +12551,11 @@ static int bnx2x_get_phys_port_id(struct net_device *netdev,
- 	return 0;
- }
- 
-+static bool bnx2x_gso_check(struct sk_buff *skb, struct net_device *dev)
-+{
-+	return vxlan_gso_check(skb);
-+}
-+
- static const struct net_device_ops bnx2x_netdev_ops = {
- 	.ndo_open		= bnx2x_open,
- 	.ndo_stop		= bnx2x_close,
-@@ -12581,6 +12587,7 @@ static const struct net_device_ops bnx2x_netdev_ops = {
- #endif
- 	.ndo_get_phys_port_id	= bnx2x_get_phys_port_id,
- 	.ndo_set_vf_link_state	= bnx2x_set_vf_link_state,
-+	.ndo_gso_check		= bnx2x_gso_check,
- };
- 
- static int bnx2x_set_coherency_mask(struct bnx2x *bp)
--- 
-1.7.10.4
+Xen-pv throughput comes to :
+
+./netperf -H 10.xx.xx.49 -l 20 -t UDP_STREAM -- -m 1400
+MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
+10.xx.xx.49 (10.xx.xx.49) port 0 AF_INET : demo
+Socket  Message  Elapsed      Messages
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992    1400   20.00     1910549      0    1069.89
+262144           20.00     1704789            954.66
+
+whereas KVM virtio number comes to :
+
+./netperf -t UDP_STREAM -l 10 -H 10.xx.xx.49 -- -m 1400
+MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
+10.xx.xx.49 (10.xx.xx.49) port 0 AF_INET : demo
+Socket  Message  Elapsed      Messages
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992    1400   10.00      155060      0     173.65
+262144           10.00      155060            173.65
+
+I built a custom kernel where I simply free up the (UDP only) skb in
+virtio: xmit_skb() routine and I count how many skb's I have received.
+Surprisingly it was not too high either:
+
+./netperf -t UDP_STREAM -l 10 -H 10.xx.xx.49 -- -m 1400
+MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
+10.xx.xx.49 (10.xx.xx.49) port 0 AF_INET : demo
+Socket  Message  Elapsed      Messages
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992    1400   10.00      224792      0     251.74
+262144           10.00           0              0.00
+
+
+1910549 packets pumped in xen pv driver versus 212992 packets pumped
+in case of virtio driver. Assuming the data path inside the kernel is
+same for both drivers , and I have eliminated virtio's
+virtqueue_kick() call by freeing the packet ahead in my experiment,
+can all this overhead attributed to system call overhead in case of
+KVM+virtio combination ? Anything I am missing ?
+
+The KVM setup is based off:
+Linux ubn-nested 3.17.0+ #16 SMP Thu Dec 4 12:00:09 PST 2014 x86_64
+x86_64 x86_64 GNU/Linux
+
+Regards
+N
