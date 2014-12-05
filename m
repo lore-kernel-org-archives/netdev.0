@@ -1,164 +1,105 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: [PATCH 2/2] gianfar: handle map error in gfar_start_xmit()
-Date: Fri, 5 Dec 2014 16:51:38 +0200
-Message-ID: <5481C67A.2090200@freescale.com>
-References: <1417775874-17775-1-git-send-email-asolokha@kb.kras.ru>
- <1417775874-17775-3-git-send-email-asolokha@kb.kras.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Arseny Solokha <asolokha@kb.kras.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417775874-17775-3-git-send-email-asolokha@kb.kras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2 REGRESSIONS v2] ss: Fix layout/output issues introduced by regression
+Date: Fri,  5 Dec 2014 17:03:16 +0200
+Message-ID: <1417791796-7739-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f51.google.com ([209.85.215.51]:63097 "EHLO
+	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751023AbaLEPNC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 10:13:02 -0500
+Received: by mail-la0-f51.google.com with SMTP id ms9so811699lab.38
+        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 07:13:00 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/5/2014 12:37 PM, Arseny Solokha wrote:
-> From: Arseny Solokha <asolokha@kb.kras.ru>
->
-> When DMA-API debugging is enabled in the kernel, it spews the following
-> upon upping the link:
->
-> WARNING: at lib/dma-debug.c:1135
-> Modules linked in:
-> CPU: 0 PID: 0 Comm: swapper/0 Tainted: G        W  O   3.18.0-rc7 #1
-> task: c0720340 ti: effe2000 task.ti: c0750000
-> NIP: c01d7c1c LR: c01d7c1c CTR: c02250fc
-> REGS: effe3d40 TRAP: 0700   Tainted: G        W  O    (3.18.0-rc7)
-> MSR: 00021000 <CE,ME>  CR: 22044242  XER: 20000000
->
-> GPR00: c01d7c1c effe3df0 c0720340 00000095 c201e404 c201e9f0 00021000 01a9d000
-> GPR08: 00000007 00000000 01a9d000 00000313 22044242 00583f60 05f41012 00000000
-> GPR16: 00000000 000000ff 00000000 00000000 00000000 c5dc3b40 c5677720 00000001
-> GPR24: c0730000 00029000 c0d0d828 c072c394 effe3e48 c075baec c0d0f020 ee31e600
-> NIP [c01d7c1c] check_unmap+0x5b4/0xae4
-> LR [c01d7c1c] check_unmap+0x5b4/0xae4
-> Call Trace:
-> [effe3df0] [c01d7c1c] check_unmap+0x5b4/0xae4 (unreliable)
-> [effe3e40] [c01d81c4] debug_dma_unmap_page+0x78/0x8c
-> [effe3ec0] [c0286ba0] gfar_clean_tx_ring+0x120/0x3c0
-> [effe3f30] [c0286f90] gfar_poll_tx_sq+0x48/0x94
-> o[effe3f50] [c030c388] net_rx_action+0x130/0x1ac
-> [effe3f80] [c00319e0] __do_softirq+0x134/0x240
-> [effe3fe0] [c0031dd0] irq_exit+0xa4/0xc8
-> [effe3ff0] [c000e01c] call_do_irq+0x24/0x3c
-> [c0751e70] [c0004a04] do_IRQ+0x8c/0x108
-> [c0751e90] [c0010068] ret_from_except+0x0/0x18
-> --- interrupt: 501 at arch_cpu_idle+0x24/0x5c
->      LR = arch_cpu_idle+0x24/0x5c
-> [c0751f50] [c007d2e4] rcu_idle_enter+0xc8/0xcc (unreliable)
-> [c0751f60] [c006587c] cpu_startup_entry+0x1d4/0x29c
-> [c0751fb0] [c054399c] start_kernel+0x338/0x34c
-> [c0751ff0] [c000046c] set_ivor+0x154/0x190
-> Instruction dump:
-> 394adb30 80fc0018 811c001c 3c60c04f 5529103a 7cca482e 38639e60 813c0020
-> 815c0024 90c10008 4cc63182 48240b01 <0fe00000> 3c60c04f 3863971c 4cc63182
-> ---[ end trace 3eb7bf62ba1b80f9 ]---
-> Mapped at:
->   [<c0287420>] gfar_start_xmit+0x424/0x910
->   [<c030e964>] dev_hard_start_xmit+0x20c/0x3d8
->   [<c032cc3c>] sch_direct_xmit+0x124/0x22c
->   [<c030ede8>] __dev_queue_xmit+0x2b8/0x674
->
-> Or the following upon starting transmission of some large chunks
-> of data:
->
-> fsl-gianfar ffe25000.ethernet: DMA-API: device driver failed to check map error[device address=0x0000000005fa8000]
-> ------------[ cut here ]------------
-> WARNING: at lib/dma-debug.c:1135
-> Modules linked in:
-> CPU: 0 PID: 0 Comm: swapper/0 Tainted: G           O   3.18.0-rc7 #35
-> task: c071d340 ti: effe2000 task.ti: c074e000
-> NIP: c01d7c1c LR: c01d7c1c CTR: c022339c
-> REGS: effe3d40 TRAP: 0700   Tainted: G           O    (3.18.0-rc7)
-> MSR: 00021000 <CE,ME>  CR: 22044242  XER: 20000000
->
-> GPR00: c01d7c1c effe3df0 c071d340 00000094 00000001 c0071750 00000000 00000001
-> GPR08: 00000000 00000000 effe2000 00000000 20044242 00581f60 05fa8000 000001c4
-> GPR16: 00000000 000000ff 00000000 000000e4 00000039 c5b1a9c0 c5679c60 00000002
-> GPR24: c0730000 00029000 c0d0c528 c0729394 effe3e48 c0759aec c0d0d020 ee315900
-> NIP [c01d7c1c] check_unmap+0x5b4/0xae4
-> LR [c01d7c1c] check_unmap+0x5b4/0xae4
-> Call Trace:
-> [effe3df0] [c01d7c1c] check_unmap+0x5b4/0xae4 (unreliable)
-> [effe3e40] [c01d81c4] debug_dma_unmap_page+0x78/0x8c
-> [effe3ec0] [c0284c78] gfar_clean_tx_ring+0x1b4/0x3c0
-> [effe3f30] [c0284fd4] gfar_poll_tx_sq+0x48/0x94
-> [effe3f50] [c030a5c4] net_rx_action+0x130/0x1ac
-> [effe3f80] [c00319e0] __do_softirq+0x134/0x240
-> [effe3fe0] [c0031dd0] irq_exit+0xa4/0xc8
-> [effe3ff0] [c000e01c] call_do_irq+0x24/0x3c
-> [c074fe70] [c0004a04] do_IRQ+0x8c/0x108
-> [c074fe90] [c0010068] ret_from_except+0x0/0x18
-> --- interrupt: 501 at arch_cpu_idle+0x24/0x5c
->      LR = arch_cpu_idle+0x24/0x5c
-> [c074ff50] [c007d2e4] rcu_idle_enter+0xc8/0xcc (unreliable)
-> [c074ff60] [c006587c] cpu_startup_entry+0x1d4/0x29c
-> [c074ffb0] [c054199c] start_kernel+0x338/0x34c
-> [c074fff0] [c000046c] set_ivor+0x154/0x190
-> Instruction dump:
-> 394abb30 80fc0018 811c001c 3c60c04e 5529103a 7cca482e 386379f0 813c0020
-> 815c0024 90c10008 4cc63182 4823ed39 <0fe00000> 3c60c04e 386372ac 4cc63182
-> ---[ end trace 008c59ca7ca1f712 ]---
-> Mapped at:
->   [<c0285264>] gfar_start_xmit+0x224/0x95c
->   [<c030cba0>] dev_hard_start_xmit+0x20c/0x3d8
->   [<c032ae78>] sch_direct_xmit+0x124/0x22c
->   [<c032b008>] __qdisc_run+0x88/0x1c0
->   [<c0307920>] net_tx_action+0xf0/0x19c
->
-> Ignore these mapping failures in hope we'll have more luck next time.
->
-> Signed-off-by: Arseny Solokha <asolokha@kb.kras.ru>
-> ---
->   drivers/net/ethernet/freescale/gianfar.c | 17 +++++++++++++++--
->   1 file changed, 15 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-> index f34ca55..9ea887e 100644
-> --- a/drivers/net/ethernet/freescale/gianfar.c
-> +++ b/drivers/net/ethernet/freescale/gianfar.c
-> @@ -2296,6 +2296,12 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
->   						   0,
->   						   frag_len,
->   						   DMA_TO_DEVICE);
-> +			if (unlikely(dma_mapping_error(priv->dev, bufaddr))) {
-> +				/* As DMA mapping failed, pretend the TX path
-> +				 * is busy to retry later
-> +				 */
-> +				return NETDEV_TX_BUSY;
+This patch fixes the following issues which was introduced by me in commits:
 
-This is not right.
-Proper bailout code missing: un-mapping of skb fragments and 
-de-allocation of resources.
-This is not a TX_BUSY error condition, it's a system failure.
-(will resubmit this one:
-http://permalink.gmane.org/gmane.linux.network/336274)
+    #1 (2dc854854b7f1b) ss: Fixed broken output for Netlink 'Peer Address:Port' column
+    ISSUE: Broken layout when all sockets are printed out
 
-> +			}
->
->   			/* set the TxBD length and buffer pointer */
->   			txbdp->bufPtr = bufaddr;
-> @@ -2345,8 +2351,15 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
->   		fcb->ptp = 1;
->   	}
->
-> -	txbdp_start->bufPtr = dma_map_single(priv->dev, skb->data,
-> -					     skb_headlen(skb), DMA_TO_DEVICE);
-> +	bufaddr = dma_map_single(priv->dev, skb->data, skb_headlen(skb),
-> +				 DMA_TO_DEVICE);
-> +	if (unlikely(dma_mapping_error(priv->dev, bufaddr))) {
-> +		/* As DMA mapping failed, pretend the TX path is busy to retry
-> +		 * later
-> +		 */
-> +		return NETDEV_TX_BUSY;
+    #2 (eef43b5052afb7) ss: Identify more netlink protocol names
+    ISSUE: Protocol id is not printed if 'numbers only' output was specified (-n)
 
-same here
+Also aligned the width of the local/peer ports to be more wider.
 
-> +	}
-> +	txbdp_start->bufPtr = bufaddr;
->
->   	/* If time stamping is requested one additional TxBD must be set up. The
->   	 * first TxBD points to the FCB and must have a data length of
->
+I tested with a lot of option combinations (I may miss some test cases),
+but layout seems to me better than the previous released version of iproute2/ss.
+
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ misc/ss.c | 30 ++++++++++--------------------
+ 1 file changed, 10 insertions(+), 20 deletions(-)
+
+diff --git a/misc/ss.c b/misc/ss.c
+index a99294d..8abaaff 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -101,8 +101,6 @@ int state_width;
+ int addrp_width;
+ int addr_width;
+ int serv_width;
+-int paddr_width;
+-int pserv_width;
+ int screen_width;
+ 
+ static const char *TCP_PROTO = "tcp";
+@@ -2912,11 +2910,12 @@ static void netlink_show_one(struct filter *f,
+ 		printf("%-*s ", state_width, "UNCONN");
+ 	printf("%-6d %-6d ", rq, wq);
+ 
+-	if (resolve_services)
+-	{
++	if (resolve_services) {
+ 		printf("%*s:", addr_width, nl_proto_n2a(prot, prot_name,
+ 					sizeof(prot_name)));
+-	}
++	} else
++		printf("%*d:", addr_width, prot);
++
+ 
+ 	if (pid == -1) {
+ 		printf("%-*s ", serv_width, "*");
+@@ -2947,10 +2946,10 @@ static void netlink_show_one(struct filter *f,
+ 
+ 	if (state == NETLINK_CONNECTED) {
+ 		printf("%*d:%-*d",
+-		       paddr_width, dst_group, pserv_width, dst_pid);
++		       addr_width, dst_group, serv_width, dst_pid);
+ 	} else {
+ 		printf("%*s*%-*s",
+-		       paddr_width, "", pserv_width, "");
++		       addr_width, "", serv_width, "");
+ 	}
+ 
+ 	char *pid_context = NULL;
+@@ -3684,22 +3683,13 @@ int main(int argc, char *argv[])
+ 		printf("%-*s ", state_width, "State");
+ 	printf("%-6s %-6s ", "Recv-Q", "Send-Q");
+ 
+-	paddr_width = addr_width;
+-	pserv_width = serv_width;
+-
+-	/* Netlink service column can be resolved as process name/pid thus it
+-	 * can be much wider than address column which is just a
+-	 * protocol name/id.
+-	 */
+-	if (current_filter.dbs & (1<<NETLINK_DB)) {
+-		serv_width = addr_width - 10;
+-		paddr_width = 13;
+-		pserv_width = 13;
+-	}
++	/* Make enough space for the local/remote port field */
++	addr_width -= 13;
++	serv_width += 13;
+ 
+ 	printf("%*s:%-*s %*s:%-*s\n",
+ 	       addr_width, "Local Address", serv_width, "Port",
+-	       paddr_width, "Peer Address", pserv_width, "Port");
++	       addr_width, "Peer Address", serv_width, "Port");
+ 
+ 	fflush(stdout);
+ 
+-- 
+2.1.3
