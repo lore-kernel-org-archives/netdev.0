@@ -1,43 +1,111 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] x86: bpf_jit_comp: Remove inline from static function
- definitions
-Date: Thu, 04 Dec 2014 17:43:19 -0800
-Message-ID: <1417743799.2721.31.camel@perches.com>
-References: <CAADnVQKtYkKtsd9rUFm2yfMoh7F_SRFPVP8hpvSY00KpmB-NNg@mail.gmail.com>
-	 <1417734048.2721.22.camel@perches.com>
-	 <1417734891.22424.2.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAADnVQ+3jiYOYReRLPUsFeG1p66ezo-TXBLX3BGQQh7V8QX0tQ@mail.gmail.com>
-	 <1417740382.22424.40.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1417741284.2721.26.camel@perches.com>
-	 <CAADnVQ+5T3MDiC7RwVwdyu2PEhGy0VOrp7=LWeENrX_USXevnw@mail.gmail.com>
+From: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
+Subject: Re: Is this 32-bit NCM?y
+Date: Fri, 5 Dec 2014 02:20:36 +0000
+Message-ID: <54811670.5030703@audiocodes.com>
+References: <AMSPR06MB6011E001029C251790CB923EE780@AMSPR06MB601.eurprd06.prod.outlook.com>
+ <877fy7myfb.fsf@nemi.mork.no> <alpine.LNX.2.03.1412041326160.9926@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Quentin Lambert <lambert.quentin@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	"x86@kernel.org" <x86@kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0131.hostedemail.com ([216.40.44.131]:50850 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932975AbaLEBnY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 20:43:24 -0500
-In-Reply-To: <CAADnVQ+5T3MDiC7RwVwdyu2PEhGy0VOrp7=LWeENrX_USXevnw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Midge Shaojun  Tan" <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.LNX.2.03.1412041326160.9926-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Content-Language: en-US
+Content-ID: <C53146EEDD5A394A98E75D0DCC9E796C-NhzUejbdEhGcE4WynfumptQqCkab/8FMAL8bYrjMMd8@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-12-04 at 17:21 -0800, Alexei Starovoitov wrote:
-> Joe, please mention dependencies next time.
-
-No real need here.
-It's in the same thread.
+UmVnYXJkaW5nIHRoZSBsb2NhdGlvbiBvZiBORFAsIGl0IHNob3VsZCBiZSBlYXN5IHRvIGZpeC4g
+SXQgY2FuIGJlIGFkZGVkDQp0byB0aGUgZW5kIG9mIHRoZSBOVEIgb25seSBhZnRlciBpdCdzIHJl
+YWR5IHRvIHNlbmQuIFJlZ2FyZGluZyB0aGUNCmNvbmNlcm4gdG8gb3RoZXIgZGV2aWNlcywgYXMg
+dGhlcmUncyBhIHBhcnRpY3VsYXIgZHJpdmVyIGZvciBIdWF3ZWkNCmRldmljZXMgaW4ga2VybmVs
+LCB3aGljaCBpcyBodWF3ZWlfY2RjX25jbSwgbWF5YmUgd2UgY2FuIGp1c3QgZml4IHRoZSBUWA0K
+ZnVuY3Rpb24gdGhlcmUgdG8gYXZvaWQgYnJlYWtpbmcgb3RoZXIgZGV2aWNlcy4NCg0KUmVnYXJk
+cywNCktldmluDQoNCk9uIDEyLzA0LzIwMTQgMDg6MjggUE0sIEVucmljbyBNaW9zbyB3cm90ZToN
+Cj4gLi4uIERIQ1Agd2lsbCB3b3JrIHdpdGggc29tZSBESENQTkFDS1MgaW4gdGhlIG1lYW53aGls
+ZSwgYnV0IHBpbmcNCj4gc3RvcHMgd29ya2luZyBhdCBhbGwuDQo+IE90aGVyd2lzZSwgaXQgd29y
+a3Mgd2l0aCB0aGUgc3RhbmRhcmQgdmFsdWU6DQo+DQo+IC0tLSA4LjguOC44IHBpbmcgc3RhdGlz
+dGljcyAtLS0NCj4gNDggcGFja2V0cyB0cmFuc21pdHRlZCwgNDggcmVjZWl2ZWQsIDAlIHBhY2tl
+dCBsb3NzLCB0aW1lIDQ3MDA0bXMNCj4gcnR0IG1pbi9hdmcvbWF4L21kZXYgPSAzNjIuMDg0LzM5
+Mi44NzgvNTIzLjEzMi8zMy42MzYgbXMNCj4NCj4gQW5kIEkgd2FzIGV4cGVjdGluZyBlZmZlY3Rp
+dmVseSB0byBzZWUgc29tZSBsb3N0IHBhY2tldHMsIGJ1dA0KPiBpbnN0ZWFkLi4uIG5vLg0KPg0K
+Pg0KPiBPbiBUaHUsIDQgRGVjIDIwMTQsIEJqw7hybiBNb3JrIHdyb3RlOg0KPg0KPj4gRGF0ZTog
+VGh1LCA0IERlYyAyMDE0IDEyOjQ0OjU2DQo+PiBGcm9tOiBCasO4cm4gTW9yayA8Ympvcm5AbW9y
+ay5ubz4NCj4+IFRvOiBNaWRnZSBTaGFvanVuIFRhbiA8U2hhb2p1bk1pZGdlLlRhbkBhdWRpb2Nv
+ZGVzLmNvbT4NCj4+IENjOiBFbnJpY28gTWlvc28gPG1ya2lrby5yc0BnbWFpbC5jb20+LA0KPj4g
+ICAgIEtldmluIFpodSA8TWluZ3lpbmcuWmh1QGF1ZGlvY29kZXMuY29tPiwNCj4+ICAgICBFbGkg
+QnJpdHN0ZWluIDxFbGkuQnJpdHN0ZWluQGF1ZGlvY29kZXMuY29tPiwNCj4+ICAgICBBbGV4IFN0
+cml6aGV2c2t5IDxhbGV4eHN0QGdtYWlsLmNvbT4sDQo+PiAgICAgInlvdXR1eEBnbWFpbC5jb20i
+IDx5b3V0dXhAZ21haWwuY29tPiwNCj4+ICAgICAibGludXgtdXNiQHZnZXIua2VybmVsLm9yZyIg
+PGxpbnV4LXVzYkB2Z2VyLmtlcm5lbC5vcmc+LA0KPj4gICAgICJuZXRkZXZAdmdlci5rZXJuZWwu
+b3JnIiA8bmV0ZGV2QHZnZXIua2VybmVsLm9yZz4NCj4+IFN1YmplY3Q6IFJlOiBJcyB0aGlzIDMy
+LWJpdCBOQ00/eQ0KPj4NCj4+ICJNaWRnZSBTaGFvanVuICBUYW4iIDxTaGFvanVuTWlkZ2UuVGFu
+QGF1ZGlvY29kZXMuY29tPiB3cml0ZXM6DQo+Pg0KPj4+IEhpIGFsbCwNCj4+Pg0KPj4+IEkgdGVz
+dCBPSyB3aXRoIGtlcnZlbCAzLjE2LjQNCj4+PiBOZWVkIGRpc2FibGUgb3RoZXIgRXRoZXJuZXQg
+bmV0d29yaywganVzdCBsaWtlIGV0aDEuIChUaGVuIHRoZSBETlMNCj4+PiBhbmQgcm91dGUgaXMg
+T0spDQo+Pj4gQW5kIGFsc28gbmVlZCBkaXNhYmxlIGFycCwgKGlmY29uZmlnIHd3YW4wIC1hcnAg
+dXApLCBiZWNhdXNlIENoaW5hDQo+Pj4gVU5JQ09NIGRvbid0IHJlc3BvbmQgdGhlIEFSUCBtZXNz
+YWdlLg0KPj4NCj4+IFRoZSBBUlAgZnVuY3Rpb25hbGl0eSBpcyBpbmRlcGVuZGVudCBvZiBvcGVy
+YXRvci4gIEl0IGlzIGhhbmRsZWQNCj4+IGludGVybmFsbHkgYnkgdGhlIG1vZGVtIGZpcm13YXJl
+LiAgVGhlcmUgYXJlIG5vIE1BQyBhZGRyZXNzZXMgb3INCj4+IGV0aGVybmV0IGhlYWRlcnMgdHJh
+bnNtaXR0ZWQgb3ZlciB0aGUgcmFkaW8gbGluay4gIFRoYXQncyBhbGwgZmFrZWQgYnkNCj4+IHRo
+ZSBtb2RlbS4gIEFsbCBNQUMgYWRkcmVzc2VzIGFuZCBldGhlcm5ldCBoZWFkZXJzIGFyZSBsb2Nh
+bCB0byB0aGUNCj4+IG1vZGVtPC0+aG9zdCBVU0IgbGluay4NCj4+DQo+Pj4gV2l0aCBuZXcgbW9k
+ZSBzd2l0Y2ggc3RyaW5nOiAvZXRjL3VzYl9tb2Rlc3dpdGNoLmQvMTJkMToxNGZlDQo+Pj4gUGxl
+YXNlIHNlZSB0aGUgcGF0Y2ggYW5kIGNoZWNrIHdoZXRoZXIgaXQgaXMgY29ycmVjdD8NCj4+DQo+
+PiBJIHNlZSB0aGF0IHlvdSBoYXZlIHR3byBjaGFuZ2VzIHRoZXJlOg0KPj4NCj4+IDEpIHRoZSBF
+VEhfSExFTiBhZGp1c3RtZW50IG9mIGN0eC0+dHhfcmVtYWluZGVyIGlzIGRyb3BwZWQNCj4+IDIp
+IHRoZSBORFAgaXMgcGxhY2VkIGFmdGVyIHRoZSBmaXJzdCBmcmFtZS4NCj4+DQo+PiBJIGhhdmVu
+J3QgdmVyaWZpZWQgdGhlIGVmZmVjdCBvZiB0aGUgdHhfcmVtYWluZGVyIGNoYW5nZSwgYnV0IEkg
+YXNzdW1lDQo+PiBpdCBmaXhlcyBhbiBhbGlnbm1lbnQgcHJvYmxlbSBmb3IgdGhpcyBkZXZpY2Uu
+ICBJJ2QgbGlrZSB0byBsb29rIG1vcmUgYXQNCj4+IHRoZSBlZmZlY3Qgb2YgdGhpcyBmb3IgZGlm
+ZmVyZW50IHZhbHVlcyBvZiB3TmRwT3V0UGF5bG9hZFJlbWFpbmRlciBhbmQNCj4+IHdOZHBPdXRE
+aXZpc29yLg0KPj4NCj4+IFdlIGNhbiBjaG9vc2UgdG8gcHV0IHRoZSBORFAgYXQgdGhlIGVuZCBv
+ZiB0aGUgTlRCIGlmIHdlIGZpbmQgdGhhdCB0aGlzDQo+PiBmaXhlcyBzb21lIHByb2JsZW0sIGJ1
+dCBkb2luZyBzbyBieSBkZWZhdWx0IGZvciBldmVyeSBOQ00gYW5kIE1CSU0NCj4+IGRldmljZSBp
+cyBhIGJpdCByaXNreS4gSWYgd2UgYWNjZXB0IHRoYXQgc29tZSBkZXZpY2VzIGFyZSBzbyBidWdn
+eSB0aGF0DQo+PiB0aGUgTkRQIGNhbm5vdCBiZSBwbGFjZWQgYW55d2hlcmUgKGFzIHJlcXVpcmVk
+IGJ5IHRoZSBzcGVjKSwgdGhlbiB3ZQ0KPj4gaGF2ZSB0byBhc3N1bWUgdGhhdCB0aGlzIGdvZXMg
+Ym90aCB3YXlzLiAgV2hpY2ggbWVhbnMgdGhhdCBtb3ZpbmcgdGhlDQo+PiBORFAgdG8gdGhlIGVu
+ZCBvZiB0aGUgTlRCIG1pZ2h0IGJyZWFrIHNvbWUgb3RoZXIgZGV2aWNlLiAgV2UganVzdCBkb24n
+dA0KPj4ga25vdyB0aGF0IHNpbmNlIHdlIGhhdmVuJ3QgZXZlciB0cmllZCBpdC4NCj4+DQo+PiBB
+bmQgeW91ciBmaXggZG9lc24ndCByZWFsbHkgbW92ZSBpdCB0byB0aGUgZW5kIGVpdGhlci4gIEl0
+IGp1c3QgcGxhY2VzDQo+PiB0aGUgTkRQIGFmdGVyIHRoZSBmaXJzdCBldGhlcm5ldCBwYWNrZXQu
+ICBXaGljaCBoYXBwZW5zIHRvIGJlIHRoZSBlbmQgaWYNCj4+IHRoZXJlIGlzIG9ubHkgb25lIHBh
+Y2tldCBpbiB0aGUgTlRCLiBCdXQgaWYgd2UgYWdncmVnYXRlIG1vcmUgcGFja2V0cw0KPj4gaW50
+byB0aGlzIE5UQiB0aGVuIHRoZSByZXN1bHQgd2lsbCBsb29rIGxpa2UgdGhpczoNCj4+DQo+PiBO
+VEgNCj4+IGV0aCBwYWNrZXQgMQ0KPj4gTkRQDQo+PiBldGggcGFja2V0IDINCj4+IC4uDQo+PiBl
+dGggcGFja2V0IE4NCj4+DQo+PiBJJ20gbm90IGNvbnZpbmNlZCB0aGlzIG1vZGVtIHdpbGwgaGFu
+ZGxlIHRoYXQgaWYgaXQgY2Fubm90IGhhbmRsZSB0aGUNCj4+IE5EUCBiZWluZyBiZWZvcmUgdGhl
+IGZpcnN0IHBhY2tldC4uLiAgVGhpcyBuZWVkcyB0byBiZSB0ZXN0ZWQuIFRyeQ0KPj4gaW5jcmVh
+c2luZyAvc3lzL2NsYXNzL25ldC93d2FuMC9jZGNfbmNtL3R4X3RpbWVyX3VzZWNzIHRvIGZvcmNl
+IHRoZQ0KPj4gZHJpdmVyIHRvIGFnZ3JlZ2F0ZSBwYWNrZXRzIGFuZCBzZWUgaWYgZXZlcnl0aGlu
+ZyBzdGlsbCB3b3Jrcy4NCj4+IFByZWZlcmFibHkgd2hpbGUgbG9va2luZyBhdCB0aGUgcmVzdWx0
+aW5nIE5UQiB0byB2ZXJpZnkgdGhhdCBpdCBkb2VzDQo+PiBjb250YWluIG1vcmUgdGhhbiBvbmUg
+ZXRoZXJuZXQgcGFja2V0Lg0KPj4NCj4+IEkgcmVhbGl6ZSBJIHNvdW5kIGEgYml0IG5lZ2F0aXZl
+IG5vdy4gIFRoaXMgaXMgYWJzb2x1dGVseSBub3QgbXkNCj4+IGludGVudGlvbi4gVGhpcyBpcyBn
+cmVhdCB3b3JrLCBwcm92aWRpbmcgc29tZSByZWFsIHByb2dyZXNzIHdydCBmaWd1cmluZw0KPj4g
+b3V0IHdoYXQgZ29lcyBvbiBoZXJlLiAgVGhhbmtzIGEgbG90ISAgSSBhbSBzdXJlIHdlIGNhbiBz
+b3J0IG91dCB0aGUNCj4+IHJlbWFpbmluZyBpc3N1ZXMsIHdoaWNoIGFyZSByZWFsbHkgbWlub3Ig
+Y29tcGFyZWQgdG8gd2hhdCB5b3UgaGF2ZSBmb3VuZA0KPj4gc28gZmFyLg0KPj4NCj4+DQo+Pg0K
+Pj4gQmrDuHJuDQo+Pg0KPj4NClRoaXMgZW1haWwgYW5kIGFueSBmaWxlcyB0cmFuc21pdHRlZCB3
+aXRoIGl0IGFyZSBjb25maWRlbnRpYWwgbWF0ZXJpYWwuIFRoZXkgYXJlIGludGVuZGVkIHNvbGVs
+eSBmb3IgdGhlIHVzZSBvZiB0aGUgZGVzaWduYXRlZCBpbmRpdmlkdWFsIG9yIGVudGl0eSB0byB3
+aG9tIHRoZXkgYXJlIGFkZHJlc3NlZC4gSWYgdGhlIHJlYWRlciBvZiB0aGlzIG1lc3NhZ2UgaXMg
+bm90IHRoZSBpbnRlbmRlZCByZWNpcGllbnQsIHlvdSBhcmUgaGVyZWJ5IG5vdGlmaWVkIHRoYXQg
+YW55IGRpc3NlbWluYXRpb24sIHVzZSwgZGlzdHJpYnV0aW9uIG9yIGNvcHlpbmcgb2YgdGhpcyBj
+b21tdW5pY2F0aW9uIGlzIHN0cmljdGx5IHByb2hpYml0ZWQgYW5kIG1heSBiZSB1bmxhd2Z1bC4N
+Cg0KSWYgeW91IGhhdmUgcmVjZWl2ZWQgdGhpcyBlbWFpbCBpbiBlcnJvciBwbGVhc2UgaW1tZWRp
+YXRlbHkgbm90aWZ5IHRoZSBzZW5kZXIgYW5kIGRlbGV0ZSBvciBkZXN0cm95IGFueSBjb3B5IG9m
+IHRoaXMgbWVzc2FnZQ0K
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
