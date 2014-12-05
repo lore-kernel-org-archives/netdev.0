@@ -1,76 +1,47 @@
-From: Nick H <nickkvm@gmail.com>
-Subject: KVM vs Xen-PV netperf numbers
-Date: Fri, 5 Dec 2014 12:02:18 -0800
-Message-ID: <CAMou0=xqzcSTxmw_NXjF96Na2RwLB6LDqjGaVFD0gtA=AFsJOg@mail.gmail.com>
+From: nick <xerofoify@gmail.com>
+Subject: Possible Bug Found with Build Warning?
+Date: Fri, 05 Dec 2014 15:55:59 -0500
+Message-ID: <54821BDF.1060607@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:33079 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750779AbaLEUCT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 15:02:19 -0500
-Received: by mail-pd0-f172.google.com with SMTP id y13so1321461pdi.3
-        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 12:02:18 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
+	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
+	linux-kernel@vger.kernel.org, john.ronciak@intel.com,
+	netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Hello
-
-Not sure I have the right audience, I have two VM's on similar hosts.
-One VM is KVM + virtio + vhost based while other is Xen PV with xen
-netfront driver. Running a simple netperf test for 1400 byte packets
-on both VM's, I see wider difference between throughput as follows.
-
-Xen-pv throughput comes to :
-
-./netperf -H 10.xx.xx.49 -l 20 -t UDP_STREAM -- -m 1400
-MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-10.xx.xx.49 (10.xx.xx.49) port 0 AF_INET : demo
-Socket  Message  Elapsed      Messages
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
-
-212992    1400   20.00     1910549      0    1069.89
-262144           20.00     1704789            954.66
-
-whereas KVM virtio number comes to :
-
-./netperf -t UDP_STREAM -l 10 -H 10.xx.xx.49 -- -m 1400
-MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-10.xx.xx.49 (10.xx.xx.49) port 0 AF_INET : demo
-Socket  Message  Elapsed      Messages
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
-
-212992    1400   10.00      155060      0     173.65
-262144           10.00      155060            173.65
-
-I built a custom kernel where I simply free up the (UDP only) skb in
-virtio: xmit_skb() routine and I count how many skb's I have received.
-Surprisingly it was not too high either:
-
-./netperf -t UDP_STREAM -l 10 -H 10.xx.xx.49 -- -m 1400
-MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-10.xx.xx.49 (10.xx.xx.49) port 0 AF_INET : demo
-Socket  Message  Elapsed      Messages
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
-
-212992    1400   10.00      224792      0     251.74
-262144           10.00           0              0.00
-
-
-1910549 packets pumped in xen pv driver versus 212992 packets pumped
-in case of virtio driver. Assuming the data path inside the kernel is
-same for both drivers , and I have eliminated virtio's
-virtqueue_kick() call by freeing the packet ahead in my experiment,
-can all this overhead attributed to system call overhead in case of
-KVM+virtio combination ? Anything I am missing ?
-
-The KVM setup is based off:
-Linux ubn-nested 3.17.0+ #16 SMP Thu Dec 4 12:00:09 PST 2014 x86_64
-x86_64 x86_64 GNU/Linux
-
-Regards
-N
+R3JlZXRpbmdzIEplZmYgYW5kIHRoZSBvdGhlciBkZXZlbG9wZXJzIGF0IEludGVsLApJIHNlZW0g
+dG8gYmUgZ2V0dGluZyB0aGlzIGVycm9yIG1lc3NhZ2UsCmRyaXZlcnMvbmV0L2V0aGVybmV0L2lu
+dGVsL2k0MGUvaTQwZV9kZWJ1Z2ZzLmM6IEluIGZ1bmN0aW9uIOKAmGk0MGVfZGJnX2R1bXBfZGVz
+Y+KAmToKZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX2RlYnVnZnMuYzo4NTU6
+MTogd2FybmluZzogdGhlIGZyYW1lIHNpemUgb2YgODE5MiBieXRlcyBpcyBsYXJnZXIgdGhhbiAy
+MDQ4IGJ5dGVzIFstV2ZyYW1lLWxhcmdlci10aGFuPV0KIH0KIF4Kd2hlbiBidWlsZGluZyB0aGUg
+a2VybmVsIGZvciB0aGUgbGFzdCBmZXcgd2Vla3MgZm9yIG15IG90aGVyIHBhdGNoZXMuIEFzIHlv
+dSBjYW4gdGVsbCBpdCBzdGF0ZXMgaXNzdWVzIHdpdGggdGhlIGZyYW1lIHNpemUgYmVpbmcgbGFy
+Z2VyIHRoZW4gMjA0OCBieXRlcy4gSSBhbSB3b25kZXJpbmcgaXMgdGhpcyBhIGlzc3VlIGFzIHRo
+ZSBzdHJ1Y3QgaXMgYWxsb2NhdGVkIG9ubHkgMjA0OCBieXRlcyBvZiBzeXN0ZW0gbWVtb3J5IHBl
+ciBmcmFtZSBvciBpcyB0aGlzIGp1c3QgYSBtaXN0YWtlIG9uIG1lIHJlYWRpbmcgdGhlIHdhcm5p
+bmcuClJlZ2FyZHMgTmljayAKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpEb3dubG9hZCBCSVJUIGlI
+dWIgRi1UeXBlIC0gVGhlIEZyZWUgRW50ZXJwcmlzZS1HcmFkZSBCSVJUIFNlcnZlcgpmcm9tIEFj
+dHVhdGUhIEluc3RhbnRseSBTdXBlcmNoYXJnZSBZb3VyIEJ1c2luZXNzIFJlcG9ydHMgYW5kIERh
+c2hib2FyZHMKd2l0aCBJbnRlcmFjdGl2aXR5LCBTaGFyaW5nLCBOYXRpdmUgRXhjZWwgRXhwb3J0
+cywgQXBwIEludGVncmF0aW9uICYgbW9yZQpHZXQgdGVjaG5vbG9neSBwcmV2aW91c2x5IHJlc2Vy
+dmVkIGZvciBiaWxsaW9uLWRvbGxhciBjb3Jwb3JhdGlvbnMsIEZSRUUKaHR0cDovL3B1YmFkcy5n
+LmRvdWJsZWNsaWNrLm5ldC9nYW1wYWQvY2xrP2lkPTE2NDcwMzE1MSZpdT0vNDE0MC9vc3RnLmNs
+a3RyawpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpFMTAw
+MC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Cmh0
+dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAwLWRldmVsClRv
+IGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwmIzE3NDsgRXRoZXJuZXQsIHZpc2l0IGh0dHA6Ly9jb21t
+dW5pdGllcy5pbnRlbC5jb20vY29tbXVuaXR5L3dpcmVkCg==
