@@ -1,108 +1,45 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH 2/3] bridge: offload bridge port attributes to switch
- asic if feature flag set
-Date: Thu, 04 Dec 2014 23:10:06 -0800
-Message-ID: <54815A4E.3020806@cumulusnetworks.com>
-References: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bBOCgoH0zL6+82jj2qjcP8n3kSo51x+i5SoqkN8Ff1CBQ@mail.gmail.com> <548156C8.5060602@gmail.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: [PATCH v2 1/6] net-PPP: Replacement of a printk() call by pr_warn()
+ in mppe_rekey()
+Date: Fri, 05 Dec 2014 08:18:55 +0100
+Message-ID: <54815C5F.8090702@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net>	 <530B5FB6.6010207@users.sourceforge.net>	 <alpine.DEB.2.10.1402241710370.2074@hadrien>	 <530C5E18.1020800@users.sourceforge.net>	 <alpine.DEB.2.10.1402251014170.2080@hadrien>	 <530CD2C4.4050903@users.sourceforge.net>	 <alpine.DEB.2.10.1402251840450.7035@hadrien>	 <530CF8FF.8080600@users.sourceforge.net>	 <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>	 <530DD06F.4090703@users.sourceforge.net>	 <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>	 <5317A59D.4@users.sourceforge.net> <547B4886.4080406@users.sourceforge.net>	 <547B496E.604@users.sourceforge.net> <547C5CBC.6060607@cogentembedded.com>	 <547C82A6.2030808@users.sourceforge.net>	 <547CA157.1080401@cogentembedded.com>	 <5480DA32.8000201@users.sourceforge.net>
+ 	 <5480DBDE.7040604@users.sourceforge.net>	 <1417731809.2721.17.camel@perches.com>	 <5480DFB5.4090708@users.sourceforge.net> <1417733101.2721.20.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <sfeldma@gmail.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	John Linville <linville@tuxdriver.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"buytenh@wantstofly.org" <buytenh@wantstofly.org>,
-	Aviad Raveh <aviadr@mellanox.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, shm@cumulusnetworks.com,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:38709 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751258AbaLEHKM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 02:10:12 -0500
-In-Reply-To: <548156C8.5060602@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
+	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Joe Perches <joe@perches.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1417733101.2721.20.camel@perches.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/4/14, 10:55 PM, John Fastabend wrote:
-> On 12/04/2014 10:41 PM, Scott Feldman wrote:
->> On Thu, Dec 4, 2014 at 6:26 PM, <roopa@cumulusnetworks.com> wrote:
->>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>> It's generally nicer to replace embedded function names
+>>> with "%s: ", __func__
 >>>
->>> This allows offloading to switch asic without having the user to set
->>> any flag. And this is done in the bridge driver to rollback kernel 
->>> settings
->>> on hw offload failure if required in the future.
->>>
->>> With this, it also makes sure a notification goes out only after the
->>> attributes are set both in the kernel and hw.
+>>> 			pr_warn("%s: cipher_encrypt failed\n", __func__);
 >>
->> I like this approach as it streamlines the steps for the user in
->> setting port flags.  There is one case for FLOODING where you'll have
->> to turn off flooding for both, and then turn on flooding in hw. You
->> don't want flooding turned on on kernel and hw.
->>
->>> ---
->>>   net/bridge/br_netlink.c |   27 ++++++++++++++++++++++++++-
->>>   1 file changed, 26 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
->>> index 9f5eb55..ce173f0 100644
->>> --- a/net/bridge/br_netlink.c
->>> +++ b/net/bridge/br_netlink.c
->>> @@ -407,9 +407,21 @@ int br_setlink(struct net_device *dev, struct 
->>> nlmsghdr *nlh)
->>>                                  afspec, RTM_SETLINK);
->>>          }
->>>
->>> +       if ((dev->features & NETIF_F_HW_SWITCH_OFFLOAD) &&
->>> + dev->netdev_ops->ndo_bridge_setlink) {
->>> +               int ret = dev->netdev_ops->ndo_bridge_setlink(dev, 
->>> nlh);
->>
->> I think you want to up-level this to net/core/rtnetlink.c because
->> you're only enabling the feature for one instance of a driver that
->> implements ndo_bridge_setlink: the bridge driver.  If another driver
->> was MASTER and implemented ndo_bridge_setlink, you'd want same check
->> to push setting down to SELF port driver.
->
-> Also if the user set SELF && MASTER flags && had HW_SWITCH_OFFLOAD bit
-> set we would call ndo_bridge_setlink twice on the dev. Maybe you can
-> catch this case in rtnetlink.c and only call it once.
+>> Do you want that I send a third patch series for the fine-tuning of these parameters?
+> 
+> If you want.
 
-yes, thought about this and when i looked at iproute2 code, it is either 
-master
-or self today and i don't think anybody else uses both flags with the 
-current
-kernel implementation. But yes, that does not stop anybody from setting 
-both flags.
-I will handle it better in v2.
->
->>
->>> +               if (ret && ret != -EOPNOTSUPP) {
->>> +                       /* XXX Fix this in the future to rollback
->>> +                        * kernel settings and return error
->>> +                        */
->>
->> The future is now.  Let's fix this now for the rollback case (again up
->> in rtnetlink.c).  So then a general question comes to mind: for these
->> dual target sets, is it best to try HW first and then SW, or the other
->> way around?  Either way, on failure on second you need to rollback
->> first.  And, on failure, you need to know rollback value for first, so
->> you have to do a getlink on first before attempting set.
->
-> It might be helpful to return some indication of what object failed as
-> well.
+Would "a committer" fix such a small source code adjustment also without a resend of
+a patch series?
 
-ok...
 
-thanks,
-Roopa
+> I just wanted you to be aware of it for future patches.
+
+Thanks for your tip.
+
+Does it make sense to express such implementation details in the Linux coding
+style documentation more explicitly (besides the fact that this update suggestion
+was also triggered by a warning from the script "checkpatch.pl").
+
+Regards,
+Markus
