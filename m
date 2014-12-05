@@ -1,45 +1,61 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 1/3] netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD
- feature flag for switch device offloads
-Date: Fri, 5 Dec 2014 22:43:20 +0000
-Message-ID: <20141205224320.GA22992@casper.infradead.org>
-References: <1417746401-8140-2-git-send-email-roopa@cumulusnetworks.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: [PATCH 3.17 100/122] net/ping: handle protocol mismatching scenario
+Date: Fri,  5 Dec 2014 14:44:34 -0800
+Message-ID: <20141205223321.034961165@linuxfoundation.org>
+References: <20141205223305.514276242@linuxfoundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jiri@resnulli.us, sfeldma@gmail.com, jhs@mojatatu.com,
-	bcrl@kvack.org, john.fastabend@gmail.com,
-	stephen@networkplumber.org, linville@tuxdriver.com,
-	nhorman@tuxdriver.com, nicolas.dichtel@6wind.com,
-	vyasevic@redhat.com, f.fainelli@gmail.com, buytenh@wantstofly.org,
-	aviadr@mellanox.com, netdev@vger.kernel.org, davem@davemloft.net,
-	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: roopa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:34577 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751041AbaLEWn0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 17:43:26 -0500
-Content-Disposition: inline
-In-Reply-To: <1417746401-8140-2-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	stable@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	Jane Zhou <a17711@motorola.com>,
+	Yiwei Zhao <gbjc64@motorola.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141205223305.514276242@linuxfoundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/04/14 at 06:26pm, roopa@cumulusnetworks.com wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> 
-> This is a generic high level feature flag for all switch asic features today.
-> 
-> switch drivers set this flag on switch ports. Logical devices like
-> bridge, bonds, vxlans can inherit this flag from their slaves/ports.
-> 
-> I had to use SWITCH in the name to avoid ambiguity with other feature
-> flags. But, since i have been harping about not calling it 'switch',
-> I am welcome to any suggestions :)
-> 
-> An alternative to using a feature flag is to use a IFF_HW_OFFLOAD
-> in net_device_flags.
+3.17-stable review patch.  If anyone has any objections, please let me know.
 
-What does this flag indicate specifically? What driver would
-implement ndo_bridge_setlink() but not set this flag?
+------------------
 
-I think it should be clearly documented when this flag is to bet set.
+From: Jane Zhou <a17711@motorola.com>
+
+commit 91a0b603469069cdcce4d572b7525ffc9fd352a6 upstream.
+
+ping_lookup() may return a wrong sock if sk_buff's and sock's protocols
+dont' match. For example, sk_buff's protocol is ETH_P_IPV6, but sock's
+sk_family is AF_INET, in that case, if sk->sk_bound_dev_if is zero, a wrong
+sock will be returned.
+the fix is to "continue" the searching, if no matching, return NULL.
+
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Jane Zhou <a17711@motorola.com>
+Signed-off-by: Yiwei Zhao <gbjc64@motorola.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+
+---
+ net/ipv4/ping.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -217,6 +217,8 @@ static struct sock *ping_lookup(struct n
+ 					     &ipv6_hdr(skb)->daddr))
+ 				continue;
+ #endif
++		} else {
++			continue;
+ 		}
+ 
+ 		if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif)
