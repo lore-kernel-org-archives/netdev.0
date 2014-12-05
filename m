@@ -1,7 +1,7 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 04/12] switch tcp_sock->ucopy from iovec (ucopy.iov) to msghdr (ucopy.msg)
-Date: Fri,  5 Dec 2014 05:58:45 +0000
-Message-ID: <1417759133-18370-4-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH 05/12] switch l2cap ->memcpy_fromiovec() to msghdr
+Date: Fri,  5 Dec 2014 05:58:46 +0000
+Message-ID: <1417759133-18370-5-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20141205055623.GQ29748@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
@@ -12,64 +12,83 @@ List-Id: netdev.vger.kernel.org
 
 From: Al Viro <viro@zeniv.linux.org.uk>
 
+it'll die soon enough - now that kvec-backed iov_iter works regardless
+of set_fs(), both instances will become copy_from_iter() as soon as
+we introduce ->msg_iter...
+
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- include/linux/tcp.h  | 2 +-
- net/ipv4/tcp.c       | 2 +-
- net/ipv4/tcp_input.c | 7 +++----
- 3 files changed, 5 insertions(+), 6 deletions(-)
+ include/net/bluetooth/l2cap.h | 6 +++---
+ net/bluetooth/l2cap_core.c    | 4 ++--
+ net/bluetooth/l2cap_sock.c    | 4 ++--
+ 3 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index f566b85..5d9cc9c 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -162,7 +162,7 @@ struct tcp_sock {
- 	struct {
- 		struct sk_buff_head	prequeue;
- 		struct task_struct	*task;
--		struct iovec		*iov;
-+		struct msghdr		*msg;
- 		int			memory;
- 		int			len;
- 	} ucopy;
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index dc13a36..4a96f37 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1729,7 +1729,7 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 			if (!user_recv && !(flags & (MSG_TRUNC | MSG_PEEK))) {
- 				user_recv = current;
- 				tp->ucopy.task = user_recv;
--				tp->ucopy.iov = msg->msg_iov;
-+				tp->ucopy.msg = msg;
- 			}
+diff --git a/include/net/bluetooth/l2cap.h b/include/net/bluetooth/l2cap.h
+index 061e648..4e23674 100644
+--- a/include/net/bluetooth/l2cap.h
++++ b/include/net/bluetooth/l2cap.h
+@@ -608,7 +608,7 @@ struct l2cap_ops {
+ 					       unsigned long len, int nb);
+ 	int			(*memcpy_fromiovec) (struct l2cap_chan *chan,
+ 						     unsigned char *kdata,
+-						     struct iovec *iov,
++						     struct msghdr *msg,
+ 						     int len);
+ };
  
- 			tp->ucopy.len = len;
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 69de1a1..075ab4d 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4421,7 +4421,7 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
- 			__set_current_state(TASK_RUNNING);
+@@ -905,13 +905,13 @@ static inline long l2cap_chan_no_get_sndtimeo(struct l2cap_chan *chan)
  
- 			local_bh_enable();
--			if (!skb_copy_datagram_iovec(skb, 0, tp->ucopy.iov, chunk)) {
-+			if (!skb_copy_datagram_msg(skb, 0, tp->ucopy.msg, chunk)) {
- 				tp->ucopy.len -= chunk;
- 				tp->copied_seq += chunk;
- 				eaten = (chunk == skb->len);
-@@ -4941,10 +4941,9 @@ static int tcp_copy_to_iovec(struct sock *sk, struct sk_buff *skb, int hlen)
+ static inline int l2cap_chan_no_memcpy_fromiovec(struct l2cap_chan *chan,
+ 						 unsigned char *kdata,
+-						 struct iovec *iov,
++						 struct msghdr *msg,
+ 						 int len)
+ {
+ 	/* Following is safe since for compiler definitions of kvec and
+ 	 * iovec are identical, yielding the same in-core layout and alignment
+ 	 */
+-	struct kvec *vec = (struct kvec *)iov;
++	struct kvec *vec = (struct kvec *)msg->msg_iov;
  
- 	local_bh_enable();
- 	if (skb_csum_unnecessary(skb))
--		err = skb_copy_datagram_iovec(skb, hlen, tp->ucopy.iov, chunk);
-+		err = skb_copy_datagram_msg(skb, hlen, tp->ucopy.msg, chunk);
- 	else
--		err = skb_copy_and_csum_datagram_iovec(skb, hlen,
--						       tp->ucopy.iov);
-+		err = skb_copy_and_csum_datagram_msg(skb, hlen, tp->ucopy.msg);
+ 	while (len > 0) {
+ 		if (vec->iov_len) {
+diff --git a/net/bluetooth/l2cap_core.c b/net/bluetooth/l2cap_core.c
+index 8e12731..5201d61 100644
+--- a/net/bluetooth/l2cap_core.c
++++ b/net/bluetooth/l2cap_core.c
+@@ -2097,7 +2097,7 @@ static inline int l2cap_skbuff_fromiovec(struct l2cap_chan *chan,
+ 	int sent = 0;
  
- 	if (!err) {
- 		tp->ucopy.len -= chunk;
+ 	if (chan->ops->memcpy_fromiovec(chan, skb_put(skb, count),
+-					msg->msg_iov, count))
++					msg, count))
+ 		return -EFAULT;
+ 
+ 	sent += count;
+@@ -2118,7 +2118,7 @@ static inline int l2cap_skbuff_fromiovec(struct l2cap_chan *chan,
+ 		*frag = tmp;
+ 
+ 		if (chan->ops->memcpy_fromiovec(chan, skb_put(*frag, count),
+-						msg->msg_iov, count))
++						msg, count))
+ 			return -EFAULT;
+ 
+ 		sent += count;
+diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
+index b0efb72..205b298 100644
+--- a/net/bluetooth/l2cap_sock.c
++++ b/net/bluetooth/l2cap_sock.c
+@@ -1338,9 +1338,9 @@ static struct sk_buff *l2cap_sock_alloc_skb_cb(struct l2cap_chan *chan,
+ 
+ static int l2cap_sock_memcpy_fromiovec_cb(struct l2cap_chan *chan,
+ 					  unsigned char *kdata,
+-					  struct iovec *iov, int len)
++					  struct msghdr *msg, int len)
+ {
+-	return memcpy_fromiovec(kdata, iov, len);
++	return memcpy_from_msg(kdata, msg, len);
+ }
+ 
+ static void l2cap_sock_ready_cb(struct l2cap_chan *chan)
 -- 
 2.1.3
