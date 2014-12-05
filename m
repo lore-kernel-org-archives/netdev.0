@@ -1,111 +1,252 @@
-From: <richard.alpe@ericsson.com>
-Subject: [PATCH] tipc: fix broadcast link wakeup after congestion
-Date: Fri, 5 Dec 2014 18:59:20 +0100
-Message-ID: <1417802360-5383-1-git-send-email-richard.alpe@ericsson.com>
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: Re: [net-next 04/14] ixgbe: remove CIAA/D register reads from bad
+ VF check
+Date: Fri, 05 Dec 2014 11:08:00 -0700
+Message-ID: <1417802880.15750.169.camel@bling.home>
+References: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1417801973-28793-5-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>,
-	Richard Alpe <richard.alpe@ericsson.com>,
-	Erik Hugne <erik.hugne@ericsson.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Emil Tantilov <emil.s.tantilov@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg23.ericsson.net ([193.180.251.37]:51345 "EHLO
-	sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751221AbaLESDm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 13:03:42 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:35187 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750748AbaLESIF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Dec 2014 13:08:05 -0500
+In-Reply-To: <1417801973-28793-5-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Alpe <richard.alpe@ericsson.com>
+On Fri, 2014-12-05 at 09:52 -0800, Jeff Kirsher wrote:
+> From: Emil Tantilov <emil.s.tantilov@intel.com>
+> 
+> Accessing the CIAA/D register can block access to the PCI config space.
+> 
+> This patch removes the read/write operations to the CIAA/D registers
+> and makes use of standard kernel functions for accessing the PCI config
+> space.
+> 
+> In addition it moves ixgbevf_check_for_bad_vf() into the watchdog subtask
+> which reduces the frequency of the checks.
+> 
+> CC: Alex Williamson <alex.williamson@redhat.com>
+> Reported-by: Alex Williamson <alex.williamson@redhat.com>
+> Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-commit 908344cdda80 ("tipc: fix bug in multicast congestion
-handling") introduced two bugs in the bclink wakeup function.
+This is slightly large for stable, but I'd really like to see it there
+too.  The commit log sort of glosses over the fact that reading VF
+config space is unreliably without this change.  Thanks,
 
-This patch fixes the missing spinlock init for the broadcast link
-waiting_sks list and eliminates a broadcast link wakeup race caused
-by operation on the wakeup list without proper locking.
+Alex
 
-Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-Acked-by: Tero Aho <Tero.Aho@coriant.com>
----
- net/tipc/bcast.c | 9 ++++++---
- net/tipc/link.c  | 8 ++++----
- net/tipc/node.c  | 2 +-
- 3 files changed, 11 insertions(+), 8 deletions(-)
-
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index f0761c7..96ceefe 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -233,8 +233,11 @@ static void bclink_retransmit_pkt(u32 after, u32 to)
-  */
- void tipc_bclink_wakeup_users(void)
- {
--	while (skb_queue_len(&bclink->link.waiting_sks))
--		tipc_sk_rcv(skb_dequeue(&bclink->link.waiting_sks));
-+	struct sk_buff *skb;
-+
-+	while ((skb = skb_dequeue(&bclink->link.waiting_sks)))
-+		tipc_sk_rcv(skb);
-+
- }
- 
- /**
-@@ -950,7 +953,7 @@ int tipc_bclink_init(void)
- 	spin_lock_init(&bclink->lock);
- 	__skb_queue_head_init(&bcl->outqueue);
- 	__skb_queue_head_init(&bcl->deferred_queue);
--	__skb_queue_head_init(&bcl->waiting_sks);
-+	skb_queue_head_init(&bcl->waiting_sks);
- 	bcl->next_out_no = 1;
- 	spin_lock_init(&bclink->node.lock);
- 	__skb_queue_head_init(&bclink->node.waiting_sks);
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 34bf15c..23bcc11 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -293,7 +293,7 @@ struct tipc_link *tipc_link_create(struct tipc_node *n_ptr,
- 	l_ptr->next_out_no = 1;
- 	__skb_queue_head_init(&l_ptr->outqueue);
- 	__skb_queue_head_init(&l_ptr->deferred_queue);
--	__skb_queue_head_init(&l_ptr->waiting_sks);
-+	skb_queue_head_init(&l_ptr->waiting_sks);
- 
- 	link_reset_statistics(l_ptr);
- 
-@@ -358,7 +358,7 @@ static bool link_schedule_user(struct tipc_link *link, u32 oport,
- 		return false;
- 	TIPC_SKB_CB(buf)->chain_sz = chain_sz;
- 	TIPC_SKB_CB(buf)->chain_imp = imp;
--	__skb_queue_tail(&link->waiting_sks, buf);
-+	skb_queue_tail(&link->waiting_sks, buf);
- 	link->stats.link_congs++;
- 	return true;
- }
-@@ -378,8 +378,8 @@ static void link_prepare_wakeup(struct tipc_link *link)
- 		if (pend_qsz >= link->queue_limit[TIPC_SKB_CB(skb)->chain_imp])
- 			break;
- 		pend_qsz += TIPC_SKB_CB(skb)->chain_sz;
--		__skb_unlink(skb, &link->waiting_sks);
--		__skb_queue_tail(&link->owner->waiting_sks, skb);
-+		skb_unlink(skb, &link->waiting_sks);
-+		skb_queue_tail(&link->owner->waiting_sks, skb);
- 	}
- }
- 
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 69b96be..8d353ec 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -115,7 +115,7 @@ struct tipc_node *tipc_node_create(u32 addr)
- 	INIT_LIST_HEAD(&n_ptr->list);
- 	INIT_LIST_HEAD(&n_ptr->publ_list);
- 	INIT_LIST_HEAD(&n_ptr->conn_sks);
--	__skb_queue_head_init(&n_ptr->waiting_sks);
-+	skb_queue_head_init(&n_ptr->waiting_sks);
- 	__skb_queue_head_init(&n_ptr->bclink.deferred_queue);
- 
- 	hlist_add_head_rcu(&n_ptr->hash, &node_htable[tipc_hashfn(addr)]);
--- 
-2.1.3
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 145 +++++++++++++-------------
+>  1 file changed, 74 insertions(+), 71 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> index 18ddffb..b519b89 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> @@ -6318,6 +6318,66 @@ static void ixgbe_watchdog_flush_tx(struct ixgbe_adapter *adapter)
+>  	}
+>  }
+>  
+> +#ifdef CONFIG_PCI_IOV
+> +static inline void ixgbe_issue_vf_flr(struct ixgbe_adapter *adapter,
+> +				      struct pci_dev *vfdev)
+> +{
+> +	if (!pci_wait_for_pending_transaction(vfdev))
+> +		e_dev_warn("Issuing VFLR with pending transactions\n");
+> +
+> +	e_dev_err("Issuing VFLR for VF %s\n", pci_name(vfdev));
+> +	pcie_capability_set_word(vfdev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_BCR_FLR);
+> +
+> +	msleep(100);
+> +}
+> +
+> +static void ixgbe_check_for_bad_vf(struct ixgbe_adapter *adapter)
+> +{
+> +	struct ixgbe_hw *hw = &adapter->hw;
+> +	struct pci_dev *pdev = adapter->pdev;
+> +	struct pci_dev *vfdev;
+> +	u32 gpc;
+> +	int pos;
+> +	unsigned short vf_id;
+> +
+> +	if (!(netif_carrier_ok(adapter->netdev)))
+> +		return;
+> +
+> +	gpc = IXGBE_READ_REG(hw, IXGBE_TXDGPC);
+> +	if (gpc) /* If incrementing then no need for the check below */
+> +		return;
+> +	/* Check to see if a bad DMA write target from an errant or
+> +	 * malicious VF has caused a PCIe error.  If so then we can
+> +	 * issue a VFLR to the offending VF(s) and then resume without
+> +	 * requesting a full slot reset.
+> +	 */
+> +
+> +	if (!pdev)
+> +		return;
+> +
+> +	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_SRIOV);
+> +	if (!pos)
+> +		return;
+> +
+> +	/* get the device ID for the VF */
+> +	pci_read_config_word(pdev, pos + PCI_SRIOV_VF_DID, &vf_id);
+> +
+> +	/* check status reg for all VFs owned by this PF */
+> +	vfdev = pci_get_device(pdev->vendor, vf_id, NULL);
+> +	while (vfdev) {
+> +		if (vfdev->is_virtfn && (vfdev->physfn == pdev)) {
+> +			u16 status_reg;
+> +
+> +			pci_read_config_word(vfdev, PCI_STATUS, &status_reg);
+> +			if (status_reg & PCI_STATUS_REC_MASTER_ABORT)
+> +				/* issue VFLR */
+> +				ixgbe_issue_vf_flr(adapter, vfdev);
+> +		}
+> +
+> +		vfdev = pci_get_device(pdev->vendor, vf_id, vfdev);
+> +	}
+> +}
+> +
+>  static void ixgbe_spoof_check(struct ixgbe_adapter *adapter)
+>  {
+>  	u32 ssvpc;
+> @@ -6338,6 +6398,17 @@ static void ixgbe_spoof_check(struct ixgbe_adapter *adapter)
+>  
+>  	e_warn(drv, "%u Spoofed packets detected\n", ssvpc);
+>  }
+> +#else
+> +static void ixgbe_spoof_check(struct ixgbe_adapter __always_unused *adapter)
+> +{
+> +}
+> +
+> +static void
+> +ixgbe_check_for_bad_vf(struct ixgbe_adapter __always_unused *adapter)
+> +{
+> +}
+> +#endif /* CONFIG_PCI_IOV */
+> +
+>  
+>  /**
+>   * ixgbe_watchdog_subtask - check and bring link up
+> @@ -6358,6 +6429,7 @@ static void ixgbe_watchdog_subtask(struct ixgbe_adapter *adapter)
+>  	else
+>  		ixgbe_watchdog_link_is_down(adapter);
+>  
+> +	ixgbe_check_for_bad_vf(adapter);
+>  	ixgbe_spoof_check(adapter);
+>  	ixgbe_update_stats(adapter);
+>  
+> @@ -6469,51 +6541,6 @@ static void ixgbe_sfp_link_config_subtask(struct ixgbe_adapter *adapter)
+>  	clear_bit(__IXGBE_IN_SFP_INIT, &adapter->state);
+>  }
+>  
+> -#ifdef CONFIG_PCI_IOV
+> -static void ixgbe_check_for_bad_vf(struct ixgbe_adapter *adapter)
+> -{
+> -	int vf;
+> -	struct ixgbe_hw *hw = &adapter->hw;
+> -	struct net_device *netdev = adapter->netdev;
+> -	u32 gpc;
+> -	u32 ciaa, ciad;
+> -
+> -	gpc = IXGBE_READ_REG(hw, IXGBE_TXDGPC);
+> -	if (gpc) /* If incrementing then no need for the check below */
+> -		return;
+> -	/*
+> -	 * Check to see if a bad DMA write target from an errant or
+> -	 * malicious VF has caused a PCIe error.  If so then we can
+> -	 * issue a VFLR to the offending VF(s) and then resume without
+> -	 * requesting a full slot reset.
+> -	 */
+> -
+> -	for (vf = 0; vf < adapter->num_vfs; vf++) {
+> -		ciaa = (vf << 16) | 0x80000000;
+> -		/* 32 bit read so align, we really want status at offset 6 */
+> -		ciaa |= PCI_COMMAND;
+> -		IXGBE_WRITE_REG(hw, IXGBE_CIAA_BY_MAC(hw), ciaa);
+> -		ciad = IXGBE_READ_REG(hw, IXGBE_CIAD_BY_MAC(hw));
+> -		ciaa &= 0x7FFFFFFF;
+> -		/* disable debug mode asap after reading data */
+> -		IXGBE_WRITE_REG(hw, IXGBE_CIAA_BY_MAC(hw), ciaa);
+> -		/* Get the upper 16 bits which will be the PCI status reg */
+> -		ciad >>= 16;
+> -		if (ciad & PCI_STATUS_REC_MASTER_ABORT) {
+> -			netdev_err(netdev, "VF %d Hung DMA\n", vf);
+> -			/* Issue VFLR */
+> -			ciaa = (vf << 16) | 0x80000000;
+> -			ciaa |= 0xA8;
+> -			IXGBE_WRITE_REG(hw, IXGBE_CIAA_BY_MAC(hw), ciaa);
+> -			ciad = 0x00008000;  /* VFLR */
+> -			IXGBE_WRITE_REG(hw, IXGBE_CIAD_BY_MAC(hw), ciad);
+> -			ciaa &= 0x7FFFFFFF;
+> -			IXGBE_WRITE_REG(hw, IXGBE_CIAA_BY_MAC(hw), ciaa);
+> -		}
+> -	}
+> -}
+> -
+> -#endif
+>  /**
+>   * ixgbe_service_timer - Timer Call-back
+>   * @data: pointer to adapter cast into an unsigned long
+> @@ -6522,7 +6549,6 @@ static void ixgbe_service_timer(unsigned long data)
+>  {
+>  	struct ixgbe_adapter *adapter = (struct ixgbe_adapter *)data;
+>  	unsigned long next_event_offset;
+> -	bool ready = true;
+>  
+>  	/* poll faster when waiting for link */
+>  	if (adapter->flags & IXGBE_FLAG_NEED_LINK_UPDATE)
+> @@ -6530,32 +6556,10 @@ static void ixgbe_service_timer(unsigned long data)
+>  	else
+>  		next_event_offset = HZ * 2;
+>  
+> -#ifdef CONFIG_PCI_IOV
+> -	/*
+> -	 * don't bother with SR-IOV VF DMA hang check if there are
+> -	 * no VFs or the link is down
+> -	 */
+> -	if (!adapter->num_vfs ||
+> -	    (adapter->flags & IXGBE_FLAG_NEED_LINK_UPDATE))
+> -		goto normal_timer_service;
+> -
+> -	/* If we have VFs allocated then we must check for DMA hangs */
+> -	ixgbe_check_for_bad_vf(adapter);
+> -	next_event_offset = HZ / 50;
+> -	adapter->timer_event_accumulator++;
+> -
+> -	if (adapter->timer_event_accumulator >= 100)
+> -		adapter->timer_event_accumulator = 0;
+> -	else
+> -		ready = false;
+> -
+> -normal_timer_service:
+> -#endif
+>  	/* Reset the timer */
+>  	mod_timer(&adapter->service_timer, next_event_offset + jiffies);
+>  
+> -	if (ready)
+> -		ixgbe_service_event_schedule(adapter);
+> +	ixgbe_service_event_schedule(adapter);
+>  }
+>  
+>  static void ixgbe_reset_subtask(struct ixgbe_adapter *adapter)
+> @@ -8643,8 +8647,7 @@ static pci_ers_result_t ixgbe_io_error_detected(struct pci_dev *pdev,
+>  		 * VFLR.  Just clean up the AER in that case.
+>  		 */
+>  		if (vfdev) {
+> -			e_dev_err("Issuing VFLR to VF %d\n", vf);
+> -			pci_write_config_dword(vfdev, 0xA8, 0x00008000);
+> +			ixgbe_issue_vf_flr(adapter, vfdev);
+>  			/* Free device reference count */
+>  			pci_dev_put(vfdev);
+>  		}
