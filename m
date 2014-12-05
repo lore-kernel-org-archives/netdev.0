@@ -1,106 +1,49 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/3] bridge: offload bridge port attributes to switch
- asic if feature flag set
-Date: Fri, 05 Dec 2014 16:21:48 +0300
-Message-ID: <5481B16C.8050904@cogentembedded.com>
-References: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH][net-next] net: avoid to call skb_queue_len again
+Date: Fri, 05 Dec 2014 05:24:41 -0800
+Message-ID: <1417785881.4322.0.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1417772948-17909-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: roopa@cumulusnetworks.com, jiri@resnulli.us, sfeldma@gmail.com,
-	jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
-	john.fastabend@gmail.com, stephen@networkplumber.org,
-	linville@tuxdriver.com, nhorman@tuxdriver.com,
-	nicolas.dichtel@6wind.com, vyasevic@redhat.com,
-	f.fainelli@gmail.com, buytenh@wantstofly.org, aviadr@mellanox.com
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:46403 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750907AbaLENVv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 08:21:51 -0500
-Received: by mail-lb0-f169.google.com with SMTP id p9so528820lbv.28
-        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 05:21:50 -0800 (PST)
-In-Reply-To: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:33569 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750933AbaLENYq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 08:24:46 -0500
+Received: by mail-ig0-f170.google.com with SMTP id r2so755638igi.3
+        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 05:24:45 -0800 (PST)
+In-Reply-To: <1417772948-17909-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 12/5/2014 5:26 AM, roopa@cumulusnetworks.com wrote:
-
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-
-> This allows offloading to switch asic without having the user to set
-> any flag. And this is done in the bridge driver to rollback kernel settings
-> on hw offload failure if required in the future.
-
-> With this, it also makes sure a notification goes out only after the
-> attributes are set both in the kernel and hw.
+On Fri, 2014-12-05 at 17:49 +0800, roy.qing.li@gmail.com wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
+> 
+> the queue length of sd->input_pkt_queue has been putted into qlen,
+> and impossible to change, since hold the lock
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 > ---
->   net/bridge/br_netlink.c |   27 ++++++++++++++++++++++++++-
->   1 file changed, 26 insertions(+), 1 deletion(-)
+>  net/core/dev.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 0814a56..b954400 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -3297,7 +3297,7 @@ static int enqueue_to_backlog(struct sk_buff *skb, int cpu,
+>  	rps_lock(sd);
+>  	qlen = skb_queue_len(&sd->input_pkt_queue);
+>  	if (qlen <= netdev_max_backlog && !skb_flow_limit(skb, qlen)) {
+> -		if (skb_queue_len(&sd->input_pkt_queue)) {
+> +		if (qlen) {
+>  enqueue:
+>  			__skb_queue_tail(&sd->input_pkt_queue, skb);
+>  			input_queue_tail_incr_save(sd, qtail);
 
-> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-> index 9f5eb55..ce173f0 100644
-> --- a/net/bridge/br_netlink.c
-> +++ b/net/bridge/br_netlink.c
-> @@ -407,9 +407,21 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
->   				afspec, RTM_SETLINK);
->   	}
->
-> +	if ((dev->features & NETIF_F_HW_SWITCH_OFFLOAD) &&
-> +			dev->netdev_ops->ndo_bridge_setlink) {
-> +		int ret = dev->netdev_ops->ndo_bridge_setlink(dev, nlh);
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-    Need empty line after declaration.
-
-> +		if (ret && ret != -EOPNOTSUPP) {
-> +			/* XXX Fix this in the future to rollback
-> +			 * kernel settings and return error
-> +			 */
-> +			br_warn(p->br, "error offloading bridge attributes "
-> +					"on port %u(%s)\n", (unsigned int) p->port_no,
-
-    Don't break up the message strings. Also, your continuation lines should 
-start under the next character after ( on the first line.
-
-> +					p->dev->name);
-> +		}
-> +	}
-> +
->   	if (err == 0)
->   		br_ifinfo_notify(RTM_NEWLINK, p);
-> -
-
-    Why?
-
->   out:
->   	return err;
->   }
-> @@ -433,6 +445,19 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh)
->   	err = br_afspec((struct net_bridge *)netdev_priv(dev), p,
->   			afspec, RTM_DELLINK);
->
-> +	if (dev->features & NETIF_F_HW_SWITCH_OFFLOAD
-> +			&& dev->netdev_ops->ndo_bridge_setlink) {
-> +		int ret = dev->netdev_ops->ndo_bridge_dellink(dev, nlh);
-> +		if (ret && ret != -EOPNOTSUPP) {
-> +			/* XXX Fix this in the future to rollback
-> +			 * kernel settings and return error
-> +			 */
-> +			br_warn(p->br, "error offloading bridge attributes "
-> +					"on port %u(%s)\n", (unsigned int) p->port_no,
-> +					p->dev->name);
-
-    Same comments here.
-
-> +		}
-> +	}
-> +
->   	return err;
->   }
->   static int br_validate(struct nlattr *tb[], struct nlattr *data[])
-
-WBR, Sergei
+Thanks !
