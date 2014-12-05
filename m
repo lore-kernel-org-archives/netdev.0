@@ -1,51 +1,107 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: 3.12.33 - BUG xfrm_selector_match+0x25/0x2f6
-Date: Fri, 5 Dec 2014 11:53:31 +0100
-Message-ID: <20141205105331.GI6390@secunet.com>
-References: <547F2462.6040405@smart-weblications.de>
- <20141204075627.GE6390@secunet.com>
- <alpine.LFD.2.11.1412042338370.4841@ja.home.ssi.bg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Smart Weblications GmbH - Florian Wiessner
-	<f.wiessner@smart-weblications.de>, <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, <stable@vger.kernel.org>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.11.1412042338370.4841@ja.home.ssi.bg>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2 REGRESSIONS] ss: Fix layout issues introduced by regression
+Date: Fri,  5 Dec 2014 13:16:09 +0200
+Message-ID: <1417778169-12339-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f43.google.com ([209.85.215.43]:36656 "EHLO
+	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750749AbaLELZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 06:25:57 -0500
+Received: by mail-la0-f43.google.com with SMTP id ge10so491707lab.16
+        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 03:25:55 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 05, 2014 at 01:15:51AM +0200, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Thu, 4 Dec 2014, Steffen Klassert wrote:
-> 
-> > > [16623.096721] Call Trace:
-> > > [16623.096744]  <IRQ>
-> > > [16623.096749]  [<ffffffff81547a7c>] ? xfrm_sk_policy_lookup+0x44/0x9b
-> > > [16623.096802]  [<ffffffff81547ef7>] ? xfrm_lookup+0x91/0x446
-> > > [16623.096832]  [<ffffffff81541316>] ? ip_route_me_harder+0x150/0x1b0
-> > > [16623.096865]  [<ffffffffa01b6457>] ? ip_vs_route_me_harder+0x86/0x91 [ip_vs]
-> > > [16623.096899]  [<ffffffffa01b797a>] ? ip_vs_out+0x2d3/0x5bc [ip_vs]
-> > > [16623.096930]  [<ffffffff81501420>] ? ip_rcv_finish+0x2b8/0x2b8
-> > 
-> > I really wonder why the xfrm_sk_policy_lookup codepath is taken here.
-> > It looks like this is the processing of an inbound ipv4 packet that
-> > is going to be rerouted to the output path by ipvs, so this packet
-> > should not have socket context at all.
-> 
-> 	In above trace looks like IPVS-NAT is used between
-> local client and some real server. IPVS handles this skb
-> at LOCAL_IN and calls ip_vs_route_me_harder(). If we have
-> skb->sk at LOCAL_IN, my first thought is about early demux.
+This patch fixes the following issues which was introduced
+by me in commits:
 
-Yes, that's possible. Can be checked by disabling early demux.
-echo 0 > /proc/sys/net/ipv4/ip_early_demux
+    #1 (2dc854854b7f1b) ss: Fixed broken output for Netlink 'Peer Address:Port' column
+    ISSUE: Broken layout when all sockets are printed out
 
-If I look what it tries to dereference when the crash happens,
-this does not look like a pointer. But sk->sk_policy[dir]
-should be either a pointer to kernel memory or NULL. So I
-think that the skb->sk pointer is already bogus.
+    #2 (eef43b5052afb7) ss: Identify more netlink protocol names
+    ISSUE: PID is not printed if only numbers output was specified (-n)
+
+Also aligned the width of the local/peer ports to be more wider.
+
+I tested with a lot of option combinations (I may miss some test cases),
+but layout seems to me better even on the previous released version
+of iproute2/ss.
+
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ misc/ss.c | 30 ++++++++++--------------------
+ 1 file changed, 10 insertions(+), 20 deletions(-)
+
+diff --git a/misc/ss.c b/misc/ss.c
+index a99294d..8abaaff 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -101,8 +101,6 @@ int state_width;
+ int addrp_width;
+ int addr_width;
+ int serv_width;
+-int paddr_width;
+-int pserv_width;
+ int screen_width;
+ 
+ static const char *TCP_PROTO = "tcp";
+@@ -2912,11 +2910,12 @@ static void netlink_show_one(struct filter *f,
+ 		printf("%-*s ", state_width, "UNCONN");
+ 	printf("%-6d %-6d ", rq, wq);
+ 
+-	if (resolve_services)
+-	{
++	if (resolve_services) {
+ 		printf("%*s:", addr_width, nl_proto_n2a(prot, prot_name,
+ 					sizeof(prot_name)));
+-	}
++	} else
++		printf("%*d:", addr_width, prot);
++
+ 
+ 	if (pid == -1) {
+ 		printf("%-*s ", serv_width, "*");
+@@ -2947,10 +2946,10 @@ static void netlink_show_one(struct filter *f,
+ 
+ 	if (state == NETLINK_CONNECTED) {
+ 		printf("%*d:%-*d",
+-		       paddr_width, dst_group, pserv_width, dst_pid);
++		       addr_width, dst_group, serv_width, dst_pid);
+ 	} else {
+ 		printf("%*s*%-*s",
+-		       paddr_width, "", pserv_width, "");
++		       addr_width, "", serv_width, "");
+ 	}
+ 
+ 	char *pid_context = NULL;
+@@ -3684,22 +3683,13 @@ int main(int argc, char *argv[])
+ 		printf("%-*s ", state_width, "State");
+ 	printf("%-6s %-6s ", "Recv-Q", "Send-Q");
+ 
+-	paddr_width = addr_width;
+-	pserv_width = serv_width;
+-
+-	/* Netlink service column can be resolved as process name/pid thus it
+-	 * can be much wider than address column which is just a
+-	 * protocol name/id.
+-	 */
+-	if (current_filter.dbs & (1<<NETLINK_DB)) {
+-		serv_width = addr_width - 10;
+-		paddr_width = 13;
+-		pserv_width = 13;
+-	}
++	/* Make enough space for the local/remote port field */
++	addr_width -= 13;
++	serv_width += 13;
+ 
+ 	printf("%*s:%-*s %*s:%-*s\n",
+ 	       addr_width, "Local Address", serv_width, "Port",
+-	       paddr_width, "Peer Address", pserv_width, "Port");
++	       addr_width, "Peer Address", serv_width, "Port");
+ 
+ 	fflush(stdout);
+ 
+-- 
+2.1.3
