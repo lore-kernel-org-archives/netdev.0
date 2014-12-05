@@ -1,46 +1,32 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [patch net-next v2 1/2] rocker: introduce be put/get variants
- and use it when appropriate
-Date: Fri, 5 Dec 2014 09:57:43 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CA033CC@AcuExch.aculab.com>
-References: <1417612494-3788-1-git-send-email-jiri@resnulli.us>
- <CAE4R7bAgSji_rt3147Kt8jqyT5_yqBCbKjSLgZVa8xkRc0dndA@mail.gmail.com>
+From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Is this 32-bit NCM?y
+Date: Fri, 5 Dec 2014 10:59:19 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1412051057580.2684@gmail.com>
+References: <AMSPR06MB6011E001029C251790CB923EE780@AMSPR06MB601.eurprd06.prod.outlook.com> <877fy7myfb.fsf@nemi.mork.no> <alpine.LNX.2.03.1412041326160.9926@gmail.com> <54811670.5030703@audiocodes.com> <8761dqjuuh.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: 'Scott Feldman' <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:45609 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753289AbaLEJ61 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2014 04:58:27 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 07098-03 for <netdev@vger.kernel.org>;
- Fri,  5 Dec 2014 09:58:18 +0000 (GMT)
-In-Reply-To: <CAE4R7bAgSji_rt3147Kt8jqyT5_yqBCbKjSLgZVa8xkRc0dndA@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	Midge Shaojun Tan <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <8761dqjuuh.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogU2NvdHQgRmVsZG1hbg0KPiBTaWduZWQtb2ZmLWJ5OiBTY290dCBGZWxkbWFuIDxzZmVs
-ZG1hQGdtYWlsLmNvbT4NCj4gDQo+IE9uIFdlZCwgRGVjIDMsIDIwMTQgYXQgNToxNCBBTSwgSmly
-aSBQaXJrbyA8amlyaUByZXNudWxsaS51cz4gd3JvdGU6DQo+ID4gVGhpcyBraWxscyB0aGUgc3Bh
-cnNlIHdhcm5pbmdzLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogSmlyaSBQaXJrbyA8amlyaUBy
-ZXNudWxsaS51cz4NCj4gPiAtLS0NCj4gPiB2MS0+djI6DQo+ID4gLW5vIGNoYW5nZQ0KPiA+IC0t
-LQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9yb2NrZXIvcm9ja2VyLmMgfCA3OSArKysrKysr
-KysrKysrKysrKysrKysrLS0tLS0tLS0tLS0tLS0NCj4gPiAgMSBmaWxlIGNoYW5nZWQsIDQ4IGlu
-c2VydGlvbnMoKyksIDMxIGRlbGV0aW9ucygtKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L3JvY2tlci9yb2NrZXIuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Jv
-Y2tlci9yb2NrZXIuYw0KPiA+IGluZGV4IGZkZWQxMjcuLjRiMDYwZmIgMTAwNjQ0DQo+ID4gLS0t
-IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvcm9ja2VyL3JvY2tlci5jDQo+ID4gKysrIGIvZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvcm9ja2VyL3JvY2tlci5jDQo+ID4gQEAgLTY0OCw2ICs2NDgsMTEgQEAg
-c3RhdGljIHUxNiByb2NrZXJfdGx2X2dldF91MTYoY29uc3Qgc3RydWN0IHJvY2tlcl90bHYgKnRs
-dikNCj4gPiAgICAgICAgIHJldHVybiAqKHUxNiAqKSByb2NrZXJfdGx2X2RhdGEodGx2KTsNCj4g
-PiAgfQ0KPiA+DQo+ID4gK3N0YXRpYyBfX2JlMTYgcm9ja2VyX3Rsdl9nZXRfYmUxNihjb25zdCBz
-dHJ1Y3Qgcm9ja2VyX3RsdiAqdGx2KQ0KPiA+ICt7DQo+ID4gKyAgICAgICByZXR1cm4gKihfX2Jl
-MTYgKikgcm9ja2VyX3Rsdl9kYXRhKHRsdik7DQo+ID4gK30NCg0KKihpbnRfdHlwZSAqKWZvbyBh
-bHdheXMgcmluZ3MgYWxhcm0gYmVsbHMuLi4uLg0KDQpUaGF0IGxvb2tzIGR1YmlvdXMgb24gc3lz
-dGVtcyB3aGVyZSBtaXNhbGlnbmVkIHRyYW5zZmVycyBmYXVsdC4NCg0KCURhdmlkDQoNCg==
+Yes Bjorn: I should say that's true.
+and - in general, touching the device driver to make it flexible is surely
+important, especially to make it more easy to fix / "expand" in the future.
+I was referring to modifying the huawei_cdc_ncm.c driver only for specific 
+huawei workarounds / firmware misbehaviours.
+
+thank to everyone,
+Enrico
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
