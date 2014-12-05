@@ -1,40 +1,58 @@
-From: James Byrne <james.byrne@origamienergy.com>
-Subject: [PATCH 1/1] net: macb: Remove obsolete comment from Kconfig
-Date: Fri,  5 Dec 2014 13:03:53 +0000
-Message-ID: <1417784633-13360-1-git-send-email-james.byrne@origamienergy.com>
-Cc: netdev@vger.kernel.org, James Byrne <james.byrne@origamienergy.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 3/3] rocker: set feature NETIF_F_HW_SWITCH_OFFLOAD
+Date: Fri, 05 Dec 2014 16:18:26 +0300
+Message-ID: <5481B0A2.9070109@cogentembedded.com>
+References: <1417746401-8140-4-git-send-email-roopa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
+To: roopa@cumulusnetworks.com, jiri@resnulli.us, sfeldma@gmail.com,
+	jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
+	john.fastabend@gmail.com, stephen@networkplumber.org,
+	linville@tuxdriver.com, nhorman@tuxdriver.com,
+	nicolas.dichtel@6wind.com, vyasevic@redhat.com,
+	f.fainelli@gmail.com, buytenh@wantstofly.org, aviadr@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp01.dentaku.gol.com ([203.216.5.71]:35847 "EHLO
-	smtp01.dentaku.gol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751258AbaLENNO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 08:13:14 -0500
+Received: from mail-lb0-f176.google.com ([209.85.217.176]:39189 "EHLO
+	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750748AbaLENSb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 08:18:31 -0500
+Received: by mail-lb0-f176.google.com with SMTP id p9so525775lbv.35
+        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 05:18:29 -0800 (PST)
+In-Reply-To: <1417746401-8140-4-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Kconfig file says that Gigabit mode is not supported, but it has been
-supported since commit 140b7552fdff04bbceeb842f0e04f0b4015fe97b ("net/macb:
-Add support for Gigabit Ethernet mode").
+Hello.
 
-Signed-off-by: James Byrne <james.byrne@origamienergy.com>
----
- drivers/net/ethernet/cadence/Kconfig | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+On 12/5/2014 5:26 AM, roopa@cumulusnetworks.com wrote:
 
-diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/ethernet/cadence/Kconfig
-index 9e089d2..6932be0 100644
---- a/drivers/net/ethernet/cadence/Kconfig
-+++ b/drivers/net/ethernet/cadence/Kconfig
-@@ -35,8 +35,8 @@ config MACB
- 	---help---
- 	  The Cadence MACB ethernet interface is found on many Atmel AT32 and
- 	  AT91 parts.  This driver also supports the Cadence GEM (Gigabit
--	  Ethernet MAC found in some ARM SoC devices).  Note: the Gigabit mode
--	  is not yet supported.  Say Y to include support for the MACB/GEM chip.
-+	  Ethernet MAC found in some ARM SoC devices).  Say Y to include
-+	  support for the MACB/GEM chip.
- 
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called macb.
--- 
-1.9.1
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+
+> This patch just sets the feature flag on rocker ports
+
+    You didn't sign off on any of your patches, hence they can't be applied.
+
+> ---
+>   drivers/net/ethernet/rocker/rocker.c |    3 ++-
+>   1 file changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+> index fded127..3fe19b0 100644
+> --- a/drivers/net/ethernet/rocker/rocker.c
+> +++ b/drivers/net/ethernet/rocker/rocker.c
+> @@ -4003,7 +4003,8 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+>   		       NAPI_POLL_WEIGHT);
+>   	rocker_carrier_init(rocker_port);
+>
+> -	dev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+> +	dev->features |= NETIF_F_HW_VLAN_CTAG_FILTER |
+> +					 NETIF_F_HW_SWITCH_OFFLOAD;
+
+    There was no need tho break the line.
+
+[...]
+
+WBR, Sergei
