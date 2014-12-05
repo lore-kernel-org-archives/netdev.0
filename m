@@ -1,7 +1,7 @@
 From: roopa@cumulusnetworks.com
-Subject: [PATCH net-next 0/3] switchdev offload flags
-Date: Thu,  4 Dec 2014 18:26:38 -0800
-Message-ID: <1417746401-8140-1-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH 1/3] netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD feature flag for switch device offloads
+Date: Thu,  4 Dec 2014 18:26:39 -0800
+Message-ID: <1417746401-8140-2-git-send-email-roopa@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	shm@cumulusnetworks.com, gospo@cumulusnetworks.com,
 	Roopa Prabhu <roopa@cumulusnetworks.com>
@@ -12,64 +12,49 @@ To: jiri@resnulli.us, sfeldma@gmail.com, jhs@mojatatu.com,
 	vyasevic@redhat.com, f.fainelli@gmail.com, buytenh@wantstofly.org,
 	aviadr@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:38120 "EHLO
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:38152 "EHLO
 	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932378AbaLEC0l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 21:26:41 -0500
+	with ESMTP id S932378AbaLEC0m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 21:26:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-This patch series only addresses bridge link attribute offloads to hardware.
+This is a generic high level feature flag for all switch asic features today.
 
-It is a continuation of my previous series on switchdev policy attributes:
-http://www.spinics.net/lists/netdev/msg305469.html
+switch drivers set this flag on switch ports. Logical devices like
+bridge, bonds, vxlans can inherit this flag from their slaves/ports.
 
-Looking at the current state of bridge l2 offload in the kernel,
-    - flag 'self' is the way to directly manage the bridge device in hw via
-      the ndo_bridge_setlink/ndo_bridge_getlink calls
+I had to use SWITCH in the name to avoid ambiguity with other feature
+flags. But, since i have been harping about not calling it 'switch',
+I am welcome to any suggestions :)
+
+An alternative to using a feature flag is to use a IFF_HW_OFFLOAD
+in net_device_flags.
+---
+ include/linux/netdev_features.h |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index 8e30685..68db1de 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -66,6 +66,7 @@ enum {
+ 	NETIF_F_HW_VLAN_STAG_FILTER_BIT,/* Receive filtering on VLAN STAGs */
+ 	NETIF_F_HW_L2FW_DOFFLOAD_BIT,	/* Allow L2 Forwarding in Hardware */
+ 	NETIF_F_BUSY_POLL_BIT,		/* Busy poll */
++	NETIF_F_HW_SWITCH_OFFLOAD_BIT,  /* HW switch offload */
  
-    - flag 'master' is always used to manage the in kernel bridge devices
-      via the same ndo_bridge_setlink/ndo_bridge_getlink calls
-
-Today these are used separately. The nic offloads use hwmode "vepa/veb" to go
-directly to hw with the "self" flag.
-
-At this point i am trying not to introduce any new user facing flags/attributes.
-
-In the model where we want the kernel bridge device to be offloaded to
-hardware (In other words, sync kernel bridge state to hw),
-we very much want the bridge driver to be involved.
-
-With this patch series,
-When the user sends a bridge setlink message, it will come in with 'master',
-        - go to the bridge device,
-        - set settings in the kernel
-        - if offload mode is set on the port, also call the port driver
-          offload ndo_bridge_setlink
-        If you want to act on the hw alone, you can still use the self flag to
-        go to the hw or port driver directly.
-        (There is no need to specify a hardware mode to go to the port driver)
-
-(To selectively offload bridge port attributes,
-example learning in hw only etc, we can introduce offload bits for 
-per bridge port flag attribute as in my previous patch
-https://patchwork.ozlabs.org/patch/413211/. I have not included that in this
-series)
-
-
-Roopa Prabhu (3):
-  netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD feature flag for
-    switch device offloads
-  bridge: offload bridge port attributes to switch asic if feature flag
-    set
-  rocker: set feature NETIF_F_HW_SWITCH_OFFLOAD
-
- drivers/net/ethernet/rocker/rocker.c |    3 ++-
- include/linux/netdev_features.h      |    2 ++
- net/bridge/br_netlink.c              |   27 ++++++++++++++++++++++++++-
- 3 files changed, 30 insertions(+), 2 deletions(-)
-
+ 	/*
+ 	 * Add your fresh new feature above and remember to update
+@@ -124,6 +125,7 @@ enum {
+ #define NETIF_F_HW_VLAN_STAG_TX	__NETIF_F(HW_VLAN_STAG_TX)
+ #define NETIF_F_HW_L2FW_DOFFLOAD	__NETIF_F(HW_L2FW_DOFFLOAD)
+ #define NETIF_F_BUSY_POLL	__NETIF_F(BUSY_POLL)
++#define NETIF_F_HW_SWITCH_OFFLOAD	__NETIF_F(HW_SWITCH_OFFLOAD)
+ 
+ /* Features valid for ethtool to change */
+ /* = all defined minus driver/device-class-related */
 -- 
 1.7.10.4
