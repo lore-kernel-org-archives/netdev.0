@@ -1,104 +1,51 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH] broadcom: Add BCM54616S phy support
-Date: Fri, 5 Dec 2014 10:44:43 +0000
-Message-ID: <BLUPR03MB373AD2D2CDBBC0D4F9B48BAF5790@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <1417770960-4578-1-git-send-email-alessio.bogani@elettra.eu>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: 3.12.33 - BUG xfrm_selector_match+0x25/0x2f6
+Date: Fri, 5 Dec 2014 11:53:31 +0100
+Message-ID: <20141205105331.GI6390@secunet.com>
+References: <547F2462.6040405@smart-weblications.de>
+ <20141204075627.GE6390@secunet.com>
+ <alpine.LFD.2.11.1412042338370.4841@ja.home.ssi.bg>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alessio Igor Bogani <alessio.bogani@elettra.eu>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0107.outbound.protection.outlook.com ([65.55.169.107]:14264
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750840AbaLEKor convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 05:44:47 -0500
-In-Reply-To: <1417770960-4578-1-git-send-email-alessio.bogani@elettra.eu>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Smart Weblications GmbH - Florian Wiessner
+	<f.wiessner@smart-weblications.de>, <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, <stable@vger.kernel.org>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.11.1412042338370.4841@ja.home.ssi.bg>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alessio Igor Bogani <alessio.bogani@elettra.eu>
-> Sent: Friday, December 05, 2014 5:16 PM
-> To: Florian Fainelli
-> Cc: netdev@vger.kernel.org; Alessio Igor Bogani
-> Subject: [PATCH] broadcom: Add BCM54616S phy support
+On Fri, Dec 05, 2014 at 01:15:51AM +0200, Julian Anastasov wrote:
 > 
-> Signed-off-by: Alessio Igor Bogani <alessio.bogani@elettra.eu>
-> ---
->  drivers/net/phy/Kconfig    |  4 ++--
->  drivers/net/phy/broadcom.c | 14 ++++++++++++++
->  include/linux/brcmphy.h    |  1 +
->  3 files changed, 17 insertions(+), 2 deletions(-)
+> 	Hello,
 > 
-> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig index
-> 75472cf7..eb35dcb 100644
-> --- a/drivers/net/phy/Kconfig
-> +++ b/drivers/net/phy/Kconfig
-> @@ -68,8 +68,8 @@ config SMSC_PHY
->  config BROADCOM_PHY
->  	tristate "Drivers for Broadcom PHYs"
->  	---help---
-> -	  Currently supports the BCM5411, BCM5421, BCM5461, BCM5464,
-> BCM5481
-> -	  and BCM5482 PHYs.
-> +	  Currently supports the BCM5411, BCM5421, BCM5461, BCM54616S,
-> BCM5464,
-> +	  BCM5481 and BCM5482 PHYs.
+> On Thu, 4 Dec 2014, Steffen Klassert wrote:
 > 
->  config BCM63XX_PHY
->  	tristate "Drivers for Broadcom 63xx SOCs internal PHY"
-> diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
-> index 854f2c9..74cbf45 100644
-> --- a/drivers/net/phy/broadcom.c
-> +++ b/drivers/net/phy/broadcom.c
-> @@ -549,6 +549,19 @@ static struct phy_driver broadcom_drivers[] = {
->  	.config_intr	= bcm54xx_config_intr,
->  	.driver		= { .owner = THIS_MODULE },
->  }, {
-> +	.phy_id		= PHY_ID_BCM54616S,
-> +	.phy_id_mask	= 0xfffffff0,
-> +	.name		= "Broadcom BCM54616S",
-> +	.features	= PHY_GBIT_FEATURES |
-> +			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
-> +	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-> +	.config_init	= bcm54xx_config_init,
-> +	.config_aneg	= genphy_config_aneg,
-> +	.read_status	= genphy_read_status,
-> +	.ack_interrupt	= bcm54xx_ack_interrupt,
-> +	.config_intr	= bcm54xx_config_intr,
-> +	.driver		= { .owner = THIS_MODULE },
-> +}, {
->  	.phy_id		= PHY_ID_BCM5464,
->  	.phy_id_mask	= 0xfffffff0,
->  	.name		= "Broadcom BCM5464",
-> @@ -673,6 +686,7 @@ static struct mdio_device_id __maybe_unused
-> broadcom_tbl[] = {
->  	{ PHY_ID_BCM5411, 0xfffffff0 },
->  	{ PHY_ID_BCM5421, 0xfffffff0 },
->  	{ PHY_ID_BCM5461, 0xfffffff0 },
-> +	{ PHY_ID_BCM54616S, 0xfffffff0 },
->  	{ PHY_ID_BCM5464, 0xfffffff0 },
->  	{ PHY_ID_BCM5482, 0xfffffff0 },
->  	{ PHY_ID_BCM5482, 0xfffffff0 },
-> diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h index
-> 7ccd928..1c9920b 100644
-> --- a/include/linux/brcmphy.h
-> +++ b/include/linux/brcmphy.h
-> @@ -11,6 +11,7 @@
->  #define PHY_ID_BCM5421			0x002060e0
->  #define PHY_ID_BCM5464			0x002060b0
->  #define PHY_ID_BCM5461			0x002060c0
-> +#define PHY_ID_BCM54616S		0x03625d10
->  #define PHY_ID_BCM57780			0x03625d90
+> > > [16623.096721] Call Trace:
+> > > [16623.096744]  <IRQ>
+> > > [16623.096749]  [<ffffffff81547a7c>] ? xfrm_sk_policy_lookup+0x44/0x9b
+> > > [16623.096802]  [<ffffffff81547ef7>] ? xfrm_lookup+0x91/0x446
+> > > [16623.096832]  [<ffffffff81541316>] ? ip_route_me_harder+0x150/0x1b0
+> > > [16623.096865]  [<ffffffffa01b6457>] ? ip_vs_route_me_harder+0x86/0x91 [ip_vs]
+> > > [16623.096899]  [<ffffffffa01b797a>] ? ip_vs_out+0x2d3/0x5bc [ip_vs]
+> > > [16623.096930]  [<ffffffff81501420>] ? ip_rcv_finish+0x2b8/0x2b8
+> > 
+> > I really wonder why the xfrm_sk_policy_lookup codepath is taken here.
+> > It looks like this is the processing of an inbound ipv4 packet that
+> > is going to be rerouted to the output path by ipvs, so this packet
+> > should not have socket context at all.
 > 
->  #define PHY_ID_BCM7250			0xae025280
-> --
+> 	In above trace looks like IPVS-NAT is used between
+> local client and some real server. IPVS handles this skb
+> at LOCAL_IN and calls ip_vs_route_me_harder(). If we have
+> skb->sk at LOCAL_IN, my first thought is about early demux.
 
-Some other question:
-Do you know the current phy driver support BCM54220B0KFBG phy ?
+Yes, that's possible. Can be checked by disabling early demux.
+echo 0 > /proc/sys/net/ipv4/ip_early_demux
 
-Regards,
-Andy
+If I look what it tries to dereference when the crash happens,
+this does not look like a pointer. But sk->sk_policy[dir]
+should be either a pointer to kernel memory or NULL. So I
+think that the skb->sk pointer is already bogus.
