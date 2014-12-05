@@ -1,42 +1,100 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH][net-next] net: avoid to call skb_queue_len again
-Date: Fri, 05 Dec 2014 06:31:10 -0800
-Message-ID: <1417789870.15618.1.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1417772948-17909-1-git-send-email-roy.qing.li@gmail.com>
-	 <5481BBF2.40806@cogentembedded.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH 2/3] bridge: offload bridge port attributes to switch
+ asic if feature flag set
+Date: Fri, 05 Dec 2014 06:37:45 -0800
+Message-ID: <5481C339.7050704@cumulusnetworks.com>
+References: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com> <20141205073840.GA1866@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: roy.qing.li@gmail.com, netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
+	john.fastabend@gmail.com, stephen@networkplumber.org,
+	linville@tuxdriver.com, nhorman@tuxdriver.com,
+	nicolas.dichtel@6wind.com, vyasevic@redhat.com,
+	f.fainelli@gmail.com, buytenh@wantstofly.org, aviadr@mellanox.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:51612 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750965AbaLEObM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 09:31:12 -0500
-Received: by mail-ig0-f176.google.com with SMTP id l13so913088iga.9
-        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 06:31:11 -0800 (PST)
-In-Reply-To: <5481BBF2.40806@cogentembedded.com>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:37383 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750896AbaLEOh7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 09:37:59 -0500
+In-Reply-To: <20141205073840.GA1866@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-12-05 at 17:06 +0300, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 12/5/2014 12:49 PM, roy.qing.li@gmail.com wrote:
-> 
-> > From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> > the queue length of sd->input_pkt_queue has been putted into qlen,
-> 
->     s/putted/put/, it's irregular verb.
-> 
-> > and impossible to change, since hold the lock
-> 
->     I can't parse that. Who holds the lock?
+On 12/4/14, 11:38 PM, Jiri Pirko wrote:
+> Fri, Dec 05, 2014 at 03:26:40AM CET, roopa@cumulusnetworks.com wrote:
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> This allows offloading to switch asic without having the user to set
+>> any flag. And this is done in the bridge driver to rollback kernel settings
+>> on hw offload failure if required in the future.
+>>
+>> With this, it also makes sure a notification goes out only after the
+>> attributes are set both in the kernel and hw.
+>> ---
+>> net/bridge/br_netlink.c |   27 ++++++++++++++++++++++++++-
+>> 1 file changed, 26 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+>> index 9f5eb55..ce173f0 100644
+>> --- a/net/bridge/br_netlink.c
+>> +++ b/net/bridge/br_netlink.c
+>> @@ -407,9 +407,21 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
+>> 				afspec, RTM_SETLINK);
+>> 	}
+>>
+>> +	if ((dev->features & NETIF_F_HW_SWITCH_OFFLOAD) &&
+>> +			dev->netdev_ops->ndo_bridge_setlink) {
+>> +		int ret = dev->netdev_ops->ndo_bridge_setlink(dev, nlh);
+> 	This (and I suspect other patches as well) has many issues which
+> 	are pointed out by scripts/checkpatch.pl sctipts. For example
+> 	here, there should be an empty line. Please run your patches by
+> 	this script before you send them.
+>
+>> +		if (ret && ret != -EOPNOTSUPP) {
+>> +			/* XXX Fix this in the future to rollback
+>> +			 * kernel settings and return error
+>> +			 */
+>> +			br_warn(p->br, "error offloading bridge attributes "
+>> +					"on port %u(%s)\n", (unsigned int) p->port_no,
+>> +					p->dev->name);
+>> +		}
+>> +	}
+>> +
+>> 	if (err == 0)
+>> 		br_ifinfo_notify(RTM_NEWLINK, p);
+>> -
+>> out:
+>> 	return err;
+>> }
+>> @@ -433,6 +445,19 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh)
+>> 	err = br_afspec((struct net_bridge *)netdev_priv(dev), p,
+>> 			afspec, RTM_DELLINK);
+>>
+>> +	if (dev->features & NETIF_F_HW_SWITCH_OFFLOAD
+>> +			&& dev->netdev_ops->ndo_bridge_setlink) {
+>> +		int ret = dev->netdev_ops->ndo_bridge_dellink(dev, nlh);
+> 	c&p issue, there should be check for dellink here.
+>
+>> +		if (ret && ret != -EOPNOTSUPP) {
+>> +			/* XXX Fix this in the future to rollback
+>> +			 * kernel settings and return error
+>> +			 */
+>> +			br_warn(p->br, "error offloading bridge attributes "
+>> +					"on port %u(%s)\n", (unsigned int) p->port_no,
+>> +					p->dev->name);
+>> +		}
+>> +	}
+>> +
+>
+> 	I agree with Scott that this code should be moved to rtnetlink.c
 
-This thread/cpu holds the lock to manipulate input_pkt_queue.
+I moved it here to make rollback easier. Plus i don't want software 
+notification to go out before hardware is programmed.
+And the software notification goes out from here.
 
-Otherwise, the following would break horribly....
-
-__skb_queue_tail(&sd->input_pkt_queue, skb);
+I don't intend to implement rollback in v2 (that will be a separate series).
+  But, i do want to take care of the notification problem.
