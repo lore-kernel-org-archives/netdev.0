@@ -1,96 +1,225 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH 2/3] bridge: offload bridge port attributes to switch
- asic if feature flag set
-Date: Fri, 05 Dec 2014 07:07:05 -0500
-Message-ID: <54819FE9.6030801@mojatatu.com>
-References: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: [bisected] xfrm: TCP connection initiating PMTU discovery stalls on v3.12+
+Date: Fri, 05 Dec 2014 13:09:59 +0100
+Message-ID: <1841985.3SsQX9ZHP0@h2o.as.studentenwerk.mhn.de>
+References: <1709726.jUgUSQI9sl@pikkukde.a.i2n> <2335530.7OPnEQXbmV@h2o.as.studentenwerk.mhn.de> <1769392.YOU9Lj6NQS@h2o.as.studentenwerk.mhn.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: roopa@cumulusnetworks.com, jiri@resnulli.us, sfeldma@gmail.com,
-	bcrl@kvack.org, tgraf@suug.ch, john.fastabend@gmail.com,
-	stephen@networkplumber.org, linville@tuxdriver.com,
-	nhorman@tuxdriver.com, nicolas.dichtel@6wind.com,
-	vyasevic@redhat.com, f.fainelli@gmail.com, buytenh@wantstofly.org,
-	aviadr@mellanox.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thomas Jarosch <thomas.jarosch@intra2net.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:49849 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750800AbaLEMHJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 07:07:09 -0500
-Received: by mail-ie0-f172.google.com with SMTP id tr6so545134ieb.31
-        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 04:07:08 -0800 (PST)
-In-Reply-To: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com>
+Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:48142 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751266AbaLEMKE convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Dec 2014 07:10:04 -0500
+In-Reply-To: <1769392.YOU9Lj6NQS@h2o.as.studentenwerk.mhn.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/04/14 21:26, roopa@cumulusnetworks.com wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
+Hello,
 
-Ok, so this one maintains status quo. Looks reasonable
-to me.
+as reverting this patch fixes this rather annoying problem: is it dange=
+rous to=20
+revert it as a workaround until the root cause is found?
 
-cheers,
-jamal
 
-> This allows offloading to switch asic without having the user to set
-> any flag. And this is done in the bridge driver to rollback kernel settings
-> on hw offload failure if required in the future.
->
-> With this, it also makes sure a notification goes out only after the
-> attributes are set both in the kernel and hw.
-> ---
->   net/bridge/br_netlink.c |   27 ++++++++++++++++++++++++++-
->   1 file changed, 26 insertions(+), 1 deletion(-)
->
-> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-> index 9f5eb55..ce173f0 100644
-> --- a/net/bridge/br_netlink.c
-> +++ b/net/bridge/br_netlink.c
-> @@ -407,9 +407,21 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
->   				afspec, RTM_SETLINK);
->   	}
->
-> +	if ((dev->features & NETIF_F_HW_SWITCH_OFFLOAD) &&
-> +			dev->netdev_ops->ndo_bridge_setlink) {
-> +		int ret = dev->netdev_ops->ndo_bridge_setlink(dev, nlh);
-> +		if (ret && ret != -EOPNOTSUPP) {
-> +			/* XXX Fix this in the future to rollback
-> +			 * kernel settings and return error
-> +			 */
-> +			br_warn(p->br, "error offloading bridge attributes "
-> +					"on port %u(%s)\n", (unsigned int) p->port_no,
-> +					p->dev->name);
-> +		}
-> +	}
-> +
->   	if (err == 0)
->   		br_ifinfo_notify(RTM_NEWLINK, p);
-> -
->   out:
->   	return err;
->   }
-> @@ -433,6 +445,19 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh)
->   	err = br_afspec((struct net_bridge *)netdev_priv(dev), p,
->   			afspec, RTM_DELLINK);
->
-> +	if (dev->features & NETIF_F_HW_SWITCH_OFFLOAD
-> +			&& dev->netdev_ops->ndo_bridge_setlink) {
-> +		int ret = dev->netdev_ops->ndo_bridge_dellink(dev, nlh);
-> +		if (ret && ret != -EOPNOTSUPP) {
-> +			/* XXX Fix this in the future to rollback
-> +			 * kernel settings and return error
-> +			 */
-> +			br_warn(p->br, "error offloading bridge attributes "
-> +					"on port %u(%s)\n", (unsigned int) p->port_no,
-> +					p->dev->name);
-> +		}
-> +	}
-> +
->   	return err;
->   }
->   static int br_validate(struct nlattr *tb[], struct nlattr *data[])
->
+Am Montag, 1. Dezember 2014, 17:41:23 schrieb Wolfgang Walter:
+> Am Montag, 1. Dezember 2014, 14:17:28 schrieb Wolfgang Walter:
+> > Am Samstag, 29. November 2014, 12:44:07 schrieb Thomas Jarosch:
+> > > Hello,
+> > >=20
+> > > we're in the process of updating production level machines
+> > > from kernel 3.4.101 to kernel 3.14.25. On one mail server
+> > > we noticed that emails destined for an IPSec tunnel sometimes
+> > > get stuck in the mail queue with TCP timeouts.
+> > >=20
+> > > To make a long story short: When the VPN connection is initially
+> > > set up or re-newed, the path MTU for the xfrm tunnel is undetermi=
+ned.
+> > >=20
+> > > As soon as a TCP client starts to send large packets,
+> > > it triggers path MTU detection. Some middlebox on the
+> > > way to the final server has a lower MTU and sends back
+> > > an "ICMP fragmentation needed" packet as normal.
+> > >=20
+> > > With the old kernel, the packet size for the TCP connection insid=
+e
+> > > the xfrm tunnel gets adjusted and all is fine. With kernel v3.12+=
+,
+> > > the connection stalls completely. Same thing with kernel v3.18-rc=
+6.
+> >=20
+> > We see something similar with real nic (RTL8139). In our case only =
+the
+> > first tcp-connection which triggers PMTU stalls. Later tcp-connecti=
+ons
+> > then work fine.
+> >=20
+> > I will revert that patch and see if that fixes the problem.
+>=20
+> Reverting the commit fixes the problem here, too.
+>=20
+> > > We wrote a small tool to mimic postfix's TCP behavior (see attach=
+ed
+> > > file).
+> > > In the end it's a normal TCP client sending large packets.
+> > > The server side is just "socat - tcp4-listen:667".
+> > >=20
+> > > If you run "socket_client" a second time, the path MTU
+> > > for the xfrm tunnel is already known and packets flow normal, too=
+=2E
+> > >=20
+> > >=20
+> > > The "evil" commit in question is this one:
+> > > -----------------------------------------------------------------=
+----
+> > > commit 8f26fb1c1ed81c33f5d87c5936f4d9d1b4118918
+> > > Author: Eric Dumazet <edumazet@google.com>
+> > > Date:   Tue Oct 15 12:24:54 2013 -0700
+> > >=20
+> > >     tcp: remove the sk_can_gso() check from tcp_set_skb_tso_segs(=
+)
+> > >    =20
+> > >     sk_can_gso() should only be used as a hint in tcp_sendmsg() t=
+o build
+> > >     GSO
+> > >=20
+> > > packets in the first place. (As a performance hint)
+> > >=20
+> > >     Once we have GSO packets in write queue, we can not decide th=
+ey are
+> > >     no
+> > >     longer GSO only because flow now uses a route which doesn't h=
+andle
+> > >     TSO/GSO.
+> > >    =20
+> > >     Core networking stack handles the case very well for us, all =
+we need
+> > >     is keeping track of packet counts in MSS terms, regardless of
+> > >     segmentation done later (in GSO or hardware)
+> > >    =20
+> > >     Right now, if  tcp_fragment() splits a GSO packet in two part=
+s,
+> > >     @left and @right, and route changed through a non GSO device,
+> > >     both @left and @right have pcount set to 1, which is wrong,
+> > >     and leads to incorrect packet_count tracking.
+> > >    =20
+> > >     This problem was added in commit d5ac99a648 ("[TCP]: skb pcou=
+nt with
+> > >     MTU
+> > >=20
+> > > discovery")
+> > >=20
+> > >     Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > >     Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> > >     Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> > >     Reported-by: Maciej =C5=BBenczykowski <maze@google.com>
+> > >     Signed-off-by: David S. Miller <davem@davemloft.net>
+> > >=20
+> > > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> > > index 8fad1c1..d46f214 100644
+> > > --- a/net/ipv4/tcp_output.c
+> > > +++ b/net/ipv4/tcp_output.c
+> > > @@ -989,8 +989,7 @@ static void tcp_set_skb_tso_segs(const struct=
+ sock
+> > > *sk,
+> > > struct sk_buff *skb, /* Make sure we own this skb before messing
+> > > gso_size/gso_segs */ WARN_ON_ONCE(skb_cloned(skb));
+> > >=20
+> > > -       if (skb->len <=3D mss_now || !sk_can_gso(sk) ||
+> > > -           skb->ip_summed =3D=3D CHECKSUM_NONE) {
+> > > +       if (skb->len <=3D mss_now || skb->ip_summed =3D=3D CHECKS=
+UM_NONE) {
+> > >=20
+> > >                 /* Avoid the costly divide in the normal
+> > >                =20
+> > >                  * non-TSO case.
+> > >                  */
+> > >=20
+> > > -----------------------------------------------------------------=
+----
+> > >=20
+> > > When I revert it, even kernel v3.18-rc6 starts working.
+> > > But I doubt this is the root problem, may be just hiding another =
+issue.
+> > >=20
+> > > --- Sample output of socket_client using vanilla v3.12 kernel ---
+> > > [1417258063 SEND result: 4096, strerror: Success]
+> > > tcp max seg: res: 0, max_seg: 1370
+> > > [1417258063 SEND result: 4096, strerror: Success]
+> > > tcp max seg: res: 0, max_seg: 1370
+> > > [1417258063 SEND result: 4096, strerror: Success]
+> > > tcp max seg: res: 0, max_seg: 1370
+> > > [1417258063 SEND result: 4096, strerror: Success]
+> > > tcp max seg: res: 0, max_seg: 1370
+> > > [1417258063 SEND result: 4096, strerror: Success]
+> > > tcp max seg: res: 0, max_seg: 1338
+> > > [1417258063 SEND result: 4096, strerror: Success]
+> > > tcp max seg: res: 0, max_seg: 1338
+> > > *STUCK*
+> > > --------------------------------------------------------
+> > >=20
+> > > The "machine" is running on KVM and using "virtio_net" as NIC dri=
+ver.
+> > > I've played with the ethtool offload settings:
+> > >=20
+> > > *** eth1 defaults ***
+> > > Offload parameters for eth1:
+> > > rx-checksumming: on
+> > > tx-checksumming: on
+> > > scatter-gather: on
+> > > tcp-segmentation-offload: on
+> > > udp-fragmentation-offload: on
+> > > generic-segmentation-offload: on
+> > > generic-receive-offload: on
+> > > large-receive-offload: off
+> > >=20
+> > > *** eth1 working (no stalls) using vanilla kernel ***
+> > > Offload parameters for eth1:
+> > > rx-checksumming: on
+> > > tx-checksumming: off  <-- the magic switch
+> > > scatter-gather: off
+> > > tcp-segmentation-offload: off
+> > > udp-fragmentation-offload: off
+> > > generic-segmentation-offload: off
+> > > generic-receive-offload: off
+> > > large-receive-offload: off
+> > >=20
+> > > When I turn "tx-checksumming" back on, it fails again.
+> > > Though that is probably also just a side effect.
+> > >=20
+> > > I can provide tcpdumps if needed but they are no real help
+> > > since you can just see the kernel stops sending TCP packets.
+> > > (and the outgoing TCP packets are encrypted in ESP packets)
+> > >=20
+> > >=20
+> > > Any vague idea what might be the root cause?
+> > >=20
+> > > I also tried reverting commit 4d53eff48b5f03ce67f4f301d6acca1d214=
+5cb7a
+> > > ("xfrm: Don't queue retransmitted packets if the original is stil=
+l on
+> > > the
+> > > host") but that didn't change the situation. In fact it wasn't ev=
+en
+> > > triggered.
+> > >=20
+> > > Please CC: comments. Thanks.
+> > >=20
+> > > Best regards,
+> > > Thomas
+> >=20
+> > Regards,
+>=20
+> Regards,
+
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=C3=BCnchen
+Anstalt des =C3=B6ffentlichen Rechts
