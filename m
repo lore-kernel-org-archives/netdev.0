@@ -1,96 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next 2/2] tcp_cubic: refine Hystart delay threshold
-Date: Thu, 04 Dec 2014 16:13:49 -0800
-Message-ID: <1417738429.22424.29.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net-next 1/2] tcp_cubic: add SNMP counters to track how
+ effective is Hystart
+Date: Fri, 5 Dec 2014 01:17:54 +0100
+Message-ID: <20141205001754.GG16959@breakpoint.cc>
+References: <1417738403.22424.28.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
 	Nandita Dukkipati <nanditad@google.com>,
 	Neal Cardwell <ncardwell@google.com>,
 	Yuchung Cheng <ycheng@google.com>,
 	Sangtae Ha <sangtae.ha@gmail.com>
-To: David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:48196 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932771AbaLEANw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 19:13:52 -0500
-Received: by mail-ie0-f169.google.com with SMTP id y20so16947801ier.14
-        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 16:13:52 -0800 (PST)
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:39880 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752093AbaLEAR5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 19:17:57 -0500
+Content-Disposition: inline
+In-Reply-To: <1417738403.22424.28.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> When deploying FQ pacing, one thing we noticed is that CUBIC Hystart
+> triggers too soon.
+> 
+> Having SNMP counters to have an idea of how often the various Hystart
+> methods trigger is useful prior to any modifications.
+> 
+> This patch adds SNMP counters tracking, how many time "ack train" or
+> "Delay" based Hystart triggers, and cumulative sum of cwnd at the time
+> Hystart decided to end SS (Slow Start)
+> 
+> myhost:~# nstat -a | grep Hystart
+> TcpExtTCPHystartTrainDetect     9                  0.0
+> TcpExtTCPHystartTrainCwnd       20650              0.0
+> TcpExtTCPHystartDelayDetect     10                 0.0
+> TcpExtTCPHystartDelayCwnd       360                0.0
+> 
+> ->
+>  Train detection was triggered 9 times, and average cwnd was
+>  20650/9=2294,
+>  Delay detection was triggered 10 times and average cwnd was 36
 
-In commit 2b4636a5f8ca ("tcp_cubic: make the delay threshold of HyStart
-less sensitive"), HYSTART_DELAY_MIN was changed to 4 ms.
-
-The remaining problem is that using delay_min + (delay_min/16) as the
-threshold is too sensitive.
-
-6.25 % of variation is too small for rtt above 60 ms, which are not
-uncommon.
-
-Lets use 12.5 % instead (delay_min + (delay_min/8))
-
-Tested:
- 80 ms RTT between peers, FQ/pacing packet scheduler on sender.
- 10 bulk transfers of 10 seconds :
-
-nstat >/dev/null
-for i in `seq 1 10`
- do
-   netperf -H remote -- -k THROUGHPUT | grep THROUGHPUT
- done
-nstat | grep Hystart
-
-With the 6.25 % threshold :
-
-THROUGHPUT=20.66
-THROUGHPUT=249.38
-THROUGHPUT=254.10
-THROUGHPUT=14.94
-THROUGHPUT=251.92
-THROUGHPUT=237.73
-THROUGHPUT=19.18
-THROUGHPUT=252.89
-THROUGHPUT=21.32
-THROUGHPUT=15.58
-TcpExtTCPHystartTrainDetect     2                  0.0
-TcpExtTCPHystartTrainCwnd       4756               0.0
-TcpExtTCPHystartDelayDetect     5                  0.0
-TcpExtTCPHystartDelayCwnd       180                0.0
-
-With the 12.5 % threshold 
-THROUGHPUT=251.09
-THROUGHPUT=247.46
-THROUGHPUT=250.92
-THROUGHPUT=248.91
-THROUGHPUT=250.88
-THROUGHPUT=249.84
-THROUGHPUT=250.51
-THROUGHPUT=254.15
-THROUGHPUT=250.62
-THROUGHPUT=250.89
-TcpExtTCPHystartTrainDetect     1                  0.0
-TcpExtTCPHystartTrainCwnd       3175               0.0
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_cubic.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
-index c1d07c7ed03d7d37fa28d1509093e686f78134d2..6b6002416a73950d493661ea1459870f49917efc 100644
---- a/net/ipv4/tcp_cubic.c
-+++ b/net/ipv4/tcp_cubic.c
-@@ -393,7 +393,7 @@ static void hystart_update(struct sock *sk, u32 delay)
- 			ca->sample_cnt++;
- 		} else {
- 			if (ca->curr_rtt > ca->delay_min +
--			    HYSTART_DELAY_THRESH(ca->delay_min>>4)) {
-+			    HYSTART_DELAY_THRESH(ca->delay_min >> 3)) {
- 				ca->found |= HYSTART_DELAY;
- 				NET_INC_STATS_BH(sock_net(sk),
- 						 LINUX_MIB_TCPHYSTARTDELAYDETECT);
+Alternatively we could add INET_DIAG_CUBICINFO and export such info via ss
+tool.
