@@ -1,41 +1,61 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: [PATCH v2 1/6] net-PPP: Replacement of a printk() call by pr_warn()
- in mppe_rekey()
-Date: Fri, 05 Dec 2014 09:49:35 +0100
-Message-ID: <5481719F.4050801@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net>	 <530C5E18.1020800@users.sourceforge.net>	 <alpine.DEB.2.10.1402251014170.2080@hadrien>	 <530CD2C4.4050903@users.sourceforge.net>	 <alpine.DEB.2.10.1402251840450.7035@hadrien>	 <530CF8FF.8080600@users.sourceforge.net>	 <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>	 <530DD06F.4090703@users.sourceforge.net>	 <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>	 <5317A59D.4@users.sourceforge.net> <547B4886.4080406@users.sourceforge.net>	 <547B496E.604@users.sourceforge.net> <547C5CBC.6060607@cogentembedded.com>	 <547C82A6.2030808@users.sourceforge.net>	 <547CA157.1080401@cogentembedded.com>	 <5480DA32.8000201@users.sourceforge.net>	 <5480DBDE.7040604@users.sourceforge.net>	 <1417731809.2721.17.camel@perches.com>	 <548
- 0DFB5.4090708@users.sourceforge.net>	 <1417733101.2721.20.camel@perches.com>	 <54815C5F.8090702@users.sourceforge.net> <1417766255.2721.43.camel@perches.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: Is this 32-bit NCM?y
+Date: Fri, 05 Dec 2014 10:42:46 +0100
+Message-ID: <8761dqjuuh.fsf@nemi.mork.no>
+References: <AMSPR06MB6011E001029C251790CB923EE780@AMSPR06MB601.eurprd06.prod.outlook.com>
+	<877fy7myfb.fsf@nemi.mork.no>
+	<alpine.LNX.2.03.1412041326160.9926@gmail.com>
+	<54811670.5030703@audiocodes.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417766255.2721.43.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Midge Shaojun Tan" <ShaojunMidge.Tan-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	Eli Britstein <Eli.Britstein-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>,
+	Alex Strizhevsky <alexxst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"youtux\@gmail.com" <youtux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-usb\@vger.kernel.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <54811670.5030703-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org> (Kevin Zhu's message of "Fri, 5
+	Dec 2014 02:20:36 +0000")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> It's a process, and it's not immediate.  Wait to see
-> if these get applied as-is.
+Kevin Zhu <Mingying.Zhu-6C2+4RG2qWF0ubjbjo6WXg@public.gmane.org> writes:
 
-Thanks for your constructive feedback.
+> Regarding the location of NDP, it should be easy to fix. It can be ad=
+ded
+> to the end of the NTB only after it's ready to send.
+
+Yes, but this will require a bit of redesign.  Note that this code is
+shared with cdc_mbim, which might have to add multiple NDPs for
+multiplexed sessions.  In theory up to 512 different, but that is so
+unlinkely that we can ignore it.  We could set a fixed limit
+significantly lower than that if necessary.
+
+I'd really like to refactor this code to simply queue the skbs, creatin=
+g
+the linear NTB only when the queue is flushed.  Then we'll have all the
+info we need and can order the contents any way we want without adding
+unnecessary padding.
+
+> Regarding the
+> concern to other devices, as there's a particular driver for Huawei
+> devices in kernel, which is huawei_cdc_ncm, maybe we can just fix the=
+ TX
+> function there to avoid breaking other devices.
+
+Sure.  That is definitely an alternative if we don't want to touch the
+generic driver.
+
+But making the generic driver flexible enough to accommodate any device
+would be preferable.  I do hope we can do that.
 
 
-> If the embedded function name use, which is trivial, bothers you,
-> send another patch later on that changes it.
-
-Not really at the moment ...
-
-I guess that I would prefer a general development of another semantic
-patch approach according to your request with the topic "Finding embedded
-function names?" a moment ago.
-https://systeme.lip6.fr/pipermail/cocci/2014-December/001517.html
-http://article.gmane.org/gmane.comp.version-control.coccinelle/4399
-
-Regards,
-Markus
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
