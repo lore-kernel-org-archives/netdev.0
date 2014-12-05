@@ -1,150 +1,284 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/14] ixgbe: Add timeout parameter to ixgbe_host_interface_command
-Date: Fri,  5 Dec 2014 09:52:45 -0800
-Message-ID: <1417801973-28793-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/14] ixgbe: add support for X550 extended RSS support
+Date: Fri,  5 Dec 2014 09:52:44 -0800
+Message-ID: <1417801973-28793-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:7163 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:7122 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751863AbaLERxx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2014 12:53:53 -0500
+	id S1751704AbaLERxw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Dec 2014 12:53:52 -0500
 In-Reply-To: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Since on X550 we use host interface commands to read,write and erase
-some commands require more time to complete. So this adds a timeout
-parameter to ixgbe_host_interface_command as wells as a return_data
-parameter allowing us to return with any data.
+The new X550 family of MAC's will have a larger RSS hash (16 -> 64).
+It will also support individual VF to have their own independent RSS
+hash key.  This patch will enable this functionality
 
 Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 41 +++++++++++++++++++------
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |  9 ++++--
- 2 files changed, 37 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         | 36 ++++++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  9 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 82 +++++++++++++++++++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c   |  3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |  2 +
+ 5 files changed, 107 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 0e754b4..7ed1e08 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -3446,23 +3446,34 @@ static u8 ixgbe_calculate_checksum(u8 *buffer, u32 length)
-  *  @buffer: contains the command to write and where the return status will
-  *           be placed
-  *  @length: length of buffer, must be multiple of 4 bytes
-+ *  @timeout: time in ms to wait for command completion
-+ *  @return_data: read and return data from the buffer (true) or not (false)
-+ *  Needed because FW structures are big endian and decoding of
-+ *  these fields can be 8 bit or 16 bit based on command. Decoding
-+ *  is not easily understood without making a table of commands.
-+ *  So we will leave this up to the caller to read back the data
-+ *  in these cases.
-  *
-  *  Communicates with the manageability block.  On success return 0
-  *  else return IXGBE_ERR_HOST_INTERFACE_COMMAND.
-  **/
- static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
--					u32 length)
-+					u32 length, u32 timeout,
-+					bool return_data)
- {
--	u32 hicr, i, bi;
-+	u32 hicr, i, bi, fwsts;
- 	u32 hdr_size = sizeof(struct ixgbe_hic_hdr);
--	u8 buf_len, dword_len;
-+	u16 buf_len, dword_len;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 86fa607..6fbc7d7 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -300,16 +300,17 @@ enum ixgbe_ring_f_enum {
+ 	RING_F_ARRAY_SIZE      /* must be last in enum set */
+ };
  
--	if (length == 0 || length & 0x3 ||
--	    length > IXGBE_HI_MAX_BLOCK_BYTE_LENGTH) {
--		hw_dbg(hw, "Buffer length failure.\n");
-+	if (length == 0 || length > IXGBE_HI_MAX_BLOCK_BYTE_LENGTH) {
-+		hw_dbg(hw, "Buffer length failure buffersize-%d.\n", length);
- 		return IXGBE_ERR_HOST_INTERFACE_COMMAND;
- 	}
+-#define IXGBE_MAX_RSS_INDICES  16
+-#define IXGBE_MAX_VMDQ_INDICES 64
+-#define IXGBE_MAX_FDIR_INDICES 63	/* based on q_vector limit */
+-#define IXGBE_MAX_FCOE_INDICES  8
+-#define MAX_RX_QUEUES (IXGBE_MAX_FDIR_INDICES + 1)
+-#define MAX_TX_QUEUES (IXGBE_MAX_FDIR_INDICES + 1)
+-#define IXGBE_MAX_L2A_QUEUES 4
+-#define IXGBE_BAD_L2A_QUEUE 3
+-#define IXGBE_MAX_MACVLANS	31
+-#define IXGBE_MAX_DCBMACVLANS	8
++#define IXGBE_MAX_RSS_INDICES		16
++#define IXGBE_MAX_RSS_INDICES_X550	64
++#define IXGBE_MAX_VMDQ_INDICES		64
++#define IXGBE_MAX_FDIR_INDICES		63	/* based on q_vector limit */
++#define IXGBE_MAX_FCOE_INDICES		8
++#define MAX_RX_QUEUES			(IXGBE_MAX_FDIR_INDICES + 1)
++#define MAX_TX_QUEUES			(IXGBE_MAX_FDIR_INDICES + 1)
++#define IXGBE_MAX_L2A_QUEUES		4
++#define IXGBE_BAD_L2A_QUEUE		3
++#define IXGBE_MAX_MACVLANS		31
++#define IXGBE_MAX_DCBMACVLANS		8
  
-+	/* Set bit 9 of FWSTS clearing FW reset indication */
-+	fwsts = IXGBE_READ_REG(hw, IXGBE_FWSTS);
-+	IXGBE_WRITE_REG(hw, IXGBE_FWSTS, fwsts | IXGBE_FWSTS_FWRI);
-+
- 	/* Check that the host interface is enabled. */
- 	hicr = IXGBE_READ_REG(hw, IXGBE_HICR);
- 	if ((hicr & IXGBE_HICR_EN) == 0) {
-@@ -3470,7 +3481,12 @@ static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
- 		return IXGBE_ERR_HOST_INTERFACE_COMMAND;
- 	}
+ struct ixgbe_ring_feature {
+ 	u16 limit;	/* upper limit on feature indices */
+@@ -764,6 +765,21 @@ struct ixgbe_adapter {
+ 	unsigned long fwd_bitmask; /* Bitmask indicating in use pools */
+ };
  
--	/* Calculate length in DWORDs */
-+	/* Calculate length in DWORDs. We must be DWORD aligned */
-+	if ((length % (sizeof(u32))) != 0) {
-+		hw_dbg(hw, "Buffer length failure, not aligned to dword");
-+		return IXGBE_ERR_INVALID_ARGUMENT;
++static inline u8 ixgbe_max_rss_indices(struct ixgbe_adapter *adapter)
++{
++	switch (adapter->hw.mac.type) {
++	case ixgbe_mac_82598EB:
++	case ixgbe_mac_82599EB:
++	case ixgbe_mac_X540:
++		return IXGBE_MAX_RSS_INDICES;
++	case ixgbe_mac_X550:
++	case ixgbe_mac_X550EM_x:
++		return IXGBE_MAX_RSS_INDICES_X550;
++	default:
++		return 0;
 +	}
++}
 +
- 	dword_len = length >> 2;
+ struct ixgbe_fdir_filter {
+ 	struct hlist_node fdir_node;
+ 	union ixgbe_atr_input filter;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 26fd85e..e5be0dd 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -2927,7 +2927,7 @@ static unsigned int ixgbe_max_channels(struct ixgbe_adapter *adapter)
+ 		max_combined = IXGBE_MAX_FDIR_INDICES;
+ 	} else {
+ 		/* support up to 16 queues with RSS */
+-		max_combined = IXGBE_MAX_RSS_INDICES;
++		max_combined = ixgbe_max_rss_indices(adapter);
+ 	}
+ 
+ 	return max_combined;
+@@ -2975,6 +2975,7 @@ static int ixgbe_set_channels(struct net_device *dev,
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+ 	unsigned int count = ch->combined_count;
++	u8 max_rss_indices = ixgbe_max_rss_indices(adapter);
+ 
+ 	/* verify they are not requesting separate vectors */
+ 	if (!count || ch->rx_count || ch->tx_count)
+@@ -2991,9 +2992,9 @@ static int ixgbe_set_channels(struct net_device *dev,
+ 	/* update feature limits from largest to smallest supported values */
+ 	adapter->ring_feature[RING_F_FDIR].limit = count;
+ 
+-	/* cap RSS limit at 16 */
+-	if (count > IXGBE_MAX_RSS_INDICES)
+-		count = IXGBE_MAX_RSS_INDICES;
++	/* cap RSS limit */
++	if (count > max_rss_indices)
++		count = max_rss_indices;
+ 	adapter->ring_feature[RING_F_RSS].limit = count;
+ 
+ #ifdef IXGBE_FCOE
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index b519b89..eb55078 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3217,7 +3217,9 @@ static void ixgbe_setup_reta(struct ixgbe_adapter *adapter, const u32 *seed)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 reta = 0;
+ 	int i, j;
++	int reta_entries = 128;
+ 	u16 rss_i = adapter->ring_feature[RING_F_RSS].indices;
++	int indices_multi;
  
  	/*
-@@ -3484,7 +3500,7 @@ static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
- 	/* Setting this bit tells the ARC that a new command is pending. */
- 	IXGBE_WRITE_REG(hw, IXGBE_HICR, hicr | IXGBE_HICR_C);
+ 	 * Program table for at least 2 queues w/ SR-IOV so that VFs can
+@@ -3231,22 +3233,67 @@ static void ixgbe_setup_reta(struct ixgbe_adapter *adapter, const u32 *seed)
+ 	for (i = 0; i < 10; i++)
+ 		IXGBE_WRITE_REG(hw, IXGBE_RSSRK(i), seed[i]);
  
--	for (i = 0; i < IXGBE_HI_COMMAND_TIMEOUT; i++) {
-+	for (i = 0; i < timeout; i++) {
- 		hicr = IXGBE_READ_REG(hw, IXGBE_HICR);
- 		if (!(hicr & IXGBE_HICR_C))
- 			break;
-@@ -3492,12 +3508,15 @@ static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
- 	}
- 
- 	/* Check command successful completion. */
--	if (i == IXGBE_HI_COMMAND_TIMEOUT ||
-+	if ((timeout != 0 && i == timeout) ||
- 	    (!(IXGBE_READ_REG(hw, IXGBE_HICR) & IXGBE_HICR_SV))) {
- 		hw_dbg(hw, "Command has failed with no status valid.\n");
- 		return IXGBE_ERR_HOST_INTERFACE_COMMAND;
- 	}
- 
-+	if (!return_data)
-+		return 0;
++	/* Fill out the redirection table as follows:
++	 * 82598: 128 (8 bit wide) entries containing pair of 4 bit RSS indices
++	 * 82599/X540: 128 (8 bit wide) entries containing 4 bit RSS index
++	 * X550: 512 (8 bit wide) entries containing 6 bit RSS index
++	 */
++	if (adapter->hw.mac.type == ixgbe_mac_82598EB)
++		indices_multi = 0x11;
++	else
++		indices_multi = 0x1;
 +
- 	/* Calculate length in DWORDs */
- 	dword_len = hdr_size >> 2;
++	switch (adapter->hw.mac.type) {
++	case ixgbe_mac_X550:
++	case ixgbe_mac_X550EM_x:
++		if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
++			reta_entries = 512;
++	default:
++		break;
++	}
++
+ 	/* Fill out redirection table */
+-	for (i = 0, j = 0; i < 128; i++, j++) {
++	for (i = 0, j = 0; i < reta_entries; i++, j++) {
++		if (j == rss_i)
++			j = 0;
++		reta = (reta << 8) | (j * indices_multi);
++		if ((i & 3) == 3) {
++			if (i < 128)
++				IXGBE_WRITE_REG(hw, IXGBE_RETA(i >> 2), reta);
++			else
++				IXGBE_WRITE_REG(hw, IXGBE_ERETA((i >> 2) - 32),
++						reta);
++		}
++	}
++}
++
++static void ixgbe_setup_vfreta(struct ixgbe_adapter *adapter, const u32 *seed)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	u32 vfreta = 0;
++	u16 rss_i = adapter->ring_feature[RING_F_RSS].indices;
++	unsigned int pf_pool = adapter->num_vfs;
++	int i, j;
++
++	/* Fill out hash function seeds */
++	for (i = 0; i < 10; i++)
++		IXGBE_WRITE_REG(hw, IXGBE_PFVFRSSRK(i, pf_pool), seed[i]);
++
++	/* Fill out the redirection table */
++	for (i = 0, j = 0; i < 64; i++, j++) {
+ 		if (j == rss_i)
+ 			j = 0;
+-		/* reta = 4-byte sliding window of
+-		 * 0x00..(indices-1)(indices-1)00..etc. */
+-		reta = (reta << 8) | (j * 0x11);
++		vfreta = (vfreta << 8) | j;
+ 		if ((i & 3) == 3)
+-			IXGBE_WRITE_REG(hw, IXGBE_RETA(i >> 2), reta);
++			IXGBE_WRITE_REG(hw, IXGBE_PFVFRETA(i >> 2, pf_pool),
++					vfreta);
+ 	}
+ }
  
-@@ -3568,7 +3587,9 @@ s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
+ static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	u32 mrqc = 0, rss_field = 0;
++	u32 mrqc = 0, rss_field = 0, vfmrqc = 0;
+ 	u32 rss_key[10];
+ 	u32 rxcsum;
  
- 	for (i = 0; i <= FW_CEM_MAX_RETRIES; i++) {
- 		ret_val = ixgbe_host_interface_command(hw, (u32 *)&fw_cmd,
--						       sizeof(fw_cmd));
-+						       sizeof(fw_cmd),
-+						       IXGBE_HI_COMMAND_TIMEOUT,
-+						       true);
- 		if (ret_val != 0)
- 			continue;
+@@ -3292,9 +3339,24 @@ static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
+ 		rss_field |= IXGBE_MRQC_RSS_FIELD_IPV6_UDP;
  
+ 	netdev_rss_key_fill(rss_key, sizeof(rss_key));
+-	ixgbe_setup_reta(adapter, rss_key);
+-	mrqc |= rss_field;
+-	IXGBE_WRITE_REG(hw, IXGBE_MRQC, mrqc);
++	if ((hw->mac.type >= ixgbe_mac_X550) &&
++	    (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)) {
++		unsigned int pf_pool = adapter->num_vfs;
++
++		/* Enable VF RSS mode */
++		mrqc |= IXGBE_MRQC_MULTIPLE_RSS;
++		IXGBE_WRITE_REG(hw, IXGBE_MRQC, mrqc);
++
++		/* Setup RSS through the VF registers */
++		ixgbe_setup_vfreta(adapter, rss_key);
++		vfmrqc = IXGBE_MRQC_RSSEN;
++		vfmrqc |= rss_field;
++		IXGBE_WRITE_REG(hw, IXGBE_PFVFMRQC(pf_pool), vfmrqc);
++	} else {
++		ixgbe_setup_reta(adapter, rss_key);
++		mrqc |= rss_field;
++		IXGBE_WRITE_REG(hw, IXGBE_MRQC, mrqc);
++	}
+ }
+ 
+ /**
+@@ -5056,7 +5118,7 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	hw->subsystem_device_id = pdev->subsystem_device;
+ 
+ 	/* Set common capability flags and settings */
+-	rss = min_t(int, IXGBE_MAX_RSS_INDICES, num_online_cpus());
++	rss = min_t(int, ixgbe_max_rss_indices(adapter), num_online_cpus());
+ 	adapter->ring_feature[RING_F_RSS].limit = rss;
+ 	adapter->flags2 |= IXGBE_FLAG2_RSC_CAPABLE;
+ 	adapter->flags2 |= IXGBE_FLAG2_RSC_ENABLED;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 04eee7c..c76ba90 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -221,7 +221,8 @@ int ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
+ 	if (adapter->ring_feature[RING_F_VMDQ].limit == 1) {
+ 		adapter->flags &= ~IXGBE_FLAG_VMDQ_ENABLED;
+ 		adapter->flags &= ~IXGBE_FLAG_SRIOV_ENABLED;
+-		rss = min_t(int, IXGBE_MAX_RSS_INDICES, num_online_cpus());
++		rss = min_t(int, ixgbe_max_rss_indices(adapter),
++			    num_online_cpus());
+ 	} else {
+ 		rss = min_t(int, IXGBE_MAX_L2A_QUEUES, num_online_cpus());
+ 	}
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index cc1ac04..4ec6ead 100644
+index 64de20d..cc1ac04 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -2314,9 +2314,12 @@ enum ixgbe_fdir_pballoc_type {
- #define IXGBE_FDIR_DROP_QUEUE                   127
+@@ -297,6 +297,7 @@ struct ixgbe_thermal_sensor_data {
+ #define IXGBE_IMIRVP    0x05AC0
+ #define IXGBE_VMD_CTL   0x0581C
+ #define IXGBE_RETA(_i)  (0x05C00 + ((_i) * 4))  /* 32 of these (0-31) */
++#define IXGBE_ERETA(_i)	(0x0EE80 + ((_i) * 4))  /* 96 of these (0-95) */
+ #define IXGBE_RSSRK(_i) (0x05C80 + ((_i) * 4))  /* 10 of these (0-9) */
  
- /* Manageablility Host Interface defines */
--#define IXGBE_HI_MAX_BLOCK_BYTE_LENGTH       1792 /* Num of bytes in range */
--#define IXGBE_HI_MAX_BLOCK_DWORD_LENGTH      448 /* Num of dwords in range */
--#define IXGBE_HI_COMMAND_TIMEOUT             500 /* Process HI command limit */
-+#define IXGBE_HI_MAX_BLOCK_BYTE_LENGTH	1792 /* Num of bytes in range */
-+#define IXGBE_HI_MAX_BLOCK_DWORD_LENGTH	448 /* Num of dwords in range */
-+#define IXGBE_HI_COMMAND_TIMEOUT	500 /* Process HI command limit */
-+#define IXGBE_HI_FLASH_ERASE_TIMEOUT	1000 /* Process Erase command limit */
-+#define IXGBE_HI_FLASH_UPDATE_TIMEOUT	5000 /* Process Update command limit */
-+#define IXGBE_HI_FLASH_APPLY_TIMEOUT	0 /* Process Apply command limit */
+ /* Registers for setting up RSS on X550 with SRIOV
+@@ -2016,6 +2017,7 @@ enum {
+ #define IXGBE_MRQC_RSS_FIELD_IPV4_UDP    0x00400000
+ #define IXGBE_MRQC_RSS_FIELD_IPV6_UDP    0x00800000
+ #define IXGBE_MRQC_RSS_FIELD_IPV6_EX_UDP 0x01000000
++#define IXGBE_MRQC_MULTIPLE_RSS          0x00002000
+ #define IXGBE_MRQC_L3L4TXSWEN            0x00008000
  
- /* CEM Support */
- #define FW_CEM_HDR_LEN                0x4
+ #define IXGBE_FWSM_TS_ENABLED	0x1
 -- 
 1.9.3
