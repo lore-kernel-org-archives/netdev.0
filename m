@@ -1,252 +1,96 @@
-From: Alex Williamson <alex.williamson@redhat.com>
-Subject: Re: [net-next 04/14] ixgbe: remove CIAA/D register reads from bad
- VF check
-Date: Fri, 05 Dec 2014 11:08:00 -0700
-Message-ID: <1417802880.15750.169.camel@bling.home>
-References: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1417801973-28793-5-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 0/4] net: allow setting congctl via routing
+ table
+Date: Fri, 05 Dec 2014 19:35:40 +0100
+Message-ID: <1417804540.2462.4.camel@localhost>
+References: <1417793092-6263-1-git-send-email-dborkman@redhat.com>
+	 <CAA93jw46b5hCFPAwziyTRpTAzLdXeb4nrTEZXiEqxYWhRi49CA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Emil Tantilov <emil.s.tantilov@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Dave Taht <dave.taht@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35187 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750748AbaLESIF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2014 13:08:05 -0500
-In-Reply-To: <1417801973-28793-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:35214 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751183AbaLESfn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 13:35:43 -0500
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id A630820ABD
+	for <netdev@vger.kernel.org>; Fri,  5 Dec 2014 13:35:42 -0500 (EST)
+In-Reply-To: <CAA93jw46b5hCFPAwziyTRpTAzLdXeb4nrTEZXiEqxYWhRi49CA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-12-05 at 09:52 -0800, Jeff Kirsher wrote:
-> From: Emil Tantilov <emil.s.tantilov@intel.com>
+On Fr, 2014-12-05 at 08:35 -0800, Dave Taht wrote:
+> On Fri, Dec 5, 2014 at 7:24 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> > This is the second part of our work and allows for setting the congestion
+> > control algorithm via routing table. For details, please see individual
+> > patches.
+> >
+> > Joint work with Florian Westphal, suggested by Hannes Frederic Sowa.
+> >
+> > Thanks!
+> >
+> > Daniel Borkmann (4):
+> >   net: tcp: refactor reinitialization of congestion control
+> >   net: tcp: add key management to congestion control
+> >   net: tcp: add RTAX_CC_ALGO fib handling
+> >   net: tcp: add per route congestion control
 > 
-> Accessing the CIAA/D register can block access to the PCI config space.
 > 
-> This patch removes the read/write operations to the CIAA/D registers
-> and makes use of standard kernel functions for accessing the PCI config
-> space.
+> Very interesting. Have you tried something other than dctcp here
+> (e.g. westwood or lp?)
 > 
-> In addition it moves ixgbevf_check_for_bad_vf() into the watchdog subtask
-> which reduces the frequency of the checks.
-> 
-> CC: Alex Williamson <alex.williamson@redhat.com>
-> Reported-by: Alex Williamson <alex.williamson@redhat.com>
-> Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Have you considered the case where the route changes underneath
+> you from one device to another?
 
-This is slightly large for stable, but I'd really like to see it there
-too.  The commit log sort of glosses over the fact that reading VF
-config space is unreliably without this change.  Thanks,
+Notice, there is no way the state of a tcp congestion control algorithm
+can be converted to be used by a different one, so this would only
+affect new tcp connections via this interface.
 
-Alex
-
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 145 +++++++++++++-------------
->  1 file changed, 74 insertions(+), 71 deletions(-)
+> Example, here I am routing everything through eth0, where I
+> would want cubic, probably...
 > 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index 18ddffb..b519b89 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -6318,6 +6318,66 @@ static void ixgbe_watchdog_flush_tx(struct ixgbe_adapter *adapter)
->  	}
->  }
->  
-> +#ifdef CONFIG_PCI_IOV
-> +static inline void ixgbe_issue_vf_flr(struct ixgbe_adapter *adapter,
-> +				      struct pci_dev *vfdev)
-> +{
-> +	if (!pci_wait_for_pending_transaction(vfdev))
-> +		e_dev_warn("Issuing VFLR with pending transactions\n");
-> +
-> +	e_dev_err("Issuing VFLR for VF %s\n", pci_name(vfdev));
-> +	pcie_capability_set_word(vfdev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_BCR_FLR);
-> +
-> +	msleep(100);
-> +}
-> +
-> +static void ixgbe_check_for_bad_vf(struct ixgbe_adapter *adapter)
-> +{
-> +	struct ixgbe_hw *hw = &adapter->hw;
-> +	struct pci_dev *pdev = adapter->pdev;
-> +	struct pci_dev *vfdev;
-> +	u32 gpc;
-> +	int pos;
-> +	unsigned short vf_id;
-> +
-> +	if (!(netif_carrier_ok(adapter->netdev)))
-> +		return;
-> +
-> +	gpc = IXGBE_READ_REG(hw, IXGBE_TXDGPC);
-> +	if (gpc) /* If incrementing then no need for the check below */
-> +		return;
-> +	/* Check to see if a bad DMA write target from an errant or
-> +	 * malicious VF has caused a PCIe error.  If so then we can
-> +	 * issue a VFLR to the offending VF(s) and then resume without
-> +	 * requesting a full slot reset.
-> +	 */
-> +
-> +	if (!pdev)
-> +		return;
-> +
-> +	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_SRIOV);
-> +	if (!pos)
-> +		return;
-> +
-> +	/* get the device ID for the VF */
-> +	pci_read_config_word(pdev, pos + PCI_SRIOV_VF_DID, &vf_id);
-> +
-> +	/* check status reg for all VFs owned by this PF */
-> +	vfdev = pci_get_device(pdev->vendor, vf_id, NULL);
-> +	while (vfdev) {
-> +		if (vfdev->is_virtfn && (vfdev->physfn == pdev)) {
-> +			u16 status_reg;
-> +
-> +			pci_read_config_word(vfdev, PCI_STATUS, &status_reg);
-> +			if (status_reg & PCI_STATUS_REC_MASTER_ABORT)
-> +				/* issue VFLR */
-> +				ixgbe_issue_vf_flr(adapter, vfdev);
-> +		}
-> +
-> +		vfdev = pci_get_device(pdev->vendor, vf_id, vfdev);
-> +	}
-> +}
-> +
->  static void ixgbe_spoof_check(struct ixgbe_adapter *adapter)
->  {
->  	u32 ssvpc;
-> @@ -6338,6 +6398,17 @@ static void ixgbe_spoof_check(struct ixgbe_adapter *adapter)
->  
->  	e_warn(drv, "%u Spoofed packets detected\n", ssvpc);
->  }
-> +#else
-> +static void ixgbe_spoof_check(struct ixgbe_adapter __always_unused *adapter)
-> +{
-> +}
-> +
-> +static void
-> +ixgbe_check_for_bad_vf(struct ixgbe_adapter __always_unused *adapter)
-> +{
-> +}
-> +#endif /* CONFIG_PCI_IOV */
-> +
->  
->  /**
->   * ixgbe_watchdog_subtask - check and bring link up
-> @@ -6358,6 +6429,7 @@ static void ixgbe_watchdog_subtask(struct ixgbe_adapter *adapter)
->  	else
->  		ixgbe_watchdog_link_is_down(adapter);
->  
-> +	ixgbe_check_for_bad_vf(adapter);
->  	ixgbe_spoof_check(adapter);
->  	ixgbe_update_stats(adapter);
->  
-> @@ -6469,51 +6541,6 @@ static void ixgbe_sfp_link_config_subtask(struct ixgbe_adapter *adapter)
->  	clear_bit(__IXGBE_IN_SFP_INIT, &adapter->state);
->  }
->  
-> -#ifdef CONFIG_PCI_IOV
-> -static void ixgbe_check_for_bad_vf(struct ixgbe_adapter *adapter)
-> -{
-> -	int vf;
-> -	struct ixgbe_hw *hw = &adapter->hw;
-> -	struct net_device *netdev = adapter->netdev;
-> -	u32 gpc;
-> -	u32 ciaa, ciad;
-> -
-> -	gpc = IXGBE_READ_REG(hw, IXGBE_TXDGPC);
-> -	if (gpc) /* If incrementing then no need for the check below */
-> -		return;
-> -	/*
-> -	 * Check to see if a bad DMA write target from an errant or
-> -	 * malicious VF has caused a PCIe error.  If so then we can
-> -	 * issue a VFLR to the offending VF(s) and then resume without
-> -	 * requesting a full slot reset.
-> -	 */
-> -
-> -	for (vf = 0; vf < adapter->num_vfs; vf++) {
-> -		ciaa = (vf << 16) | 0x80000000;
-> -		/* 32 bit read so align, we really want status at offset 6 */
-> -		ciaa |= PCI_COMMAND;
-> -		IXGBE_WRITE_REG(hw, IXGBE_CIAA_BY_MAC(hw), ciaa);
-> -		ciad = IXGBE_READ_REG(hw, IXGBE_CIAD_BY_MAC(hw));
-> -		ciaa &= 0x7FFFFFFF;
-> -		/* disable debug mode asap after reading data */
-> -		IXGBE_WRITE_REG(hw, IXGBE_CIAA_BY_MAC(hw), ciaa);
-> -		/* Get the upper 16 bits which will be the PCI status reg */
-> -		ciad >>= 16;
-> -		if (ciad & PCI_STATUS_REC_MASTER_ABORT) {
-> -			netdev_err(netdev, "VF %d Hung DMA\n", vf);
-> -			/* Issue VFLR */
-> -			ciaa = (vf << 16) | 0x80000000;
-> -			ciaa |= 0xA8;
-> -			IXGBE_WRITE_REG(hw, IXGBE_CIAA_BY_MAC(hw), ciaa);
-> -			ciad = 0x00008000;  /* VFLR */
-> -			IXGBE_WRITE_REG(hw, IXGBE_CIAD_BY_MAC(hw), ciad);
-> -			ciaa &= 0x7FFFFFFF;
-> -			IXGBE_WRITE_REG(hw, IXGBE_CIAA_BY_MAC(hw), ciaa);
-> -		}
-> -	}
-> -}
-> -
-> -#endif
->  /**
->   * ixgbe_service_timer - Timer Call-back
->   * @data: pointer to adapter cast into an unsigned long
-> @@ -6522,7 +6549,6 @@ static void ixgbe_service_timer(unsigned long data)
->  {
->  	struct ixgbe_adapter *adapter = (struct ixgbe_adapter *)data;
->  	unsigned long next_event_offset;
-> -	bool ready = true;
->  
->  	/* poll faster when waiting for link */
->  	if (adapter->flags & IXGBE_FLAG_NEED_LINK_UPDATE)
-> @@ -6530,32 +6556,10 @@ static void ixgbe_service_timer(unsigned long data)
->  	else
->  		next_event_offset = HZ * 2;
->  
-> -#ifdef CONFIG_PCI_IOV
-> -	/*
-> -	 * don't bother with SR-IOV VF DMA hang check if there are
-> -	 * no VFs or the link is down
-> -	 */
-> -	if (!adapter->num_vfs ||
-> -	    (adapter->flags & IXGBE_FLAG_NEED_LINK_UPDATE))
-> -		goto normal_timer_service;
-> -
-> -	/* If we have VFs allocated then we must check for DMA hangs */
-> -	ixgbe_check_for_bad_vf(adapter);
-> -	next_event_offset = HZ / 50;
-> -	adapter->timer_event_accumulator++;
-> -
-> -	if (adapter->timer_event_accumulator >= 100)
-> -		adapter->timer_event_accumulator = 0;
-> -	else
-> -		ready = false;
-> -
-> -normal_timer_service:
-> -#endif
->  	/* Reset the timer */
->  	mod_timer(&adapter->service_timer, next_event_offset + jiffies);
->  
-> -	if (ready)
-> -		ixgbe_service_event_schedule(adapter);
-> +	ixgbe_service_event_schedule(adapter);
->  }
->  
->  static void ixgbe_reset_subtask(struct ixgbe_adapter *adapter)
-> @@ -8643,8 +8647,7 @@ static pci_ers_result_t ixgbe_io_error_detected(struct pci_dev *pdev,
->  		 * VFLR.  Just clean up the AER in that case.
->  		 */
->  		if (vfdev) {
-> -			e_dev_err("Issuing VFLR to VF %d\n", vf);
-> -			pci_write_config_dword(vfdev, 0xA8, 0x00008000);
-> +			ixgbe_issue_vf_flr(adapter, vfdev);
->  			/* Free device reference count */
->  			pci_dev_put(vfdev);
->  		}
+> root@ganesha:~/git/tinc# ip route
+> default via 172.26.16.1 dev eth0  proto babel onlink
+> 69.181.216.0/22 via 172.26.16.1 dev eth0  proto babel onlink
+> 169.254.0.0/16 dev eth0  scope link  metric 1000
+> 172.26.16.0/24 dev eth0  proto kernel  scope link  src 172.26.16.177
+> 172.26.16.1 via 172.26.16.1 dev eth0  proto babel onlink
+> 172.26.16.112 via 172.26.16.112 dev eth0  proto babel onlink
+> 172.26.17.0/24 via 172.26.16.1 dev eth0  proto babel onlink
+> 172.26.17.3 via 172.26.16.1 dev eth0  proto babel onlink
+> 172.26.17.227 via 172.26.16.1 dev eth0  proto babel onlink
+> 192.168.7.0/30 dev eth1  proto kernel  scope link  src 192.168.7.1  metric 1
+> 192.168.7.2 via 172.26.16.112 dev eth0  proto babel onlink
+> 
+> And I pull the plug, and everything flips over to wlan0,
+> where I might want westwood (or something saner than
+> that. It might be nice to have a per-device cc default
+> algorithm...)
+
+Something like that might be possible with metrics and "via ... dev if0
+metric xxx" routes, which will be cleaned up as soon as the interface
+goes down and the fallback will be to a route with a different
+congestion algorithm.
+
+> root@ganesha:~/git/tinc# ip route
+> default via 172.26.17.224 dev wlan0  proto babel onlink
+> 69.181.216.0/22 via 172.26.17.224 dev wlan0  proto babel onlink
+> 169.254.0.0/16 dev eth0  scope link  metric 1000
+> 172.26.16.0/24 dev eth0  proto kernel  scope link  src 172.26.16.177
+> 172.26.16.1 via 172.26.17.227 dev wlan0  proto babel onlink
+> 172.26.16.112 via 172.26.17.227 dev wlan0  proto babel onlink
+> 172.26.17.0/24 via 172.26.17.224 dev wlan0  proto babel onlink
+> 172.26.17.3 via 172.26.17.227 dev wlan0  proto babel onlink
+> 172.26.17.227 via 172.26.17.227 dev wlan0  proto babel onlink
+> 192.168.7.0/30 dev eth1  proto kernel  scope link  src 192.168.7.1  metric 1
+> 192.168.7.2 via 172.26.17.227 dev wlan0  proto babel onlink
+> 
+
+Bye,
+Hannes
