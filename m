@@ -1,90 +1,89 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH] net: fix the flow limitation computation
-Date: Fri, 5 Dec 2014 12:52:22 -0500
-Message-ID: <CA+FuTScVxFHTogMbXRkbYALPXKF0=USw=27XZpcMAVFSd9VJXw@mail.gmail.com>
-References: <1417772919-17744-1-git-send-email-roy.qing.li@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>
-To: roy.qing.li@gmail.com
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/14][pull request] Intel Wired LAN Driver Updates 2014-12-05
+Date: Fri,  5 Dec 2014 09:52:39 -0800
+Message-ID: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f45.google.com ([209.85.192.45]:53514 "EHLO
-	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751081AbaLERwx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 12:52:53 -0500
-Received: by mail-qg0-f45.google.com with SMTP id f51so812673qge.4
-        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 09:52:52 -0800 (PST)
-In-Reply-To: <1417772919-17744-1-git-send-email-roy.qing.li@gmail.com>
+Received: from mga03.intel.com ([134.134.136.65]:7122 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751539AbaLERxp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Dec 2014 12:53:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 5, 2014 at 4:48 AM,  <roy.qing.li@gmail.com> wrote:
-> From: Li RongQing <roy.qing.li@gmail.com>
->
-> Once RPS is enabled, the skb maybe enqueue to different CPU, so the
-> flow limitation computation should use the enqueued CPU, not the local
-> CPU
+This series contains updates to ixgbe and ixgbevf.
 
-No, the decision to do accounting on the initial cpu was deliberate,
-to avoids cache line contention with other cpus.
+Alex provides a couple of patches to cleanup ixgbe.  First cleans up the
+page reuse code getting it into a state where all the workarounds needed
+are in place as well as cleaning up a few minor oversights such as using
+__free_pages instead of put_page to drop a locally allocated page.  Then
+cleans up the tail writes for the ixgbe descriptor queues.
 
-The goal is to detect under stress a single four-tuple that is
-responsible for the majority of traffic, based on the assumption
-that traffic is spread across many flows under normal conditions.
+Mark Peterson adds support to lookup MAC addresses in Open Firmware or
+IDPROM.
 
-Accounting on the destination rps cpus is the more obviously
-correct solution. Accounting on the source cpu is generally
-fine, too, since it still only blocks a flow if that flow sends
-> 50% of all packets from that cpu.
+Emil provides patches for ixgbe and ixgbevf to fix an issue on rmmod and
+to add support for X550 in the VF driver.  First removes the read/write
+operations to the CIAA/D registers since it can block access to the PCI
+config space and make use of standard kernel functions for accessing the
+PCI config space.  Then fixes an issue where the driver has logic to free
+up used data in case any of the checks in ixgbe_probe() fail, however
+there is a similar set of cleanups that can occur on driver unload in
+ixgbe_remove() which can cause the rmmod command to crash.
 
-The only false positive occurs if multiple cpus have flows that
-are large in proportion to their own packet rate, but only a subset
-of these cpus actually generate a lot of traffic. Then, the
-proportionally large flows from the cpus that generate little
-traffic are incorrectly throttled. Throttling is still proportional
-to aggregate packet rate, so should be low.
+Don provides the remaining patches in the series to complete the addition
+of X550 support into the ixgbe driver.
 
->
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> ---
->  net/core/dev.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
->
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 945bbd0..e70507d 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -3250,7 +3250,7 @@ static int rps_ipi_queued(struct softnet_data *sd)
->  int netdev_flow_limit_table_len __read_mostly = (1 << 12);
->  #endif
->
-> -static bool skb_flow_limit(struct sk_buff *skb, unsigned int qlen)
-> +static bool skb_flow_limit(struct sk_buff *skb, unsigned int qlen, int cpu)
->  {
->  #ifdef CONFIG_NET_FLOW_LIMIT
->         struct sd_flow_limit *fl;
-> @@ -3260,7 +3260,7 @@ static bool skb_flow_limit(struct sk_buff *skb, unsigned int qlen)
->         if (qlen < (netdev_max_backlog >> 1))
->                 return false;
->
-> -       sd = this_cpu_ptr(&softnet_data);
-> +       sd = &per_cpu(softnet_data, cpu);
->
->         rcu_read_lock();
->         fl = rcu_dereference(sd->flow_limit);
-> @@ -3303,7 +3303,7 @@ static int enqueue_to_backlog(struct sk_buff *skb, int cpu,
->
->         rps_lock(sd);
->         qlen = skb_queue_len(&sd->input_pkt_queue);
-> -       if (qlen <= netdev_max_backlog && !skb_flow_limit(skb, qlen)) {
-> +       if (qlen <= netdev_max_backlog && !skb_flow_limit(skb, qlen, cpu)) {
->                 if (skb_queue_len(&sd->input_pkt_queue)) {
->  enqueue:
->                         __skb_queue_tail(&sd->input_pkt_queue, skb);
-> --
-> 2.1.0
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The following are changes since commit d8febb77b52ebddb9bd03ccaa5b61005e3a45a85:
+  tun: Fix GSO meta-data handling in tun_get_user
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Alexander Duyck (2):
+  ixgbe: Clean-up page reuse code
+  ixgbe: Remove tail write abstraction and add missing barrier
+
+Don Skidmore (7):
+  ixgbe: add support for X550 extended RSS support
+  ixgbe: Add timeout parameter to ixgbe_host_interface_command
+  ixgbe: Add x550 SW/FW semaphore support
+  ixgbe: add methods for combined read and write operations
+  ixgbe: cleanup checksum to allow error results
+  ixgbe: Add X550 support function pointers
+  ixgbe: bump version number
+
+Emil Tantilov (4):
+  ixgbe: remove CIAA/D register reads from bad VF check
+  ixgbe: fix crash on rmmod after probe fail
+  ixgbevf: add support for X550 VFs
+  ixgbevf: fix possible crashes in probe and remove
+
+Martin K Petersen (1):
+  ixgbe: Look up MAC address in Open Firmware or IDPROM
+
+ drivers/net/ethernet/intel/ixgbe/Makefile         |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h          |   45 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c   |  133 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h   |    8 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c  |    9 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  403 +++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c      |  214 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h      |   10 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    |    3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |  284 +++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c     |   85 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.h     |   39 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c     | 1432 +++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbevf/defines.h      |    2 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |    4 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   42 +-
+ drivers/net/ethernet/intel/ixgbevf/vf.c           |   10 +
+ drivers/net/ethernet/intel/ixgbevf/vf.h           |    2 +
+ 18 files changed, 2404 insertions(+), 323 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/ixgbe/ixgbe_x540.h
+ create mode 100644 drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+
+-- 
+1.9.3
