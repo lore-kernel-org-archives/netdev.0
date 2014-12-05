@@ -1,284 +1,182 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/14] ixgbe: add support for X550 extended RSS support
-Date: Fri,  5 Dec 2014 09:52:44 -0800
-Message-ID: <1417801973-28793-6-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: [PATCH net-next 3/3] net: rename *_switch_parent_id_get to *_parent_id_get
+Date: Fri,  5 Dec 2014 13:02:17 -0500
+Message-ID: <1417802537-20020-3-git-send-email-gospo@cumulusnetworks.com>
+References: <1417802537-20020-1-git-send-email-gospo@cumulusnetworks.com>
+Cc: sfeldma@gmail.com, jpirko@resnulli.us
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:7122 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751704AbaLERxw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2014 12:53:52 -0500
-In-Reply-To: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:48602 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751872AbaLESCr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 13:02:47 -0500
+In-Reply-To: <1417802537-20020-1-git-send-email-gospo@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+Clean up ops to get parent_id for netdev by dropping 'switch' from the
+names.
 
-The new X550 family of MAC's will have a larger RSS hash (16 -> 64).
-It will also support individual VF to have their own independent RSS
-hash key.  This patch will enable this functionality
-
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         | 36 ++++++++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  9 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 82 +++++++++++++++++++++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c   |  3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |  2 +
- 5 files changed, 107 insertions(+), 25 deletions(-)
+ Documentation/networking/switchdev.txt | 19 +++++++++----------
+ drivers/net/ethernet/rocker/rocker.c   |  4 ++--
+ include/linux/netdevice.h              |  2 +-
+ include/net/switchdev.h                |  4 ++--
+ net/core/net-sysfs.c                   |  2 +-
+ net/core/rtnetlink.c                   |  2 +-
+ net/switchdev/switchdev.c              | 12 ++++++------
+ 7 files changed, 22 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 86fa607..6fbc7d7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -300,16 +300,17 @@ enum ixgbe_ring_f_enum {
- 	RING_F_ARRAY_SIZE      /* must be last in enum set */
- };
+diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
+index f981a92..5afc1a3 100644
+--- a/Documentation/networking/switchdev.txt
++++ b/Documentation/networking/switchdev.txt
+@@ -46,14 +46,13 @@ of the switch chip. eth0 and eth1 are instances of some other existing driver.
+ The only difference of the switch-port netdevice from the ordinary netdevice
+ is that is implements couple more NDOs:
  
--#define IXGBE_MAX_RSS_INDICES  16
--#define IXGBE_MAX_VMDQ_INDICES 64
--#define IXGBE_MAX_FDIR_INDICES 63	/* based on q_vector limit */
--#define IXGBE_MAX_FCOE_INDICES  8
--#define MAX_RX_QUEUES (IXGBE_MAX_FDIR_INDICES + 1)
--#define MAX_TX_QUEUES (IXGBE_MAX_FDIR_INDICES + 1)
--#define IXGBE_MAX_L2A_QUEUES 4
--#define IXGBE_BAD_L2A_QUEUE 3
--#define IXGBE_MAX_MACVLANS	31
--#define IXGBE_MAX_DCBMACVLANS	8
-+#define IXGBE_MAX_RSS_INDICES		16
-+#define IXGBE_MAX_RSS_INDICES_X550	64
-+#define IXGBE_MAX_VMDQ_INDICES		64
-+#define IXGBE_MAX_FDIR_INDICES		63	/* based on q_vector limit */
-+#define IXGBE_MAX_FCOE_INDICES		8
-+#define MAX_RX_QUEUES			(IXGBE_MAX_FDIR_INDICES + 1)
-+#define MAX_TX_QUEUES			(IXGBE_MAX_FDIR_INDICES + 1)
-+#define IXGBE_MAX_L2A_QUEUES		4
-+#define IXGBE_BAD_L2A_QUEUE		3
-+#define IXGBE_MAX_MACVLANS		31
-+#define IXGBE_MAX_DCBMACVLANS		8
- 
- struct ixgbe_ring_feature {
- 	u16 limit;	/* upper limit on feature indices */
-@@ -764,6 +765,21 @@ struct ixgbe_adapter {
- 	unsigned long fwd_bitmask; /* Bitmask indicating in use pools */
- };
- 
-+static inline u8 ixgbe_max_rss_indices(struct ixgbe_adapter *adapter)
-+{
-+	switch (adapter->hw.mac.type) {
-+	case ixgbe_mac_82598EB:
-+	case ixgbe_mac_82599EB:
-+	case ixgbe_mac_X540:
-+		return IXGBE_MAX_RSS_INDICES;
-+	case ixgbe_mac_X550:
-+	case ixgbe_mac_X550EM_x:
-+		return IXGBE_MAX_RSS_INDICES_X550;
-+	default:
-+		return 0;
-+	}
-+}
-+
- struct ixgbe_fdir_filter {
- 	struct hlist_node fdir_node;
- 	union ixgbe_atr_input filter;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 26fd85e..e5be0dd 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -2927,7 +2927,7 @@ static unsigned int ixgbe_max_channels(struct ixgbe_adapter *adapter)
- 		max_combined = IXGBE_MAX_FDIR_INDICES;
- 	} else {
- 		/* support up to 16 queues with RSS */
--		max_combined = IXGBE_MAX_RSS_INDICES;
-+		max_combined = ixgbe_max_rss_indices(adapter);
- 	}
- 
- 	return max_combined;
-@@ -2975,6 +2975,7 @@ static int ixgbe_set_channels(struct net_device *dev,
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
- 	unsigned int count = ch->combined_count;
-+	u8 max_rss_indices = ixgbe_max_rss_indices(adapter);
- 
- 	/* verify they are not requesting separate vectors */
- 	if (!count || ch->rx_count || ch->tx_count)
-@@ -2991,9 +2992,9 @@ static int ixgbe_set_channels(struct net_device *dev,
- 	/* update feature limits from largest to smallest supported values */
- 	adapter->ring_feature[RING_F_FDIR].limit = count;
- 
--	/* cap RSS limit at 16 */
--	if (count > IXGBE_MAX_RSS_INDICES)
--		count = IXGBE_MAX_RSS_INDICES;
-+	/* cap RSS limit */
-+	if (count > max_rss_indices)
-+		count = max_rss_indices;
- 	adapter->ring_feature[RING_F_RSS].limit = count;
- 
- #ifdef IXGBE_FCOE
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index b519b89..eb55078 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3217,7 +3217,9 @@ static void ixgbe_setup_reta(struct ixgbe_adapter *adapter, const u32 *seed)
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	u32 reta = 0;
- 	int i, j;
-+	int reta_entries = 128;
- 	u16 rss_i = adapter->ring_feature[RING_F_RSS].indices;
-+	int indices_multi;
- 
- 	/*
- 	 * Program table for at least 2 queues w/ SR-IOV so that VFs can
-@@ -3231,22 +3233,67 @@ static void ixgbe_setup_reta(struct ixgbe_adapter *adapter, const u32 *seed)
- 	for (i = 0; i < 10; i++)
- 		IXGBE_WRITE_REG(hw, IXGBE_RSSRK(i), seed[i]);
- 
-+	/* Fill out the redirection table as follows:
-+	 * 82598: 128 (8 bit wide) entries containing pair of 4 bit RSS indices
-+	 * 82599/X540: 128 (8 bit wide) entries containing 4 bit RSS index
-+	 * X550: 512 (8 bit wide) entries containing 6 bit RSS index
-+	 */
-+	if (adapter->hw.mac.type == ixgbe_mac_82598EB)
-+		indices_multi = 0x11;
-+	else
-+		indices_multi = 0x1;
-+
-+	switch (adapter->hw.mac.type) {
-+	case ixgbe_mac_X550:
-+	case ixgbe_mac_X550EM_x:
-+		if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
-+			reta_entries = 512;
-+	default:
-+		break;
-+	}
-+
- 	/* Fill out redirection table */
--	for (i = 0, j = 0; i < 128; i++, j++) {
-+	for (i = 0, j = 0; i < reta_entries; i++, j++) {
-+		if (j == rss_i)
-+			j = 0;
-+		reta = (reta << 8) | (j * indices_multi);
-+		if ((i & 3) == 3) {
-+			if (i < 128)
-+				IXGBE_WRITE_REG(hw, IXGBE_RETA(i >> 2), reta);
-+			else
-+				IXGBE_WRITE_REG(hw, IXGBE_ERETA((i >> 2) - 32),
-+						reta);
-+		}
-+	}
-+}
-+
-+static void ixgbe_setup_vfreta(struct ixgbe_adapter *adapter, const u32 *seed)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 vfreta = 0;
-+	u16 rss_i = adapter->ring_feature[RING_F_RSS].indices;
-+	unsigned int pf_pool = adapter->num_vfs;
-+	int i, j;
-+
-+	/* Fill out hash function seeds */
-+	for (i = 0; i < 10; i++)
-+		IXGBE_WRITE_REG(hw, IXGBE_PFVFRSSRK(i, pf_pool), seed[i]);
-+
-+	/* Fill out the redirection table */
-+	for (i = 0, j = 0; i < 64; i++, j++) {
- 		if (j == rss_i)
- 			j = 0;
--		/* reta = 4-byte sliding window of
--		 * 0x00..(indices-1)(indices-1)00..etc. */
--		reta = (reta << 8) | (j * 0x11);
-+		vfreta = (vfreta << 8) | j;
- 		if ((i & 3) == 3)
--			IXGBE_WRITE_REG(hw, IXGBE_RETA(i >> 2), reta);
-+			IXGBE_WRITE_REG(hw, IXGBE_PFVFRETA(i >> 2, pf_pool),
-+					vfreta);
- 	}
+-  ndo_switch_parent_id_get - This returns the same ID for two port netdevices
+-			     of the same physical switch chip. This is
+-			     mandatory to be implemented by all switch drivers
+-			     and serves the caller for recognition of a port
+-			     netdevice.
+-  ndo_switch_parent_* - Functions that serve for a manipulation of the switch
+-			chip itself (it can be though of as a "parent" of the
+-			port, therefore the name). They are not port-specific.
+-			Caller might use arbitrary port netdevice of the same
+-			switch and it will make no difference.
++  ndo_parent_id_get - This returns the same ID for two port netdevices of the
++		      same physical switch chip. This is mandatory to be
++		      implemented by all switch drivers and serves the caller for
++		      recognition of a port netdevice.
++  ndo_parent_* - Functions that serve for a manipulation of the switch chip
++		 itself (it can be though of as a "parent" of the port,
++		 therefore the name). They are not port-specific.  Caller might
++		 use arbitrary port netdevice of the same switch and it will
++		 make no difference.
+   ndo_switch_port_* - Functions that serve for a port-specific manipulation.
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index fded127..baa2ac8 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -3762,7 +3762,7 @@ static int rocker_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+ 				       rocker_port->brport_flags, mask);
  }
  
- static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
+-static int rocker_port_switch_parent_id_get(struct net_device *dev,
++static int rocker_port_parent_id_get(struct net_device *dev,
+ 					    struct netdev_phys_item_id *psid)
  {
- 	struct ixgbe_hw *hw = &adapter->hw;
--	u32 mrqc = 0, rss_field = 0;
-+	u32 mrqc = 0, rss_field = 0, vfmrqc = 0;
- 	u32 rss_key[10];
- 	u32 rxcsum;
+ 	struct rocker_port *rocker_port = netdev_priv(dev);
+@@ -3792,7 +3792,7 @@ static const struct net_device_ops rocker_port_netdev_ops = {
+ 	.ndo_fdb_dump			= rocker_port_fdb_dump,
+ 	.ndo_bridge_setlink		= rocker_port_bridge_setlink,
+ 	.ndo_bridge_getlink		= rocker_port_bridge_getlink,
+-	.ndo_switch_parent_id_get	= rocker_port_switch_parent_id_get,
++	.ndo_parent_id_get		= rocker_port_parent_id_get,
+ 	.ndo_switch_port_stp_update	= rocker_port_switch_port_stp_update,
+ };
  
-@@ -3292,9 +3339,24 @@ static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
- 		rss_field |= IXGBE_MRQC_RSS_FIELD_IPV6_UDP;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 29c92ee..5c384b3 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1181,7 +1181,7 @@ struct net_device_ops {
+ 	bool			(*ndo_gso_check) (struct sk_buff *skb,
+ 						  struct net_device *dev);
+ #ifdef CONFIG_NET_SWITCHDEV
+-	int			(*ndo_switch_parent_id_get)(struct net_device *dev,
++	int			(*ndo_parent_id_get)(struct net_device *dev,
+ 							    struct netdev_phys_item_id *psid);
+ 	int			(*ndo_switch_port_stp_update)(struct net_device *dev,
+ 							      u8 state);
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index 8a6d164..a16502c 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -14,13 +14,13 @@
  
- 	netdev_rss_key_fill(rss_key, sizeof(rss_key));
--	ixgbe_setup_reta(adapter, rss_key);
--	mrqc |= rss_field;
--	IXGBE_WRITE_REG(hw, IXGBE_MRQC, mrqc);
-+	if ((hw->mac.type >= ixgbe_mac_X550) &&
-+	    (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)) {
-+		unsigned int pf_pool = adapter->num_vfs;
-+
-+		/* Enable VF RSS mode */
-+		mrqc |= IXGBE_MRQC_MULTIPLE_RSS;
-+		IXGBE_WRITE_REG(hw, IXGBE_MRQC, mrqc);
-+
-+		/* Setup RSS through the VF registers */
-+		ixgbe_setup_vfreta(adapter, rss_key);
-+		vfmrqc = IXGBE_MRQC_RSSEN;
-+		vfmrqc |= rss_field;
-+		IXGBE_WRITE_REG(hw, IXGBE_PFVFMRQC(pf_pool), vfmrqc);
-+	} else {
-+		ixgbe_setup_reta(adapter, rss_key);
-+		mrqc |= rss_field;
-+		IXGBE_WRITE_REG(hw, IXGBE_MRQC, mrqc);
-+	}
- }
+ #ifdef CONFIG_NET_SWITCHDEV
+ 
+-int netdev_switch_parent_id_get(struct net_device *dev,
++int netdev_parent_id_get(struct net_device *dev,
+ 				struct netdev_phys_item_id *psid);
+ int netdev_switch_port_stp_update(struct net_device *dev, u8 state);
+ 
+ #else
+ 
+-static inline int netdev_switch_parent_id_get(struct net_device *dev,
++static inline int netdev_parent_id_get(struct net_device *dev,
+ 					      struct netdev_phys_item_id *psid)
+ {
+ 	return -EOPNOTSUPP;
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 9993412..a9e27ef 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -429,7 +429,7 @@ static ssize_t phys_switch_id_show(struct device *dev,
+ 	if (dev_isalive(netdev)) {
+ 		struct netdev_phys_item_id ppid;
+ 
+-		ret = netdev_switch_parent_id_get(netdev, &ppid);
++		ret = netdev_parent_id_get(netdev, &ppid);
+ 		if (!ret)
+ 			ret = sprintf(buf, "%*phN\n", ppid.id_len, ppid.id);
+ 	}
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 1fe0a16..37bd62f 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -975,7 +975,7 @@ static int rtnl_phys_switch_id_fill(struct sk_buff *skb, struct net_device *dev)
+ 	int err;
+ 	struct netdev_phys_item_id psid;
+ 
+-	err = netdev_switch_parent_id_get(dev, &psid);
++	err = netdev_parent_id_get(dev, &psid);
+ 	if (err) {
+ 		if (err == -EOPNOTSUPP)
+ 			return 0;
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index d162b21..c3e8fb28 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -15,22 +15,22 @@
+ #include <net/switchdev.h>
  
  /**
-@@ -5056,7 +5118,7 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	hw->subsystem_device_id = pdev->subsystem_device;
+- *	netdev_switch_parent_id_get - Get ID of a switch
++ *	netdev_switch_id_get - Get ID of a switch
+  *	@dev: port device
+  *	@psid: switch ID
+  *
+  *	Get ID of a switch this port is part of.
+  */
+-int netdev_switch_parent_id_get(struct net_device *dev,
++int netdev_parent_id_get(struct net_device *dev,
+ 				struct netdev_phys_item_id *psid)
+ {
+ 	const struct net_device_ops *ops = dev->netdev_ops;
  
- 	/* Set common capability flags and settings */
--	rss = min_t(int, IXGBE_MAX_RSS_INDICES, num_online_cpus());
-+	rss = min_t(int, ixgbe_max_rss_indices(adapter), num_online_cpus());
- 	adapter->ring_feature[RING_F_RSS].limit = rss;
- 	adapter->flags2 |= IXGBE_FLAG2_RSC_CAPABLE;
- 	adapter->flags2 |= IXGBE_FLAG2_RSC_ENABLED;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 04eee7c..c76ba90 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -221,7 +221,8 @@ int ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
- 	if (adapter->ring_feature[RING_F_VMDQ].limit == 1) {
- 		adapter->flags &= ~IXGBE_FLAG_VMDQ_ENABLED;
- 		adapter->flags &= ~IXGBE_FLAG_SRIOV_ENABLED;
--		rss = min_t(int, IXGBE_MAX_RSS_INDICES, num_online_cpus());
-+		rss = min_t(int, ixgbe_max_rss_indices(adapter),
-+			    num_online_cpus());
- 	} else {
- 		rss = min_t(int, IXGBE_MAX_L2A_QUEUES, num_online_cpus());
- 	}
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 64de20d..cc1ac04 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -297,6 +297,7 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_IMIRVP    0x05AC0
- #define IXGBE_VMD_CTL   0x0581C
- #define IXGBE_RETA(_i)  (0x05C00 + ((_i) * 4))  /* 32 of these (0-31) */
-+#define IXGBE_ERETA(_i)	(0x0EE80 + ((_i) * 4))  /* 96 of these (0-95) */
- #define IXGBE_RSSRK(_i) (0x05C80 + ((_i) * 4))  /* 10 of these (0-9) */
+-	if (!ops->ndo_switch_parent_id_get)
++	if (!ops->ndo_parent_id_get)
+ 		return -EOPNOTSUPP;
+-	return ops->ndo_switch_parent_id_get(dev, psid);
++	return ops->ndo_parent_id_get(dev, psid);
+ }
+-EXPORT_SYMBOL(netdev_switch_parent_id_get);
++EXPORT_SYMBOL(netdev_parent_id_get);
  
- /* Registers for setting up RSS on X550 with SRIOV
-@@ -2016,6 +2017,7 @@ enum {
- #define IXGBE_MRQC_RSS_FIELD_IPV4_UDP    0x00400000
- #define IXGBE_MRQC_RSS_FIELD_IPV6_UDP    0x00800000
- #define IXGBE_MRQC_RSS_FIELD_IPV6_EX_UDP 0x01000000
-+#define IXGBE_MRQC_MULTIPLE_RSS          0x00002000
- #define IXGBE_MRQC_L3L4TXSWEN            0x00008000
+ /**
+  *	netdev_switch_port_stp_update - Notify switch device port of STP
+@@ -46,7 +46,7 @@ int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
  
- #define IXGBE_FWSM_TS_ENABLED	0x1
+ 	if (!ops->ndo_switch_port_stp_update)
+ 		return -EOPNOTSUPP;
+-	WARN_ON(!ops->ndo_switch_parent_id_get);
++	WARN_ON(!ops->ndo_parent_id_get);
+ 	return ops->ndo_switch_port_stp_update(dev, state);
+ }
+ EXPORT_SYMBOL(netdev_switch_port_stp_update);
 -- 
 1.9.3
