@@ -1,253 +1,121 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/14] ixgbe: add methods for combined read and write operations
-Date: Fri,  5 Dec 2014 09:52:47 -0800
-Message-ID: <1417801973-28793-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/14] ixgbe: Remove tail write abstraction and add missing barrier
+Date: Fri,  5 Dec 2014 09:52:41 -0800
+Message-ID: <1417801973-28793-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Don Skidmore <donald.c.skidmore@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:7178 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:7122 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751848AbaLERxz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2014 12:53:55 -0500
+	id S1751539AbaLERxr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Dec 2014 12:53:47 -0500
 In-Reply-To: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
 
-Some X550 procedures will be using CS4227 PHY and need to
-perform combined read and write operations.  This patch
-adds those methods.
+This change cleans up the tail writes for the ixgbe descriptor queues.  The
+current implementation had me confused as I wasn't sure if it was still
+making use of the surprise remove logic or not.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+It also adds the mmiowb which is needed on ia64, mips, and a couple other
+architectures in order to synchronize the MMIO writes with the Tx queue
+_xmit_lock spinlock.
+
+Cc: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c  | 182 ++++++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h  |   4 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |   2 +
- 3 files changed, 188 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  5 ----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 40 +++++++++++++--------------
+ 2 files changed, 20 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index a174958..8a2be44 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -50,6 +50,188 @@ static s32 ixgbe_get_phy_id(struct ixgbe_hw *hw);
- static s32 ixgbe_identify_qsfp_module_generic(struct ixgbe_hw *hw);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 5032a60..86fa607 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -553,11 +553,6 @@ static inline u16 ixgbe_desc_unused(struct ixgbe_ring *ring)
+ 	return ((ntc > ntu) ? 0 : ring->count) + ntc - ntu - 1;
+ }
  
- /**
-+ *  ixgbe_out_i2c_byte_ack - Send I2C byte with ack
-+ *  @hw: pointer to the hardware structure
-+ *  @byte: byte to send
-+ *
-+ *  Returns an error code on error.
-+ **/
-+static s32 ixgbe_out_i2c_byte_ack(struct ixgbe_hw *hw, u8 byte)
-+{
-+	s32 status;
-+
-+	status = ixgbe_clock_out_i2c_byte(hw, byte);
-+	if (status)
-+		return status;
-+	return ixgbe_get_i2c_ack(hw);
-+}
-+
-+/**
-+ *  ixgbe_in_i2c_byte_ack - Receive an I2C byte and send ack
-+ *  @hw: pointer to the hardware structure
-+ *  @byte: pointer to a u8 to receive the byte
-+ *
-+ *  Returns an error code on error.
-+ **/
-+static s32 ixgbe_in_i2c_byte_ack(struct ixgbe_hw *hw, u8 *byte)
-+{
-+	s32 status;
-+
-+	status = ixgbe_clock_in_i2c_byte(hw, byte);
-+	if (status)
-+		return status;
-+	/* ACK */
-+	return ixgbe_clock_out_i2c_bit(hw, false);
-+}
-+
-+/**
-+ *  ixgbe_ones_comp_byte_add - Perform one's complement addition
-+ *  @add1: addend 1
-+ *  @add2: addend 2
-+ *
-+ *  Returns one's complement 8-bit sum.
-+ **/
-+static u8 ixgbe_ones_comp_byte_add(u8 add1, u8 add2)
-+{
-+	u16 sum = add1 + add2;
-+
-+	sum = (sum & 0xFF) + (sum >> 8);
-+	return sum & 0xFF;
-+}
-+
-+/**
-+ *  ixgbe_read_i2c_combined_generic - Perform I2C read combined operation
-+ *  @hw: pointer to the hardware structure
-+ *  @addr: I2C bus address to read from
-+ *  @reg: I2C device register to read from
-+ *  @val: pointer to location to receive read value
-+ *
-+ *  Returns an error code on error.
-+ **/
-+s32 ixgbe_read_i2c_combined_generic(struct ixgbe_hw *hw, u8 addr,
-+				    u16 reg, u16 *val)
-+{
-+	u32 swfw_mask = hw->phy.phy_semaphore_mask;
-+	int max_retry = 10;
-+	int retry = 0;
-+	u8 csum_byte;
-+	u8 high_bits;
-+	u8 low_bits;
-+	u8 reg_high;
-+	u8 csum;
-+
-+	reg_high = ((reg >> 7) & 0xFE) | 1;     /* Indicate read combined */
-+	csum = ixgbe_ones_comp_byte_add(reg_high, reg & 0xFF);
-+	csum = ~csum;
-+	do {
-+		if (hw->mac.ops.acquire_swfw_sync(hw, swfw_mask))
-+			return IXGBE_ERR_SWFW_SYNC;
-+		ixgbe_i2c_start(hw);
-+		/* Device Address and write indication */
-+		if (ixgbe_out_i2c_byte_ack(hw, addr))
-+			goto fail;
-+		/* Write bits 14:8 */
-+		if (ixgbe_out_i2c_byte_ack(hw, reg_high))
-+			goto fail;
-+		/* Write bits 7:0 */
-+		if (ixgbe_out_i2c_byte_ack(hw, reg & 0xFF))
-+			goto fail;
-+		/* Write csum */
-+		if (ixgbe_out_i2c_byte_ack(hw, csum))
-+			goto fail;
-+		/* Re-start condition */
-+		ixgbe_i2c_start(hw);
-+		/* Device Address and read indication */
-+		if (ixgbe_out_i2c_byte_ack(hw, addr | 1))
-+			goto fail;
-+		/* Get upper bits */
-+		if (ixgbe_in_i2c_byte_ack(hw, &high_bits))
-+			goto fail;
-+		/* Get low bits */
-+		if (ixgbe_in_i2c_byte_ack(hw, &low_bits))
-+			goto fail;
-+		/* Get csum */
-+		if (ixgbe_clock_in_i2c_byte(hw, &csum_byte))
-+			goto fail;
-+		/* NACK */
-+		if (ixgbe_clock_out_i2c_bit(hw, false))
-+			goto fail;
-+		ixgbe_i2c_stop(hw);
-+		hw->mac.ops.release_swfw_sync(hw, swfw_mask);
-+		*val = (high_bits << 8) | low_bits;
-+		return 0;
-+
-+fail:
-+		ixgbe_i2c_bus_clear(hw);
-+		hw->mac.ops.release_swfw_sync(hw, swfw_mask);
-+		retry++;
-+		if (retry < max_retry)
-+			hw_dbg(hw, "I2C byte read combined error - Retry.\n");
-+		else
-+			hw_dbg(hw, "I2C byte read combined error.\n");
-+	} while (retry < max_retry);
-+
-+	return IXGBE_ERR_I2C;
-+}
-+
-+/**
-+ *  ixgbe_write_i2c_combined_generic - Perform I2C write combined operation
-+ *  @hw: pointer to the hardware structure
-+ *  @addr: I2C bus address to write to
-+ *  @reg: I2C device register to write to
-+ *  @val: value to write
-+ *
-+ *  Returns an error code on error.
-+ **/
-+s32 ixgbe_write_i2c_combined_generic(struct ixgbe_hw *hw,
-+				     u8 addr, u16 reg, u16 val)
-+{
-+	int max_retry = 1;
-+	int retry = 0;
-+	u8 reg_high;
-+	u8 csum;
-+
-+	reg_high = (reg >> 7) & 0xFE;   /* Indicate write combined */
-+	csum = ixgbe_ones_comp_byte_add(reg_high, reg & 0xFF);
-+	csum = ixgbe_ones_comp_byte_add(csum, val >> 8);
-+	csum = ixgbe_ones_comp_byte_add(csum, val & 0xFF);
-+	csum = ~csum;
-+	do {
-+		ixgbe_i2c_start(hw);
-+		/* Device Address and write indication */
-+		if (ixgbe_out_i2c_byte_ack(hw, addr))
-+			goto fail;
-+		/* Write bits 14:8 */
-+		if (ixgbe_out_i2c_byte_ack(hw, reg_high))
-+			goto fail;
-+		/* Write bits 7:0 */
-+		if (ixgbe_out_i2c_byte_ack(hw, reg & 0xFF))
-+			goto fail;
-+		/* Write data 15:8 */
-+		if (ixgbe_out_i2c_byte_ack(hw, val >> 8))
-+			goto fail;
-+		/* Write data 7:0 */
-+		if (ixgbe_out_i2c_byte_ack(hw, val & 0xFF))
-+			goto fail;
-+		/* Write csum */
-+		if (ixgbe_out_i2c_byte_ack(hw, csum))
-+			goto fail;
-+		ixgbe_i2c_stop(hw);
-+		return 0;
-+
-+fail:
-+		ixgbe_i2c_bus_clear(hw);
-+		retry++;
-+		if (retry < max_retry)
-+			hw_dbg(hw, "I2C byte write combined error - Retry.\n");
-+		else
-+			hw_dbg(hw, "I2C byte write combined error.\n");
-+	} while (retry < max_retry);
-+
-+	return IXGBE_ERR_I2C;
-+}
-+
-+/**
-  *  ixgbe_identify_phy_generic - Get physical layer module
-  *  @hw: pointer to hardware structure
-  *
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-index 54071ed..badd072 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-@@ -157,4 +157,8 @@ s32 ixgbe_read_i2c_sff8472_generic(struct ixgbe_hw *hw, u8 byte_offset,
- 				   u8 *sff8472_data);
- s32 ixgbe_write_i2c_eeprom_generic(struct ixgbe_hw *hw, u8 byte_offset,
- 				   u8 eeprom_data);
-+s32 ixgbe_read_i2c_combined_generic(struct ixgbe_hw *hw, u8 addr,
-+				    u16 reg, u16 *val);
-+s32 ixgbe_write_i2c_combined_generic(struct ixgbe_hw *hw, u8 addr,
-+				     u16 reg, u16 val);
- #endif /* _IXGBE_PHY_H_ */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 6cff91e..14b43b9 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -2960,6 +2960,8 @@ struct ixgbe_phy_operations {
- 	s32 (*read_i2c_sff8472)(struct ixgbe_hw *, u8 , u8 *);
- 	s32 (*read_i2c_eeprom)(struct ixgbe_hw *, u8 , u8 *);
- 	s32 (*write_i2c_eeprom)(struct ixgbe_hw *, u8, u8);
-+	s32 (*read_i2c_combined)(struct ixgbe_hw *, u8 addr, u16 reg, u16 *val);
-+	s32 (*write_i2c_combined)(struct ixgbe_hw *, u8 addr, u16 reg, u16 val);
- 	s32 (*check_overtemp)(struct ixgbe_hw *);
- };
+-static inline void ixgbe_write_tail(struct ixgbe_ring *ring, u32 value)
+-{
+-	writel(value, ring->tail);
+-}
+-
+ #define IXGBE_RX_DESC(R, i)	    \
+ 	(&(((union ixgbe_adv_rx_desc *)((R)->desc))[i]))
+ #define IXGBE_TX_DESC(R, i)	    \
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 3c1d4ea..73cd0fe 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1416,22 +1416,6 @@ static inline void ixgbe_rx_checksum(struct ixgbe_ring *ring,
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+ }
  
+-static inline void ixgbe_release_rx_desc(struct ixgbe_ring *rx_ring, u32 val)
+-{
+-	rx_ring->next_to_use = val;
+-
+-	/* update next to alloc since we have filled the ring */
+-	rx_ring->next_to_alloc = val;
+-	/*
+-	 * Force memory writes to complete before letting h/w
+-	 * know there are new descriptors to fetch.  (Only
+-	 * applicable for weak-ordered memory model archs,
+-	 * such as IA-64).
+-	 */
+-	wmb();
+-	ixgbe_write_tail(rx_ring, val);
+-}
+-
+ static bool ixgbe_alloc_mapped_page(struct ixgbe_ring *rx_ring,
+ 				    struct ixgbe_rx_buffer *bi)
+ {
+@@ -1517,8 +1501,20 @@ void ixgbe_alloc_rx_buffers(struct ixgbe_ring *rx_ring, u16 cleaned_count)
+ 
+ 	i += rx_ring->count;
+ 
+-	if (rx_ring->next_to_use != i)
+-		ixgbe_release_rx_desc(rx_ring, i);
++	if (rx_ring->next_to_use != i) {
++		rx_ring->next_to_use = i;
++
++		/* update next to alloc since we have filled the ring */
++		rx_ring->next_to_alloc = i;
++
++		/* Force memory writes to complete before letting h/w
++		 * know there are new descriptors to fetch.  (Only
++		 * applicable for weak-ordered memory model archs,
++		 * such as IA-64).
++		 */
++		wmb();
++		writel(i, rx_ring->tail);
++	}
+ }
+ 
+ static void ixgbe_set_rsc_gso_size(struct ixgbe_ring *ring,
+@@ -6954,8 +6950,12 @@ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
+ 	ixgbe_maybe_stop_tx(tx_ring, DESC_NEEDED);
+ 
+ 	if (netif_xmit_stopped(txring_txq(tx_ring)) || !skb->xmit_more) {
+-		/* notify HW of packet */
+-		ixgbe_write_tail(tx_ring, i);
++		writel(i, tx_ring->tail);
++
++		/* we need this if more than one processor can write to our tail
++		 * at a time, it synchronizes IO on IA64/Altix systems
++		 */
++		mmiowb();
+ 	}
+ 
+ 	return;
 -- 
 1.9.3
