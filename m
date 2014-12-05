@@ -1,76 +1,225 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 1/4] net: tcp: refactor reinitialization of congestion control
-Date: Fri,  5 Dec 2014 16:24:49 +0100
-Message-ID: <1417793092-6263-2-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next 3/4] net: tcp: add RTAX_CC_ALGO fib handling
+Date: Fri,  5 Dec 2014 16:24:51 +0100
+Message-ID: <1417793092-6263-4-git-send-email-dborkman@redhat.com>
 References: <1417793092-6263-1-git-send-email-dborkman@redhat.com>
 Cc: hannes@stressinduktion.org, fw@strlen.de, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57442 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:41274 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751197AbaLEPZI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2014 10:25:08 -0500
+	id S1751466AbaLEPZJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Dec 2014 10:25:09 -0500
 In-Reply-To: <1417793092-6263-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We can just move this to an extra function and make the code
-a bit more readable, no functional change.
+This patch adds the minimum necessary for the RTAX_CC_ALGO congestion
+control metric to be set up and dumped back to user space.
+
+While the internal representation of RTAX_CC_ALGO is handled as a u32
+key, we avoided to expose this implementation detail to user space, thus
+instead, we chose the netlink attribute that is being exchanged between
+user space to be the actual congestion control algorithm name, similarly
+as in the setsockopt(2) API in order to allow for maximum flexibility,
+even for 3rd party modules.
+
+It is a bit unfortunate that RTAX_QUICKACK used up a whole RTAX slot as
+it should have been stored in RTAX_FEATURES instead, we first thought
+about reusing it for the congestion control key, but it brings more
+complications and/or confusion than worth it. Trying to load a non
+present congestion algorithm name will be rejected.
 
 Joint work with Florian Westphal.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- net/ipv4/tcp_cong.c | 24 ++++++++++++++----------
- 1 file changed, 14 insertions(+), 10 deletions(-)
+ include/net/tcp.h              |  7 +++++++
+ include/uapi/linux/rtnetlink.h |  2 ++
+ net/core/rtnetlink.c           | 15 +++++++++++++--
+ net/decnet/dn_fib.c            |  3 ++-
+ net/decnet/dn_table.c          |  3 ++-
+ net/ipv4/fib_semantics.c       | 14 ++++++++++++--
+ net/ipv6/ip6_fib.c             | 15 ++++++++++++++-
+ net/ipv6/route.c               |  3 ++-
+ 8 files changed, 54 insertions(+), 8 deletions(-)
 
-diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index 27ead0d..38f2f8a 100644
---- a/net/ipv4/tcp_cong.c
-+++ b/net/ipv4/tcp_cong.c
-@@ -107,6 +107,18 @@ void tcp_init_congestion_control(struct sock *sk)
- 		icsk->icsk_ca_ops->init(sk);
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 135b70c..95bb237 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -846,7 +846,14 @@ extern struct tcp_congestion_ops tcp_reno;
+ 
+ struct tcp_congestion_ops *tcp_ca_find_key(u32 key);
+ u32 tcp_ca_get_key_by_name(const char *name);
++#ifdef CONFIG_INET
+ char *tcp_ca_get_name_by_key(u32 key, char *buffer);
++#else
++static inline char *tcp_ca_get_name_by_key(u32 key, char *buffer)
++{
++	return NULL;
++}
++#endif
+ 
+ static inline bool tcp_ca_needs_ecn(const struct sock *sk)
+ {
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 9c9b8b4..d81f22d 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -389,6 +389,8 @@ enum {
+ #define RTAX_INITRWND RTAX_INITRWND
+ 	RTAX_QUICKACK,
+ #define RTAX_QUICKACK RTAX_QUICKACK
++	RTAX_CC_ALGO,
++#define RTAX_CC_ALGO RTAX_CC_ALGO
+ 	__RTAX_MAX
+ };
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 61cb7e7..3566f41 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -50,6 +50,7 @@
+ #include <net/arp.h>
+ #include <net/route.h>
+ #include <net/udp.h>
++#include <net/tcp.h>
+ #include <net/sock.h>
+ #include <net/pkt_sched.h>
+ #include <net/fib_rules.h>
+@@ -669,9 +670,19 @@ int rtnetlink_put_metrics(struct sk_buff *skb, u32 *metrics)
+ 
+ 	for (i = 0; i < RTAX_MAX; i++) {
+ 		if (metrics[i]) {
++			if (i == RTAX_CC_ALGO - 1) {
++				char tmp[TCP_CA_NAME_MAX], *name;
++
++				name = tcp_ca_get_name_by_key(metrics[i], tmp);
++				if (!name)
++					continue;
++				if (nla_put_string(skb, i + 1, name))
++					goto nla_put_failure;
++			} else {
++				if (nla_put_u32(skb, i + 1, metrics[i]))
++					goto nla_put_failure;
++			}
+ 			valid++;
+-			if (nla_put_u32(skb, i+1, metrics[i]))
+-				goto nla_put_failure;
+ 		}
+ 	}
+ 
+diff --git a/net/decnet/dn_fib.c b/net/decnet/dn_fib.c
+index d332aef..df48034 100644
+--- a/net/decnet/dn_fib.c
++++ b/net/decnet/dn_fib.c
+@@ -298,7 +298,8 @@ struct dn_fib_info *dn_fib_create_info(const struct rtmsg *r, struct nlattr *att
+ 			int type = nla_type(attr);
+ 
+ 			if (type) {
+-				if (type > RTAX_MAX || nla_len(attr) < 4)
++				if (type > RTAX_MAX || type == RTAX_CC_ALGO ||
++				    nla_len(attr) < 4)
+ 					goto err_inval;
+ 
+ 				fi->fib_metrics[type-1] = nla_get_u32(attr);
+diff --git a/net/decnet/dn_table.c b/net/decnet/dn_table.c
+index 86e3807..75c20a9 100644
+--- a/net/decnet/dn_table.c
++++ b/net/decnet/dn_table.c
+@@ -273,7 +273,8 @@ static inline size_t dn_fib_nlmsg_size(struct dn_fib_info *fi)
+ 	size_t payload = NLMSG_ALIGN(sizeof(struct rtmsg))
+ 			 + nla_total_size(4) /* RTA_TABLE */
+ 			 + nla_total_size(2) /* RTA_DST */
+-			 + nla_total_size(4); /* RTA_PRIORITY */
++			 + nla_total_size(4) /* RTA_PRIORITY */
++			 + nla_total_size(TCP_CA_NAME_MAX); /* RTAX_CC_ALGO */
+ 
+ 	/* space for nested metrics */
+ 	payload += nla_total_size((RTAX_MAX * nla_total_size(4)));
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index f99f41b..d2b7b55 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -360,7 +360,8 @@ static inline size_t fib_nlmsg_size(struct fib_info *fi)
+ 			 + nla_total_size(4) /* RTA_TABLE */
+ 			 + nla_total_size(4) /* RTA_DST */
+ 			 + nla_total_size(4) /* RTA_PRIORITY */
+-			 + nla_total_size(4); /* RTA_PREFSRC */
++			 + nla_total_size(4) /* RTA_PREFSRC */
++			 + nla_total_size(TCP_CA_NAME_MAX); /* RTAX_CC_ALGO */
+ 
+ 	/* space for nested metrics */
+ 	payload += nla_total_size((RTAX_MAX * nla_total_size(4)));
+@@ -859,7 +860,16 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+ 
+ 				if (type > RTAX_MAX)
+ 					goto err_inval;
+-				val = nla_get_u32(nla);
++				if (type == RTAX_CC_ALGO) {
++					char tmp[TCP_CA_NAME_MAX];
++
++					nla_strlcpy(tmp, nla, sizeof(tmp));
++					val = tcp_ca_get_key_by_name(tmp);
++					if (val == TCP_CA_UNSPEC)
++						goto err_inval;
++				} else {
++					val = nla_get_u32(nla);
++				}
+ 				if (type == RTAX_ADVMSS && val > 65535 - 40)
+ 					val = 65535 - 40;
+ 				if (type == RTAX_MTU && val > 65535 - 15)
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index b2d1838..0998ac6 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -30,6 +30,7 @@
+ #include <linux/slab.h>
+ 
+ #include <net/ipv6.h>
++#include <net/tcp.h>
+ #include <net/ndisc.h>
+ #include <net/addrconf.h>
+ 
+@@ -650,10 +651,22 @@ static int fib6_commit_metrics(struct dst_entry *dst,
+ 		int type = nla_type(nla);
+ 
+ 		if (type) {
++			u32 val;
++
+ 			if (type > RTAX_MAX)
+ 				return -EINVAL;
++			if (type == RTAX_CC_ALGO) {
++				char tmp[TCP_CA_NAME_MAX];
++
++				nla_strlcpy(tmp, nla, sizeof(tmp));
++				val = tcp_ca_get_key_by_name(tmp);
++				if (val == TCP_CA_UNSPEC)
++					return -EINVAL;
++			} else {
++				val = nla_get_u32(nla);
++			}
+ 
+-			mp[type - 1] = nla_get_u32(nla);
++			mp[type - 1] = val;
+ 		}
+ 	}
+ 	return 0;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index c910831..818c99a 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2534,7 +2534,8 @@ static inline size_t rt6_nlmsg_size(void)
+ 	       + nla_total_size(4) /* RTA_OIF */
+ 	       + nla_total_size(4) /* RTA_PRIORITY */
+ 	       + RTAX_MAX * nla_total_size(4) /* RTA_METRICS */
+-	       + nla_total_size(sizeof(struct rta_cacheinfo));
++	       + nla_total_size(sizeof(struct rta_cacheinfo))
++	       + nla_total_size(TCP_CA_NAME_MAX); /* RTAX_CC_ALGO */
  }
  
-+static void tcp_reinit_congestion_control(struct sock *sk,
-+					  const struct tcp_congestion_ops *ca)
-+{
-+	struct inet_connection_sock *icsk = inet_csk(sk);
-+
-+	tcp_cleanup_congestion_control(sk);
-+	icsk->icsk_ca_ops = ca;
-+
-+	if (sk->sk_state != TCP_CLOSE && icsk->icsk_ca_ops->init)
-+		icsk->icsk_ca_ops->init(sk);
-+}
-+
- /* Manage refcounts on socket close. */
- void tcp_cleanup_congestion_control(struct sock *sk)
- {
-@@ -262,21 +274,13 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
- #endif
- 	if (!ca)
- 		err = -ENOENT;
--
- 	else if (!((ca->flags & TCP_CONG_NON_RESTRICTED) ||
- 		   ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN)))
- 		err = -EPERM;
--
- 	else if (!try_module_get(ca->owner))
- 		err = -EBUSY;
--
--	else {
--		tcp_cleanup_congestion_control(sk);
--		icsk->icsk_ca_ops = ca;
--
--		if (sk->sk_state != TCP_CLOSE && icsk->icsk_ca_ops->init)
--			icsk->icsk_ca_ops->init(sk);
--	}
-+	else
-+		tcp_reinit_congestion_control(sk, ca);
-  out:
- 	rcu_read_unlock();
- 	return err;
+ static int rt6_fill_node(struct net *net,
 -- 
 1.7.11.7
