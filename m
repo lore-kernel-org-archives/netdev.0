@@ -1,75 +1,104 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: 3.12.33 - BUG xfrm_selector_match+0x25/0x2f6
-Date: Fri, 5 Dec 2014 11:43:31 +0100
-Message-ID: <20141205104330.GH6390@secunet.com>
-References: <547F2462.6040405@smart-weblications.de>
- <20141204075627.GE6390@secunet.com>
- <54808D8B.3080804@smart-weblications.de>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH] broadcom: Add BCM54616S phy support
+Date: Fri, 5 Dec 2014 10:44:43 +0000
+Message-ID: <BLUPR03MB373AD2D2CDBBC0D4F9B48BAF5790@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1417770960-4578-1-git-send-email-alessio.bogani@elettra.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-	<stable@vger.kernel.org>
-To: Smart Weblications GmbH - Florian Wiessner
-	<f.wiessner@smart-weblications.de>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <54808D8B.3080804@smart-weblications.de>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alessio Igor Bogani <alessio.bogani@elettra.eu>,
+	Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0107.outbound.protection.outlook.com ([65.55.169.107]:14264
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750840AbaLEKor convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 05:44:47 -0500
+In-Reply-To: <1417770960-4578-1-git-send-email-alessio.bogani@elettra.eu>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 04, 2014 at 05:36:27PM +0100, Smart Weblications GmbH - Florian Wiessner wrote:
-> Hi,
+From: Alessio Igor Bogani <alessio.bogani@elettra.eu>
+> Sent: Friday, December 05, 2014 5:16 PM
+> To: Florian Fainelli
+> Cc: netdev@vger.kernel.org; Alessio Igor Bogani
+> Subject: [PATCH] broadcom: Add BCM54616S phy support
 > 
-> Am 04.12.2014 08:56, schrieb Steffen Klassert:
-> > 
-> > I really wonder why the xfrm_sk_policy_lookup codepath is taken here.
-> > It looks like this is the processing of an inbound ipv4 packet that
-> > is going to be rerouted to the output path by ipvs, so this packet
-> > should not have socket context at all.
-> > 
-> > xfrm_sk_policy_lookup is called just if the packet has socket context
-> > and the socket has an IPsec output policy configured. Do you use IPsec
-> > socket policies?
-> > 
+> Signed-off-by: Alessio Igor Bogani <alessio.bogani@elettra.eu>
+> ---
+>  drivers/net/phy/Kconfig    |  4 ++--
+>  drivers/net/phy/broadcom.c | 14 ++++++++++++++
+>  include/linux/brcmphy.h    |  1 +
+>  3 files changed, 17 insertions(+), 2 deletions(-)
 > 
-> Yes it is insane i do not know why this happens and i wonder as well - i do not
-> have IPsec configured. I tried yesterday with only
+> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig index
+> 75472cf7..eb35dcb 100644
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -68,8 +68,8 @@ config SMSC_PHY
+>  config BROADCOM_PHY
+>  	tristate "Drivers for Broadcom PHYs"
+>  	---help---
+> -	  Currently supports the BCM5411, BCM5421, BCM5461, BCM5464,
+> BCM5481
+> -	  and BCM5482 PHYs.
+> +	  Currently supports the BCM5411, BCM5421, BCM5461, BCM54616S,
+> BCM5464,
+> +	  BCM5481 and BCM5482 PHYs.
 > 
-> CONFIG_XFRM=y
-> CONFIG_XFRM_ALGO=m
+>  config BCM63XX_PHY
+>  	tristate "Drivers for Broadcom 63xx SOCs internal PHY"
+> diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+> index 854f2c9..74cbf45 100644
+> --- a/drivers/net/phy/broadcom.c
+> +++ b/drivers/net/phy/broadcom.c
+> @@ -549,6 +549,19 @@ static struct phy_driver broadcom_drivers[] = {
+>  	.config_intr	= bcm54xx_config_intr,
+>  	.driver		= { .owner = THIS_MODULE },
+>  }, {
+> +	.phy_id		= PHY_ID_BCM54616S,
+> +	.phy_id_mask	= 0xfffffff0,
+> +	.name		= "Broadcom BCM54616S",
+> +	.features	= PHY_GBIT_FEATURES |
+> +			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
+> +	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+> +	.config_init	= bcm54xx_config_init,
+> +	.config_aneg	= genphy_config_aneg,
+> +	.read_status	= genphy_read_status,
+> +	.ack_interrupt	= bcm54xx_ack_interrupt,
+> +	.config_intr	= bcm54xx_config_intr,
+> +	.driver		= { .owner = THIS_MODULE },
+> +}, {
+>  	.phy_id		= PHY_ID_BCM5464,
+>  	.phy_id_mask	= 0xfffffff0,
+>  	.name		= "Broadcom BCM5464",
+> @@ -673,6 +686,7 @@ static struct mdio_device_id __maybe_unused
+> broadcom_tbl[] = {
+>  	{ PHY_ID_BCM5411, 0xfffffff0 },
+>  	{ PHY_ID_BCM5421, 0xfffffff0 },
+>  	{ PHY_ID_BCM5461, 0xfffffff0 },
+> +	{ PHY_ID_BCM54616S, 0xfffffff0 },
+>  	{ PHY_ID_BCM5464, 0xfffffff0 },
+>  	{ PHY_ID_BCM5482, 0xfffffff0 },
+>  	{ PHY_ID_BCM5482, 0xfffffff0 },
+> diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h index
+> 7ccd928..1c9920b 100644
+> --- a/include/linux/brcmphy.h
+> +++ b/include/linux/brcmphy.h
+> @@ -11,6 +11,7 @@
+>  #define PHY_ID_BCM5421			0x002060e0
+>  #define PHY_ID_BCM5464			0x002060b0
+>  #define PHY_ID_BCM5461			0x002060c0
+> +#define PHY_ID_BCM54616S		0x03625d10
+>  #define PHY_ID_BCM57780			0x03625d90
 > 
-> and all other XFRM modules disabled, same problem.
-> 
-> I now compiled kernel without xfrm to check if the problem is somewhere else.
-> 
-> I have seen that on this box (debian squeeze) the racoon tool inserts xfrm
-> polcies like so:
-> 
-> ip xfrm policy show
-> src ::/0 dst ::/0
->         dir 4 priority 0 ptype main
-> src ::/0 dst ::/0
->         dir 3 priority 0 ptype main
-> src ::/0 dst ::/0
->         dir 4 priority 0 ptype main
-> src ::/0 dst ::/0
->         dir 3 priority 0 ptype main
-> src ::/0 dst ::/0
-> ...
+>  #define PHY_ID_BCM7250			0xae025280
+> --
 
-Well, these are socket policies. The ike deamon uses them
-for SA negotiation.
+Some other question:
+Do you know the current phy driver support BCM54220B0KFBG phy ?
 
-> 
-> I tried without racoon running and with ipsec userspace tools disabled, but the
-> problem still exists without ipsec userspace tools.
-
-Does this mean that it still happens if you have no IPsec policies
-in the system?
-
-> 
-> Interesting is maybe, that the longer the node is running and interfaces are
-> added to a bridge, the more policies sum up. Here is an overview of other nodes,
-> but without ipvs running:
-
-Would be interesting to see them.
+Regards,
+Andy
