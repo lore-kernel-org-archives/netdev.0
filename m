@@ -1,138 +1,82 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [patch iproute2 0/6] iproute2: add changes for switchdev
-Date: Thu, 04 Dec 2014 18:28:47 -0800
-Message-ID: <5481185F.9050805@cumulusnetworks.com>
-References: <1417683438-10935-1-git-send-email-jiri@resnulli.us> <54806F2A.2050109@cumulusnetworks.com> <20141204143400.GC1861@nanopsycho.orion> <54807398.40201@cumulusnetworks.com> <20141204160444.GF1861@nanopsycho.orion> <5480921D.60108@cumulusnetworks.com> <CAE4R7bCyf7VBFWqEme37rf0YbTc3-s5Qka+1HMOsdMgVC3qZ-A@mail.gmail.com>
+From: Jianhua Xie <jianhua.xie@freescale.com>
+Subject: Re: [PATCH 1/3] netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD feature
+ flag for switch device offloads
+Date: Fri, 5 Dec 2014 11:21:02 +0800
+Message-ID: <5481249E.7020902@freescale.com>
+References: <1417746401-8140-2-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	"dborkman@redhat.com" <dborkman@redhat.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"pshelar@nicira.com" <pshelar@nicira.com>,
-	"azhou@nicira.com" <azhou@nicira.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	John Linville <linville@tuxdriver.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<shm@cumulusnetworks.com>, <gospo@cumulusnetworks.com>,
+	Jianhua Xie <jianhua.xie@freescale.com>
+To: <roopa@cumulusnetworks.com>, <jiri@resnulli.us>,
+	<sfeldma@gmail.com>, <jhs@mojatatu.com>, <bcrl@kvack.org>,
+	<tgraf@suug.ch>, <john.fastabend@gmail.com>,
+	<stephen@networkplumber.org>, <linville@tuxdriver.com>,
+	<nhorman@tuxdriver.com>, <nicolas.dichtel@6wind.com>,
+	<vyasevic@redhat.com>, <f.fainelli@gmail.com>,
+	<buytenh@wantstofly.org>, <aviadr@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:38595 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933456AbaLEC25 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 21:28:57 -0500
-In-Reply-To: <CAE4R7bCyf7VBFWqEme37rf0YbTc3-s5Qka+1HMOsdMgVC3qZ-A@mail.gmail.com>
+Received: from mail-bn1bon0134.outbound.protection.outlook.com ([157.56.111.134]:39968
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932398AbaLEDVJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Dec 2014 22:21:09 -0500
+In-Reply-To: <1417746401-8140-2-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/4/14, 12:49 PM, Scott Feldman wrote:
-> On Thu, Dec 4, 2014 at 8:55 AM, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
->> On 12/4/14, 8:04 AM, Jiri Pirko wrote:
->>> Thu, Dec 04, 2014 at 03:45:44PM CET, roopa@cumulusnetworks.com wrote:
->>>> On 12/4/14, 6:34 AM, Jiri Pirko wrote:
->>>>> Thu, Dec 04, 2014 at 03:26:50PM CET, roopa@cumulusnetworks.com wrote:
->>>>>> On 12/4/14, 12:57 AM, Jiri Pirko wrote:
->>>>>>> Jiri Pirko (1):
->>>>>>>     iproute2: ipa: show switch id
->>>>>>>
->>>>>>> Scott Feldman (5):
->>>>>>>     bridge/fdb: fix statistics output spacing
->>>>>>>     bridge/fdb: add flag/indication for FDB entry synced from offload
->>>>>>>       device
->>>>>>>     bridge/link: add new offload hwmode swdev
->>>>>> Ack to most patches but nack on this one. The todo list still has a
->>>>>> note to
->>>>>> revist the flag to indicate switchdev offloads.
->>>>>> Exposing this to userspace does not help that.
->>>>> Hmm, note that this is already exposed to userspace, this patchset is
->>>>> for iproute2 (userspace tool).
->>>> hmmm, all feedback on the switchdev patches seemed to indicate we can
->>>> change
->>>> this later.
->>>> I don't see swdev mode being used in the kernel anywhere today.
->>> Well, it is, in rocker:
->>> $ git grep BRIDGE_MODE_SWDEV
->>> drivers/net/ethernet/rocker/rocker.c:                   if (mode !=
->>> BRIDGE_MODE_SWDEV)
->>> drivers/net/ethernet/rocker/rocker.c:   u16 mode = BRIDGE_MODE_SWDEV;
->>> include/uapi/linux/if_bridge.h:#define BRIDGE_MODE_SWDEV        2       /*
->>> Full switch device offload */
->>
->> The problem is rocker is not the only one who is going to be using this. And
->> so, we need something that fits everybody.
->> And i am not going to make my user set a mode for him to enable offload to
->> hw.
->>
->>>> I will send a patch to remove it. Its still in net-next and so can be
->>>> changed
->>>> ?.
->>>> I was going to resend my patch to introduce a common offload flag for all
->>>> link objects.
->>>> It would be nice if all of them had a consistent flag to indicate hw
->>>> offload
->>>> and iproute2 could display the same flag for all.
->>>> Including bonds and vxlan's.
->>> I do not understand the connection with BRIDGE_MODE_SWDEV. We discussed
->>> this already. BRIDGE_MODE_SWDEV is a bridge mode, similar to for example
->>> BRIDGE_MODE_VEPA and makes perfect sense to have it.
->> I dont think everybody acked it. But it went in with a note saying that it
->> can be changed.
-> I thought that was the plan: this new mode goes in now for net-next
-> and iproute2, and you would supply follow up patch for each to move to
-> your switch port flag.  That will give us time to review your work
-> without have net-next and iproute2 out-of-sync.
->
->>>
->>> How vxlan and bonds come into the mixture, that is a puzzler for me.
->>> Maybe I have to see patches.
->>
->> I had posted a version of the patch previously:
->> http://www.spinics.net/lists/netdev/msg305472.html
->>
->> I have a v2 patch in my stack which does not touch the netlink header.
->> But in the past hour, i have been thinking about it some more. Do we really
->> need this set by the user ?. In my use case i don't need it.
-> Look at how iproute2 figures out if SELF should be set or not.  It's
-> only set if hwmode is set, otherwise it defaults to MASTER.  So with
-> SWDEV a new hwmode, we can push settings (learning, leraning_sync) to
-> port with SELF set.  It's probably not an ideal arrangement having to
-> set hwmode each time, but this was the low-touch change to iproute2 to
-> push port settings.
-Did not know about this. Thanks for the info.
->
-> I'm hoping your new patch will kind of straighten this all out.  But
-> you've got extra work to make sure backward compat with older iproute2
-> still works, including this weirdness around hwmode.
->
->> We do need a feature flag (or net_device_flags), but it does not need to be
->> set by the user explicitly.
->> This flag can be set by the switch port driver on the switch ports. And the
->> logical device: bridge/bond/vxlan
->> can inherit it from the port. There was a need of a flag in some usecases,
->> to control offloading of specific bridge port flags
->> to hw/sw (example learning in hw or sw). example patch:
->> https://patchwork.ozlabs.org/patch/413211/
->>
->> I will post something today.
-> Can you include matching iproute2 changes?  (Assuming you'll building
-> on top of what's already in net-next and this iproute2 set Jiri sent
-> out).  It's helpful to see the iproute2 changes to see what the new
-> cmd structure is and how legacy is handled.
-Just sent what ever i had. Take a look and let me know.
 
-Thanks,
-Roopa
-
-
+=E5=9C=A8 2014=E5=B9=B412=E6=9C=8805=E6=97=A5 10:26, roopa@cumulusnetwo=
+rks.com =E5=86=99=E9=81=93:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 >
+> This is a generic high level feature flag for all switch asic feature=
+s today.
+>
+> switch drivers set this flag on switch ports. Logical devices like
+> bridge, bonds, vxlans can inherit this flag from their slaves/ports.
+>
+> I had to use SWITCH in the name to avoid ambiguity with other feature
+> flags. But, since i have been harping about not calling it 'switch',
+> I am welcome to any suggestions :)
+>
+> An alternative to using a feature flag is to use a IFF_HW_OFFLOAD
+> in net_device_flags.
+> ---
+>   include/linux/netdev_features.h |    2 ++
+>   1 file changed, 2 insertions(+)
+>
+> diff --git a/include/linux/netdev_features.h b/include/linux/netdev_f=
+eatures.h
+> index 8e30685..68db1de 100644
+> --- a/include/linux/netdev_features.h
+> +++ b/include/linux/netdev_features.h
+> @@ -66,6 +66,7 @@ enum {
+>   	NETIF_F_HW_VLAN_STAG_FILTER_BIT,/* Receive filtering on VLAN STAGs=
+ */
+>   	NETIF_F_HW_L2FW_DOFFLOAD_BIT,	/* Allow L2 Forwarding in Hardware *=
+/
+>   	NETIF_F_BUSY_POLL_BIT,		/* Busy poll */
+> +	NETIF_F_HW_SWITCH_OFFLOAD_BIT,  /* HW switch offload */
+I am interested in this flag very much, but I am not very clear
+how many offload capabilities does this flag imply.  If this flag
+belongs to a general flag and can be accepted by all vendors,
+I will reuse this flag to introduce another out going data traffics
+distribution offload method to bonding driver.
+
+Thanks & B.R.
+Jianhua
+>  =20
+>   	/*
+>   	 * Add your fresh new feature above and remember to update
+> @@ -124,6 +125,7 @@ enum {
+>   #define NETIF_F_HW_VLAN_STAG_TX	__NETIF_F(HW_VLAN_STAG_TX)
+>   #define NETIF_F_HW_L2FW_DOFFLOAD	__NETIF_F(HW_L2FW_DOFFLOAD)
+>   #define NETIF_F_BUSY_POLL	__NETIF_F(BUSY_POLL)
+> +#define NETIF_F_HW_SWITCH_OFFLOAD	__NETIF_F(HW_SWITCH_OFFLOAD)
+>  =20
+>   /* Features valid for ethtool to change */
+>   /* =3D all defined minus driver/device-class-related */
