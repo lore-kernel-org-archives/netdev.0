@@ -1,206 +1,110 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/14] ixgbe: Add x550 SW/FW semaphore support
-Date: Fri,  5 Dec 2014 09:52:46 -0800
-Message-ID: <1417801973-28793-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/14] ixgbevf: fix possible crashes in probe and remove
+Date: Fri,  5 Dec 2014 09:52:53 -0800
+Message-ID: <1417801973-28793-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Daniel Borkmann <dborkman@redhat.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:7178 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:7187 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751539AbaLERxy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2014 12:53:54 -0500
+	id S1751913AbaLERyB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Dec 2014 12:54:01 -0500
 In-Reply-To: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-The X550 hardware will use more bits in the mask, so change
-the prototypes to match.  This larger mask will require changes
-in callers which use the higher bits. Likewise since X550 will
-use different semaphore mask values and will use the lan_id
-value.  So save these values in the ixgbe_phy_info struct.
+This patch resolves couple of issues in ixgbevf_probe/remove():
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+1. Fix a case where adapter->state is tested after free_netdev() this is
+same as the patch for ixgbe from Daniel Borkmann <dborkman@redhat.com>:
+commit b5b2ffc0574e1f27 ("ixgbe: fix use after free adapter->state test in ixgbe_remove/ixgbe_probe")
+
+2. Move pci_set_drvdata() after all the error checks in ixgbevf_probe() and
+then add a check in ixgbevf_probe() to avoid running the cleanup functions
+twice in cases where probe failed.
+
+CC: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  4 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |  4 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c    | 32 ++++++++++---------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |  6 +++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c   |  8 +++----
- 5 files changed, 25 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 7ed1e08..2c77539 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -2469,7 +2469,7 @@ static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw)
-  *  Acquires the SWFW semaphore through the GSSR register for the specified
-  *  function (CSR, PHY0, PHY1, EEPROM, Flash)
-  **/
--s32 ixgbe_acquire_swfw_sync(struct ixgbe_hw *hw, u16 mask)
-+s32 ixgbe_acquire_swfw_sync(struct ixgbe_hw *hw, u32 mask)
- {
- 	u32 gssr = 0;
- 	u32 swmask = mask;
-@@ -2514,7 +2514,7 @@ s32 ixgbe_acquire_swfw_sync(struct ixgbe_hw *hw, u16 mask)
-  *  Releases the SWFW semaphore through the GSSR register for the specified
-  *  function (CSR, PHY0, PHY1, EEPROM, Flash)
-  **/
--void ixgbe_release_swfw_sync(struct ixgbe_hw *hw, u16 mask)
-+void ixgbe_release_swfw_sync(struct ixgbe_hw *hw, u32 mask)
- {
- 	u32 gssr;
- 	u32 swmask = mask;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index 2ae5d4b..62dc8c5 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -84,8 +84,8 @@ s32 ixgbe_fc_enable_generic(struct ixgbe_hw *hw);
- bool ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw);
- void ixgbe_fc_autoneg(struct ixgbe_hw *hw);
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 54f7f9cd..3b0ddf7 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -3737,6 +3737,7 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	struct ixgbe_hw *hw = NULL;
+ 	const struct ixgbevf_info *ii = ixgbevf_info_tbl[ent->driver_data];
+ 	int err, pci_using_dac;
++	bool disable_dev = false;
  
--s32 ixgbe_acquire_swfw_sync(struct ixgbe_hw *hw, u16 mask);
--void ixgbe_release_swfw_sync(struct ixgbe_hw *hw, u16 mask);
-+s32 ixgbe_acquire_swfw_sync(struct ixgbe_hw *hw, u32 mask);
-+void ixgbe_release_swfw_sync(struct ixgbe_hw *hw, u32 mask);
- s32 ixgbe_get_san_mac_addr_generic(struct ixgbe_hw *hw, u8 *san_mac_addr);
- s32 ixgbe_set_vmdq_generic(struct ixgbe_hw *hw, u32 rar, u32 vmdq);
- s32 ixgbe_set_vmdq_san_mac_generic(struct ixgbe_hw *hw, u32 vmdq);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index acafe39..a174958 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -60,6 +60,15 @@ s32 ixgbe_identify_phy_generic(struct ixgbe_hw *hw)
- 	u32 phy_addr;
- 	u16 ext_ability = 0;
+ 	err = pci_enable_device(pdev);
+ 	if (err)
+@@ -3771,7 +3772,6 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  
-+	if (!hw->phy.phy_semaphore_mask) {
-+		hw->phy.lan_id = IXGBE_READ_REG(hw, IXGBE_STATUS) &
-+				 IXGBE_STATUS_LAN_ID_1;
-+		if (hw->phy.lan_id)
-+			hw->phy.phy_semaphore_mask = IXGBE_GSSR_PHY1_SM;
-+		else
-+			hw->phy.phy_semaphore_mask = IXGBE_GSSR_PHY0_SM;
-+	}
+ 	SET_NETDEV_DEV(netdev, &pdev->dev);
+ 
+-	pci_set_drvdata(pdev, netdev);
+ 	adapter = netdev_priv(netdev);
+ 
+ 	adapter->netdev = netdev;
+@@ -3860,6 +3860,7 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (err)
+ 		goto err_register;
+ 
++	pci_set_drvdata(pdev, netdev);
+ 	netif_carrier_off(netdev);
+ 
+ 	ixgbevf_init_last_counter_stats(adapter);
+@@ -3889,12 +3890,13 @@ err_sw_init:
+ 	ixgbevf_reset_interrupt_capability(adapter);
+ 	iounmap(adapter->io_addr);
+ err_ioremap:
++	disable_dev = !test_and_set_bit(__IXGBEVF_DISABLED, &adapter->state);
+ 	free_netdev(netdev);
+ err_alloc_etherdev:
+ 	pci_release_regions(pdev);
+ err_pci_reg:
+ err_dma:
+-	if (!test_and_set_bit(__IXGBEVF_DISABLED, &adapter->state))
++	if (!adapter || disable_dev)
+ 		pci_disable_device(pdev);
+ 	return err;
+ }
+@@ -3911,7 +3913,13 @@ err_dma:
+ static void ixgbevf_remove(struct pci_dev *pdev)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+-	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
++	struct ixgbevf_adapter *adapter;
++	bool disable_dev;
 +
- 	if (hw->phy.type == ixgbe_phy_unknown) {
- 		for (phy_addr = 0; phy_addr < IXGBE_MAX_PHY_ADDR; phy_addr++) {
- 			hw->phy.mdio.prtad = phy_addr;
-@@ -315,12 +324,7 @@ s32 ixgbe_read_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
- 			       u32 device_type, u16 *phy_data)
- {
- 	s32 status;
--	u16 gssr;
--
--	if (IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_LAN_ID_1)
--		gssr = IXGBE_GSSR_PHY1_SM;
--	else
--		gssr = IXGBE_GSSR_PHY0_SM;
-+	u32 gssr = hw->phy.phy_semaphore_mask;
++	if (!netdev)
++		return;
++
++	adapter = netdev_priv(netdev);
  
- 	if (hw->mac.ops.acquire_swfw_sync(hw, gssr) == 0) {
- 		status = ixgbe_read_phy_reg_mdi(hw, reg_addr, device_type,
-@@ -418,7 +422,7 @@ s32 ixgbe_write_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
- 				u32 device_type, u16 phy_data)
- {
- 	s32 status;
--	u16 gssr;
-+	u32 gssr;
+ 	set_bit(__IXGBEVF_REMOVING, &adapter->state);
  
- 	if (IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_LAN_ID_1)
- 		gssr = IXGBE_GSSR_PHY1_SM;
-@@ -1469,15 +1473,10 @@ s32 ixgbe_read_i2c_byte_generic(struct ixgbe_hw *hw, u8 byte_offset,
- 	s32 status;
- 	u32 max_retry = 10;
- 	u32 retry = 0;
--	u16 swfw_mask = 0;
-+	u32 swfw_mask = hw->phy.phy_semaphore_mask;
- 	bool nack = true;
- 	*data = 0;
+@@ -3931,9 +3939,10 @@ static void ixgbevf_remove(struct pci_dev *pdev)
  
--	if (IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_LAN_ID_1)
--		swfw_mask = IXGBE_GSSR_PHY1_SM;
--	else
--		swfw_mask = IXGBE_GSSR_PHY0_SM;
--
- 	do {
- 		if (hw->mac.ops.acquire_swfw_sync(hw, swfw_mask))
- 			return IXGBE_ERR_SWFW_SYNC;
-@@ -1555,12 +1554,7 @@ s32 ixgbe_write_i2c_byte_generic(struct ixgbe_hw *hw, u8 byte_offset,
- 	s32 status;
- 	u32 max_retry = 1;
- 	u32 retry = 0;
--	u16 swfw_mask = 0;
--
--	if (IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_LAN_ID_1)
--		swfw_mask = IXGBE_GSSR_PHY1_SM;
--	else
--		swfw_mask = IXGBE_GSSR_PHY0_SM;
-+	u32 swfw_mask = hw->phy.phy_semaphore_mask;
+ 	hw_dbg(&adapter->hw, "Remove complete\n");
  
- 	if (hw->mac.ops.acquire_swfw_sync(hw, swfw_mask))
- 		return IXGBE_ERR_SWFW_SYNC;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 4ec6ead..6cff91e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -2893,8 +2893,8 @@ struct ixgbe_mac_operations {
- 	s32 (*disable_rx_buff)(struct ixgbe_hw *);
- 	s32 (*enable_rx_buff)(struct ixgbe_hw *);
- 	s32 (*enable_rx_dma)(struct ixgbe_hw *, u32);
--	s32 (*acquire_swfw_sync)(struct ixgbe_hw *, u16);
--	void (*release_swfw_sync)(struct ixgbe_hw *, u16);
-+	s32 (*acquire_swfw_sync)(struct ixgbe_hw *, u32);
-+	void (*release_swfw_sync)(struct ixgbe_hw *, u32);
- 	s32 (*prot_autoc_read)(struct ixgbe_hw *, bool *, u32 *);
- 	s32 (*prot_autoc_write)(struct ixgbe_hw *, u32, bool);
++	disable_dev = !test_and_set_bit(__IXGBEVF_DISABLED, &adapter->state);
+ 	free_netdev(netdev);
  
-@@ -3012,6 +3012,8 @@ struct ixgbe_phy_info {
- 	bool                            sfp_setup_needed;
- 	u32                             revision;
- 	enum ixgbe_media_type           media_type;
-+	u8				lan_id;
-+	u32				phy_semaphore_mask;
- 	bool                            reset_disable;
- 	ixgbe_autoneg_advertised        autoneg_advertised;
- 	enum ixgbe_smart_speed          smart_speed;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-index e88305d..d88f75f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-@@ -42,8 +42,8 @@
+-	if (!test_and_set_bit(__IXGBEVF_DISABLED, &adapter->state))
++	if (disable_dev)
+ 		pci_disable_device(pdev);
+ }
  
- static s32 ixgbe_update_flash_X540(struct ixgbe_hw *hw);
- static s32 ixgbe_poll_flash_update_done_X540(struct ixgbe_hw *hw);
--static s32 ixgbe_acquire_swfw_sync_X540(struct ixgbe_hw *hw, u16 mask);
--static void ixgbe_release_swfw_sync_X540(struct ixgbe_hw *hw, u16 mask);
-+static s32 ixgbe_acquire_swfw_sync_X540(struct ixgbe_hw *hw, u32 mask);
-+static void ixgbe_release_swfw_sync_X540(struct ixgbe_hw *hw, u32 mask);
- static s32 ixgbe_get_swfw_sync_semaphore(struct ixgbe_hw *hw);
- static void ixgbe_release_swfw_sync_semaphore(struct ixgbe_hw *hw);
- 
-@@ -544,7 +544,7 @@ static s32 ixgbe_poll_flash_update_done_X540(struct ixgbe_hw *hw)
-  * Acquires the SWFW semaphore thought the SW_FW_SYNC register for
-  * the specified function (CSR, PHY0, PHY1, NVM, Flash)
-  **/
--static s32 ixgbe_acquire_swfw_sync_X540(struct ixgbe_hw *hw, u16 mask)
-+static s32 ixgbe_acquire_swfw_sync_X540(struct ixgbe_hw *hw, u32 mask)
- {
- 	u32 swfw_sync;
- 	u32 swmask = mask;
-@@ -612,7 +612,7 @@ static s32 ixgbe_acquire_swfw_sync_X540(struct ixgbe_hw *hw, u16 mask)
-  * Releases the SWFW semaphore through the SW_FW_SYNC register
-  * for the specified function (CSR, PHY0, PHY1, EVM, Flash)
-  **/
--static void ixgbe_release_swfw_sync_X540(struct ixgbe_hw *hw, u16 mask)
-+static void ixgbe_release_swfw_sync_X540(struct ixgbe_hw *hw, u32 mask)
- {
- 	u32 swfw_sync;
- 	u32 swmask = mask;
 -- 
 1.9.3
