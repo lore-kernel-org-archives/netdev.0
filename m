@@ -1,47 +1,34 @@
-From: nick <xerofoify@gmail.com>
-Subject: Possible Bug Found with Build Warning?
-Date: Fri, 05 Dec 2014 15:55:59 -0500
-Message-ID: <54821BDF.1060607@gmail.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: [PATCH v2 5/6] net-PPP: Delete an unnecessary assignment in mppe_alloc()
+Date: Fri, 05 Dec 2014 22:00:27 +0100
+Message-ID: <54821CEB.2020002@users.sourceforge.net>
+References: <5317A59D.4@users.sourceforge.net> <547B4886.4080406@users.sourceforge.net> <547B496E.604@users.sourceforge.net> <547C5CBC.6060607@cogentembedded.com> <547C82A6.2030808@users.sourceforge.net> <547CA157.1080401@cogentembedded.com> <5480DA32.8000201@users.sourceforge.net> <5480DDC1.6040101@users.sourceforge.net> <20141205122214.GB4912@mwanda> <5481A8AE.9050506@users.sourceforge.net> <20141205135723.GE4912@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
-	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
-	linux-kernel@vger.kernel.org, john.ronciak@intel.com,
-	netdev@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
+	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20141205135723.GE4912@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-R3JlZXRpbmdzIEplZmYgYW5kIHRoZSBvdGhlciBkZXZlbG9wZXJzIGF0IEludGVsLApJIHNlZW0g
-dG8gYmUgZ2V0dGluZyB0aGlzIGVycm9yIG1lc3NhZ2UsCmRyaXZlcnMvbmV0L2V0aGVybmV0L2lu
-dGVsL2k0MGUvaTQwZV9kZWJ1Z2ZzLmM6IEluIGZ1bmN0aW9uIOKAmGk0MGVfZGJnX2R1bXBfZGVz
-Y+KAmToKZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX2RlYnVnZnMuYzo4NTU6
-MTogd2FybmluZzogdGhlIGZyYW1lIHNpemUgb2YgODE5MiBieXRlcyBpcyBsYXJnZXIgdGhhbiAy
-MDQ4IGJ5dGVzIFstV2ZyYW1lLWxhcmdlci10aGFuPV0KIH0KIF4Kd2hlbiBidWlsZGluZyB0aGUg
-a2VybmVsIGZvciB0aGUgbGFzdCBmZXcgd2Vla3MgZm9yIG15IG90aGVyIHBhdGNoZXMuIEFzIHlv
-dSBjYW4gdGVsbCBpdCBzdGF0ZXMgaXNzdWVzIHdpdGggdGhlIGZyYW1lIHNpemUgYmVpbmcgbGFy
-Z2VyIHRoZW4gMjA0OCBieXRlcy4gSSBhbSB3b25kZXJpbmcgaXMgdGhpcyBhIGlzc3VlIGFzIHRo
-ZSBzdHJ1Y3QgaXMgYWxsb2NhdGVkIG9ubHkgMjA0OCBieXRlcyBvZiBzeXN0ZW0gbWVtb3J5IHBl
-ciBmcmFtZSBvciBpcyB0aGlzIGp1c3QgYSBtaXN0YWtlIG9uIG1lIHJlYWRpbmcgdGhlIHdhcm5p
-bmcuClJlZ2FyZHMgTmljayAKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpEb3dubG9hZCBCSVJUIGlI
-dWIgRi1UeXBlIC0gVGhlIEZyZWUgRW50ZXJwcmlzZS1HcmFkZSBCSVJUIFNlcnZlcgpmcm9tIEFj
-dHVhdGUhIEluc3RhbnRseSBTdXBlcmNoYXJnZSBZb3VyIEJ1c2luZXNzIFJlcG9ydHMgYW5kIERh
-c2hib2FyZHMKd2l0aCBJbnRlcmFjdGl2aXR5LCBTaGFyaW5nLCBOYXRpdmUgRXhjZWwgRXhwb3J0
-cywgQXBwIEludGVncmF0aW9uICYgbW9yZQpHZXQgdGVjaG5vbG9neSBwcmV2aW91c2x5IHJlc2Vy
-dmVkIGZvciBiaWxsaW9uLWRvbGxhciBjb3Jwb3JhdGlvbnMsIEZSRUUKaHR0cDovL3B1YmFkcy5n
-LmRvdWJsZWNsaWNrLm5ldC9nYW1wYWQvY2xrP2lkPTE2NDcwMzE1MSZpdT0vNDE0MC9vc3RnLmNs
-a3RyawpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpFMTAw
-MC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Cmh0
-dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAwLWRldmVsClRv
-IGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwmIzE3NDsgRXRoZXJuZXQsIHZpc2l0IGh0dHA6Ly9jb21t
-dW5pdGllcy5pbnRlbC5jb20vY29tbXVuaXR5L3dpcmVkCg==
+>> That is true.
+> 
+> In that case, I misunderstood what you wrote.
+
+I find it a bit interesting how this misunderstanding could happen here somehow.
+
+
+> Looking at it now, this patch is actually ok.
+
+Does that mean that you would like to add any tag like "Acked-by" or "Reviewed-by"
+to any of the proposed six update steps?
+
+Regards,
+Markus
