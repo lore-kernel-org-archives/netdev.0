@@ -1,7 +1,7 @@
 From: Arseny Solokha <asolokha@kb.kras.ru>
-Subject: [PATCH 1/2] gianfar: handle map error in gfar_new_rxbdp()
-Date: Fri,  5 Dec 2014 17:37:53 +0700
-Message-ID: <1417775874-17775-2-git-send-email-asolokha@kb.kras.ru>
+Subject: [PATCH 2/2] gianfar: handle map error in gfar_start_xmit()
+Date: Fri,  5 Dec 2014 17:37:54 +0700
+Message-ID: <1417775874-17775-3-git-send-email-asolokha@kb.kras.ru>
 References: <1417775874-17775-1-git-send-email-asolokha@kb.kras.ru>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Arseny Solokha <asolokha@kb.kras.ru>
@@ -16,141 +16,135 @@ From: Arseny Solokha <asolokha@kb.kras.ru>
 When DMA-API debugging is enabled in the kernel, it spews the following
 upon upping the link:
 
-fsl-gianfar ffe25000.ethernet: DMA-API: device driver failed to check map error[device address=0x0000000005f41012] [size=90 bytes] [map-
 WARNING: at lib/dma-debug.c:1135
 Modules linked in:
-CPU: 1 PID: 0 Comm: swapper/1 Tainted: G           O   3.18.0-rc7 #1
-task: ee06f080 ti: effde000 task.ti: ee0b2000
-NIP: c01d7c1c LR: c01d7c1c CTR: 00000000
-REGS: effdfd40 TRAP: 0700   Tainted: G           O    (3.18.0-rc7)
-MSR: 00021000 <CE,ME>  CR: 42804442  XER: 00000000
+CPU: 0 PID: 0 Comm: swapper/0 Tainted: G        W  O   3.18.0-rc7 #1
+task: c0720340 ti: effe2000 task.ti: c0750000
+NIP: c01d7c1c LR: c01d7c1c CTR: c02250fc
+REGS: effe3d40 TRAP: 0700   Tainted: G        W  O    (3.18.0-rc7)
+MSR: 00021000 <CE,ME>  CR: 22044242  XER: 20000000
 
-GPR00: c01d7c1c effdfdf0 ee06f080 00000097 00000001 c0066dd8 00000000 00000001
-GPR08: 00000000 00000000 effde000 0000029e 00000000 00000000 c55fa740 ee0d6818
-GPR16: r00000600 c5a6a9c0 ee0d6830 ee0d6850 ffff8100 00000008 00000000 c5bbc800
-GPR24: c0730000 00029000 c0d0b828 c072c394 effdfe48 c075baec c0d0f020 ee308300
+GPR00: c01d7c1c effe3df0 c0720340 00000095 c201e404 c201e9f0 00021000 01a9d000
+GPR08: 00000007 00000000 01a9d000 00000313 22044242 00583f60 05f41012 00000000
+GPR16: 00000000 000000ff 00000000 00000000 00000000 c5dc3b40 c5677720 00000001
+GPR24: c0730000 00029000 c0d0d828 c072c394 effe3e48 c075baec c0d0f020 ee31e600
 NIP [c01d7c1c] check_unmap+0x5b4/0xae4
 LR [c01d7c1c] check_unmap+0x5b4/0xae4
 Call Trace:
-[effdfdf0] [c01d7c1c] check_unmap+0x5b4/0xae4 (unreliable)
-[effdfe40] [c01d81c4] debug_dma_unmap_page+0x78/0x8c
-[effdfec0] [c028b270] gfar_clean_rx_ring+0x114/0x4c0
-[effdff30] [c028b814] gfar_poll_rx_sq+0x3c/0xa4
-[effdff50] [c030c388] net_rx_action+0x130/0x1ac
-[effdff80] [c00319e0] __do_softirq+0x134/0x240
-[effdffe0] [c0031dd0] irq_exit+0xa4/0xc8
-[effdfff0] [c000e01c] call_do_irq+0x24/0x3c
-[ee0b3e60] [c0004a04] do_IRQ+0x8c/0x108
-[ee0b3e80] [c0010068] ret_from_except+0x0/0x18
+[effe3df0] [c01d7c1c] check_unmap+0x5b4/0xae4 (unreliable)
+[effe3e40] [c01d81c4] debug_dma_unmap_page+0x78/0x8c
+[effe3ec0] [c0286ba0] gfar_clean_tx_ring+0x120/0x3c0
+[effe3f30] [c0286f90] gfar_poll_tx_sq+0x48/0x94
+o[effe3f50] [c030c388] net_rx_action+0x130/0x1ac
+[effe3f80] [c00319e0] __do_softirq+0x134/0x240
+[effe3fe0] [c0031dd0] irq_exit+0xa4/0xc8
+[effe3ff0] [c000e01c] call_do_irq+0x24/0x3c
+[c0751e70] [c0004a04] do_IRQ+0x8c/0x108
+[c0751e90] [c0010068] ret_from_except+0x0/0x18
 --- interrupt: 501 at arch_cpu_idle+0x24/0x5c
     LR = arch_cpu_idle+0x24/0x5c
-[ee0b3f40] [c007d2e4] rcu_idle_enter+0xc8/0xcc (unreliable)
-[ee0b3f50] [c006587c] cpu_startup_entry+0x1d4/0x29c
-[ee0b3fa0] [c00111cc] start_secondary+0x364/0x478
-[ee0b3ff0] [c000217c] __secondary_start+0x7c/0xc8
+[c0751f50] [c007d2e4] rcu_idle_enter+0xc8/0xcc (unreliable)
+[c0751f60] [c006587c] cpu_startup_entry+0x1d4/0x29c
+[c0751fb0] [c054399c] start_kernel+0x338/0x34c
+[c0751ff0] [c000046c] set_ivor+0x154/0x190
 Instruction dump:
 394adb30 80fc0018 811c001c 3c60c04f 5529103a 7cca482e 38639e60 813c0020
 815c0024 90c10008 4cc63182 48240b01 <0fe00000> 3c60c04f 3863971c 4cc63182
----[ end trace 3eb7bf62ba1b80f8 ]---
-oMapped at:
- [<c02887cc>] gfar_new_rxbdp.isra.4+0x120/0x16c
- [<c0288968>] gfar_init_bds+0x150/0x1b0
- [<c028a800>] startup_gfar+0x334/0x3d8
- [<c028ac64>] gfar_enet_open+0x2b8/0x460
- [<c03100c0>] __dev_open+0xdc/0x150
+---[ end trace 3eb7bf62ba1b80f9 ]---
+Mapped at:
+ [<c0287420>] gfar_start_xmit+0x424/0x910
+ [<c030e964>] dev_hard_start_xmit+0x20c/0x3d8
+ [<c032cc3c>] sch_direct_xmit+0x124/0x22c
+ [<c030ede8>] __dev_queue_xmit+0x2b8/0x674
 
-And the underlying code indeed doesn't perform the check.
+Or the following upon starting transmission of some large chunks
+of data:
+
+fsl-gianfar ffe25000.ethernet: DMA-API: device driver failed to check map error[device address=0x0000000005fa8000]
+------------[ cut here ]------------
+WARNING: at lib/dma-debug.c:1135
+Modules linked in:
+CPU: 0 PID: 0 Comm: swapper/0 Tainted: G           O   3.18.0-rc7 #35
+task: c071d340 ti: effe2000 task.ti: c074e000
+NIP: c01d7c1c LR: c01d7c1c CTR: c022339c
+REGS: effe3d40 TRAP: 0700   Tainted: G           O    (3.18.0-rc7)
+MSR: 00021000 <CE,ME>  CR: 22044242  XER: 20000000
+
+GPR00: c01d7c1c effe3df0 c071d340 00000094 00000001 c0071750 00000000 00000001
+GPR08: 00000000 00000000 effe2000 00000000 20044242 00581f60 05fa8000 000001c4
+GPR16: 00000000 000000ff 00000000 000000e4 00000039 c5b1a9c0 c5679c60 00000002
+GPR24: c0730000 00029000 c0d0c528 c0729394 effe3e48 c0759aec c0d0d020 ee315900
+NIP [c01d7c1c] check_unmap+0x5b4/0xae4
+LR [c01d7c1c] check_unmap+0x5b4/0xae4
+Call Trace:
+[effe3df0] [c01d7c1c] check_unmap+0x5b4/0xae4 (unreliable)
+[effe3e40] [c01d81c4] debug_dma_unmap_page+0x78/0x8c
+[effe3ec0] [c0284c78] gfar_clean_tx_ring+0x1b4/0x3c0
+[effe3f30] [c0284fd4] gfar_poll_tx_sq+0x48/0x94
+[effe3f50] [c030a5c4] net_rx_action+0x130/0x1ac
+[effe3f80] [c00319e0] __do_softirq+0x134/0x240
+[effe3fe0] [c0031dd0] irq_exit+0xa4/0xc8
+[effe3ff0] [c000e01c] call_do_irq+0x24/0x3c
+[c074fe70] [c0004a04] do_IRQ+0x8c/0x108
+[c074fe90] [c0010068] ret_from_except+0x0/0x18
+--- interrupt: 501 at arch_cpu_idle+0x24/0x5c
+    LR = arch_cpu_idle+0x24/0x5c
+[c074ff50] [c007d2e4] rcu_idle_enter+0xc8/0xcc (unreliable)
+[c074ff60] [c006587c] cpu_startup_entry+0x1d4/0x29c
+[c074ffb0] [c054199c] start_kernel+0x338/0x34c
+[c074fff0] [c000046c] set_ivor+0x154/0x190
+Instruction dump:
+394abb30 80fc0018 811c001c 3c60c04e 5529103a 7cca482e 386379f0 813c0020
+815c0024 90c10008 4cc63182 4823ed39 <0fe00000> 3c60c04e 386372ac 4cc63182
+---[ end trace 008c59ca7ca1f712 ]---
+Mapped at:
+ [<c0285264>] gfar_start_xmit+0x224/0x95c
+ [<c030cba0>] dev_hard_start_xmit+0x20c/0x3d8
+ [<c032ae78>] sch_direct_xmit+0x124/0x22c
+ [<c032b008>] __qdisc_run+0x88/0x1c0
+ [<c0307920>] net_tx_action+0xf0/0x19c
+
+Ignore these mapping failures in hope we'll have more luck next time.
 
 Signed-off-by: Arseny Solokha <asolokha@kb.kras.ru>
 ---
- drivers/net/ethernet/freescale/gianfar.c | 32 ++++++++++++++++++++++++++------
- 1 file changed, 26 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/freescale/gianfar.c | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 4fdf0aa..f34ca55 100644
+index f34ca55..9ea887e 100644
 --- a/drivers/net/ethernet/freescale/gianfar.c
 +++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -117,8 +117,8 @@ static void gfar_reset_task(struct work_struct *work);
- static void gfar_timeout(struct net_device *dev);
- static int gfar_close(struct net_device *dev);
- struct sk_buff *gfar_new_skb(struct net_device *dev);
--static void gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
--			   struct sk_buff *skb);
-+static int gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
-+			  struct sk_buff *skb);
- static int gfar_set_mac_address(struct net_device *dev);
- static int gfar_change_mtu(struct net_device *dev, int new_mtu);
- static irqreturn_t gfar_error(int irq, void *dev_id);
-@@ -214,6 +214,8 @@ static int gfar_init_bds(struct net_device *ndev)
- 				gfar_init_rxbdp(rx_queue, rxbdp,
- 						rxbdp->bufPtr);
- 			} else {
-+				int ret;
-+
- 				skb = gfar_new_skb(ndev);
- 				if (!skb) {
- 					netdev_err(ndev, "Can't allocate RX buffers\n");
-@@ -221,7 +223,11 @@ static int gfar_init_bds(struct net_device *ndev)
- 				}
- 				rx_queue->rx_skbuff[j] = skb;
+@@ -2296,6 +2296,12 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 						   0,
+ 						   frag_len,
+ 						   DMA_TO_DEVICE);
++			if (unlikely(dma_mapping_error(priv->dev, bufaddr))) {
++				/* As DMA mapping failed, pretend the TX path
++				 * is busy to retry later
++				 */
++				return NETDEV_TX_BUSY;
++			}
  
--				gfar_new_rxbdp(rx_queue, rxbdp, skb);
-+				ret = gfar_new_rxbdp(rx_queue, rxbdp, skb);
-+				if (ret) {
-+					netdev_err(ndev, "Buffer mapping error\n");
-+					return ret;
-+				}
- 			}
+ 			/* set the TxBD length and buffer pointer */
+ 			txbdp->bufPtr = bufaddr;
+@@ -2345,8 +2351,15 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		fcb->ptp = 1;
+ 	}
  
- 			rxbdp++;
-@@ -2606,8 +2612,8 @@ static void gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- 	netdev_tx_completed_queue(txq, howmany, bytes_sent);
- }
+-	txbdp_start->bufPtr = dma_map_single(priv->dev, skb->data,
+-					     skb_headlen(skb), DMA_TO_DEVICE);
++	bufaddr = dma_map_single(priv->dev, skb->data, skb_headlen(skb),
++				 DMA_TO_DEVICE);
++	if (unlikely(dma_mapping_error(priv->dev, bufaddr))) {
++		/* As DMA mapping failed, pretend the TX path is busy to retry
++		 * later
++		 */
++		return NETDEV_TX_BUSY;
++	}
++	txbdp_start->bufPtr = bufaddr;
  
--static void gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
--			   struct sk_buff *skb)
-+static int gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
-+			  struct sk_buff *skb)
- {
- 	struct net_device *dev = rx_queue->dev;
- 	struct gfar_private *priv = netdev_priv(dev);
-@@ -2615,7 +2621,12 @@ static void gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
- 
- 	buf = dma_map_single(priv->dev, skb->data,
- 			     priv->rx_buffer_size, DMA_FROM_DEVICE);
-+	if (dma_mapping_error(priv->dev, buf))
-+		return -EFAULT;
-+
- 	gfar_init_rxbdp(rx_queue, bdp, buf);
-+
-+	return 0;
- }
- 
- static struct sk_buff *gfar_alloc_skb(struct net_device *dev)
-@@ -2805,6 +2816,7 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
- 
- 	while (!((bdp->status & RXBD_EMPTY) || (--rx_work_limit < 0))) {
- 		struct sk_buff *newskb;
-+		int rxbdpret;
- 
- 		rmb();
- 
-@@ -2854,7 +2866,15 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
- 		rx_queue->rx_skbuff[rx_queue->skb_currx] = newskb;
- 
- 		/* Setup the new bdp */
--		gfar_new_rxbdp(rx_queue, bdp, newskb);
-+		rxbdpret = gfar_new_rxbdp(rx_queue, bdp, newskb);
-+		if (unlikely(rxbdpret)) {
-+			/* We drop the frame if we failed to map a new DMA
-+			 * buffer
-+			 */
-+			count_errors(bdp->status, dev);
-+			dev_kfree_skb(newskb);
-+			continue;
-+		}
- 
- 		/* Update to the next pointer */
- 		bdp = next_bd(bdp, base, rx_queue->rx_ring_size);
+ 	/* If time stamping is requested one additional TxBD must be set up. The
+ 	 * first TxBD points to the FCB and must have a data length of
 -- 
 2.2.0
