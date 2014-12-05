@@ -1,8 +1,8 @@
 From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH 3.17 100/122] net/ping: handle protocol mismatching scenario
-Date: Fri,  5 Dec 2014 14:44:34 -0800
-Message-ID: <20141205223321.034961165@linuxfoundation.org>
-References: <20141205223305.514276242@linuxfoundation.org>
+Subject: [PATCH 3.14 64/73] net/ping: handle protocol mismatching scenario
+Date: Fri,  5 Dec 2014 14:45:10 -0800
+Message-ID: <20141205224435.849117278@linuxfoundation.org>
+References: <20141205224433.921659956@linuxfoundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
@@ -15,11 +15,11 @@ Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	Yiwei Zhao <gbjc64@motorola.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141205223305.514276242@linuxfoundation.org>
+In-Reply-To: <20141205224433.921659956@linuxfoundation.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-3.17-stable review patch.  If anyone has any objections, please let me know.
+3.14-stable review patch.  If anyone has any objections, please let me know.
 
 ------------------
 
