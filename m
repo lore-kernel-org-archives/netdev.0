@@ -1,72 +1,90 @@
-From: Du Fan <fengyuleidian0615@gmail.com>
-Subject: Re: [PATCH net] gso: do GSO for local skb with size bigger than MTU
-Date: Fri, 05 Dec 2014 08:25:34 +0800
-Message-ID: <5480FB7E.6020905@gmail.com>
-References: <20141201135225.GA16814@casper.infradead.org> <20141202154839.GB5344@t520.home> <20141202170927.GA9457@casper.infradead.org> <20141202173401.GB4126@redhat.com> <20141202174158.GB9457@casper.infradead.org> <CAEP_g=-86Z6pxNow-wjnbx_v9er_TSn6x5waigqVqYHa7tEQJw@mail.gmail.com> <20141203090339.GA9299@redhat.com> <CAEP_g=9C+D3gbjJ4n1t6xuyjqEAMYi4ZfqPoe92UAoQJH-UsKg@mail.gmail.com> <20141203183859.GB16447@redhat.com> <CAEP_g=_Y2YQg0wDRJLXsNH6p3fOc5G0KSJb12x_b4OE238ophg@mail.gmail.com> <20141203220244.GA8822@casper.infradead.org> <CAEP_g=90nC2HhmBNKh-hKJ5MJ85Z-_ER14roDxMsZAKog+dFhw@mail.gmail.com> <548011DE.4000208@gmail.com> <CAEP_g=9AH_RShKujVeUmty6BKPJZt=u_-h8NnUL1kX+tSYdBxQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pravin Shelar <pshelar@nicira.com>, Thomas Graf <tgraf@suug.ch>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	"Du, Fan" <fan.du@intel.com>, Jason Wang <jasowang@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"fw@strlen.de" <fw@strlen.de>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Jesse Gross <jesse@nicira.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2] ip monitor: Fix issue when timestamp is printed w/o msg
+Date: Fri,  5 Dec 2014 02:18:59 +0200
+Message-ID: <1417738739-4645-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:63076 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753014AbaLEAZo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 19:25:44 -0500
-Received: by mail-pd0-f174.google.com with SMTP id w10so18589759pde.5
-        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 16:25:43 -0800 (PST)
-In-Reply-To: <CAEP_g=9AH_RShKujVeUmty6BKPJZt=u_-h8NnUL1kX+tSYdBxQ@mail.gmail.com>
+Received: from mail-la0-f50.google.com ([209.85.215.50]:37829 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754267AbaLEA2o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2014 19:28:44 -0500
+Received: by mail-la0-f50.google.com with SMTP id pn19so14742674lab.9
+        for <netdev@vger.kernel.org>; Thu, 04 Dec 2014 16:28:42 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The issue was observed when IPv6 router broadcasted NDUSEROPT
+messages which are not handled by monitor and caused printing
+'Timestamps' w/o message because such kind of rtnl messages is not
+handled by monitor.
 
-On 2014/12/5 7:23, Jesse Gross wrote:
-> On Wed, Dec 3, 2014 at 11:48 PM, Du Fan <fengyuleidian0615@gmail.com>=
- wrote:
->> =E4=BA=8E 2014=E5=B9=B412=E6=9C=8804=E6=97=A5 06:51, Jesse Gross =E5=
-=86=99=E9=81=93:
->>> My proposal would be something like this:
->>>    * For L2, reduce the VM MTU to the lowest common denominator on =
-the
->>> segment.
->>>    * For L3, use path MTU discovery or fragment inner packet (i.e.
->>> normal routing behavior).
->>>    * As a last resort (such as if using an old version of virtio in=
- the
->>> guest), fragment the tunnel packet.
->>
->> After some investigation on OpenvSwitch package, it seems before thi=
-s
->> commit: 06021dcb "datapath: compat: Fix compilation 3.11" OpenvSwitc=
-h
->> package is doing GSO on its own.
->>
->> rpl_ip_local_out
->>    -> tnl_skb_gso_segment
->>        ^^^^^^^^^^^^^^^
->>           Perform GSO  in above function
->>      -> ip_local_out
->>            .
->>            .
->>          -> ip_finish_output
->>
->> Which means, when over-MTU-sized skb enter ip_local_out, it's not a =
-gso
->> type skb, so the stack perform ip fragmentation, and send them out.
->> So, over-MTU-sized skb did travel through stack into outside.
->>
->> Why not dropping such OpenvSwitch level GSO operation after 3.10?
-> The change in 3.11 was that the tunnel infrastructure used by OVS was
-> upstreamed and shared by all implementations. It's not right to
-> perform GSO in OVS itself as it prevents the logic from being used by
-> other components. Breaking up the packet in OVS also eliminates some
-> of the benefits of GSO by shortening the optimized path and prevents
-> offloading to hardware.
-Thanks for your explanation, I understand its background better now.
+As 'ip monitor' by default subscribes to the all mcast rtnl groups except
+RTGRP_TC then all messages of these rtnl groups which are not handled by
+monitor may cause such issues.
+
+Fixed by subscribing by default to rtnl mcast groups which are
+supported by 'ip monitor'.
+
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ ip/ipmonitor.c | 23 +++++++++++++----------
+ 1 file changed, 13 insertions(+), 10 deletions(-)
+
+diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
+index 4cc75f4..4708e54 100644
+--- a/ip/ipmonitor.c
++++ b/ip/ipmonitor.c
+@@ -134,14 +134,6 @@ static int accept_msg(const struct sockaddr_nl *who,
+ 		fprintf(fp, "Timestamp: %s %lu us\n", tstr, usecs);
+ 		return 0;
+ 	}
+-	if (n->nlmsg_type == RTM_NEWQDISC ||
+-	    n->nlmsg_type == RTM_DELQDISC ||
+-	    n->nlmsg_type == RTM_NEWTCLASS ||
+-	    n->nlmsg_type == RTM_DELTCLASS ||
+-	    n->nlmsg_type == RTM_NEWTFILTER ||
+-	    n->nlmsg_type == RTM_DELTFILTER ||
+-	    n->nlmsg_type == RTM_NEWNDUSEROPT)
+-		return 0;
+ 	if (n->nlmsg_type != NLMSG_ERROR && n->nlmsg_type != NLMSG_NOOP &&
+ 	    n->nlmsg_type != NLMSG_DONE) {
+ 		fprintf(fp, "Unknown message: type=0x%08x(%d) flags=0x%08x(%d)"
+@@ -155,7 +147,7 @@ static int accept_msg(const struct sockaddr_nl *who,
+ int do_ipmonitor(int argc, char **argv)
+ {
+ 	char *file = NULL;
+-	unsigned groups = ~RTMGRP_TC;
++	unsigned groups = 0;
+ 	int llink=0;
+ 	int laddr=0;
+ 	int lroute=0;
+@@ -165,6 +157,18 @@ int do_ipmonitor(int argc, char **argv)
+ 	int lnetconf=0;
+ 	int ifindex=0;
+ 
++	groups |= nl_mgrp(RTNLGRP_LINK);
++	groups |= nl_mgrp(RTNLGRP_IPV4_IFADDR);
++	groups |= nl_mgrp(RTNLGRP_IPV6_IFADDR);
++	groups |= nl_mgrp(RTNLGRP_IPV4_ROUTE);
++	groups |= nl_mgrp(RTNLGRP_IPV6_ROUTE);
++	groups |= nl_mgrp(RTNLGRP_IPV4_MROUTE);
++	groups |= nl_mgrp(RTNLGRP_IPV6_MROUTE);
++	groups |= nl_mgrp(RTNLGRP_IPV6_PREFIX);
++	groups |= nl_mgrp(RTNLGRP_NEIGH);
++	groups |= nl_mgrp(RTNLGRP_IPV4_NETCONF);
++	groups |= nl_mgrp(RTNLGRP_IPV6_NETCONF);
++
+ 	rtnl_close(&rth);
+ 
+ 	while (argc > 0) {
+@@ -195,7 +199,6 @@ int do_ipmonitor(int argc, char **argv)
+ 			lnetconf = 1;
+ 			groups = 0;
+ 		} else if (strcmp(*argv, "all") == 0) {
+-			groups = ~RTMGRP_TC;
+ 			prefix_banner=1;
+ 		} else if (matches(*argv, "help") == 0) {
+ 			usage();
+-- 
+2.1.3
