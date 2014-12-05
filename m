@@ -1,96 +1,60 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 0/4] net: allow setting congctl via routing
- table
-Date: Fri, 05 Dec 2014 19:35:40 +0100
-Message-ID: <1417804540.2462.4.camel@localhost>
-References: <1417793092-6263-1-git-send-email-dborkman@redhat.com>
-	 <CAA93jw46b5hCFPAwziyTRpTAzLdXeb4nrTEZXiEqxYWhRi49CA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dave Taht <dave.taht@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:35214 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751183AbaLESfn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 13:35:43 -0500
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id A630820ABD
-	for <netdev@vger.kernel.org>; Fri,  5 Dec 2014 13:35:42 -0500 (EST)
-In-Reply-To: <CAA93jw46b5hCFPAwziyTRpTAzLdXeb4nrTEZXiEqxYWhRi49CA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: [PATCHv4 net] i40e: Implement ndo_gso_check()
+Date: Fri,  5 Dec 2014 10:41:12 -0800
+Message-ID: <1417804872-58635-1-git-send-email-joestringer@nicira.com>
+Cc: linux-kernel@vger.kernel.org, shannon.nelson@intel.com,
+	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
+	therbert@google.com, jesse@nicira.com, linux.nics@intel.com
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fr, 2014-12-05 at 08:35 -0800, Dave Taht wrote:
-> On Fri, Dec 5, 2014 at 7:24 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> > This is the second part of our work and allows for setting the congestion
-> > control algorithm via routing table. For details, please see individual
-> > patches.
-> >
-> > Joint work with Florian Westphal, suggested by Hannes Frederic Sowa.
-> >
-> > Thanks!
-> >
-> > Daniel Borkmann (4):
-> >   net: tcp: refactor reinitialization of congestion control
-> >   net: tcp: add key management to congestion control
-> >   net: tcp: add RTAX_CC_ALGO fib handling
-> >   net: tcp: add per route congestion control
-> 
-> 
-> Very interesting. Have you tried something other than dctcp here
-> (e.g. westwood or lp?)
-> 
-> Have you considered the case where the route changes underneath
-> you from one device to another?
+ndo_gso_check() was recently introduced to allow NICs to report the
+offloading support that they have on a per-skb basis. Add an
+implementation for this driver which checks for IPIP, GRE, UDP tunnels.
 
-Notice, there is no way the state of a tcp congestion control algorithm
-can be converted to be used by a different one, so this would only
-affect new tcp connections via this interface.
+Signed-off-by: Joe Stringer <joestringer@nicira.com>
+---
+v4: Simplify the check to just do tunnel header length.
+    Fix #define style issue.
+v3: Drop IPIP and GRE (no driver support even though hw supports it).
+    Check for UDP outer protocol for UDP tunnels.
+v2: Expand to include IP in IP and IPv4/IPv6 inside GRE/UDP tunnels.
+    Add MAX_INNER_LENGTH (as 80).
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c |   12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-> Example, here I am routing everything through eth0, where I
-> would want cubic, probably...
-> 
-> root@ganesha:~/git/tinc# ip route
-> default via 172.26.16.1 dev eth0  proto babel onlink
-> 69.181.216.0/22 via 172.26.16.1 dev eth0  proto babel onlink
-> 169.254.0.0/16 dev eth0  scope link  metric 1000
-> 172.26.16.0/24 dev eth0  proto kernel  scope link  src 172.26.16.177
-> 172.26.16.1 via 172.26.16.1 dev eth0  proto babel onlink
-> 172.26.16.112 via 172.26.16.112 dev eth0  proto babel onlink
-> 172.26.17.0/24 via 172.26.16.1 dev eth0  proto babel onlink
-> 172.26.17.3 via 172.26.16.1 dev eth0  proto babel onlink
-> 172.26.17.227 via 172.26.16.1 dev eth0  proto babel onlink
-> 192.168.7.0/30 dev eth1  proto kernel  scope link  src 192.168.7.1  metric 1
-> 192.168.7.2 via 172.26.16.112 dev eth0  proto babel onlink
-> 
-> And I pull the plug, and everything flips over to wlan0,
-> where I might want westwood (or something saner than
-> that. It might be nice to have a per-device cc default
-> algorithm...)
-
-Something like that might be possible with metrics and "via ... dev if0
-metric xxx" routes, which will be cleaned up as soon as the interface
-goes down and the fallback will be to a route with a different
-congestion algorithm.
-
-> root@ganesha:~/git/tinc# ip route
-> default via 172.26.17.224 dev wlan0  proto babel onlink
-> 69.181.216.0/22 via 172.26.17.224 dev wlan0  proto babel onlink
-> 169.254.0.0/16 dev eth0  scope link  metric 1000
-> 172.26.16.0/24 dev eth0  proto kernel  scope link  src 172.26.16.177
-> 172.26.16.1 via 172.26.17.227 dev wlan0  proto babel onlink
-> 172.26.16.112 via 172.26.17.227 dev wlan0  proto babel onlink
-> 172.26.17.0/24 via 172.26.17.224 dev wlan0  proto babel onlink
-> 172.26.17.3 via 172.26.17.227 dev wlan0  proto babel onlink
-> 172.26.17.227 via 172.26.17.227 dev wlan0  proto babel onlink
-> 192.168.7.0/30 dev eth1  proto kernel  scope link  src 192.168.7.1  metric 1
-> 192.168.7.2 via 172.26.17.227 dev wlan0  proto babel onlink
-> 
-
-Bye,
-Hannes
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index c3a7f4a..9eedfd15 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -7447,6 +7447,17 @@ static int i40e_ndo_fdb_dump(struct sk_buff *skb,
+ 
+ #endif /* USE_DEFAULT_FDB_DEL_DUMP */
+ #endif /* HAVE_FDB_OPS */
++#define I40E_MAX_TUNNEL_HDR_LEN		80
++static bool i40e_gso_check(struct sk_buff *skb, struct net_device *dev)
++{
++	if (skb->encapsulation &&
++	    (skb_inner_mac_header(skb) - skb_transport_header(skb) >
++	     I40E_MAX_TUNNEL_HDR_LEN))
++			return false;
++
++	return true;
++}
++
+ static const struct net_device_ops i40e_netdev_ops = {
+ 	.ndo_open		= i40e_open,
+ 	.ndo_stop		= i40e_close,
+@@ -7487,6 +7498,7 @@ static const struct net_device_ops i40e_netdev_ops = {
+ 	.ndo_fdb_dump		= i40e_ndo_fdb_dump,
+ #endif
+ #endif
++	.ndo_gso_check		= i40e_gso_check,
+ };
+ 
+ /**
+-- 
+1.7.10.4
