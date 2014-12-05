@@ -1,49 +1,40 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH][net-next] net: avoid to call skb_queue_len again
-Date: Fri, 05 Dec 2014 05:24:41 -0800
-Message-ID: <1417785881.4322.0.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1417772948-17909-1-git-send-email-roy.qing.li@gmail.com>
+Subject: Re: [bisected] xfrm: TCP connection initiating PMTU discovery
+ stalls on v3.12+
+Date: Fri, 05 Dec 2014 05:26:25 -0800
+Message-ID: <1417785985.4322.1.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1709726.jUgUSQI9sl@pikkukde.a.i2n>
+	 <2335530.7OPnEQXbmV@h2o.as.studentenwerk.mhn.de>
+	 <1769392.YOU9Lj6NQS@h2o.as.studentenwerk.mhn.de>
+	 <1841985.3SsQX9ZHP0@h2o.as.studentenwerk.mhn.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
+Cc: netdev@vger.kernel.org,
+	Thomas Jarosch <thomas.jarosch@intra2net.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Wolfgang Walter <linux@stwm.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:33569 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750933AbaLENYq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 08:24:46 -0500
-Received: by mail-ig0-f170.google.com with SMTP id r2so755638igi.3
-        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 05:24:45 -0800 (PST)
-In-Reply-To: <1417772948-17909-1-git-send-email-roy.qing.li@gmail.com>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:39619 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750749AbaLEN01 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 08:26:27 -0500
+Received: by mail-ig0-f169.google.com with SMTP id hl2so759627igb.0
+        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 05:26:27 -0800 (PST)
+In-Reply-To: <1841985.3SsQX9ZHP0@h2o.as.studentenwerk.mhn.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-12-05 at 17:49 +0800, roy.qing.li@gmail.com wrote:
-> From: Li RongQing <roy.qing.li@gmail.com>
+On Fri, 2014-12-05 at 13:09 +0100, Wolfgang Walter wrote:
+> Hello,
 > 
-> the queue length of sd->input_pkt_queue has been putted into qlen,
-> and impossible to change, since hold the lock
+> as reverting this patch fixes this rather annoying problem: is it dangerous to 
+> revert it as a workaround until the root cause is found?
 > 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> ---
->  net/core/dev.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 0814a56..b954400 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -3297,7 +3297,7 @@ static int enqueue_to_backlog(struct sk_buff *skb, int cpu,
->  	rps_lock(sd);
->  	qlen = skb_queue_len(&sd->input_pkt_queue);
->  	if (qlen <= netdev_max_backlog && !skb_flow_limit(skb, qlen)) {
-> -		if (skb_queue_len(&sd->input_pkt_queue)) {
-> +		if (qlen) {
->  enqueue:
->  			__skb_queue_tail(&sd->input_pkt_queue, skb);
->  			input_queue_tail_incr_save(sd, qtail);
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Unfortunately no, this patch fixes a serious issue.
 
-Thanks !
+We need to find the root cause of your problem instead of trying to work
+around it.
