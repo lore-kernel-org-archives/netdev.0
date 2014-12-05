@@ -1,242 +1,150 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/14] ixgbe: remove CIAA/D register reads from bad VF check
-Date: Fri,  5 Dec 2014 09:52:43 -0800
-Message-ID: <1417801973-28793-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/14] ixgbe: Add timeout parameter to ixgbe_host_interface_command
+Date: Fri,  5 Dec 2014 09:52:45 -0800
+Message-ID: <1417801973-28793-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Alex Williamson <alex.williamson@redhat.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:7122 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:7163 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751819AbaLERxu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2014 12:53:50 -0500
+	id S1751863AbaLERxx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Dec 2014 12:53:53 -0500
 In-Reply-To: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Accessing the CIAA/D register can block access to the PCI config space.
+Since on X550 we use host interface commands to read,write and erase
+some commands require more time to complete. So this adds a timeout
+parameter to ixgbe_host_interface_command as wells as a return_data
+parameter allowing us to return with any data.
 
-This patch removes the read/write operations to the CIAA/D registers
-and makes use of standard kernel functions for accessing the PCI config
-space.
-
-In addition it moves ixgbevf_check_for_bad_vf() into the watchdog subtask
-which reduces the frequency of the checks.
-
-CC: Alex Williamson <alex.williamson@redhat.com>
-Reported-by: Alex Williamson <alex.williamson@redhat.com>
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 145 +++++++++++++-------------
- 1 file changed, 74 insertions(+), 71 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 41 +++++++++++++++++++------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |  9 ++++--
+ 2 files changed, 37 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 18ddffb..b519b89 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -6318,6 +6318,66 @@ static void ixgbe_watchdog_flush_tx(struct ixgbe_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 0e754b4..7ed1e08 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -3446,23 +3446,34 @@ static u8 ixgbe_calculate_checksum(u8 *buffer, u32 length)
+  *  @buffer: contains the command to write and where the return status will
+  *           be placed
+  *  @length: length of buffer, must be multiple of 4 bytes
++ *  @timeout: time in ms to wait for command completion
++ *  @return_data: read and return data from the buffer (true) or not (false)
++ *  Needed because FW structures are big endian and decoding of
++ *  these fields can be 8 bit or 16 bit based on command. Decoding
++ *  is not easily understood without making a table of commands.
++ *  So we will leave this up to the caller to read back the data
++ *  in these cases.
+  *
+  *  Communicates with the manageability block.  On success return 0
+  *  else return IXGBE_ERR_HOST_INTERFACE_COMMAND.
+  **/
+ static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
+-					u32 length)
++					u32 length, u32 timeout,
++					bool return_data)
+ {
+-	u32 hicr, i, bi;
++	u32 hicr, i, bi, fwsts;
+ 	u32 hdr_size = sizeof(struct ixgbe_hic_hdr);
+-	u8 buf_len, dword_len;
++	u16 buf_len, dword_len;
+ 
+-	if (length == 0 || length & 0x3 ||
+-	    length > IXGBE_HI_MAX_BLOCK_BYTE_LENGTH) {
+-		hw_dbg(hw, "Buffer length failure.\n");
++	if (length == 0 || length > IXGBE_HI_MAX_BLOCK_BYTE_LENGTH) {
++		hw_dbg(hw, "Buffer length failure buffersize-%d.\n", length);
+ 		return IXGBE_ERR_HOST_INTERFACE_COMMAND;
  	}
- }
  
-+#ifdef CONFIG_PCI_IOV
-+static inline void ixgbe_issue_vf_flr(struct ixgbe_adapter *adapter,
-+				      struct pci_dev *vfdev)
-+{
-+	if (!pci_wait_for_pending_transaction(vfdev))
-+		e_dev_warn("Issuing VFLR with pending transactions\n");
++	/* Set bit 9 of FWSTS clearing FW reset indication */
++	fwsts = IXGBE_READ_REG(hw, IXGBE_FWSTS);
++	IXGBE_WRITE_REG(hw, IXGBE_FWSTS, fwsts | IXGBE_FWSTS_FWRI);
 +
-+	e_dev_err("Issuing VFLR for VF %s\n", pci_name(vfdev));
-+	pcie_capability_set_word(vfdev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_BCR_FLR);
-+
-+	msleep(100);
-+}
-+
-+static void ixgbe_check_for_bad_vf(struct ixgbe_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	struct pci_dev *pdev = adapter->pdev;
-+	struct pci_dev *vfdev;
-+	u32 gpc;
-+	int pos;
-+	unsigned short vf_id;
-+
-+	if (!(netif_carrier_ok(adapter->netdev)))
-+		return;
-+
-+	gpc = IXGBE_READ_REG(hw, IXGBE_TXDGPC);
-+	if (gpc) /* If incrementing then no need for the check below */
-+		return;
-+	/* Check to see if a bad DMA write target from an errant or
-+	 * malicious VF has caused a PCIe error.  If so then we can
-+	 * issue a VFLR to the offending VF(s) and then resume without
-+	 * requesting a full slot reset.
-+	 */
-+
-+	if (!pdev)
-+		return;
-+
-+	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_SRIOV);
-+	if (!pos)
-+		return;
-+
-+	/* get the device ID for the VF */
-+	pci_read_config_word(pdev, pos + PCI_SRIOV_VF_DID, &vf_id);
-+
-+	/* check status reg for all VFs owned by this PF */
-+	vfdev = pci_get_device(pdev->vendor, vf_id, NULL);
-+	while (vfdev) {
-+		if (vfdev->is_virtfn && (vfdev->physfn == pdev)) {
-+			u16 status_reg;
-+
-+			pci_read_config_word(vfdev, PCI_STATUS, &status_reg);
-+			if (status_reg & PCI_STATUS_REC_MASTER_ABORT)
-+				/* issue VFLR */
-+				ixgbe_issue_vf_flr(adapter, vfdev);
-+		}
-+
-+		vfdev = pci_get_device(pdev->vendor, vf_id, vfdev);
+ 	/* Check that the host interface is enabled. */
+ 	hicr = IXGBE_READ_REG(hw, IXGBE_HICR);
+ 	if ((hicr & IXGBE_HICR_EN) == 0) {
+@@ -3470,7 +3481,12 @@ static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
+ 		return IXGBE_ERR_HOST_INTERFACE_COMMAND;
+ 	}
+ 
+-	/* Calculate length in DWORDs */
++	/* Calculate length in DWORDs. We must be DWORD aligned */
++	if ((length % (sizeof(u32))) != 0) {
++		hw_dbg(hw, "Buffer length failure, not aligned to dword");
++		return IXGBE_ERR_INVALID_ARGUMENT;
 +	}
-+}
 +
- static void ixgbe_spoof_check(struct ixgbe_adapter *adapter)
- {
- 	u32 ssvpc;
-@@ -6338,6 +6398,17 @@ static void ixgbe_spoof_check(struct ixgbe_adapter *adapter)
+ 	dword_len = length >> 2;
  
- 	e_warn(drv, "%u Spoofed packets detected\n", ssvpc);
- }
-+#else
-+static void ixgbe_spoof_check(struct ixgbe_adapter __always_unused *adapter)
-+{
-+}
+ 	/*
+@@ -3484,7 +3500,7 @@ static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
+ 	/* Setting this bit tells the ARC that a new command is pending. */
+ 	IXGBE_WRITE_REG(hw, IXGBE_HICR, hicr | IXGBE_HICR_C);
+ 
+-	for (i = 0; i < IXGBE_HI_COMMAND_TIMEOUT; i++) {
++	for (i = 0; i < timeout; i++) {
+ 		hicr = IXGBE_READ_REG(hw, IXGBE_HICR);
+ 		if (!(hicr & IXGBE_HICR_C))
+ 			break;
+@@ -3492,12 +3508,15 @@ static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
+ 	}
+ 
+ 	/* Check command successful completion. */
+-	if (i == IXGBE_HI_COMMAND_TIMEOUT ||
++	if ((timeout != 0 && i == timeout) ||
+ 	    (!(IXGBE_READ_REG(hw, IXGBE_HICR) & IXGBE_HICR_SV))) {
+ 		hw_dbg(hw, "Command has failed with no status valid.\n");
+ 		return IXGBE_ERR_HOST_INTERFACE_COMMAND;
+ 	}
+ 
++	if (!return_data)
++		return 0;
 +
-+static void
-+ixgbe_check_for_bad_vf(struct ixgbe_adapter __always_unused *adapter)
-+{
-+}
-+#endif /* CONFIG_PCI_IOV */
-+
+ 	/* Calculate length in DWORDs */
+ 	dword_len = hdr_size >> 2;
  
- /**
-  * ixgbe_watchdog_subtask - check and bring link up
-@@ -6358,6 +6429,7 @@ static void ixgbe_watchdog_subtask(struct ixgbe_adapter *adapter)
- 	else
- 		ixgbe_watchdog_link_is_down(adapter);
+@@ -3568,7 +3587,9 @@ s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
  
-+	ixgbe_check_for_bad_vf(adapter);
- 	ixgbe_spoof_check(adapter);
- 	ixgbe_update_stats(adapter);
+ 	for (i = 0; i <= FW_CEM_MAX_RETRIES; i++) {
+ 		ret_val = ixgbe_host_interface_command(hw, (u32 *)&fw_cmd,
+-						       sizeof(fw_cmd));
++						       sizeof(fw_cmd),
++						       IXGBE_HI_COMMAND_TIMEOUT,
++						       true);
+ 		if (ret_val != 0)
+ 			continue;
  
-@@ -6469,51 +6541,6 @@ static void ixgbe_sfp_link_config_subtask(struct ixgbe_adapter *adapter)
- 	clear_bit(__IXGBE_IN_SFP_INIT, &adapter->state);
- }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index cc1ac04..4ec6ead 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -2314,9 +2314,12 @@ enum ixgbe_fdir_pballoc_type {
+ #define IXGBE_FDIR_DROP_QUEUE                   127
  
--#ifdef CONFIG_PCI_IOV
--static void ixgbe_check_for_bad_vf(struct ixgbe_adapter *adapter)
--{
--	int vf;
--	struct ixgbe_hw *hw = &adapter->hw;
--	struct net_device *netdev = adapter->netdev;
--	u32 gpc;
--	u32 ciaa, ciad;
--
--	gpc = IXGBE_READ_REG(hw, IXGBE_TXDGPC);
--	if (gpc) /* If incrementing then no need for the check below */
--		return;
--	/*
--	 * Check to see if a bad DMA write target from an errant or
--	 * malicious VF has caused a PCIe error.  If so then we can
--	 * issue a VFLR to the offending VF(s) and then resume without
--	 * requesting a full slot reset.
--	 */
--
--	for (vf = 0; vf < adapter->num_vfs; vf++) {
--		ciaa = (vf << 16) | 0x80000000;
--		/* 32 bit read so align, we really want status at offset 6 */
--		ciaa |= PCI_COMMAND;
--		IXGBE_WRITE_REG(hw, IXGBE_CIAA_BY_MAC(hw), ciaa);
--		ciad = IXGBE_READ_REG(hw, IXGBE_CIAD_BY_MAC(hw));
--		ciaa &= 0x7FFFFFFF;
--		/* disable debug mode asap after reading data */
--		IXGBE_WRITE_REG(hw, IXGBE_CIAA_BY_MAC(hw), ciaa);
--		/* Get the upper 16 bits which will be the PCI status reg */
--		ciad >>= 16;
--		if (ciad & PCI_STATUS_REC_MASTER_ABORT) {
--			netdev_err(netdev, "VF %d Hung DMA\n", vf);
--			/* Issue VFLR */
--			ciaa = (vf << 16) | 0x80000000;
--			ciaa |= 0xA8;
--			IXGBE_WRITE_REG(hw, IXGBE_CIAA_BY_MAC(hw), ciaa);
--			ciad = 0x00008000;  /* VFLR */
--			IXGBE_WRITE_REG(hw, IXGBE_CIAD_BY_MAC(hw), ciad);
--			ciaa &= 0x7FFFFFFF;
--			IXGBE_WRITE_REG(hw, IXGBE_CIAA_BY_MAC(hw), ciaa);
--		}
--	}
--}
--
--#endif
- /**
-  * ixgbe_service_timer - Timer Call-back
-  * @data: pointer to adapter cast into an unsigned long
-@@ -6522,7 +6549,6 @@ static void ixgbe_service_timer(unsigned long data)
- {
- 	struct ixgbe_adapter *adapter = (struct ixgbe_adapter *)data;
- 	unsigned long next_event_offset;
--	bool ready = true;
+ /* Manageablility Host Interface defines */
+-#define IXGBE_HI_MAX_BLOCK_BYTE_LENGTH       1792 /* Num of bytes in range */
+-#define IXGBE_HI_MAX_BLOCK_DWORD_LENGTH      448 /* Num of dwords in range */
+-#define IXGBE_HI_COMMAND_TIMEOUT             500 /* Process HI command limit */
++#define IXGBE_HI_MAX_BLOCK_BYTE_LENGTH	1792 /* Num of bytes in range */
++#define IXGBE_HI_MAX_BLOCK_DWORD_LENGTH	448 /* Num of dwords in range */
++#define IXGBE_HI_COMMAND_TIMEOUT	500 /* Process HI command limit */
++#define IXGBE_HI_FLASH_ERASE_TIMEOUT	1000 /* Process Erase command limit */
++#define IXGBE_HI_FLASH_UPDATE_TIMEOUT	5000 /* Process Update command limit */
++#define IXGBE_HI_FLASH_APPLY_TIMEOUT	0 /* Process Apply command limit */
  
- 	/* poll faster when waiting for link */
- 	if (adapter->flags & IXGBE_FLAG_NEED_LINK_UPDATE)
-@@ -6530,32 +6556,10 @@ static void ixgbe_service_timer(unsigned long data)
- 	else
- 		next_event_offset = HZ * 2;
- 
--#ifdef CONFIG_PCI_IOV
--	/*
--	 * don't bother with SR-IOV VF DMA hang check if there are
--	 * no VFs or the link is down
--	 */
--	if (!adapter->num_vfs ||
--	    (adapter->flags & IXGBE_FLAG_NEED_LINK_UPDATE))
--		goto normal_timer_service;
--
--	/* If we have VFs allocated then we must check for DMA hangs */
--	ixgbe_check_for_bad_vf(adapter);
--	next_event_offset = HZ / 50;
--	adapter->timer_event_accumulator++;
--
--	if (adapter->timer_event_accumulator >= 100)
--		adapter->timer_event_accumulator = 0;
--	else
--		ready = false;
--
--normal_timer_service:
--#endif
- 	/* Reset the timer */
- 	mod_timer(&adapter->service_timer, next_event_offset + jiffies);
- 
--	if (ready)
--		ixgbe_service_event_schedule(adapter);
-+	ixgbe_service_event_schedule(adapter);
- }
- 
- static void ixgbe_reset_subtask(struct ixgbe_adapter *adapter)
-@@ -8643,8 +8647,7 @@ static pci_ers_result_t ixgbe_io_error_detected(struct pci_dev *pdev,
- 		 * VFLR.  Just clean up the AER in that case.
- 		 */
- 		if (vfdev) {
--			e_dev_err("Issuing VFLR to VF %d\n", vf);
--			pci_write_config_dword(vfdev, 0xA8, 0x00008000);
-+			ixgbe_issue_vf_flr(adapter, vfdev);
- 			/* Free device reference count */
- 			pci_dev_put(vfdev);
- 		}
+ /* CEM Support */
+ #define FW_CEM_HDR_LEN                0x4
 -- 
 1.9.3
