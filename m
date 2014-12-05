@@ -1,101 +1,356 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/14] ixgbe: Look up MAC address in Open Firmware or IDPROM
-Date: Fri,  5 Dec 2014 09:52:42 -0800
-Message-ID: <1417801973-28793-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/14] ixgbe: cleanup checksum to allow error results
+Date: Fri,  5 Dec 2014 09:52:48 -0800
+Message-ID: <1417801973-28793-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Martin K Petersen <mkp@mkp.net>, netdev@vger.kernel.org,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Martin K Petersen <martin.petersen@oracle.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:7163 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:7178 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751848AbaLERxw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2014 12:53:52 -0500
+	id S1751878AbaLERx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Dec 2014 12:53:56 -0500
 In-Reply-To: <1417801973-28793-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin K Petersen <mkp@mkp.net>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Attempt to look up the MAC address in Open Firmware on systems that
-support it. On SPARC resort to using the IDPROM if no OF address is
-found.
+Currently the shared code checksum calculation function only
+returns a u16 and cannot return an error code. Unfortunately
+a variety of errors can happen that completely prevent the
+calculation of a checksum. So, change the function return value
+from a u16 to an s32 and return a negative value on error, or the
+positive checksum value when there is no error.
 
-Signed-off-by: Martin K Petersen <martin.petersen@oracle.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 35 +++++++++++++++++++++++++++
- 1 file changed, 35 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 86 ++++++++++++++++---------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c   | 59 +++++++++++------
+ 4 files changed, 96 insertions(+), 53 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 73cd0fe..18ddffb 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -42,6 +42,7 @@
- #include <linux/slab.h>
- #include <net/checksum.h>
- #include <net/ip6_checksum.h>
-+#include <linux/etherdevice.h>
- #include <linux/ethtool.h>
- #include <linux/if.h>
- #include <linux/if_vlan.h>
-@@ -50,6 +51,15 @@
- #include <linux/prefetch.h>
- #include <scsi/fc/fc_fcoe.h>
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 2c77539..7633ba1 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -1625,7 +1625,7 @@ static void ixgbe_release_eeprom(struct ixgbe_hw *hw)
+  *  ixgbe_calc_eeprom_checksum_generic - Calculates and returns the checksum
+  *  @hw: pointer to hardware structure
+  **/
+-u16 ixgbe_calc_eeprom_checksum_generic(struct ixgbe_hw *hw)
++s32 ixgbe_calc_eeprom_checksum_generic(struct ixgbe_hw *hw)
+ {
+ 	u16 i;
+ 	u16 j;
+@@ -1636,7 +1636,7 @@ u16 ixgbe_calc_eeprom_checksum_generic(struct ixgbe_hw *hw)
  
-+#ifdef CONFIG_OF
-+#include <linux/of_net.h>
-+#endif
+ 	/* Include 0x0-0x3F in the checksum */
+ 	for (i = 0; i < IXGBE_EEPROM_CHECKSUM; i++) {
+-		if (hw->eeprom.ops.read(hw, i, &word) != 0) {
++		if (hw->eeprom.ops.read(hw, i, &word)) {
+ 			hw_dbg(hw, "EEPROM read failed\n");
+ 			break;
+ 		}
+@@ -1645,24 +1645,35 @@ u16 ixgbe_calc_eeprom_checksum_generic(struct ixgbe_hw *hw)
+ 
+ 	/* Include all data from pointers except for the fw pointer */
+ 	for (i = IXGBE_PCIE_ANALOG_PTR; i < IXGBE_FW_PTR; i++) {
+-		hw->eeprom.ops.read(hw, i, &pointer);
++		if (hw->eeprom.ops.read(hw, i, &pointer)) {
++			hw_dbg(hw, "EEPROM read failed\n");
++			return IXGBE_ERR_EEPROM;
++		}
 +
-+#ifdef CONFIG_SPARC
-+#include <asm/idprom.h>
-+#include <asm/prom.h>
-+#endif
++		/* If the pointer seems invalid */
++		if (pointer == 0xFFFF || pointer == 0)
++			continue;
 +
- #include "ixgbe.h"
- #include "ixgbe_common.h"
- #include "ixgbe_dcb_82599.h"
-@@ -8021,6 +8031,29 @@ int ixgbe_wol_supported(struct ixgbe_adapter *adapter, u16 device_id,
++		if (hw->eeprom.ops.read(hw, pointer, &length)) {
++			hw_dbg(hw, "EEPROM read failed\n");
++			return IXGBE_ERR_EEPROM;
++		}
+ 
+-		/* Make sure the pointer seems valid */
+-		if (pointer != 0xFFFF && pointer != 0) {
+-			hw->eeprom.ops.read(hw, pointer, &length);
++		if (length == 0xFFFF || length == 0)
++			continue;
+ 
+-			if (length != 0xFFFF && length != 0) {
+-				for (j = pointer+1; j <= pointer+length; j++) {
+-					hw->eeprom.ops.read(hw, j, &word);
+-					checksum += word;
+-				}
++		for (j = pointer + 1; j <= pointer + length; j++) {
++			if (hw->eeprom.ops.read(hw, j, &word)) {
++				hw_dbg(hw, "EEPROM read failed\n");
++				return IXGBE_ERR_EEPROM;
+ 			}
++			checksum += word;
+ 		}
+ 	}
+ 
+ 	checksum = (u16)IXGBE_EEPROM_SUM - checksum;
+ 
+-	return checksum;
++	return (s32)checksum;
  }
  
  /**
-+ * ixgbe_get_platform_mac_addr - Look up MAC address in Open Firmware / IDPROM
-+ * @adapter: Pointer to adapter struct
-+ */
-+static void ixgbe_get_platform_mac_addr(struct ixgbe_adapter *adapter)
-+{
-+#ifdef CONFIG_OF
-+	struct device_node *dp = pci_device_to_OF_node(adapter->pdev);
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	const unsigned char *addr;
-+
-+	addr = of_get_mac_address(dp);
-+	if (addr) {
-+		ether_addr_copy(hw->mac.perm_addr, addr);
-+		return;
+@@ -1686,26 +1697,33 @@ s32 ixgbe_validate_eeprom_checksum_generic(struct ixgbe_hw *hw,
+ 	 * EEPROM read fails
+ 	 */
+ 	status = hw->eeprom.ops.read(hw, 0, &checksum);
++	if (status) {
++		hw_dbg(hw, "EEPROM read failed\n");
++		return status;
 +	}
-+#endif /* CONFIG_OF */
-+
-+#ifdef CONFIG_SPARC
-+	ether_addr_copy(hw->mac.perm_addr, idprom->id_ethaddr);
-+#endif /* CONFIG_SPARC */
-+}
-+
-+/**
-  * ixgbe_probe - Device Initialization Routine
-  * @pdev: PCI device information struct
-  * @ent: entry in ixgbe_pci_tbl
-@@ -8289,6 +8322,8 @@ skip_sriov:
- 		goto err_sw_init;
+ 
+-	if (status == 0) {
+-		checksum = hw->eeprom.ops.calc_checksum(hw);
++	status = hw->eeprom.ops.calc_checksum(hw);
++	if (status < 0)
++		return status;
+ 
+-		hw->eeprom.ops.read(hw, IXGBE_EEPROM_CHECKSUM, &read_checksum);
++	checksum = (u16)(status & 0xffff);
+ 
+-		/*
+-		 * Verify read checksum from EEPROM is the same as
+-		 * calculated checksum
+-		 */
+-		if (read_checksum != checksum)
+-			status = IXGBE_ERR_EEPROM_CHECKSUM;
+-
+-		/* If the user cares, return the calculated checksum */
+-		if (checksum_val)
+-			*checksum_val = checksum;
+-	} else {
++	status = hw->eeprom.ops.read(hw, IXGBE_EEPROM_CHECKSUM, &read_checksum);
++	if (status) {
+ 		hw_dbg(hw, "EEPROM read failed\n");
++		return status;
  	}
  
-+	ixgbe_get_platform_mac_addr(adapter);
++	/* Verify read checksum from EEPROM is the same as
++	 * calculated checksum
++	 */
++	if (read_checksum != checksum)
++		status = IXGBE_ERR_EEPROM_CHECKSUM;
 +
- 	memcpy(netdev->dev_addr, hw->mac.perm_addr, netdev->addr_len);
++	/* If the user cares, return the calculated checksum */
++	if (checksum_val)
++		*checksum_val = checksum;
++
+ 	return status;
+ }
  
- 	if (!is_valid_ether_addr(netdev->dev_addr)) {
+@@ -1724,15 +1742,19 @@ s32 ixgbe_update_eeprom_checksum_generic(struct ixgbe_hw *hw)
+ 	 * EEPROM read fails
+ 	 */
+ 	status = hw->eeprom.ops.read(hw, 0, &checksum);
+-
+-	if (status == 0) {
+-		checksum = hw->eeprom.ops.calc_checksum(hw);
+-		status = hw->eeprom.ops.write(hw, IXGBE_EEPROM_CHECKSUM,
+-					      checksum);
+-	} else {
++	if (status) {
+ 		hw_dbg(hw, "EEPROM read failed\n");
++		return status;
+ 	}
+ 
++	status = hw->eeprom.ops.calc_checksum(hw);
++	if (status < 0)
++		return status;
++
++	checksum = (u16)(status & 0xffff);
++
++	status = hw->eeprom.ops.write(hw, IXGBE_EEPROM_CHECKSUM, checksum);
++
+ 	return status;
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index 62dc8c5..fdf42c1 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+@@ -64,7 +64,7 @@ s32 ixgbe_read_eeprom_bit_bang_generic(struct ixgbe_hw *hw, u16 offset,
+ 				       u16 *data);
+ s32 ixgbe_read_eeprom_buffer_bit_bang_generic(struct ixgbe_hw *hw, u16 offset,
+ 					      u16 words, u16 *data);
+-u16 ixgbe_calc_eeprom_checksum_generic(struct ixgbe_hw *hw);
++s32 ixgbe_calc_eeprom_checksum_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_validate_eeprom_checksum_generic(struct ixgbe_hw *hw,
+ 					   u16 *checksum_val);
+ s32 ixgbe_update_eeprom_checksum_generic(struct ixgbe_hw *hw);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 14b43b9..20673b3 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -2871,7 +2871,7 @@ struct ixgbe_eeprom_operations {
+ 	s32 (*write_buffer)(struct ixgbe_hw *, u16, u16, u16 *);
+ 	s32 (*validate_checksum)(struct ixgbe_hw *, u16 *);
+ 	s32 (*update_checksum)(struct ixgbe_hw *);
+-	u16 (*calc_checksum)(struct ixgbe_hw *);
++	s32 (*calc_checksum)(struct ixgbe_hw *);
+ };
+ 
+ struct ixgbe_mac_operations {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+index d88f75f..4b0b1cc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+@@ -316,7 +316,7 @@ static s32 ixgbe_write_eewr_buffer_X540(struct ixgbe_hw *hw,
+  *
+  *  @hw: pointer to hardware structure
+  **/
+-static u16 ixgbe_calc_eeprom_checksum_X540(struct ixgbe_hw *hw)
++static s32 ixgbe_calc_eeprom_checksum_X540(struct ixgbe_hw *hw)
+ {
+ 	u16 i;
+ 	u16 j;
+@@ -324,6 +324,8 @@ static u16 ixgbe_calc_eeprom_checksum_X540(struct ixgbe_hw *hw)
+ 	u16 length = 0;
+ 	u16 pointer = 0;
+ 	u16 word = 0;
++	u16 checksum_last_word = IXGBE_EEPROM_CHECKSUM;
++	u16 ptr_start = IXGBE_PCIE_ANALOG_PTR;
+ 
+ 	/*
+ 	 * Do not use hw->eeprom.ops.read because we do not want to take
+@@ -332,10 +334,10 @@ static u16 ixgbe_calc_eeprom_checksum_X540(struct ixgbe_hw *hw)
+ 	 */
+ 
+ 	/* Include 0x0-0x3F in the checksum */
+-	for (i = 0; i < IXGBE_EEPROM_CHECKSUM; i++) {
+-		if (ixgbe_read_eerd_generic(hw, i, &word) != 0) {
++	for (i = 0; i < checksum_last_word; i++) {
++		if (ixgbe_read_eerd_generic(hw, i, &word)) {
+ 			hw_dbg(hw, "EEPROM read failed\n");
+-			break;
++			return IXGBE_ERR_EEPROM;
+ 		}
+ 		checksum += word;
+ 	}
+@@ -344,11 +346,11 @@ static u16 ixgbe_calc_eeprom_checksum_X540(struct ixgbe_hw *hw)
+ 	 * Include all data from pointers 0x3, 0x6-0xE.  This excludes the
+ 	 * FW, PHY module, and PCIe Expansion/Option ROM pointers.
+ 	 */
+-	for (i = IXGBE_PCIE_ANALOG_PTR; i < IXGBE_FW_PTR; i++) {
++	for (i = ptr_start; i < IXGBE_FW_PTR; i++) {
+ 		if (i == IXGBE_PHY_PTR || i == IXGBE_OPTION_ROM_PTR)
+ 			continue;
+ 
+-		if (ixgbe_read_eerd_generic(hw, i, &pointer) != 0) {
++		if (ixgbe_read_eerd_generic(hw, i, &pointer)) {
+ 			hw_dbg(hw, "EEPROM read failed\n");
+ 			break;
+ 		}
+@@ -358,8 +360,9 @@ static u16 ixgbe_calc_eeprom_checksum_X540(struct ixgbe_hw *hw)
+ 		    pointer >= hw->eeprom.word_size)
+ 			continue;
+ 
+-		if (ixgbe_read_eerd_generic(hw, pointer, &length) != 0) {
++		if (ixgbe_read_eerd_generic(hw, pointer, &length)) {
+ 			hw_dbg(hw, "EEPROM read failed\n");
++			return IXGBE_ERR_EEPROM;
+ 			break;
+ 		}
+ 
+@@ -368,10 +371,10 @@ static u16 ixgbe_calc_eeprom_checksum_X540(struct ixgbe_hw *hw)
+ 		    (pointer + length) >= hw->eeprom.word_size)
+ 			continue;
+ 
+-		for (j = pointer+1; j <= pointer+length; j++) {
+-			if (ixgbe_read_eerd_generic(hw, j, &word) != 0) {
++		for (j = pointer + 1; j <= pointer + length; j++) {
++			if (ixgbe_read_eerd_generic(hw, j, &word)) {
+ 				hw_dbg(hw, "EEPROM read failed\n");
+-				break;
++				return IXGBE_ERR_EEPROM;
+ 			}
+ 			checksum += word;
+ 		}
+@@ -379,7 +382,7 @@ static u16 ixgbe_calc_eeprom_checksum_X540(struct ixgbe_hw *hw)
+ 
+ 	checksum = (u16)IXGBE_EEPROM_SUM - checksum;
+ 
+-	return checksum;
++	return (s32)checksum;
+ }
+ 
+ /**
+@@ -410,23 +413,34 @@ static s32 ixgbe_validate_eeprom_checksum_X540(struct ixgbe_hw *hw,
+ 	if (hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_EEP_SM))
+ 		return IXGBE_ERR_SWFW_SYNC;
+ 
+-	checksum = hw->eeprom.ops.calc_checksum(hw);
++	status = hw->eeprom.ops.calc_checksum(hw);
++	if (status < 0)
++		goto out;
++
++	checksum = (u16)(status & 0xffff);
+ 
+ 	/* Do not use hw->eeprom.ops.read because we do not want to take
+ 	 * the synchronization semaphores twice here.
+ 	 */
+ 	status = ixgbe_read_eerd_generic(hw, IXGBE_EEPROM_CHECKSUM,
+ 					 &read_checksum);
++	if (status)
++		goto out;
+ 
+-	hw->mac.ops.release_swfw_sync(hw, IXGBE_GSSR_EEP_SM);
++	/* Verify read checksum from EEPROM is the same as
++	 * calculated checksum
++	 */
++	if (read_checksum != checksum) {
++		hw_dbg(hw, "Invalid EEPROM checksum");
++		status = IXGBE_ERR_EEPROM_CHECKSUM;
++	}
+ 
+ 	/* If the user cares, return the calculated checksum */
+ 	if (checksum_val)
+ 		*checksum_val = checksum;
+ 
+-	/* Verify read and calculated checksums are the same */
+-	if (read_checksum != checksum)
+-		return IXGBE_ERR_EEPROM_CHECKSUM;
++out:
++	hw->mac.ops.release_swfw_sync(hw, IXGBE_GSSR_EEP_SM);
+ 
+ 	return status;
+ }
+@@ -457,15 +471,22 @@ static s32 ixgbe_update_eeprom_checksum_X540(struct ixgbe_hw *hw)
+ 	if (hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_EEP_SM))
+ 		return  IXGBE_ERR_SWFW_SYNC;
+ 
+-	checksum = hw->eeprom.ops.calc_checksum(hw);
++	status = hw->eeprom.ops.calc_checksum(hw);
++	if (status < 0)
++		goto out;
++
++	checksum = (u16)(status & 0xffff);
+ 
+ 	/* Do not use hw->eeprom.ops.write because we do not want to
+ 	 * take the synchronization semaphores twice here.
+ 	 */
+ 	status = ixgbe_write_eewr_generic(hw, IXGBE_EEPROM_CHECKSUM, checksum);
+-	if (!status)
+-		status = ixgbe_update_flash_X540(hw);
++	if (status)
++		goto out;
++
++	status = ixgbe_update_flash_X540(hw);
+ 
++out:
+ 	hw->mac.ops.release_swfw_sync(hw, IXGBE_GSSR_EEP_SM);
+ 	return status;
+ }
 -- 
 1.9.3
