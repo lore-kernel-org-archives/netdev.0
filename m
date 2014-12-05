@@ -1,97 +1,177 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH 2/3] bridge: offload bridge port attributes to switch
- asic if feature flag set
-Date: Fri, 05 Dec 2014 07:41:05 -0500
-Message-ID: <5481A7E1.7070708@mojatatu.com>
-References: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bBOCgoH0zL6+82jj2qjcP8n3kSo51x+i5SoqkN8Ff1CBQ@mail.gmail.com> <548156C8.5060602@gmail.com> <54815A4E.3020806@cumulusnetworks.com>
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: Re: [PATCH 2/2] gianfar: handle map error in gfar_start_xmit()
+Date: Fri, 5 Dec 2014 16:42:08 +0400
+Message-ID: <CAOJe8K27AZ10Z==d6OSKjD_6B4CTYT4OsePjhGh3Br9M-Pe-9A@mail.gmail.com>
+References: <1417775874-17775-1-git-send-email-asolokha@kb.kras.ru>
+	<1417775874-17775-3-git-send-email-asolokha@kb.kras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <sfeldma@gmail.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	John Linville <linville@tuxdriver.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"buytenh@wantstofly.org" <buytenh@wantstofly.org>,
-	Aviad Raveh <aviadr@mellanox.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, shm@cumulusnetworks.com,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:36448 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751216AbaLEMlJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 07:41:09 -0500
-Received: by mail-ie0-f170.google.com with SMTP id rd18so611291iec.1
-        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 04:41:08 -0800 (PST)
-In-Reply-To: <54815A4E.3020806@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Claudiu Manoil <claudiu.manoil@freescale.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arseny Solokha <asolokha@kb.kras.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1417775874-17775-3-git-send-email-asolokha@kb.kras.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/05/14 02:10, Roopa Prabhu wrote:
-> On 12/4/14, 10:55 PM, John Fastabend wrote:
->> On 12/04/2014 10:41 PM, Scott Feldman wrote:
->>> On Thu, Dec 4, 2014 at 6:26 PM, <roopa@cumulusnetworks.com> wrote:
->>>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>>
->>>> This allows offloading to switch asic without having the user to set
->>>> any flag. And this is done in the bridge driver to rollback kernel
->>>> settings
->>>> on hw offload failure if required in the future.
->>>>
->>>> With this, it also makes sure a notification goes out only after the
->>>> attributes are set both in the kernel and hw.
->>>
->>> I like this approach as it streamlines the steps for the user in
->>> setting port flags.  There is one case for FLOODING where you'll have
->>> to turn off flooding for both, and then turn on flooding in hw. You
->>> don't want flooding turned on on kernel and hw.
->>>
->>>> ---
->>>>   net/bridge/br_netlink.c |   27 ++++++++++++++++++++++++++-
->>>>   1 file changed, 26 insertions(+), 1 deletion(-)
->>>>
->>>> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
->>>> index 9f5eb55..ce173f0 100644
->>>> --- a/net/bridge/br_netlink.c
->>>> +++ b/net/bridge/br_netlink.c
->>>> @@ -407,9 +407,21 @@ int br_setlink(struct net_device *dev, struct
->>>> nlmsghdr *nlh)
->>>>                                  afspec, RTM_SETLINK);
->>>>          }
->>>>
->>>> +       if ((dev->features & NETIF_F_HW_SWITCH_OFFLOAD) &&
->>>> + dev->netdev_ops->ndo_bridge_setlink) {
->>>> +               int ret = dev->netdev_ops->ndo_bridge_setlink(dev,
->>>> nlh);
->>>
->>> I think you want to up-level this to net/core/rtnetlink.c because
->>> you're only enabling the feature for one instance of a driver that
->>> implements ndo_bridge_setlink: the bridge driver.  If another driver
->>> was MASTER and implemented ndo_bridge_setlink, you'd want same check
->>> to push setting down to SELF port driver.
->>
->> Also if the user set SELF && MASTER flags && had HW_SWITCH_OFFLOAD bit
->> set we would call ndo_bridge_setlink twice on the dev. Maybe you can
->> catch this case in rtnetlink.c and only call it once.
+On 12/5/14, Arseny Solokha <asolokha@kb.kras.ru> wrote:
+> From: Arseny Solokha <asolokha@kb.kras.ru>
 >
-> yes, thought about this and when i looked at iproute2 code, it is either
-> master
-> or self today and i don't think anybody else uses both flags with the
-> current
-> kernel implementation. But yes, that does not stop anybody from setting
-> both flags.
-> I will handle it better in v2.
+> When DMA-API debugging is enabled in the kernel, it spews the following
+> upon upping the link:
+>
+> WARNING: at lib/dma-debug.c:1135
+> Modules linked in:
+> CPU: 0 PID: 0 Comm: swapper/0 Tainted: G        W  O   3.18.0-rc7 #1
+> task: c0720340 ti: effe2000 task.ti: c0750000
+> NIP: c01d7c1c LR: c01d7c1c CTR: c02250fc
+> REGS: effe3d40 TRAP: 0700   Tainted: G        W  O    (3.18.0-rc7)
+> MSR: 00021000 <CE,ME>  CR: 22044242  XER: 20000000
+>
+> GPR00: c01d7c1c effe3df0 c0720340 00000095 c201e404 c201e9f0 00021000
+> 01a9d000
+> GPR08: 00000007 00000000 01a9d000 00000313 22044242 00583f60 05f41012
+> 00000000
+> GPR16: 00000000 000000ff 00000000 00000000 00000000 c5dc3b40 c5677720
+> 00000001
+> GPR24: c0730000 00029000 c0d0d828 c072c394 effe3e48 c075baec c0d0f020
+> ee31e600
+> NIP [c01d7c1c] check_unmap+0x5b4/0xae4
+> LR [c01d7c1c] check_unmap+0x5b4/0xae4
+> Call Trace:
+> [effe3df0] [c01d7c1c] check_unmap+0x5b4/0xae4 (unreliable)
+> [effe3e40] [c01d81c4] debug_dma_unmap_page+0x78/0x8c
+> [effe3ec0] [c0286ba0] gfar_clean_tx_ring+0x120/0x3c0
+> [effe3f30] [c0286f90] gfar_poll_tx_sq+0x48/0x94
+> o[effe3f50] [c030c388] net_rx_action+0x130/0x1ac
+> [effe3f80] [c00319e0] __do_softirq+0x134/0x240
+> [effe3fe0] [c0031dd0] irq_exit+0xa4/0xc8
+> [effe3ff0] [c000e01c] call_do_irq+0x24/0x3c
+> [c0751e70] [c0004a04] do_IRQ+0x8c/0x108
+> [c0751e90] [c0010068] ret_from_except+0x0/0x18
+> --- interrupt: 501 at arch_cpu_idle+0x24/0x5c
+>     LR = arch_cpu_idle+0x24/0x5c
+> [c0751f50] [c007d2e4] rcu_idle_enter+0xc8/0xcc (unreliable)
+> [c0751f60] [c006587c] cpu_startup_entry+0x1d4/0x29c
+> [c0751fb0] [c054399c] start_kernel+0x338/0x34c
+> [c0751ff0] [c000046c] set_ivor+0x154/0x190
+> Instruction dump:
+> 394adb30 80fc0018 811c001c 3c60c04f 5529103a 7cca482e 38639e60 813c0020
+> 815c0024 90c10008 4cc63182 48240b01 <0fe00000> 3c60c04f 3863971c 4cc63182
+> ---[ end trace 3eb7bf62ba1b80f9 ]---
+> Mapped at:
+>  [<c0287420>] gfar_start_xmit+0x424/0x910
+>  [<c030e964>] dev_hard_start_xmit+0x20c/0x3d8
+>  [<c032cc3c>] sch_direct_xmit+0x124/0x22c
+>  [<c030ede8>] __dev_queue_xmit+0x2b8/0x674
+>
+> Or the following upon starting transmission of some large chunks
+> of data:
+>
+> fsl-gianfar ffe25000.ethernet: DMA-API: device driver failed to check map
+> error[device address=0x0000000005fa8000]
+> ------------[ cut here ]------------
+> WARNING: at lib/dma-debug.c:1135
+> Modules linked in:
+> CPU: 0 PID: 0 Comm: swapper/0 Tainted: G           O   3.18.0-rc7 #35
+> task: c071d340 ti: effe2000 task.ti: c074e000
+> NIP: c01d7c1c LR: c01d7c1c CTR: c022339c
+> REGS: effe3d40 TRAP: 0700   Tainted: G           O    (3.18.0-rc7)
+> MSR: 00021000 <CE,ME>  CR: 22044242  XER: 20000000
+>
+> GPR00: c01d7c1c effe3df0 c071d340 00000094 00000001 c0071750 00000000
+> 00000001
+> GPR08: 00000000 00000000 effe2000 00000000 20044242 00581f60 05fa8000
+> 000001c4
+> GPR16: 00000000 000000ff 00000000 000000e4 00000039 c5b1a9c0 c5679c60
+> 00000002
+> GPR24: c0730000 00029000 c0d0c528 c0729394 effe3e48 c0759aec c0d0d020
+> ee315900
+> NIP [c01d7c1c] check_unmap+0x5b4/0xae4
+> LR [c01d7c1c] check_unmap+0x5b4/0xae4
+> Call Trace:
+> [effe3df0] [c01d7c1c] check_unmap+0x5b4/0xae4 (unreliable)
+> [effe3e40] [c01d81c4] debug_dma_unmap_page+0x78/0x8c
+> [effe3ec0] [c0284c78] gfar_clean_tx_ring+0x1b4/0x3c0
+> [effe3f30] [c0284fd4] gfar_poll_tx_sq+0x48/0x94
+> [effe3f50] [c030a5c4] net_rx_action+0x130/0x1ac
+> [effe3f80] [c00319e0] __do_softirq+0x134/0x240
+> [effe3fe0] [c0031dd0] irq_exit+0xa4/0xc8
+> [effe3ff0] [c000e01c] call_do_irq+0x24/0x3c
+> [c074fe70] [c0004a04] do_IRQ+0x8c/0x108
+> [c074fe90] [c0010068] ret_from_except+0x0/0x18
+> --- interrupt: 501 at arch_cpu_idle+0x24/0x5c
+>     LR = arch_cpu_idle+0x24/0x5c
+> [c074ff50] [c007d2e4] rcu_idle_enter+0xc8/0xcc (unreliable)
+> [c074ff60] [c006587c] cpu_startup_entry+0x1d4/0x29c
+> [c074ffb0] [c054199c] start_kernel+0x338/0x34c
+> [c074fff0] [c000046c] set_ivor+0x154/0x190
+> Instruction dump:
+> 394abb30 80fc0018 811c001c 3c60c04e 5529103a 7cca482e 386379f0 813c0020
+> 815c0024 90c10008 4cc63182 4823ed39 <0fe00000> 3c60c04e 386372ac 4cc63182
+> ---[ end trace 008c59ca7ca1f712 ]---
+> Mapped at:
+>  [<c0285264>] gfar_start_xmit+0x224/0x95c
+>  [<c030cba0>] dev_hard_start_xmit+0x20c/0x3d8
+>  [<c032ae78>] sch_direct_xmit+0x124/0x22c
+>  [<c032b008>] __qdisc_run+0x88/0x1c0
+>  [<c0307920>] net_tx_action+0xf0/0x19c
+>
+> Ignore these mapping failures in hope we'll have more luck next time.
+>
+> Signed-off-by: Arseny Solokha <asolokha@kb.kras.ru>
+> ---
+>  drivers/net/ethernet/freescale/gianfar.c | 17 +++++++++++++++--
+>  1 file changed, 15 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/freescale/gianfar.c
+> b/drivers/net/ethernet/freescale/gianfar.c
+> index f34ca55..9ea887e 100644
+> --- a/drivers/net/ethernet/freescale/gianfar.c
+> +++ b/drivers/net/ethernet/freescale/gianfar.c
+> @@ -2296,6 +2296,12 @@ static int gfar_start_xmit(struct sk_buff *skb,
+> struct net_device *dev)
+>  						   0,
+>  						   frag_len,
+>  						   DMA_TO_DEVICE);
+> +			if (unlikely(dma_mapping_error(priv->dev, bufaddr))) {
+> +				/* As DMA mapping failed, pretend the TX path
+> +				 * is busy to retry later
+> +				 */
+> +				return NETDEV_TX_BUSY;
+> +			}
+>
+>  			/* set the TxBD length and buffer pointer */
+>  			txbdp->bufPtr = bufaddr;
+> @@ -2345,8 +2351,15 @@ static int gfar_start_xmit(struct sk_buff *skb,
+> struct net_device *dev)
+>  		fcb->ptp = 1;
+>  	}
+>
+> -	txbdp_start->bufPtr = dma_map_single(priv->dev, skb->data,
+> -					     skb_headlen(skb), DMA_TO_DEVICE);
+> +	bufaddr = dma_map_single(priv->dev, skb->data, skb_headlen(skb),
+> +				 DMA_TO_DEVICE);
+> +	if (unlikely(dma_mapping_error(priv->dev, bufaddr))) {
+> +		/* As DMA mapping failed, pretend the TX path is busy to retry
+> +		 * later
+> +		 */
+> +		return NETDEV_TX_BUSY;
+> +	}
+> +	txbdp_start->bufPtr = bufaddr;
+>
+>  	/* If time stamping is requested one additional TxBD must be set up. The
+>  	 * first TxBD points to the FCB and must have a data length of
+> --
 
-folks, can we have probably 2-3 sets of patches?
-#1 introduces the flags and doesnt change anything.
-Others to introduce other features.
+You have to return TX_BUSY in the case of the full hw queue.
 
-cheers,
-jamal
+Have you tested your changes with fault injection?
+
+> 2.2.0
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
