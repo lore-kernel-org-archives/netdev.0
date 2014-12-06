@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net-PA Semi: Deletion of unnecessary checks before
- the function call "pci_dev_put"
-Date: Fri, 05 Dec 2014 21:15:06 -0800 (PST)
-Message-ID: <20141205.211506.1876864218962612094.davem@davemloft.net>
-References: <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
-	<5317A59D.4@users.sourceforge.net>
-	<547A09B1.9090102@users.sourceforge.net>
+Subject: Re: [PATCH v2 net] bpf: x86: fix epilogue generation for eBPF
+ programs
+Date: Fri, 05 Dec 2014 21:24:33 -0800 (PST)
+Message-ID: <20141205.212433.750912400773154348.davem@davemloft.net>
+References: <1417301173-23691-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olof@lixom.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	julia.lawall@lip6.fr
-To: elfring@users.sourceforge.net
+Cc: zlim.lnx@gmail.com, edumazet@google.com, dborkman@redhat.com,
+	hpa@zytor.com, tglx@linutronix.de, mingo@kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <547A09B1.9090102@users.sourceforge.net>
+In-Reply-To: <1417301173-23691-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Date: Sat, 29 Nov 2014 19:00:17 +0100
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Sat, 29 Nov 2014 14:46:13 -0800
 
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Sat, 29 Nov 2014 18:55:40 +0100
+> classic BPF has a restriction that last insn is always BPF_RET.
+> eBPF doesn't have BPF_RET instruction and this restriction.
+> It has BPF_EXIT insn which can appear anywhere in the program
+> one or more times and it doesn't have to be last insn.
+> Fix eBPF JIT to emit epilogue when first BPF_EXIT is seen
+> and all other BPF_EXIT instructions will be emitted as jump.
 > 
-> The pci_dev_put() function tests whether its argument is NULL
-> and then returns immediately. Thus the test around the call
-> is not needed.
+> Since jump offset to epilogue is computed as:
+> jmp_offset = ctx->cleanup_addr - addrs[i]
+> we need to change type of cleanup_addr to signed to compute the offset as:
+> (long long) ((int)20 - (int)30)
+> instead of:
+> (long long) ((unsigned int)20 - (int)30)
 > 
-> This issue was detected by using the Coccinelle software.
-> 
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> Fixes: 622582786c9e ("net: filter: x86: internal BPF JIT")
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 
-Applied.
+Applied, thanks.
