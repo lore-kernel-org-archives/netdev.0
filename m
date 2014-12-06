@@ -1,47 +1,47 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 10/16] i40e: Increase reset delay
-Date: Sat,  6 Dec 2014 05:02:07 -0800
-Message-ID: <1417870933-17248-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 13/16] i40e: increase ARQ size
+Date: Sat,  6 Dec 2014 05:02:10 -0800
+Message-ID: <1417870933-17248-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1417870933-17248-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Kevin Scott <kevin.c.scott@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:8816 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:8818 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752679AbaLFNC7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Dec 2014 08:02:59 -0500
+	id S1752683AbaLFNDA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Dec 2014 08:03:00 -0500
 In-Reply-To: <1417870933-17248-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kevin Scott <kevin.c.scott@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Increase reset delay to ensure all internal caches are properly flushed
-in worst case scenario.
+The ARQ needs to have at least as many entries as VFs, or the VFs will
+get errors from the FW when they send messages to the PF. Since we don't
+know how many VFs we'll end up with, just set up 128 descriptors.
 
-Change-ID: I6f059a9e024fbf9ef1debd32497eed21369957fc
-Signed-off-by: Kevin Scott <kevin.c.scott@intel.com>
-Acked-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: I04ae3d1c7faf09110eb782214e9c05aeb62a6c59
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c | 2 +-
+ drivers/net/ethernet/intel/i40e/i40e.h | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index b601b3c..ec63bcb 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -791,7 +791,7 @@ static enum i40e_media_type i40e_get_media_type(struct i40e_hw *hw)
- }
- 
- #define I40E_PF_RESET_WAIT_COUNT_A0	200
--#define I40E_PF_RESET_WAIT_COUNT	100
-+#define I40E_PF_RESET_WAIT_COUNT	110
- /**
-  * i40e_pf_reset - Reset the PF
-  * @hw: pointer to the hardware structure
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 464342a..fc50f64 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -87,7 +87,7 @@
+ #define I40E_MINIMUM_FCOE             1 /* minimum number of QPs for FCoE */
+ #endif /* I40E_FCOE */
+ #define I40E_MAX_AQ_BUF_SIZE          4096
+-#define I40E_AQ_LEN                   32
++#define I40E_AQ_LEN                   128
+ #define I40E_AQ_WORK_LIMIT            16
+ #define I40E_MAX_USER_PRIORITY        8
+ #define I40E_DEFAULT_MSG_ENABLE       4
 -- 
 1.9.3
