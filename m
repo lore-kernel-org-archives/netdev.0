@@ -1,103 +1,142 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 09/16] i40evf: make early init sequence even more robust
-Date: Sat,  6 Dec 2014 05:02:06 -0800
-Message-ID: <1417870933-17248-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 16/16] i40e: Reduce stack in i40e_dbg_dump_desc
+Date: Sat,  6 Dec 2014 05:02:13 -0800
+Message-ID: <1417870933-17248-17-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1417870933-17248-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:8814 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752671AbaLFNC7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Dec 2014 08:02:59 -0500
+	id S1752691AbaLFNDA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Dec 2014 08:03:00 -0500
 In-Reply-To: <1417870933-17248-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+=46rom: Joe Perches <joe@perches.com>
 
-When multiple VFs attempt to initialize simultaneously, the firmware may
-delay or drop messages. Make the init code more adept at handling these
-situations by a) reinitializing the admin queue if the firmware fails to
-process a request, and b) resending a request if the PF doesn't answer.
+Reduce stack use by using kmemdup and not using a very
+large struct on stack.
 
-Once the request has been sent again, the PF might end up getting both
-requests and send the configuration information to the driver twice.
-This will cause the VF to complain about receiving an unexpected message
-from the PF. Since this is not fatal, reduce the warning level of the
-log messages that are generated in response to this event.
+In function =E2=80=98i40e_dbg_dump_desc=E2=80=99:
+warning: the frame size of 8192 bytes is larger than 2048 bytes [-Wfram=
+e-larger-than=3D]
 
-Change-ID: I9370a1a2fde2ad3934fa25ccfd0545edfbbb4805
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Joe Perches <joe@perches.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c     |  9 +++++++--
- drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c | 16 +++++-----------
- 2 files changed, 12 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 30 +++++++++++++++---=
+--------
+ 1 file changed, 17 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 8e01009..62456f8 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2045,6 +2045,8 @@ static void i40evf_init_task(struct work_struct *work)
- 	case __I40EVF_INIT_VERSION_CHECK:
- 		if (!i40evf_asq_done(hw)) {
- 			dev_err(&pdev->dev, "Admin queue command never completed\n");
-+			i40evf_shutdown_adminq(hw);
-+			adapter->state = __I40EVF_STARTUP;
- 			goto err;
- 		}
- 
-@@ -2078,8 +2080,11 @@ static void i40evf_init_task(struct work_struct *work)
- 				goto err;
- 		}
- 		err = i40evf_get_vf_config(adapter);
--		if (err == I40E_ERR_ADMIN_QUEUE_NO_WORK)
--			goto restart;
-+		if (err == I40E_ERR_ADMIN_QUEUE_NO_WORK) {
-+			dev_info(&pdev->dev, "Resending VF config request\n");
-+			err = i40evf_send_vf_config_msg(adapter);
-+			goto err;
-+		}
- 		if (err) {
- 			dev_err(&pdev->dev, "Unable to get VF config (%d)\n",
- 				err);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index 07c13b0..5fde5a7 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -715,15 +715,9 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 		}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/n=
+et/ethernet/intel/i40e/i40e_debugfs.c
+index 16ac3f8..433a558 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -773,7 +773,7 @@ static void i40e_dbg_dump_desc(int cnt, int vsi_sei=
+d, int ring_id, int desc_n,
+ {
+ 	struct i40e_tx_desc *txd;
+ 	union i40e_rx_desc *rxd;
+-	struct i40e_ring ring;
++	struct i40e_ring *ring;
+ 	struct i40e_vsi *vsi;
+ 	int i;
+=20
+@@ -792,29 +792,32 @@ static void i40e_dbg_dump_desc(int cnt, int vsi_s=
+eid, int ring_id, int desc_n,
+ 			 vsi_seid);
  		return;
  	}
--	if (v_opcode != adapter->current_op) {
--		dev_err(&adapter->pdev->dev, "%s: Pending op is %d, received %d\n",
--			__func__, adapter->current_op, v_opcode);
--		/* We're probably completely screwed at this point, but clear
--		 * the current op and try to carry on....
--		 */
--		adapter->current_op = I40E_VIRTCHNL_OP_UNKNOWN;
--		return;
--	}
-+	if (v_opcode != adapter->current_op)
-+		dev_info(&adapter->pdev->dev, "Pending op is %d, received %d\n",
-+			 adapter->current_op, v_opcode);
- 	if (v_retval) {
- 		dev_err(&adapter->pdev->dev, "%s: PF returned error %d to our request %d\n",
- 			__func__, v_retval, v_opcode);
-@@ -775,8 +769,8 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 		adapter->aq_pending &= ~(I40EVF_FLAG_AQ_MAP_VECTORS);
- 		break;
- 	default:
--		dev_warn(&adapter->pdev->dev, "%s: Received unexpected message %d from PF\n",
--			 __func__, v_opcode);
-+		dev_info(&adapter->pdev->dev, "Received unexpected message %d from PF\n",
-+			 v_opcode);
- 		break;
- 	} /* switch v_opcode */
- 	adapter->current_op = I40E_VIRTCHNL_OP_UNKNOWN;
--- 
+-	if (is_rx_ring)
+-		ring =3D *vsi->rx_rings[ring_id];
+-	else
+-		ring =3D *vsi->tx_rings[ring_id];
++
++	ring =3D kmemdup(is_rx_ring
++		       ? vsi->rx_rings[ring_id] : vsi->tx_rings[ring_id],
++		       sizeof(*ring), GFP_KERNEL);
++	if (!ring)
++		return;
++
+ 	if (cnt =3D=3D 2) {
+ 		dev_info(&pf->pdev->dev, "vsi =3D %02i %s ring =3D %02i\n",
+ 			 vsi_seid, is_rx_ring ? "rx" : "tx", ring_id);
+-		for (i =3D 0; i < ring.count; i++) {
++		for (i =3D 0; i < ring->count; i++) {
+ 			if (!is_rx_ring) {
+-				txd =3D I40E_TX_DESC(&ring, i);
++				txd =3D I40E_TX_DESC(ring, i);
+ 				dev_info(&pf->pdev->dev,
+ 					 "   d[%03i] =3D 0x%016llx 0x%016llx\n",
+ 					 i, txd->buffer_addr,
+ 					 txd->cmd_type_offset_bsz);
+ 			} else if (sizeof(union i40e_rx_desc) =3D=3D
+ 				   sizeof(union i40e_16byte_rx_desc)) {
+-				rxd =3D I40E_RX_DESC(&ring, i);
++				rxd =3D I40E_RX_DESC(ring, i);
+ 				dev_info(&pf->pdev->dev,
+ 					 "   d[%03i] =3D 0x%016llx 0x%016llx\n",
+ 					 i, rxd->read.pkt_addr,
+ 					 rxd->read.hdr_addr);
+ 			} else {
+-				rxd =3D I40E_RX_DESC(&ring, i);
++				rxd =3D I40E_RX_DESC(ring, i);
+ 				dev_info(&pf->pdev->dev,
+ 					 "   d[%03i] =3D 0x%016llx 0x%016llx 0x%016llx 0x%016llx\n",
+ 					 i, rxd->read.pkt_addr,
+@@ -823,26 +826,26 @@ static void i40e_dbg_dump_desc(int cnt, int vsi_s=
+eid, int ring_id, int desc_n,
+ 			}
+ 		}
+ 	} else if (cnt =3D=3D 3) {
+-		if (desc_n >=3D ring.count || desc_n < 0) {
++		if (desc_n >=3D ring->count || desc_n < 0) {
+ 			dev_info(&pf->pdev->dev,
+ 				 "descriptor %d not found\n", desc_n);
+ 			return;
+ 		}
+ 		if (!is_rx_ring) {
+-			txd =3D I40E_TX_DESC(&ring, desc_n);
++			txd =3D I40E_TX_DESC(ring, desc_n);
+ 			dev_info(&pf->pdev->dev,
+ 				 "vsi =3D %02i tx ring =3D %02i d[%03i] =3D 0x%016llx 0x%016llx\n"=
+,
+ 				 vsi_seid, ring_id, desc_n,
+ 				 txd->buffer_addr, txd->cmd_type_offset_bsz);
+ 		} else if (sizeof(union i40e_rx_desc) =3D=3D
+ 			   sizeof(union i40e_16byte_rx_desc)) {
+-			rxd =3D I40E_RX_DESC(&ring, desc_n);
++			rxd =3D I40E_RX_DESC(ring, desc_n);
+ 			dev_info(&pf->pdev->dev,
+ 				 "vsi =3D %02i rx ring =3D %02i d[%03i] =3D 0x%016llx 0x%016llx\n"=
+,
+ 				 vsi_seid, ring_id, desc_n,
+ 				 rxd->read.pkt_addr, rxd->read.hdr_addr);
+ 		} else {
+-			rxd =3D I40E_RX_DESC(&ring, desc_n);
++			rxd =3D I40E_RX_DESC(ring, desc_n);
+ 			dev_info(&pf->pdev->dev,
+ 				 "vsi =3D %02i rx ring =3D %02i d[%03i] =3D 0x%016llx 0x%016llx 0x=
+%016llx 0x%016llx\n",
+ 				 vsi_seid, ring_id, desc_n,
+@@ -852,6 +855,7 @@ static void i40e_dbg_dump_desc(int cnt, int vsi_sei=
+d, int ring_id, int desc_n,
+ 	} else {
+ 		dev_info(&pf->pdev->dev, "dump desc rx/tx <vsi_seid> <ring_id> [<des=
+c_n>]\n");
+ 	}
++	kfree(ring);
+ }
+=20
+ /**
+--=20
 1.9.3
