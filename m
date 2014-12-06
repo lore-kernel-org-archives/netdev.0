@@ -1,102 +1,130 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH v3 iproute2] bridge link: add option 'self'
-Date: Sat, 6 Dec 2014 09:12:51 -0800
-Message-ID: <CAE4R7bCDTmR_zaVredZNzviaXc1YzXtSAK3dYj+BekiW9OKSpQ@mail.gmail.com>
-References: <1417854061-4675-1-git-send-email-roopa@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
-	john fastabend <john.fastabend@gmail.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	John Linville <linville@tuxdriver.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next] dst: no need to take reference on DST_NOCACHE dsts
+Date: Sat,  6 Dec 2014 19:19:42 +0100
+Message-ID: <51b54bc66109594459e1a08c9022c5c48f20d910.1417889528.git.hannes@stressinduktion.org>
+Cc: Eric Dumazet <edumazet@google.com>, Julian Anastasov <ja@ssi.bg>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:37007 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751124AbaLFRMw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Dec 2014 12:12:52 -0500
-Received: by mail-wi0-f181.google.com with SMTP id r20so1397511wiv.2
-        for <netdev@vger.kernel.org>; Sat, 06 Dec 2014 09:12:51 -0800 (PST)
-In-Reply-To: <1417854061-4675-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:45608 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751679AbaLFSTw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Dec 2014 13:19:52 -0500
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id D41D9208D2
+	for <netdev@vger.kernel.org>; Sat,  6 Dec 2014 13:19:49 -0500 (EST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-of-by: Scott Feldman <sfeldma@gmail.com>
+Since commit f8864972126899 ("ipv4: fix dst race in sk_dst_get()")
+DST_NOCACHE dst_entries get freed by RCU. So there is no need to get a
+reference on them when we are in rcu protected sections.
 
-On Sat, Dec 6, 2014 at 12:21 AM,  <roopa@cumulusnetworks.com> wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-> Currently self is set internally only if hwmode is set.
-> This makes it necessary for the hw to have a mode.
-> There is no hwmode really required to go to hardware. So, introduce
-> self for anybody who wants to target hardware.
->
-> v1 -> v2
->     - fix a few bugs. Initialize flags to zero: this was required to
->     keep the current behaviour unchanged.
->
-> v2 -> v3
->     - fix comment
->
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-> ---
->  bridge/link.c |   18 ++++++++++--------
->  1 file changed, 10 insertions(+), 8 deletions(-)
->
-> diff --git a/bridge/link.c b/bridge/link.c
-> index 90d9e7f..3f77aab 100644
-> --- a/bridge/link.c
-> +++ b/bridge/link.c
-> @@ -261,7 +261,7 @@ static int brlink_modify(int argc, char **argv)
->         __s16 priority = -1;
->         __s8 state = -1;
->         __s16 mode = -1;
-> -       __u16 flags = BRIDGE_FLAGS_MASTER;
-> +       __u16 flags = 0;
->         struct rtattr *nest;
->
->         memset(&req, 0, sizeof(req));
-> @@ -321,6 +321,8 @@ static int brlink_modify(int argc, char **argv)
->                                         "\"veb\".\n");
->                                 exit(-1);
->                         }
-> +               } else if (strcmp(*argv, "self") == 0) {
-> +                       flags = BRIDGE_FLAGS_SELF;
->                 } else {
->                         usage();
->                 }
-> @@ -369,16 +371,16 @@ static int brlink_modify(int argc, char **argv)
->
->         addattr_nest_end(&req.n, nest);
->
-> -       /* IFLA_AF_SPEC nested attribute.  Contains IFLA_BRIDGE_FLAGS that
-> -        * designates master or self operation as well as 'vepa' or 'veb'
-> -        * operation modes.  These are only valid in 'self' mode on some
-> -        * devices so far.  Thus we only need to include the flags attribute
-> -        * if we are setting the hw mode.
-> +       /* IFLA_AF_SPEC nested attribute. Contains IFLA_BRIDGE_FLAGS that
-> +        * designates master or self operation and IFLA_BRIDGE_MODE
-> +        * for hw 'vepa' or 'veb' operation modes. The hwmodes are
-> +        * only valid in 'self' mode on some devices so far.
->          */
-> -       if (mode >= 0) {
-> +       if (mode >= 0 || flags > 0) {
->                 nest = addattr_nest(&req.n, sizeof(req), IFLA_AF_SPEC);
->
-> -               addattr16(&req.n, sizeof(req), IFLA_BRIDGE_FLAGS, flags);
-> +               if (flags > 0)
-> +                       addattr16(&req.n, sizeof(req), IFLA_BRIDGE_FLAGS, flags);
->
->                 if (mode >= 0)
->                         addattr16(&req.n, sizeof(req), IFLA_BRIDGE_MODE, mode);
-> --
-> 1.7.10.4
->
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ include/linux/skbuff.h          | 23 ++---------------------
+ net/core/dst.c                  | 24 ------------------------
+ net/netfilter/ipvs/ip_vs_xmit.c |  4 ++--
+ 3 files changed, 4 insertions(+), 47 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 7691ad5..70ebc79 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -718,9 +718,6 @@ static inline void skb_dst_set(struct sk_buff *skb, struct dst_entry *dst)
+ 	skb->_skb_refdst = (unsigned long)dst;
+ }
+ 
+-void __skb_dst_set_noref(struct sk_buff *skb, struct dst_entry *dst,
+-			 bool force);
+-
+ /**
+  * skb_dst_set_noref - sets skb dst, hopefully, without taking reference
+  * @skb: buffer
+@@ -733,24 +730,8 @@ void __skb_dst_set_noref(struct sk_buff *skb, struct dst_entry *dst,
+  */
+ static inline void skb_dst_set_noref(struct sk_buff *skb, struct dst_entry *dst)
+ {
+-	__skb_dst_set_noref(skb, dst, false);
+-}
+-
+-/**
+- * skb_dst_set_noref_force - sets skb dst, without taking reference
+- * @skb: buffer
+- * @dst: dst entry
+- *
+- * Sets skb dst, assuming a reference was not taken on dst.
+- * No reference is taken and no dst_release will be called. While for
+- * cached dsts deferred reclaim is a basic feature, for entries that are
+- * not cached it is caller's job to guarantee that last dst_release for
+- * provided dst happens when nobody uses it, eg. after a RCU grace period.
+- */
+-static inline void skb_dst_set_noref_force(struct sk_buff *skb,
+-					   struct dst_entry *dst)
+-{
+-	__skb_dst_set_noref(skb, dst, true);
++	WARN_ON(!rcu_read_lock_held() && !rcu_read_lock_bh_held());
++	skb->_skb_refdst = (unsigned long)dst | SKB_DST_NOREF;
+ }
+ 
+ /**
+diff --git a/net/core/dst.c b/net/core/dst.c
+index a028409..e956ce6 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -327,30 +327,6 @@ void __dst_destroy_metrics_generic(struct dst_entry *dst, unsigned long old)
+ }
+ EXPORT_SYMBOL(__dst_destroy_metrics_generic);
+ 
+-/**
+- * __skb_dst_set_noref - sets skb dst, without a reference
+- * @skb: buffer
+- * @dst: dst entry
+- * @force: if force is set, use noref version even for DST_NOCACHE entries
+- *
+- * Sets skb dst, assuming a reference was not taken on dst
+- * skb_dst_drop() should not dst_release() this dst
+- */
+-void __skb_dst_set_noref(struct sk_buff *skb, struct dst_entry *dst, bool force)
+-{
+-	WARN_ON(!rcu_read_lock_held() && !rcu_read_lock_bh_held());
+-	/* If dst not in cache, we must take a reference, because
+-	 * dst_release() will destroy dst as soon as its refcount becomes zero
+-	 */
+-	if (unlikely((dst->flags & DST_NOCACHE) && !force)) {
+-		dst_hold(dst);
+-		skb_dst_set(skb, dst);
+-	} else {
+-		skb->_skb_refdst = (unsigned long)dst | SKB_DST_NOREF;
+-	}
+-}
+-EXPORT_SYMBOL(__skb_dst_set_noref);
+-
+ /* Dirty hack. We did it in 2.2 (in __dst_free),
+  * we have _very_ good reasons not to repeat
+  * this mistake in 2.3, but we have no choice
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 1f93313..3aedbda 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -343,7 +343,7 @@ __ip_vs_get_out_rt(int skb_af, struct sk_buff *skb, struct ip_vs_dest *dest,
+ 	skb_dst_drop(skb);
+ 	if (noref) {
+ 		if (!local)
+-			skb_dst_set_noref_force(skb, &rt->dst);
++			skb_dst_set_noref(skb, &rt->dst);
+ 		else
+ 			skb_dst_set(skb, dst_clone(&rt->dst));
+ 	} else
+@@ -487,7 +487,7 @@ __ip_vs_get_out_rt_v6(int skb_af, struct sk_buff *skb, struct ip_vs_dest *dest,
+ 	skb_dst_drop(skb);
+ 	if (noref) {
+ 		if (!local)
+-			skb_dst_set_noref_force(skb, &rt->dst);
++			skb_dst_set_noref(skb, &rt->dst);
+ 		else
+ 			skb_dst_set(skb, dst_clone(&rt->dst));
+ 	} else
+-- 
+1.9.3
