@@ -1,112 +1,82 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 11/16] i40e: Add new update VSI flow to accommodate FW fix with VSI Loopback mode
-Date: Sat,  6 Dec 2014 05:02:08 -0800
-Message-ID: <1417870933-17248-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 14/16] i40e: get pf_id from HW rather than PCI function
+Date: Sat,  6 Dec 2014 05:02:11 -0800
+Message-ID: <1417870933-17248-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1417870933-17248-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:8814 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:8818 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752652AbaLFNDA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752689AbaLFNDA (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 6 Dec 2014 08:03:00 -0500
 In-Reply-To: <1417870933-17248-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-All VSIs on a VEB should either have loopback enabled or disabled, a
-mixed mode is not supported for a VEB. Since our driver supports multiple
-VSIs per PF that need to talk to each other make sure to enable Loopback
-for the PF and FDIR VSI as well.
+Getting the pf_id from the function number was a good place to start,
+but when the PF was setup in passthru mode, the PCI bus/device/function
+was virtualized and the number in the VM is different from the number in
+the bare metal.  This caused HW configuration issues when the wrong pf_id
+was used to set up the HMC and other structures.  The PF_FUNC_RID register
+has the real bus/device/function information as configured by the BIOS,
+so use that for a better number.  This works in NPAR mode as well.
 
-Also, we now have to explicitly enable Loopback mode otherwise we fail
-VSI creation for VMDq and VF VSIs.
-
-Change-ID: Ib68c3ea4aeb730ac9468f930610de456efbe5b20
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-ID: I65e3dd6c97594890c2bad566b83cc670b1dae534
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Acked-by: Greg Rose <gregory.v.rose@intel.com>
+Acked-by: Kevin Scott <kevin.c.scott@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 14 +++++++++++++-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  4 +---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  1 +
- 3 files changed, 15 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c | 23 +++++++++++------------
+ 1 file changed, 11 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 2f4be25..9aa2491 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7797,6 +7797,10 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
- 		ctxt.uplink_seid = vsi->uplink_seid;
- 		ctxt.connection_type = 0x1;     /* regular data port */
- 		ctxt.flags = I40E_AQ_VSI_TYPE_PF;
-+		ctxt.info.valid_sections |=
-+				cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
-+		ctxt.info.switch_id =
-+				cpu_to_le16(I40E_AQ_VSI_SW_ID_FLAG_ALLOW_LB);
- 		i40e_vsi_setup_queue_map(vsi, &ctxt, enabled_tc, true);
- 		break;
- 
-@@ -8182,7 +8186,15 @@ struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
- 		else if ((vsi->flags & I40E_VSI_FLAG_VEB_OWNER) == 0)
- 			veb = i40e_veb_setup(pf, 0, vsi->uplink_seid, vsi->seid,
- 					     vsi->tc_config.enabled_tc);
--
-+		if (veb) {
-+			if (vsi->seid != pf->vsi[pf->lan_vsi]->seid) {
-+				dev_info(&vsi->back->pdev->dev,
-+					 "%s: New VSI creation error, uplink seid of LAN VSI expected.\n",
-+					 __func__);
-+				return NULL;
-+			}
-+			i40e_enable_pf_switch_lb(pf);
-+		}
- 		for (i = 0; i < I40E_MAX_VEB && !veb; i++) {
- 			if (pf->veb[i] && pf->veb[i]->seid == vsi->uplink_seid)
- 				veb = pf->veb[i];
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 668d860..5bae895 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -707,7 +707,6 @@ complete_reset:
- 	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_VFACTIVE);
- 	i40e_flush(hw);
- }
--#ifdef CONFIG_PCI_IOV
- 
- /**
-  * i40e_enable_pf_switch_lb
-@@ -715,7 +714,7 @@ complete_reset:
-  *
-  * enable switch loop back or die - no point in a return value
-  **/
--static void i40e_enable_pf_switch_lb(struct i40e_pf *pf)
-+void i40e_enable_pf_switch_lb(struct i40e_pf *pf)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index ec63bcb..3d741ee 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -550,7 +550,7 @@ struct i40e_rx_ptype_decoded i40e_ptype_lookup[] = {
+ i40e_status i40e_init_shared_code(struct i40e_hw *hw)
  {
- 	struct i40e_vsi *vsi = pf->vsi[pf->lan_vsi];
- 	struct i40e_vsi_context ctxt;
-@@ -742,7 +741,6 @@ static void i40e_enable_pf_switch_lb(struct i40e_pf *pf)
- 			 __func__, vsi->back->hw.aq.asq_last_status);
- 	}
- }
--#endif
+ 	i40e_status status = 0;
+-	u32 reg;
++	u32 port, ari, func_rid;
  
- /**
-  * i40e_disable_pf_switch_lb
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-index 0adc61e..9452f52 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-@@ -126,5 +126,6 @@ int i40e_ndo_set_vf_spoofchk(struct net_device *netdev, int vf_id, bool enable);
+ 	i40e_set_mac_type(hw);
  
- void i40e_vc_notify_link_state(struct i40e_pf *pf);
- void i40e_vc_notify_reset(struct i40e_pf *pf);
-+void i40e_enable_pf_switch_lb(struct i40e_pf *pf);
+@@ -563,18 +563,17 @@ i40e_status i40e_init_shared_code(struct i40e_hw *hw)
  
- #endif /* _I40E_VIRTCHNL_PF_H_ */
+ 	hw->phy.get_link_info = true;
+ 
+-	/* Determine port number */
+-	reg = rd32(hw, I40E_PFGEN_PORTNUM);
+-	reg = ((reg & I40E_PFGEN_PORTNUM_PORT_NUM_MASK) >>
+-	       I40E_PFGEN_PORTNUM_PORT_NUM_SHIFT);
+-	hw->port = (u8)reg;
+-
+-	/* Determine the PF number based on the PCI fn */
+-	reg = rd32(hw, I40E_GLPCI_CAPSUP);
+-	if (reg & I40E_GLPCI_CAPSUP_ARI_EN_MASK)
+-		hw->pf_id = (u8)((hw->bus.device << 3) | hw->bus.func);
++	/* Determine port number and PF number*/
++	port = (rd32(hw, I40E_PFGEN_PORTNUM) & I40E_PFGEN_PORTNUM_PORT_NUM_MASK)
++					   >> I40E_PFGEN_PORTNUM_PORT_NUM_SHIFT;
++	hw->port = (u8)port;
++	ari = (rd32(hw, I40E_GLPCI_CAPSUP) & I40E_GLPCI_CAPSUP_ARI_EN_MASK) >>
++						 I40E_GLPCI_CAPSUP_ARI_EN_SHIFT;
++	func_rid = rd32(hw, I40E_PF_FUNC_RID);
++	if (ari)
++		hw->pf_id = (u8)(func_rid & 0xff);
+ 	else
+-		hw->pf_id = (u8)hw->bus.func;
++		hw->pf_id = (u8)(func_rid & 0x7);
+ 
+ 	status = i40e_init_nvm(hw);
+ 	return status;
 -- 
 1.9.3
