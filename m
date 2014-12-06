@@ -1,39 +1,102 @@
-From: Martin Bosner <m.bosner@x-ion.de>
-Subject: Re: AW: ixgbe: Regression, unsupported SFP+ modules on 10Gbit/s X520 NIC no longer work with =?utf-8?b?YWxsb3dfdW5zdXBwb3J0ZWRfc2ZwPTE=?=
-Date: Sat, 6 Dec 2014 17:08:19 +0000 (UTC)
-Message-ID: <loom.20141206T180736-199@post.gmane.org>
-References: <D76AF9B3DDF5FF49833AC0A1396549060314FBD8@s554.babiel.com>  <87618083B2453E4A8714035B62D67992337B4938@FMSMSX102.amr.corp.intel.com>  <D76AF9B3DDF5FF49833AC0A1396549060314FC0C@s554.babiel.com> <1361367596.7173.52.camel@jtkirshe-mobl>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH v3 iproute2] bridge link: add option 'self'
+Date: Sat, 6 Dec 2014 09:12:51 -0800
+Message-ID: <CAE4R7bCDTmR_zaVredZNzviaXc1YzXtSAK3dYj+BekiW9OKSpQ@mail.gmail.com>
+References: <1417854061-4675-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
+	john fastabend <john.fastabend@gmail.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	John Linville <linville@tuxdriver.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:41741 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751167AbaLFRKF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Dec 2014 12:10:05 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1XxIrr-00035l-Cx
-	for netdev@vger.kernel.org; Sat, 06 Dec 2014 18:10:03 +0100
-Received: from p50835D6D.dip0.t-ipconnect.de ([80.131.93.109])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 06 Dec 2014 18:10:03 +0100
-Received: from m.bosner by p50835D6D.dip0.t-ipconnect.de with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 06 Dec 2014 18:10:03 +0100
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:37007 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751124AbaLFRMw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Dec 2014 12:12:52 -0500
+Received: by mail-wi0-f181.google.com with SMTP id r20so1397511wiv.2
+        for <netdev@vger.kernel.org>; Sat, 06 Dec 2014 09:12:51 -0800 (PST)
+In-Reply-To: <1417854061-4675-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher <jeffrey.t.kirsher <at> intel.com> writes:
+Signed-of-by: Scott Feldman <sfeldma@gmail.com>
 
-> 
-> We are currently working on the resolution to your issue.  I have also
-> added your patch to my queue of ixgbe patches.
-> 
-> Cheers,
-> Jeff
-> 
-
-Any news on this?
+On Sat, Dec 6, 2014 at 12:21 AM,  <roopa@cumulusnetworks.com> wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> Currently self is set internally only if hwmode is set.
+> This makes it necessary for the hw to have a mode.
+> There is no hwmode really required to go to hardware. So, introduce
+> self for anybody who wants to target hardware.
+>
+> v1 -> v2
+>     - fix a few bugs. Initialize flags to zero: this was required to
+>     keep the current behaviour unchanged.
+>
+> v2 -> v3
+>     - fix comment
+>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> ---
+>  bridge/link.c |   18 ++++++++++--------
+>  1 file changed, 10 insertions(+), 8 deletions(-)
+>
+> diff --git a/bridge/link.c b/bridge/link.c
+> index 90d9e7f..3f77aab 100644
+> --- a/bridge/link.c
+> +++ b/bridge/link.c
+> @@ -261,7 +261,7 @@ static int brlink_modify(int argc, char **argv)
+>         __s16 priority = -1;
+>         __s8 state = -1;
+>         __s16 mode = -1;
+> -       __u16 flags = BRIDGE_FLAGS_MASTER;
+> +       __u16 flags = 0;
+>         struct rtattr *nest;
+>
+>         memset(&req, 0, sizeof(req));
+> @@ -321,6 +321,8 @@ static int brlink_modify(int argc, char **argv)
+>                                         "\"veb\".\n");
+>                                 exit(-1);
+>                         }
+> +               } else if (strcmp(*argv, "self") == 0) {
+> +                       flags = BRIDGE_FLAGS_SELF;
+>                 } else {
+>                         usage();
+>                 }
+> @@ -369,16 +371,16 @@ static int brlink_modify(int argc, char **argv)
+>
+>         addattr_nest_end(&req.n, nest);
+>
+> -       /* IFLA_AF_SPEC nested attribute.  Contains IFLA_BRIDGE_FLAGS that
+> -        * designates master or self operation as well as 'vepa' or 'veb'
+> -        * operation modes.  These are only valid in 'self' mode on some
+> -        * devices so far.  Thus we only need to include the flags attribute
+> -        * if we are setting the hw mode.
+> +       /* IFLA_AF_SPEC nested attribute. Contains IFLA_BRIDGE_FLAGS that
+> +        * designates master or self operation and IFLA_BRIDGE_MODE
+> +        * for hw 'vepa' or 'veb' operation modes. The hwmodes are
+> +        * only valid in 'self' mode on some devices so far.
+>          */
+> -       if (mode >= 0) {
+> +       if (mode >= 0 || flags > 0) {
+>                 nest = addattr_nest(&req.n, sizeof(req), IFLA_AF_SPEC);
+>
+> -               addattr16(&req.n, sizeof(req), IFLA_BRIDGE_FLAGS, flags);
+> +               if (flags > 0)
+> +                       addattr16(&req.n, sizeof(req), IFLA_BRIDGE_FLAGS, flags);
+>
+>                 if (mode >= 0)
+>                         addattr16(&req.n, sizeof(req), IFLA_BRIDGE_MODE, mode);
+> --
+> 1.7.10.4
+>
