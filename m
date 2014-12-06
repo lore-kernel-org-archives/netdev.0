@@ -1,202 +1,221 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v2 4/4] net: tcp: add per route congestion control
-Date: Sun,  7 Dec 2014 00:39:23 +0100
-Message-ID: <1417909163-19135-5-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next v2 2/4] net: tcp: add key management to congestion control
+Date: Sun,  7 Dec 2014 00:39:21 +0100
+Message-ID: <1417909163-19135-3-git-send-email-dborkman@redhat.com>
 References: <1417909163-19135-1-git-send-email-dborkman@redhat.com>
 Cc: hannes@stressinduktion.org, fw@strlen.de, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50609 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:50926 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752502AbaLFXji (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Dec 2014 18:39:38 -0500
+	id S1752630AbaLFXjj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Dec 2014 18:39:39 -0500
 In-Reply-To: <1417909163-19135-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This work adds the possibility to define a per route/destination congestion
-control algorithm. Generally, this opens up the possibility for a machine
-with different links to enforce specific congestion control algorithms with
-optimal strategies for each of them based on their network characteristics,
-even transparently for a single application listening on all links.
+For a per-route congestion control possibility, our aim is to store
+a unique u32 key identifier into dst metrics, which can then be
+mapped into a tcp_congestion_ops struct. We argue that having a
+RTAX key entry is the most simple, generic and easy way to manage,
+and also keeps the memory footprint of dst entries lower on 64 bit
+than with storing a pointer directly, for example. Having a unique
+key id also allows for decoupling actual TCP congestion control
+module management from the FIB layer, i.e. we don't have to care
+about expensive module refcounting inside the FIB at this point.
 
-For our specific use case, this additionally facilitates deployment of DCTCP,
-for example, applications can easily serve internal traffic/dsts in DCTCP and
-external one with CUBIC. Other scenarios would also allow for utilizing e.g.
-long living, low priority background flows for certain destinations/routes
-while still being able for normal traffic to utilize the default congestion
-control algorithm. We also thought about a per netns setting (where different
-defaults are possible), but given its actually a link specific property, we
-argue that a per route/destination setting is the most natural and flexible.
+We first thought of using an IDR store for the realization, which
+takes over dynamic assignment of unused key space and also performs
+the key to pointer mapping in RCU. While doing so, we stumbled upon
+the issue that due to the nature of dynamic key distribution, it
+just so happens, arguably in very rare occasions, that excessive
+module loads and unloads can lead to a possible reuse of previously
+used key space. Thus, previously stale keys in the dst metric are
+now being reassigned to a different congestion control algorithm,
+which might lead to unexpected behaviour. One way to resolve this
+would have been to walk FIBs on the actually rare occasion of a
+module unload and reset the metric keys for each FIB in each netns,
+but that's just very costly.
 
-The administrator can utilize this through ip-route(8) by appending "congctl
-[lock] <name>", where <name> denotes the name of a loaded congestion control
-algorithm and the optional lock parameter allows to enforce the given algorithm
-so that applications in user space would not be allowed to overwrite that
-algorithm for that destination.
-
-The dst metric lookups are being done when a dst entry is already available
-in order to avoid a costly lookup and still before the algorithms are being
-initialized, thus overhead is very low when the feature is not being used.
-While the client side would need to drop the current reference on the module,
-on server side this can actually even be avoided as we just got a flat-copied
-socket clone.
-
-In case a dst metric contains a key to a congestion control module that has
-just been removed from the kernel, it will fallback to the default congestion
-control discipline for those and not reassign anything. Should at a later
-point in time that module be reinserted into the kernel, then this algorithm
-will be used again as keys are deterministic/static.
+Therefore, we argue a better solution is to reuse the unique
+congestion control algorithm name member and map that into u32 key
+space through jhash. For that, we split the flags attribute (as it
+currently uses 2 bits only anyway) into two u32 attributes, flags
+and key, so that we can keep the cacheline boundary of 2 cachelines
+on x86_64 and cache the precalculated key at registration time for
+the fast path. On average we might expect 2 - 4 modules being loaded
+worst case perhaps 15, so a key collision possibility is extremely
+low, and guaranteed collision-free on LE/BE for all in-tree modules.
+Overall this results in much simpler code, and all without the
+overhead of an IDR. Due to the deterministic nature, modules can
+now be unloaded, the congestion control algorithm for a specific
+but unloaded key will fall back to the default one, and on module
+reload time it will switch back to the expected algorithm
+transparently.
 
 Joint work with Florian Westphal.
 
-Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- include/net/tcp.h        |  6 ++++++
- net/ipv4/tcp_ipv4.c      |  2 ++
- net/ipv4/tcp_minisocks.c | 30 ++++++++++++++++++++++++++----
- net/ipv4/tcp_output.c    | 21 +++++++++++++++++++++
- net/ipv6/tcp_ipv6.c      |  2 ++
- 5 files changed, 57 insertions(+), 4 deletions(-)
+ include/net/inet_connection_sock.h |  3 +-
+ include/net/tcp.h                  |  9 +++++-
+ net/ipv4/tcp_cong.c                | 63 ++++++++++++++++++++++++++++++++++++--
+ 3 files changed, 71 insertions(+), 4 deletions(-)
 
+diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
+index 848e85c..5976bde 100644
+--- a/include/net/inet_connection_sock.h
++++ b/include/net/inet_connection_sock.h
+@@ -98,7 +98,8 @@ struct inet_connection_sock {
+ 	const struct tcp_congestion_ops *icsk_ca_ops;
+ 	const struct inet_connection_sock_af_ops *icsk_af_ops;
+ 	unsigned int		  (*icsk_sync_mss)(struct sock *sk, u32 pmtu);
+-	__u8			  icsk_ca_state;
++	__u8			  icsk_ca_state:7,
++				  icsk_ca_dst_locked:1;
+ 	__u8			  icsk_retransmits;
+ 	__u8			  icsk_pending;
+ 	__u8			  icsk_backoff;
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 95bb237..b8fdc6b 100644
+index f50f29faf..135b70c 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -448,6 +448,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb);
- struct sock *tcp_create_openreq_child(struct sock *sk,
- 				      struct request_sock *req,
- 				      struct sk_buff *skb);
-+void tcp_ca_openreq_child(struct sock *sk, const struct dst_entry *dst);
- struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 				  struct request_sock *req,
- 				  struct dst_entry *dst);
-@@ -636,6 +637,11 @@ static inline u32 tcp_rto_min_us(struct sock *sk)
- 	return jiffies_to_usecs(tcp_rto_min(sk));
+@@ -787,6 +787,8 @@ enum tcp_ca_ack_event_flags {
+ #define TCP_CA_MAX	128
+ #define TCP_CA_BUF_MAX	(TCP_CA_NAME_MAX*TCP_CA_MAX)
+ 
++#define TCP_CA_UNSPEC	0
++
+ /* Algorithm can be set on socket without CAP_NET_ADMIN privileges */
+ #define TCP_CONG_NON_RESTRICTED 0x1
+ /* Requires ECN/ECT set on all packets */
+@@ -794,7 +796,8 @@ enum tcp_ca_ack_event_flags {
+ 
+ struct tcp_congestion_ops {
+ 	struct list_head	list;
+-	unsigned long flags;
++	u32 key;
++	u32 flags;
+ 
+ 	/* initialize private data (optional) */
+ 	void (*init)(struct sock *sk);
+@@ -841,6 +844,10 @@ u32 tcp_reno_ssthresh(struct sock *sk);
+ void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 acked);
+ extern struct tcp_congestion_ops tcp_reno;
+ 
++struct tcp_congestion_ops *tcp_ca_find_key(u32 key);
++u32 tcp_ca_get_key_by_name(const char *name);
++char *tcp_ca_get_name_by_key(u32 key, char *buffer);
++
+ static inline bool tcp_ca_needs_ecn(const struct sock *sk)
+ {
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+index 38f2f8a..8fd348c 100644
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -13,6 +13,7 @@
+ #include <linux/types.h>
+ #include <linux/list.h>
+ #include <linux/gfp.h>
++#include <linux/jhash.h>
+ #include <net/tcp.h>
+ 
+ static DEFINE_SPINLOCK(tcp_cong_list_lock);
+@@ -31,6 +32,19 @@ static struct tcp_congestion_ops *tcp_ca_find(const char *name)
+ 	return NULL;
  }
  
-+static inline bool tcp_ca_dst_locked(const struct dst_entry *dst)
++/* Simple linear search, not much in here. */
++struct tcp_congestion_ops *tcp_ca_find_key(u32 key)
 +{
-+	return dst_metric_locked(dst, RTAX_CC_ALGO);
-+}
++	struct tcp_congestion_ops *e;
 +
- /* Compute the actual receive window we are currently advertising.
-  * Rcv_nxt can be after the window if our peer push more data
-  * than the offered window.
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 33f5ff0..ed94fdc 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1340,6 +1340,8 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 	}
- 	sk_setup_caps(newsk, dst);
- 
-+	tcp_ca_openreq_child(newsk, dst);
-+
- 	tcp_sync_mss(newsk, dst_mtu(dst));
- 	newtp->advmss = dst_metric_advmss(dst);
- 	if (tcp_sk(sk)->rx_opt.user_mss &&
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 63d2680..bc9216d 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -399,6 +399,32 @@ static void tcp_ecn_openreq_child(struct tcp_sock *tp,
- 	tp->ecn_flags = inet_rsk(req)->ecn_ok ? TCP_ECN_OK : 0;
- }
- 
-+void tcp_ca_openreq_child(struct sock *sk, const struct dst_entry *dst)
-+{
-+	struct inet_connection_sock *icsk = inet_csk(sk);
-+	u32 ca_key = dst_metric(dst, RTAX_CC_ALGO);
-+	bool ca_got_dst = false;
-+
-+	if (ca_key != TCP_CA_UNSPEC) {
-+		const struct tcp_congestion_ops *ca;
-+
-+		rcu_read_lock();
-+		ca = tcp_ca_find_key(ca_key);
-+		if (likely(ca && try_module_get(ca->owner))) {
-+			icsk->icsk_ca_dst_locked = tcp_ca_dst_locked(dst);
-+			icsk->icsk_ca_ops = ca;
-+			ca_got_dst = true;
-+		}
-+		rcu_read_unlock();
++	list_for_each_entry_rcu(e, &tcp_cong_list, list) {
++		if (e->key == key)
++			return e;
 +	}
 +
-+	if (!ca_got_dst && !try_module_get(icsk->icsk_ca_ops->owner))
-+		tcp_assign_congestion_control(sk);
-+
-+	tcp_set_ca_state(sk, TCP_CA_Open);
++	return NULL;
 +}
-+EXPORT_SYMBOL_GPL(tcp_ca_openreq_child);
 +
- /* This is not only more efficient than what we used to do, it eliminates
-  * a lot of code duplication between IPv4/IPv6 SYN recv processing. -DaveM
-  *
-@@ -451,10 +477,6 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
- 		newtp->snd_cwnd = TCP_INIT_CWND;
- 		newtp->snd_cwnd_cnt = 0;
+ /*
+  * Attach new congestion control algorithm to the list
+  * of available options.
+@@ -45,9 +59,12 @@ int tcp_register_congestion_control(struct tcp_congestion_ops *ca)
+ 		return -EINVAL;
+ 	}
  
--		if (!try_module_get(newicsk->icsk_ca_ops->owner))
--			tcp_assign_congestion_control(newsk);
--
--		tcp_set_ca_state(newsk, TCP_CA_Open);
- 		tcp_init_xmit_timers(newsk);
- 		__skb_queue_head_init(&newtp->out_of_order_queue);
- 		newtp->write_seq = newtp->pushed_seq = treq->snt_isn + 1;
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index f5bd4bd..5eb5676 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2916,6 +2916,25 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
++	ca->key = jhash(ca->name, sizeof(ca->name), strlen(ca->name));
++
+ 	spin_lock(&tcp_cong_list_lock);
+-	if (tcp_ca_find(ca->name)) {
+-		pr_notice("%s already registered\n", ca->name);
++	if (ca->key == TCP_CA_UNSPEC || tcp_ca_find_key(ca->key)) {
++		pr_notice("%s already registered or non-unique key\n",
++			  ca->name);
+ 		ret = -EEXIST;
+ 	} else {
+ 		list_add_tail_rcu(&ca->list, &tcp_cong_list);
+@@ -70,9 +87,48 @@ void tcp_unregister_congestion_control(struct tcp_congestion_ops *ca)
+ 	spin_lock(&tcp_cong_list_lock);
+ 	list_del_rcu(&ca->list);
+ 	spin_unlock(&tcp_cong_list_lock);
++
++	/* Wait for outstanding readers to complete before the
++	 * module gets removed entirely.
++	 *
++	 * A try_module_get() should fail by now as our module is
++	 * in "going" state since no refs are held anymore and
++	 * module_exit() handler being called.
++	 */
++	synchronize_rcu();
  }
- EXPORT_SYMBOL(tcp_make_synack);
+ EXPORT_SYMBOL_GPL(tcp_unregister_congestion_control);
  
-+static void tcp_ca_dst_init(struct sock *sk, const struct dst_entry *dst)
++u32 tcp_ca_get_key_by_name(const char *name)
 +{
-+	struct inet_connection_sock *icsk = inet_csk(sk);
 +	const struct tcp_congestion_ops *ca;
-+	u32 ca_key = dst_metric(dst, RTAX_CC_ALGO);
-+
-+	if (ca_key == TCP_CA_UNSPEC)
-+		return;
++	u32 key;
 +
 +	rcu_read_lock();
-+	ca = tcp_ca_find_key(ca_key);
-+	if (likely(ca && try_module_get(ca->owner))) {
-+		module_put(icsk->icsk_ca_ops->owner);
-+		icsk->icsk_ca_dst_locked = tcp_ca_dst_locked(dst);
-+		icsk->icsk_ca_ops = ca;
-+	}
++	ca = tcp_ca_find(name);
++	key = ca ? ca->key : TCP_CA_UNSPEC;
 +	rcu_read_unlock();
++
++	return key;
 +}
++EXPORT_SYMBOL_GPL(tcp_ca_get_key_by_name);
 +
- /* Do all connect socket setups that can be done AF independent. */
- static void tcp_connect_init(struct sock *sk)
++char *tcp_ca_get_name_by_key(u32 key, char *buffer)
++{
++	const struct tcp_congestion_ops *ca;
++	char *ret = NULL;
++
++	rcu_read_lock();
++	ca = tcp_ca_find_key(key);
++	if (ca)
++		ret = strncpy(buffer, ca->name,
++			      TCP_CA_NAME_MAX);
++	rcu_read_unlock();
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(tcp_ca_get_name_by_key);
++
+ /* Assign choice of congestion control. */
+ void tcp_assign_congestion_control(struct sock *sk)
  {
-@@ -2941,6 +2960,8 @@ static void tcp_connect_init(struct sock *sk)
- 	tcp_mtup_init(sk);
- 	tcp_sync_mss(sk, dst_mtu(dst));
+@@ -256,6 +312,9 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
+ 	struct tcp_congestion_ops *ca;
+ 	int err = 0;
  
-+	tcp_ca_dst_init(sk, dst);
++	if (icsk->icsk_ca_dst_locked)
++		return -EPERM;
 +
- 	if (!tp->window_clamp)
- 		tp->window_clamp = dst_metric(dst, RTAX_WINDOW);
- 	tp->advmss = dst_metric_advmss(dst);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index d06af89..20f44fe 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1199,6 +1199,8 @@ static struct sock *tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 		inet_csk(newsk)->icsk_ext_hdr_len = (newnp->opt->opt_nflen +
- 						     newnp->opt->opt_flen);
+ 	rcu_read_lock();
+ 	ca = tcp_ca_find(name);
  
-+	tcp_ca_openreq_child(newsk, dst);
-+
- 	tcp_sync_mss(newsk, dst_mtu(dst));
- 	newtp->advmss = dst_metric_advmss(dst);
- 	if (tcp_sk(sk)->rx_opt.user_mss &&
 -- 
 1.7.11.7
