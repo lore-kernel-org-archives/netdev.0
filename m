@@ -1,118 +1,108 @@
-From: "Arad, Ronen" <ronen.arad@intel.com>
-Subject: RE: [PATCH 2/3] bridge: offload bridge port attributes to switch
- asic if feature flag set
-Date: Sat, 6 Dec 2014 08:05:19 +0000
-Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505D84532@ORSMSX101.amr.corp.intel.com>
-References: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com>
-	<CAE4R7bBOCgoH0zL6+82jj2qjcP8n3kSo51x+i5SoqkN8Ff1CBQ@mail.gmail.com>
-	<54815883.80909@cumulusnetworks.com>
-	<E4CD12F19ABA0C4D8729E087A761DC3505D842BA@ORSMSX101.amr.corp.intel.com>
-	<E4CD12F19ABA0C4D8729E087A761DC3505D8436D@ORSMSX101.amr.corp.intel.com>
- <CAE4R7bChFLfCX5z4FTWHfnpNuYKnkTtD64xg5BE0yAwA381w3g@mail.gmail.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH v2 iproute] bridge link: add option 'self'
+Date: Sat, 06 Dec 2014 00:03:30 -0800
+Message-ID: <5482B852.3080705@cumulusnetworks.com>
+References: <1417827563-811-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bBYOW60bL07hD-wPWZZZxQ+jKx95cG0wnEMdU8KMZB5rw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	=?utf-8?B?Smlyw60gUMOtcmtv?= <jiri@resnulli.us>,
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
 	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
 	john fastabend <john.fastabend@gmail.com>,
 	"stephen@networkplumber.org" <stephen@networkplumber.org>,
 	John Linville <linville@tuxdriver.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
 	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"buytenh@wantstofly.org" <buytenh@wantstofly.org>,
-	Aviad Raveh <aviadr@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, shm@cumulusnetworks.com,
 	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:11809 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751154AbaLFIFW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Dec 2014 03:05:22 -0500
-In-Reply-To: <CAE4R7bChFLfCX5z4FTWHfnpNuYKnkTtD64xg5BE0yAwA381w3g@mail.gmail.com>
-Content-Language: en-US
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:48401 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751154AbaLFIDf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Dec 2014 03:03:35 -0500
+In-Reply-To: <CAE4R7bBYOW60bL07hD-wPWZZZxQ+jKx95cG0wnEMdU8KMZB5rw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogU2NvdHQgRmVsZG1hbiBb
-bWFpbHRvOnNmZWxkbWFAZ21haWwuY29tXQ0KPiBTZW50OiBGcmlkYXksIERlY2VtYmVyIDA1LCAy
-MDE0IDEwOjI5IFBNDQo+IFRvOiBBcmFkLCBSb25lbg0KPiBDYzogUm9vcGEgUHJhYmh1OyBOZXRk
-ZXY7IEppcsOtIFDDrXJrbzsgSmFtYWwgSGFkaSBTYWxpbTsgQmVuamFtaW4gTGFIYWlzZTsNCj4g
-VGhvbWFzIEdyYWY7IGpvaG4gZmFzdGFiZW5kOyBzdGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9yZzsg
-Sm9obiBMaW52aWxsZTsNCj4gbmhvcm1hbkB0dXhkcml2ZXIuY29tOyBOaWNvbGFzIERpY2h0ZWw7
-IHZ5YXNldmljQHJlZGhhdC5jb207IEZsb3JpYW4NCj4gRmFpbmVsbGk7IGJ1eXRlbmhAd2FudHN0
-b2ZseS5vcmc7IEF2aWFkIFJhdmVoOyBEYXZpZCBTLiBNaWxsZXI7DQo+IHNobUBjdW11bHVzbmV0
-d29ya3MuY29tOyBBbmR5IEdvc3BvZGFyZWsNCj4gU3ViamVjdDogUmU6IFtQQVRDSCAyLzNdIGJy
-aWRnZTogb2ZmbG9hZCBicmlkZ2UgcG9ydCBhdHRyaWJ1dGVzIHRvIHN3aXRjaCBhc2ljDQo+IGlm
-IGZlYXR1cmUgZmxhZyBzZXQNCj4gDQo+IE9uIEZyaSwgRGVjIDUsIDIwMTQgYXQgNTowNCBQTSwg
-QXJhZCwgUm9uZW4gPHJvbmVuLmFyYWRAaW50ZWwuY29tPiB3cm90ZToNCj4gPiBJIGhhdmUgYW5v
-dGhlciBjYXNlIG9mIHByb3BhZ2F0aW9uIHdoaWNoIGlzIG5vdCBjb3ZlcmVkIGJ5IHRoZSBwcm9w
-b3NlZA0KPiBwYXRjaC4NCj4gPiBBIHJlY2VudCBwYXRjaCBpbnRyb2R1Y2VkIGRlZmF1bHRfcHZp
-ZCBhdHRyaWJ1dGUgZm9yIGEgYnJpZGdlIChzbyBmYXINCj4gc3VwcG9ydGVkIG9ubHkgdmlhIHN5
-c2ZzIGFuZCBub3QgdmlhIG5ldGxpbmspLg0KPiA+IFdoZW4gYSBwb3J0IGpvaW5zIGEgYnJpZGdl
-LCBpdCBpbmhlcml0cyBhIFBWSUQgZnJvbSB0aGUgZGVmYXVsdF9wdmlkIG9mIHRoZQ0KPiBicmlk
-Z2UuDQo+ID4gVGhlIGJyaWRnZSBkcml2ZXIgcHJvcGFnYXRlcyB0aGF0IHRvIHRoZSBuZXdseSBj
-cmVhdGVkIG5ldF9icmlkZ2VfcG9ydC4NCj4gVGhpcyBpcyBkb25lIGluIGJyX3ZsYW4uYzoNCj4g
-Pg0KPiA+IGludCBuYnBfdmxhbl9pbml0KHN0cnVjdCBuZXRfYnJpZGdlX3BvcnQgKnApIHsNCj4g
-PiAgICAgICAgIGludCByYyA9IDA7DQo+ID4NCj4gPiAgICAgICAgIGlmIChwLT5ici0+ZGVmYXVs
-dF9wdmlkKSB7DQo+ID4gICAgICAgICAgICAgICAgIHJjID0gbmJwX3ZsYW5fYWRkKHAsIHAtPmJy
-LT5kZWZhdWx0X3B2aWQsDQo+ID4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIEJS
-SURHRV9WTEFOX0lORk9fUFZJRCB8DQo+ID4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIEJSSURHRV9WTEFOX0lORk9fVU5UQUdHRUQpOw0KPiA+ICAgICAgICAgfQ0KPiA+DQo+ID4g
-ICAgICAgICByZXR1cm4gcmM7DQo+ID4gfQ0KPiA+DQo+ID4gV2hlbiBMMiBzd2l0Y2hpbmcgaXMg
-b2ZmbG9hZGVkIHRvIHRoZSBIVywgdGhpcyBQVklEIHNldHRpbmcgbmVlZCB0byBiZQ0KPiBwcm9w
-YWdhdGVkLg0KPiANCj4gQWdyZWVkLCBpdCB3b3VsZCBiZSBuaWNlIHRvIGhhdmUgaXQgcHJvcGFn
-YXRlZCBkb3duLCBidXQgdGhlcmUgaXMgYSBub24taWRlYWwNCj4gd29yay1hcm91bmQuICBJZiB5
-b3Ugc2V0IGRlZmF1bHRfcHZpZD0wIHRvIHR1cm4gb2ZmIFBWSUQsIHRoZW4gdGhlIHN3aXRjaCBw
-b3J0DQo+IGRyaXZlciBjYW4gcGljayBzb21lIGludGVybmFsIFZMQU4gSUQganVzdCBmb3IgSFcg
-cHVycG9zZXMgaW4gbWF0Y2hpbmcNCj4gdW50YWdnZWQgcGt0cy4gIEl0J3Mgbm9uLWlkZWFsIGJl
-Y2F1c2UgdGhlIHN3aXRjaCBwb3J0IGRyaXZlciBuZWVkcyB0byByZXNlcnZlDQo+IGEgYmxvY2sg
-b2YgVkxBTiBJRHMgZm9yIGludGVybmFsIHVzYWdlIG9yIHVzZSBzb21lIG90aGVyIG1hdGNoaW5n
-DQo+IG1lY2hhbmlzbSB0byBrZWVwIHVudGFnZ2VkIHBrdHMgd2l0aGluIHRoaXMgYnJpZGdlLg0K
-DQpUaGlzIHdvcmstYXJvdW5kIGxldCB0aGUgYWRtaW5pc3RyYXRvciBhdm9pZCB1c2luZyBWSUQ9
-MSBhcyB0aGUgZGVmYXVsdCBWTEFOIGZvciB1bnRhZ2dlZCBmcmFtZXMuIEhvd2V2ZXIsIGl0IGRv
-ZXMgbm90IGxldCB0aGUgYWRtaW5pc3RyYXRvciBwaWNrIGEgVklEIG9mIGhlciBjaG9pY2UuDQoN
-Cj4gDQo+IEJldHRlciB0byBoYXZlIGRlZmF1bHRfcHZpZCB2YWx1ZSBwcm9wYWdhdGVkIGRvd24u
-ICBCdXQsIGRlZmF1bHRfcHZpZCBpcyBhDQo+IHBlci1icmlkZ2UgcHJvcGVydHksIG5vdCBhIHBl
-ci1icmlkZ2UtcG9ydCBwcm9wZXJ0eS4NCj4gUlRNX1NFVExJTksvUlRNX0dFVExJTksgZm9yIFBG
-X0JSSURHRSBkb2VzIGhhdmUgQUZTUEVDIGZvciBwZXItYnJpZGdlDQo+IGFuZCBQUk9USU5GTyBm
-b3IgcGVyLWJyaWRnZS1wb3J0LCBzbyBpdCBzZWVtcyBQVklEIG5lZWRzIHRvIGJlIHBhcnQgb2YN
-Cj4gQUZTUEVDLg0KDQpJIGJlbGlldmUgQUZTUEVDIGlzIG5vdCBsaW1pdGVkIHRvIHBlci1icmlk
-Z2UgcHJvcGVydGllcy4gSXQgaXMgcGVyLWJyaWRnZSB3aGVuIHRoZSBuZXRsaW5rIG1zZydzIGlm
-aW5kZXggaXMgdGhhdCBvZiBhIGJyaWRnZSBhbmQgU0VMRiBmbGFnIGlzIHNldC4NCkFGU1BFQyBp
-cyBmb3IgYSBwb3J0IHdoZW4gdGhlIG5ldGxpbmsgbXNnJ3MgaWZpbmRleCBpcyB0aGF0IG9mIGFu
-IGVuc2xhdmVkIHBvcnQgZGV2aWNlIGFuZCBNQVNURVIgZmxhZyBpcyBzZXQgKG9yIG5laXRoZXIg
-TUFTVEVSIG5vciBTRUxGIGZsYWcgaXMgc2V0KQ0KUFZJRCBpcyBvbmUgb2YgdGhlIGZsYWdzIGFz
-c29jaWF0ZWQgd2l0aCBhIFZJRCBpbiBicmlkZ2Vfdmxhbl9pbmZvLg0KZGVmYXVsdF9wdmlkIGlz
-IG5vdCBjdXJyZW50bHkgc3VwcG9ydGVkIGJ5IG5ldGxpbmsuIEEgbmV3IElGTEFfQlJJREdFX0RF
-RkFVTFRfUFZJRCBjb3VsZCBiZSBpbnRyb2R1Y2VkIHRvIGNhcnJ5IHRoaXMgcHJvcGVydHkgd2hl
-biBhIG5sbXNnIGlzIGRpcmVjdGVkIGF0IGEgYnJpZGdlLg0KDQo+IA0KPiA+SG93ZXZlciwgaXQg
-ZG9lcyBub3QgY29tZSB2aWEgbmRvX2JyaWRnZV9zZXRsaW5rLiBUaGUgcHJvcG9zZWQNCj4gcHJv
-cGFnYXRpb24gYXQgYnJfc2V0bGluayBvciBhbiB1cCBsZXZlbCBvbmUgYXQgcnRuZXRsaW5rIGFy
-ZSBub3QgY2FwYWJsZSBvZg0KPiBoYW5kbGluZyB0aGlzIGNhc2UuDQo+ID4gT25lIHBvc3NpYmxl
-IHdheSBmb3IgaGFuZGxpbmcgdGhhdCBpcyB0byByZXBsYWNlIHRoZSBjYWxsIHRvDQo+ID5uYnBf
-dmxhbl9hZGQgd2l0aCBhIGNhbGwgdG8gYSBuZXcgZnVuY3Rpb24gbGV0J3Mgc2F5ICBpbnQNCj4g
-PmJyX3Byb3BhZ2F0ZV92bGFuX2FkZChzdHJ1Y3QgbmV0X2JyaWRnZV9wb3J0ICpwb3J0LCB1MTYg
-dmlkLCB1MTYgZmxhZ3MpDQo+IFRoaXMgZnVuY3Rpb24gd2lsbCBjb21wb3NlIGEgbmV0bGluayBt
-ZXNzYWdlIHdpdGggVkxBTiBmaWx0ZXJpbmcgaW5mb3JtYXRpb24NCj4gKGkuZS4gQUZfU1BFQyB3
-aXRoIFZMQU5fSU5GTykgYW5kIGNhbGwgYnJfc2V0bGluayAtIGxldmVyYWdpbmcgdGhlIG9mZmxv
-YWQNCj4gc3VwcG9ydCBwcm9wb3NlZCBieSBSb29wYS4NCj4gPg0KPiA+IElmIHRoaXMgaXMgYW4g
-YWNjZXB0YWJsZSBjb3Vyc2Ugb2YgYWN0aW9uLCBJIGNvdWxkIHdvcmsgb24gc3VjaCBwYXRjaC4N
-Cj4gPg0KPiA+DQo+ID4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4+IEZyb206IG5l
-dGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtDQo+ID4+IG93bmVyQHZn
-ZXIua2VybmVsLm9yZ10gT24gQmVoYWxmIE9mIEFyYWQsIFJvbmVuDQo+ID4+IFNlbnQ6IEZyaWRh
-eSwgRGVjZW1iZXIgMDUsIDIwMTQgMzoyMSBQTQ0KPiA+PiBUbzogUm9vcGEgUHJhYmh1OyBTY290
-dCBGZWxkbWFuOyBOZXRkZXYNCj4gPj4gQ2M6IEppcsOtIFDDrXJrbzsgSmFtYWwgSGFkaSBTYWxp
-bTsgQmVuamFtaW4gTGFIYWlzZTsgVGhvbWFzIEdyYWY7IGpvaG4NCj4gPj4gZmFzdGFiZW5kOyBz
-dGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9yZzsgSm9obiBMaW52aWxsZTsNCj4gPj4gbmhvcm1hbkB0
-dXhkcml2ZXIuY29tOyBOaWNvbGFzIERpY2h0ZWw7IHZ5YXNldmljQHJlZGhhdC5jb207IEZsb3Jp
-YW4NCj4gPj4gRmFpbmVsbGk7IGJ1eXRlbmhAd2FudHN0b2ZseS5vcmc7IEF2aWFkIFJhdmVoOyBE
-YXZpZCBTLiBNaWxsZXI7DQo+ID4+IHNobUBjdW11bHVzbmV0d29ya3MuY29tOyBBbmR5IEdvc3Bv
-ZGFyZWsNCj4gPj4gU3ViamVjdDogUkU6IFtQQVRDSCAyLzNdIGJyaWRnZTogb2ZmbG9hZCBicmlk
-Z2UgcG9ydCBhdHRyaWJ1dGVzIHRvDQo+ID4+IHN3aXRjaCBhc2ljIGlmIGZlYXR1cmUgZmxhZyBz
-ZXQNCj4gPj4NCj4gPj4NCj4gPj4NCjxzbmlwPg0K
+On 12/5/14, 9:36 PM, Scott Feldman wrote:
+> On Fri, Dec 5, 2014 at 4:59 PM,  <roopa@cumulusnetworks.com> wrote:
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> Currently self is set internally only if hwmode is set.
+>> This makes it necessary for the hw to have a mode.
+>> There is no hwmode really required to go to hardware. So, introduce
+>> self for anybody who wants to target hardware.
+>>
+>> v1 -> v2
+>>      - fix a few bugs. Initialize flags to zero: this was required to
+>>      keep the current behaviour unchanged.
+>>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> ---
+>>   bridge/link.c |    9 ++++++---
+>>   1 file changed, 6 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/bridge/link.c b/bridge/link.c
+>> index 90d9e7f..b8b8675 100644
+>> --- a/bridge/link.c
+>> +++ b/bridge/link.c
+>> @@ -261,7 +261,7 @@ static int brlink_modify(int argc, char **argv)
+>>          __s16 priority = -1;
+>>          __s8 state = -1;
+>>          __s16 mode = -1;
+>> -       __u16 flags = BRIDGE_FLAGS_MASTER;
+>> +       __u16 flags = 0;
+> I don't follow why this change is necessary.  Seems defaulting to
+> MASTER unless SELF is set due to "self" or "hwmode" would be more
+> correct (and expected).
+That flags initialization was always a no-op. IFLA_BRIDGE_FLAGS was 
+always set only with the 'self' flag on.
+And i don't want to change that unnecessarily with my patch.
+Setting it to master now means we will always include IFLA_AF_SPEC with 
+IFLA_BRIDGE_FLAGS in every 'bridge setlink' msg.
+Which will be a change from the current behavior. And i dont intend to 
+introduce it with this patch.
+
+Kernel has always treated no flags as 'master', so we are good from 
+kernel perspective.
+>
+>>          struct rtattr *nest;
+>>
+>>          memset(&req, 0, sizeof(req));
+>> @@ -321,6 +321,8 @@ static int brlink_modify(int argc, char **argv)
+>>                                          "\"veb\".\n");
+>>                                  exit(-1);
+>>                          }
+>> +               } else if (strcmp(*argv, "self") == 0) {
+>> +                       flags = BRIDGE_FLAGS_SELF;
+>>                  } else {
+>>                          usage();
+>>                  }
+>> @@ -375,10 +377,11 @@ static int brlink_modify(int argc, char **argv)
+>>           * devices so far.  Thus we only need to include the flags attribute
+>>           * if we are setting the hw mode.
+>>           */
+> The comment above needs to be updated to reflect the new logic.
+
+ok, will do, Thanks
+
+>
+>> -       if (mode >= 0) {
+>> +       if (mode >= 0 || flags > 0) {
+>>                  nest = addattr_nest(&req.n, sizeof(req), IFLA_AF_SPEC);
+>>
+>> -               addattr16(&req.n, sizeof(req), IFLA_BRIDGE_FLAGS, flags);
+>> +               if (flags > 0)
+>> +                       addattr16(&req.n, sizeof(req), IFLA_BRIDGE_FLAGS, flags);
+>>
+>>                  if (mode >= 0)
+>>                          addattr16(&req.n, sizeof(req), IFLA_BRIDGE_MODE, mode);
+>> --
+>> 1.7.10.4
+>>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
