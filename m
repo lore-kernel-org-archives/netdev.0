@@ -1,98 +1,76 @@
-From: Nicholas Bastin <nick.bastin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [ovs-discuss] kernel panic receiving flooded VXLAN traffic with
-	OVS
-Date: Sat, 6 Dec 2014 12:47:59 -1000
-Message-ID: <CADmMkWdGhw3Rn3gMEtAV8ESZB-k+uAK=Ed=LwsShKOtyHdJS_g@mail.gmail.com>
-References: <19014.1415325508@famine> <8549.1417657547@famine>
- <CAEP_g=_mfSCH1250ezx_h8_yM_4FzsYcsS6EnGi99AFoWO_MKw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============6854475129961503547=="
-Cc: "discuss-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <discuss-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <discuss-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CAEP_g=_mfSCH1250ezx_h8_yM_4FzsYcsS6EnGi99AFoWO_MKw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/discuss>,
- <mailto:discuss-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/discuss>
-List-Post: <mailto:discuss-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:discuss-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/discuss>,
- <mailto:discuss-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: discuss-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "discuss" <discuss-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next v2 1/4] net: tcp: refactor reinitialization of congestion control
+Date: Sun,  7 Dec 2014 00:39:20 +0100
+Message-ID: <1417909163-19135-2-git-send-email-dborkman@redhat.com>
+References: <1417909163-19135-1-git-send-email-dborkman@redhat.com>
+Cc: hannes@stressinduktion.org, fw@strlen.de, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50924 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752083AbaLFXjf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Dec 2014 18:39:35 -0500
+In-Reply-To: <1417909163-19135-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---===============6854475129961503547==
-Content-Type: multipart/alternative; boundary=001a11c2b44031e092050993fc72
+We can just move this to an extra function and make the code
+a bit more readable, no functional change.
 
---001a11c2b44031e092050993fc72
-Content-Type: text/plain; charset=UTF-8
+Joint work with Florian Westphal.
 
-On Fri, Dec 5, 2014 at 4:51 PM, Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org> wrote:
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/ipv4/tcp_cong.c | 24 ++++++++++++++----------
+ 1 file changed, 14 insertions(+), 10 deletions(-)
 
-> I don't think there is anything inherently wrong with aggregating TCP
-> segments in VXLAN that are not destined for the local host. This is
-> conceptually the same as doing aggregation for TCP packets where we
-> only perform L2 bridging - in theory we shouldn't look at the upper
-> layers but it is fine as long as we faithfully reconstruct it on the
-> way out.
->
-
-But you don't faithfully reconstruct what the user originally sent -
-in-path reassembly is always wrong, which is why hardware switches don't do
-it (by default, anyhow).  If you configure a middlebox to do some kind of
-assembly/translation/whatever work for you, that's fine, but something that
-advertises itself as a "switch" or "router" should definitely not do this
-by default.
-
-If you reassemble frames you completely obviate any kind of PMTU-D or
-configured MTU that your user is using, and this breaks a lot of paths.  We
-completely disable all GRO/TSO/etc., but if you are able to determine that
-a packet is not destined for the local host you should definitely not
-mutate it.
-
---
-Nick
-
---001a11c2b44031e092050993fc72
-Content-Type: text/html; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-<div dir=3D"ltr"><div class=3D"gmail_extra"><div class=3D"gmail_quote">On F=
-ri, Dec 5, 2014 at 4:51 PM, Jesse Gross <span dir=3D"ltr">&lt;<a href=3D"ma=
-ilto:jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org" target=3D"_blank">jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org</a>&gt;</span> wr=
-ote:<br><blockquote class=3D"gmail_quote" style=3D"margin:0 0 0 .8ex;border=
--left:1px #ccc solid;padding-left:1ex"><div class=3D"HOEnZb"><div class=3D"=
-h5"><span style=3D"color:rgb(34,34,34)">I don&#39;t think there is anything=
- inherently wrong with aggregating TCP</span><br></div></div>
-segments in VXLAN that are not destined for the local host. This is<br>
-conceptually the same as doing aggregation for TCP packets where we<br>
-only perform L2 bridging - in theory we shouldn&#39;t look at the upper<br>
-layers but it is fine as long as we faithfully reconstruct it on the<br>
-way out.<br></blockquote><div><br></div><div>But you don&#39;t faithfully r=
-econstruct what the user originally sent - in-path reassembly is always wro=
-ng, which is why hardware switches don&#39;t do it (by default, anyhow).=C2=
-=A0 If you configure a middlebox to do some kind of assembly/translation/wh=
-atever work for you, that&#39;s fine, but something that advertises itself =
-as a &quot;switch&quot; or &quot;router&quot; should definitely not do this=
- by default.</div><div><br></div><div>If you reassemble frames you complete=
-ly obviate any kind of PMTU-D or configured MTU that your user is using, an=
-d this breaks a lot of paths.=C2=A0 We completely disable all GRO/TSO/etc.,=
- but if you are able to determine that a packet is not destined for the loc=
-al host you should definitely not mutate it.</div><div><br></div><div>--</d=
-iv><div>Nick</div></div></div></div>
-
---001a11c2b44031e092050993fc72--
-
---===============6854475129961503547==
-Content-Type: text/plain; charset="utf-8"
-MIME-Version: 1.0
-Content-Transfer-Encoding: base64
-Content-Disposition: inline
-
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGlzY3VzcyBt
-YWlsaW5nIGxpc3QKZGlzY3Vzc0BvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9y
-Zy9tYWlsbWFuL2xpc3RpbmZvL2Rpc2N1c3MK
-
---===============6854475129961503547==--
+diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+index 27ead0d..38f2f8a 100644
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -107,6 +107,18 @@ void tcp_init_congestion_control(struct sock *sk)
+ 		icsk->icsk_ca_ops->init(sk);
+ }
+ 
++static void tcp_reinit_congestion_control(struct sock *sk,
++					  const struct tcp_congestion_ops *ca)
++{
++	struct inet_connection_sock *icsk = inet_csk(sk);
++
++	tcp_cleanup_congestion_control(sk);
++	icsk->icsk_ca_ops = ca;
++
++	if (sk->sk_state != TCP_CLOSE && icsk->icsk_ca_ops->init)
++		icsk->icsk_ca_ops->init(sk);
++}
++
+ /* Manage refcounts on socket close. */
+ void tcp_cleanup_congestion_control(struct sock *sk)
+ {
+@@ -262,21 +274,13 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
+ #endif
+ 	if (!ca)
+ 		err = -ENOENT;
+-
+ 	else if (!((ca->flags & TCP_CONG_NON_RESTRICTED) ||
+ 		   ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN)))
+ 		err = -EPERM;
+-
+ 	else if (!try_module_get(ca->owner))
+ 		err = -EBUSY;
+-
+-	else {
+-		tcp_cleanup_congestion_control(sk);
+-		icsk->icsk_ca_ops = ca;
+-
+-		if (sk->sk_state != TCP_CLOSE && icsk->icsk_ca_ops->init)
+-			icsk->icsk_ca_ops->init(sk);
+-	}
++	else
++		tcp_reinit_congestion_control(sk, ca);
+  out:
+ 	rcu_read_unlock();
+ 	return err;
+-- 
+1.7.11.7
