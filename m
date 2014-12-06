@@ -1,39 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] bpf: x86: fix epilogue generation for eBPF
- programs
-Date: Fri, 05 Dec 2014 21:24:33 -0800 (PST)
-Message-ID: <20141205.212433.750912400773154348.davem@davemloft.net>
-References: <1417301173-23691-1-git-send-email-ast@plumgrid.com>
+Subject: Re: [PATCH net] net/mlx4_en: correct the endianness of
+ doorbell_qpn on big endian platform
+Date: Fri, 05 Dec 2014 21:31:12 -0800 (PST)
+Message-ID: <20141205.213112.1199355931404701216.davem@davemloft.net>
+References: <1417315431-16761-1-git-send-email-weiyang@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zlim.lnx@gmail.com, edumazet@google.com, dborkman@redhat.com,
-	hpa@zytor.com, tglx@linutronix.de, mingo@kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: ast@plumgrid.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417301173-23691-1-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gideonn@mellanox.com, edumazet@google.com,
+	amirv@mellanox.com
+To: weiyang@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60258 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750746AbaLFF0n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Dec 2014 00:26:43 -0500
+In-Reply-To: <1417315431-16761-1-git-send-email-weiyang@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Sat, 29 Nov 2014 14:46:13 -0800
+From: Wei Yang <weiyang@linux.vnet.ibm.com>
+Date: Sun, 30 Nov 2014 10:43:51 +0800
 
-> classic BPF has a restriction that last insn is always BPF_RET.
-> eBPF doesn't have BPF_RET instruction and this restriction.
-> It has BPF_EXIT insn which can appear anywhere in the program
-> one or more times and it doesn't have to be last insn.
-> Fix eBPF JIT to emit epilogue when first BPF_EXIT is seen
-> and all other BPF_EXIT instructions will be emitted as jump.
+> In commit 6a4e812 (net/mlx4_en: Avoid calling bswap in tx fast path), we store
+> doorbell_qpn in big endian to avoid bswap(). Then we try to write it directly
+> by iowrite32() instead of iowrite32be().
 > 
-> Since jump offset to epilogue is computed as:
-> jmp_offset = ctx->cleanup_addr - addrs[i]
-> we need to change type of cleanup_addr to signed to compute the offset as:
-> (long long) ((int)20 - (int)30)
-> instead of:
-> (long long) ((unsigned int)20 - (int)30)
+> This works fine on little endian platform, while has some problem on big
+> endian platform. Here is the definition in general:
 > 
-> Fixes: 622582786c9e ("net: filter: x86: internal BPF JIT")
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> 	#define iowrite32(v, addr)	writel((v), (addr))
+> 	#define writel(b,addr)		__raw_writel(__cpu_to_le32(b),addr)
+> 
+> On little endian platform, the value is not swapped before write. While on big
+> endian platform, the value is swapped. This is not expected to happen.
+> 
+> This patch does the swap on big endian platform before it is written.
+> 
+> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
 
-Applied, thanks.
+Guys, let's figure out what we are doing with this patch.
