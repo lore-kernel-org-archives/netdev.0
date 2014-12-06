@@ -1,21 +1,18 @@
-From: "Arad, Ronen" <ronen.arad@intel.com>
-Subject: RE: [PATCH 2/3] bridge: offload bridge port attributes to switch
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH 2/3] bridge: offload bridge port attributes to switch
  asic if feature flag set
-Date: Sat, 6 Dec 2014 03:06:43 +0000
-Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505D84494@ORSMSX101.amr.corp.intel.com>
-References: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com>
- <CAE4R7bBOCgoH0zL6+82jj2qjcP8n3kSo51x+i5SoqkN8Ff1CBQ@mail.gmail.com>
- <54815883.80909@cumulusnetworks.com>
- <E4CD12F19ABA0C4D8729E087A761DC3505D842BA@ORSMSX101.amr.corp.intel.com>
- <E4CD12F19ABA0C4D8729E087A761DC3505D8436D@ORSMSX101.amr.corp.intel.com>
- <54826DFF.6090906@gmail.com>
+Date: Fri, 05 Dec 2014 19:21:37 -0800
+Message-ID: <54827641.9040208@gmail.com>
+References: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bBOCgoH0zL6+82jj2qjcP8n3kSo51x+i5SoqkN8Ff1CBQ@mail.gmail.com> <54815883.80909@cumulusnetworks.com> <E4CD12F19ABA0C4D8729E087A761DC3505D842BA@ORSMSX101.amr.corp.intel.com> <E4CD12F19ABA0C4D8729E087A761DC3505D8436D@ORSMSX101.amr.corp.intel.com> <54826DFF.6090906@gmail.com> <E4CD12F19ABA0C4D8729E087A761DC3505D84494@ORSMSX101.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
 	Scott Feldman <sfeldma@gmail.com>,
-	=?utf-8?B?Smlyw60gUMOtcmtv?= <jiri@resnulli.us>,
-	"Jamal Hadi Salim" <jhs@mojatatu.com>,
+	=?UTF-8?B?Smlyw60gUMOtcmtv?= <jiri@resnulli.us>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
 	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
 	"stephen@networkplumber.org" <stephen@networkplumber.org>,
 	John Linville <linville@tuxdriver.com>,
@@ -28,66 +25,118 @@ Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
 	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: John Fastabend <john.fastabend@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
+To: "Arad, Ronen" <ronen.arad@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:50914 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750840AbaLFDGr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2014 22:06:47 -0500
-In-Reply-To: <54826DFF.6090906@gmail.com>
-Content-Language: en-US
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:57985 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750744AbaLFDWG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 22:22:06 -0500
+Received: by mail-ob0-f176.google.com with SMTP id vb8so1489581obc.21
+        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 19:22:04 -0800 (PST)
+In-Reply-To: <E4CD12F19ABA0C4D8729E087A761DC3505D84494@ORSMSX101.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSm9obiBGYXN0YWJlbmQg
-W21haWx0bzpqb2huLmZhc3RhYmVuZEBnbWFpbC5jb21dDQo+IFNlbnQ6IEZyaWRheSwgRGVjZW1i
-ZXIgMDUsIDIwMTQgNjo0NiBQTQ0KPiBUbzogQXJhZCwgUm9uZW4NCj4gQ2M6IFJvb3BhIFByYWJo
-dTsgU2NvdHQgRmVsZG1hbjsgTmV0ZGV2OyBKaXLDrSBQw61ya287IEphbWFsIEhhZGkgU2FsaW07
-DQo+IEJlbmphbWluIExhSGFpc2U7IFRob21hcyBHcmFmOyBzdGVwaGVuQG5ldHdvcmtwbHVtYmVy
-Lm9yZzsgSm9obg0KPiBMaW52aWxsZTsgbmhvcm1hbkB0dXhkcml2ZXIuY29tOyBOaWNvbGFzIERp
-Y2h0ZWw7IHZ5YXNldmljQHJlZGhhdC5jb207DQo+IEZsb3JpYW4gRmFpbmVsbGk7IGJ1eXRlbmhA
-d2FudHN0b2ZseS5vcmc7IEF2aWFkIFJhdmVoOyBEYXZpZCBTLiBNaWxsZXI7DQo+IHNobUBjdW11
-bHVzbmV0d29ya3MuY29tOyBBbmR5IEdvc3BvZGFyZWsNCj4gU3ViamVjdDogUmU6IFtQQVRDSCAy
-LzNdIGJyaWRnZTogb2ZmbG9hZCBicmlkZ2UgcG9ydCBhdHRyaWJ1dGVzIHRvIHN3aXRjaCBhc2lj
-DQo+IGlmIGZlYXR1cmUgZmxhZyBzZXQNCj4gDQo+IE9uIDEyLzA1LzIwMTQgMDU6MDQgUE0sIEFy
-YWQsIFJvbmVuIHdyb3RlOg0KPiA+IEkgaGF2ZSBhbm90aGVyIGNhc2Ugb2YgcHJvcGFnYXRpb24g
-d2hpY2ggaXMgbm90IGNvdmVyZWQgYnkgdGhlIHByb3Bvc2VkDQo+IHBhdGNoLg0KPiA+IEEgcmVj
-ZW50IHBhdGNoIGludHJvZHVjZWQgZGVmYXVsdF9wdmlkIGF0dHJpYnV0ZSBmb3IgYSBicmlkZ2Ug
-KHNvIGZhcg0KPiBzdXBwb3J0ZWQgb25seSB2aWEgc3lzZnMgYW5kIG5vdCB2aWEgbmV0bGluayku
-DQo+ID4gV2hlbiBhIHBvcnQgam9pbnMgYSBicmlkZ2UsIGl0IGluaGVyaXRzIGEgUFZJRCBmcm9t
-IHRoZSBkZWZhdWx0X3B2aWQgb2YgdGhlDQo+IGJyaWRnZS4NCj4gPiBUaGUgYnJpZGdlIGRyaXZl
-ciBwcm9wYWdhdGVzIHRoYXQgdG8gdGhlIG5ld2x5IGNyZWF0ZWQgbmV0X2JyaWRnZV9wb3J0Lg0K
-PiBUaGlzIGlzIGRvbmUgaW4gYnJfdmxhbi5jOg0KPiA+DQo+ID4gaW50IG5icF92bGFuX2luaXQo
-c3RydWN0IG5ldF9icmlkZ2VfcG9ydCAqcCkgew0KPiA+IAlpbnQgcmMgPSAwOw0KPiA+DQo+ID4g
-CWlmIChwLT5ici0+ZGVmYXVsdF9wdmlkKSB7DQo+ID4gCQlyYyA9IG5icF92bGFuX2FkZChwLCBw
-LT5ici0+ZGVmYXVsdF9wdmlkLA0KPiA+IAkJCQkgIEJSSURHRV9WTEFOX0lORk9fUFZJRCB8DQo+
-ID4gCQkJCSAgQlJJREdFX1ZMQU5fSU5GT19VTlRBR0dFRCk7DQo+ID4gCX0NCj4gPg0KPiA+IAly
-ZXR1cm4gcmM7DQo+ID4gfQ0KPiA+DQo+ID4gV2hlbiBMMiBzd2l0Y2hpbmcgaXMgb2ZmbG9hZGVk
-IHRvIHRoZSBIVywgdGhpcyBQVklEIHNldHRpbmcgbmVlZCB0byBiZQ0KPiBwcm9wYWdhdGVkLiBI
-b3dldmVyLCBpdCBkb2VzIG5vdCBjb21lIHZpYSBuZG9fYnJpZGdlX3NldGxpbmsuIFRoZQ0KPiBw
-cm9wb3NlZCBwcm9wYWdhdGlvbiBhdCBicl9zZXRsaW5rIG9yIGFuIHVwIGxldmVsIG9uZSBhdCBy
-dG5ldGxpbmsgYXJlIG5vdA0KPiBjYXBhYmxlIG9mIGhhbmRsaW5nIHRoaXMgY2FzZS4NCj4gPiBP
-bmUgcG9zc2libGUgd2F5IGZvciBoYW5kbGluZyB0aGF0IGlzIHRvIHJlcGxhY2UgdGhlIGNhbGwg
-dG8NCj4gPiBuYnBfdmxhbl9hZGQgd2l0aCBhIGNhbGwgdG8gYSBuZXcgZnVuY3Rpb24gbGV0J3Mg
-c2F5IGludA0KPiA+IGJyX3Byb3BhZ2F0ZV92bGFuX2FkZChzdHJ1Y3QgbmV0X2JyaWRnZV9wb3J0
-ICpwb3J0LCB1MTYgdmlkLCB1MTYgZmxhZ3MpDQo+IFRoaXMgZnVuY3Rpb24gd2lsbCBjb21wb3Nl
-IGEgbmV0bGluayBtZXNzYWdlIHdpdGggVkxBTiBmaWx0ZXJpbmcgaW5mb3JtYXRpb24NCj4gKGku
-ZS4gQUZfU1BFQyB3aXRoIFZMQU5fSU5GTykgYW5kIGNhbGwgYnJfc2V0bGluayAtIGxldmVyYWdp
-bmcgdGhlIG9mZmxvYWQNCj4gc3VwcG9ydCBwcm9wb3NlZCBieSBSb29wYS4NCj4gPg0KPiANCj4g
-Tm8sIHdlIHNob3VsZG4ndCBiZSBjcmFmdGluZyBuZXRsaW5rIG1lc3NhZ2VzIGluIHRoZSBrZXJu
-ZWwganVzdCByZS1pbmplY3QNCj4gdGhlbSBpbnRvIGFuIGludGVyZmFjZS4gUmVhbGx5IHRoZSBz
-ZXRsaW5rL2RlbGxpbmsgaW50ZXJmYWNlIHNob3VsZCBiZSBjbGVhbmVkDQo+IHVwIHNvIHRoYXQg
-aXQgbm8gbG9uZ2VyIGNvbnN1bWVzIHJhdyBuZXRsaW5rIG1lc3NhZ2VzLg0KPiANCj4gVGhlbiBl
-aXRoZXIgKGEpIGFkZCBhbm90aGVyIHBhcmFtZXRlciB0byB0aGUgc2V0bGluayBvcHMgb3IgKGIp
-IGNyZWF0ZSBhIG5ldw0KPiBvcCBmb3IgaXQuDQo+IA0KPiBJIHRoaW5rIGNsZWFuaW5nIHVwIHRo
-ZSBzZXRsaW5rL2RlbGxpbmsgaG9va3MgaXMgb24gdGhlIFRCRCBsaXN0IGFscmVhZHkuDQo+IA0K
-VGhpcyB3b3VsZCBiZSBhIGxvdCBjbGVhbmVyIGV2ZW4gdGhvdWdoIHRoZXJlIGNvdWxkIGJlIGxv
-c3Mgb2YgZmxleGliaWxpdHkuIEZpeGVkIGFyZ3VtZW50IGludGVyZmFjZSB3aWxsIG5vdCBiZSBl
-eHRlbnNpYmxlLg0KV2lsbCB0aGUgbm9uLU5ldGxpbmsgYmFzZWQgZHJpdmVyIHNldGxpbmsvZGVs
-bGluayBob29rcyBiZSBUTFYgYmFzZWQgb3IgdGFrZSBhIHBvaW50ZXIgdG8gYSBzaW5nbGUgc3Ry
-dWN0IHdpdGggc29tZSBpbmRpY2F0aW9uIG9mIHdoYXQgaXMgYWN0dWFsbHkgcG9wdWxhdGVkIHRo
-ZXJlPyANCj4gDQo+ID4gSWYgdGhpcyBpcyBhbiBhY2NlcHRhYmxlIGNvdXJzZSBvZiBhY3Rpb24s
-IEkgY291bGQgd29yayBvbiBzdWNoIHBhdGNoLg0KPiA+DQo+ID4NCj4gDQo+IFsuLi5dDQo+IA0K
-PiBUaGFua3MsDQo+IEpvaG4NCj4gDQo+IC0tDQo+IEpvaG4gRmFzdGFiZW5kICAgICAgICAgSW50
-ZWwgQ29ycG9yYXRpb24NCg==
+On 12/05/2014 07:06 PM, Arad, Ronen wrote:
+>
+>
+>> -----Original Message-----
+>> From: John Fastabend [mailto:john.fastabend@gmail.com]
+>> Sent: Friday, December 05, 2014 6:46 PM
+>> To: Arad, Ronen
+>> Cc: Roopa Prabhu; Scott Feldman; Netdev; Jir=C3=AD P=C3=ADrko; Jamal=
+ Hadi Salim;
+>> Benjamin LaHaise; Thomas Graf; stephen@networkplumber.org; John
+>> Linville; nhorman@tuxdriver.com; Nicolas Dichtel; vyasevic@redhat.co=
+m;
+>> Florian Fainelli; buytenh@wantstofly.org; Aviad Raveh; David S. Mill=
+er;
+>> shm@cumulusnetworks.com; Andy Gospodarek
+>> Subject: Re: [PATCH 2/3] bridge: offload bridge port attributes to s=
+witch asic
+>> if feature flag set
+>>
+>> On 12/05/2014 05:04 PM, Arad, Ronen wrote:
+>>> I have another case of propagation which is not covered by the prop=
+osed
+>> patch.
+>>> A recent patch introduced default_pvid attribute for a bridge (so f=
+ar
+>> supported only via sysfs and not via netlink).
+>>> When a port joins a bridge, it inherits a PVID from the default_pvi=
+d of the
+>> bridge.
+>>> The bridge driver propagates that to the newly created net_bridge_p=
+ort.
+>> This is done in br_vlan.c:
+>>>
+>>> int nbp_vlan_init(struct net_bridge_port *p) {
+>>> 	int rc =3D 0;
+>>>
+>>> 	if (p->br->default_pvid) {
+>>> 		rc =3D nbp_vlan_add(p, p->br->default_pvid,
+>>> 				  BRIDGE_VLAN_INFO_PVID |
+>>> 				  BRIDGE_VLAN_INFO_UNTAGGED);
+>>> 	}
+>>>
+>>> 	return rc;
+>>> }
+>>>
+>>> When L2 switching is offloaded to the HW, this PVID setting need to=
+ be
+>> propagated. However, it does not come via ndo_bridge_setlink. The
+>> proposed propagation at br_setlink or an up level one at rtnetlink a=
+re not
+>> capable of handling this case.
+>>> One possible way for handling that is to replace the call to
+>>> nbp_vlan_add with a call to a new function let's say int
+>>> br_propagate_vlan_add(struct net_bridge_port *port, u16 vid, u16 fl=
+ags)
+>> This function will compose a netlink message with VLAN filtering inf=
+ormation
+>> (i.e. AF_SPEC with VLAN_INFO) and call br_setlink - leveraging the o=
+ffload
+>> support proposed by Roopa.
+>>>
+>>
+>> No, we shouldn't be crafting netlink messages in the kernel just re-=
+inject
+>> them into an interface. Really the setlink/dellink interface should =
+be cleaned
+>> up so that it no longer consumes raw netlink messages.
+>>
+>> Then either (a) add another parameter to the setlink ops or (b) crea=
+te a new
+>> op for it.
+>>
+>> I think cleaning up the setlink/dellink hooks is on the TBD list alr=
+eady.
+>>
+> This would be a lot cleaner even though there could be loss of
+> flexibility. Fixed argument interface will not be extensible.
+> Will the non-Netlink based driver setlink/dellink hooks be TLV based
+> or take a pointer to a single struct with some indication of what is
+> actually populated there?
+
+There shouldn't be any loss of flexibility, we can add new attributes
+and new ops as we need them.
+
+I had assumed it would be basic structures and additional ndo ops as
+needed but I've not coded anything up.
+
+>>> If this is an acceptable course of action, I could work on such pat=
+ch.
+>>>
+>>>
+>>
+>> [...]
+>>
+>> Thanks,
+>> John
+>>
+>> --
+>> John Fastabend         Intel Corporation
+
+
+--=20
+John Fastabend         Intel Corporation
