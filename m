@@ -1,48 +1,118 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH 1/3] netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD feature
- flag for switch device offloads
-Date: Fri, 05 Dec 2014 23:46:23 -0800
-Message-ID: <5482B44F.2050509@cumulusnetworks.com>
-References: <1417746401-8140-2-git-send-email-roopa@cumulusnetworks.com> <20141205224320.GA22992@casper.infradead.org>
+From: "Arad, Ronen" <ronen.arad@intel.com>
+Subject: RE: [PATCH 2/3] bridge: offload bridge port attributes to switch
+ asic if feature flag set
+Date: Sat, 6 Dec 2014 08:05:19 +0000
+Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505D84532@ORSMSX101.amr.corp.intel.com>
+References: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com>
+	<CAE4R7bBOCgoH0zL6+82jj2qjcP8n3kSo51x+i5SoqkN8Ff1CBQ@mail.gmail.com>
+	<54815883.80909@cumulusnetworks.com>
+	<E4CD12F19ABA0C4D8729E087A761DC3505D842BA@ORSMSX101.amr.corp.intel.com>
+	<E4CD12F19ABA0C4D8729E087A761DC3505D8436D@ORSMSX101.amr.corp.intel.com>
+ <CAE4R7bChFLfCX5z4FTWHfnpNuYKnkTtD64xg5BE0yAwA381w3g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, sfeldma@gmail.com, jhs@mojatatu.com,
-	bcrl@kvack.org, john.fastabend@gmail.com,
-	stephen@networkplumber.org, linville@tuxdriver.com,
-	nhorman@tuxdriver.com, nicolas.dichtel@6wind.com,
-	vyasevic@redhat.com, f.fainelli@gmail.com, buytenh@wantstofly.org,
-	aviadr@mellanox.com, netdev@vger.kernel.org, davem@davemloft.net,
-	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	=?utf-8?B?Smlyw60gUMOtcmtv?= <jiri@resnulli.us>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
+	john fastabend <john.fastabend@gmail.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	John Linville <linville@tuxdriver.com>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"buytenh@wantstofly.org" <buytenh@wantstofly.org>,
+	Aviad Raveh <aviadr@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:47139 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751466AbaLFHqa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Dec 2014 02:46:30 -0500
-In-Reply-To: <20141205224320.GA22992@casper.infradead.org>
+Received: from mga11.intel.com ([192.55.52.93]:11809 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751154AbaLFIFW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Dec 2014 03:05:22 -0500
+In-Reply-To: <CAE4R7bChFLfCX5z4FTWHfnpNuYKnkTtD64xg5BE0yAwA381w3g@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/5/14, 2:43 PM, Thomas Graf wrote:
-> On 12/04/14 at 06:26pm, roopa@cumulusnetworks.com wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> This is a generic high level feature flag for all switch asic features today.
->>
->> switch drivers set this flag on switch ports. Logical devices like
->> bridge, bonds, vxlans can inherit this flag from their slaves/ports.
->>
->> I had to use SWITCH in the name to avoid ambiguity with other feature
->> flags. But, since i have been harping about not calling it 'switch',
->> I am welcome to any suggestions :)
->>
->> An alternative to using a feature flag is to use a IFF_HW_OFFLOAD
->> in net_device_flags.
-> What does this flag indicate specifically? What driver would
-> implement ndo_bridge_setlink() but not set this flag?
->
-> I think it should be clearly documented when this flag is to bet set.
-I mentioned it as an alternative because it was there in my RFC patch. 
-There is no code for it yet.
-And I will get rid of the comment in v2.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogU2NvdHQgRmVsZG1hbiBb
+bWFpbHRvOnNmZWxkbWFAZ21haWwuY29tXQ0KPiBTZW50OiBGcmlkYXksIERlY2VtYmVyIDA1LCAy
+MDE0IDEwOjI5IFBNDQo+IFRvOiBBcmFkLCBSb25lbg0KPiBDYzogUm9vcGEgUHJhYmh1OyBOZXRk
+ZXY7IEppcsOtIFDDrXJrbzsgSmFtYWwgSGFkaSBTYWxpbTsgQmVuamFtaW4gTGFIYWlzZTsNCj4g
+VGhvbWFzIEdyYWY7IGpvaG4gZmFzdGFiZW5kOyBzdGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9yZzsg
+Sm9obiBMaW52aWxsZTsNCj4gbmhvcm1hbkB0dXhkcml2ZXIuY29tOyBOaWNvbGFzIERpY2h0ZWw7
+IHZ5YXNldmljQHJlZGhhdC5jb207IEZsb3JpYW4NCj4gRmFpbmVsbGk7IGJ1eXRlbmhAd2FudHN0
+b2ZseS5vcmc7IEF2aWFkIFJhdmVoOyBEYXZpZCBTLiBNaWxsZXI7DQo+IHNobUBjdW11bHVzbmV0
+d29ya3MuY29tOyBBbmR5IEdvc3BvZGFyZWsNCj4gU3ViamVjdDogUmU6IFtQQVRDSCAyLzNdIGJy
+aWRnZTogb2ZmbG9hZCBicmlkZ2UgcG9ydCBhdHRyaWJ1dGVzIHRvIHN3aXRjaCBhc2ljDQo+IGlm
+IGZlYXR1cmUgZmxhZyBzZXQNCj4gDQo+IE9uIEZyaSwgRGVjIDUsIDIwMTQgYXQgNTowNCBQTSwg
+QXJhZCwgUm9uZW4gPHJvbmVuLmFyYWRAaW50ZWwuY29tPiB3cm90ZToNCj4gPiBJIGhhdmUgYW5v
+dGhlciBjYXNlIG9mIHByb3BhZ2F0aW9uIHdoaWNoIGlzIG5vdCBjb3ZlcmVkIGJ5IHRoZSBwcm9w
+b3NlZA0KPiBwYXRjaC4NCj4gPiBBIHJlY2VudCBwYXRjaCBpbnRyb2R1Y2VkIGRlZmF1bHRfcHZp
+ZCBhdHRyaWJ1dGUgZm9yIGEgYnJpZGdlIChzbyBmYXINCj4gc3VwcG9ydGVkIG9ubHkgdmlhIHN5
+c2ZzIGFuZCBub3QgdmlhIG5ldGxpbmspLg0KPiA+IFdoZW4gYSBwb3J0IGpvaW5zIGEgYnJpZGdl
+LCBpdCBpbmhlcml0cyBhIFBWSUQgZnJvbSB0aGUgZGVmYXVsdF9wdmlkIG9mIHRoZQ0KPiBicmlk
+Z2UuDQo+ID4gVGhlIGJyaWRnZSBkcml2ZXIgcHJvcGFnYXRlcyB0aGF0IHRvIHRoZSBuZXdseSBj
+cmVhdGVkIG5ldF9icmlkZ2VfcG9ydC4NCj4gVGhpcyBpcyBkb25lIGluIGJyX3ZsYW4uYzoNCj4g
+Pg0KPiA+IGludCBuYnBfdmxhbl9pbml0KHN0cnVjdCBuZXRfYnJpZGdlX3BvcnQgKnApIHsNCj4g
+PiAgICAgICAgIGludCByYyA9IDA7DQo+ID4NCj4gPiAgICAgICAgIGlmIChwLT5ici0+ZGVmYXVs
+dF9wdmlkKSB7DQo+ID4gICAgICAgICAgICAgICAgIHJjID0gbmJwX3ZsYW5fYWRkKHAsIHAtPmJy
+LT5kZWZhdWx0X3B2aWQsDQo+ID4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIEJS
+SURHRV9WTEFOX0lORk9fUFZJRCB8DQo+ID4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgIEJSSURHRV9WTEFOX0lORk9fVU5UQUdHRUQpOw0KPiA+ICAgICAgICAgfQ0KPiA+DQo+ID4g
+ICAgICAgICByZXR1cm4gcmM7DQo+ID4gfQ0KPiA+DQo+ID4gV2hlbiBMMiBzd2l0Y2hpbmcgaXMg
+b2ZmbG9hZGVkIHRvIHRoZSBIVywgdGhpcyBQVklEIHNldHRpbmcgbmVlZCB0byBiZQ0KPiBwcm9w
+YWdhdGVkLg0KPiANCj4gQWdyZWVkLCBpdCB3b3VsZCBiZSBuaWNlIHRvIGhhdmUgaXQgcHJvcGFn
+YXRlZCBkb3duLCBidXQgdGhlcmUgaXMgYSBub24taWRlYWwNCj4gd29yay1hcm91bmQuICBJZiB5
+b3Ugc2V0IGRlZmF1bHRfcHZpZD0wIHRvIHR1cm4gb2ZmIFBWSUQsIHRoZW4gdGhlIHN3aXRjaCBw
+b3J0DQo+IGRyaXZlciBjYW4gcGljayBzb21lIGludGVybmFsIFZMQU4gSUQganVzdCBmb3IgSFcg
+cHVycG9zZXMgaW4gbWF0Y2hpbmcNCj4gdW50YWdnZWQgcGt0cy4gIEl0J3Mgbm9uLWlkZWFsIGJl
+Y2F1c2UgdGhlIHN3aXRjaCBwb3J0IGRyaXZlciBuZWVkcyB0byByZXNlcnZlDQo+IGEgYmxvY2sg
+b2YgVkxBTiBJRHMgZm9yIGludGVybmFsIHVzYWdlIG9yIHVzZSBzb21lIG90aGVyIG1hdGNoaW5n
+DQo+IG1lY2hhbmlzbSB0byBrZWVwIHVudGFnZ2VkIHBrdHMgd2l0aGluIHRoaXMgYnJpZGdlLg0K
+DQpUaGlzIHdvcmstYXJvdW5kIGxldCB0aGUgYWRtaW5pc3RyYXRvciBhdm9pZCB1c2luZyBWSUQ9
+MSBhcyB0aGUgZGVmYXVsdCBWTEFOIGZvciB1bnRhZ2dlZCBmcmFtZXMuIEhvd2V2ZXIsIGl0IGRv
+ZXMgbm90IGxldCB0aGUgYWRtaW5pc3RyYXRvciBwaWNrIGEgVklEIG9mIGhlciBjaG9pY2UuDQoN
+Cj4gDQo+IEJldHRlciB0byBoYXZlIGRlZmF1bHRfcHZpZCB2YWx1ZSBwcm9wYWdhdGVkIGRvd24u
+ICBCdXQsIGRlZmF1bHRfcHZpZCBpcyBhDQo+IHBlci1icmlkZ2UgcHJvcGVydHksIG5vdCBhIHBl
+ci1icmlkZ2UtcG9ydCBwcm9wZXJ0eS4NCj4gUlRNX1NFVExJTksvUlRNX0dFVExJTksgZm9yIFBG
+X0JSSURHRSBkb2VzIGhhdmUgQUZTUEVDIGZvciBwZXItYnJpZGdlDQo+IGFuZCBQUk9USU5GTyBm
+b3IgcGVyLWJyaWRnZS1wb3J0LCBzbyBpdCBzZWVtcyBQVklEIG5lZWRzIHRvIGJlIHBhcnQgb2YN
+Cj4gQUZTUEVDLg0KDQpJIGJlbGlldmUgQUZTUEVDIGlzIG5vdCBsaW1pdGVkIHRvIHBlci1icmlk
+Z2UgcHJvcGVydGllcy4gSXQgaXMgcGVyLWJyaWRnZSB3aGVuIHRoZSBuZXRsaW5rIG1zZydzIGlm
+aW5kZXggaXMgdGhhdCBvZiBhIGJyaWRnZSBhbmQgU0VMRiBmbGFnIGlzIHNldC4NCkFGU1BFQyBp
+cyBmb3IgYSBwb3J0IHdoZW4gdGhlIG5ldGxpbmsgbXNnJ3MgaWZpbmRleCBpcyB0aGF0IG9mIGFu
+IGVuc2xhdmVkIHBvcnQgZGV2aWNlIGFuZCBNQVNURVIgZmxhZyBpcyBzZXQgKG9yIG5laXRoZXIg
+TUFTVEVSIG5vciBTRUxGIGZsYWcgaXMgc2V0KQ0KUFZJRCBpcyBvbmUgb2YgdGhlIGZsYWdzIGFz
+c29jaWF0ZWQgd2l0aCBhIFZJRCBpbiBicmlkZ2Vfdmxhbl9pbmZvLg0KZGVmYXVsdF9wdmlkIGlz
+IG5vdCBjdXJyZW50bHkgc3VwcG9ydGVkIGJ5IG5ldGxpbmsuIEEgbmV3IElGTEFfQlJJREdFX0RF
+RkFVTFRfUFZJRCBjb3VsZCBiZSBpbnRyb2R1Y2VkIHRvIGNhcnJ5IHRoaXMgcHJvcGVydHkgd2hl
+biBhIG5sbXNnIGlzIGRpcmVjdGVkIGF0IGEgYnJpZGdlLg0KDQo+IA0KPiA+SG93ZXZlciwgaXQg
+ZG9lcyBub3QgY29tZSB2aWEgbmRvX2JyaWRnZV9zZXRsaW5rLiBUaGUgcHJvcG9zZWQNCj4gcHJv
+cGFnYXRpb24gYXQgYnJfc2V0bGluayBvciBhbiB1cCBsZXZlbCBvbmUgYXQgcnRuZXRsaW5rIGFy
+ZSBub3QgY2FwYWJsZSBvZg0KPiBoYW5kbGluZyB0aGlzIGNhc2UuDQo+ID4gT25lIHBvc3NpYmxl
+IHdheSBmb3IgaGFuZGxpbmcgdGhhdCBpcyB0byByZXBsYWNlIHRoZSBjYWxsIHRvDQo+ID5uYnBf
+dmxhbl9hZGQgd2l0aCBhIGNhbGwgdG8gYSBuZXcgZnVuY3Rpb24gbGV0J3Mgc2F5ICBpbnQNCj4g
+PmJyX3Byb3BhZ2F0ZV92bGFuX2FkZChzdHJ1Y3QgbmV0X2JyaWRnZV9wb3J0ICpwb3J0LCB1MTYg
+dmlkLCB1MTYgZmxhZ3MpDQo+IFRoaXMgZnVuY3Rpb24gd2lsbCBjb21wb3NlIGEgbmV0bGluayBt
+ZXNzYWdlIHdpdGggVkxBTiBmaWx0ZXJpbmcgaW5mb3JtYXRpb24NCj4gKGkuZS4gQUZfU1BFQyB3
+aXRoIFZMQU5fSU5GTykgYW5kIGNhbGwgYnJfc2V0bGluayAtIGxldmVyYWdpbmcgdGhlIG9mZmxv
+YWQNCj4gc3VwcG9ydCBwcm9wb3NlZCBieSBSb29wYS4NCj4gPg0KPiA+IElmIHRoaXMgaXMgYW4g
+YWNjZXB0YWJsZSBjb3Vyc2Ugb2YgYWN0aW9uLCBJIGNvdWxkIHdvcmsgb24gc3VjaCBwYXRjaC4N
+Cj4gPg0KPiA+DQo+ID4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4+IEZyb206IG5l
+dGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtDQo+ID4+IG93bmVyQHZn
+ZXIua2VybmVsLm9yZ10gT24gQmVoYWxmIE9mIEFyYWQsIFJvbmVuDQo+ID4+IFNlbnQ6IEZyaWRh
+eSwgRGVjZW1iZXIgMDUsIDIwMTQgMzoyMSBQTQ0KPiA+PiBUbzogUm9vcGEgUHJhYmh1OyBTY290
+dCBGZWxkbWFuOyBOZXRkZXYNCj4gPj4gQ2M6IEppcsOtIFDDrXJrbzsgSmFtYWwgSGFkaSBTYWxp
+bTsgQmVuamFtaW4gTGFIYWlzZTsgVGhvbWFzIEdyYWY7IGpvaG4NCj4gPj4gZmFzdGFiZW5kOyBz
+dGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9yZzsgSm9obiBMaW52aWxsZTsNCj4gPj4gbmhvcm1hbkB0
+dXhkcml2ZXIuY29tOyBOaWNvbGFzIERpY2h0ZWw7IHZ5YXNldmljQHJlZGhhdC5jb207IEZsb3Jp
+YW4NCj4gPj4gRmFpbmVsbGk7IGJ1eXRlbmhAd2FudHN0b2ZseS5vcmc7IEF2aWFkIFJhdmVoOyBE
+YXZpZCBTLiBNaWxsZXI7DQo+ID4+IHNobUBjdW11bHVzbmV0d29ya3MuY29tOyBBbmR5IEdvc3Bv
+ZGFyZWsNCj4gPj4gU3ViamVjdDogUkU6IFtQQVRDSCAyLzNdIGJyaWRnZTogb2ZmbG9hZCBicmlk
+Z2UgcG9ydCBhdHRyaWJ1dGVzIHRvDQo+ID4+IHN3aXRjaCBhc2ljIGlmIGZlYXR1cmUgZmxhZyBz
+ZXQNCj4gPj4NCj4gPj4NCj4gPj4NCjxzbmlwPg0K
