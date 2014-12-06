@@ -1,28 +1,93 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] uapi: fix to export linux/vm_sockets.h
-Date: Fri, 05 Dec 2014 21:36:08 -0800 (PST)
-Message-ID: <20141205.213608.2021435677853280312.davem@davemloft.net>
-References: <1417396577-32499-1-git-send-email-yamada.m@jp.panasonic.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH v2 iproute] bridge link: add option 'self'
+Date: Fri, 5 Dec 2014 21:36:20 -0800
+Message-ID: <CAE4R7bBYOW60bL07hD-wPWZZZxQ+jKx95cG0wnEMdU8KMZB5rw@mail.gmail.com>
+References: <1417827563-811-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
-	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, piotr.krol-zILERgsGILsAvxtiuMwx3w@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, sakari.ailus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: yamada.m-NAum8xwdG0+S7A1Ibl2khg@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1417396577-32499-1-git-send-email-yamada.m-NAum8xwdG0+S7A1Ibl2khg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
+	john fastabend <john.fastabend@gmail.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	John Linville <linville@tuxdriver.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, shm@cumulusnetworks.com,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:55164 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751738AbaLFFgV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Dec 2014 00:36:21 -0500
+Received: by mail-wi0-f182.google.com with SMTP id h11so525437wiw.15
+        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 21:36:20 -0800 (PST)
+In-Reply-To: <1417827563-811-1-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Masahiro Yamada <yamada.m-NAum8xwdG0+S7A1Ibl2khg@public.gmane.org>
-Date: Mon,  1 Dec 2014 10:16:17 +0900
+On Fri, Dec 5, 2014 at 4:59 PM,  <roopa@cumulusnetworks.com> wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> Currently self is set internally only if hwmode is set.
+> This makes it necessary for the hw to have a mode.
+> There is no hwmode really required to go to hardware. So, introduce
+> self for anybody who wants to target hardware.
+>
+> v1 -> v2
+>     - fix a few bugs. Initialize flags to zero: this was required to
+>     keep the current behaviour unchanged.
+>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+>  bridge/link.c |    9 ++++++---
+>  1 file changed, 6 insertions(+), 3 deletions(-)
+>
+> diff --git a/bridge/link.c b/bridge/link.c
+> index 90d9e7f..b8b8675 100644
+> --- a/bridge/link.c
+> +++ b/bridge/link.c
+> @@ -261,7 +261,7 @@ static int brlink_modify(int argc, char **argv)
+>         __s16 priority = -1;
+>         __s8 state = -1;
+>         __s16 mode = -1;
+> -       __u16 flags = BRIDGE_FLAGS_MASTER;
+> +       __u16 flags = 0;
 
-> A typo "header=y" was introduced by commit 7071cf7fc435
-> (uapi: add missing network related headers to kbuild).
-> 
-> Signed-off-by: Masahiro Yamada <yamada.m-NAum8xwdG0+S7A1Ibl2khg@public.gmane.org>
-> Cc: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+I don't follow why this change is necessary.  Seems defaulting to
+MASTER unless SELF is set due to "self" or "hwmode" would be more
+correct (and expected).
 
-Applied.
+>         struct rtattr *nest;
+>
+>         memset(&req, 0, sizeof(req));
+> @@ -321,6 +321,8 @@ static int brlink_modify(int argc, char **argv)
+>                                         "\"veb\".\n");
+>                                 exit(-1);
+>                         }
+> +               } else if (strcmp(*argv, "self") == 0) {
+> +                       flags = BRIDGE_FLAGS_SELF;
+>                 } else {
+>                         usage();
+>                 }
+> @@ -375,10 +377,11 @@ static int brlink_modify(int argc, char **argv)
+>          * devices so far.  Thus we only need to include the flags attribute
+>          * if we are setting the hw mode.
+>          */
+
+The comment above needs to be updated to reflect the new logic.
+
+> -       if (mode >= 0) {
+> +       if (mode >= 0 || flags > 0) {
+>                 nest = addattr_nest(&req.n, sizeof(req), IFLA_AF_SPEC);
+>
+> -               addattr16(&req.n, sizeof(req), IFLA_BRIDGE_FLAGS, flags);
+> +               if (flags > 0)
+> +                       addattr16(&req.n, sizeof(req), IFLA_BRIDGE_FLAGS, flags);
+>
+>                 if (mode >= 0)
+>                         addattr16(&req.n, sizeof(req), IFLA_BRIDGE_MODE, mode);
+> --
+> 1.7.10.4
+>
