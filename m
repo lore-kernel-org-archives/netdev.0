@@ -1,58 +1,55 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 06/16] i40e: Add a virtual channel op to config RSS
-Date: Sat,  6 Dec 2014 05:02:03 -0800
-Message-ID: <1417870933-17248-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 03/16] i40e: allow various base numbers in debugfs aq commands
+Date: Sat,  6 Dec 2014 05:02:00 -0800
+Message-ID: <1417870933-17248-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1417870933-17248-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:8814 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:8816 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752662AbaLFNC6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Dec 2014 08:02:58 -0500
+	id S1752653AbaLFNC5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Dec 2014 08:02:57 -0500
 In-Reply-To: <1417870933-17248-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Add the Virtual Channel OP event opcode for CONFIG_RSS, so that the
-Virtual Channel state machine can properly decipher status change events.
+Use the 'i' rather than the more restrictive 'x' or 'd' in the aq_cmd
+arguments.  This makes the user interface much more forgiving and user
+friendly.
 
-Change-ID: I09939c7aa380147f60c49fd01ef2e27d0dc1c299
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Acked-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-ID: I5dcd57b9befc047e06b74cf1152a25a3fa9e1309
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl.h   | 1 +
- drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h | 1 +
- 2 files changed, 2 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
-index 70951d2..61dd1b18 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
-@@ -79,6 +79,7 @@ enum i40e_virtchnl_ops {
- 	I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE,
- 	I40E_VIRTCHNL_OP_GET_STATS,
- 	I40E_VIRTCHNL_OP_FCOE,
-+	I40E_VIRTCHNL_OP_CONFIG_RSS,
- /* PF sends status change events to vfs using
-  * the following op.
-  */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
-index cd18d56..e0c8208 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
-@@ -79,6 +79,7 @@ enum i40e_virtchnl_ops {
- 	I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE,
- 	I40E_VIRTCHNL_OP_GET_STATS,
- 	I40E_VIRTCHNL_OP_FCOE,
-+	I40E_VIRTCHNL_OP_CONFIG_RSS,
- /* PF sends status change events to vfs using
-  * the following op.
-  */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index 3a3c237..16ac3f8 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -1493,7 +1493,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 		if (!desc)
+ 			goto command_write_done;
+ 		cnt = sscanf(&cmd_buf[11],
+-			     "%hx %hx %hx %hx %x %x %x %x %x %x",
++			     "%hi %hi %hi %hi %i %i %i %i %i %i",
+ 			     &desc->flags,
+ 			     &desc->opcode, &desc->datalen, &desc->retval,
+ 			     &desc->cookie_high, &desc->cookie_low,
+@@ -1541,7 +1541,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 		if (!desc)
+ 			goto command_write_done;
+ 		cnt = sscanf(&cmd_buf[20],
+-			     "%hx %hx %hx %hx %x %x %x %x %x %x %hd",
++			     "%hi %hi %hi %hi %i %i %i %i %i %i %hi",
+ 			     &desc->flags,
+ 			     &desc->opcode, &desc->datalen, &desc->retval,
+ 			     &desc->cookie_high, &desc->cookie_low,
 -- 
 1.9.3
