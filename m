@@ -1,52 +1,44 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v2 0/4] net: allow setting congctl via routing table
-Date: Sun,  7 Dec 2014 00:39:19 +0100
-Message-ID: <1417909163-19135-1-git-send-email-dborkman@redhat.com>
-Cc: hannes@stressinduktion.org, fw@strlen.de, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH net-next 1/4] netdevice: Add a function to check macvlan port
+Date: Sat,  6 Dec 2014 15:53:04 -0800
+Message-ID: <1417909984-13133-1-git-send-email-maheshb@google.com>
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Mahesh Bandewar <maheshb@google.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42932 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752005AbaLFXje (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Dec 2014 18:39:34 -0500
+Received: from mail-pd0-f202.google.com ([209.85.192.202]:50545 "EHLO
+	mail-pd0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751734AbaLFXxI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Dec 2014 18:53:08 -0500
+Received: by mail-pd0-f202.google.com with SMTP id v10so342839pde.3
+        for <netdev@vger.kernel.org>; Sat, 06 Dec 2014 15:53:07 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the second part of our work and allows for setting the congestion
-control algorithm via routing table. For details, please see individual
-patches.
+Similar to a check for macvlan device, netif_is_macvlan(), add
+another function to check if a device is used as macvlan port.
 
-Joint work with Florian Westphal, suggested by Hannes Frederic Sowa.
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+ include/linux/netdevice.h | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-Patch for iproute2: http://patchwork.ozlabs.org/patch/418149/
-
-Thanks!
-
-v1->v2:
- - Very sorry, I noticed I had decnet disabled during testing.
-   Added missing header include in decnet, rest as is.
-
-Daniel Borkmann (4):
-  net: tcp: refactor reinitialization of congestion control
-  net: tcp: add key management to congestion control
-  net: tcp: add RTAX_CC_ALGO fib handling
-  net: tcp: add per route congestion control
-
- include/net/inet_connection_sock.h |  3 +-
- include/net/tcp.h                  | 22 +++++++++-
- include/uapi/linux/rtnetlink.h     |  2 +
- net/core/rtnetlink.c               | 15 ++++++-
- net/decnet/dn_fib.c                |  3 +-
- net/decnet/dn_table.c              |  4 +-
- net/ipv4/fib_semantics.c           | 14 +++++-
- net/ipv4/tcp_cong.c                | 87 ++++++++++++++++++++++++++++++++------
- net/ipv4/tcp_ipv4.c                |  2 +
- net/ipv4/tcp_minisocks.c           | 30 +++++++++++--
- net/ipv4/tcp_output.c              | 21 +++++++++
- net/ipv6/ip6_fib.c                 | 15 ++++++-
- net/ipv6/route.c                   |  3 +-
- net/ipv6/tcp_ipv6.c                |  2 +
- 14 files changed, 197 insertions(+), 26 deletions(-)
-
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 29c92ee9ed56..1f49aac258f9 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3641,6 +3641,11 @@ static inline bool netif_is_macvlan(struct net_device *dev)
+ 	return dev->priv_flags & IFF_MACVLAN;
+ }
+ 
++static inline bool netif_is_macvlan_port(struct net_device *dev)
++{
++	return dev->priv_flags & IFF_MACVLAN_PORT;
++}
++
+ static inline bool netif_is_bond_master(struct net_device *dev)
+ {
+ 	return dev->flags & IFF_MASTER && dev->priv_flags & IFF_BONDING;
 -- 
-1.7.11.7
+2.2.0.rc0.207.ga3a616c
