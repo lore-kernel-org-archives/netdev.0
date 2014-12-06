@@ -1,38 +1,69 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next v2 07/16] i40e: Define and use i40e_is_vf macro
-Date: Sat, 06 Dec 2014 05:18:59 -0800
-Message-ID: <1417871939.31745.13.camel@perches.com>
-References: <1417870933-17248-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1417870933-17248-8-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch v2] ipvs: uninitialized data with IP_VS_IPV6
+Date: Sat, 6 Dec 2014 16:49:24 +0300
+Message-ID: <20141206134924.GA17278@mwanda>
+References: <alpine.LFD.2.11.1412042308100.4841@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net,
-	Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0094.hostedemail.com ([216.40.44.94]:57796 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751761AbaLFNTE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Dec 2014 08:19:04 -0500
-In-Reply-To: <1417870933-17248-8-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, kernel-janitors@vger.kernel.org
+To: Wensong Zhang <wensong@linux-vs.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.11.1412042308100.4841@ja.home.ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2014-12-06 at 05:02 -0800, Jeff Kirsher wrote:
-> From: Anjali Singhai Jain <anjali.singhai@intel.com>
-> 
-> This patch is useful for future expansion when new VF MAC types get
-> added. It helps with cleaning up VF driver flow.
-[]
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-[]
-> +#define i40e_is_vf(_hw)	((_hw)->mac.type == I40E_MAC_VF)
-[]
-> diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-[]
-> +#define i40e_is_vf(_hw)	((_hw)->mac.type == I40E_MAC_VF)
+The app_tcp_pkt_out() function expects "*diff" to be set and ends up
+using uninitialized data if CONFIG_IP_VS_IPV6 is turned on.
 
-These are probably better as static inline
+The same issue is there in app_tcp_pkt_in().  Thanks to Julian Anastasov
+for noticing that.
+
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+v2: fix app_tcp_pkt_in() as well.  This is an old bug.
+
+diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+index 1d5341f..5d3daae 100644
+--- a/net/netfilter/ipvs/ip_vs_ftp.c
++++ b/net/netfilter/ipvs/ip_vs_ftp.c
+@@ -183,6 +183,8 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 	struct nf_conn *ct;
+ 	struct net *net;
+ 
++	*diff = 0;
++
+ #ifdef CONFIG_IP_VS_IPV6
+ 	/* This application helper doesn't work with IPv6 yet,
+ 	 * so turn this into a no-op for IPv6 packets
+@@ -191,8 +193,6 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 		return 1;
+ #endif
+ 
+-	*diff = 0;
+-
+ 	/* Only useful for established sessions */
+ 	if (cp->state != IP_VS_TCP_S_ESTABLISHED)
+ 		return 1;
+@@ -322,6 +322,9 @@ static int ip_vs_ftp_in(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 	struct ip_vs_conn *n_cp;
+ 	struct net *net;
+ 
++	/* no diff required for incoming packets */
++	*diff = 0;
++
+ #ifdef CONFIG_IP_VS_IPV6
+ 	/* This application helper doesn't work with IPv6 yet,
+ 	 * so turn this into a no-op for IPv6 packets
+@@ -330,9 +333,6 @@ static int ip_vs_ftp_in(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 		return 1;
+ #endif
+ 
+-	/* no diff required for incoming packets */
+-	*diff = 0;
