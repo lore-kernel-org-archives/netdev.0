@@ -1,63 +1,39 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: [PATCH 3.12 60/66] net/ping: handle protocol mismatching scenario
-Date: Sat,  6 Dec 2014 16:07:52 +0100
-Message-ID: <29c881caca77550c4f0c97be09f5fc659c9955c5.1417878427.git.jslaby@suse.cz>
-References: <d278ba6471641f99eda3b3c76f8414339c9dbed0.1417878427.git.jslaby@suse.cz>
-Cc: linux-kernel@vger.kernel.org, Jane Zhou <a17711@motorola.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	Yiwei Zhao <gbjc64@motorola.com>, Jiri Slaby <jslaby@suse.cz>
-To: stable@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d278ba6471641f99eda3b3c76f8414339c9dbed0.1417878427.git.jslaby@suse.cz>
-In-Reply-To: <cover.1417878427.git.jslaby@suse.cz>
-References: <cover.1417878427.git.jslaby@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] tcp: refine TSO autosizing
+Date: Sat, 06 Dec 2014 08:58:46 -0800
+Message-ID: <1417885126.15618.32.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1417788937.4322.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1417832560.15618.29.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Nandita Dukkipati <nanditad@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:41128 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751255AbaLFQ64 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Dec 2014 11:58:56 -0500
+Received: by mail-ig0-f179.google.com with SMTP id r2so846995igi.6
+        for <netdev@vger.kernel.org>; Sat, 06 Dec 2014 08:58:55 -0800 (PST)
+In-Reply-To: <1417832560.15618.29.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jane Zhou <a17711@motorola.com>
+On Fri, 2014-12-05 at 18:22 -0800, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
 
-3.12-stable review patch.  If anyone has any objections, please let me know.
+...
 
-===============
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> ---
+> v2: added tcp_tso_autosize() helper and removed tp->xmit_size_goal_segs
 
-commit 91a0b603469069cdcce4d572b7525ffc9fd352a6 upstream.
+Please do not apply this patch. I'll send a v3.
 
-ping_lookup() may return a wrong sock if sk_buff's and sock's protocols
-dont' match. For example, sk_buff's protocol is ETH_P_IPV6, but sock's
-sk_family is AF_INET, in that case, if sk->sk_bound_dev_if is zero, a wrong
-sock will be returned.
-the fix is to "continue" the searching, if no matching, return NULL.
-
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Jane Zhou <a17711@motorola.com>
-Signed-off-by: Yiwei Zhao <gbjc64@motorola.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
----
- net/ipv4/ping.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index c211607b79b3..8bd51f49aa96 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -214,6 +214,8 @@ static struct sock *ping_lookup(struct net *net, struct sk_buff *skb, u16 ident)
- 					     &ipv6_hdr(skb)->daddr))
- 				continue;
- #endif
-+		} else {
-+			continue;
- 		}
- 
- 		if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif)
--- 
-2.1.3
+We still need to cook skb with a multiple of mss bytes.
