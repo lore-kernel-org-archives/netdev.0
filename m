@@ -1,59 +1,92 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2 net-next 0/6] allow eBPF programs to be attached to
- sockets
-Date: Fri, 05 Dec 2014 21:48:18 -0800 (PST)
-Message-ID: <20141205.214818.1275634074992727284.davem@davemloft.net>
-References: <1417475199-15950-1-git-send-email-ast@plumgrid.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v2 2/2] rocker: remove swdev mode
+Date: Fri, 5 Dec 2014 21:44:47 -0800
+Message-ID: <CAE4R7bC11ne2eoFUjMhFtJWU+asw8-sUd5e_ZdZ-T=oti_CRdg@mail.gmail.com>
+References: <1417828604-42722-3-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1417475199-15950-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
+	john fastabend <john.fastabend@gmail.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	John Linville <linville@tuxdriver.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, shm@cumulusnetworks.com,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:47924 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750746AbaLFFos (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Dec 2014 00:44:48 -0500
+Received: by mail-wg0-f49.google.com with SMTP id n12so2448871wgh.8
+        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 21:44:47 -0800 (PST)
+In-Reply-To: <1417828604-42722-3-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Date: Mon,  1 Dec 2014 15:06:33 -0800
+On Fri, Dec 5, 2014 at 5:16 PM,  <roopa@cumulusnetworks.com> wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> This resets rocker mode to zero (vepa) during gets.
+> This is because the default getlink handler that rocker
+> uses today always takes a mode.
+>
+> Will fix that in a subsequent patch.
 
-> V1->V2:
-> 
-> fixed comments in sample code to state clearly that packet data is accessed
-> with LD_ABS instructions and not internal skb fields.
-> Also replaced constants in:
-> BPF_LD_ABS(BPF_B, 14 + 9 /* R0 = ip->proto */),
-> with:
-> BPF_LD_ABS(BPF_B, ETH_HLEN + offsetof(struct iphdr, protocol) /* R0 = ip->proto */),
-> 
-> V1 cover:
-> 
-> Introduce BPF_PROG_TYPE_SOCKET_FILTER type of eBPF programs that can be
-> attached to sockets with setsockopt().
-> Allow such programs to access maps via lookup/update/delete helpers.
-> 
-> This feature was previewed by bpf manpage in commit b4fc1a460f30("Merge branch 'bpf-next'")
-> Now it can actually run.
-> 
-> 1st patch adds LD_ABS/LD_IND instruction verification and
-> 2nd patch adds new setsockopt() flag.
-> Patches 3-6 are examples in assembler and in C.
-> 
-> Though native eBPF programs are way more powerful than classic filters
-> (attachable through similar setsockopt() call), they don't have skb field
-> accessors yet. Like skb->pkt_type, skb->dev->ifindex are not accessible.
-> There are sevaral ways to achieve that. That will be in the next set of patches.
-> So in this set native eBPF programs can only read data from packet and
-> access maps.
-> 
-> The most powerful example is sockex2_kern.c from patch 6 where ~200 lines of C
-> are compiled into ~300 of eBPF instructions.
-> It shows how quite complex packet parsing can be done.
-> 
-> LLVM used to build examples is at https://github.com/iovisor/llvm
-> which is fork of llvm trunk that I'm cleaning up for upstreaming.
+One patch set with that fix would be better, otherwise your patch here
+will show rocker port running in VEB mode, which is wrong.  Maybe
+return mode=-1 for unspecified, or something like that?
 
-Series applied, thanks.
+>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+>  drivers/net/ethernet/rocker/rocker.c |   18 +-----------------
+>  1 file changed, 1 insertion(+), 17 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+> index fded127..391077c 100644
+> --- a/drivers/net/ethernet/rocker/rocker.c
+> +++ b/drivers/net/ethernet/rocker/rocker.c
+> @@ -3700,27 +3700,11 @@ static int rocker_port_bridge_setlink(struct net_device *dev,
+>  {
+>         struct rocker_port *rocker_port = netdev_priv(dev);
+>         struct nlattr *protinfo;
+> -       struct nlattr *afspec;
+>         struct nlattr *attr;
+> -       u16 mode;
+>         int err;
+>
+>         protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
+>                                    IFLA_PROTINFO);
+> -       afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
+> -
+> -       if (afspec) {
+> -               attr = nla_find_nested(afspec, IFLA_BRIDGE_MODE);
+> -               if (attr) {
+> -                       if (nla_len(attr) < sizeof(mode))
+> -                               return -EINVAL;
+> -
+> -                       mode = nla_get_u16(attr);
+> -                       if (mode != BRIDGE_MODE_SWDEV)
+> -                               return -EINVAL;
+> -               }
+> -       }
+> -
+>         if (protinfo) {
+>                 attr = nla_find_nested(protinfo, IFLA_BRPORT_LEARNING);
+>                 if (attr) {
+> @@ -3755,7 +3739,7 @@ static int rocker_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+>                                       u32 filter_mask)
+>  {
+>         struct rocker_port *rocker_port = netdev_priv(dev);
+> -       u16 mode = BRIDGE_MODE_SWDEV;
+> +       u16 mode = 0;
+>         u32 mask = BR_LEARNING | BR_LEARNING_SYNC;
+>
+>         return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode,
+> --
+> 1.7.10.4
+>
