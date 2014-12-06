@@ -1,108 +1,93 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: kernel panic receiving flooded VXLAN traffic with OVS
-Date: Fri, 5 Dec 2014 18:51:20 -0800
-Message-ID: <CAEP_g=_mfSCH1250ezx_h8_yM_4FzsYcsS6EnGi99AFoWO_MKw@mail.gmail.com>
-References: <19014.1415325508@famine> <8549.1417657547@famine>
+From: "Arad, Ronen" <ronen.arad@intel.com>
+Subject: RE: [PATCH 2/3] bridge: offload bridge port attributes to switch
+ asic if feature flag set
+Date: Sat, 6 Dec 2014 03:06:43 +0000
+Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505D84494@ORSMSX101.amr.corp.intel.com>
+References: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com>
+ <CAE4R7bBOCgoH0zL6+82jj2qjcP8n3kSo51x+i5SoqkN8Ff1CBQ@mail.gmail.com>
+ <54815883.80909@cumulusnetworks.com>
+ <E4CD12F19ABA0C4D8729E087A761DC3505D842BA@ORSMSX101.amr.corp.intel.com>
+ <E4CD12F19ABA0C4D8729E087A761DC3505D8436D@ORSMSX101.amr.corp.intel.com>
+ <54826DFF.6090906@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"discuss@openvswitch.org" <discuss@openvswitch.org>,
-	Pravin Shelar <pshelar@nicira.com>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	=?utf-8?B?Smlyw60gUMOtcmtv?= <jiri@resnulli.us>,
+	"Jamal Hadi Salim" <jhs@mojatatu.com>,
+	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	John Linville <linville@tuxdriver.com>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"buytenh@wantstofly.org" <buytenh@wantstofly.org>,
+	Aviad Raveh <aviadr@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: John Fastabend <john.fastabend@gmail.com>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:37287 "HELO
-	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750998AbaLFCvl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2014 21:51:41 -0500
-Received: by mail-qg0-f42.google.com with SMTP id z107so1425401qgd.29
-        for <netdev@vger.kernel.org>; Fri, 05 Dec 2014 18:51:40 -0800 (PST)
-In-Reply-To: <8549.1417657547@famine>
+Received: from mga02.intel.com ([134.134.136.20]:50914 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750840AbaLFDGr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Dec 2014 22:06:47 -0500
+In-Reply-To: <54826DFF.6090906@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 3, 2014 at 5:45 PM, Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
->
-> Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
->
->>       I am able to reproduce a kernel panic on an system using
->>openvswitch when receiving VXLAN traffic under a very specific set of
->>circumstances.  This occurs with a recent net-next as well as an Ubuntu
->>3.13 kernel.  I'm not sure if the error lies in OVS, GRO, or elsewhere.
->>
->>       In summary, when the system receives multiple VXLAN encapsulated
->>TCP segments for a different system (not intended for local reception)
->>that are from the middle of an active connection (received due to a switch
->>flood), and are tagged to a VLAN not configured on the local host, then
->>the system panics in skb_segment when OVS calls __skb_gso_segment on the
->>GRO skb prior to performing an upcall to user space.
->>
->>       The panic occurs in skbuff.c:skb_segment(), at the BUG_ON around
->>line 3036:
->>
->>struct sk_buff *skb_segment(struct sk_buff *head_skb,
->>                           netdev_features_t features)
->>{
->>[...]
->>               skb_shinfo(nskb)->tx_flags = skb_shinfo(head_skb)->tx_flags &
->>                       SKBTX_SHARED_FRAG;
->>
->>               while (pos < offset + len) {
->>                       if (i >= nfrags) {
->>                               BUG_ON(skb_headlen(list_skb));
->>
->>                               i = 0;
->>
->>
->>       The BUG_ON triggers because the skbs that have been GRO
->>accumulated are partially or entirely linear, depending upon the receiving
->>network device (sky2 is partial, enic is entire).  The receive buffers end
->>up being linear evidently because the mtu is set to 9000, and
->>__netdev_alloc_skb calls __alloc_skb (and thus kmalloc) instead of
->>__netdev_alloc_frag followed by build_skb.
->>
->>       The foreign-VLAN VXLAN TCP segments are not processed as normal
->>VXLAN traffic, as there is no listener on the VLAN in question, so once
->>GRO processes them, they are sent directly to ovs_vport_receive.  The
->>panic stack appears as follows:
->
->         I've worked out some more details on this with regards to the
-> cause.
->
->         There seems to be a mismatch between GRO and the packet receive
-> processing.  GRO only looks at the receiving port number in order to
-> trigger VXLAN GRO accumulation (which will in turn perform TCP
-> accumulation on the encapsulated segment).  For the panicking case, the
-> packet receive processing doesn't deliver the GRO skb to VXLAN because
-> there is no VXLAN listener on the foreign VLAN.
->
->         The GRO skb is not processed through iptunnel_pull_header by
-> vxlan_udp_encap_recv, so the GRO skb is left with the skb header
-> pointing to the UDP header, not the inner TCP header.  Note that second
-> and later skbs within the GRO skb have their headers pointing to the
-> inner TCP header.
->
->         Then, when ovs_dp_upcall later ends up in inet_gso_segment, it
-> passes the GRO skb to udp4_ufo_fragment, not tcp_gso_segment.
->
->         GRO and the skb_segment call from ovs_dp_upcall appear to work
-> fine on TCP-in-VXLAN segments that do pass through the VXLAN receive
-> processing.
->
->         I'm not sure how best to resolve this; adding a check to the GRO
-> processing that an skb destined for the VXLAN port would actually be
-> received by VXLAN sounds like a possible solution, but that doesn't seem
-> to be simple to implement (because the skb->dev at the time GRO runs may
-> not match what it becomes later if the VXLAN runs on a VLAN).
-
-I don't think there is anything inherently wrong with aggregating TCP
-segments in VXLAN that are not destined for the local host. This is
-conceptually the same as doing aggregation for TCP packets where we
-only perform L2 bridging - in theory we shouldn't look at the upper
-layers but it is fine as long as we faithfully reconstruct it on the
-way out.
-
-A VXLAN packet that has been properly GRO-ed should result in a call
-to tcp_tso_segment() even without the header being pulled off, since
-that's what would happen for locally generated VXLAN packets on
-egress. That's what I thought I was fixing with my previous patch to
-the VXLAN GRO code although perhaps there is another issue.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSm9obiBGYXN0YWJlbmQg
+W21haWx0bzpqb2huLmZhc3RhYmVuZEBnbWFpbC5jb21dDQo+IFNlbnQ6IEZyaWRheSwgRGVjZW1i
+ZXIgMDUsIDIwMTQgNjo0NiBQTQ0KPiBUbzogQXJhZCwgUm9uZW4NCj4gQ2M6IFJvb3BhIFByYWJo
+dTsgU2NvdHQgRmVsZG1hbjsgTmV0ZGV2OyBKaXLDrSBQw61ya287IEphbWFsIEhhZGkgU2FsaW07
+DQo+IEJlbmphbWluIExhSGFpc2U7IFRob21hcyBHcmFmOyBzdGVwaGVuQG5ldHdvcmtwbHVtYmVy
+Lm9yZzsgSm9obg0KPiBMaW52aWxsZTsgbmhvcm1hbkB0dXhkcml2ZXIuY29tOyBOaWNvbGFzIERp
+Y2h0ZWw7IHZ5YXNldmljQHJlZGhhdC5jb207DQo+IEZsb3JpYW4gRmFpbmVsbGk7IGJ1eXRlbmhA
+d2FudHN0b2ZseS5vcmc7IEF2aWFkIFJhdmVoOyBEYXZpZCBTLiBNaWxsZXI7DQo+IHNobUBjdW11
+bHVzbmV0d29ya3MuY29tOyBBbmR5IEdvc3BvZGFyZWsNCj4gU3ViamVjdDogUmU6IFtQQVRDSCAy
+LzNdIGJyaWRnZTogb2ZmbG9hZCBicmlkZ2UgcG9ydCBhdHRyaWJ1dGVzIHRvIHN3aXRjaCBhc2lj
+DQo+IGlmIGZlYXR1cmUgZmxhZyBzZXQNCj4gDQo+IE9uIDEyLzA1LzIwMTQgMDU6MDQgUE0sIEFy
+YWQsIFJvbmVuIHdyb3RlOg0KPiA+IEkgaGF2ZSBhbm90aGVyIGNhc2Ugb2YgcHJvcGFnYXRpb24g
+d2hpY2ggaXMgbm90IGNvdmVyZWQgYnkgdGhlIHByb3Bvc2VkDQo+IHBhdGNoLg0KPiA+IEEgcmVj
+ZW50IHBhdGNoIGludHJvZHVjZWQgZGVmYXVsdF9wdmlkIGF0dHJpYnV0ZSBmb3IgYSBicmlkZ2Ug
+KHNvIGZhcg0KPiBzdXBwb3J0ZWQgb25seSB2aWEgc3lzZnMgYW5kIG5vdCB2aWEgbmV0bGluayku
+DQo+ID4gV2hlbiBhIHBvcnQgam9pbnMgYSBicmlkZ2UsIGl0IGluaGVyaXRzIGEgUFZJRCBmcm9t
+IHRoZSBkZWZhdWx0X3B2aWQgb2YgdGhlDQo+IGJyaWRnZS4NCj4gPiBUaGUgYnJpZGdlIGRyaXZl
+ciBwcm9wYWdhdGVzIHRoYXQgdG8gdGhlIG5ld2x5IGNyZWF0ZWQgbmV0X2JyaWRnZV9wb3J0Lg0K
+PiBUaGlzIGlzIGRvbmUgaW4gYnJfdmxhbi5jOg0KPiA+DQo+ID4gaW50IG5icF92bGFuX2luaXQo
+c3RydWN0IG5ldF9icmlkZ2VfcG9ydCAqcCkgew0KPiA+IAlpbnQgcmMgPSAwOw0KPiA+DQo+ID4g
+CWlmIChwLT5ici0+ZGVmYXVsdF9wdmlkKSB7DQo+ID4gCQlyYyA9IG5icF92bGFuX2FkZChwLCBw
+LT5ici0+ZGVmYXVsdF9wdmlkLA0KPiA+IAkJCQkgIEJSSURHRV9WTEFOX0lORk9fUFZJRCB8DQo+
+ID4gCQkJCSAgQlJJREdFX1ZMQU5fSU5GT19VTlRBR0dFRCk7DQo+ID4gCX0NCj4gPg0KPiA+IAly
+ZXR1cm4gcmM7DQo+ID4gfQ0KPiA+DQo+ID4gV2hlbiBMMiBzd2l0Y2hpbmcgaXMgb2ZmbG9hZGVk
+IHRvIHRoZSBIVywgdGhpcyBQVklEIHNldHRpbmcgbmVlZCB0byBiZQ0KPiBwcm9wYWdhdGVkLiBI
+b3dldmVyLCBpdCBkb2VzIG5vdCBjb21lIHZpYSBuZG9fYnJpZGdlX3NldGxpbmsuIFRoZQ0KPiBw
+cm9wb3NlZCBwcm9wYWdhdGlvbiBhdCBicl9zZXRsaW5rIG9yIGFuIHVwIGxldmVsIG9uZSBhdCBy
+dG5ldGxpbmsgYXJlIG5vdA0KPiBjYXBhYmxlIG9mIGhhbmRsaW5nIHRoaXMgY2FzZS4NCj4gPiBP
+bmUgcG9zc2libGUgd2F5IGZvciBoYW5kbGluZyB0aGF0IGlzIHRvIHJlcGxhY2UgdGhlIGNhbGwg
+dG8NCj4gPiBuYnBfdmxhbl9hZGQgd2l0aCBhIGNhbGwgdG8gYSBuZXcgZnVuY3Rpb24gbGV0J3Mg
+c2F5IGludA0KPiA+IGJyX3Byb3BhZ2F0ZV92bGFuX2FkZChzdHJ1Y3QgbmV0X2JyaWRnZV9wb3J0
+ICpwb3J0LCB1MTYgdmlkLCB1MTYgZmxhZ3MpDQo+IFRoaXMgZnVuY3Rpb24gd2lsbCBjb21wb3Nl
+IGEgbmV0bGluayBtZXNzYWdlIHdpdGggVkxBTiBmaWx0ZXJpbmcgaW5mb3JtYXRpb24NCj4gKGku
+ZS4gQUZfU1BFQyB3aXRoIFZMQU5fSU5GTykgYW5kIGNhbGwgYnJfc2V0bGluayAtIGxldmVyYWdp
+bmcgdGhlIG9mZmxvYWQNCj4gc3VwcG9ydCBwcm9wb3NlZCBieSBSb29wYS4NCj4gPg0KPiANCj4g
+Tm8sIHdlIHNob3VsZG4ndCBiZSBjcmFmdGluZyBuZXRsaW5rIG1lc3NhZ2VzIGluIHRoZSBrZXJu
+ZWwganVzdCByZS1pbmplY3QNCj4gdGhlbSBpbnRvIGFuIGludGVyZmFjZS4gUmVhbGx5IHRoZSBz
+ZXRsaW5rL2RlbGxpbmsgaW50ZXJmYWNlIHNob3VsZCBiZSBjbGVhbmVkDQo+IHVwIHNvIHRoYXQg
+aXQgbm8gbG9uZ2VyIGNvbnN1bWVzIHJhdyBuZXRsaW5rIG1lc3NhZ2VzLg0KPiANCj4gVGhlbiBl
+aXRoZXIgKGEpIGFkZCBhbm90aGVyIHBhcmFtZXRlciB0byB0aGUgc2V0bGluayBvcHMgb3IgKGIp
+IGNyZWF0ZSBhIG5ldw0KPiBvcCBmb3IgaXQuDQo+IA0KPiBJIHRoaW5rIGNsZWFuaW5nIHVwIHRo
+ZSBzZXRsaW5rL2RlbGxpbmsgaG9va3MgaXMgb24gdGhlIFRCRCBsaXN0IGFscmVhZHkuDQo+IA0K
+VGhpcyB3b3VsZCBiZSBhIGxvdCBjbGVhbmVyIGV2ZW4gdGhvdWdoIHRoZXJlIGNvdWxkIGJlIGxv
+c3Mgb2YgZmxleGliaWxpdHkuIEZpeGVkIGFyZ3VtZW50IGludGVyZmFjZSB3aWxsIG5vdCBiZSBl
+eHRlbnNpYmxlLg0KV2lsbCB0aGUgbm9uLU5ldGxpbmsgYmFzZWQgZHJpdmVyIHNldGxpbmsvZGVs
+bGluayBob29rcyBiZSBUTFYgYmFzZWQgb3IgdGFrZSBhIHBvaW50ZXIgdG8gYSBzaW5nbGUgc3Ry
+dWN0IHdpdGggc29tZSBpbmRpY2F0aW9uIG9mIHdoYXQgaXMgYWN0dWFsbHkgcG9wdWxhdGVkIHRo
+ZXJlPyANCj4gDQo+ID4gSWYgdGhpcyBpcyBhbiBhY2NlcHRhYmxlIGNvdXJzZSBvZiBhY3Rpb24s
+IEkgY291bGQgd29yayBvbiBzdWNoIHBhdGNoLg0KPiA+DQo+ID4NCj4gDQo+IFsuLi5dDQo+IA0K
+PiBUaGFua3MsDQo+IEpvaG4NCj4gDQo+IC0tDQo+IEpvaG4gRmFzdGFiZW5kICAgICAgICAgSW50
+ZWwgQ29ycG9yYXRpb24NCg==
