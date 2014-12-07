@@ -1,64 +1,314 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v8 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Sun, 07 Dec 2014 21:09:22 +0100
-Message-ID: <2619239.NTtdNaZCJM@wuerfel>
-References: <1397869980-21187-1-git-send-email-zhangfei.gao@linaro.org> <5483C977.2060308@huawei.com> <54842298.2010007@suse.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v3 net-next] tcp: refine TSO autosizing
+Date: Sun, 07 Dec 2014 12:22:18 -0800
+Message-ID: <1417983738.15618.38.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1417788937.4322.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1417832560.15618.29.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-	Zhangfei Gao <zhangfei.gao@linaro.org>, davem@davemloft.net,
-	linux@arm.linux.org.uk, f.fainelli@gmail.com,
-	sergei.shtylyov@cogentembedded.com, mark.rutland@arm.com,
-	David.Laight@aculab.com, eric.dumazet@gmail.com,
-	xuwei5@hisilicon.com, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, devicetree@vger.kernel.org
-To: Alexander Graf <agraf@suse.de>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Nandita Dukkipati <nanditad@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.131]:63517 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753402AbaLGUJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2014 15:09:53 -0500
-In-Reply-To: <54842298.2010007@suse.de>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:59505 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751255AbaLGUWV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2014 15:22:21 -0500
+Received: by mail-ie0-f172.google.com with SMTP id tr6so3490774ieb.31
+        for <netdev@vger.kernel.org>; Sun, 07 Dec 2014 12:22:20 -0800 (PST)
+In-Reply-To: <1417832560.15618.29.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 07 December 2014 10:49:12 Alexander Graf wrote:
-> On 07.12.14 04:28, Ding Tianhong wrote:
-> > On 2014/12/7 8:42, Alexander Graf wrote:
-> >> On 19.04.14 03:13, Zhangfei Gao wrote:
-> >>> Support Hisilicon hip04 ethernet driver, including 100M / 1000M controller.
-> >>> The controller has no tx done interrupt, reclaim xmitted buffer in the poll.
-> >>>
-> >>> Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
-> >>
-> >> Is this driver still supposed to go upstream? I presume this was the
-> >> last submission and it's been quite some time ago 
-> >>
-> > 
-> > yes, it is really a long time, but The hip04 did not support tx irq, 
-> > we couldn't get any better idea to fix this defect, do you have any suggestion?
-> 
-> Well, if hardware doesn't have a TX irq I don't see there's anything we
-> can do to fix that ;).
+From: Eric Dumazet <edumazet@google.com>
 
-I don't know if it's related to the ethernet on hip01, but I would assume
-it is, and that platform is currently being submitted for inclusion, so
-I'd definitely hope to see this driver get merged too eventually.
+Commit 95bd09eb2750 ("tcp: TSO packets automatic sizing") tried to
+control TSO size, but did this at the wrong place (sendmsg() time)
 
-IIRC, the last revision of the patch set had basically fixed the problem,
-except for a race that would still allow the napi poll function to exit
-with poll_complete() but a full queue of TX descriptors and no fallback
-to clean them up. There was also still an open question about whether or
-not the driver should use skb_orphan, but I may be misremembering that part.
+At sendmsg() time, we might have a pessimistic view of flow rate,
+and we end up building very small skbs (with 2 MSS per skb).
+
+This is bad because :
+
+ - It sends small TSO packets even in Slow Start where rate quickly
+   increases.
+ - It tends to make socket write queue very big, increasing tcp_ack()
+   processing time, but also increasing memory needs, not necessarily
+   accounted for, as fast clones overhead is currently ignored.
+ - Lower GRO efficiency and more ACK packets.
+
+Servers with a lot of small lived connections suffer from this.
+
+Lets instead fill skbs as much as possible (64KB of payload), but split
+them at xmit time, when we have a precise idea of the flow rate.
+skb split is actually quite efficient.
+
+Patch looks bigger than necessary, because TCP Small Queue decision now
+has to take place after the eventual split.
+
+As Neal suggested, introduce a new tcp_tso_autosize() helper, so that
+tcp_tso_should_defer() can be synchronized on same goal.
+
+Rename tp->xmit_size_goal_segs to tp->gso_segs, as this variable
+contains number of mss that we can put in GSO packet, and is not
+related to the autosizing goal anymore.
+
+
+Tested:
+
+40 ms rtt link
+
+nstat >/dev/null
+netperf -H remote -l -2000000 -- -s 1000000
+nstat | egrep "IpInReceives|IpOutRequests|TcpOutSegs|IpExtOutOctets"
+
+Before patch :
+
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/s
+
+ 87380 2000000 2000000    0.36         44.22  
+IpInReceives                    600                0.0
+IpOutRequests                   599                0.0
+TcpOutSegs                      1397               0.0
+IpExtOutOctets                  2033249            0.0
+
+
+After patch :
+
+Recv   Send    Send                          
+Socket Socket  Message  Elapsed              
+Size   Size    Size     Time     Throughput  
+bytes  bytes   bytes    secs.    10^6bits/sec  
+
+ 87380 2000000 2000000    0.36       44.27   
+IpInReceives                    221                0.0
+IpOutRequests                   232                0.0
+TcpOutSegs                      1397               0.0
+IpExtOutOctets                  2013953            0.0
+
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+v3: tcp_xmit_size_goal() still needs to return a multiple of mss.
+v2: added tcp_tso_autosize() helper and removed tp->xmit_size_goal_segs
+
+ include/linux/tcp.h   |    2 -
+ net/ipv4/tcp.c        |   60 ++++++++++++++--------------------------
+ net/ipv4/tcp_output.c |   59 +++++++++++++++++++++++++++------------
+ 3 files changed, 63 insertions(+), 58 deletions(-)
+
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index f566b8567892ef0bb213de0540b37cfc6ac03ca0..3fa0a9669a3a662be81d4b04f7d117b11012257c 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -130,7 +130,7 @@ struct tcp_sock {
+ 	/* inet_connection_sock has to be the first member of tcp_sock */
+ 	struct inet_connection_sock	inet_conn;
+ 	u16	tcp_header_len;	/* Bytes of tcp header to send		*/
+-	u16	xmit_size_goal_segs; /* Goal for segmenting output packets */
++	u16	gso_segs;	/* Max number of segs per GSO packet	*/
  
-> Dave, what's your take here? Should we keep a driver from going upstream
-> just because the hardware is partly broken? I'd really prefer to have an
-> upstream driver on that SoC rather than some random (eventually even
-> more broken) downstream code.
-
-We can certainly have a slow driver for this hardware, and I'd much
-prefer slow over broken. I'd guess that some of the performance impact
-of the missing interrupts can now be offset with the xmit_more	 logic.
-
-	Arnd
+ /*
+  *	Header prediction flags
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index dc13a3657e8e1b81ba0cb1fcd5386a9d0b106168..427aee33ffc04ad189d9d0ec24ab8004c25961ec 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -835,47 +835,29 @@ static unsigned int tcp_xmit_size_goal(struct sock *sk, u32 mss_now,
+ 				       int large_allowed)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+-	u32 xmit_size_goal, old_size_goal;
+-
+-	xmit_size_goal = mss_now;
+-
+-	if (large_allowed && sk_can_gso(sk)) {
+-		u32 gso_size, hlen;
+-
+-		/* Maybe we should/could use sk->sk_prot->max_header here ? */
+-		hlen = inet_csk(sk)->icsk_af_ops->net_header_len +
+-		       inet_csk(sk)->icsk_ext_hdr_len +
+-		       tp->tcp_header_len;
+-
+-		/* Goal is to send at least one packet per ms,
+-		 * not one big TSO packet every 100 ms.
+-		 * This preserves ACK clocking and is consistent
+-		 * with tcp_tso_should_defer() heuristic.
+-		 */
+-		gso_size = sk->sk_pacing_rate / (2 * MSEC_PER_SEC);
+-		gso_size = max_t(u32, gso_size,
+-				 sysctl_tcp_min_tso_segs * mss_now);
+-
+-		xmit_size_goal = min_t(u32, gso_size,
+-				       sk->sk_gso_max_size - 1 - hlen);
+-
+-		xmit_size_goal = tcp_bound_to_half_wnd(tp, xmit_size_goal);
+-
+-		/* We try hard to avoid divides here */
+-		old_size_goal = tp->xmit_size_goal_segs * mss_now;
+-
+-		if (likely(old_size_goal <= xmit_size_goal &&
+-			   old_size_goal + mss_now > xmit_size_goal)) {
+-			xmit_size_goal = old_size_goal;
+-		} else {
+-			tp->xmit_size_goal_segs =
+-				min_t(u16, xmit_size_goal / mss_now,
+-				      sk->sk_gso_max_segs);
+-			xmit_size_goal = tp->xmit_size_goal_segs * mss_now;
+-		}
++	u32 new_size_goal, size_goal, hlen;
++
++	if (!large_allowed || !sk_can_gso(sk))
++		return mss_now;
++
++	/* Maybe we should/could use sk->sk_prot->max_header here ? */
++	hlen = inet_csk(sk)->icsk_af_ops->net_header_len +
++	       inet_csk(sk)->icsk_ext_hdr_len +
++	       tp->tcp_header_len;
++
++	new_size_goal = sk->sk_gso_max_size - 1 - hlen;
++	new_size_goal = tcp_bound_to_half_wnd(tp, new_size_goal);
++
++	/* We try hard to avoid divides here */
++	size_goal = tp->gso_segs * mss_now;
++	if (unlikely(new_size_goal < size_goal ||
++		     new_size_goal >= size_goal + mss_now)) {
++		tp->gso_segs = min_t(u16, new_size_goal / mss_now,
++				     sk->sk_gso_max_segs);
++		size_goal = tp->gso_segs * mss_now;
+ 	}
+ 
+-	return max(xmit_size_goal, mss_now);
++	return max(size_goal, mss_now);
+ }
+ 
+ static int tcp_send_mss(struct sock *sk, int *size_goal, int flags)
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index f5bd4bd3f7e669b3fd48a843d55e7313a30a3409..f37ecf53ee8a96827fc08bd203b0ca8857f8fc34 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1524,6 +1524,27 @@ static bool tcp_nagle_check(bool partial, const struct tcp_sock *tp,
+ 		((nonagle & TCP_NAGLE_CORK) ||
+ 		 (!nonagle && tp->packets_out && tcp_minshall_check(tp)));
+ }
++
++/* Return how many segs we'd like on a TSO packet,
++ * to send one TSO packet per ms
++ */
++static u32 tcp_tso_autosize(const struct sock *sk, unsigned int mss_now)
++{
++	u32 bytes, segs;
++
++	bytes = min(sk->sk_pacing_rate >> 10,
++		    sk->sk_gso_max_size - 1 - MAX_TCP_HEADER);
++
++	/* Goal is to send at least one packet per ms,
++	 * not one big TSO packet every 100 ms.
++	 * This preserves ACK clocking and is consistent
++	 * with tcp_tso_should_defer() heuristic.
++	 */
++	segs = max_t(u32, bytes / mss_now, sysctl_tcp_min_tso_segs);
++
++	return min_t(u32, segs, sk->sk_gso_max_segs);
++}
++
+ /* Returns the portion of skb which can be sent right away */
+ static unsigned int tcp_mss_split_point(const struct sock *sk,
+ 					const struct sk_buff *skb,
+@@ -1731,7 +1752,7 @@ static int tso_fragment(struct sock *sk, struct sk_buff *skb, unsigned int len,
+  * This algorithm is from John Heffner.
+  */
+ static bool tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb,
+-				 bool *is_cwnd_limited)
++				 bool *is_cwnd_limited, u32 max_segs)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+@@ -1761,8 +1782,7 @@ static bool tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb,
+ 	limit = min(send_win, cong_win);
+ 
+ 	/* If a full-sized TSO skb can be sent, do it. */
+-	if (limit >= min_t(unsigned int, sk->sk_gso_max_size,
+-			   tp->xmit_size_goal_segs * tp->mss_cache))
++	if (limit >= max_segs * tp->mss_cache)
+ 		goto send_now;
+ 
+ 	/* Middle in queue won't get any more data, full sendable already? */
+@@ -1959,6 +1979,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 	int cwnd_quota;
+ 	int result;
+ 	bool is_cwnd_limited = false;
++	u32 max_segs;
+ 
+ 	sent_pkts = 0;
+ 
+@@ -1972,6 +1993,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 		}
+ 	}
+ 
++	max_segs = tcp_tso_autosize(sk, mss_now);
+ 	while ((skb = tcp_send_head(sk))) {
+ 		unsigned int limit;
+ 
+@@ -2004,10 +2026,23 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 				break;
+ 		} else {
+ 			if (!push_one &&
+-			    tcp_tso_should_defer(sk, skb, &is_cwnd_limited))
++			    tcp_tso_should_defer(sk, skb, &is_cwnd_limited,
++						 max_segs))
+ 				break;
+ 		}
+ 
++		limit = mss_now;
++		if (tso_segs > 1 && !tcp_urg_mode(tp))
++			limit = tcp_mss_split_point(sk, skb, mss_now,
++						    min_t(unsigned int,
++							  cwnd_quota,
++							  max_segs),
++						    nonagle);
++
++		if (skb->len > limit &&
++		    unlikely(tso_fragment(sk, skb, limit, mss_now, gfp)))
++			break;
++
+ 		/* TCP Small Queues :
+ 		 * Control number of packets in qdisc/devices to two packets / or ~1 ms.
+ 		 * This allows for :
+@@ -2018,8 +2053,8 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 		 * of queued bytes to ensure line rate.
+ 		 * One example is wifi aggregation (802.11 AMPDU)
+ 		 */
+-		limit = max_t(unsigned int, sysctl_tcp_limit_output_bytes,
+-			      sk->sk_pacing_rate >> 10);
++		limit = max(2 * skb->truesize, sk->sk_pacing_rate >> 10);
++		limit = min_t(u32, limit, sysctl_tcp_limit_output_bytes);
+ 
+ 		if (atomic_read(&sk->sk_wmem_alloc) > limit) {
+ 			set_bit(TSQ_THROTTLED, &tp->tsq_flags);
+@@ -2032,18 +2067,6 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 				break;
+ 		}
+ 
+-		limit = mss_now;
+-		if (tso_segs > 1 && !tcp_urg_mode(tp))
+-			limit = tcp_mss_split_point(sk, skb, mss_now,
+-						    min_t(unsigned int,
+-							  cwnd_quota,
+-							  sk->sk_gso_max_segs),
+-						    nonagle);
+-
+-		if (skb->len > limit &&
+-		    unlikely(tso_fragment(sk, skb, limit, mss_now, gfp)))
+-			break;
+-
+ 		if (unlikely(tcp_transmit_skb(sk, skb, 1, gfp)))
+ 			break;
+ 
