@@ -1,140 +1,54 @@
-From: Smart Weblications GmbH - Florian Wiessner
-	<f.wiessner@smart-weblications.de>
-Subject: Re: 3.12.33 - BUG xfrm_selector_match+0x25/0x2f6
-Date: Sun, 07 Dec 2014 23:04:23 +0100
-Message-ID: <5484CEE7.4030307@smart-weblications.de>
-References: <547F2462.6040405@smart-weblications.de> <20141204075627.GE6390@secunet.com> <alpine.LFD.2.11.1412042338370.4841@ja.home.ssi.bg> <5481173A.9060308@smart-weblications.de> <alpine.LFD.2.11.1412051126090.2522@ja.home.ssi.bg> <5481B944.2000002@smart-weblications.de> <alpine.LFD.2.11.1412052249570.1825@ja.home.ssi.bg>
-Reply-To: f.wiessner@smart-weblications.de
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	stable@vger.kernel.org, Simon Horman <horms@verge.net.au>,
-	lvs-devel@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.11.1412052249570.1825@ja.home.ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2014-12-07
+Date: Sun,  7 Dec 2014 23:06:03 +0100
+Message-ID: <1417989966-31309-1-git-send-email-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:58587 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753287AbaLGWGM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2014 17:06:12 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hello David,
 
-Am 05.12.2014 22:32, schrieb Julian Anastasov:
->=20
-> 	Hello,
->=20
-> On Fri, 5 Dec 2014, Smart Weblications GmbH - Florian Wiessner wrote:
->=20
->> thank you for the fast responses! I would like to test any patch for=
- 3.12.
->=20
-> 	I hope I'll have time this weekend...
->=20
->> If i understand correctly, i set:
->>
->> echo 0 > /proc/sys/net/ipv4/vs/snat_reroute
->=20
-> 	The flag works per-packet, no need to reload any modules.
-> But it does not help for the case with local client where
-> the problem with sockets occurs, that is why you can keep=20
-> ip_vs_route_me_harder() empty (return 0) until patch is
-> created.
->=20
->> modprobe ip_vs_ftp
->>
->> and reenable ftp ipvs?
->>
->> It does not crash, but ftp is not working with neither PASV nor PORT=
-:
->>
->>
->> [14:47:42] [R] Verbindung herstellen zu 192.168.10.62 -> IP=3D192.16=
-8.10.62 PORT=3D21
->> [14:47:42] [R] Verbunden mit 192.168.10.62
->> [14:47:43] [R] 220 (vsFTPd 3.0.2)
->> [14:47:43] [R] USER (hidden)
->> [14:47:43] [R] 331 Please specify the password.
->> [14:47:43] [R] PASS (hidden)
->> [14:47:43] [R] 230 Login successful.
->> [14:47:43] [R] SYST
->> [14:47:43] [R] 215 UNIX Type: L8
->> [14:47:43] [R] FEAT
->> [14:47:43] [R] 211-Features:
->> [14:47:43] [R]  EPRT
->> [14:47:43] [R]  EPSV
->> [14:47:43] [R]  MDTM
->> [14:47:43] [R]  PASV
->> [14:47:43] [R]  REST STREAM
->> [14:47:43] [R]  SIZE
->> [14:47:43] [R]  TVFS
->> [14:47:43] [R]  UTF8
->> [14:47:43] [R] 211 End
->> [14:47:43] [R] PWD
->> [14:47:43] [R] 257 "/"
->> [14:47:43] [R] CWD /
->> [14:47:43] [R] 250 Directory successfully changed.
->> [14:47:43] [R] PWD
->> [14:47:43] [R] 257 "/"
->> [14:47:43] [R] TYPE A
->> [14:47:43] [R] 200 Switching to ASCII mode.
->> [14:47:43] [R] PASV
->> [14:47:43] [R] 227 Entering Passive Mode (10,10,1,23,251,6).
->> [14:47:43] [R] Datenkanal-IP =C3=B6ffnen: 192.168.10.62 PORT: 64262
->> [14:47:44] [R] Datensocket-Fehler: Verbindung abgewiesen
->> [14:47:44] [R] List Fehler
->> [14:47:44] [R] PASV
->> [14:47:44] [R] 227 Entering Passive Mode (10,10,1,23,250,144).
->> [14:47:44] [R] Datenkanal-IP =C3=B6ffnen: 192.168.10.62 PORT: 64144
->> [14:47:45] [R] Datensocket-Fehler: Verbindung abgewiesen
->> [14:47:45] [R] List Fehler
->> [14:47:45] [R] PASV-Modus fehlgeschlagen, PORT -Modus versuchen...
->> [14:47:45] [R] Auf PORT: 62505 warten, Verbindung erwarten.
->> [14:47:45] [R] PORT 192,168,200,13,244,41
->> [14:47:45] [R] 500 Illegal PORT command.
->=20
-> 	Who is 192.168.200.13? From vsftpd-3.0.2/postlogin.c,
-> handle_port():
->=20
+this is a pull request of three patches by Stephane Grosjean which fix several
+bugs in the peak_usb CAN drivers.
 
-192.168.200.13 was the ftp client. As this client also was natted, PORT=
- Mode
-will fail here because the client provided the internal ip, but i disab=
-led PORT
-anyways before and did reenable it only to test...
+Please queue, if possible for 3.18, if it's too late these patches takes the
+slow lane via net-next.
 
+regards,
+Marc
 
->   /* SECURITY:
->    * 1) Reject requests not connecting to the control socket IP
->    * 2) Reject connects to privileged ports
->    */
->=20
-> 	It looks like PORT command provides different IP.
-> IIRC, IPVS does not mangle PORT command, vsftpd expects to
-> connect to the same client IP. There is config option you can
-> try to set (port_promiscuous), only while testing.
->=20
+---
 
-While this is true, PASV should have worked anyhow, right?
+The following changes since commit f2a01517f2a1040a0b156f171a7cefd748f2fd03:
 
+  openvswitch: Fix flow mask validation. (2014-12-05 21:42:16 -0800)
 
---=20
+are available in the git repository at:
 
-Mit freundlichen Gr=C3=BC=C3=9Fen,
+  git://gitorious.org/linux-can/linux-can.git tags/linux-can-fixes-for-3.18-20141207
 
-=46lorian Wiessner
+for you to fetch changes up to 62bc24f67abda56e486735706be6a4dea60fdb4c:
 
-Smart Weblications GmbH
-Martinsberger Str. 1
-D-95119 Naila
+  can: peak_usb: fix multi-byte values endianess (2014-12-07 21:04:03 +0100)
 
-fon.: +49 9282 9638 200
-fax.: +49 9282 9638 205
-24/7: +49 900 144 000 00 - 0,99 EUR/Min*
-http://www.smart-weblications.de
+----------------------------------------------------------------
+linux-can-fixes-for-3.18-20141207
 
---
-Sitz der Gesellschaft: Naila
-Gesch=C3=A4ftsf=C3=BChrer: Florian Wiessner
-HRB-Nr.: HRB 3840 Amtsgericht Hof
-*aus dem dt. Festnetz, ggf. abweichende Preise aus dem Mobilfunknetz
+----------------------------------------------------------------
+Stephane Grosjean (3):
+      can: peak_usb: fix memset() usage
+      can: peak_usb: fix cleanup sequence order in case of error during init
+      can: peak_usb: fix multi-byte values endianess
+
+ drivers/net/can/usb/peak_usb/pcan_usb.c      | 14 ++++----
+ drivers/net/can/usb/peak_usb/pcan_usb_core.c | 20 +++++++-----
+ drivers/net/can/usb/peak_usb/pcan_usb_pro.c  | 23 +++++++------
+ drivers/net/can/usb/peak_usb/pcan_usb_pro.h  | 48 ++++++++++++++--------------
+ 4 files changed, 54 insertions(+), 51 deletions(-)
