@@ -1,149 +1,64 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH RFC] pci: Control whether VFs are probed on
- pci_enable_sriov
-Date: Sun, 7 Dec 2014 20:08:47 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63BA669B@avmb3.qlogic.org>
-References: <1417957693-24979-1-git-send-email-eli@mellanox.com>
- <B5657A6538887040AD3A81F1008BEC63BA6616@avmb3.qlogic.org>,<20141207184242.GA24790@mtldesk30>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v8 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Sun, 07 Dec 2014 21:09:22 +0100
+Message-ID: <2619239.NTtdNaZCJM@wuerfel>
+References: <1397869980-21187-1-git-send-email-zhangfei.gao@linaro.org> <5483C977.2060308@huawei.com> <54842298.2010007@suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_000_B5657A6538887040AD3A81F1008BEC63BA669Bavmb3qlogicorg_"
-Cc: "bhelgaas@google.com" <bhelgaas@google.com>,
-	David Miller <davem@davemloft.net>,
-	linux-pci <linux-pci@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"yevgenyp@mellanox.com" <yevgenyp@mellanox.com>,
-	Donald Dutile <ddutile@redhat.com>
-To: Eli Cohen <eli@dev.mellanox.co.il>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20141207184242.GA24790@mtldesk30>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---_000_B5657A6538887040AD3A81F1008BEC63BA669Bavmb3qlogicorg_
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 7Bit
+Cc: Ding Tianhong <dingtianhong@huawei.com>,
+	Zhangfei Gao <zhangfei.gao@linaro.org>, davem@davemloft.net,
+	linux@arm.linux.org.uk, f.fainelli@gmail.com,
+	sergei.shtylyov@cogentembedded.com, mark.rutland@arm.com,
+	David.Laight@aculab.com, eric.dumazet@gmail.com,
+	xuwei5@hisilicon.com, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org
+To: Alexander Graf <agraf@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.126.131]:63517 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753402AbaLGUJx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2014 15:09:53 -0500
+In-Reply-To: <54842298.2010007@suse.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->>>Use a parameter to pci_enable_sriov to control that policy, and modify=
-=0A=
->>>all current callers such that they retain the same functionality.=0A=
->> =0A=
->> What's the end-game here? How eventually would this be controlled?=0A=
-=0A=
->You can probe any VF at the hypervisor through sysfs files=0A=
->(bind/unbind). You can also pass them through to a VM. Nothing=0A=
->changes.=0A=
-=0A=
-If you're not planning on adding a logic to set this, why do we need to=0A=
-add a parameter to pci_enable_sriov() - given that all callers use the=0A=
-exact same logic?=0A=
-[And I don't really think we'd want different devices to behave differently=
-=0A=
-by default; That would be confusing for users.]=0A=
-=0A=
->>>Use a one shot flag on struct pci_device which is cleared after the=0A=
->>>first probe is ignored so subsequent attempts go through.=0A=
->>=0A=
->> Does a one-shot flag suffice? E.g., consider assigning a VF to VM and=0A=
->> than shutting down the VM. Assuming this feature is disabled,=0A=
->> the VF didn't appear on the hypervisor prior to the assignment but=0A=
->> will appear after its shutdown.=0A=
-=0A=
->Sorry, I don't follow you here. Please clarify.=0A=
-=0A=
->To be clear, the functionality proposed here is really one shot. It=0A=
->just prevents calling probe once; besides that nothing changes.=0A=
-=0A=
-What I meant is that device is unbinded after initial probe,=0A=
-But in the scenario I've stated above, the VF will become binded once=0A=
-it's returned to the hypervisor.=0A=
-Now, I understand that what you're trying to achieve - but my question=0A=
-is whether what you're REALLY trying to achieve is the ability to have VFs=
-=0A=
-which would only be binded to VMs and never to hypervisor [by default]?=
+On Sunday 07 December 2014 10:49:12 Alexander Graf wrote:
+> On 07.12.14 04:28, Ding Tianhong wrote:
+> > On 2014/12/7 8:42, Alexander Graf wrote:
+> >> On 19.04.14 03:13, Zhangfei Gao wrote:
+> >>> Support Hisilicon hip04 ethernet driver, including 100M / 1000M controller.
+> >>> The controller has no tx done interrupt, reclaim xmitted buffer in the poll.
+> >>>
+> >>> Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
+> >>
+> >> Is this driver still supposed to go upstream? I presume this was the
+> >> last submission and it's been quite some time ago 
+> >>
+> > 
+> > yes, it is really a long time, but The hip04 did not support tx irq, 
+> > we couldn't get any better idea to fix this defect, do you have any suggestion?
+> 
+> Well, if hardware doesn't have a TX irq I don't see there's anything we
+> can do to fix that ;).
 
---_000_B5657A6538887040AD3A81F1008BEC63BA669Bavmb3qlogicorg_
-Content-Disposition: attachment; filename="winmail.dat"
-Content-Transfer-Encoding: base64
-Content-Type: application/ms-tnef; name="winmail.dat"
+I don't know if it's related to the ethernet on hip01, but I would assume
+it is, and that platform is currently being submitted for inclusion, so
+I'd definitely hope to see this driver get merged too eventually.
 
-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
-AAAKAAAAUwBNAFQAUAAAAAAAAgFBAAEAAABoAAAAAAAAAIErH6S+oxAZnW4A3QEPVAIAAACAWQB1
-AHYAYQBsACAATQBpAG4AdAB6AAAAUwBNAFQAUAAAAFkAdQB2AGEAbAAuAE0AaQBuAHQAegBAAHEA
-bABvAGcAaQBjAC4AYwBvAG0AAAAfAAJdAQAAAC4AAABZAHUAdgBhAGwALgBNAGkAbgB0AHoAQABx
-AGwAbwBnAGkAYwAuAGMAbwBtAAAAAAAfAOVfAQAAADYAAABzAGkAcAA6AHkAdQB2AGEAbAAuAG0A
-aQBuAHQAegBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8AGgwBAAAAGAAAAFkAdQB2AGEAbAAg
-AE0AaQBuAHQAegAAAB8AHwwBAAAALgAAAFkAdQB2AGEAbAAuAE0AaQBuAHQAegBAAHEAbABvAGcA
-aQBjAC4AYwBvAG0AAAAAAB8AHgwBAAAACgAAAFMATQBUAFAAAAAAAAIBGQwBAAAAaAAAAAAAAACB
-Kx+kvqMQGZ1uAN0BD1QCAAAAgFkAdQB2AGEAbAAgAE0AaQBuAHQAegAAAFMATQBUAFAAAABZAHUA
-dgBhAGwALgBNAGkAbgB0AHoAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAHwABXQEAAAAuAAAAWQB1
-AHYAYQBsAC4ATQBpAG4AdAB6AEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAAHwD4PwEAAAAYAAAA
-WQB1AHYAYQBsACAATQBpAG4AdAB6AAAAHwAjQAEAAAAuAAAAWQB1AHYAYQBsAC4ATQBpAG4AdAB6
-AEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAAHwAiQAEAAAAKAAAAUwBNAFQAUAAAAAAAAgH5PwEA
-AABoAAAAAAAAAIErH6S+oxAZnW4A3QEPVAIAAACAWQB1AHYAYQBsACAATQBpAG4AdAB6AAAAUwBN
-AFQAUAAAAFkAdQB2AGEAbAAuAE0AaQBuAHQAegBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAfAAld
-AQAAAC4AAABZAHUAdgBhAGwALgBNAGkAbgB0AHoAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAAAAf
-ADFAAQAAAAIAAAAAAAAACwBAOgEAAAAfADBAAQAAAAIAAAAAAAAAHwAaAAEAAAASAAAASQBQAE0A
-LgBOAG8AdABlAAAAAAADAPE/CQQAAAsAQDoBAAAAAwD9P+QEAAACAQswAQAAABAAAAARR4pT3tVT
-QZoi0I+pgH7RAwAXAAEAAABAADkAgLHbm1kS0AFAAAgwVw4XnFkS0AELACkAAAAAAAsAAIAIIAYA
-AAAAAMAAAAAAAABGAAAAABSFAAABAAAACwAjAAAAAAAfAACAhgMCAAAAAADAAAAAAAAARgEAAAAe
-AAAAYQBjAGMAZQBwAHQAbABhAG4AZwB1AGEAZwBlAAAAAAABAAAADAAAAGUAbgAtAFUAUwAAAAsA
-AIAIIAYAAAAAAMAAAAAAAABGAAAAAAaFAAAAAAAAHwA3AAEAAACQAAAAUgBFADoAIABbAFAAQQBU
-AEMASAAgAFIARgBDAF0AIABwAGMAaQA6ACAAQwBvAG4AdAByAG8AbAAgAHcAaABlAHQAaABlAHIA
-IABWAEYAcwAgAGEAcgBlACAAcAByAG8AYgBlAGQAIABvAG4AIABwAGMAaQBfAGUAbgBhAGIAbABl
-AF8AcwByAGkAbwB2AAAAHwA9AAEAAAAKAAAAUgBFADoAIAAAAAAAAwA2AAAAAAADAC4AAAAAAB8A
-QhABAAAARgAAADwAMgAwADEANAAxADIAMAA3ADEAOAA0ADIANAAyAC4ARwBBADIANAA3ADkAMABA
-AG0AdABsAGQAZQBzAGsAMwAwAD4AAAAAAAIBcQABAAAAJQAAAAEB0BIe8FnK9rvzDLZOtkLjaGZ5
-ysCchFqigYAAomiA//+Pt7UAAAAfAHAAAQAAAIgAAABbAFAAQQBUAEMASAAgAFIARgBDAF0AIABw
-AGMAaQA6ACAAQwBvAG4AdAByAG8AbAAgAHcAaABlAHQAaABlAHIAIABWAEYAcwAgAGEAcgBlACAA
-cAByAG8AYgBlAGQAIABvAG4AIABwAGMAaQBfAGUAbgBhAGIAbABlAF8AcwByAGkAbwB2AAAAHwA1
-EAEAAAB0AAAAPABCADUANgA1ADcAQQA2ADUAMwA4ADgAOAA3ADAANAAwAEEARAAzAEEAOAAxAEYA
-MQAwADAAOABCAEUAQwA2ADMAQgBBADYANgA5AEIAQABhAHYAbQBiADMALgBxAGwAbwBnAGkAYwAu
-AG8AcgBnAD4AAAAfADkQAQAAACQBAAA8ADEANAAxADcAOQA1ADcANgA5ADMALQAyADQAOQA3ADkA
-LQAxAC0AZwBpAHQALQBzAGUAbgBkAC0AZQBtAGEAaQBsAC0AZQBsAGkAQABtAGUAbABsAGEAbgBv
-AHgALgBjAG8AbQA+ACAAPABCADUANgA1ADcAQQA2ADUAMwA4ADgAOAA3ADAANAAwAEEARAAzAEEA
-OAAxAEYAMQAwADAAOABCAEUAQwA2ADMAQgBBADYANgAxADYAQABhAHYAbQBiADMALgBxAGwAbwBn
-AGkAYwAuAG8AcgBnAD4ALAA8ADIAMAAxADQAMQAyADAANwAxADgANAAyADQAMgAuAEcAQQAyADQA
-NwA5ADAAQABtAHQAbABkAGUAcwBrADMAMAA+AAAAAwDeP59OAABAAAcwqxeIf1gS0AEDACYAAAAA
-AAIBRwABAAAALgAAAGM9VVM7YT0gO3A9UUxvZ2ljO2w9QVZNQjMtMTQxMjA3MjAwODQ3Wi02MzIw
-NgAAAAIBFDABAAAADAAAAP0AAABMtqlCPgAAAB8A+j8BAAAAGAAAAFkAdQB2AGEAbAAgAE0AaQBu
-AHQAegAAAAMADTT9PwAAHwAAgIYDAgAAAAAAwAAAAAAAAEYBAAAAIAAAAHgALQBtAHMALQBoAGEA
-cwAtAGEAdAB0AGEAYwBoAAAAAQAAAAIAAAAAAAAAHwAAgIYDAgAAAAAAwAAAAAAAAEYBAAAAIgAA
-AHgALQBvAHIAaQBnAGkAbgBhAHQAaQBuAGcALQBpAHAAAAAAAAEAAAAYAAAAWwAxADAALgAxAC4A
-NAAuADEAMABdAAAAHwAAgIYDAgAAAAAAwAAAAAAAAEYBAAAAFgAAAGQAaQBzAGMAbABhAGkAbQBl
-AHIAAAAAAAEAAAAOAAAAYgB5AHAAYQBzAHMAAAAAAJtb
+IIRC, the last revision of the patch set had basically fixed the problem,
+except for a race that would still allow the napi poll function to exit
+with poll_complete() but a full queue of TX descriptors and no fallback
+to clean them up. There was also still an open question about whether or
+not the driver should use skb_orphan, but I may be misremembering that part.
+ 
+> Dave, what's your take here? Should we keep a driver from going upstream
+> just because the hardware is partly broken? I'd really prefer to have an
+> upstream driver on that SoC rather than some random (eventually even
+> more broken) downstream code.
 
---_000_B5657A6538887040AD3A81F1008BEC63BA669Bavmb3qlogicorg_--
+We can certainly have a slow driver for this hardware, and I'd much
+prefer slow over broken. I'd guess that some of the performance impact
+of the missing interrupts can now be offset with the xmit_more	 logic.
+
+	Arnd
