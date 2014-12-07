@@ -1,53 +1,79 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 12/20] hp100: fix misspelling of current function in string
-Date: Sun,  7 Dec 2014 20:20:54 +0100
-Message-ID: <1417980062-25151-13-git-send-email-Julia.Lawall@lip6.fr>
+From: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
+Subject: [PATCH 16/20] rtlwifi: rtl8821ae: fix misspelling of current function in string
+Date: Sun,  7 Dec 2014 20:20:58 +0100
+Message-ID: <1417980062-25151-17-git-send-email-Julia.Lawall@lip6.fr>
 References: <1417980062-25151-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, linux@rasmusvillemoes.dk,
-	joe@perches.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jaroslav Kysela <perex@perex.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417980062-25151-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org,
+	joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1417980062-25151-1-git-send-email-Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 Replace a misspelled function name by %s and then __func__.
 
+8821 was written as 8812.
+
 This was done using Coccinelle, including the use of Levenshtein distance,
 as proposed by Rasmus Villemoes.
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+Signed-off-by: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
 
 ---
 The semantic patch is difficult to summarize, but is available in the cover
 letter of this patch series.
 
- drivers/net/ethernet/hp/hp100.c |    7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ drivers/net/wireless/rtlwifi/rtl8821ae/dm.c |   11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/hp/hp100.c b/drivers/net/ethernet/hp/hp100.c
-index 76a6e0c..ae6e30d 100644
---- a/drivers/net/ethernet/hp/hp100.c
-+++ b/drivers/net/ethernet/hp/hp100.c
-@@ -490,7 +490,8 @@ static int hp100_probe1(struct net_device *dev, int ioaddr, u_char bus,
+diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/dm.c b/drivers/net/wireless/rtlwifi/rtl8821ae/dm.c
+index 9be1061..ba30b0d 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8821ae/dm.c
++++ b/drivers/net/wireless/rtlwifi/rtl8821ae/dm.c
+@@ -2078,8 +2078,7 @@ void rtl8821ae_dm_txpwr_track_set_pwr(struct ieee80211_hw *hw,
+ 	if (rtldm->tx_rate != 0xFF)
+ 		tx_rate = rtl8821ae_hw_rate_to_mrate(hw, rtldm->tx_rate);
  
- 	eid = hp100_read_id(ioaddr);
- 	if (eid == NULL) {	/* bad checksum? */
--		printk(KERN_WARNING "hp100_probe: bad ID checksum at base port 0x%x\n", ioaddr);
-+		printk(KERN_WARNING "%s: bad ID checksum at base port 0x%x\n",
-+		       __func__, ioaddr);
- 		goto out2;
+-	RT_TRACE(rtlpriv, COMP_POWER_TRACKING, DBG_LOUD,
+-		 "===>rtl8812ae_dm_txpwr_track_set_pwr\n");
++	RT_TRACE(rtlpriv, COMP_POWER_TRACKING, DBG_LOUD, "===>%s\n", __func__);
+ 
+ 	if (tx_rate != 0xFF) { /* Mimic Modify High Rate BBSwing Limit.*/
+ 		/*CCK*/
+@@ -2128,7 +2127,7 @@ void rtl8821ae_dm_txpwr_track_set_pwr(struct ieee80211_hw *hw,
+ 
+ 	if (method == BBSWING) {
+ 		RT_TRACE(rtlpriv, COMP_POWER_TRACKING, DBG_LOUD,
+-			 "===>rtl8812ae_dm_txpwr_track_set_pwr\n");
++			 "===>%s\n", __func__);
+ 		if (rf_path == RF90_PATH_A) {
+ 			final_swing_idx[RF90_PATH_A] =
+ 				(rtldm->ofdm_index[RF90_PATH_A] >
+@@ -2260,7 +2259,8 @@ void rtl8821ae_dm_txpower_tracking_callback_thermalmeter(
+ 	rtldm->txpower_trackinginit = true;
+ 
+ 	RT_TRACE(rtlpriv, COMP_POWER_TRACKING, DBG_LOUD,
+-		 "===>rtl8812ae_dm_txpower_tracking_callback_thermalmeter,\n pDM_Odm->BbSwingIdxCckBase: %d,pDM_Odm->BbSwingIdxOfdmBase[A]:%d, pDM_Odm->DefaultOfdmIndex: %d\n",
++		 "===>%s,\n pDM_Odm->BbSwingIdxCckBase: %d,pDM_Odm->BbSwingIdxOfdmBase[A]:%d, pDM_Odm->DefaultOfdmIndex: %d\n",
++		 __func__,
+ 		 rtldm->swing_idx_cck_base,
+ 		 rtldm->swing_idx_ofdm_base[RF90_PATH_A],
+ 		 rtldm->default_ofdm_index);
+@@ -2539,8 +2539,7 @@ void rtl8821ae_dm_txpower_tracking_callback_thermalmeter(
+ 		}
  	}
  
-@@ -498,7 +499,9 @@ static int hp100_probe1(struct net_device *dev, int ioaddr, u_char bus,
- 	for (i = uc = 0; i < 7; i++)
- 		uc += hp100_inb(LAN_ADDR + i);
- 	if (uc != 0xff) {
--		printk(KERN_WARNING "hp100_probe: bad lan address checksum at port 0x%x)\n", ioaddr);
-+		printk(KERN_WARNING
-+		       "%s: bad lan address checksum at port 0x%x)\n",
-+		       __func__, ioaddr);
- 		err = -EIO;
- 		goto out2;
- 	}
+-	RT_TRACE(rtlpriv, COMP_POWER_TRACKING, DBG_LOUD,
+-		 "<===rtl8812ae_dm_txpower_tracking_callback_thermalmeter\n");
++	RT_TRACE(rtlpriv, COMP_POWER_TRACKING, DBG_LOUD, "<===%s\n", __func__);
+ }
+ 
+ void rtl8821ae_dm_check_txpower_tracking_thermalmeter(struct ieee80211_hw *hw)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
