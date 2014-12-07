@@ -1,66 +1,46 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next] net/mlx4_en: ethtool force speed when asking for autoneg=off
-Date: Sun,  7 Dec 2014 10:07:14 +0200
-Message-ID: <1417939634-26085-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next v3 2/2] rocker: remove swdev mode
+Date: Sun, 7 Dec 2014 08:19:28 +0000
+Message-ID: <20141207081928.GA2215@casper.infradead.org>
+References: <1417935267-6000-3-git-send-email-roopa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jiri@resnulli.us, sfeldma@gmail.com, jhs@mojatatu.com,
+	bcrl@kvack.org, john.fastabend@gmail.com,
+	stephen@networkplumber.org, linville@tuxdriver.com,
+	vyasevic@redhat.com, netdev@vger.kernel.org, davem@davemloft.net,
+	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
+To: roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:49040 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752411AbaLGIHh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Dec 2014 03:07:37 -0500
+Received: from casper.infradead.org ([85.118.1.10]:43051 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752411AbaLGITe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2014 03:19:34 -0500
+Content-Disposition: inline
+In-Reply-To: <1417935267-6000-3-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
+On 12/06/14 at 10:54pm, roopa@cumulusnetworks.com wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+>  drivers/net/ethernet/rocker/rocker.c |   18 +-----------------
+>  include/linux/rtnetlink.h            |    2 +-
+>  net/core/rtnetlink.c                 |   12 +++++++++---
+>  3 files changed, 11 insertions(+), 21 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+> index fded127..9f1d256 100644
+> --- a/drivers/net/ethernet/rocker/rocker.c
+> +++ b/drivers/net/ethernet/rocker/rocker.c
+> @@ -3755,7 +3739,7 @@ static int rocker_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+>  				      u32 filter_mask)
+>  {
+>  	struct rocker_port *rocker_port = netdev_priv(dev);
+> -	u16 mode = BRIDGE_MODE_SWDEV;
+> +	u16 mode = -1;
+        ^^^
 
-Use cmd->autoneg == AUTONEG_DISABLE as a user hint to force specific speed.
-We don't want to rely on ethtool to calculate advertised link modes when
-forcing specific speed, a user can request a specific speed and specify
-"autoneg off" in ethtool command to give a hint for forcing this speed.
-
-Move en_warn("port reset..") inside the "port reset" block.
-
-Fixes: d48b3ab ("net/mlx4_en: Use PTYS register to set ethtool settings (Speed)")
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index c45e06a..3045582 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -771,13 +771,13 @@ static int mlx4_en_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	}
- 
- 	proto_admin = cpu_to_be32(ptys_adv);
--	if (speed >= 0 && speed != priv->port_state.link_speed)
-+	if (speed >= 0 && ((speed != priv->port_state.link_speed) ||
-+			   (cmd->autoneg == AUTONEG_DISABLE)))
- 		/* If speed was set then speed decides :-) */
- 		proto_admin = speed_set_ptys_admin(priv, speed,
- 						   ptys_reg.eth_proto_cap);
- 
- 	proto_admin &= ptys_reg.eth_proto_cap;
--
- 	if (proto_admin == ptys_reg.eth_proto_admin)
- 		return 0; /* Nothing to change */
- 
-@@ -798,9 +798,9 @@ static int mlx4_en_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 		return ret;
- 	}
- 
--	en_warn(priv, "Port link mode changed, restarting port...\n");
- 	mutex_lock(&priv->mdev->state_lock);
- 	if (priv->port_up) {
-+		en_warn(priv, "Port link mode changed, restarting port...\n");
- 		mlx4_en_stop_port(dev, 1);
- 		if (mlx4_en_start_port(dev))
- 			en_err(priv, "Failed restarting port %d\n", priv->port);
--- 
-1.9.3
+I assume you meant s16
