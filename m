@@ -1,32 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Where exactly will arch_fast_hash be used
-Date: Sun, 7 Dec 2014 17:28:28 +0800
-Message-ID: <20141207092828.GA8623@gondor.apana.org.au>
-References: <20141207052041.20498.qmail@ns.horizon.com>
+From: Alexander Graf <agraf@suse.de>
+Subject: Re: [PATCH v8 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Sun, 07 Dec 2014 10:49:12 +0100
+Message-ID: <54842298.2010007@suse.de>
+References: <1397869980-21187-1-git-send-email-zhangfei.gao@linaro.org> <1397869980-21187-4-git-send-email-zhangfei.gao@linaro.org> <5483A279.5000503@suse.de> <5483C977.2060308@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dborkman@redhat.com, hannes@stressinduktion.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org, tgraf@suug.ch
-To: George Spelvin <linux@horizon.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, linux@arm.linux.org.uk, arnd@arndb.de,
+	f.fainelli@gmail.com, sergei.shtylyov@cogentembedded.com,
+	mark.rutland@arm.com, David.Laight@ACULAB.COM,
+	eric.dumazet@gmail.com, xuwei5@hisilicon.com,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: Ding Tianhong <dingtianhong@huawei.com>,
+	Zhangfei Gao <zhangfei.gao@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:48684 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752659AbaLGJ2j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2014 04:28:39 -0500
-Content-Disposition: inline
-In-Reply-To: <20141207052041.20498.qmail@ns.horizon.com>
+Received: from cantor2.suse.de ([195.135.220.15]:37508 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752795AbaLGJtQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Dec 2014 04:49:16 -0500
+In-Reply-To: <5483C977.2060308@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 07, 2014 at 12:20:41AM -0500, George Spelvin wrote:
->
-> Can you point me to a source for that statement?
 
-For a start why don't you print out the hashes of 1-255 and then
-find out how easy it is to deduce the last bit of the hash result.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+On 07.12.14 04:28, Ding Tianhong wrote:
+> On 2014/12/7 8:42, Alexander Graf wrote:
+>> On 19.04.14 03:13, Zhangfei Gao wrote:
+>>> Support Hisilicon hip04 ethernet driver, including 100M / 1000M controller.
+>>> The controller has no tx done interrupt, reclaim xmitted buffer in the poll.
+>>>
+>>> Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
+>>
+>> Is this driver still supposed to go upstream? I presume this was the
+>> last submission and it's been quite some time ago :)
+>>
+> 
+> yes, it is really a long time, but The hip04 did not support tx irq, 
+> we couldn't get any better idea to fix this defect, do you have any suggestion?
+
+Well, if hardware doesn't have a TX irq I don't see there's anything we
+can do to fix that ;).
+
+Dave, what's your take here? Should we keep a driver from going upstream
+just because the hardware is partly broken? I'd really prefer to have an
+upstream driver on that SoC rather than some random (eventually even
+more broken) downstream code.
+
+
+Alex
