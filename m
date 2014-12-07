@@ -1,144 +1,120 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next] enic: add support for set/get rss hash key
-Date: Sun,  7 Dec 2014 22:41:13 +0530
-Message-ID: <1417972273-22661-1-git-send-email-_govind@gmx.com>
-Cc: ssujith@cisco.com, benve@cisco.com,
-	Govindarajulu Varadarajan <_govind@gmx.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH 2/3] bridge: offload bridge port attributes to switch
+ asic if feature flag set
+Date: Sun, 07 Dec 2014 09:33:59 -0800
+Message-ID: <54848F87.6050005@cumulusnetworks.com>
+References: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bBOCgoH0zL6+82jj2qjcP8n3kSo51x+i5SoqkN8Ff1CBQ@mail.gmail.com> <54815883.80909@cumulusnetworks.com> <E4CD12F19ABA0C4D8729E087A761DC3505D842BA@ORSMSX101.amr.corp.intel.com> <E4CD12F19ABA0C4D8729E087A761DC3505D8436D@ORSMSX101.amr.corp.intel.com> <CAE4R7bChFLfCX5z4FTWHfnpNuYKnkTtD64xg5BE0yAwA381w3g@mail.gmail.com> <E4CD12F19ABA0C4D8729E087A761DC3505D84532@ORSMSX101.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?Smlyw60gUMOtcmtv?= <jiri@resnulli.us>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
+	john fastabend <john.fastabend@gmail.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	John Linville <linville@tuxdriver.com>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"buytenh@wantstofly.org" <buytenh@wantstofly.org>,
+	Aviad Raveh <aviadr@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: "Arad, Ronen" <ronen.arad@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.21]:52626 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752853AbaLGRYI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Dec 2014 12:24:08 -0500
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:60298 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751255AbaLGReG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2014 12:34:06 -0500
+In-Reply-To: <E4CD12F19ABA0C4D8729E087A761DC3505D84532@ORSMSX101.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for setting/getting rss hash key using ethtool.
-
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
----
- drivers/net/ethernet/cisco/enic/enic.h         |  2 ++
- drivers/net/ethernet/cisco/enic/enic_ethtool.c | 30 ++++++++++++++++++++++++++
- drivers/net/ethernet/cisco/enic/enic_main.c    | 13 +++++++----
- 3 files changed, 41 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
-index 5ba5ad0..25c4d88 100644
---- a/drivers/net/ethernet/cisco/enic/enic.h
-+++ b/drivers/net/ethernet/cisco/enic/enic.h
-@@ -187,6 +187,7 @@ struct enic {
- 	unsigned int cq_count;
- 	struct enic_rfs_flw_tbl rfs_h;
- 	u32 rx_copybreak;
-+	u8 rss_key[ENIC_RSS_LEN];
- };
- 
- static inline struct device *enic_get_dev(struct enic *enic)
-@@ -246,5 +247,6 @@ int enic_sriov_enabled(struct enic *enic);
- int enic_is_valid_vf(struct enic *enic, int vf);
- int enic_is_dynamic(struct enic *enic);
- void enic_set_ethtool_ops(struct net_device *netdev);
-+int __enic_set_rsskey(struct enic *enic);
- 
- #endif /* _ENIC_H_ */
-diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-index 85173d6..fe5ae8f 100644
---- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-@@ -23,6 +23,7 @@
- #include "enic.h"
- #include "enic_dev.h"
- #include "enic_clsf.h"
-+#include "vnic_rss.h"
- 
- struct enic_stat {
- 	char name[ETH_GSTRING_LEN];
-@@ -416,6 +417,32 @@ static int enic_set_tunable(struct net_device *dev,
- 	return ret;
- }
- 
-+static u32 enic_get_rxfh_key_size(struct net_device *netdev)
-+{
-+	return ENIC_RSS_LEN;
-+}
-+
-+static int enic_get_rxfh(struct net_device *netdev, u32 *indir, u8 *hkey)
-+{
-+	struct enic *enic = netdev_priv(netdev);
-+
-+	if (hkey)
-+		memcpy(hkey, enic->rss_key, ENIC_RSS_LEN);
-+
-+	return 0;
-+}
-+
-+static int enic_set_rxfh(struct net_device *netdev, const u32 *indir,
-+			 const u8 *hkey)
-+{
-+	struct enic *enic = netdev_priv(netdev);
-+
-+	if (hkey)
-+		memcpy(enic->rss_key, hkey, ENIC_RSS_LEN);
-+
-+	return __enic_set_rsskey(enic);
-+}
-+
- static const struct ethtool_ops enic_ethtool_ops = {
- 	.get_settings = enic_get_settings,
- 	.get_drvinfo = enic_get_drvinfo,
-@@ -430,6 +457,9 @@ static const struct ethtool_ops enic_ethtool_ops = {
- 	.get_rxnfc = enic_get_rxnfc,
- 	.get_tunable = enic_get_tunable,
- 	.set_tunable = enic_set_tunable,
-+	.get_rxfh_key_size = enic_get_rxfh_key_size,
-+	.get_rxfh = enic_get_rxfh,
-+	.set_rxfh = enic_set_rxfh,
- };
- 
- void enic_set_ethtool_ops(struct net_device *netdev)
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index 86ee350..868d0f6 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -1888,11 +1888,10 @@ static int enic_dev_hang_reset(struct enic *enic)
- 	return err;
- }
- 
--static int enic_set_rsskey(struct enic *enic)
-+int __enic_set_rsskey(struct enic *enic)
- {
- 	union vnic_rss_key *rss_key_buf_va;
- 	dma_addr_t rss_key_buf_pa;
--	u8 rss_key[ENIC_RSS_LEN];
- 	int i, kidx, bidx, err;
- 
- 	rss_key_buf_va = pci_zalloc_consistent(enic->pdev,
-@@ -1901,11 +1900,10 @@ static int enic_set_rsskey(struct enic *enic)
- 	if (!rss_key_buf_va)
- 		return -ENOMEM;
- 
--	netdev_rss_key_fill(rss_key, ENIC_RSS_LEN);
- 	for (i = 0; i < ENIC_RSS_LEN; i++) {
- 		kidx = i / ENIC_RSS_BYTES_PER_KEY;
- 		bidx = i % ENIC_RSS_BYTES_PER_KEY;
--		rss_key_buf_va->key[kidx].b[bidx] = rss_key[i];
-+		rss_key_buf_va->key[kidx].b[bidx] = enic->rss_key[i];
- 	}
- 	spin_lock_bh(&enic->devcmd_lock);
- 	err = enic_set_rss_key(enic,
-@@ -1919,6 +1917,13 @@ static int enic_set_rsskey(struct enic *enic)
- 	return err;
- }
- 
-+static int enic_set_rsskey(struct enic *enic)
-+{
-+	netdev_rss_key_fill(enic->rss_key, ENIC_RSS_LEN);
-+
-+	return __enic_set_rsskey(enic);
-+}
-+
- static int enic_set_rsscpu(struct enic *enic, u8 rss_hash_bits)
- {
- 	dma_addr_t rss_cpu_buf_pa;
--- 
-2.1.0
+On 12/6/14, 12:05 AM, Arad, Ronen wrote:
+>
+>> -----Original Message-----
+>> From: Scott Feldman [mailto:sfeldma@gmail.com]
+>> Sent: Friday, December 05, 2014 10:29 PM
+>> To: Arad, Ronen
+>> Cc: Roopa Prabhu; Netdev; Jir=C3=AD P=C3=ADrko; Jamal Hadi Salim; Be=
+njamin LaHaise;
+>> Thomas Graf; john fastabend; stephen@networkplumber.org; John Linvil=
+le;
+>> nhorman@tuxdriver.com; Nicolas Dichtel; vyasevic@redhat.com; Florian
+>> Fainelli; buytenh@wantstofly.org; Aviad Raveh; David S. Miller;
+>> shm@cumulusnetworks.com; Andy Gospodarek
+>> Subject: Re: [PATCH 2/3] bridge: offload bridge port attributes to s=
+witch asic
+>> if feature flag set
+>>
+>> On Fri, Dec 5, 2014 at 5:04 PM, Arad, Ronen <ronen.arad@intel.com> w=
+rote:
+>>> I have another case of propagation which is not covered by the prop=
+osed
+>> patch.
+>>> A recent patch introduced default_pvid attribute for a bridge (so f=
+ar
+>> supported only via sysfs and not via netlink).
+>>> When a port joins a bridge, it inherits a PVID from the default_pvi=
+d of the
+>> bridge.
+>>> The bridge driver propagates that to the newly created net_bridge_p=
+ort.
+>> This is done in br_vlan.c:
+>>> int nbp_vlan_init(struct net_bridge_port *p) {
+>>>          int rc =3D 0;
+>>>
+>>>          if (p->br->default_pvid) {
+>>>                  rc =3D nbp_vlan_add(p, p->br->default_pvid,
+>>>                                    BRIDGE_VLAN_INFO_PVID |
+>>>                                    BRIDGE_VLAN_INFO_UNTAGGED);
+>>>          }
+>>>
+>>>          return rc;
+>>> }
+>>>
+>>> When L2 switching is offloaded to the HW, this PVID setting need to=
+ be
+>> propagated.
+>>
+>> Agreed, it would be nice to have it propagated down, but there is a =
+non-ideal
+>> work-around.  If you set default_pvid=3D0 to turn off PVID, then the=
+ switch port
+>> driver can pick some internal VLAN ID just for HW purposes in matchi=
+ng
+>> untagged pkts.  It's non-ideal because the switch port driver needs =
+to reserve
+>> a block of VLAN IDs for internal usage or use some other matching
+>> mechanism to keep untagged pkts within this bridge.
+> This work-around let the administrator avoid using VID=3D1 as the def=
+ault VLAN for untagged frames. However, it does not let the administrat=
+or pick a VID of her choice.
+>
+>> Better to have default_pvid value propagated down.  But, default_pvi=
+d is a
+>> per-bridge property, not a per-bridge-port property.
+>> RTM_SETLINK/RTM_GETLINK for PF_BRIDGE does have AFSPEC for per-bridg=
+e
+>> and PROTINFO for per-bridge-port, so it seems PVID needs to be part =
+of
+>> AFSPEC.
+> I believe AFSPEC is not limited to per-bridge properties. It is per-b=
+ridge when the netlink msg's ifindex is that of a bridge and SELF flag =
+is set.
+> AFSPEC is for a port when the netlink msg's ifindex is that of an ens=
+laved port device and MASTER flag is set (or neither MASTER nor SELF fl=
+ag is set)
+> PVID is one of the flags associated with a VID in bridge_vlan_info.
+correct.
+> default_pvid is not currently supported by netlink. A new IFLA_BRIDGE=
+_DEFAULT_PVID could be introduced to carry this property when a nlmsg i=
+s directed at a bridge.
+>
+>
+correct again. And yes,  a netlink attribute to set default pvid is due=
+=2E
