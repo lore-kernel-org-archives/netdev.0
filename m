@@ -1,61 +1,37 @@
 From: "George Spelvin" <linux@horizon.com>
 Subject: Re: Where exactly will arch_fast_hash be used
-Date: 7 Dec 2014 08:23:05 -0500
-Message-ID: <20141207132305.24691.qmail@ns.horizon.com>
-References: <20141207125157.GA9745@gondor.apana.org.au>
-Cc: davem@davemloft.net, dborkman@redhat.com,
-	hannes@stressinduktion.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, tgraf@suug.ch, tytso@mit.edu
-To: herbert@gondor.apana.org.au, linux@horizon.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141207125157.GA9745@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Date: 7 Dec 2014 08:30:56 -0500
+Message-ID: <20141207133056.25209.qmail@ns.horizon.com>
+References: <1417958080.17658.32.camel@localhost>
+Cc: dborkman@redhat.com, herbert@gondor.apana.org.au,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org, tgraf@suug.ch
+To: hannes@stressinduktion.org, linux@horizon.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.horizon.com ([71.41.210.147]:44077 "HELO ns.horizon.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751487AbaLGNa5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Dec 2014 08:30:57 -0500
+In-Reply-To: <1417958080.17658.32.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> How does this implicate the low bits specifically?
+Thanks for the encouragement!
 
-> If you can easily deduce the pre-images that make the last bit
-> of the hash even or odd, then you've just cut your search space
-> for collisions by half.  The real killer is that you can do this
-> without knowing what the secret is.
+> Please consider xfs, too.
+> AFAIK xfs doesn't seed their hashing so far and the hashing function is
+> pretty weak. One example:
+> http://marc.info/?l=linux-xfs&m=139590613002926&w=2
 
-Um, yes, if you're in a situation where a hash collsion DoS is possible,
-a CRC is disastrous choice.  You can trivially find collisions for *all*
-bits of a CRC.  Low or high, they're all equally easy.
+Is that something that *can* be changed without breaking the
+disk format?  SipHash is explicitly *not* designed to be secure as
+an unkeyed hash in the way that SHA-type algorithms are.
 
-When you said
->>>>> Even if security wasn't an issue, straight CRC32 has really poor
->>>>> lower-order bit distribution, which makes it a terrible choice for
->>>>> a hash table that simply uses the lower-order bits.
+What it's designed to do is provide second preimage resistance
+of its output, or a function (like modular reduction) of its output,
+against an attacker who doesn't know the secret seed.
 
-This is talking about:
-- Non-malicious inputs,where security isn't an issue, and
-- Low-order bits specifically, implying that the high-order bits are different.
+> Ack. If we want to use it in the networking stack we should be able to
+> use it without a dependency to the crypto framework.
 
-*That's* the claim I'm curious about.  I know perfectly well that if
-security *is* an issue, a fixed-polynomial CRC is a disaser.
-
-But for non-malicious inputs, like normal software identifiers, a CRC
-actually works very well.
-
-
-If you want to do secure hashing with a CRC, you need to have a secret
-*polynomial*.  That *is* provably secure (it's a universal family of hash
-functions), but isn't provided by x86 unless you use SSE and PCLMUL.
-
-That's why it's a non-cryptographic hash, suitable for non-malicious
-inputs only.  That's the same security claim as many other common hash
-functions.
-
-> Our entire scheme is dependent on using the secret to defeat
-> would-be attackers.  If CRC does not make effective use of the
-> secret, then we're essentially naked against attackers.
-
-Okay, I'm confused.  *What* scheme?  The arch_fast_hash interface doesn't
-have any provision for a secret.  Because there's no point to having one;
-you can't change the polynomial, and anything additive has just moves
-collisions around without reducing them.
-
-So there are plenty of hash tables in Linux that you don't dare use this
-with.  In fact, so many that, as you rightly point out, it's not clear
-if it's worth providing this special optimization for the few remaining.
+Already understood.  My big question is whether a single function call
+is okay or we need something inlinable.
