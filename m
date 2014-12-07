@@ -1,50 +1,116 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3 2/2] rocker: remove swdev mode
-Date: Sun, 07 Dec 2014 08:55:54 -0800
-Message-ID: <5484869A.6020204@cumulusnetworks.com>
-References: <1417935267-6000-3-git-send-email-roopa@cumulusnetworks.com> <20141207081928.GA2215@casper.infradead.org>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH RFC] pci: Control whether VFs are probed on
+ pci_enable_sriov
+Date: Sun, 7 Dec 2014 17:05:06 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63BA6616@avmb3.qlogic.org>
+References: <1417957693-24979-1-git-send-email-eli@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, sfeldma@gmail.com, jhs@mojatatu.com,
-	bcrl@kvack.org, john.fastabend@gmail.com,
-	stephen@networkplumber.org, linville@tuxdriver.com,
-	vyasevic@redhat.com, netdev@vger.kernel.org, davem@davemloft.net,
-	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:56766 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751052AbaLGQ4A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2014 11:56:00 -0500
-In-Reply-To: <20141207081928.GA2215@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+	boundary="_000_B5657A6538887040AD3A81F1008BEC63BA6616avmb3qlogicorg_"
+Cc: linux-pci <linux-pci@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"yevgenyp@mellanox.com" <yevgenyp@mellanox.com>,
+	Eli Cohen <eli@mellanox.com>,
+	Donald Dutile <ddutile@redhat.com>
+To: Eli Cohen <eli@dev.mellanox.co.il>,
+	"bhelgaas@google.com" <bhelgaas@google.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1417957693-24979-1-git-send-email-eli@mellanox.com>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/7/14, 12:19 AM, Thomas Graf wrote:
-> On 12/06/14 at 10:54pm, roopa@cumulusnetworks.com wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->> ---
->>   drivers/net/ethernet/rocker/rocker.c |   18 +-----------------
->>   include/linux/rtnetlink.h            |    2 +-
->>   net/core/rtnetlink.c                 |   12 +++++++++---
->>   3 files changed, 11 insertions(+), 21 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
->> index fded127..9f1d256 100644
->> --- a/drivers/net/ethernet/rocker/rocker.c
->> +++ b/drivers/net/ethernet/rocker/rocker.c
->> @@ -3755,7 +3739,7 @@ static int rocker_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
->>   				      u32 filter_mask)
->>   {
->>   	struct rocker_port *rocker_port = netdev_priv(dev);
->> -	u16 mode = BRIDGE_MODE_SWDEV;
->> +	u16 mode = -1;
->          ^^^
->
-> I assume you meant s16
->
-yes :(...i thought i had covered all places....missed this 
-one...resubmitting ..
+--_000_B5657A6538887040AD3A81F1008BEC63BA6616avmb3qlogicorg_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+=0A=
+>This can save host side resource usage by VF instances which would be=0A=
+>eventually probed to VMs.=0A=
+=0A=
+>Use a parameter to pci_enable_sriov to control that policy, and modify=0A=
+>all current callers such that they retain the same functionality.=0A=
+=0A=
+What's the end-game here? How eventually would this be controlled?=0A=
+=0A=
+>Use a one shot flag on struct pci_device which is cleared after the=0A=
+>first probe is ignored so subsequent attempts go through.=0A=
+=0A=
+Does a one-shot flag suffice? E.g., consider assigning a VF to VM and=0A=
+than shutting down the VM. Assuming this feature is disabled,=0A=
+the VF didn't appear on the hypervisor prior to the assignment but=0A=
+will appear after its shutdown.=0A=
+
+--_000_B5657A6538887040AD3A81F1008BEC63BA6616avmb3qlogicorg_
+Content-Disposition: attachment; filename="winmail.dat"
+Content-Transfer-Encoding: base64
+Content-Type: application/ms-tnef; name="winmail.dat"
+
+eJ8+IkhBAQaQCAAEAAAAAAABAAEAAQeQBgAIAAAA5AQAAAAAAADoAAEJgAEAIQAAADMxMEYzRTA4
+N0IyNzAxNDU5MjYwQ0JBMDAzQjY2QjY3AO0GAQ2ABAACAAAAAgACAAEFgAMADgAAAN4HDAAHABEA
+BQAGAAAAFAEBIIADAA4AAADeBwwABwARAAUABgAAABQBAQiABwAYAAAASVBNLk1pY3Jvc29mdCBN
+YWlsLk5vdGUAMQgBBIABAEgAAABSRTogW1BBVENIIFJGQ10gcGNpOiBDb250cm9sIHdoZXRoZXIg
+VkZzIGFyZSBwcm9iZWQgb24gcGNpX2VuYWJsZV9zcmlvdgCWGAEDkAYA+AwAADYAAAACAX8AAQAA
+ADoAAAA8QjU2NTdBNjUzODg4NzA0MEFEM0E4MUYxMDA4QkVDNjNCQTY2MTZAYXZtYjMucWxvZ2lj
+Lm9yZz4AAAALAB8OAQAAAAIBCRABAAAAHQMAABkDAABKBAAATFpGdcu2hVBhAApmYmlkBAAAY2PA
+cGcxMjUyAP4DQ/B0ZXh0AfcCpAPjAgAEY2gKwHNldDAg7wdtAoMAUBFNMgqABrQCgJZ9CoAIyDsJ
+YjE5DsC/CcMWcgoyFnECgBViKgmwcwnwBJBhdAWyDlADYHOibwGAIEV4EcFuGDBdBlJ2BJAXtgIQ
+cgDAdH0IUG4aMRAgBcAFoBtkZJogA1IgECIXslx2CJDkd2sLgGQ1HVME8AdADRdwMApxF/Jia21r
+BnMBkAAgIEJNX0LgRUdJTn0K/AHxC/KKbAuAZQqAPlRoBACTG9ADkXNhGjAgaBkQdwVAAJABACAJ
+cBkgCHBjDRngdSKgGdFieSBWbEYgC4AfYW4j8AQgdy8iIBHAJXAIYGwcYGJlrSGWZRowAjB1B0Bs
+JJA+cANgJkAcYBiQJKBNc5YuIZUhllUSACBhJ4AdCsBhB4AboigBcGNpTl8J8AGgHnBfcwUQb7Z2
+J/Ib4XQDYAMgdBHQzQVAcAbwDlB5LCmQHcD2IARhBpB5IZYnQRvQCHA/CXACMCJRJ1AEkAQgc3X3
+JbEsUyxQZSSQCXABkAuArzASIpEHgBxwdSUwdCtgUyrgIaB0eShtVyxhJ8cEIDDiCfBkLWcxMjAw
+4QlwPyBIbwfgJukl5J8sUCIxJkArxh5wZD8of18pggIgMQEi8AVAZgtgZ/84kSKQLAAvkCyBKqEB
+AB1gvyPxJYQiMh5wCsAcUWEBgOcqMjAwIZZmaRHwLIEnovE7ImlnbgWwHFEZIC9xemISAHEKUC7R
+GIAQIG07BTAEIGcoECxQA2B1Z7JoKG1EbweROIMtOOgPL4ABIDqRNLBFLmcu7y0AG+EjQgXAYQQQ
+PeELgP85YCmgJLEoAy0SIZUsUSKB7Gh1AkBEkmQ04DDEKDDILiBBBBB1bUSSNiN+ZjuAJyAJcDsi
+DeEq8mQeLEW3R3EkwA3gZG4nOT8hcHA7gTlyMOJoef9LYBogBAAFsSeQK2AqQzDi90Q0B4Au0WJG
+kCGVA/AuUf9LRTvkMhAvYUaBRwIoZhVCAVGQAAAAHwBCAAEAAAAYAAAAWQB1AHYAYQBsACAATQBp
+AG4AdAB6AAAAHwBlAAEAAAAuAAAAWQB1AHYAYQBsAC4ATQBpAG4AdAB6AEAAcQBsAG8AZwBpAGMA
+LgBjAG8AbQAAAAAAHwBkAAEAAAAKAAAAUwBNAFQAUAAAAAAAAgFBAAEAAABoAAAAAAAAAIErH6S+
+oxAZnW4A3QEPVAIAAACAWQB1AHYAYQBsACAATQBpAG4AdAB6AAAAUwBNAFQAUAAAAFkAdQB2AGEA
+bAAuAE0AaQBuAHQAegBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAfAAJdAQAAAC4AAABZAHUAdgBh
+AGwALgBNAGkAbgB0AHoAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAAAAfAOVfAQAAADYAAABzAGkA
+cAA6AHkAdQB2AGEAbAAuAG0AaQBuAHQAegBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8AGgwB
+AAAAGAAAAFkAdQB2AGEAbAAgAE0AaQBuAHQAegAAAB8AHwwBAAAALgAAAFkAdQB2AGEAbAAuAE0A
+aQBuAHQAegBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8AHgwBAAAACgAAAFMATQBUAFAAAAAA
+AAIBGQwBAAAAaAAAAAAAAACBKx+kvqMQGZ1uAN0BD1QCAAAAgFkAdQB2AGEAbAAgAE0AaQBuAHQA
+egAAAFMATQBUAFAAAABZAHUAdgBhAGwALgBNAGkAbgB0AHoAQABxAGwAbwBnAGkAYwAuAGMAbwBt
+AAAAHwABXQEAAAAuAAAAWQB1AHYAYQBsAC4ATQBpAG4AdAB6AEAAcQBsAG8AZwBpAGMALgBjAG8A
+bQAAAAAAHwD4PwEAAAAYAAAAWQB1AHYAYQBsACAATQBpAG4AdAB6AAAAHwAjQAEAAAAuAAAAWQB1
+AHYAYQBsAC4ATQBpAG4AdAB6AEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAAHwAiQAEAAAAKAAAA
+UwBNAFQAUAAAAAAAAgH5PwEAAABoAAAAAAAAAIErH6S+oxAZnW4A3QEPVAIAAACAWQB1AHYAYQBs
+ACAATQBpAG4AdAB6AAAAUwBNAFQAUAAAAFkAdQB2AGEAbAAuAE0AaQBuAHQAegBAAHEAbABvAGcA
+aQBjAC4AYwBvAG0AAAAfAAldAQAAAC4AAABZAHUAdgBhAGwALgBNAGkAbgB0AHoAQABxAGwAbwBn
+AGkAYwAuAGMAbwBtAAAAAAAfADFAAQAAAAIAAAAAAAAACwBAOgEAAAAfADBAAQAAAAIAAAAAAAAA
+HwAaAAEAAAASAAAASQBQAE0ALgBOAG8AdABlAAAAAAADAPE/CQQAAAsAQDoBAAAAAwD9P+QEAAAC
+AQswAQAAABAAAAAxDz4IeycBRZJgy6ADtmtnAwAXAAEAAABAADkAAI3U8j8S0AFAAAgwZX9B8z8S
+0AELACkAAAAAAAsAAIAIIAYAAAAAAMAAAAAAAABGAAAAABSFAAABAAAACwAjAAAAAAAfAACAhgMC
+AAAAAADAAAAAAAAARgEAAAAeAAAAYQBjAGMAZQBwAHQAbABhAG4AZwB1AGEAZwBlAAAAAAABAAAA
+DAAAAGUAbgAtAFUAUwAAAAsAAIAIIAYAAAAAAMAAAAAAAABGAAAAAAaFAAAAAAAAHwA3AAEAAACQ
+AAAAUgBFADoAIABbAFAAQQBUAEMASAAgAFIARgBDAF0AIABwAGMAaQA6ACAAQwBvAG4AdAByAG8A
+bAAgAHcAaABlAHQAaABlAHIAIABWAEYAcwAgAGEAcgBlACAAcAByAG8AYgBlAGQAIABvAG4AIABw
+AGMAaQBfAGUAbgBhAGIAbABlAF8AcwByAGkAbwB2AAAAHwA9AAEAAAAKAAAAUgBFADoAIAAAAAAA
+AwA2AAAAAAADAC4AAAAAAB8AQhABAAAAagAAADwAMQA0ADEANwA5ADUANwA2ADkAMwAtADIANAA5
+ADcAOQAtADEALQBnAGkAdAAtAHMAZQBuAGQALQBlAG0AYQBpAGwALQBlAGwAaQBAAG0AZQBsAGwA
+YQBuAG8AeAAuAGMAbwBtAD4AAAAAAAIBcQABAAAAGwAAAAEB0BIe8FnK9rvzDLZOtkLjaGZ5ysCc
+hFqigQAfAHAAAQAAAIgAAABbAFAAQQBUAEMASAAgAFIARgBDAF0AIABwAGMAaQA6ACAAQwBvAG4A
+dAByAG8AbAAgAHcAaABlAHQAaABlAHIAIABWAEYAcwAgAGEAcgBlACAAcAByAG8AYgBlAGQAIABv
+AG4AIABwAGMAaQBfAGUAbgBhAGIAbABlAF8AcwByAGkAbwB2AAAAHwA1EAEAAAB0AAAAPABCADUA
+NgA1ADcAQQA2ADUAMwA4ADgAOAA3ADAANAAwAEEARAAzAEEAOAAxAEYAMQAwADAAOABCAEUAQwA2
+ADMAQgBBADYANgAxADYAQABhAHYAbQBiADMALgBxAGwAbwBnAGkAYwAuAG8AcgBnAD4AAAAfADkQ
+AQAAAGoAAAA8ADEANAAxADcAOQA1ADcANgA5ADMALQAyADQAOQA3ADkALQAxAC0AZwBpAHQALQBz
+AGUAbgBkAC0AZQBtAGEAaQBsAC0AZQBsAGkAQABtAGUAbABsAGEAbgBvAHgALgBjAG8AbQA+AAAA
+AAADAN4/n04AAEAABzCTzypwPxLQAQMAJgAAAAAAAgFHAAEAAAAuAAAAYz1VUzthPSA7cD1RTG9n
+aWM7bD1BVk1CMy0xNDEyMDcxNzA1MDZaLTYzMjAwAAAAAgEUMAEAAAAMAAAAaAAAANOMi5Y+AAAA
+HwD6PwEAAAAYAAAAWQB1AHYAYQBsACAATQBpAG4AdAB6AAAAAwANNP0/AAAfAACAhgMCAAAAAADA
+AAAAAAAARgEAAAAgAAAAeAAtAG0AcwAtAGgAYQBzAC0AYQB0AHQAYQBjAGgAAAABAAAAAgAAAAAA
+AAAfAACAhgMCAAAAAADAAAAAAAAARgEAAAAiAAAAeAAtAG8AcgBpAGcAaQBuAGEAdABpAG4AZwAt
+AGkAcAAAAAAAAQAAABgAAABbADEAMAAuADEALgA0AC4AMQAwAF0AAAAfAACAhgMCAAAAAADAAAAA
+AAAARgEAAAAWAAAAZABpAHMAYwBsAGEAaQBtAGUAcgAAAAAAAQAAAA4AAABiAHkAcABhAHMAcwAA
+AAAAiXU=
+
+--_000_B5657A6538887040AD3A81F1008BEC63BA6616avmb3qlogicorg_--
