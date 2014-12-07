@@ -1,325 +1,109 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH v3 net-next] tcp: refine TSO autosizing
-Date: Sun, 7 Dec 2014 13:24:11 -0800
-Message-ID: <CAK6E8=dBZw5_jeOhDLCX7sVPgu5WSiGPRPcL9GJ1G+nweJ90ag@mail.gmail.com>
-References: <1417788937.4322.21.camel@edumazet-glaptop2.roam.corp.google.com>
- <1417832560.15618.29.camel@edumazet-glaptop2.roam.corp.google.com> <1417983738.15618.38.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Nandita Dukkipati <nanditad@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:60121 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752480AbaLGVYx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2014 16:24:53 -0500
-Received: by mail-ie0-f172.google.com with SMTP id tr6so3566889ieb.3
-        for <netdev@vger.kernel.org>; Sun, 07 Dec 2014 13:24:53 -0800 (PST)
-In-Reply-To: <1417983738.15618.38.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "George Spelvin" <linux@horizon.com>
+Subject: Re: Where exactly will arch_fast_hash be used
+Date: 7 Dec 2014 16:33:54 -0500
+Message-ID: <20141207213354.20910.qmail@ns.horizon.com>
+References: <1417961203.17658.52.camel@localhost>
+Cc: davem@davemloft.net, dborkman@redhat.com,
+	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, tgraf@suug.ch, tytso@mit.edu
+To: hannes@stressinduktion.org, linux@horizon.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1417961203.17658.52.camel@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Dec 7, 2014 at 12:22 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Commit 95bd09eb2750 ("tcp: TSO packets automatic sizing") tried to
-> control TSO size, but did this at the wrong place (sendmsg() time)
->
-> At sendmsg() time, we might have a pessimistic view of flow rate,
-> and we end up building very small skbs (with 2 MSS per skb).
->
-> This is bad because :
->
->  - It sends small TSO packets even in Slow Start where rate quickly
->    increases.
->  - It tends to make socket write queue very big, increasing tcp_ack()
->    processing time, but also increasing memory needs, not necessarily
->    accounted for, as fast clones overhead is currently ignored.
->  - Lower GRO efficiency and more ACK packets.
->
-> Servers with a lot of small lived connections suffer from this.
->
-> Lets instead fill skbs as much as possible (64KB of payload), but split
-> them at xmit time, when we have a precise idea of the flow rate.
-> skb split is actually quite efficient.
->
-> Patch looks bigger than necessary, because TCP Small Queue decision now
-> has to take place after the eventual split.
->
-> As Neal suggested, introduce a new tcp_tso_autosize() helper, so that
-> tcp_tso_should_defer() can be synchronized on same goal.
->
-> Rename tp->xmit_size_goal_segs to tp->gso_segs, as this variable
-> contains number of mss that we can put in GSO packet, and is not
-> related to the autosizing goal anymore.
->
->
-> Tested:
->
-> 40 ms rtt link
->
-> nstat >/dev/null
-> netperf -H remote -l -2000000 -- -s 1000000
-> nstat | egrep "IpInReceives|IpOutRequests|TcpOutSegs|IpExtOutOctets"
->
-> Before patch :
->
-> Recv   Send    Send
-> Socket Socket  Message  Elapsed
-> Size   Size    Size     Time     Throughput
-> bytes  bytes   bytes    secs.    10^6bits/s
->
->  87380 2000000 2000000    0.36         44.22
-> IpInReceives                    600                0.0
-> IpOutRequests                   599                0.0
-> TcpOutSegs                      1397               0.0
-> IpExtOutOctets                  2033249            0.0
->
->
-> After patch :
->
-> Recv   Send    Send
-> Socket Socket  Message  Elapsed
-> Size   Size    Size     Time     Throughput
-> bytes  bytes   bytes    secs.    10^6bits/sec
->
->  87380 2000000 2000000    0.36       44.27
-> IpInReceives                    221                0.0
-> IpOutRequests                   232                0.0
-> TcpOutSegs                      1397               0.0
-> IpExtOutOctets                  2013953            0.0
->
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Acked-by: Yuchung Cheng <ycheng@google.com>
+On Sun, 2014-12-07 at 15:06 +0100, Hannes Frederic Sowa wrote:
+> In case of openvswitch it shows a performance improvment. The seed
+> parameter could be used as an initial biasing of the crc32 function, but
+> in case of openvswitch it is only set to 0.
 
-Very nice Eric. This would improve both performance and simplify the
-complex TSO logic. I have a small question below.
+NACK.
+
+This is the Fatal Error in thinking that Herbert was warning about.
+The seed parameter doesn't affect CRC32 collisions *at all* if the inputs
+are the same size.
+
+For fixed-size inputs, a non-zero seed is equivalent to XORing a
+constant into the output of the CRC computation.
 
 
-> ---
-> v3: tcp_xmit_size_goal() still needs to return a multiple of mss.
-> v2: added tcp_tso_autosize() helper and removed tp->xmit_size_goal_segs
->
->  include/linux/tcp.h   |    2 -
->  net/ipv4/tcp.c        |   60 ++++++++++++++--------------------------
->  net/ipv4/tcp_output.c |   59 +++++++++++++++++++++++++++------------
->  3 files changed, 63 insertions(+), 58 deletions(-)
->
-> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-> index f566b8567892ef0bb213de0540b37cfc6ac03ca0..3fa0a9669a3a662be81d4b04f7d117b11012257c 100644
-> --- a/include/linux/tcp.h
-> +++ b/include/linux/tcp.h
-> @@ -130,7 +130,7 @@ struct tcp_sock {
->         /* inet_connection_sock has to be the first member of tcp_sock */
->         struct inet_connection_sock     inet_conn;
->         u16     tcp_header_len; /* Bytes of tcp header to send          */
-> -       u16     xmit_size_goal_segs; /* Goal for segmenting output packets */
-> +       u16     gso_segs;       /* Max number of segs per GSO packet    */
->
->  /*
->   *     Header prediction flags
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index dc13a3657e8e1b81ba0cb1fcd5386a9d0b106168..427aee33ffc04ad189d9d0ec24ab8004c25961ec 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -835,47 +835,29 @@ static unsigned int tcp_xmit_size_goal(struct sock *sk, u32 mss_now,
->                                        int large_allowed)
->  {
->         struct tcp_sock *tp = tcp_sk(sk);
-> -       u32 xmit_size_goal, old_size_goal;
-> -
-> -       xmit_size_goal = mss_now;
-> -
-> -       if (large_allowed && sk_can_gso(sk)) {
-> -               u32 gso_size, hlen;
-> -
-> -               /* Maybe we should/could use sk->sk_prot->max_header here ? */
-> -               hlen = inet_csk(sk)->icsk_af_ops->net_header_len +
-> -                      inet_csk(sk)->icsk_ext_hdr_len +
-> -                      tp->tcp_header_len;
-> -
-> -               /* Goal is to send at least one packet per ms,
-> -                * not one big TSO packet every 100 ms.
-> -                * This preserves ACK clocking and is consistent
-> -                * with tcp_tso_should_defer() heuristic.
-> -                */
-> -               gso_size = sk->sk_pacing_rate / (2 * MSEC_PER_SEC);
-> -               gso_size = max_t(u32, gso_size,
-> -                                sysctl_tcp_min_tso_segs * mss_now);
-> -
-> -               xmit_size_goal = min_t(u32, gso_size,
-> -                                      sk->sk_gso_max_size - 1 - hlen);
-> -
-> -               xmit_size_goal = tcp_bound_to_half_wnd(tp, xmit_size_goal);
-> -
-> -               /* We try hard to avoid divides here */
-> -               old_size_goal = tp->xmit_size_goal_segs * mss_now;
-> -
-> -               if (likely(old_size_goal <= xmit_size_goal &&
-> -                          old_size_goal + mss_now > xmit_size_goal)) {
-> -                       xmit_size_goal = old_size_goal;
-> -               } else {
-> -                       tp->xmit_size_goal_segs =
-> -                               min_t(u16, xmit_size_goal / mss_now,
-> -                                     sk->sk_gso_max_segs);
-> -                       xmit_size_goal = tp->xmit_size_goal_segs * mss_now;
-> -               }
-> +       u32 new_size_goal, size_goal, hlen;
-> +
-> +       if (!large_allowed || !sk_can_gso(sk))
-> +               return mss_now;
-> +
-> +       /* Maybe we should/could use sk->sk_prot->max_header here ? */
-> +       hlen = inet_csk(sk)->icsk_af_ops->net_header_len +
-> +              inet_csk(sk)->icsk_ext_hdr_len +
-> +              tp->tcp_header_len;
-> +
-> +       new_size_goal = sk->sk_gso_max_size - 1 - hlen;
-> +       new_size_goal = tcp_bound_to_half_wnd(tp, new_size_goal);
-> +
-> +       /* We try hard to avoid divides here */
-> +       size_goal = tp->gso_segs * mss_now;
-> +       if (unlikely(new_size_goal < size_goal ||
-> +                    new_size_goal >= size_goal + mss_now)) {
-> +               tp->gso_segs = min_t(u16, new_size_goal / mss_now,
-> +                                    sk->sk_gso_max_segs);
-> +               size_goal = tp->gso_segs * mss_now;
->         }
->
-> -       return max(xmit_size_goal, mss_now);
-> +       return max(size_goal, mss_now);
->  }
->
->  static int tcp_send_mss(struct sock *sk, int *size_goal, int flags)
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index f5bd4bd3f7e669b3fd48a843d55e7313a30a3409..f37ecf53ee8a96827fc08bd203b0ca8857f8fc34 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -1524,6 +1524,27 @@ static bool tcp_nagle_check(bool partial, const struct tcp_sock *tp,
->                 ((nonagle & TCP_NAGLE_CORK) ||
->                  (!nonagle && tp->packets_out && tcp_minshall_check(tp)));
->  }
-> +
-> +/* Return how many segs we'd like on a TSO packet,
-> + * to send one TSO packet per ms
-> + */
-> +static u32 tcp_tso_autosize(const struct sock *sk, unsigned int mss_now)
-> +{
-> +       u32 bytes, segs;
-> +
-> +       bytes = min(sk->sk_pacing_rate >> 10,
-> +                   sk->sk_gso_max_size - 1 - MAX_TCP_HEADER);
-> +
-> +       /* Goal is to send at least one packet per ms,
-> +        * not one big TSO packet every 100 ms.
-> +        * This preserves ACK clocking and is consistent
-> +        * with tcp_tso_should_defer() heuristic.
-> +        */
-> +       segs = max_t(u32, bytes / mss_now, sysctl_tcp_min_tso_segs);
-> +
-> +       return min_t(u32, segs, sk->sk_gso_max_segs);
-> +}
-> +
->  /* Returns the portion of skb which can be sent right away */
->  static unsigned int tcp_mss_split_point(const struct sock *sk,
->                                         const struct sk_buff *skb,
-> @@ -1731,7 +1752,7 @@ static int tso_fragment(struct sock *sk, struct sk_buff *skb, unsigned int len,
->   * This algorithm is from John Heffner.
->   */
->  static bool tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb,
-> -                                bool *is_cwnd_limited)
-> +                                bool *is_cwnd_limited, u32 max_segs)
->  {
->         struct tcp_sock *tp = tcp_sk(sk);
->         const struct inet_connection_sock *icsk = inet_csk(sk);
-> @@ -1761,8 +1782,7 @@ static bool tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb,
->         limit = min(send_win, cong_win);
->
->         /* If a full-sized TSO skb can be sent, do it. */
-> -       if (limit >= min_t(unsigned int, sk->sk_gso_max_size,
-> -                          tp->xmit_size_goal_segs * tp->mss_cache))
-> +       if (limit >= max_segs * tp->mss_cache)
->                 goto send_now;
->
->         /* Middle in queue won't get any more data, full sendable already? */
-> @@ -1959,6 +1979,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
->         int cwnd_quota;
->         int result;
->         bool is_cwnd_limited = false;
-> +       u32 max_segs;
->
->         sent_pkts = 0;
->
-> @@ -1972,6 +1993,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
->                 }
->         }
->
-> +       max_segs = tcp_tso_autosize(sk, mss_now);
->         while ((skb = tcp_send_head(sk))) {
->                 unsigned int limit;
->
-> @@ -2004,10 +2026,23 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
->                                 break;
->                 } else {
->                         if (!push_one &&
-> -                           tcp_tso_should_defer(sk, skb, &is_cwnd_limited))
-> +                           tcp_tso_should_defer(sk, skb, &is_cwnd_limited,
-> +                                                max_segs))
->                                 break;
->                 }
->
-> +               limit = mss_now;
-> +               if (tso_segs > 1 && !tcp_urg_mode(tp))
-> +                       limit = tcp_mss_split_point(sk, skb, mss_now,
-> +                                                   min_t(unsigned int,
-> +                                                         cwnd_quota,
-> +                                                         max_segs),
-> +                                                   nonagle);
-> +
-> +               if (skb->len > limit &&
-> +                   unlikely(tso_fragment(sk, skb, limit, mss_now, gfp)))
-> +                       break;
-> +
->                 /* TCP Small Queues :
->                  * Control number of packets in qdisc/devices to two packets / or ~1 ms.
->                  * This allows for :
-> @@ -2018,8 +2053,8 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
->                  * of queued bytes to ensure line rate.
->                  * One example is wifi aggregation (802.11 AMPDU)
->                  */
-> -               limit = max_t(unsigned int, sysctl_tcp_limit_output_bytes,
-> -                             sk->sk_pacing_rate >> 10);
-> +               limit = max(2 * skb->truesize, sk->sk_pacing_rate >> 10);
-is this capping necessary if skb->truesize already takes the pacing
-rate into account from the new logic above?
+for *different* sized inputs, a non-zero seed detects zero-padding
+better than a zero one, but *which* non-zero value is also irrelevant;
+all-ones is the traditional choice because it's simplest in hardware.
 
-> +               limit = min_t(u32, limit, sysctl_tcp_limit_output_bytes);
->
->                 if (atomic_read(&sk->sk_wmem_alloc) > limit) {
->                         set_bit(TSQ_THROTTLED, &tp->tsq_flags);
-> @@ -2032,18 +2067,6 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
->                                 break;
->                 }
->
-> -               limit = mss_now;
-> -               if (tso_segs > 1 && !tcp_urg_mode(tp))
-> -                       limit = tcp_mss_split_point(sk, skb, mss_now,
-> -                                                   min_t(unsigned int,
-> -                                                         cwnd_quota,
-> -                                                         sk->sk_gso_max_segs),
-> -                                                   nonagle);
-> -
-> -               if (skb->len > limit &&
-> -                   unlikely(tso_fragment(sk, skb, limit, mss_now, gfp)))
-> -                       break;
-> -
->                 if (unlikely(tcp_transmit_skb(sk, skb, 1, gfp)))
->                         break;
->
->
->
+
+A CRC is inherently linear.  CRC(a^b) = CRC(a) ^ CRC(b).  This makes
+them easy to analyze mathematically and gives them a number of nice
+properties for detecting hardware corruption.
+
+But that same simplicity makes it *ridiculously* easy to generate
+collisions if you try.
+
+
+One way of looking at a CRC is to say that each bit in the input
+has a CRC.  The CRC of a message string is just the XOR of the CRCs
+of the individual bits that are set in the message.
+
+Now, a CRC polynomial is chosen so that all of the bits of a
+message have different CRCs.  Obviously, there's a limit: when the
+message is 2^n bits long, it's not possible for all the bits to
+have different, non-zero n-bit CRCs.
+
+But a CRC is a really efficient way of assigning different bit patterns
+to different input bits up to that limit.
+
+(Something like CRC32c is also chosen so that, for messages up to a
+reasonable length, no 3-bit, 4-bit, etc. combinations have CRCs that
+XOR to zero.)
+
+
+But, and this might be what Herbert was trying to say and I was
+misunderstanding, if you then *truncate* that CRC, the CRCs of the
+message bits lose that uniqueness guarantee.  They're just pseudorandom
+numbers, and a CRC loses its special collision-resistance properties.
+
+It's just an ordinary random hash, and thanks to the birthday paradox,
+you're likely to find two bits whose CRCs agree in any particular 8 bits
+within roughly sqrt(2*256) or 22 bits.
+
+Here are a few such collisions for the least significant 8 bits of CRC32c:
+
+Msg1	CRC32c		Msg2	CRC32c		Match
+1<<11	3fc5f181	1<<30	bf672381	81
+1<<12	9d14c3b8	1<<31	dd45aab8	b8
+1<<5	c79a971f	1<<44	6006181f	1f
+1<<15	13a29877	1<<45	b2f53777	77
+
+There's nothing special about the lsbits of the CRC.
+Within 64 bits, the most significant 8 bits have it worse:
+
+1<<5	c79a971f	1<<17	c76580d9	c7
+1<<6	e13b70f7	1<<18	e144fb14	e1
+1<<19	70a27d8a	1<<38	7022df58	70
+1<<20	38513ec5	1<<39	38116fac	38
+1<<13	4e8a61dc	1<<52	4e2dfd53	4e
+1<<23	a541927e	1<<53	a5e0c5d1	a5
+
+
+Now, I'd like to stress that this collision rate is no worse than any
+*other* hash function.  A truncated CRC loses its special resistance to
+the birthday paradox (you'd have been much smarter to use 8-bit CRC),
+but it doesn't become especially bad.  A truncated SHA-1 will have
+coillisions just as often.
+
+The concern with a CRC is that, once you've found one collision, you've
+found a huge number of them.  Just XOR the bit pattern of your choice
+into both of the colliding messages, and you have a new collision.
+
+
+For another example, if you consider the CRC32c of all possible 1-byte
+messages *and then take only the low byte*, there are only 128 possible
+values.
+
+It turns out that the byte 0x5d has a CRC32c of 0xee0d9600.  This ends
+in 00, so if I XOR 0x5d into anything, the low 8 bits of the CRC
+don't change.
+
+Likewise, the message "23 00" has a CRC32c of 0x00ee0d96.  So you can
+XOR 0x23 into the second-last byte of anything, and the high 8 bits of
+the CRC don't change.
