@@ -1,55 +1,63 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH v2 1/6] net-PPP: Replacement of a printk() call by
- pr_warn() in mppe_rekey()
-Date: Sun, 7 Dec 2014 11:44:42 +0100 (CET)
-Message-ID: <alpine.DEB.2.02.1412071140290.2044@localhost6.localdomain6>
-References: <1417731809.2721.17.camel@perches.com>  <alpine.DEB.2.02.1412050820290.2059@localhost6.localdomain6> <1417765287.2721.39.camel@perches.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] net/mlx4_en: ethtool force speed when asking
+ for autoneg=off
+Date: Sun, 07 Dec 2014 14:55:03 +0300
+Message-ID: <54844017.2080708@cogentembedded.com>
+References: <1417939634-26085-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <1417765287.2721.39.camel@perches.com>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:37580 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753040AbaLGLzF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2014 06:55:05 -0500
+Received: by mail-lb0-f178.google.com with SMTP id f15so2762796lbj.23
+        for <netdev@vger.kernel.org>; Sun, 07 Dec 2014 03:55:04 -0800 (PST)
+In-Reply-To: <1417939634-26085-1-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> A negative to that approach is inlined functions would
-> take the function name of the parent not keep the
-> inlined function name.
+Hello.
 
-I tried the following:
+On 12/7/2014 11:07 AM, Amir Vadai wrote:
 
-#include <stdio.h>
+> From: Saeed Mahameed <saeedm@mellanox.com>
 
-inline int foo() {
-  printf("%s %x\n",__func__,0x12345);
-}
+> Use cmd->autoneg == AUTONEG_DISABLE as a user hint to force specific speed.
+> We don't want to rely on ethtool to calculate advertised link modes when
+> forcing specific speed, a user can request a specific speed and specify
+> "autoneg off" in ethtool command to give a hint for forcing this speed.
 
-int main () {
-  foo();
-}
+> Move en_warn("port reset..") inside the "port reset" block.
 
-The assembly code generated for main is:
+> Fixes: d48b3ab ("net/mlx4_en: Use PTYS register to set ethtool settings (Speed)")
+> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+> ---
+>   drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 6 +++---
+>   1 file changed, 3 insertions(+), 3 deletions(-)
 
-0000000000400470 <main>:
-  400470:       b9 45 23 01 00          mov    $0x12345,%ecx
-  400475:       ba 4b 06 40 00          mov    $0x40064b,%edx
-  40047a:       be 44 06 40 00          mov    $0x400644,%esi
-  40047f:       bf 01 00 00 00          mov    $0x1,%edi
-  400484:       31 c0                   xor    %eax,%eax
-  400486:       e9 d5 ff ff ff          jmpq   400460 <__printf_chk@plt>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> index c45e06a..3045582 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> @@ -771,13 +771,13 @@ static int mlx4_en_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+>   	}
+>
+>   	proto_admin = cpu_to_be32(ptys_adv);
+> -	if (speed >= 0 && speed != priv->port_state.link_speed)
+> +	if (speed >= 0 && ((speed != priv->port_state.link_speed) ||
+> +			   (cmd->autoneg == AUTONEG_DISABLE)))
 
-That is, the call to foo seems tom be inlined.
+    You're using () rather inconsistently. In fact, () around == and != are 
+not needed.
 
-But the output is:
+[...]
 
-foo 12345
-
-So it seems that __func__ is determined before inlining.
-
-julia
+WBR, Sergei
