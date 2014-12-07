@@ -1,11 +1,13 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 14/20] chelsio: fix misspelling of current function in string
-Date: Sun,  7 Dec 2014 20:20:56 +0100
-Message-ID: <1417980062-25151-15-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 15/20] hostap_cs: fix misspelling of current function in string
+Date: Sun,  7 Dec 2014 20:20:57 +0100
+Message-ID: <1417980062-25151-16-git-send-email-Julia.Lawall@lip6.fr>
 References: <1417980062-25151-1-git-send-email-Julia.Lawall@lip6.fr>
 Cc: kernel-janitors@vger.kernel.org, linux@rasmusvillemoes.dk,
-	joe@perches.com, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+	joe@perches.com, "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jouni Malinen <j@w1.fi>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1417980062-25151-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -22,19 +24,52 @@ Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 The semantic patch is difficult to summarize, but is available in the cover
 letter of this patch series.
 
- drivers/net/ethernet/chelsio/cxgb/sge.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/wireless/hostap/hostap_cs.c |   15 +++++----------
+ 1 file changed, 5 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb/sge.c b/drivers/net/ethernet/chelsio/cxgb/sge.c
-index 4c58793..86222a1 100644
---- a/drivers/net/ethernet/chelsio/cxgb/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb/sge.c
-@@ -301,7 +301,7 @@ unsigned int t1_sched_update_parms(struct sge *sge, unsigned int port,
- 	struct sched_port *p = &s->p[port];
- 	unsigned int max_avail_segs;
+diff --git a/drivers/net/wireless/hostap/hostap_cs.c b/drivers/net/wireless/hostap/hostap_cs.c
+index b6ec519..50033aa 100644
+--- a/drivers/net/wireless/hostap/hostap_cs.c
++++ b/drivers/net/wireless/hostap/hostap_cs.c
+@@ -381,18 +381,15 @@ static void prism2_pccard_genesis_reset(local_info_t *local, int hcr)
  
--	pr_debug("t1_sched_update_params mtu=%d speed=%d\n", mtu, speed);
-+	pr_debug("%s mtu=%d speed=%d\n", __func__, mtu, speed);
- 	if (speed)
- 		p->speed = speed;
- 	if (mtu)
+ 	res = pcmcia_read_config_byte(hw_priv->link, CISREG_COR, &old_cor);
+ 	if (res != 0) {
+-		printk(KERN_DEBUG "prism2_pccard_genesis_sreset failed 1 "
+-		       "(%d)\n", res);
++		printk(KERN_DEBUG "%s failed 1 (%d)\n", __func__, res);
+ 		return;
+ 	}
+-	printk(KERN_DEBUG "prism2_pccard_genesis_sreset: original COR %02x\n",
+-		old_cor);
++	printk(KERN_DEBUG "%s: original COR %02x\n", __func__, old_cor);
+ 
+ 	res = pcmcia_write_config_byte(hw_priv->link, CISREG_COR,
+ 				old_cor | COR_SOFT_RESET);
+ 	if (res != 0) {
+-		printk(KERN_DEBUG "prism2_pccard_genesis_sreset failed 2 "
+-		       "(%d)\n", res);
++		printk(KERN_DEBUG "%s failed 2 (%d)\n", __func__, res);
+ 		return;
+ 	}
+ 
+@@ -401,8 +398,7 @@ static void prism2_pccard_genesis_reset(local_info_t *local, int hcr)
+ 	/* Setup Genesis mode */
+ 	res = pcmcia_write_config_byte(hw_priv->link, CISREG_CCSR, hcr);
+ 	if (res != 0) {
+-		printk(KERN_DEBUG "prism2_pccard_genesis_sreset failed 3 "
+-		       "(%d)\n", res);
++		printk(KERN_DEBUG "%s failed 3 (%d)\n", __func__, res);
+ 		return;
+ 	}
+ 	mdelay(10);
+@@ -410,8 +406,7 @@ static void prism2_pccard_genesis_reset(local_info_t *local, int hcr)
+ 	res = pcmcia_write_config_byte(hw_priv->link, CISREG_COR,
+ 				old_cor & ~COR_SOFT_RESET);
+ 	if (res != 0) {
+-		printk(KERN_DEBUG "prism2_pccard_genesis_sreset failed 4 "
+-		       "(%d)\n", res);
++		printk(KERN_DEBUG "%s failed 4 (%d)\n", __func__, res);
+ 		return;
+ 	}
+ 
