@@ -1,34 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 1/6] net-PPP: Replacement of a printk() call by
- pr_warn() in mppe_rekey()
-Date: Sun, 07 Dec 2014 04:42:10 -0800
-Message-ID: <1417956130.31745.27.camel@perches.com>
-References: <1417731809.2721.17.camel@perches.com>
-	 <alpine.DEB.2.02.1412050820290.2059@localhost6.localdomain6>
-	 <1417765287.2721.39.camel@perches.com>
-	 <alpine.DEB.2.02.1412071140290.2044@localhost6.localdomain6>
-	 <1417955413.31745.25.camel@perches.com>
-	 <alpine.DEB.2.02.1412071335140.2030@localhost6.localdomain6>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Where exactly will arch_fast_hash be used
+Date: Sun, 7 Dec 2014 20:51:57 +0800
+Message-ID: <20141207125157.GA9745@gondor.apana.org.au>
+References: <20141207092828.GA8623@gondor.apana.org.au>
+ <20141207100252.6707.qmail@ns.horizon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1412071335140.2030@localhost6.localdomain6>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dborkman@redhat.com, hannes@stressinduktion.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	tgraf@suug.ch, "David S. Miller" <davem@davemloft.net>,
+	Theodore Ts'o <tytso@mit.edu>
+To: George Spelvin <linux@horizon.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:33372 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752365AbaLGMwJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2014 07:52:09 -0500
+Content-Disposition: inline
+In-Reply-To: <20141207100252.6707.qmail@ns.horizon.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-12-07 at 13:36 +0100, Julia Lawall wrote:
-> the semantic patch is only using __func__ and only in cases where 
-> the string wanted is similar to the name of the current function, so I 
-> think it should be OK?
+On Sun, Dec 07, 2014 at 05:02:52AM -0500, George Spelvin wrote:
+>
+> How does this implicate the low bits specifically?
 
-Yes, it'd be a good thing.
+If you can easily deduce the pre-images that make the last bit
+of the hash even or odd, then you've just cut your search space
+for collisions by half.  The real killer is that you can do this
+without knowing what the secret is.
 
+Our entire scheme is dependent on using the secret to defeat
+would-be attackers.  If CRC does not make effective use of the
+secret, then we're essentially naked against attackers.
 
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
