@@ -1,54 +1,56 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can 2014-12-07
-Date: Sun,  7 Dec 2014 23:06:03 +0100
-Message-ID: <1417989966-31309-1-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 1/3] can: peak_usb: fix memset() usage
+Date: Sun,  7 Dec 2014 23:06:04 +0100
+Message-ID: <1417989966-31309-2-git-send-email-mkl@pengutronix.de>
+References: <1417989966-31309-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
+	kernel@pengutronix.de,
+	Stephane Grosjean <s.grosjean@peak-system.com>,
+	linux-stable <stable@vger.kernel.org>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:58587 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753287AbaLGWGM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2014 17:06:12 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1417989966-31309-1-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello David,
+From: Stephane Grosjean <s.grosjean@peak-system.com>
 
-this is a pull request of three patches by Stephane Grosjean which fix several
-bugs in the peak_usb CAN drivers.
+This patchs fixes a misplaced call to memset() that fills the request
+buffer with 0. The problem was with sending PCAN_USBPRO_REQ_FCT
+requests, the content set by the caller was thus lost.
 
-Please queue, if possible for 3.18, if it's too late these patches takes the
-slow lane via net-next.
+With this patch, the memory area is zeroed only when requesting info
+from the device.
 
-regards,
-Marc
-
+Signed-off-by: Stephane Grosjean <s.grosjean@peak-system.com>
+Cc: linux-stable <stable@vger.kernel.org>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
+ drivers/net/can/usb/peak_usb/pcan_usb_pro.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-The following changes since commit f2a01517f2a1040a0b156f171a7cefd748f2fd03:
+diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_pro.c b/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
+index 263dd921edc4..f7f796a2c50b 100644
+--- a/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
++++ b/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
+@@ -333,8 +333,6 @@ static int pcan_usb_pro_send_req(struct peak_usb_device *dev, int req_id,
+ 	if (!(dev->state & PCAN_USB_STATE_CONNECTED))
+ 		return 0;
+ 
+-	memset(req_addr, '\0', req_size);
+-
+ 	req_type = USB_TYPE_VENDOR | USB_RECIP_OTHER;
+ 
+ 	switch (req_id) {
+@@ -345,6 +343,7 @@ static int pcan_usb_pro_send_req(struct peak_usb_device *dev, int req_id,
+ 	default:
+ 		p = usb_rcvctrlpipe(dev->udev, 0);
+ 		req_type |= USB_DIR_IN;
++		memset(req_addr, '\0', req_size);
+ 		break;
+ 	}
+ 
+-- 
+2.1.3
 
-  openvswitch: Fix flow mask validation. (2014-12-05 21:42:16 -0800)
-
-are available in the git repository at:
-
-  git://gitorious.org/linux-can/linux-can.git tags/linux-can-fixes-for-3.18-20141207
-
-for you to fetch changes up to 62bc24f67abda56e486735706be6a4dea60fdb4c:
-
-  can: peak_usb: fix multi-byte values endianess (2014-12-07 21:04:03 +0100)
-
-----------------------------------------------------------------
-linux-can-fixes-for-3.18-20141207
-
-----------------------------------------------------------------
-Stephane Grosjean (3):
-      can: peak_usb: fix memset() usage
-      can: peak_usb: fix cleanup sequence order in case of error during init
-      can: peak_usb: fix multi-byte values endianess
-
- drivers/net/can/usb/peak_usb/pcan_usb.c      | 14 ++++----
- drivers/net/can/usb/peak_usb/pcan_usb_core.c | 20 +++++++-----
- drivers/net/can/usb/peak_usb/pcan_usb_pro.c  | 23 +++++++------
- drivers/net/can/usb/peak_usb/pcan_usb_pro.h  | 48 ++++++++++++++--------------
- 4 files changed, 54 insertions(+), 51 deletions(-)
