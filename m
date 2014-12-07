@@ -1,41 +1,74 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 4/20] dmfe: fix misspelling of current function in string
-Date: Sun,  7 Dec 2014 20:20:46 +0100
-Message-ID: <1417980062-25151-5-git-send-email-Julia.Lawall@lip6.fr>
-References: <1417980062-25151-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, linux@rasmusvillemoes.dk,
-	joe@perches.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Grant Grundler <grundler@parisc-linux.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417980062-25151-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] i40e: Fix possible memory leak in i40e_dbg_dump_desc
+Date: Sun, 07 Dec 2014 11:57:32 -0800
+Message-ID: <1417982252.2399.51.camel@jtkirshe-mobl>
+References: <20141206134513.GD4963@mwanda>
+	 <1417874601.31745.21.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-j/VC/N6D3Dawk0//NSJb"
+Cc: kbuild@01.org, Shannon Nelson <shannon.nelson@intel.com>,
+	Dan Carpenter <dan.carpenter@oracle.com>,
+	netdev <netdev@vger.kernel.org>, nhorman@redhat.com,
+	sassmann@redhat.com, jogreene@redhat.com
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:2398 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752411AbaLGT5e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Dec 2014 14:57:34 -0500
+In-Reply-To: <1417874601.31745.21.camel@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The function name contains cleanup, not clean.
 
-This was done using Coccinelle, including the use of Levenshtein distance,
-as proposed by Rasmus Villemoes.
+--=-j/VC/N6D3Dawk0//NSJb
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+On Sat, 2014-12-06 at 06:03 -0800, Joe Perches wrote:
+> I didn't notice that return in the code, fix it by
+> adding a goto out instead to free the memory.
+>=20
+> Fixes:
+>=20
+> > New smatch warnings:
+> > drivers/net/ethernet/intel/i40e/i40e_debugfs.c:832
+> i40e_dbg_dump_desc() warn: possible memory leak of 'ring'
+>=20
+> Signed-off-by: Joe Perches <joe@perches.com>
+> Noticed-by: Dan Carpenter <dan.carpenter@oracle.com> (go smatch)
+> ---
+>=20
+> Jeff Kirsher can legitimately give me a hard time now...
+> Thanks Dan.
+>=20
+>  drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
 
----
-The semantic patch is difficult to summarize, but is available in the cover
-letter of this patch series.
+Thanks Joe, I have added your patch to my queue.
 
- drivers/net/ethernet/dec/tulip/dmfe.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+--=-j/VC/N6D3Dawk0//NSJb
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-diff --git a/drivers/net/ethernet/dec/tulip/dmfe.c b/drivers/net/ethernet/dec/tulip/dmfe.c
-index c820560..50a0077 100644
---- a/drivers/net/ethernet/dec/tulip/dmfe.c
-+++ b/drivers/net/ethernet/dec/tulip/dmfe.c
-@@ -2265,7 +2265,7 @@ static int __init dmfe_init_module(void)
- 
- static void __exit dmfe_cleanup_module(void)
- {
--	DMFE_DBUG(0, "dmfe_clean_module() ", debug);
-+	DMFE_DBUG(0, "dmfe_cleanup_module() ", debug);
- 	pci_unregister_driver(&dmfe_driver);
- }
- 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJUhLEsAAoJEOVv75VaS+3OY/sP/3RM/UzqBXWV6klNoFFhHq1z
+WWjJ3MuXyzAeIvvVLSB605/+tYV/f2ClMKc2Pw052Sr5Nkh5PtDoMqnyf1iORsND
+pTUtpXK2qntwdyG59MvSE3GZzaBNTLODiRRJts77Gg21OtGdDvcuBsMi65jA3qgX
+ku11qS02VEzbc8E1dvCANqBHXaFFYP6EVQdIFr92qVERFKZWbKrzgfNnTex9XSD+
++5QlYMtFzmWyfBMEyduBK8ZdT3ALQ1UsUQ62LKVUaBQGNVnmJjAH7ODttGylLnmw
+5qboolQFDOXs3yMeMsYGHWx8022rrFHkHBIgwaHRE9nrNmQe5jw/dmQjmAc3PtLQ
+6/veplyJsxZo6rbWCQ5RB5VJtLJvkC91bxthYMBilsDbd0+0H8QDhNDg3n4/Ygvm
+UoIrNZM1RP52w4pbqgyJgh7CiXhjJqeX5Tqf7vVJYWvByY79AmteIIylNmEUyXtX
+8jbnfKpBQ3asa82Vwxl5oIsNId01VCJ7KFofprq3Al3zFcxlRMsIJ2Y0fcr/2DhG
+pVjwdqrBJOtd6ccnuVxeeTItRFekgU8Mkr6Zdj28n7HJfBvZEQjQj4WhFFdvTH0Y
+tMPej+Px2kPtTnUhlq0/YMd9XsI+RmNQZ+0rYVrrsjeSqqEw4lSKZvMKx6KBM6Rs
+2LXQb6QBPht8OTHehkPL
+=YYpQ
+-----END PGP SIGNATURE-----
+
+--=-j/VC/N6D3Dawk0//NSJb--
