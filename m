@@ -1,165 +1,153 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH 2/3] bridge: offload bridge port attributes to switch
- asic if feature flag set
-Date: Sun, 07 Dec 2014 11:13:58 -0800
-Message-ID: <5484A6F6.3040605@cumulusnetworks.com>
-References: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bBOCgoH0zL6+82jj2qjcP8n3kSo51x+i5SoqkN8Ff1CBQ@mail.gmail.com> <54815883.80909@cumulusnetworks.com> <E4CD12F19ABA0C4D8729E087A761DC3505D842BA@ORSMSX101.amr.corp.intel.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next] dst: no need to take reference on DST_NOCACHE
+ dsts
+Date: Sun, 7 Dec 2014 21:20:34 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1412072040250.1885@ja.home.ssi.bg>
+References: <51b54bc66109594459e1a08c9022c5c48f20d910.1417889528.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?Smlyw60gUMOtcmtv?= <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
-	john fastabend <john.fastabend@gmail.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	John Linville <linville@tuxdriver.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"buytenh@wantstofly.org" <buytenh@wantstofly.org>,
-	Aviad Raveh <aviadr@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: "Arad, Ronen" <ronen.arad@intel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:39936 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753052AbaLGTOG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2014 14:14:06 -0500
-In-Reply-To: <E4CD12F19ABA0C4D8729E087A761DC3505D842BA@ORSMSX101.amr.corp.intel.com>
+Received: from ja.ssi.bg ([178.16.129.10]:37373 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753268AbaLGTVB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Dec 2014 14:21:01 -0500
+In-Reply-To: <51b54bc66109594459e1a08c9022c5c48f20d910.1417889528.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/5/14, 3:21 PM, Arad, Ronen wrote:
->
->> -----Original Message-----
->> From: netdev-owner@vger.kernel.org [mailto:netdev-
->> owner@vger.kernel.org] On Behalf Of Roopa Prabhu
->> Sent: Thursday, December 04, 2014 11:02 PM
->> To: Scott Feldman
->> Cc: Ji=C5=99=C3=AD P=C3=ADrko; Jamal Hadi Salim; Benjamin LaHaise; T=
-homas Graf; john
->> fastabend; stephen@networkplumber.org; John Linville;
->> nhorman@tuxdriver.com; Nicolas Dichtel; vyasevic@redhat.com; Florian
->> Fainelli; buytenh@wantstofly.org; Aviad Raveh; Netdev; David S. Mill=
-er;
->> shm@cumulusnetworks.com; Andy Gospodarek
->> Subject: Re: [PATCH 2/3] bridge: offload bridge port attributes to s=
-witch asic
->> if feature flag set
->>
->> On 12/4/14, 10:41 PM, Scott Feldman wrote:
->>> On Thu, Dec 4, 2014 at 6:26 PM,  <roopa@cumulusnetworks.com> wrote:
->>>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>>
->>>> This allows offloading to switch asic without having the user to s=
-et
->>>> any flag. And this is done in the bridge driver to rollback kernel
->>>> settings on hw offload failure if required in the future.
->>>>
->>>> With this, it also makes sure a notification goes out only after t=
-he
->>>> attributes are set both in the kernel and hw.
->>> I like this approach as it streamlines the steps for the user in
->>> setting port flags.  There is one case for FLOODING where you'll ha=
-ve
->>> to turn off flooding for both, and then turn on flooding in hw.  Yo=
-u
->>> don't want flooding turned on on kernel and hw.
->> ok, maybe using the higher bits as in
->> https://patchwork.ozlabs.org/patch/413211/
->>
->> might help with that. Let me think some more.
->>>> ---
->>>>    net/bridge/br_netlink.c |   27 ++++++++++++++++++++++++++-
->>>>    1 file changed, 26 insertions(+), 1 deletion(-)
->>>>
->>>> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c ind=
-ex
->>>> 9f5eb55..ce173f0 100644
->>>> --- a/net/bridge/br_netlink.c
->>>> +++ b/net/bridge/br_netlink.c
->>>> @@ -407,9 +407,21 @@ int br_setlink(struct net_device *dev, struct
->> nlmsghdr *nlh)
->>>>                                   afspec, RTM_SETLINK);
->>>>           }
->>>>
->>>> +       if ((dev->features & NETIF_F_HW_SWITCH_OFFLOAD) &&
->>>> +                       dev->netdev_ops->ndo_bridge_setlink) {
->>>> +               int ret =3D dev->netdev_ops->ndo_bridge_setlink(de=
-v,
->>>> + nlh);
->>> I think you want to up-level this to net/core/rtnetlink.c because
->>> you're only enabling the feature for one instance of a driver that
->>> implements ndo_bridge_setlink: the bridge driver.  If another drive=
-r
->>> was MASTER and implemented ndo_bridge_setlink, you'd want same chec=
-k
->>> to push setting down to SELF port driver.
->> yeah, i thought about that. But i moved it here so that rollback wou=
-ld be
->> easier.
-> There is a need for propagating setlink/dellink requests down multipl=
-e levels.
-> The use-case I have in mind is a bridge at the top, team/bond in the =
-middle, and port devices at the bottom.
-> A setlink for VLAN filtering attributes would come with MASTER flag s=
-et, and either port or bond/team netdev.
-> How would this be handled?
 
-Good point. glad that you brought this up.
->
-> The propagation rules between bridge and enslaved port device could b=
-e different from those between bond/team and enslaved devices.
-> The current bridge driver does not propagate VLAN filtering from brid=
-ge to its ports as each port could have different configuration. In a c=
-ase of a bond/team all members need to have the same configuration such=
- that the a bond/team would be indistinguishable from a simple port.
->
-> Therefore rtnetlink.c might not have the knowledge for propagation ac=
-ross multiple levels.
-> It seems that each device which implements ndo_bridge_setlink/ndo_bri=
-dge_dellink  and could have master role, need to take care of propagati=
-on to its slaves.
+	Hello,
 
-Are you suggesting all devices in such stack will implement=20
-ndo_bridge_setlink/ndo_bridge_dellink ?.
-If yes,  Then that will not scale in terms of supporting all devices.
+On Sat, 6 Dec 2014, Hannes Frederic Sowa wrote:
 
-I am thinking an ndo op will not help here. On our systems, for such=20
-stacked devices, the switch driver is aware of all interfaces it cares=20
-about. In this case since the bond slaves are switch ports, it tracks=20
-the bond too. When the bond goes into the bridge, it tracks the bond as=
-=20
-a bridge port.
-Which means it uses any information a bridge driver calls on its port=20
-via ndo_bridge_setlink(). the port can be a bond or any device as long=20
-as the bridge port leads to a switch port.
+> Since commit f8864972126899 ("ipv4: fix dst race in sk_dst_get()")
+> DST_NOCACHE dst_entries get freed by RCU. So there is no need to get a
+> reference on them when we are in rcu protected sections.
+> 
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Julian Anastasov <ja@ssi.bg>
 
-As long as the bond driver does not need to do anything in software for=
-=20
-this when its a bridge port, seems like the bridge driver should notify=
-=20
-any switch devices that are interested in this setlink attributes (This=
-=20
-includes the vlan information that you talk about).
-To me this calls for switch device ops..... to go to the switch driver=20
-directly (context for this is my short talk at the BOF at LPC dusseldor=
-f).
-These swdev ops could be registered by the switch driver for all device=
-s=20
-and at the time of the callback the switch driver can decide to service=
-=20
-it or not, OR it could be registered only on devices the switch driver=20
-is interested in. (In this case when the bond becomes part of the bridg=
-e )
+	Looks ok to me,
 
-Will think about this some more, and will work on some RFC patches for=20
-this case.
+Reviewed-by: Julian Anastasov <ja@ssi.bg>
 
-Thanks,
-Roopa
+	For IPVS we still call dst_release from
+RCU callback ip_vs_dest_dst_rcu_free(). May be I have to
+create separate patch to move dst_release() from
+ip_vs_dest_dst_rcu_free() to __ip_vs_dst_cache_reset() and
+__ip_vs_dst_set() to avoid second callback step.
+
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>  include/linux/skbuff.h          | 23 ++---------------------
+>  net/core/dst.c                  | 24 ------------------------
+>  net/netfilter/ipvs/ip_vs_xmit.c |  4 ++--
+>  3 files changed, 4 insertions(+), 47 deletions(-)
+> 
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 7691ad5..70ebc79 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -718,9 +718,6 @@ static inline void skb_dst_set(struct sk_buff *skb, struct dst_entry *dst)
+>  	skb->_skb_refdst = (unsigned long)dst;
+>  }
+>  
+> -void __skb_dst_set_noref(struct sk_buff *skb, struct dst_entry *dst,
+> -			 bool force);
+> -
+>  /**
+>   * skb_dst_set_noref - sets skb dst, hopefully, without taking reference
+>   * @skb: buffer
+> @@ -733,24 +730,8 @@ void __skb_dst_set_noref(struct sk_buff *skb, struct dst_entry *dst,
+>   */
+>  static inline void skb_dst_set_noref(struct sk_buff *skb, struct dst_entry *dst)
+>  {
+> -	__skb_dst_set_noref(skb, dst, false);
+> -}
+> -
+> -/**
+> - * skb_dst_set_noref_force - sets skb dst, without taking reference
+> - * @skb: buffer
+> - * @dst: dst entry
+> - *
+> - * Sets skb dst, assuming a reference was not taken on dst.
+> - * No reference is taken and no dst_release will be called. While for
+> - * cached dsts deferred reclaim is a basic feature, for entries that are
+> - * not cached it is caller's job to guarantee that last dst_release for
+> - * provided dst happens when nobody uses it, eg. after a RCU grace period.
+> - */
+> -static inline void skb_dst_set_noref_force(struct sk_buff *skb,
+> -					   struct dst_entry *dst)
+> -{
+> -	__skb_dst_set_noref(skb, dst, true);
+> +	WARN_ON(!rcu_read_lock_held() && !rcu_read_lock_bh_held());
+> +	skb->_skb_refdst = (unsigned long)dst | SKB_DST_NOREF;
+>  }
+>  
+>  /**
+> diff --git a/net/core/dst.c b/net/core/dst.c
+> index a028409..e956ce6 100644
+> --- a/net/core/dst.c
+> +++ b/net/core/dst.c
+> @@ -327,30 +327,6 @@ void __dst_destroy_metrics_generic(struct dst_entry *dst, unsigned long old)
+>  }
+>  EXPORT_SYMBOL(__dst_destroy_metrics_generic);
+>  
+> -/**
+> - * __skb_dst_set_noref - sets skb dst, without a reference
+> - * @skb: buffer
+> - * @dst: dst entry
+> - * @force: if force is set, use noref version even for DST_NOCACHE entries
+> - *
+> - * Sets skb dst, assuming a reference was not taken on dst
+> - * skb_dst_drop() should not dst_release() this dst
+> - */
+> -void __skb_dst_set_noref(struct sk_buff *skb, struct dst_entry *dst, bool force)
+> -{
+> -	WARN_ON(!rcu_read_lock_held() && !rcu_read_lock_bh_held());
+> -	/* If dst not in cache, we must take a reference, because
+> -	 * dst_release() will destroy dst as soon as its refcount becomes zero
+> -	 */
+> -	if (unlikely((dst->flags & DST_NOCACHE) && !force)) {
+> -		dst_hold(dst);
+> -		skb_dst_set(skb, dst);
+> -	} else {
+> -		skb->_skb_refdst = (unsigned long)dst | SKB_DST_NOREF;
+> -	}
+> -}
+> -EXPORT_SYMBOL(__skb_dst_set_noref);
+> -
+>  /* Dirty hack. We did it in 2.2 (in __dst_free),
+>   * we have _very_ good reasons not to repeat
+>   * this mistake in 2.3, but we have no choice
+> diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+> index 1f93313..3aedbda 100644
+> --- a/net/netfilter/ipvs/ip_vs_xmit.c
+> +++ b/net/netfilter/ipvs/ip_vs_xmit.c
+> @@ -343,7 +343,7 @@ __ip_vs_get_out_rt(int skb_af, struct sk_buff *skb, struct ip_vs_dest *dest,
+>  	skb_dst_drop(skb);
+>  	if (noref) {
+>  		if (!local)
+> -			skb_dst_set_noref_force(skb, &rt->dst);
+> +			skb_dst_set_noref(skb, &rt->dst);
+>  		else
+>  			skb_dst_set(skb, dst_clone(&rt->dst));
+>  	} else
+> @@ -487,7 +487,7 @@ __ip_vs_get_out_rt_v6(int skb_af, struct sk_buff *skb, struct ip_vs_dest *dest,
+>  	skb_dst_drop(skb);
+>  	if (noref) {
+>  		if (!local)
+> -			skb_dst_set_noref_force(skb, &rt->dst);
+> +			skb_dst_set_noref(skb, &rt->dst);
+>  		else
+>  			skb_dst_set(skb, dst_clone(&rt->dst));
+>  	} else
+> -- 
+> 1.9.3
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
