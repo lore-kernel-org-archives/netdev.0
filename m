@@ -1,39 +1,35 @@
-From: "George Spelvin" <linux@horizon.com>
-Subject: Re: Where exactly will arch_fast_hash be used
-Date: 7 Dec 2014 00:20:41 -0500
-Message-ID: <20141207052041.20498.qmail@ns.horizon.com>
-Cc: dborkman@redhat.com, hannes@stressinduktion.org, linux@horizon.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org, tgraf@suug.ch
-To: herbert@gondor.apana.org.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roopa@cumulusnetworks.com
+Subject: [PATCH net-next v3 0/2] remove bridge BRIDGE_MODE_SWDEV
+Date: Sat,  6 Dec 2014 22:54:25 -0800
+Message-ID: <1417935267-6000-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shm@cumulusnetworks.com, gospo@cumulusnetworks.com,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: jiri@resnulli.us, sfeldma@gmail.com, jhs@mojatatu.com,
+	bcrl@kvack.org, tgraf@suug.ch, john.fastabend@gmail.com,
+	stephen@networkplumber.org, linville@tuxdriver.com,
+	vyasevic@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:45720 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751487AbaLGGyc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2014 01:54:32 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If you want DoS-resistant hash tables, I'm working on adding SipHash
-to the kernel.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-This is a keyed pseudo-random function designed specifically for that
-application.  I am starting with ext4 directory hashes, and then intended
-to expand to secure sequence numbers (since it's far faster than MD5).
+Roopa Prabhu (2):
+  bridge: remove mode 'swdev'
+  rocker: remove swdev mode
 
-(I'm trying to figure out a good interface, since the crypto API
-is a bit heavy for something to heavily optimized.)
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-But one comment caught my eye:
-> Even if security wasn't an issue, straight CRC32 has really poor
-> lower-order bit distribution, which makes it a terrible choice for
-> a hash table that simply uses the lower-order bits.
+ drivers/net/ethernet/rocker/rocker.c |   18 +-----------------
+ include/linux/rtnetlink.h            |    2 +-
+ include/uapi/linux/if_bridge.h       |    1 -
+ net/core/rtnetlink.c                 |   12 +++++++++---
+ 4 files changed, 11 insertions(+), 22 deletions(-)
 
-Er... huh?  That's the first time I've heard that claim, and while I'm not
-Philip Koopman or Guy Castagnoli, I thought I understood CRCs pretty well.
-
-CRCs generally mix bits pretty well.  The sparse 16-bit CRCs chosen
-for implementation simplicity had some limitations, but the Castagnoli
-polynomial is quite dense.
-
-And their mathematical symmetry means that the low bits really shouldn't
-be any different from any other bits.  But if it is an issue, it's just
-as easy work to shift down the correct number of high bits rather than
-using the low.
-
-Can you point me to a source for that statement?
+-- 
+1.7.10.4
