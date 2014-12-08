@@ -1,112 +1,88 @@
-From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
-Subject: Re: wl1251: NVS firmware data
-Date: Mon, 8 Dec 2014 22:11:22 +0100
-Message-ID: <201412082211.22352@pali>
-References: <201411271506.20457@pali> <201412081747.30965@pali> <20141208205721.GA14895@kroah.com>
+From: Nicholas Bastin <nick.bastin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [ovs-discuss] kernel panic receiving flooded VXLAN traffic with
+	OVS
+Date: Mon, 8 Dec 2014 11:14:41 -1000
+Message-ID: <CADmMkWcj9RmVHy1DH1ULUVrVTdt958qaTt6edW6WQA0mZ66acA@mail.gmail.com>
+References: <19014.1415325508@famine> <8549.1417657547@famine>
+ <CAEP_g=_mfSCH1250ezx_h8_yM_4FzsYcsS6EnGi99AFoWO_MKw@mail.gmail.com>
+ <CADmMkWdGhw3Rn3gMEtAV8ESZB-k+uAK=Ed=LwsShKOtyHdJS_g@mail.gmail.com>
+ <CAEP_g=86QKL_Oxxj0mo8CZs8+fyBZuYw2fQTMGow_bSJbk+8AQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart3309978.raKky74fON";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Ming Lei <ming.lei@canonical.com>, Pavel Machek <pavel@ucw.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Grazvydas Ignotas <notasas@gmail.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-	Aaro Koskinen <aaro.koskinen@iki.fi>,
-	Kalle Valo <kvalo@adurom.com>,
-	Sebastian Reichel <sre@ring0.de>,
-	David Gnedt <david.gnedt@davizone.at>
-To: "Greg Kroah-Hartman" <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141208205721.GA14895@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============7567001436236880824=="
+Cc: "discuss-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <discuss-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <discuss-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAEP_g=86QKL_Oxxj0mo8CZs8+fyBZuYw2fQTMGow_bSJbk+8AQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/discuss>,
+ <mailto:discuss-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/discuss>
+List-Post: <mailto:discuss-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:discuss-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/discuss>,
+ <mailto:discuss-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: discuss-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "discuss" <discuss-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
---nextPart3309978.raKky74fON
-Content-Type: Text/Plain;
-  charset="utf-8"
+--===============7567001436236880824==
+Content-Type: multipart/alternative; boundary=047d7bdc81cc3c0f6c0509baeadc
+
+--047d7bdc81cc3c0f6c0509baeadc
+Content-Type: text/plain; charset=UTF-8
+
+On Mon, Dec 8, 2014 at 7:33 AM, Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org> wrote:
+
+> If you look at the implementation of GRO/TSO, I think you will see
+> that it does in fact faithfully reconstruct the original message and
+> path MTU discovery is preserved. On Linux systems, GRO is enabled by
+> default for all workloads - including those that do not result in
+> local termination such as bridging.
+
+
+I will go back and test this again (it's been a while - we just run with
+all offloads turned off by default now).  When we were having problems with
+this we would find segmented TCP flows getting reassembled along the path
+and then output with the local egress MTU (which was considerably larger
+than that at the end stations), resulting in performance-crushing IP
+fragmentation later in the path.
+
+--
+Nick
+
+--047d7bdc81cc3c0f6c0509baeadc
+Content-Type: text/html; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
 
-On Monday 08 December 2014 21:57:21 Greg Kroah-Hartman wrote:
-> On Mon, Dec 08, 2014 at 05:47:30PM +0100, Pali Roh=C3=A1r wrote:
-> > On Monday 08 December 2014 17:37:14 Greg Kroah-Hartman wrote:
-> > > On Mon, Dec 08, 2014 at 11:18:18PM +0800, Ming Lei wrote:
-> > > > On Sat, Dec 6, 2014 at 9:02 PM, Pali Roh=C3=A1r
-> >=20
-> > <pali.rohar@gmail.com> wrote:
-> > > > > On Saturday 06 December 2014 13:49:54 Pavel Machek=20
-wrote:
-> > > > >  /**
-> > > > >=20
-> > > > > + * request_firmware_prefer_user: - prefer usermode
-> > > > > helper for loading firmware + * @firmware_p: pointer
-> > > > > to firmware image
-> > > > > + * @name: name of firmware file
-> > > > > + * @device: device for which firmware is being loaded
-> > > > > + *
-> > > > > + * This function works pretty much like
-> > > > > request_firmware(), but it prefer + * usermode helper.
-> > > > > If usermode helper fails then it fallback to direct
-> > > > > access. + * Usefull for dynamic or model specific
-> > > > > firmware data. + **/
-> > > > > +int request_firmware_prefer_user(const struct
-> > > > > firmware **firmware_p, +                         =20
-> > > > > const char *name, struct device *device) +{
-> > > > > +       int ret;
-> > > > > +       __module_get(THIS_MODULE);
-> > > > > +       ret =3D _request_firmware(firmware_p, name,
-> > > > > device, +                               FW_OPT_UEVENT
-> > > > > | FW_OPT_PREFER_USER); +     =20
-> > > > > module_put(THIS_MODULE); +       return ret;
-> > > > > +}
-> > > > > +EXPORT_SYMBOL_GPL(request_firmware_prefer_user);
-> > > >=20
-> > > > I'd like to introduce request_firmware_user() which only
-> > > > requests firmware from user space, and this way is
-> > > > simpler and more flexible since we have
-> > > > request_firmware_direct() already.
-> > >=20
-> > > Why would a driver care about what program provides the
-> > > firmware?  It shouldn't at all, and we want to get rid of
-> > > the userspace firmware loader, not encourage drivers to
-> > > use it "exclusively" at all.
-> >=20
-> > Do not remove it! Without userspace firmware loader it is
-> > impossible to load dynamic firmware files.
->=20
-> You should not be loading "dynamic" firmware files with the
-> firmware interface, as that's not a "firmware" file anymore,
-> it's a "special binary file that my driver needs to be
-> created and sent into the kernel."
->=20
-> Use your own custom usermode helper for stuff like this, not
-> the firmware interface.  But use a binary sysfs file if you
-> want, that seems to make sense for it...
->=20
-> greg k-h
+<div dir=3D"ltr"><div class=3D"gmail_extra"><div class=3D"gmail_quote">On M=
+on, Dec 8, 2014 at 7:33 AM, Jesse Gross <span dir=3D"ltr">&lt;<a href=3D"ma=
+ilto:jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org" target=3D"_blank">jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org</a>&gt;</span> wr=
+ote:<br><blockquote class=3D"gmail_quote" style=3D"margin:0 0 0 .8ex;border=
+-left:1px #ccc solid;padding-left:1ex"><div class=3D"HOEnZb"><div class=3D"=
+h5"><span style=3D"color:rgb(34,34,34)">If you look at the implementation o=
+f GRO/TSO, I think you will see</span><br></div></div>
+that it does in fact faithfully reconstruct the original message and<br>
+path MTU discovery is preserved. On Linux systems, GRO is enabled by<br>
+default for all workloads - including those that do not result in<br>
+local termination such as bridging.</blockquote><div><br></div><div>I will =
+go back and test this again (it&#39;s been a while - we just run with all o=
+ffloads turned off by default now).=C2=A0 When we were having problems with=
+ this we would find segmented TCP flows getting reassembled along the path =
+and then output with the local egress MTU (which was considerably larger th=
+an that at the end stations), resulting in performance-crushing IP fragment=
+ation later in the path.</div><div><br></div><div>--</div><div>Nick=C2=A0</=
+div></div></div></div>
 
-Nokia for this problem invented its own netlink interface into=20
-wl1251 driver. But because it was specific for N900 device it was=20
-rejected for inclusion into mainline kernel.
+--047d7bdc81cc3c0f6c0509baeadc--
 
-=2D-=20
-Pali Roh=C3=A1r
-pali.rohar@gmail.com
+--===============7567001436236880824==
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+Content-Disposition: inline
 
---nextPart3309978.raKky74fON
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGlzY3VzcyBt
+YWlsaW5nIGxpc3QKZGlzY3Vzc0BvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9y
+Zy9tYWlsbWFuL2xpc3RpbmZvL2Rpc2N1c3MK
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iEYEABECAAYFAlSGE/oACgkQi/DJPQPkQ1Li4ACfUYeNAfILh+bSTeMLUeaNxmoP
-lBMAmgNKHgHgFHFsXaApXxS0uSzMPEJz
-=85FL
------END PGP SIGNATURE-----
-
---nextPart3309978.raKky74fON--
+--===============7567001436236880824==--
