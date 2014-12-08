@@ -1,68 +1,173 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH] xen-netfront: Fix handling packets on compound
- pages with skb_linearize
-Date: Mon, 8 Dec 2014 11:11:15 +0000
-Message-ID: <54858753.1070801@citrix.com>
-References: <1407778343-13622-1-git-send-email-zoltan.kiss@citrix.com>	<547C2CFC.7060908@canonical.com> <20141208101936.GA7491@hercules>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH 2/3] bridge: offload bridge port attributes to switch
+ asic if feature flag set
+Date: Mon, 8 Dec 2014 12:14:04 +0100
+Message-ID: <20141208111404.GD1885@nanopsycho.brq.redhat.com>
+References: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com>
+ <CAE4R7bBOCgoH0zL6+82jj2qjcP8n3kSo51x+i5SoqkN8Ff1CBQ@mail.gmail.com>
+ <54815883.80909@cumulusnetworks.com>
+ <E4CD12F19ABA0C4D8729E087A761DC3505D842BA@ORSMSX101.amr.corp.intel.com>
+ <CAE4R7bAKTtWi6TbOaeNDxKkDFXf5H2E3NUdbNSizvq77ADtuNg@mail.gmail.com>
+ <5484B773.7000809@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	<netdev@vger.kernel.org>, Kamal Mostafa <kamal@canonical.com>,
-	<linux-kernel@vger.kernel.org>,
-	Paul Durrant <paul.durrant@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>,
-	<xen-devel@lists.xenproject.org>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>
-To: Luis Henriques <luis.henriques@canonical.com>,
-	Stefan Bader <stefan.bader@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141208101936.GA7491@hercules>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Scott Feldman <sfeldma@gmail.com>,
+	"Arad, Ronen" <ronen.arad@intel.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
+	john fastabend <john.fastabend@gmail.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	John Linville <linville@tuxdriver.com>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"buytenh@wantstofly.org" <buytenh@wantstofly.org>,
+	Aviad Raveh <aviadr@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:56131 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753380AbaLHLOI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 06:14:08 -0500
+Received: by mail-wi0-f179.google.com with SMTP id ex7so4450730wid.0
+        for <netdev@vger.kernel.org>; Mon, 08 Dec 2014 03:14:06 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <5484B773.7000809@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/12/14 10:19, Luis Henriques wrote:
-> On Mon, Dec 01, 2014 at 09:55:24AM +0100, Stefan Bader wrote:
->> On 11.08.2014 19:32, Zoltan Kiss wrote:
->>> There is a long known problem with the netfront/netback interface: if the guest
->>> tries to send a packet which constitues more than MAX_SKB_FRAGS + 1 ring slots,
->>> it gets dropped. The reason is that netback maps these slots to a frag in the
->>> frags array, which is limited by size. Having so many slots can occur since
->>> compound pages were introduced, as the ring protocol slice them up into
->>> individual (non-compound) page aligned slots. The theoretical worst case
->>> scenario looks like this (note, skbs are limited to 64 Kb here):
->>> linear buffer: at most PAGE_SIZE - 17 * 2 bytes, overlapping page boundary,
->>> using 2 slots
->>> first 15 frags: 1 + PAGE_SIZE + 1 bytes long, first and last bytes are at the
->>> end and the beginning of a page, therefore they use 3 * 15 = 45 slots
->>> last 2 frags: 1 + 1 bytes, overlapping page boundary, 2 * 2 = 4 slots
->>> Although I don't think this 51 slots skb can really happen, we need a solution
->>> which can deal with every scenario. In real life there is only a few slots
->>> overdue, but usually it causes the TCP stream to be blocked, as the retry will
->>> most likely have the same buffer layout.
->>> This patch solves this problem by linearizing the packet. This is not the
->>> fastest way, and it can fail much easier as it tries to allocate a big linear
->>> area for the whole packet, but probably easier by an order of magnitude than
->>> anything else. Probably this code path is not touched very frequently anyway.
+Sun, Dec 07, 2014 at 09:24:19PM CET, roopa@cumulusnetworks.com wrote:
+>On 12/5/14, 10:54 PM, Scott Feldman wrote:
+>>On Fri, Dec 5, 2014 at 3:21 PM, Arad, Ronen <ronen.arad@intel.com> wr=
+ote:
 >>>
->>> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
->>> Cc: Wei Liu <wei.liu2@citrix.com>
->>> Cc: Ian Campbell <Ian.Campbell@citrix.com>
->>> Cc: Paul Durrant <paul.durrant@citrix.com>
->>> Cc: netdev@vger.kernel.org
->>> Cc: linux-kernel@vger.kernel.org
->>> Cc: xen-devel@lists.xenproject.org
+>>>>-----Original Message-----
+>>>>From: netdev-owner@vger.kernel.org [mailto:netdev-
+>>>>owner@vger.kernel.org] On Behalf Of Roopa Prabhu
+>>>>Sent: Thursday, December 04, 2014 11:02 PM
+>>>>To: Scott Feldman
+>>>>Cc: Ji=C5=99=C3=AD P=C3=ADrko; Jamal Hadi Salim; Benjamin LaHaise; =
+Thomas Graf; john
+>>>>fastabend; stephen@networkplumber.org; John Linville;
+>>>>nhorman@tuxdriver.com; Nicolas Dichtel; vyasevic@redhat.com; Floria=
+n
+>>>>Fainelli; buytenh@wantstofly.org; Aviad Raveh; Netdev; David S. Mil=
+ler;
+>>>>shm@cumulusnetworks.com; Andy Gospodarek
+>>>>Subject: Re: [PATCH 2/3] bridge: offload bridge port attributes to =
+switch asic
+>>>>if feature flag set
+>>>>
+>>>>On 12/4/14, 10:41 PM, Scott Feldman wrote:
+>>>>>On Thu, Dec 4, 2014 at 6:26 PM,  <roopa@cumulusnetworks.com> wrote=
+:
+>>>>>>From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>>>>>
+>>>>>>This allows offloading to switch asic without having the user to =
+set
+>>>>>>any flag. And this is done in the bridge driver to rollback kerne=
+l
+>>>>>>settings on hw offload failure if required in the future.
+>>>>>>
+>>>>>>With this, it also makes sure a notification goes out only after =
+the
+>>>>>>attributes are set both in the kernel and hw.
+>>>>>I like this approach as it streamlines the steps for the user in
+>>>>>setting port flags.  There is one case for FLOODING where you'll h=
+ave
+>>>>>to turn off flooding for both, and then turn on flooding in hw.  Y=
+ou
+>>>>>don't want flooding turned on on kernel and hw.
+>>>>ok, maybe using the higher bits as in
+>>>>https://patchwork.ozlabs.org/patch/413211/
+>>>>
+>>>>might help with that. Let me think some more.
+>>>>>>---
+>>>>>>   net/bridge/br_netlink.c |   27 ++++++++++++++++++++++++++-
+>>>>>>   1 file changed, 26 insertions(+), 1 deletion(-)
+>>>>>>
+>>>>>>diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c in=
+dex
+>>>>>>9f5eb55..ce173f0 100644
+>>>>>>--- a/net/bridge/br_netlink.c
+>>>>>>+++ b/net/bridge/br_netlink.c
+>>>>>>@@ -407,9 +407,21 @@ int br_setlink(struct net_device *dev, struc=
+t
+>>>>nlmsghdr *nlh)
+>>>>>>                                  afspec, RTM_SETLINK);
+>>>>>>          }
+>>>>>>
+>>>>>>+       if ((dev->features & NETIF_F_HW_SWITCH_OFFLOAD) &&
+>>>>>>+                       dev->netdev_ops->ndo_bridge_setlink) {
+>>>>>>+               int ret =3D dev->netdev_ops->ndo_bridge_setlink(d=
+ev,
+>>>>>>+ nlh);
+>>>>>I think you want to up-level this to net/core/rtnetlink.c because
+>>>>>you're only enabling the feature for one instance of a driver that
+>>>>>implements ndo_bridge_setlink: the bridge driver.  If another driv=
+er
+>>>>>was MASTER and implemented ndo_bridge_setlink, you'd want same che=
+ck
+>>>>>to push setting down to SELF port driver.
+>>>>yeah, i thought about that. But i moved it here so that rollback wo=
+uld be
+>>>>easier.
+>>>There is a need for propagating setlink/dellink requests down multip=
+le levels.
+>>>The use-case I have in mind is a bridge at the top, team/bond in the=
+ middle, and port devices at the bottom.
+>>>A setlink for VLAN filtering attributes would come with MASTER flag =
+set, and either port or bond/team netdev.
+>>>How would this be handled?
+>>>
+>>>The propagation rules between bridge and enslaved port device could =
+be different from those between bond/team and enslaved devices.
+>>>The current bridge driver does not propagate VLAN filtering from bri=
+dge to its ports as each port could have different configuration. In a =
+case of a bond/team all members need to have the same configuration suc=
+h that the a bond/team would be indistinguishable from a simple port.
+>>>
+>>>Therefore rtnetlink.c might not have the knowledge for propagation a=
+cross multiple levels.
+>>>It seems that each device which implements ndo_bridge_setlink/ndo_br=
+idge_dellink  and could have master role, need to take care of propagat=
+ion to its slaves.
+>>Thanks Ronen for bringing up this use-case of stacked masters.  I
+>>think for VLAN filtering, the stacked master case is handled, not by
+>>ndo_setlink/dellink at each level, but with ndo_vlan_rx_kill_vid and
+>>ndo_vlan_rx_add_vid.  So the switch port driver can know VLAN
+>>membership for port even if port is under bond which is under bridge,
+>>by using ndo_vlan_rx_xxx and setting NETIF_F_HW_VLAN_CTAG_FILTER.  Th=
+e
+>>bonding driver's ndo_vlan_rx_xxx handlers seem to keep ports in bond
+>>VLAN membership consistent across bond.
 >>
->> This does not seem to be marked explicitly as stable. Has someone already asked
->> David Miller to put it on his stable queue? IMO it qualifies quite well and the
->> actual change should be simple to pick/backport.
->>
-> 
-> Thank you Stefan, I'm queuing this for the next 3.16 kernel release.
+>>But in general, ndo_setlink/dellink don't work for the stack use-case
+>>for other non-VLAN attributes.  Maybe the answer is to use the VLAN
+>>propogation model for other attributes.  ndo_setlink/dellink/getlink
+>>have enough weird-isms it might be time to define cleaner ndo ops to
+>>propagate the other attrs down.
+>And, only the switch asic driver is interested in these attrs. So, see=
+ms like
+>for these cases, we need to send these attrs to the switchdriver direc=
+tly
+>instead of going through the stack of netdevs ?. see my response to ro=
+nen's
+>other email.
 
-Don't backport this yes.  It's broken.  It produces malformed requests
-and netback will report a fatal error and stop all traffic on the VIF.
+I think that this should be handled similar to ndo_vlan_rx_add_vid,
+ndo_vlan_rx_kill_vid, ndo_change_mtu and others. Master devices like
+bridge, bond, team, etc should take care of propagating the calls to
+lower devices. It mignt not make sense sometimes so let the masters to
+decide.
 
-David
+I think that the feature bit (ethtool flag) should serve only for user
+to actually enable or disable the offload. And thinking about that,
+maybe the bit checking should be implemented in switch drivers, not in
+bridge and friends.
