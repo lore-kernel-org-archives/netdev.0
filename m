@@ -1,149 +1,117 @@
-From: "Arad, Ronen" <ronen.arad@intel.com>
-Subject: RE: [PATCH 2/3] bridge: offload bridge port attributes to switch
- asic if feature flag set
-Date: Mon, 8 Dec 2014 18:40:52 +0000
-Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505D864BB@ORSMSX101.amr.corp.intel.com>
-References: <1417746401-8140-3-git-send-email-roopa@cumulusnetworks.com>
- <CAE4R7bBOCgoH0zL6+82jj2qjcP8n3kSo51x+i5SoqkN8Ff1CBQ@mail.gmail.com>
- <54815883.80909@cumulusnetworks.com>
- <E4CD12F19ABA0C4D8729E087A761DC3505D842BA@ORSMSX101.amr.corp.intel.com>
- <CAE4R7bAKTtWi6TbOaeNDxKkDFXf5H2E3NUdbNSizvq77ADtuNg@mail.gmail.com>
- <5484B773.7000809@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: =?utf-8?B?Smlyw60gUMOtcmtv?= <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Benjamin LaHaise <bcrl@kvack.org>, Thomas Graf <tgraf@suug.ch>,
-	john fastabend <john.fastabend@gmail.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	John Linville <linville@tuxdriver.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"buytenh@wantstofly.org" <buytenh@wantstofly.org>,
-	Aviad Raveh <aviadr@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:19061 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756387AbaLHSqr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Dec 2014 13:46:47 -0500
-In-Reply-To: <5484B773.7000809@cumulusnetworks.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: wl1251: NVS firmware data
+Date: Mon, 8 Dec 2014 19:50:17 +0100
+Message-ID: <30072B9E-2495-4F90-AC91-9C0D7E08F44E@holtmann.org>
+References: <201411271506.20457@pali> <201412081747.30965@pali> <E5F3BB54-6365-4856-A231-A5FEDAEA217F@holtmann.org> <201412081811.46943@pali>
+Mime-Version: 1.0 (Mac OS X Mail 8.1 \(1993\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Ming Lei <ming.lei@canonical.com>, Pavel Machek <pavel@ucw.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Grazvydas Ignotas <notasas@gmail.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+	Aaro Koskinen <aaro.koskinen@iki.fi>,
+	Kalle Valo <kvalo@adurom.com>,
+	Sebastian Reichel <sre@ring0.de>,
+	David Gnedt <david.gnedt@davizone.at>
+To: =?utf-8?Q?Pali_Roh=C3=A1r?= <pali.rohar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201412081811.46943@pali>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogUm9vcGEgUHJhYmh1IFtt
-YWlsdG86cm9vcGFAY3VtdWx1c25ldHdvcmtzLmNvbV0NCj4gU2VudDogU3VuZGF5LCBEZWNlbWJl
-ciAwNywgMjAxNCAxMjoyNCBQTQ0KPiBUbzogU2NvdHQgRmVsZG1hbg0KPiBDYzogQXJhZCwgUm9u
-ZW47IE5ldGRldjsgSmlyw60gUMOtcmtvOyBKYW1hbCBIYWRpIFNhbGltOyBCZW5qYW1pbiBMYUhh
-aXNlOw0KPiBUaG9tYXMgR3JhZjsgam9obiBmYXN0YWJlbmQ7IHN0ZXBoZW5AbmV0d29ya3BsdW1i
-ZXIub3JnOyBKb2huIExpbnZpbGxlOw0KPiBuaG9ybWFuQHR1eGRyaXZlci5jb207IE5pY29sYXMg
-RGljaHRlbDsgdnlhc2V2aWNAcmVkaGF0LmNvbTsgRmxvcmlhbg0KPiBGYWluZWxsaTsgYnV5dGVu
-aEB3YW50c3RvZmx5Lm9yZzsgQXZpYWQgUmF2ZWg7IERhdmlkIFMuIE1pbGxlcjsNCj4gc2htQGN1
-bXVsdXNuZXR3b3Jrcy5jb207IEFuZHkgR29zcG9kYXJlaw0KPiBTdWJqZWN0OiBSZTogW1BBVENI
-IDIvM10gYnJpZGdlOiBvZmZsb2FkIGJyaWRnZSBwb3J0IGF0dHJpYnV0ZXMgdG8gc3dpdGNoIGFz
-aWMNCj4gaWYgZmVhdHVyZSBmbGFnIHNldA0KPiANCj4gT24gMTIvNS8xNCwgMTA6NTQgUE0sIFNj
-b3R0IEZlbGRtYW4gd3JvdGU6DQo+ID4gT24gRnJpLCBEZWMgNSwgMjAxNCBhdCAzOjIxIFBNLCBB
-cmFkLCBSb25lbiA8cm9uZW4uYXJhZEBpbnRlbC5jb20+DQo+IHdyb3RlOg0KPiA+Pg0KPiA+Pj4g
-LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPj4+IEZyb206IG5ldGRldi1vd25lckB2Z2Vy
-Lmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtDQo+ID4+PiBvd25lckB2Z2VyLmtlcm5lbC5vcmdd
-IE9uIEJlaGFsZiBPZiBSb29wYSBQcmFiaHUNCj4gPj4+IFNlbnQ6IFRodXJzZGF5LCBEZWNlbWJl
-ciAwNCwgMjAxNCAxMTowMiBQTQ0KPiA+Pj4gVG86IFNjb3R0IEZlbGRtYW4NCj4gPj4+IENjOiBK
-acWZw60gUMOtcmtvOyBKYW1hbCBIYWRpIFNhbGltOyBCZW5qYW1pbiBMYUhhaXNlOyBUaG9tYXMg
-R3JhZjsNCj4gPj4+IGpvaG4gZmFzdGFiZW5kOyBzdGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9yZzsg
-Sm9obiBMaW52aWxsZTsNCj4gPj4+IG5ob3JtYW5AdHV4ZHJpdmVyLmNvbTsgTmljb2xhcyBEaWNo
-dGVsOyB2eWFzZXZpY0ByZWRoYXQuY29tOyBGbG9yaWFuDQo+ID4+PiBGYWluZWxsaTsgYnV5dGVu
-aEB3YW50c3RvZmx5Lm9yZzsgQXZpYWQgUmF2ZWg7IE5ldGRldjsgRGF2aWQgUy4NCj4gPj4+IE1p
-bGxlcjsgc2htQGN1bXVsdXNuZXR3b3Jrcy5jb207IEFuZHkgR29zcG9kYXJlaw0KPiA+Pj4gU3Vi
-amVjdDogUmU6IFtQQVRDSCAyLzNdIGJyaWRnZTogb2ZmbG9hZCBicmlkZ2UgcG9ydCBhdHRyaWJ1
-dGVzIHRvDQo+ID4+PiBzd2l0Y2ggYXNpYyBpZiBmZWF0dXJlIGZsYWcgc2V0DQo+ID4+Pg0KPiA+
-Pj4gT24gMTIvNC8xNCwgMTA6NDEgUE0sIFNjb3R0IEZlbGRtYW4gd3JvdGU6DQo+ID4+Pj4gT24g
-VGh1LCBEZWMgNCwgMjAxNCBhdCA2OjI2IFBNLCAgPHJvb3BhQGN1bXVsdXNuZXR3b3Jrcy5jb20+
-DQo+IHdyb3RlOg0KPiA+Pj4+PiBGcm9tOiBSb29wYSBQcmFiaHUgPHJvb3BhQGN1bXVsdXNuZXR3
-b3Jrcy5jb20+DQo+ID4+Pj4+DQo+ID4+Pj4+IFRoaXMgYWxsb3dzIG9mZmxvYWRpbmcgdG8gc3dp
-dGNoIGFzaWMgd2l0aG91dCBoYXZpbmcgdGhlIHVzZXIgdG8NCj4gPj4+Pj4gc2V0IGFueSBmbGFn
-LiBBbmQgdGhpcyBpcyBkb25lIGluIHRoZSBicmlkZ2UgZHJpdmVyIHRvIHJvbGxiYWNrDQo+ID4+
-Pj4+IGtlcm5lbCBzZXR0aW5ncyBvbiBodyBvZmZsb2FkIGZhaWx1cmUgaWYgcmVxdWlyZWQgaW4g
-dGhlIGZ1dHVyZS4NCj4gPj4+Pj4NCj4gPj4+Pj4gV2l0aCB0aGlzLCBpdCBhbHNvIG1ha2VzIHN1
-cmUgYSBub3RpZmljYXRpb24gZ29lcyBvdXQgb25seSBhZnRlcg0KPiA+Pj4+PiB0aGUgYXR0cmli
-dXRlcyBhcmUgc2V0IGJvdGggaW4gdGhlIGtlcm5lbCBhbmQgaHcuDQo+ID4+Pj4gSSBsaWtlIHRo
-aXMgYXBwcm9hY2ggYXMgaXQgc3RyZWFtbGluZXMgdGhlIHN0ZXBzIGZvciB0aGUgdXNlciBpbg0K
-PiA+Pj4+IHNldHRpbmcgcG9ydCBmbGFncy4gIFRoZXJlIGlzIG9uZSBjYXNlIGZvciBGTE9PRElO
-RyB3aGVyZSB5b3UnbGwNCj4gPj4+PiBoYXZlIHRvIHR1cm4gb2ZmIGZsb29kaW5nIGZvciBib3Ro
-LCBhbmQgdGhlbiB0dXJuIG9uIGZsb29kaW5nIGluDQo+ID4+Pj4gaHcuICBZb3UgZG9uJ3Qgd2Fu
-dCBmbG9vZGluZyB0dXJuZWQgb24gb24ga2VybmVsIGFuZCBody4NCj4gPj4+IG9rLCBtYXliZSB1
-c2luZyB0aGUgaGlnaGVyIGJpdHMgYXMgaW4NCj4gPj4+IGh0dHBzOi8vcGF0Y2h3b3JrLm96bGFi
-cy5vcmcvcGF0Y2gvNDEzMjExLw0KPiA+Pj4NCj4gPj4+IG1pZ2h0IGhlbHAgd2l0aCB0aGF0LiBM
-ZXQgbWUgdGhpbmsgc29tZSBtb3JlLg0KPiA+Pj4+PiAtLS0NCj4gPj4+Pj4gICAgbmV0L2JyaWRn
-ZS9icl9uZXRsaW5rLmMgfCAgIDI3ICsrKysrKysrKysrKysrKysrKysrKysrKysrLQ0KPiA+Pj4+
-PiAgICAxIGZpbGUgY2hhbmdlZCwgMjYgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigtKQ0KPiA+
-Pj4+Pg0KPiA+Pj4+PiBkaWZmIC0tZ2l0IGEvbmV0L2JyaWRnZS9icl9uZXRsaW5rLmMgYi9uZXQv
-YnJpZGdlL2JyX25ldGxpbmsuYw0KPiA+Pj4+PiBpbmRleA0KPiA+Pj4+PiA5ZjVlYjU1Li5jZTE3
-M2YwIDEwMDY0NA0KPiA+Pj4+PiAtLS0gYS9uZXQvYnJpZGdlL2JyX25ldGxpbmsuYw0KPiA+Pj4+
-PiArKysgYi9uZXQvYnJpZGdlL2JyX25ldGxpbmsuYw0KPiA+Pj4+PiBAQCAtNDA3LDkgKzQwNywy
-MSBAQCBpbnQgYnJfc2V0bGluayhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1Y3QNCj4gPj4+
-IG5sbXNnaGRyICpubGgpDQo+ID4+Pj4+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICBhZnNwZWMsIFJUTV9TRVRMSU5LKTsNCj4gPj4+Pj4gICAgICAgICAgIH0NCj4gPj4+Pj4NCj4g
-Pj4+Pj4gKyAgICAgICBpZiAoKGRldi0+ZmVhdHVyZXMgJiBORVRJRl9GX0hXX1NXSVRDSF9PRkZM
-T0FEKSAmJg0KPiA+Pj4+PiArICAgICAgICAgICAgICAgICAgICAgICBkZXYtPm5ldGRldl9vcHMt
-Pm5kb19icmlkZ2Vfc2V0bGluaykgew0KPiA+Pj4+PiArICAgICAgICAgICAgICAgaW50IHJldCA9
-IGRldi0+bmV0ZGV2X29wcy0+bmRvX2JyaWRnZV9zZXRsaW5rKGRldiwNCj4gPj4+Pj4gKyBubGgp
-Ow0KPiA+Pj4+IEkgdGhpbmsgeW91IHdhbnQgdG8gdXAtbGV2ZWwgdGhpcyB0byBuZXQvY29yZS9y
-dG5ldGxpbmsuYyBiZWNhdXNlDQo+ID4+Pj4geW91J3JlIG9ubHkgZW5hYmxpbmcgdGhlIGZlYXR1
-cmUgZm9yIG9uZSBpbnN0YW5jZSBvZiBhIGRyaXZlciB0aGF0DQo+ID4+Pj4gaW1wbGVtZW50cyBu
-ZG9fYnJpZGdlX3NldGxpbms6IHRoZSBicmlkZ2UgZHJpdmVyLiAgSWYgYW5vdGhlcg0KPiA+Pj4+
-IGRyaXZlciB3YXMgTUFTVEVSIGFuZCBpbXBsZW1lbnRlZCBuZG9fYnJpZGdlX3NldGxpbmssIHlv
-dSdkIHdhbnQNCj4gPj4+PiBzYW1lIGNoZWNrIHRvIHB1c2ggc2V0dGluZyBkb3duIHRvIFNFTEYg
-cG9ydCBkcml2ZXIuDQo+ID4+PiB5ZWFoLCBpIHRob3VnaHQgYWJvdXQgdGhhdC4gQnV0IGkgbW92
-ZWQgaXQgaGVyZSBzbyB0aGF0IHJvbGxiYWNrDQo+ID4+PiB3b3VsZCBiZSBlYXNpZXIuDQo+ID4+
-IFRoZXJlIGlzIGEgbmVlZCBmb3IgcHJvcGFnYXRpbmcgc2V0bGluay9kZWxsaW5rIHJlcXVlc3Rz
-IGRvd24gbXVsdGlwbGUNCj4gbGV2ZWxzLg0KPiA+PiBUaGUgdXNlLWNhc2UgSSBoYXZlIGluIG1p
-bmQgaXMgYSBicmlkZ2UgYXQgdGhlIHRvcCwgdGVhbS9ib25kIGluIHRoZQ0KPiBtaWRkbGUsIGFu
-ZCBwb3J0IGRldmljZXMgYXQgdGhlIGJvdHRvbS4NCj4gPj4gQSBzZXRsaW5rIGZvciBWTEFOIGZp
-bHRlcmluZyBhdHRyaWJ1dGVzIHdvdWxkIGNvbWUgd2l0aCBNQVNURVIgZmxhZyBzZXQsDQo+IGFu
-ZCBlaXRoZXIgcG9ydCBvciBib25kL3RlYW0gbmV0ZGV2Lg0KPiA+PiBIb3cgd291bGQgdGhpcyBi
-ZSBoYW5kbGVkPw0KPiA+Pg0KPiA+PiBUaGUgcHJvcGFnYXRpb24gcnVsZXMgYmV0d2VlbiBicmlk
-Z2UgYW5kIGVuc2xhdmVkIHBvcnQgZGV2aWNlIGNvdWxkIGJlDQo+IGRpZmZlcmVudCBmcm9tIHRo
-b3NlIGJldHdlZW4gYm9uZC90ZWFtIGFuZCBlbnNsYXZlZCBkZXZpY2VzLg0KPiA+PiBUaGUgY3Vy
-cmVudCBicmlkZ2UgZHJpdmVyIGRvZXMgbm90IHByb3BhZ2F0ZSBWTEFOIGZpbHRlcmluZyBmcm9t
-IGJyaWRnZSB0bw0KPiBpdHMgcG9ydHMgYXMgZWFjaCBwb3J0IGNvdWxkIGhhdmUgZGlmZmVyZW50
-IGNvbmZpZ3VyYXRpb24uIEluIGEgY2FzZSBvZiBhDQo+IGJvbmQvdGVhbSBhbGwgbWVtYmVycyBu
-ZWVkIHRvIGhhdmUgdGhlIHNhbWUgY29uZmlndXJhdGlvbiBzdWNoIHRoYXQgdGhlIGENCj4gYm9u
-ZC90ZWFtIHdvdWxkIGJlIGluZGlzdGluZ3Vpc2hhYmxlIGZyb20gYSBzaW1wbGUgcG9ydC4NCj4g
-Pj4NCj4gPj4gVGhlcmVmb3JlIHJ0bmV0bGluay5jIG1pZ2h0IG5vdCBoYXZlIHRoZSBrbm93bGVk
-Z2UgZm9yIHByb3BhZ2F0aW9uDQo+IGFjcm9zcyBtdWx0aXBsZSBsZXZlbHMuDQo+ID4+IEl0IHNl
-ZW1zIHRoYXQgZWFjaCBkZXZpY2Ugd2hpY2ggaW1wbGVtZW50cw0KPiBuZG9fYnJpZGdlX3NldGxp
-bmsvbmRvX2JyaWRnZV9kZWxsaW5rICBhbmQgY291bGQgaGF2ZSBtYXN0ZXIgcm9sZSwgbmVlZCB0
-bw0KPiB0YWtlIGNhcmUgb2YgcHJvcGFnYXRpb24gdG8gaXRzIHNsYXZlcy4NCj4gPiBUaGFua3Mg
-Um9uZW4gZm9yIGJyaW5naW5nIHVwIHRoaXMgdXNlLWNhc2Ugb2Ygc3RhY2tlZCBtYXN0ZXJzLiAg
-SQ0KPiA+IHRoaW5rIGZvciBWTEFOIGZpbHRlcmluZywgdGhlIHN0YWNrZWQgbWFzdGVyIGNhc2Ug
-aXMgaGFuZGxlZCwgbm90IGJ5DQo+ID4gbmRvX3NldGxpbmsvZGVsbGluayBhdCBlYWNoIGxldmVs
-LCBidXQgd2l0aCBuZG9fdmxhbl9yeF9raWxsX3ZpZCBhbmQNCj4gPiBuZG9fdmxhbl9yeF9hZGRf
-dmlkLiAgU28gdGhlIHN3aXRjaCBwb3J0IGRyaXZlciBjYW4ga25vdyBWTEFODQo+ID4gbWVtYmVy
-c2hpcCBmb3IgcG9ydCBldmVuIGlmIHBvcnQgaXMgdW5kZXIgYm9uZCB3aGljaCBpcyB1bmRlciBi
-cmlkZ2UsDQo+ID4gYnkgdXNpbmcgbmRvX3ZsYW5fcnhfeHh4IGFuZCBzZXR0aW5nIE5FVElGX0Zf
-SFdfVkxBTl9DVEFHX0ZJTFRFUi4NCj4gVGhlDQo+ID4gYm9uZGluZyBkcml2ZXIncyBuZG9fdmxh
-bl9yeF94eHggaGFuZGxlcnMgc2VlbSB0byBrZWVwIHBvcnRzIGluIGJvbmQNCj4gPiBWTEFOIG1l
-bWJlcnNoaXAgY29uc2lzdGVudCBhY3Jvc3MgYm9uZC4NClRoaXMgY291bGQgaGF2ZSB3b3JrZWQg
-aWYgdGhlIGVudGlyZSBWTEFOIGZpbHRlcmluZyBwb2xpY3kgd2FzIHByb3BhZ2F0ZWQuIEN1cnJl
-bnRseSBvbmx5IFZMQU4gbWVtYmVyc2hpcCBpcyBwcm9wYWdhdGVkIHVzaW5nIG5kb192bGFuX3J4
-X2FkZF92aWQuDQpNaXNzaW5nIGFyZSB1bnRhZ2dlZCBmbGFnIGZvciBlZ3Jlc3MgYW5kIFBWSUQg
-ZmxhZy4NCj4gPg0KPiA+IEJ1dCBpbiBnZW5lcmFsLCBuZG9fc2V0bGluay9kZWxsaW5rIGRvbid0
-IHdvcmsgZm9yIHRoZSBzdGFjayB1c2UtY2FzZQ0KPiA+IGZvciBvdGhlciBub24tVkxBTiBhdHRy
-aWJ1dGVzLiAgTWF5YmUgdGhlIGFuc3dlciBpcyB0byB1c2UgdGhlIFZMQU4NCj4gPiBwcm9wb2dh
-dGlvbiBtb2RlbCBmb3Igb3RoZXIgYXR0cmlidXRlcy4gIG5kb19zZXRsaW5rL2RlbGxpbmsvZ2V0
-bGluaw0KPiA+IGhhdmUgZW5vdWdoIHdlaXJkLWlzbXMgaXQgbWlnaHQgYmUgdGltZSB0byBkZWZp
-bmUgY2xlYW5lciBuZG8gb3BzIHRvDQo+ID4gcHJvcGFnYXRlIHRoZSBvdGhlciBhdHRycyBkb3du
-Lg0KPiBBbmQsIG9ubHkgdGhlIHN3aXRjaCBhc2ljIGRyaXZlciBpcyBpbnRlcmVzdGVkIGluIHRo
-ZXNlIGF0dHJzLiBTbywgc2VlbXMgbGlrZSBmb3INCj4gdGhlc2UgY2FzZXMsIHdlIG5lZWQgdG8g
-c2VuZCB0aGVzZSBhdHRycyB0byB0aGUgc3dpdGNoZHJpdmVyIGRpcmVjdGx5IGluc3RlYWQNCj4g
-b2YgZ29pbmcgdGhyb3VnaCB0aGUgc3RhY2sgb2YgbmV0ZGV2cyA/LiBzZWUgbXkgcmVzcG9uc2Ug
-dG8gcm9uZW4ncyBvdGhlcg0KPiBlbWFpbC4NCj4gDQo+IFRoYW5rcywNCj4gUm9vcGENCg0K
+Hi Pali,
+
+>>>>>> On Saturday 06 December 2014 13:49:54 Pavel Machek wrote:
+>>>>>> /**
+>>>>>> 
+>>>>>> + * request_firmware_prefer_user: - prefer usermode
+>>>>>> helper for loading firmware + * @firmware_p: pointer to
+>>>>>> firmware image
+>>>>>> + * @name: name of firmware file
+>>>>>> + * @device: device for which firmware is being loaded
+>>>>>> + *
+>>>>>> + * This function works pretty much like
+>>>>>> request_firmware(), but it prefer + * usermode helper. If
+>>>>>> usermode helper fails then it fallback to direct access.
+>>>>>> + * Usefull for dynamic or model specific firmware data.
+>>>>>> + **/
+>>>>>> +int request_firmware_prefer_user(const struct firmware
+>>>>>> **firmware_p, +                           const char
+>>>>>> *name, struct device *device) +{
+>>>>>> +       int ret;
+>>>>>> +       __module_get(THIS_MODULE);
+>>>>>> +       ret = _request_firmware(firmware_p, name, device,
+>>>>>> +                               FW_OPT_UEVENT |
+>>>>>> FW_OPT_PREFER_USER); +       module_put(THIS_MODULE);
+>>>>>> +       return ret;
+>>>>>> +}
+>>>>>> +EXPORT_SYMBOL_GPL(request_firmware_prefer_user);
+>>>>> 
+>>>>> I'd like to introduce request_firmware_user() which only
+>>>>> requests firmware from user space, and this way is simpler
+>>>>> and more flexible since we have request_firmware_direct()
+>>>>> already.
+>>>> 
+>>>> Why would a driver care about what program provides the
+>>>> firmware?  It shouldn't at all, and we want to get rid of
+>>>> the userspace firmware loader, not encourage drivers to
+>>>> use it "exclusively" at all.
+>>> 
+>>> Do not remove it! Without userspace firmware loader it is
+>>> impossible to load dynamic firmware files.
+>> 
+>> why is this dynamic in the first place. It does not sound like
+>> dynamic data to me at all. This is like the WiFi MAC
+>> address(es) or Bluetooth BD_ADDR. They are all static
+>> information. The only difference is that they are on the host
+>> accessibly filesystem or storage and not on the device
+>> itself.
+>> 
+>> To be honest, for Bluetooth we solved this now. If the device
+>> is missing key information like the calibration data or
+>> BD_ADDR, then it comes up unconfigured. A userspace process
+>> can then go and load the right data into it and then the
+>> device becomes available as Bluetooth device.
+>> 
+>> Trying to use request_firmware to load some random data and
+>> insist on going through userspace helper for that sounds
+>> crazy to me. Especially since we are trying hard to get away
+>> from the userspace loader. Forcing to keep it for new stuff
+>> sounds backwards to me.
+>> 
+>> With the special Nokia partition in mind, why hasn't this been
+>> turned into a mountable filesystem or into a driver/subsystem
+>> that can access the data direct from the kernel. I advocated
+>> for this some time ago. Maybe there should be a special
+>> subsystem for access to these factory persistent information
+>> that drivers then just can access. I seem to remember that
+>> some systems provide these via ACPI. Why does the ARM
+>> platform has to be special here?
+>> 
+>> And the problem of getting Ethernet and WiFi MAC address and
+>> Bluetooth BD_ADDR comes up many many times. Why not have
+>> something generic here. And don't tell me request_firmware is
+>> that generic solution ;)
+>> 
+>> Regards
+>> 
+>> Marcel
+> 
+> Hi Marcel. I think you did not understand this problem. This 
+> discussion is not about mac address. Please read email thread 
+> again and if there are some unclear pars, then ask. Thanks!
+
+I think that I pretty clearly understand the problem. Calibration data, MAC address, what is the difference? For me this is all the same. It is data that is specific to a device or type of devices and it is stored somewhere else. In most cases in some immutable memory/flash area.
+
+What you want is access to this data since the kernel driver needs it. Do I get this so far ;)
+
+So my take is that request_firmware is not the right way to get this data. Or more precisely make sure that this data is available to kernel drivers. And what I am seeing here is that instead of actually solving the bigger problem, we just hack around it with request_firmware. Now surprisingly the request_firmware loads files directly from the kernel and all the hacks do not work anymore.
+
+Regards
+
+Marcel
