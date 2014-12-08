@@ -1,75 +1,59 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH] drivers:atm Remove two FIXMES in the function,
- top_off_fp for the file, firestream.c
-Date: Mon, 8 Dec 2014 11:20:29 -0500
-Message-ID: <20141208112029.2ca0c2bd@thirdoffive.cmf.nrl.navy.mil>
-References: <1417923348-13807-1-git-send-email-xerofoify@gmail.com>
+From: "Ulrich Windl" <Ulrich.Windl@rz.uni-regensburg.de>
+Subject: Antw: Re: Q: need effective backlog for listen()
+Date: Mon, 08 Dec 2014 17:31:10 +0100
+Message-ID: <5485E05E020000A1000183B4@gwsmtp1.uni-regensburg.de>
+References: <5485ACC9020000A100018394@gwsmtp1.uni-regensburg.de>
+ <1418051901.15618.46.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Nicholas Krause <xerofoify@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417923348-13807-1-git-send-email-xerofoify@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rrzmta2.uni-regensburg.de ([194.94.155.52]:48735 "EHLO
+	rrzmta2.uni-regensburg.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754953AbaLHQbL convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:2:1>);
+	Mon, 8 Dec 2014 11:31:11 -0500
+Received: from rrzmta2.uni-regensburg.de (localhost [127.0.0.1])
+	by localhost (Postfix) with SMTP id A21EC52E5E
+	for <netdev@vger.kernel.org>; Mon,  8 Dec 2014 17:31:10 +0100 (CET)
+Received: from gwsmtp1.uni-regensburg.de (gwsmtp1.uni-regensburg.de [132.199.5.51])
+	by rrzmta2.uni-regensburg.de (Postfix) with ESMTP id 7AA1C529B9
+	for <netdev@vger.kernel.org>; Mon,  8 Dec 2014 17:31:10 +0100 (CET)
+In-Reply-To: <1418051901.15618.46.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I don't see any reason to promote qe_tmp to a u64.  I think you can
-just remove the comment.  Anyone trying to build this into a 64-bit
-kernel will see errors from the virt_to_bus()/bus_to_virt() usage.
-
-fp->n seems to only be manipulated in interrupt context (after driving
-initialization) so it doesn't need locking or to be atomic.
-
-On Sat,  6 Dec 2014 22:35:48 -0500
-Nicholas Krause <xerofoify@gmail.com> wrote:
-
-> Removes two FIXMES in the function.top_off_fp. The first being that of needing the variable, qe_tmp needing to be a
-> u64 type and not u32 as encoding will not work if using a 32 bit register rather then 64 bit as stated in the first
-> fix me comment. In addition the second being a no longer needed comment due to not needing to atomically increment
-> the variable, n as passed to the function by the pointer of fp, as part of a structure of type,freepool.
+>>> Eric Dumazet <eric.dumazet@gmail.com> schrieb am 08.12.2014 um 16:18 in
+Nachricht <1418051901.15618.46.camel@edumazet-glaptop2.roam.corp.google.com>:
+> On Mon, 2014-12-08 at 13:51 +0100, Ulrich Windl wrote:
+>> (not subscribed to the list, plese keep me on CC:)
+>> 
+>> Hi!
+>> 
+>> I have a problem I could not find the answer. I suspect the problem
+>> arises from Linux derivating from standard functionality...
+>> 
+>> I have written a server that should accept n TCP connections at most.
+>> I was expecting that the backlog parameter of listen will cause extra
+>> connection requests either
+>> 1) to be refused
+>> or
+>> 2) to time out eventually
+>> 
+>> (The standard seems to say that extra connections are refused)
+>> 
+>> However none of the above see ms true. Even if my server delays
+>> accept()ing new connections, no client ever sees a "connection
+>> refused" or "connection timed out". Is there any chance to signal the
+>> client that no more connections are accepted at the moment?
 > 
-> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
-> ---
->  drivers/atm/firestream.c | 12 +++---------
->  1 file changed, 3 insertions(+), 9 deletions(-)
+> This 'standard' makes no sense to me, in light of SYNFLOOD attacks.
 > 
-> diff --git a/drivers/atm/firestream.c b/drivers/atm/firestream.c
-> index 82f2ae0..06c23f6 100644
-> --- a/drivers/atm/firestream.c
-> +++ b/drivers/atm/firestream.c
-> @@ -1477,7 +1477,7 @@ static void top_off_fp (struct fs_dev *dev, struct freepool *fp,
->  	struct FS_BPENTRY *qe, *ne;
->  	struct sk_buff *skb;
->  	int n = 0;
-> -	u32 qe_tmp;
-> +	u64  qe_tmp;
->  
->  	fs_dprintk (FS_DEBUG_QUEUE, "Topping off queue at %x (%d-%d/%d)\n", 
->  		    fp->offset, read_fs (dev, FP_CNT (fp->offset)), fp->n, 
-> @@ -1505,14 +1505,8 @@ static void top_off_fp (struct fs_dev *dev, struct freepool *fp,
->  		ne->skb = skb;
->  		ne->fp = fp;
->  
-> -		/*
-> -		 * FIXME: following code encodes and decodes
-> -		 * machine pointers (could be 64-bit) into a
-> -		 * 32-bit register.
-> -		 */
-> -
->  		qe_tmp = read_fs (dev, FP_EA(fp->offset));
-> -		fs_dprintk (FS_DEBUG_QUEUE, "link at %x\n", qe_tmp);
-> +		fs_dprintk(FS_DEBUG_QUEUE, "link at %llx\n", qe_tmp);
->  		if (qe_tmp) {
->  			qe = bus_to_virt ((long) qe_tmp);
->  			qe->next = virt_to_bus(ne);
-> @@ -1521,7 +1515,7 @@ static void top_off_fp (struct fs_dev *dev, struct freepool *fp,
->  			write_fs (dev, FP_SA(fp->offset), virt_to_bus(ne));
->  
->  		write_fs (dev, FP_EA(fp->offset), virt_to_bus (ne));
-> -		fp->n++;   /* XXX Atomic_inc? */
-> +		fp->n++;
->  		write_fs (dev, FP_CTU(fp->offset), 1);
->  	}
->  
+> It actually makes SYNFLOOD attacks very effective.
+> 
+> Have you tried to disable syncookies for a start ?
+
+No, I tries to temporarily close the listening socket. My priority is not to overload the server with connections. At the sime time I _want_ that the clients see that the server resfuses connections. Before you wonder: The client will actually be a load balancer.
