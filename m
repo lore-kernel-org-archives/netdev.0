@@ -1,137 +1,201 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH RFC] pci: Control whether VFs are probed on
- pci_enable_sriov
-Date: Mon, 8 Dec 2014 19:25:24 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63BA7746@avmb3.qlogic.org>
-References: <1417957693-24979-1-git-send-email-eli@mellanox.com>
- <B5657A6538887040AD3A81F1008BEC63BA6616@avmb3.qlogic.org>
- <20141207184242.GA24790@mtldesk30>
- <B5657A6538887040AD3A81F1008BEC63BA669B@avmb3.qlogic.org>,<20141208191032.GC24790@mtldesk30>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: wl1251: NVS firmware data
+Date: Mon, 08 Dec 2014 13:26:53 -0600
+Message-ID: <1418066813.1350.18.camel@dcbw.local>
+References: <201411271506.20457@pali> <201412081811.46943@pali>
+	 <30072B9E-2495-4F90-AC91-9C0D7E08F44E@holtmann.org>
+	 <201412082015.18501@pali>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_000_B5657A6538887040AD3A81F1008BEC63BA7746avmb3qlogicorg_"
-Cc: "bhelgaas@google.com" <bhelgaas@google.com>,
-	David Miller <davem@davemloft.net>,
-	linux-pci <linux-pci@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"yevgenyp@mellanox.com" <yevgenyp@mellanox.com>,
-	Donald Dutile <ddutile@redhat.com>
-To: Eli Cohen <eli@dev.mellanox.co.il>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20141208191032.GC24790@mtldesk30>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Ming Lei <ming.lei@canonical.com>, Pavel Machek <pavel@ucw.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Grazvydas Ignotas <notasas@gmail.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+	Aaro Koskinen <aaro.koskinen@iki.fi>,
+	Kalle Valo <kvalo@adurom.com>,
+	Sebastian Reichel <sre@ring0.de>,
+	David Gnedt <david.gnedt@davizone.at>
+To: Pali =?ISO-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201412082015.18501@pali>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---_000_B5657A6538887040AD3A81F1008BEC63BA7746avmb3qlogicorg_
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+On Mon, 2014-12-08 at 20:15 +0100, Pali Roh=C3=A1r wrote:
+> On Monday 08 December 2014 19:50:17 Marcel Holtmann wrote:
+> > Hi Pali,
+> >=20
+> > >>>>>> On Saturday 06 December 2014 13:49:54 Pavel Machek
+> > >>>>>> wrote: /**
+> > >>>>>>=20
+> > >>>>>> + * request_firmware_prefer_user: - prefer usermode
+> > >>>>>> helper for loading firmware + * @firmware_p: pointer to
+> > >>>>>> firmware image
+> > >>>>>> + * @name: name of firmware file
+> > >>>>>> + * @device: device for which firmware is being loaded
+> > >>>>>> + *
+> > >>>>>> + * This function works pretty much like
+> > >>>>>> request_firmware(), but it prefer + * usermode helper.
+> > >>>>>> If usermode helper fails then it fallback to direct
+> > >>>>>> access. + * Usefull for dynamic or model specific
+> > >>>>>> firmware data. + **/
+> > >>>>>> +int request_firmware_prefer_user(const struct firmware
+> > >>>>>> **firmware_p, +                           const char
+> > >>>>>> *name, struct device *device) +{
+> > >>>>>> +       int ret;
+> > >>>>>> +       __module_get(THIS_MODULE);
+> > >>>>>> +       ret =3D _request_firmware(firmware_p, name,
+> > >>>>>> device, +                               FW_OPT_UEVENT
+> > >>>>>> | FW_OPT_PREFER_USER); +     =20
+> > >>>>>> module_put(THIS_MODULE); +       return ret;
+> > >>>>>> +}
+> > >>>>>> +EXPORT_SYMBOL_GPL(request_firmware_prefer_user);
+> > >>>>>=20
+> > >>>>> I'd like to introduce request_firmware_user() which only
+> > >>>>> requests firmware from user space, and this way is
+> > >>>>> simpler and more flexible since we have
+> > >>>>> request_firmware_direct() already.
+> > >>>>=20
+> > >>>> Why would a driver care about what program provides the
+> > >>>> firmware?  It shouldn't at all, and we want to get rid of
+> > >>>> the userspace firmware loader, not encourage drivers to
+> > >>>> use it "exclusively" at all.
+> > >>>=20
+> > >>> Do not remove it! Without userspace firmware loader it is
+> > >>> impossible to load dynamic firmware files.
+> > >>=20
+> > >> why is this dynamic in the first place. It does not sound
+> > >> like dynamic data to me at all. This is like the WiFi MAC
+> > >> address(es) or Bluetooth BD_ADDR. They are all static
+> > >> information. The only difference is that they are on the
+> > >> host accessibly filesystem or storage and not on the
+> > >> device itself.
+> > >>=20
+> > >> To be honest, for Bluetooth we solved this now. If the
+> > >> device is missing key information like the calibration
+> > >> data or BD_ADDR, then it comes up unconfigured. A
+> > >> userspace process can then go and load the right data into
+> > >> it and then the device becomes available as Bluetooth
+> > >> device.
+> > >>=20
+> > >> Trying to use request_firmware to load some random data and
+> > >> insist on going through userspace helper for that sounds
+> > >> crazy to me. Especially since we are trying hard to get
+> > >> away from the userspace loader. Forcing to keep it for new
+> > >> stuff sounds backwards to me.
+> > >>=20
+> > >> With the special Nokia partition in mind, why hasn't this
+> > >> been turned into a mountable filesystem or into a
+> > >> driver/subsystem that can access the data direct from the
+> > >> kernel. I advocated for this some time ago. Maybe there
+> > >> should be a special subsystem for access to these factory
+> > >> persistent information that drivers then just can access.
+> > >> I seem to remember that some systems provide these via
+> > >> ACPI. Why does the ARM platform has to be special here?
+> > >>=20
+> > >> And the problem of getting Ethernet and WiFi MAC address
+> > >> and Bluetooth BD_ADDR comes up many many times. Why not
+> > >> have something generic here. And don't tell me
+> > >> request_firmware is that generic solution ;)
+> > >>=20
+> > >> Regards
+> > >>=20
+> > >> Marcel
+> > >=20
+> > > Hi Marcel. I think you did not understand this problem. This
+> > > discussion is not about mac address. Please read email
+> > > thread again and if there are some unclear pars, then ask.
+> > > Thanks!
+> >=20
+> > I think that I pretty clearly understand the problem.
+> > Calibration data, MAC address, what is the difference? For me
+> > this is all the same. It is data that is specific to a device
+> > or type of devices and it is stored somewhere else. In most
+> > cases in some immutable memory/flash area.
+> >=20
+>=20
+> Those calibration data (in form of binary NVS firmware file)=20
+> needs to be sent to wl1251 chip. Mac address is not needed at=20
+> this step (and kernel generate some random if is not provided).
+>=20
+> (Just to note wl1271 driver loads both MAC address and NVS data=20
+> via one firmware file which is prepared by userspace, but this=20
+> discussion is about wl1251...)
+>=20
+> > What you want is access to this data since the kernel driver
+> > needs it. Do I get this so far ;)
+> >=20
+>=20
+> Yes, we need to provide NVS data to kernel when kernel ask for=20
+> them.
+>=20
+> > So my take is that request_firmware is not the right way to
+> > get this data. Or more precisely make sure that this data is
+> > available to kernel drivers. And what I am seeing here is
+> > that instead of actually solving the bigger problem, we just
+> > hack around it with request_firmware. Now surprisingly the
+> > request_firmware loads files directly from the kernel and all
+> > the hacks do not work anymore.
+> >=20
+> > Regards
+> >=20
+> > Marcel
+>=20
+> Just read emails again...
+>=20
+> Our problem is:
+>=20
+> linux-firmware.git tree provides two binary firmware files:
+>=20
+> ti-connectivity/wl1251-fw.bin
+> ti-connectivity/wl1251-nvs.bin
+>=20
+> First is firmware file, second NVS file with generic calibration=20
+> data. Kernel driver wl1251 now loads both firmware files via=20
+> request_firmware. Generic calibration data are enough for wl1251=20
+> chip (it should work). But devices have own calibration data=20
+> stored somewhere else.
+>=20
+> On Nokia N900 NVS data are generated on-the-fly from some bytes=20
+> from CAL (/dev/mtd1), from state of cellular network and from=20
+> some other regulation settings.
+>=20
+> So I think that files stored in linux-firmware.git tree (which=20
+> are also installed into /lib/firmware/) should be loaded with=20
+> request_firmware function. Or not? Do you think something else?=20
+> What other developers think?
+>=20
+> I'm against kernel driver for CAL (/dev/mtd1) for more reasons:
+>=20
+> 1) we have userspace open source code, but licensed under GPLv3.=20
+> And until kernel change license, we cannot include it.
+>=20
+> 2) NVS data are (probably) not in one place, plus they depends on=20
+> something other.
+>=20
+> 3) If manufacture XYZ create new device with its own storage=20
+> format of calibration data this means that correct solution for=20
+> XYZ is also to implement new kernel fs driver for its own format.=20
+> Do you really want to have in kernel all those drivers for all=20
+> different (proprietary) storage formats?
+>=20
+> 4) It does not help us with existence of generic file=20
+> /lib/firmware/ti-connectivity/wl1251-nvs.bin which comes from=20
+> linux-firmware.git tree.
 
->>>> What's the end-game here? How eventually would this be controlled?=0A=
->>>You can probe any VF at the hypervisor through sysfs files=0A=
-=0A=
->>>(bind/unbind). You can also pass them through to a VM. Nothing=0A=
->>>changes.=0A=
-=0A=
->> If you're not planning on adding a logic to set this, why do we need to=
-=0A=
->> add a parameter to pci_enable_sriov() - given that all callers use the=
-=0A=
->> exact same logic?=0A=
->> [And I don't really think we'd want different devices to behave differen=
-tly=0A=
->> by default; That would be confusing for users.]=0A=
-=0A=
->Currently the kerenl will call probe for any device for which there is=0A=
->a supporting driver and I did not want to change that.=0A=
-=0A=
-But what's next? How will this feature be activated?=0A=
-=0A=
-Adding a parameter to pci_enable_sriov() might give developers the false=0A=
-impression they can change behavior by passing `0' to this function; =0A=
-But that shouldn't be the method to control this - we should have uniform =
-=0A=
-control of the feature across different drivers, e.g., by an additional sys=
-fs node.=
+a) change driver to prefer a new "wl1251-nvs-n900.bin" file, but fall
+back to "wl1251-nvs.bin" if the first one isn't present
+b) have a "wl1251-cal-nvs-update" service that, if wl1521-nvs-n900.bin
+is *not* present mounts the CAL MTD, reads the data, writes it out into
+wl1521-nvs-n900.bin, and the rmmod/modprobes the driver
 
---_000_B5657A6538887040AD3A81F1008BEC63BA7746avmb3qlogicorg_
-Content-Disposition: attachment; filename="winmail.dat"
-Content-Transfer-Encoding: base64
-Content-Type: application/ms-tnef; name="winmail.dat"
+and done?  Stuff that's not N900 just wouldn't ship the update service
+and would proceed like none of this happened.
 
-eJ8+IvcrAQaQCAAEAAAAAAABAAEAAQeQBgAIAAAA5AQAAAAAAADoAAEJgAEAIQAAADk0RkExQjVC
-QzcyMUYyNDRCQzdENDUzNzRGREM2OTczAEgHAQ2ABAACAAAAAgACAAEFgAMADgAAAN4HDAAIABMA
-GQAYAAEAPgEBIIADAA4AAADeBwwACAATABkAGAABAD4BAQiABwAYAAAASVBNLk1pY3Jvc29mdCBN
-YWlsLk5vdGUAMQgBBIABAEgAAABSRTogW1BBVENIIFJGQ10gcGNpOiBDb250cm9sIHdoZXRoZXIg
-VkZzIGFyZSBwcm9iZWQgb24gcGNpX2VuYWJsZV9zcmlvdgCWGAEDkAYA/A4AADYAAAACAX8AAQAA
-ADoAAAA8QjU2NTdBNjUzODg4NzA0MEFEM0E4MUYxMDA4QkVDNjNCQTc3NDZAYXZtYjMucWxvZ2lj
-Lm9yZz4AAAALAB8OAQAAAAIBCRABAAAAwAMAALwDAACuBQAATFpGdfp4R55hAApmYmlkBAAAY2PA
-cGcxMjUyAP4DQ/B0ZXh0AfcCpAPjAgAEY2gKwHNldDAg7wdtAoMAUBFNMgqABrQCgJZ9CoAIyDsJ
-YjE5DsC/CcMWcgoyFnECgBViKgmwcwnwBJBhdAWyDlADYHOibwGAIEV4EcFuGDBdBlJ2BJAXtgIQ
-cgDAdH0IUG4aMRAgBcAFoBtkZJogA1IgECIXslx2CJDkd2sLgGQ1HVME8AdADRdwMApxF/Jia21r
-BnMBkAAgIEJNX0LgRUdJTn0K/AHxC/EkID4hoSBXEdB0JxkEIHRoGeAJ8GQtZxphB4AgInAJcD8g
-SFpvB+BlGjACMHUHQGzoeSB3CGBsHGAiYAQA7CBiGeAb4XQDYCRACYBoP1xsC4BlCoAhoVn3CGAb
-0AORcANgJTEAcCRgHFZGJ4AFQCJiaHlwHxoRBAAFsSJgA2B1Z2jwIHN5cwPQHHADEAeQGyYVJhgo
-DcAdwC91bvErcikuICa2B0AZICcg/mEEESJhHLEpNRiQJ4AnwPJNLDBObyThGcAmGBmUBHMuKl4g
-SWYgeeUIYCcJcCBuLuAnIAtgtm4DABnAIAIgJ4BkDeD3MrEucAkAZw5QLjISASTTpiwkcChwIGQt
-AHcx8fsJ4CTBbzDYMxEuYQqxIvHDG6IuQXBjaV8J8AGgCR5wX3MFEG92KCn4IC0gM8Aj4SJRKAEk
-Mecm4SXBEfAgdRIAIlIw2HcQMADQBUBzIvIzoyYIIJxbQR3AMWA1AW4nBUBXCXAkMy7yazUxJxxg
-d/8AcAVADeABICNBP0Ij0A5Q/weRLkElMBHQGjA/aCRQMNj2YjTxARBhJKAdABJAOXL7JIQlNGY6
-cDKiGuE6YhHwdC5dKl1DCHBBhCJTa/8/sgMgA/A5xSclRMInkkAU30SzNNAOUC4hIzIgDfEmJWEu
-cHN1cHAJETKiZP8FEBoxJ4E9Yw3QMgM/Iy5B5xmVOWIwXUJ1Q3EiBBhQ/xBAI3RHsyTjP6AYgAhw
-GeC/J2I7sDkQGIAl6CYVQTMm8zbvN/1taSlwBUA5AkAC/mUJACiRIkRC0CzgOtYHcP8nMAeQAJAy
-4SJhJGAm8hmVP0DDOIAFwEKBLSIyomAw/icuMlEkK8BSMQIgQyBPGfk5Y3NoJJI9wiUxImJUcf9d
-8DWiJVYk1DjgNUFd5CMg/0DyK8AGkBrxXNZflhkwV4R/UYUA0BkBBCA/eUwjNKFl+C5nLjSwQoEs
-ojMhXIJvB0AplTIQAQAuFUJn0B8AQgABAAAAGAAAAFkAdQB2AGEAbAAgAE0AaQBuAHQAegAAAB8A
-ZQABAAAALgAAAFkAdQB2AGEAbAAuAE0AaQBuAHQAegBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAA
-AB8AZAABAAAACgAAAFMATQBUAFAAAAAAAAIBQQABAAAAaAAAAAAAAACBKx+kvqMQGZ1uAN0BD1QC
-AAAAgFkAdQB2AGEAbAAgAE0AaQBuAHQAegAAAFMATQBUAFAAAABZAHUAdgBhAGwALgBNAGkAbgB0
-AHoAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAHwACXQEAAAAuAAAAWQB1AHYAYQBsAC4ATQBpAG4A
-dAB6AEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAAHwDlXwEAAAA2AAAAcwBpAHAAOgB5AHUAdgBh
-AGwALgBtAGkAbgB0AHoAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAAAAfABoMAQAAABgAAABZAHUA
-dgBhAGwAIABNAGkAbgB0AHoAAAAfAB8MAQAAAC4AAABZAHUAdgBhAGwALgBNAGkAbgB0AHoAQABx
-AGwAbwBnAGkAYwAuAGMAbwBtAAAAAAAfAB4MAQAAAAoAAABTAE0AVABQAAAAAAACARkMAQAAAGgA
-AAAAAAAAgSsfpL6jEBmdbgDdAQ9UAgAAAIBZAHUAdgBhAGwAIABNAGkAbgB0AHoAAABTAE0AVABQ
-AAAAWQB1AHYAYQBsAC4ATQBpAG4AdAB6AEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAB8AAV0BAAAA
-LgAAAFkAdQB2AGEAbAAuAE0AaQBuAHQAegBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8A+D8B
-AAAAGAAAAFkAdQB2AGEAbAAgAE0AaQBuAHQAegAAAB8AI0ABAAAALgAAAFkAdQB2AGEAbAAuAE0A
-aQBuAHQAegBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8AIkABAAAACgAAAFMATQBUAFAAAAAA
-AAIB+T8BAAAAaAAAAAAAAACBKx+kvqMQGZ1uAN0BD1QCAAAAgFkAdQB2AGEAbAAgAE0AaQBuAHQA
-egAAAFMATQBUAFAAAABZAHUAdgBhAGwALgBNAGkAbgB0AHoAQABxAGwAbwBnAGkAYwAuAGMAbwBt
-AAAAHwAJXQEAAAAuAAAAWQB1AHYAYQBsAC4ATQBpAG4AdAB6AEAAcQBsAG8AZwBpAGMALgBjAG8A
-bQAAAAAAHwAxQAEAAAACAAAAAAAAAAsAQDoBAAAAHwAwQAEAAAACAAAAAAAAAB8AGgABAAAAEgAA
-AEkAUABNAC4ATgBvAHQAZQAAAAAAAwDxPwkEAAALAEA6AQAAAAMA/T/kBAAAAgELMAEAAAAQAAAA
-lPobW8ch8kS8fUU3T9xpcwMAFwABAAAAQAA5AAAqw7YcE9ABQAAIMOd9OLccE9ABCwApAAAAAAAL
-AACACCAGAAAAAADAAAAAAAAARgAAAAAUhQAAAQAAAAsAIwAAAAAAHwAAgIYDAgAAAAAAwAAAAAAA
-AEYBAAAAHgAAAGEAYwBjAGUAcAB0AGwAYQBuAGcAdQBhAGcAZQAAAAAAAQAAAAwAAABlAG4ALQBV
-AFMAAAALAACACCAGAAAAAADAAAAAAAAARgAAAAAGhQAAAAAAAB8ANwABAAAAkAAAAFIARQA6ACAA
-WwBQAEEAVABDAEgAIABSAEYAQwBdACAAcABjAGkAOgAgAEMAbwBuAHQAcgBvAGwAIAB3AGgAZQB0
-AGgAZQByACAAVgBGAHMAIABhAHIAZQAgAHAAcgBvAGIAZQBkACAAbwBuACAAcABjAGkAXwBlAG4A
-YQBiAGwAZQBfAHMAcgBpAG8AdgAAAB8APQABAAAACgAAAFIARQA6ACAAAAAAAAMANgAAAAAAAwAu
-AAAAAAAfAEIQAQAAAEYAAAA8ADIAMAAxADQAMQAyADAAOAAxADkAMQAwADMAMgAuAEcAQwAyADQA
-NwA5ADAAQABtAHQAbABkAGUAcwBrADMAMAA+AAAAAAACAXEAAQAAAC8AAAABAdASHvBZyva78wy2
-TrZC42hmecrAnIRaooGAAKJogP//j7e1gAIKYwD//3wMtgAfAHAAAQAAAIgAAABbAFAAQQBUAEMA
-SAAgAFIARgBDAF0AIABwAGMAaQA6ACAAQwBvAG4AdAByAG8AbAAgAHcAaABlAHQAaABlAHIAIABW
-AEYAcwAgAGEAcgBlACAAcAByAG8AYgBlAGQAIABvAG4AIABwAGMAaQBfAGUAbgBhAGIAbABlAF8A
-cwByAGkAbwB2AAAAHwA1EAEAAAB0AAAAPABCADUANgA1ADcAQQA2ADUAMwA4ADgAOAA3ADAANAAw
-AEEARAAzAEEAOAAxAEYAMQAwADAAOABCAEUAQwA2ADMAQgBBADcANwA0ADYAQABhAHYAbQBiADMA
-LgBxAGwAbwBnAGkAYwAuAG8AcgBnAD4AAAAfADkQAQAAAN4BAAA8ADEANAAxADcAOQA1ADcANgA5
-ADMALQAyADQAOQA3ADkALQAxAC0AZwBpAHQALQBzAGUAbgBkAC0AZQBtAGEAaQBsAC0AZQBsAGkA
-QABtAGUAbABsAGEAbgBvAHgALgBjAG8AbQA+ACAAPABCADUANgA1ADcAQQA2ADUAMwA4ADgAOAA3
-ADAANAAwAEEARAAzAEEAOAAxAEYAMQAwADAAOABCAEUAQwA2ADMAQgBBADYANgAxADYAQABhAHYA
-bQBiADMALgBxAGwAbwBnAGkAYwAuAG8AcgBnAD4AIAA8ADIAMAAxADQAMQAyADAANwAxADgANAAy
-ADQAMgAuAEcAQQAyADQANwA5ADAAQABtAHQAbABkAGUAcwBrADMAMAA+ACAAPABCADUANgA1ADcA
-QQA2ADUAMwA4ADgAOAA3ADAANAAwAEEARAAzAEEAOAAxAEYAMQAwADAAOABCAEUAQwA2ADMAQgBB
-ADYANgA5AEIAQABhAHYAbQBiADMALgBxAGwAbwBnAGkAYwAuAG8AcgBnAD4ALAA8ADIAMAAxADQA
-MQAyADAAOAAxADkAMQAwADMAMgAuAEcAQwAyADQANwA5ADAAQABtAHQAbABkAGUAcwBrADMAMAA+
-AAAAAAADAN4/n04AAEAABzAR5B+3GxPQAQMAJgAAAAAAAgFHAAEAAAAuAAAAYz1VUzthPSA7cD1R
-TG9naWM7bD1BVk1CMy0xNDEyMDgxOTI1MjRaLTYzNzUzAAAAAgEUMAEAAAAMAAAAngAAANFaviI+
-AAAAHwD6PwEAAAAYAAAAWQB1AHYAYQBsACAATQBpAG4AdAB6AAAAAwANNP0/AAAfAACAhgMCAAAA
-AADAAAAAAAAARgEAAAAgAAAAeAAtAG0AcwAtAGgAYQBzAC0AYQB0AHQAYQBjAGgAAAABAAAAAgAA
-AAAAAAAfAACAhgMCAAAAAADAAAAAAAAARgEAAAAiAAAAeAAtAG8AcgBpAGcAaQBuAGEAdABpAG4A
-ZwAtAGkAcAAAAAAAAQAAABgAAABbADEAMAAuADEALgA0AC4AMQAwAF0AAAAfAACAhgMCAAAAAADA
-AAAAAAAARgEAAAAWAAAAZABpAHMAYwBsAGEAaQBtAGUAcgAAAAAAAQAAAA4AAABiAHkAcABhAHMA
-cwAAAAAAMuY=
-
---_000_B5657A6538887040AD3A81F1008BEC63BA7746avmb3qlogicorg_--
+Dan
