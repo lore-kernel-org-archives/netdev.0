@@ -1,50 +1,54 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
+From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: [RFC][PATCHES] iov_iter.c rewrite
-Date: Mon, 8 Dec 2014 18:35:42 +0000
-Message-ID: <20141208183539.GF22149@ZenIV.linux.org.uk>
+Date: Mon, 8 Dec 2014 10:37:51 -0800
+Message-ID: <CA+55aFxrrTV-xBbvEzVKsXRVKyvZhQZj-6BNDpTsG4J5k6CJEg@mail.gmail.com>
 References: <20141204202011.GO29748@ZenIV.linux.org.uk>
- <20141208164650.GB29028@node.dhcp.inet.fi>
- <CA+55aFz6izpVGxkziynRXg7zbHzteQyPJH1Kg91ZO3fzqn3LaQ@mail.gmail.com>
- <20141208181401.GD22149@ZenIV.linux.org.uk>
- <CA+55aFzKGsYKh1HALoeFGYQ46uMHww0WdLf5N-9duNTgMSSFxQ@mail.gmail.com>
+	<20141208164650.GB29028@node.dhcp.inet.fi>
+	<20141208175805.GB22149@ZenIV.linux.org.uk>
+	<20141208180824.GC22149@ZenIV.linux.org.uk>
+	<CA+55aFxwrH4vsyw2ix=HqDK9Z=fw98xtOL8=57prm8qgVmAFfA@mail.gmail.com>
+	<20141208182012.GE22149@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Cc: "Kirill A. Shutemov" <kirill@shutemov.name>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
 	Network Development <netdev@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+55aFzKGsYKh1HALoeFGYQ46uMHww0WdLf5N-9duNTgMSSFxQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+To: Al Viro <viro@zeniv.linux.org.uk>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20141208182012.GE22149@ZenIV.linux.org.uk>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 08, 2014 at 10:23:26AM -0800, Linus Torvalds wrote:
+On Mon, Dec 8, 2014 at 10:20 AM, Al Viro <viro@zeniv.linux.org.uk> wrote:
+>
+> I certainly had missed that insanity during the analysis - we don't do
+> a lot of O_DIRECT IO to/from kernel addresses of any sort...  This
+> codepath allows it ;-/  Ability to trigger it is equivalent to ability
+> to run any code in kernel mode, so it's not an additional security hole,
+> but...
 
-> Did this actually use to work? Or is it an issue of "the new iov_iter
-> is so generic that something that used to just return an error now
-> 'works' and triggers the problem"?
+Is there any chance we could just return EINVAL for this case?
 
-Looks like it failed with EINVAL.  Which might very well be the sane
-reaction - if we run into a vmalloc/module address, act as if we failed
-to get that page and exit the loop.
+Who does O_DIRECT on module load anyway? If this is only for
+finit_module(), that uses "kernel_read()", and maybe we could just
+make sure that the kernel_read() function never ever uses the
+direct-IO paths?
 
-> > What's the sane way to grab struct page * for a vmalloc'ed address?
-> 
-> So "vmalloc_to_page()" should work.
-> 
-> However, it's actually fundamentally racy unless you can guarantee
-> that the vmalloc()'ed area in question is stable (so you had better
-> have done that allocation yourself, and be in control of the freeing,
-> rather than "we look up random vmalloc'ed addresses).
+[ Time passes, I look at the code ]
 
-If vfree(buffer) races with kernel_read() into buffer, we are so badly
-fucked that stability of pointers to pages is the least of our concerns...
+Oh crap. So the reason it triggers seems to be that we basically get a
+random file descriptor that we didn't open, and then we have
 
-> In general, it's really a horrible thing to use, and tends to be a big
-> red sign that "somebody misdesigned this badly"
+  vfs_read() ->
+  xfs_file_operations->read() ->
+  ew_sync_read() ->
+  xfs_file_operations->read_iter()
+  xfs_file_read_iter()
 
-More like "nobody has thought of that case", at a guess, but then I hadn't
-been involved in finit_module() design - I don't even remember the discussions
-around it.  That would be what, something circa 3.7?
+and we are stuck with this iterator that really just wants to do copies.
+
+How about we make "kernel_read()" just clear O_DIRECT? Does that fix
+it to just use copies?
+
+                      Linus
