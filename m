@@ -1,52 +1,48 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [ovs-discuss] kernel panic receiving flooded VXLAN traffic with OVS
-Date: Mon, 8 Dec 2014 09:33:20 -0800
-Message-ID: <CAEP_g=86QKL_Oxxj0mo8CZs8+fyBZuYw2fQTMGow_bSJbk+8AQ@mail.gmail.com>
-References: <19014.1415325508@famine> <8549.1417657547@famine>
- <CAEP_g=_mfSCH1250ezx_h8_yM_4FzsYcsS6EnGi99AFoWO_MKw@mail.gmail.com> <CADmMkWdGhw3Rn3gMEtAV8ESZB-k+uAK=Ed=LwsShKOtyHdJS_g@mail.gmail.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 2/3] netlink: IFLA_PHYS_SWITCH_ID to
+ IFLA_PHYS_PARENT_ID
+Date: Mon, 8 Dec 2014 12:49:14 -0500
+Message-ID: <20141208174914.GH797@gospo.home.greyhouse.net>
+References: <1417802537-20020-1-git-send-email-gospo@cumulusnetworks.com>
+ <1417802537-20020-2-git-send-email-gospo@cumulusnetworks.com>
+ <20141208151714.GG1885@nanopsycho.brq.redhat.com>
+ <20141208153747.GG797@gospo.home.greyhouse.net>
+ <20141208164143.GI1885@nanopsycho.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jay Vosburgh <jay.vosburgh@canonical.com>,
-	netdev <netdev@vger.kernel.org>,
-	"discuss@openvswitch.org" <discuss@openvswitch.org>
-To: Nicholas Bastin <nick.bastin@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, sfeldma@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na6sys009bog010.obsmtp.com ([74.125.150.60]:52993 "HELO
-	na6sys009bog010.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751119AbaLHRdl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 12:33:41 -0500
-Received: by mail-qa0-f44.google.com with SMTP id i13so3611826qae.17
-        for <netdev@vger.kernel.org>; Mon, 08 Dec 2014 09:33:40 -0800 (PST)
-In-Reply-To: <CADmMkWdGhw3Rn3gMEtAV8ESZB-k+uAK=Ed=LwsShKOtyHdJS_g@mail.gmail.com>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:34128 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751482AbaLHRt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 12:49:27 -0500
+Content-Disposition: inline
+In-Reply-To: <20141208164143.GI1885@nanopsycho.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 6, 2014 at 2:47 PM, Nicholas Bastin <nick.bastin@gmail.com> wrote:
-> On Fri, Dec 5, 2014 at 4:51 PM, Jesse Gross <jesse@nicira.com> wrote:
->>
->> I don't think there is anything inherently wrong with aggregating TCP
->> segments in VXLAN that are not destined for the local host. This is
->> conceptually the same as doing aggregation for TCP packets where we
->> only perform L2 bridging - in theory we shouldn't look at the upper
->> layers but it is fine as long as we faithfully reconstruct it on the
->> way out.
->
->
-> But you don't faithfully reconstruct what the user originally sent - in-path
-> reassembly is always wrong, which is why hardware switches don't do it (by
-> default, anyhow).  If you configure a middlebox to do some kind of
-> assembly/translation/whatever work for you, that's fine, but something that
-> advertises itself as a "switch" or "router" should definitely not do this by
-> default.
->
-> If you reassemble frames you completely obviate any kind of PMTU-D or
-> configured MTU that your user is using, and this breaks a lot of paths.  We
-> completely disable all GRO/TSO/etc., but if you are able to determine that a
-> packet is not destined for the local host you should definitely not mutate
-> it.
+On Mon, Dec 08, 2014 at 05:41:43PM +0100, Jiri Pirko wrote:
+> Mon, Dec 08, 2014 at 04:37:47PM CET, gospo@cumulusnetworks.com wrote:
+> >On Mon, Dec 08, 2014 at 04:17:14PM +0100, Jiri Pirko wrote:
+> >> Fri, Dec 05, 2014 at 07:02:16PM CET, gospo@cumulusnetworks.com wrote:
+> >> >There has been much discussion about proper nomenclature to use for this
+> >> >and I would prefer parent rather than calling every forwarding element a
+> >> >switch.
+> >> 
+> >> Andy, I must say I really do not like just plain "parent". It is really
+> >> not clear what it means as it can mean 1000 things.
+> >> 
+> >> I know "switch" is not ideal but everytime anyone is talking about these
+> >> kind of forwarding devices, they use word "switch" even if it is not
+> >> accurate and everyone knows what they are talking about. Nobody uses
+> >> "parent".
+> >
+> >Well of course they are not going to use it until it's committed.  ;-)
+> 
+> 
+> Do you seriously expect people talking about "parents" instead of
+"Parent device" -- absolutely
 
-If you look at the implementation of GRO/TSO, I think you will see
-that it does in fact faithfully reconstruct the original message and
-path MTU discovery is preserved. On Linux systems, GRO is enabled by
-default for all workloads - including those that do not result in
-local termination such as bridging.
+> "switches". I doubt that...
+Agree to disagree, I guess! 
