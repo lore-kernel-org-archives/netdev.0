@@ -1,8 +1,7 @@
 From: kxie@chelsio.com
-Subject: [PATCH net v2 4/5] cxgb4i: use cxgb4's set_wr_txq() for setting
- tx queues
-Date: Mon, 08 Dec 2014 01:58:17 -0800
-Message-ID: <201412080958.sB89wHmi005505@localhost6.localdomain6>
+Subject: [PATCH net v2 5/5] libcxgbi: free skb after debug prints
+Date: Mon, 08 Dec 2014 01:58:20 -0800
+Message-ID: <201412080958.sB89wKvS005511@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -11,83 +10,39 @@ Cc: kxie@chelsio.com, hariprasad@chelsio.com, anish@chelsio.com,
 	michaelc@cs.wisc.edu, davem@davemloft.net
 To: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:3053 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:19259 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754457AbaLHJ7P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 04:59:15 -0500
+	with ESMTP id S1753221AbaLHJ7R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 04:59:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[PATCH net v2 4/5] cxgb4i: use cxgb4's set_wr_txq() for setting tx queues
+[PATCH net v2 5/5] libcxgbi: free skb after debug prints
 
 From: Karen Xie <kxie@chelsio.com>
 
-use cxgb4's set_wr_txq() to set the tx queue for a outgoing packet.
+The debug print was accessing the skb after it was freed.
 
 Signed-off-by: Karen Xie <kxie@chelsio.com>
 ---
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   16 +++++-----------
- 1 files changed, 5 insertions(+), 11 deletions(-)
+ drivers/scsi/cxgbi/libcxgbi.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index 051adab..3c99e5d 100644
---- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-+++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -157,12 +157,6 @@ static struct scsi_transport_template *cxgb4i_stt;
- #define RCV_BUFSIZ_MASK		0x3FFU
- #define MAX_IMM_TX_PKT_LEN	128
- 
--static inline void set_queue(struct sk_buff *skb, unsigned int queue,
--				const struct cxgbi_sock *csk)
--{
--	skb->queue_mapping = queue;
--}
--
- static int push_tx_frames(struct cxgbi_sock *, int);
- 
- /*
-@@ -404,7 +398,7 @@ static void send_abort_req(struct cxgbi_sock *csk)
- 
- 	csk->cpl_abort_req = NULL;
- 	req = (struct cpl_abort_req *)skb->head;
--	set_queue(skb, CPL_PRIORITY_DATA, csk);
-+	set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
- 	req->cmd = CPL_ABORT_SEND_RST;
- 	t4_set_arp_err_handler(skb, csk, abort_arp_failure);
- 	INIT_TP_WR(req, csk->tid);
-@@ -430,7 +424,7 @@ static void send_abort_rpl(struct cxgbi_sock *csk, int rst_status)
- 		csk, csk->state, csk->flags, csk->tid, rst_status);
- 
- 	csk->cpl_abort_rpl = NULL;
--	set_queue(skb, CPL_PRIORITY_DATA, csk);
-+	set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
- 	INIT_TP_WR(rpl, csk->tid);
- 	OPCODE_TID(rpl) = cpu_to_be32(MK_OPCODE_TID(CPL_ABORT_RPL, csk->tid));
- 	rpl->cmd = rst_status;
-@@ -555,7 +549,7 @@ static inline int send_tx_flowc_wr(struct cxgbi_sock *csk)
- 	flowc->mnemval[8].mnemonic = FW_FLOWC_MNEM_TXDATAPLEN_MAX;
- 	flowc->mnemval[8].val = 16384;
- 
--	set_queue(skb, CPL_PRIORITY_DATA, csk);
-+	set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
- 
- 	log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
- 		"csk 0x%p, tid 0x%x, %u,%u,%u,%u,%u,%u,%u.\n",
-@@ -659,7 +653,7 @@ static int push_tx_frames(struct cxgbi_sock *csk, int req_completion)
- 			break;
- 		}
- 		__skb_unlink(skb, &csk->write_queue);
--		set_queue(skb, CPL_PRIORITY_DATA, csk);
-+		set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
- 		skb->csum = credits_needed + flowclen16;
- 		csk->wr_cred -= credits_needed;
- 		csk->wr_una_cred += credits_needed;
-@@ -1551,7 +1545,7 @@ static int ddp_ppod_write_idata(struct cxgbi_device *cdev, unsigned int port_id,
- 		return -ENOMEM;
+diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
+index 7da59c3..eb58afc 100644
+--- a/drivers/scsi/cxgbi/libcxgbi.c
++++ b/drivers/scsi/cxgbi/libcxgbi.c
+@@ -2294,10 +2294,12 @@ int cxgbi_conn_xmit_pdu(struct iscsi_task *task)
+ 		return err;
  	}
- 	req = (struct ulp_mem_io *)skb->head;
--	set_queue(skb, CPL_PRIORITY_CONTROL, NULL);
-+	set_wr_txq(skb, CPL_PRIORITY_CONTROL, 0);
  
- 	ulp_mem_io_set_hdr(lldi, req, wr_len, dlen, pm_addr);
- 	idata = (struct ulptx_idata *)(req + 1);
+-	kfree_skb(skb);
+ 	log_debug(1 << CXGBI_DBG_ISCSI | 1 << CXGBI_DBG_PDU_TX,
+ 		"itt 0x%x, skb 0x%p, len %u/%u, xmit err %d.\n",
+ 		task->itt, skb, skb->len, skb->data_len, err);
++
++	kfree_skb(skb);
++
+ 	iscsi_conn_printk(KERN_ERR, task->conn, "xmit err %d.\n", err);
+ 	iscsi_conn_failure(task->conn, ISCSI_ERR_XMIT_FAILED);
+ 	return err;
