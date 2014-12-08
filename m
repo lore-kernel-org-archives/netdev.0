@@ -1,62 +1,62 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2] sh_eth: Optimization for RX excess judgement
-Date: Mon, 08 Dec 2014 14:47:25 +0300
-Message-ID: <54858FCD.3080206@cogentembedded.com>
-References: <1418035701-3871-1-git-send-email-ykaneko0929@gmail.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: Re: [PATCH net-next V1] net/mlx4_en: ethtool force speed when asking
+ for autoneg=off
+Date: Mon, 8 Dec 2014 11:42:58 +0000
+Message-ID: <EA5A1E7F-F3D5-45E9-B819-4863B29E4500@Mellanox.Com>
+References: <1417969655-28028-1-git-send-email-amirv@mellanox.com>,<063D6719AE5E284EB5DD2968C1650D6D1CA04B67@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
-To: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1418035701-3871-1-git-send-email-ykaneko0929@gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Amir Vadai <amirv@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3on0077.outbound.protection.outlook.com ([157.55.234.77]:15803
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754643AbaLHMPN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 07:15:13 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CA04B67@AcuExch.aculab.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
 
-On 12/8/2014 1:48 PM, Yoshihiro Kaneko wrote:
+> On Dec 8, 2014, at 12:57 PM, David Laight <David.Laight@ACULAB.COM> wrote:
+> 
+> From: Amir Vadai
+>> From: Saeed Mahameed <saeedm@mellanox.com>
+>> 
+>> Use cmd->autoneg == AUTONEG_DISABLE as a user hint to force specific speed.
+>> We don't want to rely on ethtool to calculate advertised link modes when
+>> forcing specific speed, a user can request a specific speed and specify
+>> "autoneg off" in ethtool command to give a hint for forcing this speed.
+> 
+> I'm not 100% sure what you are trying to achieve?
+Hey David
+I am not trying to fix the operating mode of the phy with this patch.
+Here i am trying to give the user the ability To let the driver choose what to advertise when user want to force a specific speed using cmd->autoneg =off .
 
-> From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+In the driver :
+If (cmd->autoneg==off) advertise_according_speed(cmd->speed)
+Else advertise(cmd->advertise)
 
-> Both of 'boguscnt' and 'quota' have nearly meaning as the condition of
-> the reception loop.
-> In order to cut down redundant processing, this patch changes excess
-> judgement.
-
-> Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
-> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-> ---
-
-> This patch is based on net-next tree.
-
-> v2 [Yoshihiro Kaneko]
-> * re-spin for net-next.
-> * remove unneeded check of "quota".
-
-    This is not a complete list. :-/
-
->   drivers/net/ethernet/renesas/sh_eth.c | 10 +++++-----
->   1 file changed, 5 insertions(+), 5 deletions(-)
-
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index dbe8606..266c9b2 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-[...]
-> @@ -1501,6 +1499,8 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
->   		sh_eth_write(ndev, EDRRR_R, EDRRR);
->   	}
->
-> +	*quota -= limit - boguscnt + 1;
-> +
-
-    Sorry for the wrong previous suggestion, it clearly should have been -1, 
-not +1. :-<
-
-[...]
-
-WBR, Sergei
-
+Thanks
+-Saeed
+> By far the safest way to 'force' a specific speed is to set the
+> advertised modes to contain only the desired speed.
+> Doing anything else on links that are capable of auto-negotiation
+> is a complete recipe for disaster.
+> 
+> Even if you fix the operating mode of the PHY and MAC you almost
+> certainly want to advertise that mode to the remote system.
+> 
+> Yes, I know this is made all the more complicated by 10/100M autodetect.
+> 
+>    David
+> 
+> 
+> 
