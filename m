@@ -1,40 +1,63 @@
-From: Theodore Ts'o <tytso@mit.edu>
-Subject: Re: [RFC][PATCHES] iov_iter.c rewrite
-Date: Mon, 8 Dec 2014 17:14:01 -0500
-Message-ID: <20141208221401.GA4991@thunk.org>
-References: <20141204202011.GO29748@ZenIV.linux.org.uk>
- <20141208164650.GB29028@node.dhcp.inet.fi>
- <20141208175805.GB22149@ZenIV.linux.org.uk>
- <20141208185635.GA25867@node.dhcp.inet.fi>
- <CA+55aFwow9hVqNVGp7gjnnu4=A+J8vw1i22W4e7+1r1-215cHg@mail.gmail.com>
- <20141208192358.GB25867@node.dhcp.inet.fi>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: [bisected] xfrm: TCP connection initiating PMTU discovery stalls on v3.12+
+Date: Mon, 08 Dec 2014 23:20:42 +0100
+Message-ID: <5642727.qTG53DqrAk@h2o.as.studentenwerk.mhn.de>
+References: <1709726.jUgUSQI9sl@pikkukde.a.i2n> <1841985.3SsQX9ZHP0@h2o.as.studentenwerk.mhn.de> <1417785985.4322.1.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: "Kirill A. Shutemov" <kirill@shutemov.name>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141208192358.GB25867@node.dhcp.inet.fi>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Thomas Jarosch <thomas.jarosch@intra2net.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:42119 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752540AbaLHWUp convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Dec 2014 17:20:45 -0500
+In-Reply-To: <1417785985.4322.1.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 08, 2014 at 09:23:58PM +0200, Kirill A. Shutemov wrote:
-> > I guess you're running it in a VM, but still.. Doing random system
-> > calls as root sounds like a bad bad idea.
-> 
-> I'm doing this for a long time and didn't see any problem bigger than qemu
-> crash[1]. ;)
-> 
-> [1] http://thread.gmane.org/gmane.comp.emulators.qemu/194845/
+Am Freitag, 5. Dezember 2014, 05:26:25 schrieb Eric Dumazet:
+> On Fri, 2014-12-05 at 13:09 +0100, Wolfgang Walter wrote:
+> > Hello,
+> >=20
+> > as reverting this patch fixes this rather annoying problem: is it
+> > dangerous to revert it as a workaround until the root cause is foun=
+d?
+>=20
+> Unfortunately no, this patch fixes a serious issue.
+>=20
+> We need to find the root cause of your problem instead of trying to w=
+ork
+> around it.
+>=20
 
-If you use something like this:
+I only wanted to use it as local workaround here.
 
-   -drive file=root_fs.img,if=virtio,snapshot=on
 
-running trinity as root should be quite safe in a VM.  :-)
+I looked a bit at at code. I'm not familiar with the network code, thou=
+gh :-).
 
-		   	       	  	- Ted
+When exactly should the gso handling with esp tunnel mode happen?
+
+esp_output_done() calls xfrm_output_resume() and no gso handling is don=
+e.=20
+Would be to late anyway.
+esp_output() does not handle gso.
+xfrm4_mode_tunnel_output() does not do any gso handling as far as I can=
+ see.
+
+xfrm_output() (from net/xfrm/xfrm_output) does but is it called with es=
+p=20
+tunnel mode?
+
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
