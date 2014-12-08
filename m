@@ -1,39 +1,38 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next v3 2/2] rocker: remove swdev mode
-Date: Mon, 8 Dec 2014 16:18:35 +0000
-Message-ID: <20141208161835.GB9831@casper.infradead.org>
-References: <1417935267-6000-3-git-send-email-roopa@cumulusnetworks.com>
- <20141207081928.GA2215@casper.infradead.org>
- <20141208110301.GA1885@nanopsycho.brq.redhat.com>
- <54858E6E.7010707@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, roopa@cumulusnetworks.com,
-	sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org,
-	john.fastabend@gmail.com, stephen@networkplumber.org,
-	linville@tuxdriver.com, vyasevic@redhat.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:51595 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751148AbaLHQSk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 11:18:40 -0500
-Content-Disposition: inline
-In-Reply-To: <54858E6E.7010707@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "George Spelvin" <linux@horizon.com>
+Subject: Re: Where exactly will arch_fast_hash be used
+Date: 8 Dec 2014 11:19:59 -0500
+Message-ID: <20141208161959.8852.qmail@ns.horizon.com>
+References: <1418037908.190744.200156353.5DD668E8@webmail.messagingengine.com>
+Cc: davem@davemloft.net, dborkman@redhat.com,
+	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, tgraf@suug.ch, tytso@mit.edu
+To: hannes@stressinduktion.org, linux@horizon.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1418037908.190744.200156353.5DD668E8@webmail.messagingengine.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/08/14 at 12:41pm, Daniel Borkmann wrote:
-> On 12/08/2014 12:03 PM, Jiri Pirko wrote:
-> >well, I see no problem in using u16. IFLA_BRIDGE_MODE attr is u16 so
-> >mode should stay u16.
-> >
-> >But maybe better to add:
-> >#define BRIDGE_MODE_UNDEF 0xFFFF
-> 
-> Yep, something along these lines seems better.
+>>> In case of openvswitch it shows a performance improvment. The seed
+>>> parameter could be used as an initial biasing of the crc32 function, but
+>>> in case of openvswitch it is only set to 0.
+ 
+>> NACK. [...]
 
-Using u16 is fine but then all occurences should use it as opposed
-to mixed s16/u16 usage as in v3.
+> Sorry for being unclear, I understood that and didn't bother patching
+> that '0' with a random seed exactly because of this.
+
+And I'm sorry for delivering a long lecture on a subject you already
+understood perfectly well.
+
+I'd just been thinking about it because of Herbert's comments, so it was
+conveniently at hand. :-)
+
+Out of curiousity, what *were* you referring to when you talked
+about biasing the crc32 function?  "Biasing" is a good term becuase
+it just applies an offset, but what do you gain from doing that?
+
+
+There are nifty things one can do with the CRC32 instruction, however.
+A lot of ciphers these days use an ARX (add, rotate, XOR) kernel.
+A crc32 instruction, although linear, does some very powerful rotate &
+xor operations, and could replace the XOR and rotate.
