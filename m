@@ -1,50 +1,59 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next V1] net/mlx4_en: ethtool force speed when
- asking for autoneg=off
-Date: Mon, 8 Dec 2014 10:56:30 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CA04B67@AcuExch.aculab.com>
-References: <1417969655-28028-1-git-send-email-amirv@mellanox.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v3 2/2] rocker: remove swdev mode
+Date: Mon, 8 Dec 2014 12:03:01 +0100
+Message-ID: <20141208110301.GA1885@nanopsycho.brq.redhat.com>
+References: <1417935267-6000-3-git-send-email-roopa@cumulusnetworks.com>
+ <20141207081928.GA2215@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	"Saeed Mahameed" <saeedm@mellanox.com>
-To: 'Amir Vadai' <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: roopa@cumulusnetworks.com, sfeldma@gmail.com, jhs@mojatatu.com,
+	bcrl@kvack.org, john.fastabend@gmail.com,
+	stephen@networkplumber.org, linville@tuxdriver.com,
+	vyasevic@redhat.com, netdev@vger.kernel.org, davem@davemloft.net,
+	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:36321 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1755130AbaLHK52 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 05:57:28 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 17454-02 for <netdev@vger.kernel.org>;
- Mon,  8 Dec 2014 10:57:15 +0000 (GMT)
-In-Reply-To: <1417969655-28028-1-git-send-email-amirv@mellanox.com>
-Content-Language: en-US
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:52635 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754716AbaLHLDD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 06:03:03 -0500
+Received: by mail-wi0-f175.google.com with SMTP id l15so4332922wiw.8
+        for <netdev@vger.kernel.org>; Mon, 08 Dec 2014 03:03:02 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20141207081928.GA2215@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai
-> From: Saeed Mahameed <saeedm@mellanox.com>
-> 
-> Use cmd->autoneg == AUTONEG_DISABLE as a user hint to force specific speed.
-> We don't want to rely on ethtool to calculate advertised link modes when
-> forcing specific speed, a user can request a specific speed and specify
-> "autoneg off" in ethtool command to give a hint for forcing this speed.
+Sun, Dec 07, 2014 at 09:19:28AM CET, tgraf@suug.ch wrote:
+>On 12/06/14 at 10:54pm, roopa@cumulusnetworks.com wrote:
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> 
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> ---
+>>  drivers/net/ethernet/rocker/rocker.c |   18 +-----------------
+>>  include/linux/rtnetlink.h            |    2 +-
+>>  net/core/rtnetlink.c                 |   12 +++++++++---
+>>  3 files changed, 11 insertions(+), 21 deletions(-)
+>> 
+>> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+>> index fded127..9f1d256 100644
+>> --- a/drivers/net/ethernet/rocker/rocker.c
+>> +++ b/drivers/net/ethernet/rocker/rocker.c
+>> @@ -3755,7 +3739,7 @@ static int rocker_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+>>  				      u32 filter_mask)
+>>  {
+>>  	struct rocker_port *rocker_port = netdev_priv(dev);
+>> -	u16 mode = BRIDGE_MODE_SWDEV;
+>> +	u16 mode = -1;
+>        ^^^
+>
+>I assume you meant s16
 
-I'm not 100% sure what you are trying to achieve?
+well, I see no problem in using u16. IFLA_BRIDGE_MODE attr is u16 so
+mode should stay u16.
 
-By far the safest way to 'force' a specific speed is to set the
-advertised modes to contain only the desired speed.
-Doing anything else on links that are capable of auto-negotiation
-is a complete recipe for disaster.
+But maybe better to add:
+#define BRIDGE_MODE_UNDEF 0xFFFF
 
-Even if you fix the operating mode of the PHY and MAC you almost
-certainly want to advertise that mode to the remote system.
-
-Yes, I know this is made all the more complicated by 10/100M autodetect.
-
-	David
+?
+>
