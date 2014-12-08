@@ -1,38 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next] tcp: refine TSO autosizing
-Date: Sun, 07 Dec 2014 22:32:05 -0800
-Message-ID: <1418020325.15618.40.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1417788937.4322.21.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1417832560.15618.29.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1417983738.15618.38.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAK6E8=dBZw5_jeOhDLCX7sVPgu5WSiGPRPcL9GJ1G+nweJ90ag@mail.gmail.com>
+From: "Yang, Wenyou" <Wenyou.Yang@atmel.com>
+Subject: RE: [PATCH] net: phy: micrel: workaround to NAND_Tree# incorrectly
+ strapp-in during the reset period.
+Date: Mon, 8 Dec 2014 06:38:55 +0000
+Message-ID: <B256D81BAE5131468A838E5D7A243641BFCB355F@penmbx01>
+References: <1418009740-27384-1-git-send-email-wenyou.yang@atmel.com>
+ <54853268.6030701@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Nandita Dukkipati <nanditad@google.com>
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:65351 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754051AbaLHGcI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 01:32:08 -0500
-Received: by mail-ig0-f173.google.com with SMTP id r2so2268540igi.6
-        for <netdev@vger.kernel.org>; Sun, 07 Dec 2014 22:32:08 -0800 (PST)
-In-Reply-To: <CAK6E8=dBZw5_jeOhDLCX7sVPgu5WSiGPRPcL9GJ1G+nweJ90ag@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Ferre, Nicolas" <Nicolas.FERRE@atmel.com>,
+	"linux-arm-kernel-bounces@lists.infradead.org"
+	<linux-arm-kernel-bounces@lists.infradead.org>,
+	"johan@kernel.org" <johan@kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54853268.6030701@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2014-12-07 at 13:24 -0800, Yuchung Cheng wrote:
-> >                  */
-> > -               limit = max_t(unsigned int, sysctl_tcp_limit_output_bytes,
-> > -                             sk->sk_pacing_rate >> 10);
-> > +               limit = max(2 * skb->truesize, sk->sk_pacing_rate >> 10);
-> is this capping necessary if skb->truesize already takes the pacing
-> rate into account from the new logic above?
-
-
-This is needed for flows not using GSO/TSO : For such flows,
-skb->truesize is a constant (2048 + sizeof(struct sk_buff))
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRmxvcmlhbiBGYWluZWxs
+aSBbbWFpbHRvOmYuZmFpbmVsbGlAZ21haWwuY29tXQ0KPiBTZW50OiBNb25kYXksIERlY2VtYmVy
+IDA4LCAyMDE0IDE6MDkgUE0NCj4gVG86IFlhbmcsIFdlbnlvdQ0KPiBDYzogbmV0ZGV2QHZnZXIu
+a2VybmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsgRmVycmUsIE5pY29sYXM7
+IGxpbnV4LQ0KPiBhcm0ta2VybmVsLWJvdW5jZXNAbGlzdHMuaW5mcmFkZWFkLm9yZzsgam9oYW5A
+a2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIXSBuZXQ6IHBoeTogbWljcmVsOiB3b3Jr
+YXJvdW5kIHRvIE5BTkRfVHJlZSMgaW5jb3JyZWN0bHkNCj4gc3RyYXBwLWluIGR1cmluZyB0aGUg
+cmVzZXQgcGVyaW9kLg0KPiANCj4gTGUgMDcvMTIvMjAxNCAxOTozNSwgV2VueW91IFlhbmcgYSDD
+qWNyaXQgOg0KPiA+IEFwcGVhcmFuY2U6IE9uIHNvbWUgYm9hcmRzLCBhZnRlciBwb3dlciB1cCwg
+dGhlIEV0aGVybmV0IGRvZXNuJ3Qgd29yay4NCj4gPg0KPiA+IFJlYXNvbjogT24gdGhlIFNBTUE1
+RDRFSywgdGhlIFBJT0UyIHBpbiBpcyBjb25uZWN0ZWQgdG8gdGhlIE5BTkRfVHJlZSMNCj4gPiBv
+ZiBLU1o4MDgxLCBCdXQgaXQgb3V0cHV0cyBMT1cgZHVyaW5nIHRoZSByZXNldCBwZXJpb2QsIHdo
+aWNoIGNhdXNlIHRoZQ0KPiBOQU5EX1RyZWUjIGVuYWJsZWQuDQo+ID4NCj4gPiBXb3JrYXJvdW5k
+OiBJbiB0aGUgLmNvbmZpZ19pbml0KCksIGFkZCBjb2RlIHRvIGRpc2FibGUgTkFORF9UcmVlIyBi
+eQ0KPiA+IG9wZXJhdGluZyBPcGVyYXRpb24gTW9kZSBTdHJhcCBPdmVycmlkZShpLmUuIFJlZ2lz
+dGVyIDE2aCkuDQo+IA0KPiBZb3VyIHBhdGNoIHdvbid0IGFwcGx5IGNsZWFubHkgdG8gdGhlIG5l
+dC1uZXh0IHRyZWUgd2hlcmUgdGhlIFBIWSBkcml2ZXJzDQo+IGRldmVsb3BtZW50IGlzIGhhcHBl
+bmluZywgZXNwZWNpYWxseSBub3QgYWZ0ZXIgSm9oYW4ncyByZWNlbnQgY2hhbmdlcy4NCj4gDQo+
+IElzIG5vdCB3aGF0IHlvdSBhcmUgbG9va2luZyBmb3IgYSBwaHlfZml4dXAoKSByYXRoZXIgdGhh
+biBjbGVhcmluZyB0aGlzIGJpdCBmb3IgYWxsDQo+IE1pY3JlbCBQSFlzPw0KVGhhbmtzLCBJIHdp
+bGwgZ28gaW4gdGhpcyBkaXJlY3Rpb24uDQoNCj4gDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBX
+ZW55b3UgWWFuZyA8d2VueW91LnlhbmdAYXRtZWwuY29tPg0KPiA+IC0tLQ0KPiA+ICBkcml2ZXJz
+L25ldC9waHkvbWljcmVsLmMgfCAgICA4ICsrKysrKystDQo+ID4gIDEgZmlsZSBjaGFuZ2VkLCA3
+IGluc2VydGlvbnMoKyksIDEgZGVsZXRpb24oLSkNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9kcml2
+ZXJzL25ldC9waHkvbWljcmVsLmMgYi9kcml2ZXJzL25ldC9waHkvbWljcmVsLmMgaW5kZXgNCj4g
+PiA4YzJhMjlhLi4xMWQ3MmNiIDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMvbmV0L3BoeS9taWNy
+ZWwuYw0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L3BoeS9taWNyZWwuYw0KPiA+IEBAIC0zMSw2ICsz
+MSw3IEBADQo+ID4gIC8qIE9wZXJhdGlvbiBNb2RlIFN0cmFwIE92ZXJyaWRlICovDQo+ID4gICNk
+ZWZpbmUgTUlJX0tTWlBIWV9PTVNPCQkJCTB4MTYNCj4gPiAgI2RlZmluZSBLU1pQSFlfT01TT19C
+X0NBU1RfT0ZGCQkJKDEgPDwgOSkNCj4gPiArI2RlZmluZSBLU1pQSFlfT01TT19OQU5EX1RSRUVf
+T1ZFUlJJREUJCSgxIDw8IDUpDQo+ID4gICNkZWZpbmUgS1NaUEhZX09NU09fUk1JSV9PVkVSUklE
+RQkJKDEgPDwgMSkNCj4gPiAgI2RlZmluZSBLU1pQSFlfT01TT19NSUlfT1ZFUlJJREUJCSgxIDw8
+IDApDQo+ID4NCj4gPiBAQCAtMTgwLDcgKzE4MSwxMiBAQCBzdGF0aWMgaW50IGtzenBoeV9zZXR1
+cF9sZWQoc3RydWN0IHBoeV9kZXZpY2UNCj4gPiAqcGh5ZGV2LA0KPiA+DQo+ID4gIHN0YXRpYyBp
+bnQga3N6cGh5X2NvbmZpZ19pbml0KHN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXYpICB7DQo+ID4g
+LQlyZXR1cm4gMDsNCj4gPiArCWludCByYzsNCj4gPiArDQo+ID4gKwlwaHlfd3JpdGUocGh5ZGV2
+LCBNSUlfS1NaUEhZX09NU08sIHBoeV9yZWFkKHBoeWRldiwNCj4gTUlJX0tTWlBIWV9PTVNPKQ0K
+PiA+ICsJCQkmICh+S1NaUEhZX09NU09fTkFORF9UUkVFX09WRVJSSURFKSk7DQo+ID4gKwlyYyA9
+IGtzel9jb25maWdfZmxhZ3MocGh5ZGV2KTsNCj4gPiArCXJldHVybiByYyA8IDAgPyByYyA6IDA7
+DQo+ID4gIH0NCj4gPg0KPiA+ICBzdGF0aWMgaW50IGtzenBoeV9jb25maWdfaW5pdF9sZWQ4MDQx
+KHN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXYpDQo+ID4NCg0KQmVzdCBSZWdhcmRzLA0KV2VueW91
+IFlhbmcNCg==
