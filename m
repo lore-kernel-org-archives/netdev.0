@@ -1,8 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v4 0/2] remove bridge BRIDGE_MODE_SWDEV
-Date: Mon, 8 Dec 2014 12:04:25 +0100
-Message-ID: <20141208110425.GB1885@nanopsycho.brq.redhat.com>
-References: <1417972147-62196-1-git-send-email-roopa@cumulusnetworks.com>
+Subject: Re: [PATCH v3 iproute2] bridge link: add option 'self'
+Date: Mon, 8 Dec 2014 12:06:19 +0100
+Message-ID: <20141208110619.GC1885@nanopsycho.brq.redhat.com>
+References: <1417854061-4675-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
@@ -12,37 +12,32 @@ Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
 	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
 To: roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:44784 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754614AbaLHLE2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 06:04:28 -0500
-Received: by mail-wi0-f175.google.com with SMTP id l15so4321496wiw.14
-        for <netdev@vger.kernel.org>; Mon, 08 Dec 2014 03:04:27 -0800 (PST)
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:46699 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755122AbaLHLGW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 06:06:22 -0500
+Received: by mail-wg0-f42.google.com with SMTP id z12so5945787wgg.29
+        for <netdev@vger.kernel.org>; Mon, 08 Dec 2014 03:06:21 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1417972147-62196-1-git-send-email-roopa@cumulusnetworks.com>
+In-Reply-To: <1417854061-4675-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please send the patches in reverse order. That would prevent compile
-error during bisections. Thanks.
-
-
-Sun, Dec 07, 2014 at 06:09:04PM CET, roopa@cumulusnetworks.com wrote:
+Sat, Dec 06, 2014 at 09:21:01AM CET, roopa@cumulusnetworks.com wrote:
 >From: Roopa Prabhu <roopa@cumulusnetworks.com>
 >
+>Currently self is set internally only if hwmode is set.
+>This makes it necessary for the hw to have a mode.
+>There is no hwmode really required to go to hardware. So, introduce
+>self for anybody who wants to target hardware.
 >
->Roopa Prabhu (2):
->  bridge: remove mode 'swdev'
->  rocker: remove swdev mode
+>v1 -> v2
+>    - fix a few bugs. Initialize flags to zero: this was required to
+>    keep the current behaviour unchanged.
 >
->Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>v2 -> v3
+>    - fix comment
 >
-> drivers/net/ethernet/rocker/rocker.c |   18 +-----------------
-> include/linux/rtnetlink.h            |    2 +-
-> include/uapi/linux/if_bridge.h       |    1 -
-> net/core/rtnetlink.c                 |   12 +++++++++---
-> 4 files changed, 11 insertions(+), 22 deletions(-)
->
->-- 
->1.7.10.4
->
+>Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com> 
+
+Reviewed-by: Jiri Pirko <jiri@resnulli.us>
