@@ -1,212 +1,51 @@
-From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
-Subject: Re: wl1251: NVS firmware data
-Date: Mon, 8 Dec 2014 20:15:18 +0100
-Message-ID: <201412082015.18501@pali>
-References: <201411271506.20457@pali> <201412081811.46943@pali> <30072B9E-2495-4F90-AC91-9C0D7E08F44E@holtmann.org>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: [RFC][PATCHES] iov_iter.c rewrite
+Date: Mon, 8 Dec 2014 14:15:51 -0500
+Message-ID: <20141208191551.GA7525@redhat.com>
+References: <20141204202011.GO29748@ZenIV.linux.org.uk>
+ <20141208164650.GB29028@node.dhcp.inet.fi>
+ <20141208175805.GB22149@ZenIV.linux.org.uk>
+ <20141208185635.GA25867@node.dhcp.inet.fi>
+ <CA+55aFwow9hVqNVGp7gjnnu4=A+J8vw1i22W4e7+1r1-215cHg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2483583.MoOjCMibN0";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: "Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
-	Ming Lei <ming.lei@canonical.com>, Pavel Machek <pavel@ucw.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Grazvydas Ignotas <notasas@gmail.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: "Kirill A. Shutemov" <kirill@shutemov.name>,
+	Al Viro <viro@zeniv.linux.org.uk>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-	Aaro Koskinen <aaro.koskinen@iki.fi>,
-	Kalle Valo <kvalo@adurom.com>,
-	Sebastian Reichel <sre@ring0.de>,
-	David Gnedt <david.gnedt@davizone.at>
-To: Marcel Holtmann <marcel@holtmann.org>
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <30072B9E-2495-4F90-AC91-9C0D7E08F44E@holtmann.org>
+Content-Disposition: inline
+In-Reply-To: <CA+55aFwow9hVqNVGp7gjnnu4=A+J8vw1i22W4e7+1r1-215cHg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2483583.MoOjCMibN0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+On Mon, Dec 08, 2014 at 11:01:41AM -0800, Linus Torvalds wrote:
+ > On Mon, Dec 8, 2014 at 10:56 AM, Kirill A. Shutemov
+ > <kirill@shutemov.name> wrote:
+ > >
+ > > trinity triggers it for me in few minutes. I will try find out more once
+ > > get some time.
+ > 
+ > You run trinity as *root*?
+ > 
+ > You're a brave man. Stupid, but brave ;)
+ > 
+ > I guess you're running it in a VM, but still.. Doing random system
+ > calls as root sounds like a bad bad idea.
 
-On Monday 08 December 2014 19:50:17 Marcel Holtmann wrote:
-> Hi Pali,
->=20
-> >>>>>> On Saturday 06 December 2014 13:49:54 Pavel Machek
-> >>>>>> wrote: /**
-> >>>>>>=20
-> >>>>>> + * request_firmware_prefer_user: - prefer usermode
-> >>>>>> helper for loading firmware + * @firmware_p: pointer to
-> >>>>>> firmware image
-> >>>>>> + * @name: name of firmware file
-> >>>>>> + * @device: device for which firmware is being loaded
-> >>>>>> + *
-> >>>>>> + * This function works pretty much like
-> >>>>>> request_firmware(), but it prefer + * usermode helper.
-> >>>>>> If usermode helper fails then it fallback to direct
-> >>>>>> access. + * Usefull for dynamic or model specific
-> >>>>>> firmware data. + **/
-> >>>>>> +int request_firmware_prefer_user(const struct firmware
-> >>>>>> **firmware_p, +                           const char
-> >>>>>> *name, struct device *device) +{
-> >>>>>> +       int ret;
-> >>>>>> +       __module_get(THIS_MODULE);
-> >>>>>> +       ret =3D _request_firmware(firmware_p, name,
-> >>>>>> device, +                               FW_OPT_UEVENT
-> >>>>>> | FW_OPT_PREFER_USER); +     =20
-> >>>>>> module_put(THIS_MODULE); +       return ret;
-> >>>>>> +}
-> >>>>>> +EXPORT_SYMBOL_GPL(request_firmware_prefer_user);
-> >>>>>=20
-> >>>>> I'd like to introduce request_firmware_user() which only
-> >>>>> requests firmware from user space, and this way is
-> >>>>> simpler and more flexible since we have
-> >>>>> request_firmware_direct() already.
-> >>>>=20
-> >>>> Why would a driver care about what program provides the
-> >>>> firmware?  It shouldn't at all, and we want to get rid of
-> >>>> the userspace firmware loader, not encourage drivers to
-> >>>> use it "exclusively" at all.
-> >>>=20
-> >>> Do not remove it! Without userspace firmware loader it is
-> >>> impossible to load dynamic firmware files.
-> >>=20
-> >> why is this dynamic in the first place. It does not sound
-> >> like dynamic data to me at all. This is like the WiFi MAC
-> >> address(es) or Bluetooth BD_ADDR. They are all static
-> >> information. The only difference is that they are on the
-> >> host accessibly filesystem or storage and not on the
-> >> device itself.
-> >>=20
-> >> To be honest, for Bluetooth we solved this now. If the
-> >> device is missing key information like the calibration
-> >> data or BD_ADDR, then it comes up unconfigured. A
-> >> userspace process can then go and load the right data into
-> >> it and then the device becomes available as Bluetooth
-> >> device.
-> >>=20
-> >> Trying to use request_firmware to load some random data and
-> >> insist on going through userspace helper for that sounds
-> >> crazy to me. Especially since we are trying hard to get
-> >> away from the userspace loader. Forcing to keep it for new
-> >> stuff sounds backwards to me.
-> >>=20
-> >> With the special Nokia partition in mind, why hasn't this
-> >> been turned into a mountable filesystem or into a
-> >> driver/subsystem that can access the data direct from the
-> >> kernel. I advocated for this some time ago. Maybe there
-> >> should be a special subsystem for access to these factory
-> >> persistent information that drivers then just can access.
-> >> I seem to remember that some systems provide these via
-> >> ACPI. Why does the ARM platform has to be special here?
-> >>=20
-> >> And the problem of getting Ethernet and WiFi MAC address
-> >> and Bluetooth BD_ADDR comes up many many times. Why not
-> >> have something generic here. And don't tell me
-> >> request_firmware is that generic solution ;)
-> >>=20
-> >> Regards
-> >>=20
-> >> Marcel
-> >=20
-> > Hi Marcel. I think you did not understand this problem. This
-> > discussion is not about mac address. Please read email
-> > thread again and if there are some unclear pars, then ask.
-> > Thanks!
->=20
-> I think that I pretty clearly understand the problem.
-> Calibration data, MAC address, what is the difference? For me
-> this is all the same. It is data that is specific to a device
-> or type of devices and it is stored somewhere else. In most
-> cases in some immutable memory/flash area.
->=20
+I've flip-flopped on this a few times.  I used to be solidly in the same
+position as your statement, but after seeing the things the secure-boot
+crowd want to lock down, there are a ton of places in the kernel that
+would need additional root-proofing to avoid scribbling over kernel
+memory.
 
-Those calibration data (in form of binary NVS firmware file)=20
-needs to be sent to wl1251 chip. Mac address is not needed at=20
-this step (and kernel generate some random if is not provided).
+In short though, yeah, expect fireworks right now, especially on bare-metal.
 
-(Just to note wl1271 driver loads both MAC address and NVS data=20
-via one firmware file which is prepared by userspace, but this=20
-discussion is about wl1251...)
+At the same time, just to increase coverage testing of a lot of
+root-required functionality (like various network sockets that can't be
+opened as a regular user) I added a --drop-privs mode to trinity a while
+ago, so after the socket creation, it can't do anything _too_ crazy.
 
-> What you want is access to this data since the kernel driver
-> needs it. Do I get this so far ;)
->=20
-
-Yes, we need to provide NVS data to kernel when kernel ask for=20
-them.
-
-> So my take is that request_firmware is not the right way to
-> get this data. Or more precisely make sure that this data is
-> available to kernel drivers. And what I am seeing here is
-> that instead of actually solving the bigger problem, we just
-> hack around it with request_firmware. Now surprisingly the
-> request_firmware loads files directly from the kernel and all
-> the hacks do not work anymore.
->=20
-> Regards
->=20
-> Marcel
-
-Just read emails again...
-
-Our problem is:
-
-linux-firmware.git tree provides two binary firmware files:
-
-ti-connectivity/wl1251-fw.bin
-ti-connectivity/wl1251-nvs.bin
-
-=46irst is firmware file, second NVS file with generic calibration=20
-data. Kernel driver wl1251 now loads both firmware files via=20
-request_firmware. Generic calibration data are enough for wl1251=20
-chip (it should work). But devices have own calibration data=20
-stored somewhere else.
-
-On Nokia N900 NVS data are generated on-the-fly from some bytes=20
-from CAL (/dev/mtd1), from state of cellular network and from=20
-some other regulation settings.
-
-So I think that files stored in linux-firmware.git tree (which=20
-are also installed into /lib/firmware/) should be loaded with=20
-request_firmware function. Or not? Do you think something else?=20
-What other developers think?
-
-I'm against kernel driver for CAL (/dev/mtd1) for more reasons:
-
-1) we have userspace open source code, but licensed under GPLv3.=20
-And until kernel change license, we cannot include it.
-
-2) NVS data are (probably) not in one place, plus they depends on=20
-something other.
-
-3) If manufacture XYZ create new device with its own storage=20
-format of calibration data this means that correct solution for=20
-XYZ is also to implement new kernel fs driver for its own format.=20
-Do you really want to have in kernel all those drivers for all=20
-different (proprietary) storage formats?
-
-4) It does not help us with existence of generic file=20
-/lib/firmware/ti-connectivity/wl1251-nvs.bin which comes from=20
-linux-firmware.git tree.
-
-=2D-=20
-Pali Roh=C3=A1r
-pali.rohar@gmail.com
-
---nextPart2483583.MoOjCMibN0
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iEYEABECAAYFAlSF+MYACgkQi/DJPQPkQ1INZACfaqwjwgVCM/4odzMaRfkPjGpH
-1fAAnjGWZBPqmNKNT9zY8lbaKgZUHMOV
-=/cBp
------END PGP SIGNATURE-----
-
---nextPart2483583.MoOjCMibN0--
+	Dave
