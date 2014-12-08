@@ -1,8 +1,8 @@
 From: kxie@chelsio.com
-Subject: [PATCH net v2 3/5] cxgb4i: handle non-pdu-aligned rx and
- additional types of negative advice
-Date: Mon, 08 Dec 2014 01:58:14 -0800
-Message-ID: <201412080958.sB89wEsj005499@localhost6.localdomain6>
+Subject: [PATCH net v2 2/5] cxgb4/cxgb4i: set the max. pdu length in
+ firmware
+Date: Mon, 08 Dec 2014 01:58:11 -0800
+Message-ID: <201412080958.sB89wBZx005493@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -10,96 +10,175 @@ Cc: kxie@chelsio.com, hariprasad@chelsio.com, anish@chelsio.com,
 	hch@infradead.org, James.Bottomley@HansenPartnership.com,
 	michaelc@cs.wisc.edu, davem@davemloft.net
 To: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:29056 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753221AbaLHJ7P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 04:59:15 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[PATCH net v2 3/5] cxgb4i: handle non-pdu-aligned rx data and additional types of negative advice
+[PATCH net v2 2/5] cxgb4/cxgb4i: set the max. pdu length in firmware.
 
 From: Karen Xie <kxie@chelsio.com>
 
-- abort the connection upon receiving of cpl_rx_data, which means the pdu cannot be recovered from the tcp stream. This could be due to pdu header corruption.
-- handle additional types of negative advice returned by h/w.
+Programs the firmware of the maximum outgoing iscsi pdu length per connection.
 
 Signed-off-by: Karen Xie <kxie@chelsio.com>
 ---
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   34 +++++++++++++++++++++++++++++++---
- 1 files changed, 31 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h |    1 
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c            |   69 ++++++++++++++++++-------
+ 2 files changed, 52 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index b834bde..051adab 100644
---- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-+++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -845,6 +845,13 @@ static void csk_act_open_retry_timer(unsigned long data)
- 
- }
- 
-+static inline int is_neg_adv(unsigned int status)
-+{
-+	return status == CPL_ERR_RTX_NEG_ADVICE ||
-+		status == CPL_ERR_KEEPALV_NEG_ADVICE ||
-+		status == CPL_ERR_PERSIST_NEG_ADVICE;
-+}
-+
- static void do_act_open_rpl(struct cxgbi_device *cdev, struct sk_buff *skb)
- {
- 	struct cxgbi_sock *csk;
-@@ -866,7 +873,7 @@ static void do_act_open_rpl(struct cxgbi_device *cdev, struct sk_buff *skb)
- 		       "csk 0x%p,%u,0x%lx. ", (&csk->saddr), (&csk->daddr),
- 		       atid, tid, status, csk, csk->state, csk->flags);
- 
--	if (status == CPL_ERR_RTX_NEG_ADVICE)
-+	if (is_neg_adv(status))
- 		goto rel_skb;
- 
- 	module_put(THIS_MODULE);
-@@ -972,8 +979,7 @@ static void do_abort_req_rss(struct cxgbi_device *cdev, struct sk_buff *skb)
- 		       (&csk->saddr), (&csk->daddr),
- 		       csk, csk->state, csk->flags, csk->tid, req->status);
- 
--	if (req->status == CPL_ERR_RTX_NEG_ADVICE ||
--	    req->status == CPL_ERR_PERSIST_NEG_ADVICE)
-+	if (is_neg_adv(req->status))
- 		goto rel_skb;
- 
- 	cxgbi_sock_get(csk);
-@@ -1027,6 +1033,27 @@ rel_skb:
- 	__kfree_skb(skb);
- }
- 
-+static void do_rx_data(struct cxgbi_device *cdev, struct sk_buff *skb)
-+{
-+	struct cxgbi_sock *csk;
-+	struct cpl_rx_data *cpl = (struct cpl_rx_data *)skb->data;
-+	unsigned int tid = GET_TID(cpl);
-+	struct cxgb4_lld_info *lldi = cxgbi_cdev_priv(cdev);
-+	struct tid_info *t = lldi->tids;
-+
-+	csk = lookup_tid(t, tid);
-+	if (!csk) {
-+		pr_err("can't find connection for tid %u.\n", tid);
-+	} else {
-+		/* not expecting this, reset the connection. */
-+		pr_err("csk 0x%p, tid %u, rcv cpl_rx_data.\n", csk, tid);
-+		spin_lock_bh(&csk->lock);
-+		send_abort_req(csk);
-+		spin_unlock_bh(&csk->lock);
-+	}
-+	__kfree_skb(skb);
-+}
-+
- static void do_rx_iscsi_hdr(struct cxgbi_device *cdev, struct sk_buff *skb)
- {
- 	struct cxgbi_sock *csk;
-@@ -1446,6 +1473,7 @@ cxgb4i_cplhandler_func cxgb4i_cplhandlers[NUM_CPL_CMDS] = {
- 	[CPL_SET_TCB_RPL] = do_set_tcb_rpl,
- 	[CPL_RX_DATA_DDP] = do_rx_data_ddp,
- 	[CPL_RX_ISCSI_DDP] = do_rx_data_ddp,
-+	[CPL_RX_DATA] = do_rx_data,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index 3409756..743a350 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -529,6 +529,7 @@ enum fw_flowc_mnem {
+ 	FW_FLOWC_MNEM_RCVNXT,
+ 	FW_FLOWC_MNEM_SNDBUF,
+ 	FW_FLOWC_MNEM_MSS,
++	FW_FLOWC_MNEM_TXDATAPLEN_MAX,
  };
  
- int cxgb4i_ofld_init(struct cxgbi_device *cdev)
+ struct fw_flowc_mnemval {
+diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+index 5c3f15d..b834bde 100644
+--- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
++++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+@@ -75,6 +75,7 @@ typedef void (*cxgb4i_cplhandler_func)(struct cxgbi_device *, struct sk_buff *);
+ static void *t4_uld_add(const struct cxgb4_lld_info *);
+ static int t4_uld_rx_handler(void *, const __be64 *, const struct pkt_gl *);
+ static int t4_uld_state_change(void *, enum cxgb4_state state);
++static inline int send_tx_flowc_wr(struct cxgbi_sock *);
+ 
+ static const struct cxgb4_uld_info cxgb4i_uld_info = {
+ 	.name = DRV_MODULE_NAME,
+@@ -391,6 +392,12 @@ static void send_abort_req(struct cxgbi_sock *csk)
+ 
+ 	if (unlikely(csk->state == CTP_ABORTING) || !skb || !csk->cdev)
+ 		return;
++
++	if (!cxgbi_sock_flag(csk, CTPF_TX_DATA_SENT)) {
++		send_tx_flowc_wr(csk);
++		cxgbi_sock_set_flag(csk, CTPF_TX_DATA_SENT);
++	}
++
+ 	cxgbi_sock_set_state(csk, CTP_ABORTING);
+ 	cxgbi_sock_set_flag(csk, CTPF_ABORT_RPL_PENDING);
+ 	cxgbi_sock_purge_write_queue(csk);
+@@ -493,20 +500,40 @@ static inline unsigned int calc_tx_flits_ofld(const struct sk_buff *skb)
+ 	return flits + sgl_len(cnt);
+ }
+ 
+-static inline void send_tx_flowc_wr(struct cxgbi_sock *csk)
++#define FLOWC_WR_NPARAMS_MIN   9
++static inline int tx_flowc_wr_credits(int *nparamsp, int *flowclenp)
++{
++	int nparams, flowclen16, flowclen;
++
++	nparams = FLOWC_WR_NPARAMS_MIN;
++	flowclen = offsetof(struct fw_flowc_wr, mnemval[nparams]);
++	flowclen16 = DIV_ROUND_UP(flowclen, 16);
++	flowclen = flowclen16 * 16;
++	/*
++	 * Return the number of 16-byte credits used by the FlowC request.
++	 * Pass back the nparams and actual FlowC length if requested.
++	 */
++	if (nparamsp)
++		*nparamsp = nparams;
++	if (flowclenp)
++		*flowclenp = flowclen;
++
++	return flowclen16;
++}
++
++static inline int send_tx_flowc_wr(struct cxgbi_sock *csk)
+ {
+ 	struct sk_buff *skb;
+ 	struct fw_flowc_wr *flowc;
+-	int flowclen, i;
++	int nparams, flowclen16, flowclen;
+ 
+-	flowclen = 80;
++	flowclen16 = tx_flowc_wr_credits(&nparams, &flowclen);
+ 	skb = alloc_wr(flowclen, 0, GFP_ATOMIC);
+ 	flowc = (struct fw_flowc_wr *)skb->head;
+ 	flowc->op_to_nparams =
+-		htonl(FW_WR_OP(FW_FLOWC_WR) | FW_FLOWC_WR_NPARAMS(8));
++		htonl(FW_WR_OP(FW_FLOWC_WR) | FW_FLOWC_WR_NPARAMS(nparams));
+ 	flowc->flowid_len16 =
+-		htonl(FW_WR_LEN16(DIV_ROUND_UP(72, 16)) |
+-				FW_WR_FLOWID(csk->tid));
++		htonl(FW_WR_LEN16(flowclen16) | FW_WR_FLOWID(csk->tid));
+ 	flowc->mnemval[0].mnemonic = FW_FLOWC_MNEM_PFNVFN;
+ 	flowc->mnemval[0].val = htonl(csk->cdev->pfvf);
+ 	flowc->mnemval[1].mnemonic = FW_FLOWC_MNEM_CH;
+@@ -525,11 +552,9 @@ static inline void send_tx_flowc_wr(struct cxgbi_sock *csk)
+ 	flowc->mnemval[7].val = htonl(csk->advmss);
+ 	flowc->mnemval[8].mnemonic = 0;
+ 	flowc->mnemval[8].val = 0;
+-	for (i = 0; i < 9; i++) {
+-		flowc->mnemval[i].r4[0] = 0;
+-		flowc->mnemval[i].r4[1] = 0;
+-		flowc->mnemval[i].r4[2] = 0;
+-	}
++	flowc->mnemval[8].mnemonic = FW_FLOWC_MNEM_TXDATAPLEN_MAX;
++	flowc->mnemval[8].val = 16384;
++
+ 	set_queue(skb, CPL_PRIORITY_DATA, csk);
+ 
+ 	log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
+@@ -539,6 +564,8 @@ static inline void send_tx_flowc_wr(struct cxgbi_sock *csk)
+ 		csk->advmss);
+ 
+ 	cxgb4_ofld_send(csk->cdev->ports[csk->port_id], skb);
++
++	return flowclen16;
+ }
+ 
+ static inline void make_tx_data_wr(struct cxgbi_sock *csk, struct sk_buff *skb,
+@@ -600,6 +627,7 @@ static int push_tx_frames(struct cxgbi_sock *csk, int req_completion)
+ 		int dlen = skb->len;
+ 		int len = skb->len;
+ 		unsigned int credits_needed;
++		int flowclen16 = 0;
+ 
+ 		skb_reset_transport_header(skb);
+ 		if (is_ofld_imm(skb))
+@@ -612,6 +640,17 @@ static int push_tx_frames(struct cxgbi_sock *csk, int req_completion)
+ 			credits_needed += DIV_ROUND_UP(
+ 				sizeof(struct fw_ofld_tx_data_wr), 16);
+ 
++		/*
++		 * Assumes the initial credits is large enough to support
++		 * fw_flowc_wr plus largest possible first payload
++		 */
++		if (!cxgbi_sock_flag(csk, CTPF_TX_DATA_SENT)) {
++			flowclen16 = send_tx_flowc_wr(csk);
++			csk->wr_cred -= flowclen16;
++			csk->wr_una_cred += flowclen16;
++			cxgbi_sock_set_flag(csk, CTPF_TX_DATA_SENT);
++		}
++
+ 		if (csk->wr_cred < credits_needed) {
+ 			log_debug(1 << CXGBI_DBG_PDU_TX,
+ 				"csk 0x%p, skb %u/%u, wr %d < %u.\n",
+@@ -621,7 +660,7 @@ static int push_tx_frames(struct cxgbi_sock *csk, int req_completion)
+ 		}
+ 		__skb_unlink(skb, &csk->write_queue);
+ 		set_queue(skb, CPL_PRIORITY_DATA, csk);
+-		skb->csum = credits_needed;
++		skb->csum = credits_needed + flowclen16;
+ 		csk->wr_cred -= credits_needed;
+ 		csk->wr_una_cred += credits_needed;
+ 		cxgbi_sock_enqueue_wr(csk, skb);
+@@ -632,12 +671,6 @@ static int push_tx_frames(struct cxgbi_sock *csk, int req_completion)
+ 			csk->wr_cred, csk->wr_una_cred);
+ 
+ 		if (likely(cxgbi_skcb_test_flag(skb, SKCBF_TX_NEED_HDR))) {
+-			if (!cxgbi_sock_flag(csk, CTPF_TX_DATA_SENT)) {
+-				send_tx_flowc_wr(csk);
+-				skb->csum += 5;
+-				csk->wr_cred -= 5;
+-				csk->wr_una_cred += 5;
+-			}
+ 			len += cxgbi_ulp_extra_len(cxgbi_skcb_ulp_mode(skb));
+ 			make_tx_data_wr(csk, skb, dlen, len, credits_needed,
+ 					req_completion);
