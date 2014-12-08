@@ -1,15 +1,16 @@
 From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Subject: Re: wl1251: NVS firmware data
-Date: Mon, 8 Dec 2014 15:57:21 -0500
-Message-ID: <20141208205721.GA14895@kroah.com>
+Date: Mon, 8 Dec 2014 16:00:18 -0500
+Message-ID: <20141208210018.GB14895@kroah.com>
 References: <201411271506.20457@pali>
- <CACVXFVPOLfDuqc0nLb-zM8vH618DLXy0xtZbUOn5_XvdxRZSDw@mail.gmail.com>
- <20141208163714.GA31169@kroah.com>
- <201412081747.30965@pali>
+ <201412081811.46943@pali>
+ <30072B9E-2495-4F90-AC91-9C0D7E08F44E@holtmann.org>
+ <201412082015.18501@pali>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ming Lei <ming.lei@canonical.com>, Pavel Machek <pavel@ucw.cz>,
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	Ming Lei <ming.lei@canonical.com>, Pavel Machek <pavel@ucw.cz>,
 	"John W. Linville" <linville@tuxdriver.com>,
 	Grazvydas Ignotas <notasas@gmail.com>,
 	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
@@ -23,63 +24,57 @@ Cc: Ming Lei <ming.lei@canonical.com>, Pavel Machek <pavel@ucw.cz>,
 To: Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <201412081747.30965@pali>
+In-Reply-To: <201412082015.18501@pali>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 08, 2014 at 05:47:30PM +0100, Pali Roh=E1r wrote:
-> On Monday 08 December 2014 17:37:14 Greg Kroah-Hartman wrote:
-> > On Mon, Dec 08, 2014 at 11:18:18PM +0800, Ming Lei wrote:
-> > > On Sat, Dec 6, 2014 at 9:02 PM, Pali Roh=E1r=20
-> <pali.rohar@gmail.com> wrote:
-> > > > On Saturday 06 December 2014 13:49:54 Pavel Machek wrote:
-> > > >  /**
-> > > >=20
-> > > > + * request_firmware_prefer_user: - prefer usermode helper
-> > > > for loading firmware + * @firmware_p: pointer to firmware
-> > > > image
-> > > > + * @name: name of firmware file
-> > > > + * @device: device for which firmware is being loaded
-> > > > + *
-> > > > + * This function works pretty much like
-> > > > request_firmware(), but it prefer + * usermode helper. If
-> > > > usermode helper fails then it fallback to direct access.
-> > > > + * Usefull for dynamic or model specific firmware data.
-> > > > + **/
-> > > > +int request_firmware_prefer_user(const struct firmware
-> > > > **firmware_p, +                           const char
-> > > > *name, struct device *device) +{
-> > > > +       int ret;
-> > > > +       __module_get(THIS_MODULE);
-> > > > +       ret =3D _request_firmware(firmware_p, name, device,
-> > > > +                               FW_OPT_UEVENT |
-> > > > FW_OPT_PREFER_USER); +       module_put(THIS_MODULE);
-> > > > +       return ret;
-> > > > +}
-> > > > +EXPORT_SYMBOL_GPL(request_firmware_prefer_user);
-> > >=20
-> > > I'd like to introduce request_firmware_user() which only
-> > > requests firmware from user space, and this way is simpler
-> > > and more flexible since we have request_firmware_direct()
-> > > already.
-> >=20
-> > Why would a driver care about what program provides the
-> > firmware?  It shouldn't at all, and we want to get rid of the
-> > userspace firmware loader, not encourage drivers to use it
-> > "exclusively" at all.
-> >=20
+On Mon, Dec 08, 2014 at 08:15:18PM +0100, Pali Roh=E1r wrote:
+> On Nokia N900 NVS data are generated on-the-fly from some bytes=20
+> from CAL (/dev/mtd1), from state of cellular network and from=20
+> some other regulation settings.
+
+When is this "generated"?  At boot time?  Or by the firmware loader
+program you have hooked into being called by the kernel at "load the
+firmware now please" call time?
+
+> So I think that files stored in linux-firmware.git tree (which=20
+> are also installed into /lib/firmware/) should be loaded with=20
+> request_firmware function. Or not? Do you think something else?=20
+> What other developers think?
 >=20
-> Do not remove it! Without userspace firmware loader it is=20
-> impossible to load dynamic firmware files.
+> I'm against kernel driver for CAL (/dev/mtd1) for more reasons:
+>=20
+> 1) we have userspace open source code, but licensed under GPLv3.=20
+> And until kernel change license, we cannot include it.
 
-You should not be loading "dynamic" firmware files with the firmware
-interface, as that's not a "firmware" file anymore, it's a "special
-binary file that my driver needs to be created and sent into the
-kernel."
+You can change the license of your code if you want to, don't make this
+type of nonsense argument.
 
-Use your own custom usermode helper for stuff like this, not the
-firmware interface.  But use a binary sysfs file if you want, that seem=
-s
-to make sense for it...
+> 2) NVS data are (probably) not in one place, plus they depends on=20
+> something other.
+
+What is "something other"?  Where are they located?  Why would the
+firmware interface know or care anything about this?
+
+> 3) If manufacture XYZ create new device with its own storage=20
+> format of calibration data this means that correct solution for=20
+> XYZ is also to implement new kernel fs driver for its own format.=20
+
+Yes, as it is doing it's own custom thing, why overload an existing
+interface to do something it was never designed to do?
+
+> Do you really want to have in kernel all those drivers for all=20
+> different (proprietary) storage formats?
+
+Yes, we are not afraid of lots of different drivers.  That is not even =
+a
+valid argument, you know better than this :)
+
+> 4) It does not help us with existence of generic file=20
+> /lib/firmware/ti-connectivity/wl1251-nvs.bin which comes from=20
+> linux-firmware.git tree.
+
+Again, not an issue.  If you don't want that file in the repo, ask for
+it to be removed, and it will be, just send a patch to do it.
 
 greg k-h
