@@ -1,56 +1,58 @@
-From: Wenyou Yang <wenyou.yang@atmel.com>
-Subject: [PATCH] net: phy: micrel: workaround to NAND_Tree# incorrectly strapp-in during the reset period.
-Date: Mon, 8 Dec 2014 11:35:40 +0800
-Message-ID: <1418009740-27384-1-git-send-email-wenyou.yang@atmel.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH flow-net-next] net: flow: Correct spelling of action
+Date: Mon, 8 Dec 2014 12:47:18 +0900
+Message-ID: <20141208034715.GA606@vergenet.net>
+References: <1418001295-2389-1-git-send-email-simon.horman@netronome.com>
+ <54850093.7050900@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<nicolas.ferre@atmel.com>,
-	<linux-arm-kernel-bounces@lists.infradead.org>,
-	<wenyou.yang@atmel.com>
-To: <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:44282 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751851AbaLHDr2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2014 22:47:28 -0500
+Received: by mail-pa0-f47.google.com with SMTP id kq14so4395829pab.20
+        for <netdev@vger.kernel.org>; Sun, 07 Dec 2014 19:47:27 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <54850093.7050900@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Appearance: On some boards, after power up, the Ethernet doesn't work.
+On Sun, Dec 07, 2014 at 05:36:19PM -0800, John Fastabend wrote:
+> On 12/07/2014 05:14 PM, Simon Horman wrote:
+> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> > ---
+> >  include/uapi/linux/if_flow.h | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > 
+> > diff --git a/include/uapi/linux/if_flow.h b/include/uapi/linux/if_flow.h
+> > index 25aa744..9255990 100644
+> > --- a/include/uapi/linux/if_flow.h
+> > +++ b/include/uapi/linux/if_flow.h
+> > @@ -356,7 +356,7 @@ enum {
+> >   * @uid unique identifier for flow
+> >   * @priority priority to execute flow match/action in table
+> >   * @match null terminated set of match uids match criteria
+> > - * @actoin null terminated set of action uids to apply to match
+> > + * @action null terminated set of action uids to apply to match
+> >   *
+> >   * Flows must match all entries in match set.
+> >   */
+> > 
+> 
+> Great thanks Simon! Also I've added a bit so we can
+> distinguish between INGRESS pipelines and EGRESS pipelines
+> and a bunch of fixes to the netlink processing to check the
+> lengths correctly. I'll push those to my tree in the next day or
+> so. I'm also porting this to rocker switch now which I hope
+> should be ready in the next week for submitting.
+> 
+> Just to be clear this is against my git tree @
+> 
+> 	https://github.com/jrfastab/flow-net-next/
 
-Reason: On the SAMA5D4EK, the PIOE2 pin is connected to the NAND_Tree# of KSZ8081,
-But it outputs LOW during the reset period, which cause the NAND_Tree# enabled.
+Yes, that is right.
 
-Workaround: In the .config_init(), add code to disable NAND_Tree#
-by operating Operation Mode Strap Override(i.e. Register 16h).
-
-Signed-off-by: Wenyou Yang <wenyou.yang@atmel.com>
----
- drivers/net/phy/micrel.c |    8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 8c2a29a..11d72cb 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -31,6 +31,7 @@
- /* Operation Mode Strap Override */
- #define MII_KSZPHY_OMSO				0x16
- #define KSZPHY_OMSO_B_CAST_OFF			(1 << 9)
-+#define KSZPHY_OMSO_NAND_TREE_OVERRIDE		(1 << 5)
- #define KSZPHY_OMSO_RMII_OVERRIDE		(1 << 1)
- #define KSZPHY_OMSO_MII_OVERRIDE		(1 << 0)
- 
-@@ -180,7 +181,12 @@ static int kszphy_setup_led(struct phy_device *phydev,
- 
- static int kszphy_config_init(struct phy_device *phydev)
- {
--	return 0;
-+	int rc;
-+
-+	phy_write(phydev, MII_KSZPHY_OMSO, phy_read(phydev, MII_KSZPHY_OMSO)
-+			& (~KSZPHY_OMSO_NAND_TREE_OVERRIDE));
-+	rc = ksz_config_flags(phydev);
-+	return rc < 0 ? rc : 0;
- }
- 
- static int kszphy_config_init_led8041(struct phy_device *phydev)
--- 
-1.7.9.5
+Feel free to squash it into existing patches if you prefer.
