@@ -1,72 +1,38 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: phy: micrel: workaround to NAND_Tree# incorrectly
- strapp-in during the reset period.
-Date: Sun, 07 Dec 2014 21:08:56 -0800
-Message-ID: <54853268.6030701@gmail.com>
-References: <1418009740-27384-1-git-send-email-wenyou.yang@atmel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net-next] tcp: refine TSO autosizing
+Date: Sun, 07 Dec 2014 22:32:05 -0800
+Message-ID: <1418020325.15618.40.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1417788937.4322.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1417832560.15618.29.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1417983738.15618.38.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAK6E8=dBZw5_jeOhDLCX7sVPgu5WSiGPRPcL9GJ1G+nweJ90ag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nicolas.ferre@atmel.com,
-	linux-arm-kernel-bounces@lists.infradead.org, johan@kernel.org
-To: Wenyou Yang <wenyou.yang@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1418009740-27384-1-git-send-email-wenyou.yang@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Nandita Dukkipati <nanditad@google.com>
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:65351 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754051AbaLHGcI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 01:32:08 -0500
+Received: by mail-ig0-f173.google.com with SMTP id r2so2268540igi.6
+        for <netdev@vger.kernel.org>; Sun, 07 Dec 2014 22:32:08 -0800 (PST)
+In-Reply-To: <CAK6E8=dBZw5_jeOhDLCX7sVPgu5WSiGPRPcL9GJ1G+nweJ90ag@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 07/12/2014 19:35, Wenyou Yang a =C3=A9crit :
-> Appearance: On some boards, after power up, the Ethernet doesn't work=
-=2E
->=20
-> Reason: On the SAMA5D4EK, the PIOE2 pin is connected to the NAND_Tree=
-# of KSZ8081,
-> But it outputs LOW during the reset period, which cause the NAND_Tree=
-# enabled.
->=20
-> Workaround: In the .config_init(), add code to disable NAND_Tree#
-> by operating Operation Mode Strap Override(i.e. Register 16h).
+On Sun, 2014-12-07 at 13:24 -0800, Yuchung Cheng wrote:
+> >                  */
+> > -               limit = max_t(unsigned int, sysctl_tcp_limit_output_bytes,
+> > -                             sk->sk_pacing_rate >> 10);
+> > +               limit = max(2 * skb->truesize, sk->sk_pacing_rate >> 10);
+> is this capping necessary if skb->truesize already takes the pacing
+> rate into account from the new logic above?
 
-Your patch won't apply cleanly to the net-next tree where the PHY
-drivers development is happening, especially not after Johan's recent
-changes.
 
-Is not what you are looking for a phy_fixup() rather than clearing this
-bit for all Micrel PHYs?
-
->=20
-> Signed-off-by: Wenyou Yang <wenyou.yang@atmel.com>
-> ---
->  drivers/net/phy/micrel.c |    8 +++++++-
->  1 file changed, 7 insertions(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-> index 8c2a29a..11d72cb 100644
-> --- a/drivers/net/phy/micrel.c
-> +++ b/drivers/net/phy/micrel.c
-> @@ -31,6 +31,7 @@
->  /* Operation Mode Strap Override */
->  #define MII_KSZPHY_OMSO				0x16
->  #define KSZPHY_OMSO_B_CAST_OFF			(1 << 9)
-> +#define KSZPHY_OMSO_NAND_TREE_OVERRIDE		(1 << 5)
->  #define KSZPHY_OMSO_RMII_OVERRIDE		(1 << 1)
->  #define KSZPHY_OMSO_MII_OVERRIDE		(1 << 0)
-> =20
-> @@ -180,7 +181,12 @@ static int kszphy_setup_led(struct phy_device *p=
-hydev,
-> =20
->  static int kszphy_config_init(struct phy_device *phydev)
->  {
-> -	return 0;
-> +	int rc;
-> +
-> +	phy_write(phydev, MII_KSZPHY_OMSO, phy_read(phydev, MII_KSZPHY_OMSO=
-)
-> +			& (~KSZPHY_OMSO_NAND_TREE_OVERRIDE));
-> +	rc =3D ksz_config_flags(phydev);
-> +	return rc < 0 ? rc : 0;
->  }
-> =20
->  static int kszphy_config_init_led8041(struct phy_device *phydev)
->=20
+This is needed for flows not using GSO/TSO : For such flows,
+skb->truesize is a constant (2048 + sizeof(struct sk_buff))
