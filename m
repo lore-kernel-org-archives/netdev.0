@@ -1,43 +1,84 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH][net-next][V2] net: avoid to call skb_queue_len again
-Date: Mon,  8 Dec 2014 09:42:55 +0800
-Message-ID: <1418002975-15271-1-git-send-email-roy.qing.li@gmail.com>
-Cc: edumazet@google.com, sergei.shtylyov@cogentembedded.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:43573 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072AbaLHBnB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2014 20:43:01 -0500
-Received: by mail-pd0-f174.google.com with SMTP id fp1so3817694pdb.19
-        for <netdev@vger.kernel.org>; Sun, 07 Dec 2014 17:43:01 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v8 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Mon, 8 Dec 2014 09:48:07 +0800
+Message-ID: <54850357.802@huawei.com>
+References: <1397869980-21187-1-git-send-email-zhangfei.gao@linaro.org>
+ <5483C977.2060308@huawei.com> <54842298.2010007@suse.de>
+ <2619239.NTtdNaZCJM@wuerfel>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mark.rutland@arm.com, devicetree@vger.kernel.org, f.fainelli@gmail.com,
+ linux@arm.linux.org.uk, eric.dumazet@gmail.com,
+ sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
+ xuwei5@hisilicon.com, David.Laight@aculab.com,
+ Zhangfei Gao <zhangfei.gao@linaro.org>, davem@davemloft.net,
+ linux-arm-kernel@lists.infradead.org
+To: Arnd Bergmann <arnd@arndb.de>, Alexander Graf <agraf@suse.de>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <2619239.NTtdNaZCJM@wuerfel>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Li RongQing <roy.qing.li@gmail.com>
+On 2014/12/8 4:09, Arnd Bergmann wrote:
+> On Sunday 07 December 2014 10:49:12 Alexander Graf wrote:
+>> On 07.12.14 04:28, Ding Tianhong wrote:
+>>> On 2014/12/7 8:42, Alexander Graf wrote:
+>>>> On 19.04.14 03:13, Zhangfei Gao wrote:
+>>>>> Support Hisilicon hip04 ethernet driver, including 100M / 1000M controller.
+>>>>> The controller has no tx done interrupt, reclaim xmitted buffer in the poll.
+>>>>>
+>>>>> Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
+>>>>
+>>>> Is this driver still supposed to go upstream? I presume this was the
+>>>> last submission and it's been quite some time ago 
+>>>>
+>>>
+>>> yes, it is really a long time, but The hip04 did not support tx irq, 
+>>> we couldn't get any better idea to fix this defect, do you have any suggestion?
+>>
+>> Well, if hardware doesn't have a TX irq I don't see there's anything we
+>> can do to fix that ;).
+> 
+> I don't know if it's related to the ethernet on hip01, but I would assume
+> it is, and that platform is currently being submitted for inclusion, so
+> I'd definitely hope to see this driver get merged too eventually.
+> 
+> IIRC, the last revision of the patch set had basically fixed the problem,
+> except for a race that would still allow the napi poll function to exit
+> with poll_complete() but a full queue of TX descriptors and no fallback
+> to clean them up. There was also still an open question about whether or
+> not the driver should use skb_orphan, but I may be misremembering that part.
+>  
+>> Dave, what's your take here? Should we keep a driver from going upstream
+>> just because the hardware is partly broken? I'd really prefer to have an
+>> upstream driver on that SoC rather than some random (eventually even
+>> more broken) downstream code.
+> 
+> We can certainly have a slow driver for this hardware, and I'd much
+> prefer slow over broken. I'd guess that some of the performance impact
+> of the missing interrupts can now be offset with the xmit_more	 logic.
+> 
+> 	Arnd
 
-the queue length of sd->input_pkt_queue has been put into qlen,
-and impossible to change, since hold the lock
+Ok, if so, I can modify this patch set and send them again base on zhangfei's last version
+just for reviewing.
 
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
----
- net/core/dev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Regards
+Ding
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 0814a56..b954400 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3297,7 +3297,7 @@ static int enqueue_to_backlog(struct sk_buff *skb, int cpu,
- 	rps_lock(sd);
- 	qlen = skb_queue_len(&sd->input_pkt_queue);
- 	if (qlen <= netdev_max_backlog && !skb_flow_limit(skb, qlen)) {
--		if (skb_queue_len(&sd->input_pkt_queue)) {
-+		if (qlen) {
- enqueue:
- 			__skb_queue_tail(&sd->input_pkt_queue, skb);
- 			input_queue_tail_incr_save(sd, qtail);
--- 
-2.1.0
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> .
+> 
