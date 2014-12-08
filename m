@@ -1,54 +1,70 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH][net-next] net: avoid to call skb_queue_len again
-Date: Mon, 08 Dec 2014 19:51:29 +0300
-Message-ID: <5485D711.4070704@cogentembedded.com>
-References: <1417772948-17909-1-git-send-email-roy.qing.li@gmail.com>	 <5481BBF2.40806@cogentembedded.com>	 <1417789870.15618.1.camel@edumazet-glaptop2.roam.corp.google.com>	 <CAJFZqHzeESfMBqb1gQr4DsE-v_fSfUX+AyWbt_VriJJ8Dj2FnA@mail.gmail.com>	 <54858B56.1020607@cogentembedded.com> <1418051436.15618.43.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] netlink: use jhash as hashfn for rhashtable
+Date: Mon, 08 Dec 2014 17:56:20 +0100
+Message-ID: <1418057780.29477.12.camel@localhost>
+References: <1418056230-8700-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Li RongQing <roy.qing.li@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Thomas Graf <tgraf@suug.ch>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:61869 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751520AbaLHQvd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 11:51:33 -0500
-Received: by mail-lb0-f176.google.com with SMTP id p9so3968979lbv.7
-        for <netdev@vger.kernel.org>; Mon, 08 Dec 2014 08:51:32 -0800 (PST)
-In-Reply-To: <1418051436.15618.43.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:38993 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751520AbaLHQ4W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 11:56:22 -0500
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id 4C99B20B8D
+	for <netdev@vger.kernel.org>; Mon,  8 Dec 2014 11:56:22 -0500 (EST)
+In-Reply-To: <1418056230-8700-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Mo, 2014-12-08 at 17:30 +0100, Daniel Borkmann wrote:
+> For netlink, we shouldn't be using arch_fast_hash() as a hashing
+> discipline, but rather jhash() instead.
+> 
+> Since netlink sockets can be opened by any user, a local attacker
+> would be able to easily create collisions with the DPDK-derived
+> arch_fast_hash(), which trades off performance for security by
+> using crc32 CPU instructions on x86_64.
+> 
+> While it might have a legimite use case in other places, it should
+> be avoided in netlink context, though. As rhashtable's API is very
+> flexible, we could later on still decide on other hashing disciplines,
+> if legitimate.
+> 
+> Reference: http://thread.gmane.org/gmane.linux.kernel/1844123
+> Fixes: e341694e3eb5 ("netlink: Convert netlink_lookup() to use RCU protected hash table")
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: Thomas Graf <tgraf@suug.ch>
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  net/netlink/af_netlink.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> index 0007b81..b6bf8e8 100644
+> --- a/net/netlink/af_netlink.c
+> +++ b/net/netlink/af_netlink.c
+> @@ -3130,7 +3130,7 @@ static int __init netlink_proto_init(void)
+>  		.head_offset = offsetof(struct netlink_sock, node),
+>  		.key_offset = offsetof(struct netlink_sock, portid),
+>  		.key_len = sizeof(u32), /* portid */
+> -		.hashfn = arch_fast_hash,
+> +		.hashfn = jhash,
+>  		.max_shift = 16, /* 64K */
+>  		.grow_decision = rht_grow_above_75,
+>  		.shrink_decision = rht_shrink_below_30,
 
-On 12/08/2014 06:10 PM, Eric Dumazet wrote:
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
->>      I expect you to also refine the description, so that it's meaningful,
->> unlike now.
+In net-next, some time soon, we should try to let all function pointers
+to jhash() use one non-inline version. The other arch_fast_hash patch
+adds __jhash for x86-only, we can move it over to lib/.
 
-> It seems obvious to me Li is not a native English speaker.
-
-    Me neither. :-)
-    However, the good command of English language was a requirement when I was 
-first hired to do the Linux development.
-
-> I understood
-> the patch very well, and the changelog seemed fine to me.
-
-    Oh, if you say so...
-
-> What about you provide this description instead, since you seem to care
-> very much ?
-
-    I mostly care for others; I don't suppose much people except you are able 
-to understand the current variant. And I now have neither enough time nor 
-enough understanding to write a proper description for this patch. I can only 
-suggest that you refine the description for others if you can understand it so 
-well.
-
-> Thanks !
-
-    Not at all.
-
-WBR, Sergei
+Thanks,
+Hannes
