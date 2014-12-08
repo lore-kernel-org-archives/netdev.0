@@ -1,70 +1,52 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] netlink: use jhash as hashfn for rhashtable
-Date: Mon, 08 Dec 2014 18:25:39 +0100
-Message-ID: <1418059539.290986.200302913.180EA222@webmail.messagingengine.com>
-References: <1418056230-8700-1-git-send-email-dborkman@redhat.com>
- <1418057780.29477.12.camel@localhost>
- <CAA93jw5bAqxbpxyOHEHd6XSEn4-HK0a9qw3Cb_Vecb8Nz=xbfg@mail.gmail.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [ovs-discuss] kernel panic receiving flooded VXLAN traffic with OVS
+Date: Mon, 8 Dec 2014 09:33:20 -0800
+Message-ID: <CAEP_g=86QKL_Oxxj0mo8CZs8+fyBZuYw2fQTMGow_bSJbk+8AQ@mail.gmail.com>
+References: <19014.1415325508@famine> <8549.1417657547@famine>
+ <CAEP_g=_mfSCH1250ezx_h8_yM_4FzsYcsS6EnGi99AFoWO_MKw@mail.gmail.com> <CADmMkWdGhw3Rn3gMEtAV8ESZB-k+uAK=Ed=LwsShKOtyHdJS_g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
-	Thomas Graf <tgraf@suug.ch>
-To: Dave Taht <dave.taht@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jay Vosburgh <jay.vosburgh@canonical.com>,
+	netdev <netdev@vger.kernel.org>,
+	"discuss@openvswitch.org" <discuss@openvswitch.org>
+To: Nicholas Bastin <nick.bastin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:35395 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751831AbaLHRZk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 12:25:40 -0500
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id 064FF20C53
-	for <netdev@vger.kernel.org>; Mon,  8 Dec 2014 12:25:39 -0500 (EST)
-In-Reply-To: <CAA93jw5bAqxbpxyOHEHd6XSEn4-HK0a9qw3Cb_Vecb8Nz=xbfg@mail.gmail.com>
+Received: from na6sys009bog010.obsmtp.com ([74.125.150.60]:52993 "HELO
+	na6sys009bog010.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751119AbaLHRdl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 12:33:41 -0500
+Received: by mail-qa0-f44.google.com with SMTP id i13so3611826qae.17
+        for <netdev@vger.kernel.org>; Mon, 08 Dec 2014 09:33:40 -0800 (PST)
+In-Reply-To: <CADmMkWdGhw3Rn3gMEtAV8ESZB-k+uAK=Ed=LwsShKOtyHdJS_g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, Dec 6, 2014 at 2:47 PM, Nicholas Bastin <nick.bastin@gmail.com> wrote:
+> On Fri, Dec 5, 2014 at 4:51 PM, Jesse Gross <jesse@nicira.com> wrote:
+>>
+>> I don't think there is anything inherently wrong with aggregating TCP
+>> segments in VXLAN that are not destined for the local host. This is
+>> conceptually the same as doing aggregation for TCP packets where we
+>> only perform L2 bridging - in theory we shouldn't look at the upper
+>> layers but it is fine as long as we faithfully reconstruct it on the
+>> way out.
+>
+>
+> But you don't faithfully reconstruct what the user originally sent - in-path
+> reassembly is always wrong, which is why hardware switches don't do it (by
+> default, anyhow).  If you configure a middlebox to do some kind of
+> assembly/translation/whatever work for you, that's fine, but something that
+> advertises itself as a "switch" or "router" should definitely not do this by
+> default.
+>
+> If you reassemble frames you completely obviate any kind of PMTU-D or
+> configured MTU that your user is using, and this breaks a lot of paths.  We
+> completely disable all GRO/TSO/etc., but if you are able to determine that a
+> packet is not destined for the local host you should definitely not mutate
+> it.
 
-
-On Mon, Dec 8, 2014, at 18:20, Dave Taht wrote:
-> On Mon, Dec 8, 2014 at 8:56 AM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > On Mo, 2014-12-08 at 17:30 +0100, Daniel Borkmann wrote:
-> >> For netlink, we shouldn't be using arch_fast_hash() as a hashing
-> >> discipline, but rather jhash() instead.
-> 
-> I am not particularly happy with the amount of entropy in
-> 
-> static inline u32 ipv6_addr_hash(const struct in6_addr *a)
-> {
-> #if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG ==
-> 64
->         const unsigned long *ul = (const unsigned long *)a;
->         unsigned long x = ul[0] ^ ul[1];
-> 
->         return (u32)(x ^ (x >> 32));
-> #else
->         return (__force u32)(a->s6_addr32[0] ^ a->s6_addr32[1] ^
->                              a->s6_addr32[2] ^ a->s6_addr32[3]);
-> #endif
-> }
-> 
-> is this worth improving somehow?
-> 
-
-That's e.g. the reason why we have
-
-commit 5a3da1fe9561828d0ca7eca664b16ec2b9bf0055
-Author: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date:   Fri Mar 15 11:32:30 2013 +0000
-
-    inet: limit length of fragment queue hash table bucket lists
-
-Note, __ipv6_addr_jhash (xoring the upper 32 bit before jhashing them)
-has the same problem. I currently cannot spot any problematic users in
-the kernel, flow dissector hashes are insecure by nature, local
-addresses normally don't have problems with hash collisions. But maybe I
-should redo an audit. :)
-
-Bye,
-Hannes
+If you look at the implementation of GRO/TSO, I think you will see
+that it does in fact faithfully reconstruct the original message and
+path MTU discovery is preserved. On Linux systems, GRO is enabled by
+default for all workloads - including those that do not result in
+local termination such as bridging.
