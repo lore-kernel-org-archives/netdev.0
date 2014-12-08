@@ -1,54 +1,56 @@
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Subject: Re: [PATCH net] net/mlx4_en: correct the endianness of doorbell_qpn
- on big endian platform
-Date: Mon, 8 Dec 2014 11:12:29 +0800
-Message-ID: <20141208031229.GA13949@richard>
-References: <1417315431-16761-1-git-send-email-weiyang@linux.vnet.ibm.com>
- <20141205.213112.1199355931404701216.davem@davemloft.net>
- <1417844801.15618.30.camel@edumazet-glaptop2.roam.corp.google.com>
-Reply-To: Wei Yang <weiyang@linux.vnet.ibm.com>
+From: Wenyou Yang <wenyou.yang@atmel.com>
+Subject: [PATCH] net: phy: micrel: workaround to NAND_Tree# incorrectly strapp-in during the reset period.
+Date: Mon, 8 Dec 2014 11:35:40 +0800
+Message-ID: <1418009740-27384-1-git-send-email-wenyou.yang@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, weiyang@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, gideonn@mellanox.com, edumazet@google.com,
-	amirv@mellanox.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp07.au.ibm.com ([202.81.31.140]:41983 "EHLO
-	e23smtp07.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751851AbaLHDMn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2014 22:12:43 -0500
-Received: from /spool/local
-	by e23smtp07.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
-	Mon, 8 Dec 2014 13:12:37 +1000
-Received: from d23relay09.au.ibm.com (d23relay09.au.ibm.com [9.185.63.181])
-	by d23dlp01.au.ibm.com (Postfix) with ESMTP id 9C24E2CE8054
-	for <netdev@vger.kernel.org>; Mon,  8 Dec 2014 14:12:33 +1100 (EST)
-Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
-	by d23relay09.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id sB83CWRT23724284
-	for <netdev@vger.kernel.org>; Mon, 8 Dec 2014 14:12:33 +1100
-Received: from d23av01.au.ibm.com (localhost [127.0.0.1])
-	by d23av01.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id sB83CVmx012037
-	for <netdev@vger.kernel.org>; Mon, 8 Dec 2014 14:12:32 +1100
-Content-Disposition: inline
-In-Reply-To: <1417844801.15618.30.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<nicolas.ferre@atmel.com>,
+	<linux-arm-kernel-bounces@lists.infradead.org>,
+	<wenyou.yang@atmel.com>
+To: <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 05, 2014 at 09:46:41PM -0800, Eric Dumazet wrote:
->On Fri, 2014-12-05 at 21:31 -0800, David Miller wrote:
->
->> Guys, let's figure out what we are doing with this patch.
->> --
->
->Oh well, patch is fine, please apply it, thanks !
+Appearance: On some boards, after power up, the Ethernet doesn't work.
 
-Thanks :-)
+Reason: On the SAMA5D4EK, the PIOE2 pin is connected to the NAND_Tree# of KSZ8081,
+But it outputs LOW during the reset period, which cause the NAND_Tree# enabled.
 
->
->
+Workaround: In the .config_init(), add code to disable NAND_Tree#
+by operating Operation Mode Strap Override(i.e. Register 16h).
 
+Signed-off-by: Wenyou Yang <wenyou.yang@atmel.com>
+---
+ drivers/net/phy/micrel.c |    8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 8c2a29a..11d72cb 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -31,6 +31,7 @@
+ /* Operation Mode Strap Override */
+ #define MII_KSZPHY_OMSO				0x16
+ #define KSZPHY_OMSO_B_CAST_OFF			(1 << 9)
++#define KSZPHY_OMSO_NAND_TREE_OVERRIDE		(1 << 5)
+ #define KSZPHY_OMSO_RMII_OVERRIDE		(1 << 1)
+ #define KSZPHY_OMSO_MII_OVERRIDE		(1 << 0)
+ 
+@@ -180,7 +181,12 @@ static int kszphy_setup_led(struct phy_device *phydev,
+ 
+ static int kszphy_config_init(struct phy_device *phydev)
+ {
+-	return 0;
++	int rc;
++
++	phy_write(phydev, MII_KSZPHY_OMSO, phy_read(phydev, MII_KSZPHY_OMSO)
++			& (~KSZPHY_OMSO_NAND_TREE_OVERRIDE));
++	rc = ksz_config_flags(phydev);
++	return rc < 0 ? rc : 0;
+ }
+ 
+ static int kszphy_config_init_led8041(struct phy_device *phydev)
 -- 
-Richard Yang
-Help you, Help me
+1.7.9.5
