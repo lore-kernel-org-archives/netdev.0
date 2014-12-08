@@ -1,15 +1,15 @@
-From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
+From: Dan Williams <dcbw@redhat.com>
 Subject: Re: wl1251: NVS firmware data
-Date: Tue, 9 Dec 2014 00:27:46 +0100
-Message-ID: <201412090027.46485@pali>
-References: <201411271506.20457@pali> <201412081747.30965@pali> <20141208205721.GA14895@kroah.com>
+Date: Mon, 08 Dec 2014 17:42:17 -0600
+Message-ID: <1418082137.31640.14.camel@dcbw.local>
+References: <201411271506.20457@pali> <201412082036.14609@pali>
+	 <1418079067.31640.13.camel@dcbw.local> <201412090023.18173@pali>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2457874.dXyCdr0QfX";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Ming Lei <ming.lei@canonical.com>, Pavel Machek <pavel@ucw.cz>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Ming Lei <ming.lei@canonical.com>, Pavel Machek <pavel@ucw.cz>,
 	"John W. Linville" <linville@tuxdriver.com>,
 	Grazvydas Ignotas <notasas@gmail.com>,
 	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
@@ -20,46 +20,26 @@ Cc: Ming Lei <ming.lei@canonical.com>, Pavel Machek <pavel@ucw.cz>,
 	Kalle Valo <kvalo@adurom.com>,
 	Sebastian Reichel <sre@ring0.de>,
 	David Gnedt <david.gnedt@davizone.at>
-To: "Greg Kroah-Hartman" <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141208205721.GA14895@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Pali =?ISO-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41647 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752261AbaLHXsy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Dec 2014 18:48:54 -0500
+In-Reply-To: <201412090023.18173@pali>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart2457874.dXyCdr0QfX
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Monday 08 December 2014 21:57:21 Greg Kroah-Hartman wrote:
-> Use your own custom usermode helper for stuff like this, not
-> the firmware interface.  But use a binary sysfs file if you
-> want, that seems to make sense for it...
+On Tue, 2014-12-09 at 00:23 +0100, Pali Roh=C3=A1r wrote:
+> On Monday 08 December 2014 23:51:07 Dan Williams wrote:
+> > Is the CAL data format generic to all wl1251 devices?  Or is
+> > the stuff in the CAL partition Nokia-specific?
+> >=20
 >=20
-> greg k-h
+> Specific for Nokia devices.
 
-Patch for telling permanent mac address from userspace via sysfs=20
-file was rejected for inclusion into mainline kernel.
+Ok, but then something must transform that data into a format that the
+wl1251 chip can consume, correct?  What do other wl1251 platforms do to
+retrieve this information and set regulatory region?
 
-So I do not think that now maintainers of network subsystem allow=20
-it for nvs data...
-
-https://lkml.org/lkml/2013/12/8/35
-
-=2D-=20
-Pali Roh=C3=A1r
-pali.rohar@gmail.com
-
---nextPart2457874.dXyCdr0QfX
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iEYEABECAAYFAlSGM/IACgkQi/DJPQPkQ1KNvwCfRf56KOnmL0C2Cvjpu/NLHJu2
-94QAn1ZupkdOsiVp9JCu1l9gpw45C43F
-=vsxa
------END PGP SIGNATURE-----
-
---nextPart2457874.dXyCdr0QfX--
+Dan
