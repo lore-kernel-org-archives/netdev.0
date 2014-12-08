@@ -1,71 +1,54 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Where exactly will arch_fast_hash be used
-Date: Mon, 08 Dec 2014 17:32:09 +0100
-Message-ID: <1418056329.279341.200273721.1C7A7F3E@webmail.messagingengine.com>
-References: <20141208161959.8852.qmail@ns.horizon.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, dborkman@redhat.com,
-	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, tgraf@suug.ch, tytso@mit.edu
-To: George Spelvin <linux@horizon.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] netlink: use jhash as hashfn for rhashtable
+Date: Mon,  8 Dec 2014 17:30:30 +0100
+Message-ID: <1418056230-8700-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	Thomas Graf <tgraf@suug.ch>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:56568 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752195AbaLHQcK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 11:32:10 -0500
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id 2B0B420952
-	for <netdev@vger.kernel.org>; Mon,  8 Dec 2014 11:32:10 -0500 (EST)
-In-Reply-To: <20141208161959.8852.qmail@ns.horizon.com>
+Received: from mx1.redhat.com ([209.132.183.28]:33734 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751132AbaLHQdW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Dec 2014 11:33:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+For netlink, we shouldn't be using arch_fast_hash() as a hashing
+discipline, but rather jhash() instead.
 
+Since netlink sockets can be opened by any user, a local attacker
+would be able to easily create collisions with the DPDK-derived
+arch_fast_hash(), which trades off performance for security by
+using crc32 CPU instructions on x86_64.
 
-On Mon, Dec 8, 2014, at 17:19, George Spelvin wrote:
-> >>> In case of openvswitch it shows a performance improvment. The seed
-> >>> parameter could be used as an initial biasing of the crc32 function, but
-> >>> in case of openvswitch it is only set to 0.
->  
-> >> NACK. [...]
-> 
-> > Sorry for being unclear, I understood that and didn't bother patching
-> > that '0' with a random seed exactly because of this.
-> 
-> And I'm sorry for delivering a long lecture on a subject you already
-> understood perfectly well.
+While it might have a legimite use case in other places, it should
+be avoided in netlink context, though. As rhashtable's API is very
+flexible, we could later on still decide on other hashing disciplines,
+if legitimate.
 
-I learned something, so your time wasn't completely wasted. ;)
+Reference: http://thread.gmane.org/gmane.linux.kernel/1844123
+Fixes: e341694e3eb5 ("netlink: Convert netlink_lookup() to use RCU protected hash table")
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Thomas Graf <tgraf@suug.ch>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/netlink/af_netlink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> I'd just been thinking about it because of Herbert's comments, so it was
-> conveniently at hand. :-)
-> 
-> Out of curiousity, what *were* you referring to when you talked
-> about biasing the crc32 function?  "Biasing" is a good term becuase
-> it just applies an offset, but what do you gain from doing that?
-
-Actually, I don't know why the seed parameter was added. I just wanted
-to mention that there is a way to bias the crc32 function which fits
-into the style of the other hashing functions, like jhash with its
-initval parameter.
-
-I just kept it around during the rewrite.
-
-The only use case I can imagine would be if one would like to calculate
-a crc32c over a non-contiguous array, thus feeding the result of one crc
-operation into the next one.
-
-> There are nifty things one can do with the CRC32 instruction, however.
-> A lot of ciphers these days use an ARX (add, rotate, XOR) kernel.
-> A crc32 instruction, although linear, does some very powerful rotate &
-> xor operations, and could replace the XOR and rotate.
-
-Yes, I have seen it being used in cityhash.
-
-There is also a proposal by Intel, but the hash seems too weak, too:
-http://www.intel.com/content/dam/www/public/us/en/documents/white-papers/hash-method-performance-paper.pdf
-
-Bye,
-Hannes
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 0007b81..b6bf8e8 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -3130,7 +3130,7 @@ static int __init netlink_proto_init(void)
+ 		.head_offset = offsetof(struct netlink_sock, node),
+ 		.key_offset = offsetof(struct netlink_sock, portid),
+ 		.key_len = sizeof(u32), /* portid */
+-		.hashfn = arch_fast_hash,
++		.hashfn = jhash,
+ 		.max_shift = 16, /* 64K */
+ 		.grow_decision = rht_grow_above_75,
+ 		.shrink_decision = rht_shrink_below_30,
+-- 
+1.7.11.7
