@@ -1,55 +1,62 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next v3 2/2] rocker: remove swdev mode
-Date: Mon, 08 Dec 2014 12:41:34 +0100
-Message-ID: <54858E6E.7010707@redhat.com>
-References: <1417935267-6000-3-git-send-email-roopa@cumulusnetworks.com> <20141207081928.GA2215@casper.infradead.org> <20141208110301.GA1885@nanopsycho.brq.redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2] sh_eth: Optimization for RX excess judgement
+Date: Mon, 08 Dec 2014 14:47:25 +0300
+Message-ID: <54858FCD.3080206@cogentembedded.com>
+References: <1418035701-3871-1-git-send-email-ykaneko0929@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, roopa@cumulusnetworks.com,
-	sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org,
-	john.fastabend@gmail.com, stephen@networkplumber.org,
-	linville@tuxdriver.com, vyasevic@redhat.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42736 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752111AbaLHLmy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Dec 2014 06:42:54 -0500
-In-Reply-To: <20141208110301.GA1885@nanopsycho.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1418035701-3871-1-git-send-email-ykaneko0929@gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/08/2014 12:03 PM, Jiri Pirko wrote:
-> Sun, Dec 07, 2014 at 09:19:28AM CET, tgraf@suug.ch wrote:
->> On 12/06/14 at 10:54pm, roopa@cumulusnetworks.com wrote:
->>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>
+Hello.
 
-Please provide a normal, non-empty commit message as
-everyone else ...
+On 12/8/2014 1:48 PM, Yoshihiro Kaneko wrote:
 
->>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-...
->>> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
->>> index fded127..9f1d256 100644
->>> --- a/drivers/net/ethernet/rocker/rocker.c
->>> +++ b/drivers/net/ethernet/rocker/rocker.c
->>> @@ -3755,7 +3739,7 @@ static int rocker_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
->>>   				      u32 filter_mask)
->>>   {
->>>   	struct rocker_port *rocker_port = netdev_priv(dev);
->>> -	u16 mode = BRIDGE_MODE_SWDEV;
->>> +	u16 mode = -1;
->>         ^^^
->> I assume you meant s16
+> From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+
+> Both of 'boguscnt' and 'quota' have nearly meaning as the condition of
+> the reception loop.
+> In order to cut down redundant processing, this patch changes excess
+> judgement.
+
+> Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+> ---
+
+> This patch is based on net-next tree.
+
+> v2 [Yoshihiro Kaneko]
+> * re-spin for net-next.
+> * remove unneeded check of "quota".
+
+    This is not a complete list. :-/
+
+>   drivers/net/ethernet/renesas/sh_eth.c | 10 +++++-----
+>   1 file changed, 5 insertions(+), 5 deletions(-)
+
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index dbe8606..266c9b2 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+[...]
+> @@ -1501,6 +1499,8 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
+>   		sh_eth_write(ndev, EDRRR_R, EDRRR);
+>   	}
 >
-> well, I see no problem in using u16. IFLA_BRIDGE_MODE attr is u16 so
-> mode should stay u16.
->
-> But maybe better to add:
-> #define BRIDGE_MODE_UNDEF 0xFFFF
+> +	*quota -= limit - boguscnt + 1;
+> +
 
-Yep, something along these lines seems better.
+    Sorry for the wrong previous suggestion, it clearly should have been -1, 
+not +1. :-<
+
+[...]
+
+WBR, Sergei
+
