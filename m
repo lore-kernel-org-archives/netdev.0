@@ -1,50 +1,43 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH flow-net-next] net: flow: Correct spelling of action
-Date: Sun, 07 Dec 2014 17:36:19 -0800
-Message-ID: <54850093.7050900@intel.com>
-References: <1418001295-2389-1-git-send-email-simon.horman@netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Simon Horman <simon.horman@netronome.com>
+From: roy.qing.li@gmail.com
+Subject: [PATCH][net-next][V2] net: avoid to call skb_queue_len again
+Date: Mon,  8 Dec 2014 09:42:55 +0800
+Message-ID: <1418002975-15271-1-git-send-email-roy.qing.li@gmail.com>
+Cc: edumazet@google.com, sergei.shtylyov@cogentembedded.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:34706 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751072AbaLHBga (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Dec 2014 20:36:30 -0500
-In-Reply-To: <1418001295-2389-1-git-send-email-simon.horman@netronome.com>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:43573 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751072AbaLHBnB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2014 20:43:01 -0500
+Received: by mail-pd0-f174.google.com with SMTP id fp1so3817694pdb.19
+        for <netdev@vger.kernel.org>; Sun, 07 Dec 2014 17:43:01 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/07/2014 05:14 PM, Simon Horman wrote:
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> ---
->  include/uapi/linux/if_flow.h | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/include/uapi/linux/if_flow.h b/include/uapi/linux/if_flow.h
-> index 25aa744..9255990 100644
-> --- a/include/uapi/linux/if_flow.h
-> +++ b/include/uapi/linux/if_flow.h
-> @@ -356,7 +356,7 @@ enum {
->   * @uid unique identifier for flow
->   * @priority priority to execute flow match/action in table
->   * @match null terminated set of match uids match criteria
-> - * @actoin null terminated set of action uids to apply to match
-> + * @action null terminated set of action uids to apply to match
->   *
->   * Flows must match all entries in match set.
->   */
-> 
+From: Li RongQing <roy.qing.li@gmail.com>
 
-Great thanks Simon! Also I've added a bit so we can
-distinguish between INGRESS pipelines and EGRESS pipelines
-and a bunch of fixes to the netlink processing to check the
-lengths correctly. I'll push those to my tree in the next day or
-so. I'm also porting this to rocker switch now which I hope
-should be ready in the next week for submitting.
+the queue length of sd->input_pkt_queue has been put into qlen,
+and impossible to change, since hold the lock
 
-Just to be clear this is against my git tree @
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+---
+ net/core/dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-	https://github.com/jrfastab/flow-net-next/
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0814a56..b954400 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3297,7 +3297,7 @@ static int enqueue_to_backlog(struct sk_buff *skb, int cpu,
+ 	rps_lock(sd);
+ 	qlen = skb_queue_len(&sd->input_pkt_queue);
+ 	if (qlen <= netdev_max_backlog && !skb_flow_limit(skb, qlen)) {
+-		if (skb_queue_len(&sd->input_pkt_queue)) {
++		if (qlen) {
+ enqueue:
+ 			__skb_queue_tail(&sd->input_pkt_queue, skb);
+ 			input_queue_tail_incr_save(sd, qtail);
+-- 
+2.1.0
