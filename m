@@ -1,547 +1,98 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH nf-next 1/2] netfilter: conntrack: cache route for forwarded connections
-Date: Mon,  8 Dec 2014 16:36:03 +0100
-Message-ID: <1418052964-4632-2-git-send-email-fw@strlen.de>
-References: <1418052964-4632-1-git-send-email-fw@strlen.de>
-Cc: netdev@vger.kernel.org, brouer@redhat.com,
-	Florian Westphal <fw@strlen.de>
-To: <netfilter-devel@vger.kernel.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1418052964-4632-1-git-send-email-fw@strlen.de>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 2/3] netlink: IFLA_PHYS_SWITCH_ID to
+ IFLA_PHYS_PARENT_ID
+Date: Mon, 8 Dec 2014 10:37:47 -0500
+Message-ID: <20141208153747.GG797@gospo.home.greyhouse.net>
+References: <1417802537-20020-1-git-send-email-gospo@cumulusnetworks.com>
+ <1417802537-20020-2-git-send-email-gospo@cumulusnetworks.com>
+ <20141208151714.GG1885@nanopsycho.brq.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, sfeldma@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:60811 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753135AbaLHPiB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 10:38:01 -0500
+Content-Disposition: inline
+In-Reply-To: <20141208151714.GG1885@nanopsycho.brq.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-... to avoid per-packet FIB lookup if possible.
+On Mon, Dec 08, 2014 at 04:17:14PM +0100, Jiri Pirko wrote:
+> Fri, Dec 05, 2014 at 07:02:16PM CET, gospo@cumulusnetworks.com wrote:
+> >There has been much discussion about proper nomenclature to use for this
+> >and I would prefer parent rather than calling every forwarding element a
+> >switch.
+> 
+> Andy, I must say I really do not like just plain "parent". It is really
+> not clear what it means as it can mean 1000 things.
+> 
+> I know "switch" is not ideal but everytime anyone is talking about these
+> kind of forwarding devices, they use word "switch" even if it is not
+> accurate and everyone knows what they are talking about. Nobody uses
+> "parent".
 
-The cached dst is re-used provided the input interface
-is the same as that of the previous packet in the same direction.
+Well of course they are not going to use it until it's committed.  ;-)
 
-If not, the cached dst is invalidated.
+> For me this is nack for this patchset.
 
-For ipv6 we also need to store sernum, else dst_check doesn't work,
-pointed out by Eric Dumazet.
+Thanks for the review.  I am not big marketing person, so it was not
+clear to me what was ideal.  Due to parent already being in the code
+and having as a logical description of the relationship (parent
+switch/router device and sibling network interfaces -- like sibling CPU
+cores on the same socket).
 
-This should speed up forwarding when conntrack is already in use
-anyway, especially when using reverse path filtering -- active RPF
-enforces two FIB lookups for each packet.
+I do really want to collectively come up with something other than
+switch for everything.  Those L3 ops with 'switch' in the name will
+feel really awkward....
 
-Before the routing cache removal this didn't matter since RPF was performed
-only when route cache didn't yield a result; but without route cache it
-comes at higher price.
-
-Julian Anastasov suggested to add NETDEV_UNREGISTER handler to
-avoid holding on to dsts of 'frozen' conntracks.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- Changes since RFC:
-  - add NETDEV_UNREGISTER, suggested by Julian
-  - cache fib sernum to make ipv6 work, pointed out by Eric
-  - make module unload work
-  - remove ASSURED test, in case of -j DROP in prerouting or forward
-    cache forward hook won't be reached anyway
-
- include/net/netfilter/nf_conntrack_extend.h  |   4 +
- include/net/netfilter/nf_conntrack_rtcache.h |  34 +++
- net/netfilter/Kconfig                        |  12 +
- net/netfilter/Makefile                       |   3 +
- net/netfilter/nf_conntrack_rtcache.c         | 387 +++++++++++++++++++++++++++
- 5 files changed, 440 insertions(+)
- create mode 100644 include/net/netfilter/nf_conntrack_rtcache.h
- create mode 100644 net/netfilter/nf_conntrack_rtcache.c
-
-diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
-index 55d1504..1b00d57 100644
---- a/include/net/netfilter/nf_conntrack_extend.h
-+++ b/include/net/netfilter/nf_conntrack_extend.h
-@@ -30,6 +30,9 @@ enum nf_ct_ext_id {
- #if IS_ENABLED(CONFIG_NETFILTER_SYNPROXY)
- 	NF_CT_EXT_SYNPROXY,
- #endif
-+#if IS_ENABLED(CONFIG_NF_CONNTRACK_RTCACHE)
-+	NF_CT_EXT_RTCACHE,
-+#endif
- 	NF_CT_EXT_NUM,
- };
- 
-@@ -43,6 +46,7 @@ enum nf_ct_ext_id {
- #define NF_CT_EXT_TIMEOUT_TYPE struct nf_conn_timeout
- #define NF_CT_EXT_LABELS_TYPE struct nf_conn_labels
- #define NF_CT_EXT_SYNPROXY_TYPE struct nf_conn_synproxy
-+#define NF_CT_EXT_RTCACHE_TYPE struct nf_conn_rtcache
- 
- /* Extensions: optional stuff which isn't permanently in struct. */
- struct nf_ct_ext {
-diff --git a/include/net/netfilter/nf_conntrack_rtcache.h b/include/net/netfilter/nf_conntrack_rtcache.h
-new file mode 100644
-index 0000000..e2fb302
---- /dev/null
-+++ b/include/net/netfilter/nf_conntrack_rtcache.h
-@@ -0,0 +1,34 @@
-+#include <linux/gfp.h>
-+#include <net/netfilter/nf_conntrack.h>
-+#include <net/netfilter/nf_conntrack_extend.h>
-+
-+struct dst_entry;
-+
-+struct nf_conn_dst_cache {
-+	struct dst_entry *dst;
-+	int iif;
-+#if IS_ENABLED(CONFIG_NF_CONNTRACK_IPV6)
-+	u32 cookie;
-+#endif
-+
-+};
-+
-+struct nf_conn_rtcache {
-+	struct nf_conn_dst_cache cached_dst[IP_CT_DIR_MAX];
-+};
-+
-+static inline
-+struct nf_conn_rtcache *nf_ct_rtcache_find(const struct nf_conn *ct)
-+{
-+#if IS_ENABLED(CONFIG_NF_CONNTRACK_RTCACHE)
-+	return nf_ct_ext_find(ct, NF_CT_EXT_RTCACHE);
-+#else
-+	return NULL;
-+#endif
-+}
-+
-+static inline int nf_conn_rtcache_iif_get(const struct nf_conn_rtcache *rtc,
-+					  enum ip_conntrack_dir dir)
-+{
-+	return rtc->cached_dst[dir].iif;
-+}
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index b02660f..c213a61 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -106,6 +106,18 @@ config NF_CONNTRACK_EVENTS
- 
- 	  If unsure, say `N'.
- 
-+config NF_CONNTRACK_RTCACHE
-+	tristate "Cache route entries in conntrack objects"
-+	depends on NETFILTER_ADVANCED
-+	depends on NF_CONNTRACK
-+	help
-+	  If this option is enabled, the connection tracking code will
-+	  cache routing information for each connection that is being
-+	  forwarded, at a cost of 32 bytes per conntrack object.
-+
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+	  The module will be called nf_conntrack_rtcache.
-+
- config NF_CONNTRACK_TIMEOUT
- 	bool  'Connection tracking timeout'
- 	depends on NETFILTER_ADVANCED
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 89f73a9..c174ab2 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -18,6 +18,9 @@ obj-$(CONFIG_NETFILTER_NETLINK_LOG) += nfnetlink_log.o
- # connection tracking
- obj-$(CONFIG_NF_CONNTRACK) += nf_conntrack.o
- 
-+# optional conntrack route cache extension
-+obj-$(CONFIG_NF_CONNTRACK_RTCACHE) += nf_conntrack_rtcache.o
-+
- # SCTP protocol connection tracking
- obj-$(CONFIG_NF_CT_PROTO_DCCP) += nf_conntrack_proto_dccp.o
- obj-$(CONFIG_NF_CT_PROTO_GRE) += nf_conntrack_proto_gre.o
-diff --git a/net/netfilter/nf_conntrack_rtcache.c b/net/netfilter/nf_conntrack_rtcache.c
-new file mode 100644
-index 0000000..65fef44
---- /dev/null
-+++ b/net/netfilter/nf_conntrack_rtcache.c
-@@ -0,0 +1,387 @@
-+/* route cache for netfilter.
-+ *
-+ * (C) 2014 Red Hat GmbH
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include <linux/types.h>
-+#include <linux/netfilter.h>
-+#include <linux/skbuff.h>
-+#include <linux/stddef.h>
-+#include <linux/kernel.h>
-+#include <linux/netdevice.h>
-+#include <linux/export.h>
-+#include <linux/module.h>
-+
-+#include <net/dst.h>
-+
-+#include <net/netfilter/nf_conntrack.h>
-+#include <net/netfilter/nf_conntrack_core.h>
-+#include <net/netfilter/nf_conntrack_extend.h>
-+#include <net/netfilter/nf_conntrack_rtcache.h>
-+
-+#if IS_ENABLED(CONFIG_NF_CONNTRACK_IPV6)
-+#include <net/ip6_fib.h>
-+#endif
-+
-+static void __nf_conn_rtcache_destroy(struct nf_conn_rtcache *rtc,
-+				      enum ip_conntrack_dir dir)
-+{
-+	struct dst_entry *dst = rtc->cached_dst[dir].dst;
-+
-+	dst_release(dst);
-+}
-+
-+static void nf_conn_rtcache_destroy(struct nf_conn *ct)
-+{
-+	struct nf_conn_rtcache *rtc = nf_ct_rtcache_find(ct);
-+
-+	if (!rtc)
-+		return;
-+
-+	__nf_conn_rtcache_destroy(rtc, IP_CT_DIR_ORIGINAL);
-+	__nf_conn_rtcache_destroy(rtc, IP_CT_DIR_REPLY);
-+}
-+
-+static void nf_ct_rtcache_ext_add(struct nf_conn *ct)
-+{
-+	struct nf_conn_rtcache *rtc;
-+
-+	rtc = nf_ct_ext_add(ct, NF_CT_EXT_RTCACHE, GFP_ATOMIC);
-+	if (rtc) {
-+		rtc->cached_dst[IP_CT_DIR_ORIGINAL].iif = -1;
-+		rtc->cached_dst[IP_CT_DIR_ORIGINAL].dst = NULL;
-+		rtc->cached_dst[IP_CT_DIR_REPLY].iif = -1;
-+		rtc->cached_dst[IP_CT_DIR_REPLY].dst = NULL;
-+	}
-+}
-+
-+static struct nf_conn_rtcache *nf_ct_rtcache_find_usable(struct nf_conn *ct)
-+{
-+	if (nf_ct_is_untracked(ct))
-+		return NULL;
-+	return nf_ct_rtcache_find(ct);
-+}
-+
-+static struct dst_entry *
-+nf_conn_rtcache_dst_get(const struct nf_conn_rtcache *rtc,
-+			enum ip_conntrack_dir dir)
-+{
-+	return rtc->cached_dst[dir].dst;
-+}
-+
-+static u32 nf_rtcache_get_cookie(int pf, const struct dst_entry *dst)
-+{
-+#if IS_ENABLED(CONFIG_NF_CONNTRACK_IPV6)
-+	if (pf == NFPROTO_IPV6) {
-+		const struct rt6_info *rt = (const struct rt6_info *)dst;
-+
-+		if (rt->rt6i_node)
-+			return (u32)rt->rt6i_node->fn_sernum;
-+	}
-+#endif
-+	return 0;
-+}
-+
-+static void nf_conn_rtcache_dst_set(int pf,
-+				    struct nf_conn_rtcache *rtc,
-+				    struct dst_entry *dst,
-+				    enum ip_conntrack_dir dir, int iif)
-+{
-+	if (rtc->cached_dst[dir].iif != iif)
-+		rtc->cached_dst[dir].iif = iif;
-+
-+	if (rtc->cached_dst[dir].dst != dst) {
-+		struct dst_entry *old;
-+
-+		dst_hold(dst);
-+
-+		old = xchg(&rtc->cached_dst[dir].dst, dst);
-+		dst_release(old);
-+
-+#if IS_ENABLED(CONFIG_NF_CONNTRACK_IPV6)
-+		if (pf == NFPROTO_IPV6)
-+			rtc->cached_dst[dir].cookie =
-+				nf_rtcache_get_cookie(pf, dst);
-+#endif
-+	}
-+}
-+
-+static void nf_conn_rtcache_dst_obsolete(struct nf_conn_rtcache *rtc,
-+					 enum ip_conntrack_dir dir)
-+{
-+	struct dst_entry *old;
-+
-+	pr_debug("Invalidate iif %d for dir %d on cache %p\n",
-+		 rtc->cached_dst[dir].iif, dir, rtc);
-+
-+	old = xchg(&rtc->cached_dst[dir].dst, NULL);
-+	dst_release(old);
-+	rtc->cached_dst[dir].iif = -1;
-+}
-+
-+static unsigned int nf_rtcache_in(const struct nf_hook_ops *ops,
-+				  struct sk_buff *skb,
-+				  const struct net_device *in,
-+				  const struct net_device *out,
-+				  int (*okfn)(struct sk_buff *))
-+{
-+	struct nf_conn_rtcache *rtc;
-+	enum ip_conntrack_info ctinfo;
-+	enum ip_conntrack_dir dir;
-+	struct dst_entry *dst;
-+	struct nf_conn *ct;
-+	int iif;
-+	u32 cookie;
-+
-+	if (skb_dst(skb) || skb->sk)
-+		return NF_ACCEPT;
-+
-+	ct = nf_ct_get(skb, &ctinfo);
-+	if (!ct)
-+		return NF_ACCEPT;
-+
-+	rtc = nf_ct_rtcache_find_usable(ct);
-+	if (!rtc)
-+		return NF_ACCEPT;
-+
-+	/* if iif changes, don't use cache and let ip stack
-+	 * do route lookup.
-+	 *
-+	 * If rp_filter is enabled it might toss skb, so
-+	 * we don't want to avoid these checks.
-+	 */
-+	dir = CTINFO2DIR(ctinfo);
-+	iif = nf_conn_rtcache_iif_get(rtc, dir);
-+	if (in->ifindex != iif) {
-+		pr_debug("ct %p, iif %d, cached iif %d, skip cached entry\n",
-+			 ct, iif, in->ifindex);
-+		return NF_ACCEPT;
-+	}
-+	dst = nf_conn_rtcache_dst_get(rtc, dir);
-+	if (dst == NULL)
-+		return NF_ACCEPT;
-+
-+	cookie = nf_rtcache_get_cookie(ops->pf, dst);
-+
-+	dst = dst_check(dst, cookie);
-+	pr_debug("obtained dst %p for skb %p, cookie %d\n", dst, skb, cookie);
-+	if (likely(dst))
-+		skb_dst_set_noref_force(skb, dst);
-+	else
-+		nf_conn_rtcache_dst_obsolete(rtc, dir);
-+
-+	return NF_ACCEPT;
-+}
-+
-+static unsigned int nf_rtcache_forward(const struct nf_hook_ops *ops,
-+				       struct sk_buff *skb,
-+				       const struct net_device *in,
-+				       const struct net_device *out,
-+				       int (*okfn)(struct sk_buff *))
-+{
-+	struct nf_conn_rtcache *rtc;
-+	enum ip_conntrack_info ctinfo;
-+	enum ip_conntrack_dir dir;
-+	struct nf_conn *ct;
-+	int iif;
-+
-+	ct = nf_ct_get(skb, &ctinfo);
-+	if (!ct)
-+		return NF_ACCEPT;
-+
-+	if (!nf_ct_is_confirmed(ct)) {
-+		if (WARN_ON(nf_ct_rtcache_find(ct)))
-+			return NF_ACCEPT;
-+		nf_ct_rtcache_ext_add(ct);
-+		return NF_ACCEPT;
-+	}
-+
-+	rtc = nf_ct_rtcache_find_usable(ct);
-+	if (!rtc)
-+		return NF_ACCEPT;
-+
-+	dir = CTINFO2DIR(ctinfo);
-+	iif = nf_conn_rtcache_iif_get(rtc, dir);
-+	pr_debug("ct %p, skb %p, dir %d, iif %d, cached iif %d\n",
-+		 ct, skb, dir, iif, in->ifindex);
-+	if (likely(in->ifindex == iif))
-+		return NF_ACCEPT;
-+
-+	nf_conn_rtcache_dst_set(ops->pf, rtc, skb_dst(skb), dir, in->ifindex);
-+	return NF_ACCEPT;
-+}
-+
-+static int nf_rtcache_dst_remove(struct nf_conn *ct, void *data)
-+{
-+	struct nf_conn_rtcache *rtc = nf_ct_rtcache_find(ct);
-+	struct net_device *dev = data;
-+
-+	if (!rtc)
-+		return 0;
-+
-+	if (dev->ifindex == rtc->cached_dst[IP_CT_DIR_ORIGINAL].iif ||
-+	    dev->ifindex == rtc->cached_dst[IP_CT_DIR_REPLY].iif) {
-+		nf_conn_rtcache_dst_obsolete(rtc, IP_CT_DIR_ORIGINAL);
-+		nf_conn_rtcache_dst_obsolete(rtc, IP_CT_DIR_REPLY);
-+	}
-+
-+	return 0;
-+}
-+
-+static int nf_rtcache_netdev_event(struct notifier_block *this,
-+				   unsigned long event, void *ptr)
-+{
-+	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-+	struct net *net = dev_net(dev);
-+
-+	if (event == NETDEV_DOWN)
-+		nf_ct_iterate_cleanup(net, nf_rtcache_dst_remove, dev, 0, 0);
-+
-+	return NOTIFY_DONE;
-+}
-+
-+static struct notifier_block nf_rtcache_notifier = {
-+	.notifier_call = nf_rtcache_netdev_event,
-+};
-+
-+static struct nf_hook_ops rtcache_ops[] = {
-+	{
-+		.hook		= nf_rtcache_in,
-+		.owner		= THIS_MODULE,
-+		.pf		= NFPROTO_IPV4,
-+		.hooknum	= NF_INET_PRE_ROUTING,
-+		.priority       = NF_IP_PRI_LAST,
-+	},
-+	{
-+		.hook           = nf_rtcache_forward,
-+		.owner          = THIS_MODULE,
-+		.pf             = NFPROTO_IPV4,
-+		.hooknum        = NF_INET_FORWARD,
-+		.priority       = NF_IP_PRI_LAST,
-+	},
-+#if IS_ENABLED(CONFIG_NF_CONNTRACK_IPV6)
-+	{
-+		.hook		= nf_rtcache_in,
-+		.owner		= THIS_MODULE,
-+		.pf		= NFPROTO_IPV6,
-+		.hooknum	= NF_INET_PRE_ROUTING,
-+		.priority       = NF_IP_PRI_LAST,
-+	},
-+	{
-+		.hook           = nf_rtcache_forward,
-+		.owner          = THIS_MODULE,
-+		.pf             = NFPROTO_IPV6,
-+		.hooknum        = NF_INET_FORWARD,
-+		.priority       = NF_IP_PRI_LAST,
-+	},
-+#endif
-+};
-+
-+static struct nf_ct_ext_type rtcache_extend __read_mostly = {
-+	.len	= sizeof(struct nf_conn_rtcache),
-+	.align	= __alignof__(struct nf_conn_rtcache),
-+	.id	= NF_CT_EXT_RTCACHE,
-+	.destroy = nf_conn_rtcache_destroy,
-+};
-+
-+static int __init nf_conntrack_rtcache_init(void)
-+{
-+	int ret = nf_ct_extend_register(&rtcache_extend);
-+
-+	if (ret < 0) {
-+		pr_err("nf_conntrack_rtcache: Unable to register extension\n");
-+		return ret;
-+	}
-+
-+	ret = nf_register_hooks(rtcache_ops, ARRAY_SIZE(rtcache_ops));
-+	if (ret < 0) {
-+		nf_ct_extend_unregister(&rtcache_extend);
-+		return ret;
-+	}
-+
-+	ret = register_netdevice_notifier(&nf_rtcache_notifier);
-+	if (ret) {
-+		nf_unregister_hooks(rtcache_ops, ARRAY_SIZE(rtcache_ops));
-+		nf_ct_extend_unregister(&rtcache_extend);
-+	}
-+
-+	return ret;
-+}
-+
-+static int nf_rtcache_ext_remove(struct nf_conn *ct, void *data)
-+{
-+	struct nf_conn_rtcache *rtc = nf_ct_rtcache_find(ct);
-+
-+	return rtc != NULL;
-+}
-+
-+static bool __exit nf_conntrack_rtcache_wait_for_dying(struct net *net)
-+{
-+	bool wait = false;
-+	int cpu;
-+
-+	for_each_possible_cpu(cpu) {
-+		struct nf_conntrack_tuple_hash *h;
-+		struct hlist_nulls_node *n;
-+		struct nf_conn *ct;
-+		struct ct_pcpu *pcpu = per_cpu_ptr(net->ct.pcpu_lists, cpu);
-+
-+		rcu_read_lock();
-+		spin_lock_bh(&pcpu->lock);
-+
-+		hlist_nulls_for_each_entry(h, n, &pcpu->dying, hnnode) {
-+			ct = nf_ct_tuplehash_to_ctrack(h);
-+			if (nf_ct_rtcache_find(ct) != NULL) {
-+				wait = true;
-+				break;
-+			}
-+		}
-+		spin_unlock_bh(&pcpu->lock);
-+		rcu_read_unlock();
-+	}
-+
-+	return wait;
-+}
-+
-+static void __exit nf_conntrack_rtcache_fini(void)
-+{
-+	struct net *net;
-+	int count = 0;
-+
-+	/* remove hooks so no new connections get rtcache extension */
-+	nf_unregister_hooks(rtcache_ops, ARRAY_SIZE(rtcache_ops));
-+
-+	synchronize_net();
-+
-+	unregister_netdevice_notifier(&nf_rtcache_notifier);
-+
-+	rtnl_lock();
-+
-+	/* zap all conntracks with rtcache extension */
-+	for_each_net(net)
-+		nf_ct_iterate_cleanup(net, nf_rtcache_ext_remove, NULL, 0, 0);
-+
-+	for_each_net(net) {
-+		/* .. and make sure they're gone from dying list, too */
-+		while (nf_conntrack_rtcache_wait_for_dying(net)) {
-+			msleep(200);
-+			WARN_ONCE(++count > 25, "Waiting for all rtcache conntracks to go away\n");
-+		}
-+	}
-+
-+	rtnl_unlock();
-+	synchronize_net();
-+	nf_ct_extend_unregister(&rtcache_extend);
-+}
-+module_init(nf_conntrack_rtcache_init);
-+module_exit(nf_conntrack_rtcache_fini);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Florian Westphal <fw@strlen.de>");
-+MODULE_DESCRIPTION("Conntrack route cache extension");
--- 
-2.0.4
-
+> 
+> Jiri
+> 
+> >
+> >Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> >---
+> > include/uapi/linux/if_link.h | 2 +-
+> > net/core/rtnetlink.c         | 4 ++--
+> > 2 files changed, 3 insertions(+), 3 deletions(-)
+> >
+> >diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> >index f7d0d2d..3d8edd8 100644
+> >--- a/include/uapi/linux/if_link.h
+> >+++ b/include/uapi/linux/if_link.h
+> >@@ -145,7 +145,7 @@ enum {
+> > 	IFLA_CARRIER,
+> > 	IFLA_PHYS_PORT_ID,
+> > 	IFLA_CARRIER_CHANGES,
+> >-	IFLA_PHYS_SWITCH_ID,
+> >+	IFLA_PHYS_PARENT_ID,
+> > 	__IFLA_MAX
+> > };
+> > 
+> >diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> >index 61cb7e7..1fe0a16 100644
+> >--- a/net/core/rtnetlink.c
+> >+++ b/net/core/rtnetlink.c
+> >@@ -982,7 +982,7 @@ static int rtnl_phys_switch_id_fill(struct sk_buff *skb, struct net_device *dev)
+> > 		return err;
+> > 	}
+> > 
+> >-	if (nla_put(skb, IFLA_PHYS_SWITCH_ID, psid.id_len, psid.id))
+> >+	if (nla_put(skb, IFLA_PHYS_PARENT_ID, psid.id_len, psid.id))
+> > 		return -EMSGSIZE;
+> > 
+> > 	return 0;
+> >@@ -1222,7 +1222,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+> > 	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
+> > 	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+> > 	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
+> >-	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+> >+	[IFLA_PHYS_PARENT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+> > };
+> > 
+> > static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
+> >-- 
+> >1.9.3
+> >
