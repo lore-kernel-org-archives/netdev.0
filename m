@@ -1,86 +1,41 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: Re: [PATCH v2] sh_eth: Optimization for RX excess judgement
-Date: Mon, 8 Dec 2014 21:16:19 +0900
-Message-ID: <CAH1o70LYFfU6X1+01hfnmzoyNKEGTCNFrKbVzGPwPd7PJQ4o1w@mail.gmail.com>
-References: <1418035701-3871-1-git-send-email-ykaneko0929@gmail.com>
-	<54858FCD.3080206@cogentembedded.com>
+From: "Ulrich Windl" <Ulrich.Windl@rz.uni-regensburg.de>
+Subject: Q: need effective backlog for listen()
+Date: Mon, 08 Dec 2014 13:51:05 +0100
+Message-ID: <5485ACC9020000A100018394@gwsmtp1.uni-regensburg.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <54858FCD.3080206@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rrzmta2.uni-regensburg.de ([194.94.155.52]:44334 "EHLO
+	rrzmta2.uni-regensburg.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753231AbaLHNA1 convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:1:1>);
+	Mon, 8 Dec 2014 08:00:27 -0500
+Received: from rrzmta2.uni-regensburg.de (localhost [127.0.0.1])
+	by localhost (Postfix) with SMTP id B876B51D80
+	for <netdev@vger.kernel.org>; Mon,  8 Dec 2014 13:51:07 +0100 (CET)
+Received: from gwsmtp1.uni-regensburg.de (gwsmtp1.uni-regensburg.de [132.199.5.51])
+	by rrzmta2.uni-regensburg.de (Postfix) with ESMTP id 79CED50C43
+	for <netdev@vger.kernel.org>; Mon,  8 Dec 2014 13:51:06 +0100 (CET)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Sergei,
+(not subscribed to the list, plese keep me on CC:)
 
-2014-12-08 20:47 GMT+09:00 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
-> Hello.
->
-> On 12/8/2014 1:48 PM, Yoshihiro Kaneko wrote:
->
->> From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
->
->
->> Both of 'boguscnt' and 'quota' have nearly meaning as the condition of
->> the reception loop.
->> In order to cut down redundant processing, this patch changes excess
->> judgement.
->
->
->> Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
->> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
->> ---
->
->
->> This patch is based on net-next tree.
->
->
->> v2 [Yoshihiro Kaneko]
->> * re-spin for net-next.
->> * remove unneeded check of "quota".
->
->
->    This is not a complete list. :-/
+Hi!
 
-Sorry, I'll update on the next time.
+I have a problem I could not find the answer. I suspect the problem arises from Linux derivating from standard functionality...
 
->
->>   drivers/net/ethernet/renesas/sh_eth.c | 10 +++++-----
->>   1 file changed, 5 insertions(+), 5 deletions(-)
->
->
->> diff --git a/drivers/net/ethernet/renesas/sh_eth.c
->> b/drivers/net/ethernet/renesas/sh_eth.c
->> index dbe8606..266c9b2 100644
->> --- a/drivers/net/ethernet/renesas/sh_eth.c
->> +++ b/drivers/net/ethernet/renesas/sh_eth.c
->
-> [...]
->>
->> @@ -1501,6 +1499,8 @@ static int sh_eth_rx(struct net_device *ndev, u32
->> intr_status, int *quota)
->>                 sh_eth_write(ndev, EDRRR_R, EDRRR);
->>         }
->>
->> +       *quota -= limit - boguscnt + 1;
->> +
->
->
->    Sorry for the wrong previous suggestion, it clearly should have been -1,
-> not +1. :-<
+I have written a server that should accept n TCP connections at most. I was expecting that the backlog parameter of listen will cause extra connection requests either
+1) to be refused
+or
+2) to time out eventually
 
-Oh, I agree.
+(The standard seems to say that extra connections are refused)
 
-Thanks,
-Kaneko
+However none of the above see ms true. Even if my server delays accept()ing new connections, no client ever sees a "connection refused" or "connection timed out". Is there any chance to signal the client that no more connections are accepted at the moment?
 
->
-> [...]
->
-> WBR, Sergei
->
+Regards,
+Ulrich Windl
