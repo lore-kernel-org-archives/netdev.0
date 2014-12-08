@@ -1,91 +1,47 @@
-From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
-Subject: Re: wl1251: NVS firmware data
-Date: Mon, 8 Dec 2014 16:22:25 +0100
-Message-ID: <201412081622.25541@pali>
-References: <201411271506.20457@pali> <201412061402.21514@pali> <CACVXFVPOLfDuqc0nLb-zM8vH618DLXy0xtZbUOn5_XvdxRZSDw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart6013142.Y7C6ce8dYc";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Pavel Machek <pavel@ucw.cz>,
-	"Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Grazvydas Ignotas <notasas@gmail.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-	Aaro Koskinen <aaro.koskinen@iki.fi>,
-	Kalle Valo <kvalo@adurom.com>,
-	Sebastian Reichel <sre@ring0.de>,
-	David Gnedt <david.gnedt@davizone.at>
-To: Ming Lei <ming.lei@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACVXFVPOLfDuqc0nLb-zM8vH618DLXy0xtZbUOn5_XvdxRZSDw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jouni Malinen <jouni@codeaurora.org>
+Subject: [PATCH] bridge: Remove BR_PROXYARP flooding check code
+Date: Mon,  8 Dec 2014 17:27:40 +0200
+Message-ID: <1418052460-30691-1-git-send-email-jouni@codeaurora.org>
+Cc: netdev@vger.kernel.org, Kyeyoon Park <kyeyoonp@codeaurora.org>,
+	Jouni Malinen <jouni@codeaurora.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.11.231]:46748 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751216AbaLHP2n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 10:28:43 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart6013142.Y7C6ce8dYc
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+From: Kyeyoon Park <kyeyoonp@codeaurora.org>
 
-On Monday 08 December 2014 16:18:18 Ming Lei wrote:
-> On Sat, Dec 6, 2014 at 9:02 PM, Pali Roh=C3=A1r=20
-<pali.rohar@gmail.com> wrote:
-> > On Saturday 06 December 2014 13:49:54 Pavel Machek wrote:
-> >  /**
-> >=20
-> > + * request_firmware_prefer_user: - prefer usermode helper
-> > for loading firmware + * @firmware_p: pointer to firmware
-> > image
-> > + * @name: name of firmware file
-> > + * @device: device for which firmware is being loaded
-> > + *
-> > + * This function works pretty much like request_firmware(),
-> > but it prefer + * usermode helper. If usermode helper fails
-> > then it fallback to direct access. + * Usefull for dynamic
-> > or model specific firmware data. + **/
-> > +int request_firmware_prefer_user(const struct firmware
-> > **firmware_p, +                           const char *name,
-> > struct device *device) +{
-> > +       int ret;
-> > +       __module_get(THIS_MODULE);
-> > +       ret =3D _request_firmware(firmware_p, name, device,
-> > +                               FW_OPT_UEVENT |
-> > FW_OPT_PREFER_USER); +       module_put(THIS_MODULE);
-> > +       return ret;
-> > +}
-> > +EXPORT_SYMBOL_GPL(request_firmware_prefer_user);
->=20
-> I'd like to introduce request_firmware_user() which only
-> requests firmware from user space, and this way is simpler
-> and more flexible since we have request_firmware_direct()
-> already.
->=20
-> Thanks,
-> Ming Lei
+Because dropping broadcast packets for IEEE 802.11 Proxy ARP is more
+selective than previously thought, it is better to remove the direct
+dropping logic in the bridge code in favor of using the netfilter
+infrastructure to provide more control on which frames get dropped. This
+code was added in commit 958501163ddd ("bridge: Add support for IEEE
+802.11 Proxy ARP").
 
-Ming, for wl1251 NVS data we need to load use usermode helper and=20
-fallback to direct load. So I think it is better to handle this=20
-request in firmware code and not in driver.
+Signed-off-by: Kyeyoon Park <kyeyoonp@codeaurora.org>
+Signed-off-by: Jouni Malinen <jouni@codeaurora.org>
+---
+ net/bridge/br_forward.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-=2D-=20
-Pali Roh=C3=A1r
-pali.rohar@gmail.com
-
---nextPart6013142.Y7C6ce8dYc
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iEYEABECAAYFAlSFwjEACgkQi/DJPQPkQ1LiOwCfYDvcaBsb2UkGRzsc6RY/9zSb
-K5cAnj47jXkv66tvdcHMuFCFs2a0Itc2
-=mV9Q
------END PGP SIGNATURE-----
-
---nextPart6013142.Y7C6ce8dYc--
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index f96933a..8a025a7 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -185,10 +185,6 @@ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
+ 		if (unicast && !(p->flags & BR_FLOOD))
+ 			continue;
+ 
+-		/* Do not flood to ports that enable proxy ARP */
+-		if (p->flags & BR_PROXYARP)
+-			continue;
+-
+ 		prev = maybe_deliver(prev, p, skb, __packet_hook);
+ 		if (IS_ERR(prev))
+ 			goto out;
+-- 
+1.9.1
