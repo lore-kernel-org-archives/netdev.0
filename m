@@ -1,44 +1,37 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
 Subject: Re: [RFC][PATCHES] iov_iter.c rewrite
-Date: Mon, 8 Dec 2014 18:08:27 +0000
-Message-ID: <20141208180824.GC22149@ZenIV.linux.org.uk>
+Date: Mon, 8 Dec 2014 18:14:04 +0000
+Message-ID: <20141208181401.GD22149@ZenIV.linux.org.uk>
 References: <20141204202011.GO29748@ZenIV.linux.org.uk>
  <20141208164650.GB29028@node.dhcp.inet.fi>
- <20141208175805.GB22149@ZenIV.linux.org.uk>
+ <CA+55aFz6izpVGxkziynRXg7zbHzteQyPJH1Kg91ZO3fzqn3LaQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Kirill A. Shutemov" <kirill@shutemov.name>
+Cc: "Kirill A. Shutemov" <kirill@shutemov.name>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20141208175805.GB22149@ZenIV.linux.org.uk>
+In-Reply-To: <CA+55aFz6izpVGxkziynRXg7zbHzteQyPJH1Kg91ZO3fzqn3LaQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 08, 2014 at 05:58:05PM +0000, Al Viro wrote:
-> It looks like the second VIRTUAL_BUG_ON() in __phys_addr(), most likely
-> from __pa(), from virt_to_page(), from
->                 unsigned long addr = (unsigned long)v.iov_base, end;
->                 size_t len = v.iov_len + (*start = addr & (PAGE_SIZE - 1));
-> 
->                 if (len > maxpages * PAGE_SIZE)
->                         len = maxpages * PAGE_SIZE;
->                 addr &= ~(PAGE_SIZE - 1);
->                 for (end = addr + len; addr < end; addr += PAGE_SIZE)
->                         get_page(*pages++ = virt_to_page(addr));
->                 return len - *start;
-> in iov_iter_get_pages().  And that's ITER_KVEC case there...  Further
-> call chain looks like dio_refill_pages(), from dio_get_page(), from
-> do_direct_io(), eventually from kernel_read() and finit_module(),
-> Presumably called on O_DIRECT descriptor...
+On Mon, Dec 08, 2014 at 10:07:55AM -0800, Linus Torvalds wrote:
 
-FWIW, virt_to_page() is probably not OK to call on an address in the
-middle of vmalloc'ed area, is it?  Would
-		for (end = addr + len; addr < end; addr += PAGE_SIZE) {
-			if (is_vmalloc_addr(addr))
-				ACCESS_ONCE(*(char *)addr);
-			get_page(*pages++ = virt_to_page(addr));
-		}
-be a safe replacement for the loop in the above?
+> Which is in the vmalloc address space. So somebody used a vmalloc'ed
+> address and tried to convert it to a physical address in order to look
+> up the page.
+> 
+> Which is not a valid operation, and the BUG_ON() is definitely proper.
+> 
+> Now *why* something tried to do a virt_to_page() on a vmalloc'ed
+> address, that I leave to others.
+
+iov_iter_get_pages() in ITER_KVEC case, trying to avoid get_user_pages_fast()
+and getting it wrong.  FWIW, the reproducer is finit_module(fd, ....)
+where fd has been opened with O_DIRECT.  In that case we get kernel_read()
+on O_DIRECT and the buffer has just been vmalloc'ed.
+
+What's the sane way to grab struct page * for a vmalloc'ed address?
