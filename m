@@ -1,61 +1,46 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: AW: ixgbe: Regression, unsupported SFP+ modules on 10Gbit/s
- X520 NIC no longer work with allow_unsupported_sfp=1
-Date: Mon, 8 Dec 2014 20:16:12 +0000
-Message-ID: <87618083B2453E4A8714035B62D67992501ADC3B@FMSMSX105.amr.corp.intel.com>
-References: <D76AF9B3DDF5FF49833AC0A1396549060314FBD8@s554.babiel.com>
-  <87618083B2453E4A8714035B62D67992337B4938@FMSMSX102.amr.corp.intel.com>
-  <D76AF9B3DDF5FF49833AC0A1396549060314FC0C@s554.babiel.com>
- <1361367596.7173.52.camel@jtkirshe-mobl>
- <loom.20141206T180736-199@post.gmane.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: 3.12.33 - BUG xfrm_selector_match+0x25/0x2f6
+Date: Mon, 8 Dec 2014 22:40:43 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1412082234350.2401@ja.home.ssi.bg>
+References: <547F2462.6040405@smart-weblications.de> <20141204075627.GE6390@secunet.com> <alpine.LFD.2.11.1412042338370.4841@ja.home.ssi.bg> <5481173A.9060308@smart-weblications.de> <alpine.LFD.2.11.1412051126090.2522@ja.home.ssi.bg> <5481B944.2000002@smart-weblications.de>
+ <alpine.LFD.2.11.1412072019410.1885@ja.home.ssi.bg> <54858948.2060007@smart-weblications.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Martin Bosner <m.bosner@x-ion.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:2529 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752481AbaLHUQR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 15:16:17 -0500
-In-Reply-To: <loom.20141206T180736-199@post.gmane.org>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	stable@vger.kernel.org, Simon Horman <horms@verge.net.au>,
+	lvs-devel@vger.kernel.org
+To: Smart Weblications GmbH - Florian Wiessner
+	<f.wiessner@smart-weblications.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54858948.2060007@smart-weblications.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-
->owner@vger.kernel.org] On Behalf Of Martin Bosner
->Sent: Saturday, December 06, 2014 9:08 AM
->To: netdev@vger.kernel.org
->Subject: Re: AW: ixgbe: Regression, unsupported SFP+ modules
->on 10Gbit/s X520 NIC no longer work with
->allow_unsupported_sfp=1
->
->Jeff Kirsher <jeffrey.t.kirsher <at> intel.com> writes:
->
->>
->> We are currently working on the resolution to your issue.
->I have also
->> added your patch to my queue of ixgbe patches.
->>
->> Cheers,
->> Jeff
->>
->
->Any news on this?
 
-https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/drivers/net/ethernet/intel/ixgbe?id=345be204dcbb2cc7580a63bc377a185125a6f822
+	Hello,
 
-Thanks,
-Emil
+On Mon, 8 Dec 2014, Smart Weblications GmbH - Florian Wiessner wrote:
 
->
->
->
->--
->To unsubscribe from this list: send the line "unsubscribe
->netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-
->info.html
+> Am 07.12.2014 19:27, schrieb Julian Anastasov:>
+> >
+> > 	I'm attaching a patch that avoids rerouting in
+> > IPVS for LOCAL_IN. Please test it in your setup. My tests
+> > were with NAT on today's net tree. I checked that it
+> > compiles for 3.12.33. You can use the default snat_reroute=1.
+> >
+> 
+> I'm sorry to tell you that your patch does not fix the problem. The BUG happens
+> as soon as the client sends PASV, the ftp server does not return "Entering
+> Passive Mode":
+
+	Patch is to avoid the xfrm_selector_match crash,
+may be caused when using local client (mail?).
+For nf_ct_seqadj_set you have to use commit b25adce16064
+("ipvs: correct usage/allocation of seqadj ext in ipvs").
+I'll send it to you privately...
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
