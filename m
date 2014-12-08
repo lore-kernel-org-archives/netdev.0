@@ -1,92 +1,55 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net v2 3/5] cxgb4i: handle non-pdu-aligned rx and additional
- types of negative advice
-Date: Mon, 08 Dec 2014 14:36:39 +0300
-Message-ID: <54858D47.3080005@cogentembedded.com>
-References: <201412080958.sB89wEsj005499@localhost6.localdomain6>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next v3 2/2] rocker: remove swdev mode
+Date: Mon, 08 Dec 2014 12:41:34 +0100
+Message-ID: <54858E6E.7010707@redhat.com>
+References: <1417935267-6000-3-git-send-email-roopa@cumulusnetworks.com> <20141207081928.GA2215@casper.infradead.org> <20141208110301.GA1885@nanopsycho.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hariprasad@chelsio.com, anish@chelsio.com, hch@infradead.org,
-	James.Bottomley@HansenPartnership.com, michaelc@cs.wisc.edu,
-	davem@davemloft.net
-To: kxie@chelsio.com, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <201412080958.sB89wEsj005499@localhost6.localdomain6>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Thomas Graf <tgraf@suug.ch>, roopa@cumulusnetworks.com,
+	sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org,
+	john.fastabend@gmail.com, stephen@networkplumber.org,
+	linville@tuxdriver.com, vyasevic@redhat.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42736 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752111AbaLHLmy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Dec 2014 06:42:54 -0500
+In-Reply-To: <20141208110301.GA1885@nanopsycho.brq.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 12/08/2014 12:03 PM, Jiri Pirko wrote:
+> Sun, Dec 07, 2014 at 09:19:28AM CET, tgraf@suug.ch wrote:
+>> On 12/06/14 at 10:54pm, roopa@cumulusnetworks.com wrote:
+>>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>>
 
-On 12/8/2014 12:58 PM, kxie@chelsio.com wrote:
+Please provide a normal, non-empty commit message as
+everyone else ...
 
-> [PATCH net v2 3/5] cxgb4i: handle non-pdu-aligned rx data and additional types of negative advice
-
-    The patch summary shouldn't be duplicated in the change log, at least not 
-like this...
-
-> From: Karen Xie <kxie@chelsio.com>
-
-> - abort the connection upon receiving of cpl_rx_data, which means the pdu cannot be recovered from the tcp stream. This could be due to pdu header corruption.
-> - handle additional types of negative advice returned by h/w.
-
-> Signed-off-by: Karen Xie <kxie@chelsio.com>
-> ---
->   drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   34 +++++++++++++++++++++++++++++++---
->   1 files changed, 31 insertions(+), 3 deletions(-)
-
-> diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-> index b834bde..051adab 100644
-> --- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-> +++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-> @@ -845,6 +845,13 @@ static void csk_act_open_retry_timer(unsigned long data)
+>>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+...
+>>> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+>>> index fded127..9f1d256 100644
+>>> --- a/drivers/net/ethernet/rocker/rocker.c
+>>> +++ b/drivers/net/ethernet/rocker/rocker.c
+>>> @@ -3755,7 +3739,7 @@ static int rocker_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+>>>   				      u32 filter_mask)
+>>>   {
+>>>   	struct rocker_port *rocker_port = netdev_priv(dev);
+>>> -	u16 mode = BRIDGE_MODE_SWDEV;
+>>> +	u16 mode = -1;
+>>         ^^^
+>> I assume you meant s16
 >
->   }
+> well, I see no problem in using u16. IFLA_BRIDGE_MODE attr is u16 so
+> mode should stay u16.
 >
-> +static inline int is_neg_adv(unsigned int status)
+> But maybe better to add:
+> #define BRIDGE_MODE_UNDEF 0xFFFF
 
-    'bool' fits better.
-
-> +{
-> +	return status == CPL_ERR_RTX_NEG_ADVICE ||
-> +		status == CPL_ERR_KEEPALV_NEG_ADVICE ||
-> +		status == CPL_ERR_PERSIST_NEG_ADVICE;
-> +}
-> +
-[...]
-> @@ -1027,6 +1033,27 @@ rel_skb:
->   	__kfree_skb(skb);
->   }
->
-> +static void do_rx_data(struct cxgbi_device *cdev, struct sk_buff *skb)
-> +{
-> +	struct cxgbi_sock *csk;
-> +	struct cpl_rx_data *cpl = (struct cpl_rx_data *)skb->data;
-> +	unsigned int tid = GET_TID(cpl);
-> +	struct cxgb4_lld_info *lldi = cxgbi_cdev_priv(cdev);
-> +	struct tid_info *t = lldi->tids;
-> +
-> +	csk = lookup_tid(t, tid);
-> +	if (!csk) {
-> +		pr_err("can't find connection for tid %u.\n", tid);
-> +	} else {
-> +		/* not expecting this, reset the connection. */
-> +		pr_err("csk 0x%p, tid %u, rcv cpl_rx_data.\n", csk, tid);
-
-    Both situations considered an error?
-
-> +		spin_lock_bh(&csk->lock);
-> +		send_abort_req(csk);
-> +		spin_unlock_bh(&csk->lock);
-> +	}
-> +	__kfree_skb(skb);
-> +}
-> +
->   static void do_rx_iscsi_hdr(struct cxgbi_device *cdev, struct sk_buff *skb)
->   {
->   	struct cxgbi_sock *csk;
-[...]
-
-WBR, Sergei
-
+Yep, something along these lines seems better.
