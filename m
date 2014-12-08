@@ -1,74 +1,37 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: [PATCH v2] sh_eth: Optimization for RX excess judgement
-Date: Mon,  8 Dec 2014 19:48:21 +0900
-Message-ID: <1418035701-3871-1-git-send-email-ykaneko0929@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Webmail Administrator <micro10322@peoplepc.com>
+Subject: Update Your Account!!
+Date: Mon, 8 Dec 2014 11:42:36 +0100 (GMT+01:00)
+Message-ID: <2007551.1418035356415.JavaMail.root@elwamui-huard.atl.sa.earthlink.net>
+Reply-To: Webmail Administrator <mailcontrolunit1@mail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from elasmtp-dupuy.atl.sa.earthlink.net ([209.86.89.62]:54282 "EHLO
+	elasmtp-dupuy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753034AbaLHKvH convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Dec 2014 05:51:07 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+Dear users Webmail
 
-Both of 'boguscnt' and 'quota' have nearly meaning as the condition of
-the reception loop.
-In order to cut down redundant processing, this patch changes excess
-judgement.
+The answering machine has exceeded the specified storage limit, the sys=
+tem administrator, you may not be able to send or receive new messages =
+until you re-impose revalidate mailbox.To your mailbox
 
-Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
-Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
----
+To ensure that you will not experience service interruption, will confi=
+rm your account by filling out the credentials of
+as follows:
 
-This patch is based on net-next tree.
-
-v2 [Yoshihiro Kaneko]
-* re-spin for net-next.
-* remove unneeded check of "quota".
-
- drivers/net/ethernet/renesas/sh_eth.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index dbe8606..266c9b2 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1394,10 +1394,13 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 
- 	int entry = mdp->cur_rx % mdp->num_rx_ring;
- 	int boguscnt = (mdp->dirty_rx + mdp->num_rx_ring) - mdp->cur_rx;
-+	int limit;
- 	struct sk_buff *skb;
- 	u16 pkt_len = 0;
- 	u32 desc_status;
- 
-+	boguscnt = min(boguscnt, *quota);
-+	limit = boguscnt;
- 	rxdesc = &mdp->rx_ring[entry];
- 	while (!(rxdesc->status & cpu_to_edmac(mdp, RD_RACT))) {
- 		desc_status = edmac_to_cpu(mdp, rxdesc->status);
-@@ -1406,11 +1409,6 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 		if (--boguscnt < 0)
- 			break;
- 
--		if (*quota <= 0)
--			break;
--
--		(*quota)--;
--
- 		if (!(desc_status & RDFEND))
- 			ndev->stats.rx_length_errors++;
- 
-@@ -1501,6 +1499,8 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 		sh_eth_write(ndev, EDRRR_R, EDRRR);
- 	}
- 
-+	*quota -= limit - boguscnt + 1;
-+
- 	return *quota <= 0;
- }
- 
--- 
-1.9.1
-
+* Username:
+* Password:
+* Date of birth:
+* Country:
+=20
+System Administrator
+=46orums Copyright =C2=A9 2005-2014 VMware, Inc.
+VMware and Zimbra are registered trademarks or trademarks of VMware, In=
+c.
