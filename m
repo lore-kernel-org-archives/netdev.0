@@ -1,43 +1,68 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH v3 iproute2] bridge link: add option 'self'
-Date: Mon, 8 Dec 2014 12:06:19 +0100
-Message-ID: <20141208110619.GC1885@nanopsycho.brq.redhat.com>
-References: <1417854061-4675-1-git-send-email-roopa@cumulusnetworks.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH] xen-netfront: Fix handling packets on compound
+ pages with skb_linearize
+Date: Mon, 8 Dec 2014 11:11:15 +0000
+Message-ID: <54858753.1070801@citrix.com>
+References: <1407778343-13622-1-git-send-email-zoltan.kiss@citrix.com>	<547C2CFC.7060908@canonical.com> <20141208101936.GA7491@hercules>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
-	john.fastabend@gmail.com, stephen@networkplumber.org,
-	linville@tuxdriver.com, vyasevic@redhat.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: roopa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:46699 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755122AbaLHLGW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 06:06:22 -0500
-Received: by mail-wg0-f42.google.com with SMTP id z12so5945787wgg.29
-        for <netdev@vger.kernel.org>; Mon, 08 Dec 2014 03:06:21 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1417854061-4675-1-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	<netdev@vger.kernel.org>, Kamal Mostafa <kamal@canonical.com>,
+	<linux-kernel@vger.kernel.org>,
+	Paul Durrant <paul.durrant@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	<xen-devel@lists.xenproject.org>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>
+To: Luis Henriques <luis.henriques@canonical.com>,
+	Stefan Bader <stefan.bader@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141208101936.GA7491@hercules>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sat, Dec 06, 2014 at 09:21:01AM CET, roopa@cumulusnetworks.com wrote:
->From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
->Currently self is set internally only if hwmode is set.
->This makes it necessary for the hw to have a mode.
->There is no hwmode really required to go to hardware. So, introduce
->self for anybody who wants to target hardware.
->
->v1 -> v2
->    - fix a few bugs. Initialize flags to zero: this was required to
->    keep the current behaviour unchanged.
->
->v2 -> v3
->    - fix comment
->
->Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com> 
+On 08/12/14 10:19, Luis Henriques wrote:
+> On Mon, Dec 01, 2014 at 09:55:24AM +0100, Stefan Bader wrote:
+>> On 11.08.2014 19:32, Zoltan Kiss wrote:
+>>> There is a long known problem with the netfront/netback interface: if the guest
+>>> tries to send a packet which constitues more than MAX_SKB_FRAGS + 1 ring slots,
+>>> it gets dropped. The reason is that netback maps these slots to a frag in the
+>>> frags array, which is limited by size. Having so many slots can occur since
+>>> compound pages were introduced, as the ring protocol slice them up into
+>>> individual (non-compound) page aligned slots. The theoretical worst case
+>>> scenario looks like this (note, skbs are limited to 64 Kb here):
+>>> linear buffer: at most PAGE_SIZE - 17 * 2 bytes, overlapping page boundary,
+>>> using 2 slots
+>>> first 15 frags: 1 + PAGE_SIZE + 1 bytes long, first and last bytes are at the
+>>> end and the beginning of a page, therefore they use 3 * 15 = 45 slots
+>>> last 2 frags: 1 + 1 bytes, overlapping page boundary, 2 * 2 = 4 slots
+>>> Although I don't think this 51 slots skb can really happen, we need a solution
+>>> which can deal with every scenario. In real life there is only a few slots
+>>> overdue, but usually it causes the TCP stream to be blocked, as the retry will
+>>> most likely have the same buffer layout.
+>>> This patch solves this problem by linearizing the packet. This is not the
+>>> fastest way, and it can fail much easier as it tries to allocate a big linear
+>>> area for the whole packet, but probably easier by an order of magnitude than
+>>> anything else. Probably this code path is not touched very frequently anyway.
+>>>
+>>> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+>>> Cc: Wei Liu <wei.liu2@citrix.com>
+>>> Cc: Ian Campbell <Ian.Campbell@citrix.com>
+>>> Cc: Paul Durrant <paul.durrant@citrix.com>
+>>> Cc: netdev@vger.kernel.org
+>>> Cc: linux-kernel@vger.kernel.org
+>>> Cc: xen-devel@lists.xenproject.org
+>>
+>> This does not seem to be marked explicitly as stable. Has someone already asked
+>> David Miller to put it on his stable queue? IMO it qualifies quite well and the
+>> actual change should be simple to pick/backport.
+>>
+> 
+> Thank you Stefan, I'm queuing this for the next 3.16 kernel release.
 
-Reviewed-by: Jiri Pirko <jiri@resnulli.us>
+Don't backport this yes.  It's broken.  It produces malformed requests
+and netback will report a fatal error and stop all traffic on the VIF.
+
+David
