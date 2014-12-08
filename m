@@ -1,52 +1,92 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH][net-next] net: avoid to call skb_queue_len again
-Date: Mon, 08 Dec 2014 14:28:22 +0300
-Message-ID: <54858B56.1020607@cogentembedded.com>
-References: <1417772948-17909-1-git-send-email-roy.qing.li@gmail.com>	<5481BBF2.40806@cogentembedded.com>	<1417789870.15618.1.camel@edumazet-glaptop2.roam.corp.google.com> <CAJFZqHzeESfMBqb1gQr4DsE-v_fSfUX+AyWbt_VriJJ8Dj2FnA@mail.gmail.com>
+Subject: Re: [PATCH net v2 3/5] cxgb4i: handle non-pdu-aligned rx and additional
+ types of negative advice
+Date: Mon, 08 Dec 2014 14:36:39 +0300
+Message-ID: <54858D47.3080005@cogentembedded.com>
+References: <201412080958.sB89wEsj005499@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Li RongQing <roy.qing.li@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:39754 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752111AbaLHL2W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 06:28:22 -0500
-Received: by mail-la0-f51.google.com with SMTP id ms9so3714405lab.24
-        for <netdev@vger.kernel.org>; Mon, 08 Dec 2014 03:28:21 -0800 (PST)
-In-Reply-To: <CAJFZqHzeESfMBqb1gQr4DsE-v_fSfUX+AyWbt_VriJJ8Dj2FnA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hariprasad@chelsio.com, anish@chelsio.com, hch@infradead.org,
+	James.Bottomley@HansenPartnership.com, michaelc@cs.wisc.edu,
+	davem@davemloft.net
+To: kxie@chelsio.com, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <201412080958.sB89wEsj005499@localhost6.localdomain6>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hello.
 
-On 12/8/2014 3:46 AM, Li RongQing wrote:
+On 12/8/2014 12:58 PM, kxie@chelsio.com wrote:
 
->>>> From: Li RongQing <roy.qing.li@gmail.com>
+> [PATCH net v2 3/5] cxgb4i: handle non-pdu-aligned rx data and additional types of negative advice
 
->>>> the queue length of sd->input_pkt_queue has been putted into qlen,
+    The patch summary shouldn't be duplicated in the change log, at least not 
+like this...
 
->>>      s/putted/put/, it's irregular verb.
+> From: Karen Xie <kxie@chelsio.com>
 
-> I will fix it and  resend this patch
+> - abort the connection upon receiving of cpl_rx_data, which means the pdu cannot be recovered from the tcp stream. This could be due to pdu header corruption.
+> - handle additional types of negative advice returned by h/w.
 
->>>> and impossible to change, since hold the lock
+> Signed-off-by: Karen Xie <kxie@chelsio.com>
+> ---
+>   drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   34 +++++++++++++++++++++++++++++++---
+>   1 files changed, 31 insertions(+), 3 deletions(-)
 
->>>      I can't parse that. Who holds the lock?
+> diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+> index b834bde..051adab 100644
+> --- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+> +++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+> @@ -845,6 +845,13 @@ static void csk_act_open_retry_timer(unsigned long data)
+>
+>   }
+>
+> +static inline int is_neg_adv(unsigned int status)
 
->> This thread/cpu holds the lock to manipulate input_pkt_queue.
+    'bool' fits better.
 
->> Otherwise, the following would break horribly....
+> +{
+> +	return status == CPL_ERR_RTX_NEG_ADVICE ||
+> +		status == CPL_ERR_KEEPALV_NEG_ADVICE ||
+> +		status == CPL_ERR_PERSIST_NEG_ADVICE;
+> +}
+> +
+[...]
+> @@ -1027,6 +1033,27 @@ rel_skb:
+>   	__kfree_skb(skb);
+>   }
+>
+> +static void do_rx_data(struct cxgbi_device *cdev, struct sk_buff *skb)
+> +{
+> +	struct cxgbi_sock *csk;
+> +	struct cpl_rx_data *cpl = (struct cpl_rx_data *)skb->data;
+> +	unsigned int tid = GET_TID(cpl);
+> +	struct cxgb4_lld_info *lldi = cxgbi_cdev_priv(cdev);
+> +	struct tid_info *t = lldi->tids;
+> +
+> +	csk = lookup_tid(t, tid);
+> +	if (!csk) {
+> +		pr_err("can't find connection for tid %u.\n", tid);
+> +	} else {
+> +		/* not expecting this, reset the connection. */
+> +		pr_err("csk 0x%p, tid %u, rcv cpl_rx_data.\n", csk, tid);
 
->> __skb_queue_tail(&sd->input_pkt_queue, skb);
+    Both situations considered an error?
 
-> Thanks Eric
-
-    I expect you to also refine the description, so that it's meaningful, 
-unlike now.
-
-> -Roy
+> +		spin_lock_bh(&csk->lock);
+> +		send_abort_req(csk);
+> +		spin_unlock_bh(&csk->lock);
+> +	}
+> +	__kfree_skb(skb);
+> +}
+> +
+>   static void do_rx_iscsi_hdr(struct cxgbi_device *cdev, struct sk_buff *skb)
+>   {
+>   	struct cxgbi_sock *csk;
+[...]
 
 WBR, Sergei
+
