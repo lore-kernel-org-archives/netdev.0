@@ -1,57 +1,74 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: net-next merge window closure
-Date: Mon, 08 Dec 2014 18:20:38 -0800
-Message-ID: <1418091638.2410.21.camel@jtkirshe-mobl>
+From: "Kirill A. Shutemov" <kirill@shutemov.name>
+Subject: Re: [RFC][PATCHES] iov_iter.c rewrite
+Date: Tue, 9 Dec 2014 04:21:35 +0200
+Message-ID: <20141209022135.GA992@node.dhcp.inet.fi>
+References: <20141208164650.GB29028@node.dhcp.inet.fi>
+ <20141208175805.GB22149@ZenIV.linux.org.uk>
+ <20141208180824.GC22149@ZenIV.linux.org.uk>
+ <CA+55aFxwrH4vsyw2ix=HqDK9Z=fw98xtOL8=57prm8qgVmAFfA@mail.gmail.com>
+ <20141208182012.GE22149@ZenIV.linux.org.uk>
+ <CA+55aFxrrTV-xBbvEzVKsXRVKyvZhQZj-6BNDpTsG4J5k6CJEg@mail.gmail.com>
+ <20141208184632.GG22149@ZenIV.linux.org.uk>
+ <CA+55aFyh0cV+ztK47mu1QN6aF4VvPE1V5zF7_X2TdYxZ38zZRA@mail.gmail.com>
+ <20141208192816.GH22149@ZenIV.linux.org.uk>
+ <20141209015651.GI22149@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-pCbbNV6XN9DEjli4eGjG"
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:62280 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752455AbaLICUn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Dec 2014 21:20:43 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141209015651.GI22149@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, Dec 09, 2014 at 01:56:51AM +0000, Al Viro wrote:
+> On Mon, Dec 08, 2014 at 07:28:17PM +0000, Al Viro wrote:
+> > On Mon, Dec 08, 2014 at 10:57:31AM -0800, Linus Torvalds wrote:
+> > > So the whole "get_page()" thing is broken. Iterating over pages in a
+> > > KVEC is simply wrong, wrong, wrong. It needs to fail.
+> > 
+> > Well, _that_ is easy to do, of course...  E.g. by replacing that thing in
+> > iov_iter_get_pages()/iov_iter_get_pages_alloc() with ({ return -EFAULT; })
+> > will do it.
+> 
+> OK, folded and pushed (i.e. in vfs.git#iov_iter and vfs.git#for-next).
+> Matches earlier behaviour; oops reproducer is easy -
+> 
+> dd if=/dev/zero of=foo.ko bs=4096 count=1
+> cat >a.c <<'EOF'
+> #define _GNU_SOURCE
+> #include <unistd.h>
+> #include <fcntl.h>
+> #include <sys/stat.h>
+> #include <sys/syscall.h>
+> main()
+> {
+>         int fd = open("foo.ko", 00040000);
+>         syscall(__NR_finit_module, fd, "", 0);
+> }
+> EOF
+> gcc a.c
+> strace ./a.out
+> 
+> Correct behaviour (both the mainline and this series with fixes folded):
+> open("foo.ko", O_RDONLY|O_DIRECT)       = 3
+> finit_module(3, "", 0)                  = -1 EFAULT (Bad address)
+> Incorrect one:
+> open("foo.ko", O_RDONLY|O_DIRECT)       = 3
+> finit_module(3, "", 0 <unfinished ...>
+> +++ killed by SIGKILL +++
+> Killed
+> 
+> with that oops reproduced.  Not sure if it's a proper LTP or xfstests fodder,
+> but anyway, here it is.
+> 
+> Incremental from previous for-next is
 
---=-pCbbNV6XN9DEjli4eGjG
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Works for me.
 
-With Linus releasing 3.18, and you parsing through the 100+ patches
-currently in the queue getting net-next ready to push to Linus for 3.19,
-I have a request/question.  I have 13 more i40e patches I was hoping to
-submit to net-next before the closure (it was twelve until Joe's last
-suggestion).  I can get them submitted later tonight, but if it is going
-to cause to much of an issue, I can wait for net-next to open later this
-month.
-
-Just wanted to check with you before dumping more patches onto your work
-load. :-)
-
---=-pCbbNV6XN9DEjli4eGjG
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJUhlx2AAoJEOVv75VaS+3OpN4P/jDLgsvBaHVB0xD6VnXlB0Mv
-8z8UfSMngZvECYtKuHpt2/nnLAW1bbUwSfzYhNzQjmicyZ4QPcwDQha/KDikrhV2
-A3NAKvRk3qgX9ww6CY9pigMaBG/wx44T9BgIqOl68Y8uCG3iXZPruNy40EnNsiJ7
-btSYEZn5BOy1CjsDo/0TMmdvTFI3sI0YPXWgNqdUkX0yKZiJ3NMN9wH8gwGij2qt
-Cy2ccy1Yi/bAcpcjyDwWfx6oabySy1dwV5YiE58G02avE1aCLGGqozshO/ugpBDQ
-BaLgxbnB17oBmy7vIwhaNrAchqdQtC62IgTRIhxVdy6jGM6UbuNCZTg5iwWkAY4A
-7Pz8jIHyfLp2NMaI27sa3Dn4VXlWEkvLfoM2NUAGjBKLrvfEdPn5nvWyLozSxslt
-RfF3cFT4tFyyFTkSCX8UX6BdHeMQnYofb/v8R3jQThRZLIIWRLcrUFiWhNFnUIC0
-HEj5cU2B9Q14+zbqBZucfB01JiADCHzLXz9x3mvVqF9ymlN03Pe/yY6dHasmD+Zg
-7B5wGwu+6bV1E/3JIA0cEzfNbZRtJ2Xew3ON9w6jWG9/bP1gu9XnYMCu1oeBXxmR
-W3EvZk3xzBUWhgWy8jBYmBcgdNbt6hOFzOwYzGBqaq/Ct1rJPR31Y3AH4O7BfIAR
-Y5bEp2sd0ACA58rqzFvm
-=7P/W
------END PGP SIGNATURE-----
-
---=-pCbbNV6XN9DEjli4eGjG--
+-- 
+ Kirill A. Shutemov
