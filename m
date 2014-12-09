@@ -1,63 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netlink: use jhash as hashfn for rhashtable
-Date: Tue, 09 Dec 2014 14:38:29 -0500 (EST)
-Message-ID: <20141209.143829.477482216978677919.davem@davemloft.net>
-References: <1418056230-8700-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH net-next] arch_fast_hash: avoid indirect function calls
+ and implement hash in asm
+Date: Tue, 09 Dec 2014 14:39:09 -0500 (EST)
+Message-ID: <20141209.143909.1690366723140906216.davem@davemloft.net>
+References: <e77237174e1b8d743ef5171e05abde82bc54af37.1417696901.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au, tgraf@suug.ch,
-	hannes@stressinduktion.org
-To: dborkman@redhat.com
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	jay.vosburgh@canonical.com, tgraf@suug.ch, dborkman@redhat.com,
+	eric.dumazet@gmail.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37936 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37946 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751099AbaLITic (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 14:38:32 -0500
-In-Reply-To: <1418056230-8700-1-git-send-email-dborkman@redhat.com>
+	with ESMTP id S1751362AbaLITjM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 14:39:12 -0500
+In-Reply-To: <e77237174e1b8d743ef5171e05abde82bc54af37.1417696901.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Mon,  8 Dec 2014 17:30:30 +0100
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Thu,  4 Dec 2014 14:08:50 +0100
 
-> For netlink, we shouldn't be using arch_fast_hash() as a hashing
-> discipline, but rather jhash() instead.
+> By default the arch_fast_hash hashing function pointers are initialized
+> to jhash(2). If during boot-up a CPU with SSE4.2 is detected they get
+> updated to the CRC32 ones. This dispatching scheme incurs a function
+> pointer lookup and indirect call for every hashing operation.
 > 
-> Since netlink sockets can be opened by any user, a local attacker
-> would be able to easily create collisions with the DPDK-derived
-> arch_fast_hash(), which trades off performance for security by
-> using crc32 CPU instructions on x86_64.
+> To keep the number of clobbered registers short the hashing primitives
+> are implemented in assembler. This makes it easier to do the dispatch
+> by alternative_call.
 > 
-> While it might have a legimite use case in other places, it should
-> be avoided in netlink context, though. As rhashtable's API is very
-> flexible, we could later on still decide on other hashing disciplines,
-> if legitimate.
-> 
-> Reference: http://thread.gmane.org/gmane.linux.kernel/1844123
-> Fixes: e341694e3eb5 ("netlink: Convert netlink_lookup() to use RCU protected hash table")
 > Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: Jay Vosburgh <jay.vosburgh@canonical.com>
 > Cc: Thomas Graf <tgraf@suug.ch>
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-I think I've seen enough of this.
-
-First of all, you've left all of the example initializers in the
-rhashtable implementation recommending to use arch_fast_hash.
-
-Secondly, after this, openvswitch (and nfsd, ugh) are the only users
-remaining.   Even though there have been claims that using this
-doesn't expose to openvswitch to being hash attackable, I'm still
-not entirely convinced that an attacker cannot hurt performance
-of an OVS node as a result of this.
-
-I think this whole scheme should be reverted, whatever cycles
-openvswitch gains by using crc32c instructions is far outweighed
-by the confusion this has caused and all of this infrastructure
-created for just one or two users.
-
-Someone send me a patch to revert all of the arch_fast_hash
-stuff, and every reference thereof, or else I'll do it myself.
-
-Thanks.
+I'm not applying this, I want this whole facility removed instead.
