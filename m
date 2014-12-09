@@ -1,67 +1,34 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 13/13] i40e/i40evf: Convert macro to static inline
-Date: Tue,  9 Dec 2014 13:26:20 -0800
-Message-ID: <1418160380-29847-14-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1418160380-29847-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:56965 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753158AbaLIV07 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2014 16:26:59 -0500
-In-Reply-To: <1418160380-29847-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: the next chunk of iov_iter-net stuff for review
+Date: Tue, 09 Dec 2014 16:37:58 -0500 (EST)
+Message-ID: <20141209.163758.1934464464299516168.davem@davemloft.net>
+References: <20141209210414.GJ22149@ZenIV.linux.org.uk>
+	<20141209.161712.1258837733606317716.davem@davemloft.net>
+	<20141209212337.GK22149@ZenIV.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: viro@ZenIV.linux.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141209212337.GK22149@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Inline functions are preferred over macros when they can be used
-interchangeably.
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Date: Tue, 9 Dec 2014 21:23:37 +0000
 
-CC: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Reported-by: Joe Perches <joe@perches.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-v2:
- - remove unnecessary parens in the return statement as suggested
-   by Sergei Shtylyov
+> On Tue, Dec 09, 2014 at 04:17:12PM -0500, David Miller wrote:
+>> From: Al Viro <viro@ZenIV.linux.org.uk>
+>> Date: Tue, 9 Dec 2014 21:04:14 +0000
+>> 
+>> > Well, I've got no comments whatsoever on the networking side of things;
+>> 
+>> I've been away for more than 10 days, so I personally haven't had time
+>> to review any of it.
+>> 
+>> Why don't you respin and I'll try to allocate some review time myself?
+> 
+> Umm...  Do you want a rebase on top of current net-next/master?
 
- drivers/net/ethernet/intel/i40e/i40e_type.h   | 5 ++++-
- drivers/net/ethernet/intel/i40evf/i40e_type.h | 5 ++++-
- 2 files changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 844421f..c1f2eb9 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -481,7 +481,10 @@ struct i40e_hw {
- 	u32 debug_mask;
- };
- 
--#define i40e_is_vf(_hw)	((_hw)->mac.type == I40E_MAC_VF)
-+static inline bool i40e_is_vf(struct i40e_hw *hw)
-+{
-+	return hw->mac.type == I40E_MAC_VF;
-+}
- 
- struct i40e_driver_version {
- 	u8 major_version;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index d8175cd..68aec11 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -475,7 +475,10 @@ struct i40e_hw {
- 	u32 debug_mask;
- };
- 
--#define i40e_is_vf(_hw)	((_hw)->mac.type == I40E_MAC_VF)
-+static inline bool i40e_is_vf(struct i40e_hw *hw)
-+{
-+	return hw->mac.type == I40E_MAC_VF;
-+}
- 
- struct i40e_driver_version {
- 	u8 major_version;
--- 
-1.9.3
+Sure, why not?
