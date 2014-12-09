@@ -1,53 +1,54 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: Re: Possible regression: "gre: Use inner mac length when computing
- tunnel length"
-Date: Tue, 9 Dec 2014 08:44:25 +0200
-Message-ID: <20141209084425.7499dbd4@vostro>
-References: <20141204141616.185b88c4@vostro>
-	<CA+mtBx-se+u4j8WHzZ+AXeiFN2uevrvcTb6xFpeNrhjOv=EVng@mail.gmail.com>
-	<20141209082645.5cf70f55@vostro>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [patch v2] ipvs: uninitialized data with IP_VS_IPV6
+Date: Tue, 9 Dec 2014 09:49:47 +0300
+Message-ID: <20141209064947.GH4912@mwanda>
+References: <20141206134924.GA17278@mwanda>
+ <alpine.LFD.2.11.1412072032420.1885@ja.home.ssi.bg>
+ <20141209005215.GH8897@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:53606 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753132AbaLIGoe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 01:44:34 -0500
-Received: by mail-la0-f52.google.com with SMTP id hs14so5292941lab.11
-        for <netdev@vger.kernel.org>; Mon, 08 Dec 2014 22:44:33 -0800 (PST)
-In-Reply-To: <20141209082645.5cf70f55@vostro>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>, Wensong Zhang <wensong@linux-vs.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, kernel-janitors@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141209005215.GH8897@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 9 Dec 2014 08:26:45 +0200
-Timo Teras <timo.teras@iki.fi> wrote:
-
-> On Thu, 4 Dec 2014 08:00:19 -0800
-> Tom Herbert <therbert@google.com> wrote:
+On Tue, Dec 09, 2014 at 09:52:15AM +0900, Simon Horman wrote:
+> On Sun, Dec 07, 2014 at 08:39:35PM +0200, Julian Anastasov wrote:
+> > 
+> > 	Hello,
+> > 
+> > On Sat, 6 Dec 2014, Dan Carpenter wrote:
+> > 
+> > > The app_tcp_pkt_out() function expects "*diff" to be set and ends up
+> > > using uninitialized data if CONFIG_IP_VS_IPV6 is turned on.
+> > > 
+> > > The same issue is there in app_tcp_pkt_in().  Thanks to Julian Anastasov
+> > > for noticing that.
+> > > 
+> > > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> > > ---
+> > > v2: fix app_tcp_pkt_in() as well.  This is an old bug.
+> > 
+> > 	Thanks! It will not break seqs for IPv6 control
+> > connection, only that we do not support FTP yet :( I have
+> > the doubt whether this should be classified as bugfix :)
+> > I guess, it is a net-next material, right?
 > 
-> > A fix is pending for net. Please try if you can.
-> 
-> Finally got to testing this. Unfortunately, this does not seem to fix
-> the issue I am experiencing.
-> 
-> Any suggestions?
+> Agreed, I have queued it up in ipvs-next.
+> I'll send a pull request to Pablo if Dan doesn't object
+> to it going there.
 
-I think this fix is required, but does not fix the issue.
+No objections from me.
 
-I suspect my problem is with the fact that I have NBMA GRE tunnel.
+regards,
+dan carpenter
 
-In ipgre_xmit() it is gre_handle_offloads() that is called first.
-However, in my case, the GRE header was already pushed earlier via
-header_ops. That's why the packet is skb_pull()'ed in the
-"if (dev->header_ops)" path, so that __gre_xmit can push back the
-header again on it.
-
-I wonder if it is correct to just move the gre_handle_offloads() call
-after the if() block, or if additional fixing is needed to make
-offloads work with nbma tunnels.
-
-/Timo
