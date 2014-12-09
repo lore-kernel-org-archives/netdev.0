@@ -1,79 +1,41 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: [PATCH v3] sh_eth: Optimization for RX excess judgement
-Date: Tue,  9 Dec 2014 21:23:42 +0900
-Message-ID: <1418127822-16904-1-git-send-email-ykaneko0929@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: OVS Kernel Datapath development
+Date: Tue, 9 Dec 2014 10:52:18 -0200
+Message-ID: <20141209125217.GA20722@t520.home>
+References: <CALnjE+rn_Giv+8TM1_E2faBftRkivXMYHcjn-4Eq4Gu15r=CiQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:34206 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755234AbaLINTx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2014 08:19:53 -0500
+Content-Disposition: inline
+In-Reply-To: <CALnjE+rn_Giv+8TM1_E2faBftRkivXMYHcjn-4Eq4Gu15r=CiQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+On Sun, Dec 07, 2014 at 08:47:22PM -0800, Pravin Shelar wrote:
+> Since the beginning OVS kernel datapath development is primarily done
+> on external OVS repo. Now we have mostly synced upstream and external
+> OVS. So we have decided to change this process. New process is as
+> follows.
+> 
+> 1. OVS feature development that involves kernel datapath should be
+> done on net-next tree datapath.
+> 2. Such feature patch series should be posted on netdev and ovs-dev
+> mailing list.
+> 3. Once review is done for entire series, kernel and OVS userspace
+> patches will be merged in respective repo.
+> 4. After the merge developer is suppose to send patches for external
+> kernel datapath along with old kernel compatibility code. So that we
+> can keep external datapath insync.
 
-Both of 'boguscnt' and 'quota' have nearly meaning as the condition of
-the reception loop.
-In order to cut down redundant processing, this patch changes excess
-judgement.
+This is great! Thanks for changing the development process and
+make it official.
 
-Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
-Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
----
-
-This patch is based on net-next tree.
-
-v3 [Yoshihiro Kaneko]
-* fixes the calculation error of *quota.
-
-v2 [Yoshihiro Kaneko]
-* re-spin for net-next.
-* remove unneeded check of "quota".
-* remove unneeded incrementation of "boguscnt".
-* drop the change of the return statement.
-
- drivers/net/ethernet/renesas/sh_eth.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index dbe8606..f94bbf5 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1394,10 +1394,13 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 
- 	int entry = mdp->cur_rx % mdp->num_rx_ring;
- 	int boguscnt = (mdp->dirty_rx + mdp->num_rx_ring) - mdp->cur_rx;
-+	int limit;
- 	struct sk_buff *skb;
- 	u16 pkt_len = 0;
- 	u32 desc_status;
- 
-+	boguscnt = min(boguscnt, *quota);
-+	limit = boguscnt;
- 	rxdesc = &mdp->rx_ring[entry];
- 	while (!(rxdesc->status & cpu_to_edmac(mdp, RD_RACT))) {
- 		desc_status = edmac_to_cpu(mdp, rxdesc->status);
-@@ -1406,11 +1409,6 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 		if (--boguscnt < 0)
- 			break;
- 
--		if (*quota <= 0)
--			break;
--
--		(*quota)--;
--
- 		if (!(desc_status & RDFEND))
- 			ndev->stats.rx_length_errors++;
- 
-@@ -1501,6 +1499,8 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 		sh_eth_write(ndev, EDRRR_R, EDRRR);
- 	}
- 
-+	*quota -= limit - boguscnt - 1;
-+
- 	return *quota <= 0;
- }
- 
--- 
-1.9.1
-
+Cheers!
+fbl
