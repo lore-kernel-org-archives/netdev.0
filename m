@@ -1,140 +1,81 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 19/25] vmci: propagate msghdr all way down to __qp_memcpy_from_queue()
-Date: Tue,  9 Dec 2014 22:50:32 +0000
-Message-ID: <1418165438-2205-19-git-send-email-viro@ZenIV.linux.org.uk>
-References: <20141209224928.GL22149@ZenIV.linux.org.uk>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net] netlink: use jhash as hashfn for rhashtable
+Date: Tue, 09 Dec 2014 23:56:40 +0100
+Message-ID: <54877E28.7020202@redhat.com>
+References: <1418056230-8700-1-git-send-email-dborkman@redhat.com> <20141209.143829.477482216978677919.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au, tgraf@suug.ch,
+	hannes@stressinduktion.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141209224928.GL22149@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37885 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754060AbaLIW5R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2014 17:57:17 -0500
+In-Reply-To: <20141209.143829.477482216978677919.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Al Viro <viro@zeniv.linux.org.uk>
+On 12/09/2014 08:38 PM, David Miller wrote:
+> From: Daniel Borkmann <dborkman@redhat.com>
+> Date: Mon,  8 Dec 2014 17:30:30 +0100
+>
+>> For netlink, we shouldn't be using arch_fast_hash() as a hashing
+>> discipline, but rather jhash() instead.
+>>
+>> Since netlink sockets can be opened by any user, a local attacker
+>> would be able to easily create collisions with the DPDK-derived
+>> arch_fast_hash(), which trades off performance for security by
+>> using crc32 CPU instructions on x86_64.
+>>
+>> While it might have a legimite use case in other places, it should
+>> be avoided in netlink context, though. As rhashtable's API is very
+>> flexible, we could later on still decide on other hashing disciplines,
+>> if legitimate.
+>>
+>> Reference: http://thread.gmane.org/gmane.linux.kernel/1844123
+>> Fixes: e341694e3eb5 ("netlink: Convert netlink_lookup() to use RCU protected hash table")
+>> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+>> Cc: Thomas Graf <tgraf@suug.ch>
+>> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>
+> I think I've seen enough of this.
+>
+> First of all, you've left all of the example initializers in the
+> rhashtable implementation recommending to use arch_fast_hash.
+>
+> Secondly, after this, openvswitch (and nfsd, ugh) are the only users
+> remaining.   Even though there have been claims that using this
+> doesn't expose to openvswitch to being hash attackable, I'm still
+> not entirely convinced that an attacker cannot hurt performance
+> of an OVS node as a result of this.
+>
+> I think this whole scheme should be reverted, whatever cycles
+> openvswitch gains by using crc32c instructions is far outweighed
+> by the confusion this has caused and all of this infrastructure
+> created for just one or two users.
+>
+> Someone send me a patch to revert all of the arch_fast_hash
+> stuff, and every reference thereof, or else I'll do it myself.
 
-... and switch it to memcpy_to_msg()
+Hm, this netlink patch was actually meant to be small for -stable.
 
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
----
- drivers/misc/vmw_vmci/vmci_queue_pair.c | 17 +++++++++--------
- include/linux/vmw_vmci_api.h            |  5 +++--
- net/vmw_vsock/vmci_transport.c          |  4 ++--
- 3 files changed, 14 insertions(+), 12 deletions(-)
+But fair enough, I can look into removing arch_fast_hash() bits
+entirely, sure - we thought it was useful in that area as it needs
+less than half the cycles (all discussed in [1]) as opposed to
+jhash for computing the hash value in ovs, where such computations
+are being done very frequently and the flow key structure size seems
+to keep growing.
 
-diff --git a/drivers/misc/vmw_vmci/vmci_queue_pair.c b/drivers/misc/vmw_vmci/vmci_queue_pair.c
-index 1b7b303..7aaaf51 100644
---- a/drivers/misc/vmw_vmci/vmci_queue_pair.c
-+++ b/drivers/misc/vmw_vmci/vmci_queue_pair.c
-@@ -27,6 +27,7 @@
- #include <linux/uio.h>
- #include <linux/wait.h>
- #include <linux/vmalloc.h>
-+#include <linux/skbuff.h>
- 
- #include "vmci_handle_array.h"
- #include "vmci_queue_pair.h"
-@@ -429,11 +430,11 @@ static int __qp_memcpy_from_queue(void *dest,
- 			to_copy = size - bytes_copied;
- 
- 		if (is_iovec) {
--			struct iovec *iov = (struct iovec *)dest;
-+			struct msghdr *msg = dest;
- 			int err;
- 
- 			/* The iovec will track bytes_copied internally. */
--			err = memcpy_toiovec(iov, (u8 *)va + page_offset,
-+			err = memcpy_to_msg(msg, (u8 *)va + page_offset,
- 					     to_copy);
- 			if (err != 0) {
- 				if (kernel_if->host)
-@@ -3264,13 +3265,13 @@ EXPORT_SYMBOL_GPL(vmci_qpair_enquev);
-  * of bytes dequeued or < 0 on error.
-  */
- ssize_t vmci_qpair_dequev(struct vmci_qp *qpair,
--			  void *iov,
-+			  struct msghdr *msg,
- 			  size_t iov_size,
- 			  int buf_type)
- {
- 	ssize_t result;
- 
--	if (!qpair || !iov)
-+	if (!qpair)
- 		return VMCI_ERROR_INVALID_ARGS;
- 
- 	qp_lock(qpair);
-@@ -3279,7 +3280,7 @@ ssize_t vmci_qpair_dequev(struct vmci_qp *qpair,
- 		result = qp_dequeue_locked(qpair->produce_q,
- 					   qpair->consume_q,
- 					   qpair->consume_q_size,
--					   iov, iov_size,
-+					   msg, iov_size,
- 					   qp_memcpy_from_queue_iov,
- 					   true);
- 
-@@ -3308,13 +3309,13 @@ EXPORT_SYMBOL_GPL(vmci_qpair_dequev);
-  * of bytes peeked or < 0 on error.
-  */
- ssize_t vmci_qpair_peekv(struct vmci_qp *qpair,
--			 void *iov,
-+			 struct msghdr *msg,
- 			 size_t iov_size,
- 			 int buf_type)
- {
- 	ssize_t result;
- 
--	if (!qpair || !iov)
-+	if (!qpair)
- 		return VMCI_ERROR_INVALID_ARGS;
- 
- 	qp_lock(qpair);
-@@ -3323,7 +3324,7 @@ ssize_t vmci_qpair_peekv(struct vmci_qp *qpair,
- 		result = qp_dequeue_locked(qpair->produce_q,
- 					   qpair->consume_q,
- 					   qpair->consume_q_size,
--					   iov, iov_size,
-+					   msg, iov_size,
- 					   qp_memcpy_from_queue_iov,
- 					   false);
- 
-diff --git a/include/linux/vmw_vmci_api.h b/include/linux/vmw_vmci_api.h
-index 023430e..5691f75 100644
---- a/include/linux/vmw_vmci_api.h
-+++ b/include/linux/vmw_vmci_api.h
-@@ -24,6 +24,7 @@
- #define VMCI_KERNEL_API_VERSION_2 2
- #define VMCI_KERNEL_API_VERSION   VMCI_KERNEL_API_VERSION_2
- 
-+struct msghdr;
- typedef void (vmci_device_shutdown_fn) (void *device_registration,
- 					void *user_data);
- 
-@@ -75,8 +76,8 @@ ssize_t vmci_qpair_peek(struct vmci_qp *qpair, void *buf, size_t buf_size,
- ssize_t vmci_qpair_enquev(struct vmci_qp *qpair,
- 			  void *iov, size_t iov_size, int mode);
- ssize_t vmci_qpair_dequev(struct vmci_qp *qpair,
--			  void *iov, size_t iov_size, int mode);
--ssize_t vmci_qpair_peekv(struct vmci_qp *qpair, void *iov, size_t iov_size,
-+			  struct msghdr *msg, size_t iov_size, int mode);
-+ssize_t vmci_qpair_peekv(struct vmci_qp *qpair, struct msghdr *msg, size_t iov_size,
- 			 int mode);
- 
- #endif /* !__VMW_VMCI_API_H__ */
-diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transport.c
-index c1c0389..20a0ba3 100644
---- a/net/vmw_vsock/vmci_transport.c
-+++ b/net/vmw_vsock/vmci_transport.c
-@@ -1840,9 +1840,9 @@ static ssize_t vmci_transport_stream_dequeue(
- 	int flags)
- {
- 	if (flags & MSG_PEEK)
--		return vmci_qpair_peekv(vmci_trans(vsk)->qpair, msg->msg_iov, len, 0);
-+		return vmci_qpair_peekv(vmci_trans(vsk)->qpair, msg, len, 0);
- 	else
--		return vmci_qpair_dequev(vmci_trans(vsk)->qpair, msg->msg_iov, len, 0);
-+		return vmci_qpair_dequev(vmci_trans(vsk)->qpair, msg, len, 0);
- }
- 
- static ssize_t vmci_transport_stream_enqueue(
--- 
-2.1.3
+Regarding an attacker wanting to hurt performance, upcalls into ovs
+user space component to dynamically install such colliding in-kernel
+ovs flow-cache entries would be the much bigger concern then, as a
+pre-required step, imho. Anyway, if you feel strong about it, lets
+just remove it.
+
+Thanks.
+
+   [1] http://patchwork.ozlabs.org/patch/299369/
