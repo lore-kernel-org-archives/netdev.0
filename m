@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 11/13] i40e: check for AQ timeout in aq_rc decode
-Date: Tue,  9 Dec 2014 13:26:18 -0800
-Message-ID: <1418160380-29847-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 12/13] i40e: add to NVM update debug message
+Date: Tue,  9 Dec 2014 13:26:19 -0800
+Message-ID: <1418160380-29847-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1418160380-29847-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,211 +10,41 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:56965 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753142AbaLIV06 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2014 16:26:58 -0500
+	id S1752455AbaLIV07 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2014 16:26:59 -0500
 In-Reply-To: <1418160380-29847-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-Decoding the AQ return code is great except when the AQ send timed out
-and there's no return code set.  This changes the handy decoder
-interface to help catch and properly report the condition as a useful
-errno rather than returning a misleading '0'.
+Add a little more state context to an NVM update debug message.
 
-Change-ID: I07a1f94f921606da49ffac7837bcdc37cd8222eb
+Change-ID: I512160259052bcdbe5bdf1adf403ab2bf7984970
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq.h   |  7 +++++-
- drivers/net/ethernet/intel/i40e/i40e_nvm.c      | 33 ++++++++++++++++---------
- drivers/net/ethernet/intel/i40evf/i40e_adminq.h |  7 +++++-
- 3 files changed, 33 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.h b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-index 2c68bf7..564d0b0 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-@@ -28,6 +28,7 @@
- #define _I40E_ADMINQ_H_
- 
- #include "i40e_osdep.h"
-+#include "i40e_status.h"
- #include "i40e_adminq_cmd.h"
- 
- #define I40E_ADMINQ_DESC(R, i)   \
-@@ -108,7 +109,7 @@ struct i40e_adminq_info {
-  * i40e_aq_rc_to_posix - convert errors to user-land codes
-  * aq_rc: AdminQ error code to convert
-  **/
--static inline int i40e_aq_rc_to_posix(u16 aq_rc)
-+static inline int i40e_aq_rc_to_posix(u32 aq_ret, u16 aq_rc)
- {
- 	int aq_to_posix[] = {
- 		0,           /* I40E_AQ_RC_OK */
-@@ -136,6 +137,10 @@ static inline int i40e_aq_rc_to_posix(u16 aq_rc)
- 		-EFBIG,      /* I40E_AQ_RC_EFBIG */
- 	};
- 
-+	/* aq_rc is invalid if AQ timed out */
-+	if (aq_ret == I40E_ERR_ADMIN_QUEUE_TIMEOUT)
-+		return -EAGAIN;
-+
- 	if (aq_rc >= ARRAY_SIZE(aq_to_posix))
- 		return -ERANGE;
- 	return aq_to_posix[aq_rc];
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-index 0fc62fc..1613ef4 100644
+index 1613ef4..3e70f2e 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-@@ -527,7 +527,8 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
- 	case I40E_NVMUPD_READ_SA:
- 		status = i40e_acquire_nvm(hw, I40E_RESOURCE_READ);
- 		if (status) {
--			*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
-+			*errno = i40e_aq_rc_to_posix(status,
-+						     hw->aq.asq_last_status);
- 		} else {
- 			status = i40e_nvmupd_nvm_read(hw, cmd, bytes, errno);
- 			i40e_release_nvm(hw);
-@@ -537,7 +538,8 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
- 	case I40E_NVMUPD_READ_SNT:
- 		status = i40e_acquire_nvm(hw, I40E_RESOURCE_READ);
- 		if (status) {
--			*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
-+			*errno = i40e_aq_rc_to_posix(status,
-+						     hw->aq.asq_last_status);
- 		} else {
- 			status = i40e_nvmupd_nvm_read(hw, cmd, bytes, errno);
- 			if (status)
-@@ -550,7 +552,8 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
- 	case I40E_NVMUPD_WRITE_ERA:
- 		status = i40e_acquire_nvm(hw, I40E_RESOURCE_WRITE);
- 		if (status) {
--			*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
-+			*errno = i40e_aq_rc_to_posix(status,
-+						     hw->aq.asq_last_status);
- 		} else {
- 			status = i40e_nvmupd_nvm_erase(hw, cmd, errno);
- 			if (status)
-@@ -563,7 +566,8 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
- 	case I40E_NVMUPD_WRITE_SA:
- 		status = i40e_acquire_nvm(hw, I40E_RESOURCE_WRITE);
- 		if (status) {
--			*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
-+			*errno = i40e_aq_rc_to_posix(status,
-+						     hw->aq.asq_last_status);
- 		} else {
- 			status = i40e_nvmupd_nvm_write(hw, cmd, bytes, errno);
- 			if (status)
-@@ -576,7 +580,8 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
- 	case I40E_NVMUPD_WRITE_SNT:
- 		status = i40e_acquire_nvm(hw, I40E_RESOURCE_WRITE);
- 		if (status) {
--			*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
-+			*errno = i40e_aq_rc_to_posix(status,
-+						     hw->aq.asq_last_status);
- 		} else {
- 			status = i40e_nvmupd_nvm_write(hw, cmd, bytes, errno);
- 			if (status)
-@@ -589,12 +594,14 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
- 	case I40E_NVMUPD_CSUM_SA:
- 		status = i40e_acquire_nvm(hw, I40E_RESOURCE_WRITE);
- 		if (status) {
--			*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
-+			*errno = i40e_aq_rc_to_posix(status,
-+						     hw->aq.asq_last_status);
- 		} else {
- 			status = i40e_update_nvm_checksum(hw);
- 			if (status) {
- 				*errno = hw->aq.asq_last_status ?
--				   i40e_aq_rc_to_posix(hw->aq.asq_last_status) :
-+				   i40e_aq_rc_to_posix(status,
-+						       hw->aq.asq_last_status) :
- 				   -EIO;
- 				i40e_release_nvm(hw);
- 			} else {
-@@ -691,7 +698,8 @@ static i40e_status i40e_nvmupd_state_writing(struct i40e_hw *hw,
- 		status = i40e_update_nvm_checksum(hw);
- 		if (status) {
- 			*errno = hw->aq.asq_last_status ?
--				   i40e_aq_rc_to_posix(hw->aq.asq_last_status) :
-+				   i40e_aq_rc_to_posix(status,
-+						       hw->aq.asq_last_status) :
- 				   -EIO;
- 			hw->nvmupd_state = I40E_NVMUPD_STATE_INIT;
+@@ -806,8 +806,10 @@ static enum i40e_nvmupd_cmd i40e_nvmupd_validate_command(struct i40e_hw *hw,
  		}
-@@ -701,7 +709,8 @@ static i40e_status i40e_nvmupd_state_writing(struct i40e_hw *hw,
- 		status = i40e_update_nvm_checksum(hw);
- 		if (status)
- 			*errno = hw->aq.asq_last_status ?
--				   i40e_aq_rc_to_posix(hw->aq.asq_last_status) :
-+				   i40e_aq_rc_to_posix(status,
-+						       hw->aq.asq_last_status) :
- 				   -EIO;
- 		else
- 			hw->aq.nvm_release_on_done = true;
-@@ -839,7 +848,7 @@ static i40e_status i40e_nvmupd_nvm_read(struct i40e_hw *hw,
- 		i40e_debug(hw, I40E_DEBUG_NVM,
- 			   "i40e_nvmupd_nvm_read status %d aq %d\n",
- 			   status, hw->aq.asq_last_status);
--		*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
-+		*errno = i40e_aq_rc_to_posix(status, hw->aq.asq_last_status);
+ 		break;
  	}
+-	i40e_debug(hw, I40E_DEBUG_NVM, "%s\n",
+-		   i40e_nvm_update_state_str[upd_cmd]);
++	i40e_debug(hw, I40E_DEBUG_NVM, "%s state %d nvm_release_on_hold %d\n",
++		   i40e_nvm_update_state_str[upd_cmd],
++		   hw->nvmupd_state,
++		   hw->aq.nvm_release_on_done);
  
- 	return status;
-@@ -873,7 +882,7 @@ static i40e_status i40e_nvmupd_nvm_erase(struct i40e_hw *hw,
- 		i40e_debug(hw, I40E_DEBUG_NVM,
- 			   "i40e_nvmupd_nvm_erase status %d aq %d\n",
- 			   status, hw->aq.asq_last_status);
--		*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
-+		*errno = i40e_aq_rc_to_posix(status, hw->aq.asq_last_status);
- 	}
- 
- 	return status;
-@@ -909,7 +918,7 @@ static i40e_status i40e_nvmupd_nvm_write(struct i40e_hw *hw,
- 		i40e_debug(hw, I40E_DEBUG_NVM,
- 			   "i40e_nvmupd_nvm_write status %d aq %d\n",
- 			   status, hw->aq.asq_last_status);
--		*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
-+		*errno = i40e_aq_rc_to_posix(status, hw->aq.asq_last_status);
- 	}
- 
- 	return status;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-index 0ffb8d1..6c31bf2 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-@@ -28,6 +28,7 @@
- #define _I40E_ADMINQ_H_
- 
- #include "i40e_osdep.h"
-+#include "i40e_status.h"
- #include "i40e_adminq_cmd.h"
- 
- #define I40E_ADMINQ_DESC(R, i)   \
-@@ -108,7 +109,7 @@ struct i40e_adminq_info {
-  * i40e_aq_rc_to_posix - convert errors to user-land codes
-  * aq_rc: AdminQ error code to convert
-  **/
--static inline int i40e_aq_rc_to_posix(u16 aq_rc)
-+static inline int i40e_aq_rc_to_posix(u32 aq_ret, u16 aq_rc)
- {
- 	int aq_to_posix[] = {
- 		0,           /* I40E_AQ_RC_OK */
-@@ -136,6 +137,10 @@ static inline int i40e_aq_rc_to_posix(u16 aq_rc)
- 		-EFBIG,      /* I40E_AQ_RC_EFBIG */
- 	};
- 
-+	/* aq_rc is invalid if AQ timed out */
-+	if (aq_ret == I40E_ERR_ADMIN_QUEUE_TIMEOUT)
-+		return -EAGAIN;
-+
- 	if (aq_rc >= ARRAY_SIZE(aq_to_posix))
- 		return -ERANGE;
- 	return aq_to_posix[aq_rc];
+ 	if (upd_cmd == I40E_NVMUPD_INVALID) {
+ 		*errno = -EFAULT;
 -- 
 1.9.3
