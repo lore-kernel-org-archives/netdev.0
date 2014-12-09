@@ -1,29 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] test: bpf: expand DIV_KX to DIV_MOD_KX
-Date: Mon, 08 Dec 2014 20:23:37 -0500 (EST)
-Message-ID: <20141208.202337.118530625154087137.davem@davemloft.net>
-References: <1417428745-20199-1-git-send-email-kda@linux-powerpc.org>
+Subject: Re: [PATCH net-next] hyperv: Add support for vNIC hot removal
+Date: Mon, 08 Dec 2014 20:24:24 -0500 (EST)
+Message-ID: <20141208.202424.1782433533296173544.davem@davemloft.net>
+References: <1417469319-7356-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@plumgrid.com
-To: kda@linux-powerpc.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59020 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751103AbaLIBXj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 20:23:39 -0500
-In-Reply-To: <1417428745-20199-1-git-send-email-kda@linux-powerpc.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1417469319-7356-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Date: Mon,  1 Dec 2014 13:12:25 +0300
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Mon,  1 Dec 2014 13:28:39 -0800
 
-> Expand DIV_KX to use BPF_MOD operation in the
-> DIV_KX bpf 'classic' test.
+> This patch adds proper handling of the vNIC hot removal event, which includes
+> a rescind-channel-offer message from the host side that triggers vNIC close and
+> removal. In this case, the notices to the host during close and removal is not
+> necessary because the channel is rescinded. This patch blocks these unnecessary 
+> messages, and lets vNIC removal process complete normally.
 > 
-> CC: Alexei Starovoitov <ast@plumgrid.com>
-> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
 Applied, thanks.
