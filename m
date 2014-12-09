@@ -1,81 +1,152 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net] netlink: use jhash as hashfn for rhashtable
-Date: Tue, 09 Dec 2014 23:56:40 +0100
-Message-ID: <54877E28.7020202@redhat.com>
-References: <1418056230-8700-1-git-send-email-dborkman@redhat.com> <20141209.143829.477482216978677919.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au, tgraf@suug.ch,
-	hannes@stressinduktion.org
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: [PATCH 08/25] iov_iter.c: convert copy_from_iter() to iterate_and_advance
+Date: Tue,  9 Dec 2014 22:50:21 +0000
+Message-ID: <1418165438-2205-8-git-send-email-viro@ZenIV.linux.org.uk>
+References: <20141209224928.GL22149@ZenIV.linux.org.uk>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37885 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754060AbaLIW5R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2014 17:57:17 -0500
-In-Reply-To: <20141209.143829.477482216978677919.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141209224928.GL22149@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/09/2014 08:38 PM, David Miller wrote:
-> From: Daniel Borkmann <dborkman@redhat.com>
-> Date: Mon,  8 Dec 2014 17:30:30 +0100
->
->> For netlink, we shouldn't be using arch_fast_hash() as a hashing
->> discipline, but rather jhash() instead.
->>
->> Since netlink sockets can be opened by any user, a local attacker
->> would be able to easily create collisions with the DPDK-derived
->> arch_fast_hash(), which trades off performance for security by
->> using crc32 CPU instructions on x86_64.
->>
->> While it might have a legimite use case in other places, it should
->> be avoided in netlink context, though. As rhashtable's API is very
->> flexible, we could later on still decide on other hashing disciplines,
->> if legitimate.
->>
->> Reference: http://thread.gmane.org/gmane.linux.kernel/1844123
->> Fixes: e341694e3eb5 ("netlink: Convert netlink_lookup() to use RCU protected hash table")
->> Cc: Herbert Xu <herbert@gondor.apana.org.au>
->> Cc: Thomas Graf <tgraf@suug.ch>
->> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
->> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
->
-> I think I've seen enough of this.
->
-> First of all, you've left all of the example initializers in the
-> rhashtable implementation recommending to use arch_fast_hash.
->
-> Secondly, after this, openvswitch (and nfsd, ugh) are the only users
-> remaining.   Even though there have been claims that using this
-> doesn't expose to openvswitch to being hash attackable, I'm still
-> not entirely convinced that an attacker cannot hurt performance
-> of an OVS node as a result of this.
->
-> I think this whole scheme should be reverted, whatever cycles
-> openvswitch gains by using crc32c instructions is far outweighed
-> by the confusion this has caused and all of this infrastructure
-> created for just one or two users.
->
-> Someone send me a patch to revert all of the arch_fast_hash
-> stuff, and every reference thereof, or else I'll do it myself.
+From: Al Viro <viro@zeniv.linux.org.uk>
 
-Hm, this netlink patch was actually meant to be small for -stable.
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+---
+ mm/iov_iter.c | 106 +++++++++-------------------------------------------------
+ 1 file changed, 15 insertions(+), 91 deletions(-)
 
-But fair enough, I can look into removing arch_fast_hash() bits
-entirely, sure - we thought it was useful in that area as it needs
-less than half the cycles (all discussed in [1]) as opposed to
-jhash for computing the hash value in ovs, where such computations
-are being done very frequently and the flow key structure size seems
-to keep growing.
-
-Regarding an attacker wanting to hurt performance, upcalls into ovs
-user space component to dynamically install such colliding in-kernel
-ovs flow-cache entries would be the much bigger concern then, as a
-pre-required step, imho. Anyway, if you feel strong about it, lets
-just remove it.
-
-Thanks.
-
-   [1] http://patchwork.ozlabs.org/patch/299369/
+diff --git a/mm/iov_iter.c b/mm/iov_iter.c
+index 17b7144..791429d 100644
+--- a/mm/iov_iter.c
++++ b/mm/iov_iter.c
+@@ -142,51 +142,6 @@ static size_t copy_to_iter_iovec(void *from, size_t bytes, struct iov_iter *i)
+ 	return wanted - bytes;
+ }
+ 
+-static size_t copy_from_iter_iovec(void *to, size_t bytes, struct iov_iter *i)
+-{
+-	size_t skip, copy, left, wanted;
+-	const struct iovec *iov;
+-	char __user *buf;
+-
+-	if (unlikely(bytes > i->count))
+-		bytes = i->count;
+-
+-	if (unlikely(!bytes))
+-		return 0;
+-
+-	wanted = bytes;
+-	iov = i->iov;
+-	skip = i->iov_offset;
+-	buf = iov->iov_base + skip;
+-	copy = min(bytes, iov->iov_len - skip);
+-
+-	left = __copy_from_user(to, buf, copy);
+-	copy -= left;
+-	skip += copy;
+-	to += copy;
+-	bytes -= copy;
+-	while (unlikely(!left && bytes)) {
+-		iov++;
+-		buf = iov->iov_base;
+-		copy = min(bytes, iov->iov_len);
+-		left = __copy_from_user(to, buf, copy);
+-		copy -= left;
+-		skip = copy;
+-		to += copy;
+-		bytes -= copy;
+-	}
+-
+-	if (skip == iov->iov_len) {
+-		iov++;
+-		skip = 0;
+-	}
+-	i->count -= wanted - bytes;
+-	i->nr_segs -= iov - i->iov;
+-	i->iov = iov;
+-	i->iov_offset = skip;
+-	return wanted - bytes;
+-}
+-
+ static size_t copy_page_to_iter_iovec(struct page *page, size_t offset, size_t bytes,
+ 			 struct iov_iter *i)
+ {
+@@ -444,48 +399,6 @@ static size_t copy_to_iter_bvec(void *from, size_t bytes, struct iov_iter *i)
+ 	return wanted - bytes;
+ }
+ 
+-static size_t copy_from_iter_bvec(void *to, size_t bytes, struct iov_iter *i)
+-{
+-	size_t skip, copy, wanted;
+-	const struct bio_vec *bvec;
+-
+-	if (unlikely(bytes > i->count))
+-		bytes = i->count;
+-
+-	if (unlikely(!bytes))
+-		return 0;
+-
+-	wanted = bytes;
+-	bvec = i->bvec;
+-	skip = i->iov_offset;
+-
+-	copy = min(bytes, bvec->bv_len - skip);
+-
+-	memcpy_from_page(to, bvec->bv_page, bvec->bv_offset + skip, copy);
+-
+-	to += copy;
+-	skip += copy;
+-	bytes -= copy;
+-
+-	while (bytes) {
+-		bvec++;
+-		copy = min(bytes, (size_t)bvec->bv_len);
+-		memcpy_from_page(to, bvec->bv_page, bvec->bv_offset, copy);
+-		skip = copy;
+-		to += copy;
+-		bytes -= copy;
+-	}
+-	if (skip == bvec->bv_len) {
+-		bvec++;
+-		skip = 0;
+-	}
+-	i->count -= wanted;
+-	i->nr_segs -= bvec - i->bvec;
+-	i->bvec = bvec;
+-	i->iov_offset = skip;
+-	return wanted;
+-}
+-
+ size_t copy_to_iter(void *addr, size_t bytes, struct iov_iter *i)
+ {
+ 	if (i->type & ITER_BVEC)
+@@ -497,10 +410,21 @@ EXPORT_SYMBOL(copy_to_iter);
+ 
+ size_t copy_from_iter(void *addr, size_t bytes, struct iov_iter *i)
+ {
+-	if (i->type & ITER_BVEC)
+-		return copy_from_iter_bvec(addr, bytes, i);
+-	else
+-		return copy_from_iter_iovec(addr, bytes, i);
++	char *to = addr;
++	if (unlikely(bytes > i->count))
++		bytes = i->count;
++
++	if (unlikely(!bytes))
++		return 0;
++
++	iterate_and_advance(i, bytes, v,
++		__copy_from_user((to += v.iov_len) - v.iov_len, v.iov_base,
++				 v.iov_len),
++		memcpy_from_page((to += v.bv_len) - v.bv_len, v.bv_page,
++				 v.bv_offset, v.bv_len)
++	)
++
++	return bytes;
+ }
+ EXPORT_SYMBOL(copy_from_iter);
+ 
+-- 
+2.1.3
