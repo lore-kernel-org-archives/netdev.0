@@ -1,58 +1,44 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] bridge: Remove BR_PROXYARP flooding check code
-Date: Tue, 9 Dec 2014 14:21:58 -0800
-Message-ID: <20141209142158.7e513dbf@urahara>
-References: <1418052460-30691-1-git-send-email-jouni@codeaurora.org>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: the next chunk of iov_iter-net stuff for review
+Date: Tue, 9 Dec 2014 22:49:28 +0000
+Message-ID: <20141209224928.GL22149@ZenIV.linux.org.uk>
+References: <20141209210414.GJ22149@ZenIV.linux.org.uk>
+ <20141209.161712.1258837733606317716.davem@davemloft.net>
+ <20141209212337.GK22149@ZenIV.linux.org.uk>
+ <20141209.163758.1934464464299516168.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Kyeyoon Park <kyeyoonp@codeaurora.org>
-To: Jouni Malinen <jouni@codeaurora.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:37995 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752818AbaLIWWJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 17:22:09 -0500
-Received: by mail-pd0-f181.google.com with SMTP id v10so1420177pde.12
-        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 14:22:08 -0800 (PST)
-In-Reply-To: <1418052460-30691-1-git-send-email-jouni@codeaurora.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:37443 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753831AbaLIWta (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 17:49:30 -0500
+Content-Disposition: inline
+In-Reply-To: <20141209.163758.1934464464299516168.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon,  8 Dec 2014 17:27:40 +0200
-Jouni Malinen <jouni@codeaurora.org> wrote:
+On Tue, Dec 09, 2014 at 04:37:58PM -0500, David Miller wrote:
+> From: Al Viro <viro@ZenIV.linux.org.uk>
+> Date: Tue, 9 Dec 2014 21:23:37 +0000
+> 
+> > On Tue, Dec 09, 2014 at 04:17:12PM -0500, David Miller wrote:
+> >> From: Al Viro <viro@ZenIV.linux.org.uk>
+> >> Date: Tue, 9 Dec 2014 21:04:14 +0000
+> >> 
+> >> > Well, I've got no comments whatsoever on the networking side of things;
+> >> 
+> >> I've been away for more than 10 days, so I personally haven't had time
+> >> to review any of it.
+> >> 
+> >> Why don't you respin and I'll try to allocate some review time myself?
+> > 
+> > Umm...  Do you want a rebase on top of current net-next/master?
+> 
+> Sure, why not?
 
-> From: Kyeyoon Park <kyeyoonp@codeaurora.org>
-> 
-> Because dropping broadcast packets for IEEE 802.11 Proxy ARP is more
-> selective than previously thought, it is better to remove the direct
-> dropping logic in the bridge code in favor of using the netfilter
-> infrastructure to provide more control on which frames get dropped. This
-> code was added in commit 958501163ddd ("bridge: Add support for IEEE
-> 802.11 Proxy ARP").
-> 
-> Signed-off-by: Kyeyoon Park <kyeyoonp@codeaurora.org>
-> Signed-off-by: Jouni Malinen <jouni@codeaurora.org>
-> ---
->  net/bridge/br_forward.c | 4 ----
->  1 file changed, 4 deletions(-)
-> 
-> diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-> index f96933a..8a025a7 100644
-> --- a/net/bridge/br_forward.c
-> +++ b/net/bridge/br_forward.c
-> @@ -185,10 +185,6 @@ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
->  		if (unicast && !(p->flags & BR_FLOOD))
->  			continue;
->  
-> -		/* Do not flood to ports that enable proxy ARP */
-> -		if (p->flags & BR_PROXYARP)
-> -			continue;
-> -
->  		prev = maybe_deliver(prev, p, skb, __packet_hook);
->  		if (IS_ERR(prev))
->  			goto out;
-
-Aren't you at risk of duplicate ARP responses in some cases.
-You can't assume user will run netfilter.
+OK, rebase is in
+git://git.kernel.org/pub/scm/linux/kernel/git/viro/vfs.git for-davem-2,
+individual patches - in followups (first 13 - iov_iter, then 12 net-related)
