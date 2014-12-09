@@ -1,7 +1,7 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 09/25] iov_iter.c: convert copy_to_iter() to iterate_and_advance
-Date: Tue,  9 Dec 2014 22:50:22 +0000
-Message-ID: <1418165438-2205-9-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH 17/25] switch tcp_sock->ucopy from iovec (ucopy.iov) to msghdr (ucopy.msg)
+Date: Tue,  9 Dec 2014 22:50:30 +0000
+Message-ID: <1418165438-2205-17-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20141209224928.GL22149@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
@@ -14,125 +14,62 @@ From: Al Viro <viro@zeniv.linux.org.uk>
 
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- mm/iov_iter.c | 91 ++++++-----------------------------------------------------
- 1 file changed, 9 insertions(+), 82 deletions(-)
+ include/linux/tcp.h  | 2 +-
+ net/ipv4/tcp.c       | 2 +-
+ net/ipv4/tcp_input.c | 7 +++----
+ 3 files changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/mm/iov_iter.c b/mm/iov_iter.c
-index 791429d..66665449 100644
---- a/mm/iov_iter.c
-+++ b/mm/iov_iter.c
-@@ -97,51 +97,6 @@
- 	i->iov_offset = skip;					\
- }
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index f566b85..5d9cc9c 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -162,7 +162,7 @@ struct tcp_sock {
+ 	struct {
+ 		struct sk_buff_head	prequeue;
+ 		struct task_struct	*task;
+-		struct iovec		*iov;
++		struct msghdr		*msg;
+ 		int			memory;
+ 		int			len;
+ 	} ucopy;
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index dc13a36..4a96f37 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1729,7 +1729,7 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 			if (!user_recv && !(flags & (MSG_TRUNC | MSG_PEEK))) {
+ 				user_recv = current;
+ 				tp->ucopy.task = user_recv;
+-				tp->ucopy.iov = msg->msg_iov;
++				tp->ucopy.msg = msg;
+ 			}
  
--static size_t copy_to_iter_iovec(void *from, size_t bytes, struct iov_iter *i)
--{
--	size_t skip, copy, left, wanted;
--	const struct iovec *iov;
--	char __user *buf;
--
--	if (unlikely(bytes > i->count))
--		bytes = i->count;
--
--	if (unlikely(!bytes))
--		return 0;
--
--	wanted = bytes;
--	iov = i->iov;
--	skip = i->iov_offset;
--	buf = iov->iov_base + skip;
--	copy = min(bytes, iov->iov_len - skip);
--
--	left = __copy_to_user(buf, from, copy);
--	copy -= left;
--	skip += copy;
--	from += copy;
--	bytes -= copy;
--	while (unlikely(!left && bytes)) {
--		iov++;
--		buf = iov->iov_base;
--		copy = min(bytes, iov->iov_len);
--		left = __copy_to_user(buf, from, copy);
--		copy -= left;
--		skip = copy;
--		from += copy;
--		bytes -= copy;
--	}
--
--	if (skip == iov->iov_len) {
--		iov++;
--		skip = 0;
--	}
--	i->count -= wanted - bytes;
--	i->nr_segs -= iov - i->iov;
--	i->iov = iov;
--	i->iov_offset = skip;
--	return wanted - bytes;
--}
--
- static size_t copy_page_to_iter_iovec(struct page *page, size_t offset, size_t bytes,
- 			 struct iov_iter *i)
- {
-@@ -360,51 +315,23 @@ static void memzero_page(struct page *page, size_t offset, size_t len)
- 	kunmap_atomic(addr);
- }
+ 			tp->ucopy.len = len;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 69de1a1..075ab4d 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4421,7 +4421,7 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
+ 			__set_current_state(TASK_RUNNING);
  
--static size_t copy_to_iter_bvec(void *from, size_t bytes, struct iov_iter *i)
-+size_t copy_to_iter(void *addr, size_t bytes, struct iov_iter *i)
- {
--	size_t skip, copy, wanted;
--	const struct bio_vec *bvec;
--
-+	char *from = addr;
- 	if (unlikely(bytes > i->count))
- 		bytes = i->count;
+ 			local_bh_enable();
+-			if (!skb_copy_datagram_iovec(skb, 0, tp->ucopy.iov, chunk)) {
++			if (!skb_copy_datagram_msg(skb, 0, tp->ucopy.msg, chunk)) {
+ 				tp->ucopy.len -= chunk;
+ 				tp->copied_seq += chunk;
+ 				eaten = (chunk == skb->len);
+@@ -4941,10 +4941,9 @@ static int tcp_copy_to_iovec(struct sock *sk, struct sk_buff *skb, int hlen)
  
- 	if (unlikely(!bytes))
- 		return 0;
+ 	local_bh_enable();
+ 	if (skb_csum_unnecessary(skb))
+-		err = skb_copy_datagram_iovec(skb, hlen, tp->ucopy.iov, chunk);
++		err = skb_copy_datagram_msg(skb, hlen, tp->ucopy.msg, chunk);
+ 	else
+-		err = skb_copy_and_csum_datagram_iovec(skb, hlen,
+-						       tp->ucopy.iov);
++		err = skb_copy_and_csum_datagram_msg(skb, hlen, tp->ucopy.msg);
  
--	wanted = bytes;
--	bvec = i->bvec;
--	skip = i->iov_offset;
--	copy = min_t(size_t, bytes, bvec->bv_len - skip);
--
--	memcpy_to_page(bvec->bv_page, skip + bvec->bv_offset, from, copy);
--	skip += copy;
--	from += copy;
--	bytes -= copy;
--	while (bytes) {
--		bvec++;
--		copy = min(bytes, (size_t)bvec->bv_len);
--		memcpy_to_page(bvec->bv_page, bvec->bv_offset, from, copy);
--		skip = copy;
--		from += copy;
--		bytes -= copy;
--	}
--	if (skip == bvec->bv_len) {
--		bvec++;
--		skip = 0;
--	}
--	i->count -= wanted - bytes;
--	i->nr_segs -= bvec - i->bvec;
--	i->bvec = bvec;
--	i->iov_offset = skip;
--	return wanted - bytes;
--}
-+	iterate_and_advance(i, bytes, v,
-+		__copy_to_user(v.iov_base, (from += v.iov_len) - v.iov_len,
-+			       v.iov_len),
-+		memcpy_to_page(v.bv_page, v.bv_offset,
-+			       (from += v.bv_len) - v.bv_len, v.bv_len)
-+	)
- 
--size_t copy_to_iter(void *addr, size_t bytes, struct iov_iter *i)
--{
--	if (i->type & ITER_BVEC)
--		return copy_to_iter_bvec(addr, bytes, i);
--	else
--		return copy_to_iter_iovec(addr, bytes, i);
-+	return bytes;
- }
- EXPORT_SYMBOL(copy_to_iter);
- 
+ 	if (!err) {
+ 		tp->ucopy.len -= chunk;
 -- 
 2.1.3
