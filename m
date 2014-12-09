@@ -1,48 +1,60 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next v2 0/4] net: allow setting congctl via routing
- table
-Date: Tue, 09 Dec 2014 22:22:02 +0100
-Message-ID: <548767FA.2020402@redhat.com>
-References: <1417909163-19135-1-git-send-email-dborkman@redhat.com> <20141209.155844.1175199719902606020.davem@davemloft.net>
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: [PATCH net-next 2/2] tcp_cubic: refine Hystart delay threshold
+Date: Tue, 9 Dec 2014 13:22:23 -0800
+Message-ID: <CAA93jw67K9ECZgOGveEXqZh2_LDuhgHH49OCvT0eMJ+PMFKpuw@mail.gmail.com>
+References: <1417738429.22424.29.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20141209.145856.1280304544503810169.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, fw@strlen.de, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Nandita Dukkipati <nanditad@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>, sangtae.ha@gmail.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37185 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751828AbaLIVWN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2014 16:22:13 -0500
-In-Reply-To: <20141209.155844.1175199719902606020.davem@davemloft.net>
+Received: from mail-oi0-f41.google.com ([209.85.218.41]:59791 "EHLO
+	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751828AbaLIVWY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 16:22:24 -0500
+Received: by mail-oi0-f41.google.com with SMTP id a3so1066011oib.28
+        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 13:22:23 -0800 (PST)
+In-Reply-To: <20141209.145856.1280304544503810169.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/09/2014 09:58 PM, David Miller wrote:
-> From: Daniel Borkmann <dborkman@redhat.com>
-> Date: Sun,  7 Dec 2014 00:39:19 +0100
+On Tue, Dec 9, 2014 at 11:58 AM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 04 Dec 2014 16:13:49 -0800
 >
->> This is the second part of our work and allows for setting the congestion
->> control algorithm via routing table. For details, please see individual
->> patches.
+>> From: Eric Dumazet <edumazet@google.com>
 >>
->> Joint work with Florian Westphal, suggested by Hannes Frederic Sowa.
+>> In commit 2b4636a5f8ca ("tcp_cubic: make the delay threshold of HySt=
+art
+>> less sensitive"), HYSTART_DELAY_MIN was changed to 4 ms.
 >>
->> Patch for iproute2: http://patchwork.ozlabs.org/patch/418149/
+>> The remaining problem is that using delay_min + (delay_min/16) as th=
+e
+>> threshold is too sensitive.
 >>
->> Thanks!
->>
->> v1->v2:
->>   - Very sorry, I noticed I had decnet disabled during testing.
->>     Added missing header include in decnet, rest as is.
+>> 6.25 % of variation is too small for rtt above 60 ms, which are not
+>> uncommon.
+>  ...
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
 >
-> I don't like how you have to explicitly load the congestion control
-> module before asking for it to be used in the route entry metric.
->
-> It should request the module automatically just like the stack already
-> does for other cases.
+> Applied.
 
-Ok, sure, adding auto-loading should not be a problem. Will respin
-with that tomorrow.
+Thank you (in a weird way!) for invalidating several weeks worth of
+long rtt tests of some aqm and fq variants.
 
-Thanks.
+http://snapon.lab.bufferbloat.net/~d/comprehensive.puck/long_rtt_baseli=
+ne.png
+
+/me goes off to pull and recompile, and try again.
+
+--=20
+Dave T=C3=A4ht
+
+http://www.bufferbloat.net/projects/bloat/wiki/Upcoming_Talks
