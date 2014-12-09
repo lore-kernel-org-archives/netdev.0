@@ -1,37 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] macvlan: allow setting LRO independently of
- lower device
-Date: Tue, 09 Dec 2014 16:00:48 -0500 (EST)
-Message-ID: <20141209.160048.1159420484833054299.davem@davemloft.net>
-References: <20141205190937.99BD6A0BB0@unicorn.suse.cz>
+Subject: Re: [PATCH net-next] openvswitch: set correct protocol on route
+ lookup
+Date: Tue, 09 Dec 2014 16:01:51 -0500 (EST)
+Message-ID: <20141209.160151.1816426599503963739.davem@davemloft.net>
+References: <0ead411e38bc57a8971ffd9826f7bf9bfdc6ccf1.1417796557.git.jbenc@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mkubecek@suse.cz
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141205190937.99BD6A0BB0@unicorn.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dev@openvswitch.org, pshelar@nicira.com,
+	wenyuz@vmware.com
+To: jbenc@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38648 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751153AbaLIVBy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 16:01:54 -0500
+In-Reply-To: <0ead411e38bc57a8971ffd9826f7bf9bfdc6ccf1.1417796557.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michal Kubecek <mkubecek@suse.cz>
-Date: Fri, 5 Dec 2014 17:05:49 +0100
+From: Jiri Benc <jbenc@redhat.com>
+Date: Fri,  5 Dec 2014 17:24:28 +0100
 
-> Since commit fbe168ba91f7 ("net: generic dev_disable_lro() stacked
-> device handling"), dev_disable_lro() zeroes NETIF_F_LRO feature flag
-> first for a macvlan device and then for its lower device. As an attempt
-> to set NETIF_F_LRO to zero is ignored, dev_disable_lro() issues a
-> warning and taints kernel.
+> Respect what the caller passed to ovs_tunnel_get_egress_info.
 > 
-> Allowing NETIF_F_LRO to be set independently of the lower device
-> consists of three parts:
-> 
->   - add the flag to hw_features to allow toggling it
->   - allow setting it to 0 even if lower device has the flag set
->   - add the flag to MACVLAN_FEATURES to restore copying from lower
->     device on macvlan creation
-> 
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+> Fixes: 8f0aad6f35f7e ("openvswitch: Extend packet attribute for egress tunnel info")
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
 Applied, thanks.
