@@ -1,107 +1,151 @@
-From: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-Subject: linux-next 20141208 -  net/sched/sch_fq_codel.c:97 suspicious RCU
-Date: Tue, 09 Dec 2014 12:51:40 -0500
-Message-ID: <6468.1418147500@turing-police.cc.vt.edu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: fix more NULL deref after prequeue changes
+Date: Tue, 09 Dec 2014 09:56:08 -0800
+Message-ID: <1418147768.27198.7.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20141209160023.GA31520@fluid.dannf>
+	 <1418141783.14835.20.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1418141914.14835.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1418142520.14835.22.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALdTtnuazPdMNsOHzzersmyHvLjwxSq1BZoA5ZAdU-0QZtwUsg@mail.gmail.com>
+	 <1418145804.27198.0.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1418147500_3854P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
+Cc: netdev <netdev@vger.kernel.org>
+To: Dann Frazier <dann.frazier@canonical.com>,
 	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:61376 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751010AbaLIR4O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 12:56:14 -0500
+Received: by mail-ie0-f175.google.com with SMTP id x19so1018415ier.20
+        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 09:56:13 -0800 (PST)
+In-Reply-To: <1418145804.27198.0.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1418147500_3854P
-Content-Type: text/plain; charset=us-ascii
+From: Eric Dumazet <edumazet@google.com>
 
-Spotted this in dmesg while investigating why my wireless broke
-sometime between next-20141201 and next-20141208.  Probably not
-related, as wireless has been broken on several boot attempts of -1208,
-but this has popped only once....
+When I cooked commit c3658e8d0f1 ("tcp: fix possible NULL dereference in
+tcp_vX_send_reset()") I missed other spots we could deref a NULL
+skb_dst(skb)
 
-Looks like the fault of
+Again, if a socket is provided, we do not need skb_dst() to get a
+pointer to network namespace : sock_net(sk) is good enough.
 
-commit 46e5da40aec256155cfedee96dd21a75da941f2c
-Author: John Fastabend <john.fastabend@gmail.com>
-Date:   Fri Sep 12 20:04:52 2014 -0700
+Reported-by: Dann Frazier <dann.frazier@canonical.com>
+Bisected-by: Dann Frazier <dann.frazier@canonical.com>
+Tested-by: Dann Frazier <dann.frazier@canonical.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Fixes: ca777eff51f7 ("tcp: remove dst refcount false sharing for prequeue mode")
+---
+ net/ipv4/tcp_ipv4.c |    4 ++--
+ net/ipv6/tcp_ipv6.c |   28 ++++++++++++++--------------
+ 2 files changed, 16 insertions(+), 16 deletions(-)
 
-    net: qdisc: use rcu prefix and silence sparse warnings
-
-but I freely admit that exhausts my RCU debugging skills. :)
-
-[  104.743212] ===============================
-[  104.743214] [ INFO: suspicious RCU usage. ]
-[  104.743218] 3.18.0-next-20141208 #27 Tainted: G           OE
-[  104.743219] -------------------------------
-[  104.743224] net/sched/sch_fq_codel.c:97 suspicious rcu_dereference_check() usage!
-[  104.743227]
-other info that might help us debug this:
-
-[  104.743231]
-rcu_scheduler_active = 1, debug_locks = 1
-[  104.743236] 4 locks held by unbound/1873:
-[  104.743239]  #0:  (rcu_read_lock_bh){......}, at: [<ffffffff8a537066>] rcu_lock_acquire+0x0/0x22
-[  104.743257]  #1:  (rcu_read_lock_bh){......}, at: [<ffffffff8a4ebd44>] rcu_lock_acquire+0x0/0x22
-[  104.743274]  #2:  (dev->qdisc_tx_busylock ?: &qdisc_tx_busylock){+.....}, at: [<ffffffff8a4f3ea4>] __dev_queue_xmit+0x32a/0x66a
-[  104.743292]  #3:  (&qdisc_tx_lock){+.-...}, at: [<ffffffff8a4f3ead>] __dev_queue_xmit+0x333/0x66a
-[  104.743302]
-stack backtrace:
-[  104.743307] CPU: 2 PID: 1873 Comm: unbound Tainted: G           OE  3.18.0-next-20141208 #27
-[  104.743309] Hardware name: Dell Inc. Latitude E6530/07Y85M, BIOS A15 06/20/2014
-[  104.743312]  0000000000000001 ffff8800b9f3f978 ffffffff8a6ba925 ffff880223bac210
-[  104.743317]  0000000000000001 ffff8800b9f3f9a8 ffffffff8a07f124 ffff8800b9ce4e00
-[  104.743323]  ffff880223fea600 0000000000000000 ffff8800c6e2c000 ffff8800b9f3f9f8
-[  104.743329] Call Trace:
-[  104.743336]  [<ffffffff8a6ba925>] dump_stack+0x50/0xa8
-[  104.743343]  [<ffffffff8a07f124>] lockdep_rcu_suspicious+0xea/0xf3
-[  104.743348]  [<ffffffff8a514903>] fq_codel_enqueue+0x79/0x21c
-[  104.743353]  [<ffffffff8a6c5228>] ? _raw_spin_lock+0x37/0x3f
-[  104.743357]  [<ffffffff8a4f3fb5>] __dev_queue_xmit+0x43b/0x66a
-[  104.743362]  [<ffffffff8a4f41ef>] dev_queue_xmit+0xb/0xd
-[  104.743367]  [<ffffffff8a537beb>] ip_finish_output2+0x42b/0x46c
-[  104.743371]  [<ffffffff8a53838f>] ip_finish_output+0x13c/0x144
-[  104.743376]  [<ffffffff8a5393f1>] ip_output+0x4c/0x70
-[  104.743381]  [<ffffffff8a538d92>] ip_local_out_sk+0x54/0x5f
-[  104.743385]  [<ffffffff8a539c2f>] ip_send_skb+0x12/0x37
-[  104.743390]  [<ffffffff8a55d145>] udp_send_skb+0x176/0x1db
-[  104.743394]  [<ffffffff8a55d839>] udp_sendmsg+0x63e/0x87c
-[  104.743398]  [<ffffffff8a537379>] ? skb_set_owner_w+0x56/0x56
-[  104.743404]  [<ffffffff8a09011d>] ? __rcu_read_unlock+0xf5/0xfd
-[  104.743408]  [<ffffffff8a568135>] ? rcu_read_unlock+0x3e/0x5d
-[  104.743413]  [<ffffffff8a568af9>] inet_sendmsg+0x3d/0x66
-[  104.743419]  [<ffffffff8a4d6a4b>] __sock_sendmsg_nosec+0x25/0x27
-[  104.743422]  [<ffffffff8a4d80da>] sock_sendmsg+0x5a/0x7b
-[  104.743429]  [<ffffffff8a12581b>] ? might_fault+0xae/0xb0
-[  104.743433]  [<ffffffff8a4d6c22>] ? audit_sockaddr+0x2b/0x44
-[  104.743437]  [<ffffffff8a4da1ff>] SYSC_sendto+0x119/0x15c
-[  104.743443]  [<ffffffff8a00e2b5>] ? do_audit_syscall_entry+0xb8/0xc7
-[  104.743447]  [<ffffffff8a4da85d>] SyS_sendto+0x9/0xb
-[  104.743453]  [<ffffffff8a6c5fd2>] system_call_fastpath+0x12/0x17
-
-
---==_Exmh_1418147500_3854P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Exmh version 2.5 07/13/2001
-
-iQIVAwUBVIc2rAdmEQWDXROgAQJTjhAAoWASTftlDRqz0z9qzju12nrRDwgmtOQg
-OmqLq/isuXXnHd9RWcB2zalmfhwWgkPzYKZJfc6NEHz5p59jNS2AhC89KlS55Wj2
-16rArpiIOquYn3qoQNBlZvjRqTr1SvjWZex6h/IumZNDxqa7EnyC3k7oEetDpFAO
-sK2lar2HdTlFbFgN9gA7EWjmdNjLEfqO2OrXTFLqgt4pvnCwPrYljkAjWS+1tQLw
-jxEubNZyXq94OJkbbwejtMtJ2pwyNaIISvxG0vZAZ8rRJmS7OXoak7hHfwAQpRCY
-/pxcWjOrwoRi6+bmsoAuCLd9+xkp5QjNnO16Mjk7WhRxRIY7SwomKZMAdyrItXqp
-AKkTETmvEZofJ6/jdvK+cJ3388hD1lAikKh8QvvU6+rlZLU6L0G5NLZ9bDKEqFRa
-o5k0EskwRpKoUZC1uc4Imh5aZYVeUIUp01ASz6//VcqeAmwvHdc0RxeQhj6ZYkBZ
-8p0YZf27e526n73DMPTeCbfTO6j5EfVZBj0X6YDzIfVILTR6NkDFAApx1Nc7p/D1
-wdEpN2GJaiJ3intYsBQ4YhPfE44B+UHn4IUjgP5rxNr28o40MCyx52tAgNtLsUgs
-9xpFXOWNHXAakkKT1LcE3My0s0fbkFX2G7nUnbXfgB+lXd1STe+OFJyBlRpMcrzd
-U8p/s0EbsaY=
-=43L/
------END PGP SIGNATURE-----
-
---==_Exmh_1418147500_3854P--
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 147be2024290..ef7089ca86e2 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -623,6 +623,7 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
+ 	arg.iov[0].iov_base = (unsigned char *)&rep;
+ 	arg.iov[0].iov_len  = sizeof(rep.th);
+ 
++	net = sk ? sock_net(sk) : dev_net(skb_dst(skb)->dev);
+ #ifdef CONFIG_TCP_MD5SIG
+ 	hash_location = tcp_parse_md5sig_option(th);
+ 	if (!sk && hash_location) {
+@@ -633,7 +634,7 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
+ 		 * Incoming packet is checked with md5 hash with finding key,
+ 		 * no RST generated if md5 hash doesn't match.
+ 		 */
+-		sk1 = __inet_lookup_listener(dev_net(skb_dst(skb)->dev),
++		sk1 = __inet_lookup_listener(net,
+ 					     &tcp_hashinfo, ip_hdr(skb)->saddr,
+ 					     th->source, ip_hdr(skb)->daddr,
+ 					     ntohs(th->source), inet_iif(skb));
+@@ -681,7 +682,6 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
+ 	if (sk)
+ 		arg.bound_dev_if = sk->sk_bound_dev_if;
+ 
+-	net = dev_net(skb_dst(skb)->dev);
+ 	arg.tos = ip_hdr(skb)->tos;
+ 	ip_send_unicast_reply(net, skb, &TCP_SKB_CB(skb)->header.h4.opt,
+ 			      ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index dc495ae2ead0..c277951d783b 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -787,16 +787,16 @@ static const struct tcp_request_sock_ops tcp_request_sock_ipv6_ops = {
+ 	.queue_hash_add =	inet6_csk_reqsk_queue_hash_add,
+ };
+ 
+-static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
+-				 u32 tsval, u32 tsecr, int oif,
+-				 struct tcp_md5sig_key *key, int rst, u8 tclass,
+-				 u32 label)
++static void tcp_v6_send_response(struct sock *sk, struct sk_buff *skb, u32 seq,
++				 u32 ack, u32 win, u32 tsval, u32 tsecr,
++				 int oif, struct tcp_md5sig_key *key, int rst,
++				 u8 tclass, u32 label)
+ {
+ 	const struct tcphdr *th = tcp_hdr(skb);
+ 	struct tcphdr *t1;
+ 	struct sk_buff *buff;
+ 	struct flowi6 fl6;
+-	struct net *net = dev_net(skb_dst(skb)->dev);
++	struct net *net = sk ? sock_net(sk) : dev_net(skb_dst(skb)->dev);
+ 	struct sock *ctl_sk = net->ipv6.tcp_sk;
+ 	unsigned int tot_len = sizeof(struct tcphdr);
+ 	struct dst_entry *dst;
+@@ -946,7 +946,7 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
+ 			  (th->doff << 2);
+ 
+ 	oif = sk ? sk->sk_bound_dev_if : 0;
+-	tcp_v6_send_response(skb, seq, ack_seq, 0, 0, 0, oif, key, 1, 0, 0);
++	tcp_v6_send_response(sk, skb, seq, ack_seq, 0, 0, 0, oif, key, 1, 0, 0);
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+ release_sk1:
+@@ -957,13 +957,13 @@ release_sk1:
+ #endif
+ }
+ 
+-static void tcp_v6_send_ack(struct sk_buff *skb, u32 seq, u32 ack,
+-			    u32 win, u32 tsval, u32 tsecr, int oif,
++static void tcp_v6_send_ack(struct sock *sk, struct sk_buff *skb, u32 seq,
++			    u32 ack, u32 win, u32 tsval, u32 tsecr, int oif,
+ 			    struct tcp_md5sig_key *key, u8 tclass,
+ 			    u32 label)
+ {
+-	tcp_v6_send_response(skb, seq, ack, win, tsval, tsecr, oif, key, 0, tclass,
+-			     label);
++	tcp_v6_send_response(sk, skb, seq, ack, win, tsval, tsecr, oif, key, 0,
++			     tclass, label);
+ }
+ 
+ static void tcp_v6_timewait_ack(struct sock *sk, struct sk_buff *skb)
+@@ -971,7 +971,7 @@ static void tcp_v6_timewait_ack(struct sock *sk, struct sk_buff *skb)
+ 	struct inet_timewait_sock *tw = inet_twsk(sk);
+ 	struct tcp_timewait_sock *tcptw = tcp_twsk(sk);
+ 
+-	tcp_v6_send_ack(skb, tcptw->tw_snd_nxt, tcptw->tw_rcv_nxt,
++	tcp_v6_send_ack(sk, skb, tcptw->tw_snd_nxt, tcptw->tw_rcv_nxt,
+ 			tcptw->tw_rcv_wnd >> tw->tw_rcv_wscale,
+ 			tcp_time_stamp + tcptw->tw_ts_offset,
+ 			tcptw->tw_ts_recent, tw->tw_bound_dev_if, tcp_twsk_md5_key(tcptw),
+@@ -986,10 +986,10 @@ static void tcp_v6_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
+ 	/* sk->sk_state == TCP_LISTEN -> for regular TCP_SYN_RECV
+ 	 * sk->sk_state == TCP_SYN_RECV -> for Fast Open.
+ 	 */
+-	tcp_v6_send_ack(skb, (sk->sk_state == TCP_LISTEN) ?
++	tcp_v6_send_ack(sk, skb, (sk->sk_state == TCP_LISTEN) ?
+ 			tcp_rsk(req)->snt_isn + 1 : tcp_sk(sk)->snd_nxt,
+-			tcp_rsk(req)->rcv_nxt,
+-			req->rcv_wnd, tcp_time_stamp, req->ts_recent, sk->sk_bound_dev_if,
++			tcp_rsk(req)->rcv_nxt, req->rcv_wnd,
++			tcp_time_stamp, req->ts_recent, sk->sk_bound_dev_if,
+ 			tcp_v6_md5_do_lookup(sk, &ipv6_hdr(skb)->daddr),
+ 			0, 0);
+ }
