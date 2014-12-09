@@ -1,60 +1,140 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: Possible regression: "gre: Use inner mac length when computing
- tunnel length"
-Date: Tue, 9 Dec 2014 13:23:54 -0800
-Message-ID: <CA+mtBx-WsgMRAYDUaPiVaBt43cRx7tb-0hRJ+6Eao8vjd3j8aQ@mail.gmail.com>
-References: <20141204141616.185b88c4@vostro>
-	<CA+mtBx-se+u4j8WHzZ+AXeiFN2uevrvcTb6xFpeNrhjOv=EVng@mail.gmail.com>
-	<20141209082645.5cf70f55@vostro>
-	<20141209084425.7499dbd4@vostro>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Timo Teras <timo.teras@iki.fi>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 02/13] i40e: better error messages for NVM update issues
+Date: Tue,  9 Dec 2014 13:26:09 -0800
+Message-ID: <1418160380-29847-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1418160380-29847-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:34549 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752142AbaLIVXz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 16:23:55 -0500
-Received: by mail-ie0-f177.google.com with SMTP id rd18so1408168iec.22
-        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 13:23:54 -0800 (PST)
-In-Reply-To: <20141209084425.7499dbd4@vostro>
+Received: from mga03.intel.com ([134.134.136.65]:29734 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751796AbaLIV0Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2014 16:26:24 -0500
+In-Reply-To: <1418160380-29847-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 8, 2014 at 10:44 PM, Timo Teras <timo.teras@iki.fi> wrote:
-> On Tue, 9 Dec 2014 08:26:45 +0200
-> Timo Teras <timo.teras@iki.fi> wrote:
->
->> On Thu, 4 Dec 2014 08:00:19 -0800
->> Tom Herbert <therbert@google.com> wrote:
->>
->> > A fix is pending for net. Please try if you can.
->>
->> Finally got to testing this. Unfortunately, this does not seem to fix
->> the issue I am experiencing.
->>
->> Any suggestions?
->
-> I think this fix is required, but does not fix the issue.
->
-> I suspect my problem is with the fact that I have NBMA GRE tunnel.
->
-> In ipgre_xmit() it is gre_handle_offloads() that is called first.
-> However, in my case, the GRE header was already pushed earlier via
-> header_ops. That's why the packet is skb_pull()'ed in the
-> "if (dev->header_ops)" path, so that __gre_xmit can push back the
-> header again on it.
->
-> I wonder if it is correct to just move the gre_handle_offloads() call
-> after the if() block, or if additional fixing is needed to make
-> offloads work with nbma tunnels.
->
-Yes, that probably is a good idea. iptunnel_handle_offloads resets
-inner headers so that inner_mac header is probably wrong when there
-are dev->header_ops.
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Tom
+Add more detail to the NVM update error messages so folks
+have a better chance at diagnosing issues without having to
+resort to heroic measures to reproduce an issue.
 
-> /Timo
+Change-ID: I270d1a9c903baceaef0bebcc55d29108ac08b0bd
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Jim Young <jamesx.m.young@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 52 ++++++++++++++++----------
+ 1 file changed, 33 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 25242f5..951e876 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -822,7 +822,7 @@ static int i40e_get_eeprom(struct net_device *netdev,
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_hw *hw = &np->vsi->back->hw;
+ 	struct i40e_pf *pf = np->vsi->back;
+-	int ret_val = 0, len;
++	int ret_val = 0, len, offset;
+ 	u8 *eeprom_buff;
+ 	u16 i, sectors;
+ 	bool last;
+@@ -835,19 +835,21 @@ static int i40e_get_eeprom(struct net_device *netdev,
+ 	/* check for NVMUpdate access method */
+ 	magic = hw->vendor_id | (hw->device_id << 16);
+ 	if (eeprom->magic && eeprom->magic != magic) {
++		struct i40e_nvm_access *cmd;
+ 		int errno;
+ 
+ 		/* make sure it is the right magic for NVMUpdate */
+ 		if ((eeprom->magic >> 16) != hw->device_id)
+ 			return -EINVAL;
+ 
+-		ret_val = i40e_nvmupd_command(hw,
+-					      (struct i40e_nvm_access *)eeprom,
+-					      bytes, &errno);
++		cmd = (struct i40e_nvm_access *)eeprom;
++		ret_val = i40e_nvmupd_command(hw, cmd, bytes, &errno);
+ 		if (ret_val)
+ 			dev_info(&pf->pdev->dev,
+-				 "NVMUpdate read failed err=%d status=0x%x\n",
+-				 ret_val, hw->aq.asq_last_status);
++				 "NVMUpdate read failed err=%d status=0x%x errno=%d module=%d offset=0x%x size=%d\n",
++				 ret_val, hw->aq.asq_last_status, errno,
++				 (u8)(cmd->config & I40E_NVM_MOD_PNT_MASK),
++				 cmd->offset, cmd->data_size);
+ 
+ 		return errno;
+ 	}
+@@ -876,20 +878,29 @@ static int i40e_get_eeprom(struct net_device *netdev,
+ 			len = eeprom->len - (I40E_NVM_SECTOR_SIZE * i);
+ 			last = true;
+ 		}
+-		ret_val = i40e_aq_read_nvm(hw, 0x0,
+-				eeprom->offset + (I40E_NVM_SECTOR_SIZE * i),
+-				len,
++		offset = eeprom->offset + (I40E_NVM_SECTOR_SIZE * i),
++		ret_val = i40e_aq_read_nvm(hw, 0x0, offset, len,
+ 				(u8 *)eeprom_buff + (I40E_NVM_SECTOR_SIZE * i),
+ 				last, NULL);
+-		if (ret_val) {
++		if (ret_val && hw->aq.asq_last_status == I40E_AQ_RC_EPERM) {
+ 			dev_info(&pf->pdev->dev,
+-				 "read NVM failed err=%d status=0x%x\n",
+-				 ret_val, hw->aq.asq_last_status);
+-			goto release_nvm;
++				 "read NVM failed, invalid offset 0x%x\n",
++				 offset);
++			break;
++		} else if (ret_val &&
++			   hw->aq.asq_last_status == I40E_AQ_RC_EACCES) {
++			dev_info(&pf->pdev->dev,
++				 "read NVM failed, access, offset 0x%x\n",
++				 offset);
++			break;
++		} else if (ret_val) {
++			dev_info(&pf->pdev->dev,
++				 "read NVM failed offset %d err=%d status=0x%x\n",
++				 offset, ret_val, hw->aq.asq_last_status);
++			break;
+ 		}
+ 	}
+ 
+-release_nvm:
+ 	i40e_release_nvm(hw);
+ 	memcpy(bytes, (u8 *)eeprom_buff, eeprom->len);
+ free_buff:
+@@ -917,6 +928,7 @@ static int i40e_set_eeprom(struct net_device *netdev,
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_hw *hw = &np->vsi->back->hw;
+ 	struct i40e_pf *pf = np->vsi->back;
++	struct i40e_nvm_access *cmd;
+ 	int ret_val = 0;
+ 	int errno;
+ 	u32 magic;
+@@ -934,12 +946,14 @@ static int i40e_set_eeprom(struct net_device *netdev,
+ 	    test_bit(__I40E_RESET_INTR_RECEIVED, &pf->state))
+ 		return -EBUSY;
+ 
+-	ret_val = i40e_nvmupd_command(hw, (struct i40e_nvm_access *)eeprom,
+-				      bytes, &errno);
+-	if (ret_val)
++	cmd = (struct i40e_nvm_access *)eeprom;
++	ret_val = i40e_nvmupd_command(hw, cmd, bytes, &errno);
++	if (ret_val && hw->aq.asq_last_status != I40E_AQ_RC_EBUSY)
+ 		dev_info(&pf->pdev->dev,
+-			 "NVMUpdate write failed err=%d status=0x%x\n",
+-			 ret_val, hw->aq.asq_last_status);
++			 "NVMUpdate write failed err=%d status=0x%x errno=%d module=%d offset=0x%x size=%d\n",
++			 ret_val, hw->aq.asq_last_status, errno,
++			 (u8)(cmd->config & I40E_NVM_MOD_PNT_MASK),
++			 cmd->offset, cmd->data_size);
+ 
+ 	return errno;
+ }
+-- 
+1.9.3
