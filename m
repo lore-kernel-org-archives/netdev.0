@@ -1,140 +1,55 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/13] i40e: better error messages for NVM update issues
-Date: Tue,  9 Dec 2014 03:22:39 -0800
-Message-ID: <1418124170-7495-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: [PATCH] netback: don't store invalid vif pointer
+Date: Tue, 09 Dec 2014 11:47:04 +0000
+Message-ID: <5486EF48020000780004E1B8@mail.emea.novell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: "xen-devel" <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>
+To: "Wei Liu" <wei.liu2@citrix.com>,
+	"Ian Campbell" <Ian.Campbell@eu.citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:43344 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755911AbaLILW5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2014 06:22:57 -0500
-In-Reply-To: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail.emea.novell.com ([130.57.118.101]:51209 "EHLO
+	mail.emea.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755617AbaLILrJ convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:4:1>);
+	Tue, 9 Dec 2014 06:47:09 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+When xenvif_alloc() fails, it returns a non-NULL error indicator. To
+avoid eventual races, we shouldn't store that into struct backend_info
+as readers of it only check for NULL.
 
-Add more detail to the NVM update error messages so folks
-have a better chance at diagnosing issues without having to
-resort to heroic measures to reproduce an issue.
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
 
-Change-ID: I270d1a9c903baceaef0bebcc55d29108ac08b0bd
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Tested-by: Jim Young <jamesx.m.young@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 52 ++++++++++++++++----------
- 1 file changed, 33 insertions(+), 19 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 25242f5..951e876 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -822,7 +822,7 @@ static int i40e_get_eeprom(struct net_device *netdev,
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_hw *hw = &np->vsi->back->hw;
- 	struct i40e_pf *pf = np->vsi->back;
--	int ret_val = 0, len;
-+	int ret_val = 0, len, offset;
- 	u8 *eeprom_buff;
- 	u16 i, sectors;
- 	bool last;
-@@ -835,19 +835,21 @@ static int i40e_get_eeprom(struct net_device *netdev,
- 	/* check for NVMUpdate access method */
- 	magic = hw->vendor_id | (hw->device_id << 16);
- 	if (eeprom->magic && eeprom->magic != magic) {
-+		struct i40e_nvm_access *cmd;
- 		int errno;
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -404,6 +404,7 @@ static int backend_create_xenvif(struct 
+ 	int err;
+ 	long handle;
+ 	struct xenbus_device *dev = be->dev;
++	struct xenvif *vif;
  
- 		/* make sure it is the right magic for NVMUpdate */
- 		if ((eeprom->magic >> 16) != hw->device_id)
- 			return -EINVAL;
- 
--		ret_val = i40e_nvmupd_command(hw,
--					      (struct i40e_nvm_access *)eeprom,
--					      bytes, &errno);
-+		cmd = (struct i40e_nvm_access *)eeprom;
-+		ret_val = i40e_nvmupd_command(hw, cmd, bytes, &errno);
- 		if (ret_val)
- 			dev_info(&pf->pdev->dev,
--				 "NVMUpdate read failed err=%d status=0x%x\n",
--				 ret_val, hw->aq.asq_last_status);
-+				 "NVMUpdate read failed err=%d status=0x%x errno=%d module=%d offset=0x%x size=%d\n",
-+				 ret_val, hw->aq.asq_last_status, errno,
-+				 (u8)(cmd->config & I40E_NVM_MOD_PNT_MASK),
-+				 cmd->offset, cmd->data_size);
- 
- 		return errno;
- 	}
-@@ -876,20 +878,29 @@ static int i40e_get_eeprom(struct net_device *netdev,
- 			len = eeprom->len - (I40E_NVM_SECTOR_SIZE * i);
- 			last = true;
- 		}
--		ret_val = i40e_aq_read_nvm(hw, 0x0,
--				eeprom->offset + (I40E_NVM_SECTOR_SIZE * i),
--				len,
-+		offset = eeprom->offset + (I40E_NVM_SECTOR_SIZE * i),
-+		ret_val = i40e_aq_read_nvm(hw, 0x0, offset, len,
- 				(u8 *)eeprom_buff + (I40E_NVM_SECTOR_SIZE * i),
- 				last, NULL);
--		if (ret_val) {
-+		if (ret_val && hw->aq.asq_last_status == I40E_AQ_RC_EPERM) {
- 			dev_info(&pf->pdev->dev,
--				 "read NVM failed err=%d status=0x%x\n",
--				 ret_val, hw->aq.asq_last_status);
--			goto release_nvm;
-+				 "read NVM failed, invalid offset 0x%x\n",
-+				 offset);
-+			break;
-+		} else if (ret_val &&
-+			   hw->aq.asq_last_status == I40E_AQ_RC_EACCES) {
-+			dev_info(&pf->pdev->dev,
-+				 "read NVM failed, access, offset 0x%x\n",
-+				 offset);
-+			break;
-+		} else if (ret_val) {
-+			dev_info(&pf->pdev->dev,
-+				 "read NVM failed offset %d err=%d status=0x%x\n",
-+				 offset, ret_val, hw->aq.asq_last_status);
-+			break;
- 		}
+ 	if (be->vif != NULL)
+ 		return 0;
+@@ -414,13 +415,13 @@ static int backend_create_xenvif(struct 
+ 		return (err < 0) ? err : -EINVAL;
  	}
  
--release_nvm:
- 	i40e_release_nvm(hw);
- 	memcpy(bytes, (u8 *)eeprom_buff, eeprom->len);
- free_buff:
-@@ -917,6 +928,7 @@ static int i40e_set_eeprom(struct net_device *netdev,
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_hw *hw = &np->vsi->back->hw;
- 	struct i40e_pf *pf = np->vsi->back;
-+	struct i40e_nvm_access *cmd;
- 	int ret_val = 0;
- 	int errno;
- 	u32 magic;
-@@ -934,12 +946,14 @@ static int i40e_set_eeprom(struct net_device *netdev,
- 	    test_bit(__I40E_RESET_INTR_RECEIVED, &pf->state))
- 		return -EBUSY;
+-	be->vif = xenvif_alloc(&dev->dev, dev->otherend_id, handle);
+-	if (IS_ERR(be->vif)) {
+-		err = PTR_ERR(be->vif);
+-		be->vif = NULL;
++	vif = xenvif_alloc(&dev->dev, dev->otherend_id, handle);
++	if (IS_ERR(vif)) {
++		err = PTR_ERR(vif);
+ 		xenbus_dev_fatal(dev, err, "creating interface");
+ 		return err;
+ 	}
++	be->vif = vif;
  
--	ret_val = i40e_nvmupd_command(hw, (struct i40e_nvm_access *)eeprom,
--				      bytes, &errno);
--	if (ret_val)
-+	cmd = (struct i40e_nvm_access *)eeprom;
-+	ret_val = i40e_nvmupd_command(hw, cmd, bytes, &errno);
-+	if (ret_val && hw->aq.asq_last_status != I40E_AQ_RC_EBUSY)
- 		dev_info(&pf->pdev->dev,
--			 "NVMUpdate write failed err=%d status=0x%x\n",
--			 ret_val, hw->aq.asq_last_status);
-+			 "NVMUpdate write failed err=%d status=0x%x errno=%d module=%d offset=0x%x size=%d\n",
-+			 ret_val, hw->aq.asq_last_status, errno,
-+			 (u8)(cmd->config & I40E_NVM_MOD_PNT_MASK),
-+			 cmd->offset, cmd->data_size);
- 
- 	return errno;
- }
--- 
-1.9.3
+ 	kobject_uevent(&dev->dev.kobj, KOBJ_ONLINE);
+ 	return 0;
