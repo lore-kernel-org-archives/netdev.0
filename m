@@ -1,27 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tc_act: export uapi header file
-Date: Tue, 09 Dec 2014 13:34:45 -0500 (EST)
-Message-ID: <20141209.133445.790579223521271906.davem@davemloft.net>
-References: <20141203093317.3c482872@urahara>
+Subject: Re: pull request: wireless 2014-12-03
+Date: Tue, 09 Dec 2014 13:36:02 -0500 (EST)
+Message-ID: <20141209.133602.1849817956610567109.davem@davemloft.net>
+References: <20141203203432.GF2896@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, jhs@mojatatu.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37335 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751591AbaLISes (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 13:34:48 -0500
-In-Reply-To: <20141203093317.3c482872@urahara>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141203203432.GF2896@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Wed, 3 Dec 2014 09:33:17 -0800
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 3 Dec 2014 15:34:33 -0500
 
-> This file is used by iproute2 and should be exported.
+> One last(?) batch of fixes hoping to make 3.18...
 > 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> In this episode, we have another trio of rtlwifi fixes
+> repairing a little more damage from the major update of the
+> rtlwifi-family of drivers.  These editing mistakes caused some
+> memory corruption and missed a flag critical to proper interrupt
+> handling.  Together, these fix the kernel regression reported at
+> https://bugzilla.kernel.org/show_bug.cgi?id=88951 by Catalin Iacob.
+> 
+> Please let me know if there are problems!
 
-Applied.
+Unfortunately, this did not make it for 3.18, but I've pulled it into my
+'net' tree which I'll merge into 'net-next' for the merge window.
