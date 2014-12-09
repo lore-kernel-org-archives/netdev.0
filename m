@@ -1,37 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 4/4] macvlan: play well with ipvlan device
-Date: Tue, 09 Dec 2014 16:10:55 -0500 (EST)
-Message-ID: <20141209.161055.1393386731139458138.davem@davemloft.net>
-References: <1417910026-13371-1-git-send-email-maheshb@google.com>
+Subject: Re: [PATCH net-next] enic: add support for set/get rss hash key
+Date: Tue, 09 Dec 2014 16:12:18 -0500 (EST)
+Message-ID: <20141209.161218.1737626879465253606.davem@davemloft.net>
+References: <1417972273-22661-1-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: maheshb@google.com
+Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
+To: _govind@gmx.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38757 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38775 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751623AbaLIVK5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 16:10:57 -0500
-In-Reply-To: <1417910026-13371-1-git-send-email-maheshb@google.com>
+	with ESMTP id S1752387AbaLIVMU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 16:12:20 -0500
+In-Reply-To: <1417972273-22661-1-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
-Date: Sat,  6 Dec 2014 15:53:46 -0800
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Date: Sun,  7 Dec 2014 22:41:13 +0530
 
-> If device is already used as an ipvlan port then refuse to
-> use it as a macvlan port at early stage of port creation.
+> This patch adds support for setting/getting rss hash key using ethtool.
 > 
-> 	thost1:~# ip link add link eth0 ipvl0 type ipvlan
-> 	thost1:~# echo $?
-> 	0
-> 	thost1:~# ip link add link eth0 mvl0 type macvlan
-> 	RTNETLINK answers: Device or resource busy
-> 	thost1:~# echo $?
-> 	2
-> 	thost1:~#
-> 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 
-Applied.
+Applied, thanks.
