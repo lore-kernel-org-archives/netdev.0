@@ -1,132 +1,283 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/13] i40e: let firmware catch the NVM busy error
-Date: Tue,  9 Dec 2014 03:22:40 -0800
-Message-ID: <1418124170-7495-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/13] i40e: rework debug messages for NVM update
+Date: Tue,  9 Dec 2014 03:22:41 -0800
+Message-ID: <1418124170-7495-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:43349 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:43348 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756667AbaLILW5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2014 06:22:57 -0500
+	id S1756680AbaLILW6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2014 06:22:58 -0500
 In-Reply-To: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-The NVM update operations take time finish asynchronously, and follow-on
-update requests need to wait for the current one to finish.  Early
-firmware didn't handle this well, so the code had to track the busy state.
-The released firmware handles the busy state correctly, returning
-I40E_AQ_RC_EBUSY if an update is still in progress, so the code no longer
-needs to track this.
+Rework the debug messages in the NVM update state machine so that we can
+turn them on and off dynamically rather than forcing a recompile/reload.
 
-Change-ID: I6e6b4adc26d6dcc5fd7adfee5763423858a7d921
+These can now be turned on with something like:
+	ethtool -s eth1 msglvl 0xf000008f
+and off with:
+	ethtool -s eth1 msglvl 0xf000000f
+
+The high 0xf0000000 gets the driver's attention that we want to change the
+internal debug flags, and the 0x80 bit is the NVM debug.
+
+Change-ID: I5efb9039400304b29a0fd6ddea3f47bb362e6661
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Acked-by: Greg Rose <gregory.v.rose@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq.c   | 11 -----------
- drivers/net/ethernet/intel/i40e/i40e_adminq.h   |  1 -
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c |  6 ------
- drivers/net/ethernet/intel/i40evf/i40e_adminq.h |  1 -
- 4 files changed, 19 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c | 107 +++++++++++++++++++++--------
+ 1 file changed, 80 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index 35fa09a..ebff11b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -617,7 +617,6 @@ i40e_status i40e_init_adminq(struct i40e_hw *hw)
- 
- 	/* pre-emptive resource lock release */
- 	i40e_aq_release_resource(hw, I40E_NVM_RESOURCE_ID, 0, NULL);
--	hw->aq.nvm_busy = false;
- 
- 	ret_code = i40e_aq_set_hmc_resource_profile(hw,
- 						    I40E_HMC_PROFILE_DEFAULT,
-@@ -754,12 +753,6 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
- 		goto asq_send_command_exit;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+index 25c4f9a..df429bb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+@@ -61,7 +61,7 @@ i40e_status i40e_init_nvm(struct i40e_hw *hw)
+ 	} else { /* Blank programming mode */
+ 		nvm->blank_nvm_mode = true;
+ 		ret_code = I40E_ERR_NVM_BLANK_MODE;
+-		hw_dbg(hw, "NVM init error: unsupported blank mode.\n");
++		i40e_debug(hw, I40E_DEBUG_NVM, "NVM init error: unsupported blank mode.\n");
  	}
  
--	if (i40e_is_nvm_update_op(desc) && hw->aq.nvm_busy) {
--		i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE, "AQTX: NVM busy.\n");
--		status = I40E_ERR_NVM;
--		goto asq_send_command_exit;
--	}
--
- 	details = I40E_ADMINQ_DETAILS(hw->aq.asq, hw->aq.asq.next_to_use);
- 	if (cmd_details) {
- 		*details = *cmd_details;
-@@ -901,9 +894,6 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
- 		status = I40E_ERR_ADMIN_QUEUE_TIMEOUT;
+ 	return ret_code;
+@@ -118,8 +118,9 @@ i40e_status i40e_acquire_nvm(struct i40e_hw *hw,
+ 			hw->nvm.hw_semaphore_timeout = 0;
+ 			hw->nvm.hw_semaphore_wait =
+ 						I40E_MS_TO_GTIME(time) + gtime;
+-			hw_dbg(hw, "NVM acquire timed out, wait %llu ms before trying again.\n",
+-				  time);
++			i40e_debug(hw, I40E_DEBUG_NVM,
++				   "NVM acquire timed out, wait %llu ms before trying again.\n",
++				   time);
+ 		}
  	}
  
--	if (!status && i40e_is_nvm_update_op(desc))
--		hw->aq.nvm_busy = true;
--
- asq_send_command_error:
- 	mutex_unlock(&hw->aq.asq_mutex);
- asq_send_command_exit:
-@@ -1016,7 +1006,6 @@ clean_arq_element_out:
- 	mutex_unlock(&hw->aq.arq_mutex);
- 
- 	if (i40e_is_nvm_update_op(&e->desc)) {
--		hw->aq.nvm_busy = false;
- 		if (hw->aq.nvm_release_on_done) {
- 			i40e_release_nvm(hw);
- 			hw->aq.nvm_release_on_done = false;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.h b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-index 003a227..618fe96 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-@@ -94,7 +94,6 @@ struct i40e_adminq_info {
- 	u16 fw_min_ver;                 /* firmware minor version */
- 	u16 api_maj_ver;                /* api major version */
- 	u16 api_min_ver;                /* api minor version */
--	bool nvm_busy;
- 	bool nvm_release_on_done;
- 
- 	struct mutex asq_mutex; /* Send queue lock */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-index 1698994..c1d25f8 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-@@ -836,9 +836,6 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
- 		hw->aq.asq_last_status = (enum i40e_admin_queue_err)retval;
+@@ -160,7 +161,7 @@ static i40e_status i40e_poll_sr_srctl_done_bit(struct i40e_hw *hw)
+ 		udelay(5);
  	}
+ 	if (ret_code == I40E_ERR_TIMEOUT)
+-		hw_dbg(hw, "Done bit in GLNVM_SRCTL not set\n");
++		i40e_debug(hw, I40E_DEBUG_NVM, "Done bit in GLNVM_SRCTL not set");
+ 	return ret_code;
+ }
  
--	if (i40e_is_nvm_update_op(desc))
--		hw->aq.nvm_busy = true;
--
- 	i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE,
- 		   "AQTX: desc and buffer writeback:\n");
- 	i40evf_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, buff,
-@@ -931,9 +928,6 @@ i40e_status i40evf_clean_arq_element(struct i40e_hw *hw,
- 		memcpy(e->msg_buf, hw->aq.arq.r.arq_bi[desc_idx].va,
- 		       e->msg_len);
+@@ -179,7 +180,9 @@ i40e_status i40e_read_nvm_word(struct i40e_hw *hw, u16 offset,
+ 	u32 sr_reg;
  
--	if (i40e_is_nvm_update_op(&e->desc))
--		hw->aq.nvm_busy = false;
--
- 	i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE, "AQRX: desc and buffer:\n");
- 	i40evf_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, e->msg_buf,
- 			hw->aq.arq_buf_size);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-index 0d58378..d5d3c93 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-@@ -94,7 +94,6 @@ struct i40e_adminq_info {
- 	u16 fw_min_ver;                 /* firmware minor version */
- 	u16 api_maj_ver;                /* api major version */
- 	u16 api_min_ver;                /* api minor version */
--	bool nvm_busy;
- 	bool nvm_release_on_done;
+ 	if (offset >= hw->nvm.sr_size) {
+-		hw_dbg(hw, "NVM read error: Offset beyond Shadow RAM limit.\n");
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "NVM read error: offset %d beyond Shadow RAM limit %d\n",
++			   offset, hw->nvm.sr_size);
+ 		ret_code = I40E_ERR_PARAM;
+ 		goto read_nvm_exit;
+ 	}
+@@ -202,8 +205,9 @@ i40e_status i40e_read_nvm_word(struct i40e_hw *hw, u16 offset,
+ 		}
+ 	}
+ 	if (ret_code)
+-		hw_dbg(hw, "NVM read error: Couldn't access Shadow RAM address: 0x%x\n",
+-			  offset);
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "NVM read error: Couldn't access Shadow RAM address: 0x%x\n",
++			   offset);
  
- 	struct mutex asq_mutex; /* Send queue lock */
+ read_nvm_exit:
+ 	return ret_code;
+@@ -263,14 +267,20 @@ static i40e_status i40e_write_nvm_aq(struct i40e_hw *hw, u8 module_pointer,
+ 	 * Firmware will check the module-based model.
+ 	 */
+ 	if ((offset + words) > hw->nvm.sr_size)
+-		hw_dbg(hw, "NVM write error: offset beyond Shadow RAM limit.\n");
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "NVM write error: offset %d beyond Shadow RAM limit %d\n",
++			   (offset + words), hw->nvm.sr_size);
+ 	else if (words > I40E_SR_SECTOR_SIZE_IN_WORDS)
+ 		/* We can write only up to 4KB (one sector), in one AQ write */
+-		hw_dbg(hw, "NVM write fail error: cannot write more than 4KB in a single write.\n");
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "NVM write fail error: tried to write %d words, limit is %d.\n",
++			   words, I40E_SR_SECTOR_SIZE_IN_WORDS);
+ 	else if (((offset + (words - 1)) / I40E_SR_SECTOR_SIZE_IN_WORDS)
+ 		 != (offset / I40E_SR_SECTOR_SIZE_IN_WORDS))
+ 		/* A single write cannot spread over two sectors */
+-		hw_dbg(hw, "NVM write error: cannot spread over two sectors in a single write.\n");
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "NVM write error: cannot spread over two sectors in a single write offset=%d words=%d\n",
++			   offset, words);
+ 	else
+ 		ret_code = i40e_aq_update_nvm(hw, module_pointer,
+ 					      2 * offset,  /*bytes*/
+@@ -438,6 +448,22 @@ static inline u8 i40e_nvmupd_get_transaction(u32 val)
+ 	return (u8)((val & I40E_NVM_TRANS_MASK) >> I40E_NVM_TRANS_SHIFT);
+ }
+ 
++static char *i40e_nvm_update_state_str[] = {
++	"I40E_NVMUPD_INVALID",
++	"I40E_NVMUPD_READ_CON",
++	"I40E_NVMUPD_READ_SNT",
++	"I40E_NVMUPD_READ_LCB",
++	"I40E_NVMUPD_READ_SA",
++	"I40E_NVMUPD_WRITE_ERA",
++	"I40E_NVMUPD_WRITE_CON",
++	"I40E_NVMUPD_WRITE_SNT",
++	"I40E_NVMUPD_WRITE_LCB",
++	"I40E_NVMUPD_WRITE_SA",
++	"I40E_NVMUPD_CSUM_CON",
++	"I40E_NVMUPD_CSUM_SA",
++	"I40E_NVMUPD_CSUM_LCB",
++};
++
+ /**
+  * i40e_nvmupd_command - Process an NVM update command
+  * @hw: pointer to hardware structure
+@@ -471,6 +497,8 @@ i40e_status i40e_nvmupd_command(struct i40e_hw *hw,
+ 
+ 	default:
+ 		/* invalid state, should never happen */
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "NVMUPD: no such state %d\n", hw->nvmupd_state);
+ 		status = I40E_NOT_SUPPORTED;
+ 		*errno = -ESRCH;
+ 		break;
+@@ -572,6 +600,9 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
+ 		break;
+ 
+ 	default:
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "NVMUPD: bad cmd %s in init state\n",
++			   i40e_nvm_update_state_str[upd_cmd]);
+ 		status = I40E_ERR_NVM;
+ 		*errno = -ESRCH;
+ 		break;
+@@ -611,6 +642,9 @@ static i40e_status i40e_nvmupd_state_reading(struct i40e_hw *hw,
+ 		break;
+ 
+ 	default:
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "NVMUPD: bad cmd %s in reading state.\n",
++			   i40e_nvm_update_state_str[upd_cmd]);
+ 		status = I40E_NOT_SUPPORTED;
+ 		*errno = -ESRCH;
+ 		break;
+@@ -671,6 +705,9 @@ static i40e_status i40e_nvmupd_state_writing(struct i40e_hw *hw,
+ 		break;
+ 
+ 	default:
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "NVMUPD: bad cmd %s in writing state.\n",
++			   i40e_nvm_update_state_str[upd_cmd]);
+ 		status = I40E_NOT_SUPPORTED;
+ 		*errno = -ESRCH;
+ 		break;
+@@ -702,8 +739,9 @@ static enum i40e_nvmupd_cmd i40e_nvmupd_validate_command(struct i40e_hw *hw,
+ 	/* limits on data size */
+ 	if ((cmd->data_size < 1) ||
+ 	    (cmd->data_size > I40E_NVMUPD_MAX_DATA)) {
+-		hw_dbg(hw, "i40e_nvmupd_validate_command data_size %d\n",
+-		       cmd->data_size);
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "i40e_nvmupd_validate_command data_size %d\n",
++			   cmd->data_size);
+ 		*errno = -EFAULT;
+ 		return I40E_NVMUPD_INVALID;
+ 	}
+@@ -755,12 +793,14 @@ static enum i40e_nvmupd_cmd i40e_nvmupd_validate_command(struct i40e_hw *hw,
+ 		}
+ 		break;
+ 	}
++	i40e_debug(hw, I40E_DEBUG_NVM, "%s\n",
++		   i40e_nvm_update_state_str[upd_cmd]);
+ 
+ 	if (upd_cmd == I40E_NVMUPD_INVALID) {
+ 		*errno = -EFAULT;
+-		hw_dbg(hw,
+-		       "i40e_nvmupd_validate_command returns %d  errno: %d\n",
+-		       upd_cmd, *errno);
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "i40e_nvmupd_validate_command returns %d errno %d\n",
++			   upd_cmd, *errno);
+ 	}
+ 	return upd_cmd;
+ }
+@@ -785,14 +825,18 @@ static i40e_status i40e_nvmupd_nvm_read(struct i40e_hw *hw,
+ 	transaction = i40e_nvmupd_get_transaction(cmd->config);
+ 	module = i40e_nvmupd_get_module(cmd->config);
+ 	last = (transaction == I40E_NVM_LCB) || (transaction == I40E_NVM_SA);
+-	hw_dbg(hw, "i40e_nvmupd_nvm_read mod 0x%x  off 0x%x  len 0x%x\n",
+-	       module, cmd->offset, cmd->data_size);
+ 
+ 	status = i40e_aq_read_nvm(hw, module, cmd->offset, (u16)cmd->data_size,
+ 				  bytes, last, NULL);
+-	hw_dbg(hw, "i40e_nvmupd_nvm_read status %d\n", status);
+-	if (status)
++	if (status) {
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "i40e_nvmupd_nvm_read mod 0x%x  off 0x%x  len 0x%x\n",
++			   module, cmd->offset, cmd->data_size);
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "i40e_nvmupd_nvm_read status %d aq %d\n",
++			   status, hw->aq.asq_last_status);
+ 		*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
++	}
+ 
+ 	return status;
+ }
+@@ -816,13 +860,17 @@ static i40e_status i40e_nvmupd_nvm_erase(struct i40e_hw *hw,
+ 	transaction = i40e_nvmupd_get_transaction(cmd->config);
+ 	module = i40e_nvmupd_get_module(cmd->config);
+ 	last = (transaction & I40E_NVM_LCB);
+-	hw_dbg(hw, "i40e_nvmupd_nvm_erase mod 0x%x  off 0x%x  len 0x%x\n",
+-	       module, cmd->offset, cmd->data_size);
+ 	status = i40e_aq_erase_nvm(hw, module, cmd->offset, (u16)cmd->data_size,
+ 				   last, NULL);
+-	hw_dbg(hw, "i40e_nvmupd_nvm_erase status %d\n", status);
+-	if (status)
++	if (status) {
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "i40e_nvmupd_nvm_erase mod 0x%x  off 0x%x len 0x%x\n",
++			   module, cmd->offset, cmd->data_size);
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "i40e_nvmupd_nvm_erase status %d aq %d\n",
++			   status, hw->aq.asq_last_status);
+ 		*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
++	}
+ 
+ 	return status;
+ }
+@@ -847,13 +895,18 @@ static i40e_status i40e_nvmupd_nvm_write(struct i40e_hw *hw,
+ 	transaction = i40e_nvmupd_get_transaction(cmd->config);
+ 	module = i40e_nvmupd_get_module(cmd->config);
+ 	last = (transaction & I40E_NVM_LCB);
+-	hw_dbg(hw, "i40e_nvmupd_nvm_write mod 0x%x off 0x%x len 0x%x\n",
+-	       module, cmd->offset, cmd->data_size);
++
+ 	status = i40e_aq_update_nvm(hw, module, cmd->offset,
+ 				    (u16)cmd->data_size, bytes, last, NULL);
+-	hw_dbg(hw, "i40e_nvmupd_nvm_write status %d\n", status);
+-	if (status)
++	if (status) {
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "i40e_nvmupd_nvm_write mod 0x%x off 0x%x len 0x%x\n",
++			   module, cmd->offset, cmd->data_size);
++		i40e_debug(hw, I40E_DEBUG_NVM,
++			   "i40e_nvmupd_nvm_write status %d aq %d\n",
++			   status, hw->aq.asq_last_status);
+ 		*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
++	}
+ 
+ 	return status;
+ }
 -- 
 1.9.3
