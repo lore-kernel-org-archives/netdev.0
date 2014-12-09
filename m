@@ -1,7 +1,7 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 24/25] skb_copy_datagram_iovec() can die
-Date: Tue,  9 Dec 2014 22:50:37 +0000
-Message-ID: <1418165438-2205-24-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH 25/25] bury memcpy_toiovec()
+Date: Tue,  9 Dec 2014 22:50:38 +0000
+Message-ID: <1418165438-2205-25-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20141209224928.GL22149@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
@@ -12,121 +12,61 @@ List-Id: netdev.vger.kernel.org
 
 From: Al Viro <viro@zeniv.linux.org.uk>
 
-no callers other than itself.
+no users left
 
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- include/linux/skbuff.h |  2 --
- net/core/datagram.c    | 84 --------------------------------------------------
- 2 files changed, 86 deletions(-)
+ include/linux/uio.h |  1 -
+ lib/iovec.c         | 25 -------------------------
+ 2 files changed, 26 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 4902f2d..ab0bc43 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2644,8 +2644,6 @@ struct sk_buff *skb_recv_datagram(struct sock *sk, unsigned flags, int noblock,
- 				  int *err);
- unsigned int datagram_poll(struct file *file, struct socket *sock,
- 			   struct poll_table_struct *wait);
--int skb_copy_datagram_iovec(const struct sk_buff *from, int offset,
--			    struct iovec *to, int size);
- int skb_copy_datagram_iter(const struct sk_buff *from, int offset,
- 			   struct iov_iter *to, int size);
- static inline int skb_copy_datagram_msg(const struct sk_buff *from, int offset,
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index 41075ed..df493d6 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -310,90 +310,6 @@ int skb_kill_datagram(struct sock *sk, struct sk_buff *skb, unsigned int flags)
- EXPORT_SYMBOL(skb_kill_datagram);
+diff --git a/include/linux/uio.h b/include/linux/uio.h
+index bd8569a..a41e252 100644
+--- a/include/linux/uio.h
++++ b/include/linux/uio.h
+@@ -131,7 +131,6 @@ size_t csum_and_copy_to_iter(void *addr, size_t bytes, __wsum *csum, struct iov_
+ size_t csum_and_copy_from_iter(void *addr, size_t bytes, __wsum *csum, struct iov_iter *i);
  
- /**
-- *	skb_copy_datagram_iovec - Copy a datagram to an iovec.
-- *	@skb: buffer to copy
-- *	@offset: offset in the buffer to start copying from
-- *	@to: io vector to copy to
-- *	@len: amount of data to copy from buffer to iovec
+ int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len);
+-int memcpy_toiovec(struct iovec *iov, unsigned char *kdata, int len);
+ int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
+ 			int offset, int len);
+ int memcpy_toiovecend(const struct iovec *v, unsigned char *kdata,
+diff --git a/lib/iovec.c b/lib/iovec.c
+index df3abd1..2d99cb4 100644
+--- a/lib/iovec.c
++++ b/lib/iovec.c
+@@ -29,31 +29,6 @@ EXPORT_SYMBOL(memcpy_fromiovec);
+ 
+ /*
+  *	Copy kernel to iovec. Returns -EFAULT on error.
 - *
-- *	Note: the iovec is modified during the copy.
+- *	Note: this modifies the original iovec.
 - */
--int skb_copy_datagram_iovec(const struct sk_buff *skb, int offset,
--			    struct iovec *to, int len)
+-
+-int memcpy_toiovec(struct iovec *iov, unsigned char *kdata, int len)
 -{
--	int start = skb_headlen(skb);
--	int i, copy = start - offset;
--	struct sk_buff *frag_iter;
--
--	trace_skb_copy_datagram_iovec(skb, len);
--
--	/* Copy header. */
--	if (copy > 0) {
--		if (copy > len)
--			copy = len;
--		if (memcpy_toiovec(to, skb->data + offset, copy))
--			goto fault;
--		if ((len -= copy) == 0)
--			return 0;
--		offset += copy;
--	}
--
--	/* Copy paged appendix. Hmm... why does this look so complicated? */
--	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
--		int end;
--		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
--
--		WARN_ON(start > offset + len);
--
--		end = start + skb_frag_size(frag);
--		if ((copy = end - offset) > 0) {
--			int err;
--			u8  *vaddr;
--			struct page *page = skb_frag_page(frag);
--
--			if (copy > len)
--				copy = len;
--			vaddr = kmap(page);
--			err = memcpy_toiovec(to, vaddr + frag->page_offset +
--					     offset - start, copy);
--			kunmap(page);
--			if (err)
--				goto fault;
--			if (!(len -= copy))
--				return 0;
--			offset += copy;
+-	while (len > 0) {
+-		if (iov->iov_len) {
+-			int copy = min_t(unsigned int, iov->iov_len, len);
+-			if (copy_to_user(iov->iov_base, kdata, copy))
+-				return -EFAULT;
+-			kdata += copy;
+-			len -= copy;
+-			iov->iov_len -= copy;
+-			iov->iov_base += copy;
 -		}
--		start = end;
+-		iov++;
 -	}
 -
--	skb_walk_frags(skb, frag_iter) {
--		int end;
--
--		WARN_ON(start > offset + len);
--
--		end = start + frag_iter->len;
--		if ((copy = end - offset) > 0) {
--			if (copy > len)
--				copy = len;
--			if (skb_copy_datagram_iovec(frag_iter,
--						    offset - start,
--						    to, copy))
--				goto fault;
--			if ((len -= copy) == 0)
--				return 0;
--			offset += copy;
--		}
--		start = end;
--	}
--	if (!len)
--		return 0;
--
--fault:
--	return -EFAULT;
+-	return 0;
 -}
--EXPORT_SYMBOL(skb_copy_datagram_iovec);
+-EXPORT_SYMBOL(memcpy_toiovec);
 -
--/**
-  *	skb_copy_datagram_iter - Copy a datagram to an iovec iterator.
-  *	@skb: buffer to copy
-  *	@offset: offset in the buffer to start copying from
+-/*
+- *	Copy kernel to iovec. Returns -EFAULT on error.
+  */
+ 
+ int memcpy_toiovecend(const struct iovec *iov, unsigned char *kdata,
 -- 
 2.1.3
