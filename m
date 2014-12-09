@@ -1,81 +1,57 @@
 From: Marcel Holtmann <marcel@holtmann.org>
 Subject: Re: wl1251: NVS firmware data
-Date: Tue, 9 Dec 2014 06:10:20 +0100
-Message-ID: <2546C295-8A84-4399-B93D-CC65C812903C@holtmann.org>
-References: <201411271506.20457@pali> <201412081811.46943@pali> <30072B9E-2495-4F90-AC91-9C0D7E08F44E@holtmann.org> <201412082015.18501@pali> <1418066813.1350.18.camel@dcbw.local> <5485FF17.1070504@gmail.com> <1418078493.31640.4.camel@dcbw.local>
+Date: Tue, 9 Dec 2014 06:25:59 +0100
+Message-ID: <BB715185-F9EC-4FE6-8F23-79F47CE5BE04@holtmann.org>
+References: <201411271506.20457@pali> <201412081747.30965@pali> <20141208205721.GA14895@kroah.com> <201412090027.46485@pali>
 Mime-Version: 1.0 (Mac OS X Mail 8.1 \(1993\))
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 8BIT
-Cc: Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-	=?utf-8?Q?Pali_Roh=C3=A1r?= <pali.rohar@gmail.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	Ming Lei <ming.lei@canonical.com>, Pavel Machek <pavel@ucw.cz>,
 	"John W. Linville" <linville@tuxdriver.com>,
 	Grazvydas Ignotas <notasas@gmail.com>,
 	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
 	Network Development <netdev@vger.kernel.org>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
 	Aaro Koskinen <aaro.koskinen@iki.fi>,
 	Kalle Valo <kvalo@adurom.com>,
 	Sebastian Reichel <sre@ring0.de>,
 	David Gnedt <david.gnedt@davizone.at>
-To: Dan Williams <dcbw@redhat.com>
+To: =?utf-8?Q?Pali_Roh=C3=A1r?= <pali.rohar@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1418078493.31640.4.camel@dcbw.local>
+In-Reply-To: <201412090027.46485@pali>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dan,
+Hi Pali,
 
->>> a) change driver to prefer a new "wl1251-nvs-n900.bin" file, but fall
->>> back to "wl1251-nvs.bin" if the first one isn't present
->>> b) have a "wl1251-cal-nvs-update" service that, if wl1521-nvs-n900.bin
->>> is *not* present mounts the CAL MTD, reads the data, writes it out into
->>> wl1521-nvs-n900.bin, and the rmmod/modprobes the driver
->>> 
->>> and done?  Stuff that's not N900 just wouldn't ship the update service
->>> and would proceed like none of this happened.
->>> 
->>> Dan
->>> 
->>> 
+>> Use your own custom usermode helper for stuff like this, not
+>> the firmware interface.  But use a binary sysfs file if you
+>> want, that seems to make sense for it...
 >> 
->> That would mean that the driver should not be built-in, as afaik we 
->> cannot rmmod built-in drivers. Sure, it will work after a reboot, but 
->> this is a bit hacky, agree?
->> 
->> Also, new NVS file needs to be loaded when fcc regulation changes(flying 
->> abroad), so that would mean that the device would be outside of those 
->> until reboot (in case of built-in driver)
+>> greg k-h
 > 
-> Regulatory stuff needs to be hooked into CRDA or the existing regulatory
-> codepaths, not some other path.  So when cfg80211 sets the regulatory
-> domain on the driver the driver needs to get the necessary NVS data.
-> Either the NVS for every domain (which cannot be a lot of them) gets
-> hardcoded into the driver, and then selected based on what cfg80211
-> says, or the driver needs to ask userspace for the NVS data based on
-> what cfg80211 says.  In all cases, cfg80211 drives the regulatory domain
-> [1].
+> Patch for telling permanent mac address from userspace via sysfs 
+> file was rejected for inclusion into mainline kernel.
 > 
-> a) How many regulatory domains does the driver support, how much data is
-> there for each domain, and can that be put into the driver instead of
-> getting it from the CAL partition?
+> So I do not think that now maintainers of network subsystem allow 
+> it for nvs data...
 > 
-> b) what do *other* (non-N900) wl1251 devices do for regulatory data?
-> 
-> Dan
-> 
-> [1] unless there's some *restriction* hardcoded into the EEPROM of the
-> device, which in the case of the N900 there isn't, since the regulatory
-> data changes based on the MCC/MNC of the cellular side.
+> https://lkml.org/lkml/2013/12/8/35
 
-and even these ones would all work just fine. The regulatory handling of cfg80211 is already multi-layer anyway. I will intersect from the driver provided information and userspace provided information.
+this magic sysfs that has to be written to at the right time of the boot process to make this all work is something that will not work. I does not work for WiFi and it does not work for Bluetooth. Seems the discussion come full circle now and we are back to square one.
 
-I mean if userspace can just make up some NVS data to change the regulatory enforcement or let cfg80211 do it for you, there is no difference. So the real question is why bother with this at all in the first place. We already have a solution that does exactly what you want. Use CRDA and be done with it.
+The problem is that either the driver does not register the device with mac80211 until it gets the MAC address provided by userspace or mac80211 should get an unconfigured state. The unconfigured state is something telling userspace that the device is present, but needs a few extra configuration information before it can become useful.
 
-And calibration data should be rather static for each device. It might differ from device a to device b, but on device a it would stay the same. These calibration data are normally programmed at the factory line and then never changed again.
+For Bluetooth, I went the later route. Mainly because the missing address is such a generic problem that solving it in the core makes a lot more sense. The driver just tells the core that it has no address for this device and provides a custom callback to configure the address when provided. After that everything resumes as normal.
 
-For me this sounds all a bit like that everybody is buying into this NVS file solution for everything and now trying to hack that into something workable. But nobody actually looks at the existing solutions out there and really tries to fix the mess that Nokia and TI left behind for this chipset.
+However userspace gets informed when an unconfigured device gets added and at boot it can just query the list of unconfigured devices, or at runtime wait to be told there is a new unconfigured device that needs its attention. And then just provide the information. Once all information are present, the devices disappears as unconfigured and shows up as configured device ready for normal operation.
+
+https://git.kernel.org/cgit/bluetooth/bluez.git/tree/doc/mgmt-api.txt#n2006
+http://permalink.gmane.org/gmane.linux.bluez.kernel/50716
+
+Can something similar be added to cfg80211 + nl80211. It bet it can, but that is up to Johannes to decide and someone to actually do the work and implement it.
 
 Regards
 
