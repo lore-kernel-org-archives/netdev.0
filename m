@@ -1,7 +1,7 @@
 From: Karen Xie <kxie@chelsio.com>
-Subject: [PATCH net v3 5/6] cxgb4i: use set_wr_txq() to set tx queues
-Date: Tue, 09 Dec 2014 09:32:29 -0800
-Message-ID: <201412091732.sB9HWT7b009020@localhost6.localdomain6>
+Subject: [PATCH net v3 4/6] cxgb4i: handle non-pdu-aligned rx data
+Date: Tue, 09 Dec 2014 09:32:26 -0800
+Message-ID: <201412091732.sB9HWQT0009014@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -13,76 +13,54 @@ Return-path: <linux-scsi-owner@vger.kernel.org>
 Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[PATCH net v3 5/6] cxgb4i: use set_wr_txq() to set tx queues
+[PATCH net v3 4/6] cxgb4i: handle non-pdu-aligned rx data
 
 From: Karen Xie <kxie@chelsio.com>
 
-use cxgb4's set_wr_txq() for setting of the tx queue for a outgoing packet. Remove the similar function in cxgb4i.
+Abort the connection upon receiving of cpl_rx_data, which means the pdu cannot be recovered from the tcp stream. This generally is due to pdu header corruption.
 
 Signed-off-by: Karen Xie <kxie@chelsio.com>
 ---
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   16 +++++-----------
- 1 files changed, 5 insertions(+), 11 deletions(-)
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   22 ++++++++++++++++++++++
+ 1 files changed, 22 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index 051adab..3c99e5d 100644
+index e7a26c0..5c7961a 100644
 --- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
 +++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -157,12 +157,6 @@ static struct scsi_transport_template *cxgb4i_stt;
- #define RCV_BUFSIZ_MASK		0x3FFU
- #define MAX_IMM_TX_PKT_LEN	128
+@@ -1033,6 +1033,27 @@ rel_skb:
+ 	__kfree_skb(skb);
+ }
  
--static inline void set_queue(struct sk_buff *skb, unsigned int queue,
--				const struct cxgbi_sock *csk)
--{
--	skb->queue_mapping = queue;
--}
--
- static int push_tx_frames(struct cxgbi_sock *, int);
++static void do_rx_data(struct cxgbi_device *cdev, struct sk_buff *skb)
++{
++	struct cxgbi_sock *csk;
++	struct cpl_rx_data *cpl = (struct cpl_rx_data *)skb->data;
++	unsigned int tid = GET_TID(cpl);
++	struct cxgb4_lld_info *lldi = cxgbi_cdev_priv(cdev);
++	struct tid_info *t = lldi->tids;
++
++	csk = lookup_tid(t, tid);
++	if (!csk) {
++		pr_err("can't find connection for tid %u.\n", tid);
++	} else {
++		/* not expecting this, reset the connection. */
++		pr_err("csk 0x%p, tid %u, rcv cpl_rx_data.\n", csk, tid);
++		spin_lock_bh(&csk->lock);
++		send_abort_req(csk);
++		spin_unlock_bh(&csk->lock);
++	}
++	__kfree_skb(skb);
++}
++
+ static void do_rx_iscsi_hdr(struct cxgbi_device *cdev, struct sk_buff *skb)
+ {
+ 	struct cxgbi_sock *csk;
+@@ -1452,6 +1473,7 @@ cxgb4i_cplhandler_func cxgb4i_cplhandlers[NUM_CPL_CMDS] = {
+ 	[CPL_SET_TCB_RPL] = do_set_tcb_rpl,
+ 	[CPL_RX_DATA_DDP] = do_rx_data_ddp,
+ 	[CPL_RX_ISCSI_DDP] = do_rx_data_ddp,
++	[CPL_RX_DATA] = do_rx_data,
+ };
  
- /*
-@@ -404,7 +398,7 @@ static void send_abort_req(struct cxgbi_sock *csk)
- 
- 	csk->cpl_abort_req = NULL;
- 	req = (struct cpl_abort_req *)skb->head;
--	set_queue(skb, CPL_PRIORITY_DATA, csk);
-+	set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
- 	req->cmd = CPL_ABORT_SEND_RST;
- 	t4_set_arp_err_handler(skb, csk, abort_arp_failure);
- 	INIT_TP_WR(req, csk->tid);
-@@ -430,7 +424,7 @@ static void send_abort_rpl(struct cxgbi_sock *csk, int rst_status)
- 		csk, csk->state, csk->flags, csk->tid, rst_status);
- 
- 	csk->cpl_abort_rpl = NULL;
--	set_queue(skb, CPL_PRIORITY_DATA, csk);
-+	set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
- 	INIT_TP_WR(rpl, csk->tid);
- 	OPCODE_TID(rpl) = cpu_to_be32(MK_OPCODE_TID(CPL_ABORT_RPL, csk->tid));
- 	rpl->cmd = rst_status;
-@@ -555,7 +549,7 @@ static inline int send_tx_flowc_wr(struct cxgbi_sock *csk)
- 	flowc->mnemval[8].mnemonic = FW_FLOWC_MNEM_TXDATAPLEN_MAX;
- 	flowc->mnemval[8].val = 16384;
- 
--	set_queue(skb, CPL_PRIORITY_DATA, csk);
-+	set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
- 
- 	log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
- 		"csk 0x%p, tid 0x%x, %u,%u,%u,%u,%u,%u,%u.\n",
-@@ -659,7 +653,7 @@ static int push_tx_frames(struct cxgbi_sock *csk, int req_completion)
- 			break;
- 		}
- 		__skb_unlink(skb, &csk->write_queue);
--		set_queue(skb, CPL_PRIORITY_DATA, csk);
-+		set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
- 		skb->csum = credits_needed + flowclen16;
- 		csk->wr_cred -= credits_needed;
- 		csk->wr_una_cred += credits_needed;
-@@ -1551,7 +1545,7 @@ static int ddp_ppod_write_idata(struct cxgbi_device *cdev, unsigned int port_id,
- 		return -ENOMEM;
- 	}
- 	req = (struct ulp_mem_io *)skb->head;
--	set_queue(skb, CPL_PRIORITY_CONTROL, NULL);
-+	set_wr_txq(skb, CPL_PRIORITY_CONTROL, 0);
- 
- 	ulp_mem_io_set_hdr(lldi, req, wr_len, dlen, pm_addr);
- 	idata = (struct ulptx_idata *)(req + 1);
+ int cxgb4i_ofld_init(struct cxgbi_device *cdev)
