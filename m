@@ -1,37 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hyperv: Add support for vNIC hot removal
-Date: Mon, 08 Dec 2014 20:24:24 -0500 (EST)
-Message-ID: <20141208.202424.1782433533296173544.davem@davemloft.net>
-References: <1417469319-7356-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH v3 net-next] net: bcmgenet: enable driver to work
+ without a device tree
+Date: Mon, 08 Dec 2014 20:27:39 -0500 (EST)
+Message-ID: <20141208.202739.832924432113651134.davem@davemloft.net>
+References: <20141202001808.9B0E6220728@puck.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1417469319-7356-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
+To: pgynther@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59055 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751039AbaLIB1m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 20:27:42 -0500
+In-Reply-To: <20141202001808.9B0E6220728@puck.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Mon,  1 Dec 2014 13:28:39 -0800
+From: Petri Gynther <pgynther@google.com>
+Date: Mon,  1 Dec 2014 16:18:08 -0800 (PST)
 
-> This patch adds proper handling of the vNIC hot removal event, which includes
-> a rescind-channel-offer message from the host side that triggers vNIC close and
-> removal. In this case, the notices to the host during close and removal is not
-> necessary because the channel is rescinded. This patch blocks these unnecessary 
-> messages, and lets vNIC removal process complete normally.
+> Modify bcmgenet driver so that it can be used on Broadcom 7xxx
+> MIPS-based STB platforms without a device tree.
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> Signed-off-by: Petri Gynther <pgynther@google.com>
 
 Applied, thanks.
