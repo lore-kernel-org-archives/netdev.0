@@ -1,50 +1,61 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/13] i40e: add to NVM update debug message
-Date: Tue,  9 Dec 2014 03:22:49 -0800
-Message-ID: <1418124170-7495-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/13] i40e: add range check to i40e_aq_rc_to_posix
+Date: Tue,  9 Dec 2014 03:22:42 -0800
+Message-ID: <1418124170-7495-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:43348 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:43349 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756675AbaLILXC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2014 06:23:02 -0500
+	id S1756575AbaLILW6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2014 06:22:58 -0500
 In-Reply-To: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-Add a little more state context to an NVM update debug message.
+Just to be sure, add a range check to avoid any possible
+array index-out-of-bound issues.
 
-Change-ID: I512160259052bcdbe5bdf1adf403ab2bf7984970
+Change-ID: I9323bee6732c2a47599816e1d6c6b3a1f8dcbf54
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Acked-by: Michal Kosiarz <michal.kosiarz@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_nvm.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq.h   | 2 ++
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.h | 2 ++
+ 2 files changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-index 1613ef4..3e70f2e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-@@ -806,8 +806,10 @@ static enum i40e_nvmupd_cmd i40e_nvmupd_validate_command(struct i40e_hw *hw,
- 		}
- 		break;
- 	}
--	i40e_debug(hw, I40E_DEBUG_NVM, "%s\n",
--		   i40e_nvm_update_state_str[upd_cmd]);
-+	i40e_debug(hw, I40E_DEBUG_NVM, "%s state %d nvm_release_on_hold %d\n",
-+		   i40e_nvm_update_state_str[upd_cmd],
-+		   hw->nvmupd_state,
-+		   hw->aq.nvm_release_on_done);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.h b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
+index 618fe96..4064b1e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
+@@ -136,6 +136,8 @@ static inline int i40e_aq_rc_to_posix(u16 aq_rc)
+ 		-EFBIG,      /* I40E_AQ_RC_EFBIG */
+ 	};
  
- 	if (upd_cmd == I40E_NVMUPD_INVALID) {
- 		*errno = -EFAULT;
++	if (aq_rc >= (sizeof(aq_to_posix) / sizeof((aq_to_posix)[0])))
++		return -ERANGE;
+ 	return aq_to_posix[aq_rc];
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
+index d5d3c93..4d63514 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
+@@ -136,6 +136,8 @@ static inline int i40e_aq_rc_to_posix(u16 aq_rc)
+ 		-EFBIG,      /* I40E_AQ_RC_EFBIG */
+ 	};
+ 
++	if (aq_rc >= (sizeof(aq_to_posix) / sizeof((aq_to_posix)[0])))
++		return -ERANGE;
+ 	return aq_to_posix[aq_rc];
+ }
+ 
 -- 
 1.9.3
