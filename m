@@ -1,41 +1,28 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH] fix suspicious rcu_dereference_check in net/sched/sch_fq_codel.c
-Date: Tue, 09 Dec 2014 15:13:16 -0800
-Message-ID: <5487820C.4030801@intel.com>
-References: <58905.1418159750@turing-police.cc.vt.edu> <1418161372.27198.11.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next 2014-12-08
+Date: Tue, 09 Dec 2014 18:22:33 -0500 (EST)
+Message-ID: <20141209.182233.1341650327810529864.davem@davemloft.net>
+References: <20141208193223.GA14086@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1418161372.27198.11.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20141208193223.GA14086-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 12/09/2014 01:42 PM, Eric Dumazet wrote:
-> On Tue, 2014-12-09 at 16:15 -0500, Valdis Kletnieks wrote:
->> commit 46e5da40ae (net: qdisc: use rcu prefix and silence
->>  sparse warnings) triggers a spurious warning:
->>
->> net/sched/sch_fq_codel.c:97 suspicious rcu_dereference_check() usage!
->>
->> The code should be using the _bh variant of rcu_dereference.
->>
->> Signed-off-by: Valdis Kletnieks <valdis.kletnieks@vt.edu>
->> ---
->>  net/sched/sch_fq_codel.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> Acked-by: Eric Dumazet <edumazet@google.com>
-> 
-> Thanks !
-> 
-> 
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Mon, 8 Dec 2014 14:32:23 -0500
 
-Great thanks for finding/fixing!
+> Please pull this last batch of pending wireless updates for the 3.19
+> tree...
 
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
+Wow that's a lot :)
+
+Pulled, thanks John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
