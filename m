@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/13] i40e: clear NVM update state on ethtool test
-Date: Tue,  9 Dec 2014 13:26:08 -0800
-Message-ID: <1418160380-29847-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 03/13] i40e: let firmware catch the NVM busy error
+Date: Tue,  9 Dec 2014 13:26:10 -0800
+Message-ID: <1418160380-29847-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1418160380-29847-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,39 +10,123 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:29734 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751689AbaLIV0X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2014 16:26:23 -0500
+	id S1752958AbaLIV0Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2014 16:26:24 -0500
 In-Reply-To: <1418160380-29847-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-Once in a great while the NVMUpdate tools and the driver get out
-of phase with each other.  This gives us a way to reset things
-without having to unload the driver.
+The NVM update operations take time finish asynchronously, and follow-on
+update requests need to wait for the current one to finish.  Early
+firmware didn't handle this well, so the code had to track the busy state.
+The released firmware handles the busy state correctly, returning
+I40E_AQ_RC_EBUSY if an update is still in progress, so the code no longer
+needs to track this.
 
-Change-ID: I353f688236249a666a90ba3e7233e0ed8c1a04e9
+Change-ID: I6e6b4adc26d6dcc5fd7adfee5763423858a7d921
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Acked-by: Greg Rose <gregory.v.rose@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c   | 11 -----------
+ drivers/net/ethernet/intel/i40e/i40e_adminq.h   |  1 -
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.c |  6 ------
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.h |  1 -
+ 4 files changed, 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index fcd815d..25242f5 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1393,6 +1393,9 @@ static int i40e_eeprom_test(struct net_device *netdev, u64 *data)
- 	netif_info(pf, hw, netdev, "eeprom test\n");
- 	*data = i40e_diag_eeprom_test(&pf->hw);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+index 35fa09a..ebff11b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+@@ -617,7 +617,6 @@ i40e_status i40e_init_adminq(struct i40e_hw *hw)
  
-+	/* forcebly clear the NVM Update state machine */
-+	pf->hw.nvmupd_state = I40E_NVMUPD_STATE_INIT;
-+
- 	return *data;
- }
+ 	/* pre-emptive resource lock release */
+ 	i40e_aq_release_resource(hw, I40E_NVM_RESOURCE_ID, 0, NULL);
+-	hw->aq.nvm_busy = false;
  
+ 	ret_code = i40e_aq_set_hmc_resource_profile(hw,
+ 						    I40E_HMC_PROFILE_DEFAULT,
+@@ -754,12 +753,6 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
+ 		goto asq_send_command_exit;
+ 	}
+ 
+-	if (i40e_is_nvm_update_op(desc) && hw->aq.nvm_busy) {
+-		i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE, "AQTX: NVM busy.\n");
+-		status = I40E_ERR_NVM;
+-		goto asq_send_command_exit;
+-	}
+-
+ 	details = I40E_ADMINQ_DETAILS(hw->aq.asq, hw->aq.asq.next_to_use);
+ 	if (cmd_details) {
+ 		*details = *cmd_details;
+@@ -901,9 +894,6 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
+ 		status = I40E_ERR_ADMIN_QUEUE_TIMEOUT;
+ 	}
+ 
+-	if (!status && i40e_is_nvm_update_op(desc))
+-		hw->aq.nvm_busy = true;
+-
+ asq_send_command_error:
+ 	mutex_unlock(&hw->aq.asq_mutex);
+ asq_send_command_exit:
+@@ -1016,7 +1006,6 @@ clean_arq_element_out:
+ 	mutex_unlock(&hw->aq.arq_mutex);
+ 
+ 	if (i40e_is_nvm_update_op(&e->desc)) {
+-		hw->aq.nvm_busy = false;
+ 		if (hw->aq.nvm_release_on_done) {
+ 			i40e_release_nvm(hw);
+ 			hw->aq.nvm_release_on_done = false;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.h b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
+index 003a227..618fe96 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
+@@ -94,7 +94,6 @@ struct i40e_adminq_info {
+ 	u16 fw_min_ver;                 /* firmware minor version */
+ 	u16 api_maj_ver;                /* api major version */
+ 	u16 api_min_ver;                /* api minor version */
+-	bool nvm_busy;
+ 	bool nvm_release_on_done;
+ 
+ 	struct mutex asq_mutex; /* Send queue lock */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
+index 1698994..c1d25f8 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
+@@ -836,9 +836,6 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
+ 		hw->aq.asq_last_status = (enum i40e_admin_queue_err)retval;
+ 	}
+ 
+-	if (i40e_is_nvm_update_op(desc))
+-		hw->aq.nvm_busy = true;
+-
+ 	i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE,
+ 		   "AQTX: desc and buffer writeback:\n");
+ 	i40evf_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, buff,
+@@ -931,9 +928,6 @@ i40e_status i40evf_clean_arq_element(struct i40e_hw *hw,
+ 		memcpy(e->msg_buf, hw->aq.arq.r.arq_bi[desc_idx].va,
+ 		       e->msg_len);
+ 
+-	if (i40e_is_nvm_update_op(&e->desc))
+-		hw->aq.nvm_busy = false;
+-
+ 	i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE, "AQRX: desc and buffer:\n");
+ 	i40evf_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, e->msg_buf,
+ 			hw->aq.arq_buf_size);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
+index 0d58378..d5d3c93 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
+@@ -94,7 +94,6 @@ struct i40e_adminq_info {
+ 	u16 fw_min_ver;                 /* firmware minor version */
+ 	u16 api_maj_ver;                /* api major version */
+ 	u16 api_min_ver;                /* api minor version */
+-	bool nvm_busy;
+ 	bool nvm_release_on_done;
+ 
+ 	struct mutex asq_mutex; /* Send queue lock */
 -- 
 1.9.3
