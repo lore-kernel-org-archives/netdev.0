@@ -1,30 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/20] dmfe: fix misspelling of current function in
- string
-Date: Tue, 09 Dec 2014 16:14:31 -0500 (EST)
-Message-ID: <20141209.161431.2295598346088286047.davem@davemloft.net>
-References: <1417980062-25151-1-git-send-email-Julia.Lawall@lip6.fr>
-	<1417980062-25151-5-git-send-email-Julia.Lawall@lip6.fr>
+From: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+Subject: [PATCH] fix suspicious rcu_dereference_check in net/sched/sch_fq_codel.c
+Date: Tue, 09 Dec 2014 16:15:50 -0500
+Message-ID: <58905.1418159750@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: grundler@parisc-linux.org, kernel-janitors@vger.kernel.org,
-	linux@rasmusvillemoes.dk, joe@perches.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia.Lawall@lip6.fr
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1417980062-25151-5-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Sun,  7 Dec 2014 20:20:46 +0100
+commit 46e5da40ae (net: qdisc: use rcu prefix and silence
+ sparse warnings) triggers a spurious warning:
 
-> The function name contains cleanup, not clean.
-> 
-> This was done using Coccinelle, including the use of Levenshtein distance,
-> as proposed by Rasmus Villemoes.
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+net/sched/sch_fq_codel.c:97 suspicious rcu_dereference_check() usage!
 
-Applied.
+The code should be using the _bh variant of rcu_dereference.
+
+Signed-off-by: Valdis Kletnieks <valdis.kletnieks@vt.edu>
+---
+ net/sched/sch_fq_codel.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+index b9ca32ebc1de..1e52decb7b59 100644
+--- a/net/sched/sch_fq_codel.c
++++ b/net/sched/sch_fq_codel.c
+@@ -94,7 +94,7 @@ static unsigned int fq_codel_classify(struct sk_buff *skb, struct Qdisc *sch,
+ 	    TC_H_MIN(skb->priority) <= q->flows_cnt)
+ 		return TC_H_MIN(skb->priority);
+ 
+-	filter = rcu_dereference(q->filter_list);
++	filter = rcu_dereference_bh(q->filter_list);
+ 	if (!filter)
+ 		return fq_codel_hash(q, skb) + 1;
+ 
+-- 
+2.2.0
