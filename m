@@ -1,14 +1,14 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 16/25] ip_generic_getfrag, udplite_getfrag: switch to passing msghdr
-Date: Tue,  9 Dec 2014 22:50:29 +0000
-Message-ID: <1418165438-2205-16-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH 15/25] ipv6 equivalent of "ipv4: Avoid reading user iov twice after raw_probe_proto_opt"
+Date: Tue,  9 Dec 2014 22:50:28 +0000
+Message-ID: <1418165438-2205-15-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20141209224928.GL22149@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:37478 "EHLO
+Received: from zeniv.linux.org.uk ([195.92.253.2]:37475 "EHLO
 	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753972AbaLIWul (ORCPT
+	with ESMTP id S1753971AbaLIWul (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 17:50:41 -0500
 In-Reply-To: <20141209224928.GL22149@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
@@ -18,124 +18,157 @@ From: Al Viro <viro@zeniv.linux.org.uk>
 
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- include/net/udplite.h | 3 ++-
- net/ipv4/ip_output.c  | 6 +++---
- net/ipv4/raw.c        | 2 +-
- net/ipv4/udp.c        | 4 ++--
- net/ipv6/raw.c        | 2 +-
- net/ipv6/udp.c        | 2 +-
- net/l2tp/l2tp_ip6.c   | 2 +-
- 7 files changed, 11 insertions(+), 10 deletions(-)
+ net/ipv6/raw.c | 112 ++++++++++++++++++++++++++++-----------------------------
+ 1 file changed, 56 insertions(+), 56 deletions(-)
 
-diff --git a/include/net/udplite.h b/include/net/udplite.h
-index 9a28a51..d5baaba 100644
---- a/include/net/udplite.h
-+++ b/include/net/udplite.h
-@@ -19,7 +19,8 @@ extern struct udp_table		udplite_table;
- static __inline__ int udplite_getfrag(void *from, char *to, int  offset,
- 				      int len, int odd, struct sk_buff *skb)
- {
--	return memcpy_fromiovecend(to, (struct iovec *) from, offset, len);
-+	struct msghdr *msg = from;
-+	return memcpy_fromiovecend(to, msg->msg_iov, offset, len);
- }
- 
- /* Designate sk as UDP-Lite socket */
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 4a929ad..cdedcf1 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -752,14 +752,14 @@ EXPORT_SYMBOL(ip_fragment);
- int
- ip_generic_getfrag(void *from, char *to, int offset, int len, int odd, struct sk_buff *skb)
- {
--	struct iovec *iov = from;
-+	struct msghdr *msg = from;
- 
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		if (memcpy_fromiovecend(to, iov, offset, len) < 0)
-+		if (memcpy_fromiovecend(to, msg->msg_iov, offset, len) < 0)
- 			return -EFAULT;
- 	} else {
- 		__wsum csum = 0;
--		if (csum_partial_copy_fromiovecend(to, iov, offset, len, &csum) < 0)
-+		if (csum_partial_copy_fromiovecend(to, msg->msg_iov, offset, len, &csum) < 0)
- 			return -EFAULT;
- 		skb->csum = csum_block_add(skb->csum, csum, odd);
- 	}
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 5c901eb..5d83bd2 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -478,7 +478,7 @@ static int raw_getfrag(void *from, char *to, int offset, int len, int odd,
- 
- 	offset -= rfv->hlen;
- 
--	return ip_generic_getfrag(rfv->msg->msg_iov, to, offset, len, odd, skb);
-+	return ip_generic_getfrag(rfv->msg, to, offset, len, odd, skb);
- }
- 
- static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index dd8e006..13b4dcf8 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1049,7 +1049,7 @@ back_from_confirm:
- 
- 	/* Lockless fast path for the non-corking case. */
- 	if (!corkreq) {
--		skb = ip_make_skb(sk, fl4, getfrag, msg->msg_iov, ulen,
-+		skb = ip_make_skb(sk, fl4, getfrag, msg, ulen,
- 				  sizeof(struct udphdr), &ipc, &rt,
- 				  msg->msg_flags);
- 		err = PTR_ERR(skb);
-@@ -1080,7 +1080,7 @@ back_from_confirm:
- 
- do_append_data:
- 	up->len += ulen;
--	err = ip_append_data(sk, fl4, getfrag, msg->msg_iov, ulen,
-+	err = ip_append_data(sk, fl4, getfrag, msg, ulen,
- 			     sizeof(struct udphdr), &ipc, &rt,
- 			     corkreq ? msg->msg_flags|MSG_MORE : msg->msg_flags);
- 	if (err)
 diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 942f67b..11a9283 100644
+index 8baa53e..942f67b 100644
 --- a/net/ipv6/raw.c
 +++ b/net/ipv6/raw.c
-@@ -727,7 +727,7 @@ static int raw6_getfrag(void *from, char *to, int offset, int len, int odd,
+@@ -672,65 +672,62 @@ error:
+ 	return err;
+ }
  
- 	offset -= rfv->hlen;
+-static int rawv6_probe_proto_opt(struct flowi6 *fl6, struct msghdr *msg)
++struct raw6_frag_vec {
++	struct msghdr *msg;
++	int hlen;
++	char c[4];
++};
++
++static int rawv6_probe_proto_opt(struct raw6_frag_vec *rfv, struct flowi6 *fl6)
+ {
+-	struct iovec *iov;
+-	u8 __user *type = NULL;
+-	u8 __user *code = NULL;
+-	u8 len = 0;
+-	int probed = 0;
+-	int i;
+-
+-	if (!msg->msg_iov)
+-		return 0;
++	int err = 0;
++	switch (fl6->flowi6_proto) {
++	case IPPROTO_ICMPV6:
++		rfv->hlen = 2;
++		err = memcpy_from_msg(rfv->c, rfv->msg, rfv->hlen);
++		if (!err) {
++			fl6->fl6_icmp_type = rfv->c[0];
++			fl6->fl6_icmp_code = rfv->c[1];
++		}
++		break;
++	case IPPROTO_MH:
++		rfv->hlen = 4;
++		err = memcpy_from_msg(rfv->c, rfv->msg, rfv->hlen);
++		if (!err)
++			fl6->fl6_mh_type = rfv->c[2];
++	}
++	return err;
++}
  
--	return ip_generic_getfrag(rfv->msg->msg_iov, to, offset, len, odd, skb);
-+	return ip_generic_getfrag(rfv->msg, to, offset, len, odd, skb);
+-	for (i = 0; i < msg->msg_iovlen; i++) {
+-		iov = &msg->msg_iov[i];
+-		if (!iov)
+-			continue;
++static int raw6_getfrag(void *from, char *to, int offset, int len, int odd,
++		       struct sk_buff *skb)
++{
++	struct raw6_frag_vec *rfv = from;
+ 
+-		switch (fl6->flowi6_proto) {
+-		case IPPROTO_ICMPV6:
+-			/* check if one-byte field is readable or not. */
+-			if (iov->iov_base && iov->iov_len < 1)
+-				break;
+-
+-			if (!type) {
+-				type = iov->iov_base;
+-				/* check if code field is readable or not. */
+-				if (iov->iov_len > 1)
+-					code = type + 1;
+-			} else if (!code)
+-				code = iov->iov_base;
+-
+-			if (type && code) {
+-				if (get_user(fl6->fl6_icmp_type, type) ||
+-				    get_user(fl6->fl6_icmp_code, code))
+-					return -EFAULT;
+-				probed = 1;
+-			}
+-			break;
+-		case IPPROTO_MH:
+-			if (iov->iov_base && iov->iov_len < 1)
+-				break;
+-			/* check if type field is readable or not. */
+-			if (iov->iov_len > 2 - len) {
+-				u8 __user *p = iov->iov_base;
+-				if (get_user(fl6->fl6_mh_type, &p[2 - len]))
+-					return -EFAULT;
+-				probed = 1;
+-			} else
+-				len += iov->iov_len;
++	if (offset < rfv->hlen) {
++		int copy = min(rfv->hlen - offset, len);
+ 
+-			break;
+-		default:
+-			probed = 1;
+-			break;
+-		}
+-		if (probed)
+-			break;
++		if (skb->ip_summed == CHECKSUM_PARTIAL)
++			memcpy(to, rfv->c + offset, copy);
++		else
++			skb->csum = csum_block_add(
++				skb->csum,
++				csum_partial_copy_nocheck(rfv->c + offset,
++							  to, copy, 0),
++				odd);
++
++		odd = 0;
++		offset += copy;
++		to += copy;
++		len -= copy;
++
++		if (!len)
++			return 0;
+ 	}
+-	return 0;
++
++	offset -= rfv->hlen;
++
++	return ip_generic_getfrag(rfv->msg->msg_iov, to, offset, len, odd, skb);
  }
  
  static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 7f964322..189dc4a 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1312,7 +1312,7 @@ do_append_data:
- 		dontfrag = np->dontfrag;
- 	up->len += ulen;
- 	getfrag  =  is_udplite ?  udplite_getfrag : ip_generic_getfrag;
--	err = ip6_append_data(sk, getfrag, msg->msg_iov, ulen,
-+	err = ip6_append_data(sk, getfrag, msg, ulen,
- 		sizeof(struct udphdr), hlimit, tclass, opt, &fl6,
- 		(struct rt6_info *)dst,
- 		corkreq ? msg->msg_flags|MSG_MORE : msg->msg_flags, dontfrag);
-diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
-index 2177b96..8611f1b 100644
---- a/net/l2tp/l2tp_ip6.c
-+++ b/net/l2tp/l2tp_ip6.c
-@@ -619,7 +619,7 @@ static int l2tp_ip6_sendmsg(struct kiocb *iocb, struct sock *sk,
+@@ -745,6 +742,7 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 	struct ipv6_txoptions *opt = NULL;
+ 	struct ip6_flowlabel *flowlabel = NULL;
+ 	struct dst_entry *dst = NULL;
++	struct raw6_frag_vec rfv;
+ 	struct flowi6 fl6;
+ 	int addr_len = msg->msg_namelen;
+ 	int hlimit = -1;
+@@ -848,7 +846,9 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 	opt = ipv6_fixup_options(&opt_space, opt);
  
- back_from_confirm:
- 	lock_sock(sk);
--	err = ip6_append_data(sk, ip_generic_getfrag, msg->msg_iov,
-+	err = ip6_append_data(sk, ip_generic_getfrag, msg,
- 			      ulen, transhdrlen, hlimit, tclass, opt,
- 			      &fl6, (struct rt6_info *)dst,
- 			      msg->msg_flags, dontfrag);
+ 	fl6.flowi6_proto = proto;
+-	err = rawv6_probe_proto_opt(&fl6, msg);
++	rfv.msg = msg;
++	rfv.hlen = 0;
++	err = rawv6_probe_proto_opt(&rfv, &fl6);
+ 	if (err)
+ 		goto out;
+ 
+@@ -889,7 +889,7 @@ back_from_confirm:
+ 		err = rawv6_send_hdrinc(sk, msg->msg_iov, len, &fl6, &dst, msg->msg_flags);
+ 	else {
+ 		lock_sock(sk);
+-		err = ip6_append_data(sk, ip_generic_getfrag, msg->msg_iov,
++		err = ip6_append_data(sk, raw6_getfrag, &rfv,
+ 			len, 0, hlimit, tclass, opt, &fl6, (struct rt6_info *)dst,
+ 			msg->msg_flags, dontfrag);
+ 
 -- 
 2.1.3
