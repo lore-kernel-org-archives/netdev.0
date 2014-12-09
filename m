@@ -1,28 +1,41 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: the next chunk of iov_iter-net stuff for review
-Date: Tue, 9 Dec 2014 23:13:10 +0000
-Message-ID: <20141209231310.GM22149@ZenIV.linux.org.uk>
-References: <20141209224928.GL22149@ZenIV.linux.org.uk>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH] fix suspicious rcu_dereference_check in net/sched/sch_fq_codel.c
+Date: Tue, 09 Dec 2014 15:13:16 -0800
+Message-ID: <5487820C.4030801@intel.com>
+References: <58905.1418159750@turing-police.cc.vt.edu> <1418161372.27198.11.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141209224928.GL22149@ZenIV.linux.org.uk>
+In-Reply-To: <1418161372.27198.11.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 09, 2014 at 10:49:28PM +0000, Al Viro wrote:
+On 12/09/2014 01:42 PM, Eric Dumazet wrote:
+> On Tue, 2014-12-09 at 16:15 -0500, Valdis Kletnieks wrote:
+>> commit 46e5da40ae (net: qdisc: use rcu prefix and silence
+>>  sparse warnings) triggers a spurious warning:
+>>
+>> net/sched/sch_fq_codel.c:97 suspicious rcu_dereference_check() usage!
+>>
+>> The code should be using the _bh variant of rcu_dereference.
+>>
+>> Signed-off-by: Valdis Kletnieks <valdis.kletnieks@vt.edu>
+>> ---
+>>  net/sched/sch_fq_codel.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> 
+> Thanks !
+> 
+> 
 
-> OK, rebase is in
-> git://git.kernel.org/pub/scm/linux/kernel/git/viro/vfs.git for-davem-2,
-> individual patches - in followups (first 13 - iov_iter, then 12 net-related)
+Great thanks for finding/fixing!
 
-PS: the pile next after that one is also there, in 
-git://git.kernel.org/pub/scm/linux/kernel/git/viro/vfs.git iov_iter-net-2
-but that one contains several things I'd *really* like to hear comments
-about (asked about all of them on netdev, no reply so far).  Let's sort this
-one out first...
-
-Al, diving back into VFS-related queues...
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
