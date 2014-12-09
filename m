@@ -1,29 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next] net: bcmgenet: enable driver to work
- without a device tree
-Date: Mon, 08 Dec 2014 20:27:39 -0500 (EST)
-Message-ID: <20141208.202739.832924432113651134.davem@davemloft.net>
-References: <20141202001808.9B0E6220728@puck.mtv.corp.google.com>
+Subject: Re: [PATCH V2 net-next] udp: Neaten and reduce size of
+ compute_score functions
+Date: Mon, 08 Dec 2014 20:29:23 -0500 (EST)
+Message-ID: <20141208.202923.1673226136424442147.davem@davemloft.net>
+References: <1417489141.4442.24.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1417489760.4894.8.camel@perches.com>
+	<1417494546.4894.12.camel@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
-To: pgynther@google.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59055 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59062 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751039AbaLIB1m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 20:27:42 -0500
-In-Reply-To: <20141202001808.9B0E6220728@puck.mtv.corp.google.com>
+	with ESMTP id S1751103AbaLIB31 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 20:29:27 -0500
+In-Reply-To: <1417494546.4894.12.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Petri Gynther <pgynther@google.com>
-Date: Mon,  1 Dec 2014 16:18:08 -0800 (PST)
+From: Joe Perches <joe@perches.com>
+Date: Mon, 01 Dec 2014 20:29:06 -0800
 
-> Modify bcmgenet driver so that it can be used on Broadcom 7xxx
-> MIPS-based STB platforms without a device tree.
+> The compute_score functions are a bit difficult to read.
 > 
-> Signed-off-by: Petri Gynther <pgynther@google.com>
+> Neaten them a bit to reduce object sizes and make them a
+> bit more intelligible.
+> 
+> Return early to avoid indentation and avoid unnecessary
+> initializations.
+> 
+> (allyesconfig, but w/ -O2 and no profiling)
+> 
+> $ size net/ipv[46]/udp.o.*
+>    text    data     bss     dec     hex filename
+>   28680    1184      25   29889    74c1 net/ipv4/udp.o.new
+>   28756    1184      25   29965    750d net/ipv4/udp.o.old
+>   17600    1010       2   18612    48b4 net/ipv6/udp.o.new
+>   17632    1010       2   18644    48d4 net/ipv6/udp.o.old
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Applied, thanks.
+Applied, thanks Joe.
