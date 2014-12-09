@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/13] i40e: init NVM update state on adminq init
-Date: Tue,  9 Dec 2014 03:22:43 -0800
-Message-ID: <1418124170-7495-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/13] i40e: remove unused nvm_semaphore_wait
+Date: Tue,  9 Dec 2014 03:22:44 -0800
+Message-ID: <1418124170-7495-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:43350 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:43348 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756681AbaLILW7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756686AbaLILW7 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 9 Dec 2014 06:22:59 -0500
 In-Reply-To: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,35 +18,56 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-The adminq init is run after the EMPR that is triggered by the
-NVM update.  The final write command will cause the reset and
-will want to wait for the ARQ event that signals the end of the
-update, but the reset precludes the event being sent.  The state
-is probably already at INIT, but we set it so here anyway, and
-clear the release_on_done flag as well.
+The nvm_semaphore_wait field is set but never used, so let's
+just get rid of it.
 
-Change-ID: Ie9d724a39e71f988741abc3d51b4cb198c7e0272
+Change-ID: I2107bd29b69f99b1a61d7591d087429527c9d8fa
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Acked-by: Michal Kosiarz <michal.kosiarz@intel.com>
-Acked-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c    | 2 --
+ drivers/net/ethernet/intel/i40e/i40e_type.h   | 1 -
+ drivers/net/ethernet/intel/i40evf/i40e_type.h | 1 -
+ 3 files changed, 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index ebff11b..77f6254 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -617,6 +617,8 @@ i40e_status i40e_init_adminq(struct i40e_hw *hw)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+index df429bb..37f0f5f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+@@ -116,8 +116,6 @@ i40e_status i40e_acquire_nvm(struct i40e_hw *hw,
+ 		}
+ 		if (ret_code) {
+ 			hw->nvm.hw_semaphore_timeout = 0;
+-			hw->nvm.hw_semaphore_wait =
+-						I40E_MS_TO_GTIME(time) + gtime;
+ 			i40e_debug(hw, I40E_DEBUG_NVM,
+ 				   "NVM acquire timed out, wait %llu ms before trying again.\n",
+ 				   time);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 3904dd8..306a23a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -262,7 +262,6 @@ enum i40e_aq_resource_access_type {
  
- 	/* pre-emptive resource lock release */
- 	i40e_aq_release_resource(hw, I40E_NVM_RESOURCE_ID, 0, NULL);
-+	hw->aq.nvm_release_on_done = false;
-+	hw->nvmupd_state = I40E_NVMUPD_STATE_INIT;
+ struct i40e_nvm_info {
+ 	u64 hw_semaphore_timeout; /* 2usec global time (GTIME resolution) */
+-	u64 hw_semaphore_wait;    /* - || - */
+ 	u32 timeout;              /* [ms] */
+ 	u16 sr_size;              /* Shadow RAM size in words */
+ 	bool blank_nvm_mode;      /* is NVM empty (no FW present)*/
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index 77abe17..9d472d6 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -261,7 +261,6 @@ enum i40e_aq_resource_access_type {
  
- 	ret_code = i40e_aq_set_hmc_resource_profile(hw,
- 						    I40E_HMC_PROFILE_DEFAULT,
+ struct i40e_nvm_info {
+ 	u64 hw_semaphore_timeout; /* 2usec global time (GTIME resolution) */
+-	u64 hw_semaphore_wait;    /* - || - */
+ 	u32 timeout;              /* [ms] */
+ 	u16 sr_size;              /* Shadow RAM size in words */
+ 	bool blank_nvm_mode;      /* is NVM empty (no FW present)*/
 -- 
 1.9.3
