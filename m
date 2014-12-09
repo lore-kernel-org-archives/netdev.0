@@ -1,73 +1,29 @@
-From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Subject: RE: [net-next 05/13] i40e: add range check to i40e_aq_rc_to_posix
-Date: Tue, 9 Dec 2014 17:35:16 +0000
-Message-ID: <FC41C24E35F18A40888AACA1A36F3E418ADB557F@fmsmsx115.amr.corp.intel.com>
-References: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1418124170-7495-6-git-send-email-jeffrey.t.kirsher@intel.com>
- <548705FC.6020805@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net_test_tools] udpflood: Add IPv6 support
+Date: Tue, 09 Dec 2014 13:05:03 -0500 (EST)
+Message-ID: <20141209.130503.1276165663263932336.davem@davemloft.net>
+References: <1413837765-5446-1-git-send-email-kafai@fb.com>
+	<1417545706-31249-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: kafai@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:56224 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751389AbaLISEJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 13:04:09 -0500
-In-Reply-To: <548705FC.6020805@cogentembedded.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:37019 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751389AbaLISFV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 13:05:21 -0500
+In-Reply-To: <1417545706-31249-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com]
-> Sent: Tuesday, December 09, 2014 6:24 AM
-> To: Kirsher, Jeffrey T; davem@davemloft.net
-> Cc: Nelson, Shannon; netdev@vger.kernel.org; nhorman@redhat.com;
-> sassmann@redhat.com; jogreene@redhat.com
-> Subject: Re: [net-next 05/13] i40e: add range check to
-> i40e_aq_rc_to_posix
-> 
-> Hello.
-> 
-> On 12/9/2014 2:22 PM, Jeff Kirsher wrote:
-> 
-> > From: Shannon Nelson <shannon.nelson@intel.com>
-> 
-> > Just to be sure, add a range check to avoid any possible
-> > array index-out-of-bound issues.
-> 
-> > Change-ID: I9323bee6732c2a47599816e1d6c6b3a1f8dcbf54
-> > Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-> > Acked-by: Michal Kosiarz <michal.kosiarz@intel.com>
-> > Tested-by: Jim Young <jamesx.m.young@intel.com>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > ---
-> >   drivers/net/ethernet/intel/i40e/i40e_adminq.h   | 2 ++
-> >   drivers/net/ethernet/intel/i40evf/i40e_adminq.h | 2 ++
-> >   2 files changed, 4 insertions(+)
-> 
-> > diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-> b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-> > index 618fe96..4064b1e 100644
-> > --- a/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-> > +++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-> > @@ -136,6 +136,8 @@ static inline int i40e_aq_rc_to_posix(u16 aq_rc)
-> >   		-EFBIG,      /* I40E_AQ_RC_EFBIG */
-> >   	};
-> >
-> > +	if (aq_rc >= (sizeof(aq_to_posix) / sizeof((aq_to_posix)[0])))
-> 
->     There's ARRAY_SIZE() macro exactly for such computations. And parens
-> around the last 'aq_to_posix' are not needed.
+From: Martin KaFai Lau <kafai@fb.com>
+Date: Tue, 2 Dec 2014 10:41:46 -0800
 
-Yep, you're right.  I'll see about getting Jeff to push a v2 of this patch soon.
+> This patch:
+> 1. Add IPv6 support
+> 2. Print timing for every 65536 fib insert operations to observe
+>    the gc effect (mostly for IPv6 fib).
 
-Thanks,
-sln
+Applied, thanks.
