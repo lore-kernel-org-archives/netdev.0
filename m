@@ -1,62 +1,140 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/13][pull request] Intel Wired LAN Driver Updates 2014-12-09
-Date: Tue,  9 Dec 2014 03:22:37 -0800
-Message-ID: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 02/13] i40e: better error messages for NVM update issues
+Date: Tue,  9 Dec 2014 03:22:39 -0800
+Message-ID: <1418124170-7495-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:43344 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756116AbaLILW4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2014 06:22:56 -0500
+	id S1755911AbaLILW5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2014 06:22:57 -0500
+In-Reply-To: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf.
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Jeff (me) provides a single patch to convert a macro to a static inline
-function based on feedback from Joe Perches on a previous patch.
+Add more detail to the NVM update error messages so folks
+have a better chance at diagnosing issues without having to
+resort to heroic measures to reproduce an issue.
 
-Shannon provides the remaining twelve patches against i40e.  Almost all
-of Shannon's patches cleanup/fix NVM issues varying in range from
-adding more detail to debug messages, to removing dead code, to fixing
-NVM state transitions after an error.  Change the handy decoder interface
-for admin queue return code to help catch and properly report the condition
-as a useful errno rather than returning a misleading '0'.  Added a range
-check to avoid any possible array index-out-of-bound issues.
+Change-ID: I270d1a9c903baceaef0bebcc55d29108ac08b0bd
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Jim Young <jamesx.m.young@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 52 ++++++++++++++++----------
+ 1 file changed, 33 insertions(+), 19 deletions(-)
 
-The following are changes since commit 9cdfe2c709c4f6076249ced6844b2bea420739c4:
-  sunvnet: fix incorrect rcu_read_unlock() in vnet_start_xmit()
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Jeff Kirsher (1):
-  i40e/i40evf: Convert macro to static inline
-
-Shannon Nelson (12):
-  i40e: clear NVM update state on ethtool test
-  i40e: better error messages for NVM update issues
-  i40e: let firmware catch the NVM busy error
-  i40e: rework debug messages for NVM update
-  i40e: add range check to i40e_aq_rc_to_posix
-  i40e: init NVM update state on adminq init
-  i40e: remove unused nvm_semaphore_wait
-  i40e: set max limit for access polling
-  i40e: fix up NVM update sm error handling
-  i40e: poll on NVM semaphore only if not other error
-  i40e: check for AQ timeout in aq_rc decode
-  i40e: add to NVM update debug message
-
- drivers/net/ethernet/intel/i40e/i40e_adminq.c   |  13 +-
- drivers/net/ethernet/intel/i40e/i40e_adminq.h   |  10 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c  |  55 ++++---
- drivers/net/ethernet/intel/i40e/i40e_nvm.c      | 198 ++++++++++++++++--------
- drivers/net/ethernet/intel/i40e/i40e_type.h     |   8 +-
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c |   6 -
- drivers/net/ethernet/intel/i40evf/i40e_adminq.h |  10 +-
- drivers/net/ethernet/intel/i40evf/i40e_type.h   |   8 +-
- 8 files changed, 197 insertions(+), 111 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 25242f5..951e876 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -822,7 +822,7 @@ static int i40e_get_eeprom(struct net_device *netdev,
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_hw *hw = &np->vsi->back->hw;
+ 	struct i40e_pf *pf = np->vsi->back;
+-	int ret_val = 0, len;
++	int ret_val = 0, len, offset;
+ 	u8 *eeprom_buff;
+ 	u16 i, sectors;
+ 	bool last;
+@@ -835,19 +835,21 @@ static int i40e_get_eeprom(struct net_device *netdev,
+ 	/* check for NVMUpdate access method */
+ 	magic = hw->vendor_id | (hw->device_id << 16);
+ 	if (eeprom->magic && eeprom->magic != magic) {
++		struct i40e_nvm_access *cmd;
+ 		int errno;
+ 
+ 		/* make sure it is the right magic for NVMUpdate */
+ 		if ((eeprom->magic >> 16) != hw->device_id)
+ 			return -EINVAL;
+ 
+-		ret_val = i40e_nvmupd_command(hw,
+-					      (struct i40e_nvm_access *)eeprom,
+-					      bytes, &errno);
++		cmd = (struct i40e_nvm_access *)eeprom;
++		ret_val = i40e_nvmupd_command(hw, cmd, bytes, &errno);
+ 		if (ret_val)
+ 			dev_info(&pf->pdev->dev,
+-				 "NVMUpdate read failed err=%d status=0x%x\n",
+-				 ret_val, hw->aq.asq_last_status);
++				 "NVMUpdate read failed err=%d status=0x%x errno=%d module=%d offset=0x%x size=%d\n",
++				 ret_val, hw->aq.asq_last_status, errno,
++				 (u8)(cmd->config & I40E_NVM_MOD_PNT_MASK),
++				 cmd->offset, cmd->data_size);
+ 
+ 		return errno;
+ 	}
+@@ -876,20 +878,29 @@ static int i40e_get_eeprom(struct net_device *netdev,
+ 			len = eeprom->len - (I40E_NVM_SECTOR_SIZE * i);
+ 			last = true;
+ 		}
+-		ret_val = i40e_aq_read_nvm(hw, 0x0,
+-				eeprom->offset + (I40E_NVM_SECTOR_SIZE * i),
+-				len,
++		offset = eeprom->offset + (I40E_NVM_SECTOR_SIZE * i),
++		ret_val = i40e_aq_read_nvm(hw, 0x0, offset, len,
+ 				(u8 *)eeprom_buff + (I40E_NVM_SECTOR_SIZE * i),
+ 				last, NULL);
+-		if (ret_val) {
++		if (ret_val && hw->aq.asq_last_status == I40E_AQ_RC_EPERM) {
+ 			dev_info(&pf->pdev->dev,
+-				 "read NVM failed err=%d status=0x%x\n",
+-				 ret_val, hw->aq.asq_last_status);
+-			goto release_nvm;
++				 "read NVM failed, invalid offset 0x%x\n",
++				 offset);
++			break;
++		} else if (ret_val &&
++			   hw->aq.asq_last_status == I40E_AQ_RC_EACCES) {
++			dev_info(&pf->pdev->dev,
++				 "read NVM failed, access, offset 0x%x\n",
++				 offset);
++			break;
++		} else if (ret_val) {
++			dev_info(&pf->pdev->dev,
++				 "read NVM failed offset %d err=%d status=0x%x\n",
++				 offset, ret_val, hw->aq.asq_last_status);
++			break;
+ 		}
+ 	}
+ 
+-release_nvm:
+ 	i40e_release_nvm(hw);
+ 	memcpy(bytes, (u8 *)eeprom_buff, eeprom->len);
+ free_buff:
+@@ -917,6 +928,7 @@ static int i40e_set_eeprom(struct net_device *netdev,
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_hw *hw = &np->vsi->back->hw;
+ 	struct i40e_pf *pf = np->vsi->back;
++	struct i40e_nvm_access *cmd;
+ 	int ret_val = 0;
+ 	int errno;
+ 	u32 magic;
+@@ -934,12 +946,14 @@ static int i40e_set_eeprom(struct net_device *netdev,
+ 	    test_bit(__I40E_RESET_INTR_RECEIVED, &pf->state))
+ 		return -EBUSY;
+ 
+-	ret_val = i40e_nvmupd_command(hw, (struct i40e_nvm_access *)eeprom,
+-				      bytes, &errno);
+-	if (ret_val)
++	cmd = (struct i40e_nvm_access *)eeprom;
++	ret_val = i40e_nvmupd_command(hw, cmd, bytes, &errno);
++	if (ret_val && hw->aq.asq_last_status != I40E_AQ_RC_EBUSY)
+ 		dev_info(&pf->pdev->dev,
+-			 "NVMUpdate write failed err=%d status=0x%x\n",
+-			 ret_val, hw->aq.asq_last_status);
++			 "NVMUpdate write failed err=%d status=0x%x errno=%d module=%d offset=0x%x size=%d\n",
++			 ret_val, hw->aq.asq_last_status, errno,
++			 (u8)(cmd->config & I40E_NVM_MOD_PNT_MASK),
++			 cmd->offset, cmd->data_size);
+ 
+ 	return errno;
+ }
 -- 
 1.9.3
