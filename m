@@ -1,109 +1,67 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [RFC][PATCHES] iov_iter.c rewrite
-Date: Tue, 9 Dec 2014 01:56:51 +0000
-Message-ID: <20141209015651.GI22149@ZenIV.linux.org.uk>
-References: <20141204202011.GO29748@ZenIV.linux.org.uk>
- <20141208164650.GB29028@node.dhcp.inet.fi>
- <20141208175805.GB22149@ZenIV.linux.org.uk>
- <20141208180824.GC22149@ZenIV.linux.org.uk>
- <CA+55aFxwrH4vsyw2ix=HqDK9Z=fw98xtOL8=57prm8qgVmAFfA@mail.gmail.com>
- <20141208182012.GE22149@ZenIV.linux.org.uk>
- <CA+55aFxrrTV-xBbvEzVKsXRVKyvZhQZj-6BNDpTsG4J5k6CJEg@mail.gmail.com>
- <20141208184632.GG22149@ZenIV.linux.org.uk>
- <CA+55aFyh0cV+ztK47mu1QN6aF4VvPE1V5zF7_X2TdYxZ38zZRA@mail.gmail.com>
- <20141208192816.GH22149@ZenIV.linux.org.uk>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next v2 00/16][pull request] Intel Wired LAN Driver
+ Updates 2014-12-06
+Date: Mon, 08 Dec 2014 18:05:31 -0800
+Message-ID: <1418090731.2410.13.camel@jtkirshe-mobl>
+References: <1417870933-17248-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20141208.205031.1761143065244503062.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Kirill A. Shutemov" <kirill@shutemov.name>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141208192816.GH22149@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-8K9xu1Wao7TzJ/ZWUYz1"
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:5967 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751103AbaLICFc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Dec 2014 21:05:32 -0500
+In-Reply-To: <20141208.205031.1761143065244503062.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 08, 2014 at 07:28:17PM +0000, Al Viro wrote:
-> On Mon, Dec 08, 2014 at 10:57:31AM -0800, Linus Torvalds wrote:
-> > So the whole "get_page()" thing is broken. Iterating over pages in a
-> > KVEC is simply wrong, wrong, wrong. It needs to fail.
-> 
-> Well, _that_ is easy to do, of course...  E.g. by replacing that thing in
-> iov_iter_get_pages()/iov_iter_get_pages_alloc() with ({ return -EFAULT; })
-> will do it.
 
-OK, folded and pushed (i.e. in vfs.git#iov_iter and vfs.git#for-next).
-Matches earlier behaviour; oops reproducer is easy -
+--=-8K9xu1Wao7TzJ/ZWUYz1
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-dd if=/dev/zero of=foo.ko bs=4096 count=1
-cat >a.c <<'EOF'
-#define _GNU_SOURCE
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/syscall.h>
-main()
-{
-        int fd = open("foo.ko", 00040000);
-        syscall(__NR_finit_module, fd, "", 0);
-}
-EOF
-gcc a.c
-strace ./a.out
+On Mon, 2014-12-08 at 20:50 -0500, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Sat,  6 Dec 2014 05:01:57 -0800
+>=20
+> > This series contains updates to i40e and i40evf.
+>=20
+> Pulled, thanks Jeff.
+>=20
+> Please take into consideration Joe Perches's feedback to use static
+> inlines instead of macros.
+>=20
+> Thanks.
 
-Correct behaviour (both the mainline and this series with fixes folded):
-open("foo.ko", O_RDONLY|O_DIRECT)       = 3
-finit_module(3, "", 0)                  = -1 EFAULT (Bad address)
-Incorrect one:
-open("foo.ko", O_RDONLY|O_DIRECT)       = 3
-finit_module(3, "", 0 <unfinished ...>
-+++ killed by SIGKILL +++
-Killed
+Thanks, already on-top of it.  It should be in the next round of "fixes"
+I submit upstream.
 
-with that oops reproduced.  Not sure if it's a proper LTP or xfstests fodder,
-but anyway, here it is.
+--=-8K9xu1Wao7TzJ/ZWUYz1
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-Incremental from previous for-next is
-diff --git a/mm/iov_iter.c b/mm/iov_iter.c
-index e0605c1..a1599ca 100644
---- a/mm/iov_iter.c
-+++ b/mm/iov_iter.c
-@@ -560,15 +560,7 @@ ssize_t iov_iter_get_pages(struct iov_iter *i,
- 		get_page(*pages = v.bv_page);
- 		return v.bv_len;
- 	}),({
--		unsigned long addr = (unsigned long)v.iov_base, end;
--		size_t len = v.iov_len + (*start = addr & (PAGE_SIZE - 1));
--
--		if (len > maxpages * PAGE_SIZE)
--			len = maxpages * PAGE_SIZE;
--		addr &= ~(PAGE_SIZE - 1);
--		for (end = addr + len; addr < end; addr += PAGE_SIZE)
--			get_page(*pages++ = virt_to_page(addr));
--		return len - *start;
-+		return -EFAULT;
- 	})
- 	)
- 	return 0;
-@@ -622,18 +614,7 @@ ssize_t iov_iter_get_pages_alloc(struct iov_iter *i,
- 		get_page(*p = v.bv_page);
- 		return v.bv_len;
- 	}),({
--		unsigned long addr = (unsigned long)v.iov_base, end;
--		size_t len = v.iov_len + (*start = addr & (PAGE_SIZE - 1));
--		int n;
--
--		addr &= ~(PAGE_SIZE - 1);
--		n = DIV_ROUND_UP(len, PAGE_SIZE);
--		*pages = p = get_pages_array(n);
--		if (!p)
--			return -ENOMEM;
--		for (end = addr + len; addr < end; addr += PAGE_SIZE)
--			get_page(*p++ = virt_to_page(addr));
--		return len - *start;
-+		return -EFAULT;
- 	})
- 	)
- 	return 0;
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJUhljrAAoJEOVv75VaS+3OiswQAIhBPWuV+MAi95iCddCnKDbP
+Pr9RGcfCDj0vlzw+ALJvivK7FT3jz2TF9UuXcJ0hL9IEJoTgTN/0h4MgNzeUmpvM
+leFKyQ9TXjahJ5JcsauwXJ3SYjjnbPgpczOv33k2x1BETSlvt3upx7sQKskaRYF+
+h3xjrEmKGgEnhXRxGOOPH8xk8Z8H4PLOb8ShHGF4yaUCgC1OSt4oEcbCXgKP2KPN
+cO9nxLpEh9XixYFuFTGTcPWNbPHZaqNkqqVRPXYyHpOJaCRTka+/4nCTsODDLHNU
+15J9fxSZazKoDFOygGTCbtYpJrfvtUnt5R8tkyTugLzZeKmJ0WaC8sjlHyrnI+5c
++TeBGUouX3lw1CxYSUeWQkGNTfeP9DzJHXdy+fHzO2kHD3xW2MEAvf+BX3ATJ8QL
+iY+0T6vGG8Uucl0YYGuQRHjVp9E/aa08O1lJpNsRaYHwEc0cwZzDLcRGGvvi+Ffm
+b1JKeT1jK70BzTbE7nROjdJK40+sJr2bisdiM0pxLbMLyEpqQe4ywGgGnOjnkc2M
+GtqmxSaNJC+UehnwbOkZc7S8FNz3bR/Evox/A9NG8tX7I59kBhfBV6QzTipGRKEL
+A4IB9RaUDpsWKuBqwBb+ow1fgMs4ovwtcsackR4RARXqTn8m1oEKDuAHxSV2tHCI
+omD8InvY9ol8GTn0qkC7
+=2KqP
+-----END PGP SIGNATURE-----
+
+--=-8K9xu1Wao7TzJ/ZWUYz1--
