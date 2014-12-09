@@ -1,28 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] net: sched: cls: remove unused op put from
- tcf_proto_ops
-Date: Tue, 09 Dec 2014 14:49:14 -0500 (EST)
-Message-ID: <20141209.144914.808097916610922518.davem@davemloft.net>
-References: <1417725678-24968-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH v2 0/6] net-PPP: Deletion of a few unnecessary checks
+Date: Tue, 09 Dec 2014 14:54:47 -0500 (EST)
+Message-ID: <20141209.145447.2234157264287438778.davem@davemloft.net>
+References: <547C82A6.2030808@users.sourceforge.net>
+	<547CA157.1080401@cogentembedded.com>
+	<5480DA32.8000201@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38057 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752467AbaLITtQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 14:49:16 -0500
-In-Reply-To: <1417725678-24968-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sergei.shtylyov@cogentembedded.com, paulus@samba.org,
+	linux-ppp@vger.kernel.org, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, julia.lawall@lip6.fr
+To: elfring@users.sourceforge.net
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <5480DA32.8000201@users.sourceforge.net>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu,  4 Dec 2014 21:41:18 +0100
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Thu, 04 Dec 2014 23:03:30 +0100
 
-> It is never called and implementations are void. So just remove it.
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Thu, 4 Dec 2014 22:50:28 +0100
 > 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> Further update suggestions were taken into account before and after a patch
+> was applied from static source code analysis.
 
-Applied, thanks.
+Generally speaking, it is advisable to not leave error pointers in data
+structures, even if they are about to be free'd up in an error path
+anyways.
+
+Therefore I do not like some of the patches in this series.
+
+Sorry.
