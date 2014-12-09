@@ -1,38 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tipc: drop tx side permission checks
-Date: Tue, 09 Dec 2014 13:30:35 -0500 (EST)
-Message-ID: <20141209.133035.679050429504559837.davem@davemloft.net>
-References: <1417614284-24125-1-git-send-email-erik.hugne@ericsson.com>
+Subject: Re: [PATCH net-next 0/4] cxgb4/cxgb4vf: T5 BAR2 and ethtool
+ related fixes
+Date: Tue, 09 Dec 2014 13:32:24 -0500 (EST)
+Message-ID: <20141209.133224.1709861546287397344.davem@davemloft.net>
+References: <1417615374-12961-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ying.xue@windriver.com,
-	jon.maloy@ericsson.com, richard.alpe@ericsson.com,
-	tipc-discussion@lists.sourceforge.net
-To: erik.hugne@ericsson.com
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, anish@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37271 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37301 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750862AbaLISah (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 13:30:37 -0500
-In-Reply-To: <1417614284-24125-1-git-send-email-erik.hugne@ericsson.com>
+	with ESMTP id S1750862AbaLISc2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 13:32:28 -0500
+In-Reply-To: <1417615374-12961-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <erik.hugne@ericsson.com>
-Date: Wed, 3 Dec 2014 14:44:44 +0100
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Wed,  3 Dec 2014 19:32:50 +0530
 
-> From: Erik Hugne <erik.hugne@ericsson.com>
+> This series adds new interface to calculate BAR2 SGE queue register address for
+> cxgb4 and cxgb4vf driver and some more sge related fixes for T5. Also adds a
+> patch which updates the FW version displayed by ethtool after firmware flash. 
 > 
-> Part of the old remote management feature is a piece of code
-> that checked permissions on the local system to see if a certain
-> operation was permitted, and if so pass the command to a remote
-> node. This serves no purpose after the removal of remote management
-> with commit 5902385a2440 ("tipc: obsolete the remote management
-> feature") so we remove it.
+> The patches series is created against 'net-next' tree.
+> And includes patches on cxgb4 and cxgb4vf driver.
 > 
-> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-> Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-> Reviewed-by: Ying Xue <ying.xue@windriver.com>
+> We have included all the maintainers of respective drivers. Kindly review the
+> change and let us know in case of any review comments.
 
 Applied, thanks.
