@@ -1,41 +1,46 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next] amd-xgbe: Use disable_irq_nosync when in IRQ
- context
-Date: Tue, 9 Dec 2014 14:54:08 -0600
-Message-ID: <20141209205408.26097.70441.stgit@tlendack-t1.amdoffice.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/4] net: allow setting congctl via routing
+ table
+Date: Tue, 09 Dec 2014 15:58:44 -0500 (EST)
+Message-ID: <20141209.155844.1175199719902606020.davem@davemloft.net>
+References: <1417909163-19135-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Cc: hannes@stressinduktion.org, fw@strlen.de, netdev@vger.kernel.org
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0133.outbound.protection.outlook.com ([157.56.111.133]:39072
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751190AbaLIUyQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2014 15:54:16 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:38635 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751013AbaLIU6r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 15:58:47 -0500
+In-Reply-To: <1417909163-19135-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The disable_irq_nosync function, not the disable_irq function, must be
-used to disable the DMA channel interrupt from within the interrupt
-service routine. Change the disable_irq call to disable_irq_nosync.
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Sun,  7 Dec 2014 00:39:19 +0100
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
----
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> This is the second part of our work and allows for setting the congestion
+> control algorithm via routing table. For details, please see individual
+> patches.
+> 
+> Joint work with Florian Westphal, suggested by Hannes Frederic Sowa.
+> 
+> Patch for iproute2: http://patchwork.ozlabs.org/patch/418149/
+> 
+> Thanks!
+> 
+> v1->v2:
+>  - Very sorry, I noticed I had decnet disabled during testing.
+>    Added missing header include in decnet, rest as is.
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index bedfdb1..bf6bf11 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -396,7 +396,7 @@ static irqreturn_t xgbe_dma_isr(int irq, void *data)
- 	 */
- 	if (napi_schedule_prep(&channel->napi)) {
- 		/* Disable Tx and Rx interrupts */
--		disable_irq(channel->dma_irq);
-+		disable_irq_nosync(channel->dma_irq);
- 
- 		/* Turn on polling */
- 		__napi_schedule(&channel->napi);
+I don't like how you have to explicitly load the congestion control
+module before asking for it to be used in the route entry metric.
+
+It should request the module automatically just like the stack already
+does for other cases.
+
+You have run into this problem as a result of your design decision to
+use that 32-bit key.  Therefore, I think you seriously need to
+reconsider that aspect of your change.
