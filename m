@@ -1,48 +1,52 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/13] i40e: clear NVM update state on ethtool test
-Date: Tue,  9 Dec 2014 03:22:38 -0800
-Message-ID: <1418124170-7495-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/13] i40e: init NVM update state on adminq init
+Date: Tue,  9 Dec 2014 03:22:43 -0800
+Message-ID: <1418124170-7495-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:43344 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:43350 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756575AbaLILW4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2014 06:22:56 -0500
+	id S1756681AbaLILW7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2014 06:22:59 -0500
 In-Reply-To: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-Once in a great while the NVMUpdate tools and the driver get out
-of phase with each other.  This gives us a way to reset things
-without having to unload the driver.
+The adminq init is run after the EMPR that is triggered by the
+NVM update.  The final write command will cause the reset and
+will want to wait for the ARQ event that signals the end of the
+update, but the reset precludes the event being sent.  The state
+is probably already at INIT, but we set it so here anyway, and
+clear the release_on_done flag as well.
 
-Change-ID: I353f688236249a666a90ba3e7233e0ed8c1a04e9
+Change-ID: Ie9d724a39e71f988741abc3d51b4cb198c7e0272
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Acked-by: Michal Kosiarz <michal.kosiarz@intel.com>
+Acked-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index fcd815d..25242f5 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1393,6 +1393,9 @@ static int i40e_eeprom_test(struct net_device *netdev, u64 *data)
- 	netif_info(pf, hw, netdev, "eeprom test\n");
- 	*data = i40e_diag_eeprom_test(&pf->hw);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+index ebff11b..77f6254 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+@@ -617,6 +617,8 @@ i40e_status i40e_init_adminq(struct i40e_hw *hw)
  
-+	/* forcebly clear the NVM Update state machine */
-+	pf->hw.nvmupd_state = I40E_NVMUPD_STATE_INIT;
-+
- 	return *data;
- }
+ 	/* pre-emptive resource lock release */
+ 	i40e_aq_release_resource(hw, I40E_NVM_RESOURCE_ID, 0, NULL);
++	hw->aq.nvm_release_on_done = false;
++	hw->nvmupd_state = I40E_NVMUPD_STATE_INIT;
  
+ 	ret_code = i40e_aq_set_hmc_resource_profile(hw,
+ 						    I40E_HMC_PROFILE_DEFAULT,
 -- 
 1.9.3
