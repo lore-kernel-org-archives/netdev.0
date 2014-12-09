@@ -1,32 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][net-next][V2] net: avoid to call skb_queue_len again
-Date: Tue, 09 Dec 2014 17:03:54 -0500 (EST)
-Message-ID: <20141209.170354.167467937120673496.davem@davemloft.net>
-References: <1418002975-15271-1-git-send-email-roy.qing.li@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC PATCH net-next] tun: support retrieving multiple packets
+ in a single read with IFF_MULTI_READ
+Date: Tue, 9 Dec 2014 14:19:31 -0800
+Message-ID: <20141209141931.68386652@urahara>
+References: <1417752000-27171-1-git-send-email-agartrell@fb.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com,
-	sergei.shtylyov@cogentembedded.com
-To: roy.qing.li@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39271 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752260AbaLIWD5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 17:03:57 -0500
-In-Reply-To: <1418002975-15271-1-git-send-email-roy.qing.li@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <jasonwang@redhat.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<mst@redhat.com>, <herbert@gondor.apena.org.au>,
+	<kernel-team@fb.com>
+To: Alex Gartrell <agartrell@fb.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1417752000-27171-1-git-send-email-agartrell@fb.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: roy.qing.li@gmail.com
-Date: Mon,  8 Dec 2014 09:42:55 +0800
+On Thu, 4 Dec 2014 20:00:00 -0800
+Alex Gartrell <agartrell@fb.com> wrote:
 
-> From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> the queue length of sd->input_pkt_queue has been put into qlen,
-> and impossible to change, since hold the lock
-> 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> Acked-by: Eric Dumazet <edumazet@google.com>
+>  
+> +static inline size_t tun_calc_max_put_len(const struct tun_struct *tun)
+> +{
+> +	size_t len = 0;
 
-Applied, thanks.
+No need for inline with local static function. Let compiler decide.
