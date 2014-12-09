@@ -1,29 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net_test_tools] udpflood: Add IPv6 support
-Date: Tue, 09 Dec 2014 13:05:03 -0500 (EST)
-Message-ID: <20141209.130503.1276165663263932336.davem@davemloft.net>
-References: <1413837765-5446-1-git-send-email-kafai@fb.com>
-	<1417545706-31249-1-git-send-email-kafai@fb.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: linux-next 20141208 - net/sched/sch_fq_codel.c:97 suspicious RCU
+Date: Tue, 9 Dec 2014 10:07:31 -0800
+Message-ID: <CANn89iJAN815z3TefSjj0uZyQQyH-wTiAckt3WeMc-F7DRgpKA@mail.gmail.com>
+References: <6468.1418147500@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kafai@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37019 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751389AbaLISFV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 13:05:21 -0500
-In-Reply-To: <1417545706-31249-1-git-send-email-kafai@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6468.1418147500@turing-police.cc.vt.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Martin KaFai Lau <kafai@fb.com>
-Date: Tue, 2 Dec 2014 10:41:46 -0800
+On Tue, Dec 9, 2014 at 9:51 AM, Valdis Kletnieks
+<Valdis.Kletnieks@vt.edu> wrote:
+> Spotted this in dmesg while investigating why my wireless broke
+> sometime between next-20141201 and next-20141208.  Probably not
+> related, as wireless has been broken on several boot attempts of -1208,
+> but this has popped only once....
+>
+> Looks like the fault of
+>
+> commit 46e5da40aec256155cfedee96dd21a75da941f2c
+> Author: John Fastabend <john.fastabend@gmail.com>
+> Date:   Fri Sep 12 20:04:52 2014 -0700
 
-> This patch:
-> 1. Add IPv6 support
-> 2. Print timing for every 65536 fib insert operations to observe
->    the gc effect (mostly for IPv6 fib).
-
-Applied, thanks.
+Well, its a (harmless) typo : this should really be an
+rcu_dereference_bh() instead of rcu_dereference()
