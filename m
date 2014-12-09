@@ -1,36 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 2/2] net: sched: cls: use nla_nest_cancel
- instead of nlmsg_trim
-Date: Tue, 09 Dec 2014 15:48:49 -0500 (EST)
-Message-ID: <20141209.154849.439054105924395285.davem@davemloft.net>
-References: <1417791023-28124-1-git-send-email-jiri@resnulli.us>
-	<1417791023-28124-2-git-send-email-jiri@resnulli.us>
-	<20141209.154218.95904353076153825.davem@davemloft.net>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next] amd-xgbe: Use disable_irq_nosync when in IRQ
+ context
+Date: Tue, 9 Dec 2014 14:54:08 -0600
+Message-ID: <20141209205408.26097.70441.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: jiri@resnulli.us
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38549 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751168AbaLIUsw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 15:48:52 -0500
-In-Reply-To: <20141209.154218.95904353076153825.davem@davemloft.net>
+Received: from mail-bn1bon0133.outbound.protection.outlook.com ([157.56.111.133]:39072
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751190AbaLIUyQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2014 15:54:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 09 Dec 2014 15:42:18 -0500 (EST)
+The disable_irq_nosync function, not the disable_irq function, must be
+used to disable the DMA channel interrupt from within the interrupt
+service routine. Change the disable_irq call to disable_irq_nosync.
 
-> From: Jiri Pirko <jiri@resnulli.us>
-> Date: Fri,  5 Dec 2014 15:50:23 +0100
-> 
->> To cancel nesting, this function is more convenient.
->> 
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> 
-> Applied.
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+---
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-This doesn't even compile, when you took away the local 'b' variable
-it is still referenced by pr_debug() calls.
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index bedfdb1..bf6bf11 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -396,7 +396,7 @@ static irqreturn_t xgbe_dma_isr(int irq, void *data)
+ 	 */
+ 	if (napi_schedule_prep(&channel->napi)) {
+ 		/* Disable Tx and Rx interrupts */
+-		disable_irq(channel->dma_irq);
++		disable_irq_nosync(channel->dma_irq);
+ 
+ 		/* Turn on polling */
+ 		__napi_schedule(&channel->napi);
