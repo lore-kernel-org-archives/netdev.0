@@ -1,151 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: fix more NULL deref after prequeue changes
-Date: Tue, 09 Dec 2014 09:56:08 -0800
-Message-ID: <1418147768.27198.7.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20141209160023.GA31520@fluid.dannf>
-	 <1418141783.14835.20.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1418141914.14835.21.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1418142520.14835.22.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALdTtnuazPdMNsOHzzersmyHvLjwxSq1BZoA5ZAdU-0QZtwUsg@mail.gmail.com>
-	 <1418145804.27198.0.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Lori Jakab <lojakab-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Subject: Re: OVS Kernel Datapath development
+Date: Tue, 09 Dec 2014 20:02:18 +0200
+Message-ID: <5487392A.4020409@cisco.com>
+References: <CALnjE+rn_Giv+8TM1_E2faBftRkivXMYHcjn-4Eq4Gu15r=CiQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Dann Frazier <dann.frazier@canonical.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:61376 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751010AbaLIR4O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 12:56:14 -0500
-Received: by mail-ie0-f175.google.com with SMTP id x19so1018415ier.20
-        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 09:56:13 -0800 (PST)
-In-Reply-To: <1418145804.27198.0.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CALnjE+rn_Giv+8TM1_E2faBftRkivXMYHcjn-4Eq4Gu15r=CiQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-
-When I cooked commit c3658e8d0f1 ("tcp: fix possible NULL dereference in
-tcp_vX_send_reset()") I missed other spots we could deref a NULL
-skb_dst(skb)
-
-Again, if a socket is provided, we do not need skb_dst() to get a
-pointer to network namespace : sock_net(sk) is good enough.
-
-Reported-by: Dann Frazier <dann.frazier@canonical.com>
-Bisected-by: Dann Frazier <dann.frazier@canonical.com>
-Tested-by: Dann Frazier <dann.frazier@canonical.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Fixes: ca777eff51f7 ("tcp: remove dst refcount false sharing for prequeue mode")
----
- net/ipv4/tcp_ipv4.c |    4 ++--
- net/ipv6/tcp_ipv6.c |   28 ++++++++++++++--------------
- 2 files changed, 16 insertions(+), 16 deletions(-)
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 147be2024290..ef7089ca86e2 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -623,6 +623,7 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
- 	arg.iov[0].iov_base = (unsigned char *)&rep;
- 	arg.iov[0].iov_len  = sizeof(rep.th);
- 
-+	net = sk ? sock_net(sk) : dev_net(skb_dst(skb)->dev);
- #ifdef CONFIG_TCP_MD5SIG
- 	hash_location = tcp_parse_md5sig_option(th);
- 	if (!sk && hash_location) {
-@@ -633,7 +634,7 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
- 		 * Incoming packet is checked with md5 hash with finding key,
- 		 * no RST generated if md5 hash doesn't match.
- 		 */
--		sk1 = __inet_lookup_listener(dev_net(skb_dst(skb)->dev),
-+		sk1 = __inet_lookup_listener(net,
- 					     &tcp_hashinfo, ip_hdr(skb)->saddr,
- 					     th->source, ip_hdr(skb)->daddr,
- 					     ntohs(th->source), inet_iif(skb));
-@@ -681,7 +682,6 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
- 	if (sk)
- 		arg.bound_dev_if = sk->sk_bound_dev_if;
- 
--	net = dev_net(skb_dst(skb)->dev);
- 	arg.tos = ip_hdr(skb)->tos;
- 	ip_send_unicast_reply(net, skb, &TCP_SKB_CB(skb)->header.h4.opt,
- 			      ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index dc495ae2ead0..c277951d783b 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -787,16 +787,16 @@ static const struct tcp_request_sock_ops tcp_request_sock_ipv6_ops = {
- 	.queue_hash_add =	inet6_csk_reqsk_queue_hash_add,
- };
- 
--static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
--				 u32 tsval, u32 tsecr, int oif,
--				 struct tcp_md5sig_key *key, int rst, u8 tclass,
--				 u32 label)
-+static void tcp_v6_send_response(struct sock *sk, struct sk_buff *skb, u32 seq,
-+				 u32 ack, u32 win, u32 tsval, u32 tsecr,
-+				 int oif, struct tcp_md5sig_key *key, int rst,
-+				 u8 tclass, u32 label)
- {
- 	const struct tcphdr *th = tcp_hdr(skb);
- 	struct tcphdr *t1;
- 	struct sk_buff *buff;
- 	struct flowi6 fl6;
--	struct net *net = dev_net(skb_dst(skb)->dev);
-+	struct net *net = sk ? sock_net(sk) : dev_net(skb_dst(skb)->dev);
- 	struct sock *ctl_sk = net->ipv6.tcp_sk;
- 	unsigned int tot_len = sizeof(struct tcphdr);
- 	struct dst_entry *dst;
-@@ -946,7 +946,7 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
- 			  (th->doff << 2);
- 
- 	oif = sk ? sk->sk_bound_dev_if : 0;
--	tcp_v6_send_response(skb, seq, ack_seq, 0, 0, 0, oif, key, 1, 0, 0);
-+	tcp_v6_send_response(sk, skb, seq, ack_seq, 0, 0, 0, oif, key, 1, 0, 0);
- 
- #ifdef CONFIG_TCP_MD5SIG
- release_sk1:
-@@ -957,13 +957,13 @@ release_sk1:
- #endif
- }
- 
--static void tcp_v6_send_ack(struct sk_buff *skb, u32 seq, u32 ack,
--			    u32 win, u32 tsval, u32 tsecr, int oif,
-+static void tcp_v6_send_ack(struct sock *sk, struct sk_buff *skb, u32 seq,
-+			    u32 ack, u32 win, u32 tsval, u32 tsecr, int oif,
- 			    struct tcp_md5sig_key *key, u8 tclass,
- 			    u32 label)
- {
--	tcp_v6_send_response(skb, seq, ack, win, tsval, tsecr, oif, key, 0, tclass,
--			     label);
-+	tcp_v6_send_response(sk, skb, seq, ack, win, tsval, tsecr, oif, key, 0,
-+			     tclass, label);
- }
- 
- static void tcp_v6_timewait_ack(struct sock *sk, struct sk_buff *skb)
-@@ -971,7 +971,7 @@ static void tcp_v6_timewait_ack(struct sock *sk, struct sk_buff *skb)
- 	struct inet_timewait_sock *tw = inet_twsk(sk);
- 	struct tcp_timewait_sock *tcptw = tcp_twsk(sk);
- 
--	tcp_v6_send_ack(skb, tcptw->tw_snd_nxt, tcptw->tw_rcv_nxt,
-+	tcp_v6_send_ack(sk, skb, tcptw->tw_snd_nxt, tcptw->tw_rcv_nxt,
- 			tcptw->tw_rcv_wnd >> tw->tw_rcv_wscale,
- 			tcp_time_stamp + tcptw->tw_ts_offset,
- 			tcptw->tw_ts_recent, tw->tw_bound_dev_if, tcp_twsk_md5_key(tcptw),
-@@ -986,10 +986,10 @@ static void tcp_v6_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
- 	/* sk->sk_state == TCP_LISTEN -> for regular TCP_SYN_RECV
- 	 * sk->sk_state == TCP_SYN_RECV -> for Fast Open.
- 	 */
--	tcp_v6_send_ack(skb, (sk->sk_state == TCP_LISTEN) ?
-+	tcp_v6_send_ack(sk, skb, (sk->sk_state == TCP_LISTEN) ?
- 			tcp_rsk(req)->snt_isn + 1 : tcp_sk(sk)->snd_nxt,
--			tcp_rsk(req)->rcv_nxt,
--			req->rcv_wnd, tcp_time_stamp, req->ts_recent, sk->sk_bound_dev_if,
-+			tcp_rsk(req)->rcv_nxt, req->rcv_wnd,
-+			tcp_time_stamp, req->ts_recent, sk->sk_bound_dev_if,
- 			tcp_v6_md5_do_lookup(sk, &ipv6_hdr(skb)->daddr),
- 			0, 0);
- }
+T24gMTIvMDgvMjAxNCAwNjo0NyBBTSwgUHJhdmluIFNoZWxhciB3cm90ZToKPiBTaW5jZSB0aGUg
+YmVnaW5uaW5nIE9WUyBrZXJuZWwgZGF0YXBhdGggZGV2ZWxvcG1lbnQgaXMgcHJpbWFyaWx5IGRv
+bmUKPiBvbiBleHRlcm5hbCBPVlMgcmVwby4gTm93IHdlIGhhdmUgbW9zdGx5IHN5bmNlZCB1cHN0
+cmVhbSBhbmQgZXh0ZXJuYWwKPiBPVlMuIFNvIHdlIGhhdmUgZGVjaWRlZCB0byBjaGFuZ2UgdGhp
+cyBwcm9jZXNzLiBOZXcgcHJvY2VzcyBpcyBhcwo+IGZvbGxvd3MuCgpQYXRjaCBzZXJpZXMgdGhh
+dCBoYXZlIHByZXZpb3VzIHJldmlzaW9ucyBhbHJlYWR5IHJldmlld2VkIHdpdGggdGhlIG9sZApw
+cm9jZXNzIHNob3VsZCBub3cgc3dpdGNoIHRvIHRoZSBuZXcgcHJvY2Vzcz8gIE9yIGRvZXMgdGhl
+IGNoYW5nZSBhcHBseQpvbmx5IHRvIG5ldyBwYXRjaCBzZXJpZXM/CgotTG9yaQoKPiAKPiAxLiBP
+VlMgZmVhdHVyZSBkZXZlbG9wbWVudCB0aGF0IGludm9sdmVzIGtlcm5lbCBkYXRhcGF0aCBzaG91
+bGQgYmUKPiBkb25lIG9uIG5ldC1uZXh0IHRyZWUgZGF0YXBhdGguCj4gMi4gU3VjaCBmZWF0dXJl
+IHBhdGNoIHNlcmllcyBzaG91bGQgYmUgcG9zdGVkIG9uIG5ldGRldiBhbmQgb3ZzLWRldgo+IG1h
+aWxpbmcgbGlzdC4KPiAzLiBPbmNlIHJldmlldyBpcyBkb25lIGZvciBlbnRpcmUgc2VyaWVzLCBr
+ZXJuZWwgYW5kIE9WUyB1c2Vyc3BhY2UKPiBwYXRjaGVzIHdpbGwgYmUgbWVyZ2VkIGluIHJlc3Bl
+Y3RpdmUgcmVwby4KPiA0LiBBZnRlciB0aGUgbWVyZ2UgZGV2ZWxvcGVyIGlzIHN1cHBvc2UgdG8g
+c2VuZCBwYXRjaGVzIGZvciBleHRlcm5hbAo+IGtlcm5lbCBkYXRhcGF0aCBhbG9uZyB3aXRoIG9s
+ZCBrZXJuZWwgY29tcGF0aWJpbGl0eSBjb2RlLiBTbyB0aGF0IHdlCj4gY2FuIGtlZXAgZXh0ZXJu
+YWwgZGF0YXBhdGggaW5zeW5jLgo+IAo+IAo+IFRoYW5rcywKPiBQcmF2aW4uCl9fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2
+QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8v
+ZGV2Cg==
