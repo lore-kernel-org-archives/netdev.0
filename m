@@ -1,55 +1,58 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: [PATCH] netback: don't store invalid vif pointer
-Date: Tue, 09 Dec 2014 11:47:04 +0000
-Message-ID: <5486EF48020000780004E1B8@mail.emea.novell.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [patch net-next v3 02/17] net: make vid as a parameter for ndo_fdb_add/ndo_fdb_del
+Date: Tue, 9 Dec 2014 13:57:27 +0200
+Message-ID: <CAJ3xEMjx2qULrgA3SE+xkphyOovqbdSkcAwOsoBsc6s5ZB-erg@mail.gmail.com>
+References: <1416911328-10979-1-git-send-email-jiri@resnulli.us>
+	<1416911328-10979-3-git-send-email-jiri@resnulli.us>
+	<20141125151312.GC27416@gospo.rtplab.test>
+	<20141125151811.GF1971@nanopsycho.orion>
+	<5474A391.2080204@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: "xen-devel" <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>
-To: "Wei Liu" <wei.liu2@citrix.com>,
-	"Ian Campbell" <Ian.Campbell@eu.citrix.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: John Fastabend <john.r.fastabend@intel.com>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.emea.novell.com ([130.57.118.101]:51209 "EHLO
-	mail.emea.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755617AbaLILrJ convert rfc822-to-8bit (ORCPT
-	<rfc822;groupwise-netdev@vger.kernel.org:4:1>);
-	Tue, 9 Dec 2014 06:47:09 -0500
-Content-Disposition: inline
+Received: from mail-ob0-f177.google.com ([209.85.214.177]:55890 "EHLO
+	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755617AbaLIL52 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 06:57:28 -0500
+Received: by mail-ob0-f177.google.com with SMTP id va2so283058obc.8
+        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 03:57:27 -0800 (PST)
+In-Reply-To: <5474A391.2080204@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When xenvif_alloc() fails, it returns a non-NULL error indicator. To
-avoid eventual races, we shouldn't store that into struct backend_info
-as readers of it only check for NULL.
+On Tue, Nov 25, 2014 at 5:43 PM, John Fastabend
+<john.fastabend@gmail.com> wrote:
+> On 11/25/2014 07:18 AM, Jiri Pirko wrote:
+>>
+>> Tue, Nov 25, 2014 at 04:13:12PM CET, gospo@cumulusnetworks.com wrote:
+>>>
+>>> On Tue, Nov 25, 2014 at 11:28:33AM +0100, Jiri Pirko wrote:
+>>>>
+>>>> Do the work of parsing NDA_VLAN directly in rtnetlink code, pass simple
+>>>> u16 vid to drivers from there.
+>>>>
+>>>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>>>
+>>>
+>>> Structurally this looks fine, just a misspelling noted below.
+>>>
+>>> Acked-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+>>>
+>
+> If your going to spin this, should we return an error from
+> ndo_dflt_fdb_add() when we have a non-zero vid? The dflt
+> handler uses the dev_(mc|uc)_add_excl routines which will
+> not consume vids.
 
-Signed-off-by: Jan Beulich <jbeulich@suse.com>
+so... was this comment addressed along the discussion? I see in the
+code that we don't check
+on the _dflt_ handlers nor on the per device ones (ixgbe, i40e, qlgc)
+for a valid VID and return
+error on that.
 
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -404,6 +404,7 @@ static int backend_create_xenvif(struct 
- 	int err;
- 	long handle;
- 	struct xenbus_device *dev = be->dev;
-+	struct xenvif *vif;
- 
- 	if (be->vif != NULL)
- 		return 0;
-@@ -414,13 +415,13 @@ static int backend_create_xenvif(struct 
- 		return (err < 0) ? err : -EINVAL;
- 	}
- 
--	be->vif = xenvif_alloc(&dev->dev, dev->otherend_id, handle);
--	if (IS_ERR(be->vif)) {
--		err = PTR_ERR(be->vif);
--		be->vif = NULL;
-+	vif = xenvif_alloc(&dev->dev, dev->otherend_id, handle);
-+	if (IS_ERR(vif)) {
-+		err = PTR_ERR(vif);
- 		xenbus_dev_fatal(dev, err, "creating interface");
- 		return err;
- 	}
-+	be->vif = vif;
- 
- 	kobject_uevent(&dev->dev.kobj, KOBJ_ONLINE);
- 	return 0;
+
+> If you want to address this with a follow up patch I'm OK
+> with that. Go ahead and add my ack,
