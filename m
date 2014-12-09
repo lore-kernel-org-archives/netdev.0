@@ -1,48 +1,80 @@
-From: Chunhao Lin <hau@realtek.com>
-Subject: [PATCH net-next 2/9] r8169:update rtl8168gu ephy parameter
-Date: Wed, 10 Dec 2014 00:45:56 +0800
-Message-ID: <1418143563-7652-3-git-send-email-hau@realtek.com>
-References: <1418143563-7652-1-git-send-email-hau@realtek.com>
+From: Dann Frazier <dann.frazier@canonical.com>
+Subject: Re: [bisect] 3.18 oops in tcp_v4_send_reset()
+Date: Tue, 9 Dec 2014 10:10:08 -0700
+Message-ID: <CALdTtnuazPdMNsOHzzersmyHvLjwxSq1BZoA5ZAdU-0QZtwUsg@mail.gmail.com>
+References: <20141209160023.GA31520@fluid.dannf>
+	<1418141783.14835.20.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1418141914.14835.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1418142520.14835.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	Chunhao Lin <hau@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1418143563-7652-1-git-send-email-hau@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:39411 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750858AbaLIRKK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 12:10:10 -0500
+Received: by mail-wi0-f182.google.com with SMTP id h11so2449445wiw.3
+        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 09:10:08 -0800 (PST)
+In-Reply-To: <1418142520.14835.22.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Update rtl8168gu ephy parameter to improve pcie compatibility.
+On Tue, Dec 9, 2014 at 9:28 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2014-12-09 at 08:18 -0800, Eric Dumazet wrote:
+>> On Tue, 2014-12-09 at 08:16 -0800, Eric Dumazet wrote:
+>> > On Tue, 2014-12-09 at 09:00 -0700, dann frazier wrote:
+>> > > I'm observing a very reproducible oops which I have bisected down to
+>> > > commit ca777ef:
+>>
+>> >
+>> > Following patch should have fixed this
+>> >
+>> > http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=c3658e8d0f10147fc86018be7f11668246c156d3
+>> >
+>>
+>> Oh well, fix was not complete. I'll submit a followup patch.
+>>
+>
+> Could you try following fix before I send official patch ?
 
-Signed-off-by: Chunhao Lin <hau@realtek.com>
----
- drivers/net/ethernet/realtek/r8169.c | 13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
+This patch does appear to resolve the issue, thanks Eric!
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index b77efcb..10aa0b1 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -5976,10 +5976,15 @@ static void rtl_hw_start_8168g_2(struct rtl8169_private *tp)
- {
- 	void __iomem *ioaddr = tp->mmio_addr;
- 	static const struct ephy_info e_info_8168g_2[] = {
--		{ 0x00, 0x0000,	0x0008 },
--		{ 0x0c, 0x3df0,	0x0200 },
--		{ 0x19, 0xffff,	0xfc00 },
--		{ 0x1e, 0xffff,	0x20eb }
-+		{ 0x00, 0x0008,	0x0000 },
-+		{ 0x0c, 0x37d0,	0x0820 },
-+		{ 0x1e, 0x0000,	0x0001 },
-+		{ 0x19, 0x8000,	0x0000 },
-+		{ 0x19, 0xffff,	0x7c00 },
-+		{ 0x1e, 0xffff,	0x20eb },
-+		{ 0x0d, 0xffff,	0x1666 },
-+		{ 0x00, 0x0000,	0x0080 },
-+		{ 0x06, 0xffff,	0xf050 }
- 	};
- 
- 	rtl_hw_start_8168g(tp);
--- 
-1.9.1
+ -dann
+
+> Thanks !
+>
+> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> index 33f5ff068c7958515e0f63792883a58fb5d6a341..a3f72d7fc06c07c43e1c00b67970eaee074e4593 100644
+> --- a/net/ipv4/tcp_ipv4.c
+> +++ b/net/ipv4/tcp_ipv4.c
+> @@ -623,6 +623,7 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
+>         arg.iov[0].iov_base = (unsigned char *)&rep;
+>         arg.iov[0].iov_len  = sizeof(rep.th);
+>
+> +       net = sk ? sock_net(sk) : dev_net(skb_dst(skb)->dev);
+>  #ifdef CONFIG_TCP_MD5SIG
+>         hash_location = tcp_parse_md5sig_option(th);
+>         if (!sk && hash_location) {
+> @@ -633,7 +634,7 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
+>                  * Incoming packet is checked with md5 hash with finding key,
+>                  * no RST generated if md5 hash doesn't match.
+>                  */
+> -               sk1 = __inet_lookup_listener(dev_net(skb_dst(skb)->dev),
+> +               sk1 = __inet_lookup_listener(net,
+>                                              &tcp_hashinfo, ip_hdr(skb)->saddr,
+>                                              th->source, ip_hdr(skb)->daddr,
+>                                              ntohs(th->source), inet_iif(skb));
+> @@ -681,7 +682,6 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
+>         if (sk)
+>                 arg.bound_dev_if = sk->sk_bound_dev_if;
+>
+> -       net = dev_net(skb_dst(skb)->dev);
+>         arg.tos = ip_hdr(skb)->tos;
+>         ip_send_unicast_reply(net, skb, &TCP_SKB_CB(skb)->header.h4.opt,
+>                               ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
+>
+>
