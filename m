@@ -1,31 +1,33 @@
-From: Chris Conley <cconley@phytec.com>
-Subject: smsc911x: loopback test causing oops
-Date: Tue, 9 Dec 2014 19:33:34 +0000
-Message-ID: <BLUPR08MB5019A04480788B3FA1D5451D7650@BLUPR08MB501.namprd08.prod.outlook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: the next chunk of iov_iter-net stuff for review
+Date: Tue, 09 Dec 2014 15:07:32 -0500 (EST)
+Message-ID: <20141209.150732.158834258918114526.davem@davemloft.net>
+References: <20141125205911.GA29748@ZenIV.linux.org.uk>
+	<20141126.122727.1791815907895724977.davem@davemloft.net>
+	<20141205055623.GQ29748@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0073.outbound.protection.outlook.com ([65.55.169.73]:14112
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752360AbaLIUGe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 15:06:34 -0500
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: viro@ZenIV.linux.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141205055623.GQ29748@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello all,
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Date: Fri, 5 Dec 2014 05:56:23 +0000
 
-I'm trying to find out what the USE_PHY_WORK_AROUND ifdef is for.  I looked in the git logs and this workaround was introduced with the initial checkin of the driver files, and not explained.  
+> 	OK, here's the tentative next batch (covers most of the ->recvmsg()
+> side of conversion).  That's on top of merge of net-next#master with
+> vfs#iov_iter (the latter had been posted earlier today, Cc'd to netdev among
+> other places).  This series corresponds to vfs#for-davem.  Review and comments
+> would be very welcome...
 
-What was the hardware problem it was meant to handle? And is it valid for only certain chips? (i.e. the SMSC9221I, which is what we're using on this platform).
+Al, what's the state of this?  The iov_iter rewrite had some changes
+recently.
 
-We are seeing the loopback test fail w/ invalid packet size, and at some point during the loopback test after that, we get a kernel oops for invalid address.  And the address is very invalid (e.g. 48fa0569, fa65a8c4).  We were seeing this and another problem with irq_spinlocks after the probe returned for the 2nd instance of the phy, but that was fixed by backporting the current 3.18 driver to the linux-fslc_3.14.14 kernel.  Initially it looked like the backport fixed all of the problems, but one remained after over the weekend testing.  If the platform is direct-connect plugged into another platform, the oops happens in loopback again.
+Also, never assume I just know what GIT url to pull from, always
+explicitly state where you want me to pull changes from.
 
-The driver seems fine w/ the loopback disabled (no data xfer problems, etc), but I wanted to find out why it was there in the first place before forcing it off in a production environment.
-
-Thanks,
-
-//Chris
+Thanks.
