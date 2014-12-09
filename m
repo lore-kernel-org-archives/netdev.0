@@ -1,35 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] fix suspicious rcu_dereference_check in
- net/sched/sch_fq_codel.c
-Date: Tue, 09 Dec 2014 13:42:52 -0800
-Message-ID: <1418161372.27198.11.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <58905.1418159750@turing-police.cc.vt.edu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull-request: can-next 2014-12-07
+Date: Tue, 09 Dec 2014 16:49:34 -0500 (EST)
+Message-ID: <20141209.164934.2076716794543215133.davem@davemloft.net>
+References: <5484E3C3.5030205@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <58905.1418159750@turing-police.cc.vt.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: mkl@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39139 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753239AbaLIVtk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 16:49:40 -0500
+In-Reply-To: <5484E3C3.5030205@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-12-09 at 16:15 -0500, Valdis Kletnieks wrote:
-> commit 46e5da40ae (net: qdisc: use rcu prefix and silence
->  sparse warnings) triggers a spurious warning:
-> 
-> net/sched/sch_fq_codel.c:97 suspicious rcu_dereference_check() usage!
-> 
-> The code should be using the _bh variant of rcu_dereference.
-> 
-> Signed-off-by: Valdis Kletnieks <valdis.kletnieks@vt.edu>
-> ---
->  net/sched/sch_fq_codel.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Mon, 08 Dec 2014 00:33:23 +0100
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+> this is a pull request of 8 patches for net-next/master.
+> 
+> Andri Yngvason contributes 4 patches in which the CAN state change
+> handling is consolidated and unified among the sja1000, mscan and
+> flexcan driver. The three patches by Jeremiah Mahler fix spelling
+> mistakes and eliminate the banner[] variable in various parts. And a
+> patch by me that switches on sparse endianess checking by default.
 
-Thanks !
+Pulled, thanks Marc.
