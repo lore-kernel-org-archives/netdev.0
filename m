@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/13] i40e: set max limit for access polling
-Date: Tue,  9 Dec 2014 03:22:45 -0800
-Message-ID: <1418124170-7495-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/13] i40e: fix up NVM update sm error handling
+Date: Tue,  9 Dec 2014 03:22:46 -0800
+Message-ID: <1418124170-7495-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:43351 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:43348 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756687AbaLILXA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756692AbaLILXA (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 9 Dec 2014 06:23:00 -0500
 In-Reply-To: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,104 +18,85 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-Don't bother trying to set a smaller timeout on the polling,
-just simplify the code and always use the max limit.  Also,
-rename a variable for clarity and fix a comment.
+The state transitions after an error were not managed well, so
+these changes get us back to the INIT state or don't transition
+out of the INIT state after most errors.
 
-Change-ID: I0300c3562ccc4fd5fa3088f8ae52db0c1eb33af5
+Change-ID: I90aa0e4e348dc4f58cbcdce9c5d4b7fd35981c6c
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Acked-by: Michal Kosiarz <michal.kosiarz@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_nvm.c    | 21 ++++++++-------------
- drivers/net/ethernet/intel/i40e/i40e_type.h   |  2 +-
- drivers/net/ethernet/intel/i40evf/i40e_type.h |  2 +-
- 3 files changed, 10 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c | 26 ++++++++++++++++----------
+ 1 file changed, 16 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-index 37f0f5f..f55e52b 100644
+index f55e52b..f3d1c85 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-@@ -80,45 +80,40 @@ i40e_status i40e_acquire_nvm(struct i40e_hw *hw,
- {
- 	i40e_status ret_code = 0;
- 	u64 gtime, timeout;
--	u64 time = 0;
-+	u64 time_left = 0;
- 
- 	if (hw->nvm.blank_nvm_mode)
- 		goto i40e_i40e_acquire_nvm_exit;
- 
- 	ret_code = i40e_aq_request_resource(hw, I40E_NVM_RESOURCE_ID, access,
--					    0, &time, NULL);
-+					    0, &time_left, NULL);
- 	/* Reading the Global Device Timer */
- 	gtime = rd32(hw, I40E_GLVFGEN_TIMER);
- 
- 	/* Store the timeout */
--	hw->nvm.hw_semaphore_timeout = I40E_MS_TO_GTIME(time) + gtime;
-+	hw->nvm.hw_semaphore_timeout = I40E_MS_TO_GTIME(time_left) + gtime;
- 
- 	if (ret_code) {
--		/* Set the polling timeout */
--		if (time > I40E_MAX_NVM_TIMEOUT)
--			timeout = I40E_MS_TO_GTIME(I40E_MAX_NVM_TIMEOUT)
--				  + gtime;
--		else
--			timeout = hw->nvm.hw_semaphore_timeout;
- 		/* Poll until the current NVM owner timeouts */
-+		timeout = I40E_MS_TO_GTIME(I40E_MAX_NVM_TIMEOUT) + gtime;
- 		while (gtime < timeout) {
- 			usleep_range(10000, 20000);
-+			gtime = rd32(hw, I40E_GLVFGEN_TIMER);
- 			ret_code = i40e_aq_request_resource(hw,
- 							I40E_NVM_RESOURCE_ID,
--							access, 0, &time,
-+							access, 0, &time_left,
- 							NULL);
- 			if (!ret_code) {
- 				hw->nvm.hw_semaphore_timeout =
--						I40E_MS_TO_GTIME(time) + gtime;
-+					    I40E_MS_TO_GTIME(time_left) + gtime;
- 				break;
- 			}
--			gtime = rd32(hw, I40E_GLVFGEN_TIMER);
+@@ -535,7 +535,10 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
+ 			*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
+ 		} else {
+ 			status = i40e_nvmupd_nvm_read(hw, cmd, bytes, errno);
+-			hw->nvmupd_state = I40E_NVMUPD_STATE_READING;
++			if (status)
++				i40e_release_nvm(hw);
++			else
++				hw->nvmupd_state = I40E_NVMUPD_STATE_READING;
  		}
- 		if (ret_code) {
- 			hw->nvm.hw_semaphore_timeout = 0;
- 			i40e_debug(hw, I40E_DEBUG_NVM,
- 				   "NVM acquire timed out, wait %llu ms before trying again.\n",
--				   time);
-+				   time_left);
+ 		break;
+ 
+@@ -571,7 +574,10 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
+ 			*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
+ 		} else {
+ 			status = i40e_nvmupd_nvm_write(hw, cmd, bytes, errno);
+-			hw->nvmupd_state = I40E_NVMUPD_STATE_WRITING;
++			if (status)
++				i40e_release_nvm(hw);
++			else
++				hw->nvmupd_state = I40E_NVMUPD_STATE_WRITING;
  		}
- 	}
+ 		break;
  
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 306a23a..844421f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -261,7 +261,7 @@ enum i40e_aq_resource_access_type {
- };
+@@ -671,30 +677,30 @@ static i40e_status i40e_nvmupd_state_writing(struct i40e_hw *hw,
  
- struct i40e_nvm_info {
--	u64 hw_semaphore_timeout; /* 2usec global time (GTIME resolution) */
-+	u64 hw_semaphore_timeout; /* usec global time (GTIME resolution) */
- 	u32 timeout;              /* [ms] */
- 	u16 sr_size;              /* Shadow RAM size in words */
- 	bool blank_nvm_mode;      /* is NVM empty (no FW present)*/
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index 9d472d6..d8175cd 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -260,7 +260,7 @@ enum i40e_aq_resource_access_type {
- };
+ 	case I40E_NVMUPD_WRITE_LCB:
+ 		status = i40e_nvmupd_nvm_write(hw, cmd, bytes, errno);
+-		if (!status) {
++		if (!status)
+ 			hw->aq.nvm_release_on_done = true;
+-			hw->nvmupd_state = I40E_NVMUPD_STATE_INIT;
+-		}
++		hw->nvmupd_state = I40E_NVMUPD_STATE_INIT;
+ 		break;
  
- struct i40e_nvm_info {
--	u64 hw_semaphore_timeout; /* 2usec global time (GTIME resolution) */
-+	u64 hw_semaphore_timeout; /* usec global time (GTIME resolution) */
- 	u32 timeout;              /* [ms] */
- 	u16 sr_size;              /* Shadow RAM size in words */
- 	bool blank_nvm_mode;      /* is NVM empty (no FW present)*/
+ 	case I40E_NVMUPD_CSUM_CON:
+ 		status = i40e_update_nvm_checksum(hw);
+-		if (status)
++		if (status) {
+ 			*errno = hw->aq.asq_last_status ?
+ 				   i40e_aq_rc_to_posix(hw->aq.asq_last_status) :
+ 				   -EIO;
++			hw->nvmupd_state = I40E_NVMUPD_STATE_INIT;
++		}
+ 		break;
+ 
+ 	case I40E_NVMUPD_CSUM_LCB:
+ 		status = i40e_update_nvm_checksum(hw);
+-		if (status) {
++		if (status)
+ 			*errno = hw->aq.asq_last_status ?
+ 				   i40e_aq_rc_to_posix(hw->aq.asq_last_status) :
+ 				   -EIO;
+-		} else {
++		else
+ 			hw->aq.nvm_release_on_done = true;
+-			hw->nvmupd_state = I40E_NVMUPD_STATE_INIT;
+-		}
++		hw->nvmupd_state = I40E_NVMUPD_STATE_INIT;
+ 		break;
+ 
+ 	default:
 -- 
 1.9.3
