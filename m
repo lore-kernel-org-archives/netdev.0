@@ -1,41 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1] net: dsa: replacing the hard-coded sized array
- "dsa_switch" by dynamic one
-Date: Tue, 09 Dec 2014 14:45:30 -0500 (EST)
-Message-ID: <20141209.144530.1288294855056564069.davem@davemloft.net>
-References: <547DD1C6.2090304@nexvision.fr>
-	<547E23C1.2040007@gmail.com>
-	<548083B8.5090900@nexvision.fr>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/1] net: dsa: Fix of kernel panic in case of missing
+ PHY.
+Date: Tue, 09 Dec 2014 22:45:55 +0300
+Message-ID: <54875173.3070504@cogentembedded.com>
+References: <54873205.30401@nexvision.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
-To: andrey.volkov@nexvision.fr
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+To: Andrey Volkov <andrey.volkov@nexvision.fr>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37995 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751349AbaLITpd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 14:45:33 -0500
-In-Reply-To: <548083B8.5090900@nexvision.fr>
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:65006 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751500AbaLITp7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 14:45:59 -0500
+Received: by mail-lb0-f172.google.com with SMTP id u10so1144800lbd.3
+        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 11:45:57 -0800 (PST)
+In-Reply-To: <54873205.30401@nexvision.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrey Volkov <andrey.volkov@nexvision.fr>
-Date: Thu, 04 Dec 2014 16:54:32 +0100
+Hello.
 
-> @@ -732,7 +730,8 @@ static int dsa_probe(struct platform_device *pdev)
->          goto out;
->      }
->  
-> -    dst = kzalloc(sizeof(*dst), GFP_KERNEL);
-> +    dst = kzalloc(sizeof(*dst) +
-> +            sizeof(struct dsa_switch *) * pd->nr_chips, GFP_KERNEL);
+On 12/09/2014 08:31 PM, Andrey Volkov wrote:
 
-Your email client has completely corrupted your patch.  For one thing it
-has transformed TAB characters into spaces.
+> Fix of kernel panic in case of missing PHY.
 
-Please read Documentation/email-clients.txt, email the patch to yourself,
-and then try to successfully apply the patch you receive in that email.
-If it doesn't work for you, it won't work for us either.
+> Signed-off-by: Andrey Volkov <andrey.volkov@nexvision.fr>
+> ---
+>   net/dsa/slave.c |   19 +++++++++++++++----
+>   1 file changed, 15 insertions(+), 4 deletions(-)
 
-Do not resubmit this patch until your have fully resolved this, thanks.
+> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+> index 528380a..6f89caa 100644
+> --- a/net/dsa/slave.c
+> +++ b/net/dsa/slave.c
+[...]
+> @@ -555,12 +555,17 @@ static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
+>   	 */
+>   	if (!p->phy) {
+>   		p->phy = ds->slave_mii_bus->phy_map[p->port];
+> -		phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
+> +		if(p->phy)
+
+    Space is needed after *if*. Run your patches thru scripts/checkpatch.pl, 
+it should detect such coding style issues.
+
+> +			phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
+>   				   p->phy_interface);
+
+    This continuation line should be realigned now, to start right under 
+'slave_dev' on the previous line.
+
+[...]
+
+WBR, Sergei
