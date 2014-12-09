@@ -1,31 +1,79 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Subject: Re: [PATCH] netback: don't store invalid vif pointer
-Date: Tue, 9 Dec 2014 12:08:25 +0000
-Message-ID: <1418126905.14361.30.camel@eu.citrix.com>
-References: <5486EF48020000780004E1B8@mail.emea.novell.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	xen-devel <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>
-To: Jan Beulich <JBeulich@suse.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:61786 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755999AbaLIMI2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 07:08:28 -0500
-In-Reply-To: <5486EF48020000780004E1B8@mail.emea.novell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Subject: [PATCH v3] sh_eth: Optimization for RX excess judgement
+Date: Tue,  9 Dec 2014 21:23:42 +0900
+Message-ID: <1418127822-16904-1-git-send-email-ykaneko0929@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-12-09 at 11:47 +0000, Jan Beulich wrote:
-> When xenvif_alloc() fails, it returns a non-NULL error indicator. To
-> avoid eventual races, we shouldn't store that into struct backend_info
-> as readers of it only check for NULL.
-> 
-> Signed-off-by: Jan Beulich <jbeulich@suse.com>
+From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
 
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
+Both of 'boguscnt' and 'quota' have nearly meaning as the condition of
+the reception loop.
+In order to cut down redundant processing, this patch changes excess
+judgement.
 
-Thanks.
+Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+---
+
+This patch is based on net-next tree.
+
+v3 [Yoshihiro Kaneko]
+* fixes the calculation error of *quota.
+
+v2 [Yoshihiro Kaneko]
+* re-spin for net-next.
+* remove unneeded check of "quota".
+* remove unneeded incrementation of "boguscnt".
+* drop the change of the return statement.
+
+ drivers/net/ethernet/renesas/sh_eth.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index dbe8606..f94bbf5 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1394,10 +1394,13 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
+ 
+ 	int entry = mdp->cur_rx % mdp->num_rx_ring;
+ 	int boguscnt = (mdp->dirty_rx + mdp->num_rx_ring) - mdp->cur_rx;
++	int limit;
+ 	struct sk_buff *skb;
+ 	u16 pkt_len = 0;
+ 	u32 desc_status;
+ 
++	boguscnt = min(boguscnt, *quota);
++	limit = boguscnt;
+ 	rxdesc = &mdp->rx_ring[entry];
+ 	while (!(rxdesc->status & cpu_to_edmac(mdp, RD_RACT))) {
+ 		desc_status = edmac_to_cpu(mdp, rxdesc->status);
+@@ -1406,11 +1409,6 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
+ 		if (--boguscnt < 0)
+ 			break;
+ 
+-		if (*quota <= 0)
+-			break;
+-
+-		(*quota)--;
+-
+ 		if (!(desc_status & RDFEND))
+ 			ndev->stats.rx_length_errors++;
+ 
+@@ -1501,6 +1499,8 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
+ 		sh_eth_write(ndev, EDRRR_R, EDRRR);
+ 	}
+ 
++	*quota -= limit - boguscnt - 1;
++
+ 	return *quota <= 0;
+ }
+ 
+-- 
+1.9.1
+
