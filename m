@@ -1,95 +1,48 @@
-From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH net-next 1/1] net: fec: avoid kernal crash by NULL pointer when no phy connection
-Date: Tue, 9 Dec 2014 18:46:56 +0800
-Message-ID: <1418122016-32084-1-git-send-email-b38611@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <s.hauer@pengutronix.de>,
-	<bhutchings@solarflare.com>, <b38611@freescale.com>,
-	<stephen@networkplumber.org>
-To: <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/13] i40e: clear NVM update state on ethtool test
+Date: Tue,  9 Dec 2014 03:22:38 -0800
+Message-ID: <1418124170-7495-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0104.outbound.protection.outlook.com ([207.46.100.104]:20859
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755617AbaLILUW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2014 06:20:22 -0500
+Received: from mga03.intel.com ([134.134.136.65]:43344 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756575AbaLILW4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2014 06:22:56 -0500
+In-Reply-To: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On i.MX6SX sabreauto board, when there have no phy daughter board connection,
-there have kernel crash by NULL pointer:
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-fec 2188000.ethernet eth0: could not attach to PHY
-Unable to handle kernel NULL pointer dereference at virtual address 00000220
-pgd = 80004000
-[00000220] *pgd=00000000
-Internal error: Oops: 5 [#1] PREEMPT SMP ARM
-Modules linked in:
-CPU: 0 PID: 1 Comm: swapper/0 Not tainted 3.14.24-01042-g27eaeea-dirty #405
-task: d8078000 ti: d8076000 task.ti: d8076000
-PC is at mutex_lock+0x10/0x54
-LR is at phy_start+0x14/0x68
-pc : [<806ad4e4>]    lr : [<803b0f90>]    psr: 60000113
-sp : d8077d80  ip : 00000000  fp : d83cc000
-r10: 0000100c  r9 : d83cc800  r8 : 00000000
-r7 : d83bcd0c  r6 : 00000200  r5 : 00000220  r4 : 00000220
-r3 : 00000000  r2 : 00000000  r1 : d83bcd90  r0 : 00000220
-Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment kernel
-Control: 10c5387d  Table: 8000404a  DAC: 00000015
-Process swapper/0 (pid: 1, stack limit = 0xd8076240)
-Stack: (0xd8077d80 to 0xd8078000)
-7d80: 00000000 803b0f90 00000001 00000000 d83bc800 803be034 00000007 805c3fb4
-7da0: 00000003 80d4e0bc 805efcb8 fffffff1 fffffff0 00000000 00000000 d8077dfc
-7dc0: 0000000d 80d6ce80 80d126b0 800499c8 d83bc800 d83bc800 806f0f40 d83bc82c
-7de0: 00000000 00000000 80d6ce80 80d126b0 0000016b 80540250 d8076008 d83bc800
-7e00: 0000016b d83bc800 00001003 00000001 00001002 805404d4 d83bc800 00000120
-7e20: 00001002 00001002 00000000 805405d4 d83bc800 00000001 80d126c0 00001002
-7e40: 80dbc5dc 80d02024 00000000 806ae360 00000002 d6128420 d6127198 12400000
-7e60: 00000000 00000000 00000002 d61271e8 00000000 12400000 d801674c 800e49f0
-7e80: d6127198 d6124e58 00000000 80238848 d61271c4 00000000 00000001 d8016700
-7ea0: 80dd2e00 80d752c0 80d752c0 80cfdaec 0000010c 80239430 806c2e90 d800f080
-7ec0: d800f380 804e46b4 ffffffbc 80d15cb0 00000007 80d752c0 80d752c0 80d01e94
-7ee0: 0000010c d8076030 00000000 800088cc 80dbaba4 80bd411c d80a6f00 806b1e04
-7f00: 00000000 00000000 00000000 80125b84 00000000 80d2c56c 60000113 00000001
-7f20: ef7ff9df 806c80cc 0000010c 80043f5c 80c95eb8 00000007 ef7ffa1d 00000007
-7f40: 80d2c55c 80d15cb0 00000007 80d752c0 80d752c0 80ccc50c 0000010c 80d0a114
-7f60: 80d0a10c 80cccc04 00000007 00000007 80ccc50c 806ae410 00000000 8004cb84
-7f80: 80d17bc0 00000000 806a4bd4 00000000 00000000 00000000 00000000 00000000
-7fa0: 00000000 806a4bdc 00000000 8000e5f8 00000000 00000000 00000000 00000000
-7fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-7fe0: 00000000 00000000 00000000 00000000 00000013 00000000 1e79a7bb e5337f77
-[<806ad4e4>] (mutex_lock) from [<803b0f90>] (phy_start+0x14/0x68)
-[<803b0f90>] (phy_start) from [<803be034>] (fec_enet_open+0x448/0x5dc)
-[<803be034>] (fec_enet_open) from [<80540250>] (__dev_open+0xa8/0x110)
-[<80540250>] (__dev_open) from [<805404d4>] (__dev_change_flags+0x88/0x170)
-[<805404d4>] (__dev_change_flags) from [<805405d4>] (dev_change_flags+0x18/0x48)
-[<805405d4>] (dev_change_flags) from [<80d02024>] (ip_auto_config+0x190/0xf94)
-[<80d02024>] (ip_auto_config) from [<800088cc>] (do_one_initcall+0xe8/0x144)
-[<800088cc>] (do_one_initcall) from [<80cccc04>] (kernel_init_freeable+0x104/0x1c8)
-[<80cccc04>] (kernel_init_freeable) from [<806a4bdc>] (kernel_init+0x8/0xec)
-[<806a4bdc>] (kernel_init) from [<8000e5f8>] (ret_from_fork+0x14/0x3c)
-Code: e92d4010 e3a03000 e1a04000 ee073fba (e1903f9f)
+Once in a great while the NVMUpdate tools and the driver get out
+of phase with each other.  This gives us a way to reset things
+without having to unload the driver.
 
-Add phydev check to fix the issue.
-
-Signed-off-by: Fugang Duan <B38611@freescale.com>
+Change-ID: I353f688236249a666a90ba3e7233e0ed8c1a04e9
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Jim Young <jamesx.m.young@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index d2955ce..fee2afe 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1872,6 +1872,8 @@ static int fec_enet_mii_probe(struct net_device *ndev)
- 		phy_dev = of_phy_connect(ndev, fep->phy_node,
- 					 &fec_enet_adjust_link, 0,
- 					 fep->phy_interface);
-+		if (!phy_dev)
-+			return -ENODEV;
- 	} else {
- 		/* check for attached phy */
- 		for (phy_id = 0; (phy_id < PHY_MAX_ADDR); phy_id++) {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index fcd815d..25242f5 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1393,6 +1393,9 @@ static int i40e_eeprom_test(struct net_device *netdev, u64 *data)
+ 	netif_info(pf, hw, netdev, "eeprom test\n");
+ 	*data = i40e_diag_eeprom_test(&pf->hw);
+ 
++	/* forcebly clear the NVM Update state machine */
++	pf->hw.nvmupd_state = I40E_NVMUPD_STATE_INIT;
++
+ 	return *data;
+ }
+ 
 -- 
-1.7.8
+1.9.3
