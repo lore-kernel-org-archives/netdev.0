@@ -1,43 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tipc: avoid double lock
-	'spin_lock:&seq->lock'
-Date: Tue, 09 Dec 2014 18:27:23 -0500 (EST)
-Message-ID: <20141209.182723.1158512640709971739.davem@davemloft.net>
-References: <1418109476-2006-1-git-send-email-ying.xue@windriver.com>
+Subject: Re: [PATCH] stmmac: platform: adjust messages and move to dev level
+Date: Tue, 09 Dec 2014 18:28:37 -0500 (EST)
+Message-ID: <20141209.182837.2218983730769727387.davem@davemloft.net>
+References: <1418119153-13355-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net, dan.carpenter@oracle.com
-To: ying.xue@windriver.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1418109476-2006-1-git-send-email-ying.xue@windriver.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
+To: andriy.shevchenko@linux.intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39984 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754536AbaLIX2j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 18:28:39 -0500
+In-Reply-To: <1418119153-13355-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
-Date: Tue, 9 Dec 2014 15:17:56 +0800
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Date: Tue,  9 Dec 2014 11:59:13 +0200
 
-> The commit fb9962f3cefe ("tipc: ensure all name sequences are properly
-> protected with its lock") involves below errors:
+> This patch amendes error and warning messages across the platform driver. It
+> includes the following changes:
+>  - remove unneccessary message when no memory is available
+>  - change info level to warn in the validation functions
+>  - append \n to the end of messages
+>  - change pr_* macros to dev_*
 > 
-> net/tipc/name_table.c:980 tipc_purge_publications() error: double lock 'spin_lock:&seq->lock'
-> 
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 
-Applied.
-
-------------------------------------------------------------------------------
-Download BIRT iHub F-Type - The Free Enterprise-Grade BIRT Server
-from Actuate! Instantly Supercharge Your Business Reports and Dashboards
-with Interactivity, Sharing, Native Excel Exports, App Integration & more
-Get technology previously reserved for billion-dollar corporations, FREE
-http://pubads.g.doubleclick.net/gampad/clk?id=164703151&iu=/4140/ostg.clktrk
+This does not apply to the net-next tree, please respin.
