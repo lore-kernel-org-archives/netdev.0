@@ -1,76 +1,96 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [bisected] xfrm: TCP connection initiating PMTU discovery
- stalls on v3.
-Date: Tue, 09 Dec 2014 06:26:49 -0800
-Message-ID: <1418135209.14835.17.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1709726.jUgUSQI9sl@pikkukde.a.i2n>
-	 <1417785985.4322.1.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5642727.qTG53DqrAk@h2o.as.studentenwerk.mhn.de> <3594382.qsqLZcX7yO@storm>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Wolfgang Walter <linux@stwm.de>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Thomas Jarosch <thomas.jarosch@intra2net.com>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: [PATCH net] Fix race condition between vxlan_sock_add and vxlan_sock_release
+Date: Tue,  9 Dec 2014 12:28:28 -0200
+Message-ID: <e76bb0b4377c56583148323ada9b479e4628e35e.1418135271.git.mleitner@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:44334 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752430AbaLIO0x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 09:26:53 -0500
-Received: by mail-ie0-f179.google.com with SMTP id rp18so563683iec.38
-        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 06:26:52 -0800 (PST)
-In-Reply-To: <3594382.qsqLZcX7yO@storm>
+Received: from mx1.redhat.com ([209.132.183.28]:58315 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751940AbaLIO2i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2014 09:28:38 -0500
+Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id sB9ESb5h012656
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Tue, 9 Dec 2014 09:28:38 -0500
+Received: from localhost.localdomain.com (vpn1-5-99.gru2.redhat.com [10.97.5.99])
+	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id sB9ESaP3008137
+	for <netdev@vger.kernel.org>; Tue, 9 Dec 2014 09:28:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-12-09 at 09:54 +0100, Thomas Jarosch wrote:
-> On Monday, 8. December 2014 23:20:42 Wolfgang Walter wrote:
-> > Am Freitag, 5. Dezember 2014, 05:26:25 schrieb Eric Dumazet:
-> > > On Fri, 2014-12-05 at 13:09 +0100, Wolfgang Walter wrote:
-> > > > Hello,
-> > > > 
-> > > > as reverting this patch fixes this rather annoying problem: is it
-> > > > dangerous to revert it as a workaround until the root cause is found?
-> > > 
-> > > Unfortunately no, this patch fixes a serious issue.
-> > > 
-> > > We need to find the root cause of your problem instead of trying to work
-> > > around it.
-> > 
-> > I only wanted to use it as local workaround here.
-> > 
-> > 
-> > I looked a bit at at code. I'm not familiar with the network code, though
-> > :-).
-> 
-> If it helps, I'm running the reverted patch on five production boxes hitherto 
-> without a hiccup. As far as I understood the original commit message,
-> some packet counters might me wrong without it.
-> 
-> @Eric: What could possibly go wrong(tm)? :)
+Currently, when trying to reuse a socket, vxlan_sock_add will grab
+vn->sock_lock, locate a reusable socket, inc refcount and release
+vn->sock_lock.
 
-Crashes in TCP stack, because of packet count mismatches.
+But vxlan_sock_release() will first decrement refcount, and then grab
+that lock. refcnt operations are atomic but as currently we have
+deferred works which hold vs->refcnt each, this might happen, leading to
+a use after free (specially after vxlan_igmp_leave):
 
-The sk_can_gso() status is already tested in tcp_sendmsg() as a hint,
-since path behavior can dynamically be changed on existing flow :
+  CPU 1                            CPU 2
 
-<start a TCP flow>
-ethtool -K eth0 tso off gso off
+deferred work                    vxlan_sock_add
+  ...                              ...
+                                   spin_lock(&vn->sock_lock)
+                                   vs = vxlan_find_sock();
+  vxlan_sock_release
+    dec vs->refcnt, reaches 0
+    spin_lock(&vn->sock_lock)
+                                   vxlan_sock_hold(vs), refcnt=1
+                                   spin_unlock(&vn->sock_lock)
+    hlist_del_rcu(&vs->hlist);
+    vxlan_notify_del_rx_port(vs)
+    spin_unlock(&vn->sock_lock)
 
-In this case, core networking stack detects this and segments the
-packets _after_ TCP or IP stack, before they reach eth0.
 
-TCP stack does not have to know that something is changed right before
-giving a GSO packet to core networking stack, this would be racy by
-nature, as TCP does not know or control full path. Hopefully we do not
-take RTNL for every packet we send in TCP !
+With current logic, as vxlan_sock_add is the only "search and hold",
+it's easier to fix this by just making vxlan_sock_release grab that lock
+before checking refcnt.
 
-It seems XFRM triggers in a slow path something which is not correctly
-handled.
+Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+---
+ drivers/net/vxlan.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
 
-It is not correct to add a racy kludge in TCP fast path for this very
-unlikely case.
-
-I would disable TSO/GSO on xfrm, and problem should disappear.
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 31ecb03368c6dc3d581fdbd30b409b88190f3c71..287e718c8a419394fb17b9a8eb5957aafb8d19da 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1057,10 +1057,15 @@ void vxlan_sock_release(struct vxlan_sock *vs)
+ 	struct net *net = sock_net(sk);
+ 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+ 
+-	if (!atomic_dec_and_test(&vs->refcnt))
++	/* We have to take this lock now, otherwise vxlan_sock_add may
++	 * reuse a socket that vxlan_igmp_leave just freed.
++	 */
++	spin_lock(&vn->sock_lock);
++	if (!atomic_dec_and_test(&vs->refcnt)) {
++		spin_unlock(&vn->sock_lock);
+ 		return;
++	}
+ 
+-	spin_lock(&vn->sock_lock);
+ 	hlist_del_rcu(&vs->hlist);
+ 	vxlan_notify_del_rx_port(vs);
+ 	spin_unlock(&vn->sock_lock);
+@@ -1987,7 +1992,7 @@ static int vxlan_init(struct net_device *dev)
+ 			     vxlan->dst_port);
+ 	if (vs) {
+ 		/* If we have a socket with same port already, reuse it */
+-		atomic_inc(&vs->refcnt);
++		vxlan_sock_hold(vs);
+ 		vxlan_vs_add_dev(vs, vxlan);
+ 	} else {
+ 		/* otherwise make new socket outside of RTNL */
+@@ -2391,7 +2396,7 @@ struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
+ 	vs = vxlan_find_sock(net, ipv6 ? AF_INET6 : AF_INET, port);
+ 	if (vs) {
+ 		if (vs->rcv == rcv)
+-			atomic_inc(&vs->refcnt);
++			vxlan_sock_hold(vs);
+ 		else
+ 			vs = ERR_PTR(-EBUSY);
+ 	}
+-- 
+1.9.3
