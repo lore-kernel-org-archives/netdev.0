@@ -1,53 +1,47 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [ovs-dev] OVS Kernel Datapath development
-Date: Tue, 9 Dec 2014 10:36:14 -0800
-Message-ID: <CALnjE+rd5HN1zqHA6CJGhRGW2wsR1aURHoWs94_a=KyvNo4wwQ@mail.gmail.com>
-References: <CALnjE+rn_Giv+8TM1_E2faBftRkivXMYHcjn-4Eq4Gu15r=CiQ@mail.gmail.com>
-	<5487392A.4020409@cisco.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4] rtnetlink: delay RTM_DELLINK notification
+ until after ndo_uninit()
+Date: Tue, 09 Dec 2014 13:37:19 -0500 (EST)
+Message-ID: <20141209.133719.510437323986645419.davem@davemloft.net>
+References: <1417643184-23440-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Lori Jakab <lojakab@cisco.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+	roopa@cumulusnetworks.com, makita.toshiaki@lab.ntt.co.jp
+To: maheshb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na6sys009bog017.obsmtp.com ([74.125.150.74]:43470 "HELO
-	na6sys009bog017.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751876AbaLISgP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 13:36:15 -0500
-Received: by mail-ie0-f172.google.com with SMTP id tr6so1105780ieb.3
-        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 10:36:14 -0800 (PST)
-In-Reply-To: <5487392A.4020409@cisco.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37354 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751560AbaLIShW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 13:37:22 -0500
+In-Reply-To: <1417643184-23440-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 9, 2014 at 10:02 AM, Lori Jakab <lojakab@cisco.com> wrote:
-> On 12/08/2014 06:47 AM, Pravin Shelar wrote:
->> Since the beginning OVS kernel datapath development is primarily done
->> on external OVS repo. Now we have mostly synced upstream and external
->> OVS. So we have decided to change this process. New process is as
->> follows.
->
-> Patch series that have previous revisions already reviewed with the old
-> process should now switch to the new process?  Or does the change apply
-> only to new patch series?
->
+From: Mahesh Bandewar <maheshb@google.com>
+Date: Wed,  3 Dec 2014 13:46:24 -0800
 
-All patch series should follow new process including the one which got
-reviewed partially.
+> The commit 56bfa7ee7c ("unregister_netdevice : move RTM_DELLINK to
+> until after ndo_uninit") tried to do this ealier but while doing so
+> it created a problem. Unfortunately the delayed rtmsg_ifinfo() also
+> delayed call to fill_info(). So this translated into asking driver
+> to remove private state and then query it's private state. This
+> could have catastropic consequences.
+> 
+> This change breaks the rtmsg_ifinfo() into two parts - one takes the
+> precise snapshot of the device by called fill_info() before calling
+> the ndo_uninit() and the second part sends the notification using
+> collected snapshot.
+> 
+> It was brought to notice when last link is deleted from an ipvlan device
+> when it has free-ed the port and the subsequent .fill_info() call is
+> trying to get the info from the port.
+...
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> Reported-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Cc: David S. Miller <davem@davemloft.net>
 
-> -Lori
->
->>
->> 1. OVS feature development that involves kernel datapath should be
->> done on net-next tree datapath.
->> 2. Such feature patch series should be posted on netdev and ovs-dev
->> mailing list.
->> 3. Once review is done for entire series, kernel and OVS userspace
->> patches will be merged in respective repo.
->> 4. After the merge developer is suppose to send patches for external
->> kernel datapath along with old kernel compatibility code. So that we
->> can keep external datapath insync.
->>
->>
->> Thanks,
->> Pravin.
+Applied.
