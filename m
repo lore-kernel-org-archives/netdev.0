@@ -1,44 +1,142 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: the next chunk of iov_iter-net stuff for review
-Date: Tue, 9 Dec 2014 22:49:28 +0000
-Message-ID: <20141209224928.GL22149@ZenIV.linux.org.uk>
-References: <20141209210414.GJ22149@ZenIV.linux.org.uk>
- <20141209.161712.1258837733606317716.davem@davemloft.net>
- <20141209212337.GK22149@ZenIV.linux.org.uk>
- <20141209.163758.1934464464299516168.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Subject: [PATCH 11/25] csum_and_copy_..._iter()
+Date: Tue,  9 Dec 2014 22:50:24 +0000
+Message-ID: <1418165438-2205-11-git-send-email-viro@ZenIV.linux.org.uk>
+References: <20141209224928.GL22149@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:37443 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753831AbaLIWta (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 17:49:30 -0500
-Content-Disposition: inline
-In-Reply-To: <20141209.163758.1934464464299516168.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141209224928.GL22149@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 09, 2014 at 04:37:58PM -0500, David Miller wrote:
-> From: Al Viro <viro@ZenIV.linux.org.uk>
-> Date: Tue, 9 Dec 2014 21:23:37 +0000
-> 
-> > On Tue, Dec 09, 2014 at 04:17:12PM -0500, David Miller wrote:
-> >> From: Al Viro <viro@ZenIV.linux.org.uk>
-> >> Date: Tue, 9 Dec 2014 21:04:14 +0000
-> >> 
-> >> > Well, I've got no comments whatsoever on the networking side of things;
-> >> 
-> >> I've been away for more than 10 days, so I personally haven't had time
-> >> to review any of it.
-> >> 
-> >> Why don't you respin and I'll try to allocate some review time myself?
-> > 
-> > Umm...  Do you want a rebase on top of current net-next/master?
-> 
-> Sure, why not?
+From: Al Viro <viro@zeniv.linux.org.uk>
 
-OK, rebase is in
-git://git.kernel.org/pub/scm/linux/kernel/git/viro/vfs.git for-davem-2,
-individual patches - in followups (first 13 - iov_iter, then 12 net-related)
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+---
+ include/linux/uio.h |  2 ++
+ mm/iov_iter.c       | 89 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 91 insertions(+)
+
+diff --git a/include/linux/uio.h b/include/linux/uio.h
+index 6e16945..28ed2d9 100644
+--- a/include/linux/uio.h
++++ b/include/linux/uio.h
+@@ -124,6 +124,8 @@ static inline void iov_iter_reexpand(struct iov_iter *i, size_t count)
+ {
+ 	i->count = count;
+ }
++size_t csum_and_copy_to_iter(void *addr, size_t bytes, __wsum *csum, struct iov_iter *i);
++size_t csum_and_copy_from_iter(void *addr, size_t bytes, __wsum *csum, struct iov_iter *i);
+ 
+ int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len);
+ int memcpy_toiovec(struct iovec *iov, unsigned char *kdata, int len);
+diff --git a/mm/iov_iter.c b/mm/iov_iter.c
+index 1618e37..1d2cdeb 100644
+--- a/mm/iov_iter.c
++++ b/mm/iov_iter.c
+@@ -3,6 +3,7 @@
+ #include <linux/pagemap.h>
+ #include <linux/slab.h>
+ #include <linux/vmalloc.h>
++#include <net/checksum.h>
+ 
+ #define iterate_iovec(i, n, __v, __p, skip, STEP) {	\
+ 	size_t left;					\
+@@ -586,6 +587,94 @@ ssize_t iov_iter_get_pages_alloc(struct iov_iter *i,
+ }
+ EXPORT_SYMBOL(iov_iter_get_pages_alloc);
+ 
++size_t csum_and_copy_from_iter(void *addr, size_t bytes, __wsum *csum,
++			       struct iov_iter *i)
++{
++	char *to = addr;
++	__wsum sum, next;
++	size_t off = 0;
++	if (unlikely(bytes > i->count))
++		bytes = i->count;
++
++	if (unlikely(!bytes))
++		return 0;
++
++	sum = *csum;
++	iterate_and_advance(i, bytes, v, ({
++		int err = 0;
++		next = csum_and_copy_from_user(v.iov_base, 
++					       (to += v.iov_len) - v.iov_len,
++					       v.iov_len, 0, &err);
++		if (!err) {
++			sum = csum_block_add(sum, next, off);
++			off += v.iov_len;
++		}
++		err ? v.iov_len : 0;
++	}), ({
++		char *p = kmap_atomic(v.bv_page);
++		next = csum_partial_copy_nocheck(p + v.bv_offset,
++						 (to += v.bv_len) - v.bv_len,
++						 v.bv_len, 0);
++		kunmap_atomic(p);
++		sum = csum_block_add(sum, next, off);
++		off += v.bv_len;
++	}),({
++		next = csum_partial_copy_nocheck(v.iov_base,
++						 (to += v.iov_len) - v.iov_len,
++						 v.iov_len, 0);
++		sum = csum_block_add(sum, next, off);
++		off += v.iov_len;
++	})
++	)
++	*csum = sum;
++	return bytes;
++}
++EXPORT_SYMBOL(csum_and_copy_from_iter);
++
++size_t csum_and_copy_to_iter(void *addr, size_t bytes, __wsum *csum,
++			     struct iov_iter *i)
++{
++	char *from = addr;
++	__wsum sum, next;
++	size_t off = 0;
++	if (unlikely(bytes > i->count))
++		bytes = i->count;
++
++	if (unlikely(!bytes))
++		return 0;
++
++	sum = *csum;
++	iterate_and_advance(i, bytes, v, ({
++		int err = 0;
++		next = csum_and_copy_to_user((from += v.iov_len) - v.iov_len,
++					     v.iov_base, 
++					     v.iov_len, 0, &err);
++		if (!err) {
++			sum = csum_block_add(sum, next, off);
++			off += v.iov_len;
++		}
++		err ? v.iov_len : 0;
++	}), ({
++		char *p = kmap_atomic(v.bv_page);
++		next = csum_partial_copy_nocheck((from += v.bv_len) - v.bv_len,
++						 p + v.bv_offset,
++						 v.bv_len, 0);
++		kunmap_atomic(p);
++		sum = csum_block_add(sum, next, off);
++		off += v.bv_len;
++	}),({
++		next = csum_partial_copy_nocheck((from += v.iov_len) - v.iov_len,
++						 v.iov_base,
++						 v.iov_len, 0);
++		sum = csum_block_add(sum, next, off);
++		off += v.iov_len;
++	})
++	)
++	*csum = sum;
++	return bytes;
++}
++EXPORT_SYMBOL(csum_and_copy_to_iter);
++
+ int iov_iter_npages(const struct iov_iter *i, int maxpages)
+ {
+ 	size_t size = i->count;
+-- 
+2.1.3
