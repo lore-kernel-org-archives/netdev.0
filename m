@@ -1,46 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/4] net: allow setting congctl via routing
- table
-Date: Tue, 09 Dec 2014 15:58:44 -0500 (EST)
-Message-ID: <20141209.155844.1175199719902606020.davem@davemloft.net>
-References: <1417909163-19135-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH net-next] macvlan: allow setting LRO independently of
+ lower device
+Date: Tue, 09 Dec 2014 16:00:48 -0500 (EST)
+Message-ID: <20141209.160048.1159420484833054299.davem@davemloft.net>
+References: <20141205190937.99BD6A0BB0@unicorn.suse.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, fw@strlen.de, netdev@vger.kernel.org
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38635 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751013AbaLIU6r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 15:58:47 -0500
-In-Reply-To: <1417909163-19135-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: mkubecek@suse.cz
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141205190937.99BD6A0BB0@unicorn.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Sun,  7 Dec 2014 00:39:19 +0100
+From: Michal Kubecek <mkubecek@suse.cz>
+Date: Fri, 5 Dec 2014 17:05:49 +0100
 
-> This is the second part of our work and allows for setting the congestion
-> control algorithm via routing table. For details, please see individual
-> patches.
+> Since commit fbe168ba91f7 ("net: generic dev_disable_lro() stacked
+> device handling"), dev_disable_lro() zeroes NETIF_F_LRO feature flag
+> first for a macvlan device and then for its lower device. As an attempt
+> to set NETIF_F_LRO to zero is ignored, dev_disable_lro() issues a
+> warning and taints kernel.
 > 
-> Joint work with Florian Westphal, suggested by Hannes Frederic Sowa.
+> Allowing NETIF_F_LRO to be set independently of the lower device
+> consists of three parts:
 > 
-> Patch for iproute2: http://patchwork.ozlabs.org/patch/418149/
+>   - add the flag to hw_features to allow toggling it
+>   - allow setting it to 0 even if lower device has the flag set
+>   - add the flag to MACVLAN_FEATURES to restore copying from lower
+>     device on macvlan creation
 > 
-> Thanks!
-> 
-> v1->v2:
->  - Very sorry, I noticed I had decnet disabled during testing.
->    Added missing header include in decnet, rest as is.
+> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 
-I don't like how you have to explicitly load the congestion control
-module before asking for it to be used in the route entry metric.
-
-It should request the module automatically just like the stack already
-does for other cases.
-
-You have run into this problem as a result of your design decision to
-use that 32-bit key.  Therefore, I think you seriously need to
-reconsider that aspect of your change.
+Applied, thanks.
