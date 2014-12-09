@@ -1,7 +1,7 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 03/25] iov_iter.c: convert iov_iter_npages() to iterate_all_kinds
-Date: Tue,  9 Dec 2014 22:50:16 +0000
-Message-ID: <1418165438-2205-3-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH 04/25] iov_iter.c: convert iov_iter_get_pages() to iterate_all_kinds
+Date: Tue,  9 Dec 2014 22:50:17 +0000
+Message-ID: <1418165438-2205-4-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20141209224928.GL22149@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
@@ -14,105 +14,111 @@ From: Al Viro <viro@zeniv.linux.org.uk>
 
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- mm/iov_iter.c | 73 ++++++++++++++++-------------------------------------------
- 1 file changed, 19 insertions(+), 54 deletions(-)
+ mm/iov_iter.c | 78 +++++++++++++++++++++--------------------------------------
+ 1 file changed, 28 insertions(+), 50 deletions(-)
 
 diff --git a/mm/iov_iter.c b/mm/iov_iter.c
-index e91bf0a..bc666e7 100644
+index bc666e7..75e29ef 100644
 --- a/mm/iov_iter.c
 +++ b/mm/iov_iter.c
-@@ -493,32 +493,6 @@ static ssize_t get_pages_alloc_iovec(struct iov_iter *i,
- 	return (res == n ? len : res * PAGE_SIZE) - *start;
+@@ -428,34 +428,6 @@ void iov_iter_init(struct iov_iter *i, int direction,
  }
+ EXPORT_SYMBOL(iov_iter_init);
  
--static int iov_iter_npages_iovec(const struct iov_iter *i, int maxpages)
+-static ssize_t get_pages_iovec(struct iov_iter *i,
+-		   struct page **pages, size_t maxsize, unsigned maxpages,
+-		   size_t *start)
 -{
 -	size_t offset = i->iov_offset;
--	size_t size = i->count;
 -	const struct iovec *iov = i->iov;
--	int npages = 0;
+-	size_t len;
+-	unsigned long addr;
 -	int n;
+-	int res;
 -
--	for (n = 0; size && n < i->nr_segs; n++, iov++) {
--		unsigned long addr = (unsigned long)iov->iov_base + offset;
--		size_t len = iov->iov_len - offset;
--		offset = 0;
--		if (unlikely(!len))	/* empty segment */
--			continue;
--		if (len > size)
--			len = size;
--		npages += (addr + len + PAGE_SIZE - 1) / PAGE_SIZE
--			  - addr / PAGE_SIZE;
--		if (npages >= maxpages)	/* don't bother going further */
--			return maxpages;
--		size -= len;
--		offset = 0;
--	}
--	return min(npages, maxpages);
+-	len = iov->iov_len - offset;
+-	if (len > i->count)
+-		len = i->count;
+-	if (len > maxsize)
+-		len = maxsize;
+-	addr = (unsigned long)iov->iov_base + offset;
+-	len += *start = addr & (PAGE_SIZE - 1);
+-	if (len > maxpages * PAGE_SIZE)
+-		len = maxpages * PAGE_SIZE;
+-	addr &= ~(PAGE_SIZE - 1);
+-	n = (len + PAGE_SIZE - 1) / PAGE_SIZE;
+-	res = get_user_pages_fast(addr, n, (i->type & WRITE) != WRITE, pages);
+-	if (unlikely(res < 0))
+-		return res;
+-	return (res == n ? len : res * PAGE_SIZE) - *start;
 -}
 -
- static void memcpy_from_page(char *to, struct page *page, size_t offset, size_t len)
- {
- 	char *from = kmap_atomic(page);
-@@ -715,30 +689,6 @@ static ssize_t get_pages_alloc_bvec(struct iov_iter *i,
- 	return len;
+ static ssize_t get_pages_alloc_iovec(struct iov_iter *i,
+ 		   struct page ***pages, size_t maxsize,
+ 		   size_t *start)
+@@ -650,24 +622,6 @@ static size_t zero_bvec(size_t bytes, struct iov_iter *i)
+ 	return wanted - bytes;
  }
  
--static int iov_iter_npages_bvec(const struct iov_iter *i, int maxpages)
+-static ssize_t get_pages_bvec(struct iov_iter *i,
+-		   struct page **pages, size_t maxsize, unsigned maxpages,
+-		   size_t *start)
 -{
--	size_t offset = i->iov_offset;
--	size_t size = i->count;
 -	const struct bio_vec *bvec = i->bvec;
--	int npages = 0;
--	int n;
+-	size_t len = bvec->bv_len - i->iov_offset;
+-	if (len > i->count)
+-		len = i->count;
+-	if (len > maxsize)
+-		len = maxsize;
+-	/* can't be more than PAGE_SIZE */
+-	*start = bvec->bv_offset + i->iov_offset;
 -
--	for (n = 0; size && n < i->nr_segs; n++, bvec++) {
--		size_t len = bvec->bv_len - offset;
--		offset = 0;
--		if (unlikely(!len))	/* empty segment */
--			continue;
--		if (len > size)
--			len = size;
--		npages++;
--		if (npages >= maxpages)	/* don't bother going further */
--			return maxpages;
--		size -= len;
--		offset = 0;
--	}
--	return min(npages, maxpages);
+-	get_page(*pages = bvec->bv_page);
+-
+-	return len;
 -}
 -
- size_t copy_page_to_iter(struct page *page, size_t offset, size_t bytes,
- 			 struct iov_iter *i)
- {
-@@ -862,9 +812,24 @@ EXPORT_SYMBOL(iov_iter_get_pages_alloc);
- 
- int iov_iter_npages(const struct iov_iter *i, int maxpages)
+ static ssize_t get_pages_alloc_bvec(struct iov_iter *i,
+ 		   struct page ***pages, size_t maxsize,
+ 		   size_t *start)
+@@ -792,10 +746,34 @@ ssize_t iov_iter_get_pages(struct iov_iter *i,
+ 		   struct page **pages, size_t maxsize, unsigned maxpages,
+ 		   size_t *start)
  {
 -	if (i->type & ITER_BVEC)
--		return iov_iter_npages_bvec(i, maxpages);
+-		return get_pages_bvec(i, pages, maxsize, maxpages, start);
 -	else
--		return iov_iter_npages_iovec(i, maxpages);
-+	size_t size = i->count;
-+	int npages = 0;
+-		return get_pages_iovec(i, pages, maxsize, maxpages, start);
++	if (maxsize > i->count)
++		maxsize = i->count;
 +
-+	if (!size)
++	if (!maxsize)
 +		return 0;
 +
-+	iterate_all_kinds(i, size, v, ({
-+		unsigned long p = (unsigned long)v.iov_base;
-+		npages += DIV_ROUND_UP(p + v.iov_len, PAGE_SIZE)
-+			- p / PAGE_SIZE;
-+		if (npages >= maxpages)
-+			return maxpages;
++	iterate_all_kinds(i, maxsize, v, ({
++		unsigned long addr = (unsigned long)v.iov_base;
++		size_t len = v.iov_len + (*start = addr & (PAGE_SIZE - 1));
++		int n;
++		int res;
++
++		if (len > maxpages * PAGE_SIZE)
++			len = maxpages * PAGE_SIZE;
++		addr &= ~(PAGE_SIZE - 1);
++		n = DIV_ROUND_UP(len, PAGE_SIZE);
++		res = get_user_pages_fast(addr, n, (i->type & WRITE) != WRITE, pages);
++		if (unlikely(res < 0))
++			return res;
++		return (res == n ? len : res * PAGE_SIZE) - *start;
 +	0;}),({
-+		npages++;
-+		if (npages >= maxpages)
-+			return maxpages;
++		/* can't be more than PAGE_SIZE */
++		*start = v.bv_offset;
++		get_page(*pages = v.bv_page);
++		return v.bv_len;
 +	})
 +	)
-+	return npages;
++	return 0;
  }
- EXPORT_SYMBOL(iov_iter_npages);
+ EXPORT_SYMBOL(iov_iter_get_pages);
+ 
 -- 
 2.1.3
