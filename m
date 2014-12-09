@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] amd-xgbe: Prevent Tx cleanup stall
-Date: Tue, 09 Dec 2014 14:48:21 -0500 (EST)
-Message-ID: <20141209.144821.577727845317298785.davem@davemloft.net>
-References: <20141204175235.11100.52433.stgit@tlendack-t1.amdoffice.net>
+Subject: Re: [patch net-next] net: sched: cls: remove unused op put from
+ tcf_proto_ops
+Date: Tue, 09 Dec 2014 14:49:14 -0500 (EST)
+Message-ID: <20141209.144914.808097916610922518.davem@davemloft.net>
+References: <1417725678-24968-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38045 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38057 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752262AbaLITsY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 14:48:24 -0500
-In-Reply-To: <20141204175235.11100.52433.stgit@tlendack-t1.amdoffice.net>
+	with ESMTP id S1752467AbaLITtQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 14:49:16 -0500
+In-Reply-To: <1417725678-24968-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Thu, 4 Dec 2014 11:52:35 -0600
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu,  4 Dec 2014 21:41:18 +0100
 
-> When performing Tx cleanup, the dirty index counter is compared to the
-> current index counter as one of the tests used to determine when to stop
-> cleanup. The "less than" test will fail when the current index counter
-> rolls over to zero causing cleanup to never occur again. Update the test
-> to a "not equal" to avoid this situation.
+> It is never called and implementations are void. So just remove it.
 > 
-> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Applied.
+Applied, thanks.
