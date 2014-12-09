@@ -1,31 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 0/6] net_sched: cls_*: couple of fixes
-Date: Mon, 08 Dec 2014 20:53:53 -0500 (EST)
-Message-ID: <20141208.205353.1940103999805714976.davem@davemloft.net>
-References: <1417539636-12710-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH] net: mvneta: fix race condition in mvneta_tx()
+Date: Mon, 08 Dec 2014 20:55:59 -0500 (EST)
+Message-ID: <20141208.205559.267421979148480413.davem@davemloft.net>
+References: <1417523459.5303.39.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1417523835.5303.41.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20141202124043.GB16347@1wt.eu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: jiri@resnulli.us
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	maggie.mae.roxas@gmail.com, thomas.petazzoni@free-electrons.com,
+	gregory.clement@free-electrons.com,
+	ezequiel.garcia@free-electrons.com
+To: w@1wt.eu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59239 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59267 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751103AbaLIBx4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 20:53:56 -0500
-In-Reply-To: <1417539636-12710-1-git-send-email-jiri@resnulli.us>
+	with ESMTP id S1754688AbaLIB4C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 20:56:02 -0500
+In-Reply-To: <20141202124043.GB16347@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Tue,  2 Dec 2014 18:00:30 +0100
+From: Willy Tarreau <w@1wt.eu>
+Date: Tue, 2 Dec 2014 13:40:43 +0100
 
-> Jiri Pirko (6):
->   net_sched: cls_basic: remove unnecessary iteration and use passed arg
->   net_sched: cls_bpf: remove unnecessary iteration and use passed arg
->   net_sched: cls_bpf: remove faulty use of list_for_each_entry_rcu
->   net_sched: cls_flow: remove faulty use of list_for_each_entry_rcu
->   net_sched: cls_flow: remove duplicate assignments
->   net_sched: cls_cgroup: remove unnecessary if
+> On Tue, Dec 02, 2014 at 04:37:15AM -0800, Eric Dumazet wrote:
+>> On Tue, 2014-12-02 at 04:30 -0800, Eric Dumazet wrote:
+>> > From: Eric Dumazet <edumazet@google.com>
+>> > 
+>> > mvneta_tx() dereferences skb to get skb->len too late,
+>> > as hardware might have completed the transmit and TX completion
+>> > could have freed the skb from another cpu.
+>> > 
+>> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> 
+>> 
+>> 
+>> For completeness, this bug was added in linux-3.14 and seems a stable
+>> candidate.
+>> 
+>> Fixes: 71f6d1b31fb1 ("net: mvneta: replace Tx timer with a real interrupt")
+> 
+> Absolutely, we backported this one back to 3.10.
 
-Series applied, thanks Jiri.
+Applied, and queued up for -stable, thanks everyone.
