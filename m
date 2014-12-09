@@ -1,7 +1,7 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 10/25] iov_iter.c: handle ITER_KVEC directly
-Date: Tue,  9 Dec 2014 22:50:23 +0000
-Message-ID: <1418165438-2205-10-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH 14/25] raw.c: stick msghdr into raw_frag_vec
+Date: Tue,  9 Dec 2014 22:50:27 +0000
+Message-ID: <1418165438-2205-14-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20141209224928.GL22149@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
@@ -12,229 +12,52 @@ List-Id: netdev.vger.kernel.org
 
 From: Al Viro <viro@zeniv.linux.org.uk>
 
-... without bothering with copy_..._user()
+we'll want access to ->msg_iter
 
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- include/linux/uio.h |  1 +
- mm/iov_iter.c       | 82 ++++++++++++++++++++++++++++++++++++++++++++---------
- 2 files changed, 70 insertions(+), 13 deletions(-)
+ net/ipv4/raw.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/uio.h b/include/linux/uio.h
-index 9b15814..6e16945 100644
---- a/include/linux/uio.h
-+++ b/include/linux/uio.h
-@@ -31,6 +31,7 @@ struct iov_iter {
- 	size_t count;
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 43385a9..5c901eb 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -82,7 +82,7 @@
+ #include <linux/uio.h>
+ 
+ struct raw_frag_vec {
+-	struct iovec *iov;
++	struct msghdr *msg;
  	union {
- 		const struct iovec *iov;
-+		const struct kvec *kvec;
- 		const struct bio_vec *bvec;
- 	};
- 	unsigned long nr_segs;
-diff --git a/mm/iov_iter.c b/mm/iov_iter.c
-index 66665449..1618e37 100644
---- a/mm/iov_iter.c
-+++ b/mm/iov_iter.c
-@@ -32,6 +32,29 @@
- 	n = wanted - n;					\
+ 		struct icmphdr icmph;
+ 		char c[1];
+@@ -440,7 +440,7 @@ static int raw_probe_proto_opt(struct raw_frag_vec *rfv, struct flowi4 *fl4)
+ 	/* We only need the first two bytes. */
+ 	rfv->hlen = 2;
+ 
+-	err = memcpy_fromiovec(rfv->hdr.c, rfv->iov, rfv->hlen);
++	err = memcpy_from_msg(rfv->hdr.c, rfv->msg, rfv->hlen);
+ 	if (err)
+ 		return err;
+ 
+@@ -478,7 +478,7 @@ static int raw_getfrag(void *from, char *to, int offset, int len, int odd,
+ 
+ 	offset -= rfv->hlen;
+ 
+-	return ip_generic_getfrag(rfv->iov, to, offset, len, odd, skb);
++	return ip_generic_getfrag(rfv->msg->msg_iov, to, offset, len, odd, skb);
  }
  
-+#define iterate_kvec(i, n, __v, __p, skip, STEP) {	\
-+	size_t wanted = n;				\
-+	__p = i->kvec;					\
-+	__v.iov_len = min(n, __p->iov_len - skip);	\
-+	if (likely(__v.iov_len)) {			\
-+		__v.iov_base = __p->iov_base + skip;	\
-+		(void)(STEP);				\
-+		skip += __v.iov_len;			\
-+		n -= __v.iov_len;			\
-+	}						\
-+	while (unlikely(n)) {				\
-+		__p++;					\
-+		__v.iov_len = min(n, __p->iov_len);	\
-+		if (unlikely(!__v.iov_len))		\
-+			continue;			\
-+		__v.iov_base = __p->iov_base;		\
-+		(void)(STEP);				\
-+		skip = __v.iov_len;			\
-+		n -= __v.iov_len;			\
-+	}						\
-+	n = wanted;					\
-+}
-+
- #define iterate_bvec(i, n, __v, __p, skip, STEP) {	\
- 	size_t wanted = n;				\
- 	__p = i->bvec;					\
-@@ -57,12 +80,16 @@
- 	n = wanted;					\
- }
+ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+@@ -600,7 +600,7 @@ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 			   daddr, saddr, 0, 0);
  
--#define iterate_all_kinds(i, n, v, I, B) {			\
-+#define iterate_all_kinds(i, n, v, I, B, K) {			\
- 	size_t skip = i->iov_offset;				\
- 	if (unlikely(i->type & ITER_BVEC)) {			\
- 		const struct bio_vec *bvec;			\
- 		struct bio_vec v;				\
- 		iterate_bvec(i, n, v, bvec, skip, (B))		\
-+	} else if (unlikely(i->type & ITER_KVEC)) {		\
-+		const struct kvec *kvec;			\
-+		struct kvec v;					\
-+		iterate_kvec(i, n, v, kvec, skip, (K))		\
- 	} else {						\
- 		const struct iovec *iov;			\
- 		struct iovec v;					\
-@@ -70,7 +97,7 @@
- 	}							\
- }
+ 	if (!inet->hdrincl) {
+-		rfv.iov = msg->msg_iov;
++		rfv.msg = msg;
+ 		rfv.hlen = 0;
  
--#define iterate_and_advance(i, n, v, I, B) {			\
-+#define iterate_and_advance(i, n, v, I, B, K) {			\
- 	size_t skip = i->iov_offset;				\
- 	if (unlikely(i->type & ITER_BVEC)) {			\
- 		const struct bio_vec *bvec;			\
-@@ -82,6 +109,16 @@
- 		}						\
- 		i->nr_segs -= bvec - i->bvec;			\
- 		i->bvec = bvec;					\
-+	} else if (unlikely(i->type & ITER_KVEC)) {		\
-+		const struct kvec *kvec;			\
-+		struct kvec v;					\
-+		iterate_kvec(i, n, v, kvec, skip, (K))		\
-+		if (skip == kvec->iov_len) {			\
-+			kvec++;					\
-+			skip = 0;				\
-+		}						\
-+		i->nr_segs -= kvec - i->kvec;			\
-+		i->kvec = kvec;					\
- 	} else {						\
- 		const struct iovec *iov;			\
- 		struct iovec v;					\
-@@ -270,7 +307,7 @@ done:
-  */
- int iov_iter_fault_in_readable(struct iov_iter *i, size_t bytes)
- {
--	if (!(i->type & ITER_BVEC)) {
-+	if (!(i->type & (ITER_BVEC|ITER_KVEC))) {
- 		char __user *buf = i->iov->iov_base + i->iov_offset;
- 		bytes = min(bytes, i->iov->iov_len - i->iov_offset);
- 		return fault_in_pages_readable(buf, bytes);
-@@ -284,10 +321,14 @@ void iov_iter_init(struct iov_iter *i, int direction,
- 			size_t count)
- {
- 	/* It will get better.  Eventually... */
--	if (segment_eq(get_fs(), KERNEL_DS))
-+	if (segment_eq(get_fs(), KERNEL_DS)) {
- 		direction |= ITER_KVEC;
--	i->type = direction;
--	i->iov = iov;
-+		i->type = direction;
-+		i->kvec = (struct kvec *)iov;
-+	} else {
-+		i->type = direction;
-+		i->iov = iov;
-+	}
- 	i->nr_segs = nr_segs;
- 	i->iov_offset = 0;
- 	i->count = count;
-@@ -328,7 +369,8 @@ size_t copy_to_iter(void *addr, size_t bytes, struct iov_iter *i)
- 		__copy_to_user(v.iov_base, (from += v.iov_len) - v.iov_len,
- 			       v.iov_len),
- 		memcpy_to_page(v.bv_page, v.bv_offset,
--			       (from += v.bv_len) - v.bv_len, v.bv_len)
-+			       (from += v.bv_len) - v.bv_len, v.bv_len),
-+		memcpy(v.iov_base, (from += v.iov_len) - v.iov_len, v.iov_len)
- 	)
- 
- 	return bytes;
-@@ -348,7 +390,8 @@ size_t copy_from_iter(void *addr, size_t bytes, struct iov_iter *i)
- 		__copy_from_user((to += v.iov_len) - v.iov_len, v.iov_base,
- 				 v.iov_len),
- 		memcpy_from_page((to += v.bv_len) - v.bv_len, v.bv_page,
--				 v.bv_offset, v.bv_len)
-+				 v.bv_offset, v.bv_len),
-+		memcpy((to += v.iov_len) - v.iov_len, v.iov_base, v.iov_len)
- 	)
- 
- 	return bytes;
-@@ -371,7 +414,7 @@ EXPORT_SYMBOL(copy_page_to_iter);
- size_t copy_page_from_iter(struct page *page, size_t offset, size_t bytes,
- 			 struct iov_iter *i)
- {
--	if (i->type & ITER_BVEC) {
-+	if (i->type & (ITER_BVEC|ITER_KVEC)) {
- 		void *kaddr = kmap_atomic(page);
- 		size_t wanted = copy_from_iter(kaddr + offset, bytes, i);
- 		kunmap_atomic(kaddr);
-@@ -391,7 +434,8 @@ size_t iov_iter_zero(size_t bytes, struct iov_iter *i)
- 
- 	iterate_and_advance(i, bytes, v,
- 		__clear_user(v.iov_base, v.iov_len),
--		memzero_page(v.bv_page, v.bv_offset, v.bv_len)
-+		memzero_page(v.bv_page, v.bv_offset, v.bv_len),
-+		memset(v.iov_base, 0, v.iov_len)
- 	)
- 
- 	return bytes;
-@@ -406,7 +450,8 @@ size_t iov_iter_copy_from_user_atomic(struct page *page,
- 		__copy_from_user_inatomic((p += v.iov_len) - v.iov_len,
- 					  v.iov_base, v.iov_len),
- 		memcpy_from_page((p += v.bv_len) - v.bv_len, v.bv_page,
--				 v.bv_offset, v.bv_len)
-+				 v.bv_offset, v.bv_len),
-+		memcpy((p += v.iov_len) - v.iov_len, v.iov_base, v.iov_len)
- 	)
- 	kunmap_atomic(kaddr);
- 	return bytes;
-@@ -415,7 +460,7 @@ EXPORT_SYMBOL(iov_iter_copy_from_user_atomic);
- 
- void iov_iter_advance(struct iov_iter *i, size_t size)
- {
--	iterate_and_advance(i, size, v, 0, 0)
-+	iterate_and_advance(i, size, v, 0, 0, 0)
- }
- EXPORT_SYMBOL(iov_iter_advance);
- 
-@@ -443,7 +488,8 @@ unsigned long iov_iter_alignment(const struct iov_iter *i)
- 
- 	iterate_all_kinds(i, size, v,
- 		(res |= (unsigned long)v.iov_base | v.iov_len, 0),
--		res |= v.bv_offset | v.bv_len
-+		res |= v.bv_offset | v.bv_len,
-+		res |= (unsigned long)v.iov_base | v.iov_len
- 	)
- 	return res;
- }
-@@ -478,6 +524,8 @@ ssize_t iov_iter_get_pages(struct iov_iter *i,
- 		*start = v.bv_offset;
- 		get_page(*pages = v.bv_page);
- 		return v.bv_len;
-+	}),({
-+		return -EFAULT;
- 	})
- 	)
- 	return 0;
-@@ -530,6 +578,8 @@ ssize_t iov_iter_get_pages_alloc(struct iov_iter *i,
- 			return -ENOMEM;
- 		get_page(*p = v.bv_page);
- 		return v.bv_len;
-+	}),({
-+		return -EFAULT;
- 	})
- 	)
- 	return 0;
-@@ -554,6 +604,12 @@ int iov_iter_npages(const struct iov_iter *i, int maxpages)
- 		npages++;
- 		if (npages >= maxpages)
- 			return maxpages;
-+	}),({
-+		unsigned long p = (unsigned long)v.iov_base;
-+		npages += DIV_ROUND_UP(p + v.iov_len, PAGE_SIZE)
-+			- p / PAGE_SIZE;
-+		if (npages >= maxpages)
-+			return maxpages;
- 	})
- 	)
- 	return npages;
+ 		err = raw_probe_proto_opt(&rfv, &fl4);
 -- 
 2.1.3
