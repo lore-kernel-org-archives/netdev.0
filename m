@@ -1,96 +1,45 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: wl1251: NVS firmware data
-Date: Mon, 8 Dec 2014 23:08:06 -0500
-Message-ID: <20141209040806.GA1257@kroah.com>
-References: <201411271506.20457@pali>
- <CACVXFVPOLfDuqc0nLb-zM8vH618DLXy0xtZbUOn5_XvdxRZSDw@mail.gmail.com>
- <20141208163714.GA31169@kroah.com>
- <201412081747.30965@pali>
- <20141208205721.GA14895@kroah.com>
- <CACVXFVO+pX29UE53EDP4va0hoWQw8h0E9Ji9t3OL=e0FyERxyA@mail.gmail.com>
+From: "Mr. Stephen Odufore" <ovidiu.radu@ovidenia2005.ro>
+Subject: RE: TO WHOM IT MAY CONCERN!!!
+Date: Tue, 9 Dec 2014 03:44:38 -0800
+Message-ID: <ARS-HQ-DC013uejzpOI002c724f@ARS-HQ-DC01.ars.local>
+Reply-To: <stephenodufore@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>,
-	Pavel Machek <pavel@ucw.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Grazvydas Ignotas <notasas@gmail.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-	Aaro Koskinen <aaro.koskinen@iki.fi>,
-	Kalle Valo <kvalo@adurom.com>,
-	Sebastian Reichel <sre@ring0.de>,
-	David Gnedt <david.gnedt@davizone.at>
-To: Ming Lei <ming.lei@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CACVXFVO+pX29UE53EDP4va0hoWQw8h0E9Ji9t3OL=e0FyERxyA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2hn0250.outbound.protection.outlook.com ([207.46.100.250]:48480
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756531AbaLIEzv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Dec 2014 23:55:51 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 09, 2014 at 08:48:28AM +0800, Ming Lei wrote:
-> On Tue, Dec 9, 2014 at 4:57 AM, Greg Kroah-Hartman
-> <gregkh@linuxfoundation.org> wrote:
-> > On Mon, Dec 08, 2014 at 05:47:30PM +0100, Pali Roh=E1r wrote:
-> >> On Monday 08 December 2014 17:37:14 Greg Kroah-Hartman wrote:
-> >> > On Mon, Dec 08, 2014 at 11:18:18PM +0800, Ming Lei wrote:
-> >> > > On Sat, Dec 6, 2014 at 9:02 PM, Pali Roh=E1r
-> >> <pali.rohar@gmail.com> wrote:
-> >> > > > On Saturday 06 December 2014 13:49:54 Pavel Machek wrote:
-> >> > > >  /**
-> >> > > >
-> >> > > > + * request_firmware_prefer_user: - prefer usermode helper
-> >> > > > for loading firmware + * @firmware_p: pointer to firmware
-> >> > > > image
-> >> > > > + * @name: name of firmware file
-> >> > > > + * @device: device for which firmware is being loaded
-> >> > > > + *
-> >> > > > + * This function works pretty much like
-> >> > > > request_firmware(), but it prefer + * usermode helper. If
-> >> > > > usermode helper fails then it fallback to direct access.
-> >> > > > + * Usefull for dynamic or model specific firmware data.
-> >> > > > + **/
-> >> > > > +int request_firmware_prefer_user(const struct firmware
-> >> > > > **firmware_p, +                           const char
-> >> > > > *name, struct device *device) +{
-> >> > > > +       int ret;
-> >> > > > +       __module_get(THIS_MODULE);
-> >> > > > +       ret =3D _request_firmware(firmware_p, name, device,
-> >> > > > +                               FW_OPT_UEVENT |
-> >> > > > FW_OPT_PREFER_USER); +       module_put(THIS_MODULE);
-> >> > > > +       return ret;
-> >> > > > +}
-> >> > > > +EXPORT_SYMBOL_GPL(request_firmware_prefer_user);
-> >> > >
-> >> > > I'd like to introduce request_firmware_user() which only
-> >> > > requests firmware from user space, and this way is simpler
-> >> > > and more flexible since we have request_firmware_direct()
-> >> > > already.
-> >> >
-> >> > Why would a driver care about what program provides the
-> >> > firmware?  It shouldn't at all, and we want to get rid of the
-> >> > userspace firmware loader, not encourage drivers to use it
-> >> > "exclusively" at all.
-> >> >
-> >>
-> >> Do not remove it! Without userspace firmware loader it is
-> >> impossible to load dynamic firmware files.
-> >
-> > You should not be loading "dynamic" firmware files with the firmwar=
-e
-> > interface, as that's not a "firmware" file anymore, it's a "special
-> > binary file that my driver needs to be created and sent into the
-> > kernel."
->=20
-> It is reasonable to put firmware somewhere instead of default
-> search path, maybe in network.
+Hello
 
-That's why we allow you to change the firmware search path at build
-time, and kernel boot time (or firmware class module load time.)  To do
-this on a per-firmware-file basis is crazy.
+My Name is Mr. Stephen Odufore, A staff of Sunrise Bank Team, and an account officer to Engineer Shang Lee Sukchai(Late) It might interest you to know that engineer Shang Lee Sukchai is a Gold Merchant here in Ghana and he deposited a large sum of money with Sunrise Bank Team (Ghana).
 
-thanks,
 
-greg k-h
+On one faithful Wednesday, 7 November 2012, We received a shocking news that Melcom building at Achimota-Accra COLLAPSED and that 78 persons were rescued from the rubble. Out of this figure ten persons are reported DEAD, 14 on admission at 37 Military Hospital as well as Achimota, and the Korle-Bu Teaching Hospitals. for more information visit the TWO links below:
+
+
+http://edition.myjoyonline.com/pages/news/201211/96847.php
+
+http://edition.myjoyonline.com/pages/news/201211/96960.php
+
+
+Based on the information reaching us, Engineer Shang Lee Sukchai with his house hold (Wife, son and 2 daughters) died in the accident and left this large sum of money behind. Apparently, the management are seriously searching for any of his relative to claim this money so I want you to stand as a relative to the decease and once the funds are paid to you, I will visit you in your country so we can share the money. 
+
+
+I can assure you that this deal is 100% risk-free, and if you follow my advice we will succeed within the shortest possible time. All I need is your assurance that you are solvent and capable of handling a transaction of this magnitude, and that our share of the money will be safe with you.
+
+
+The money is going to be shared among THREE parties and it's going to be in this way, 10% of the money will go to the orphanage in your country, another 10% to the widow and widowers association, 30% for your good work and cooperation whilst the remaining 50% goes to me and my colleague who is in support of this transaction.
+
+
+If you are interested in this business, then send your Full name, House address, direct contact number for easy communication. Remember, this transaction most be kept strictly Confidential hence my job will e astake
+
+
+Yours Faithfully
+Mr. Stephen Odufore
