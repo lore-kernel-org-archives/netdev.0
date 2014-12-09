@@ -1,7 +1,7 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 14/25] raw.c: stick msghdr into raw_frag_vec
-Date: Tue,  9 Dec 2014 22:50:27 +0000
-Message-ID: <1418165438-2205-14-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH 12/25] new helper: iov_iter_kvec()
+Date: Tue,  9 Dec 2014 22:50:25 +0000
+Message-ID: <1418165438-2205-12-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20141209224928.GL22149@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
@@ -12,52 +12,50 @@ List-Id: netdev.vger.kernel.org
 
 From: Al Viro <viro@zeniv.linux.org.uk>
 
-we'll want access to ->msg_iter
+initialization of kvec-backed iov_iter
 
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- net/ipv4/raw.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ include/linux/uio.h |  2 ++
+ mm/iov_iter.c       | 13 +++++++++++++
+ 2 files changed, 15 insertions(+)
 
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 43385a9..5c901eb 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -82,7 +82,7 @@
- #include <linux/uio.h>
- 
- struct raw_frag_vec {
--	struct iovec *iov;
-+	struct msghdr *msg;
- 	union {
- 		struct icmphdr icmph;
- 		char c[1];
-@@ -440,7 +440,7 @@ static int raw_probe_proto_opt(struct raw_frag_vec *rfv, struct flowi4 *fl4)
- 	/* We only need the first two bytes. */
- 	rfv->hlen = 2;
- 
--	err = memcpy_fromiovec(rfv->hdr.c, rfv->iov, rfv->hlen);
-+	err = memcpy_from_msg(rfv->hdr.c, rfv->msg, rfv->hlen);
- 	if (err)
- 		return err;
- 
-@@ -478,7 +478,7 @@ static int raw_getfrag(void *from, char *to, int offset, int len, int odd,
- 
- 	offset -= rfv->hlen;
- 
--	return ip_generic_getfrag(rfv->iov, to, offset, len, odd, skb);
-+	return ip_generic_getfrag(rfv->msg->msg_iov, to, offset, len, odd, skb);
+diff --git a/include/linux/uio.h b/include/linux/uio.h
+index 28ed2d9..c567655 100644
+--- a/include/linux/uio.h
++++ b/include/linux/uio.h
+@@ -87,6 +87,8 @@ size_t iov_iter_zero(size_t bytes, struct iov_iter *);
+ unsigned long iov_iter_alignment(const struct iov_iter *i);
+ void iov_iter_init(struct iov_iter *i, int direction, const struct iovec *iov,
+ 			unsigned long nr_segs, size_t count);
++void iov_iter_kvec(struct iov_iter *i, int direction, const struct kvec *iov,
++			unsigned long nr_segs, size_t count);
+ ssize_t iov_iter_get_pages(struct iov_iter *i, struct page **pages,
+ 			size_t maxsize, unsigned maxpages, size_t *start);
+ ssize_t iov_iter_get_pages_alloc(struct iov_iter *i, struct page ***pages,
+diff --git a/mm/iov_iter.c b/mm/iov_iter.c
+index 1d2cdeb..88c052e 100644
+--- a/mm/iov_iter.c
++++ b/mm/iov_iter.c
+@@ -479,6 +479,19 @@ size_t iov_iter_single_seg_count(const struct iov_iter *i)
  }
+ EXPORT_SYMBOL(iov_iter_single_seg_count);
  
- static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
-@@ -600,7 +600,7 @@ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 			   daddr, saddr, 0, 0);
- 
- 	if (!inet->hdrincl) {
--		rfv.iov = msg->msg_iov;
-+		rfv.msg = msg;
- 		rfv.hlen = 0;
- 
- 		err = raw_probe_proto_opt(&rfv, &fl4);
++void iov_iter_kvec(struct iov_iter *i, int direction,
++			const struct kvec *iov, unsigned long nr_segs,
++			size_t count)
++{
++	BUG_ON(!(direction & ITER_KVEC));
++	i->type = direction;
++	i->kvec = (struct kvec *)iov;
++	i->nr_segs = nr_segs;
++	i->iov_offset = 0;
++	i->count = count;
++}
++EXPORT_SYMBOL(iov_iter_kvec);
++
+ unsigned long iov_iter_alignment(const struct iov_iter *i)
+ {
+ 	unsigned long res = 0;
 -- 
 2.1.3
