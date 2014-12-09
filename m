@@ -1,7 +1,7 @@
 From: Karen Xie <kxie@chelsio.com>
-Subject: [PATCH net v3 4/6] cxgb4i: handle non-pdu-aligned rx data
-Date: Tue, 09 Dec 2014 09:32:26 -0800
-Message-ID: <201412091732.sB9HWQT0009014@localhost6.localdomain6>
+Subject: [PATCH net v3 6/6] libcxgbi: free skb after debug prints
+Date: Tue, 09 Dec 2014 09:32:32 -0800
+Message-ID: <201412091732.sB9HWWme009026@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -13,54 +13,32 @@ Return-path: <linux-scsi-owner@vger.kernel.org>
 Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[PATCH net v3 4/6] cxgb4i: handle non-pdu-aligned rx data
+[PATCH net v3 6/6] libcxgbi: free skb after debug prints
 
 From: Karen Xie <kxie@chelsio.com>
 
-Abort the connection upon receiving of cpl_rx_data, which means the pdu cannot be recovered from the tcp stream. This generally is due to pdu header corruption.
+The debug print was accessing the skb after it was freed.
 
 Signed-off-by: Karen Xie <kxie@chelsio.com>
 ---
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   22 ++++++++++++++++++++++
- 1 files changed, 22 insertions(+), 0 deletions(-)
+ drivers/scsi/cxgbi/libcxgbi.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index e7a26c0..5c7961a 100644
---- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-+++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -1033,6 +1033,27 @@ rel_skb:
- 	__kfree_skb(skb);
- }
+diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
+index 7da59c3..eb58afc 100644
+--- a/drivers/scsi/cxgbi/libcxgbi.c
++++ b/drivers/scsi/cxgbi/libcxgbi.c
+@@ -2294,10 +2294,12 @@ int cxgbi_conn_xmit_pdu(struct iscsi_task *task)
+ 		return err;
+ 	}
  
-+static void do_rx_data(struct cxgbi_device *cdev, struct sk_buff *skb)
-+{
-+	struct cxgbi_sock *csk;
-+	struct cpl_rx_data *cpl = (struct cpl_rx_data *)skb->data;
-+	unsigned int tid = GET_TID(cpl);
-+	struct cxgb4_lld_info *lldi = cxgbi_cdev_priv(cdev);
-+	struct tid_info *t = lldi->tids;
+-	kfree_skb(skb);
+ 	log_debug(1 << CXGBI_DBG_ISCSI | 1 << CXGBI_DBG_PDU_TX,
+ 		"itt 0x%x, skb 0x%p, len %u/%u, xmit err %d.\n",
+ 		task->itt, skb, skb->len, skb->data_len, err);
 +
-+	csk = lookup_tid(t, tid);
-+	if (!csk) {
-+		pr_err("can't find connection for tid %u.\n", tid);
-+	} else {
-+		/* not expecting this, reset the connection. */
-+		pr_err("csk 0x%p, tid %u, rcv cpl_rx_data.\n", csk, tid);
-+		spin_lock_bh(&csk->lock);
-+		send_abort_req(csk);
-+		spin_unlock_bh(&csk->lock);
-+	}
-+	__kfree_skb(skb);
-+}
++	kfree_skb(skb);
 +
- static void do_rx_iscsi_hdr(struct cxgbi_device *cdev, struct sk_buff *skb)
- {
- 	struct cxgbi_sock *csk;
-@@ -1452,6 +1473,7 @@ cxgb4i_cplhandler_func cxgb4i_cplhandlers[NUM_CPL_CMDS] = {
- 	[CPL_SET_TCB_RPL] = do_set_tcb_rpl,
- 	[CPL_RX_DATA_DDP] = do_rx_data_ddp,
- 	[CPL_RX_ISCSI_DDP] = do_rx_data_ddp,
-+	[CPL_RX_DATA] = do_rx_data,
- };
- 
- int cxgb4i_ofld_init(struct cxgbi_device *cdev)
+ 	iscsi_conn_printk(KERN_ERR, task->conn, "xmit err %d.\n", err);
+ 	iscsi_conn_failure(task->conn, ISCSI_ERR_XMIT_FAILED);
+ 	return err;
