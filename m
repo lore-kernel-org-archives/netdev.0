@@ -1,50 +1,67 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 12/13] i40e: add to NVM update debug message
-Date: Tue,  9 Dec 2014 13:26:19 -0800
-Message-ID: <1418160380-29847-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 13/13] i40e/i40evf: Convert macro to static inline
+Date: Tue,  9 Dec 2014 13:26:20 -0800
+Message-ID: <1418160380-29847-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1418160380-29847-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:56965 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752455AbaLIV07 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753158AbaLIV07 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 9 Dec 2014 16:26:59 -0500
 In-Reply-To: <1418160380-29847-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+Inline functions are preferred over macros when they can be used
+interchangeably.
 
-Add a little more state context to an NVM update debug message.
-
-Change-ID: I512160259052bcdbe5bdf1adf403ab2bf7984970
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Jim Young <jamesx.m.young@intel.com>
+CC: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Reported-by: Joe Perches <joe@perches.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_nvm.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+v2:
+ - remove unnecessary parens in the return statement as suggested
+   by Sergei Shtylyov
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-index 1613ef4..3e70f2e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-@@ -806,8 +806,10 @@ static enum i40e_nvmupd_cmd i40e_nvmupd_validate_command(struct i40e_hw *hw,
- 		}
- 		break;
- 	}
--	i40e_debug(hw, I40E_DEBUG_NVM, "%s\n",
--		   i40e_nvm_update_state_str[upd_cmd]);
-+	i40e_debug(hw, I40E_DEBUG_NVM, "%s state %d nvm_release_on_hold %d\n",
-+		   i40e_nvm_update_state_str[upd_cmd],
-+		   hw->nvmupd_state,
-+		   hw->aq.nvm_release_on_done);
+ drivers/net/ethernet/intel/i40e/i40e_type.h   | 5 ++++-
+ drivers/net/ethernet/intel/i40evf/i40e_type.h | 5 ++++-
+ 2 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 844421f..c1f2eb9 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -481,7 +481,10 @@ struct i40e_hw {
+ 	u32 debug_mask;
+ };
  
- 	if (upd_cmd == I40E_NVMUPD_INVALID) {
- 		*errno = -EFAULT;
+-#define i40e_is_vf(_hw)	((_hw)->mac.type == I40E_MAC_VF)
++static inline bool i40e_is_vf(struct i40e_hw *hw)
++{
++	return hw->mac.type == I40E_MAC_VF;
++}
+ 
+ struct i40e_driver_version {
+ 	u8 major_version;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index d8175cd..68aec11 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -475,7 +475,10 @@ struct i40e_hw {
+ 	u32 debug_mask;
+ };
+ 
+-#define i40e_is_vf(_hw)	((_hw)->mac.type == I40E_MAC_VF)
++static inline bool i40e_is_vf(struct i40e_hw *hw)
++{
++	return hw->mac.type == I40E_MAC_VF;
++}
+ 
+ struct i40e_driver_version {
+ 	u8 major_version;
 -- 
 1.9.3
