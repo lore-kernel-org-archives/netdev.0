@@ -1,30 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] sh_eth: Optimization for RX excess judgement
-Date: Tue, 09 Dec 2014 18:06:22 -0500 (EST)
-Message-ID: <20141209.180622.1299267904682284783.davem@davemloft.net>
-References: <1418127822-16904-1-git-send-email-ykaneko0929@gmail.com>
+Subject: Re: [PATCH net] netlink: use jhash as hashfn for rhashtable
+Date: Tue, 09 Dec 2014 18:09:59 -0500 (EST)
+Message-ID: <20141209.180959.500105903540817044.davem@davemloft.net>
+References: <1418056230-8700-1-git-send-email-dborkman@redhat.com>
+	<20141209.143829.477482216978677919.davem@davemloft.net>
+	<54877E28.7020202@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, horms@verge.net.au, magnus.damm@gmail.com,
-	linux-sh@vger.kernel.org
-To: ykaneko0929@gmail.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1418127822-16904-1-git-send-email-ykaneko0929@gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au, tgraf@suug.ch,
+	hannes@stressinduktion.org
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39823 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753762AbaLIXKC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 18:10:02 -0500
+In-Reply-To: <54877E28.7020202@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Date: Tue,  9 Dec 2014 21:23:42 +0900
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Tue, 09 Dec 2014 23:56:40 +0100
 
-> From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
-> 
-> Both of 'boguscnt' and 'quota' have nearly meaning as the condition of
-> the reception loop.
-> In order to cut down redundant processing, this patch changes excess
-> judgement.
-> 
-> Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
-> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+> we thought it was useful in that area as it needs less than half the
+> cycles (all discussed in [1]) as opposed to jhash for computing the
+> hash value in ovs, where such computations are being done very
+> frequently and the flow key structure size seems to keep growing.
 
-Applied.
+If that is the case, you could instead come up with a portable C hash
+function that doesn't require jumping through hoops to use special CPU
+instructions yet still has the better performance you're looking for.
+
+Heck, if attackability isn't an issue, plain ole 'xor' over the u32's
+of the key is sufficient and in fact is what our TCP socket hash used
+to be before jhash.
+
+> Anyway, if you feel strong about it, lets just remove it.
+
+Please do.
