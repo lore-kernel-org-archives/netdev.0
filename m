@@ -1,58 +1,78 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: wl1251: NVS firmware data
-Date: Tue, 9 Dec 2014 06:25:59 +0100
-Message-ID: <BB715185-F9EC-4FE6-8F23-79F47CE5BE04@holtmann.org>
-References: <201411271506.20457@pali> <201412081747.30965@pali> <20141208205721.GA14895@kroah.com> <201412090027.46485@pali>
-Mime-Version: 1.0 (Mac OS X Mail 8.1 \(1993\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Ming Lei <ming.lei@canonical.com>, Pavel Machek <pavel@ucw.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Grazvydas Ignotas <notasas@gmail.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-	Aaro Koskinen <aaro.koskinen@iki.fi>,
-	Kalle Valo <kvalo@adurom.com>,
-	Sebastian Reichel <sre@ring0.de>,
-	David Gnedt <david.gnedt@davizone.at>
-To: =?utf-8?Q?Pali_Roh=C3=A1r?= <pali.rohar@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201412090027.46485@pali>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Timo Teras <timo.teras@iki.fi>
+Subject: Re: Possible regression: "gre: Use inner mac length when computing
+ tunnel length"
+Date: Tue, 9 Dec 2014 08:26:45 +0200
+Message-ID: <20141209082645.5cf70f55@vostro>
+References: <20141204141616.185b88c4@vostro>
+	<CA+mtBx-se+u4j8WHzZ+AXeiFN2uevrvcTb6xFpeNrhjOv=EVng@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:48738 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751339AbaLIG0z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 01:26:55 -0500
+Received: by mail-lb0-f177.google.com with SMTP id b6so4732812lbj.8
+        for <netdev@vger.kernel.org>; Mon, 08 Dec 2014 22:26:53 -0800 (PST)
+In-Reply-To: <CA+mtBx-se+u4j8WHzZ+AXeiFN2uevrvcTb6xFpeNrhjOv=EVng@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Pali,
+On Thu, 4 Dec 2014 08:00:19 -0800
+Tom Herbert <therbert@google.com> wrote:
 
->> Use your own custom usermode helper for stuff like this, not
->> the firmware interface.  But use a binary sysfs file if you
->> want, that seems to make sense for it...
->> 
->> greg k-h
+> A fix is pending for net. Please try if you can.
+
+Finally got to testing this. Unfortunately, this does not seem to fix
+the issue I am experiencing.
+
+Any suggestions?
+
 > 
-> Patch for telling permanent mac address from userspace via sysfs 
-> file was rejected for inclusion into mainline kernel.
+> Tom
 > 
-> So I do not think that now maintainers of network subsystem allow 
-> it for nvs data...
+> diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
+> index bb5947b..51973dd 100644
+> --- a/net/ipv4/gre_offload.c
+> +++ b/net/ipv4/gre_offload.c
+> @@ -247,6 +247,9 @@ static int gre_gro_complete(struct sk_buff *skb,
+> int nhoff) err = ptype->callbacks.gro_complete(skb, nhoff + grehlen);
 > 
-> https://lkml.org/lkml/2013/12/8/35
-
-this magic sysfs that has to be written to at the right time of the boot process to make this all work is something that will not work. I does not work for WiFi and it does not work for Bluetooth. Seems the discussion come full circle now and we are back to square one.
-
-The problem is that either the driver does not register the device with mac80211 until it gets the MAC address provided by userspace or mac80211 should get an unconfigured state. The unconfigured state is something telling userspace that the device is present, but needs a few extra configuration information before it can become useful.
-
-For Bluetooth, I went the later route. Mainly because the missing address is such a generic problem that solving it in the core makes a lot more sense. The driver just tells the core that it has no address for this device and provides a custom callback to configure the address when provided. After that everything resumes as normal.
-
-However userspace gets informed when an unconfigured device gets added and at boot it can just query the list of unconfigured devices, or at runtime wait to be told there is a new unconfigured device that needs its attention. And then just provide the information. Once all information are present, the devices disappears as unconfigured and shows up as configured device ready for normal operation.
-
-https://git.kernel.org/cgit/bluetooth/bluez.git/tree/doc/mgmt-api.txt#n2006
-http://permalink.gmane.org/gmane.linux.bluez.kernel/50716
-
-Can something similar be added to cfg80211 + nl80211. It bet it can, but that is up to Johannes to decide and someone to actually do the work and implement it.
-
-Regards
-
-Marcel
+>         rcu_read_unlock();
+> +
+> +       skb_set_inner_mac_header(skb, nhoff + grehlen);
+> +
+>         return err;
+>  }
+> 
+> On Thu, Dec 4, 2014 at 4:16 AM, Timo Teras <timo.teras@iki.fi> wrote:
+> > Hi,
+> >
+> > After upgrading to latest 3.14.24 or newer, I noticed a weird TSO
+> > bug in the "dmvpn" setup I use. And seems 3.14.23 works just fine.
+> > So the commit 14051f0452a2c26a "gre: Use inner mac length when
+> > computing tunnel length" would appear to be the related commit (but
+> > have not yet tested this).
+> >
+> > In practice what happens is that forwarding path between ethX (or
+> > vlanX) and gre1 gets broken.
+> >
+> > There's probably two differences to the "regular" gre tunnel case:
+> > - it's nbma mode, meaning the gre header is inserted via slightly
+> >   different code path
+> > - the gre1 packets are IPsec encrypted in transport mode
+> >
+> > As additional detail, doing "ethtool -K gre1 tso off" will
+> > workaround the issue, so it is clearly tso issue pointing even
+> > further to the commit in question.
+> >
+> > Is this something the suspected patch could cause? Any suggestions
+> > what to test more?
+> >
+> > Thanks,
+> > Timo
+> >
