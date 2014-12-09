@@ -1,31 +1,37 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: linux-next 20141208 - net/sched/sch_fq_codel.c:97 suspicious RCU
-Date: Tue, 9 Dec 2014 10:07:31 -0800
-Message-ID: <CANn89iJAN815z3TefSjj0uZyQQyH-wTiAckt3WeMc-F7DRgpKA@mail.gmail.com>
-References: <6468.1418147500@turing-police.cc.vt.edu>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v7 2/3] net: Add Keystone NetCP ethernet driver
+Date: Tue, 09 Dec 2014 13:10:53 -0500 (EST)
+Message-ID: <20141209.131053.2026868499542642866.davem@davemloft.net>
+References: <1417556503-22290-1-git-send-email-m-karicheri2@ti.com>
+	<1417556503-22290-3-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6468.1418147500@turing-police.cc.vt.edu>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, sandeep_n-l0cyMroinI0@public.gmane.org,
+	santosh.shilimkar-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: m-karicheri2-l0cyMroinI0@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1417556503-22290-3-git-send-email-m-karicheri2-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 9, 2014 at 9:51 AM, Valdis Kletnieks
-<Valdis.Kletnieks@vt.edu> wrote:
-> Spotted this in dmesg while investigating why my wireless broke
-> sometime between next-20141201 and next-20141208.  Probably not
-> related, as wireless has been broken on several boot attempts of -1208,
-> but this has popped only once....
->
-> Looks like the fault of
->
-> commit 46e5da40aec256155cfedee96dd21a75da941f2c
-> Author: John Fastabend <john.fastabend@gmail.com>
-> Date:   Fri Sep 12 20:04:52 2014 -0700
+From: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
+Date: Tue, 2 Dec 2014 16:41:42 -0500
 
-Well, its a (harmless) typo : this should really be an
-rcu_dereference_bh() instead of rcu_dereference()
+> +static void set_pkt_info_le(u32 buff, u32 buff_len, u32 ndesc,
+> +			    struct knav_dma_desc *desc)
+> +{
+> +	desc->buff_len = cpu_to_le32(buff_len);
+> +	desc->buff = cpu_to_le32(buff);
+> +	desc->next_desc = cpu_to_le32(ndesc);
+> +}
+
+The members of knav_dma_desc are "u32", so you are going to get tons of
+static checker warnings from trying to assign cpu_to_le32()'s result
+(which is a le32) into them.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
