@@ -1,31 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] rtnetlink: delay RTM_DELLINK notification
- until after ndo_uninit()
-Date: Mon, 08 Dec 2014 20:44:32 -0500 (EST)
-Message-ID: <20141208.204432.21257518653585631.davem@davemloft.net>
-References: <1417499650-29176-1-git-send-email-maheshb@google.com>
-	<20141202100746.GA13717@casper.infradead.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next 0/9] mlx5 driver updates
+Date: Mon, 08 Dec 2014 20:46:19 -0500 (EST)
+Message-ID: <20141208.204619.225874352607811015.davem@davemloft.net>
+References: <1417515979-22418-1-git-send-email-eli@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: maheshb@google.com, netdev@vger.kernel.org, edumazet@google.com,
-	roopa@cumulusnetworks.com, makita.toshiaki@lab.ntt.co.jp
-To: tgraf@suug.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59155 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756467AbaLIBoe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2014 20:44:34 -0500
-In-Reply-To: <20141202100746.GA13717@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+To: eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1417515979-22418-1-git-send-email-eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Tue, 2 Dec 2014 10:07:46 +0000
+From: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Date: Tue,  2 Dec 2014 12:26:10 +0200
 
-> I think it would be cleaner to introduce a new function, for example
-> rtmsg_ifinfo_build_skb() which is called from rtmsg_ifinfo(). The
-> single caller that requires delayed sending can use the build skb
-> function directly and then send it off.
+> The following series contains some fixes to mlx5 as well as update to the list
+> of supported devices.
 
-+1
+Series applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
