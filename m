@@ -1,174 +1,138 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 15/25] ipv6 equivalent of "ipv4: Avoid reading user iov twice after raw_probe_proto_opt"
-Date: Tue,  9 Dec 2014 22:50:28 +0000
-Message-ID: <1418165438-2205-15-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH 09/25] iov_iter.c: convert copy_to_iter() to iterate_and_advance
+Date: Tue,  9 Dec 2014 22:50:22 +0000
+Message-ID: <1418165438-2205-9-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20141209224928.GL22149@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:37475 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753971AbaLIWul (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 17:50:41 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20141209224928.GL22149@ZenIV.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Al Viro <viro@zeniv.linux.org.uk>
 
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- net/ipv6/raw.c | 112 ++++++++++++++++++++++++++++-----------------------------
- 1 file changed, 56 insertions(+), 56 deletions(-)
+ mm/iov_iter.c | 91 ++++++-----------------------------------------------------
+ 1 file changed, 9 insertions(+), 82 deletions(-)
 
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 8baa53e..942f67b 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -672,65 +672,62 @@ error:
- 	return err;
+diff --git a/mm/iov_iter.c b/mm/iov_iter.c
+index 791429d..66665449 100644
+--- a/mm/iov_iter.c
++++ b/mm/iov_iter.c
+@@ -97,51 +97,6 @@
+ 	i->iov_offset = skip;					\
  }
  
--static int rawv6_probe_proto_opt(struct flowi6 *fl6, struct msghdr *msg)
-+struct raw6_frag_vec {
-+	struct msghdr *msg;
-+	int hlen;
-+	char c[4];
-+};
-+
-+static int rawv6_probe_proto_opt(struct raw6_frag_vec *rfv, struct flowi6 *fl6)
- {
--	struct iovec *iov;
--	u8 __user *type = NULL;
--	u8 __user *code = NULL;
--	u8 len = 0;
--	int probed = 0;
--	int i;
+-static size_t copy_to_iter_iovec(void *from, size_t bytes, struct iov_iter *i)
+-{
+-	size_t skip, copy, left, wanted;
+-	const struct iovec *iov;
+-	char __user *buf;
 -
--	if (!msg->msg_iov)
+-	if (unlikely(bytes > i->count))
+-		bytes = i->count;
+-
+-	if (unlikely(!bytes))
 -		return 0;
-+	int err = 0;
-+	switch (fl6->flowi6_proto) {
-+	case IPPROTO_ICMPV6:
-+		rfv->hlen = 2;
-+		err = memcpy_from_msg(rfv->c, rfv->msg, rfv->hlen);
-+		if (!err) {
-+			fl6->fl6_icmp_type = rfv->c[0];
-+			fl6->fl6_icmp_code = rfv->c[1];
-+		}
-+		break;
-+	case IPPROTO_MH:
-+		rfv->hlen = 4;
-+		err = memcpy_from_msg(rfv->c, rfv->msg, rfv->hlen);
-+		if (!err)
-+			fl6->fl6_mh_type = rfv->c[2];
-+	}
-+	return err;
-+}
- 
--	for (i = 0; i < msg->msg_iovlen; i++) {
--		iov = &msg->msg_iov[i];
--		if (!iov)
--			continue;
-+static int raw6_getfrag(void *from, char *to, int offset, int len, int odd,
-+		       struct sk_buff *skb)
-+{
-+	struct raw6_frag_vec *rfv = from;
- 
--		switch (fl6->flowi6_proto) {
--		case IPPROTO_ICMPV6:
--			/* check if one-byte field is readable or not. */
--			if (iov->iov_base && iov->iov_len < 1)
--				break;
 -
--			if (!type) {
--				type = iov->iov_base;
--				/* check if code field is readable or not. */
--				if (iov->iov_len > 1)
--					code = type + 1;
--			} else if (!code)
--				code = iov->iov_base;
+-	wanted = bytes;
+-	iov = i->iov;
+-	skip = i->iov_offset;
+-	buf = iov->iov_base + skip;
+-	copy = min(bytes, iov->iov_len - skip);
 -
--			if (type && code) {
--				if (get_user(fl6->fl6_icmp_type, type) ||
--				    get_user(fl6->fl6_icmp_code, code))
--					return -EFAULT;
--				probed = 1;
--			}
--			break;
--		case IPPROTO_MH:
--			if (iov->iov_base && iov->iov_len < 1)
--				break;
--			/* check if type field is readable or not. */
--			if (iov->iov_len > 2 - len) {
--				u8 __user *p = iov->iov_base;
--				if (get_user(fl6->fl6_mh_type, &p[2 - len]))
--					return -EFAULT;
--				probed = 1;
--			} else
--				len += iov->iov_len;
-+	if (offset < rfv->hlen) {
-+		int copy = min(rfv->hlen - offset, len);
- 
--			break;
--		default:
--			probed = 1;
--			break;
--		}
--		if (probed)
--			break;
-+		if (skb->ip_summed == CHECKSUM_PARTIAL)
-+			memcpy(to, rfv->c + offset, copy);
-+		else
-+			skb->csum = csum_block_add(
-+				skb->csum,
-+				csum_partial_copy_nocheck(rfv->c + offset,
-+							  to, copy, 0),
-+				odd);
-+
-+		odd = 0;
-+		offset += copy;
-+		to += copy;
-+		len -= copy;
-+
-+		if (!len)
-+			return 0;
- 	}
--	return 0;
-+
-+	offset -= rfv->hlen;
-+
-+	return ip_generic_getfrag(rfv->msg->msg_iov, to, offset, len, odd, skb);
+-	left = __copy_to_user(buf, from, copy);
+-	copy -= left;
+-	skip += copy;
+-	from += copy;
+-	bytes -= copy;
+-	while (unlikely(!left && bytes)) {
+-		iov++;
+-		buf = iov->iov_base;
+-		copy = min(bytes, iov->iov_len);
+-		left = __copy_to_user(buf, from, copy);
+-		copy -= left;
+-		skip = copy;
+-		from += copy;
+-		bytes -= copy;
+-	}
+-
+-	if (skip == iov->iov_len) {
+-		iov++;
+-		skip = 0;
+-	}
+-	i->count -= wanted - bytes;
+-	i->nr_segs -= iov - i->iov;
+-	i->iov = iov;
+-	i->iov_offset = skip;
+-	return wanted - bytes;
+-}
+-
+ static size_t copy_page_to_iter_iovec(struct page *page, size_t offset, size_t bytes,
+ 			 struct iov_iter *i)
+ {
+@@ -360,51 +315,23 @@ static void memzero_page(struct page *page, size_t offset, size_t len)
+ 	kunmap_atomic(addr);
  }
  
- static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
-@@ -745,6 +742,7 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 	struct ipv6_txoptions *opt = NULL;
- 	struct ip6_flowlabel *flowlabel = NULL;
- 	struct dst_entry *dst = NULL;
-+	struct raw6_frag_vec rfv;
- 	struct flowi6 fl6;
- 	int addr_len = msg->msg_namelen;
- 	int hlimit = -1;
-@@ -848,7 +846,9 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 	opt = ipv6_fixup_options(&opt_space, opt);
+-static size_t copy_to_iter_bvec(void *from, size_t bytes, struct iov_iter *i)
++size_t copy_to_iter(void *addr, size_t bytes, struct iov_iter *i)
+ {
+-	size_t skip, copy, wanted;
+-	const struct bio_vec *bvec;
+-
++	char *from = addr;
+ 	if (unlikely(bytes > i->count))
+ 		bytes = i->count;
  
- 	fl6.flowi6_proto = proto;
--	err = rawv6_probe_proto_opt(&fl6, msg);
-+	rfv.msg = msg;
-+	rfv.hlen = 0;
-+	err = rawv6_probe_proto_opt(&rfv, &fl6);
- 	if (err)
- 		goto out;
+ 	if (unlikely(!bytes))
+ 		return 0;
  
-@@ -889,7 +889,7 @@ back_from_confirm:
- 		err = rawv6_send_hdrinc(sk, msg->msg_iov, len, &fl6, &dst, msg->msg_flags);
- 	else {
- 		lock_sock(sk);
--		err = ip6_append_data(sk, ip_generic_getfrag, msg->msg_iov,
-+		err = ip6_append_data(sk, raw6_getfrag, &rfv,
- 			len, 0, hlimit, tclass, opt, &fl6, (struct rt6_info *)dst,
- 			msg->msg_flags, dontfrag);
+-	wanted = bytes;
+-	bvec = i->bvec;
+-	skip = i->iov_offset;
+-	copy = min_t(size_t, bytes, bvec->bv_len - skip);
+-
+-	memcpy_to_page(bvec->bv_page, skip + bvec->bv_offset, from, copy);
+-	skip += copy;
+-	from += copy;
+-	bytes -= copy;
+-	while (bytes) {
+-		bvec++;
+-		copy = min(bytes, (size_t)bvec->bv_len);
+-		memcpy_to_page(bvec->bv_page, bvec->bv_offset, from, copy);
+-		skip = copy;
+-		from += copy;
+-		bytes -= copy;
+-	}
+-	if (skip == bvec->bv_len) {
+-		bvec++;
+-		skip = 0;
+-	}
+-	i->count -= wanted - bytes;
+-	i->nr_segs -= bvec - i->bvec;
+-	i->bvec = bvec;
+-	i->iov_offset = skip;
+-	return wanted - bytes;
+-}
++	iterate_and_advance(i, bytes, v,
++		__copy_to_user(v.iov_base, (from += v.iov_len) - v.iov_len,
++			       v.iov_len),
++		memcpy_to_page(v.bv_page, v.bv_offset,
++			       (from += v.bv_len) - v.bv_len, v.bv_len)
++	)
+ 
+-size_t copy_to_iter(void *addr, size_t bytes, struct iov_iter *i)
+-{
+-	if (i->type & ITER_BVEC)
+-		return copy_to_iter_bvec(addr, bytes, i);
+-	else
+-		return copy_to_iter_iovec(addr, bytes, i);
++	return bytes;
+ }
+ EXPORT_SYMBOL(copy_to_iter);
  
 -- 
 2.1.3
