@@ -1,61 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/13] i40e/i40evf: Convert macro to static inline
-Date: Tue,  9 Dec 2014 03:22:50 -0800
-Message-ID: <1418124170-7495-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/13] i40e: add to NVM update debug message
+Date: Tue,  9 Dec 2014 03:22:49 -0800
+Message-ID: <1418124170-7495-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:43353 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:43348 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756712AbaLILXD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2014 06:23:03 -0500
+	id S1756675AbaLILXC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2014 06:23:02 -0500
 In-Reply-To: <1418124170-7495-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Inline functions are preferred over macros when they can be used
-interchangeably.
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Reported-by: Joe Perches <joe@perches.com>
+Add a little more state context to an NVM update debug message.
+
+Change-ID: I512160259052bcdbe5bdf1adf403ab2bf7984970
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_type.h   | 5 ++++-
- drivers/net/ethernet/intel/i40evf/i40e_type.h | 5 ++++-
- 2 files changed, 8 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 844421f..618cce2 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -481,7 +481,10 @@ struct i40e_hw {
- 	u32 debug_mask;
- };
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+index 1613ef4..3e70f2e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+@@ -806,8 +806,10 @@ static enum i40e_nvmupd_cmd i40e_nvmupd_validate_command(struct i40e_hw *hw,
+ 		}
+ 		break;
+ 	}
+-	i40e_debug(hw, I40E_DEBUG_NVM, "%s\n",
+-		   i40e_nvm_update_state_str[upd_cmd]);
++	i40e_debug(hw, I40E_DEBUG_NVM, "%s state %d nvm_release_on_hold %d\n",
++		   i40e_nvm_update_state_str[upd_cmd],
++		   hw->nvmupd_state,
++		   hw->aq.nvm_release_on_done);
  
--#define i40e_is_vf(_hw)	((_hw)->mac.type == I40E_MAC_VF)
-+static inline bool i40e_is_vf(struct i40e_hw *hw)
-+{
-+	return (hw->mac.type == I40E_MAC_VF);
-+}
- 
- struct i40e_driver_version {
- 	u8 major_version;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index d8175cd..6b6fcf6 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -475,7 +475,10 @@ struct i40e_hw {
- 	u32 debug_mask;
- };
- 
--#define i40e_is_vf(_hw)	((_hw)->mac.type == I40E_MAC_VF)
-+static inline bool i40e_is_vf(struct i40e_hw *hw)
-+{
-+	return (hw->mac.type == I40E_MAC_VF);
-+}
- 
- struct i40e_driver_version {
- 	u8 major_version;
+ 	if (upd_cmd == I40E_NVMUPD_INVALID) {
+ 		*errno = -EFAULT;
 -- 
 1.9.3
