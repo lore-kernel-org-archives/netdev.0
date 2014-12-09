@@ -1,249 +1,141 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 22/25] switch memcpy_to_msg() and skb_copy{,_and_csum}_datagram_msg() to primitives
-Date: Tue,  9 Dec 2014 22:50:35 +0000
-Message-ID: <1418165438-2205-22-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH 16/25] ip_generic_getfrag, udplite_getfrag: switch to passing msghdr
+Date: Tue,  9 Dec 2014 22:50:29 +0000
+Message-ID: <1418165438-2205-16-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20141209224928.GL22149@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:37478 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753972AbaLIWul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 17:50:41 -0500
 In-Reply-To: <20141209224928.GL22149@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Al Viro <viro@zeniv.linux.org.uk>
 
-... making both non-draining.  That means that tcp_recvmsg() becomes
-non-draining.  And _that_ would break iscsit_do_rx_data() unless we
-	a) make sure tcp_recvmsg() is uniformly non-draining (it is)
-	b) make sure it copes with arbitrary (including shifted)
-iov_iter (it does, all it uses is iov_iter primitives)
-	c) make iscsit_do_rx_data() initialize ->msg_iter only once.
-
-Fortunately, (c) is doable with minimal work and we are rid of one
-the two places where kernel send/recvmsg users would be unhappy with
-non-draining behaviour.
-
-Actually, that makes all but one of ->recvmsg() instances iov_iter-clean.
-The exception is skcipher_recvmsg() and it also isn't hard to convert
-to primitives (iov_iter_get_pages() is needed there).  That'll wait
-a bit - there's some interplay with ->sendmsg() path for that one.
-
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- drivers/target/iscsi/iscsi_target_util.c | 12 +++----
- include/linux/skbuff.h                   | 16 +++-------
- net/core/datagram.c                      | 54 +++++++++++---------------------
- 3 files changed, 28 insertions(+), 54 deletions(-)
+ include/net/udplite.h | 3 ++-
+ net/ipv4/ip_output.c  | 6 +++---
+ net/ipv4/raw.c        | 2 +-
+ net/ipv4/udp.c        | 4 ++--
+ net/ipv6/raw.c        | 2 +-
+ net/ipv6/udp.c        | 2 +-
+ net/l2tp/l2tp_ip6.c   | 2 +-
+ 7 files changed, 11 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/target/iscsi/iscsi_target_util.c b/drivers/target/iscsi/iscsi_target_util.c
-index ce87ce9..7c6a95b 100644
---- a/drivers/target/iscsi/iscsi_target_util.c
-+++ b/drivers/target/iscsi/iscsi_target_util.c
-@@ -1326,21 +1326,19 @@ static int iscsit_do_rx_data(
- 	struct iscsi_conn *conn,
- 	struct iscsi_data_count *count)
+diff --git a/include/net/udplite.h b/include/net/udplite.h
+index 9a28a51..d5baaba 100644
+--- a/include/net/udplite.h
++++ b/include/net/udplite.h
+@@ -19,7 +19,8 @@ extern struct udp_table		udplite_table;
+ static __inline__ int udplite_getfrag(void *from, char *to, int  offset,
+ 				      int len, int odd, struct sk_buff *skb)
  {
--	int data = count->data_length, rx_loop = 0, total_rx = 0, iov_len;
--	struct kvec *iov_p;
-+	int data = count->data_length, rx_loop = 0, total_rx = 0;
- 	struct msghdr msg;
- 
- 	if (!conn || !conn->sock || !conn->conn_ops)
- 		return -1;
- 
- 	memset(&msg, 0, sizeof(struct msghdr));
--
--	iov_p = count->iov;
--	iov_len	= count->iov_count;
-+	iov_iter_kvec(&msg.msg_iter, READ | ITER_KVEC,
-+		      count->iov, count->iov_count, data);
- 
- 	while (total_rx < data) {
--		rx_loop = kernel_recvmsg(conn->sock, &msg, iov_p, iov_len,
--					(data - total_rx), MSG_WAITALL);
-+		rx_loop = sock_recvmsg(conn->sock, &msg,
-+				      (data - total_rx), MSG_WAITALL);
- 		if (rx_loop <= 0) {
- 			pr_debug("rx_loop: %d total_rx: %d\n",
- 				rx_loop, total_rx);
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 52cf1bd..4902f2d 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2651,17 +2651,10 @@ int skb_copy_datagram_iter(const struct sk_buff *from, int offset,
- static inline int skb_copy_datagram_msg(const struct sk_buff *from, int offset,
- 					struct msghdr *msg, int size)
- {
--	/* XXX: stripping const */
--	return skb_copy_datagram_iovec(from, offset, (struct iovec *)msg->msg_iter.iov, size);
--}
--int skb_copy_and_csum_datagram_iovec(struct sk_buff *skb, int hlen,
--				     struct iovec *iov);
--static inline int skb_copy_and_csum_datagram_msg(struct sk_buff *skb, int hlen,
--			    struct msghdr *msg)
--{
--	/* XXX: stripping const */
--	return skb_copy_and_csum_datagram_iovec(skb, hlen, (struct iovec *)msg->msg_iter.iov);
-+	return skb_copy_datagram_iter(from, offset, &msg->msg_iter, size);
- }
-+int skb_copy_and_csum_datagram_msg(struct sk_buff *skb, int hlen,
-+				   struct msghdr *msg);
- int skb_copy_datagram_from_iter(struct sk_buff *skb, int offset,
- 				 struct iov_iter *from, int len);
- int zerocopy_sg_from_iter(struct sk_buff *skb, struct iov_iter *frm);
-@@ -2697,8 +2690,7 @@ static inline int memcpy_from_msg(void *data, struct msghdr *msg, int len)
- 
- static inline int memcpy_to_msg(struct msghdr *msg, void *data, int len)
- {
--	/* XXX: stripping const */
--	return memcpy_toiovec((struct iovec *)msg->msg_iter.iov, data, len);
-+	return copy_to_iter(data, len, &msg->msg_iter) == len ? 0 : -EFAULT;
+-	return memcpy_fromiovecend(to, (struct iovec *) from, offset, len);
++	struct msghdr *msg = from;
++	return memcpy_fromiovecend(to, msg->msg_iov, offset, len);
  }
  
- struct skb_checksum_ops {
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index b6e303b..41075ed 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -615,27 +615,25 @@ int zerocopy_sg_from_iter(struct sk_buff *skb, struct iov_iter *from)
- EXPORT_SYMBOL(zerocopy_sg_from_iter);
- 
- static int skb_copy_and_csum_datagram(const struct sk_buff *skb, int offset,
--				      u8 __user *to, int len,
-+				      struct iov_iter *to, int len,
- 				      __wsum *csump)
+ /* Designate sk as UDP-Lite socket */
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 4a929ad..cdedcf1 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -752,14 +752,14 @@ EXPORT_SYMBOL(ip_fragment);
+ int
+ ip_generic_getfrag(void *from, char *to, int offset, int len, int odd, struct sk_buff *skb)
  {
- 	int start = skb_headlen(skb);
- 	int i, copy = start - offset;
- 	struct sk_buff *frag_iter;
- 	int pos = 0;
-+	int n;
+-	struct iovec *iov = from;
++	struct msghdr *msg = from;
  
- 	/* Copy header. */
- 	if (copy > 0) {
--		int err = 0;
- 		if (copy > len)
- 			copy = len;
--		*csump = csum_and_copy_to_user(skb->data + offset, to, copy,
--					       *csump, &err);
--		if (err)
-+		n = csum_and_copy_to_iter(skb->data + offset, copy, csump, to);
-+		if (n != copy)
- 			goto fault;
- 		if ((len -= copy) == 0)
- 			return 0;
- 		offset += copy;
--		to += copy;
- 		pos = copy;
- 	}
- 
-@@ -647,26 +645,22 @@ static int skb_copy_and_csum_datagram(const struct sk_buff *skb, int offset,
- 
- 		end = start + skb_frag_size(frag);
- 		if ((copy = end - offset) > 0) {
--			__wsum csum2;
--			int err = 0;
--			u8  *vaddr;
-+			__wsum csum2 = 0;
- 			struct page *page = skb_frag_page(frag);
-+			u8  *vaddr = kmap(page);
- 
- 			if (copy > len)
- 				copy = len;
--			vaddr = kmap(page);
--			csum2 = csum_and_copy_to_user(vaddr +
--							frag->page_offset +
--							offset - start,
--						      to, copy, 0, &err);
-+			n = csum_and_copy_to_iter(vaddr + frag->page_offset +
-+						  offset - start, copy,
-+						  &csum2, to);
- 			kunmap(page);
--			if (err)
-+			if (n != copy)
- 				goto fault;
- 			*csump = csum_block_add(*csump, csum2, pos);
- 			if (!(len -= copy))
- 				return 0;
- 			offset += copy;
--			to += copy;
- 			pos += copy;
- 		}
- 		start = end;
-@@ -691,7 +685,6 @@ static int skb_copy_and_csum_datagram(const struct sk_buff *skb, int offset,
- 			if ((len -= copy) == 0)
- 				return 0;
- 			offset += copy;
--			to += copy;
- 			pos += copy;
- 		}
- 		start = end;
-@@ -744,20 +737,19 @@ __sum16 __skb_checksum_complete(struct sk_buff *skb)
- EXPORT_SYMBOL(__skb_checksum_complete);
- 
- /**
-- *	skb_copy_and_csum_datagram_iovec - Copy and checksum skb to user iovec.
-+ *	skb_copy_and_csum_datagram_msg - Copy and checksum skb to user iovec.
-  *	@skb: skbuff
-  *	@hlen: hardware length
-- *	@iov: io vector
-+ *	@msg: destination
-  *
-  *	Caller _must_ check that skb will fit to this iovec.
-  *
-  *	Returns: 0       - success.
-  *		 -EINVAL - checksum failure.
-- *		 -EFAULT - fault during copy. Beware, in this case iovec
-- *			   can be modified!
-+ *		 -EFAULT - fault during copy.
-  */
--int skb_copy_and_csum_datagram_iovec(struct sk_buff *skb,
--				     int hlen, struct iovec *iov)
-+int skb_copy_and_csum_datagram_msg(struct sk_buff *skb,
-+				   int hlen, struct msghdr *msg)
- {
- 	__wsum csum;
- 	int chunk = skb->len - hlen;
-@@ -765,28 +757,20 @@ int skb_copy_and_csum_datagram_iovec(struct sk_buff *skb,
- 	if (!chunk)
- 		return 0;
- 
--	/* Skip filled elements.
--	 * Pretty silly, look at memcpy_toiovec, though 8)
--	 */
--	while (!iov->iov_len)
--		iov++;
--
--	if (iov->iov_len < chunk) {
-+	if (iov_iter_count(&msg->msg_iter) < chunk) {
- 		if (__skb_checksum_complete(skb))
- 			goto csum_error;
--		if (skb_copy_datagram_iovec(skb, hlen, iov, chunk))
-+		if (skb_copy_datagram_msg(skb, hlen, msg, chunk))
- 			goto fault;
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-		if (memcpy_fromiovecend(to, iov, offset, len) < 0)
++		if (memcpy_fromiovecend(to, msg->msg_iov, offset, len) < 0)
+ 			return -EFAULT;
  	} else {
- 		csum = csum_partial(skb->data, hlen, skb->csum);
--		if (skb_copy_and_csum_datagram(skb, hlen, iov->iov_base,
-+		if (skb_copy_and_csum_datagram(skb, hlen, &msg->msg_iter,
- 					       chunk, &csum))
- 			goto fault;
- 		if (csum_fold(csum))
- 			goto csum_error;
- 		if (unlikely(skb->ip_summed == CHECKSUM_COMPLETE))
- 			netdev_rx_csum_fault(skb->dev);
--		iov->iov_len -= chunk;
--		iov->iov_base += chunk;
+ 		__wsum csum = 0;
+-		if (csum_partial_copy_fromiovecend(to, iov, offset, len, &csum) < 0)
++		if (csum_partial_copy_fromiovecend(to, msg->msg_iov, offset, len, &csum) < 0)
+ 			return -EFAULT;
+ 		skb->csum = csum_block_add(skb->csum, csum, odd);
  	}
- 	return 0;
- csum_error:
-@@ -794,7 +778,7 @@ csum_error:
- fault:
- 	return -EFAULT;
- }
--EXPORT_SYMBOL(skb_copy_and_csum_datagram_iovec);
-+EXPORT_SYMBOL(skb_copy_and_csum_datagram_msg);
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 5c901eb..5d83bd2 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -478,7 +478,7 @@ static int raw_getfrag(void *from, char *to, int offset, int len, int odd,
  
- /**
-  * 	datagram_poll - generic datagram poll
+ 	offset -= rfv->hlen;
+ 
+-	return ip_generic_getfrag(rfv->msg->msg_iov, to, offset, len, odd, skb);
++	return ip_generic_getfrag(rfv->msg, to, offset, len, odd, skb);
+ }
+ 
+ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index dd8e006..13b4dcf8 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1049,7 +1049,7 @@ back_from_confirm:
+ 
+ 	/* Lockless fast path for the non-corking case. */
+ 	if (!corkreq) {
+-		skb = ip_make_skb(sk, fl4, getfrag, msg->msg_iov, ulen,
++		skb = ip_make_skb(sk, fl4, getfrag, msg, ulen,
+ 				  sizeof(struct udphdr), &ipc, &rt,
+ 				  msg->msg_flags);
+ 		err = PTR_ERR(skb);
+@@ -1080,7 +1080,7 @@ back_from_confirm:
+ 
+ do_append_data:
+ 	up->len += ulen;
+-	err = ip_append_data(sk, fl4, getfrag, msg->msg_iov, ulen,
++	err = ip_append_data(sk, fl4, getfrag, msg, ulen,
+ 			     sizeof(struct udphdr), &ipc, &rt,
+ 			     corkreq ? msg->msg_flags|MSG_MORE : msg->msg_flags);
+ 	if (err)
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 942f67b..11a9283 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -727,7 +727,7 @@ static int raw6_getfrag(void *from, char *to, int offset, int len, int odd,
+ 
+ 	offset -= rfv->hlen;
+ 
+-	return ip_generic_getfrag(rfv->msg->msg_iov, to, offset, len, odd, skb);
++	return ip_generic_getfrag(rfv->msg, to, offset, len, odd, skb);
+ }
+ 
+ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 7f964322..189dc4a 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1312,7 +1312,7 @@ do_append_data:
+ 		dontfrag = np->dontfrag;
+ 	up->len += ulen;
+ 	getfrag  =  is_udplite ?  udplite_getfrag : ip_generic_getfrag;
+-	err = ip6_append_data(sk, getfrag, msg->msg_iov, ulen,
++	err = ip6_append_data(sk, getfrag, msg, ulen,
+ 		sizeof(struct udphdr), hlimit, tclass, opt, &fl6,
+ 		(struct rt6_info *)dst,
+ 		corkreq ? msg->msg_flags|MSG_MORE : msg->msg_flags, dontfrag);
+diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
+index 2177b96..8611f1b 100644
+--- a/net/l2tp/l2tp_ip6.c
++++ b/net/l2tp/l2tp_ip6.c
+@@ -619,7 +619,7 @@ static int l2tp_ip6_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 
+ back_from_confirm:
+ 	lock_sock(sk);
+-	err = ip6_append_data(sk, ip_generic_getfrag, msg->msg_iov,
++	err = ip6_append_data(sk, ip_generic_getfrag, msg,
+ 			      ulen, transhdrlen, hlimit, tclass, opt,
+ 			      &fl6, (struct rt6_info *)dst,
+ 			      msg->msg_flags, dontfrag);
 -- 
 2.1.3
