@@ -1,34 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [bisect] 3.18 oops in tcp_v4_send_reset()
-Date: Tue, 09 Dec 2014 09:23:24 -0800
-Message-ID: <1418145804.27198.0.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20141209160023.GA31520@fluid.dannf>
-	 <1418141783.14835.20.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1418141914.14835.21.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1418142520.14835.22.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALdTtnuazPdMNsOHzzersmyHvLjwxSq1BZoA5ZAdU-0QZtwUsg@mail.gmail.com>
+From: Don Dutile <ddutile@redhat.com>
+Subject: Re: [PATCH RFC] pci: Control whether VFs are probed on pci_enable_sriov
+Date: Tue, 09 Dec 2014 12:24:14 -0500
+Message-ID: <5487303E.2010205@redhat.com>
+References: <1417957693-24979-1-git-send-email-eli@mellanox.com> <B5657A6538887040AD3A81F1008BEC63BA6616@avmb3.qlogic.org> <20141207184242.GA24790@mtldesk30> <B5657A6538887040AD3A81F1008BEC63BA669B@avmb3.qlogic.org> <20141208191032.GC24790@mtldesk30> <B5657A6538887040AD3A81F1008BEC63BA7746@avmb3.qlogic.org> <20141209064339.GA1806@mtldesk30> <B5657A6538887040AD3A81F1008BEC63BA78ED@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Dann Frazier <dann.frazier@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:38598 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751099AbaLIRX2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 12:23:28 -0500
-Received: by mail-ig0-f173.google.com with SMTP id r2so4920287igi.12
-        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 09:23:27 -0800 (PST)
-In-Reply-To: <CALdTtnuazPdMNsOHzzersmyHvLjwxSq1BZoA5ZAdU-0QZtwUsg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "bhelgaas@google.com" <bhelgaas@google.com>,
+	David Miller <davem@davemloft.net>,
+	linux-pci <linux-pci@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"yevgenyp@mellanox.com" <yevgenyp@mellanox.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	Eli Cohen <eli@dev.mellanox.co.il>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63BA78ED@avmb3.qlogic.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-12-09 at 10:10 -0700, Dann Frazier wrote:
+On 12/09/2014 02:07 AM, Yuval Mintz wrote:
+>>>> Currently the kerenl will call probe for any device for which there
+>>>> is a supporting driver and I did not want to change that.
+>>>
+>>> But what's next? How will this feature be activated?
+>>>
+>>> Adding a parameter to pci_enable_sriov() might give developers the
+>>> false impression they can change behavior by passing `0' to this
+>>> function; But that shouldn't be the method to control this - we should
+>>> have uniform control of the feature across different drivers, e.g., by an
+>> additional sysfs node.
+>>
+>> I was planning on using this on mlx5 SRIOV support which is not available
+>> upstream yet. So this could be a driver developer's decision how to use this.
+>
+> I think it shouldn't - from user perspective, you can't have such fundamental
+> difference between different drivers - that enabling sriov on one device would
+> create VFs in the hypervisors and another one won't.
+>
+>> I think adding another sysfs entry to control this behavior is unnecessary since the
+>> administrator has the freedom to later do any bidnings he wishes to do.
+>>
+>> Keeping things as they are today is not so "nice". I mean, I could fail probe for
+>> VFs to avoid them from being initialized at the hypervisor but there are other
+>> questions: which error should I return and how can I be sure how the bus driver
+>> will refer to such failures.
+>
+> Again - you could say that this is solely in your drivers decision-making-area,
+> but failing the VF probe would lead to the same difference between drivers I've
+> stated before.
+>
+>> So, maybe the solution I suggested is not the best one but do we agree that this
+>> needs to be addressed this way or another?
+>
+> All-in-all, I agree. But I think the solution should be user-controlled and not driver-based.
+>
+So, I still haven't heard the reasons why the VF driver does not want
+to be configured in the host/hypervisor.  Please expound.  As this solution only
+solves it on the first sriov_enable(), and not subsequent deassign of VFs from VMs.
 
-> This patch does appear to resolve the issue, thanks Eric!
-
-Thanks Dann
-
-I need to cook a proper patch including ipv6 changes.
+If the desire is to never have the VF driver running on the host, just
+blacklist the VF driver.  If you use the same driver for both, then
+make a simple VF shell driver (includes the same driver), and have it
+pci-id match the VF only, and blacklist it in modprobe.conf .
+That only wastes some binary space for the dupe'd driver, but it resolves
+this situation in a user-driven manner.
