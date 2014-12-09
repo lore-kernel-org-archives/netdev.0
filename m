@@ -1,57 +1,31 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: [PATCHv1 net] xen-netfront: use correct linear area after linearizing an skb
-Date: Tue, 9 Dec 2014 18:43:28 +0000
-Message-ID: <1418150608-26180-1-git-send-email-david.vrabel@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] drivers: net : cpsw: Update Kconfig for CPSW
+Date: Tue, 09 Dec 2014 13:44:33 -0500 (EST)
+Message-ID: <20141209.134433.1142126041631066320.davem@davemloft.net>
+References: <1417668869-25616-1-git-send-email-lokeshvutla@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Vrabel <david.vrabel@citrix.com>,
-	<xen-devel@lists.xenproject.org>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mugunthanvnm@ti.com,
+	linux-omap@vger.kernel.org, grygorii.strashko@ti.com, balbi@ti.com,
+	nsekhar@ti.com, t-kristo@ti.com
+To: lokeshvutla@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:5455 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751587AbaLISnk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2014 13:43:40 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:37434 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751200AbaLISof (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 13:44:35 -0500
+In-Reply-To: <1417668869-25616-1-git-send-email-lokeshvutla@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 97a6d1bb2b658ac85ed88205ccd1ab809899884d (xen-netfront: Fix
-handling packets on compound pages with skb_linearize) attempted to
-fix a problem where an skb that would have required too many slots
-would be dropped causing TCP connections to stall.
+From: Lokesh Vutla <lokeshvutla@ti.com>
+Date: Thu, 4 Dec 2014 10:24:29 +0530
 
-However, it filled in the first slot using the original buffer and not
-the new one and would use the wrong offset and grant access to the
-wrong page.
+> CPSW is present in AM33xx, AM43xx, DRA7xx.
+> Updating the Kconfig to depend on ARCH_OMAP2PLUS instead of listing
+> all SoC's.
+> 
+> Signed-off-by: Lokesh Vutla <lokeshvutla@ti.com>
 
-Netback would notice the malformed request and stop all traffic on the
-VIF, reporting:
-
-    vif vif-3-0 vif3.0: txreq.offset: 85e, size: 4002, end: 6144
-    vif vif-3-0 vif3.0: fatal error; disabling device
-
-Reported-by: Anthony Wright <anthony@overnetdata.com>
-Tested-by: Anthony Wright <anthony@overnetdata.com>
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
----
- drivers/net/xen-netfront.c |    3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index ece8d18..eeed0ce 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -627,6 +627,9 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 				    slots, skb->len);
- 		if (skb_linearize(skb))
- 			goto drop;
-+		data = skb->data;
-+		offset = offset_in_page(data);
-+		len = skb_headlen(skb);
- 	}
- 
- 	spin_lock_irqsave(&queue->tx_lock, flags);
--- 
-1.7.10.4
+Applied to net-next, thanks.
