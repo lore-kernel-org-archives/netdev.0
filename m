@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] dst: no need to take reference on DST_NOCACHE
- dsts
-Date: Tue, 09 Dec 2014 16:08:40 -0500 (EST)
-Message-ID: <20141209.160840.1901007199176473394.davem@davemloft.net>
-References: <51b54bc66109594459e1a08c9022c5c48f20d910.1417889528.git.hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 1/4] netdevice: Add a function to check
+ macvlan port
+Date: Tue, 09 Dec 2014 16:10:37 -0500 (EST)
+Message-ID: <20141209.161037.2159961435986260472.davem@davemloft.net>
+References: <1417909984-13133-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, ja@ssi.bg
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: maheshb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38737 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38747 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751387AbaLIVIm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 16:08:42 -0500
-In-Reply-To: <51b54bc66109594459e1a08c9022c5c48f20d910.1417889528.git.hannes@stressinduktion.org>
+	with ESMTP id S1751350AbaLIVKk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 16:10:40 -0500
+In-Reply-To: <1417909984-13133-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Sat,  6 Dec 2014 19:19:42 +0100
+From: Mahesh Bandewar <maheshb@google.com>
+Date: Sat,  6 Dec 2014 15:53:04 -0800
 
-> Since commit f8864972126899 ("ipv4: fix dst race in sk_dst_get()")
-> DST_NOCACHE dst_entries get freed by RCU. So there is no need to get a
-> reference on them when we are in rcu protected sections.
+> Similar to a check for macvlan device, netif_is_macvlan(), add
+> another function to check if a device is used as macvlan port.
 > 
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Julian Anastasov <ja@ssi.bg>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 
-Applied, thanks.
+Applied.
