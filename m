@@ -1,132 +1,220 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 03/13] i40e: let firmware catch the NVM busy error
-Date: Tue,  9 Dec 2014 13:26:10 -0800
-Message-ID: <1418160380-29847-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 11/13] i40e: check for AQ timeout in aq_rc decode
+Date: Tue,  9 Dec 2014 13:26:18 -0800
+Message-ID: <1418160380-29847-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1418160380-29847-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:29734 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:56965 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752958AbaLIV0Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2014 16:26:24 -0500
+	id S1753142AbaLIV06 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2014 16:26:58 -0500
 In-Reply-To: <1418160380-29847-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-The NVM update operations take time finish asynchronously, and follow-on
-update requests need to wait for the current one to finish.  Early
-firmware didn't handle this well, so the code had to track the busy state.
-The released firmware handles the busy state correctly, returning
-I40E_AQ_RC_EBUSY if an update is still in progress, so the code no longer
-needs to track this.
+Decoding the AQ return code is great except when the AQ send timed out
+and there's no return code set.  This changes the handy decoder
+interface to help catch and properly report the condition as a useful
+errno rather than returning a misleading '0'.
 
-Change-ID: I6e6b4adc26d6dcc5fd7adfee5763423858a7d921
+Change-ID: I07a1f94f921606da49ffac7837bcdc37cd8222eb
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Acked-by: Greg Rose <gregory.v.rose@intel.com>
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq.c   | 11 -----------
- drivers/net/ethernet/intel/i40e/i40e_adminq.h   |  1 -
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c |  6 ------
- drivers/net/ethernet/intel/i40evf/i40e_adminq.h |  1 -
- 4 files changed, 19 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq.h   |  7 +++++-
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c      | 33 ++++++++++++++++---------
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.h |  7 +++++-
+ 3 files changed, 33 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index 35fa09a..ebff11b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -617,7 +617,6 @@ i40e_status i40e_init_adminq(struct i40e_hw *hw)
- 
- 	/* pre-emptive resource lock release */
- 	i40e_aq_release_resource(hw, I40E_NVM_RESOURCE_ID, 0, NULL);
--	hw->aq.nvm_busy = false;
- 
- 	ret_code = i40e_aq_set_hmc_resource_profile(hw,
- 						    I40E_HMC_PROFILE_DEFAULT,
-@@ -754,12 +753,6 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
- 		goto asq_send_command_exit;
- 	}
- 
--	if (i40e_is_nvm_update_op(desc) && hw->aq.nvm_busy) {
--		i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE, "AQTX: NVM busy.\n");
--		status = I40E_ERR_NVM;
--		goto asq_send_command_exit;
--	}
--
- 	details = I40E_ADMINQ_DETAILS(hw->aq.asq, hw->aq.asq.next_to_use);
- 	if (cmd_details) {
- 		*details = *cmd_details;
-@@ -901,9 +894,6 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
- 		status = I40E_ERR_ADMIN_QUEUE_TIMEOUT;
- 	}
- 
--	if (!status && i40e_is_nvm_update_op(desc))
--		hw->aq.nvm_busy = true;
--
- asq_send_command_error:
- 	mutex_unlock(&hw->aq.asq_mutex);
- asq_send_command_exit:
-@@ -1016,7 +1006,6 @@ clean_arq_element_out:
- 	mutex_unlock(&hw->aq.arq_mutex);
- 
- 	if (i40e_is_nvm_update_op(&e->desc)) {
--		hw->aq.nvm_busy = false;
- 		if (hw->aq.nvm_release_on_done) {
- 			i40e_release_nvm(hw);
- 			hw->aq.nvm_release_on_done = false;
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.h b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-index 003a227..618fe96 100644
+index 2c68bf7..564d0b0 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_adminq.h
 +++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-@@ -94,7 +94,6 @@ struct i40e_adminq_info {
- 	u16 fw_min_ver;                 /* firmware minor version */
- 	u16 api_maj_ver;                /* api major version */
- 	u16 api_min_ver;                /* api minor version */
--	bool nvm_busy;
- 	bool nvm_release_on_done;
+@@ -28,6 +28,7 @@
+ #define _I40E_ADMINQ_H_
  
- 	struct mutex asq_mutex; /* Send queue lock */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-index 1698994..c1d25f8 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-@@ -836,9 +836,6 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
- 		hw->aq.asq_last_status = (enum i40e_admin_queue_err)retval;
+ #include "i40e_osdep.h"
++#include "i40e_status.h"
+ #include "i40e_adminq_cmd.h"
+ 
+ #define I40E_ADMINQ_DESC(R, i)   \
+@@ -108,7 +109,7 @@ struct i40e_adminq_info {
+  * i40e_aq_rc_to_posix - convert errors to user-land codes
+  * aq_rc: AdminQ error code to convert
+  **/
+-static inline int i40e_aq_rc_to_posix(u16 aq_rc)
++static inline int i40e_aq_rc_to_posix(u32 aq_ret, u16 aq_rc)
+ {
+ 	int aq_to_posix[] = {
+ 		0,           /* I40E_AQ_RC_OK */
+@@ -136,6 +137,10 @@ static inline int i40e_aq_rc_to_posix(u16 aq_rc)
+ 		-EFBIG,      /* I40E_AQ_RC_EFBIG */
+ 	};
+ 
++	/* aq_rc is invalid if AQ timed out */
++	if (aq_ret == I40E_ERR_ADMIN_QUEUE_TIMEOUT)
++		return -EAGAIN;
++
+ 	if (aq_rc >= ARRAY_SIZE(aq_to_posix))
+ 		return -ERANGE;
+ 	return aq_to_posix[aq_rc];
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+index 0fc62fc..1613ef4 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+@@ -527,7 +527,8 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
+ 	case I40E_NVMUPD_READ_SA:
+ 		status = i40e_acquire_nvm(hw, I40E_RESOURCE_READ);
+ 		if (status) {
+-			*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
++			*errno = i40e_aq_rc_to_posix(status,
++						     hw->aq.asq_last_status);
+ 		} else {
+ 			status = i40e_nvmupd_nvm_read(hw, cmd, bytes, errno);
+ 			i40e_release_nvm(hw);
+@@ -537,7 +538,8 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
+ 	case I40E_NVMUPD_READ_SNT:
+ 		status = i40e_acquire_nvm(hw, I40E_RESOURCE_READ);
+ 		if (status) {
+-			*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
++			*errno = i40e_aq_rc_to_posix(status,
++						     hw->aq.asq_last_status);
+ 		} else {
+ 			status = i40e_nvmupd_nvm_read(hw, cmd, bytes, errno);
+ 			if (status)
+@@ -550,7 +552,8 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
+ 	case I40E_NVMUPD_WRITE_ERA:
+ 		status = i40e_acquire_nvm(hw, I40E_RESOURCE_WRITE);
+ 		if (status) {
+-			*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
++			*errno = i40e_aq_rc_to_posix(status,
++						     hw->aq.asq_last_status);
+ 		} else {
+ 			status = i40e_nvmupd_nvm_erase(hw, cmd, errno);
+ 			if (status)
+@@ -563,7 +566,8 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
+ 	case I40E_NVMUPD_WRITE_SA:
+ 		status = i40e_acquire_nvm(hw, I40E_RESOURCE_WRITE);
+ 		if (status) {
+-			*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
++			*errno = i40e_aq_rc_to_posix(status,
++						     hw->aq.asq_last_status);
+ 		} else {
+ 			status = i40e_nvmupd_nvm_write(hw, cmd, bytes, errno);
+ 			if (status)
+@@ -576,7 +580,8 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
+ 	case I40E_NVMUPD_WRITE_SNT:
+ 		status = i40e_acquire_nvm(hw, I40E_RESOURCE_WRITE);
+ 		if (status) {
+-			*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
++			*errno = i40e_aq_rc_to_posix(status,
++						     hw->aq.asq_last_status);
+ 		} else {
+ 			status = i40e_nvmupd_nvm_write(hw, cmd, bytes, errno);
+ 			if (status)
+@@ -589,12 +594,14 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
+ 	case I40E_NVMUPD_CSUM_SA:
+ 		status = i40e_acquire_nvm(hw, I40E_RESOURCE_WRITE);
+ 		if (status) {
+-			*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
++			*errno = i40e_aq_rc_to_posix(status,
++						     hw->aq.asq_last_status);
+ 		} else {
+ 			status = i40e_update_nvm_checksum(hw);
+ 			if (status) {
+ 				*errno = hw->aq.asq_last_status ?
+-				   i40e_aq_rc_to_posix(hw->aq.asq_last_status) :
++				   i40e_aq_rc_to_posix(status,
++						       hw->aq.asq_last_status) :
+ 				   -EIO;
+ 				i40e_release_nvm(hw);
+ 			} else {
+@@ -691,7 +698,8 @@ static i40e_status i40e_nvmupd_state_writing(struct i40e_hw *hw,
+ 		status = i40e_update_nvm_checksum(hw);
+ 		if (status) {
+ 			*errno = hw->aq.asq_last_status ?
+-				   i40e_aq_rc_to_posix(hw->aq.asq_last_status) :
++				   i40e_aq_rc_to_posix(status,
++						       hw->aq.asq_last_status) :
+ 				   -EIO;
+ 			hw->nvmupd_state = I40E_NVMUPD_STATE_INIT;
+ 		}
+@@ -701,7 +709,8 @@ static i40e_status i40e_nvmupd_state_writing(struct i40e_hw *hw,
+ 		status = i40e_update_nvm_checksum(hw);
+ 		if (status)
+ 			*errno = hw->aq.asq_last_status ?
+-				   i40e_aq_rc_to_posix(hw->aq.asq_last_status) :
++				   i40e_aq_rc_to_posix(status,
++						       hw->aq.asq_last_status) :
+ 				   -EIO;
+ 		else
+ 			hw->aq.nvm_release_on_done = true;
+@@ -839,7 +848,7 @@ static i40e_status i40e_nvmupd_nvm_read(struct i40e_hw *hw,
+ 		i40e_debug(hw, I40E_DEBUG_NVM,
+ 			   "i40e_nvmupd_nvm_read status %d aq %d\n",
+ 			   status, hw->aq.asq_last_status);
+-		*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
++		*errno = i40e_aq_rc_to_posix(status, hw->aq.asq_last_status);
  	}
  
--	if (i40e_is_nvm_update_op(desc))
--		hw->aq.nvm_busy = true;
--
- 	i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE,
- 		   "AQTX: desc and buffer writeback:\n");
- 	i40evf_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, buff,
-@@ -931,9 +928,6 @@ i40e_status i40evf_clean_arq_element(struct i40e_hw *hw,
- 		memcpy(e->msg_buf, hw->aq.arq.r.arq_bi[desc_idx].va,
- 		       e->msg_len);
+ 	return status;
+@@ -873,7 +882,7 @@ static i40e_status i40e_nvmupd_nvm_erase(struct i40e_hw *hw,
+ 		i40e_debug(hw, I40E_DEBUG_NVM,
+ 			   "i40e_nvmupd_nvm_erase status %d aq %d\n",
+ 			   status, hw->aq.asq_last_status);
+-		*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
++		*errno = i40e_aq_rc_to_posix(status, hw->aq.asq_last_status);
+ 	}
  
--	if (i40e_is_nvm_update_op(&e->desc))
--		hw->aq.nvm_busy = false;
--
- 	i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE, "AQRX: desc and buffer:\n");
- 	i40evf_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, e->msg_buf,
- 			hw->aq.arq_buf_size);
+ 	return status;
+@@ -909,7 +918,7 @@ static i40e_status i40e_nvmupd_nvm_write(struct i40e_hw *hw,
+ 		i40e_debug(hw, I40E_DEBUG_NVM,
+ 			   "i40e_nvmupd_nvm_write status %d aq %d\n",
+ 			   status, hw->aq.asq_last_status);
+-		*errno = i40e_aq_rc_to_posix(hw->aq.asq_last_status);
++		*errno = i40e_aq_rc_to_posix(status, hw->aq.asq_last_status);
+ 	}
+ 
+ 	return status;
 diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-index 0d58378..d5d3c93 100644
+index 0ffb8d1..6c31bf2 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
 +++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-@@ -94,7 +94,6 @@ struct i40e_adminq_info {
- 	u16 fw_min_ver;                 /* firmware minor version */
- 	u16 api_maj_ver;                /* api major version */
- 	u16 api_min_ver;                /* api minor version */
--	bool nvm_busy;
- 	bool nvm_release_on_done;
+@@ -28,6 +28,7 @@
+ #define _I40E_ADMINQ_H_
  
- 	struct mutex asq_mutex; /* Send queue lock */
+ #include "i40e_osdep.h"
++#include "i40e_status.h"
+ #include "i40e_adminq_cmd.h"
+ 
+ #define I40E_ADMINQ_DESC(R, i)   \
+@@ -108,7 +109,7 @@ struct i40e_adminq_info {
+  * i40e_aq_rc_to_posix - convert errors to user-land codes
+  * aq_rc: AdminQ error code to convert
+  **/
+-static inline int i40e_aq_rc_to_posix(u16 aq_rc)
++static inline int i40e_aq_rc_to_posix(u32 aq_ret, u16 aq_rc)
+ {
+ 	int aq_to_posix[] = {
+ 		0,           /* I40E_AQ_RC_OK */
+@@ -136,6 +137,10 @@ static inline int i40e_aq_rc_to_posix(u16 aq_rc)
+ 		-EFBIG,      /* I40E_AQ_RC_EFBIG */
+ 	};
+ 
++	/* aq_rc is invalid if AQ timed out */
++	if (aq_ret == I40E_ERR_ADMIN_QUEUE_TIMEOUT)
++		return -EAGAIN;
++
+ 	if (aq_rc >= ARRAY_SIZE(aq_to_posix))
+ 		return -ERANGE;
+ 	return aq_to_posix[aq_rc];
 -- 
 1.9.3
