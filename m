@@ -1,32 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2014-12-03
-Date: Tue, 09 Dec 2014 13:36:02 -0500 (EST)
-Message-ID: <20141209.133602.1849817956610567109.davem@davemloft.net>
-References: <20141203203432.GF2896@tuxdriver.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [ovs-dev] OVS Kernel Datapath development
+Date: Tue, 9 Dec 2014 10:36:14 -0800
+Message-ID: <CALnjE+rd5HN1zqHA6CJGhRGW2wsR1aURHoWs94_a=KyvNo4wwQ@mail.gmail.com>
+References: <CALnjE+rn_Giv+8TM1_E2faBftRkivXMYHcjn-4Eq4Gu15r=CiQ@mail.gmail.com>
+	<5487392A.4020409@cisco.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141203203432.GF2896@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Lori Jakab <lojakab@cisco.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na6sys009bog017.obsmtp.com ([74.125.150.74]:43470 "HELO
+	na6sys009bog017.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751876AbaLISgP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 13:36:15 -0500
+Received: by mail-ie0-f172.google.com with SMTP id tr6so1105780ieb.3
+        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 10:36:14 -0800 (PST)
+In-Reply-To: <5487392A.4020409@cisco.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 3 Dec 2014 15:34:33 -0500
+On Tue, Dec 9, 2014 at 10:02 AM, Lori Jakab <lojakab@cisco.com> wrote:
+> On 12/08/2014 06:47 AM, Pravin Shelar wrote:
+>> Since the beginning OVS kernel datapath development is primarily done
+>> on external OVS repo. Now we have mostly synced upstream and external
+>> OVS. So we have decided to change this process. New process is as
+>> follows.
+>
+> Patch series that have previous revisions already reviewed with the old
+> process should now switch to the new process?  Or does the change apply
+> only to new patch series?
+>
 
-> One last(?) batch of fixes hoping to make 3.18...
-> 
-> In this episode, we have another trio of rtlwifi fixes
-> repairing a little more damage from the major update of the
-> rtlwifi-family of drivers.  These editing mistakes caused some
-> memory corruption and missed a flag critical to proper interrupt
-> handling.  Together, these fix the kernel regression reported at
-> https://bugzilla.kernel.org/show_bug.cgi?id=88951 by Catalin Iacob.
-> 
-> Please let me know if there are problems!
+All patch series should follow new process including the one which got
+reviewed partially.
 
-Unfortunately, this did not make it for 3.18, but I've pulled it into my
-'net' tree which I'll merge into 'net-next' for the merge window.
+> -Lori
+>
+>>
+>> 1. OVS feature development that involves kernel datapath should be
+>> done on net-next tree datapath.
+>> 2. Such feature patch series should be posted on netdev and ovs-dev
+>> mailing list.
+>> 3. Once review is done for entire series, kernel and OVS userspace
+>> patches will be merged in respective repo.
+>> 4. After the merge developer is suppose to send patches for external
+>> kernel datapath along with old kernel compatibility code. So that we
+>> can keep external datapath insync.
+>>
+>>
+>> Thanks,
+>> Pravin.
