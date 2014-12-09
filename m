@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] openvswitch: set correct protocol on route
- lookup
-Date: Tue, 09 Dec 2014 16:01:51 -0500 (EST)
-Message-ID: <20141209.160151.1816426599503963739.davem@davemloft.net>
-References: <0ead411e38bc57a8971ffd9826f7bf9bfdc6ccf1.1417796557.git.jbenc@redhat.com>
+Subject: Re: [PATCH net-next ] Documentation (ixgbe.txt): use a decimal
+ address.
+Date: Tue, 09 Dec 2014 16:02:42 -0500 (EST)
+Message-ID: <20141209.160242.33523647772505652.davem@davemloft.net>
+References: <1417800943-4429-1-git-send-email-ramirose@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org, pshelar@nicira.com,
-	wenyuz@vmware.com
-To: jbenc@redhat.com
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
+To: ramirose@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38648 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38661 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751153AbaLIVBy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 16:01:54 -0500
-In-Reply-To: <0ead411e38bc57a8971ffd9826f7bf9bfdc6ccf1.1417796557.git.jbenc@redhat.com>
+	with ESMTP id S1751153AbaLIVCo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 16:02:44 -0500
+In-Reply-To: <1417800943-4429-1-git-send-email-ramirose@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Fri,  5 Dec 2014 17:24:28 +0100
+From: Rami Rosen <ramirose@gmail.com>
+Date: Fri,  5 Dec 2014 19:35:43 +0200
 
-> Respect what the caller passed to ovs_tunnel_get_egress_info.
+> This patch fixes the erronous usage of an hexadecimal address in the 
+> example, by replacing it with a decimal address.
 > 
-> Fixes: 8f0aad6f35f7e ("openvswitch: Extend packet attribute for egress tunnel info")
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-Applied, thanks.
+Applied.
