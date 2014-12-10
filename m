@@ -1,93 +1,92 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: xen-netback: make feature-rx-notify mandatory -- Breaks stubdoms
-Date: Wed, 10 Dec 2014 16:20:46 +0000
-Message-ID: <1418228446.3505.81.camel@citrix.com>
-References: <54884DA8.7030003@nuclearfallout.net>
-		 <548854C3.7060008@citrix.com> <1418224039.3505.76.camel@citrix.com>
-	 <548866D9.5050900@citrix.com>
+From: Matan Barak <matanb@mellanox.com>
+Subject: Re: [PATCH V1 net-next 03/10] net/mlx4_core: Use tasklet for user-space
+ CQ completion events
+Date: Wed, 10 Dec 2014 17:47:31 +0200
+Message-ID: <54886B13.5040409@mellanox.com>
+References: <1418216999-17012-1-git-send-email-ogerlitz@mellanox.com>
+	 <1418216999-17012-4-git-send-email-ogerlitz@mellanox.com>
+ <1418225599.27198.18.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: John <jw@nuclearfallout.net>,
-	"Xen-devel@lists.xen.org" <Xen-devel@lists.xen.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Vrabel <david.vrabel@citrix.com>
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	"Amir Vadai" <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:11493 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753787AbaLJQVz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 11:21:55 -0500
-In-Reply-To: <548866D9.5050900@citrix.com>
+Received: from mail-db3on0089.outbound.protection.outlook.com ([157.55.234.89]:42346
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754093AbaLJQXc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Dec 2014 11:23:32 -0500
+In-Reply-To: <1418225599.27198.18.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-12-10 at 15:29 +0000, David Vrabel wrote:
-> On 10/12/14 15:07, Ian Campbell wrote:
-> > On Wed, 2014-12-10 at 14:12 +0000, David Vrabel wrote:
-> >> On 10/12/14 13:42, John wrote:
-> >>> David,
-> >>>
-> >>> This patch you put into 3.18.0 appears to break the latest version of
-> >>> stubdomains. I found this out today when I tried to update a machine to
-> >>> 3.18.0 and all of the domUs crashed on start with the dmesg output like
-> >>> this:
-> >>
-> >> Cc'ing the lists and relevant netback maintainers.
-> >>
-> >> I guess the stubdoms are using minios's netfront?  This is something I
-> >> forgot about when deciding if it was ok to make this feature mandatory.
-> > 
-> > Oh bum, me too :/
-> > 
-> >> The patch cannot be reverted as it's a prerequisite for a critical
-> >> (security) bug fix.  I am also unconvinced that the no-feature-rx-notify
-> >> support worked correctly anyway.
-> >>
-> >> This can be resolved by:
-> >>
-> >> - Fixing minios's netfront to support feature-rx-notify. This should be
-> >> easy but wouldn't help existing Xen deployments.
-> > 
-> > I think this is worth doing in its own right, but as you say it doesn't
-> > help existing users.
-> > 
-> >> - Reimplement feature-rx-notify support.  I think the easiest way is to
-> >> queue packets on the guest Rx internal queue with a short expiry time.
-> > 
-> > Right, I don't think we especially need to make this case good (so long
-> > as it doesn't reintroduce a security hole!).
-> > 
-> > In principal we aren't really obliged to queue at all, but since all the
-> > infrastructure for queuing and timing out all exists I suppose it would
-> > be simple enough to implement and a bit less harsh.
-> > 
-> > Given we now have XENVIF_RX_QUEUE_BYTES and rx_drain_timeout_jiffies we
-> > don't have the infinite queue any more. So does the expiry in this case
-> > actually need to be shorter than the norm? Does it cause any extra
-> > issues to keep them around for tx_drain_timeout_jiffies rather than some
-> > shorter time?
-> 
-> If the internal guest rx queue fills and the (host) tx queue is stopped,
-> it will take tx_drain_timeout for the thread to wake up and notice if
-> the frontend placed any rx requests on the ring.  This could potentially
-> end up where you shovel 512k through stall for 10 s, put another 512k
-> through, stall for 10 s again and so on.
 
-Ah, true, that's not so great.
 
-What about if we don't queue at all(*) if rx-notify isn't supported, i.e
-just drop the packet on the floor in start_xmit if the ring is full?
-Would that be so bad? It would surely be simple...
+On 12/10/2014 5:33 PM, Eric Dumazet wrote:
+> On Wed, 2014-12-10 at 15:09 +0200, Or Gerlitz wrote:
+>> From: Matan Barak <matanb@mellanox.com>
+>>
+>> Previously, we've fired all our completion callbacks straight from our ISR.
+>>
+>> Some of those callbacks were lightweight (for example, mlx4_en's and
+>> IPoIB napi callbacks), but some of them did more work (for example,
+>> the user-space RDMA stack uverbs' completion handler). Besides that,
+>> doing more than the minimal work in ISR is generally considered wrong,
+>> it could even lead to a hard lockup of the system. Since when a lot
+>> of completion events are generated by the hardware, the loop over those
+>> events could be so long, that we'll get into a hard lockup by the system
+>> watchdog.
+>
+> ...
+>
+>> +#define TASKLET_THRESHOLD 1000
+>> +
+>> +void mlx4_cq_tasklet_cb(unsigned long data)
+>> +{
+>> +	unsigned long flags;
+>> +	unsigned int i = 0;
+>> +	struct mlx4_eq_tasklet *ctx = (struct mlx4_eq_tasklet *)data;
+>> +	struct mlx4_cq *mcq, *temp;
+>> +
+>> +	spin_lock_irqsave(&ctx->lock, flags);
+>> +	list_splice_tail_init(&ctx->list, &ctx->process_list);
+>> +	spin_unlock_irqrestore(&ctx->lock, flags);
+>> +
+>> +	list_for_each_entry_safe(mcq, temp, &ctx->process_list, tasklet_ctx.list) {
+>> +		list_del_init(&mcq->tasklet_ctx.list);
+>> +		mcq->tasklet_ctx.comp(mcq);
+>> +		if (atomic_dec_and_test(&mcq->refcount))
+>> +			complete(&mcq->free);
+>> +		if (++i == TASKLET_THRESHOLD)
+>> +			break;
+>> +	}
+>> +
+>> +	if (i == TASKLET_THRESHOLD)
+>> +		tasklet_schedule(&ctx->task);
+>> +}
+>> +
+>
+> What is the max duration of doing this loop up to 1000 times ?
+>
+> I suspect it might be too long, but not necessarily detected by
+> conventional watchdog.
+>
+> __do_softirq() uses both a counter and a test against jiffies, with a 2
+> ms limit.
 
-(*) Not counting the "queue" which is the ring itself.
+You're right - we'll measure it accurately, but I think it took over 2ms 
+(on a system with 400 CQs opened), including the spin_lock on the 
+list_splice.
 
-> The rx stall detection will also need to be disabled since there would
-> be no way for the frontend to signal rx ready.
+We'll add the jiffies test to V2.
 
-Agreed.
+Thanks.
 
-Could be trivially argued to be safe if we were just dropping packets on
-ring overflow...
-
-Ian.
+>
+> Thanks.
+>
+>
