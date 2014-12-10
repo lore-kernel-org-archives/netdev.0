@@ -1,83 +1,42 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next RESEND 1/2] tipc: fix RCU sparse error
-Date: Wed, 10 Dec 2014 16:46:06 +0800
-Message-ID: <1418201167-9591-2-git-send-email-ying.xue@windriver.com>
-References: <1418201167-9591-1-git-send-email-ying.xue@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <eric.dumazet@gmail.com>,
-	<jon.maloy@ericsson.com>, <erik.hugne@ericsson.com>,
-	<netdev@vger.kernel.org>, <kbuild-all@01.org>,
-	<linux-kernel@vger.kernel.org>
-To: <paulmck@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1418201167-9591-1-git-send-email-ying.xue@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL nf-next] Second round of IPVS Updates for v3.19
+Date: Wed, 10 Dec 2014 17:46:40 +0900
+Message-ID: <1418201201-19257-1-git-send-email-horms@verge.net.au>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: lvs-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:51471 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752492AbaLJIqr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 03:46:47 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The commit 97ede29e80ee ("tipc: convert name table read-write lock to
-RCU") involves the following sparse when using
+Hi Pablo,
 
-  make ARCH=x86_64 allmodconfig
-  make C=1 CF=-D__CHECK_ENDIAN__
+please consider these IPVS updates for v3.19 or alternatively v3.20.
 
-net/tipc/name_table.c:1136:17: sparse: incompatible types in comparison expression (different address spaces)
-net/tipc/name_table.c:1136:17: sparse: incompatible types in comparison expression (different address spaces)
+The single patch in this series fixes a long standing bug that
+has not caused any trouble and thus is not being prioritised as a fix.
 
-To silence above spare complaint, an RCU annotation should be added
-to "next" pointer of hlist_node structure through hlist_next_rcu()
-macro when iterating over a hlist with hlist_for_each_entry_from_rcu().
 
-By the way, this commit also simplifies the way of dereferencing
-the first element of a hlist_head list by replacing
-hlist_for_each_entry_rcu() with hlist_entry_safe().
+The following changes since commit d6b00fec5dbbe976904b4d77e7d4f9493df5c2ec:
 
-Reported-by: Kbuild test robot <kbuild-all@01.org>
-Cc: Kbuild test robot <kbuild-all@01.org>
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
----
- include/linux/rculist.h |    4 ++--
- net/tipc/name_table.c   |    6 +++---
- 2 files changed, 5 insertions(+), 5 deletions(-)
+  macvlan: play well with ipvlan device (2014-12-09 16:10:06 -0500)
 
-diff --git a/include/linux/rculist.h b/include/linux/rculist.h
-index aa79b3c..866d9c9 100644
---- a/include/linux/rculist.h
-+++ b/include/linux/rculist.h
-@@ -549,8 +549,8 @@ static inline void hlist_add_behind_rcu(struct hlist_node *n,
-  */
- #define hlist_for_each_entry_from_rcu(pos, member)			\
- 	for (; pos;							\
--	     pos = hlist_entry_safe(rcu_dereference((pos)->member.next),\
--			typeof(*(pos)), member))
-+	     pos = hlist_entry_safe(rcu_dereference_raw(hlist_next_rcu( \
-+			&(pos)->member)), typeof(*(pos)), member))
- 
- #endif	/* __KERNEL__ */
- #endif
-diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
-index c8df022..fa4341f 100644
---- a/net/tipc/name_table.c
-+++ b/net/tipc/name_table.c
-@@ -1110,7 +1110,7 @@ static int __tipc_nl_seq_list(struct tipc_nl_msg *msg, u32 *last_type,
- 			      u32 *last_lower, u32 *last_publ)
- {
- 	struct hlist_head *seq_head;
--	struct name_seq *seq = NULL;
-+	struct name_seq *seq;
- 	int err;
- 	int i;
- 
-@@ -1127,8 +1127,8 @@ static int __tipc_nl_seq_list(struct tipc_nl_msg *msg, u32 *last_type,
- 			if (!seq)
- 				return -EPIPE;
- 		} else {
--			hlist_for_each_entry_rcu(seq, seq_head, ns_list)
--				break;
-+			seq = hlist_entry_safe(rcu_dereference_raw(
-+			hlist_first_rcu(seq_head)), struct name_seq, ns_list);
- 			if (!seq)
- 				continue;
- 		}
--- 
-1.7.9.5
+are available in the git repository at:
+
+  https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs2-for-v3.19
+
+for you to fetch changes up to 3b05ac3824ed9648c0d9c02d51d9b54e4e7e874f:
+
+  ipvs: uninitialized data with IP_VS_IPV6 (2014-12-10 17:36:47 +0900)
+
+----------------------------------------------------------------
+Dan Carpenter (1):
+      ipvs: uninitialized data with IP_VS_IPV6
+
+ net/netfilter/ipvs/ip_vs_ftp.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
