@@ -1,44 +1,127 @@
-From: Karen Xie <kxie@chelsio.com>
-Subject: [PATCH net v6 7/7] libcxgbi: free skb after debug prints
-Date: Wed, 10 Dec 2014 08:25:28 -0800
-Message-ID: <201412101625.sBAGPSXC011110@localhost6.localdomain6>
+From: "Varlese, Marco" <marco.varlese@intel.com>
+Subject: [RFC PATCH net-next 1/1] net: Support for switch port configuration
+Date: Wed, 10 Dec 2014 16:23:40 +0000
+Message-ID: <C4896FB061E7DE4AAC93031BDCA044B104AC3257@IRSMSX108.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kxie@chelsio.com, hariprasad@chelsio.com, anish@chelsio.com,
-	hch@infradead.org, James.Bottomley@HansenPartnership.com,
-	michaelc@cs.wisc.edu, davem@davemloft.net
-To: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"jiri@resnulli.us" <jiri@resnulli.us>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:60687 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758008AbaLJQ2o convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 11:28:44 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[PATCH net v6 7/7] libcxgbi: free skb after debug prints
+From: Marco Varlese <marco.varlese@intel.com>
 
-From: Karen Xie <kxie@chelsio.com>
+Switch hardware offers a list of attributes that are configurable
+on a per port basis.
+This patch provides a mechanism to configure switch ports by adding
+an NDO for setting specific values to specific attributes.
+There will be a separate patch that extends iproute2 to call the
+new NDO.
 
-The debug print was accessing the skb after it was freed.
-
-Signed-off-by: Karen Xie <kxie@chelsio.com>
+Signed-off-by: Marco Varlese <marco.varlese@intel.com>
 ---
- drivers/scsi/cxgbi/libcxgbi.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+ include/linux/netdevice.h    |  5 +++++
+ include/uapi/linux/if_link.h |  1 +
+ net/core/rtnetlink.c         | 33 +++++++++++++++++++++++++++++++++
+ 3 files changed, 39 insertions(+)
 
-diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
-index 7da59c3..eb58afc 100644
---- a/drivers/scsi/cxgbi/libcxgbi.c
-+++ b/drivers/scsi/cxgbi/libcxgbi.c
-@@ -2294,10 +2294,12 @@ int cxgbi_conn_xmit_pdu(struct iscsi_task *task)
- 		return err;
- 	}
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c31f74d..4881c7b 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1027,6 +1027,9 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+  * int (*ndo_switch_port_stp_update)(struct net_device *dev, u8 state);
+  *	Called to notify switch device port of bridge port STP
+  *	state change.
++ * int (*ndo_switch_port_set_cfg)(struct net_device *dev,
++ *                                u32 attr, u64 value);
++ *	Called to set specific switch ports attributes.
+  */
+ struct net_device_ops {
+ 	int			(*ndo_init)(struct net_device *dev);
+@@ -1185,6 +1188,8 @@ struct net_device_ops {
+ 							    struct netdev_phys_item_id *psid);
+ 	int			(*ndo_switch_port_stp_update)(struct net_device *dev,
+ 							      u8 state);
++	int			(*ndo_switch_port_set_cfg)(struct net_device *dev,
++							   u32 attr, u64 value);
+ #endif
+ };
  
--	kfree_skb(skb);
- 	log_debug(1 << CXGBI_DBG_ISCSI | 1 << CXGBI_DBG_PDU_TX,
- 		"itt 0x%x, skb 0x%p, len %u/%u, xmit err %d.\n",
- 		task->itt, skb, skb->len, skb->data_len, err);
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index f7d0d2d..b35c314 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -146,6 +146,7 @@ enum {
+ 	IFLA_PHYS_PORT_ID,
+ 	IFLA_CARRIER_CHANGES,
+ 	IFLA_PHYS_SWITCH_ID,
++	IFLA_SWITCH_PORT_CFG,
+ 	__IFLA_MAX
+ };
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index eaa057f..e1be9ca 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1389,6 +1389,25 @@ static int validate_linkmsg(struct net_device *dev, struct nlattr *tb[])
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_NET_SWITCHDEV
++static int do_setswcfg(struct net_device *dev, struct nlattr *attr)
++{
++	int rem, err = -EINVAL;
++	struct nlattr *v;
++	const struct net_device_ops *ops = dev->netdev_ops;
 +
-+	kfree_skb(skb);
++	nla_for_each_nested(v, attr, rem) {
++		u32 op = nla_type(v);
++		u64 value = nla_get_u64(v);
 +
- 	iscsi_conn_printk(KERN_ERR, task->conn, "xmit err %d.\n", err);
- 	iscsi_conn_failure(task->conn, ISCSI_ERR_XMIT_FAILED);
- 	return err;
++		err = ops->ndo_switch_port_set_cfg(dev, op, value);
++		if (err)
++			break;
++	}
++	return err;
++}
++#endif
++
+ static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
+ {
+ 	int rem, err = -EINVAL;
+@@ -1740,6 +1759,20 @@ static int do_setlink(const struct sk_buff *skb,
+ 			status |= DO_SETLINK_NOTIFY;
+ 		}
+ 	}
++#ifdef CONFIG_NET_SWITCHDEV
++	if (tb[IFLA_SWITCH_PORT_CFG]) {
++		err = -EOPNOTSUPP;
++		if (!ops->ndo_switch_port_set_cfg)
++			goto errout;
++		if (!ops->ndo_switch_parent_id_get)
++			goto errout;
++		err = do_setswcfg(dev, tb[IFLA_SWITCH_PORT_CFG]);
++		if (err < 0)
++			goto errout;
++
++		status |= DO_SETLINK_NOTIFY;
++	}
++#endif
+ 	err = 0;
+ 
+ errout:
+-- 
+1.8.5.3
