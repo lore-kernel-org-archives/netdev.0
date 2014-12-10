@@ -1,35 +1,33 @@
-From: Hariprasad S <hariprasad@chelsio.com>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Wed, 10 Dec 2014 15:44:01 +0530
-Message-ID: <20141210101359.GA3891@hariprasad-pc>
-References: <20141210195405.5af40846@canb.auug.org.au>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH net-next 0/3] net: fec: driver code clean and bug fix
+Date: Wed, 10 Dec 2014 17:54:46 +0800
+Message-ID: <1418205289-7730-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-next@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141210195405.5af40846@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <bhutchings@solarflare.com>,
+	<stephen@networkplumber.org>, <b38611@freescale.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0138.outbound.protection.outlook.com ([65.55.169.138]:20689
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752117AbaLJK2W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Dec 2014 05:28:22 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 10, 2014 at 19:54:05 +1100, Stephen Rothwell wrote:
-> Hi all,
-> 
-> After merging the net-next tree, today's linux-next build (powerpc
-> allyesconfig) failed like this:
-> 
-> drivers/net/ethernet/chelsio/cxgb4vf/built-in.o:(.opd+0x630): multiple definition of `t4_bar2_sge_qregs'
-> drivers/net/ethernet/chelsio/cxgb4/built-in.o:(.opd+0x14d0): first defined here
-> drivers/net/ethernet/chelsio/cxgb4vf/built-in.o: In function `.t4_bar2_sge_qregs':
-> (.text+0x9220): multiple definition of `.t4_bar2_sge_qregs'
-> drivers/net/ethernet/chelsio/cxgb4/built-in.o:(.text+0x24e24): first defined here
-> 
-> Caused by commit e85c9a7abfa4 ("cxgb4/cxgb4vf: Add code to calculate T5
-> BAR2 Offsets for SGE Queue Registers") which added both versions.  :-(
-> 
-> I have applied this fir patch for today (including the subject
-> typo :-)):
-> 
-My bad. Thanks for the fix.
+The patch serial include code clean and bug fix:
+Patch#1: avoid dummy operation during suspend/resume test.
+Patch#2: bug fix for i.MX6SX SOC that clean all interrupt events during MAC initial process.
+Patch#3: before phy device link status is up, only enable MDIO bus interrupt.
+
+Fugang Duan (3):
+  net: fec: reset fep link status in suspend function
+  net: fec: clear all interrupt events to support i.MX6SX
+  net: fec: only enable mdio interrupt before phy device link up
+
+ drivers/net/ethernet/freescale/fec_main.c |   14 ++++++++++++--
+ 1 files changed, 12 insertions(+), 2 deletions(-)
+
+-- 
+1.7.8
