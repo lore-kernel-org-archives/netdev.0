@@ -1,41 +1,25 @@
-From: Karen Xie <kxie@chelsio.com>
-Subject: [PATCH net v7 0/7] cxgb4/cxgbi: misc. fixes for cxgb4i
-Date: Wed, 10 Dec 2014 12:57:58 -0800
-Message-ID: <201412102057.sBAKvwYq011564@localhost6.localdomain6>
+From: David Miller <davem@davemloft.net>
+Subject: net merged into net-next, and bug fixes only
+Date: Wed, 10 Dec 2014 16:00:19 -0500 (EST)
+Message-ID: <20141210.160019.1091764713458194366.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kxie@chelsio.com, hariprasad@chelsio.com, anish@chelsio.com,
-	hch@infradead.org, James.Bottomley@HansenPartnership.com,
-	michaelc@cs.wisc.edu, davem@davemloft.net
-To: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47829 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933150AbaLJVAV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 16:00:21 -0500
+Received: from localhost (nat-pool-rdu-t.redhat.com [66.187.233.202])
+	(Authenticated sender: davem-davemloft)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 4A15C584B24
+	for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 13:00:21 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[PATCH net v7 0/7] cxgb4/cxgbi: misc. fixes for cxgb4i
 
-This patch set fixes cxgb4i's tx credit calculation and adds handling of additional rx message and negative advice types. It also removes the duplicate code in cxgb4i to set the outgoing queues of a packet. 
+Please do not submit any more new-feature/cleanup patches
+at this time, only bug fixes.
 
-Karen Xie (7):
-cxgb4i: fix tx immediate data credit check
-cxgb4i: fix credit check for tx_data_wr
-cxgb4/cxgb4i: set max. outgoing pdu length in the f/w
-cxgb4i: add more types of negative advice 
-cxgb4i: handle non pdu-aligned rx data
-cxgb4i: use cxgb4's set_wr_txq() for setting outgoing queues
-libcxgbi: fix the debug print accessing skb after it is freed
-
-Sending to net as the fixes are mostly in the network area and it touches cxgb4's header file (t4fw_api.h).
-
-v2 corrects the "CHECK"s flagged by checkpatch.pl --strict.
-
-v3 splits the 3rd patch from v2 to two separate patches. Adds detailed commit messages and makes subject more concise. Patch 3/6 also changes the return value of is_neg_adv() from int to bool.
-
-v4 -- please ignore.
-
-v5 splits the 1st patch from v3 to two separate patches and reduces code duplication in make_tx_data_wr().
-
-v6 removed the code style cleanup in the 2nd patch. The style update will be addressed in a separate patch.
-
-v7 updates the 7th patch with more detailed commit message.
+Thanks.
