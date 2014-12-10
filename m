@@ -1,33 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v8 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Wed, 10 Dec 2014 12:02:44 -0500 (EST)
-Message-ID: <20141210.120244.722990295139076460.davem@davemloft.net>
-References: <2331317.LV3gPP3odb@wuerfel>
-	<20141210.110732.519666115784722516.davem@davemloft.net>
-	<34612839.hAkXUcbKUQ@wuerfel>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port configuration
+Date: Wed, 10 Dec 2014 09:03:51 -0800
+Message-ID: <54887CF7.70708@gmail.com>
+References: <C4896FB061E7DE4AAC93031BDCA044B104AC3257@IRSMSX108.ger.corp.intel.com> <20141210165018.GG1863@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, mark.rutland@arm.com,
-	devicetree@vger.kernel.org, f.fainelli@gmail.com,
-	linux@arm.linux.org.uk, eric.dumazet@gmail.com,
-	sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
-	agraf@suse.de, xuwei5@hisilicon.com, David.Laight@aculab.com,
-	dingtianhong@huawei.com, zhangfei.gao@linaro.org
-To: arnd@arndb.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45813 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755312AbaLJRCt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 12:02:49 -0500
-In-Reply-To: <34612839.hAkXUcbKUQ@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Varlese, Marco" <marco.varlese@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141210165018.GG1863@nanopsycho.orion>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 10 Dec 2014 17:36:46 +0100
+On 12/10/2014 08:50 AM, Jiri Pirko wrote:
+> Wed, Dec 10, 2014 at 05:23:40PM CET, marco.varlese@intel.com wrote:
+>> From: Marco Varlese <marco.varlese@intel.com>
+>>
+>> Switch hardware offers a list of attributes that are configurable
+>> on a per port basis.
+>> This patch provides a mechanism to configure switch ports by adding
+>> an NDO for setting specific values to specific attributes.
+>> There will be a separate patch that extends iproute2 to call the
+>> new NDO.
+>
+>
+> What are these attributes? Can you give some examples. I'm asking
+> because there is a plan to pass generic attributes to switch ports
+> replacing current specific ndo_switch_port_stp_update. In this case,
+> bridge is setting that attribute.
+>
+> Is there need to set something directly from userspace or does it make
+> rather sense to use involved bridge/ovs/bond ? I think that both will be
+> needed.
 
-> Or is there any better alternative for broken hardware that lacks
-> a TX-complete interrupt?
++1
 
-The only option is an hrtimer or similar.
+I think for many attributes it would be best to have both. The in
+kernel callers and netlink userspace can use the same driver ndo_ops.
+
+But then we don't _require_ any specific bridge/ovs/etc module. And we
+may have some attributes that are not specific to any existing software
+module. I'm guessing Marco has some examples of these.
+
+[...]
+
+
+-- 
+John Fastabend         Intel Corporation
