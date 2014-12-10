@@ -1,53 +1,70 @@
 From: Karen Xie <kxie@chelsio.com>
-Subject: RE: [PATCH net v4 0/7] cxgb4/cxgbi: misc. fixes for cxgb4i
-Date: Wed, 10 Dec 2014 01:46:32 +0000
-Message-ID: <1442C3287A121140B690F7F20F94463D82E186@nice.asicdesigners.com>
-References: <201412100132.sBA1WpsR024833@localhost6.localdomain6>
+Subject: [PATCH net v5 5/7] cxgb4i: handle non-pdu-aligned rx data
+Date: Tue, 09 Dec 2014 17:43:37 -0800
+Message-ID: <201412100143.sBA1hbBV024936@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Hariprasad S <hariprasad@chelsio.com>,
-	Anish Bhatt <anish@chelsio.com>,
-	"hch@infradead.org" <hch@infradead.org>,
-	"James.Bottomley@HansenPartnership.com"
-	<James.Bottomley@HansenPartnership.com>,
-	"michaelc@cs.wisc.edu" <michaelc@cs.wisc.edu>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Karen Xie <kxie@chelsio.com>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <201412100132.sBA1WpsR024833@localhost6.localdomain6>
-Content-Language: en-US
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kxie@chelsio.com, hariprasad@chelsio.com, anish@chelsio.com,
+	hch@infradead.org, James.Bottomley@HansenPartnership.com,
+	michaelc@cs.wisc.edu, davem@davemloft.net
+To: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:17881 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753705AbaLJBqd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 20:46:33 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Please ignore v4. Sent v5 already.
+[PATCH net v5 5/7] cxgb4i: handle non-pdu-aligned rx data
 
------Original Message-----
-From: Karen Xie [mailto:kxie@chelsio.com] 
-Sent: Tuesday, December 09, 2014 5:33 PM
-To: linux-scsi@vger.kernel.org; netdev@vger.kernel.org
-Cc: Karen Xie; Hariprasad S; Anish Bhatt; hch@infradead.org; James.Bottomley@HansenPartnership.com; michaelc@cs.wisc.edu; davem@davemloft.net
-Subject: [PATCH net v4 0/7] cxgb4/cxgbi: misc. fixes for cxgb4i
+From: Karen Xie <kxie@chelsio.com>
 
-[PATCH net v4 0/7] cxgb4/cxgbi: misc. fixes for cxgb4i
+Abort the connection upon receiving of cpl_rx_data, which means the pdu cannot be recovered from the tcp stream. This generally is due to pdu header corruption.
 
-This patch set fixes cxgb4i's tx credit calculation and adds handling of additional rx message and negative advice types. It also removes the duplicate code in cxgb4i to set the outgoing queues of a packet. 
+Signed-off-by: Karen Xie <kxie@chelsio.com>
+---
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   22 ++++++++++++++++++++++
+ 1 files changed, 22 insertions(+), 0 deletions(-)
 
-Karen Xie (7):
-cxgb4i: fix tx immediate data credit check
-cxgb4i: fix credit check for tx_data_wr
-cxgb4/cxgb4i: set max. outgoing pdu length in the f/w
-cxgb4i: add more types of negative advice 
-cxgb4i: handle non pdu-aligned rx data
-cxgb4i: use cxgb4's set_wr_txq() for setting outgoing queues
-libcxgbi: fix the debug print accessing skb after it is freed
-
-Sending to net as the fixes are mostly in the network area and it touches cxgb4's header file (t4fw_api.h).
-
-v2 corrects the "CHECK"s flagged by checkpatch.pl --strict.
-
-v3 splits the 3rd patch from v2 to two seperate patches. Adds detailed commit messages and makes subject more concise. Patch 3/6 also changes the return value of is_neg_adv() from int to bool.
-
-v4 splits the 1st patch from v3 to two seperate patches and reduces code duplication in make_tx_data_wr().
+diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+index c4a22e9..bc66308 100644
+--- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
++++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+@@ -1034,6 +1034,27 @@ rel_skb:
+ 	__kfree_skb(skb);
+ }
+ 
++static void do_rx_data(struct cxgbi_device *cdev, struct sk_buff *skb)
++{
++	struct cxgbi_sock *csk;
++	struct cpl_rx_data *cpl = (struct cpl_rx_data *)skb->data;
++	unsigned int tid = GET_TID(cpl);
++	struct cxgb4_lld_info *lldi = cxgbi_cdev_priv(cdev);
++	struct tid_info *t = lldi->tids;
++
++	csk = lookup_tid(t, tid);
++	if (!csk) {
++		pr_err("can't find connection for tid %u.\n", tid);
++	} else {
++		/* not expecting this, reset the connection. */
++		pr_err("csk 0x%p, tid %u, rcv cpl_rx_data.\n", csk, tid);
++		spin_lock_bh(&csk->lock);
++		send_abort_req(csk);
++		spin_unlock_bh(&csk->lock);
++	}
++	__kfree_skb(skb);
++}
++
+ static void do_rx_iscsi_hdr(struct cxgbi_device *cdev, struct sk_buff *skb)
+ {
+ 	struct cxgbi_sock *csk;
+@@ -1453,6 +1474,7 @@ cxgb4i_cplhandler_func cxgb4i_cplhandlers[NUM_CPL_CMDS] = {
+ 	[CPL_SET_TCB_RPL] = do_set_tcb_rpl,
+ 	[CPL_RX_DATA_DDP] = do_rx_data_ddp,
+ 	[CPL_RX_ISCSI_DDP] = do_rx_data_ddp,
++	[CPL_RX_DATA] = do_rx_data,
+ };
+ 
+ int cxgb4i_ofld_init(struct cxgbi_device *cdev)
