@@ -1,55 +1,52 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 1/3] netlink: use jhash as hashfn for rhashtable
-Date: Wed, 10 Dec 2014 16:33:10 +0100
-Message-ID: <1418225592-29322-2-git-send-email-dborkman@redhat.com>
-References: <1418225592-29322-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, tgraf@suug.ch, hannes@stressinduktion.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH 1/6] net: Split netdev_alloc_frag into
+ __alloc_page_frag and add __napi_alloc_frag
+Date: Wed, 10 Dec 2014 08:02:08 -0800
+Message-ID: <1418227328.27198.25.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20141210033902.2114.68658.stgit@ahduyck-vm-fedora20>
+	 <20141210034042.2114.29360.stgit@ahduyck-vm-fedora20>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ast@plumgrid.com, davem@davemloft.net,
+	brouer@redhat.com
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37962 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756341AbaLJPfo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Dec 2014 10:35:44 -0500
-In-Reply-To: <1418225592-29322-1-git-send-email-dborkman@redhat.com>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:39939 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932116AbaLJQCL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 11:02:11 -0500
+Received: by mail-ig0-f174.google.com with SMTP id hn15so6679354igb.7
+        for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 08:02:10 -0800 (PST)
+In-Reply-To: <20141210034042.2114.29360.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For netlink, we shouldn't be using arch_fast_hash() as a hashing
-discipline, but rather jhash() instead.
+On Tue, 2014-12-09 at 19:40 -0800, Alexander Duyck wrote:
 
-Since netlink sockets can be opened by any user, a local attacker
-would be able to easily create collisions with the DPDK-derived
-arch_fast_hash(), which trades off performance for security by
-using crc32 CPU instructions on x86_64.
+> I also took the opportunity to refactor the core bits that were placed in
+> __alloc_page_frag.  First I updated the allocation to do either a 32K
+> allocation or an order 0 page.  This is based on the changes in commmit
+> d9b2938aa where it was found that latencies could be reduced in case of
+> failures. 
 
-While it might have a legimite use case in other places, it should
-be avoided in netlink context, though. As rhashtable's API is very
-flexible, we could later on still decide on other hashing disciplines,
-if legitimate.
 
-Reference: http://thread.gmane.org/gmane.linux.kernel/1844123
-Fixes: e341694e3eb5 ("netlink: Convert netlink_lookup() to use RCU protected hash table")
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Acked-by: Thomas Graf <tgraf@suug.ch>
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/netlink/af_netlink.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+GFP_KERNEL and GFP_ATOMIC allocation constraints are quite different.
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 63aa5c8..9642e52 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -3129,7 +3129,7 @@ static int __init netlink_proto_init(void)
- 		.head_offset = offsetof(struct netlink_sock, node),
- 		.key_offset = offsetof(struct netlink_sock, portid),
- 		.key_len = sizeof(u32), /* portid */
--		.hashfn = arch_fast_hash,
-+		.hashfn = jhash,
- 		.max_shift = 16, /* 64K */
- 		.grow_decision = rht_grow_above_75,
- 		.shrink_decision = rht_shrink_below_30,
--- 
-1.7.11.7
+I have no idea how expensive it is to attempt order-3, order-2, order-1
+allocations with GFP_ATOMIC.
+
+I did an interesting experiment on mlx4 driver, allocating the pages
+needed to store the fragments, using a small layer before the
+alloc_page() that is normally used :
+
+- Attempt order-9 allocations, and use split_page() to give the
+individual pages.
+
+Boost in performance is 10% on TCP bulk receive, because of less TLB
+misses.
+
+With huge amount of memory these days, alloc_page() tend to give pages
+spread all over memory, with poor TLB locality.
+
+With this strategy, a 1024 RX ring is backed by 2 huge pages only.
