@@ -1,73 +1,53 @@
-From: Karen Xie <kxie@chelsio.com>
-Subject: RE: [PATCH net v5 2/7] cxgb4i: fix credit check for tx_data_wr
-Date: Wed, 10 Dec 2014 16:27:22 +0000
-Message-ID: <1442C3287A121140B690F7F20F94463D82EC63@nice.asicdesigners.com>
-References: <201412100143.sBA1hSF4024918@localhost6.localdomain6>
- <54885415.4020105@cogentembedded.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v8 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Wed, 10 Dec 2014 17:36:46 +0100
+Message-ID: <34612839.hAkXUcbKUQ@wuerfel>
+References: <5487C357.9030507@huawei.com> <2331317.LV3gPP3odb@wuerfel> <20141210.110732.519666115784722516.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Hariprasad S <hariprasad@chelsio.com>,
-	Anish Bhatt <anish@chelsio.com>,
-	"hch@infradead.org" <hch@infradead.org>,
-	"James.Bottomley@HansenPartnership.com"
-	<James.Bottomley@HansenPartnership.com>,
-	"michaelc@cs.wisc.edu" <michaelc@cs.wisc.edu>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Transfer-Encoding: 7Bit
+Cc: David Miller <davem@davemloft.net>, mark.rutland@arm.com,
+	devicetree@vger.kernel.org, f.fainelli@gmail.com,
+	linux@arm.linux.org.uk, eric.dumazet@gmail.com,
+	sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
+	agraf@suse.de, xuwei5@hisilicon.com, David.Laight@aculab.com,
+	dingtianhong@huawei.com, zhangfei.gao@linaro.org
+To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:12354 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756091AbaLJQ3I convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 11:29:08 -0500
-In-Reply-To: <54885415.4020105@cogentembedded.com>
-Content-Language: en-US
+Received: from mout.kundenserver.de ([212.227.126.131]:49660 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755136AbaLJQhV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 11:37:21 -0500
+In-Reply-To: <20141210.110732.519666115784722516.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for the review. V6 has been submitted to address this.
+On Wednesday 10 December 2014 11:07:32 David Miller wrote:
+> From: Arnd Bergmann <arnd@arndb.de>
+> Date: Wed, 10 Dec 2014 10:35:20 +0100
+> 
+> > On Wednesday 10 December 2014 14:45:29 Ding Tianhong wrote:
+> >> 
+> >> Miss this code, I think the best way is skb_orphan(skb), just like the cxgb3 drivers, some hardware
+> >> didn't use the tx inq to free dmad Tx packages.
+> > 
+> > The problem with skb_orphan is that you are telling the network stack that
+> > the packet is now out of its reach and it will no longer be able to take
+> > queued packets into account.
+> 
+> skb_orphan() also does not release netfilter resources attached to the
+> packet.
+> 
+> Really, all drivers must free TX SKBs in a small, finite, amount of
+> time after submission.
+> 
+> There is no way around this.
 
------Original Message-----
-From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com] 
-Sent: Wednesday, December 10, 2014 6:09 AM
-To: Karen Xie; linux-scsi@vger.kernel.org; netdev@vger.kernel.org
-Cc: Hariprasad S; Anish Bhatt; hch@infradead.org; James.Bottomley@HansenPartnership.com; michaelc@cs.wisc.edu; davem@davemloft.net
-Subject: Re: [PATCH net v5 2/7] cxgb4i: fix credit check for tx_data_wr
+I see. Do you see a problem with returning early from napi->poll()
+without calling napi_complete() when the TX queue remains full at
+the end of the poll function?
 
-Hello.
+Or is there any better alternative for broken hardware that lacks
+a TX-complete interrupt?
 
-On 12/10/2014 4:43 AM, Karen Xie wrote:
-
-> [PATCH net v5 2/7] cxgb4i: fix credit check for tx_data_wr
-
-> From: Karen Xie <kxie@chelsio.com>
-
-> make sure any tx credit related checking is done before adding the wr header.
-
-> Signed-off-by: Karen Xie <kxie@chelsio.com>
-> ---
->   drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |    9 +++++----
->   1 files changed, 5 insertions(+), 4 deletions(-)
-
-> diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c 
-> b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-> index f119a67..56dbd25 100644
-> --- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-> +++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-> @@ -547,15 +547,16 @@ static inline void make_tx_data_wr(struct 
-> cxgbi_sock *csk, struct sk_buff *skb,
-[...]
->   		req->op_to_immdlen = htonl(FW_WR_OP(FW_OFLD_TX_DATA_WR) |
-> -					FW_WR_COMPL(1) |
-> -					FW_WR_IMMDLEN(dlen));
-> +					   FW_WR_COMPL(1) |
-> +					   FW_WR_IMMDLEN(dlen));
->   		req->flowid_len16 = htonl(FW_WR_FLOWID(csk->tid) |
-> -						FW_WR_LEN16(credits));
-> +					  FW_WR_LEN16(credits));
-
-    The above looks like unrelated cleanup, worth putting in a separate net-next patch...
-
-WBR, Sergei
+	Arnd
