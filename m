@@ -1,54 +1,42 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: PATCH] Revert "bridge: include in6.h in if_bridge.h for struct
- in6_addr"
-Date: Tue, 9 Dec 2014 20:30:07 -0800
-Message-ID: <20141209203007.188651df@urahara>
+Subject: Re: [PATCH iproute2 REGRESSIONS v3] ss: Fix layout/output issues
+ introduced by regression
+Date: Tue, 9 Dec 2014 20:32:30 -0800
+Message-ID: <20141209203230.55e6a45e@urahara>
+References: <1417799951-25143-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Gregory Fong <gregory.0xf0@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:45528 "EHLO
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:40335 "EHLO
 	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754909AbaLJEaS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 23:30:18 -0500
-Received: by mail-pd0-f182.google.com with SMTP id p10so1982919pdj.13
-        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 20:30:17 -0800 (PST)
+	with ESMTP id S1754909AbaLJEcj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 23:32:39 -0500
+Received: by mail-pd0-f182.google.com with SMTP id p10so1949005pdj.41
+        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 20:32:39 -0800 (PST)
+In-Reply-To: <1417799951-25143-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 66f1c44887ba4f47d617f8ae21cf8e04e1892bd7.
+On Fri,  5 Dec 2014 19:19:11 +0200
+Vadim Kochan <vadim4j@gmail.com> wrote:
 
-iproute2 uses sanitized kernel headers, and this change broke the build.
-The problem is that the iproute2 ip/iplink_bridge_slave.c include if_bridge.h
-but this causes a redefintion error when Glibc <netlink/in.h> is included.
+> This patch fixes the following issues which was introduced by me in commits:
+> 
+>     #1 (2dc854854b7f1b) ss: Fixed broken output for Netlink 'Peer Address:Port' column
+>     ISSUE: Broken layout when all sockets are printed out
+> 
+>     #2 (eef43b5052afb7) ss: Identify more netlink protocol names
+>     ISSUE: Protocol id is not printed if 'numbers only' output was specified (-n)
+> 
+> Also aligned the width of the local/peer ports to be more wider.
+> 
+> I tested with a lot of option combinations (I may miss some test cases),
+> but layout seems to me better than the previous released version of iproute2/ss.
+> 
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 
-Since iproute2 is arguably the most important user of network headers,
-the uapi header change should be reverted.
-
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-
----
-Please update stable as well.
-
- include/uapi/linux/if_bridge.h | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
-index b03ee8f..439fd0d 100644
---- a/include/uapi/linux/if_bridge.h
-+++ b/include/uapi/linux/if_bridge.h
-@@ -15,7 +15,6 @@
- 
- #include <linux/types.h>
- #include <linux/if_ether.h>
--#include <linux/in6.h>
- 
- #define SYSFS_BRIDGE_ATTR	"bridge"
- #define SYSFS_BRIDGE_FDB	"brforward"
--- 
-2.1.3
+Applied.
+Thanks for following through and dealing with this.
