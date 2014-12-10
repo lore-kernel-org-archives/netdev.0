@@ -1,30 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] irda: Convert function pointer arrays and uses to const
-Date: Wed, 10 Dec 2014 15:33:36 -0500 (EST)
-Message-ID: <20141210.153336.869064783048125658.davem@davemloft.net>
-References: <1418236138.18092.13.camel@perches.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1418236138.18092.13.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH for 3.19] rtlwifi: rtl8192ce: Set fw_ready flag
+Date: Wed, 10 Dec 2014 14:38:29 -0600
+Message-ID: <1418243909-23428-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
+To: linville@tuxdriver.com
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Wed, 10 Dec 2014 10:28:58 -0800
+The setting of this flag was missed in previous modifications.
 
-> Making things const is a good thing.
-> 
-> (x86-64 defconfig with all irda)
-> $ size net/irda/built-in.o*
->    text	   data	    bss	    dec	    hex	filename
->  109276	   1868	    244	 111388	  1b31c	net/irda/built-in.o.new
->  108828	   2316	    244	 111388	  1b31c	net/irda/built-in.o.old
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Stable <stable@vger.kernel.org>
+---
+ drivers/net/wireless/rtlwifi/rtl8192ce/hw.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Applied, thanks Joe.
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+index eecb79f..1b73158 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
+@@ -959,6 +959,7 @@ int rtl92ce_hw_init(struct ieee80211_hw *hw)
+ 	local_save_flags(flags);
+ 	local_irq_enable();
+ 
++	rtlhal->fw_ready = false;
+ 	rtlpriv->intf_ops->disable_aspm(hw);
+ 	rtstatus = _rtl92ce_init_mac(hw);
+ 	if (!rtstatus) {
+@@ -975,6 +976,7 @@ int rtl92ce_hw_init(struct ieee80211_hw *hw)
+ 		goto exit;
+ 	}
+ 
++	rtlhal->fw_ready = true;
+ 	rtlhal->last_hmeboxnum = 0;
+ 	rtl92c_phy_mac_config(hw);
+ 	/* because last function modify RCR, so we update
+-- 
+2.1.2
