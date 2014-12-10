@@ -1,36 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 1/6] net: Split netdev_alloc_frag into
- __alloc_page_frag and add __napi_alloc_frag
-Date: Wed, 10 Dec 2014 09:13:00 -0800
-Message-ID: <1418231580.27198.30.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20141210033902.2114.68658.stgit@ahduyck-vm-fedora20>
-	 <20141210034042.2114.29360.stgit@ahduyck-vm-fedora20>
-	 <1418227328.27198.25.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <54887DB0.7040903@gmail.com>
+From: Hannes Frederic Sowa <hannes@redhat.com>
+Subject: Re: atomic operations bottleneck in the IPv6 stack
+Date: Wed, 10 Dec 2014 18:16:03 +0100
+Message-ID: <1418231763.24395.2.camel@redhat.com>
+References: <SN2PR03MB079DA7799199CD98C52B5389E620@SN2PR03MB079.namprd03.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	netdev@vger.kernel.org, ast@plumgrid.com, davem@davemloft.net,
-	brouer@redhat.com
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"R89243@freescale.com" <R89243@freescale.com>,
+	Madalin-Cristian Bucur <madalin.bucur@freescale.com>,
+	"Razvan.Ungureanu@freescale.com" <Razvan.Ungureanu@freescale.com>
+To: "cristian.bercaru@freescale.com" <cristian.bercaru@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:57497 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755924AbaLJRNI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 12:13:08 -0500
-Received: by mail-ig0-f169.google.com with SMTP id hl2so8031284igb.4
-        for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 09:13:08 -0800 (PST)
-In-Reply-To: <54887DB0.7040903@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:33460 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932247AbaLJRQU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Dec 2014 12:16:20 -0500
+In-Reply-To: <SN2PR03MB079DA7799199CD98C52B5389E620@SN2PR03MB079.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-12-10 at 09:06 -0800, Alexander Duyck wrote:
+On Mi, 2014-12-10 at 16:56 +0000, cristian.bercaru@freescale.com wrote:
+> 
+> It seems to me that the atomic operations on the IPv6 forwarding path
+> are a bottleneck and they are not scalable with the number of cores.
+> Am I right? What improvements can be brought to the IPv6 kernel code
+> to make it less dependent of atomic operations/variables?
 
-> That is an interesting idea.  I wonder if there would be a similar
-> benefit for small packets.  If nothing else I might try a few
-> experiments with ixgbe to see if I can take advantage of something similar.
+For a starter, something like the following commit:
 
-I was planning to submit a core infrastructure when net-next reopens, a
-simple layer to use instead of alloc_page(), and immediately usable in
-Intel drivers.
+commit d26b3a7c4b3b26319f18bb645de93eba8f4bdcd5
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Tue Jul 31 05:45:30 2012 +0000
+
+    ipv4: percpu nh_rth_output cache
+
+Bye,
+Hannes
