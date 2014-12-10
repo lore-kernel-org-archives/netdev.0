@@ -1,212 +1,141 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH 2/6] net: Pull out core bits of __netdev_alloc_skb
- and add __napi_alloc_skb
-Date: Tue, 09 Dec 2014 19:40:49 -0800
-Message-ID: <20141210034049.2114.84335.stgit@ahduyck-vm-fedora20>
+Subject: [net-next PATCH 3/6] ethernet/intel: Use napi_alloc_skb
+Date: Tue, 09 Dec 2014 19:40:56 -0800
+Message-ID: <20141210034056.2114.52972.stgit@ahduyck-vm-fedora20>
 References: <20141210033902.2114.68658.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, davem@davemloft.net, eric.dumazet@gmail.com,
-	brouer@redhat.com
+Cc: brouer@redhat.com, ast@plumgrid.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	eric.dumazet@gmail.com, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40076 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:43682 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753494AbaLJDkz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2014 22:40:55 -0500
+	id S1754406AbaLJDlB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2014 22:41:01 -0500
 In-Reply-To: <20141210033902.2114.68658.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change pulls the core functionality out of __netdev_alloc_skb and
-places them in a new function named __alloc_rx_skb.  The reason for doing
-this is to make these bits accessible to a new function __napi_alloc_skb.
-In addition __alloc_rx_skb now has a new flags value that is used to
-determine which page frag pool to allocate from.  If the SKB_ALLOC_NAPI
-flag is set then the NAPI pool is used.  The advantage of this is that we
-do not have to use local_irq_save/restore when accessing the NAPI pool from
-NAPI context.
+This change replaces calls to netdev_alloc_skb_ip_align with
+napi_alloc_skb.  The advantage of napi_alloc_skb is currently the fact that
+the page allocation doesn't make use of any irq disable calls.
 
-In my test setup I saw at least 11ns of savings using the napi_alloc_skb
-function versus the netdev_alloc_skb function, most of this being due to
-the fact that we didn't have to call local_irq_save/restore.
+There are few spots where I couldn't replace the calls as the buffer
+allocation routine is called as a part of init which is outside of the
+softirq context.
 
-The main use case for napi_alloc_skb would be for things such as copybreak
-or page fragment based receive paths where an skb is allocated after the
-data has been received instead of before.
-
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- include/linux/skbuff.h |    9 ++++++
- net/core/dev.c         |    2 +
- net/core/skbuff.c      |   74 +++++++++++++++++++++++++++++++++++++++++++-----
- 3 files changed, 77 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/e1000/e1000_main.c |    2 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c    |    2 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c |    4 ++--
+ drivers/net/ethernet/intel/igb/igb_main.c     |    3 +--
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c   |    6 +++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
+ 6 files changed, 10 insertions(+), 11 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index b2b53b0..af79302 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -151,6 +151,7 @@ struct net_device;
- struct scatterlist;
- struct pipe_inode_info;
- struct iov_iter;
-+struct napi_struct;
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 862d198..83140cb 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -4100,7 +4100,7 @@ static bool e1000_tbi_should_accept(struct e1000_adapter *adapter,
+ static struct sk_buff *e1000_alloc_rx_skb(struct e1000_adapter *adapter,
+ 					  unsigned int bufsz)
+ {
+-	struct sk_buff *skb = netdev_alloc_skb_ip_align(adapter->netdev, bufsz);
++	struct sk_buff *skb = napi_alloc_skb(&adapter->napi, bufsz);
  
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- struct nf_conntrack {
-@@ -673,6 +674,7 @@ struct sk_buff {
+ 	if (unlikely(!skb))
+ 		adapter->alloc_rx_buff_failed++;
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 88936aa..5c82c80 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1016,7 +1016,7 @@ static bool e1000_clean_rx_irq(struct e1000_ring *rx_ring, int *work_done,
+ 		 */
+ 		if (length < copybreak) {
+ 			struct sk_buff *new_skb =
+-			    netdev_alloc_skb_ip_align(netdev, length);
++				napi_alloc_skb(&adapter->napi, length);
+ 			if (new_skb) {
+ 				skb_copy_to_linear_data_offset(new_skb,
+ 							       -NET_IP_ALIGN,
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+index f0d9d6c..3418665 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+@@ -308,8 +308,8 @@ static struct sk_buff *fm10k_fetch_rx_buffer(struct fm10k_ring *rx_ring,
+ #endif
  
- #define SKB_ALLOC_FCLONE	0x01
- #define SKB_ALLOC_RX		0x02
-+#define SKB_ALLOC_NAPI		0x04
+ 		/* allocate a skb to store the frags */
+-		skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
+-						FM10K_RX_HDR_LEN);
++		skb = napi_alloc_skb(&rx_ring->q_vector->napi,
++				     FM10K_RX_HDR_LEN);
+ 		if (unlikely(!skb)) {
+ 			rx_ring->rx_stats.alloc_failed++;
+ 			return NULL;
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index bfd60577..675a330 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -6641,8 +6641,7 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
+ #endif
  
- /* Returns true if the skb was allocated from PFMEMALLOC reserves */
- static inline bool skb_pfmemalloc(const struct sk_buff *skb)
-@@ -2165,6 +2167,13 @@ static inline struct sk_buff *netdev_alloc_skb_ip_align(struct net_device *dev,
- }
- 
- void *napi_alloc_frag(unsigned int fragsz);
-+struct sk_buff *__napi_alloc_skb(struct napi_struct *napi,
-+				 unsigned int length, gfp_t gfp_mask);
-+static inline struct sk_buff *napi_alloc_skb(struct napi_struct *napi,
-+					     unsigned int length)
-+{
-+	return __napi_alloc_skb(napi, length, GFP_ATOMIC);
-+}
- 
- /**
-  * __dev_alloc_pages - allocate page for network Rx
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3f191da..80f798d 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4172,7 +4172,7 @@ struct sk_buff *napi_get_frags(struct napi_struct *napi)
- 	struct sk_buff *skb = napi->skb;
- 
- 	if (!skb) {
--		skb = netdev_alloc_skb_ip_align(napi->dev, GRO_MAX_HEAD);
-+		skb = napi_alloc_skb(napi, GRO_MAX_HEAD);
- 		napi->skb = skb;
- 	}
- 	return skb;
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 56ed17c..ae13ef6 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -444,10 +444,13 @@ void *napi_alloc_frag(unsigned int fragsz)
- EXPORT_SYMBOL(napi_alloc_frag);
- 
- /**
-- *	__netdev_alloc_skb - allocate an skbuff for rx on a specific device
-- *	@dev: network device to receive on
-+ *	__alloc_rx_skb - allocate an skbuff for rx
-  *	@length: length to allocate
-  *	@gfp_mask: get_free_pages mask, passed to alloc_skb
-+ *	@flags:	If SKB_ALLOC_RX is set, __GFP_MEMALLOC will be used for
-+ *		allocations in case we have to fallback to __alloc_skb()
-+ *		If SKB_ALLOC_NAPI is set, page fragment will be allocated
-+ *		from napi_cache instead of netdev_cache.
-  *
-  *	Allocate a new &sk_buff and assign it a usage count of one. The
-  *	buffer has unspecified headroom built in. Users should allocate
-@@ -456,11 +459,11 @@ EXPORT_SYMBOL(napi_alloc_frag);
-  *
-  *	%NULL is returned if there is no free memory.
+ 		/* allocate a skb to store the frags */
+-		skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
+-						IGB_RX_HDR_LEN);
++		skb = napi_alloc_skb(&rx_ring->q_vector->napi, IGB_RX_HDR_LEN);
+ 		if (unlikely(!skb)) {
+ 			rx_ring->rx_stats.alloc_failed++;
+ 			return NULL;
+diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_main.c b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+index 055961b..aa87605 100644
+--- a/drivers/net/ethernet/intel/ixgb/ixgb_main.c
++++ b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+@@ -1963,7 +1963,7 @@ ixgb_rx_checksum(struct ixgb_adapter *adapter,
+  * this should improve performance for small packets with large amounts
+  * of reassembly being done in the stack
   */
--struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
--				   unsigned int length, gfp_t gfp_mask)
-+static struct sk_buff *__alloc_rx_skb(unsigned int length, gfp_t gfp_mask,
-+				      int flags)
+-static void ixgb_check_copybreak(struct net_device *netdev,
++static void ixgb_check_copybreak(struct napi_struct *napi,
+ 				 struct ixgb_buffer *buffer_info,
+ 				 u32 length, struct sk_buff **skb)
  {
- 	struct sk_buff *skb = NULL;
--	unsigned int fragsz = SKB_DATA_ALIGN(length + NET_SKB_PAD) +
-+	unsigned int fragsz = SKB_DATA_ALIGN(length) +
- 			      SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+@@ -1972,7 +1972,7 @@ static void ixgb_check_copybreak(struct net_device *netdev,
+ 	if (length > copybreak)
+ 		return;
  
- 	if (fragsz <= PAGE_SIZE && !(gfp_mask & (__GFP_WAIT | GFP_DMA))) {
-@@ -469,7 +472,9 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
- 		if (sk_memalloc_socks())
- 			gfp_mask |= __GFP_MEMALLOC;
+-	new_skb = netdev_alloc_skb_ip_align(netdev, length);
++	new_skb = napi_alloc_skb(napi, length);
+ 	if (!new_skb)
+ 		return;
  
--		data = __netdev_alloc_frag(fragsz, gfp_mask);
-+		data = (flags & SKB_ALLOC_NAPI) ?
-+			__napi_alloc_frag(fragsz, gfp_mask) :
-+			__netdev_alloc_frag(fragsz, gfp_mask);
- 
- 		if (likely(data)) {
- 			skb = build_skb(data, fragsz);
-@@ -477,17 +482,72 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
- 				put_page(virt_to_head_page(data));
+@@ -2064,7 +2064,7 @@ ixgb_clean_rx_irq(struct ixgb_adapter *adapter, int *work_done, int work_to_do)
+ 			goto rxdesc_done;
  		}
- 	} else {
--		skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask,
-+		skb = __alloc_skb(length, gfp_mask,
- 				  SKB_ALLOC_RX, NUMA_NO_NODE);
- 	}
-+	return skb;
-+}
-+
-+/**
-+ *	__netdev_alloc_skb - allocate an skbuff for rx on a specific device
-+ *	@dev: network device to receive on
-+ *	@length: length to allocate
-+ *	@gfp_mask: get_free_pages mask, passed to alloc_skb
-+ *
-+ *	Allocate a new &sk_buff and assign it a usage count of one. The
-+ *	buffer has NET_SKB_PAD headroom built in. Users should allocate
-+ *	the headroom they think they need without accounting for the
-+ *	built in space. The built in space is used for optimisations.
-+ *
-+ *	%NULL is returned if there is no free memory.
-+ */
-+struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
-+				   unsigned int length, gfp_t gfp_mask)
-+{
-+	struct sk_buff *skb;
-+
-+	length += NET_SKB_PAD;
-+	skb = __alloc_rx_skb(length, gfp_mask, 0);
-+
- 	if (likely(skb)) {
- 		skb_reserve(skb, NET_SKB_PAD);
- 		skb->dev = dev;
- 	}
-+
- 	return skb;
- }
- EXPORT_SYMBOL(__netdev_alloc_skb);
  
-+/**
-+ *	__napi_alloc_skb - allocate skbuff for rx in a specific NAPI instance
-+ *	@napi: napi instance this buffer was allocated for
-+ *	@length: length to allocate
-+ *	@gfp_mask: get_free_pages mask, passed to alloc_skb and alloc_pages
-+ *
-+ *	Allocate a new sk_buff for use in NAPI receive.  This buffer will
-+ *	attempt to allocate the head from a special reserved region used
-+ *	only for NAPI Rx allocation.  By doing this we can save several
-+ *	CPU cycles by avoiding having to disable and re-enable IRQs.
-+ *
-+ *	%NULL is returned if there is no free memory.
-+ */
-+struct sk_buff *__napi_alloc_skb(struct napi_struct *napi,
-+				 unsigned int length, gfp_t gfp_mask)
-+{
-+	struct sk_buff *skb;
-+
-+	length += NET_SKB_PAD + NET_IP_ALIGN;
-+	skb = __alloc_rx_skb(length, gfp_mask, SKB_ALLOC_NAPI);
-+
-+	if (likely(skb)) {
-+		skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN);
-+		skb->dev = napi->dev;
-+	}
-+
-+	return skb;
-+}
-+EXPORT_SYMBOL(__napi_alloc_skb);
-+
- void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
- 		     int size, unsigned int truesize)
- {
+-		ixgb_check_copybreak(netdev, buffer_info, length, &skb);
++		ixgb_check_copybreak(&adapter->napi, buffer_info, length, &skb);
+ 
+ 		/* Good Receive */
+ 		skb_put(skb, length);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 94feddf..d75d01b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1909,8 +1909,8 @@ static struct sk_buff *ixgbe_fetch_rx_buffer(struct ixgbe_ring *rx_ring,
+ #endif
+ 
+ 		/* allocate a skb to store the frags */
+-		skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
+-						IXGBE_RX_HDR_SIZE);
++		skb = napi_alloc_skb(&rx_ring->q_vector->napi,
++				     IXGBE_RX_HDR_SIZE);
+ 		if (unlikely(!skb)) {
+ 			rx_ring->rx_stats.alloc_rx_buff_failed++;
+ 			return NULL;
