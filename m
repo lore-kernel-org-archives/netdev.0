@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v6 7/7] libcxgbi: free skb after debug prints
-Date: Wed, 10 Dec 2014 15:32:30 -0500 (EST)
-Message-ID: <20141210.153230.2033230187234379219.davem@davemloft.net>
-References: <201412101625.sBAGPSXC011110@localhost6.localdomain6>
-	<5488A119.8080505@cogentembedded.com>
-	<1442C3287A121140B690F7F20F94463D82F0A5@nice.asicdesigners.com>
+Subject: Re: [PATCH] irda: Convert function pointer arrays and uses to const
+Date: Wed, 10 Dec 2014 15:33:36 -0500 (EST)
+Message-ID: <20141210.153336.869064783048125658.davem@davemloft.net>
+References: <1418236138.18092.13.camel@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org, hariprasad@chelsio.com, anish@chelsio.com,
-	hch@infradead.org, James.Bottomley@HansenPartnership.com,
-	michaelc@cs.wisc.edu
-To: kxie@chelsio.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1442C3287A121140B690F7F20F94463D82F0A5@nice.asicdesigners.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Cc: samuel@sortiz.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1418236138.18092.13.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Karen Xie <kxie@chelsio.com>
-Date: Wed, 10 Dec 2014 20:26:59 +0000
+From: Joe Perches <joe@perches.com>
+Date: Wed, 10 Dec 2014 10:28:58 -0800
 
-> Thanks, v7 has been submitted to address your comment. Please review.
+> Making things const is a good thing.
+> 
+> (x86-64 defconfig with all irda)
+> $ size net/irda/built-in.o*
+>    text	   data	    bss	    dec	    hex	filename
+>  109276	   1868	    244	 111388	  1b31c	net/irda/built-in.o.new
+>  108828	   2316	    244	 111388	  1b31c	net/irda/built-in.o.old
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Sorry, you did not actually address his comments.
-
-He said to not duplicate your Subject lines in your message bodies,
-and you did not fix that.
+Applied, thanks Joe.
