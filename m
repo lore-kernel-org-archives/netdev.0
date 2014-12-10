@@ -1,127 +1,53 @@
-From: Andrey Volkov <andrey.volkov@nexvision.fr>
-Subject: Re: [PATCH 1/1] net: dsa: Fix of kernel panic in case of missing
- PHY.
-Date: Wed, 10 Dec 2014 11:06:45 +0100
-Message-ID: <54881B35.3020706@nexvision.fr>
-References: <54873205.30401@nexvision.fr> <5487BCBA.2060403@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net v5 2/7] cxgb4i: fix credit check for tx_data_wr
+Date: Wed, 10 Dec 2014 17:09:25 +0300
+Message-ID: <54885415.4020105@cogentembedded.com>
+References: <201412100143.sBA1hSF4024918@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Brian Norris <computersforpeace@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 6.mo3.mail-out.ovh.net ([188.165.43.173]:38576 "EHLO
-	mo3.mail-out.ovh.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755993AbaLJNqI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 08:46:08 -0500
-Received: from mail436.ha.ovh.net (b9.ovh.net [213.186.33.59])
-	by mo3.mail-out.ovh.net (Postfix) with SMTP id 9E213FFA598
-	for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 11:06:51 +0100 (CET)
-In-Reply-To: <5487BCBA.2060403@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hariprasad@chelsio.com, anish@chelsio.com, hch@infradead.org,
+	James.Bottomley@HansenPartnership.com, michaelc@cs.wisc.edu,
+	davem@davemloft.net
+To: Karen Xie <kxie@chelsio.com>, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <201412100143.sBA1hSF4024918@localhost6.localdomain6>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hello.
 
-Le 10/12/2014 04:23, Florian Fainelli wrote :
-> On 09/12/14 09:31, Andrey Volkov wrote:
->> Fix of kernel panic in case of missing PHY.
->>
->> Signed-off-by: Andrey Volkov <andrey.volkov@nexvision.fr>
->=20
-> Brian has actually been able to reproduce such a crash in this code-p=
-ath
-> today:
->=20
-> if (!p->phy) {
->                 p->phy =3D ds->slave_mii_bus->phy_map[p->port];
->                 phy_connect_direct(slave_dev, p->phy,
-> 				   dsa_slave_adjust_link,
->                                    p->phy_interface);
-> }
->=20
-> we basically assume here that we have a valid phy pointer out of
-> ds->slave_mii_bus->phy_map[p->port] which is not true in all cases,
-> especially not if the device is not there.
-Yes it's  what really happened in my case: some PHYs were not soldered=20
-(development version of the board). But in real life, they may be misse=
-d for various
-reasons, so that the assumption was wrong.
+On 12/10/2014 4:43 AM, Karen Xie wrote:
 
->=20
-> I will come up with a fix for that, as for propagating the error code
-> down to the caller, this can be a separate patch.
-Ok, I'll wait for it
+> [PATCH net v5 2/7] cxgb4i: fix credit check for tx_data_wr
 
->=20
-> Thanks!
-=C2=B2You are welcome!
+> From: Karen Xie <kxie@chelsio.com>
 
->=20
->> ---
->>  net/dsa/slave.c |   19 +++++++++++++++----
->>  1 file changed, 15 insertions(+), 4 deletions(-)
->>
->> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
->> index 528380a..6f89caa 100644
->> --- a/net/dsa/slave.c
->> +++ b/net/dsa/slave.c
->> @@ -512,7 +512,7 @@ static int dsa_slave_fixed_link_update(struct ne=
-t_device *dev,
->>  }
->> =20
->>  /* slave device setup *********************************************=
-**********/
->> -static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
->> +static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
->>  				struct net_device *slave_dev)
->>  {
->>  	struct dsa_switch *ds =3D p->parent;
->> @@ -533,7 +533,7 @@ static void dsa_slave_phy_setup(struct dsa_slave=
-_priv *p,
->>  		ret =3D of_phy_register_fixed_link(port_dn);
->>  		if (ret) {
->>  			netdev_err(slave_dev, "failed to register fixed PHY\n");
->> -			return;
->> +			return ret;
->>  		}
->>  		phy_is_fixed =3D true;
->>  		phy_dn =3D port_dn;
->> @@ -555,12 +555,17 @@ static void dsa_slave_phy_setup(struct dsa_sla=
-ve_priv *p,
->>  	 */
->>  	if (!p->phy) {
->>  		p->phy =3D ds->slave_mii_bus->phy_map[p->port];
->> -		phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
->> +		if(p->phy)
->> +			phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
->>  				   p->phy_interface);
->> +		else
->> +			return -ENODEV;
->> +
->>  	} else {
->>  		netdev_info(slave_dev, "attached PHY at address %d [%s]\n",
->>  			    p->phy->addr, p->phy->drv->name);
->>  	}
->> +	return 0;
->>  }
->> =20
->>  int dsa_slave_suspend(struct net_device *slave_dev)
->> @@ -653,7 +658,13 @@ dsa_slave_create(struct dsa_switch *ds, struct =
-device *parent,
->>  	p->old_link =3D -1;
->>  	p->old_duplex =3D -1;
->> =20
->> -	dsa_slave_phy_setup(p, slave_dev);
->> +	ret =3D dsa_slave_phy_setup(p, slave_dev);
->> +	if (ret) {
->> +		netdev_err(master, "error %d registering interface %s\n",
->> +			   ret, slave_dev->name);
->> +		free_netdev(slave_dev);
->> +		return NULL;
->> +	}
->> =20
->>  	ret =3D register_netdev(slave_dev);
->>  	if (ret) {
->>
->=20
->=20
+> make sure any tx credit related checking is done before adding the wr header.
+
+> Signed-off-by: Karen Xie <kxie@chelsio.com>
+> ---
+>   drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |    9 +++++----
+>   1 files changed, 5 insertions(+), 4 deletions(-)
+
+> diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+> index f119a67..56dbd25 100644
+> --- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+> +++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+> @@ -547,15 +547,16 @@ static inline void make_tx_data_wr(struct cxgbi_sock *csk, struct sk_buff *skb,
+[...]
+>   		req->op_to_immdlen = htonl(FW_WR_OP(FW_OFLD_TX_DATA_WR) |
+> -					FW_WR_COMPL(1) |
+> -					FW_WR_IMMDLEN(dlen));
+> +					   FW_WR_COMPL(1) |
+> +					   FW_WR_IMMDLEN(dlen));
+>   		req->flowid_len16 = htonl(FW_WR_FLOWID(csk->tid) |
+> -						FW_WR_LEN16(credits));
+> +					  FW_WR_LEN16(credits));
+
+    The above looks like unrelated cleanup, worth putting in a separate 
+net-next patch...
+
+WBR, Sergei
+
