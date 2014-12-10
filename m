@@ -1,69 +1,77 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH 1/6] net: Split netdev_alloc_frag into __alloc_page_frag
- and add __napi_alloc_frag
-Date: Wed, 10 Dec 2014 07:21:49 -0800
-Message-ID: <5488650D.8060708@gmail.com>
-References: <20141210033902.2114.68658.stgit@ahduyck-vm-fedora20>	<20141210034042.2114.29360.stgit@ahduyck-vm-fedora20> <CAMEtUuwNjq4PnYnou7a+PhbXdYBKwmQajHADMyqyEkhT7WeEnQ@mail.gmail.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: xen-netback: make feature-rx-notify mandatory -- Breaks stubdoms
+Date: Wed, 10 Dec 2014 15:29:29 +0000
+Message-ID: <548866D9.5050900@citrix.com>
+References: <54884DA8.7030003@nuclearfallout.net>	 <548854C3.7060008@citrix.com> <1418224039.3505.76.camel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
+Cc: John <jw@nuclearfallout.net>,
+	"Xen-devel@lists.xen.org" <Xen-devel@lists.xen.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:43759 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757814AbaLJPVv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 10:21:51 -0500
-Received: by mail-pa0-f42.google.com with SMTP id et14so2990984pad.15
-        for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 07:21:51 -0800 (PST)
-In-Reply-To: <CAMEtUuwNjq4PnYnou7a+PhbXdYBKwmQajHADMyqyEkhT7WeEnQ@mail.gmail.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:31733 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757150AbaLJPaD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 10:30:03 -0500
+In-Reply-To: <1418224039.3505.76.camel@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/09/2014 08:16 PM, Alexei Starovoitov wrote:
-> On Tue, Dec 9, 2014 at 7:40 PM, Alexander Duyck
-> <alexander.h.duyck@redhat.com> wrote:
->> This patch splits the netdev_alloc_frag function up so that it can be used
->> on one of two page frag pools instead of being fixed on the
->> netdev_alloc_cache.  By doing this we can add a NAPI specific function
->> __napi_alloc_frag that accesses a pool that is only used from softirq
->> context.  The advantage to this is that we do not need to call
->> local_irq_save/restore which can be a significant savings.
+On 10/12/14 15:07, Ian Campbell wrote:
+> On Wed, 2014-12-10 at 14:12 +0000, David Vrabel wrote:
+>> On 10/12/14 13:42, John wrote:
+>>> David,
+>>>
+>>> This patch you put into 3.18.0 appears to break the latest version of
+>>> stubdomains. I found this out today when I tried to update a machine to
+>>> 3.18.0 and all of the domUs crashed on start with the dmesg output like
+>>> this:
 >>
->> I also took the opportunity to refactor the core bits that were placed in
->> __alloc_page_frag.  First I updated the allocation to do either a 32K
->> allocation or an order 0 page.  This is based on the changes in commmit
->> d9b2938aa where it was found that latencies could be reduced in case of
-> thanks for explaining that piece of it.
->
->> +       struct page *page = NULL;
->> +       gfp_t gfp = gfp_mask;
->> +
->> +       if (order) {
->> +               gfp_mask |= __GFP_COMP | __GFP_NOWARN | __GFP_NORETRY;
->> +               page = alloc_pages_node(NUMA_NO_NODE, gfp_mask, order);
->> +               nc->frag.size = PAGE_SIZE << (page ? order : 0);
->> +       }
+>> Cc'ing the lists and relevant netback maintainers.
 >>
->> -       local_irq_save(flags);
->> -       nc = this_cpu_ptr(&netdev_alloc_cache);
->> -       if (unlikely(!nc->frag.page)) {
->> +       if (unlikely(!page))
->> +               page = alloc_pages_node(NUMA_NO_NODE, gfp, 0);
-> I'm guessing you're not combining this 'if' with above one to
-> keep gfp untouched, so there is a 'warn' when it actually fails 2nd time.
-> Tricky :)
-> Anyway looks good to me and I think I understand it enough to say:
-> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+>> I guess the stubdoms are using minios's netfront?  This is something I
+>> forgot about when deciding if it was ok to make this feature mandatory.
+> 
+> Oh bum, me too :/
+> 
+>> The patch cannot be reverted as it's a prerequisite for a critical
+>> (security) bug fix.  I am also unconvinced that the no-feature-rx-notify
+>> support worked correctly anyway.
+>>
+>> This can be resolved by:
+>>
+>> - Fixing minios's netfront to support feature-rx-notify. This should be
+>> easy but wouldn't help existing Xen deployments.
+> 
+> I think this is worth doing in its own right, but as you say it doesn't
+> help existing users.
+> 
+>> - Reimplement feature-rx-notify support.  I think the easiest way is to
+>> queue packets on the guest Rx internal queue with a short expiry time.
+> 
+> Right, I don't think we especially need to make this case good (so long
+> as it doesn't reintroduce a security hole!).
+> 
+> In principal we aren't really obliged to queue at all, but since all the
+> infrastructure for queuing and timing out all exists I suppose it would
+> be simple enough to implement and a bit less harsh.
+> 
+> Given we now have XENVIF_RX_QUEUE_BYTES and rx_drain_timeout_jiffies we
+> don't have the infinite queue any more. So does the expiry in this case
+> actually need to be shorter than the norm? Does it cause any extra
+> issues to keep them around for tx_drain_timeout_jiffies rather than some
+> shorter time?
 
-Thanks.  Yes the compiler is smart enough to combine the frag.size and
-the second check into one if order is non-zero.  The other trick here is
-if order is 0 then that whole block disappears and I don't have to touch
-frag.size or gfp at all and the code gets much simpler as the *page =
-NULL falls though and cancels out the 'if' as a compile time check.
+If the internal guest rx queue fills and the (host) tx queue is stopped,
+it will take tx_drain_timeout for the thread to wake up and notice if
+the frontend placed any rx requests on the ring.  This could potentially
+end up where you shovel 512k through stall for 10 s, put another 512k
+through, stall for 10 s again and so on.
 
-- Alex
+The rx stall detection will also need to be disabled since there would
+be no way for the frontend to signal rx ready.
+
+David
