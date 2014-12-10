@@ -1,60 +1,40 @@
-From: "Hubert Sokolowski" <h.sokolowski@wit.edu.pl>
-Subject: [PATCH net-next RESEND] net: Do not call ndo_dflt_fdb_dump if
- ndo_fdb_dump is defined.
-Date: Wed, 10 Dec 2014 19:37:01 -0000
-Message-ID: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net v6 7/7] libcxgbi: free skb after debug prints
+Date: Wed, 10 Dec 2014 22:38:01 +0300
+Message-ID: <5488A119.8080505@cogentembedded.com>
+References: <201412101625.sBAGPSXC011110@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hariprasad@chelsio.com, anish@chelsio.com, hch@infradead.org,
+	James.Bottomley@HansenPartnership.com, michaelc@cs.wisc.edu,
+	davem@davemloft.net
+To: Karen Xie <kxie@chelsio.com>, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dervish.wsisiz.edu.pl ([213.135.44.54]:43912 "EHLO
-	dervish.wsisiz.edu.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755357AbaLJThH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 14:37:07 -0500
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by dervish.wsisiz.edu.pl (Postfix) with ESMTP id 4701CC54054
-	for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 20:37:03 +0100 (CET)
-Received: from dervish.wsisiz.edu.pl ([127.0.0.1])
-	by localhost (dervish.wsisiz.edu.pl [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id LrsdRWEHxj18 for <netdev@vger.kernel.org>;
-	Wed, 10 Dec 2014 20:37:01 +0100 (CET)
-Received: from poczta.wsisiz.edu.pl (mask.wsisiz.edu.pl [IPv6:2001:1a68:a::35])
-	by dervish.wsisiz.edu.pl (Postfix) with ESMTPSA id D4277C54062
-	for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 20:37:01 +0100 (CET)
+Received: from mail-la0-f53.google.com ([209.85.215.53]:58588 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757594AbaLJTiG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 14:38:06 -0500
+Received: by mail-la0-f53.google.com with SMTP id gm9so2954412lab.40
+        for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 11:38:04 -0800 (PST)
+In-Reply-To: <201412101625.sBAGPSXC011110@localhost6.localdomain6>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change restores the semantic that was present
-before 5e6d243587990a588143b9da3974833649595587
-"bridge: netlink dump interface at par with brctl"
-on how ndo_dflt_fdb_dump is called.
-This semantic is still used for add and del operations
-so let's keep it consistent.
-Driver can still call ndo_dflt_fdb_dump from inside
-its own fdb_dump routine when needed.
+Hello.
 
-Signed-off-by: Hubert Sokolowski <h.sokolowski@wit.edu.pl>
----
- net/core/rtnetlink.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+On 12/10/2014 07:25 PM, Karen Xie wrote:
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index eaa057f..a9e5c37 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2692,10 +2692,11 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 							 idx);
- 		}
+> [PATCH net v6 7/7] libcxgbi: free skb after debug prints
 
--		idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
- 		if (dev->netdev_ops->ndo_fdb_dump)
- 			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, bdev, dev,
- 							    idx);
-+		else
-+			idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
+    Please, do not duplicate the subject in the changelog -- DaveM would have 
+to edit it out by hand.
 
- 		cops = NULL;
- 	}
--- 
-1.9.3
+> From: Karen Xie <kxie@chelsio.com>
+
+> The debug print was accessing the skb after it was freed.
+
+> Signed-off-by: Karen Xie <kxie@chelsio.com>
+
+WBR, Sergei
