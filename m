@@ -1,7 +1,7 @@
 From: Karen Xie <kxie@chelsio.com>
-Subject: [PATCH net v7 4/7] cxgb4i: additional types of negative advice
-Date: Wed, 10 Dec 2014 12:24:12 -0800
-Message-ID: <201412102024.sBAKOC1r011531@localhost6.localdomain6>
+Subject: [PATCH net v7 6/7] cxgb4i: use set_wr_txq() to set tx queues
+Date: Wed, 10 Dec 2014 12:24:18 -0800
+Message-ID: <201412102024.sBAKOIOi011543@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -10,58 +10,83 @@ Cc: kxie@chelsio.com, hariprasad@chelsio.com, anish@chelsio.com,
 	michaelc@cs.wisc.edu, davem@davemloft.net
 To: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:16314 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:14117 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933175AbaLJUY5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 15:24:57 -0500
+	with ESMTP id S932821AbaLJUZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 15:25:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[PATCH net v7 4/7] cxgb4i: additional types of negative advice
+[PATCH net v7 6/7] cxgb4i: use set_wr_txq() to set tx queues
 
 From: Karen Xie <kxie@chelsio.com>
 
-Treat both CPL_ERR_KEEPALV_NEG_ADVICE and CPL_ERR_PERSIST_NEG_ADVICE as negative advice.
+use cxgb4's set_wr_txq() for setting of the tx queue for a outgoing packet. Remove the similar function in cxgb4i.
 
 Signed-off-by: Karen Xie <kxie@chelsio.com>
 ---
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   12 +++++++++---
- 1 files changed, 9 insertions(+), 3 deletions(-)
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   16 +++++-----------
+ 1 files changed, 5 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index 5f31eb7..2880f200 100644
+index dff7345..6aa50fc 100644
 --- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
 +++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -846,6 +846,13 @@ static void csk_act_open_retry_timer(unsigned long data)
+@@ -157,12 +157,6 @@ static struct scsi_transport_template *cxgb4i_stt;
+ #define RCV_BUFSIZ_MASK		0x3FFU
+ #define MAX_IMM_TX_PKT_LEN	128
  
- }
+-static inline void set_queue(struct sk_buff *skb, unsigned int queue,
+-				const struct cxgbi_sock *csk)
+-{
+-	skb->queue_mapping = queue;
+-}
+-
+ static int push_tx_frames(struct cxgbi_sock *, int);
  
-+static inline bool is_neg_adv(unsigned int status)
-+{
-+	return status == CPL_ERR_RTX_NEG_ADVICE ||
-+		status == CPL_ERR_KEEPALV_NEG_ADVICE ||
-+		status == CPL_ERR_PERSIST_NEG_ADVICE;
-+}
-+
- static void do_act_open_rpl(struct cxgbi_device *cdev, struct sk_buff *skb)
- {
- 	struct cxgbi_sock *csk;
-@@ -867,7 +874,7 @@ static void do_act_open_rpl(struct cxgbi_device *cdev, struct sk_buff *skb)
- 		       "csk 0x%p,%u,0x%lx. ", (&csk->saddr), (&csk->daddr),
- 		       atid, tid, status, csk, csk->state, csk->flags);
+ /*
+@@ -404,7 +398,7 @@ static void send_abort_req(struct cxgbi_sock *csk)
  
--	if (status == CPL_ERR_RTX_NEG_ADVICE)
-+	if (is_neg_adv(status))
- 		goto rel_skb;
+ 	csk->cpl_abort_req = NULL;
+ 	req = (struct cpl_abort_req *)skb->head;
+-	set_queue(skb, CPL_PRIORITY_DATA, csk);
++	set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
+ 	req->cmd = CPL_ABORT_SEND_RST;
+ 	t4_set_arp_err_handler(skb, csk, abort_arp_failure);
+ 	INIT_TP_WR(req, csk->tid);
+@@ -430,7 +424,7 @@ static void send_abort_rpl(struct cxgbi_sock *csk, int rst_status)
+ 		csk, csk->state, csk->flags, csk->tid, rst_status);
  
- 	module_put(THIS_MODULE);
-@@ -973,8 +980,7 @@ static void do_abort_req_rss(struct cxgbi_device *cdev, struct sk_buff *skb)
- 		       (&csk->saddr), (&csk->daddr),
- 		       csk, csk->state, csk->flags, csk->tid, req->status);
+ 	csk->cpl_abort_rpl = NULL;
+-	set_queue(skb, CPL_PRIORITY_DATA, csk);
++	set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
+ 	INIT_TP_WR(rpl, csk->tid);
+ 	OPCODE_TID(rpl) = cpu_to_be32(MK_OPCODE_TID(CPL_ABORT_RPL, csk->tid));
+ 	rpl->cmd = rst_status;
+@@ -555,7 +549,7 @@ static inline int send_tx_flowc_wr(struct cxgbi_sock *csk)
+ 	flowc->mnemval[8].mnemonic = FW_FLOWC_MNEM_TXDATAPLEN_MAX;
+ 	flowc->mnemval[8].val = 16384;
  
--	if (req->status == CPL_ERR_RTX_NEG_ADVICE ||
--	    req->status == CPL_ERR_PERSIST_NEG_ADVICE)
-+	if (is_neg_adv(req->status))
- 		goto rel_skb;
+-	set_queue(skb, CPL_PRIORITY_DATA, csk);
++	set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
  
- 	cxgbi_sock_get(csk);
+ 	log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
+ 		"csk 0x%p, tid 0x%x, %u,%u,%u,%u,%u,%u,%u.\n",
+@@ -660,7 +654,7 @@ static int push_tx_frames(struct cxgbi_sock *csk, int req_completion)
+ 			break;
+ 		}
+ 		__skb_unlink(skb, &csk->write_queue);
+-		set_queue(skb, CPL_PRIORITY_DATA, csk);
++		set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
+ 		skb->csum = credits_needed + flowclen16;
+ 		csk->wr_cred -= credits_needed;
+ 		csk->wr_una_cred += credits_needed;
+@@ -1552,7 +1546,7 @@ static int ddp_ppod_write_idata(struct cxgbi_device *cdev, unsigned int port_id,
+ 		return -ENOMEM;
+ 	}
+ 	req = (struct ulp_mem_io *)skb->head;
+-	set_queue(skb, CPL_PRIORITY_CONTROL, NULL);
++	set_wr_txq(skb, CPL_PRIORITY_CONTROL, 0);
+ 
+ 	ulp_mem_io_set_hdr(lldi, req, wr_len, dlen, pm_addr);
+ 	idata = (struct ulptx_idata *)(req + 1);
