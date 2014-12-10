@@ -1,7 +1,7 @@
 From: Karen Xie <kxie@chelsio.com>
-Subject: [PATCH net v6 1/7] cxgb4i: fix tx immediate data credit check
-Date: Wed, 10 Dec 2014 08:25:10 -0800
-Message-ID: <201412101625.sBAGPAhu011074@localhost6.localdomain6>
+Subject: [PATCH net v6 4/7] cxgb4i: additional types of negative advice
+Date: Wed, 10 Dec 2014 08:25:19 -0800
+Message-ID: <201412101625.sBAGPJHP011092@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -10,79 +10,58 @@ Cc: kxie@chelsio.com, hariprasad@chelsio.com, anish@chelsio.com,
 	michaelc@cs.wisc.edu, davem@davemloft.net
 To: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:18160 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:14707 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752675AbaLJQ0q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 11:26:46 -0500
+	with ESMTP id S1757581AbaLJQ0x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 11:26:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[PATCH net v6 1/7] cxgb4i: fix tx immediate data credit check
+[PATCH net v6 4/7] cxgb4i: additional types of negative advice
 
 From: Karen Xie <kxie@chelsio.com>
 
-Only data skbs need the wr header added while control skbs do not. Make sure they are treated differently.
+Treat both CPL_ERR_KEEPALV_NEG_ADVICE and CPL_ERR_PERSIST_NEG_ADVICE as negative advice.
 
 Signed-off-by: Karen Xie <kxie@chelsio.com>
 ---
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   22 +++++++++++++++-------
- drivers/scsi/cxgbi/libcxgbi.h      |    4 ++--
- 2 files changed, 17 insertions(+), 9 deletions(-)
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index 1508125..f119a67 100644
+index 5f31eb7..2880f200 100644
 --- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
 +++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -171,10 +171,14 @@ static int push_tx_frames(struct cxgbi_sock *, int);
-  * Returns true if a packet can be sent as an offload WR with immediate
-  * data.  We currently use the same limit as for Ethernet packets.
-  */
--static inline int is_ofld_imm(const struct sk_buff *skb)
-+static inline bool is_ofld_imm(const struct sk_buff *skb)
+@@ -846,6 +846,13 @@ static void csk_act_open_retry_timer(unsigned long data)
+ 
+ }
+ 
++static inline bool is_neg_adv(unsigned int status)
++{
++	return status == CPL_ERR_RTX_NEG_ADVICE ||
++		status == CPL_ERR_KEEPALV_NEG_ADVICE ||
++		status == CPL_ERR_PERSIST_NEG_ADVICE;
++}
++
+ static void do_act_open_rpl(struct cxgbi_device *cdev, struct sk_buff *skb)
  {
--	return skb->len <= (MAX_IMM_TX_PKT_LEN -
--			sizeof(struct fw_ofld_tx_data_wr));
-+	int len = skb->len;
-+
-+	if (likely(cxgbi_skcb_test_flag(skb, SKCBF_TX_NEED_HDR)))
-+		len += sizeof(struct fw_ofld_tx_data_wr);
-+
-+	return len <= MAX_IMM_TX_PKT_LEN;
- }
+ 	struct cxgbi_sock *csk;
+@@ -867,7 +874,7 @@ static void do_act_open_rpl(struct cxgbi_device *cdev, struct sk_buff *skb)
+ 		       "csk 0x%p,%u,0x%lx. ", (&csk->saddr), (&csk->daddr),
+ 		       atid, tid, status, csk, csk->state, csk->flags);
  
- static void send_act_open_req(struct cxgbi_sock *csk, struct sk_buff *skb,
-@@ -597,11 +601,15 @@ static int push_tx_frames(struct cxgbi_sock *csk, int req_completion)
+-	if (status == CPL_ERR_RTX_NEG_ADVICE)
++	if (is_neg_adv(status))
+ 		goto rel_skb;
  
- 		skb_reset_transport_header(skb);
- 		if (is_ofld_imm(skb))
--			credits_needed = DIV_ROUND_UP(dlen +
--					sizeof(struct fw_ofld_tx_data_wr), 16);
-+			credits_needed = DIV_ROUND_UP(dlen, 16);
- 		else
--			credits_needed = DIV_ROUND_UP(8*calc_tx_flits_ofld(skb)
--					+ sizeof(struct fw_ofld_tx_data_wr),
-+			credits_needed = DIV_ROUND_UP(
-+						8 * calc_tx_flits_ofld(skb),
-+						16);
-+
-+		if (likely(cxgbi_skcb_test_flag(skb, SKCBF_TX_NEED_HDR)))
-+			credits_needed += DIV_ROUND_UP(
-+					sizeof(struct fw_ofld_tx_data_wr),
- 					16);
+ 	module_put(THIS_MODULE);
+@@ -973,8 +980,7 @@ static void do_abort_req_rss(struct cxgbi_device *cdev, struct sk_buff *skb)
+ 		       (&csk->saddr), (&csk->daddr),
+ 		       csk, csk->state, csk->flags, csk->tid, req->status);
  
- 		if (csk->wr_cred < credits_needed) {
-diff --git a/drivers/scsi/cxgbi/libcxgbi.h b/drivers/scsi/cxgbi/libcxgbi.h
-index 2c7cb1c..aba1af7 100644
---- a/drivers/scsi/cxgbi/libcxgbi.h
-+++ b/drivers/scsi/cxgbi/libcxgbi.h
-@@ -317,8 +317,8 @@ static inline void cxgbi_skcb_clear_flag(struct sk_buff *skb,
- 	__clear_bit(flag, &(cxgbi_skcb_flags(skb)));
- }
+-	if (req->status == CPL_ERR_RTX_NEG_ADVICE ||
+-	    req->status == CPL_ERR_PERSIST_NEG_ADVICE)
++	if (is_neg_adv(req->status))
+ 		goto rel_skb;
  
--static inline int cxgbi_skcb_test_flag(struct sk_buff *skb,
--					enum cxgbi_skcb_flags flag)
-+static inline int cxgbi_skcb_test_flag(const struct sk_buff *skb,
-+				       enum cxgbi_skcb_flags flag)
- {
- 	return test_bit(flag, &(cxgbi_skcb_flags(skb)));
- }
+ 	cxgbi_sock_get(csk);
