@@ -1,67 +1,125 @@
 From: Karen Xie <kxie@chelsio.com>
-Subject: [PATCH net v5 4/7] cxgb4i: additional types of negative advice
-Date: Tue, 09 Dec 2014 17:43:34 -0800
-Message-ID: <201412100143.sBA1hYr4024930@localhost6.localdomain6>
+Subject: RE: [PATCH net v3 1/6] cxgb4i: fix tx credit calculation
+Date: Wed, 10 Dec 2014 01:44:11 +0000
+Message-ID: <1442C3287A121140B690F7F20F94463D82E154@nice.asicdesigners.com>
+References: <201412091732.sB9HWHRm008996@localhost6.localdomain6>
+ <54875385.80708@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kxie@chelsio.com, hariprasad@chelsio.com, anish@chelsio.com,
-	hch@infradead.org, James.Bottomley@HansenPartnership.com,
-	michaelc@cs.wisc.edu, davem@davemloft.net
-To: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Hariprasad S <hariprasad@chelsio.com>,
+	Anish Bhatt <anish@chelsio.com>,
+	"hch@infradead.org" <hch@infradead.org>,
+	"James.Bottomley@HansenPartnership.com"
+	<James.Bottomley@HansenPartnership.com>,
+	"michaelc@cs.wisc.edu" <michaelc@cs.wisc.edu>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:6890 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:16316 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753408AbaLJBp2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 20:45:28 -0500
+	with ESMTP id S1753137AbaLJBqG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 20:46:06 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[PATCH net v5 4/7] cxgb4i: additional types of negative advice
+Please ignore v4, and use v5. Thanks!
 
-From: Karen Xie <kxie@chelsio.com>
+-----Original Message-----
+From: Karen Xie 
+Sent: Tuesday, December 09, 2014 5:39 PM
+To: 'Sergei Shtylyov'; linux-scsi@vger.kernel.org; netdev@vger.kernel.org
+Cc: Hariprasad S; Anish Bhatt; hch@infradead.org; James.Bottomley@HansenPartnership.com; michaelc@cs.wisc.edu; davem@davemloft.net
+Subject: RE: [PATCH net v3 1/6] cxgb4i: fix tx credit calculation
 
-Treat both CPL_ERR_KEEPALV_NEG_ADVICE and CPL_ERR_PERSIST_NEG_ADVICE as negative advice.
+Thanks for the review comment, have sent the v4 set to incorporate your comments.
 
-Signed-off-by: Karen Xie <kxie@chelsio.com>
----
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   12 +++++++++---
- 1 files changed, 9 insertions(+), 3 deletions(-)
+-----Original Message-----
+From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com]
+Sent: Tuesday, December 09, 2014 11:55 AM
+To: Karen Xie; linux-scsi@vger.kernel.org; netdev@vger.kernel.org
+Cc: Hariprasad S; Anish Bhatt; hch@infradead.org; James.Bottomley@HansenPartnership.com; michaelc@cs.wisc.edu; davem@davemloft.net
+Subject: Re: [PATCH net v3 1/6] cxgb4i: fix tx credit calculation
 
-diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index 86b9bbc..c4a22e9 100644
---- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-+++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -846,6 +846,13 @@ static void csk_act_open_retry_timer(unsigned long data)
- 
- }
- 
-+static inline bool is_neg_adv(unsigned int status)
-+{
-+	return status == CPL_ERR_RTX_NEG_ADVICE ||
-+		status == CPL_ERR_KEEPALV_NEG_ADVICE ||
-+		status == CPL_ERR_PERSIST_NEG_ADVICE;
-+}
-+
- static void do_act_open_rpl(struct cxgbi_device *cdev, struct sk_buff *skb)
- {
- 	struct cxgbi_sock *csk;
-@@ -867,7 +874,7 @@ static void do_act_open_rpl(struct cxgbi_device *cdev, struct sk_buff *skb)
- 		       "csk 0x%p,%u,0x%lx. ", (&csk->saddr), (&csk->daddr),
- 		       atid, tid, status, csk, csk->state, csk->flags);
- 
--	if (status == CPL_ERR_RTX_NEG_ADVICE)
-+	if (is_neg_adv(status))
- 		goto rel_skb;
- 
- 	module_put(THIS_MODULE);
-@@ -973,8 +980,7 @@ static void do_abort_req_rss(struct cxgbi_device *cdev, struct sk_buff *skb)
- 		       (&csk->saddr), (&csk->daddr),
- 		       csk, csk->state, csk->flags, csk->tid, req->status);
- 
--	if (req->status == CPL_ERR_RTX_NEG_ADVICE ||
--	    req->status == CPL_ERR_PERSIST_NEG_ADVICE)
-+	if (is_neg_adv(req->status))
- 		goto rel_skb;
- 
- 	cxgbi_sock_get(csk);
+Hello.
+
+On 12/09/2014 08:32 PM, Karen Xie wrote:
+
+> [PATCH net v3 1/6] cxgb4i: fix tx credit calculation
+
+> From: Karen Xie <kxie@chelsio.com>
+
+> - Only data skbs need the wr header added while control skbs do not. Make sure they are treated differently.
+> - Any credit related checking should be done before adding the wr header.
+
+    Looks like a spearate issue deserving its own patch?
+
+> - Fixed compiler warning resulted from added cxgbi_skb_test_flag() call in is_ofld_imm().
+
+    Isn't it called cxgbi_skcb_test_flag()?
+
+> Signed-off-by: Karen Xie <kxie@chelsio.com>
+> ---
+>   drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   26 +++++++++++++++++---------
+>   drivers/scsi/cxgbi/libcxgbi.h      |    4 ++--
+>   2 files changed, 19 insertions(+), 11 deletions(-)
+>
+> diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+> b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+> index 1508125..5c3f15d 100644
+> --- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+> +++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+[...]
+> @@ -544,15 +548,17 @@ static inline void make_tx_data_wr(struct cxgbi_sock *csk, struct sk_buff *skb,
+>   	unsigned int submode = cxgbi_skcb_ulp_mode(skb) & 3;
+>   	unsigned int wr_ulp_mode = 0;
+>
+> -	req = (struct fw_ofld_tx_data_wr *)__skb_push(skb, sizeof(*req));
+> -
+
+    Perhaps it makes sense to store the result of is_ofld_imm() before
+__skb_push() call
+instead of duplicating the same call in 2 branches?
+
+>   	if (is_ofld_imm(skb)) {
+> +		req = (struct fw_ofld_tx_data_wr *)__skb_push(skb,
+> +							sizeof(*req));
+
+    The continuation line should start right under 'skb' on the previous line.
+
+>   		req->op_to_immdlen = htonl(FW_WR_OP(FW_OFLD_TX_DATA_WR) |
+>   					FW_WR_COMPL(1) |
+>   					FW_WR_IMMDLEN(dlen));
+>   		req->flowid_len16 = htonl(FW_WR_FLOWID(csk->tid) |
+>   						FW_WR_LEN16(credits));
+>   	} else {
+> +		req = (struct fw_ofld_tx_data_wr *)__skb_push(skb,
+> +							sizeof(*req));
+
+    Likewise.
+
+>   		req->op_to_immdlen =
+>   			cpu_to_be32(FW_WR_OP(FW_OFLD_TX_DATA_WR) |
+>   					FW_WR_COMPL(1) |
+> @@ -597,12 +603,14 @@ static int push_tx_frames(struct cxgbi_sock 
+> *csk, int req_completion)
+>
+>   		skb_reset_transport_header(skb);
+>   		if (is_ofld_imm(skb))
+> -			credits_needed = DIV_ROUND_UP(dlen +
+> -					sizeof(struct fw_ofld_tx_data_wr), 16);
+> +			credits_needed = DIV_ROUND_UP(dlen, 16);
+>   		else
+> -			credits_needed = DIV_ROUND_UP(8*calc_tx_flits_ofld(skb)
+> -					+ sizeof(struct fw_ofld_tx_data_wr),
+> -					16);
+> +			credits_needed = DIV_ROUND_UP(8*calc_tx_flits_ofld(skb),
+
+    It would have been good if you added spaces around *, while at it, to keep it consistent with the general kernel coding  style...
+
+[...]
+
+WBR, Sergei
