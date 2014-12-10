@@ -1,164 +1,66 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v2 2/4] swdevice: add new api to set and del
- bridge port attributes
-Date: Wed, 10 Dec 2014 10:37:55 +0100
-Message-ID: <20141210093755.GB1863@nanopsycho.orion>
-References: <1418202320-19491-3-git-send-email-roopa@cumulusnetworks.com>
+From: Brian Norris <computersforpeace@gmail.com>
+Subject: [PATCH] brcmsmac: don't leak kernel memory via printk()
+Date: Wed, 10 Dec 2014 01:39:18 -0800
+Message-ID: <1418204358-8357-1-git-send-email-computersforpeace@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
-	john.fastabend@gmail.com, stephen@networkplumber.org,
-	linville@tuxdriver.com, vyasevic@redhat.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: roopa@cumulusnetworks.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Brian Norris <computersforpeace@gmail.com>,
+	Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:34060 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750775AbaLJJh5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 04:37:57 -0500
-Received: by mail-wi0-f178.google.com with SMTP id em10so4450977wid.11
-        for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 01:37:56 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1418202320-19491-3-git-send-email-roopa@cumulusnetworks.com>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:59287 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751102AbaLJJkF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 04:40:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Dec 10, 2014 at 10:05:18AM CET, roopa@cumulusnetworks.com wrote:
->From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
->This patch adds two new api's netdev_switch_port_bridge_setlink
->and netdev_switch_port_bridge_dellink to offload bridge port attributes
->to switch asic
->
->(The names of the apis look odd with 'switch_port_bridge',
->but am more inclined to change the prefix of the api to something else.
->Will take any suggestions).
->
->The api's look at the NETIF_F_HW_NETFUNC_OFFLOAD feature flag to
->pass bridge port attributes to the port device.
->
->If the device has the NETIF_F_HW_NETFUNC_OFFLOAD, but does not support
->the bridge port attribute offload ndo, call bridge port attribute ndo's on
->the lowerdevs if supported. This is one way to pass bridge port attributes
->through stacked netdevs (example when bridge port is a bond and bond slaves
->are switch ports).
->
->Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->---
-> include/net/switchdev.h   |    5 +++-
-> net/switchdev/switchdev.c |   70 +++++++++++++++++++++++++++++++++++++++++++++
-> 2 files changed, 74 insertions(+), 1 deletion(-)
->
->diff --git a/include/net/switchdev.h b/include/net/switchdev.h
->index 8a6d164..22676b6 100644
->--- a/include/net/switchdev.h
->+++ b/include/net/switchdev.h
->@@ -17,7 +17,10 @@
-> int netdev_switch_parent_id_get(struct net_device *dev,
-> 				struct netdev_phys_item_id *psid);
-> int netdev_switch_port_stp_update(struct net_device *dev, u8 state);
->-
->+int netdev_switch_port_bridge_setlink(struct net_device *dev,
->+				struct nlmsghdr *nlh, u16 flags);
->+int netdev_switch_port_bridge_dellink(struct net_device *dev,
->+				struct nlmsghdr *nlh, u16 flags);
-> #else
-> 
-> static inline int netdev_switch_parent_id_get(struct net_device *dev,
->diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->index d162b21..62317e1 100644
->--- a/net/switchdev/switchdev.c
->+++ b/net/switchdev/switchdev.c
->@@ -50,3 +50,73 @@ int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
-> 	return ops->ndo_switch_port_stp_update(dev, state);
-> }
-> EXPORT_SYMBOL(netdev_switch_port_stp_update);
->+
->+/**
->+ *	netdev_switch_port_bridge_setlink - Notify switch device port of bridge
->+ *	port attributes
->+ *
->+ *	@dev: port device
->+ *	@nlh: netlink msg with bridge port attributes
->+ *
->+ *	Notify switch device port of bridge port attributes
->+ */
->+int netdev_switch_port_bridge_setlink(struct net_device *dev,
->+									  struct nlmsghdr *nlh, u16 flags)
->+{
->+	const struct net_device_ops *ops = dev->netdev_ops;
->+	struct net_device *lower_dev;
->+	struct list_head *iter;
->+	int ret = 0, err = 0;
->+
->+	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
->+		return err;
->+
->+	if (ops->ndo_bridge_setlink) {
->+	    WARN_ON(!ops->ndo_switch_parent_id_get);
->+	    return ops->ndo_bridge_setlink(dev, nlh, flags);
+Debug code prints the fifo name via custom dev_warn() wrappers. The
+fifo_names array is only non-zero when debugging is manually enabled,
+which is all well and good. However, it's *not* good that this array
+uses zero-length arrays in the non-debug case, and so it doesn't
+actually have any memory allocated to it. This means that as far as we
+know, fifo_names[i] actually points to garbage memory.
 
-	You have to change ndo_bridge_setlink in netdevice.h first.
-	Otherwise when only this patch is applied (during bisection)
-	this won't compile.
+I've seen this in my log:
 
+[ 4601.205511] brcmsmac bcma0:1: wl0: brcms_c_d11hdrs_mac80211: =EF=BF=BD=
+GeL txop exceeded phylen 137/256 dur 1602/1504
 
->+	}
->+
->+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+So let's give this array space enough to fill it with a NULL byte.
 
-	I do not understand why to iterate over lower devices. At this
-	stage we don't know a thing about this upper or its lowers. Let
-	the uppers (/masters) to decide if this needs to be propagated
-	or not.
+Signed-off-by: Brian Norris <computersforpeace@gmail.com>
+Cc: Brett Rudley <brudley@broadcom.com>
+Cc: Arend van Spriel <arend@broadcom.com>
+Cc: "Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+Cc: Hante Meuleman <meuleman@broadcom.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: linux-wireless@vger.kernel.org
+Cc: brcm80211-dev-list@broadcom.com
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/wireless/brcm80211/brcmsmac/main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
->+		err = netdev_switch_port_bridge_setlink(lower_dev, nlh, flags);
->+		if (err)
->+			ret = err;
->+    }
-
- ^^^^^ Indent is off. This should be catched by scripts/checkpatch.pl.
-
->+
->+	return ret;
->+}
->+EXPORT_SYMBOL(netdev_switch_port_bridge_setlink);
->+
->+/**
->+ *	netdev_switch_port_bridge_dellink - Notify switch device port of bridge
->+ *	attribute delete
->+ *
->+ *	@dev: port device
->+ *	@nlh: netlink msg with bridge port attributes
->+ *
->+ *	Notify switch device port of bridge port attribute delete
->+ */
->+int netdev_switch_port_bridge_dellink(struct net_device *dev,
->+									  struct nlmsghdr *nlh, u16 flags)
->+{
->+	const struct net_device_ops *ops = dev->netdev_ops;
->+	struct net_device *lower_dev;
->+	struct list_head *iter;
->+	int ret = 0, err = 0;
->+
->+	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
->+		return err;
->+
->+	if (ops->ndo_bridge_dellink) {
->+		WARN_ON(!ops->ndo_switch_parent_id_get);
->+		return ops->ndo_bridge_dellink(dev, nlh, flags);
->+	}
->+
->+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
->+		err = netdev_switch_port_bridge_dellink(lower_dev, nlh, flags);
->+		if (err)
->+			ret = err;
->+	}
->+
->+	return ret;
->+}
->+EXPORT_SYMBOL(netdev_switch_port_bridge_dellink);
->-- 
->1.7.10.4
->
+diff --git a/drivers/net/wireless/brcm80211/brcmsmac/main.c b/drivers/n=
+et/wireless/brcm80211/brcmsmac/main.c
+index 1b474828d5b8..aed0c948dce8 100644
+--- a/drivers/net/wireless/brcm80211/brcmsmac/main.c
++++ b/drivers/net/wireless/brcm80211/brcmsmac/main.c
+@@ -316,7 +316,7 @@ static const u16 xmtfifo_sz[][NFIFO] =3D {
+ static const char * const fifo_names[] =3D {
+ 	"AC_BK", "AC_BE", "AC_VI", "AC_VO", "BCMC", "ATIM" };
+ #else
+-static const char fifo_names[6][0];
++static const char fifo_names[6][1];
+ #endif
+=20
+ #ifdef DEBUG
+--=20
+2.2.0
