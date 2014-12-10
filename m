@@ -1,223 +1,52 @@
-From: Gu Zheng <guz.fnst@cn.fujitsu.com>
-Subject: [PATCH v2] net: introduce helper macro for_each_cmsghdr
-Date: Wed, 10 Dec 2014 13:36:25 +0800
-Message-ID: <5487DBD9.1010908@cn.fujitsu.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net-next] ipv6: fix sparse warning
+Date: Wed, 10 Dec 2014 13:54:39 +0800
+Message-ID: <5487E01F.4020201@windriver.com>
+References: <1418182101-7992-1-git-send-email-ying.xue@windriver.com> <1418190018.27198.12.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Joe Perches <joe@perches.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:55587 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750723AbaLJFyw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 00:54:52 -0500
+In-Reply-To: <1418190018.27198.12.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Introduce helper macro for_each_cmsghdr as a wrapper of the enumerating
-cmsghdr from msghdr, just cleanup. 
+On 12/10/2014 01:40 PM, Eric Dumazet wrote:
+> On Wed, 2014-12-10 at 11:28 +0800, Ying Xue wrote:
+>> This fixes the following sparse warning when using
+>>
+>> make C=1 CF=-D__CHECK_ENDIAN__ net/ipv6/addrconf.o
+>> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+>> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+>> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+>> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+>>
+>> To silence above spare complaint, an RCU annotation should be added
+>> to next pointer of hlist_node structure through hlist_next_rcu() macro
+>> when iterating over a hlist with hlist_for_each_entry_continue_rcu_bh().
+>>
+>> By the way, this commit also resolves the same error appearing in
+>> hlist_for_each_entry_continue_rcu().
+> 
+> This probably should be sent to lkml and CC Paul E. McKenney
+> 
+> 
+> 
+> 
 
-Signed-off-by: Gu Zheng <guz.fnst@cn.fujitsu.com>
----
-v2: use the lower-case macro name as Joe suggested.
----
- .../networking/timestamping/timestamping.c         |    4 +---
- .../networking/timestamping/txtimestamp.c          |    4 +---
- crypto/af_alg.c                                    |    2 +-
- include/linux/socket.h                             |    4 ++++
- net/core/scm.c                                     |    3 +--
- net/dccp/proto.c                                   |    5 ++---
- net/ipv4/ip_sockglue.c                             |    2 +-
- net/ipv6/datagram.c                                |    2 +-
- net/iucv/af_iucv.c                                 |    4 +---
- net/rds/send.c                                     |    4 ++--
- net/rxrpc/ar-output.c                              |    2 +-
- net/sctp/socket.c                                  |    3 +--
- 12 files changed, 17 insertions(+), 22 deletions(-)
+I prefer that the patch as well as another similar patch ("tipc: fix RCU
+sparse error") are still based on net-next tree, but I will CC Paul E.
+McKenney and lkml when resend them, is it ok?
 
-diff --git a/Documentation/networking/timestamping/timestamping.c b/Documentation/networking/timestamping/timestamping.c
-index 5cdfd74..635a43a 100644
---- a/Documentation/networking/timestamping/timestamping.c
-+++ b/Documentation/networking/timestamping/timestamping.c
-@@ -169,9 +169,7 @@ static void printpacket(struct msghdr *msg, int res,
- 	       res,
- 	       inet_ntoa(from_addr->sin_addr),
- 	       msg->msg_controllen);
--	for (cmsg = CMSG_FIRSTHDR(msg);
--	     cmsg;
--	     cmsg = CMSG_NXTHDR(msg, cmsg)) {
-+	for_each_cmsghdr(cmsg, msg) {
- 		printf("   cmsg len %zu: ", cmsg->cmsg_len);
- 		switch (cmsg->cmsg_level) {
- 		case SOL_SOCKET:
-diff --git a/Documentation/networking/timestamping/txtimestamp.c b/Documentation/networking/timestamping/txtimestamp.c
-index b32fc2a..f4fd9a2 100644
---- a/Documentation/networking/timestamping/txtimestamp.c
-+++ b/Documentation/networking/timestamping/txtimestamp.c
-@@ -149,9 +149,7 @@ static void __recv_errmsg_cmsg(struct msghdr *msg, int payload_len)
- 	struct scm_timestamping *tss = NULL;
- 	struct cmsghdr *cm;
- 
--	for (cm = CMSG_FIRSTHDR(msg);
--	     cm && cm->cmsg_len;
--	     cm = CMSG_NXTHDR(msg, cm)) {
-+	for_each_cmsghdr(cmsg, msg) {
- 		if (cm->cmsg_level == SOL_SOCKET &&
- 		    cm->cmsg_type == SCM_TIMESTAMPING) {
- 			tss = (void *) CMSG_DATA(cm);
-diff --git a/crypto/af_alg.c b/crypto/af_alg.c
-index 6a3ad80..bc21f52 100644
---- a/crypto/af_alg.c
-+++ b/crypto/af_alg.c
-@@ -399,7 +399,7 @@ int af_alg_cmsg_send(struct msghdr *msg, struct af_alg_control *con)
- {
- 	struct cmsghdr *cmsg;
- 
--	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
-+	for_each_cmsghdr(cmsg, msg) {
- 		if (!CMSG_OK(msg, cmsg))
- 			return -EINVAL;
- 		if (cmsg->cmsg_level != SOL_ALG)
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index bb9b836..0e71278 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -94,6 +94,10 @@ struct cmsghdr {
- 			     (cmsg)->cmsg_len <= (unsigned long) \
- 			     ((mhdr)->msg_controllen - \
- 			      ((char *)(cmsg) - (char *)(mhdr)->msg_control)))
-+#define for_each_cmsghdr(cmsg, msg) \
-+	for (cmsg = CMSG_FIRSTHDR(msg); \
-+	     cmsg; \
-+	     cmsg = CMSG_NXTHDR(msg, cmsg))
- 
- /*
-  *	Get the next cmsg header
-diff --git a/net/core/scm.c b/net/core/scm.c
-index b442e7e..3b6899b 100644
---- a/net/core/scm.c
-+++ b/net/core/scm.c
-@@ -129,8 +129,7 @@ int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *p)
- 	struct cmsghdr *cmsg;
- 	int err;
- 
--	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg))
--	{
-+	for_each_cmsghdr(cmsg, msg) {
- 		err = -EINVAL;
- 
- 		/* Verify that cmsg_len is at least sizeof(struct cmsghdr) */
-diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-index 5ab6627..e7413a9 100644
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -703,7 +703,7 @@ EXPORT_SYMBOL_GPL(compat_dccp_getsockopt);
- 
- static int dccp_msghdr_parse(struct msghdr *msg, struct sk_buff *skb)
- {
--	struct cmsghdr *cmsg = CMSG_FIRSTHDR(msg);
-+	struct cmsghdr *cmsg;
- 
- 	/*
- 	 * Assign an (opaque) qpolicy priority value to skb->priority.
-@@ -717,8 +717,7 @@ static int dccp_msghdr_parse(struct msghdr *msg, struct sk_buff *skb)
- 	 */
- 	skb->priority = 0;
- 
--	for (; cmsg != NULL; cmsg = CMSG_NXTHDR(msg, cmsg)) {
--
-+	for_each_cmsghdr(cmsg, msg) {
- 		if (!CMSG_OK(msg, cmsg))
- 			return -EINVAL;
- 
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 9daf217..839db9d 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -192,7 +192,7 @@ int ip_cmsg_send(struct net *net, struct msghdr *msg, struct ipcm_cookie *ipc,
- 	int err, val;
- 	struct cmsghdr *cmsg;
- 
--	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
-+	for_each_cmsghdr(cmsg, msg) {
- 		if (!CMSG_OK(msg, cmsg))
- 			return -EINVAL;
- #if IS_ENABLED(CONFIG_IPV6)
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 2cdc383..7252965 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -640,7 +640,7 @@ int ip6_datagram_send_ctl(struct net *net, struct sock *sk,
- 	int len;
- 	int err = 0;
- 
--	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
-+	for_each_cmsghdr(cmsg, msg) {
- 		int addr_type;
- 
- 		if (!CMSG_OK(msg, cmsg)) {
-diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
-index a089b6b..b69d87e 100644
---- a/net/iucv/af_iucv.c
-+++ b/net/iucv/af_iucv.c
-@@ -1070,9 +1070,7 @@ static int iucv_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	txmsg.class = 0;
- 
- 	/* iterate over control messages */
--	for (cmsg = CMSG_FIRSTHDR(msg); cmsg;
--		cmsg = CMSG_NXTHDR(msg, cmsg)) {
--
-+	for_each_cmsghdr(cmsg, msg) {
- 		if (!CMSG_OK(msg, cmsg)) {
- 			err = -EINVAL;
- 			goto out;
-diff --git a/net/rds/send.c b/net/rds/send.c
-index 0a64541..b23e7b8 100644
---- a/net/rds/send.c
-+++ b/net/rds/send.c
-@@ -826,7 +826,7 @@ static int rds_rm_size(struct msghdr *msg, int data_len)
- 	int cmsg_groups = 0;
- 	int retval;
- 
--	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
-+	for_each_cmsghdr(cmsg, msg) {
- 		if (!CMSG_OK(msg, cmsg))
- 			return -EINVAL;
- 
-@@ -878,7 +878,7 @@ static int rds_cmsg_send(struct rds_sock *rs, struct rds_message *rm,
- 	struct cmsghdr *cmsg;
- 	int ret = 0;
- 
--	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
-+	for_each_cmsghdr(cmsg, msg) {
- 		if (!CMSG_OK(msg, cmsg))
- 			return -EINVAL;
- 
-diff --git a/net/rxrpc/ar-output.c b/net/rxrpc/ar-output.c
-index 0b4b9a7..83b4616 100644
---- a/net/rxrpc/ar-output.c
-+++ b/net/rxrpc/ar-output.c
-@@ -45,7 +45,7 @@ static int rxrpc_sendmsg_cmsg(struct rxrpc_sock *rx, struct msghdr *msg,
- 	if (msg->msg_controllen == 0)
- 		return -EINVAL;
- 
--	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
-+	for_each_cmsghdr(cmsg, msg) {
- 		if (!CMSG_OK(msg, cmsg))
- 			return -EINVAL;
- 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 634a2ab..a3802ed 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -6592,8 +6592,7 @@ static int sctp_msghdr_parse(const struct msghdr *msg, sctp_cmsgs_t *cmsgs)
- 	struct cmsghdr *cmsg;
- 	struct msghdr *my_msg = (struct msghdr *)msg;
- 
--	for (cmsg = CMSG_FIRSTHDR(msg); cmsg != NULL;
--	     cmsg = CMSG_NXTHDR(my_msg, cmsg)) {
-+	for_each_cmsghdr(cmsg, my_msg) {
- 		if (!CMSG_OK(my_msg, cmsg))
- 			return -EINVAL;
- 
--- 
-1.7.7
+Especially for the patch ("tipc: fix RCU sparse error"), it fixes the
+sparse error introduced by the commit 97ede29e80ee ("tipc: convert name
+table read-write lock to RCU") which was only merged into net-next tree.
+
+Regards,
+Ying
