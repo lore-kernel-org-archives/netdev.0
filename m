@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V1 net-next 08/10] net/mlx4_core: Add explicit error message when rule doesn't meet configuration
-Date: Wed, 10 Dec 2014 15:09:57 +0200
-Message-ID: <1418216999-17012-9-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH V1 net-next 02/10] net/mlx4_core: Mask out host side virtualization features for guests
+Date: Wed, 10 Dec 2014 15:09:51 +0200
+Message-ID: <1418216999-17012-3-git-send-email-ogerlitz@mellanox.com>
 References: <1418216999-17012-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
@@ -9,59 +9,59 @@ Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:48925 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:48952 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756199AbaLJOdU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Dec 2014 09:33:20 -0500
+	id S1757301AbaLJOdp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Dec 2014 09:33:45 -0500
 In-Reply-To: <1418216999-17012-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matan Barak <matanb@mellanox.com>
+When VFs (guests in this context) issue the QUERY_DEV_CAP command, they
+need not be told that host side virtualization features such as VST, FSM
+(MAC anti-spoofing) and running > 80 VFs are supported by the device.
 
-When a given flow steering rule is invalid in respect to the current
-steering configuration, print the correct error message to the system log.
-
-Signed-off-by: Matan Barak <matanb@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/mcg.c |   21 ++++++++++++++++++---
- 1 files changed, 18 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/fw.c |   12 +++++++++++-
+ 1 files changed, 11 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index 8728431..a3867e7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -999,12 +999,27 @@ int mlx4_flow_attach(struct mlx4_dev *dev,
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 4251f81..5089f76 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -973,6 +973,10 @@ out:
+ 	return err;
+ }
  
- 	ret = mlx4_QP_FLOW_STEERING_ATTACH(dev, mailbox, size >> 2, reg_id);
--	if (ret == -ENOMEM)
-+	if (ret == -ENOMEM) {
- 		mlx4_err_rule(dev,
- 			      "mcg table is full. Fail to register network rule\n",
- 			      rule);
--	else if (ret)
--		mlx4_err_rule(dev, "Fail to register network rule\n", rule);
-+	} else if (ret) {
-+		if (ret == -ENXIO) {
-+			if (dev->caps.steering_mode != MLX4_STEERING_MODE_DEVICE_MANAGED)
-+				mlx4_err_rule(dev,
-+					      "DMFS is not enabled, "
-+					      "failed to register network rule.\n",
-+					      rule);
-+			else
-+				mlx4_err_rule(dev,
-+					      "Rule exceeds the dmfs_high_rate_mode limitations, "
-+					      "failed to register network rule.\n",
-+					      rule);
++#define DEV_CAP_EXT_2_FLAG_VLAN_CONTROL (1 << 26)
++#define DEV_CAP_EXT_2_FLAG_80_VFS	(1 << 21)
++#define DEV_CAP_EXT_2_FLAG_FSM		(1 << 20)
 +
-+		} else {
-+			mlx4_err_rule(dev, "Fail to register network rule.\n", rule);
-+		}
-+	}
+ int mlx4_QUERY_DEV_CAP_wrapper(struct mlx4_dev *dev, int slave,
+ 			       struct mlx4_vhcr *vhcr,
+ 			       struct mlx4_cmd_mailbox *inbox,
+@@ -982,7 +986,7 @@ int mlx4_QUERY_DEV_CAP_wrapper(struct mlx4_dev *dev, int slave,
+ 	u64	flags;
+ 	int	err = 0;
+ 	u8	field;
+-	u32	bmme_flags;
++	u32	bmme_flags, field32;
+ 	int	real_port;
+ 	int	slave_port;
+ 	int	first_port;
+@@ -1053,6 +1057,12 @@ int mlx4_QUERY_DEV_CAP_wrapper(struct mlx4_dev *dev, int slave,
+ 	field &= ~0x80;
+ 	MLX4_PUT(outbox->buf, field, QUERY_DEV_CAP_FLOW_STEERING_IPOIB_OFFSET);
  
- 	mlx4_free_cmd_mailbox(dev, mailbox);
++	/* turn off host side virt features (VST, FSM, etc) for guests */
++	MLX4_GET(field32, outbox->buf, QUERY_DEV_CAP_EXT_2_FLAGS_OFFSET);
++	field32 &= ~(DEV_CAP_EXT_2_FLAG_VLAN_CONTROL | DEV_CAP_EXT_2_FLAG_80_VFS |
++		     DEV_CAP_EXT_2_FLAG_FSM);
++	MLX4_PUT(outbox->buf, field32, QUERY_DEV_CAP_EXT_2_FLAGS_OFFSET);
++
+ 	return 0;
+ }
  
 -- 
 1.7.1
