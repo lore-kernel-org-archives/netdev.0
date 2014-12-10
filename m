@@ -1,60 +1,65 @@
-From: Hau <hau@realtek.com>
-Subject: RE: [PATCH net-next 0/9] r8169:update hardware ephy parameter
-Date: Wed, 10 Dec 2014 07:17:04 +0000
-Message-ID: <80377ECBC5453840BA8C7155328B537701085AD8@RTITMBSV03.realtek.com.tw>
-References: <1418143563-7652-1-git-send-email-hau@realtek.com>
- <20141209.183549.1930188640715074097.davem@davemloft.net>
+From: "Ulrich Windl" <Ulrich.Windl@rz.uni-regensburg.de>
+Subject: Re: Antw: Re: Q: need effective backlog for listen()
+Date: Wed, 10 Dec 2014 08:23:46 +0100
+Message-ID: <54880312020000A100018453@gwsmtp1.uni-regensburg.de>
+References: <5485ACC9020000A100018394@gwsmtp1.uni-regensburg.de>
+ <1418056540.384.5.camel@niobium.home.fifi.org>
+ <5486AC64020000A1000183D0@gwsmtp1.uni-regensburg.de>
+ <1418137657.384.17.camel@niobium.home.fifi.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	nic_swsd <nic_swsd@realtek.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141209.183549.1930188640715074097.davem@davemloft.net>
-Content-Language: zh-TW
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: <phil@fifi.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rrzmta1.uni-regensburg.de ([194.94.155.51]:56973 "EHLO
+	rrzmta1.uni-regensburg.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752460AbaLJHXu convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:2:1>);
+	Wed, 10 Dec 2014 02:23:50 -0500
+Received: from rrzmta1.uni-regensburg.de (localhost [127.0.0.1])
+	by localhost (Postfix) with SMTP id 2840F44539
+	for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 08:23:48 +0100 (CET)
+Received: from gwsmtp1.uni-regensburg.de (gwsmtp1.uni-regensburg.de [132.199.5.51])
+	by rrzmta1.uni-regensburg.de (Postfix) with ESMTP id 06D3E44240
+	for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 08:23:47 +0100 (CET)
+In-Reply-To: <1418137657.384.17.camel@niobium.home.fifi.org>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Wednesday, December 10, 2014 7:36 AM
-> To: Hau
-> Cc: netdev@vger.kernel.org; nic_swsd; linux-kernel@vger.kernel.org
-> Subject: Re: [PATCH net-next 0/9] r8169:update hardware ephy parameter
+>>> Philippe Troin <phil@fifi.org> schrieb am 09.12.2014 um 16:07 in Nachricht
+<1418137657.384.17.camel@niobium.home.fifi.org>:
+> On Tue, 2014-12-09 at 08:01 +0100, Ulrich Windl wrote:
+>> >>> Philippe Troin <phil@fifi.org> schrieb am 08.12.2014 um 17:35 in Nachricht
+>> <1418056540.384.5.camel@niobium.home.fifi.org>:
+>>
+>> > The argument to listen() specifies how many connections the system is
+>> > allow to keep waiting to be accept()ed.
+>> > As soon as you accept() the connection, the count is decremented.
+>> > So that won't help for your use case.
+>> > 
+>> >> However none of the above see ms true. Even if my server delays
+>> >> accept()ing new connections, no client ever sees a "connection
+>> >> refused" or "connection timed out". Is there any chance to signal the
+>> >> client that no more connections are accepted at the moment?
+>> > 
+>> > Close the listening socket.  No new connections will be accepted.
+>> > When you reopen the socket for accepting new connections, you may have
+>> > to use SO_REUSEADDR before bind()ing to the port.
+>> 
+>> This is what I had done, but those connections who are waiting to be
+>> accepted: If I close the listening socket, will the clients see a
+>> connection abort, or will they see a connection refused?
+>> Connection aborts could confuse clients.
 > 
-> From: Chunhao Lin <hau@realtek.com>
-> Date: Wed, 10 Dec 2014 00:45:54 +0800
+> The clients that completed the 3-way handshake and are waiting for their
+> (server-side) socket to be accept()ed will see connection reset I
+> believe.
 > 
-> > Update hardware ephy parameter to improve pcie compatibility.
-> 
-> This really doesn't tell me anything, I really dislike patch series like this one.
-> 
-> All of the programming is magic values to magic offsets.
-> 
-> You aren't even trying to describe in the commit log message exactly what
-> kind of settings are being changed, and exactly how those changes achieve
-> the stated goal.
-> 
-> Furthermore, the commit description makes no sense at all to me.
-> 
-> How can programming the ethernet MAC PHY have any influence on PCI-E
-> bus compatability?  Or are you programming the PCI bus interface's PHY?
-> 
-> In what way are you adjusting which settings and in what way do those
-> adjustments help improve PCI-E bus behavior?
-> 
-> You absolutely must describe exactly what the new programming is actually
-> doing, precisely, and in detail.  I want to know if some kind of timings are
-> being adjusted, and in what way.
-> Are some fifo limits being changes?  If so, in what way, and why does that
-> help.
-> 
-> You have to describe what you are doing. Short and non-informative commit
-> log messages alongside random changes to undocumented magic constant
-> registers is simply unacceptable.
-> 
+> You may be able to work something out by having no listen backlog
+> (listen(0)) and closing and reopening the socket when needed.
 
-These series patch is an alignment with our latest hardware pcie ephy parameters. I will try to explain more on my next patch.
+I think I'd feel happier if listen() would implement the old semantics by default, and a new ioctl() (or such) would change to the "Linux accept all connections (3-way handshake) mode" on demand... Wishful thinking...
 
-Thanks.
+Ulrich
