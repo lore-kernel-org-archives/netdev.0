@@ -1,93 +1,127 @@
-From: Chunhao Lin <hau@realtek.com>
-Subject: [PATCH net-next v2] r8169:update rtl8168g pcie ephy parameter
-Date: Wed, 10 Dec 2014 21:28:38 +0800
-Message-ID: <1418218118-15018-1-git-send-email-hau@realtek.com>
+From: Andrey Volkov <andrey.volkov@nexvision.fr>
+Subject: Re: [PATCH 1/1] net: dsa: Fix of kernel panic in case of missing
+ PHY.
+Date: Wed, 10 Dec 2014 11:06:45 +0100
+Message-ID: <54881B35.3020706@nexvision.fr>
+References: <54873205.30401@nexvision.fr> <5487BCBA.2060403@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	Chunhao Lin <hau@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Brian Norris <computersforpeace@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 6.mo3.mail-out.ovh.net ([188.165.43.173]:38576 "EHLO
+	mo3.mail-out.ovh.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755993AbaLJNqI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 08:46:08 -0500
+Received: from mail436.ha.ovh.net (b9.ovh.net [213.186.33.59])
+	by mo3.mail-out.ovh.net (Postfix) with SMTP id 9E213FFA598
+	for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 11:06:51 +0100 (CET)
+In-Reply-To: <5487BCBA.2060403@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add ephy parameter to rtl8168g.
-Also change the common function of rtl8168g from "rtl_hw_start_8168g_1" to
- "rtl_hw_start_8168g". And function "rtl_hw_start_8168g_1" is used for
-setting rtl8168g hardware parameters.
 
-Following is the explanation of what hardware parameter change for.
-rtl8168g may erroneous judge the PCIe signal quality and show the error bit
-on PCI configuration space when in PCIe low power mode.
-The following ephy parameters are for above issue.
-{ 0x00, 0x0000,	0x0008 }
-{ 0x0c, 0x37d0,	0x0820 }
-{ 0x1e, 0x0000,	0x0001 }
+Le 10/12/2014 04:23, Florian Fainelli wrote :
+> On 09/12/14 09:31, Andrey Volkov wrote:
+>> Fix of kernel panic in case of missing PHY.
+>>
+>> Signed-off-by: Andrey Volkov <andrey.volkov@nexvision.fr>
+>=20
+> Brian has actually been able to reproduce such a crash in this code-p=
+ath
+> today:
+>=20
+> if (!p->phy) {
+>                 p->phy =3D ds->slave_mii_bus->phy_map[p->port];
+>                 phy_connect_direct(slave_dev, p->phy,
+> 				   dsa_slave_adjust_link,
+>                                    p->phy_interface);
+> }
+>=20
+> we basically assume here that we have a valid phy pointer out of
+> ds->slave_mii_bus->phy_map[p->port] which is not true in all cases,
+> especially not if the device is not there.
+Yes it's  what really happened in my case: some PHYs were not soldered=20
+(development version of the board). But in real life, they may be misse=
+d for various
+reasons, so that the assumption was wrong.
 
-rtl8168g may return to PCIe L0 from PCIe L0s low power mode too slow.
-The following ephy parameter is for above issue.
-{ 0x19, 0x8000,	0x0000 }
+>=20
+> I will come up with a fix for that, as for propagating the error code
+> down to the caller, this can be a separate patch.
+Ok, I'll wait for it
 
-Signed-off-by: Chunhao Lin <hau@realtek.com>
----
- drivers/net/ethernet/realtek/r8169.c | 24 +++++++++++++++++++++---
- 1 file changed, 21 insertions(+), 3 deletions(-)
+>=20
+> Thanks!
+=C2=B2You are welcome!
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index b9c2f33..b77efcb 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -5919,7 +5919,7 @@ static void rtl_hw_start_8411(struct rtl8169_private *tp)
- 	rtl_w0w1_eri(tp, 0x0d4, ERIAR_MASK_0011, 0x0c00, 0x0000, ERIAR_EXGMAC);
- }
- 
--static void rtl_hw_start_8168g_1(struct rtl8169_private *tp)
-+static void rtl_hw_start_8168g(struct rtl8169_private *tp)
- {
- 	void __iomem *ioaddr = tp->mmio_addr;
- 	struct pci_dev *pdev = tp->pci_dev;
-@@ -5954,6 +5954,24 @@ static void rtl_hw_start_8168g_1(struct rtl8169_private *tp)
- 	rtl_pcie_state_l2l3_enable(tp, false);
- }
- 
-+static void rtl_hw_start_8168g_1(struct rtl8169_private *tp)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	static const struct ephy_info e_info_8168g_1[] = {
-+		{ 0x00, 0x0000,	0x0008 },
-+		{ 0x0c, 0x37d0,	0x0820 },
-+		{ 0x1e, 0x0000,	0x0001 },
-+		{ 0x19, 0x8000,	0x0000 }
-+	};
-+
-+	rtl_hw_start_8168g(tp);
-+
-+	/* disable aspm and clock request before access ephy */
-+	RTL_W8(Config2, RTL_R8(Config2) & ~ClkReqEn);
-+	RTL_W8(Config5, RTL_R8(Config5) & ~ASPM_en);
-+	rtl_ephy_init(tp, e_info_8168g_1, ARRAY_SIZE(e_info_8168g_1));
-+}
-+
- static void rtl_hw_start_8168g_2(struct rtl8169_private *tp)
- {
- 	void __iomem *ioaddr = tp->mmio_addr;
-@@ -5964,7 +5982,7 @@ static void rtl_hw_start_8168g_2(struct rtl8169_private *tp)
- 		{ 0x1e, 0xffff,	0x20eb }
- 	};
- 
--	rtl_hw_start_8168g_1(tp);
-+	rtl_hw_start_8168g(tp);
- 
- 	/* disable aspm and clock request before access ephy */
- 	RTL_W8(Config2, RTL_R8(Config2) & ~ClkReqEn);
-@@ -5983,7 +6001,7 @@ static void rtl_hw_start_8411_2(struct rtl8169_private *tp)
- 		{ 0x1e, 0x0000,	0x2000 }
- 	};
- 
--	rtl_hw_start_8168g_1(tp);
-+	rtl_hw_start_8168g(tp);
- 
- 	/* disable aspm and clock request before access ephy */
- 	RTL_W8(Config2, RTL_R8(Config2) & ~ClkReqEn);
--- 
-1.9.1
+>=20
+>> ---
+>>  net/dsa/slave.c |   19 +++++++++++++++----
+>>  1 file changed, 15 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+>> index 528380a..6f89caa 100644
+>> --- a/net/dsa/slave.c
+>> +++ b/net/dsa/slave.c
+>> @@ -512,7 +512,7 @@ static int dsa_slave_fixed_link_update(struct ne=
+t_device *dev,
+>>  }
+>> =20
+>>  /* slave device setup *********************************************=
+**********/
+>> -static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
+>> +static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+>>  				struct net_device *slave_dev)
+>>  {
+>>  	struct dsa_switch *ds =3D p->parent;
+>> @@ -533,7 +533,7 @@ static void dsa_slave_phy_setup(struct dsa_slave=
+_priv *p,
+>>  		ret =3D of_phy_register_fixed_link(port_dn);
+>>  		if (ret) {
+>>  			netdev_err(slave_dev, "failed to register fixed PHY\n");
+>> -			return;
+>> +			return ret;
+>>  		}
+>>  		phy_is_fixed =3D true;
+>>  		phy_dn =3D port_dn;
+>> @@ -555,12 +555,17 @@ static void dsa_slave_phy_setup(struct dsa_sla=
+ve_priv *p,
+>>  	 */
+>>  	if (!p->phy) {
+>>  		p->phy =3D ds->slave_mii_bus->phy_map[p->port];
+>> -		phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
+>> +		if(p->phy)
+>> +			phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
+>>  				   p->phy_interface);
+>> +		else
+>> +			return -ENODEV;
+>> +
+>>  	} else {
+>>  		netdev_info(slave_dev, "attached PHY at address %d [%s]\n",
+>>  			    p->phy->addr, p->phy->drv->name);
+>>  	}
+>> +	return 0;
+>>  }
+>> =20
+>>  int dsa_slave_suspend(struct net_device *slave_dev)
+>> @@ -653,7 +658,13 @@ dsa_slave_create(struct dsa_switch *ds, struct =
+device *parent,
+>>  	p->old_link =3D -1;
+>>  	p->old_duplex =3D -1;
+>> =20
+>> -	dsa_slave_phy_setup(p, slave_dev);
+>> +	ret =3D dsa_slave_phy_setup(p, slave_dev);
+>> +	if (ret) {
+>> +		netdev_err(master, "error %d registering interface %s\n",
+>> +			   ret, slave_dev->name);
+>> +		free_netdev(slave_dev);
+>> +		return NULL;
+>> +	}
+>> =20
+>>  	ret =3D register_netdev(slave_dev);
+>>  	if (ret) {
+>>
+>=20
+>=20
