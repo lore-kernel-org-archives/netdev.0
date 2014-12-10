@@ -1,66 +1,82 @@
-From: Brian Norris <computersforpeace@gmail.com>
-Subject: [PATCH] brcmsmac: don't leak kernel memory via printk()
-Date: Wed, 10 Dec 2014 01:39:18 -0800
-Message-ID: <1418204358-8357-1-git-send-email-computersforpeace@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [net-next PATCH 6/6] ethernet/broadcom: Use napi_alloc_skb
+ instead of netdev_alloc_skb_ip_align
+Date: Wed, 10 Dec 2014 09:50:38 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CA09D86@AcuExch.aculab.com>
+References: <20141210033902.2114.68658.stgit@ahduyck-vm-fedora20>
+ <20141210034117.2114.50589.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Brian Norris <computersforpeace@gmail.com>,
-	Brett Rudley <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	netdev@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	"brouer@redhat.com" <brouer@redhat.com>,
+	Gary Zambrano <zambrano@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"ast@plumgrid.com" <ast@plumgrid.com>
+To: 'Alexander Duyck' <alexander.h.duyck@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:59287 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751102AbaLJJkF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 04:40:05 -0500
+Received: from mx0.aculab.com ([213.249.233.131]:44222 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751102AbaLJJvj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Dec 2014 04:51:39 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 04340-10 for <netdev@vger.kernel.org>;
+ Wed, 10 Dec 2014 09:51:31 +0000 (GMT)
+In-Reply-To: <20141210034117.2114.50589.stgit@ahduyck-vm-fedora20>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Debug code prints the fifo name via custom dev_warn() wrappers. The
-fifo_names array is only non-zero when debugging is manually enabled,
-which is all well and good. However, it's *not* good that this array
-uses zero-length arrays in the non-debug case, and so it doesn't
-actually have any memory allocated to it. This means that as far as we
-know, fifo_names[i] actually points to garbage memory.
-
-I've seen this in my log:
-
-[ 4601.205511] brcmsmac bcma0:1: wl0: brcms_c_d11hdrs_mac80211: =EF=BF=BD=
-GeL txop exceeded phylen 137/256 dur 1602/1504
-
-So let's give this array space enough to fill it with a NULL byte.
-
-Signed-off-by: Brian Norris <computersforpeace@gmail.com>
-Cc: Brett Rudley <brudley@broadcom.com>
-Cc: Arend van Spriel <arend@broadcom.com>
-Cc: "Franky (Zhenhui) Lin" <frankyl@broadcom.com>
-Cc: Hante Meuleman <meuleman@broadcom.com>
-Cc: "John W. Linville" <linville@tuxdriver.com>
-Cc: linux-wireless@vger.kernel.org
-Cc: brcm80211-dev-list@broadcom.com
-Cc: netdev@vger.kernel.org
----
- drivers/net/wireless/brcm80211/brcmsmac/main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/brcm80211/brcmsmac/main.c b/drivers/n=
-et/wireless/brcm80211/brcmsmac/main.c
-index 1b474828d5b8..aed0c948dce8 100644
---- a/drivers/net/wireless/brcm80211/brcmsmac/main.c
-+++ b/drivers/net/wireless/brcm80211/brcmsmac/main.c
-@@ -316,7 +316,7 @@ static const u16 xmtfifo_sz[][NFIFO] =3D {
- static const char * const fifo_names[] =3D {
- 	"AC_BK", "AC_BE", "AC_VI", "AC_VO", "BCMC", "ATIM" };
- #else
--static const char fifo_names[6][0];
-+static const char fifo_names[6][1];
- #endif
-=20
- #ifdef DEBUG
---=20
-2.2.0
+RnJvbTogQWxleGFuZGVyIER1eWNrDQo+IFRoaXMgcGF0Y2ggcmVwbGFjZXMgdGhlIGNhbGxzIHRv
+IG5ldGRldl9hbGxvY19za2JfaXBfYWxpZ24gaW4gdGhlDQo+IGNvcHlicmVhayBwYXRocy4NCg0K
+V2h5Pw0KDQpZb3Ugc3RpbGwgd2FudCB0aGUgSVAgaGVhZGVyIHRvIGJlIGFsaWduZWQgYW5kIHlv
+dSBhbHNvIHdhbnQgdGhlDQptZW1jcHkoKSB0byBiZSBjb3B5aW5nIGFsaWduZWQgZGF0YS4NCg0K
+SSBzdXNwZWN0IHRoaXMgZmFpbHMgb24gYm90aCBjb3VudHM/DQoNCglEYXZpZA0KDQo+IENjOiBH
+YXJ5IFphbWJyYW5vIDx6YW1icmFub0Bicm9hZGNvbS5jb20+DQo+IENjOiBGbG9yaWFuIEZhaW5l
+bGxpIDxmLmZhaW5lbGxpQGdtYWlsLmNvbT4NCj4gQ2M6IEFyaWVsIEVsaW9yIDxhcmllbC5lbGlv
+ckBxbG9naWMuY29tPg0KPiBTaWduZWQtb2ZmLWJ5OiBBbGV4YW5kZXIgRHV5Y2sgPGFsZXhhbmRl
+ci5oLmR1eWNrQHJlZGhhdC5jb20+DQo+IC0tLQ0KPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJv
+YWRjb20vYjQ0LmMgICAgICAgICAgICAgfCAgICAyICstDQo+ICBkcml2ZXJzL25ldC9ldGhlcm5l
+dC9icm9hZGNvbS9iY202M3h4X2VuZXQuYyAgICB8ICAgIDIgKy0NCj4gIGRyaXZlcnMvbmV0L2V0
+aGVybmV0L2Jyb2FkY29tL2JueDJ4L2JueDJ4X2Ntbi5jIHwgICAgMiArLQ0KPiAgMyBmaWxlcyBj
+aGFuZ2VkLCAzIGluc2VydGlvbnMoKyksIDMgZGVsZXRpb25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0
+IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYjQ0LmMgYi9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9icm9hZGNvbS9iNDQuYw0KPiBpbmRleCBmZmVhZjQ3Li5kODZkNmJhIDEwMDY0NA0KPiAt
+LS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9iNDQuYw0KPiArKysgYi9kcml2ZXJz
+L25ldC9ldGhlcm5ldC9icm9hZGNvbS9iNDQuYw0KPiBAQCAtODM2LDcgKzgzNiw3IEBAIHN0YXRp
+YyBpbnQgYjQ0X3J4KHN0cnVjdCBiNDQgKmJwLCBpbnQgYnVkZ2V0KQ0KPiAgCQkJc3RydWN0IHNr
+X2J1ZmYgKmNvcHlfc2tiOw0KPiANCj4gIAkJCWI0NF9yZWN5Y2xlX3J4KGJwLCBjb25zLCBicC0+
+cnhfcHJvZCk7DQo+IC0JCQljb3B5X3NrYiA9IG5ldGRldl9hbGxvY19za2JfaXBfYWxpZ24oYnAt
+PmRldiwgbGVuKTsNCj4gKwkJCWNvcHlfc2tiID0gbmFwaV9hbGxvY19za2IoJmJwLT5uYXBpLCBs
+ZW4pOw0KPiAgCQkJaWYgKGNvcHlfc2tiID09IE5VTEwpDQo+ICAJCQkJZ290byBkcm9wX2l0X25v
+X3JlY3ljbGU7DQo+IA0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRj
+b20vYmNtNjN4eF9lbmV0LmMNCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9iY202
+M3h4X2VuZXQuYw0KPiBpbmRleCAzZThkMWE4Li4yMTIwNmQzIDEwMDY0NA0KPiAtLS0gYS9kcml2
+ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9iY202M3h4X2VuZXQuYw0KPiArKysgYi9kcml2ZXJz
+L25ldC9ldGhlcm5ldC9icm9hZGNvbS9iY202M3h4X2VuZXQuYw0KPiBAQCAtMzg1LDcgKzM4NSw3
+IEBAIHN0YXRpYyBpbnQgYmNtX2VuZXRfcmVjZWl2ZV9xdWV1ZShzdHJ1Y3QgbmV0X2RldmljZSAq
+ZGV2LCBpbnQgYnVkZ2V0KQ0KPiAgCQlpZiAobGVuIDwgY29weWJyZWFrKSB7DQo+ICAJCQlzdHJ1
+Y3Qgc2tfYnVmZiAqbnNrYjsNCj4gDQo+IC0JCQluc2tiID0gbmV0ZGV2X2FsbG9jX3NrYl9pcF9h
+bGlnbihkZXYsIGxlbik7DQo+ICsJCQluc2tiID0gbmFwaV9hbGxvY19za2IoJnByaXYtPm5hcGks
+IGxlbik7DQo+ICAJCQlpZiAoIW5za2IpIHsNCj4gIAkJCQkvKiBmb3JnZXQgcGFja2V0LCBqdXN0
+IHJlYXJtIGRlc2MgKi8NCj4gIAkJCQlkZXYtPnN0YXRzLnJ4X2Ryb3BwZWQrKzsNCj4gZGlmZiAt
+LWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2JueDJ4L2JueDJ4X2Ntbi5jDQo+
+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54MngvYm54MnhfY21uLmMNCj4gaW5k
+ZXggYjRkNzFmZC4uMWQxMTQ3YyAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+YnJvYWRjb20vYm54MngvYm54MnhfY21uLmMNCj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+YnJvYWRjb20vYm54MngvYm54MnhfY21uLmMNCj4gQEAgLTEwMTUsNyArMTAxNSw3IEBAIHN0YXRp
+YyBpbnQgYm54MnhfcnhfaW50KHN0cnVjdCBibngyeF9mYXN0cGF0aCAqZnAsIGludCBidWRnZXQp
+DQo+ICAJCSAqLw0KPiAgCQlpZiAoKGJwLT5kZXYtPm10dSA+IEVUSF9NQVhfUEFDS0VUX1NJWkUp
+ICYmDQo+ICAJCSAgICAobGVuIDw9IFJYX0NPUFlfVEhSRVNIKSkgew0KPiAtCQkJc2tiID0gbmV0
+ZGV2X2FsbG9jX3NrYl9pcF9hbGlnbihicC0+ZGV2LCBsZW4pOw0KPiArCQkJc2tiID0gbmFwaV9h
+bGxvY19za2IoJmZwLT5uYXBpLCBsZW4pOw0KPiAgCQkJaWYgKHNrYiA9PSBOVUxMKSB7DQo+ICAJ
+CQkJRFAoTkVUSUZfTVNHX1JYX0VSUiB8IE5FVElGX01TR19SWF9TVEFUVVMsDQo+ICAJCQkJICAg
+IkVSUk9SICBwYWNrZXQgZHJvcHBlZCBiZWNhdXNlIG9mIGFsbG9jIGZhaWx1cmVcbiIpOw0KPiAN
+Cj4gLS0NCj4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVu
+c3Vic2NyaWJlIG5ldGRldiIgaW4NCj4gdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9t
+b0B2Z2VyLmtlcm5lbC5vcmcNCj4gTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIu
+a2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQo=
