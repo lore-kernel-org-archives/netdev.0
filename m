@@ -1,40 +1,37 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net v6 7/7] libcxgbi: free skb after debug prints
-Date: Wed, 10 Dec 2014 22:38:01 +0300
-Message-ID: <5488A119.8080505@cogentembedded.com>
-References: <201412101625.sBAGPSXC011110@localhost6.localdomain6>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] irda: Convert function pointer arrays and uses to const
+Date: Wed, 10 Dec 2014 11:38:03 -0800
+Message-ID: <1418240283.18092.15.camel@perches.com>
+References: <1418236138.18092.13.camel@perches.com>
+	 <3333024A-D21C-41E2-80ED-7590CE6E9BD1@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: hariprasad@chelsio.com, anish@chelsio.com, hch@infradead.org,
-	James.Bottomley@HansenPartnership.com, michaelc@cs.wisc.edu,
-	davem@davemloft.net
-To: Karen Xie <kxie@chelsio.com>, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:58588 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757594AbaLJTiG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 14:38:06 -0500
-Received: by mail-la0-f53.google.com with SMTP id gm9so2954412lab.40
-        for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 11:38:04 -0800 (PST)
-In-Reply-To: <201412101625.sBAGPSXC011110@localhost6.localdomain6>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Samuel Ortiz <samuel@sortiz.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3333024A-D21C-41E2-80ED-7590CE6E9BD1@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Wed, 2014-12-10 at 19:32 +0000, Rustad, Mark D wrote:
+> On Dec 10, 2014, at 10:28 AM, Joe Perches <joe@perches.com> wrote:
+[]
+> > diff --git a/include/net/irda/parameters.h b/include/net/irda/parameters.h
+[]
+> > typedef struct {
+> > -	pi_minor_info_t *pi_minor_call_table;
+> > +	const pi_minor_info_t *pi_minor_call_table;
+> 
+> Might you want to go a little further and make it:
+> 	const pi_minor_into_t * const pi_minor_call_table;
+> so that the pointer itself is also constant? That could apply to some others below as well.
+> 
+> > 	int len;
+> > } pi_major_info_t;
 
-On 12/10/2014 07:25 PM, Karen Xie wrote:
-
-> [PATCH net v6 7/7] libcxgbi: free skb after debug prints
-
-    Please, do not duplicate the subject in the changelog -- DaveM would have 
-to edit it out by hand.
-
-> From: Karen Xie <kxie@chelsio.com>
-
-> The debug print was accessing the skb after it was freed.
-
-> Signed-off-by: Karen Xie <kxie@chelsio.com>
-
-WBR, Sergei
+I don't think that's necessary as all the pi_major_info_t uses
+become const and this is a typedef, but if you want to, go ahead.
