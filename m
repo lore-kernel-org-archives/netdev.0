@@ -1,54 +1,43 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [RFC PATCH 0/3] Faster than SLAB caching of SKBs with qmempool
-	(backed by alf_queue)
-Date: Wed, 10 Dec 2014 14:22:22 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CA0A193@AcuExch.aculab.com>
-References: <20141210033902.2114.68658.stgit@ahduyck-vm-fedora20>
- <20141210141332.31779.56391.stgit@dragon>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-api@vger.kernel.org" <linux-api@vger.kernel.org>, Eric Dumazet
-	<eric.dumazet@gmail.com>, "David S. Miller" <davem@davemloft.net>, "Hannes
- Frederic Sowa" <hannes@stressinduktion.org>, Alexander Duyck
-	<alexander.duyck@gmail.com>, Alexei Starovoitov <ast@plumgrid.com>, "Paul E.
- McKenney" <paulmck@linux.vnet.ibm.com>, Mathieu Desnoyers
-	<mathieu.desnoyers@efficios.com>, Steven Rostedt <rostedt@goodmis.org>
-To: 'Jesper Dangaard Brouer' <brouer@redhat.com>, "netdev@vger.kernel.org"
-	<netdev@vger.kernel.org>, "linux-kernel@vger.kernel.org"
-	<linux-kernel@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>,
-	Christoph Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20141210141332.31779.56391.stgit@dragon>
-Content-Language: en-US
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH V1 net-next 01/10] net/mlx4_en: Set csum level for encapsulated packets
+Date: Wed, 10 Dec 2014 15:09:50 +0200
+Message-ID: <1418216999-17012-2-git-send-email-ogerlitz@mellanox.com>
+References: <1418216999-17012-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:48801 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753905AbaLJOcH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Dec 2014 09:32:07 -0500
+In-Reply-To: <1418216999-17012-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSmVzcGVyIERhbmdhYXJkIEJyb3Vlcg0KPiBUaGUgbmV0d29yayBzdGFjayBoYXZlIHNv
-bWUgdXNlLWNhc2VzIHRoYXQgcHV0cyBzb21lIGV4dHJlbWUgZGVtYW5kcw0KPiBvbiB0aGUgbWVt
-b3J5IGFsbG9jYXRvci4gIE9uZSB1c2UtY2FzZSwgMTBHYml0L3Mgd2lyZXNwZWVkIGF0IHNtYWxs
-ZXN0DQo+IHBhY2tldCBzaXplWzFdLCByZXF1aXJlcyBoYW5kbGluZyBhIHBhY2tldCBldmVyeSA2
-Ny4yIG5zIChuYW5vc2VjKS4NCj4gDQo+IE1pY3JvIGJlbmNobWFya2luZ1syXSB0aGUgU0xVQiBh
-bGxvY2F0b3IgKHdpdGggc2tiIHNpemUgMjU2Ynl0ZXMNCj4gZWxlbWVudHMpLCBzaG93ICJmYXN0
-LXBhdGgiIGluc3RhbnQgcmV1c2Ugb25seSBjb3N0cyAxOSBucywgYnV0IGENCj4gY2xvc2VyIHRv
-IG5ldHdvcmsgdXNhZ2UgcGF0dGVybiBzaG93IHRoZSBjb3N0IHJpc2UgdG8gNDUgbnMuDQo+IA0K
-PiBUaGlzIHBhdGNoc2V0IGludHJvZHVjZSBhIHF1aWNrIG1lbXBvb2wgKHFtZW1wb29sKSwgd2hp
-Y2ggd2hlbiB1c2VkDQo+IGluLWZyb250IG9mIHRoZSBTS0IgKHNrX2J1ZmYpIGttZW1fY2FjaGUs
-IHNhdmVzIDEyIG5zIG9uICJmYXN0LXBhdGgiDQo+IGRyb3AgaW4gaXB0YWJsZXMgInJhdyIgdGFi
-bGUsIGJ1dCBtb3JlIGltcG9ydGFudGx5IHNhdmVzIDQwIG5zIHdpdGgNCj4gSVAtZm9yd2FyZGlu
-Zywgd2hpY2ggd2VyZSBoaXR0aW5nIHRoZSBzbG93ZXIgU0xVQiB1c2UtY2FzZS4NCj4gDQo+IA0K
-PiBPbmUgb2YgdGhlIGJ1aWxkaW5nIGJsb2NrcyBmb3IgYWNoaWV2aW5nIHRoaXMgc3BlZWR1cCBp
-cyBhIGNtcHhjaGcNCj4gYmFzZWQgTG9jay1GcmVlIHF1ZXVlIHRoYXQgc3VwcG9ydHMgYnVsa2lu
-ZywgbmFtZWQgYWxmX3F1ZXVlIGZvcg0KPiBBcnJheS1iYXNlZCBMb2NrLUZyZWUgcXVldWUuICBC
-eSBidWxraW5nIGVsZW1lbnRzIChwb2ludGVycykgZnJvbSB0aGUNCj4gcXVldWUsIHRoZSBjb3N0
-IG9mIHRoZSBjbXB4Y2hnIChhcHByb3ggOCBucykgaXMgYW1vcnRpemVkIG92ZXIgc2V2ZXJhbA0K
-PiBlbGVtZW50cy4NCg0KSXQgc2VlbXMgdG8gbWUgdGhhdCB0aGVzZSBpbXByb3ZlbWVudHMgY291
-bGQgYmUgYWRkZWQgdG8gdGhlDQp1bmRlcmx5aW5nIGFsbG9jYXRvciBpdHNlbGYuDQpOZXN0aW5n
-IGFsbG9jYXRvcnMgZG9lc24ndCByZWFsbHkgc2VlbSByaWdodCB0byBtZS4NCg0KCURhdmlkDQoN
-Cg==
+This was dropped by mistake for the napi_gro_frags flow, fix that.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Fixes: dd65beac48a5 ('net/mlx4_en: Extend usage of napi_gro_frags')
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 4ca396e..69a2e1b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -888,7 +888,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 			gro_skb->ip_summed = ip_summed;
+ 
+ 			if (l2_tunnel && ip_summed == CHECKSUM_UNNECESSARY)
+-				gro_skb->encapsulation = 1;
++				gro_skb->csum_level = 1;
++
+ 			if ((cqe->vlan_my_qpn &
+ 			    cpu_to_be32(MLX4_CQE_VLAN_PRESENT_MASK)) &&
+ 			    (dev->features & NETIF_F_HW_VLAN_CTAG_RX)) {
+-- 
+1.7.1
