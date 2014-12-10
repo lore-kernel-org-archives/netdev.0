@@ -1,42 +1,44 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH for 3.19] rtlwifi: rtl8192ce: Set fw_ready flag
-Date: Wed, 10 Dec 2014 14:38:29 -0600
-Message-ID: <1418243909-23428-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
-To: linville@tuxdriver.com
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Subject: Re: [PATCH net v7 3/7] cxgb4/cxgb4i: set the max. pdu length in
+ firmware
+Date: Wed, 10 Dec 2014 23:41:29 +0300
+Message-ID: <1418244089.8310.15.camel@HansenPartnership.com>
+References: <201412102024.sBAKO9eA011525@localhost6.localdomain6>
+	 <20141210.153159.617405179156473446.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: kxie@chelsio.com, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org, hariprasad@chelsio.com, anish@chelsio.com,
+	hch@infradead.org, michaelc@cs.wisc.edu
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bedivere.hansenpartnership.com ([66.63.167.143]:44777 "EHLO
+	bedivere.hansenpartnership.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932116AbaLJUlh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 15:41:37 -0500
+In-Reply-To: <20141210.153159.617405179156473446.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The setting of this flag was missed in previous modifications.
+On Wed, 2014-12-10 at 15:31 -0500, David Miller wrote:
+> From: Karen Xie <kxie@chelsio.com>
+> Date: Wed, 10 Dec 2014 12:24:09 -0800
+> 
+> > [PATCH net v7 3/7] cxgb4/cxgb4i: set the max. pdu length in firmware.
+> 
+> Please listen to the feedback you have been given.
+> 
+> Again, you should not duplicate the Subject line in your message
+> body, that makes more work for the people integrating your patches
+> as we have to remove all of these things by hand.
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Stable <stable@vger.kernel.org>
----
- drivers/net/wireless/rtlwifi/rtl8192ce/hw.c | 2 ++
- 1 file changed, 2 insertions(+)
+While we're on the subject of making life easier for maintainers, could
+I put in a plea for threading your patch set?  It really does make it
+easier to find and apply all the patches, especially on a high traffic
+list where they otherwise get interspersed with other messages.  If you
+don't use git-send-email, which threads automatically, you can thread
+manually by just making all the other patches a reply to your [PATCH
+0/N],
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
-index eecb79f..1b73158 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
-@@ -959,6 +959,7 @@ int rtl92ce_hw_init(struct ieee80211_hw *hw)
- 	local_save_flags(flags);
- 	local_irq_enable();
- 
-+	rtlhal->fw_ready = false;
- 	rtlpriv->intf_ops->disable_aspm(hw);
- 	rtstatus = _rtl92ce_init_mac(hw);
- 	if (!rtstatus) {
-@@ -975,6 +976,7 @@ int rtl92ce_hw_init(struct ieee80211_hw *hw)
- 		goto exit;
- 	}
- 
-+	rtlhal->fw_ready = true;
- 	rtlhal->last_hmeboxnum = 0;
- 	rtl92c_phy_mac_config(hw);
- 	/* because last function modify RCR, so we update
--- 
-2.1.2
+James
