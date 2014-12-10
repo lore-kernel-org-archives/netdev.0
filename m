@@ -1,47 +1,55 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net-next] bridge: Add ability to always enable
-	TSO/UFO
-Date: Wed, 10 Dec 2014 11:43:14 +0900
-Message-ID: <1418179394-4470-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-References: <1418179394-4470-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+Subject: [PATCH net-next] vlan: Add ability to always enable TSO/UFO
+Date: Wed, 10 Dec 2014 11:43:13 +0900
+Message-ID: <1418179394-4470-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	netdev@vger.kernel.org
 To: "David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1418179394-4470-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+	Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:59969 "EHLO
+	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754011AbaLJCnl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 21:43:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently a bridge device turns off TSO/UFO features if no bridge ports
-support it. We can always enable them, since packets can be segmented
-on ports by software as well as on the bridge device.
-This will reduce the number of packets processed in the bridge.
+Since the real device can segment packets by software, a vlan device
+can set TSO/UFO even when the real device doesn't have those features.
+Unlike GSO, this allows packets to be segmented after Qdisc.
 
 Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 ---
- net/bridge/br_if.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/8021q/vlan_dev.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index ed307db..e93bf17 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -418,7 +418,7 @@ netdev_features_t br_features_recompute(struct net_bridge *br,
- 		return features;
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 3768050..1189564 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -579,11 +579,12 @@ static int vlan_dev_init(struct net_device *dev)
+ 		      (1<<__LINK_STATE_PRESENT);
  
- 	mask = features;
--	features &= ~NETIF_F_ONE_FOR_ALL;
-+	features &= ~NETIF_F_ONE_FOR_ALL | NETIF_F_GSO_SOFTWARE;
+ 	dev->hw_features = NETIF_F_ALL_CSUM | NETIF_F_SG |
+-			   NETIF_F_FRAGLIST | NETIF_F_ALL_TSO |
++			   NETIF_F_FRAGLIST | NETIF_F_GSO_SOFTWARE |
+ 			   NETIF_F_HIGHDMA | NETIF_F_SCTP_CSUM |
+ 			   NETIF_F_ALL_FCOE;
  
- 	list_for_each_entry(p, &br->port_list, list) {
- 		features = netdev_increment_features(features,
+-	dev->features |= real_dev->vlan_features | NETIF_F_LLTX;
++	dev->features |= real_dev->vlan_features | NETIF_F_LLTX |
++			 NETIF_F_GSO_SOFTWARE;
+ 	dev->gso_max_size = real_dev->gso_max_size;
+ 	if (dev->features & NETIF_F_VLAN_FEATURES)
+ 		netdev_warn(real_dev, "VLAN features are set incorrectly.  Q-in-Q configurations may not work correctly.\n");
+@@ -648,7 +649,7 @@ static netdev_features_t vlan_dev_fix_features(struct net_device *dev,
+ 	features |= NETIF_F_RXCSUM;
+ 	features = netdev_intersect_features(features, real_dev->features);
+ 
+-	features |= old_features & NETIF_F_SOFT_FEATURES;
++	features |= old_features & (NETIF_F_SOFT_FEATURES | NETIF_F_GSO_SOFTWARE);
+ 	features |= NETIF_F_LLTX;
+ 
+ 	return features;
 -- 
 1.8.1.2
