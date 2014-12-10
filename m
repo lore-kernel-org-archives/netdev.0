@@ -1,85 +1,65 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v2 1/4] netdev: introduce new
- NETIF_F_HW_NETFUNC_OFFLOAD feature flag for switch device offloads
-Date: Wed, 10 Dec 2014 10:31:50 +0100
-Message-ID: <20141210093150.GA1863@nanopsycho.orion>
-References: <1418202320-19491-2-git-send-email-roopa@cumulusnetworks.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v8 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Wed, 10 Dec 2014 10:35:20 +0100
+Message-ID: <2331317.LV3gPP3odb@wuerfel>
+References: <1397869980-21187-1-git-send-email-zhangfei.gao@linaro.org> <5487C357.9030507@huawei.com> <5487EC09.8090907@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
-	john.fastabend@gmail.com, stephen@networkplumber.org,
-	linville@tuxdriver.com, vyasevic@redhat.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: roopa@cumulusnetworks.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Alexander Graf <agraf@suse.de>,
+	Zhangfei Gao <zhangfei.gao@linaro.org>, davem@davemloft.net,
+	linux@arm.linux.org.uk, f.fainelli@gmail.com,
+	sergei.shtylyov@cogentembedded.com, mark.rutland@arm.com,
+	David.Laight@aculab.com, eric.dumazet@gmail.com,
+	xuwei5@hisilicon.com, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:43997 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750716AbaLJJbx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 04:31:53 -0500
-Received: by mail-wg0-f52.google.com with SMTP id x12so3038002wgg.11
-        for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 01:31:51 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1418202320-19491-2-git-send-email-roopa@cumulusnetworks.com>
+Received: from mout.kundenserver.de ([212.227.17.24]:64529 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752352AbaLJJgU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 04:36:20 -0500
+In-Reply-To: <5487EC09.8090907@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Dec 10, 2014 at 10:05:17AM CET, roopa@cumulusnetworks.com wrote:
->From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
->This is a high level feature flag for all switch asic offloads
->
->switch drivers set this flag on switch ports. Logical devices like
->bridge, bonds, vxlans can inherit this flag from their slaves/ports.
-
-
-Interesting thing is that you are talking about "switch" (mentioned 3
-times on 3 lines), yet the name of bit is "NETFUNC_OFFLOAD". I'm sorry,
-I might be missing some obvious facts but "netfunc" seems ambiguous
-to me.
-
-
->
->The patch also adds the flag to NETIF_F_ONE_FOR_ALL, so that it gets
->propagated to the upperdevices (bridges and bonds).
->
->(In case you did not notice, I am trying a new name NETIF_F_HW_NETFUNC_OFFLOAD for the flag ;)
->
->Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->---
-> include/linux/netdev_features.h |    5 ++++-
-> 1 file changed, 4 insertions(+), 1 deletion(-)
->
->diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
->index 8e30685..8ab175b 100644
->--- a/include/linux/netdev_features.h
->+++ b/include/linux/netdev_features.h
->@@ -66,6 +66,7 @@ enum {
-> 	NETIF_F_HW_VLAN_STAG_FILTER_BIT,/* Receive filtering on VLAN STAGs */
-> 	NETIF_F_HW_L2FW_DOFFLOAD_BIT,	/* Allow L2 Forwarding in Hardware */
-> 	NETIF_F_BUSY_POLL_BIT,		/* Busy poll */
->+	NETIF_F_HW_NETFUNC_OFFLOAD_BIT,  /* HW switch offload */
+On Wednesday 10 December 2014 14:45:29 Ding Tianhong wrote:
 > 
-> 	/*
-> 	 * Add your fresh new feature above and remember to update
->@@ -124,6 +125,7 @@ enum {
-> #define NETIF_F_HW_VLAN_STAG_TX	__NETIF_F(HW_VLAN_STAG_TX)
-> #define NETIF_F_HW_L2FW_DOFFLOAD	__NETIF_F(HW_L2FW_DOFFLOAD)
-> #define NETIF_F_BUSY_POLL	__NETIF_F(BUSY_POLL)
->+#define NETIF_F_HW_NETFUNC_OFFLOAD	__NETIF_F(HW_NETFUNC_OFFLOAD)
-> 
-> /* Features valid for ethtool to change */
-> /* = all defined minus driver/device-class-related */
->@@ -159,7 +161,8 @@ enum {
->  */
-> #define NETIF_F_ONE_FOR_ALL	(NETIF_F_GSO_SOFTWARE | NETIF_F_GSO_ROBUST | \
-> 				 NETIF_F_SG | NETIF_F_HIGHDMA |		\
->-				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED)
->+				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED | \
->+				 NETIF_F_HW_NETFUNC_OFFLOAD)
-> /*
->  * If one device doesn't support one of these features, then disable it
->  * for all in netdev_increment_features.
->-- 
->1.7.10.4
->
+> Miss this code, I think the best way is skb_orphan(skb), just like the cxgb3 drivers, some hardware
+> didn't use the tx inq to free dmad Tx packages.
+
+The problem with skb_orphan is that you are telling the network stack that
+the packet is now out of its reach and it will no longer be able to take
+queued packets into account. This can work as long as you are guaranteed
+to never fill up the tx queue and assume that the network link is always
+faster than your CPUs, but then you have to do additional steps, at least:
+
+- turn off flow control (pause frames)
+- disable half-duplex, 10mbit and 100mbit connections
+- remove the byte queue limit code from the driver
+- never call netif_stop_queue or return NETDEV_TX_BUSY from the tx
+  function, but instead drop the oldest packets from the tx queue
+  to make room, and rely on higher-level protocols (TCP) to throttle
+  the output
+- for best throughput, don't bother looking at the status of the tx
+  queue until it has filled up, then clean up all transmitted packets
+  (if any) but at least enough so you can continue sending a bit longer.
+
+The above can work because you know the device is only used in one SoC
+that has a relatively slow CPU. I would describe it as "we don't know
+how much data we can send, but in doubt we send more and do our best
+to make that case as rare as possible". It's also management friendly
+because you can reach higher-than-gigabit transmit rates this way
+if you ignore the packet loss ;-). The price for this is that you
+eventually have to retransmit packets that get dropped.
+
+The alternative to this is to keep all the features of the network
+stack in place and to keep retrying the tx cleanup in some way so
+you don't have to orphan or drop any skbs. This could be as easy as
+
+- drop the skb_orphan() call
+- make hip04_tx_reclaim() return an error if the queue is still full
+- do not call napi_complete or turn on the rx irq if hip04_tx_reclaim
+  failed
+
+	Arnd
