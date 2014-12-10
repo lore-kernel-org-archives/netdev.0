@@ -1,107 +1,74 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/1] net: dsa: Fix of kernel panic in case of missing
- PHY.
-Date: Tue, 09 Dec 2014 19:23:38 -0800
-Message-ID: <5487BCBA.2060403@gmail.com>
-References: <54873205.30401@nexvision.fr>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next] ipv6: fix sparse warning
+Date: Wed, 10 Dec 2014 11:28:21 +0800
+Message-ID: <1418182101-7992-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Andrey Volkov <andrey.volkov@nexvision.fr>, netdev@vger.kernel.org,
-	Brian Norris <computersforpeace@gmail.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:47015 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753284AbaLJDXw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 22:23:52 -0500
-Received: by mail-pd0-f173.google.com with SMTP id ft15so1876498pdb.4
-        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 19:23:51 -0800 (PST)
-In-Reply-To: <54873205.30401@nexvision.fr>
+Received: from mail1.windriver.com ([147.11.146.13]:52870 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753437AbaLJD3v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 22:29:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/12/14 09:31, Andrey Volkov wrote:
-> Fix of kernel panic in case of missing PHY.
-> 
-> Signed-off-by: Andrey Volkov <andrey.volkov@nexvision.fr>
+This fixes the following sparse warning when using
 
-Brian has actually been able to reproduce such a crash in this code-path
-today:
+make C=1 CF=-D__CHECK_ENDIAN__ net/ipv6/addrconf.o
+net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
 
-if (!p->phy) {
-                p->phy = ds->slave_mii_bus->phy_map[p->port];
-                phy_connect_direct(slave_dev, p->phy,
-				   dsa_slave_adjust_link,
-                                   p->phy_interface);
-}
+To silence above spare complaint, an RCU annotation should be added
+to next pointer of hlist_node structure through hlist_next_rcu() macro
+when iterating over a hlist with hlist_for_each_entry_continue_rcu_bh().
 
-we basically assume here that we have a valid phy pointer out of
-ds->slave_mii_bus->phy_map[p->port] which is not true in all cases,
-especially not if the device is not there.
+By the way, this commit also resolves the same error appearing in
+hlist_for_each_entry_continue_rcu().
 
-I will come up with a fix for that, as for propagating the error code
-down to the caller, this can be a separate patch.
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+---
+ include/linux/rculist.h |   16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-Thanks!
-
-> ---
->  net/dsa/slave.c |   19 +++++++++++++++----
->  1 file changed, 15 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> index 528380a..6f89caa 100644
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -512,7 +512,7 @@ static int dsa_slave_fixed_link_update(struct net_device *dev,
->  }
->  
->  /* slave device setup *******************************************************/
-> -static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
-> +static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
->  				struct net_device *slave_dev)
->  {
->  	struct dsa_switch *ds = p->parent;
-> @@ -533,7 +533,7 @@ static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
->  		ret = of_phy_register_fixed_link(port_dn);
->  		if (ret) {
->  			netdev_err(slave_dev, "failed to register fixed PHY\n");
-> -			return;
-> +			return ret;
->  		}
->  		phy_is_fixed = true;
->  		phy_dn = port_dn;
-> @@ -555,12 +555,17 @@ static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
->  	 */
->  	if (!p->phy) {
->  		p->phy = ds->slave_mii_bus->phy_map[p->port];
-> -		phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
-> +		if(p->phy)
-> +			phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
->  				   p->phy_interface);
-> +		else
-> +			return -ENODEV;
-> +
->  	} else {
->  		netdev_info(slave_dev, "attached PHY at address %d [%s]\n",
->  			    p->phy->addr, p->phy->drv->name);
->  	}
-> +	return 0;
->  }
->  
->  int dsa_slave_suspend(struct net_device *slave_dev)
-> @@ -653,7 +658,13 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
->  	p->old_link = -1;
->  	p->old_duplex = -1;
->  
-> -	dsa_slave_phy_setup(p, slave_dev);
-> +	ret = dsa_slave_phy_setup(p, slave_dev);
-> +	if (ret) {
-> +		netdev_err(master, "error %d registering interface %s\n",
-> +			   ret, slave_dev->name);
-> +		free_netdev(slave_dev);
-> +		return NULL;
-> +	}
->  
->  	ret = register_netdev(slave_dev);
->  	if (ret) {
-> 
+diff --git a/include/linux/rculist.h b/include/linux/rculist.h
+index 866d9c9..32bd4ad 100644
+--- a/include/linux/rculist.h
++++ b/include/linux/rculist.h
+@@ -524,11 +524,11 @@ static inline void hlist_add_behind_rcu(struct hlist_node *n,
+  * @member:	the name of the hlist_node within the struct.
+  */
+ #define hlist_for_each_entry_continue_rcu(pos, member)			\
+-	for (pos = hlist_entry_safe(rcu_dereference((pos)->member.next),\
+-			typeof(*(pos)), member);			\
++	for (pos = hlist_entry_safe(rcu_dereference_raw(hlist_next_rcu( \
++			&(pos)->member)), typeof(*(pos)), member);	\
+ 	     pos;							\
+-	     pos = hlist_entry_safe(rcu_dereference((pos)->member.next),\
+-			typeof(*(pos)), member))
++	     pos = hlist_entry_safe(rcu_dereference_raw(hlist_next_rcu(	\
++			&(pos)->member)), typeof(*(pos)), member))
+ 
+ /**
+  * hlist_for_each_entry_continue_rcu_bh - iterate over a hlist continuing after current point
+@@ -536,11 +536,11 @@ static inline void hlist_add_behind_rcu(struct hlist_node *n,
+  * @member:	the name of the hlist_node within the struct.
+  */
+ #define hlist_for_each_entry_continue_rcu_bh(pos, member)		\
+-	for (pos = hlist_entry_safe(rcu_dereference_bh((pos)->member.next),\
+-			typeof(*(pos)), member);			\
++	for (pos = hlist_entry_safe(rcu_dereference_bh(hlist_next_rcu(  \
++			&(pos)->member)), typeof(*(pos)), member);	\
+ 	     pos;							\
+-	     pos = hlist_entry_safe(rcu_dereference_bh((pos)->member.next),\
+-			typeof(*(pos)), member))
++	     pos = hlist_entry_safe(rcu_dereference_bh(hlist_next_rcu(	\
++			&(pos)->member)), typeof(*(pos)), member))
+ 
+ /**
+  * hlist_for_each_entry_from_rcu - iterate over a hlist continuing from current point
+-- 
+1.7.9.5
