@@ -1,73 +1,30 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [RFC PATCH 0/3] Faster than SLAB caching of SKBs with qmempool
- (backed by alf_queue)
-Date: Wed, 10 Dec 2014 13:51:32 -0600 (CST)
-Message-ID: <alpine.DEB.2.11.1412101339480.22982@gentwo.org>
-References: <20141210033902.2114.68658.stgit@ahduyck-vm-fedora20> <20141210141332.31779.56391.stgit@dragon>
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-    linux-api@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-    "David S. Miller" <davem@davemloft.net>,
-    Hannes Frederic Sowa <hannes@stressinduktion.org>,
-    Alexander Duyck <alexander.duyck@gmail.com>,
-    Alexei Starovoitov <ast@plumgrid.com>,
-    "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-    Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
-    Steven Rostedt <rostedt@goodmis.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20141210141332.31779.56391.stgit@dragon>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] be2net: Export tunnel offloads only when a VxLAN
+ tunnel is created
+Date: Wed, 10 Dec 2014 14:53:38 -0500 (EST)
+Message-ID: <20141210.145338.683039710260795306.davem@davemloft.net>
+References: <1418205364-28979-1-git-send-email-sathya.perla@emulex.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47216 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932803AbaLJTxl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 14:53:41 -0500
+In-Reply-To: <1418205364-28979-1-git-send-email-sathya.perla@emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 10 Dec 2014, Jesper Dangaard Brouer wrote:
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Wed, 10 Dec 2014 04:56:04 -0500
 
-> One of the building blocks for achieving this speedup is a cmpxchg
-> based Lock-Free queue that supports bulking, named alf_queue for
-> Array-based Lock-Free queue.  By bulking elements (pointers) from the
-> queue, the cost of the cmpxchg (approx 8 ns) is amortized over several
-> elements.
+> +	netdev->hw_enc_features |= (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+> +	    NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_GSO_UDP_TUNNEL);
 
-This is a bit of an issue since the design of the SLUB allocator is such
-that you should pick up an object, apply some processing and then take the
-next one. The fetching of an object warms up the first cacheline and this
-is tied into the way free objects are linked in SLUB.
+Please indent this properly:
 
-So a bulk fetch from SLUB will not that effective and cause the touching
-of many cachelines if we are dealing with just a few objects. If we are
-looking at whole slab pages with all objects then SLUB can be effective
-since we do not have to build up the linked pointer structure in each
-page. SLAB has a different architecture there and a bulk fetch there is
-possible without touching objects even for small sets since the freelist
-management is separate from the objects.
-
-If you do this bulking then you will later access cache cold objects?
-Doesnt that negate the benefit that you gain? Or are these objects written
-to by hardware and therefore by necessity cache cold?
-
-We could provide a faster bulk alloc/free function.
-
-	int kmem_cache_alloc_array(struct kmem_cache *s, gfp_t flags,
-		size_t objects, void **array)
-
-and this could be optimized by each slab allocator to provide fast
-population of objects in that array. We then assume that the number of
-objects is in the hundreds or so right?
-
-The corresponding free function
-
-	void kmem_cache_free_array(struct kmem_cache *s,
-		size_t objects, void **array)
-
-
-I think the queue management of the array can be improved by using a
-similar technique as used the SLUB allocator using the cmpxchg_local.
-cmpxchg_local is much faster than a full cmpxchg and we are operating on
-per cpu structures anyways. So the overhead could still be reduced.
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+	netdev->hw_enc_features |= (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+				    NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_GSO_UDP_TUNNEL);
