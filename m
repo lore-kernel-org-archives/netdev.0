@@ -1,28 +1,33 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next 0/3] Kill arch_fast_hash
-Date: Thu, 11 Dec 2014 00:15:01 +0100
-Message-ID: <5488D3F5.8040701@redhat.com>
-References: <1418225592-29322-1-git-send-email-dborkman@redhat.com> <20141210.151838.1178381810877719493.davem@davemloft.net>
+Subject: Re: [PATCH iproute2 -next] ip: route: add congestion control setting
+Date: Thu, 11 Dec 2014 00:46:52 +0100
+Message-ID: <5488DB6C.7090609@redhat.com>
+References: <1417793298-6439-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch, hannes@stressinduktion.org
-To: David Miller <davem@davemloft.net>
+Cc: hannes@stressinduktion.org, fw@strlen.de, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43025 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37714 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758230AbaLJXaI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Dec 2014 18:30:08 -0500
-In-Reply-To: <20141210.151838.1178381810877719493.davem@davemloft.net>
+	id S1758268AbaLJXrE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Dec 2014 18:47:04 -0500
+In-Reply-To: <1417793298-6439-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/10/2014 09:18 PM, David Miller wrote:
-...
-> Series applied, and I'll queue patch #1 to -stable, thanks.
+On 12/05/2014 04:28 PM, Daniel Borkmann wrote:
+> This patch adds configuration and dumping of congestion control metric
+> for ip route, f.e.:  ip route add <dst> dev <dev> congctl [lock] <name>
+>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Sounds good, thanks!
+Stephen, you can drop this one; net-next just got closed and for
+the module auto-loading which is almost ready, I will send a v2
+for iproute2 as some man-page bits needs changes here.
 
-Btw, this will create a "silent" merge conflict with Linus' tree:
-As nios2 arch has been merged for 3.19, the 'generic-y += hash.h'
-from arch/nios2/include/asm/Kbuild needs to be removed there, too.
+But all that when net-next opens up again.
+
+Thanks,
+Daniel
