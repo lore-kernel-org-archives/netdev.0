@@ -1,37 +1,64 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] irda: Convert function pointer arrays and uses to const
-Date: Wed, 10 Dec 2014 11:38:03 -0800
-Message-ID: <1418240283.18092.15.camel@perches.com>
-References: <1418236138.18092.13.camel@perches.com>
-	 <3333024A-D21C-41E2-80ED-7590CE6E9BD1@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: introduce helper macro for_each_cmsghdr
+Date: Wed, 10 Dec 2014 14:44:30 -0500 (EST)
+Message-ID: <20141210.144430.1749715282635917425.davem@davemloft.net>
+References: <5487DBD9.1010908@cn.fujitsu.com>
+	<20141210.134804.1383875260695429574.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Samuel Ortiz <samuel@sortiz.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	joe@perches.com
+To: guz.fnst@cn.fujitsu.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3333024A-D21C-41E2-80ED-7590CE6E9BD1@intel.com>
+In-Reply-To: <20141210.134804.1383875260695429574.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-12-10 at 19:32 +0000, Rustad, Mark D wrote:
-> On Dec 10, 2014, at 10:28 AM, Joe Perches <joe@perches.com> wrote:
-[]
-> > diff --git a/include/net/irda/parameters.h b/include/net/irda/parameters.h
-[]
-> > typedef struct {
-> > -	pi_minor_info_t *pi_minor_call_table;
-> > +	const pi_minor_info_t *pi_minor_call_table;
-> 
-> Might you want to go a little further and make it:
-> 	const pi_minor_into_t * const pi_minor_call_table;
-> so that the pointer itself is also constant? That could apply to some others below as well.
-> 
-> > 	int len;
-> > } pi_major_info_t;
-
-I don't think that's necessary as all the pi_major_info_t uses
-become const and this is a typedef, but if you want to, go ahead.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogV2VkLCAxMCBE
+ZWMgMjAxNCAxMzo0ODowNCAtMDUwMCAoRVNUKQ0KDQo+IEZyb206IEd1IFpoZW5nIDxndXouZm5z
+dEBjbi5mdWppdHN1LmNvbT4NCj4gRGF0ZTogV2VkLCAxMCBEZWMgMjAxNCAxMzozNjoyNSArMDgw
+MA0KPiANCj4+IEludHJvZHVjZSBoZWxwZXIgbWFjcm8gZm9yX2VhY2hfY21zZ2hkciBhcyBhIHdy
+YXBwZXIgb2YgdGhlIGVudW1lcmF0aW5nDQo+PiBjbXNnaGRyIGZyb20gbXNnaGRyLCBqdXN0IGNs
+ZWFudXAuIA0KPj4gDQo+PiBTaWduZWQtb2ZmLWJ5OiBHdSBaaGVuZyA8Z3V6LmZuc3RAY24uZnVq
+aXRzdS5jb20+DQo+IA0KPiBBcHBsaWVkLCB0aGFua3MuDQoNClRoaXMgYnJlYWtzIHRoZSBidWls
+ZCwgSSdtIHJldmVydGluZy4NCg0KWW91IGNhbm5vdCB1c2UgeW91ciBuZXcgbWFjcm9zIGluDQpE
+b2N1bWVudGF0aW9uL25ldHdvcmtpbmcvdGltZXN0YW1waW5nL3R4dGltZXN0YW1wLmMsIHRoYXQg
+aXMgYQ0KdXNlcmxhbmQgcHJvZ3JhbSBhbmQgdGhlIGhlYWRlciB5b3UgYXJlIGFkZGluZyB5b3Vy
+IGhlbHBlciB0byBpcyBub3QNCmF2YWlsYWJsZSB0byB1c2Vyc3BhY2UuDQoNClRoaXMgYWxzbyBt
+ZWFucyB5b3UgZGlkbid0IHN1ZmZpY2llbnRseSB0ZXN0IHRoZSBidWlsZCBvZiB5b3VyDQpjaGFu
+Z2VzLg0KDQpEb2N1bWVudGF0aW9uL25ldHdvcmtpbmcvdGltZXN0YW1waW5nL3RpbWVzdGFtcGlu
+Zy5jOiBJbiBmdW5jdGlvbiChcHJpbnRwYWNrZXSiOg0KRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5n
+L3RpbWVzdGFtcGluZy90aW1lc3RhbXBpbmcuYzoxNzI6Mjogd2FybmluZzogaW1wbGljaXQgZGVj
+bGFyYXRpb24gb2YgZnVuY3Rpb24goWZvcl9lYWNoX2Ntc2doZHKiIFstV2ltcGxpY2l0LWZ1bmN0
+aW9uLWRlY2xhcmF0aW9uXQ0KRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL3RpbWVzdGFtcGluZy90
+aW1lc3RhbXBpbmcuYzoxNzI6MzA6IGVycm9yOiBleHBlY3RlZCChO6IgYmVmb3JlIKF7oiB0b2tl
+bg0KRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL3RpbWVzdGFtcGluZy90aW1lc3RhbXBpbmcuYzox
+NjE6MTg6IHdhcm5pbmc6IHVudXNlZCB2YXJpYWJsZSChdHOiIFstV3VudXNlZC12YXJpYWJsZV0N
+CkRvY3VtZW50YXRpb24vbmV0d29ya2luZy90aW1lc3RhbXBpbmcvdGltZXN0YW1waW5nLmM6MTYw
+OjE3OiB3YXJuaW5nOiB1bnVzZWQgdmFyaWFibGUgoXR2oiBbLVd1bnVzZWQtdmFyaWFibGVdDQpt
+YWtlWzNdOiAqKiogW0RvY3VtZW50YXRpb24vbmV0d29ya2luZy90aW1lc3RhbXBpbmcvdGltZXN0
+YW1waW5nXSBFcnJvciAxDQptYWtlWzNdOiAqKiogV2FpdGluZyBmb3IgdW5maW5pc2hlZCBqb2Jz
+Li4uLg0KRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL3RpbWVzdGFtcGluZy90eHRpbWVzdGFtcC5j
+OiBJbiBmdW5jdGlvbiChX19yZWN2X2Vycm1zZ19jbXNnojoNCkRvY3VtZW50YXRpb24vbmV0d29y
+a2luZy90aW1lc3RhbXBpbmcvdHh0aW1lc3RhbXAuYzoxODc6Mjogd2FybmluZzogaW1wbGljaXQg
+ZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24goWZvcl9lYWNoX2Ntc2doZHKiIFstV2ltcGxpY2l0LWZ1
+bmN0aW9uLWRlY2xhcmF0aW9uXQ0KRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL3RpbWVzdGFtcGlu
+Zy90eHRpbWVzdGFtcC5jOjE4NzoxOTogZXJyb3I6IKFjbXNnoiB1bmRlY2xhcmVkIChmaXJzdCB1
+c2UgaW4gdGhpcyBmdW5jdGlvbikNCkRvY3VtZW50YXRpb24vbmV0d29ya2luZy90aW1lc3RhbXBp
+bmcvdHh0aW1lc3RhbXAuYzoxODc6MTk6IG5vdGU6IGVhY2ggdW5kZWNsYXJlZCBpZGVudGlmaWVy
+IGlzIHJlcG9ydGVkIG9ubHkgb25jZSBmb3IgZWFjaCBmdW5jdGlvbiBpdCBhcHBlYXJzIGluDQpE
+b2N1bWVudGF0aW9uL25ldHdvcmtpbmcvdGltZXN0YW1waW5nL3R4dGltZXN0YW1wLmM6MTg3OjMw
+OiBlcnJvcjogZXhwZWN0ZWQgoTuiIGJlZm9yZSChe6IgdG9rZW4NCkRvY3VtZW50YXRpb24vbmV0
+d29ya2luZy90aW1lc3RhbXBpbmcvdHh0aW1lc3RhbXAuYzoxODU6MTg6IHdhcm5pbmc6IHVudXNl
+ZCB2YXJpYWJsZSChY22iIFstV3VudXNlZC12YXJpYWJsZV0NCkRvY3VtZW50YXRpb24vbmV0d29y
+a2luZy90aW1lc3RhbXBpbmcvdHh0aW1lc3RhbXAuYzoxODQ6Mjc6IHdhcm5pbmc6IHVudXNlZCB2
+YXJpYWJsZSChdHNzoiBbLVd1bnVzZWQtdmFyaWFibGVdDQpEb2N1bWVudGF0aW9uL25ldHdvcmtp
+bmcvdGltZXN0YW1waW5nL3R4dGltZXN0YW1wLmM6MTgzOjI4OiB3YXJuaW5nOiB1bnVzZWQgdmFy
+aWFibGUgoXNlcnKiIFstV3VudXNlZC12YXJpYWJsZV0NCkRvY3VtZW50YXRpb24vbmV0d29ya2lu
+Zy90aW1lc3RhbXBpbmcvdHh0aW1lc3RhbXAuYzogQXQgdG9wIGxldmVsOg0KRG9jdW1lbnRhdGlv
+bi9uZXR3b3JraW5nL3RpbWVzdGFtcGluZy90eHRpbWVzdGFtcC5jOjEyMzoxMzogd2FybmluZzog
+oXByaW50X3RpbWVzdGFtcKIgZGVmaW5lZCBidXQgbm90IHVzZWQgWy1XdW51c2VkLWZ1bmN0aW9u
+XQ0KRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL3RpbWVzdGFtcGluZy90eHRpbWVzdGFtcC5jOjE1
+OToxMzogd2FybmluZzogoXByaW50X3BrdGluZm+iIGRlZmluZWQgYnV0IG5vdCB1c2VkIFstV3Vu
+dXNlZC1mdW5jdGlvbl0NCg0K
