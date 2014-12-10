@@ -1,2169 +1,1159 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] llc: Make function pointer arrays const
-Date: Wed, 10 Dec 2014 08:18:50 -0800
-Message-ID: <1418228330.18092.3.camel@perches.com>
+From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+Subject: Re: [PATCH] net/macb: add TX multiqueue support for gem
+Date: Wed, 10 Dec 2014 16:21:02 +0100
+Message-ID: <548864DE.9080600@atmel.com>
+References: <1418223831-30435-1-git-send-email-cyrille.pitchen@atmel.com> <1418223831-30435-2-git-send-email-cyrille.pitchen@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <linux-kernel@vger.kernel.org>
+To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
+	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	<soren.brinkmann@xilinx.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1418223831-30435-2-git-send-email-cyrille.pitchen@atmel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It's better when function pointer arrays aren't modifiable.
+Please ignore this second patch: it is the very same as the first one e=
+xcept=20
+for the commit message.
+A .patch~ file was remaining in the directory before I called git send-=
+email.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- include/net/llc_c_st.h |   2 +-
- net/llc/llc_c_st.c     | 470 ++++++++++++++++++++++++-------------------------
- net/llc/llc_conn.c     |   2 +-
- 3 files changed, 237 insertions(+), 237 deletions(-)
+Sorry
 
-diff --git a/include/net/llc_c_st.h b/include/net/llc_c_st.h
-index 0e79cfb..60e2ebb 100644
---- a/include/net/llc_c_st.h
-+++ b/include/net/llc_c_st.h
-@@ -36,7 +36,7 @@ struct llc_conn_state_trans {
- 	llc_conn_ev_t	   ev;
- 	u8		   next_state;
- 	llc_conn_ev_qfyr_t *ev_qualifiers;
--	llc_conn_action_t  *ev_actions;
-+	const llc_conn_action_t  *ev_actions;
- };
- 
- struct llc_conn_state {
-diff --git a/net/llc/llc_c_st.c b/net/llc/llc_c_st.c
-index 818a942..3ae257d 100644
---- a/net/llc/llc_c_st.c
-+++ b/net/llc/llc_c_st.c
-@@ -33,7 +33,7 @@
-  * LLC_CONN_STATE_AWAIT_REJ states
-  */
- /* State transitions for LLC_CONN_EV_DISC_REQ event */
--static llc_conn_action_t llc_common_actions_1[] = {
-+static const llc_conn_action_t llc_common_actions_1[] = {
- 	[0] = llc_conn_ac_send_disc_cmd_p_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_stop_other_timers,
-@@ -50,7 +50,7 @@ static struct llc_conn_state_trans llc_common_state_trans_1 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RESET_REQ event */
--static llc_conn_action_t llc_common_actions_2[] = {
-+static const llc_conn_action_t llc_common_actions_2[] = {
- 	[0] = llc_conn_ac_send_sabme_cmd_p_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_stop_other_timers,
-@@ -67,7 +67,7 @@ static struct llc_conn_state_trans llc_common_state_trans_2 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_SABME_CMD_Pbit_SET_X event */
--static llc_conn_action_t llc_common_actions_3[] = {
-+static const llc_conn_action_t llc_common_actions_3[] = {
- 	[0] = llc_conn_ac_stop_all_timers,
- 	[1] = llc_conn_ac_set_vs_0,
- 	[2] = llc_conn_ac_set_vr_0,
-@@ -87,7 +87,7 @@ static struct llc_conn_state_trans llc_common_state_trans_3 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_DISC_CMD_Pbit_SET_X event */
--static llc_conn_action_t llc_common_actions_4[] = {
-+static const llc_conn_action_t llc_common_actions_4[] = {
- 	[0] = llc_conn_ac_stop_all_timers,
- 	[1] = llc_conn_ac_send_ua_rsp_f_set_p,
- 	[2] = llc_conn_ac_disc_ind,
-@@ -103,7 +103,7 @@ static struct llc_conn_state_trans llc_common_state_trans_4 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_FRMR_RSP_Fbit_SET_X event */
--static llc_conn_action_t llc_common_actions_5[] = {
-+static const llc_conn_action_t llc_common_actions_5[] = {
- 	[0] = llc_conn_ac_send_sabme_cmd_p_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_stop_other_timers,
-@@ -122,7 +122,7 @@ static struct llc_conn_state_trans llc_common_state_trans_5 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_DM_RSP_Fbit_SET_X event */
--static llc_conn_action_t llc_common_actions_6[] = {
-+static const llc_conn_action_t llc_common_actions_6[] = {
- 	[0] = llc_conn_ac_disc_ind,
- 	[1] = llc_conn_ac_stop_all_timers,
- 	[2] = llc_conn_disc,
-@@ -137,7 +137,7 @@ static struct llc_conn_state_trans llc_common_state_trans_6 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_ZZZ_CMD_Pbit_SET_X_INVAL_Nr event */
--static llc_conn_action_t llc_common_actions_7a[] = {
-+static const llc_conn_action_t llc_common_actions_7a[] = {
- 	[0] = llc_conn_ac_send_frmr_rsp_f_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_stop_other_timers,
-@@ -153,7 +153,7 @@ static struct llc_conn_state_trans llc_common_state_trans_7a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_X_INVAL_Ns event */
--static llc_conn_action_t llc_common_actions_7b[] = {
-+static const llc_conn_action_t llc_common_actions_7b[] = {
- 	[0] = llc_conn_ac_send_frmr_rsp_f_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_stop_other_timers,
-@@ -169,7 +169,7 @@ static struct llc_conn_state_trans llc_common_state_trans_7b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_ZZZ_RSP_Fbit_SET_X_INVAL_Nr event */
--static llc_conn_action_t llc_common_actions_8a[] = {
-+static const llc_conn_action_t llc_common_actions_8a[] = {
- 	[0] = llc_conn_ac_send_frmr_rsp_f_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_stop_other_timers,
-@@ -185,7 +185,7 @@ static struct llc_conn_state_trans llc_common_state_trans_8a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_RSP_Fbit_SET_X_INVAL_Ns event */
--static llc_conn_action_t llc_common_actions_8b[] = {
-+static const llc_conn_action_t llc_common_actions_8b[] = {
- 	[0] = llc_conn_ac_send_frmr_rsp_f_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_stop_other_timers,
-@@ -201,7 +201,7 @@ static struct llc_conn_state_trans llc_common_state_trans_8b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_BAD_PDU event */
--static llc_conn_action_t llc_common_actions_8c[] = {
-+static const llc_conn_action_t llc_common_actions_8c[] = {
- 	[0] = llc_conn_ac_send_frmr_rsp_f_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_stop_other_timers,
-@@ -217,7 +217,7 @@ static struct llc_conn_state_trans llc_common_state_trans_8c = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_UA_RSP_Fbit_SET_X event */
--static llc_conn_action_t llc_common_actions_9[] = {
-+static const llc_conn_action_t llc_common_actions_9[] = {
- 	[0] = llc_conn_ac_send_frmr_rsp_f_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_stop_other_timers,
-@@ -239,7 +239,7 @@ static llc_conn_ev_qfyr_t llc_common_ev_qfyrs_10[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_common_actions_10[] = {
-+static const llc_conn_action_t llc_common_actions_10[] = {
- 	[0] = llc_conn_ac_send_frmr_rsp_f_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_stop_other_timers,
-@@ -261,7 +261,7 @@ static llc_conn_ev_qfyr_t llc_common_ev_qfyrs_11a[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_common_actions_11a[] = {
-+static const llc_conn_action_t llc_common_actions_11a[] = {
- 	[0] = llc_conn_ac_send_sabme_cmd_p_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_stop_other_timers,
-@@ -283,7 +283,7 @@ static llc_conn_ev_qfyr_t llc_common_ev_qfyrs_11b[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_common_actions_11b[] = {
-+static const llc_conn_action_t llc_common_actions_11b[] = {
- 	[0] = llc_conn_ac_send_sabme_cmd_p_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_stop_other_timers,
-@@ -305,7 +305,7 @@ static llc_conn_ev_qfyr_t llc_common_ev_qfyrs_11c[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_common_actions_11c[] = {
-+static const llc_conn_action_t llc_common_actions_11c[] = {
- 	[0] = llc_conn_ac_send_sabme_cmd_p_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_stop_other_timers,
-@@ -327,7 +327,7 @@ static llc_conn_ev_qfyr_t llc_common_ev_qfyrs_11d[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_common_actions_11d[] = {
-+static const llc_conn_action_t llc_common_actions_11d[] = {
- 	[0] = llc_conn_ac_send_sabme_cmd_p_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_stop_other_timers,
-@@ -351,7 +351,7 @@ static struct llc_conn_state_trans llc_common_state_trans_end;
- 
- /* LLC_CONN_STATE_ADM transitions */
- /* State transitions for LLC_CONN_EV_CONN_REQ event */
--static llc_conn_action_t llc_adm_actions_1[] = {
-+static const llc_conn_action_t llc_adm_actions_1[] = {
- 	[0] = llc_conn_ac_send_sabme_cmd_p_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_set_retry_cnt_0,
-@@ -367,7 +367,7 @@ static struct llc_conn_state_trans llc_adm_state_trans_1 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_SABME_CMD_Pbit_SET_X event */
--static llc_conn_action_t llc_adm_actions_2[] = {
-+static const llc_conn_action_t llc_adm_actions_2[] = {
- 	[0] = llc_conn_ac_send_ua_rsp_f_set_p,
- 	[1] = llc_conn_ac_set_vs_0,
- 	[2] = llc_conn_ac_set_vr_0,
-@@ -386,7 +386,7 @@ static struct llc_conn_state_trans llc_adm_state_trans_2 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_DISC_CMD_Pbit_SET_X event */
--static llc_conn_action_t llc_adm_actions_3[] = {
-+static const llc_conn_action_t llc_adm_actions_3[] = {
- 	[0] = llc_conn_ac_send_dm_rsp_f_set_p,
- 	[1] = llc_conn_disc,
- 	[2] = NULL,
-@@ -400,7 +400,7 @@ static struct llc_conn_state_trans llc_adm_state_trans_3 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_XXX_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_adm_actions_4[] = {
-+static const llc_conn_action_t llc_adm_actions_4[] = {
- 	[0] = llc_conn_ac_send_dm_rsp_f_set_1,
- 	[1] = llc_conn_disc,
- 	[2] = NULL,
-@@ -414,7 +414,7 @@ static struct llc_conn_state_trans llc_adm_state_trans_4 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_XXX_YYY event */
--static llc_conn_action_t llc_adm_actions_5[] = {
-+static const llc_conn_action_t llc_adm_actions_5[] = {
- 	[0] = llc_conn_disc,
- 	[1] = NULL,
- };
-@@ -445,7 +445,7 @@ static struct llc_conn_state_trans *llc_adm_state_transitions[] = {
- 
- /* LLC_CONN_STATE_SETUP transitions */
- /* State transitions for LLC_CONN_EV_RX_SABME_CMD_Pbit_SET_X event */
--static llc_conn_action_t llc_setup_actions_1[] = {
-+static const llc_conn_action_t llc_setup_actions_1[] = {
- 	[0] = llc_conn_ac_send_ua_rsp_f_set_p,
- 	[1] = llc_conn_ac_set_vs_0,
- 	[2] = llc_conn_ac_set_vr_0,
-@@ -467,7 +467,7 @@ static llc_conn_ev_qfyr_t llc_setup_ev_qfyrs_2[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_setup_actions_2[] = {
-+static const llc_conn_action_t llc_setup_actions_2[] = {
- 	[0] = llc_conn_ac_stop_ack_timer,
- 	[1] = llc_conn_ac_set_vs_0,
- 	[2] = llc_conn_ac_set_vr_0,
-@@ -491,7 +491,7 @@ static llc_conn_ev_qfyr_t llc_setup_ev_qfyrs_3[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_setup_actions_3[] = {
-+static const llc_conn_action_t llc_setup_actions_3[] = {
- 	[0] = llc_conn_ac_set_p_flag_0,
- 	[1] = llc_conn_ac_set_remote_busy_0,
- 	[2] = llc_conn_ac_conn_confirm,
-@@ -511,7 +511,7 @@ static llc_conn_ev_qfyr_t llc_setup_ev_qfyrs_4[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_setup_actions_4[] = {
-+static const llc_conn_action_t llc_setup_actions_4[] = {
- 	[0] = llc_conn_ac_send_dm_rsp_f_set_p,
- 	[1] = llc_conn_ac_stop_ack_timer,
- 	[2] = llc_conn_ac_conn_confirm,
-@@ -532,7 +532,7 @@ static llc_conn_ev_qfyr_t llc_setup_ev_qfyrs_5[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_setup_actions_5[] = {
-+static const llc_conn_action_t llc_setup_actions_5[] = {
- 	[0] = llc_conn_ac_stop_ack_timer,
- 	[1] = llc_conn_ac_conn_confirm,
- 	[2] = llc_conn_disc,
-@@ -553,7 +553,7 @@ static llc_conn_ev_qfyr_t llc_setup_ev_qfyrs_7[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_setup_actions_7[] = {
-+static const llc_conn_action_t llc_setup_actions_7[] = {
- 	[0] = llc_conn_ac_send_sabme_cmd_p_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_inc_retry_cnt_by_1,
-@@ -575,7 +575,7 @@ static llc_conn_ev_qfyr_t llc_setup_ev_qfyrs_8[] = {
- 	[3] = NULL,
- };
- 
--static llc_conn_action_t llc_setup_actions_8[] = {
-+static const llc_conn_action_t llc_setup_actions_8[] = {
- 	[0] = llc_conn_ac_conn_confirm,
- 	[1] = llc_conn_disc,
- 	[2] = NULL,
-@@ -616,7 +616,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_1[] = {
- 	[3] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_1[] = {
-+static const llc_conn_action_t llc_normal_actions_1[] = {
- 	[0] = llc_conn_ac_send_i_as_ack,
- 	[1] = llc_conn_ac_start_ack_tmr_if_not_running,
- 	[2] = NULL,
-@@ -637,7 +637,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_2[] = {
- 	[3] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_2[] = {
-+static const llc_conn_action_t llc_normal_actions_2[] = {
- 	[0] = llc_conn_ac_send_i_cmd_p_set_1,
- 	[1] = llc_conn_ac_start_p_timer,
- 	[2] = NULL,
-@@ -658,7 +658,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_2_1[] = {
- };
- 
- /* just one member, NULL, .bss zeroes it */
--static llc_conn_action_t llc_normal_actions_2_1[1];
-+static const llc_conn_action_t llc_normal_actions_2_1[1];
- 
- static struct llc_conn_state_trans llc_normal_state_trans_2_1 = {
- 	.ev	       = llc_conn_ev_data_req,
-@@ -673,7 +673,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_3[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_3[] = {
-+static const llc_conn_action_t llc_normal_actions_3[] = {
- 	[0] = llc_conn_ac_rst_sendack_flag,
- 	[1] = llc_conn_ac_send_rnr_xxx_x_set_0,
- 	[2] = llc_conn_ac_set_data_flag_0,
-@@ -693,7 +693,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_4[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_4[] = {
-+static const llc_conn_action_t llc_normal_actions_4[] = {
- 	[0] = llc_conn_ac_rst_sendack_flag,
- 	[1] = llc_conn_ac_send_rnr_xxx_x_set_0,
- 	[2] = llc_conn_ac_set_data_flag_0,
-@@ -713,7 +713,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_5a[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_5a[] = {
-+static const llc_conn_action_t llc_normal_actions_5a[] = {
- 	[0] = llc_conn_ac_rst_sendack_flag,
- 	[1] = llc_conn_ac_send_rej_xxx_x_set_0,
- 	[2] = llc_conn_ac_upd_nr_received,
-@@ -736,7 +736,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_5b[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_5b[] = {
-+static const llc_conn_action_t llc_normal_actions_5b[] = {
- 	[0] = llc_conn_ac_rst_sendack_flag,
- 	[1] = llc_conn_ac_send_rej_xxx_x_set_0,
- 	[2] = llc_conn_ac_upd_nr_received,
-@@ -759,7 +759,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_5c[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_5c[] = {
-+static const llc_conn_action_t llc_normal_actions_5c[] = {
- 	[0] = llc_conn_ac_rst_sendack_flag,
- 	[1] = llc_conn_ac_send_rej_xxx_x_set_0,
- 	[2] = llc_conn_ac_upd_nr_received,
-@@ -782,7 +782,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_6a[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_6a[] = {
-+static const llc_conn_action_t llc_normal_actions_6a[] = {
- 	[0] = llc_conn_ac_rst_sendack_flag,
- 	[1] = llc_conn_ac_send_rej_xxx_x_set_0,
- 	[2] = llc_conn_ac_upd_nr_received,
-@@ -803,7 +803,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_6b[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_6b[] = {
-+static const llc_conn_action_t llc_normal_actions_6b[] = {
- 	[0] = llc_conn_ac_rst_sendack_flag,
- 	[1] = llc_conn_ac_send_rej_xxx_x_set_0,
- 	[2] = llc_conn_ac_upd_nr_received,
-@@ -819,7 +819,7 @@ static struct llc_conn_state_trans llc_normal_state_trans_6b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_1_UNEXPD_Ns event */
--static llc_conn_action_t llc_normal_actions_7[] = {
-+static const llc_conn_action_t llc_normal_actions_7[] = {
- 	[0] = llc_conn_ac_rst_sendack_flag,
- 	[1] = llc_conn_ac_send_rej_rsp_f_set_1,
- 	[2] = llc_conn_ac_upd_nr_received,
-@@ -840,7 +840,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_8a[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_8[] = {
-+static const llc_conn_action_t llc_normal_actions_8[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_upd_p_flag,
-@@ -876,7 +876,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_9a[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_9a[] = {
-+static const llc_conn_action_t llc_normal_actions_9a[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_data_ind,
-@@ -897,7 +897,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_9b[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_9b[] = {
-+static const llc_conn_action_t llc_normal_actions_9b[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_data_ind,
-@@ -913,7 +913,7 @@ static struct llc_conn_state_trans llc_normal_state_trans_9b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_normal_actions_10[] = {
-+static const llc_conn_action_t llc_normal_actions_10[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_send_ack_rsp_f_set_1,
- 	[2] = llc_conn_ac_rst_sendack_flag,
-@@ -930,7 +930,7 @@ static struct llc_conn_state_trans llc_normal_state_trans_10 = {
- };
- 
- /* State transitions for * LLC_CONN_EV_RX_RR_CMD_Pbit_SET_0 event */
--static llc_conn_action_t llc_normal_actions_11a[] = {
-+static const llc_conn_action_t llc_normal_actions_11a[] = {
- 	[0] = llc_conn_ac_upd_p_flag,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -945,7 +945,7 @@ static struct llc_conn_state_trans llc_normal_state_trans_11a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_RSP_Fbit_SET_0 event */
--static llc_conn_action_t llc_normal_actions_11b[] = {
-+static const llc_conn_action_t llc_normal_actions_11b[] = {
- 	[0] = llc_conn_ac_upd_p_flag,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -965,7 +965,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_11c[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_11c[] = {
-+static const llc_conn_action_t llc_normal_actions_11c[] = {
- 	[0] = llc_conn_ac_upd_p_flag,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_inc_tx_win_size,
-@@ -981,7 +981,7 @@ static struct llc_conn_state_trans llc_normal_state_trans_11c = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_normal_actions_12[] = {
-+static const llc_conn_action_t llc_normal_actions_12[] = {
- 	[0] = llc_conn_ac_send_ack_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_adjust_npta_by_rr,
-@@ -998,7 +998,7 @@ static struct llc_conn_state_trans llc_normal_state_trans_12 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_CMD_Pbit_SET_0 event */
--static llc_conn_action_t llc_normal_actions_13a[] = {
-+static const llc_conn_action_t llc_normal_actions_13a[] = {
- 	[0] = llc_conn_ac_upd_p_flag,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_set_remote_busy,
-@@ -1013,7 +1013,7 @@ static struct llc_conn_state_trans llc_normal_state_trans_13a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_RSP_Fbit_SET_0 event */
--static llc_conn_action_t llc_normal_actions_13b[] = {
-+static const llc_conn_action_t llc_normal_actions_13b[] = {
- 	[0] = llc_conn_ac_upd_p_flag,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_set_remote_busy,
-@@ -1033,7 +1033,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_13c[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_13c[] = {
-+static const llc_conn_action_t llc_normal_actions_13c[] = {
- 	[0] = llc_conn_ac_upd_p_flag,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_set_remote_busy,
-@@ -1048,7 +1048,7 @@ static struct llc_conn_state_trans llc_normal_state_trans_13c = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_normal_actions_14[] = {
-+static const llc_conn_action_t llc_normal_actions_14[] = {
- 	[0] = llc_conn_ac_send_rr_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_adjust_npta_by_rnr,
-@@ -1070,7 +1070,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_15a[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_15a[] = {
-+static const llc_conn_action_t llc_normal_actions_15a[] = {
- 	[0] = llc_conn_ac_set_vs_nr,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_p_flag,
-@@ -1093,7 +1093,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_15b[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_15b[] = {
-+static const llc_conn_action_t llc_normal_actions_15b[] = {
- 	[0] = llc_conn_ac_set_vs_nr,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_p_flag,
-@@ -1116,7 +1116,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_16a[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_16a[] = {
-+static const llc_conn_action_t llc_normal_actions_16a[] = {
- 	[0] = llc_conn_ac_set_vs_nr,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_dec_tx_win_size,
-@@ -1138,7 +1138,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_16b[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_16b[] = {
-+static const llc_conn_action_t llc_normal_actions_16b[] = {
- 	[0] = llc_conn_ac_set_vs_nr,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_dec_tx_win_size,
-@@ -1155,7 +1155,7 @@ static struct llc_conn_state_trans llc_normal_state_trans_16b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_REJ_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_normal_actions_17[] = {
-+static const llc_conn_action_t llc_normal_actions_17[] = {
- 	[0] = llc_conn_ac_set_vs_nr,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_dec_tx_win_size,
-@@ -1177,7 +1177,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_18[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_18[] = {
-+static const llc_conn_action_t llc_normal_actions_18[] = {
- 	[0] = llc_conn_ac_send_rr_cmd_p_set_1,
- 	[1] = llc_conn_ac_start_p_timer,
- 	[2] = NULL,
-@@ -1196,7 +1196,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_19[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_19[] = {
-+static const llc_conn_action_t llc_normal_actions_19[] = {
- 	[0] = llc_conn_ac_rst_sendack_flag,
- 	[1] = llc_conn_ac_send_rr_cmd_p_set_1,
- 	[2] = llc_conn_ac_rst_vs,
-@@ -1219,7 +1219,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_20a[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_20a[] = {
-+static const llc_conn_action_t llc_normal_actions_20a[] = {
- 	[0] = llc_conn_ac_rst_sendack_flag,
- 	[1] = llc_conn_ac_send_rr_cmd_p_set_1,
- 	[2] = llc_conn_ac_rst_vs,
-@@ -1242,7 +1242,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_20b[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_20b[] = {
-+static const llc_conn_action_t llc_normal_actions_20b[] = {
- 	[0] = llc_conn_ac_rst_sendack_flag,
- 	[1] = llc_conn_ac_send_rr_cmd_p_set_1,
- 	[2] = llc_conn_ac_rst_vs,
-@@ -1264,7 +1264,7 @@ static llc_conn_ev_qfyr_t llc_normal_ev_qfyrs_21[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_normal_actions_21[] = {
-+static const llc_conn_action_t llc_normal_actions_21[] = {
- 	[0] = llc_conn_ac_send_rr_cmd_p_set_1,
- 	[1] = llc_conn_ac_start_p_timer,
- 	[2] = NULL,
-@@ -1348,7 +1348,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_1[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_1[] = {
-+static const llc_conn_action_t llc_busy_actions_1[] = {
- 	[0] = llc_conn_ac_send_i_xxx_x_set_0,
- 	[1] = llc_conn_ac_start_ack_tmr_if_not_running,
- 	[2] = NULL,
-@@ -1368,7 +1368,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_2[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_2[] = {
-+static const llc_conn_action_t llc_busy_actions_2[] = {
- 	[0] = llc_conn_ac_send_i_xxx_x_set_0,
- 	[1] = llc_conn_ac_start_ack_tmr_if_not_running,
- 	[2] = NULL,
-@@ -1389,7 +1389,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_2_1[] = {
- };
- 
- /* just one member, NULL, .bss zeroes it */
--static llc_conn_action_t llc_busy_actions_2_1[1];
-+static const llc_conn_action_t llc_busy_actions_2_1[1];
- 
- static struct llc_conn_state_trans llc_busy_state_trans_2_1 = {
- 	.ev	       = llc_conn_ev_data_req,
-@@ -1405,7 +1405,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_3[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_3[] = {
-+static const llc_conn_action_t llc_busy_actions_3[] = {
- 	[0] = llc_conn_ac_send_rej_xxx_x_set_0,
- 	[1] = llc_conn_ac_start_rej_timer,
- 	[2] = NULL,
-@@ -1425,7 +1425,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_4[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_4[] = {
-+static const llc_conn_action_t llc_busy_actions_4[] = {
- 	[0] = llc_conn_ac_send_rej_xxx_x_set_0,
- 	[1] = llc_conn_ac_start_rej_timer,
- 	[2] = NULL,
-@@ -1445,7 +1445,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_5[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_5[] = {
-+static const llc_conn_action_t llc_busy_actions_5[] = {
- 	[0] = llc_conn_ac_send_rr_xxx_x_set_0,
- 	[1] = NULL,
- };
-@@ -1464,7 +1464,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_6[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_6[] = {
-+static const llc_conn_action_t llc_busy_actions_6[] = {
- 	[0] = llc_conn_ac_send_rr_xxx_x_set_0,
- 	[1] = NULL,
- };
-@@ -1483,7 +1483,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_7[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_7[] = {
-+static const llc_conn_action_t llc_busy_actions_7[] = {
- 	[0] = llc_conn_ac_send_rr_xxx_x_set_0,
- 	[1] = NULL,
- };
-@@ -1502,7 +1502,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_8[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_8[] = {
-+static const llc_conn_action_t llc_busy_actions_8[] = {
- 	[0] = llc_conn_ac_send_rr_xxx_x_set_0,
- 	[1] = NULL,
- };
-@@ -1520,7 +1520,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_9a[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_9a[] = {
-+static const llc_conn_action_t llc_busy_actions_9a[] = {
- 	[0] = llc_conn_ac_opt_send_rnr_xxx_x_set_0,
- 	[1] = llc_conn_ac_upd_p_flag,
- 	[2] = llc_conn_ac_upd_nr_received,
-@@ -1542,7 +1542,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_9b[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_9b[] = {
-+static const llc_conn_action_t llc_busy_actions_9b[] = {
- 	[0] = llc_conn_ac_opt_send_rnr_xxx_x_set_0,
- 	[1] = llc_conn_ac_upd_p_flag,
- 	[2] = llc_conn_ac_upd_nr_received,
-@@ -1564,7 +1564,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_10a[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_10a[] = {
-+static const llc_conn_action_t llc_busy_actions_10a[] = {
- 	[0] = llc_conn_ac_opt_send_rnr_xxx_x_set_0,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_set_data_flag_1_if_data_flag_eq_0,
-@@ -1584,7 +1584,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_10b[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_10b[] = {
-+static const llc_conn_action_t llc_busy_actions_10b[] = {
- 	[0] = llc_conn_ac_opt_send_rnr_xxx_x_set_0,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_set_data_flag_1_if_data_flag_eq_0,
-@@ -1599,7 +1599,7 @@ static struct llc_conn_state_trans llc_busy_state_trans_10b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_1_UNEXPD_Ns event */
--static llc_conn_action_t llc_busy_actions_11[] = {
-+static const llc_conn_action_t llc_busy_actions_11[] = {
- 	[0] = llc_conn_ac_send_rnr_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_set_data_flag_1_if_data_flag_eq_0,
-@@ -1614,7 +1614,7 @@ static struct llc_conn_state_trans llc_busy_state_trans_11 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_busy_actions_12[] = {
-+static const llc_conn_action_t llc_busy_actions_12[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_send_rnr_rsp_f_set_1,
-@@ -1637,7 +1637,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_13a[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_13a[] = {
-+static const llc_conn_action_t llc_busy_actions_13a[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_upd_p_flag,
-@@ -1662,7 +1662,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_13b[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_13b[] = {
-+static const llc_conn_action_t llc_busy_actions_13b[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_upd_p_flag,
-@@ -1687,7 +1687,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_14a[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_14a[] = {
-+static const llc_conn_action_t llc_busy_actions_14a[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_opt_send_rnr_xxx_x_set_0,
-@@ -1710,7 +1710,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_14b[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_14b[] = {
-+static const llc_conn_action_t llc_busy_actions_14b[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_opt_send_rnr_xxx_x_set_0,
-@@ -1728,7 +1728,7 @@ static struct llc_conn_state_trans llc_busy_state_trans_14b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_CMD_Pbit_SET_0 event */
--static llc_conn_action_t llc_busy_actions_15a[] = {
-+static const llc_conn_action_t llc_busy_actions_15a[] = {
- 	[0] = llc_conn_ac_upd_p_flag,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -1743,7 +1743,7 @@ static struct llc_conn_state_trans llc_busy_state_trans_15a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_RSP_Fbit_SET_0 event */
--static llc_conn_action_t llc_busy_actions_15b[] = {
-+static const llc_conn_action_t llc_busy_actions_15b[] = {
- 	[0] = llc_conn_ac_upd_p_flag,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -1763,7 +1763,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_15c[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_15c[] = {
-+static const llc_conn_action_t llc_busy_actions_15c[] = {
- 	[0] = llc_conn_ac_upd_p_flag,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -1778,7 +1778,7 @@ static struct llc_conn_state_trans llc_busy_state_trans_15c = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_busy_actions_16[] = {
-+static const llc_conn_action_t llc_busy_actions_16[] = {
- 	[0] = llc_conn_ac_send_rnr_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -1793,7 +1793,7 @@ static struct llc_conn_state_trans llc_busy_state_trans_16 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_CMD_Pbit_SET_0 event */
--static llc_conn_action_t llc_busy_actions_17a[] = {
-+static const llc_conn_action_t llc_busy_actions_17a[] = {
- 	[0] = llc_conn_ac_upd_p_flag,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_set_remote_busy,
-@@ -1808,7 +1808,7 @@ static struct llc_conn_state_trans llc_busy_state_trans_17a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_RSP_Fbit_SET_0 event */
--static llc_conn_action_t llc_busy_actions_17b[] = {
-+static const llc_conn_action_t llc_busy_actions_17b[] = {
- 	[0] = llc_conn_ac_upd_p_flag,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_set_remote_busy,
-@@ -1828,7 +1828,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_17c[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_17c[] = {
-+static const llc_conn_action_t llc_busy_actions_17c[] = {
- 	[0] = llc_conn_ac_upd_p_flag,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_set_remote_busy,
-@@ -1843,7 +1843,7 @@ static struct llc_conn_state_trans llc_busy_state_trans_17c = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_busy_actions_18[] = {
-+static const llc_conn_action_t llc_busy_actions_18[] = {
- 	[0] = llc_conn_ac_send_rnr_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_set_remote_busy,
-@@ -1863,7 +1863,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_19a[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_19a[] = {
-+static const llc_conn_action_t llc_busy_actions_19a[] = {
- 	[0] = llc_conn_ac_set_vs_nr,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_p_flag,
-@@ -1885,7 +1885,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_19b[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_19b[] = {
-+static const llc_conn_action_t llc_busy_actions_19b[] = {
- 	[0] = llc_conn_ac_set_vs_nr,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_p_flag,
-@@ -1907,7 +1907,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_20a[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_20a[] = {
-+static const llc_conn_action_t llc_busy_actions_20a[] = {
- 	[0] = llc_conn_ac_set_vs_nr,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_resend_i_xxx_x_set_0,
-@@ -1928,7 +1928,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_20b[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_20b[] = {
-+static const llc_conn_action_t llc_busy_actions_20b[] = {
- 	[0] = llc_conn_ac_set_vs_nr,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_resend_i_xxx_x_set_0,
-@@ -1944,7 +1944,7 @@ static struct llc_conn_state_trans llc_busy_state_trans_20b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_REJ_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_busy_actions_21[] = {
-+static const llc_conn_action_t llc_busy_actions_21[] = {
- 	[0] = llc_conn_ac_set_vs_nr,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_send_rnr_rsp_f_set_1,
-@@ -1966,7 +1966,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_22[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_22[] = {
-+static const llc_conn_action_t llc_busy_actions_22[] = {
- 	[0] = llc_conn_ac_send_rnr_cmd_p_set_1,
- 	[1] = llc_conn_ac_start_p_timer,
- 	[2] = NULL,
-@@ -1985,7 +1985,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_23[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_23[] = {
-+static const llc_conn_action_t llc_busy_actions_23[] = {
- 	[0] = llc_conn_ac_send_rnr_cmd_p_set_1,
- 	[1] = llc_conn_ac_rst_vs,
- 	[2] = llc_conn_ac_start_p_timer,
-@@ -2007,7 +2007,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_24a[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_24a[] = {
-+static const llc_conn_action_t llc_busy_actions_24a[] = {
- 	[0] = llc_conn_ac_send_rnr_cmd_p_set_1,
- 	[1] = llc_conn_ac_start_p_timer,
- 	[2] = llc_conn_ac_inc_retry_cnt_by_1,
-@@ -2029,7 +2029,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_24b[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_24b[] = {
-+static const llc_conn_action_t llc_busy_actions_24b[] = {
- 	[0] = llc_conn_ac_send_rnr_cmd_p_set_1,
- 	[1] = llc_conn_ac_start_p_timer,
- 	[2] = llc_conn_ac_inc_retry_cnt_by_1,
-@@ -2051,7 +2051,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_25[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_25[] = {
-+static const llc_conn_action_t llc_busy_actions_25[] = {
- 	[0] = llc_conn_ac_send_rnr_cmd_p_set_1,
- 	[1] = llc_conn_ac_start_p_timer,
- 	[2] = llc_conn_ac_inc_retry_cnt_by_1,
-@@ -2074,7 +2074,7 @@ static llc_conn_ev_qfyr_t llc_busy_ev_qfyrs_26[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_busy_actions_26[] = {
-+static const llc_conn_action_t llc_busy_actions_26[] = {
- 	[0] = llc_conn_ac_set_data_flag_1,
- 	[1] = NULL,
- };
-@@ -2161,7 +2161,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_1[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_1[] = {
-+static const llc_conn_action_t llc_reject_actions_1[] = {
- 	[0] = llc_conn_ac_send_i_xxx_x_set_0,
- 	[1] = NULL,
- };
-@@ -2180,7 +2180,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_2[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_2[] = {
-+static const llc_conn_action_t llc_reject_actions_2[] = {
- 	[0] = llc_conn_ac_send_i_xxx_x_set_0,
- 	[1] = NULL,
- };
-@@ -2200,7 +2200,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_2_1[] = {
- };
- 
- /* just one member, NULL, .bss zeroes it */
--static llc_conn_action_t llc_reject_actions_2_1[1];
-+static const llc_conn_action_t llc_reject_actions_2_1[1];
- 
- static struct llc_conn_state_trans llc_reject_state_trans_2_1 = {
- 	.ev	       = llc_conn_ev_data_req,
-@@ -2216,7 +2216,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_3[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_3[] = {
-+static const llc_conn_action_t llc_reject_actions_3[] = {
- 	[0] = llc_conn_ac_send_rnr_xxx_x_set_0,
- 	[1] = llc_conn_ac_set_data_flag_2,
- 	[2] = NULL,
-@@ -2235,7 +2235,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_4[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_4[] = {
-+static const llc_conn_action_t llc_reject_actions_4[] = {
- 	[0] = llc_conn_ac_send_rnr_xxx_x_set_0,
- 	[1] = llc_conn_ac_set_data_flag_2,
- 	[2] = NULL,
-@@ -2249,7 +2249,7 @@ static struct llc_conn_state_trans llc_reject_state_trans_4 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_0_UNEXPD_Ns event */
--static llc_conn_action_t llc_reject_actions_5a[] = {
-+static const llc_conn_action_t llc_reject_actions_5a[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_p_flag,
- 	[2] = llc_conn_ac_clear_remote_busy_if_f_eq_1,
-@@ -2264,7 +2264,7 @@ static struct llc_conn_state_trans llc_reject_state_trans_5a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_RSP_Fbit_SET_0_UNEXPD_Ns event */
--static llc_conn_action_t llc_reject_actions_5b[] = {
-+static const llc_conn_action_t llc_reject_actions_5b[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_p_flag,
- 	[2] = llc_conn_ac_clear_remote_busy_if_f_eq_1,
-@@ -2284,7 +2284,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_5c[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_5c[] = {
-+static const llc_conn_action_t llc_reject_actions_5c[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_p_flag,
- 	[2] = llc_conn_ac_clear_remote_busy_if_f_eq_1,
-@@ -2299,7 +2299,7 @@ static struct llc_conn_state_trans llc_reject_state_trans_5c = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_1_UNEXPD_Ns event */
--static llc_conn_action_t llc_reject_actions_6[] = {
-+static const llc_conn_action_t llc_reject_actions_6[] = {
- 	[0] = llc_conn_ac_send_rr_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = NULL,
-@@ -2318,7 +2318,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_7a[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_7a[] = {
-+static const llc_conn_action_t llc_reject_actions_7a[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_upd_p_flag,
-@@ -2343,7 +2343,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_7b[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_7b[] = {
-+static const llc_conn_action_t llc_reject_actions_7b[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_upd_p_flag,
-@@ -2367,7 +2367,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_8a[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_8a[] = {
-+static const llc_conn_action_t llc_reject_actions_8a[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_send_ack_xxx_x_set_0,
-@@ -2389,7 +2389,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_8b[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_8b[] = {
-+static const llc_conn_action_t llc_reject_actions_8b[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_send_ack_xxx_x_set_0,
-@@ -2406,7 +2406,7 @@ static struct llc_conn_state_trans llc_reject_state_trans_8b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_reject_actions_9[] = {
-+static const llc_conn_action_t llc_reject_actions_9[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_send_ack_rsp_f_set_1,
-@@ -2423,7 +2423,7 @@ static struct llc_conn_state_trans llc_reject_state_trans_9 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_CMD_Pbit_SET_0 event */
--static llc_conn_action_t llc_reject_actions_10a[] = {
-+static const llc_conn_action_t llc_reject_actions_10a[] = {
- 	[0] = llc_conn_ac_upd_p_flag,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -2438,7 +2438,7 @@ static struct llc_conn_state_trans llc_reject_state_trans_10a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_RSP_Fbit_SET_0 event */
--static llc_conn_action_t llc_reject_actions_10b[] = {
-+static const llc_conn_action_t llc_reject_actions_10b[] = {
- 	[0] = llc_conn_ac_upd_p_flag,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -2458,7 +2458,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_10c[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_10c[] = {
-+static const llc_conn_action_t llc_reject_actions_10c[] = {
- 	[0] = llc_conn_ac_upd_p_flag,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -2473,7 +2473,7 @@ static struct llc_conn_state_trans llc_reject_state_trans_10c = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_reject_actions_11[] = {
-+static const llc_conn_action_t llc_reject_actions_11[] = {
- 	[0] = llc_conn_ac_send_ack_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -2488,7 +2488,7 @@ static struct llc_conn_state_trans llc_reject_state_trans_11 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_CMD_Pbit_SET_0 event */
--static llc_conn_action_t llc_reject_actions_12a[] = {
-+static const llc_conn_action_t llc_reject_actions_12a[] = {
- 	[0] = llc_conn_ac_upd_p_flag,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_set_remote_busy,
-@@ -2503,7 +2503,7 @@ static struct llc_conn_state_trans llc_reject_state_trans_12a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_RSP_Fbit_SET_0 event */
--static llc_conn_action_t llc_reject_actions_12b[] = {
-+static const llc_conn_action_t llc_reject_actions_12b[] = {
- 	[0] = llc_conn_ac_upd_p_flag,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_set_remote_busy,
-@@ -2523,7 +2523,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_12c[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_12c[] = {
-+static const llc_conn_action_t llc_reject_actions_12c[] = {
- 	[0] = llc_conn_ac_upd_p_flag,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_set_remote_busy,
-@@ -2538,7 +2538,7 @@ static struct llc_conn_state_trans llc_reject_state_trans_12c = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_reject_actions_13[] = {
-+static const llc_conn_action_t llc_reject_actions_13[] = {
- 	[0] = llc_conn_ac_send_rr_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_set_remote_busy,
-@@ -2558,7 +2558,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_14a[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_14a[] = {
-+static const llc_conn_action_t llc_reject_actions_14a[] = {
- 	[0] = llc_conn_ac_set_vs_nr,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_p_flag,
-@@ -2580,7 +2580,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_14b[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_14b[] = {
-+static const llc_conn_action_t llc_reject_actions_14b[] = {
- 	[0] = llc_conn_ac_set_vs_nr,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_p_flag,
-@@ -2602,7 +2602,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_15a[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_15a[] = {
-+static const llc_conn_action_t llc_reject_actions_15a[] = {
- 	[0] = llc_conn_ac_set_vs_nr,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_resend_i_xxx_x_set_0,
-@@ -2623,7 +2623,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_15b[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_15b[] = {
-+static const llc_conn_action_t llc_reject_actions_15b[] = {
- 	[0] = llc_conn_ac_set_vs_nr,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_resend_i_xxx_x_set_0,
-@@ -2639,7 +2639,7 @@ static struct llc_conn_state_trans llc_reject_state_trans_15b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_REJ_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_reject_actions_16[] = {
-+static const llc_conn_action_t llc_reject_actions_16[] = {
- 	[0] = llc_conn_ac_set_vs_nr,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_resend_i_rsp_f_set_1,
-@@ -2660,7 +2660,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_17[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_17[] = {
-+static const llc_conn_action_t llc_reject_actions_17[] = {
- 	[0] = llc_conn_ac_send_rr_cmd_p_set_1,
- 	[1] = llc_conn_ac_start_p_timer,
- 	[2] = NULL,
-@@ -2680,7 +2680,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_18[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_18[] = {
-+static const llc_conn_action_t llc_reject_actions_18[] = {
- 	[0] = llc_conn_ac_send_rej_cmd_p_set_1,
- 	[1] = llc_conn_ac_start_p_timer,
- 	[2] = llc_conn_ac_start_rej_timer,
-@@ -2701,7 +2701,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_19[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_19[] = {
-+static const llc_conn_action_t llc_reject_actions_19[] = {
- 	[0] = llc_conn_ac_send_rr_cmd_p_set_1,
- 	[1] = llc_conn_ac_start_p_timer,
- 	[2] = llc_conn_ac_start_rej_timer,
-@@ -2724,7 +2724,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_20a[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_20a[] = {
-+static const llc_conn_action_t llc_reject_actions_20a[] = {
- 	[0] = llc_conn_ac_send_rr_cmd_p_set_1,
- 	[1] = llc_conn_ac_start_p_timer,
- 	[2] = llc_conn_ac_start_rej_timer,
-@@ -2747,7 +2747,7 @@ static llc_conn_ev_qfyr_t llc_reject_ev_qfyrs_20b[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_reject_actions_20b[] = {
-+static const llc_conn_action_t llc_reject_actions_20b[] = {
- 	[0] = llc_conn_ac_send_rr_cmd_p_set_1,
- 	[1] = llc_conn_ac_start_p_timer,
- 	[2] = llc_conn_ac_start_rej_timer,
-@@ -2832,7 +2832,7 @@ static llc_conn_ev_qfyr_t llc_await_ev_qfyrs_1_0[] = {
- };
- 
- /* just one member, NULL, .bss zeroes it */
--static llc_conn_action_t llc_await_actions_1_0[1];
-+static const llc_conn_action_t llc_await_actions_1_0[1];
- 
- static struct llc_conn_state_trans llc_await_state_trans_1_0 = {
- 	.ev	       = llc_conn_ev_data_req,
-@@ -2842,7 +2842,7 @@ static struct llc_conn_state_trans llc_await_state_trans_1_0 = {
- };
- 
- /* State transitions for LLC_CONN_EV_LOCAL_BUSY_DETECTED event */
--static llc_conn_action_t llc_await_actions_1[] = {
-+static const llc_conn_action_t llc_await_actions_1[] = {
- 	[0] = llc_conn_ac_send_rnr_xxx_x_set_0,
- 	[1] = llc_conn_ac_set_data_flag_0,
- 	[2] = NULL,
-@@ -2856,7 +2856,7 @@ static struct llc_conn_state_trans llc_await_state_trans_1 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_RSP_Fbit_SET_1_UNEXPD_Ns event */
--static llc_conn_action_t llc_await_actions_2[] = {
-+static const llc_conn_action_t llc_await_actions_2[] = {
- 	[0] = llc_conn_ac_send_rej_xxx_x_set_0,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_vs,
-@@ -2875,7 +2875,7 @@ static struct llc_conn_state_trans llc_await_state_trans_2 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_0_UNEXPD_Ns event */
--static llc_conn_action_t llc_await_actions_3a[] = {
-+static const llc_conn_action_t llc_await_actions_3a[] = {
- 	[0] = llc_conn_ac_send_rej_xxx_x_set_0,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_vs,
-@@ -2891,7 +2891,7 @@ static struct llc_conn_state_trans llc_await_state_trans_3a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_RSP_Fbit_SET_0_UNEXPD_Ns event */
--static llc_conn_action_t llc_await_actions_3b[] = {
-+static const llc_conn_action_t llc_await_actions_3b[] = {
- 	[0] = llc_conn_ac_send_rej_xxx_x_set_0,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_vs,
-@@ -2907,7 +2907,7 @@ static struct llc_conn_state_trans llc_await_state_trans_3b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_1_UNEXPD_Ns event */
--static llc_conn_action_t llc_await_actions_4[] = {
-+static const llc_conn_action_t llc_await_actions_4[] = {
- 	[0] = llc_conn_ac_send_rej_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_vs,
-@@ -2924,7 +2924,7 @@ static struct llc_conn_state_trans llc_await_state_trans_4 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_RSP_Fbit_SET_1 event */
--static llc_conn_action_t llc_await_actions_5[] = {
-+static const llc_conn_action_t llc_await_actions_5[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_stop_p_timer,
-@@ -2943,7 +2943,7 @@ static struct llc_conn_state_trans llc_await_state_trans_5 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_RSP_Fbit_SET_0 event */
--static llc_conn_action_t llc_await_actions_6a[] = {
-+static const llc_conn_action_t llc_await_actions_6a[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_send_rr_xxx_x_set_0,
-@@ -2960,7 +2960,7 @@ static struct llc_conn_state_trans llc_await_state_trans_6a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_0 event */
--static llc_conn_action_t llc_await_actions_6b[] = {
-+static const llc_conn_action_t llc_await_actions_6b[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_send_rr_xxx_x_set_0,
-@@ -2977,7 +2977,7 @@ static struct llc_conn_state_trans llc_await_state_trans_6b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_await_actions_7[] = {
-+static const llc_conn_action_t llc_await_actions_7[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_send_rr_rsp_f_set_1,
-@@ -2994,7 +2994,7 @@ static struct llc_conn_state_trans llc_await_state_trans_7 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_RSP_Fbit_SET_1 event */
--static llc_conn_action_t llc_await_actions_8a[] = {
-+static const llc_conn_action_t llc_await_actions_8a[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_stop_p_timer,
-@@ -3011,7 +3011,7 @@ static struct llc_conn_state_trans llc_await_state_trans_8a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_REJ_RSP_Fbit_SET_1 event */
--static llc_conn_action_t llc_await_actions_8b[] = {
-+static const llc_conn_action_t llc_await_actions_8b[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_stop_p_timer,
-@@ -3028,7 +3028,7 @@ static struct llc_conn_state_trans llc_await_state_trans_8b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_CMD_Pbit_SET_0 event */
--static llc_conn_action_t llc_await_actions_9a[] = {
-+static const llc_conn_action_t llc_await_actions_9a[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -3043,7 +3043,7 @@ static struct llc_conn_state_trans llc_await_state_trans_9a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_RSP_Fbit_SET_0 event */
--static llc_conn_action_t llc_await_actions_9b[] = {
-+static const llc_conn_action_t llc_await_actions_9b[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -3058,7 +3058,7 @@ static struct llc_conn_state_trans llc_await_state_trans_9b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_REJ_CMD_Pbit_SET_0 event */
--static llc_conn_action_t llc_await_actions_9c[] = {
-+static const llc_conn_action_t llc_await_actions_9c[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -3073,7 +3073,7 @@ static struct llc_conn_state_trans llc_await_state_trans_9c = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_REJ_RSP_Fbit_SET_0 event */
--static llc_conn_action_t llc_await_actions_9d[] = {
-+static const llc_conn_action_t llc_await_actions_9d[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -3088,7 +3088,7 @@ static struct llc_conn_state_trans llc_await_state_trans_9d = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_await_actions_10a[] = {
-+static const llc_conn_action_t llc_await_actions_10a[] = {
- 	[0] = llc_conn_ac_send_rr_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_vs,
-@@ -3104,7 +3104,7 @@ static struct llc_conn_state_trans llc_await_state_trans_10a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_REJ_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_await_actions_10b[] = {
-+static const llc_conn_action_t llc_await_actions_10b[] = {
- 	[0] = llc_conn_ac_send_rr_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_vs,
-@@ -3120,7 +3120,7 @@ static struct llc_conn_state_trans llc_await_state_trans_10b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_RSP_Fbit_SET_1 event */
--static llc_conn_action_t llc_await_actions_11[] = {
-+static const llc_conn_action_t llc_await_actions_11[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_stop_p_timer,
-@@ -3136,7 +3136,7 @@ static struct llc_conn_state_trans llc_await_state_trans_11 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_CMD_Pbit_SET_0 event */
--static llc_conn_action_t llc_await_actions_12a[] = {
-+static const llc_conn_action_t llc_await_actions_12a[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_set_remote_busy,
-@@ -3151,7 +3151,7 @@ static struct llc_conn_state_trans llc_await_state_trans_12a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_RSP_Fbit_SET_0 event */
--static llc_conn_action_t llc_await_actions_12b[] = {
-+static const llc_conn_action_t llc_await_actions_12b[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_set_remote_busy,
-@@ -3166,7 +3166,7 @@ static struct llc_conn_state_trans llc_await_state_trans_12b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_await_actions_13[] = {
-+static const llc_conn_action_t llc_await_actions_13[] = {
- 	[0] = llc_conn_ac_send_rr_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_vs,
-@@ -3187,7 +3187,7 @@ static llc_conn_ev_qfyr_t llc_await_ev_qfyrs_14[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_await_actions_14[] = {
-+static const llc_conn_action_t llc_await_actions_14[] = {
- 	[0] = llc_conn_ac_send_rr_cmd_p_set_1,
- 	[1] = llc_conn_ac_start_p_timer,
- 	[2] = llc_conn_ac_inc_retry_cnt_by_1,
-@@ -3261,7 +3261,7 @@ static llc_conn_ev_qfyr_t llc_await_busy_ev_qfyrs_1_0[] = {
- };
- 
- /* just one member, NULL, .bss zeroes it */
--static llc_conn_action_t llc_await_busy_actions_1_0[1];
-+static const llc_conn_action_t llc_await_busy_actions_1_0[1];
- 
- static struct llc_conn_state_trans llc_await_busy_state_trans_1_0 = {
- 	.ev	       = llc_conn_ev_data_req,
-@@ -3276,7 +3276,7 @@ static llc_conn_ev_qfyr_t llc_await_busy_ev_qfyrs_1[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_await_busy_actions_1[] = {
-+static const llc_conn_action_t llc_await_busy_actions_1[] = {
- 	[0] = llc_conn_ac_send_rej_xxx_x_set_0,
- 	[1] = llc_conn_ac_start_rej_timer,
- 	[2] = NULL,
-@@ -3295,7 +3295,7 @@ static llc_conn_ev_qfyr_t llc_await_busy_ev_qfyrs_2[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_await_busy_actions_2[] = {
-+static const llc_conn_action_t llc_await_busy_actions_2[] = {
- 	[0] = llc_conn_ac_send_rr_xxx_x_set_0,
- 	[1] = NULL,
- };
-@@ -3313,7 +3313,7 @@ static llc_conn_ev_qfyr_t llc_await_busy_ev_qfyrs_3[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_await_busy_actions_3[] = {
-+static const llc_conn_action_t llc_await_busy_actions_3[] = {
- 	[0] = llc_conn_ac_send_rr_xxx_x_set_0,
- 	[1] = NULL,
- };
-@@ -3326,7 +3326,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_3 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_RSP_Fbit_SET_1_UNEXPD_Ns event */
--static llc_conn_action_t llc_await_busy_actions_4[] = {
-+static const llc_conn_action_t llc_await_busy_actions_4[] = {
- 	[0] = llc_conn_ac_opt_send_rnr_xxx_x_set_0,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_vs,
-@@ -3345,7 +3345,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_4 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_0_UNEXPD_Ns event */
--static llc_conn_action_t llc_await_busy_actions_5a[] = {
-+static const llc_conn_action_t llc_await_busy_actions_5a[] = {
- 	[0] = llc_conn_ac_opt_send_rnr_xxx_x_set_0,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_vs,
-@@ -3361,7 +3361,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_5a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_RSP_Fbit_SET_0_UNEXPD_Ns event */
--static llc_conn_action_t llc_await_busy_actions_5b[] = {
-+static const llc_conn_action_t llc_await_busy_actions_5b[] = {
- 	[0] = llc_conn_ac_opt_send_rnr_xxx_x_set_0,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_vs,
-@@ -3377,7 +3377,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_5b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_1_UNEXPD_Ns event */
--static llc_conn_action_t llc_await_busy_actions_6[] = {
-+static const llc_conn_action_t llc_await_busy_actions_6[] = {
- 	[0] = llc_conn_ac_send_rnr_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_vs,
-@@ -3393,7 +3393,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_6 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_RSP_Fbit_SET_1 event */
--static llc_conn_action_t llc_await_busy_actions_7[] = {
-+static const llc_conn_action_t llc_await_busy_actions_7[] = {
- 	[0] = llc_conn_ac_opt_send_rnr_xxx_x_set_0,
- 	[1] = llc_conn_ac_inc_vr_by_1,
- 	[2] = llc_conn_ac_data_ind,
-@@ -3414,7 +3414,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_7 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_RSP_Fbit_SET_0 event */
--static llc_conn_action_t llc_await_busy_actions_8a[] = {
-+static const llc_conn_action_t llc_await_busy_actions_8a[] = {
- 	[0] = llc_conn_ac_opt_send_rnr_xxx_x_set_0,
- 	[1] = llc_conn_ac_inc_vr_by_1,
- 	[2] = llc_conn_ac_data_ind,
-@@ -3432,7 +3432,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_8a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_0 event */
--static llc_conn_action_t llc_await_busy_actions_8b[] = {
-+static const llc_conn_action_t llc_await_busy_actions_8b[] = {
- 	[0] = llc_conn_ac_opt_send_rnr_xxx_x_set_0,
- 	[1] = llc_conn_ac_inc_vr_by_1,
- 	[2] = llc_conn_ac_data_ind,
-@@ -3450,7 +3450,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_8b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_await_busy_actions_9[] = {
-+static const llc_conn_action_t llc_await_busy_actions_9[] = {
- 	[0] = llc_conn_ac_send_rnr_rsp_f_set_1,
- 	[1] = llc_conn_ac_inc_vr_by_1,
- 	[2] = llc_conn_ac_data_ind,
-@@ -3468,7 +3468,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_9 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_RSP_Fbit_SET_1 event */
--static llc_conn_action_t llc_await_busy_actions_10a[] = {
-+static const llc_conn_action_t llc_await_busy_actions_10a[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_stop_p_timer,
-@@ -3485,7 +3485,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_10a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_REJ_RSP_Fbit_SET_1 event */
--static llc_conn_action_t llc_await_busy_actions_10b[] = {
-+static const llc_conn_action_t llc_await_busy_actions_10b[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_stop_p_timer,
-@@ -3502,7 +3502,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_10b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_CMD_Pbit_SET_0 event */
--static llc_conn_action_t llc_await_busy_actions_11a[] = {
-+static const llc_conn_action_t llc_await_busy_actions_11a[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -3517,7 +3517,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_11a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_RSP_Fbit_SET_0 event */
--static llc_conn_action_t llc_await_busy_actions_11b[] = {
-+static const llc_conn_action_t llc_await_busy_actions_11b[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -3532,7 +3532,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_11b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_REJ_CMD_Pbit_SET_0 event */
--static llc_conn_action_t llc_await_busy_actions_11c[] = {
-+static const llc_conn_action_t llc_await_busy_actions_11c[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -3547,7 +3547,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_11c = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_REJ_RSP_Fbit_SET_0 event */
--static llc_conn_action_t llc_await_busy_actions_11d[] = {
-+static const llc_conn_action_t llc_await_busy_actions_11d[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -3562,7 +3562,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_11d = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_await_busy_actions_12a[] = {
-+static const llc_conn_action_t llc_await_busy_actions_12a[] = {
- 	[0] = llc_conn_ac_send_rnr_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_vs,
-@@ -3578,7 +3578,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_12a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_REJ_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_await_busy_actions_12b[] = {
-+static const llc_conn_action_t llc_await_busy_actions_12b[] = {
- 	[0] = llc_conn_ac_send_rnr_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_vs,
-@@ -3594,7 +3594,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_12b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_RSP_Fbit_SET_1 event */
--static llc_conn_action_t llc_await_busy_actions_13[] = {
-+static const llc_conn_action_t llc_await_busy_actions_13[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_stop_p_timer,
-@@ -3610,7 +3610,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_13 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_CMD_Pbit_SET_0 event */
--static llc_conn_action_t llc_await_busy_actions_14a[] = {
-+static const llc_conn_action_t llc_await_busy_actions_14a[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_set_remote_busy,
-@@ -3625,7 +3625,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_14a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_RSP_Fbit_SET_0 event */
--static llc_conn_action_t llc_await_busy_actions_14b[] = {
-+static const llc_conn_action_t llc_await_busy_actions_14b[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_set_remote_busy,
-@@ -3640,7 +3640,7 @@ static struct llc_conn_state_trans llc_await_busy_state_trans_14b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_await_busy_actions_15[] = {
-+static const llc_conn_action_t llc_await_busy_actions_15[] = {
- 	[0] = llc_conn_ac_send_rnr_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_vs,
-@@ -3661,7 +3661,7 @@ static llc_conn_ev_qfyr_t llc_await_busy_ev_qfyrs_16[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_await_busy_actions_16[] = {
-+static const llc_conn_action_t llc_await_busy_actions_16[] = {
- 	[0] = llc_conn_ac_send_rnr_cmd_p_set_1,
- 	[1] = llc_conn_ac_start_p_timer,
- 	[2] = llc_conn_ac_inc_retry_cnt_by_1,
-@@ -3737,7 +3737,7 @@ static llc_conn_ev_qfyr_t llc_await_reject_ev_qfyrs_1_0[] = {
- };
- 
- /* just one member, NULL, .bss zeroes it */
--static llc_conn_action_t llc_await_reject_actions_1_0[1];
-+static const llc_conn_action_t llc_await_reject_actions_1_0[1];
- 
- static struct llc_conn_state_trans llc_await_reject_state_trans_1_0 = {
- 	.ev	       = llc_conn_ev_data_req,
-@@ -3747,7 +3747,7 @@ static struct llc_conn_state_trans llc_await_reject_state_trans_1_0 = {
- };
- 
- /* State transitions for LLC_CONN_EV_LOCAL_BUSY_DETECTED event */
--static llc_conn_action_t llc_await_rejct_actions_1[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_1[] = {
- 	[0] = llc_conn_ac_send_rnr_xxx_x_set_0,
- 	[1] = llc_conn_ac_set_data_flag_2,
- 	[2] = NULL
-@@ -3761,7 +3761,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_1 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_0_UNEXPD_Ns event */
--static llc_conn_action_t llc_await_rejct_actions_2a[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_2a[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = NULL
-@@ -3775,7 +3775,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_2a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_RSP_Fbit_SET_0_UNEXPD_Ns event */
--static llc_conn_action_t llc_await_rejct_actions_2b[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_2b[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = NULL
-@@ -3789,7 +3789,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_2b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_1_UNEXPD_Ns event */
--static llc_conn_action_t llc_await_rejct_actions_3[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_3[] = {
- 	[0] = llc_conn_ac_send_rr_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_vs,
-@@ -3804,7 +3804,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_3 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_RSP_Fbit_SET_1 event */
--static llc_conn_action_t llc_await_rejct_actions_4[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_4[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_stop_p_timer,
-@@ -3824,7 +3824,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_4 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_RSP_Fbit_SET_0 event */
--static llc_conn_action_t llc_await_rejct_actions_5a[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_5a[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_send_rr_xxx_x_set_0,
-@@ -3842,7 +3842,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_5a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_0 event */
--static llc_conn_action_t llc_await_rejct_actions_5b[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_5b[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_send_rr_xxx_x_set_0,
-@@ -3860,7 +3860,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_5b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_await_rejct_actions_6[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_6[] = {
- 	[0] = llc_conn_ac_inc_vr_by_1,
- 	[1] = llc_conn_ac_data_ind,
- 	[2] = llc_conn_ac_send_rr_rsp_f_set_1,
-@@ -3878,7 +3878,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_6 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_RSP_Fbit_SET_1 event */
--static llc_conn_action_t llc_await_rejct_actions_7a[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_7a[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_stop_p_timer,
-@@ -3895,7 +3895,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_7a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_REJ_RSP_Fbit_SET_1 event */
--static llc_conn_action_t llc_await_rejct_actions_7b[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_7b[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_stop_p_timer,
-@@ -3912,7 +3912,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_7b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_I_RSP_Fbit_SET_1_UNEXPD_Ns event */
--static llc_conn_action_t llc_await_rejct_actions_7c[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_7c[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_stop_p_timer,
-@@ -3929,7 +3929,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_7c = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_CMD_Pbit_SET_0 event */
--static llc_conn_action_t llc_await_rejct_actions_8a[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_8a[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -3944,7 +3944,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_8a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_RSP_Fbit_SET_0 event */
--static llc_conn_action_t llc_await_rejct_actions_8b[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_8b[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -3959,7 +3959,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_8b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_REJ_CMD_Pbit_SET_0 event */
--static llc_conn_action_t llc_await_rejct_actions_8c[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_8c[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -3974,7 +3974,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_8c = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_REJ_RSP_Fbit_SET_0 event */
--static llc_conn_action_t llc_await_rejct_actions_8d[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_8d[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_clear_remote_busy,
-@@ -3989,7 +3989,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_8d = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RR_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_await_rejct_actions_9a[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_9a[] = {
- 	[0] = llc_conn_ac_send_rr_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_vs,
-@@ -4005,7 +4005,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_9a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_REJ_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_await_rejct_actions_9b[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_9b[] = {
- 	[0] = llc_conn_ac_send_rr_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_vs,
-@@ -4021,7 +4021,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_9b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_RSP_Fbit_SET_1 event */
--static llc_conn_action_t llc_await_rejct_actions_10[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_10[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_stop_p_timer,
-@@ -4037,7 +4037,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_10 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_CMD_Pbit_SET_0 event */
--static llc_conn_action_t llc_await_rejct_actions_11a[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_11a[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_set_remote_busy,
-@@ -4052,7 +4052,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_11a = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_RSP_Fbit_SET_0 event */
--static llc_conn_action_t llc_await_rejct_actions_11b[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_11b[] = {
- 	[0] = llc_conn_ac_upd_nr_received,
- 	[1] = llc_conn_ac_upd_vs,
- 	[2] = llc_conn_ac_set_remote_busy,
-@@ -4067,7 +4067,7 @@ static struct llc_conn_state_trans llc_await_rejct_state_trans_11b = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_RNR_CMD_Pbit_SET_1 event */
--static llc_conn_action_t llc_await_rejct_actions_12[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_12[] = {
- 	[0] = llc_conn_ac_send_rr_rsp_f_set_1,
- 	[1] = llc_conn_ac_upd_nr_received,
- 	[2] = llc_conn_ac_upd_vs,
-@@ -4088,7 +4088,7 @@ static llc_conn_ev_qfyr_t llc_await_rejct_ev_qfyrs_13[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_await_rejct_actions_13[] = {
-+static const llc_conn_action_t llc_await_rejct_actions_13[] = {
- 	[0] = llc_conn_ac_send_rej_cmd_p_set_1,
- 	[1] = llc_conn_ac_stop_p_timer,
- 	[2] = llc_conn_ac_inc_retry_cnt_by_1,
-@@ -4163,7 +4163,7 @@ static llc_conn_ev_qfyr_t llc_d_conn_ev_qfyrs_1[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_d_conn_actions_1[] = {
-+static const llc_conn_action_t llc_d_conn_actions_1[] = {
- 	[0] = llc_conn_ac_send_dm_rsp_f_set_p,
- 	[1] = llc_conn_ac_stop_ack_timer,
- 	[2] = llc_conn_ac_disc_confirm,
-@@ -4187,7 +4187,7 @@ static llc_conn_ev_qfyr_t llc_d_conn_ev_qfyrs_1_1[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_d_conn_actions_1_1[] = {
-+static const llc_conn_action_t llc_d_conn_actions_1_1[] = {
- 	[0] = llc_conn_ac_send_dm_rsp_f_set_p,
- 	[1] = llc_conn_ac_stop_ack_timer,
- 	[2] = llc_conn_disc,
-@@ -4211,7 +4211,7 @@ static llc_conn_ev_qfyr_t llc_d_conn_ev_qfyrs_2[] = {
- 	[3] = NULL,
- };
- 
--static llc_conn_action_t llc_d_conn_actions_2[] = {
-+static const llc_conn_action_t llc_d_conn_actions_2[] = {
- 	[0] = llc_conn_ac_stop_ack_timer,
- 	[1] = llc_conn_ac_disc_confirm,
- 	[2] = llc_conn_disc,
-@@ -4235,7 +4235,7 @@ static llc_conn_ev_qfyr_t llc_d_conn_ev_qfyrs_2_1[] = {
- 	[3] = NULL,
- };
- 
--static llc_conn_action_t llc_d_conn_actions_2_1[] = {
-+static const llc_conn_action_t llc_d_conn_actions_2_1[] = {
- 	[0] = llc_conn_ac_stop_ack_timer,
- 	[1] = llc_conn_disc,
- 	[2] = NULL,
-@@ -4249,7 +4249,7 @@ static struct llc_conn_state_trans llc_d_conn_state_trans_2_1 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_DISC_CMD_Pbit_SET_X event */
--static llc_conn_action_t llc_d_conn_actions_3[] = {
-+static const llc_conn_action_t llc_d_conn_actions_3[] = {
- 	[0] = llc_conn_ac_send_ua_rsp_f_set_p,
- 	[1] = NULL,
- };
-@@ -4270,7 +4270,7 @@ static llc_conn_ev_qfyr_t llc_d_conn_ev_qfyrs_4[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_d_conn_actions_4[] = {
-+static const llc_conn_action_t llc_d_conn_actions_4[] = {
- 	[0] = llc_conn_ac_stop_ack_timer,
- 	[1] = llc_conn_ac_disc_confirm,
- 	[2] = llc_conn_disc,
-@@ -4293,7 +4293,7 @@ static llc_conn_ev_qfyr_t llc_d_conn_ev_qfyrs_4_1[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_d_conn_actions_4_1[] = {
-+static const llc_conn_action_t llc_d_conn_actions_4_1[] = {
- 	[0] = llc_conn_ac_stop_ack_timer,
- 	[1] = llc_conn_disc,
- 	[2] = NULL,
-@@ -4316,7 +4316,7 @@ static llc_conn_ev_qfyr_t llc_d_conn_ev_qfyrs_5[] = {
- };
- 
- /* just one member, NULL, .bss zeroes it */
--static llc_conn_action_t llc_d_conn_actions_5[1];
-+static const llc_conn_action_t llc_d_conn_actions_5[1];
- 
- static struct llc_conn_state_trans llc_d_conn_state_trans_5 = {
- 	.ev	       = llc_conn_ev_data_req,
-@@ -4331,7 +4331,7 @@ static llc_conn_ev_qfyr_t llc_d_conn_ev_qfyrs_6[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_d_conn_actions_6[] = {
-+static const llc_conn_action_t llc_d_conn_actions_6[] = {
- 	[0] = llc_conn_ac_send_disc_cmd_p_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_inc_retry_cnt_by_1,
-@@ -4353,7 +4353,7 @@ static llc_conn_ev_qfyr_t llc_d_conn_ev_qfyrs_7[] = {
- 	[3] = NULL,
- };
- 
--static llc_conn_action_t llc_d_conn_actions_7[] = {
-+static const llc_conn_action_t llc_d_conn_actions_7[] = {
- 	[0] = llc_conn_ac_disc_confirm,
- 	[1] = llc_conn_disc,
- 	[2] = NULL,
-@@ -4374,7 +4374,7 @@ static llc_conn_ev_qfyr_t llc_d_conn_ev_qfyrs_8[] = {
- 	[3] = NULL,
- };
- 
--static llc_conn_action_t llc_d_conn_actions_8[] = {
-+static const llc_conn_action_t llc_d_conn_actions_8[] = {
- 	[0] = llc_conn_disc,
- 	[1] = NULL,
- };
-@@ -4411,7 +4411,7 @@ static struct llc_conn_state_trans *llc_d_conn_state_transitions[] = {
- 
- /* LLC_CONN_STATE_RESET transitions */
- /* State transitions for LLC_CONN_EV_RX_SABME_CMD_Pbit_SET_X event */
--static llc_conn_action_t llc_rst_actions_1[] = {
-+static const llc_conn_action_t llc_rst_actions_1[] = {
- 	[0] = llc_conn_ac_set_vs_0,
- 	[1] = llc_conn_ac_set_vr_0,
- 	[2] = llc_conn_ac_set_s_flag_1,
-@@ -4436,7 +4436,7 @@ static llc_conn_ev_qfyr_t llc_rst_ev_qfyrs_2[] = {
- 	[3] = NULL,
- };
- 
--static llc_conn_action_t llc_rst_actions_2[] = {
-+static const llc_conn_action_t llc_rst_actions_2[] = {
- 	[0] = llc_conn_ac_stop_ack_timer,
- 	[1] = llc_conn_ac_set_vs_0,
- 	[2] = llc_conn_ac_set_vr_0,
-@@ -4464,7 +4464,7 @@ static llc_conn_ev_qfyr_t llc_rst_ev_qfyrs_2_1[] = {
- 	[3] = NULL,
- };
- 
--static llc_conn_action_t llc_rst_actions_2_1[] = {
-+static const llc_conn_action_t llc_rst_actions_2_1[] = {
- 	[0] = llc_conn_ac_stop_ack_timer,
- 	[1] = llc_conn_ac_set_vs_0,
- 	[2] = llc_conn_ac_set_vr_0,
-@@ -4489,7 +4489,7 @@ static llc_conn_ev_qfyr_t llc_rst_ev_qfyrs_3[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_rst_actions_3[] = {
-+static const llc_conn_action_t llc_rst_actions_3[] = {
- 	[0] = llc_conn_ac_set_p_flag_0,
- 	[1] = llc_conn_ac_set_remote_busy_0,
- 	[2] = NULL,
-@@ -4510,7 +4510,7 @@ static llc_conn_ev_qfyr_t llc_rst_ev_qfyrs_4[] = {
- 	[1] = llc_conn_ev_qlfy_set_status_disc,
- 	[2] = NULL,
- };
--static llc_conn_action_t llc_rst_actions_4[] = {
-+static const llc_conn_action_t llc_rst_actions_4[] = {
- 	[0] = llc_conn_ac_send_dm_rsp_f_set_p,
- 	[1] = llc_conn_ac_disc_ind,
- 	[2] = llc_conn_ac_stop_ack_timer,
-@@ -4534,7 +4534,7 @@ static llc_conn_ev_qfyr_t llc_rst_ev_qfyrs_4_1[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_rst_actions_4_1[] = {
-+static const llc_conn_action_t llc_rst_actions_4_1[] = {
- 	[0] = llc_conn_ac_send_dm_rsp_f_set_p,
- 	[1] = llc_conn_ac_stop_ack_timer,
- 	[2] = llc_conn_disc,
-@@ -4557,7 +4557,7 @@ static llc_conn_ev_qfyr_t llc_rst_ev_qfyrs_5[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_rst_actions_5[] = {
-+static const llc_conn_action_t llc_rst_actions_5[] = {
- 	[0] = llc_conn_ac_disc_ind,
- 	[1] = llc_conn_ac_stop_ack_timer,
- 	[2] = llc_conn_disc,
-@@ -4580,7 +4580,7 @@ static llc_conn_ev_qfyr_t llc_rst_ev_qfyrs_5_1[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_rst_actions_5_1[] = {
-+static const llc_conn_action_t llc_rst_actions_5_1[] = {
- 	[0] = llc_conn_ac_stop_ack_timer,
- 	[1] = llc_conn_disc,
- 	[2] = NULL,
-@@ -4600,7 +4600,7 @@ static llc_conn_ev_qfyr_t llc_rst_ev_qfyrs_6[] = {
- };
- 
- /* just one member, NULL, .bss zeroes it */
--static llc_conn_action_t llc_rst_actions_6[1];
-+static const llc_conn_action_t llc_rst_actions_6[1];
- 
- static struct llc_conn_state_trans llc_rst_state_trans_6 = {
- 	.ev	       = llc_conn_ev_data_req,
-@@ -4616,7 +4616,7 @@ static llc_conn_ev_qfyr_t llc_rst_ev_qfyrs_7[] = {
- 	[2] = NULL,
- };
- 
--static llc_conn_action_t llc_rst_actions_7[] = {
-+static const llc_conn_action_t llc_rst_actions_7[] = {
- 	[0] = llc_conn_ac_send_sabme_cmd_p_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_inc_retry_cnt_by_1,
-@@ -4638,7 +4638,7 @@ static llc_conn_ev_qfyr_t llc_rst_ev_qfyrs_8[] = {
- 	[3] = llc_conn_ev_qlfy_set_status_failed,
- 	[4] = NULL,
- };
--static llc_conn_action_t llc_rst_actions_8[] = {
-+static const llc_conn_action_t llc_rst_actions_8[] = {
- 	[0] = llc_conn_ac_disc_ind,
- 	[1] = llc_conn_disc,
- 	[2] = NULL,
-@@ -4659,7 +4659,7 @@ static llc_conn_ev_qfyr_t llc_rst_ev_qfyrs_8_1[] = {
- 	[3] = llc_conn_ev_qlfy_set_status_failed,
- 	[4] = NULL,
- };
--static llc_conn_action_t llc_rst_actions_8_1[] = {
-+static const llc_conn_action_t llc_rst_actions_8_1[] = {
- 	[0] = llc_conn_ac_disc_ind,
- 	[1] = llc_conn_disc,
- 	[2] = NULL,
-@@ -4698,7 +4698,7 @@ static struct llc_conn_state_trans *llc_rst_state_transitions[] = {
- 
- /* LLC_CONN_STATE_ERROR transitions */
- /* State transitions for LLC_CONN_EV_RX_SABME_CMD_Pbit_SET_X event */
--static llc_conn_action_t llc_error_actions_1[] = {
-+static const llc_conn_action_t llc_error_actions_1[] = {
- 	[0] = llc_conn_ac_set_vs_0,
- 	[1] = llc_conn_ac_set_vr_0,
- 	[2] = llc_conn_ac_send_ua_rsp_f_set_p,
-@@ -4718,7 +4718,7 @@ static struct llc_conn_state_trans llc_error_state_trans_1 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_DISC_CMD_Pbit_SET_X event */
--static llc_conn_action_t llc_error_actions_2[] = {
-+static const llc_conn_action_t llc_error_actions_2[] = {
- 	[0] = llc_conn_ac_send_ua_rsp_f_set_p,
- 	[1] = llc_conn_ac_disc_ind,
- 	[2] = llc_conn_ac_stop_ack_timer,
-@@ -4734,7 +4734,7 @@ static struct llc_conn_state_trans llc_error_state_trans_2 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_DM_RSP_Fbit_SET_X event */
--static llc_conn_action_t llc_error_actions_3[] = {
-+static const llc_conn_action_t llc_error_actions_3[] = {
- 	[0] = llc_conn_ac_disc_ind,
- 	[1] = llc_conn_ac_stop_ack_timer,
- 	[2] = llc_conn_disc,
-@@ -4749,7 +4749,7 @@ static struct llc_conn_state_trans llc_error_state_trans_3 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_FRMR_RSP_Fbit_SET_X event */
--static llc_conn_action_t llc_error_actions_4[] = {
-+static const llc_conn_action_t llc_error_actions_4[] = {
- 	[0] = llc_conn_ac_send_sabme_cmd_p_set_x,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_set_retry_cnt_0,
-@@ -4765,7 +4765,7 @@ static struct llc_conn_state_trans llc_error_state_trans_4 = {
- };
- 
- /* State transitions for LLC_CONN_EV_RX_XXX_CMD_Pbit_SET_X event */
--static llc_conn_action_t llc_error_actions_5[] = {
-+static const llc_conn_action_t llc_error_actions_5[] = {
- 	[0] = llc_conn_ac_resend_frmr_rsp_f_set_p,
- 	[1] = NULL,
- };
-@@ -4791,7 +4791,7 @@ static llc_conn_ev_qfyr_t llc_error_ev_qfyrs_7[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_error_actions_7[] = {
-+static const llc_conn_action_t llc_error_actions_7[] = {
- 	[0] = llc_conn_ac_resend_frmr_rsp_f_set_0,
- 	[1] = llc_conn_ac_start_ack_timer,
- 	[2] = llc_conn_ac_inc_retry_cnt_by_1,
-@@ -4811,7 +4811,7 @@ static llc_conn_ev_qfyr_t llc_error_ev_qfyrs_8[] = {
- 	[1] = NULL,
- };
- 
--static llc_conn_action_t llc_error_actions_8[] = {
-+static const llc_conn_action_t llc_error_actions_8[] = {
- 	[0] = llc_conn_ac_send_sabme_cmd_p_set_x,
- 	[1] = llc_conn_ac_set_s_flag_0,
- 	[2] = llc_conn_ac_start_ack_timer,
-@@ -4834,7 +4834,7 @@ static llc_conn_ev_qfyr_t llc_error_ev_qfyrs_9[] = {
- };
- 
- /* just one member, NULL, .bss zeroes it */
--static llc_conn_action_t llc_error_actions_9[1];
-+static const llc_conn_action_t llc_error_actions_9[1];
- 
- static struct llc_conn_state_trans llc_error_state_trans_9 = {
- 	.ev	       = llc_conn_ev_data_req,
-@@ -4866,7 +4866,7 @@ static struct llc_conn_state_trans *llc_error_state_transitions[] = {
- 
- /* LLC_CONN_STATE_TEMP transitions */
- /* State transitions for LLC_CONN_EV_DISC_REQ event */
--static llc_conn_action_t llc_temp_actions_1[] = {
-+static const llc_conn_action_t llc_temp_actions_1[] = {
- 	[0] = llc_conn_ac_stop_all_timers,
- 	[1] = llc_conn_ac_send_disc_cmd_p_set_x,
- 	[2] = llc_conn_disc,
-diff --git a/net/llc/llc_conn.c b/net/llc/llc_conn.c
-index 42dc2e4..75baa2b 100644
---- a/net/llc/llc_conn.c
-+++ b/net/llc/llc_conn.c
-@@ -454,7 +454,7 @@ static int llc_exec_conn_trans_actions(struct sock *sk,
- 				       struct sk_buff *skb)
- {
- 	int rc = 0;
--	llc_conn_action_t *next_action;
-+	const llc_conn_action_t *next_action;
- 
- 	for (next_action = trans->ev_actions;
- 	     next_action && *next_action; next_action++) {
+Le 10/12/2014 16:03, Cyrille Pitchen a =E9crit :
+> gem devices designed with multiqueue CANNOT work without this patch.
+>=20
+> When probing a gem device, the driver must first prepare and enable t=
+he
+> peripheral clock before accessing I/O registers. The second step is t=
+o read the
+> MID register to find whether the device is a gem or an old macb IP.
+> For gem devices, it reads the Design Configuration Register 6 (DCFG6)=
+ to
+> compute to total number of queues, whereas macb devices always have a=
+ single
+> queue.
+> Only then it can call alloc_etherdev_mq() with the correct number of =
+queues.
+> This is the reason why the order of some initializations has been cha=
+nged in
+> macb_probe().
+> Eventually, the dedicated IRQ and TX ring buffer descriptors are init=
+ialized
+> for each queue.
+>=20
+> Besides when a TX error occurs, the gem MUST be halted before writing=
+ any of
+> the TBQP registers to reset the relevant queue. An immediate side eff=
+ect is
+> that the other queues too aren't processed anymore by the gem.
+> So macb_tx_error_task() calls netif_tx_stop_all_queues() to notify th=
+e Linux
+> network engine that all transmissions are stopped.
+>=20
+> Also macb_tx_error_task() now calls spin_lock_irqsave() to prevent th=
+e
+> interrupt handlers of the other queues from running as each of them m=
+ay wake
+> its associated queue up (please refer to macb_tx_interrupt()).
+>=20
+> Finally, as all queues have previously been stopped, they should be r=
+estarted
+> calling netif_tx_start_all_queues() and setting the TSTART bit into t=
+he Network
+> Control Register. Before this patch, when dealing with a single queue=
+, the
+> driver used to defer the reset of the faulting queue and the write of=
+ the
+> TSTART bit until the next call of macb_start_xmit().
+> As explained before, this bit is now set by macb_tx_error_task() too.=
+ That's
+> why the faulting queue MUST be reset by setting the TX_USED bit in it=
+s first
+> buffer descriptor before writing the TSTART bit.
+>=20
+> Queue 0 always exits and is the lowest priority when other queues are=
+ available.
+> The higher the index of the queue is, the higher its priority is.
+>=20
+> When transmitting frames, the TX queue is selected by the skb->queue_=
+mapping
+> value. So queue discipline can be used to define the queue priority p=
+olicy.
+>=20
+> Signed-off-by: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+> ---
+>  drivers/net/ethernet/cadence/macb.c | 442 +++++++++++++++++++++++---=
+----------
+>  drivers/net/ethernet/cadence/macb.h |  71 +++++-
+>  2 files changed, 349 insertions(+), 164 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
+et/cadence/macb.c
+> index 41113e5..072b76a 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -66,23 +66,25 @@ static unsigned int macb_tx_ring_wrap(unsigned in=
+t index)
+>  	return index & (TX_RING_SIZE - 1);
+>  }
+> =20
+> -static struct macb_dma_desc *macb_tx_desc(struct macb *bp, unsigned =
+int index)
+> +static struct macb_dma_desc *macb_tx_desc(struct macb_queue *queue,
+> +					  unsigned int index)
+>  {
+> -	return &bp->tx_ring[macb_tx_ring_wrap(index)];
+> +	return &queue->tx_ring[macb_tx_ring_wrap(index)];
+>  }
+> =20
+> -static struct macb_tx_skb *macb_tx_skb(struct macb *bp, unsigned int=
+ index)
+> +static struct macb_tx_skb *macb_tx_skb(struct macb_queue *queue,
+> +				       unsigned int index)
+>  {
+> -	return &bp->tx_skb[macb_tx_ring_wrap(index)];
+> +	return &queue->tx_skb[macb_tx_ring_wrap(index)];
+>  }
+> =20
+> -static dma_addr_t macb_tx_dma(struct macb *bp, unsigned int index)
+> +static dma_addr_t macb_tx_dma(struct macb_queue *queue, unsigned int=
+ index)
+>  {
+>  	dma_addr_t offset;
+> =20
+>  	offset =3D macb_tx_ring_wrap(index) * sizeof(struct macb_dma_desc);
+> =20
+> -	return bp->tx_ring_dma + offset;
+> +	return queue->tx_ring_dma + offset;
+>  }
+> =20
+>  static unsigned int macb_rx_ring_wrap(unsigned int index)
+> @@ -490,38 +492,42 @@ static void macb_tx_unmap(struct macb *bp, stru=
+ct macb_tx_skb *tx_skb)
+> =20
+>  static void macb_tx_error_task(struct work_struct *work)
+>  {
+> -	struct macb	*bp =3D container_of(work, struct macb, tx_error_task);
+> +	struct macb_queue	*queue =3D container_of(work, struct macb_queue,
+> +						      tx_error_task);
+> +	struct macb		*bp =3D queue->bp;
+>  	struct macb_tx_skb	*tx_skb;
+> +	struct macb_dma_desc	*desc;
+>  	struct sk_buff		*skb;
+>  	unsigned int		tail;
+> +	unsigned long		flags;
+> +
+> +	netdev_vdbg(bp->dev, "macb_tx_error_task: q =3D %u, t =3D %u, h =3D=
+ %u\n",
+> +		    queue - bp->queues, queue->tx_tail, queue->tx_head);
+> =20
+> -	netdev_vdbg(bp->dev, "macb_tx_error_task: t =3D %u, h =3D %u\n",
+> -		    bp->tx_tail, bp->tx_head);
+> +	spin_lock_irqsave(&bp->lock, flags);
+> =20
+>  	/* Make sure nobody is trying to queue up new packets */
+> -	netif_stop_queue(bp->dev);
+> +	netif_tx_stop_all_queues(bp->dev);
+> =20
+>  	/*
+>  	 * Stop transmission now
+>  	 * (in case we have just queued new packets)
+> +	 * macb/gem must be halted to write TBQP register
+>  	 */
+>  	if (macb_halt_tx(bp))
+>  		/* Just complain for now, reinitializing TX path can be good */
+>  		netdev_err(bp->dev, "BUG: halt tx timed out\n");
+> =20
+> -	/* No need for the lock here as nobody will interrupt us anymore */
+> -
+>  	/*
+>  	 * Treat frames in TX queue including the ones that caused the erro=
+r.
+>  	 * Free transmit buffers in upper layer.
+>  	 */
+> -	for (tail =3D bp->tx_tail; tail !=3D bp->tx_head; tail++) {
+> -		struct macb_dma_desc	*desc;
+> -		u32			ctrl;
+> +	for (tail =3D queue->tx_tail; tail !=3D queue->tx_head; tail++) {
+> +		u32	ctrl;
+> =20
+> -		desc =3D macb_tx_desc(bp, tail);
+> +		desc =3D macb_tx_desc(queue, tail);
+>  		ctrl =3D desc->ctrl;
+> -		tx_skb =3D macb_tx_skb(bp, tail);
+> +		tx_skb =3D macb_tx_skb(queue, tail);
+>  		skb =3D tx_skb->skb;
+> =20
+>  		if (ctrl & MACB_BIT(TX_USED)) {
+> @@ -529,7 +535,7 @@ static void macb_tx_error_task(struct work_struct=
+ *work)
+>  			while (!skb) {
+>  				macb_tx_unmap(bp, tx_skb);
+>  				tail++;
+> -				tx_skb =3D macb_tx_skb(bp, tail);
+> +				tx_skb =3D macb_tx_skb(queue, tail);
+>  				skb =3D tx_skb->skb;
+>  			}
+> =20
+> @@ -558,45 +564,56 @@ static void macb_tx_error_task(struct work_stru=
+ct *work)
+>  		macb_tx_unmap(bp, tx_skb);
+>  	}
+> =20
+> +	/* Set end of TX queue */
+> +	desc =3D macb_tx_desc(queue, 0);
+> +	desc->addr =3D 0;
+> +	desc->ctrl =3D MACB_BIT(TX_USED);
+> +
+>  	/* Make descriptor updates visible to hardware */
+>  	wmb();
+> =20
+>  	/* Reinitialize the TX desc queue */
+> -	macb_writel(bp, TBQP, bp->tx_ring_dma);
+> +	queue_writel(queue, TBQP, queue->tx_ring_dma);
+>  	/* Make TX ring reflect state of hardware */
+> -	bp->tx_head =3D bp->tx_tail =3D 0;
+> -
+> -	/* Now we are ready to start transmission again */
+> -	netif_wake_queue(bp->dev);
+> +	queue->tx_head =3D 0;
+> +	queue->tx_tail =3D 0;
+> =20
+>  	/* Housework before enabling TX IRQ */
+>  	macb_writel(bp, TSR, macb_readl(bp, TSR));
+> -	macb_writel(bp, IER, MACB_TX_INT_FLAGS);
+> +	queue_writel(queue, IER, MACB_TX_INT_FLAGS);
+> +
+> +	/* Now we are ready to start transmission again */
+> +	netif_tx_start_all_queues(bp->dev);
+> +	macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(TSTART));
+> +
+> +	spin_unlock_irqrestore(&bp->lock, flags);
+>  }
+> =20
+> -static void macb_tx_interrupt(struct macb *bp)
+> +static void macb_tx_interrupt(struct macb_queue *queue)
+>  {
+>  	unsigned int tail;
+>  	unsigned int head;
+>  	u32 status;
+> +	struct macb *bp =3D queue->bp;
+> +	u16 queue_index =3D queue - bp->queues;
+> =20
+>  	status =3D macb_readl(bp, TSR);
+>  	macb_writel(bp, TSR, status);
+> =20
+>  	if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+> -		macb_writel(bp, ISR, MACB_BIT(TCOMP));
+> +		queue_writel(queue, ISR, MACB_BIT(TCOMP));
+> =20
+>  	netdev_vdbg(bp->dev, "macb_tx_interrupt status =3D 0x%03lx\n",
+>  		(unsigned long)status);
+> =20
+> -	head =3D bp->tx_head;
+> -	for (tail =3D bp->tx_tail; tail !=3D head; tail++) {
+> +	head =3D queue->tx_head;
+> +	for (tail =3D queue->tx_tail; tail !=3D head; tail++) {
+>  		struct macb_tx_skb	*tx_skb;
+>  		struct sk_buff		*skb;
+>  		struct macb_dma_desc	*desc;
+>  		u32			ctrl;
+> =20
+> -		desc =3D macb_tx_desc(bp, tail);
+> +		desc =3D macb_tx_desc(queue, tail);
+> =20
+>  		/* Make hw descriptor updates visible to CPU */
+>  		rmb();
+> @@ -611,7 +628,7 @@ static void macb_tx_interrupt(struct macb *bp)
+> =20
+>  		/* Process all buffers of the current transmitted frame */
+>  		for (;; tail++) {
+> -			tx_skb =3D macb_tx_skb(bp, tail);
+> +			tx_skb =3D macb_tx_skb(queue, tail);
+>  			skb =3D tx_skb->skb;
+> =20
+>  			/* First, update TX stats if needed */
+> @@ -634,11 +651,11 @@ static void macb_tx_interrupt(struct macb *bp)
+>  		}
+>  	}
+> =20
+> -	bp->tx_tail =3D tail;
+> -	if (netif_queue_stopped(bp->dev)
+> -			&& CIRC_CNT(bp->tx_head, bp->tx_tail,
+> -				    TX_RING_SIZE) <=3D MACB_TX_WAKEUP_THRESH)
+> -		netif_wake_queue(bp->dev);
+> +	queue->tx_tail =3D tail;
+> +	if (__netif_subqueue_stopped(bp->dev, queue_index) &&
+> +	    CIRC_CNT(queue->tx_head, queue->tx_tail,
+> +		     TX_RING_SIZE) <=3D MACB_TX_WAKEUP_THRESH)
+> +		netif_wake_subqueue(bp->dev, queue_index);
+>  }
+> =20
+>  static void gem_rx_refill(struct macb *bp)
+> @@ -949,11 +966,12 @@ static int macb_poll(struct napi_struct *napi, =
+int budget)
+> =20
+>  static irqreturn_t macb_interrupt(int irq, void *dev_id)
+>  {
+> -	struct net_device *dev =3D dev_id;
+> -	struct macb *bp =3D netdev_priv(dev);
+> +	struct macb_queue *queue =3D dev_id;
+> +	struct macb *bp =3D queue->bp;
+> +	struct net_device *dev =3D bp->dev;
+>  	u32 status;
+> =20
+> -	status =3D macb_readl(bp, ISR);
+> +	status =3D queue_readl(queue, ISR);
+> =20
+>  	if (unlikely(!status))
+>  		return IRQ_NONE;
+> @@ -963,11 +981,12 @@ static irqreturn_t macb_interrupt(int irq, void=
+ *dev_id)
+>  	while (status) {
+>  		/* close possible race with dev_close */
+>  		if (unlikely(!netif_running(dev))) {
+> -			macb_writel(bp, IDR, -1);
+> +			queue_writel(queue, IDR, -1);
+>  			break;
+>  		}
+> =20
+> -		netdev_vdbg(bp->dev, "isr =3D 0x%08lx\n", (unsigned long)status);
+> +		netdev_vdbg(bp->dev, "queue =3D %u, isr =3D 0x%08lx\n",
+> +			    queue - bp->queues, (unsigned long)status);
+> =20
+>  		if (status & MACB_RX_INT_FLAGS) {
+>  			/*
+> @@ -977,9 +996,9 @@ static irqreturn_t macb_interrupt(int irq, void *=
+dev_id)
+>  			 * is already scheduled, so disable interrupts
+>  			 * now.
+>  			 */
+> -			macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
+> +			queue_writel(queue, IDR, MACB_RX_INT_FLAGS);
+>  			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+> -				macb_writel(bp, ISR, MACB_BIT(RCOMP));
+> +				queue_writel(queue, ISR, MACB_BIT(RCOMP));
+> =20
+>  			if (napi_schedule_prep(&bp->napi)) {
+>  				netdev_vdbg(bp->dev, "scheduling RX softirq\n");
+> @@ -988,17 +1007,17 @@ static irqreturn_t macb_interrupt(int irq, voi=
+d *dev_id)
+>  		}
+> =20
+>  		if (unlikely(status & (MACB_TX_ERR_FLAGS))) {
+> -			macb_writel(bp, IDR, MACB_TX_INT_FLAGS);
+> -			schedule_work(&bp->tx_error_task);
+> +			queue_writel(queue, IDR, MACB_TX_INT_FLAGS);
+> +			schedule_work(&queue->tx_error_task);
+> =20
+>  			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+> -				macb_writel(bp, ISR, MACB_TX_ERR_FLAGS);
+> +				queue_writel(queue, ISR, MACB_TX_ERR_FLAGS);
+> =20
+>  			break;
+>  		}
+> =20
+>  		if (status & MACB_BIT(TCOMP))
+> -			macb_tx_interrupt(bp);
+> +			macb_tx_interrupt(queue);
+> =20
+>  		/*
+>  		 * Link change detection isn't possible with RMII, so we'll
+> @@ -1013,7 +1032,7 @@ static irqreturn_t macb_interrupt(int irq, void=
+ *dev_id)
+>  				bp->hw_stats.macb.rx_overruns++;
+> =20
+>  			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+> -				macb_writel(bp, ISR, MACB_BIT(ISR_ROVR));
+> +				queue_writel(queue, ISR, MACB_BIT(ISR_ROVR));
+>  		}
+> =20
+>  		if (status & MACB_BIT(HRESP)) {
+> @@ -1025,10 +1044,10 @@ static irqreturn_t macb_interrupt(int irq, vo=
+id *dev_id)
+>  			netdev_err(dev, "DMA bus error: HRESP not OK\n");
+> =20
+>  			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+> -				macb_writel(bp, ISR, MACB_BIT(HRESP));
+> +				queue_writel(queue, ISR, MACB_BIT(HRESP));
+>  		}
+> =20
+> -		status =3D macb_readl(bp, ISR);
+> +		status =3D queue_readl(queue, ISR);
+>  	}
+> =20
+>  	spin_unlock(&bp->lock);
+> @@ -1043,10 +1062,14 @@ static irqreturn_t macb_interrupt(int irq, vo=
+id *dev_id)
+>   */
+>  static void macb_poll_controller(struct net_device *dev)
+>  {
+> +	struct macb *bp =3D netdev_priv(dev);
+> +	struct macb_queue *queue;
+>  	unsigned long flags;
+> +	unsigned int q;
+> =20
+>  	local_irq_save(flags);
+> -	macb_interrupt(dev->irq, dev);
+> +	for (q =3D 0, queue =3D bp->queues; q < bp->num_queues; ++q, ++queu=
+e)
+> +		macb_interrupt(dev->irq, queue);
+>  	local_irq_restore(flags);
+>  }
+>  #endif
+> @@ -1058,10 +1081,11 @@ static inline unsigned int macb_count_tx_desc=
+riptors(struct macb *bp,
+>  }
+> =20
+>  static unsigned int macb_tx_map(struct macb *bp,
+> +				struct macb_queue *queue,
+>  				struct sk_buff *skb)
+>  {
+>  	dma_addr_t mapping;
+> -	unsigned int len, entry, i, tx_head =3D bp->tx_head;
+> +	unsigned int len, entry, i, tx_head =3D queue->tx_head;
+>  	struct macb_tx_skb *tx_skb =3D NULL;
+>  	struct macb_dma_desc *desc;
+>  	unsigned int offset, size, count =3D 0;
+> @@ -1075,7 +1099,7 @@ static unsigned int macb_tx_map(struct macb *bp=
+,
+>  	while (len) {
+>  		size =3D min(len, bp->max_tx_length);
+>  		entry =3D macb_tx_ring_wrap(tx_head);
+> -		tx_skb =3D &bp->tx_skb[entry];
+> +		tx_skb =3D &queue->tx_skb[entry];
+> =20
+>  		mapping =3D dma_map_single(&bp->pdev->dev,
+>  					 skb->data + offset,
+> @@ -1104,7 +1128,7 @@ static unsigned int macb_tx_map(struct macb *bp=
+,
+>  		while (len) {
+>  			size =3D min(len, bp->max_tx_length);
+>  			entry =3D macb_tx_ring_wrap(tx_head);
+> -			tx_skb =3D &bp->tx_skb[entry];
+> +			tx_skb =3D &queue->tx_skb[entry];
+> =20
+>  			mapping =3D skb_frag_dma_map(&bp->pdev->dev, frag,
+>  						   offset, size, DMA_TO_DEVICE);
+> @@ -1143,14 +1167,14 @@ static unsigned int macb_tx_map(struct macb *=
+bp,
+>  	i =3D tx_head;
+>  	entry =3D macb_tx_ring_wrap(i);
+>  	ctrl =3D MACB_BIT(TX_USED);
+> -	desc =3D &bp->tx_ring[entry];
+> +	desc =3D &queue->tx_ring[entry];
+>  	desc->ctrl =3D ctrl;
+> =20
+>  	do {
+>  		i--;
+>  		entry =3D macb_tx_ring_wrap(i);
+> -		tx_skb =3D &bp->tx_skb[entry];
+> -		desc =3D &bp->tx_ring[entry];
+> +		tx_skb =3D &queue->tx_skb[entry];
+> +		desc =3D &queue->tx_ring[entry];
+> =20
+>  		ctrl =3D (u32)tx_skb->size;
+>  		if (eof) {
+> @@ -1167,17 +1191,17 @@ static unsigned int macb_tx_map(struct macb *=
+bp,
+>  		 */
+>  		wmb();
+>  		desc->ctrl =3D ctrl;
+> -	} while (i !=3D bp->tx_head);
+> +	} while (i !=3D queue->tx_head);
+> =20
+> -	bp->tx_head =3D tx_head;
+> +	queue->tx_head =3D tx_head;
+> =20
+>  	return count;
+> =20
+>  dma_error:
+>  	netdev_err(bp->dev, "TX DMA map failed\n");
+> =20
+> -	for (i =3D bp->tx_head; i !=3D tx_head; i++) {
+> -		tx_skb =3D macb_tx_skb(bp, i);
+> +	for (i =3D queue->tx_head; i !=3D tx_head; i++) {
+> +		tx_skb =3D macb_tx_skb(queue, i);
+> =20
+>  		macb_tx_unmap(bp, tx_skb);
+>  	}
+> @@ -1187,14 +1211,16 @@ dma_error:
+> =20
+>  static int macb_start_xmit(struct sk_buff *skb, struct net_device *d=
+ev)
+>  {
+> +	u16 queue_index =3D skb_get_queue_mapping(skb);
+>  	struct macb *bp =3D netdev_priv(dev);
+> +	struct macb_queue *queue =3D &bp->queues[queue_index];
+>  	unsigned long flags;
+>  	unsigned int count, nr_frags, frag_size, f;
+> =20
+>  #if defined(DEBUG) && defined(VERBOSE_DEBUG)
+>  	netdev_vdbg(bp->dev,
+> -		   "start_xmit: len %u head %p data %p tail %p end %p\n",
+> -		   skb->len, skb->head, skb->data,
+> +		   "start_xmit: queue %hu len %u head %p data %p tail %p end %p\n"=
+,
+> +		   queue_index, skb->len, skb->head, skb->data,
+>  		   skb_tail_pointer(skb), skb_end_pointer(skb));
+>  	print_hex_dump(KERN_DEBUG, "data: ", DUMP_PREFIX_OFFSET, 16, 1,
+>  		       skb->data, 16, true);
+> @@ -1214,16 +1240,16 @@ static int macb_start_xmit(struct sk_buff *sk=
+b, struct net_device *dev)
+>  	spin_lock_irqsave(&bp->lock, flags);
+> =20
+>  	/* This is a hard error, log it. */
+> -	if (CIRC_SPACE(bp->tx_head, bp->tx_tail, TX_RING_SIZE) < count) {
+> -		netif_stop_queue(dev);
+> +	if (CIRC_SPACE(queue->tx_head, queue->tx_tail, TX_RING_SIZE) < coun=
+t) {
+> +		netif_stop_subqueue(dev, queue_index);
+>  		spin_unlock_irqrestore(&bp->lock, flags);
+>  		netdev_dbg(bp->dev, "tx_head =3D %u, tx_tail =3D %u\n",
+> -			   bp->tx_head, bp->tx_tail);
+> +			   queue->tx_head, queue->tx_tail);
+>  		return NETDEV_TX_BUSY;
+>  	}
+> =20
+>  	/* Map socket buffer for DMA transfer */
+> -	if (!macb_tx_map(bp, skb)) {
+> +	if (!macb_tx_map(bp, queue, skb)) {
+>  		dev_kfree_skb_any(skb);
+>  		goto unlock;
+>  	}
+> @@ -1235,8 +1261,8 @@ static int macb_start_xmit(struct sk_buff *skb,=
+ struct net_device *dev)
+> =20
+>  	macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(TSTART));
+> =20
+> -	if (CIRC_SPACE(bp->tx_head, bp->tx_tail, TX_RING_SIZE) < 1)
+> -		netif_stop_queue(dev);
+> +	if (CIRC_SPACE(queue->tx_head, queue->tx_tail, TX_RING_SIZE) < 1)
+> +		netif_stop_subqueue(dev, queue_index);
+> =20
+>  unlock:
+>  	spin_unlock_irqrestore(&bp->lock, flags);
+> @@ -1304,20 +1330,24 @@ static void macb_free_rx_buffers(struct macb =
+*bp)
+> =20
+>  static void macb_free_consistent(struct macb *bp)
+>  {
+> -	if (bp->tx_skb) {
+> -		kfree(bp->tx_skb);
+> -		bp->tx_skb =3D NULL;
+> -	}
+> +	struct macb_queue *queue;
+> +	unsigned int q;
+> +
+>  	bp->macbgem_ops.mog_free_rx_buffers(bp);
+>  	if (bp->rx_ring) {
+>  		dma_free_coherent(&bp->pdev->dev, RX_RING_BYTES,
+>  				  bp->rx_ring, bp->rx_ring_dma);
+>  		bp->rx_ring =3D NULL;
+>  	}
+> -	if (bp->tx_ring) {
+> -		dma_free_coherent(&bp->pdev->dev, TX_RING_BYTES,
+> -				  bp->tx_ring, bp->tx_ring_dma);
+> -		bp->tx_ring =3D NULL;
+> +
+> +	for (q =3D 0, queue =3D bp->queues; q < bp->num_queues; ++q, ++queu=
+e) {
+> +		kfree(queue->tx_skb);
+> +		queue->tx_skb =3D NULL;
+> +		if (queue->tx_ring) {
+> +			dma_free_coherent(&bp->pdev->dev, TX_RING_BYTES,
+> +					  queue->tx_ring, queue->tx_ring_dma);
+> +			queue->tx_ring =3D NULL;
+> +		}
+>  	}
+>  }
+> =20
+> @@ -1354,12 +1384,27 @@ static int macb_alloc_rx_buffers(struct macb =
+*bp)
+> =20
+>  static int macb_alloc_consistent(struct macb *bp)
+>  {
+> +	struct macb_queue *queue;
+> +	unsigned int q;
+>  	int size;
+> =20
+> -	size =3D TX_RING_SIZE * sizeof(struct macb_tx_skb);
+> -	bp->tx_skb =3D kmalloc(size, GFP_KERNEL);
+> -	if (!bp->tx_skb)
+> -		goto out_err;
+> +	for (q =3D 0, queue =3D bp->queues; q < bp->num_queues; ++q, ++queu=
+e) {
+> +		size =3D TX_RING_BYTES;
+> +		queue->tx_ring =3D dma_alloc_coherent(&bp->pdev->dev, size,
+> +						    &queue->tx_ring_dma,
+> +						    GFP_KERNEL);
+> +		if (!queue->tx_ring)
+> +			goto out_err;
+> +		netdev_dbg(bp->dev,
+> +			   "Allocated TX ring for queue %u of %d bytes at %08lx (mapped %=
+p)\n",
+> +			   q, size, (unsigned long)queue->tx_ring_dma,
+> +			   queue->tx_ring);
+> +
+> +		size =3D TX_RING_SIZE * sizeof(struct macb_tx_skb);
+> +		queue->tx_skb =3D kmalloc(size, GFP_KERNEL);
+> +		if (!queue->tx_skb)
+> +			goto out_err;
+> +	}
+> =20
+>  	size =3D RX_RING_BYTES;
+>  	bp->rx_ring =3D dma_alloc_coherent(&bp->pdev->dev, size,
+> @@ -1370,15 +1415,6 @@ static int macb_alloc_consistent(struct macb *=
+bp)
+>  		   "Allocated RX ring of %d bytes at %08lx (mapped %p)\n",
+>  		   size, (unsigned long)bp->rx_ring_dma, bp->rx_ring);
+> =20
+> -	size =3D TX_RING_BYTES;
+> -	bp->tx_ring =3D dma_alloc_coherent(&bp->pdev->dev, size,
+> -					 &bp->tx_ring_dma, GFP_KERNEL);
+> -	if (!bp->tx_ring)
+> -		goto out_err;
+> -	netdev_dbg(bp->dev,
+> -		   "Allocated TX ring of %d bytes at %08lx (mapped %p)\n",
+> -		   size, (unsigned long)bp->tx_ring_dma, bp->tx_ring);
+> -
+>  	if (bp->macbgem_ops.mog_alloc_rx_buffers(bp))
+>  		goto out_err;
+> =20
+> @@ -1391,15 +1427,22 @@ out_err:
+> =20
+>  static void gem_init_rings(struct macb *bp)
+>  {
+> +	struct macb_queue *queue;
+> +	unsigned int q;
+>  	int i;
+> =20
+> -	for (i =3D 0; i < TX_RING_SIZE; i++) {
+> -		bp->tx_ring[i].addr =3D 0;
+> -		bp->tx_ring[i].ctrl =3D MACB_BIT(TX_USED);
+> +	for (q =3D 0, queue =3D bp->queues; q < bp->num_queues; ++q, ++queu=
+e) {
+> +		for (i =3D 0; i < TX_RING_SIZE; i++) {
+> +			queue->tx_ring[i].addr =3D 0;
+> +			queue->tx_ring[i].ctrl =3D MACB_BIT(TX_USED);
+> +		}
+> +		queue->tx_ring[TX_RING_SIZE - 1].ctrl |=3D MACB_BIT(TX_WRAP);
+> +		queue->tx_head =3D 0;
+> +		queue->tx_tail =3D 0;
+>  	}
+> -	bp->tx_ring[TX_RING_SIZE - 1].ctrl |=3D MACB_BIT(TX_WRAP);
+> =20
+> -	bp->rx_tail =3D bp->rx_prepared_head =3D bp->tx_head =3D bp->tx_tai=
+l =3D 0;
+> +	bp->rx_tail =3D 0;
+> +	bp->rx_prepared_head =3D 0;
+> =20
+>  	gem_rx_refill(bp);
+>  }
+> @@ -1418,16 +1461,21 @@ static void macb_init_rings(struct macb *bp)
+>  	bp->rx_ring[RX_RING_SIZE - 1].addr |=3D MACB_BIT(RX_WRAP);
+> =20
+>  	for (i =3D 0; i < TX_RING_SIZE; i++) {
+> -		bp->tx_ring[i].addr =3D 0;
+> -		bp->tx_ring[i].ctrl =3D MACB_BIT(TX_USED);
+> +		bp->queues[0].tx_ring[i].addr =3D 0;
+> +		bp->queues[0].tx_ring[i].ctrl =3D MACB_BIT(TX_USED);
+> +		bp->queues[0].tx_head =3D 0;
+> +		bp->queues[0].tx_tail =3D 0;
+>  	}
+> -	bp->tx_ring[TX_RING_SIZE - 1].ctrl |=3D MACB_BIT(TX_WRAP);
+> +	bp->queues[0].tx_ring[TX_RING_SIZE - 1].ctrl |=3D MACB_BIT(TX_WRAP)=
+;
+> =20
+> -	bp->rx_tail =3D bp->tx_head =3D bp->tx_tail =3D 0;
+> +	bp->rx_tail =3D 0;
+>  }
+> =20
+>  static void macb_reset_hw(struct macb *bp)
+>  {
+> +	struct macb_queue *queue;
+> +	unsigned int q;
+> +
+>  	/*
+>  	 * Disable RX and TX (XXX: Should we halt the transmission
+>  	 * more gracefully?)
+> @@ -1442,8 +1490,10 @@ static void macb_reset_hw(struct macb *bp)
+>  	macb_writel(bp, RSR, -1);
+> =20
+>  	/* Disable all interrupts */
+> -	macb_writel(bp, IDR, -1);
+> -	macb_readl(bp, ISR);
+> +	for (q =3D 0, queue =3D bp->queues; q < bp->num_queues; ++q, ++queu=
+e) {
+> +		queue_writel(queue, IDR, -1);
+> +		queue_readl(queue, ISR);
+> +	}
+>  }
+> =20
+>  static u32 gem_mdc_clk_div(struct macb *bp)
+> @@ -1540,6 +1590,9 @@ static void macb_configure_dma(struct macb *bp)
+> =20
+>  static void macb_init_hw(struct macb *bp)
+>  {
+> +	struct macb_queue *queue;
+> +	unsigned int q;
+> +
+>  	u32 config;
+> =20
+>  	macb_reset_hw(bp);
+> @@ -1565,16 +1618,18 @@ static void macb_init_hw(struct macb *bp)
+> =20
+>  	/* Initialize TX and RX buffers */
+>  	macb_writel(bp, RBQP, bp->rx_ring_dma);
+> -	macb_writel(bp, TBQP, bp->tx_ring_dma);
+> +	for (q =3D 0, queue =3D bp->queues; q < bp->num_queues; ++q, ++queu=
+e) {
+> +		queue_writel(queue, TBQP, queue->tx_ring_dma);
+> +
+> +		/* Enable interrupts */
+> +		queue_writel(queue, IER,
+> +			     MACB_RX_INT_FLAGS |
+> +			     MACB_TX_INT_FLAGS |
+> +			     MACB_BIT(HRESP));
+> +	}
+> =20
+>  	/* Enable TX and RX */
+>  	macb_writel(bp, NCR, MACB_BIT(RE) | MACB_BIT(TE) | MACB_BIT(MPE));
+> -
+> -	/* Enable interrupts */
+> -	macb_writel(bp, IER, (MACB_RX_INT_FLAGS
+> -			      | MACB_TX_INT_FLAGS
+> -			      | MACB_BIT(HRESP)));
+> -
+>  }
+> =20
+>  /*
+> @@ -1736,7 +1791,7 @@ static int macb_open(struct net_device *dev)
+>  	/* schedule a link state check */
+>  	phy_start(bp->phy_dev);
+> =20
+> -	netif_start_queue(dev);
+> +	netif_tx_start_all_queues(dev);
+> =20
+>  	return 0;
+>  }
+> @@ -1746,7 +1801,7 @@ static int macb_close(struct net_device *dev)
+>  	struct macb *bp =3D netdev_priv(dev);
+>  	unsigned long flags;
+> =20
+> -	netif_stop_queue(dev);
+> +	netif_tx_stop_all_queues(dev);
+>  	napi_disable(&bp->napi);
+> =20
+>  	if (bp->phy_dev)
+> @@ -1895,8 +1950,8 @@ static void macb_get_regs(struct net_device *de=
+v, struct ethtool_regs *regs,
+>  	regs->version =3D (macb_readl(bp, MID) & ((1 << MACB_REV_SIZE) - 1)=
+)
+>  			| MACB_GREGS_VERSION;
+> =20
+> -	tail =3D macb_tx_ring_wrap(bp->tx_tail);
+> -	head =3D macb_tx_ring_wrap(bp->tx_head);
+> +	tail =3D macb_tx_ring_wrap(bp->queues[0].tx_tail);
+> +	head =3D macb_tx_ring_wrap(bp->queues[0].tx_head);
+> =20
+>  	regs_buff[0]  =3D macb_readl(bp, NCR);
+>  	regs_buff[1]  =3D macb_or_gem_readl(bp, NCFGR);
+> @@ -1909,8 +1964,8 @@ static void macb_get_regs(struct net_device *de=
+v, struct ethtool_regs *regs,
+> =20
+>  	regs_buff[8]  =3D tail;
+>  	regs_buff[9]  =3D head;
+> -	regs_buff[10] =3D macb_tx_dma(bp, tail);
+> -	regs_buff[11] =3D macb_tx_dma(bp, head);
+> +	regs_buff[10] =3D macb_tx_dma(&bp->queues[0], tail);
+> +	regs_buff[11] =3D macb_tx_dma(&bp->queues[0], head);
+> =20
+>  	if (macb_is_gem(bp)) {
+>  		regs_buff[12] =3D gem_readl(bp, USRIO);
+> @@ -2061,16 +2116,44 @@ static void macb_configure_caps(struct macb *=
+bp)
+>  	netdev_dbg(bp->dev, "Cadence caps 0x%08x\n", bp->caps);
+>  }
+> =20
+> +static void macb_probe_queues(void __iomem *mem,
+> +			      unsigned int *queue_mask,
+> +			      unsigned int *num_queues)
+> +{
+> +	unsigned int q;
+> +	u32 mid;
+> +
+> +	*queue_mask =3D 0x1;
+> +	*num_queues =3D 1;
+> +
+> +	/* is it macb or gem ? */
+> +	mid =3D __raw_readl(mem + MACB_MID);
+> +	if (MACB_BFEXT(IDNUM, mid) !=3D 0x2)
+> +		return;
+> +
+> +	/* bit 0 is never set but queue 0 always exists */
+> +	*queue_mask =3D __raw_readl(mem + GEM_DCFG6) & 0xff;
+> +	*queue_mask |=3D 0x1;
+> +
+> +	for (q =3D 1; q < MACB_MAX_QUEUES; ++q)
+> +		if (*queue_mask & (1 << q))
+> +			(*num_queues)++;
+> +}
+> +
+>  static int __init macb_probe(struct platform_device *pdev)
+>  {
+>  	struct macb_platform_data *pdata;
+>  	struct resource *regs;
+>  	struct net_device *dev;
+>  	struct macb *bp;
+> +	struct macb_queue *queue;
+>  	struct phy_device *phydev;
+>  	u32 config;
+>  	int err =3D -ENXIO;
+>  	const char *mac;
+> +	void __iomem *mem;
+> +	unsigned int q, queue_mask, num_queues, q_irq =3D 0;
+> +	struct clk *pclk, *hclk, *tx_clk;
+> =20
+>  	regs =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
+>  	if (!regs) {
+> @@ -2078,72 +2161,106 @@ static int __init macb_probe(struct platform=
+_device *pdev)
+>  		goto err_out;
+>  	}
+> =20
+> -	err =3D -ENOMEM;
+> -	dev =3D alloc_etherdev(sizeof(*bp));
+> -	if (!dev)
+> -		goto err_out;
+> -
+> -	SET_NETDEV_DEV(dev, &pdev->dev);
+> -
+> -	bp =3D netdev_priv(dev);
+> -	bp->pdev =3D pdev;
+> -	bp->dev =3D dev;
+> -
+> -	spin_lock_init(&bp->lock);
+> -	INIT_WORK(&bp->tx_error_task, macb_tx_error_task);
+> -
+> -	bp->pclk =3D devm_clk_get(&pdev->dev, "pclk");
+> -	if (IS_ERR(bp->pclk)) {
+> -		err =3D PTR_ERR(bp->pclk);
+> +	pclk =3D devm_clk_get(&pdev->dev, "pclk");
+> +	if (IS_ERR(pclk)) {
+> +		err =3D PTR_ERR(pclk);
+>  		dev_err(&pdev->dev, "failed to get macb_clk (%u)\n", err);
+> -		goto err_out_free_dev;
+> +		goto err_out;
+>  	}
+> =20
+> -	bp->hclk =3D devm_clk_get(&pdev->dev, "hclk");
+> -	if (IS_ERR(bp->hclk)) {
+> -		err =3D PTR_ERR(bp->hclk);
+> +	hclk =3D devm_clk_get(&pdev->dev, "hclk");
+> +	if (IS_ERR(hclk)) {
+> +		err =3D PTR_ERR(hclk);
+>  		dev_err(&pdev->dev, "failed to get hclk (%u)\n", err);
+> -		goto err_out_free_dev;
+> +		goto err_out;
+>  	}
+> =20
+> -	bp->tx_clk =3D devm_clk_get(&pdev->dev, "tx_clk");
+> +	tx_clk =3D devm_clk_get(&pdev->dev, "tx_clk");
+> =20
+> -	err =3D clk_prepare_enable(bp->pclk);
+> +	err =3D clk_prepare_enable(pclk);
+>  	if (err) {
+>  		dev_err(&pdev->dev, "failed to enable pclk (%u)\n", err);
+> -		goto err_out_free_dev;
+> +		goto err_out;
+>  	}
+> =20
+> -	err =3D clk_prepare_enable(bp->hclk);
+> +	err =3D clk_prepare_enable(hclk);
+>  	if (err) {
+>  		dev_err(&pdev->dev, "failed to enable hclk (%u)\n", err);
+>  		goto err_out_disable_pclk;
+>  	}
+> =20
+> -	if (!IS_ERR(bp->tx_clk)) {
+> -		err =3D clk_prepare_enable(bp->tx_clk);
+> +	if (!IS_ERR(tx_clk)) {
+> +		err =3D clk_prepare_enable(tx_clk);
+>  		if (err) {
+>  			dev_err(&pdev->dev, "failed to enable tx_clk (%u)\n",
+> -					err);
+> +				err);
+>  			goto err_out_disable_hclk;
+>  		}
+>  	}
+> =20
+> -	bp->regs =3D devm_ioremap(&pdev->dev, regs->start, resource_size(re=
+gs));
+> -	if (!bp->regs) {
+> +	err =3D -ENOMEM;
+> +	mem =3D devm_ioremap(&pdev->dev, regs->start, resource_size(regs));
+> +	if (!mem) {
+>  		dev_err(&pdev->dev, "failed to map registers, aborting.\n");
+> -		err =3D -ENOMEM;
+>  		goto err_out_disable_clocks;
+>  	}
+> =20
+> -	dev->irq =3D platform_get_irq(pdev, 0);
+> -	err =3D devm_request_irq(&pdev->dev, dev->irq, macb_interrupt, 0,
+> -			dev->name, dev);
+> -	if (err) {
+> -		dev_err(&pdev->dev, "Unable to request IRQ %d (error %d)\n",
+> -			dev->irq, err);
+> +	macb_probe_queues(mem, &queue_mask, &num_queues);
+> +	dev =3D alloc_etherdev_mq(sizeof(*bp), num_queues);
+> +	if (!dev)
+>  		goto err_out_disable_clocks;
+> +
+> +	SET_NETDEV_DEV(dev, &pdev->dev);
+> +
+> +	bp =3D netdev_priv(dev);
+> +	bp->pdev =3D pdev;
+> +	bp->dev =3D dev;
+> +	bp->regs =3D mem;
+> +	bp->num_queues =3D num_queues;
+> +	bp->pclk =3D pclk;
+> +	bp->hclk =3D hclk;
+> +	bp->tx_clk =3D tx_clk;
+> +
+> +	bp->queues[0].bp =3D bp;
+> +	bp->queues[0].ISR  =3D MACB_ISR;
+> +	bp->queues[0].IER  =3D MACB_IER;
+> +	bp->queues[0].IDR  =3D MACB_IDR;
+> +	bp->queues[0].IMR  =3D MACB_IMR;
+> +	bp->queues[0].TBQP =3D MACB_TBQP;
+> +	for (q =3D 1, queue =3D &bp->queues[1]; q < MACB_MAX_QUEUES; ++q) {
+> +		if (!(queue_mask & (1 << q)))
+> +			continue;
+> +
+> +		queue->bp =3D bp;
+> +		queue->ISR  =3D (q-1) * sizeof(u32) + GEM_ISR1;
+> +		queue->IER  =3D (q-1) * sizeof(u32) + GEM_IER1;
+> +		queue->IDR  =3D (q-1) * sizeof(u32) + GEM_IDR1;
+> +		queue->IMR  =3D (q-1) * sizeof(u32) + GEM_IMR1;
+> +		queue->TBQP =3D (q-1) * sizeof(u32) + GEM_TBQP1;
+> +		queue++;
+> +	}
+> +
+> +	spin_lock_init(&bp->lock);
+> +
+> +	for (q =3D 0, queue =3D bp->queues; q < MACB_MAX_QUEUES; ++q) {
+> +		if (!(queue_mask & (1 << q)))
+> +			continue;
+> +
+> +		queue->irq =3D platform_get_irq(pdev, q);
+> +		err =3D devm_request_irq(&pdev->dev, queue->irq, macb_interrupt,
+> +				       0, dev->name, queue);
+> +		if (err) {
+> +			dev_err(&pdev->dev,
+> +				"Unable to request IRQ %d (error %d)\n",
+> +				queue->irq, err);
+> +			goto err_out_free_irq;
+> +		}
+> +
+> +		INIT_WORK(&queue->tx_error_task, macb_tx_error_task);
+> +		queue++;
+> +		q_irq++;
+>  	}
+> +	dev->irq =3D bp->queues[0].irq;
+> =20
+>  	dev->netdev_ops =3D &macb_netdev_ops;
+>  	netif_napi_add(dev, &bp->napi, macb_poll, 64);
+> @@ -2219,7 +2336,7 @@ static int __init macb_probe(struct platform_de=
+vice *pdev)
+>  	err =3D register_netdev(dev);
+>  	if (err) {
+>  		dev_err(&pdev->dev, "Cannot register net device, aborting.\n");
+> -		goto err_out_disable_clocks;
+> +		goto err_out_free_irq;
+>  	}
+> =20
+>  	err =3D macb_mii_init(bp);
+> @@ -2242,15 +2359,17 @@ static int __init macb_probe(struct platform_=
+device *pdev)
+> =20
+>  err_out_unregister_netdev:
+>  	unregister_netdev(dev);
+> +err_out_free_irq:
+> +	for (q =3D 0, queue =3D bp->queues; q < q_irq; ++q, ++queue)
+> +		devm_free_irq(&pdev->dev, queue->irq, queue);
+> +	free_netdev(dev);
+>  err_out_disable_clocks:
+> -	if (!IS_ERR(bp->tx_clk))
+> -		clk_disable_unprepare(bp->tx_clk);
+> +	if (!IS_ERR(tx_clk))
+> +		clk_disable_unprepare(tx_clk);
+>  err_out_disable_hclk:
+> -	clk_disable_unprepare(bp->hclk);
+> +	clk_disable_unprepare(hclk);
+>  err_out_disable_pclk:
+> -	clk_disable_unprepare(bp->pclk);
+> -err_out_free_dev:
+> -	free_netdev(dev);
+> +	clk_disable_unprepare(pclk);
+>  err_out:
+>  	return err;
+>  }
+> @@ -2259,6 +2378,8 @@ static int __exit macb_remove(struct platform_d=
+evice *pdev)
+>  {
+>  	struct net_device *dev;
+>  	struct macb *bp;
+> +	struct macb_queue *queue;
+> +	unsigned int q;
+> =20
+>  	dev =3D platform_get_drvdata(pdev);
+> =20
+> @@ -2270,11 +2391,14 @@ static int __exit macb_remove(struct platform=
+_device *pdev)
+>  		kfree(bp->mii_bus->irq);
+>  		mdiobus_free(bp->mii_bus);
+>  		unregister_netdev(dev);
+> +		queue =3D bp->queues;
+> +		for (q =3D 0; q < bp->num_queues; ++q, ++queue)
+> +			devm_free_irq(&pdev->dev, queue->irq, queue);
+> +		free_netdev(dev);
+>  		if (!IS_ERR(bp->tx_clk))
+>  			clk_disable_unprepare(bp->tx_clk);
+>  		clk_disable_unprepare(bp->hclk);
+>  		clk_disable_unprepare(bp->pclk);
+> -		free_netdev(dev);
+>  	}
+> =20
+>  	return 0;
+> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethern=
+et/cadence/macb.h
+> index 517c09d..28d4e23 100644
+> --- a/drivers/net/ethernet/cadence/macb.h
+> +++ b/drivers/net/ethernet/cadence/macb.h
+> @@ -12,6 +12,7 @@
+> =20
+>  #define MACB_GREGS_NBR 16
+>  #define MACB_GREGS_VERSION 1
+> +#define MACB_MAX_QUEUES 8
+> =20
+>  /* MACB register offsets */
+>  #define MACB_NCR				0x0000
+> @@ -88,6 +89,48 @@
+>  #define GEM_DCFG5				0x0290
+>  #define GEM_DCFG6				0x0294
+>  #define GEM_DCFG7				0x0298
+> +#define GEM_ISR1				0x0400
+> +#define GEM_ISR2				0x0404
+> +#define GEM_ISR3				0x0408
+> +#define GEM_ISR4				0x040c
+> +#define GEM_ISR5				0x0410
+> +#define GEM_ISR6				0x0414
+> +#define GEM_ISR7				0x0418
+> +#define GEM_TBQP1				0x0440
+> +#define GEM_TBQP2				0x0444
+> +#define GEM_TBQP3				0x0448
+> +#define GEM_TBQP4				0x044c
+> +#define GEM_TBQP5				0x0450
+> +#define GEM_TBQP6				0x0454
+> +#define GEM_TBQP7				0x0458
+> +#define GEM_RBQP1				0x0480
+> +#define GEM_RBQP2				0x0484
+> +#define GEM_RBQP3				0x0488
+> +#define GEM_RBQP4				0x048c
+> +#define GEM_RBQP5				0x0490
+> +#define GEM_RBQP6				0x0494
+> +#define GEM_RBQP7				0x0498
+> +#define GEM_IER1				0x0600
+> +#define GEM_IER2				0x0604
+> +#define GEM_IER3				0x0608
+> +#define GEM_IER4				0x060c
+> +#define GEM_IER5				0x0610
+> +#define GEM_IER6				0x0614
+> +#define GEM_IER7				0x0618
+> +#define GEM_IDR1				0x0620
+> +#define GEM_IDR2				0x0624
+> +#define GEM_IDR3				0x0628
+> +#define GEM_IDR4				0x062c
+> +#define GEM_IDR5				0x0630
+> +#define GEM_IDR6				0x0634
+> +#define GEM_IDR7				0x0638
+> +#define GEM_IMR1				0x0640
+> +#define GEM_IMR2				0x0644
+> +#define GEM_IMR3				0x0648
+> +#define GEM_IMR4				0x064c
+> +#define GEM_IMR5				0x0650
+> +#define GEM_IMR6				0x0654
+> +#define GEM_IMR7				0x0658
+> =20
+>  /* Bitfields in NCR */
+>  #define MACB_LB_OFFSET				0
+> @@ -376,6 +419,10 @@
+>  	__raw_readl((port)->regs + GEM_##reg)
+>  #define gem_writel(port, reg, value)			\
+>  	__raw_writel((value), (port)->regs + GEM_##reg)
+> +#define queue_readl(queue, reg)				\
+> +	__raw_readl((queue)->bp->regs + queue->reg)
+> +#define queue_writel(queue, reg, value)			\
+> +	__raw_writel((value), (queue)->bp->regs + queue->reg)
+> =20
+>  /*
+>   * Conditional GEM/MACB macros.  These perform the operation to the =
+correct
+> @@ -597,6 +644,23 @@ struct macb_config {
+>  	unsigned int		dma_burst_length;
+>  };
+> =20
+> +struct macb_queue {
+> +	struct macb		*bp;
+> +	int			irq;
+> +
+> +	unsigned int		ISR;
+> +	unsigned int		IER;
+> +	unsigned int		IDR;
+> +	unsigned int		IMR;
+> +	unsigned int		TBQP;
+> +
+> +	unsigned int		tx_head, tx_tail;
+> +	struct macb_dma_desc	*tx_ring;
+> +	struct macb_tx_skb	*tx_skb;
+> +	dma_addr_t		tx_ring_dma;
+> +	struct work_struct	tx_error_task;
+> +};
+> +
+>  struct macb {
+>  	void __iomem		*regs;
+> =20
+> @@ -607,9 +671,8 @@ struct macb {
+>  	void			*rx_buffers;
+>  	size_t			rx_buffer_size;
+> =20
+> -	unsigned int		tx_head, tx_tail;
+> -	struct macb_dma_desc	*tx_ring;
+> -	struct macb_tx_skb	*tx_skb;
+> +	unsigned int		num_queues;
+> +	struct macb_queue	queues[MACB_MAX_QUEUES];
+> =20
+>  	spinlock_t		lock;
+>  	struct platform_device	*pdev;
+> @@ -618,7 +681,6 @@ struct macb {
+>  	struct clk		*tx_clk;
+>  	struct net_device	*dev;
+>  	struct napi_struct	napi;
+> -	struct work_struct	tx_error_task;
+>  	struct net_device_stats	stats;
+>  	union {
+>  		struct macb_stats	macb;
+> @@ -626,7 +688,6 @@ struct macb {
+>  	}			hw_stats;
+> =20
+>  	dma_addr_t		rx_ring_dma;
+> -	dma_addr_t		tx_ring_dma;
+>  	dma_addr_t		rx_buffers_dma;
+> =20
+>  	struct macb_or_gem_ops	macbgem_ops;
+>=20
