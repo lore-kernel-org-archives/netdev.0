@@ -1,45 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] stmmac: platform: adjust messages and move to dev level
-Date: Wed, 10 Dec 2014 11:44:34 -0500 (EST)
-Message-ID: <20141210.114434.1468466024696543408.davem@davemloft.net>
-References: <1418119153-13355-1-git-send-email-andriy.shevchenko@linux.intel.com>
-	<20141209.182837.2218983730769727387.davem@davemloft.net>
-	<1418208471.17201.56.camel@linux.intel.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next] cxgb4vf: Fix sparse warnings
+Date: Wed, 10 Dec 2014 16:47:39 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CA0A4C2@AcuExch.aculab.com>
+References: <1418230039-13219-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
-To: andriy.shevchenko@linux.intel.com
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"leedom@chelsio.com" <leedom@chelsio.com>,
+	"anish@chelsio.com" <anish@chelsio.com>,
+	"nirranjan@chelsio.com" <nirranjan@chelsio.com>,
+	"kumaras@chelsio.com" <kumaras@chelsio.com>
+To: 'Hariprasad Shenai' <hariprasad@chelsio.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45689 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753877AbaLJQol (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 11:44:41 -0500
-In-Reply-To: <1418208471.17201.56.camel@linux.intel.com>
+Received: from mx0.aculab.com ([213.249.233.131]:59738 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754895AbaLJQsl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 11:48:41 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 20089-02 for <netdev@vger.kernel.org>;
+ Wed, 10 Dec 2014 16:48:32 +0000 (GMT)
+In-Reply-To: <1418230039-13219-1-git-send-email-hariprasad@chelsio.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Date: Wed, 10 Dec 2014 12:47:51 +0200
-
-> On Tue, 2014-12-09 at 18:28 -0500, David Miller wrote:
->> From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
->> Date: Tue,  9 Dec 2014 11:59:13 +0200
->> 
->> > This patch amendes error and warning messages across the platform driver. It
->> > includes the following changes:
->> >  - remove unneccessary message when no memory is available
->> >  - change info level to warn in the validation functions
->> >  - append \n to the end of messages
->> >  - change pr_* macros to dev_*
->> > 
->> > Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
->> 
->> This does not apply to the net-next tree, please respin.
+From: Hariprasad Shenai
+> Fixes sparse warnings introduced in commit e85c9a7abfa407ed ("cxgb4/cxgb4vf: Add
+> code to calculate T5 BAR2 Offsets for SGE Queue Registers") and
+> df64e4d38c904dd3 ("cxgb4/cxgb4vf: Use new interfaces to calculate BAR2 SGE Queue
+> Register addresses") and few old ones
 > 
-> Yeah, maybe because the fix (*) you mentioned in previos mail is not in
-> net-next by some reason?
+...
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+> b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+> index 02e8833..62bd251 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+> @@ -209,10 +209,10 @@ int t4vf_wr_mbox_core(struct adapter *adapter, const void *cmd, int size,
 > 
-> (*) I refer to commit 28603d13997e2ef47f18589cc9a44553aad49c86
+>  			if (rpl) {
+>  				/* request bit in high-order BE word */
+> -				WARN_ON((be32_to_cpu(*(const u32 *)cmd)
+> +				WARN_ON((be32_to_cpu(*(const __be32 *)cmd)
+>  					 & FW_CMD_REQUEST_F) == 0);
+>  				get_mbox_rpl(adapter, rpl, size, mbox_data);
+> -				WARN_ON((be32_to_cpu(*(u32 *)rpl)
+> +				WARN_ON((be32_to_cpu(*(__be32 *)rpl)
+>  					 & FW_CMD_REQUEST_F) != 0);
 
-It's in the 'net' tree which hasn't been merged into net-next.
+Better to byteswap the constant.
+Also, it looks like the types of 'rpl' and 'cmd' should be fixed
+so that the casts themselves aren't needed.
+
+>  			}
+>  			t4_write_reg(adapter, mbox_ctl,
+> @@ -486,7 +486,7 @@ int t4_bar2_sge_qregs(struct adapter *adapter,
+>  	 *  o The BAR2 Queue ID.
+>  	 *  o The BAR2 Queue ID Offset into the BAR2 page.
+>  	 */
+> -	bar2_page_offset = ((qid >> qpp_shift) << page_shift);
+> +	bar2_page_offset = (u64)((qid >> qpp_shift) << page_shift);
+
+That doesn't look like the right place for a cast to u64.
+Not that it is at all clear why you've added it.
+
+	David
+
+>  	bar2_qid = qid & qpp_mask;
+>  	bar2_qid_offset = bar2_qid * SGE_UDB_SIZE;
+> 
+> --
+> 1.7.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
