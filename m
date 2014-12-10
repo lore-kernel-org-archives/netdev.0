@@ -1,7 +1,7 @@
 From: Karen Xie <kxie@chelsio.com>
-Subject: [PATCH net v8 5/7] cxgb4i: handle non-pdu-aligned rx data
-Date: Wed, 10 Dec 2014 13:11:18 -0800
-Message-ID: <201412102111.sBALBIQa011680@localhost6.localdomain6>
+Subject: [PATCH net v8 0/7] cxgb4/cxgbi: misc. fixes for cxgb4i
+Date: Wed, 10 Dec 2014 13:11:03 -0800
+Message-ID: <201412102111.sBALB3gp011649@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -10,59 +10,36 @@ Cc: kxie@chelsio.com, hariprasad@chelsio.com, anish@chelsio.com,
 	michaelc@cs.wisc.edu, davem@davemloft.net
 To: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:12471 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:4743 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933237AbaLJVMH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 16:12:07 -0500
+	with ESMTP id S932691AbaLJVMw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 16:12:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Karen Xie <kxie@chelsio.com>
+This patch set fixes cxgb4i's tx credit calculation and adds handling of additional rx message and negative advice types. It also removes the duplicate code in cxgb4i to set the outgoing queues of a packet. 
 
-Abort the connection upon receiving of cpl_rx_data, which means the pdu cannot be recovered from the tcp stream. This generally is due to pdu header corruption.
+Karen Xie (7):
+cxgb4i: fix tx immediate data credit check
+cxgb4i: fix credit check for tx_data_wr
+cxgb4/cxgb4i: set max. outgoing pdu length in the f/w
+cxgb4i: add more types of negative advice 
+cxgb4i: handle non pdu-aligned rx data
+cxgb4i: use cxgb4's set_wr_txq() for setting outgoing queues
+libcxgbi: fix the debug print accessing skb after it is freed
 
-Signed-off-by: Karen Xie <kxie@chelsio.com>
----
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   22 ++++++++++++++++++++++
- 1 files changed, 22 insertions(+), 0 deletions(-)
+Sending to net as the fixes are mostly in the network area and it touches cxgb4's header file (t4fw_api.h).
 
-diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index 2880f200..dff7345 100644
---- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-+++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -1034,6 +1034,27 @@ rel_skb:
- 	__kfree_skb(skb);
- }
- 
-+static void do_rx_data(struct cxgbi_device *cdev, struct sk_buff *skb)
-+{
-+	struct cxgbi_sock *csk;
-+	struct cpl_rx_data *cpl = (struct cpl_rx_data *)skb->data;
-+	unsigned int tid = GET_TID(cpl);
-+	struct cxgb4_lld_info *lldi = cxgbi_cdev_priv(cdev);
-+	struct tid_info *t = lldi->tids;
-+
-+	csk = lookup_tid(t, tid);
-+	if (!csk) {
-+		pr_err("can't find connection for tid %u.\n", tid);
-+	} else {
-+		/* not expecting this, reset the connection. */
-+		pr_err("csk 0x%p, tid %u, rcv cpl_rx_data.\n", csk, tid);
-+		spin_lock_bh(&csk->lock);
-+		send_abort_req(csk);
-+		spin_unlock_bh(&csk->lock);
-+	}
-+	__kfree_skb(skb);
-+}
-+
- static void do_rx_iscsi_hdr(struct cxgbi_device *cdev, struct sk_buff *skb)
- {
- 	struct cxgbi_sock *csk;
-@@ -1453,6 +1474,7 @@ cxgb4i_cplhandler_func cxgb4i_cplhandlers[NUM_CPL_CMDS] = {
- 	[CPL_SET_TCB_RPL] = do_set_tcb_rpl,
- 	[CPL_RX_DATA_DDP] = do_rx_data_ddp,
- 	[CPL_RX_ISCSI_DDP] = do_rx_data_ddp,
-+	[CPL_RX_DATA] = do_rx_data,
- };
- 
- int cxgb4i_ofld_init(struct cxgbi_device *cdev)
+v2 corrects the "CHECK"s flagged by checkpatch.pl --strict.
+
+v3 splits the 3rd patch from v2 to two separate patches. Adds detailed commit messages and makes subject more concise. Patch 3/6 also changes the return value of is_neg_adv() from int to bool.
+
+v4 -- please ignore.
+
+v5 splits the 1st patch from v3 to two separate patches and reduces code duplication in make_tx_data_wr().
+
+v6 removed the code style cleanup in the 2nd patch. The style update will be addressed in a separate patch.
+
+v7 updates the 7th patch with more detailed commit message.
+
+v8 removes the duplicate subject lines from the message bodies.
