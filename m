@@ -1,9 +1,8 @@
 From: Karen Xie <kxie@chelsio.com>
-Subject: RE: [PATCH net v3 1/6] cxgb4i: fix tx credit calculation
-Date: Wed, 10 Dec 2014 01:44:11 +0000
-Message-ID: <1442C3287A121140B690F7F20F94463D82E154@nice.asicdesigners.com>
-References: <201412091732.sB9HWHRm008996@localhost6.localdomain6>
- <54875385.80708@cogentembedded.com>
+Subject: RE: [PATCH net v4 0/7] cxgb4/cxgbi: misc. fixes for cxgb4i
+Date: Wed, 10 Dec 2014 01:46:32 +0000
+Message-ID: <1442C3287A121140B690F7F20F94463D82E186@nice.asicdesigners.com>
+References: <201412100132.sBA1WpsR024833@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -14,112 +13,41 @@ Cc: Hariprasad S <hariprasad@chelsio.com>,
 	<James.Bottomley@HansenPartnership.com>,
 	"michaelc@cs.wisc.edu" <michaelc@cs.wisc.edu>,
 	"davem@davemloft.net" <davem@davemloft.net>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+To: Karen Xie <kxie@chelsio.com>,
 	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:16316 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753137AbaLJBqG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 20:46:06 -0500
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <201412100132.sBA1WpsR024833@localhost6.localdomain6>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Please ignore v4, and use v5. Thanks!
-
------Original Message-----
-From: Karen Xie 
-Sent: Tuesday, December 09, 2014 5:39 PM
-To: 'Sergei Shtylyov'; linux-scsi@vger.kernel.org; netdev@vger.kernel.org
-Cc: Hariprasad S; Anish Bhatt; hch@infradead.org; James.Bottomley@HansenPartnership.com; michaelc@cs.wisc.edu; davem@davemloft.net
-Subject: RE: [PATCH net v3 1/6] cxgb4i: fix tx credit calculation
-
-Thanks for the review comment, have sent the v4 set to incorporate your comments.
+Please ignore v4. Sent v5 already.
 
 -----Original Message-----
-From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com]
-Sent: Tuesday, December 09, 2014 11:55 AM
-To: Karen Xie; linux-scsi@vger.kernel.org; netdev@vger.kernel.org
-Cc: Hariprasad S; Anish Bhatt; hch@infradead.org; James.Bottomley@HansenPartnership.com; michaelc@cs.wisc.edu; davem@davemloft.net
-Subject: Re: [PATCH net v3 1/6] cxgb4i: fix tx credit calculation
+From: Karen Xie [mailto:kxie@chelsio.com] 
+Sent: Tuesday, December 09, 2014 5:33 PM
+To: linux-scsi@vger.kernel.org; netdev@vger.kernel.org
+Cc: Karen Xie; Hariprasad S; Anish Bhatt; hch@infradead.org; James.Bottomley@HansenPartnership.com; michaelc@cs.wisc.edu; davem@davemloft.net
+Subject: [PATCH net v4 0/7] cxgb4/cxgbi: misc. fixes for cxgb4i
 
-Hello.
+[PATCH net v4 0/7] cxgb4/cxgbi: misc. fixes for cxgb4i
 
-On 12/09/2014 08:32 PM, Karen Xie wrote:
+This patch set fixes cxgb4i's tx credit calculation and adds handling of additional rx message and negative advice types. It also removes the duplicate code in cxgb4i to set the outgoing queues of a packet. 
 
-> [PATCH net v3 1/6] cxgb4i: fix tx credit calculation
+Karen Xie (7):
+cxgb4i: fix tx immediate data credit check
+cxgb4i: fix credit check for tx_data_wr
+cxgb4/cxgb4i: set max. outgoing pdu length in the f/w
+cxgb4i: add more types of negative advice 
+cxgb4i: handle non pdu-aligned rx data
+cxgb4i: use cxgb4's set_wr_txq() for setting outgoing queues
+libcxgbi: fix the debug print accessing skb after it is freed
 
-> From: Karen Xie <kxie@chelsio.com>
+Sending to net as the fixes are mostly in the network area and it touches cxgb4's header file (t4fw_api.h).
 
-> - Only data skbs need the wr header added while control skbs do not. Make sure they are treated differently.
-> - Any credit related checking should be done before adding the wr header.
+v2 corrects the "CHECK"s flagged by checkpatch.pl --strict.
 
-    Looks like a spearate issue deserving its own patch?
+v3 splits the 3rd patch from v2 to two seperate patches. Adds detailed commit messages and makes subject more concise. Patch 3/6 also changes the return value of is_neg_adv() from int to bool.
 
-> - Fixed compiler warning resulted from added cxgbi_skb_test_flag() call in is_ofld_imm().
-
-    Isn't it called cxgbi_skcb_test_flag()?
-
-> Signed-off-by: Karen Xie <kxie@chelsio.com>
-> ---
->   drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   26 +++++++++++++++++---------
->   drivers/scsi/cxgbi/libcxgbi.h      |    4 ++--
->   2 files changed, 19 insertions(+), 11 deletions(-)
->
-> diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-> b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-> index 1508125..5c3f15d 100644
-> --- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-> +++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-[...]
-> @@ -544,15 +548,17 @@ static inline void make_tx_data_wr(struct cxgbi_sock *csk, struct sk_buff *skb,
->   	unsigned int submode = cxgbi_skcb_ulp_mode(skb) & 3;
->   	unsigned int wr_ulp_mode = 0;
->
-> -	req = (struct fw_ofld_tx_data_wr *)__skb_push(skb, sizeof(*req));
-> -
-
-    Perhaps it makes sense to store the result of is_ofld_imm() before
-__skb_push() call
-instead of duplicating the same call in 2 branches?
-
->   	if (is_ofld_imm(skb)) {
-> +		req = (struct fw_ofld_tx_data_wr *)__skb_push(skb,
-> +							sizeof(*req));
-
-    The continuation line should start right under 'skb' on the previous line.
-
->   		req->op_to_immdlen = htonl(FW_WR_OP(FW_OFLD_TX_DATA_WR) |
->   					FW_WR_COMPL(1) |
->   					FW_WR_IMMDLEN(dlen));
->   		req->flowid_len16 = htonl(FW_WR_FLOWID(csk->tid) |
->   						FW_WR_LEN16(credits));
->   	} else {
-> +		req = (struct fw_ofld_tx_data_wr *)__skb_push(skb,
-> +							sizeof(*req));
-
-    Likewise.
-
->   		req->op_to_immdlen =
->   			cpu_to_be32(FW_WR_OP(FW_OFLD_TX_DATA_WR) |
->   					FW_WR_COMPL(1) |
-> @@ -597,12 +603,14 @@ static int push_tx_frames(struct cxgbi_sock 
-> *csk, int req_completion)
->
->   		skb_reset_transport_header(skb);
->   		if (is_ofld_imm(skb))
-> -			credits_needed = DIV_ROUND_UP(dlen +
-> -					sizeof(struct fw_ofld_tx_data_wr), 16);
-> +			credits_needed = DIV_ROUND_UP(dlen, 16);
->   		else
-> -			credits_needed = DIV_ROUND_UP(8*calc_tx_flits_ofld(skb)
-> -					+ sizeof(struct fw_ofld_tx_data_wr),
-> -					16);
-> +			credits_needed = DIV_ROUND_UP(8*calc_tx_flits_ofld(skb),
-
-    It would have been good if you added spaces around *, while at it, to keep it consistent with the general kernel coding  style...
-
-[...]
-
-WBR, Sergei
+v4 splits the 1st patch from v3 to two seperate patches and reduces code duplication in make_tx_data_wr().
