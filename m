@@ -1,7 +1,7 @@
 From: Karen Xie <kxie@chelsio.com>
-Subject: [PATCH net v4 0/7] cxgb4/cxgbi: misc. fixes for cxgb4i
-Date: Tue, 09 Dec 2014 17:32:51 -0800
-Message-ID: <201412100132.sBA1WpsR024833@localhost6.localdomain6>
+Subject: [PATCH net v4 7/7] libcxgbi: free skb after debug prints
+Date: Tue, 09 Dec 2014 17:33:12 -0800
+Message-ID: <201412100133.sBA1XC3P024855@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -13,23 +13,32 @@ Return-path: <linux-scsi-owner@vger.kernel.org>
 Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[PATCH net v4 0/7] cxgb4/cxgbi: misc. fixes for cxgb4i
+[PATCH net v4 7/7] libcxgbi: free skb after debug prints
 
-This patch set fixes cxgb4i's tx credit calculation and adds handling of additional rx message and negative advice types. It also removes the duplicate code in cxgb4i to set the outgoing queues of a packet. 
+From: Karen Xie <kxie@chelsio.com>
 
-Karen Xie (7):
-cxgb4i: fix tx immediate data credit check
-cxgb4i: fix credit check for tx_data_wr
-cxgb4/cxgb4i: set max. outgoing pdu length in the f/w
-cxgb4i: add more types of negative advice 
-cxgb4i: handle non pdu-aligned rx data
-cxgb4i: use cxgb4's set_wr_txq() for setting outgoing queues
-libcxgbi: fix the debug print accessing skb after it is freed
+The debug print was accessing the skb after it was freed.
 
-Sending to net as the fixes are mostly in the network area and it touches cxgb4's header file (t4fw_api.h).
+Signed-off-by: Karen Xie <kxie@chelsio.com>
+---
+ drivers/scsi/cxgbi/libcxgbi.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-v2 corrects the "CHECK"s flagged by checkpatch.pl --strict.
-
-v3 splits the 3rd patch from v2 to two seperate patches. Adds detailed commit messages and makes subject more concise. Patch 3/6 also changes the return value of is_neg_adv() from int to bool.
-
-v4 splits the 1st patch from v3 to two seperate patches and reduces code duplication in make_tx_data_wr().
+diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
+index 7da59c3..eb58afc 100644
+--- a/drivers/scsi/cxgbi/libcxgbi.c
++++ b/drivers/scsi/cxgbi/libcxgbi.c
+@@ -2294,10 +2294,12 @@ int cxgbi_conn_xmit_pdu(struct iscsi_task *task)
+ 		return err;
+ 	}
+ 
+-	kfree_skb(skb);
+ 	log_debug(1 << CXGBI_DBG_ISCSI | 1 << CXGBI_DBG_PDU_TX,
+ 		"itt 0x%x, skb 0x%p, len %u/%u, xmit err %d.\n",
+ 		task->itt, skb, skb->len, skb->data_len, err);
++
++	kfree_skb(skb);
++
+ 	iscsi_conn_printk(KERN_ERR, task->conn, "xmit err %d.\n", err);
+ 	iscsi_conn_failure(task->conn, ISCSI_ERR_XMIT_FAILED);
+ 	return err;
