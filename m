@@ -1,147 +1,62 @@
-From: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH v7 2/3] net: Add Keystone NetCP ethernet driver
-Date: Wed, 10 Dec 2014 16:31:02 -0500
-Message-ID: <5488BB96.9070609@ti.com>
-References: <1417556503-22290-1-git-send-email-m-karicheri2@ti.com> <1417556503-22290-3-git-send-email-m-karicheri2@ti.com> <20141209.131053.2026868499542642866.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Thu, 11 Dec 2014 08:38:23 +1100
+Message-ID: <20141211083823.5271cc20@canb.auug.org.au>
+References: <20141210122036.133457c9@canb.auug.org.au>
+	<20141210.144943.1497210993149601967.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20141209.131053.2026868499542642866.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/dR=wLR1tP51AGRe_Ap370Og"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org, Thomas.Lendacky@amd.com,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141210.144943.1497210993149601967.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/09/2014 01:10 PM, David Miller wrote:
-> From: Murali Karicheri<m-karicheri2-l0cyMroinI0@public.gmane.org>
-> Date: Tue, 2 Dec 2014 16:41:42 -0500
+--Sig_/dR=wLR1tP51AGRe_Ap370Og
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
+
+Hi Dave,
+
+On Wed, 10 Dec 2014 14:49:43 -0500 (EST) David Miller <davem@davemloft.net>=
+ wrote:
 >
->> +static void set_pkt_info_le(u32 buff, u32 buff_len, u32 ndesc,
->> +			    struct knav_dma_desc *desc)
->> +{
->> +	desc->buff_len = cpu_to_le32(buff_len);
->> +	desc->buff = cpu_to_le32(buff);
->> +	desc->next_desc = cpu_to_le32(ndesc);
->> +}
->
-> The members of knav_dma_desc are "u32", so you are going to get tons of
-> static checker warnings from trying to assign cpu_to_le32()'s result
-> (which is a le32) into them.
-David,
+> As you have seen there are a lot of merge hassles to sort out between
+> the 'net' and 'net-next' tree right now, probably I just added a few
+> more :-)
+>=20
+> I'll try to do the merge by the end of today so that these headaches
+> go away for you.
 
-Thanks for your comment.
+Much appreciated.
 
-Are you referring to the static code analyser sparse that is invoked 
-through?
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-make C=1 CHECK=sparse
+--Sig_/dR=wLR1tP51AGRe_Ap370Og
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
 
-I am running it now.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-I started a build of v3.18-rc7 with this option and seeing a lot of
-warnings. Am I using the right tool? A snapshot of the output is below
+iQIcBAEBCAAGBQJUiL1UAAoJEMDTa8Ir7ZwVbpwP/iNLf7nxUjY9ZD7S5MwBCW2s
+/fTdQOGyGe44uq3WQE5R4MBxygaDBgw0V2dwyLMxapbs2otqcmwJCJgMS0MYPFP6
+2GGu+8pzJbswDdJCw5NkXxNADNX0TSz8XKjoIFAduC0buZd85VuM/1m2+27v1isz
+yXQ2H7rI0/VkYmnIGpLtDzlf8+iR0MJP7Y6Cxi9rb632obqBJS5Y6z/6Z8aSrUl1
+xuOro8rcPSvtJVe5dcgzEg2WXSLi4j81qh0Yw1dY4hI9k+qexjo6PzGW4Qv5N9De
+m6O74SWoV4nziZcuxPA8ZdkjUx1KY6CKq8BrtbtHzseDaau+gAJCJtZ/FGqtNVFx
+vWBL1hB26u7J2j4Zldxo+SwX0Sxh9YpQewhpKcIEuU2rjMfGCPt0vPV7GpVRioEj
+yjeVaBzzWzV09l4a6jv3UBr4XUITmQgARehsnW3Yszs4+xgB7+2rKMlYxfhfR+9O
++3qY/U7W9SuM7hiEXpuH7nh8ODy9dLiuv5MsM6GD9KRy8IJRn1XMI0ywFsT4Vo0U
+zJLoq0bTtKjU468FspTW9ez0GLrksKn0fB/fEN0xdrIoMxlpTk3iqhqsc4cMaPjj
+uKuUQ9/XfZXLjzwn5SJQthtzBRA5IZRJdG9jcHKnq70DZABK0AkYYB7wYU4Ytf/l
+3DVoAP0nlWQ7/Pd95Kwd
+=2yfJ
+-----END PGP SIGNATURE-----
 
-   CHECK   drivers/clk/clk.c
-include/linux/err.h:40:16: warning: testing a 'safe expression'
-include/linux/err.h:40:16: warning: testing a 'safe expression'
-include/linux/err.h:40:16: warning: testing a 'safe expression'
-include/linux/err.h:40:16: warning: testing a 'safe expression'
-drivers/clk/clk.c:2263:5: warning: symbol '__clk_get' was not declared. 
-Should it be static?
-drivers/clk/clk.c:2274:6: warning: symbol '__clk_put' was not declared. 
-Should it be static?
-drivers/clk/clk.c:2647:37: warning: incorrect type in assignment 
-(different modifiers)
-drivers/clk/clk.c:2647:37:    expected void ( *[usertype] clk_init_cb )( 
-... )
-drivers/clk/clk.c:2647:37:    got void const *const data
-drivers/clk/clk.c:67:22: warning: context imbalance in 'clk_enable_lock' 
-- wrong count at exit
-drivers/clk/clk.c:92:9: warning: context imbalance in 
-'clk_enable_unlock' - unexpected unlock
-   CC      drivers/clk/clk.o
-   CHECK   drivers/clk/clk-divider.c
-drivers/clk/clk-divider.c:362:9: warning: context imbalance in 
-'clk_divider_set_rate' - different lock contexts for basic block
-   CC      drivers/clk/clk-divider.o
-   CHECK   drivers/clk/clk-fixed-factor.c
-   CC      drivers/clk/clk-fixed-factor.o
-   CHECK   drivers/clk/clk-fixed-rate.c
-   CC      drivers/clk/clk-fixed-rate.o
-   CHECK   drivers/clk/clk-gate.c
-drivers/clk/clk-gate.c:71:9: warning: context imbalance in 
-'clk_gate_endisable' - different lock contexts for basic block
-   CC      drivers/clk/clk-gate.o
-   CHECK   drivers/clk/clk-mux.c
-drivers/clk/clk-mux.c:69:12: warning: context imbalance in 
-'clk_mux_set_parent' - different lock contexts for basic block
-   CC      drivers/clk/clk-mux.o
-   CHECK   drivers/clk/clk-composite.c
-   CC      drivers/clk/clk-composite.o
-   CHECK   drivers/clk/clk-fractional-divider.c
-drivers/clk/clk-fractional-divider.c:36:9: warning: context imbalance in 
-'clk_fd_recalc_rate' - different lock contexts for basic block
-drivers/clk/clk-fractional-divider.c:65:12: warning: context imbalance 
-in 'clk_fd_set_rate' - different lock contexts for basic block
-   CC      drivers/clk/clk-fractional-divider.o
-   CHECK   drivers/clk/clk-gpio-gate.c
-drivers/clk/clk-gpio-gate.c:189:13: warning: symbol 
-'of_gpio_gate_clk_setup' was not declared. Should it be static?
-   CC      drivers/clk/clk-gpio-gate.o
-   CHECK   drivers/clk/clk-conf.c
-   CC      drivers/clk/clk-conf.o
-   CHECK   drivers/clk/keystone/pll.c
-   CC      drivers/clk/keystone/pll.o
-   CHECK   drivers/clk/keystone/gate.c
-drivers/clk/keystone/gate.c:118:12: warning: context imbalance in 
-'keystone_clk_enable' - different lock contexts for basic block
-drivers/clk/keystone/gate.c:148:9: warning: context imbalance in 
-'keystone_clk_disable' - different lock contexts for basic block
-   CC      drivers/clk/keystone/gate.o
-   LD      drivers/clk/keystone/built-in.o
-   LD      drivers/clk/built-in.o
-   CHECK   drivers/clocksource/clksrc-of.c
-drivers/clocksource/clksrc-of.c:37:27: warning: incorrect type in 
-assignment (different modifiers)
-drivers/clocksource/clksrc-of.c:37:27:    expected void ( *[usertype] 
-init_func )( ... )
-drivers/clocksource/clksrc-of.c:37:27:    got void const *const data
-   CC      drivers/clocksource/clksrc-of.o
-   CHECK   drivers/clocksource/mmio.c
-   CC      drivers/clocksource/mmio.o
-   CHECK   drivers/clocksource/arm_arch_timer.c
-   CC      drivers/clocksource/arm_arch_timer.o
-   CHECK   drivers/clocksource/dummy_timer.c
-   CC      drivers/clocksource/dummy_timer.o
-   CHECK   drivers/clocksource/timer-keystone.c
-   CC      drivers/clocksource/timer-keystone.o
-   LD      drivers/clocksource/built-in.o
-   LD      drivers/crypto/built-in.o
-   CHECK   drivers/dma/dmaengine.c
-   CC      drivers/dma/dmaengine.o
-   CHECK   drivers/dma/virt-dma.c
-drivers/dma/virt-dma.c:22:14: warning: symbol 'vchan_tx_submit' was not 
-declared. Should it be static?
-   CC      drivers/dma/virt-dma.o
-   CHECK   drivers/dma/of-dma.c
-   CC      drivers/dma/of-dma.o
-   CHECK   drivers/dma/edma.c
-drivers/dma/edma.c:560:32: warning: symbol 'edma_prep_dma_memcpy' was 
-not declared. Should it be static?
-drivers/dma/edma.c:1099:6: warning: symbol 'edma_filter_fn' was not 
-declared. Should it be static?
-
-
-
-
-
--- 
-Murali Karicheri
-Linux Kernel, Texas Instruments
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--Sig_/dR=wLR1tP51AGRe_Ap370Og--
