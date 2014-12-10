@@ -1,53 +1,56 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net v5 2/7] cxgb4i: fix credit check for tx_data_wr
-Date: Wed, 10 Dec 2014 17:09:25 +0300
-Message-ID: <54885415.4020105@cogentembedded.com>
-References: <201412100143.sBA1hSF4024918@localhost6.localdomain6>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH nf-next 0/2] netfilter: conntrack: route cache for
+ forwarded connections
+Date: Wed, 10 Dec 2014 15:13:19 +0100
+Message-ID: <20141210141319.GA5028@salvia>
+References: <1418052964-4632-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: hariprasad@chelsio.com, anish@chelsio.com, hch@infradead.org,
-	James.Bottomley@HansenPartnership.com, michaelc@cs.wisc.edu,
-	davem@davemloft.net
-To: Karen Xie <kxie@chelsio.com>, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <201412100143.sBA1hSF4024918@localhost6.localdomain6>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	brouer@redhat.com, Eric Dumazet <eric.dumazet@gmail.com>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:52389 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932126AbaLJOK7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Dec 2014 09:10:59 -0500
+Content-Disposition: inline
+In-Reply-To: <1418052964-4632-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Mon, Dec 08, 2014 at 04:36:02PM +0100, Florian Westphal wrote:
+> [ Pablo, in case you deem this too late for -next just let me know
+> and I will resend once its open again ]
+> 
+> This adds an optional forward routing cache extension for netfilter
+> connection tracking.
+> 
+> The memory cost is an additional 32 bytes per conntrack entry
+> on x86_64.
+> 
+> Unlike any other currently implemented connection tracking
+> extension the rtcache has no run-time tunables, it is always active.
+> 
+> Also, unlike other conntrack extensions, it can be built as a module,
+> in this case modprobe/rmmod are used to enable/disable the cache.
 
-On 12/10/2014 4:43 AM, Karen Xie wrote:
+I expect distributors will provide this a module. I think we should
+provide features that can be enable/disable in some way, in this case
+it can be modprobe/rmmod.
 
-> [PATCH net v5 2/7] cxgb4i: fix credit check for tx_data_wr
+BTW, did you evaluate Eric's alternative? Any comment on that?
 
-> From: Karen Xie <kxie@chelsio.com>
+Florian Westphal <fw@strlen.de> wrote:
+>> +     if (likely(dst))
+>> +             skb_dst_set_noref_force(skb, dst);
+>
+> Note that Hannes submitted a patch vs. net-next that removes
+> skb_dst_set_noref_force().
 
-> make sure any tx credit related checking is done before adding the wr header.
+I refreshed the nf-next tree, this patch is now there.
 
-> Signed-off-by: Karen Xie <kxie@chelsio.com>
-> ---
->   drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |    9 +++++----
->   1 files changed, 5 insertions(+), 4 deletions(-)
+If the merge window remains open, I'll take the pending patches in
+patchwork and send a new batch for David by tomorrow morning.
 
-> diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-> index f119a67..56dbd25 100644
-> --- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-> +++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-> @@ -547,15 +547,16 @@ static inline void make_tx_data_wr(struct cxgbi_sock *csk, struct sk_buff *skb,
-[...]
->   		req->op_to_immdlen = htonl(FW_WR_OP(FW_OFLD_TX_DATA_WR) |
-> -					FW_WR_COMPL(1) |
-> -					FW_WR_IMMDLEN(dlen));
-> +					   FW_WR_COMPL(1) |
-> +					   FW_WR_IMMDLEN(dlen));
->   		req->flowid_len16 = htonl(FW_WR_FLOWID(csk->tid) |
-> -						FW_WR_LEN16(credits));
-> +					  FW_WR_LEN16(credits));
-
-    The above looks like unrelated cleanup, worth putting in a separate 
-net-next patch...
-
-WBR, Sergei
-
+Let me know, thanks.
