@@ -1,48 +1,52 @@
 From: Karen Xie <kxie@chelsio.com>
-Subject: [PATCH net v7 7/7] libcxgbi: fix freeing skb prematurely
-Date: Wed, 10 Dec 2014 12:24:21 -0800
-Message-ID: <201412102024.sBAKOLSx011549@localhost6.localdomain6>
+Subject: RE: [PATCH net v6 7/7] libcxgbi: free skb after debug prints
+Date: Wed, 10 Dec 2014 20:26:59 +0000
+Message-ID: <1442C3287A121140B690F7F20F94463D82F0A5@nice.asicdesigners.com>
+References: <201412101625.sBAGPSXC011110@localhost6.localdomain6>,<5488A119.8080505@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kxie@chelsio.com, hariprasad@chelsio.com, anish@chelsio.com,
-	hch@infradead.org, James.Bottomley@HansenPartnership.com,
-	michaelc@cs.wisc.edu, davem@davemloft.net
-To: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Hariprasad S <hariprasad@chelsio.com>,
+	Anish Bhatt <anish@chelsio.com>,
+	"hch@infradead.org" <hch@infradead.org>,
+	"James.Bottomley@HansenPartnership.com"
+	<James.Bottomley@HansenPartnership.com>,
+	"michaelc@cs.wisc.edu" <michaelc@cs.wisc.edu>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:5676 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:7343 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932719AbaLJU0x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 15:26:53 -0500
+	with ESMTP id S932707AbaLJU14 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 15:27:56 -0500
+In-Reply-To: <5488A119.8080505@cogentembedded.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[PATCH net v7 7/7] libcxgbi: fix freeing skb too early 
+Thanks, v7 has been submitted to address your comment. Please review.
+________________________________________
+From: Sergei Shtylyov [sergei.shtylyov@cogentembedded.com]
+Sent: Wednesday, December 10, 2014 11:38 AM
+To: Karen Xie; linux-scsi@vger.kernel.org; netdev@vger.kernel.org
+Cc: Hariprasad S; Anish Bhatt; hch@infradead.org; James.Bottomley@HansenPartnership.com; michaelc@cs.wisc.edu; davem@davemloft.net
+Subject: Re: [PATCH net v6 7/7] libcxgbi: free skb after debug prints
 
-From: Karen Xie <kxie@chelsio.com>
+Hello.
 
-With debug turned on the debug print would access the skb after it is freed. Fix it to free the skb after the debug print.
+On 12/10/2014 07:25 PM, Karen Xie wrote:
 
-Signed-off-by: Karen Xie <kxie@chelsio.com>
----
- drivers/scsi/cxgbi/libcxgbi.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+> [PATCH net v6 7/7] libcxgbi: free skb after debug prints
 
-diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
-index 7da59c3..eb58afc 100644
---- a/drivers/scsi/cxgbi/libcxgbi.c
-+++ b/drivers/scsi/cxgbi/libcxgbi.c
-@@ -2294,10 +2294,12 @@ int cxgbi_conn_xmit_pdu(struct iscsi_task *task)
- 		return err;
- 	}
- 
--	kfree_skb(skb);
- 	log_debug(1 << CXGBI_DBG_ISCSI | 1 << CXGBI_DBG_PDU_TX,
- 		"itt 0x%x, skb 0x%p, len %u/%u, xmit err %d.\n",
- 		task->itt, skb, skb->len, skb->data_len, err);
-+
-+	kfree_skb(skb);
-+
- 	iscsi_conn_printk(KERN_ERR, task->conn, "xmit err %d.\n", err);
- 	iscsi_conn_failure(task->conn, ISCSI_ERR_XMIT_FAILED);
- 	return err;
+    Please, do not duplicate the subject in the changelog -- DaveM would have
+to edit it out by hand.
+
+> From: Karen Xie <kxie@chelsio.com>
+
+> The debug print was accessing the skb after it was freed.
+
+> Signed-off-by: Karen Xie <kxie@chelsio.com>
+
+WBR, Sergei
