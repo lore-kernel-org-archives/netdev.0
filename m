@@ -1,70 +1,43 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH] brcmsmac: don't leak kernel memory via printk()
-Date: Wed, 10 Dec 2014 11:30:16 +0100
-Message-ID: <548820B8.8020407@broadcom.com>
-References: <1418204358-8357-1-git-send-email-computersforpeace@gmail.com>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: Re: [PATCH] stmmac: platform: adjust messages and move to dev level
+Date: Wed, 10 Dec 2014 12:47:51 +0200
+Message-ID: <1418208471.17201.56.camel@linux.intel.com>
+References: <1418119153-13355-1-git-send-email-andriy.shevchenko@linux.intel.com>
+	 <20141209.182837.2218983730769727387.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Brett Rudley <brudley@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	<linux-wireless@vger.kernel.org>,
-	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>
-To: Brian Norris <computersforpeace@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:64196 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752241AbaLJKaY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 05:30:24 -0500
-In-Reply-To: <1418204358-8357-1-git-send-email-computersforpeace@gmail.com>
+Received: from mga09.intel.com ([134.134.136.24]:39839 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750911AbaLJKrv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Dec 2014 05:47:51 -0500
+In-Reply-To: <20141209.182837.2218983730769727387.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10-12-14 10:39, Brian Norris wrote:
-> Debug code prints the fifo name via custom dev_warn() wrappers. The
-> fifo_names array is only non-zero when debugging is manually enabled,
-> which is all well and good. However, it's *not* good that this array
-> uses zero-length arrays in the non-debug case, and so it doesn't
-> actually have any memory allocated to it. This means that as far as w=
-e
-> know, fifo_names[i] actually points to garbage memory.
->=20
-> I've seen this in my log:
->=20
-> [ 4601.205511] brcmsmac bcma0:1: wl0: brcms_c_d11hdrs_mac80211: =EF=BF=
-=BDGeL txop exceeded phylen 137/256 dur 1602/1504
->=20
-> So let's give this array space enough to fill it with a NULL byte.
->=20
+On Tue, 2014-12-09 at 18:28 -0500, David Miller wrote:
+> From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+> Date: Tue,  9 Dec 2014 11:59:13 +0200
+> 
+> > This patch amendes error and warning messages across the platform driver. It
+> > includes the following changes:
+> >  - remove unneccessary message when no memory is available
+> >  - change info level to warn in the validation functions
+> >  - append \n to the end of messages
+> >  - change pr_* macros to dev_*
+> > 
+> > Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+> 
+> This does not apply to the net-next tree, please respin.
 
-+ Acked-by: Arend van Spriel <arend@broadcom.com>
-> Signed-off-by: Brian Norris <computersforpeace@gmail.com>
-> Cc: Brett Rudley <brudley@broadcom.com>
-- Cc: Arend van Spriel <arend@broadcom.com>
-> Cc: "Franky (Zhenhui) Lin" <frankyl@broadcom.com>
-> Cc: Hante Meuleman <meuleman@broadcom.com>
-> Cc: "John W. Linville" <linville@tuxdriver.com>
-> Cc: linux-wireless@vger.kernel.org
-> Cc: brcm80211-dev-list@broadcom.com
-> Cc: netdev@vger.kernel.org
-> ---
->  drivers/net/wireless/brcm80211/brcmsmac/main.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/wireless/brcm80211/brcmsmac/main.c b/drivers=
-/net/wireless/brcm80211/brcmsmac/main.c
-> index 1b474828d5b8..aed0c948dce8 100644
-> --- a/drivers/net/wireless/brcm80211/brcmsmac/main.c
-> +++ b/drivers/net/wireless/brcm80211/brcmsmac/main.c
-> @@ -316,7 +316,7 @@ static const u16 xmtfifo_sz[][NFIFO] =3D {
->  static const char * const fifo_names[] =3D {
->  	"AC_BK", "AC_BE", "AC_VI", "AC_VO", "BCMC", "ATIM" };
->  #else
-> -static const char fifo_names[6][0];
-> +static const char fifo_names[6][1];
->  #endif
-> =20
->  #ifdef DEBUG
->=20
+Yeah, maybe because the fix (*) you mentioned in previos mail is not in
+net-next by some reason?
+
+(*) I refer to commit 28603d13997e2ef47f18589cc9a44553aad49c86
+
+-- 
+Andy Shevchenko <andriy.shevchenko@intel.com>
+Intel Finland Oy
