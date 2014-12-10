@@ -1,36 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net-next tree with the net tree
-Date: Wed, 10 Dec 2014 14:49:43 -0500 (EST)
-Message-ID: <20141210.144943.1497210993149601967.davem@davemloft.net>
-References: <20141210122036.133457c9@canb.auug.org.au>
+Subject: Re: [PATCH net-next] bridge: Add ability to always enable
+	TSO/UFO
+Date: Wed, 10 Dec 2014 14:50:47 -0500 (EST)
+Message-ID: <20141210.145047.1148744559031706340.davem@davemloft.net>
+References: <1418179394-4470-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	<1418179394-4470-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Thomas.Lendacky@amd.com,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: sfr@canb.auug.org.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141210122036.133457c9@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: makita.toshiaki@lab.ntt.co.jp
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1418179394-4470-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 10 Dec 2014 12:20:36 +1100
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Date: Wed, 10 Dec 2014 11:43:14 +0900
 
-> Today's linux-next merge of the net-next tree got a conflict in
-> drivers/net/ethernet/amd/xgbe/xgbe-desc.c between commit 03ccc4c0a9da
-> ("amd-xgbe: Do not clear interrupt indicator") from the net tree and
-> commit c9f140ebb008 ("amd-xgbe: Separate Tx/Rx ring data fields into
-> new structs") from the net-next tree.
-> 
-> I fixed it up (see below) and can carry the fix as necessary (no action
-> is required).
+> -	features &= ~NETIF_F_ONE_FOR_ALL;
+> +	features &= ~NETIF_F_ONE_FOR_ALL | NETIF_F_GSO_SOFTWARE;
 
-As you have seen there are a lot of merge hassles to sort out between
-the 'net' and 'net-next' tree right now, probably I just added a few
-more :-)
+I don't think this is the expression you intend to use.
 
-I'll try to do the merge by the end of today so that these headaches
-go away for you.
+I think you meant:
 
-Thanks.
+	features &= ~(NETIF_F_ONE_FOR_ALL | NETIF_F_GSO_SOFTWARE);
+
+Or:
+
+	features = ~NETIF_F_ONE_FOR_ALL;
+	features |= NETIF_F_GSO_SOFTWARE;
