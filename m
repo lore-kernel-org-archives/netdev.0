@@ -1,138 +1,100 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: am335x: cpsw: interrupt failure
-Date: Wed, 10 Dec 2014 11:17:24 -0600
-Message-ID: <20141210171724.GI4602@saruman>
-References: <CAGm1_ksPkFXV_S6541cK1TQb_eRTHbspZy4zWxY5GMrrjGD2tA@mail.gmail.com>
- <20141204165609.GJ18045@saruman>
- <CAGm1_ksNuO75QfgaDUpOe525xDkPhby-z8T=MX3DHdB-LVcR8g@mail.gmail.com>
-Reply-To: <balbi@ti.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="y96v7rNg6HAoELs5"
-Cc: Felipe Balbi <balbi@ti.com>, netdev <netdev@vger.kernel.org>,
-	"N, Mugunthan V" <mugunthanvnm@ti.com>
-To: Yegor Yefremov <yegorslists@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:38660 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932247AbaLJRR3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 12:17:29 -0500
-Content-Disposition: inline
-In-Reply-To: <CAGm1_ksNuO75QfgaDUpOe525xDkPhby-z8T=MX3DHdB-LVcR8g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Luis Henriques <luis.henriques@canonical.com>
+Subject: [3.16.y-ckt stable] Patch "xen-netfront: Fix handling packets on compound pages with skb_linearize" has been added to staging queue
+Date: Wed, 10 Dec 2014 17:26:28 +0000
+Message-ID: <1418232388-16853-1-git-send-email-luis.henriques@canonical.com>
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Paul Durrant <paul.durrant@citrix.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Stefan Bader <stefan.bader@canonical.com>,
+	Luis Henriques <luis.henriques@canonical.com>,
+	kernel-team@lists.ubuntu.com
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---y96v7rNg6HAoELs5
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This is a note to let you know that I have just added a patch titled
 
-Hi,
+    xen-netfront: Fix handling packets on compound pages with skb_linearize
 
-On Fri, Dec 05, 2014 at 11:03:44AM +0100, Yegor Yefremov wrote:
-> On Thu, Dec 4, 2014 at 5:56 PM, Felipe Balbi <balbi@ti.com> wrote:
-> > Hi,
-> >
-> > On Thu, Dec 04, 2014 at 05:41:38PM +0100, Yegor Yefremov wrote:
-> >> I have following problem. My systems reboots at high network load
-> >> after this commit (found via git bissect):
-> >>
-> >> commit 55601c9f24670ba926ebdd4d712ac3b177232330
-> >> Author: Felipe Balbi <balbi@ti.com>
-> >> Date:   Mon Sep 8 17:54:58 2014 -0700
-> >>
-> >>     arm: omap: intc: switch over to linear irq domain
-> >>
-> >>     now that we don't need to support legacy board-files,
-> >>     we can completely switch over to a linear irq domain
-> >>     and make use of irq_alloc_domain_generic_chips() to
-> >>     allocate all generic irq chips for us.
-> >>
-> >>     Signed-off-by: Felipe Balbi <balbi@ti.com>
-> >>     Signed-off-by: Tony Lindgren <tony@atomide.com>
-> >>
-> >> and I get following error messages:
-> >>
-> >> irq 0, desc: cf004000, depth: 1, count: 0, unhandled: 0
-> >
-> > irq 0 ? Weird, that's not a valid IRQ.
-> >
-> >> ->handle_irq():  c0087fc0, handle_bad_irq+0x0/0x258
-> >> ->irq_data.chip(): c08e7174, no_irq_chip+0x0/0x68
-> >> ->action():   (null)
-> >>    IRQ_NOPROBE set
-> >>  IRQ_NOREQUEST set
-> >> irq 0, desc: cf004000, depth: 1, count: 0, unhandled: 0
-> >> ->handle_irq():  c0087fc0, handle_bad_irq+0x0/0x258
-> >> ->irq_data.chip(): c08e7174, no_irq_chip+0x0/0x68
-> >> ->action():   (null)
-> >>    IRQ_NOPROBE set
-> >>  IRQ_NOREQUEST set
-> >> irq 0, desc: cf004000, depth: 1, count: 0, unhandled: 0
-> >> ->handle_irq():  c0087fc0, handle_bad_irq+0x0/0x258
-> >> ->irq_data.chip(): c08e7174, no_irq_chip+0x0/0x68
-> >> ->action():   (null)
-> >>    IRQ_NOPROBE set
-> >>  IRQ_NOREQUEST set
-> >> irq 0, desc: cf004000, depth: 1, count: 0, unhandled: 0
-> >> ->handle_irq():  c0087fc0, handle_bad_irq+0x0/0x258
-> >> ->irq_data.chip(): c08e7174, no_irq_chip+0x0/0x68
-> >> ->action():   (null)
-> >>
-> >> My system: am335x with fast ethernet on the first slave and gigabit
-> >> Ethernet on second CPSW slave. This issue occurs, when I ran nuttcp
-> >> with default settings.
-> >>
-> >> With commit above I can at least see these messages, but 3.18-rc7 for
-> >> example reboots without any messages.
-> >>
-> >> Any idea?
-> >
-> > if you take v3.18-rc7 and just revert that commit, does the problem go
-> > away ?
->=20
-> git revert failed as the driver has more changes meanwhile or I'm
-> missing some params. I've tried to force the driver to use legacy
-> routines, but then I don't get pass U-Boot's "Starting kernel ..." See
-> attached patch.
->=20
-> Compiler used:
->=20
-> Linux version 3.18.0-rc7 (...) (gcc version 4.8.3 20140320
-> (prerelease) (Sourcery CodeBench Lite 2014.05-29) ) #309 SMP Fri Dec 5
-> 10:59:38 CET 2014
->=20
-> Btw, what am335x based hardware do you have? I can run tests on both
-> BBB and am335x-evmsk.
+to the linux-3.16.y-queue branch of the 3.16.y-ckt extended stable tree 
+which can be found at:
 
-coming back to this. I have BBB only. Can you provide some extra
-information on how I can trigger this problem here ?
+ http://kernel.ubuntu.com/git?p=ubuntu/linux.git;a=shortlog;h=refs/heads/linux-3.16.y-queue
 
-cheers
+This patch is scheduled to be released in version 3.16.7-ckt3.
 
---=20
-balbi
+If you, or anyone else, feels it should not be added to this tree, please 
+reply to this email.
 
---y96v7rNg6HAoELs5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+For more information about the 3.16.y-ckt tree, see
+https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+Thanks.
+-Luis
 
-iQIcBAEBAgAGBQJUiIAkAAoJEIaOsuA1yqREwNwP/jFVAAIMWayhuTwQZpqmb+/i
-mCj92FFu0Or/FjLTIccrImkxPu+DkokWLXBuyo3LlKLTZo/tZF6N7xBkw6CEHaaf
-BqrhrL8QDknu344BCYGfsq8w8BzJJUeqftVLCi0duWevQ339Iz0qawbMbmaYD/AW
-6QkARpEc+BUKI7cnlQwo+MTiVCtzMBsFG7e7P+iD3mVYWVD4BtmQyaFErb1t0C8k
-l0at7KZICGMZCR01UgSy5fBQb0OTI/mo+tWTSIM1t4FpjWvuNxMdP/Hgyd+uLtZP
-sbgvNuiiNZAJg3m3fN1mZxUkrJNPrur56cEPKn5mM/pR+nUMb/uILpWMb8Ry1AJ2
-XpPMWInGoZ1CkGye6/eV9T0KM1cpz37lN6sIXBE+DtYHkQUUlUZ/obe1k/KIFXHS
-70kd2hglmgJDyFgHR3q+os8vAex4z5BQZxqHPMT6GaruD4CIO96xzV01CJ0kYaj3
-soOnmvspBq7JADZD4Mf9+RPKHa+nWhIpb/jziFq1WeDozGtQb5aSaO0hkQ6QCzVH
-Kby0HZbe/6eOUUkyhf08Ubpd78nDtpqjayaM4Dfa6MgV9GULbalLPAv1K2ba9Skc
-0uofvQwHKDB2geK1BuXl3HrLcGdxW8z/fO0w3jeHmTY22RVRYKn0qKKj44f4nX/k
-aj/JEEpJYp4pnOnB/4Cj
-=mNju
------END PGP SIGNATURE-----
+------
 
---y96v7rNg6HAoELs5--
+>From 079f869ca5082866d276b686721e89a649e622fe Mon Sep 17 00:00:00 2001
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Date: Mon, 11 Aug 2014 18:32:23 +0100
+Subject: xen-netfront: Fix handling packets on compound pages with
+ skb_linearize
+
+commit 97a6d1bb2b658ac85ed88205ccd1ab809899884d upstream.
+
+There is a long known problem with the netfront/netback interface: if the guest
+tries to send a packet which constitues more than MAX_SKB_FRAGS + 1 ring slots,
+it gets dropped. The reason is that netback maps these slots to a frag in the
+frags array, which is limited by size. Having so many slots can occur since
+compound pages were introduced, as the ring protocol slice them up into
+individual (non-compound) page aligned slots. The theoretical worst case
+scenario looks like this (note, skbs are limited to 64 Kb here):
+linear buffer: at most PAGE_SIZE - 17 * 2 bytes, overlapping page boundary,
+using 2 slots
+first 15 frags: 1 + PAGE_SIZE + 1 bytes long, first and last bytes are at the
+end and the beginning of a page, therefore they use 3 * 15 = 45 slots
+last 2 frags: 1 + 1 bytes, overlapping page boundary, 2 * 2 = 4 slots
+Although I don't think this 51 slots skb can really happen, we need a solution
+which can deal with every scenario. In real life there is only a few slots
+overdue, but usually it causes the TCP stream to be blocked, as the retry will
+most likely have the same buffer layout.
+This patch solves this problem by linearizing the packet. This is not the
+fastest way, and it can fail much easier as it tries to allocate a big linear
+area for the whole packet, but probably easier by an order of magnitude than
+anything else. Probably this code path is not touched very frequently anyway.
+
+Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <Ian.Campbell@citrix.com>
+Cc: Paul Durrant <paul.durrant@citrix.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: xen-devel@lists.xenproject.org
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Cc: Stefan Bader <stefan.bader@canonical.com>
+Signed-off-by: Luis Henriques <luis.henriques@canonical.com>
+---
+ drivers/net/xen-netfront.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 055222bae6e4..23359aeb1ba0 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -628,9 +628,10 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE) +
+ 		xennet_count_skb_frag_slots(skb);
+ 	if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
+-		net_alert_ratelimited(
+-			"xennet: skb rides the rocket: %d slots\n", slots);
+-		goto drop;
++		net_dbg_ratelimited("xennet: skb rides the rocket: %d slots, %d bytes\n",
++				    slots, skb->len);
++		if (skb_linearize(skb))
++			goto drop;
+ 	}
+
+ 	spin_lock_irqsave(&queue->tx_lock, flags);
