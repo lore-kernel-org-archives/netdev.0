@@ -1,65 +1,74 @@
-From: "Ulrich Windl" <Ulrich.Windl@rz.uni-regensburg.de>
-Subject: Re: Antw: Re: Q: need effective backlog for listen()
-Date: Wed, 10 Dec 2014 08:23:46 +0100
-Message-ID: <54880312020000A100018453@gwsmtp1.uni-regensburg.de>
-References: <5485ACC9020000A100018394@gwsmtp1.uni-regensburg.de>
- <1418056540.384.5.camel@niobium.home.fifi.org>
- <5486AC64020000A1000183D0@gwsmtp1.uni-regensburg.de>
- <1418137657.384.17.camel@niobium.home.fifi.org>
+From: Pankaj Gupta <pagupta@redhat.com>
+Subject: Re: [PATCH v3 net-next 2/2 tuntap: Increase the number of queues in
+ tun.
+Date: Wed, 10 Dec 2014 02:56:45 -0500 (EST)
+Message-ID: <575321203.11353864.1418198205135.JavaMail.zimbra@redhat.com>
+References: <1417591177-7985-1-git-send-email-pagupta@redhat.com> <1417591177-7985-3-git-send-email-pagupta@redhat.com> <20141203095210.GC9487@redhat.com> <1417661734.16500.0@smtp.corp.redhat.com> <20141204102013.GC17122@redhat.com> <5481602E.1030508@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: <phil@fifi.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrzmta1.uni-regensburg.de ([194.94.155.51]:56973 "EHLO
-	rrzmta1.uni-regensburg.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752460AbaLJHXu convert rfc822-to-8bit (ORCPT
-	<rfc822;groupwise-netdev@vger.kernel.org:2:1>);
-	Wed, 10 Dec 2014 02:23:50 -0500
-Received: from rrzmta1.uni-regensburg.de (localhost [127.0.0.1])
-	by localhost (Postfix) with SMTP id 2840F44539
-	for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 08:23:48 +0100 (CET)
-Received: from gwsmtp1.uni-regensburg.de (gwsmtp1.uni-regensburg.de [132.199.5.51])
-	by rrzmta1.uni-regensburg.de (Postfix) with ESMTP id 06D3E44240
-	for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 08:23:47 +0100 (CET)
-In-Reply-To: <1418137657.384.17.camel@niobium.home.fifi.org>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, dgibson@redhat.com, vfalico@gmail.com,
+	edumazet@google.com, vyasevic@redhat.com, hkchu@google.com,
+	wuzhy@linux.vnet.ibm.com, xemul@parallels.com, therbert@google.com,
+	bhutchings@solarflare.com, xii@google.com,
+	stephen@networkplumber.org, jiri@resnulli.us,
+	sergei shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5481602E.1030508@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->>> Philippe Troin <phil@fifi.org> schrieb am 09.12.2014 um 16:07 in Nachricht
-<1418137657.384.17.camel@niobium.home.fifi.org>:
-> On Tue, 2014-12-09 at 08:01 +0100, Ulrich Windl wrote:
->> >>> Philippe Troin <phil@fifi.org> schrieb am 08.12.2014 um 17:35 in Nachricht
->> <1418056540.384.5.camel@niobium.home.fifi.org>:
->>
->> > The argument to listen() specifies how many connections the system is
->> > allow to keep waiting to be accept()ed.
->> > As soon as you accept() the connection, the count is decremented.
->> > So that won't help for your use case.
->> > 
->> >> However none of the above see ms true. Even if my server delays
->> >> accept()ing new connections, no client ever sees a "connection
->> >> refused" or "connection timed out". Is there any chance to signal the
->> >> client that no more connections are accepted at the moment?
->> > 
->> > Close the listening socket.  No new connections will be accepted.
->> > When you reopen the socket for accepting new connections, you may have
->> > to use SO_REUSEADDR before bind()ing to the port.
->> 
->> This is what I had done, but those connections who are waiting to be
->> accepted: If I close the listening socket, will the clients see a
->> connection abort, or will they see a connection refused?
->> Connection aborts could confuse clients.
+
 > 
-> The clients that completed the 3-way handshake and are waiting for their
-> (server-side) socket to be accept()ed will see connection reset I
-> believe.
+> On 12/04/2014 06:20 PM, Michael S. Tsirkin wrote:
+> > On Thu, Dec 04, 2014 at 03:03:34AM +0008, Jason Wang wrote:
+> >> > 
+> >> > 
+> >> > On Wed, Dec 3, 2014 at 5:52 PM, Michael S. Tsirkin <mst@redhat.com>
+> >> > wrote:
+> >>> > >On Wed, Dec 03, 2014 at 12:49:37PM +0530, Pankaj Gupta wrote:
+> >>>> > >> Networking under kvm works best if we allocate a per-vCPU RX and TX
+> >>>> > >> queue in a virtual NIC. This requires a per-vCPU queue on the host
+> >>>> > >>side.
+> >>>> > >> It is now safe to increase the maximum number of queues.
+> >>>> > >> Preceding patche: 'net: allow large number of rx queues'
+> >>> > >
+> >>> > >s/patche/patch/
+> >>> > >
+> >>>> > >> made sure this won't cause failures due to high order memory
+> >>>> > >> allocations. Increase it to 256: this is the max number of vCPUs
+> >>>> > >> KVM supports.
+> >>>> > >> Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
+> >>>> > >> Reviewed-by: David Gibson <dgibson@redhat.com>
+> >>> > >
+> >>> > >Hmm it's kind of nasty that each tun device is now using x16 memory.
+> >>> > >Maybe we should look at using a flex array instead, and removing the
+> >>> > >limitation altogether (e.g. make it INT_MAX)?
+> >> > 
+> >> > But this only happens when IFF_MULTIQUEUE were used.
+> > I refer to this field:
+> >         struct tun_file __rcu   *tfiles[MAX_TAP_QUEUES];
+> > if we make MAX_TAP_QUEUES 256, this will use 4K bytes,
+> > apparently unconditionally.
+> >
+> >
 > 
-> You may be able to work something out by having no listen backlog
-> (listen(0)) and closing and reopening the socket when needed.
+> How about just allocate one tfile if IFF_MULTIQUEUE were disabled?
 
-I think I'd feel happier if listen() would implement the old semantics by default, and a new ioctl() (or such) would change to the "Linux accept all connections (3-way handshake) mode" on demand... Wishful thinking...
+Yes, we can also go with one tfile if for single queue. 
 
-Ulrich
+As tfiles is array of 'tun_file' pointers with size 256. For multiqueue
+we would be using 256 queues. But for single queue if we have one tfile
+makes sense.
+
+Also, we are making sure to avoid memory failures with vzalloc.
+
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
