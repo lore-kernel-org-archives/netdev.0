@@ -1,87 +1,45 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH net-next RESEND 2/2] ipv6: fix sparse warning
-Date: Wed, 10 Dec 2014 08:04:06 -0800
-Message-ID: <20141210160406.GS25340@linux.vnet.ibm.com>
-References: <1418201167-9591-1-git-send-email-ying.xue@windriver.com>
- <1418201167-9591-3-git-send-email-ying.xue@windriver.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v8 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Wed, 10 Dec 2014 11:07:32 -0500 (EST)
+Message-ID: <20141210.110732.519666115784722516.davem@davemloft.net>
+References: <5487C357.9030507@huawei.com>
+	<5487EC09.8090907@huawei.com>
+	<2331317.LV3gPP3odb@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, eric.dumazet@gmail.com,
-	jon.maloy@ericsson.com, erik.hugne@ericsson.com,
-	netdev@vger.kernel.org, kbuild-all@01.org,
-	linux-kernel@vger.kernel.org
-To: Ying Xue <ying.xue@windriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1418201167-9591-3-git-send-email-ying.xue@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dingtianhong@huawei.com, agraf@suse.de, zhangfei.gao@linaro.org,
+	linux@arm.linux.org.uk, f.fainelli@gmail.com,
+	sergei.shtylyov@cogentembedded.com, mark.rutland@arm.com,
+	David.Laight@aculab.com, eric.dumazet@gmail.com,
+	xuwei5@hisilicon.com, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45382 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932180AbaLJQHl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 11:07:41 -0500
+In-Reply-To: <2331317.LV3gPP3odb@wuerfel>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 10, 2014 at 04:46:07PM +0800, Ying Xue wrote:
-> This fixes the following spare warning when using
-> 
-> make C=1 CF=-D__CHECK_ENDIAN__ net/ipv6/addrconf.o
-> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
-> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
-> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
-> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
-> 
-> To silence above spare complaint, an RCU annotation should be added
-> to "next" pointer of hlist_node structure through hlist_next_rcu()
-> macro when iterating over a hlist with
-> hlist_for_each_entry_continue_rcu_bh().
-> 
-> By the way, this commit also resolves the same error appearing in
-> hlist_for_each_entry_continue_rcu().
-> 
-> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 10 Dec 2014 10:35:20 +0100
 
-If you pull the rculist.h changes from the first patch into this one,
-I will queue it up through -rcu.
+> On Wednesday 10 December 2014 14:45:29 Ding Tianhong wrote:
+>> 
+>> Miss this code, I think the best way is skb_orphan(skb), just like the cxgb3 drivers, some hardware
+>> didn't use the tx inq to free dmad Tx packages.
+> 
+> The problem with skb_orphan is that you are telling the network stack that
+> the packet is now out of its reach and it will no longer be able to take
+> queued packets into account.
 
-							Thanx, Paul
+skb_orphan() also does not release netfilter resources attached to the
+packet.
 
-> ---
->  include/linux/rculist.h |   16 ++++++++--------
->  1 file changed, 8 insertions(+), 8 deletions(-)
-> 
-> diff --git a/include/linux/rculist.h b/include/linux/rculist.h
-> index 866d9c9..32bd4ad 100644
-> --- a/include/linux/rculist.h
-> +++ b/include/linux/rculist.h
-> @@ -524,11 +524,11 @@ static inline void hlist_add_behind_rcu(struct hlist_node *n,
->   * @member:	the name of the hlist_node within the struct.
->   */
->  #define hlist_for_each_entry_continue_rcu(pos, member)			\
-> -	for (pos = hlist_entry_safe(rcu_dereference((pos)->member.next),\
-> -			typeof(*(pos)), member);			\
-> +	for (pos = hlist_entry_safe(rcu_dereference_raw(hlist_next_rcu( \
-> +			&(pos)->member)), typeof(*(pos)), member);	\
->  	     pos;							\
-> -	     pos = hlist_entry_safe(rcu_dereference((pos)->member.next),\
-> -			typeof(*(pos)), member))
-> +	     pos = hlist_entry_safe(rcu_dereference_raw(hlist_next_rcu(	\
-> +			&(pos)->member)), typeof(*(pos)), member))
-> 
->  /**
->   * hlist_for_each_entry_continue_rcu_bh - iterate over a hlist continuing after current point
-> @@ -536,11 +536,11 @@ static inline void hlist_add_behind_rcu(struct hlist_node *n,
->   * @member:	the name of the hlist_node within the struct.
->   */
->  #define hlist_for_each_entry_continue_rcu_bh(pos, member)		\
-> -	for (pos = hlist_entry_safe(rcu_dereference_bh((pos)->member.next),\
-> -			typeof(*(pos)), member);			\
-> +	for (pos = hlist_entry_safe(rcu_dereference_bh(hlist_next_rcu(  \
-> +			&(pos)->member)), typeof(*(pos)), member);	\
->  	     pos;							\
-> -	     pos = hlist_entry_safe(rcu_dereference_bh((pos)->member.next),\
-> -			typeof(*(pos)), member))
-> +	     pos = hlist_entry_safe(rcu_dereference_bh(hlist_next_rcu(	\
-> +			&(pos)->member)), typeof(*(pos)), member))
-> 
->  /**
->   * hlist_for_each_entry_from_rcu - iterate over a hlist continuing from current point
-> -- 
-> 1.7.9.5
-> 
+Really, all drivers must free TX SKBs in a small, finite, amount of
+time after submission.
+
+There is no way around this.
