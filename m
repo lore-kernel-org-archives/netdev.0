@@ -1,65 +1,84 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [PATCH 0/20] fix misspelling of current function in
-	string
-Date: Wed, 10 Dec 2014 13:56:23 +1100
-Message-ID: <CAGRGNgVGEo8qqpjDvYOJRBtEjXsKmFtXSQrS_Q+tDEYS+nAQqA@mail.gmail.com>
-References: <1417980062-25151-1-git-send-email-Julia.Lawall@lip6.fr>
- <CAGRGNgWDJqV=XD+6q26Ma=m1sEi1kvLWsjq6=RjRVSFTxow0Qg@mail.gmail.com>
- <alpine.DEB.2.02.1412080738210.2100@localhost6.localdomain6>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next] tipc: fix RCU sparse error
+Date: Wed, 10 Dec 2014 11:00:07 +0800
+Message-ID: <1418180407-1847-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
- linux-samsung-soc@vger.kernel.org, linux-scsi <linux-scsi@vger.kernel.org>,
- linux-pci@vger.kernel.org, linux-wireless <linux-wireless@vger.kernel.org>,
- intel-gfx@lists.freedesktop.org, linux-usb@vger.kernel.org,
- kernel-janitors@vger.kernel.org,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- dri-devel@lists.freedesktop.org, netdev <netdev@vger.kernel.org>,
- linux-mtd@lists.infradead.org, linux@rasmusvillemoes.dk,
- Joe Perches <joe@perches.com>, "Mailing List,
- Arm" <linux-arm-kernel@lists.infradead.org>
-To: Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-In-Reply-To: <alpine.DEB.2.02.1412080738210.2100@localhost6.localdomain6>
-List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <http://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <jon.maloy@ericsson.com>, <kbuild-all@01.org>,
+	<erik.hugne@ericsson.com>, <netdev@vger.kernel.org>,
+	<tipc-discussion@lists.sourceforge.net>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:52413 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751550AbaLJDAi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 22:00:38 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgSnVsaWEsCgpPbiBNb24sIERlYyA4LCAyMDE0IGF0IDU6NDMgUE0sIEp1bGlhIExhd2FsbCA8
-anVsaWEubGF3YWxsQGxpcDYuZnI+IHdyb3RlOgo+IE9uIE1vbiwgOCBEZWMgMjAxNCwgSnVsaWFu
-IENhbGFieSB3cm90ZToKPgo+PiBIaSBKdWxpYSwKPj4KPj4gT24gTW9uLCBEZWMgOCwgMjAxNCBh
-dCA2OjIwIEFNLCBKdWxpYSBMYXdhbGwgPEp1bGlhLkxhd2FsbEBsaXA2LmZyPiB3cm90ZToKPj4g
-PiBUaGVzZSBwYXRjaGVzIHJlcGxhY2Ugd2hhdCBhcHBlYXJzIHRvIGJlIGEgcmVmZXJlbmNlIHRv
-IHRoZSBuYW1lIG9mIHRoZQo+PiA+IGN1cnJlbnQgZnVuY3Rpb24gYnV0IGlzIG1pc3NwZWxsZWQg
-aW4gc29tZSB3YXkgYnkgZWl0aGVyIHRoZSBuYW1lIG9mIHRoZQo+PiA+IGZ1bmN0aW9uIGl0c2Vs
-Ziwgb3IgYnkgJXMgYW5kIHRoZW4gX19mdW5jX18gaW4gYW4gYXJndW1lbnQgbGlzdC4KPj4KPj4g
-V291bGQgdGhlcmUgYmUgYW55IHZhbHVlIGluIGRvaW5nIHRoaXMgZm9yIF9hbGxfIGNhc2VzIHdo
-ZXJlIHRoZQo+PiBmdW5jdGlvbiBuYW1lIGlzIHdyaXR0ZW4gaW4gYSBmb3JtYXQgc3RyaW5nPwo+
-Cj4gUHJvYmFibHkuICBCdXQgdGhlcmUgYXJlIGEgbG90IG9mIHRoZW0uICBFdmVuIGZvciB0aGUg
-bWlzc3BlbGxpbmdzLCBJIGhhdmUKPiBvbmx5IGRvbiBhYm91dCAxLzMgb2YgdGhlIGNhc2VzLgo+
-Cj4gT24gdGhlIG90aGVyIGhhbmQsIHRoZSBtaXNzcGVsbGluZyBoYXZlIHRvIGJlIGNoZWNrZWQg
-Y2FyZWZ1bGx5LCBiZWNhdXNlIGEKPiBtaXNzcGVsbGluZyBvZiBvbmUgdGhpbmcgY291bGQgYmUg
-dGhlIGNvcnJlY3Qgc3BlbGxpbmcgb2YgdGhlIHRoaW5nIHRoc3QKPiB3YXMgYWN0dWFsbHkgaW50
-ZW5kZWQuCj4KPiBKb2UsIGhvd2V2ZXIsIHBvaW50cyBvdXQgdGhhdCBhIGxvdCBvZiB0aGVzZSBw
-cmludHMgYXJlIGp1c3QgZm9yIGZ1bmN0aW9uCj4gdHJhY2luZywgYW5kIGNvdWxkIGJlIHJlbW92
-ZWQuICBJIHdvcmtlZCBvbiBhbm90aGVyIHNlbWFudGljIHBhdGNoIHRoYXQKPiB0cmllcyB0byBk
-byB0aGF0LiAgSXQgbWlnaHQgYmUgYmV0dGVyIHRvIHJlbW92ZSB0aG9zZSBwcmludHMgY29tcGxl
-dGVseSwKPiByYXRoZXIgdGhhbiBzZW5kaW5nIG9uZSBwYXRjaCB0byB0cmFuc2Zvcm0gdGhlbSBh
-bmQgdGhlbiBvbmUgcGF0Y2ggdG8KPiByZW1vdmUgdGhlbSBhZnRlciB0aGF0LiAgVGhhdCBpcyB3
-aHkgZm9yIHRoaXMgc2VyaWVzIEkgZGlkIG9ubHkgdGhlIG9uZXMKPiB3aGVyZSB0aGVyZSB3YXMg
-YWN0dWFsbHkgYSBwcm9ibGVtLgoKT2ssIHRoYXQgbWFrZXMgc2Vuc2UuCgpFaXRoZXIgd2F5IHRo
-b3VnaCwgdGhpcyBpcyBhIHJlYWxseSBpbnRlcmVzdGluZyBhcHBsaWNhdGlvbiBvZiB0aGUKc2Vt
-YW50aWMgcGF0Y2hpbmcuIE5pY2Ugd29yayEKClRoYW5rcywKCi0tIApKdWxpYW4gQ2FsYWJ5CgpF
-bWFpbDoganVsaWFuLmNhbGFieUBnbWFpbC5jb20KUHJvZmlsZTogaHR0cDovL3d3dy5nb29nbGUu
-Y29tL3Byb2ZpbGVzL2p1bGlhbi5jYWxhYnkvCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fCkludGVsLWdmeCBtYWlsaW5nIGxpc3QKSW50ZWwtZ2Z4QGxpc3Rz
-LmZyZWVkZXNrdG9wLm9yZwpodHRwOi8vbGlzdHMuZnJlZWRlc2t0b3Aub3JnL21haWxtYW4vbGlz
-dGluZm8vaW50ZWwtZ2Z4Cg==
+The commit 97ede29e80ee ("tipc: convert name table read-write lock to
+RCU") involves the following sparse when using
+
+  make ARCH=x86_64 allmodconfig
+  make C=1 CF=-D__CHECK_ENDIAN__
+
+net/tipc/name_table.c:1136:17: sparse: incompatible types in comparison expression (different address spaces)
+net/tipc/name_table.c:1136:17: sparse: incompatible types in comparison expression (different address spaces)
+
+To silence above spare complaint, an RCU annotation should be added
+to next pointer of hlist_node structure through hlist_next_rcu() macro
+when iterating over a hlist with hlist_for_each_entry_from_rcu().
+
+By the way, this commit also simplifies the way of dereferencing
+the first element of a hlist_head list by replacing
+hlist_for_each_entry_rcu() with hlist_entry_safe().
+
+Reported-by: Kbuild test robot <kbuild-all@01.org>
+Cc: Kbuild test robot <kbuild-all@01.org>
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+---
+ include/linux/rculist.h |    4 ++--
+ net/tipc/name_table.c   |    6 +++---
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/include/linux/rculist.h b/include/linux/rculist.h
+index aa79b3c..866d9c9 100644
+--- a/include/linux/rculist.h
++++ b/include/linux/rculist.h
+@@ -549,8 +549,8 @@ static inline void hlist_add_behind_rcu(struct hlist_node *n,
+  */
+ #define hlist_for_each_entry_from_rcu(pos, member)			\
+ 	for (; pos;							\
+-	     pos = hlist_entry_safe(rcu_dereference((pos)->member.next),\
+-			typeof(*(pos)), member))
++	     pos = hlist_entry_safe(rcu_dereference_raw(hlist_next_rcu( \
++			&(pos)->member)), typeof(*(pos)), member))
+ 
+ #endif	/* __KERNEL__ */
+ #endif
+diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
+index c8df022..fa4341f 100644
+--- a/net/tipc/name_table.c
++++ b/net/tipc/name_table.c
+@@ -1110,7 +1110,7 @@ static int __tipc_nl_seq_list(struct tipc_nl_msg *msg, u32 *last_type,
+ 			      u32 *last_lower, u32 *last_publ)
+ {
+ 	struct hlist_head *seq_head;
+-	struct name_seq *seq = NULL;
++	struct name_seq *seq;
+ 	int err;
+ 	int i;
+ 
+@@ -1127,8 +1127,8 @@ static int __tipc_nl_seq_list(struct tipc_nl_msg *msg, u32 *last_type,
+ 			if (!seq)
+ 				return -EPIPE;
+ 		} else {
+-			hlist_for_each_entry_rcu(seq, seq_head, ns_list)
+-				break;
++			seq = hlist_entry_safe(rcu_dereference_raw(
++			hlist_first_rcu(seq_head)), struct name_seq, ns_list);
+ 			if (!seq)
+ 				continue;
+ 		}
+-- 
+1.7.9.5
