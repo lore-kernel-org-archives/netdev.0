@@ -1,58 +1,76 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [patch v2] ipvs: uninitialized data with IP_VS_IPV6
-Date: Wed, 10 Dec 2014 17:47:21 +0900
-Message-ID: <20141210084721.GA15585@verge.net.au>
-References: <20141206134924.GA17278@mwanda>
- <alpine.LFD.2.11.1412072032420.1885@ja.home.ssi.bg>
- <20141209005215.GH8897@verge.net.au>
- <20141209064947.GH4912@mwanda>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next RESEND 2/2] ipv6: fix sparse warning
+Date: Wed, 10 Dec 2014 16:46:07 +0800
+Message-ID: <1418201167-9591-3-git-send-email-ying.xue@windriver.com>
+References: <1418201167-9591-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julian Anastasov <ja@ssi.bg>, Wensong Zhang <wensong@linux-vs.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:51488 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753142AbaLJIrY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 03:47:24 -0500
-Content-Disposition: inline
-In-Reply-To: <20141209064947.GH4912@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <eric.dumazet@gmail.com>,
+	<jon.maloy@ericsson.com>, <erik.hugne@ericsson.com>,
+	<netdev@vger.kernel.org>, <kbuild-all@01.org>,
+	<linux-kernel@vger.kernel.org>
+To: <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1418201167-9591-1-git-send-email-ying.xue@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 09, 2014 at 09:49:47AM +0300, Dan Carpenter wrote:
-> On Tue, Dec 09, 2014 at 09:52:15AM +0900, Simon Horman wrote:
-> > On Sun, Dec 07, 2014 at 08:39:35PM +0200, Julian Anastasov wrote:
-> > > 
-> > > 	Hello,
-> > > 
-> > > On Sat, 6 Dec 2014, Dan Carpenter wrote:
-> > > 
-> > > > The app_tcp_pkt_out() function expects "*diff" to be set and ends up
-> > > > using uninitialized data if CONFIG_IP_VS_IPV6 is turned on.
-> > > > 
-> > > > The same issue is there in app_tcp_pkt_in().  Thanks to Julian Anastasov
-> > > > for noticing that.
-> > > > 
-> > > > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> > > > ---
-> > > > v2: fix app_tcp_pkt_in() as well.  This is an old bug.
-> > > 
-> > > 	Thanks! It will not break seqs for IPv6 control
-> > > connection, only that we do not support FTP yet :( I have
-> > > the doubt whether this should be classified as bugfix :)
-> > > I guess, it is a net-next material, right?
-> > 
-> > Agreed, I have queued it up in ipvs-next.
-> > I'll send a pull request to Pablo if Dan doesn't object
-> > to it going there.
-> 
-> No objections from me.
+This fixes the following spare warning when using
 
-Thanks, I have sent a pull-request.
+make C=1 CF=-D__CHECK_ENDIAN__ net/ipv6/addrconf.o
+net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+
+To silence above spare complaint, an RCU annotation should be added
+to "next" pointer of hlist_node structure through hlist_next_rcu()
+macro when iterating over a hlist with
+hlist_for_each_entry_continue_rcu_bh().
+
+By the way, this commit also resolves the same error appearing in
+hlist_for_each_entry_continue_rcu().
+
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+---
+ include/linux/rculist.h |   16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/include/linux/rculist.h b/include/linux/rculist.h
+index 866d9c9..32bd4ad 100644
+--- a/include/linux/rculist.h
++++ b/include/linux/rculist.h
+@@ -524,11 +524,11 @@ static inline void hlist_add_behind_rcu(struct hlist_node *n,
+  * @member:	the name of the hlist_node within the struct.
+  */
+ #define hlist_for_each_entry_continue_rcu(pos, member)			\
+-	for (pos = hlist_entry_safe(rcu_dereference((pos)->member.next),\
+-			typeof(*(pos)), member);			\
++	for (pos = hlist_entry_safe(rcu_dereference_raw(hlist_next_rcu( \
++			&(pos)->member)), typeof(*(pos)), member);	\
+ 	     pos;							\
+-	     pos = hlist_entry_safe(rcu_dereference((pos)->member.next),\
+-			typeof(*(pos)), member))
++	     pos = hlist_entry_safe(rcu_dereference_raw(hlist_next_rcu(	\
++			&(pos)->member)), typeof(*(pos)), member))
+ 
+ /**
+  * hlist_for_each_entry_continue_rcu_bh - iterate over a hlist continuing after current point
+@@ -536,11 +536,11 @@ static inline void hlist_add_behind_rcu(struct hlist_node *n,
+  * @member:	the name of the hlist_node within the struct.
+  */
+ #define hlist_for_each_entry_continue_rcu_bh(pos, member)		\
+-	for (pos = hlist_entry_safe(rcu_dereference_bh((pos)->member.next),\
+-			typeof(*(pos)), member);			\
++	for (pos = hlist_entry_safe(rcu_dereference_bh(hlist_next_rcu(  \
++			&(pos)->member)), typeof(*(pos)), member);	\
+ 	     pos;							\
+-	     pos = hlist_entry_safe(rcu_dereference_bh((pos)->member.next),\
+-			typeof(*(pos)), member))
++	     pos = hlist_entry_safe(rcu_dereference_bh(hlist_next_rcu(	\
++			&(pos)->member)), typeof(*(pos)), member))
+ 
+ /**
+  * hlist_for_each_entry_from_rcu - iterate over a hlist continuing from current point
+-- 
+1.7.9.5
