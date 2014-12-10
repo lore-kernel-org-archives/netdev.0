@@ -1,7 +1,7 @@
 From: roopa@cumulusnetworks.com
-Subject: [PATCH net-next v2 0/4] switchdev offload flags
-Date: Wed, 10 Dec 2014 01:05:16 -0800
-Message-ID: <1418202320-19491-1-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v2 2/4] swdevice: add new api to set and del bridge port attributes
+Date: Wed, 10 Dec 2014 01:05:18 -0800
+Message-ID: <1418202320-19491-3-git-send-email-roopa@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	shm@cumulusnetworks.com, gospo@cumulusnetworks.com,
 	Roopa Prabhu <roopa@cumulusnetworks.com>
@@ -10,79 +10,131 @@ To: jiri@resnulli.us, sfeldma@gmail.com, jhs@mojatatu.com,
 	stephen@networkplumber.org, linville@tuxdriver.com,
 	vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:57157 "EHLO
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:57147 "EHLO
 	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751568AbaLJJFX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 04:05:23 -0500
+	with ESMTP id S1751102AbaLJJFW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 04:05:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
+This patch adds two new api's netdev_switch_port_bridge_setlink
+and netdev_switch_port_bridge_dellink to offload bridge port attributes
+to switch asic
 
-This patch series introduces new offload flags for switchdev.
-This flag can be used to accelerate kernel network functions by
-offloading to hw.
+(The names of the apis look odd with 'switch_port_bridge',
+but am more inclined to change the prefix of the api to something else.
+Will take any suggestions).
 
-This patch series currently only addresses bridge driver link
-attribute offloads to hardware.
+The api's look at the NETIF_F_HW_NETFUNC_OFFLOAD feature flag to
+pass bridge port attributes to the port device.
 
-Looking at the current state of bridge l2 offload in the kernel,
-    - flag 'self' is the way to directly manage the bridge device in hw via
-      the ndo_bridge_setlink/ndo_bridge_getlink calls
- 
-    - flag 'master' is always used to manage the in kernel bridge devices
-      via the same ndo_bridge_setlink/ndo_bridge_getlink calls
-
-Today these are used separately. The nic offloads use hwmode "vepa/veb" to go
-directly to hw with the "self" flag.
-
-At this point i am trying not to introduce any new user facing flags/attributes.
-In the model where we want the kernel bridging to be accelerated with
-hardware, we very much want the bridge driver to be involved.
-
-In this proposal,
-- The offload flag/bit helps switch asic drivers to indicate that they
-  accelerate the kernel networking objects/functions
-- The user does not have to specify a new flag to do so. A bridge created with
-  switch asic ports will be accelerated if the switch driver supports it.
-- The user can continue to directly manage l2 in nics (ixgbe) using the
-  existing hwmode/self flags
-- It also does not stop users from using the 'self' flag to talk to the
-  switch asic driver directly
-- Involving the bridge driver makes sure the add/del notifications to user
-  space go out after both kernel and hardware are programmed
-
-(To selectively offload bridge port attributes,
-example learning in hw only etc, we can introduce offload bits for 
-per bridge port flag attribute as in my previous patch
-https://patchwork.ozlabs.org/patch/413211/. I have not included that in this
-series)
-
-v1 -> v2 
-   - try a different name for the offload flag/bit
-   - tries to solve the stacked netdev case
+If the device has the NETIF_F_HW_NETFUNC_OFFLOAD, but does not support
+the bridge port attribute offload ndo, call bridge port attribute ndo's on
+the lowerdevs if supported. This is one way to pass bridge port attributes
+through stacked netdevs (example when bridge port is a bond and bond slaves
+are switch ports).
 
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ include/net/switchdev.h   |    5 +++-
+ net/switchdev/switchdev.c |   70 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 74 insertions(+), 1 deletion(-)
 
-Roopa Prabhu (4):
-  netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD feature flag for
-    switch device offloads
-  swdevice: add new api to set and del bridge port attributes
-  bridge: offload bridge port attributes to switch asic if feature flag
-    set
-  rocker: set feature NETIF_F_HW_SWITCH_OFFLOAD
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
- drivers/net/ethernet/rocker/rocker.c          |   10 ++--
- include/linux/netdev_features.h               |    2 +
- include/linux/netdevice.h                     |    4 +-
- include/net/switchdev.h                       |    5 +-
- net/bridge/br_netlink.c                       |   40 +++++++++++++--
- net/bridge/br_private.h                       |    4 +-
- net/core/rtnetlink.c                          |    8 +--
- net/switchdev/switchdev.c                     |   66 +++++++++++++++++++++++++
- 9 files changed, 122 insertions(+), 19 deletions(-)
-
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index 8a6d164..22676b6 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -17,7 +17,10 @@
+ int netdev_switch_parent_id_get(struct net_device *dev,
+ 				struct netdev_phys_item_id *psid);
+ int netdev_switch_port_stp_update(struct net_device *dev, u8 state);
+-
++int netdev_switch_port_bridge_setlink(struct net_device *dev,
++				struct nlmsghdr *nlh, u16 flags);
++int netdev_switch_port_bridge_dellink(struct net_device *dev,
++				struct nlmsghdr *nlh, u16 flags);
+ #else
+ 
+ static inline int netdev_switch_parent_id_get(struct net_device *dev,
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index d162b21..62317e1 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -50,3 +50,73 @@ int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
+ 	return ops->ndo_switch_port_stp_update(dev, state);
+ }
+ EXPORT_SYMBOL(netdev_switch_port_stp_update);
++
++/**
++ *	netdev_switch_port_bridge_setlink - Notify switch device port of bridge
++ *	port attributes
++ *
++ *	@dev: port device
++ *	@nlh: netlink msg with bridge port attributes
++ *
++ *	Notify switch device port of bridge port attributes
++ */
++int netdev_switch_port_bridge_setlink(struct net_device *dev,
++									  struct nlmsghdr *nlh, u16 flags)
++{
++	const struct net_device_ops *ops = dev->netdev_ops;
++	struct net_device *lower_dev;
++	struct list_head *iter;
++	int ret = 0, err = 0;
++
++	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
++		return err;
++
++	if (ops->ndo_bridge_setlink) {
++	    WARN_ON(!ops->ndo_switch_parent_id_get);
++	    return ops->ndo_bridge_setlink(dev, nlh, flags);
++	}
++
++	netdev_for_each_lower_dev(dev, lower_dev, iter) {
++		err = netdev_switch_port_bridge_setlink(lower_dev, nlh, flags);
++		if (err)
++			ret = err;
++    }
++
++	return ret;
++}
++EXPORT_SYMBOL(netdev_switch_port_bridge_setlink);
++
++/**
++ *	netdev_switch_port_bridge_dellink - Notify switch device port of bridge
++ *	attribute delete
++ *
++ *	@dev: port device
++ *	@nlh: netlink msg with bridge port attributes
++ *
++ *	Notify switch device port of bridge port attribute delete
++ */
++int netdev_switch_port_bridge_dellink(struct net_device *dev,
++									  struct nlmsghdr *nlh, u16 flags)
++{
++	const struct net_device_ops *ops = dev->netdev_ops;
++	struct net_device *lower_dev;
++	struct list_head *iter;
++	int ret = 0, err = 0;
++
++	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
++		return err;
++
++	if (ops->ndo_bridge_dellink) {
++		WARN_ON(!ops->ndo_switch_parent_id_get);
++		return ops->ndo_bridge_dellink(dev, nlh, flags);
++	}
++
++	netdev_for_each_lower_dev(dev, lower_dev, iter) {
++		err = netdev_switch_port_bridge_dellink(lower_dev, nlh, flags);
++		if (err)
++			ret = err;
++	}
++
++	return ret;
++}
++EXPORT_SYMBOL(netdev_switch_port_bridge_dellink);
 -- 
 1.7.10.4
