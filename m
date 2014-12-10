@@ -1,69 +1,135 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [bisected] xfrm: TCP connection initiating PMTU discovery
- stalls on v3.
-Date: Wed, 10 Dec 2014 11:10:03 -0800
-Message-ID: <1418238603.27198.37.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1709726.jUgUSQI9sl@pikkukde.a.i2n>
-	 <2625472.GutY3xCvKT@h2o.as.studentenwerk.mhn.de>
-	 <1418161219.27198.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <6700748.kZ07xrNvHX@h2o.as.studentenwerk.mhn.de>
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: Re: Multicast packets being lost (3.10 stable)
+Date: Wed, 10 Dec 2014 20:16:33 +0100
+Message-ID: <20141210191633.GA2473@odroid>
+References: <20140324094107.2cfbf103@nehalam.linuxnetplumber.net>
+	<20140325125231.GW6008@Linus-Debian> <20140910133341.GI7058@odroid>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Jarosch <thomas.jarosch@intra2net.com>,
-	netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Wolfgang Walter <linux@stwm.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:59589 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933042AbaLJTKG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 14:10:06 -0500
-Received: by mail-ie0-f178.google.com with SMTP id tp5so3314654ieb.37
-        for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 11:10:05 -0800 (PST)
-In-Reply-To: <6700748.kZ07xrNvHX@h2o.as.studentenwerk.mhn.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Stephen Hemminger <shemming@brocade.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	openwrt-devel@lists.openwrt.org, David Miller <davem@davemloft.net>
+To: David Miller <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20140910133341.GI7058@odroid>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-12-10 at 19:34 +0100, Wolfgang Walter wrote:
+Hi David,
 
-> So gso is on. When the hang happens sk_setup_caps is called from		
-> inet_sk_rebuild_header(). Now the path
-> 
-> 		sk->sk_route_caps &= ~NETIF_F_GSO_MASK;
-> 
-> is taken as dst->header_len is now non zero.
-> 
-> This is the reason why later calls of sk_can_gso() return false.
-> 
-> I'll try to change the above patch to
-> 
-> @@ -1585,6 +1585,8 @@ void sk_setup_caps(struct sock *sk, struct dst_entry
-> *dst) sk->sk_gso_max_size = dst->dev->gso_max_size;
->  			sk->sk_gso_max_segs = dst->dev->gso_max_segs;
->  		}
-> 	}
-> +   if (sk_can_gso(sk)) {
-> +		sk->sk_gso_max_segs = 1;
->  	}
->  }
->  EXPORT_SYMBOL_GPL(sk_setup_caps);
-> 
-> so that the case that GSO is disabled because of dst->header_len != 0 sets 
-> sk_gso_max_segs, too.
+did you have a chance to look into backporting these fixes for
+stable yet? (if I read the docs correctly, I should query you for
+suggestions for stable kernels, right?)
 
-Sounds good, or maybe simply :
+Also, an eighth patch I'd suggest for stable now:
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 9a56b2000c3f374fb95aedada3327447816a9512..edca31319dfee57cabe5b376505324bea07f767a 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1577,6 +1577,7 @@ void sk_setup_caps(struct sock *sk, struct dst_entry *dst)
- 	if (sk->sk_route_caps & NETIF_F_GSO)
- 		sk->sk_route_caps |= NETIF_F_GSO_SOFTWARE;
- 	sk->sk_route_caps &= ~sk->sk_route_nocaps;
-+	sk->sk_gso_max_segs = 1;
- 	if (sk_can_gso(sk)) {
- 		if (dst->header_len) {
- 			sk->sk_route_caps &= ~NETIF_F_GSO_MASK;
+8) bridge: fix netfilter/NF_BR_LOCAL_OUT for own, locally generated queri=
+es
+   -> f0b4eeced (since 3.18)
+
+
+If there's anything unclear, just let me know. Thanks :)!
+
+Cheers, Linus
+
+
+On Wed, Sep 10, 2014 at 03:33:41PM +0200, Linus L=C3=BCssing wrote:
+> I just got a complaint about bridges, multicast and a
+> 3.10 kernel again. Seems like nobody had any objections about
+> queueing these two patches for stable ( 2)+3) )?
+>=20
+> Also I'm still missing some more fixes in the stable branches.
+> Especially 5), 6) and 7) are of high priority (next to 2) and 3) )
+> in my opinion as otherwise IPv6 in general could be broken for people
+> using 3.12 or 3.13 (as 3.12 contains a patch which activates
+> multicast snooping for link-local addresses, too: 3c3769e63).
+>=20
+> Here is a more ordered list of patches I'd suggest to be queued for
+> stable:
+>=20
+> 1) bridge: fix switched interval for MLD Query types
+>    ->=E2=80=AF32de868cb (present since 3.10)
+> 2) bridge: disable snooping if there is no querier
+>    ->=E2=80=AFb00589af3 (present since 3.11)
+> 3) bridge: don't try to update timers in case of broken MLD queries
+>    -> 248ba8ec0 (present since 3.11)
+> 4) Revert "bridge: only expire the mdb entry when query is received"
+>    ->=E2=80=AF454594f3b (present since 3.12)
+> 5) bridge: multicast: add sanity check for query source addresses
+>    ->=E2=80=AF6565b9eee (present since 3.14)
+> 6) bridge: multicast: add sanity check for general query destination
+>    ->=E2=80=AF9ed973cc4 (present since 3.14)
+> 7) bridge: multicast: enable snooping on general queries only
+>    ->=E2=80=AF20a599bec (present since 3.14)
+>=20
+> Let me know what you'd think about that or if there's any trouble
+> applying them to older kernels.
+>=20
+> Cheers, Linus
+>=20
+>=20
+> On Tue, Mar 25, 2014 at 02:06:07PM +0100, Linus L=C3=BCssing wrote:
+> > That commit is supposed to be a fix and seems to be a easily
+> > cherry-pickable on top of 3.10. So I think it's suitable for
+> > stable
+> >=20
+> > There are two follow-up commit for this particular patch that I'm awa=
+re
+> > of: "bridge: separate querier and query timer into IGMP/IPv4
+> > and MLD/IPv6 ones" (cc0fdd80). That's just an optimization
+> > and can be ignored for stable.
+> >=20
+> > The second one is "bridge: don't try to update timers in case of
+> > broken MLD queries" (248ba8ec0). Which is a direct fix for
+> > b00589af3 and should therefore go into stable, too, if b00589af3
+> > goes into stable.
+> >=20
+> > Cheers, Linus
+> >=20
+> >=20
+> > On Mon, Mar 24, 2014 at 09:41:07AM -0700, Stephen Hemminger wrote:
+> > > We are seeing multicast snooping related issues.
+> > > Is there some reason this commit never went into stable (3.10)
+> > >=20
+> > > commit b00589af3b04736376f24625ab0b394642e89e29
+> > > Author: Linus L=C3=BCssing <linus.luessing@web.de>
+> > > Date:   Thu Aug 1 01:06:20 2013 +0200
+> > >=20
+> > >     bridge: disable snooping if there is no querier
+> > >    =20
+> > >     If there is no querier on a link then we won't get periodic rep=
+orts and
+> > >     therefore won't be able to learn about multicast listeners behi=
+nd ports,
+> > >     potentially leading to lost multicast packets, especially for m=
+ulticast
+> > >     listeners that joined before the creation of the bridge.
+> > >    =20
+> > >     These lost multicast packets can appear since c5c23260594
+> > >     ("bridge: Add multicast_querier toggle and disable queries by d=
+efault")
+> > >     in particular.
+> > >    =20
+> > >     With this patch we are flooding multicast packets if our querie=
+r is
+> > >     disabled and if we didn't detect any other querier.
+> > >    =20
+> > >     A grace period of the Maximum Response Delay of the querier is =
+added to
+> > >     give multicast responses enough time to arrive and to be learne=
+d from
+> > >     before disabling the flooding behaviour again.
+> > >    =20
+> > >     Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
+> > >     Signed-off-by: David S. Miller <davem@davemloft.net>
