@@ -1,58 +1,102 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: xen-netback: make feature-rx-notify mandatory -- Breaks stubdoms
-Date: Wed, 10 Dec 2014 14:12:19 +0000
-Message-ID: <548854C3.7060008@citrix.com>
-References: <54884DA8.7030003@nuclearfallout.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [RFC PATCH 0/3] Faster than SLAB caching of SKBs with qmempool
+	(backed by alf_queue)
+Date: Wed, 10 Dec 2014 15:15:07 +0100
+Message-ID: <20141210141332.31779.56391.stgit@dragon>
+References: <20141210033902.2114.68658.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Xen-devel@lists.xen.org" <Xen-devel@lists.xen.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: John <jw@nuclearfallout.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:8386 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753874AbaLJOMW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Dec 2014 09:12:22 -0500
-In-Reply-To: <54884DA8.7030003@nuclearfallout.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-api@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Alexei Starovoitov <ast@plumgrid.com>,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
+        Steven Rostedt <rostedt@goodmis.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+        Christoph Lameter <cl@linux.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20141210033902.2114.68658.stgit@ahduyck-vm-fedora20>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 10/12/14 13:42, John wrote:
-> David,
-> 
-> This patch you put into 3.18.0 appears to break the latest version of
-> stubdomains. I found this out today when I tried to update a machine to
-> 3.18.0 and all of the domUs crashed on start with the dmesg output like
-> this:
+The network stack have some use-cases that puts some extreme demands
+on the memory allocator.  One use-case, 10Gbit/s wirespeed at smallest
+packet size[1], requires handling a packet every 67.2 ns (nanosec).
 
-Cc'ing the lists and relevant netback maintainers.
+Micro benchmarking[2] the SLUB allocator (with skb size 256bytes
+elements), show "fast-path" instant reuse only costs 19 ns, but a
+closer to network usage pattern show the cost rise to 45 ns.
 
-I guess the stubdoms are using minios's netfront?  This is something I
-forgot about when deciding if it was ok to make this feature mandatory.
+This patchset introduce a quick mempool (qmempool), which when used
+in-front of the SKB (sk_buff) kmem_cache, saves 12 ns on "fast-path"
+drop in iptables "raw" table, but more importantly saves 40 ns with
+IP-forwarding, which were hitting the slower SLUB use-case.
 
-The patch cannot be reverted as it's a prerequisite for a critical
-(security) bug fix.  I am also unconvinced that the no-feature-rx-notify
-support worked correctly anyway.
 
-This can be resolved by:
+One of the building blocks for achieving this speedup is a cmpxchg
+based Lock-Free queue that supports bulking, named alf_queue for
+Array-based Lock-Free queue.  By bulking elements (pointers) from the
+queue, the cost of the cmpxchg (approx 8 ns) is amortized over several
+elements.
 
-- Fixing minios's netfront to support feature-rx-notify. This should be
-easy but wouldn't help existing Xen deployments.
+ Patch1: alf_queue (Lock-Free queue)
 
-Or:
+ Patch2: qmempool using alf_queue
 
-- Reimplement feature-rx-notify support.  I think the easiest way is to
-queue packets on the guest Rx internal queue with a short expiry time.
+ Patch3: usage of qmempool for SKB caching
 
-> [   83.045785] device vif2.0 entered promiscuous mode
-> [   83.059220] vif vif-2-0: 22 feature-rx-notify is mandatory
-> [   83.060763] vif vif-2-0: 1 mapping in shared page 2047 from domain 2
-> [   83.060861] vif vif-2-0: 1 mapping shared-frames 2047/2046 port tx 4
-> rx 4
-> 
-> This is on the very latest patched version of 4.4.
 
-David
+Notice, this patchset depend on introduction of napi_alloc_skb(),
+which is part of Alexander Duyck's work patchset [3].
+
+Different correctness tests and micro benchmarks are avail via my
+github repo "prototype-kernel"[4], where the alf_queue and qmempool is
+also kept in sync with this patchset.
+
+Links:
+ [1]: http://netoptimizer.blogspot.dk/2014/05/the-calculations-10gbits-wirespeed.html
+ [2]: https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/mm/qmempool_bench.c
+ [3]: http://thread.gmane.org/gmane.linux.network/342347
+ [4]: https://github.com/netoptimizer/prototype-kernel
+
+---
+
+Jesper Dangaard Brouer (3):
+      net: use qmempool in-front of sk_buff kmem_cache
+      mm: qmempool - quick queue based memory pool
+      lib: adding an Array-based Lock-Free (ALF) queue
+
+
+ include/linux/alf_queue.h |  303 ++++++++++++++++++++++++++++++++++++++++++
+ include/linux/qmempool.h  |  205 +++++++++++++++++++++++++++++
+ include/linux/skbuff.h    |    4 -
+ lib/Kconfig               |   13 ++
+ lib/Makefile              |    2 
+ lib/alf_queue.c           |   47 +++++++
+ mm/Kconfig                |   12 ++
+ mm/Makefile               |    1 
+ mm/qmempool.c             |  322 +++++++++++++++++++++++++++++++++++++++++++++
+ net/core/dev.c            |    5 +
+ net/core/skbuff.c         |   43 +++++-
+ 11 files changed, 950 insertions(+), 7 deletions(-)
+ create mode 100644 include/linux/alf_queue.h
+ create mode 100644 include/linux/qmempool.h
+ create mode 100644 lib/alf_queue.c
+ create mode 100644 mm/qmempool.c
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
