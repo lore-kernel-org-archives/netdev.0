@@ -1,84 +1,107 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next] tipc: fix RCU sparse error
-Date: Wed, 10 Dec 2014 11:00:07 +0800
-Message-ID: <1418180407-1847-1-git-send-email-ying.xue@windriver.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 1/1] net: dsa: Fix of kernel panic in case of missing
+ PHY.
+Date: Tue, 09 Dec 2014 19:23:38 -0800
+Message-ID: <5487BCBA.2060403@gmail.com>
+References: <54873205.30401@nexvision.fr>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <jon.maloy@ericsson.com>, <kbuild-all@01.org>,
-	<erik.hugne@ericsson.com>, <netdev@vger.kernel.org>,
-	<tipc-discussion@lists.sourceforge.net>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Andrey Volkov <andrey.volkov@nexvision.fr>, netdev@vger.kernel.org,
+	Brian Norris <computersforpeace@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:52413 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751550AbaLJDAi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 22:00:38 -0500
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:47015 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753284AbaLJDXw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 22:23:52 -0500
+Received: by mail-pd0-f173.google.com with SMTP id ft15so1876498pdb.4
+        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 19:23:51 -0800 (PST)
+In-Reply-To: <54873205.30401@nexvision.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The commit 97ede29e80ee ("tipc: convert name table read-write lock to
-RCU") involves the following sparse when using
+On 09/12/14 09:31, Andrey Volkov wrote:
+> Fix of kernel panic in case of missing PHY.
+> 
+> Signed-off-by: Andrey Volkov <andrey.volkov@nexvision.fr>
 
-  make ARCH=x86_64 allmodconfig
-  make C=1 CF=-D__CHECK_ENDIAN__
+Brian has actually been able to reproduce such a crash in this code-path
+today:
 
-net/tipc/name_table.c:1136:17: sparse: incompatible types in comparison expression (different address spaces)
-net/tipc/name_table.c:1136:17: sparse: incompatible types in comparison expression (different address spaces)
+if (!p->phy) {
+                p->phy = ds->slave_mii_bus->phy_map[p->port];
+                phy_connect_direct(slave_dev, p->phy,
+				   dsa_slave_adjust_link,
+                                   p->phy_interface);
+}
 
-To silence above spare complaint, an RCU annotation should be added
-to next pointer of hlist_node structure through hlist_next_rcu() macro
-when iterating over a hlist with hlist_for_each_entry_from_rcu().
+we basically assume here that we have a valid phy pointer out of
+ds->slave_mii_bus->phy_map[p->port] which is not true in all cases,
+especially not if the device is not there.
 
-By the way, this commit also simplifies the way of dereferencing
-the first element of a hlist_head list by replacing
-hlist_for_each_entry_rcu() with hlist_entry_safe().
+I will come up with a fix for that, as for propagating the error code
+down to the caller, this can be a separate patch.
 
-Reported-by: Kbuild test robot <kbuild-all@01.org>
-Cc: Kbuild test robot <kbuild-all@01.org>
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
----
- include/linux/rculist.h |    4 ++--
- net/tipc/name_table.c   |    6 +++---
- 2 files changed, 5 insertions(+), 5 deletions(-)
+Thanks!
 
-diff --git a/include/linux/rculist.h b/include/linux/rculist.h
-index aa79b3c..866d9c9 100644
---- a/include/linux/rculist.h
-+++ b/include/linux/rculist.h
-@@ -549,8 +549,8 @@ static inline void hlist_add_behind_rcu(struct hlist_node *n,
-  */
- #define hlist_for_each_entry_from_rcu(pos, member)			\
- 	for (; pos;							\
--	     pos = hlist_entry_safe(rcu_dereference((pos)->member.next),\
--			typeof(*(pos)), member))
-+	     pos = hlist_entry_safe(rcu_dereference_raw(hlist_next_rcu( \
-+			&(pos)->member)), typeof(*(pos)), member))
- 
- #endif	/* __KERNEL__ */
- #endif
-diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
-index c8df022..fa4341f 100644
---- a/net/tipc/name_table.c
-+++ b/net/tipc/name_table.c
-@@ -1110,7 +1110,7 @@ static int __tipc_nl_seq_list(struct tipc_nl_msg *msg, u32 *last_type,
- 			      u32 *last_lower, u32 *last_publ)
- {
- 	struct hlist_head *seq_head;
--	struct name_seq *seq = NULL;
-+	struct name_seq *seq;
- 	int err;
- 	int i;
- 
-@@ -1127,8 +1127,8 @@ static int __tipc_nl_seq_list(struct tipc_nl_msg *msg, u32 *last_type,
- 			if (!seq)
- 				return -EPIPE;
- 		} else {
--			hlist_for_each_entry_rcu(seq, seq_head, ns_list)
--				break;
-+			seq = hlist_entry_safe(rcu_dereference_raw(
-+			hlist_first_rcu(seq_head)), struct name_seq, ns_list);
- 			if (!seq)
- 				continue;
- 		}
--- 
-1.7.9.5
+> ---
+>  net/dsa/slave.c |   19 +++++++++++++++----
+>  1 file changed, 15 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+> index 528380a..6f89caa 100644
+> --- a/net/dsa/slave.c
+> +++ b/net/dsa/slave.c
+> @@ -512,7 +512,7 @@ static int dsa_slave_fixed_link_update(struct net_device *dev,
+>  }
+>  
+>  /* slave device setup *******************************************************/
+> -static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
+> +static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+>  				struct net_device *slave_dev)
+>  {
+>  	struct dsa_switch *ds = p->parent;
+> @@ -533,7 +533,7 @@ static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
+>  		ret = of_phy_register_fixed_link(port_dn);
+>  		if (ret) {
+>  			netdev_err(slave_dev, "failed to register fixed PHY\n");
+> -			return;
+> +			return ret;
+>  		}
+>  		phy_is_fixed = true;
+>  		phy_dn = port_dn;
+> @@ -555,12 +555,17 @@ static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
+>  	 */
+>  	if (!p->phy) {
+>  		p->phy = ds->slave_mii_bus->phy_map[p->port];
+> -		phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
+> +		if(p->phy)
+> +			phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
+>  				   p->phy_interface);
+> +		else
+> +			return -ENODEV;
+> +
+>  	} else {
+>  		netdev_info(slave_dev, "attached PHY at address %d [%s]\n",
+>  			    p->phy->addr, p->phy->drv->name);
+>  	}
+> +	return 0;
+>  }
+>  
+>  int dsa_slave_suspend(struct net_device *slave_dev)
+> @@ -653,7 +658,13 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+>  	p->old_link = -1;
+>  	p->old_duplex = -1;
+>  
+> -	dsa_slave_phy_setup(p, slave_dev);
+> +	ret = dsa_slave_phy_setup(p, slave_dev);
+> +	if (ret) {
+> +		netdev_err(master, "error %d registering interface %s\n",
+> +			   ret, slave_dev->name);
+> +		free_netdev(slave_dev);
+> +		return NULL;
+> +	}
+>  
+>  	ret = register_netdev(slave_dev);
+>  	if (ret) {
+> 
