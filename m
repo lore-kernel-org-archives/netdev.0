@@ -1,81 +1,80 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC PATCH 0/3] Faster than SLAB caching of SKBs with qmempool
- (backed by alf_queue)
-Date: Wed, 10 Dec 2014 15:40:19 +0100
-Message-ID: <20141210154019.598da6d8@redhat.com>
-References: <20141210033902.2114.68658.stgit@ahduyck-vm-fedora20>
-	<20141210141332.31779.56391.stgit@dragon>
-	<063D6719AE5E284EB5DD2968C1650D6D1CA0A193@AcuExch.aculab.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH nf-next 0/2] netfilter: conntrack: route cache for
+ forwarded connections
+Date: Wed, 10 Dec 2014 15:42:06 +0100
+Message-ID: <20141210144206.GH6672@breakpoint.cc>
+References: <1418052964-4632-1-git-send-email-fw@strlen.de>
+ <20141210141319.GA5028@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-mm@kvack.org" <linux-mm@kvack.org>,
-        Christoph Lameter
- <cl@linux.com>,
-        "linux-api@vger.kernel.org" <linux-api@vger.kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        "David S. Miller"
- <davem@davemloft.net>,
-        "Hannes Frederic Sowa" <hannes@stressinduktion.org>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        Alexei Starovoitov
- <ast@plumgrid.com>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
-        Steven Rostedt
- <rostedt@goodmis.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CA0A193@AcuExch.aculab.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, brouer@redhat.com,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141210141319.GA5028@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 10 Dec 2014 14:22:22 +0000
-David Laight <David.Laight@ACULAB.COM> wrote:
-
-> From: Jesper Dangaard Brouer
-> > The network stack have some use-cases that puts some extreme demands
-> > on the memory allocator.  One use-case, 10Gbit/s wirespeed at smallest
-> > packet size[1], requires handling a packet every 67.2 ns (nanosec).
+Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> On Mon, Dec 08, 2014 at 04:36:02PM +0100, Florian Westphal wrote:
+> > [ Pablo, in case you deem this too late for -next just let me know
+> > and I will resend once its open again ]
 > > 
-> > Micro benchmarking[2] the SLUB allocator (with skb size 256bytes
-> > elements), show "fast-path" instant reuse only costs 19 ns, but a
-> > closer to network usage pattern show the cost rise to 45 ns.
+> > This adds an optional forward routing cache extension for netfilter
+> > connection tracking.
 > > 
-> > This patchset introduce a quick mempool (qmempool), which when used
-> > in-front of the SKB (sk_buff) kmem_cache, saves 12 ns on "fast-path"
-> > drop in iptables "raw" table, but more importantly saves 40 ns with
-> > IP-forwarding, which were hitting the slower SLUB use-case.
+> > The memory cost is an additional 32 bytes per conntrack entry
+> > on x86_64.
 > > 
+> > Unlike any other currently implemented connection tracking
+> > extension the rtcache has no run-time tunables, it is always active.
 > > 
-> > One of the building blocks for achieving this speedup is a cmpxchg
-> > based Lock-Free queue that supports bulking, named alf_queue for
-> > Array-based Lock-Free queue.  By bulking elements (pointers) from the
-> > queue, the cost of the cmpxchg (approx 8 ns) is amortized over several
-> > elements.
+> > Also, unlike other conntrack extensions, it can be built as a module,
+> > in this case modprobe/rmmod are used to enable/disable the cache.
 > 
-> It seems to me that these improvements could be added to the
-> underlying allocator itself.
-> Nesting allocators doesn't really seem right to me.
+> I expect distributors will provide this a module. I think we should
+> provide features that can be enable/disable in some way, in this case
+> it can be modprobe/rmmod.
 
-Yes, I would very much like to see these ideas integrated into the
-underlying allocators (hence addressing the mm-list).
+Yes, I just wanted to mention this in case someone thinks a sysctl is
+must-have.
 
-This patchset demonstrates that it is possible to do something faster
-than the existing SLUB allocator.  Which the network stack have a need
-for.
+I did not want to add sysctl "just because" as we cannot easily rip
+them out later.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+> BTW, did you evaluate Eric's alternative? Any comment on that?
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Right, sorry.  So Eric suggested to leverage existing early demux.
+
+This would work, but I found several disadvantages, namely it would:
+
+1. only work for protocols that have early demux support
+2. have to add some sort of new mini-sk to the "right" data
+structure (udp_table, tcp_hashinfo) so not just af but l4 specific
+handling
+3. add more code to L4 protocol handlers
+4. add some upper ceiling for such "forward sockets".
+5. devise a scheme by which to zap the entry again
+
+4+5 can be avoided by embedding the "forward sock" inside conntrack,
+but that would mean we get larger code than this patch while still
+retaining the conntrack dependency.
+
+And without conntrack, I'm not sure how one would go about
+adding such route cache without adding back all the problems it had.
+
+> If the merge window remains open, I'll take the pending patches in
+> patchwork and send a new batch for David by tomorrow morning.
+> 
+> Let me know, thanks.
+
+Ok.  I can send a rebased V3.  OTOH, I don't want to rush things.
+
+If you think further discussion is needed before deciding to go with
+a conntrack-based route cache then lets do that.
+
+In this case I can resend the v3 once next is open again plus a summary
+of the alternatives/problems and we can take it from there.
+
