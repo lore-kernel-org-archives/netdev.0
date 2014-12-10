@@ -1,44 +1,61 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2 iproute2] ipaddress: enable -details option
-Date: Tue, 9 Dec 2014 20:14:38 -0800
-Message-ID: <20141209201438.6f390256@urahara>
-References: <20141125061023.GA8819@unicorn.suse.cz>
-	<1417711267-13334-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [net-next PATCH 1/6] net: Split netdev_alloc_frag into
+ __alloc_page_frag and add __napi_alloc_frag
+Date: Tue, 9 Dec 2014 20:16:14 -0800
+Message-ID: <CAMEtUuwNjq4PnYnou7a+PhbXdYBKwmQajHADMyqyEkhT7WeEnQ@mail.gmail.com>
+References: <20141210033902.2114.68658.stgit@ahduyck-vm-fedora20>
+	<20141210034042.2114.29360.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org, mkubecek@suse.cz,
-	jbenc@redhat.com
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:46679 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755217AbaLJEOs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 23:14:48 -0500
-Received: by mail-pa0-f49.google.com with SMTP id eu11so1943103pac.8
-        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 20:14:48 -0800 (PST)
-In-Reply-To: <1417711267-13334-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail-qa0-f54.google.com ([209.85.216.54]:42241 "EHLO
+	mail-qa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755310AbaLJEQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 23:16:15 -0500
+Received: by mail-qa0-f54.google.com with SMTP id i13so1503634qae.27
+        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 20:16:14 -0800 (PST)
+In-Reply-To: <20141210034042.2114.29360.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu,  4 Dec 2014 17:41:07 +0100
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+On Tue, Dec 9, 2014 at 7:40 PM, Alexander Duyck
+<alexander.h.duyck@redhat.com> wrote:
+> This patch splits the netdev_alloc_frag function up so that it can be used
+> on one of two page frag pools instead of being fixed on the
+> netdev_alloc_cache.  By doing this we can add a NAPI specific function
+> __napi_alloc_frag that accesses a pool that is only used from softirq
+> context.  The advantage to this is that we do not need to call
+> local_irq_save/restore which can be a significant savings.
+>
+> I also took the opportunity to refactor the core bits that were placed in
+> __alloc_page_frag.  First I updated the allocation to do either a 32K
+> allocation or an order 0 page.  This is based on the changes in commmit
+> d9b2938aa where it was found that latencies could be reduced in case of
 
-> This option was used only for 'ip link', but it can be useful to have it for
-> 'ip address'. Thus it is possible to display link details and addresses with one
-> command.
-> 
-> Example:
-> $ ip -d a ls dev gre1
-> 9: gre1@NONE: <POINTOPOINT,NOARP,UP,LOWER_UP> mtu 1468 qdisc noqueue state UNKNOWN group default
->     link/gre 10.16.0.249 peer 10.16.0.121 promiscuity 0
->     gre remote 10.16.0.121 local 10.16.0.249 ttl inherit ikey 0.0.0.10 okey 0.0.0.10 icsum ocsum
->     inet 192.168.0.249 peer 192.168.0.121/32 scope global gre1
->        valid_lft forever preferred_lft forever
->     inet6 fe80::5efe:a10:f9/64 scope link
->        valid_lft forever preferred_lft forever
-> 
-> Suggested-by: Christophe Gouault <christophe.gouault@6wind.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+thanks for explaining that piece of it.
 
-Looks good, accepted.
+> +       struct page *page = NULL;
+> +       gfp_t gfp = gfp_mask;
+> +
+> +       if (order) {
+> +               gfp_mask |= __GFP_COMP | __GFP_NOWARN | __GFP_NORETRY;
+> +               page = alloc_pages_node(NUMA_NO_NODE, gfp_mask, order);
+> +               nc->frag.size = PAGE_SIZE << (page ? order : 0);
+> +       }
+>
+> -       local_irq_save(flags);
+> -       nc = this_cpu_ptr(&netdev_alloc_cache);
+> -       if (unlikely(!nc->frag.page)) {
+> +       if (unlikely(!page))
+> +               page = alloc_pages_node(NUMA_NO_NODE, gfp, 0);
+
+I'm guessing you're not combining this 'if' with above one to
+keep gfp untouched, so there is a 'warn' when it actually fails 2nd time.
+Tricky :)
+Anyway looks good to me and I think I understand it enough to say:
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
