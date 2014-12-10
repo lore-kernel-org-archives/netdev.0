@@ -1,7 +1,9 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH 0/6] net: Alloc NAPI page frags from their own pool
-Date: Tue, 09 Dec 2014 19:40:35 -0800
-Message-ID: <20141210033902.2114.68658.stgit@ahduyck-vm-fedora20>
+Subject: [net-next PATCH 1/6] net: Split netdev_alloc_frag into
+ __alloc_page_frag and add __napi_alloc_frag
+Date: Tue, 09 Dec 2014 19:40:42 -0800
+Message-ID: <20141210034042.2114.29360.stgit@ahduyck-vm-fedora20>
+References: <20141210033902.2114.68658.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,45 +11,197 @@ Cc: ast@plumgrid.com, davem@davemloft.net, eric.dumazet@gmail.com,
 	brouer@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46300 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:43646 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753370AbaLJDkm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2014 22:40:42 -0500
+	id S1753789AbaLJDkt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2014 22:40:49 -0500
+In-Reply-To: <20141210033902.2114.68658.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series implements a means of allocating page fragments without
-the need for the local_irq_save/restore in __netdev_alloc_frag.  By doing
-this I am able to decrease packet processing time by 11ns per packet in my
-test environment.
+This patch splits the netdev_alloc_frag function up so that it can be used
+on one of two page frag pools instead of being fixed on the
+netdev_alloc_cache.  By doing this we can add a NAPI specific function
+__napi_alloc_frag that accesses a pool that is only used from softirq
+context.  The advantage to this is that we do not need to call
+local_irq_save/restore which can be a significant savings.
 
+I also took the opportunity to refactor the core bits that were placed in
+__alloc_page_frag.  First I updated the allocation to do either a 32K
+allocation or an order 0 page.  This is based on the changes in commmit
+d9b2938aa where it was found that latencies could be reduced in case of
+failures.  Then I also rewrote the logic to work from the end of the page to
+the start.  By doing this the size value doesn't have to be used unless we
+have run out of space for page fragments.  Finally I cleaned up the atomic
+bits so that we just do an atomic_sub_and_test and if that returns true then
+we set the page->_count via an atomic_set.  This way we can remove the extra
+conditional for the atomic_read since it would have led to an atomic_inc in
+the case of success anyway.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
+ include/linux/skbuff.h |    2 +
+ net/core/skbuff.c      |  117 ++++++++++++++++++++++++++++++++----------------
+ 2 files changed, 79 insertions(+), 40 deletions(-)
 
-Alexander Duyck (6):
-      net: Split netdev_alloc_frag into __alloc_page_frag and add __napi_alloc_frag
-      net: Pull out core bits of __netdev_alloc_skb and add __napi_alloc_skb
-      ethernet/intel: Use napi_alloc_skb
-      cxgb: Use napi_alloc_skb instead of netdev_alloc_skb_ip_align
-      ethernet/realtek: use napi_alloc_skb instead of netdev_alloc_skb_ip_align
-      ethernet/broadcom: Use napi_alloc_skb instead of netdev_alloc_skb_ip_align
-
-
- drivers/net/ethernet/broadcom/b44.c             |    2 
- drivers/net/ethernet/broadcom/bcm63xx_enet.c    |    2 
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    2 
- drivers/net/ethernet/chelsio/cxgb/sge.c         |   11 +
- drivers/net/ethernet/intel/e1000/e1000_main.c   |    2 
- drivers/net/ethernet/intel/e1000e/netdev.c      |    2 
- drivers/net/ethernet/intel/fm10k/fm10k_main.c   |    4 
- drivers/net/ethernet/intel/igb/igb_main.c       |    3 
- drivers/net/ethernet/intel/ixgb/ixgb_main.c     |    6 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |    4 
- drivers/net/ethernet/realtek/8139cp.c           |    2 
- drivers/net/ethernet/realtek/8139too.c          |    2 
- drivers/net/ethernet/realtek/r8169.c            |    2 
- include/linux/skbuff.h                          |   11 +
- net/core/dev.c                                  |    2 
- net/core/skbuff.c                               |  191 +++++++++++++++++------
- 16 files changed, 178 insertions(+), 70 deletions(-)
-
---
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index ef64cec..b2b53b0 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2164,6 +2164,8 @@ static inline struct sk_buff *netdev_alloc_skb_ip_align(struct net_device *dev,
+ 	return __netdev_alloc_skb_ip_align(dev, length, GFP_ATOMIC);
+ }
+ 
++void *napi_alloc_frag(unsigned int fragsz);
++
+ /**
+  * __dev_alloc_pages - allocate page for network Rx
+  * @gfp_mask: allocation priority. Set __GFP_NOMEMALLOC if not for network Rx
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 7a338fb..56ed17c 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -336,59 +336,85 @@ struct netdev_alloc_cache {
+ 	unsigned int		pagecnt_bias;
+ };
+ static DEFINE_PER_CPU(struct netdev_alloc_cache, netdev_alloc_cache);
++static DEFINE_PER_CPU(struct netdev_alloc_cache, napi_alloc_cache);
+ 
+-static void *__netdev_alloc_frag(unsigned int fragsz, gfp_t gfp_mask)
++static struct page *__page_frag_refill(struct netdev_alloc_cache *nc,
++				       gfp_t gfp_mask)
+ {
+-	struct netdev_alloc_cache *nc;
+-	void *data = NULL;
+-	int order;
+-	unsigned long flags;
++	const unsigned int order = NETDEV_FRAG_PAGE_MAX_ORDER;
++	struct page *page = NULL;
++	gfp_t gfp = gfp_mask;
++
++	if (order) {
++		gfp_mask |= __GFP_COMP | __GFP_NOWARN | __GFP_NORETRY;
++		page = alloc_pages_node(NUMA_NO_NODE, gfp_mask, order);
++		nc->frag.size = PAGE_SIZE << (page ? order : 0);
++	}
+ 
+-	local_irq_save(flags);
+-	nc = this_cpu_ptr(&netdev_alloc_cache);
+-	if (unlikely(!nc->frag.page)) {
++	if (unlikely(!page))
++		page = alloc_pages_node(NUMA_NO_NODE, gfp, 0);
++
++	nc->frag.page = page;
++
++	return page;
++}
++
++static void *__alloc_page_frag(struct netdev_alloc_cache __percpu *cache,
++			       unsigned int fragsz, gfp_t gfp_mask)
++{
++	struct netdev_alloc_cache *nc = this_cpu_ptr(cache);
++	struct page *page = nc->frag.page;
++	unsigned int size;
++	int offset;
++
++	if (unlikely(!page)) {
+ refill:
+-		for (order = NETDEV_FRAG_PAGE_MAX_ORDER; ;) {
+-			gfp_t gfp = gfp_mask;
++		page = __page_frag_refill(nc, gfp_mask);
++		if (!page)
++			return NULL;
++
++		/* if size can vary use frag.size else just use PAGE_SIZE */
++		size = NETDEV_FRAG_PAGE_MAX_ORDER ? nc->frag.size : PAGE_SIZE;
+ 
+-			if (order)
+-				gfp |= __GFP_COMP | __GFP_NOWARN;
+-			nc->frag.page = alloc_pages(gfp, order);
+-			if (likely(nc->frag.page))
+-				break;
+-			if (--order < 0)
+-				goto end;
+-		}
+-		nc->frag.size = PAGE_SIZE << order;
+ 		/* Even if we own the page, we do not use atomic_set().
+ 		 * This would break get_page_unless_zero() users.
+ 		 */
+-		atomic_add(NETDEV_PAGECNT_MAX_BIAS - 1,
+-			   &nc->frag.page->_count);
+-		nc->pagecnt_bias = NETDEV_PAGECNT_MAX_BIAS;
+-		nc->frag.offset = 0;
++		atomic_add(size - 1, &page->_count);
++
++		/* reset page count bias and offset to start of new frag */
++		nc->pagecnt_bias = size;
++		nc->frag.offset = size;
+ 	}
+ 
+-	if (nc->frag.offset + fragsz > nc->frag.size) {
+-		if (atomic_read(&nc->frag.page->_count) != nc->pagecnt_bias) {
+-			if (!atomic_sub_and_test(nc->pagecnt_bias,
+-						 &nc->frag.page->_count))
+-				goto refill;
+-			/* OK, page count is 0, we can safely set it */
+-			atomic_set(&nc->frag.page->_count,
+-				   NETDEV_PAGECNT_MAX_BIAS);
+-		} else {
+-			atomic_add(NETDEV_PAGECNT_MAX_BIAS - nc->pagecnt_bias,
+-				   &nc->frag.page->_count);
+-		}
+-		nc->pagecnt_bias = NETDEV_PAGECNT_MAX_BIAS;
+-		nc->frag.offset = 0;
++	offset = nc->frag.offset - fragsz;
++	if (unlikely(offset < 0)) {
++		if (!atomic_sub_and_test(nc->pagecnt_bias, &page->_count))
++			goto refill;
++
++		/* if size can vary use frag.size else just use PAGE_SIZE */
++		size = NETDEV_FRAG_PAGE_MAX_ORDER ? nc->frag.size : PAGE_SIZE;
++
++		/* OK, page count is 0, we can safely set it */
++		atomic_set(&page->_count, size);
++
++		/* reset page count bias and offset to start of new frag */
++		nc->pagecnt_bias = size;
++		offset = size - fragsz;
+ 	}
+ 
+-	data = page_address(nc->frag.page) + nc->frag.offset;
+-	nc->frag.offset += fragsz;
+ 	nc->pagecnt_bias--;
+-end:
++	nc->frag.offset = offset;
++
++	return page_address(page) + offset;
++}
++
++static void *__netdev_alloc_frag(unsigned int fragsz, gfp_t gfp_mask)
++{
++	unsigned long flags;
++	void *data;
++
++	local_irq_save(flags);
++	data = __alloc_page_frag(&netdev_alloc_cache, fragsz, gfp_mask);
+ 	local_irq_restore(flags);
+ 	return data;
+ }
+@@ -406,6 +432,17 @@ void *netdev_alloc_frag(unsigned int fragsz)
+ }
+ EXPORT_SYMBOL(netdev_alloc_frag);
+ 
++static void *__napi_alloc_frag(unsigned int fragsz, gfp_t gfp_mask)
++{
++	return __alloc_page_frag(&napi_alloc_cache, fragsz, gfp_mask);
++}
++
++void *napi_alloc_frag(unsigned int fragsz)
++{
++	return __napi_alloc_frag(fragsz, GFP_ATOMIC | __GFP_COLD);
++}
++EXPORT_SYMBOL(napi_alloc_frag);
++
+ /**
+  *	__netdev_alloc_skb - allocate an skbuff for rx on a specific device
+  *	@dev: network device to receive on
