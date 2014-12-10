@@ -1,127 +1,73 @@
-From: "Varlese, Marco" <marco.varlese@intel.com>
-Subject: [RFC PATCH net-next 1/1] net: Support for switch port configuration
-Date: Wed, 10 Dec 2014 16:23:40 +0000
-Message-ID: <C4896FB061E7DE4AAC93031BDCA044B104AC3257@IRSMSX108.ger.corp.intel.com>
+From: Karen Xie <kxie@chelsio.com>
+Subject: RE: [PATCH net v5 2/7] cxgb4i: fix credit check for tx_data_wr
+Date: Wed, 10 Dec 2014 16:27:22 +0000
+Message-ID: <1442C3287A121140B690F7F20F94463D82EC63@nice.asicdesigners.com>
+References: <201412100143.sBA1hSF4024918@localhost6.localdomain6>
+ <54885415.4020105@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	"jiri@resnulli.us" <jiri@resnulli.us>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: Hariprasad S <hariprasad@chelsio.com>,
+	Anish Bhatt <anish@chelsio.com>,
+	"hch@infradead.org" <hch@infradead.org>,
+	"James.Bottomley@HansenPartnership.com"
+	<James.Bottomley@HansenPartnership.com>,
+	"michaelc@cs.wisc.edu" <michaelc@cs.wisc.edu>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:60687 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758008AbaLJQ2o convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 11:28:44 -0500
+Received: from stargate.chelsio.com ([67.207.112.58]:12354 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756091AbaLJQ3I convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 11:29:08 -0500
+In-Reply-To: <54885415.4020105@cogentembedded.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marco Varlese <marco.varlese@intel.com>
+Thanks for the review. V6 has been submitted to address this.
 
-Switch hardware offers a list of attributes that are configurable
-on a per port basis.
-This patch provides a mechanism to configure switch ports by adding
-an NDO for setting specific values to specific attributes.
-There will be a separate patch that extends iproute2 to call the
-new NDO.
+-----Original Message-----
+From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com] 
+Sent: Wednesday, December 10, 2014 6:09 AM
+To: Karen Xie; linux-scsi@vger.kernel.org; netdev@vger.kernel.org
+Cc: Hariprasad S; Anish Bhatt; hch@infradead.org; James.Bottomley@HansenPartnership.com; michaelc@cs.wisc.edu; davem@davemloft.net
+Subject: Re: [PATCH net v5 2/7] cxgb4i: fix credit check for tx_data_wr
 
-Signed-off-by: Marco Varlese <marco.varlese@intel.com>
----
- include/linux/netdevice.h    |  5 +++++
- include/uapi/linux/if_link.h |  1 +
- net/core/rtnetlink.c         | 33 +++++++++++++++++++++++++++++++++
- 3 files changed, 39 insertions(+)
+Hello.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index c31f74d..4881c7b 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1027,6 +1027,9 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
-  * int (*ndo_switch_port_stp_update)(struct net_device *dev, u8 state);
-  *	Called to notify switch device port of bridge port STP
-  *	state change.
-+ * int (*ndo_switch_port_set_cfg)(struct net_device *dev,
-+ *                                u32 attr, u64 value);
-+ *	Called to set specific switch ports attributes.
-  */
- struct net_device_ops {
- 	int			(*ndo_init)(struct net_device *dev);
-@@ -1185,6 +1188,8 @@ struct net_device_ops {
- 							    struct netdev_phys_item_id *psid);
- 	int			(*ndo_switch_port_stp_update)(struct net_device *dev,
- 							      u8 state);
-+	int			(*ndo_switch_port_set_cfg)(struct net_device *dev,
-+							   u32 attr, u64 value);
- #endif
- };
- 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index f7d0d2d..b35c314 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -146,6 +146,7 @@ enum {
- 	IFLA_PHYS_PORT_ID,
- 	IFLA_CARRIER_CHANGES,
- 	IFLA_PHYS_SWITCH_ID,
-+	IFLA_SWITCH_PORT_CFG,
- 	__IFLA_MAX
- };
- 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index eaa057f..e1be9ca 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1389,6 +1389,25 @@ static int validate_linkmsg(struct net_device *dev, struct nlattr *tb[])
- 	return 0;
- }
- 
-+#ifdef CONFIG_NET_SWITCHDEV
-+static int do_setswcfg(struct net_device *dev, struct nlattr *attr)
-+{
-+	int rem, err = -EINVAL;
-+	struct nlattr *v;
-+	const struct net_device_ops *ops = dev->netdev_ops;
-+
-+	nla_for_each_nested(v, attr, rem) {
-+		u32 op = nla_type(v);
-+		u64 value = nla_get_u64(v);
-+
-+		err = ops->ndo_switch_port_set_cfg(dev, op, value);
-+		if (err)
-+			break;
-+	}
-+	return err;
-+}
-+#endif
-+
- static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
- {
- 	int rem, err = -EINVAL;
-@@ -1740,6 +1759,20 @@ static int do_setlink(const struct sk_buff *skb,
- 			status |= DO_SETLINK_NOTIFY;
- 		}
- 	}
-+#ifdef CONFIG_NET_SWITCHDEV
-+	if (tb[IFLA_SWITCH_PORT_CFG]) {
-+		err = -EOPNOTSUPP;
-+		if (!ops->ndo_switch_port_set_cfg)
-+			goto errout;
-+		if (!ops->ndo_switch_parent_id_get)
-+			goto errout;
-+		err = do_setswcfg(dev, tb[IFLA_SWITCH_PORT_CFG]);
-+		if (err < 0)
-+			goto errout;
-+
-+		status |= DO_SETLINK_NOTIFY;
-+	}
-+#endif
- 	err = 0;
- 
- errout:
--- 
-1.8.5.3
+On 12/10/2014 4:43 AM, Karen Xie wrote:
+
+> [PATCH net v5 2/7] cxgb4i: fix credit check for tx_data_wr
+
+> From: Karen Xie <kxie@chelsio.com>
+
+> make sure any tx credit related checking is done before adding the wr header.
+
+> Signed-off-by: Karen Xie <kxie@chelsio.com>
+> ---
+>   drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |    9 +++++----
+>   1 files changed, 5 insertions(+), 4 deletions(-)
+
+> diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c 
+> b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+> index f119a67..56dbd25 100644
+> --- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+> +++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+> @@ -547,15 +547,16 @@ static inline void make_tx_data_wr(struct 
+> cxgbi_sock *csk, struct sk_buff *skb,
+[...]
+>   		req->op_to_immdlen = htonl(FW_WR_OP(FW_OFLD_TX_DATA_WR) |
+> -					FW_WR_COMPL(1) |
+> -					FW_WR_IMMDLEN(dlen));
+> +					   FW_WR_COMPL(1) |
+> +					   FW_WR_IMMDLEN(dlen));
+>   		req->flowid_len16 = htonl(FW_WR_FLOWID(csk->tid) |
+> -						FW_WR_LEN16(credits));
+> +					  FW_WR_LEN16(credits));
+
+    The above looks like unrelated cleanup, worth putting in a separate net-next patch...
+
+WBR, Sergei
