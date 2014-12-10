@@ -1,61 +1,61 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 2/2] gianfar: handle map error in gfar_start_xmit()
-Date: Wed, 10 Dec 2014 11:03:51 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CA09ED4@AcuExch.aculab.com>
-References: <1417775874-17775-1-git-send-email-asolokha@kb.kras.ru>
-	<1417775874-17775-3-git-send-email-asolokha@kb.kras.ru>
- <20141209.153903.1672471330337681259.davem@davemloft.net>
+From: Jouni Malinen <jouni@codeaurora.org>
+Subject: Re: [PATCH] bridge: Remove BR_PROXYARP flooding check code
+Date: Wed, 10 Dec 2014 13:39:38 +0200
+Message-ID: <20141210113938.GA12093@jouni.qca.qualcomm.com>
+References: <1418052460-30691-1-git-send-email-jouni@codeaurora.org>
+ <20141209142158.7e513dbf@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "claudiu.manoil@freescale.com" <claudiu.manoil@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'David Miller' <davem@davemloft.net>,
-	"asolokha@kb.kras.ru" <asolokha@kb.kras.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141209.153903.1672471330337681259.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Kyeyoon Park <kyeyoonp@codeaurora.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.11.231]:56286 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751153AbaLJLjp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 06:39:45 -0500
+Content-Disposition: inline
+In-Reply-To: <20141209142158.7e513dbf@urahara>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller
-> From: Arseny Solokha <asolokha@kb.kras.ru>
-> Date: Fri,  5 Dec 2014 17:37:54 +0700
-> 
-> > @@ -2296,6 +2296,12 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> >  						   0,
-> >  						   frag_len,
-> >  						   DMA_TO_DEVICE);
-> > +			if (unlikely(dma_mapping_error(priv->dev, bufaddr))) {
-> > +				/* As DMA mapping failed, pretend the TX path
-> > +				 * is busy to retry later
-> > +				 */
-> > +				return NETDEV_TX_BUSY;
-> > +			}
-> 
-> You are not "busy", you are dropping the packet due to insufficient system
-> resources.
-> 
-> Therefore the appropriate thing to do is to free the SKB, increment
-> the drop statistical counter, and return NETDEV_TX_OK.
+On Tue, Dec 09, 2014 at 02:21:58PM -0800, Stephen Hemminger wrote:
+> On Mon,  8 Dec 2014 17:27:40 +0200
+> Jouni Malinen <jouni@codeaurora.org> wrote:
+> > diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+> > @@ -185,10 +185,6 @@ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
+> >  		if (unicast && !(p->flags & BR_FLOOD))
+> >  			continue;
+> >  
+> > -		/* Do not flood to ports that enable proxy ARP */
+> > -		if (p->flags & BR_PROXYARP)
+> > -			continue;
+> > -
+> >  		prev = maybe_deliver(prev, p, skb, __packet_hook);
 
-Plausibly the error action could depend on the number of messages
-in the transmit ring.
+> Aren't you at risk of duplicate ARP responses in some cases.
+> You can't assume user will run netfilter.
 
-If the ring is empty you definitely want to drop the packet.
+This is only for the case where BR_PROXYARP has been enabled by the
+user, but yes, it would be convenient to handle cases better without
+requiring netfilter and skip flooding to BR_PROXYARP port more
+selectively here. Would there be some convenient means for
+br_do_proxy_arp() to mark the skb that it has replied to in br_input.c
+and then use that here in br_forward.c to not flood an ARP request that
+has already been replied to? Or should this simply skip flooding of all
+ARP packets with something like following?
 
-If mapping a ring full of packets takes more dma map space than
-the system has available you may want to be "busy" - otherwise you
-get systemic packet loss when transmitting large burst of data.
+ 		if (unicast && !(p->flags & BR_FLOOD))
+ 			continue;
+ 
+-		/* Do not flood to ports that enable proxy ARP */
+-		if (p->flags & BR_PROXYARP)
++		/* Do not flood ARP to ports that enable proxy ARP */
++		if (p->flags & BR_PROXYARP &&
++		    skb->protocol == htons(ETH_P_ARP))
+ 			continue;
+ 
+ 		prev = maybe_deliver(prev, p, skb, __packet_hook);
 
-This could be a problem if all the available dma mapping resources
-have been allocated to receive buffers.
-
-Do any common systems actually have limited dma space (apart from
-limited bounce buffers)?
-If people are only testing on systems with unlimited dma space (eg x86)
-then these paths will never be exercised unless an artificial limit
-is applied.
-
-	David
+-- 
+Jouni Malinen                                            PGP id EFC895FA
