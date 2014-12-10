@@ -1,65 +1,164 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v8 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Wed, 10 Dec 2014 10:35:20 +0100
-Message-ID: <2331317.LV3gPP3odb@wuerfel>
-References: <1397869980-21187-1-git-send-email-zhangfei.gao@linaro.org> <5487C357.9030507@huawei.com> <5487EC09.8090907@huawei.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v2 2/4] swdevice: add new api to set and del
+ bridge port attributes
+Date: Wed, 10 Dec 2014 10:37:55 +0100
+Message-ID: <20141210093755.GB1863@nanopsycho.orion>
+References: <1418202320-19491-3-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Alexander Graf <agraf@suse.de>,
-	Zhangfei Gao <zhangfei.gao@linaro.org>, davem@davemloft.net,
-	linux@arm.linux.org.uk, f.fainelli@gmail.com,
-	sergei.shtylyov@cogentembedded.com, mark.rutland@arm.com,
-	David.Laight@aculab.com, eric.dumazet@gmail.com,
-	xuwei5@hisilicon.com, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, devicetree@vger.kernel.org
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
+	john.fastabend@gmail.com, stephen@networkplumber.org,
+	linville@tuxdriver.com, vyasevic@redhat.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
+To: roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.24]:64529 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752352AbaLJJgU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 04:36:20 -0500
-In-Reply-To: <5487EC09.8090907@huawei.com>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:34060 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750775AbaLJJh5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 04:37:57 -0500
+Received: by mail-wi0-f178.google.com with SMTP id em10so4450977wid.11
+        for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 01:37:56 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1418202320-19491-3-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 10 December 2014 14:45:29 Ding Tianhong wrote:
+Wed, Dec 10, 2014 at 10:05:18AM CET, roopa@cumulusnetworks.com wrote:
+>From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+>This patch adds two new api's netdev_switch_port_bridge_setlink
+>and netdev_switch_port_bridge_dellink to offload bridge port attributes
+>to switch asic
+>
+>(The names of the apis look odd with 'switch_port_bridge',
+>but am more inclined to change the prefix of the api to something else.
+>Will take any suggestions).
+>
+>The api's look at the NETIF_F_HW_NETFUNC_OFFLOAD feature flag to
+>pass bridge port attributes to the port device.
+>
+>If the device has the NETIF_F_HW_NETFUNC_OFFLOAD, but does not support
+>the bridge port attribute offload ndo, call bridge port attribute ndo's on
+>the lowerdevs if supported. This is one way to pass bridge port attributes
+>through stacked netdevs (example when bridge port is a bond and bond slaves
+>are switch ports).
+>
+>Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>---
+> include/net/switchdev.h   |    5 +++-
+> net/switchdev/switchdev.c |   70 +++++++++++++++++++++++++++++++++++++++++++++
+> 2 files changed, 74 insertions(+), 1 deletion(-)
+>
+>diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+>index 8a6d164..22676b6 100644
+>--- a/include/net/switchdev.h
+>+++ b/include/net/switchdev.h
+>@@ -17,7 +17,10 @@
+> int netdev_switch_parent_id_get(struct net_device *dev,
+> 				struct netdev_phys_item_id *psid);
+> int netdev_switch_port_stp_update(struct net_device *dev, u8 state);
+>-
+>+int netdev_switch_port_bridge_setlink(struct net_device *dev,
+>+				struct nlmsghdr *nlh, u16 flags);
+>+int netdev_switch_port_bridge_dellink(struct net_device *dev,
+>+				struct nlmsghdr *nlh, u16 flags);
+> #else
 > 
-> Miss this code, I think the best way is skb_orphan(skb), just like the cxgb3 drivers, some hardware
-> didn't use the tx inq to free dmad Tx packages.
+> static inline int netdev_switch_parent_id_get(struct net_device *dev,
+>diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+>index d162b21..62317e1 100644
+>--- a/net/switchdev/switchdev.c
+>+++ b/net/switchdev/switchdev.c
+>@@ -50,3 +50,73 @@ int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
+> 	return ops->ndo_switch_port_stp_update(dev, state);
+> }
+> EXPORT_SYMBOL(netdev_switch_port_stp_update);
+>+
+>+/**
+>+ *	netdev_switch_port_bridge_setlink - Notify switch device port of bridge
+>+ *	port attributes
+>+ *
+>+ *	@dev: port device
+>+ *	@nlh: netlink msg with bridge port attributes
+>+ *
+>+ *	Notify switch device port of bridge port attributes
+>+ */
+>+int netdev_switch_port_bridge_setlink(struct net_device *dev,
+>+									  struct nlmsghdr *nlh, u16 flags)
+>+{
+>+	const struct net_device_ops *ops = dev->netdev_ops;
+>+	struct net_device *lower_dev;
+>+	struct list_head *iter;
+>+	int ret = 0, err = 0;
+>+
+>+	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
+>+		return err;
+>+
+>+	if (ops->ndo_bridge_setlink) {
+>+	    WARN_ON(!ops->ndo_switch_parent_id_get);
+>+	    return ops->ndo_bridge_setlink(dev, nlh, flags);
 
-The problem with skb_orphan is that you are telling the network stack that
-the packet is now out of its reach and it will no longer be able to take
-queued packets into account. This can work as long as you are guaranteed
-to never fill up the tx queue and assume that the network link is always
-faster than your CPUs, but then you have to do additional steps, at least:
+	You have to change ndo_bridge_setlink in netdevice.h first.
+	Otherwise when only this patch is applied (during bisection)
+	this won't compile.
 
-- turn off flow control (pause frames)
-- disable half-duplex, 10mbit and 100mbit connections
-- remove the byte queue limit code from the driver
-- never call netif_stop_queue or return NETDEV_TX_BUSY from the tx
-  function, but instead drop the oldest packets from the tx queue
-  to make room, and rely on higher-level protocols (TCP) to throttle
-  the output
-- for best throughput, don't bother looking at the status of the tx
-  queue until it has filled up, then clean up all transmitted packets
-  (if any) but at least enough so you can continue sending a bit longer.
 
-The above can work because you know the device is only used in one SoC
-that has a relatively slow CPU. I would describe it as "we don't know
-how much data we can send, but in doubt we send more and do our best
-to make that case as rare as possible". It's also management friendly
-because you can reach higher-than-gigabit transmit rates this way
-if you ignore the packet loss ;-). The price for this is that you
-eventually have to retransmit packets that get dropped.
+>+	}
+>+
+>+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
 
-The alternative to this is to keep all the features of the network
-stack in place and to keep retrying the tx cleanup in some way so
-you don't have to orphan or drop any skbs. This could be as easy as
+	I do not understand why to iterate over lower devices. At this
+	stage we don't know a thing about this upper or its lowers. Let
+	the uppers (/masters) to decide if this needs to be propagated
+	or not.
 
-- drop the skb_orphan() call
-- make hip04_tx_reclaim() return an error if the queue is still full
-- do not call napi_complete or turn on the rx irq if hip04_tx_reclaim
-  failed
+>+		err = netdev_switch_port_bridge_setlink(lower_dev, nlh, flags);
+>+		if (err)
+>+			ret = err;
+>+    }
 
-	Arnd
+ ^^^^^ Indent is off. This should be catched by scripts/checkpatch.pl.
+
+>+
+>+	return ret;
+>+}
+>+EXPORT_SYMBOL(netdev_switch_port_bridge_setlink);
+>+
+>+/**
+>+ *	netdev_switch_port_bridge_dellink - Notify switch device port of bridge
+>+ *	attribute delete
+>+ *
+>+ *	@dev: port device
+>+ *	@nlh: netlink msg with bridge port attributes
+>+ *
+>+ *	Notify switch device port of bridge port attribute delete
+>+ */
+>+int netdev_switch_port_bridge_dellink(struct net_device *dev,
+>+									  struct nlmsghdr *nlh, u16 flags)
+>+{
+>+	const struct net_device_ops *ops = dev->netdev_ops;
+>+	struct net_device *lower_dev;
+>+	struct list_head *iter;
+>+	int ret = 0, err = 0;
+>+
+>+	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
+>+		return err;
+>+
+>+	if (ops->ndo_bridge_dellink) {
+>+		WARN_ON(!ops->ndo_switch_parent_id_get);
+>+		return ops->ndo_bridge_dellink(dev, nlh, flags);
+>+	}
+>+
+>+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+>+		err = netdev_switch_port_bridge_dellink(lower_dev, nlh, flags);
+>+		if (err)
+>+			ret = err;
+>+	}
+>+
+>+	return ret;
+>+}
+>+EXPORT_SYMBOL(netdev_switch_port_bridge_dellink);
+>-- 
+>1.7.10.4
+>
