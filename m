@@ -1,7 +1,7 @@
 From: Karen Xie <kxie@chelsio.com>
-Subject: [PATCH net v4 1/7] cxgb4i: fix tx immediate data credit check
-Date: Tue, 09 Dec 2014 17:32:54 -0800
-Message-ID: <201412100132.sBA1WsVP024839@localhost6.localdomain6>
+Subject: [PATCH net v4 0/7] cxgb4/cxgbi: misc. fixes for cxgb4i
+Date: Tue, 09 Dec 2014 17:32:51 -0800
+Message-ID: <201412100132.sBA1WpsR024833@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
