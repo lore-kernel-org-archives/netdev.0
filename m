@@ -1,46 +1,80 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH v2] if_bridge: fix conflict with glibc
-Date: Tue, 9 Dec 2014 21:41:22 -0800
-Message-ID: <20141209214122.76b15851@urahara>
-References: <20141209203007.188651df@urahara>
-	<20141209.234954.1634249639621060084.davem@davemloft.net>
+From: Chris Ruehl <chris.ruehl@gtsys.com.hk>
+Subject: ipv6: oops in datagram.c line 260
+Date: Wed, 10 Dec 2014 13:43:01 +0800
+Message-ID: <5487DD65.60800@gtsys.com.hk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: gregory.0xf0@gmail.com, f.fainelli@gmail.com,
-	xiyou.wangcong@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:60065 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751395AbaLJFld (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 00:41:33 -0500
-Received: by mail-pd0-f173.google.com with SMTP id ft15so2085333pdb.4
-        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 21:41:32 -0800 (PST)
-In-Reply-To: <20141209.234954.1634249639621060084.davem@davemloft.net>
+Received: from mail.fpasia.hk ([202.130.89.98]:36980 "EHLO fpa01n0.fpasia.hk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751814AbaLJFnG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Dec 2014 00:43:06 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by fpa01n0.fpasia.hk (Postfix) with ESMTP id 8494DCC25B2
+	for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 13:43:03 +0800 (HKT)
+Received: from fpa01n0.fpasia.hk ([127.0.0.1])
+	by localhost (fpa01n0.office.fpa.com.hk [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id txtp2dgWq3LY for <netdev@vger.kernel.org>;
+	Wed, 10 Dec 2014 13:43:02 +0800 (HKT)
+Received: from s01.gtsys.com.hk (gtsnode.office.fpasia.hk [10.10.37.40])
+	by fpa01n0.fpasia.hk (Postfix) with ESMTP id 2936BCC25B1
+	for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 13:43:02 +0800 (HKT)
+Received: from [192.168.10.46] (unknown [118.140.73.106])
+	by s01.gtsys.com.hk (Postfix) with ESMTPSA id 7E03CC01F8F
+	for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 13:43:01 +0800 (HKT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Even though kernel and glibc headers have same effective values
-Gcc complains about redefinitions. Since this is a header expected
-to be used by userspace, use glibc header.
+Hi all,
 
-This supersedes change in commit 66f1c44887ba4f47d617f8ae21cf8e04e1892bd7
-and fixes build of iproute2 with Glibc-2.19. This follows similar usage
-in include/uapi/linux for l2tp.h
+We running a Dell server which crash frequently with (dell crash video 
+snapshot) vanilla 3.14.25
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Capture viewed here: http://www.gtsys.com.hk/~chris/datagram_c_line260.png
 
---- a/include/uapi/linux/if_bridge.h	2014-12-09 20:25:21.656016605 -0800
-+++ b/include/uapi/linux/if_bridge.h	2014-12-09 21:32:01.391034756 -0800
-@@ -15,7 +15,9 @@
- 
- #include <linux/types.h>
- #include <linux/if_ether.h>
--#include <linux/in6.h>
-+#ifndef __KERNEL__
-+#include <netinet/in.h>
-+#endif
- 
- #define SYSFS_BRIDGE_ATTR	"bridge"
- #define SYSFS_BRIDGE_FDB	"brforward"
+The capture don't sadly don't show the full trace, so we lack on 
+information.
+1st line I can see in the crash video from the idrac : 
+tcp_transmit_skb+0x461
+
+RIP [<ffffffff815da587>] ipv6_local_error+0x17/0x140
+
+The null pointer happen:
+  Type "apropos word" to search for commands related to "word"...
+Reading symbols from net/ipv6/datagram.o...done.
+(gdb) list *(ipv6_local_error+0x17)
+0xae7 is in ipv6_local_error (net/ipv6/datagram.c:260).
+255        struct ipv6_pinfo *np = inet6_sk(sk);
+256        struct sock_exterr_skb *serr;
+257        struct ipv6hdr *iph;
+258        struct sk_buff *skb;
+259
+260        if (!np->recverr)
+261            return;
+262
+263        skb = alloc_skb(sizeof(struct ipv6hdr), GFP_ATOMIC);
+264        if (!skb)
+(gdb) quit
+
+
+We running a 6in4 with ipsec tunnel on the 6. I found a pull request from
+Steffen Klassert
+here:
+     http://article.gmane.org/gmane.linux.network/281469
+
+Which might be relevant to this problem.
+
+For time being I add a
+
+         if (np == NULL){
+                 LIMIT_NETDEBUG(KERN_DEBUG "ipv6_pinfo is NULL\n");
+                 return;
+         }
+
+as work around to stop the server crashing
+
+
+With kind regards
+Chris
