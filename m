@@ -1,64 +1,61 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH 1/6] net: Split netdev_alloc_frag into __alloc_page_frag
- and add __napi_alloc_frag
-Date: Wed, 10 Dec 2014 09:06:56 -0800
-Message-ID: <54887DB0.7040903@gmail.com>
-References: <20141210033902.2114.68658.stgit@ahduyck-vm-fedora20>	 <20141210034042.2114.29360.stgit@ahduyck-vm-fedora20> <1418227328.27198.25.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "cristian.bercaru@freescale.com" <cristian.bercaru@freescale.com>
+Subject: atomic operations bottleneck in the IPv6 stack
+Date: Wed, 10 Dec 2014 16:56:38 +0000
+Message-ID: <SN2PR03MB079DA7799199CD98C52B5389E620@SN2PR03MB079.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@plumgrid.com, davem@davemloft.net,
-	brouer@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "R89243@freescale.com" <R89243@freescale.com>,
+	Madalin-Cristian Bucur <madalin.bucur@freescale.com>,
+	"Razvan.Ungureanu@freescale.com" <Razvan.Ungureanu@freescale.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:62334 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757433AbaLJRG6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 12:06:58 -0500
-Received: by mail-pd0-f173.google.com with SMTP id ft15so3128164pdb.18
-        for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 09:06:58 -0800 (PST)
-In-Reply-To: <1418227328.27198.25.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-by2on0108.outbound.protection.outlook.com ([207.46.100.108]:40192
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755924AbaLJRMR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 12:12:17 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/10/2014 08:02 AM, Eric Dumazet wrote:
-> On Tue, 2014-12-09 at 19:40 -0800, Alexander Duyck wrote:
->
->> I also took the opportunity to refactor the core bits that were placed in
->> __alloc_page_frag.  First I updated the allocation to do either a 32K
->> allocation or an order 0 page.  This is based on the changes in commmit
->> d9b2938aa where it was found that latencies could be reduced in case of
->> failures. 
->
-> GFP_KERNEL and GFP_ATOMIC allocation constraints are quite different.
->
-> I have no idea how expensive it is to attempt order-3, order-2, order-1
-> allocations with GFP_ATOMIC.
 
-The most likely case is the successful first allocation so I didn't see
-much point in trying to optimize for the failure cases.  I personally
-prefer to see a fast failure rather than one that is dragged out over
-several failed allocation attempts.  In addition I can get away with
-several optimization tricks that I cannot with the loop.
+Hello!
 
-> I did an interesting experiment on mlx4 driver, allocating the pages
-> needed to store the fragments, using a small layer before the
-> alloc_page() that is normally used :
->
-> - Attempt order-9 allocations, and use split_page() to give the
-> individual pages.
->
-> Boost in performance is 10% on TCP bulk receive, because of less TLB
-> misses.
->
-> With huge amount of memory these days, alloc_page() tend to give pages
-> spread all over memory, with poor TLB locality.
->
-> With this strategy, a 1024 RX ring is backed by 2 huge pages only.
+I am running IPv6 forwarding cases and I get worse performance with 24 cores than with 16 cores.
 
-That is an interesting idea.  I wonder if there would be a similar
-benefit for small packets.  If nothing else I might try a few
-experiments with ixgbe to see if I can take advantage of something similar.
+Test scenario:
+10G --->[T4240]---> 10G
+- platform: Freescale T4240, powerpc, 24 x e6500 64-bit cores (I can disable 8 of them from uboot)
+- input type: raw IPv6 78-byte packets
+- input rate: 10Gbps
+- forwarding/output rate: 16 cores - 3.3 Gbps; 24 cores - 2.4 Gbps
 
-- Alex
+Doing a perf with "record -C 1 -c 10000000 -a sleep 120" record I observe
+- on 16 cores
+# Overhead      Command      Shared Object       Symbol
+    19.59%  ksoftirqd/1  [kernel.kallsyms]  [k] .ip6_pol_route                      
+    18.07%  ksoftirqd/1  [kernel.kallsyms]  [k] .dst_release                        
+     5.09%  ksoftirqd/1  [kernel.kallsyms]  [k] .__netif_receive_skb_core           
+- on 24 cores
+    34.98%  ksoftirqd/1  [kernel.kallsyms]  [k] .ip6_pol_route                      
+    31.86%  ksoftirqd/1  [kernel.kallsyms]  [k] .dst_release                        
+     3.76%  ksoftirqd/1  [kernel.kallsyms]  [k] .ip6_finish_output2                 
+     2.72%  ksoftirqd/1  [kernel.kallsyms]  [k] .__netif_receive_skb_core           
+
+I de-inlined 'atomic_dec_return' and 'atomic_inc' that are used by 'ip6_pol_route' and 'dst_release' and I get
+- on 16 cores
+    17.26%  ksoftirqd/1  [kernel.kallsyms]  [k] .atomic_dec_return_noinline         
+    13.45%  ksoftirqd/1  [kernel.kallsyms]  [k] .atomic_inc_noinline                
+     5.53%  ksoftirqd/1  [kernel.kallsyms]  [k] .ip6_pol_route                      
+     5.02%  ksoftirqd/1  [kernel.kallsyms]  [k] .__netif_receive_skb_core           
+- on 24 cores
+    32.45%  ksoftirqd/1  [kernel.kallsyms]  [k] .atomic_dec_return_noinline         
+    30.56%  ksoftirqd/1  [kernel.kallsyms]  [k] .atomic_inc_noinline                
+     4.71%  ksoftirqd/1  [kernel.kallsyms]  [k] .ip6_pol_route                      
+     3.57%  ksoftirqd/1  [kernel.kallsyms]  [k] .ip6_finish_output2                 
+
+It seems to me that the atomic operations on the IPv6 forwarding path are a bottleneck and they are not scalable with the number of cores. Am I right? What improvements can be brought to the IPv6 kernel code to make it less dependent of atomic operations/variables?
+
+Thank you,
+Cristian Bercaru
