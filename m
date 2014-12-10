@@ -1,46 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: PATCH] Revert "bridge: include in6.h in if_bridge.h for struct
- in6_addr"
-Date: Tue, 09 Dec 2014 23:49:54 -0500 (EST)
-Message-ID: <20141209.234954.1634249639621060084.davem@davemloft.net>
-References: <20141209203007.188651df@urahara>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: fix sparse warning
+Date: Tue, 09 Dec 2014 21:40:18 -0800
+Message-ID: <1418190018.27198.12.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1418182101-7992-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: gregory.0xf0@gmail.com, f.fainelli@gmail.com,
-	xiyou.wangcong@gmail.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Ying Xue <ying.xue@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42022 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755265AbaLJEt7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 23:49:59 -0500
-In-Reply-To: <20141209203007.188651df@urahara>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:38894 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751752AbaLJFk2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 00:40:28 -0500
+Received: by mail-pd0-f179.google.com with SMTP id fp1so2096336pdb.10
+        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 21:40:28 -0800 (PST)
+In-Reply-To: <1418182101-7992-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Tue, 9 Dec 2014 20:30:07 -0800
-
-> This reverts commit 66f1c44887ba4f47d617f8ae21cf8e04e1892bd7.
+On Wed, 2014-12-10 at 11:28 +0800, Ying Xue wrote:
+> This fixes the following sparse warning when using
 > 
-> iproute2 uses sanitized kernel headers, and this change broke the build.
-> The problem is that the iproute2 ip/iplink_bridge_slave.c include if_bridge.h
-> but this causes a redefintion error when Glibc <netlink/in.h> is included.
+> make C=1 CF=-D__CHECK_ENDIAN__ net/ipv6/addrconf.o
+> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
 > 
-> Since iproute2 is arguably the most important user of network headers,
-> the uapi header change should be reverted.
+> To silence above spare complaint, an RCU annotation should be added
+> to next pointer of hlist_node structure through hlist_next_rcu() macro
+> when iterating over a hlist with hlist_for_each_entry_continue_rcu_bh().
 > 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> By the way, this commit also resolves the same error appearing in
+> hlist_for_each_entry_continue_rcu().
 
-Stephen, please understand first the reason for this change.
-
-GLIBC and the kernel fight over various definitions of core
-networking types.
-
-The only way to resolve this in the long term is this change
-in question.
-
-If you can make iproute2 work with both the new and the old
-mechanims, please do so instead of reverting this important
-change.
+This probably should be sent to lkml and CC Paul E. McKenney
