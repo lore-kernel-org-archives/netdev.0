@@ -1,43 +1,61 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: Re: [PATCH] stmmac: platform: adjust messages and move to dev level
-Date: Wed, 10 Dec 2014 12:47:51 +0200
-Message-ID: <1418208471.17201.56.camel@linux.intel.com>
-References: <1418119153-13355-1-git-send-email-andriy.shevchenko@linux.intel.com>
-	 <20141209.182837.2218983730769727387.davem@davemloft.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 2/2] gianfar: handle map error in gfar_start_xmit()
+Date: Wed, 10 Dec 2014 11:03:51 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CA09ED4@AcuExch.aculab.com>
+References: <1417775874-17775-1-git-send-email-asolokha@kb.kras.ru>
+	<1417775874-17775-3-git-send-email-asolokha@kb.kras.ru>
+ <20141209.153903.1672471330337681259.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:39839 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750911AbaLJKrv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Dec 2014 05:47:51 -0500
-In-Reply-To: <20141209.182837.2218983730769727387.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "claudiu.manoil@freescale.com" <claudiu.manoil@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'David Miller' <davem@davemloft.net>,
+	"asolokha@kb.kras.ru" <asolokha@kb.kras.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141209.153903.1672471330337681259.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-12-09 at 18:28 -0500, David Miller wrote:
-> From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-> Date: Tue,  9 Dec 2014 11:59:13 +0200
+From: David Miller
+> From: Arseny Solokha <asolokha@kb.kras.ru>
+> Date: Fri,  5 Dec 2014 17:37:54 +0700
 > 
-> > This patch amendes error and warning messages across the platform driver. It
-> > includes the following changes:
-> >  - remove unneccessary message when no memory is available
-> >  - change info level to warn in the validation functions
-> >  - append \n to the end of messages
-> >  - change pr_* macros to dev_*
-> > 
-> > Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+> > @@ -2296,6 +2296,12 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+> >  						   0,
+> >  						   frag_len,
+> >  						   DMA_TO_DEVICE);
+> > +			if (unlikely(dma_mapping_error(priv->dev, bufaddr))) {
+> > +				/* As DMA mapping failed, pretend the TX path
+> > +				 * is busy to retry later
+> > +				 */
+> > +				return NETDEV_TX_BUSY;
+> > +			}
 > 
-> This does not apply to the net-next tree, please respin.
+> You are not "busy", you are dropping the packet due to insufficient system
+> resources.
+> 
+> Therefore the appropriate thing to do is to free the SKB, increment
+> the drop statistical counter, and return NETDEV_TX_OK.
 
-Yeah, maybe because the fix (*) you mentioned in previos mail is not in
-net-next by some reason?
+Plausibly the error action could depend on the number of messages
+in the transmit ring.
 
-(*) I refer to commit 28603d13997e2ef47f18589cc9a44553aad49c86
+If the ring is empty you definitely want to drop the packet.
 
--- 
-Andy Shevchenko <andriy.shevchenko@intel.com>
-Intel Finland Oy
+If mapping a ring full of packets takes more dma map space than
+the system has available you may want to be "busy" - otherwise you
+get systemic packet loss when transmitting large burst of data.
+
+This could be a problem if all the available dma mapping resources
+have been allocated to receive buffers.
+
+Do any common systems actually have limited dma space (apart from
+limited bounce buffers)?
+If people are only testing on systems with unlimited dma space (eg x86)
+then these paths will never be exercised unless an artificial limit
+is applied.
+
+	David
