@@ -1,56 +1,64 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port configuration
-Date: Wed, 10 Dec 2014 09:03:51 -0800
-Message-ID: <54887CF7.70708@gmail.com>
-References: <C4896FB061E7DE4AAC93031BDCA044B104AC3257@IRSMSX108.ger.corp.intel.com> <20141210165018.GG1863@nanopsycho.orion>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH 1/6] net: Split netdev_alloc_frag into __alloc_page_frag
+ and add __napi_alloc_frag
+Date: Wed, 10 Dec 2014 09:06:56 -0800
+Message-ID: <54887DB0.7040903@gmail.com>
+References: <20141210033902.2114.68658.stgit@ahduyck-vm-fedora20>	 <20141210034042.2114.29360.stgit@ahduyck-vm-fedora20> <1418227328.27198.25.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "Varlese, Marco" <marco.varlese@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141210165018.GG1863@nanopsycho.orion>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ast@plumgrid.com, davem@davemloft.net,
+	brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:62334 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757433AbaLJRG6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 12:06:58 -0500
+Received: by mail-pd0-f173.google.com with SMTP id ft15so3128164pdb.18
+        for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 09:06:58 -0800 (PST)
+In-Reply-To: <1418227328.27198.25.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/10/2014 08:50 AM, Jiri Pirko wrote:
-> Wed, Dec 10, 2014 at 05:23:40PM CET, marco.varlese@intel.com wrote:
->> From: Marco Varlese <marco.varlese@intel.com>
->>
->> Switch hardware offers a list of attributes that are configurable
->> on a per port basis.
->> This patch provides a mechanism to configure switch ports by adding
->> an NDO for setting specific values to specific attributes.
->> There will be a separate patch that extends iproute2 to call the
->> new NDO.
+On 12/10/2014 08:02 AM, Eric Dumazet wrote:
+> On Tue, 2014-12-09 at 19:40 -0800, Alexander Duyck wrote:
 >
+>> I also took the opportunity to refactor the core bits that were placed in
+>> __alloc_page_frag.  First I updated the allocation to do either a 32K
+>> allocation or an order 0 page.  This is based on the changes in commmit
+>> d9b2938aa where it was found that latencies could be reduced in case of
+>> failures. 
 >
-> What are these attributes? Can you give some examples. I'm asking
-> because there is a plan to pass generic attributes to switch ports
-> replacing current specific ndo_switch_port_stp_update. In this case,
-> bridge is setting that attribute.
+> GFP_KERNEL and GFP_ATOMIC allocation constraints are quite different.
 >
-> Is there need to set something directly from userspace or does it make
-> rather sense to use involved bridge/ovs/bond ? I think that both will be
-> needed.
+> I have no idea how expensive it is to attempt order-3, order-2, order-1
+> allocations with GFP_ATOMIC.
 
-+1
+The most likely case is the successful first allocation so I didn't see
+much point in trying to optimize for the failure cases.  I personally
+prefer to see a fast failure rather than one that is dragged out over
+several failed allocation attempts.  In addition I can get away with
+several optimization tricks that I cannot with the loop.
 
-I think for many attributes it would be best to have both. The in
-kernel callers and netlink userspace can use the same driver ndo_ops.
+> I did an interesting experiment on mlx4 driver, allocating the pages
+> needed to store the fragments, using a small layer before the
+> alloc_page() that is normally used :
+>
+> - Attempt order-9 allocations, and use split_page() to give the
+> individual pages.
+>
+> Boost in performance is 10% on TCP bulk receive, because of less TLB
+> misses.
+>
+> With huge amount of memory these days, alloc_page() tend to give pages
+> spread all over memory, with poor TLB locality.
+>
+> With this strategy, a 1024 RX ring is backed by 2 huge pages only.
 
-But then we don't _require_ any specific bridge/ovs/etc module. And we
-may have some attributes that are not specific to any existing software
-module. I'm guessing Marco has some examples of these.
+That is an interesting idea.  I wonder if there would be a similar
+benefit for small packets.  If nothing else I might try a few
+experiments with ixgbe to see if I can take advantage of something similar.
 
-[...]
-
-
--- 
-John Fastabend         Intel Corporation
+- Alex
