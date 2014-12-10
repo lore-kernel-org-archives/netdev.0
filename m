@@ -1,34 +1,46 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] ss: Use nl_proto_a2n for filtering by netlink
- proto
-Date: Tue, 9 Dec 2014 20:40:43 -0800
-Message-ID: <20141209204043.1ebea273@urahara>
-References: <1417827139-10241-1-git-send-email-vadim4j@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: PATCH] Revert "bridge: include in6.h in if_bridge.h for struct
+ in6_addr"
+Date: Tue, 09 Dec 2014 23:49:54 -0500 (EST)
+Message-ID: <20141209.234954.1634249639621060084.davem@davemloft.net>
+References: <20141209203007.188651df@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Vadim Kochan <vadim4j@gmail.com>
+Cc: gregory.0xf0@gmail.com, f.fainelli@gmail.com,
+	xiyou.wangcong@gmail.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:51927 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755265AbaLJEkw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 23:40:52 -0500
-Received: by mail-pa0-f46.google.com with SMTP id lf10so1387340pab.19
-        for <netdev@vger.kernel.org>; Tue, 09 Dec 2014 20:40:52 -0800 (PST)
-In-Reply-To: <1417827139-10241-1-git-send-email-vadim4j@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42022 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755265AbaLJEt7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 23:49:59 -0500
+In-Reply-To: <20141209203007.188651df@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat,  6 Dec 2014 02:52:19 +0200
-Vadim Kochan <vadim4j@gmail.com> wrote:
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 9 Dec 2014 20:30:07 -0800
 
-> Now it is posible to filter by existing Netlink protos:
+> This reverts commit 66f1c44887ba4f47d617f8ae21cf8e04e1892bd7.
 > 
->     ss -A netlink src uevent
->     ss -A netlink src nft
->     ss -A netlink src genl
+> iproute2 uses sanitized kernel headers, and this change broke the build.
+> The problem is that the iproute2 ip/iplink_bridge_slave.c include if_bridge.h
+> but this causes a redefintion error when Glibc <netlink/in.h> is included.
 > 
-> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+> Since iproute2 is arguably the most important user of network headers,
+> the uapi header change should be reverted.
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Applied
+Stephen, please understand first the reason for this change.
+
+GLIBC and the kernel fight over various definitions of core
+networking types.
+
+The only way to resolve this in the long term is this change
+in question.
+
+If you can make iproute2 work with both the new and the old
+mechanims, please do so instead of reverting this important
+change.
