@@ -1,81 +1,40 @@
-From: Gu Zheng <guz.fnst@cn.fujitsu.com>
-Subject: Re: [PATCH v2] net: introduce helper macro for_each_cmsghdr
-Date: Wed, 10 Dec 2014 10:02:34 +0800
-Message-ID: <5487A9BA.10208@cn.fujitsu.com>
-References: <5487A455.1090907@cn.fujitsu.com> <1418176864.1047.6.camel@perches.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tcp: fix more NULL deref after prequeue changes
+Date: Tue, 09 Dec 2014 21:39:49 -0500 (EST)
+Message-ID: <20141209.213949.588465548847992235.davem@davemloft.net>
+References: <CALdTtnuazPdMNsOHzzersmyHvLjwxSq1BZoA5ZAdU-0QZtwUsg@mail.gmail.com>
+	<1418145804.27198.0.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1418147768.27198.7.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1418176864.1047.6.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dann.frazier@canonical.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41281 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751807AbaLJCjy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2014 21:39:54 -0500
+In-Reply-To: <1418147768.27198.7.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Joe,
-On 12/10/2014 10:01 AM, Joe Perches wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 09 Dec 2014 09:56:08 -0800
 
-> On Wed, 2014-12-10 at 09:39 +0800, Gu Zheng wrote:
->> Introduce helper macro for_each_cmsghdr as a wrapper of the enumerating
->> cmsghdr from msghdr, just cleanup. 
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Does this even compile?
+> When I cooked commit c3658e8d0f1 ("tcp: fix possible NULL dereference in
+> tcp_vX_send_reset()") I missed other spots we could deref a NULL
+> skb_dst(skb)
 > 
-> So which is it?
+> Again, if a socket is provided, we do not need skb_dst() to get a
+> pointer to network namespace : sock_net(sk) is good enough.
 > 
-> 	for_each_cmsghdr
-> or
-> 	for_each_cmsg_hdr?
-> 
-> The .h #defines for_each_cmsg_hdr
-> but all the uses are for_each_cmsghdr
+> Reported-by: Dann Frazier <dann.frazier@canonical.com>
+> Bisected-by: Dann Frazier <dann.frazier@canonical.com>
+> Tested-by: Dann Frazier <dann.frazier@canonical.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: ca777eff51f7 ("tcp: remove dst refcount false sharing for prequeue mode")
 
-Thanks for your quick feedback.
-There seems some problems with my send-patch script, it sent out the patch
-before the test completed.
-
-Thanks,
-Gu
-
-> 
->> diff --git a/Documentation/networking/timestamping/timestamping.c b/Documentation/networking/timestamping/timestamping.c
-> []
->> @@ -169,9 +169,7 @@ static void printpacket(struct msghdr *msg, int res,
->>  	       res,
->>  	       inet_ntoa(from_addr->sin_addr),
->>  	       msg->msg_controllen);
->> -	for (cmsg = CMSG_FIRSTHDR(msg);
->> -	     cmsg;
->> -	     cmsg = CMSG_NXTHDR(msg, cmsg)) {
->> +	for_each_cmsghdr(cmsg, msg) {
->>  		printf("   cmsg len %zu: ", cmsg->cmsg_len);
->>  		switch (cmsg->cmsg_level) {
->>  		case SOL_SOCKET:
->> diff --git a/crypto/af_alg.c b/crypto/af_alg.c
-> []
->> @@ -399,7 +399,7 @@ int af_alg_cmsg_send(struct msghdr *msg, struct af_alg_control *con)
->>  {
->>  	struct cmsghdr *cmsg;
->>  
->> -	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
->> +	for_each_cmsghdr(cmsg, msg) {
->>  		if (!CMSG_OK(msg, cmsg))
->>  			return -EINVAL;
->>  		if (cmsg->cmsg_level != SOL_ALG)
->> diff --git a/include/linux/socket.h b/include/linux/socket.h
-> []
->> @@ -94,6 +94,10 @@ struct cmsghdr {
->>  			     (cmsg)->cmsg_len <= (unsigned long) \
->>  			     ((mhdr)->msg_controllen - \
->>  			      ((char *)(cmsg) - (char *)(mhdr)->msg_control)))
->> +#define for_each_cmsg_hdr(cmsg, msg)  \
->> +	for (cmsg = CMSG_FIRSTHDR(msg); \
->> +	     cmsg; \
->> +	     cmsg = CMSG_NXTHDR(msg, cmsg))
-> 
-> 
-> 
-> .
-> 
+Applied and queued up for 3.18-stable.
