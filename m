@@ -1,38 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tipc: fix broadcast wakeup contention after
- congestion
-Date: Wed, 10 Dec 2014 14:46:00 -0500 (EST)
-Message-ID: <20141210.144600.305925368750434533.davem@davemloft.net>
-References: <1418201214-30767-1-git-send-email-richard.alpe@ericsson.com>
+Subject: Re: [PATCH] net: openvswitch: Support masked set actions.
+Date: Wed, 10 Dec 2014 14:48:53 -0500 (EST)
+Message-ID: <20141210.144853.2074647545313560689.davem@davemloft.net>
+References: <1418170225-9328-1-git-send-email-jrajahalme@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
-	erik.hugne@ericsson.com
-To: richard.alpe@ericsson.com
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: jrajahalme@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47114 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47137 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932739AbaLJTqD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 14:46:03 -0500
-In-Reply-To: <1418201214-30767-1-git-send-email-richard.alpe@ericsson.com>
+	with ESMTP id S932299AbaLJTsz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 14:48:55 -0500
+In-Reply-To: <1418170225-9328-1-git-send-email-jrajahalme@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <richard.alpe@ericsson.com>
-Date: Wed, 10 Dec 2014 09:46:54 +0100
+From: Jarno Rajahalme <jrajahalme@nicira.com>
+Date: Tue,  9 Dec 2014 16:10:25 -0800
 
-> From: Richard Alpe <richard.alpe@ericsson.com>
+> OVS userspace already probes the openvswitch kernel module for
+> OVS_ACTION_ATTR_SET_MASKED support.  This patch adds the kernel module
+> implementation of masked set actions.
 > 
-> commit 908344cdda80 ("tipc: fix bug in multicast congestion handling")
-> introduced a race in the broadcast link wakeup functionality.
+> The existing set action sets many fields at once.  When only a subset
+> of the IP header fields, for example, should be modified, all the IP
+> fields need to be exact matched so that the other field values can be
+> copied to the set action.  A masked set action allows modification of
+> an arbitrary subset of the supported header bits without requiring the
+> rest to be matched.
 > 
-> This patch eliminates this broadcast link wakeup race caused by
-> operation on the wakeup list without proper locking. If this race
-> hit and corrupted the list all subsequent wakeup messages would be
-> lost, resulting in a considerable memory leak.
+> Masked set action is now supported for all writeable key types, except
+> for the tunnel key.  The set tunnel action is an exception as any
+> input tunnel info is cleared before action processing starts, so there
+> is no tunnel info to mask.
 > 
-> Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
-> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+> The kernel module converts all (non-tunnel) set actions to masked set
+> actions.  This makes action processing more uniform, and results in
+> less branching and duplicating the action processing code.  When
+> returning actions to userspace, the fully masked set actions are
+> converted back to normal set actions.  We use a kernel internal action
+> code to be able to tell the userspace provided and converted masked
+> set actions apart.
+> 
+> Signed-off-by: Jarno Rajahalme <jrajahalme@nicira.com>
 
-Applied, thank you.
+How does this work, should I be waiting for a signoff or ACK from
+Pravin before applying this directly to my tree?
