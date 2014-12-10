@@ -1,64 +1,70 @@
-From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH net-next 1/3] net: fec: reset fep link status in suspend function
-Date: Wed, 10 Dec 2014 17:54:47 +0800
-Message-ID: <1418205289-7730-2-git-send-email-b38611@freescale.com>
-References: <1418205289-7730-1-git-send-email-b38611@freescale.com>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH] brcmsmac: don't leak kernel memory via printk()
+Date: Wed, 10 Dec 2014 11:30:16 +0100
+Message-ID: <548820B8.8020407@broadcom.com>
+References: <1418204358-8357-1-git-send-email-computersforpeace@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <bhutchings@solarflare.com>,
-	<stephen@networkplumber.org>, <b38611@freescale.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Brett Rudley <brudley@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	<linux-wireless@vger.kernel.org>,
+	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>
+To: Brian Norris <computersforpeace@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0127.outbound.protection.outlook.com ([207.46.100.127]:54720
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752779AbaLJK2X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Dec 2014 05:28:23 -0500
-In-Reply-To: <1418205289-7730-1-git-send-email-b38611@freescale.com>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:64196 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752241AbaLJKaY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 05:30:24 -0500
+In-Reply-To: <1418204358-8357-1-git-send-email-computersforpeace@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On some i.MX6 serial boards, phy power and refrence clock are supplied
-or controlled by SOC. When do suspend/resume test, the power and clock
-are disabled, so phy device link down.
+On 10-12-14 10:39, Brian Norris wrote:
+> Debug code prints the fifo name via custom dev_warn() wrappers. The
+> fifo_names array is only non-zero when debugging is manually enabled,
+> which is all well and good. However, it's *not* good that this array
+> uses zero-length arrays in the non-debug case, and so it doesn't
+> actually have any memory allocated to it. This means that as far as w=
+e
+> know, fifo_names[i] actually points to garbage memory.
+>=20
+> I've seen this in my log:
+>=20
+> [ 4601.205511] brcmsmac bcma0:1: wl0: brcms_c_d11hdrs_mac80211: =EF=BF=
+=BDGeL txop exceeded phylen 137/256 dur 1602/1504
+>=20
+> So let's give this array space enough to fill it with a NULL byte.
+>=20
 
-For current driver, fep->link is still up status, which cause extra operation
-like below code. To avoid the dumy operation, we set fep->link to down when
-phy device is real down.
-...
-if (fep->link) {
-	napi_disable(&fep->napi);
-	netif_tx_lock_bh(ndev);
-	fec_stop(ndev);
-	netif_tx_unlock_bh(ndev);
-	napi_enable(&fep->napi);
-	fep->link = phy_dev->link;
-	status_change = 1;
-}
-...
-
-Signed-off-by: Fugang Duan <B38611@freescale.com>
----
- drivers/net/ethernet/freescale/fec_main.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index fee2afe..e8c7c82 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -3332,6 +3332,13 @@ static int __maybe_unused fec_suspend(struct device *dev)
- 	if (fep->reg_phy)
- 		regulator_disable(fep->reg_phy);
- 
-+	/*
-+	 * SOC supply clock to phy, when clock is disabled, phy link down
-+	 * SOC control phy regulator, when regulator is disabled, phy link down
-+	 */
-+	if (fep->clk_enet_out || fep->reg_phy)
-+		fep->link = 0;
-+
- 	return 0;
- }
- 
--- 
-1.7.8
++ Acked-by: Arend van Spriel <arend@broadcom.com>
+> Signed-off-by: Brian Norris <computersforpeace@gmail.com>
+> Cc: Brett Rudley <brudley@broadcom.com>
+- Cc: Arend van Spriel <arend@broadcom.com>
+> Cc: "Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+> Cc: Hante Meuleman <meuleman@broadcom.com>
+> Cc: "John W. Linville" <linville@tuxdriver.com>
+> Cc: linux-wireless@vger.kernel.org
+> Cc: brcm80211-dev-list@broadcom.com
+> Cc: netdev@vger.kernel.org
+> ---
+>  drivers/net/wireless/brcm80211/brcmsmac/main.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>=20
+> diff --git a/drivers/net/wireless/brcm80211/brcmsmac/main.c b/drivers=
+/net/wireless/brcm80211/brcmsmac/main.c
+> index 1b474828d5b8..aed0c948dce8 100644
+> --- a/drivers/net/wireless/brcm80211/brcmsmac/main.c
+> +++ b/drivers/net/wireless/brcm80211/brcmsmac/main.c
+> @@ -316,7 +316,7 @@ static const u16 xmtfifo_sz[][NFIFO] =3D {
+>  static const char * const fifo_names[] =3D {
+>  	"AC_BK", "AC_BE", "AC_VI", "AC_VO", "BCMC", "ATIM" };
+>  #else
+> -static const char fifo_names[6][0];
+> +static const char fifo_names[6][1];
+>  #endif
+> =20
+>  #ifdef DEBUG
+>=20
