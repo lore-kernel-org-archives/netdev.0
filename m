@@ -1,51 +1,33 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: Re: [net] gre: fix the inner mac header in nbma gre tunnels xmit
- path
-Date: Thu, 11 Dec 2014 21:44:56 +0200
-Message-ID: <20141211214456.7cc621e4@vostro>
-References: <CA+mtBx-WsgMRAYDUaPiVaBt43cRx7tb-0hRJ+6Eao8vjd3j8aQ@mail.gmail.com>
-	<1418282079-30245-1-git-send-email-timo.teras@iki.fi>
-	<20141211.143627.1516156524809595238.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2 net-next 00/10] mlx4 driver update
+Date: Thu, 11 Dec 2014 14:48:01 -0500 (EST)
+Message-ID: <20141211.144801.848618516417939557.davem@davemloft.net>
+References: <1418288280-334-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, therbert@google.com,
-	alexander.h.duyck@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, matanb@mellanox.com, amirv@mellanox.com,
+	talal@mellanox.com, jackm@dev.mellanox.co.il
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:63747 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932848AbaLKTpI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 14:45:08 -0500
-Received: by mail-lb0-f169.google.com with SMTP id p9so4780537lbv.0
-        for <netdev@vger.kernel.org>; Thu, 11 Dec 2014 11:45:06 -0800 (PST)
-In-Reply-To: <20141211.143627.1516156524809595238.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55975 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758732AbaLKTsG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 14:48:06 -0500
+In-Reply-To: <1418288280-334-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 11 Dec 2014 14:36:27 -0500 (EST)
-David Miller <davem@davemloft.net> wrote:
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Thu, 11 Dec 2014 10:57:50 +0200
 
-> From: Timo Ter=C3=A4s <timo.teras@iki.fi>
-> Date: Thu, 11 Dec 2014 09:14:39 +0200
->=20
-> > @@ -266,6 +262,7 @@ static netdev_tx_t ipgre_xmit(struct sk_buff
-> > *skb,
-> >  		 * to gre header.
-> >  		 */
-> >  		skb_pull(skb, tunnel->hlen + sizeof(struct iphdr));
-> > +		skb_reset_mac_header(mac);
->=20
-> Please explain to me how this compiles, let alone be functionally
-> tested.
+> This series from Matan, Jenny, Dotan and myself is mostly about adding
+> support to a new performance optimized flow steering mode (patches 4-10).
+> 
+> The 1st two patches are small fixes (one for VXLAN and one for SRIOV),
+> and the third patch is a fix to avoid hard-lockup situation when many
+> (hunderds) processes holding user-space QPs/CQs get events.
+> 
+> Matan and Or. 
 
-Sorry. I made the change twice; once on the build box. And again on my
-git checkout on work station. Must've been on seriously coffee deprived
-state.
-
-Should be obviously:
-+		skb_reset_mac_header(skb);
-
-Is there other comments on it?
-
-Or shall I resend?
+Series applied, thanks.
