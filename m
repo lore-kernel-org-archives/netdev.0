@@ -1,75 +1,142 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next PATCH 3/6] ethernet/intel: Use napi_alloc_skb
-Date: Thu, 11 Dec 2014 13:43:09 -0800
-Message-ID: <1418334189.2410.113.camel@jtkirshe-mobl>
-References: <20141210033902.2114.68658.stgit@ahduyck-vm-fedora20>
-	 <20141210034056.2114.52972.stgit@ahduyck-vm-fedora20>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [RFC PATCH net-next 00/11] net: remove disable_irq() from
+ ->ndo_poll_controller
+Date: Thu, 11 Dec 2014 22:45:37 +0100
+Message-ID: <20141211214537.GA4159@kria>
+References: <1418135842-21389-1-git-send-email-sd@queasysnail.net>
+ <20141209.214433.7463087833083181.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-SVmCaOUrzZyRENluLBfX"
-Cc: netdev@vger.kernel.org, brouer@redhat.com, ast@plumgrid.com,
-	eric.dumazet@gmail.com, davem@davemloft.net
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, peterz@infradead.org, tglx@linutronix.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:60910 "EHLO mga09.intel.com"
+Received: from smtp2-g21.free.fr ([212.27.42.2]:34702 "EHLO smtp2-g21.free.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933369AbaLKVnP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Dec 2014 16:43:15 -0500
-In-Reply-To: <20141210034056.2114.52972.stgit@ahduyck-vm-fedora20>
+	id S934205AbaLKVpo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Dec 2014 16:45:44 -0500
+Content-Disposition: inline
+In-Reply-To: <20141209.214433.7463087833083181.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+2014-12-09, 21:44:33 -0500, David Miller wrote:
+> 
+> Adding a new spinlock to every interrupt service routine is
+> simply a non-starter.
+> 
+> You will certainly have to find a way to fix this in a way
+> that doesn't involve adding any new overhead to the normal
+> operational paths of these drivers.
+> 
+> Thanks.
 
---=-SVmCaOUrzZyRENluLBfX
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Okay. Here is another idea.
 
-On Tue, 2014-12-09 at 19:40 -0800, Alexander Duyck wrote:
-> This change replaces calls to netdev_alloc_skb_ip_align with
-> napi_alloc_skb.  The advantage of napi_alloc_skb is currently the fact
-> that
-> the page allocation doesn't make use of any irq disable calls.
->=20
-> There are few spots where I couldn't replace the calls as the buffer
-> allocation routine is called as a part of init which is outside of the
-> softirq context.
->=20
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+Since the issue is with the wait_event() part of synchronize_irq(),
+and it only takes care of threaded handlers, maybe we could try not
+waiting for threaded handlers.
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Introduce disable_irq_nosleep() that returns true if it successfully
+synchronized against all handlers (there was no threaded handler
+running), false if it left some threads running.  And in
+->ndo_poll_controller, only call the interrupt handler if
+synchronization was successful.
 
-> ---
->  drivers/net/ethernet/intel/e1000/e1000_main.c |    2 +-
->  drivers/net/ethernet/intel/e1000e/netdev.c    |    2 +-
->  drivers/net/ethernet/intel/fm10k/fm10k_main.c |    4 ++--
->  drivers/net/ethernet/intel/igb/igb_main.c     |    3 +--
->  drivers/net/ethernet/intel/ixgb/ixgb_main.c   |    6 +++---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
->  6 files changed, 10 insertions(+), 11 deletions(-)
+Both users of the poll controllers retry their action (alloc/xmit an
+skb) several times, with calls to the device's poll controller between
+attempts.  And hopefully, if the first attempt fails, we will still
+manage to get through?
 
 
---=-SVmCaOUrzZyRENluLBfX
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 83140cbb5f01..d967937aca3c 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -5216,8 +5216,8 @@ static void e1000_netpoll(struct net_device *netdev)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 
+-	disable_irq(adapter->pdev->irq);
+-	e1000_intr(adapter->pdev->irq, netdev);
++	if (disable_irq_nosleep(adapter->pdev->irq))
++		e1000_intr(adapter->pdev->irq, netdev);
+ 	enable_irq(adapter->pdev->irq);
+ }
+ #endif
+diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
+index 69517a24bc50..f2e4125ac963 100644
+--- a/include/linux/interrupt.h
++++ b/include/linux/interrupt.h
+@@ -184,6 +184,7 @@ extern void devm_free_irq(struct device *dev, unsigned int irq, void *dev_id);
+ #endif
+ 
+ extern void disable_irq_nosync(unsigned int irq);
++extern bool disable_irq_nosleep(unsigned int irq);
+ extern void disable_irq(unsigned int irq);
+ extern void disable_percpu_irq(unsigned int irq);
+ extern void enable_irq(unsigned int irq);
+diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
+index 0a9104b4608b..58199b023845 100644
+--- a/kernel/irq/manage.c
++++ b/kernel/irq/manage.c
+@@ -106,6 +106,23 @@ void synchronize_irq(unsigned int irq)
+ }
+ EXPORT_SYMBOL(synchronize_irq);
+ 
++static bool synchronize_irq_nosleep(unsigned int irq)
++{
++	struct irq_desc *desc = irq_to_desc(irq);
++
++	if (desc) {
++		__synchronize_hardirq(desc);
++		/*
++		 * We made sure that no hardirq handler is
++		 * running. Now check if some threaded handlers are
++		 * active.
++		 */
++		return !atomic_read(&desc->threads_active);
++	}
++
++	return true;
++}
++
+ #ifdef CONFIG_SMP
+ cpumask_var_t irq_default_affinity;
+ 
+@@ -418,6 +435,31 @@ void disable_irq_nosync(unsigned int irq)
+ EXPORT_SYMBOL(disable_irq_nosync);
+ 
+ /**
++ *	disable_irq_nosleep - disable an irq and wait for completion of hard IRQ handlers
++ *	@irq: Interrupt to disable
++ *
++ *	Disable the selected interrupt line.  Enables and Disables are
++ *	nested.
++ *	This function waits for any pending hard IRQ handlers for this
++ *	interrupt to complete before returning. If you use this
++ *	function while holding a resource the IRQ handler may need you
++ *	will deadlock.
++ *	This function does not wait for threaded IRQ handlers.
++ *
++ *      Returns true if synchronized, false if there are threaded
++ *      handlers pending.
++ *
++ *	This function may be called - with care - from IRQ context.
++ */
++bool disable_irq_nosleep(unsigned int irq)
++{
++	if (!__disable_irq_nosync(irq))
++		return synchronize_irq_nosleep(irq);
++	return true;
++}
++EXPORT_SYMBOL(disable_irq_nosleep);
++
++/**
+  *	disable_irq - disable an irq and wait for completion
+  *	@irq: Interrupt to disable
+  *
 
-iQIcBAABCgAGBQJUig/tAAoJEOVv75VaS+3O3T4P/jMIta4qyq7uWrKMkyPxfpt+
-/QR95ZmIGE29HMcrKuGrFvCAmtCZlSB5u82C/jzcBFm/gfZKNmYM9kwWAWkDDkcO
-qgDmkcDOJCZFiHv0IgLvnH7YD4NVy4cSk0Gx7tNY8EeQot5+aBoAnmKooJdeNzJ0
-vhrCyG8fukKF0xBTjuOqKAborM0iajAYSHxYjcNaEeDgNwKSw/lhm4CZH3lxnq/X
-o4xUh6109LWLU8RjaA3gy+pasKYUem1D0kNuwIc5bi/ehPbaKim34ankIEnBkyGM
-M7MIJSmRdqe9PD04AWE+/roNPHOePlwwvrqvd0dDa1kdm/45An9xCwcW+HpzY855
-CUoaENrAtQFHMF/s5PIk58YfQoNAntDPUfep7q8UGl/n5aM7tpjZhTKzKcemgtVW
-wH5O443cVhHZg6xEjF6buY+Zfut1egBDUM8eURzW/zbWOyPFGNYMfdeVXXq36yHj
-LCdMLpZoRElJoY2VUyxA/Prw/QDc907CXCfBBBXlT3GOQcIMEZnyKSiV/todhgDx
-rMi64R8YBzprd518UtiU4UcXSj8MUF3UwJ6+dZx7SMXlBRQAxu97UE4L5LzihHww
-kB7msZIpPgE4gHkVtxb1aWTPkbZ/tHORqtvpTvAf4p0o21L6S2mTW/grt1WNMx+M
-i0uJjMd8OezRAOPc9AIE
-=UaGG
------END PGP SIGNATURE-----
 
---=-SVmCaOUrzZyRENluLBfX--
+-- 
+Sabrina
