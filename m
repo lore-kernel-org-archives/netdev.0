@@ -1,88 +1,129 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net PATCH] fib_trie: Fix trie balancing issue if new node pushes
- down existing node
-Date: Wed, 10 Dec 2014 21:49:22 -0800
-Message-ID: <20141211054815.1357.36977.stgit@ahduyck-vm-fedora20>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2] ip lib: Added shorter timestamp option
+Date: Thu, 11 Dec 2014 10:12:06 +0200
+Message-ID: <1418285526-28859-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57441 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933941AbaLKHrt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Dec 2014 02:47:49 -0500
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:37664 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932311AbaLKIV6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 03:21:58 -0500
+Received: by mail-lb0-f174.google.com with SMTP id 10so3781594lbg.33
+        for <netdev@vger.kernel.org>; Thu, 11 Dec 2014 00:21:57 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch addresses an issue with the level compression of the fib_trie.
-Specifically in the case of adding a new leaf that triggers a new node to
-be added that takes the place of the old node.  The result is a trie where
-the 1 child tnode is on one side and one leaf is on the other which gives
-you a very deep trie.  Below is the script I used to generate a trie on
-dummy0 with a 10.X.X.X family of addresses.
+From: Vadim Kochan <vadim4j@gmail.com>
 
-  ip link add type dummy
-  ipval=184549374
-  bit=2
-  for i in `seq 1 23`
-  do
-    ifconfig dummy0:$bit $ipval/8
-    ipval=`expr $ipval - $bit`
-    bit=`expr $bit \* 2`
-  done
-  cat /proc/net/fib_triestat
+Added another timestamp format to look like more logging info:
 
-Running the script before the patch:
+[Dec 01 01:46:20.675589] 2: enp0s25: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default
+    link/ether 3c:97:0e:a3:86:2e brd ff:ff:ff:ff:ff:ff
 
-	Local:
-		Aver depth:     10.82
-		Max depth:      23
-		Leaves:         29
-		Prefixes:       30
-		Internal nodes: 27
-		  1: 26  2: 1
-		Pointers: 56
-	Null ptrs: 1
-	Total size: 5  kB
-
-After applying the patch and repeating:
-
-	Local:
-		Aver depth:     4.72
-		Max depth:      9
-		Leaves:         29
-		Prefixes:       30
-		Internal nodes: 12
-		  1: 3  2: 2  3: 7
-		Pointers: 70
-	Null ptrs: 30
-	Total size: 4  kB
-
-What this fix does is start the rebalance at the newly created tnode
-instead of at the parent tnode.  This way if there is a gap between the
-parent and the new node it doesn't prevent the new tnode from being
-coalesced with any pre-existing nodes that may have been pushed into one
-of the new nodes child branches.
-
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 ---
- net/ipv4/fib_trie.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ include/utils.h       |  1 +
+ ip/ip.c               |  5 ++++-
+ lib/utils.c           | 15 ++++++++++++---
+ man/man8/ip-monitor.8 | 13 +++++++++++++
+ 4 files changed, 30 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index e9cb258..18bcaf2 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1143,8 +1143,9 @@ static struct list_head *fib_insert_node(struct trie *t, u32 key, int plen)
- 			put_child(tp, cindex, (struct rt_trie_node *)tn);
- 		} else {
- 			rcu_assign_pointer(t->trie, (struct rt_trie_node *)tn);
--			tp = tn;
- 		}
-+
-+		tp = tn;
- 	}
+diff --git a/include/utils.h b/include/utils.h
+index eef9c42..eecbc39 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -19,6 +19,7 @@ extern int show_raw;
+ extern int resolve_hosts;
+ extern int oneline;
+ extern int timestamp;
++extern int timestamp_short;
+ extern char * _SL_;
+ extern int max_flush_loops;
+ extern int batch_mode;
+diff --git a/ip/ip.c b/ip/ip.c
+index 5f759d5..9b90707 100644
+--- a/ip/ip.c
++++ b/ip/ip.c
+@@ -53,7 +53,7 @@ static void usage(void)
+ "                    -f[amily] { inet | inet6 | ipx | dnet | bridge | link } |\n"
+ "                    -4 | -6 | -I | -D | -B | -0 |\n"
+ "                    -l[oops] { maximum-addr-flush-attempts } |\n"
+-"                    -o[neline] | -t[imestamp] | -b[atch] [filename] |\n"
++"                    -o[neline] | -t[imestamp] | -t[short] | -b[atch] [filename] |\n"
+ "                    -rc[vbuf] [size]}\n");
+ 	exit(-1);
+ }
+@@ -232,6 +232,9 @@ int main(int argc, char **argv)
+ 			++oneline;
+ 		} else if (matches(opt, "-timestamp") == 0) {
+ 			++timestamp;
++		} else if (matches(opt, "-tshort") == 0) {
++			++timestamp;
++			++timestamp_short;
+ #if 0
+ 		} else if (matches(opt, "-numeric") == 0) {
+ 			rtnl_names_numeric++;
+diff --git a/lib/utils.c b/lib/utils.c
+index 987377b..3102920 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -32,6 +32,8 @@
  
- 	if (tp && tp->pos + tp->bits > 32)
+ #include "utils.h"
+ 
++int timestamp_short = 0;
++
+ int get_integer(int *val, const char *arg, int base)
+ {
+ 	long res;
+@@ -773,13 +775,20 @@ int print_timestamp(FILE *fp)
+ {
+ 	struct timeval tv;
+ 	char *tstr;
++	char tshort[40] = {};
+ 
+ 	memset(&tv, 0, sizeof(tv));
+ 	gettimeofday(&tv, NULL);
+ 
+-	tstr = asctime(localtime(&tv.tv_sec));
+-	tstr[strlen(tstr)-1] = 0;
+-	fprintf(fp, "Timestamp: %s %ld usec\n", tstr, (long)tv.tv_usec);
++	if (timestamp_short) {
++		strftime(tshort, sizeof(tshort), "%b %d %H:%M:%S", localtime(&tv.tv_sec));
++		fprintf(fp, "[%s.%-6ld] ", tshort, (long)tv.tv_usec);
++	} else {
++		tstr = asctime(localtime(&tv.tv_sec));
++		tstr[strlen(tstr)-1] = 0;
++		fprintf(fp, "Timestamp: %s %ld usec\n", tstr, (long)tv.tv_usec);
++	}
++
+ 	return 0;
+ }
+ 
+diff --git a/man/man8/ip-monitor.8 b/man/man8/ip-monitor.8
+index 68e83f1..c131ae7 100644
+--- a/man/man8/ip-monitor.8
++++ b/man/man8/ip-monitor.8
+@@ -16,6 +16,19 @@ ip-monitor, rtmon \- state monitoring
+ ]
+ .sp
+ 
++.SH OPTIONS
++
++.TP
++.BR "\-t" , " \-timestamp"
++Prints timestamp before the event message on the separated line in format:
++    Timestamp: <Day> <Month> <day> <HH:MM:SS> <YYYY> <usecs> usec
++    EVENT
++
++.TP
++.BR "\-ts" , " \-tshort"
++Prints short timestamp before the event message on the same line in format:
++    [<Month> <day> <HH:MM:SS>.usecs ] EVENT
++
+ .SH DESCRIPTION
+ The
+ .B ip
+-- 
+2.1.3
