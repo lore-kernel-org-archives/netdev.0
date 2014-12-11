@@ -1,56 +1,47 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: Bug: mv643xxx fails with highmem
-Date: Thu, 11 Dec 2014 20:25:07 +0000
-Message-ID: <20141211202507.GS11285@n2100.arm.linux.org.uk>
-References: <20141211194920.GR11285@n2100.arm.linux.org.uk>
- <20141211.151055.817876561546126576.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: bind() should not return -EADDRINUSE
+Date: Thu, 11 Dec 2014 15:25:18 -0500 (EST)
+Message-ID: <20141211.152518.1988079810884987306.davem@davemloft.net>
+References: <5489FBC8.4070706@ubuntu.com>
+	<20141211.151804.2024237965934539073.davem@davemloft.net>
+	<5489FD51.3030609@ubuntu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ezequiel.garcia@free-electrons.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Nimrod Andy <B38611@freescale.com>,
-	Fabio Estevam <fabio.estevam@freescale.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: psusi@ubuntu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:52367 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1758237AbaLKUZT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 15:25:19 -0500
-Content-Disposition: inline
-In-Reply-To: <20141211.151055.817876561546126576.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56329 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758327AbaLKUZU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 15:25:20 -0500
+In-Reply-To: <5489FD51.3030609@ubuntu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 11, 2014 at 03:10:55PM -0500, David Miller wrote:
-> From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-> Date: Thu, 11 Dec 2014 19:49:20 +0000
-> 
-> > Commit 69ad0dd7af22 removed skb_frag_dma_map() in favour of mapping
-> > all fragments with dma_map_single().  This fails when the driver is
-> > used in an environment with highmem.
-> 
-> This change looks really buggy to me.
-> 
-> Unfortunately, all the changes he subsequently makes for software TSO
-> support depend upon this :-/
-> 
-> The change is definitely wrong.
+From: Phillip Susi <psusi@ubuntu.com>
+Date: Thu, 11 Dec 2014 15:23:45 -0500
 
-Thanks for confirming where the bug is.
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+> 
+> On 12/11/2014 3:18 PM, David Miller wrote:
+>> From: Phillip Susi <psusi@ubuntu.com> Date: Thu, 11 Dec 2014
+>> 15:17:12 -0500
+>> 
+>>> Says who?
+>> 
+>> Says multiple decades of precendence.
+> 
+> "It has always been broken, so it should stay broken" isn't a very
+> compelling argument.
+> 
+> Would it cause programs to break if they get the error at listen()
+> time instead of bind() time ( as the man page indicates it can )?  I
+> think not.
 
-Would other drivers need fixing for this as well?  Eg, fec_main.c
-does the following, and this driver is used on iMX6 which can also have
-highmem:
+You will definitely break programs that look for a locally available
+port by iterating over bind() calls.
 
-static int
-fec_enet_txq_submit_frag_skb(struct fec_enet_priv_tx_q *txq,
-                             struct sk_buff *skb,
-                             struct net_device *ndev)
-{
-                bufaddr = page_address(this_frag->page.p) + this_frag->page_offset;
-...
-                addr = dma_map_single(&fep->pdev->dev, bufaddr, frag_len,
-                                      DMA_TO_DEVICE);
-
--- 
-FTTC broadband for 0.8mile line: currently at 9.5Mbps down 400kbps up
-according to speedtest.net.
+Sorry, this is not changing, no matter how strongly you may wish it
+to.
