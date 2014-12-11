@@ -1,102 +1,58 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Bug: mv643xxx fails with highmem
-Date: Thu, 11 Dec 2014 19:49:20 +0000
-Message-ID: <20141211194920.GR11285@n2100.arm.linux.org.uk>
+From: Phillip Susi <psusi@ubuntu.com>
+Subject: Re: bind() should not return -EADDRINUSE
+Date: Thu, 11 Dec 2014 14:50:48 -0500
+Message-ID: <5489F598.9020708@ubuntu.com>
+References: <5489EE2F.6030502@ubuntu.com> <20141211.142355.854082841833367081.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	"David S. Miller" <davem@davemloft.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:52308 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1758899AbaLKTt2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 14:49:28 -0500
-Content-Disposition: inline
+Received: from mail-qc0-f169.google.com ([209.85.216.169]:45614 "EHLO
+	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752783AbaLKTux (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 14:50:53 -0500
+Received: by mail-qc0-f169.google.com with SMTP id w7so4483929qcr.14
+        for <netdev@vger.kernel.org>; Thu, 11 Dec 2014 11:50:51 -0800 (PST)
+In-Reply-To: <20141211.142355.854082841833367081.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 69ad0dd7af22 removed skb_frag_dma_map() in favour of mapping
-all fragments with dma_map_single().  This fails when the driver is
-used in an environment with highmem.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-With this patch in place in 3.18:
+On 12/11/2014 2:23 PM, David Miller wrote:
+> From: Phillip Susi <psusi@ubuntu.com> Date: Thu, 11 Dec 2014
+> 14:19:11 -0500
+> 
+>> Attempting to establish a connection to a remote host using the
+>> same local port, but a different remote port as the previous
+>> connection ( that is still in TIME_WAIT ) results in bind()
+>> returning -EADDRINUSE. By changing the remote port, you avoid the
+>> conflict with the other connection that is in TIME_WAIT, but
+>> since the remote port is not known when bind() is called, it
+>> incorrectly returns -EADDRINUSE.  This check should not be done
+>> in bind(), but deferred until the remote port is known in the
+>> call to connect(), or listen().
+> 
+> Bind has to allocate and hold from everyone else on the system the 
+> local port at bind() time, so we cannot defer this decision.
 
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index d44560d1d268..14d1fc9ff485 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -882,7 +882,9 @@ static void txq_submit_frag_skb(struct tx_queue *txq, struct sk_buff *skb)
- 		void *addr;
-  
- 		this_frag = &skb_shinfo(skb)->frags[frag];
-+		BUG_ON(PageHighMem(this_frag->page.p));
- 		addr = page_address(this_frag->page.p) + this_frag->page_offset;
-+		BUG_ON(!addr);
- 		tx_index = txq->tx_curr_desc++;
- 		if (txq->tx_curr_desc == txq->tx_ring_size)
- 			txq->tx_curr_desc = 0;
+What on earth for?  If two processes are going to connect to different
+remotes using the same source, that is perfectly fine.  The only
+contention is if two processes want to listen() with the same local
+addr and wildcard remote.
 
-I regularly hit the first BUG_ON().  Without the BUG_ON(), the machine
-either freezes or oopses in the DMA API functions due to them being
-passed an invalid struct page *.
 
-So, I'm unclear whether this is a driver bug, or whether it's a core
-netdev bug: should netdev be passing skbuffs with highmem pages
-attached when the driver has NETIF_F_HIGHDMA clear, or is Ezequiel's
-patch removing the ability to map highmem pages from this driver
-incorrect?
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.17 (MingW32)
 
-Here's the ethtool -k eth0 output for this driver:
-
-Features for eth0:
-rx-checksumming: on
-tx-checksumming: on
-        tx-checksum-ipv4: on
-        tx-checksum-ip-generic: off [fixed]
-        tx-checksum-ipv6: off [fixed]
-        tx-checksum-fcoe-crc: off [fixed]
-        tx-checksum-sctp: off [fixed]
-scatter-gather: on
-        tx-scatter-gather: on
-        tx-scatter-gather-fraglist: off [fixed]
-tcp-segmentation-offload: on
-        tx-tcp-segmentation: on
-        tx-tcp-ecn-segmentation: off [fixed]
-        tx-tcp6-segmentation: off [fixed]
-udp-fragmentation-offload: off [fixed]
-generic-segmentation-offload: on
-generic-receive-offload: on
-large-receive-offload: off [fixed]
-rx-vlan-offload: off [fixed]
-tx-vlan-offload: off [fixed]
-ntuple-filters: off [fixed]
-receive-hashing: off [fixed]
-highdma: off [fixed]
-rx-vlan-filter: off [fixed]
-vlan-challenged: off [fixed]
-tx-lockless: off [fixed]
-netns-local: off [fixed]
-tx-gso-robust: off [fixed]
-tx-fcoe-segmentation: off [fixed]
-tx-gre-segmentation: off [fixed]
-tx-ipip-segmentation: off [fixed]
-tx-sit-segmentation: off [fixed]
-tx-udp_tnl-segmentation: off [fixed]
-tx-mpls-segmentation: off [fixed]
-fcoe-mtu: off [fixed]
-tx-nocache-copy: off
-loopback: off [fixed]
-rx-fcs: off [fixed]
-rx-all: off [fixed]
-tx-vlan-stag-hw-insert: off [fixed]
-rx-vlan-stag-hw-parse: off [fixed]
-rx-vlan-stag-filter: off [fixed]
-l2-fwd-offload: off [fixed]
-busy-poll: off [fixed]
-
-Thanks.
-
--- 
-FTTC broadband for 0.8mile line: currently at 9.5Mbps down 400kbps up
-according to speedtest.net.
+iQEcBAEBAgAGBQJUifWYAAoJENRVrw2cjl5RpckH/2g9V0p3SFNvf1qmR1nxZjJ6
+R19eosdoWvCL6B2pIqwvpy64ACqTf6MS3NrdZt6TwSz+8OKqBj/D8+IpKcAdo5kU
+Yzhl3qASkm17HTeOmGhw00pqJkD4FYzzwb8hw/OxwxWUwpVLvv+nMYHhF7vwgOy6
+h90Kmj6ycOeY/+sX5Woe5RheKq+AlDqJGAELk1Vs9lrRDDa/3o/HqEQX5HNsohyC
+ib2dJRAdCuNN9KjSKuVLnCu4Tf1UB5W+efSK21qN/s1r0a0RWXMe2ph6JrYQsg2e
+H2nl7Ifiv/4VbuvRkabSsrge8bJtw76c2uMpxw1GHNUN1rNnxhGAj4J1oOIp4rQ=
+=LXdQ
+-----END PGP SIGNATURE-----
