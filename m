@@ -1,34 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: introduce helper macro for_each_cmsghdr
-Date: Wed, 10 Dec 2014 22:42:30 -0500 (EST)
-Message-ID: <20141210.224230.1611636286785782770.davem@davemloft.net>
-References: <54890DDC.3040402@cn.fujitsu.com>
+Subject: Re: [PATCH net v8 1/7] cxgb4i: fix tx immediate data credit check
+Date: Wed, 10 Dec 2014 22:54:45 -0500 (EST)
+Message-ID: <20141210.225445.458745535803327140.davem@davemloft.net>
+References: <201412102111.sBALB6sI011656@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	joe@perches.com
-To: guz.fnst@cn.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50017 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933557AbaLKDmf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 22:42:35 -0500
-In-Reply-To: <54890DDC.3040402@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+	hariprasad@chelsio.com, anish@chelsio.com, hch@infradead.org,
+	James.Bottomley@HansenPartnership.com, michaelc@cs.wisc.edu
+To: kxie@chelsio.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <201412102111.sBALB6sI011656@localhost6.localdomain6>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gu Zheng <guz.fnst@cn.fujitsu.com>
-Date: Thu, 11 Dec 2014 11:22:04 +0800
+From: Karen Xie <kxie@chelsio.com>
+Date: Wed, 10 Dec 2014 13:11:06 -0800
 
-> Introduce helper macro for_each_cmsghdr as a wrapper of the enumerating
-> cmsghdr from msghdr, just cleanup.
+> From: Karen Xie <kxie@chelsio.com>
 > 
-> Signed-off-by: Gu Zheng <guz.fnst@cn.fujitsu.com>
-> ---
-> v3:
->  -drop the changes about user-land programs as David suggested.
-> v2:
->  -use the lower-case macro name as Joe suggested.
+> Only data skbs need the wr header added while control skbs do not. Make sure they are treated differently.
+> 
+> Signed-off-by: Karen Xie <kxie@chelsio.com>
 
-Applied, thanks.
+Please text format your commit messages to 80 characters or less per
+line.
+
+People are going to read your commits using text tools, not
+necessarily GUI tools which will auto-format your commit message.
+
+I know this seems like we are being difficult, but you are making many
+fundamental mistakes in your efforts to merge in these changes.
