@@ -1,7 +1,7 @@
 From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Subject: [PATCH 1/1] net/macb: fix compilation warning for print_hex_dump() called with skb->mac_header
-Date: Thu, 11 Dec 2014 11:15:54 +0100
-Message-ID: <efa28485b430e77f5254248cb396da431d03fc5b.1418292741.git.cyrille.pitchen@atmel.com>
+Subject: [PATCH v2 0/1] net/macb: add TX multiqueue support for gem
+Date: Thu, 11 Dec 2014 11:16:50 +0100
+Message-ID: <cover.1418291637.git.cyrille.pitchen@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <linux-kernel@vger.kernel.org>,
@@ -13,23 +13,33 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Cyrille Pitchen <cyrille.pitchen@atmel.com>
----
- drivers/net/ethernet/cadence/macb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ChangeLog
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 41113e5..9ddc9bf 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -776,7 +776,7 @@ static int gem_rx(struct macb *bp, int budget)
- 		netdev_vdbg(bp->dev, "received skb of length %u, csum: %08x\n",
- 			    skb->len, skb->csum);
- 		print_hex_dump(KERN_DEBUG, " mac: ", DUMP_PREFIX_ADDRESS, 16, 1,
--			       skb->mac_header, 16, true);
-+			       skb_mac_header(skb), 16, true);
- 		print_hex_dump(KERN_DEBUG, "data: ", DUMP_PREFIX_ADDRESS, 16, 1,
- 			       skb->data, 32, true);
- #endif
+v2:
+fix compilation warnings for netdev_vdbg("%u...", queue - bp->queues, ...) calls
+
+v1:
+At the first look this patch may look quite big but it cannot be splitted.
+Each queue has its own dedicated IRQ, which should be handled.
+Also the Transmit Base Queue Pointer register of each available queue must be
+initialized before starting the transmission, otherwise the transmission will be
+halted immediately as HRESP errors are likely to occur.
+In addition, some fields had to be moved from struct macb into struct macb_queue
+so a common code could manage the queues.
+
+This patch was applied to net-next and tested on a sama5d36ek board, which embeds
+both macb and gem IPs, to check the backward compatibility.
+
+Also it was tested on a sama5dx FPGA platform with a gem designed to use 3 queues.
+Then we used the tc program to set a queue discipline policy as describe in the
+Documentation/networking/multiqueue.txt: we successfully used each queue.
+
+Cyrille Pitchen (1):
+  net/macb: add TX multiqueue support for gem
+
+ drivers/net/ethernet/cadence/macb.c | 451 +++++++++++++++++++++++-------------
+ drivers/net/ethernet/cadence/macb.h |  71 +++++-
+ 2 files changed, 358 insertions(+), 164 deletions(-)
+
 -- 
 1.8.2.2
