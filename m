@@ -1,89 +1,97 @@
-From: Markus Kaindl <markus.kaindl@stustanet.de>
-Subject: BUG: kernel panic nf_ct_del_from_dying_or_unconfirmed_list
-Date: Thu, 11 Dec 2014 01:55:09 +0100
-Message-ID: <1855695.mhsXPet1XK@lhotse>
+From: Gu Zheng <guz.fnst@cn.fujitsu.com>
+Subject: Re: [PATCH v2] net: introduce helper macro for_each_cmsghdr
+Date: Thu, 11 Dec 2014 09:05:59 +0800
+Message-ID: <5488EDF7.7070001@cn.fujitsu.com>
+References: <5487DBD9.1010908@cn.fujitsu.com> <20141210.134804.1383875260695429574.davem@davemloft.net> <20141210.144430.1749715282635917425.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-7
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Linux Kernel <linux-kernel@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<joe@perches.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141210.144430.1749715282635917425.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi David,
+On 12/11/2014 03:44 AM, David Miller wrote:
 
-shortly after changing from wireless to wired network connection, both =
-using=20
-IPv4 and Isatap, I experienced the following kernel panic. I was doing =
-a=20
-speedtest on the wired connection when the panic occured.
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 10 Dec 2014 13:48:04 -0500 (EST)
+>=20
+>> From: Gu Zheng <guz.fnst@cn.fujitsu.com>
+>> Date: Wed, 10 Dec 2014 13:36:25 +0800
+>>
+>>> Introduce helper macro for_each_cmsghdr as a wrapper of the enumera=
+ting
+>>> cmsghdr from msghdr, just cleanup.=20
+>>>
+>>> Signed-off-by: Gu Zheng <guz.fnst@cn.fujitsu.com>
+>>
+>> Applied, thanks.
+>=20
+> This breaks the build, I'm reverting.
 
-I tried to reproduce it, but I was not able to.
+I'm very sorry.
 
-[...] (could not get more scroll back...)
-[13139.648381] ffff880174d149e0 ffff88000cb8b828 ffff8800a73b7858 fffff=
-fff81864dbe
-[13139.648429] ffff88000cb8b828 ffff8800a?3b?B?0 ffffffffB1825e85 ffff8=
-8000cb8b828
-[13139.648472] Call Trace:
-[13139.648490] [<ffffffff81869885>] destroy_conntrack+0x55/0xc0
-[13139.648521] [<ffffffff81864dbe>] nf_conntrack_destroy+0x1e/0x30
-[13139.648555] [<ffffffff81825e85>] skb_release_head_state+0xa5/0xf0
-[13139.648590] [<ffffffff8182682d>] skb_release_all+0xd/0x30
-[13139.648620] [<ffffffff818268a2>] kfree_skb+0x32/0xa0
-[13139.648649] [<ffffffff81884630>] ? ip_fragment+0x8d0/0x8d0
-[13139.848681] [<ffffffff81864fd8>] nf_hook_slow+0x108/0x120
-[13139.648712] [<ffffffff81884630>] ? ip_fragment+0x8d0/0x8d0
-[13139.648745] [<ffffffffB18861e5>] ip_output+0x75/0x90
-[13139.648775] [<ffffffff8188592b>] ip_local_out_sk+0x2b/0x30
-[13139.648807] [<ffffffff818c71ab>] iptunnel_xmit+0xfb/0x120
-[13139.648839] [<ffffffff8192548e>] sit_tunnel_xmit+0x3de/0x700
-[13139.648870] [<ffffffff8112563e>] ? internal_add_timer+0x5e/0x80
-[13139.648902] [<ffffffff81838c1?>] dev_hard_start_xmit+0x337/0x660
-[13139.648933] [<ffffffff81839253>] __dev_queue_xmit+0x313/0x510
-[13139.648965] [<ffffffff8183945b>] dev_queue_xmit+0xb/0x10
-[13139.648995] [<ffffffff8184022c>] neigh_direct_output+0xc/0x10
-[13139.649028] [<ffffffff818eb609>] ip6_finish_output2+0x159/0x490
-[13139.649062] [<ffffffff818ee7f0>] ? ip6_fragment+0xa90/0xa90
-[13139.649094] [<ffffffff818ee877>] ip6_finish_output+0x87/0xc0
-[13139.649125] [<ffffffff818ee920>] ip6_output+0x70/0xb0
-[13139.649154] [<ffffffff818ebd2a>] ip6_xmit+0x3ea/0x4d0
-[13139.649184] [<ffffffff819195ba>] inet6_csk_xmit+0x6a/0xb0
-[13139.649216] [<ffffffff8189cfc0>] tcp_transmit_skb+0x490/0x920
-[13139.649249] [<ffffffff8189eba2>] tcp_connect+0x7d2/0x8f0
-[13139.649280] [<=C2=A3fffffff8191209a>] tcp_v6_connect+0x32a/0x620
-[13139.649313] [<ffffffff8181d8ca>] ? sock_destroy_inode+0x2a/0x30
-[13139.650532] [<ffffffff818b85c5>] __inet_stream_connect+0x95/0x310
-[13139.651647] [<ffffffff810f323d>] ? get_parent_ip+0xd/0x50
-[13139.652770] [<ffffffff810f32cd>] ? preempt_count_add+0x4d/0xa0
-[13139.653904] [<ffffffff810d2b3e>] ? __local_bh_enable_ip+0x3e/0xa0
-[13139.651985] [<ffffffff818b8873>] inet_stream_connect+0x33/0x50
-[13139.656001] [<ffffffff8181ea57>] SYSC_connect+0xc7/0x100
-[13139.656801] [<ffffffff81468a43>] ? __this_cpu_preempt_check+0x13/0x2=
-0
-[13139.657584] [<ffffffff81011012>] ? syscall_trace_enter+0x232/0x260
-[13139.658371] [<ffffffff8181f919>] SyS_connect+0x9/0x10
-[13139.659154] [<ffffffff81a1608b>] tracesys+0xdd/0xe2
-[13139.659923] Code: 98 e0 07 00 00 0f b7 47 06 48 03 1c c5 20 84 0d 82=
- 48 89=20
-df e8 84 ce 1d 00 49 8b 44 24 10 48 85 c0 74 2d 49 8b 54 24 08 f6 c2 01=
- <48>=20
-89 10 75 04 48 89 42 08 48 b8 00 02 20 00 00 00 ad de 48 89
-[13139.661710] RIP [<ffffffff81868b5e>]=20
-nf_ct_del_from_dying_or_unconfirmed_list+0x3e/0x70
-[13139.662579] RSP (ffff8800a?3b?810>
-[13139.669137] Kernel panic =E2=80=94 not syncing: Fatal exception in i=
-nterrupt
-[13139.670262] Kernel Offset: 0x0 from 0xffffffff81000000 (relocation r=
-ange:=20
-0xffffffff80000000-0xffffffff9fffffff)
-[13139.671137] drm_kms_helper: panic occurred, switching back to text c=
-onsole
+>=20
+> You cannot use your new macros in
+> Documentation/networking/timestamping/txtimestamp.c, that is a
+> userland program and the header you are adding your helper to is not
+> available to userspace.
 
+IMO, the user-land programs need to be build with the matched headers s=
+eparately.
+I split the kernel codes and the user-land programs, build and install =
+the kernel first,
+and then build the user-land ones.=20
 
-Any guesses?
+>=20
+> This also means you didn't sufficiently test the build of your
+> changes.
+
+To be honest, I do the test as I mentioned above.
 
 Thanks,
-Markus
+Gu
+
+>=20
+> Documentation/networking/timestamping/timestamping.c: In function =A1=
+printpacket=A2:
+> Documentation/networking/timestamping/timestamping.c:172:2: warning: =
+implicit declaration of function =A1for_each_cmsghdr=A2 [-Wimplicit-fun=
+ction-declaration]
+> Documentation/networking/timestamping/timestamping.c:172:30: error: e=
+xpected =A1;=A2 before =A1{=A2 token
+> Documentation/networking/timestamping/timestamping.c:161:18: warning:=
+ unused variable =A1ts=A2 [-Wunused-variable]
+> Documentation/networking/timestamping/timestamping.c:160:17: warning:=
+ unused variable =A1tv=A2 [-Wunused-variable]
+> make[3]: *** [Documentation/networking/timestamping/timestamping] Err=
+or 1
+> make[3]: *** Waiting for unfinished jobs....
+> Documentation/networking/timestamping/txtimestamp.c: In function =A1_=
+_recv_errmsg_cmsg=A2:
+> Documentation/networking/timestamping/txtimestamp.c:187:2: warning: i=
+mplicit declaration of function =A1for_each_cmsghdr=A2 [-Wimplicit-func=
+tion-declaration]
+> Documentation/networking/timestamping/txtimestamp.c:187:19: error: =A1=
+cmsg=A2 undeclared (first use in this function)
+> Documentation/networking/timestamping/txtimestamp.c:187:19: note: eac=
+h undeclared identifier is reported only once for each function it appe=
+ars in
+> Documentation/networking/timestamping/txtimestamp.c:187:30: error: ex=
+pected =A1;=A2 before =A1{=A2 token
+> Documentation/networking/timestamping/txtimestamp.c:185:18: warning: =
+unused variable =A1cm=A2 [-Wunused-variable]
+> Documentation/networking/timestamping/txtimestamp.c:184:27: warning: =
+unused variable =A1tss=A2 [-Wunused-variable]
+> Documentation/networking/timestamping/txtimestamp.c:183:28: warning: =
+unused variable =A1serr=A2 [-Wunused-variable]
+> Documentation/networking/timestamping/txtimestamp.c: At top level:
+> Documentation/networking/timestamping/txtimestamp.c:123:13: warning: =
+=A1print_timestamp=A2 defined but not used [-Wunused-function]
+> Documentation/networking/timestamping/txtimestamp.c:159:13: warning: =
+=A1print_pktinfo=A2 defined but not used [-Wunused-function]
+>=20
