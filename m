@@ -1,191 +1,244 @@
-From: Shrikrishna Khare <skhare@vmware.com>
-Subject: [PATCH] Driver: Vmxnet3: Make Rx ring 2 size configurable
-Date: Wed, 10 Dec 2014 21:37:42 -0800
-Message-ID: <1418276262-4728-1-git-send-email-skhare@vmware.com>
-Cc: Shrikrishna Khare <skhare@vmware.com>,
-	Ramya Bolla <bollar@vmware.com>
-To: sbhatewara@vmware.com, pv-drivers@vmware.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Kevin Hao <haokexin@gmail.com>
+Subject: [PATCH net v2] gianfar: Fix dma check map error when DMA_API_DEBUG is enabled
+Date: Thu, 11 Dec 2014 14:08:41 +0800
+Message-ID: <1418278121-20209-1-git-send-email-haokexin@gmail.com>
+References: <20141211020646.GB18701@pek-khao-d1.corp.ad.wrs.com>
+Cc: Claudiu Manoil <claudiu.manoil@freescale.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:60723 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964800AbaLKGKB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 01:10:01 -0500
+Received: by mail-pa0-f46.google.com with SMTP id lf10so3774695pab.19
+        for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 22:10:00 -0800 (PST)
+In-Reply-To: <20141211020646.GB18701@pek-khao-d1.corp.ad.wrs.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rx ring 2 size can be configured by adjusting rx-jumbo parameter
-of ethtool -G.
+We need to use dma_mapping_error() to check the dma address returned
+by dma_map_single/page(). Otherwise we would get warning like this:
+  WARNING: at lib/dma-debug.c:1140
+  Modules linked in:
+  CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.18.0-rc2-next-20141029 #196
+  task: c0834300 ti: effe6000 task.ti: c0874000
+  NIP: c02b2c98 LR: c02b2c98 CTR: c030abc4
+  REGS: effe7d70 TRAP: 0700   Not tainted  (3.18.0-rc2-next-20141029)
+  MSR: 00021000 <CE,ME>  CR: 22044022  XER: 20000000
 
-Signed-off-by: Ramya Bolla <bollar@vmware.com>
-Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
-Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+  GPR00: c02b2c98 effe7e20 c0834300 00000098 00021000 00000000 c030b898 00000003
+  GPR08: 00000001 00000000 00000001 749eec9d 22044022 1001abe0 00000020 ef278678
+  GPR16: ef278670 ef278668 ef278660 070a8040 c087f99c c08cdc60 00029000 c0840d44
+  GPR24: c08be6e8 c0840000 effe7e78 ef041340 00000600 ef114e10 00000000 c08be6e0
+  NIP [c02b2c98] check_unmap+0x51c/0x9e4
+  LR [c02b2c98] check_unmap+0x51c/0x9e4
+  Call Trace:
+  [effe7e20] [c02b2c98] check_unmap+0x51c/0x9e4 (unreliable)
+  [effe7e70] [c02b31d8] debug_dma_unmap_page+0x78/0x8c
+  [effe7ed0] [c03d1640] gfar_clean_rx_ring+0x208/0x488
+  [effe7f40] [c03d1a9c] gfar_poll_rx_sq+0x3c/0xa8
+  [effe7f60] [c04f8714] net_rx_action+0xc0/0x178
+  [effe7f90] [c00435a0] __do_softirq+0x100/0x1fc
+  [effe7fe0] [c0043958] irq_exit+0xa4/0xc8
+  [effe7ff0] [c000d14c] call_do_irq+0x24/0x3c
+  [c0875e90] [c00048a0] do_IRQ+0x8c/0xf8
+  [c0875eb0] [c000ed10] ret_from_except+0x0/0x18
+
+For TX, we need to unmap the pages which has already been mapped and
+free the skb before return.
+
+For RX, move the dma mapping and error check to gfar_new_skb(). We
+would reuse the original skb in the rx ring when either allocating
+skb failure or dma mapping error.
+
+Signed-off-by: Kevin Hao <haokexin@gmail.com>
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 ---
- drivers/net/vmxnet3/vmxnet3_defs.h    |  1 +
- drivers/net/vmxnet3/vmxnet3_drv.c     |  6 +++++-
- drivers/net/vmxnet3/vmxnet3_ethtool.c | 27 ++++++++++++++++++++-------
- drivers/net/vmxnet3/vmxnet3_int.h     |  6 ++++--
- 4 files changed, 30 insertions(+), 10 deletions(-)
+v2: Just update the RX path to reuse the original skb when dma mapping error
+    occurs as suggested by David.
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
-index 4d84912..25b6fa4 100644
---- a/drivers/net/vmxnet3/vmxnet3_defs.h
-+++ b/drivers/net/vmxnet3/vmxnet3_defs.h
-@@ -342,6 +342,7 @@ union Vmxnet3_GenericDesc {
- #define VMXNET3_TX_RING_MAX_SIZE   4096
- #define VMXNET3_TC_RING_MAX_SIZE   4096
- #define VMXNET3_RX_RING_MAX_SIZE   4096
-+#define VMXNET3_RX_RING2_MAX_SIZE  2048
- #define VMXNET3_RC_RING_MAX_SIZE   8192
+ drivers/net/ethernet/freescale/gianfar.c | 84 +++++++++++++++++++++-----------
+ 1 file changed, 56 insertions(+), 28 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 4fdf0aa16978..73e1144f2a87 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -116,9 +116,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev);
+ static void gfar_reset_task(struct work_struct *work);
+ static void gfar_timeout(struct net_device *dev);
+ static int gfar_close(struct net_device *dev);
+-struct sk_buff *gfar_new_skb(struct net_device *dev);
+-static void gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
+-			   struct sk_buff *skb);
++struct sk_buff *gfar_new_skb(struct net_device *dev, dma_addr_t *bufaddr);
+ static int gfar_set_mac_address(struct net_device *dev);
+ static int gfar_change_mtu(struct net_device *dev, int new_mtu);
+ static irqreturn_t gfar_error(int irq, void *dev_id);
+@@ -178,6 +176,7 @@ static int gfar_init_bds(struct net_device *ndev)
+ 	struct txbd8 *txbdp;
+ 	struct rxbd8 *rxbdp;
+ 	int i, j;
++	dma_addr_t bufaddr;
  
- /* a list of reasons for queue stop */
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index afd2953..7af1f5c 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -2505,6 +2505,9 @@ vmxnet3_adjust_rx_ring_size(struct vmxnet3_adapter *adapter)
- 	ring0_size = min_t(u32, ring0_size, VMXNET3_RX_RING_MAX_SIZE /
- 			   sz * sz);
- 	ring1_size = adapter->rx_queue[0].rx_ring[1].size;
-+	ring1_size = (ring1_size + sz - 1) / sz * sz;
-+	ring1_size = min_t(u32, ring1_size, VMXNET3_RX_RING2_MAX_SIZE /
-+			   sz * sz);
- 	comp_size = ring0_size + ring1_size;
+ 	for (i = 0; i < priv->num_tx_queues; i++) {
+ 		tx_queue = priv->tx_queue[i];
+@@ -211,19 +210,17 @@ static int gfar_init_bds(struct net_device *ndev)
+ 			struct sk_buff *skb = rx_queue->rx_skbuff[j];
  
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
-@@ -2585,7 +2588,7 @@ vmxnet3_open(struct net_device *netdev)
+ 			if (skb) {
+-				gfar_init_rxbdp(rx_queue, rxbdp,
+-						rxbdp->bufPtr);
++				bufaddr = rxbdp->bufPtr;
+ 			} else {
+-				skb = gfar_new_skb(ndev);
++				skb = gfar_new_skb(ndev, &bufaddr);
+ 				if (!skb) {
+ 					netdev_err(ndev, "Can't allocate RX buffers\n");
+ 					return -ENOMEM;
+ 				}
+ 				rx_queue->rx_skbuff[j] = skb;
+-
+-				gfar_new_rxbdp(rx_queue, rxbdp, skb);
+ 			}
  
- 	err = vmxnet3_create_queues(adapter, adapter->tx_ring_size,
- 				    adapter->rx_ring_size,
--				    VMXNET3_DEF_RX_RING_SIZE);
-+				    adapter->rx_ring2_size);
- 	if (err)
- 		goto queue_err;
++			gfar_init_rxbdp(rx_queue, rxbdp, bufaddr);
+ 			rxbdp++;
+ 		}
  
-@@ -2964,6 +2967,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+@@ -2290,6 +2287,8 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 						   0,
+ 						   frag_len,
+ 						   DMA_TO_DEVICE);
++			if (unlikely(dma_mapping_error(priv->dev, bufaddr)))
++				goto dma_map_err;
  
- 	adapter->tx_ring_size = VMXNET3_DEF_TX_RING_SIZE;
- 	adapter->rx_ring_size = VMXNET3_DEF_RX_RING_SIZE;
-+	adapter->rx_ring2_size = VMXNET3_DEF_RX_RING2_SIZE;
+ 			/* set the TxBD length and buffer pointer */
+ 			txbdp->bufPtr = bufaddr;
+@@ -2339,8 +2338,12 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		fcb->ptp = 1;
+ 	}
  
- 	spin_lock_init(&adapter->cmd_lock);
- 	adapter->adapter_pa = dma_map_single(&adapter->pdev->dev, adapter,
-diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-index b725fd9..70fb410 100644
---- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
-+++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-@@ -447,12 +447,12 @@ vmxnet3_get_ringparam(struct net_device *netdev,
- 	param->rx_max_pending = VMXNET3_RX_RING_MAX_SIZE;
- 	param->tx_max_pending = VMXNET3_TX_RING_MAX_SIZE;
- 	param->rx_mini_max_pending = 0;
--	param->rx_jumbo_max_pending = 0;
-+	param->rx_jumbo_max_pending = VMXNET3_RX_RING2_MAX_SIZE;
+-	txbdp_start->bufPtr = dma_map_single(priv->dev, skb->data,
+-					     skb_headlen(skb), DMA_TO_DEVICE);
++	bufaddr = dma_map_single(priv->dev, skb->data, skb_headlen(skb),
++				 DMA_TO_DEVICE);
++	if (unlikely(dma_mapping_error(priv->dev, bufaddr)))
++		goto dma_map_err;
++
++	txbdp_start->bufPtr = bufaddr;
  
- 	param->rx_pending = adapter->rx_ring_size;
- 	param->tx_pending = adapter->tx_ring_size;
- 	param->rx_mini_pending = 0;
--	param->rx_jumbo_pending = 0;
-+	param->rx_jumbo_pending = adapter->rx_ring2_size;
+ 	/* If time stamping is requested one additional TxBD must be set up. The
+ 	 * first TxBD points to the FCB and must have a data length of
+@@ -2406,6 +2409,25 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	spin_unlock_irqrestore(&tx_queue->txlock, flags);
+ 
+ 	return NETDEV_TX_OK;
++
++dma_map_err:
++	txbdp = next_txbd(txbdp_start, base, tx_queue->tx_ring_size);
++	if (do_tstamp)
++		txbdp = next_txbd(txbdp, base, tx_queue->tx_ring_size);
++	for (i = 0; i < nr_frags; i++) {
++		lstatus = txbdp->lstatus;
++		if (!(lstatus & BD_LFLAG(TXBD_READY)))
++			break;
++
++		txbdp->lstatus = lstatus & ~BD_LFLAG(TXBD_READY);
++		bufaddr = txbdp->bufPtr;
++		dma_unmap_page(priv->dev, bufaddr, txbdp->length,
++			       DMA_TO_DEVICE);
++		txbdp = next_txbd(txbdp, base, tx_queue->tx_ring_size);
++	}
++	gfar_wmb();
++	dev_kfree_skb_any(skb);
++	return NETDEV_TX_OK;
  }
  
+ /* Stops the kernel queue, and halts the controller */
+@@ -2606,18 +2628,6 @@ static void gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
+ 	netdev_tx_completed_queue(txq, howmany, bytes_sent);
+ }
  
-@@ -461,7 +461,7 @@ vmxnet3_set_ringparam(struct net_device *netdev,
- 		      struct ethtool_ringparam *param)
+-static void gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
+-			   struct sk_buff *skb)
+-{
+-	struct net_device *dev = rx_queue->dev;
+-	struct gfar_private *priv = netdev_priv(dev);
+-	dma_addr_t buf;
+-
+-	buf = dma_map_single(priv->dev, skb->data,
+-			     priv->rx_buffer_size, DMA_FROM_DEVICE);
+-	gfar_init_rxbdp(rx_queue, bdp, buf);
+-}
+-
+ static struct sk_buff *gfar_alloc_skb(struct net_device *dev)
  {
- 	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
--	u32 new_tx_ring_size, new_rx_ring_size;
-+	u32 new_tx_ring_size, new_rx_ring_size, new_rx_ring2_size;
- 	u32 sz;
- 	int err = 0;
+ 	struct gfar_private *priv = netdev_priv(dev);
+@@ -2632,9 +2642,25 @@ static struct sk_buff *gfar_alloc_skb(struct net_device *dev)
+ 	return skb;
+ }
  
-@@ -473,6 +473,10 @@ vmxnet3_set_ringparam(struct net_device *netdev,
- 						VMXNET3_RX_RING_MAX_SIZE)
- 		return -EINVAL;
- 
-+	if (param->rx_jumbo_pending == 0 ||
-+	    param->rx_jumbo_pending > VMXNET3_RX_RING2_MAX_SIZE)
-+		return -EINVAL;
+-struct sk_buff *gfar_new_skb(struct net_device *dev)
++struct sk_buff *gfar_new_skb(struct net_device *dev, dma_addr_t *bufaddr)
+ {
+-	return gfar_alloc_skb(dev);
++	struct gfar_private *priv = netdev_priv(dev);
++	struct sk_buff *skb;
++	dma_addr_t addr;
 +
- 	/* if adapter not yet initialized, do nothing */
- 	if (adapter->rx_buf_per_pkt == 0) {
- 		netdev_err(netdev, "adapter not completely initialized, "
-@@ -500,8 +504,15 @@ vmxnet3_set_ringparam(struct net_device *netdev,
- 							   sz) != 0)
- 		return -EINVAL;
- 
--	if (new_tx_ring_size == adapter->tx_queue[0].tx_ring.size &&
--	    new_rx_ring_size == adapter->rx_queue[0].rx_ring[0].size) {
-+	/* ring2 has to be a multiple of VMXNET3_RING_SIZE_ALIGN */
-+	new_rx_ring2_size = (param->rx_jumbo_pending + VMXNET3_RING_SIZE_MASK) &
-+				~VMXNET3_RING_SIZE_MASK;
-+	new_rx_ring2_size = min_t(u32, new_rx_ring2_size,
-+				  VMXNET3_RX_RING2_MAX_SIZE);
++	skb = gfar_alloc_skb(dev);
++	if (!skb)
++		return NULL;
 +
-+	if (new_tx_ring_size == adapter->tx_ring_size &&
-+	    new_rx_ring_size == adapter->rx_ring_size &&
-+	    new_rx_ring2_size == adapter->rx_ring2_size) {
- 		return 0;
- 	}
++	addr = dma_map_single(priv->dev, skb->data,
++			      priv->rx_buffer_size, DMA_FROM_DEVICE);
++	if (unlikely(dma_mapping_error(priv->dev, addr))) {
++		dev_kfree_skb_any(skb);
++		return NULL;
++	}
++
++	*bufaddr = addr;
++	return skb;
+ }
  
-@@ -522,7 +533,7 @@ vmxnet3_set_ringparam(struct net_device *netdev,
- 		vmxnet3_rq_destroy_all(adapter);
+ static inline void count_errors(unsigned short status, struct net_device *dev)
+@@ -2805,11 +2831,12 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
  
- 		err = vmxnet3_create_queues(adapter, new_tx_ring_size,
--			new_rx_ring_size, VMXNET3_DEF_RX_RING_SIZE);
-+			new_rx_ring_size, new_rx_ring2_size);
+ 	while (!((bdp->status & RXBD_EMPTY) || (--rx_work_limit < 0))) {
+ 		struct sk_buff *newskb;
++		dma_addr_t bufaddr;
  
- 		if (err) {
- 			/* failed, most likely because of OOM, try default
-@@ -530,11 +541,12 @@ vmxnet3_set_ringparam(struct net_device *netdev,
- 			netdev_err(netdev, "failed to apply new sizes, "
- 				   "try the default ones\n");
- 			new_rx_ring_size = VMXNET3_DEF_RX_RING_SIZE;
-+			new_rx_ring2_size = VMXNET3_DEF_RX_RING2_SIZE;
- 			new_tx_ring_size = VMXNET3_DEF_TX_RING_SIZE;
- 			err = vmxnet3_create_queues(adapter,
- 						    new_tx_ring_size,
- 						    new_rx_ring_size,
--						    VMXNET3_DEF_RX_RING_SIZE);
-+						    new_rx_ring2_size);
- 			if (err) {
- 				netdev_err(netdev, "failed to create queues "
- 					   "with default sizes. Closing it\n");
-@@ -549,6 +561,7 @@ vmxnet3_set_ringparam(struct net_device *netdev,
- 	}
- 	adapter->tx_ring_size = new_tx_ring_size;
- 	adapter->rx_ring_size = new_rx_ring_size;
-+	adapter->rx_ring2_size = new_rx_ring2_size;
+ 		rmb();
  
- out:
- 	clear_bit(VMXNET3_STATE_BIT_RESETTING, &adapter->state);
-diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
-index 5f0199f..048f020 100644
---- a/drivers/net/vmxnet3/vmxnet3_int.h
-+++ b/drivers/net/vmxnet3/vmxnet3_int.h
-@@ -69,10 +69,10 @@
- /*
-  * Version numbers
-  */
--#define VMXNET3_DRIVER_VERSION_STRING   "1.2.1.0-k"
-+#define VMXNET3_DRIVER_VERSION_STRING   "1.3.1.0-k"
+ 		/* Add another skb for the future */
+-		newskb = gfar_new_skb(dev);
++		newskb = gfar_new_skb(dev, &bufaddr);
  
- /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
--#define VMXNET3_DRIVER_VERSION_NUM      0x01020100
-+#define VMXNET3_DRIVER_VERSION_NUM      0x01030100
+ 		skb = rx_queue->rx_skbuff[rx_queue->skb_currx];
  
- #if defined(CONFIG_PCI_MSI)
- 	/* RSS only makes sense if MSI-X is supported. */
-@@ -352,6 +352,7 @@ struct vmxnet3_adapter {
- 	/* Ring sizes */
- 	u32 tx_ring_size;
- 	u32 rx_ring_size;
-+	u32 rx_ring2_size;
+@@ -2825,9 +2852,10 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
+ 			     bdp->status & RXBD_ERR)) {
+ 			count_errors(bdp->status, dev);
  
- 	struct work_struct work;
+-			if (unlikely(!newskb))
++			if (unlikely(!newskb)) {
+ 				newskb = skb;
+-			else if (skb)
++				bufaddr = bdp->bufPtr;
++			} else if (skb)
+ 				dev_kfree_skb(skb);
+ 		} else {
+ 			/* Increment the number of packets */
+@@ -2854,7 +2882,7 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
+ 		rx_queue->rx_skbuff[rx_queue->skb_currx] = newskb;
  
-@@ -384,6 +385,7 @@ struct vmxnet3_adapter {
- /* must be a multiple of VMXNET3_RING_SIZE_ALIGN */
- #define VMXNET3_DEF_TX_RING_SIZE    512
- #define VMXNET3_DEF_RX_RING_SIZE    256
-+#define VMXNET3_DEF_RX_RING2_SIZE   128
+ 		/* Setup the new bdp */
+-		gfar_new_rxbdp(rx_queue, bdp, newskb);
++		gfar_init_rxbdp(rx_queue, bdp, bufaddr);
  
- #define VMXNET3_MAX_ETH_HDR_SIZE    22
- #define VMXNET3_MAX_SKB_BUF_SIZE    (3*1024)
+ 		/* Update to the next pointer */
+ 		bdp = next_bd(bdp, base, rx_queue->rx_ring_size);
 -- 
-2.1.0
+1.9.3
