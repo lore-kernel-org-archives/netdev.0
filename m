@@ -1,34 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v8 1/7] cxgb4i: fix tx immediate data credit check
-Date: Wed, 10 Dec 2014 22:54:45 -0500 (EST)
-Message-ID: <20141210.225445.458745535803327140.davem@davemloft.net>
-References: <201412102111.sBALB6sI011656@localhost6.localdomain6>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-	hariprasad@chelsio.com, anish@chelsio.com, hch@infradead.org,
-	James.Bottomley@HansenPartnership.com, michaelc@cs.wisc.edu
-To: kxie@chelsio.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <201412102111.sBALB6sI011656@localhost6.localdomain6>
-Sender: linux-scsi-owner@vger.kernel.org
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net-next] net: sock: fix access via invalid file descriptor
+Date: Wed, 10 Dec 2014 20:14:55 -0800
+Message-ID: <1418271295-5829-1-git-send-email-ast@plumgrid.com>
+Cc: Fengguang Wu <fengguang.wu@intel.com>,
+	Dave Jones <davej@redhat.com>,
+	Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Karen Xie <kxie@chelsio.com>
-Date: Wed, 10 Dec 2014 13:11:06 -0800
+0day robot reported the following crash:
+[   21.233581] BUG: unable to handle kernel NULL pointer dereference at 0000000000000007
+[   21.234709] IP: [<ffffffff8156ebda>] sk_attach_bpf+0x39/0xc2
 
-> From: Karen Xie <kxie@chelsio.com>
-> 
-> Only data skbs need the wr header added while control skbs do not. Make sure they are treated differently.
-> 
-> Signed-off-by: Karen Xie <kxie@chelsio.com>
+It's due to bpf_prog_get() returning ERR_PTR.
+Check it properly.
 
-Please text format your commit messages to 80 characters or less per
-line.
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Fixes: 89aa075832b0 ("net: sock: allow eBPF programs to be attached to sockets")
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+Silly mistake. I was sure I've checked this error path. Apparently not :(
 
-People are going to read your commits using text tools, not
-necessarily GUI tools which will auto-format your commit message.
+ net/core/filter.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-I know this seems like we are being difficult, but you are making many
-fundamental mistakes in your efforts to merge in these changes.
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 8cc3c03078b3..ec9baea10c16 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1103,8 +1103,8 @@ int sk_attach_bpf(u32 ufd, struct sock *sk)
+ 		return -EPERM;
+ 
+ 	prog = bpf_prog_get(ufd);
+-	if (!prog)
+-		return -EINVAL;
++	if (IS_ERR(prog))
++		return PTR_ERR(prog);
+ 
+ 	if (prog->aux->prog_type != BPF_PROG_TYPE_SOCKET_FILTER) {
+ 		/* valid fd, but invalid program type */
+-- 
+1.7.9.5
