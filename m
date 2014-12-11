@@ -1,75 +1,88 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next RESEND] net: Do not call ndo_dflt_fdb_dump if
- ndo_fdb_dump is defined.
-Date: Wed, 10 Dec 2014 23:31:28 -0800
-Message-ID: <54894850.5000603@cumulusnetworks.com>
-References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [net PATCH] fib_trie: Fix trie balancing issue if new node pushes
+ down existing node
+Date: Wed, 10 Dec 2014 21:49:22 -0800
+Message-ID: <20141211054815.1357.36977.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jamal Hadi Salim <hadi@mojatatu.com>
-To: Hubert Sokolowski <h.sokolowski@wit.edu.pl>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:53720 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932171AbaLKHbc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 02:31:32 -0500
-In-Reply-To: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>
+Received: from mx1.redhat.com ([209.132.183.28]:57441 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933941AbaLKHrt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Dec 2014 02:47:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/10/14, 11:37 AM, Hubert Sokolowski wrote:
-> This change restores the semantic that was present
-> before 5e6d243587990a588143b9da3974833649595587
-> "bridge: netlink dump interface at par with brctl"
-> on how ndo_dflt_fdb_dump is called.
-> This semantic is still used for add and del operations
-> so let's keep it consistent.
-> Driver can still call ndo_dflt_fdb_dump from inside
-> its own fdb_dump routine when needed.
->
-> Signed-off-by: Hubert Sokolowski <h.sokolowski@wit.edu.pl>
-> ---
->   net/core/rtnetlink.c | 3 ++-
->   1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index eaa057f..a9e5c37 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -2692,10 +2692,11 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
->   							 idx);
->   		}
->
-> -		idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
->   		if (dev->netdev_ops->ndo_fdb_dump)
->   			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, bdev, dev,
->   							    idx);
-> +		else
-> +			idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
->
->   		cops = NULL;
->   	}
-I think commit
-"5e6d243587990a588143b9da3974833649595587 "bridge: netlink dump 
-interface at par with brctl" tried to make sure even the dflt entries 
-(ie dev->uc and dev->mc) were also printed in the below case. ie the 
-'self' entries in the below output.
+This patch addresses an issue with the level compression of the fib_trie.
+Specifically in the case of adding a new leaf that triggers a new node to
+be added that takes the place of the old node.  The result is a trie where
+the 1 child tnode is on one side and one leaf is on the other which gives
+you a very deep trie.  Below is the script I used to generate a trie on
+dummy0 with a 10.X.X.X family of addresses.
 
-# ./bridge fdb show brport eth1
-02:00:00:12:01:02 vlan 0 master br0 permanent
-00:17:42:8a:b4:05 vlan 0 master br0 permanent
-00:17:42:8a:b4:07 self permanent
-33:33:00:00:00:01 self permanent
+  ip link add type dummy
+  ipval=184549374
+  bit=2
+  for i in `seq 1 23`
+  do
+    ifconfig dummy0:$bit $ipval/8
+    ipval=`expr $ipval - $bit`
+    bit=`expr $bit \* 2`
+  done
+  cat /proc/net/fib_triestat
 
-Am guessing reverting the patch is going to make the 'self' entries in 
-the above output to go away.
-Can you please confirm ?.
+Running the script before the patch:
 
-Also, if i hear your concern correctly, for bridge ports that implement 
-ndo_fdb_dump, with commit 5e6d243587990a588143b9da3974833649595587, we 
-will get two entries for each 'self' entry above.
-Can you also paste sample output for that ?.
+	Local:
+		Aver depth:     10.82
+		Max depth:      23
+		Leaves:         29
+		Prefixes:       30
+		Internal nodes: 27
+		  1: 26  2: 1
+		Pointers: 56
+	Null ptrs: 1
+	Total size: 5  kB
 
-Thanks,
-Roopa
+After applying the patch and repeating:
+
+	Local:
+		Aver depth:     4.72
+		Max depth:      9
+		Leaves:         29
+		Prefixes:       30
+		Internal nodes: 12
+		  1: 3  2: 2  3: 7
+		Pointers: 70
+	Null ptrs: 30
+	Total size: 4  kB
+
+What this fix does is start the rebalance at the newly created tnode
+instead of at the parent tnode.  This way if there is a gap between the
+parent and the new node it doesn't prevent the new tnode from being
+coalesced with any pre-existing nodes that may have been pushed into one
+of the new nodes child branches.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+---
+ net/ipv4/fib_trie.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index e9cb258..18bcaf2 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1143,8 +1143,9 @@ static struct list_head *fib_insert_node(struct trie *t, u32 key, int plen)
+ 			put_child(tp, cindex, (struct rt_trie_node *)tn);
+ 		} else {
+ 			rcu_assign_pointer(t->trie, (struct rt_trie_node *)tn);
+-			tp = tn;
+ 		}
++
++		tp = tn;
+ 	}
+ 
+ 	if (tp && tp->pos + tp->bits > 32)
