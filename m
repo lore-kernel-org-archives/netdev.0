@@ -1,54 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] if_bridge: fix conflict with glibc
-Date: Wed, 10 Dec 2014 20:44:53 -0500 (EST)
-Message-ID: <20141210.204453.2032479274891251801.davem@davemloft.net>
-References: <20141209214122.76b15851@urahara>
-	<20141210.133417.152985082992875227.davem@davemloft.net>
-	<20141210155745.3d375230@urahara>
+Subject: Re: [PATCH v2] net: introduce helper macro for_each_cmsghdr
+Date: Wed, 10 Dec 2014 20:47:03 -0500 (EST)
+Message-ID: <20141210.204703.1525194278635097457.davem@davemloft.net>
+References: <20141210.134804.1383875260695429574.davem@davemloft.net>
+	<20141210.144430.1749715282635917425.davem@davemloft.net>
+	<5488EDF7.7070001@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregory.0xf0@gmail.com, f.fainelli@gmail.com,
-	xiyou.wangcong@gmail.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49459 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933315AbaLKBo4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 20:44:56 -0500
-In-Reply-To: <20141210155745.3d375230@urahara>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	joe@perches.com
+To: guz.fnst@cn.fujitsu.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5488EDF7.7070001@cn.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Wed, 10 Dec 2014 15:57:45 -0800
+From: Gu Zheng <guz.fnst@cn.fujitsu.com>
+Date: Thu, 11 Dec 2014 09:05:59 +0800
 
-> On Wed, 10 Dec 2014 13:34:17 -0500 (EST)
-> David Miller <davem@davemloft.net> wrote:
-> 
->> No, we really want to incluse the linux/in6.h header, as that's where all
->> the special GLIBC CPP checks are, such as:
->> 
->> #if __UAPI_DEF_IN6_ADDR_ALT
->> 
->> Please research how we have resolved the conflict between GLIBC and the
->> kernel's exported headers.  We really need to use linux/in6.h for all of
->> this to work.
->> 
->> I understand that it is upsetting that iproute2 stopped building for you,
->> but I'd like to kindly ask that you look more deeply into this and think
->> more longer term, rather than having a knee jerk reaction and looking for
->> quick fixes.
-> 
-> I don't have the time to understand the intricacies of glibc headers.
-> The problem is that Gcc warns about duplicate definitions in headers;
-> this is a useful warning and not something that I want to disable.
-> Hacks with #undef seem to be heading the wrong way.
+> IMO, the user-land programs need to be build with the matched
+> headers separately.
 
-GLIBC and the kernel have unconditionally defined various types in
-their copies of in.h, and the only way to resolve this moving forward
-is to have some communication between the two so we can know who is
-in fact in charge of instantianting the type.
+You absolutely cannot provide this new interface to userland and
+expect programs to be able to just use it, it's non-standard and does
+not exist in older headers.
 
-The new defines, such as __UAPI_DEF_IN6_ADDR_ALT, are that new
-mechanism.
+I do not want this new interface available to userland programs.
+They can just open-code the list traversal just like every program
+in history has had to do since BSD UNIX.
