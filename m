@@ -1,43 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: randconfig build error with next-20141210, in
- drivers/net/ethernet/broadcom/genet
-Date: Thu, 11 Dec 2014 14:22:20 -0500 (EST)
-Message-ID: <20141211.142220.610076934853342634.davem@davemloft.net>
-References: <CA+r1ZhjxtK8BtF16Mr9jXjqvFVV7KAAFjWqfVFUibNreZwZxTw@mail.gmail.com>
+Subject: Re: bind() should not return -EADDRINUSE
+Date: Thu, 11 Dec 2014 14:23:55 -0500 (EST)
+Message-ID: <20141211.142355.854082841833367081.davem@davemloft.net>
+References: <5489EE2F.6030502@ubuntu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, f.fainelli@gmail.com,
-	netdev@vger.kernel.org
-To: jim.epost@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+r1ZhjxtK8BtF16Mr9jXjqvFVV7KAAFjWqfVFUibNreZwZxTw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: psusi@ubuntu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55725 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758633AbaLKTX5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 14:23:57 -0500
+In-Reply-To: <5489EE2F.6030502@ubuntu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jim Davis <jim.epost@gmail.com>
-Date: Wed, 10 Dec 2014 09:10:45 -0700
+From: Phillip Susi <psusi@ubuntu.com>
+Date: Thu, 11 Dec 2014 14:19:11 -0500
 
-> Building with the attached random configuration file,
-> 
-> ERROR: "fixed_phy_register"
-> [drivers/net/ethernet/broadcom/genet/genet.ko] undefined!
+> Attempting to establish a connection to a remote host using the same
+> local port, but a different remote port as the previous connection (
+> that is still in TIME_WAIT ) results in bind() returning -EADDRINUSE.
+>  By changing the remote port, you avoid the conflict with the other
+> connection that is in TIME_WAIT, but since the remote port is not
+> known when bind() is called, it incorrectly returns -EADDRINUSE.  This
+> check should not be done in bind(), but deferred until the remote port
+> is known in the call to connect(), or listen().
 
-Florian, I don't understand why FIXED_PHY is only selected in Kconfig
-if the driver is statically built into the kernel.
-
-That makes no sense at all, you should need that module regardless of
-how the driver itself is enabled.
-
-Can't we just remove the "XXX=y" in all of those silly:
-
-	select FIXED_PHY if XXX=y
-
-expressions?
-
-There are three such cases right now:
-
-drivers/net/dsa/Kconfig:	select FIXED_PHY if NET_DSA_BCM_SF2=y
-drivers/net/ethernet/broadcom/Kconfig:	select FIXED_PHY if BCMGENET=y
-drivers/net/ethernet/broadcom/Kconfig:	select FIXED_PHY if SYSTEMPORT=y
+Bind has to allocate and hold from everyone else on the system the
+local port at bind() time, so we cannot defer this decision.
