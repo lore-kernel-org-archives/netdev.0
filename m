@@ -1,42 +1,38 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next RESEND] net: Do not call ndo_dflt_fdb_dump if
- ndo_fdb_dump is defined.
-Date: Thu, 11 Dec 2014 15:40:05 -0500
-Message-ID: <548A0125.2030102@mojatatu.com>
-References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>    <54894850.5000603@cumulusnetworks.com> <7968540cd0768a770b0c8b29ce41a162.squirrel@poczta.wsisiz.edu.pl> <5489D53E.5010603@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Vlad Yasevich <vyasevic@redhat.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Hubert Sokolowski <h.sokolowski@wit.edu.pl>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net 0/2] net: dsa: two small bug fixes
+Date: Thu, 11 Dec 2014 12:49:14 -0800
+Message-ID: <1418330956-17151-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, computersforpeace@gmail.com,
+	andrey.volkov@nexvision.fr, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:34935 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758664AbaLKUkI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 15:40:08 -0500
-Received: by mail-ie0-f170.google.com with SMTP id rd18so5693637iec.1
-        for <netdev@vger.kernel.org>; Thu, 11 Dec 2014 12:40:07 -0800 (PST)
-In-Reply-To: <5489D53E.5010603@cumulusnetworks.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:55914 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758647AbaLKUte (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 15:49:34 -0500
+Received: by mail-pa0-f49.google.com with SMTP id eu11so5684005pac.8
+        for <netdev@vger.kernel.org>; Thu, 11 Dec 2014 12:49:33 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/11/14 12:32, Roopa Prabhu wrote:
+Hi David,
 
->>
-> Thanks. yes, that is a problem. And, this mac0 is not a bridge port
-> correct ?.
->
+Here are two small fixes for the DSA slave interface creation code:
 
-Aha. I think this is the key. It is NOT a bridge port. This is why i
-was explicit to ask for the commit log tests to be run.
+- first patch fixes a null pointer de-reference with an invalid PHY
+  device pointer while calling phy_connect_direct()
 
-> But, for the same test case, when mac0 is a bridge port, does your patch
-> under review make both the entries go away for a bridge port ?.
-> (If i understand jamal correctly, this is his concern).
+- second path propagates the dsa_slave_phy_setup() error code down to
+  its caller: dsa_slave_create
 
-I am interested to see the answer.
-More importantly I am hoping Vlad would wake up and say something.
+Thanks!
 
-cheers,
-jamal
+Florian Fainelli (2):
+  net: dsa: handle non-existing PHYs on switch internal bus
+  net: dsa: propagate error code from dsa_slave_phy_setup
+
+ net/dsa/slave.c | 16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
+
+-- 
+2.1.0
