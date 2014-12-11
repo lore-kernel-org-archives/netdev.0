@@ -1,76 +1,63 @@
-From: Kevin Hao <haokexin@gmail.com>
-Subject: Re: [PATCH net] gianfar: Fix dma check map error when DMA_API_DEBUG
- is enabled
-Date: Thu, 11 Dec 2014 10:06:46 +0800
-Message-ID: <20141211020646.GB18701@pek-khao-d1.corp.ad.wrs.com>
-References: <1417775874-17775-1-git-send-email-asolokha@kb.kras.ru>
- <1418135075-17349-1-git-send-email-claudiu.manoil@freescale.com>
- <20141210.131347.2165044584202384761.davem@davemloft.net>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH net-next v2 1/3] net: fec: reset fep link status in suspend function
+Date: Thu, 11 Dec 2014 09:20:31 +0800
+Message-ID: <1418260833-896-2-git-send-email-b38611@freescale.com>
+References: <1418260833-896-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="DIOMP1UsTsWJauNi"
-Cc: claudiu.manoil@freescale.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <bhutchings@solarflare.com>,
+	<stephen@networkplumber.org>, <b38611@freescale.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:44555 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932937AbaLKCGy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 21:06:54 -0500
-Received: by mail-pd0-f176.google.com with SMTP id r10so1980218pdi.7
-        for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 18:06:53 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20141210.131347.2165044584202384761.davem@davemloft.net>
+Received: from mail-by2on0119.outbound.protection.outlook.com ([207.46.100.119]:27416
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932937AbaLKCJg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Dec 2014 21:09:36 -0500
+In-Reply-To: <1418260833-896-1-git-send-email-b38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On some i.MX6 serial boards, phy power and refrence clock are supplied
+or controlled by SOC. When do suspend/resume test, the power and clock
+are disabled, so phy device link down.
 
---DIOMP1UsTsWJauNi
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+For current driver, fep->link is still up status, which cause extra operation
+like below code. To avoid the dumy operation, we set fep->link to down when
+phy device is real down.
+...
+if (fep->link) {
+	napi_disable(&fep->napi);
+	netif_tx_lock_bh(ndev);
+	fec_stop(ndev);
+	netif_tx_unlock_bh(ndev);
+	napi_enable(&fep->napi);
+	fep->link = phy_dev->link;
+	status_change = 1;
+}
+...
 
-On Wed, Dec 10, 2014 at 01:13:47PM -0500, David Miller wrote:
-> From: Claudiu Manoil <claudiu.manoil@freescale.com>
-> Date: Tue, 9 Dec 2014 16:24:35 +0200
->=20
-> > From: Kevin Hao <haokexin@gmail.com>
-> >=20
-> > We need to use dma_mapping_error() to check the dma address returned
-> > by dma_map_single/page(). Otherwise we would get warning like this:
->  ...
-> > For TX, we need to unmap the pages which has already been mapped and
-> > free the skb before return. For RX, just let the rxbdp as unempty.
-> > We can retry to initialize it to empty in next round.
-> >=20
-> > Signed-off-by: Kevin Hao <haokexin@gmail.com>
-> > Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
->=20
-> The RX behavior needs to be adjusted.
->=20
-> You should never leave holes in the RX ring, ever.
->=20
-> Instead, try allocating the new RX skb first, and only if
-> you are successful should you pass up the original SKB.  If
-> it fails, then reuse the original SKB in the RX ring.
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-OK, will do.
-
-Thanks,
-Kevin
-
---DIOMP1UsTsWJauNi
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAEBAgAGBQJUiPw2AAoJEJNY7TDerrFxTOkH/1D37oJXSXW6+Qq0uH/96qQh
-NuwMRxE30EaDEWT/eYgvNEaHNcBdv+ve9AtjjeEGVSGDMwKgHkxVmvsajeffYilF
-N7Izzn435EYdiyC4YmyCvIhCYzYx/ZgZWcnKTwIl/WvRodB3QXsbYsSP/DQ2X0l/
-0xqNFHhrY0OtQaId4+pGslIpEIuKo8M172qsJ0AdW5Omep0nbzC1hi31uEsKs86a
-T7xbAhIAgdsbo9L4CrCRZBVhsktLFA6BSrVEX/HQVZekCBb3LmKMS6cZl5UuvgbU
-QQQNnU8eyIPa9kd2CVQTVrKnnLhTyax7D3KigvbsjrrXZA15EZn5Z0t1Jf1KB5k=
-=fTrj
------END PGP SIGNATURE-----
-
---DIOMP1UsTsWJauNi--
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index fee2afe..b118b7d 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -3332,6 +3332,12 @@ static int __maybe_unused fec_suspend(struct device *dev)
+ 	if (fep->reg_phy)
+ 		regulator_disable(fep->reg_phy);
+ 
++	/* SOC supply clock to phy, when clock is disabled, phy link down
++	 * SOC control phy regulator, when regulator is disabled, phy link down
++	 */
++	if (fep->clk_enet_out || fep->reg_phy)
++		fep->link = 0;
++
+ 	return 0;
+ }
+ 
+-- 
+1.7.8
