@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH v7 resubmit 2/4] arch: Add lightweight memory
- barriers dma_rmb() and dma_wmb()
-Date: Thu, 11 Dec 2014 15:02:06 -0800
-Message-ID: <20141211230206.25464.76276.stgit@ahduyck-server>
+Subject: [net-next PATCH v7 resubmit 1/4] arch: Cleanup
+ read_barrier_depends() and comments
+Date: Thu, 11 Dec 2014 15:01:55 -0800
+Message-ID: <20141211230155.25464.9783.stgit@ahduyck-server>
 References: <20141211225250.25464.30291.stgit@ahduyck-server>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -19,383 +19,485 @@ Cc: mathieu.desnoyers@polymtl.ca, peterz@infradead.org,
 	schwidefsky@de.ibm.com, fweisbec@gmail.com
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48222 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965920AbaLKXEh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Dec 2014 18:04:37 -0500
 In-Reply-To: <20141211225250.25464.30291.stgit@ahduyck-server>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There are a number of situations where the mandatory barriers rmb() and
-wmb() are used to order memory/memory operations in the device drivers
-and those barriers are much heavier than they actually need to be.  For
-example in the case of PowerPC wmb() calls the heavy-weight sync
-instruction when for coherent memory operations all that is really needed
-is an lsync or eieio instruction.
+This patch is meant to cleanup the handling of read_barrier_depends and
+smp_read_barrier_depends.  In multiple spots in the kernel headers
+read_barrier_depends is defined as "do {} while (0)", however we then go
+into the SMP vs non-SMP sections and have the SMP version reference
+read_barrier_depends, and the non-SMP define it as yet another empty
+do/while.
 
-This commit adds a coherent only version of the mandatory memory barriers
-rmb() and wmb().  In most cases this should result in the barrier being the
-same as the SMP barriers for the SMP case, however in some cases we use a
-barrier that is somewhere in between rmb() and smp_rmb().  For example on
-ARM the rmb barriers break down as follows:
+With this commit I went through and cleaned out the duplicate definitions
+and reduced the number of definitions down to 2 per header.  In addition I
+moved the 50 line comments for the macro from the x86 and mips headers that
+defined it as an empty do/while to those that were actually defining the
+macro, alpha and blackfin.
 
-  Barrier   Call     Explanation
-  --------- -------- ----------------------------------
-  rmb()     dsb()    Data synchronization barrier - system
-  dma_rmb() dmb(osh) data memory barrier - outer sharable
-  smp_rmb() dmb(ish) data memory barrier - inner sharable
-
-These new barriers are not as safe as the standard rmb() and wmb().
-Specifically they do not guarantee ordering between coherent and incoherent
-memories.  The primary use case for these would be to enforce ordering of
-reads and writes when accessing coherent memory that is shared between the
-CPU and a device.
-
-It may also be noted that there is no dma_mb().  Most architectures don't
-provide a good mechanism for performing a coherent only full barrier without
-resorting to the same mechanism used in mb().  As such there isn't much to
-be gained in trying to define such a function.
-
-Cc: Frederic Weisbecker <fweisbec@gmail.com>
-Cc: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Cc: Michael Ellerman <michael@ellerman.id.au>
-Cc: Michael Neuling <mikey@neuling.org>
-Cc: Russell King <linux@arm.linux.org.uk>
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Oleg Nesterov <oleg@redhat.com>
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Cc: Peter Zijlstra <peterz@infradead.org>
-Cc: Ingo Molnar <mingo@kernel.org>
-Cc: David Miller <davem@davemloft.net>
-Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Acked-by: Will Deacon <will.deacon@arm.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- Documentation/memory-barriers.txt   |   42 +++++++++++++++++++++++++++++++++++
- arch/arm/include/asm/barrier.h      |    4 +++
- arch/arm64/include/asm/barrier.h    |    3 +++
- arch/ia64/include/asm/barrier.h     |    3 +++
- arch/metag/include/asm/barrier.h    |   14 ++++++------
- arch/mips/include/asm/barrier.h     |    9 ++++----
- arch/powerpc/include/asm/barrier.h  |   13 +++++++----
- arch/s390/include/asm/barrier.h     |    2 ++
- arch/sparc/include/asm/barrier_64.h |    3 +++
- arch/x86/include/asm/barrier.h      |   11 ++++++---
- arch/x86/um/asm/barrier.h           |   13 ++++++-----
- include/asm-generic/barrier.h       |    8 +++++++
- 12 files changed, 99 insertions(+), 26 deletions(-)
+ arch/alpha/include/asm/barrier.h    |   51 ++++++++++++++++++++++++++++++
+ arch/blackfin/include/asm/barrier.h |   51 ++++++++++++++++++++++++++++++
+ arch/ia64/include/asm/barrier.h     |   22 +++++--------
+ arch/metag/include/asm/barrier.h    |    7 ++--
+ arch/mips/include/asm/barrier.h     |   52 -------------------------------
+ arch/powerpc/include/asm/barrier.h  |    6 ++--
+ arch/s390/include/asm/barrier.h     |    5 ++-
+ arch/sparc/include/asm/barrier_64.h |    4 +-
+ arch/x86/include/asm/barrier.h      |   59 ++---------------------------------
+ arch/x86/um/asm/barrier.h           |    7 ++--
+ 10 files changed, 129 insertions(+), 135 deletions(-)
 
-diff --git a/Documentation/memory-barriers.txt b/Documentation/memory-barriers.txt
-index 22a969c..e5d5732 100644
---- a/Documentation/memory-barriers.txt
-+++ b/Documentation/memory-barriers.txt
-@@ -1615,6 +1615,48 @@ There are some more advanced barrier functions:
-      operations" subsection for information on where to use these.
+diff --git a/arch/alpha/include/asm/barrier.h b/arch/alpha/include/asm/barrier.h
+index 3832bdb..77516c8 100644
+--- a/arch/alpha/include/asm/barrier.h
++++ b/arch/alpha/include/asm/barrier.h
+@@ -7,6 +7,57 @@
+ #define rmb()	__asm__ __volatile__("mb": : :"memory")
+ #define wmb()	__asm__ __volatile__("wmb": : :"memory")
  
++/**
++ * read_barrier_depends - Flush all pending reads that subsequents reads
++ * depend on.
++ *
++ * No data-dependent reads from memory-like regions are ever reordered
++ * over this barrier.  All reads preceding this primitive are guaranteed
++ * to access memory (but not necessarily other CPUs' caches) before any
++ * reads following this primitive that depend on the data return by
++ * any of the preceding reads.  This primitive is much lighter weight than
++ * rmb() on most CPUs, and is never heavier weight than is
++ * rmb().
++ *
++ * These ordering constraints are respected by both the local CPU
++ * and the compiler.
++ *
++ * Ordering is not guaranteed by anything other than these primitives,
++ * not even by data dependencies.  See the documentation for
++ * memory_barrier() for examples and URLs to more information.
++ *
++ * For example, the following code would force ordering (the initial
++ * value of "a" is zero, "b" is one, and "p" is "&a"):
++ *
++ * <programlisting>
++ *	CPU 0				CPU 1
++ *
++ *	b = 2;
++ *	memory_barrier();
++ *	p = &b;				q = p;
++ *					read_barrier_depends();
++ *					d = *q;
++ * </programlisting>
++ *
++ * because the read of "*q" depends on the read of "p" and these
++ * two reads are separated by a read_barrier_depends().  However,
++ * the following code, with the same initial values for "a" and "b":
++ *
++ * <programlisting>
++ *	CPU 0				CPU 1
++ *
++ *	a = 2;
++ *	memory_barrier();
++ *	b = 3;				y = b;
++ *					read_barrier_depends();
++ *					x = a;
++ * </programlisting>
++ *
++ * does not enforce ordering, since there is no data dependency between
++ * the read of "a" and the read of "b".  Therefore, on some CPUs, such
++ * as Alpha, "y" could be set to 3 and "x" to 0.  Use rmb()
++ * in cases like this where there are no data dependencies.
++ */
+ #define read_barrier_depends() __asm__ __volatile__("mb": : :"memory")
  
-+ (*) dma_wmb();
-+ (*) dma_rmb();
-+
-+     These are for use with consistent memory to guarantee the ordering
-+     of writes or reads of shared memory accessible to both the CPU and a
-+     DMA capable device.
-+
-+     For example, consider a device driver that shares memory with a device
-+     and uses a descriptor status value to indicate if the descriptor belongs
-+     to the device or the CPU, and a doorbell to notify it when new
-+     descriptors are available:
-+
-+	if (desc->status != DEVICE_OWN) {
-+		/* do not read data until we own descriptor */
-+		dma_rmb();
-+
-+		/* read/modify data */
-+		read_data = desc->data;
-+		desc->data = write_data;
-+
-+		/* flush modifications before status update */
-+		dma_wmb();
-+
-+		/* assign ownership */
-+		desc->status = DEVICE_OWN;
-+
-+		/* force memory to sync before notifying device via MMIO */
-+		wmb();
-+
-+		/* notify device of new descriptors */
-+		writel(DESC_NOTIFY, doorbell);
-+	}
-+
-+     The dma_rmb() allows us guarantee the device has released ownership
-+     before we read the data from the descriptor, and he dma_wmb() allows
-+     us to guarantee the data is written to the descriptor before the device
-+     can see it now has ownership.  The wmb() is needed to guarantee that the
-+     cache coherent memory writes have completed before attempting a write to
-+     the cache incoherent MMIO region.
-+
-+     See Documentation/DMA-API.txt for more information on consistent memory.
-+
- MMIO WRITE BARRIER
- ------------------
- 
-diff --git a/arch/arm/include/asm/barrier.h b/arch/arm/include/asm/barrier.h
-index c6a3e73..d2f81e6 100644
---- a/arch/arm/include/asm/barrier.h
-+++ b/arch/arm/include/asm/barrier.h
-@@ -43,10 +43,14 @@
- #define mb()		do { dsb(); outer_sync(); } while (0)
- #define rmb()		dsb()
- #define wmb()		do { dsb(st); outer_sync(); } while (0)
-+#define dma_rmb()	dmb(osh)
-+#define dma_wmb()	dmb(oshst)
- #else
- #define mb()		barrier()
- #define rmb()		barrier()
- #define wmb()		barrier()
-+#define dma_rmb()	barrier()
-+#define dma_wmb()	barrier()
+ #ifdef CONFIG_SMP
+diff --git a/arch/blackfin/include/asm/barrier.h b/arch/blackfin/include/asm/barrier.h
+index 4200068..dfb66fe 100644
+--- a/arch/blackfin/include/asm/barrier.h
++++ b/arch/blackfin/include/asm/barrier.h
+@@ -22,6 +22,57 @@
+ # define mb()	do { barrier(); smp_check_barrier(); smp_mark_barrier(); } while (0)
+ # define rmb()	do { barrier(); smp_check_barrier(); } while (0)
+ # define wmb()	do { barrier(); smp_mark_barrier(); } while (0)
++/*
++ * read_barrier_depends - Flush all pending reads that subsequents reads
++ * depend on.
++ *
++ * No data-dependent reads from memory-like regions are ever reordered
++ * over this barrier.  All reads preceding this primitive are guaranteed
++ * to access memory (but not necessarily other CPUs' caches) before any
++ * reads following this primitive that depend on the data return by
++ * any of the preceding reads.  This primitive is much lighter weight than
++ * rmb() on most CPUs, and is never heavier weight than is
++ * rmb().
++ *
++ * These ordering constraints are respected by both the local CPU
++ * and the compiler.
++ *
++ * Ordering is not guaranteed by anything other than these primitives,
++ * not even by data dependencies.  See the documentation for
++ * memory_barrier() for examples and URLs to more information.
++ *
++ * For example, the following code would force ordering (the initial
++ * value of "a" is zero, "b" is one, and "p" is "&a"):
++ *
++ * <programlisting>
++ *	CPU 0				CPU 1
++ *
++ *	b = 2;
++ *	memory_barrier();
++ *	p = &b;				q = p;
++ *					read_barrier_depends();
++ *					d = *q;
++ * </programlisting>
++ *
++ * because the read of "*q" depends on the read of "p" and these
++ * two reads are separated by a read_barrier_depends().  However,
++ * the following code, with the same initial values for "a" and "b":
++ *
++ * <programlisting>
++ *	CPU 0				CPU 1
++ *
++ *	a = 2;
++ *	memory_barrier();
++ *	b = 3;				y = b;
++ *					read_barrier_depends();
++ *					x = a;
++ * </programlisting>
++ *
++ * does not enforce ordering, since there is no data dependency between
++ * the read of "a" and the read of "b".  Therefore, on some CPUs, such
++ * as Alpha, "y" could be set to 3 and "x" to 0.  Use rmb()
++ * in cases like this where there are no data dependencies.
++ */
+ # define read_barrier_depends()	do { barrier(); smp_check_barrier(); } while (0)
  #endif
  
- #ifndef CONFIG_SMP
-diff --git a/arch/arm64/include/asm/barrier.h b/arch/arm64/include/asm/barrier.h
-index 6389d60..a5abb00 100644
---- a/arch/arm64/include/asm/barrier.h
-+++ b/arch/arm64/include/asm/barrier.h
-@@ -32,6 +32,9 @@
- #define rmb()		dsb(ld)
- #define wmb()		dsb(st)
- 
-+#define dma_rmb()	dmb(oshld)
-+#define dma_wmb()	dmb(oshst)
-+
- #ifndef CONFIG_SMP
- #define smp_mb()	barrier()
- #define smp_rmb()	barrier()
 diff --git a/arch/ia64/include/asm/barrier.h b/arch/ia64/include/asm/barrier.h
-index e8fffb0..f6769eb 100644
+index a48957c..e8fffb0 100644
 --- a/arch/ia64/include/asm/barrier.h
 +++ b/arch/ia64/include/asm/barrier.h
-@@ -39,6 +39,9 @@
- #define rmb()		mb()
- #define wmb()		mb()
+@@ -35,26 +35,22 @@
+  * it's (presumably) much slower than mf and (b) mf.a is supported for
+  * sequential memory pages only.
+  */
+-#define mb()	ia64_mf()
+-#define rmb()	mb()
+-#define wmb()	mb()
+-#define read_barrier_depends()	do { } while(0)
++#define mb()		ia64_mf()
++#define rmb()		mb()
++#define wmb()		mb()
  
-+#define dma_rmb()	mb()
-+#define dma_wmb()	mb()
-+
  #ifdef CONFIG_SMP
  # define smp_mb()	mb()
+-# define smp_rmb()	rmb()
+-# define smp_wmb()	wmb()
+-# define smp_read_barrier_depends()	read_barrier_depends()
+-
  #else
+-
+ # define smp_mb()	barrier()
+-# define smp_rmb()	barrier()
+-# define smp_wmb()	barrier()
+-# define smp_read_barrier_depends()	do { } while(0)
+-
+ #endif
+ 
++#define smp_rmb()	smp_mb()
++#define smp_wmb()	smp_mb()
++
++#define read_barrier_depends()		do { } while (0)
++#define smp_read_barrier_depends()	do { } while (0)
++
+ #define smp_mb__before_atomic()	barrier()
+ #define smp_mb__after_atomic()	barrier()
+ 
 diff --git a/arch/metag/include/asm/barrier.h b/arch/metag/include/asm/barrier.h
-index 6d8b8c9..d703d8e 100644
+index c7591e8..6d8b8c9 100644
 --- a/arch/metag/include/asm/barrier.h
 +++ b/arch/metag/include/asm/barrier.h
-@@ -4,8 +4,6 @@
- #include <asm/metag_mem.h>
+@@ -47,8 +47,6 @@ static inline void wmb(void)
+ 	wr_fence();
+ }
  
- #define nop()		asm volatile ("NOP")
--#define mb()		wmb()
--#define rmb()		barrier()
- 
- #ifdef CONFIG_METAG_META21
- 
-@@ -41,11 +39,13 @@ static inline void wr_fence(void)
- 
- #endif /* !CONFIG_METAG_META21 */
- 
--static inline void wmb(void)
--{
--	/* flush writes through the write combiner */
--	wr_fence();
--}
-+/* flush writes through the write combiner */
-+#define mb()		wr_fence()
-+#define rmb()		barrier()
-+#define wmb()		mb()
-+
-+#define dma_rmb()	rmb()
-+#define dma_wmb()	wmb()
- 
+-#define read_barrier_depends()  do { } while (0)
+-
  #ifndef CONFIG_SMP
  #define fence()		do { } while (0)
+ #define smp_mb()        barrier()
+@@ -82,7 +80,10 @@ static inline void fence(void)
+ #define smp_wmb()       barrier()
+ #endif
+ #endif
+-#define smp_read_barrier_depends()     do { } while (0)
++
++#define read_barrier_depends()		do { } while (0)
++#define smp_read_barrier_depends()	do { } while (0)
++
+ #define set_mb(var, value) do { var = value; smp_mb(); } while (0)
+ 
+ #define smp_store_release(p, v)						\
 diff --git a/arch/mips/include/asm/barrier.h b/arch/mips/include/asm/barrier.h
-index 3d69aa8..2b8bbbc 100644
+index d0101dd..3d69aa8 100644
 --- a/arch/mips/include/asm/barrier.h
 +++ b/arch/mips/include/asm/barrier.h
-@@ -75,20 +75,21 @@
+@@ -10,58 +10,6 @@
  
- #include <asm/wbflush.h>
+ #include <asm/addrspace.h>
  
--#define wmb()		fast_wmb()
--#define rmb()		fast_rmb()
- #define mb()		wbflush()
- #define iob()		wbflush()
+-/*
+- * read_barrier_depends - Flush all pending reads that subsequents reads
+- * depend on.
+- *
+- * No data-dependent reads from memory-like regions are ever reordered
+- * over this barrier.  All reads preceding this primitive are guaranteed
+- * to access memory (but not necessarily other CPUs' caches) before any
+- * reads following this primitive that depend on the data return by
+- * any of the preceding reads.  This primitive is much lighter weight than
+- * rmb() on most CPUs, and is never heavier weight than is
+- * rmb().
+- *
+- * These ordering constraints are respected by both the local CPU
+- * and the compiler.
+- *
+- * Ordering is not guaranteed by anything other than these primitives,
+- * not even by data dependencies.  See the documentation for
+- * memory_barrier() for examples and URLs to more information.
+- *
+- * For example, the following code would force ordering (the initial
+- * value of "a" is zero, "b" is one, and "p" is "&a"):
+- *
+- * <programlisting>
+- *	CPU 0				CPU 1
+- *
+- *	b = 2;
+- *	memory_barrier();
+- *	p = &b;				q = p;
+- *					read_barrier_depends();
+- *					d = *q;
+- * </programlisting>
+- *
+- * because the read of "*q" depends on the read of "p" and these
+- * two reads are separated by a read_barrier_depends().  However,
+- * the following code, with the same initial values for "a" and "b":
+- *
+- * <programlisting>
+- *	CPU 0				CPU 1
+- *
+- *	a = 2;
+- *	memory_barrier();
+- *	b = 3;				y = b;
+- *					read_barrier_depends();
+- *					x = a;
+- * </programlisting>
+- *
+- * does not enforce ordering, since there is no data dependency between
+- * the read of "a" and the read of "b".  Therefore, on some CPUs, such
+- * as Alpha, "y" could be set to 3 and "x" to 0.  Use rmb()
+- * in cases like this where there are no data dependencies.
+- */
+-
+ #define read_barrier_depends()		do { } while(0)
+ #define smp_read_barrier_depends()	do { } while(0)
  
- #else /* !CONFIG_CPU_HAS_WB */
- 
--#define wmb()		fast_wmb()
--#define rmb()		fast_rmb()
- #define mb()		fast_mb()
- #define iob()		fast_iob()
- 
- #endif /* !CONFIG_CPU_HAS_WB */
- 
-+#define wmb()		fast_wmb()
-+#define rmb()		fast_rmb()
-+#define dma_wmb()	fast_wmb()
-+#define dma_rmb()	fast_rmb()
-+
- #if defined(CONFIG_WEAK_ORDERING) && defined(CONFIG_SMP)
- # ifdef CONFIG_CPU_CAVIUM_OCTEON
- #  define smp_mb()	__sync()
 diff --git a/arch/powerpc/include/asm/barrier.h b/arch/powerpc/include/asm/barrier.h
-index cb6d66c..a3bf5be 100644
+index bab79a1..cb6d66c 100644
 --- a/arch/powerpc/include/asm/barrier.h
 +++ b/arch/powerpc/include/asm/barrier.h
-@@ -36,8 +36,6 @@
+@@ -33,7 +33,6 @@
+ #define mb()   __asm__ __volatile__ ("sync" : : : "memory")
+ #define rmb()  __asm__ __volatile__ ("sync" : : : "memory")
+ #define wmb()  __asm__ __volatile__ ("sync" : : : "memory")
+-#define read_barrier_depends()  do { } while(0)
  
  #define set_mb(var, value)	do { var = value; mb(); } while (0)
  
--#ifdef CONFIG_SMP
--
- #ifdef __SUBARCH_HAS_LWSYNC
- #    define SMPWMB      LWSYNC
- #else
-@@ -45,12 +43,17 @@
- #endif
- 
- #define __lwsync()	__asm__ __volatile__ (stringify_in_c(LWSYNC) : : :"memory")
-+#define dma_rmb()	__lwsync()
-+#define dma_wmb()	__asm__ __volatile__ (stringify_in_c(SMPWMB) : : :"memory")
-+
-+#ifdef CONFIG_SMP
-+#define smp_lwsync()	__lwsync()
- 
+@@ -50,16 +49,17 @@
  #define smp_mb()	mb()
  #define smp_rmb()	__lwsync()
  #define smp_wmb()	__asm__ __volatile__ (stringify_in_c(SMPWMB) : : :"memory")
+-#define smp_read_barrier_depends()	read_barrier_depends()
  #else
--#define __lwsync()	barrier()
-+#define smp_lwsync()	barrier()
+ #define __lwsync()	barrier()
  
  #define smp_mb()	barrier()
  #define smp_rmb()	barrier()
-@@ -72,7 +75,7 @@
- #define smp_store_release(p, v)						\
- do {									\
- 	compiletime_assert_atomic_type(*p);				\
--	__lwsync();							\
-+	smp_lwsync();							\
- 	ACCESS_ONCE(*p) = (v);						\
- } while (0)
+ #define smp_wmb()	barrier()
+-#define smp_read_barrier_depends()	do { } while(0)
+ #endif /* CONFIG_SMP */
  
-@@ -80,7 +83,7 @@ do {									\
- ({									\
- 	typeof(*p) ___p1 = ACCESS_ONCE(*p);				\
- 	compiletime_assert_atomic_type(*p);				\
--	__lwsync();							\
-+	smp_lwsync();							\
- 	___p1;								\
- })
- 
++#define read_barrier_depends()		do { } while (0)
++#define smp_read_barrier_depends()	do { } while (0)
++
+ /*
+  * This is a barrier which prevents following instructions from being
+  * started until the value of the argument x is known.  For example, if
 diff --git a/arch/s390/include/asm/barrier.h b/arch/s390/include/asm/barrier.h
-index 33d191d..8d72471 100644
+index b5dce65..33d191d 100644
 --- a/arch/s390/include/asm/barrier.h
 +++ b/arch/s390/include/asm/barrier.h
-@@ -24,6 +24,8 @@
+@@ -24,11 +24,12 @@
  
  #define rmb()				mb()
  #define wmb()				mb()
-+#define dma_rmb()			rmb()
-+#define dma_wmb()			wmb()
+-#define read_barrier_depends()		do { } while(0)
  #define smp_mb()			mb()
  #define smp_rmb()			rmb()
  #define smp_wmb()			wmb()
+-#define smp_read_barrier_depends()	read_barrier_depends()
++
++#define read_barrier_depends()		do { } while (0)
++#define smp_read_barrier_depends()	do { } while (0)
+ 
+ #define smp_mb__before_atomic()		smp_mb()
+ #define smp_mb__after_atomic()		smp_mb()
 diff --git a/arch/sparc/include/asm/barrier_64.h b/arch/sparc/include/asm/barrier_64.h
-index 6c974c0..7664894 100644
+index 305dcc3..6c974c0 100644
 --- a/arch/sparc/include/asm/barrier_64.h
 +++ b/arch/sparc/include/asm/barrier_64.h
-@@ -37,6 +37,9 @@ do {	__asm__ __volatile__("ba,pt	%%xcc, 1f\n\t" \
+@@ -37,7 +37,6 @@ do {	__asm__ __volatile__("ba,pt	%%xcc, 1f\n\t" \
  #define rmb()	__asm__ __volatile__("":::"memory")
  #define wmb()	__asm__ __volatile__("":::"memory")
  
-+#define dma_rmb()	rmb()
-+#define dma_wmb()	wmb()
-+
+-#define read_barrier_depends()		do { } while(0)
  #define set_mb(__var, __value) \
  	do { __var = __value; membar_safe("#StoreLoad"); } while(0)
  
+@@ -51,7 +50,8 @@ do {	__asm__ __volatile__("ba,pt	%%xcc, 1f\n\t" \
+ #define smp_wmb()	__asm__ __volatile__("":::"memory")
+ #endif
+ 
+-#define smp_read_barrier_depends()	do { } while(0)
++#define read_barrier_depends()		do { } while (0)
++#define smp_read_barrier_depends()	do { } while (0)
+ 
+ #define smp_store_release(p, v)						\
+ do {									\
 diff --git a/arch/x86/include/asm/barrier.h b/arch/x86/include/asm/barrier.h
-index 5238000..2ab1eb3 100644
+index 0f4460b..5238000 100644
 --- a/arch/x86/include/asm/barrier.h
 +++ b/arch/x86/include/asm/barrier.h
-@@ -24,13 +24,16 @@
+@@ -24,60 +24,6 @@
  #define wmb()	asm volatile("sfence" ::: "memory")
  #endif
  
--#ifdef CONFIG_SMP
--#define smp_mb()	mb()
+-/**
+- * read_barrier_depends - Flush all pending reads that subsequents reads
+- * depend on.
+- *
+- * No data-dependent reads from memory-like regions are ever reordered
+- * over this barrier.  All reads preceding this primitive are guaranteed
+- * to access memory (but not necessarily other CPUs' caches) before any
+- * reads following this primitive that depend on the data return by
+- * any of the preceding reads.  This primitive is much lighter weight than
+- * rmb() on most CPUs, and is never heavier weight than is
+- * rmb().
+- *
+- * These ordering constraints are respected by both the local CPU
+- * and the compiler.
+- *
+- * Ordering is not guaranteed by anything other than these primitives,
+- * not even by data dependencies.  See the documentation for
+- * memory_barrier() for examples and URLs to more information.
+- *
+- * For example, the following code would force ordering (the initial
+- * value of "a" is zero, "b" is one, and "p" is "&a"):
+- *
+- * <programlisting>
+- *	CPU 0				CPU 1
+- *
+- *	b = 2;
+- *	memory_barrier();
+- *	p = &b;				q = p;
+- *					read_barrier_depends();
+- *					d = *q;
+- * </programlisting>
+- *
+- * because the read of "*q" depends on the read of "p" and these
+- * two reads are separated by a read_barrier_depends().  However,
+- * the following code, with the same initial values for "a" and "b":
+- *
+- * <programlisting>
+- *	CPU 0				CPU 1
+- *
+- *	a = 2;
+- *	memory_barrier();
+- *	b = 3;				y = b;
+- *					read_barrier_depends();
+- *					x = a;
+- * </programlisting>
+- *
+- * does not enforce ordering, since there is no data dependency between
+- * the read of "a" and the read of "b".  Therefore, on some CPUs, such
+- * as Alpha, "y" could be set to 3 and "x" to 0.  Use rmb()
+- * in cases like this where there are no data dependencies.
+- **/
+-
+-#define read_barrier_depends()	do { } while (0)
+-
+ #ifdef CONFIG_SMP
+ #define smp_mb()	mb()
  #ifdef CONFIG_X86_PPRO_FENCE
--# define smp_rmb()	rmb()
-+#define dma_rmb()	rmb()
- #else
--# define smp_rmb()	barrier()
-+#define dma_rmb()	barrier()
+@@ -86,16 +32,17 @@
+ # define smp_rmb()	barrier()
  #endif
-+#define dma_wmb()	barrier()
-+
-+#ifdef CONFIG_SMP
-+#define smp_mb()	mb()
-+#define smp_rmb()	dma_rmb()
  #define smp_wmb()	barrier()
+-#define smp_read_barrier_depends()	read_barrier_depends()
  #define set_mb(var, value) do { (void)xchg(&var, value); } while (0)
  #else /* !SMP */
+ #define smp_mb()	barrier()
+ #define smp_rmb()	barrier()
+ #define smp_wmb()	barrier()
+-#define smp_read_barrier_depends()	do { } while (0)
+ #define set_mb(var, value) do { var = value; barrier(); } while (0)
+ #endif /* SMP */
+ 
++#define read_barrier_depends()		do { } while (0)
++#define smp_read_barrier_depends()	do { } while (0)
++
+ #if defined(CONFIG_X86_PPRO_FENCE)
+ 
+ /*
 diff --git a/arch/x86/um/asm/barrier.h b/arch/x86/um/asm/barrier.h
-index d6511d9..2d7d9a1 100644
+index cc04e67..d6511d9 100644
 --- a/arch/x86/um/asm/barrier.h
 +++ b/arch/x86/um/asm/barrier.h
-@@ -29,17 +29,18 @@
+@@ -29,8 +29,6 @@
  
  #endif /* CONFIG_X86_32 */
  
--#ifdef CONFIG_SMP
+-#define read_barrier_depends()	do { } while (0)
 -
--#define smp_mb()	mb()
- #ifdef CONFIG_X86_PPRO_FENCE
--#define smp_rmb()	rmb()
-+#define dma_rmb()	rmb()
- #else /* CONFIG_X86_PPRO_FENCE */
--#define smp_rmb()	barrier()
-+#define dma_rmb()	barrier()
- #endif /* CONFIG_X86_PPRO_FENCE */
-+#define dma_wmb()	barrier()
+ #ifdef CONFIG_SMP
  
--#define smp_wmb()	barrier()
-+#ifdef CONFIG_SMP
+ #define smp_mb()	mb()
+@@ -42,7 +40,6 @@
  
-+#define smp_mb()	mb()
-+#define smp_rmb()	dma_rmb()
-+#define smp_wmb()	barrier()
+ #define smp_wmb()	barrier()
+ 
+-#define smp_read_barrier_depends()	read_barrier_depends()
  #define set_mb(var, value) do { (void)xchg(&var, value); } while (0)
  
  #else /* CONFIG_SMP */
-diff --git a/include/asm-generic/barrier.h b/include/asm-generic/barrier.h
-index 1402fa8..f5c40b0 100644
---- a/include/asm-generic/barrier.h
-+++ b/include/asm-generic/barrier.h
-@@ -42,6 +42,14 @@
- #define wmb()	mb()
- #endif
+@@ -50,11 +47,13 @@
+ #define smp_mb()	barrier()
+ #define smp_rmb()	barrier()
+ #define smp_wmb()	barrier()
+-#define smp_read_barrier_depends()	do { } while (0)
+ #define set_mb(var, value) do { var = value; barrier(); } while (0)
  
-+#ifndef dma_rmb
-+#define dma_rmb()	rmb()
-+#endif
+ #endif /* CONFIG_SMP */
+ 
++#define read_barrier_depends()		do { } while (0)
++#define smp_read_barrier_depends()	do { } while (0)
 +
-+#ifndef dma_wmb
-+#define dma_wmb()	wmb()
-+#endif
-+
- #ifndef read_barrier_depends
- #define read_barrier_depends()		do { } while (0)
- #endif
+ /*
+  * Stop RDTSC speculation. This is needed when you need to use RDTSC
+  * (or get_cycles or vread that possibly accesses the TSC) in a defined
