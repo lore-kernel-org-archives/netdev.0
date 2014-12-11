@@ -1,55 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net] gre: fix the inner mac header in nbma gre tunnels xmit
- path
-Date: Thu, 11 Dec 2014 15:07:06 -0500 (EST)
-Message-ID: <20141211.150706.1736198745550279282.davem@davemloft.net>
-References: <1418282079-30245-1-git-send-email-timo.teras@iki.fi>
-	<20141211.143627.1516156524809595238.davem@davemloft.net>
-	<20141211214456.7cc621e4@vostro>
+Subject: Re: Bug: mv643xxx fails with highmem
+Date: Thu, 11 Dec 2014 15:10:55 -0500 (EST)
+Message-ID: <20141211.151055.817876561546126576.davem@davemloft.net>
+References: <20141211194920.GR11285@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, therbert@google.com,
-	alexander.h.duyck@redhat.com
-To: timo.teras@iki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ezequiel.garcia@free-electrons.com, netdev@vger.kernel.org
+To: linux@arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56135 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56176 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933337AbaLKUHI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 15:07:08 -0500
-In-Reply-To: <20141211214456.7cc621e4@vostro>
+	with ESMTP id S1758298AbaLKUK6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 15:10:58 -0500
+In-Reply-To: <20141211194920.GR11285@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Timo Teras <timo.teras@iki.fi>
-Date: Thu, 11 Dec 2014 21:44:56 +0200
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Date: Thu, 11 Dec 2014 19:49:20 +0000
 
-> On Thu, 11 Dec 2014 14:36:27 -0500 (EST)
-> David Miller <davem@davemloft.net> wrote:
->=20
->> From: Timo Ter=E4s <timo.teras@iki.fi>
->> Date: Thu, 11 Dec 2014 09:14:39 +0200
->>=20
->> > @@ -266,6 +262,7 @@ static netdev_tx_t ipgre_xmit(struct sk_buff
->> > *skb,
->> >  		 * to gre header.
->> >  		 */
->> >  		skb_pull(skb, tunnel->hlen + sizeof(struct iphdr));
->> > +		skb_reset_mac_header(mac);
->>=20
->> Please explain to me how this compiles, let alone be functionally
->> tested.
->=20
-> Sorry. I made the change twice; once on the build box. And again on m=
-y
-> git checkout on work station. Must've been on seriously coffee depriv=
-ed
-> state.
->=20
-> Should be obviously:
-> +		skb_reset_mac_header(skb);
->=20
-> Is there other comments on it?
+> Commit 69ad0dd7af22 removed skb_frag_dma_map() in favour of mapping
+> all fragments with dma_map_single().  This fails when the driver is
+> used in an environment with highmem.
 
-I don't care where you applied the patch, if you didn't type make after
-making the change, that is extremely careless.
+This change looks really buggy to me.
+
+Unfortunately, all the changes he subsequently makes for software TSO
+support depend upon this :-/
+
+The change is definitely wrong.
