@@ -1,7 +1,7 @@
 From: Karen Xie <kxie@chelsio.com>
-Subject: [PATCH net v9 2/7] cxgb4i: fix credit check for tx_data_wr
-Date: Thu, 11 Dec 2014 07:25:43 -0800
-Message-ID: <201412111525.sBBFPhtY012933@localhost6.localdomain6>
+Subject: [PATCH net v9 4/7] cxgb4i: additional types of negative advice
+Date: Thu, 11 Dec 2014 07:25:49 -0800
+Message-ID: <201412111525.sBBFPndX012945@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -10,36 +10,57 @@ Cc: kxie@chelsio.com, hariprasad@chelsio.com, anish@chelsio.com,
 	michaelc@cs.wisc.edu, davem@davemloft.net
 To: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:9585 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:4505 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933384AbaLKP1O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 10:27:14 -0500
+	with ESMTP id S964982AbaLKP1Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 10:27:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Karen Xie <kxie@chelsio.com>
 
-make sure any tx credit related checking is done before adding the wr header.
+Treat both CPL_ERR_KEEPALV_NEG_ADVICE and CPL_ERR_PERSIST_NEG_ADVICE as
+negative advice.
 
 Signed-off-by: Karen Xie <kxie@chelsio.com>
 ---
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index f119a67..abee611 100644
+index 5f31eb7..2880f200 100644
 --- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
 +++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -547,10 +547,11 @@ static inline void make_tx_data_wr(struct cxgbi_sock *csk, struct sk_buff *skb,
- 	struct fw_ofld_tx_data_wr *req;
- 	unsigned int submode = cxgbi_skcb_ulp_mode(skb) & 3;
- 	unsigned int wr_ulp_mode = 0;
-+	bool imm = is_ofld_imm(skb);
+@@ -846,6 +846,13 @@ static void csk_act_open_retry_timer(unsigned long data)
  
- 	req = (struct fw_ofld_tx_data_wr *)__skb_push(skb, sizeof(*req));
+ }
  
--	if (is_ofld_imm(skb)) {
-+	if (imm) {
- 		req->op_to_immdlen = htonl(FW_WR_OP(FW_OFLD_TX_DATA_WR) |
- 					FW_WR_COMPL(1) |
- 					FW_WR_IMMDLEN(dlen));
++static inline bool is_neg_adv(unsigned int status)
++{
++	return status == CPL_ERR_RTX_NEG_ADVICE ||
++		status == CPL_ERR_KEEPALV_NEG_ADVICE ||
++		status == CPL_ERR_PERSIST_NEG_ADVICE;
++}
++
+ static void do_act_open_rpl(struct cxgbi_device *cdev, struct sk_buff *skb)
+ {
+ 	struct cxgbi_sock *csk;
+@@ -867,7 +874,7 @@ static void do_act_open_rpl(struct cxgbi_device *cdev, struct sk_buff *skb)
+ 		       "csk 0x%p,%u,0x%lx. ", (&csk->saddr), (&csk->daddr),
+ 		       atid, tid, status, csk, csk->state, csk->flags);
+ 
+-	if (status == CPL_ERR_RTX_NEG_ADVICE)
++	if (is_neg_adv(status))
+ 		goto rel_skb;
+ 
+ 	module_put(THIS_MODULE);
+@@ -973,8 +980,7 @@ static void do_abort_req_rss(struct cxgbi_device *cdev, struct sk_buff *skb)
+ 		       (&csk->saddr), (&csk->daddr),
+ 		       csk, csk->state, csk->flags, csk->tid, req->status);
+ 
+-	if (req->status == CPL_ERR_RTX_NEG_ADVICE ||
+-	    req->status == CPL_ERR_PERSIST_NEG_ADVICE)
++	if (is_neg_adv(req->status))
+ 		goto rel_skb;
+ 
+ 	cxgbi_sock_get(csk);
