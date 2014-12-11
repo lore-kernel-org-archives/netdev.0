@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V2 net-next 01/10] net/mlx4_en: Set csum level for encapsulated packets
-Date: Thu, 11 Dec 2014 10:57:51 +0200
-Message-ID: <1418288280-334-2-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH V2 net-next 02/10] net/mlx4_core: Mask out host side virtualization features for guests
+Date: Thu, 11 Dec 2014 10:57:52 +0200
+Message-ID: <1418288280-334-3-git-send-email-ogerlitz@mellanox.com>
 References: <1418288280-334-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
@@ -9,35 +9,59 @@ Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:40388 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:40399 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932127AbaLKI6f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Dec 2014 03:58:35 -0500
+	id S932393AbaLKI6g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Dec 2014 03:58:36 -0500
 In-Reply-To: <1418288280-334-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This was dropped by mistake for the napi_gro_frags flow, fix that.
+When VFs (guests in this context) issue the QUERY_DEV_CAP command, they
+need not be told that host side virtualization features such as VST, FSM
+(MAC anti-spoofing) and running > 80 VFs are supported by the device.
 
-Fixes: dd65beac48a5 ('net/mlx4_en: Extend usage of napi_gro_frags')
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/fw.c |   12 +++++++++++-
+ 1 files changed, 11 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 4ca396e..69a2e1b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -888,7 +888,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 			gro_skb->ip_summed = ip_summed;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 4251f81..5089f76 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -973,6 +973,10 @@ out:
+ 	return err;
+ }
  
- 			if (l2_tunnel && ip_summed == CHECKSUM_UNNECESSARY)
--				gro_skb->encapsulation = 1;
-+				gro_skb->csum_level = 1;
++#define DEV_CAP_EXT_2_FLAG_VLAN_CONTROL (1 << 26)
++#define DEV_CAP_EXT_2_FLAG_80_VFS	(1 << 21)
++#define DEV_CAP_EXT_2_FLAG_FSM		(1 << 20)
 +
- 			if ((cqe->vlan_my_qpn &
- 			    cpu_to_be32(MLX4_CQE_VLAN_PRESENT_MASK)) &&
- 			    (dev->features & NETIF_F_HW_VLAN_CTAG_RX)) {
+ int mlx4_QUERY_DEV_CAP_wrapper(struct mlx4_dev *dev, int slave,
+ 			       struct mlx4_vhcr *vhcr,
+ 			       struct mlx4_cmd_mailbox *inbox,
+@@ -982,7 +986,7 @@ int mlx4_QUERY_DEV_CAP_wrapper(struct mlx4_dev *dev, int slave,
+ 	u64	flags;
+ 	int	err = 0;
+ 	u8	field;
+-	u32	bmme_flags;
++	u32	bmme_flags, field32;
+ 	int	real_port;
+ 	int	slave_port;
+ 	int	first_port;
+@@ -1053,6 +1057,12 @@ int mlx4_QUERY_DEV_CAP_wrapper(struct mlx4_dev *dev, int slave,
+ 	field &= ~0x80;
+ 	MLX4_PUT(outbox->buf, field, QUERY_DEV_CAP_FLOW_STEERING_IPOIB_OFFSET);
+ 
++	/* turn off host side virt features (VST, FSM, etc) for guests */
++	MLX4_GET(field32, outbox->buf, QUERY_DEV_CAP_EXT_2_FLAGS_OFFSET);
++	field32 &= ~(DEV_CAP_EXT_2_FLAG_VLAN_CONTROL | DEV_CAP_EXT_2_FLAG_80_VFS |
++		     DEV_CAP_EXT_2_FLAG_FSM);
++	MLX4_PUT(outbox->buf, field32, QUERY_DEV_CAP_EXT_2_FLAGS_OFFSET);
++
+ 	return 0;
+ }
+ 
 -- 
 1.7.1
