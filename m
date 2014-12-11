@@ -1,77 +1,69 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH iproute2] ip: Simplify executing ip cmd within namespace
-Date: Thu, 11 Dec 2014 15:33:34 -0200
-Message-ID: <5489D56E.4010505@gmail.com>
-References: <1418252195-2612-1-git-send-email-vadim4j@gmail.com> <20141211170928.62c8e637@griffin> <20141211163335.GA27913@angus-think.wlc.globallogic.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: Re: [PATCH net v2] gianfar: Fix dma check map error when DMA_API_DEBUG
+ is enabled
+Date: Thu, 11 Dec 2014 19:05:54 +0200
+Message-ID: <5489CEF2.5090208@freescale.com>
+References: <20141211020646.GB18701@pek-khao-d1.corp.ad.wrs.com>
+ <1418278121-20209-1-git-send-email-haokexin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: vadim4j@gmail.com, Jiri Benc <jbenc@redhat.com>
+Cc: David Miller <davem@davemloft.net>
+To: Kevin Hao <haokexin@gmail.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f41.google.com ([209.85.216.41]:58491 "EHLO
-	mail-qa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932581AbaLKRdk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 12:33:40 -0500
-Received: by mail-qa0-f41.google.com with SMTP id f12so3980779qad.14
-        for <netdev@vger.kernel.org>; Thu, 11 Dec 2014 09:33:39 -0800 (PST)
-In-Reply-To: <20141211163335.GA27913@angus-think.wlc.globallogic.com>
+Received: from mail-bn1bon0110.outbound.protection.outlook.com ([157.56.111.110]:61164
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750702AbaLKRiv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Dec 2014 12:38:51 -0500
+In-Reply-To: <1418278121-20209-1-git-send-email-haokexin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11-12-2014 14:33, vadim4j@gmail.com wrote:
-> On Thu, Dec 11, 2014 at 05:09:28PM +0100, Jiri Benc wrote:
->> On Thu, 11 Dec 2014 00:56:35 +0200, Vadim Kochan wrote:
->>> From: Vadim Kochan <vadim4j@gmail.com>
->>>
->>> Added new '-ns' option to simplify executing following cmd:
->>>
->>>      ip netns exec NETNS ip OPTIONS COMMAND OBJECT
->>>
->>>      to
->>>
->>>      ip -ns NETNS OPTIONS COMMAND OBJECT
->>>
->>> e.g.:
->>>
->>>      ip -ns vnet0 link add br0 type bridge
->>
->> This is great! It's a thing that has been bothering me for long time
->> but never got high enough on my todo list. Thanks for working on this.
->>
->> However,
->>
->>> --- a/ip/ip.c
->>> +++ b/ip/ip.c
->>> @@ -262,6 +262,12 @@ int main(int argc, char **argv)
->>>   			rcvbuf = size;
->>>   		} else if (matches(opt, "-help") == 0) {
->>>   			usage();
->>> +		} else if (matches(opt, "-ns") == 0) {
->>> +			argc--;
->>> +			argv++;
->>> +			argv[0] = argv[1];
->>> +			argv[1] = basename;
->>> +			return netns_exec(argc, argv);
->>
->> I very much dislike this. There's no reason to exec another ip binary.
->> The main reason I wanted the -n (or whatever) option was to speed up
->> execution of test scripts in environments with hundreds of interfaces
->> in different net namespaces.
->>
->> Please just change to the specified netns and continue with interpreting
->> of the rest of the command line, there's absolutely no reason for doing
->> the exec.
-> Yes, I will follow that way.
+On 12/11/2014 8:08 AM, Kevin Hao wrote:
+> We need to use dma_mapping_error() to check the dma address returned
+> by dma_map_single/page(). Otherwise we would get warning like this:
+>    WARNING: at lib/dma-debug.c:1140
+>    Modules linked in:
+>    CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.18.0-rc2-next-20141029 #196
+>    task: c0834300 ti: effe6000 task.ti: c0874000
+>    NIP: c02b2c98 LR: c02b2c98 CTR: c030abc4
+>    REGS: effe7d70 TRAP: 0700   Not tainted  (3.18.0-rc2-next-20141029)
+>    MSR: 00021000 <CE,ME>  CR: 22044022  XER: 20000000
+>
+>    GPR00: c02b2c98 effe7e20 c0834300 00000098 00021000 00000000 c030b898 00000003
+>    GPR08: 00000001 00000000 00000001 749eec9d 22044022 1001abe0 00000020 ef278678
+>    GPR16: ef278670 ef278668 ef278660 070a8040 c087f99c c08cdc60 00029000 c0840d44
+>    GPR24: c08be6e8 c0840000 effe7e78 ef041340 00000600 ef114e10 00000000 c08be6e0
+>    NIP [c02b2c98] check_unmap+0x51c/0x9e4
+>    LR [c02b2c98] check_unmap+0x51c/0x9e4
+>    Call Trace:
+>    [effe7e20] [c02b2c98] check_unmap+0x51c/0x9e4 (unreliable)
+>    [effe7e70] [c02b31d8] debug_dma_unmap_page+0x78/0x8c
+>    [effe7ed0] [c03d1640] gfar_clean_rx_ring+0x208/0x488
+>    [effe7f40] [c03d1a9c] gfar_poll_rx_sq+0x3c/0xa8
+>    [effe7f60] [c04f8714] net_rx_action+0xc0/0x178
+>    [effe7f90] [c00435a0] __do_softirq+0x100/0x1fc
+>    [effe7fe0] [c0043958] irq_exit+0xa4/0xc8
+>    [effe7ff0] [c000d14c] call_do_irq+0x24/0x3c
+>    [c0875e90] [c00048a0] do_IRQ+0x8c/0xf8
+>    [c0875eb0] [c000ed10] ret_from_except+0x0/0x18
+>
+> For TX, we need to unmap the pages which has already been mapped and
+> free the skb before return.
+>
+> For RX, move the dma mapping and error check to gfar_new_skb(). We
+> would reuse the original skb in the rx ring when either allocating
+> skb failure or dma mapping error.
+>
+> Signed-off-by: Kevin Hao <haokexin@gmail.com>
+> ---
+> v2: Just update the RX path to reuse the original skb when dma mapping error
+>      occurs as suggested by David.
+>
 
-In that case, it would be interesting to also accelerate the original use 
-case, no? So all usages we currently have will benefit from this speed up 
-without a change.
+Very nice refactoring of gfar_new_skb(), removing gfar_new_rxbdp() in 
+the process.  (Did not have the time to test it yet.)
+Thanks.
 
-if (command to be executed == myself)
-   switch namespace, continue without fork/exec..
-
-I'm not sure if this is feasible, though. Just sharing the idea, didn't even 
-open the code..
-
-   Marcelo
+Reviewed-by: Claudiu Manoil <claudiu.manoil@freescale.com>
