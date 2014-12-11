@@ -1,45 +1,36 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: [net: sock] BUG: unable to handle kernel NULL pointer
- dereference at 0000000000000007
-Date: Wed, 10 Dec 2014 20:00:53 -0500
-Message-ID: <20141211010053.GA23742@redhat.com>
-References: <20141210232911.GE24163@wfg-t540p.sh.intel.com>
- <CAMEtUuxexMXtvK_R7YZEvx_iyK9mAx_zrqr1bkj3PsUwoq0p5A@mail.gmail.com>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH net-next v2 0/3] net: fec: driver code clean and bug fix
+Date: Thu, 11 Dec 2014 09:20:30 +0800
+Message-ID: <1418260833-896-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Fengguang Wu <fengguang.wu@intel.com>, LKP <lkp@01.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	dborkman@redhat.com
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAMEtUuxexMXtvK_R7YZEvx_iyK9mAx_zrqr1bkj3PsUwoq0p5A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <bhutchings@solarflare.com>,
+	<stephen@networkplumber.org>, <b38611@freescale.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bbn0101.outbound.protection.outlook.com ([157.56.111.101]:29920
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933521AbaLKByJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Dec 2014 20:54:09 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 10, 2014 at 03:51:33PM -0800, Alexei Starovoitov wrote:
- > On Wed, Dec 10, 2014 at 3:29 PM, Fengguang Wu <fengguang.wu@intel.com> wrote:
- > > Greetings,
- > >
- > > 0day kernel testing robot got the below dmesg and the first bad commit is
- > >
- > >     net: sock: allow eBPF programs to be attached to sockets
- > 
- > > [init] Kernel was tainted on startup. Will ignore flags that are already set.
- > > [init] Started watchdog process, PID is 9354
- > > [main] Main thread is alive.
- > > [   21.233581] BUG: unable to handle kernel NULL pointer dereference at 0000000000000007
- > > [   21.234709] IP: [<ffffffff8156ebda>] sk_attach_bpf+0x39/0xc2
- > 
- > thanks for the report! syscall fuzzer is great.
- > I missed an extra check. Working on a fix.
+The patch serial include code clean and bug fix:
+Patch#1: avoid dummy operation during suspend/resume test.
+Patch#2: bug fix for i.MX6SX SOC that clean all interrupt events during MAC initial process.
+Patch#3: before phy device link status is up, only enable MDIO bus interrupt.
 
-This might be the first time I've seen it trip up the bpf code iirc.
-Daniel wrote some pretty nifty bpf generator code in trinity,
-(net/bpf.c) that you might want to see if you can think of enhancing.
+V2:
+- Modify the comment form from David's suggestion.
 
-Though it might be the case that we're not even needing to do anything
-that complicated to hit this particular bug..
+Fugang Duan (3):
+  net: fec: reset fep link status in suspend function
+  net: fec: clear all interrupt events to support i.MX6SX
+  net: fec: only enable mdio interrupt before phy device link up
 
-	Dave
+ drivers/net/ethernet/freescale/fec_main.c |   14 ++++++++++++--
+ 1 files changed, 12 insertions(+), 2 deletions(-)
+
+-- 
+1.7.8
