@@ -1,50 +1,47 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH v7 0/4] arch: Add lightweight memory barriers for coherent
- memory access
-Date: Thu, 11 Dec 2014 13:33:32 -0800
-Message-ID: <CA+55aFxE-zT9De8A-nwqtPiVn2ON19go76ui6buYskOU3L3a7g@mail.gmail.com>
-References: <20141125203310.8240.27370.stgit@ahduyck-server>
-	<54892B87.3020909@gmail.com>
-	<20141211.153204.228153607927530694.davem@davemloft.net>
+From: Phillip Susi <psusi@ubuntu.com>
+Subject: Re: bind() should not return -EADDRINUSE
+Date: Thu, 11 Dec 2014 16:34:14 -0500
+Message-ID: <548A0DD6.3020702@ubuntu.com>
+References: <5489FBC8.4070706@ubuntu.com>	<20141211.151804.2024237965934539073.davem@davemloft.net>	<5489FD51.3030609@ubuntu.com> <20141211.152518.1988079810884987306.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	"linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Ingo Molnar <mingo@kernel.org>,
-	Michael Neuling <mikey@neuling.org>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Paul McKenney <paulmck@linux.vnet.ibm.com>,
-	nic_swsd@realtek.com, Will Deacon <will.deacon@arm.com>,
-	Micha
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141211.153204.228153607927530694.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f181.google.com ([209.85.216.181]:54713 "EHLO
+	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965678AbaLKVeT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 16:34:19 -0500
+Received: by mail-qc0-f181.google.com with SMTP id m20so4562021qcx.40
+        for <netdev@vger.kernel.org>; Thu, 11 Dec 2014 13:34:19 -0800 (PST)
+In-Reply-To: <20141211.152518.1988079810884987306.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 11, 2014 at 12:32 PM, David Miller <davem@davemloft.net> wrote:
->
-> I have no problem taking this via my tree, but I want to see agreement
-> from other interested parties.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Since the early users are network drivers, and since it's otherwise
-cross-architecture and not clear under any other maintainership, that
-sounds good to me.
+On 12/11/2014 3:25 PM, David Miller wrote:
+> You will definitely break programs that look for a locally
+> available port by iterating over bind() calls.
+> 
+> Sorry, this is not changing, no matter how strongly you may wish
+> it to.
 
-The arch parts were, I think, largely uncontroversial once naming and
-a couple of small arch details were fixed up, so I don't think there's
-any problem there.
+According to this very nice post, it is how BSD does it, at least when
+you specify SO_REUSEADDR:
 
-                      Linus
+http://stackoverflow.com/a/14388707/884259
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.17 (MingW32)
+
+iQEcBAEBAgAGBQJUig3WAAoJENRVrw2cjl5ROzkIAJMyXGo6OA34TFz2pXlWUlLR
++aA6UGC99oM6QV0y/sFnRGSlp4tIMTUQuFS7JzVCKHNRbm9dixtTdXLKpinBuUw/
+Y1ZIO1+DyV457T05Q7w9oBxxxNqdLCRlLnVxolTiLN5IJ0mkEN+CaVJVuSl/Tx+S
+YtEmCyDShpE+xwQndOUQtt0WU2ZonrKGhYH1aA6YRSyxfX1N4vTuSKqCUvsSubfm
+r3tt22A6FaRey0pHzxSqzNcyvHe63THC8b556ggOcQM+yFf3C92FNyvyUWxETtdb
+2VrXgGEYnXtcLXtSwYLOnQAXwW9yRg64BkinMDybVt7b6aNDG5653+Vi/NniysU=
+=NxIM
+-----END PGP SIGNATURE-----
