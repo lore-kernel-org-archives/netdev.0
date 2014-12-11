@@ -1,129 +1,154 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] ip lib: Added shorter timestamp option
-Date: Thu, 11 Dec 2014 10:12:06 +0200
-Message-ID: <1418285526-28859-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH v2 net] be2net: Export tunnel offloads only when a VxLAN tunnel is created
+Date: Thu, 11 Dec 2014 03:24:47 -0500
+Message-ID: <1418286287-19738-1-git-send-email-sathya.perla@emulex.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:37664 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932311AbaLKIV6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 03:21:58 -0500
-Received: by mail-lb0-f174.google.com with SMTP id 10so3781594lbg.33
-        for <netdev@vger.kernel.org>; Thu, 11 Dec 2014 00:21:57 -0800 (PST)
+Received: from cmexedge1.emulex.com ([138.239.224.99]:42975 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932311AbaLKIWv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 03:22:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Kochan <vadim4j@gmail.com>
+From: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
 
-Added another timestamp format to look like more logging info:
+The encapsulated offload flags shouldn't be unconditionally exported
+to the stack. The stack expects offloading to work across all tunnel
+types when those flags are set. This would break other tunnels (like
+GRE) since be2net currently supports tunnel offload for VxLAN only.
 
-[Dec 01 01:46:20.675589] 2: enp0s25: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default
-    link/ether 3c:97:0e:a3:86:2e brd ff:ff:ff:ff:ff:ff
+Also, with VxLANs Skyhawk-R can offload only 1 UDP dport. If more
+than 1 UDP port is added, we should disable offloads in that case too.
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- include/utils.h       |  1 +
- ip/ip.c               |  5 ++++-
- lib/utils.c           | 15 ++++++++++++---
- man/man8/ip-monitor.8 | 13 +++++++++++++
- 4 files changed, 30 insertions(+), 4 deletions(-)
 
-diff --git a/include/utils.h b/include/utils.h
-index eef9c42..eecbc39 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -19,6 +19,7 @@ extern int show_raw;
- extern int resolve_hosts;
- extern int oneline;
- extern int timestamp;
-+extern int timestamp_short;
- extern char * _SL_;
- extern int max_flush_loops;
- extern int batch_mode;
-diff --git a/ip/ip.c b/ip/ip.c
-index 5f759d5..9b90707 100644
---- a/ip/ip.c
-+++ b/ip/ip.c
-@@ -53,7 +53,7 @@ static void usage(void)
- "                    -f[amily] { inet | inet6 | ipx | dnet | bridge | link } |\n"
- "                    -4 | -6 | -I | -D | -B | -0 |\n"
- "                    -l[oops] { maximum-addr-flush-attempts } |\n"
--"                    -o[neline] | -t[imestamp] | -b[atch] [filename] |\n"
-+"                    -o[neline] | -t[imestamp] | -t[short] | -b[atch] [filename] |\n"
- "                    -rc[vbuf] [size]}\n");
- 	exit(-1);
+v2 changes: fix a bad indentation pointed out by Dave M.
+
+ drivers/net/ethernet/emulex/benet/be.h      |  1 +
+ drivers/net/ethernet/emulex/benet/be_main.c | 42 ++++++++++++++++++++++-------
+ 2 files changed, 33 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 9a2d752..712e7f8 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -522,6 +522,7 @@ struct be_adapter {
+ 	u8 hba_port_num;
+ 	u16 pvid;
+ 	__be16 vxlan_port;
++	int vxlan_port_count;
+ 	struct phy_info phy;
+ 	u8 wol_cap;
+ 	bool wol_en;
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 597c463..593943e 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -3123,6 +3123,8 @@ static void be_mac_clear(struct be_adapter *adapter)
+ #ifdef CONFIG_BE2NET_VXLAN
+ static void be_disable_vxlan_offloads(struct be_adapter *adapter)
+ {
++	struct net_device *netdev = adapter->netdev;
++
+ 	if (adapter->flags & BE_FLAGS_VXLAN_OFFLOADS)
+ 		be_cmd_manage_iface(adapter, adapter->if_handle,
+ 				    OP_CONVERT_TUNNEL_TO_NORMAL);
+@@ -3132,6 +3134,9 @@ static void be_disable_vxlan_offloads(struct be_adapter *adapter)
+ 
+ 	adapter->flags &= ~BE_FLAGS_VXLAN_OFFLOADS;
+ 	adapter->vxlan_port = 0;
++
++	netdev->hw_enc_features = 0;
++	netdev->hw_features &= ~(NETIF_F_GSO_UDP_TUNNEL);
  }
-@@ -232,6 +232,9 @@ int main(int argc, char **argv)
- 			++oneline;
- 		} else if (matches(opt, "-timestamp") == 0) {
- 			++timestamp;
-+		} else if (matches(opt, "-tshort") == 0) {
-+			++timestamp;
-+			++timestamp_short;
- #if 0
- 		} else if (matches(opt, "-numeric") == 0) {
- 			rtnl_names_numeric++;
-diff --git a/lib/utils.c b/lib/utils.c
-index 987377b..3102920 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -32,6 +32,8 @@
+ #endif
  
- #include "utils.h"
- 
-+int timestamp_short = 0;
-+
- int get_integer(int *val, const char *arg, int base)
- {
- 	long res;
-@@ -773,13 +775,20 @@ int print_timestamp(FILE *fp)
- {
- 	struct timeval tv;
- 	char *tstr;
-+	char tshort[40] = {};
- 
- 	memset(&tv, 0, sizeof(tv));
- 	gettimeofday(&tv, NULL);
- 
--	tstr = asctime(localtime(&tv.tv_sec));
--	tstr[strlen(tstr)-1] = 0;
--	fprintf(fp, "Timestamp: %s %ld usec\n", tstr, (long)tv.tv_usec);
-+	if (timestamp_short) {
-+		strftime(tshort, sizeof(tshort), "%b %d %H:%M:%S", localtime(&tv.tv_sec));
-+		fprintf(fp, "[%s.%-6ld] ", tshort, (long)tv.tv_usec);
-+	} else {
-+		tstr = asctime(localtime(&tv.tv_sec));
-+		tstr[strlen(tstr)-1] = 0;
-+		fprintf(fp, "Timestamp: %s %ld usec\n", tstr, (long)tv.tv_usec);
-+	}
-+
- 	return 0;
+@@ -4369,6 +4374,19 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
  }
  
-diff --git a/man/man8/ip-monitor.8 b/man/man8/ip-monitor.8
-index 68e83f1..c131ae7 100644
---- a/man/man8/ip-monitor.8
-+++ b/man/man8/ip-monitor.8
-@@ -16,6 +16,19 @@ ip-monitor, rtmon \- state monitoring
- ]
- .sp
+ #ifdef CONFIG_BE2NET_VXLAN
++/* VxLAN offload Notes:
++ *
++ * The stack defines tunnel offload flags (hw_enc_features) for IP and doesn't
++ * distinguish various types of transports (VxLAN, GRE, NVGRE ..). So, offload
++ * is expected to work across all types of IP tunnels once exported. Skyhawk
++ * supports offloads for either VxLAN or NVGRE, exclusively. So we export VxLAN
++ * offloads in hw_enc_features only when a VxLAN port is added. Note this only
++ * ensures that other tunnels work fine while VxLAN offloads are not enabled.
++ *
++ * Skyhawk supports VxLAN offloads only for one UDP dport. So, if the stack
++ * adds more than one port, disable offloads and don't re-enable them again
++ * until after all the tunnels are removed.
++ */
+ static void be_add_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
+ 			      __be16 port)
+ {
+@@ -4380,13 +4398,16 @@ static void be_add_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
+ 		return;
  
-+.SH OPTIONS
+ 	if (adapter->flags & BE_FLAGS_VXLAN_OFFLOADS) {
+-		dev_warn(dev, "Cannot add UDP port %d for VxLAN offloads\n",
+-			 be16_to_cpu(port));
+ 		dev_info(dev,
+ 			 "Only one UDP port supported for VxLAN offloads\n");
+-		return;
++		dev_info(dev, "Disabling VxLAN offloads\n");
++		adapter->vxlan_port_count++;
++		goto err;
+ 	}
+ 
++	if (adapter->vxlan_port_count++ >= 1)
++		return;
 +
-+.TP
-+.BR "\-t" , " \-timestamp"
-+Prints timestamp before the event message on the separated line in format:
-+    Timestamp: <Day> <Month> <day> <HH:MM:SS> <YYYY> <usecs> usec
-+    EVENT
+ 	status = be_cmd_manage_iface(adapter, adapter->if_handle,
+ 				     OP_CONVERT_NORMAL_TO_TUNNEL);
+ 	if (status) {
+@@ -4402,6 +4423,11 @@ static void be_add_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
+ 	adapter->flags |= BE_FLAGS_VXLAN_OFFLOADS;
+ 	adapter->vxlan_port = port;
+ 
++	netdev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
++				   NETIF_F_TSO | NETIF_F_TSO6 |
++				   NETIF_F_GSO_UDP_TUNNEL;
++	netdev->hw_features |= NETIF_F_GSO_UDP_TUNNEL;
 +
-+.TP
-+.BR "\-ts" , " \-tshort"
-+Prints short timestamp before the event message on the same line in format:
-+    [<Month> <day> <HH:MM:SS>.usecs ] EVENT
-+
- .SH DESCRIPTION
- The
- .B ip
+ 	dev_info(dev, "Enabled VxLAN offloads for UDP port %d\n",
+ 		 be16_to_cpu(port));
+ 	return;
+@@ -4418,13 +4444,15 @@ static void be_del_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
+ 		return;
+ 
+ 	if (adapter->vxlan_port != port)
+-		return;
++		goto done;
+ 
+ 	be_disable_vxlan_offloads(adapter);
+ 
+ 	dev_info(&adapter->pdev->dev,
+ 		 "Disabled VxLAN offloads for UDP port %d\n",
+ 		 be16_to_cpu(port));
++done:
++	adapter->vxlan_port_count--;
+ }
+ 
+ static bool be_gso_check(struct sk_buff *skb, struct net_device *dev)
+@@ -4468,12 +4496,6 @@ static void be_netdev_init(struct net_device *netdev)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+ 
+-	if (skyhawk_chip(adapter)) {
+-		netdev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+-					   NETIF_F_TSO | NETIF_F_TSO6 |
+-					   NETIF_F_GSO_UDP_TUNNEL;
+-		netdev->hw_features |= NETIF_F_GSO_UDP_TUNNEL;
+-	}
+ 	netdev->hw_features |= NETIF_F_SG | NETIF_F_TSO | NETIF_F_TSO6 |
+ 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_RXCSUM |
+ 		NETIF_F_HW_VLAN_CTAG_TX;
 -- 
-2.1.3
+2.2.0
