@@ -1,101 +1,53 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port
- configuration
-Date: Thu, 11 Dec 2014 12:01:15 +0100
-Message-ID: <20141211110115.GA1979@nanopsycho.lan>
-References: <C4896FB061E7DE4AAC93031BDCA044B104AC3257@IRSMSX108.ger.corp.intel.com>
- <20141210165018.GG1863@nanopsycho.orion>
- <54887CF7.70708@gmail.com>
- <C4896FB061E7DE4AAC93031BDCA044B104AC3914@IRSMSX108.ger.corp.intel.com>
+From: vadim4j@gmail.com
+Subject: Re: [PATCH iproute2] ip: Simplify executing ip cmd within namespace
+Date: Thu, 11 Dec 2014 12:57:33 +0200
+Message-ID: <20141211105733.GA17601@angus-think.wlc.globallogic.com>
+References: <1418252195-2612-1-git-send-email-vadim4j@gmail.com>
+ <548978CD.80404@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Varlese, Marco" <marco.varlese@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f53.google.com ([209.85.215.53]:47693 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932508AbaLKLH0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 06:07:26 -0500
+Received: by mail-la0-f53.google.com with SMTP id gm9so4124597lab.12
+        for <netdev@vger.kernel.org>; Thu, 11 Dec 2014 03:07:25 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <C4896FB061E7DE4AAC93031BDCA044B104AC3914@IRSMSX108.ger.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <548978CD.80404@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thu, Dec 11, 2014 at 10:59:42AM CET, marco.varlese@intel.com wrote:
->> -----Original Message-----
->> From: John Fastabend [mailto:john.fastabend@gmail.com]
->> Sent: Wednesday, December 10, 2014 5:04 PM
->> To: Jiri Pirko
->> Cc: Varlese, Marco; netdev@vger.kernel.org;
->> stephen@networkplumber.org; Fastabend, John R;
->> roopa@cumulusnetworks.com; sfeldma@gmail.com; linux-
->> kernel@vger.kernel.org
->> Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port
->> configuration
->> 
->> On 12/10/2014 08:50 AM, Jiri Pirko wrote:
->> > Wed, Dec 10, 2014 at 05:23:40PM CET, marco.varlese@intel.com wrote:
->> >> From: Marco Varlese <marco.varlese@intel.com>
->> >>
->> >> Switch hardware offers a list of attributes that are configurable on
->> >> a per port basis.
->> >> This patch provides a mechanism to configure switch ports by adding
->> >> an NDO for setting specific values to specific attributes.
->> >> There will be a separate patch that extends iproute2 to call the new
->> >> NDO.
->> >
->> >
->> > What are these attributes? Can you give some examples. I'm asking
->> > because there is a plan to pass generic attributes to switch ports
->> > replacing current specific ndo_switch_port_stp_update. In this case,
->> > bridge is setting that attribute.
->> >
->> > Is there need to set something directly from userspace or does it make
->> > rather sense to use involved bridge/ovs/bond ? I think that both will
->> > be needed.
->> 
->> +1
->> 
->> I think for many attributes it would be best to have both. The in kernel callers
->> and netlink userspace can use the same driver ndo_ops.
->> 
->> But then we don't _require_ any specific bridge/ovs/etc module. And we
->> may have some attributes that are not specific to any existing software
->> module. I'm guessing Marco has some examples of these.
->> 
->> [...]
->> 
->> 
->> --
->> John Fastabend         Intel Corporation
->
->We do have a need to configure the attributes directly from user-space and I have identified the tool to do that in iproute2.
->
->An example of attributes are:
->* enabling/disabling of learning of source addresses on a given port (you can imagine the attribute called LEARNING for example);
->* internal loopback control (i.e. LOOPBACK) which will control how the flow of traffic behaves from the switch fabric towards an egress port;
->* flooding for broadcast/multicast/unicast type of packets (i.e. BFLOODING, MFLOODING, UFLOODING);
->
->Some attributes would be of the type enabled/disabled while other will allow specific values to allow the user to configure different behaviours of that feature on that particular port on that platform.
->
->One thing to mention - as John stated as well - there might be some attributes that are not specific to any software module but rather have to do with the actual hardware/platform to configure.
->
->I hope this clarifies some points.
+On Thu, Dec 11, 2014 at 11:58:21AM +0100, Nicolas Dichtel wrote:
+> Le 10/12/2014 23:56, Vadim Kochan a =E9crit :
+> >From: Vadim Kochan <vadim4j@gmail.com>
+> >
+> >Added new '-ns' option to simplify executing following cmd:
+> >
+> >     ip netns exec NETNS ip OPTIONS COMMAND OBJECT
+> >
+> >     to
+> >
+> >     ip -ns NETNS OPTIONS COMMAND OBJECT
+> >
+> >e.g.:
+> >
+> >     ip -ns vnet0 link add br0 type bridge
+> >
+> >Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+> >---
+> >May be new option should have better name than '-ns' ?
+> What about 'ip -netns' to be explicit like other options?
+> user may still use 'ip -n' at the end.
+>=20
+>=20
+> Regards,
+> Nicolas
 
-It does. Makes sense. We need to expose this attr set/get for both
-in-kernel and userspace use cases.
+May be left '-n' for some other future option, but use the following
+options: -net[ns] and -ns ? What do you think ?
 
-Please adjust you patch for this. Also, as a second patch, it would be
-great if you can convert ndo_switch_port_stp_update to this new ndo.
-
-Thanks.
-
-
->
->-----------------------------------------------------------
->Marco Varlese		-	Intel Corporation
->-----------------------------------------------------------
->
->
+Thanks,
