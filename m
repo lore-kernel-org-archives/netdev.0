@@ -1,87 +1,36 @@
 From: Karen Xie <kxie@chelsio.com>
-Subject: [PATCH net v9 6/7] cxgb4i: use set_wr_txq() to set tx queues
-Date: Thu, 11 Dec 2014 07:25:55 -0800
-Message-ID: <201412111525.sBBFPtvG012957@localhost6.localdomain6>
+Subject: RE: [PATCH net v8 1/7] cxgb4i: fix tx immediate data credit check
+Date: Thu, 11 Dec 2014 15:26:46 +0000
+Message-ID: <1442C3287A121140B690F7F20F94463D82FC31@nice.asicdesigners.com>
+References: <201412102111.sBALB6sI011656@localhost6.localdomain6>
+ <20141210.225445.458745535803327140.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kxie@chelsio.com, hariprasad@chelsio.com, anish@chelsio.com,
-	hch@infradead.org, James.Bottomley@HansenPartnership.com,
-	michaelc@cs.wisc.edu, davem@davemloft.net
-To: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Anish Bhatt <anish@chelsio.com>,
+	"hch@infradead.org" <hch@infradead.org>,
+	"James.Bottomley@HansenPartnership.com"
+	<James.Bottomley@HansenPartnership.com>,
+	"michaelc@cs.wisc.edu" <michaelc@cs.wisc.edu>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20141210.225445.458745535803327140.davem@davemloft.net>
+Content-Language: en-US
 Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Karen Xie <kxie@chelsio.com>
+From: David Miller [mailto:davem@davemloft.net]
+Sent: Wednesday, December 10, 2014 7:55 PM
 
-use cxgb4's set_wr_txq() for setting of the tx queue for a outgoing packet.
-Remove the similar function in cxgb4i.
+> Please text format your commit messages to 80 characters or less per line.
+> 
+> People are going to read your commits using text tools, not necessarily GUI
+> tools which will auto-format your commit message.
+> 
+> I know this seems like we are being difficult, but you are making many
+> fundamental mistakes in your efforts to merge in these changes.
 
-Signed-off-by: Karen Xie <kxie@chelsio.com>
----
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   16 +++++-----------
- 1 files changed, 5 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index dff7345..6aa50fc 100644
---- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-+++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -157,12 +157,6 @@ static struct scsi_transport_template *cxgb4i_stt;
- #define RCV_BUFSIZ_MASK		0x3FFU
- #define MAX_IMM_TX_PKT_LEN	128
- 
--static inline void set_queue(struct sk_buff *skb, unsigned int queue,
--				const struct cxgbi_sock *csk)
--{
--	skb->queue_mapping = queue;
--}
--
- static int push_tx_frames(struct cxgbi_sock *, int);
- 
- /*
-@@ -404,7 +398,7 @@ static void send_abort_req(struct cxgbi_sock *csk)
- 
- 	csk->cpl_abort_req = NULL;
- 	req = (struct cpl_abort_req *)skb->head;
--	set_queue(skb, CPL_PRIORITY_DATA, csk);
-+	set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
- 	req->cmd = CPL_ABORT_SEND_RST;
- 	t4_set_arp_err_handler(skb, csk, abort_arp_failure);
- 	INIT_TP_WR(req, csk->tid);
-@@ -430,7 +424,7 @@ static void send_abort_rpl(struct cxgbi_sock *csk, int rst_status)
- 		csk, csk->state, csk->flags, csk->tid, rst_status);
- 
- 	csk->cpl_abort_rpl = NULL;
--	set_queue(skb, CPL_PRIORITY_DATA, csk);
-+	set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
- 	INIT_TP_WR(rpl, csk->tid);
- 	OPCODE_TID(rpl) = cpu_to_be32(MK_OPCODE_TID(CPL_ABORT_RPL, csk->tid));
- 	rpl->cmd = rst_status;
-@@ -555,7 +549,7 @@ static inline int send_tx_flowc_wr(struct cxgbi_sock *csk)
- 	flowc->mnemval[8].mnemonic = FW_FLOWC_MNEM_TXDATAPLEN_MAX;
- 	flowc->mnemval[8].val = 16384;
- 
--	set_queue(skb, CPL_PRIORITY_DATA, csk);
-+	set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
- 
- 	log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
- 		"csk 0x%p, tid 0x%x, %u,%u,%u,%u,%u,%u,%u.\n",
-@@ -660,7 +654,7 @@ static int push_tx_frames(struct cxgbi_sock *csk, int req_completion)
- 			break;
- 		}
- 		__skb_unlink(skb, &csk->write_queue);
--		set_queue(skb, CPL_PRIORITY_DATA, csk);
-+		set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
- 		skb->csum = credits_needed + flowclen16;
- 		csk->wr_cred -= credits_needed;
- 		csk->wr_una_cred += credits_needed;
-@@ -1552,7 +1546,7 @@ static int ddp_ppod_write_idata(struct cxgbi_device *cdev, unsigned int port_id,
- 		return -ENOMEM;
- 	}
- 	req = (struct ulp_mem_io *)skb->head;
--	set_queue(skb, CPL_PRIORITY_CONTROL, NULL);
-+	set_wr_txq(skb, CPL_PRIORITY_CONTROL, 0);
- 
- 	ulp_mem_io_set_hdr(lldi, req, wr_len, dlen, pm_addr);
- 	idata = (struct ulptx_idata *)(req + 1);
+Submitted v9 with reformatted commit messages. Thanks for your patience.
