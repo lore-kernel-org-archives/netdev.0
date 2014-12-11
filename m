@@ -1,65 +1,44 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PULL] virtio: virtio 1.0 support, misc patches
-Date: Fri, 12 Dec 2014 00:01:57 +0200
-Message-ID: <20141211220157.GA22618@redhat.com>
-References: <20141211120248.GA8838@redhat.com>
-	<20141212080705.50988d51@canb.auug.org.au>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v7 0/4] arch: Add lightweight memory barriers for coherent
+ memory access
+Date: Thu, 11 Dec 2014 14:04:00 -0800
+Message-ID: <548A14D0.7080605@gmail.com>
+References: <20141125203310.8240.27370.stgit@ahduyck-server>	<54892B87.3020909@gmail.com> <20141211.153204.228153607927530694.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, kvm@vger.kernel.org,
+Cc: alexander.h.duyck@redhat.com, linux-arch@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	pbonzini@redhat.com, ben@decadent.org.uk,
-	David Miller <davem@davemloft.net>, thuth@linux.vnet.ibm.com
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20141212080705.50988d51@canb.auug.org.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+	arnd@arndb.de, mathieu.desnoyers@polymtl.ca, peterz@infradead.org,
+	benh@kernel.crashing.org, heiko.carstens@de.ibm.com,
+	mingo@kernel.org, mikey@neuling.org, linux@arm.linux.org.uk,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	geert@linux-m68k.org, jeffrey.t.kirsher@intel.com,
+	romieu@fr.zoreil.com, paulmck@linux.vnet.ibm.com,
+	nic_swsd@realtek.com, will.deacon@arm.com, michael@ellerman.id.au,
+	tony.luck@intel.com, torvalds@linux-foundation.org,
+	oleg@redhat.com, schwidefsky@de.ibm.com, fweisbec@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <20141211.153204.228153607927530694.davem@davemloft.net>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 12, 2014 at 08:07:05AM +1100, Stephen Rothwell wrote:
-> Hi Michael,
-> 
-> On Thu, 11 Dec 2014 14:02:48 +0200 "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> >
-> > The following changes since commit b2776bf7149bddd1f4161f14f79520f17fc1d71d:
-> > 
-> >   Linux 3.18 (2014-12-07 14:21:05 -0800)
-> 
-> hmmm ...
-> 
-> > are available in the git repository at:
-> > 
-> >   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
-> > 
-> > for you to fetch changes up to 803cd18f7b5e6c7ad6bee9571ae8f4450190ab58:
-> > 
-> >   virtio_ccw: finalize_features error handling (2014-12-09 16:32:41 +0200)
-> > 
-> > Note: some net drivers are affected by these patches.
-> > David said he's fine with merging these patches through
-> > my tree.
-> > Rusty's on vacation, he acked using my tree for these, too.
-> 
-> So, either none of this has been in linux-next or you have just rebased
-> it all on top of v3.18 ...
+On 12/11/2014 12:32 PM, David Miller wrote:
+> From: Alexander Duyck <alexander.duyck@gmail.com>
+> Date: Wed, 10 Dec 2014 21:28:39 -0800
+>
+>> It occurs to me that I never got a sign off from any of the maintainers
+>> on getting this pulled in.
+>>
+>> Since the merge window is open I was wondering which tree I should make
+>> sure these patches apply to and who will be the one to pull them in?
+>> Since I was modifying network drivers should I resubmit them for netdev,
+>> or should I submit them for asm-generic or some other tree?
+> I have no problem taking this via my tree, but I want to see agreement
+> from other interested parties.
 
-It was on linux next for a while, then I wanted to tweak the commit log
-for some messages a bit.
-So since I rewrote the history anyway, I went ahead and rebased it
-on v3.18, after this rebase it's been in linux-next for several days.
+I'll resubmit them as a net-next submission after I verify that they
+still apply cleanly and there aren't any build issues.
 
-> -- 
-> Cheers,
-> Stephen Rothwell                    sfr@canb.auug.org.au
+- Alex
