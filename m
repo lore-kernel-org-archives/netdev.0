@@ -1,33 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next 0/3] Kill arch_fast_hash
-Date: Thu, 11 Dec 2014 21:35:54 +1100
-Message-ID: <20141211103554.GA11471@gondor.apana.org.au>
-References: <1418225592-29322-1-git-send-email-dborkman@redhat.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH iproute2] ip: Simplify executing ip cmd within namespace
+Date: Thu, 11 Dec 2014 11:58:21 +0100
+Message-ID: <548978CD.80404@6wind.com>
+References: <1418252195-2612-1-git-send-email-vadim4j@gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, tgraf@suug.ch,
-	hannes@stressinduktion.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:44453 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754677AbaLKKgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 05:36:08 -0500
-Content-Disposition: inline
-In-Reply-To: <1418225592-29322-1-git-send-email-dborkman@redhat.com>
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:49931 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754388AbaLKK6Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 05:58:25 -0500
+Received: by mail-wg0-f47.google.com with SMTP id n12so6075445wgh.34
+        for <netdev@vger.kernel.org>; Thu, 11 Dec 2014 02:58:23 -0800 (PST)
+In-Reply-To: <1418252195-2612-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Borkmann <dborkman@redhat.com> wrote:
-> Due to the size of changes I have based this against net-next,
-> also given 3.18 is already out. I've split this into 3 parts,
-> the first two to remove existing users (so they can optionally
-> go to stable) and the last one to kill the remaining library bits.
-> 
-> Let me know if there are any issues.
+Le 10/12/2014 23:56, Vadim Kochan a =C3=A9crit :
+> From: Vadim Kochan <vadim4j@gmail.com>
+>
+> Added new '-ns' option to simplify executing following cmd:
+>
+>      ip netns exec NETNS ip OPTIONS COMMAND OBJECT
+>
+>      to
+>
+>      ip -ns NETNS OPTIONS COMMAND OBJECT
+>
+> e.g.:
+>
+>      ip -ns vnet0 link add br0 type bridge
+>
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+> ---
+> May be new option should have better name than '-ns' ?
+What about 'ip -netns' to be explicit like other options?
+user may still use 'ip -n' at the end.
 
-Thanks for the fast response Daniel!
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+Regards,
+Nicolas
