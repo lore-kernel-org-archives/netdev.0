@@ -1,44 +1,98 @@
-From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH net-next v2 2/3] net: fec: clear all interrupt events to support i.MX6SX
-Date: Thu, 11 Dec 2014 09:20:32 +0800
-Message-ID: <1418260833-896-3-git-send-email-b38611@freescale.com>
-References: <1418260833-896-1-git-send-email-b38611@freescale.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net-next RESEND 2/2] ipv6: fix sparse warning
+Date: Thu, 11 Dec 2014 09:56:33 +0800
+Message-ID: <5488F9D1.9060109@windriver.com>
+References: <1418201167-9591-1-git-send-email-ying.xue@windriver.com> <1418201167-9591-3-git-send-email-ying.xue@windriver.com> <20141210160406.GS25340@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <bhutchings@solarflare.com>,
-	<stephen@networkplumber.org>, <b38611@freescale.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0131.outbound.protection.outlook.com ([207.46.100.131]:11193
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933521AbaLKByO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Dec 2014 20:54:14 -0500
-In-Reply-To: <1418260833-896-1-git-send-email-b38611@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <eric.dumazet@gmail.com>,
+	<jon.maloy@ericsson.com>, <erik.hugne@ericsson.com>,
+	<netdev@vger.kernel.org>, <kbuild-all@01.org>,
+	<linux-kernel@vger.kernel.org>
+To: <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141210160406.GS25340@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-For i.MX6SX FEC controller, there have interrupt mask and event
-field extension. To support all SOCs FEC, we clear all interrupt
-events during MAVC initial process.
+On 12/11/2014 12:04 AM, Paul E. McKenney wrote:
+> On Wed, Dec 10, 2014 at 04:46:07PM +0800, Ying Xue wrote:
+>> This fixes the following spare warning when using
+>>
+>> make C=1 CF=-D__CHECK_ENDIAN__ net/ipv6/addrconf.o
+>> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+>> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+>> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+>> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+>>
+>> To silence above spare complaint, an RCU annotation should be added
+>> to "next" pointer of hlist_node structure through hlist_next_rcu()
+>> macro when iterating over a hlist with
+>> hlist_for_each_entry_continue_rcu_bh().
+>>
+>> By the way, this commit also resolves the same error appearing in
+>> hlist_for_each_entry_continue_rcu().
+>>
+>> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> 
+> If you pull the rculist.h changes from the first patch into this one,
+> I will queue it up through -rcu.
+> 
 
-Signed-off-by: Fugang Duan <B38611@freescale.com>
----
- drivers/net/ethernet/freescale/fec_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Please just queue this patch into your RCU tree. Some changes of the
+first patch currently only exists in net-next tree, so it cannot be
+merged into RCU tree now. Therefore, please temporarily ignore it. In
+next 3.19 development cycle, I will resubmit it to you.
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index b118b7d..85c955e 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -940,7 +940,7 @@ fec_restart(struct net_device *ndev)
- 	}
- 
- 	/* Clear any outstanding interrupt. */
--	writel(0xffc00000, fep->hwp + FEC_IEVENT);
-+	writel(0xffffffff, fep->hwp + FEC_IEVENT);
- 
- 	fec_enet_bd_init(ndev);
- 
--- 
-1.7.8
+Thanks,
+Ying
+
+> 							Thanx, Paul
+> 
+>> ---
+>>  include/linux/rculist.h |   16 ++++++++--------
+>>  1 file changed, 8 insertions(+), 8 deletions(-)
+>>
+>> diff --git a/include/linux/rculist.h b/include/linux/rculist.h
+>> index 866d9c9..32bd4ad 100644
+>> --- a/include/linux/rculist.h
+>> +++ b/include/linux/rculist.h
+>> @@ -524,11 +524,11 @@ static inline void hlist_add_behind_rcu(struct hlist_node *n,
+>>   * @member:	the name of the hlist_node within the struct.
+>>   */
+>>  #define hlist_for_each_entry_continue_rcu(pos, member)			\
+>> -	for (pos = hlist_entry_safe(rcu_dereference((pos)->member.next),\
+>> -			typeof(*(pos)), member);			\
+>> +	for (pos = hlist_entry_safe(rcu_dereference_raw(hlist_next_rcu( \
+>> +			&(pos)->member)), typeof(*(pos)), member);	\
+>>  	     pos;							\
+>> -	     pos = hlist_entry_safe(rcu_dereference((pos)->member.next),\
+>> -			typeof(*(pos)), member))
+>> +	     pos = hlist_entry_safe(rcu_dereference_raw(hlist_next_rcu(	\
+>> +			&(pos)->member)), typeof(*(pos)), member))
+>>
+>>  /**
+>>   * hlist_for_each_entry_continue_rcu_bh - iterate over a hlist continuing after current point
+>> @@ -536,11 +536,11 @@ static inline void hlist_add_behind_rcu(struct hlist_node *n,
+>>   * @member:	the name of the hlist_node within the struct.
+>>   */
+>>  #define hlist_for_each_entry_continue_rcu_bh(pos, member)		\
+>> -	for (pos = hlist_entry_safe(rcu_dereference_bh((pos)->member.next),\
+>> -			typeof(*(pos)), member);			\
+>> +	for (pos = hlist_entry_safe(rcu_dereference_bh(hlist_next_rcu(  \
+>> +			&(pos)->member)), typeof(*(pos)), member);	\
+>>  	     pos;							\
+>> -	     pos = hlist_entry_safe(rcu_dereference_bh((pos)->member.next),\
+>> -			typeof(*(pos)), member))
+>> +	     pos = hlist_entry_safe(rcu_dereference_bh(hlist_next_rcu(	\
+>> +			&(pos)->member)), typeof(*(pos)), member))
+>>
+>>  /**
+>>   * hlist_for_each_entry_from_rcu - iterate over a hlist continuing from current point
+>> -- 
+>> 1.7.9.5
+>>
+> 
+> 
+> 
