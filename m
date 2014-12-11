@@ -1,29 +1,67 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: RE: [PATCH net v9 0/7] cxgb4/cxgbi: misc. fixes for cxgb4i
-Date: Thu, 11 Dec 2014 20:24:48 +0000
-Message-ID: <525DB349B3FB5444AE057A887CB2A8D8D9AA8E@nice.asicdesigners.com>
-References: <201412111525.sBBFPbfn012920@localhost6.localdomain6>,<20141211.150430.1465687238823811699.davem@davemloft.net>
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Subject: Re: Bug: mv643xxx fails with highmem
+Date: Thu, 11 Dec 2014 17:25:24 -0300
+Message-ID: <5489FDB4.5060701@free-electrons.com>
+References: <20141211194920.GR11285@n2100.arm.linux.org.uk> <20141211.151055.817876561546126576.davem@davemloft.net> <20141211202507.GS11285@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Hariprasad S <hariprasad@chelsio.com>,
-	"hch@infradead.org" <hch@infradead.org>,
-	"James.Bottomley@HansenPartnership.com"
-	<James.Bottomley@HansenPartnership.com>,
-	"michaelc@cs.wisc.edu" <michaelc@cs.wisc.edu>
-To: David Miller <davem@davemloft.net>, Karen Xie <kxie@chelsio.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20141211.150430.1465687238823811699.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	David Miller <davem@davemloft.net>,
+	Nimrod Andy <B38611@freescale.com>,
+	Fabio Estevam <fabio.estevam@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from down.free-electrons.com ([37.187.137.238]:46450 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758964AbaLKU1Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 15:27:16 -0500
+In-Reply-To: <20141211202507.GS11285@n2100.arm.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> This series does not apply cleanly at all to net-next, it gets many
-> rejects.
+On 12/11/2014 05:25 PM, Russell King - ARM Linux wrote:
+> On Thu, Dec 11, 2014 at 03:10:55PM -0500, David Miller wrote:
+>> From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+>> Date: Thu, 11 Dec 2014 19:49:20 +0000
+>>
+>>> Commit 69ad0dd7af22 removed skb_frag_dma_map() in favour of mapping
+>>> all fragments with dma_map_single().  This fails when the driver is
+>>> used in an environment with highmem.
+>>
+>> This change looks really buggy to me.
+>>
+>> Unfortunately, all the changes he subsequently makes for software TS=
+O
+>> support depend upon this :-/
+>>
+>> The change is definitely wrong.
+>=20
+> Thanks for confirming where the bug is.
+>=20
+> Would other drivers need fixing for this as well?  Eg, fec_main.c
+> does the following, and this driver is used on iMX6 which can also ha=
+ve
+> highmem:
+>=20
+> static int
+> fec_enet_txq_submit_frag_skb(struct fec_enet_priv_tx_q *txq,
+>                              struct sk_buff *skb,
+>                              struct net_device *ndev)
+> {
+>                 bufaddr =3D page_address(this_frag->page.p) + this_fr=
+ag->page_offset;
+> ...
+>                 addr =3D dma_map_single(&fep->pdev->dev, bufaddr, fra=
+g_len,
+>                                       DMA_TO_DEVICE);
+>=20
 
-Hey Dave, this patchset was mostly bugfixes and hence meant for net where it
-applies cleanly. not net-next. We can rebase to net-next and send if you're still
- willing to take it before net-next closes.
--Anish
+And mvneta seems to have that pattern too: see mvneta_tx_frag_process()=
+=2E
+--=20
+Ezequiel Garc=EDa, Free Electrons
+Embedded Linux, Kernel and Android Engineering
+http://free-electrons.com
