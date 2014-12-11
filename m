@@ -1,39 +1,77 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next RESEND] net: Do not call ndo_dflt_fdb_dump if
- ndo_fdb_dump is defined.
-Date: Thu, 11 Dec 2014 09:32:46 -0800
-Message-ID: <5489D53E.5010603@cumulusnetworks.com>
-References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>    <54894850.5000603@cumulusnetworks.com> <7968540cd0768a770b0c8b29ce41a162.squirrel@poczta.wsisiz.edu.pl>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH iproute2] ip: Simplify executing ip cmd within namespace
+Date: Thu, 11 Dec 2014 15:33:34 -0200
+Message-ID: <5489D56E.4010505@gmail.com>
+References: <1418252195-2612-1-git-send-email-vadim4j@gmail.com> <20141211170928.62c8e637@griffin> <20141211163335.GA27913@angus-think.wlc.globallogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jamal Hadi Salim <hadi@mojatatu.com>
-To: Hubert Sokolowski <h.sokolowski@wit.edu.pl>
+Cc: netdev@vger.kernel.org
+To: vadim4j@gmail.com, Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:54377 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932581AbaLKRct (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 12:32:49 -0500
-In-Reply-To: <7968540cd0768a770b0c8b29ce41a162.squirrel@poczta.wsisiz.edu.pl>
+Received: from mail-qa0-f41.google.com ([209.85.216.41]:58491 "EHLO
+	mail-qa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932581AbaLKRdk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 12:33:40 -0500
+Received: by mail-qa0-f41.google.com with SMTP id f12so3980779qad.14
+        for <netdev@vger.kernel.org>; Thu, 11 Dec 2014 09:33:39 -0800 (PST)
+In-Reply-To: <20141211163335.GA27913@angus-think.wlc.globallogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/11/14, 9:06 AM, Hubert Sokolowski wrote:
-> My apologies for sending again, I forgot to include a sample output you asked.
->
->> Also, if i hear your concern correctly, for bridge ports that implement
->> ndo_fdb_dump, with commit 5e6d243587990a588143b9da3974833649595587, we
->> will get two entries for each 'self' entry above.
->> Can you also paste sample output for that ?.
+On 11-12-2014 14:33, vadim4j@gmail.com wrote:
+> On Thu, Dec 11, 2014 at 05:09:28PM +0100, Jiri Benc wrote:
+>> On Thu, 11 Dec 2014 00:56:35 +0200, Vadim Kochan wrote:
+>>> From: Vadim Kochan <vadim4j@gmail.com>
+>>>
+>>> Added new '-ns' option to simplify executing following cmd:
+>>>
+>>>      ip netns exec NETNS ip OPTIONS COMMAND OBJECT
+>>>
+>>>      to
+>>>
+>>>      ip -ns NETNS OPTIONS COMMAND OBJECT
+>>>
+>>> e.g.:
+>>>
+>>>      ip -ns vnet0 link add br0 type bridge
 >>
-> [root@silpixa00378825 ~]# bridge fdb show brport mac0
-> 33:33:00:00:00:01 self permanent
-> 33:33:00:00:00:01 self permanent
->
->
-Thanks. yes, that is a problem. And, this mac0 is not a bridge port 
-correct ?.
+>> This is great! It's a thing that has been bothering me for long time
+>> but never got high enough on my todo list. Thanks for working on this.
+>>
+>> However,
+>>
+>>> --- a/ip/ip.c
+>>> +++ b/ip/ip.c
+>>> @@ -262,6 +262,12 @@ int main(int argc, char **argv)
+>>>   			rcvbuf = size;
+>>>   		} else if (matches(opt, "-help") == 0) {
+>>>   			usage();
+>>> +		} else if (matches(opt, "-ns") == 0) {
+>>> +			argc--;
+>>> +			argv++;
+>>> +			argv[0] = argv[1];
+>>> +			argv[1] = basename;
+>>> +			return netns_exec(argc, argv);
+>>
+>> I very much dislike this. There's no reason to exec another ip binary.
+>> The main reason I wanted the -n (or whatever) option was to speed up
+>> execution of test scripts in environments with hundreds of interfaces
+>> in different net namespaces.
+>>
+>> Please just change to the specified netns and continue with interpreting
+>> of the rest of the command line, there's absolutely no reason for doing
+>> the exec.
+> Yes, I will follow that way.
 
-But, for the same test case, when mac0 is a bridge port, does your patch 
-under review make both the entries go away for a bridge port ?.
-(If i understand jamal correctly, this is his concern).
+In that case, it would be interesting to also accelerate the original use 
+case, no? So all usages we currently have will benefit from this speed up 
+without a change.
+
+if (command to be executed == myself)
+   switch namespace, continue without fork/exec..
+
+I'm not sure if this is feasible, though. Just sharing the idea, didn't even 
+open the code..
+
+   Marcelo
