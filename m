@@ -1,51 +1,56 @@
-From: Phillip Susi <psusi@ubuntu.com>
-Subject: Re: bind() should not return -EADDRINUSE
-Date: Thu, 11 Dec 2014 15:23:45 -0500
-Message-ID: <5489FD51.3030609@ubuntu.com>
-References: <5489F598.9020708@ubuntu.com>	<20141211.151302.686998496408277043.davem@davemloft.net>	<5489FBC8.4070706@ubuntu.com> <20141211.151804.2024237965934539073.davem@davemloft.net>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: Bug: mv643xxx fails with highmem
+Date: Thu, 11 Dec 2014 20:25:07 +0000
+Message-ID: <20141211202507.GS11285@n2100.arm.linux.org.uk>
+References: <20141211194920.GR11285@n2100.arm.linux.org.uk>
+ <20141211.151055.817876561546126576.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: ezequiel.garcia@free-electrons.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Nimrod Andy <B38611@freescale.com>,
+	Fabio Estevam <fabio.estevam@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f49.google.com ([209.85.216.49]:47825 "EHLO
-	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758767AbaLKUXw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 15:23:52 -0500
-Received: by mail-qa0-f49.google.com with SMTP id s7so4135713qap.36
-        for <netdev@vger.kernel.org>; Thu, 11 Dec 2014 12:23:52 -0800 (PST)
-In-Reply-To: <20141211.151804.2024237965934539073.davem@davemloft.net>
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:52367 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1758237AbaLKUZT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 15:25:19 -0500
+Content-Disposition: inline
+In-Reply-To: <20141211.151055.817876561546126576.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
-
-On 12/11/2014 3:18 PM, David Miller wrote:
-> From: Phillip Susi <psusi@ubuntu.com> Date: Thu, 11 Dec 2014
-> 15:17:12 -0500
+On Thu, Dec 11, 2014 at 03:10:55PM -0500, David Miller wrote:
+> From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+> Date: Thu, 11 Dec 2014 19:49:20 +0000
 > 
->> Says who?
+> > Commit 69ad0dd7af22 removed skb_frag_dma_map() in favour of mapping
+> > all fragments with dma_map_single().  This fails when the driver is
+> > used in an environment with highmem.
 > 
-> Says multiple decades of precendence.
+> This change looks really buggy to me.
+> 
+> Unfortunately, all the changes he subsequently makes for software TSO
+> support depend upon this :-/
+> 
+> The change is definitely wrong.
 
-"It has always been broken, so it should stay broken" isn't a very
-compelling argument.
+Thanks for confirming where the bug is.
 
-Would it cause programs to break if they get the error at listen()
-time instead of bind() time ( as the man page indicates it can )?  I
-think not.
+Would other drivers need fixing for this as well?  Eg, fec_main.c
+does the following, and this driver is used on iMX6 which can also have
+highmem:
 
+static int
+fec_enet_txq_submit_frag_skb(struct fec_enet_priv_tx_q *txq,
+                             struct sk_buff *skb,
+                             struct net_device *ndev)
+{
+                bufaddr = page_address(this_frag->page.p) + this_frag->page_offset;
+...
+                addr = dma_map_single(&fep->pdev->dev, bufaddr, frag_len,
+                                      DMA_TO_DEVICE);
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (MingW32)
-
-iQEcBAEBAgAGBQJUif1OAAoJENRVrw2cjl5RW8YH/0Rmg3JXGHJZr/z9H56F0Tfo
-m9mGM5THOUIXFaCugiqea/6Y9j1qvZC4OJdoB8Ve/bDTpTa2bs3SHd81eEntVpGI
-hXoeMw5RQxUuiBpKLmkWp+ma8Cl01qIADkTdRG2F/pPa8ee9xd4Lx0UGV6skUnVP
-6HVuqeNxPS1xESQMpUAgO8KLGkvzB1/y8+7iBuc0fINZuox4KX8CVwzQB7d9I+G1
-gf+yMaFtsDnNeGrXLKdSj7q+/yV61AgigSt3IeFIdUz+trbZa2W/6vUkBqVPB9bo
-QEClO9JROTIkkl2ErUyd+bnrKTNJR0/tkOUmqf8JjQhjSnozD/u0JdoQRMvjQtk=
-=PUUw
------END PGP SIGNATURE-----
+-- 
+FTTC broadband for 0.8mile line: currently at 9.5Mbps down 400kbps up
+according to speedtest.net.
