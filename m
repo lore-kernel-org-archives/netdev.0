@@ -1,7 +1,7 @@
 From: Karen Xie <kxie@chelsio.com>
-Subject: [PATCH net v9 4/7] cxgb4i: additional types of negative advice
-Date: Thu, 11 Dec 2014 07:25:49 -0800
-Message-ID: <201412111525.sBBFPndX012945@localhost6.localdomain6>
+Subject: [PATCH net v9 5/7] cxgb4i: handle non-pdu-aligned rx data
+Date: Thu, 11 Dec 2014 07:25:52 -0800
+Message-ID: <201412111525.sBBFPqes012951@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -9,58 +9,58 @@ Cc: kxie@chelsio.com, hariprasad@chelsio.com, anish@chelsio.com,
 	hch@infradead.org, James.Bottomley@HansenPartnership.com,
 	michaelc@cs.wisc.edu, davem@davemloft.net
 To: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:4505 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964982AbaLKP1Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 10:27:24 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Karen Xie <kxie@chelsio.com>
 
-Treat both CPL_ERR_KEEPALV_NEG_ADVICE and CPL_ERR_PERSIST_NEG_ADVICE as
-negative advice.
+Abort the connection upon receiving of cpl_rx_data, which means the pdu cannot
+be recovered from the tcp stream. This generally is due to pdu header 
+corruption.
 
 Signed-off-by: Karen Xie <kxie@chelsio.com>
 ---
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   12 +++++++++---
- 1 files changed, 9 insertions(+), 3 deletions(-)
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   22 ++++++++++++++++++++++
+ 1 files changed, 22 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index 5f31eb7..2880f200 100644
+index 2880f200..dff7345 100644
 --- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
 +++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -846,6 +846,13 @@ static void csk_act_open_retry_timer(unsigned long data)
- 
+@@ -1034,6 +1034,27 @@ rel_skb:
+ 	__kfree_skb(skb);
  }
  
-+static inline bool is_neg_adv(unsigned int status)
++static void do_rx_data(struct cxgbi_device *cdev, struct sk_buff *skb)
 +{
-+	return status == CPL_ERR_RTX_NEG_ADVICE ||
-+		status == CPL_ERR_KEEPALV_NEG_ADVICE ||
-+		status == CPL_ERR_PERSIST_NEG_ADVICE;
++	struct cxgbi_sock *csk;
++	struct cpl_rx_data *cpl = (struct cpl_rx_data *)skb->data;
++	unsigned int tid = GET_TID(cpl);
++	struct cxgb4_lld_info *lldi = cxgbi_cdev_priv(cdev);
++	struct tid_info *t = lldi->tids;
++
++	csk = lookup_tid(t, tid);
++	if (!csk) {
++		pr_err("can't find connection for tid %u.\n", tid);
++	} else {
++		/* not expecting this, reset the connection. */
++		pr_err("csk 0x%p, tid %u, rcv cpl_rx_data.\n", csk, tid);
++		spin_lock_bh(&csk->lock);
++		send_abort_req(csk);
++		spin_unlock_bh(&csk->lock);
++	}
++	__kfree_skb(skb);
 +}
 +
- static void do_act_open_rpl(struct cxgbi_device *cdev, struct sk_buff *skb)
+ static void do_rx_iscsi_hdr(struct cxgbi_device *cdev, struct sk_buff *skb)
  {
  	struct cxgbi_sock *csk;
-@@ -867,7 +874,7 @@ static void do_act_open_rpl(struct cxgbi_device *cdev, struct sk_buff *skb)
- 		       "csk 0x%p,%u,0x%lx. ", (&csk->saddr), (&csk->daddr),
- 		       atid, tid, status, csk, csk->state, csk->flags);
+@@ -1453,6 +1474,7 @@ cxgb4i_cplhandler_func cxgb4i_cplhandlers[NUM_CPL_CMDS] = {
+ 	[CPL_SET_TCB_RPL] = do_set_tcb_rpl,
+ 	[CPL_RX_DATA_DDP] = do_rx_data_ddp,
+ 	[CPL_RX_ISCSI_DDP] = do_rx_data_ddp,
++	[CPL_RX_DATA] = do_rx_data,
+ };
  
--	if (status == CPL_ERR_RTX_NEG_ADVICE)
-+	if (is_neg_adv(status))
- 		goto rel_skb;
- 
- 	module_put(THIS_MODULE);
-@@ -973,8 +980,7 @@ static void do_abort_req_rss(struct cxgbi_device *cdev, struct sk_buff *skb)
- 		       (&csk->saddr), (&csk->daddr),
- 		       csk, csk->state, csk->flags, csk->tid, req->status);
- 
--	if (req->status == CPL_ERR_RTX_NEG_ADVICE ||
--	    req->status == CPL_ERR_PERSIST_NEG_ADVICE)
-+	if (is_neg_adv(req->status))
- 		goto rel_skb;
- 
- 	cxgbi_sock_get(csk);
+ int cxgb4i_ofld_init(struct cxgbi_device *cdev)
