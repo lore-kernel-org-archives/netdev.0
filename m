@@ -1,34 +1,109 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v7 2/3] net: Add Keystone NetCP ethernet driver
-Date: Thu, 11 Dec 2014 12:01:04 -0500 (EST)
-Message-ID: <20141211.120104.312460507509497826.davem@davemloft.net>
-References: <5488BB96.9070609@ti.com>
-	<20141210.204110.618599360537141819.davem@davemloft.net>
-	<5489A6CD.20909@ti.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next RESEND 2/2] ipv6: fix sparse warning
+Date: Thu, 11 Dec 2014 09:02:10 -0800
+Message-ID: <20141211170210.GJ25340@linux.vnet.ibm.com>
+References: <1418201167-9591-1-git-send-email-ying.xue@windriver.com>
+ <1418201167-9591-3-git-send-email-ying.xue@windriver.com>
+ <20141210160406.GS25340@linux.vnet.ibm.com>
+ <5488F9D1.9060109@windriver.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-	robh+dt@kernel.org, grant.likely@linaro.org
-To: m-karicheri2@ti.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54400 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757738AbaLKRBK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 12:01:10 -0500
-In-Reply-To: <5489A6CD.20909@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	jon.maloy@ericsson.com, erik.hugne@ericsson.com,
+	netdev@vger.kernel.org, kbuild-all@01.org,
+	linux-kernel@vger.kernel.org
+To: Ying Xue <ying.xue@windriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5488F9D1.9060109@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Murali Karicheri <m-karicheri2@ti.com>
-Date: Thu, 11 Dec 2014 09:14:37 -0500
+On Thu, Dec 11, 2014 at 09:56:33AM +0800, Ying Xue wrote:
+> On 12/11/2014 12:04 AM, Paul E. McKenney wrote:
+> > On Wed, Dec 10, 2014 at 04:46:07PM +0800, Ying Xue wrote:
+> >> This fixes the following spare warning when using
+> >>
+> >> make C=1 CF=-D__CHECK_ENDIAN__ net/ipv6/addrconf.o
+> >> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+> >> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+> >> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+> >> net/ipv6/addrconf.c:3495:9: error: incompatible types in comparison expression (different address spaces)
+> >>
+> >> To silence above spare complaint, an RCU annotation should be added
+> >> to "next" pointer of hlist_node structure through hlist_next_rcu()
+> >> macro when iterating over a hlist with
+> >> hlist_for_each_entry_continue_rcu_bh().
+> >>
+> >> By the way, this commit also resolves the same error appearing in
+> >> hlist_for_each_entry_continue_rcu().
+> >>
+> >> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> > 
+> > If you pull the rculist.h changes from the first patch into this one,
+> > I will queue it up through -rcu.
+> 
+> Please just queue this patch into your RCU tree. Some changes of the
+> first patch currently only exists in net-next tree, so it cannot be
+> merged into RCU tree now. Therefore, please temporarily ignore it. In
+> next 3.19 development cycle, I will resubmit it to you.
 
-> BTW, could you provide any suggestions that would help us merge this
-> series to upstream? This has been sitting on this list for a while
-> now.
+Sounds good, but could you please rebase the second patch to be
+independent of the first patch?  If you do that, I would be happy
+to queue it.
 
-You simply have to continue going through the review and revision
-process until people no longer find problems with your changes.
+							Thanx, Paul
 
-This could take several more weeks, you simply must be patient.
+> Thanks,
+> Ying
+> 
+> > 							Thanx, Paul
+> > 
+> >> ---
+> >>  include/linux/rculist.h |   16 ++++++++--------
+> >>  1 file changed, 8 insertions(+), 8 deletions(-)
+> >>
+> >> diff --git a/include/linux/rculist.h b/include/linux/rculist.h
+> >> index 866d9c9..32bd4ad 100644
+> >> --- a/include/linux/rculist.h
+> >> +++ b/include/linux/rculist.h
+> >> @@ -524,11 +524,11 @@ static inline void hlist_add_behind_rcu(struct hlist_node *n,
+> >>   * @member:	the name of the hlist_node within the struct.
+> >>   */
+> >>  #define hlist_for_each_entry_continue_rcu(pos, member)			\
+> >> -	for (pos = hlist_entry_safe(rcu_dereference((pos)->member.next),\
+> >> -			typeof(*(pos)), member);			\
+> >> +	for (pos = hlist_entry_safe(rcu_dereference_raw(hlist_next_rcu( \
+> >> +			&(pos)->member)), typeof(*(pos)), member);	\
+> >>  	     pos;							\
+> >> -	     pos = hlist_entry_safe(rcu_dereference((pos)->member.next),\
+> >> -			typeof(*(pos)), member))
+> >> +	     pos = hlist_entry_safe(rcu_dereference_raw(hlist_next_rcu(	\
+> >> +			&(pos)->member)), typeof(*(pos)), member))
+> >>
+> >>  /**
+> >>   * hlist_for_each_entry_continue_rcu_bh - iterate over a hlist continuing after current point
+> >> @@ -536,11 +536,11 @@ static inline void hlist_add_behind_rcu(struct hlist_node *n,
+> >>   * @member:	the name of the hlist_node within the struct.
+> >>   */
+> >>  #define hlist_for_each_entry_continue_rcu_bh(pos, member)		\
+> >> -	for (pos = hlist_entry_safe(rcu_dereference_bh((pos)->member.next),\
+> >> -			typeof(*(pos)), member);			\
+> >> +	for (pos = hlist_entry_safe(rcu_dereference_bh(hlist_next_rcu(  \
+> >> +			&(pos)->member)), typeof(*(pos)), member);	\
+> >>  	     pos;							\
+> >> -	     pos = hlist_entry_safe(rcu_dereference_bh((pos)->member.next),\
+> >> -			typeof(*(pos)), member))
+> >> +	     pos = hlist_entry_safe(rcu_dereference_bh(hlist_next_rcu(	\
+> >> +			&(pos)->member)), typeof(*(pos)), member))
+> >>
+> >>  /**
+> >>   * hlist_for_each_entry_from_rcu - iterate over a hlist continuing from current point
+> >> -- 
+> >> 1.7.9.5
+> >>
+> > 
+> > 
+> > 
+> 
