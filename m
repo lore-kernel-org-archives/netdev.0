@@ -1,95 +1,82 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port configuration
-Date: Thu, 11 Dec 2014 08:37:46 -0800
-Message-ID: <5489C85A.5020400@cumulusnetworks.com>
-References: <C4896FB061E7DE4AAC93031BDCA044B104AC3257@IRSMSX108.ger.corp.intel.com> <20141210165018.GG1863@nanopsycho.orion> <54887CF7.70708@gmail.com> <C4896FB061E7DE4AAC93031BDCA044B104AC3914@IRSMSX108.ger.corp.intel.com> <20141211110115.GA1979@nanopsycho.lan>
+From: "Hubert Sokolowski" <h.sokolowski@wit.edu.pl>
+Subject: Re: [PATCH net-next RESEND] net: Do not call ndo_dflt_fdb_dump if
+ ndo_fdb_dump is defined.
+Date: Thu, 11 Dec 2014 16:39:40 -0000
+Message-ID: <6e03100b17d3e17625f1c323d94a853e.squirrel@poczta.wsisiz.edu.pl>
+References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>
+    <54894850.5000603@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Varlese, Marco" <marco.varlese@intel.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141211110115.GA1979@nanopsycho.lan>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;charset=UTF8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, "Jamal Hadi Salim" <hadi@mojatatu.com>
+To: "Roopa Prabhu" <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dervish.wsisiz.edu.pl ([213.135.44.54]:50258 "EHLO
+	dervish.wsisiz.edu.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934349AbaLKQjo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 11:39:44 -0500
+In-Reply-To: <54894850.5000603@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/11/14, 3:01 AM, Jiri Pirko wrote:
-> Thu, Dec 11, 2014 at 10:59:42AM CET, marco.varlese@intel.com wrote:
->>> -----Original Message-----
->>> From: John Fastabend [mailto:john.fastabend@gmail.com]
->>> Sent: Wednesday, December 10, 2014 5:04 PM
->>> To: Jiri Pirko
->>> Cc: Varlese, Marco; netdev@vger.kernel.org;
->>> stephen@networkplumber.org; Fastabend, John R;
->>> roopa@cumulusnetworks.com; sfeldma@gmail.com; linux-
->>> kernel@vger.kernel.org
->>> Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port
->>> configuration
->>>
->>> On 12/10/2014 08:50 AM, Jiri Pirko wrote:
->>>> Wed, Dec 10, 2014 at 05:23:40PM CET, marco.varlese@intel.com wrote:
->>>>> From: Marco Varlese <marco.varlese@intel.com>
->>>>>
->>>>> Switch hardware offers a list of attributes that are configurable on
->>>>> a per port basis.
->>>>> This patch provides a mechanism to configure switch ports by adding
->>>>> an NDO for setting specific values to specific attributes.
->>>>> There will be a separate patch that extends iproute2 to call the new
->>>>> NDO.
->>>>
->>>> What are these attributes? Can you give some examples. I'm asking
->>>> because there is a plan to pass generic attributes to switch ports
->>>> replacing current specific ndo_switch_port_stp_update. In this case,
->>>> bridge is setting that attribute.
->>>>
->>>> Is there need to set something directly from userspace or does it make
->>>> rather sense to use involved bridge/ovs/bond ? I think that both will
->>>> be needed.
->>> +1
->>>
->>> I think for many attributes it would be best to have both. The in kernel callers
->>> and netlink userspace can use the same driver ndo_ops.
->>>
->>> But then we don't _require_ any specific bridge/ovs/etc module. And we
->>> may have some attributes that are not specific to any existing software
->>> module. I'm guessing Marco has some examples of these.
->>>
->>> [...]
->>>
->>>
->>> --
->>> John Fastabend         Intel Corporation
->> We do have a need to configure the attributes directly from user-space and I have identified the tool to do that in iproute2.
->>
->> An example of attributes are:
->> * enabling/disabling of learning of source addresses on a given port (you can imagine the attribute called LEARNING for example);
->> * internal loopback control (i.e. LOOPBACK) which will control how the flow of traffic behaves from the switch fabric towards an egress port;
->> * flooding for broadcast/multicast/unicast type of packets (i.e. BFLOODING, MFLOODING, UFLOODING);
->>
->> Some attributes would be of the type enabled/disabled while other will allow specific values to allow the user to configure different behaviours of that feature on that particular port on that platform.
->>
->> One thing to mention - as John stated as well - there might be some attributes that are not specific to any software module but rather have to do with the actual hardware/platform to configure.
->>
->> I hope this clarifies some points.
-> It does. Makes sense. We need to expose this attr set/get for both
-> in-kernel and userspace use cases.
+> I think commit
+> "5e6d243587990a588143b9da3974833649595587 "bridge: netlink dump
+> interface at par with brctl" tried to make sure even the dflt entries
+> (ie dev->uc and dev->mc) were also printed in the below case. ie the
+> 'self' entries in the below output.
 >
-> Please adjust you patch for this. Also, as a second patch, it would be
-> great if you can convert ndo_switch_port_stp_update to this new ndo.
+> # ./bridge fdb show brport eth1
+> 02:00:00:12:01:02 vlan 0 master br0 permanent
+> 00:17:42:8a:b4:05 vlan 0 master br0 permanent
+> 00:17:42:8a:b4:07 self permanent
+> 33:33:00:00:00:01 self permanent
+>
+> Am guessing reverting the patch is going to make the 'self' entries in
+> the above output to go away.
+> Can you please confirm ?.
 
-Why are we exposing generic switch attribute get/set from userspace ?. 
-We already have specific attributes for learning/flooding which can be 
-extended further.
-And for in kernel api....i had a sample patch in my RFC series (Which i 
-was going to resubmit, until it was decided that we will use existing 
-api around ndo_bridge_setlink/ndo_bridge_getlink):
-http://www.spinics.net/lists/netdev/msg305473.html
+I don't want you to revert the patch, as the main goal of the patch
+was to enable filtering in the kernel. I am only proposing
+to revert part of it that allows driver to implement own dump.
+This does not break the filtering in the kernel.
+Whether the 'self' entries will go away it depends if the driver
+overrides ndo_fdb_dump callback with its own. For cases where the driver
+does not implement the callback, the dflt callback is still called
+showing 'self' entries:
+[root@silpixa00378825 ~]# bridge fdb show
+33:33:00:00:00:01 dev em1 self permanent
+01:00:5e:00:00:01 dev em1 self permanent
+33:33:00:00:00:01 dev p4p1 self permanent
+01:00:5e:00:00:01 dev p4p1 self permanent
+33:33:ff:81:56:db dev p4p1 self permanent
+01:00:5e:00:00:fb dev p4p1 self permanent
+33:33:00:00:00:01 dev dummy0 self permanent
+
+>
+> Also, if i hear your concern correctly, for bridge ports that implement
+> ndo_fdb_dump, with commit 5e6d243587990a588143b9da3974833649595587, we
+> will get two entries for each 'self' entry above.
+> Can you also paste sample output for that ?.
+
+My patch affects *only* drivers that implements own dump callback.
+Implementing own dump callback means the driver want to have a control
+over what is being dumped. For example you may want to dump a hardware
+MAC table only (my case) where 'self' entries created by kernel make no sense.
+Also there are drivers that calls dflt callback from inside own dump function.
+Please see following dump callback implemented for QLogic:
+static int qlcnic_fdb_dump(struct sk_buff *skb, struct netlink_callback *ncb,
+                        struct net_device *netdev,
+                        struct net_device *filter_dev, int idx)
+{
+        struct qlcnic_adapter *adapter = netdev_priv(netdev);
+
+        if (!adapter->fdb_mac_learn)
+                return ndo_dflt_fdb_dump(skb, ncb, netdev, filter_dev, idx);
+[...]
+
+Another example of dflt being called twice is macvlan.c where ndo_fdb_dump
+is actually initialized with the dflt callback:
+macvlan.c:1022:        .ndo_fdb_dump           = ndo_dflt_fdb_dump,
 
 Thanks,
-Roopa
+Hubert
