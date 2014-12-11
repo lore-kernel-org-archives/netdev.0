@@ -1,244 +1,100 @@
-From: Kevin Hao <haokexin@gmail.com>
-Subject: [PATCH net v2] gianfar: Fix dma check map error when DMA_API_DEBUG is enabled
-Date: Thu, 11 Dec 2014 14:08:41 +0800
-Message-ID: <1418278121-20209-1-git-send-email-haokexin@gmail.com>
-References: <20141211020646.GB18701@pek-khao-d1.corp.ad.wrs.com>
-Cc: Claudiu Manoil <claudiu.manoil@freescale.com>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
+Subject: [net] gre: fix the inner mac header in nbma gre tunnels xmit path
+Date: Thu, 11 Dec 2014 09:14:39 +0200
+Message-ID: <1418282079-30245-1-git-send-email-timo.teras@iki.fi>
+References: <CA+mtBx-WsgMRAYDUaPiVaBt43cRx7tb-0hRJ+6Eao8vjd3j8aQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>,
+	Tom Herbert <therbert@google.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:60723 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964800AbaLKGKB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 01:10:01 -0500
-Received: by mail-pa0-f46.google.com with SMTP id lf10so3774695pab.19
-        for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 22:10:00 -0800 (PST)
-In-Reply-To: <20141211020646.GB18701@pek-khao-d1.corp.ad.wrs.com>
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:38826 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753905AbaLKHPI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 02:15:08 -0500
+Received: by mail-lb0-f180.google.com with SMTP id l4so3573444lbv.25
+        for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 23:15:06 -0800 (PST)
+In-Reply-To: <CA+mtBx-WsgMRAYDUaPiVaBt43cRx7tb-0hRJ+6Eao8vjd3j8aQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to use dma_mapping_error() to check the dma address returned
-by dma_map_single/page(). Otherwise we would get warning like this:
-  WARNING: at lib/dma-debug.c:1140
-  Modules linked in:
-  CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.18.0-rc2-next-20141029 #196
-  task: c0834300 ti: effe6000 task.ti: c0874000
-  NIP: c02b2c98 LR: c02b2c98 CTR: c030abc4
-  REGS: effe7d70 TRAP: 0700   Not tainted  (3.18.0-rc2-next-20141029)
-  MSR: 00021000 <CE,ME>  CR: 22044022  XER: 20000000
+The NBMA GRE tunnels temporarily push GRE header that contain the
+per-packet NBMA destination on the skb via header ops early in xmit
+path. It is the later pulled before the real GRE header is constructed.
 
-  GPR00: c02b2c98 effe7e20 c0834300 00000098 00021000 00000000 c030b898 00000003
-  GPR08: 00000001 00000000 00000001 749eec9d 22044022 1001abe0 00000020 ef278678
-  GPR16: ef278670 ef278668 ef278660 070a8040 c087f99c c08cdc60 00029000 c0840d44
-  GPR24: c08be6e8 c0840000 effe7e78 ef041340 00000600 ef114e10 00000000 c08be6e0
-  NIP [c02b2c98] check_unmap+0x51c/0x9e4
-  LR [c02b2c98] check_unmap+0x51c/0x9e4
-  Call Trace:
-  [effe7e20] [c02b2c98] check_unmap+0x51c/0x9e4 (unreliable)
-  [effe7e70] [c02b31d8] debug_dma_unmap_page+0x78/0x8c
-  [effe7ed0] [c03d1640] gfar_clean_rx_ring+0x208/0x488
-  [effe7f40] [c03d1a9c] gfar_poll_rx_sq+0x3c/0xa8
-  [effe7f60] [c04f8714] net_rx_action+0xc0/0x178
-  [effe7f90] [c00435a0] __do_softirq+0x100/0x1fc
-  [effe7fe0] [c0043958] irq_exit+0xa4/0xc8
-  [effe7ff0] [c000d14c] call_do_irq+0x24/0x3c
-  [c0875e90] [c00048a0] do_IRQ+0x8c/0xf8
-  [c0875eb0] [c000ed10] ret_from_except+0x0/0x18
+The inner mac was thus set differently in nbma case: the GRE header
+has been pushed by neighbor layer, and mac header points to beginning
+of the temporary gre header (set by dev_queue_xmit).
 
-For TX, we need to unmap the pages which has already been mapped and
-free the skb before return.
+Now that the offloads expect mac header to point to the gre payload,
+fix the xmit patch to:
+ - pull first the temporary gre header away
+ - and reset mac header to point to gre payload
 
-For RX, move the dma mapping and error check to gfar_new_skb(). We
-would reuse the original skb in the rx ring when either allocating
-skb failure or dma mapping error.
+This fixes tso to work again with nbma tunnels.
 
-Signed-off-by: Kevin Hao <haokexin@gmail.com>
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+=46ixes: 14051f0452a2 ("gre: Use inner mac length when computing tunnel=
+ length"
+Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
+Cc: Tom Herbert <therbert@google.com>
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
-v2: Just update the RX path to reuse the original skb when dma mapping error
-    occurs as suggested by David.
+Though, normally mac header does point to the begging of the hardware h=
+eader.
+E.g. in ethernet case it's pointing to the ethernet header. But now in =
+gre
+case it's instead pointing to the payload which seems counter-intuitive=
+ to me.
+But I guess tunnels are a bit of special case, and there's valid reason=
+s to
+have it point to tunnel payload too.
 
- drivers/net/ethernet/freescale/gianfar.c | 84 +++++++++++++++++++++-----------
- 1 file changed, 56 insertions(+), 28 deletions(-)
+Applying this patch on top of the Tom's previous fix of 14051f0452a2 se=
+ems to
+now make my dmvpn scenario work again. So this should go to -stable too
+(atleast 3.14).
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 4fdf0aa16978..73e1144f2a87 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -116,9 +116,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev);
- static void gfar_reset_task(struct work_struct *work);
- static void gfar_timeout(struct net_device *dev);
- static int gfar_close(struct net_device *dev);
--struct sk_buff *gfar_new_skb(struct net_device *dev);
--static void gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
--			   struct sk_buff *skb);
-+struct sk_buff *gfar_new_skb(struct net_device *dev, dma_addr_t *bufaddr);
- static int gfar_set_mac_address(struct net_device *dev);
- static int gfar_change_mtu(struct net_device *dev, int new_mtu);
- static irqreturn_t gfar_error(int irq, void *dev_id);
-@@ -178,6 +176,7 @@ static int gfar_init_bds(struct net_device *ndev)
- 	struct txbd8 *txbdp;
- 	struct rxbd8 *rxbdp;
- 	int i, j;
-+	dma_addr_t bufaddr;
- 
- 	for (i = 0; i < priv->num_tx_queues; i++) {
- 		tx_queue = priv->tx_queue[i];
-@@ -211,19 +210,17 @@ static int gfar_init_bds(struct net_device *ndev)
- 			struct sk_buff *skb = rx_queue->rx_skbuff[j];
- 
- 			if (skb) {
--				gfar_init_rxbdp(rx_queue, rxbdp,
--						rxbdp->bufPtr);
-+				bufaddr = rxbdp->bufPtr;
- 			} else {
--				skb = gfar_new_skb(ndev);
-+				skb = gfar_new_skb(ndev, &bufaddr);
- 				if (!skb) {
- 					netdev_err(ndev, "Can't allocate RX buffers\n");
- 					return -ENOMEM;
- 				}
- 				rx_queue->rx_skbuff[j] = skb;
+ net/ipv4/ip_gre.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 94213c8..6d2f84d 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -250,10 +250,6 @@ static netdev_tx_t ipgre_xmit(struct sk_buff *skb,
+ 	struct ip_tunnel *tunnel =3D netdev_priv(dev);
+ 	const struct iphdr *tnl_params;
+=20
+-	skb =3D gre_handle_offloads(skb, !!(tunnel->parms.o_flags&TUNNEL_CSUM=
+));
+-	if (IS_ERR(skb))
+-		goto out;
 -
--				gfar_new_rxbdp(rx_queue, rxbdp, skb);
- 			}
- 
-+			gfar_init_rxbdp(rx_queue, rxbdp, bufaddr);
- 			rxbdp++;
- 		}
- 
-@@ -2290,6 +2287,8 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 						   0,
- 						   frag_len,
- 						   DMA_TO_DEVICE);
-+			if (unlikely(dma_mapping_error(priv->dev, bufaddr)))
-+				goto dma_map_err;
- 
- 			/* set the TxBD length and buffer pointer */
- 			txbdp->bufPtr = bufaddr;
-@@ -2339,8 +2338,12 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		fcb->ptp = 1;
+ 	if (dev->header_ops) {
+ 		/* Need space for new headers */
+ 		if (skb_cow_head(skb, dev->needed_headroom -
+@@ -266,6 +262,7 @@ static netdev_tx_t ipgre_xmit(struct sk_buff *skb,
+ 		 * to gre header.
+ 		 */
+ 		skb_pull(skb, tunnel->hlen + sizeof(struct iphdr));
++		skb_reset_mac_header(mac);
+ 	} else {
+ 		if (skb_cow_head(skb, dev->needed_headroom))
+ 			goto free_skb;
+@@ -273,6 +270,10 @@ static netdev_tx_t ipgre_xmit(struct sk_buff *skb,
+ 		tnl_params =3D &tunnel->parms.iph;
  	}
- 
--	txbdp_start->bufPtr = dma_map_single(priv->dev, skb->data,
--					     skb_headlen(skb), DMA_TO_DEVICE);
-+	bufaddr = dma_map_single(priv->dev, skb->data, skb_headlen(skb),
-+				 DMA_TO_DEVICE);
-+	if (unlikely(dma_mapping_error(priv->dev, bufaddr)))
-+		goto dma_map_err;
+=20
++	skb =3D gre_handle_offloads(skb, !!(tunnel->parms.o_flags&TUNNEL_CSUM=
+));
++	if (IS_ERR(skb))
++		goto out;
 +
-+	txbdp_start->bufPtr = bufaddr;
- 
- 	/* If time stamping is requested one additional TxBD must be set up. The
- 	 * first TxBD points to the FCB and must have a data length of
-@@ -2406,6 +2409,25 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	spin_unlock_irqrestore(&tx_queue->txlock, flags);
- 
+ 	__gre_xmit(skb, dev, tnl_params, skb->protocol);
+=20
  	return NETDEV_TX_OK;
-+
-+dma_map_err:
-+	txbdp = next_txbd(txbdp_start, base, tx_queue->tx_ring_size);
-+	if (do_tstamp)
-+		txbdp = next_txbd(txbdp, base, tx_queue->tx_ring_size);
-+	for (i = 0; i < nr_frags; i++) {
-+		lstatus = txbdp->lstatus;
-+		if (!(lstatus & BD_LFLAG(TXBD_READY)))
-+			break;
-+
-+		txbdp->lstatus = lstatus & ~BD_LFLAG(TXBD_READY);
-+		bufaddr = txbdp->bufPtr;
-+		dma_unmap_page(priv->dev, bufaddr, txbdp->length,
-+			       DMA_TO_DEVICE);
-+		txbdp = next_txbd(txbdp, base, tx_queue->tx_ring_size);
-+	}
-+	gfar_wmb();
-+	dev_kfree_skb_any(skb);
-+	return NETDEV_TX_OK;
- }
- 
- /* Stops the kernel queue, and halts the controller */
-@@ -2606,18 +2628,6 @@ static void gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- 	netdev_tx_completed_queue(txq, howmany, bytes_sent);
- }
- 
--static void gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
--			   struct sk_buff *skb)
--{
--	struct net_device *dev = rx_queue->dev;
--	struct gfar_private *priv = netdev_priv(dev);
--	dma_addr_t buf;
--
--	buf = dma_map_single(priv->dev, skb->data,
--			     priv->rx_buffer_size, DMA_FROM_DEVICE);
--	gfar_init_rxbdp(rx_queue, bdp, buf);
--}
--
- static struct sk_buff *gfar_alloc_skb(struct net_device *dev)
- {
- 	struct gfar_private *priv = netdev_priv(dev);
-@@ -2632,9 +2642,25 @@ static struct sk_buff *gfar_alloc_skb(struct net_device *dev)
- 	return skb;
- }
- 
--struct sk_buff *gfar_new_skb(struct net_device *dev)
-+struct sk_buff *gfar_new_skb(struct net_device *dev, dma_addr_t *bufaddr)
- {
--	return gfar_alloc_skb(dev);
-+	struct gfar_private *priv = netdev_priv(dev);
-+	struct sk_buff *skb;
-+	dma_addr_t addr;
-+
-+	skb = gfar_alloc_skb(dev);
-+	if (!skb)
-+		return NULL;
-+
-+	addr = dma_map_single(priv->dev, skb->data,
-+			      priv->rx_buffer_size, DMA_FROM_DEVICE);
-+	if (unlikely(dma_mapping_error(priv->dev, addr))) {
-+		dev_kfree_skb_any(skb);
-+		return NULL;
-+	}
-+
-+	*bufaddr = addr;
-+	return skb;
- }
- 
- static inline void count_errors(unsigned short status, struct net_device *dev)
-@@ -2805,11 +2831,12 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
- 
- 	while (!((bdp->status & RXBD_EMPTY) || (--rx_work_limit < 0))) {
- 		struct sk_buff *newskb;
-+		dma_addr_t bufaddr;
- 
- 		rmb();
- 
- 		/* Add another skb for the future */
--		newskb = gfar_new_skb(dev);
-+		newskb = gfar_new_skb(dev, &bufaddr);
- 
- 		skb = rx_queue->rx_skbuff[rx_queue->skb_currx];
- 
-@@ -2825,9 +2852,10 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
- 			     bdp->status & RXBD_ERR)) {
- 			count_errors(bdp->status, dev);
- 
--			if (unlikely(!newskb))
-+			if (unlikely(!newskb)) {
- 				newskb = skb;
--			else if (skb)
-+				bufaddr = bdp->bufPtr;
-+			} else if (skb)
- 				dev_kfree_skb(skb);
- 		} else {
- 			/* Increment the number of packets */
-@@ -2854,7 +2882,7 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
- 		rx_queue->rx_skbuff[rx_queue->skb_currx] = newskb;
- 
- 		/* Setup the new bdp */
--		gfar_new_rxbdp(rx_queue, bdp, newskb);
-+		gfar_init_rxbdp(rx_queue, bdp, bufaddr);
- 
- 		/* Update to the next pointer */
- 		bdp = next_bd(bdp, base, rx_queue->rx_ring_size);
--- 
-1.9.3
+--=20
+2.2.0
