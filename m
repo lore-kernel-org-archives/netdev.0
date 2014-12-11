@@ -1,129 +1,146 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v2] ip: Simplify executing ip cmd within network ns
-Date: Thu, 11 Dec 2014 15:38:23 +0200
-Message-ID: <1418305103-5994-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f49.google.com ([209.85.215.49]:63209 "EHLO
-	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932470AbaLKNsP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 08:48:15 -0500
-Received: by mail-la0-f49.google.com with SMTP id hs14so4217365lab.22
-        for <netdev@vger.kernel.org>; Thu, 11 Dec 2014 05:48:14 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Varlese, Marco" <marco.varlese@intel.com>
+Subject: RE: [RFC PATCH net-next 1/1] net: Support for switch port
+ configuration
+Date: Thu, 11 Dec 2014 13:55:02 +0000
+Message-ID: <C4896FB061E7DE4AAC93031BDCA044B104AC4001@IRSMSX108.ger.corp.intel.com>
+References: <C4896FB061E7DE4AAC93031BDCA044B104AC3257@IRSMSX108.ger.corp.intel.com>
+ <20141210165018.GG1863@nanopsycho.orion> <54887CF7.70708@gmail.com>
+ <C4896FB061E7DE4AAC93031BDCA044B104AC3914@IRSMSX108.ger.corp.intel.com>
+ <20141211110115.GA1979@nanopsycho.lan>
+ <C4896FB061E7DE4AAC93031BDCA044B104AC3E77@IRSMSX108.ger.corp.intel.com>
+ <20141211130830.GA1912@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141211130830.GA1912@nanopsycho.orion>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vadim Kochan <vadim4j@gmail.com>
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Jiri Pirko
+> Sent: Thursday, December 11, 2014 1:09 PM
+> To: Varlese, Marco
+> Cc: John Fastabend; netdev@vger.kernel.org;
+> stephen@networkplumber.org; Fastabend, John R;
+> roopa@cumulusnetworks.com; sfeldma@gmail.com; linux-
+> kernel@vger.kernel.org
+> Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port
+> configuration
+> 
+> Thu, Dec 11, 2014 at 01:02:36PM CET, marco.varlese@intel.com wrote:
+> >> -----Original Message-----
+> >> From: Jiri Pirko [mailto:jiri@resnulli.us]
+> >> Sent: Thursday, December 11, 2014 11:01 AM
+> >> To: Varlese, Marco
+> >> Cc: John Fastabend; netdev@vger.kernel.org;
+> >> stephen@networkplumber.org; Fastabend, John R;
+> >> roopa@cumulusnetworks.com; sfeldma@gmail.com; linux-
+> >> kernel@vger.kernel.org
+> >> Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port
+> >> configuration
+> >>
+> >> Thu, Dec 11, 2014 at 10:59:42AM CET, marco.varlese@intel.com wrote:
+> >> >> -----Original Message-----
+> >> >> From: John Fastabend [mailto:john.fastabend@gmail.com]
+> >> >> Sent: Wednesday, December 10, 2014 5:04 PM
+> >> >> To: Jiri Pirko
+> >> >> Cc: Varlese, Marco; netdev@vger.kernel.org;
+> >> >> stephen@networkplumber.org; Fastabend, John R;
+> >> >> roopa@cumulusnetworks.com; sfeldma@gmail.com; linux-
+> >> >> kernel@vger.kernel.org
+> >> >> Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port
+> >> >> configuration
+> >> >>
+> >> >> On 12/10/2014 08:50 AM, Jiri Pirko wrote:
+> >> >> > Wed, Dec 10, 2014 at 05:23:40PM CET, marco.varlese@intel.com
+> wrote:
+> >> >> >> From: Marco Varlese <marco.varlese@intel.com>
+> >> >> >>
+> >> >> >> Switch hardware offers a list of attributes that are
+> >> >> >> configurable on a per port basis.
+> >> >> >> This patch provides a mechanism to configure switch ports by
+> >> >> >> adding an NDO for setting specific values to specific attributes.
+> >> >> >> There will be a separate patch that extends iproute2 to call
+> >> >> >> the new NDO.
+> >> >> >
+> >> >> >
+> >> >> > What are these attributes? Can you give some examples. I'm
+> >> >> > asking because there is a plan to pass generic attributes to
+> >> >> > switch ports replacing current specific
+> >> >> > ndo_switch_port_stp_update. In this case, bridge is setting that
+> attribute.
+> >> >> >
+> >> >> > Is there need to set something directly from userspace or does
+> >> >> > it make rather sense to use involved bridge/ovs/bond ? I think
+> >> >> > that both will be needed.
+> >> >>
+> >> >> +1
+> >> >>
+> >> >> I think for many attributes it would be best to have both. The in
+> >> >> kernel callers and netlink userspace can use the same driver ndo_ops.
+> >> >>
+> >> >> But then we don't _require_ any specific bridge/ovs/etc module.
+> >> >> And we may have some attributes that are not specific to any
+> >> >> existing software module. I'm guessing Marco has some examples of
+> these.
+> >> >>
+> >> >> [...]
+> >> >>
+> >> >>
+> >> >> --
+> >> >> John Fastabend         Intel Corporation
+> >> >
+> >> >We do have a need to configure the attributes directly from
+> >> >user-space and
+> >> I have identified the tool to do that in iproute2.
+> >> >
+> >> >An example of attributes are:
+> >> >* enabling/disabling of learning of source addresses on a given port
+> >> >(you can imagine the attribute called LEARNING for example);
+> >> >* internal loopback control (i.e. LOOPBACK) which will control how
+> >> >the flow of traffic behaves from the switch fabric towards an egress
+> >> >port;
+> >> >* flooding for broadcast/multicast/unicast type of packets (i.e.
+> >> >BFLOODING, MFLOODING, UFLOODING);
+> >> >
+> >> >Some attributes would be of the type enabled/disabled while other
+> >> >will
+> >> allow specific values to allow the user to configure different
+> >> behaviours of that feature on that particular port on that platform.
+> >> >
+> >> >One thing to mention - as John stated as well - there might be some
+> >> attributes that are not specific to any software module but rather
+> >> have to do with the actual hardware/platform to configure.
+> >> >
+> >> >I hope this clarifies some points.
+> >>
+> >> It does. Makes sense. We need to expose this attr set/get for both
+> >> in-kernel and userspace use cases.
+> >>
+> >> Please adjust you patch for this. Also, as a second patch, it would
+> >> be great if you can convert ndo_switch_port_stp_update to this new ndo.
+> >>
+> >> Thanks.
+> >>
+> >>
+> >
+> >I was thinking of leaving the get side of things implemented via sysfs rather
+> than implementing an NDO for it. Would this not be appropriate?
+> 
+> I believe that it is preferred to have both get and set exposed via ndo and
+> netlink. It can be exposed via sysfs as well, but it is "nice to have"
+> not "must have"
+> 
 
-Added new '-netns' option to simplify executing following cmd:
-
-    ip netns exec NETNS ip OPTIONS COMMAND OBJECT
-
-    to
-
-    ip -n[etns] NETNS OPTIONS COMMAND OBJECT
-
-e.g.:
-
-    ip -net vnet0 link add br0 type bridge
-    ip -n vnet0 link
-
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
-Changes v1 -> v2
-    use -n[etns] option name: suggested by Nicolas Dichtel
-    changed man ip.8 page
-
- ip/ip.c        |  6 ++++++
- ip/ip_common.h |  1 +
- ip/ipnetns.c   |  2 +-
- man/man8/ip.8  | 24 +++++++++++++++++++++++-
- 4 files changed, 31 insertions(+), 2 deletions(-)
-
-diff --git a/ip/ip.c b/ip/ip.c
-index 5f759d5..f3c2cdb 100644
---- a/ip/ip.c
-+++ b/ip/ip.c
-@@ -262,6 +262,12 @@ int main(int argc, char **argv)
- 			rcvbuf = size;
- 		} else if (matches(opt, "-help") == 0) {
- 			usage();
-+		} else if (matches(opt, "-netns") == 0) {
-+			argc--;
-+			argv++;
-+			argv[0] = argv[1];
-+			argv[1] = basename;
-+			return netns_exec(argc, argv);
- 		} else {
- 			fprintf(stderr, "Option \"%s\" is unknown, try \"ip -help\".\n", opt);
- 			exit(-1);
-diff --git a/ip/ip_common.h b/ip/ip_common.h
-index 75bfb82..d4f7e1f 100644
---- a/ip/ip_common.h
-+++ b/ip/ip_common.h
-@@ -88,6 +88,7 @@ struct link_util
- struct link_util *get_link_kind(const char *kind);
- struct link_util *get_link_slave_kind(const char *slave_kind);
- int get_netns_fd(const char *name);
-+int netns_exec(int argc, char **argv);
- 
- #ifndef	INFINITY_LIFE_TIME
- #define     INFINITY_LIFE_TIME      0xFFFFFFFFU
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index 1c8aa02..367841c 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -129,7 +129,7 @@ static void bind_etc(const char *name)
- 	closedir(dir);
- }
- 
--static int netns_exec(int argc, char **argv)
-+int netns_exec(int argc, char **argv)
- {
- 	/* Setup the proper environment for apps that are not netns
- 	 * aware, and execute a program in that environment.
-diff --git a/man/man8/ip.8 b/man/man8/ip.8
-index 2d42e98..389c808 100644
---- a/man/man8/ip.8
-+++ b/man/man8/ip.8
-@@ -31,7 +31,8 @@ ip \- show / manipulate routing, devices, policy routing and tunnels
- \fB\-r\fR[\fIesolve\fR] |
- \fB\-f\fR[\fIamily\fR] {
- .BR inet " | " inet6 " | " ipx " | " dnet " | " link " } | "
--\fB\-o\fR[\fIneline\fR] }
-+\fB\-o\fR[\fIneline\fR] |
-+\fB\-n\fR[\fIetns\fR] }
- 
- 
- .SH OPTIONS
-@@ -134,6 +135,27 @@ the output.
- use the system's name resolver to print DNS names instead of
- host addresses.
- 
-+.TP
-+.BR "\-n" , " \-net" , " \-netns " <NETNS>
-+executes the following
-+.RI "[ " OPTIONS " ] " OBJECT " { " COMMAND " | "
-+.BR help " }"
-+in the specified network namespace
-+.IR NETNS .
-+Actually it just simplifies executing of:
-+
-+.B ip netns exec
-+.IR NETNS
-+.B ip
-+.RI "[ " OPTIONS " ] " OBJECT " { " COMMAND " | "
-+.BR help " }"
-+
-+to
-+
-+.B ip
-+.RI "-n[etns] " NETNS " [ " OPTIONS " ] " OBJECT " { " COMMAND " | "
-+.BR help " }"
-+
- .SH IP - COMMAND SYNTAX
- 
- .SS
--- 
-2.1.3
+I'll add the get ndo to my patch now. Thanks.
