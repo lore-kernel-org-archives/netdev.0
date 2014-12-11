@@ -1,54 +1,52 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net-next] bridge: Add ability to always enable
-	TSO/UFO
-Date: Thu, 11 Dec 2014 11:20:19 +0900
-Message-ID: <5488FF63.8020609@lab.ntt.co.jp>
-References: <1418179394-4470-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>	<20141210.145047.1148744559031706340.davem@davemloft.net>	<5488FBBC.2050105@lab.ntt.co.jp>
-	<20141210.211306.1331714594864472914.davem@davemloft.net>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: default enable sparse __CHECK_ENDIAN__ (was: Re: [PATCH v7 2/3]
+ net: Add Keystone NetCP ethernet driver)
+Date: Wed, 10 Dec 2014 19:04:59 -0800
+Message-ID: <1418267099.18092.28.camel@perches.com>
+References: <1417556503-22290-3-git-send-email-m-karicheri2@ti.com>
+	 <20141209.131053.2026868499542642866.davem@davemloft.net>
+	 <5488BB96.9070609@ti.com>
+	 <20141210.204110.618599360537141819.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20141210.211306.1331714594864472914.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: m-karicheri2-l0cyMroinI0@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, linux-sparse-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Christopher Li <sparse-55XgFHCVCFZAfugRpC6u6w@public.gmane.org>,
+	Michal Marek <mmarek-AlSwsSmVLrQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20141210.204110.618599360537141819.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 2014/12/11 11:13, David Miller wrote:
-> From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> Date: Thu, 11 Dec 2014 11:04:44 +0900
-> 
->> On 2014/12/11 4:50, David Miller wrote:
->>> From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
->>> Date: Wed, 10 Dec 2014 11:43:14 +0900
->>>
->>>> -	features &= ~NETIF_F_ONE_FOR_ALL;
->>>> +	features &= ~NETIF_F_ONE_FOR_ALL | NETIF_F_GSO_SOFTWARE;
->>>
->>> I don't think this is the expression you intend to use.
->>
->> Thank you, but this is really my intended expression.
->>
->> "features &= ~NETIF_F_ONE_FOR_ALL" drops all of ONE_FOR_ALL bits
->> including GSO_SOFTWARE.
->> But I want to leave GSO_SOFTWARE bits here.
-> 
-> It is clearer to say this as:
-> 
-> 	~(NETIF_F_ONE_FOR_ALL & ~NETIF_F_GSO_SOFTWARE)
-> 
-> Or create a new NETIF_F_* macro to express this idea succinctly.
+On Wed, 2014-12-10 at 20:41 -0500, David Miller wrote:
+> From: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
+> > Are you referring to the static code analyser sparse that is invoked
+> > through?
+> You have to explicitly enable endian checking, it's not on by
+> default.
 
-OK, I will. (once net-next is reopened)
+There don't seem to be thousands of warnings anymore.
 
-Thanks,
-Toshiaki Makita
+Maybe it's time to default enable it when using C=?
+
+from: Documentation/sparse.txt:
+
+The optional make variable CF can be used to pass arguments to sparse.  The
+build system passes -Wbitwise to sparse automatically.  To perform endianness
+checks, you may define __CHECK_ENDIAN__:
+
+        make C=2 CF="-D__CHECK_ENDIAN__"
+
+These checks are disabled by default as they generate a host of warnings.
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
