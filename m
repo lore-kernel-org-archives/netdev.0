@@ -1,27 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next v9 0/3] add hisilicon hip04 ethernet driver
-Date: Thu, 11 Dec 2014 12:04:14 -0500 (EST)
-Message-ID: <20141211.120414.806666053427479402.davem@davemloft.net>
-References: <1418298150-4944-1-git-send-email-dingtianhong@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Driver: Vmxnet3: Make Rx ring 2 size configurable
+Date: Thu, 11 Dec 2014 12:05:14 -0500 (EST)
+Message-ID: <20141211.120514.1224165557764220263.davem@davemloft.net>
+References: <1418276262-4728-1-git-send-email-skhare@vmware.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org,
-	f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org,
-	mark.rutland-5wv7dgnIgG8@public.gmane.org, David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1418298150-4944-1-git-send-email-dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: sbhatewara@vmware.com, pv-drivers@vmware.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bollar@vmware.com
+To: skhare@vmware.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54456 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932311AbaLKRFR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 12:05:17 -0500
+In-Reply-To: <1418276262-4728-1-git-send-email-skhare@vmware.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Shrikrishna Khare <skhare@vmware.com>
+Date: Wed, 10 Dec 2014 21:37:42 -0800
 
-The net-next tree is closed, therefore it is not appropriate to
-submit net-next changes at this time.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Rx ring 2 size can be configured by adjusting rx-jumbo parameter
+> of ethtool -G.
+> 
+> Signed-off-by: Ramya Bolla <bollar@vmware.com>
+> Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
+> Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+
+This is a new feature patch, and the net-next tree is closed, therefore
+it is not appropriate to submit a change like this at this time.
+
+Please resubmit when the net-next tree opens back up, some time after
+the merge window is over.
