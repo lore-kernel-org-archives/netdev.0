@@ -1,70 +1,104 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2] if_bridge: fix conflict with glibc
-Date: Wed, 10 Dec 2014 15:57:45 -0800
-Message-ID: <20141210155745.3d375230@urahara>
-References: <20141209203007.188651df@urahara>
-	<20141209.234954.1634249639621060084.davem@davemloft.net>
-	<20141209214122.76b15851@urahara>
-	<20141210.133417.152985082992875227.davem@davemloft.net>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: [bisected] xfrm: TCP connection initiating PMTU discovery stalls on v3.
+Date: Thu, 11 Dec 2014 01:36:48 +0100
+Message-ID: <3485487.Ob8lM3Vmqr@h2o.as.studentenwerk.mhn.de>
+References: <1709726.jUgUSQI9sl@pikkukde.a.i2n> <6700748.kZ07xrNvHX@h2o.as.studentenwerk.mhn.de> <1418238603.27198.37.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: gregory.0xf0@gmail.com, f.fainelli@gmail.com,
-	xiyou.wangcong@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thomas Jarosch <thomas.jarosch@intra2net.com>,
+	netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:34947 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758073AbaLJX5z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 18:57:55 -0500
-Received: by mail-pd0-f182.google.com with SMTP id p10so3790194pdj.13
-        for <netdev@vger.kernel.org>; Wed, 10 Dec 2014 15:57:55 -0800 (PST)
-In-Reply-To: <20141210.133417.152985082992875227.davem@davemloft.net>
+Received: from mailin.studentenwerk.mhn.de ([141.84.225.229]:60845 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933226AbaLKAgv convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Dec 2014 19:36:51 -0500
+In-Reply-To: <1418238603.27198.37.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 10 Dec 2014 13:34:17 -0500 (EST)
-David Miller <davem@davemloft.net> wrote:
+Am Mittwoch, 10. Dezember 2014, 11:10:03 schrieb Eric Dumazet:
+> On Wed, 2014-12-10 at 19:34 +0100, Wolfgang Walter wrote:
+> > So gso is on. When the hang happens sk_setup_caps is called from
+> > inet_sk_rebuild_header(). Now the path
+> >=20
+> > 		sk->sk_route_caps &=3D ~NETIF_F_GSO_MASK;
+> >=20
+> > is taken as dst->header_len is now non zero.
+> >=20
+> > This is the reason why later calls of sk_can_gso() return false.
+> >=20
+> > I'll try to change the above patch to
+> >=20
+> > @@ -1585,6 +1585,8 @@ void sk_setup_caps(struct sock *sk, struct ds=
+t_entry
+> > *dst) sk->sk_gso_max_size =3D dst->dev->gso_max_size;
+> >=20
+> >  			sk->sk_gso_max_segs =3D dst->dev->gso_max_segs;
+> >  	=09
+> >  		}
+> > =09
+> > 	}
+> >=20
+> > +   if (sk_can_gso(sk)) {
+> > +		sk->sk_gso_max_segs =3D 1;
+> >=20
+> >  	}
+> > =20
+> >  }
+> >  EXPORT_SYMBOL_GPL(sk_setup_caps);
+> >=20
+> > so that the case that GSO is disabled because of dst->header_len !=3D=
+ 0 sets
+> > sk_gso_max_segs, too.
+>=20
+> Sounds good, or maybe simply :
+>=20
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index
+> 9a56b2000c3f374fb95aedada3327447816a9512..edca31319dfee57cabe5b376505=
+324bea
+> 07f767a 100644 --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -1577,6 +1577,7 @@ void sk_setup_caps(struct sock *sk, struct dst_=
+entry
+> *dst) if (sk->sk_route_caps & NETIF_F_GSO)
+>  		sk->sk_route_caps |=3D NETIF_F_GSO_SOFTWARE;
+>  	sk->sk_route_caps &=3D ~sk->sk_route_nocaps;
+> +	sk->sk_gso_max_segs =3D 1;
+>  	if (sk_can_gso(sk)) {
+>  		if (dst->header_len) {
+>  			sk->sk_route_caps &=3D ~NETIF_F_GSO_MASK;
 
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Tue, 9 Dec 2014 21:41:22 -0800
-> 
-> > Even though kernel and glibc headers have same effective values
-> > Gcc complains about redefinitions. Since this is a header expected
-> > to be used by userspace, use glibc header.
-> > 
-> > This supersedes change in commit 66f1c44887ba4f47d617f8ae21cf8e04e1892bd7
-> > and fixes build of iproute2 with Glibc-2.19. This follows similar usage
-> > in include/uapi/linux for l2tp.h
-> > 
-> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> > 
-> > --- a/include/uapi/linux/if_bridge.h	2014-12-09 20:25:21.656016605 -0800
-> > +++ b/include/uapi/linux/if_bridge.h	2014-12-09 21:32:01.391034756 -0800
-> > @@ -15,7 +15,9 @@
-> >  
-> >  #include <linux/types.h>
-> >  #include <linux/if_ether.h>
-> > -#include <linux/in6.h>
-> > +#ifndef __KERNEL__
-> > +#include <netinet/in.h>
-> > +#endif
-> 
-> No, we really want to incluse the linux/in6.h header, as that's where all
-> the special GLIBC CPP checks are, such as:
-> 
-> #if __UAPI_DEF_IN6_ADDR_ALT
-> 
-> Please research how we have resolved the conflict between GLIBC and the
-> kernel's exported headers.  We really need to use linux/in6.h for all of
-> this to work.
-> 
-> I understand that it is upsetting that iproute2 stopped building for you,
-> but I'd like to kindly ask that you look more deeply into this and think
-> more longer term, rather than having a knee jerk reaction and looking for
-> quick fixes.
+Yes, true.
 
-I don't have the time to understand the intricacies of glibc headers.
-The problem is that Gcc warns about duplicate definitions in headers;
-this is a useful warning and not something that I want to disable.
-Hacks with #undef seem to be heading the wrong way.
+
+This fixes the issue. That means no hangs any more even if gso is enabl=
+ed on=20
+the device serving the ipsec traffic.
+
+As said I could not apply https://patchwork.ozlabs.org/patch/418506/=20
+unmodified to 3.14. This is because the following patch is missing in v=
+=2E3.14:
+
+commit e114a710aa5058c0ba4aa1dfb105132aefeb5e04
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Wed Apr 30 11:58:13 2014 -0700
+
+    tcp: fix cwnd limited checking to improve congestion control
+
+(and the follow-up 249015515fe3fc9818d86cb5c83bbc92505ad7dc).
+
+I'll next try to apply these patches on v3.14.26, see if the other patc=
+h then=20
+applies cleanly, add that one-liner - and hopefully it will work.
+
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
