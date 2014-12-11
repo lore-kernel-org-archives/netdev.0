@@ -1,31 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v7 2/3] net: Add Keystone NetCP ethernet driver
-Date: Wed, 10 Dec 2014 20:41:10 -0500 (EST)
-Message-ID: <20141210.204110.618599360537141819.davem@davemloft.net>
-References: <1417556503-22290-3-git-send-email-m-karicheri2@ti.com>
-	<20141209.131053.2026868499542642866.davem@davemloft.net>
-	<5488BB96.9070609@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: errors in alignment changes..
+Date: Wed, 10 Dec 2014 20:42:15 -0500 (EST)
+Message-ID: <20141210.204215.46146677361631214.davem@davemloft.net>
+References: <20141210.155203.1136471667049608187.davem@davemloft.net>
+	<5488C447.5080906@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org
-To: m-karicheri2-l0cyMroinI0@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5488BB96.9070609-l0cyMroinI0@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: mitsuhiro.kimura.kc@renesas.com, netdev@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49437 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932937AbaLKBmQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 20:42:16 -0500
+In-Reply-To: <5488C447.5080906@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
-Date: Wed, 10 Dec 2014 16:31:02 -0500
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Thu, 11 Dec 2014 01:08:07 +0300
 
-> Are you referring to the static code analyser sparse that is invoked
-> through?
+>    I guess we can just do:
+> 
+> 		rxdesc->addr = dma_map_single(...);
 
-You have to explicitly enable endian checking, it's not on by
-default.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Best not to leave a potentially invalid DMA address in a
+receive descriptor the chip can potentially fetch and
+look at.
+
+That's why I said to put it into a local variable and
+check for errors first.
