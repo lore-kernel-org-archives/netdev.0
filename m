@@ -1,406 +1,119 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v3] ip: Simplify executing ip cmd within network ns
-Date: Fri, 12 Dec 2014 00:32:51 +0200
-Message-ID: <1418337171-2792-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [net-next PATCH v7 resubmit 0/4] arch: Add lightweight memory
+ barriers for coherent memory access
+Date: Thu, 11 Dec 2014 15:01:43 -0800
+Message-ID: <20141211225250.25464.30291.stgit@ahduyck-server>
+References: <20141125203310.8240.27370.stgit@ahduyck-server>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: mathieu.desnoyers@polymtl.ca, peterz@infradead.org,
+	benh@kernel.crashing.org, heiko.carstens@de.ibm.com,
+	mingo@kernel.org, linux-arch@vger.kernel.org, mikey@neuling.org,
+	linux@arm.linux.org.uk, donald.c.skidmore@intel.com,
+	matthew.vick@intel.com, geert@linux-m68k.org,
+	jeffrey.t.kirsher@intel.com, romieu@fr.zoreil.com,
+	paulmck@linux.vnet.ibm.com, nic_swsd@realtek.com, arnd@arndb.de,
+	will.deacon@arm.com, michael@ellerman.id.au, tony.luck@intel.com,
+	torvalds@linux-foundation.org, oleg@redhat.com,
+	schwidefsky@de.ibm.com, fweisbec@gmail.com
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:39205 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933541AbaLKWmq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 17:42:46 -0500
-Received: by mail-la0-f45.google.com with SMTP id gq15so5124823lab.4
-        for <netdev@vger.kernel.org>; Thu, 11 Dec 2014 14:42:44 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:55939 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S966088AbaLKXDT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Dec 2014 18:03:19 -0500
+In-Reply-To: <20141125203310.8240.27370.stgit@ahduyck-server>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Kochan <vadim4j@gmail.com>
+These patches introduce two new primitives for synchronizing cache coherent
+memory writes and reads.  These two new primitives are:
 
-Added new '-netns' option to simplify executing following cmd:
+	dma_rmb()
+	dma_wmb()
 
-    ip netns exec NETNS ip OPTIONS COMMAND OBJECT
+The first patch cleans up some unnecessary overhead related to the
+definition of read_barrier_depends, smp_read_barrier_depends, and comments
+related to the barrier.
 
-    to
+The second patch adds the primitives for the applicable architectures and
+asm-generic.
 
-    ip -n[etns] NETNS OPTIONS COMMAND OBJECT
+The third patch adds the barriers to r8169 which turns out to be a good
+example of where the new barriers might be useful as they have full
+rmb()/wmb() barriers ordering accesses to the descriptors and the DescOwn
+bit.
 
-e.g.:
+The fourth patch adds support for coherent_rmb() to the Intel fm10k, igb,
+and ixgbe drivers.  Testing with the ixgbe driver has shown a processing
+time reduction of at least 7ns per 64B frame on a Core i7-4930K.
 
-    ip -net vnet0 link add br0 type bridge
-    ip -n vnet0 link
+This patch series is essentially the v7 for:
+v4-7:	Add lightweight memory barriers for coherent memory access
+v3:	Add lightweight memory barriers fast_rmb() and fast_wmb()
+v2:	Introduce load_acquire() and store_release()
+v1:	Introduce read_acquire()
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+The key changes in this patch series versus the earlier patches are:
+v7 resubmit:
+	- Added Acked-by: Ben Herrenschmidt from v5 to dma_rmb/wmb patch
+	- No code changes from previous set, still applies cleanly and builds.
+v7:
+	- Dropped test/debug patch that was accidentally slipped in
+v6:
+	- Replaced "memory based device I/O" with "consistent memory" in
+	  docs
+	- Added reference to DMA-API.txt to explain consistent memory
+v5:
+	- Renamed barriers dma_rmb and dma_wmb
+	- Undid smp_wmb changes in x86 and PowerPC
+	- Defined smp_rmb as __lwsync for SMP case on PowerPC
+v4:
+	- Renamed barriers coherent_rmb and coherent_wmb
+	- Added smp_lwsync for use in smp_load_acquire/smp_store_release
+v3:
+	- Moved away from acquire()/store() and instead focused on barriers
+	- Added cleanup of read_barrier_depends
+	- Added change in r8169 to fix cur_tx/DescOwn ordering
+	- Simplified changes to just replacing/moving barriers in r8169
+	- Added update to documentation with code example
+v2:
+	- Renamed read_acquire() to be consistent with smp_load_acquire()
+	- Changed barrier used to be consistent with smp_load_acquire()
+	- Updated PowerPC code to use __lwsync based on IBM article
+	- Added store_release() as this is a viable use case for drivers
+	- Added r8169 patch which is able to fully use primitives
+	- Added fm10k/igb/ixgbe patch which is able to test performance
+
 ---
-Changes v2 -> v3
-    Switching to netns w/o execvp: suggested by Jiri Pirko
-                                                Jiri Benc
 
-So I moved switching netns to lib/utils.c, looks
-not very good for me, but it allows easy reuse this
-netns_switch func for other utils in the future (tc, bridge, ...).
+Alexander Duyck (4):
+      arch: Cleanup read_barrier_depends() and comments
+      arch: Add lightweight memory barriers dma_rmb() and dma_wmb()
+      r8169: Use dma_rmb() and dma_wmb() for DescOwn checks
+      fm10k/igb/ixgbe: Use dma_rmb on Rx descriptor reads
 
-May be it would be better to have separated lib/netns.c module and
-include/netns.h header ?
 
-Changes v1 -> v2
-    use -n[etns] option name:      suggested by Nicolas Dichtel
-    changed man ip.8 page
+ Documentation/memory-barriers.txt             |   42 +++++++++++++++
+ arch/alpha/include/asm/barrier.h              |   51 ++++++++++++++++++
+ arch/arm/include/asm/barrier.h                |    4 +
+ arch/arm64/include/asm/barrier.h              |    3 +
+ arch/blackfin/include/asm/barrier.h           |   51 ++++++++++++++++++
+ arch/ia64/include/asm/barrier.h               |   25 ++++-----
+ arch/metag/include/asm/barrier.h              |   19 ++++---
+ arch/mips/include/asm/barrier.h               |   61 ++--------------------
+ arch/powerpc/include/asm/barrier.h            |   19 ++++---
+ arch/s390/include/asm/barrier.h               |    7 ++-
+ arch/sparc/include/asm/barrier_64.h           |    7 ++-
+ arch/x86/include/asm/barrier.h                |   70 ++++---------------------
+ arch/x86/um/asm/barrier.h                     |   20 ++++---
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c |    6 +-
+ drivers/net/ethernet/intel/igb/igb_main.c     |    6 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    9 +--
+ drivers/net/ethernet/realtek/r8169.c          |   29 ++++++++--
+ include/asm-generic/barrier.h                 |    8 +++
+ 18 files changed, 258 insertions(+), 179 deletions(-)
 
- include/utils.h |  27 +++++++++++++++
- ip/ip.c         |   4 +++
- ip/ipnetns.c    | 105 ++------------------------------------------------------
- lib/Makefile    |   4 +++
- lib/utils.c     |  88 +++++++++++++++++++++++++++++++++++++++++++++++
- man/man8/ip.8   |  23 ++++++++++++-
- 6 files changed, 147 insertions(+), 104 deletions(-)
-
-diff --git a/include/utils.h b/include/utils.h
-index eef9c42..1fd012c 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -159,4 +159,31 @@ struct iplink_req;
- int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 		char **name, char **type, char **link, char **dev,
- 		int *group, int *index);
-+
-+#define NETNS_RUN_DIR "/var/run/netns"
-+#define NETNS_ETC_DIR "/etc/netns"
-+
-+#ifndef CLONE_NEWNET
-+#define CLONE_NEWNET 0x40000000	/* New network namespace (lo, device, names sockets, etc) */
-+#endif
-+
-+#ifndef MNT_DETACH
-+#define MNT_DETACH	0x00000002	/* Just detach from the tree */
-+#endif /* MNT_DETACH */
-+
-+/* sys/mount.h may be out too old to have these */
-+#ifndef MS_REC
-+#define MS_REC		16384
-+#endif
-+
-+#ifndef MS_SLAVE
-+#define MS_SLAVE	(1 << 19)
-+#endif
-+
-+#ifndef MS_SHARED
-+#define MS_SHARED	(1 << 20)
-+#endif
-+
-+extern int netns_switch(char *netns);
-+
- #endif /* __UTILS_H__ */
-diff --git a/ip/ip.c b/ip/ip.c
-index 5f759d5..5da10bf 100644
---- a/ip/ip.c
-+++ b/ip/ip.c
-@@ -262,6 +262,10 @@ int main(int argc, char **argv)
- 			rcvbuf = size;
- 		} else if (matches(opt, "-help") == 0) {
- 			usage();
-+		} else if (matches(opt, "-netns") == 0) {
-+			NEXT_ARG();
-+			if (netns_switch(argv[1]))
-+				exit(-1);
- 		} else {
- 			fprintf(stderr, "Option \"%s\" is unknown, try \"ip -help\".\n", opt);
- 			exit(-1);
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index 1c8aa02..dd183e1 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -18,42 +18,6 @@
- #include "utils.h"
- #include "ip_common.h"
- 
--#define NETNS_RUN_DIR "/var/run/netns"
--#define NETNS_ETC_DIR "/etc/netns"
--
--#ifndef CLONE_NEWNET
--#define CLONE_NEWNET 0x40000000	/* New network namespace (lo, device, names sockets, etc) */
--#endif
--
--#ifndef MNT_DETACH
--#define MNT_DETACH	0x00000002	/* Just detach from the tree */
--#endif /* MNT_DETACH */
--
--/* sys/mount.h may be out too old to have these */
--#ifndef MS_REC
--#define MS_REC		16384
--#endif
--
--#ifndef MS_SLAVE
--#define MS_SLAVE	(1 << 19)
--#endif
--
--#ifndef MS_SHARED
--#define MS_SHARED	(1 << 20)
--#endif
--
--#ifndef HAVE_SETNS
--static int setns(int fd, int nstype)
--{
--#ifdef __NR_setns
--	return syscall(__NR_setns, fd, nstype);
--#else
--	errno = ENOSYS;
--	return -1;
--#endif
--}
--#endif /* HAVE_SETNS */
--
- static int usage(void)
- {
- 	fprintf(stderr, "Usage: ip netns list\n");
-@@ -101,42 +65,12 @@ static int netns_list(int argc, char **argv)
- 	return 0;
- }
- 
--static void bind_etc(const char *name)
--{
--	char etc_netns_path[MAXPATHLEN];
--	char netns_name[MAXPATHLEN];
--	char etc_name[MAXPATHLEN];
--	struct dirent *entry;
--	DIR *dir;
--
--	snprintf(etc_netns_path, sizeof(etc_netns_path), "%s/%s", NETNS_ETC_DIR, name);
--	dir = opendir(etc_netns_path);
--	if (!dir)
--		return;
--
--	while ((entry = readdir(dir)) != NULL) {
--		if (strcmp(entry->d_name, ".") == 0)
--			continue;
--		if (strcmp(entry->d_name, "..") == 0)
--			continue;
--		snprintf(netns_name, sizeof(netns_name), "%s/%s", etc_netns_path, entry->d_name);
--		snprintf(etc_name, sizeof(etc_name), "/etc/%s", entry->d_name);
--		if (mount(netns_name, etc_name, "none", MS_BIND, NULL) < 0) {
--			fprintf(stderr, "Bind %s -> %s failed: %s\n",
--				netns_name, etc_name, strerror(errno));
--		}
--	}
--	closedir(dir);
--}
--
- static int netns_exec(int argc, char **argv)
- {
- 	/* Setup the proper environment for apps that are not netns
- 	 * aware, and execute a program in that environment.
- 	 */
--	const char *name, *cmd;
--	char net_path[MAXPATHLEN];
--	int netns;
-+	const char *cmd;
- 
- 	if (argc < 1) {
- 		fprintf(stderr, "No netns name specified\n");
-@@ -146,45 +80,10 @@ static int netns_exec(int argc, char **argv)
- 		fprintf(stderr, "No command specified\n");
- 		return -1;
- 	}
--
--	name = argv[0];
- 	cmd = argv[1];
--	snprintf(net_path, sizeof(net_path), "%s/%s", NETNS_RUN_DIR, name);
--	netns = open(net_path, O_RDONLY | O_CLOEXEC);
--	if (netns < 0) {
--		fprintf(stderr, "Cannot open network namespace \"%s\": %s\n",
--			name, strerror(errno));
--		return -1;
--	}
--
--	if (setns(netns, CLONE_NEWNET) < 0) {
--		fprintf(stderr, "setting the network namespace \"%s\" failed: %s\n",
--			name, strerror(errno));
--		return -1;
--	}
- 
--	if (unshare(CLONE_NEWNS) < 0) {
--		fprintf(stderr, "unshare failed: %s\n", strerror(errno));
--		return -1;
--	}
--	/* Don't let any mounts propagate back to the parent */
--	if (mount("", "/", "none", MS_SLAVE | MS_REC, NULL)) {
--		fprintf(stderr, "\"mount --make-rslave /\" failed: %s\n",
--			strerror(errno));
-+	if (netns_switch(argv[0]))
- 		return -1;
--	}
--	/* Mount a version of /sys that describes the network namespace */
--	if (umount2("/sys", MNT_DETACH) < 0) {
--		fprintf(stderr, "umount of /sys failed: %s\n", strerror(errno));
--		return -1;
--	}
--	if (mount(name, "/sys", "sysfs", 0, NULL) < 0) {
--		fprintf(stderr, "mount of /sys failed: %s\n",strerror(errno));
--		return -1;
--	}
--
--	/* Setup bind mounts for config files in /etc */
--	bind_etc(name);
- 
- 	fflush(stdout);
- 
-diff --git a/lib/Makefile b/lib/Makefile
-index a42b885..f7cbc8d 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -1,5 +1,9 @@
- include ../Config
- 
-+ifeq ($(IP_CONFIG_SETNS),y)
-+	CFLAGS += -DHAVE_SETNS
-+endif
-+
- CFLAGS += -fPIC
- 
- UTILOBJ=utils.o rt_names.o ll_types.o ll_proto.o ll_addr.o inet_proto.o
-diff --git a/lib/utils.c b/lib/utils.c
-index 987377b..ff14881 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -27,7 +27,11 @@
- #include <linux/param.h>
- #include <time.h>
- #include <sys/time.h>
-+#include <sys/mount.h>
-+#include <sys/types.h>
- #include <errno.h>
-+#include <sched.h>
-+#include <dirent.h>
- 
- 
- #include "utils.h"
-@@ -856,3 +860,87 @@ int inet_get_addr(const char *src, __u32 *dst, struct in6_addr *dst6)
- 	else
- 		return inet_pton(AF_INET, src, dst);
- }
-+
-+#ifndef HAVE_SETNS
-+static int setns(int fd, int nstype)
-+{
-+#ifdef __NR_setns
-+	return syscall(__NR_setns, fd, nstype);
-+#else
-+	errno = ENOSYS;
-+	return -1;
-+#endif
-+}
-+#endif /* HAVE_SETNS */
-+
-+static void bind_etc(const char *name)
-+{
-+	char etc_netns_path[MAXPATHLEN];
-+	char netns_name[MAXPATHLEN];
-+	char etc_name[MAXPATHLEN];
-+	struct dirent *entry;
-+	DIR *dir;
-+
-+	snprintf(etc_netns_path, sizeof(etc_netns_path), "%s/%s", NETNS_ETC_DIR, name);
-+	dir = opendir(etc_netns_path);
-+	if (!dir)
-+		return;
-+
-+	while ((entry = readdir(dir)) != NULL) {
-+		if (strcmp(entry->d_name, ".") == 0)
-+			continue;
-+		if (strcmp(entry->d_name, "..") == 0)
-+			continue;
-+		snprintf(netns_name, sizeof(netns_name), "%s/%s", etc_netns_path, entry->d_name);
-+		snprintf(etc_name, sizeof(etc_name), "/etc/%s", entry->d_name);
-+		if (mount(netns_name, etc_name, "none", MS_BIND, NULL) < 0) {
-+			fprintf(stderr, "Bind %s -> %s failed: %s\n",
-+				netns_name, etc_name, strerror(errno));
-+		}
-+	}
-+	closedir(dir);
-+}
-+
-+int netns_switch(char *name)
-+{
-+	char net_path[MAXPATHLEN];
-+	int netns;
-+
-+	snprintf(net_path, sizeof(net_path), "%s/%s", NETNS_RUN_DIR, name);
-+	netns = open(net_path, O_RDONLY | O_CLOEXEC);
-+	if (netns < 0) {
-+		fprintf(stderr, "Cannot open network namespace \"%s\": %s\n",
-+			name, strerror(errno));
-+		return -1;
-+	}
-+
-+	if (setns(netns, CLONE_NEWNET) < 0) {
-+		fprintf(stderr, "setting the network namespace \"%s\" failed: %s\n",
-+			name, strerror(errno));
-+		return -1;
-+	}
-+
-+	if (unshare(CLONE_NEWNS) < 0) {
-+		fprintf(stderr, "unshare failed: %s\n", strerror(errno));
-+		return -1;
-+	}
-+	/* Don't let any mounts propagate back to the parent */
-+	if (mount("", "/", "none", MS_SLAVE | MS_REC, NULL)) {
-+		fprintf(stderr, "\"mount --make-rslave /\" failed: %s\n",
-+			strerror(errno));
-+		return -1;
-+	}
-+	/* Mount a version of /sys that describes the network namespace */
-+	if (umount2("/sys", MNT_DETACH) < 0) {
-+		fprintf(stderr, "umount of /sys failed: %s\n", strerror(errno));
-+		return -1;
-+	}
-+	if (mount(name, "/sys", "sysfs", 0, NULL) < 0) {
-+		fprintf(stderr, "mount of /sys failed: %s\n",strerror(errno));
-+		return -1;
-+	}
-+
-+	/* Setup bind mounts for config files in /etc */
-+	bind_etc(name);
-+	return 0;
-+}
-diff --git a/man/man8/ip.8 b/man/man8/ip.8
-index 2d42e98..0fb759d 100644
---- a/man/man8/ip.8
-+++ b/man/man8/ip.8
-@@ -31,7 +31,8 @@ ip \- show / manipulate routing, devices, policy routing and tunnels
- \fB\-r\fR[\fIesolve\fR] |
- \fB\-f\fR[\fIamily\fR] {
- .BR inet " | " inet6 " | " ipx " | " dnet " | " link " } | "
--\fB\-o\fR[\fIneline\fR] }
-+\fB\-o\fR[\fIneline\fR] |
-+\fB\-n\fR[\fIetns\fR] }
- 
- 
- .SH OPTIONS
-@@ -134,6 +135,26 @@ the output.
- use the system's name resolver to print DNS names instead of
- host addresses.
- 
-+.TP
-+.BR "\-n" , " \-net" , " \-netns " <NETNS>
-+switches
-+.B ip
-+to the specified network namespace
-+.IR NETNS .
-+Actually it just simplifies executing of:
-+
-+.B ip netns exec
-+.IR NETNS
-+.B ip
-+.RI "[ " OPTIONS " ] " OBJECT " { " COMMAND " | "
-+.BR help " }"
-+
-+to
-+
-+.B ip
-+.RI "-n[etns] " NETNS " [ " OPTIONS " ] " OBJECT " { " COMMAND " | "
-+.BR help " }"
-+
- .SH IP - COMMAND SYNTAX
- 
- .SS
--- 
-2.1.3
+--
