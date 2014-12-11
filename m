@@ -1,104 +1,191 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH] cxgb4/csiostor:  Don't use MASTER_MUST for fw_hello call
-Date: Thu, 11 Dec 2014 11:11:43 +0530
-Message-ID: <1418276503-23001-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, JBottomley@parallels.com, hch@infradead.org,
-	leedom@chelsio.com, anish@chelsio.com, nirranjan@chelsio.com,
-	praveenm@chelsio.com, Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org, linux-scsi@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:50361
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751222AbaLKFgb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 00:36:31 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shrikrishna Khare <skhare@vmware.com>
+Subject: [PATCH] Driver: Vmxnet3: Make Rx ring 2 size configurable
+Date: Wed, 10 Dec 2014 21:37:42 -0800
+Message-ID: <1418276262-4728-1-git-send-email-skhare@vmware.com>
+Cc: Shrikrishna Khare <skhare@vmware.com>,
+	Ramya Bolla <bollar@vmware.com>
+To: sbhatewara@vmware.com, pv-drivers@vmware.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Remove use of calls into t4_fw_hello() with MASTER_MUST, which results in
-FW_HELLO_CMD_MASTERFORCE being set. The firmware doesn't support this and of
-course any existing PF Drivers will totally go for a toss.
+Rx ring 2 size can be configured by adjusting rx-jumbo parameter
+of ethtool -G.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+Signed-off-by: Ramya Bolla <bollar@vmware.com>
+Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
+Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   12 ++----------
- drivers/scsi/csiostor/csio_hw.c                 |    6 +-----
- drivers/scsi/csiostor/csio_hw.h                 |    1 -
- 3 files changed, 3 insertions(+), 16 deletions(-)
+ drivers/net/vmxnet3/vmxnet3_defs.h    |  1 +
+ drivers/net/vmxnet3/vmxnet3_drv.c     |  6 +++++-
+ drivers/net/vmxnet3/vmxnet3_ethtool.c | 27 ++++++++++++++++++++-------
+ drivers/net/vmxnet3/vmxnet3_int.h     |  6 ++++--
+ 4 files changed, 30 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 279873c..30deaf1 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -5687,14 +5687,8 @@ static int adap_init0(struct adapter *adap)
- 	struct fw_caps_config_cmd caps_cmd;
- 	int reset = 1;
+diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
+index 4d84912..25b6fa4 100644
+--- a/drivers/net/vmxnet3/vmxnet3_defs.h
++++ b/drivers/net/vmxnet3/vmxnet3_defs.h
+@@ -342,6 +342,7 @@ union Vmxnet3_GenericDesc {
+ #define VMXNET3_TX_RING_MAX_SIZE   4096
+ #define VMXNET3_TC_RING_MAX_SIZE   4096
+ #define VMXNET3_RX_RING_MAX_SIZE   4096
++#define VMXNET3_RX_RING2_MAX_SIZE  2048
+ #define VMXNET3_RC_RING_MAX_SIZE   8192
  
--	/*
--	 * Contact FW, advertising Master capability (and potentially forcing
--	 * ourselves as the Master PF if our module parameter force_init is
--	 * set).
--	 */
--	ret = t4_fw_hello(adap, adap->mbox, adap->fn,
--			  force_init ? MASTER_MUST : MASTER_MAY,
--			  &state);
-+	/* Contact FW, advertising Master capability */
-+	ret = t4_fw_hello(adap, adap->mbox, adap->mbox, MASTER_MAY, &state);
- 	if (ret < 0) {
- 		dev_err(adap->pdev_dev, "could not connect to FW, error %d\n",
- 			ret);
-@@ -5702,8 +5696,6 @@ static int adap_init0(struct adapter *adap)
- 	}
- 	if (ret == adap->mbox)
- 		adap->flags |= MASTER_PF;
--	if (force_init && state == DEV_STATE_INIT)
--		state = DEV_STATE_UNINIT;
+ /* a list of reasons for queue stop */
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index afd2953..7af1f5c 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -2505,6 +2505,9 @@ vmxnet3_adjust_rx_ring_size(struct vmxnet3_adapter *adapter)
+ 	ring0_size = min_t(u32, ring0_size, VMXNET3_RX_RING_MAX_SIZE /
+ 			   sz * sz);
+ 	ring1_size = adapter->rx_queue[0].rx_ring[1].size;
++	ring1_size = (ring1_size + sz - 1) / sz * sz;
++	ring1_size = min_t(u32, ring1_size, VMXNET3_RX_RING2_MAX_SIZE /
++			   sz * sz);
+ 	comp_size = ring0_size + ring1_size;
  
- 	/*
- 	 * If we're the Master PF Driver and the device is uninitialized,
-diff --git a/drivers/scsi/csiostor/csio_hw.c b/drivers/scsi/csiostor/csio_hw.c
-index 0eaec47..5b909c0 100644
---- a/drivers/scsi/csiostor/csio_hw.c
-+++ b/drivers/scsi/csiostor/csio_hw.c
-@@ -47,7 +47,6 @@
- #include "csio_lnode.h"
- #include "csio_rnode.h"
+ 	for (i = 0; i < adapter->num_rx_queues; i++) {
+@@ -2585,7 +2588,7 @@ vmxnet3_open(struct net_device *netdev)
  
--int csio_force_master;
- int csio_dbg_level = 0xFEFF;
- unsigned int csio_port_mask = 0xf;
+ 	err = vmxnet3_create_queues(adapter, adapter->tx_ring_size,
+ 				    adapter->rx_ring_size,
+-				    VMXNET3_DEF_RX_RING_SIZE);
++				    adapter->rx_ring2_size);
+ 	if (err)
+ 		goto queue_err;
  
-@@ -889,7 +888,6 @@ csio_do_hello(struct csio_hw *hw, enum csio_dev_state *state)
+@@ -2964,6 +2967,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ 
+ 	adapter->tx_ring_size = VMXNET3_DEF_TX_RING_SIZE;
+ 	adapter->rx_ring_size = VMXNET3_DEF_RX_RING_SIZE;
++	adapter->rx_ring2_size = VMXNET3_DEF_RX_RING2_SIZE;
+ 
+ 	spin_lock_init(&adapter->cmd_lock);
+ 	adapter->adapter_pa = dma_map_single(&adapter->pdev->dev, adapter,
+diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+index b725fd9..70fb410 100644
+--- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
++++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+@@ -447,12 +447,12 @@ vmxnet3_get_ringparam(struct net_device *netdev,
+ 	param->rx_max_pending = VMXNET3_RX_RING_MAX_SIZE;
+ 	param->tx_max_pending = VMXNET3_TX_RING_MAX_SIZE;
+ 	param->rx_mini_max_pending = 0;
+-	param->rx_jumbo_max_pending = 0;
++	param->rx_jumbo_max_pending = VMXNET3_RX_RING2_MAX_SIZE;
+ 
+ 	param->rx_pending = adapter->rx_ring_size;
+ 	param->tx_pending = adapter->tx_ring_size;
+ 	param->rx_mini_pending = 0;
+-	param->rx_jumbo_pending = 0;
++	param->rx_jumbo_pending = adapter->rx_ring2_size;
+ }
+ 
+ 
+@@ -461,7 +461,7 @@ vmxnet3_set_ringparam(struct net_device *netdev,
+ 		      struct ethtool_ringparam *param)
  {
- 	struct csio_mb	*mbp;
- 	int	rv = 0;
--	enum csio_dev_master master;
- 	enum fw_retval retval;
- 	uint8_t mpfn;
- 	char state_str[16];
-@@ -904,11 +902,9 @@ csio_do_hello(struct csio_hw *hw, enum csio_dev_state *state)
- 		goto out;
+ 	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
+-	u32 new_tx_ring_size, new_rx_ring_size;
++	u32 new_tx_ring_size, new_rx_ring_size, new_rx_ring2_size;
+ 	u32 sz;
+ 	int err = 0;
+ 
+@@ -473,6 +473,10 @@ vmxnet3_set_ringparam(struct net_device *netdev,
+ 						VMXNET3_RX_RING_MAX_SIZE)
+ 		return -EINVAL;
+ 
++	if (param->rx_jumbo_pending == 0 ||
++	    param->rx_jumbo_pending > VMXNET3_RX_RING2_MAX_SIZE)
++		return -EINVAL;
++
+ 	/* if adapter not yet initialized, do nothing */
+ 	if (adapter->rx_buf_per_pkt == 0) {
+ 		netdev_err(netdev, "adapter not completely initialized, "
+@@ -500,8 +504,15 @@ vmxnet3_set_ringparam(struct net_device *netdev,
+ 							   sz) != 0)
+ 		return -EINVAL;
+ 
+-	if (new_tx_ring_size == adapter->tx_queue[0].tx_ring.size &&
+-	    new_rx_ring_size == adapter->rx_queue[0].rx_ring[0].size) {
++	/* ring2 has to be a multiple of VMXNET3_RING_SIZE_ALIGN */
++	new_rx_ring2_size = (param->rx_jumbo_pending + VMXNET3_RING_SIZE_MASK) &
++				~VMXNET3_RING_SIZE_MASK;
++	new_rx_ring2_size = min_t(u32, new_rx_ring2_size,
++				  VMXNET3_RX_RING2_MAX_SIZE);
++
++	if (new_tx_ring_size == adapter->tx_ring_size &&
++	    new_rx_ring_size == adapter->rx_ring_size &&
++	    new_rx_ring2_size == adapter->rx_ring2_size) {
+ 		return 0;
  	}
  
--	master = csio_force_master ? CSIO_MASTER_MUST : CSIO_MASTER_MAY;
--
- retry:
- 	csio_mb_hello(hw, mbp, CSIO_MB_DEFAULT_TMO, hw->pfn,
--		      hw->pfn, master, NULL);
-+		      hw->pfn, CSIO_MASTER_MAY, NULL);
+@@ -522,7 +533,7 @@ vmxnet3_set_ringparam(struct net_device *netdev,
+ 		vmxnet3_rq_destroy_all(adapter);
  
- 	rv = csio_mb_issue(hw, mbp);
- 	if (rv) {
-diff --git a/drivers/scsi/csiostor/csio_hw.h b/drivers/scsi/csiostor/csio_hw.h
-index 5db2d85..68248da 100644
---- a/drivers/scsi/csiostor/csio_hw.h
-+++ b/drivers/scsi/csiostor/csio_hw.h
-@@ -110,7 +110,6 @@ struct csio_scsi_cpu_info {
- };
+ 		err = vmxnet3_create_queues(adapter, new_tx_ring_size,
+-			new_rx_ring_size, VMXNET3_DEF_RX_RING_SIZE);
++			new_rx_ring_size, new_rx_ring2_size);
  
- extern int csio_dbg_level;
--extern int csio_force_master;
- extern unsigned int csio_port_mask;
- extern int csio_msi;
+ 		if (err) {
+ 			/* failed, most likely because of OOM, try default
+@@ -530,11 +541,12 @@ vmxnet3_set_ringparam(struct net_device *netdev,
+ 			netdev_err(netdev, "failed to apply new sizes, "
+ 				   "try the default ones\n");
+ 			new_rx_ring_size = VMXNET3_DEF_RX_RING_SIZE;
++			new_rx_ring2_size = VMXNET3_DEF_RX_RING2_SIZE;
+ 			new_tx_ring_size = VMXNET3_DEF_TX_RING_SIZE;
+ 			err = vmxnet3_create_queues(adapter,
+ 						    new_tx_ring_size,
+ 						    new_rx_ring_size,
+-						    VMXNET3_DEF_RX_RING_SIZE);
++						    new_rx_ring2_size);
+ 			if (err) {
+ 				netdev_err(netdev, "failed to create queues "
+ 					   "with default sizes. Closing it\n");
+@@ -549,6 +561,7 @@ vmxnet3_set_ringparam(struct net_device *netdev,
+ 	}
+ 	adapter->tx_ring_size = new_tx_ring_size;
+ 	adapter->rx_ring_size = new_rx_ring_size;
++	adapter->rx_ring2_size = new_rx_ring2_size;
  
+ out:
+ 	clear_bit(VMXNET3_STATE_BIT_RESETTING, &adapter->state);
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index 5f0199f..048f020 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -69,10 +69,10 @@
+ /*
+  * Version numbers
+  */
+-#define VMXNET3_DRIVER_VERSION_STRING   "1.2.1.0-k"
++#define VMXNET3_DRIVER_VERSION_STRING   "1.3.1.0-k"
+ 
+ /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
+-#define VMXNET3_DRIVER_VERSION_NUM      0x01020100
++#define VMXNET3_DRIVER_VERSION_NUM      0x01030100
+ 
+ #if defined(CONFIG_PCI_MSI)
+ 	/* RSS only makes sense if MSI-X is supported. */
+@@ -352,6 +352,7 @@ struct vmxnet3_adapter {
+ 	/* Ring sizes */
+ 	u32 tx_ring_size;
+ 	u32 rx_ring_size;
++	u32 rx_ring2_size;
+ 
+ 	struct work_struct work;
+ 
+@@ -384,6 +385,7 @@ struct vmxnet3_adapter {
+ /* must be a multiple of VMXNET3_RING_SIZE_ALIGN */
+ #define VMXNET3_DEF_TX_RING_SIZE    512
+ #define VMXNET3_DEF_RX_RING_SIZE    256
++#define VMXNET3_DEF_RX_RING2_SIZE   128
+ 
+ #define VMXNET3_MAX_ETH_HDR_SIZE    22
+ #define VMXNET3_MAX_SKB_BUF_SIZE    (3*1024)
 -- 
-1.7.1
+2.1.0
