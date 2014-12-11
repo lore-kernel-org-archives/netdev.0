@@ -1,63 +1,45 @@
-From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH net-next v2 1/3] net: fec: reset fep link status in suspend function
-Date: Thu, 11 Dec 2014 09:20:31 +0800
-Message-ID: <1418260833-896-2-git-send-email-b38611@freescale.com>
-References: <1418260833-896-1-git-send-email-b38611@freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bridge: Add ability to always enable TSO/UFO
+Date: Wed, 10 Dec 2014 21:13:06 -0500 (EST)
+Message-ID: <20141210.211306.1331714594864472914.davem@davemloft.net>
+References: <1418179394-4470-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	<20141210.145047.1148744559031706340.davem@davemloft.net>
+	<5488FBBC.2050105@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <bhutchings@solarflare.com>,
-	<stephen@networkplumber.org>, <b38611@freescale.com>
-To: <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: makita.toshiaki@lab.ntt.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0119.outbound.protection.outlook.com ([207.46.100.119]:27416
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932937AbaLKCJg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Dec 2014 21:09:36 -0500
-In-Reply-To: <1418260833-896-1-git-send-email-b38611@freescale.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49577 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933315AbaLKCNL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2014 21:13:11 -0500
+In-Reply-To: <5488FBBC.2050105@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On some i.MX6 serial boards, phy power and refrence clock are supplied
-or controlled by SOC. When do suspend/resume test, the power and clock
-are disabled, so phy device link down.
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Date: Thu, 11 Dec 2014 11:04:44 +0900
 
-For current driver, fep->link is still up status, which cause extra operation
-like below code. To avoid the dumy operation, we set fep->link to down when
-phy device is real down.
-...
-if (fep->link) {
-	napi_disable(&fep->napi);
-	netif_tx_lock_bh(ndev);
-	fec_stop(ndev);
-	netif_tx_unlock_bh(ndev);
-	napi_enable(&fep->napi);
-	fep->link = phy_dev->link;
-	status_change = 1;
-}
-...
+> On 2014/12/11 4:50, David Miller wrote:
+>> From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>> Date: Wed, 10 Dec 2014 11:43:14 +0900
+>> 
+>>> -	features &= ~NETIF_F_ONE_FOR_ALL;
+>>> +	features &= ~NETIF_F_ONE_FOR_ALL | NETIF_F_GSO_SOFTWARE;
+>> 
+>> I don't think this is the expression you intend to use.
+> 
+> Thank you, but this is really my intended expression.
+> 
+> "features &= ~NETIF_F_ONE_FOR_ALL" drops all of ONE_FOR_ALL bits
+> including GSO_SOFTWARE.
+> But I want to leave GSO_SOFTWARE bits here.
 
-Signed-off-by: Fugang Duan <B38611@freescale.com>
----
- drivers/net/ethernet/freescale/fec_main.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+It is clearer to say this as:
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index fee2afe..b118b7d 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -3332,6 +3332,12 @@ static int __maybe_unused fec_suspend(struct device *dev)
- 	if (fep->reg_phy)
- 		regulator_disable(fep->reg_phy);
- 
-+	/* SOC supply clock to phy, when clock is disabled, phy link down
-+	 * SOC control phy regulator, when regulator is disabled, phy link down
-+	 */
-+	if (fep->clk_enet_out || fep->reg_phy)
-+		fep->link = 0;
-+
- 	return 0;
- }
- 
--- 
-1.7.8
+	~(NETIF_F_ONE_FOR_ALL & ~NETIF_F_GSO_SOFTWARE)
+
+Or create a new NETIF_F_* macro to express this idea succinctly.
