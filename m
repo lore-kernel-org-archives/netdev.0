@@ -1,47 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: bind() should not return -EADDRINUSE
-Date: Thu, 11 Dec 2014 15:25:18 -0500 (EST)
-Message-ID: <20141211.152518.1988079810884987306.davem@davemloft.net>
-References: <5489FBC8.4070706@ubuntu.com>
-	<20141211.151804.2024237965934539073.davem@davemloft.net>
-	<5489FD51.3030609@ubuntu.com>
+From: Anish Bhatt <anish@chelsio.com>
+Subject: RE: [PATCH net v9 0/7] cxgb4/cxgbi: misc. fixes for cxgb4i
+Date: Thu, 11 Dec 2014 20:24:48 +0000
+Message-ID: <525DB349B3FB5444AE057A887CB2A8D8D9AA8E@nice.asicdesigners.com>
+References: <201412111525.sBBFPbfn012920@localhost6.localdomain6>,<20141211.150430.1465687238823811699.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: psusi@ubuntu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56329 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758327AbaLKUZU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 15:25:20 -0500
-In-Reply-To: <5489FD51.3030609@ubuntu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	"hch@infradead.org" <hch@infradead.org>,
+	"James.Bottomley@HansenPartnership.com"
+	<James.Bottomley@HansenPartnership.com>,
+	"michaelc@cs.wisc.edu" <michaelc@cs.wisc.edu>
+To: David Miller <davem@davemloft.net>, Karen Xie <kxie@chelsio.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20141211.150430.1465687238823811699.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Phillip Susi <psusi@ubuntu.com>
-Date: Thu, 11 Dec 2014 15:23:45 -0500
+> This series does not apply cleanly at all to net-next, it gets many
+> rejects.
 
-> -----BEGIN PGP SIGNED MESSAGE-----
-> Hash: SHA1
-> 
-> On 12/11/2014 3:18 PM, David Miller wrote:
->> From: Phillip Susi <psusi@ubuntu.com> Date: Thu, 11 Dec 2014
->> 15:17:12 -0500
->> 
->>> Says who?
->> 
->> Says multiple decades of precendence.
-> 
-> "It has always been broken, so it should stay broken" isn't a very
-> compelling argument.
-> 
-> Would it cause programs to break if they get the error at listen()
-> time instead of bind() time ( as the man page indicates it can )?  I
-> think not.
-
-You will definitely break programs that look for a locally available
-port by iterating over bind() calls.
-
-Sorry, this is not changing, no matter how strongly you may wish it
-to.
+Hey Dave, this patchset was mostly bugfixes and hence meant for net where it
+applies cleanly. not net-next. We can rebase to net-next and send if you're still
+ willing to take it before net-next closes.
+-Anish
