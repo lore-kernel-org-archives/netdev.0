@@ -1,134 +1,123 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port
- configuration
-Date: Thu, 11 Dec 2014 18:54:53 +0100
-Message-ID: <20141211175453.GH1912@nanopsycho.orion>
-References: <C4896FB061E7DE4AAC93031BDCA044B104AC3257@IRSMSX108.ger.corp.intel.com>
- <20141210165018.GG1863@nanopsycho.orion>
- <54887CF7.70708@gmail.com>
- <C4896FB061E7DE4AAC93031BDCA044B104AC3914@IRSMSX108.ger.corp.intel.com>
- <20141211110115.GA1979@nanopsycho.lan>
- <5489C85A.5020400@cumulusnetworks.com>
- <20141211165627.GF1912@nanopsycho.orion>
- <5489D739.9010303@cumulusnetworks.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port configuration
+Date: Thu, 11 Dec 2014 09:55:39 -0800
+Message-ID: <5489DA9B.4010900@intel.com>
+References: <C4896FB061E7DE4AAC93031BDCA044B104AC3257@IRSMSX108.ger.corp.intel.com> <20141210165018.GG1863@nanopsycho.orion> <54887CF7.70708@gmail.com> <C4896FB061E7DE4AAC93031BDCA044B104AC3914@IRSMSX108.ger.corp.intel.com> <20141211110115.GA1979@nanopsycho.lan> <5489C85A.5020400@cumulusnetworks.com> <20141211165627.GF1912@nanopsycho.orion> <5489D739.9010303@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Cc: "Varlese, Marco" <marco.varlese@intel.com>,
 	John Fastabend <john.fastabend@gmail.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
 	"sfeldma@gmail.com" <sfeldma@gmail.com>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
 In-Reply-To: <5489D739.9010303@cumulusnetworks.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thu, Dec 11, 2014 at 06:41:13PM CET, roopa@cumulusnetworks.com wrote:
->On 12/11/14, 8:56 AM, Jiri Pirko wrote:
->>Thu, Dec 11, 2014 at 05:37:46PM CET, roopa@cumulusnetworks.com wrote:
->>>On 12/11/14, 3:01 AM, Jiri Pirko wrote:
->>>>Thu, Dec 11, 2014 at 10:59:42AM CET, marco.varlese@intel.com wrote:
->>>>>>-----Original Message-----
->>>>>>From: John Fastabend [mailto:john.fastabend@gmail.com]
->>>>>>Sent: Wednesday, December 10, 2014 5:04 PM
->>>>>>To: Jiri Pirko
->>>>>>Cc: Varlese, Marco; netdev@vger.kernel.org;
->>>>>>stephen@networkplumber.org; Fastabend, John R;
->>>>>>roopa@cumulusnetworks.com; sfeldma@gmail.com; linux-
->>>>>>kernel@vger.kernel.org
->>>>>>Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port
->>>>>>configuration
+On 12/11/2014 09:41 AM, Roopa Prabhu wrote:
+> On 12/11/14, 8:56 AM, Jiri Pirko wrote:
+>> Thu, Dec 11, 2014 at 05:37:46PM CET, roopa@cumulusnetworks.com wrote:
+>>> On 12/11/14, 3:01 AM, Jiri Pirko wrote:
+>>>> Thu, Dec 11, 2014 at 10:59:42AM CET, marco.varlese@intel.com wrote:
+>>>>>> -----Original Message-----
+>>>>>> From: John Fastabend [mailto:john.fastabend@gmail.com]
+>>>>>> Sent: Wednesday, December 10, 2014 5:04 PM
+>>>>>> To: Jiri Pirko
+>>>>>> Cc: Varlese, Marco; netdev@vger.kernel.org;
+>>>>>> stephen@networkplumber.org; Fastabend, John R;
+>>>>>> roopa@cumulusnetworks.com; sfeldma@gmail.com; linux-
+>>>>>> kernel@vger.kernel.org
+>>>>>> Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port
+>>>>>> configuration
 >>>>>>
->>>>>>On 12/10/2014 08:50 AM, Jiri Pirko wrote:
->>>>>>>Wed, Dec 10, 2014 at 05:23:40PM CET, marco.varlese@intel.com wrote:
->>>>>>>>From: Marco Varlese <marco.varlese@intel.com>
+>>>>>> On 12/10/2014 08:50 AM, Jiri Pirko wrote:
+>>>>>>> Wed, Dec 10, 2014 at 05:23:40PM CET, marco.varlese@intel.com wrote:
+>>>>>>>> From: Marco Varlese <marco.varlese@intel.com>
 >>>>>>>>
->>>>>>>>Switch hardware offers a list of attributes that are configurable on
->>>>>>>>a per port basis.
->>>>>>>>This patch provides a mechanism to configure switch ports by adding
->>>>>>>>an NDO for setting specific values to specific attributes.
->>>>>>>>There will be a separate patch that extends iproute2 to call the new
->>>>>>>>NDO.
->>>>>>>What are these attributes? Can you give some examples. I'm asking
->>>>>>>because there is a plan to pass generic attributes to switch ports
->>>>>>>replacing current specific ndo_switch_port_stp_update. In this case,
->>>>>>>bridge is setting that attribute.
+>>>>>>>> Switch hardware offers a list of attributes that are configurable on
+>>>>>>>> a per port basis.
+>>>>>>>> This patch provides a mechanism to configure switch ports by adding
+>>>>>>>> an NDO for setting specific values to specific attributes.
+>>>>>>>> There will be a separate patch that extends iproute2 to call the new
+>>>>>>>> NDO.
+>>>>>>> What are these attributes? Can you give some examples. I'm asking
+>>>>>>> because there is a plan to pass generic attributes to switch ports
+>>>>>>> replacing current specific ndo_switch_port_stp_update. In this case,
+>>>>>>> bridge is setting that attribute.
 >>>>>>>
->>>>>>>Is there need to set something directly from userspace or does it make
->>>>>>>rather sense to use involved bridge/ovs/bond ? I think that both will
->>>>>>>be needed.
->>>>>>+1
+>>>>>>> Is there need to set something directly from userspace or does it make
+>>>>>>> rather sense to use involved bridge/ovs/bond ? I think that both will
+>>>>>>> be needed.
+>>>>>> +1
 >>>>>>
->>>>>>I think for many attributes it would be best to have both. The in kernel callers
->>>>>>and netlink userspace can use the same driver ndo_ops.
+>>>>>> I think for many attributes it would be best to have both. The in kernel callers
+>>>>>> and netlink userspace can use the same driver ndo_ops.
 >>>>>>
->>>>>>But then we don't _require_ any specific bridge/ovs/etc module. And we
->>>>>>may have some attributes that are not specific to any existing software
->>>>>>module. I'm guessing Marco has some examples of these.
+>>>>>> But then we don't _require_ any specific bridge/ovs/etc module. And we
+>>>>>> may have some attributes that are not specific to any existing software
+>>>>>> module. I'm guessing Marco has some examples of these.
 >>>>>>
->>>>>>[...]
+>>>>>> [...]
 >>>>>>
 >>>>>>
->>>>>>--
->>>>>>John Fastabend         Intel Corporation
->>>>>We do have a need to configure the attributes directly from user-space and I have identified the tool to do that in iproute2.
+>>>>>> -- 
+>>>>>> John Fastabend         Intel Corporation
+>>>>> We do have a need to configure the attributes directly from user-space and I have identified the tool to do that in iproute2.
 >>>>>
->>>>>An example of attributes are:
->>>>>* enabling/disabling of learning of source addresses on a given port (you can imagine the attribute called LEARNING for example);
->>>>>* internal loopback control (i.e. LOOPBACK) which will control how the flow of traffic behaves from the switch fabric towards an egress port;
->>>>>* flooding for broadcast/multicast/unicast type of packets (i.e. BFLOODING, MFLOODING, UFLOODING);
+>>>>> An example of attributes are:
+>>>>> * enabling/disabling of learning of source addresses on a given port (you can imagine the attribute called LEARNING for example);
+>>>>> * internal loopback control (i.e. LOOPBACK) which will control how the flow of traffic behaves from the switch fabric towards an egress port;
+>>>>> * flooding for broadcast/multicast/unicast type of packets (i.e. BFLOODING, MFLOODING, UFLOODING);
 >>>>>
->>>>>Some attributes would be of the type enabled/disabled while other will allow specific values to allow the user to configure different behaviours of that feature on that particular port on that platform.
+>>>>> Some attributes would be of the type enabled/disabled while other will allow specific values to allow the user to configure different behaviours of that feature on that particular port on that platform.
 >>>>>
->>>>>One thing to mention - as John stated as well - there might be some attributes that are not specific to any software module but rather have to do with the actual hardware/platform to configure.
+>>>>> One thing to mention - as John stated as well - there might be some attributes that are not specific to any software module but rather have to do with the actual hardware/platform to configure.
 >>>>>
->>>>>I hope this clarifies some points.
->>>>It does. Makes sense. We need to expose this attr set/get for both
->>>>in-kernel and userspace use cases.
+>>>>> I hope this clarifies some points.
+>>>> It does. Makes sense. We need to expose this attr set/get for both
+>>>> in-kernel and userspace use cases.
 >>>>
->>>>Please adjust you patch for this. Also, as a second patch, it would be
->>>>great if you can convert ndo_switch_port_stp_update to this new ndo.
->>>Why are we exposing generic switch attribute get/set from userspace ?. We
->>>already have specific attributes for learning/flooding which can be extended
->>>further.
->>Yes, but that is for PF_BRIDGE and bridge specific attributes. There
->>might be another generic attrs, no?
->I cant think of any. And plus, the whole point of switchdev l2 offloads was
->to map these to existing
->bridge attributes. And we already have a match for some of the attributes
->that marco wants.
->
->If there is a need for such attributes, i don't see why it is needed for
->switch devices only.
->It is needed for any hw (nics etc). And, a precedence to this is to do it via
->ethtool.
+>>>> Please adjust you patch for this. Also, as a second patch, it would be
+>>>> great if you can convert ndo_switch_port_stp_update to this new ndo.
+>>> Why are we exposing generic switch attribute get/set from userspace ?. We
+>>> already have specific attributes for learning/flooding which can be extended
+>>> further.
+>> Yes, but that is for PF_BRIDGE and bridge specific attributes. There
+>> might be another generic attrs, no?
+> I cant think of any. And plus, the whole point of switchdev l2 offloads was to map these to existing
+> bridge attributes. And we already have a match for some of the attributes that marco wants.
+> 
+> If there is a need for such attributes, i don't see why it is needed for switch devices only.
+> It is needed for any hw (nics etc). And, a precedence to this is to do it via ethtool.
 
-Fair enough.
+I would prefer to _not_ add more attributes to ethtool. 'ethtool' is in general
+harder to work with then netlink for all but the most static attributes.
 
->
->Having said that, am sure we will find a need for this in the future. And
->having a netlink attribute always helps.
->
->Today, it seems like these can be mapped to existing attributes that are
->settable via ndo_bridge_setlink/getlink.
+> 
+> Having said that, am sure we will find a need for this in the future. And having a netlink attribute always helps.
+> 
+> Today, it seems like these can be mapped to existing attributes that are settable via ndo_bridge_setlink/getlink.
 
-Okay. That makes sense so far for bridge.
+Absolutely I view this as an RFC patch noting we may/will need some extensions
+in the future. .We can evaluate the attributes on a case by case basis as they
+come in. And if they all fit in setlink/getlink that is great. 
 
->
+> 
 >>
->>>And for in kernel api....i had a sample patch in my RFC series (Which i was
->>>going to resubmit, until it was decided that we will use existing api around
->>>ndo_bridge_setlink/ndo_bridge_getlink):
->>>http://www.spinics.net/lists/netdev/msg305473.html
->>Yes, this might become handy for other generic non-bridge attrs.
+>>> And for in kernel api....i had a sample patch in my RFC series (Which i was
+>>> going to resubmit, until it was decided that we will use existing api around
+>>> ndo_bridge_setlink/ndo_bridge_getlink):
+>>> http://www.spinics.net/lists/netdev/msg305473.html
+>> Yes, this might become handy for other generic non-bridge attrs.
 >>
->>>Thanks,
->>>Roopa
+>>> Thanks,
+>>> Roopa
 >>>
 >>>
 >>>
->
+> 
