@@ -1,30 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v9 0/7] cxgb4/cxgbi: misc. fixes for cxgb4i
-Date: Thu, 11 Dec 2014 15:28:20 -0500 (EST)
-Message-ID: <20141211.152820.1113313283475373586.davem@davemloft.net>
-References: <201412111525.sBBFPbfn012920@localhost6.localdomain6>
-	<20141211.150430.1465687238823811699.davem@davemloft.net>
-	<525DB349B3FB5444AE057A887CB2A8D8D9AA8E@nice.asicdesigners.com>
+Subject: Re: [PATCH v7 0/4] arch: Add lightweight memory barriers for
+ coherent memory access
+Date: Thu, 11 Dec 2014 15:32:04 -0500 (EST)
+Message-ID: <20141211.153204.228153607927530694.davem@davemloft.net>
+References: <20141125203310.8240.27370.stgit@ahduyck-server>
+	<54892B87.3020909@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kxie@chelsio.com, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org, hariprasad@chelsio.com, hch@infradead.org,
-	James.Bottomley@HansenPartnership.com, michaelc@cs.wisc.edu
-To: anish@chelsio.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <525DB349B3FB5444AE057A887CB2A8D8D9AA8E@nice.asicdesigners.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Cc: alexander.h.duyck@redhat.com, linux-arch@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	arnd@arndb.de, mathieu.desnoyers@polymtl.ca, peterz@infradead.org,
+	benh@kernel.crashing.org, heiko.carstens@de.ibm.com,
+	mingo@kernel.org, mikey@neuling.org, linux@arm.linux.org.uk,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	geert@linux-m68k.org, jeffrey.t.kirsher@intel.com,
+	romieu@fr.zoreil.com, paulmck@linux.vnet.ibm.com,
+	nic_swsd@realtek.com, will.deacon@arm.com, michael@ellerman.id.au,
+	tony.luck@intel.com, torvalds@linux-foundation.org,
+	oleg@redhat.com, schwidefsky@de.ibm.com, fweisbec@gmail.com
+To: alexander.duyck@gmail.com
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <54892B87.3020909@gmail.com>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Anish Bhatt <anish@chelsio.com>
-Date: Thu, 11 Dec 2014 20:24:48 +0000
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Date: Wed, 10 Dec 2014 21:28:39 -0800
 
->> This series does not apply cleanly at all to net-next, it gets many
->> rejects.
+> It occurs to me that I never got a sign off from any of the maintainers
+> on getting this pulled in.
 > 
-> Hey Dave, this patchset was mostly bugfixes and hence meant for net where it
-> applies cleanly. not net-next. We can rebase to net-next and send if you're still
->  willing to take it before net-next closes.
+> Since the merge window is open I was wondering which tree I should make
+> sure these patches apply to and who will be the one to pull them in?
+> Since I was modifying network drivers should I resubmit them for netdev,
+> or should I submit them for asm-generic or some other tree?
 
-You absolutely must rebase it on net-next.
+I have no problem taking this via my tree, but I want to see agreement
+from other interested parties.
