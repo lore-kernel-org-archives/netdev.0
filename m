@@ -1,41 +1,88 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] gianfar: Fix dma check map error when
- DMA_API_DEBUG is enabled
-Date: Thu, 11 Dec 2014 14:27:51 -0500 (EST)
-Message-ID: <20141211.142751.14939995747583356.davem@davemloft.net>
-References: <20141211020646.GB18701@pek-khao-d1.corp.ad.wrs.com>
-	<1418278121-20209-1-git-send-email-haokexin@gmail.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH v2 1/1] net/macb: add TX multiqueue support for gem
+Date: Thu, 11 Dec 2014 20:31:03 +0100
+Message-ID: <20141211203103.4191887a@free-electrons.com>
+References: <cover.1418291637.git.cyrille.pitchen@atmel.com>
+	<87a3098203ee6eaa7a60607713a293d3258e2b58.1418291637.git.cyrille.pitchen@atmel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, claudiu.manoil@freescale.com
-To: haokexin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55763 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758691AbaLKT1y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 14:27:54 -0500
-In-Reply-To: <1418278121-20209-1-git-send-email-haokexin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
+	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	<soren.brinkmann@xilinx.com>, linux-kernel@vger.kernel.org
+To: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87a3098203ee6eaa7a60607713a293d3258e2b58.1418291637.git.cyrille.pitchen@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kevin Hao <haokexin@gmail.com>
-Date: Thu, 11 Dec 2014 14:08:41 +0800
+Dear Cyrille Pitchen,
 
-> We need to use dma_mapping_error() to check the dma address returned
-> by dma_map_single/page(). Otherwise we would get warning like this:
- ...
-> For TX, we need to unmap the pages which has already been mapped and
-> free the skb before return.
-> 
-> For RX, move the dma mapping and error check to gfar_new_skb(). We
-> would reuse the original skb in the rx ring when either allocating
-> skb failure or dma mapping error.
-> 
-> Signed-off-by: Kevin Hao <haokexin@gmail.com>
-> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
-> ---
-> v2: Just update the RX path to reuse the original skb when dma mapping error
->     occurs as suggested by David.
+On Thu, 11 Dec 2014 11:16:51 +0100, Cyrille Pitchen wrote:
 
-Looks good, applied, thanks.
+> +#define GEM_ISR1				0x0400
+> +#define GEM_ISR2				0x0404
+> +#define GEM_ISR3				0x0408
+> +#define GEM_ISR4				0x040c
+> +#define GEM_ISR5				0x0410
+> +#define GEM_ISR6				0x0414
+> +#define GEM_ISR7				0x0418
+
+What about doing instead:
+
+#define GEM_ISR(q)				((q) == 0 ? MACB_ISR : 0x400 + (q) << 2)
+
+And ditto for all other registers, which will save a lot of boring repeated code.
+
+If you do that, then you can avoid the following fields in the
+macb_queue structure:
+
++	unsigned int		ISR;
++	unsigned int		IER;
++	unsigned int		IDR;
++	unsigned int		IMR;
++	unsigned int		TBQP;
+
+And the not very pleasant calculation of those offsets:
+
++	bp->queues[0].bp = bp;
++	bp->queues[0].ISR  = MACB_ISR;
++	bp->queues[0].IER  = MACB_IER;
++	bp->queues[0].IDR  = MACB_IDR;
++	bp->queues[0].IMR  = MACB_IMR;
++	bp->queues[0].TBQP = MACB_TBQP;
++	for (q = 1, queue = &bp->queues[1]; q < MACB_MAX_QUEUES; ++q) {
++		if (!(queue_mask & (1 << q)))
++			continue;
++
++		queue->bp = bp;
++		queue->ISR  = (q-1) * sizeof(u32) + GEM_ISR1;
++		queue->IER  = (q-1) * sizeof(u32) + GEM_IER1;
++		queue->IDR  = (q-1) * sizeof(u32) + GEM_IDR1;
++		queue->IMR  = (q-1) * sizeof(u32) + GEM_IMR1;
++		queue->TBQP = (q-1) * sizeof(u32) + GEM_TBQP1;
++		queue++;
++	}
+
+You replace the ISR, IER, IDR, IMR and TBQP by an "id" field in
+macb_queue, which contains the queue number, and then change your:
+
++#define queue_readl(queue, reg)				\
++	__raw_readl((queue)->bp->regs + queue->reg)
++#define queue_writel(queue, reg, value)			\
++	__raw_writel((value), (queue)->bp->regs + queue->reg)
+
+to
+
++#define queue_readl(queue, reg)				\
++	__raw_readl((queue)->bp->regs + reg((queue)->id))
++#define queue_writel(queue, reg, value)			\
++	__raw_writel((value), (queue)->bp->regs + reg((queue)->id)
+
+Best regards,
+
+Thomas
+-- 
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
