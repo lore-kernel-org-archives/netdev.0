@@ -1,69 +1,122 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: [PATCH net v2] gianfar: Fix dma check map error when DMA_API_DEBUG
- is enabled
-Date: Thu, 11 Dec 2014 19:05:54 +0200
-Message-ID: <5489CEF2.5090208@freescale.com>
-References: <20141211020646.GB18701@pek-khao-d1.corp.ad.wrs.com>
- <1418278121-20209-1-git-send-email-haokexin@gmail.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port configuration
+Date: Thu, 11 Dec 2014 09:41:13 -0800
+Message-ID: <5489D739.9010303@cumulusnetworks.com>
+References: <C4896FB061E7DE4AAC93031BDCA044B104AC3257@IRSMSX108.ger.corp.intel.com> <20141210165018.GG1863@nanopsycho.orion> <54887CF7.70708@gmail.com> <C4896FB061E7DE4AAC93031BDCA044B104AC3914@IRSMSX108.ger.corp.intel.com> <20141211110115.GA1979@nanopsycho.lan> <5489C85A.5020400@cumulusnetworks.com> <20141211165627.GF1912@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: Kevin Hao <haokexin@gmail.com>, <netdev@vger.kernel.org>
+Cc: "Varlese, Marco" <marco.varlese@intel.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0110.outbound.protection.outlook.com ([157.56.111.110]:61164
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750702AbaLKRiv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Dec 2014 12:38:51 -0500
-In-Reply-To: <1418278121-20209-1-git-send-email-haokexin@gmail.com>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:58045 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750702AbaLKRlc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 12:41:32 -0500
+In-Reply-To: <20141211165627.GF1912@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/11/2014 8:08 AM, Kevin Hao wrote:
-> We need to use dma_mapping_error() to check the dma address returned
-> by dma_map_single/page(). Otherwise we would get warning like this:
->    WARNING: at lib/dma-debug.c:1140
->    Modules linked in:
->    CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.18.0-rc2-next-20141029 #196
->    task: c0834300 ti: effe6000 task.ti: c0874000
->    NIP: c02b2c98 LR: c02b2c98 CTR: c030abc4
->    REGS: effe7d70 TRAP: 0700   Not tainted  (3.18.0-rc2-next-20141029)
->    MSR: 00021000 <CE,ME>  CR: 22044022  XER: 20000000
->
->    GPR00: c02b2c98 effe7e20 c0834300 00000098 00021000 00000000 c030b898 00000003
->    GPR08: 00000001 00000000 00000001 749eec9d 22044022 1001abe0 00000020 ef278678
->    GPR16: ef278670 ef278668 ef278660 070a8040 c087f99c c08cdc60 00029000 c0840d44
->    GPR24: c08be6e8 c0840000 effe7e78 ef041340 00000600 ef114e10 00000000 c08be6e0
->    NIP [c02b2c98] check_unmap+0x51c/0x9e4
->    LR [c02b2c98] check_unmap+0x51c/0x9e4
->    Call Trace:
->    [effe7e20] [c02b2c98] check_unmap+0x51c/0x9e4 (unreliable)
->    [effe7e70] [c02b31d8] debug_dma_unmap_page+0x78/0x8c
->    [effe7ed0] [c03d1640] gfar_clean_rx_ring+0x208/0x488
->    [effe7f40] [c03d1a9c] gfar_poll_rx_sq+0x3c/0xa8
->    [effe7f60] [c04f8714] net_rx_action+0xc0/0x178
->    [effe7f90] [c00435a0] __do_softirq+0x100/0x1fc
->    [effe7fe0] [c0043958] irq_exit+0xa4/0xc8
->    [effe7ff0] [c000d14c] call_do_irq+0x24/0x3c
->    [c0875e90] [c00048a0] do_IRQ+0x8c/0xf8
->    [c0875eb0] [c000ed10] ret_from_except+0x0/0x18
->
-> For TX, we need to unmap the pages which has already been mapped and
-> free the skb before return.
->
-> For RX, move the dma mapping and error check to gfar_new_skb(). We
-> would reuse the original skb in the rx ring when either allocating
-> skb failure or dma mapping error.
->
-> Signed-off-by: Kevin Hao <haokexin@gmail.com>
-> ---
-> v2: Just update the RX path to reuse the original skb when dma mapping error
->      occurs as suggested by David.
->
+On 12/11/14, 8:56 AM, Jiri Pirko wrote:
+> Thu, Dec 11, 2014 at 05:37:46PM CET, roopa@cumulusnetworks.com wrote:
+>> On 12/11/14, 3:01 AM, Jiri Pirko wrote:
+>>> Thu, Dec 11, 2014 at 10:59:42AM CET, marco.varlese@intel.com wrote:
+>>>>> -----Original Message-----
+>>>>> From: John Fastabend [mailto:john.fastabend@gmail.com]
+>>>>> Sent: Wednesday, December 10, 2014 5:04 PM
+>>>>> To: Jiri Pirko
+>>>>> Cc: Varlese, Marco; netdev@vger.kernel.org;
+>>>>> stephen@networkplumber.org; Fastabend, John R;
+>>>>> roopa@cumulusnetworks.com; sfeldma@gmail.com; linux-
+>>>>> kernel@vger.kernel.org
+>>>>> Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port
+>>>>> configuration
+>>>>>
+>>>>> On 12/10/2014 08:50 AM, Jiri Pirko wrote:
+>>>>>> Wed, Dec 10, 2014 at 05:23:40PM CET, marco.varlese@intel.com wrote:
+>>>>>>> From: Marco Varlese <marco.varlese@intel.com>
+>>>>>>>
+>>>>>>> Switch hardware offers a list of attributes that are configurable on
+>>>>>>> a per port basis.
+>>>>>>> This patch provides a mechanism to configure switch ports by adding
+>>>>>>> an NDO for setting specific values to specific attributes.
+>>>>>>> There will be a separate patch that extends iproute2 to call the new
+>>>>>>> NDO.
+>>>>>> What are these attributes? Can you give some examples. I'm asking
+>>>>>> because there is a plan to pass generic attributes to switch ports
+>>>>>> replacing current specific ndo_switch_port_stp_update. In this case,
+>>>>>> bridge is setting that attribute.
+>>>>>>
+>>>>>> Is there need to set something directly from userspace or does it make
+>>>>>> rather sense to use involved bridge/ovs/bond ? I think that both will
+>>>>>> be needed.
+>>>>> +1
+>>>>>
+>>>>> I think for many attributes it would be best to have both. The in kernel callers
+>>>>> and netlink userspace can use the same driver ndo_ops.
+>>>>>
+>>>>> But then we don't _require_ any specific bridge/ovs/etc module. And we
+>>>>> may have some attributes that are not specific to any existing software
+>>>>> module. I'm guessing Marco has some examples of these.
+>>>>>
+>>>>> [...]
+>>>>>
+>>>>>
+>>>>> --
+>>>>> John Fastabend         Intel Corporation
+>>>> We do have a need to configure the attributes directly from user-space and I have identified the tool to do that in iproute2.
+>>>>
+>>>> An example of attributes are:
+>>>> * enabling/disabling of learning of source addresses on a given port (you can imagine the attribute called LEARNING for example);
+>>>> * internal loopback control (i.e. LOOPBACK) which will control how the flow of traffic behaves from the switch fabric towards an egress port;
+>>>> * flooding for broadcast/multicast/unicast type of packets (i.e. BFLOODING, MFLOODING, UFLOODING);
+>>>>
+>>>> Some attributes would be of the type enabled/disabled while other will allow specific values to allow the user to configure different behaviours of that feature on that particular port on that platform.
+>>>>
+>>>> One thing to mention - as John stated as well - there might be some attributes that are not specific to any software module but rather have to do with the actual hardware/platform to configure.
+>>>>
+>>>> I hope this clarifies some points.
+>>> It does. Makes sense. We need to expose this attr set/get for both
+>>> in-kernel and userspace use cases.
+>>>
+>>> Please adjust you patch for this. Also, as a second patch, it would be
+>>> great if you can convert ndo_switch_port_stp_update to this new ndo.
+>> Why are we exposing generic switch attribute get/set from userspace ?. We
+>> already have specific attributes for learning/flooding which can be extended
+>> further.
+> Yes, but that is for PF_BRIDGE and bridge specific attributes. There
+> might be another generic attrs, no?
+I cant think of any. And plus, the whole point of switchdev l2 offloads 
+was to map these to existing
+bridge attributes. And we already have a match for some of the 
+attributes that marco wants.
 
-Very nice refactoring of gfar_new_skb(), removing gfar_new_rxbdp() in 
-the process.  (Did not have the time to test it yet.)
-Thanks.
+If there is a need for such attributes, i don't see why it is needed for 
+switch devices only.
+It is needed for any hw (nics etc). And, a precedence to this is to do 
+it via ethtool.
 
-Reviewed-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+Having said that, am sure we will find a need for this in the future. 
+And having a netlink attribute always helps.
+
+Today, it seems like these can be mapped to existing attributes that are 
+settable via ndo_bridge_setlink/getlink.
+
+>
+>> And for in kernel api....i had a sample patch in my RFC series (Which i was
+>> going to resubmit, until it was decided that we will use existing api around
+>> ndo_bridge_setlink/ndo_bridge_getlink):
+>> http://www.spinics.net/lists/netdev/msg305473.html
+> Yes, this might become handy for other generic non-bridge attrs.
+>
+>> Thanks,
+>> Roopa
+>>
+>>
+>>
