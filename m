@@ -1,36 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Driver: Vmxnet3: Make Rx ring 2 size configurable
-Date: Thu, 11 Dec 2014 12:05:14 -0500 (EST)
-Message-ID: <20141211.120514.1224165557764220263.davem@davemloft.net>
-References: <1418276262-4728-1-git-send-email-skhare@vmware.com>
+From: "Hubert Sokolowski" <h.sokolowski@wit.edu.pl>
+Subject: Re: [PATCH net-next RESEND] net: Do not call ndo_dflt_fdb_dump if
+ ndo_fdb_dump is defined.
+Date: Thu, 11 Dec 2014 17:06:22 -0000
+Message-ID: <7968540cd0768a770b0c8b29ce41a162.squirrel@poczta.wsisiz.edu.pl>
+References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>
+    <54894850.5000603@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sbhatewara@vmware.com, pv-drivers@vmware.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bollar@vmware.com
-To: skhare@vmware.com
+Content-Type: text/plain;charset=UTF8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, "Jamal Hadi Salim" <hadi@mojatatu.com>
+To: "Roopa Prabhu" <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54456 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932311AbaLKRFR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 12:05:17 -0500
-In-Reply-To: <1418276262-4728-1-git-send-email-skhare@vmware.com>
+Received: from dervish.wsisiz.edu.pl ([213.135.44.54]:51781 "EHLO
+	dervish.wsisiz.edu.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932950AbaLKRGZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 12:06:25 -0500
+In-Reply-To: <54894850.5000603@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shrikrishna Khare <skhare@vmware.com>
-Date: Wed, 10 Dec 2014 21:37:42 -0800
 
-> Rx ring 2 size can be configured by adjusting rx-jumbo parameter
-> of ethtool -G.
-> 
-> Signed-off-by: Ramya Bolla <bollar@vmware.com>
-> Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
-> Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+My apologies for sending again, I forgot to include a sample output you asked.
 
-This is a new feature patch, and the net-next tree is closed, therefore
-it is not appropriate to submit a change like this at this time.
+> Also, if i hear your concern correctly, for bridge ports that implement
+> ndo_fdb_dump, with commit 5e6d243587990a588143b9da3974833649595587, we
+> will get two entries for each 'self' entry above.
+> Can you also paste sample output for that ?.
+>
 
-Please resubmit when the net-next tree opens back up, some time after
-the merge window is over.
+[root@silpixa00378825 ~]# bridge fdb show brport mac0
+33:33:00:00:00:01 self permanent
+33:33:00:00:00:01 self permanent
+
+Regards,
+Hubert
