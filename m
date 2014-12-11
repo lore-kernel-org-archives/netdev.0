@@ -1,43 +1,67 @@
-From: Karen Xie <kxie@chelsio.com>
-Subject: [PATCH net v9 7/7] libcxgbi: fix freeing skb prematurely
-Date: Thu, 11 Dec 2014 07:25:58 -0800
-Message-ID: <201412111525.sBBFPw0b012963@localhost6.localdomain6>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH iproute2] ip: Simplify executing ip cmd within namespace
+Date: Thu, 11 Dec 2014 17:09:28 +0100
+Message-ID: <20141211170928.62c8e637@griffin>
+References: <1418252195-2612-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kxie@chelsio.com, hariprasad@chelsio.com, anish@chelsio.com,
-	hch@infradead.org, James.Bottomley@HansenPartnership.com,
-	michaelc@cs.wisc.edu, davem@davemloft.net
-To: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42033 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933438AbaLKQJd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Dec 2014 11:09:33 -0500
+In-Reply-To: <1418252195-2612-1-git-send-email-vadim4j@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Karen Xie <kxie@chelsio.com>
+On Thu, 11 Dec 2014 00:56:35 +0200, Vadim Kochan wrote:
+> From: Vadim Kochan <vadim4j@gmail.com>
+> 
+> Added new '-ns' option to simplify executing following cmd:
+> 
+>     ip netns exec NETNS ip OPTIONS COMMAND OBJECT
+> 
+>     to
+> 
+>     ip -ns NETNS OPTIONS COMMAND OBJECT
+> 
+> e.g.:
+> 
+>     ip -ns vnet0 link add br0 type bridge
 
-With debug turned on the debug print would access the skb after it is freed.
-Fix it to free the skb after the debug print.
+This is great! It's a thing that has been bothering me for long time
+but never got high enough on my todo list. Thanks for working on this.
 
-Signed-off-by: Karen Xie <kxie@chelsio.com>
----
- drivers/scsi/cxgbi/libcxgbi.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+However,
 
-diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
-index 7da59c3..eb58afc 100644
---- a/drivers/scsi/cxgbi/libcxgbi.c
-+++ b/drivers/scsi/cxgbi/libcxgbi.c
-@@ -2294,10 +2294,12 @@ int cxgbi_conn_xmit_pdu(struct iscsi_task *task)
- 		return err;
- 	}
- 
--	kfree_skb(skb);
- 	log_debug(1 << CXGBI_DBG_ISCSI | 1 << CXGBI_DBG_PDU_TX,
- 		"itt 0x%x, skb 0x%p, len %u/%u, xmit err %d.\n",
- 		task->itt, skb, skb->len, skb->data_len, err);
-+
-+	kfree_skb(skb);
-+
- 	iscsi_conn_printk(KERN_ERR, task->conn, "xmit err %d.\n", err);
- 	iscsi_conn_failure(task->conn, ISCSI_ERR_XMIT_FAILED);
- 	return err;
+> --- a/ip/ip.c
+> +++ b/ip/ip.c
+> @@ -262,6 +262,12 @@ int main(int argc, char **argv)
+>  			rcvbuf = size;
+>  		} else if (matches(opt, "-help") == 0) {
+>  			usage();
+> +		} else if (matches(opt, "-ns") == 0) {
+> +			argc--;
+> +			argv++;
+> +			argv[0] = argv[1];
+> +			argv[1] = basename;
+> +			return netns_exec(argc, argv);
+
+I very much dislike this. There's no reason to exec another ip binary.
+The main reason I wanted the -n (or whatever) option was to speed up
+execution of test scripts in environments with hundreds of interfaces
+in different net namespaces.
+
+Please just change to the specified netns and continue with interpreting
+of the rest of the command line, there's absolutely no reason for doing
+the exec.
+
+Thanks,
+
+ Jiri
+
+-- 
+Jiri Benc
