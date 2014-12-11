@@ -1,62 +1,94 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH iproute2] ip: Simplify executing ip cmd within namespace
-Date: Thu, 11 Dec 2014 16:36:17 -0200
-Message-ID: <5489E421.4020003@gmail.com>
-References: <1418252195-2612-1-git-send-email-vadim4j@gmail.com> <20141211170928.62c8e637@griffin> <20141211163335.GA27913@angus-think.wlc.globallogic.com> <5489D56E.4010505@gmail.com> <20141211190846.1e25e7fa@griffin>
+From: "Arad, Ronen" <ronen.arad@intel.com>
+Subject: RE: [PATCH net-next RESEND] net: Do not call ndo_dflt_fdb_dump if
+ ndo_fdb_dump is defined.
+Date: Thu, 11 Dec 2014 18:47:36 +0000
+Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505D89389@ORSMSX101.amr.corp.intel.com>
+References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>
+    <54894850.5000603@cumulusnetworks.com>
+ <6e03100b17d3e17625f1c323d94a853e.squirrel@poczta.wsisiz.edu.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: vadim4j@gmail.com, netdev@vger.kernel.org
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jamal Hadi Salim <hadi@mojatatu.com>
+To: Hubert Sokolowski <h.sokolowski@wit.edu.pl>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f180.google.com ([209.85.216.180]:50515 "EHLO
-	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758098AbaLKSg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 13:36:27 -0500
-Received: by mail-qc0-f180.google.com with SMTP id i8so4403717qcq.11
-        for <netdev@vger.kernel.org>; Thu, 11 Dec 2014 10:36:26 -0800 (PST)
-In-Reply-To: <20141211190846.1e25e7fa@griffin>
+Received: from mga01.intel.com ([192.55.52.88]:50830 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751853AbaLKSs3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Dec 2014 13:48:29 -0500
+In-Reply-To: <6e03100b17d3e17625f1c323d94a853e.squirrel@poczta.wsisiz.edu.pl>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11-12-2014 16:08, Jiri Benc wrote:
-> On Thu, 11 Dec 2014 15:33:34 -0200, Marcelo Ricardo Leitner wrote:
->> In that case, it would be interesting to also accelerate the original use
->> case, no? So all usages we currently have will benefit from this speed up
->> without a change.
->>
->> if (command to be executed == myself)
->>     switch namespace, continue without fork/exec..
->
-> It's never good idea to do such tricks behind the user's back. This
-> particular case could easily break for users wanting to execute a
-> different ip binary (for whatever reason).
-
-Then the if() above wouldn't match. That if means to check 
-/proc/self/exe against the result of the path expansion. If that fails, 
-continue with the normal path. If it matches, it is the same binary, and 
-no need to re-exec itself.
-
-> All programs should do what they are told to do, not try to outsmart
-> the user.
-
-It's not outsmarting, it's just not being dumb and doing it the proper 
-way. Bash itself does this twist a lot. If you just type 'echo hi', it 
-won't execute /bin/echo but use a built-in version. But if you write 
-"/bin/echo hi", it will use /bin/echo..
-
-We could use the same idea. "ip netns exec ip" -> ellipse it and avoid 
-the fork/exec. But if it's cmd != "ip", execute it..
-
-Now consider other applications that are user of this command. They will 
-have to implement something like:
-
-if (this ip command has --netns argument) {
-    cmd="ip --netns ..."
-} else {
-    cmd="ip netns exec ..."
-}
-
-which is ugly and inconvenient.
-
-   Marcelo
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
+ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj4gb3duZXJAdmdlci5rZXJuZWwub3JnXSBP
+biBCZWhhbGYgT2YgSHViZXJ0IFNva29sb3dza2kNCj4gU2VudDogVGh1cnNkYXksIERlY2VtYmVy
+IDExLCAyMDE0IDg6NDAgQU0NCj4gVG86IFJvb3BhIFByYWJodQ0KPiBDYzogbmV0ZGV2QHZnZXIu
+a2VybmVsLm9yZzsgSmFtYWwgSGFkaSBTYWxpbQ0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1u
+ZXh0IFJFU0VORF0gbmV0OiBEbyBub3QgY2FsbCBuZG9fZGZsdF9mZGJfZHVtcCBpZg0KPiBuZG9f
+ZmRiX2R1bXAgaXMgZGVmaW5lZC4NCj4gDQo+ID4gSSB0aGluayBjb21taXQNCj4gPiAiNWU2ZDI0
+MzU4Nzk5MGE1ODgxNDNiOWRhMzk3NDgzMzY0OTU5NTU4NyAiYnJpZGdlOiBuZXRsaW5rIGR1bXAN
+Cj4gPiBpbnRlcmZhY2UgYXQgcGFyIHdpdGggYnJjdGwiIHRyaWVkIHRvIG1ha2Ugc3VyZSBldmVu
+IHRoZSBkZmx0IGVudHJpZXMNCj4gPiAoaWUgZGV2LT51YyBhbmQgZGV2LT5tYykgd2VyZSBhbHNv
+IHByaW50ZWQgaW4gdGhlIGJlbG93IGNhc2UuIGllIHRoZQ0KPiA+ICdzZWxmJyBlbnRyaWVzIGlu
+IHRoZSBiZWxvdyBvdXRwdXQuDQo+ID4NCj4gPiAjIC4vYnJpZGdlIGZkYiBzaG93IGJycG9ydCBl
+dGgxDQo+ID4gMDI6MDA6MDA6MTI6MDE6MDIgdmxhbiAwIG1hc3RlciBicjAgcGVybWFuZW50DQo+
+ID4gMDA6MTc6NDI6OGE6YjQ6MDUgdmxhbiAwIG1hc3RlciBicjAgcGVybWFuZW50DQo+ID4gMDA6
+MTc6NDI6OGE6YjQ6MDcgc2VsZiBwZXJtYW5lbnQNCj4gPiAzMzozMzowMDowMDowMDowMSBzZWxm
+IHBlcm1hbmVudA0KPiA+DQo+ID4gQW0gZ3Vlc3NpbmcgcmV2ZXJ0aW5nIHRoZSBwYXRjaCBpcyBn
+b2luZyB0byBtYWtlIHRoZSAnc2VsZicgZW50cmllcyBpbg0KPiA+IHRoZSBhYm92ZSBvdXRwdXQg
+dG8gZ28gYXdheS4NCj4gPiBDYW4geW91IHBsZWFzZSBjb25maXJtID8uDQo+IA0KPiBJIGRvbid0
+IHdhbnQgeW91IHRvIHJldmVydCB0aGUgcGF0Y2gsIGFzIHRoZSBtYWluIGdvYWwgb2YgdGhlIHBh
+dGNoIHdhcyB0bw0KPiBlbmFibGUgZmlsdGVyaW5nIGluIHRoZSBrZXJuZWwuIEkgYW0gb25seSBw
+cm9wb3NpbmcgdG8gcmV2ZXJ0IHBhcnQgb2YgaXQgdGhhdA0KPiBhbGxvd3MgZHJpdmVyIHRvIGlt
+cGxlbWVudCBvd24gZHVtcC4NCj4gVGhpcyBkb2VzIG5vdCBicmVhayB0aGUgZmlsdGVyaW5nIGlu
+IHRoZSBrZXJuZWwuDQo+IFdoZXRoZXIgdGhlICdzZWxmJyBlbnRyaWVzIHdpbGwgZ28gYXdheSBp
+dCBkZXBlbmRzIGlmIHRoZSBkcml2ZXIgb3ZlcnJpZGVzDQo+IG5kb19mZGJfZHVtcCBjYWxsYmFj
+ayB3aXRoIGl0cyBvd24uIEZvciBjYXNlcyB3aGVyZSB0aGUgZHJpdmVyIGRvZXMgbm90DQo+IGlt
+cGxlbWVudCB0aGUgY2FsbGJhY2ssIHRoZSBkZmx0IGNhbGxiYWNrIGlzIHN0aWxsIGNhbGxlZCBz
+aG93aW5nICdzZWxmJyBlbnRyaWVzOg0KPiBbcm9vdEBzaWxwaXhhMDAzNzg4MjUgfl0jIGJyaWRn
+ZSBmZGIgc2hvdw0KPiAzMzozMzowMDowMDowMDowMSBkZXYgZW0xIHNlbGYgcGVybWFuZW50DQo+
+IDAxOjAwOjVlOjAwOjAwOjAxIGRldiBlbTEgc2VsZiBwZXJtYW5lbnQNCj4gMzM6MzM6MDA6MDA6
+MDA6MDEgZGV2IHA0cDEgc2VsZiBwZXJtYW5lbnQNCj4gMDE6MDA6NWU6MDA6MDA6MDEgZGV2IHA0
+cDEgc2VsZiBwZXJtYW5lbnQgMzM6MzM6ZmY6ODE6NTY6ZGIgZGV2IHA0cDEgc2VsZg0KPiBwZXJt
+YW5lbnQgMDE6MDA6NWU6MDA6MDA6ZmIgZGV2IHA0cDEgc2VsZiBwZXJtYW5lbnQNCj4gMzM6MzM6
+MDA6MDA6MDA6MDEgZGV2IGR1bW15MCBzZWxmIHBlcm1hbmVudA0KPiANCj4gPg0KPiA+IEFsc28s
+IGlmIGkgaGVhciB5b3VyIGNvbmNlcm4gY29ycmVjdGx5LCBmb3IgYnJpZGdlIHBvcnRzIHRoYXQN
+Cj4gPiBpbXBsZW1lbnQgbmRvX2ZkYl9kdW1wLCB3aXRoIGNvbW1pdA0KPiA+IDVlNmQyNDM1ODc5
+OTBhNTg4MTQzYjlkYTM5NzQ4MzM2NDk1OTU1ODcsIHdlIHdpbGwgZ2V0IHR3byBlbnRyaWVzDQo+
+IGZvciBlYWNoICdzZWxmJyBlbnRyeSBhYm92ZS4NCj4gPiBDYW4geW91IGFsc28gcGFzdGUgc2Ft
+cGxlIG91dHB1dCBmb3IgdGhhdCA/Lg0KPiANCj4gTXkgcGF0Y2ggYWZmZWN0cyAqb25seSogZHJp
+dmVycyB0aGF0IGltcGxlbWVudHMgb3duIGR1bXAgY2FsbGJhY2suDQo+IEltcGxlbWVudGluZyBv
+d24gZHVtcCBjYWxsYmFjayBtZWFucyB0aGUgZHJpdmVyIHdhbnQgdG8gaGF2ZSBhIGNvbnRyb2wN
+Cj4gb3ZlciB3aGF0IGlzIGJlaW5nIGR1bXBlZC4gRm9yIGV4YW1wbGUgeW91IG1heSB3YW50IHRv
+IGR1bXAgYSBoYXJkd2FyZQ0KPiBNQUMgdGFibGUgb25seSAobXkgY2FzZSkgd2hlcmUgJ3NlbGYn
+IGVudHJpZXMgY3JlYXRlZCBieSBrZXJuZWwgbWFrZSBubw0KPiBzZW5zZS4NCj4gQWxzbyB0aGVy
+ZSBhcmUgZHJpdmVycyB0aGF0IGNhbGxzIGRmbHQgY2FsbGJhY2sgZnJvbSBpbnNpZGUgb3duIGR1
+bXAgZnVuY3Rpb24uDQo+IFBsZWFzZSBzZWUgZm9sbG93aW5nIGR1bXAgY2FsbGJhY2sgaW1wbGVt
+ZW50ZWQgZm9yIFFMb2dpYzoNCj4gc3RhdGljIGludCBxbGNuaWNfZmRiX2R1bXAoc3RydWN0IHNr
+X2J1ZmYgKnNrYiwgc3RydWN0IG5ldGxpbmtfY2FsbGJhY2sgKm5jYiwNCj4gICAgICAgICAgICAg
+ICAgICAgICAgICAgc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiwNCj4gICAgICAgICAgICAgICAg
+ICAgICAgICAgc3RydWN0IG5ldF9kZXZpY2UgKmZpbHRlcl9kZXYsIGludCBpZHgpIHsNCj4gICAg
+ICAgICBzdHJ1Y3QgcWxjbmljX2FkYXB0ZXIgKmFkYXB0ZXIgPSBuZXRkZXZfcHJpdihuZXRkZXYp
+Ow0KPiANCj4gICAgICAgICBpZiAoIWFkYXB0ZXItPmZkYl9tYWNfbGVhcm4pDQo+ICAgICAgICAg
+ICAgICAgICByZXR1cm4gbmRvX2RmbHRfZmRiX2R1bXAoc2tiLCBuY2IsIG5ldGRldiwgZmlsdGVy
+X2RldiwgaWR4KTsgWy4uLl0NCj4gDQo+IEFub3RoZXIgZXhhbXBsZSBvZiBkZmx0IGJlaW5nIGNh
+bGxlZCB0d2ljZSBpcyBtYWN2bGFuLmMgd2hlcmUNCj4gbmRvX2ZkYl9kdW1wIGlzIGFjdHVhbGx5
+IGluaXRpYWxpemVkIHdpdGggdGhlIGRmbHQgY2FsbGJhY2s6DQo+IG1hY3ZsYW4uYzoxMDIyOiAg
+ICAgICAgLm5kb19mZGJfZHVtcCAgICAgICAgICAgPSBuZG9fZGZsdF9mZGJfZHVtcCwNCj4gDQo+
+IFRoYW5rcywNCj4gSHViZXJ0DQo+DQoNCkkgYWdyZWUgd2l0aCBIdWJlcnQgb24gdGhhdC4gV2hl
+biBhIGRldmljZSBkZWZpbmVzIGl0cyBvd24gbmRvX2ZkYl9kdW1wIGl0IGltcGxpZXMgaXQgd2Fu
+dHMgY29udHJvbCBvdmVyIHRoZSBpbmZvcm1hdGlvbiB0aGF0IHdpbGwgYmUgcmV0dXJuZWQgdG8g
+dXNlci1zcGFjZS4NClRoZSBwcm9wb3NlZCBwYXRjaCBjaGFuZ2VzIHRoZSByZWNlbnQgc3RhdHVz
+IHF1byBidXQgaXQgb25seSByZXN0b3JlcyBpdCB0byB0aGUgd2F5IGl0IHdhcyBiZWZvcmUgNWU2
+ZDI0MzU4Nzk5MGE1ODgxNDNiOWRhMzk3NDgzMzY0OTU5NTU4Ny4NCkEgY29tcHJvbWlzZSBjb3Vs
+ZCBiZSB0byBhbHNvIGluY2x1ZGUgaW4gdGhlIHNhbWUgcGF0Y2gtc2V0IHBhdGNoZXMgdG8gdGhl
+IGRyaXZlcnMgdGhhdCBoYXZlIGJlbmVmaXRlZCBmcm9tIHRoZSBpbXBsaWNpdCBjYWxsIHRvIG5k
+b19kZmx0X2ZkYl9kdW1wLg0KDQotUm9uZW4NCiANCj4gLS0NCj4gVG8gdW5zdWJzY3JpYmUgZnJv
+bSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRldiIgaW4gdGhlIGJv
+ZHkNCj4gb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcgTW9yZSBtYWpv
+cmRvbW8gaW5mbyBhdA0KPiBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0
+bWwNCg==
