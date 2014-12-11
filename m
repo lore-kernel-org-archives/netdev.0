@@ -1,77 +1,41 @@
-From: Smart Weblications GmbH - Florian Wiessner
-	<f.wiessner@smart-weblications.de>
-Subject: Re: 3.12.33 - BUG xfrm_selector_match+0x25/0x2f6
-Date: Thu, 11 Dec 2014 15:04:21 +0100
-Message-ID: <5489A465.6090305@smart-weblications.de>
-References: <547F2462.6040405@smart-weblications.de> <20141204075627.GE6390@secunet.com> <alpine.LFD.2.11.1412042338370.4841@ja.home.ssi.bg> <5481173A.9060308@smart-weblications.de> <alpine.LFD.2.11.1412051126090.2522@ja.home.ssi.bg> <5481B944.2000002@smart-weblications.de> <alpine.LFD.2.11.1412072019410.1885@ja.home.ssi.bg> <54858948.2060007@smart-weblications.de> <alpine.LFD.2.11.1412082234350.2401@ja.home.ssi.bg> <5486CD9D.4060107@smart-weblications.de> <alpine.LFD.2.11.1412102331230.4043@ja.home.ssi.bg>
-Reply-To: f.wiessner@smart-weblications.de
+From: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH v7 2/3] net: Add Keystone NetCP ethernet driver
+Date: Thu, 11 Dec 2014 09:14:37 -0500
+Message-ID: <5489A6CD.20909@ti.com>
+References: <1417556503-22290-3-git-send-email-m-karicheri2@ti.com> <20141209.131053.2026868499542642866.davem@davemloft.net> <5488BB96.9070609@ti.com> <20141210.204110.618599360537141819.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	stable@vger.kernel.org, Simon Horman <horms@verge.net.au>,
-	lvs-devel@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.11.1412102331230.4043@ja.home.ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20141210.204110.618599360537141819.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-Am 10.12.2014 22:41, schrieb Julian Anastasov:>
-> 	Hello,
+On 12/10/2014 08:41 PM, David Miller wrote:
+> From: Murali Karicheri<m-karicheri2-l0cyMroinI0@public.gmane.org>
+> Date: Wed, 10 Dec 2014 16:31:02 -0500
 >
-> On Tue, 9 Dec 2014, Smart Weblications GmbH - Florian Wiessner wrote:
+>> Are you referring to the static code analyser sparse that is invoked
+>> through?
 >
->> I rebuild everything with the two provided patches and still get:
->>
->> [  512.475449] BUG: unable to handle kernel NULL pointer dereference=
- at
->> 0000000000000014
->> [  512.481277] IP: [<ffffffffa013d470>] nf_ct_seqadj_set+0x60/0x90 [=
-nf_conntrack]
->
-> 	Same place, hm...
->
->> [  512.485323] CPU: 4 PID: 28142 Comm: vsftpd Not tainted 3.12.33 #5
->
-> 	Above "#5" is same as previous oops. It means kernel
-> is not updated. Or you updated only the IPVS modules after
-> applying the both patches?
+> You have to explicitly enable endian checking, it's not on by
+> default.
+Thanks David and others who responded. Let me do this and resolve any 
+warning before the next post.
 
-I did it with make-kpkg --initrd linux_image which only rebuilt the mod=
-ules,
-correct. I can retry with make clean before building the package
+BTW, could you provide any suggestions that would help us merge this 
+series to upstream? This has been sitting on this list for a while now.
 
->
-> 	You can also try without FTP tests to see if there
-> are oopses in xfrm, so that we can close this topic and then
-> to continue for the FTP problem on IPVS lists without
-> bothering non-IPVS people.
->
+Thanks and regards,
 
-yeah, it seems that the xfrm issue is away.
-
-
---=20
-
-Mit freundlichen Gr=FC=DFen,
-
-=46lorian Wiessner
-
-Smart Weblications GmbH
-Martinsberger Str. 1
-D-95119 Naila
-
-fon.: +49 9282 9638 200
-fax.: +49 9282 9638 205
-24/7: +49 900 144 000 00 - 0,99 EUR/Min*
-http://www.smart-weblications.de
-
+-- 
+Murali Karicheri
+Linux Kernel, Texas Instruments
 --
-Sitz der Gesellschaft: Naila
-Gesch=E4ftsf=FChrer: Florian Wiessner
-HRB-Nr.: HRB 3840 Amtsgericht Hof
-*aus dem dt. Festnetz, ggf. abweichende Preise aus dem Mobilfunknetz
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
