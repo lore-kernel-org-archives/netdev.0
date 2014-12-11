@@ -1,175 +1,112 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 2/4] swdevice: add new api to set and del
- bridge port attributes
-Date: Thu, 11 Dec 2014 08:52:10 -0800
-Message-ID: <5489CBBA.7050302@cumulusnetworks.com>
-References: <1418202320-19491-3-git-send-email-roopa@cumulusnetworks.com> <20141210093755.GB1863@nanopsycho.orion>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port
+ configuration
+Date: Thu, 11 Dec 2014 17:56:27 +0100
+Message-ID: <20141211165627.GF1912@nanopsycho.orion>
+References: <C4896FB061E7DE4AAC93031BDCA044B104AC3257@IRSMSX108.ger.corp.intel.com>
+ <20141210165018.GG1863@nanopsycho.orion>
+ <54887CF7.70708@gmail.com>
+ <C4896FB061E7DE4AAC93031BDCA044B104AC3914@IRSMSX108.ger.corp.intel.com>
+ <20141211110115.GA1979@nanopsycho.lan>
+ <5489C85A.5020400@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
-	john.fastabend@gmail.com, stephen@networkplumber.org,
-	linville@tuxdriver.com, vyasevic@redhat.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:42890 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751848AbaLKQwV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 11:52:21 -0500
-In-Reply-To: <20141210093755.GB1863@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Varlese, Marco" <marco.varlese@intel.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5489C85A.5020400@cumulusnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/10/14, 1:37 AM, Jiri Pirko wrote:
-> Wed, Dec 10, 2014 at 10:05:18AM CET, roopa@cumulusnetworks.com wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Thu, Dec 11, 2014 at 05:37:46PM CET, roopa@cumulusnetworks.com wrote:
+>On 12/11/14, 3:01 AM, Jiri Pirko wrote:
+>>Thu, Dec 11, 2014 at 10:59:42AM CET, marco.varlese@intel.com wrote:
+>>>>-----Original Message-----
+>>>>From: John Fastabend [mailto:john.fastabend@gmail.com]
+>>>>Sent: Wednesday, December 10, 2014 5:04 PM
+>>>>To: Jiri Pirko
+>>>>Cc: Varlese, Marco; netdev@vger.kernel.org;
+>>>>stephen@networkplumber.org; Fastabend, John R;
+>>>>roopa@cumulusnetworks.com; sfeldma@gmail.com; linux-
+>>>>kernel@vger.kernel.org
+>>>>Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port
+>>>>configuration
+>>>>
+>>>>On 12/10/2014 08:50 AM, Jiri Pirko wrote:
+>>>>>Wed, Dec 10, 2014 at 05:23:40PM CET, marco.varlese@intel.com wrote:
+>>>>>>From: Marco Varlese <marco.varlese@intel.com>
+>>>>>>
+>>>>>>Switch hardware offers a list of attributes that are configurable on
+>>>>>>a per port basis.
+>>>>>>This patch provides a mechanism to configure switch ports by adding
+>>>>>>an NDO for setting specific values to specific attributes.
+>>>>>>There will be a separate patch that extends iproute2 to call the new
+>>>>>>NDO.
+>>>>>
+>>>>>What are these attributes? Can you give some examples. I'm asking
+>>>>>because there is a plan to pass generic attributes to switch ports
+>>>>>replacing current specific ndo_switch_port_stp_update. In this case,
+>>>>>bridge is setting that attribute.
+>>>>>
+>>>>>Is there need to set something directly from userspace or does it make
+>>>>>rather sense to use involved bridge/ovs/bond ? I think that both will
+>>>>>be needed.
+>>>>+1
+>>>>
+>>>>I think for many attributes it would be best to have both. The in kernel callers
+>>>>and netlink userspace can use the same driver ndo_ops.
+>>>>
+>>>>But then we don't _require_ any specific bridge/ovs/etc module. And we
+>>>>may have some attributes that are not specific to any existing software
+>>>>module. I'm guessing Marco has some examples of these.
+>>>>
+>>>>[...]
+>>>>
+>>>>
+>>>>--
+>>>>John Fastabend         Intel Corporation
+>>>We do have a need to configure the attributes directly from user-space and I have identified the tool to do that in iproute2.
+>>>
+>>>An example of attributes are:
+>>>* enabling/disabling of learning of source addresses on a given port (you can imagine the attribute called LEARNING for example);
+>>>* internal loopback control (i.e. LOOPBACK) which will control how the flow of traffic behaves from the switch fabric towards an egress port;
+>>>* flooding for broadcast/multicast/unicast type of packets (i.e. BFLOODING, MFLOODING, UFLOODING);
+>>>
+>>>Some attributes would be of the type enabled/disabled while other will allow specific values to allow the user to configure different behaviours of that feature on that particular port on that platform.
+>>>
+>>>One thing to mention - as John stated as well - there might be some attributes that are not specific to any software module but rather have to do with the actual hardware/platform to configure.
+>>>
+>>>I hope this clarifies some points.
+>>It does. Makes sense. We need to expose this attr set/get for both
+>>in-kernel and userspace use cases.
 >>
->> This patch adds two new api's netdev_switch_port_bridge_setlink
->> and netdev_switch_port_bridge_dellink to offload bridge port attributes
->> to switch asic
->>
->> (The names of the apis look odd with 'switch_port_bridge',
->> but am more inclined to change the prefix of the api to something else.
->> Will take any suggestions).
->>
->> The api's look at the NETIF_F_HW_NETFUNC_OFFLOAD feature flag to
->> pass bridge port attributes to the port device.
->>
->> If the device has the NETIF_F_HW_NETFUNC_OFFLOAD, but does not support
->> the bridge port attribute offload ndo, call bridge port attribute ndo's on
->> the lowerdevs if supported. This is one way to pass bridge port attributes
->> through stacked netdevs (example when bridge port is a bond and bond slaves
->> are switch ports).
->>
->> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->> ---
->> include/net/switchdev.h   |    5 +++-
->> net/switchdev/switchdev.c |   70 +++++++++++++++++++++++++++++++++++++++++++++
->> 2 files changed, 74 insertions(+), 1 deletion(-)
->>
->> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
->> index 8a6d164..22676b6 100644
->> --- a/include/net/switchdev.h
->> +++ b/include/net/switchdev.h
->> @@ -17,7 +17,10 @@
->> int netdev_switch_parent_id_get(struct net_device *dev,
->> 				struct netdev_phys_item_id *psid);
->> int netdev_switch_port_stp_update(struct net_device *dev, u8 state);
->> -
->> +int netdev_switch_port_bridge_setlink(struct net_device *dev,
->> +				struct nlmsghdr *nlh, u16 flags);
->> +int netdev_switch_port_bridge_dellink(struct net_device *dev,
->> +				struct nlmsghdr *nlh, u16 flags);
->> #else
->>
->> static inline int netdev_switch_parent_id_get(struct net_device *dev,
->> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->> index d162b21..62317e1 100644
->> --- a/net/switchdev/switchdev.c
->> +++ b/net/switchdev/switchdev.c
->> @@ -50,3 +50,73 @@ int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
->> 	return ops->ndo_switch_port_stp_update(dev, state);
->> }
->> EXPORT_SYMBOL(netdev_switch_port_stp_update);
->> +
->> +/**
->> + *	netdev_switch_port_bridge_setlink - Notify switch device port of bridge
->> + *	port attributes
->> + *
->> + *	@dev: port device
->> + *	@nlh: netlink msg with bridge port attributes
->> + *
->> + *	Notify switch device port of bridge port attributes
->> + */
->> +int netdev_switch_port_bridge_setlink(struct net_device *dev,
->> +									  struct nlmsghdr *nlh, u16 flags)
->> +{
->> +	const struct net_device_ops *ops = dev->netdev_ops;
->> +	struct net_device *lower_dev;
->> +	struct list_head *iter;
->> +	int ret = 0, err = 0;
->> +
->> +	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
->> +		return err;
->> +
->> +	if (ops->ndo_bridge_setlink) {
->> +	    WARN_ON(!ops->ndo_switch_parent_id_get);
->> +	    return ops->ndo_bridge_setlink(dev, nlh, flags);
-> 	You have to change ndo_bridge_setlink in netdevice.h first.
-> 	Otherwise when only this patch is applied (during bisection)
-> 	this won't compile.
-
-ack, will fix it and keep that in mind next time.
+>>Please adjust you patch for this. Also, as a second patch, it would be
+>>great if you can convert ndo_switch_port_stp_update to this new ndo.
 >
->> +	}
->> +
->> +	netdev_for_each_lower_dev(dev, lower_dev, iter) {
-> 	I do not understand why to iterate over lower devices. At this
-> 	stage we don't know a thing about this upper or its lowers. Let
-> 	the uppers (/masters) to decide if this needs to be propagated
-> 	or not.
+>Why are we exposing generic switch attribute get/set from userspace ?. We
+>already have specific attributes for learning/flooding which can be extended
+>further.
 
-Jiri, In the stacked devices case, there is no way to propagate the 
-bridge port attributes to switch device driver today (vlan and other 
-bridge port attributes). Can you tell me if there is a way ?. no, 
-ndo_vlan* ndo's are not useful here. Nor we should go and implement 
-ndo_bridge_setlink* in all devices that can be bridge ports.
+Yes, but that is for PF_BRIDGE and bridge specific attributes. There
+might be another generic attrs, no?
 
-And this allows a switch driver to receive these callbacks if it has 
-marked the switch port with an offload flag. Your way of using the 
-switch port to get to the switch driver does not help in these cases.
+>And for in kernel api....i had a sample patch in my RFC series (Which i was
+>going to resubmit, until it was decided that we will use existing api around
+>ndo_bridge_setlink/ndo_bridge_getlink):
+>http://www.spinics.net/lists/netdev/msg305473.html
 
-The other option is to use the 'switch device (not port)' to get to the 
-switch driver.
-This patch shows that you can still do this with the ndo ops.
+Yes, this might become handy for other generic non-bridge attrs.
+
 >
->> +		err = netdev_switch_port_bridge_setlink(lower_dev, nlh, flags);
->> +		if (err)
->> +			ret = err;
->> +    }
->   ^^^^^ Indent is off. This should be catched by scripts/checkpatch.pl.
+>Thanks,
+>Roopa
 >
->> +
->> +	return ret;
->> +}
->> +EXPORT_SYMBOL(netdev_switch_port_bridge_setlink);
->> +
->> +/**
->> + *	netdev_switch_port_bridge_dellink - Notify switch device port of bridge
->> + *	attribute delete
->> + *
->> + *	@dev: port device
->> + *	@nlh: netlink msg with bridge port attributes
->> + *
->> + *	Notify switch device port of bridge port attribute delete
->> + */
->> +int netdev_switch_port_bridge_dellink(struct net_device *dev,
->> +									  struct nlmsghdr *nlh, u16 flags)
->> +{
->> +	const struct net_device_ops *ops = dev->netdev_ops;
->> +	struct net_device *lower_dev;
->> +	struct list_head *iter;
->> +	int ret = 0, err = 0;
->> +
->> +	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
->> +		return err;
->> +
->> +	if (ops->ndo_bridge_dellink) {
->> +		WARN_ON(!ops->ndo_switch_parent_id_get);
->> +		return ops->ndo_bridge_dellink(dev, nlh, flags);
->> +	}
->> +
->> +	netdev_for_each_lower_dev(dev, lower_dev, iter) {
->> +		err = netdev_switch_port_bridge_dellink(lower_dev, nlh, flags);
->> +		if (err)
->> +			ret = err;
->> +	}
->> +
->> +	return ret;
->> +}
->> +EXPORT_SYMBOL(netdev_switch_port_bridge_dellink);
->> -- 
->> 1.7.10.4
->>
+>
+>
