@@ -1,67 +1,95 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH iproute2] ip: Simplify executing ip cmd within namespace
-Date: Thu, 11 Dec 2014 17:09:28 +0100
-Message-ID: <20141211170928.62c8e637@griffin>
-References: <1418252195-2612-1-git-send-email-vadim4j@gmail.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port configuration
+Date: Thu, 11 Dec 2014 08:37:46 -0800
+Message-ID: <5489C85A.5020400@cumulusnetworks.com>
+References: <C4896FB061E7DE4AAC93031BDCA044B104AC3257@IRSMSX108.ger.corp.intel.com> <20141210165018.GG1863@nanopsycho.orion> <54887CF7.70708@gmail.com> <C4896FB061E7DE4AAC93031BDCA044B104AC3914@IRSMSX108.ger.corp.intel.com> <20141211110115.GA1979@nanopsycho.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Vadim Kochan <vadim4j@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42033 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933438AbaLKQJd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Dec 2014 11:09:33 -0500
-In-Reply-To: <1418252195-2612-1-git-send-email-vadim4j@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Varlese, Marco" <marco.varlese@intel.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141211110115.GA1979@nanopsycho.lan>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 11 Dec 2014 00:56:35 +0200, Vadim Kochan wrote:
-> From: Vadim Kochan <vadim4j@gmail.com>
-> 
-> Added new '-ns' option to simplify executing following cmd:
-> 
->     ip netns exec NETNS ip OPTIONS COMMAND OBJECT
-> 
->     to
-> 
->     ip -ns NETNS OPTIONS COMMAND OBJECT
-> 
-> e.g.:
-> 
->     ip -ns vnet0 link add br0 type bridge
+On 12/11/14, 3:01 AM, Jiri Pirko wrote:
+> Thu, Dec 11, 2014 at 10:59:42AM CET, marco.varlese@intel.com wrote:
+>>> -----Original Message-----
+>>> From: John Fastabend [mailto:john.fastabend@gmail.com]
+>>> Sent: Wednesday, December 10, 2014 5:04 PM
+>>> To: Jiri Pirko
+>>> Cc: Varlese, Marco; netdev@vger.kernel.org;
+>>> stephen@networkplumber.org; Fastabend, John R;
+>>> roopa@cumulusnetworks.com; sfeldma@gmail.com; linux-
+>>> kernel@vger.kernel.org
+>>> Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port
+>>> configuration
+>>>
+>>> On 12/10/2014 08:50 AM, Jiri Pirko wrote:
+>>>> Wed, Dec 10, 2014 at 05:23:40PM CET, marco.varlese@intel.com wrote:
+>>>>> From: Marco Varlese <marco.varlese@intel.com>
+>>>>>
+>>>>> Switch hardware offers a list of attributes that are configurable on
+>>>>> a per port basis.
+>>>>> This patch provides a mechanism to configure switch ports by adding
+>>>>> an NDO for setting specific values to specific attributes.
+>>>>> There will be a separate patch that extends iproute2 to call the new
+>>>>> NDO.
+>>>>
+>>>> What are these attributes? Can you give some examples. I'm asking
+>>>> because there is a plan to pass generic attributes to switch ports
+>>>> replacing current specific ndo_switch_port_stp_update. In this case,
+>>>> bridge is setting that attribute.
+>>>>
+>>>> Is there need to set something directly from userspace or does it make
+>>>> rather sense to use involved bridge/ovs/bond ? I think that both will
+>>>> be needed.
+>>> +1
+>>>
+>>> I think for many attributes it would be best to have both. The in kernel callers
+>>> and netlink userspace can use the same driver ndo_ops.
+>>>
+>>> But then we don't _require_ any specific bridge/ovs/etc module. And we
+>>> may have some attributes that are not specific to any existing software
+>>> module. I'm guessing Marco has some examples of these.
+>>>
+>>> [...]
+>>>
+>>>
+>>> --
+>>> John Fastabend         Intel Corporation
+>> We do have a need to configure the attributes directly from user-space and I have identified the tool to do that in iproute2.
+>>
+>> An example of attributes are:
+>> * enabling/disabling of learning of source addresses on a given port (you can imagine the attribute called LEARNING for example);
+>> * internal loopback control (i.e. LOOPBACK) which will control how the flow of traffic behaves from the switch fabric towards an egress port;
+>> * flooding for broadcast/multicast/unicast type of packets (i.e. BFLOODING, MFLOODING, UFLOODING);
+>>
+>> Some attributes would be of the type enabled/disabled while other will allow specific values to allow the user to configure different behaviours of that feature on that particular port on that platform.
+>>
+>> One thing to mention - as John stated as well - there might be some attributes that are not specific to any software module but rather have to do with the actual hardware/platform to configure.
+>>
+>> I hope this clarifies some points.
+> It does. Makes sense. We need to expose this attr set/get for both
+> in-kernel and userspace use cases.
+>
+> Please adjust you patch for this. Also, as a second patch, it would be
+> great if you can convert ndo_switch_port_stp_update to this new ndo.
 
-This is great! It's a thing that has been bothering me for long time
-but never got high enough on my todo list. Thanks for working on this.
-
-However,
-
-> --- a/ip/ip.c
-> +++ b/ip/ip.c
-> @@ -262,6 +262,12 @@ int main(int argc, char **argv)
->  			rcvbuf = size;
->  		} else if (matches(opt, "-help") == 0) {
->  			usage();
-> +		} else if (matches(opt, "-ns") == 0) {
-> +			argc--;
-> +			argv++;
-> +			argv[0] = argv[1];
-> +			argv[1] = basename;
-> +			return netns_exec(argc, argv);
-
-I very much dislike this. There's no reason to exec another ip binary.
-The main reason I wanted the -n (or whatever) option was to speed up
-execution of test scripts in environments with hundreds of interfaces
-in different net namespaces.
-
-Please just change to the specified netns and continue with interpreting
-of the rest of the command line, there's absolutely no reason for doing
-the exec.
+Why are we exposing generic switch attribute get/set from userspace ?. 
+We already have specific attributes for learning/flooding which can be 
+extended further.
+And for in kernel api....i had a sample patch in my RFC series (Which i 
+was going to resubmit, until it was decided that we will use existing 
+api around ndo_bridge_setlink/ndo_bridge_getlink):
+http://www.spinics.net/lists/netdev/msg305473.html
 
 Thanks,
-
- Jiri
-
--- 
-Jiri Benc
+Roopa
