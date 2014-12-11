@@ -1,44 +1,57 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] net: openvswitch: Support masked set actions.
-Date: Wed, 10 Dec 2014 18:03:47 -0800
-Message-ID: <CAEP_g=8vm3+028GVdh-4DidOzpgfNiNQB7T1OqJ-_jOdPNU5Dw@mail.gmail.com>
-References: <1418170225-9328-1-git-send-email-jrajahalme@nicira.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net-next] bridge: Add ability to always enable
+	TSO/UFO
+Date: Thu, 11 Dec 2014 11:04:44 +0900
+Message-ID: <5488FBBC.2050105@lab.ntt.co.jp>
+References: <1418179394-4470-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>	<1418179394-4470-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	<20141210.145047.1148744559031706340.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1418170225-9328-1-git-send-email-jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20141210.145047.1148744559031706340.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCBEZWMgOSwgMjAxNCBhdCA0OjEwIFBNLCBKYXJubyBSYWphaGFsbWUgPGpyYWphaGFs
-bWVAbmljaXJhLmNvbT4gd3JvdGU6Cj4gZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9mbG93
-X25ldGxpbmsuYyBiL25ldC9vcGVudnN3aXRjaC9mbG93X25ldGxpbmsuYwo+IGluZGV4IGRmM2M3
-ZjIuLjI3NmJiNjAgMTAwNjQ0Cj4gLS0tIGEvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5j
-Cj4gKysrIGIvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jCj4gQEAgLTIwMDcsNiArMjEx
-NywxOCBAQCBpbnQgb3ZzX25sYV9wdXRfYWN0aW9ucyhjb25zdCBzdHJ1Y3QgbmxhdHRyICphdHRy
-LCBpbnQgbGVuLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQo+ICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgcmV0dXJuIGVycjsKPiAgICAgICAgICAgICAgICAgICAgICAgICBicmVhazsKPgo+
-ICsgICAgICAgICAgICAgICBjYXNlIE9WU19BQ1RJT05fQVRUUl9TRVRfTUFTS0VEOgo+ICsgICAg
-ICAgICAgICAgICAgICAgICAgIGVyciA9IG1hc2tlZF9zZXRfYWN0aW9uX3RvX2F0dHIoYSwgc2ti
-KTsKPiArICAgICAgICAgICAgICAgICAgICAgICBpZiAoZXJyKQo+ICsgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgcmV0dXJuIGVycjsKPiArICAgICAgICAgICAgICAgICAgICAgICBicmVh
-azsKCkkgZG9uJ3QgdGhpbmsgdGhpcyBpcyBuZWNlc3NhcnkgLSB0aGUgZGVmYXVsdCBjYXNlIHdp
-bGwgaGFuZGxlIHRoaW5ncwp0aGF0IGRvbid0IG5lZWQgYW55IHNwZWNpYWwgcHJvY2Vzc2luZy4K
-CkkgdGhpbmsgeW91IGNhbiBhbHNvIHJlbW92ZSB0aGUgcG9ydCBjaGVja3MgaW4gdmFsaWRhdGVf
-dHBfcG9ydCgpCnNpbmNlIHRoZSByZWFzb25pbmcgYmVoaW5kIHRoZW0gaXMgdGhlIHNhbWUgYXMg
-dGhlIElQIHByb3RvIGNoZWNrLgoKT3RoZXJ3aXNlLCBJJ20gZ2VuZXJhbGx5IGhhcHB5IHdpdGgg
-dGhpcyB0aG91Z2guCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0
-Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+On 2014/12/11 4:50, David Miller wrote:
+> From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> Date: Wed, 10 Dec 2014 11:43:14 +0900
+> 
+>> -	features &= ~NETIF_F_ONE_FOR_ALL;
+>> +	features &= ~NETIF_F_ONE_FOR_ALL | NETIF_F_GSO_SOFTWARE;
+> 
+> I don't think this is the expression you intend to use.
+
+Thank you, but this is really my intended expression.
+
+"features &= ~NETIF_F_ONE_FOR_ALL" drops all of ONE_FOR_ALL bits
+including GSO_SOFTWARE.
+But I want to leave GSO_SOFTWARE bits here.
+
+> 
+> I think you meant:
+> 
+> 	features &= ~(NETIF_F_ONE_FOR_ALL | NETIF_F_GSO_SOFTWARE);
+
+ONE_FOR_ALL already includes GSO_SOFTWARE.
+
+> 
+> Or:
+> 
+> 	features = ~NETIF_F_ONE_FOR_ALL;
+> 	features |= NETIF_F_GSO_SOFTWARE;
+
+This way, users cannot drop TSO/UFO by ethtool.
+
+Thanks,
+Toshiaki Makita
