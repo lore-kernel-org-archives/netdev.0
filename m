@@ -1,89 +1,131 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: OOPS: net/ipv6/datagram.c (line 260) ipv6_local_error
-Date: Thu, 11 Dec 2014 12:37:54 +0100
-Message-ID: <20141211113754.GN6390@secunet.com>
-References: <5487CDE9.4070606@gtsys.com.hk>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v9 1/3] Documentation: add Device tree bindings for Hisilicon hip04 ethernet
+Date: Thu, 11 Dec 2014 19:42:28 +0800
+Message-ID: <1418298150-4944-2-git-send-email-dingtianhong@huawei.com>
+References: <1418298150-4944-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
-To: Chris Ruehl <chris.ruehl@gtsys.com.hk>
+Content-Type: text/plain
+Cc: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	<devicetree@vger.kernel.org>
+To: <zhangfei.gao@linaro.org>, <davem@davemloft.net>,
+	<linux@arm.linux.org.uk>, <arnd@arndb.de>, <f.fainelli@gmail.com>,
+	<sergei.shtylyov@cogentembedded.com>, <mark.rutland@arm.com>,
+	<David.Laight@ACULAB.COM>, <eric.dumazet@gmail.com>,
+	<xuwei5@hisilicon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:39743 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753242AbaLKLiD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Dec 2014 06:38:03 -0500
-Content-Disposition: inline
-In-Reply-To: <5487CDE9.4070606@gtsys.com.hk>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:33199 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751101AbaLKLnn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 06:43:43 -0500
+In-Reply-To: <1418298150-4944-1-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 10, 2014 at 12:36:57PM +0800, Chris Ruehl wrote:
-> Hi all,
-> 
-> We running a Dell server which crash frequently with (dell crash
-> video snapshot) vanilla 3.14.25
-> 
-> 
-> 
-> The capture don't sadly don't show the full trace, so we lack on
-> information.
-> 1st line I can see in the crash video from the idrac :
-> tcp_transmit_skb+0x461
-> 
-> The null pointer happen:
->  Type "apropos word" to search for commands related to "word"...
-> Reading symbols from net/ipv6/datagram.o...done.
-> (gdb) list *(ipv6_local_error+0x17)
-> 0xae7 is in ipv6_local_error (net/ipv6/datagram.c:260).
-> 255        struct ipv6_pinfo *np = inet6_sk(sk);
-> 256        struct sock_exterr_skb *serr;
-> 257        struct ipv6hdr *iph;
-> 258        struct sk_buff *skb;
-> 259
-> 260        if (!np->recverr)
-> 261            return;
-> 262
-> 263        skb = alloc_skb(sizeof(struct ipv6hdr), GFP_ATOMIC);
-> 264        if (!skb)
-> (gdb) quit
-> 
-> 
-> We running a 6in4 with ipsec tunnel on the 6. I found a pull request from
-> Steffen Klassert
-> here:
-> http://article.gmane.org/gmane.linux.network/281469
-> 
-> Which might be relevant to this problem.
-> 
-> For time being I add a
-> 
->         if (np == NULL){
->                 LIMIT_NETDEBUG(KERN_DEBUG "ipv6_pinfo is NULL\n");
->                 return;
->         }
-> 
-> as work around to stop the server crashing
+From: Zhangfei Gao <zhangfei.gao@linaro.org>
 
-Looks like ipv6_local_error() got an ipv4 socket. You could
-extend your workaround to something like the below. This
-should give a full backtrace and the socket family.
+This patch adds the Device Tree bindings for the Hisilicon hip04
+Ethernet controller, including 100M / 1000M controller.
 
- 
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index cc11396..cf3a5d8 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -258,6 +258,13 @@ void ipv6_local_error(struct sock *sk, int err, struct flowi6 *fl6, u32 info)
- 	struct ipv6hdr *iph;
- 	struct sk_buff *skb;
- 
-+	if (np == NULL) {
-+		WARN_ON_ONCE(1);
-+		if (net_ratelimit())
-+			printk(KERN_DEBUG "ipv6_pinfo is NULL, sk family %d\n", sk->sk_family);
-+		return;
-+	}
+Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ .../bindings/net/hisilicon-hip04-net.txt           | 88 ++++++++++++++++++++++
+ 1 file changed, 88 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
+
+diff --git a/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt b/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
+new file mode 100644
+index 0000000..988fc69
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
+@@ -0,0 +1,88 @@
++Hisilicon hip04 Ethernet Controller
 +
- 	if (!np->recverr)
- 		return;
- 
++* Ethernet controller node
++
++Required properties:
++- compatible: should be "hisilicon,hip04-mac".
++- reg: address and length of the register set for the device.
++- interrupts: interrupt for the device.
++- port-handle: <phandle port channel>
++	phandle, specifies a reference to the syscon ppe node
++	port, port number connected to the controller
++	channel, recv channel start from channel * number (RX_DESC_NUM)
++- phy-mode: see ethernet.txt [1].
++
++Optional properties:
++- phy-handle: see ethernet.txt [1].
++
++[1] Documentation/devicetree/bindings/net/ethernet.txt
++
++
++* Ethernet ppe node:
++Control rx & tx fifos of all ethernet controllers.
++Have 2048 recv channels shared by all ethernet controllers, only if no overlap.
++Each controller's recv channel start from channel * number (RX_DESC_NUM).
++
++Required properties:
++- compatible: "hisilicon,hip04-ppe", "syscon".
++- reg: address and length of the register set for the device.
++
++
++* MDIO bus node:
++
++Required properties:
++
++- compatible: should be "hisilicon,hip04-mdio".
++- Inherits from MDIO bus node binding [2]
++[2] Documentation/devicetree/bindings/net/phy.txt
++
++Example:
++	mdio {
++		compatible = "hisilicon,hip04-mdio";
++		reg = <0x28f1000 0x1000>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		phy0: ethernet-phy@0 {
++			compatible = "ethernet-phy-ieee802.3-c22";
++			reg = <0>;
++			marvell,reg-init = <18 0x14 0 0x8001>;
++		};
++
++		phy1: ethernet-phy@1 {
++			compatible = "ethernet-phy-ieee802.3-c22";
++			reg = <1>;
++			marvell,reg-init = <18 0x14 0 0x8001>;
++		};
++	};
++
++	ppe: ppe@28c0000 {
++		compatible = "hisilicon,hip04-ppe", "syscon";
++		reg = <0x28c0000 0x10000>;
++	};
++
++	fe: ethernet@28b0000 {
++		compatible = "hisilicon,hip04-mac";
++		reg = <0x28b0000 0x10000>;
++		interrupts = <0 413 4>;
++		phy-mode = "mii";
++		port-handle = <&ppe 31 0>;
++	};
++
++	ge0: ethernet@2800000 {
++		compatible = "hisilicon,hip04-mac";
++		reg = <0x2800000 0x10000>;
++		interrupts = <0 402 4>;
++		phy-mode = "sgmii";
++		port-handle = <&ppe 0 1>;
++		phy-handle = <&phy0>;
++	};
++
++	ge8: ethernet@2880000 {
++		compatible = "hisilicon,hip04-mac";
++		reg = <0x2880000 0x10000>;
++		interrupts = <0 410 4>;
++		phy-mode = "sgmii";
++		port-handle = <&ppe 8 2>;
++		phy-handle = <&phy1>;
++	};
+-- 
+1.8.0
