@@ -1,38 +1,63 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 0/2] net: dsa: two small bug fixes
-Date: Thu, 11 Dec 2014 12:49:14 -0800
-Message-ID: <1418330956-17151-1-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net 1/2] net: dsa: handle non-existing PHYs on switch internal bus
+Date: Thu, 11 Dec 2014 12:49:15 -0800
+Message-ID: <1418330956-17151-2-git-send-email-f.fainelli@gmail.com>
+References: <1418330956-17151-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, computersforpeace@gmail.com,
-	andrey.volkov@nexvision.fr, Florian Fainelli <f.fainelli@gmail.com>
+	andrey.volkov@nexvision.fr,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:55914 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758647AbaLKUte (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 15:49:34 -0500
-Received: by mail-pa0-f49.google.com with SMTP id eu11so5684005pac.8
-        for <netdev@vger.kernel.org>; Thu, 11 Dec 2014 12:49:33 -0800 (PST)
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:54565 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758647AbaLKUtf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 15:49:35 -0500
+Received: by mail-pd0-f176.google.com with SMTP id r10so3704413pdi.7
+        for <netdev@vger.kernel.org>; Thu, 11 Dec 2014 12:49:35 -0800 (PST)
+In-Reply-To: <1418330956-17151-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+In case there is no PHY at the designated address on the internal
+switch, we would basically de-reference a null pointer here:
 
-Here are two small fixes for the DSA slave interface creation code:
+dsa_slave_phy_setup(...)
+{
+	p->phy = ds->slave_mii_bus->phy_map[p->port];
+	phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
+				      ^------
 
-- first patch fixes a null pointer de-reference with an invalid PHY
-  device pointer while calling phy_connect_direct()
+This can be triggered when the platform configuration (platform_data or
+Device Tree) indicates there should be a PHY device at this address, but
+the HW is non-responsive, such that we cannot attach a PHY device at
+this specific location.
 
-- second path propagates the dsa_slave_phy_setup() error code down to
-  its caller: dsa_slave_create
+Fix this by checking the return value prior to calling
+phy_connect_direct().
 
-Thanks!
+CC: Andrew Lunn <andrew@lunn.ch>
+Fixes: b31f65fb4383 ("net: dsa: slave: Fix autoneg for phys on switch MDIO bus")
+Reported-by: Brian Norris <computersforpeace@gmail.com>
+Signed-off-by: Andrey Volkov <andrey.volkov@nexvision.fr>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ net/dsa/slave.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Florian Fainelli (2):
-  net: dsa: handle non-existing PHYs on switch internal bus
-  net: dsa: propagate error code from dsa_slave_phy_setup
-
- net/dsa/slave.c | 16 +++++++++++++---
- 1 file changed, 13 insertions(+), 3 deletions(-)
-
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index ab03e00ffe8f..0efaab1e408b 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -491,6 +491,9 @@ static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 	 */
+ 	if (!p->phy) {
+ 		p->phy = ds->slave_mii_bus->phy_map[p->port];
++		if (!p->phy)
++			return;
++
+ 		phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
+ 				   p->phy_interface);
+ 	} else {
 -- 
 2.1.0
