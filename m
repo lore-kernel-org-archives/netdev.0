@@ -1,29 +1,39 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: [PATCH v2 0/6] net-PPP: Deletion of a few unnecessary checks
-Date: Fri, 12 Dec 2014 18:22:48 +0100
-Message-ID: <548B2468.5050402@users.sourceforge.net>
-References: <548B0A29.8050503@users.sourceforge.net>	<20141212.105106.1162681032492664308.davem@davemloft.net>	<548B1E44.6050005@users.sourceforge.net> <20141212.115922.687789059853236747.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [bisected] xfrm: TCP connection initiating PMTU discovery
+ stalls on v3.
+Date: Fri, 12 Dec 2014 09:27:05 -0800
+Message-ID: <1418405225.13491.19.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1709726.jUgUSQI9sl@pikkukde.a.i2n>
+	 <6700748.kZ07xrNvHX@h2o.as.studentenwerk.mhn.de>
+	 <1418238603.27198.37.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <2630078.LdJXSsPB40@h2o.as.studentenwerk.mhn.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <20141212.115922.687789059853236747.davem@davemloft.net>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Thomas Jarosch <thomas.jarosch@intra2net.com>,
+	netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Wolfgang Walter <linux@stwm.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:59394 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030876AbaLLR1I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 12:27:08 -0500
+Received: by mail-ie0-f182.google.com with SMTP id x19so7402840ier.13
+        for <netdev@vger.kernel.org>; Fri, 12 Dec 2014 09:27:07 -0800 (PST)
+In-Reply-To: <2630078.LdJXSsPB40@h2o.as.studentenwerk.mhn.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> Where should "the error pointers" be stored instead?
-> A local variable, before you assign it into the datastructure.
+On Fri, 2014-12-12 at 17:58 +0100, Wolfgang Walter wrote:
 
-Will it be acceptable for you that anyone (or even me) will introduce
-such a change with a seventh (and eventually eighth) update step here?
-Do you want any other sequence for source code preparation of
-the requested software improvement?
+> This fixes hangs of local tcp connections over ipsec tunnels where
+> pmtu is lower than the mtu of the interface.
 
-Regards,
-Markus
+Again this is a work around, the one liner patch is not a clean patch.
+
+Something is wrong, we should fix GSO path instead.
+
+Why ? Because we can queue a GSO packet in a qdisc, then later call
+sk_setup_caps() (too late)
