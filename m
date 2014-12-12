@@ -1,485 +1,52 @@
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Subject: Re: am335x: cpsw: interrupt failure
-Date: Fri, 12 Dec 2014 13:00:51 +0100
-Message-ID: <CAGm1_kuaqXrU4zhNUZeY85+OeXHApSUDjJdsXcyBdvHTNhLCmQ@mail.gmail.com>
-References: <CAGm1_ksPkFXV_S6541cK1TQb_eRTHbspZy4zWxY5GMrrjGD2tA@mail.gmail.com>
- <20141204165609.GJ18045@saruman> <CAGm1_ksNuO75QfgaDUpOe525xDkPhby-z8T=MX3DHdB-LVcR8g@mail.gmail.com>
- <20141210171724.GI4602@saruman> <CAGm1_ksziwSjQnV1rDYsAv2QQCvhnZPOimowmsW5Cib7C01aqA@mail.gmail.com>
- <20141210210234.GN4602@saruman> <CAGm1_ktYg4iDgK7jyi5etSVup61LdookkV+SaQZOpLb6M=y7hA@mail.gmail.com>
+From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+Subject: [PATCH v3 0/1] net/macb: add TX multiqueue support for gem
+Date: Fri, 12 Dec 2014 13:26:43 +0100
+Message-ID: <cover.1418383702.git.cyrille.pitchen@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"N, Mugunthan V" <mugunthanvnm@ti.com>
-To: Felipe Balbi <balbi@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:55246 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966268AbaLLMBM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 07:01:12 -0500
-Received: by mail-pd0-f174.google.com with SMTP id fp1so7057419pdb.33
-        for <netdev@vger.kernel.org>; Fri, 12 Dec 2014 04:01:11 -0800 (PST)
-In-Reply-To: <CAGm1_ktYg4iDgK7jyi5etSVup61LdookkV+SaQZOpLb6M=y7hA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>,
+	Cyrille Pitchen <cyrille.pitchen@atmel.com>
+To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
+	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	<soren.brinkmann@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 10, 2014 at 11:56 PM, Yegor Yefremov
-<yegorslists@googlemail.com> wrote:
-> On Wed, Dec 10, 2014 at 10:02 PM, Felipe Balbi <balbi@ti.com> wrote:
->> Hi,
->>
->> On Wed, Dec 10, 2014 at 09:58:23PM +0100, Yegor Yefremov wrote:
->>
->> [snip]
->>
->>> >> git revert failed as the driver has more changes meanwhile or I'm
->>> >> missing some params. I've tried to force the driver to use legacy
->>> >> routines, but then I don't get pass U-Boot's "Starting kernel ..." See
->>> >> attached patch.
->>> >>
->>> >> Compiler used:
->>> >>
->>> >> Linux version 3.18.0-rc7 (...) (gcc version 4.8.3 20140320
->>> >> (prerelease) (Sourcery CodeBench Lite 2014.05-29) ) #309 SMP Fri Dec 5
->>> >> 10:59:38 CET 2014
->>> >>
->>> >> Btw, what am335x based hardware do you have? I can run tests on both
->>> >> BBB and am335x-evmsk.
->>> >
->>> > coming back to this. I have BBB only. Can you provide some extra
->>> > information on how I can trigger this problem here ?
->>>
->>> I have basically two am335x based boards, where I can trigger this
->>
->> too bad, I have a single am335x board available here and that's my BBB.
->>
->> Do both boards stall or only the server or only the client ?
->>
->> If only one of them fail, then I try connecting my BBB to my AM437x SK
->> and see if that'll die too.
->
-> I have following setup: all three devices (am335x-evmsk inclusively)
-> are connected to my development host via Gigabit switch. And on all of
-> them I run "nuttcp -S" and my dev host is client (nuttcp -t). Just
-> normal setup, when you try to measure am335x network performance. So
-> am335x devices communicate only with my host and not with each other.
->
-> If I use 3.18 I can only observe, that the system freezes, but when I
-> use the kernel with above mentioned commit I see interrupt errors,
-> like I described in my first e-mail.
->
->>> problem via nuttcp (I think iperf would do the job too). The first
->>> system stalls almost immediately, the second one was working for about
->>> 7 minutes. I have tried the same kernel on am335x-evmsk - and this
->>> system didn't stall. I could provide dts files for both systems.
->>>
->>> I've tried to reduce my dts as much as I could to match  am335x-evmsk
->>> dts, I have even removed entries for the PMIC, but still the system
->>> stalls. Btw PMIC's INT line is connected to a GPIO pin on processor.
->>>
->>> I've used omap2plus_defconfig for all 3 devices. Any other info I can
->>> supply?
->>
->> just the extra bit of info above.
+ChangeLog
 
-I've got BBB stalled. I could do it from two different hosts: one
-Windows 7 64-bit machine with Xubuntu VM and one older native Linux
-server. Command used on both PC's (not simultaneously):
+v3:
+- reduce the number of added #define in macb.h
+- simplify the queue initialization
+- add some more comments
+- use "hw_q" index when dealing with the hardware queue mask and "q" index for
+  linux (software) queue index in "for" loops
 
-nuttcp -t -N 4 -T30m 192.168.1.235
+v2:
+fix compilation warnings for netdev_vdbg("%u...", queue - bp->queues, ...) calls
 
-BBB stalled after some minutes.
+v1:
+At the first look this patch may look quite big but it cannot be splitted.
+Each queue has its own dedicated IRQ, which should be handled.
+Also the Transmit Base Queue Pointer register of each available queue must be
+initialized before starting the transmission, otherwise the transmission will be
+halted immediately as HRESP errors are likely to occur.
+In addition, some fields had to be moved from struct macb into struct macb_queue
+so a common code could manage the queues.
 
-Kernel defconfig:
+This patch was applied to net-next and tested on a sama5d36ek board, which embeds
+both macb and gem IPs, to check the backward compatibility.
 
-CONFIG_SYSVIPC=y
-CONFIG_POSIX_MQUEUE=y
-CONFIG_FHANDLE=y
-CONFIG_AUDIT=y
-CONFIG_NO_HZ=y
-CONFIG_HIGH_RES_TIMERS=y
-CONFIG_BSD_PROCESS_ACCT=y
-CONFIG_IKCONFIG=y
-CONFIG_IKCONFIG_PROC=y
-CONFIG_LOG_BUF_SHIFT=16
-CONFIG_CGROUPS=y
-CONFIG_CGROUP_FREEZER=y
-CONFIG_CGROUP_DEVICE=y
-CONFIG_CPUSETS=y
-CONFIG_CGROUP_CPUACCT=y
-CONFIG_RESOURCE_COUNTERS=y
-CONFIG_MEMCG=y
-CONFIG_MEMCG_SWAP=y
-CONFIG_MEMCG_KMEM=y
-CONFIG_CGROUP_PERF=y
-CONFIG_CGROUP_SCHED=y
-CONFIG_CFS_BANDWIDTH=y
-CONFIG_RT_GROUP_SCHED=y
-CONFIG_BLK_CGROUP=y
-CONFIG_NAMESPACES=y
-CONFIG_BLK_DEV_INITRD=y
-CONFIG_EXPERT=y
-CONFIG_SLAB=y
-CONFIG_PROFILING=y
-CONFIG_OPROFILE=y
-CONFIG_KPROBES=y
-CONFIG_MODULES=y
-CONFIG_MODULE_FORCE_LOAD=y
-CONFIG_MODULE_UNLOAD=y
-CONFIG_MODULE_FORCE_UNLOAD=y
-CONFIG_MODVERSIONS=y
-CONFIG_MODULE_SRCVERSION_ALL=y
-# CONFIG_BLK_DEV_BSG is not set
-CONFIG_PARTITION_ADVANCED=y
-CONFIG_ARCH_MULTI_V6=y
-CONFIG_POWER_AVS_OMAP=y
-CONFIG_POWER_AVS_OMAP_CLASS3=y
-CONFIG_OMAP_RESET_CLOCKS=y
-CONFIG_OMAP_MUX_DEBUG=y
-CONFIG_ARCH_OMAP2=y
-CONFIG_ARCH_OMAP3=y
-CONFIG_ARCH_OMAP4=y
-CONFIG_SOC_OMAP5=y
-CONFIG_SOC_AM33XX=y
-CONFIG_SOC_AM43XX=y
-CONFIG_SOC_DRA7XX=y
-CONFIG_ARM_THUMBEE=y
-CONFIG_ARM_ERRATA_411920=y
-CONFIG_ARM_ERRATA_430973=y
-CONFIG_SMP=y
-CONFIG_NR_CPUS=2
-CONFIG_CMA=y
-CONFIG_SECCOMP=y
-CONFIG_ZBOOT_ROM_TEXT=0x0
-CONFIG_ZBOOT_ROM_BSS=0x0
-CONFIG_ARM_APPENDED_DTB=y
-CONFIG_ARM_ATAG_DTB_COMPAT=y
-CONFIG_CMDLINE="root=/dev/mmcblk0p2 rootwait console=ttyO2,115200"
-CONFIG_KEXEC=y
-CONFIG_CPU_FREQ=y
-CONFIG_CPU_FREQ_STAT_DETAILS=y
-CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND=y
-CONFIG_CPU_FREQ_GOV_POWERSAVE=y
-CONFIG_CPU_FREQ_GOV_USERSPACE=y
-CONFIG_CPU_FREQ_GOV_CONSERVATIVE=y
-# CONFIG_ARM_OMAP2PLUS_CPUFREQ is not set
-CONFIG_CPU_IDLE=y
-CONFIG_BINFMT_MISC=y
-CONFIG_PM_DEBUG=y
-CONFIG_NET=y
-CONFIG_PACKET=y
-CONFIG_UNIX=y
-CONFIG_XFRM_USER=y
-CONFIG_NET_KEY=y
-CONFIG_NET_KEY_MIGRATE=y
-CONFIG_INET=y
-CONFIG_IP_MULTICAST=y
-CONFIG_IP_PNP=y
-CONFIG_IP_PNP_DHCP=y
-CONFIG_IP_PNP_BOOTP=y
-CONFIG_IP_PNP_RARP=y
-# CONFIG_INET_LRO is not set
-CONFIG_NETFILTER=y
-CONFIG_CAN=m
-CONFIG_CAN_C_CAN=m
-CONFIG_CAN_C_CAN_PLATFORM=m
-CONFIG_BT=m
-CONFIG_BT_HCIUART=m
-CONFIG_BT_HCIUART_H4=y
-CONFIG_BT_HCIUART_BCSP=y
-CONFIG_BT_HCIUART_LL=y
-CONFIG_BT_HCIBCM203X=m
-CONFIG_BT_HCIBPA10X=m
-CONFIG_CFG80211=m
-CONFIG_MAC80211=m
-CONFIG_DEVTMPFS=y
-CONFIG_DEVTMPFS_MOUNT=y
-CONFIG_DMA_CMA=y
-CONFIG_OMAP_OCP2SCP=y
-CONFIG_CONNECTOR=y
-CONFIG_MTD=y
-CONFIG_MTD_CMDLINE_PARTS=y
-CONFIG_MTD_BLOCK=y
-CONFIG_MTD_OOPS=y
-CONFIG_MTD_CFI=y
-CONFIG_MTD_CFI_INTELEXT=y
-CONFIG_MTD_NAND=y
-CONFIG_MTD_NAND_ECC_BCH=y
-CONFIG_MTD_NAND_OMAP2=y
-CONFIG_MTD_ONENAND=y
-CONFIG_MTD_ONENAND_VERIFY_WRITE=y
-CONFIG_MTD_ONENAND_OMAP2=y
-CONFIG_MTD_UBI=y
-CONFIG_BLK_DEV_LOOP=y
-CONFIG_BLK_DEV_RAM=y
-CONFIG_BLK_DEV_RAM_SIZE=16384
-CONFIG_SENSORS_TSL2550=m
-CONFIG_BMP085_I2C=m
-CONFIG_SRAM=y
-CONFIG_SENSORS_LIS3_I2C=m
-CONFIG_SCSI=y
-CONFIG_BLK_DEV_SD=y
-CONFIG_SCSI_SCAN_ASYNC=y
-CONFIG_MD=y
-CONFIG_NETDEVICES=y
-CONFIG_KS8851=y
-CONFIG_KS8851_MLL=y
-CONFIG_SMC91X=y
-CONFIG_SMSC911X=y
-CONFIG_TI_CPSW=y
-CONFIG_AT803X_PHY=y
-CONFIG_SMSC_PHY=y
-CONFIG_USB_USBNET=y
-CONFIG_USB_NET_SMSC95XX=y
-CONFIG_USB_ALI_M5632=y
-CONFIG_USB_AN2720=y
-CONFIG_USB_EPSON2888=y
-CONFIG_USB_KC2190=y
-CONFIG_LIBERTAS=m
-CONFIG_LIBERTAS_USB=m
-CONFIG_LIBERTAS_SDIO=m
-CONFIG_LIBERTAS_DEBUG=y
-CONFIG_WL_TI=y
-CONFIG_WL12XX=m
-CONFIG_WL18XX=m
-CONFIG_WLCORE_SPI=m
-CONFIG_WLCORE_SDIO=m
-CONFIG_MWIFIEX=m
-CONFIG_MWIFIEX_SDIO=m
-CONFIG_MWIFIEX_USB=m
-CONFIG_INPUT_JOYDEV=y
-CONFIG_INPUT_EVDEV=y
-CONFIG_KEYBOARD_GPIO=y
-CONFIG_KEYBOARD_MATRIX=m
-CONFIG_KEYBOARD_TWL4030=y
-CONFIG_INPUT_TOUCHSCREEN=y
-CONFIG_TOUCHSCREEN_ADS7846=m
-CONFIG_TOUCHSCREEN_TSC2005=m
-CONFIG_TOUCHSCREEN_TSC2007=m
-CONFIG_INPUT_MISC=y
-CONFIG_INPUT_TWL4030_PWRBUTTON=y
-# CONFIG_LEGACY_PTYS is not set
-CONFIG_SERIAL_8250=y
-CONFIG_SERIAL_8250_CONSOLE=y
-CONFIG_SERIAL_8250_NR_UARTS=32
-CONFIG_SERIAL_8250_EXTENDED=y
-CONFIG_SERIAL_8250_MANY_PORTS=y
-CONFIG_SERIAL_8250_SHARE_IRQ=y
-CONFIG_SERIAL_8250_DETECT_IRQ=y
-CONFIG_SERIAL_8250_RSA=y
-CONFIG_SERIAL_OF_PLATFORM=y
-CONFIG_SERIAL_OMAP=y
-CONFIG_SERIAL_OMAP_CONSOLE=y
-CONFIG_HW_RANDOM=y
-CONFIG_I2C_CHARDEV=y
-CONFIG_SPI=y
-CONFIG_SPI_OMAP24XX=y
-CONFIG_PINCTRL_SINGLE=y
-CONFIG_DEBUG_GPIO=y
-CONFIG_GPIO_SYSFS=y
-CONFIG_GPIO_TWL4030=y
-CONFIG_W1=y
-CONFIG_BATTERY_BQ27x00=m
-CONFIG_CHARGER_ISP1704=m
-CONFIG_CHARGER_TWL4030=m
-CONFIG_CHARGER_BQ2415X=m
-CONFIG_CHARGER_BQ24190=m
-CONFIG_CHARGER_BQ24735=m
-CONFIG_POWER_RESET=y
-CONFIG_POWER_AVS=y
-CONFIG_SENSORS_LM75=m
-CONFIG_THERMAL=y
-CONFIG_THERMAL_GOV_FAIR_SHARE=y
-CONFIG_THERMAL_GOV_USER_SPACE=y
-CONFIG_CPU_THERMAL=y
-CONFIG_TI_SOC_THERMAL=y
-CONFIG_TI_THERMAL=y
-CONFIG_OMAP4_THERMAL=y
-CONFIG_OMAP5_THERMAL=y
-CONFIG_DRA752_THERMAL=y
-CONFIG_WATCHDOG=y
-CONFIG_OMAP_WATCHDOG=y
-CONFIG_TWL4030_WATCHDOG=y
-CONFIG_MFD_PALMAS=y
-CONFIG_MFD_TPS65217=y
-CONFIG_MFD_TPS65218=y
-CONFIG_MFD_TPS65910=y
-CONFIG_TWL6040_CORE=y
-CONFIG_REGULATOR_PALMAS=y
-CONFIG_REGULATOR_PBIAS=y
-CONFIG_REGULATOR_TI_ABB=y
-CONFIG_REGULATOR_TPS65023=y
-CONFIG_REGULATOR_TPS6507X=y
-CONFIG_REGULATOR_TPS65217=y
-CONFIG_REGULATOR_TPS65218=y
-CONFIG_REGULATOR_TPS65910=y
-CONFIG_REGULATOR_TWL4030=y
-CONFIG_FB=y
-CONFIG_FIRMWARE_EDID=y
-CONFIG_FB_MODE_HELPERS=y
-CONFIG_FB_TILEBLITTING=y
-CONFIG_OMAP2_DSS=m
-CONFIG_OMAP5_DSS_HDMI=y
-CONFIG_OMAP2_DSS_SDI=y
-CONFIG_OMAP2_DSS_DSI=y
-CONFIG_FB_OMAP2=m
-CONFIG_DISPLAY_ENCODER_TFP410=m
-CONFIG_DISPLAY_ENCODER_TPD12S015=m
-CONFIG_DISPLAY_CONNECTOR_DVI=m
-CONFIG_DISPLAY_CONNECTOR_HDMI=m
-CONFIG_DISPLAY_CONNECTOR_ANALOG_TV=m
-CONFIG_DISPLAY_PANEL_DPI=m
-CONFIG_DISPLAY_PANEL_DSI_CM=m
-CONFIG_DISPLAY_PANEL_SONY_ACX565AKM=m
-CONFIG_DISPLAY_PANEL_LGPHILIPS_LB035Q02=m
-CONFIG_DISPLAY_PANEL_SHARP_LS037V7DW01=m
-CONFIG_DISPLAY_PANEL_TPO_TD028TTEC1=m
-CONFIG_DISPLAY_PANEL_TPO_TD043MTEA1=m
-CONFIG_DISPLAY_PANEL_NEC_NL8048HL11=m
-CONFIG_BACKLIGHT_LCD_SUPPORT=y
-CONFIG_LCD_CLASS_DEVICE=y
-CONFIG_LCD_PLATFORM=y
-CONFIG_BACKLIGHT_CLASS_DEVICE=y
-CONFIG_BACKLIGHT_GENERIC=m
-CONFIG_BACKLIGHT_PWM=m
-CONFIG_BACKLIGHT_PANDORA=m
-CONFIG_BACKLIGHT_GPIO=m
-CONFIG_FRAMEBUFFER_CONSOLE=y
-CONFIG_FRAMEBUFFER_CONSOLE_DETECT_PRIMARY=y
-CONFIG_FRAMEBUFFER_CONSOLE_ROTATION=y
-CONFIG_LOGO=y
-CONFIG_SOUND=m
-CONFIG_SND=m
-CONFIG_SND_MIXER_OSS=m
-CONFIG_SND_PCM_OSS=m
-CONFIG_SND_VERBOSE_PRINTK=y
-CONFIG_SND_DEBUG=y
-CONFIG_SND_USB_AUDIO=m
-CONFIG_SND_SOC=m
-CONFIG_SND_OMAP_SOC=m
-CONFIG_SND_OMAP_SOC_OMAP_TWL4030=m
-CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040=m
-CONFIG_SND_OMAP_SOC_OMAP3_PANDORA=m
-CONFIG_USB=y
-CONFIG_USB_ANNOUNCE_NEW_DEVICES=y
-CONFIG_USB_MON=y
-CONFIG_USB_ACM=y
-CONFIG_USB_WDM=y
-CONFIG_USB_STORAGE=y
-CONFIG_USB_MUSB_HDRC=y
-CONFIG_USB_MUSB_DSPS=y
-CONFIG_USB_TI_CPPI41_DMA=y
-CONFIG_USB_DWC3=m
-CONFIG_USB_SERIAL=y
-CONFIG_USB_SERIAL_FTDI_SIO=y
-CONFIG_USB_TEST=y
-CONFIG_AM335X_PHY_USB=y
-CONFIG_USB_GADGET=y
-CONFIG_USB_GADGET_DEBUG=y
-CONFIG_USB_GADGET_DEBUG_FILES=y
-CONFIG_USB_GADGET_DEBUG_FS=y
-CONFIG_USB_ZERO=m
-CONFIG_MMC=y
-CONFIG_SDIO_UART=y
-CONFIG_MMC_OMAP=y
-CONFIG_MMC_OMAP_HS=y
-CONFIG_NEW_LEDS=y
-CONFIG_LEDS_CLASS=y
-CONFIG_LEDS_GPIO=y
-CONFIG_LEDS_TRIGGERS=y
-CONFIG_LEDS_TRIGGER_TIMER=y
-CONFIG_LEDS_TRIGGER_ONESHOT=y
-CONFIG_LEDS_TRIGGER_HEARTBEAT=y
-CONFIG_LEDS_TRIGGER_BACKLIGHT=y
-CONFIG_LEDS_TRIGGER_CPU=y
-CONFIG_LEDS_TRIGGER_GPIO=y
-CONFIG_LEDS_TRIGGER_DEFAULT_ON=y
-CONFIG_RTC_CLASS=y
-CONFIG_RTC_DRV_TWL92330=y
-CONFIG_RTC_DRV_TWL4030=y
-CONFIG_RTC_DRV_OMAP=y
-CONFIG_DMADEVICES=y
-CONFIG_TI_EDMA=y
-CONFIG_DMA_OMAP=y
-CONFIG_EXTCON=y
-CONFIG_EXTCON_PALMAS=y
-CONFIG_PWM=y
-CONFIG_PWM_TWL=y
-CONFIG_PWM_TWL_LED=y
-CONFIG_OMAP_USB2=y
-CONFIG_TI_PIPE3=y
-CONFIG_EXT2_FS=y
-CONFIG_EXT3_FS=y
-# CONFIG_EXT3_FS_XATTR is not set
-CONFIG_EXT4_FS=y
-CONFIG_FANOTIFY=y
-CONFIG_QUOTA=y
-CONFIG_QFMT_V2=y
-CONFIG_AUTOFS4_FS=m
-CONFIG_MSDOS_FS=y
-CONFIG_VFAT_FS=y
-CONFIG_TMPFS=y
-CONFIG_TMPFS_POSIX_ACL=y
-CONFIG_JFFS2_FS=y
-CONFIG_JFFS2_SUMMARY=y
-CONFIG_JFFS2_FS_XATTR=y
-CONFIG_JFFS2_COMPRESSION_OPTIONS=y
-CONFIG_JFFS2_LZO=y
-CONFIG_JFFS2_RUBIN=y
-CONFIG_UBIFS_FS=y
-CONFIG_CRAMFS=y
-CONFIG_NFS_FS=y
-CONFIG_NFS_V3_ACL=y
-CONFIG_NFS_V4=y
-CONFIG_ROOT_NFS=y
-CONFIG_NLS_CODEPAGE_437=y
-CONFIG_NLS_ISO8859_1=y
-CONFIG_PRINTK_TIME=y
-CONFIG_DEBUG_INFO=y
-CONFIG_MAGIC_SYSRQ=y
-CONFIG_SCHEDSTATS=y
-CONFIG_TIMER_STATS=y
-CONFIG_PROVE_LOCKING=y
-# CONFIG_DEBUG_BUGVERBOSE is not set
-CONFIG_SECURITY=y
-CONFIG_CRYPTO_MICHAEL_MIC=y
-# CONFIG_CRYPTO_ANSI_CPRNG is not set
-CONFIG_CRC_CCITT=y
-CONFIG_CRC_T10DIF=y
-CONFIG_CRC_ITU_T=y
-CONFIG_CRC7=y
-CONFIG_LIBCRC32C=y
-CONFIG_FONTS=y
-CONFIG_FONT_8x8=y
-CONFIG_FONT_8x16=y
+Also it was tested on a sama5dx FPGA platform with a gem designed to use 3 queues.
+Then we used the tc program to set a queue discipline policy as describe in the
+Documentation/networking/multiqueue.txt: we successfully used each queue.
 
-Buildroot defconfig:
+Cyrille Pitchen (1):
+  net/macb: add TX multiqueue support for gem
 
-BR2_arm=y
-BR2_cortex_a8=y
-BR2_JLEVEL=24
-BR2_CCACHE=y
-BR2_TOOLCHAIN_EXTERNAL=y
-BR2_TARGET_GENERIC_GETTY_PORT="ttyO0"
-BR2_LINUX_KERNEL=y
-BR2_LINUX_KERNEL_DEFCONFIG="omap2plus"
-BR2_LINUX_KERNEL_ZIMAGE=y
-BR2_LINUX_KERNEL_DTS_SUPPORT=y
-BR2_LINUX_KERNEL_INTREE_DTS_NAME="am335x-evmsk am335x-boneblack"
-BR2_LINUX_KERNEL_INSTALL_TARGET=y
-BR2_PACKAGE_NUTTCP=y
-BR2_PACKAGE_OPENSSH=y
-BR2_PACKAGE_SER2NET=y
-BR2_TARGET_ROOTFS_TAR_BZIP2=y
-BR2_TARGET_UBOOT=y
-BR2_TARGET_UBOOT_BOARDNAME="am335x_evm"
-BR2_TARGET_UBOOT_FORMAT_IMG=y
-BR2_TARGET_UBOOT_SPL=y
-BR2_TARGET_UBOOT_SPL_NAME="MLO"
+ drivers/net/ethernet/cadence/macb.c | 456 +++++++++++++++++++++++-------------
+ drivers/net/ethernet/cadence/macb.h |  36 ++-
+ 2 files changed, 328 insertions(+), 164 deletions(-)
 
-U-Boot version: 2014.07
-Kernel config is omap2plus with enabled USB
-
-# cat /proc/version
-Linux version 3.18.0 (user@user-VirtualBox) (gcc version 4.8.3
-20140320 (prerelease) (Sourcery CodeBench Lite 2014.05-29) ) #6 SMP
-Mon Dec 8 22:47:43 CET 2014
+-- 
+1.8.2.2
