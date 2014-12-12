@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v10 0/7] cxgb4/cxgbi: misc. fixes for cxgb4i
-Date: Fri, 12 Dec 2014 11:22:51 -0500 (EST)
-Message-ID: <20141212.112251.421931987515352352.davem@davemloft.net>
-References: <201412120313.sBC3DQhF028321@localhost6.localdomain6>
+Subject: Re: [PATCH net] cxgb4: Add support for QSA modules
+Date: Fri, 12 Dec 2014 11:24:16 -0500 (EST)
+Message-ID: <20141212.112416.127595446599700148.davem@davemloft.net>
+References: <1418366277-13317-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-	hariprasad@chelsio.com, anish@chelsio.com, hch@infradead.org,
-	James.Bottomley@HansenPartnership.com, michaelc@cs.wisc.edu
-To: kxie@chelsio.com
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, anish@chelsio.com,
+	nirranjan@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36035 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36048 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030408AbaLLQWy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 11:22:54 -0500
-In-Reply-To: <201412120313.sBC3DQhF028321@localhost6.localdomain6>
+	with ESMTP id S932622AbaLLQYS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 11:24:18 -0500
+In-Reply-To: <1418366277-13317-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Karen Xie <kxie@chelsio.com>
-Date: Thu, 11 Dec 2014 19:13:26 -0800
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Fri, 12 Dec 2014 12:07:57 +0530
 
-> This patch set fixes cxgb4i's tx credit calculation and adds handling of
-> additional rx message and negative advice types. It also removes the duplicate
-> code in cxgb4i to set the outgoing queues of a packet. 
+> Firmware 1.12.25.0 added support for QSA module, adding the driver code for it.
+> Also fixes some ethtool get settings for other module types.
+> 
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
-Series applied, thanks.
+Applied.
