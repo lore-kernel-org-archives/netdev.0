@@ -1,55 +1,54 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] rsi: fix memory leak in rsi_load_ta_instructions()
-Date: Sat, 13 Dec 2014 00:43:55 +0300
-Message-ID: <1418420635-23869-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: "John W. Linville" <linville@tuxdriver.com>,
-	Fariya Fatima <fariyaf@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [WTF?] random test in netlink_sendmsg()
+Date: Fri, 12 Dec 2014 22:50:17 +0100
+Message-ID: <20141212215017.GB3624@breakpoint.cc>
+References: <20141128062315.GC29748@ZenIV.linux.org.uk>
+ <20141212.153433.1675057029307550538.davem@davemloft.net>
+ <20141212213242.GE22149@ZenIV.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	netdev@vger.kernel.org
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:34983 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751132AbaLLVu2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 16:50:28 -0500
+Content-Disposition: inline
+In-Reply-To: <20141212213242.GE22149@ZenIV.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Memory allocated by kmemdup() in rsi_load_ta_instructions() is leaked.
-But duplication of firmware data here is useless,
-so the patch removes kmemdup() at all.
+Al Viro <viro@ZenIV.linux.org.uk> wrote:
+> On Fri, Dec 12, 2014 at 03:34:33PM -0500, David Miller wrote:
+> > > 	What is that check trying to do?  Is that simply missing
+> > > "(msg->msg_iovlen > 0) &&"?  And why on the Earth didn't it simply use
+> > > zero msg_iovlen as the indicator, instead of messing with iovec contents?
+> > > Obviously too late to change, but... ouch.
+> > 
+> > I think it's simply trying to say: if nothing in the given iovec, use
+> > the mmap() netlink area for the data.
+> > 
+> > I cannot vouch for the correctness of this test.
+> > 
+> > If we take the netlink_mmap_sendmsg() path, msg->msg_iov is not
+> > accessed at all, so it cannot be a huge problem.
+> 
+> Yes, but decision whether to take that path or not is random in case of
+> msg_iovlen being 0...
+> 
+> What do we want sendmsg(fd, &msg, 0) to do when fd is AF_NETLINK socket
+> that had setsockopt(fd, SOL_NETLINK, NETLINK_TX_RING, ...) successfully done
+> to it and msg.msg_iovlen is 0?  Userland ABI question
 
-Found by Linux Driver Verification project (linuxtesting.org).
+IIRC userland, after filling txring with at least one new netlink
+message, needs to call this to tell kernel to start processing the
+messages in the tx ring.
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/wireless/rsi/rsi_91x_sdio_ops.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+> a security hole there" one...  As it is, it might decide to do
+> netlink_mmap_sendmsg() or it might decide to act as if we hadn't done
+> NETLINK_TX_RING at all.
 
-diff --git a/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c b/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
-index 4834a9abc171..b6cc9ff47fc2 100644
---- a/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
-+++ b/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
-@@ -172,7 +172,6 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
- 		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
- 	u32 len;
- 	u32 num_blocks;
--	const u8 *fw;
- 	const struct firmware *fw_entry = NULL;
- 	u32 block_size = dev->tx_blk_size;
- 	int status = 0;
-@@ -201,7 +200,6 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
- 		return status;
- 	}
- 
--	fw = kmemdup(fw_entry->data, fw_entry->size, GFP_KERNEL);
- 	len = fw_entry->size;
- 
- 	if (len % 4)
-@@ -212,7 +210,7 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
- 	rsi_dbg(INIT_ZONE, "%s: Instruction size:%d\n", __func__, len);
- 	rsi_dbg(INIT_ZONE, "%s: num blocks: %d\n", __func__, num_blocks);
- 
--	status = rsi_copy_to_card(common, fw, len, num_blocks);
-+	status = rsi_copy_to_card(common, fw_entry->data, len, num_blocks);
- 	release_firmware(fw_entry);
- 	return status;
- }
--- 
-1.9.1
+It should definitely be netlink_mmap_sendmsg() to commence messsage
+processing.
