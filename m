@@ -1,62 +1,68 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net] net: ethernet: davicom: Allow to select DM9000 for
- nios2
-Date: Fri, 12 Dec 2014 09:49:13 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CA0BA4C@AcuExch.aculab.com>
-References: <1418376071-28709-1-git-send-email-tklauser@distanz.ch>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH v2 1/1] net/macb: add TX multiqueue support for gem
+Date: Fri, 12 Dec 2014 10:52:12 +0100
+Message-ID: <20141212105212.3b9c5810@free-electrons.com>
+References: <cover.1418291637.git.cyrille.pitchen@atmel.com>
+	<87a3098203ee6eaa7a60607713a293d3258e2b58.1418291637.git.cyrille.pitchen@atmel.com>
+	<20141211203103.4191887a@free-electrons.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CA0BA36@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: 'Tobias Klauser' <tklauser@distanz.ch>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:34982 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S934676AbaLLJuW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 04:50:22 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 12235-07 for <netdev@vger.kernel.org>;
- Fri, 12 Dec 2014 09:50:13 +0000 (GMT)
-In-Reply-To: <1418376071-28709-1-git-send-email-tklauser@distanz.ch>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Cyrille Pitchen <cyrille.pitchen@atmel.com>,
+	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"soren.brinkmann@xilinx.com" <soren.brinkmann@xilinx.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CA0BA36@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tobias Klauser
-> This chip is present on older revisions of the DE2 development kit.
+Dear David Laight,
 
-Doesn't that mean the selector should be DE2 not NIOS2.
+On Fri, 12 Dec 2014 09:45:30 +0000, David Laight wrote:
+> From: Thomas Petazzoni
+> > On Thu, 11 Dec 2014 11:16:51 +0100, Cyrille Pitchen wrote:
+> > 
+> > > +#define GEM_ISR1				0x0400
+> > > +#define GEM_ISR2				0x0404
+> > > +#define GEM_ISR3				0x0408
+> > > +#define GEM_ISR4				0x040c
+> > > +#define GEM_ISR5				0x0410
+> > > +#define GEM_ISR6				0x0414
+> > > +#define GEM_ISR7				0x0418
+> > 
+> > What about doing instead:
+> > 
+> > #define GEM_ISR(q)				((q) == 0 ? MACB_ISR : 0x400 + (q) << 2)
+> > 
+> > And ditto for all other registers, which will save a lot of boring repeated code.
+> 
+> It will probably add a lot of object code and, depending on how often
+> the registers are accesses, might have performance impact.
+> 
+> Having:
+> #define GEM_ISR(n) (0x400 + (n) << 4)
+> will save source code.
 
-NIOS2 is a cpu not a board and I think this is an external peripheral
-not something implemented in the fpga itself.
+Except that this won't work for n == 0, because for n == 0, the
+register offset is not 0x400.
 
-	David
+And in fact, my code was also wrong, it should be:
 
-> 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-> ---
->  drivers/net/ethernet/davicom/Kconfig | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/davicom/Kconfig b/drivers/net/ethernet/davicom/Kconfig
-> index 316c5e5..7ec2d74 100644
-> --- a/drivers/net/ethernet/davicom/Kconfig
-> +++ b/drivers/net/ethernet/davicom/Kconfig
-> @@ -4,7 +4,7 @@
-> 
->  config DM9000
->  	tristate "DM9000 support"
-> -	depends on ARM || BLACKFIN || MIPS || COLDFIRE
-> +	depends on ARM || BLACKFIN || MIPS || COLDFIRE || NIOS2
->  	select CRC32
->  	select MII
->  	---help---
-> --
-> 2.2.0
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	((q) == 0 ? MACB_ISR : 0x400 + ((q)-1) << 2))
+
+Since q=1 is at 0x400.
+
+Best regards,
+
+Thomas
+-- 
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
