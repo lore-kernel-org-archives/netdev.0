@@ -1,96 +1,36 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net] cxgb4: Add support for QSA modules
-Date: Fri, 12 Dec 2014 12:07:57 +0530
-Message-ID: <1418366277-13317-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
-	nirranjan@chelsio.com, Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:55439
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932412AbaLLGcL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 01:32:11 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH] net: sock: correctly handle failed prog retrieval from fd
+Date: Thu, 11 Dec 2014 22:34:48 -0800
+Message-ID: <CAMEtUuycug_uiK-wjVePTUmO9brMREMWPiYnEMRMdOhWBm2gjw@mail.gmail.com>
+References: <1418362428-15067-1-git-send-email-sasha.levin@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Sasha Levin <sasha.levin@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1418362428-15067-1-git-send-email-sasha.levin@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Firmware 1.12.25.0 added support for QSA module, adding the driver code for it.
-Also fixes some ethtool get settings for other module types.
+On Thu, Dec 11, 2014 at 9:33 PM, Sasha Levin <sasha.levin@oracle.com> wrote:
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index 8cc3c03..ec9baea 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -1103,8 +1103,8 @@ int sk_attach_bpf(u32 ufd, struct sock *sk)
+>                 return -EPERM;
+>
+>         prog = bpf_prog_get(ufd);
+> -       if (!prog)
+> -               return -EINVAL;
+> +       if (IS_ERR(prog))
+> +               return PTR_ERR(prog);
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    2 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   13 ++++++++++---
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |    1 +
- 3 files changed, 12 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index a18d33f..5ab5c31 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -392,7 +392,7 @@ struct port_info {
- 	s16    xact_addr_filt;        /* index of exact MAC address filter */
- 	u16    rss_size;              /* size of VI's RSS table slice */
- 	s8     mdio_addr;
--	u8     port_type;
-+	enum fw_port_type port_type;
- 	u8     mod_type;
- 	u8     port_id;
- 	u8     tx_chan;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 973dbb7..ccf3436 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -2325,7 +2325,7 @@ static int identify_port(struct net_device *dev,
- 	return t4_identify_port(adap, adap->fn, netdev2pinfo(dev)->viid, val);
- }
- 
--static unsigned int from_fw_linkcaps(unsigned int type, unsigned int caps)
-+static unsigned int from_fw_linkcaps(enum fw_port_type type, unsigned int caps)
- {
- 	unsigned int v = 0;
- 
-@@ -2354,14 +2354,20 @@ static unsigned int from_fw_linkcaps(unsigned int type, unsigned int caps)
- 		     SUPPORTED_10000baseKR_Full | SUPPORTED_1000baseKX_Full |
- 		     SUPPORTED_10000baseKX4_Full;
- 	else if (type == FW_PORT_TYPE_FIBER_XFI ||
--		 type == FW_PORT_TYPE_FIBER_XAUI || type == FW_PORT_TYPE_SFP) {
-+		 type == FW_PORT_TYPE_FIBER_XAUI ||
-+		 type == FW_PORT_TYPE_SFP ||
-+		 type == FW_PORT_TYPE_QSFP_10G ||
-+		 type == FW_PORT_TYPE_QSA) {
- 		v |= SUPPORTED_FIBRE;
- 		if (caps & FW_PORT_CAP_SPEED_1G)
- 			v |= SUPPORTED_1000baseT_Full;
- 		if (caps & FW_PORT_CAP_SPEED_10G)
- 			v |= SUPPORTED_10000baseT_Full;
--	} else if (type == FW_PORT_TYPE_BP40_BA)
-+	} else if (type == FW_PORT_TYPE_BP40_BA ||
-+		   type == FW_PORT_TYPE_QSFP) {
- 		v |= SUPPORTED_40000baseSR4_Full;
-+		v |= SUPPORTED_FIBRE;
-+	}
- 
- 	if (caps & FW_PORT_CAP_ANEG)
- 		v |= SUPPORTED_Autoneg;
-@@ -2396,6 +2402,7 @@ static int get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 		cmd->port = PORT_FIBRE;
- 	else if (p->port_type == FW_PORT_TYPE_SFP ||
- 		 p->port_type == FW_PORT_TYPE_QSFP_10G ||
-+		 p->port_type == FW_PORT_TYPE_QSA ||
- 		 p->port_type == FW_PORT_TYPE_QSFP) {
- 		if (p->mod_type == FW_PORT_MOD_TYPE_LR ||
- 		    p->mod_type == FW_PORT_MOD_TYPE_SR ||
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-index beaf80a..834fa48 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-@@ -2470,6 +2470,7 @@ enum fw_port_type {
- 	FW_PORT_TYPE_BP4_AP,
- 	FW_PORT_TYPE_QSFP_10G,
- 	FW_PORT_TYPE_QSFP,
-+	FW_PORT_TYPE_QSA,
- 	FW_PORT_TYPE_BP40_BA,
- 
- 	FW_PORT_TYPE_NONE = FW_PORT_CMD_PTYPE_M
--- 
-1.7.1
+thank you for the fix, but the same fix is already applied
+to net-next and pushed all the way to:
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=198bf1b046e370a7d3987b195cff5f1efebec3ac
+sorry for the headache that this bug caused.
