@@ -1,36 +1,38 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: [PATCH v2 0/6] net-PPP: Deletion of a few unnecessary checks
-Date: Fri, 12 Dec 2014 17:56:36 +0100
-Message-ID: <548B1E44.6050005@users.sourceforge.net>
-References: <548A92E2.8090304@users.sourceforge.net>	<20141212.092950.1840808214143867233.davem@davemloft.net>	<548B0A29.8050503@users.sourceforge.net> <20141212.105106.1162681032492664308.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] net: smc91x: Fix build without gpiolib
+Date: Fri, 12 Dec 2014 11:58:38 -0500 (EST)
+Message-ID: <20141212.115838.1155760587618419145.davem@davemloft.net>
+References: <20141212162746.GJ16916@distanz.ch>
+	<20141212.113020.884577050283133272.davem@davemloft.net>
+	<20141212164528.GK16916@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <20141212.105106.1162681032492664308.davem@davemloft.net>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: tony@atomide.com, nico@fluxnic.net, netdev@vger.kernel.org
+To: tklauser@distanz.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36363 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932185AbaLLQ6l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 11:58:41 -0500
+In-Reply-To: <20141212164528.GK16916@distanz.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Tobias Klauser <tklauser@distanz.ch>
+Date: Fri, 12 Dec 2014 17:45:29 +0100
 
-> You are asking me to invest a lot of time for a very trivial
-> set of changes.
+> On 2014-12-12 at 17:30:20 +0100, David Miller <davem@davemloft.net> wrote:
+>> In my opinion, if the code blocks enabling the configurations that
+>> need this are enabled, so should GPIO be depended upon.
+>> 
+>> I think, at a minimum, when CONFIG_OF is enabled smsc91x should
+>> require GPIO.
+> 
+> Agreed. This is the better solution, causing less surprises for the
+> user. Should this be a "select GPIOLIB if OF" then?
 
-I find the proposed six update steps also trivial so far.
-
-
-> Why don't you just integrate the feedback you were given and
-> resubmit your patch series, just like any other developer would?
-
-I find the requested redesign and reorganisation of involved data structures
-not so easy and therefore more challenging at the moment.
-Where should "the error pointers" be stored instead?
-Is such a software improvement even a kind of add-on to my patch series?
-
-Regards,
-Markus
+If GPIO is a child node in the Kconfig hierarchy (ie. has no
+dependencies of it's own), then yes.  Otherwise, a depends
+will need to be used, because select does not recursively
+trigger a select'd nodes dependencies.
