@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vlan: Add ability to always enable TSO/UFO
-Date: Fri, 12 Dec 2014 11:01:02 -0500 (EST)
-Message-ID: <20141212.110102.778188055200622888.davem@davemloft.net>
-References: <1418179394-4470-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH] net: phy: export fixed_phy_register()
+Date: Fri, 12 Dec 2014 11:01:12 -0500 (EST)
+Message-ID: <20141212.110112.2111858437852858965.davem@davemloft.net>
+References: <1418357006-2450-1-git-send-email-msalter@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: makita.toshiaki@lab.ntt.co.jp
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35815 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932586AbaLLQBE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 11:01:04 -0500
-In-Reply-To: <1418179394-4470-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: msalter@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1418357006-2450-1-git-send-email-msalter@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Date: Wed, 10 Dec 2014 11:43:13 +0900
+From: Mark Salter <msalter@redhat.com>
+Date: Thu, 11 Dec 2014 23:03:26 -0500
 
-> Since the real device can segment packets by software, a vlan device
-> can set TSO/UFO even when the real device doesn't have those features.
-> Unlike GSO, this allows packets to be segmented after Qdisc.
+> When building the bcmgenet driver as module, I get:
 > 
-> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> ERROR: "fixed_phy_register" [drivers/net/ethernet/broadcom/genet/genet.ko] undefined!
+> 
+> commit b0ba512e225d72 ("net: bcmgenet: enable driver to work without device
+> tree") which added a call to fixed_phy_register. But fixed_phy_register
+> needs to be exported if used from a module.
+> 
+> Signed-off-by: Mark Salter <msalter@redhat.com>
 
-Applied.
+APplied.
