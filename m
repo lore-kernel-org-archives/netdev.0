@@ -1,43 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH] fib_trie: Fix trie balancing issue if new node
- pushes down existing node
-Date: Thu, 11 Dec 2014 21:32:16 -0500 (EST)
-Message-ID: <20141211.213216.1630491264342423219.davem@davemloft.net>
-References: <20141211054815.1357.36977.stgit@ahduyck-vm-fedora20>
+Subject: Re: [PATCH net-next v2] r8169:update rtl8168g pcie ephy parameter
+Date: Thu, 11 Dec 2014 21:39:13 -0500 (EST)
+Message-ID: <20141211.213913.1129074366073203370.davem@davemloft.net>
+References: <1418218118-15018-1-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: alexander.h.duyck@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58913 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754706AbaLLCcS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 21:32:18 -0500
-In-Reply-To: <20141211054815.1357.36977.stgit@ahduyck-vm-fedora20>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org
+To: hau@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1418218118-15018-1-git-send-email-hau@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Date: Wed, 10 Dec 2014 21:49:22 -0800
+From: Chunhao Lin <hau@realtek.com>
+Date: Wed, 10 Dec 2014 21:28:38 +0800
 
-> This patch addresses an issue with the level compression of the fib_trie.
-> Specifically in the case of adding a new leaf that triggers a new node to
-> be added that takes the place of the old node.  The result is a trie where
-> the 1 child tnode is on one side and one leaf is on the other which gives
-> you a very deep trie.  Below is the script I used to generate a trie on
-> dummy0 with a 10.X.X.X family of addresses.
- ...
-> What this fix does is start the rebalance at the newly created tnode
-> instead of at the parent tnode.  This way if there is a gap between the
-> parent and the new node it doesn't prevent the new tnode from being
-> coalesced with any pre-existing nodes that may have been pushed into one
-> of the new nodes child branches.
+> Add ephy parameter to rtl8168g.
+> Also change the common function of rtl8168g from "rtl_hw_start_8168g_1" to
+>  "rtl_hw_start_8168g". And function "rtl_hw_start_8168g_1" is used for
+> setting rtl8168g hardware parameters.
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+> Following is the explanation of what hardware parameter change for.
+> rtl8168g may erroneous judge the PCIe signal quality and show the error bit
+> on PCI configuration space when in PCIe low power mode.
+> The following ephy parameters are for above issue.
+> { 0x00, 0x0000,	0x0008 }
+> { 0x0c, 0x37d0,	0x0820 }
+> { 0x1e, 0x0000,	0x0001 }
+> 
+> rtl8168g may return to PCIe L0 from PCIe L0s low power mode too slow.
+> The following ephy parameter is for above issue.
+> { 0x19, 0x8000,	0x0000 }
+> 
+> Signed-off-by: Chunhao Lin <hau@realtek.com>
 
-One has to be mindful with this code that what it's doing now might
-be intentional.  For example, it might be doing things this way
-on purpose in order to minimize rebalancing during route flaps.
-
-Barring anything like that, I think your change is fine.
+Applied, thanks.
