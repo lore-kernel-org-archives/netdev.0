@@ -1,54 +1,88 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [WTF?] random test in netlink_sendmsg()
-Date: Fri, 12 Dec 2014 22:50:17 +0100
-Message-ID: <20141212215017.GB3624@breakpoint.cc>
-References: <20141128062315.GC29748@ZenIV.linux.org.uk>
- <20141212.153433.1675057029307550538.davem@davemloft.net>
- <20141212213242.GE22149@ZenIV.linux.org.uk>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [RFC PATCH net-next 00/11] net: remove disable_irq() from
+ ->ndo_poll_controller
+Date: Fri, 12 Dec 2014 23:01:28 +0100 (CET)
+Message-ID: <alpine.DEB.2.11.1412122242180.16494@nanos>
+References: <1418135842-21389-1-git-send-email-sd@queasysnail.net> <20141209.214433.7463087833083181.davem@davemloft.net> <20141211214537.GA4159@kria>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	netdev@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	peterz@infradead.org
+To: Sabrina Dubroca <sd@queasysnail.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:34983 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751132AbaLLVu2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 16:50:28 -0500
-Content-Disposition: inline
-In-Reply-To: <20141212213242.GE22149@ZenIV.linux.org.uk>
+Received: from www.linutronix.de ([62.245.132.108]:37381 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750908AbaLLWBh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 17:01:37 -0500
+In-Reply-To: <20141211214537.GA4159@kria>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Al Viro <viro@ZenIV.linux.org.uk> wrote:
-> On Fri, Dec 12, 2014 at 03:34:33PM -0500, David Miller wrote:
-> > > 	What is that check trying to do?  Is that simply missing
-> > > "(msg->msg_iovlen > 0) &&"?  And why on the Earth didn't it simply use
-> > > zero msg_iovlen as the indicator, instead of messing with iovec contents?
-> > > Obviously too late to change, but... ouch.
+On Thu, 11 Dec 2014, Sabrina Dubroca wrote:
+> 2014-12-09, 21:44:33 -0500, David Miller wrote:
 > > 
-> > I think it's simply trying to say: if nothing in the given iovec, use
-> > the mmap() netlink area for the data.
+> > Adding a new spinlock to every interrupt service routine is
+> > simply a non-starter.
 > > 
-> > I cannot vouch for the correctness of this test.
-> > 
-> > If we take the netlink_mmap_sendmsg() path, msg->msg_iov is not
-> > accessed at all, so it cannot be a huge problem.
+> > You will certainly have to find a way to fix this in a way
+> > that doesn't involve adding any new overhead to the normal
+> > operational paths of these drivers.
 > 
-> Yes, but decision whether to take that path or not is random in case of
-> msg_iovlen being 0...
+> Okay. Here is another idea.
 > 
-> What do we want sendmsg(fd, &msg, 0) to do when fd is AF_NETLINK socket
-> that had setsockopt(fd, SOL_NETLINK, NETLINK_TX_RING, ...) successfully done
-> to it and msg.msg_iovlen is 0?  Userland ABI question
+> Since the issue is with the wait_event() part of synchronize_irq(),
+> and it only takes care of threaded handlers, maybe we could try not
+> waiting for threaded handlers.
+> 
+> Introduce disable_irq_nosleep() that returns true if it successfully
+> synchronized against all handlers (there was no threaded handler
+> running), false if it left some threads running.  And in
+> ->ndo_poll_controller, only call the interrupt handler if
+> synchronization was successful.
+> 
+> Both users of the poll controllers retry their action (alloc/xmit an
+> skb) several times, with calls to the device's poll controller between
+> attempts.  And hopefully, if the first attempt fails, we will still
+> manage to get through?
 
-IIRC userland, after filling txring with at least one new netlink
-message, needs to call this to tell kernel to start processing the
-messages in the tx ring.
+Hopefully is not a good starting point. Is the poll controller
+definitely retrying? Otherwise you might end up with the following:
 
-> a security hole there" one...  As it is, it might decide to do
-> netlink_mmap_sendmsg() or it might decide to act as if we hadn't done
-> NETLINK_TX_RING at all.
+Interrupt line is shared between your network device and a
+device which requested a threaded interrupt handler.
 
-It should definitely be netlink_mmap_sendmsg() to commence messsage
-processing.
+  CPU0	       		   	    CPU1
+  interrupt()
+    your_device_handler()
+      return NONE;
+    shared_device_handler()
+      return WAKE_THREAD;
+      --> atomic_inc(threads_active);
+				    poll()
+				      disable_irq_nosleep()
+					sync_hardirq()
+					return atomic_read(threads_active);
+
+So if you do not have a reliable retry then you might just go into a
+stale state. And this can happen if the interrupt type is edge because
+we do not disable the interrupt when we wakeup the thread for obvious
+reasons.
+
+Aside of that I think that something like this is a reasonable
+approach to the problem.
+
+The only other nitpicks I have are:
+
+    - The name of the function sucks, though my tired braain can't
+      come up with something reasonable right now
+
+    - The lack of extensive documentation how this interface is
+      supposed to be used and the pitfals of abusage, both in the
+      function documentation and the changelog.
+
+      Merlily copying the existing documentation of the other
+      interface is not sufficient.
+
+Thanks,
+
+	tglx
