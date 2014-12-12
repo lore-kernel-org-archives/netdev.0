@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next 00/11] net: remove disable_irq() from
- ->ndo_poll_controller
-Date: Thu, 11 Dec 2014 21:14:02 -0500 (EST)
-Message-ID: <20141211.211402.2185620924873688973.davem@davemloft.net>
-References: <1418135842-21389-1-git-send-email-sd@queasysnail.net>
-	<20141209.214433.7463087833083181.davem@davemloft.net>
-	<20141211214537.GA4159@kria>
+Subject: Re: [net-next PATCH v7 resubmit 0/4] arch: Add lightweight memory
+ barriers for coherent memory access
+Date: Thu, 11 Dec 2014 21:16:02 -0500 (EST)
+Message-ID: <20141211.211602.1228496215945360802.davem@davemloft.net>
+References: <20141125203310.8240.27370.stgit@ahduyck-server>
+	<20141211225250.25464.30291.stgit@ahduyck-server>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, peterz@infradead.org, tglx@linutronix.de
-To: sd@queasysnail.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58753 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758620AbaLLCOD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 21:14:03 -0500
-In-Reply-To: <20141211214537.GA4159@kria>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mathieu.desnoyers@polymtl.ca, peterz@infradead.org,
+	benh@kernel.crashing.org, heiko.carstens@de.ibm.com,
+	mingo@kernel.org, linux-arch@vger.kernel.org, mikey@neuling.org,
+	linux@arm.linux.org.uk, donald.c.skidmore@intel.com,
+	matthew.vick@intel.com, geert@linux-m68k.org,
+	jeffrey.t.kirsher@intel.com, romieu@fr.zoreil.com,
+	paulmck@linux.vnet.ibm.com, nic_swsd@realtek.com, arnd@arndb.de,
+	will.deacon@arm.com, michael@ellerman.id.au, tony.luck@intel.com,
+	torvalds@linux-foundation.org, oleg@redhat.com,
+	schwidefsky@de.ibm.com, fweisbec@gmail.com
+To: alexander.h.duyck@redhat.com
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <20141211225250.25464.30291.stgit@ahduyck-server>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sabrina Dubroca <sd@queasysnail.net>
-Date: Thu, 11 Dec 2014 22:45:37 +0100
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Date: Thu, 11 Dec 2014 15:01:43 -0800
 
-> Introduce disable_irq_nosleep() that returns true if it successfully
-> synchronized against all handlers (there was no threaded handler
-> running), false if it left some threads running.  And in
-> ->ndo_poll_controller, only call the interrupt handler if
-> synchronization was successful.
-> 
-> Both users of the poll controllers retry their action (alloc/xmit an
-> skb) several times, with calls to the device's poll controller between
-> attempts.  And hopefully, if the first attempt fails, we will still
-> manage to get through?
+> These patches introduce two new primitives for synchronizing cache coherent
+> memory writes and reads.
 
-This looks more palatable to me.
+Series applied, thanks Alex.
