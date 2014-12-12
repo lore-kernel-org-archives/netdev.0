@@ -1,62 +1,50 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next] Avoid reducing cwnd when ACK+DSACK is received
-Date: Fri, 12 Dec 2014 10:54:11 -0500
-Message-ID: <CADVnQy=N2VAZjt_kprfg3ZBk8-Xu=v-7ohGY=Vy+PQ_w2ZRn1g@mail.gmail.com>
-References: <1418327890-368-1-git-send-email-sebastien.barre@uclouvain.be>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net PATCH] fib_trie: Fix trie balancing issue if new node
+ pushes down existing node
+Date: Fri, 12 Dec 2014 10:54:25 -0500 (EST)
+Message-ID: <20141212.105425.2023800747122061277.davem@davemloft.net>
+References: <20141211054815.1357.36977.stgit@ahduyck-vm-fedora20>
+	<20141211.213216.1630491264342423219.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Gregory Detal <gregory.detal@uclouvain.be>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: =?UTF-8?B?U8OpYmFzdGllbiBCYXJyw6k=?= <sebastien.barre@uclouvain.be>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: alexander.h.duyck@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f42.google.com ([209.85.216.42]:62391 "EHLO
-	mail-qa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755336AbaLLPyM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 10:54:12 -0500
-Received: by mail-qa0-f42.google.com with SMTP id j7so5355731qaq.1
-        for <netdev@vger.kernel.org>; Fri, 12 Dec 2014 07:54:12 -0800 (PST)
-In-Reply-To: <1418327890-368-1-git-send-email-sebastien.barre@uclouvain.be>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35720 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934848AbaLLPy0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 10:54:26 -0500
+In-Reply-To: <20141211.213216.1630491264342423219.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 11, 2014 at 2:58 PM, S=C3=A9bastien Barr=C3=A9
-<sebastien.barre@uclouvain.be> wrote:
-> When the peer has delayed ack enabled, it may reply to a probe with a=
-n
-> ACK+D-SACK, with ack value set to tlp_high_seq. In the current code,
-> such ACK+DSACK will be missed and only at next, higher ack will the T=
-LP
-> episode be considered done. Since the DSACK is not present anymore,
-> this will cost a cwnd reduction.
->
-> This patch ensures that this scenario does not cause a cwnd reduction=
-, since
-> receiving an ACK+DSACK indicates that both the initial segment and th=
-e probe
-> have been received by the peer.
->
-> Cc: Gregory Detal <gregory.detal@uclouvain.be>
-> Cc: Nandita Dukkipati <nanditad@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: S=C3=A9bastien Barr=C3=A9 <sebastien.barre@uclouvain.b=
-e>
+From: David Miller <davem@davemloft.net>
+Date: Thu, 11 Dec 2014 21:32:16 -0500 (EST)
 
-BTW, I like this idea, and I'll test it.
+> From: Alexander Duyck <alexander.h.duyck@redhat.com>
+> Date: Wed, 10 Dec 2014 21:49:22 -0800
+> 
+>> This patch addresses an issue with the level compression of the fib_trie.
+>> Specifically in the case of adding a new leaf that triggers a new node to
+>> be added that takes the place of the old node.  The result is a trie where
+>> the 1 child tnode is on one side and one leaf is on the other which gives
+>> you a very deep trie.  Below is the script I used to generate a trie on
+>> dummy0 with a 10.X.X.X family of addresses.
+>  ...
+>> What this fix does is start the rebalance at the newly created tnode
+>> instead of at the parent tnode.  This way if there is a gap between the
+>> parent and the new node it doesn't prevent the new tnode from being
+>> coalesced with any pre-existing nodes that may have been pushed into one
+>> of the new nodes child branches.
+>> 
+>> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+> 
+> One has to be mindful with this code that what it's doing now might
+> be intentional.  For example, it might be doing things this way
+> on purpose in order to minimize rebalancing during route flaps.
+> 
+> Barring anything like that, I think your change is fine.
 
-Two suggestions for the next iteration:
-
-(1) for TCP patch style, I'd suggest a commit first-line like:
-
-  tcp: avoid reducing cwnd when ACK+DSACK is received
-
-(2) Your patch is essentially a reworking of the is_tlp_dupack
-computation. So rather than splitting the logic between the
-is_tlp_dupack computation and the new expression inside the if
-condition, I'd suggest moving and centralizing all the logic in the if
-condition. There is no real need for the is_tlp_dupack variable.
-
-neal
+Alex, in case it isn't clear, I'm hoping that you might have some
+thoughts on this aspect of your changes. :)
