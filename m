@@ -1,150 +1,181 @@
-From: Jonathan Bither <jonbither@gmail.com>
-Subject: Re: tg3 broken in 3.18.0?
-Date: Fri, 12 Dec 2014 09:50:53 -0500
-Message-ID: <548B00CD.3030708@gmail.com>
-References: <20141210230634.GA22884@teela.fritz.box> <5489CA3C.10803@gmail.com>
+From: Richard Guy Briggs <rgb@tricolour.ca>
+Subject: NetDev 0.1 Attendee clarification [was: Netdev 0.1 Call for
+ Proposals]
+Date: Fri, 12 Dec 2014 10:09:42 -0500
+Message-ID: <20141212150942.GV392@toccata2.tricolour.ca>
+References: <20141203022815.GM4612@toccata2.tricolour.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Nils Holland <nholland@tisys.org>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f45.google.com ([209.85.192.45]:64288 "EHLO
-	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967761AbaLLOu4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 09:50:56 -0500
-Received: by mail-qg0-f45.google.com with SMTP id f51so5493735qge.32
-        for <netdev@vger.kernel.org>; Fri, 12 Dec 2014 06:50:55 -0800 (PST)
-In-Reply-To: <5489CA3C.10803@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	lwn@lwn.net, netdev01@lists.netfilter.org, lartc@vger.kernel.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141203022815.GM4612@toccata2.tricolour.ca>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Not sure if it helps any, but tg3 works here after a 3.18 upgrade. I'd 
-be happy to share any information if it would help you out.
+On 14/12/02, Richard Guy Briggs wrote:
+> Netdev 0.1 Call for Proposals
+> -----------------------------
+> 
+> Netdev 0.1 (year 0, conference 1) is a community-driven conference
+> geared towards Linux netheads. Linux kernel networking and user 
+> space utilization of the interfaces to the Linux kernel networking
+> subsystem are the focus.
 
-[root@www ~]# uname -a
-Linux localhost 3.18.0-1.el6.elrepo.i686 #1 SMP Mon Dec 8 10:55:34 EST 
-2014 i686 i686 i386 GNU/Linux
-[root@www ~]# ethtool -i eth0
-driver: tg3
-version: 3.137
-firmware-version: 5704-v3.36, ASFIPMIc v2.37
-bus-info: 0000:02:03.0
-supports-statistics: yes
-supports-test: yes
-supports-eeprom-access: yes
-supports-register-dump: yes
-supports-priv-flags: no
-[root@www ~]# ethtool eth0
-Settings for eth0:
-	Supported ports: [ TP ]
-	Supported link modes:   10baseT/Half 10baseT/Full
-	                        100baseT/Half 100baseT/Full
-	                        1000baseT/Half 1000baseT/Full
-	Supported pause frame use: No
-	Supports auto-negotiation: Yes
-	Advertised link modes:  10baseT/Half 10baseT/Full
-	                        100baseT/Half 100baseT/Full
-	                        1000baseT/Half 1000baseT/Full
-	Advertised pause frame use: Symmetric
-	Advertised auto-negotiation: Yes
-	Link partner advertised link modes:  10baseT/Half 10baseT/Full
-	                                     100baseT/Half 100baseT/Full
-	                                     1000baseT/Full
-	Link partner advertised pause frame use: No
-	Link partner advertised auto-negotiation: Yes
-	Speed: 1000Mb/s
-	Duplex: Full
-	Port: Twisted Pair
-	PHYAD: 1
-	Transceiver: internal
-	Auto-negotiation: on
-	MDI-X: on
-	Supports Wake-on: g
-	Wake-on: g
-	Current message level: 0x000000ff (255)
-			       drv probe link timer ifdown ifup rx_err tx_err
-	Link detected: yes
-[root@www ~]#
+Hello fellow Linux NetHeads, sorry for the noise:
 
+There seems to have been some questions about the intended audience for this
+conference.
 
+The 50/50 by-invitation/submission slots are for the *presenters* of the talks
+and not for the audience of attendees.  *Anyone* with an interest in Linux
+networking is welcome to attend this conference.
 
-On 12/11/2014 11:45 AM, Marcelo Ricardo Leitner wrote:
-> On 10-12-2014 21:06, Nils Holland wrote:
->> Hi everyone,
->>
->> I just upgraded a machine from 3.17.3 to 3.18.0 and noticed that after
->> the upgrade, the machine's network interface (which is a tg3) would no
->> longer run correctly (or, for that matter, run at all). During the
->> upgrade, I didn't change any kernel config options or any other parts
->> of the system.
->
-> Same thing here! Thanks for reporting this, Nils.
->
->> Since the machine is remote and I don't have direct access to it, it's
->> kind of hard currently to give more details, but here's what I'm
->> seeing in the logs:
->
-> I have access to mine, kudos to secondary NIC.
->
-> $ ethtool -i p1p1
-> driver: tg3
-> version: 3.137
-> firmware-version: 5722-v3.13
-> bus-info: 0000:02:00.0
-> supports-statistics: yes
-> supports-test: yes
-> supports-eeprom-access: yes
-> supports-register-dump: yes
-> supports-priv-flags: no
->
-> $ ethtool p1p1
-> Settings for p1p1:
->          Supported ports: [ TP ]
->          Supported link modes:   10baseT/Half 10baseT/Full
->                                  100baseT/Half 100baseT/Full
->                                  1000baseT/Half 1000baseT/Full
->          Supported pause frame use: No
->          Supports auto-negotiation: Yes
->          Advertised link modes:  10baseT/Half 10baseT/Full
->                                  100baseT/Half 100baseT/Full
->                                  1000baseT/Half 1000baseT/Full
->          Advertised pause frame use: Symmetric
->          Advertised auto-negotiation: Yes
->          Speed: Unknown!
->          Duplex: Unknown! (255)
->          Port: Twisted Pair
->          PHYAD: 1
->          Transceiver: internal
->          Auto-negotiation: on
->          MDI-X: Unknown
->
-> $ sudo ip link set p1p1 up
-> RTNETLINK answers: No such device
->
->> If I see things correctly, there were only two patches affecting tg3
->> between 3.17(.3) and 3.18:
->>
->> 2c7c9ea429ba30fe506747b7da110e2212d8fefa
->> a620a6bc1c94c22d6c312892be1e0ae171523125
->
-> I'm running net-next, 395eea6ccf2b253f81b4718ffbcae67d36fe2e69.
-> So my diffs would be:
-> $ git log v3.17..origin/master --oneline --
-> drivers/net/ethernet/broadcom/tg3.c
-> 892311f ethtool: Support for configurable RSS hash function
-> 60b7379 Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-> a620a6b tg3: fix ring init when there are more TX than RX channels
-> 3964835 tg3: use netdev_rss_key_fill() helper
-> 2c7c9ea tg3: Add skb->xmit_more support
->
-> Reverting all these, issue continues.
->
-> If no one has a better shot, I'll try bissecting later.
->
->    Marcelo
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+We're very sorry for the confusion and welcome you to join us.
+
+Cheers.
+
+> There are 4 phases/formats to Netdev 0.1
+> 
+> 1) Workshops (day 1)
+> 
+> The workshop format is inspired by Netconf and the wireless
+> mini-summits, with workshops being centered around existing
+> networking subsystems. workshops are intended to be an extension of
+> the mailing list in the sense that many times previous
+> discussions from the mailing list (or that could otherwise have
+> happened there) are taken to the round-table to simplify the
+> decision-making process.
+> 
+> The networking subsystem maintainer(s) should at least prepare a
+> list of agenda items well before the workshop takes place to allow 
+> participants to come prepared; this makes the discussions most productive.
+> Sometimes brain-storming sessions will also be appropriate where
+> being prepared is less important, for example for discussions
+> around new user requirements this can be very valuable.
+> 
+> At the workshop meeting itself discussions prevail and notes are
+> later sent back to the mailing list; presentations are typically
+> - at the discretion of the chairs - only used where needed to
+> clarify a problem statement for discussion.
+> 
+> The sitting format is round-table.
+> 
+> 2) BOFs (day 1)
+> 
+> BOFs are sessions with a potential to become a workshop in a future
+> Netdev conference. The lifetime of a BOF may be only one or two 
+> Netdev conference gatherings. We discourage perpetual BOFs.
+> BoFs don't need to have an existing networking subsystem or mailing list.
+> BOFs also don't need to strive to be upgraded to be a Workshop
+> in the future. Their longevity could only be one conference.
+> The sitting format could vary and be either lecture or round table format
+> depending on the proposal.
+> 
+> 3) Tutorials (day 2)
+> 
+> Tutorials are generally about 2 hours long (or more at the discretion
+> of the proposal).
+> Tutorials are educational in nature and are presented in a classroom 
+> format with a specific educational outcome for the attendees.
+> 
+> 4) Paper proposals (days 3 and 4)
+> 
+> These are classical conference paper + presentations.
+> Presentations are 30 minutes long with an additional 15 minutes for Q&A
+> presented in a lecture format.
+> We will require paper submissions for these sessions. The committee 
+> believes that a paper submission raises the quality of the presentations
+> and makes it easier to build on presented ideas in the future.
+> 
+> The Netdev conference this year is structured to be 50% by-invitation 
+> and 50% submission. We are making sure that we reach out to speakers 
+> who have interesting relevant topics because we recognize most of 
+> these folks would typically not be submitting papers to a conference.
+> The invitation will be made by the technical committee to the individual
+> speakers for workshop, paper and tutorial sessions.
+
+Clarification is that the presenters will be split 50/50 invitation/submission
+and that regular attendance is open to anyone and we will welcome anyone to
+join the conference audience.
+
+> This call for papers is for the 50% submission portion of the 
+> conference for paper submissions, tutorials and workshops.
+> We *highly discourage* submission of recycled talks.
+> 
+> Current technical focus topics include:
+> - wireless
+> - performance analysis, debugging and improvement
+> - networking hardware and offload
+> - netfilter
+> - traffic control
+> - different networking layers (L2/3, etc)
+> - Internet of things
+> - security
+> - additional topics can be suggested
+> 
+> Unlike other conferences, we are going to try and accommodate as many
+> submissions as possible - but please stay within the relevant topic focus 
+> and tie to Linux networking to make it easier for the technical committee
+> to provide quick feedback. In order to give a talk you must be 
+> registered. If your proposal is accepted you will not be charged 
+> a conference fee or your conference fee will be refunded to you 
+> when your talk gets accepted.
+> 
+> We expect minimum of 2 parallel tracks but likely more depending on the
+> (quantity of submissions) in all phases i.e during tutorials,
+> workshops and main talks. 
+> 
+> Why you should submit a proposal
+> ---------------------------------
+> If you yearn for the old community tech driven conferences where 
+> you mingle with fellow geeks (only these would be Linux networking
+> geeks) then this would be it. There will be no marketing flashy 
+> openings. There will just be a pure feed of Linux networking.
+> Netdev 0.1 will be held back to back with Netconf 2015, the 
+> by-invite Linux kernel networking workshop 
+> (http://vger.kernel.org/netconf2015.html). 
+> So gurus of all sorts will be there mingling and giving talks.
+> While there will be heavy Linux kernel influence we expect a lot
+> of user space presence as well. 
+> 
+> How to submit a proposal
+> ------------------------
+> Send email to  netdev01@lists.netfilter.org with a paragraph or
+> two of your proposal.
+> For paper proposals, if your submission is accepted we will provide
+> you a template to use.
+> A minimum of two pages is needed so as to to allow people to skip the 
+> burden of writing a large paper. The maximum page limit is 10 pages.
+> 
+> Location:
+> ---------
+> Downtown Ottawa, Canada
+> www.netdev01.org
+> 
+> Important Dates:
+> ----------------
+> December 02, 2014	 	Call for Papers opens
+> December 10, 2014	 	Registration opens
+> January 10, 2015	 	Call for sessions deadline
+> January 20, 2015	 	Conference schedule announced
+> February 14-17, 2015            Conference days
+> 
+> Please register as soon as registration opens up on December 10.
+> Registering helps us plan properly for numbers of attendees,
+> ensuring venue sizes and supplies are appropriate without
+> wasting resources.
+> 
+> 
+> 
+> 	slainte mhath, RGB
+
+	slainte mhath, RGB
+
+--
+Richard Guy Briggs               --  ~\    -- ~\             <hpv.tricolour.ca>
+<www.TriColour.ca>                 --  \___   o \@      @        Ride yer bike!
+Ottawa, ON, CANADA                  --  Lo_>__M__\\/\%__\\/\%
+Vote! -- <greenparty.ca>_____GTVS6#790__(*)__(*)________(*)(*)_________________
