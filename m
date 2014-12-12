@@ -1,61 +1,56 @@
-From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Subject: Re: [PATCH v2 1/1] net/macb: add TX multiqueue support for gem
-Date: Fri, 12 Dec 2014 10:57:54 +0100
-Message-ID: <548ABC22.3080107@atmel.com>
-References: <cover.1418291637.git.cyrille.pitchen@atmel.com>	<87a3098203ee6eaa7a60607713a293d3258e2b58.1418291637.git.cyrille.pitchen@atmel.com> <20141211203103.4191887a@free-electrons.com> <063D6719AE5E284EB5DD2968C1650D6D1CA0BA36@AcuExch.aculab.com> <548AAE66.8070501@atmel.com> <063D6719AE5E284EB5DD2968C1650D6D1CA0BA7D@AcuExch.aculab.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH net] net: ethernet: davicom: Allow to select DM9000 for
+ nios2
+Date: Fri, 12 Dec 2014 20:28:42 +0900
+Message-ID: <20141212112842.GA17780@verge.net.au>
+References: <1418376071-28709-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"soren.brinkmann@xilinx.com" <soren.brinkmann@xilinx.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-	'Thomas Petazzoni' <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CA0BA7D@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Tobias Klauser <tklauser@distanz.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:51173 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965753AbaLLL2q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 06:28:46 -0500
+Content-Disposition: inline
+In-Reply-To: <1418376071-28709-1-git-send-email-tklauser@distanz.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 12/12/2014 10:59, David Laight a =E9crit :
-> From: Cyrille Pitchen [...
->>> It will probably add a lot of object code and, depending on how oft=
-en
->>> the registers are accesses, might have performance impact.
->>>
->>> Having:
->>> #define GEM_ISR(n) (0x400 + (n) << 4)
->>> will save source code.
->>>
->>> 	David
->>>
->>>
->>>
->> So you suggest that we keep the unsigned int fields ISR, IMR, IER, I=
-DR, TBQP in
->> the struct macb_queue and initialize them once for all in macb_probe=
-() like
->> patch v2 does but only replace the GEM_ISR1 .. GEM_ISR7 defines by G=
-EM_ISR(n)
->> in macb.h?
->>
->> This way there would be to test at run time and we can handle the sp=
-ecial
->> register mapping of queue0.
->>
->> Is it what you meant?
->=20
-> In one word, yes.
->=20
-> 	David
->=20
->=20
->=20
-OK, so I'm working on v3
+On Fri, Dec 12, 2014 at 10:21:11AM +0100, Tobias Klauser wrote:
+> This chip is present on older revisions of the DE2 development kit.
+> 
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
-Thanks
+I wonder if || COMPILE_TEST should also be added to allow extra build
+coverage. Is there a specific reason it won't compile more widely?
 
-Cyrille
+Likewise for your smsc patch.
+
+> ---
+>  drivers/net/ethernet/davicom/Kconfig | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/davicom/Kconfig b/drivers/net/ethernet/davicom/Kconfig
+> index 316c5e5..7ec2d74 100644
+> --- a/drivers/net/ethernet/davicom/Kconfig
+> +++ b/drivers/net/ethernet/davicom/Kconfig
+> @@ -4,7 +4,7 @@
+>  
+>  config DM9000
+>  	tristate "DM9000 support"
+> -	depends on ARM || BLACKFIN || MIPS || COLDFIRE
+> +	depends on ARM || BLACKFIN || MIPS || COLDFIRE || NIOS2
+>  	select CRC32
+>  	select MII
+>  	---help---
+> -- 
+> 2.2.0
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
