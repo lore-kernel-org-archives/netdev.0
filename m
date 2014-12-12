@@ -1,28 +1,40 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: [PATCH v2 0/6] net-PPP: Deletion of a few unnecessary checks
-Date: Fri, 12 Dec 2014 08:01:54 +0100
-Message-ID: <548A92E2.8090304@users.sourceforge.net>
-References: <547C82A6.2030808@users.sourceforge.net>	<547CA157.1080401@cogentembedded.com>	<5480DA32.8000201@users.sourceforge.net> <20141209.145447.2234157264287438778.davem@davemloft.net>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH net] net: ipv6: allow explicitly choosing optimistic addresses
+Date: Fri, 12 Dec 2014 16:37:46 +0900
+Message-ID: <CAKD1Yr3+S81mKbVdQ-P6byx-e2Hfn8GJz+Jr7SLWrRjkfpD2qA@mail.gmail.com>
+References: <1418356200-7457-1-git-send-email-ek@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141209.145447.2234157264287438778.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Erik Kline <ek@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:42025 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757597AbaLLHiK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 02:38:10 -0500
+Received: by mail-ie0-f171.google.com with SMTP id rl12so6354295iec.2
+        for <netdev@vger.kernel.org>; Thu, 11 Dec 2014 23:38:09 -0800 (PST)
+In-Reply-To: <1418356200-7457-1-git-send-email-ek@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Generally speaking, it is advisable to not leave error pointers in data
-> structures, even if they are about to be free'd up in an error path anyways.
+On Fri, Dec 12, 2014 at 12:50 PM, Erik Kline <ek@google.com> wrote:
 >
-> Therefore I do not like some of the patches in this series.
+> @@ -1527,7 +1527,8 @@ int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
+>                 if (!net_eq(dev_net(ifp->idev->dev), net))
+>                         continue;
+>                 if (ipv6_addr_equal(&ifp->addr, addr) &&
+> -                   !(ifp->flags&IFA_F_TENTATIVE) &&
+> +                   (!(ifp->flags&IFA_F_TENTATIVE) ||
+> +                    ifp->flags&IFA_F_OPTIMISTIC) &&
+>                     (dev == NULL || ifp->idev->dev == dev ||
+>                      !(ifp->scope&(IFA_LINK|IFA_HOST) || strict))) {
+>                         rcu_read_unlock_bh();
 
-Can you give any more concrete feedback here?
-
-Regards,
-Markus
+I looked at the callers of ipv6_chk_addr (lxr finds 19 files); from
+what I saw, this change will make all of them more correct except for
+ndisc_solicit. With this change, ndisc_solicit could now send
+neighbour solicitations from optimistic addresses, which is not
+allowed by the RFC.
