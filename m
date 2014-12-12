@@ -1,7 +1,7 @@
 From: Karen Xie <kxie@chelsio.com>
-Subject: [PATCH net-next v10 2/7] cxgb4i: fix credit check for tx_data_wr
-Date: Thu, 11 Dec 2014 19:13:32 -0800
-Message-ID: <201412120313.sBC3DW59028334@localhost6.localdomain6>
+Subject: [PATCH net-next v10 5/7] cxgb4i: handle non-pdu-aligned rx data
+Date: Thu, 11 Dec 2014 19:13:41 -0800
+Message-ID: <201412120313.sBC3Df2w028352@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -10,36 +10,61 @@ Cc: kxie@chelsio.com, hariprasad@chelsio.com, anish@chelsio.com,
 	michaelc@cs.wisc.edu, davem@davemloft.net
 To: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:28330 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:8885 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933854AbaLLDOi (ORCPT
+	with ESMTP id S933474AbaLLDOi (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 22:14:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Karen Xie <kxie@chelsio.com>
 
-make sure any tx credit related checking is done before adding the wr header.
+Abort the connection upon receiving of cpl_rx_data, which means the pdu cannot
+be recovered from the tcp stream. This generally is due to pdu header
+corruption.
 
 Signed-off-by: Karen Xie <kxie@chelsio.com>
 ---
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   22 ++++++++++++++++++++++
+ 1 files changed, 22 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index 8abe8a3..197d7de 100644
+index 8ca91fd..8b7e8f8 100644
 --- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
 +++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -549,10 +549,11 @@ static inline void make_tx_data_wr(struct cxgbi_sock *csk, struct sk_buff *skb,
- 	struct fw_ofld_tx_data_wr *req;
- 	unsigned int submode = cxgbi_skcb_ulp_mode(skb) & 3;
- 	unsigned int wr_ulp_mode = 0, val;
-+	bool imm = is_ofld_imm(skb);
+@@ -1037,6 +1037,27 @@ rel_skb:
+ 	__kfree_skb(skb);
+ }
  
- 	req = (struct fw_ofld_tx_data_wr *)__skb_push(skb, sizeof(*req));
++static void do_rx_data(struct cxgbi_device *cdev, struct sk_buff *skb)
++{
++	struct cxgbi_sock *csk;
++	struct cpl_rx_data *cpl = (struct cpl_rx_data *)skb->data;
++	unsigned int tid = GET_TID(cpl);
++	struct cxgb4_lld_info *lldi = cxgbi_cdev_priv(cdev);
++	struct tid_info *t = lldi->tids;
++
++	csk = lookup_tid(t, tid);
++	if (!csk) {
++		pr_err("can't find connection for tid %u.\n", tid);
++	} else {
++		/* not expecting this, reset the connection. */
++		pr_err("csk 0x%p, tid %u, rcv cpl_rx_data.\n", csk, tid);
++		spin_lock_bh(&csk->lock);
++		send_abort_req(csk);
++		spin_unlock_bh(&csk->lock);
++	}
++	__kfree_skb(skb);
++}
++
+ static void do_rx_iscsi_hdr(struct cxgbi_device *cdev, struct sk_buff *skb)
+ {
+ 	struct cxgbi_sock *csk;
+@@ -1456,6 +1477,7 @@ cxgb4i_cplhandler_func cxgb4i_cplhandlers[NUM_CPL_CMDS] = {
+ 	[CPL_SET_TCB_RPL] = do_set_tcb_rpl,
+ 	[CPL_RX_DATA_DDP] = do_rx_data_ddp,
+ 	[CPL_RX_ISCSI_DDP] = do_rx_data_ddp,
++	[CPL_RX_DATA] = do_rx_data,
+ };
  
--	if (is_ofld_imm(skb)) {
-+	if (imm) {
- 		req->op_to_immdlen = htonl(FW_WR_OP_V(FW_OFLD_TX_DATA_WR) |
- 					FW_WR_COMPL_F |
- 					FW_WR_IMMDLEN_V(dlen));
+ int cxgb4i_ofld_init(struct cxgbi_device *cdev)
