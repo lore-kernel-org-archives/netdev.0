@@ -1,92 +1,38 @@
-From: Karen Xie <kxie@chelsio.com>
-Subject: [PATCH net-next v10 6/7] cxgb4i: use set_wr_txq() to set tx
- queues
-Date: Thu, 11 Dec 2014 19:13:44 -0800
-Message-ID: <201412120313.sBC3Di0t028358@localhost6.localdomain6>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kxie@chelsio.com, hariprasad@chelsio.com, anish@chelsio.com,
-	hch@infradead.org, James.Bottomley@HansenPartnership.com,
-	michaelc@cs.wisc.edu, davem@davemloft.net
-To: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:7245 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751383AbaLLDQi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 22:16:38 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mark Salter <msalter@redhat.com>
+Subject: [PATCH] net: phy: export fixed_phy_register()
+Date: Thu, 11 Dec 2014 23:03:26 -0500
+Message-ID: <1418357006-2450-1-git-send-email-msalter@redhat.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, Mark Salter <msalter@redhat.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Karen Xie <kxie@chelsio.com>
+When building the bcmgenet driver as module, I get:
 
-use cxgb4's set_wr_txq() for setting of the tx queue for a outgoing packet.
-remove the similar function in cxgb4i.
+ERROR: "fixed_phy_register" [drivers/net/ethernet/broadcom/genet/genet.ko] undefined!
 
-Signed-off-by: Karen Xie <kxie@chelsio.com>
+commit b0ba512e225d72 ("net: bcmgenet: enable driver to work without device
+tree") which added a call to fixed_phy_register. But fixed_phy_register
+needs to be exported if used from a module.
+
+Signed-off-by: Mark Salter <msalter@redhat.com>
 ---
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |   16 +++++-----------
- 1 files changed, 5 insertions(+), 11 deletions(-)
+ drivers/net/phy/fixed.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index 8b7e8f8..a83d2ce 100644
---- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-+++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -158,12 +158,6 @@ static struct scsi_transport_template *cxgb4i_stt;
- #define RCV_BUFSIZ_MASK		0x3FFU
- #define MAX_IMM_TX_PKT_LEN	128
+diff --git a/drivers/net/phy/fixed.c b/drivers/net/phy/fixed.c
+index 47872caa..3ad0e6e 100644
+--- a/drivers/net/phy/fixed.c
++++ b/drivers/net/phy/fixed.c
+@@ -274,6 +274,7 @@ struct phy_device *fixed_phy_register(unsigned int irq,
  
--static inline void set_queue(struct sk_buff *skb, unsigned int queue,
--				const struct cxgbi_sock *csk)
--{
--	skb->queue_mapping = queue;
--}
--
- static int push_tx_frames(struct cxgbi_sock *, int);
+ 	return phy;
+ }
++EXPORT_SYMBOL_GPL(fixed_phy_register);
  
- /*
-@@ -405,7 +399,7 @@ static void send_abort_req(struct cxgbi_sock *csk)
- 
- 	csk->cpl_abort_req = NULL;
- 	req = (struct cpl_abort_req *)skb->head;
--	set_queue(skb, CPL_PRIORITY_DATA, csk);
-+	set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
- 	req->cmd = CPL_ABORT_SEND_RST;
- 	t4_set_arp_err_handler(skb, csk, abort_arp_failure);
- 	INIT_TP_WR(req, csk->tid);
-@@ -431,7 +425,7 @@ static void send_abort_rpl(struct cxgbi_sock *csk, int rst_status)
- 		csk, csk->state, csk->flags, csk->tid, rst_status);
- 
- 	csk->cpl_abort_rpl = NULL;
--	set_queue(skb, CPL_PRIORITY_DATA, csk);
-+	set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
- 	INIT_TP_WR(rpl, csk->tid);
- 	OPCODE_TID(rpl) = cpu_to_be32(MK_OPCODE_TID(CPL_ABORT_RPL, csk->tid));
- 	rpl->cmd = rst_status;
-@@ -557,7 +551,7 @@ static inline int send_tx_flowc_wr(struct cxgbi_sock *csk)
- 	flowc->mnemval[8].mnemonic = FW_FLOWC_MNEM_TXDATAPLEN_MAX;
- 	flowc->mnemval[8].val = 16384;
- 
--	set_queue(skb, CPL_PRIORITY_DATA, csk);
-+	set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
- 
- 	log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
- 		"csk 0x%p, tid 0x%x, %u,%u,%u,%u,%u,%u,%u.\n",
-@@ -663,7 +657,7 @@ static int push_tx_frames(struct cxgbi_sock *csk, int req_completion)
- 			break;
- 		}
- 		__skb_unlink(skb, &csk->write_queue);
--		set_queue(skb, CPL_PRIORITY_DATA, csk);
-+		set_wr_txq(skb, CPL_PRIORITY_DATA, csk->port_id);
- 		skb->csum = credits_needed + flowclen16;
- 		csk->wr_cred -= credits_needed;
- 		csk->wr_una_cred += credits_needed;
-@@ -1555,7 +1549,7 @@ static int ddp_ppod_write_idata(struct cxgbi_device *cdev, unsigned int port_id,
- 		return -ENOMEM;
- 	}
- 	req = (struct ulp_mem_io *)skb->head;
--	set_queue(skb, CPL_PRIORITY_CONTROL, NULL);
-+	set_wr_txq(skb, CPL_PRIORITY_CONTROL, 0);
- 
- 	ulp_mem_io_set_hdr(lldi, req, wr_len, dlen, pm_addr);
- 	idata = (struct ulptx_idata *)(req + 1);
+ static int __init fixed_mdio_bus_init(void)
+ {
+-- 
+1.8.3.1
