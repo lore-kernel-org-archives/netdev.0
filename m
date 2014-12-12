@@ -1,49 +1,88 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [WTF?] random test in netlink_sendmsg()
-Date: Fri, 12 Dec 2014 15:34:33 -0500 (EST)
-Message-ID: <20141212.153433.1675057029307550538.davem@davemloft.net>
-References: <20141128062315.GC29748@ZenIV.linux.org.uk>
+Subject: Re: [PATCH V1 net-next 1/2] pgtable: Add API to query if write
+ combining is available
+Date: Fri, 12 Dec 2014 15:36:44 -0500 (EST)
+Message-ID: <20141212.153644.2158498939290171069.davem@davemloft.net>
+References: <20141008.122450.1919301744382855426.davem@davemloft.net>
+	<543A4FE4.7010807@dev.mellanox.co.il>
+	<CAJ3xEMgufPhyeKHC_wWhw+khEhMAgG6yKuN8TLH0-xXH5Fq8Bw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: viro@ZenIV.linux.org.uk
+Cc: moshel@dev.mellanox.co.il, ogerlitz@mellanox.com,
+	jackm@dev.mellanox.co.il, talal@mellanox.com,
+	yevgenyp@mellanox.com, netdev@vger.kernel.org, amirv@mellanox.com,
+	moshel@mellanox.com
+To: gerlitz.or@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38275 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38293 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966672AbaLLUef (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 15:34:35 -0500
-In-Reply-To: <20141128062315.GC29748@ZenIV.linux.org.uk>
+	with ESMTP id S932365AbaLLUgs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 15:36:48 -0500
+In-Reply-To: <CAJ3xEMgufPhyeKHC_wWhw+khEhMAgG6yKuN8TLH0-xXH5Fq8Bw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Date: Fri, 28 Nov 2014 06:23:15 +0000
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Date: Thu, 27 Nov 2014 08:48:24 +0200
 
-> 	In netlink_sendmsg() we have the following:
-> 
->         if (netlink_tx_is_mmaped(sk) &&
->             msg->msg_iov->iov_base == NULL) {
->                 err = netlink_mmap_sendmsg(sk, msg, dst_portid, dst_group,
->                                            siocb);
->                 goto out;
->         }
-> 
-> Now, suppose sendmsg(2) is called with msg.msg_iovlen == 0.  We'll have
-> ->msg_iov in kernel-side copy pointing at the uninitialized array in
-> stack frame of ___sys_sendmsg() - neither new nor old code touches elements
-> past the first msg_iovlen ones.  So in that case it checks if an
-> uninitialized word on stack is zero.
-> 
-> 	What is that check trying to do?  Is that simply missing
-> "(msg->msg_iovlen > 0) &&"?  And why on the Earth didn't it simply use
-> zero msg_iovlen as the indicator, instead of messing with iovec contents?
-> Obviously too late to change, but... ouch.
+> On Sun, Oct 12, 2014 at 11:54 AM, Moshe Lazer <moshel@dev.mellanox.co.il> wrote:
+>>
+>> On 10/8/2014 7:24 PM, David Miller wrote:
+>>>
+>>> From: Moshe Lazer <moshel@dev.mellanox.co.il>
+>>> Date: Wed, 08 Oct 2014 11:44:57 +0300
+>>>
+>>>>> #if defined(__i386__) || defined(__x86_64__)
+>>>>>         if (map->type == _DRM_REGISTERS && !(map->flags &
+>>>>> _DRM_WRITE_COMBINING))
+>>>>>                 tmp = pgprot_noncached(tmp);
+>>>>>         else
+>>>>>                 tmp = pgprot_writecombine(tmp);
+>>>>> #elif defined(__powerpc__)
+>>>>>         pgprot_val(tmp) |= _PAGE_NO_CACHE;
+>>>>>         if (map->type == _DRM_REGISTERS)
+>>>>>                 pgprot_val(tmp) |= _PAGE_GUARDED;
+>>>>> #elif defined(__ia64__)
+>>>>>         if (efi_range_is_wc(vma->vm_start, vma->vm_end -
+>>>>>                                     vma->vm_start))
+>>>>>                 tmp = pgprot_writecombine(tmp);
+>>>>>         else
+>>>>>                 tmp = pgprot_noncached(tmp);
+>>>>> #elif defined(__sparc__) || defined(__arm__) || defined(__mips__)
+>>>>>         tmp = pgprot_noncached(tmp);
+>>>>> #endif
+>>>>
+>>>> The idea was to provide an indication as for whether the arch supports
+>>>> write-combining in general.
+>>>> If we want to benefit from blue flame operations, we need to map the
+>>>> blue flame registers as write combining - otherwise there is no
+>>>> benefit. So we would like to know if write combining is supported by
+>>>> the system or not.
+>>>>
+>>> You completely miss my point.  On a given architectuire it might be
+>>> _illegal_ to map certain address ranges as write-combining without
+>>> checks like the ones above that ia64 needs.
+>>>
+>>> Therefore your proposed interface is by definition insufficient.
+>>
+>> Thanks David, I'll try to clarify my point.
+>> For me the writecombine_available() is a way to know if the
+>> pgprot_writecombine() is effective or just cover call to the
+>> pgprot_noncached().
+>> I want to use the writecombine_available() regardless to the mapping
+>> address.
+>> For example in mlx4 query_device I want to indicate that blue-flame is not
+>> supported if  `writecombine_available() ==  false`.
+>> In this case we don't have the mapping address yet.
+ ...
+> Pinging you... could you respond on Moshe's email which hopefully
+> addresses your comments?
 
-I think it's simply trying to say: if nothing in the given iovec, use
-the mmap() netlink area for the data.
+As I stated, some platforms have restrictions on certain address ranges
+when it comes to supporting write combining.
 
-I cannot vouch for the correctness of this test.
-
-If we take the netlink_mmap_sendmsg() path, msg->msg_iov is not
-accessed at all, so it cannot be a huge problem.
+Therefore, it is a _requirement_, not optional, that we have an
+address available so that the platform specific code can give an
+accurate response to the question "is write combining available"
+because the answer to that question is address dependent.
