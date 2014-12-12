@@ -1,39 +1,49 @@
-From: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Subject: Re: [bisected] xfrm: TCP connection initiating PMTU discovery stalls
- on v3.
-Date: Fri, 12 Dec 2014 22:30:22 +0100
-Message-ID: <548B5E6E.6010208@intra2net.com>
-References: <1709726.jUgUSQI9sl@pikkukde.a.i2n> <2630078.LdJXSsPB40@h2o.as.studentenwerk.mhn.de> <1418405225.13491.19.camel@edumazet-glaptop2.roam.corp.google.com> <4013455.miJUA6iczs@h2o.as.studentenwerk.mhn.de>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [WTF?] random test in netlink_sendmsg()
+Date: Fri, 12 Dec 2014 21:32:43 +0000
+Message-ID: <20141212213242.GE22149@ZenIV.linux.org.uk>
+References: <20141128062315.GC29748@ZenIV.linux.org.uk>
+ <20141212.153433.1675057029307550538.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Wolfgang Walter <linux@stwm.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rs04.intra2net.com ([85.214.66.2]:56231 "EHLO
-	rs04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751355AbaLLVa0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 16:30:26 -0500
-In-Reply-To: <4013455.miJUA6iczs@h2o.as.studentenwerk.mhn.de>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:52571 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213AbaLLVcq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 16:32:46 -0500
+Content-Disposition: inline
+In-Reply-To: <20141212.153433.1675057029307550538.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wolfgang,
+On Fri, Dec 12, 2014 at 03:34:33PM -0500, David Miller wrote:
+> > 	What is that check trying to do?  Is that simply missing
+> > "(msg->msg_iovlen > 0) &&"?  And why on the Earth didn't it simply use
+> > zero msg_iovlen as the indicator, instead of messing with iovec contents?
+> > Obviously too late to change, but... ouch.
+> 
+> I think it's simply trying to say: if nothing in the given iovec, use
+> the mmap() netlink area for the data.
+> 
+> I cannot vouch for the correctness of this test.
+> 
+> If we take the netlink_mmap_sendmsg() path, msg->msg_iov is not
+> accessed at all, so it cannot be a huge problem.
 
-On 12/12/2014 09:31 PM, Wolfgang Walter wrote:
-> There is one thing which indicates that there is also a problen in the GSO 
-> path, though. As my tests demonstrated disabling GSO on the physical interface 
-> serving the ipsec tunnel does not prevent the hangs. It does, though, if sk-
->> sk_gso_max_segs = 1 in sk_setup_caps() if sk_can_gso(sk) returns false. This 
-> was the first variation of the patch where sk->sk_gso_max_segs was not set if 
-> dst->header_len() is non zero.
+Yes, but decision whether to take that path or not is random in case of
+msg_iovlen being 0...
 
-if it's any help: Disabling TX checksumming prevents the hang
-even on an unpatched 3.14.x kernel. You could check with your debug statements
-in place the path of the packets with and without TX checksumming.
+What do we want sendmsg(fd, &msg, 0) to do when fd is AF_NETLINK socket
+that had setsockopt(fd, SOL_NETLINK, NETLINK_TX_RING, ...) successfully done
+to it and msg.msg_iovlen is 0?  Userland ABI question - not a "do we have
+a security hole there" one...  As it is, it might decide to do
+netlink_mmap_sendmsg() or it might decide to act as if we hadn't done
+NETLINK_TX_RING at all.  In _both_ cases it won't try to dereference
+kernel-side ->msg_iov[0].iov_base - the former won't look at msg_iov at all,
+the latter will ask to copy 0 bytes from it, which will succeed and do nothing
+whatsoever.  Which path is taken depends on whether an uninitialized array
+on stack frame of ___sys_sendmsg() happens to begin with NULL.
 
-HTH,
-Thomas
+IMO that's bogus - behaviour ought to be at least deterministic...
