@@ -1,37 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] net: dsa: two small bug fixes
-Date: Thu, 11 Dec 2014 21:00:45 -0500 (EST)
-Message-ID: <20141211.210045.470436808895185246.davem@davemloft.net>
-References: <1418330956-17151-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [RFC PATCH net-next 00/11] net: remove disable_irq() from
+ ->ndo_poll_controller
+Date: Thu, 11 Dec 2014 21:14:02 -0500 (EST)
+Message-ID: <20141211.211402.2185620924873688973.davem@davemloft.net>
+References: <1418135842-21389-1-git-send-email-sd@queasysnail.net>
+	<20141209.214433.7463087833083181.davem@davemloft.net>
+	<20141211214537.GA4159@kria>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, computersforpeace@gmail.com,
-	andrey.volkov@nexvision.fr
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, peterz@infradead.org, tglx@linutronix.de
+To: sd@queasysnail.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58749 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58753 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758641AbaLLCNo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 21:13:44 -0500
-In-Reply-To: <1418330956-17151-1-git-send-email-f.fainelli@gmail.com>
+	with ESMTP id S1758620AbaLLCOD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2014 21:14:03 -0500
+In-Reply-To: <20141211214537.GA4159@kria>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Thu, 11 Dec 2014 12:49:14 -0800
+From: Sabrina Dubroca <sd@queasysnail.net>
+Date: Thu, 11 Dec 2014 22:45:37 +0100
 
-> Here are two small fixes for the DSA slave interface creation code:
+> Introduce disable_irq_nosleep() that returns true if it successfully
+> synchronized against all handlers (there was no threaded handler
+> running), false if it left some threads running.  And in
+> ->ndo_poll_controller, only call the interrupt handler if
+> synchronization was successful.
 > 
-> - first patch fixes a null pointer de-reference with an invalid PHY
->   device pointer while calling phy_connect_direct()
-> 
-> - second path propagates the dsa_slave_phy_setup() error code down to
->   its caller: dsa_slave_create
+> Both users of the poll controllers retry their action (alloc/xmit an
+> skb) several times, with calls to the device's poll controller between
+> attempts.  And hopefully, if the first attempt fails, we will still
+> manage to get through?
 
-Series applied.
-
-Please give me some feedback on the FIXED_PHY Kconfig issue I
-asked you about earlier today.
-
-Thanks.
+This looks more palatable to me.
