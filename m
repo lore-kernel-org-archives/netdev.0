@@ -1,78 +1,51 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH iproute2 v4] ip: Simplify executing ip cmd within network
- ns
-Date: Sat, 13 Dec 2014 16:20:24 +0100
-Message-ID: <20141213152024.GB1849@nanopsycho.orion>
-References: <1418422507-6635-1-git-send-email-vadim4j@gmail.com>
- <20141213082936.GA1849@nanopsycho.orion>
- <20141213084243.GA3284@angus-think.lan>
- <20141213085803.GA12446@angus-think.lan>
- <20141213133210.GA12291@angus-think.lan>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: vadim4j@gmail.com
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2 0/4] Switch network ns w/o execvp for iproute2 tools
+Date: Sat, 13 Dec 2014 19:55:30 +0200
+Message-ID: <1418493334-23142-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:56939 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751018AbaLMPU1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Dec 2014 10:20:27 -0500
-Received: by mail-wg0-f46.google.com with SMTP id x13so11426812wgg.33
-        for <netdev@vger.kernel.org>; Sat, 13 Dec 2014 07:20:26 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20141213133210.GA12291@angus-think.lan>
+Received: from mail-la0-f49.google.com ([209.85.215.49]:56494 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751220AbaLMSFa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Dec 2014 13:05:30 -0500
+Received: by mail-la0-f49.google.com with SMTP id hs14so7665285lab.36
+        for <netdev@vger.kernel.org>; Sat, 13 Dec 2014 10:05:28 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Dec 13, 2014 at 02:32:10PM CET, vadim4j@gmail.com wrote:
->On Sat, Dec 13, 2014 at 10:58:03AM +0200, vadim4j@gmail.com wrote:
->> On Sat, Dec 13, 2014 at 10:42:43AM +0200, vadim4j@gmail.com wrote:
->> > On Sat, Dec 13, 2014 at 09:29:36AM +0100, Jiri Pirko wrote:
->> > > Fri, Dec 12, 2014 at 11:15:07PM CET, vadim4j@gmail.com wrote:
->> > > >From: Vadim Kochan <vadim4j@gmail.com>
->> > > >
->> > > >Added new '-netns' option to simplify executing following cmd:
->> > > >
->> > > >    ip netns exec NETNS ip OPTIONS COMMAND OBJECT
->> > > >
->> > > >    to
->> > > >
->> > > >    ip -n[etns] NETNS OPTIONS COMMAND OBJECT
->> > > >
->> > > >e.g.:
->> > > >
->> > > >    ip -net vnet0 link add br0 type bridge
->> > > >    ip -n vnet0 link
->> > > >
->> > > >Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
->> > > 
->> > > 
->> > > This looks good. I'm still missing support in tc, bridge, etc. I think
->> > > it would be great to do this in the same patch/patchset.
->> > > 
->> >  I planned to do this in the future patches after this main
->> >  changes will be accepted. Actually adding this option to other
->> >  tools is trivial.
->> > 
->> >  Anyway may be I will re-send v5 with supporting of these tools if I will have time.
->> > 
->> >  Regards,
->> 
->> BTW, some tools already have '-n' option, so I think only '-net' can be
->> used in such cases.
+This series adds new -n[etns] option to ip, tc & bridge tools which
+allows to easy and faster switch to specified network namespace. So instead of:
 
+    ip netns exec NETNS { ip | tc | bridge } OBJECT COMMAND
 
-Yep, that is my point. I would like to have the same option for all.
+it will be possible do the same by:
 
->> 
->> Regards,
->
->OK, I am going to split changes into series of patches and bring new
->option to : ip, tc, and bridge tools.
->Regarding other misc tools - will do it later as I am  not very familiar with them.
->Are you OK with this Jiri ?
+    { ip | tc | bridge } -n[etns] NETNS OBJECT COMMAND
 
-Yep. Thank you!
+I skipped misc tools and will work on them later.
 
->
->Regards,
+Vadim Kochan (4):
+  lib: Add netns_switch func for change network namespace
+  ip: Allow to easy change network namespace
+  bridge: Allow to easy change network namespace
+  tc: Allow to easy change network namespace
+
+ bridge/Makefile     |   4 ++
+ bridge/bridge.c     |   7 +++-
+ include/namespace.h |  46 +++++++++++++++++++++++
+ ip/ip.c             |   7 +++-
+ ip/ipnetns.c        | 106 ++--------------------------------------------------
+ lib/Makefile        |   6 ++-
+ lib/namespace.c     |  86 ++++++++++++++++++++++++++++++++++++++++++
+ man/man8/bridge.8   |  23 +++++++++++-
+ man/man8/ip.8       |  23 +++++++++++-
+ man/man8/tc.8       |  65 ++++++++++++++++++++++++--------
+ tc/Makefile         |   5 +++
+ tc/tc.c             |   8 +++-
+ 12 files changed, 262 insertions(+), 124 deletions(-)
+ create mode 100644 include/namespace.h
+ create mode 100644 lib/namespace.c
+
+-- 
+2.1.3
