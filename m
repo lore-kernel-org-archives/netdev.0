@@ -1,59 +1,42 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [WTF?] random test in netlink_sendmsg()
-Date: Sat, 13 Dec 2014 04:51:33 +0000
-Message-ID: <20141213045133.GI22149@ZenIV.linux.org.uk>
-References: <20141212213242.GE22149@ZenIV.linux.org.uk>
- <20141212.200758.944592759380344519.davem@davemloft.net>
- <20141213015415.GG22149@ZenIV.linux.org.uk>
- <20141212.213313.1419808296502891420.davem@davemloft.net>
- <20141213032500.GH22149@ZenIV.linux.org.uk>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: [PATCH v2 0/6] net-PPP: Deletion of a few unnecessary checks
+Date: Sat, 13 Dec 2014 07:05:30 +0100
+Message-ID: <548BD72A.6040809@users.sourceforge.net>
+References: <548B0A29.8050503@users.sourceforge.net>	 <20141212.105106.1162681032492664308.davem@davemloft.net>	 <548B1E44.6050005@users.sourceforge.net>	 <20141212.115922.687789059853236747.davem@davemloft.net>	 <548B2468.5050402@users.sourceforge.net> <1418411287.13491.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:53714 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754797AbaLMEvf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 23:51:35 -0500
-Content-Disposition: inline
-In-Reply-To: <20141213032500.GH22149@ZenIV.linux.org.uk>
+Received: from mout.web.de ([212.227.17.12]:58441 "EHLO mout.web.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965236AbaLMGF6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Dec 2014 01:05:58 -0500
+In-Reply-To: <1418411287.13491.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 13, 2014 at 03:25:00AM +0000, Al Viro wrote:
-> 	    msg->msg_iter.type == KVEC_ITER &&
+> We are in the merge window, tracking bugs added in latest dev cycle.
 
-ITER_IOVEC, that is.  And that way it even works...  Are you OK with the
-commit below?
+I am also curious on the software evolution about how many improvements will
+arrive in the next Linux versions.
 
-netlink: make the check for "send from tx_ring" deterministic
-    
-As it is, zero msg_iovlen means that the first iovec in the kernel
-array of iovecs is left uninitialized, so checking if its ->iov_base
-is NULL is random.  Since the real users of that thing are doing
-sendto(fd, NULL, 0, ...), they are getting msg_iovlen = 1 and
-msg_iov[0] = {NULL, 0}, which is what this test is trying to catch.
-As suggested by davem, let's just check that msg_iovlen was 1 and
-msg_iov[0].iov_base was NULL - _that_ is well-defined and it catches
-what we want to catch.
 
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
----
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index cc9bcf0..5bcb58c 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -2304,7 +2304,11 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 			goto out;
- 	}
- 
-+        /* It's a really convoluted way for userland to ask for mmaped
-+	 * sendmsg(), but that's what we've got...  */
- 	if (netlink_tx_is_mmaped(sk) &&
-+	    msg->msg_iter.type == ITER_IOVEC &&
-+	    msg->msg_iter.nr_segs == 1 &&
- 	    msg->msg_iter.iov->iov_base == NULL) {
- 		err = netlink_mmap_sendmsg(sk, msg, dst_portid, dst_group,
- 					   siocb);
+> Having to deal with patches like yours is adding pressure
+> on the maintainer (and other developers) at the wrong time.
+
+You can relax a bit eventually. More merge windows will follow, won't they?
+
+It will be nice if a bunch of recent code clean-ups which were also
+triggered
+by static source code analysis will be integrated into Linux 3.19 already.
+More update suggestions will be considered later again as usual.
+
+Regards,
+Markus
