@@ -1,53 +1,35 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: 3.12.33 - BUG xfrm_selector_match+0x25/0x2f6
-Date: Sat, 13 Dec 2014 22:19:55 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1412132211260.3229@ja.home.ssi.bg>
-References: <547F2462.6040405@smart-weblications.de> <20141204075627.GE6390@secunet.com> <alpine.LFD.2.11.1412042338370.4841@ja.home.ssi.bg> <5481173A.9060308@smart-weblications.de> <alpine.LFD.2.11.1412051126090.2522@ja.home.ssi.bg> <5481B944.2000002@smart-weblications.de>
- <alpine.LFD.2.11.1412072019410.1885@ja.home.ssi.bg> <54858948.2060007@smart-weblications.de> <alpine.LFD.2.11.1412082234350.2401@ja.home.ssi.bg> <5486CD9D.4060107@smart-weblications.de> <alpine.LFD.2.11.1412102331230.4043@ja.home.ssi.bg>
- <5489A465.6090305@smart-weblications.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Multicast packets being lost (3.10 stable)
+Date: Sat, 13 Dec 2014 15:37:41 -0500 (EST)
+Message-ID: <20141213.153741.1636406298389279104.davem@davemloft.net>
+References: <20140325125231.GW6008@Linus-Debian> <20140910133341.GI7058@odroid>
+	<20141210191633.GA2473@odroid>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	stable@vger.kernel.org, Simon Horman <horms@verge.net.au>,
-	lvs-devel@vger.kernel.org
-To: Smart Weblications GmbH - Florian Wiessner
-	<f.wiessner@smart-weblications.de>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <5489A465.6090305@smart-weblications.de>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: openwrt-devel@lists.openwrt.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, gregkh@linuxfoundation.org,
+	shemming@brocade.com
+To: linus.luessing@c0d3.blue
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20141210191633.GA2473@odroid>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
+From: Linus L=FCssing <linus.luessing@c0d3.blue>
+Date: Wed, 10 Dec 2014 20:16:33 +0100
 
-	Hello,
+> did you have a chance to look into backporting these fixes for
+> stable yet?
 
-On Thu, 11 Dec 2014, Smart Weblications GmbH - Florian Wiessner wrote:
-
-> >> [  512.485323] CPU: 4 PID: 28142 Comm: vsftpd Not tainted 3.12.33 #5
-> >
-> > 	Above "#5" is same as previous oops. It means kernel
-> > is not updated. Or you updated only the IPVS modules after
-> > applying the both patches?
-> 
-> I did it with make-kpkg --initrd linux_image which only rebuilt the modules,
-> correct. I can retry with make clean before building the package
-
-	I just tested PASV and PORT with 3.12.33 including
-both patches (seq adj fix + ip_route_me_harder fix) and do not
-see any crashes in nf_ct_seqadj_set. If you still have problem
-with FTP send me more info offlist.
-
-> > 	You can also try without FTP tests to see if there
-> > are oopses in xfrm, so that we can close this topic and then
-> > to continue for the FTP problem on IPVS lists without
-> > bothering non-IPVS people.
-> >
-> 
-> yeah, it seems that the xfrm issue is away.
-
-	Thanks for the confirmation!
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+I am not submitting -stable fixes back to 3.10 any longer, at most
+I am doing 4 -stable releases and right now that is 3.18, 3.17,
+v3.14, and v3.12
