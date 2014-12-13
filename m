@@ -1,89 +1,62 @@
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Subject: Re: [PATCH net] net/mlx4_en: correct the endianness of doorbell_qpn
- on big endian platform
-Date: Sat, 13 Dec 2014 11:13:38 +0800
-Message-ID: <20141213031338.GA12208@richard>
-References: <1417315431-16761-1-git-send-email-weiyang@linux.vnet.ibm.com>
- <20141205.213112.1199355931404701216.davem@davemloft.net>
- <1417844801.15618.30.camel@edumazet-glaptop2.roam.corp.google.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CA04A51@AcuExch.aculab.com>
- <20141208144237.GB8382@richard>
-Reply-To: Wei Yang <weiyang@linux.vnet.ibm.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [WTF?] random test in netlink_sendmsg()
+Date: Sat, 13 Dec 2014 03:25:00 +0000
+Message-ID: <20141213032500.GH22149@ZenIV.linux.org.uk>
+References: <20141212213242.GE22149@ZenIV.linux.org.uk>
+ <20141212.200758.944592759380344519.davem@davemloft.net>
+ <20141213015415.GG22149@ZenIV.linux.org.uk>
+ <20141212.213313.1419808296502891420.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "'Eric Dumazet'" <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gideonn@mellanox.com" <gideonn@mellanox.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"amirv@mellanox.com" <amirv@mellanox.com>
-To: David Laight <David.Laight@ACULAB.COM>
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp09.au.ibm.com ([202.81.31.142]:38213 "EHLO
-	e23smtp09.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964830AbaLMDNq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 22:13:46 -0500
-Received: from /spool/local
-	by e23smtp09.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
-	Sat, 13 Dec 2014 13:13:44 +1000
-Received: from d23relay09.au.ibm.com (d23relay09.au.ibm.com [9.185.63.181])
-	by d23dlp02.au.ibm.com (Postfix) with ESMTP id 708A22BB0055
-	for <netdev@vger.kernel.org>; Sat, 13 Dec 2014 14:13:41 +1100 (EST)
-Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
-	by d23relay09.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id sBD3Dfd840304674
-	for <netdev@vger.kernel.org>; Sat, 13 Dec 2014 14:13:41 +1100
-Received: from d23av01.au.ibm.com (localhost [127.0.0.1])
-	by d23av01.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id sBD3DeqV026345
-	for <netdev@vger.kernel.org>; Sat, 13 Dec 2014 14:13:41 +1100
+Received: from zeniv.linux.org.uk ([195.92.253.2]:53616 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964843AbaLMDZD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2014 22:25:03 -0500
 Content-Disposition: inline
-In-Reply-To: <20141208144237.GB8382@richard>
+In-Reply-To: <20141212.213313.1419808296502891420.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 08, 2014 at 10:42:37PM +0800, Wei Yang wrote:
->On Mon, Dec 08, 2014 at 10:00:19AM +0000, David Laight wrote:
->>From: Eric Dumazet
->>> On Fri, 2014-12-05 at 21:31 -0800, David Miller wrote:
->>> 
->>> > Guys, let's figure out what we are doing with this patch.
->>> > --
->>> 
->>> Oh well, patch is fine, please apply it, thanks !
->>
->>I'm not to sure that the patch doesn't generate a software byteswap
->>followed by a byteswapping write on ppc - clearly not ideal.
->>It might even generate back to back software byteswaps.
->>
->>If the write to the doorbell register includes a byteswap on BE (ppc)
->>then there is no real value in keeping the value as BE.
->>
->>OTOH ppc ought to have ways of doing IO writes without the byteswap
->>(and byteswapping accesses to non-io memory for that matter).
->>
->>What happens on a BE system with BE peripherals is another matter.
->
->David
->
->Thanks for your comment.
->
->How about use __raw_writel() to replace the iowrite32()? Looks this is better,
->if so, I will make up another version for this.
->
+On Fri, Dec 12, 2014 at 09:33:13PM -0500, David Miller wrote:
 
-Hi, David
+> Ok, so we just adjust the AF_PACKET check to test msg_iovlen==1 as
+> well, and that takes care of that case.
 
-If you prefer this way, I would like to send a new version for this.
-Is it ok for you?
+AF_NETLINK, I suppose?  AF_PACKET is avoiding all those contortions - they
+simply do
+        if (po->tx_ring.pg_vec)
+                return tpacket_snd(po, msg);
+        else
+                return packet_snd(sock, msg, len);
+IOW, if you have done PACKET_TX_RING, you get msg_iov completely ignored and
+tx_ring used as data source, otherwise you get data coming from msg_iov.
 
->>
->>	David
->>
->
->-- 
->Richard Yang
->Help you, Help me
+For AF_NETLINK what you suggest would work, AFAICS.  It's still bloody weird,
+(if we want to be able to mix from-msg_iov and from-tx_ring sends on the same
+socket, I'd probably go with MSG_<something> in flags), but existing userland
+ABI is existing userland ABI...
 
--- 
-Richard Yang
-Help you, Help me
+So in term of msg_iter, it turns into
+	/* It's a really convoluted way for userland to ask for mmaped
+	 * sendmsg(), but that's what we've got...  */
+	if (netlink_tx_is_mmaped(sk) &&
+	    msg->msg_iter.type == KVEC_ITER &&
+	    msg->msg_iter.nr_segs == 1 &&
+	    msg->msg_iter.iov->iov_base == NULL) {
+		err = netlink_mmap_sendmsg(sk, msg, dst_portid, dst_group,
+					   siocb);
+                goto out;
+	}
+
+OK, that works...
+
+Next fun place: AF_CAIF/SOCK_SEQPACKET has sendmsg() treating NULL
+msg_iov[0].iov_base as EINVAL.  No idea why - without that check zero-length
+sendmsg() with such msg_iov would work and non-zero-length one would
+fail with EFAULT instead.  And this check is just as random in case of
+msg_iovlen being 0.  Could CAIF folks explain what's going on there?
+My preference would be to remove that check completely...
