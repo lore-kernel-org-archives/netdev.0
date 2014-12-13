@@ -1,337 +1,214 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 1/4] lib: Add netns_switch func for change network namespace
-Date: Sat, 13 Dec 2014 19:55:31 +0200
-Message-ID: <1418493334-23142-2-git-send-email-vadim4j@gmail.com>
+Subject: [PATCH iproute2 4/4] tc: Allow to easy change network namespace
+Date: Sat, 13 Dec 2014 19:55:34 +0200
+Message-ID: <1418493334-23142-5-git-send-email-vadim4j@gmail.com>
 References: <1418493334-23142-1-git-send-email-vadim4j@gmail.com>
 Cc: Vadim Kochan <vadim4j@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:39431 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751220AbaLMSFc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Dec 2014 13:05:32 -0500
-Received: by mail-la0-f51.google.com with SMTP id ms9so7597009lab.10
-        for <netdev@vger.kernel.org>; Sat, 13 Dec 2014 10:05:30 -0800 (PST)
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:33324 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751220AbaLMSFh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Dec 2014 13:05:37 -0500
+Received: by mail-lb0-f180.google.com with SMTP id l4so7268811lbv.39
+        for <netdev@vger.kernel.org>; Sat, 13 Dec 2014 10:05:35 -0800 (PST)
 In-Reply-To: <1418493334-23142-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vadim Kochan <vadim4j@gmail.com>
 
-New netns_switch func moved to the lib/namespace.c from ip/ipnetns.c
-so it can be used from the other tools for fast switching
-network namespace.
+Added new '-netns' option to simplify executing following cmd:
+
+    ip netns exec NETNS tc OPTIONS COMMAND OBJECT
+
+    to
+
+    tc -n[etns] NETNS OPTIONS COMMAND OBJECT
+
+e.g.:
+
+    tc -net vnet0 qdisc
 
 Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 ---
- include/namespace.h |  46 +++++++++++++++++++++++
- ip/ipnetns.c        | 106 ++--------------------------------------------------
- lib/Makefile        |   6 ++-
- lib/namespace.c     |  86 ++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 140 insertions(+), 104 deletions(-)
- create mode 100644 include/namespace.h
- create mode 100644 lib/namespace.c
+ man/man8/tc.8 | 65 +++++++++++++++++++++++++++++++++++++++++++++--------------
+ tc/Makefile   |  5 +++++
+ tc/tc.c       |  8 +++++++-
+ 3 files changed, 62 insertions(+), 16 deletions(-)
 
-diff --git a/include/namespace.h b/include/namespace.h
-new file mode 100644
-index 0000000..2f13e65
---- /dev/null
-+++ b/include/namespace.h
-@@ -0,0 +1,46 @@
-+#ifndef __NAMESPACE_H__
-+#define __NAMESPACE_H__ 1
-+
-+#include <sched.h>
-+#include <sys/mount.h>
-+#include <errno.h>
-+
-+#define NETNS_RUN_DIR "/var/run/netns"
-+#define NETNS_ETC_DIR "/etc/netns"
-+
-+#ifndef CLONE_NEWNET
-+#define CLONE_NEWNET 0x40000000	/* New network namespace (lo, device, names sockets, etc) */
-+#endif
-+
-+#ifndef MNT_DETACH
-+#define MNT_DETACH	0x00000002	/* Just detach from the tree */
-+#endif /* MNT_DETACH */
-+
-+/* sys/mount.h may be out too old to have these */
-+#ifndef MS_REC
-+#define MS_REC		16384
-+#endif
-+
-+#ifndef MS_SLAVE
-+#define MS_SLAVE	(1 << 19)
-+#endif
-+
-+#ifndef MS_SHARED
-+#define MS_SHARED	(1 << 20)
-+#endif
-+
-+#ifndef HAVE_SETNS
-+static int setns(int fd, int nstype)
-+{
-+#ifdef __NR_setns
-+	return syscall(__NR_setns, fd, nstype);
-+#else
-+	errno = ENOSYS;
-+	return -1;
-+#endif
-+}
-+#endif /* HAVE_SETNS */
-+
-+extern int netns_switch(char *netns);
-+
-+#endif /* __NAMESPACE_H__ */
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index 1c8aa02..519d518 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -17,42 +17,7 @@
+diff --git a/man/man8/tc.8 b/man/man8/tc.8
+index 8d794de..d8f974f 100644
+--- a/man/man8/tc.8
++++ b/man/man8/tc.8
+@@ -2,7 +2,9 @@
+ .SH NAME
+ tc \- show / manipulate traffic control settings
+ .SH SYNOPSIS
+-.B tc qdisc [ add | change | replace | link | delete ] dev
++.B tc
++.RI "[ " OPTIONS " ]"
++.B qdisc [ add | change | replace | link | delete ] dev
+ DEV
+ .B
+ [ parent
+@@ -13,7 +15,9 @@ qdisc-id ] qdisc
+ [ qdisc specific parameters ]
+ .P
  
- #include "utils.h"
- #include "ip_common.h"
--
--#define NETNS_RUN_DIR "/var/run/netns"
--#define NETNS_ETC_DIR "/etc/netns"
--
--#ifndef CLONE_NEWNET
--#define CLONE_NEWNET 0x40000000	/* New network namespace (lo, device, names sockets, etc) */
--#endif
--
--#ifndef MNT_DETACH
--#define MNT_DETACH	0x00000002	/* Just detach from the tree */
--#endif /* MNT_DETACH */
--
--/* sys/mount.h may be out too old to have these */
--#ifndef MS_REC
--#define MS_REC		16384
--#endif
--
--#ifndef MS_SLAVE
--#define MS_SLAVE	(1 << 19)
--#endif
--
--#ifndef MS_SHARED
--#define MS_SHARED	(1 << 20)
--#endif
--
--#ifndef HAVE_SETNS
--static int setns(int fd, int nstype)
--{
--#ifdef __NR_setns
--	return syscall(__NR_setns, fd, nstype);
--#else
--	errno = ENOSYS;
--	return -1;
--#endif
--}
--#endif /* HAVE_SETNS */
-+#include "namespace.h"
+-.B tc class [ add | change | replace | delete ] dev
++.B tc
++.RI "[ " OPTIONS " ]"
++.B class [ add | change | replace | delete ] dev
+ DEV
+ .B parent
+ qdisc-id
+@@ -22,7 +26,9 @@ class-id ] qdisc
+ [ qdisc specific parameters ]
+ .P
  
- static int usage(void)
- {
-@@ -101,42 +66,12 @@ static int netns_list(int argc, char **argv)
- 	return 0;
- }
+-.B tc filter [ add | change | replace | delete ] dev
++.B tc
++.RI "[ " OPTIONS " ]"
++.B filter [ add | change | replace | delete ] dev
+ DEV
+ .B [ parent
+ qdisc-id
+@@ -35,21 +41,28 @@ priority filtertype
+ flow-id
  
--static void bind_etc(const char *name)
--{
--	char etc_netns_path[MAXPATHLEN];
--	char netns_name[MAXPATHLEN];
--	char etc_name[MAXPATHLEN];
--	struct dirent *entry;
--	DIR *dir;
--
--	snprintf(etc_netns_path, sizeof(etc_netns_path), "%s/%s", NETNS_ETC_DIR, name);
--	dir = opendir(etc_netns_path);
--	if (!dir)
--		return;
--
--	while ((entry = readdir(dir)) != NULL) {
--		if (strcmp(entry->d_name, ".") == 0)
--			continue;
--		if (strcmp(entry->d_name, "..") == 0)
--			continue;
--		snprintf(netns_name, sizeof(netns_name), "%s/%s", etc_netns_path, entry->d_name);
--		snprintf(etc_name, sizeof(etc_name), "/etc/%s", entry->d_name);
--		if (mount(netns_name, etc_name, "none", MS_BIND, NULL) < 0) {
--			fprintf(stderr, "Bind %s -> %s failed: %s\n",
--				netns_name, etc_name, strerror(errno));
--		}
--	}
--	closedir(dir);
--}
--
- static int netns_exec(int argc, char **argv)
- {
- 	/* Setup the proper environment for apps that are not netns
- 	 * aware, and execute a program in that environment.
- 	 */
--	const char *name, *cmd;
--	char net_path[MAXPATHLEN];
--	int netns;
-+	const char *cmd;
+ .B tc
++.RI "[ " OPTIONS " ]"
+ .RI "[ " FORMAT " ]"
+ .B qdisc show [ dev
+ DEV
+ .B ]
+ .P
+ .B tc
++.RI "[ " OPTIONS " ]"
+ .RI "[ " FORMAT " ]"
+ .B class show dev
+ DEV
+ .P
+-.B tc filter show dev
++.B tc
++.RI "[ " OPTIONS " ]"
++.B filter show dev
+ DEV
  
- 	if (argc < 1) {
- 		fprintf(stderr, "No netns name specified\n");
-@@ -146,45 +81,10 @@ static int netns_exec(int argc, char **argv)
- 		fprintf(stderr, "No command specified\n");
- 		return -1;
- 	}
--
--	name = argv[0];
- 	cmd = argv[1];
--	snprintf(net_path, sizeof(net_path), "%s/%s", NETNS_RUN_DIR, name);
--	netns = open(net_path, O_RDONLY | O_CLOEXEC);
--	if (netns < 0) {
--		fprintf(stderr, "Cannot open network namespace \"%s\": %s\n",
--			name, strerror(errno));
--		return -1;
--	}
--
--	if (setns(netns, CLONE_NEWNET) < 0) {
--		fprintf(stderr, "setting the network namespace \"%s\" failed: %s\n",
--			name, strerror(errno));
--		return -1;
--	}
+ .P
+-.B tc [ -force ] -b\fR[\fIatch\fR] \fB[ filename ]
++.ti 8
++.IR OPTIONS " := {"
++\fB[ -force ] -b\fR[\fIatch\fR] \fB[ filename ] \fR|
++\fB[ \fB-n\fR[\fIetns\fR] name \fB] \fR}
  
--	if (unshare(CLONE_NEWNS) < 0) {
--		fprintf(stderr, "unshare failed: %s\n", strerror(errno));
--		return -1;
--	}
--	/* Don't let any mounts propagate back to the parent */
--	if (mount("", "/", "none", MS_SLAVE | MS_REC, NULL)) {
--		fprintf(stderr, "\"mount --make-rslave /\" failed: %s\n",
--			strerror(errno));
-+	if (netns_switch(argv[0]))
- 		return -1;
--	}
--	/* Mount a version of /sys that describes the network namespace */
--	if (umount2("/sys", MNT_DETACH) < 0) {
--		fprintf(stderr, "umount of /sys failed: %s\n", strerror(errno));
--		return -1;
--	}
--	if (mount(name, "/sys", "sysfs", 0, NULL) < 0) {
--		fprintf(stderr, "mount of /sys failed: %s\n",strerror(errno));
--		return -1;
--	}
+ .ti 8
+ .IR FORMAT " := {"
+@@ -407,6 +420,38 @@ link
+ Only available for qdiscs and performs a replace where the node
+ must exist already.
+ 
++.SH OPTIONS
++
++.TP
++.BR "\-b", " \-b filename", " \-batch", " \-batch filename"
++read commands from provided file or standard input and invoke them.
++First failure will cause termination of tc.
++
++.TP
++.BR "\-force"
++don't terminate tc on errors in batch mode.
++If there were any errors during execution of the commands, the application return code will be non zero.
++
++.TP
++.BR "\-n" , " \-net" , " \-netns " <NETNS>
++switches
++.B tc
++to the specified network namespace
++.IR NETNS .
++Actually it just simplifies executing of:
++
++.B ip netns exec
++.IR NETNS
++.B tc
++.RI "[ " OPTIONS " ] " OBJECT " { " COMMAND " | "
++.BR help " }"
++
++to
++
++.B tc
++.RI "-n[etns] " NETNS " [ " OPTIONS " ] " OBJECT " { " COMMAND " | "
++.BR help " }"
++
+ .SH FORMAT
+ The show command has additional formatting options:
+ 
+@@ -430,16 +475,6 @@ decode filter offset and mask values to equivalent filter commands based on TCP/
+ .BR "\-iec"
+ print rates in IEC units (ie. 1K = 1024).
+ 
+-.TP
+-.BR "\-b", " \-b filename", " \-batch", " \-batch filename"
+-read commands from provided file or standard input and invoke them.
+-First failure will cause termination of tc.
 -
--	/* Setup bind mounts for config files in /etc */
--	bind_etc(name);
+-.TP
+-.BR "\-force"
+-don't terminate tc on errors in batch mode.
+-If there were any errors during execution of the commands, the application return code will be non zero.
+-
+ .SH HISTORY
+ .B tc
+ was written by Alexey N. Kuznetsov and added in Linux 2.2.
+diff --git a/tc/Makefile b/tc/Makefile
+index 1ab36c6..536ed88 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -3,6 +3,11 @@ TCOBJ= tc.o tc_qdisc.o tc_class.o tc_filter.o tc_util.o \
+        m_ematch.o emp_ematch.yacc.o emp_ematch.lex.o
  
- 	fflush(stdout);
- 
-diff --git a/lib/Makefile b/lib/Makefile
-index a42b885..66f89f1 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -1,8 +1,12 @@
  include ../Config
- 
++
 +ifeq ($(IP_CONFIG_SETNS),y)
 +	CFLAGS += -DHAVE_SETNS
 +endif
 +
- CFLAGS += -fPIC
+ SHARED_LIBS ?= y
  
--UTILOBJ=utils.o rt_names.o ll_types.o ll_proto.o ll_addr.o inet_proto.o
-+UTILOBJ=utils.o rt_names.o ll_types.o ll_proto.o ll_addr.o inet_proto.o namespace.o
- 
- NLOBJ=libgenl.o ll_map.o libnetlink.o
- 
-diff --git a/lib/namespace.c b/lib/namespace.c
-new file mode 100644
-index 0000000..1554ce0
---- /dev/null
-+++ b/lib/namespace.c
-@@ -0,0 +1,86 @@
-+/*
-+ * namespace.c
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <fcntl.h>
-+#include <dirent.h>
-+
-+#include "utils.h"
+ TCMODULES :=
+diff --git a/tc/tc.c b/tc/tc.c
+index 9b50e74..ea4ba10 100644
+--- a/tc/tc.c
++++ b/tc/tc.c
+@@ -29,6 +29,7 @@
+ #include "utils.h"
+ #include "tc_util.h"
+ #include "tc_common.h"
 +#include "namespace.h"
-+
-+static void bind_etc(const char *name)
-+{
-+	char etc_netns_path[MAXPATHLEN];
-+	char netns_name[MAXPATHLEN];
-+	char etc_name[MAXPATHLEN];
-+	struct dirent *entry;
-+	DIR *dir;
-+
-+	snprintf(etc_netns_path, sizeof(etc_netns_path), "%s/%s", NETNS_ETC_DIR, name);
-+	dir = opendir(etc_netns_path);
-+	if (!dir)
-+		return;
-+
-+	while ((entry = readdir(dir)) != NULL) {
-+		if (strcmp(entry->d_name, ".") == 0)
-+			continue;
-+		if (strcmp(entry->d_name, "..") == 0)
-+			continue;
-+		snprintf(netns_name, sizeof(netns_name), "%s/%s", etc_netns_path, entry->d_name);
-+		snprintf(etc_name, sizeof(etc_name), "/etc/%s", entry->d_name);
-+		if (mount(netns_name, etc_name, "none", MS_BIND, NULL) < 0) {
-+			fprintf(stderr, "Bind %s -> %s failed: %s\n",
-+				netns_name, etc_name, strerror(errno));
-+		}
-+	}
-+	closedir(dir);
-+}
-+
-+int netns_switch(char *name)
-+{
-+	char net_path[MAXPATHLEN];
-+	int netns;
-+
-+	snprintf(net_path, sizeof(net_path), "%s/%s", NETNS_RUN_DIR, name);
-+	netns = open(net_path, O_RDONLY | O_CLOEXEC);
-+	if (netns < 0) {
-+		fprintf(stderr, "Cannot open network namespace \"%s\": %s\n",
-+			name, strerror(errno));
-+		return -1;
-+	}
-+
-+	if (setns(netns, CLONE_NEWNET) < 0) {
-+		fprintf(stderr, "setting the network namespace \"%s\" failed: %s\n",
-+			name, strerror(errno));
-+		return -1;
-+	}
-+
-+	if (unshare(CLONE_NEWNS) < 0) {
-+		fprintf(stderr, "unshare failed: %s\n", strerror(errno));
-+		return -1;
-+	}
-+	/* Don't let any mounts propagate back to the parent */
-+	if (mount("", "/", "none", MS_SLAVE | MS_REC, NULL)) {
-+		fprintf(stderr, "\"mount --make-rslave /\" failed: %s\n",
-+			strerror(errno));
-+		return -1;
-+	}
-+	/* Mount a version of /sys that describes the network namespace */
-+	if (umount2("/sys", MNT_DETACH) < 0) {
-+		fprintf(stderr, "umount of /sys failed: %s\n", strerror(errno));
-+		return -1;
-+	}
-+	if (mount(name, "/sys", "sysfs", 0, NULL) < 0) {
-+		fprintf(stderr, "mount of /sys failed: %s\n",strerror(errno));
-+		return -1;
-+	}
-+
-+	/* Setup bind mounts for config files in /etc */
-+	bind_etc(name);
-+	return 0;
-+}
+ 
+ int show_stats = 0;
+ int show_details = 0;
+@@ -185,7 +186,8 @@ static void usage(void)
+ 	fprintf(stderr, "Usage: tc [ OPTIONS ] OBJECT { COMMAND | help }\n"
+ 			"       tc [-force] -batch filename\n"
+ 	                "where  OBJECT := { qdisc | class | filter | action | monitor }\n"
+-	                "       OPTIONS := { -s[tatistics] | -d[etails] | -r[aw] | -p[retty] | -b[atch] [filename] }\n");
++	                "       OPTIONS := { -s[tatistics] | -d[etails] | -r[aw] | -p[retty] | -b[atch] [filename] | "
++			"-n[etns] name }\n");
+ }
+ 
+ static int do_cmd(int argc, char **argv)
+@@ -293,6 +295,10 @@ int main(int argc, char **argv)
+ 			if (argc <= 1)
+ 				usage();
+ 			batch_file = argv[1];
++		} else if (matches(argv[1], "-netns") == 0) {
++			NEXT_ARG();
++			if (netns_switch(argv[1]))
++				return -1;
+ 		} else {
+ 			fprintf(stderr, "Option \"%s\" is unknown, try \"tc -help\".\n", argv[1]);
+ 			return -1;
 -- 
 2.1.3
