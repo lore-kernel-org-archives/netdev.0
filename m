@@ -1,32 +1,40 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH iproute2 1/4] lib: Add netns_switch func for change
- network namespace
-Date: Sun, 14 Dec 2014 10:35:49 +0100
-Message-ID: <20141214093549.GA2380@nanopsycho.orion>
+Subject: Re: [PATCH iproute2 2/4] ip: Allow to easy change network namespace
+Date: Sun, 14 Dec 2014 10:36:02 +0100
+Message-ID: <20141214093602.GB2380@nanopsycho.orion>
 References: <1418493334-23142-1-git-send-email-vadim4j@gmail.com>
- <1418493334-23142-2-git-send-email-vadim4j@gmail.com>
+ <1418493334-23142-3-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:54732 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751103AbaLNJfz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Dec 2014 04:35:55 -0500
-Received: by mail-wg0-f41.google.com with SMTP id y19so12384702wgg.0
-        for <netdev@vger.kernel.org>; Sun, 14 Dec 2014 01:35:51 -0800 (PST)
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:46229 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751242AbaLNJgF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Dec 2014 04:36:05 -0500
+Received: by mail-wi0-f181.google.com with SMTP id r20so6317167wiv.8
+        for <netdev@vger.kernel.org>; Sun, 14 Dec 2014 01:36:03 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1418493334-23142-2-git-send-email-vadim4j@gmail.com>
+In-Reply-To: <1418493334-23142-3-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Dec 13, 2014 at 06:55:31PM CET, vadim4j@gmail.com wrote:
+Sat, Dec 13, 2014 at 06:55:32PM CET, vadim4j@gmail.com wrote:
 >From: Vadim Kochan <vadim4j@gmail.com>
 >
->New netns_switch func moved to the lib/namespace.c from ip/ipnetns.c
->so it can be used from the other tools for fast switching
->network namespace.
+>Added new '-netns' option to simplify executing following cmd:
+>
+>    ip netns exec NETNS ip OPTIONS COMMAND OBJECT
+>
+>    to
+>
+>    ip -n[etns] NETNS OPTIONS COMMAND OBJECT
+>
+>e.g.:
+>
+>    ip -net vnet0 link add br0 type bridge
+>    ip -n vnet0 link
 >
 >Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 
