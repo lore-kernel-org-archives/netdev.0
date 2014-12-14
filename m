@@ -1,108 +1,80 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [ethtool][PATCH] Fix build with musl by using more common
- typedefs
-Date: Sun, 14 Dec 2014 18:37:24 +0000
-Message-ID: <1418582244.30883.0.camel@decadent.org.uk>
-References: <1414323849-5739-1-git-send-email-paul@paulbarker.me.uk>
-	 <1414323849-5739-2-git-send-email-paul@paulbarker.me.uk>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net] net: Disallow providing non zero VLAN ID for NIC
+ drivers FDB add flow
+Date: Sun, 14 Dec 2014 20:23:51 +0100
+Message-ID: <20141214192351.GA1850@nanopsycho.orion>
+References: <1418573945-27840-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-l4ah/L0g1n44VlUvfGB2"
-Cc: Ben Hutchings <bwh@kernel.org>, netdev@vger.kernel.org,
-	John Spencer <maillist-linux@barfooze.de>
-To: Paul Barker <paul@paulbarker.me.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	gospo@cumulusnetworks.com, jhs@mojatatu.com,
+	john.r.fastabend@intel.com
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:33796 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750708AbaLNShv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Dec 2014 13:37:51 -0500
-In-Reply-To: <1414323849-5739-2-git-send-email-paul@paulbarker.me.uk>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:52132 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750713AbaLNTXx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Dec 2014 14:23:53 -0500
+Received: by mail-wi0-f173.google.com with SMTP id r20so6988075wiv.0
+        for <netdev@vger.kernel.org>; Sun, 14 Dec 2014 11:23:52 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1418573945-27840-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Sun, Dec 14, 2014 at 05:19:05PM CET, ogerlitz@mellanox.com wrote:
+>The current implementations all use dev_uc_add_excl() and such whose API
+>doesn't support vlans, so we can't make it with NICs HW for now.
+>
+>Fixes: f6f6424ba773 ('net: make vid as a parameter for ndo_fdb_add/ndo_fdb_del')
 
---=-l4ah/L0g1n44VlUvfGB2
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Maybe I'm missing something, but this commit did not introduce the
+problem. If was there already before when NDA_VLAN was set and ignored.
 
-On Sun, 2014-10-26 at 11:44 +0000, Paul Barker wrote:
-> When using musl as the standard C library, type names such as '__int32_t'=
- are
-> not defined. Instead we must use the more commonly defined type names suc=
-h as
-> 'int32_t', which are defined in <stdint.h>.
->=20
-> Signed-off-by: John Spencer <maillist-linux@barfooze.de>
-> Signed-off-by: Paul Barker <paul@paulbarker.me.uk>
+But other than this. I like the patch
 
-Applied, thanks.
+Reviewed-by: Jiri Pirko <jiri@resnulli.us>
 
-Ben.
 
-> ---
->  internal.h | 13 +++++++------
->  1 file changed, 7 insertions(+), 6 deletions(-)
->=20
-> diff --git a/internal.h b/internal.h
-> index a9dfae0..262a39f 100644
-> --- a/internal.h
-> +++ b/internal.h
-> @@ -7,6 +7,7 @@
->  #include "ethtool-config.h"
->  #endif
->  #include <stdio.h>
-> +#include <stdint.h>
->  #include <stdlib.h>
->  #include <string.h>
->  #include <sys/types.h>
-> @@ -17,16 +18,16 @@
-> =20
->  /* ethtool.h expects these to be defined by <linux/types.h> */
->  #ifndef HAVE_BE_TYPES
-> -typedef __uint16_t __be16;
-> -typedef __uint32_t __be32;
-> +typedef uint16_t __be16;
-> +typedef uint32_t __be32;
->  typedef unsigned long long __be64;
->  #endif
-> =20
->  typedef unsigned long long u64;
-> -typedef __uint32_t u32;
-> -typedef __uint16_t u16;
-> -typedef __uint8_t u8;
-> -typedef __int32_t s32;
-> +typedef uint32_t u32;
-> +typedef uint16_t u16;
-> +typedef uint8_t u8;
-> +typedef int32_t s32;
-> =20
->  #include "ethtool-copy.h"
->  #include "net_tstamp-copy.h"
 
---=20
-Ben Hutchings
-The two most common things in the universe are hydrogen and stupidity.
-
---=-l4ah/L0g1n44VlUvfGB2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAVI3Y7ee/yOyVhhEJAQpjEBAApjK6g9Dt46mpVk2llAX2ejJZpfjmbzL/
-wc/pqzgnVWOjMRVeJRDg3nSJk9qQ+KG4W3gnbluH76iCRmxdHaCAsuYm4Hhplrxt
-VRqSX04MgPDYYXUDa1gF3mL5UQZ/TA6EdbnpkiS+onELug7rvzQNhVW7t7ECSm4/
-FM5zhvYlC1qM7Oi2UxtEPEmaIWwm3K2Sr00oKDP0gFD19I6qdOKLUZ9GMyh3pWwC
-FPoQ1A6OzxF6l1TqJRRP6z9uu9VFBgZ8Fjuh48Al7Wac/Bk+WUk618EkFBUzZqnf
-CVHHI9ItWcJKMD90qZfxHsAOJuU5F7v1U7QS7YMqvNT3YOh7GpRCCUma946qTtlx
-qczPBa1Jc3VB4oqhdb1AtPY4TzvIOvI2E2l3upz71xzBzFiLyFsy2e3fEBnSCN7k
-GJ87nBZYwX1ea9Y45FCcr/drIHG6+aV+WwZYgga8f4QHAX9UHKS3N7De8FJiKIMu
-YCPl9IcfSE9EX2z+uXE836YusiwCHpp7pRvka5jXKjbEOKRfMRk5j3lLN7nTi6kR
-ZgzX6TcV4Iop16kPcDdqzvYnTfptPmtrna5QZ3rVSQi998BWcVeTlF6NHZJkoe0W
-y2s49m9FWoWYsV0OlZxxfXu5rliYazY3lNOOfUPX28IIZSBAUDF5e504yUZVDz3k
-lsTm+TtHbD0=
-=tPc1
------END PGP SIGNATURE-----
-
---=-l4ah/L0g1n44VlUvfGB2--
+>Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+>---
+> drivers/net/ethernet/intel/i40e/i40e_main.c |    5 +++++
+> net/core/rtnetlink.c                        |    5 +++++
+> 2 files changed, 10 insertions(+), 0 deletions(-)
+>
+>diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+>index 0a7ea4c..a5f2660 100644
+>--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+>+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+>@@ -7549,6 +7549,11 @@ static int i40e_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+> 	if (!(pf->flags & I40E_FLAG_SRIOV_ENABLED))
+> 		return -EOPNOTSUPP;
+> 
+>+	if (vid) {
+>+		pr_info("%s: vlans aren't supported yet for dev_uc|mc_add()\n", dev->name);
+>+		return -EINVAL;
+>+	}
+>+
+> 	/* Hardware does not support aging addresses so if a
+> 	 * ndm_state is given only allow permanent addresses
+> 	 */
+>diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+>index d06107d..9cf6fe9 100644
+>--- a/net/core/rtnetlink.c
+>+++ b/net/core/rtnetlink.c
+>@@ -2368,6 +2368,11 @@ int ndo_dflt_fdb_add(struct ndmsg *ndm,
+> 		return err;
+> 	}
+> 
+>+	if (vid) {
+>+		pr_info("%s: vlans aren't supported yet for dev_uc|mc_add()\n", dev->name);
+>+		return err;
+>+	}
+>+
+> 	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr))
+> 		err = dev_uc_add_excl(dev, addr);
+> 	else if (is_multicast_ether_addr(addr))
+>-- 
+>1.7.1
+>
