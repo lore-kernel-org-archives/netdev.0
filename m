@@ -1,86 +1,67 @@
-From: vadim4j@gmail.com
-Subject: Re: [PATCH iproute2 REGRESSION] ss: Dont show netlink and packet
- sockets by default
-Date: Sun, 14 Dec 2014 19:15:08 +0200
-Message-ID: <20141214171508.GA20065@angus-think.lan>
-References: <1418549765-9466-1-git-send-email-vadim4j@gmail.com>
- <548D9E25.30100@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2 REGRESSION v2] ss: Dont show netlink and packet sockets by default
+Date: Sun, 14 Dec 2014 19:23:18 +0200
+Message-ID: <1418577798-21596-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f41.google.com ([209.85.215.41]:32920 "EHLO
-	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751270AbaLNRZG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Dec 2014 12:25:06 -0500
-Received: by mail-la0-f41.google.com with SMTP id hv19so8318162lab.0
-        for <netdev@vger.kernel.org>; Sun, 14 Dec 2014 09:25:03 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <548D9E25.30100@cogentembedded.com>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:40370 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751308AbaLNRdO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Dec 2014 12:33:14 -0500
+Received: by mail-lb0-f171.google.com with SMTP id w7so3836788lbi.16
+        for <netdev@vger.kernel.org>; Sun, 14 Dec 2014 09:33:12 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 14, 2014 at 05:26:45PM +0300, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 12/14/2014 12:36 PM, Vadim Kochan wrote:
-> 
-> >From: Vadim Kochan <vadim4j@gmail.com>
-> 
-> >Checking by SS_CLOSE state was remowed in:
-> 
-> >     (45a4770bc0) ss: Remove checking SS_CLOSE state for packet and netlink
-> 
-> >which is not really correct because now by default all sockets are seen
-> >when do 'ss'.
-> 
-> >Here is most correct fix which considers specified family.
-> 
-> >To see netlink sockets:
-> >     ss -A netlink
-> 
-> >To see packet sockets:
-> >     ss -A packet
-> 
-> >And ss by default will show only connected/established sockets as it
-> >was before all the time.
-> >
-> >Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
-> >---
-> >  misc/ss.c | 6 ++++++
-> >  1 file changed, 6 insertions(+)
-> 
-> >diff --git a/misc/ss.c b/misc/ss.c
-> >index e9927a5..6050ab6 100644
-> >--- a/misc/ss.c
-> >+++ b/misc/ss.c
-> >@@ -2801,6 +2801,9 @@ static int packet_show(struct filter *f)
-> >  	int ino;
-> >  	unsigned long long sk;
-> >
-> >+	if (preferred_family != AF_PACKET && !(f->states & (1<<SS_CLOSE)))
-> 
->   Please surround << with spaces, to be consistent with other operators and
-> general kernel coding style.
-> 
-> >+		return 0;
-> >+
-> >  	if (packet_show_netlink(f, NULL) == 0)
-> >  		return 0;
-> >
-> >@@ -3028,6 +3031,9 @@ static int netlink_show(struct filter *f)
-> >  	int rq, wq, rc;
-> >  	unsigned long long sk, cb;
-> >
-> >+	if (preferred_family != AF_NETLINK && !(f->states & (1<<SS_CLOSE)))
-> 
->    Likewise.
-> 
-> >+		return 0;
-> >+
-> [...]
-> 
-> WBR, Sergei
-> 
-OK, I just returned removed code, but I agree to correct it, thanks.
+From: Vadim Kochan <vadim4j@gmail.com>
+
+Checking by SS_CLOSE state was remowed in:
+
+    (45a4770bc0) ss: Remove checking SS_CLOSE state for packet and netlink
+
+which is not really correct because now by default all sockets are seen
+when do 'ss'.
+
+Here is most correct fix which considers specified family.
+
+To see netlink sockets:
+    ss -A netlink
+
+To see packet sockets:
+    ss -A packet
+
+And ss by default will show only connected/established sockets as it
+was before all the time.
+
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ misc/ss.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/misc/ss.c b/misc/ss.c
+index e9927a5..8f39eb8 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -2801,6 +2801,9 @@ static int packet_show(struct filter *f)
+ 	int ino;
+ 	unsigned long long sk;
+ 
++	if (preferred_family != AF_PACKET && !(f->states & (1 << SS_CLOSE)))
++		return 0;
++
+ 	if (packet_show_netlink(f, NULL) == 0)
+ 		return 0;
+ 
+@@ -3028,6 +3031,9 @@ static int netlink_show(struct filter *f)
+ 	int rq, wq, rc;
+ 	unsigned long long sk, cb;
+ 
++	if (preferred_family != AF_NETLINK && !(f->states & (1 << SS_CLOSE)))
++		return 0;
++
+ 	if (!getenv("PROC_NET_NETLINK") && !getenv("PROC_ROOT") &&
+ 		netlink_show_netlink(f, NULL) == 0)
+ 		return 0;
+-- 
+2.1.3
