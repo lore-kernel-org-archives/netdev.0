@@ -1,56 +1,59 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v2 2/4] swdevice: add new api to set and del
- bridge port attributes
-Date: Mon, 15 Dec 2014 10:26:12 -0500
-Message-ID: <548EFD94.8070905@mojatatu.com>
-References: <1418202320-19491-3-git-send-email-roopa@cumulusnetworks.com> <20141210093755.GB1863@nanopsycho.orion> <5489CBBA.7050302@cumulusnetworks.com> <20141211171145.GG1912@nanopsycho.orion> <5489DB73.1080808@cumulusnetworks.com> <20141211180743.GA2010@nanopsycho.orion> <5489E214.4080708@cumulusnetworks.com> <20141211222559.GB1880@nanopsycho.orion> <548D9B14.9010201@cumulusnetworks.com> <20141214153549.GA2174@nanopsycho.orion> <548DE7E2.6010705@cumulusnetworks.com>
+Subject: Re: [PATCH net] net: Disallow providing non zero VLAN ID for NIC
+ drivers FDB add flow
+Date: Mon, 15 Dec 2014 10:31:35 -0500
+Message-ID: <548EFED7.7060406@mojatatu.com>
+References: <1418573945-27840-1-git-send-email-ogerlitz@mellanox.com> <20141214192351.GA1850@nanopsycho.orion> <CAJ3xEMhbic5w4d0dGsTMRDoq5Vx8wqZRFpy-q+8HaeDfYciUqw@mail.gmail.com> <20141214223354.GA2035@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, bcrl@kvack.org, tgraf@suug.ch,
-	john.fastabend@gmail.com, stephen@networkplumber.org,
-	linville@tuxdriver.com, vyasevic@redhat.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Jiri Pirko <jiri@resnulli.us>, Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:62849 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751462AbaLOP0P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 10:26:15 -0500
-Received: by mail-ie0-f171.google.com with SMTP id rl12so10888462iec.16
-        for <netdev@vger.kernel.org>; Mon, 15 Dec 2014 07:26:14 -0800 (PST)
-In-Reply-To: <548DE7E2.6010705@cumulusnetworks.com>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:42422 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750716AbaLOPbh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 10:31:37 -0500
+Received: by mail-ig0-f170.google.com with SMTP id r2so6121481igi.1
+        for <netdev@vger.kernel.org>; Mon, 15 Dec 2014 07:31:37 -0800 (PST)
+In-Reply-To: <20141214223354.GA2035@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 12/14/14 17:33, Jiri Pirko wrote:
+> Sun, Dec 14, 2014 at 09:14:27PM CET, gerlitz.or@gmail.com wrote:
+>> On Sun, Dec 14, 2014 at 9:23 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> Sun, Dec 14, 2014 at 05:19:05PM CET, ogerlitz@mellanox.com wrote:
+>>>> The current implementations all use dev_uc_add_excl() and such whose API
+>>>> doesn't support vlans, so we can't make it with NICs HW for now.
+>>>>
+>>>> Fixes: f6f6424ba773 ('net: make vid as a parameter for ndo_fdb_add/ndo_fdb_del')
+>>>
+>>> Maybe I'm missing something, but this commit did not introduce the
+>>> problem.
+>>
+>> This commit introduced the vid param to ndo_fdb_add and ndo_dflt_fdb_add
+>> which further call the dev_uc_add APIs... so it did introduced the
+>> ability to provide VID into these APIs, right? and we want to protect
+>> against anyone using this ability @ this point.
+>
+> That is in-kernel change. Vs. usespace the patch is a no-op. If userspace
+> fills up NDA_VLAN, it is ignored before the patch as well as after. No
+> behaviour change, just +- cosmetics.
+>
 
-Sorry - i didnt quiet follow the discussion, but i can see the value
-of propagating things from parent to children netdevs as part of the
-generic approach. And in that spirit:
-
-Ben's patches (and I am sure the cumulus folk do this) expose ports.
-i.e you boot up the hardware and you see ports. You can then put these
-ports in a bridge and you can offload fdbs and do other parametrization
-to the ASIC. IOW, this only becomes a bridge because you created one
-in the kernel and attached bridge ports to it.
-
-Lets say i didnt want a bridge. I want instead to take these exposed
-ports and create a bond (and maybe play with LACP). How does this
-propagation from parent->child->child work then? I think the idea
-of just bonding and not exposing it as a switch is a reasonable use
-case.
-Also how does it work when i start doing L3 and the bond's port doesnt
-support L3? Is it time to revive the thing we called TheThing in Du?
-
-cheers,
-jamal
-
-On 12/14/14 14:41, Roopa Prabhu wrote:
-> On 12/14/14, 7:35 AM, Jiri Pirko wrote:
-
-[..chopped off for brevity and saving electrons..]
+Indeed doesnt break anything, but:
+I think this brings to the forefront what these dev_uc/mc addresses
+are supposed to be here. I am sure there is a good reason to tie them
+to the fdb API - I am just not grokking it at the moment.
+The concept of a vlanid makes sense for an fdb entry. It
+starts to break when you start tying in vlans - i.e i am not aware
+of multicast/unicast device entries which are tied to vlans.
+Maybe this is some SRIOV thing?
 
 cheers,
 jamal
