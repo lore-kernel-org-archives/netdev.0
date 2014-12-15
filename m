@@ -1,98 +1,62 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next RESEND] net: Do not call ndo_dflt_fdb_dump if
- ndo_fdb_dump is defined.
-Date: Mon, 15 Dec 2014 09:29:50 -0500
-Message-ID: <548EF05E.6050401@mojatatu.com>
-References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>    <54894850.5000603@cumulusnetworks.com>    <7968540cd0768a770b0c8b29ce41a162.squirrel@poczta.wsisiz.edu.pl>    <5489D53E.5010603@cumulusnetworks.com>    <8d4ec5c1ae73c77866a0a154fb528f23.squirrel@poczta.wsisiz.edu.pl>    <548AD781.5020004@mojatatu.com> <4c22a6c452a73b3b77a9a9c8e7f76bcc.squirrel@poczta.wsisiz.edu.pl> <548AFD41.3010801@mojatatu.com> <548B4AA4.1020804@gmail.com>
+From: "Varlese, Marco" <marco.varlese@intel.com>
+Subject: RE: [RFC PATCH net-next 1/1] net: Support for switch port
+ configuration
+Date: Mon, 15 Dec 2014 14:29:12 +0000
+Message-ID: <C4896FB061E7DE4AAC93031BDCA044B104AC5DCF@IRSMSX108.ger.corp.intel.com>
+References: <C4896FB061E7DE4AAC93031BDCA044B104AC3257@IRSMSX108.ger.corp.intel.com>
+ <20141210165018.GG1863@nanopsycho.orion> <54887CF7.70708@gmail.com>
+ <C4896FB061E7DE4AAC93031BDCA044B104AC3914@IRSMSX108.ger.corp.intel.com>
+ <20141215140749.GB21952@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Hubert Sokolowski <h.sokolowski@wit.edu.pl>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: John Fastabend <john.fastabend@gmail.com>
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:64027 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752586AbaLOO3z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 09:29:55 -0500
-Received: by mail-ie0-f179.google.com with SMTP id rp18so10817231iec.38
-        for <netdev@vger.kernel.org>; Mon, 15 Dec 2014 06:29:52 -0800 (PST)
-In-Reply-To: <548B4AA4.1020804@gmail.com>
+Received: from mga01.intel.com ([192.55.52.88]:65467 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753176AbaLOO3o convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 09:29:44 -0500
+In-Reply-To: <20141215140749.GB21952@casper.infradead.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/12/14 15:05, John Fastabend wrote:
-> On 12/12/2014 06:35 AM, Jamal Hadi Salim wrote:
+> -----Original Message-----
+> From: Thomas Graf [mailto:tgr@infradead.org] On Behalf Of Thomas Graf
+> Sent: Monday, December 15, 2014 2:08 PM
+> To: Varlese, Marco
+> Cc: John Fastabend; Jiri Pirko; netdev@vger.kernel.org;
+> stephen@networkplumber.org; Fastabend, John R;
+> roopa@cumulusnetworks.com; sfeldma@gmail.com; linux-
+> kernel@vger.kernel.org
+> Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port
+> configuration
+> 
+> On 12/11/14 at 09:59am, Varlese, Marco wrote:
+> > An example of attributes are:
+> > * enabling/disabling of learning of source addresses on a given port
+> > (you can imagine the attribute called LEARNING for example);
+> > * internal loopback control (i.e. LOOPBACK) which will control how the
+> > flow of traffic behaves from the switch fabric towards an egress port;
+> > * flooding for broadcast/multicast/unicast type of packets (i.e.
+> > BFLOODING, MFLOODING, UFLOODING);
+> 
+> All of these are highly generic and should *not* be passed through from user
+> space to the driver directly but rather be properly abstracted as Roopa
+> proposed. The value of this API is abstraction.
+How would you let the user enable/disable features then? For instance, how would the user enable/disable flooding for broadcast packets (BFLOODING) on a given port? What I was proposing is to have a list of attributes (to be added in if_link.h) which can be tuned by the user using a tool like iproute2. What do you propose? 
+I think I have seen Roopa posting his updated ndo patch and getting some feedback by few people already and as long as I will be able to accomplish the use case described here I am happy with his way.
 
-
-> I'll wake up ;)
-
-
-Vlad made me go over those patches in a few iterations to make
-sure that the use cases covered in the test case work. It is
-holiday season, so he may be offline.
-
-> First quick grep of code finds some strange uses of ndo_fdb_dump like
-> this in macvlan,
->
->    ./drivers/net/macvlan.c
->          .ndo_fdb_dump           = ndo_dflt_fdb_dump,
->
-> I'll be sending a patch once net-next opens up again to resolve it. Its
-> harmless though so not really a fix for net.
->
-> There seem to be a few places that have the potential to return
-> different values then the uc/mc lists.
->
->      ./drivers/net/vxlan.c
->      ./drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
->      ./drivers/net/ethernet/rocker/rocker.c
->
->      ./net/bridge/br_device.c
->
-
-Yes, thats my observation as well.
-The question is: Are multi/unicast address unconditionally dumped?
-Some of these drivers may be just doing the LinuxWay(aka cutnpaste what
-the other driver did).
-If you go over the original thread exchange with Vlad, you'll notice
-i was kind of unsure why dumping of unicast/multicast had anything to
-do with fdb dumping.
-It is still my view that we shouldnt be treating these addresses as if
-they were fdb entries. But: The problem is once you allow an API to
-user space you cant take it back even if people are depending on bugs.
-
-
-> So I guess we can walk through the list and analyse them a bit.
->
-> vxlan:
->
-> Try stacking devices on top of the vxlan device this will call a uc_add
-> routine if you then change the mac addr on the vlan. This would get
-> reported by the dflt fdb dump handlers but not the drivers fdb dump
-> handlers. So removing the dflt dump handler from this patch at least
-> changes things. We should either explain why this is OK or accept that
-> the driver needs to be fixed. Or I guess that the patch is just wrong.
-> My guess is one of the latter options.
->
-> Also Jamal, your original patch seems like it might of changed this
-> and Hubert's patch is reverting back to its original case. Was this
-> specific part of your patch intentional?
->
-
-Yes.
-This is based on the view that unicast/multicast must be dumped
-*unconditionally*. If the view is that uni/mcast addresses are
-dumped conditionally based on what the driver thinks, then Hubert's
-one liner is good. But i really would like Vlad to comment. 80%
-of the effort on my part if you look at the thread was the refactoring
-of the code to meet the use case.
-
-I thought the abstraction which requires that your own MAC addresses
-are treated as fdb entries was broken - but it is too late to change
-that.
-
-cheers,
-jamal
+> If we introduce per device attributes for generic functions we lose large
+> portions of the value gained.
+> You mentioned you have additional attributes in mind, maybe you can give a
+> few examples which are not generic, i.e. do not apply to multiple vendors.
+I do not have an example right now of a vendor specific attribute but I was just saying that might happen (i.e. someone will have a feature not implemented by others?).
