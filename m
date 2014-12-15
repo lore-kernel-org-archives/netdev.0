@@ -1,26 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cirrus: cs89x0: fix time comparison
-Date: Mon, 15 Dec 2014 11:44:40 -0500 (EST)
-Message-ID: <20141215.114440.1645405042049378253.davem@davemloft.net>
-References: <20141214083418.GA25910@ubuntu>
+Subject: Re: [PATCH net-next] fib_trie.txt: fix typo
+Date: Mon, 15 Dec 2014 11:45:37 -0500 (EST)
+Message-ID: <20141215.114537.1259475832340864570.davem@davemloft.net>
+References: <548E86AD.3090702@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, julia.lawall@lip6.fr, himangi774@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: asaf.vertz@tandemg.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141214083418.GA25910@ubuntu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: duanj.fnst@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43628 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751512AbaLOQpj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 11:45:39 -0500
+In-Reply-To: <548E86AD.3090702@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Asaf Vertz <asaf.vertz@tandemg.com>
-Date: Sun, 14 Dec 2014 10:34:18 +0200
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Date: Mon, 15 Dec 2014 14:58:53 +0800
 
-> To be future-proof and for better readability the time comparisons are
-> modified to use time_before, time_after, and time_after_eq instead of
-> plain, error-prone math.
+> Fix the typo, there should be "It".
+> On the other hand, fix whitespace errors detected by checkpatch.pl
 > 
-> Signed-off-by: Asaf Vertz <asaf.vertz@tandemg.com>
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
 Applied.
