@@ -1,67 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Blake Matheny <bmatheny@fb.com>
 Subject: Re: [RFC PATCH net-next 0/5] tcp: TCP tracer
-Date: Mon, 15 Dec 2014 08:03:15 -0800
-Message-ID: <1418659395.9773.13.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Mon, 15 Dec 2014 16:08:23 +0000
+Message-ID: <D0B44739.74E8A%bmatheny@fb.com>
 References: <CAADnVQJ+8mtB8LD=U7XbxOC2hxhDChxOELhZ3NEYeoTk1G3LYg@mail.gmail.com>
+ <1418659395.9773.13.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Martin KaFai Lau <kafai@fb.com>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Martin Lau <kafai@fb.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"Hannes Frederic Sowa" <hannes@stressinduktion.org>,
 	Steven Rostedt <rostedt@goodmis.org>,
 	Lawrence Brakmo <brakmo@fb.com>, Josef Bacik <jbacik@fb.com>,
 	Kernel Team <Kernel-team@fb.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
 	Laurent Chavey <chavey@google.com>,
-	Yuchung Cheng <ycheng@google.com>
+	"Yuchung Cheng" <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:64764 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750747AbaLOQDS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 11:03:18 -0500
-Received: by mail-ig0-f169.google.com with SMTP id hl2so6163629igb.4
-        for <netdev@vger.kernel.org>; Mon, 15 Dec 2014 08:03:18 -0800 (PST)
-In-Reply-To: <CAADnVQJ+8mtB8LD=U7XbxOC2hxhDChxOELhZ3NEYeoTk1G3LYg@mail.gmail.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:37361 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751352AbaLOQIj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 11:08:39 -0500
+In-Reply-To: <1418659395.9773.13.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
+Content-ID: <275C93C0CEDB7E418838E6791E49EF32@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-12-14 at 22:55 -0800, Alexei Starovoitov wrote:
-
-> I think patches 1 and 3 are good additions, since they establish
-> few permanent points of instrumentation in tcp stack.
-> Patches 4-5 look more like use cases of tracepoints established
-> before. They may feel like simple additions and, no doubt,
-> they are useful, but since they expose things via tracing
-> infra they become part of api and cannot be changed later,
-> when more stats would be needed.
-> I think systemtap like scripting on top of patches 1 and 3
-> should solve your use case ?
-> Also, have you looked at recent eBPF work?
-> Though it's not completely ready yet, soon it should
-> be able to do the same stats collection as you have
-> in 4/5 without adding permanent pieces to the kernel.
-
-So it looks like web10g like interfaces are very often requested by
-various teams.
-
-And we have many different views on how to hack this. I am astonished by
-number of hacks I saw about this stuff going on.
-
-What about a clean way, extending current TCP_INFO, which is both
-available as a getsockopt() for socket owners and ss/iproute2
-information for 'external entities'
-
-If we consider web10g info needed, then adding a ftrace/eBPF like
-interface is simply yet another piece of code we need to maintain,
-and the argument of 'this should cost nothing if not activated' is
-nonsense since major players need to constantly monitor TCP metrics and
-behavior.
-
-It seems both FaceBook and Google are working on a subset of web10g.
-
-I suggest we meet together and establish a common ground, preferably
-after Christmas holidays.
-
-Thanks
+V2UgaGF2ZSBhbiBhZGRpdGlvbmFsIHNldCBvZiBwYXRjaGVzIGZvciB3ZWIxMGcgdGhhdCBidWls
+ZHMgb24gdGhlc2UNCnRyYWNlcG9pbnRzLiBJdCBjYW4gYmUgbWFkZSB0byB3b3JrIGVpdGhlciB3
+YXksIGJ1dCBJIGFncmVlIHRoZSBpZGVhIG9mDQpzb21ldGhpbmcgbGlrZSBhIHNvY2tvcHQgd291
+bGQgYmUgcmVhbGx5IG5pY2UuDQoNCi1CbGFrZQ0KDQpPbiAxMi8xNS8xNCwgODowMyBBTSwgIkVy
+aWMgRHVtYXpldCIgPGVyaWMuZHVtYXpldEBnbWFpbC5jb20+IHdyb3RlOg0KDQo+T24gU3VuLCAy
+MDE0LTEyLTE0IGF0IDIyOjU1IC0wODAwLCBBbGV4ZWkgU3Rhcm92b2l0b3Ygd3JvdGU6DQo+DQo+
+PiBJIHRoaW5rIHBhdGNoZXMgMSBhbmQgMyBhcmUgZ29vZCBhZGRpdGlvbnMsIHNpbmNlIHRoZXkg
+ZXN0YWJsaXNoDQo+PiBmZXcgcGVybWFuZW50IHBvaW50cyBvZiBpbnN0cnVtZW50YXRpb24gaW4g
+dGNwIHN0YWNrLg0KPj4gUGF0Y2hlcyA0LTUgbG9vayBtb3JlIGxpa2UgdXNlIGNhc2VzIG9mIHRy
+YWNlcG9pbnRzIGVzdGFibGlzaGVkDQo+PiBiZWZvcmUuIFRoZXkgbWF5IGZlZWwgbGlrZSBzaW1w
+bGUgYWRkaXRpb25zIGFuZCwgbm8gZG91YnQsDQo+PiB0aGV5IGFyZSB1c2VmdWwsIGJ1dCBzaW5j
+ZSB0aGV5IGV4cG9zZSB0aGluZ3MgdmlhIHRyYWNpbmcNCj4+IGluZnJhIHRoZXkgYmVjb21lIHBh
+cnQgb2YgYXBpIGFuZCBjYW5ub3QgYmUgY2hhbmdlZCBsYXRlciwNCj4+IHdoZW4gbW9yZSBzdGF0
+cyB3b3VsZCBiZSBuZWVkZWQuDQo+PiBJIHRoaW5rIHN5c3RlbXRhcCBsaWtlIHNjcmlwdGluZyBv
+biB0b3Agb2YgcGF0Y2hlcyAxIGFuZCAzDQo+PiBzaG91bGQgc29sdmUgeW91ciB1c2UgY2FzZSA/
+DQo+PiBBbHNvLCBoYXZlIHlvdSBsb29rZWQgYXQgcmVjZW50IGVCUEYgd29yaz8NCj4+IFRob3Vn
+aCBpdCdzIG5vdCBjb21wbGV0ZWx5IHJlYWR5IHlldCwgc29vbiBpdCBzaG91bGQNCj4+IGJlIGFi
+bGUgdG8gZG8gdGhlIHNhbWUgc3RhdHMgY29sbGVjdGlvbiBhcyB5b3UgaGF2ZQ0KPj4gaW4gNC81
+IHdpdGhvdXQgYWRkaW5nIHBlcm1hbmVudCBwaWVjZXMgdG8gdGhlIGtlcm5lbC4NCj4NCj5TbyBp
+dCBsb29rcyBsaWtlIHdlYjEwZyBsaWtlIGludGVyZmFjZXMgYXJlIHZlcnkgb2Z0ZW4gcmVxdWVz
+dGVkIGJ5DQo+dmFyaW91cyB0ZWFtcy4NCj4NCj5BbmQgd2UgaGF2ZSBtYW55IGRpZmZlcmVudCB2
+aWV3cyBvbiBob3cgdG8gaGFjayB0aGlzLiBJIGFtIGFzdG9uaXNoZWQgYnkNCj5udW1iZXIgb2Yg
+aGFja3MgSSBzYXcgYWJvdXQgdGhpcyBzdHVmZiBnb2luZyBvbi4NCj4NCj5XaGF0IGFib3V0IGEg
+Y2xlYW4gd2F5LCBleHRlbmRpbmcgY3VycmVudCBUQ1BfSU5GTywgd2hpY2ggaXMgYm90aA0KPmF2
+YWlsYWJsZSBhcyBhIGdldHNvY2tvcHQoKSBmb3Igc29ja2V0IG93bmVycyBhbmQgc3MvaXByb3V0
+ZTINCj5pbmZvcm1hdGlvbiBmb3IgJ2V4dGVybmFsIGVudGl0aWVzJw0KPg0KPklmIHdlIGNvbnNp
+ZGVyIHdlYjEwZyBpbmZvIG5lZWRlZCwgdGhlbiBhZGRpbmcgYSBmdHJhY2UvZUJQRiBsaWtlDQo+
+aW50ZXJmYWNlIGlzIHNpbXBseSB5ZXQgYW5vdGhlciBwaWVjZSBvZiBjb2RlIHdlIG5lZWQgdG8g
+bWFpbnRhaW4sDQo+YW5kIHRoZSBhcmd1bWVudCBvZiAndGhpcyBzaG91bGQgY29zdCBub3RoaW5n
+IGlmIG5vdCBhY3RpdmF0ZWQnIGlzDQo+bm9uc2Vuc2Ugc2luY2UgbWFqb3IgcGxheWVycyBuZWVk
+IHRvIGNvbnN0YW50bHkgbW9uaXRvciBUQ1AgbWV0cmljcyBhbmQNCj5iZWhhdmlvci4NCj4NCj5J
+dCBzZWVtcyBib3RoIEZhY2VCb29rIGFuZCBHb29nbGUgYXJlIHdvcmtpbmcgb24gYSBzdWJzZXQg
+b2Ygd2ViMTBnLg0KPg0KPkkgc3VnZ2VzdCB3ZSBtZWV0IHRvZ2V0aGVyIGFuZCBlc3RhYmxpc2gg
+YSBjb21tb24gZ3JvdW5kLCBwcmVmZXJhYmx5DQo+YWZ0ZXIgQ2hyaXN0bWFzIGhvbGlkYXlzLg0K
+Pg0KPlRoYW5rcw0KPg0KPg0KDQo=
