@@ -1,7 +1,7 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 4/9] rhashtable: Factor out bucket_tail() function
-Date: Mon, 15 Dec 2014 13:51:06 +0100
-Message-ID: <920d79eb0473499c56a78583ccdd2c20a61a8864.1418647641.git.tgraf@suug.ch>
+Subject: [PATCH 2/9] rhashtable: Use rht_obj() instead of manual offset calculation
+Date: Mon, 15 Dec 2014 13:51:04 +0100
+Message-ID: <61a4301e8eb49720d976d8a1e8b51e5b80b70e17.1418647641.git.tgraf@suug.ch>
 References: <cover.1418647641.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, kernel@vger.kernel.org,
 	herbert@gondor.apana.org.au, paulmck@linux.vnet.ibm.com,
@@ -9,9 +9,9 @@ Cc: netdev@vger.kernel.org, kernel@vger.kernel.org,
 	josh@joshtriplett.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:38865 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:38874 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750836AbaLOMvS (ORCPT
+	with ESMTP id S1751133AbaLOMvS (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 07:51:18 -0500
 In-Reply-To: <cover.1418647641.git.tgraf@suug.ch>
 In-Reply-To: <cover.1418647641.git.tgraf@suug.ch>
@@ -19,64 +19,32 @@ References: <cover.1418647641.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Subsequent patches will require access to the bucket tail. Access
-to the tail is relatively cheap as the automatic resizing of the
-table should keep the number of entries per bucket to no more
-than 0.75 on average.
-
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- lib/rhashtable.c | 23 ++++++++++++++---------
- 1 file changed, 14 insertions(+), 9 deletions(-)
+ lib/rhashtable.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index ce450d0..0bd29c1 100644
+index 1ee0eb6..b658245 100644
 --- a/lib/rhashtable.c
 +++ b/lib/rhashtable.c
-@@ -83,6 +83,18 @@ static u32 head_hashfn(const struct rhashtable *ht,
- 	return rht_bucket_index(tbl, obj_raw_hashfn(ht, rht_obj(ht, he)));
- }
- 
-+static struct rhash_head __rcu **bucket_tail(struct bucket_table *tbl, u32 n)
-+{
-+	struct rhash_head __rcu **pprev;
-+
-+	for (pprev = &tbl->buckets[n];
-+	     rht_dereference_bucket(*pprev, tbl, n);
-+	     pprev = &rht_dereference_bucket(*pprev, tbl, n)->next)
-+		;
-+
-+	return pprev;
-+}
-+
- static struct bucket_table *bucket_table_alloc(size_t nbuckets)
- {
- 	struct bucket_table *tbl;
-@@ -266,7 +278,6 @@ EXPORT_SYMBOL_GPL(rhashtable_expand);
- int rhashtable_shrink(struct rhashtable *ht)
- {
- 	struct bucket_table *ntbl, *tbl = rht_dereference(ht->tbl, ht);
--	struct rhash_head __rcu **pprev;
- 	unsigned int i;
- 
- 	ASSERT_RHT_MUTEX(ht);
-@@ -286,15 +297,9 @@ int rhashtable_shrink(struct rhashtable *ht)
- 	 */
- 	for (i = 0; i < ntbl->size; i++) {
- 		ntbl->buckets[i] = tbl->buckets[i];
-+		RCU_INIT_POINTER(*bucket_tail(ntbl, i),
-+				 tbl->buckets[i + ntbl->size]);
- 
--		/* Link each bucket in the new table to the first bucket
--		 * in the old table that contains entries which will hash
--		 * to the new bucket.
--		 */
--		for (pprev = &ntbl->buckets[i]; *pprev != NULL;
--		     pprev = &rht_dereference_bucket(*pprev, ntbl, i)->next)
--			;
--		RCU_INIT_POINTER(*pprev, tbl->buckets[i + ntbl->size]);
+@@ -427,7 +427,7 @@ void *rhashtable_lookup(const struct rhashtable *ht, const void *key)
+ 		if (memcmp(rht_obj(ht, he) + ht->p.key_offset, key,
+ 			   ht->p.key_len))
+ 			continue;
+-		return (void *) he - ht->p.head_offset;
++		return rht_obj(ht, he);
  	}
  
- 	/* Publish the new, valid hash table */
+ 	return NULL;
+@@ -460,7 +460,7 @@ void *rhashtable_lookup_compare(const struct rhashtable *ht, const void *key,
+ 	rht_for_each_rcu(he, tbl->buckets[hash], ht) {
+ 		if (!compare(rht_obj(ht, he), arg))
+ 			continue;
+-		return (void *) he - ht->p.head_offset;
++		return rht_obj(ht, he);
+ 	}
+ 
+ 	return NULL;
 -- 
 1.9.3
