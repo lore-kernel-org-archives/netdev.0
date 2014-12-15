@@ -1,191 +1,48 @@
-From: "Varlese, Marco" <marco.varlese@intel.com>
-Subject: RE: [RFC PATCH net-next 1/1] net: Support for switch port
- configuration
-Date: Mon, 15 Dec 2014 09:39:51 +0000
-Message-ID: <C4896FB061E7DE4AAC93031BDCA044B104AC533A@IRSMSX108.ger.corp.intel.com>
-References: <C4896FB061E7DE4AAC93031BDCA044B104AC3257@IRSMSX108.ger.corp.intel.com>
- <20141210165018.GG1863@nanopsycho.orion> <54887CF7.70708@gmail.com>
- <C4896FB061E7DE4AAC93031BDCA044B104AC3914@IRSMSX108.ger.corp.intel.com>
- <20141211110115.GA1979@nanopsycho.lan>
- <5489C85A.5020400@cumulusnetworks.com>
- <20141211165627.GF1912@nanopsycho.orion>
- <5489D739.9010303@cumulusnetworks.com>
- <C4896FB061E7DE4AAC93031BDCA044B104AC4609@IRSMSX108.ger.corp.intel.com>
- <548BE569.5040803@cumulusnetworks.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net] net/mlx4_en: correct the endianness of doorbell_qpn
+ on big endian platform
+Date: Mon, 15 Dec 2014 11:59:15 +0200
+Message-ID: <548EB0F3.4050802@mellanox.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D1CA04A51@AcuExch.aculab.com>
+ <20141208144237.GB8382@richard> <20141213031338.GA12208@richard>
+ <20141213.234320.1607496855879763694.davem@davemloft.net>
+ <20141215013249.GA7341@richard>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	John Fastabend <john.fastabend@gmail.com>,
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <548BE569.5040803@cumulusnetworks.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Gideon Naim <gideonn@mellanox.com>,
+	"edumazet@google.com" <edumazet@google.com>
+To: Wei Yang <weiyang@linux.vnet.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	"David.Laight@ACULAB.COM" <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-am1on0056.outbound.protection.outlook.com ([157.56.112.56]:56753
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752158AbaLOJ7c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Dec 2014 04:59:32 -0500
+In-Reply-To: <20141215013249.GA7341@richard>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Roopa Prabhu [mailto:roopa@cumulusnetworks.com]
-> Sent: Saturday, December 13, 2014 7:06 AM
-> To: Varlese, Marco
-> Cc: Jiri Pirko; John Fastabend; netdev@vger.kernel.org;
-> stephen@networkplumber.org; Fastabend, John R; sfeldma@gmail.com;
-> linux-kernel@vger.kernel.org
-> Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port
-> configuration
-> 
-> On 12/12/14, 1:19 AM, Varlese, Marco wrote:
-> >> -----Original Message-----
-> >> From: Roopa Prabhu [mailto:roopa@cumulusnetworks.com]
-> >> Sent: Thursday, December 11, 2014 5:41 PM
-> >> To: Jiri Pirko
-> >> Cc: Varlese, Marco; John Fastabend; netdev@vger.kernel.org;
-> >> stephen@networkplumber.org; Fastabend, John R; sfeldma@gmail.com;
-> >> linux-kernel@vger.kernel.org
-> >> Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port
-> >> configuration
-> >>
-> >> On 12/11/14, 8:56 AM, Jiri Pirko wrote:
-> >>> Thu, Dec 11, 2014 at 05:37:46PM CET, roopa@cumulusnetworks.com
-> wrote:
-> >>>> On 12/11/14, 3:01 AM, Jiri Pirko wrote:
-> >>>>> Thu, Dec 11, 2014 at 10:59:42AM CET, marco.varlese@intel.com wrote:
-> >>>>>>> -----Original Message-----
-> >>>>>>> From: John Fastabend [mailto:john.fastabend@gmail.com]
-> >>>>>>> Sent: Wednesday, December 10, 2014 5:04 PM
-> >>>>>>> To: Jiri Pirko
-> >>>>>>> Cc: Varlese, Marco; netdev@vger.kernel.org;
-> >>>>>>> stephen@networkplumber.org; Fastabend, John R;
-> >>>>>>> roopa@cumulusnetworks.com; sfeldma@gmail.com; linux-
-> >>>>>>> kernel@vger.kernel.org
-> >>>>>>> Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch
-> >>>>>>> port configuration
-> >>>>>>>
-> >>>>>>> On 12/10/2014 08:50 AM, Jiri Pirko wrote:
-> >>>>>>>> Wed, Dec 10, 2014 at 05:23:40PM CET, marco.varlese@intel.com
-> >> wrote:
-> >>>>>>>>> From: Marco Varlese <marco.varlese@intel.com>
-> >>>>>>>>>
-> >>>>>>>>> Switch hardware offers a list of attributes that are
-> >>>>>>>>> configurable on a per port basis.
-> >>>>>>>>> This patch provides a mechanism to configure switch ports by
-> >>>>>>>>> adding an NDO for setting specific values to specific attributes.
-> >>>>>>>>> There will be a separate patch that extends iproute2 to call
-> >>>>>>>>> the new NDO.
-> >>>>>>>> What are these attributes? Can you give some examples. I'm
-> >>>>>>>> asking because there is a plan to pass generic attributes to
-> >>>>>>>> switch ports replacing current specific
-> >>>>>>>> ndo_switch_port_stp_update. In this case, bridge is setting that
-> attribute.
-> >>>>>>>>
-> >>>>>>>> Is there need to set something directly from userspace or does
-> >>>>>>>> it make rather sense to use involved bridge/ovs/bond ? I think
-> >>>>>>>> that both will be needed.
-> >>>>>>> +1
-> >>>>>>>
-> >>>>>>> I think for many attributes it would be best to have both. The
-> >>>>>>> in kernel callers and netlink userspace can use the same driver
-> ndo_ops.
-> >>>>>>>
-> >>>>>>> But then we don't _require_ any specific bridge/ovs/etc module.
-> >>>>>>> And we may have some attributes that are not specific to any
-> >>>>>>> existing software module. I'm guessing Marco has some examples
-> >>>>>>> of
-> >> these.
-> >>>>>>> [...]
-> >>>>>>>
-> >>>>>>>
-> >>>>>>> --
-> >>>>>>> John Fastabend         Intel Corporation
-> >>>>>> We do have a need to configure the attributes directly from
-> >>>>>> user-space
-> >> and I have identified the tool to do that in iproute2.
-> >>>>>> An example of attributes are:
-> >>>>>> * enabling/disabling of learning of source addresses on a given
-> >>>>>> port (you can imagine the attribute called LEARNING for example);
-> >>>>>> * internal loopback control (i.e. LOOPBACK) which will control
-> >>>>>> how the flow of traffic behaves from the switch fabric towards an
-> >>>>>> egress port;
-> >>>>>> * flooding for broadcast/multicast/unicast type of packets (i.e.
-> >>>>>> BFLOODING, MFLOODING, UFLOODING);
-> >>>>>>
-> >>>>>> Some attributes would be of the type enabled/disabled while other
-> >>>>>> will
-> >> allow specific values to allow the user to configure different
-> >> behaviours of that feature on that particular port on that platform.
-> >>>>>> One thing to mention - as John stated as well - there might be
-> >>>>>> some
-> >> attributes that are not specific to any software module but rather
-> >> have to do with the actual hardware/platform to configure.
-> >>>>>> I hope this clarifies some points.
-> >>>>> It does. Makes sense. We need to expose this attr set/get for both
-> >>>>> in-kernel and userspace use cases.
-> >>>>>
-> >>>>> Please adjust you patch for this. Also, as a second patch, it
-> >>>>> would be great if you can convert ndo_switch_port_stp_update to
-> >>>>> this new
-> >> ndo.
-> >>>> Why are we exposing generic switch attribute get/set from userspace
-> >>>> ?. We already have specific attributes for learning/flooding which
-> >>>> can be extended further.
-> >>> Yes, but that is for PF_BRIDGE and bridge specific attributes. There
-> >>> might be another generic attrs, no?
-> >> I cant think of any. And plus, the whole point of switchdev l2
-> >> offloads was to map these to existing bridge attributes. And we
-> >> already have a match for some of the attributes that marco wants.
-> >>
-> >> If there is a need for such attributes, i don't see why it is needed
-> >> for switch devices only.
-> >> It is needed for any hw (nics etc). And, a precedence to this is to
-> >> do it via ethtool.
-> >>
-> >> Having said that, am sure we will find a need for this in the future.
-> >> And having a netlink attribute always helps.
-> >>
-> >> Today, it seems like these can be mapped to existing attributes that
-> >> are settable via ndo_bridge_setlink/getlink.
-> >>
-> >>>> And for in kernel api....i had a sample patch in my RFC series
-> >>>> (Which i was going to resubmit, until it was decided that we will
-> >>>> use existing api around
-> >>>> ndo_bridge_setlink/ndo_bridge_getlink):
-> >>>> http://www.spinics.net/lists/netdev/msg305473.html
-> >>> Yes, this might become handy for other generic non-bridge attrs.
-> >>>
-> >>>> Thanks,
-> >>>> Roopa
-> >>>>
-> >>>>
-> >>>>
-> > The list I provided is only a subset of the attributes we will need to be
-> exposed. I do have more and I'm sure that more will come in the future. As I
-> mentioned in few posts earlier, some attributes are generic and some are
-> not.
-> >
-> > I did not consider ethtool for few reasons but the main one is that I was
-> under the impression that netlink was preferred in many circumstances over
-> the ethotool_ops.
-> That is correct. I don't think anybody hinted that you should extend ethtool.
-> >   Plus, all the cases I have identified so far are going to nicely fit into the
-> setlink set of operations.
-> >
-> 
-> Would be better if you submitted your iproute2 patch with this patch.
-> 
-> I do plan to resubmit my generic ndo patch soon.
-> 
-> Thanks,
-> Roopa
+On 12/15/2014 3:32 AM, Wei Yang wrote:
+[...]
 
-I honestly do not understand what extra "help" the iproute2 would have brought to this RFC: that patch simply adds a new section for the iproute2 help and a new args parser for the input. From an infrastructure perspective is leveraging what netlink messages are using RTM_SETLINK hence hooking up eventually in the do_setlink(). Sure, obviously contains all the attributes I have in mind but from an infrastructure patch perspective I don't think that you would have gained much in seeing it.
+Hi David's,
 
-Anyway, good to know you're reworking you generic patch. I'll keep an eye out for your new NDO.
+I need to do a native endianness write to the NIC register (the write is
+on the fast path and the register value could be calculated once).
 
+iowrite32be() is calling cpu_to_be32() on the value.
+iowrite32() is calling cpu_to_le32().
+
+I thought about using raw_writel() but as David Miller said, it lacks
+necessary io barriers on some archs.
+
+Does the only solution to this, is to add some sort of
+iowrite32be_native(__be32 val,...) function to all the archs?
 
 Thanks,
-Marco
+Amir
