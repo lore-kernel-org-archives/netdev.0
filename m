@@ -1,41 +1,33 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port
- configuration
-Date: Mon, 15 Dec 2014 14:07:49 +0000
-Message-ID: <20141215140749.GB21952@casper.infradead.org>
-References: <C4896FB061E7DE4AAC93031BDCA044B104AC3257@IRSMSX108.ger.corp.intel.com>
- <20141210165018.GG1863@nanopsycho.orion>
- <54887CF7.70708@gmail.com>
- <C4896FB061E7DE4AAC93031BDCA044B104AC3914@IRSMSX108.ger.corp.intel.com>
+From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+Subject: [PATCH 0/2] net/macb: fix multiqueue support patch up
+Date: Mon, 15 Dec 2014 15:13:30 +0100
+Message-ID: <cover.1418651689.git.cyrille.pitchen@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Varlese, Marco" <marco.varlese@intel.com>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>,
+	Cyrille Pitchen <cyrille.pitchen@atmel.com>
+To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
+	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	<soren.brinkmann@xilinx.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <C4896FB061E7DE4AAC93031BDCA044B104AC3914@IRSMSX108.ger.corp.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/11/14 at 09:59am, Varlese, Marco wrote:
-> An example of attributes are:
-> * enabling/disabling of learning of source addresses on a given port (you can imagine the attribute called LEARNING for example);
-> * internal loopback control (i.e. LOOPBACK) which will control how the flow of traffic behaves from the switch fabric towards an egress port;
-> * flooding for broadcast/multicast/unicast type of packets (i.e. BFLOODING, MFLOODING, UFLOODING);
+This series of patches is a fixup for the multiqueue support patch.
 
-All of these are highly generic and should *not* be passed through
-from user space to the driver directly but rather be properly
-abstracted as Roopa proposed. The value of this API is abstraction.
-If we introduce per device attributes for generic functions we lose
-large portions of the value gained.
+The first patch fixes a bug introduced by the multiqueue support patch.
+The second one doesn't fix a bug but simplify the source code by removing
+useless calls to devm_free_irq() since we use managed device resources for
+IRQs.
 
-You mentioned you have additional attributes in mind, maybe you can
-give a few examples which are not generic, i.e. do not apply to
-multiple vendors.
+They were applied on the net-next tree and tested with a sama5d36ek board.
+
+Cyrille Pitchen (2):
+  net/macb: fix misplaced call of free_netdev() in macb_remove()
+  net/macb: remove useless calls of devm_free_irq()
+
+ drivers/net/ethernet/cadence/macb.c | 25 +++++++++----------------
+ 1 file changed, 9 insertions(+), 16 deletions(-)
+
+-- 
+1.8.2.2
