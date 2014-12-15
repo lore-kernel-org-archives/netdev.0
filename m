@@ -1,51 +1,57 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [RFC PATCH net-next 0/5] tcp: TCP tracer
-Date: Mon, 15 Dec 2014 17:29:06 -0500
-Message-ID: <20141215172906.128feb52@gandalf.local.home>
-References: <CAADnVQJ+8mtB8LD=U7XbxOC2hxhDChxOELhZ3NEYeoTk1G3LYg@mail.gmail.com>
-	<1418659395.9773.13.camel@edumazet-glaptop2.roam.corp.google.com>
-	<548F0F62.7080704@fb.com>
-	<CA+mtBx8tB6EE6i9C5KdOmwJ1D1nnaX3bvia71oj=N9U5h3KKBA@mail.gmail.com>
+From: vadim4j@gmail.com
+Subject: [iproute2] tc: Show classes more hierarchically]
+Date: Tue, 16 Dec 2014 00:48:51 +0200
+Message-ID: <20141215224851.GB6734@angus-think.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Josef Bacik <jbacik@fb.com>, Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Laurent Chavey <chavey@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Martin KaFai Lau <kafai@fb.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Lawrence Brakmo <brakmo@fb.com>,
-	Kernel Team <Kernel-team@fb.com>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: vadim4j@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0096.hostedemail.com ([216.40.44.96]:48587 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750953AbaLOWh4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 17:37:56 -0500
-Received: from smtprelay.hostedemail.com (10.5.19.251.rfc1918.com [10.5.19.251])
-	by smtpgrave07.hostedemail.com (Postfix) with ESMTP id 6314911A116
-	for <netdev@vger.kernel.org>; Mon, 15 Dec 2014 22:29:14 +0000 (UTC)
-In-Reply-To: <CA+mtBx8tB6EE6i9C5KdOmwJ1D1nnaX3bvia71oj=N9U5h3KKBA@mail.gmail.com>
+Received: from mail-la0-f50.google.com ([209.85.215.50]:57060 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750875AbaLOW6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 17:58:49 -0500
+Received: by mail-la0-f50.google.com with SMTP id pn19so10486026lab.9
+        for <netdev@vger.kernel.org>; Mon, 15 Dec 2014 14:58:47 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 15 Dec 2014 14:01:43 -0800
-Tom Herbert <therbert@google.com> wrote:
+Hi All,
 
-> >
-> > We've set up something for exactly this case at the end of January but have
-> > yet to get a response from Google.  If any of the Google people cc'ed (or
-> > really anybody, its not a strictly FB/Google thing) is interested please
-> > email me directly and I'll send you the details, we will be meeting face to
-> > face in the bay area at the end of January.  Thanks,
-> >
-> 
-> Maybe this would be good for discussion at netdev01?
+I am playing with showing classes in more hierarchically format and I
+have some code and example of output from my TC looks like:
 
-Is this something I should attend too? For this discussion that is.
-Weather permitting, Ottawa is only a 4 1/2 hour drive for me.
+# tc/tc -t class show dev tap0
 
--- Steve
+ \---1:2 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
+        \---1:40 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
+        \---1:50 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
+        \---1:60 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
+ \---1:1 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
+        \---1:10 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
+               \---1:11 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
+                      \---1:111 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
+        \---1:20 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
+        \---1:30 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
+
+
+which in standart output mode it looks like:
+
+# tc/tc class show dev tap0
+
+class htb 1:11 parent 1:10 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b 
+class htb 1:111 parent 1:11 prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
+class htb 1:10 parent 1:1 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b 
+class htb 1:1 root rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b 
+class htb 1:20 parent 1:1 leaf 20: prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b 
+class htb 1:2 root rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b 
+class htb 1:30 parent 1:1 leaf 30: prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
+class htb 1:40 parent 1:2 leaf 40: prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b 
+class htb 1:50 parent 1:2 leaf 50: prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b 
+class htb 1:60 parent 1:2 leaf 60: prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
+
+So I'd like to ask if it might be useful for the TC users (may be
+better format ?) to have this ?
+
+Thanks,
