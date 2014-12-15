@@ -1,53 +1,45 @@
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
-Subject: [PATCH 5/5] e1000e: cleanup use of check_reset_block function pointer
-Date: Mon, 15 Dec 2014 16:39:14 +0800
-Message-ID: <1418632754-16698-6-git-send-email-Yanjun.Zhu@windriver.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH 0/5] e1000e: fix nic not boot after rebooting
+Date: Mon, 15 Dec 2014 09:48:05 +0100
+Message-ID: <20141215084805.GF7349@1wt.eu>
 References: <1418632754-16698-1-git-send-email-Yanjun.Zhu@windriver.com>
-Cc: Zhu Yanjun <Yanjun.Zhu@windriver.com>,
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Zhu Yanjun <Yanjun.Zhu@windriver.com>
+To: Zhu Yanjun <zyjzyj2000@gmail.com>,
 	Bruce Allan <bruce.w.allan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: netdev@vger.kernel.org, w@1wt.eu, zyjzyj2000@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:35929 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751769AbaLOIj5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 03:39:57 -0500
-Received: by mail-pa0-f50.google.com with SMTP id bj1so11419628pad.37
-        for <netdev@vger.kernel.org>; Mon, 15 Dec 2014 00:39:57 -0800 (PST)
+Received: from 1wt.eu ([62.212.114.60]:2647 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750836AbaLOIsJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Dec 2014 03:48:09 -0500
+Content-Disposition: inline
 In-Reply-To: <1418632754-16698-1-git-send-email-Yanjun.Zhu@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2.6.x kernels require a similar logic change as commit 13ca85e0
-[e1000e: cleanup use of check_reset_block function pointer] introduces
-for newer kernels.
+Hello,
 
-Replace e1000_check_reset_block() inline function with calls to the PHY ops
-check_reset_block function pointer.
+On Mon, Dec 15, 2014 at 04:39:09PM +0800, Zhu Yanjun wrote:
+> With kernel 2.6.x, e1000e with 82577/8/9 sometimes will not boot
+> after rebooting. 
+> 
+> If a kernel 2.6.x board with 82577/8/9 e1000e nic is rebooted for 
+> 100 times, there are 7~8 times that 82577/8/9 e1000e nic will not boot 
+> normally.
+> 
+> Zhu Yanjun (5):
+>   e1000e: reset MAC-PHY interconnect on 82577/82578
+>   e1000e: workaround EEPROM configuration change on 82579 on kernel
+>     2.6.x
+>   e1000e: do not toggle LANPHYPC value bit when PHY reset is blocked
+>   e1000e: update workaround for 82579 intermittently disabled during
+>     S0->Sx
+>   e1000e: cleanup use of check_reset_block function pointer
 
-[yanjun.zhu: only modifications in function e1000_init_phy_params_pchlan will
-be backported. Others remain unchanged]
+Great, thanks! Jeff/Bruce, do you have any objection against me applying
+these fixes to 2.6.32 ?
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
----
- drivers/net/e1000e/ich8lan.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 0da2c2c..732cd48 100644
---- a/drivers/net/e1000e/ich8lan.c
-+++ b/drivers/net/e1000e/ich8lan.c
-@@ -280,7 +280,7 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
- 	phy->ops.write_phy_reg_locked = e1000_write_phy_reg_hv_locked;
- 	phy->autoneg_mask             = AUTONEG_ADVERTISE_SPEED_DEFAULT;
- 
--	if (!e1000_check_reset_block(hw)) {
-+	if (!hw->phy.ops.check_reset_block(hw)) {
- 		/*Set Phy Config Counter to 50msec */
- 		ctrl = er32(FEXTNVM3);
- 		ctrl &= ~E1000_FEXTNVM3_PHY_CFG_COUNTER_MASK;
--- 
-1.9.1
+Thanks,
+Willy
