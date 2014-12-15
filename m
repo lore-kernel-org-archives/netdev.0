@@ -1,130 +1,82 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: Bluetooth: Add framework for device found filtering based on UUID
-Date: Mon, 15 Dec 2014 13:37:59 +0100
-Message-ID: <CAMuHMdVTciynVTaqm43U_WOzc2j5dJYwDVyKqF0p9AM4n=SdSQ@mail.gmail.com>
-References: <20141211224808.A00526614C4@gitolite.kernel.org>
-	<CAMuHMdX7w0RF0Azn2-p88=maXOcy1pfXy_KHznV4Vozd9=5mfg@mail.gmail.com>
-	<22DA2C3B-5743-40F5-8001-F772FCCB5750@holtmann.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Johan Hedberg <johan.hedberg@intel.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Marcel Holtmann <marcel@holtmann.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 4/9] rhashtable: Factor out bucket_tail() function
+Date: Mon, 15 Dec 2014 13:51:06 +0100
+Message-ID: <920d79eb0473499c56a78583ccdd2c20a61a8864.1418647641.git.tgraf@suug.ch>
+References: <cover.1418647641.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, kernel@vger.kernel.org,
+	herbert@gondor.apana.org.au, paulmck@linux.vnet.ibm.com,
+	edumazet@google.com, john.r.fastabend@intel.com,
+	josh@joshtriplett.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:42131 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750711AbaLOMiB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 07:38:01 -0500
-In-Reply-To: <22DA2C3B-5743-40F5-8001-F772FCCB5750@holtmann.org>
+Received: from casper.infradead.org ([85.118.1.10]:38865 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750836AbaLOMvS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 07:51:18 -0500
+In-Reply-To: <cover.1418647641.git.tgraf@suug.ch>
+In-Reply-To: <cover.1418647641.git.tgraf@suug.ch>
+References: <cover.1418647641.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Marcel,
+Subsequent patches will require access to the bucket tail. Access
+to the tail is relatively cheap as the automatic resizing of the
+table should keep the number of entries per bucket to no more
+than 0.75 on average.
 
-On Mon, Dec 15, 2014 at 1:27 PM, Marcel Holtmann <marcel@holtmann.org> =
-wrote:
->>> --- a/net/bluetooth/mgmt.c
->>> +++ b/net/bluetooth/mgmt.c
->>> @@ -6809,6 +6814,7 @@ void mgmt_device_found(struct hci_dev *hdev, =
-bdaddr_t *bdaddr, u8 link_type,
->>>        char buf[512];
->>>        struct mgmt_ev_device_found *ev =3D (void *) buf;
->>>        size_t ev_size;
->>> +       bool match;
->>
->> net/bluetooth/mgmt.c: In function =E2=80=98mgmt_device_found=E2=80=99=
-:
->> net/bluetooth/mgmt.c:6993: warning: =E2=80=98match=E2=80=99 may be u=
-sed uninitialized
->> in this function
->
-> I did not get this warning, but I did consider it happening and my co=
-nclusion was that it will not and thus no need for initializing this to=
- false.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ lib/rhashtable.c | 23 ++++++++++++++---------
+ 1 file changed, 14 insertions(+), 9 deletions(-)
 
-It's highly compiler-dependent, and it's the reason I'll stick to gcc
-4.1.2 as long it
-helps me finding several real issues during each merge window.
-
->> All tests for "match" are protected by "if (hdev->discovery.uuid_cou=
-nt > 0)",
->> so we only have to care about that case.
->>
->>>        /* Don't send events for a non-kernel initiated discovery. W=
-ith
->>>         * LE one exception is if we have pend_le_reports > 0 in whi=
-ch
->>> @@ -6843,15 +6849,59 @@ void mgmt_device_found(struct hci_dev *hdev=
-, bdaddr_t *bdaddr, u8 link_type,
->>>        ev->rssi =3D rssi;
->>>        ev->flags =3D cpu_to_le32(flags);
->>>
->>> -       if (eir_len > 0)
->>> +       if (eir_len > 0) {
->>> +               /* When using service discovery and a list of UUID =
-is
->>> +                * provided, results with no matching UUID should b=
-e
->>> +                * dropped. In case there is a match the result is
->>> +                * kept and checking possible scan response data
->>> +                * will be skipped.
->>> +                */
->>> +               if (hdev->discovery.uuid_count > 0) {
->>> +                       match =3D eir_has_uuids(eir, eir_len,
->>> +                                             hdev->discovery.uuid_=
-count,
->>> +                                             hdev->discovery.uuids=
-);
->>> +                       if (!match)
->>> +                               return;
->>> +               }
->>
->> If we get here and if (hdev->discovery.uuid_count > 0), "match" must=
- be true.
->
-> We need to keep the match state to optimize the later branch. There i=
-s no point in running through the second list if the first one already =
-has a match.
->
-> Actually this is the bogus one here. The only valid reason to leave h=
-ere is when also !scan_rsp_len.
-
-OK.
-
->> Is my analysis correct?
->> Am I missing something?
->
-> Your analysis seems correct and even while putting in tons of comment=
-s, my brain still messed it up.
->
-> I looked at the whole code again and this is would should make all st=
-atements work correctly.
->
-> @@ -7085,7 +7085,7 @@ void mgmt_device_found(struct hci_dev *hdev, bd=
-addr_t *bdaddr, u8 link_type,
->                         match =3D eir_has_uuids(eir, eir_len,
->                                               hdev->discovery.uuid_co=
-unt,
->                                               hdev->discovery.uuids);
-> -                       if (!match)
-> +                       if (!match && !scan_rsp_len)
->                                 return;
->                 }
-
-Thanks, that indeed changes all further checks for match to make sense.
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
-
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-                                -- Linus Torvalds
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index ce450d0..0bd29c1 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -83,6 +83,18 @@ static u32 head_hashfn(const struct rhashtable *ht,
+ 	return rht_bucket_index(tbl, obj_raw_hashfn(ht, rht_obj(ht, he)));
+ }
+ 
++static struct rhash_head __rcu **bucket_tail(struct bucket_table *tbl, u32 n)
++{
++	struct rhash_head __rcu **pprev;
++
++	for (pprev = &tbl->buckets[n];
++	     rht_dereference_bucket(*pprev, tbl, n);
++	     pprev = &rht_dereference_bucket(*pprev, tbl, n)->next)
++		;
++
++	return pprev;
++}
++
+ static struct bucket_table *bucket_table_alloc(size_t nbuckets)
+ {
+ 	struct bucket_table *tbl;
+@@ -266,7 +278,6 @@ EXPORT_SYMBOL_GPL(rhashtable_expand);
+ int rhashtable_shrink(struct rhashtable *ht)
+ {
+ 	struct bucket_table *ntbl, *tbl = rht_dereference(ht->tbl, ht);
+-	struct rhash_head __rcu **pprev;
+ 	unsigned int i;
+ 
+ 	ASSERT_RHT_MUTEX(ht);
+@@ -286,15 +297,9 @@ int rhashtable_shrink(struct rhashtable *ht)
+ 	 */
+ 	for (i = 0; i < ntbl->size; i++) {
+ 		ntbl->buckets[i] = tbl->buckets[i];
++		RCU_INIT_POINTER(*bucket_tail(ntbl, i),
++				 tbl->buckets[i + ntbl->size]);
+ 
+-		/* Link each bucket in the new table to the first bucket
+-		 * in the old table that contains entries which will hash
+-		 * to the new bucket.
+-		 */
+-		for (pprev = &ntbl->buckets[i]; *pprev != NULL;
+-		     pprev = &rht_dereference_bucket(*pprev, ntbl, i)->next)
+-			;
+-		RCU_INIT_POINTER(*pprev, tbl->buckets[i + ntbl->size]);
+ 	}
+ 
+ 	/* Publish the new, valid hash table */
+-- 
+1.9.3
