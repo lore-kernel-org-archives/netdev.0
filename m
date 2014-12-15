@@ -1,100 +1,128 @@
-From: rapier <rapier@psc.edu>
-Subject: Re: [RFC PATCH net-next 0/5] tcp: TCP tracer
-Date: Mon, 15 Dec 2014 17:17:23 -0500
-Message-ID: <548F5DF3.2030403@psc.edu>
-References: <CAADnVQJ+8mtB8LD=U7XbxOC2hxhDChxOELhZ3NEYeoTk1G3LYg@mail.gmail.com>	<1418659395.9773.13.camel@edumazet-glaptop2.roam.corp.google.com>	<548F0F62.7080704@fb.com> <CA+mtBx8tB6EE6i9C5KdOmwJ1D1nnaX3bvia71oj=N9U5h3KKBA@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [ANNOUNCE] libnftnl 1.0.3 release
+Date: Tue, 16 Dec 2014 00:21:13 +0100
+Message-ID: <20141215232112.GA11371@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Laurent Chavey <chavey@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Martin KaFai Lau <kafai@fb.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Lawrence Brakmo <brakmo@fb.com>,
-	Kernel Team <Kernel-team@fb.com>
-To: Tom Herbert <therbert@google.com>, Josef Bacik <jbacik@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer2.psc.edu ([128.182.70.106]:34375 "EHLO mailer2.psc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750818AbaLOXKx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Dec 2014 18:10:53 -0500
-In-Reply-To: <CA+mtBx8tB6EE6i9C5KdOmwJ1D1nnaX3bvia71oj=N9U5h3KKBA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="PNTmBPCT7hxwcZjr"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-announce@lists.netfilter.org, lwn@lwn.net
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The Web10g development team at PSC (we've been working with
-a number of other organizations on this) will be submitting
-the kernel instrument set tomorrow morning. We'd be happy to
-join any discussion then.
 
-Chris rapier
+--PNTmBPCT7hxwcZjr
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-On 12/15/14, 5:01 PM, Tom Herbert wrote:
-> On Mon, Dec 15, 2014 at 8:42 AM, Josef Bacik <jbacik@fb.com> wrote:
->> On 12/15/2014 11:03 AM, Eric Dumazet wrote:
->>>
->>> On Sun, 2014-12-14 at 22:55 -0800, Alexei Starovoitov wrote:
->>>
->>>> I think patches 1 and 3 are good additions, since they establish
->>>> few permanent points of instrumentation in tcp stack.
->>>> Patches 4-5 look more like use cases of tracepoints established
->>>> before. They may feel like simple additions and, no doubt,
->>>> they are useful, but since they expose things via tracing
->>>> infra they become part of api and cannot be changed later,
->>>> when more stats would be needed.
->>>> I think systemtap like scripting on top of patches 1 and 3
->>>> should solve your use case ?
->>>> Also, have you looked at recent eBPF work?
->>>> Though it's not completely ready yet, soon it should
->>>> be able to do the same stats collection as you have
->>>> in 4/5 without adding permanent pieces to the kernel.
->>>
->>>
->>> So it looks like web10g like interfaces are very often requested by
->>> various teams.
->>>
->>> And we have many different views on how to hack this. I am astonished by
->>> number of hacks I saw about this stuff going on.
->>>
->>> What about a clean way, extending current TCP_INFO, which is both
->>> available as a getsockopt() for socket owners and ss/iproute2
->>> information for 'external entities'
->>>
->>> If we consider web10g info needed, then adding a ftrace/eBPF like
->>> interface is simply yet another piece of code we need to maintain,
->>> and the argument of 'this should cost nothing if not activated' is
->>> nonsense since major players need to constantly monitor TCP metrics and
->>> behavior.
->>>
->>> It seems both FaceBook and Google are working on a subset of web10g.
->>>
->>> I suggest we meet together and establish a common ground, preferably
->>> after Christmas holidays.
->>>
->>
->> We've set up something for exactly this case at the end of January but have
->> yet to get a response from Google.  If any of the Google people cc'ed (or
->> really anybody, its not a strictly FB/Google thing) is interested please
->> email me directly and I'll send you the details, we will be meeting face to
->> face in the bay area at the end of January.  Thanks,
->>
->
-> Maybe this would be good for discussion at netdev01?
->
->> Josef
->>
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Hi!
+
+The Netfilter project proudly presents:
+
+        libnftnl 1.0.3
+
+libnftnl is a userspace library providing a low-level netlink
+programming interface (API) to the in-kernel nf_tables subsystem. The
+library libnftnl has been previously known as libnftables. This
+library is currently used by the nft command line tool.
+
+This release comes with new features available up to 3.18, see
+ChangeLog for more details.
+
+You can download this library from:
+
+http://www.netfilter.org/projects/libnftnl/downloads.html
+ftp://ftp.netfilter.org/pub/libnftnl/
+
+Have fun!
+
+--PNTmBPCT7hxwcZjr
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: attachment; filename="changes-libnftnl-1.0.3.txt"
+Content-Transfer-Encoding: 8bit
+
+Alvaro Neira (2):
+      ruleset: add set id to parsed sets
+      src: internal set id allocation from nft_ruleset_parse*()
+
+Ana Rey (15):
+      chain: Free memory in the same function that is reserved
+      chain: Use nft_rule_expr_set_* in the xml parsing code
+      table: Free memory in the same function that is reserved
+      table: Use nft_table_attr_set_* in the xml functions
+      table: Add set, unset and parse implementation for the use attribute
+      table: Do not print unset values in xml file
+      table: Do not print unset values in json file
+      chain: Add all support of use attribute
+      chain: Do not print unset attributes in xml
+      chain: Rename variables in nft_jansson_parse_chain functions
+      chain: Do not print unset attributes in json
+      expr: meta: Add pkttype support
+      expr: meta: Add cpu support for meta expresion
+      expr: meta: Add devgroup support
+      expr: meta: Add cgroup support
+
+Arturo Borrero (33):
+      set: add support for set mechanism selection
+      examples: nft-set-add: use batch infraestructure
+      examples: nft-chain-del: add chain_del_parse()
+      examples: nft-chain-del: support new batching interface
+      set_elem: use proper free function
+      examples: merge nft-chain-{xml|json}-add.c
+      examples: nft-chain-parse-add: add batching support
+      examples: merge nft-table-{xml|json}-add.c
+      examples: nft-table-parse-add: add batching support
+      examples: nft-table-add: add table_add_parse()
+      examples: nft-table-add: add batching support
+      examples: nft-table-del: add table_del_parse()
+      examples: nft-table-del: add batching support
+      src: fix printing of XML/JSON event wrapper header/footer
+      expr: nat: add support for the new flags attribute
+      expr: add new nft_masq expression
+      nf_tables.h: add NFTA_MASQ_UNSPEC
+      utils: nft_fprintf: prevent an empty buffer from being printed
+      set: fix set nlmsg desc parsing
+      examples: merge nft-rule-{xml|json}-add.c
+      examples: nft-rule-parse-add: add batching support
+      examples: nft-set-json-add: generalize parsing format support
+      examples: nft-set-parse-add: add batching support
+      examples: nft-table-add: fix wrong buffer pointer
+      expr: masq: optional printing of flags attr in snprintf_default
+      tests: add tests for the masq expression
+      tests: also test nat flags attribute
+      src: cleanup in mxml and jansson regarding set_id parsing
+      utils: fix arp family number
+      ruleset: deconstify _get interface
+      src: add support for nft_redir expression
+      tests: add tests for nft_redir expression
+      examples: nft-rule-parse-add: fix wrong buffer usage when building rule header
+
+Giuseppe Longo (1):
+      buffer: include stdarg header
+
+Pablo Neira Ayuso (16):
+      expr: log: add support for level and flags
+      src: stricter netlink attribute length validation
+      set_elem: add nft_set_elems_nlmsg_build_payload_iter()
+      common: add batching interfaces
+      examples: nft-chain-add: add chain_add_parse()
+      examples: nft-chain-add: support new batching interface
+      utils: define xfree() as macro
+      src: get rid of cached copies of x_tables.h and xt_LOG.h
+      src: add ruleset generation class
+      src: fix compilation without xml/json support
+      remove empty src/attr.c
+      expr: nat: use 'nat_type' instead of 'type' in the parser
+      src: consolidate XML/JSON exportation
+      expr: data_reg: use 'reg' instead of 'data_reg'
+      bump version to 1.0.3
+      include: add missing gen.h to Makefile.am
+
+Álvaro Neira Ayuso (1):
+      expr: log: define variable flags in xml parser
+
+
+--PNTmBPCT7hxwcZjr--
