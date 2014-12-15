@@ -1,45 +1,45 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH 0/5] e1000e: fix nic not boot after rebooting
-Date: Mon, 15 Dec 2014 09:48:05 +0100
-Message-ID: <20141215084805.GF7349@1wt.eu>
-References: <1418632754-16698-1-git-send-email-Yanjun.Zhu@windriver.com>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: Re: [PATCH net v2] net: smc91x: Fix build without gpiolib
+Date: Mon, 15 Dec 2014 09:56:38 +0100
+Message-ID: <20141215085637.GL16916@distanz.ch>
+References: <20141212162746.GJ16916@distanz.ch>
+ <20141212.113020.884577050283133272.davem@davemloft.net>
+ <20141212164528.GK16916@distanz.ch>
+ <20141212.115838.1155760587618419145.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Zhu Yanjun <Yanjun.Zhu@windriver.com>
-To: Zhu Yanjun <zyjzyj2000@gmail.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: tony@atomide.com, nico@fluxnic.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:2647 "EHLO 1wt.eu"
+Received: from sym2.noone.org ([178.63.92.236]:56735 "EHLO sym2.noone.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750836AbaLOIsJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Dec 2014 03:48:09 -0500
+	id S1751146AbaLOI4l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Dec 2014 03:56:41 -0500
 Content-Disposition: inline
-In-Reply-To: <1418632754-16698-1-git-send-email-Yanjun.Zhu@windriver.com>
+In-Reply-To: <20141212.115838.1155760587618419145.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-On Mon, Dec 15, 2014 at 04:39:09PM +0800, Zhu Yanjun wrote:
-> With kernel 2.6.x, e1000e with 82577/8/9 sometimes will not boot
-> after rebooting. 
+On 2014-12-12 at 17:58:38 +0100, David Miller <davem@davemloft.net> wrote:
+> From: Tobias Klauser <tklauser@distanz.ch>
+> Date: Fri, 12 Dec 2014 17:45:29 +0100
 > 
-> If a kernel 2.6.x board with 82577/8/9 e1000e nic is rebooted for 
-> 100 times, there are 7~8 times that 82577/8/9 e1000e nic will not boot 
-> normally.
+> > On 2014-12-12 at 17:30:20 +0100, David Miller <davem@davemloft.net> wrote:
+> >> In my opinion, if the code blocks enabling the configurations that
+> >> need this are enabled, so should GPIO be depended upon.
+> >> 
+> >> I think, at a minimum, when CONFIG_OF is enabled smsc91x should
+> >> require GPIO.
+> > 
+> > Agreed. This is the better solution, causing less surprises for the
+> > user. Should this be a "select GPIOLIB if OF" then?
 > 
-> Zhu Yanjun (5):
->   e1000e: reset MAC-PHY interconnect on 82577/82578
->   e1000e: workaround EEPROM configuration change on 82579 on kernel
->     2.6.x
->   e1000e: do not toggle LANPHYPC value bit when PHY reset is blocked
->   e1000e: update workaround for 82579 intermittently disabled during
->     S0->Sx
->   e1000e: cleanup use of check_reset_block function pointer
+> If GPIO is a child node in the Kconfig hierarchy (ie. has no
+> dependencies of it's own), then yes.  Otherwise, a depends
+> will need to be used, because select does not recursively
+> trigger a select'd nodes dependencies.
 
-Great, thanks! Jeff/Bruce, do you have any objection against me applying
-these fixes to 2.6.32 ?
-
-Thanks,
-Willy
+Thank you for the explanation. Since GPIOLIB depends on
+ARCH_WANT_OPTIONAL_GPIOLIB || ARCH_REQUIRE_GPIOLIB, I think it's
+appropriate to let SMC91X depend on (!OF || GPIOLIB). I'll send an
+updated patch.
