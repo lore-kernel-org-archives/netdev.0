@@ -1,118 +1,104 @@
 From: Zhu Yanjun <zyjzyj2000@gmail.com>
-Subject: [PATCH 1/5] e1000e: reset MAC-PHY interconnect on 82577/82578
-Date: Mon, 15 Dec 2014 16:39:10 +0800
-Message-ID: <1418632754-16698-2-git-send-email-Yanjun.Zhu@windriver.com>
+Subject: [PATCH 2/5] e1000e: workaround EEPROM configuration change on 82579 on kernel 2.6.x
+Date: Mon, 15 Dec 2014 16:39:11 +0800
+Message-ID: <1418632754-16698-3-git-send-email-Yanjun.Zhu@windriver.com>
 References: <1418632754-16698-1-git-send-email-Yanjun.Zhu@windriver.com>
 Cc: Zhu Yanjun <Yanjun.Zhu@windriver.com>,
 	Bruce Allan <bruce.w.allan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: netdev@vger.kernel.org, w@1wt.eu, zyjzyj2000@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:56177 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751662AbaLOIji (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 03:39:38 -0500
-Received: by mail-pd0-f171.google.com with SMTP id y13so11245944pdi.16
-        for <netdev@vger.kernel.org>; Mon, 15 Dec 2014 00:39:37 -0800 (PST)
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:49533 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751639AbaLOIjm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 03:39:42 -0500
+Received: by mail-pa0-f44.google.com with SMTP id et14so11495453pad.3
+        for <netdev@vger.kernel.org>; Mon, 15 Dec 2014 00:39:42 -0800 (PST)
 In-Reply-To: <1418632754-16698-1-git-send-email-Yanjun.Zhu@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2.6.x kernels require a similar logic change as commit 901b2b95
-[e1000e: reset MAC-PHY interconnect on 82577/82578] introduces
+2.6.x kernels require a similar logic change as commit 62f1d8d1
+[e1000e: workaround EEPROM configuration change on 82579] introduces
 for newer kernels.
 
-During Sx->S0 transitions, the interconnect between the MAC and PHY on
-82577/82578 can remain in SMBus mode instead of transitioning to the
-PCIe-like mode required during normal operation.  Toggling the LANPHYPC
-Value bit essentially resets the interconnect forcing it to the correct
-mode.
+An update to the EEPROM on 82579 will extend a delay in hardware to fix an
+issue with WoL not working after a G3->S5 transition which is unrelated to
+the driver.  However, this extended delay conflicts with nominal operation
+of the device when it is initialized by the driver and after every reset
+of the hardware (i.e. the driver starts configuring the device before the
+hardware is done with it's own configuration work).  The workaround for
+when the driver is in control of the device is to tell the hardware after
+every reset the configuration delay should be the original shorter one.
 
-after review of all intel drivers, found several instances where
-drivers had the incorrect pattern of:
-memory mapped write();
-delay();
+Some pre-existing variables are renamed generically to be re-used with
+new register accesses.
 
-which should always be:
-memory mapped write();
-write flush(); /* aka memory mapped read */
-delay();
-
-explanation:
-The reason for including the flush is that writes can be held
-(posted) in PCI/PCIe bridges, but the read always has to complete
-synchronously and therefore has to flush all pending writes to a
-device.  If a write is held and followed by a delay, the delay
-means nothing because the write may not have reached hardware
-(maybe even not until the next read)
+[e1000_toggle_lanphypc_value_ich8lan does not exist. Its implementations
+exist in e1000_init_phy_params_pchlan. Renamed variables remain unchanged]
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
 ---
- drivers/net/e1000e/defines.h |  2 ++
- drivers/net/e1000e/ich8lan.c | 20 ++++++++++++++++++++
- 2 files changed, 22 insertions(+)
+ drivers/net/e1000e/hw.h      |  1 +
+ drivers/net/e1000e/ich8lan.c | 17 +++++++++++++++++
+ 2 files changed, 18 insertions(+)
 
-diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
-index 1190167..52283a6 100644
---- a/drivers/net/e1000e/defines.h
-+++ b/drivers/net/e1000e/defines.h
-@@ -214,6 +214,8 @@
- #define E1000_CTRL_SPD_1000 0x00000200  /* Force 1Gb */
- #define E1000_CTRL_FRCSPD   0x00000800  /* Force Speed */
- #define E1000_CTRL_FRCDPX   0x00001000  /* Force Duplex */
-+#define E1000_CTRL_LANPHYPC_OVERRIDE 0x00010000 /* SW control of LANPHYPC */
-+#define E1000_CTRL_LANPHYPC_VALUE    0x00020000 /* SW value of LANPHYPC */
- #define E1000_CTRL_SWDPIN0  0x00040000  /* SWDPIN 0 value */
- #define E1000_CTRL_SWDPIN1  0x00080000  /* SWDPIN 1 value */
- #define E1000_CTRL_SWDPIO0  0x00400000  /* SWDPIN 0 Input or output */
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+index 11f3b7c..b055d78 100644
+--- a/drivers/net/e1000e/hw.h
++++ b/drivers/net/e1000e/hw.h
+@@ -60,6 +60,7 @@ enum e1e_registers {
+ 	E1000_FEXTNVM  = 0x00028, /* Future Extended NVM - RW */
+ 	E1000_FCT      = 0x00030, /* Flow Control Type - RW */
+ 	E1000_VET      = 0x00038, /* VLAN Ether Type - RW */
++	E1000_FEXTNVM3 = 0x0003C, /* Future Extended NVM 3 - RW */
+ 	E1000_ICR      = 0x000C0, /* Interrupt Cause Read - R/clr */
+ 	E1000_ITR      = 0x000C4, /* Interrupt Throttling Rate - RW */
+ 	E1000_ICS      = 0x000C8, /* Interrupt Cause Set - WO */
 diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index de39f9a..020657c 100644
+index 020657c..c4b2d15 100644
 --- a/drivers/net/e1000e/ich8lan.c
 +++ b/drivers/net/e1000e/ich8lan.c
-@@ -88,6 +88,8 @@
+@@ -108,6 +108,9 @@
+ #define E1000_FEXTNVM_SW_CONFIG		1
+ #define E1000_FEXTNVM_SW_CONFIG_ICH8M (1 << 27) /* Bit redefined for ICH8M :/ */
  
++#define E1000_FEXTNVM3_PHY_CFG_COUNTER_MASK    0x0C000000
++#define E1000_FEXTNVM3_PHY_CFG_COUNTER_50MSEC  0x08000000
++
+ #define PCIE_ICH8_SNOOP_ALL		PCIE_NO_SNOOP_ALL
  
- #define E1000_ICH_FWSM_RSPCIPHY	0x00000040 /* Reset PHY on PCI Reset */
-+/* FW established a valid mode */ 
-+#define E1000_ICH_FWSM_FW_VALID                0x00008000
- 
- #define E1000_ICH_MNG_IAMT_MODE		0x2
- 
-@@ -260,6 +262,7 @@ static inline void __ew32flash(struct e1000_hw *hw, unsigned long reg, u32 val)
- static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
- {
- 	struct e1000_phy_info *phy = &hw->phy;
-+	u32 ctrl;
- 	s32 ret_val = 0;
- 
- 	phy->addr                     = 1;
-@@ -274,6 +277,23 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
- 	phy->ops.write_phy_reg_locked = e1000_write_phy_reg_hv_locked;
+ #define E1000_ICH_RAR_ENTRIES		7
+@@ -278,6 +281,12 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
  	phy->autoneg_mask             = AUTONEG_ADVERTISE_SPEED_DEFAULT;
  
-+	if (!(er32(FWSM) & E1000_ICH_FWSM_FW_VALID)) {
-+		/*
-+		 * The MAC-PHY interconnect may still be in SMBus mode
-+		 * after Sx->S0.  Toggle the LANPHYPC Value bit to force
-+		 * the interconnect to PCIe mode, but only if there is no
-+		 * firmware present otherwise firmware will have done it.
-+		*/
-+		ctrl = er32(CTRL);
-+		ctrl |=  E1000_CTRL_LANPHYPC_OVERRIDE;
-+		ctrl &= ~E1000_CTRL_LANPHYPC_VALUE;
-+		ew32(CTRL, ctrl);
-+		e1e_flush();
-+		udelay(10);
-+		ctrl &= ~E1000_CTRL_LANPHYPC_OVERRIDE;
-+		ew32(CTRL, ctrl);
-+		msleep(50);
+ 	if (!(er32(FWSM) & E1000_ICH_FWSM_FW_VALID)) {
++		/*Set Phy Config Counter to 50msec */
++		ctrl = er32(FEXTNVM3);
++		ctrl &= ~E1000_FEXTNVM3_PHY_CFG_COUNTER_MASK;
++		ctrl |= E1000_FEXTNVM3_PHY_CFG_COUNTER_50MSEC;
++		ew32(FEXTNVM3, ctrl);
++
+ 		/*
+ 		 * The MAC-PHY interconnect may still be in SMBus mode
+ 		 * after Sx->S0.  Toggle the LANPHYPC Value bit to force
+@@ -2685,6 +2694,14 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
+ 	ew32(CTRL, (ctrl | E1000_CTRL_RST));
+ 	msleep(20);
+ 
++	/* Set Phy Config Counter to 50msec */
++	if (hw->mac.type == e1000_pch2lan) {
++		u32 phycc_reg = er32(FEXTNVM3);
++		phycc_reg &= ~E1000_FEXTNVM3_PHY_CFG_COUNTER_MASK;
++		phycc_reg |= E1000_FEXTNVM3_PHY_CFG_COUNTER_50MSEC;
++		ew32(FEXTNVM3, phycc_reg);
 +	}
- 	/*
- 	 * Reset the PHY before any acccess to it.  Doing so, ensures that
- 	 * the PHY is in a known good state before we read/write PHY registers.
++
+ 	if (!ret_val)
+ 		e1000_release_swflag_ich8lan(hw);
+ 
 -- 
 1.9.1
