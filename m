@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3] net: smc91x: Fix build without gpiolib
-Date: Mon, 15 Dec 2014 11:47:17 -0500 (EST)
-Message-ID: <20141215.114717.474530546586175976.davem@davemloft.net>
-References: <1418634147-13442-1-git-send-email-tklauser@distanz.ch>
+Subject: Re: [PATCH] net: stmmac: sti: Fix uninitialized pointer
+ dereference if !OF
+Date: Mon, 15 Dec 2014 11:48:29 -0500 (EST)
+Message-ID: <20141215.114829.885744524649941189.davem@davemloft.net>
+References: <1418642751-23308-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nico@fluxnic.net, tony@atomide.com, netdev@vger.kernel.org
-To: tklauser@distanz.ch
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43640 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43648 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750712AbaLOQrT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 11:47:19 -0500
-In-Reply-To: <1418634147-13442-1-git-send-email-tklauser@distanz.ch>
+	with ESMTP id S1750764AbaLOQsb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 11:48:31 -0500
+In-Reply-To: <1418642751-23308-1-git-send-email-geert@linux-m68k.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Mon, 15 Dec 2014 10:02:27 +0100
-
-> If GPIOLIB=n the following build errors occur:
-> 
-> drivers/net/ethernet/smsc/smc91x.c: In function 'try_toggle_control_gpio':
-> drivers/net/ethernet/smsc/smc91x.c:2204:2: error: implicit declaration of function 'devm_gpiod_get_index' [-Werror=implicit-function-declaration]
-> drivers/net/ethernet/smsc/smc91x.c:2204:7: warning: assignment makes pointer from integer without a cast [enabled by default]
-> drivers/net/ethernet/smsc/smc91x.c:2213:2: error: implicit declaration of function 'gpiod_direction_output' [-Werror=implicit-function-declaration]
-> drivers/net/ethernet/smsc/smc91x.c:2216:3: error: implicit declaration of function 'devm_gpiod_put' [-Werror=implicit-function-declaration]
-> drivers/net/ethernet/smsc/smc91x.c:2222:2: error: implicit declaration of function 'gpiod_set_value_cansleep' [-Werror=implicit-function-declaration]
-> 
-> Fix this by letting the driver depend on GPIOLIB if OF is selected.
-> 
-> Fixes: 7d2911c4381 ("net: smc91x: Fix gpios for device tree based booting")
-> Cc: Tony Lindgren <tony@atomide.com>
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-
-Applied.
+RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IE1v
+biwgMTUgRGVjIDIwMTQgMTI6MjU6NTEgKzAxMDANCg0KPiBJZiBDT05GSUdfT0YgaXMgbm90IHNl
+dDoNCj4gDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L3N0bWljcm8vc3RtbWFjL2R3bWFjLXN0aS5j
+OiBJbiBmdW5jdGlvbiChc3RpX2R3bWFjX3BhcnNlX2RhdGGiOg0KPiBkcml2ZXJzL25ldC9ldGhl
+cm5ldC9zdG1pY3JvL3N0bW1hYy9kd21hYy1zdGkuYzozMTg6IHdhcm5pbmc6IKFyc6IgaXMgdXNl
+ZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24NCj4gDQo+IG9mX3Byb3BlcnR5X3JlYWRf
+c3RyaW5nKCkgd2lsbCByZXR1cm4gLUVOT1NZUyBpbiB0aGlzIGNhc2UsIGFuZCBycyB3aWxsDQo+
+IGJlIGFuIHVuaW5pdGlhbGl6ZWQgcG9pbnRlci4NCj4gDQo+IFdoaWxlIHRoZSBmYWxsYmFjayBj
+bG9jayBzZWxlY3Rpb24gaXMgYWxyZWFkeSBzZWxlY3RlZCBjb3JyZWN0bHkgaW4gdGhpcw0KPiBj
+YXNlLCB0aGUgc3RyaW5nIGNvbXBhcmlzb25zIHNob3VsZCBiZSBza2lwcGVkIHRvbywgZWxzZSB0
+aGUgc3lzdGVtIHdpbGwNCj4gY3Jhc2ggd2hpbGUgZGVyZWZlcmVuY2luZyB0aGUgdW5pbml0aWFs
+aXplZCBwb2ludGVyLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogR2VlcnQgVXl0dGVyaG9ldmVuIDxn
+ZWVydEBsaW51eC1tNjhrLm9yZz4NCg0KQXBwbGllZC4NCg==
