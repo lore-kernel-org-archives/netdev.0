@@ -1,57 +1,100 @@
-From: vadim4j@gmail.com
-Subject: [iproute2] tc: Show classes more hierarchically]
-Date: Tue, 16 Dec 2014 00:48:51 +0200
-Message-ID: <20141215224851.GB6734@angus-think.lan>
+From: rapier <rapier@psc.edu>
+Subject: Re: [RFC PATCH net-next 0/5] tcp: TCP tracer
+Date: Mon, 15 Dec 2014 17:17:23 -0500
+Message-ID: <548F5DF3.2030403@psc.edu>
+References: <CAADnVQJ+8mtB8LD=U7XbxOC2hxhDChxOELhZ3NEYeoTk1G3LYg@mail.gmail.com>	<1418659395.9773.13.camel@edumazet-glaptop2.roam.corp.google.com>	<548F0F62.7080704@fb.com> <CA+mtBx8tB6EE6i9C5KdOmwJ1D1nnaX3bvia71oj=N9U5h3KKBA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vadim4j@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Laurent Chavey <chavey@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Martin KaFai Lau <kafai@fb.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Lawrence Brakmo <brakmo@fb.com>,
+	Kernel Team <Kernel-team@fb.com>
+To: Tom Herbert <therbert@google.com>, Josef Bacik <jbacik@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:57060 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750875AbaLOW6t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 17:58:49 -0500
-Received: by mail-la0-f50.google.com with SMTP id pn19so10486026lab.9
-        for <netdev@vger.kernel.org>; Mon, 15 Dec 2014 14:58:47 -0800 (PST)
-Content-Disposition: inline
+Received: from mailer2.psc.edu ([128.182.70.106]:34375 "EHLO mailer2.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750818AbaLOXKx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Dec 2014 18:10:53 -0500
+In-Reply-To: <CA+mtBx8tB6EE6i9C5KdOmwJ1D1nnaX3bvia71oj=N9U5h3KKBA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+The Web10g development team at PSC (we've been working with
+a number of other organizations on this) will be submitting
+the kernel instrument set tomorrow morning. We'd be happy to
+join any discussion then.
 
-I am playing with showing classes in more hierarchically format and I
-have some code and example of output from my TC looks like:
+Chris rapier
 
-# tc/tc -t class show dev tap0
-
- \---1:2 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
-        \---1:40 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
-        \---1:50 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
-        \---1:60 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
- \---1:1 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
-        \---1:10 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
-               \---1:11 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
-                      \---1:111 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
-        \---1:20 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
-        \---1:30 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
-
-
-which in standart output mode it looks like:
-
-# tc/tc class show dev tap0
-
-class htb 1:11 parent 1:10 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b 
-class htb 1:111 parent 1:11 prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
-class htb 1:10 parent 1:1 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b 
-class htb 1:1 root rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b 
-class htb 1:20 parent 1:1 leaf 20: prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b 
-class htb 1:2 root rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b 
-class htb 1:30 parent 1:1 leaf 30: prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
-class htb 1:40 parent 1:2 leaf 40: prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b 
-class htb 1:50 parent 1:2 leaf 50: prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b 
-class htb 1:60 parent 1:2 leaf 60: prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
-
-So I'd like to ask if it might be useful for the TC users (may be
-better format ?) to have this ?
-
-Thanks,
+On 12/15/14, 5:01 PM, Tom Herbert wrote:
+> On Mon, Dec 15, 2014 at 8:42 AM, Josef Bacik <jbacik@fb.com> wrote:
+>> On 12/15/2014 11:03 AM, Eric Dumazet wrote:
+>>>
+>>> On Sun, 2014-12-14 at 22:55 -0800, Alexei Starovoitov wrote:
+>>>
+>>>> I think patches 1 and 3 are good additions, since they establish
+>>>> few permanent points of instrumentation in tcp stack.
+>>>> Patches 4-5 look more like use cases of tracepoints established
+>>>> before. They may feel like simple additions and, no doubt,
+>>>> they are useful, but since they expose things via tracing
+>>>> infra they become part of api and cannot be changed later,
+>>>> when more stats would be needed.
+>>>> I think systemtap like scripting on top of patches 1 and 3
+>>>> should solve your use case ?
+>>>> Also, have you looked at recent eBPF work?
+>>>> Though it's not completely ready yet, soon it should
+>>>> be able to do the same stats collection as you have
+>>>> in 4/5 without adding permanent pieces to the kernel.
+>>>
+>>>
+>>> So it looks like web10g like interfaces are very often requested by
+>>> various teams.
+>>>
+>>> And we have many different views on how to hack this. I am astonished by
+>>> number of hacks I saw about this stuff going on.
+>>>
+>>> What about a clean way, extending current TCP_INFO, which is both
+>>> available as a getsockopt() for socket owners and ss/iproute2
+>>> information for 'external entities'
+>>>
+>>> If we consider web10g info needed, then adding a ftrace/eBPF like
+>>> interface is simply yet another piece of code we need to maintain,
+>>> and the argument of 'this should cost nothing if not activated' is
+>>> nonsense since major players need to constantly monitor TCP metrics and
+>>> behavior.
+>>>
+>>> It seems both FaceBook and Google are working on a subset of web10g.
+>>>
+>>> I suggest we meet together and establish a common ground, preferably
+>>> after Christmas holidays.
+>>>
+>>
+>> We've set up something for exactly this case at the end of January but have
+>> yet to get a response from Google.  If any of the Google people cc'ed (or
+>> really anybody, its not a strictly FB/Google thing) is interested please
+>> email me directly and I'll send you the details, we will be meeting face to
+>> face in the bay area at the end of January.  Thanks,
+>>
+>
+> Maybe this would be good for discussion at netdev01?
+>
+>> Josef
+>>
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
