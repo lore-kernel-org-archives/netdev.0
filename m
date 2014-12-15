@@ -1,74 +1,49 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: [RFC PATCH net-next 0/5] tcp: TCP tracer
-Date: Mon, 15 Dec 2014 11:42:10 -0500
-Message-ID: <548F0F62.7080704@fb.com>
-References: <CAADnVQJ+8mtB8LD=U7XbxOC2hxhDChxOELhZ3NEYeoTk1G3LYg@mail.gmail.com> <1418659395.9773.13.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port configuration
+Date: Mon, 15 Dec 2014 08:44:23 -0800
+Message-ID: <548F0FE7.1080603@cumulusnetworks.com>
+References: <C4896FB061E7DE4AAC93031BDCA044B104AC3257@IRSMSX108.ger.corp.intel.com> <20141210165018.GG1863@nanopsycho.orion> <54887CF7.70708@gmail.com> <C4896FB061E7DE4AAC93031BDCA044B104AC3914@IRSMSX108.ger.corp.intel.com> <20141215140749.GB21952@casper.infradead.org> <C4896FB061E7DE4AAC93031BDCA044B104AC5DCF@IRSMSX108.ger.corp.intel.com> <20141215144027.GA21262@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Martin KaFai Lau <kafai@fb.com>,
+Cc: "Varlese, Marco" <marco.varlese@intel.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Lawrence Brakmo <brakmo@fb.com>,
-	Kernel Team <Kernel-team@fb.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Laurent Chavey <chavey@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:46791 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750802AbaLOQna (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 11:43:30 -0500
-In-Reply-To: <1418659395.9773.13.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141215144027.GA21262@casper.infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/15/2014 11:03 AM, Eric Dumazet wrote:
-> On Sun, 2014-12-14 at 22:55 -0800, Alexei Starovoitov wrote:
+On 12/15/14, 6:40 AM, Thomas Graf wrote:
+> On 12/15/14 at 02:29pm, Varlese, Marco wrote:
+>>> All of these are highly generic and should *not* be passed through from user
+>>> space to the driver directly but rather be properly abstracted as Roopa
+>>> proposed. The value of this API is abstraction.
+>> How would you let the user enable/disable features then? For instance, how would the user enable/disable flooding for broadcast packets (BFLOODING) on a given port? What I was proposing is to have a list of attributes (to be added in if_link.h) which can be tuned by the user using a tool like iproute2. What do you propose?
+> Excellent, I agree with what you are saying. What set me off is that
+> the patch does not reflect that yet. Instead, the patch introduces
+> a pure Netlink pass-through API to the driver.
 >
->> I think patches 1 and 3 are good additions, since they establish
->> few permanent points of instrumentation in tcp stack.
->> Patches 4-5 look more like use cases of tracepoints established
->> before. They may feel like simple additions and, no doubt,
->> they are useful, but since they expose things via tracing
->> infra they become part of api and cannot be changed later,
->> when more stats would be needed.
->> I think systemtap like scripting on top of patches 1 and 3
->> should solve your use case ?
->> Also, have you looked at recent eBPF work?
->> Though it's not completely ready yet, soon it should
->> be able to do the same stats collection as you have
->> in 4/5 without adding permanent pieces to the kernel.
+> I would expect the patch to:
+>   1. Parse the Netlink messages and be aware of individual attributes
+>   2. Validate them
+>   3. Pass the configuration to the driver using an API that can also
+>      be consumed from in-kernel users.
+yes, exactly.
 >
-> So it looks like web10g like interfaces are very often requested by
-> various teams.
+>> I think I have seen Roopa posting his updated ndo patch and getting some feedback by few people already and as long as I will be able to accomplish the use case described here I am happy with his way.
+> I think Roopa's patches are supplementary. Not all switchdev users
+> will be backed with a Linux Bridge. I therefore welcome your patches
+> very much.
 >
-> And we have many different views on how to hack this. I am astonished by
-> number of hacks I saw about this stuff going on.
->
-> What about a clean way, extending current TCP_INFO, which is both
-> available as a getsockopt() for socket owners and ss/iproute2
-> information for 'external entities'
->
-> If we consider web10g info needed, then adding a ftrace/eBPF like
-> interface is simply yet another piece of code we need to maintain,
-> and the argument of 'this should cost nothing if not activated' is
-> nonsense since major players need to constantly monitor TCP metrics and
-> behavior.
->
-> It seems both FaceBook and Google are working on a subset of web10g.
->
-> I suggest we meet together and establish a common ground, preferably
-> after Christmas holidays.
->
-
-We've set up something for exactly this case at the end of January but 
-have yet to get a response from Google.  If any of the Google people 
-cc'ed (or really anybody, its not a strictly FB/Google thing) is 
-interested please email me directly and I'll send you the details, we 
-will be meeting face to face in the bay area at the end of January.  Thanks,
-
-Josef
+> The overlap is in the ndo. I think both the API you propose and
+> Roopa's bridge code should use the same NDO.
+>> I do not have an example right now of a vendor specific attribute but I was just saying that might happen (i.e. someone will have a feature not implemented by others?).
+> That's fine. Once we have them we can consider adding vendor specific
+> extensions.
