@@ -1,110 +1,84 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] ioc3: fix incorrect use of htons/ntohs
-Date: Mon, 15 Dec 2014 21:09:25 +0000
-Message-ID: <1418677765.30883.23.camel@decadent.org.uk>
-References: <1417344054-4374-1-git-send-email-LinoSanfilippo@gmx.de>
-	 <1417406976.7215.126.camel@decadent.org.uk>
-	 <20141215181444.GD26674@linux-mips.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v2 2/4] swdevice: add new api to set and del
+ bridge port attributes
+Date: Mon, 15 Dec 2014 18:27:30 -0500
+Message-ID: <548F6E62.1040500@mojatatu.com>
+References: <1418202320-19491-3-git-send-email-roopa@cumulusnetworks.com> <20141210093755.GB1863@nanopsycho.orion> <5489CBBA.7050302@cumulusnetworks.com> <20141211171145.GG1912@nanopsycho.orion> <5489DB73.1080808@cumulusnetworks.com> <20141211180743.GA2010@nanopsycho.orion> <5489E214.4080708@cumulusnetworks.com> <20141211222559.GB1880@nanopsycho.orion> <548D9B14.9010201@cumulusnetworks.com> <20141214153549.GA2174@nanopsycho.orion> <548DE7E2.6010705@cumulusnetworks.com> <548EFD94.8070905@mojatatu.com> <E4CD12F19ABA0C4D8729E087A761DC3505D999EA@ORSMSX106.amr.corp.intel.com> <548F20FF.9080508@gmail.com> <E4CD12F19ABA0C4D8729E087A761DC3505D9FA8C@ORSMSX106.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Zix5fHZKM620G0OqlTYM"
-Cc: Lino Sanfilippo <LinoSanfilippo@gmx.de>, linux-mips@linux-mips.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Ralf Baechle <ralf@linux-mips.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141215181444.GD26674@linux-mips.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"bcrl@kvack.org" <bcrl@kvack.org>, "tgraf@suug.ch" <tgraf@suug.ch>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
+	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>
+To: "Arad, Ronen" <ronen.arad@intel.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:47298 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751217AbaLOX1d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 18:27:33 -0500
+Received: by mail-ie0-f169.google.com with SMTP id y20so11868443ier.14
+        for <netdev@vger.kernel.org>; Mon, 15 Dec 2014 15:27:32 -0800 (PST)
+In-Reply-To: <E4CD12F19ABA0C4D8729E087A761DC3505D9FA8C@ORSMSX106.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On 12/15/14 13:36, Arad, Ronen wrote:
+>
+>
+>> -----Original Message-----
+
+> The behavior of a driver could depend on the presence of a bridge and features such as FDB LEARNING and LEARNING_SYNC.
+
+Indeed, those are bridge attributes.
+
+> A switch port driver which is not enslaved to a bridge might need to implement VLAN-aware FDB
+>within the driver and report its content to user-space using ndo_fdb_dump.
+ >
+> A switch port driver which is enslaved to a bridge could do with only pass through for static FDB configuration
+ > to the HW when LEARNING_SYNC is configured. FDB reporting to 
+user-space and soft aging are left to the bridge module FDB.
+> Such driver, without LEARNING_SYNC could still avoid maintaing in-driver FDB as long as it could dump the HW FDB on demand.
+> LEARNING_SYNC also requires periodic updates of freshness information from the driver to the bridge module.
+>
 
 
---=-Zix5fHZKM620G0OqlTYM
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+If you have an fdb - shouldnt that be exposed only if you have a bridge
+abstraction exposed? i.e thats where the Linux tools would work.
+What i was refering to was a scenario where i have no interest in the
+fdb despite such a hardware capabilities. VLANs is a different issue;
 
-On Mon, 2014-12-15 at 19:14 +0100, Ralf Baechle wrote:
-> On Mon, Dec 01, 2014 at 04:09:36AM +0000, Ben Hutchings wrote:
->=20
-> > >  	/* Same as tx - compute csum of pseudo header  */
-> > >  	csum =3D hwsum +
-> > > -	       (ih->tot_len - (ih->ihl << 2)) +
-> > > -	       htons((uint16_t)ih->protocol) +
-> > > +	       (ih->tot_len - (ih->ihl << 2)) + ih->protocol +
-> > >  	       (ih->saddr >> 16) + (ih->saddr & 0xffff) +
-> > >  	       (ih->daddr >> 16) + (ih->daddr & 0xffff);
-> > >
-> >=20
-> > The pseudo-header is specified as:
-> >=20
-> >                      +--------+--------+--------+--------+
-> >                      |           Source Address          |
-> >                      +--------+--------+--------+--------+
-> >                      |         Destination Address       |
-> >                      +--------+--------+--------+--------+
-> >                      |  zero  |  PTCL  |    TCP Length   |
-> >                      +--------+--------+--------+--------+
-> >=20
-> > The current code zero-extends the protocol number to produce the 5th
-> > 16-bit word of the pseudo-header, then uses htons() to put it in
-> > big-endian order, consistent with the other fields.  (Yes, it's doing
-> > addition on big-endian words; this works even on little-endian machines
-> > due to the way the checksum is specified.)
-> >=20
-> > The driver should not be doing this at all, though.  It should set
-> > skb->csum =3D hwsum; skb->ip_summed =3D CHECKSUM_COMPLETE; and let the
-> > network stack adjust the hardware checksum.
->=20
-> Really?  The IOC3 isn't the exactly the smartest NIC around; it does add =
-up
-> everything and the kitchen sink, that is ethernet headers, IP headers and
-> on RX the frame's trailing CRC.
+>>> Will the decision about using a bridge device or avoiding it be left
+>>> to the end-user?
+>>
+>> Its a user policy decision. Again the offload bit gets us this in a reasonably
+>> configurable way IMO.
+>>
+>>> (This requires switch port drivers to be able to work and provide
+>>> similar functionality in both setups).
+>>
+>> Right, but if the drivers "care" who is calling their ndo ops something is
+>> seriously broken. For the driver it should not need to know anything about
+>> the callers so it doesn't matter to the driver if its a netlink call from user
+>> space or an internal call fro bridge.ko
+>
+> LEARNING_SYNC only makes sense when a switch port driver is enslaved to a bridge.
+ > Rocker switch driver indeed monitors upper change notifications and 
+keep track of master bridge presence.
+> So bridge presence is not transparent.
+>
 
-That is almost exactly what CHECKSUM_COMPLETE means on receive; only the
-CRC would need to be subtracted.  Then the driver can validate
-{TCP,UDP}/IPv{4,6} checksums without any header parsing.
+Agreed - the challenge so far is that people have been fascinated by
+"switch" point of view. I think we are learning and the class device
+will eventually become obvious as useful.
 
-> All that needs to be subtracted in software
-> which is what this does.  I think others NICs are all smarted and don't
-> need this particular piece of magic.
-
-It may not be smart, but that allows it to cover more cases than most
-smart network controllers!
-
-On transmit, the driver should:
-- Calculate the partial checksum of data up to offset csum_start
-- Subtract this from the checksum at offset (csum_start + csum_offset)
-It should set the NETIF_F_GEN_CSUM feature flag rather than
-NETIF_F_IP_CSUM.  Then it will be able to generate {TCP,UDP}/IPv{4,6}
-checksums.
-
-Ben.
-
-> I agree with your other comment wrt. to htons().
-
-
---=20
-Ben Hutchings
-The two most common things in the universe are hydrogen and stupidity.
-
---=-Zix5fHZKM620G0OqlTYM
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAVI9OCue/yOyVhhEJAQqxHhAAtq+Ozd3aCYDzZ4brcMbPbnbxoruJY70N
-tJvXWYPHqDc9y9XDtHtWLGCKpkByqX3a38N6sulCDJ8pN1mFBF9ws9oDF8nd6M0b
-h+RwlFqIm25oiwPblrKf1yxNSeGFHoTGyId3UpKG8uvnwV6OD4T1HNF+Xb6BfYZv
-EyNaLwpl8Q11HLINSO8GNv78gqpCqeeUXDRw4aucmxsAJOHVUpOcHmh2PUbDNezf
-pEbHN6ydpGmaOYSMwYwxXw9q//TjBNuE8nZsLsb7ifc7SB9JUKLLz7mAhWDHubyg
-GsWJrbnVwBPsSYz64d76hxfmj0Klnj1FxfKUNCUQv0gv0HvhhxwiH1XFTWRGqr73
-RXhnRhCuKmF6VS1P2AaKttidO2cxMXAjLpcO+WsyiuzRHcF71Q/w8VqMrH5sDW9W
-SpyIstDV1L2ypErS450ej+rUR5EnPzIATDfo7RlOsRoXeohNW4olbGlYzMuMQXkR
-yWNrbiWC9+rjlumxoZcZlq0y7t1nuPc2DzbXfmjAFbUathjIGiz18XEVT0LvvTiv
-vqeHLAbHbuk+zYiHHb2oskm4q6rIbzR4segMOi1CJdONB6yIUu+uqd7BMQGlgqk7
-9fcDn1/Cb5bUizH33lIU+C15Nq22n4nYqNw5xbExQrdKad7v89/iRqOUIZWSOR91
-C2jWo0Lu2Sc=
-=TgJb
------END PGP SIGNATURE-----
-
---=-Zix5fHZKM620G0OqlTYM--
+cheers,
+jamal
