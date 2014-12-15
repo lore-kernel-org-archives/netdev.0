@@ -1,73 +1,45 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH 3/5] e1000e: do not toggle LANPHYPC value bit when PHY reset is blocked
-Date: Mon, 15 Dec 2014 13:16:39 +0100
-Message-ID: <20141215121639.GB28701@1wt.eu>
-References: <1418632754-16698-1-git-send-email-Yanjun.Zhu@windriver.com> <1418632754-16698-4-git-send-email-Yanjun.Zhu@windriver.com> <548ECDAC.90207@cogentembedded.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] rds: Fix min() warning in rds_message_inc_copy_to_user()
+Date: Mon, 15 Dec 2014 13:21:42 +0100
+Message-ID: <1418646102-32415-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Zhu Yanjun <zyjzyj2000@gmail.com>, netdev@vger.kernel.org,
-	Zhu Yanjun <Yanjun.Zhu@windriver.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:2685 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750714AbaLOMQp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Dec 2014 07:16:45 -0500
-Content-Disposition: inline
-In-Reply-To: <548ECDAC.90207@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: Al Viro <viro@zeniv.linux.org.uk>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+net/rds/message.c: In function =E2=80=98rds_message_inc_copy_to_user=E2=
+=80=99:
+net/rds/message.c:328: warning: comparison of distinct pointer types la=
+cks a cast
 
-On Mon, Dec 15, 2014 at 03:01:48PM +0300, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 12/15/2014 11:39 AM, Zhu Yanjun wrote:
-> 
-> >2.6.x kernels require a similar logic change as commit b7d6e335
-> >[e1000e: do not toggle LANPHYPC value bit when PHY reset is blocked]
-> >introduces for newer kernels.
-> 
->    Hm, so is this patch to 2.6.x-stable kernels or a recent kernel?
-> If the former, you should follow the rules in 
-> Documentation/stable_kernel_rules.txt.
+Use min_t(unsigned long, ...) like is done in
+rds_message_copy_from_user().
 
-I don't see anything there that does not comply with the rules. This
-patchset looks fine and acceptable to me, I'll just wait a bit so that
-if either Jeff or Bruce rejects it I respect their wish.
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ net/rds/message.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-However you just made me realize that I can't find commit b7d6e335.
-Zhu, please double-check that this commit (or an equivalent) was merged
-upstream, *this* it a prerequisite for going into -stable.
-
-> >When PHY reset is intentionally blocked on 82577/8/9, do not toggle the
-> >LANPHYPC value bit (essentially performing a hard power reset of the
-> >device) otherwise the PHY can be put into an unknown state.
-> 
-> >Cleanup whitespace in the same function.
-> 
-> >[yanjun.zhu: whitespace remains unchanged]
-> 
-> >Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-> 
->    So, is this your patch, or Bruce's? If the latter, you should add:
-> 
-> From: Bruce Allan <bruce.w.allan@intel.com>
-> 
-> at the start of the change log.
->
-> >Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-> >Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> >Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
-
-The case where a commit gets backported is always ambiguous, especially
-when the context changes a lot. I'm personally in favor of keeping the
-original signed-of-by chain related to the original fix, and adding some
-text between it and the backporter's s-o-b indicating that the changes
-were, so that original authors do not get blamed for mistakes.
-
-Best regards,
-Willy
+diff --git a/net/rds/message.c b/net/rds/message.c
+index ff22022181875303..5a21e6f5986f1b82 100644
+--- a/net/rds/message.c
++++ b/net/rds/message.c
+@@ -325,7 +325,8 @@ int rds_message_inc_copy_to_user(struct rds_incomin=
+g *inc, struct iov_iter *to)
+ 	copied =3D 0;
+=20
+ 	while (iov_iter_count(to) && copied < len) {
+-		to_copy =3D min(iov_iter_count(to), sg->length - vec_off);
++		to_copy =3D min_t(unsigned long, iov_iter_count(to),
++				sg->length - vec_off);
+ 		to_copy =3D min_t(unsigned long, to_copy, len - copied);
+=20
+ 		rds_stats_add(s_copy_to_user, to_copy);
+--=20
+1.9.1
