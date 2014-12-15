@@ -1,69 +1,76 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 2/4] swdevice: add new api to set and del
- bridge port attributes
-Date: Mon, 15 Dec 2014 09:20:18 -0800
-Message-ID: <548F1852.7090507@cumulusnetworks.com>
-References: <1418202320-19491-3-git-send-email-roopa@cumulusnetworks.com> <20141210093755.GB1863@nanopsycho.orion> <5489CBBA.7050302@cumulusnetworks.com> <20141211171145.GG1912@nanopsycho.orion> <5489DB73.1080808@cumulusnetworks.com> <20141211180743.GA2010@nanopsycho.orion> <5489E214.4080708@cumulusnetworks.com> <20141211222559.GB1880@nanopsycho.orion> <548D9B14.9010201@cumulusnetworks.com> <20141214153549.GA2174@nanopsycho.orion> <548DE7E2.6010705@cumulusnetworks.com> <548EFD94.8070905@mojatatu.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH iproute2 v4] ip: Simplify executing ip cmd within network
+ ns
+Date: Mon, 15 Dec 2014 18:30:25 +0100
+Message-ID: <548F1AB1.6080601@6wind.com>
+References: <1418422507-6635-1-git-send-email-vadim4j@gmail.com> <20141213082936.GA1849@nanopsycho.orion> <20141213084243.GA3284@angus-think.lan> <20141213085803.GA12446@angus-think.lan> <20141213133210.GA12291@angus-think.lan> <20141213152024.GB1849@nanopsycho.orion>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, sfeldma@gmail.com, bcrl@kvack.org,
-	tgraf@suug.ch, john.fastabend@gmail.com,
-	stephen@networkplumber.org, linville@tuxdriver.com,
-	vyasevic@redhat.com, netdev@vger.kernel.org, davem@davemloft.net,
-	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>, vadim4j@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:40999 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750768AbaLORUY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 12:20:24 -0500
-In-Reply-To: <548EFD94.8070905@mojatatu.com>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:42085 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750712AbaLORa2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 12:30:28 -0500
+Received: by mail-wi0-f174.google.com with SMTP id h11so9673695wiw.1
+        for <netdev@vger.kernel.org>; Mon, 15 Dec 2014 09:30:27 -0800 (PST)
+In-Reply-To: <20141213152024.GB1849@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/15/14, 7:26 AM, Jamal Hadi Salim wrote:
+Le 13/12/2014 16:20, Jiri Pirko a =E9crit :
+> Sat, Dec 13, 2014 at 02:32:10PM CET, vadim4j@gmail.com wrote:
+>> On Sat, Dec 13, 2014 at 10:58:03AM +0200, vadim4j@gmail.com wrote:
+>>> On Sat, Dec 13, 2014 at 10:42:43AM +0200, vadim4j@gmail.com wrote:
+>>>> On Sat, Dec 13, 2014 at 09:29:36AM +0100, Jiri Pirko wrote:
+>>>>> Fri, Dec 12, 2014 at 11:15:07PM CET, vadim4j@gmail.com wrote:
+>>>>>> From: Vadim Kochan <vadim4j@gmail.com>
+>>>>>>
+>>>>>> Added new '-netns' option to simplify executing following cmd:
+>>>>>>
+>>>>>>     ip netns exec NETNS ip OPTIONS COMMAND OBJECT
+>>>>>>
+>>>>>>     to
+>>>>>>
+>>>>>>     ip -n[etns] NETNS OPTIONS COMMAND OBJECT
+>>>>>>
+>>>>>> e.g.:
+>>>>>>
+>>>>>>     ip -net vnet0 link add br0 type bridge
+>>>>>>     ip -n vnet0 link
+>>>>>>
+>>>>>> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+>>>>>
+>>>>>
+>>>>> This looks good. I'm still missing support in tc, bridge, etc. I =
+think
+>>>>> it would be great to do this in the same patch/patchset.
+>>>>>
+>>>>   I planned to do this in the future patches after this main
+>>>>   changes will be accepted. Actually adding this option to other
+>>>>   tools is trivial.
+>>>>
+>>>>   Anyway may be I will re-send v5 with supporting of these tools i=
+f I will have time.
+>>>>
+>>>>   Regards,
+>>>
+>>> BTW, some tools already have '-n' option, so I think only '-net' ca=
+n be
+>>> used in such cases.
 >
-> Sorry - i didnt quiet follow the discussion, but i can see the value
-> of propagating things from parent to children netdevs as part of the
-> generic approach. And in that spirit:
 >
-> Ben's patches (and I am sure the cumulus folk do this) expose ports.
-> i.e you boot up the hardware and you see ports. You can then put these
-> ports in a bridge and you can offload fdbs and do other parametrization
-> to the ASIC. IOW, this only becomes a bridge because you created one
-> in the kernel and attached bridge ports to it.
->
-> Lets say i didnt want a bridge. I want instead to take these exposed
-> ports and create a bond (and maybe play with LACP). How does this
-> propagation from parent->child->child work then? I think the idea
-> of just bonding and not exposing it as a switch is a reasonable use
-> case.
+> Yep, that is my point. I would like to have the same option for all.
+Agreed. The real option name is '-netns'. The fact that '-n' will work =
+comes
+from how 'ip' is implemented. This kind of shortcut will depend on each=
+ tool
+implementation. But again, the *real* option name is '-netns' ;-)
 
-We have not come to pure bonding and lacp yet (but i have mentioned it 
-in many contexts before).
-The use case you mention is offloading bond attributes. This will be 
-addressed as part of ongoing switchdev work
-for all other offloads (bonds, vxlans etc).
-Right now we are only talking bridge port attribute offload 
-(learn/flood/port state etc). This could still be a bridge port 
-attribute on a bond
-when the bond is a bridge port.
 
-> Also how does it work when i start doing L3 and the bond's port doesnt
-> support L3? Is it time to revive the thing we called TheThing in Du?
-yes, exactly. This is what i had indicated in my initial emails on this 
-thread when the stacked devices topic came up.
-Since there was reluctance in introducing a switch device (theThing), My 
-current patch tries to do that without a switch device.
-Since this is still l2, and we are dealing with bridge port attributes, 
-my current patch traverses the stacked netdevs to call the 
-ndo_bridge_setlink on the switch port.
-
-When it comes to l3, we can follow the same.., but as discussed in Du, 
-there are other reasons where a switch device becomes necessary.
-I can submit an alternate series to cover the switch device approach for 
-l2 as well.
-
-Thanks,
-Roopa
+Regards,
+Nicolas
