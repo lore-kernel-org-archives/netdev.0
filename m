@@ -1,50 +1,47 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH 3/5] e1000e: do not toggle LANPHYPC value bit when PHY reset is blocked
-Date: Mon, 15 Dec 2014 14:33:35 +0100
-Message-ID: <20141215133335.GC28701@1wt.eu>
-References: <1418632754-16698-1-git-send-email-Yanjun.Zhu@windriver.com> <1418632754-16698-4-git-send-email-Yanjun.Zhu@windriver.com> <E66F6C44A7A6EA49ABFC80EA526506DF65A865A3@ALA-MBB.corp.ad.wrs.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC PATCH net-next 1/1] net: Support for switch port
+ configuration
+Date: Mon, 15 Dec 2014 14:05:19 +0000
+Message-ID: <20141215140519.GA21952@casper.infradead.org>
+References: <C4896FB061E7DE4AAC93031BDCA044B104AC3257@IRSMSX108.ger.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Zhu Yanjun <zyjzyj2000@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"ALLAN, BRUCE" <bruce.w.allan@intel.com>,
-	"KIRSHER, JEFFREY" <jeffrey.t.kirsher@intel.com>
-To: "Zhu, Yanjun" <Yanjun.Zhu@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:2702 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750861AbaLONdm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Dec 2014 08:33:42 -0500
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"jiri@resnulli.us" <jiri@resnulli.us>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Varlese, Marco" <marco.varlese@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <E66F6C44A7A6EA49ABFC80EA526506DF65A865A3@ALA-MBB.corp.ad.wrs.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <C4896FB061E7DE4AAC93031BDCA044B104AC3257@IRSMSX108.ger.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 15, 2014 at 01:21:43PM +0000, Zhu, Yanjun wrote:
-> Hi, Willy
-> 
-> Thanks for your reply.
-> 
-> This patch "[PATCH 3/5] e1000e: do not toggle LANPHYPC value bit when PHY reset is blocked" exists in tag v3.1.
-> 
-> Please follow these steps, this patch can be found:
-> 
-> 1. git checkout -f v3.1
-> 
-> 2. git log -p drivers/net/e1000e/ich8lan.c
-> 
-> 3. search "b7d6e335"
-> 
-> Then we will find this patch.
+On 12/10/14 at 04:23pm, Varlese, Marco wrote:
+> +#ifdef CONFIG_NET_SWITCHDEV
+> +static int do_setswcfg(struct net_device *dev, struct nlattr *attr)
+> +{
+> +	int rem, err = -EINVAL;
+> +	struct nlattr *v;
+> +	const struct net_device_ops *ops = dev->netdev_ops;
+> +
+> +	nla_for_each_nested(v, attr, rem) {
+> +		u32 op = nla_type(v);
+> +		u64 value = nla_get_u64(v);
+> +
+> +		err = ops->ndo_switch_port_set_cfg(dev, op, value);
+> +		if (err)
+> +			break;
+> +	}
+> +	return err;
+> +}
+> +#endif
 
-Ah it's because you truncated the commit ID from the right instead of from
-the left. Truncated commit IDs are valid from the left, not from the right.
-In your case, the commit is 6cc7aaed70c96c3933fbacbad582fc79b7d6e335
-("e1000e: do not toggle LANPHYPC value bit when PHY reset is blocked"), so
-the truncated ID is 6cc7aae, not b7d6e335. It's important to fix that in
-your commit messages so that a "git show" works correctly (it failed for me
-for this precise reason).
-
-Thanks,
-Willy
+A strictly technical feedback first: I suggest to split the above into
+a validation and commit part to keep Netlink operations atomic. Doing
+commit & rollback for the deeply nested configuration we are heading
+to will be difficult and error prone. Let's keep updates atomic for as
+long as possible, i.e. individual set operations can't fail.
