@@ -1,63 +1,92 @@
-From: Kamal Mostafa <kamal@canonical.com>
-Subject: [PATCH 3.13.y-ckt 60/96] net/ping: handle protocol mismatching scenario
-Date: Mon, 15 Dec 2014 11:26:20 -0800
-Message-ID: <1418671616-25482-61-git-send-email-kamal@canonical.com>
-References: <1418671616-25482-1-git-send-email-kamal@canonical.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	Jane Zhou <a17711@motorola.com>,
-	Yiwei Zhao <gbjc64@motorola.com>,
-	Kamal Mostafa <kamal@canonical.com>
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	kernel-team@lists.ubuntu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1418671616-25482-1-git-send-email-kamal@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [RFC PATCH net-next 0/5] tcp: TCP tracer
+Date: Mon, 15 Dec 2014 11:56:25 -0800
+Message-ID: <CAK6E8=fsKNcVBBewDw89cLLFuQb1a0parZ7hmvuRfherqjXTng@mail.gmail.com>
+References: <CAADnVQJ+8mtB8LD=U7XbxOC2hxhDChxOELhZ3NEYeoTk1G3LYg@mail.gmail.com>
+ <1418659395.9773.13.camel@edumazet-glaptop2.roam.corp.google.com> <D0B44739.74E8A%bmatheny@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Laurent Chavey <chavey@google.com>, Martin Lau <kafai@fb.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Lawrence Brakmo <brakmo@fb.com>, Josef Bacik <jbacik@fb.com>,
+	Kernel Team <Kernel-team@fb.com>
+To: Blake Matheny <bmatheny@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:41171 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751358AbaLOT5H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2014 14:57:07 -0500
+Received: by mail-ie0-f182.google.com with SMTP id x19so11417239ier.41
+        for <netdev@vger.kernel.org>; Mon, 15 Dec 2014 11:57:07 -0800 (PST)
+In-Reply-To: <D0B44739.74E8A%bmatheny@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-3.13.11-ckt13 -stable review patch.  If anyone has any objections, please let me know.
+On Mon, Dec 15, 2014 at 8:08 AM, Blake Matheny <bmatheny@fb.com> wrote:
+>
+> We have an additional set of patches for web10g that builds on these
+> tracepoints. It can be made to work either way, but I agree the idea of
+> something like a sockopt would be really nice.
 
-------------------
+I'd like to compare these patches  with tools that parse pcap files to
+generate per-flow counters to collect RTTs, #dupacks, etc. What
+additional values or insights do they provide to improve/debug TCP
+performance? maybe an example?
 
-From: Jane Zhou <a17711@motorola.com>
+IMO these stats provide a general pictures of how TCP works of a
+specific network, but not enough to really nail specific bugs in TCP
+protocol or implementation. Then SNMP stats or sampling with pcap
+traces with offline analysis can achieve the same purpose.
 
-commit 91a0b603469069cdcce4d572b7525ffc9fd352a6 upstream.
-
-ping_lookup() may return a wrong sock if sk_buff's and sock's protocols
-dont' match. For example, sk_buff's protocol is ETH_P_IPV6, but sock's
-sk_family is AF_INET, in that case, if sk->sk_bound_dev_if is zero, a wrong
-sock will be returned.
-the fix is to "continue" the searching, if no matching, return NULL.
-
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Jane Zhou <a17711@motorola.com>
-Signed-off-by: Yiwei Zhao <gbjc64@motorola.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Kamal Mostafa <kamal@canonical.com>
----
- net/ipv4/ping.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 3ef2919..8e0f65c 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -213,6 +213,8 @@ static struct sock *ping_lookup(struct net *net, struct sk_buff *skb, u16 ident)
- 					     &ipv6_hdr(skb)->daddr))
- 				continue;
- #endif
-+		} else {
-+			continue;
- 		}
- 
- 		if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif)
--- 
-1.9.1
+>
+>
+> -Blake
+>
+> On 12/15/14, 8:03 AM, "Eric Dumazet" <eric.dumazet@gmail.com> wrote:
+>
+> >On Sun, 2014-12-14 at 22:55 -0800, Alexei Starovoitov wrote:
+> >
+> >> I think patches 1 and 3 are good additions, since they establish
+> >> few permanent points of instrumentation in tcp stack.
+> >> Patches 4-5 look more like use cases of tracepoints established
+> >> before. They may feel like simple additions and, no doubt,
+> >> they are useful, but since they expose things via tracing
+> >> infra they become part of api and cannot be changed later,
+> >> when more stats would be needed.
+> >> I think systemtap like scripting on top of patches 1 and 3
+> >> should solve your use case ?
+> >> Also, have you looked at recent eBPF work?
+> >> Though it's not completely ready yet, soon it should
+> >> be able to do the same stats collection as you have
+> >> in 4/5 without adding permanent pieces to the kernel.
+> >
+> >So it looks like web10g like interfaces are very often requested by
+> >various teams.
+> >
+> >And we have many different views on how to hack this. I am astonished by
+> >number of hacks I saw about this stuff going on.
+> >
+> >What about a clean way, extending current TCP_INFO, which is both
+> >available as a getsockopt() for socket owners and ss/iproute2
+> >information for 'external entities'
+> >
+> >If we consider web10g info needed, then adding a ftrace/eBPF like
+> >interface is simply yet another piece of code we need to maintain,
+> >and the argument of 'this should cost nothing if not activated' is
+> >nonsense since major players need to constantly monitor TCP metrics and
+> >behavior.
+> >
+> >It seems both FaceBook and Google are working on a subset of web10g.
+> >
+> >I suggest we meet together and establish a common ground, preferably
+> >after Christmas holidays.
+> >
+> >Thanks
+> >
+> >
+>
