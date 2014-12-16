@@ -1,38 +1,57 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net] net: Disallow providing non zero VLAN ID for NIC
- drivers FDB add flow
-Date: Tue, 16 Dec 2014 10:56:27 -0800
-Message-ID: <CAL3LdT4dTujZ7f3pd-BqE9HLDeBoAfr7TcZb_WnKqZM-Gs2YOA@mail.gmail.com>
-References: <1418573945-27840-1-git-send-email-ogerlitz@mellanox.com>
+From: rapier <rapier@psc.edu>
+Subject: Re: [PATCH net-next 2/3] Implementation of RFC 4898 Extended TCP
+ Statistics (Web10G)
+Date: Tue, 16 Dec 2014 13:58:20 -0500
+Message-ID: <549080CC.3050704@psc.edu>
+References: <CAADnVQ+rmBMoDRRu-Dtp7QBMJEbto9nb2zvFEXBCQsqpg6tS9A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, jiri@resnulli.us,
-	gospo@cumulusnetworks.com, Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:59279 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750862AbaLPS41 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 13:56:27 -0500
-Received: by mail-ob0-f181.google.com with SMTP id gq1so24436509obb.12
-        for <netdev@vger.kernel.org>; Tue, 16 Dec 2014 10:56:27 -0800 (PST)
-In-Reply-To: <1418573945-27840-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mailer2.psc.edu ([128.182.70.106]:40323 "EHLO mailer2.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750976AbaLPS6X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Dec 2014 13:58:23 -0500
+In-Reply-To: <CAADnVQ+rmBMoDRRu-Dtp7QBMJEbto9nb2zvFEXBCQsqpg6tS9A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 14, 2014 at 8:19 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
-> The current implementations all use dev_uc_add_excl() and such whose API
-> doesn't support vlans, so we can't make it with NICs HW for now.
->
-> Fixes: f6f6424ba773 ('net: make vid as a parameter for ndo_fdb_add/ndo_fdb_del')
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_main.c |    5 +++++
->  net/core/rtnetlink.c                        |    5 +++++
->  2 files changed, 10 insertions(+), 0 deletions(-)
->
+I'm going to review those exports right now.
 
-For the Intel driver changes...
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+On 12/16/14, 1:24 PM, Alexei Starovoitov wrote:
+> On Tue, Dec 16, 2014 at 9:50 AM, rapier <rapier@psc.edu> wrote:
+>> +struct idr tcp_estats_idr;
+>> +EXPORT_SYMBOL(tcp_estats_idr);
+>> +static int next_id = 1;
+>> +DEFINE_SPINLOCK(tcp_estats_idr_lock);
+>> +EXPORT_SYMBOL(tcp_estats_idr_lock);
+>> +
+>> +int tcp_estats_wq_enabled __read_mostly = 0;
+>> +EXPORT_SYMBOL(tcp_estats_wq_enabled);
+>> +struct workqueue_struct *tcp_estats_wq = NULL;
+>> +EXPORT_SYMBOL(tcp_estats_wq);
+>> +void (*create_notify_func)(struct work_struct *work);
+>> +EXPORT_SYMBOL(create_notify_func);
+>> +void (*establish_notify_func)(struct work_struct *work);
+>> +EXPORT_SYMBOL(establish_notify_func);
+>> +void (*destroy_notify_func)(struct work_struct *work);
+>> +EXPORT_SYMBOL(destroy_notify_func);
+>> +unsigned long persist_delay = 0;
+>> +EXPORT_SYMBOL(persist_delay);
+>> +
+>> +struct static_key tcp_estats_enabled __read_mostly = STATIC_KEY_INIT_FALSE;
+>> +EXPORT_SYMBOL(tcp_estats_enabled);
+> ...
+>> +EXPORT_SYMBOL(tcp_estats_create);
+> ...
+>> +/* Do not call directly.  Called from tcp_estats_unuse() through call_rcu.
+>> */
+>> +void tcp_estats_free(struct rcu_head *rcu)
+> ...
+>> +EXPORT_SYMBOL(tcp_estats_free);
+>
+> imo that is very questionable design choice.
+> export a lot of in-kernel bits to be used by out-of-tree kernel module?
+>
