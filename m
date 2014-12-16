@@ -1,66 +1,56 @@
-From: Dominic Hamon <dhamon@twitter.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net-next 2/3] Implementation of RFC 4898 Extended TCP
  Statistics (Web10G)
-Date: Tue, 16 Dec 2014 14:09:46 -0800
-Message-ID: <20141216220946.GA19603@k9>
+Date: Tue, 16 Dec 2014 14:33:32 -0800
+Message-ID: <1418769212.9773.65.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <54908FAD.5060500@psc.edu>
- <20141216.150354.64901094367530710.davem@davemloft.net>
- <54909278.6090806@psc.edu>
- <20141216.151823.2276708539799601894.davem@davemloft.net>
+		<20141216.150354.64901094367530710.davem@davemloft.net>
+		<54909278.6090806@psc.edu>
+	 <20141216.151823.2276708539799601894.davem@davemloft.net>
+	 <54909DD5.5070202@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, alexei.starovoitov@gmail.com,
+	netdev@vger.kernel.org
+To: rapier <rapier@psc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:45470 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751066AbaLPWJu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 17:09:50 -0500
-Received: by mail-pa0-f53.google.com with SMTP id kq14so14913929pab.12
-        for <netdev@vger.kernel.org>; Tue, 16 Dec 2014 14:09:50 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20141216.151823.2276708539799601894.davem@davemloft.net>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:51394 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751047AbaLPWde (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 17:33:34 -0500
+Received: by mail-ig0-f173.google.com with SMTP id r2so7752127igi.6
+        for <netdev@vger.kernel.org>; Tue, 16 Dec 2014 14:33:34 -0800 (PST)
+In-Reply-To: <54909DD5.5070202@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 16, 2014 at 03:18:23PM -0500, David Miller wrote:
-> From: rapier <rapier@psc.edu>
-> Date: Tue, 16 Dec 2014 15:13:44 -0500
-> 
-> > On 12/16/14, 3:03 PM, David Miller wrote:
-> > 
-> >> You shouldn't need to export any symbols.
-> > 
-> > As a point of clarification - is it acceptable to export symbols for
-> > use with in tree modules such as tcp_htcp? We are more than willing to
-> > do the work required to bring this in line with best practices.
-> 
-> I'm saying for data and TCP statistics collection, you shouldn't need
-> to add any new symbol exports.
-> 
-> Keep this in the main kernel, nothing external should be needed.
-> 
-> Extending tcp_info or similar is the only reasonable way to implement
-> this stuff.
+On Tue, 2014-12-16 at 16:02 -0500, rapier wrote:
 
-There are two aspects of the tcp_estats approach that I think are worth
-considering separately:
-  - the breadth of instrumentation
-  - the access method through kernel module/netlink
+> I understand where you are coming from. I do believe that our 
+> methodology provides some advantages over a tcp_info solution. I'll 
+> provide some information on that tomorrow after I've had a chance to 
+> talk about this in more depth with our dev team. That being said, we 
+> only really care about the instrument set being incorporated as such we 
+> will take a closer look tcp_info shortly.
 
-I don't see any reason why we can't take the instrumentation parts of
-these patches and plumb them in to tcp_info.
+Hmm...
 
-I would prefer if we can retain the nested structures and the sysctl
-that controls the set of instruments collected as I think this key
-feature gives plenty of flexibility to system operators in terms of an
-overhead/instrumentation trade-off, however I recognise this complicates
-how the socket option is returned, and how ss might report the metrics.
+There is very little chance web10g ~3000 lines of code are added into
+linux TCP stack, by people who did not submit netdev changes in last
+years.
 
---
-Dominic Hamon
+At Google, we tried the web10g route, but reverted it (today !) in favor
+of tcp_info extensions (ss command from iproute2 can also grab/display
+these), after too many bugs being filled.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Researchers love/want to have hundred of metrics. This does not mean
+linux has to provide them natively, unless we can prove it is really
+damn useful.
+
+Sorry, but someone had to raise some reality concerns.
+
+tcp_info _is_ extensible, granted you do not try to push 127 new metrics
+in it.
+
+http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=977cb0ecf82eb6d15562573c31edebf90db35163
