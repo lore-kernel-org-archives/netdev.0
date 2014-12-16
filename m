@@ -1,74 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: FIXED_PHY is broken...
-Date: Tue, 16 Dec 2014 14:30:27 -0500 (EST)
-Message-ID: <20141216.143027.1243798311589198629.davem@davemloft.net>
-References: <20141216.112534.1684849738404064350.davem@davemloft.net>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next RESEND] net: Do not call ndo_dflt_fdb_dump if
+ ndo_fdb_dump is defined.
+Date: Tue, 16 Dec 2014 11:30:30 -0800
+Message-ID: <54908856.1070708@cumulusnetworks.com>
+References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>    <54894850.5000603@cumulusnetworks.com>    <7968540cd0768a770b0c8b29ce41a162.squirrel@poczta.wsisiz.edu.pl>    <5489D53E.5010603@cumulusnetworks.com>    <8d4ec5c1ae73c77866a0a154fb528f23.squirrel@poczta.wsisiz.edu.pl>    <548AD781.5020004@mojatatu.com> <4c22a6c452a73b3b77a9a9c8e7f76bcc.squirrel@poczta.wsisiz.edu.pl> <548AFD41.3010801@mojatatu.com> <548B4AA4.1020804@gmail.com> <548EF05E.6050401@mojatatu.com> <548F80B2.80408@gmail.com> <54902E5E.2070405@mojatatu.com> <54905F67.2090509@gmail.com> <54906A11.6030701@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com
-To: netdev@vger.kernel.org
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Hubert Sokolowski <h.sokolowski@wit.edu.pl>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55182 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751012AbaLPTaa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 14:30:30 -0500
-In-Reply-To: <20141216.112534.1684849738404064350.davem@davemloft.net>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:48052 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751012AbaLPTau (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 14:30:50 -0500
+In-Reply-To: <54906A11.6030701@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 16 Dec 2014 11:25:34 -0500 (EST)
-
-> I get this now when I run oldconfig:
-> 
-> warning: (NET_DSA_BCM_SF2 && BCMGENET && SYSTEMPORT) selects FIXED_PHY which has unmet direct dependencies (NETDEVICES && PHYLIB=y)
-
-Here is how I'm going to fix this.
-
-FIXED_PHY needs to be allowed to be modular, and built even if PHYLIB is
-modular too.
-
-====================
-[PATCH] net: Allow FIXED_PHY to be modular.
-
-Otherwise we get things like:
-
-warning: (NET_DSA_BCM_SF2 && BCMGENET && SYSTEMPORT) selects FIXED_PHY which has unmet direct dependencies (NETDEVICES && PHYLIB=y)
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/phy/Kconfig   | 4 ++--
- include/linux/phy_fixed.h | 2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index b4b0f80..a3c251b 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -119,8 +119,8 @@ config MICREL_PHY
- 	  Supports the KSZ9021, VSC8201, KS8001 PHYs.
- 
- config FIXED_PHY
--	bool "Driver for MDIO Bus/PHY emulation with fixed speed/link PHYs"
--	depends on PHYLIB=y
-+	tristate "Driver for MDIO Bus/PHY emulation with fixed speed/link PHYs"
-+	depends on PHYLIB
- 	---help---
- 	  Adds the platform "fixed" MDIO Bus to cover the boards that use
- 	  PHYs that are not connected to the real MDIO bus.
-diff --git a/include/linux/phy_fixed.h b/include/linux/phy_fixed.h
-index f2ca1b4..7e75bfe 100644
---- a/include/linux/phy_fixed.h
-+++ b/include/linux/phy_fixed.h
-@@ -11,7 +11,7 @@ struct fixed_phy_status {
- 
- struct device_node;
- 
--#ifdef CONFIG_FIXED_PHY
-+#if IS_ENABLED(CONFIG_FIXED_PHY)
- extern int fixed_phy_add(unsigned int irq, int phy_id,
- 			 struct fixed_phy_status *status);
- extern struct phy_device *fixed_phy_register(unsigned int irq,
--- 
-1.7.11.7
+On 12/16/14, 9:21 AM, Samudrala, Sridhar wrote:
+>
+> On 12/16/2014 8:35 AM, John Fastabend wrote:
+>>
+>>> Is there no way to get the unicast/multicast mac addresses for such
+>>> a driver?
+>>
+>> You can almost infer it from ip link by looking at all the stacked
+>> drivers and figuring out how the address are propagated down. Then
+>> look at the routes and figure out multicast address. But other than
+>> the fdb dump mechanism I don't think there is anything.
+>
+> It looks like we can get the device specific unicast/multicast mac 
+> addresses via 'ip maddr' too.
+if i remember correctly, 'ip maddr' was only for multicast list. And 
+there was no way to dump the unicast list until bridge self was introduced.
+the only way to dump unicast addresses today is by using the `bridge fdb 
+show self`
