@@ -1,52 +1,52 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
-Date: Tue, 16 Dec 2014 17:51:10 +0100
-Message-ID: <549062FE.2000808@broadcom.com>
-References: <53FDACD1.8090805@msgid.tls.msk.ru> <54363ED0.605@broadcom.com> <CACna6rw3XgdJz0uKkAuas8RTzozTdFp2mgF5g1uo7LHJVSMt4g@mail.gmail.com> <3543341.FmUQFH9nrl@eisbaer> <546C5D1F.108@msgid.tls.msk.ru> <546CD94D.9060509@broadcom.com> <546CF66A.3000207@msgid.tls.msk.ru> <546D04EE.1030200@msgid.tls.msk.ru> <5471AC29.6040009@broadcom.com> <5475A2DC.80502@msgid.tls.msk.ru> <547B07CF.90501@broadcom.com> <547E31BD.8090302@msgid.tls.msk.ru> <547F0575.7010104@broadcom.com>
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: [bisected] tg3 broken in 3.18.0?
+Date: Tue, 16 Dec 2014 09:15:41 -0800
+Message-ID: <1418750141.4248.3.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <20141213210251.GA12812@teela.fritz.box>
+	 <548EF90A.5070607@gmail.com>
+	 <CAA93t1qyZE-9tw8pg1KG6g4iyy0QMW=iass5w=6ZGMTMu+vi_A@mail.gmail.com>
+	 <CAErSpo5dqQE7nZ6zf2odgpHBWA3ZpTjhbgQKnY8YxQW+a+298w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="cp1252"
 Content-Transfer-Encoding: 7bit
-Cc: Maximilian Engelhardt <maxi@daemonizer.de>,
-	=?UTF-8?B?UmFmYcWCIE1pxYJl?= =?UTF-8?B?Y2tp?= <zajec5@gmail.com>,
-	Seth Forshee <seth.forshee@canonical.com>,
-	brcm80211 development <brcm80211-dev-list@broadcom.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Michael Tokarev <mjt@tls.msk.ru>
+Cc: Rajat Jain <rajatxjain@gmail.com>,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Nils Holland <nholland@tisys.org>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	Rafael Wysocki <rjw@rjwysocki.net>,
+	Prashant Sreedharan <prashant@broadcom.com>
+To: Bjorn Helgaas <bhelgaas@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:4796 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751125AbaLPQvN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 11:51:13 -0500
-In-Reply-To: <547F0575.7010104@broadcom.com>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:60807 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750942AbaLPRPn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 12:15:43 -0500
+In-Reply-To: <CAErSpo5dqQE7nZ6zf2odgpHBWA3ZpTjhbgQKnY8YxQW+a+298w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/03/14 13:43, Arend van Spriel wrote:
-> On 12/02/14 22:40, Michael Tokarev wrote:
->> 30.11.2014 15:04, Arend van Spriel wrote:
->>
->>> Thanks. Did not find what I was looking for, but I started working on
->>> integrating btcoex related functionality. The attached patch will print
->>> some info so I can focus on the required functionality for your device.
->>> It is based on 3.18-rc5.
->>
->> With this patch applied against 3.18-rc5, the machine instantly reboots
->> once brcmsmac module is loaded. I'm still debugging this.
+On Tue, 2014-12-16 at 09:20 -0700, Bjorn Helgaas wrote:
+> I think we're in this path:
+> 
+>     tg3_init_hw
+>       tg3_reset_hw
+>         tg3_disable_ints
+>         tg3_stop_fw
+>         tg3_write_sig_pre_reset
+>         tg3_chip_reset
+>           pci_device_is_present
+>             pci_bus_read_dev_vendor_id
+> 
+> and in this case pci_device_is_present() also passes a timeout of zero
+> to pci_bus_read_dev_vendor_id().  My guess is that tg3 is resetting
+> the device, so it's not too surprising that the config read returns
+> CRS status immediately afterward.
+> 
+At the point of calling pci_device_is_present(), chip reset hasn't
+started yet, so there should be no problem reading config space.
 
-Hmm. The function brcms_btc_ecicoex_enab() is calling itself. Please 
-remove that call as it causes endless recursion and eventually reboot.
-
-Regards,
-Arend
-
-> Argh. Probably the register access I added end up in limbo land or some
-> other stupid mistake. I will double check my patch.
->
-> Regards,
-> Arend
->
->> Thanks,
->>
->> /mjt
->
+In all the newer tg3 chips, chip reset does not reset the PCIE block.
+So I think config space should always be accesible even during reset.
+> 
