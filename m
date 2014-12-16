@@ -1,49 +1,63 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net] net/mlx4: Cache line CQE/EQE stride fixes
-Date: Tue, 16 Dec 2014 14:29:11 +0200
-Message-ID: <54902597.50105@mellanox.com>
-References: <1418729334-2974-1-git-send-email-amirv@mellanox.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH 0/5] tun/macvtap: TUNSETIFF fixes
+Date: Tue, 16 Dec 2014 15:04:53 +0200
+Message-ID: <1418732988-3535-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	"clsoto@linux.vnet.ibm.com" <clsoto@linux.vnet.ibm.com>,
-	Ido Shamay <idos@mellanox.com>,
-	Wei Yang <weiyang@linux.vnet.ibm.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0059.outbound.protection.outlook.com ([157.56.112.59]:20944
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750881AbaLPM3r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Dec 2014 07:29:47 -0500
-In-Reply-To: <1418729334-2974-1-git-send-email-amirv@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Dan Carpenter <dan.carpenter@oracle.com>,
+	Jason Wang <jasowang@redhat.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/16/2014 1:28 PM, Amir Vadai wrote:
-> From: Ido Shamay <idos@mellanox.com>
-> 
-> This commit contains 2 fixes for the 128B CQE/EQE stride feaure.
-> Wei found that mlx4_QUERY_HCA function marked the wrong capability
-> in flags (64B CQE/EQE), when CQE/EQE stride feature was enabled.
-> Also added small fix in initial CQE ownership bit assignment, when CQE
-> is size is not default 32B.
-> 
-> Fixes: 77507aa24 (net/mlx4: Enable CQE/EQE stride support)
-> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
-> Signed-off-by: Ido Shamay <idos@mellanox.com>
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
-> ---
-> Dave Hi,
-> 
-> Please pull this patch also to stable (at least 3.17)
-> 
-> Thanks,
-> Amir
+Dan Carpenter reported the following:
+	static checker warning:
 
-Small correction: Should pull into -stable >= 3.18
+		drivers/net/tun.c:1694 tun_set_iff()
+		warn: 0x17100 is larger than 16 bits
 
-Amir
+	drivers/net/tun.c
+	  1692
+	  1693          tun->flags = (tun->flags & ~TUN_FEATURES) |
+	  1694                  (ifr->ifr_flags & TUN_FEATURES);
+	  1695
+
+	It's complaining because the "ifr->ifr_flags" variable is a short
+	(should it be unsigned?).  The new define:
+
+	#define IFF_VNET_LE    0x10000
+
+	doesn't fit in two bytes.  Other suspect looking code could be:
+
+		return __virtio16_to_cpu(q->flags & IFF_VNET_LE, val);
+
+And that's true: we have run out of IFF flags in tun.
+
+So let's not try to add more: add simple GET/SET ioctls
+instead. Easy to test, leads to clear semantics.
+
+Alternatively we'll have to revert the whole thing for 3.19,
+but that seems more work as this has dependencies
+in other places.
+
+While here, I noticed that macvtap was actually reading
+ifreq flags as a 32 bit field.
+Fix that up as well.
+
+Michael S. Tsirkin (5):
+  macvtap: fix uninitialized access on TUNSETIFF
+  if_tun: add TUNSETVNETLE/TUNGETVNETLE
+  tun: drop broken IFF_VNET_LE
+  macvtap: drop broken IFF_VNET_LE
+  if_tun: drop broken IFF_VNET_LE
+
+ include/uapi/linux/if_tun.h |  3 ++-
+ drivers/net/macvtap.c       | 30 ++++++++++++++++++++++++------
+ drivers/net/tun.c           | 26 +++++++++++++++++++++++---
+ 3 files changed, 49 insertions(+), 10 deletions(-)
+
+-- 
+MST
