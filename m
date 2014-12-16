@@ -1,42 +1,59 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next RESEND] net: Do not call ndo_dflt_fdb_dump if
- ndo_fdb_dump is defined.
-Date: Tue, 16 Dec 2014 11:30:30 -0800
-Message-ID: <54908856.1070708@cumulusnetworks.com>
-References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>    <54894850.5000603@cumulusnetworks.com>    <7968540cd0768a770b0c8b29ce41a162.squirrel@poczta.wsisiz.edu.pl>    <5489D53E.5010603@cumulusnetworks.com>    <8d4ec5c1ae73c77866a0a154fb528f23.squirrel@poczta.wsisiz.edu.pl>    <548AD781.5020004@mojatatu.com> <4c22a6c452a73b3b77a9a9c8e7f76bcc.squirrel@poczta.wsisiz.edu.pl> <548AFD41.3010801@mojatatu.com> <548B4AA4.1020804@gmail.com> <548EF05E.6050401@mojatatu.com> <548F80B2.80408@gmail.com> <54902E5E.2070405@mojatatu.com> <54905F67.2090509@gmail.com> <54906A11.6030701@intel.com>
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: [bisected] tg3 broken in 3.18.0?
+Date: Tue, 16 Dec 2014 11:54:44 -0800
+Message-ID: <1418759684.4248.12.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <20141213210251.GA12812@teela.fritz.box>
+	 <548EF90A.5070607@gmail.com>
+	 <CAA93t1qyZE-9tw8pg1KG6g4iyy0QMW=iass5w=6ZGMTMu+vi_A@mail.gmail.com>
+	 <CAErSpo5dqQE7nZ6zf2odgpHBWA3ZpTjhbgQKnY8YxQW+a+298w@mail.gmail.com>
+	 <1418750141.4248.3.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	 <54907300.9050902@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="cp1252"
 Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Hubert Sokolowski <h.sokolowski@wit.edu.pl>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:48052 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751012AbaLPTau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 14:30:50 -0500
-In-Reply-To: <54906A11.6030701@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Bjorn Helgaas <bhelgaas@google.com>,
+	Rajat Jain <rajatxjain@gmail.com>,
+	Nils Holland <nholland@tisys.org>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	Rafael Wysocki <rjw@rjwysocki.net>,
+	"Prashant Sreedharan" <prashant@broadcom.com>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <54907300.9050902@gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/16/14, 9:21 AM, Samudrala, Sridhar wrote:
->
-> On 12/16/2014 8:35 AM, John Fastabend wrote:
->>
->>> Is there no way to get the unicast/multicast mac addresses for such
->>> a driver?
->>
->> You can almost infer it from ip link by looking at all the stacked
->> drivers and figuring out how the address are propagated down. Then
->> look at the routes and figure out multicast address. But other than
->> the fdb dump mechanism I don't think there is anything.
->
-> It looks like we can get the device specific unicast/multicast mac 
-> addresses via 'ip maddr' too.
-if i remember correctly, 'ip maddr' was only for multicast list. And 
-there was no way to dump the unicast list until bridge self was introduced.
-the only way to dump unicast addresses today is by using the `bridge fdb 
-show self`
+On Tue, 2014-12-16 at 15:59 -0200, Marcelo Ricardo Leitner wrote:
+> It's a 
+> 02:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5722
+> Gigabit Ethernet PCI Express
+> over here
+> 
+> I put a WARN_ON(1) after those printks, and this is what I got:
+> 
+> [    1.550640] pci 0000:02:00.0: 1st 1 1
+> [    1.550643] pci 0000:02:00.0: crs_timeout: 0
+> [    1.550645] ------------[ cut here ]------------
+> [    1.550651] WARNING: CPU: 6 PID: 364 at drivers/pci/probe.c:1445 pci_bus_read_dev_vendor_id+0x1d4/0x1e0()
+> [    1.550652] Modules linked in: i915(+) raid0 i2c_algo_bit drm_kms_helper drm e1000e(+) tg3(+) ptp pps_core video
+> [    1.550660] CPU: 6 PID: 364 Comm: systemd-udevd Not tainted 3.18.0-rc6+ #8
+> [    1.550661] Hardware name: Dell Inc. OptiPlex 9010/03K80F, BIOS A15 08/12/2013
+> [    1.550662]  0000000000000000 000000004de2d8dc ffff8807eabdf948 ffffffff8173db46
+> [    1.550665]  0000000000000000 0000000000000000 ffff8807eabdf988 ffffffff81094d41
+> [    1.550667]  ffff8807eabdf968 ffff8807f1e27000 0000000000000000 0000000000000000
+> [    1.550669] Call Trace:
+> [    1.550675]  [<ffffffff8173db46>] dump_stack+0x46/0x58
+> [    1.550679]  [<ffffffff81094d41>] warn_slowpath_common+0x81/0xa0
+> [    1.550681]  [<ffffffff81094e5a>] warn_slowpath_null+0x1a/0x20
+> [    1.550683]  [<ffffffff813b2864>] pci_bus_read_dev_vendor_id+0x1d4/0x1e0
+> [    1.550687]  [<ffffffff813b7c3e>] pci_device_is_present+0x2e/0x50
+> [    1.550693]  [<ffffffffa003364f>] tg3_chip_reset+0x2f/0x940 [tg3]
+> [    1.550697]  [<ffffffffa0033f9f>] tg3_halt+0x3f/0x1e0 [tg3]
+> [    1.550701]  [<ffffffffa0044f83>] tg3_init_one+0xb83/0x1a40 [tg3] 
+
+So does it work if you use a non-zero crs_timeout?  The driver has
+called tg3_halt() which may affect configuration read responses.  I need
+to check with the hardware team to see if the 5722 will return CRS in
+this scenario.
