@@ -1,94 +1,62 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH 3/5] tun: drop broken IFF_VNET_LE
-Date: Tue, 16 Dec 2014 15:05:06 +0200
-Message-ID: <1418732988-3535-4-git-send-email-mst@redhat.com>
-References: <1418732988-3535-1-git-send-email-mst@redhat.com>
+From: Marek Vasut <marex@denx.de>
+Subject: Re: [PATCH net-next 1/1] net: fec: Fix NAPI race
+Date: Tue, 16 Dec 2014 14:34:32 +0100
+Message-ID: <201412161434.32400.marex@denx.de>
+References: <1418725558-17287-1-git-send-email-b38611@freescale.com> <CAOMZO5D3cysOauyptcjCDM6sjK7ZEiAY==xYu-qqHbwFreoV8g@mail.gmail.com> <20141216114131.GQ11285@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Tom Herbert <therbert@google.com>,
-	Ben Hutchings <ben@decadent.org.uk>, Xi Wang <xii@google.com>,
-	Masatake YAMATO <yamato@redhat.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1418732988-3535-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Fabio Estevam <festevam@gmail.com>,
+	Fugang Duan <b38611@freescale.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Estevam Fabio-R49496" <R49496@freescale.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	robert.daniels@vantagecontrols.com
+To: "Russell King - ARM Linux" <linux@arm.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.9]:48323 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750814AbaLPNek (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 08:34:40 -0500
+In-Reply-To: <20141216114131.GQ11285@n2100.arm.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use TUNSETVNETLE/TUNGETVNETLE instead.
+On Tuesday, December 16, 2014 at 12:41:31 PM, Russell King - ARM Linux wrote:
+> On Tue, Dec 16, 2014 at 09:33:53AM -0200, Fabio Estevam wrote:
+> > Hi Fugang,
+> > 
+> > On Tue, Dec 16, 2014 at 8:25 AM, Fugang Duan <b38611@freescale.com> wrote:
+> > > Do camera capture test on i.MX6q sabresd board, and save the capture
+> > > data to nfs rootfs. The command is:
+> > > gst-launch-1.0 -e imxv4l2src device=/dev/video1 num-buffers=2592000 !
+> > > tee name=t ! queue ! imxv4l2sink sync=false t. ! queue ! vpuenc !
+> > > queue ! mux. pulsesrc num-buffers=3720937 blocksize=4096 !
+> > > 'audio/x-raw, rate=44100, channels=2' ! queue ! imxmp3enc !
+> > > mpegaudioparse ! queue ! mux. qtmux name=mux ! filesink
+> > > location=video_recording_long.mov
+> > > 
+> > > After about 10 hours running, there have net watchdog timeout kernel
+> > > dump: ...
+> > > WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:264
+> > > dev_watchdog+0x2b4/0x2d8() NETDEV WATCHDOG: eth0 (fec): transmit queue
+> > > 0 timed out
+> > 
+> > Adding more people who reported similar issues in the past.
+> > 
+> > Marek,
+> > 
+> > Does this patch solve the problem you reported at
+> > http://www.spinics.net/lists/netdev/msg268167.html ?
+> 
+> My set of patches fixed stuff exactly like this...
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/net/tun.c | 26 +++++++++++++++++++++++---
- 1 file changed, 23 insertions(+), 3 deletions(-)
+I still keep your G+ post open, in case I ever manage to find free time to dive 
+into it. It's be a terrible waste to let these patches go. Right now, I'm in the 
+process of finishing my degree (finally) so things are just crap, apologies.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index c052bd6b..e3e8a0e 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -109,9 +109,11 @@ do {								\
-  * overload it to mean fasync when stored there.
-  */
- #define TUN_FASYNC	IFF_ATTACH_QUEUE
-+/* High bits in flags field are unused. */
-+#define TUN_VNET_LE     0x80000000
- 
- #define TUN_FEATURES (IFF_NO_PI | IFF_ONE_QUEUE | IFF_VNET_HDR | \
--		      IFF_VNET_LE | IFF_MULTI_QUEUE)
-+		      IFF_MULTI_QUEUE)
- #define GOODCOPY_LEN 128
- 
- #define FLT_EXACT_COUNT 8
-@@ -207,12 +209,12 @@ struct tun_struct {
- 
- static inline u16 tun16_to_cpu(struct tun_struct *tun, __virtio16 val)
- {
--	return __virtio16_to_cpu(tun->flags & IFF_VNET_LE, val);
-+	return __virtio16_to_cpu(tun->flags & TUN_VNET_LE, val);
- }
- 
- static inline __virtio16 cpu_to_tun16(struct tun_struct *tun, u16 val)
- {
--	return __cpu_to_virtio16(tun->flags & IFF_VNET_LE, val);
-+	return __cpu_to_virtio16(tun->flags & TUN_VNET_LE, val);
- }
- 
- static inline u32 tun_hashfn(u32 rxhash)
-@@ -1853,6 +1855,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	int sndbuf;
- 	int vnet_hdr_sz;
- 	unsigned int ifindex;
-+	int le;
- 	int ret;
- 
- 	if (cmd == TUNSETIFF || cmd == TUNSETQUEUE || _IOC_TYPE(cmd) == 0x89) {
-@@ -2052,6 +2055,23 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 		tun->vnet_hdr_sz = vnet_hdr_sz;
- 		break;
- 
-+	case TUNGETVNETLE:
-+		le = !!(tun->flags & TUN_VNET_LE);
-+		if (put_user(le, (int __user *)argp))
-+			ret = -EFAULT;
-+		break;
-+
-+	case TUNSETVNETLE:
-+		if (get_user(le, (int __user *)argp)) {
-+			ret = -EFAULT;
-+			break;
-+		}
-+		if (le)
-+			tun->flags |= TUN_VNET_LE;
-+		else
-+			tun->flags &= ~TUN_VNET_LE;
-+		break;
-+
- 	case TUNATTACHFILTER:
- 		/* Can be set only for TAPs */
- 		ret = -EINVAL;
--- 
-MST
+Best regards,
+Marek Vasut
