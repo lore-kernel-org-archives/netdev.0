@@ -1,33 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/3] Implementation of RFC 4898 Extended TCP
- Statistics (Web10G)
-Date: Tue, 16 Dec 2014 15:03:54 -0500 (EST)
-Message-ID: <20141216.150354.64901094367530710.davem@davemloft.net>
-References: <CAADnVQ+rmBMoDRRu-Dtp7QBMJEbto9nb2zvFEXBCQsqpg6tS9A@mail.gmail.com>
-	<20141216.140919.44020047339373813.davem@davemloft.net>
-	<54908FAD.5060500@psc.edu>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: rapier@psc.edu
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 2/2] ip_tunnel: Add missing validation of encap type to ip_tunnel_encap_setup()
+Date: Tue, 16 Dec 2014 21:05:21 +0100
+Message-ID: <dd70de766b1111fdcb4794f6d671e4eca5053730.1418759998.git.tgraf@suug.ch>
+References: <cover.1418759998.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, therbert@google.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55484 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751044AbaLPUEA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 15:04:00 -0500
-In-Reply-To: <54908FAD.5060500@psc.edu>
+Received: from casper.infradead.org ([85.118.1.10]:49540 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750890AbaLPUFY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 15:05:24 -0500
+In-Reply-To: <cover.1418759998.git.tgraf@suug.ch>
+In-Reply-To: <cover.1418759998.git.tgraf@suug.ch>
+References: <cover.1418759998.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: rapier <rapier@psc.edu>
-Date: Tue, 16 Dec 2014 15:01:49 -0500
+The encap->type comes straight from Netlink. Validate it against
+max supported encap types just like ip_encap_hlen() already does.
 
-> On 12/16/14, 2:09 PM, David Miller wrote:
->> It's a non-starter.
-> 
-> Understood. We're in the process of reviewing which symbols are
-> required by the DLKM we've provided and which are required by in tree
-> modules (e.g tcp_estats_enabled is required by tcp_htcp).
+Fixes: a8c5f9 ("ip_tunnel: Ops registration for secondary encap (fou, gue)")
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ net/ipv4/ip_tunnel.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-You shouldn't need to export any symbols.
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 2f498f8..d3e4479 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -573,6 +573,9 @@ int ip_tunnel_encap(struct sk_buff *skb, struct ip_tunnel *t,
+ 	if (t->encap.type == TUNNEL_ENCAP_NONE)
+ 		return 0;
+ 
++	if (t->encap.type >= MAX_IPTUN_ENCAP_OPS)
++		return -EINVAL;
++
+ 	rcu_read_lock();
+ 	ops = rcu_dereference(iptun_encaps[t->encap.type]);
+ 	if (likely(ops && ops->build_header))
+-- 
+1.9.3
