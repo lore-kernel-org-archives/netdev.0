@@ -1,56 +1,42 @@
-From: rapier <rapier@psc.edu>
-Subject: Re: [PATCH net-next 2/3] Implementation of RFC 4898 Extended TCP
- Statistics (Web10G)
-Date: Tue, 16 Dec 2014 16:02:13 -0500
-Message-ID: <54909DD5.5070202@psc.edu>
-References: <54908FAD.5060500@psc.edu>	<20141216.150354.64901094367530710.davem@davemloft.net>	<54909278.6090806@psc.edu> <20141216.151823.2276708539799601894.davem@davemloft.net>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: Adding Unisys virtnic.c to the Network Tree
+Date: Tue, 16 Dec 2014 16:13:54 -0500
+Message-ID: <20141216211354.GB22253@gospo>
+References: <5490976C.20409@redhat.com>
+ <54909B71.10609@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	benjamin.romer@unisys.com, dzickus@redhat.com, prarit@redhat.com,
+	Bruce.Vessey@unisys.com, sparmaintainer@unisys.com
+To: Erik Arfvidson <earfvids@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:53549 "EHLO mailer1.psc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751670AbaLPVCQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Dec 2014 16:02:16 -0500
-In-Reply-To: <20141216.151823.2276708539799601894.davem@davemloft.net>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:39420 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751516AbaLPVN7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 16:13:59 -0500
+Content-Disposition: inline
+In-Reply-To: <54909B71.10609@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Dec 16, 2014 at 03:52:01PM -0500, Erik Arfvidson wrote:
+> Hi Dave,
+> 
+> I'm a partner engineer at Red Hat working for Unisys. Currently most of our
+> driver for our system reside in the staging tree Maintained by Greg KH. It
+> was suggested by one of the engineers at Red Hat Don Zickus that in order to
+> accelerate the process of moving the remaining drivers we pushed directly to
+> their specific system in the Linux Kernel. Currently virtnic which is our
+> Virtual Network driver resides internally at Unisys and dependencies are in
+> the staging tree(drivers/staging/unisys/). So would you be willing to take a
+> look at our Network driver in order to add it to your Network tree?
 
+Erik,
 
-On 12/16/14 3:18 PM, David Miller wrote:
-> From: rapier <rapier@psc.edu>
-> Date: Tue, 16 Dec 2014 15:13:44 -0500
->
->> On 12/16/14, 3:03 PM, David Miller wrote:
->>
->>> You shouldn't need to export any symbols.
->>
->> As a point of clarification - is it acceptable to export symbols for
->> use with in tree modules such as tcp_htcp? We are more than willing to
->> do the work required to bring this in line with best practices.
->
-> I'm saying for data and TCP statistics collection, you shouldn't need
-> to add any new symbol exports.
+I realize I'm not Dave, but I thought I could respond anyway.  :)
 
-We've been able to identify that as the code stands we only need one 
-export for the KIS. That being said, I understand if that's one too 
-many. The DLKM (which hasn't been submitted) does require two additional 
-symbols and that's an oversight on our part. We'll work to eliminate 
-those as well.
+I suspect that if you posted the driver to this list, more eyes than
+just Dave would be willing to take a look and provide inline feedback.
 
-> Keep this in the main kernel, nothing external should be needed.
->
-> Extending tcp_info or similar is the only reasonable way to implement
-> this stuff.
-
-I understand where you are coming from. I do believe that our 
-methodology provides some advantages over a tcp_info solution. I'll 
-provide some information on that tomorrow after I've had a chance to 
-talk about this in more depth with our dev team. That being said, we 
-only really care about the instrument set being incorporated as such we 
-will take a closer look tcp_info shortly.
-
-Chris
+-andy
