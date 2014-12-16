@@ -1,37 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/3] Implementation of RFC 4898 Extended TCP
- Statistics (Web10G)
-Date: Tue, 16 Dec 2014 17:44:07 -0500 (EST)
-Message-ID: <20141216.174407.693047700796165794.davem@davemloft.net>
-References: <20141216.151823.2276708539799601894.davem@davemloft.net>
-	<54909DD5.5070202@psc.edu>
-	<1418769212.9773.65.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [RFC PATCH net-next 0/5] tcp: TCP tracer
+Date: Tue, 16 Dec 2014 17:45:24 -0500 (EST)
+Message-ID: <20141216.174524.888376617592272638.davem@davemloft.net>
+References: <1418659395.9773.13.camel@edumazet-glaptop2.roam.corp.google.com>
+	<548F0F62.7080704@fb.com>
+	<5490B4EF.1030803@akamai.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rapier@psc.edu, alexei.starovoitov@gmail.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: jbacik@fb.com, eric.dumazet@gmail.com,
+	alexei.starovoitov@gmail.com, chavey@google.com, ycheng@google.com,
+	kafai@fb.com, netdev@vger.kernel.org, hannes@stressinduktion.org,
+	rostedt@goodmis.org, brakmo@fb.com, Kernel-team@fb.com
+To: jbaron@akamai.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56787 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56808 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750960AbaLPWoK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 17:44:10 -0500
-In-Reply-To: <1418769212.9773.65.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1750985AbaLPWp0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 17:45:26 -0500
+In-Reply-To: <5490B4EF.1030803@akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 16 Dec 2014 14:33:32 -0800
+From: Jason Baron <jbaron@akamai.com>
+Date: Tue, 16 Dec 2014 17:40:47 -0500
 
-> There is very little chance web10g ~3000 lines of code are added into
-> linux TCP stack, by people who did not submit netdev changes in last
-> years.
+> We are interested in tcp tracing as well. Another requirement that
+> we have that I don't think I saw is the ability to start/stop
+> tracing on sockets (potentially multiple times) during the lifetime
+> of a connection. So for example, the ability to use setsockopt(), to
+> selectively start/stop tracing on a connection, so as not to incur
+> overhead for non-traced sockets.
 
-+1
+This is so backwards.
 
-> At Google, we tried the web10g route, but reverted it (today !) in favor
-> of tcp_info extensions (ss command from iproute2 can also grab/display
-> these), after too many bugs being filled.
+You make the tracing cheap enough that this can never be an issue.
 
-+1
+Your requirement can only exist if the implementation is broken
+by design.
