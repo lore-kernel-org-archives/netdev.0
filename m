@@ -1,220 +1,110 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: Bug: mv643xxx fails with highmem
-Date: Tue, 16 Dec 2014 10:57:08 +0000
-Message-ID: <20141216105707.GO11285@n2100.arm.linux.org.uk>
-References: <20141211194920.GR11285@n2100.arm.linux.org.uk>
- <20141211.151055.817876561546126576.davem@davemloft.net>
- <20141211202507.GS11285@n2100.arm.linux.org.uk>
- <20141211.152756.1471877201690056873.davem@davemloft.net>
- <BLUPR03MB37339496B52755D0F32B002F5600@BLUPR03MB373.namprd03.prod.outlook.com>
- <20141215180430.GK11285@n2100.arm.linux.org.uk>
- <BLUPR03MB37305CF1F6797329BD9B183F56C0@BLUPR03MB373.namprd03.prod.outlook.com>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH net-next 1/1] net: fec: Fix NAPI race
+Date: Tue, 16 Dec 2014 18:25:58 +0800
+Message-ID: <1418725558-17287-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"Fabio.Estevam@freescale.com" <Fabio.Estevam@freescale.com>,
-	"ezequiel.garcia@free-electrons.com"
-	<ezequiel.garcia@free-electrons.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <R49496@freescale.com>,
+	<bhutchings@solarflare.com>, <stephen@networkplumber.org>,
+	<b38611@freescale.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:33529 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751326AbaLPK5W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 05:57:22 -0500
-Content-Disposition: inline
-In-Reply-To: <BLUPR03MB37305CF1F6797329BD9B183F56C0@BLUPR03MB373.namprd03.prod.outlook.com>
+Received: from mail-by2on0134.outbound.protection.outlook.com ([207.46.100.134]:58640
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750812AbaLPLAM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Dec 2014 06:00:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 16, 2014 at 02:19:38AM +0000, fugang.duan@freescale.com wro=
-te:
-> From: Russell King - ARM Linux <linux@arm.linux.org.uk> Sent: Tuesday=
-, December 16, 2014 2:05 AM
-> > To: Duan Fugang-B38611
-> > Cc: David Miller; Estevam Fabio-R49496; ezequiel.garcia@free-
-> > electrons.com; netdev@vger.kernel.org
-> > Subject: Re: Bug: mv643xxx fails with highmem
-> >=20
-> > On Fri, Dec 12, 2014 at 05:34:01AM +0000, fugang.duan@freescale.com=
- wrote:
-> > > I will submit one patch to fix the issue.
-> >=20
-> > There's more bugs in the FEC driver... here's the relevant bits:
-> >=20
-> > static void
-> > fec_enet_tx_queue(struct net_device *ndev, u16 queue_id) {
-> >         bdp =3D txq->dirty_tx;
-> >=20
-> >         bdp =3D fec_enet_get_nextdesc(bdp, fep, queue_id);
-> >=20
-> >         while (((status =3D bdp->cbd_sc) & BD_ENET_TX_READY) =3D=3D=
- 0) {
-> >                 /* current queue is empty */
-> >                 if (bdp =3D=3D txq->cur_tx)
-> >                         break;
-> >=20
-> >                 skb =3D txq->tx_skbuff[index];
-> >                 txq->tx_skbuff[index] =3D NULL;
-> >                 if (!IS_TSO_HEADER(txq, bdp->cbd_bufaddr))
-> >                         dma_unmap_single(&fep->pdev->dev, bdp-
-> > >cbd_bufaddr,
-> >                                         bdp->cbd_datlen, DMA_TO_DEV=
-ICE);
-> >                 bdp->cbd_bufaddr =3D 0;
-> >                 if (!skb) {
-> >                         bdp =3D fec_enet_get_nextdesc(bdp, fep, que=
-ue_id);
-> >                         continue;
-> >                 }
-> > ...
-> >                 txq->dirty_tx =3D bdp;
-> >                 bdp =3D fec_enet_get_nextdesc(bdp, fep, queue_id);
-> >         }
-> >=20
-> > Consider the following code path:
-> > - we enter this function
-> > - get the dirty_tx pointer
-> > - move to the next descriptor (which we'll call descriptor A)
-> > - next descriptor indicates that TX_READY =3D 0
-> > - bdp !=3D txq->cur_tx
-> > - we unmap if needed
-> > - we set bdp->cmdbufaddr =3D 0
-> > - assume skb is NULL, so we move to the next descriptor (we'll call=
- this
-> > B)
-> > - next descriptor _may_ have TX_READY =3D 1
-> > - we break out of the loop, and return
-> >=20
-> > Some time later, we re-enter:
-> > - get the dirty_tx pointer
-> > - move to the next descriptor (which is descriptor A above)
-> > - next descriptor indicates that TX_READY =3D 0
-> > - bdp !=3D txq->cur_tx
-> > - we call dma_unmap_single(..., bdp->cbd_bufaddr, which we previous=
-ly
-> > zeroed
-> >   - the DMA API debugging complains that FEC is unmapping memory wh=
-ich it
-> >     doesn't own
-> >=20
-> > Unfortunately, this does appear to happen - from a paste from Jon
-> > Nettleton from iMX6Q:
-> >=20
-> >  32.=A0[ =A0 45.033001] unmapping this address 0x0 size 66  33.=A0[=
- =A0 45.037470]
-> > ------------[ cut here ]------------  34.=A0[ =A0 45.042127] WARNIN=
-G: CPU: 0
-> > PID: 102 at lib/dma-debug.c:1080 check_unmap+0x784/0x9f4()
-> > 35.=A0[ =A0 45.050066] fec 2188000.ethernet: DMA-API: device driver=
- tries to
-> > free DMA memory it has not a]
-> >=20
-> > (where the printk at line 32 is something that was added to debug t=
-his.)
-> >=20
-> > The sad thing is that the remainder of my FEC patches did go a long=
- way
-> > to clean up these kinds of issues in the driver (and there's /many/=
- of
-> > them), but unfortunately other conflicting changes got merged befor=
-e I
-> > could finish rebasing them, I decided to move on to other things an=
-d
-> > discard the remainder of my patch set.  Marek showed some interest =
-in
-> > taking the patch set over, but I've not heard anything more - and I=
-'m not
-> > about to resurect my efforts only to get into the same situation wh=
-ere
-> > I'm carrying 50 odd patches which I can't merge back into mainline
-> > without spending weeks endlessly rebasing them.
-> >=20
-> Russell, many thanks for your effort and thanks for your pointing out=
- the bug.
-> I will think one method to fix it.
->=20
-> And I have one question for highmem dma mapping issue as below:
-> fec_enet_txq_submit_frag_skb(struct fec_enet_priv_tx_q *txq, struct s=
-k_buff *skb, struct net_device *ndev)
-> {
-> 	...
-> 		    bufaddr =3D page_address(this_frag->page.p) + this_frag->page_o=
-ffset;
->=20
->                 index =3D fec_enet_get_bd_index(txq->tx_bd_base, bdp,=
- fep);
->                 if (((unsigned long) bufaddr) & fep->tx_align ||
->                         fep->quirks & FEC_QUIRK_SWAP_FRAME) {
->                         memcpy(txq->tx_bounce[index], bufaddr, frag_l=
-en);
->                         bufaddr =3D txq->tx_bounce[index];
->=20
->                         if (fep->quirks & FEC_QUIRK_SWAP_FRAME)
->                                 swap_buffer(bufaddr, frag_len);
->                 }
->=20
->                 addr =3D dma_map_single(&fep->pdev->dev, bufaddr, fra=
-g_len,
->                                       DMA_TO_DEVICE);
->                 if (dma_mapping_error(&fep->pdev->dev, addr)) {
->                         dev_kfree_skb_any(skb);
->                         if (net_ratelimit())
->                                 netdev_err(ndev, "Tx DMA memory map f=
-ailed\n");
->                         goto dma_mapping_error;
->                 }
-> 	...
-> }
->
-> If the frag page is located at high memory, use dma_map_single() is n=
-ot
-> right, must use skb_frag_dma_map() or dma_map_page().
+Do camera capture test on i.MX6q sabresd board, and save the capture data to
+nfs rootfs. The command is:
+gst-launch-1.0 -e imxv4l2src device=/dev/video1 num-buffers=2592000 ! tee name=t !
+queue ! imxv4l2sink sync=false t. ! queue ! vpuenc ! queue ! mux. pulsesrc num-buffers=3720937
+blocksize=4096 ! 'audio/x-raw, rate=44100, channels=2' ! queue ! imxmp3enc ! mpegaudioparse !
+queue ! mux. qtmux name=mux ! filesink location=video_recording_long.mov
 
-Correct.
+After about 10 hours running, there have net watchdog timeout kernel dump:
+...
+WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:264 dev_watchdog+0x2b4/0x2d8()
+NETDEV WATCHDOG: eth0 (fec): transmit queue 0 timed out
+CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.14.24-01051-gdb840b7 #440
+[<80014e6c>] (unwind_backtrace) from [<800118ac>] (show_stack+0x10/0x14)
+[<800118ac>] (show_stack) from [<806ae3f0>] (dump_stack+0x78/0xc0)
+[<806ae3f0>] (dump_stack) from [<8002b504>] (warn_slowpath_common+0x68/0x8c)
+[<8002b504>] (warn_slowpath_common) from [<8002b558>] (warn_slowpath_fmt+0x30/0x40)
+[<8002b558>] (warn_slowpath_fmt) from [<8055e0d4>] (dev_watchdog+0x2b4/0x2d8)
+[<8055e0d4>] (dev_watchdog) from [<800352d8>] (call_timer_fn.isra.33+0x24/0x8c)
+[<800352d8>] (call_timer_fn.isra.33) from [<800354c4>] (run_timer_softirq+0x184/0x220)
+[<800354c4>] (run_timer_softirq) from [<8002f420>] (__do_softirq+0xc0/0x22c)
+[<8002f420>] (__do_softirq) from [<8002f804>] (irq_exit+0xa8/0xf4)
+[<8002f804>] (irq_exit) from [<8000ee5c>] (handle_IRQ+0x54/0xb4)
+[<8000ee5c>] (handle_IRQ) from [<80008598>] (gic_handle_irq+0x28/0x5c)
+[<80008598>] (gic_handle_irq) from [<800123c0>] (__irq_svc+0x40/0x74)
+Exception stack(0x80d27f18 to 0x80d27f60)
+7f00:                                                       80d27f60 0000014c
+7f20: 8858c60e 0000004d 884e4540 0000004d ab7250d0 80d34348 00000000 00000000
+7f40: 00000001 00000000 00000017 80d27f60 800702a4 80476e6c 600f0013 ffffffff
+[<800123c0>] (__irq_svc) from [<80476e6c>] (cpuidle_enter_state+0x50/0xe0)
+[<80476e6c>] (cpuidle_enter_state) from [<80476fa8>] (cpuidle_idle_call+0xac/0x154)
+[<80476fa8>] (cpuidle_idle_call) from [<8000f174>] (arch_cpu_idle+0x8/0x44)
+[<8000f174>] (arch_cpu_idle) from [<80064c54>] (cpu_startup_entry+0x100/0x158)
+[<80064c54>] (cpu_startup_entry) from [<80cd8a9c>] (start_kernel+0x304/0x368)
+---[ end trace 09ebd32fb032f86d ]---
+...
 
-> But before mapping, if tx has buffer alignment limitation (tx_align i=
-s
-> not zero), there need to do memcpy for buffer alignment.
+There might have a race in napi_schedule(), leaving interrupts disabled forever.
+After these patch, the case still work more than 40 hours running.
 
-Right, and that can be detected by simply checking this_frag->page_offs=
-et
-as we know that a page address is always aligned to a page.
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c |   19 +++++++------------
+ 1 files changed, 7 insertions(+), 12 deletions(-)
 
-> So, there we need to check whether the page is in highmem, if so, we
-> need to call kmap_atomic() or kmap_high_get() to get cpu address,
-> And then do memcpy or swap buffer operation.
-
-Yes - you'd need to do something like this:
-
-	if (this_frag->page_offset & fep->tx_align ||
-	    fep->quirks & FEC_QUIRK_SWAP_FRAME) {
-		bufaddr =3D kmap_atomic(this_frag->page.p) + this_frag->page_offset;
-		memcpy(txq->tx_bounce[index], bufaddr, frag_len);
-		kunmap_atomic(bufaddr);
-
-		bufaddr =3D txq->tx_bounce[index];
-		if (fep->quirks & FEC_QUIRK_SWAP_FRAME)
-			swap_buffer(bufaddr, frag_len);
-                addr =3D dma_map_single(&fep->pdev->dev, bufaddr, frag_=
-len,
-                                      DMA_TO_DEVICE);
-	} else {
-		addr =3D skb_frag_dma_map(&fep->pdev->dev, this_frag, 0,
-					frag_len, DMA_TO_DEVICE);
-	}
-
-	if (dma_mapping_error(&fep->pdev->dev, addr)) {
-		dev_kfree_skb_any(skb);
-		if (net_ratelimit())
-			netdev_err(ndev, "Tx DMA memory map failed\n");
-		goto dma_mapping_error;
-	}
-
-You'll also need to record whether you should use dma_unmap_page() or
-dma_unmap_single().
-
---=20
-=46TTC broadband for 0.8mile line: currently at 9.5Mbps down 400kbps up
-according to speedtest.net.
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 8c5b15e..5c4a8bd 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1558,20 +1558,21 @@ fec_enet_interrupt(int irq, void *dev_id)
+ {
+ 	struct net_device *ndev = dev_id;
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+-	const unsigned napi_mask = FEC_ENET_RXF | FEC_ENET_TXF;
+ 	uint int_events;
+ 	irqreturn_t ret = IRQ_NONE;
+ 
+ 	int_events = readl(fep->hwp + FEC_IEVENT);
+-	writel(int_events & ~napi_mask, fep->hwp + FEC_IEVENT);
++	writel(int_events, fep->hwp + FEC_IEVENT);
+ 	fec_enet_collect_events(fep, int_events);
+ 
+-	if (int_events & napi_mask) {
++	if (fep->work_tx || fep->work_rx) {
+ 		ret = IRQ_HANDLED;
+ 
+-		/* Disable the NAPI interrupts */
+-		writel(FEC_ENET_MII, fep->hwp + FEC_IMASK);
+-		napi_schedule(&fep->napi);
++		if (napi_schedule_prep(&fep->napi)) {
++			/* Disable the NAPI interrupts */
++			writel(FEC_ENET_MII, fep->hwp + FEC_IMASK);
++			__napi_schedule(&fep->napi);
++		}
+ 	}
+ 
+ 	if (int_events & FEC_ENET_MII) {
+@@ -1591,12 +1592,6 @@ static int fec_enet_rx_napi(struct napi_struct *napi, int budget)
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 	int pkts;
+ 
+-	/*
+-	 * Clear any pending transmit or receive interrupts before
+-	 * processing the rings to avoid racing with the hardware.
+-	 */
+-	writel(FEC_ENET_RXF | FEC_ENET_TXF, fep->hwp + FEC_IEVENT);
+-
+ 	pkts = fec_enet_rx(ndev, budget);
+ 
+ 	fec_enet_tx(ndev);
+-- 
+1.7.8
