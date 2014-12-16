@@ -1,35 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH_V2] dm9000: Add regulator and reset support to dm9000
-Date: Tue, 16 Dec 2014 15:25:33 -0500 (EST)
-Message-ID: <20141216.152533.2094738642992885074.davem@davemloft.net>
-References: <1418748391-9955-1-git-send-email-Zubair.Kakakhel@imgtec.com>
+From: Nils Holland <nholland@tisys.org>
+Subject: Re: [bisected] tg3 broken in 3.18.0?
+Date: Tue, 16 Dec 2014 21:38:15 +0100
+Message-ID: <20141216203815.GA6022@teela.fritz.box>
+References: <20141213210251.GA12812@teela.fritz.box>
+ <548EF90A.5070607@gmail.com>
+ <CAA93t1qyZE-9tw8pg1KG6g4iyy0QMW=iass5w=6ZGMTMu+vi_A@mail.gmail.com>
+ <54907324.4040102@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, paul.burton@imgtec.com
-To: Zubair.Kakakhel@imgtec.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55699 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751768AbaLPUZf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 15:25:35 -0500
-In-Reply-To: <1418748391-9955-1-git-send-email-Zubair.Kakakhel@imgtec.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: rajatxjain@gmail.com, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <54907324.4040102@gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Date: Tue, 16 Dec 2014 16:46:31 +0000
-
-> In boards, the dm9000 chip's power and reset can be controlled by gpio.
+On Tue, Dec 16, 2014 at 04:00:04PM -0200, Marcelo Ricardo Leitner wrote:
+> On 16-12-2014 14:04, Rajat Jain wrote:
+> > Hello All,
+> >
+> > Apologies for jumping in late, but for some reason I do not see the
+> > original mail in my inbox. However I am taking a look at the mails as
+> > sent on linux-pci (and I will keep an eye out for the bug report that
+> > Bjorn asked for).
+> >
 > 
-> It makes sense to add them to the dm9000 driver and let dt be used to
-> enable power and reset the phy.
-> 
-> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-> Signed-off-by: Paul Burton <paul.burton@imgtec.com>
+> np!
+> Nils would you create that BZ please? As you did all the bisect.. :)
 
-This looks like a new feature to me, and therefore only appropriate
-for net-next, which is closed right now.
+I'm only just catching up with all the new messages in this thread,
+but I've already opened a bug report, as requested. Come and find it
+at:
 
-Please resubmit this when the net-next tree opens back up.
+https://bugzilla.kernel.org/show_bug.cgi?id=89821
+
+Feel free to add more relevant details to it! :-)
+
+Greetings,
+Nils
