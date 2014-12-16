@@ -1,32 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: Disallow providing non zero VLAN ID for NIC
- drivers FDB add flow
-Date: Tue, 16 Dec 2014 15:41:53 -0500 (EST)
-Message-ID: <20141216.154153.2279692705217347585.davem@davemloft.net>
-References: <1418573945-27840-1-git-send-email-ogerlitz@mellanox.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/2] ip_tunnel: Add missing validation of encap type to
+ ip_tunnel_encap_setup()
+Date: Tue, 16 Dec 2014 20:50:40 +0000
+Message-ID: <20141216205040.GA28766@casper.infradead.org>
+References: <cover.1418759998.git.tgraf@suug.ch>
+ <dd70de766b1111fdcb4794f6d671e4eca5053730.1418759998.git.tgraf@suug.ch>
+ <CA+mtBx_364iHXxLkA=Ytb=34_2zEy9-3hqfOdt96Ckhm8NwFiQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us,
-	gospo@cumulusnetworks.com, jhs@mojatatu.com,
-	john.r.fastabend@intel.com
-To: ogerlitz@mellanox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55856 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750905AbaLPUl7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 15:41:59 -0500
-In-Reply-To: <1418573945-27840-1-git-send-email-ogerlitz@mellanox.com>
+Received: from casper.infradead.org ([85.118.1.10]:49788 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750882AbaLPUul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 15:50:41 -0500
+Content-Disposition: inline
+In-Reply-To: <CA+mtBx_364iHXxLkA=Ytb=34_2zEy9-3hqfOdt96Ckhm8NwFiQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Sun, 14 Dec 2014 18:19:05 +0200
-
-> The current implementations all use dev_uc_add_excl() and such whose API
-> doesn't support vlans, so we can't make it with NICs HW for now.
+On 12/16/14 at 12:23pm, Tom Herbert wrote:
+> On Tue, Dec 16, 2014 at 12:05 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> > The encap->type comes straight from Netlink. Validate it against
+> > max supported encap types just like ip_encap_hlen() already does.
+> >
+> > Fixes: a8c5f9 ("ip_tunnel: Ops registration for secondary encap (fou, gue)")
+> > Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> > ---
+> >  net/ipv4/ip_tunnel.c | 3 +++
+> >  1 file changed, 3 insertions(+)
+> >
+> > diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+> > index 2f498f8..d3e4479 100644
+> > --- a/net/ipv4/ip_tunnel.c
+> > +++ b/net/ipv4/ip_tunnel.c
+> > @@ -573,6 +573,9 @@ int ip_tunnel_encap(struct sk_buff *skb, struct ip_tunnel *t,
+> >         if (t->encap.type == TUNNEL_ENCAP_NONE)
+> >                 return 0;
+> >
+> > +       if (t->encap.type >= MAX_IPTUN_ENCAP_OPS)
+> > +               return -EINVAL;
+> > +
 > 
-> Fixes: f6f6424ba773 ('net: make vid as a parameter for ndo_fdb_add/ndo_fdb_del')
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> I don't think this is technically needed, we should have already
+> verified the type when setting up the tunnel (ip_encap_hlen).
 
-Applied, thanks.
+Right, assuming that every API user always calls ip_tunnel_encap_setup()
+on changelink. It's currently the case but since this is a exported
+API I figured we better be safe than sorry, in particular as
+ip_tunnel_encap() is called before ip_encap_hlen() on xmit.
