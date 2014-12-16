@@ -1,112 +1,52 @@
-From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH_V2] dm9000: Add regulator and reset support to dm9000
-Date: Tue, 16 Dec 2014 16:46:31 +0000
-Message-ID: <1418748391-9955-1-git-send-email-Zubair.Kakakhel@imgtec.com>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
+Date: Tue, 16 Dec 2014 17:51:10 +0100
+Message-ID: <549062FE.2000808@broadcom.com>
+References: <53FDACD1.8090805@msgid.tls.msk.ru> <54363ED0.605@broadcom.com> <CACna6rw3XgdJz0uKkAuas8RTzozTdFp2mgF5g1uo7LHJVSMt4g@mail.gmail.com> <3543341.FmUQFH9nrl@eisbaer> <546C5D1F.108@msgid.tls.msk.ru> <546CD94D.9060509@broadcom.com> <546CF66A.3000207@msgid.tls.msk.ru> <546D04EE.1030200@msgid.tls.msk.ru> <5471AC29.6040009@broadcom.com> <5475A2DC.80502@msgid.tls.msk.ru> <547B07CF.90501@broadcom.com> <547E31BD.8090302@msgid.tls.msk.ru> <547F0575.7010104@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <paul.burton-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>,
-	<Zubair.Kakakhel-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
-To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Maximilian Engelhardt <maxi@daemonizer.de>,
+	=?UTF-8?B?UmFmYcWCIE1pxYJl?= =?UTF-8?B?Y2tp?= <zajec5@gmail.com>,
+	Seth Forshee <seth.forshee@canonical.com>,
+	brcm80211 development <brcm80211-dev-list@broadcom.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Michael Tokarev <mjt@tls.msk.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:4796 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751125AbaLPQvN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 11:51:13 -0500
+In-Reply-To: <547F0575.7010104@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In boards, the dm9000 chip's power and reset can be controlled by gpio.
+On 12/03/14 13:43, Arend van Spriel wrote:
+> On 12/02/14 22:40, Michael Tokarev wrote:
+>> 30.11.2014 15:04, Arend van Spriel wrote:
+>>
+>>> Thanks. Did not find what I was looking for, but I started working on
+>>> integrating btcoex related functionality. The attached patch will print
+>>> some info so I can focus on the required functionality for your device.
+>>> It is based on 3.18-rc5.
+>>
+>> With this patch applied against 3.18-rc5, the machine instantly reboots
+>> once brcmsmac module is loaded. I'm still debugging this.
 
-It makes sense to add them to the dm9000 driver and let dt be used to
-enable power and reset the phy.
+Hmm. The function brcms_btc_ecicoex_enab() is calling itself. Please 
+remove that call as it causes endless recursion and eventually reboot.
 
-Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Paul Burton <paul.burton-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
----
-V2. Fixed a small blooper. dev_dgb -> dev_dbg
+Regards,
+Arend
 
----
- .../devicetree/bindings/net/davicom-dm9000.txt     |  4 +++
- drivers/net/ethernet/davicom/dm9000.c              | 33 ++++++++++++++++++++++
- 2 files changed, 37 insertions(+)
-
-diff --git a/Documentation/devicetree/bindings/net/davicom-dm9000.txt b/Documentation/devicetree/bindings/net/davicom-dm9000.txt
-index 28767ed..dba19a2 100644
---- a/Documentation/devicetree/bindings/net/davicom-dm9000.txt
-+++ b/Documentation/devicetree/bindings/net/davicom-dm9000.txt
-@@ -11,6 +11,8 @@ Required properties:
- Optional properties:
- - davicom,no-eeprom : Configuration EEPROM is not available
- - davicom,ext-phy : Use external PHY
-+- reset-gpio : phandle of gpio that will be used to reset chip during probe
-+- vcc-supply : phandle of regulator that will be used to enable power to chip
- 
- Example:
- 
-@@ -21,4 +23,6 @@ Example:
- 		interrupts = <7 4>;
- 		local-mac-address = [00 00 de ad be ef];
- 		davicom,no-eeprom;
-+		reset-gpio = <&gpf 12 GPIO_ACTIVE_LOW>;
-+		vcc-supply = <&eth0_power>;
- 	};
-diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
-index ef0bb58..97dbeec 100644
---- a/drivers/net/ethernet/davicom/dm9000.c
-+++ b/drivers/net/ethernet/davicom/dm9000.c
-@@ -36,6 +36,9 @@
- #include <linux/platform_device.h>
- #include <linux/irq.h>
- #include <linux/slab.h>
-+#include <linux/regulator/consumer.h>
-+#include <linux/gpio.h>
-+#include <linux/of_gpio.h>
- 
- #include <asm/delay.h>
- #include <asm/irq.h>
-@@ -1426,11 +1429,41 @@ dm9000_probe(struct platform_device *pdev)
- 	struct dm9000_plat_data *pdata = dev_get_platdata(&pdev->dev);
- 	struct board_info *db;	/* Point a board information structure */
- 	struct net_device *ndev;
-+	struct device *dev = &pdev->dev;
- 	const unsigned char *mac_src;
- 	int ret = 0;
- 	int iosize;
- 	int i;
- 	u32 id_val;
-+	int reset_gpio;
-+	enum of_gpio_flags flags;
-+	struct regulator *power;
-+
-+	power = devm_regulator_get(dev, "vcc");
-+	if (IS_ERR(power)) {
-+		dev_dbg(dev, "no regulator provided\n");
-+	} else if (!regulator_is_enabled(power)) {
-+		ret = regulator_enable(power);
-+		dev_dbg(dev, "regulator enabled\n");
-+	}
-+
-+	reset_gpio = of_get_named_gpio_flags(dev->of_node, "reset-gpio", 0,
-+					     &flags);
-+	if (gpio_is_valid(reset_gpio)) {
-+		ret = devm_gpio_request_one(dev, reset_gpio, flags,
-+					    "dm9000_reset");
-+		if (ret) {
-+			dev_err(dev, "failed to request reset gpio %d: %d\n",
-+				reset_gpio, ret);
-+		} else {
-+			gpio_direction_output(reset_gpio, 0);
-+			/* According to manual PWRST# Low Period Min 1ms */
-+			msleep(2);
-+			gpio_direction_output(reset_gpio, 1);
-+			/* Needs 3ms to read eeprom when PWRST is deasserted */
-+			msleep(4);
-+		}
-+	}
- 
- 	if (!pdata) {
- 		pdata = dm9000_parse_dt(&pdev->dev);
--- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Argh. Probably the register access I added end up in limbo land or some
+> other stupid mistake. I will double check my patch.
+>
+> Regards,
+> Arend
+>
+>> Thanks,
+>>
+>> /mjt
+>
