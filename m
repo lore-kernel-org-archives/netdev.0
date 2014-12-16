@@ -1,50 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv1 net] xen-netfront: use napi_complete() correctly to
- prevent Rx stalling
-Date: Tue, 16 Dec 2014 15:22:17 -0500 (EST)
-Message-ID: <20141216.152217.15156261870362937.davem@davemloft.net>
-References: <1418756386-6940-1-git-send-email-david.vrabel@citrix.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 2/2] ip_tunnel: Add missing validation of encap type to ip_tunnel_encap_setup()
+Date: Tue, 16 Dec 2014 12:23:24 -0800
+Message-ID: <CA+mtBx_364iHXxLkA=Ytb=34_2zEy9-3hqfOdt96Ckhm8NwFiQ@mail.gmail.com>
+References: <cover.1418759998.git.tgraf@suug.ch>
+	<dd70de766b1111fdcb4794f6d671e4eca5053730.1418759998.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
-	edumazet@google.com
-To: david.vrabel@citrix.com
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55649 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751387AbaLPUWT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 15:22:19 -0500
-In-Reply-To: <1418756386-6940-1-git-send-email-david.vrabel@citrix.com>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:32983 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751224AbaLPUXa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 15:23:30 -0500
+Received: by mail-ig0-f172.google.com with SMTP id hl2so7539101igb.5
+        for <netdev@vger.kernel.org>; Tue, 16 Dec 2014 12:23:29 -0800 (PST)
+In-Reply-To: <dd70de766b1111fdcb4794f6d671e4eca5053730.1418759998.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Vrabel <david.vrabel@citrix.com>
-Date: Tue, 16 Dec 2014 18:59:46 +0000
+On Tue, Dec 16, 2014 at 12:05 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> The encap->type comes straight from Netlink. Validate it against
+> max supported encap types just like ip_encap_hlen() already does.
+>
+> Fixes: a8c5f9 ("ip_tunnel: Ops registration for secondary encap (fou, gue)")
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> ---
+>  net/ipv4/ip_tunnel.c | 3 +++
+>  1 file changed, 3 insertions(+)
+>
+> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+> index 2f498f8..d3e4479 100644
+> --- a/net/ipv4/ip_tunnel.c
+> +++ b/net/ipv4/ip_tunnel.c
+> @@ -573,6 +573,9 @@ int ip_tunnel_encap(struct sk_buff *skb, struct ip_tunnel *t,
+>         if (t->encap.type == TUNNEL_ENCAP_NONE)
+>                 return 0;
+>
+> +       if (t->encap.type >= MAX_IPTUN_ENCAP_OPS)
+> +               return -EINVAL;
+> +
 
-> After d75b1ade567ffab085e8adbbdacf0092d10cd09c (net: less interrupt
-> masking in NAPI) the napi instance is removed from the per-cpu list
-> prior to calling the n->poll(), and is only requeued if all of the
-> budget was used.  This inadvertently broke netfront because netfront
-> does not use NAPI correctly.
-> 
-> If netfront had not used all of its budget it would do a final check
-> for any Rx responses and avoid calling napi_complete() if there were
-> more responses.  It would still return under budget so it would never
-> be rescheduled.  The final check would also not re-enable the Rx
-> interrupt.
-> 
-> Additionally, xenvif_poll() would also call napi_complete() /after/
-> enabling the interrupt.  This resulted in a race between the
-> napi_complete() and the napi_schedule() in the interrupt handler.  The
-> use of local_irq_save/restore() avoided by race iff the handler is
-> running on the same CPU but not if it was running on a different CPU.
-> 
-> Fix both of these by always calling napi_compete() if the budget was
-> not all used, and then calling napi_schedule() if the final checks
-> says there's more work.
-> 
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+I don't think this is technically needed, we should have already
+verified the type when setting up the tunnel (ip_encap_hlen).
 
-Applied, thanks.
+>         rcu_read_lock();
+>         ops = rcu_dereference(iptun_encaps[t->encap.type]);
+>         if (likely(ops && ops->build_header))
+> --
+> 1.9.3
+>
