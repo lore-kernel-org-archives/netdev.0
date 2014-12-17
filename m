@@ -1,29 +1,26 @@
-From: Hickey_Patrick <Hickey_Patrick@asdk12.org>
-Subject: RE: Please update van uw Nederlandse e-mail
-Date: Wed, 17 Dec 2014 07:48:54 +0000
-Message-ID: <4D40948C871CEF439CFB261A8DE84D5BD47B615E@ITEXCH02.asdk12.org>
-References: <4D40948C871CEF439CFB261A8DE84D5BD47B2863@ITEXCH02.asdk12.org>
+From: Dennis Chen <kernel.org.gnu@gmail.com>
+Subject: [Question]The benefit of weight_p in __qdisc_run
+Date: Wed, 17 Dec 2014 16:54:05 +0800
+Message-ID: <CA+U0gVhk+4-T=XuCumnpRnRyQ=OqVfegGxF3ZZQy07++PDOW3g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Hickey_Patrick <Hickey_Patrick@asdk12.org>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0102.outbound.protection.outlook.com ([65.55.169.102]:10880
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751707AbaLQHtO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 02:49:14 -0500
-In-Reply-To: <4D40948C871CEF439CFB261A8DE84D5BD47B2863@ITEXCH02.asdk12.org>
-Content-Language: en-US
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:44194 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751692AbaLQIy0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 03:54:26 -0500
+Received: by mail-pd0-f171.google.com with SMTP id y13so15794123pdi.2
+        for <netdev@vger.kernel.org>; Wed, 17 Dec 2014 00:54:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+weight_p is used as the burst xmit packet quota in the while loop of
+the __qdisc_run function,
+does anybody can elaborate the benefit of the weight_p introduced
+here? what's the consequence without it?
 
-________________________________
-From: Hickey_Patrick
-Sent: Tuesday, December 16, 2014 10:00 PM
-To: Hickey_Patrick
-Subject: Please update van uw Nederlandse e-mail
+Thanks!
 
-Uw postvak heeft overschreden opslaglimiet die wordt ingesteld door de beheerder, en u zal niet zitten kundig voor opkomend posterijen ontvangen totdat u opnieuw te valideren. Om te valideren opnieuw-> Klik hier
-http://andre-post7.wix.com/verificatie-team
+-- 
+Den
