@@ -1,35 +1,25 @@
-From: Joseph Salisbury <joseph.salisbury@canonical.com>
-Subject: [PATCH][v3.13.y] e1000e: Fix no connectivity when driver loaded with
- cable out
-Date: Wed, 17 Dec 2014 12:08:30 -0500
-Message-ID: <5491B88E.3070906@canonical.com>
+From: Bryan <blearn@psc.edu>
+Subject: Re: [PATCH net-next 1/3] Implementation of RFC 4898 Extended TCP
+ Statistics (Web10G)
+Date: Wed, 17 Dec 2014 11:19:50 -0500
+Message-ID: <5491AD26.8000501@psc.edu>
+References: <549070CF.1010506@psc.edu> <87d27i35gb.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "stable@vger.kernel.org" <stable@vger.kernel.org>,
-	davidx.m.ertman@intel.com, jeffrey.e.pieper@intel.com,
-	jeffrey.t.kirsher@intel.com, LKML <linux-kernel@vger.kernel.org>,
-	linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Kamal Mostafa <kamal.mostafa@canonical.com>
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailer2.psc.edu ([128.182.70.106]:47304 "EHLO mailer2.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750946AbaLQRKk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Dec 2014 12:10:40 -0500
+In-Reply-To: <87d27i35gb.fsf@nemi.mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-Please consider including mainline commit b20a774 in the next v3.13.y
-stable release.  It was included in the mainline tree as of v3.15-rc1. 
-It has been tested and confirmed to resolve
-http://bugs.launchpad.net/bugs/1400365 .
-
-commit b20a774495671f037e7160ea2ce8789af6b61533
-Author: David Ertman <davidx.m.ertman@intel.com>
-Date:   Tue Mar 25 04:27:55 2014 +0000
-
-    e1000e: Fix no connectivity when driver loaded with cable out
-
-
-
-Sincerely,
-Joseph Salisbury
+On 12/17/2014 6:01 AM, Bj=C3=B8rn Mork wrote:
+>> + * The Web10Gig project.  See http://www.web10gig.org
+> URL is already outdated?
+That's a typo. Please see http://www.web10g.org
