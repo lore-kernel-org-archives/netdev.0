@@ -1,60 +1,87 @@
-From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
+From: Josef Bacik <jbacik@fb.com>
 Subject: Re: [RFC PATCH net-next 0/5] tcp: TCP tracer
-Date: Wed, 17 Dec 2014 18:24:59 -0300
-Message-ID: <20141217212459.GD3150@kernel.org>
-References: <CAADnVQ+zkNL9sJhJuAiQ_y4bis=Sck5pzG86qccXE9vvM0-drQ@mail.gmail.com>
- <5491EE01.5020406@gmail.com>
+Date: Wed, 17 Dec 2014 16:42:41 -0500
+Message-ID: <5491F8D1.2090103@fb.com>
+References: <CAADnVQL6-72UvvL-T7JUa-6c5+xJ2XggW=iCwb5G_ZbH3r-SZQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Martin KaFai Lau <kafai@fb.com>,
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Blake Matheny <bmatheny@fb.com>,
+	Laurent Chavey <chavey@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Steven Rostedt <rostedt@goodmis.org>,
-	Lawrence Brakmo <brakmo@fb.com>, Josef Bacik <jbacik@fb.com>,
+	Lawrence Brakmo <brakmo@fb.com>,
 	Kernel Team <Kernel-team@fb.com>
-To: David Ahern <dsahern@gmail.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Martin Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:44570 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750995AbaLQVZh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 16:25:37 -0500
-Content-Disposition: inline
-In-Reply-To: <5491EE01.5020406@gmail.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:57628 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751117AbaLQVnF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 16:43:05 -0500
+In-Reply-To: <CAADnVQL6-72UvvL-T7JUa-6c5+xJ2XggW=iCwb5G_ZbH3r-SZQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Wed, Dec 17, 2014 at 01:56:33PM -0700, David Ahern escreveu:
-> On 12/17/14 1:42 PM, Alexei Starovoitov wrote:
-> >>It is not strictly necessary to carry vmlinux, that is just a probe
-> >>>point resolution time problem, solvable when generating a shell script,
-> >>>on the development machine, to insert the probes.
-> >on N development machines with kernels that
-> >would match worker machines...
-> >I'm not saying it's impossible, just operationally difficult.
-> >This is my understanding of Martin's use case.
+On 12/16/2014 10:06 PM, Alexei Starovoitov wrote:
+> On Tue, Dec 16, 2014 at 5:30 PM, Martin Lau <kafai@fb.com> wrote:
+>>>>>>> I think systemtap like scripting on top of patches 1 and 3
+>>>>>>> should solve your use case ?
+>>>> We have quite a few different versions running in the production.  It may not
+>>>> be operationally easy.
+>>>
+>>> different versions of kernel or different versions of tcp_tracer ?
+>> Former and we are releasing new kernel pretty often.
+>
+> I see. So for dynamic tracer to be useful in such environment,
+> the scripts should be compatible across different kernel version
+> without recompilation. All makes sense.
+>
+>> How does the current TRACE_EVENT do it when it wants to printf more data?
+>
+> tracepoints, like any other user interface, shouldn't
+> break compatibility. With printf it's practically impossible.
+> Some subsystems may be breaking this rule arguing that
+> tracepoints is a debug facility, but networking tracepoints don't change.
+>
 
-> That's the use case I am talking about ... N-different kernel versions and
-> the probe definitions would need to be generated at *build* time of the
-> kernel that uses a cross-compile environment. ie., can't assume there is a
-> development machine running the kernel from which you can generate the probe
-> definitions. This gets messy quick for embedded deployments.
+So that's what the events/<subsystem>/<event>/format is for, to provide 
+a nice way for scripts to know what they are looking at.  For things 
+like the tcp estats and other tracing tools we use in production 
+internally we use something (our own stuff in case of estats, trace-cmd 
+in the case of normal tracepoints) to read the raw data and pull out the 
+fields we need, and that way it works no matter what kernel we're on. 
+Sometimes tracepoints move and so we have to adjust our scripts, but 
+that's the cost of doing business and I think that's acceptable.
 
-It shouldn't, you're saying that the rate of pushing out production
-kernels is so high that we get lost and can't find the matching full
-debug original binaries used.
+>>> It feels that for stats collection only, tracepoints+tcp_trace
+>>> do not add much additional value vs extending tcp_info
+>>> and using ss.
+>> I think we are on the same page. Once 'this should cost nothing if not
+>> activated' proposition was cleared out.  It was what I meant that doing the
+>> collection part in the TCP itself (instead of tracepoints) would be nice.
+>
+> agree.
+>
+>> I think going forward, as others have suggested, it may be better to come
+>> together and reach a common ground on what to collect first before I re-work
+>> patch 1 to 3 and repost.
+>
+> I think as a minimum it will be discussed at netdev01 in Feb,
+> but I suspect not everyone on this list can(want) go to Ottawa,
+> so would be nice to have a meetup for bay area folks to
+> discuss this sooner with public g+ hangout.
+> Thoughts?
+>
 
-We have build-ids for that, to have binary content keys, that we can
-match what is in production, that has to be as lean as possible, while
-being able to get back to all that fat.
+Yeah I think we're all in agreement that this is a good netdev01 
+discussion.  I'm happy to include people who want to talk about this 
+before hand in the bay area meetup we're throwing, but it seems like 
+this is going to be something that the larger community is going to want 
+to talk about so it may be more productive to wait until netdev01.  Thanks,
 
-Is it that people want so hard to forget about that extra debugging fat
-that in the end we need to keep it to be able to figure out what happens
-when things go wrong?
-
-I understand that the expectation is that for each production build
-there will be unwieldly different probe point definitions to keep, but
-is that so?
-
-- Arnaldo
+Josef
