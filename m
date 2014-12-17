@@ -1,25 +1,47 @@
-From: Bryan <blearn@psc.edu>
-Subject: Re: [PATCH net-next 1/3] Implementation of RFC 4898 Extended TCP
- Statistics (Web10G)
-Date: Wed, 17 Dec 2014 11:19:50 -0500
-Message-ID: <5491AD26.8000501@psc.edu>
-References: <549070CF.1010506@psc.edu> <87d27i35gb.fsf@nemi.mork.no>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [RFC PATCH net-next 0/5] tcp: TCP tracer
+Date: Wed, 17 Dec 2014 09:14:02 -0800
+Message-ID: <CAADnVQJgUn-hUrR1XLE4J64Ms52zRCRQkJDFUDu9SGTONJ507w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+Content-Type: text/plain; charset=UTF-8
+Cc: Martin KaFai Lau <kafai@fb.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Lawrence Brakmo <brakmo@fb.com>, Josef Bacik <jbacik@fb.com>,
+	Kernel Team <Kernel-team@fb.com>
+To: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer2.psc.edu ([128.182.70.106]:47304 "EHLO mailer2.psc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750946AbaLQRKk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Dec 2014 12:10:40 -0500
-In-Reply-To: <87d27i35gb.fsf@nemi.mork.no>
+Received: from mail-qa0-f47.google.com ([209.85.216.47]:52028 "EHLO
+	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750951AbaLQROD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 12:14:03 -0500
+Received: by mail-qa0-f47.google.com with SMTP id s7so11475874qap.34
+        for <netdev@vger.kernel.org>; Wed, 17 Dec 2014 09:14:02 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/17/2014 6:01 AM, Bj=C3=B8rn Mork wrote:
->> + * The Web10Gig project.  See http://www.web10gig.org
-> URL is already outdated?
-That's a typo. Please see http://www.web10g.org
+On Wed, Dec 17, 2014 at 7:07 AM, Arnaldo Carvalho de Melo
+<arnaldo.melo@gmail.com> wrote:
+>
+> I guess even just using 'perf probe' to set those wannabe tracepoints
+> should be enough, no? Then he can refer to those in his perf record
+> call, etc and process it just like with the real tracepoints.
+
+it's far from ideal for two reasons.
+- they have different kernels and dragging along vmlinux
+with debug info or multiple 'perf list' data is too cumbersome
+operationally. Permanent tracepoints solve this problem.
+- the action upon hitting tracepoint is non-trivial.
+perf probe style of unconditionally walking pointer chains
+will be tripping over wrong pointers.
+Plus they already need to do aggregation for high
+frequency events.
+As part of acting on trace_transmit_skb() event:
+if (before(tcb->seq, tcp_sk(sk)->snd_nxt)) {
+  tcp_trace_stats_add(...)
+}
+if (jiffies_to_msecs(jiffies - sktr->last_ts) ..) {
+  tcp_trace_stats_add(...)
+}
