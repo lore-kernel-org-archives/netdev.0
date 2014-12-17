@@ -1,85 +1,45 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC PATCH net-next 0/5] tcp: TCP tracer
-Date: Tue, 16 Dec 2014 16:15:24 -0800
-Message-ID: <CAADnVQKtEfrEpAqMxf_aOmHmF4WeOQUD-zZpVYR9jnQUjHQgVg@mail.gmail.com>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: Re: net: integer overflow in ip_idents_reserve
+Date: Tue, 16 Dec 2014 20:15:12 -0500
+Message-ID: <5490D920.5000104@oracle.com>
+References: <5490A1F8.6020207@oracle.com> <1418766460.9773.48.camel@edumazet-glaptop2.roam.corp.google.com> <1418771356.3449499.203748285.4B1A82B8@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Blake Matheny <bmatheny@fb.com>,
-	Laurent Chavey <chavey@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Lawrence Brakmo <brakmo@fb.com>, Josef Bacik <jbacik@fb.com>,
-	Kernel Team <Kernel-team@fb.com>
-To: Martin Lau <kafai@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:40498 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750811AbaLQAPY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 19:15:24 -0500
-Received: by mail-qg0-f48.google.com with SMTP id f51so10998936qge.21
-        for <netdev@vger.kernel.org>; Tue, 16 Dec 2014 16:15:24 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Andrey Ryabinin <a.ryabinin@samsung.com>,
+	Dave Jones <davej@redhat.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1418771356.3449499.203748285.4B1A82B8@webmail.messagingengine.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 16, 2014 at 10:28 AM, Martin Lau <kafai@fb.com> wrote:
-> We can consider to reuse the events's format (tracing/events/*/format). I think
-> blktrace.c is using similar approach in trace-cmd.
+On 12/16/2014 06:09 PM, Hannes Frederic Sowa wrote:
+> 
+> On Tue, Dec 16, 2014, at 22:47, Eric Dumazet wrote:
+>> > On Tue, 2014-12-16 at 16:19 -0500, Sasha Levin wrote:
+>>> > > Hi Eric,
+>>> > > 
+>>> > > While fuzzing with trinity on a -next kernel with the undefined behaviour
+>>> > > sanitizer path, I've observed the following warning in code which was
+>>> > > introduced in 04ca6973f7 ("ip: make IP identifiers less predictable"):
+>> > 
+>> > This is a false positive.
+> Also we compile the whole kernel with -fno-strict-overflow, so every
+> report of signed overflow leading to undefined behavior is probably a
+> false positive. I don't know if it is worth to try to get rid of them, I
+> doubt it.
 
-yes. tcp_trace is a carbon copy of blktrace applied to tcp.
+I reported this one because there's usually some code to handle overflow
+in code that expects that and here there was none (I could see).
 
->> >> I think systemtap like scripting on top of patches 1 and 3
->> >> should solve your use case ?
-> We have quite a few different versions running in the production.  It may not
-> be operationally easy.
+For example, the ntp code had a few cases where a user could generate
+overflows and mess up quite a few things (he got what he asked for -
+problems).
 
-different versions of kernel or different versions of tcp_tracer ?
 
-> Having a getsockopt will be useful for the new application/library to take
-> advantage of.
->
-> For the continuous monitoring/logging purpose, ftrace can provide event
-> triggered tracing instead of periodically consulting ss.
-
-so both getsockopt tcp_info approach and ftrace+tcp_trace
-approach can provide the same set of stats per flow, right?
-And the only difference is 'ss' needs polling and ftrace
-collects all events?
-Since they're stats anyway, the polling interval
-shouldn't matter. Just like lost trace events?
-
-from patch 5 commit log:
-"Define probes and register them to the TCP tracepoints.  The probes
-collect the data defined in struct tcp_sk_trace and record them to
-the tracing's ring_buffer.
-"
-so two trace_seq_printf() from patch 5
-and two new 'struct tcp_trace_stats' and 'tcp_trace_basic'
-from patch 4 will become permanent user api.
-
-At the same time the commit log is saying:
-"It is still missing a few things that
-we currently have, like:
-- why the sender is blocked? and how long for each reason?
-- some TCP Congestion Control data"
-
-Does it mean that these printf and structs would have
-to change?
-
-Can 'struct tcp_info' be extended instead of
-adding 'struct tcp_trace_stats' ?
-
-Then getsockopt and ftrace+tcp_trace will be returning
-the same structs.
-
-It feels that for stats collection only, tracepoints+tcp_trace
-do not add much additional value vs extending tcp_info
-and using ss.
-
-I see the value in tracepoints on its own, since we'll
-be able to use dynamic tracing to do event aggregation,
-filtering, etc. That was my alternative suggestion to
-add only tracepoints from patches 1 and 3.
+Thanks,
+Sasha
