@@ -1,61 +1,76 @@
-From: Richard Laager <rlaager@wiktel.com>
-Subject: Re: Fw: [Bug 82471] New: net/core/dev.c skb_war_bad_offload
-Date: Wed, 17 Dec 2014 08:52:08 -0600
-Message-ID: <1418827928.4489.5.camel@watermelon.coderich.net>
-References: <1418805852.5277.25.camel@watermelon.coderich.net>
-	 <20141217095552.GB27966@unicorn.suse.cz>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [RFC PATCH net-next 0/5] tcp: TCP tracer
+Date: Wed, 17 Dec 2014 12:07:20 -0300
+Message-ID: <20141217150720.GF11607@kernel.org>
+References: <CAADnVQJ+8mtB8LD=U7XbxOC2hxhDChxOELhZ3NEYeoTk1G3LYg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha256";
-	protocol="application/pgp-signature"; boundary="=-/pS/qxs/cHEJGxgHkGtK"
-Cc: netdev@vger.kernel.org
-To: Michal Kubecek <mkubecek@suse.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: Martin KaFai Lau <kafai@fb.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Lawrence Brakmo <brakmo@fb.com>, Josef Bacik <jbacik@fb.com>,
+	Kernel Team <Kernel-team@fb.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.wiktel.com ([69.89.207.151]:49303 "EHLO smtp1.wiktel.com"
+Received: from mail.kernel.org ([198.145.19.201]:36956 "EHLO mail.kernel.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750905AbaLQOwf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Dec 2014 09:52:35 -0500
-In-Reply-To: <20141217095552.GB27966@unicorn.suse.cz>
+	id S1750990AbaLQPH3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Dec 2014 10:07:29 -0500
+Content-Disposition: inline
+In-Reply-To: <CAADnVQJ+8mtB8LD=U7XbxOC2hxhDChxOELhZ3NEYeoTk1G3LYg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Em Sun, Dec 14, 2014 at 10:55:55PM -0800, Alexei Starovoitov escreveu:
+> On Sun, Dec 14, 2014 at 5:56 PM, Martin KaFai Lau <kafai@fb.com> wrote:
+> > Hi,
+> >
+> > We have been using the kernel ftrace infra to collect TCP per-flow statistics.
+> > The following patch set is a first slim-down version of our
+> > existing implementation. We would like to get some early feedback
+> > and make it useful for others.
+> >
+> > [RFC PATCH net-next 1/5] tcp: Add TCP TRACE_EVENTs:
+> > Defines some basic tracepoints (by TRACE_EVENT).
+> >
+> > [RFC PATCH net-next 2/5] tcp: A perf script for TCP tracepoints:
+> > A sample perf script with simple ip/port filtering and summary output.
+> >
+> > [RFC PATCH net-next 3/5] tcp: Add a few more tracepoints for tcp tracer:
+> > Declares a few more tracepoints (by DECLARE_TRACE) which are
+> > used by the tcp_tracer.  The tcp_tracer is in the patch 5/5.
+> >
+> > [RFC PATCH net-next 4/5] tcp: Introduce tcp_sk_trace and related structs:
+> > Defines a few tcp_trace structs which are used to collect statistics
+> > on each tcp_sock.
+> >
+> > [RFC PATCH net-next 5/5] tcp: Add TCP tracer:
+> > It introduces a tcp_tracer which hooks onto the tracepoints defined in the
+> > patch 1/5 and 3/5.  It collects data defined in patch 4/5. We currently
+> > use this tracer to collect per-flow statistics.  The commit log has
+> > some more details.
+> 
+> I think patches 1 and 3 are good additions, since they establish
+> few permanent points of instrumentation in tcp stack.
+> Patches 4-5 look more like use cases of tracepoints established
+> before. They may feel like simple additions and, no doubt,
+> they are useful, but since they expose things via tracing
+> infra they become part of api and cannot be changed later,
+> when more stats would be needed.
+> I think systemtap like scripting on top of patches 1 and 3
+> should solve your use case ?
 
---=-/pS/qxs/cHEJGxgHkGtK
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I guess even just using 'perf probe' to set those wannabe tracepoints
+should be enough, no? Then he can refer to those in his perf record
+call, etc and process it just like with the real tracepoints.
 
-On Wed, 2014-12-17 at 10:55 +0100, Michal Kubecek wrote:
-> Would it be possible that the kernel you are using has
->=20
->   da08143b8520 ("vlan: more careful checksum features handling")
->=20
-> (and possibly also a9b3ace44c7d and 3625920b62c3) but not
->=20
->   db115037bb57 ("net: fix checksum features handling in netif_skb_feature=
-s()")
-
-Ubuntu's 3.13.0 has none of these changes.
-Ubuntu's 3.16.0 has all four changes.
-
-The problem occurs on both kernels.
-
---=20
-Richard
-
---=-/pS/qxs/cHEJGxgHkGtK
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAABCAAGBQJUkZiYAAoJEA/9MsdVF+JS/ZoH/0vM18wYovHeRvWRfy32uuAG
-pUdGs6ILLAWeuowgI9aqfo4loGhUubMA68pstIPsMdIjsAJJGt5WA6paPlVT8Jtz
-Pq5cH0tv90XMcdJxY9A7wjZsocP9j2/VotXvh98YoimZvAB6YDMcXp47+gqoxkji
-XnDDeJZPmdpvUMJZSOwYdDMzn8GPZawDR9Mw3haBqjLoLpPrF6sHClFWkTgBoW8Z
-YEJCbNVp03KAMA0JWcrFIJXZdZwSp+v0bv/e9gH00L+HUZZ7uLFZ3pPYDtbZRgc3
-NuD1Pdk5vUOYgKOb6pM8EtY7jL/gI55xsOc0x5jwmabMk26xXb5IeMkJiWHaQKM=
-=Rrdi
------END PGP SIGNATURE-----
-
---=-/pS/qxs/cHEJGxgHkGtK--
+> Also, have you looked at recent eBPF work?
+> Though it's not completely ready yet, soon it should
+> be able to do the same stats collection as you have
+> in 4/5 without adding permanent pieces to the kernel.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
