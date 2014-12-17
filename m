@@ -1,87 +1,70 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: [RFC PATCH net-next 0/5] tcp: TCP tracer
-Date: Wed, 17 Dec 2014 16:42:41 -0500
-Message-ID: <5491F8D1.2090103@fb.com>
-References: <CAADnVQL6-72UvvL-T7JUa-6c5+xJ2XggW=iCwb5G_ZbH3r-SZQ@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 03/10] ovs: Enable handling of UFO6 packets.
+Date: Thu, 18 Dec 2014 00:26:01 +0200
+Message-ID: <20141217222601.GA30969@redhat.com>
+References: <1418840455-22598-1-git-send-email-vyasevic@redhat.com>
+	<1418840455-22598-4-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Blake Matheny <bmatheny@fb.com>,
-	Laurent Chavey <chavey@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Lawrence Brakmo <brakmo@fb.com>,
-	Kernel Team <Kernel-team@fb.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Martin Lau <kafai@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:57628 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751117AbaLQVnF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 16:43:05 -0500
-In-Reply-To: <CAADnVQL6-72UvvL-T7JUa-6c5+xJ2XggW=iCwb5G_ZbH3r-SZQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, ben@decadent.org.uk, stefanha@redhat.com,
+	virtualization@lists.linux-foundation.org
+To: Vladislav Yasevich <vyasevich@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1418840455-22598-4-git-send-email-vyasevic@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 12/16/2014 10:06 PM, Alexei Starovoitov wrote:
-> On Tue, Dec 16, 2014 at 5:30 PM, Martin Lau <kafai@fb.com> wrote:
->>>>>>> I think systemtap like scripting on top of patches 1 and 3
->>>>>>> should solve your use case ?
->>>> We have quite a few different versions running in the production.  It may not
->>>> be operationally easy.
->>>
->>> different versions of kernel or different versions of tcp_tracer ?
->> Former and we are releasing new kernel pretty often.
->
-> I see. So for dynamic tracer to be useful in such environment,
-> the scripts should be compatible across different kernel version
-> without recompilation. All makes sense.
->
->> How does the current TRACE_EVENT do it when it wants to printf more data?
->
-> tracepoints, like any other user interface, shouldn't
-> break compatibility. With printf it's practically impossible.
-> Some subsystems may be breaking this rule arguing that
-> tracepoints is a debug facility, but networking tracepoints don't change.
->
+On Wed, Dec 17, 2014 at 01:20:48PM -0500, Vladislav Yasevich wrote:
+> Since UFO6 packets can now be identified by SKB_GSO_UDP6, add proper checks
+> to handel UFO6 flows.
 
-So that's what the events/<subsystem>/<event>/format is for, to provide 
-a nice way for scripts to know what they are looking at.  For things 
-like the tcp estats and other tracing tools we use in production 
-internally we use something (our own stuff in case of estats, trace-cmd 
-in the case of normal tracepoints) to read the raw data and pull out the 
-fields we need, and that way it works no matter what kernel we're on. 
-Sometimes tracepoints move and so we have to adjust our scripts, but 
-that's the cost of doing business and I think that's acceptable.
+s/handel/handle/
 
->>> It feels that for stats collection only, tracepoints+tcp_trace
->>> do not add much additional value vs extending tcp_info
->>> and using ss.
->> I think we are on the same page. Once 'this should cost nothing if not
->> activated' proposition was cleared out.  It was what I meant that doing the
->> collection part in the TCP itself (instead of tracepoints) would be nice.
->
-> agree.
->
->> I think going forward, as others have suggested, it may be better to come
->> together and reach a common ground on what to collect first before I re-work
->> patch 1 to 3 and repost.
->
-> I think as a minimum it will be discussed at netdev01 in Feb,
-> but I suspect not everyone on this list can(want) go to Ottawa,
-> so would be nice to have a meetup for bay area folks to
-> discuss this sooner with public g+ hangout.
-> Thoughts?
->
-
-Yeah I think we're all in agreement that this is a good netdev01 
-discussion.  I'm happy to include people who want to talk about this 
-before hand in the bay area meetup we're throwing, but it seems like 
-this is going to be something that the larger community is going to want 
-to talk about so it may be more productive to wait until netdev01.  Thanks,
-
-Josef
+> Legacy applications may still have UFO6 packets identified by SKB_GSO_UDP,
+> so we need to continue to handle them correclty.
+> 
+> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+> ---
+>  net/openvswitch/datapath.c | 3 ++-
+>  net/openvswitch/flow.c     | 2 +-
+>  2 files changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+> index f9e556b..b43fc60 100644
+> --- a/net/openvswitch/datapath.c
+> +++ b/net/openvswitch/datapath.c
+> @@ -334,7 +334,8 @@ static int queue_gso_packets(struct datapath *dp, struct sk_buff *skb,
+>  		if (err)
+>  			break;
+>  
+> -		if (skb == segs && gso_type & SKB_GSO_UDP) {
+> +		if (skb == segs &&
+> +		    ((gso_type & SKB_GSO_UDP) || (gso_type & SKB_GSO_UDP6))) {
+>  			/* The initial flow key extracted by ovs_flow_extract()
+>  			 * in this case is for a first fragment, so we need to
+>  			 * properly mark later fragments.
+> diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+> index 2b78789..d03adf4 100644
+> --- a/net/openvswitch/flow.c
+> +++ b/net/openvswitch/flow.c
+> @@ -602,7 +602,7 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
+>  
+>  		if (key->ip.frag == OVS_FRAG_TYPE_LATER)
+>  			return 0;
+> -		if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
+> +		if (skb_shinfo(skb)->gso_type & (SKB_GSO_UDP | SKB_GSO_UDP6))
+>  			key->ip.frag = OVS_FRAG_TYPE_FIRST;
+>  
+>  		/* Transport layer. */
+> -- 
+> 1.9.3
