@@ -1,71 +1,29 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH iproute2] ip link: use addattr_nest()/addattr_nest_end()
-Date: Wed, 17 Dec 2014 15:28:45 +0800
-Message-ID: <549130AD.6090407@cn.fujitsu.com>
+From: Hickey_Patrick <Hickey_Patrick@asdk12.org>
+Subject: RE: Please update van uw Nederlandse e-mail
+Date: Wed, 17 Dec 2014 07:48:54 +0000
+Message-ID: <4D40948C871CEF439CFB261A8DE84D5BD47B615E@ITEXCH02.asdk12.org>
+References: <4D40948C871CEF439CFB261A8DE84D5BD47B2863@ITEXCH02.asdk12.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: stephen hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Hickey_Patrick <Hickey_Patrick@asdk12.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([59.151.112.132]:29288 "EHLO
-	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751137AbaLQH2s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 02:28:48 -0500
+Received: from mail-bl2on0102.outbound.protection.outlook.com ([65.55.169.102]:10880
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751707AbaLQHtO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 02:49:14 -0500
+In-Reply-To: <4D40948C871CEF439CFB261A8DE84D5BD47B2863@ITEXCH02.asdk12.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Use addattr_nest() and addattr_nest_end() to simplify the code.
+________________________________
+From: Hickey_Patrick
+Sent: Tuesday, December 16, 2014 10:00 PM
+To: Hickey_Patrick
+Subject: Please update van uw Nederlandse e-mail
 
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
- ip/iplink.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
-
-diff --git a/ip/iplink.c b/ip/iplink.c
-index ce6eb3e..3ce5e39 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -706,11 +706,11 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
- 	}
- 
- 	if (type) {
--		struct rtattr *linkinfo = NLMSG_TAIL(&req.n);
-+		struct rtattr *linkinfo;
- 		char slavebuf[128], *ulinep = strchr(type, '_');
- 		int iflatype;
- 
--		addattr_l(&req.n, sizeof(req), IFLA_LINKINFO, NULL, 0);
-+		linkinfo = addattr_nest(&req.n, sizeof(req), IFLA_LINKINFO);
- 		addattr_l(&req.n, sizeof(req), IFLA_INFO_KIND, type,
- 			 strlen(type));
- 
-@@ -728,14 +728,13 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
- 			iflatype = IFLA_INFO_DATA;
- 		}
- 		if (lu && argc) {
--			struct rtattr * data = NLMSG_TAIL(&req.n);
--			addattr_l(&req.n, sizeof(req), iflatype, NULL, 0);
-+			struct rtattr *data = addattr_nest(&req.n, sizeof(req), iflatype);
- 
- 			if (lu->parse_opt &&
- 			    lu->parse_opt(lu, argc, argv, &req.n))
- 				return -1;
- 
--			data->rta_len = (void *)NLMSG_TAIL(&req.n) - (void *)data;
-+			addattr_nest_end(&req.n, data);
- 		} else if (argc) {
- 			if (matches(*argv, "help") == 0)
- 				usage();
-@@ -743,7 +742,7 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
- 					"Try \"ip link help\".\n", *argv);
- 			return -1;
- 		}
--		linkinfo->rta_len = (void *)NLMSG_TAIL(&req.n) - (void *)linkinfo;
-+		addattr_nest_end(&req.n, linkinfo);
- 	} else if (flags & NLM_F_CREATE) {
- 		fprintf(stderr, "Not enough information: \"type\" argument "
- 				"is required\n");
--- 
-1.8.3.1
+Uw postvak heeft overschreden opslaglimiet die wordt ingesteld door de beheerder, en u zal niet zitten kundig voor opkomend posterijen ontvangen totdat u opnieuw te valideren. Om te valideren opnieuw-> Klik hier
+http://andre-post7.wix.com/verificatie-team
