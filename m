@@ -1,20 +1,20 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 01/10] core: Split out UFO6 support
-Date: Wed, 17 Dec 2014 15:43:50 -0500
-Message-ID: <5491EB06.2060803@redhat.com>
-References: <1418840455-22598-1-git-send-email-vyasevic@redhat.com>	
-	<1418840455-22598-2-git-send-email-vyasevic@redhat.com>
-	<1418847039.30883.29.camel@decadent.org.uk>
+Subject: Re: [PATCH 03/10] ovs: Enable handling of UFO6 packets.
+Date: Wed, 17 Dec 2014 15:44:19 -0500
+Message-ID: <5491EB23.6000904@redhat.com>
+References: <1418840455-22598-1-git-send-email-vyasevic@redhat.com>
+	<1418840455-22598-4-git-send-email-vyasevic@redhat.com>
+	<5491E4C2.5080402@cogentembedded.com>
 Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, stefanha@redhat.com,
+Cc: mst@redhat.com, ben@decadent.org.uk, stefanha@redhat.com,
 	virtualization@lists.linux-foundation.org
-To: Ben Hutchings <ben@decadent.org.uk>,
-	Vladislav Yasevich <vyasevich@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1418847039.30883.29.camel@decadent.org.uk>
+In-Reply-To: <5491E4C2.5080402@cogentembedded.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -26,63 +26,58 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 12/17/2014 03:10 PM, Ben Hutchings wrote:
-> On Wed, 2014-12-17 at 13:20 -0500, Vladislav Yasevich wrote:
->> Split IPv6 support for UFO into its own feature similiar to TSO.
->> This will later allow us to re-enable UFO support for virtio-net
->> devices.
-> [...]
->> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
->> index 6c8b6f6..8538b67 100644
->> --- a/include/linux/skbuff.h
->> +++ b/include/linux/skbuff.h
->> @@ -372,6 +372,7 @@ enum {
->>  
->>  	SKB_GSO_MPLS = 1 << 12,
->>  
->> +	SKB_GSO_UDP6 = 1 << 13
+On 12/17/2014 03:17 PM, Sergei Shtylyov wrote:
+> Hello.
 > 
-> It seems like it would be cleaner to use the names SKB_GSO_UDPV{4,6},
-> similarly to SKB_GSO_TCPV{4,6}.
+> On 12/17/2014 09:20 PM, Vladislav Yasevich wrote:
+> 
+>> Since UFO6 packets can now be identified by SKB_GSO_UDP6, add proper checks
+>> to handel UFO6 flows.
+>> Legacy applications may still have UFO6 packets identified by SKB_GSO_UDP,
+>> so we need to continue to handle them correclty.
+> 
+>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+>> ---
+>>   net/openvswitch/datapath.c | 3 ++-
+>>   net/openvswitch/flow.c     | 2 +-
+>>   2 files changed, 3 insertions(+), 2 deletions(-)
+> 
+>> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+>> index f9e556b..b43fc60 100644
+>> --- a/net/openvswitch/datapath.c
+>> +++ b/net/openvswitch/datapath.c
+>> @@ -334,7 +334,8 @@ static int queue_gso_packets(struct datapath *dp, struct sk_buff *skb,
+>>           if (err)
+>>               break;
+>>
+>> -        if (skb == segs && gso_type & SKB_GSO_UDP) {
+>> +        if (skb == segs &&
+>> +            ((gso_type & SKB_GSO_UDP) || (gso_type & SKB_GSO_UDP6))) {
+> 
+>    'gso_type & (SKB_GSO_UDP | SKB_GSO_UDP6)' would be shorter...
 
-I wanted to try to avoid touched ipv4 paths if I could.  I could use
-GSO_UDPV6 though.
-
-> 
->>  };
->>  
->>  #if BITS_PER_LONG > 32
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index 945bbd0..fa4d2ee 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
-> [...]
->> @@ -5952,24 +5958,21 @@ static netdev_features_t netdev_fix_features(struct net_device *dev,
-> [...]
->> +	/* UFO also needs checksumming */
->> +	if ((features & NETIF_F_UFO) && !(features & NETIF_F_GEN_CSUM) &&
->> +					!(features & NETIF_F_IP_CSUM)) {
-> 
-> You can use !(features & NETIF_F_V4_CSUM) instead of the last two terms.
-> 
->> +		netdev_dbg(dev,
->> +			   "Dropping NETIF_F_UFO since no checksum offload features.\n");
->> +		features &= ~NETIF_F_UFO;
->> +	}
->> +	if ((features & NETIF_F_UFO6) && !(features & NETIF_F_GEN_CSUM) &&
->> +					 !(features & NETIF_F_IPV6_CSUM)) {
-> [...]
-> 
-> Similarly you can use !(features & NETIF_F_V6_CSUM) instead of the last
-> two terms.
-
-I made those to look the same as the TSO checks for consistency, but I can change
-these to be shorter like above.
+Thanks, will do.
 
 -vlad
 
 > 
-> Aside from those minor points, this looks fine.
+>>               /* The initial flow key extracted by ovs_flow_extract()
+>>                * in this case is for a first fragment, so we need to
+>>                * properly mark later fragments.
+>> diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+>> index 2b78789..d03adf4 100644
+>> --- a/net/openvswitch/flow.c
+>> +++ b/net/openvswitch/flow.c
+>> @@ -602,7 +602,7 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
+>>
+>>           if (key->ip.frag == OVS_FRAG_TYPE_LATER)
+>>               return 0;
+>> -        if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
+>> +        if (skb_shinfo(skb)->gso_type & (SKB_GSO_UDP | SKB_GSO_UDP6))
 > 
-> Ben.
+>    .... like here.
+> 
+> [...]
+> 
+> WBR, Sergei
 > 
