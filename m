@@ -1,79 +1,79 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH] MAINTAINERS: changes for wireless
-Date: Wed, 17 Dec 2014 20:29:21 +0100
-Message-ID: <5491D991.30908@broadcom.com>
-References: <1418836025-9035-1-git-send-email-linville@tuxdriver.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [iproute2] tc: Show classes more hierarchically]
+Date: Wed, 17 Dec 2014 11:55:35 -0800
+Message-ID: <20141217115535.3f5198d2@urahara>
+References: <20141215224851.GB6734@angus-think.lan>
+	<54907619.5080508@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-wireless@vger.kernel.org>,
-	<davem@davemloft.net>
-To: "John W. Linville" <linville@tuxdriver.com>
+Cc: vadim4j@gmail.com, netdev@vger.kernel.org
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:56231 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751120AbaLQT3X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 14:29:23 -0500
-In-Reply-To: <1418836025-9035-1-git-send-email-linville@tuxdriver.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34801 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750995AbaLQTzp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 14:55:45 -0500
+Received: by mail-pa0-f42.google.com with SMTP id et14so17069326pad.1
+        for <netdev@vger.kernel.org>; Wed, 17 Dec 2014 11:55:45 -0800 (PST)
+In-Reply-To: <54907619.5080508@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/17/14 18:07, John W. Linville wrote:
-> http://marc.info/?l=linux-wireless&m=141883202530292&w=2
->
-> This makes it official... :-)
+On Tue, 16 Dec 2014 16:12:41 -0200
+Marcelo Ricardo Leitner <marcelo.leitner@gmail.com> wrote:
 
-Let see if I can comment on this patch.
+> On 15-12-2014 20:48, vadim4j@gmail.com wrote:
+> > Hi All,
+> >
+> > I am playing with showing classes in more hierarchically format and I
+> > have some code and example of output from my TC looks like:
+> >
+> > # tc/tc -t class show dev tap0
+> >
+> >   \---1:2 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> >          \---1:40 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> >          \---1:50 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> >          \---1:60 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> >   \---1:1 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> >          \---1:10 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> >                 \---1:11 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> >                        \---1:111 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> >          \---1:20 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> >          \---1:30 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> >
+> >
+> > which in standart output mode it looks like:
+> >
+> > # tc/tc class show dev tap0
+> >
+> > class htb 1:11 parent 1:10 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> > class htb 1:111 parent 1:11 prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> > class htb 1:10 parent 1:1 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
+> > class htb 1:1 root rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> > class htb 1:20 parent 1:1 leaf 20: prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> > class htb 1:2 root rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> > class htb 1:30 parent 1:1 leaf 30: prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> > class htb 1:40 parent 1:2 leaf 40: prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
+> > class htb 1:50 parent 1:2 leaf 50: prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> > class htb 1:60 parent 1:2 leaf 60: prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> >
+> > So I'd like to ask if it might be useful for the TC users (may be
+> > better format ?) to have this ?
+> 
+> Good idea! It already looks good, but what about:
+> 
+>    |-- 1:2 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+>    |      |-- 1:40 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+>    |      |-- 1:50 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+>    |      '-- 1:60 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+>    |-- 1:1 (htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+>    ...
+> 
+> just another idea..
+> 
+> Thanks.
+>    Marcelo
 
-First of all, thanks for the years of service. You already gave the 
-heads up few months ago, but now its official. It has been good working 
-with you getting rid of eye-sore code in brcm80211 drivers.
-
-> Signed-off-by: John W. Linville<linville@tuxdriver.com>
-> ---
->   MAINTAINERS | 19 ++++++++-----------
->   1 file changed, 8 insertions(+), 11 deletions(-)
->
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index fdffe962a16a..e82d31aeb936 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -6603,19 +6603,8 @@ L:	netdev@vger.kernel.org
->   S:	Maintained
->
->   NETWORKING [WIRELESS]
-> -M:	"John W. Linville"<linville@tuxdriver.com>
->   L:	linux-wireless@vger.kernel.org
->   Q:	http://patchwork.kernel.org/project/linux-wireless/list/
-> -T:	git git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git
-> -S:	Maintained
-> -F:	net/mac80211/
-> -F:	net/rfkill/
-> -F:	net/wireless/
-> -F:	include/net/ieee80211*
-> -F:	include/linux/wireless.h
-> -F:	include/uapi/linux/wireless.h
-> -F:	include/net/iw_handler.h
-> -F:	drivers/net/wireless/
->
->   NETWORKING DRIVERS
->   L:	netdev@vger.kernel.org
-> @@ -6636,6 +6625,14 @@ F:	include/linux/inetdevice.h
->   F:	include/uapi/linux/if_*
->   F:	include/uapi/linux/netdevice.h
->
-> +NETWORKING DRIVERS (WIRELESS)
-> +M:	Kalle Valo<kvalo@codeaurora.org>
-> +L:	linux-wireless@vger.kernel.org
-> +Q:	http://patchwork.kernel.org/project/linux-wireless/list/
-> +T:	git git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git/
-> +S:	Maintained
-> +F:	drivers/net/wireless/
-
-So what about the other paths that were in "NETWORKING [WIRELESS]". 
-Couple of them are obviously maintained by Johannes, but..
-
-> +
->   NETXEN (1/10) GbE SUPPORT
->   M:	Manish Chopra<manish.chopra@qlogic.com>
->   M:	Sony Chacko<sony.chacko@qlogic.com>
+There are several places that also print tree format, hopefully there would
+be reusable code (lspci, tree, ps).
