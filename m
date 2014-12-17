@@ -1,73 +1,41 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 03/10] ovs: Enable handling of UFO6 packets.
-Date: Wed, 17 Dec 2014 23:17:06 +0300
-Message-ID: <5491E4C2.5080402@cogentembedded.com>
-References: <1418840455-22598-1-git-send-email-vyasevic@redhat.com>
-	<1418840455-22598-4-git-send-email-vyasevic@redhat.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] MAINTAINERS: changes for wireless
+Date: Wed, 17 Dec 2014 21:23:33 +0100
+Message-ID: <1418847813.2135.29.camel@sipsolutions.net>
+References: <1418836025-9035-1-git-send-email-linville@tuxdriver.com>
+	 <5491D991.30908@broadcom.com> (sfid-20141217_202931_110924_F697E311)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, ben@decadent.org.uk, stefanha@redhat.com,
-	virtualization@lists.linux-foundation.org
-To: Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1418840455-22598-4-git-send-email-vyasevic@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	davem@davemloft.net
+To: Arend van Spriel <arend@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:38218 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751101AbaLQUXk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Dec 2014 15:23:40 -0500
+In-Reply-To: <5491D991.30908@broadcom.com> (sfid-20141217_202931_110924_F697E311)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Wed, 2014-12-17 at 20:29 +0100, Arend van Spriel wrote:
 
-On 12/17/2014 09:20 PM, Vladislav Yasevich wrote:
+> > +NETWORKING DRIVERS (WIRELESS)
+> > +M:	Kalle Valo<kvalo@codeaurora.org>
+> > +L:	linux-wireless@vger.kernel.org
+> > +Q:	http://patchwork.kernel.org/project/linux-wireless/list/
+> > +T:	git git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git/
+> > +S:	Maintained
+> > +F:	drivers/net/wireless/
+> 
+> So what about the other paths that were in "NETWORKING [WIRELESS]". 
+> Couple of them are obviously maintained by Johannes, but..
 
-> Since UFO6 packets can now be identified by SKB_GSO_UDP6, add proper checks
-> to handel UFO6 flows.
-> Legacy applications may still have UFO6 packets identified by SKB_GSO_UDP,
-> so we need to continue to handle them correclty.
+The remaining ones are probably just wext, and nobody cares any more ...
+I guess they're orphaned. If anyone really really really needs to have a
+patch against them, and we actually end up wanting it, I'm sure we can
+figure something out :)
 
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
-> ---
->   net/openvswitch/datapath.c | 3 ++-
->   net/openvswitch/flow.c     | 2 +-
->   2 files changed, 3 insertions(+), 2 deletions(-)
-
-> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-> index f9e556b..b43fc60 100644
-> --- a/net/openvswitch/datapath.c
-> +++ b/net/openvswitch/datapath.c
-> @@ -334,7 +334,8 @@ static int queue_gso_packets(struct datapath *dp, struct sk_buff *skb,
->   		if (err)
->   			break;
->
-> -		if (skb == segs && gso_type & SKB_GSO_UDP) {
-> +		if (skb == segs &&
-> +		    ((gso_type & SKB_GSO_UDP) || (gso_type & SKB_GSO_UDP6))) {
-
-    'gso_type & (SKB_GSO_UDP | SKB_GSO_UDP6)' would be shorter...
-
->   			/* The initial flow key extracted by ovs_flow_extract()
->   			 * in this case is for a first fragment, so we need to
->   			 * properly mark later fragments.
-> diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-> index 2b78789..d03adf4 100644
-> --- a/net/openvswitch/flow.c
-> +++ b/net/openvswitch/flow.c
-> @@ -602,7 +602,7 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
->
->   		if (key->ip.frag == OVS_FRAG_TYPE_LATER)
->   			return 0;
-> -		if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
-> +		if (skb_shinfo(skb)->gso_type & (SKB_GSO_UDP | SKB_GSO_UDP6))
-
-    .... like here.
-
-[...]
-
-WBR, Sergei
+johannes
