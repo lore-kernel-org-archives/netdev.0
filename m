@@ -1,80 +1,60 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: Re: Bug: mv643xxx fails with highmem
-Date: Wed, 17 Dec 2014 18:18:58 -0300
-Message-ID: <5491F342.5090301@free-electrons.com>
-References: <20141211194920.GR11285@n2100.arm.linux.org.uk> <20141211.151055.817876561546126576.davem@davemloft.net> <20141211202507.GS11285@n2100.arm.linux.org.uk>
+From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
+Subject: Re: [RFC PATCH net-next 0/5] tcp: TCP tracer
+Date: Wed, 17 Dec 2014 18:24:59 -0300
+Message-ID: <20141217212459.GD3150@kernel.org>
+References: <CAADnVQ+zkNL9sJhJuAiQ_y4bis=Sck5pzG86qccXE9vvM0-drQ@mail.gmail.com>
+ <5491EE01.5020406@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, fugang.duan@freescale.com
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	David Miller <davem@davemloft.net>,
-	Nimrod Andy <B38611@freescale.com>,
-	Fabio Estevam <fabio.estevam@freescale.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Martin KaFai Lau <kafai@fb.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Lawrence Brakmo <brakmo@fb.com>, Josef Bacik <jbacik@fb.com>,
+	Kernel Team <Kernel-team@fb.com>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:43342 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751076AbaLQVUv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 16:20:51 -0500
-In-Reply-To: <20141211202507.GS11285@n2100.arm.linux.org.uk>
+Received: from bombadil.infradead.org ([198.137.202.9]:44570 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750995AbaLQVZh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 16:25:37 -0500
+Content-Disposition: inline
+In-Reply-To: <5491EE01.5020406@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Russell, David:
+Em Wed, Dec 17, 2014 at 01:56:33PM -0700, David Ahern escreveu:
+> On 12/17/14 1:42 PM, Alexei Starovoitov wrote:
+> >>It is not strictly necessary to carry vmlinux, that is just a probe
+> >>>point resolution time problem, solvable when generating a shell script,
+> >>>on the development machine, to insert the probes.
+> >on N development machines with kernels that
+> >would match worker machines...
+> >I'm not saying it's impossible, just operationally difficult.
+> >This is my understanding of Martin's use case.
 
-On 12/11/2014 05:25 PM, Russell King - ARM Linux wrote:
-> On Thu, Dec 11, 2014 at 03:10:55PM -0500, David Miller wrote:
->> From: Russell King - ARM Linux <linux@arm.linux.org.uk>
->> Date: Thu, 11 Dec 2014 19:49:20 +0000
->>
->>> Commit 69ad0dd7af22 removed skb_frag_dma_map() in favour of mapping
->>> all fragments with dma_map_single().  This fails when the driver is
->>> used in an environment with highmem.
->>
->> This change looks really buggy to me.
->>
->> Unfortunately, all the changes he subsequently makes for software TS=
-O
->> support depend upon this :-/
->>
->> The change is definitely wrong.
+> That's the use case I am talking about ... N-different kernel versions and
+> the probe definitions would need to be generated at *build* time of the
+> kernel that uses a cross-compile environment. ie., can't assume there is a
+> development machine running the kernel from which you can generate the probe
+> definitions. This gets messy quick for embedded deployments.
 
-I've been trying to find a fix for this issue, and also trying to
-reproduce the bug.
+It shouldn't, you're saying that the rate of pushing out production
+kernels is so high that we get lost and can't find the matching full
+debug original binaries used.
 
-As for the fix, we need to fix the non-TSO and TSO paths independently.
-The former is fairly straightforward, but the latter might be a bit mor=
-e
-involved.
+We have build-ids for that, to have binary content keys, that we can
+match what is in production, that has to be as lean as possible, while
+being able to get back to all that fat.
 
-The problem is that the tso_t struct holds a pointer to the skb linear
-and non-linear data.
+Is it that people want so hard to forget about that extra debugging fat
+that in the end we need to keep it to be able to figure out what happens
+when things go wrong?
 
-struct tso_t {
-        int next_frag_idx;
-        void *data;
-        size_t size;
-        u16 ip_id;
-        u32 tcp_seq;
-};
+I understand that the expectation is that for each production build
+there will be unwieldly different probe point definitions to keep, but
+is that so?
 
-Instead, we should deal with pages, and only map the non-linear skb wit=
-h
-skb_frag_dma_map().
-
-On the other side, I haven't been able to reproduce this on my boards. =
-I
-did try to put a hack to hold most lowmem pages, but it didn't make a
-difference. (In fact, I haven't been able to clearly see how the pages
-for the skbuff are allocated from high memory.)
-
-Russell, would you share any hints about your setup? I don't have acces=
-s
-to any Dove boards at the moment, but I do have Kirkwoods, Armadas and
-i.MX6.
-
-Thanks a lot for your report and help!
---=20
-Ezequiel Garc=EDa, Free Electrons
-Embedded Linux, Kernel and Android Engineering
-http://free-electrons.com
+- Arnaldo
