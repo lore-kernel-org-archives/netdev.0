@@ -1,87 +1,88 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC PATCH net-next 0/5] tcp: TCP tracer
-Date: Wed, 17 Dec 2014 12:42:34 -0800
-Message-ID: <CAADnVQ+zkNL9sJhJuAiQ_y4bis=Sck5pzG86qccXE9vvM0-drQ@mail.gmail.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH 01/10] core: Split out UFO6 support
+Date: Wed, 17 Dec 2014 15:43:50 -0500
+Message-ID: <5491EB06.2060803@redhat.com>
+References: <1418840455-22598-1-git-send-email-vyasevic@redhat.com>	
+	<1418840455-22598-2-git-send-email-vyasevic@redhat.com>
+	<1418847039.30883.29.camel@decadent.org.uk>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Martin KaFai Lau <kafai@fb.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Lawrence Brakmo <brakmo@fb.com>, Josef Bacik <jbacik@fb.com>,
-	Kernel Team <Kernel-team@fb.com>
-To: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f179.google.com ([209.85.216.179]:42779 "EHLO
-	mail-qc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751030AbaLQUmf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 15:42:35 -0500
-Received: by mail-qc0-f179.google.com with SMTP id c9so12450667qcz.24
-        for <netdev@vger.kernel.org>; Wed, 17 Dec 2014 12:42:34 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mst@redhat.com, stefanha@redhat.com,
+	virtualization@lists.linux-foundation.org
+To: Ben Hutchings <ben@decadent.org.uk>,
+	Vladislav Yasevich <vyasevich@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1418847039.30883.29.camel@decadent.org.uk>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 17, 2014 at 11:51 AM, Arnaldo Carvalho de Melo
-<arnaldo.melo@gmail.com> wrote:
-> Em Wed, Dec 17, 2014 at 09:14:02AM -0800, Alexei Starovoitov escreveu:
->> On Wed, Dec 17, 2014 at 7:07 AM, Arnaldo Carvalho de Melo
->> <arnaldo.melo@gmail.com> wrote:
->> > I guess even just using 'perf probe' to set those wannabe tracepoints
->> > should be enough, no? Then he can refer to those in his perf record
->> > call, etc and process it just like with the real tracepoints.
->
->> it's far from ideal for two reasons.
->> - they have different kernels and dragging along vmlinux
->> with debug info or multiple 'perf list' data is too cumbersome
->
-> It is not strictly necessary to carry vmlinux, that is just a probe
-> point resolution time problem, solvable when generating a shell script,
-> on the development machine, to insert the probes.
+On 12/17/2014 03:10 PM, Ben Hutchings wrote:
+> On Wed, 2014-12-17 at 13:20 -0500, Vladislav Yasevich wrote:
+>> Split IPv6 support for UFO into its own feature similiar to TSO.
+>> This will later allow us to re-enable UFO support for virtio-net
+>> devices.
+> [...]
+>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+>> index 6c8b6f6..8538b67 100644
+>> --- a/include/linux/skbuff.h
+>> +++ b/include/linux/skbuff.h
+>> @@ -372,6 +372,7 @@ enum {
+>>  
+>>  	SKB_GSO_MPLS = 1 << 12,
+>>  
+>> +	SKB_GSO_UDP6 = 1 << 13
+> 
+> It seems like it would be cleaner to use the names SKB_GSO_UDPV{4,6},
+> similarly to SKB_GSO_TCPV{4,6}.
 
-on N development machines with kernels that
-would match worker machines...
-I'm not saying it's impossible, just operationally difficult.
-This is my understanding of Martin's use case.
+I wanted to try to avoid touched ipv4 paths if I could.  I could use
+GSO_UDPV6 though.
 
->> operationally. Permanent tracepoints solve this problem.
->
-> Sure, and when available, use them, my suggestion wasn't to use
-> exclusively any mechanism, but to initially use what is available to
-> create the tools, then find places that could be improved (if that
-> proves to be the case) by using a higher performance mechanism.
+> 
+>>  };
+>>  
+>>  #if BITS_PER_LONG > 32
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index 945bbd0..fa4d2ee 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+> [...]
+>> @@ -5952,24 +5958,21 @@ static netdev_features_t netdev_fix_features(struct net_device *dev,
+> [...]
+>> +	/* UFO also needs checksumming */
+>> +	if ((features & NETIF_F_UFO) && !(features & NETIF_F_GEN_CSUM) &&
+>> +					!(features & NETIF_F_IP_CSUM)) {
+> 
+> You can use !(features & NETIF_F_V4_CSUM) instead of the last two terms.
+> 
+>> +		netdev_dbg(dev,
+>> +			   "Dropping NETIF_F_UFO since no checksum offload features.\n");
+>> +		features &= ~NETIF_F_UFO;
+>> +	}
+>> +	if ((features & NETIF_F_UFO6) && !(features & NETIF_F_GEN_CSUM) &&
+>> +					 !(features & NETIF_F_IPV6_CSUM)) {
+> [...]
+> 
+> Similarly you can use !(features & NETIF_F_V6_CSUM) instead of the last
+> two terms.
 
-agree. I think if kprobe approach was usable, it would have
-been used already and yet here you have these patches
-that add tracepoints in few strategic places of tcp stack.
+I made those to look the same as the TSO checks for consistency, but I can change
+these to be shorter like above.
 
->> - the action upon hitting tracepoint is non-trivial.
->> perf probe style of unconditionally walking pointer chains
->> will be tripping over wrong pointers.
->
-> Huh? Care to elaborate on this one?
+-vlad
 
-if perf probe does 'result->name' as in your example
-then it would work, but patch 5 does conditional
-walking of pointers, so you cannot just add
-a perf probe that does print(ptr1->value1, ptr2->value2)
-It won't crash, but will be collecting wrong stats.
-(likely counting zeros)
-
->> Plus they already need to do aggregation for high
->> frequency events.
->
->> As part of acting on trace_transmit_skb() event:
->> if (before(tcb->seq, tcp_sk(sk)->snd_nxt)) {
->>   tcp_trace_stats_add(...)
->> }
->> if (jiffies_to_msecs(jiffies - sktr->last_ts) ..) {
->>   tcp_trace_stats_add(...)
->> }
->
-> But aren't these stats TCP already keeps or could be made to?
-
-that's the whole discussion about.
-tcp_info has some of them.
-Though it's difficult to claim that, say, tcp_info->tcpi_lost is
-the same as loss_segs_retrans from patch 5.
+> 
+> Aside from those minor points, this looks fine.
+> 
+> Ben.
+> 
