@@ -1,73 +1,73 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: Question about phys_port_id
-Date: Wed, 17 Dec 2014 10:47:06 -0600
-Message-ID: <1418834826.1160.35.camel@dcbw.local>
-References: <CAEPrYjTZ8SU1y4TwKHYtZju+4_-O5mazAjaFKaKmR2cYuAKHnA@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net 2/2] geneve: Fix races between socket add and release.
+Date: Wed, 17 Dec 2014 16:54:54 +0000
+Message-ID: <20141217165454.GE28766@casper.infradead.org>
+References: <1418783132-99230-1-git-send-email-jesse@nicira.com>
+ <1418783132-99230-2-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Joshua Watt <jpewdev@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Andy Zhou <azhou@nicira.com>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59272 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751240AbaLQQrJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Dec 2014 11:47:09 -0500
-In-Reply-To: <CAEPrYjTZ8SU1y4TwKHYtZju+4_-O5mazAjaFKaKmR2cYuAKHnA@mail.gmail.com>
+Received: from casper.infradead.org ([85.118.1.10]:56270 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750951AbaLQQyz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 11:54:55 -0500
+Content-Disposition: inline
+In-Reply-To: <1418783132-99230-2-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-12-17 at 10:09 -0600, Joshua Watt wrote:
-> Hello,
+On 12/16/14 at 06:25pm, Jesse Gross wrote:
+> Currently, searching for a socket to add a reference to is not
+> synchronized with deletion of sockets. This can result in use
+> after free if there is another operation that is removing a
+> socket at the same time. Solving this requires both holding the
+> appropriate lock and checking the refcount to ensure that it
+> has not already hit zero.
 > 
-> I had a question regarding the phys_port_id attribute of net_device.
-> Is that identifier supposed to be globally unique or just unique among
-> devices that share a common device? For example, we have a single
-> device that create two net_device s (one for each of it's macs). Would
-
-Do the two net_device's share hardware or firmware resources?  Can they
-be used independently at maximum capability, or when both are in use do
-they have degraded capability?
-
-> it be sufficient for this device to return a phys_port_id of 0 for the
-> first net_device and 1 for the second? I noticed that the other
-
-If the two netdevs share resources, then they should have the *same*
-phys_port_id.  If they do not have the same physical hardware or shared
-resources and are completely independent from each other at all levels,
-then you can either skip phy_port_id altogether.
-
-One good use for this (and why it was originally added) was to indicate
-to userspace that it was pointless to bond two interfaces with the same
-underlying hardware or resources, because that totally defeats the
-purpose of both failover and aggregation.
-
-> implementations that use phys_port_id copy their mac address into the
-> phys_port_id, but I'm not sure if that is just because that is an easy
-> way to get a unique number or if it is because the ID needs to be
-> globally unique.
-
-Say you have two netdevs that share the same hardware or resources.  You
-assign them both a phys_port_id of "1" to indicate this.  What if
-there's a second cpsw device on the system, do both of its netdevs also
-get "1", or "2", or?  Or how about a card from another vendor, how do
-you ensure that your device's phys_port_id won't conflict with that
-vendor's device/driver?
-
-That's why most drivers currently use the MAC address or a GUID.
-
-Dan
-
-> If you're wondering the driver in question is the TI cpsw driver
-> (drivers/net/ethernet/ti/cpsw.c). We are running the device in
-> dual-emac mode and need to uniquely identify which emac is which in
-> userspace (specifically, udev rules). The physical port identifier
-> seems to be the logical choice to me, but I'm not sure if I'm missing
-> something.
+> Inspired by a related (but not exactly the same) issue in the
+> VXLAN driver.
 > 
-> Thanks,
-> Joshua Watt
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Fixes: 0b5e8b8e ("net: Add Geneve tunneling protocol driver")
+> CC: Andy Zhou <azhou@nicira.com>
+> Signed-off-by: Jesse Gross <jesse@nicira.com>
+> ---
+>  net/ipv4/geneve.c | 13 +++++++------
+>  1 file changed, 7 insertions(+), 6 deletions(-)
+> 
+> diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
+> index 5a47188..95e47c9 100644
+> --- a/net/ipv4/geneve.c
+> +++ b/net/ipv4/geneve.c
+> @@ -296,6 +296,7 @@ struct geneve_sock *geneve_sock_add(struct net *net, __be16 port,
+>  				    geneve_rcv_t *rcv, void *data,
+>  				    bool no_share, bool ipv6)
+>  {
+> +	struct geneve_net *gn = net_generic(net, geneve_net_id);
+>  	struct geneve_sock *gs;
+>  
+>  	gs = geneve_socket_create(net, port, rcv, data, ipv6);
+> @@ -305,15 +306,15 @@ struct geneve_sock *geneve_sock_add(struct net *net, __be16 port,
+>  	if (no_share)	/* Return error if sharing is not allowed. */
+>  		return ERR_PTR(-EINVAL);
+>  
+> +	spin_lock(&gn->sock_lock);
+>  	gs = geneve_find_sock(net, port);
+
+Perhaps remove the _rcu of the iterator in the geneve_find_sock?
+Also, the kfree_rcu() seems no longer needed as all read accesses
+are protected by the spinlock.
+
+> -	if (gs) {
+> -		if (gs->rcv == rcv)
+> -			atomic_inc(&gs->refcnt);
+> -		else
+> +	if (gs && ((gs->rcv != rcv) ||
+> +		   !atomic_add_unless(&gs->refcnt, 1, 0)))
+>  			gs = ERR_PTR(-EBUSY);
+
+Since you are taking gn->sock_lock in geneve_sock_release()
+anyway, all accesses to refcnt could eventually be converted
+to non-atomic ops.
