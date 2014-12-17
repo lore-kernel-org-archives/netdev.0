@@ -1,47 +1,65 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC PATCH net-next 0/5] tcp: TCP tracer
-Date: Wed, 17 Dec 2014 09:14:02 -0800
-Message-ID: <CAADnVQJgUn-hUrR1XLE4J64Ms52zRCRQkJDFUDu9SGTONJ507w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Martin KaFai Lau <kafai@fb.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Lawrence Brakmo <brakmo@fb.com>, Josef Bacik <jbacik@fb.com>,
-	Kernel Team <Kernel-team@fb.com>
-To: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [PATCH] MAINTAINERS: changes for wireless
+Date: Wed, 17 Dec 2014 12:07:05 -0500
+Message-ID: <1418836025-9035-1-git-send-email-linville@tuxdriver.com>
+Cc: linux-wireless@vger.kernel.org, davem@davemloft.net,
+	"John W. Linville" <linville@tuxdriver.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f47.google.com ([209.85.216.47]:52028 "EHLO
-	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750951AbaLQROD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 12:14:03 -0500
-Received: by mail-qa0-f47.google.com with SMTP id s7so11475874qap.34
-        for <netdev@vger.kernel.org>; Wed, 17 Dec 2014 09:14:02 -0800 (PST)
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:34783 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751108AbaLQRPU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 12:15:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 17, 2014 at 7:07 AM, Arnaldo Carvalho de Melo
-<arnaldo.melo@gmail.com> wrote:
->
-> I guess even just using 'perf probe' to set those wannabe tracepoints
-> should be enough, no? Then he can refer to those in his perf record
-> call, etc and process it just like with the real tracepoints.
+http://marc.info/?l=linux-wireless&m=141883202530292&w=2
 
-it's far from ideal for two reasons.
-- they have different kernels and dragging along vmlinux
-with debug info or multiple 'perf list' data is too cumbersome
-operationally. Permanent tracepoints solve this problem.
-- the action upon hitting tracepoint is non-trivial.
-perf probe style of unconditionally walking pointer chains
-will be tripping over wrong pointers.
-Plus they already need to do aggregation for high
-frequency events.
-As part of acting on trace_transmit_skb() event:
-if (before(tcb->seq, tcp_sk(sk)->snd_nxt)) {
-  tcp_trace_stats_add(...)
-}
-if (jiffies_to_msecs(jiffies - sktr->last_ts) ..) {
-  tcp_trace_stats_add(...)
-}
+This makes it official... :-)
+
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+ MAINTAINERS | 19 ++++++++-----------
+ 1 file changed, 8 insertions(+), 11 deletions(-)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index fdffe962a16a..e82d31aeb936 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -6603,19 +6603,8 @@ L:	netdev@vger.kernel.org
+ S:	Maintained
+ 
+ NETWORKING [WIRELESS]
+-M:	"John W. Linville" <linville@tuxdriver.com>
+ L:	linux-wireless@vger.kernel.org
+ Q:	http://patchwork.kernel.org/project/linux-wireless/list/
+-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git
+-S:	Maintained
+-F:	net/mac80211/
+-F:	net/rfkill/
+-F:	net/wireless/
+-F:	include/net/ieee80211*
+-F:	include/linux/wireless.h
+-F:	include/uapi/linux/wireless.h
+-F:	include/net/iw_handler.h
+-F:	drivers/net/wireless/
+ 
+ NETWORKING DRIVERS
+ L:	netdev@vger.kernel.org
+@@ -6636,6 +6625,14 @@ F:	include/linux/inetdevice.h
+ F:	include/uapi/linux/if_*
+ F:	include/uapi/linux/netdevice.h
+ 
++NETWORKING DRIVERS (WIRELESS)
++M:	Kalle Valo <kvalo@codeaurora.org>
++L:	linux-wireless@vger.kernel.org
++Q:	http://patchwork.kernel.org/project/linux-wireless/list/
++T:	git git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git/
++S:	Maintained
++F:	drivers/net/wireless/
++
+ NETXEN (1/10) GbE SUPPORT
+ M:	Manish Chopra <manish.chopra@qlogic.com>
+ M:	Sony Chacko <sony.chacko@qlogic.com>
+-- 
+1.9.3
