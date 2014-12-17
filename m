@@ -1,65 +1,75 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC PATCH net-next 0/5] tcp: TCP tracer
-Date: Tue, 16 Dec 2014 19:06:59 -0800
-Message-ID: <CAADnVQL6-72UvvL-T7JUa-6c5+xJ2XggW=iCwb5G_ZbH3r-SZQ@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 0/5] tun/macvtap: TUNSETIFF fixes
+Date: Wed, 17 Dec 2014 03:19:52 +0008
+Message-ID: <1418785912.6058.0@smtp.corp.redhat.com>
+References: <1418732988-3535-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Blake Matheny <bmatheny@fb.com>,
-	Laurent Chavey <chavey@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Lawrence Brakmo <brakmo@fb.com>, Josef Bacik <jbacik@fb.com>,
-	Kernel Team <Kernel-team@fb.com>
-To: Martin Lau <kafai@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f45.google.com ([209.85.192.45]:47859 "EHLO
-	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751066AbaLQDHA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 22:07:00 -0500
-Received: by mail-qg0-f45.google.com with SMTP id f51so11063049qge.4
-        for <netdev@vger.kernel.org>; Tue, 16 Dec 2014 19:06:59 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, Dan Carpenter <dan.carpenter@oracle.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1418732988-3535-1-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 16, 2014 at 5:30 PM, Martin Lau <kafai@fb.com> wrote:
->> >> >> I think systemtap like scripting on top of patches 1 and 3
->> >> >> should solve your use case ?
->> > We have quite a few different versions running in the production.  It may not
->> > be operationally easy.
->>
->> different versions of kernel or different versions of tcp_tracer ?
-> Former and we are releasing new kernel pretty often.
 
-I see. So for dynamic tracer to be useful in such environment,
-the scripts should be compatible across different kernel version
-without recompilation. All makes sense.
 
-> How does the current TRACE_EVENT do it when it wants to printf more data?
+On Tue, Dec 16, 2014 at 9:04 PM, Michael S. Tsirkin <mst@redhat.com> 
+wrote:
+> Dan Carpenter reported the following:
+> 	static checker warning:
+> 
+> 		drivers/net/tun.c:1694 tun_set_iff()
+> 		warn: 0x17100 is larger than 16 bits
+> 
+> 	drivers/net/tun.c
+> 	  1692
+> 	  1693          tun->flags = (tun->flags & ~TUN_FEATURES) |
+> 	  1694                  (ifr->ifr_flags & TUN_FEATURES);
+> 	  1695
+> 
+> 	It's complaining because the "ifr->ifr_flags" variable is a short
+> 	(should it be unsigned?).  The new define:
+> 
+> 	#define IFF_VNET_LE    0x10000
+> 
+> 	doesn't fit in two bytes.  Other suspect looking code could be:
+> 
+> 		return __virtio16_to_cpu(q->flags & IFF_VNET_LE, val);
+> 
+> And that's true: we have run out of IFF flags in tun.
 
-tracepoints, like any other user interface, shouldn't
-break compatibility. With printf it's practically impossible.
-Some subsystems may be breaking this rule arguing that
-tracepoints is a debug facility, but networking tracepoints don't change.
-
->> It feels that for stats collection only, tracepoints+tcp_trace
->> do not add much additional value vs extending tcp_info
->> and using ss.
-> I think we are on the same page. Once 'this should cost nothing if not
-> activated' proposition was cleared out.  It was what I meant that doing the
-> collection part in the TCP itself (instead of tracepoints) would be nice.
-
-agree.
-
-> I think going forward, as others have suggested, it may be better to come
-> together and reach a common ground on what to collect first before I re-work
-> patch 1 to 3 and repost.
-
-I think as a minimum it will be discussed at netdev01 in Feb,
-but I suspect not everyone on this list can(want) go to Ottawa,
-so would be nice to have a meetup for bay area folks to
-discuss this sooner with public g+ hangout.
-Thoughts?
+I don't have objections on this series.
+Just note that we still have several bits available.
+> 
+> So let's not try to add more: add simple GET/SET ioctls
+> instead. Easy to test, leads to clear semantics.
+> 
+> Alternatively we'll have to revert the whole thing for 3.19,
+> but that seems more work as this has dependencies
+> in other places.
+> 
+> While here, I noticed that macvtap was actually reading
+> ifreq flags as a 32 bit field.
+> Fix that up as well.
+> 
+> Michael S. Tsirkin (5):
+>   macvtap: fix uninitialized access on TUNSETIFF
+>   if_tun: add TUNSETVNETLE/TUNGETVNETLE
+>   tun: drop broken IFF_VNET_LE
+>   macvtap: drop broken IFF_VNET_LE
+>   if_tun: drop broken IFF_VNET_LE
+> 
+>  include/uapi/linux/if_tun.h |  3 ++-
+>  drivers/net/macvtap.c       | 30 ++++++++++++++++++++++++------
+>  drivers/net/tun.c           | 26 +++++++++++++++++++++++---
+>  3 files changed, 49 insertions(+), 10 deletions(-)
+> 
+> -- 
+> MST
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
