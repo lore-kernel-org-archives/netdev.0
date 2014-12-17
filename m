@@ -1,9 +1,9 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 10/10] Revert "drivers/net: Disable UFO through virtio"
-Date: Thu, 18 Dec 2014 00:44:01 +0200
-Message-ID: <20141217224401.GD30969@redhat.com>
+Subject: Re: [PATCH 01/10] core: Split out UFO6 support
+Date: Thu, 18 Dec 2014 00:45:53 +0200
+Message-ID: <20141217224553.GE30969@redhat.com>
 References: <1418840455-22598-1-git-send-email-vyasevic@redhat.com>
-	<1418840455-22598-11-git-send-email-vyasevic@redhat.com>
+	<1418840455-22598-2-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -12,7 +12,7 @@ Cc: netdev@vger.kernel.org, ben@decadent.org.uk, stefanha@redhat.com,
 To: Vladislav Yasevich <vyasevich@gmail.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1418840455-22598-11-git-send-email-vyasevic@redhat.com>
+In-Reply-To: <1418840455-22598-2-git-send-email-vyasevic@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -24,104 +24,160 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 17, 2014 at 01:20:55PM -0500, Vladislav Yasevich wrote:
-> This reverts commit 3d0ad09412ffe00c9afa201d01effdb6023d09b4.
-> Now that we've split UFO into v4 and v6 version, we can turn
-> back UFO support for ipv4.  Full IPv6 support will come later as
-> it requires extending vnet header structure.
+On Wed, Dec 17, 2014 at 01:20:46PM -0500, Vladislav Yasevich wrote:
+> Split IPv6 support for UFO into its own feature similiar to TSO.
+> This will later allow us to re-enable UFO support for virtio-net
+> devices.
 > 
-> Any older VM that assumes IPv6 support is included in UFO
-> will continue to use UFO and the host will generate fragment
-> ids for it, thus preserving connectivity.
-> 
-> Fixes: 88e0e0e5aa7a ("drivers/net: Disable UFO through virtio")
-> CC: Ben Hutchings <ben@decadent.org.uk>
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 > ---
->  drivers/net/virtio_net.c | 24 ++++++++++--------------
->  1 file changed, 10 insertions(+), 14 deletions(-)
+>  include/linux/netdev_features.h |  7 +++++--
+>  include/linux/netdevice.h       |  1 +
+>  include/linux/skbuff.h          |  1 +
+>  net/core/dev.c                  | 35 +++++++++++++++++++----------------
+>  net/core/ethtool.c              |  2 +-
+>  5 files changed, 27 insertions(+), 19 deletions(-)
 > 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index b0bc8ea..534b633 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -491,17 +491,8 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
->  			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
->  			break;
->  		case VIRTIO_NET_HDR_GSO_UDP:
-> -		{
-> -			static bool warned;
-> -
-> -			if (!warned) {
-> -				warned = true;
-> -				netdev_warn(dev,
-> -					    "host using disabled UFO feature; please fix it\n");
-> -			}
->  			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
->  			break;
-
-
-This might not be true: could be a legacy host.
-I think we need to check for IPv6 and set it
-correctly to SKB_GSO_UDP/SKB_GSO_UDP6?
-
-
-> -		}
->  		case VIRTIO_NET_HDR_GSO_TCPV6:
->  			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
->  			break;
-> @@ -890,6 +881,8 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
->  			hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
->  		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
->  			hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
-> +		else if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
-> +			hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_UDP;
->  		else
->  			BUG();
->  		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCP_ECN)
-> @@ -1749,7 +1742,7 @@ static int virtnet_probe(struct virtio_device *vdev)
->  			dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
+> diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+> index dcfdecb..a078945 100644
+> --- a/include/linux/netdev_features.h
+> +++ b/include/linux/netdev_features.h
+> @@ -48,8 +48,9 @@ enum {
+>  	NETIF_F_GSO_UDP_TUNNEL_BIT,	/* ... UDP TUNNEL with TSO */
+>  	NETIF_F_GSO_UDP_TUNNEL_CSUM_BIT,/* ... UDP TUNNEL with TSO & CSUM */
+>  	NETIF_F_GSO_MPLS_BIT,		/* ... MPLS segmentation */
+> +	NETIF_F_UFO6_BIT,		/* ... UDPv6 fragmentation */
+>  	/**/NETIF_F_GSO_LAST =		/* last bit, see GSO_MASK */
+> -		NETIF_F_GSO_MPLS_BIT,
+> +		NETIF_F_UFO6_BIT,
 >  
->  		if (virtio_has_feature(vdev, VIRTIO_NET_F_GSO)) {
-> -			dev->hw_features |= NETIF_F_TSO
-> +			dev->hw_features |= NETIF_F_TSO | NETIF_F_UFO
->  				| NETIF_F_TSO_ECN | NETIF_F_TSO6;
->  		}
->  		/* Individual feature bits: what can host handle? */
-> @@ -1759,9 +1752,11 @@ static int virtnet_probe(struct virtio_device *vdev)
->  			dev->hw_features |= NETIF_F_TSO6;
->  		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_ECN))
->  			dev->hw_features |= NETIF_F_TSO_ECN;
-> +		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_UFO))
-> +			dev->hw_features |= NETIF_F_UFO;
+>  	NETIF_F_FCOE_CRC_BIT,		/* FCoE CRC32 */
+>  	NETIF_F_SCTP_CSUM_BIT,		/* SCTP checksum offload */
+> @@ -109,6 +110,7 @@ enum {
+>  #define NETIF_F_TSO_ECN		__NETIF_F(TSO_ECN)
+>  #define NETIF_F_TSO		__NETIF_F(TSO)
+>  #define NETIF_F_UFO		__NETIF_F(UFO)
+> +#define NETIF_F_UFO6		__NETIF_F(UFO6)
+>  #define NETIF_F_VLAN_CHALLENGED	__NETIF_F(VLAN_CHALLENGED)
+>  #define NETIF_F_RXFCS		__NETIF_F(RXFCS)
+>  #define NETIF_F_RXALL		__NETIF_F(RXALL)
+> @@ -141,7 +143,7 @@ enum {
 >  
->  		if (gso)
-> -			dev->features |= dev->hw_features & NETIF_F_ALL_TSO;
-> +			dev->features |= dev->hw_features & (NETIF_F_ALL_TSO|NETIF_F_UFO);
->  		/* (!csum && gso) case will be fixed by register_netdev() */
+>  /* List of features with software fallbacks. */
+>  #define NETIF_F_GSO_SOFTWARE	(NETIF_F_TSO | NETIF_F_TSO_ECN | \
+> -				 NETIF_F_TSO6 | NETIF_F_UFO)
+> +				 NETIF_F_TSO6 | NETIF_F_UFO | NETIF_F_UFO6)
+>  
+>  #define NETIF_F_GEN_CSUM	NETIF_F_HW_CSUM
+>  #define NETIF_F_V4_CSUM		(NETIF_F_GEN_CSUM | NETIF_F_IP_CSUM)
+> @@ -149,6 +151,7 @@ enum {
+>  #define NETIF_F_ALL_CSUM	(NETIF_F_V4_CSUM | NETIF_F_V6_CSUM)
+>  
+>  #define NETIF_F_ALL_TSO 	(NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_TSO_ECN)
+> +#define NETIF_F_ALL_UFO		(NETIF_F_UFO | NETIF_F_UFO6)
+>  
+>  #define NETIF_F_ALL_FCOE	(NETIF_F_FCOE_CRC | NETIF_F_FCOE_MTU | \
+>  				 NETIF_F_FSO)
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 74fd5d3..86af10a 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -3559,6 +3559,7 @@ static inline bool net_gso_ok(netdev_features_t features, int gso_type)
+>  	/* check flags correspondence */
+>  	BUILD_BUG_ON(SKB_GSO_TCPV4   != (NETIF_F_TSO >> NETIF_F_GSO_SHIFT));
+>  	BUILD_BUG_ON(SKB_GSO_UDP     != (NETIF_F_UFO >> NETIF_F_GSO_SHIFT));
+> +	BUILD_BUG_ON(SKB_GSO_UDP6    != (NETIF_F_UFO6 >> NETIF_F_GSO_SHIFT));
+>  	BUILD_BUG_ON(SKB_GSO_DODGY   != (NETIF_F_GSO_ROBUST >> NETIF_F_GSO_SHIFT));
+>  	BUILD_BUG_ON(SKB_GSO_TCP_ECN != (NETIF_F_TSO_ECN >> NETIF_F_GSO_SHIFT));
+>  	BUILD_BUG_ON(SKB_GSO_TCPV6   != (NETIF_F_TSO6 >> NETIF_F_GSO_SHIFT));
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 6c8b6f6..8538b67 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -372,6 +372,7 @@ enum {
+>  
+>  	SKB_GSO_MPLS = 1 << 12,
+>  
+> +	SKB_GSO_UDP6 = 1 << 13
+>  };
+>  
+>  #if BITS_PER_LONG > 32
+
+So this implies anything getting GSO packets e.g.
+from userspace now needs to check IP version to
+set GSO type correctly.
+
+I think you missed some places that do this, e.g. af_packet
+sockets.
+
+
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 945bbd0..fa4d2ee 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -5929,6 +5929,12 @@ static netdev_features_t netdev_fix_features(struct net_device *dev,
+>  		features &= ~NETIF_F_ALL_TSO;
 >  	}
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_CSUM))
-> @@ -1799,7 +1794,8 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	/* If we can receive ANY GSO packets, we must allocate large ones. */
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO4) ||
->  	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO6) ||
-> -	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_ECN))
-> +	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_ECN) ||
-> +	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_UFO))
->  		vi->big_packets = true;
 >  
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
-> @@ -1993,9 +1989,9 @@ static struct virtio_device_id id_table[] = {
->  static unsigned int features[] = {
->  	VIRTIO_NET_F_CSUM, VIRTIO_NET_F_GUEST_CSUM,
->  	VIRTIO_NET_F_GSO, VIRTIO_NET_F_MAC,
-> -	VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_TSO6,
-> +	VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_UFO, VIRTIO_NET_F_HOST_TSO6,
->  	VIRTIO_NET_F_HOST_ECN, VIRTIO_NET_F_GUEST_TSO4, VIRTIO_NET_F_GUEST_TSO6,
-> -	VIRTIO_NET_F_GUEST_ECN,
-> +	VIRTIO_NET_F_GUEST_ECN, VIRTIO_NET_F_GUEST_UFO,
->  	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
->  	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
->  	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
+> +	/* UFO requires that SG is present as well */
+> +	if ((features & NETIF_F_ALL_UFO) && !(features & NETIF_F_SG)) {
+> +		netdev_dbg(dev, "Dropping UFO features since no SG feature.\n");
+> +		features &= ~NETIF_F_ALL_UFO;
+> +	}
+> +
+>  	if ((features & NETIF_F_TSO) && !(features & NETIF_F_HW_CSUM) &&
+>  					!(features & NETIF_F_IP_CSUM)) {
+>  		netdev_dbg(dev, "Dropping TSO features since no CSUM feature.\n");
+> @@ -5952,24 +5958,21 @@ static netdev_features_t netdev_fix_features(struct net_device *dev,
+>  		features &= ~NETIF_F_GSO;
+>  	}
+>  
+> -	/* UFO needs SG and checksumming */
+> -	if (features & NETIF_F_UFO) {
+> -		/* maybe split UFO into V4 and V6? */
+> -		if (!((features & NETIF_F_GEN_CSUM) ||
+> -		    (features & (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))
+> -			    == (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))) {
+> -			netdev_dbg(dev,
+> -				"Dropping NETIF_F_UFO since no checksum offload features.\n");
+> -			features &= ~NETIF_F_UFO;
+> -		}
+> -
+> -		if (!(features & NETIF_F_SG)) {
+> -			netdev_dbg(dev,
+> -				"Dropping NETIF_F_UFO since no NETIF_F_SG feature.\n");
+> -			features &= ~NETIF_F_UFO;
+> -		}
+> +	/* UFO also needs checksumming */
+> +	if ((features & NETIF_F_UFO) && !(features & NETIF_F_GEN_CSUM) &&
+> +					!(features & NETIF_F_IP_CSUM)) {
+> +		netdev_dbg(dev,
+> +			   "Dropping NETIF_F_UFO since no checksum offload features.\n");
+> +		features &= ~NETIF_F_UFO;
+> +	}
+> +	if ((features & NETIF_F_UFO6) && !(features & NETIF_F_GEN_CSUM) &&
+> +					 !(features & NETIF_F_IPV6_CSUM)) {
+> +		netdev_dbg(dev,
+> +			   "Dropping NETIF_F_UFO6 since no checksum offload features.\n");
+> +		features &= ~NETIF_F_UFO6;
+>  	}
+>  
+> +
+>  #ifdef CONFIG_NET_RX_BUSY_POLL
+>  	if (dev->netdev_ops->ndo_busy_poll)
+>  		features |= NETIF_F_BUSY_POLL;
+> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+> index 06dfb29..93eff41 100644
+> --- a/net/core/ethtool.c
+> +++ b/net/core/ethtool.c
+> @@ -223,7 +223,7 @@ static netdev_features_t ethtool_get_feature_mask(u32 eth_cmd)
+>  		return NETIF_F_ALL_TSO;
+>  	case ETHTOOL_GUFO:
+>  	case ETHTOOL_SUFO:
+> -		return NETIF_F_UFO;
+> +		return NETIF_F_ALL_UFO;
+>  	case ETHTOOL_GGSO:
+>  	case ETHTOOL_SGSO:
+>  		return NETIF_F_GSO;
 > -- 
 > 1.9.3
