@@ -1,53 +1,28 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: Fw: [Bug 82471] New: net/core/dev.c skb_war_bad_offload
-Date: Wed, 17 Dec 2014 10:55:53 +0100
-Message-ID: <20141217095552.GB27966@unicorn.suse.cz>
-References: <1418805852.5277.25.camel@watermelon.coderich.net>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH net-next 1/3] Implementation of RFC 4898 Extended TCP Statistics (Web10G)
+Date: Wed, 17 Dec 2014 12:01:56 +0100
+Message-ID: <87d27i35gb.fsf@nemi.mork.no>
+References: <549070CF.1010506@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Richard Laager <rlaager@wiktel.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: rapier <rapier@psc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:42496 "EHLO mx2.suse.de"
+Received: from canardo.mork.no ([148.122.252.1]:40494 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751033AbaLQJzy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Dec 2014 04:55:54 -0500
-Content-Disposition: inline
-In-Reply-To: <1418805852.5277.25.camel@watermelon.coderich.net>
+	id S1751841AbaLQLCK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 06:02:10 -0500
+In-Reply-To: <549070CF.1010506@psc.edu> (rapier@psc.edu's message of "Tue, 16
+	Dec 2014 12:50:07 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 17, 2014 at 02:44:12AM -0600, Richard Laager wrote:
-> Previous history of this thread:
-> http://thread.gmane.org/gmane.linux.network/326672
-> 
-> On 2014-11-04 22:57:19, Tom Herbert wrote:
-> > Using vlan and bonding? vlan_dev_hard_start_xmit called. A possible
-> > cause is that bonding interface is out of sync with slave interface
-> > w.r.t. GSO features. Do we know if this worked in 3.14, 3.15?
-> 
-> I'm seeing the same sort of crash/warning (skb_war_bad_offload). It's
-> happening on Intel 10 Gig NICs using the ixgbe driver. I'm using bridges
-> (for virtual machines) on top of VLANs on top of 802.3ad bonding. I'm
-> using an MTU of 9000 on the bond0 interface, but 1500 everywhere else.
-> 
-> I'm always bonding two ports: one one system, I'm bonding two ports on
-> identical one-port NICs; on another system, I'm bonding two ports on a
-> single two-port NIC. Both systems exhibit the same behavior.
-> 
-> Everything has worked fine for a couple years on Ubuntu 12.04 Precise
-> (Linux 3.2.0). It immediately broke when I upgraded to Ubuntu 14.04
-> Trusty (Linux 3.13.0). I can also reproduce this using the packaged
-> version of Linux 3.16.0 on Trusty.
+rapier <rapier@psc.edu> writes:
 
-Would it be possible that the kernel you are using has
+> + * The Web10Gig project.  See http://www.web10gig.org
 
-  da08143b8520 ("vlan: more careful checksum features handling")
+URL is already outdated?
 
-(and possibly also a9b3ace44c7d and 3625920b62c3) but not
 
-  db115037bb57 ("net: fix checksum features handling in netif_skb_features()")
-
-?
-
-Michal Kubecek
+Bj=C3=B8rn
