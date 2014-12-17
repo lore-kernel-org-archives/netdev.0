@@ -1,67 +1,65 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH net 1/2] geneve: Remove socket and offload handlers at destruction.
-Date: Tue, 16 Dec 2014 18:25:31 -0800
-Message-ID: <1418783132-99230-1-git-send-email-jesse@nicira.com>
-Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
-To: David Miller <davem@davemloft.net>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [RFC PATCH net-next 0/5] tcp: TCP tracer
+Date: Tue, 16 Dec 2014 19:06:59 -0800
+Message-ID: <CAADnVQL6-72UvvL-T7JUa-6c5+xJ2XggW=iCwb5G_ZbH3r-SZQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Blake Matheny <bmatheny@fb.com>,
+	Laurent Chavey <chavey@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Lawrence Brakmo <brakmo@fb.com>, Josef Bacik <jbacik@fb.com>,
+	Kernel Team <Kernel-team@fb.com>
+To: Martin Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog138.obsmtp.com ([74.125.149.19]:49348 "HELO
-	na3sys009aog138.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750939AbaLQCcl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 21:32:41 -0500
-Received: by mail-pa0-f54.google.com with SMTP id fb1so15312596pad.41
-        for <netdev@vger.kernel.org>; Tue, 16 Dec 2014 18:32:41 -0800 (PST)
+Received: from mail-qg0-f45.google.com ([209.85.192.45]:47859 "EHLO
+	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751066AbaLQDHA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2014 22:07:00 -0500
+Received: by mail-qg0-f45.google.com with SMTP id f51so11063049qge.4
+        for <netdev@vger.kernel.org>; Tue, 16 Dec 2014 19:06:59 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sockets aren't currently removed from the the global list when
-they are destroyed. In addition, offload handlers need to be cleaned
-up as well.
+On Tue, Dec 16, 2014 at 5:30 PM, Martin Lau <kafai@fb.com> wrote:
+>> >> >> I think systemtap like scripting on top of patches 1 and 3
+>> >> >> should solve your use case ?
+>> > We have quite a few different versions running in the production.  It may not
+>> > be operationally easy.
+>>
+>> different versions of kernel or different versions of tcp_tracer ?
+> Former and we are releasing new kernel pretty often.
 
-Fixes: 0b5e8b8e ("net: Add Geneve tunneling protocol driver")
-CC: Andy Zhou <azhou@nicira.com>
-Signed-off-by: Jesse Gross <jesse@nicira.com>
----
- net/ipv4/geneve.c | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+I see. So for dynamic tracer to be useful in such environment,
+the scripts should be compatible across different kernel version
+without recompilation. All makes sense.
 
-diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
-index a457232..5a47188 100644
---- a/net/ipv4/geneve.c
-+++ b/net/ipv4/geneve.c
-@@ -159,6 +159,15 @@ static void geneve_notify_add_rx_port(struct geneve_sock *gs)
- 	}
- }
- 
-+static void geneve_notify_del_rx_port(struct geneve_sock *gs)
-+{
-+	struct sock *sk = gs->sock->sk;
-+	sa_family_t sa_family = sk->sk_family;
-+
-+	if (sa_family == AF_INET)
-+		udp_del_offload(&gs->udp_offloads);
-+}
-+
- /* Callback from net/ipv4/udp.c to receive packets */
- static int geneve_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- {
-@@ -312,9 +321,17 @@ EXPORT_SYMBOL_GPL(geneve_sock_add);
- 
- void geneve_sock_release(struct geneve_sock *gs)
- {
-+	struct net *net = sock_net(gs->sock->sk);
-+	struct geneve_net *gn = net_generic(net, geneve_net_id);
-+
- 	if (!atomic_dec_and_test(&gs->refcnt))
- 		return;
- 
-+	spin_lock(&gn->sock_lock);
-+	hlist_del_rcu(&gs->hlist);
-+	geneve_notify_del_rx_port(gs);
-+	spin_unlock(&gn->sock_lock);
-+
- 	queue_work(geneve_wq, &gs->del_work);
- }
- EXPORT_SYMBOL_GPL(geneve_sock_release);
--- 
-1.9.1
+> How does the current TRACE_EVENT do it when it wants to printf more data?
+
+tracepoints, like any other user interface, shouldn't
+break compatibility. With printf it's practically impossible.
+Some subsystems may be breaking this rule arguing that
+tracepoints is a debug facility, but networking tracepoints don't change.
+
+>> It feels that for stats collection only, tracepoints+tcp_trace
+>> do not add much additional value vs extending tcp_info
+>> and using ss.
+> I think we are on the same page. Once 'this should cost nothing if not
+> activated' proposition was cleared out.  It was what I meant that doing the
+> collection part in the TCP itself (instead of tracepoints) would be nice.
+
+agree.
+
+> I think going forward, as others have suggested, it may be better to come
+> together and reach a common ground on what to collect first before I re-work
+> patch 1 to 3 and repost.
+
+I think as a minimum it will be discussed at netdev01 in Feb,
+but I suspect not everyone on this list can(want) go to Ottawa,
+so would be nice to have a meetup for bay area folks to
+discuss this sooner with public g+ hangout.
+Thoughts?
