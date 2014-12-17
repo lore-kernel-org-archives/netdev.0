@@ -1,209 +1,181 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [RFC PATCH net-next 3/5] tcp: Add a few more tracepoints for tcp
- tracer
-Date: Wed, 17 Dec 2014 12:33:49 -0300
-Message-ID: <20141217153349.GG11607@kernel.org>
-References: <1418608606-1569264-1-git-send-email-kafai@fb.com>
- <1418608606-1569264-4-git-send-email-kafai@fb.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next RESEND] net: Do not call ndo_dflt_fdb_dump if
+ ndo_fdb_dump is defined.
+Date: Wed, 17 Dec 2014 10:39:33 -0500
+Message-ID: <5491A3B5.9070601@redhat.com>
+References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>    <54894850.5000603@cumulusnetworks.com>    <7968540cd0768a770b0c8b29ce41a162.squirrel@poczta.wsisiz.edu.pl>    <5489D53E.5010603@cumulusnetworks.com>    <8d4ec5c1ae73c77866a0a154fb528f23.squirrel@poczta.wsisiz.edu.pl>    <548AD781.5020004@mojatatu.com> <4c22a6c452a73b3b77a9a9c8e7f76bcc.squirrel@poczta.wsisiz.edu.pl> <548AFD41.3010801@mojatatu.com> <548B4AA4.1020804@gmail.com> <548EF05E.6050401@mojatatu.com> <548F80B2.80408@gmail.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Lawrence Brakmo <brakmo@fb.com>, Josef Bacik <jbacik@fb.com>,
-	Kernel Team <Kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Hubert Sokolowski <h.sokolowski@wit.edu.pl>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: John Fastabend <john.fastabend@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.19.201]:38297 "EHLO mail.kernel.org"
+Received: from mx1.redhat.com ([209.132.183.28]:34977 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750885AbaLQPd5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Dec 2014 10:33:57 -0500
-Content-Disposition: inline
-In-Reply-To: <1418608606-1569264-4-git-send-email-kafai@fb.com>
+	id S1750953AbaLQPkF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Dec 2014 10:40:05 -0500
+In-Reply-To: <548F80B2.80408@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Sun, Dec 14, 2014 at 05:56:44PM -0800, Martin KaFai Lau escreveu:
-> The tcp tracer, which will be added in the later patch, depends
-> on them to collect statistics.
-
-> --- a/include/trace/events/tcp.h
-<SNIP>
-> +DECLARE_TRACE(tcp_sacks_rcv,
-> +	     TP_PROTO(struct sock *sk, int num_sacks),
-> +	     TP_ARGS(sk, num_sacks)
-> +);
-
-<SNIP>
-
-> +++ b/net/ipv4/tcp_input.c
-> @@ -1650,6 +1650,8 @@ tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
->  	int i, j;
->  	int first_sack_index;
->  
-> +	trace_tcp_sacks_rcv(sk, num_sacks);
-> +
-
-In another message someone pointed out that we want some tracepoints, but
-others would imply ABI, a drag on upstream to keep tons of set in stone
-tracepoints, so what I was saying was like below, where one of the above
-proposed tracepoints is implemented as a "wannabe tracepoint", i.e. a
-dynamic probe, that will be as optimized as the kprobes_tracer can make it,
-sometimes even using, IIRC, the ftrace mechanizms, if put on some suitable
-place (function entry, etc, IIRC, Steven?).
-
-On a random RHEL7 kernel I had laying around on a test machine:
-
-[root@ssdandy ~]# perf probe -L tcp_sacktag_write_queue | head -20
-<tcp_sacktag_write_queue@/usr/src/debug/kernel-3.10.0-123.el7/linux-3.10.0-123.el7.x86_64/net/ipv4/tcp_input.c:0>
-      0  tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
-         			u32 prior_snd_una)
-      2  {
-         	struct tcp_sock *tp = tcp_sk(sk);
-      4  	const unsigned char *ptr = (skb_transport_header(ack_skb) +
-         				    TCP_SKB_CB(ack_skb)->sacked);
-         	struct tcp_sack_block_wire *sp_wire = (struct tcp_sack_block_wire *)(ptr+2);
-         	struct tcp_sack_block sp[TCP_NUM_SACKS];
-         	struct tcp_sack_block *cache;
-         	struct tcp_sacktag_state state;
-         	struct sk_buff *skb;
-     11  	int num_sacks = min(TCP_NUM_SACKS, (ptr[1] - TCPOLEN_SACK_BASE) >> 3);
-         	int used_sacks;
-         	bool found_dup_sack = false;
-         	int i, j;
-         	int first_sack_index;
-         
-     17  	state.flag = 0;
-     18  	state.reord = tp->packets_out;
-[root@ssdandy ~]#
-
-Available variables at tcp_sacktag_write_queue:17
-        @<tcp_sacktag_write_queue+77>
-                int     num_sacks
-                struct sk_buff* ack_skb
-                struct sock*    sk
-                struct tcp_sack_block_wire*     sp_wire
-                u32     prior_snd_una
-                unsigned char*  ptr
-[root@ssdandy ~]#
-
-Ok, so we can insert a probe at that point and also we can collect the values of the
-sk and num_sacks variables, so:
-
-[root@ssdandy ~]# perf probe 'tcp_sacks_rcv=tcp_sacktag_write_queue:17 sk num_sacks'
-Added new event:
-  probe:tcp_sacks_rcv  (on tcp_sacktag_write_queue:17 with sk num_sacks)
-
-You can now use it in all perf tools, such as:
-
-	perf record -e probe:tcp_sacks_rcv -aR sleep 1
-
-[root@ssdandy ~]
-
-There you go, you have your wannabe tracepoint, dynamic:
-
-[root@ssdandy ~]# perf record -a -g -e probe:tcp_sacks_rcv
-^C[ perf record: Woken up 1 times to write data ]
-[ perf record: Captured and wrote 0.362 MB perf.data (~15799 samples) ]
-
-[root@ssdandy ~]# perf script
-swapper 0 [000] 184175.932790: probe:tcp_sacks_rcv: (ffffffff8151e59d) sk=ffff880425761e00 num_sacks=0
-              71e59e tcp_sacktag_write_queue (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              72216e tcp_ack (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              723cf8 tcp_rcv_state_process (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              72d158 tcp_v4_do_rcv (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              72f5c7 tcp_v4_rcv (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              709584 ip_local_deliver_finish (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              709858 ip_local_deliver (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              7091fd ip_rcv_finish (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              709ac4 ip_rcv (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              6cfdb6 __netif_receive_skb_core (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              6cffc8 __netif_receive_skb (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              6d0050 netif_receive_skb (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              6d0aa8 napi_gro_receive (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-               1b5bf e1000_receive_skb (/lib/modules/3.10.0-123.el7.x86_64/kernel/drivers/net/ethernet/intel/e1000e/e1000e.ko)
-               1cbda e1000_clean_rx_irq (/lib/modules/3.10.0-123.el7.x86_64/kernel/drivers/net/ethernet/intel/e1000e/e1000e.ko)
-               247dc e1000e_poll (/lib/modules/3.10.0-123.el7.x86_64/kernel/drivers/net/ethernet/intel/e1000e/e1000e.ko)
-              6d041a net_rx_action (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              267047 __do_softirq (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              7f3a5c call_softirq (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              214d25 do_softirq (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              2673e5 irq_exit (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              7f4358 do_IRQ (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              7e94ad ret_from_intr (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              7c3927 rest_init (/usr/lib/debug/lib/modules/3.10.0-123.el7.x86_64/vmlinux)
-              e06fa7 start_kernel ([kernel.vmlinux].init.text)
-              e065ee x86_64_start_reservations ([kernel.vmlinux].init.text)
-              e06742 x86_64_start_kernel ([kernel.vmlinux].init.text)
-<SNIP>
-
-[root@ssdandy ~]# perf script -g python
-generated Python script: perf-script.py
-[root@ssdandy ~]# vim perf-script.py # Edit it to remove callchain printing, simplify some stuff
-[root@ssdandy ~]# mv perf-script.py tcp_sack_rcv.py
-[root@ssdandy ~]# cat tcp_sack_rcv.py 
-import os, sys
-
-sys.path.append(os.environ['PERF_EXEC_PATH'] + \
-	'/scripts/python/Perf-Trace-Util/lib/Perf/Trace')
-
-from perf_trace_context import *
-from Core import *
-
-def probe__tcp_sacks_rcv(event_name, context, common_cpu,
-	common_secs, common_nsecs, common_pid, common_comm,
-	common_callchain, __probe_ip, sk, num_sacks):
-		print_header(event_name, common_cpu, common_secs, common_nsecs,
-			common_pid, common_comm)
-
-		print "__probe_ip=%#x, sk=%#x, num_sacks=%d" % \
-		(__probe_ip, sk, num_sacks)
-
-def print_header(event_name, cpu, secs, nsecs, pid, comm):
-	print "%-18s %3u %05u.%09u %1u %-8s " % \
-	(event_name, cpu, secs, nsecs, pid, comm),
-[root@ssdandy ~]#
-
-[root@ssdandy ~]# perf script -s tcp_sack_rcv.py  | head -10
-Failed to open 64/libfreebl3.so, continuing without symbols
-probe__tcp_sacks_rcv   0 184175.932790461 0 swapper   __probe_ip=0xffffffff8151e59d, sk=0xffff880425761e00, num_sacks=0
-probe__tcp_sacks_rcv   0 184177.487455369 0 swapper   __probe_ip=0xffffffff8151e59d, sk=0xffff8804047e0780, num_sacks=0
-probe__tcp_sacks_rcv   0 184177.588593040 0 swapper   __probe_ip=0xffffffff8151e59d, sk=0xffff8804256af800, num_sacks=0
-probe__tcp_sacks_rcv   0 184178.741298627 0 swapper   __probe_ip=0xffffffff8151e59d, sk=0xffff8804256acb00, num_sacks=0
-probe__tcp_sacks_rcv   0 184179.902089365 0 swapper   __probe_ip=0xffffffff8151e59d, sk=0xffff8804256ad280, num_sacks=0
-probe__tcp_sacks_rcv   0 184180.802761942 0 swapper   __probe_ip=0xffffffff8151e59d, sk=0xffff8804256acb00, num_sacks=0
-probe__tcp_sacks_rcv   0 184180.961373503 0 swapper   __probe_ip=0xffffffff8151e59d, sk=0xffff8804256af800, num_sacks=0
-probe__tcp_sacks_rcv   0 184182.123660739 0 swapper   __probe_ip=0xffffffff8151e59d, sk=0xffff8804256ad280, num_sacks=0
-probe__tcp_sacks_rcv   0 184182.387640636 0 swapper   __probe_ip=0xffffffff8151e59d, sk=0xffff8804256acb00, num_sacks=0
-probe__tcp_sacks_rcv   0 184182.859420892 0 swapper   __probe_ip=0xffffffff8151e59d, sk=0xffff8804256af800, num_sacks=0
-[root@ssdandy ~]#
-
-
->  	state.flag = 0;
->  	state.reord = tp->packets_out;
->  	state.rtt_us = -1L;
-> @@ -2932,6 +2934,9 @@ static inline bool tcp_ack_update_rtt(struct sock *sk, const int flag,
->  
->  	/* RFC6298: only reset backoff on valid RTT measurement. */
->  	inet_csk(sk)->icsk_backoff = 0;
-> +
-> +	trace_tcp_rtt_sample(sk, seq_rtt_us);
-> +
->  	return true;
->  }
->  
-> @@ -4232,6 +4237,7 @@ static void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb)
->  	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPOFOQUEUE);
->  	SOCK_DEBUG(sk, "out of order segment: rcv_next %X seq %X - %X\n",
->  		   tp->rcv_nxt, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq);
-> +	trace_tcp_ooo_rcv(sk);
->  
->  	skb1 = skb_peek_tail(&tp->out_of_order_queue);
->  	if (!skb1) {
-> -- 
-> 1.8.1
+On 12/15/2014 07:45 PM, John Fastabend wrote:
+> On 12/15/2014 06:29 AM, Jamal Hadi Salim wrote:
+>> On 12/12/14 15:05, John Fastabend wrote:
+>>> On 12/12/2014 06:35 AM, Jamal Hadi Salim wrote:
+>>
+>>
+>>> I'll wake up ;)
+>>
+>>
+>> Vlad made me go over those patches in a few iterations to make
+>> sure that the use cases covered in the test case work. It is
+>> holiday season, so he may be offline.
+>>
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Yep.
+
+Sorry,  had HW/network issues as well as holiday season...  Been trying to
+catch up.
+
+> 
+>>> First quick grep of code finds some strange uses of ndo_fdb_dump like
+>>> this in macvlan,
+>>>
+>>>    ./drivers/net/macvlan.c
+>>>          .ndo_fdb_dump           = ndo_dflt_fdb_dump,
+>>>
+>>> I'll be sending a patch once net-next opens up again to resolve it. Its
+>>> harmless though so not really a fix for net.
+>>>
+>>> There seem to be a few places that have the potential to return
+>>> different values then the uc/mc lists.
+>>>
+>>>      ./drivers/net/vxlan.c
+>>>      ./drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+>>>      ./drivers/net/ethernet/rocker/rocker.c
+>>>
+>>>      ./net/bridge/br_device.c
+>>>
+>>
+>> Yes, thats my observation as well.
+>> The question is: Are multi/unicast address unconditionally dumped?
+> 
+> hmm good question. When I implemented this on the host nics with SR-IOV,
+> VMDQ, etc. The multi/unicast addresses were propagated into the FDB by
+> the driver. My logic was if some netdev ethx has a set of MAC addresses
+> above it well then any virtual function or virtual device also behind
+> the hardware shouldn't be sending those addresses out the egress switch
+> facing port. Otherwise the switch will see packets it knows are behind
+> that port and drop them. Or flood them if it hasn't learned the address
+> yet. Either way they will never get to the right netdev.
+> 
+> Admittedly I wasn't thinking about switches with many ports at the time.
+
+Looking at the old code, we've always asked HW to dump it's state and if HW
+didn't support the dumper, the default dumper of MC/UC lists was used.
+This makes sense for most devices.
+
+> 
+>> Some of these drivers may be just doing the LinuxWay(aka cutnpaste what
+>> the other driver did).
+> 
+> My original thinking here was... if it didn't implement fdb_add, fdb_del
+> and fdb_dump then if you wanted to think of it as having forwarding
+> database that was fine but it was really just a two port mac relay. In
+> which case just dump all the mac addresses it knows about. In this case
+> if it was something more fancy it could do its own dump like vxlan or
+> macvlan.
+> 
+>> If you go over the original thread exchange with Vlad, you'll notice
+>> i was kind of unsure why dumping of unicast/multicast had anything to
+>> do with fdb dumping.
+>> It is still my view that we shouldnt be treating these addresses as if
+>> they were fdb entries. But: The problem is once you allow an API to
+>> user space you cant take it back even if people are depending on bugs.
+>>
+> 
+> For a host nic ucast/multicast and fdb are the same, I think? The
+> code we had was just short-hand to allow the common case a host nic
+> to work. Notice vxlan and bridge drivers didn't dump there addr lists from fdb_dump until
+> your patch.
+
+Right.  That patch added additional filtering code, but I guess we missed
+the change that force it dump MC/UC lists from the master devices.  It did dump
+those list from the slave devices.
+
+> 
+> Perhaps my implementation of macvlan fdb_{add|del|dump} is buggy. And
+> I shouldn't overload the addr lists.
+> 
+>>
+>>> So I guess we can walk through the list and analyse them a bit.
+>>>
+>>> vxlan:
+>>>
+>>> Try stacking devices on top of the vxlan device this will call a uc_add
+>>> routine if you then change the mac addr on the vlan. This would get
+>>> reported by the dflt fdb dump handlers but not the drivers fdb dump
+>>> handlers. So removing the dflt dump handler from this patch at least
+>>> changes things. We should either explain why this is OK or accept that
+>>> the driver needs to be fixed. Or I guess that the patch is just wrong.
+>>> My guess is one of the latter options.
+>>>
+>>> Also Jamal, your original patch seems like it might of changed this
+>>> and Hubert's patch is reverting back to its original case. Was this
+>>> specific part of your patch intentional?
+>>>
+>>
+>> Yes.
+>> This is based on the view that unicast/multicast must be dumped
+>> *unconditionally*. If the view is that uni/mcast addresses are
+>> dumped conditionally based on what the driver thinks, then Hubert's
+>> one liner is good. But i really would like Vlad to comment. 80%
+>> of the effort on my part if you look at the thread was the refactoring
+>> of the code to meet the use case.
+
+I don't think we have to dump uc/mc lists unconditionally.  What we
+want is the lower diver's view of any fdb entries it things are appropriate.
+For simple cards, this becomes equivalent to uc/mc lists.  For smarter cards
+that override the default dumper, it makes sense for them to provide the info.
+
+> 
+> I'm interested to see what Vlad says as well. But the current situation
+> is previously some drivers dumped their addr lists others didn't.
+> Specifically, the more switch like devices (bridge, vxlan) didn't. Now
+> every device will dump the addr lists. I'm not entirely convinced that
+> is correct.
+>
+
+Well, the bridge would have dumped any fdbs that pointer at the bridge
+device (port is NULL) as it's egress port.  Not sure about the vxlan.
+For stacked situations of complex devices this make sense.  For
+instance if you stack vxlan on top of bridge, then from the vxlan
+perspective, we want to see what macs the bridge will forward to the
+vxlan.  Here, the bridge is actually slightly broken as it wouldn't
+actually dump all the pertinent info, but that's more of a bridge problem.
+
+-vlad
+
+>>
+>> I thought the abstraction which requires that your own MAC addresses
+>> are treated as fdb entries was broken - but it is too late to change
+>> that.
+>>
+> 
+> It works OK for host nics (NICS that can't forward between ports) and
+> seems at best confusing for real switch asics. On a related question do
+> you expect the switch asic to trap any packets with MAC addresses in
+> the multi/unicast address lists and send them to the correct netdev? Or
+> will the switch forward them using normal FDB tables?
+> 
+> Also I don't think its too late to fix it though. Maybe we had some
+> buggy drivers is all.
+> 
+>> cheers,
+>> jamal
+> 
+> 
