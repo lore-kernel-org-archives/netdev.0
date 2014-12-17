@@ -1,66 +1,45 @@
-From: "Hubert Sokolowski" <h.sokolowski@wit.edu.pl>
-Subject: Re: [PATCH net-next RESEND] net: Do not call ndo_dflt_fdb_dump if
- ndo_fdb_dump is defined.
-Date: Wed, 17 Dec 2014 16:18:11 -0000
-Message-ID: <e3ac4e3535a18f6dd1cf31030674f91c.squirrel@poczta.wsisiz.edu.pl>
-References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>
-    <54894850.5000603@cumulusnetworks.com>
-    <7968540cd0768a770b0c8b29ce41a162.squirrel@poczta.wsisiz.edu.pl>
-    <5489D53E.5010603@cumulusnetworks.com>
-    <8d4ec5c1ae73c77866a0a154fb528f23.squirrel@poczta.wsisiz.edu.pl>
-    <548AD781.5020004@mojatatu.com>
-    <4c22a6c452a73b3b77a9a9c8e7f76bcc.squirrel@poczta.wsisiz.edu.pl>
-    <548AFD41.3010801@mojatatu.com> <548B4AA4.1020804@gmail.com>
-    <548EF05E.6050401@mojatatu.com> <548F80B2.80408@gmail.com>
-    <5491A3B5.9070601@redhat.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Netlink mmap tx security?
+Date: Wed, 17 Dec 2014 16:26:46 +0000
+Message-ID: <20141217162646.GB28766@casper.infradead.org>
+References: <20141014.220908.123550384430402000.davem@davemloft.net>
+ <543F6998.5090000@redhat.com>
+ <20141016070753.GA16738@casper.infradead.org>
+ <20141216.175817.576861457076632402.davem@davemloft.net>
+ <1418774579.9773.69.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=UTF8
-Content-Transfer-Encoding: 8bit
-Cc: "John Fastabend" <john.fastabend@gmail.com>,
-	"Jamal Hadi Salim" <jhs@mojatatu.com>,
-	"Roopa Prabhu" <roopa@cumulusnetworks.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: vyasevic@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, dborkman@redhat.com,
+	luto@amacapital.net, torvalds@linux-foundation.org,
+	kaber@trash.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dervish.wsisiz.edu.pl ([213.135.44.54]:22350 "EHLO
-	dervish.wsisiz.edu.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750979AbaLQQSQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 11:18:16 -0500
-In-Reply-To: <5491A3B5.9070601@redhat.com>
+Received: from casper.infradead.org ([85.118.1.10]:55987 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751009AbaLQQ0t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 11:26:49 -0500
+Content-Disposition: inline
+In-Reply-To: <1418774579.9773.69.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->
-> I don't think we have to dump uc/mc lists unconditionally.  What we
-> want is the lower diver's view of any fdb entries it things are appropriate.
-> For simple cards, this becomes equivalent to uc/mc lists.  For smarter cards
-> that override the default dumper, it makes sense for them to provide the info.
->
+On 12/16/14 at 04:02pm, Eric Dumazet wrote:
+> On Tue, 2014-12-16 at 17:58 -0500, David Miller wrote:
+> 
+> > +		__skb_put(skb, nm_len);
+> > +		memcpy(skb->data, (void *)hdr + NL_MMAP_HDRLEN, nm_len);
+> > +		netlink_set_status(hdr, NL_MMAP_STATUS_UNUSED);
+> >  
+> 
+> Not related to this patch, but it looks like netlink_set_status()
+> barrier is wrong ?
+> 
+> It seems we need smp_wmb() after the memcpy() and before the
+> hdr->nm_status = status; 
 
-I am very glad to hear that :).
-
->
-> Well, the bridge would have dumped any fdbs that pointer at the bridge
-> device (port is NULL) as it's egress port.  Not sure about the vxlan.
-> For stacked situations of complex devices this make sense.  For
-> instance if you stack vxlan on top of bridge, then from the vxlan
-> perspective, we want to see what macs the bridge will forward to the
-> vxlan.  Here, the bridge is actually slightly broken as it wouldn't
-> actually dump all the pertinent info, but that's more of a bridge problem.
-
-I have just prepared a patch where I dump uc/mc for bridge devices
-by looking at (dev->priv_flags & IFF_EBRIDGE), so I have same results
-as without my changes. This should satisfy Jamal and Roopa.
-I could send it as v3 of my patch along with the results if you are
-interested.
-
->
-> -vlad
->
-
-
-thanks,
-Hubert
-
---
-Hubert Sokolowski    Intel Corporation
+Yes, definitely wrong as-is. I'll send a patch. For the particular
+case we'd need a smp_rmb() after the memcpy() to complete the loads.
+The skb destructor needs a smp_wmb() after setting nm_len. We could
+get away with a smp_wmb() first thing in netlink_set_status() with
+the code as-is but smp_mb() might be the less fragile thing to do.
+Objections?
