@@ -1,95 +1,197 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] vhost: cleanups and fixes
-Date: Thu, 18 Dec 2014 12:46:05 +0200
-Message-ID: <20141218104605.GA3912@redhat.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: [PATCHv1 net] xen-netback: support frontends without feature-rx-notify again
+Date: Thu, 18 Dec 2014 11:13:06 +0000
+Message-ID: <1418901186-14478-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Vrabel <david.vrabel@citrix.com>,
+	<xen-devel@lists.xenproject.org>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:64082 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751066AbaLRLNR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2014 06:13:17 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit f01a2a811ae04124fc9382925038fcbbd2f0b7c8:
+Commit bc96f648df1bbc2729abbb84513cf4f64273a1f1 (xen-netback: make
+feature-rx-notify mandatory) incorrectly assumed that there were no
+frontends in use that did not support this feature.  But the frontend
+driver in MiniOS does not and since this is used by (qemu) stubdoms,
+these stopped working.
 
-  virtio_ccw: finalize_features error handling (2014-12-09 21:42:06 +0200)
+Netback sort of works as-is in this mode except:
 
-are available in the git repository at:
+- If there are no Rx requests and the internal Rx queue fills, only
+  the drain timeout will wake the thread.  The default drain timeout
+  of 10 s would give unacceptable pauses.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+- If an Rx stall was detected and the internal Rx queue is drained,
+  then the Rx thread would never wake.
 
-for you to fetch changes up to 5ff16110c637726111662c1df41afd9df7ef36bd:
+Handle these two cases (when feature-rx-notify is disabled) by:
 
-  virtio_pci: restore module attributes (2014-12-17 00:59:40 +0200)
+- Reducing the drain timeout to 30 ms.
 
-----------------------------------------------------------------
-vhost/virtio: virtio 1.0 related fixes
+- Disabling Rx stall detection.
 
-Most importantly, this fixes using virtio_pci as a module.
+Reported-by: John <jw@nuclearfallout.net>
+Tested-by: John <jw@nuclearfallout.net>
+Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+---
+ drivers/net/xen-netback/common.h    |    4 +++-
+ drivers/net/xen-netback/interface.c |    4 +++-
+ drivers/net/xen-netback/netback.c   |   27 ++++++++++++++-------------
+ drivers/net/xen-netback/xenbus.c    |   12 +++++++++---
+ 4 files changed, 29 insertions(+), 18 deletions(-)
 
-Further, the big virtio 1.0 conversion missed a couple of places. This fixes
-them up.
-
-This isn't 100% sparse-clean yet because on many architectures get_user
-triggers sparse warnings when used with __bitwise tag (when same tag is on both
-pointer and value read).
-
-I posted a patchset to fix it up by adding __force on all
-arches that don't already have it (many do), when that's
-merged these warnings will go away.
-
-Cc: Rusty Russell <rusty@rustcorp.com.au>
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-----------------------------------------------------------------
-Herbert Xu (1):
-      virtio_pci: restore module attributes
-
-Michael S. Tsirkin (15):
-      virtio: set VIRTIO_CONFIG_S_FEATURES_OK on restore
-      virtio_config: fix virtio_cread_bytes
-      virtio_pci_common.h: drop VIRTIO_PCI_NO_LEGACY
-      virtio_pci: move probe to common file
-      virtio_pci: add VIRTIO_PCI_NO_LEGACY
-      virtio: core support for config generation
-      tools/virtio: more stubs
-      tools/virtio: fix vringh test
-      tools/virtio: 64 bit features
-      tools/virtio: enable -Werror
-      tools/virtio: add virtio 1.0 in virtio_test
-      tools/virtio: add virtio 1.0 in vringh_test
-      vringh: 64 bit features
-      vringh: update for virtio 1.0 APIs
-      mic/host: fix up virtio 1.0 APIs
-
- drivers/virtio/virtio_pci_common.h     |   7 +-
- include/linux/virtio_config.h          |  29 +++++++-
- include/linux/vringh.h                 |  37 +++++++++-
- include/uapi/linux/virtio_pci.h        |  15 ++--
- tools/virtio/linux/virtio.h            |   1 +
- tools/virtio/linux/virtio_byteorder.h  |   8 +++
- tools/virtio/linux/virtio_config.h     |  70 +++++++++++++++++-
- tools/virtio/uapi/linux/virtio_types.h |   1 +
- drivers/misc/mic/host/mic_debugfs.c    |  18 +++--
- drivers/vhost/vringh.c                 | 125 ++++++++++++++++++++-------------
- drivers/virtio/virtio.c                |  37 ++++++----
- drivers/virtio/virtio_pci_common.c     |  39 +++++++++-
- drivers/virtio/virtio_pci_legacy.c     |  24 +------
- tools/virtio/virtio_test.c             |  15 +++-
- tools/virtio/vringh_test.c             |   5 +-
- tools/virtio/Makefile                  |   2 +-
- 16 files changed, 324 insertions(+), 109 deletions(-)
- create mode 100644 tools/virtio/linux/virtio_byteorder.h
- create mode 100644 tools/virtio/uapi/linux/virtio_types.h
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 083ecc9..5f1fda4 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -230,6 +230,8 @@ struct xenvif {
+ 	 */
+ 	bool disabled;
+ 	unsigned long status;
++	unsigned long drain_timeout;
++	unsigned long stall_timeout;
+ 
+ 	/* Queues */
+ 	struct xenvif_queue *queues;
+@@ -328,7 +330,7 @@ irqreturn_t xenvif_interrupt(int irq, void *dev_id);
+ extern bool separate_tx_rx_irq;
+ 
+ extern unsigned int rx_drain_timeout_msecs;
+-extern unsigned int rx_drain_timeout_jiffies;
++extern unsigned int rx_stall_timeout_msecs;
+ extern unsigned int xenvif_max_queues;
+ 
+ #ifdef CONFIG_DEBUG_FS
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index a6a32d3..9259a73 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -166,7 +166,7 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		goto drop;
+ 
+ 	cb = XENVIF_RX_CB(skb);
+-	cb->expires = jiffies + rx_drain_timeout_jiffies;
++	cb->expires = jiffies + vif->drain_timeout;
+ 
+ 	xenvif_rx_queue_tail(queue, skb);
+ 	xenvif_kick_thread(queue);
+@@ -414,6 +414,8 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+ 	vif->ip_csum = 1;
+ 	vif->dev = dev;
+ 	vif->disabled = false;
++	vif->drain_timeout = msecs_to_jiffies(rx_drain_timeout_msecs);
++	vif->stall_timeout = msecs_to_jiffies(rx_stall_timeout_msecs);
+ 
+ 	/* Start out with no queues. */
+ 	vif->queues = NULL;
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 4a509f7..908e65e 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -60,14 +60,12 @@ module_param(separate_tx_rx_irq, bool, 0644);
+  */
+ unsigned int rx_drain_timeout_msecs = 10000;
+ module_param(rx_drain_timeout_msecs, uint, 0444);
+-unsigned int rx_drain_timeout_jiffies;
+ 
+ /* The length of time before the frontend is considered unresponsive
+  * because it isn't providing Rx slots.
+  */
+-static unsigned int rx_stall_timeout_msecs = 60000;
++unsigned int rx_stall_timeout_msecs = 60000;
+ module_param(rx_stall_timeout_msecs, uint, 0444);
+-static unsigned int rx_stall_timeout_jiffies;
+ 
+ unsigned int xenvif_max_queues;
+ module_param_named(max_queues, xenvif_max_queues, uint, 0644);
+@@ -2020,7 +2018,7 @@ static bool xenvif_rx_queue_stalled(struct xenvif_queue *queue)
+ 	return !queue->stalled
+ 		&& prod - cons < XEN_NETBK_RX_SLOTS_MAX
+ 		&& time_after(jiffies,
+-			      queue->last_rx_time + rx_stall_timeout_jiffies);
++			      queue->last_rx_time + queue->vif->stall_timeout);
+ }
+ 
+ static bool xenvif_rx_queue_ready(struct xenvif_queue *queue)
+@@ -2038,8 +2036,9 @@ static bool xenvif_have_rx_work(struct xenvif_queue *queue)
+ {
+ 	return (!skb_queue_empty(&queue->rx_queue)
+ 		&& xenvif_rx_ring_slots_available(queue, XEN_NETBK_RX_SLOTS_MAX))
+-		|| xenvif_rx_queue_stalled(queue)
+-		|| xenvif_rx_queue_ready(queue)
++		|| (queue->vif->stall_timeout &&
++		    (xenvif_rx_queue_stalled(queue)
++		     || xenvif_rx_queue_ready(queue)))
+ 		|| kthread_should_stop()
+ 		|| queue->vif->disabled;
+ }
+@@ -2092,6 +2091,9 @@ int xenvif_kthread_guest_rx(void *data)
+ 	struct xenvif_queue *queue = data;
+ 	struct xenvif *vif = queue->vif;
+ 
++	if (!vif->stall_timeout)
++		xenvif_queue_carrier_on(queue);
++
+ 	for (;;) {
+ 		xenvif_wait_for_rx_work(queue);
+ 
+@@ -2118,10 +2120,12 @@ int xenvif_kthread_guest_rx(void *data)
+ 		 * while it's probably not responsive, drop the
+ 		 * carrier so packets are dropped earlier.
+ 		 */
+-		if (xenvif_rx_queue_stalled(queue))
+-			xenvif_queue_carrier_off(queue);
+-		else if (xenvif_rx_queue_ready(queue))
+-			xenvif_queue_carrier_on(queue);
++		if (vif->stall_timeout) {
++			if (xenvif_rx_queue_stalled(queue))
++				xenvif_queue_carrier_off(queue);
++			else if (xenvif_rx_queue_ready(queue))
++				xenvif_queue_carrier_on(queue);
++		}
+ 
+ 		/* Queued packets may have foreign pages from other
+ 		 * domains.  These cannot be queued indefinitely as
+@@ -2192,9 +2196,6 @@ static int __init netback_init(void)
+ 	if (rc)
+ 		goto failed_init;
+ 
+-	rx_drain_timeout_jiffies = msecs_to_jiffies(rx_drain_timeout_msecs);
+-	rx_stall_timeout_jiffies = msecs_to_jiffies(rx_stall_timeout_msecs);
+-
+ #ifdef CONFIG_DEBUG_FS
+ 	xen_netback_dbg_root = debugfs_create_dir("xen-netback", NULL);
+ 	if (IS_ERR_OR_NULL(xen_netback_dbg_root))
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index d44cd19..efbaf2a 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -887,9 +887,15 @@ static int read_xenbus_vif_flags(struct backend_info *be)
+ 		return -EOPNOTSUPP;
+ 
+ 	if (xenbus_scanf(XBT_NIL, dev->otherend,
+-			 "feature-rx-notify", "%d", &val) < 0 || val == 0) {
+-		xenbus_dev_fatal(dev, -EINVAL, "feature-rx-notify is mandatory");
+-		return -EINVAL;
++			 "feature-rx-notify", "%d", &val) < 0)
++		val = 0;
++	if (!val) {
++		/* - Reduce drain timeout to poll more frequently for
++		 *   Rx requests.
++		 * - Disable Rx stall detection.
++		 */
++		be->vif->drain_timeout = msecs_to_jiffies(30);
++		be->vif->stall_timeout = 0;
+ 	}
+ 
+ 	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-sg",
+-- 
+1.7.10.4
