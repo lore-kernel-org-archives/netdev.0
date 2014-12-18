@@ -1,43 +1,58 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net] net: drop the packet when fails to do software segmentation or header check
-Date: Thu, 18 Dec 2014 13:57:19 +0800
-Message-ID: <1418882239-6720-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sathya Perla <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH] Documentation: clarify phys_port_id
+Date: Thu, 18 Dec 2014 05:57:58 +0000
+Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C68D36E70@CMEXMB1.ad.emulex.com>
+References: <CAEPrYjTZ8SU1y4TwKHYtZju+4_-O5mazAjaFKaKmR2cYuAKHnA@mail.gmail.com>
+	 <1418834826.1160.35.camel@dcbw.local> <1418835576.1160.38.camel@dcbw.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Joshua Watt <jpewdev@gmail.com>,
+	"jpirko@redhat.com" <jpirko@redhat.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Dan Williams <dcbw@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge1.emulex.com ([138.239.224.99]:45172 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750732AbaLRF6g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2014 00:58:36 -0500
+In-Reply-To: <1418835576.1160.38.camel@dcbw.local>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit cecda693a969816bac5e470e1d9c9c0ef5567bca ("net: keep original skb
-which only needs header checking during software GSO") keeps the original
-skb for packets that only needs header check, but it doesn't drop the
-packet if software segmentation or header check were failed.
-
-Fixes cecda693a969816bac5e470e1d9c9c0ef5567bca
-(net: keep original skb which only needs header checking during software GSO)
-
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-Stable candidate for 3.17 and above.
----
- net/core/dev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f411c28..a989f85 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2673,7 +2673,7 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device
- 
- 		segs = skb_gso_segment(skb, features);
- 		if (IS_ERR(segs)) {
--			segs = NULL;
-+			goto out_kfree_skb;
- 		} else if (segs) {
- 			consume_skb(skb);
- 			skb = segs;
--- 
-1.9.1
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiANCj4gU2lnbmVkLW9mZi1ieTogRGFuIFdpbGxp
+YW1zIDxkY2J3QHJlZGhhdC5jb20+DQo+IC0tLQ0KPiAgRG9jdW1lbnRhdGlvbi9BQkkvdGVzdGlu
+Zy9zeXNmcy1jbGFzcy1uZXQgfCA3ICsrKysrKy0NCj4gIDEgZmlsZSBjaGFuZ2VkLCA2IGluc2Vy
+dGlvbnMoKyksIDEgZGVsZXRpb24oLSkNCj4gDQo+IGRpZmYgLS1naXQgYS9Eb2N1bWVudGF0aW9u
+L0FCSS90ZXN0aW5nL3N5c2ZzLWNsYXNzLW5ldA0KPiBiL0RvY3VtZW50YXRpb24vQUJJL3Rlc3Rp
+bmcvc3lzZnMtY2xhc3MtbmV0DQo+IGluZGV4IGUxYjJlNzguLjdmZTgyM2EgMTAwNjQ0DQo+IC0t
+LSBhL0RvY3VtZW50YXRpb24vQUJJL3Rlc3Rpbmcvc3lzZnMtY2xhc3MtbmV0DQo+ICsrKyBiL0Rv
+Y3VtZW50YXRpb24vQUJJL3Rlc3Rpbmcvc3lzZnMtY2xhc3MtbmV0DQo+IEBAIC0xODYsNyArMTg2
+LDEyIEBAIEtlcm5lbFZlcnNpb246CTMuMTINCj4gIENvbnRhY3Q6CW5ldGRldkB2Z2VyLmtlcm5l
+bC5vcmcNCj4gIERlc2NyaXB0aW9uOg0KPiAgCQlJbmRpY2F0ZXMgdGhlIGludGVyZmFjZSB1bmlx
+dWUgcGh5c2ljYWwgcG9ydCBpZGVudGlmaWVyIHdpdGhpbg0KPiAtCQl0aGUgTklDLCBhcyBhIHN0
+cmluZy4NCj4gKwkJdGhlIE5JQywgYXMgYSBzdHJpbmcuICBJZiB0d28gbmV0X2RldmljZSBvYmpl
+Y3RzIHNoYXJlIHBoeXNpY2FsDQo+ICsJCWhhcmR3YXJlIG9yIG90aGVyIHJlc291cmNlcywgYW5k
+L29yIGRvIG5vdCBvcGVyYXRlDQo+IGluZGVwZW5kZW50bHkNCj4gKwkJYm90aCBuZXRfZGV2aWNl
+IG9iamVjdHMgc2hvdWxkIGJlIGFzc2lnbmVkIHRoZQ0KPiArCQlzYW1lIHBoeXNfcG9ydF9pZC4g
+IHBoeXNfcG9ydF9pZCBzaG91bGQgYmUgYXMgZ2xvYmFsbHkNCj4gdW5pcXVlDQo+ICsJCWFzIHBv
+c3NpYmxlIHRvIHByZXZlbnQgY29uZmxpY3RzIGJldHdlZW4gZGlmZmVyZW50IGRyaXZlcnMNCj4g
+YW5kDQo+ICsJCXZlbmRvcnMsIGVnIHdpdGggTUFDIGFkZHJlc3NlcyBvciBoYXJkd2FyZSBHVUlE
+cy4NCg0KRGFuLCB0d28gaW50ZXJmYWNlcyAtLSBvbiB0aGUgc2FtZSBjYXJkL2NoaXAgLS0gbWF5
+IHNoYXJlIHNvbWUgY2hpcCByZXNvdXJjZXMsDQpidXQgYXMgbG9uZyBhcyB0aGV5IHVzZSAqc2Vw
+YXJhdGUqIHBoeXNpY2FsIHBvcnRzLCBpdCB3b3VsZCBiZSBPSyB0byBib25kIHRoZW0uDQpTbywg
+aW4gdGhpcyBjYXNlLCBpdCB3b3VsZCBiZSB2YWxpZCB0byByZXBvcnQgYSBkaWZmZXJlbnQgcGh5
+c19wb3J0X2lkIGZvciB0aGVzZSBuZXRkZXZzLg0KDQpUaGUgdGV4dCAtLSAic2hhcmUgcGh5c2lj
+YWwgaGFyZHdhcmUgb3Igb3RoZXIgcmVzb3VyY2VzIiBiZWNvbWVzIHRvbyByZXN0cmljdGl2ZQ0K
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICBeXl5eXl5eXl5eXl5eXl4NCmFuZCB3aWxsIG5vdCBldmVuIGFsbG93
+IGJvbmRpbmcgb2YgdHdvIHBoeXNpY2FsIHBvcnRzIG9uIGEgTklDIGNhcmQuDQoNCnRoa3MsDQot
+U2F0aHlhDQo+IA0KPiAgV2hhdDoJCS9zeXMvY2xhc3MvbmV0LzxpZmFjZT4vc3BlZWQNCj4gIERh
+dGU6CQlPY3RvYmVyIDIwMDkNCj4gLS0NCj4gMS45LjMNCj4gDQo+IA0KPiAtLQ0KPiBUbyB1bnN1
+YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2
+IiBpbg0KPiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9y
+Zw0KPiBNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9y
+ZG9tby1pbmZvLmh0bWwNCg==
