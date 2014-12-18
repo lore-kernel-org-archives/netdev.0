@@ -1,89 +1,127 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 00/10] Split UFO into v4 and v6 versions.
-Date: Thu, 18 Dec 2014 00:28:52 -0500 (EST)
-Message-ID: <586203981.237162.1418880532523.JavaMail.zimbra@redhat.com>
+Subject: Re: [PATCH 08/10] tun: Re-uanble UFO support.
+Date: Thu, 18 Dec 2014 00:51:27 -0500 (EST)
+Message-ID: <878417685.243182.1418881887975.JavaMail.zimbra@redhat.com>
 References: <1418840455-22598-1-git-send-email-vyasevic@redhat.com>
+	<1418840455-22598-9-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, ben@decadent.org.uk,
-	stefanha@redhat.com, virtualization@lists.linux-foundation.org
+Cc: mst@redhat.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, stefanha@redhat.com,
+	ben@decadent.org.uk
 To: Vladislav Yasevich <vyasevich@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4-phx2.redhat.com ([209.132.183.25]:50835 "EHLO
-	mx4-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751372AbaLRF3H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2014 00:29:07 -0500
-In-Reply-To: <1418840455-22598-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1418840455-22598-9-git-send-email-vyasevic@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
 
 
 ----- Original Message -----
-> UFO support in the kernel applies to both IPv4 and IPv6 protocols
-> with the same device feature.  However some devices may not be able
-> to support one of the offloads.  For this we split the UFO offload
-> feature into 2 pieces.  NETIF_F_UFO now controlls the IPv4 part and
-> this series introduces NETIF_F_UFO6.
+> Now that UFO is split into v4 and v6 parts, we can bring
+> back v4 support without any trouble.
 > 
-> As a result of this work, we can now re-enable NETIF_F_UFO on
-> virtio_net devices and restore UDP over IPv4 performance for guests.
-> We also continue to support legacy guests that assume that UFO6
-> support included into UFO(4).
+> Continue to handle legacy applications by selecting the
+> IPv6 fragment id but do not change the gso type.  Thist
+> makes sure that two legacy VMs may still communicate.
 > 
-> Without this work, migrating a guest to a 3.18 kernel fails.
+> Based on original work from Ben Hutchings.
 > 
+> Fixes: 88e0e0e5aa7a ("drivers/net: Disable UFO through virtio")
+> CC: Ben Hutchings <ben@decadent.org.uk>
+> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+> ---
+>  drivers/net/tun.c | 26 ++++++++++++++------------
+>  1 file changed, 14 insertions(+), 12 deletions(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 9dd3746..8c32fca 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -175,7 +175,7 @@ struct tun_struct {
+>  	struct net_device	*dev;
+>  	netdev_features_t	set_features;
+>  #define TUN_USER_FEATURES (NETIF_F_HW_CSUM|NETIF_F_TSO_ECN|NETIF_F_TSO| \
+> -			  NETIF_F_TSO6)
+> +			  NETIF_F_TSO6|NETIF_F_UFO)
+>  
+>  	int			vnet_hdr_sz;
+>  	int			sndbuf;
+> @@ -1152,20 +1152,15 @@ static ssize_t tun_get_user(struct tun_struct *tun,
+> struct tun_file *tfile,
+>  			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
+>  			break;
+>  		case VIRTIO_NET_HDR_GSO_UDP:
+> -		{
+> -			static bool warned;
+> -
+> -			if (!warned) {
+> -				warned = true;
+> -				netdev_warn(tun->dev,
+> -					    "%s: using disabled UFO feature; please fix this program\n",
+> -					    current->comm);
+> -			}
+>  			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+> -			if (skb->protocol == htons(ETH_P_IPV6))
+> +			if (vlan_get_protocol(skb) == htons(ETH_P_IPV6)) {
 
-This series eliminate the ambiguous NETIF_F_UFO.
+This probably means UDPv6 with vlan does not work well, looks like another
+independent fixe and also for stable.
+> +				/* This allows legacy application to work.
+> +				 * Do not change the gso_type as it may
+> +				 * not be upderstood by legacy applications.
+> +				 */
 
-But VIRTIO_NET_F_{HOST|GUEST}_UFO and VIRTIO_NET_F_HDR_GSO_UDP is still
-ambigious. I know it was used to keep compatibility for legacy guest. But
-what's the future plan? Differentiate UFOv4 and UFOv6 in virtio features and
-gso type in vnet header looks sufficient?
+Isn't this an issue that we use SKB_GSO_UDP for a UDPv6 packet? Especially
+consider we want to fix UFOv6 in the future? We probably can use
+SKB_GSO_UDP6 here and try to fix it in tun_put_user() if a legacy userspace
+is detected.
+>  				ipv6_proxy_select_ident(skb);
 
-With the series, we can't send UFOv6 packet but legacy guest can. How about
-fix the UFOv6 also in this series?
-
-Thanks
-> Vladislav Yasevich (10):
->   core: Split out UFO6 support
->   net:  Correctly mark IPv6 UFO offload type.
->   ovs: Enable handling of UFO6 packets.
->   loopback: Turn on UFO6 support.
->   veth: Enable UFO6 support.
->   macvlan: Enable UFO6 support.
->   s2io: Enable UFO6 support.
->   tun: Re-uanble UFO support.
->   macvtap: Re-enable UFO support
->   Revert "drivers/net: Disable UFO through virtio"
-> 
->  drivers/net/ethernet/neterion/s2io.c |  6 +++---
->  drivers/net/loopback.c               |  4 ++--
->  drivers/net/macvlan.c                |  2 +-
->  drivers/net/macvtap.c                | 20 ++++++++++++++------
->  drivers/net/tun.c                    | 26 ++++++++++++++------------
->  drivers/net/veth.c                   |  2 +-
->  drivers/net/virtio_net.c             | 24 ++++++++++--------------
->  include/linux/netdev_features.h      |  7 +++++--
->  include/linux/netdevice.h            |  1 +
->  include/linux/skbuff.h               |  1 +
->  net/core/dev.c                       | 35
->  +++++++++++++++++++----------------
->  net/core/ethtool.c                   |  2 +-
->  net/ipv6/ip6_offload.c               |  1 +
->  net/ipv6/ip6_output.c                |  4 ++--
->  net/ipv6/udp_offload.c               |  3 ++-
->  net/mpls/mpls_gso.c                  |  1 +
->  net/openvswitch/datapath.c           |  3 ++-
->  net/openvswitch/flow.c               |  2 +-
->  18 files changed, 81 insertions(+), 63 deletions(-)
-> 
+Question still for vlan, is network header correctly set here? Looks like
+ipv6_proxy_select_ident() depends on correct network header to work.
+> +			}
+>  			break;
+> -		}
+>  		default:
+>  			tun->dev->stats.rx_frame_errors++;
+>  			kfree_skb(skb);
+> @@ -1273,6 +1268,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+>  				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+>  			else if (sinfo->gso_type & SKB_GSO_TCPV6)
+>  				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
+> +			else if (sinfo->gso_type & SKB_GSO_UDP)
+> +				gso.gso_type = VIRTIO_NET_HDR_GSO_UDP;
+>  			else {
+>  				pr_err("unexpected GSO type: "
+>  				       "0x%x, gso_size %d, hdr_len %d\n",
+> @@ -1780,6 +1777,11 @@ static int set_offload(struct tun_struct *tun,
+> unsigned long arg)
+>  				features |= NETIF_F_TSO6;
+>  			arg &= ~(TUN_F_TSO4|TUN_F_TSO6);
+>  		}
+> +
+> +		if (arg & TUN_F_UFO) {
+> +			features |= NETIF_F_UFO;
+> +			arg &= ~TUN_F_UFO;
+> +		}
+>  	}
+>  
+>  	/* This gives the user a way to test for new features in future by
 > --
 > 1.9.3
 > 
-> _______________________________________________
-> Virtualization mailing list
-> Virtualization@lists.linux-foundation.org
-> https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
