@@ -1,40 +1,131 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next RESEND] net: Do not call ndo_dflt_fdb_dump if
- ndo_fdb_dump is defined.
-Date: Thu, 18 Dec 2014 17:32:56 -0500
-Message-ID: <54935618.4070005@mojatatu.com>
-References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>    <54894850.5000603@cumulusnetworks.com>    <7968540cd0768a770b0c8b29ce41a162.squirrel@poczta.wsisiz.edu.pl>    <5489D53E.5010603@cumulusnetworks.com>    <8d4ec5c1ae73c77866a0a154fb528f23.squirrel@poczta.wsisiz.edu.pl>    <548AD781.5020004@mojatatu.com>    <4c22a6c452a73b3b77a9a9c8e7f76bcc.squirrel@poczta.wsisiz.edu.pl>    <548AFD41.3010801@mojatatu.com> <548B4AA4.1020804@gmail.com>    <548EF05E.6050401@mojatatu.com> <548F80B2.80408@gmail.com>    <5491A3B5.9070601@redhat.com> <e3ac4e3535a18f6dd1cf31030674f91c.squirrel@poczta.wsisiz.edu.pl>
+From: "Arad, Ronen" <ronen.arad@intel.com>
+Subject: RE: [RFC PATCH net-next v2 1/1] net: Support for switch port
+ configuration
+Date: Thu, 18 Dec 2014 22:43:06 +0000
+Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505DC9956@ORSMSX101.amr.corp.intel.com>
+References: <C4896FB061E7DE4AAC93031BDCA044B104AD7B82@IRSMSX108.ger.corp.intel.com>
+ <5492E85C.6010802@cumulusnetworks.com>
+ <C4896FB061E7DE4AAC93031BDCA044B104AD9E53@IRSMSX108.ger.corp.intel.com>
+ <5492EFC3.8030102@cumulusnetworks.com>
+ <C4896FB061E7DE4AAC93031BDCA044B104ADA16F@IRSMSX108.ger.corp.intel.com>
+ <549313B8.6050102@cumulusnetworks.com>
+ <C4896FB061E7DE4AAC93031BDCA044B104ADA310@IRSMSX108.ger.corp.intel.com>
+ <54931969.7040209@cumulusnetworks.com> <5493293A.2000802@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Fastabend, John R" <john.r.fastabend@intel.com>,
 	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"Varlese, Marco" <marco.varlese@intel.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hubert Sokolowski <h.sokolowski@wit.edu.pl>, vyasevic@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:40205 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751125AbaLRWc7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2014 17:32:59 -0500
-Received: by mail-ob0-f178.google.com with SMTP id gq1so6562808obb.9
-        for <netdev@vger.kernel.org>; Thu, 18 Dec 2014 14:32:59 -0800 (PST)
-In-Reply-To: <e3ac4e3535a18f6dd1cf31030674f91c.squirrel@poczta.wsisiz.edu.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5493293A.2000802@intel.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sorry for the latency (head-buried-in-sand in effect)
 
-On 12/17/14 11:18, Hubert Sokolowski wrote:
 
-> I have just prepared a patch where I dump uc/mc for bridge devices
-> by looking at (dev->priv_flags & IFF_EBRIDGE), so I have same results
-> as without my changes. This should satisfy Jamal and Roopa.
-> I could send it as v3 of my patch along with the results if you are
-> interested.
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
+>Behalf Of John Fastabend
+>Sent: Thursday, December 18, 2014 9:21 PM
+>To: Roopa Prabhu; Varlese, Marco
+>Cc: netdev@vger.kernel.org; Thomas Graf; Jiri Pirko; sfeldma@gmail.com; linux-
+>kernel@vger.kernel.org
+>Subject: Re: [RFC PATCH net-next v2 1/1] net: Support for switch port
+>configuration
 >
+>On 12/18/2014 10:14 AM, Roopa Prabhu wrote:
+>> On 12/18/14, 10:02 AM, Varlese, Marco wrote:
+>>> Removed unnecessary content for ease of reading...
+>>>
+>>>>>>>>> +/* Switch Port Attributes section */
+>>>>>>>>> +
+>>>>>>>>> +enum {
+>>>>>>>>> +    IFLA_ATTR_UNSPEC,
+>>>>>>>>> +    IFLA_ATTR_LEARNING,
+>>>>>>>> Any reason you want learning here ?. This is covered as part  of
+>>>>>>>> the bridge setlink attributes.
+>>>>>>>>
+>>>>>>> Yes, because the user may _not_ want to go through a bridge
+>>>>>>> interface
+>>>>>> necessarily.
+>>>>>> But, the bridge setlink/getlink interface was changed to accommodate
+>>>> 'self'
+>>>>>> for exactly such cases.
+>>>>>> I kind of understand your case for the other attributes (these are
+>>>>>> per port settings that switch asics provide).
+>>>>>>
+>>>>>> However, i don't understand the reason to pull in bridge attributes
+>here.
+>>>>>>
+>>>>> Maybe, I am missing something so you might help. The learning attribute -
+>>>> in my case - it is like all other attributes: a port attribute (as you
+>said, port
+>>>> settings that the switch provides per port).
+>>>>> So, what I was saying is "why the user shall go through a bridge to
+>configure
+>>>> the learning attribute"? From my perspective, it is as any other attribute
+>and
+>>>> as such configurable on the port.
+>>>>
+>>>> Thinking about this some more, i don't see why any of these attributes
+>>>> (except loopback. I dont understand the loopback attribute) cant be part
+>of
+>>>> the birdge port attributes.
+>>>>
+>>>> With this we will end up adding l2 attributes in two places: the general
+>link
+>>>> attributes and bridge attributes.
+>>>>
+>>>> And since we have gone down the path of using ndo_bridge_setlink/getlink
+>>>> with 'self'....we should stick to that for all l2 attributes.
+>>>>
+>>>> The idea of overloading ndo_bridge_set/getlink, was to have the same set
+>of
+>>>> attributes but support both cases where the user wants to go through the
+>>>> bridge driver or directly to the switch port driver. So, you are not
+>really going
+>>>> through the bridge driver if you use 'self' and
+>ndo_bridge_setlink/getlink.
+>>>>
+>
+>>> Roopa, one of the comments I got from Thomas Graf on my v1 patch
+>>> was that your patch and mine were supplementary ("I think Roopa's
+>>> patches are supplementary. Not all switchdev users will be backed
+>>> with a Linux Bridge. I therefore welcome your patches very
+>>> much")... I also understood by others that the patch made sense for
+>>> the same reason. I simply do not understand why these attributes
+>>> (and maybe others in the future) could not be configured directly
+>>> on a standard port but have to go through a bridge.
+>>>
+>> ok, i am very confused in that case. The whole moving of bridge
+>> attributes from the bridge driver to rtnetlink.c was to make the
+>> bridge attributes accessible to any driver who wants to set l2/bridge
+>> attributes on their switch ports. So, its unclear to me why we are
+>> doing this parallel thing again. This move to rtnetlink.c was done
+>> during the recent rocker support. so, maybe scott/jiri can elaborate
+>> more.
+>
+>
+>Not sure if this will add to the confusion or help. But you do not
+>need to have the bridge.ko loaded or netdev's attached to a bridge
+>to use the setlink/getlink ndo ops and netlink messages.
 
+No you don't need bridge.ko to implement ndo_bridge_setlink/getlink. Rtnetlink invokes those ndos from code which does not depend on CONFIG_BRIDGE or the presence of bridge.ko.
+Calling some bridge exported functions such as br_fdb_external_learn_add/del requires the presence of bridge.ko and it only makes sense when the switch port device is enslaved to a bridge.
 
-Please do. If you satisfy Vlad's goals then we are all happy.
-
-cheers,
-jamal
+>
+>This was intentionally done. Its already used with NIC devices to
+>configure embedded bridge settings such as VEB/VEPA.
+>
+>I think I'm just repeating Roopa though.
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
