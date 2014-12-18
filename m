@@ -1,47 +1,27 @@
-From: Richard Guy Briggs <rgb@tricolour.ca>
-Subject: netdev01 twitter feed, first proposal accepted
-Date: Wed, 17 Dec 2014 23:30:24 -0500
-Message-ID: <20141218043024.GW1343@toccata2.tricolour.ca>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fixed TPACKET V3 to signal poll when block is closed
+ rather than for every packet
+Date: Wed, 17 Dec 2014 23:37:29 -0500 (EST)
+Message-ID: <20141217.233729.323289791259636663.davem@davemloft.net>
+References: <14a5a65c372.fa01df65100787.352762707968323665@dcollins.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	lwn@lwn.net, netdev01@lists.netfilter.org, lartc@vger.kernel.org,
-	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from toccata2.tricolour.ca ([204.225.221.17]:39733 "EHLO
-	toccata2.tricolour.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751363AbaLREa3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2014 23:30:29 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: dan@dcollins.co.nz
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <14a5a65c372.fa01df65100787.352762707968323665@dcollins.co.nz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We are pleased to announce that the first proposal has been accepted and a
-Twitter feed has been set up to announce the rest as they are accepted for
-netdev 0.1, the community-driven Linux networking conference held back-to-back
-with netconf in Ottawa, Canada, February 14-17, 2015.
-
-The twitter feed is: @netdev01
-https://twitter.com/netdev01
-
-Wireless Workshop Proposal Accepted
-The wireless workshop will bring together the Linux wireless stack and driver
-maintainers to discuss the continued development of the stack regarding Linux
-implementation of existing standards, new requirements coming from 802.11
-specification development, Android integration, new products and similar.
-https://www.netdev01.org/news/11
+From: Dan Collins <dan@dcollins.co.nz>
+Date: Thu, 18 Dec 2014 12:36:56 +1300
 
 
-Main site:                      https://www.netdev01.org/
-Announcement:                   https://www.netdev01.org/announce
-CFP:                            https://www.netdev01.org/cfp
-Travel/hotel/weather/clothing:  https://www.netdev01.org/travel
+> Make TPACKET_V3 signal poll when block is closed rather than for every packet. Side effect is that poll will be signaled when block retire timer expires which didn't previously happen. Issue was visible when sending packets at a very low frequency such that all blocks are retired before packets are received by TPACKET_V3. This caused avoidable packet loss. The fix ensures that the signal is sent when blocks are closed which covers the normal path where the block is filled as well as the path where the timer expires. The case where a block is filled without moving to the next block (ie. all blocks are full) will still cause poll to be signaled.
 
+Please format your commit messages to 80 column ascii formatted text.
 
-	slainte mhath, RGB
+> Signed-off-by: Dan Collins &lt;dan@dcollins.co.nz&gt;
 
---
-Richard Guy Briggs               --  ~\    -- ~\             <hpv.tricolour.ca>
-<www.TriColour.ca>                 --  \___   o \@      @        Ride yer bike!
-Ottawa, ON, CANADA                  --  Lo_>__M__\\/\%__\\/\%
-_____________________________GTVS6#790__(*)__(*)________(*)(*)_________________
+You need real "<" and ">" characters here.
