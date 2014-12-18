@@ -1,197 +1,164 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: [PATCHv1 net] xen-netback: support frontends without feature-rx-notify again
-Date: Thu, 18 Dec 2014 11:13:06 +0000
-Message-ID: <1418901186-14478-1-git-send-email-david.vrabel@citrix.com>
+From: "Varlese, Marco" <marco.varlese@intel.com>
+Subject: [RFC PATCH net-next v2 1/1] net: Support for switch port
+ configuration
+Date: Thu, 18 Dec 2014 11:29:28 +0000
+Message-ID: <C4896FB061E7DE4AAC93031BDCA044B104AD7B82@IRSMSX108.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Vrabel <david.vrabel@citrix.com>,
-	<xen-devel@lists.xenproject.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:64082 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751066AbaLRLNR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2014 06:13:17 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Fastabend, John R" <john.r.fastabend@intel.com>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit bc96f648df1bbc2729abbb84513cf4f64273a1f1 (xen-netback: make
-feature-rx-notify mandatory) incorrectly assumed that there were no
-frontends in use that did not support this feature.  But the frontend
-driver in MiniOS does not and since this is used by (qemu) stubdoms,
-these stopped working.
+From: Marco Varlese <marco.varlese@intel.com>
 
-Netback sort of works as-is in this mode except:
+Switch hardware offers a list of attributes that are configurable
+on a per port basis.
+This patch provides a mechanism to configure switch ports by adding
+an NDO for setting specific values to specific attributes.
+There will be a separate patch that adds the "get" functionality via
+another NDO and another patch that extends iproute2 to call the two
+new NDOs.
 
-- If there are no Rx requests and the internal Rx queue fills, only
-  the drain timeout will wake the thread.  The default drain timeout
-  of 10 s would give unacceptable pauses.
-
-- If an Rx stall was detected and the internal Rx queue is drained,
-  then the Rx thread would never wake.
-
-Handle these two cases (when feature-rx-notify is disabled) by:
-
-- Reducing the drain timeout to 30 ms.
-
-- Disabling Rx stall detection.
-
-Reported-by: John <jw@nuclearfallout.net>
-Tested-by: John <jw@nuclearfallout.net>
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+Signed-off-by: Marco Varlese <marco.varlese@intel.com>
 ---
- drivers/net/xen-netback/common.h    |    4 +++-
- drivers/net/xen-netback/interface.c |    4 +++-
- drivers/net/xen-netback/netback.c   |   27 ++++++++++++++-------------
- drivers/net/xen-netback/xenbus.c    |   12 +++++++++---
- 4 files changed, 29 insertions(+), 18 deletions(-)
+ include/linux/netdevice.h    |  5 ++++
+ include/uapi/linux/if_link.h | 15 ++++++++++++
+ net/core/rtnetlink.c         | 54 ++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 74 insertions(+)
 
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 083ecc9..5f1fda4 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -230,6 +230,8 @@ struct xenvif {
- 	 */
- 	bool disabled;
- 	unsigned long status;
-+	unsigned long drain_timeout;
-+	unsigned long stall_timeout;
- 
- 	/* Queues */
- 	struct xenvif_queue *queues;
-@@ -328,7 +330,7 @@ irqreturn_t xenvif_interrupt(int irq, void *dev_id);
- extern bool separate_tx_rx_irq;
- 
- extern unsigned int rx_drain_timeout_msecs;
--extern unsigned int rx_drain_timeout_jiffies;
-+extern unsigned int rx_stall_timeout_msecs;
- extern unsigned int xenvif_max_queues;
- 
- #ifdef CONFIG_DEBUG_FS
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index a6a32d3..9259a73 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -166,7 +166,7 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		goto drop;
- 
- 	cb = XENVIF_RX_CB(skb);
--	cb->expires = jiffies + rx_drain_timeout_jiffies;
-+	cb->expires = jiffies + vif->drain_timeout;
- 
- 	xenvif_rx_queue_tail(queue, skb);
- 	xenvif_kick_thread(queue);
-@@ -414,6 +414,8 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
- 	vif->ip_csum = 1;
- 	vif->dev = dev;
- 	vif->disabled = false;
-+	vif->drain_timeout = msecs_to_jiffies(rx_drain_timeout_msecs);
-+	vif->stall_timeout = msecs_to_jiffies(rx_stall_timeout_msecs);
- 
- 	/* Start out with no queues. */
- 	vif->queues = NULL;
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 4a509f7..908e65e 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -60,14 +60,12 @@ module_param(separate_tx_rx_irq, bool, 0644);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c31f74d..4881c7b 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1027,6 +1027,9 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+  * int (*ndo_switch_port_stp_update)(struct net_device *dev, u8 state);
+  *	Called to notify switch device port of bridge port STP
+  *	state change.
++ * int (*ndo_switch_port_set_cfg)(struct net_device *dev,
++ *                                u32 attr, u64 value);
++ *	Called to set specific switch ports attributes.
   */
- unsigned int rx_drain_timeout_msecs = 10000;
- module_param(rx_drain_timeout_msecs, uint, 0444);
--unsigned int rx_drain_timeout_jiffies;
+ struct net_device_ops {
+ 	int			(*ndo_init)(struct net_device *dev);
+@@ -1185,6 +1188,8 @@ struct net_device_ops {
+ 							    struct netdev_phys_item_id *psid);
+ 	int			(*ndo_switch_port_stp_update)(struct net_device *dev,
+ 							      u8 state);
++	int			(*ndo_switch_port_set_cfg)(struct net_device *dev,
++							   u32 attr, u64 value);
+ #endif
+ };
  
- /* The length of time before the frontend is considered unresponsive
-  * because it isn't providing Rx slots.
-  */
--static unsigned int rx_stall_timeout_msecs = 60000;
-+unsigned int rx_stall_timeout_msecs = 60000;
- module_param(rx_stall_timeout_msecs, uint, 0444);
--static unsigned int rx_stall_timeout_jiffies;
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index f7d0d2d..19cb51a 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -146,6 +146,7 @@ enum {
+ 	IFLA_PHYS_PORT_ID,
+ 	IFLA_CARRIER_CHANGES,
+ 	IFLA_PHYS_SWITCH_ID,
++	IFLA_SWITCH_PORT_CFG,
+ 	__IFLA_MAX
+ };
  
- unsigned int xenvif_max_queues;
- module_param_named(max_queues, xenvif_max_queues, uint, 0644);
-@@ -2020,7 +2018,7 @@ static bool xenvif_rx_queue_stalled(struct xenvif_queue *queue)
- 	return !queue->stalled
- 		&& prod - cons < XEN_NETBK_RX_SLOTS_MAX
- 		&& time_after(jiffies,
--			      queue->last_rx_time + rx_stall_timeout_jiffies);
-+			      queue->last_rx_time + queue->vif->stall_timeout);
- }
+@@ -603,4 +604,18 @@ enum {
  
- static bool xenvif_rx_queue_ready(struct xenvif_queue *queue)
-@@ -2038,8 +2036,9 @@ static bool xenvif_have_rx_work(struct xenvif_queue *queue)
- {
- 	return (!skb_queue_empty(&queue->rx_queue)
- 		&& xenvif_rx_ring_slots_available(queue, XEN_NETBK_RX_SLOTS_MAX))
--		|| xenvif_rx_queue_stalled(queue)
--		|| xenvif_rx_queue_ready(queue)
-+		|| (queue->vif->stall_timeout &&
-+		    (xenvif_rx_queue_stalled(queue)
-+		     || xenvif_rx_queue_ready(queue)))
- 		|| kthread_should_stop()
- 		|| queue->vif->disabled;
- }
-@@ -2092,6 +2091,9 @@ int xenvif_kthread_guest_rx(void *data)
- 	struct xenvif_queue *queue = data;
- 	struct xenvif *vif = queue->vif;
+ #define IFLA_HSR_MAX (__IFLA_HSR_MAX - 1)
  
-+	if (!vif->stall_timeout)
-+		xenvif_queue_carrier_on(queue);
++/* Switch Port Attributes section */
 +
- 	for (;;) {
- 		xenvif_wait_for_rx_work(queue);
++enum {
++	IFLA_ATTR_UNSPEC,
++	IFLA_ATTR_LEARNING,
++	IFLA_ATTR_LOOPBACK,
++	IFLA_ATTR_BCAST_FLOODING,
++	IFLA_ATTR_UCAST_FLOODING,
++	IFLA_ATTR_MCAST_FLOODING,
++	__IFLA_ATTR_MAX
++};
++
++#define IFLA_ATTR_MAX (__IFLA_ATTR_MAX - 1)
++
+ #endif /* _UAPI_LINUX_IF_LINK_H */
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index eaa057f..c0d1c45 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1389,6 +1389,46 @@ static int validate_linkmsg(struct net_device *dev, struct nlattr *tb[])
+ 	return 0;
+ }
  
-@@ -2118,10 +2120,12 @@ int xenvif_kthread_guest_rx(void *data)
- 		 * while it's probably not responsive, drop the
- 		 * carrier so packets are dropped earlier.
- 		 */
--		if (xenvif_rx_queue_stalled(queue))
--			xenvif_queue_carrier_off(queue);
--		else if (xenvif_rx_queue_ready(queue))
--			xenvif_queue_carrier_on(queue);
-+		if (vif->stall_timeout) {
-+			if (xenvif_rx_queue_stalled(queue))
-+				xenvif_queue_carrier_off(queue);
-+			else if (xenvif_rx_queue_ready(queue))
-+				xenvif_queue_carrier_on(queue);
++#ifdef CONFIG_NET_SWITCHDEV
++static int do_setswcfg(struct net_device *dev, struct nlattr *attr)
++{
++	int rem, err = -EINVAL;
++	struct nlattr *v;
++	const struct net_device_ops *ops = dev->netdev_ops;
++
++	nla_for_each_nested(v, attr, rem) {
++		u32 op = nla_type(v);
++		u64 value = 0;
++
++		switch (op) {
++		case IFLA_ATTR_LEARNING:
++		case IFLA_ATTR_LOOPBACK:
++		case IFLA_ATTR_BCAST_FLOODING:
++		case IFLA_ATTR_UCAST_FLOODING:
++		case IFLA_ATTR_MCAST_FLOODING: {
++			if (nla_len(v) < sizeof(value)) {
++				err = -EINVAL;
++				break;
++			}
++
++			value = nla_get_u64(v);
++			err = ops->ndo_switch_port_set_cfg(dev,
++							   op,
++							   value);
++			break;
 +		}
- 
- 		/* Queued packets may have foreign pages from other
- 		 * domains.  These cannot be queued indefinitely as
-@@ -2192,9 +2196,6 @@ static int __init netback_init(void)
- 	if (rc)
- 		goto failed_init;
- 
--	rx_drain_timeout_jiffies = msecs_to_jiffies(rx_drain_timeout_msecs);
--	rx_stall_timeout_jiffies = msecs_to_jiffies(rx_stall_timeout_msecs);
--
- #ifdef CONFIG_DEBUG_FS
- 	xen_netback_dbg_root = debugfs_create_dir("xen-netback", NULL);
- 	if (IS_ERR_OR_NULL(xen_netback_dbg_root))
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index d44cd19..efbaf2a 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -887,9 +887,15 @@ static int read_xenbus_vif_flags(struct backend_info *be)
- 		return -EOPNOTSUPP;
- 
- 	if (xenbus_scanf(XBT_NIL, dev->otherend,
--			 "feature-rx-notify", "%d", &val) < 0 || val == 0) {
--		xenbus_dev_fatal(dev, -EINVAL, "feature-rx-notify is mandatory");
--		return -EINVAL;
-+			 "feature-rx-notify", "%d", &val) < 0)
-+		val = 0;
-+	if (!val) {
-+		/* - Reduce drain timeout to poll more frequently for
-+		 *   Rx requests.
-+		 * - Disable Rx stall detection.
-+		 */
-+		be->vif->drain_timeout = msecs_to_jiffies(30);
-+		be->vif->stall_timeout = 0;
++		default:
++			err = -EINVAL;
++			break;
++		}
++		if (err)
++			break;
++	}
++	return err;
++}
++
++#endif
++
+ static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
+ {
+ 	int rem, err = -EINVAL;
+@@ -1740,6 +1780,20 @@ static int do_setlink(const struct sk_buff *skb,
+ 			status |= DO_SETLINK_NOTIFY;
+ 		}
  	}
++#ifdef CONFIG_NET_SWITCHDEV
++	if (tb[IFLA_SWITCH_PORT_CFG]) {
++		err = -EOPNOTSUPP;
++		if (!ops->ndo_switch_port_set_cfg)
++			goto errout;
++		if (!ops->ndo_switch_parent_id_get)
++			goto errout;
++		err = do_setswcfg(dev, tb[IFLA_SWITCH_PORT_CFG]);
++		if (err < 0)
++			goto errout;
++
++		status |= DO_SETLINK_NOTIFY;
++	}
++#endif
+ 	err = 0;
  
- 	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-sg",
+ errout:
 -- 
-1.7.10.4
+1.8.5.3
