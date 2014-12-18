@@ -1,27 +1,118 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: bluetooth 2014-12-17
-Date: Thu, 18 Dec 2014 15:32:59 -0500 (EST)
-Message-ID: <20141218.153259.1434707913030906643.davem@davemloft.net>
-References: <20141217204614.GA15480@t440s.P-661HNU-F1>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [bisected] tg3 broken in 3.18.0?
+Date: Thu, 18 Dec 2014 18:33:58 -0200
+Message-ID: <54933A36.7010000@gmail.com>
+References: <20141213210251.GA12812@teela.fritz.box> <548EF90A.5070607@gmail.com> <CAA93t1qyZE-9tw8pg1KG6g4iyy0QMW=iass5w=6ZGMTMu+vi_A@mail.gmail.com> <CAErSpo5dqQE7nZ6zf2odgpHBWA3ZpTjhbgQKnY8YxQW+a+298w@mail.gmail.com> <1418750141.4248.3.camel@LTIRV-MCHAN1.corp.ad.broadcom.com> <54907300.9050902@gmail.com> <1418759684.4248.12.camel@LTIRV-MCHAN1.corp.ad.broadcom.com> <CAErSpo7sqZS+-4LHo3wbo-pa73mcP_3d0Z37U0tfnASaxp-D_g@mail.gmail.com> <1418930889.3433.8.camel@prashant> <54933491.7020204@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org
-To: johan.hedberg@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141217204614.GA15480@t440s.P-661HNU-F1>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Michael Chan <mchan@broadcom.com>,
+	Rajat Jain <rajatxjain@gmail.com>,
+	Nils Holland <nholland@tisys.org>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	Rafael Wysocki <rjw@rjwysocki.net>
+To: Prashant Sreedharan <prashant@broadcom.com>,
+	Bjorn Helgaas <bhelgaas@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f169.google.com ([209.85.216.169]:61795 "EHLO
+	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751125AbaLRUeI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2014 15:34:08 -0500
+In-Reply-To: <54933491.7020204@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Date: Wed, 17 Dec 2014 22:46:14 +0200
+On 18-12-2014 18:09, Marcelo Ricardo Leitner wrote:
+> On 18-12-2014 17:28, Prashant Sreedharan wrote:
+>> On Thu, 2014-12-18 at 12:15 -0700, Bjorn Helgaas wrote:
+>>> On Tue, Dec 16, 2014 at 12:54 PM, Michael Chan <mchan@broadcom.com> wrote:
+>>>> On Tue, 2014-12-16 at 15:59 -0200, Marcelo Ricardo Leitner wrote:
+>>>>> It's a
+>>>>> 02:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5722
+>>>>> Gigabit Ethernet PCI Express
+>>>>> over here
+>>>>>
+>>>>> I put a WARN_ON(1) after those printks, and this is what I got:
+>>>>>
+>>>>> [    1.550640] pci 0000:02:00.0: 1st 1 1
+>>>>> [    1.550643] pci 0000:02:00.0: crs_timeout: 0
+>>>>> [    1.550645] ------------[ cut here ]------------
+>>>>> [    1.550651] WARNING: CPU: 6 PID: 364 at drivers/pci/probe.c:1445 pci_bus_read_dev_vendor_id+0x1d4/0x1e0()
+>>>>> [    1.550652] Modules linked in: i915(+) raid0 i2c_algo_bit drm_kms_helper drm e1000e(+) tg3(+) ptp pps_core video
+>>>>> [    1.550660] CPU: 6 PID: 364 Comm: systemd-udevd Not tainted 3.18.0-rc6+ #8
+>>>>> [    1.550661] Hardware name: Dell Inc. OptiPlex 9010/03K80F, BIOS A15 08/12/2013
+>>>>> [    1.550662]  0000000000000000 000000004de2d8dc ffff8807eabdf948 ffffffff8173db46
+>>>>> [    1.550665]  0000000000000000 0000000000000000 ffff8807eabdf988 ffffffff81094d41
+>>>>> [    1.550667]  ffff8807eabdf968 ffff8807f1e27000 0000000000000000 0000000000000000
+>>>>> [    1.550669] Call Trace:
+>>>>> [    1.550675]  [<ffffffff8173db46>] dump_stack+0x46/0x58
+>>>>> [    1.550679]  [<ffffffff81094d41>] warn_slowpath_common+0x81/0xa0
+>>>>> [    1.550681]  [<ffffffff81094e5a>] warn_slowpath_null+0x1a/0x20
+>>>>> [    1.550683]  [<ffffffff813b2864>] pci_bus_read_dev_vendor_id+0x1d4/0x1e0
+>>>>> [    1.550687]  [<ffffffff813b7c3e>] pci_device_is_present+0x2e/0x50
+>>>>> [    1.550693]  [<ffffffffa003364f>] tg3_chip_reset+0x2f/0x940 [tg3]
+>>>>> [    1.550697]  [<ffffffffa0033f9f>] tg3_halt+0x3f/0x1e0 [tg3]
+>>>>> [    1.550701]  [<ffffffffa0044f83>] tg3_init_one+0xb83/0x1a40 [tg3]
+>>>>
+>>>> So does it work if you use a non-zero crs_timeout?  The driver has
+>>>> called tg3_halt() which may affect configuration read responses.  I need
+>>>> to check with the hardware team to see if the 5722 will return CRS in
+>>>> this scenario.
+>>>
+>>> Any updates from the hardware team?
+>>>
+>>> This is a pretty serious regression, but as far as I can tell, it is
+>>> not a PCI bug.  The device should respond to a config read of vendor
+>>> ID.  If the driver does something that make the read return CRS
+>>> status, I think the driver is responsible for doing whatever delay or
+>>> other fixup is required.
+>>>
+>>> I'm inclined to reassign this bug to the tg3 driver unless you think
+>>> the PCI core is doing something wrong here.
+>>>
+>>> Bjorn
+>>
+>> We were not able to reproduce this issue, could you please check what is
+>> the value of reg 0x70, before the pci_device_is_present call is made ?
+>> if bit 15 is set config access will be retried.
+>>
+>> --- a/drivers/net/ethernet/broadcom/tg3.c
+>> +++ b/drivers/net/ethernet/broadcom/tg3.c
+>> @@ -9025,6 +9025,7 @@ static int tg3_chip_reset(struct tg3 *tp)
+>>           void (*write_op)(struct tg3 *, u32, u32);
+>>           int i, err;
+>>
+>> +       printk(KERN_ERR "config state: %x\n", tr32(TG3PCI_PCISTATE));
+>>           if (!pci_device_is_present(tp->pdev))
+>>                   return -ENODEV;
+>>
+>
+> With that PCI patch applied and my debugs, without the timeout hack (so crs_timeout=0):
+>
+> [    1.545554] config state: 12b2
+> [    1.548636] pci 0000:02:00.0: 1st 1 1
+> [    1.548637] pci 0000:02:00.0: crs_timeout: 0
+> [    1.548783] tg3 0000:02:00.0 eth0: Tigon3 [partno(BCM95722) rev a200] (PCI Express) MAC address 00:0a:f7:2b:9b:39
+> [    1.548785] tg3 0000:02:00.0 eth0: attached PHY is 5722/5756 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+> [    1.548786] tg3 0000:02:00.0 eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+> [    1.548787] tg3 0000:02:00.0 eth0: dma_rwctrl[76180000] dma_mask[64-bit]
+> [    1.554389] tg3 0000:02:00.0 p1p1: renamed from eth0
+> ...
+>
+> That's the only time your printk got printed.
 
-> Here's the first direct (i.e. skipping the wireless tree) bluetooth pull
-> request for you, intended for 3.19. It's just one patch: a fix from
-> Marcel for for remote service discovery filtering which also fixes a
-> 'used uninitialized' compiler warning.
-> 
-> Please let me know if there are any issues pulling. Thanks.
+My bad, I forgot I had configured the system to not bring that iface up 
+anymore.. when doing so, just like Nils had too:
 
-Pulled, thanks Johan.
+[ 1743.678714] tg3 0000:02:00.0: irq 32 for MSI/MSI-X
+[ 1745.554039] tg3 0000:02:00.0 p1p1: No firmware running
+[ 1745.554724] config state: 12b2
+[ 1745.557822] pci 0000:02:00.0: 1st 1 1
+[ 1745.557827] pci 0000:02:00.0: crs_timeout: 0
+[ 1745.559383] config state: 12b2
+[ 1745.562470] pci 0000:02:00.0: 1st 1 1
+[ 1745.562471] pci 0000:02:00.0: crs_timeout: 0
+
+   Marcelo
