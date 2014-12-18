@@ -1,110 +1,88 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [iproute2] tc: Show classes more hierarchically]
-Date: Thu, 18 Dec 2014 10:46:06 -0200
-Message-ID: <5492CC8E.6050108@gmail.com>
-References: <20141215224851.GB6734@angus-think.lan> <54907619.5080508@gmail.com> <20141217115535.3f5198d2@urahara> <20141217235627.GA2149@angus-think.lan> <54923434.3030209@gmail.com> <20141218031257.GA19527@angus-think.lan> <5492C7FD.8060603@gmail.com> <20141218122329.GA31878@angus-think.lan>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH] brcmsmac: don't leak kernel memory via printk()
+Date: Thu, 18 Dec 2014 14:01:46 +0100
+Message-ID: <5492D03A.9020004@broadcom.com>
+References: <1418204358-8357-1-git-send-email-computersforpeace@gmail.com> <CAN8TOE--Vfa1L8dcoV=up1bA+QX0_=+DkdDa7fAv6DJBF8PHow@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
-To: Vadim Kochan <vadim4j@gmail.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Kalle Valo <kvalo@qca.qualcomm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Brett Rudley" <brudley@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	<linux-wireless@vger.kernel.org>,
+	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>
+To: Brian Norris <computersforpeace@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f47.google.com ([209.85.216.47]:33291 "EHLO
-	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752087AbaLRMqN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2014 07:46:13 -0500
-Received: by mail-qa0-f47.google.com with SMTP id s7so720188qap.6
-        for <netdev@vger.kernel.org>; Thu, 18 Dec 2014 04:46:12 -0800 (PST)
-In-Reply-To: <20141218122329.GA31878@angus-think.lan>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:59143 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751907AbaLRNBw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2014 08:01:52 -0500
+In-Reply-To: <CAN8TOE--Vfa1L8dcoV=up1bA+QX0_=+DkdDa7fAv6DJBF8PHow@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18-12-2014 10:23, Vadim Kochan wrote:
-> On Thu, Dec 18, 2014 at 10:26:37AM -0200, Marcelo Ricardo Leitner wrote:
->>> +---1:1(htb) rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
->>>      |    * Send 100 pkts ...
->>>      |    * Rate 10mbit ...
->>>      +---1:10(htb) rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
->>>      |   |    * Send 100 pkts ...
->>>      |   |    * Rate 10mbit ...
->>>      |   +---1:11(htb) rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
->>>      |   |   |    * Send 100 pkts ...
->>>      |   |   |    * Rate 10mbit ...
->>>      |   |   +---1:111(htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
->>>      |   |   |   |    * Send 100 pkts ...
->>>      |   |   |   |    * Rate 10mbit ...
->>                     ^ these are confusing IMHO, rest looks good to me
+On 12/18/14 07:32, Brian Norris wrote:
+> + others [1]
+>
+> On Wed, Dec 10, 2014 at 1:39 AM, Brian Norris
+> <computersforpeace@gmail.com>  wrote:
+>> Debug code prints the fifo name via custom dev_warn() wrappers. The
+>> fifo_names array is only non-zero when debugging is manually enabled=
+,
+>> which is all well and good. However, it's *not* good that this array
+>> uses zero-length arrays in the non-debug case, and so it doesn't
+>> actually have any memory allocated to it. This means that as far as =
+we
+>> know, fifo_names[i] actually points to garbage memory.
 >>
->>    Marcelo
+>> I've seen this in my log:
 >>
+>> [ 4601.205511] brcmsmac bcma0:1: wl0: brcms_c_d11hdrs_mac80211: =EF=BF=
+=BDGeL txop exceeded phylen 137/256 dur 1602/1504
+>>
+>> So let's give this array space enough to fill it with a NULL byte.
+>>
+>> Signed-off-by: Brian Norris<computersforpeace@gmail.com>
+>> Cc: Brett Rudley<brudley@broadcom.com>
+>> Cc: Arend van Spriel<arend@broadcom.com>
+>> Cc: "Franky (Zhenhui) Lin"<frankyl@broadcom.com>
+>> Cc: Hante Meuleman<meuleman@broadcom.com>
+>> Cc: "John W. Linville"<linville@tuxdriver.com>
+>> Cc: linux-wireless@vger.kernel.org
+>> Cc: brcm80211-dev-list@broadcom.com
+>> Cc: netdev@vger.kernel.org
 >
->
-> Yes, just fixed it to :
+> BTW, I guess this qualifies as a security hole, albeit a small one.
+> Should this be CC: stable@vger.kernel.org?
 
-Cool
-
-> +---1:2(htb) rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
-> |   |    * Send 100 pkts ...
-> |   |    * Rate 10mbit ...
-> |   +---1:40(htb) prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
-> |   |        * Send 100 pkts ...
-> |   |        * Rate 10mbit ...
-> |   +---1:50(htb) prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
-> |   |        * Send 100 pkts ...
-> |   |        * Rate 10mbit ...
-> |   +---1:60(htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
-> |            * Send 100 pkts ...
-> |            * Rate 10mbit ...
-> |
-> +---1:1(htb) rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
->      |    * Send 100 pkts ...
->      |    * Rate 10mbit ...
->      +---1:10(htb) rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
->      |   |    * Send 100 pkts ...
->      |   |    * Rate 10mbit ...
->      |   +---1:11(htb) rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
->      |   |   |    * Send 100 pkts ...
->      |   |   |    * Rate 10mbit ...
->      |   |   +---1:111(htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
->      |   |   |        * Send 100 pkts ...
->      |   |   |        * Rate 10mbit ...
->      |   |   +---1:112(htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
->      |   |            * Send 100 pkts ...
->      |   |            * Rate 10mbit ...
->      |   |
->      |   +---1:12(htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
->      |            * Send 100 pkts ...
->      |            * Rate 10mbit ...
->      |
->      +---1:20(htb) prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
->      |        * Send 100 pkts ...
->      |        * Rate 10mbit ...
->      +---1:30(htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
->               * Send 100 pkts ...
->               * Rate 10mbit ...
->
-> I am not sure about the better format to print stats - use '*' or '>' as
-> prefix, '*' - seems better ?
-
-TBH I don't think we need one in there. It's already linked to the items 
-due to the tree on them. If you just align them to start right where the 
-the first word after the ')' begins, it would be good. Like:
-
-       |   +---1:11(htb) rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
-       |   |   |         Send 100 pkts ...
-       |   |   |         Rate 10mbit ...
-       |   |   +---1:111(htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb 
-cburst 1599b
-       |   |   |              Send 100 pkts ...
-       |   |   |              Rate 10mbit ...
-       |   |   +---1:112(htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb 
-cburst 1599b
-
-But I don't know how large this will get..
-
-Yet I don't mind having one marker in there. Let's see what others think 
-about it.
+I have no strong opinion on this, but I guess. Feel free to do so.
 
 Regards,
-Marcelo
+Arend
+
+>> ---
+>>   drivers/net/wireless/brcm80211/brcmsmac/main.c | 2 +-
+>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/wireless/brcm80211/brcmsmac/main.c b/driver=
+s/net/wireless/brcm80211/brcmsmac/main.c
+>> index 1b474828d5b8..aed0c948dce8 100644
+>> --- a/drivers/net/wireless/brcm80211/brcmsmac/main.c
+>> +++ b/drivers/net/wireless/brcm80211/brcmsmac/main.c
+>> @@ -316,7 +316,7 @@ static const u16 xmtfifo_sz[][NFIFO] =3D {
+>>   static const char * const fifo_names[] =3D {
+>>          "AC_BK", "AC_BE", "AC_VI", "AC_VO", "BCMC", "ATIM" };
+>>   #else
+>> -static const char fifo_names[6][0];
+>> +static const char fifo_names[6][1];
+>>   #endif
+>>
+>>   #ifdef DEBUG
+>
+> Brian
+>
+> [1] http://lwn.net/Articles/626689/
