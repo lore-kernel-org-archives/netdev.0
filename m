@@ -1,254 +1,93 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [RFC PATCH net-next v2 1/1] net: Support for switch port configuration
-Date: Thu, 18 Dec 2014 08:14:09 -0800
-Message-ID: <5492FD51.5030503@intel.com>
-References: <C4896FB061E7DE4AAC93031BDCA044B104AD7B82@IRSMSX108.ger.corp.intel.com> <5492E85C.6010802@cumulusnetworks.com> <C4896FB061E7DE4AAC93031BDCA044B104AD9E53@IRSMSX108.ger.corp.intel.com> <E4CD12F19ABA0C4D8729E087A761DC3505DBA430@ORSMSX101.amr.corp.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] enic: fix rx skb checksum
+Date: Thu, 18 Dec 2014 08:26:57 -0800
+Message-ID: <1418920017.9773.80.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1418898522-13588-1-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Arad, Ronen" <ronen.arad@intel.com>,
-	"Varlese, Marco" <marco.varlese@intel.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <E4CD12F19ABA0C4D8729E087A761DC3505DBA430@ORSMSX101.amr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ssujith@cisco.com,
+	benve@cisco.com, Jiri Benc <jbenc@redhat.com>,
+	Stefan Assmann <sassmann@redhat.com>
+To: Govindarajulu Varadarajan <_govind@gmx.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:52251 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751676AbaLRQ1B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2014 11:27:01 -0500
+Received: by mail-ig0-f181.google.com with SMTP id l13so1291010iga.2
+        for <netdev@vger.kernel.org>; Thu, 18 Dec 2014 08:27:01 -0800 (PST)
+In-Reply-To: <1418898522-13588-1-git-send-email-_govind@gmx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/18/2014 07:47 AM, Arad, Ronen wrote:
+On Thu, 2014-12-18 at 15:58 +0530, Govindarajulu Varadarajan wrote:
+> Hardware always provides compliment of IP pseudo checksum. Stack expects
+> whole packet checksum without pseudo checksum if CHECKSUM_COMPLETE is set.
 > 
+> This causes checksum error in nf & ovs.
 > 
->> -----Original Message-----
->> From: netdev-owner@vger.kernel.org [mailto:netdev-
->> owner@vger.kernel.org] On Behalf Of Varlese, Marco
->> Sent: Thursday, December 18, 2014 4:56 PM
->> To: Roopa Prabhu
->> Cc: netdev@vger.kernel.org; Fastabend, John R; Thomas Graf; Jiri Pirko;
->> sfeldma@gmail.com; linux-kernel@vger.kernel.org
->> Subject: RE: [RFC PATCH net-next v2 1/1] net: Support for switch port
->> configuration
->>
->>> -----Original Message-----
->>> From: Roopa Prabhu [mailto:roopa@cumulusnetworks.com]
->>> Sent: Thursday, December 18, 2014 2:45 PM
->>> To: Varlese, Marco
->>> Cc: netdev@vger.kernel.org; Fastabend, John R; Thomas Graf; Jiri
->>> Pirko; sfeldma@gmail.com; linux-kernel@vger.kernel.org
->>> Subject: Re: [RFC PATCH net-next v2 1/1] net: Support for switch port
->>> configuration
->>>
->>> On 12/18/14, 3:29 AM, Varlese, Marco wrote:
->>>> From: Marco Varlese <marco.varlese@intel.com>
->>>>
->>>> Switch hardware offers a list of attributes that are configurable on
->>>> a per port basis.
->>>> This patch provides a mechanism to configure switch ports by adding
->>>> an NDO for setting specific values to specific attributes.
->>>> There will be a separate patch that adds the "get" functionality via
->>>> another NDO and another patch that extends iproute2 to call the two
->>>> new NDOs.
->>>>
->>>> Signed-off-by: Marco Varlese <marco.varlese@intel.com>
->>>> ---
->>>>   include/linux/netdevice.h    |  5 ++++
->>>>   include/uapi/linux/if_link.h | 15 ++++++++++++
->>>>   net/core/rtnetlink.c         | 54
->>> ++++++++++++++++++++++++++++++++++++++++++++
->>>>   3 files changed, 74 insertions(+)
->>>>
->>>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->>>> index c31f74d..4881c7b 100644
->>>> --- a/include/linux/netdevice.h
->>>> +++ b/include/linux/netdevice.h
->>>> @@ -1027,6 +1027,9 @@ typedef u16 (*select_queue_fallback_t)(struct
->>> net_device *dev,
->>>>    * int (*ndo_switch_port_stp_update)(struct net_device *dev, u8 state);
->>>>    *	Called to notify switch device port of bridge port STP
->>>>    *	state change.
->>>> + * int (*ndo_switch_port_set_cfg)(struct net_device *dev,
->>>> + *                                u32 attr, u64 value);
->>>> + *	Called to set specific switch ports attributes.
->>>>    */
->>>>   struct net_device_ops {
->>>>   	int			(*ndo_init)(struct net_device *dev);
->>>> @@ -1185,6 +1188,8 @@ struct net_device_ops {
->>>>   							    struct
->>> netdev_phys_item_id *psid);
->>>>   	int			(*ndo_switch_port_stp_update)(struct
->>> net_device *dev,
->>>>   							      u8 state);
->>>> +	int			(*ndo_switch_port_set_cfg)(struct
->>> net_device *dev,
->>>> +							   u32 attr, u64 value);
->>>>   #endif
->>>>   };
->>>>
->>>> diff --git a/include/uapi/linux/if_link.h
->>>> b/include/uapi/linux/if_link.h index f7d0d2d..19cb51a 100644
->>>> --- a/include/uapi/linux/if_link.h
->>>> +++ b/include/uapi/linux/if_link.h
->>>> @@ -146,6 +146,7 @@ enum {
->>>>   	IFLA_PHYS_PORT_ID,
->>>>   	IFLA_CARRIER_CHANGES,
->>>>   	IFLA_PHYS_SWITCH_ID,
->>>> +	IFLA_SWITCH_PORT_CFG,
->>>>   	__IFLA_MAX
->>>>   };
->>>>
->>>> @@ -603,4 +604,18 @@ enum {
->>>>
->>>>   #define IFLA_HSR_MAX (__IFLA_HSR_MAX - 1)
->>>>
->>>> +/* Switch Port Attributes section */
->>>> +
->>>> +enum {
->>>> +	IFLA_ATTR_UNSPEC,
->>>> +	IFLA_ATTR_LEARNING,
->>> Any reason you want learning here ?. This is covered as part  of the
->>> bridge setlink attributes.
->>>
->>
->> Yes, because the user may _not_ want to go through a bridge interface
->> necessarily.
+> kernel: qg-19546f09-f2: hw csum failure
+> kernel: CPU: 9 PID: 0 Comm: swapper/9 Tainted: GF          O--------------   3.10.0-123.8.1.el7.x86_64 #1
+> kernel: Hardware name: Cisco Systems Inc UCSB-B200-M3/UCSB-B200-M3, BIOS B200M3.2.2.3.0.080820141339 08/08/2014
+> kernel: ffff881218f40000 df68243feb35e3a8 ffff881237a43ab8 ffffffff815e237b
+> kernel: ffff881237a43ad0 ffffffff814cd4ca ffff8829ec71eb00 ffff881237a43af0
+> kernel: ffffffff814c6232 0000000000000286 ffff8829ec71eb00 ffff881237a43b00
+> kernel: Call Trace:
+> kernel: <IRQ>  [<ffffffff815e237b>] dump_stack+0x19/0x1b
+> kernel: [<ffffffff814cd4ca>] netdev_rx_csum_fault+0x3a/0x40
+> kernel: [<ffffffff814c6232>] __skb_checksum_complete_head+0x62/0x70
+> kernel: [<ffffffff814c6251>] __skb_checksum_complete+0x11/0x20
+> kernel: [<ffffffff8155a20c>] nf_ip_checksum+0xcc/0x100
+> kernel: [<ffffffffa049edc7>] icmp_error+0x1f7/0x35c [nf_conntrack_ipv4]
+> kernel: [<ffffffff814cf419>] ? netif_rx+0xb9/0x1d0
+> kernel: [<ffffffffa040eb7b>] ? internal_dev_recv+0xdb/0x130 [openvswitch]
+> kernel: [<ffffffffa04c8330>] nf_conntrack_in+0xf0/0xa80 [nf_conntrack]
+> kernel: [<ffffffff81509380>] ? inet_del_offload+0x40/0x40
+> kernel: [<ffffffffa049e302>] ipv4_conntrack_in+0x22/0x30 [nf_conntrack_ipv4]
+> kernel: [<ffffffff815005ca>] nf_iterate+0xaa/0xc0
+> kernel: [<ffffffff81509380>] ? inet_del_offload+0x40/0x40
+> kernel: [<ffffffff81500664>] nf_hook_slow+0x84/0x140
+> kernel: [<ffffffff81509380>] ? inet_del_offload+0x40/0x40
+> kernel: [<ffffffff81509dd4>] ip_rcv+0x344/0x380
 > 
-> Some bridge attributes or more accurately bridge port attributes overlap with port attributes.
-> IFLA_BRPORT_LEARNING from IFLA_PROTINFO and BRIDGE_VLAN_INFO_PVID
-> flag of IFLA_BRIDGE_VLAN_INFO from IFLA_AF_SPEC are two examples
-> where bridge port properties might have to be mapped to a common or
-> driver specific port attribute.
-
-You've lost me a bit. 
-
-> Switch port driver that works without and explicit bridge device has
-> to implement the bridge NDO's ndo_bridge_setlink/ndo_bridge_dellink. 
-> It could take care of mapping such attributes from the bridge netlink
-> message to either driver-specific port attribute of to an explicit
-> one (assuming IFLA_ATTR_LEARNING would be accepted). For example the
-> driver could process the bridge learning information from the
-> protinfo as such:
-
-still lost unfortunately.
-
-So you want to enable learning on a port by port basis? Then we also
-need to define how the two bits interact.
-
-	switch_learning + port_learning = port in learning mode
-	!switch_learning + port_learning = port not in learning mode?
-	etc.
-
-Do bridges and users actually enable learning on a per port basis?
-
-> int sw_driver_br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
-> {
->         struct nlattr *protinfo;
->         protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
->                                    IFLA_PROTINFO);
->         if (protinfo) {
->                 struct nlattr *attr;
->                 attr = nla_find_nested(protinfo, IFLA_BRPORT_LEARNING);
->                 if (attr) {
->                         if (nla_len(attr) >= sizeof(u8)) {
->                                 if (nla_get_u8(attr))
->                                         brport_flags |= BR_LEARNING;
->                                 else
->                                         brport_flags &= ~BR_LEARNING;
->                         }
->                 }
->                 /*
->                  * Map bridge port attributes to driver-specific port attributes
->                  */
->         }
->         return 0;
-> }
+> Hardware verifies IP & tcp/udp header checksum but does not provide payload
+> checksum, use CHECKSUM_UNNECESSARY. Set it only if its valid IP tcp/udp packet.
 > 
->>
->>>> +	IFLA_ATTR_LOOPBACK,
->>>> +	IFLA_ATTR_BCAST_FLOODING,
->>>> +	IFLA_ATTR_UCAST_FLOODING,
->>>> +	IFLA_ATTR_MCAST_FLOODING,
->>>> +	__IFLA_ATTR_MAX
->>>> +};
->>>> +
->>>> +#define IFLA_ATTR_MAX (__IFLA_ATTR_MAX - 1)
->>>> +
->>>>   #endif /* _UAPI_LINUX_IF_LINK_H */ diff --git
->>>> a/net/core/rtnetlink.c b/net/core/rtnetlink.c index
->>>> eaa057f..c0d1c45 100644
->>>> --- a/net/core/rtnetlink.c
->>>> +++ b/net/core/rtnetlink.c
->>>> @@ -1389,6 +1389,46 @@ static int validate_linkmsg(struct net_device
->>> *dev, struct nlattr *tb[])
->>>>   	return 0;
->>>>   }
->>>>
->>>> +#ifdef CONFIG_NET_SWITCHDEV
->>>> +static int do_setswcfg(struct net_device *dev, struct nlattr *attr) {
->>>> +	int rem, err = -EINVAL;
->>>> +	struct nlattr *v;
->>>> +	const struct net_device_ops *ops = dev->netdev_ops;
->>>> +
->>>> +	nla_for_each_nested(v, attr, rem) {
->>>> +		u32 op = nla_type(v);
->>>> +		u64 value = 0;
->>>> +
->>>> +		switch (op) {
->>>> +		case IFLA_ATTR_LEARNING:
->>>> +		case IFLA_ATTR_LOOPBACK:
->>>> +		case IFLA_ATTR_BCAST_FLOODING:
->>>> +		case IFLA_ATTR_UCAST_FLOODING:
->>>> +		case IFLA_ATTR_MCAST_FLOODING: {
->>>> +			if (nla_len(v) < sizeof(value)) {
->>>> +				err = -EINVAL;
->>>> +				break;
->>>> +			}
->>>> +
->>>> +			value = nla_get_u64(v);
->>>> +			err = ops->ndo_switch_port_set_cfg(dev,
->>>> +							   op,
->>>> +							   value);
->>>> +			break;
->>>> +		}
->>>> +		default:
->>>> +			err = -EINVAL;
->>>> +			break;
->>>> +		}
->>>> +		if (err)
->>>> +			break;
->>>> +	}
->>>> +	return err;
->>>> +}
->>>> +
->>>> +#endif
->>>> +
->>>>   static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
->>>>   {
->>>>   	int rem, err = -EINVAL;
->>>> @@ -1740,6 +1780,20 @@ static int do_setlink(const struct sk_buff *skb,
->>>>   			status |= DO_SETLINK_NOTIFY;
->>>>   		}
->>>>   	}
->>>> +#ifdef CONFIG_NET_SWITCHDEV
->>>> +	if (tb[IFLA_SWITCH_PORT_CFG]) {
->>>> +		err = -EOPNOTSUPP;
->>>> +		if (!ops->ndo_switch_port_set_cfg)
->>>> +			goto errout;
->>>> +		if (!ops->ndo_switch_parent_id_get)
->>>> +			goto errout;
->>>> +		err = do_setswcfg(dev, tb[IFLA_SWITCH_PORT_CFG]);
->>>> +		if (err < 0)
->>>> +			goto errout;
->>>> +
->>>> +		status |= DO_SETLINK_NOTIFY;
->>>> +	}
->>>> +#endif
->>>>   	err = 0;
->>>>
->>>>   errout:
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in the body
->> of a message to majordomo@vger.kernel.org More majordomo info at
->> http://vger.kernel.org/majordomo-info.html
+> Cc: Jiri Benc <jbenc@redhat.com>
+> Cc: Stefan Assmann <sassmann@redhat.com>
+> Reported-by: Sunil Choudhary <schoudha@redhat.com>
+> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+> ---
+>  drivers/net/ethernet/cisco/enic/enic_main.c | 12 ++++++++----
+>  1 file changed, 8 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+> index 868d0f6..705f334 100644
+> --- a/drivers/net/ethernet/cisco/enic/enic_main.c
+> +++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+> @@ -1060,10 +1060,14 @@ static void enic_rq_indicate_buf(struct vnic_rq *rq,
+>  				     PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
+>  		}
+>  
+> -		if ((netdev->features & NETIF_F_RXCSUM) && !csum_not_calc) {
+> -			skb->csum = htons(checksum);
+> -			skb->ip_summed = CHECKSUM_COMPLETE;
+> -		}
+> +		/* Hardware does not provide whole packet checksum. It only
+> +		 * provides pseudo checksum. Since hw validates the packet
+> +		 * checksum but not provide us the checksum value. use
+> +		 * CHECSUM_UNNECESSARY.
+> +		 */
+> +		if ((netdev->features & NETIF_F_RXCSUM) && tcp_udp_csum_ok &&
+> +		    ipv4_csum_ok)
+> +			skb->ip_summed = CHECKSUM_UNNECESSARY;
+>  
+>  		if (vlan_stripped)
+>  			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan_tci);
+
+Hmm.. this looks like CHECKSUM_COMPLETE could be kept for tunneling
+cases. 
+
+Check commit f8c6455bb04b944e ("net/mlx4_en: Extend checksum offloading
+by CHECKSUM COMPLETE") for a start.
