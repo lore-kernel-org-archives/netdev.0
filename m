@@ -1,27 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2x: fix typos in "configure"
-Date: Thu, 18 Dec 2014 12:50:59 -0500 (EST)
-Message-ID: <20141218.125059.1570740563068269582.davem@davemloft.net>
-References: <fcb186d22a0f6a2e3b07a6a88baebbada6742003.1418889837.git.jbenc@redhat.com>
+Subject: Re: [PATCH net] be2net: Fix incorrect setting of tunnel offload
+ flag in netdev features
+Date: Thu, 18 Dec 2014 12:51:48 -0500 (EST)
+Message-ID: <20141218.125148.1926282616065027550.davem@davemloft.net>
+References: <1418963418-18792-1-git-send-email-sriharsha.basavapatna@emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ariel.elior@qlogic.com
-To: jbenc@redhat.com
+Cc: netdev@vger.kernel.org
+To: sriharsha.basavapatna@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47160 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47167 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751710AbaLRRvA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2014 12:51:00 -0500
-In-Reply-To: <fcb186d22a0f6a2e3b07a6a88baebbada6742003.1418889837.git.jbenc@redhat.com>
+	with ESMTP id S1751133AbaLRRvu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2014 12:51:50 -0500
+In-Reply-To: <1418963418-18792-1-git-send-email-sriharsha.basavapatna@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Thu, 18 Dec 2014 09:04:35 +0100
+From: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
+Date: Fri, 19 Dec 2014 10:00:18 +0530
 
-> Noticed when debugging ptp.
+> An earlier commit to resolve an issue with encapsulation offloads missed
+> setting a bit in the outer netdev features flag. This results in loss of TSO
+> feature on a VxLAN interface.
 > 
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> Fixes: 630f4b70 ("Export tunnel offloads only when a VxLAN tunnel is created")
+> 
+> Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
 
-Applied, thanks Jiri.
+Applied, thanks.
