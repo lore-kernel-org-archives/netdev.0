@@ -1,68 +1,82 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net] bnx2x: fix typos in "configure"
-Date: Thu, 18 Dec 2014 09:04:35 +0100
-Message-ID: <fcb186d22a0f6a2e3b07a6a88baebbada6742003.1418889837.git.jbenc@redhat.com>
-Cc: Ariel Elior <ariel.elior@qlogic.com>
-To: netdev@vger.kernel.org
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: [PATCH net] enic: fix rx skb checksum
+Date: Thu, 18 Dec 2014 15:58:42 +0530
+Message-ID: <1418898522-13588-1-git-send-email-_govind@gmx.com>
+Cc: Govindarajulu Varadarajan <_govind@gmx.com>,
+	Jiri Benc <jbenc@redhat.com>,
+	Stefan Assmann <sassmann@redhat.com>
+To: davem@davemloft.net, netdev@vger.kernel.org, ssujith@cisco.com,
+	benve@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48260 "EHLO mx1.redhat.com"
+Received: from mout.gmx.com ([74.208.4.201]:54850 "EHLO mout.gmx.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750720AbaLRIFe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Dec 2014 03:05:34 -0500
+	id S1751062AbaLRK3P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Dec 2014 05:29:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Noticed when debugging ptp.
+Hardware always provides compliment of IP pseudo checksum. Stack expects
+whole packet checksum without pseudo checksum if CHECKSUM_COMPLETE is set.
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
+This causes checksum error in nf & ovs.
+
+kernel: qg-19546f09-f2: hw csum failure
+kernel: CPU: 9 PID: 0 Comm: swapper/9 Tainted: GF          O--------------   3.10.0-123.8.1.el7.x86_64 #1
+kernel: Hardware name: Cisco Systems Inc UCSB-B200-M3/UCSB-B200-M3, BIOS B200M3.2.2.3.0.080820141339 08/08/2014
+kernel: ffff881218f40000 df68243feb35e3a8 ffff881237a43ab8 ffffffff815e237b
+kernel: ffff881237a43ad0 ffffffff814cd4ca ffff8829ec71eb00 ffff881237a43af0
+kernel: ffffffff814c6232 0000000000000286 ffff8829ec71eb00 ffff881237a43b00
+kernel: Call Trace:
+kernel: <IRQ>  [<ffffffff815e237b>] dump_stack+0x19/0x1b
+kernel: [<ffffffff814cd4ca>] netdev_rx_csum_fault+0x3a/0x40
+kernel: [<ffffffff814c6232>] __skb_checksum_complete_head+0x62/0x70
+kernel: [<ffffffff814c6251>] __skb_checksum_complete+0x11/0x20
+kernel: [<ffffffff8155a20c>] nf_ip_checksum+0xcc/0x100
+kernel: [<ffffffffa049edc7>] icmp_error+0x1f7/0x35c [nf_conntrack_ipv4]
+kernel: [<ffffffff814cf419>] ? netif_rx+0xb9/0x1d0
+kernel: [<ffffffffa040eb7b>] ? internal_dev_recv+0xdb/0x130 [openvswitch]
+kernel: [<ffffffffa04c8330>] nf_conntrack_in+0xf0/0xa80 [nf_conntrack]
+kernel: [<ffffffff81509380>] ? inet_del_offload+0x40/0x40
+kernel: [<ffffffffa049e302>] ipv4_conntrack_in+0x22/0x30 [nf_conntrack_ipv4]
+kernel: [<ffffffff815005ca>] nf_iterate+0xaa/0xc0
+kernel: [<ffffffff81509380>] ? inet_del_offload+0x40/0x40
+kernel: [<ffffffff81500664>] nf_hook_slow+0x84/0x140
+kernel: [<ffffffff81509380>] ? inet_del_offload+0x40/0x40
+kernel: [<ffffffff81509dd4>] ip_rcv+0x344/0x380
+
+Hardware verifies IP & tcp/udp header checksum but does not provide payload
+checksum, use CHECKSUM_UNNECESSARY. Set it only if its valid IP tcp/udp packet.
+
+Cc: Jiri Benc <jbenc@redhat.com>
+Cc: Stefan Assmann <sassmann@redhat.com>
+Reported-by: Sunil Choudhary <schoudha@redhat.com>
+Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 4 ++--
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h  | 4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/cisco/enic/enic_main.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 691f0bf09ee1..9f5e38769a29 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -13256,7 +13256,7 @@ static int bnx2x_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
- 		return -EFAULT;
- 	}
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 868d0f6..705f334 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -1060,10 +1060,14 @@ static void enic_rq_indicate_buf(struct vnic_rq *rq,
+ 				     PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
+ 		}
  
--	DP(BNX2X_MSG_PTP, "Configrued val = %d, period = %d\n", best_val,
-+	DP(BNX2X_MSG_PTP, "Configured val = %d, period = %d\n", best_val,
- 	   best_period);
+-		if ((netdev->features & NETIF_F_RXCSUM) && !csum_not_calc) {
+-			skb->csum = htons(checksum);
+-			skb->ip_summed = CHECKSUM_COMPLETE;
+-		}
++		/* Hardware does not provide whole packet checksum. It only
++		 * provides pseudo checksum. Since hw validates the packet
++		 * checksum but not provide us the checksum value. use
++		 * CHECSUM_UNNECESSARY.
++		 */
++		if ((netdev->features & NETIF_F_RXCSUM) && tcp_udp_csum_ok &&
++		    ipv4_csum_ok)
++			skb->ip_summed = CHECKSUM_UNNECESSARY;
  
- 	return 0;
-@@ -14784,7 +14784,7 @@ static int bnx2x_hwtstamp_ioctl(struct bnx2x *bp, struct ifreq *ifr)
- 		-EFAULT : 0;
- }
- 
--/* Configrues HW for PTP */
-+/* Configures HW for PTP */
- static int bnx2x_configure_ptp(struct bnx2x *bp)
- {
- 	int rc, port = BP_PORT(bp);
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-index b0779d773343..6fe547c93e74 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-@@ -7549,7 +7549,7 @@ Theotherbitsarereservedandshouldbezero*/
- #define IGU_REG_SISR_MDPC_WOMASK_UPPER		0x05a6
- 
- #define IGU_REG_RESERVED_UPPER				0x05ff
--/* Fields of IGU PF CONFIGRATION REGISTER */
-+/* Fields of IGU PF CONFIGURATION REGISTER */
- #define IGU_PF_CONF_FUNC_EN	  (0x1<<0)  /* function enable	      */
- #define IGU_PF_CONF_MSI_MSIX_EN   (0x1<<1)  /* MSI/MSIX enable	      */
- #define IGU_PF_CONF_INT_LINE_EN   (0x1<<2)  /* INT enable	      */
-@@ -7557,7 +7557,7 @@ Theotherbitsarereservedandshouldbezero*/
- #define IGU_PF_CONF_SINGLE_ISR_EN (0x1<<4)  /* single ISR mode enable */
- #define IGU_PF_CONF_SIMD_MODE	  (0x1<<5)  /* simd all ones mode     */
- 
--/* Fields of IGU VF CONFIGRATION REGISTER */
-+/* Fields of IGU VF CONFIGURATION REGISTER */
- #define IGU_VF_CONF_FUNC_EN	   (0x1<<0)  /* function enable        */
- #define IGU_VF_CONF_MSI_MSIX_EN    (0x1<<1)  /* MSI/MSIX enable        */
- #define IGU_VF_CONF_PARENT_MASK    (0x3<<2)  /* Parent PF	       */
+ 		if (vlan_stripped)
+ 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan_tci);
 -- 
-1.8.3.1
+2.1.3
