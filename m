@@ -1,71 +1,91 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: [bisected] tg3 broken in 3.18.0?
-Date: Thu, 18 Dec 2014 12:15:38 -0700
-Message-ID: <CAErSpo7sqZS+-4LHo3wbo-pa73mcP_3d0Z37U0tfnASaxp-D_g@mail.gmail.com>
-References: <20141213210251.GA12812@teela.fritz.box> <548EF90A.5070607@gmail.com>
- <CAA93t1qyZE-9tw8pg1KG6g4iyy0QMW=iass5w=6ZGMTMu+vi_A@mail.gmail.com>
- <CAErSpo5dqQE7nZ6zf2odgpHBWA3ZpTjhbgQKnY8YxQW+a+298w@mail.gmail.com>
- <1418750141.4248.3.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <54907300.9050902@gmail.com> <1418759684.4248.12.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [RFC PATCH net-next v2 1/1] net: Support for switch port configuration
+Date: Thu, 18 Dec 2014 11:21:30 -0800
+Message-ID: <5493293A.2000802@intel.com>
+References: <C4896FB061E7DE4AAC93031BDCA044B104AD7B82@IRSMSX108.ger.corp.intel.com> <5492E85C.6010802@cumulusnetworks.com> <C4896FB061E7DE4AAC93031BDCA044B104AD9E53@IRSMSX108.ger.corp.intel.com> <5492EFC3.8030102@cumulusnetworks.com> <C4896FB061E7DE4AAC93031BDCA044B104ADA16F@IRSMSX108.ger.corp.intel.com> <549313B8.6050102@cumulusnetworks.com> <C4896FB061E7DE4AAC93031BDCA044B104ADA310@IRSMSX108.ger.corp.intel.com> <54931969.7040209@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Rajat Jain <rajatxjain@gmail.com>,
-	Nils Holland <nholland@tisys.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	Rafael Wysocki <rjw@rjwysocki.net>,
-	Prashant Sreedharan <prashant@broadcom.com>
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1418759684.4248.12.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"Varlese, Marco" <marco.varlese@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54931969.7040209@cumulusnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 16, 2014 at 12:54 PM, Michael Chan <mchan@broadcom.com> wrote:
-> On Tue, 2014-12-16 at 15:59 -0200, Marcelo Ricardo Leitner wrote:
->> It's a
->> 02:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5722
->> Gigabit Ethernet PCI Express
->> over here
+On 12/18/2014 10:14 AM, Roopa Prabhu wrote:
+> On 12/18/14, 10:02 AM, Varlese, Marco wrote:
+>> Removed unnecessary content for ease of reading...
 >>
->> I put a WARN_ON(1) after those printks, and this is what I got:
->>
->> [    1.550640] pci 0000:02:00.0: 1st 1 1
->> [    1.550643] pci 0000:02:00.0: crs_timeout: 0
->> [    1.550645] ------------[ cut here ]------------
->> [    1.550651] WARNING: CPU: 6 PID: 364 at drivers/pci/probe.c:1445 pci_bus_read_dev_vendor_id+0x1d4/0x1e0()
->> [    1.550652] Modules linked in: i915(+) raid0 i2c_algo_bit drm_kms_helper drm e1000e(+) tg3(+) ptp pps_core video
->> [    1.550660] CPU: 6 PID: 364 Comm: systemd-udevd Not tainted 3.18.0-rc6+ #8
->> [    1.550661] Hardware name: Dell Inc. OptiPlex 9010/03K80F, BIOS A15 08/12/2013
->> [    1.550662]  0000000000000000 000000004de2d8dc ffff8807eabdf948 ffffffff8173db46
->> [    1.550665]  0000000000000000 0000000000000000 ffff8807eabdf988 ffffffff81094d41
->> [    1.550667]  ffff8807eabdf968 ffff8807f1e27000 0000000000000000 0000000000000000
->> [    1.550669] Call Trace:
->> [    1.550675]  [<ffffffff8173db46>] dump_stack+0x46/0x58
->> [    1.550679]  [<ffffffff81094d41>] warn_slowpath_common+0x81/0xa0
->> [    1.550681]  [<ffffffff81094e5a>] warn_slowpath_null+0x1a/0x20
->> [    1.550683]  [<ffffffff813b2864>] pci_bus_read_dev_vendor_id+0x1d4/0x1e0
->> [    1.550687]  [<ffffffff813b7c3e>] pci_device_is_present+0x2e/0x50
->> [    1.550693]  [<ffffffffa003364f>] tg3_chip_reset+0x2f/0x940 [tg3]
->> [    1.550697]  [<ffffffffa0033f9f>] tg3_halt+0x3f/0x1e0 [tg3]
->> [    1.550701]  [<ffffffffa0044f83>] tg3_init_one+0xb83/0x1a40 [tg3]
->
-> So does it work if you use a non-zero crs_timeout?  The driver has
-> called tg3_halt() which may affect configuration read responses.  I need
-> to check with the hardware team to see if the 5722 will return CRS in
-> this scenario.
+>>>>>>>> +/* Switch Port Attributes section */
+>>>>>>>> +
+>>>>>>>> +enum {
+>>>>>>>> +    IFLA_ATTR_UNSPEC,
+>>>>>>>> +    IFLA_ATTR_LEARNING,
+>>>>>>> Any reason you want learning here ?. This is covered as part  of
+>>>>>>> the bridge setlink attributes.
+>>>>>>>
+>>>>>> Yes, because the user may _not_ want to go through a bridge
+>>>>>> interface
+>>>>> necessarily.
+>>>>> But, the bridge setlink/getlink interface was changed to accommodate
+>>> 'self'
+>>>>> for exactly such cases.
+>>>>> I kind of understand your case for the other attributes (these are
+>>>>> per port settings that switch asics provide).
+>>>>>
+>>>>> However, i don't understand the reason to pull in bridge attributes here.
+>>>>>
+>>>> Maybe, I am missing something so you might help. The learning attribute -
+>>> in my case - it is like all other attributes: a port attribute (as you said, port
+>>> settings that the switch provides per port).
+>>>> So, what I was saying is "why the user shall go through a bridge to configure
+>>> the learning attribute"? From my perspective, it is as any other attribute and
+>>> as such configurable on the port.
+>>>
+>>> Thinking about this some more, i don't see why any of these attributes
+>>> (except loopback. I dont understand the loopback attribute) cant be part of
+>>> the birdge port attributes.
+>>>
+>>> With this we will end up adding l2 attributes in two places: the general link
+>>> attributes and bridge attributes.
+>>>
+>>> And since we have gone down the path of using ndo_bridge_setlink/getlink
+>>> with 'self'....we should stick to that for all l2 attributes.
+>>>
+>>> The idea of overloading ndo_bridge_set/getlink, was to have the same set of
+>>> attributes but support both cases where the user wants to go through the
+>>> bridge driver or directly to the switch port driver. So, you are not really going
+>>> through the bridge driver if you use 'self' and ndo_bridge_setlink/getlink.
+>>> 
 
-Any updates from the hardware team?
+>> Roopa, one of the comments I got from Thomas Graf on my v1 patch
+>> was that your patch and mine were supplementary ("I think Roopa's
+>> patches are supplementary. Not all switchdev users will be backed
+>> with a Linux Bridge. I therefore welcome your patches very
+>> much")... I also understood by others that the patch made sense for
+>> the same reason. I simply do not understand why these attributes
+>> (and maybe others in the future) could not be configured directly
+>> on a standard port but have to go through a bridge.
+>> 
+> ok, i am very confused in that case. The whole moving of bridge
+> attributes from the bridge driver to rtnetlink.c was to make the
+> bridge attributes accessible to any driver who wants to set l2/bridge
+> attributes on their switch ports. So, its unclear to me why we are
+> doing this parallel thing again. This move to rtnetlink.c was done
+> during the recent rocker support. so, maybe scott/jiri can elaborate
+> more.
 
-This is a pretty serious regression, but as far as I can tell, it is
-not a PCI bug.  The device should respond to a config read of vendor
-ID.  If the driver does something that make the read return CRS
-status, I think the driver is responsible for doing whatever delay or
-other fixup is required.
 
-I'm inclined to reassign this bug to the tg3 driver unless you think
-the PCI core is doing something wrong here.
+Not sure if this will add to the confusion or help. But you do not
+need to have the bridge.ko loaded or netdev's attached to a bridge
+to use the setlink/getlink ndo ops and netlink messages. 
 
-Bjorn
+This was intentionally done. Its already used with NIC devices to
+configure embedded bridge settings such as VEB/VEPA.
+
+I think I'm just repeating Roopa though.
