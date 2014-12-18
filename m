@@ -1,93 +1,214 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] enic: fix rx skb checksum
-Date: Thu, 18 Dec 2014 08:26:57 -0800
-Message-ID: <1418920017.9773.80.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1418898522-13588-1-git-send-email-_govind@gmx.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC PATCH net-next v3 1/1] net: Support for switch port
+ configuration
+Date: Thu, 18 Dec 2014 17:30:04 +0100
+Message-ID: <20141218163004.GB1879@nanopsycho.orion>
+References: <C4896FB061E7DE4AAC93031BDCA044B104AD9F56@IRSMSX108.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, ssujith@cisco.com,
-	benve@cisco.com, Jiri Benc <jbenc@redhat.com>,
-	Stefan Assmann <sassmann@redhat.com>
-To: Govindarajulu Varadarajan <_govind@gmx.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:52251 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751676AbaLRQ1B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2014 11:27:01 -0500
-Received: by mail-ig0-f181.google.com with SMTP id l13so1291010iga.2
-        for <netdev@vger.kernel.org>; Thu, 18 Dec 2014 08:27:01 -0800 (PST)
-In-Reply-To: <1418898522-13588-1-git-send-email-_govind@gmx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Varlese, Marco" <marco.varlese@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <C4896FB061E7DE4AAC93031BDCA044B104AD9F56@IRSMSX108.ger.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-12-18 at 15:58 +0530, Govindarajulu Varadarajan wrote:
-> Hardware always provides compliment of IP pseudo checksum. Stack expects
-> whole packet checksum without pseudo checksum if CHECKSUM_COMPLETE is set.
+Thu, Dec 18, 2014 at 04:30:00PM CET, marco.varlese@intel.com wrote:
+>From: Marco Varlese <marco.varlese@intel.com>
 > 
-> This causes checksum error in nf & ovs.
-> 
-> kernel: qg-19546f09-f2: hw csum failure
-> kernel: CPU: 9 PID: 0 Comm: swapper/9 Tainted: GF          O--------------   3.10.0-123.8.1.el7.x86_64 #1
-> kernel: Hardware name: Cisco Systems Inc UCSB-B200-M3/UCSB-B200-M3, BIOS B200M3.2.2.3.0.080820141339 08/08/2014
-> kernel: ffff881218f40000 df68243feb35e3a8 ffff881237a43ab8 ffffffff815e237b
-> kernel: ffff881237a43ad0 ffffffff814cd4ca ffff8829ec71eb00 ffff881237a43af0
-> kernel: ffffffff814c6232 0000000000000286 ffff8829ec71eb00 ffff881237a43b00
-> kernel: Call Trace:
-> kernel: <IRQ>  [<ffffffff815e237b>] dump_stack+0x19/0x1b
-> kernel: [<ffffffff814cd4ca>] netdev_rx_csum_fault+0x3a/0x40
-> kernel: [<ffffffff814c6232>] __skb_checksum_complete_head+0x62/0x70
-> kernel: [<ffffffff814c6251>] __skb_checksum_complete+0x11/0x20
-> kernel: [<ffffffff8155a20c>] nf_ip_checksum+0xcc/0x100
-> kernel: [<ffffffffa049edc7>] icmp_error+0x1f7/0x35c [nf_conntrack_ipv4]
-> kernel: [<ffffffff814cf419>] ? netif_rx+0xb9/0x1d0
-> kernel: [<ffffffffa040eb7b>] ? internal_dev_recv+0xdb/0x130 [openvswitch]
-> kernel: [<ffffffffa04c8330>] nf_conntrack_in+0xf0/0xa80 [nf_conntrack]
-> kernel: [<ffffffff81509380>] ? inet_del_offload+0x40/0x40
-> kernel: [<ffffffffa049e302>] ipv4_conntrack_in+0x22/0x30 [nf_conntrack_ipv4]
-> kernel: [<ffffffff815005ca>] nf_iterate+0xaa/0xc0
-> kernel: [<ffffffff81509380>] ? inet_del_offload+0x40/0x40
-> kernel: [<ffffffff81500664>] nf_hook_slow+0x84/0x140
-> kernel: [<ffffffff81509380>] ? inet_del_offload+0x40/0x40
-> kernel: [<ffffffff81509dd4>] ip_rcv+0x344/0x380
-> 
-> Hardware verifies IP & tcp/udp header checksum but does not provide payload
-> checksum, use CHECKSUM_UNNECESSARY. Set it only if its valid IP tcp/udp packet.
-> 
-> Cc: Jiri Benc <jbenc@redhat.com>
-> Cc: Stefan Assmann <sassmann@redhat.com>
-> Reported-by: Sunil Choudhary <schoudha@redhat.com>
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
-> ---
->  drivers/net/ethernet/cisco/enic/enic_main.c | 12 ++++++++----
->  1 file changed, 8 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-> index 868d0f6..705f334 100644
-> --- a/drivers/net/ethernet/cisco/enic/enic_main.c
-> +++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-> @@ -1060,10 +1060,14 @@ static void enic_rq_indicate_buf(struct vnic_rq *rq,
->  				     PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
->  		}
->  
-> -		if ((netdev->features & NETIF_F_RXCSUM) && !csum_not_calc) {
-> -			skb->csum = htons(checksum);
-> -			skb->ip_summed = CHECKSUM_COMPLETE;
-> -		}
-> +		/* Hardware does not provide whole packet checksum. It only
-> +		 * provides pseudo checksum. Since hw validates the packet
-> +		 * checksum but not provide us the checksum value. use
-> +		 * CHECSUM_UNNECESSARY.
-> +		 */
-> +		if ((netdev->features & NETIF_F_RXCSUM) && tcp_udp_csum_ok &&
-> +		    ipv4_csum_ok)
-> +			skb->ip_summed = CHECKSUM_UNNECESSARY;
->  
->  		if (vlan_stripped)
->  			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan_tci);
+>Switch hardware offers a list of attributes that are configurable on a per port
+>basis.
+>This patch provides a mechanism to configure switch ports by adding an NDO
+>for setting specific values to specific attributes.
+>There will be a separate patch that adds the "get" functionality via another
+>NDO and another patch that extends iproute2 to call the two new NDOs.
+>
+>Signed-off-by: Marco Varlese <marco.varlese@intel.com>
+>---
+> include/linux/netdevice.h    |  5 +++
+> include/uapi/linux/if_link.h | 15 +++++++++
+> net/core/rtnetlink.c         | 73 ++++++++++++++++++++++++++++++++++++++++++++
+> 3 files changed, 93 insertions(+)
+>
+>diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>index c31f74d..4881c7b 100644
+>--- a/include/linux/netdevice.h
+>+++ b/include/linux/netdevice.h
+>@@ -1027,6 +1027,9 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+>  * int (*ndo_switch_port_stp_update)(struct net_device *dev, u8 state);
+>  *	Called to notify switch device port of bridge port STP
+>  *	state change.
+>+ * int (*ndo_switch_port_set_cfg)(struct net_device *dev,
+>+ *                                u32 attr, u64 value);
+>+ *	Called to set specific switch ports attributes.
+>  */
+> struct net_device_ops {
+> 	int			(*ndo_init)(struct net_device *dev);
+>@@ -1185,6 +1188,8 @@ struct net_device_ops {
+> 							    struct netdev_phys_item_id *psid);
+> 	int			(*ndo_switch_port_stp_update)(struct net_device *dev,
+> 							      u8 state);
+>+	int			(*ndo_switch_port_set_cfg)(struct net_device *dev,
+>+							   u32 attr, u64 value);
 
-Hmm.. this looks like CHECKSUM_COMPLETE could be kept for tunneling
-cases. 
+How about get? Userspace should be able to read the values as well.
 
-Check commit f8c6455bb04b944e ("net/mlx4_en: Extend checksum offloading
-by CHECKSUM COMPLETE") for a start.
+> #endif
+> };
+> 
+>diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+>index f7d0d2d..6ad9b91 100644
+>--- a/include/uapi/linux/if_link.h
+>+++ b/include/uapi/linux/if_link.h
+>@@ -146,6 +146,7 @@ enum {
+> 	IFLA_PHYS_PORT_ID,
+> 	IFLA_CARRIER_CHANGES,
+> 	IFLA_PHYS_SWITCH_ID,
+>+	IFLA_SWITCH_PORT_CFG,
+> 	__IFLA_MAX
+> };
+> 
+>@@ -603,4 +604,18 @@ enum {
+> 
+> #define IFLA_HSR_MAX (__IFLA_HSR_MAX - 1)
+> 
+>+/* Switch Port Attributes section */
+>+
+>+enum {
+>+	IFLA_SW_UNSPEC,
+>+	IFLA_SW_LEARNING,
+>+	IFLA_SW_LOOPBACK,
+>+	IFLA_SW_BCAST_FLOODING,
+>+	IFLA_SW_UCAST_FLOODING,
+>+	IFLA_SW_MCAST_FLOODING,
+>+	__IFLA_SW_ATTR_MAX
+>+};
+>+
+>+#define IFLA_SW_ATTR_MAX (__IFLA_SW_ATTR_MAX - 1)
+>+
+> #endif /* _UAPI_LINUX_IF_LINK_H */
+>diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+>index eaa057f..d50ca71 100644
+>--- a/net/core/rtnetlink.c
+>+++ b/net/core/rtnetlink.c
+>@@ -1223,6 +1223,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+> 	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+> 	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
+> 	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+>+	[IFLA_SWITCH_PORT_CFG]	= { .type = NLA_NESTED },
+> };
+> 
+> static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
+>@@ -1265,6 +1266,14 @@ static const struct nla_policy ifla_port_policy[IFLA_PORT_MAX+1] = {
+> 	[IFLA_PORT_RESPONSE]	= { .type = NLA_U16, },
+> };
+> 
+>+static const struct nla_policy ifla_sw_attr_policy[IFLA_SW_ATTR_MAX+1] = {
+>+	[IFLA_SW_LEARNING]	= { .type = NLA_U64 },
+>+	[IFLA_SW_LOOPBACK]	= { .type = NLA_U64 },
+>+	[IFLA_SW_BCAST_FLOODING] = { .type = NLA_U64 },
+>+	[IFLA_SW_UCAST_FLOODING] = { .type = NLA_U64 },
+>+	[IFLA_SW_MCAST_FLOODING] = { .type = NLA_U64 },
+
+Please maintain namespaces. Use IFLA_SWITCH_PORT_LEARNING for example.
+That gives us place for possible future whole-switch-cfg.
+
+
+>+};
+>+
+> static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+> {
+> 	struct net *net = sock_net(skb->sk);
+>@@ -1389,6 +1398,41 @@ static int validate_linkmsg(struct net_device *dev, struct nlattr *tb[])
+> 	return 0;
+> }
+> 
+>+#ifdef CONFIG_NET_SWITCHDEV
+>+static int do_setswcfg(struct net_device *dev, struct nlattr *attr)
+>+{
+>+	int rem, err = -EINVAL;
+>+	struct nlattr *v;
+>+	const struct net_device_ops *ops = dev->netdev_ops;
+>+
+>+	nla_for_each_nested(v, attr, rem) {
+>+		u32 op = nla_type(v);
+>+		u64 value = 0;
+>+
+>+		switch (op) {
+>+		case IFLA_SW_LEARNING:
+>+		case IFLA_SW_LOOPBACK:
+>+		case IFLA_SW_BCAST_FLOODING:
+>+		case IFLA_SW_UCAST_FLOODING:
+>+		case IFLA_SW_MCAST_FLOODING: {
+>+			value = nla_get_u64(v);
+>+			err = ops->ndo_switch_port_set_cfg(dev,
+>+							   op,
+>+							   value);
+>+			break;
+>+		}
+>+		default:
+>+			err = -EINVAL;
+>+			break;
+>+		}
+>+		if (err)
+>+			break;
+>+	}
+>+	return err;
+>+}
+>+
+>+#endif
+>+
+> static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
+> {
+> 	int rem, err = -EINVAL;
+>@@ -1740,6 +1784,35 @@ static int do_setlink(const struct sk_buff *skb,
+> 			status |= DO_SETLINK_NOTIFY;
+> 		}
+> 	}
+>+#ifdef CONFIG_NET_SWITCHDEV
+>+	if (tb[IFLA_SWITCH_PORT_CFG]) {
+>+		struct nlattr *attrs[IFLA_SW_ATTR_MAX+1];
+>+
+>+		err = -EOPNOTSUPP;
+>+		if (!ops->ndo_switch_port_set_cfg)
+>+			goto errout;
+>+		if (!ops->ndo_switch_parent_id_get)
+>+			goto errout;
+>+
+>+		err = nla_parse_nested(attrs, IFLA_SW_ATTR_MAX,
+>+				       tb[IFLA_SWITCH_PORT_CFG],
+>+				       ifla_sw_attr_policy);
+>+		if (err < 0)
+>+			return err;
+>+
+>+		err = do_setswcfg(dev, tb[IFLA_SWITCH_PORT_CFG]);
+>+		if (err < 0)
+>+			goto errout;
+>+
+
+
+Would make sense to me to move this including do_setswcfg into
+net/switchdev/switchdev.c
+
+
+>+		status |= DO_SETLINK_NOTIFY;
+>+	}
+>+#else
+>+	if (tb[IFLA_SWITCH_PORT_CFG]) {
+>+		err = -EOPNOTSUPP;
+>+		goto errout;
+>+	}
+>+#endif
+>+
+> 	err = 0;
+> 
+> errout:
+>-- 
+>1.8.5.3
+>
