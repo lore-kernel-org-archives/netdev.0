@@ -1,152 +1,194 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 09/10] macvtap: Re-enable UFO support
-Date: Thu, 18 Dec 2014 10:15:42 -0500
-Message-ID: <5492EF9E.2040607@redhat.com>
-References: <1418840455-22598-1-git-send-email-vyasevic@redhat.com> <1418840455-22598-10-git-send-email-vyasevic@redhat.com> <20141217224100.GC30969@redhat.com> <54923F67.3000205@redhat.com> <20141218075549.GB31702@redhat.com>
-Reply-To: vyasevic@redhat.com
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [RFC PATCH net-next v2 1/1] net: Support for switch port configuration
+Date: Thu, 18 Dec 2014 07:16:19 -0800
+Message-ID: <5492EFC3.8030102@cumulusnetworks.com>
+References: <C4896FB061E7DE4AAC93031BDCA044B104AD7B82@IRSMSX108.ger.corp.intel.com> <5492E85C.6010802@cumulusnetworks.com> <C4896FB061E7DE4AAC93031BDCA044B104AD9E53@IRSMSX108.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, ben@decadent.org.uk,
-	stefanha@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53630 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750899AbaLRPPv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Dec 2014 10:15:51 -0500
-In-Reply-To: <20141218075549.GB31702@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Varlese, Marco" <marco.varlese@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <C4896FB061E7DE4AAC93031BDCA044B104AD9E53@IRSMSX108.ger.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/18/2014 02:55 AM, Michael S. Tsirkin wrote:
-> On Wed, Dec 17, 2014 at 09:43:51PM -0500, Vlad Yasevich wrote:
->> On 12/17/2014 05:41 PM, Michael S. Tsirkin wrote:
->>> On Wed, Dec 17, 2014 at 01:20:54PM -0500, Vladislav Yasevich wrote:
->>>> Now that UFO is split into v4 and v6 parts, we can bring
->>>> back v4 support.  Continue to handle legacy applications
->>>> by selecting the ipv6 fagment id but do not change the
->>>> gso type.  This allows 2 legacy VMs to continue to communicate.
->>>>
->>>> Based on original work from Ben Hutchings.
->>>>
->>>> Fixes: 88e0e0e5aa7a ("drivers/net: Disable UFO through virtio")
->>>> CC: Ben Hutchings <ben@decadent.org.uk>
->>>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
->>>> ---
->>>>  drivers/net/macvtap.c | 20 ++++++++++++++------
->>>>  1 file changed, 14 insertions(+), 6 deletions(-)
->>>>
->>>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
->>>> index 880cc09..75febd4 100644
->>>> --- a/drivers/net/macvtap.c
->>>> +++ b/drivers/net/macvtap.c
->>>> @@ -66,7 +66,7 @@ static struct cdev macvtap_cdev;
->>>>  static const struct proto_ops macvtap_socket_ops;
->>>>  
->>>>  #define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
->>>> -		      NETIF_F_TSO6)
->>>> +		      NETIF_F_TSO6 | NETIF_F_UFO)
->>>>  #define RX_OFFLOADS (NETIF_F_GRO | NETIF_F_LRO)
->>>>  #define TAP_FEATURES (NETIF_F_GSO | NETIF_F_SG)
->>>>  
->>>> @@ -570,11 +570,14 @@ static int macvtap_skb_from_vnet_hdr(struct sk_buff *skb,
->>>>  			gso_type = SKB_GSO_TCPV6;
->>>>  			break;
->>>>  		case VIRTIO_NET_HDR_GSO_UDP:
->>>> -			pr_warn_once("macvtap: %s: using disabled UFO feature; please fix this program\n",
->>>> -				     current->comm);
->>>>  			gso_type = SKB_GSO_UDP;
->>>> -			if (skb->protocol == htons(ETH_P_IPV6))
->>>> +			if (vlan_get_protocol(skb) == htons(ETH_P_IPV6)) {
->>>> +				/* This is to support legacy appliacations.
->>>> +				 * Do not change the gso_type as legacy apps
->>>> +				 * may not know about the new type.
->>>> +				 */
->>>>  				ipv6_proxy_select_ident(skb);
->>>> +			}
->>>>  			break;
->>>>  		default:
->>>>  			return -EINVAL;
->>>> @@ -619,6 +622,8 @@ static void macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
->>>>  			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
->>>>  		else if (sinfo->gso_type & SKB_GSO_TCPV6)
->>>>  			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
->>>> +		else if (sinfo->gso_type & SKB_GSO_UDP)
->>>> +			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_UDP;
->>>>  		else
->>>>  			BUG();
->>>>  		if (sinfo->gso_type & SKB_GSO_TCP_ECN)
->>>> @@ -955,6 +960,9 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
->>>>  			if (arg & TUN_F_TSO6)
->>>>  				feature_mask |= NETIF_F_TSO6;
->>>>  		}
->>>> +
->>>> +		if (arg & TUN_F_UFO)
->>>> +			feature_mask |= NETIF_F_UFO;
->>>>  	}
->>>>  
->>>>  	/* tun/tap driver inverts the usage for TSO offloads, where
->>>> @@ -965,7 +973,7 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
->>>>  	 * When user space turns off TSO, we turn off GSO/LRO so that
->>>>  	 * user-space will not receive TSO frames.
->>>>  	 */
->>>> -	if (feature_mask & (NETIF_F_TSO | NETIF_F_TSO6))
->>>> +	if (feature_mask & (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO))
->>>>  		features |= RX_OFFLOADS;
->>>>  	else
->>>>  		features &= ~RX_OFFLOADS;
->>>
->>> By the way this logic is completely broken, even without your patch,
->>> isn't it?
->>>
->>> It says: enable LRO+GRO if any of NETIF_F_TSO | NETIF_F_TSO6 |
->>> NETIF_F_UFO set.
->>>
->>> So what happens if I enable TSO only?
->>> LRO gets enabled so I can still get TSO6 packets.
->>>
->>>
->>> This really should be:
->>>
->>> 	if (feature_mask & (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO) ==
->>> 			(NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO)
->>>
->>>
->>> fixing this probably should be a separate patch before your
->>> series, and Cc stable.
+On 12/18/14, 6:55 AM, Varlese, Marco wrote:
+>> -----Original Message-----
+>> From: Roopa Prabhu [mailto:roopa@cumulusnetworks.com]
+>> Sent: Thursday, December 18, 2014 2:45 PM
+>> To: Varlese, Marco
+>> Cc: netdev@vger.kernel.org; Fastabend, John R; Thomas Graf; Jiri Pirko;
+>> sfeldma@gmail.com; linux-kernel@vger.kernel.org
+>> Subject: Re: [RFC PATCH net-next v2 1/1] net: Support for switch port
+>> configuration
 >>
->> Actually, all this LRO/GRO feature manipulation on the macvtap device is
->> rather pointless as those features aren't really checked at any point
->> on the macvtap receive path.  GRO calls are done from napi context on
->> the lowest device, so by the time a packet hits macvtap, GRO/LRO has
->> already been done.
+>> On 12/18/14, 3:29 AM, Varlese, Marco wrote:
+>>> From: Marco Varlese <marco.varlese@intel.com>
+>>>
+>>> Switch hardware offers a list of attributes that are configurable on a
+>>> per port basis.
+>>> This patch provides a mechanism to configure switch ports by adding an
+>>> NDO for setting specific values to specific attributes.
+>>> There will be a separate patch that adds the "get" functionality via
+>>> another NDO and another patch that extends iproute2 to call the two
+>>> new NDOs.
+>>>
+>>> Signed-off-by: Marco Varlese <marco.varlese@intel.com>
+>>> ---
+>>>    include/linux/netdevice.h    |  5 ++++
+>>>    include/uapi/linux/if_link.h | 15 ++++++++++++
+>>>    net/core/rtnetlink.c         | 54
+>> ++++++++++++++++++++++++++++++++++++++++++++
+>>>    3 files changed, 74 insertions(+)
+>>>
+>>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>>> index c31f74d..4881c7b 100644
+>>> --- a/include/linux/netdevice.h
+>>> +++ b/include/linux/netdevice.h
+>>> @@ -1027,6 +1027,9 @@ typedef u16 (*select_queue_fallback_t)(struct
+>> net_device *dev,
+>>>     * int (*ndo_switch_port_stp_update)(struct net_device *dev, u8 state);
+>>>     *	Called to notify switch device port of bridge port STP
+>>>     *	state change.
+>>> + * int (*ndo_switch_port_set_cfg)(struct net_device *dev,
+>>> + *                                u32 attr, u64 value);
+>>> + *	Called to set specific switch ports attributes.
+>>>     */
+>>>    struct net_device_ops {
+>>>    	int			(*ndo_init)(struct net_device *dev);
+>>> @@ -1185,6 +1188,8 @@ struct net_device_ops {
+>>>    							    struct
+>> netdev_phys_item_id *psid);
+>>>    	int			(*ndo_switch_port_stp_update)(struct
+>> net_device *dev,
+>>>    							      u8 state);
+>>> +	int			(*ndo_switch_port_set_cfg)(struct
+>> net_device *dev,
+>>> +							   u32 attr, u64 value);
+>>>    #endif
+>>>    };
+>>>
+>>> diff --git a/include/uapi/linux/if_link.h
+>>> b/include/uapi/linux/if_link.h index f7d0d2d..19cb51a 100644
+>>> --- a/include/uapi/linux/if_link.h
+>>> +++ b/include/uapi/linux/if_link.h
+>>> @@ -146,6 +146,7 @@ enum {
+>>>    	IFLA_PHYS_PORT_ID,
+>>>    	IFLA_CARRIER_CHANGES,
+>>>    	IFLA_PHYS_SWITCH_ID,
+>>> +	IFLA_SWITCH_PORT_CFG,
+>>>    	__IFLA_MAX
+>>>    };
+>>>
+>>> @@ -603,4 +604,18 @@ enum {
+>>>
+>>>    #define IFLA_HSR_MAX (__IFLA_HSR_MAX - 1)
+>>>
+>>> +/* Switch Port Attributes section */
+>>> +
+>>> +enum {
+>>> +	IFLA_ATTR_UNSPEC,
+>>> +	IFLA_ATTR_LEARNING,
+>> Any reason you want learning here ?. This is covered as part  of the bridge
+>> setlink attributes.
 >>
->> So it doesn't really matter that we disable them incorrectly.  I
->> can send a separate patch to clean this up.
-> 
-> Hmm so if userspace says it can't handle TSO packets,
-> it might get them anyway?
+> Yes, because the user may _not_ want to go through a bridge interface necessarily.
+But, the bridge setlink/getlink interface was changed to accommodate 
+'self' for exactly such cases.
+I kind of understand your case for the other attributes (these are per 
+port settings that switch asics provide).
 
-No.  It will get individual segments because in macvtap_handle_frame
-we use user specified features to decide if segmentation needs
-to be performed or not.
+However, i don't understand the reason to pull in bridge attributes here.
 
--vlad
-
-> 
-> 
+>
+>>> +	IFLA_ATTR_LOOPBACK,
+>>> +	IFLA_ATTR_BCAST_FLOODING,
+>>> +	IFLA_ATTR_UCAST_FLOODING,
+>>> +	IFLA_ATTR_MCAST_FLOODING,
+>>> +	__IFLA_ATTR_MAX
+>>> +};
+>>> +
+>>> +#define IFLA_ATTR_MAX (__IFLA_ATTR_MAX - 1)
+>>> +
+>>>    #endif /* _UAPI_LINUX_IF_LINK_H */
+>>> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c index
+>>> eaa057f..c0d1c45 100644
+>>> --- a/net/core/rtnetlink.c
+>>> +++ b/net/core/rtnetlink.c
+>>> @@ -1389,6 +1389,46 @@ static int validate_linkmsg(struct net_device
+>> *dev, struct nlattr *tb[])
+>>>    	return 0;
+>>>    }
 >>>
+>>> +#ifdef CONFIG_NET_SWITCHDEV
+>>> +static int do_setswcfg(struct net_device *dev, struct nlattr *attr) {
+>>> +	int rem, err = -EINVAL;
+>>> +	struct nlattr *v;
+>>> +	const struct net_device_ops *ops = dev->netdev_ops;
+>>> +
+>>> +	nla_for_each_nested(v, attr, rem) {
+>>> +		u32 op = nla_type(v);
+>>> +		u64 value = 0;
+>>> +
+>>> +		switch (op) {
+>>> +		case IFLA_ATTR_LEARNING:
+>>> +		case IFLA_ATTR_LOOPBACK:
+>>> +		case IFLA_ATTR_BCAST_FLOODING:
+>>> +		case IFLA_ATTR_UCAST_FLOODING:
+>>> +		case IFLA_ATTR_MCAST_FLOODING: {
+>>> +			if (nla_len(v) < sizeof(value)) {
+>>> +				err = -EINVAL;
+>>> +				break;
+>>> +			}
+>>> +
+>>> +			value = nla_get_u64(v);
+>>> +			err = ops->ndo_switch_port_set_cfg(dev,
+>>> +							   op,
+>>> +							   value);
+>>> +			break;
+>>> +		}
+>>> +		default:
+>>> +			err = -EINVAL;
+>>> +			break;
+>>> +		}
+>>> +		if (err)
+>>> +			break;
+>>> +	}
+>>> +	return err;
+>>> +}
+>>> +
+>>> +#endif
+>>> +
+>>>    static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
+>>>    {
+>>>    	int rem, err = -EINVAL;
+>>> @@ -1740,6 +1780,20 @@ static int do_setlink(const struct sk_buff *skb,
+>>>    			status |= DO_SETLINK_NOTIFY;
+>>>    		}
+>>>    	}
+>>> +#ifdef CONFIG_NET_SWITCHDEV
+>>> +	if (tb[IFLA_SWITCH_PORT_CFG]) {
+>>> +		err = -EOPNOTSUPP;
+>>> +		if (!ops->ndo_switch_port_set_cfg)
+>>> +			goto errout;
+>>> +		if (!ops->ndo_switch_parent_id_get)
+>>> +			goto errout;
+>>> +		err = do_setswcfg(dev, tb[IFLA_SWITCH_PORT_CFG]);
+>>> +		if (err < 0)
+>>> +			goto errout;
+>>> +
+>>> +		status |= DO_SETLINK_NOTIFY;
+>>> +	}
+>>> +#endif
+>>>    	err = 0;
 >>>
->>>> @@ -1066,7 +1074,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
->>>>  	case TUNSETOFFLOAD:
->>>>  		/* let the user check for future flags */
->>>>  		if (arg & ~(TUN_F_CSUM | TUN_F_TSO4 | TUN_F_TSO6 |
->>>> -			    TUN_F_TSO_ECN))
->>>> +			    TUN_F_TSO_ECN | TUN_F_UFO))
->>>>  			return -EINVAL;
->>>>  
->>>>  		rtnl_lock();
->>>> -- 
->>>> 1.9.3
+>>>    errout:
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
