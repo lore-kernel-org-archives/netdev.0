@@ -1,45 +1,28 @@
-From: "Arad, Ronen" <ronen.arad@intel.com>
-Subject: RE: [RFC PATCH net-next v2 1/1] net: Support for switch port
- configuration
-Date: Thu, 18 Dec 2014 22:43:06 +0000
-Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505DC9956@ORSMSX101.amr.corp.intel.com>
-References: <C4896FB061E7DE4AAC93031BDCA044B104AD7B82@IRSMSX108.ger.corp.intel.com>
- <5492E85C.6010802@cumulusnetworks.com>
- <C4896FB061E7DE4AAC93031BDCA044B104AD9E53@IRSMSX108.ger.corp.intel.com>
- <5492EFC3.8030102@cumulusnetworks.com>
- <C4896FB061E7DE4AAC93031BDCA044B104ADA16F@IRSMSX108.ger.corp.intel.com>
- <549313B8.6050102@cumulusnetworks.com>
- <C4896FB061E7DE4AAC93031BDCA044B104ADA310@IRSMSX108.ger.corp.intel.com>
- <54931969.7040209@cumulusnetworks.com> <5493293A.2000802@intel.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [RFC PATCH net-next v2 1/1] net: Support for switch port configuration
+Date: Thu, 18 Dec 2014 15:07:20 -0800
+Message-ID: <54935E28.8050602@cumulusnetworks.com>
+References: <C4896FB061E7DE4AAC93031BDCA044B104AD7B82@IRSMSX108.ger.corp.intel.com> <5492E85C.6010802@cumulusnetworks.com> <C4896FB061E7DE4AAC93031BDCA044B104AD9E53@IRSMSX108.ger.corp.intel.com> <5492EFC3.8030102@cumulusnetworks.com> <C4896FB061E7DE4AAC93031BDCA044B104ADA16F@IRSMSX108.ger.corp.intel.com> <549313B8.6050102@cumulusnetworks.com> <C4896FB061E7DE4AAC93031BDCA044B104ADA310@IRSMSX108.ger.corp.intel.com> <54931969.7040209@cumulusnetworks.com> <5493293A.2000802@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Varlese, Marco" <marco.varlese@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
 	"sfeldma@gmail.com" <sfeldma@gmail.com>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Fastabend, John R" <john.r.fastabend@intel.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"Varlese, Marco" <marco.varlese@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:52126 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751830AbaLRXHZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2014 18:07:25 -0500
 In-Reply-To: <5493293A.2000802@intel.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
->Behalf Of John Fastabend
->Sent: Thursday, December 18, 2014 9:21 PM
->To: Roopa Prabhu; Varlese, Marco
->Cc: netdev@vger.kernel.org; Thomas Graf; Jiri Pirko; sfeldma@gmail.com; linux-
->kernel@vger.kernel.org
->Subject: Re: [RFC PATCH net-next v2 1/1] net: Support for switch port
->configuration
->
->On 12/18/2014 10:14 AM, Roopa Prabhu wrote:
+On 12/18/14, 11:21 AM, John Fastabend wrote:
+> On 12/18/2014 10:14 AM, Roopa Prabhu wrote:
 >> On 12/18/14, 10:02 AM, Varlese, Marco wrote:
 >>> Removed unnecessary content for ease of reading...
 >>>
@@ -60,40 +43,30 @@ List-Id: netdev.vger.kernel.org
 >>>>>> I kind of understand your case for the other attributes (these are
 >>>>>> per port settings that switch asics provide).
 >>>>>>
->>>>>> However, i don't understand the reason to pull in bridge attributes
->here.
+>>>>>> However, i don't understand the reason to pull in bridge attributes here.
 >>>>>>
 >>>>> Maybe, I am missing something so you might help. The learning attribute -
->>>> in my case - it is like all other attributes: a port attribute (as you
->said, port
+>>>> in my case - it is like all other attributes: a port attribute (as you said, port
 >>>> settings that the switch provides per port).
->>>>> So, what I was saying is "why the user shall go through a bridge to
->configure
->>>> the learning attribute"? From my perspective, it is as any other attribute
->and
+>>>>> So, what I was saying is "why the user shall go through a bridge to configure
+>>>> the learning attribute"? From my perspective, it is as any other attribute and
 >>>> as such configurable on the port.
 >>>>
 >>>> Thinking about this some more, i don't see why any of these attributes
->>>> (except loopback. I dont understand the loopback attribute) cant be part
->of
+>>>> (except loopback. I dont understand the loopback attribute) cant be part of
 >>>> the birdge port attributes.
 >>>>
->>>> With this we will end up adding l2 attributes in two places: the general
->link
+>>>> With this we will end up adding l2 attributes in two places: the general link
 >>>> attributes and bridge attributes.
 >>>>
 >>>> And since we have gone down the path of using ndo_bridge_setlink/getlink
 >>>> with 'self'....we should stick to that for all l2 attributes.
 >>>>
->>>> The idea of overloading ndo_bridge_set/getlink, was to have the same set
->of
+>>>> The idea of overloading ndo_bridge_set/getlink, was to have the same set of
 >>>> attributes but support both cases where the user wants to go through the
->>>> bridge driver or directly to the switch port driver. So, you are not
->really going
->>>> through the bridge driver if you use 'self' and
->ndo_bridge_setlink/getlink.
+>>>> bridge driver or directly to the switch port driver. So, you are not really going
+>>>> through the bridge driver if you use 'self' and ndo_bridge_setlink/getlink.
 >>>>
->
 >>> Roopa, one of the comments I got from Thomas Graf on my v1 patch
 >>> was that your patch and mine were supplementary ("I think Roopa's
 >>> patches are supplementary. Not all switchdev users will be backed
@@ -111,21 +84,14 @@ List-Id: netdev.vger.kernel.org
 >> during the recent rocker support. so, maybe scott/jiri can elaborate
 >> more.
 >
+> Not sure if this will add to the confusion or help. But you do not
+> need to have the bridge.ko loaded or netdev's attached to a bridge
+> to use the setlink/getlink ndo ops and netlink messages.
 >
->Not sure if this will add to the confusion or help. But you do not
->need to have the bridge.ko loaded or netdev's attached to a bridge
->to use the setlink/getlink ndo ops and netlink messages.
+> This was intentionally done. Its already used with NIC devices to
+> configure embedded bridge settings such as VEB/VEPA.
 
-No you don't need bridge.ko to implement ndo_bridge_setlink/getlink. Rtnetlink invokes those ndos from code which does not depend on CONFIG_BRIDGE or the presence of bridge.ko.
-Calling some bridge exported functions such as br_fdb_external_learn_add/del requires the presence of bridge.ko and it only makes sense when the switch port device is enslaved to a bridge.
-
+that helps my case, thanks.
 >
->This was intentionally done. Its already used with NIC devices to
->configure embedded bridge settings such as VEB/VEPA.
+> I think I'm just repeating Roopa though.
 >
->I think I'm just repeating Roopa though.
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
