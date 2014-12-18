@@ -1,78 +1,236 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] Documentation: clarify phys_port_id
-Date: Thu, 18 Dec 2014 09:35:26 -0600
-Message-ID: <1418916926.2086.6.camel@dcbw.local>
-References: <CAEPrYjTZ8SU1y4TwKHYtZju+4_-O5mazAjaFKaKmR2cYuAKHnA@mail.gmail.com>
-	 <1418834826.1160.35.camel@dcbw.local> <1418835576.1160.38.camel@dcbw.local>
-	 <CF9D1877D81D214CB0CA0669EFAE020C68D36E70@CMEXMB1.ad.emulex.com>
+From: "Arad, Ronen" <ronen.arad@intel.com>
+Subject: RE: [RFC PATCH net-next v2 1/1] net: Support for switch port
+ configuration
+Date: Thu, 18 Dec 2014 15:47:36 +0000
+Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505DBA430@ORSMSX101.amr.corp.intel.com>
+References: <C4896FB061E7DE4AAC93031BDCA044B104AD7B82@IRSMSX108.ger.corp.intel.com>
+ <5492E85C.6010802@cumulusnetworks.com>
+ <C4896FB061E7DE4AAC93031BDCA044B104AD9E53@IRSMSX108.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Joshua Watt <jpewdev@gmail.com>,
-	"jpirko@redhat.com" <jpirko@redhat.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Sathya Perla <Sathya.Perla@Emulex.Com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47990 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750996AbaLRPfb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Dec 2014 10:35:31 -0500
-In-Reply-To: <CF9D1877D81D214CB0CA0669EFAE020C68D36E70@CMEXMB1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Fastabend, John R" <john.r.fastabend@intel.com>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Varlese, Marco" <marco.varlese@intel.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <C4896FB061E7DE4AAC93031BDCA044B104AD9E53@IRSMSX108.ger.corp.intel.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-12-18 at 05:57 +0000, Sathya Perla wrote:
+
+
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Varlese, Marco
+> Sent: Thursday, December 18, 2014 4:56 PM
+> To: Roopa Prabhu
+> Cc: netdev@vger.kernel.org; Fastabend, John R; Thomas Graf; Jiri Pirko;
+> sfeldma@gmail.com; linux-kernel@vger.kernel.org
+> Subject: RE: [RFC PATCH net-next v2 1/1] net: Support for switch port
+> configuration
+> 
 > > -----Original Message-----
-> > From: netdev-owner@vger.kernel.org [mailto:netdev-
-> > 
-> > Signed-off-by: Dan Williams <dcbw@redhat.com>
-> > ---
-> >  Documentation/ABI/testing/sysfs-class-net | 7 ++++++-
-> >  1 file changed, 6 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/Documentation/ABI/testing/sysfs-class-net
-> > b/Documentation/ABI/testing/sysfs-class-net
-> > index e1b2e78..7fe823a 100644
-> > --- a/Documentation/ABI/testing/sysfs-class-net
-> > +++ b/Documentation/ABI/testing/sysfs-class-net
-> > @@ -186,7 +186,12 @@ KernelVersion:	3.12
-> >  Contact:	netdev@vger.kernel.org
-> >  Description:
-> >  		Indicates the interface unique physical port identifier within
-> > -		the NIC, as a string.
-> > +		the NIC, as a string.  If two net_device objects share physical
-> > +		hardware or other resources, and/or do not operate
-> > independently
-> > +		both net_device objects should be assigned the
-> > +		same phys_port_id.  phys_port_id should be as globally
-> > unique
-> > +		as possible to prevent conflicts between different drivers
-> > and
-> > +		vendors, eg with MAC addresses or hardware GUIDs.
+> > From: Roopa Prabhu [mailto:roopa@cumulusnetworks.com]
+> > Sent: Thursday, December 18, 2014 2:45 PM
+> > To: Varlese, Marco
+> > Cc: netdev@vger.kernel.org; Fastabend, John R; Thomas Graf; Jiri
+> > Pirko; sfeldma@gmail.com; linux-kernel@vger.kernel.org
+> > Subject: Re: [RFC PATCH net-next v2 1/1] net: Support for switch port
+> > configuration
+> >
+> > On 12/18/14, 3:29 AM, Varlese, Marco wrote:
+> > > From: Marco Varlese <marco.varlese@intel.com>
+> > >
+> > > Switch hardware offers a list of attributes that are configurable on
+> > > a per port basis.
+> > > This patch provides a mechanism to configure switch ports by adding
+> > > an NDO for setting specific values to specific attributes.
+> > > There will be a separate patch that adds the "get" functionality via
+> > > another NDO and another patch that extends iproute2 to call the two
+> > > new NDOs.
+> > >
+> > > Signed-off-by: Marco Varlese <marco.varlese@intel.com>
+> > > ---
+> > >   include/linux/netdevice.h    |  5 ++++
+> > >   include/uapi/linux/if_link.h | 15 ++++++++++++
+> > >   net/core/rtnetlink.c         | 54
+> > ++++++++++++++++++++++++++++++++++++++++++++
+> > >   3 files changed, 74 insertions(+)
+> > >
+> > > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> > > index c31f74d..4881c7b 100644
+> > > --- a/include/linux/netdevice.h
+> > > +++ b/include/linux/netdevice.h
+> > > @@ -1027,6 +1027,9 @@ typedef u16 (*select_queue_fallback_t)(struct
+> > net_device *dev,
+> > >    * int (*ndo_switch_port_stp_update)(struct net_device *dev, u8 state);
+> > >    *	Called to notify switch device port of bridge port STP
+> > >    *	state change.
+> > > + * int (*ndo_switch_port_set_cfg)(struct net_device *dev,
+> > > + *                                u32 attr, u64 value);
+> > > + *	Called to set specific switch ports attributes.
+> > >    */
+> > >   struct net_device_ops {
+> > >   	int			(*ndo_init)(struct net_device *dev);
+> > > @@ -1185,6 +1188,8 @@ struct net_device_ops {
+> > >   							    struct
+> > netdev_phys_item_id *psid);
+> > >   	int			(*ndo_switch_port_stp_update)(struct
+> > net_device *dev,
+> > >   							      u8 state);
+> > > +	int			(*ndo_switch_port_set_cfg)(struct
+> > net_device *dev,
+> > > +							   u32 attr, u64 value);
+> > >   #endif
+> > >   };
+> > >
+> > > diff --git a/include/uapi/linux/if_link.h
+> > > b/include/uapi/linux/if_link.h index f7d0d2d..19cb51a 100644
+> > > --- a/include/uapi/linux/if_link.h
+> > > +++ b/include/uapi/linux/if_link.h
+> > > @@ -146,6 +146,7 @@ enum {
+> > >   	IFLA_PHYS_PORT_ID,
+> > >   	IFLA_CARRIER_CHANGES,
+> > >   	IFLA_PHYS_SWITCH_ID,
+> > > +	IFLA_SWITCH_PORT_CFG,
+> > >   	__IFLA_MAX
+> > >   };
+> > >
+> > > @@ -603,4 +604,18 @@ enum {
+> > >
+> > >   #define IFLA_HSR_MAX (__IFLA_HSR_MAX - 1)
+> > >
+> > > +/* Switch Port Attributes section */
+> > > +
+> > > +enum {
+> > > +	IFLA_ATTR_UNSPEC,
+> > > +	IFLA_ATTR_LEARNING,
+> > Any reason you want learning here ?. This is covered as part  of the
+> > bridge setlink attributes.
+> >
 > 
-> Dan, two interfaces -- on the same card/chip -- may share some chip resources,
-> but as long as they use *separate* physical ports, it would be OK to bond them.
-> So, in this case, it would be valid to report a different phys_port_id for these netdevs.
+> Yes, because the user may _not_ want to go through a bridge interface
+> necessarily.
+
+Some bridge attributes or more accurately bridge port attributes overlap with port attributes.
+IFLA_BRPORT_LEARNING from IFLA_PROTINFO  and BRIDGE_VLAN_INFO_PVID flag of IFLA_BRIDGE_VLAN_INFO from IFLA_AF_SPEC are two examples where bridge port properties might have to be mapped to a common or driver specific port attribute. 
+Switch port driver that works without and explicit bridge device has to implement the bridge NDO's ndo_bridge_setlink/ndo_bridge_dellink.
+It could take care of mapping such attributes from the bridge netlink message to either driver-specific port attribute of to an explicit one (assuming IFLA_ATTR_LEARNING would be accepted).
+For example the driver could process the bridge learning information from the protinfo as such:
+
+int sw_driver_br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
+{
+        struct nlattr *protinfo;
+        protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
+                                   IFLA_PROTINFO);
+        if (protinfo) {
+                struct nlattr *attr;
+                attr = nla_find_nested(protinfo, IFLA_BRPORT_LEARNING);
+                if (attr) {
+                        if (nla_len(attr) >= sizeof(u8)) {
+                                if (nla_get_u8(attr))
+                                        brport_flags |= BR_LEARNING;
+                                else
+                                        brport_flags &= ~BR_LEARNING;
+                        }
+                }
+                /*
+                 * Map bridge port attributes to driver-specific port attributes
+                 */
+        }
+        return 0;
+}
+
 > 
-> The text -- "share physical hardware or other resources" becomes too restrictive
->                                                                           ^^^^^^^^^^^^^^^
-> and will not even allow bonding of two physical ports on a NIC card.
-
-Fair enough, I will reword and resubmit.
-
-Dan
-
-> thks,
-> -Sathya
-> > 
-> >  What:		/sys/class/net/<iface>/speed
-> >  Date:		October 2009
-> > --
-> > 1.9.3
-> > 
-> > 
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > > +	IFLA_ATTR_LOOPBACK,
+> > > +	IFLA_ATTR_BCAST_FLOODING,
+> > > +	IFLA_ATTR_UCAST_FLOODING,
+> > > +	IFLA_ATTR_MCAST_FLOODING,
+> > > +	__IFLA_ATTR_MAX
+> > > +};
+> > > +
+> > > +#define IFLA_ATTR_MAX (__IFLA_ATTR_MAX - 1)
+> > > +
+> > >   #endif /* _UAPI_LINUX_IF_LINK_H */ diff --git
+> > > a/net/core/rtnetlink.c b/net/core/rtnetlink.c index
+> > > eaa057f..c0d1c45 100644
+> > > --- a/net/core/rtnetlink.c
+> > > +++ b/net/core/rtnetlink.c
+> > > @@ -1389,6 +1389,46 @@ static int validate_linkmsg(struct net_device
+> > *dev, struct nlattr *tb[])
+> > >   	return 0;
+> > >   }
+> > >
+> > > +#ifdef CONFIG_NET_SWITCHDEV
+> > > +static int do_setswcfg(struct net_device *dev, struct nlattr *attr) {
+> > > +	int rem, err = -EINVAL;
+> > > +	struct nlattr *v;
+> > > +	const struct net_device_ops *ops = dev->netdev_ops;
+> > > +
+> > > +	nla_for_each_nested(v, attr, rem) {
+> > > +		u32 op = nla_type(v);
+> > > +		u64 value = 0;
+> > > +
+> > > +		switch (op) {
+> > > +		case IFLA_ATTR_LEARNING:
+> > > +		case IFLA_ATTR_LOOPBACK:
+> > > +		case IFLA_ATTR_BCAST_FLOODING:
+> > > +		case IFLA_ATTR_UCAST_FLOODING:
+> > > +		case IFLA_ATTR_MCAST_FLOODING: {
+> > > +			if (nla_len(v) < sizeof(value)) {
+> > > +				err = -EINVAL;
+> > > +				break;
+> > > +			}
+> > > +
+> > > +			value = nla_get_u64(v);
+> > > +			err = ops->ndo_switch_port_set_cfg(dev,
+> > > +							   op,
+> > > +							   value);
+> > > +			break;
+> > > +		}
+> > > +		default:
+> > > +			err = -EINVAL;
+> > > +			break;
+> > > +		}
+> > > +		if (err)
+> > > +			break;
+> > > +	}
+> > > +	return err;
+> > > +}
+> > > +
+> > > +#endif
+> > > +
+> > >   static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
+> > >   {
+> > >   	int rem, err = -EINVAL;
+> > > @@ -1740,6 +1780,20 @@ static int do_setlink(const struct sk_buff *skb,
+> > >   			status |= DO_SETLINK_NOTIFY;
+> > >   		}
+> > >   	}
+> > > +#ifdef CONFIG_NET_SWITCHDEV
+> > > +	if (tb[IFLA_SWITCH_PORT_CFG]) {
+> > > +		err = -EOPNOTSUPP;
+> > > +		if (!ops->ndo_switch_port_set_cfg)
+> > > +			goto errout;
+> > > +		if (!ops->ndo_switch_parent_id_get)
+> > > +			goto errout;
+> > > +		err = do_setswcfg(dev, tb[IFLA_SWITCH_PORT_CFG]);
+> > > +		if (err < 0)
+> > > +			goto errout;
+> > > +
+> > > +		status |= DO_SETLINK_NOTIFY;
+> > > +	}
+> > > +#endif
+> > >   	err = 0;
+> > >
+> > >   errout:
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in the body
+> of a message to majordomo@vger.kernel.org More majordomo info at
+> http://vger.kernel.org/majordomo-info.html
