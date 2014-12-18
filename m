@@ -1,146 +1,152 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 08/10] tun: Re-uanble UFO support.
-Date: Thu, 18 Dec 2014 10:12:30 -0500
-Message-ID: <5492EEDE.5050000@redhat.com>
-References: <1418840455-22598-1-git-send-email-vyasevic@redhat.com>
-	<1418840455-22598-9-git-send-email-vyasevic@redhat.com>
-	<878417685.243182.1418881887975.JavaMail.zimbra@redhat.com>
+Subject: Re: [PATCH 09/10] macvtap: Re-enable UFO support
+Date: Thu, 18 Dec 2014 10:15:42 -0500
+Message-ID: <5492EF9E.2040607@redhat.com>
+References: <1418840455-22598-1-git-send-email-vyasevic@redhat.com> <1418840455-22598-10-git-send-email-vyasevic@redhat.com> <20141217224100.GC30969@redhat.com> <54923F67.3000205@redhat.com> <20141218075549.GB31702@redhat.com>
 Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, ben@decadent.org.uk,
-	stefanha@redhat.com, virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>, Vladislav Yasevich <vyasevich@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <878417685.243182.1418881887975.JavaMail.zimbra@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, ben@decadent.org.uk,
+	stefanha@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53630 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750899AbaLRPPv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Dec 2014 10:15:51 -0500
+In-Reply-To: <20141218075549.GB31702@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/18/2014 12:51 AM, Jason Wang wrote:
-> 
-> 
-> ----- Original Message -----
->> Now that UFO is split into v4 and v6 parts, we can bring
->> back v4 support without any trouble.
+On 12/18/2014 02:55 AM, Michael S. Tsirkin wrote:
+> On Wed, Dec 17, 2014 at 09:43:51PM -0500, Vlad Yasevich wrote:
+>> On 12/17/2014 05:41 PM, Michael S. Tsirkin wrote:
+>>> On Wed, Dec 17, 2014 at 01:20:54PM -0500, Vladislav Yasevich wrote:
+>>>> Now that UFO is split into v4 and v6 parts, we can bring
+>>>> back v4 support.  Continue to handle legacy applications
+>>>> by selecting the ipv6 fagment id but do not change the
+>>>> gso type.  This allows 2 legacy VMs to continue to communicate.
+>>>>
+>>>> Based on original work from Ben Hutchings.
+>>>>
+>>>> Fixes: 88e0e0e5aa7a ("drivers/net: Disable UFO through virtio")
+>>>> CC: Ben Hutchings <ben@decadent.org.uk>
+>>>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+>>>> ---
+>>>>  drivers/net/macvtap.c | 20 ++++++++++++++------
+>>>>  1 file changed, 14 insertions(+), 6 deletions(-)
+>>>>
+>>>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+>>>> index 880cc09..75febd4 100644
+>>>> --- a/drivers/net/macvtap.c
+>>>> +++ b/drivers/net/macvtap.c
+>>>> @@ -66,7 +66,7 @@ static struct cdev macvtap_cdev;
+>>>>  static const struct proto_ops macvtap_socket_ops;
+>>>>  
+>>>>  #define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
+>>>> -		      NETIF_F_TSO6)
+>>>> +		      NETIF_F_TSO6 | NETIF_F_UFO)
+>>>>  #define RX_OFFLOADS (NETIF_F_GRO | NETIF_F_LRO)
+>>>>  #define TAP_FEATURES (NETIF_F_GSO | NETIF_F_SG)
+>>>>  
+>>>> @@ -570,11 +570,14 @@ static int macvtap_skb_from_vnet_hdr(struct sk_buff *skb,
+>>>>  			gso_type = SKB_GSO_TCPV6;
+>>>>  			break;
+>>>>  		case VIRTIO_NET_HDR_GSO_UDP:
+>>>> -			pr_warn_once("macvtap: %s: using disabled UFO feature; please fix this program\n",
+>>>> -				     current->comm);
+>>>>  			gso_type = SKB_GSO_UDP;
+>>>> -			if (skb->protocol == htons(ETH_P_IPV6))
+>>>> +			if (vlan_get_protocol(skb) == htons(ETH_P_IPV6)) {
+>>>> +				/* This is to support legacy appliacations.
+>>>> +				 * Do not change the gso_type as legacy apps
+>>>> +				 * may not know about the new type.
+>>>> +				 */
+>>>>  				ipv6_proxy_select_ident(skb);
+>>>> +			}
+>>>>  			break;
+>>>>  		default:
+>>>>  			return -EINVAL;
+>>>> @@ -619,6 +622,8 @@ static void macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
+>>>>  			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+>>>>  		else if (sinfo->gso_type & SKB_GSO_TCPV6)
+>>>>  			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
+>>>> +		else if (sinfo->gso_type & SKB_GSO_UDP)
+>>>> +			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_UDP;
+>>>>  		else
+>>>>  			BUG();
+>>>>  		if (sinfo->gso_type & SKB_GSO_TCP_ECN)
+>>>> @@ -955,6 +960,9 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
+>>>>  			if (arg & TUN_F_TSO6)
+>>>>  				feature_mask |= NETIF_F_TSO6;
+>>>>  		}
+>>>> +
+>>>> +		if (arg & TUN_F_UFO)
+>>>> +			feature_mask |= NETIF_F_UFO;
+>>>>  	}
+>>>>  
+>>>>  	/* tun/tap driver inverts the usage for TSO offloads, where
+>>>> @@ -965,7 +973,7 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
+>>>>  	 * When user space turns off TSO, we turn off GSO/LRO so that
+>>>>  	 * user-space will not receive TSO frames.
+>>>>  	 */
+>>>> -	if (feature_mask & (NETIF_F_TSO | NETIF_F_TSO6))
+>>>> +	if (feature_mask & (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO))
+>>>>  		features |= RX_OFFLOADS;
+>>>>  	else
+>>>>  		features &= ~RX_OFFLOADS;
+>>>
+>>> By the way this logic is completely broken, even without your patch,
+>>> isn't it?
+>>>
+>>> It says: enable LRO+GRO if any of NETIF_F_TSO | NETIF_F_TSO6 |
+>>> NETIF_F_UFO set.
+>>>
+>>> So what happens if I enable TSO only?
+>>> LRO gets enabled so I can still get TSO6 packets.
+>>>
+>>>
+>>> This really should be:
+>>>
+>>> 	if (feature_mask & (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO) ==
+>>> 			(NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO)
+>>>
+>>>
+>>> fixing this probably should be a separate patch before your
+>>> series, and Cc stable.
 >>
->> Continue to handle legacy applications by selecting the
->> IPv6 fragment id but do not change the gso type.  Thist
->> makes sure that two legacy VMs may still communicate.
+>> Actually, all this LRO/GRO feature manipulation on the macvtap device is
+>> rather pointless as those features aren't really checked at any point
+>> on the macvtap receive path.  GRO calls are done from napi context on
+>> the lowest device, so by the time a packet hits macvtap, GRO/LRO has
+>> already been done.
 >>
->> Based on original work from Ben Hutchings.
->>
->> Fixes: 88e0e0e5aa7a ("drivers/net: Disable UFO through virtio")
->> CC: Ben Hutchings <ben@decadent.org.uk>
->> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
->> ---
->>  drivers/net/tun.c | 26 ++++++++++++++------------
->>  1 file changed, 14 insertions(+), 12 deletions(-)
->>
->> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->> index 9dd3746..8c32fca 100644
->> --- a/drivers/net/tun.c
->> +++ b/drivers/net/tun.c
->> @@ -175,7 +175,7 @@ struct tun_struct {
->>  	struct net_device	*dev;
->>  	netdev_features_t	set_features;
->>  #define TUN_USER_FEATURES (NETIF_F_HW_CSUM|NETIF_F_TSO_ECN|NETIF_F_TSO| \
->> -			  NETIF_F_TSO6)
->> +			  NETIF_F_TSO6|NETIF_F_UFO)
->>  
->>  	int			vnet_hdr_sz;
->>  	int			sndbuf;
->> @@ -1152,20 +1152,15 @@ static ssize_t tun_get_user(struct tun_struct *tun,
->> struct tun_file *tfile,
->>  			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
->>  			break;
->>  		case VIRTIO_NET_HDR_GSO_UDP:
->> -		{
->> -			static bool warned;
->> -
->> -			if (!warned) {
->> -				warned = true;
->> -				netdev_warn(tun->dev,
->> -					    "%s: using disabled UFO feature; please fix this program\n",
->> -					    current->comm);
->> -			}
->>  			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
->> -			if (skb->protocol == htons(ETH_P_IPV6))
->> +			if (vlan_get_protocol(skb) == htons(ETH_P_IPV6)) {
+>> So it doesn't really matter that we disable them incorrectly.  I
+>> can send a separate patch to clean this up.
 > 
-> This probably means UDPv6 with vlan does not work well, looks like another
-> independent fixe and also for stable.
+> Hmm so if userspace says it can't handle TSO packets,
+> it might get them anyway?
 
-Ok.  I can split this out.
+No.  It will get individual segments because in macvtap_handle_frame
+we use user specified features to decide if segmentation needs
+to be performed or not.
 
->> +				/* This allows legacy application to work.
->> +				 * Do not change the gso_type as it may
->> +				 * not be upderstood by legacy applications.
->> +				 */
-> 
-> Isn't this an issue that we use SKB_GSO_UDP for a UDPv6 packet? Especially
-> consider we want to fix UFOv6 in the future? We probably can use
-> SKB_GSO_UDP6 here and try to fix it in tun_put_user() if a legacy userspace
-> is detected.
-
-There is a slight problem with this.  This will force fragmentation of IPv6
-traffic between VMs since UFO6 wouldn't be enabled on a destination device.
-So, suddenly older VMs will see a performance regression for large UDPv6 traffic.
-
-With this code, a legacy VM will continue to receive large UDPv6 traffic.
-New VMs will have an updated virtio-net which will reset the gso type on input.
-
->>  				ipv6_proxy_select_ident(skb);
-> 
-> Question still for vlan, is network header correctly set here? Looks like
-> ipv6_proxy_select_ident() depends on correct network header to work.
->> +	
-
-Yes, you are right...  I wonder how that worked.  I'll re-test.
-
-Thanks
 -vlad
-		}
->>  			break;
->> -		}
->>  		default:
->>  			tun->dev->stats.rx_frame_errors++;
->>  			kfree_skb(skb);
->> @@ -1273,6 +1268,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
->>  				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
->>  			else if (sinfo->gso_type & SKB_GSO_TCPV6)
->>  				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
->> +			else if (sinfo->gso_type & SKB_GSO_UDP)
->> +				gso.gso_type = VIRTIO_NET_HDR_GSO_UDP;
->>  			else {
->>  				pr_err("unexpected GSO type: "
->>  				       "0x%x, gso_size %d, hdr_len %d\n",
->> @@ -1780,6 +1777,11 @@ static int set_offload(struct tun_struct *tun,
->> unsigned long arg)
->>  				features |= NETIF_F_TSO6;
->>  			arg &= ~(TUN_F_TSO4|TUN_F_TSO6);
->>  		}
->> +
->> +		if (arg & TUN_F_UFO) {
->> +			features |= NETIF_F_UFO;
->> +			arg &= ~TUN_F_UFO;
->> +		}
->>  	}
->>  
->>  	/* This gives the user a way to test for new features in future by
->> --
->> 1.9.3
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
+
+> 
+> 
+>>>
+>>>
+>>>> @@ -1066,7 +1074,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+>>>>  	case TUNSETOFFLOAD:
+>>>>  		/* let the user check for future flags */
+>>>>  		if (arg & ~(TUN_F_CSUM | TUN_F_TSO4 | TUN_F_TSO6 |
+>>>> -			    TUN_F_TSO_ECN))
+>>>> +			    TUN_F_TSO_ECN | TUN_F_UFO))
+>>>>  			return -EINVAL;
+>>>>  
+>>>>  		rtnl_lock();
+>>>> -- 
+>>>> 1.9.3
