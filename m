@@ -1,162 +1,35 @@
-From: Rajat Jain <rajatxjain@gmail.com>
-Subject: Re: [bisected] tg3 broken in 3.18.0?
-Date: Fri, 19 Dec 2014 10:24:13 -0800
-Message-ID: <CAA93t1qOUZEmJEcuUNtkDS0M_pafb_1s==9Yqm9-+-+OmJmVuQ@mail.gmail.com>
-References: <20141213210251.GA12812@teela.fritz.box>
-	<548EF90A.5070607@gmail.com>
-	<CAA93t1qyZE-9tw8pg1KG6g4iyy0QMW=iass5w=6ZGMTMu+vi_A@mail.gmail.com>
-	<CAErSpo5dqQE7nZ6zf2odgpHBWA3ZpTjhbgQKnY8YxQW+a+298w@mail.gmail.com>
-	<1418750141.4248.3.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	<54907300.9050902@gmail.com>
-	<1418759684.4248.12.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	<CAErSpo7sqZS+-4LHo3wbo-pa73mcP_3d0Z37U0tfnASaxp-D_g@mail.gmail.com>
-	<1418930889.3433.8.camel@prashant>
-	<20141218202637.GA2930@teela.fritz.box>
-	<1418955047.3433.27.camel@prashant>
-	<CAErSpo4UdxwL=wA8cBJ7_DAdTb2xNeg6600qB0=Jdxv80aVmcg@mail.gmail.com>
-	<54945D79.2070008@gmail.com>
-Reply-To: rajatxjain@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Bjorn Helgaas <bhelgaas@google.com>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Nils Holland <nholland@tisys.org>,
-	Michael Chan <mchan@broadcom.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	Rafael Wysocki <rjw@rjwysocki.net>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <54945D79.2070008@gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [patches] a bunch of old bluetooth fixes
+Date: Fri, 19 Dec 2014 19:25:10 +0100
+Message-ID: <F42BF2A7-1076-44ED-BA5E-96CF95CDFCF6@holtmann.org>
+References: <20141219061801.GU22149@ZenIV.linux.org.uk> <B0609FEE-1CE5-4618-A0B6-B2B82B1EC74D@holtmann.org> <07BDA2A2-1560-4F78-A0B2-FC25E312CACE@holtmann.org> <20141219.115933.2303527819596860834.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 8.1 \(1993\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: viro@ZenIV.linux.org.uk, netdev@vger.kernel.org,
+	linux-bluetooth@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from senator.holtmann.net ([87.106.208.187]:48353 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751142AbaLSSZO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 13:25:14 -0500
+In-Reply-To: <20141219.115933.2303527819596860834.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-One of the reasons to replace the condition (*l == 0xffff0001) with
-(*l & 0xffff) == 0x0001) was that some devices apparently returned
-0001 for device id to indicate CRS, but returned actual vendor id in
-the vendor ID field (hence the need to ignore vendor field).
+Hi Dave,
 
-Are we saying that the tg3 device returns 0x0001 for the device ID and
-yet expects it to be treated as a good value (not CRS)?
+>>> Dave, we can prepare a pull request for these or do you want to take them directly into net tree?
+>> 
+>> and in case you decide to take them directly.
+>> 
+>> Acked-by: Marcel Holtmann <marcel@holtmann.org>
+> 
+> Feel free to create a pull request for me, that works best.
 
-Thanks,
+actually Johan already sent one. Should be in your inbox and on netdev.
 
-Rajat
+Regards
 
-On Fri, Dec 19, 2014 at 9:16 AM, Marcelo Ricardo Leitner
-<marcelo.leitner@gmail.com> wrote:
-> On 19-12-2014 15:09, Bjorn Helgaas wrote:
->>
->> On Thu, Dec 18, 2014 at 7:10 PM, Prashant Sreedharan
->> <prashant@broadcom.com> wrote:
->>>
->>> On Thu, 2014-12-18 at 21:26 +0100, Nils Holland wrote:
->>>>
->>>> On Thu, Dec 18, 2014 at 11:28:09AM -0800, Prashant Sreedharan wrote:
->>>>>
->>>>> On Thu, 2014-12-18 at 12:15 -0700, Bjorn Helgaas wrote:
->>>>>>
->>>>>>
->>>>>> Any updates from the hardware team?
->>>>>>
->>>>>> This is a pretty serious regression, but as far as I can tell, it is
->>>>>> not a PCI bug.  The device should respond to a config read of vendor
->>>>>> ID.  If the driver does something that make the read return CRS
->>>>>> status, I think the driver is responsible for doing whatever delay or
->>>>>> other fixup is required.
->>>>>>
->>>>>> I'm inclined to reassign this bug to the tg3 driver unless you think
->>>>>> the PCI core is doing something wrong here.
->>>>>>
->>>>>> Bjorn
->>>>>
->>>>>
->>>>> We were not able to reproduce this issue, could you please check what
->>>>> is
->>>>> the value of reg 0x70, before the pci_device_is_present call is made ?
->>>>> if bit 15 is set config access will be retried.
->>>>>
->>>>> --- a/drivers/net/ethernet/broadcom/tg3.c
->>>>> +++ b/drivers/net/ethernet/broadcom/tg3.c
->>>>> @@ -9025,6 +9025,7 @@ static int tg3_chip_reset(struct tg3 *tp)
->>>>>          void (*write_op)(struct tg3 *, u32, u32);
->>>>>          int i, err;
->>>>>
->>>>> +       printk(KERN_ERR "config state: %x\n", tr32(TG3PCI_PCISTATE));
->>>>>          if (!pci_device_is_present(tp->pdev))
->>>>>                  return -ENODEV;
->>>>
->>>>
->>>> No problem, I gave this a try and here is what I get:
->>>>
->>>> [    2.185190] libphy: tg3 mdio bus: probed
->>>> [    2.229357] tsc: Refined TSC clocksource calibration: 2399.999 MHz
->>>> [    2.244993] config state: 1292
->>>> [    2.247136] tg3 0000:02:00.0 eth0: Tigon3 [partno(BCM57780) rev
->>>> 57780001]
->>>>          (PCI Express) MAC address 00:19:99:ce:13:a6
->>>> [    2.249279] tg3 0000:02:00.0 eth0: attached PHY driver [Broadcom
->>>> BCM57780]
->>>>          (mii_bus:phy_addr=200:01)
->>>> [    2.251460] tg3 0000:02:00.0 eth0: RXcsums[1] LinkChgREG[0]
->>>>          MIirq[0] ASF[0] TSOcap[1]
->>>> [    2.253672] tg3 0000:02:00.0 eth0: dma_rwctrl[76180000]
->>>> dma_mask[64-bit]
->>>> [...]
->>>> [   12.204692] tg3 0000:02:00.0
->>>>          enp2s0: No firmware running
->>>> [   12.206653] config state: 1292
->>>> [   12.208655] config state: 1292
->>>>
->>>> That's all of the three times the new debugging line gets hit when I
->>>> boot my system using the supplied diagnostic patch.
->>>>
->>>> Hope that helps - of course, I'd gladly test any further
->>>> (diagnostic) patches if required! Also, if I can provide any
->>>> additional information that might be of value, just ask:-)
->>>>
->>> Nils/Marcelo thanks for inputs, since reg 0x70 bit 15 is clear it
->>> indicates the chip is not setting the config retry bit. We were hoping
->>> this bit is causing the config access to return CRS but looks like it is
->>> not.
->>>
->>> Btw after forcing the error path (tg3_init_one -> tg3_halt) in the
->>> driver now we are able to reproduce the problem on 5722 in house. We are
->>> working with the HW team to narrow this down.
->>>
->>> Also it is not clear to me how reverting commit cfa6a7877b17a667 fixes
->>> the problem.
->>
->>
->> The full commit is 89665a6a71408796565bfd29cfa6a7877b17a667, and git
->> works with any unique *prefix* of that.  The current convention is to
->> use the first 12 characters (I have "[core] abbrev = 12" in my
->> .git/config).  Unfortunately, suffixes don't work at all.
->>
->> Anyway, here's why I think 89665a6a7140 makes a difference.  We're in this
->> path:
->>
->>    pci_device_is_present
->>      pci_bus_read_dev_vendor_id(..., crs_timeout = 0)
->>        pci_bus_read_config_dword(bus, devfn, PCI_VENDOR_ID, l)
->>
->> and for some reason the chip returns 0x00010001 for that 32-bit read.
->
->
-> Actually it returns just 0x00000001, but yeah, that's my understanding too.
->
->   Marcelo
->
->
->> Before 89665a6a7140, we compared all 32 bits with "*l == 0xffff0001".
->> This is false, so pci_bus_read_dev_vendor_id() returns true, which
->> means pci_device_is_present() is also true.
->>
->> After 89665a6a7140, we compare only the low 16 bits with ((*l &
->> 0xffff) == 0x0001), which is true, so pci_bus_read_dev_vendor_id()
->> returns false, and pci_device_is_present() is false.
->>
->> Bjorn
->>
->
+Marcel
