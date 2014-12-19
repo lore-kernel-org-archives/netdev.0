@@ -1,45 +1,29 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net V2] net: drop the packet when fails to do software segmentation or header check
-Date: Fri, 19 Dec 2014 11:09:13 +0800
-Message-ID: <1418958553-9962-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fixed TPACKET V3 to signal poll when block is closed
+ rather than every packet
+Date: Thu, 18 Dec 2014 22:40:11 -0500 (EST)
+Message-ID: <20141218.224011.175832100672931963.davem@davemloft.net>
+References: <1418949139-21299-1-git-send-email-dan@dcollins.co.nz>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: dan@dcollins.co.nz
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51765 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751194AbaLSDkS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2014 22:40:18 -0500
+In-Reply-To: <1418949139-21299-1-git-send-email-dan@dcollins.co.nz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit cecda693a969816bac5e470e1d9c9c0ef5567bca ("net: keep original skb
-which only needs header checking during software GSO") keeps the original
-skb for packets that only needs header check, but it doesn't drop the
-packet if software segmentation or header check were failed.
+From: Dan Collins <dan@dcollins.co.nz>
+Date: Fri, 19 Dec 2014 13:32:19 +1300
 
-Fixes cecda693a9 ("net: keep original skb which only needs header checking
-during software GSO")
+> + *		Dan Collins : Fixed TPACKET_V3 to wake poll when block is closed
+> + *					rather than for every packet.
 
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-Stable candidate for 3.17 and above.
-Changes from V1:
-- Fix fixes tag
----
- net/core/dev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f411c28..a989f85 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2673,7 +2673,7 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device
- 
- 		segs = skb_gso_segment(skb, features);
- 		if (IS_ERR(segs)) {
--			segs = NULL;
-+			goto out_kfree_skb;
- 		} else if (segs) {
- 			consume_skb(skb);
- 			skb = segs;
--- 
-1.9.1
+Since we now use real version control with commit messages, this
+comment at the top of the source file is not an appropriate
+place to log your change.
