@@ -1,46 +1,55 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [RFC iproute2] tc: Show classes in tree view
-Date: Fri, 19 Dec 2014 12:02:06 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CA0F648@AcuExch.aculab.com>
-References: <1418989381-6492-1-git-send-email-vadim4j@gmail.com>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: Re: Recent Linus' tree, kernel BUG at fs/inode.c:1436!
+Date: Fri, 19 Dec 2014 15:08:42 +0300
+Message-ID: <5494154A.5040402@parallels.com>
+References: <54940D28.8050901@parallels.com> <20141219120129.GX22149@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: 'Vadim Kochan' <vadim4j@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:46972 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751890AbaLSMCk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 07:02:40 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 30494-09 for <netdev@vger.kernel.org>;
- Fri, 19 Dec 2014 12:02:32 +0000 (GMT)
-In-Reply-To: <1418989381-6492-1-git-send-email-vadim4j@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20141219120129.GX22149@ZenIV.linux.org.uk>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vadim Kochan
-> Added new '-t[ree]' which shows classes dependency
-> in the tree view.
-...
-> @@ -278,6 +279,8 @@ int main(int argc, char **argv)
->  			++show_raw;
->  		} else if (matches(argv[1], "-pretty") == 0) {
->  			++show_pretty;
-> +		} else if (matches(argv[1], "-tree") == 0) {
-> +			++show_tree;
->  		} else if (matches(argv[1], "-Version") == 0) {
->  			printf("tc utility, iproute2-ss%s\n", SNAPSHOT);
->  			return 0;
+On 12/19/2014 03:01 PM, Al Viro wrote:
+> On Fri, Dec 19, 2014 at 02:34:00PM +0300, Pavel Emelyanov wrote:
+>> Hi,
+>>
+>> It looks like there's a strange refcount underflow in VFS/socket code.
+>> The proggie [1] crashes the recent Linus' tree (d790be38 Merge tag
+>> 'modules-next-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/rusty/linux) 
+>> with the calltrace [2].
+>>
+>> If in the proggie the psk is replaced with non-socket descriptor the
+>> issue doesn't appear.
+> 
+> Gyah... mismerge on cherry-pick.  My fault - ->i_fop assignment should've
+> been removed from sock_alloc_file() in bd9b51.  Could you verify that the
+> following recovers the things?
+> 
+> diff --git a/net/socket.c b/net/socket.c
+> index 70bbde6..a2c33a4 100644
+> --- a/net/socket.c
+> +++ b/net/socket.c
+> @@ -372,7 +372,6 @@ struct file *sock_alloc_file(struct socket *sock, int flags, const char *dname)
+>  	path.mnt = mntget(sock_mnt);
+>  
+>  	d_instantiate(path.dentry, SOCK_INODE(sock));
+> -	SOCK_INODE(sock)->i_fop = &socket_file_ops;
+>  
+>  	file = alloc_file(&path, FMODE_READ | FMODE_WRITE,
+>  		  &socket_file_ops);
+> .
+> 
 
-Clearly you've followed the old code, but it is much clearer
-to assign 1 (or true) rather than doing an increment
-(unless you expect '-tree -tree' to do something extra).
+Acked-by: Pavel Emelyanov <xemul@parallels.com>
 
-I believe the whole business of using 'foo++' to change a 0 to a 1
-harks back to the pdp11 where it was a shorter instruction sequence.
+This also makes socket non-open-able back again, which, in turn, was
+another issue I was surprised with on the new kernel :)
 
-	David
+Thanks,
+Pavel
+
