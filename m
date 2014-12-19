@@ -1,84 +1,87 @@
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Subject: pull request: bluetooth 2014-12-19
-Date: Fri, 19 Dec 2014 16:34:00 +0200
-Message-ID: <20141219143400.GA20385@t440s.P-661HNU-F1>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="bp/iNruPH9dso1Pn"
-Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
-To: davem@davemloft.net
+From: Huacai Chen <chenhc@lemote.com>
+Subject: [PATCH RESEND] stmmac: Don't init ptp again when resume from suspend/hibernation
+Date: Fri, 19 Dec 2014 22:38:18 +0800
+Message-ID: <1418999898-10298-1-git-send-email-chenhc@lemote.com>
+Cc: Srinivas Kandagatla <srinivas.kandagatla@st.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Huacai Chen <chenhc@lemote.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f49.google.com ([209.85.215.49]:52066 "EHLO
-	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752087AbaLSOeL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 09:34:11 -0500
-Content-Disposition: inline
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:34150 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752298AbaLSOmi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 09:42:38 -0500
+Received: by mail-pa0-f53.google.com with SMTP id kq14so1315257pab.40
+        for <netdev@vger.kernel.org>; Fri, 19 Dec 2014 06:42:38 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Both stmmac_open() and stmmac_resume() call stmmac_hw_setup(), and
+stmmac_hw_setup() call stmmac_init_ptp() unconditionally. However, only
+stmmac_release() calls stmmac_release_ptp(). Since stmmac_suspend()
+doesn't call stmmac_release_ptp(), stmmac_resume() also needn't call
+stmmac_init_ptp().
 
---bp/iNruPH9dso1Pn
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+This patch also fix a "scheduling while atomic" problem when resume
+from suspend/hibernation. Because stmmac_init_ptp() will trigger
+scheduling while stmmac_resume() hold a spinlock.
 
-Hi Dave,
+Callgraph of "scheduling while atomic":
+stmmac_resume() --> stmmac_hw_setup() --> stmmac_init_ptp() -->
+stmmac_ptp_register() --> ptp_clock_register() --> device_create() -->
+device_create_groups_vargs() --> device_add() --> devtmpfs_create_node()
+--> wait_for_common() --> schedule_timeout() --> __schedule()
 
-Here's one more pull request for 3.19. It contains the socket type
-verification fixes from Al Viro as well as an skb double-free fix for
-6lowpan from Jukka Rissanen.
-
-Please let me know if there are any issues pulling. Thanks.
-
-Johan
-
+Signed-off-by: Huacai Chen <chenhc@lemote.com>
 ---
-The following changes since commit 00c845dbfe2e966a2efd3818e40f46e286ca1ae6:
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2014-12-18 16:41:13 -0800)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git for-upstream
-
-for you to fetch changes up to 71bb99a02b32b4cc4265118e85f6035ca72923f0:
-
-  Bluetooth: bnep: bnep_add_connection() should verify that it's dealing with l2cap socket (2014-12-19 13:48:27 +0100)
-
-----------------------------------------------------------------
-Al Viro (3):
-      Bluetooth: hidp_connection_add() unsafe use of l2cap_pi()
-      Bluetooth: cmtp: cmtp_add_connection() should verify that it's dealing with l2cap socket
-      Bluetooth: bnep: bnep_add_connection() should verify that it's dealing with l2cap socket
-
-Jukka Rissanen (1):
-      Bluetooth: 6lowpan: Do not free skb when packet is dropped
-
- net/bluetooth/6lowpan.c   | 1 -
- net/bluetooth/bnep/core.c | 3 +++
- net/bluetooth/cmtp/core.c | 3 +++
- net/bluetooth/hidp/core.c | 3 ++-
- 4 files changed, 8 insertions(+), 2 deletions(-)
-
-
---bp/iNruPH9dso1Pn
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUlDdYAAoJECQj9vv5qNQS6ZcP/0RXW7qCgrix61bBhbnj7p7H
-WoqMOkhAN301sk+9/WgWHcbN7tT2RNJA6quWI7sgH2XTdeiIoR+xAYDUDIwKdq4+
-XZf6sPTHWzARlEJSZygiWOPA8N7ScXYS5cmDvT8eBuBVg/ExsPLhfDY8d4QjJkxt
-F7VvQdug6slD9UIZO8Kr/NKtlgHgeW8eucZd4kVQYqxJj9rkefL26Rl1MxnaeuwI
-To/jdkQVh2Bho51FnuwVD3Pls39q7tpsBP4i3bFCfh0+TqXqz/KW+FLrEIElOpsK
-4vOzSDeSuWomap7fYZxP4YpFKO6dG9941ko3pw8rQ8Cevt5njKbgnZZ9Sz8db4sL
-b5MVJVPCPVMwTfIjsM6olBak13oY4xC4/yNhCSQMm3trzoa1N+pW/Nbgqj9psXYv
-iuwW7toBB0OXK9thxfqntBRuKuRQMWE6zs7OawpYPtplwA7REHA73kGCG3SGAiPf
-9g7/zAsiga+ptdI6OoOjAQ8y/NCdTVtUpdPF+Dost7qiIRS7pH63qieSO6DWclv5
-UZcA3GrAIoQtdfzEikW5vtywBM9ZtNAAIazH3oU19CprXLInWXw4o6ZSCjh2PPgg
-rIIa4JSySEg78PSkPBbUiVD1V04SyuqDMZrCXGWA+IOiqmwG+JBGPtSLFIsQTJF+
-dlqFclSolpR1F3DKVBf+
-=T2lg
------END PGP SIGNATURE-----
-
---bp/iNruPH9dso1Pn--
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 118a427..8c6b7c1 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1671,7 +1671,7 @@ static void stmmac_init_tx_coalesce(struct stmmac_priv *priv)
+  *  0 on success and an appropriate (-)ve integer as defined in errno.h
+  *  file on failure.
+  */
+-static int stmmac_hw_setup(struct net_device *dev)
++static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+ {
+ 	struct stmmac_priv *priv = netdev_priv(dev);
+ 	int ret;
+@@ -1708,9 +1708,11 @@ static int stmmac_hw_setup(struct net_device *dev)
+ 
+ 	stmmac_mmc_setup(priv);
+ 
+-	ret = stmmac_init_ptp(priv);
+-	if (ret && ret != -EOPNOTSUPP)
+-		pr_warn("%s: failed PTP initialisation\n", __func__);
++	if (init_ptp) {
++		ret = stmmac_init_ptp(priv);
++		if (ret && ret != -EOPNOTSUPP)
++			pr_warn("%s: failed PTP initialisation\n", __func__);
++	}
+ 
+ #ifdef CONFIG_DEBUG_FS
+ 	ret = stmmac_init_fs(dev);
+@@ -1787,7 +1789,7 @@ static int stmmac_open(struct net_device *dev)
+ 		goto init_error;
+ 	}
+ 
+-	ret = stmmac_hw_setup(dev);
++	ret = stmmac_hw_setup(dev, true);
+ 	if (ret < 0) {
+ 		pr_err("%s: Hw setup failed\n", __func__);
+ 		goto init_error;
+@@ -3036,7 +3038,7 @@ int stmmac_resume(struct net_device *ndev)
+ 	netif_device_attach(ndev);
+ 
+ 	init_dma_desc_rings(ndev, GFP_ATOMIC);
+-	stmmac_hw_setup(ndev);
++	stmmac_hw_setup(ndev, false);
+ 	stmmac_init_tx_coalesce(priv);
+ 
+ 	napi_enable(&priv->napi);
+-- 
+1.7.7.3
