@@ -1,46 +1,67 @@
-From: "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>
-Subject: net: ucc: tbi phy detection broken by
- 058112c7efc9ef43bb511c137293dddbe6e42908
-Date: Thu, 18 Dec 2014 22:49:18 -0500
-Message-ID: <20141219034918.GX24110@csclub.uwaterloo.ca>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	linuxppc-dev@lists.ozlabs.org, Li Yang <leoli@freescale.com>
-To: Len Sorensen <lsorense@csclub.uwaterloo.ca>
+From: Dan Collins <dan@dcollins.co.nz>
+Subject: [PATCH] Fixed TPACKET V3 to signal poll when block is closed rather than every packet
+Date: Fri, 19 Dec 2014 16:49:25 +1300
+Message-ID: <1418960965-29522-1-git-send-email-dan@dcollins.co.nz>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Dan Collins <dan@dcollins.co.nz>
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I have been trying to move an 8360 based system from a 3.0 kernel to a
-3.12 (on the way to 3.14 with ipipe/xenomai) kernel and encountered an
-oops in the ucc_geth driver when using RTBI mode on one of the ucc
-ports.  I haven't managed to find any commits to of_mdio or ucc_geth or
-fsl_pq_mdio that would appear to address this problem, so I believe it
-is still present in the latest kernel, but have not confirmed that with
-testing yet.
+Make TPACKET_V3 signal poll when block is closed rather than for every
+packet. Side effect is that poll will be signaled when block retire
+timer expires which didn't previously happen. Issue was visible when
+sending packets at a very low frequency such that all blocks are retired
+before packets are received by TPACKET_V3. This caused avoidable packet
+loss. The fix ensures that the signal is sent when blocks are closed
+which covers the normal path where the block is filled as well as the
+path where the timer expires. The case where a block is filled without
+moving to the next block (ie. all blocks are full) will still cause poll
+to be signaled.
 
-Commit 058112c7efc9ef43bb511c137293dddbe6e42908 appears to have broken
-ucc support for tbi phy detection.
+Signed-off-by: Dan Collins <dan@dcollins.co.nz>
+---
+ net/packet/af_packet.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-With the patch in place, I am unable to get the mdio bus to create phy
-devices for the tbi phy in the ucc on an 8360e, and the ucc_geth driver
-causes a kernel oops, while with the patch reverted, it does create them
-and the driver comes up and works.
-
-The tbi phy is needed when using a ucc in RTBI, TBI or SGMII mode.
-
-I am not convinced that the tbi phy really behaves quite like a real phy,
-which may be why get_phy_device does not work with it.  Perhaps there
-is a better way to deal with the tbi phy on the ucc for this purpose.
-
-Certainly as it is, this patch has caused a regression though, although
-probably not very many systems with ucc ports actually use one of the
-affected modes so the damage isn't that great.
-
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index e52a447..6880f34 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -785,6 +785,7 @@ static void prb_close_block(struct tpacket_kbdq_core *pkc1,
+ 
+ 	struct tpacket3_hdr *last_pkt;
+ 	struct tpacket_hdr_v1 *h1 = &pbd1->hdr.bh1;
++	struct sock *sk = &po->sk;
+ 
+ 	if (po->stats.stats3.tp_drops)
+ 		status |= TP_STATUS_LOSING;
+@@ -809,6 +810,8 @@ static void prb_close_block(struct tpacket_kbdq_core *pkc1,
+ 	/* Flush the block */
+ 	prb_flush_block(pkc1, pbd1, status);
+ 
++	sk->sk_data_ready(sk);
++
+ 	pkc1->kactive_blk_num = GET_NEXT_PRB_BLK_NUM(pkc1);
+ }
+ 
+@@ -2052,12 +2055,12 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	smp_wmb();
+ #endif
+ 
+-	if (po->tp_version <= TPACKET_V2)
++	if (po->tp_version <= TPACKET_V2) {
+ 		__packet_set_status(po, h.raw, status);
+-	else
++		sk->sk_data_ready(sk);
++	} else {
+ 		prb_clear_blk_fill_status(&po->rx_ring);
+-
+-	sk->sk_data_ready(sk);
++	}
+ 
+ drop_n_restore:
+ 	if (skb_head != skb->data && skb_shared(skb)) {
 -- 
-Len Sorensen
+2.1.3
