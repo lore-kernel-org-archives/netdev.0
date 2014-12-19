@@ -1,70 +1,113 @@
-From: Hubert Sokolowski <hubert.sokolowski@intel.com>
-Subject: Re: [PATCH net-next RESEND] net: Do not call ndo_dflt_fdb_dump if
- ndo_fdb_dump is defined.
-Date: Fri, 19 Dec 2014 15:17:31 +0000
-Message-ID: <5494418B.1000004@intel.com>
-References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>    <54894850.5000603@cumulusnetworks.com>    <7968540cd0768a770b0c8b29ce41a162.squirrel@poczta.wsisiz.edu.pl>    <5489D53E.5010603@cumulusnetworks.com>    <8d4ec5c1ae73c77866a0a154fb528f23.squirrel@poczta.wsisiz.edu.pl>    <548AD781.5020004@mojatatu.com>    <4c22a6c452a73b3b77a9a9c8e7f76bcc.squirrel@poczta.wsisiz.edu.pl>    <548AFD41.3010801@mojatatu.com> <548B4AA4.1020804@gmail.com>    <548EF05E.6050401@mojatatu.com> <548F80B2.80408@gmail.com>    <5491A3B5.9070601@redhat.com> <e3ac4e3535a18f6dd1cf31030674f91c.squirrel@poczta.wsisiz.edu.pl> <54935618.4070005@mojatatu.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [RFC PATCH net-next v2 1/1] net: Support for switch port configuration
+Date: Fri, 19 Dec 2014 08:22:40 -0800
+Message-ID: <549450D0.8030805@cumulusnetworks.com>
+References: <54931969.7040209@cumulusnetworks.com> <5493293A.2000802@intel.com> <54935E28.8050602@cumulusnetworks.com> <549362A5.3000808@intel.com> <549367CC.2080307@cumulusnetworks.com> <CAN+pFwJyfg1+=+tXUpon0Kket56HJ=9BR3XohPhZnaX7hfPgpg@mail.gmail.com> <20141219082754.GE1848@nanopsycho.orion> <CAN+pFwJAJ71-+MZjJXPbfu5mzMp6AWNxtYR81Lx6siy3D3HfJg@mail.gmail.com> <20141219092308.GF1848@nanopsycho.orion> <CAN+pFwJr7TvJEW4x_HYPgTEvYGfi+YHgp=5vek2YiU1GLiH6_g@mail.gmail.com> <20141219095512.GH1848@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>, vyasevic@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:64888 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750968AbaLSPRl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Dec 2014 10:17:41 -0500
-In-Reply-To: <54935618.4070005@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: B Viswanath <marichika4@gmail.com>,
+	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	"Varlese, Marco" <marco.varlese@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141219095512.GH1848@nanopsycho.orion>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 18/12/14 22:32, Jamal Hadi Salim wrote:
+On 12/19/14, 1:55 AM, Jiri Pirko wrote:
+> Fri, Dec 19, 2014 at 10:35:27AM CET, marichika4@gmail.com wrote:
+>> On 19 December 2014 at 14:53, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> Fri, Dec 19, 2014 at 10:01:46AM CET, marichika4@gmail.com wrote:
+>>>> On 19 December 2014 at 13:57, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>>> Fri, Dec 19, 2014 at 06:14:57AM CET, marichika4@gmail.com wrote:
+>>>>>> On 19 December 2014 at 05:18, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+>>>>>>> On 12/18/14, 3:26 PM, Samudrala, Sridhar wrote:
+>>>> <snipped for ease of reading>
+>>>>>>>>
+>>>>>>>> We also need an interface to set per-switch attributes. Can this work?
+>>>>>>>>      bridge link set dev sw0 sw_attr bcast_flooding 1 master
+>>>>>>>> where sw0 is a bridge representing the hardware switch.
+>>>>>>>
+>>>>>>> Not today. We discussed this @ LPC, and one way to do this would be to have
+>>>>>>> a device
+>>>>>>> representing the switch asic. This is in the works.
+>>>>>>
+>>>>>> Can I assume that on  platforms which house more than one asic (say
+>>>>>> two 24 port asics, interconnected via a 10G link or equivalent, to get
+>>>>>> a 48 port 'switch') , the 'rocker' driver (or similar) should expose
+>>>>>> them as a single set of ports, and not as two 'switch ports' ?
+>>>>> Well that really depends on particular implementation and drivers. If you
+>>>>> have 2 pci-e devices, I think you should expose them as 2 entities. For
+>>>>> sure, you can have the driver to do the masking for you. I don't believe
+>>>>> that is correct though.
+>>>>>
+>>>> In a platform that houses two asic chips, IMO, the user is still
+>>>> expected to manage the router as a single entity. The configuration
+>>>> being applied on both asic devices need to be matching if not
+>>>> identical, and may not be conflicting. The FDB is to be synchronized
+>>>> so that (offloaded) switching can happen across the asics. Some of
+>>>> this stuff is asic specific anyway. Another example is that of the
+>>>> learning. The (hardware) learning can't be enabled on one asic, while
+>>>> being disabled on another one. The general use cases I have seen are
+>>>> all involving managing the 'router' as a single entity.  That the
+>>>> 'router' is implemented with two asics instead of a single asic (with
+>>>> more ports) is to be treated as an implementation detail.  This is the
+>>>> usual router management method that exists today.
+>>>>
+>>>> I hope I make sense.
+>>>>
+>>>> So I am trying to figure out what this single entity that will be used
+>>> >from a user perspective. It can be a bridge, but our bridges are more
+>>>> 802.1q bridges. We can use the 'self' mode, but then it means that it
+>>>> should reflect the entire port count, and not just an asic.
+>>>>
+>>>> So I was trying to deduce that in our switchdevice model, the best bet
+>>>> would be to leave the unification to the driver (i.e., to project the
+>>>> multiple physical asics as a single virtual switch device). Thist
+>>> Is it possible to have the asic as just single one? Or is it possible to
+>>> connect asics being multiple chips maybe from multiple vendors together?
+>> I didn't understand the first question. Some times, it is possible to
+> I ment that there is a design with just a single asic of this type,
+> instead of a pair.
+>
+>> have a single asic replace two, but its a cost factor, and others that
+>> are involved.
+>>
+>> AFAIK, the answer to the second question is a No. Two asics from
+>> different vendors may not be connected together. The interconnect
+>> tends to be proprietary.
+> Okay. In that case, it might make sense to mask it on driver level.
+>
+>
+>>> I believe that answer is "yes" in both cases. Making two separate asics
+>>> to appear as one for user is not correct in my opinion. Driver should
+>>> not do such masking. It is unclean, unextendable.
+>>>
+>> I am only looking for a single management entity. I am not thinking it
+>> needs to be at driver level. I am not sure of  any other option apart
+> >from creating a 'switchdev' that Roopa was mentioning.
+>
+> Well the thing is there is a common desire to make the offloading as
+> transparent as possible. For example, have 4 ports of same switch and
+> put them into br0. Just like that, without need to do anything else
+> than you would do when bridging ordinary NICs. Introducing some
+> "management entity" would break this approach.
+>
+I don't think having a switchdevice breaks this approach. A software 
+bridge is not a 1-1 mapping with the asic in all cases.
+When its a vlan filtering bridge, yes, it is (In which case all switch 
+global l2 non-port specific attributes can be applied to the bridge).
 
-> Sorry for the latency (head-buried-in-sand in effect)
-> On 12/17/14 11:18, Hubert Sokolowski wrote:
->> I have just prepared a patch where I dump uc/mc for bridge devices
->> by looking at (dev->priv_flags & IFF_EBRIDGE), so I have same results
->> as without my changes. This should satisfy Jamal and Roopa.
->> I could send it as v3 of my patch along with the results if you are
->> interested.
-> Please do. If you satisfy Vlad's goals then we are all happy.
-
-Posted as v3, please review.
-There is still open question I asked sometime ago but never got explained.
-It is about the new filter_dev parameter that was added to ndo_fdb_dump:
-        int                     (*ndo_fdb_dump)(struct sk_buff *skb,
-                                                struct netlink_callback *cb,
-                                                struct net_device *dev,
-                                                struct net_device *filter_dev,
-                                                int idx);
-
-When we call this function for a device, dev pointer is passed as the filter_dev:
-                if (dev->netdev_ops->ndo_fdb_dump)
-                        idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, bdev, dev,
-                                                            idx);
-
-This is not an issue for a bridge device and a device that is not enslaved
-in a bridge because bdev == dev, but this can be dangerous in other cases.
-Let's assume QLogic NIC has a master device, in this case bdev != dev.
-Now look what is happening, dev is passed as filter_dev to:
-static int qlcnic_fdb_dump(struct sk_buff *skb, struct netlink_callback *ncb,
-                        struct net_device *netdev,
-                        struct net_device *filter_dev, int idx)
-{
-        struct qlcnic_adapter *adapter = netdev_priv(netdev);
-...
-
-netdev_priv(netdev) returns a pointer to private struct of the bridge,but the driver
-is expecting it's own private stuff.
-
-Should we fix the driver and assume filter_dev is /me and dev is our master
-or the parameters were reversed and should be passed as (skb, cb, dev, bdev, idx) ?
-Is this something for another patch/discussion?
-
-regards,
-Hubert
-
--- 
-Hubert Sokolowski          Intel Corporation
+The switch asic can do l2 and l3 too. For a bridge, the switch asic is 
+just accelerating l2.
+And a switch asic is also capable of l3, acls. A switch device (whether 
+accessible to userspace or not)
+may become necessary (as discussed in other threads) where you cannot 
+resolve a kernel object to a switch port (Global acl rules, unresolved 
+route nexthops etc).
