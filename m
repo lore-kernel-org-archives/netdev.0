@@ -1,8 +1,8 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
 Subject: Re: [PATCH net-next v3] Add support of Cavium Liquidio ethernet
  adapters
-Date: Thu, 18 Dec 2014 23:14:01 -0800
-Message-ID: <20141218231401.3f569ad9@urahara>
+Date: Thu, 18 Dec 2014 23:21:09 -0800
+Message-ID: <20141218232109.2c5a8680@urahara>
 References: <feba8d6dd1904fc3936864ae332df6d8@CO2PR0701MB744.namprd07.prod.outlook.com>
 	<1418959519-31681-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
@@ -15,12 +15,12 @@ Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 To: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:34994 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751317AbaLSHOL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 02:14:11 -0500
-Received: by mail-pd0-f171.google.com with SMTP id y13so638070pdi.30
-        for <netdev@vger.kernel.org>; Thu, 18 Dec 2014 23:14:11 -0800 (PST)
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:58735 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751003AbaLSHVU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 02:21:20 -0500
+Received: by mail-pa0-f41.google.com with SMTP id rd3so658641pab.14
+        for <netdev@vger.kernel.org>; Thu, 18 Dec 2014 23:21:20 -0800 (PST)
 In-Reply-To: <1418959519-31681-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -28,27 +28,12 @@ List-ID: <netdev.vger.kernel.org>
 On Thu, 18 Dec 2014 19:25:19 -0800
 Raghu Vatsavayi <rvatsavayi@caviumnetworks.com> wrote:
 
-> +static int liquidio_xmit(struct sk_buff *skb, struct net_device *netdev)
+> +static int liquidio_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 > +{
-> +	struct lio *lio;
-> +	struct octnet_buf_free_info *finfo;
-> +	union octnic_cmd_setup cmdsetup;
-> +	struct octnic_data_pkt ndata;
-> +	struct octeon_device *oct;
-> +	int cpu = 0, status = 0;
-> +	int q_idx = 0;
-> +	int xmit_more;
-> +
-> +	lio = GET_LIO(netdev);
-> +	oct = lio->oct_dev;
-> +	atomic64_inc((atomic64_t *)&lio->stats.tx_packets);
-> +	lio->stats.tx_bytes += skb->len;
-> +
-> +	if (!ifstate_check(lio, LIO_IFSTATE_TXENABLED)) {
-> +		lio_info(lio, tx_err, "Transmit Busy, not enabled\n");
-> +		return NETDEV_TX_BUSY;
-> +	}
+> +	switch (cmd) {
+> +	case SIOCSHWTSTAMP:
+> +		return hwtstamp_ioctl(netdev, ifr, cmd);
+> +	default:
+> +		return -EINVAL
 
-This kind of busy handling in transmit, will cause the send in higher
-level to retry and spin the CPU. Better to do proper flow control
-like other drivers.
+Standard error code for unsupported ioctl is -EOPNOTSUPP
