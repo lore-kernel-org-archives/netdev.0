@@ -1,42 +1,68 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 3/3] bnep: bnep_add_connection() should verify that it's dealing with l2cap socket
-Date: Fri, 19 Dec 2014 06:20:59 +0000
-Message-ID: <1418970059-32486-3-git-send-email-viro@ZenIV.linux.org.uk>
-References: <20141219061801.GU22149@ZenIV.linux.org.uk>
-Cc: Marcel Holtmann <marcel@holtmann.org>, netdev@vger.kernel.org,
-	linux-bluetooth@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:58025 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751370AbaLSGVB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 01:21:01 -0500
-In-Reply-To: <20141219061801.GU22149@ZenIV.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: [PATCH net] r8152: drop the tx packet with invalid length
+Date: Fri, 19 Dec 2014 06:42:14 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2ED585A@RTITMBSV03.realtek.com.tw>
+References: <1417020748.29427.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20141126.120658.498602780456343676.davem@davemloft.net>
+	<1417027459.29427.63.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20141126.153356.461494573591656082.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	nic_swsd <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141126.153356.461494573591656082.davem@davemloft.net>
+Content-Language: zh-TW
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Al Viro <viro@zeniv.linux.org.uk>
+> From: David Miller [mailto:davem@davemloft.net] 
+> Sent: Thursday, November 27, 2014 4:34 AM
+[...]
+> >> > Looks like a candidate for ndo_gso_check(), so that we do not drop, but
+> >> > instead segment from netif_needs_gso()/validate_xmit_skb()
+> >> 
+> >> You mean have the bridge implement the ndo_gso_check() method right?
+> > 
+> > No, I meant this particular driver.
+> > 
+> > Note that netif_skb_features() does only this check :
+> > 
+> > if (gso_segs > dev->gso_max_segs || gso_segs < dev->gso_min_segs)
+> >       features &= ~NETIF_F_GSO_MASK;
+> > 
+> > Ie not testing gso_max_size
+> > 
+> > It looks like all these particular tests should be moved on
+> > ndo_gso_check(), to remove code from netif_skb_features()
+> 
+> A check against gso_max_size is generic enough that it ought to be put
+> right into netif_needs_gso() rather then duplicating it into every
+> driver's ndo_gso_check() method don't you think?
 
-same story as cmtp
+Excuse me. I try to implement ndo_gso_check() with kernel 3.18.
+However, I still get packets with gso and their skb lengths are more
+than the acceptable one. Do I miss something?
 
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
----
- net/bluetooth/bnep/core.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/bluetooth/bnep/core.c b/net/bluetooth/bnep/core.c
-index 85bcc21..ce82722d0 100644
---- a/net/bluetooth/bnep/core.c
-+++ b/net/bluetooth/bnep/core.c
-@@ -533,6 +533,9 @@ int bnep_add_connection(struct bnep_connadd_req *req, struct socket *sock)
- 
- 	BT_DBG("");
- 
-+	if (!l2cap_is_socket(sock))
-+		return -EBADFD;
++static bool rtl8152_gso_check(struct sk_buff *skb, struct net_device *dev)
++{
++	if ((skb->len + sizeof(struct tx_desc)) > agg_buf_sz)
++		return false;
 +
- 	baswap((void *) dst, &l2cap_pi(sock->sk)->chan->dst);
- 	baswap((void *) src, &l2cap_pi(sock->sk)->chan->src);
++	return true;
++}
  
--- 
-2.1.3
+@@ -5861,6 +5876,9 @@ static const struct net_device_ops rtl8152_netdev_ops = {
+ 	.ndo_set_mac_address	= rtl8152_set_mac_address,
+ 	.ndo_change_mtu		= rtl8152_change_mtu,
+ 	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_gso_check		= rtl8152_gso_check,
+ };
+
+Best Regards,
+Hayes
