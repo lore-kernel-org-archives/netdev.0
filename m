@@ -1,59 +1,58 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net] enic: fix rx skb checksum
-Date: Fri, 19 Dec 2014 11:07:32 +0100
-Message-ID: <20141219110732.53264ef8@griffin>
-References: <1418898522-13588-1-git-send-email-_govind@gmx.com>
-	<1418920017.9773.80.camel@edumazet-glaptop2.roam.corp.google.com>
-	<17951.1418924367@famine>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Govindarajulu Varadarajan <_govind@gmx.com>,
-	davem@davemloft.net, netdev@vger.kernel.org, ssujith@cisco.com,
-	benve@cisco.com, Stefan Assmann <sassmann@redhat.com>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [patches] a bunch of old bluetooth fixes
+Date: Fri, 19 Dec 2014 11:28:35 +0100
+Message-ID: <B0609FEE-1CE5-4618-A0B6-B2B82B1EC74D@holtmann.org>
+References: <20141219061801.GU22149@ZenIV.linux.org.uk>
+Mime-Version: 1.0 (Mac OS X Mail 8.1 \(1993\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-bluetooth@vger.kernel.org
+To: Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53382 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751696AbaLSKH6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Dec 2014 05:07:58 -0500
-In-Reply-To: <17951.1418924367@famine>
+Received: from senator.holtmann.net ([87.106.208.187]:52649 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751706AbaLSK2k convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 05:28:40 -0500
+In-Reply-To: <20141219061801.GU22149@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 18 Dec 2014 09:39:27 -0800, Jay Vosburgh wrote:
-> 	I've actually been looking into this "hw csum failure" (as it
-> appears with OVS and VXLAN) the last couple of days, and, at least on
-> the sky2 hardware I have, the problem doesn't appear to be the
-> hardware's CHECKSUM_COMPLETE checksumming.
+Hi Al,
 
-With the enic driver, the problem _is_ the hardware checksumming.
+> 	This stuff has been sitting in my queue since March; basically,
+> several places in net/bluetooth assume that they are dealing with
+> l2cap sockets, while it is possible to get an arbitrary socket to those.
+> Results are not pretty.
+> 	* HIDPCONNADD gets an arbitrary user-supplied socket; the code
+> it calls (hidp_connection_add()) verifies that the socket is l2cap one,
+> but before doing so it finds l2cap_pi(ctrl_sock->sk)->chan.  It's not
+> that big a deal (it's only 5 words past the end of struct sock), but
+> it's trivial to avoid and, in theory, we might end up oopsing here if
+> we are very unlucky and it happens to hit an unmapped page just past
+> the actual object ctrl_sock->sk sits in.
+> 	* CMTP counterpart of that doesn't validate the socket at all.
+> It proceeds to
+>        s = __cmtp_get_session(&l2cap_pi(sock->sk)->chan->dst);
+> which can very easily oops - here ->chan is already garbage and we
+> proceed to dereference that.  As with HIDP, one needs CAP_NET_ADMIN to
+> trigger that, but it's really a clear bug.  The only sanity check we
+> do is verifying that nsock->sk->sk_state is equal to BT_CONNECTED,
+> which is not unique to bluetooth, to put it mildly.  It's just 1,
+> so a TCP_ESTABLISHED tcp socket will pass that check just fune.
+> The fix is trivial...
+> 	* BNEP situation is identical to CMTP one.
+> 
+> I've sent these patches back then (March 10), but they seem to have fallen
+> through the cracks.  The bugs are still there and the fixes still apply.
+> If you would prefer me to resend them after -rc1, just tell...
 
-While debugging the "hw csum failure" messages, I verified the checksum
-returned by the hardware directly in the driver (in
-enic_rq_indicate_buf). It appears that for some packets (most notably
-ICMP ones), the hardware returns 0xffff. I did not see any other wrong
-value, in other words, the returned checksum was either correct, or
-0xffff.
+they must have really fallen through the cracks since I do not even remember them.
 
-I have no idea whether the hardware verified the checksum for the
-0xffff case and is just not returning the checksum or whether such
-packets come completely unverified.
+My take is that these should all go in before -rc1 and preferable also make it into stable. While you need CAP_NET_ADMIN capability, there are clear stupid bugs on our side.
 
-As for Govindarajulu's patch, I believe we can do better. First, its
-description does not match what I'm seeing (I see correct checksum
-provided in most cases) and second, the driver should provide
-CHECKSUM_COMPLETE whenever possible; and it seems to be possible.
+Dave, we can prepare a pull request for these or do you want to take them directly into net tree?
 
-> 	I've also not tested it on enic hardware.  Govindarajulu, would
-> you be able to test this against the unmodified enic driver and see if
-> it resolves the problem for you?
+Regards
 
-I'm quite sure it does not, the skb->csum field is incorrect even
-before the skb enters the stack.
-
- Jiri
-
--- 
-Jiri Benc
+Marcel
