@@ -1,8 +1,8 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
 Subject: Re: [PATCH net-next v3] Add support of Cavium Liquidio ethernet
  adapters
-Date: Thu, 18 Dec 2014 23:26:38 -0800
-Message-ID: <20141218232638.354030ae@urahara>
+Date: Thu, 18 Dec 2014 23:28:33 -0800
+Message-ID: <20141218232833.3e640164@urahara>
 References: <feba8d6dd1904fc3936864ae332df6d8@CO2PR0701MB744.namprd07.prod.outlook.com>
 	<1418959519-31681-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
@@ -15,12 +15,12 @@ Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 To: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:38966 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751003AbaLSH0t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 02:26:49 -0500
-Received: by mail-pa0-f49.google.com with SMTP id eu11so651257pac.36
-        for <netdev@vger.kernel.org>; Thu, 18 Dec 2014 23:26:48 -0800 (PST)
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:38126 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751547AbaLSH2n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 02:28:43 -0500
+Received: by mail-pa0-f50.google.com with SMTP id bj1so656024pad.37
+        for <netdev@vger.kernel.org>; Thu, 18 Dec 2014 23:28:43 -0800 (PST)
 In-Reply-To: <1418959519-31681-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -28,24 +28,14 @@ List-ID: <netdev.vger.kernel.org>
 On Thu, 18 Dec 2014 19:25:19 -0800
 Raghu Vatsavayi <rvatsavayi@caviumnetworks.com> wrote:
 
-> +/**
-> + * \brief Alloc net device
-> + * @param size Size to allocate
-> + * @param nq how many queues
-> + * @returns pointer to net device structure
-> + */
-> +static inline struct net_device *liquidio_alloc_netdev(int size, int nq)
+> +void process_noresponse_list(struct octeon_device *oct,
+> +			     struct octeon_instr_queue *iq)
 > +{
-> +	if (nq > 1)
-> +		return alloc_netdev_mq(size, "lio%d", NET_NAME_UNKNOWN,
-> +				       ether_setup, nq);
-> +	else
-> +		return alloc_netdev(size, "lio%d", NET_NAME_UNKNOWN,
-> +				    ether_setup);
-> +}
+> +	uint32_t get_idx;
+> +	struct octeon_soft_command *sc;
+> +	struct octeon_instr_ih *ih;
 
-There is no need for the (nq > 1) test, just do:
-> +		return alloc_netdev_mq(size, "lio%d", NET_NAME_UNKNOWN,
-> +				       ether_setup, nq);
+All global function names must start with same prefix, driver may not
+always be built as a module. 
 
-Also, why does this device not have standard ethernet naming?
+In this case oceteon_process_noresponse_list.
