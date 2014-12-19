@@ -1,77 +1,60 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH Iproute2 next] ip netns: 'ip netns id' cmd without
- argument should not give error
-Date: Fri, 19 Dec 2014 10:31:53 +0200
-Message-ID: <20141219083153.GA11360@angus-think>
-References: <1418969138-26199-1-git-send-email-maheshb@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Vadim Kochan <vadim4j@gmail.com>,
-	Saied Kazemi <saied@google.com>
-To: Mahesh Bandewar <maheshb@google.com>
+From: Wengang Wang <wen.gang.wang@oracle.com>
+Subject: [PATCH] bonding: avoid re-entry of bond_release
+Date: Fri, 19 Dec 2014 16:56:57 +0800
+Message-ID: <1418979417-28867-1-git-send-email-wen.gang.wang@oracle.com>
+Cc: wen.gang.wang@oracle.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:48461 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751802AbaLSIl4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 03:41:56 -0500
-Received: by mail-lb0-f178.google.com with SMTP id f15so468354lbj.37
-        for <netdev@vger.kernel.org>; Fri, 19 Dec 2014 00:41:55 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1418969138-26199-1-git-send-email-maheshb@google.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:39541 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751871AbaLSIza (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 03:55:30 -0500
+Received: from acsinet22.oracle.com (acsinet22.oracle.com [141.146.126.238])
+	by aserp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id sBJ8tTtR024802
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Fri, 19 Dec 2014 08:55:29 GMT
+Received: from userz7022.oracle.com (userz7022.oracle.com [156.151.31.86])
+	by acsinet22.oracle.com (8.14.4+Sun/8.14.4) with ESMTP id sBJ8tSlj016437
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Fri, 19 Dec 2014 08:55:28 GMT
+Received: from abhmp0003.oracle.com (abhmp0003.oracle.com [141.146.116.9])
+	by userz7022.oracle.com (8.14.5+Sun/8.14.4) with ESMTP id sBJ8tRfJ002512
+	for <netdev@vger.kernel.org>; Fri, 19 Dec 2014 08:55:28 GMT
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 18, 2014 at 10:05:38PM -0800, Mahesh Bandewar wrote:
-> The command 'ip netns identify' without PID parameter is supposed to
-> use the self PID to identify its ns but a trivial error prevented it
-> from doing so. This patch fixes that error.
-> 
-> So before the patch -
-> 	# ip netns id
-> 	No pid specified
-> 	# echo $?
-> 	1
-> 	#
-> 
-> After the patch -
-> 	# ip netns id
-> 	test-ns
-> 	# echo $?
-> 	0
-> 	#
-> 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Cc: Vadim Kochan <vadim4j@gmail.com> 
-> Cc: Saied Kazemi <saied@google.com>
-> ---
->  ip/ipnetns.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-> index 1c8aa029073e..ec9afa2177a5 100644
-> --- a/ip/ipnetns.c
-> +++ b/ip/ipnetns.c
-> @@ -298,7 +298,7 @@ static int netns_identify(int argc, char **argv)
->  	DIR *dir;
->  	struct dirent *entry;
->  
-> -	if (argc < 1) {
-> +	if (!argc) {
->  		pidstr = "self";
->  	} else if (argc > 1) {
->  		fprintf(stderr, "extra arguments specified\n");
-> -- 
-> 2.2.0.rc0.207.ga3a616c
-> 
+If bond_release is run against an interface which is already detached from
+it's master, then there is an error message shown like
+	"<master name> cannot release <slave name>".
 
-Hi Mahesh,
+The call path is:
+	bond_do_ioctl()
+		bond_release()
+			__bond_release_one()
 
-I did not get such error on the current master branch?
+Though it does not really harm, the message the message is misleading.
+This patch tries to avoid the message.
 
-Did I miss something ?
+Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
+---
+ drivers/net/bonding/bond_main.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-Regards,
-Vadim Kochan
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 184c434..4a71bbd 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3256,7 +3256,10 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
+ 		break;
+ 	case BOND_RELEASE_OLD:
+ 	case SIOCBONDRELEASE:
+-		res = bond_release(bond_dev, slave_dev);
++		if (slave_dev->flags & IFF_SLAVE)
++			res = bond_release(bond_dev, slave_dev);
++		else
++			res = 0;
+ 		break;
+ 	case BOND_SETHWADDR_OLD:
+ 	case SIOCBONDSETHWADDR:
+-- 
+1.8.3.1
