@@ -1,55 +1,110 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: Recent Linus' tree, kernel BUG at fs/inode.c:1436!
-Date: Fri, 19 Dec 2014 15:08:42 +0300
-Message-ID: <5494154A.5040402@parallels.com>
-References: <54940D28.8050901@parallels.com> <20141219120129.GX22149@ZenIV.linux.org.uk>
+From: Hubert Sokolowski <hubert.sokolowski@intel.com>
+Subject: [PATCH net-next v3] net: Do not call ndo_dflt_fdb_dump if ndo_fdb_dump
+ is defined
+Date: Fri, 19 Dec 2014 12:14:01 +0000
+Message-ID: <54941689.7060100@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	linux-fsdevel <linux-fsdevel@vger.kernel.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20141219120129.GX22149@ZenIV.linux.org.uk>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ray.kinsella@intel.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:50315 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752545AbaLSMOD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Dec 2014 07:14:03 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/19/2014 03:01 PM, Al Viro wrote:
-> On Fri, Dec 19, 2014 at 02:34:00PM +0300, Pavel Emelyanov wrote:
->> Hi,
->>
->> It looks like there's a strange refcount underflow in VFS/socket code.
->> The proggie [1] crashes the recent Linus' tree (d790be38 Merge tag
->> 'modules-next-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/rusty/linux) 
->> with the calltrace [2].
->>
->> If in the proggie the psk is replaced with non-socket descriptor the
->> issue doesn't appear.
-> 
-> Gyah... mismerge on cherry-pick.  My fault - ->i_fop assignment should've
-> been removed from sock_alloc_file() in bd9b51.  Could you verify that the
-> following recovers the things?
-> 
-> diff --git a/net/socket.c b/net/socket.c
-> index 70bbde6..a2c33a4 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -372,7 +372,6 @@ struct file *sock_alloc_file(struct socket *sock, int flags, const char *dname)
->  	path.mnt = mntget(sock_mnt);
->  
->  	d_instantiate(path.dentry, SOCK_INODE(sock));
-> -	SOCK_INODE(sock)->i_fop = &socket_file_ops;
->  
->  	file = alloc_file(&path, FMODE_READ | FMODE_WRITE,
->  		  &socket_file_ops);
-> .
-> 
+Add checking whether the call to ndo_dflt_fdb_dump is needed.
+It is not expected to call ndo_dflt_fdb_dump unconditionally
+by some drivers (i.e. qlcnic or macvlan) that defines
+own ndo_fdb_dump. Other drivers define own ndo_fdb_dump
+and don't want ndo_dflt_fdb_dump to be called at all.
+At the same time it is desirable to call the default dump
+function on a bridge device.
 
-Acked-by: Pavel Emelyanov <xemul@parallels.com>
+Following tests for filtering have been performed before
+the change and after the patch was applied to make sure
+they are the same and it doesn't break the filtering algorithm.
 
-This also makes socket non-open-able back again, which, in turn, was
-another issue I was surprised with on the new kernel :)
+[root@localhost ~]# cd /root/iproute2-3.17.0/bridge
+[root@localhost bridge]# modprobe dummy
+[root@localhost bridge]# ./bridge fdb add f1:f2:f3:f4:f5:f6 dev dummy0
+[root@localhost bridge]# brctl addbr br0
+[root@localhost bridge]# brctl addif  br0 dummy0
+[root@localhost bridge]# ip link set dev br0 address 02:00:00:12:01:04
+[root@localhost bridge]# # show all
+[root@localhost bridge]# ./bridge fdb show
+33:33:00:00:00:01 dev p2p1 self permanent
+01:00:5e:00:00:01 dev p2p1 self permanent
+33:33:ff:ac:ce:32 dev p2p1 self permanent
+33:33:00:00:02:02 dev p2p1 self permanent
+01:00:5e:00:00:fb dev p2p1 self permanent
+33:33:00:00:00:01 dev p7p1 self permanent
+01:00:5e:00:00:01 dev p7p1 self permanent
+33:33:ff:79:50:53 dev p7p1 self permanent
+33:33:00:00:02:02 dev p7p1 self permanent
+01:00:5e:00:00:fb dev p7p1 self permanent
+7e:0c:8b:b1:59:da dev dummy0 master br0 permanent
+7e:0c:8b:b1:59:da dev dummy0 vlan 1 master br0 permanent
+33:33:00:00:00:01 dev dummy0 self permanent
+f1:f2:f3:f4:f5:f6 dev dummy0 self permanent
+33:33:00:00:00:01 dev br0 self permanent
+02:00:00:12:01:04 dev br0 vlan 1 master br0 permanent
+02:00:00:12:01:04 dev br0 master br0 permanent
+[root@localhost bridge]# # filter by bridge
+[root@localhost bridge]# ./bridge fdb show br br0
+7e:0c:8b:b1:59:da dev dummy0 master br0 permanent
+7e:0c:8b:b1:59:da dev dummy0 vlan 1 master br0 permanent
+33:33:00:00:00:01 dev dummy0 self permanent
+f1:f2:f3:f4:f5:f6 dev dummy0 self permanent
+33:33:00:00:00:01 dev br0 self permanent
+02:00:00:12:01:04 dev br0 vlan 1 master br0 permanent
+02:00:00:12:01:04 dev br0 master br0 permanent
+[root@localhost bridge]# # filter by port
+[root@localhost bridge]# ./bridge fdb show brport dummy0
+7e:0c:8b:b1:59:da master br0 permanent
+7e:0c:8b:b1:59:da vlan 1 master br0 permanent
+33:33:00:00:00:01 self permanent
+f1:f2:f3:f4:f5:f6 self permanent
+[root@localhost bridge]# # filter by port + bridge
+[root@localhost bridge]# ./bridge fdb show br br0 brport dummy0
+7e:0c:8b:b1:59:da master br0 permanent
+7e:0c:8b:b1:59:da vlan 1 master br0 permanent
+33:33:00:00:00:01 self permanent
+f1:f2:f3:f4:f5:f6 self permanent
+[root@localhost bridge]#
 
-Thanks,
-Pavel
+Also following test was performed to proove it fixes the problem
+with macvlan driver where dflt_fdb_dump was called twice showing
+duplicate self entries:
+[root@localhost bridge]# modprobe dummy
+[root@localhost bridge]# ip li add link dummy0 mac0 type macvlan
+[root@localhost bridge]# ./bridge fdb show dev mac0
+33:33:00:00:00:01 self permanent
+[root@localhost bridge]#
 
+Signed-off-by: Hubert Sokolowski <hubert.sokolowski@intel.com>
+---
+ net/core/rtnetlink.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index d06107d..d32518c 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2693,7 +2693,10 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 							 idx);
+ 		}
+ 
+-		idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
++		if ((dev->priv_flags & IFF_EBRIDGE) ||
++		    !(dev->netdev_ops->ndo_fdb_dump))
++			idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
++
+ 		if (dev->netdev_ops->ndo_fdb_dump)
+ 			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, bdev, dev,
+ 							    idx);
+-- 
+1.9.3
