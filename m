@@ -1,76 +1,70 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH] bonding: avoid re-entry of bond_release
-Date: Fri, 19 Dec 2014 10:11:57 -0500
-Message-ID: <20141219151157.GD22253@gospo>
-References: <1418979417-28867-1-git-send-email-wen.gang.wang@oracle.com>
+From: Hubert Sokolowski <hubert.sokolowski@intel.com>
+Subject: Re: [PATCH net-next RESEND] net: Do not call ndo_dflt_fdb_dump if
+ ndo_fdb_dump is defined.
+Date: Fri, 19 Dec 2014 15:17:31 +0000
+Message-ID: <5494418B.1000004@intel.com>
+References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>    <54894850.5000603@cumulusnetworks.com>    <7968540cd0768a770b0c8b29ce41a162.squirrel@poczta.wsisiz.edu.pl>    <5489D53E.5010603@cumulusnetworks.com>    <8d4ec5c1ae73c77866a0a154fb528f23.squirrel@poczta.wsisiz.edu.pl>    <548AD781.5020004@mojatatu.com>    <4c22a6c452a73b3b77a9a9c8e7f76bcc.squirrel@poczta.wsisiz.edu.pl>    <548AFD41.3010801@mojatatu.com> <548B4AA4.1020804@gmail.com>    <548EF05E.6050401@mojatatu.com> <548F80B2.80408@gmail.com>    <5491A3B5.9070601@redhat.com> <e3ac4e3535a18f6dd1cf31030674f91c.squirrel@poczta.wsisiz.edu.pl> <54935618.4070005@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Wengang Wang <wen.gang.wang@oracle.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>, vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:35795 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750968AbaLSPMQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 10:12:16 -0500
-Content-Disposition: inline
-In-Reply-To: <1418979417-28867-1-git-send-email-wen.gang.wang@oracle.com>
+Received: from mga01.intel.com ([192.55.52.88]:64888 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750968AbaLSPRl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Dec 2014 10:17:41 -0500
+In-Reply-To: <54935618.4070005@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 19, 2014 at 04:56:57PM +0800, Wengang Wang wrote:
-> If bond_release is run against an interface which is already detached from
-> it's master, then there is an error message shown like
-> 	"<master name> cannot release <slave name>".
-> 
-> The call path is:
-> 	bond_do_ioctl()
-> 		bond_release()
-> 			__bond_release_one()
-> 
-> Though it does not really harm, the message the message is misleading.
-> This patch tries to avoid the message.
-> 
-> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
-> ---
->  drivers/net/bonding/bond_main.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 184c434..4a71bbd 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -3256,7 +3256,10 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
->  		break;
->  	case BOND_RELEASE_OLD:
->  	case SIOCBONDRELEASE:
-> -		res = bond_release(bond_dev, slave_dev);
-> +		if (slave_dev->flags & IFF_SLAVE)
-> +			res = bond_release(bond_dev, slave_dev);
-> +		else
-> +			res = 0;
+On 18/12/14 22:32, Jamal Hadi Salim wrote:
 
-Functionally this patch is fine, but I would prefer that you simply
-change the check in __bond_release_one to not be so noisy.  There is a
-check[1] in bond_enslave to see if a slave is already in a bond and that
-just prints a message of netdev_dbg (rather than netdev_err) and it
-seems that would be appropriate for this type of message.
+> Sorry for the latency (head-buried-in-sand in effect)
+> On 12/17/14 11:18, Hubert Sokolowski wrote:
+>> I have just prepared a patch where I dump uc/mc for bridge devices
+>> by looking at (dev->priv_flags & IFF_EBRIDGE), so I have same results
+>> as without my changes. This should satisfy Jamal and Roopa.
+>> I could send it as v3 of my patch along with the results if you are
+>> interested.
+> Please do. If you satisfy Vlad's goals then we are all happy.
 
-[1] from bond_enslave():
+Posted as v3, please review.
+There is still open question I asked sometime ago but never got explained.
+It is about the new filter_dev parameter that was added to ndo_fdb_dump:
+        int                     (*ndo_fdb_dump)(struct sk_buff *skb,
+                                                struct netlink_callback *cb,
+                                                struct net_device *dev,
+                                                struct net_device *filter_dev,
+                                                int idx);
 
-        /* already enslaved */
-        if (slave_dev->flags & IFF_SLAVE) {
-                netdev_dbg(bond_dev, "Error: Device was already enslaved\n");
-                return -EBUSY;
-        }
+When we call this function for a device, dev pointer is passed as the filter_dev:
+                if (dev->netdev_ops->ndo_fdb_dump)
+                        idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, bdev, dev,
+                                                            idx);
 
+This is not an issue for a bridge device and a device that is not enslaved
+in a bridge because bdev == dev, but this can be dangerous in other cases.
+Let's assume QLogic NIC has a master device, in this case bdev != dev.
+Now look what is happening, dev is passed as filter_dev to:
+static int qlcnic_fdb_dump(struct sk_buff *skb, struct netlink_callback *ncb,
+                        struct net_device *netdev,
+                        struct net_device *filter_dev, int idx)
+{
+        struct qlcnic_adapter *adapter = netdev_priv(netdev);
+...
 
->  		break;
->  	case BOND_SETHWADDR_OLD:
->  	case SIOCBONDSETHWADDR:
-> -- 
-> 1.8.3.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+netdev_priv(netdev) returns a pointer to private struct of the bridge,but the driver
+is expecting it's own private stuff.
+
+Should we fix the driver and assume filter_dev is /me and dev is our master
+or the parameters were reversed and should be passed as (skb, cb, dev, bdev, idx) ?
+Is this something for another patch/discussion?
+
+regards,
+Hubert
+
+-- 
+Hubert Sokolowski          Intel Corporation
