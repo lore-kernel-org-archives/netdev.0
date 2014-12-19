@@ -1,50 +1,74 @@
 From: "Chickles, Derek" <Derek.Chickles@caviumnetworks.com>
 Subject: RE: [PATCH net-next v3] Add support of Cavium Liquidio ethernet
  adapters
-Date: Fri, 19 Dec 2014 22:20:34 +0000
-Message-ID: <BY2PR07MB486A98FB6C4520C7DEDA564FE6B0@BY2PR07MB486.namprd07.prod.outlook.com>
+Date: Fri, 19 Dec 2014 22:39:47 +0000
+Message-ID: <BY2PR07MB486FCC30E2D888F074697C9FE6B0@BY2PR07MB486.namprd07.prod.outlook.com>
 References: <feba8d6dd1904fc3936864ae332df6d8@CO2PR0701MB744.namprd07.prod.outlook.com>
  <1418959519-31681-1-git-send-email-rvatsavayi@caviumnetworks.com>
- <5494A0DD.1010304@gmx.de>
+ <54949D24.1040707@gmx.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"Burla, Satananda" <Satananda.Burla@caviumnetworks.com>,
 	"Manlunas, Felix" <Felix.Manlunas@caviumnetworks.com>,
-	"Vatsavayi, Raghu" <Raghu.Vatsavayi@caviumnetworks.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
+	"Vatsavayi, Raghu" <Raghu.Vatsavayi@caviumnetworks.com>
 To: Lino Sanfilippo <LinoSanfilippo@gmx.de>,
 	"Vatsavayi, Raghu" <Raghu.Vatsavayi@caviumnetworks.com>,
 	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0072.outbound.protection.outlook.com ([65.55.169.72]:47969
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+Received: from mail-bn1on0056.outbound.protection.outlook.com ([157.56.110.56]:26688
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752087AbaLSWfi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 17:35:38 -0500
-In-Reply-To: <5494A0DD.1010304@gmx.de>
+	id S1751762AbaLSWju convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 17:39:50 -0500
+In-Reply-To: <54949D24.1040707@gmx.de>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 > On 19.12.2014 04:25, Raghu Vatsavayi wrote:
-> > +static void cn6xxx_disable_interrupt(void *chip)
+> > +static int setup_nic_devices(struct octeon_device *octeon_dev)
 > > +{
-> > +	struct octeon_cn6xxx *cn6xxx = (struct octeon_cn6xxx *)chip;
+...
 > > +
-> > +	/* Disable Interrupts */
-> > +	writeq(0, cn6xxx->intr_enb_reg64);
-> > +}
+> > +	sc = kmalloc(sizeof(*sc), GFP_ATOMIC);
+> > +	if (!sc)
+> > +		return -ENOMEM;
 > > +
+> > +	resp = kmalloc(sizeof(*resp), GFP_KERNEL);
+> > +	if (!resp) {
+> > +		kfree(sc);
+> > +		return -ENOMEM;
+> > +	}
+...
+> > +		init_waitqueue_head(&resp->s.wc);
+...
+> > +
+> > +		retval = octeon_send_soft_command(octeon_dev, sc);
+> > +		if (retval) {
+> > +			lio_dev_err(octeon_dev,
+> > +				    "Link status instruction failed status: %x\n",
+> > +				    retval);
+> > +			/* Soft instr is freed by driver in case of failure. */
+> > +			goto setup_nic_dev_fail;
+> > +		}
+> > +
+> > +		/* Sleep on a wait queue till the cond flag indicates that the
+> > +		 * response arrived or timed-out.
+> > +		 */
+> > +		sleep_cond(&resp->s.wc, &resp->s.cond);
+...
+> > +	kfree(sc);
+> > +	kfree(resp);
 > 
-> This could also be a good candidate for forced write posting. The code
-> assumes that interrupts are actually deactivated after that.
+> I wonder if this is correct. AFAICS sc is the same memory that we put on
+> the octeon_instr_queue (see send_soft_command() ->
+> send_command()->add_to_nrlist()). Is that queue cleared before sc is
+> freed?
 > 
-> Regards,
-> Lino
 > 
-> 
-Good catch. We'll examine all the writeq and OCTEON_PCI_WIN_WRITE
-calls to make sure there aren't any other critical posted write scenarios that
-we've missed.
+
+Yes, it's correct. We wait for the response before exiting this loop with
+that sleep_cond() call. This adds an entry to a wait_queue that is
+serviced asynchronously and will return once it is complete.
