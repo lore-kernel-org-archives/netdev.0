@@ -1,49 +1,48 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCHv1 net] xen-netback: support frontends without
- feature-rx-notify again
-Date: Thu, 18 Dec 2014 11:51:18 +0000
-Message-ID: <20141218115117.GN1904@zion.uk.xensource.com>
-References: <1418901186-14478-1-git-send-email-david.vrabel@citrix.com>
+From: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
+Subject: [PATCH net] be2net: Fix incorrect setting of tunnel offload flag in netdev features
+Date: Fri, 19 Dec 2014 10:00:18 +0530
+Message-ID: <1418963418-18792-1-git-send-email-sriharsha.basavapatna@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-To: David Vrabel <david.vrabel@citrix.com>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:38255 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751378AbaLRLvU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2014 06:51:20 -0500
-Content-Disposition: inline
-In-Reply-To: <1418901186-14478-1-git-send-email-david.vrabel@citrix.com>
+Received: from cmexedge1.emulex.com ([138.239.224.99]:46766 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751839AbaLRMEG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2014 07:04:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 18, 2014 at 11:13:06AM +0000, David Vrabel wrote:
-> Commit bc96f648df1bbc2729abbb84513cf4f64273a1f1 (xen-netback: make
-> feature-rx-notify mandatory) incorrectly assumed that there were no
-> frontends in use that did not support this feature.  But the frontend
-> driver in MiniOS does not and since this is used by (qemu) stubdoms,
-> these stopped working.
-> 
-> Netback sort of works as-is in this mode except:
-> 
-> - If there are no Rx requests and the internal Rx queue fills, only
->   the drain timeout will wake the thread.  The default drain timeout
->   of 10 s would give unacceptable pauses.
-> 
-> - If an Rx stall was detected and the internal Rx queue is drained,
->   then the Rx thread would never wake.
-> 
-> Handle these two cases (when feature-rx-notify is disabled) by:
-> 
-> - Reducing the drain timeout to 30 ms.
-> 
-> - Disabling Rx stall detection.
-> 
-> Reported-by: John <jw@nuclearfallout.net>
-> Tested-by: John <jw@nuclearfallout.net>
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+An earlier commit to resolve an issue with encapsulation offloads missed
+setting a bit in the outer netdev features flag. This results in loss of TSO
+feature on a VxLAN interface.
 
-Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+Fixes: 630f4b70 ("Export tunnel offloads only when a VxLAN tunnel is created")
+
+Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 2aacd47..1960731 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -3138,6 +3138,7 @@ static void be_disable_vxlan_offloads(struct be_adapter *adapter)
+ 
+ 	netdev->hw_enc_features = 0;
+ 	netdev->hw_features &= ~(NETIF_F_GSO_UDP_TUNNEL);
++	netdev->features &= ~(NETIF_F_GSO_UDP_TUNNEL);
+ }
+ #endif
+ 
+@@ -4429,6 +4430,7 @@ static void be_add_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
+ 				   NETIF_F_TSO | NETIF_F_TSO6 |
+ 				   NETIF_F_GSO_UDP_TUNNEL;
+ 	netdev->hw_features |= NETIF_F_GSO_UDP_TUNNEL;
++	netdev->features |= NETIF_F_GSO_UDP_TUNNEL;
+ 
+ 	dev_info(dev, "Enabled VxLAN offloads for UDP port %d\n",
+ 		 be16_to_cpu(port));
+-- 
+1.7.9.5
