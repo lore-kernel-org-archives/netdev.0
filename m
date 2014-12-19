@@ -1,140 +1,82 @@
-From: Qin Chuanyu <qinchuanyu@huawei.com>
-Subject: Re: [PATCH RFC v4 net-next 1/5] virtio_net: enable tx interrupt
-Date: Fri, 19 Dec 2014 15:32:24 +0800
-Message-ID: <5493D488.7020000@huawei.com>
-References: <1417429028-11971-1-git-send-email-jasowang@redhat.com>
-	<1417429028-11971-2-git-send-email-jasowang@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC PATCH net-next v3 1/1] net: Support for switch port
+ configuration
+Date: Fri, 19 Dec 2014 09:12:16 +0100
+Message-ID: <20141219081216.GB1848@nanopsycho.orion>
+References: <C4896FB061E7DE4AAC93031BDCA044B104AD9F56@IRSMSX108.ger.corp.intel.com>
+ <5492FAD4.7070308@gmail.com>
+ <20141219003510.GC16239@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: pagupta@redhat.com
-To: Jason Wang <jasowang@redhat.com>, <mst@redhat.com>,
-	<virtualization@lists.linux-foundation.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1417429028-11971-2-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	"Varlese, Marco" <marco.varlese@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:40657 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751843AbaLSIMT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 03:12:19 -0500
+Received: by mail-wi0-f175.google.com with SMTP id l15so1077732wiw.2
+        for <netdev@vger.kernel.org>; Fri, 19 Dec 2014 00:12:17 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20141219003510.GC16239@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2014/12/1 18:17, Jason Wang wrote:
-> On newer hosts that support delayed tx interrupts,
-> we probably don't have much to gain from orphaning
-> packets early.
+Fri, Dec 19, 2014 at 01:35:10AM CET, tgraf@suug.ch wrote:
+>On 12/18/14 at 08:03am, John Fastabend wrote:
+>> On 12/18/2014 07:30 AM, Varlese, Marco wrote:
+>> Could you also document the attributes. I think they are mostly
+>> clear but what is IFLA_SW_LOOPBACK. It will help later when we
+>> try to read the code in 6months and implement drivers.
+>> 
+>> I am thinking something like
+>> 
+>> /* Switch Port Attributes section
+>>  * IFLA_SW_LEARNING - turns learning on in the bridge
+>>  * IFLA_SW_LOOPBACK - does something interesting
+>> 
+>>  [...]
+>>  */
 >
-> Note: this might degrade performance for
-> hosts without event idx support.
-> Should be addressed by the next patch.
+>+1. I would even ask for more than that. While clear in the bridge
+>context, "learning" for this API targetting multi layer switches
+>is ambigious. The expectation towards the driver must be crystical
+>clear.
 >
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->   drivers/net/virtio_net.c | 132 +++++++++++++++++++++++++++++++----------------
->   1 file changed, 88 insertions(+), 44 deletions(-)
+>> >+
+>> >+enum {
+>> >+	IFLA_SW_UNSPEC,
+>> >+	IFLA_SW_LEARNING,
+>> 
+>> Can you address Roopa's feedback. I'm also a bit confused by the
+>> duplication.
 >
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index ec2a8b4..f68114e 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
->   static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
->   {
->   	struct skb_vnet_hdr *hdr;
-> @@ -912,7 +951,9 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
->   		sg_set_buf(sq->sg, hdr, hdr_len);
->   		num_sg = skb_to_sgvec(skb, sq->sg + 1, 0, skb->len) + 1;
->   	}
-> -	return virtqueue_add_outbuf(sq->vq, sq->sg, num_sg, skb, GFP_ATOMIC);
-> +
-> +	return virtqueue_add_outbuf(sq->vq, sq->sg, num_sg, skb,
-> +				    GFP_ATOMIC);
->   }
->
->   static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
-> @@ -924,8 +965,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
->   	struct netdev_queue *txq = netdev_get_tx_queue(dev, qnum);
->   	bool kick = !skb->xmit_more;
->
-> -	/* Free up any pending old buffers before queueing new ones. */
-> -	free_old_xmit_skbs(sq);
+>Agreed. Can we decide on the ndo first and then build the APIs on
+>top of that? While I agree that we should have a non-bridge based
+>Netlink API, the underlying ndo should be the same.
 
-I think there is no need to remove free_old_xmit_skbs here.
-you could add free_old_xmit_skbs in tx_irq's napi func.
-also could do this in start_xmit if you handle the race well.
+Maybe we can use this kind of ndos (proposed by this patch) and call it
+for switchdevs instead of bridge_get/setlink. Would make sense to me.
+single set of ndos, many possible users (userspace/in-kernel).
+bridge_get/setlink would be just a wrapper for this.
 
-I have done the same thing in ixgbe driver(free skb in ndo_start_xmit 
-and both in tx_irq's poll func), and it seems work well:)
-
-I think there would be no so much interrupts in this way, also tx 
-interrupt coalesce is not needed.
-
-> +	virtqueue_disable_cb(sq->vq);
 >
->   	/* Try to transmit */
->   	err = xmit_skb(sq, skb);
-> @@ -941,27 +981,19 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
->   		return NETDEV_TX_OK;
->   	}
+>> >+static const struct nla_policy ifla_sw_attr_policy[IFLA_SW_ATTR_MAX+1] = {
+>> >+	[IFLA_SW_LEARNING]	= { .type = NLA_U64 },
+>> >+	[IFLA_SW_LOOPBACK]	= { .type = NLA_U64 },
+>> >+	[IFLA_SW_BCAST_FLOODING] = { .type = NLA_U64 },
+>> >+	[IFLA_SW_UCAST_FLOODING] = { .type = NLA_U64 },
+>> >+	[IFLA_SW_MCAST_FLOODING] = { .type = NLA_U64 },
+>> >+};
+>> 
+>> Why U64 values? What would we pass in these? Are these just boolean
+>> bits? Maybe the annotation above will help me understand this.
 >
-> -	/* Don't wait up for transmitted skbs to be freed. */
-> -	skb_orphan(skb);
-> -	nf_reset(skb);
-> -
->   	/* Apparently nice girls don't return TX_BUSY; stop the queue
->   	 * before it gets out of hand.  Naturally, this wastes entries. */
-> -	if (sq->vq->num_free < 2+MAX_SKB_FRAGS) {
-> +	if (sq->vq->num_free < 2+MAX_SKB_FRAGS)
->   		netif_stop_subqueue(dev, qnum);
-> -		if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
-> -			/* More just got used, free them then recheck. */
-> -			free_old_xmit_skbs(sq);
-> -			if (sq->vq->num_free >= 2+MAX_SKB_FRAGS) {
-> -				netif_start_subqueue(dev, qnum);
-> -				virtqueue_disable_cb(sq->vq);
-> -			}
-> -		}
-> -	}
->
->   	if (kick || netif_xmit_stopped(txq))
->   		virtqueue_kick(sq->vq);
->
-> +	if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
-> +		virtqueue_disable_cb(sq->vq);
-> +		napi_schedule(&sq->napi);
-> +	}
-> +
->   	return NETDEV_TX_OK;
->   }
->
-> @@ -1138,8 +1170,10 @@ static int virtnet_close(struct net_device *dev)
->   	/* Make sure refill_work doesn't re-enable napi! */
->   	cancel_delayed_work_sync(&vi->refill);
->
-> -	for (i = 0; i < vi->max_queue_pairs; i++)
-> +	for (i = 0; i < vi->max_queue_pairs; i++) {
->   		napi_disable(&vi->rq[i].napi);
-> +		napi_disable(&vi->sq[i].napi);
-> +	}
->
->   	return 0;
->   }
-> @@ -1452,8 +1486,10 @@ static void virtnet_free_queues(struct virtnet_info *vi)
->   {
->   	int i;
->
-> -	for (i = 0; i < vi->max_queue_pairs; i++)
-> +	for (i = 0; i < vi->max_queue_pairs; i++) {
->   		netif_napi_del(&vi->rq[i].napi);
-> +		netif_napi_del(&vi->sq[i].napi);
-> +	}
->
->   	kfree(vi->rq);
->   	kfree(vi->sq);
+>I think the intent is to keep the ndo API as simple as possible
+>but I agree that this is wasteful. I gave this feedback on v2 already.
