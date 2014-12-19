@@ -1,60 +1,28 @@
-From: Wengang Wang <wen.gang.wang@oracle.com>
-Subject: [PATCH] bonding: avoid re-entry of bond_release
-Date: Fri, 19 Dec 2014 16:56:57 +0800
-Message-ID: <1418979417-28867-1-git-send-email-wen.gang.wang@oracle.com>
-Cc: wen.gang.wang@oracle.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:39541 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751871AbaLSIza (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 03:55:30 -0500
-Received: from acsinet22.oracle.com (acsinet22.oracle.com [141.146.126.238])
-	by aserp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id sBJ8tTtR024802
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 19 Dec 2014 08:55:29 GMT
-Received: from userz7022.oracle.com (userz7022.oracle.com [156.151.31.86])
-	by acsinet22.oracle.com (8.14.4+Sun/8.14.4) with ESMTP id sBJ8tSlj016437
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 19 Dec 2014 08:55:28 GMT
-Received: from abhmp0003.oracle.com (abhmp0003.oracle.com [141.146.116.9])
-	by userz7022.oracle.com (8.14.5+Sun/8.14.4) with ESMTP id sBJ8tRfJ002512
-	for <netdev@vger.kernel.org>; Fri, 19 Dec 2014 08:55:28 GMT
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next 0/2] r8152: adjust r8152_submit_rx
+Date: Fri, 19 Dec 2014 16:55:58 +0800
+Message-ID: <1394712342-15778-107-Taiwan-albertk@realtek.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If bond_release is run against an interface which is already detached from
-it's master, then there is an error message shown like
-	"<master name> cannot release <slave name>".
+Avoid r8152_submit_rx() from submitting rx during unexpected
+moment. This could reduce the time of stopping rx.
 
-The call path is:
-	bond_do_ioctl()
-		bond_release()
-			__bond_release_one()
+For patch #1, the tp->speed should be updated early. Then,
+the patch #2 could use it to check the current linking status.
 
-Though it does not really harm, the message the message is misleading.
-This patch tries to avoid the message.
+Hayes Wang (2):
+  r8152: adjust set_carrier
+  r8152: check the status before submitting rx
 
-Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
----
- drivers/net/bonding/bond_main.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ drivers/net/usb/r8152.c | 16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 184c434..4a71bbd 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3256,7 +3256,10 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
- 		break;
- 	case BOND_RELEASE_OLD:
- 	case SIOCBONDRELEASE:
--		res = bond_release(bond_dev, slave_dev);
-+		if (slave_dev->flags & IFF_SLAVE)
-+			res = bond_release(bond_dev, slave_dev);
-+		else
-+			res = 0;
- 		break;
- 	case BOND_SETHWADDR_OLD:
- 	case SIOCBONDSETHWADDR:
 -- 
-1.8.3.1
+2.1.0
