@@ -1,124 +1,78 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [RFC PATCH net-next v2 1/1] net: Support for switch port configuration
-Date: Thu, 18 Dec 2014 15:48:28 -0800
-Message-ID: <549367CC.2080307@cumulusnetworks.com>
-References: <C4896FB061E7DE4AAC93031BDCA044B104AD7B82@IRSMSX108.ger.corp.intel.com> <5492E85C.6010802@cumulusnetworks.com> <C4896FB061E7DE4AAC93031BDCA044B104AD9E53@IRSMSX108.ger.corp.intel.com> <5492EFC3.8030102@cumulusnetworks.com> <C4896FB061E7DE4AAC93031BDCA044B104ADA16F@IRSMSX108.ger.corp.intel.com> <549313B8.6050102@cumulusnetworks.com> <C4896FB061E7DE4AAC93031BDCA044B104ADA310@IRSMSX108.ger.corp.intel.com> <54931969.7040209@cumulusnetworks.com> <5493293A.2000802@intel.com> <54935E28.8050602@cumulusnetworks.com> <549362A5.3000808@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	"Varlese, Marco" <marco.varlese@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
+From: Dan Collins <dan@dcollins.co.nz>
+Subject: [PATCH] Fixed TPACKET V3 to signal poll when block is closed rather than every packet
+Date: Fri, 19 Dec 2014 13:32:19 +1300
+Message-ID: <1418949139-21299-1-git-send-email-dan@dcollins.co.nz>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Dan <dan@dcollins.co.nz>
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <549362A5.3000808@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/18/14, 3:26 PM, Samudrala, Sridhar wrote:
->
-> On 12/18/2014 3:07 PM, Roopa Prabhu wrote:
->> On 12/18/14, 11:21 AM, John Fastabend wrote:
->>> On 12/18/2014 10:14 AM, Roopa Prabhu wrote:
->>>> On 12/18/14, 10:02 AM, Varlese, Marco wrote:
->>>>> Removed unnecessary content for ease of reading...
->>>>>
->>>>>>>>>>> +/* Switch Port Attributes section */
->>>>>>>>>>> +
->>>>>>>>>>> +enum {
->>>>>>>>>>> +    IFLA_ATTR_UNSPEC,
->>>>>>>>>>> +    IFLA_ATTR_LEARNING,
->>>>>>>>>> Any reason you want learning here ?. This is covered as part  of
->>>>>>>>>> the bridge setlink attributes.
->>>>>>>>>>
->>>>>>>>> Yes, because the user may _not_ want to go through a bridge
->>>>>>>>> interface
->>>>>>>> necessarily.
->>>>>>>> But, the bridge setlink/getlink interface was changed to 
->>>>>>>> accommodate
->>>>>> 'self'
->>>>>>>> for exactly such cases.
->>>>>>>> I kind of understand your case for the other attributes (these are
->>>>>>>> per port settings that switch asics provide).
->>>>>>>>
->>>>>>>> However, i don't understand the reason to pull in bridge 
->>>>>>>> attributes here.
->>>>>>>>
->>>>>>> Maybe, I am missing something so you might help. The learning 
->>>>>>> attribute -
->>>>>> in my case - it is like all other attributes: a port attribute 
->>>>>> (as you said, port
->>>>>> settings that the switch provides per port).
->>>>>>> So, what I was saying is "why the user shall go through a bridge 
->>>>>>> to configure
->>>>>> the learning attribute"? From my perspective, it is as any other 
->>>>>> attribute and
->>>>>> as such configurable on the port.
->>>>>>
->>>>>> Thinking about this some more, i don't see why any of these 
->>>>>> attributes
->>>>>> (except loopback. I dont understand the loopback attribute) cant 
->>>>>> be part of
->>>>>> the birdge port attributes.
->>>>>>
->>>>>> With this we will end up adding l2 attributes in two places: the 
->>>>>> general link
->>>>>> attributes and bridge attributes.
->>>>>>
->>>>>> And since we have gone down the path of using 
->>>>>> ndo_bridge_setlink/getlink
->>>>>> with 'self'....we should stick to that for all l2 attributes.
->>>>>>
->>>>>> The idea of overloading ndo_bridge_set/getlink, was to have the 
->>>>>> same set of
->>>>>> attributes but support both cases where the user wants to go 
->>>>>> through the
->>>>>> bridge driver or directly to the switch port driver. So, you are 
->>>>>> not really going
->>>>>> through the bridge driver if you use 'self' and 
->>>>>> ndo_bridge_setlink/getlink.
->>>>>>
->>>>> Roopa, one of the comments I got from Thomas Graf on my v1 patch
->>>>> was that your patch and mine were supplementary ("I think Roopa's
->>>>> patches are supplementary. Not all switchdev users will be backed
->>>>> with a Linux Bridge. I therefore welcome your patches very
->>>>> much")... I also understood by others that the patch made sense for
->>>>> the same reason. I simply do not understand why these attributes
->>>>> (and maybe others in the future) could not be configured directly
->>>>> on a standard port but have to go through a bridge.
->>>>>
->>>> ok, i am very confused in that case. The whole moving of bridge
->>>> attributes from the bridge driver to rtnetlink.c was to make the
->>>> bridge attributes accessible to any driver who wants to set l2/bridge
->>>> attributes on their switch ports. So, its unclear to me why we are
->>>> doing this parallel thing again. This move to rtnetlink.c was done
->>>> during the recent rocker support. so, maybe scott/jiri can elaborate
->>>> more.
->>>
->>> Not sure if this will add to the confusion or help. But you do not
->>> need to have the bridge.ko loaded or netdev's attached to a bridge
->>> to use the setlink/getlink ndo ops and netlink messages.
->>>
->>> This was intentionally done. Its already used with NIC devices to
->>> configure embedded bridge settings such as VEB/VEPA.
->>
->> that helps my case, thanks.
->
-> So the user interface to set/get the per-port attributes will be via 
-> 'bridge', not 'ip'
->
->     bridge link set dev sw0p1 port_attr bcast_flooding 1 self
->     bridge link get dev sw0p1 port_attr bcast_flooding self
+From: Dan <dan@dcollins.co.nz>
 
-yes, l2 attributes.
->
-> We also need an interface to set per-switch attributes. Can this work?
->     bridge link set dev sw0 sw_attr bcast_flooding 1 master
-> where sw0 is a bridge representing the hardware switch.
+Make TPACKET_V3 signal poll when block is closed rather than for every
+packet. Side effect is that poll will be signaled when block retire
+timer expires which didn't previously happen. Issue was visible when
+sending packets at a very low frequency such that all blocks are retired
+before packets are received by TPACKET_V3. This caused avoidable packet
+loss. The fix ensures that the signal is sent when blocks are closed
+which covers the normal path where the block is filled as well as the
+path where the timer expires. The case where a block is filled without
+moving to the next block (ie. all blocks are full) will still cause poll
+to be signaled.
 
-Not today. We discussed this @ LPC, and one way to do this would be to 
-have a device
-representing the switch asic. This is in the works.
+Signed-off-by: Dan Collins <dan@dcollins.co.nz>
+---
+ net/packet/af_packet.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index e52a447..14e883d 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -43,6 +43,8 @@
+  *		Chetan Loke	:	Implemented TPACKET_V3 block abstraction
+  *					layer.
+  *					Copyright (C) 2011, <lokec@ccs.neu.edu>
++ *		Dan Collins : Fixed TPACKET_V3 to wake poll when block is closed
++ *					rather than for every packet.
+  *
+  *
+  *		This program is free software; you can redistribute it and/or
+@@ -785,6 +787,7 @@ static void prb_close_block(struct tpacket_kbdq_core *pkc1,
+ 
+ 	struct tpacket3_hdr *last_pkt;
+ 	struct tpacket_hdr_v1 *h1 = &pbd1->hdr.bh1;
++	struct sock *sk = &po->sk;
+ 
+ 	if (po->stats.stats3.tp_drops)
+ 		status |= TP_STATUS_LOSING;
+@@ -809,6 +812,8 @@ static void prb_close_block(struct tpacket_kbdq_core *pkc1,
+ 	/* Flush the block */
+ 	prb_flush_block(pkc1, pbd1, status);
+ 
++	sk->sk_data_ready(sk);
++
+ 	pkc1->kactive_blk_num = GET_NEXT_PRB_BLK_NUM(pkc1);
+ }
+ 
+@@ -2052,12 +2057,12 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	smp_wmb();
+ #endif
+ 
+-	if (po->tp_version <= TPACKET_V2)
++	if (po->tp_version <= TPACKET_V2) {
+ 		__packet_set_status(po, h.raw, status);
+-	else
++		sk->sk_data_ready(sk);
++	} else {
+ 		prb_clear_blk_fill_status(&po->rx_ring);
+-
+-	sk->sk_data_ready(sk);
++	}
+ 
+ drop_n_restore:
+ 	if (skb_head != skb->data && skb_shared(skb)) {
+-- 
+2.1.3
