@@ -1,7 +1,7 @@
 From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
 Subject: Re: [PATCH net-next v3] Add support of Cavium Liquidio ethernet adapters
-Date: Fri, 19 Dec 2014 23:04:13 +0100
-Message-ID: <5494A0DD.1010304@gmx.de>
+Date: Fri, 19 Dec 2014 23:24:14 +0100
+Message-ID: <5494A58E.7000000@gmx.de>
 References: <feba8d6dd1904fc3936864ae332df6d8@CO2PR0701MB744.namprd07.prod.outlook.com> <1418959519-31681-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
@@ -15,26 +15,57 @@ Cc: netdev@vger.kernel.org,
 To: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
 	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.22]:63966 "EHLO mout.gmx.net"
+Received: from mout.gmx.net ([212.227.15.15]:54746 "EHLO mout.gmx.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752560AbaLSWES (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Dec 2014 17:04:18 -0500
+	id S1751456AbaLSWYU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Dec 2014 17:24:20 -0500
 In-Reply-To: <1418959519-31681-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19.12.2014 04:25, Raghu Vatsavayi wrote:
-> +static void cn6xxx_disable_interrupt(void *chip)
+There seem to be various places where GFP_KERNEL could be used instead
+of GFP_ATOMIC, e.g.:
+
+> +static int setup_nic_devices(struct octeon_device *octeon_dev)
 > +{
-> +	struct octeon_cn6xxx *cn6xxx = (struct octeon_cn6xxx *)chip;
+
 > +
-> +	/* Disable Interrupts */
-> +	writeq(0, cn6xxx->intr_enb_reg64);
-> +}
+> +	sc = kmalloc(sizeof(*sc), GFP_ATOMIC);
+> +	if (!sc)
+> +		return -ENOMEM;
 > +
 
-This could also be a good candidate for forced write posting. The code
-assumes that interrupts are actually deactivated after that.
+and
+
+> +static int liquidio_init_nic_module(int octeon_id, void *octeon_dev)
+> +{
+
+> +	/* Allocate a soft command to be used to send link status requests
+> +	 * to the core app.
+> +	 */
+> +	sc = kmalloc(sizeof(*sc), GFP_ATOMIC);
+> +	if (!sc) {
+> +		kfree(ls);
+> +		return -ENOMEM;
+
+also
+
+> +/*  Configure interrupt moderation parameters */
+> +static int octnet_set_intrmod_cfg(void *oct, struct oct_intrmod_cfg *intr_cfg)
+> +{
+> +	struct octeon_soft_command *sc;
+> +	struct oct_intrmod_cmd *cmd;
+> +	int retval;
+> +	struct octeon_device *oct_dev = (struct octeon_device *)oct;
+> +	unsigned char *cfg;
+> +
+> +	/* Alloc soft command */
+> +	sc = (struct octeon_soft_command *)
+> +	     kmalloc(sizeof(struct octeon_soft_command), GFP_ATOMIC);
+> +	if (!sc)
+> +		return -ENOMEM;
+
+seems only to be called from process context.
 
 Regards,
 Lino
