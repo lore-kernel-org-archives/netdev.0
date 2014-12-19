@@ -1,32 +1,180 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net V2] net: drop the packet when fails to do software
- segmentation or header check
-Date: Thu, 18 Dec 2014 23:02:26 -0500 (EST)
-Message-ID: <20141218.230226.442587581329380880.davem@davemloft.net>
-References: <1418958553-9962-1-git-send-email-jasowang@redhat.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 08/10] tun: Re-uanble UFO support.
+Date: Fri, 19 Dec 2014 04:45:36 +0008
+Message-ID: <1418963856.8471.1@smtp.corp.redhat.com>
+References: <1418840455-22598-1-git-send-email-vyasevic@redhat.com>
+	<1418840455-22598-9-git-send-email-vyasevic@redhat.com>
+	<878417685.243182.1418881887975.JavaMail.zimbra@redhat.com>
+	<5492EEDE.5050000@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: jasowang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1418958553-9962-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: mst@redhat.com, netdev@vger.kernel.org,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	virtualization@lists.linux-foundation.org, stefanha@redhat.com,
+	ben@decadent.org.uk
+To: vyasevic@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <5492EEDE.5050000@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Fri, 19 Dec 2014 11:09:13 +0800
 
-> Commit cecda693a969816bac5e470e1d9c9c0ef5567bca ("net: keep original skb
-> which only needs header checking during software GSO") keeps the original
-> skb for packets that only needs header check, but it doesn't drop the
-> packet if software segmentation or header check were failed.
-> 
-> Fixes cecda693a9 ("net: keep original skb which only needs header checking
-> during software GSO")
-> 
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Applied and queued up for -stable, thanks Jason.
+On Thu, Dec 18, 2014 at 11:12 PM, Vlad Yasevich <vyasevic@redhat.com> 
+wrote:
+> On 12/18/2014 12:51 AM, Jason Wang wrote:
+>>  
+>>  
+>>  ----- Original Message -----
+>>>  Now that UFO is split into v4 and v6 parts, we can bring
+>>>  back v4 support without any trouble.
+>>> 
+>>>  Continue to handle legacy applications by selecting the
+>>>  IPv6 fragment id but do not change the gso type.  Thist
+>>>  makes sure that two legacy VMs may still communicate.
+>>> 
+>>>  Based on original work from Ben Hutchings.
+>>> 
+>>>  Fixes: 88e0e0e5aa7a ("drivers/net: Disable UFO through virtio")
+>>>  CC: Ben Hutchings <ben@decadent.org.uk>
+>>>  Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+>>>  ---
+>>>   drivers/net/tun.c | 26 ++++++++++++++------------
+>>>   1 file changed, 14 insertions(+), 12 deletions(-)
+>>> 
+>>>  diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>>>  index 9dd3746..8c32fca 100644
+>>>  --- a/drivers/net/tun.c
+>>>  +++ b/drivers/net/tun.c
+>>>  @@ -175,7 +175,7 @@ struct tun_struct {
+>>>   	struct net_device	*dev;
+>>>   	netdev_features_t	set_features;
+>>>   #define TUN_USER_FEATURES 
+>>> (NETIF_F_HW_CSUM|NETIF_F_TSO_ECN|NETIF_F_TSO| \
+>>>  -			  NETIF_F_TSO6)
+>>>  +			  NETIF_F_TSO6|NETIF_F_UFO)
+>>>   
+>>>   	int			vnet_hdr_sz;
+>>>   	int			sndbuf;
+>>>  @@ -1152,20 +1152,15 @@ static ssize_t tun_get_user(struct 
+>>> tun_struct *tun,
+>>>  struct tun_file *tfile,
+>>>   			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
+>>>   			break;
+>>>   		case VIRTIO_NET_HDR_GSO_UDP:
+>>>  -		{
+>>>  -			static bool warned;
+>>>  -
+>>>  -			if (!warned) {
+>>>  -				warned = true;
+>>>  -				netdev_warn(tun->dev,
+>>>  -					    "%s: using disabled UFO feature; please fix this 
+>>> program\n",
+>>>  -					    current->comm);
+>>>  -			}
+>>>   			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+>>>  -			if (skb->protocol == htons(ETH_P_IPV6))
+>>>  +			if (vlan_get_protocol(skb) == htons(ETH_P_IPV6)) {
+>>  
+>>  This probably means UDPv6 with vlan does not work well, looks like 
+>> another
+>>  independent fixe and also for stable.
+> 
+> Ok.  I can split this out.
+> 
+>>>  +				/* This allows legacy application to work.
+>>>  +				 * Do not change the gso_type as it may
+>>>  +				 * not be upderstood by legacy applications.
+>>>  +				 */
+>>  
+>>  Isn't this an issue that we use SKB_GSO_UDP for a UDPv6 packet? 
+>> Especially
+>>  consider we want to fix UFOv6 in the future? We probably can use
+>>  SKB_GSO_UDP6 here and try to fix it in tun_put_user() if a legacy 
+>> userspace
+>>  is detected.
+> 
+> There is a slight problem with this.  This will force fragmentation 
+> of IPv6
+> traffic between VMs since UFO6 wouldn't be enabled on a destination 
+> device.
+> So, suddenly older VMs will see a performance regression for large 
+> UDPv6 traffic.
+> 
+> 
+> With this code, a legacy VM will continue to receive large UDPv6 
+> traffic.
+> New VMs will have an updated virtio-net which will reset the gso type 
+> on input.
+
+I get the point and that's why you still want ipv6 offload helpers to
+accept SKB_GSO_UDP. So SKB_GSO_UDP was still ambigious since it can be a
+UDP6 packet in fact.
+
+I'm not sure, but probably we could just leave the regression of legacy
+guest as is and fix current kernel. The sooner we eliminate the 
+ambigious
+the better for future development.
+> 
+> 
+>>>   				ipv6_proxy_select_ident(skb);
+>>  
+>>  Question still for vlan, is network header correctly set here? 
+>> Looks like
+>>  ipv6_proxy_select_ident() depends on correct network header to work.
+>>>  +	
+> 
+> Yes, you are right...  I wonder how that worked.  I'll re-test.
+> 
+> Thanks
+> -vlad
+> 		}
+>>>   			break;
+>>>  -		}
+>>>   		default:
+>>>   			tun->dev->stats.rx_frame_errors++;
+>>>   			kfree_skb(skb);
+>>>  @@ -1273,6 +1268,8 @@ static ssize_t tun_put_user(struct 
+>>> tun_struct *tun,
+>>>   				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+>>>   			else if (sinfo->gso_type & SKB_GSO_TCPV6)
+>>>   				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
+>>>  +			else if (sinfo->gso_type & SKB_GSO_UDP)
+>>>  +				gso.gso_type = VIRTIO_NET_HDR_GSO_UDP;
+>>>   			else {
+>>>   				pr_err("unexpected GSO type: "
+>>>   				       "0x%x, gso_size %d, hdr_len %d\n",
+>>>  @@ -1780,6 +1777,11 @@ static int set_offload(struct tun_struct 
+>>> *tun,
+>>>  unsigned long arg)
+>>>   				features |= NETIF_F_TSO6;
+>>>   			arg &= ~(TUN_F_TSO4|TUN_F_TSO6);
+>>>   		}
+>>>  +
+>>>  +		if (arg & TUN_F_UFO) {
+>>>  +			features |= NETIF_F_UFO;
+>>>  +			arg &= ~TUN_F_UFO;
+>>>  +		}
+>>>   	}
+>>>   
+>>>   	/* This gives the user a way to test for new features in future 
+>>> by
+>>>  --
+>>>  1.9.3
+>>> 
+>>>  --
+>>>  To unsubscribe from this list: send the line "unsubscribe netdev" 
+>>> in
+>>>  the body of a message to majordomo@vger.kernel.org
+>>>  More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>> 
+> 
