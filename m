@@ -1,104 +1,36 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [RFC PATCH net-next 0/5] tcp: TCP tracer
-Date: Thu, 18 Dec 2014 17:42:20 -0800
-Message-ID: <CAK6E8=fBb_zjxUBAdgztZRJQw17+z0pcO1DOUBhtOGUY8KEfNw@mail.gmail.com>
-References: <CAADnVQL6-72UvvL-T7JUa-6c5+xJ2XggW=iCwb5G_ZbH3r-SZQ@mail.gmail.com>
- <5491F8D1.2090103@fb.com> <D0B86A04.1B29%brakmo@fb.com>
+From: "=?utf-8?B?6ZmI5Y2O5omN?=" <chenhc@lemote.com>
+Subject: Re: [PATCH] stmmac: Don't init ptp again when resume fromsuspend/hibernation
+Date: Fri, 19 Dec 2014 10:10:10 +0800
+Message-ID: <tencent_3287080E294C08DF677CF32E@qq.com>
+References: <1418884794-15483-1-git-send-email-chenhc@lemote.com>
+	<20141218.153650.2242996610693466579.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Josef Bacik <jbacik@fb.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Martin Lau <kafai@fb.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Blake Matheny <bmatheny@fb.com>,
-	Laurent Chavey <chavey@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Kernel Team <Kernel-team@fb.com>
-To: Lawrence Brakmo <brakmo@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:32881 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751364AbaLSBnB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2014 20:43:01 -0500
-Received: by mail-ob0-f169.google.com with SMTP id vb8so9360943obc.0
-        for <netdev@vger.kernel.org>; Thu, 18 Dec 2014 17:43:01 -0800 (PST)
-In-Reply-To: <D0B86A04.1B29%brakmo@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "=?utf-8?B?cGVwcGUuY2F2YWxsYXJv?=" <peppe.cavallaro@st.com>,
+	"=?utf-8?B?dmJyaWRnZXJzMjAxMw==?=" <vbridgers2013@gmail.com>,
+	"=?utf-8?B?bmV0ZGV2?=" <netdev@vger.kernel.org>,
+	"=?utf-8?B?c3RhYmxl?=" <stable@vger.kernel.org>
+To: "=?utf-8?B?RGF2aWQgTWlsbGVy?=" <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20141218.153650.2242996610693466579.davem@davemloft.net>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 18, 2014 at 3:43 PM, Lawrence Brakmo <brakmo@fb.com> wrote:
->
->
-> On 12/17/14, 1:42 PM, "Josef Bacik" <jbacik@fb.com> wrote:
->
-> >>>> It feels that for stats collection only, tracepoints+tcp_trace
-> >>>> do not add much additional value vs extending tcp_info
-> >>>> and using ss.
-> >>> I think we are on the same page. Once 'this should cost nothing if not
-> >>> activated' proposition was cleared out.  It was what I meant that
-> >>>doing the
-> >>> collection part in the TCP itself (instead of tracepoints) would be
-> >>>nice.
-> >>
-> >> agree.
-> >>
-> >>> I think going forward, as others have suggested, it may be better to
-> >>>come
-> >>> together and reach a common ground on what to collect first before I
-> >>>re-work
-> >>> patch 1 to 3 and repost.
-> >>
-> >> I think as a minimum it will be discussed at netdev01 in Feb,
-> >> but I suspect not everyone on this list can(want) go to Ottawa,
-> >> so would be nice to have a meetup for bay area folks to
-> >> discuss this sooner with public g+ hangout.
-> >> Thoughts?
-> >>
-> >
-> >Yeah I think we're all in agreement that this is a good netdev01
-> >discussion.  I'm happy to include people who want to talk about this
-> >before hand in the bay area meetup we're throwing, but it seems like
-> >this is going to be something that the larger community is going to want
-> >to talk about so it may be more productive to wait until netdev01.
-> >Thanks,
->
->
-> Josef: I think a preliminary discussion during the bay area meet up would
-> be useful to get some of us in sync.
->
-> There are two issues going on. One is the collection of statistics that
-> can be read every-so-often and another is the issue of enabling easier
-> tracing of TCP state for analysis and debugging.
->
-> For statistics collection, extending tcp_info is a viable option although
-> we may need to do some modifications to deal with: (1) Having many
-> connections most of which are idle. We need an option to only output those
-> whose stats have changed since the last read. (2) A mechanism to deal with
-> closed connections and their stats. Note that in our current setup neither
-> of these is an issue for us.
->
-> For tracing and event collection, I see a lot of value in tracepoints that
-> could print basic info with perf but also allow us to do more complex
-> things by loading a module that hooks to the tracepoints. This is one way
-> to set up triggers to collect state for a particular flow.
->
-> Yuchung: I agree that a lot of information can be obtained through
-> analysis of tcpdumps, but some internal state must be inferred and in many
-> instances we can only get bounds.
-Hi Larry :)
-
-I definitely see values in tracepoints. I was responding to the commit
-message in patch 5/5: "Uncover uplink/backbone/subnet issue, e.g. by
-tracking the rxmit rate.". First ss and tcp_info can collect that
-data. But rxmit rate is often not enough for diagnosis. One needs to
-inspect the loss patterns from packet traces. I am sure you know what
-I am talking about.
-
-
-
->
-> - Larry
->
+SSBoYXZlIENDIG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcsIGJ1dCBJIGRvbid0IGtub3cgd2h5
+IGl0IGRpZG4ndCByZWFjaCB0aGUgbWFpbGxpc3QuLi4NCkFueXdheSwgSSB3aWxsIHJlc2Vu
+ZCB0aGUgcGF0Y2guDQogDQpIdWFjYWkNCiANCi0tLS0tLS0tLS0tLS0tLS0tLSBPcmlnaW5h
+bCAtLS0tLS0tLS0tLS0tLS0tLS0NCkZyb206ICAiRGF2aWQgTWlsbGVyIjxkYXZlbUBkYXZl
+bWxvZnQubmV0PjsNCkRhdGU6ICBGcmksIERlYyAxOSwgMjAxNCAwNDozNiBBTQ0KVG86ICAi
+Y2hlbmhjIjxjaGVuaGNAbGVtb3RlLmNvbT47IA0KQ2M6ICAicGVwcGUuY2F2YWxsYXJvIjxw
+ZXBwZS5jYXZhbGxhcm9Ac3QuY29tPjsgInZicmlkZ2VyczIwMTMiPHZicmlkZ2VyczIwMTNA
+Z21haWwuY29tPjsgIm5ldGRldiI8bmV0ZGV2QHZnZXIua2VybmVsLm9yZz47ICJzdGFibGUi
+PHN0YWJsZUB2Z2VyLmtlcm5lbC5vcmc+OyANClN1YmplY3Q6ICBSZTogW1BBVENIXSBzdG1t
+YWM6IERvbid0IGluaXQgcHRwIGFnYWluIHdoZW4gcmVzdW1lIGZyb21zdXNwZW5kL2hpYmVy
+bmF0aW9uDQoNCiANCg0KVHdvIHByb2JsZW1zOg0KDQoxKSBUaGlzIHBvc3QgZGlkIG5vdCBy
+ZWFjaCBuZXRkZXYgYW5kIHRoZXJlZm9yZSBkaWQgbm90IG1ha2UgaXQgaW50bw0KICAgcGF0
+Y2h3b3JrIGZvciB0cmFja2luZy4gIFlvdSBuZWVkIHRvIGNvcnJlY3QgdGhpcy4NCg0KMikg
+RG8gbm90IENDOiBzdGFibGUgb24gbmV0d29ya2luZyBjaGFuZ2VzLCBpbnN0ZWFkIGFzayBt
+ZSBleHBsaWNpdGx5DQogICB0byBxdWV1ZSB0aGVtIHVwIGZvciAtc3RhYmxlIHN1Ym1pc3Np
+b24gYW5kIHRvIHdoaWNoIHRyZWVzLg==
