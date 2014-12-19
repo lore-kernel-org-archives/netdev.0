@@ -1,78 +1,30 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [RFC iproute2] tc: Show classes in tree view
-Date: Fri, 19 Dec 2014 18:46:20 +0200
-Message-ID: <20141219164620.GA9364@angus-think>
-References: <1418989381-6492-1-git-send-email-vadim4j@gmail.com>
- <CAHA+R7P0eZzEgx+Oq-X8eqs7NFFLon4HKa+UUgxDpdaM5e0X+g@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [patches] a bunch of old bluetooth fixes
+Date: Fri, 19 Dec 2014 11:59:33 -0500 (EST)
+Message-ID: <20141219.115933.2303527819596860834.davem@davemloft.net>
+References: <20141219061801.GU22149@ZenIV.linux.org.uk>
+	<B0609FEE-1CE5-4618-A0B6-B2B82B1EC74D@holtmann.org>
+	<07BDA2A2-1560-4F78-A0B2-FC25E312CACE@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vadim Kochan <vadim4j@gmail.com>, netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:48604 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751156AbaLSQ4Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 11:56:24 -0500
-Received: by mail-la0-f50.google.com with SMTP id pn19so1165258lab.23
-        for <netdev@vger.kernel.org>; Fri, 19 Dec 2014 08:56:22 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAHA+R7P0eZzEgx+Oq-X8eqs7NFFLon4HKa+UUgxDpdaM5e0X+g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <07BDA2A2-1560-4F78-A0B2-FC25E312CACE-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 19, 2014 at 08:44:30AM -0800, Cong Wang wrote:
-> On Fri, Dec 19, 2014 at 3:43 AM, Vadim Kochan <vadim4j@gmail.com> wrote:
-> > From: Vadim Kochan <vadim4j@gmail.com>
-> >
-> > Added new '-t[ree]' which shows classes dependency
-> > in the tree view.
-> >
-> > Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Date: Fri, 19 Dec 2014 11:30:38 +0100
+
+>> Dave, we can prepare a pull request for these or do you want to take them directly into net tree?
 > 
-> A sample output would convince people more easily.
+> and in case you decide to take them directly.
+> 
+> Acked-by: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
 
-Yeah, good point:
+Feel free to create a pull request for me, that works best.
 
-# tc/tc -t class show dev tap0
-+---1:2(htb) rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b 
-|   +---1:40(htb) prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b 
-|   +---1:50(htb) prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b 
-|   +---1:60(htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
-|   
-+---1:1(htb) rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b 
-    +---1:10(htb) prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b 
-    +---1:20(htb) prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b 
-    +---1:30(htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
-
-# tc/tc -t -s class show dev tap0
-+---1:2(htb) rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b 
-|   |        Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
-|   |        rate 0bit 0pps backlog 0b 0p requeues 0 
-|   |
-|   +---1:40(htb) prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b 
-|   |             Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
-|   |             rate 0bit 0pps backlog 0b 0p requeues 0 
-|   |    
-|   +---1:50(htb) prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b 
-|   |             Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
-|   |             rate 0bit 0pps backlog 0b 0p requeues 0 
-|   |    
-|   +---1:60(htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
-|                 Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
-|                 rate 0bit 0pps backlog 0b 0p requeues 0 
-|   
-+---1:1(htb) rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b 
-    |        Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
-    |        rate 0bit 0pps backlog 0b 0p requeues 0 
-    |
-    +---1:10(htb) prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b 
-    |             Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
-    |             rate 0bit 0pps backlog 0b 0p requeues 0 
-    |    
-    +---1:20(htb) prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b 
-    |             Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
-    |             rate 0bit 0pps backlog 0b 0p requeues 0 
-    |    
-    +---1:30(htb) prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b 
-                  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
-                  rate 0bit 0pps backlog 0b 0p requeues 0 
+Thanks.
