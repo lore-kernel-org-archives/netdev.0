@@ -1,157 +1,80 @@
-From: B Viswanath <marichika4@gmail.com>
-Subject: Re: [RFC PATCH net-next v2 1/1] net: Support for switch port configuration
-Date: Fri, 19 Dec 2014 16:23:28 +0530
-Message-ID: <CAN+pFwKr13SB3yV+MYNep+8ozQCV_R7mTEBPffUhQr9f=eiqZQ@mail.gmail.com>
-References: <54931969.7040209@cumulusnetworks.com>
-	<5493293A.2000802@intel.com>
-	<54935E28.8050602@cumulusnetworks.com>
-	<549362A5.3000808@intel.com>
-	<549367CC.2080307@cumulusnetworks.com>
-	<CAN+pFwJyfg1+=+tXUpon0Kket56HJ=9BR3XohPhZnaX7hfPgpg@mail.gmail.com>
-	<20141219082754.GE1848@nanopsycho.orion>
-	<CAN+pFwJAJ71-+MZjJXPbfu5mzMp6AWNxtYR81Lx6siy3D3HfJg@mail.gmail.com>
-	<20141219092308.GF1848@nanopsycho.orion>
-	<CAN+pFwJr7TvJEW4x_HYPgTEvYGfi+YHgp=5vek2YiU1GLiH6_g@mail.gmail.com>
-	<20141219095512.GH1848@nanopsycho.orion>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net] enic: fix rx skb checksum
+Date: Fri, 19 Dec 2014 12:07:57 +0100
+Message-ID: <20141219120757.106c02d4@griffin>
+References: <1418898522-13588-1-git-send-email-_govind@gmx.com>
+	<1418920017.9773.80.camel@edumazet-glaptop2.roam.corp.google.com>
+	<17951.1418924367@famine>
+	<20141219110732.53264ef8@griffin>
+	<alpine.LNX.2.03.1412191548001.2860@ws.cisco>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	"Varlese, Marco" <marco.varlese@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141219095512.GH1848@nanopsycho.orion>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <jay.vosburgh@canonical.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com,
+	Stefan Assmann <sassmann@redhat.com>
+To: Govindarajulu Varadarajan <_govind@gmx.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38775 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752023AbaLSLIN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Dec 2014 06:08:13 -0500
+In-Reply-To: <alpine.LNX.2.03.1412191548001.2860@ws.cisco>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 19 December 2014 at 15:25, Jiri Pirko <jiri@resnulli.us> wrote:
-> Fri, Dec 19, 2014 at 10:35:27AM CET, marichika4@gmail.com wrote:
->>On 19 December 2014 at 14:53, Jiri Pirko <jiri@resnulli.us> wrote:
->>> Fri, Dec 19, 2014 at 10:01:46AM CET, marichika4@gmail.com wrote:
->>>>On 19 December 2014 at 13:57, Jiri Pirko <jiri@resnulli.us> wrote:
->>>>> Fri, Dec 19, 2014 at 06:14:57AM CET, marichika4@gmail.com wrote:
->>>>>>On 19 December 2014 at 05:18, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
->>>>>>> On 12/18/14, 3:26 PM, Samudrala, Sridhar wrote:
->>>><snipped for ease of reading>
->>>>>>>>
->>>>>>>>
->>>>>>>> We also need an interface to set per-switch attributes. Can this work?
->>>>>>>>     bridge link set dev sw0 sw_attr bcast_flooding 1 master
->>>>>>>> where sw0 is a bridge representing the hardware switch.
->>>>>>>
->>>>>>>
->>>>>>> Not today. We discussed this @ LPC, and one way to do this would be to have
->>>>>>> a device
->>>>>>> representing the switch asic. This is in the works.
->>>>>>
->>>>>>
->>>>>>Can I assume that on  platforms which house more than one asic (say
->>>>>>two 24 port asics, interconnected via a 10G link or equivalent, to get
->>>>>>a 48 port 'switch') , the 'rocker' driver (or similar) should expose
->>>>>>them as a single set of ports, and not as two 'switch ports' ?
->>>>>
->>>>> Well that really depends on particular implementation and drivers. If you
->>>>> have 2 pci-e devices, I think you should expose them as 2 entities. For
->>>>> sure, you can have the driver to do the masking for you. I don't believe
->>>>> that is correct though.
->>>>>
->>>>
->>>>In a platform that houses two asic chips, IMO, the user is still
->>>>expected to manage the router as a single entity. The configuration
->>>>being applied on both asic devices need to be matching if not
->>>>identical, and may not be conflicting. The FDB is to be synchronized
->>>>so that (offloaded) switching can happen across the asics. Some of
->>>>this stuff is asic specific anyway. Another example is that of the
->>>>learning. The (hardware) learning can't be enabled on one asic, while
->>>>being disabled on another one. The general use cases I have seen are
->>>>all involving managing the 'router' as a single entity.  That the
->>>>'router' is implemented with two asics instead of a single asic (with
->>>>more ports) is to be treated as an implementation detail.  This is the
->>>>usual router management method that exists today.
->>>>
->>>>I hope I make sense.
->>>>
->>>>So I am trying to figure out what this single entity that will be used
->>>>from a user perspective. It can be a bridge, but our bridges are more
->>>>802.1q bridges. We can use the 'self' mode, but then it means that it
->>>>should reflect the entire port count, and not just an asic.
->>>>
->>>>So I was trying to deduce that in our switchdevice model, the best bet
->>>>would be to leave the unification to the driver (i.e., to project the
->>>>multiple physical asics as a single virtual switch device). Thist
->>>
->>> Is it possible to have the asic as just single one? Or is it possible to
->>> connect asics being multiple chips maybe from multiple vendors together?
->>
->>I didn't understand the first question. Some times, it is possible to
->
-> I ment that there is a design with just a single asic of this type,
-> instead of a pair.
->
->>have a single asic replace two, but its a cost factor, and others that
->>are involved.
->>
->>AFAIK, the answer to the second question is a No. Two asics from
->>different vendors may not be connected together. The interconnect
->>tends to be proprietary.
->
-> Okay. In that case, it might make sense to mask it on driver level.
->
->
->>
->>> I believe that answer is "yes" in both cases. Making two separate asics
->>> to appear as one for user is not correct in my opinion. Driver should
->>> not do such masking. It is unclean, unextendable.
->>>
->>
->>I am only looking for a single management entity. I am not thinking it
->>needs to be at driver level. I am not sure of  any other option apart
->>from creating a 'switchdev' that Roopa was mentioning.
->
-> Well the thing is there is a common desire to make the offloading as
-> transparent as possible. For example, have 4 ports of same switch and
-> put them into br0. Just like that, without need to do anything else
-> than you would do when bridging ordinary NICs. Introducing some
-> "management entity" would break this approach.
->
+On Fri, 19 Dec 2014 16:22:34 +0530 (IST), Govindarajulu Varadarajan wrote:
+> Hardware returns 0xffff for non tcp/udp packets.
 
-This is a simple and solid approach that works fine as long as the
-asics can be viewed as collection of ports. This is true for many
-usecases. However, the asics are more than a collection of ports,
-having shared and common infrastructure among the ports. They offer
-configuration options that are not specific to any port, but
-'belonging' to the asic. So there may be a need in some usecases which
-involve in setting up these config options, to somehow identify that
-these belong to the asic itself. If there is a single asic, we can
-have implied identification, but not with multiple asics.
+That explains that I saw that with ICMP packets.
 
-I guess if we can manage multiple asics belonging to same vendor
-within the driver, we probably don't need any such identification (and
-that was my original question). We already have the 'self' bridge
-which can be enhanced for any properties. However, at this point I am
-not sure how the routing plays our with the 'self' bridge. IMHO, it
-would be neat to have a 'switchdev' which can cleanly handle such
-stuff.
+> For tcp/udp packet it returns
+> pseudo checksum. Not the _whole_ pkt checksum.
 
->>
->>>
->>>>allows any 'switch' level configurations to the bridge in 'self' mode.
->>>>
->>>>And  then we would need to consider stacking. Stacking differs from
->>>>this multi-asic scenario since  there would be multiple CPU involved.
->>>>
->>>>Thanks
->>>>Vissu
->>>>
->>>>>>
->>>>>>>
->>>>>>>
->>>>>>> --
->>>>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>>>>> the body of a message to majordomo@vger.kernel.org
->>>>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I see. I didn't get this from your patch, although you wrote it there,
+sorry. And I didn't dig that deep while debugging, I was satisfied with
+seeing 0xffff for the packets that caused problems :-)
+
+> Dec 18 11:13:18 a163 kernel: enic: saddr=96d8690a, daddr=a3ba6a0a, length=40, proto=6
+> Dec 18 11:13:18 a163 kernel: enic: hw_checksum = c457, pseudo_checksum_32=3a930115, pseudo_checksum_fold=c457
+> 
+> Dec 18 11:13:18 a163 kernel: enic: saddr=a37410a, daddr=a3ba6a0a, length=32, proto=6
+> Dec 18 11:13:18 a163 kernel: enic: hw_checksum = 80f9, pseudo_checksum_32=adf1d114, pseudo_checksum_fold=80f9
+> 
+> Dec 18 11:13:18 a163 kernel: enic: saddr=a37410a, daddr=a3ba6a0a, length=32, proto=6
+> Dec 18 11:13:18 a163 kernel: enic: hw_checksum = 80f9, pseudo_checksum_32=adf1d114, pseudo_checksum_fold=80f9
+> 
+> Clearly hw is returning folded pseudo checksum.
+
+Indeed.
+
+> > I have no idea whether the hardware verified the checksum for the
+> > 0xffff case and is just not returning the checksum or whether such
+> > packets come completely unverified.
+> 
+> Yes, hardware verifies the checksum and sets tcp_udp_csum_ok flag to 1.
+> If pkt verification fails or pkt is not tcp/udp, tcp_udp_csum_ok is 0. And we
+> send the pkt to stack with CHECKSUM_NONE.
+
+Thanks for the confirmation.
+
+> Driver should use CHECKSUM_COMPLETE only if it can produce _whole_ pkt checksum.
+> as described in include/linux/skbuff.h:75
+
+Sure. I just misunderstood what the hardware provides.
+
+> I am trying to fix "Do not set CHECKSUM_COMPLETE, when driver does not have
+> checksum of whole pkt."
+> 
+> Is my understanding correct?
+
+With the information you've just written (thanks for your patience),
+I think your patch is correct.
+
+Thanks a lot!
+
+ Jiri
+
+-- 
+Jiri Benc
