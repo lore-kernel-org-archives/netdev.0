@@ -1,78 +1,68 @@
-From: Dan Collins <dan@dcollins.co.nz>
-Subject: [PATCH] Fixed TPACKET V3 to signal poll when block is closed rather than every packet
-Date: Fri, 19 Dec 2014 13:32:19 +1300
-Message-ID: <1418949139-21299-1-git-send-email-dan@dcollins.co.nz>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Dan <dan@dcollins.co.nz>
-To: davem@davemloft.net
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC PATCH net-next v3 1/1] net: Support for switch port
+ configuration
+Date: Fri, 19 Dec 2014 00:35:10 +0000
+Message-ID: <20141219003510.GC16239@casper.infradead.org>
+References: <C4896FB061E7DE4AAC93031BDCA044B104AD9F56@IRSMSX108.ger.corp.intel.com>
+ <5492FAD4.7070308@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "Varlese, Marco" <marco.varlese@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5492FAD4.7070308@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dan <dan@dcollins.co.nz>
+On 12/18/14 at 08:03am, John Fastabend wrote:
+> On 12/18/2014 07:30 AM, Varlese, Marco wrote:
+> Could you also document the attributes. I think they are mostly
+> clear but what is IFLA_SW_LOOPBACK. It will help later when we
+> try to read the code in 6months and implement drivers.
+> 
+> I am thinking something like
+> 
+> /* Switch Port Attributes section
+>  * IFLA_SW_LEARNING - turns learning on in the bridge
+>  * IFLA_SW_LOOPBACK - does something interesting
+> 
+>  [...]
+>  */
 
-Make TPACKET_V3 signal poll when block is closed rather than for every
-packet. Side effect is that poll will be signaled when block retire
-timer expires which didn't previously happen. Issue was visible when
-sending packets at a very low frequency such that all blocks are retired
-before packets are received by TPACKET_V3. This caused avoidable packet
-loss. The fix ensures that the signal is sent when blocks are closed
-which covers the normal path where the block is filled as well as the
-path where the timer expires. The case where a block is filled without
-moving to the next block (ie. all blocks are full) will still cause poll
-to be signaled.
++1. I would even ask for more than that. While clear in the bridge
+context, "learning" for this API targetting multi layer switches
+is ambigious. The expectation towards the driver must be crystical
+clear.
 
-Signed-off-by: Dan Collins <dan@dcollins.co.nz>
----
- net/packet/af_packet.c | 13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
+> >+
+> >+enum {
+> >+	IFLA_SW_UNSPEC,
+> >+	IFLA_SW_LEARNING,
+> 
+> Can you address Roopa's feedback. I'm also a bit confused by the
+> duplication.
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index e52a447..14e883d 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -43,6 +43,8 @@
-  *		Chetan Loke	:	Implemented TPACKET_V3 block abstraction
-  *					layer.
-  *					Copyright (C) 2011, <lokec@ccs.neu.edu>
-+ *		Dan Collins : Fixed TPACKET_V3 to wake poll when block is closed
-+ *					rather than for every packet.
-  *
-  *
-  *		This program is free software; you can redistribute it and/or
-@@ -785,6 +787,7 @@ static void prb_close_block(struct tpacket_kbdq_core *pkc1,
- 
- 	struct tpacket3_hdr *last_pkt;
- 	struct tpacket_hdr_v1 *h1 = &pbd1->hdr.bh1;
-+	struct sock *sk = &po->sk;
- 
- 	if (po->stats.stats3.tp_drops)
- 		status |= TP_STATUS_LOSING;
-@@ -809,6 +812,8 @@ static void prb_close_block(struct tpacket_kbdq_core *pkc1,
- 	/* Flush the block */
- 	prb_flush_block(pkc1, pbd1, status);
- 
-+	sk->sk_data_ready(sk);
-+
- 	pkc1->kactive_blk_num = GET_NEXT_PRB_BLK_NUM(pkc1);
- }
- 
-@@ -2052,12 +2057,12 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 	smp_wmb();
- #endif
- 
--	if (po->tp_version <= TPACKET_V2)
-+	if (po->tp_version <= TPACKET_V2) {
- 		__packet_set_status(po, h.raw, status);
--	else
-+		sk->sk_data_ready(sk);
-+	} else {
- 		prb_clear_blk_fill_status(&po->rx_ring);
--
--	sk->sk_data_ready(sk);
-+	}
- 
- drop_n_restore:
- 	if (skb_head != skb->data && skb_shared(skb)) {
--- 
-2.1.3
+Agreed. Can we decide on the ndo first and then build the APIs on
+top of that? While I agree that we should have a non-bridge based
+Netlink API, the underlying ndo should be the same.
+
+> >+static const struct nla_policy ifla_sw_attr_policy[IFLA_SW_ATTR_MAX+1] = {
+> >+	[IFLA_SW_LEARNING]	= { .type = NLA_U64 },
+> >+	[IFLA_SW_LOOPBACK]	= { .type = NLA_U64 },
+> >+	[IFLA_SW_BCAST_FLOODING] = { .type = NLA_U64 },
+> >+	[IFLA_SW_UCAST_FLOODING] = { .type = NLA_U64 },
+> >+	[IFLA_SW_MCAST_FLOODING] = { .type = NLA_U64 },
+> >+};
+> 
+> Why U64 values? What would we pass in these? Are these just boolean
+> bits? Maybe the annotation above will help me understand this.
+
+I think the intent is to keep the ndo API as simple as possible
+but I agree that this is wasteful. I gave this feedback on v2 already.
