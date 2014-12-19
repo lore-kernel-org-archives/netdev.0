@@ -1,44 +1,33 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: Re: [PATCH] sunvnet: fix a memory leak in vnet_handle_offloads
-Date: Fri, 19 Dec 2014 12:39:43 -0500
-Message-ID: <549462DF.7050709@oracle.com>
-References: <1418966375-23188-1-git-send-email-roy.qing.li@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: eth: xgene: change APM X-Gene SoC platform
+ ethernet to support ACPI
+Date: Fri, 19 Dec 2014 12:40:38 -0500 (EST)
+Message-ID: <20141219.124038.1647232478583600202.davem@davemloft.net>
+References: <1418945991-31494-1-git-send-email-fkan@apm.com>
+	<20141219.123107.1080751255468272638.davem@davemloft.net>
+	<CAL85gmCOLrcTijpEhXx1x5UjHu0sgS5DdGYJxY4mwPFKCHpU-g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: roy.qing.li@gmail.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:36723 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752511AbaLSRjv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 12:39:51 -0500
-In-Reply-To: <1418966375-23188-1-git-send-email-roy.qing.li@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, patches@apm.com,
+	linux-kernel@vger.kernel.org
+To: fkan@apm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAL85gmCOLrcTijpEhXx1x5UjHu0sgS5DdGYJxY4mwPFKCHpU-g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Feng Kan <fkan@apm.com>
+Date: Fri, 19 Dec 2014 09:36:13 -0800
 
-Acked-by: David L Stevens <david.stevens@oracle.com>
+> On Fri, Dec 19, 2014 at 9:31 AM, David Miller <davem@davemloft.net> wrote:
+>> From: Feng Kan <fkan@apm.com>
+>> Date: Thu, 18 Dec 2014 15:39:51 -0800
+>>
+>>> +#define NO_MAC_FOUND 0
+>>> +#define RES_ENET_CSR 0
+>>> +#define RES_RING_CSR 1
+>>> +#define RES_RING_CMD 2
+> Is there a issue with the RES defines, do you prefer enum types?
 
-On 12/19/2014 12:19 AM, roy.qing.li@gmail.com wrote:
-> From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> when skb_gso_segment returns error, the original skb should be freed
-> 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> ---
->  drivers/net/ethernet/sun/sunvnet.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-> index 45c408e..d2835bf 100644
-> --- a/drivers/net/ethernet/sun/sunvnet.c
-> +++ b/drivers/net/ethernet/sun/sunvnet.c
-> @@ -1201,6 +1201,7 @@ static int vnet_handle_offloads(struct vnet_port *port, struct sk_buff *skb)
->  		segs = skb_gso_segment(skb, dev->features & ~NETIF_F_TSO);
->  	if (IS_ERR(segs)) {
->  		dev->stats.tx_dropped++;
-> +		dev_kfree_skb_any(skb);
->  		return NETDEV_TX_OK;
->  	}
->  
-> 
+I don't have any problem with those.
