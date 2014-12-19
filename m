@@ -1,157 +1,75 @@
 From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [RFC PATCH net-next v2 1/1] net: Support for switch port
- configuration
-Date: Fri, 19 Dec 2014 09:50:47 -0500
-Message-ID: <20141219145047.GC22253@gospo>
-References: <54931969.7040209@cumulusnetworks.com>
- <5493293A.2000802@intel.com>
- <54935E28.8050602@cumulusnetworks.com>
- <549362A5.3000808@intel.com>
- <549367CC.2080307@cumulusnetworks.com>
- <CAN+pFwJyfg1+=+tXUpon0Kket56HJ=9BR3XohPhZnaX7hfPgpg@mail.gmail.com>
- <20141219082754.GE1848@nanopsycho.orion>
- <CAN+pFwJAJ71-+MZjJXPbfu5mzMp6AWNxtYR81Lx6siy3D3HfJg@mail.gmail.com>
- <20141219092308.GF1848@nanopsycho.orion>
- <CAN+pFwJr7TvJEW4x_HYPgTEvYGfi+YHgp=5vek2YiU1GLiH6_g@mail.gmail.com>
+Subject: Re: [PATCH] bonding: avoid re-entry of bond_release
+Date: Fri, 19 Dec 2014 10:11:57 -0500
+Message-ID: <20141219151157.GD22253@gospo>
+References: <1418979417-28867-1-git-send-email-wen.gang.wang@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	"Varlese, Marco" <marco.varlese@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: B Viswanath <marichika4@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Wengang Wang <wen.gang.wang@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:35795 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750968AbaLSPMQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 10:12:16 -0500
 Content-Disposition: inline
-In-Reply-To: <CAN+pFwJr7TvJEW4x_HYPgTEvYGfi+YHgp=5vek2YiU1GLiH6_g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1418979417-28867-1-git-send-email-wen.gang.wang@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 19, 2014 at 03:05:27PM +0530, B Viswanath wrote:
-> On 19 December 2014 at 14:53, Jiri Pirko <jiri@resnulli.us> wrote:
-> > Fri, Dec 19, 2014 at 10:01:46AM CET, marichika4@gmail.com wrote:
-> >>On 19 December 2014 at 13:57, Jiri Pirko <jiri@resnulli.us> wrote:
-> >>> Fri, Dec 19, 2014 at 06:14:57AM CET, marichika4@gmail.com wrote:
-> >>>>On 19 December 2014 at 05:18, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
-> >>>>> On 12/18/14, 3:26 PM, Samudrala, Sridhar wrote:
-> >><snipped for ease of reading>
-> >>>>>>
-> >>>>>>
-> >>>>>> We also need an interface to set per-switch attributes. Can this work?
-> >>>>>>     bridge link set dev sw0 sw_attr bcast_flooding 1 master
-> >>>>>> where sw0 is a bridge representing the hardware switch.
-> >>>>>
-> >>>>>
-> >>>>> Not today. We discussed this @ LPC, and one way to do this would be to have
-> >>>>> a device
-> >>>>> representing the switch asic. This is in the works.
-> >>>>
-> >>>>
-> >>>>Can I assume that on  platforms which house more than one asic (say
-> >>>>two 24 port asics, interconnected via a 10G link or equivalent, to get
-> >>>>a 48 port 'switch') , the 'rocker' driver (or similar) should expose
-> >>>>them as a single set of ports, and not as two 'switch ports' ?
-> >>>
-> >>> Well that really depends on particular implementation and drivers. If you
-> >>> have 2 pci-e devices, I think you should expose them as 2 entities. For
-> >>> sure, you can have the driver to do the masking for you. I don't believe
-> >>> that is correct though.
-> >>>
-> >>
-> >>In a platform that houses two asic chips, IMO, the user is still
-> >>expected to manage the router as a single entity. The configuration
-> >>being applied on both asic devices need to be matching if not
-> >>identical, and may not be conflicting. The FDB is to be synchronized
-> >>so that (offloaded) switching can happen across the asics. Some of
-> >>this stuff is asic specific anyway. Another example is that of the
-> >>learning. The (hardware) learning can't be enabled on one asic, while
-> >>being disabled on another one. The general use cases I have seen are
-> >>all involving managing the 'router' as a single entity.  That the
-> >>'router' is implemented with two asics instead of a single asic (with
-> >>more ports) is to be treated as an implementation detail.  This is the
-> >>usual router management method that exists today.
-> >>
-> >>I hope I make sense.
-> >>
-> >>So I am trying to figure out what this single entity that will be used
-> >>from a user perspective. It can be a bridge, but our bridges are more
-> >>802.1q bridges. We can use the 'self' mode, but then it means that it
-> >>should reflect the entire port count, and not just an asic.
-> >>
-> >>So I was trying to deduce that in our switchdevice model, the best bet
-> >>would be to leave the unification to the driver (i.e., to project the
-> >>multiple physical asics as a single virtual switch device). Thist
-> >
-> > Is it possible to have the asic as just single one? Or is it possible to
-> > connect asics being multiple chips maybe from multiple vendors together?
+On Fri, Dec 19, 2014 at 04:56:57PM +0800, Wengang Wang wrote:
+> If bond_release is run against an interface which is already detached from
+> it's master, then there is an error message shown like
+> 	"<master name> cannot release <slave name>".
 > 
-> I didn't understand the first question. Some times, it is possible to
-> have a single asic replace two, but its a cost factor, and others that
-> are involved.
+> The call path is:
+> 	bond_do_ioctl()
+> 		bond_release()
+> 			__bond_release_one()
 > 
-> AFAIK, the answer to the second question is a No. Two asics from
-> different vendors may not be connected together. The interconnect
-> tends to be proprietary.
+> Though it does not really harm, the message the message is misleading.
+> This patch tries to avoid the message.
 > 
-> > I believe that answer is "yes" in both cases. Making two separate asics
-> > to appear as one for user is not correct in my opinion. Driver should
-> > not do such masking. It is unclean, unextendable.
-> >
+> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
+> ---
+>  drivers/net/bonding/bond_main.c | 5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
 > 
-> I am only looking for a single management entity. I am not thinking it
-> needs to be at driver level. I am not sure of  any other option apart
-> from creating a 'switchdev' that Roopa was mentioning.
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 184c434..4a71bbd 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -3256,7 +3256,10 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
+>  		break;
+>  	case BOND_RELEASE_OLD:
+>  	case SIOCBONDRELEASE:
+> -		res = bond_release(bond_dev, slave_dev);
+> +		if (slave_dev->flags & IFF_SLAVE)
+> +			res = bond_release(bond_dev, slave_dev);
+> +		else
+> +			res = 0;
 
-This is certainly one of the possible use-cases of creating top-level
-switching/routing/offload dev to control all of the ASICs, but not the
-primary use of such a device at this point.
+Functionally this patch is fine, but I would prefer that you simply
+change the check in __bond_release_one to not be so noisy.  There is a
+check[1] in bond_enslave to see if a slave is already in a bond and that
+just prints a message of netdev_dbg (rather than netdev_err) and it
+seems that would be appropriate for this type of message.
 
-Earlier in the thread you asked how one might handle the multi-ASIC
-configuration.  I agree with the opinion Jiri offered (that was the
-concensus we reached when discussing this in person in Oct) that there
-were not plans to provide full support for a multi-chip configuration
-where the kernel tracks links between chips and keeps routing tables,
-FDB tables, et al up to date automatically to everything works happily
-without any userspace intervention.  This would be a nice addition at
-some point.
+[1] from bond_enslave():
 
-At some point there might be a need to provide something like a
-device-tree file or configuration on some platforms to provide a mapping
-between ports on an ASIC/offload device as they are referenced in the
-hardware, front-panel ports on a specific platform, and netdevs.
+        /* already enslaved */
+        if (slave_dev->flags & IFF_SLAVE) {
+                netdev_dbg(bond_dev, "Error: Device was already enslaved\n");
+                return -EBUSY;
+        }
 
-Something like this could also provide a way to allow the kernel to
-configure the in-kernel FDB/neighbor/FIB code to write the appropriate
-static entries to an internal interconnect port on a specific platform.
-There are also some interesting use-cases for a feature like this in a
-single-chip configuration as well, but an in-kernel solution to that
-problem has not been explored at this point.
 
-> >>allows any 'switch' level configurations to the bridge in 'self' mode.
-> >>
-> >>And  then we would need to consider stacking. Stacking differs from
-> >>this multi-asic scenario since  there would be multiple CPU involved.
-
-This would also be grouped into that same TODO category, but based on
-the fact that these stacking protocols/frame formats appear to be
-vendor-specific it would seem that this is an exercise best left to
-userspace.
-
-> >>
-> >>Thanks
-> >>Vissu
-> >>
-> >>>>
-> >>>>>
-> >>>>>
-> >>>>> --
-> >>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> >>>>> the body of a message to majordomo@vger.kernel.org
-> >>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  		break;
+>  	case BOND_SETHWADDR_OLD:
+>  	case SIOCBONDSETHWADDR:
+> -- 
+> 1.8.3.1
+> 
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
