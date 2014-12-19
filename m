@@ -1,57 +1,84 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [patches] a bunch of old bluetooth fixes
-Date: Fri, 19 Dec 2014 13:57:35 +0100
-Message-ID: <015D7FD4-F115-4046-8016-D155912D8FEF@holtmann.org>
-References: <20141219061801.GU22149@ZenIV.linux.org.uk> <B0609FEE-1CE5-4618-A0B6-B2B82B1EC74D@holtmann.org>
-Mime-Version: 1.0 (Mac OS X Mail 8.1 \(1993\))
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Subject: pull request: bluetooth 2014-12-19
+Date: Fri, 19 Dec 2014 16:34:00 +0200
+Message-ID: <20141219143400.GA20385@t440s.P-661HNU-F1>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="bp/iNruPH9dso1Pn"
+Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f49.google.com ([209.85.215.49]:52066 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752087AbaLSOeL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 09:34:11 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--bp/iNruPH9dso1Pn
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	BlueZ development <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <B0609FEE-1CE5-4618-A0B6-B2B82B1EC74D-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Disposition: inline
 
 Hi Dave,
 
->> 	This stuff has been sitting in my queue since March; basically,
->> several places in net/bluetooth assume that they are dealing with
->> l2cap sockets, while it is possible to get an arbitrary socket to those.
->> Results are not pretty.
->> 	* HIDPCONNADD gets an arbitrary user-supplied socket; the code
->> it calls (hidp_connection_add()) verifies that the socket is l2cap one,
->> but before doing so it finds l2cap_pi(ctrl_sock->sk)->chan.  It's not
->> that big a deal (it's only 5 words past the end of struct sock), but
->> it's trivial to avoid and, in theory, we might end up oopsing here if
->> we are very unlucky and it happens to hit an unmapped page just past
->> the actual object ctrl_sock->sk sits in.
->> 	* CMTP counterpart of that doesn't validate the socket at all.
->> It proceeds to
->>       s = __cmtp_get_session(&l2cap_pi(sock->sk)->chan->dst);
->> which can very easily oops - here ->chan is already garbage and we
->> proceed to dereference that.  As with HIDP, one needs CAP_NET_ADMIN to
->> trigger that, but it's really a clear bug.  The only sanity check we
->> do is verifying that nsock->sk->sk_state is equal to BT_CONNECTED,
->> which is not unique to bluetooth, to put it mildly.  It's just 1,
->> so a TCP_ESTABLISHED tcp socket will pass that check just fune.
->> The fix is trivial...
->> 	* BNEP situation is identical to CMTP one.
->> 
->> I've sent these patches back then (March 10), but they seem to have fallen
->> through the cracks.  The bugs are still there and the fixes still apply.
->> If you would prefer me to resend them after -rc1, just tell...
-> 
-> they must have really fallen through the cracks since I do not even remember them.
-> 
-> My take is that these should all go in before -rc1 and preferable also make it into stable. While you need CAP_NET_ADMIN capability, there are clear stupid bugs on our side.
-> 
-> Dave, we can prepare a pull request for these or do you want to take them directly into net tree?
+Here's one more pull request for 3.19. It contains the socket type
+verification fixes from Al Viro as well as an skb double-free fix for
+6lowpan from Jukka Rissanen.
 
-never mind that. We have another bug in 6LoWPAN with wrongly freeing a skb. I took all 3 of Al's patches now and I will ask Johan to send you a pull request for the whole set for net tree inclusion.
+Please let me know if there are any issues pulling. Thanks.
 
-Regards
+Johan
 
-Marcel
+---
+The following changes since commit 00c845dbfe2e966a2efd3818e40f46e286ca1ae6:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2014-12-18 16:41:13 -0800)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git for-upstream
+
+for you to fetch changes up to 71bb99a02b32b4cc4265118e85f6035ca72923f0:
+
+  Bluetooth: bnep: bnep_add_connection() should verify that it's dealing with l2cap socket (2014-12-19 13:48:27 +0100)
+
+----------------------------------------------------------------
+Al Viro (3):
+      Bluetooth: hidp_connection_add() unsafe use of l2cap_pi()
+      Bluetooth: cmtp: cmtp_add_connection() should verify that it's dealing with l2cap socket
+      Bluetooth: bnep: bnep_add_connection() should verify that it's dealing with l2cap socket
+
+Jukka Rissanen (1):
+      Bluetooth: 6lowpan: Do not free skb when packet is dropped
+
+ net/bluetooth/6lowpan.c   | 1 -
+ net/bluetooth/bnep/core.c | 3 +++
+ net/bluetooth/cmtp/core.c | 3 +++
+ net/bluetooth/hidp/core.c | 3 ++-
+ 4 files changed, 8 insertions(+), 2 deletions(-)
+
+
+--bp/iNruPH9dso1Pn
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJUlDdYAAoJECQj9vv5qNQS6ZcP/0RXW7qCgrix61bBhbnj7p7H
+WoqMOkhAN301sk+9/WgWHcbN7tT2RNJA6quWI7sgH2XTdeiIoR+xAYDUDIwKdq4+
+XZf6sPTHWzARlEJSZygiWOPA8N7ScXYS5cmDvT8eBuBVg/ExsPLhfDY8d4QjJkxt
+F7VvQdug6slD9UIZO8Kr/NKtlgHgeW8eucZd4kVQYqxJj9rkefL26Rl1MxnaeuwI
+To/jdkQVh2Bho51FnuwVD3Pls39q7tpsBP4i3bFCfh0+TqXqz/KW+FLrEIElOpsK
+4vOzSDeSuWomap7fYZxP4YpFKO6dG9941ko3pw8rQ8Cevt5njKbgnZZ9Sz8db4sL
+b5MVJVPCPVMwTfIjsM6olBak13oY4xC4/yNhCSQMm3trzoa1N+pW/Nbgqj9psXYv
+iuwW7toBB0OXK9thxfqntBRuKuRQMWE6zs7OawpYPtplwA7REHA73kGCG3SGAiPf
+9g7/zAsiga+ptdI6OoOjAQ8y/NCdTVtUpdPF+Dost7qiIRS7pH63qieSO6DWclv5
+UZcA3GrAIoQtdfzEikW5vtywBM9ZtNAAIazH3oU19CprXLInWXw4o6ZSCjh2PPgg
+rIIa4JSySEg78PSkPBbUiVD1V04SyuqDMZrCXGWA+IOiqmwG+JBGPtSLFIsQTJF+
+dlqFclSolpR1F3DKVBf+
+=T2lg
+-----END PGP SIGNATURE-----
+
+--bp/iNruPH9dso1Pn--
