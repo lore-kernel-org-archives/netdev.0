@@ -1,67 +1,32 @@
-From: Dan Collins <dan@dcollins.co.nz>
-Subject: [PATCH] Fixed TPACKET V3 to signal poll when block is closed rather than every packet
-Date: Fri, 19 Dec 2014 16:49:25 +1300
-Message-ID: <1418960965-29522-1-git-send-email-dan@dcollins.co.nz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net V2] net: drop the packet when fails to do software
+ segmentation or header check
+Date: Thu, 18 Dec 2014 23:02:26 -0500 (EST)
+Message-ID: <20141218.230226.442587581329380880.davem@davemloft.net>
+References: <1418958553-9962-1-git-send-email-jasowang@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Dan Collins <dan@dcollins.co.nz>
-To: davem@davemloft.net
+	eric.dumazet@gmail.com
+To: jasowang@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1418958553-9962-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make TPACKET_V3 signal poll when block is closed rather than for every
-packet. Side effect is that poll will be signaled when block retire
-timer expires which didn't previously happen. Issue was visible when
-sending packets at a very low frequency such that all blocks are retired
-before packets are received by TPACKET_V3. This caused avoidable packet
-loss. The fix ensures that the signal is sent when blocks are closed
-which covers the normal path where the block is filled as well as the
-path where the timer expires. The case where a block is filled without
-moving to the next block (ie. all blocks are full) will still cause poll
-to be signaled.
+From: Jason Wang <jasowang@redhat.com>
+Date: Fri, 19 Dec 2014 11:09:13 +0800
 
-Signed-off-by: Dan Collins <dan@dcollins.co.nz>
----
- net/packet/af_packet.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+> Commit cecda693a969816bac5e470e1d9c9c0ef5567bca ("net: keep original skb
+> which only needs header checking during software GSO") keeps the original
+> skb for packets that only needs header check, but it doesn't drop the
+> packet if software segmentation or header check were failed.
+> 
+> Fixes cecda693a9 ("net: keep original skb which only needs header checking
+> during software GSO")
+> 
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index e52a447..6880f34 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -785,6 +785,7 @@ static void prb_close_block(struct tpacket_kbdq_core *pkc1,
- 
- 	struct tpacket3_hdr *last_pkt;
- 	struct tpacket_hdr_v1 *h1 = &pbd1->hdr.bh1;
-+	struct sock *sk = &po->sk;
- 
- 	if (po->stats.stats3.tp_drops)
- 		status |= TP_STATUS_LOSING;
-@@ -809,6 +810,8 @@ static void prb_close_block(struct tpacket_kbdq_core *pkc1,
- 	/* Flush the block */
- 	prb_flush_block(pkc1, pbd1, status);
- 
-+	sk->sk_data_ready(sk);
-+
- 	pkc1->kactive_blk_num = GET_NEXT_PRB_BLK_NUM(pkc1);
- }
- 
-@@ -2052,12 +2055,12 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 	smp_wmb();
- #endif
- 
--	if (po->tp_version <= TPACKET_V2)
-+	if (po->tp_version <= TPACKET_V2) {
- 		__packet_set_status(po, h.raw, status);
--	else
-+		sk->sk_data_ready(sk);
-+	} else {
- 		prb_clear_blk_fill_status(&po->rx_ring);
--
--	sk->sk_data_ready(sk);
-+	}
- 
- drop_n_restore:
- 	if (skb_head != skb->data && skb_shared(skb)) {
--- 
-2.1.3
+Applied and queued up for -stable, thanks Jason.
