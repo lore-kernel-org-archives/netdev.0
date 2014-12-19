@@ -1,180 +1,167 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 08/10] tun: Re-uanble UFO support.
-Date: Fri, 19 Dec 2014 04:45:36 +0008
-Message-ID: <1418963856.8471.1@smtp.corp.redhat.com>
-References: <1418840455-22598-1-git-send-email-vyasevic@redhat.com>
-	<1418840455-22598-9-git-send-email-vyasevic@redhat.com>
-	<878417685.243182.1418881887975.JavaMail.zimbra@redhat.com>
-	<5492EEDE.5050000@redhat.com>
+From: B Viswanath <marichika4@gmail.com>
+Subject: Re: [RFC PATCH net-next v2 1/1] net: Support for switch port configuration
+Date: Fri, 19 Dec 2014 10:44:57 +0530
+Message-ID: <CAN+pFwJyfg1+=+tXUpon0Kket56HJ=9BR3XohPhZnaX7hfPgpg@mail.gmail.com>
+References: <C4896FB061E7DE4AAC93031BDCA044B104AD7B82@IRSMSX108.ger.corp.intel.com>
+	<5492E85C.6010802@cumulusnetworks.com>
+	<C4896FB061E7DE4AAC93031BDCA044B104AD9E53@IRSMSX108.ger.corp.intel.com>
+	<5492EFC3.8030102@cumulusnetworks.com>
+	<C4896FB061E7DE4AAC93031BDCA044B104ADA16F@IRSMSX108.ger.corp.intel.com>
+	<549313B8.6050102@cumulusnetworks.com>
+	<C4896FB061E7DE4AAC93031BDCA044B104ADA310@IRSMSX108.ger.corp.intel.com>
+	<54931969.7040209@cumulusnetworks.com>
+	<5493293A.2000802@intel.com>
+	<54935E28.8050602@cumulusnetworks.com>
+	<549362A5.3000808@intel.com>
+	<549367CC.2080307@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org,
-	Vladislav Yasevich <vyasevich@gmail.com>,
-	virtualization@lists.linux-foundation.org, stefanha@redhat.com,
-	ben@decadent.org.uk
-To: vyasevic@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <5492EEDE.5050000@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	"Varlese, Marco" <marco.varlese@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <549367CC.2080307@cumulusnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 19 December 2014 at 05:18, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+> On 12/18/14, 3:26 PM, Samudrala, Sridhar wrote:
+>>
+>>
+>> On 12/18/2014 3:07 PM, Roopa Prabhu wrote:
+>>>
+>>> On 12/18/14, 11:21 AM, John Fastabend wrote:
+>>>>
+>>>> On 12/18/2014 10:14 AM, Roopa Prabhu wrote:
+>>>>>
+>>>>> On 12/18/14, 10:02 AM, Varlese, Marco wrote:
+>>>>>>
+>>>>>> Removed unnecessary content for ease of reading...
+>>>>>>
+>>>>>>>>>>>> +/* Switch Port Attributes section */
+>>>>>>>>>>>> +
+>>>>>>>>>>>> +enum {
+>>>>>>>>>>>> +    IFLA_ATTR_UNSPEC,
+>>>>>>>>>>>> +    IFLA_ATTR_LEARNING,
+>>>>>>>>>>>
+>>>>>>>>>>> Any reason you want learning here ?. This is covered as part  of
+>>>>>>>>>>> the bridge setlink attributes.
+>>>>>>>>>>>
+>>>>>>>>>> Yes, because the user may _not_ want to go through a bridge
+>>>>>>>>>> interface
+>>>>>>>>>
+>>>>>>>>> necessarily.
+>>>>>>>>> But, the bridge setlink/getlink interface was changed to
+>>>>>>>>> accommodate
+>>>>>>>
+>>>>>>> 'self'
+>>>>>>>>>
+>>>>>>>>> for exactly such cases.
+>>>>>>>>> I kind of understand your case for the other attributes (these are
+>>>>>>>>> per port settings that switch asics provide).
+>>>>>>>>>
+>>>>>>>>> However, i don't understand the reason to pull in bridge attributes
+>>>>>>>>> here.
+>>>>>>>>>
+>>>>>>>> Maybe, I am missing something so you might help. The learning
+>>>>>>>> attribute -
+>>>>>>>
+>>>>>>> in my case - it is like all other attributes: a port attribute (as
+>>>>>>> you said, port
+>>>>>>> settings that the switch provides per port).
+>>>>>>>>
+>>>>>>>> So, what I was saying is "why the user shall go through a bridge to
+>>>>>>>> configure
+>>>>>>>
+>>>>>>> the learning attribute"? From my perspective, it is as any other
+>>>>>>> attribute and
+>>>>>>> as such configurable on the port.
+>>>>>>>
+>>>>>>> Thinking about this some more, i don't see why any of these
+>>>>>>> attributes
+>>>>>>> (except loopback. I dont understand the loopback attribute) cant be
+>>>>>>> part of
+>>>>>>> the birdge port attributes.
+>>>>>>>
+>>>>>>> With this we will end up adding l2 attributes in two places: the
+>>>>>>> general link
+>>>>>>> attributes and bridge attributes.
+>>>>>>>
+>>>>>>> And since we have gone down the path of using
+>>>>>>> ndo_bridge_setlink/getlink
+>>>>>>> with 'self'....we should stick to that for all l2 attributes.
+>>>>>>>
+>>>>>>> The idea of overloading ndo_bridge_set/getlink, was to have the same
+>>>>>>> set of
+>>>>>>> attributes but support both cases where the user wants to go through
+>>>>>>> the
+>>>>>>> bridge driver or directly to the switch port driver. So, you are not
+>>>>>>> really going
+>>>>>>> through the bridge driver if you use 'self' and
+>>>>>>> ndo_bridge_setlink/getlink.
+>>>>>>>
+>>>>>> Roopa, one of the comments I got from Thomas Graf on my v1 patch
+>>>>>> was that your patch and mine were supplementary ("I think Roopa's
+>>>>>> patches are supplementary. Not all switchdev users will be backed
+>>>>>> with a Linux Bridge. I therefore welcome your patches very
+>>>>>> much")... I also understood by others that the patch made sense for
+>>>>>> the same reason. I simply do not understand why these attributes
+>>>>>> (and maybe others in the future) could not be configured directly
+>>>>>> on a standard port but have to go through a bridge.
+>>>>>>
+>>>>> ok, i am very confused in that case. The whole moving of bridge
+>>>>> attributes from the bridge driver to rtnetlink.c was to make the
+>>>>> bridge attributes accessible to any driver who wants to set l2/bridge
+>>>>> attributes on their switch ports. So, its unclear to me why we are
+>>>>> doing this parallel thing again. This move to rtnetlink.c was done
+>>>>> during the recent rocker support. so, maybe scott/jiri can elaborate
+>>>>> more.
+>>>>
+>>>>
+>>>> Not sure if this will add to the confusion or help. But you do not
+>>>> need to have the bridge.ko loaded or netdev's attached to a bridge
+>>>> to use the setlink/getlink ndo ops and netlink messages.
+>>>>
+>>>> This was intentionally done. Its already used with NIC devices to
+>>>> configure embedded bridge settings such as VEB/VEPA.
+>>>
+>>>
+>>> that helps my case, thanks.
+>>
+>>
+>> So the user interface to set/get the per-port attributes will be via
+>> 'bridge', not 'ip'
+>>
+>>     bridge link set dev sw0p1 port_attr bcast_flooding 1 self
+>>     bridge link get dev sw0p1 port_attr bcast_flooding self
+>
+>
+> yes, l2 attributes.
+>>
+>>
+>> We also need an interface to set per-switch attributes. Can this work?
+>>     bridge link set dev sw0 sw_attr bcast_flooding 1 master
+>> where sw0 is a bridge representing the hardware switch.
+>
+>
+> Not today. We discussed this @ LPC, and one way to do this would be to have
+> a device
+> representing the switch asic. This is in the works.
 
 
-On Thu, Dec 18, 2014 at 11:12 PM, Vlad Yasevich <vyasevic@redhat.com> 
-wrote:
-> On 12/18/2014 12:51 AM, Jason Wang wrote:
->>  
->>  
->>  ----- Original Message -----
->>>  Now that UFO is split into v4 and v6 parts, we can bring
->>>  back v4 support without any trouble.
->>> 
->>>  Continue to handle legacy applications by selecting the
->>>  IPv6 fragment id but do not change the gso type.  Thist
->>>  makes sure that two legacy VMs may still communicate.
->>> 
->>>  Based on original work from Ben Hutchings.
->>> 
->>>  Fixes: 88e0e0e5aa7a ("drivers/net: Disable UFO through virtio")
->>>  CC: Ben Hutchings <ben@decadent.org.uk>
->>>  Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
->>>  ---
->>>   drivers/net/tun.c | 26 ++++++++++++++------------
->>>   1 file changed, 14 insertions(+), 12 deletions(-)
->>> 
->>>  diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->>>  index 9dd3746..8c32fca 100644
->>>  --- a/drivers/net/tun.c
->>>  +++ b/drivers/net/tun.c
->>>  @@ -175,7 +175,7 @@ struct tun_struct {
->>>   	struct net_device	*dev;
->>>   	netdev_features_t	set_features;
->>>   #define TUN_USER_FEATURES 
->>> (NETIF_F_HW_CSUM|NETIF_F_TSO_ECN|NETIF_F_TSO| \
->>>  -			  NETIF_F_TSO6)
->>>  +			  NETIF_F_TSO6|NETIF_F_UFO)
->>>   
->>>   	int			vnet_hdr_sz;
->>>   	int			sndbuf;
->>>  @@ -1152,20 +1152,15 @@ static ssize_t tun_get_user(struct 
->>> tun_struct *tun,
->>>  struct tun_file *tfile,
->>>   			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
->>>   			break;
->>>   		case VIRTIO_NET_HDR_GSO_UDP:
->>>  -		{
->>>  -			static bool warned;
->>>  -
->>>  -			if (!warned) {
->>>  -				warned = true;
->>>  -				netdev_warn(tun->dev,
->>>  -					    "%s: using disabled UFO feature; please fix this 
->>> program\n",
->>>  -					    current->comm);
->>>  -			}
->>>   			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
->>>  -			if (skb->protocol == htons(ETH_P_IPV6))
->>>  +			if (vlan_get_protocol(skb) == htons(ETH_P_IPV6)) {
->>  
->>  This probably means UDPv6 with vlan does not work well, looks like 
->> another
->>  independent fixe and also for stable.
-> 
-> Ok.  I can split this out.
-> 
->>>  +				/* This allows legacy application to work.
->>>  +				 * Do not change the gso_type as it may
->>>  +				 * not be upderstood by legacy applications.
->>>  +				 */
->>  
->>  Isn't this an issue that we use SKB_GSO_UDP for a UDPv6 packet? 
->> Especially
->>  consider we want to fix UFOv6 in the future? We probably can use
->>  SKB_GSO_UDP6 here and try to fix it in tun_put_user() if a legacy 
->> userspace
->>  is detected.
-> 
-> There is a slight problem with this.  This will force fragmentation 
-> of IPv6
-> traffic between VMs since UFO6 wouldn't be enabled on a destination 
-> device.
-> So, suddenly older VMs will see a performance regression for large 
-> UDPv6 traffic.
-> 
-> 
-> With this code, a legacy VM will continue to receive large UDPv6 
-> traffic.
-> New VMs will have an updated virtio-net which will reset the gso type 
-> on input.
+Can I assume that on  platforms which house more than one asic (say
+two 24 port asics, interconnected via a 10G link or equivalent, to get
+a 48 port 'switch') , the 'rocker' driver (or similar) should expose
+them as a single set of ports, and not as two 'switch ports' ?
 
-I get the point and that's why you still want ipv6 offload helpers to
-accept SKB_GSO_UDP. So SKB_GSO_UDP was still ambigious since it can be a
-UDP6 packet in fact.
-
-I'm not sure, but probably we could just leave the regression of legacy
-guest as is and fix current kernel. The sooner we eliminate the 
-ambigious
-the better for future development.
-> 
-> 
->>>   				ipv6_proxy_select_ident(skb);
->>  
->>  Question still for vlan, is network header correctly set here? 
->> Looks like
->>  ipv6_proxy_select_ident() depends on correct network header to work.
->>>  +	
-> 
-> Yes, you are right...  I wonder how that worked.  I'll re-test.
-> 
-> Thanks
-> -vlad
-> 		}
->>>   			break;
->>>  -		}
->>>   		default:
->>>   			tun->dev->stats.rx_frame_errors++;
->>>   			kfree_skb(skb);
->>>  @@ -1273,6 +1268,8 @@ static ssize_t tun_put_user(struct 
->>> tun_struct *tun,
->>>   				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
->>>   			else if (sinfo->gso_type & SKB_GSO_TCPV6)
->>>   				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
->>>  +			else if (sinfo->gso_type & SKB_GSO_UDP)
->>>  +				gso.gso_type = VIRTIO_NET_HDR_GSO_UDP;
->>>   			else {
->>>   				pr_err("unexpected GSO type: "
->>>   				       "0x%x, gso_size %d, hdr_len %d\n",
->>>  @@ -1780,6 +1777,11 @@ static int set_offload(struct tun_struct 
->>> *tun,
->>>  unsigned long arg)
->>>   				features |= NETIF_F_TSO6;
->>>   			arg &= ~(TUN_F_TSO4|TUN_F_TSO6);
->>>   		}
->>>  +
->>>  +		if (arg & TUN_F_UFO) {
->>>  +			features |= NETIF_F_UFO;
->>>  +			arg &= ~TUN_F_UFO;
->>>  +		}
->>>   	}
->>>   
->>>   	/* This gives the user a way to test for new features in future 
->>> by
->>>  --
->>>  1.9.3
->>> 
->>>  --
->>>  To unsubscribe from this list: send the line "unsubscribe netdev" 
->>> in
->>>  the body of a message to majordomo@vger.kernel.org
->>>  More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>> 
-> 
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
