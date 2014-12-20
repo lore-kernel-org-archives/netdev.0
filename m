@@ -1,39 +1,95 @@
-From: Nils Holland <nholland@tisys.org>
-Subject: Re: [PATCH net]tg3: tg3_disable_ints using uninitialized mailbox
- value to disable interrupts
-Date: Sat, 20 Dec 2014 23:16:07 +0100
-Message-ID: <20141220221606.GA2591@teela.fritz.box>
-References: <1419106577-12891-1-git-send-email-prashant@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, marcelo.leitner@gmail.com,
-	bhelgaas@google.com, rajatxjain@gmail.com,
-	Michael Chan <mchan@broadcom.com>
-To: Prashant Sreedharan <prashant@broadcom.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1419106577-12891-1-git-send-email-prashant@broadcom.com>
-Sender: linux-pci-owner@vger.kernel.org
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: [PATCH] net: ceph: armor.c:  Remove unused function
+Date: Sat, 20 Dec 2014 23:36:40 +0100
+Message-ID: <1419115000-12178-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	ceph-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sage Weil <sage@inktank.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <ceph-devel-owner@vger.kernel.org>
+Sender: ceph-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 20, 2014 at 12:16:17PM -0800, Prashant Sreedharan wrote:
-> 
-> This driver bug was exposed because of the commit a7877b17a667 (PCI: Check only
-> the Vendor ID to identify Configuration Request Retry). Also this issue is only
-> seen in older generation chipsets like 5722 because config space write to offset
-> 0 from driver is possible.
-> 
-> Fixed by initializing the interrupt mailbox registers before calling tg3_halt.
-> 
-> Please queue for -stable.
+Remove the function ceph_armor() that is not used anywhere.
 
-I gave this patch a try and can confirm what was to be expected: It
-fixes the issue and the network interface is once again working
-properly on my system. Thus, I guess the issue is adequately solved.
+This was partially found by using a static code analysis program called cppcheck.
 
-Thanks to everyone involved, especially to Marcelo for additional
-debugging and the guys at Broadcom for the quick fix!
+Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+---
+ net/ceph/armor.c  |   39 ---------------------------------------
+ net/ceph/crypto.h |    1 -
+ 2 files changed, 40 deletions(-)
 
-Greetings,
-Nils
+diff --git a/net/ceph/armor.c b/net/ceph/armor.c
+index 1fc1ee1..05e0d2b 100644
+--- a/net/ceph/armor.c
++++ b/net/ceph/armor.c
+@@ -1,7 +1,6 @@
+ 
+ #include <linux/errno.h>
+ 
+-int ceph_armor(char *dst, const char *src, const char *end);
+ int ceph_unarmor(char *dst, const char *src, const char *end);
+ 
+ /*
+@@ -33,44 +32,6 @@ static int decode_bits(char c)
+ 	return -EINVAL;
+ }
+ 
+-int ceph_armor(char *dst, const char *src, const char *end)
+-{
+-	int olen = 0;
+-	int line = 0;
+-
+-	while (src < end) {
+-		unsigned char a, b, c;
+-
+-		a = *src++;
+-		*dst++ = encode_bits(a >> 2);
+-		if (src < end) {
+-			b = *src++;
+-			*dst++ = encode_bits(((a & 3) << 4) | (b >> 4));
+-			if (src < end) {
+-				c = *src++;
+-				*dst++ = encode_bits(((b & 15) << 2) |
+-						     (c >> 6));
+-				*dst++ = encode_bits(c & 63);
+-			} else {
+-				*dst++ = encode_bits((b & 15) << 2);
+-				*dst++ = '=';
+-			}
+-		} else {
+-			*dst++ = encode_bits(((a & 3) << 4));
+-			*dst++ = '=';
+-			*dst++ = '=';
+-		}
+-		olen += 4;
+-		line += 4;
+-		if (line == 64) {
+-			line = 0;
+-			*(dst++) = '\n';
+-			olen++;
+-		}
+-	}
+-	return olen;
+-}
+-
+ int ceph_unarmor(char *dst, const char *src, const char *end)
+ {
+ 	int olen = 0;
+diff --git a/net/ceph/crypto.h b/net/ceph/crypto.h
+index d149822..5cbc7b1 100644
+--- a/net/ceph/crypto.h
++++ b/net/ceph/crypto.h
+@@ -45,7 +45,6 @@ int ceph_crypto_init(void);
+ void ceph_crypto_shutdown(void);
+ 
+ /* armor.c */
+-int ceph_armor(char *dst, const char *src, const char *end);
+ int ceph_unarmor(char *dst, const char *src, const char *end);
+ 
+ #endif
+-- 
+1.7.10.4
+
