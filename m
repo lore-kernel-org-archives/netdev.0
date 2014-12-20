@@ -1,134 +1,103 @@
-From: "Williams, Kenneth" <kenneth.j.williams@intel.com>
-Subject: Re: [RFC PATCH net-next v2 1/1] net: Support for switch port
- configuration
-Date: Fri, 19 Dec 2014 16:57:22 -0800
-Message-ID: <20141220005722.GA26098@localhost.localdomain>
-References: <54935E28.8050602@cumulusnetworks.com>
- <549362A5.3000808@intel.com>
- <549367CC.2080307@cumulusnetworks.com>
- <CAN+pFwJyfg1+=+tXUpon0Kket56HJ=9BR3XohPhZnaX7hfPgpg@mail.gmail.com>
- <20141219082754.GE1848@nanopsycho.orion>
- <CAN+pFwJAJ71-+MZjJXPbfu5mzMp6AWNxtYR81Lx6siy3D3HfJg@mail.gmail.com>
- <20141219092308.GF1848@nanopsycho.orion>
- <CAN+pFwJr7TvJEW4x_HYPgTEvYGfi+YHgp=5vek2YiU1GLiH6_g@mail.gmail.com>
- <20141219095512.GH1848@nanopsycho.orion>
- <549450D0.8030805@cumulusnetworks.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next] hyperv: Fix some variable name typos in send-buffer
+ init/revoke
+Date: Fri, 19 Dec 2014 18:25:18 -0800
+Message-ID: <1419042318-7221-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, B Viswanath <marichika4@gmail.com>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	"Varlese, Marco" <marco.varlese@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <549450D0.8030805@cumulusnetworks.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
+ linux-kernel@vger.kernel.org, haiyangz@microsoft.com
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 19, 2014 at 08:22:40AM -0800, Roopa Prabhu wrote:
-> On 12/19/14, 1:55 AM, Jiri Pirko wrote:
-> >Fri, Dec 19, 2014 at 10:35:27AM CET, marichika4@gmail.com wrote:
-> >>On 19 December 2014 at 14:53, Jiri Pirko <jiri@resnulli.us> wrote:
-> >>>Fri, Dec 19, 2014 at 10:01:46AM CET, marichika4@gmail.com wrote:
-> >>>>On 19 December 2014 at 13:57, Jiri Pirko <jiri@resnulli.us> wrote:
-> >>>>>Fri, Dec 19, 2014 at 06:14:57AM CET, marichika4@gmail.com wrote:
-> >>>>>>On 19 December 2014 at 05:18, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
-> >>>>>>>On 12/18/14, 3:26 PM, Samudrala, Sridhar wrote:
-> >>>><snipped for ease of reading>
-> >>>>>>>>
-> >>>>>>>>We also need an interface to set per-switch attributes. Can this work?
-> >>>>>>>>     bridge link set dev sw0 sw_attr bcast_flooding 1 master
-> >>>>>>>>where sw0 is a bridge representing the hardware switch.
-> >>>>>>>
-> >>>>>>>Not today. We discussed this @ LPC, and one way to do this would be to have
-> >>>>>>>a device
-> >>>>>>>representing the switch asic. This is in the works.
-> >>>>>>
-> >>>>>>Can I assume that on  platforms which house more than one asic (say
-> >>>>>>two 24 port asics, interconnected via a 10G link or equivalent, to get
-> >>>>>>a 48 port 'switch') , the 'rocker' driver (or similar) should expose
-> >>>>>>them as a single set of ports, and not as two 'switch ports' ?
-> >>>>>Well that really depends on particular implementation and drivers. If you
-> >>>>>have 2 pci-e devices, I think you should expose them as 2 entities. For
-> >>>>>sure, you can have the driver to do the masking for you. I don't believe
-> >>>>>that is correct though.
-> >>>>>
-> >>>>In a platform that houses two asic chips, IMO, the user is still
-> >>>>expected to manage the router as a single entity. The configuration
-> >>>>being applied on both asic devices need to be matching if not
-> >>>>identical, and may not be conflicting. The FDB is to be synchronized
-> >>>>so that (offloaded) switching can happen across the asics. Some of
-> >>>>this stuff is asic specific anyway. Another example is that of the
-> >>>>learning. The (hardware) learning can't be enabled on one asic, while
-> >>>>being disabled on another one. The general use cases I have seen are
-> >>>>all involving managing the 'router' as a single entity.  That the
-> >>>>'router' is implemented with two asics instead of a single asic (with
-> >>>>more ports) is to be treated as an implementation detail.  This is the
-> >>>>usual router management method that exists today.
-> >>>>
-> >>>>I hope I make sense.
-> >>>>
-> >>>>So I am trying to figure out what this single entity that will be used
-> >>>>from a user perspective. It can be a bridge, but our bridges are more
-> >>>>802.1q bridges. We can use the 'self' mode, but then it means that it
-> >>>>should reflect the entire port count, and not just an asic.
-> >>>>
-> >>>>So I was trying to deduce that in our switchdevice model, the best bet
-> >>>>would be to leave the unification to the driver (i.e., to project the
-> >>>>multiple physical asics as a single virtual switch device). Thist
-> >>>Is it possible to have the asic as just single one? Or is it possible to
-> >>>connect asics being multiple chips maybe from multiple vendors together?
-> >>I didn't understand the first question. Some times, it is possible to
-> >I ment that there is a design with just a single asic of this type,
-> >instead of a pair.
-> >
-> >>have a single asic replace two, but its a cost factor, and others that
-> >>are involved.
-> >>
-> >>AFAIK, the answer to the second question is a No. Two asics from
-> >>different vendors may not be connected together. The interconnect
-> >>tends to be proprietary.
-> >Okay. In that case, it might make sense to mask it on driver level.
-> >
-> >
-> >>>I believe that answer is "yes" in both cases. Making two separate asics
-> >>>to appear as one for user is not correct in my opinion. Driver should
-> >>>not do such masking. It is unclean, unextendable.
-> >>>
-> >>I am only looking for a single management entity. I am not thinking it
-> >>needs to be at driver level. I am not sure of  any other option apart
-> >>from creating a 'switchdev' that Roopa was mentioning.
-> >
-> >Well the thing is there is a common desire to make the offloading as
-> >transparent as possible. For example, have 4 ports of same switch and
-> >put them into br0. Just like that, without need to do anything else
-> >than you would do when bridging ordinary NICs. Introducing some
-> >"management entity" would break this approach.
-> >
-> I don't think having a switchdevice breaks this approach. A software bridge
-> is not a 1-1 mapping with the asic in all cases.
-> When its a vlan filtering bridge, yes, it is (In which case all switch
-> global l2 non-port specific attributes can be applied to the bridge).
-> 
-> The switch asic can do l2 and l3 too. For a bridge, the switch asic is just
-> accelerating l2.
-> And a switch asic is also capable of l3, acls. A switch device (whether
-> accessible to userspace or not)
-> may become necessary (as discussed in other threads) where you cannot
-> resolve a kernel object to a switch port (Global acl rules, unresolved route
-> nexthops etc).
-A switch-chip vendor that provides a proprietary mechanism of
-bonding two or more switch-chips into a single functional unit, also
-typically provides an API that allows operating on this bonded set of
-switch chips to be addressed as a single unit. If my understanding is
-correct, the question of port uniqueness, etc becomes moot.
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The changed names are union fields with the same size, so the existing code
+still works. But, we now update these variables to the correct names.
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |    1 +
+ drivers/net/hyperv/netvsc.c     |   15 ++++++++-------
+ 2 files changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 2f48f79..384ca4f 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -590,6 +590,7 @@ struct nvsp_message {
+ 
+ 
+ #define NETVSC_RECEIVE_BUFFER_ID		0xcafe
++#define NETVSC_SEND_BUFFER_ID			0
+ 
+ #define NETVSC_PACKET_SIZE                      4096
+ 
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index dd867e6..9f49c01 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -161,8 +161,8 @@ static int netvsc_destroy_buf(struct netvsc_device *net_device)
+ 
+ 	/* Deal with the send buffer we may have setup.
+ 	 * If we got a  send section size, it means we received a
+-	 * SendsendBufferComplete msg (ie sent
+-	 * NvspMessage1TypeSendReceiveBuffer msg) therefore, we need
++	 * NVSP_MSG1_TYPE_SEND_SEND_BUF_COMPLETE msg (ie sent
++	 * NVSP_MSG1_TYPE_SEND_SEND_BUF msg) therefore, we need
+ 	 * to send a revoke msg here
+ 	 */
+ 	if (net_device->send_section_size) {
+@@ -172,7 +172,8 @@ static int netvsc_destroy_buf(struct netvsc_device *net_device)
+ 
+ 		revoke_packet->hdr.msg_type =
+ 			NVSP_MSG1_TYPE_REVOKE_SEND_BUF;
+-		revoke_packet->msg.v1_msg.revoke_recv_buf.id = 0;
++		revoke_packet->msg.v1_msg.revoke_send_buf.id =
++			NETVSC_SEND_BUFFER_ID;
+ 
+ 		ret = vmbus_sendpacket(net_device->dev->channel,
+ 				       revoke_packet,
+@@ -204,7 +205,7 @@ static int netvsc_destroy_buf(struct netvsc_device *net_device)
+ 		net_device->send_buf_gpadl_handle = 0;
+ 	}
+ 	if (net_device->send_buf) {
+-		/* Free up the receive buffer */
++		/* Free up the send buffer */
+ 		vfree(net_device->send_buf);
+ 		net_device->send_buf = NULL;
+ 	}
+@@ -339,9 +340,9 @@ static int netvsc_init_buf(struct hv_device *device)
+ 	init_packet = &net_device->channel_init_pkt;
+ 	memset(init_packet, 0, sizeof(struct nvsp_message));
+ 	init_packet->hdr.msg_type = NVSP_MSG1_TYPE_SEND_SEND_BUF;
+-	init_packet->msg.v1_msg.send_recv_buf.gpadl_handle =
++	init_packet->msg.v1_msg.send_send_buf.gpadl_handle =
+ 		net_device->send_buf_gpadl_handle;
+-	init_packet->msg.v1_msg.send_recv_buf.id = 0;
++	init_packet->msg.v1_msg.send_send_buf.id = NETVSC_SEND_BUFFER_ID;
+ 
+ 	/* Send the gpadl notification request */
+ 	ret = vmbus_sendpacket(device->channel, init_packet,
+@@ -364,7 +365,7 @@ static int netvsc_init_buf(struct hv_device *device)
+ 		netdev_err(ndev, "Unable to complete send buffer "
+ 			   "initialization with NetVsp - status %d\n",
+ 			   init_packet->msg.v1_msg.
+-			   send_recv_buf_complete.status);
++			   send_send_buf_complete.status);
+ 		ret = -EINVAL;
+ 		goto cleanup;
+ 	}
+-- 
+1.7.1
