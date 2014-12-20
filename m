@@ -1,88 +1,87 @@
-From: Sven Eckelmann <sven@narfation.org>
-Subject: [PATCH 1/3] batman-adv: Calculate extra tail size based on queued fragments
-Date: Sat, 20 Dec 2014 13:48:55 +0100
-Message-ID: <1419079737-31107-2-git-send-email-sven@narfation.org>
-References: <1419079737-31107-1-git-send-email-sven@narfation.org>
+From: "Jia-Ju Bai" <baijiaju1990@163.com>
+Subject: Re: [PATCH] igb in linux-3.18.0: some potential bugs
+Date: Sat, 20 Dec 2014 20:59:18 +0800
+Message-ID: <001201d01c54$c4a395b0$4deac110$@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Sven Eckelmann <sven@narfation.org>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from narfation.org ([79.140.41.39]:58306 "EHLO v3-1039.vlinux.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752947AbaLTM61 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Dec 2014 07:58:27 -0500
-In-Reply-To: <1419079737-31107-1-git-send-email-sven@narfation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux.nics@intel.com
+To: "'Jeff Kirsher'" <jeffrey.t.kirsher@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Language: zh-cn
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-The fragmentation code was replaced in 610bfc6bc99bc83680d190ebc69359a0=
-5fc7f605
-("batman-adv: Receive fragmented packets and merge"). The new code prov=
-ided a
-mostly unused parameter skb for the merging function. It is used inside=
- the
-function to calculate the additionally needed skb tailroom. But instead=
- of
-increasing its own tailroom, it is only increasing the tailroom of the =
-first
-queued skb. This is not correct in some situations because the first qu=
-eued
-entry can be a different one than the parameter.
+Thank for the reply!
 
-An observed problem was:
+For the first reply:
+I let some functions fail on purpose to test error handling code, and then run the driver in reality as well as monitor the function calls in runtime.
+The results are in my report. 
 
-1. packet with size 104, total_size 1464, fragno 1 was received
-   - packet is queued
-2. packet with size 1400, total_size 1464, fragno 0 was received
-   - packet is queued at the end of the list
-3. enough data was received and can be given to the merge function
-   (1464 =3D=3D (1400 - 20) + (104 - 20))
-   - merge functions gets 1400 byte large packet as skb argument
-4. merge function gets first entry in queue (104 byte)
-   - stored as skb_out
-5. merge function calculates the required extra tail as total_size - sk=
-b->len
-   - pskb_expand_head tail of skb_out with 64 bytes
-6. merge function tries to squeeze the extra 1380 bytes from the second=
- queued
-   skb (1400 byte aka skb parameter) in the 64 extra tail bytes of skb_=
-out
+For the second reply:
+I admit you are right, and my code style need to be improved.
 
-Instead calculate the extra required tail bytes for skb_out also using =
-skb_out
-instead of using the parameter skb. The skb parameter is only used to g=
-et the
-total_size from the last received packet. This is also the total_size u=
-sed to
-decide that all fragments were received.
+On Sat, 2014-12-20 at 16:11 +0800, Jia-Ju Bai wrote:
+> I have actually tested igb driver on the real hardware(Intel 82575EB 
+> PCI-E Gigabit Ethernet Controller), and find some potential bugs:
+> The target file is drivers/net/ethernet/intel/igb/igb_main.c
+> 
+> (1) In the normal process of igb, pci_enable_pcie_error_reporting and 
+> pci_disable_pcie_error_reporting is called in pairs in igb_probe and 
+> igb_remove. However, when pci_enable_pcie_error_reporting has been 
+> called and alloc_etherdev_mqs in igb_probe is failed, 
+> "err_alloc_etherdev"
+> segment
+> in igb_probe is executed immediately to exit, but 
+> pci_disable_pcie_error_reporting is not called.
+> (2) The same situation happens when pci_iomap in igb_probe is failed.
+> (3) The same situation happens when igb_sw_init in igb_probe is 
+> failed.
+> (4) The same situation happens when register_netdev in igb_probe is 
+> failed.
+> (5) The same situation happens when igb_init_i2c in igb_probe is 
+> failed.
+> 
+> (6) The function kcalloc is called by igb_sw_init when initializing 
+> the ethernet card driver, but kfree is not called when register_netdev 
+> in igb_probe is failed, which may cause memory leak.
+> (7) The same situation happens when igb_init_i2c in igb_probe is 
+> failed.
+> (8) The same situation happens when kzalloc in igb_alloc_q_vector is 
+> failed.
+> (9) The same situation happens when igb_alloc_q_vector in 
+> igb_alloc_q_vectors is failed.
+> 
+> (10) When igb_init_i2c in igb_probe is failed, igb_enable_sriov is 
+> called in igb_probe_vfs, but igb_disable_sriov is not called.
+> (11) The same situation with [10] happens when register_netdev in 
+> igb_probe is failed.
+> 
+> Meanwhile, I also write the patch to fix the bugs. I have run the 
+> patch on the hardware, it can work normally and fix the above bugs.
 
-Reported-by: Philipp Psurek <philipp.psurek@gmail.com>
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Acked-by: Martin Hundeb=C3=B8ll <martin@hundeboll.net>
----
-Problem is in the kernel since v3.13 and may be important for the stabl=
-e tree.
+>Was this a bug you actually saw?  Or a theoretical bug based on code review?
 
- net/batman-adv/fragmentation.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+>I do not mind adding this to my queue so that we can review and test the patch, although this will cause a fair amount of regression testing.
 
-diff --git a/net/batman-adv/fragmentation.c b/net/batman-adv/fragmentat=
-ion.c
-index fc1835c..8af3461 100644
---- a/net/batman-adv/fragmentation.c
-+++ b/net/batman-adv/fragmentation.c
-@@ -251,7 +251,7 @@ batadv_frag_merge_packets(struct hlist_head *chain,=
- struct sk_buff *skb)
- 	kfree(entry);
-=20
- 	/* Make room for the rest of the fragments. */
--	if (pskb_expand_head(skb_out, 0, size - skb->len, GFP_ATOMIC) < 0) {
-+	if (pskb_expand_head(skb_out, 0, size - skb_out->len, GFP_ATOMIC) < 0=
-) {
- 		kfree_skb(skb_out);
- 		skb_out =3D NULL;
- 		goto free;
---=20
-2.1.4
+
+
+------------------------------------------------------------------------------
+Download BIRT iHub F-Type - The Free Enterprise-Grade BIRT Server
+from Actuate! Instantly Supercharge Your Business Reports and Dashboards
+with Interactivity, Sharing, Native Excel Exports, App Integration & more
+Get technology previously reserved for billion-dollar corporations, FREE
+http://pubads.g.doubleclick.net/gampad/clk?id=164703151&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
