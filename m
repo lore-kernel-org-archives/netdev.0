@@ -1,86 +1,145 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: net: Detect drivers that reschedule NAPI and exhaust budget
-Date: Sat, 20 Dec 2014 17:55:29 +1100
-Message-ID: <20141220065529.GA2033@gondor.apana.org.au>
-References: <20141220002327.GA31975@gondor.apana.org.au>
- <20141220003636.GA32187@gondor.apana.org.au>
- <1419039288.11185.4.camel@edumazet-glaptop2.roam.corp.google.com>
- <20141219.214000.819506179607476836.davem@davemloft.net>
+From: "Jia-Ju Bai" <baijiaju1990@163.com>
+Subject: [PATCH]e100 in linux-3.18.0: some potential bugs
+Date: Sat, 20 Dec 2014 15:40:39 +0800
+Message-ID: <000001d01c28$41c937c0$c55ba740$@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, david.vrabel@citrix.com,
-	netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
-	edumazet@google.com
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0001_01D01C6B.4FF180D0"
+Cc: <netdev@vger.kernel.org>, <Linux-nics@isotope.jf.intel.com>,
+	<linux.nics@intel.com>, <e1000-devel@lists.sourceforge.net>
+To: <todd.fujinaka@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:52285 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751005AbaLTGzn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Dec 2014 01:55:43 -0500
-Content-Disposition: inline
-In-Reply-To: <20141219.214000.819506179607476836.davem@davemloft.net>
+Received: from m50-134.163.com ([123.125.50.134]:55369 "EHLO m50-134.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750780AbaLTHlS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Dec 2014 02:41:18 -0500
+Content-Language: zh-cn
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 19, 2014 at 09:40:00PM -0500, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 19 Dec 2014 17:34:48 -0800
-> 
-> >> @@ -4620,7 +4620,11 @@ static void net_rx_action(struct softirq_action *h)
-> >>  					 */
-> >>  					napi_gro_flush(n, HZ >= 1000);
-> >>  				}
-> >> -				list_add_tail(&n->poll_list, &repoll);
-> >> +				/* Some drivers may have called napi_schedule
-> >> +				 * prior to exhausting their budget.
-> >> +				 */
-> >> +				if (!WARN_ON_ONCE(!list_empty(&n->poll_list)))
-> >> +					list_add_tail(&n->poll_list, &repoll);
-> >>  			}
-> >>  		}
-> >>  
-> > 
-> > I do not think stack trace will point to the buggy driver ?
-> > 
-> > IMO it would be better to print a single line with the netdev name ?
-> 
-> Right, we are already back from the poll routine and will just end
-> up seeing the call trace leading to the software interrupt.
+This is a multipart message in MIME format.
 
-Good point Eric.
+------=_NextPart_000_0001_01D01C6B.4FF180D0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 
--- >8 --
-The commit d75b1ade567ffab085e8adbbdacf0092d10cd09c (net: less
-interrupt masking in NAPI) required drivers to leave poll_list
-empty if the entire budget is consumed.
+I have actually tested e100 driver on the real hardware(Intel 82559 PCI
+Ethernet Controller), and find some bugs:
+The target file is drivers/net/ethernet/intel/e100.c, which is used to build
+e100.ko.
 
-We have already had two broken drivers so let's add a check for
-this.
+(1) The function pci_pool_create is called by e100_probe when initializing
+the ethernet card driver. But when pci_pool_create is failed, which means
+that it returns NULL to nic->cbs_pool, the system crash will happen. Because
+pci_pool_alloc (in e100_alloc_cbs in e100_up in e100_open) need to use
+nic->cbs_pool to allocate the resource, but it is NULL. I suggest that a
+check can be added in the code to detect whether pci_pool_create returns
+NULL.
+(2) In the normal process, netif_napi_add is called in e100_probe, but
+netif_napi_del is not called in e100_remove. However, many other ethernet
+card drivers call them in pairs, even in the error handling paths, such as
+r8169 and igb.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Meanwhile, I also write the patch to fix the bugs. I have run the patch on
+the hardware, it can work normally and fix the above bugs.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f411c28..47fdc5c 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4620,7 +4620,13 @@ static void net_rx_action(struct softirq_action *h)
- 					 */
- 					napi_gro_flush(n, HZ >= 1000);
- 				}
--				list_add_tail(&n->poll_list, &repoll);
-+				/* Some drivers may have called napi_schedule
-+				 * prior to exhausting their budget.
-+				 */
-+				if (unlikely(!list_empty(&n->poll_list)))
-+					pr_warn("%s: Budget exhausted after napi rescheduled\n", n->dev ? n->dev->name : "backlog");
-+				else
-+					list_add_tail(&n->poll_list, &repoll);
- 			}
- 		}
+diff --git a/drivers/net/ethernet/intel/e100.c
+b/drivers/net/ethernet/intel/e100.c
+index 781065e..2631d3f 100644
+--- a/drivers/net/ethernet/intel/e100.c
++++ b/drivers/net/ethernet/intel/e100.c
+@@ -2969,6 +2969,11 @@ static int e100_probe(struct pci_dev *pdev, const
+struct pci_device_id *ent)
+ 			   nic->params.cbs.max * sizeof(struct cb),
+ 			   sizeof(u32),
+ 			   0);
++	if(!(nic->cbs_pool))
++	{
++		err = -ENOMEM;
++		goto err_out_pool;
++	}
+ 	netif_info(nic, probe, nic->netdev,
+ 		   "addr 0x%llx, irq %d, MAC addr %pM\n",
+ 		   (unsigned long long)pci_resource_start(pdev, use_io ? 1 :
+0),
+@@ -2976,6 +2981,8 @@ static int e100_probe(struct pci_dev *pdev, const
+struct pci_device_id *ent)
  
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+ 	return 0;
+ 
++err_out_pool:
++	unregister_netdev(netdev);
+ err_out_free:
+ 	e100_free(nic);
+ err_out_iounmap:
+@@ -2985,6 +2992,7 @@ err_out_free_res:
+ err_out_disable_pdev:
+ 	pci_disable_device(pdev);
+ err_out_free_dev:
++	netif_napi_del(&nic->napi);
+ 	free_netdev(netdev);
+ 	return err;
+ }
+@@ -2995,6 +3003,7 @@ static void e100_remove(struct pci_dev *pdev)
+ 
+ 	if (netdev) {
+ 		struct nic *nic = netdev_priv(netdev);
++		netif_napi_del(&nic->napi);
+ 		unregister_netdev(netdev);
+ 		e100_free(nic);
+ 		pci_iounmap(pdev, nic->csr);
+
+------=_NextPart_000_0001_01D01C6B.4FF180D0
+Content-Type: application/octet-stream;
+	name="patch_e100"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment;
+	filename="patch_e100"
+
+diff --git a/drivers/net/ethernet/intel/e100.c =
+b/drivers/net/ethernet/intel/e100.c=0A=
+index 781065e..2631d3f 100644=0A=
+--- a/drivers/net/ethernet/intel/e100.c=0A=
++++ b/drivers/net/ethernet/intel/e100.c=0A=
+@@ -2969,6 +2969,11 @@ static int e100_probe(struct pci_dev *pdev, const =
+struct pci_device_id *ent)=0A=
+ 			   nic->params.cbs.max * sizeof(struct cb),=0A=
+ 			   sizeof(u32),=0A=
+ 			   0);=0A=
++	if(!(nic->cbs_pool))=0A=
++	{=0A=
++		err =3D -ENOMEM;=0A=
++		goto err_out_pool;=0A=
++	}=0A=
+ 	netif_info(nic, probe, nic->netdev,=0A=
+ 		   "addr 0x%llx, irq %d, MAC addr %pM\n",=0A=
+ 		   (unsigned long long)pci_resource_start(pdev, use_io ? 1 : 0),=0A=
+@@ -2976,6 +2981,8 @@ static int e100_probe(struct pci_dev *pdev, const =
+struct pci_device_id *ent)=0A=
+ =0A=
+ 	return 0;=0A=
+ =0A=
++err_out_pool:=0A=
++	unregister_netdev(netdev);=0A=
+ err_out_free:=0A=
+ 	e100_free(nic);=0A=
+ err_out_iounmap:=0A=
+@@ -2985,6 +2992,7 @@ err_out_free_res:=0A=
+ err_out_disable_pdev:=0A=
+ 	pci_disable_device(pdev);=0A=
+ err_out_free_dev:=0A=
++	netif_napi_del(&nic->napi);=0A=
+ 	free_netdev(netdev);=0A=
+ 	return err;=0A=
+ }=0A=
+@@ -2995,6 +3003,7 @@ static void e100_remove(struct pci_dev *pdev)=0A=
+ =0A=
+ 	if (netdev) {=0A=
+ 		struct nic *nic =3D netdev_priv(netdev);=0A=
++		netif_napi_del(&nic->napi);=0A=
+ 		unregister_netdev(netdev);=0A=
+ 		e100_free(nic);=0A=
+ 		pci_iounmap(pdev, nic->csr);=0A=
+
+------=_NextPart_000_0001_01D01C6B.4FF180D0--
