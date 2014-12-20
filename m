@@ -1,56 +1,59 @@
-From: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
-Subject: [PATCH] net: wireless: rtlwifi: rtl8723be: phy.c:  Remove unused function
-Date: Sat, 20 Dec 2014 23:59:18 +0100
-Message-ID: <1419116358-13223-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Cc: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH] vhost: relax used address alignment
+Date: Sun, 21 Dec 2014 01:14:05 +0200
+Message-ID: <1419117201-24590-1-git-send-email-mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Remove the function rtl8723be_phy_get_txpower_level() that is not used anywhere.
+virtio 1.0 only requires used address to be 4 byte aligned,
+vhost required 8 bytes (size of vring_used_elem).
+Fix up vhost to match that.
 
-This was partially found by using a static code analysis program called cppcheck.
+Additionally, while vhost correctly requires 8 byte
+alignment for log, it's unconnected to used ring:
+it's a consequence that log has u64 entries.
+Tweak code to make that clearer.
 
-Signed-off-by: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/net/wireless/rtlwifi/rtl8723be/phy.c |   25 -------------------------
- drivers/net/wireless/rtlwifi/rtl8723be/phy.h |    2 --
- 2 files changed, 27 deletions(-)
+ drivers/vhost/vhost.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/phy.c b/drivers/net/wireless/rtlwifi/rtl8723be/phy.c
-index 20dcc25..b7b73cb 100644
---- a/drivers/net/wireless/rtlwifi/rtl8723be/phy.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8723be/phy.c
-@@ -874,31 +874,6 @@ void rtl8723be_phy_get_hw_reg_originalvalue(struct ieee80211_hw *hw)
- 		  ROFDM0_RXDETECTOR3, rtlphy->framesync);
- }
- 
--void rtl8723be_phy_get_txpower_level(struct ieee80211_hw *hw, long *powerlevel)
--{
--	struct rtl_priv *rtlpriv = rtl_priv(hw);
--	struct rtl_phy *rtlphy = &rtlpriv->phy;
--	u8 txpwr_level;
--	long txpwr_dbm;
--
--	txpwr_level = rtlphy->cur_cck_txpwridx;
--	txpwr_dbm = rtl8723_phy_txpwr_idx_to_dbm(hw, WIRELESS_MODE_B,
--						 txpwr_level);
--	txpwr_level = rtlphy->cur_ofdm24g_txpwridx;
--	if (rtl8723_phy_txpwr_idx_to_dbm(hw, WIRELESS_MODE_G, txpwr_level) >
--	    txpwr_dbm)
--		txpwr_dbm =
--		    rtl8723_phy_txpwr_idx_to_dbm(hw, WIRELESS_MODE_G,
--						 txpwr_level);
--	txpwr_level = rtlphy->cur_ofdm24g_txpwridx;
--	if (rtl8723_phy_txpwr_idx_to_dbm(hw, WIRELESS_MODE_N_24G,
--					 txpwr_level) > txpwr_dbm)
--		txpwr_dbm =
--		    rtl8723_phy_txpwr_idx_to_dbm(hw, WIRELESS_MODE_N_24G,
--						 txpwr_level);
--	*powerlevel = txpwr_dbm;
--}
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index ed71b53..97996fc 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -713,9 +713,12 @@ long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp)
+ 			r = -EFAULT;
+ 			break;
+ 		}
+-		if ((a.avail_user_addr & (sizeof *vq->avail->ring - 1)) ||
+-		    (a.used_user_addr & (sizeof *vq->used->ring - 1)) ||
+-		    (a.log_guest_addr & (sizeof *vq->used->ring - 1))) {
++
++		BUILD_BUG_ON(__alignof__ *vq->avail != 2);
++		BUILD_BUG_ON(__alignof__ *vq->used != 4);
++		if ((a.avail_user_addr & (__alignof__ *vq->avail - 1)) ||
++		    (a.used_user_addr & (__alignof__ *vq->used - 1)) ||
++		    (a.log_guest_addr & (sizeof(u64) - 1))) {
+ 			r = -EINVAL;
+ 			break;
+ 		}
+-- 
+MST
