@@ -1,30 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] net: Do not call ndo_dflt_fdb_dump if
- ndo_fdb_dump is defined
-Date: Sat, 20 Dec 2014 15:05:54 -0500 (EST)
-Message-ID: <20141220.150554.88974537269596572.davem@davemloft.net>
-References: <54941689.7060100@intel.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [0/4] net: net_rx_action fixes and clean-ups
+Date: Sun, 21 Dec 2014 07:14:53 +1100
+Message-ID: <20141220201453.GA6924@gondor.apana.org.au>
+References: <20141220002327.GA31975@gondor.apana.org.au>
+ <20141220003636.GA32187@gondor.apana.org.au>
+ <1419039288.11185.4.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20141219.214000.819506179607476836.davem@davemloft.net>
+ <20141220065529.GA2033@gondor.apana.org.au>
+ <1419098412.11185.8.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ray.kinsella@intel.com
-To: hubert.sokolowski@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, david.vrabel@citrix.com,
+	netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
+	edumazet@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42671 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751104AbaLTUGA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Dec 2014 15:06:00 -0500
-In-Reply-To: <54941689.7060100@intel.com>
+Received: from helcar.apana.org.au ([209.40.204.226]:60782 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750957AbaLTUPH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Dec 2014 15:15:07 -0500
+Content-Disposition: inline
+In-Reply-To: <1419098412.11185.8.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hubert Sokolowski <hubert.sokolowski@intel.com>
-Date: Fri, 19 Dec 2014 12:14:01 +0000
+On Sat, Dec 20, 2014 at 10:00:12AM -0800, Eric Dumazet wrote:
+> 
+> OK, but could you :
+> 1) use pr_warn_once()
+> 2) split the too long line
+> 	pr_warn_once("%s: Budget exhausted after napi rescheduled\n",
+> 		     n->dev ? n->dev->name : "backlog");
 
-> At the same time it is desirable to call the default dump
-> function on a bridge device.
+Sure, I'll clean it up a bit too.
 
-Device specific things do not belong in generic code.
-
-If the bridging device wants specific behavior wrt. this
-callback, it can implement the callback as needed.
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
