@@ -1,103 +1,65 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next] hyperv: Fix some variable name typos in send-buffer
- init/revoke
-Date: Fri, 19 Dec 2014 18:25:18 -0800
-Message-ID: <1419042318-7221-1-git-send-email-haiyangz@microsoft.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net: Detect drivers that reschedule NAPI and exhaust budget
+Date: Fri, 19 Dec 2014 17:34:48 -0800
+Message-ID: <1419039288.11185.4.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1418756386-6940-1-git-send-email-david.vrabel@citrix.com>
+	 <20141220002327.GA31975@gondor.apana.org.au>
+	 <20141220003636.GA32187@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, haiyangz@microsoft.com
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: David Vrabel <david.vrabel@citrix.com>, netdev@vger.kernel.org,
+	xen-devel@lists.xenproject.org, konrad.wilk@oracle.com,
+	boris.ostrovsky@oracle.com, edumazet@google.com,
+	"David S. Miller" <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:33720 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752472AbaLTBeu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 20:34:50 -0500
+Received: by mail-ie0-f178.google.com with SMTP id vy18so15531iec.37
+        for <netdev@vger.kernel.org>; Fri, 19 Dec 2014 17:34:50 -0800 (PST)
+In-Reply-To: <20141220003636.GA32187@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The changed names are union fields with the same size, so the existing code
-still works. But, we now update these variables to the correct names.
+On Sat, 2014-12-20 at 11:36 +1100, Herbert Xu wrote:
+> On Sat, Dec 20, 2014 at 11:23:27AM +1100, Herbert Xu wrote:
+> >
+> > A similar bug exists in virtio_net.
+> 
+> In order to detect other drivers doing this we should add something
+> like this.
+> 
+> -- >8 --
+> The commit d75b1ade567ffab085e8adbbdacf0092d10cd09c (net: less
+> interrupt masking in NAPI) required drivers to leave poll_list
+> empty if the entire budget is consumed.
+> 
+> We have already had two broken drivers so let's add a check for
+> this.
+>  
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index f411c28..88f9725 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -4620,7 +4620,11 @@ static void net_rx_action(struct softirq_action *h)
+>  					 */
+>  					napi_gro_flush(n, HZ >= 1000);
+>  				}
+> -				list_add_tail(&n->poll_list, &repoll);
+> +				/* Some drivers may have called napi_schedule
+> +				 * prior to exhausting their budget.
+> +				 */
+> +				if (!WARN_ON_ONCE(!list_empty(&n->poll_list)))
+> +					list_add_tail(&n->poll_list, &repoll);
+>  			}
+>  		}
+>  
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h |    1 +
- drivers/net/hyperv/netvsc.c     |   15 ++++++++-------
- 2 files changed, 9 insertions(+), 7 deletions(-)
+I do not think stack trace will point to the buggy driver ?
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 2f48f79..384ca4f 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -590,6 +590,7 @@ struct nvsp_message {
- 
- 
- #define NETVSC_RECEIVE_BUFFER_ID		0xcafe
-+#define NETVSC_SEND_BUFFER_ID			0
- 
- #define NETVSC_PACKET_SIZE                      4096
- 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index dd867e6..9f49c01 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -161,8 +161,8 @@ static int netvsc_destroy_buf(struct netvsc_device *net_device)
- 
- 	/* Deal with the send buffer we may have setup.
- 	 * If we got a  send section size, it means we received a
--	 * SendsendBufferComplete msg (ie sent
--	 * NvspMessage1TypeSendReceiveBuffer msg) therefore, we need
-+	 * NVSP_MSG1_TYPE_SEND_SEND_BUF_COMPLETE msg (ie sent
-+	 * NVSP_MSG1_TYPE_SEND_SEND_BUF msg) therefore, we need
- 	 * to send a revoke msg here
- 	 */
- 	if (net_device->send_section_size) {
-@@ -172,7 +172,8 @@ static int netvsc_destroy_buf(struct netvsc_device *net_device)
- 
- 		revoke_packet->hdr.msg_type =
- 			NVSP_MSG1_TYPE_REVOKE_SEND_BUF;
--		revoke_packet->msg.v1_msg.revoke_recv_buf.id = 0;
-+		revoke_packet->msg.v1_msg.revoke_send_buf.id =
-+			NETVSC_SEND_BUFFER_ID;
- 
- 		ret = vmbus_sendpacket(net_device->dev->channel,
- 				       revoke_packet,
-@@ -204,7 +205,7 @@ static int netvsc_destroy_buf(struct netvsc_device *net_device)
- 		net_device->send_buf_gpadl_handle = 0;
- 	}
- 	if (net_device->send_buf) {
--		/* Free up the receive buffer */
-+		/* Free up the send buffer */
- 		vfree(net_device->send_buf);
- 		net_device->send_buf = NULL;
- 	}
-@@ -339,9 +340,9 @@ static int netvsc_init_buf(struct hv_device *device)
- 	init_packet = &net_device->channel_init_pkt;
- 	memset(init_packet, 0, sizeof(struct nvsp_message));
- 	init_packet->hdr.msg_type = NVSP_MSG1_TYPE_SEND_SEND_BUF;
--	init_packet->msg.v1_msg.send_recv_buf.gpadl_handle =
-+	init_packet->msg.v1_msg.send_send_buf.gpadl_handle =
- 		net_device->send_buf_gpadl_handle;
--	init_packet->msg.v1_msg.send_recv_buf.id = 0;
-+	init_packet->msg.v1_msg.send_send_buf.id = NETVSC_SEND_BUFFER_ID;
- 
- 	/* Send the gpadl notification request */
- 	ret = vmbus_sendpacket(device->channel, init_packet,
-@@ -364,7 +365,7 @@ static int netvsc_init_buf(struct hv_device *device)
- 		netdev_err(ndev, "Unable to complete send buffer "
- 			   "initialization with NetVsp - status %d\n",
- 			   init_packet->msg.v1_msg.
--			   send_recv_buf_complete.status);
-+			   send_send_buf_complete.status);
- 		ret = -EINVAL;
- 		goto cleanup;
- 	}
--- 
-1.7.1
+IMO it would be better to print a single line with the netdev name ?
