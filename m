@@ -1,75 +1,125 @@
 From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: [PATCH] net: wireless: cw1200: queue.c:  Remove unused function
-Date: Sat, 20 Dec 2014 17:46:54 +0100
-Message-ID: <1419094014-8945-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Subject: [PATCH] net: ceph: crypto.c:  Remove some unused functions
+Date: Sat, 20 Dec 2014 17:52:06 +0100
+Message-ID: <1419094326-9218-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	ceph-devel@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Solomon Peachy <pizza@shaftnet.org>,
-	"John W. Linville" <linville@tuxdriver.com>
+To: Sage Weil <sage@inktank.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove the function cw1200_queue_requeue_all() that is not used anywhere.
+Removes some functions that are not used anywhere:
+ceph_encrypt() ceph_decrypt() ceph_crypto_key_encode()
 
 This was partially found by using a static code analysis program called cppcheck.
 
 Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
 ---
- drivers/net/wireless/cw1200/queue.c |   27 ---------------------------
- drivers/net/wireless/cw1200/queue.h |    1 -
- 2 files changed, 28 deletions(-)
+ net/ceph/crypto.c |   52 ----------------------------------------------------
+ net/ceph/crypto.h |    7 -------
+ 2 files changed, 59 deletions(-)
 
-diff --git a/drivers/net/wireless/cw1200/queue.c b/drivers/net/wireless/cw1200/queue.c
-index 9c3925f..0aaa0b4 100644
---- a/drivers/net/wireless/cw1200/queue.c
-+++ b/drivers/net/wireless/cw1200/queue.c
-@@ -415,33 +415,6 @@ int cw1200_queue_requeue(struct cw1200_queue *queue, u32 packet_id)
- 	return ret;
+diff --git a/net/ceph/crypto.c b/net/ceph/crypto.c
+index 62fc5e7..5a82890 100644
+--- a/net/ceph/crypto.c
++++ b/net/ceph/crypto.c
+@@ -22,18 +22,6 @@ int ceph_crypto_key_clone(struct ceph_crypto_key *dst,
+ 	return 0;
  }
  
--int cw1200_queue_requeue_all(struct cw1200_queue *queue)
+-int ceph_crypto_key_encode(struct ceph_crypto_key *key, void **p, void *end)
 -{
--	struct cw1200_queue_item *item, *tmp;
--	struct cw1200_queue_stats *stats = queue->stats;
--	spin_lock_bh(&queue->lock);
--
--	list_for_each_entry_safe_reverse(item, tmp, &queue->pending, head) {
--		--queue->num_pending;
--		++queue->link_map_cache[item->txpriv.link_id];
--
--		spin_lock_bh(&stats->lock);
--		++stats->num_queued;
--		++stats->link_map_cache[item->txpriv.link_id];
--		spin_unlock_bh(&stats->lock);
--
--		++item->generation;
--		item->packet_id = cw1200_queue_mk_packet_id(queue->generation,
--							    queue->queue_id,
--							    item->generation,
--							    item - queue->pool);
--		list_move(&item->head, &queue->queue);
--	}
--	spin_unlock_bh(&queue->lock);
--
+-	if (*p + sizeof(u16) + sizeof(key->created) +
+-	    sizeof(u16) + key->len > end)
+-		return -ERANGE;
+-	ceph_encode_16(p, key->type);
+-	ceph_encode_copy(p, &key->created, sizeof(key->created));
+-	ceph_encode_16(p, key->len);
+-	ceph_encode_copy(p, key->key, key->len);
 -	return 0;
 -}
 -
- int cw1200_queue_remove(struct cw1200_queue *queue, u32 packet_id)
+ int ceph_crypto_key_decode(struct ceph_crypto_key *key, void **p, void *end)
  {
- 	int ret = 0;
-diff --git a/drivers/net/wireless/cw1200/queue.h b/drivers/net/wireless/cw1200/queue.h
-index 119f9c7..45802ea 100644
---- a/drivers/net/wireless/cw1200/queue.h
-+++ b/drivers/net/wireless/cw1200/queue.h
-@@ -88,7 +88,6 @@ int cw1200_queue_get(struct cw1200_queue *queue,
- 		     struct ieee80211_tx_info **tx_info,
- 		     const struct cw1200_txpriv **txpriv);
- int cw1200_queue_requeue(struct cw1200_queue *queue, u32 packet_id);
--int cw1200_queue_requeue_all(struct cw1200_queue *queue);
- int cw1200_queue_remove(struct cw1200_queue *queue,
- 			u32 packet_id);
- int cw1200_queue_get_skb(struct cw1200_queue *queue, u32 packet_id,
+ 	ceph_decode_need(p, end, 2*sizeof(u16) + sizeof(key->created), bad);
+@@ -329,26 +317,6 @@ static int ceph_aes_decrypt2(const void *key, int key_len,
+ }
+ 
+ 
+-int ceph_decrypt(struct ceph_crypto_key *secret, void *dst, size_t *dst_len,
+-		 const void *src, size_t src_len)
+-{
+-	switch (secret->type) {
+-	case CEPH_CRYPTO_NONE:
+-		if (*dst_len < src_len)
+-			return -ERANGE;
+-		memcpy(dst, src, src_len);
+-		*dst_len = src_len;
+-		return 0;
+-
+-	case CEPH_CRYPTO_AES:
+-		return ceph_aes_decrypt(secret->key, secret->len, dst,
+-					dst_len, src, src_len);
+-
+-	default:
+-		return -EINVAL;
+-	}
+-}
+-
+ int ceph_decrypt2(struct ceph_crypto_key *secret,
+ 			void *dst1, size_t *dst1_len,
+ 			void *dst2, size_t *dst2_len,
+@@ -382,26 +350,6 @@ int ceph_decrypt2(struct ceph_crypto_key *secret,
+ 	}
+ }
+ 
+-int ceph_encrypt(struct ceph_crypto_key *secret, void *dst, size_t *dst_len,
+-		 const void *src, size_t src_len)
+-{
+-	switch (secret->type) {
+-	case CEPH_CRYPTO_NONE:
+-		if (*dst_len < src_len)
+-			return -ERANGE;
+-		memcpy(dst, src, src_len);
+-		*dst_len = src_len;
+-		return 0;
+-
+-	case CEPH_CRYPTO_AES:
+-		return ceph_aes_encrypt(secret->key, secret->len, dst,
+-					dst_len, src, src_len);
+-
+-	default:
+-		return -EINVAL;
+-	}
+-}
+-
+ int ceph_encrypt2(struct ceph_crypto_key *secret, void *dst, size_t *dst_len,
+ 		  const void *src1, size_t src1_len,
+ 		  const void *src2, size_t src2_len)
+diff --git a/net/ceph/crypto.h b/net/ceph/crypto.h
+index d149822..36082d5 100644
+--- a/net/ceph/crypto.h
++++ b/net/ceph/crypto.h
+@@ -22,17 +22,10 @@ static inline void ceph_crypto_key_destroy(struct ceph_crypto_key *key)
+ 
+ int ceph_crypto_key_clone(struct ceph_crypto_key *dst,
+ 			  const struct ceph_crypto_key *src);
+-int ceph_crypto_key_encode(struct ceph_crypto_key *key, void **p, void *end);
+ int ceph_crypto_key_decode(struct ceph_crypto_key *key, void **p, void *end);
+ int ceph_crypto_key_unarmor(struct ceph_crypto_key *key, const char *in);
+ 
+ /* crypto.c */
+-int ceph_decrypt(struct ceph_crypto_key *secret,
+-		 void *dst, size_t *dst_len,
+-		 const void *src, size_t src_len);
+-int ceph_encrypt(struct ceph_crypto_key *secret,
+-		 void *dst, size_t *dst_len,
+-		 const void *src, size_t src_len);
+ int ceph_decrypt2(struct ceph_crypto_key *secret,
+ 		  void *dst1, size_t *dst1_len,
+ 		  void *dst2, size_t *dst2_len,
 -- 
 1.7.10.4
