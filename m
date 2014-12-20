@@ -1,47 +1,71 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [linux-nics] [PATCH] e1000 in linux-3.18.0: a potential bug
-Date: Sat, 20 Dec 2014 02:34:20 -0800
-Message-ID: <1419071660.2461.85.camel@jtkirshe-mobl.home>
-References: <000d01d01c29$a9edb870$fdc92950$@163.com>
+Subject: Re: [linux-nics] [PATCH] igb in linux-3.18.0: some potential bugs
+Date: Sat, 20 Dec 2014 02:35:09 -0800
+Message-ID: <1419071709.2461.86.camel@jtkirshe-mobl.home>
+References: <001101d01c2c$8dcc0040$a96400c0$@163.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-7MlCBYl6nZEQC5JfJDd1"
+	protocol="application/pgp-signature"; boundary="=-vqw8aTRB6isLWCjrJcFx"
 Cc: todd.fujinaka@intel.com, netdev@vger.kernel.org,
 	e1000-devel@lists.sourceforge.net, linux.nics@intel.com
 To: Jia-Ju Bai <baijiaju1990@163.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:58986 "EHLO mga11.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:25155 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751040AbaLTKeV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Dec 2014 05:34:21 -0500
-In-Reply-To: <000d01d01c29$a9edb870$fdc92950$@163.com>
+	id S1751040AbaLTKfK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Dec 2014 05:35:10 -0500
+In-Reply-To: <001101d01c2c$8dcc0040$a96400c0$@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-7MlCBYl6nZEQC5JfJDd1
+--=-vqw8aTRB6isLWCjrJcFx
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Sat, 2014-12-20 at 15:50 +0800, Jia-Ju Bai wrote:
-> I have actually tested e1000 driver on the real hardware(Intel 82540EM
-> PCI
-> Gigabit Ethernet Controller), and find a potential bug:
-> The target file is drivers/net/ethernet/intel/e1000/e1000_main.c,
-> which is
-> used to build e1000.ko.
+On Sat, 2014-12-20 at 16:11 +0800, Jia-Ju Bai wrote:
+> I have actually tested igb driver on the real hardware(Intel 82575EB
+> PCI-E
+> Gigabit Ethernet Controller), and find some potential bugs:
+> The target file is drivers/net/ethernet/intel/igb/igb_main.c
 >=20
-> (1) In the normal process, netif_napi_add is called in e1000_probe,
-> but
-> netif_napi_del is not called in e1000_remove. However, many other
-> ethernet
-> card drivers call them in pairs, even in the error handling paths,
-> such as
-> r8169 and igb.
+> (1) In the normal process of igb, pci_enable_pcie_error_reporting and
+> pci_disable_pcie_error_reporting is called in pairs in igb_probe and
+> igb_remove. However, when pci_enable_pcie_error_reporting has been
+> called
+> and alloc_etherdev_mqs in igb_probe is failed, "err_alloc_etherdev"
+> segment
+> in igb_probe is executed immediately to exit, but
+> pci_disable_pcie_error_reporting is not called.
+> (2) The same situation happens when pci_iomap in igb_probe is failed.
+> (3) The same situation happens when igb_sw_init in igb_probe is
+> failed.
+> (4) The same situation happens when register_netdev in igb_probe is
+> failed.
+> (5) The same situation happens when igb_init_i2c in igb_probe is
+> failed.
 >=20
-> Meanwhile, I also write the patch to fix the bug. I have run the patch
-> on
-> the hardware, it can work normally and fix the above bug.
+> (6) The function kcalloc is called by igb_sw_init when initializing
+> the
+> ethernet card driver, but kfree is not called when register_netdev in
+> igb_probe is failed, which may cause memory leak.
+> (7) The same situation happens when igb_init_i2c in igb_probe is
+> failed.
+> (8) The same situation happens when kzalloc in igb_alloc_q_vector is
+> failed.
+> (9) The same situation happens when igb_alloc_q_vector in
+> igb_alloc_q_vectors is failed.
+>=20
+> (10) When igb_init_i2c in igb_probe is failed, igb_enable_sriov is
+> called in
+> igb_probe_vfs, but igb_disable_sriov is not called.
+> (11) The same situation with [10] happens when register_netdev in
+> igb_probe
+> is failed.
+>=20
+> Meanwhile, I also write the patch to fix the bugs. I have run the
+> patch on
+> the hardware, it can work normally and fix the above bugs.
 
 Was this a bug you actually saw?  Or a theoretical bug based on code
 review?
@@ -49,7 +73,7 @@ review?
 I do not mind adding this to my queue so that we can review and test the
 patch, although this will cause a fair amount of regression testing.
 
---=-7MlCBYl6nZEQC5JfJDd1
+--=-vqw8aTRB6isLWCjrJcFx
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -57,19 +81,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJUlVCsAAoJEOVv75VaS+3OR1QP/jj/8vnc1oZJvcXzrN+b5Jej
-sYNfHzReiKd8q/llRglcxA7m8eA1SmDOqrXvzv1sAjNVjUNKXuhGzuDUKKGA98EU
-oos+sJBLfr8Olk0rXuMwWUUDIj3HjMdwINoq1HmgG3amhxlIUpSD7rThL1ma16+L
-p/sUbfn1CohQ8NkMWQBd6GHMZE+6/VOVyQXKJjUQ8+ES+RN8v5xnNR2Elg6F+1XN
-8fxMg8PVTjLYZ0cTQtRcuztcKQcWqr/CWL7cxrltVqwPLh4Du8+gqpqFjdKimRmU
-D/ntSwUz+a/8jK/iaFh0wwkbPdfBmB1Jfcil34BI+IPZ+0mk1byuWDVHFvd1Qczb
-GghrDtoidrusnD9MWeYjDEoaJeiMLtCf/9KH1Dnl/JsFYjbicwTqyjW60C/V49qY
-Gj7oQR0JN3wOncF6qGs2vFYrFvRGb+dfvC6wcci+SNdipmNv5X1GXFRy04E75Akw
-F1zGgGVT9oYxCbNJxnIB8C/Hf50ykLZbOBYb5unCDgGQu7/3eqYc7xQXo+dTvykN
-f9qArmX/J6rbKvFUntEeaV/0sExunRmaRyUOClM5SRFoOwJWCTw4DBR4i872oPvK
-wv6loRZCvjKx4c81qz6x4SHmirU78wkcfpvyVMWXiqB7mvAH/qKTjTnIuSOcUg0A
-KXV70w10p6a/lm5T83mL
-=PAYW
+iQIcBAABCgAGBQJUlVDdAAoJEOVv75VaS+3OIDsP/isjILlt1HrU+wL2laOMaJA+
+e67NDYwoN2po/dtHxzNoz82uJa6Qg8eR/yMfvBPns5NY9dilPa+scgp7FQ/oyD2N
+FU+wrl6Bah5cGbJqPNA6xFffoUi6ZyaWaLu+/axvOvH0T5ptO6MPlz2T8xkuU1ML
+qIMQKkwNsq/xfSm4eUZmoR2m5X+4lAUjDqvuYXznqIc5M9DT1WRSjRFZkBpIJiUM
+ziXVYN7qVAXxckREgodQEB5uayNYh9SC6Ns38TojofHl7OV+plqxwWPQUgaY0ErX
+xLp4pWRSeWHR4YHeO7AeUTe6+SR6/Dau42fZISBm0MuILG8lzBggAc+mrfeM8J/w
+OnqVMA+D26XtTL4NBJ600DXx96ALDHodFOivgkBFZ/0iEIbQugBTqht7VsddEnZu
+QhWVU6GCuALZRacpeBOBboNlYdQdc4z0ZzGASFfLePydYChEaJBZDQOTLuGPcZQ8
+WxJT1WiYgH/ugPWZv1LxHe+KSZyRlw74hG8yMV+mxDfl0QKR6aT4UMG2i6oA2m8C
+iwMoA+4Y93ugZJ30icNgh+lo7D/VHkiRHgjHt63t+UK4wEtbhxQNez25CdpbD7Ib
+HqaqOBhI8mKoteSq+YFpsXqObEcNG6hbq+ZltCMLdxrLqs89xeyBl9zuTJtj3/Ez
+WF0+4V2J9lKY8c5uXyP/
+=q3Nk
 -----END PGP SIGNATURE-----
 
---=-7MlCBYl6nZEQC5JfJDd1--
+--=-vqw8aTRB6isLWCjrJcFx--
