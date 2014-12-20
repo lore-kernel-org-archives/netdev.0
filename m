@@ -1,43 +1,60 @@
-From: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
-Subject: [PATCH] net: wireless: ipw2x00: ipw2200.c:  Remove unused function
-Date: Sat, 20 Dec 2014 13:29:59 +0100
-Message-ID: <1419078599-31118-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Cc: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Stanislav Yakovlev <stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: [PATCH] net: ceph: ceph_strings.c:  Remove unused function
+Date: Sat, 20 Dec 2014 13:34:53 +0100
+Message-ID: <1419078894-31656-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	ceph-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sage Weil <sage@inktank.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove the function ipw_alive() that is not used anywhere.
+Remove the function ceph_pool_op_name() that is not used anywhere.
 
 This was partially found by using a static code analysis program called cppcheck.
 
-Signed-off-by: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
+Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
 ---
- drivers/net/wireless/ipw2x00/ipw2200.c |   14 --------------
- 1 file changed, 14 deletions(-)
+ include/linux/ceph/ceph_fs.h |    2 --
+ net/ceph/ceph_strings.c      |   14 --------------
+ 2 files changed, 16 deletions(-)
 
-diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
-index edc3443..2f830ca 100644
---- a/drivers/net/wireless/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2200.c
-@@ -3021,20 +3021,6 @@ static void ipw_remove_current_network(struct ipw_priv *priv)
- 	spin_unlock_irqrestore(&priv->ieee->lock, flags);
- }
+diff --git a/include/linux/ceph/ceph_fs.h b/include/linux/ceph/ceph_fs.h
+index 3c97d5e..0684f9e 100644
+--- a/include/linux/ceph/ceph_fs.h
++++ b/include/linux/ceph/ceph_fs.h
+@@ -191,8 +191,6 @@ struct ceph_mon_statfs_reply {
+ 	struct ceph_statfs st;
+ } __attribute__ ((packed));
  
--/**
-- * Check that card is still alive.
-- * Reads debug register from domain0.
-- * If card is present, pre-defined value should
-- * be found there.
-- *
-- * @param priv
-- * @return 1 if card is present, 0 otherwise
-- */
--static inline int ipw_alive(struct ipw_priv *priv)
+-const char *ceph_pool_op_name(int op);
+-
+ struct ceph_mon_poolop {
+ 	struct ceph_mon_request_header monhdr;
+ 	struct ceph_fsid fsid;
+diff --git a/net/ceph/ceph_strings.c b/net/ceph/ceph_strings.c
+index 3056020..139a9cb 100644
+--- a/net/ceph/ceph_strings.c
++++ b/net/ceph/ceph_strings.c
+@@ -42,17 +42,3 @@ const char *ceph_osd_state_name(int s)
+ 		return "???";
+ 	}
+ }
+-
+-const char *ceph_pool_op_name(int op)
 -{
--	return ipw_read32(priv, 0x90) == 0xd55555d5;
+-	switch (op) {
+-	case POOL_OP_CREATE: return "create";
+-	case POOL_OP_DELETE: return "delete";
+-	case POOL_OP_AUID_CHANGE: return "auid change";
+-	case POOL_OP_CREATE_SNAP: return "create snap";
+-	case POOL_OP_DELETE_SNAP: return "delete snap";
+-	case POOL_OP_CREATE_UNMANAGED_SNAP: return "create unmanaged snap";
+-	case POOL_OP_DELETE_UNMANAGED_SNAP: return "delete unmanaged snap";
+-	}
+-	return "???";
 -}
+-- 
+1.7.10.4
