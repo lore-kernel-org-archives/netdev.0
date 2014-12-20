@@ -1,53 +1,57 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: [PATCH v2 0/6] net-PPP: Deletion of a few unnecessary checks
-Date: Sat, 20 Dec 2014 15:45:32 +0100
-Message-ID: <54958B8C.7010105@users.sourceforge.net>
-References: <548B1E44.6050005@users.sourceforge.net>	<20141212.115922.687789059853236747.davem@davemloft.net>	<54930D7C.3000901@users.sourceforge.net> <20141218.122556.2148647081075440879.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] e100 in linux-3.18.0: some potential bugs
+Date: Sat, 20 Dec 2014 18:07:13 +0300
+Message-ID: <549590A1.1050107@cogentembedded.com>
+References: <000201d01c61$bdb956b0$392c0410$@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Linux-nics@isotope.jf.intel.com,
+	linux.nics@intel.com, e1000-devel@lists.sourceforge.net
+To: Jia-Ju Bai <baijiaju1990@163.com>, todd.fujinaka@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.17.12]:52206 "EHLO mout.web.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752803AbaLTOpi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Dec 2014 09:45:38 -0500
-In-Reply-To: <20141218.122556.2148647081075440879.davem@davemloft.net>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:39241 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752903AbaLTPHR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Dec 2014 10:07:17 -0500
+Received: by mail-lb0-f174.google.com with SMTP id 10so2185661lbg.33
+        for <netdev@vger.kernel.org>; Sat, 20 Dec 2014 07:07:15 -0800 (PST)
+In-Reply-To: <000201d01c61$bdb956b0$392c0410$@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I'm saying to leave the code alone.
+On 12/20/2014 5:32 PM, Jia-Ju Bai wrote:
 
-Do I need to try another interpretation out for your feedback?
+> I am inexperienced in submitting patches, sorry.
 
+    I see. It looks like you're failing to understand my English, too. :-(
+    Please put such remarks under the --- line which should be placed after 
+sign-off area.
 
-> If it goes:
-> 
-> 	var = foo_that_returns_ptr_err()
-> 	if (IS_ERR(var))
-> 		return PTR_ERR(var);
-> 
-> 	p->bar = var;
-> 
-> or whatever, simply keep it that way!
+> I have revised my patch:
 
-Do you want to express here that a data structure member should
-only be set after a previous function call succeeded?
+    You still need to revise it some more.
 
+> 1.Check whether pci_pool_create is failed in e100_probe to avoid null
+> dereference in pci_pool_alloc(in e100_alloc_cbs).
 
+    Please fix this issue by one (first) patch.
 
-> I'm not engaging in this conversation any further, you have
-> already consumed way too much of my limited time on this
-> incredibly trivial matter.
+> 2.Add netif_napi_del to match the call of netif_napi_add.
 
-I hope that you will find a bit time and patience again
-to clarify affected implementation details in a safer and
-unambiguous way.
+    And fix this one by another (second) patch.
+    Also, you need to insert empty line before sign-off.
 
-Regards,
-Markus
+> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+
+    ... and after sign-off too.
+
+> diff --git a/drivers/net/ethernet/intel/e100.c
+> b/drivers/net/ethernet/intel/e100.c
+> index 781065e..a58ab2e 100644
+[...]
+
+   And finally, please re-post the patches in a new thread, not in reply to 
+this (or other) thread.
+
+WBR, Sergei
