@@ -1,84 +1,38 @@
-From: "Jia-Ju Bai" <baijiaju1990@163.com>
-Subject: =?utf-8?b?562U5aSNOiBbbGludXgtbmljc10gW1BBVENIXSBp?=
-	=?utf-8?q?gb_in_linux-3=2E18=2E0=3A_some_potential_bugs?=
-Date: Sat, 20 Dec 2014 20:56:35 +0800
-Message-ID: <001001d01c54$63f3b150$2bdb13f0$@163.com>
-References: <001101d01c2c$8dcc0040$a96400c0$@163.com>
-	<1419071709.2461.86.camel@jtkirshe-mobl.home>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux.nics@intel.com
-To: "'Jeff Kirsher'" <jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1419071709.2461.86.camel@jtkirshe-mobl.home>
-Content-Language: zh-cn
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Sven Eckelmann <sven@narfation.org>
+Subject: Stable fixes for batman-adv
+Date: Sat, 20 Dec 2014 13:48:54 +0100
+Message-ID: <1419079737-31107-1-git-send-email-sven@narfation.org>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from narfation.org ([79.140.41.39]:58305 "EHLO v3-1039.vlinux.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752895AbaLTM61 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Dec 2014 07:58:27 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhhbmsgZm9yIHRoZSByZXBseSEKCkZvciB0aGUgZmlyc3QgcmVwbHk6CkkgbGV0IHNvbWUgZnVu
-Y3Rpb25zIGZhaWwgb24gcHVycG9zZSB0byB0ZXN0IGVycm9yIGhhbmRsaW5nIGNvZGUsIGFuZCB0
-aGVuIHJ1biB0aGUgZHJpdmVyIGluIHJlYWxpdHkgYXMgd2VsbCBhcyBtb25pdG9yIHRoZSBmdW5j
-dGlvbiBjYWxscyBpbiBydW50aW1lLgpUaGUgcmVzdWx0cyBhcmUgaW4gbXkgcmVwb3J0LiAKCkZv
-ciB0aGUgc2Vjb25kIHJlcGx5OgpJIGFkbWl0IHlvdSBhcmUgcmlnaHQsIGFuZCBteSBjb2RlIHN0
-eWxlIG5lZWQgdG8gYmUgaW1wcm92ZWQuCgoKT24gU2F0LCAyMDE0LTEyLTIwIGF0IDE2OjExICsw
-ODAwLCBKaWEtSnUgQmFpIHdyb3RlOgo+IEkgaGF2ZSBhY3R1YWxseSB0ZXN0ZWQgaWdiIGRyaXZl
-ciBvbiB0aGUgcmVhbCBoYXJkd2FyZShJbnRlbCA4MjU3NUVCIAo+IFBDSS1FIEdpZ2FiaXQgRXRo
-ZXJuZXQgQ29udHJvbGxlciksIGFuZCBmaW5kIHNvbWUgcG90ZW50aWFsIGJ1Z3M6Cj4gVGhlIHRh
-cmdldCBmaWxlIGlzIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfbWFpbi5jCj4g
-Cj4gKDEpIEluIHRoZSBub3JtYWwgcHJvY2VzcyBvZiBpZ2IsIHBjaV9lbmFibGVfcGNpZV9lcnJv
-cl9yZXBvcnRpbmcgYW5kIAo+IHBjaV9kaXNhYmxlX3BjaWVfZXJyb3JfcmVwb3J0aW5nIGlzIGNh
-bGxlZCBpbiBwYWlycyBpbiBpZ2JfcHJvYmUgYW5kIAo+IGlnYl9yZW1vdmUuIEhvd2V2ZXIsIHdo
-ZW4gcGNpX2VuYWJsZV9wY2llX2Vycm9yX3JlcG9ydGluZyBoYXMgYmVlbiAKPiBjYWxsZWQgYW5k
-IGFsbG9jX2V0aGVyZGV2X21xcyBpbiBpZ2JfcHJvYmUgaXMgZmFpbGVkLCAKPiAiZXJyX2FsbG9j
-X2V0aGVyZGV2Igo+IHNlZ21lbnQKPiBpbiBpZ2JfcHJvYmUgaXMgZXhlY3V0ZWQgaW1tZWRpYXRl
-bHkgdG8gZXhpdCwgYnV0IAo+IHBjaV9kaXNhYmxlX3BjaWVfZXJyb3JfcmVwb3J0aW5nIGlzIG5v
-dCBjYWxsZWQuCj4gKDIpIFRoZSBzYW1lIHNpdHVhdGlvbiBoYXBwZW5zIHdoZW4gcGNpX2lvbWFw
-IGluIGlnYl9wcm9iZSBpcyBmYWlsZWQuCj4gKDMpIFRoZSBzYW1lIHNpdHVhdGlvbiBoYXBwZW5z
-IHdoZW4gaWdiX3N3X2luaXQgaW4gaWdiX3Byb2JlIGlzIAo+IGZhaWxlZC4KPiAoNCkgVGhlIHNh
-bWUgc2l0dWF0aW9uIGhhcHBlbnMgd2hlbiByZWdpc3Rlcl9uZXRkZXYgaW4gaWdiX3Byb2JlIGlz
-IAo+IGZhaWxlZC4KPiAoNSkgVGhlIHNhbWUgc2l0dWF0aW9uIGhhcHBlbnMgd2hlbiBpZ2JfaW5p
-dF9pMmMgaW4gaWdiX3Byb2JlIGlzIAo+IGZhaWxlZC4KPiAKPiAoNikgVGhlIGZ1bmN0aW9uIGtj
-YWxsb2MgaXMgY2FsbGVkIGJ5IGlnYl9zd19pbml0IHdoZW4gaW5pdGlhbGl6aW5nIAo+IHRoZSBl
-dGhlcm5ldCBjYXJkIGRyaXZlciwgYnV0IGtmcmVlIGlzIG5vdCBjYWxsZWQgd2hlbiByZWdpc3Rl
-cl9uZXRkZXYgCj4gaW4gaWdiX3Byb2JlIGlzIGZhaWxlZCwgd2hpY2ggbWF5IGNhdXNlIG1lbW9y
-eSBsZWFrLgo+ICg3KSBUaGUgc2FtZSBzaXR1YXRpb24gaGFwcGVucyB3aGVuIGlnYl9pbml0X2ky
-YyBpbiBpZ2JfcHJvYmUgaXMgCj4gZmFpbGVkLgo+ICg4KSBUaGUgc2FtZSBzaXR1YXRpb24gaGFw
-cGVucyB3aGVuIGt6YWxsb2MgaW4gaWdiX2FsbG9jX3FfdmVjdG9yIGlzIAo+IGZhaWxlZC4KPiAo
-OSkgVGhlIHNhbWUgc2l0dWF0aW9uIGhhcHBlbnMgd2hlbiBpZ2JfYWxsb2NfcV92ZWN0b3IgaW4g
-Cj4gaWdiX2FsbG9jX3FfdmVjdG9ycyBpcyBmYWlsZWQuCj4gCj4gKDEwKSBXaGVuIGlnYl9pbml0
-X2kyYyBpbiBpZ2JfcHJvYmUgaXMgZmFpbGVkLCBpZ2JfZW5hYmxlX3NyaW92IGlzIAo+IGNhbGxl
-ZCBpbiBpZ2JfcHJvYmVfdmZzLCBidXQgaWdiX2Rpc2FibGVfc3Jpb3YgaXMgbm90IGNhbGxlZC4K
-PiAoMTEpIFRoZSBzYW1lIHNpdHVhdGlvbiB3aXRoIFsxMF0gaGFwcGVucyB3aGVuIHJlZ2lzdGVy
-X25ldGRldiBpbiAKPiBpZ2JfcHJvYmUgaXMgZmFpbGVkLgo+IAo+IE1lYW53aGlsZSwgSSBhbHNv
-IHdyaXRlIHRoZSBwYXRjaCB0byBmaXggdGhlIGJ1Z3MuIEkgaGF2ZSBydW4gdGhlIAo+IHBhdGNo
-IG9uIHRoZSBoYXJkd2FyZSwgaXQgY2FuIHdvcmsgbm9ybWFsbHkgYW5kIGZpeCB0aGUgYWJvdmUg
-YnVncy4KCldhcyB0aGlzIGEgYnVnIHlvdSBhY3R1YWxseSBzYXc/ICBPciBhIHRoZW9yZXRpY2Fs
-IGJ1ZyBiYXNlZCBvbiBjb2RlIHJldmlldz8KCkkgZG8gbm90IG1pbmQgYWRkaW5nIHRoaXMgdG8g
-bXkgcXVldWUgc28gdGhhdCB3ZSBjYW4gcmV2aWV3IGFuZCB0ZXN0IHRoZSBwYXRjaCwgYWx0aG91
-Z2ggdGhpcyB3aWxsIGNhdXNlIGEgZmFpciBhbW91bnQgb2YgcmVncmVzc2lvbiB0ZXN0aW5nLgrj
-gJDmnaXoh6rnvZHmmJPpgq7nrrHnmoTotoXlpKfpmYTku7bjgJEK6YKu5Lu25bim5pyJ6ZmE5Lu2
-6aKE6KeI6ZO+5o6l77yM6Iul5oKo6L2s5Y+R5oiW5Zue5aSN5q2k6YKu5Lu25pe25LiN5biM5pyb
-5a+55pa56aKE6KeI6ZmE5Lu277yM5bu66K6u5oKo5omL5Yqo5Yig6Zmk6ZO+5o6l44CCCgpzaWdu
-YXR1cmUuYXNjCuS4i+i9vTogaHR0cDovL3UuMTYzLmNvbS90L0huVk1OSG4yMQoK6aKE6KeIOiBo
-dHRwOi8vdS4xNjMuY29tL3QvZzFqdTY0CgoKCgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KRG93bmxv
-YWQgQklSVCBpSHViIEYtVHlwZSAtIFRoZSBGcmVlIEVudGVycHJpc2UtR3JhZGUgQklSVCBTZXJ2
-ZXIKZnJvbSBBY3R1YXRlISBJbnN0YW50bHkgU3VwZXJjaGFyZ2UgWW91ciBCdXNpbmVzcyBSZXBv
-cnRzIGFuZCBEYXNoYm9hcmRzCndpdGggSW50ZXJhY3Rpdml0eSwgU2hhcmluZywgTmF0aXZlIEV4
-Y2VsIEV4cG9ydHMsIEFwcCBJbnRlZ3JhdGlvbiAmIG1vcmUKR2V0IHRlY2hub2xvZ3kgcHJldmlv
-dXNseSByZXNlcnZlZCBmb3IgYmlsbGlvbi1kb2xsYXIgY29ycG9yYXRpb25zLCBGUkVFCmh0dHA6
-Ly9wdWJhZHMuZy5kb3VibGVjbGljay5uZXQvZ2FtcGFkL2Nsaz9pZD0xNjQ3MDMxNTEmaXU9LzQx
-NDAvb3N0Zy5jbGt0cmsKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX18KRTEwMDAtZGV2ZWwgbWFpbGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZv
-cmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9lMTAw
-MC1kZXZlbApUbyBsZWFybiBtb3JlIGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0LCB2aXNpdCBo
-dHRwOi8vY29tbXVuaXRpZXMuaW50ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
+Hi,
+
+it seems that patches aren't forwarded anymore (since August?) from batman-adv
+to the netdev mailing list. Please correct me if I am wrong.
+
+I would hereby try to send some patches directly to the netdev mailing list
+instead of waiting any longer for the patches to be forwarded. There are more
+non-feature patches [1] waiting in the batman-adv repo (everything after
+"batman-adv: fix alignment" from 2014-05-15) but these don't seem to
+be related to crashes.
+
+At least the first patch caused crashes in real world scenarios [2] and could
+also be used to crash a mesh node on-demand. The last patch has its bug report
+in the linux bug tracker [3]. The second patch is a wrong size calculation but
+no problem was yet observed in the wild.
+
+All patches fix problems which were introduced in Linux 3.13.
+
+Kind regards,
+	Sven
+
+[1] http://git.open-mesh.org/batman-adv.git/shortlog/refs/heads/maint
+[2] https://lists.open-mesh.org/pipermail/b.a.t.m.a.n/2014-November/012561.html
+[3] https://bugzilla.kernel.org/show_bug.cgi?id=84061
