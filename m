@@ -1,87 +1,86 @@
-From: Andy Zhou <azhou-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: OVS + BPF, make sense?
-Date: Fri, 19 Dec 2014 18:49:06 -0800
-Message-ID: <CACzMAJLtTKM57tD=COrZ5KOrZJVPVcUab=t2+y=CEU1e5xHV8g@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: net: Detect drivers that reschedule NAPI and exhaust budget
+Date: Sat, 20 Dec 2014 17:55:29 +1100
+Message-ID: <20141220065529.GA2033@gondor.apana.org.au>
+References: <20141220002327.GA31975@gondor.apana.org.au>
+ <20141220003636.GA32187@gondor.apana.org.au>
+ <1419039288.11185.4.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20141219.214000.819506179607476836.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: "dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org" <dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org>,
- "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, david.vrabel@citrix.com,
+	netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
+	edumazet@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:52285 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751005AbaLTGzn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Dec 2014 01:55:43 -0500
+Content-Disposition: inline
+In-Reply-To: <20141219.214000.819506179607476836.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGksIE9WUyBhbmQgbmV0ZGV2IGRldmVsb3BlcnM6CgpPbiAxMi8xNy8yMDE0LCAgQWxleGVpIFN0
-YXJvdm9pb3YgYW5kIGEgZmV3IG9mIHRoZSBPVlMgZGV2ZWxvcGVycwooSm9lLCBBbmR5LCBKZXNz
-ZSwgUHJhdmluIGFuZCBKdXN0aW4pIGdvdCB0b2dldGhlciB0byBkaXNjdXNzIHBvc3NpYmxlCndh
-eXMgZm9yIE9WUyB0byBoYXJuZXNzIHRoZSBwb3dlciBCUEYgaW4gcmVjZW50IExpbnV4IGtlcm5l
-bHMuICBEdXJpbmcKdGhlIG1lZXRpbmcsIHdlIGZlZWwgdGhhdCB0aGUgY29udGVudCBvZiB0aGUg
-ZGlzY3Vzc2lvbiBtYXkgYmUgb2YKaW50ZXJlc3QgdG8gbWFueSBPVlMgYW5kIExpbnV4IGtlcm5l
-bCBkZXZlbG9wZXJzLCBpdCBzaG91bGQgYmUgYSBnb29kCmlkZWEgdG8gcG9zdCB0aGUgbWVldGlu
-ZyBtaW51dGVzLgoKVGhlIG1lZXRpbmcgbWludXRlcyBjYW4gYmUgZm91bmQgYmVsb3cuICBJIGNy
-b3NzIHBvc3QgdGhlbSB0byBib3RoCm92cy1kZXYgYW5kIG5ldGRldiBtYWlsaW5nIGxpc3QuICBB
-cG9sb2dpc2VzIGlmIHlvdSByZWNlaXZlIHRoaXMgZW1haWwKdHdpY2UuCgpXZSBkb24ndCBoYXZl
-IGEgY29uY3JldGUgcGxhbiBhdCB0aGlzIHBvaW50IG9uIGhvdyBCUEYgY2FuIGJlIGFwcGxpZWQu
-Ckhvd2V2ZXIgd2UgYXJlIGludGVyZXN0ZWQgaW4gZXhwbG9yaW5nIGZ1cnRoZXIgYW5kIGV4Y2hh
-bmdlIGlkZWFzIHdpdGgKdGhlIGRldmVsb3BlciBjb21tdW5pdGllcy4gICBXZSBjYW4KcHJvYmFi
-bHkgbWVldCBhZ2FpbiBlYXJseSAyMDE1IGlmIHRoZXJlIGlzIHN1ZmZpY2llbnQgaW50ZXJlc3Qg
-aW4gdGhpcyB0b3BpYy4KClJlZ2FyZHMsCkFuZHkKCgpCUEYgY3VycmVudCBzdGF0dXM6Cj09PT09
-PT09PT09PT09PT09PT09PT09PT09PQoqIExpbnV4IGtlcm5lbCB1cC1zdHJlYW1pbmcgb24gZ29p
-bmcsIGN1cnJlbnRseSBmb2N1cyBvbiB0cmFjaW5nLgpPdGhlciBlbmhhbmNlbWVudHMKcGxhbmVk
-LCBmb3IgZXhhbXBsZSwgSklUIG9wY29kZSBvYmZ1c2NhdGlvbiwgYXMgYSBzZWN1cml0eSBlbmhh
-bmNlbWVudHMuCgoqIEZpcnN0IHNldCBvZiBMTFZNIHVwc3RyZWFtaW5nIHNob3VsZCBsYW5kIGlu
-IFExJzE1LiAgTW9yZQplbmhhbmNlbWVudHMgd2lsbCBmb2xsb3cuCgoqIEdDQyBiYWNrZW5kIGlz
-IHBvc3NpYmxlLCBidXQgbm90IHBsYW5lZCBhdCB0aGlzIHRpbWUuCgoqIE5ldyBmZWF0dXJlcyBw
-bGFuZWQ6IHBlci1jcHUgZGF0YSBzdHJ1Y3R1cmVzLCBzdHJlYW1pbmcgaW50ZXJmYWNlcwpyZXVz
-aW5nIHRyYWNlIGJ1ZmZlciBpbmZyYXN0dXJ1Y3R1cmUuCgoKUG9zc2libGUgdXNlIGNhc2VzIG9m
-IEJQRiBpbiBPVlMgTGludXgga2VybmVsIGRhdGFwYXRoCj09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT0KMS4gVXNpbmcgQlBGIHRvIGltcGxlbWVudCBhIHNpbmdsZSBh
-Y3Rpb246CgogICAgIEl0IG1heSBtYWtlIHNlbnNlIGZvciBPVlMgdG8gaGF2ZSBpdHMgb3duIHBy
-b2dyYW0gdHlwZS4gSG93ZXZlciwKICAgICBicGZfcmVnaXN0ZXJfcHJvZ190eXBlKCkgQVBJIGN1
-cnJlbnRseSBpcyBub3QgZXhwb3J0ZWQuICBUaGlzCm1lYW5zIHRoZSBwcm9ncmFtIHR5cGUgYW5k
-IHJlbGF0ZWQgaGVscGVyIGZ1bmN0aW9uIGNhbiBub3QgYmUgcHJvdmlkZWQKYnkgdGhlIE9WUyBr
-ZXJuZWwgbW9kdWxlLCBidXQgaGFzIGJlIGJlIHVwLXN0cmVhbWVkIGludG8gdGhlIGtlcm5lbApj
-b3JlLiAgVGhpcyBtYXkgYWZmZWN0IGhvdyBPVlMga2VybmVsIG1vZHVsZSBjYW4gcHJvdmlkZSBi
-YWNrd2FyZApjb21wYXRpYmlsaXR5LiAgQWxleGVpIGV4cGxhaW5lZCB0aGUgdGhpcyBpcyBtYWlu
-bHkgZHJpdmVuIGJ5IHRoZQpjb25jZXJucyBvZiB0aGUKY29tcGxleGl0eSByZWxhdGVkIHRvIHRy
-YWNraW5nIG1vZHVsZSBsb2FkL3VubG9hZCB3aGlsZSBCUEYgcHJvZ3JhbQphcmUgcnVubmluZywg
-YW5kCnRoZSBjb25jZXJuIG9mIHBvc3NpYmxlIHNpZGUtc3RlcHBpbmcgb2YgR1BMLgoKICAgIEJQ
-RiBhY3Rpb24gbWF5IG5lZWQgdG8gYWNjZXNzIGtlcm5lbCBkYXRhIHN0cnVjdHVyZXMsIHN1Y2gg
-YXMgc2tiLAppbiBrZXJuZWwgdmVyc2lvbiBhZ25vc3RpYyB3YXlzLiAgQWxleGVpIGlzIGF3YXJl
-IG9mIHRoaXMgcmVxdWlyZW1lbnQsCmFuZCBpcyBjb25zaWRlcmluZyBtdWx0aXBsZSBwb3RlbnRp
-YWwgc29sdXRpb25zICBBKSBicGYgaGVscGVyCmZ1bmN0aW9ucywgYikgdXNpbmcgcHNldWRvIHNr
-YiwgYykgYXNrIGtlcm5lbCBhYm91dCBvZmZzZXRzIGZvciBlYWNoCmludGVyZXN0ZWQgZGF0YSBm
-aWVsZC4uLiAgVGhpcyBpcyB3b3JrIGluIHByb2dyZXNzLgoKCgoyLiBVc2luZyBCUEYgdG8gaW1w
-bGVtZW50IHRoZSBlbnRpcmUgYWN0aW9uIGxpc3Q6CgogICAgVGhpcyBpcyBhIGJpZ2dlciB0YXNr
-IHRoYW4gMSwgYnV0IGNhbiBicmluZyBtb3JlIGJlbmVmaXRzIG9mIEJQRgp0byBPVlMuIEN1cnJl
-bnQgb3ZzIGFjdGlvbiBsaXN0IGFyZSBzZXF1ZW50aWFsbHkgZXhlY3V0ZWQuIEJQRgpwcm92aWRl
-cyBpZi10aGVuLWVsc2UgYW5kIG90aGVyIHR5cGVzIG9mIGNvbnRyb2wgY2FwYWJpbGl0aWVzIHRv
-Cid1cGdyYWRlJyBhY3Rpb24gbGlzdCB0byBhIHRydWUgcHJvZ3JhbS4KCiAgICBUaG9zZSBCUEYg
-cHJvZ3JhbXMgbmVlZHMgdG8gYmUgZ2VuZXJhdGVkIGF0IHJ1biB0aW1lIGJ5IE9WUyB1c2Vycwpz
-cGFjZS4gQWxleGVpIHRoaW5rcyB0aGlzIG1heSBub3QgYmUgaGFyZCB3aXRoaW4gdGhlIHNjb3Bl
-IG9mIGN1cnJlbnQKT1ZTIGFjdGlvbnMuIEplc3NlIHN1Z2dlc3RlZCB0byByZWZlcmVuY2UgbGli
-cGNhcCBzdHlsZSBvZiBwcm9ncmFtIGdlbmVyYXRpb24uCgoKMy4gVXNpbmcgQlBGIHRvIGltcGxl
-bWVudCBvdnMgZmxvdyBleHRyYWN0CgogICAgRmxvdyBleHRyYWN0IGZ1bmN0aW9ucyBhcmUgc3dl
-ZXQgc3BvdHMgZm9yIGFwcGx5aW5nIEJQRi4gQlBGIGNhbgpiZSB0aGUgYmFja2VuZCBvZiBjdXJy
-ZW50IE9wZW5GbG93IG1hdGNoIHBhcnNlciwgb3IgZXZlbiB0aGUgYmFjayBlbmQKb2YgYSBtb3Jl
-IGZsZXhpYmxlIHBhcnNlciBzdWNoIGFzIFA0LgoKCjQuIFVzaW5nIEJQRiB0byBpbXBsZW1lbnQg
-b3ZlcmFsbCBPVlMga2VybmVsIG1vZHVsZSBmdW5jdGlvbmFsaXR5CgogICBBbGV4ZWkgbGlrZXMg
-dGhpcyBhcHByb2FjaCB0aGUgbW9zdC4gVGhlIHBvdGVudGlhbCBiZW5lZml0cyBhcmU6CgogICBh
-KSBmbGV4aWJsZSBwYXJzZXIgYW5kIGZsb3cgZGF0YSBzdHJ1Y3R1cmUKICAgYikgdXNlciBzcGFj
-ZSBhbmQga2VybmVsIGRhdGEgc3RydWN0dXJlcyBhcmUgYWx3YXlzIGluLXN5bmMsIHRodXMKcmVt
-b3ZpbmcgdGhlIGNvbXBsZXhpdHkgb2YgdmVyc2lvbiBjb21wYXRpYmlsaXR5IGhhbmRsaW5nIGFu
-ZCBlcnJvcgpjaGVja2luZy4KICAgYykgcG9zc2libGUgaGlnaGVyIHBlcmZvcm1hbmNlIHRoYW4g
-Y3VycmVudCBrZXJuZWwgbW9kdWxlLCB3aXRoCkpJVGVkIEJQRiBjb2RlLgogICBkKSBUaGUgaGVs
-cGVyIGZ1bmN0aW9ucyBjYW4gYmUgbW9yZSBlYXNpbHkgcGxhbm5lZCBvdXQuIFRoaXMgY2FuIGJl
-CmltcG9ydGFudCBpbiBjYXNlIGR5bmFtaWMgaGVscGVyIGZ1bmN0aW9uIHJlZ2lzdHJhdGlvbiBp
-cyBub3QKcG9zc2libGUuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZz
-d2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+On Fri, Dec 19, 2014 at 09:40:00PM -0500, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 19 Dec 2014 17:34:48 -0800
+> 
+> >> @@ -4620,7 +4620,11 @@ static void net_rx_action(struct softirq_action *h)
+> >>  					 */
+> >>  					napi_gro_flush(n, HZ >= 1000);
+> >>  				}
+> >> -				list_add_tail(&n->poll_list, &repoll);
+> >> +				/* Some drivers may have called napi_schedule
+> >> +				 * prior to exhausting their budget.
+> >> +				 */
+> >> +				if (!WARN_ON_ONCE(!list_empty(&n->poll_list)))
+> >> +					list_add_tail(&n->poll_list, &repoll);
+> >>  			}
+> >>  		}
+> >>  
+> > 
+> > I do not think stack trace will point to the buggy driver ?
+> > 
+> > IMO it would be better to print a single line with the netdev name ?
+> 
+> Right, we are already back from the poll routine and will just end
+> up seeing the call trace leading to the software interrupt.
+
+Good point Eric.
+
+-- >8 --
+The commit d75b1ade567ffab085e8adbbdacf0092d10cd09c (net: less
+interrupt masking in NAPI) required drivers to leave poll_list
+empty if the entire budget is consumed.
+
+We have already had two broken drivers so let's add a check for
+this.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f411c28..47fdc5c 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4620,7 +4620,13 @@ static void net_rx_action(struct softirq_action *h)
+ 					 */
+ 					napi_gro_flush(n, HZ >= 1000);
+ 				}
+-				list_add_tail(&n->poll_list, &repoll);
++				/* Some drivers may have called napi_schedule
++				 * prior to exhausting their budget.
++				 */
++				if (unlikely(!list_empty(&n->poll_list)))
++					pr_warn("%s: Budget exhausted after napi rescheduled\n", n->dev ? n->dev->name : "backlog");
++				else
++					list_add_tail(&n->poll_list, &repoll);
+ 			}
+ 		}
+ 
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
