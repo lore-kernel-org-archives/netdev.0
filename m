@@ -1,55 +1,57 @@
 From: Sven Eckelmann <sven@narfation.org>
-Subject: [PATCH 2/3] batman-adv: Unify fragment size calculation
-Date: Sat, 20 Dec 2014 13:48:56 +0100
-Message-ID: <1419079737-31107-3-git-send-email-sven@narfation.org>
+Subject: [PATCH 3/3] batman-adv: avoid NULL dereferences and fix if check
+Date: Sat, 20 Dec 2014 13:48:57 +0100
+Message-ID: <1419079737-31107-4-git-send-email-sven@narfation.org>
 References: <1419079737-31107-1-git-send-email-sven@narfation.org>
-Cc: netdev@vger.kernel.org, Sven Eckelmann <sven@narfation.org>
+Cc: netdev@vger.kernel.org, Antonio Quartulli <antonio@meshcoding.com>,
+	Marek Lindner <mareklindner@neomailbox.ch>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from narfation.org ([79.140.41.39]:58304 "EHLO v3-1039.vlinux.de"
+Received: from narfation.org ([79.140.41.39]:58307 "EHLO v3-1039.vlinux.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752835AbaLTM61 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752961AbaLTM61 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 20 Dec 2014 07:58:27 -0500
 In-Reply-To: <1419079737-31107-1-git-send-email-sven@narfation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The fragmentation code was replaced in 610bfc6bc99bc83680d190ebc69359a05fc7f605
-("batman-adv: Receive fragmented packets and merge") by an implementation which
-can handle up to 16 fragments of a packet. The packet is prepared for the split
-in fragments by the function batadv_frag_send_packet and the actual split is
-done by batadv_frag_create.
+From: Antonio Quartulli <antonio@meshcoding.com>
 
-Both functions calculate the size of a fragment themself. But their calculation
-differs because batadv_frag_send_packet also subtracts ETH_HLEN. Therefore,
-the check in batadv_frag_send_packet "can a full fragment can be created?" may
-return true even when batadv_frag_create cannot create a full fragment.
+Gateway having bandwidth_down equal to zero are not accepted
+at all and so never added to the Gateway list.
+For this reason checking the bandwidth_down member in
+batadv_gw_out_of_range() is useless.
 
-The function batadv_frag_create doesn't check the size of the skb before
-splitting it and therefore might try to create a larger fragment than the
-remaining buffer. This creates an integer underflow and an invalid len is given
-to skb_split.
+This is probably a copy/paste error and this check was supposed
+to be "!gw_node" only. Moreover, the way the check is written
+now may also lead to a NULL dereference.
 
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Fix this by rewriting the if-condition properly.
+
+Introduced by 414254e342a0d58144de40c3da777521ebaeeb07
+("batman-adv: tvlv - gateway download/upload bandwidth container")
+
+Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
+Reported-by: David Binderman <dcb314@hotmail.com>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 ---
 Problem is in the kernel since v3.13 and may be important for the stable tree.
 
-
- net/batman-adv/fragmentation.c | 2 +-
+ net/batman-adv/gateway_client.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/batman-adv/fragmentation.c b/net/batman-adv/fragmentation.c
-index 8af3461..00f9e14 100644
---- a/net/batman-adv/fragmentation.c
-+++ b/net/batman-adv/fragmentation.c
-@@ -434,7 +434,7 @@ bool batadv_frag_send_packet(struct sk_buff *skb,
- 	 * fragments larger than BATADV_FRAG_MAX_FRAG_SIZE
- 	 */
- 	mtu = min_t(unsigned, mtu, BATADV_FRAG_MAX_FRAG_SIZE);
--	max_fragment_size = (mtu - header_size - ETH_HLEN);
-+	max_fragment_size = mtu - header_size;
- 	max_packet_size = max_fragment_size * BATADV_FRAG_MAX_FRAGMENTS;
+diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
+index 90cff58..e0bcf9e 100644
+--- a/net/batman-adv/gateway_client.c
++++ b/net/batman-adv/gateway_client.c
+@@ -810,7 +810,7 @@ bool batadv_gw_out_of_range(struct batadv_priv *bat_priv,
+ 		goto out;
  
- 	/* Don't even try to fragment, if we need more than 16 fragments */
+ 	gw_node = batadv_gw_node_get(bat_priv, orig_dst_node);
+-	if (!gw_node->bandwidth_down == 0)
++	if (!gw_node)
+ 		goto out;
+ 
+ 	switch (atomic_read(&bat_priv->gw_mode)) {
 -- 
 2.1.4
