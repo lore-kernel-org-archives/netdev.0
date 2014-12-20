@@ -1,72 +1,68 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: [PATCH] net: wireless: rtlwifi: rtl8192ee: trx.c:  Remove unused function
-Date: Sat, 20 Dec 2014 13:48:14 +0100
-Message-ID: <1419079694-32476-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	Joe Perches <joe@perches.com>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: Re:Re: [linux-nics] [PATCH] e1000e in linux-3.18.0: some
+ potential bugs
+Date: Sat, 20 Dec 2014 04:47:47 -0800
+Message-ID: <1419079667.2461.92.camel@jtkirshe-mobl.home>
+References: <000f01d01c2b$4af1b3b0$e0d51b10$@163.com>
+	 <1419070952.2461.82.camel@jtkirshe-mobl.home>
+	 <aaab622.119b.14a67ba656c.Coremail.baijiaju1990@163.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Jw7U6ttgA8NZ78lwfKC0"
+Cc: netdev <netdev@vger.kernel.org>,
+	e1000-devel <e1000-devel@lists.sourceforge.net>
+To: =?UTF-8?Q?=E7=99=BD=E5=AE=B6=E9=A9=B9?= <baijiaju1990@163.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:5234 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752947AbaLTMrs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Dec 2014 07:47:48 -0500
+In-Reply-To: <aaab622.119b.14a67ba656c.Coremail.baijiaju1990@163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Remove the function rtl92ee_get_available_desc() that is not used anywhere.
 
-This was partially found by using a static code analysis program called cppcheck.
+--=-Jw7U6ttgA8NZ78lwfKC0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
----
- drivers/net/wireless/rtlwifi/rtl8192ee/trx.c |   21 ---------------------
- drivers/net/wireless/rtlwifi/rtl8192ee/trx.h |    1 -
- 2 files changed, 22 deletions(-)
+On Sat, 2014-12-20 at 20:44 +0800, =E7=99=BD=E5=AE=B6=E9=A9=B9 wrote:
+> Thank for the reply!
+>=20
+> For the first reply:
+> I let some functions fail on purpose to test error handling code, and
+> then run the driver in reality as well as monitor the function calls
+> in runtime.
+> The results are in my report.=20
+>=20
+> For the second reply:
+> I admit you are right, and my code style need to be improved.
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ee/trx.c b/drivers/net/wireless/rtlwifi/rtl8192ee/trx.c
-index 2fcbef1..8186ed2 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ee/trx.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ee/trx.c
-@@ -710,27 +710,6 @@ static u16 get_desc_addr_fr_q_idx(u16 queue_index)
- 	return desc_address;
- }
- 
--void rtl92ee_get_available_desc(struct ieee80211_hw *hw, u8 q_idx)
--{
--	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
--	struct rtl_priv *rtlpriv = rtl_priv(hw);
--	u16 point_diff = 0;
--	u16 current_tx_read_point = 0, current_tx_write_point = 0;
--	u32 tmp_4byte;
--
--	tmp_4byte = rtl_read_dword(rtlpriv,
--				   get_desc_addr_fr_q_idx(q_idx));
--	current_tx_read_point = (u16)((tmp_4byte >> 16) & 0x0fff);
--	current_tx_write_point = (u16)((tmp_4byte) & 0x0fff);
--
--	point_diff = ((current_tx_read_point > current_tx_write_point) ?
--		      (current_tx_read_point - current_tx_write_point) :
--		      (TX_DESC_NUM_92E - current_tx_write_point +
--		       current_tx_read_point));
--
--	rtlpci->tx_ring[q_idx].avl_desc = point_diff;
--}
--
- void rtl92ee_pre_fill_tx_bd_desc(struct ieee80211_hw *hw,
- 				 u8 *tx_bd_desc, u8 *desc, u8 queue_index,
- 				 struct sk_buff *skb, dma_addr_t addr)
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ee/trx.h b/drivers/net/wireless/rtlwifi/rtl8192ee/trx.h
-index 6f9be1c..4426c49 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ee/trx.h
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ee/trx.h
-@@ -829,7 +829,6 @@ void rtl92ee_rx_check_dma_ok(struct ieee80211_hw *hw, u8 *header_desc,
- 			     u8 queue_index);
- u16	rtl92ee_rx_desc_buff_remained_cnt(struct ieee80211_hw *hw,
- 					  u8 queue_index);
--void rtl92ee_get_available_desc(struct ieee80211_hw *hw, u8 queue_index);
- void rtl92ee_pre_fill_tx_bd_desc(struct ieee80211_hw *hw,
- 				 u8 *tx_bd_desc, u8 *desc, u8 queue_index,
- 				 struct sk_buff *skb, dma_addr_t addr);
--- 
-1.7.10.4
+Adding netdev and e1000-devel mailing lists back onto the CC, since =E7=99=
+=BD=E5=AE=B6
+=E9=A9=B9 removed them in his reply.
+
+--=-Jw7U6ttgA8NZ78lwfKC0
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJUlW/zAAoJEOVv75VaS+3OZ3EP/07fnuCIIRe08tJdSTeMuxvO
+QFk8wGujwWN4p3gbFFeET0m407Z0/3k6wpKt2wLiNfbvTVg25LdNUr8hFW3hvSVQ
+gNzh2o4b7sW2TaO4rtGovzgazLsLorRjZFol+vOGhkozeiDbrlpOt10hXMJYbZlZ
+/fv436yHmwMUxr+rFcLr/hXXV6tE65JJklEFwXMYFxhXndBbiuQff62zU6AZDbVy
+lC43UtR3KYaNFIfi/hFo1L+WHeR2XODcnZHw/rLsVJasehDngpOt6jkwMAW9NEAB
+ETbeZ49VImcEDd3YecEsnZRpCt6rNjy2VWYKieW1VF+SKcOelMeosNIsTVOvktCF
+1woCXf52Yp4jO57FmAf+rUoo4kGgyrzMKJuiJtwgZ6bQeQHewtXIkqSyX3C8+gVS
+pqJ/WnnGxatX9bZCBM24AxRqkMeKKdL2unFKNs26+0RDxlWWSSFbCItMTz0Nnoh/
+39AC1xwLHoQnnK0MiXJ/7158Hj27zxji/Q/xswKffhOjAeWMmKOhP70fG/LyAZ2O
+a3zU0psHSGx3CfwovU4adIFohw96OOtYxhGouhSwEYSoN6pw8T8y4d/AUyln6nHi
+Todag0Nx0Aya1exMAjYm58AbewEY+G4qPLdGchYeBbHmgTWp4Ka2feBaT9BRX8pY
+enWFNaSNdV23Uw64iiTX
+=p7VH
+-----END PGP SIGNATURE-----
+
+--=-Jw7U6ttgA8NZ78lwfKC0--
