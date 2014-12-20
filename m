@@ -1,68 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net: Detect drivers that reschedule NAPI and exhaust budget
-Date: Sat, 20 Dec 2014 10:00:12 -0800
-Message-ID: <1419098412.11185.8.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20141220002327.GA31975@gondor.apana.org.au>
-	 <20141220003636.GA32187@gondor.apana.org.au>
-	 <1419039288.11185.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20141219.214000.819506179607476836.davem@davemloft.net>
-	 <20141220065529.GA2033@gondor.apana.org.au>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] net: wireless: rtlwifi: rtl8192ee: trx.c:  Remove unused
+ function
+Date: Sat, 20 Dec 2014 12:07:29 -0600
+Message-ID: <5495BAE1.6090202@lwfinger.net>
+References: <1419079694-32476-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, david.vrabel@citrix.com,
-	netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
-	edumazet@google.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:63764 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750785AbaLTSAO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Dec 2014 13:00:14 -0500
-Received: by mail-pa0-f48.google.com with SMTP id rd3so3231890pab.21
-        for <netdev@vger.kernel.org>; Sat, 20 Dec 2014 10:00:13 -0800 (PST)
-In-Reply-To: <20141220065529.GA2033@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	Joe Perches <joe@perches.com>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	Chaoming Li <chaoming_li@realsil.com.cn>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1419079694-32476-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2014-12-20 at 17:55 +1100, Herbert Xu wrote:
+On 12/20/2014 06:48 AM, Rickard Strandqvist wrote:
+> Remove the function rtl92ee_get_available_desc() that is not used anywhere.
+>
+> This was partially found by using a static code analysis program called cppcheck.
+>
+> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+> ---
+>   drivers/net/wireless/rtlwifi/rtl8192ee/trx.c |   21 ---------------------
+>   drivers/net/wireless/rtlwifi/rtl8192ee/trx.h |    1 -
+>   2 files changed, 22 deletions(-)
 
-> -- >8 --
-> The commit d75b1ade567ffab085e8adbbdacf0092d10cd09c (net: less
-> interrupt masking in NAPI) required drivers to leave poll_list
-> empty if the entire budget is consumed.
-> 
-> We have already had two broken drivers so let's add a check for
-> this.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index f411c28..47fdc5c 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -4620,7 +4620,13 @@ static void net_rx_action(struct softirq_action *h)
->  					 */
->  					napi_gro_flush(n, HZ >= 1000);
->  				}
-> -				list_add_tail(&n->poll_list, &repoll);
-> +				/* Some drivers may have called napi_schedule
-> +				 * prior to exhausting their budget.
-> +				 */
-> +				if (unlikely(!list_empty(&n->poll_list)))
-> +					pr_warn("%s: Budget exhausted after napi rescheduled\n", n->dev ? n->dev->name : "backlog");
-> +				else
-> +					list_add_tail(&n->poll_list, &repoll);
->  			}
->  		}
->  
-> Thanks,
+Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
 
-OK, but could you :
-1) use pr_warn_once()
-2) split the too long line
-	pr_warn_once("%s: Budget exhausted after napi rescheduled\n",
-		     n->dev ? n->dev->name : "backlog");
+Richard: FYI, John Linville stepped down as wireless maintainer this week, thus 
+there is no need to send patches to him anymore. Kalle Valo, the new maintainer, 
+has stated that it is not necessary to Cc him.
 
-Thanks Herbert !
+Larry
+
+>
+> diff --git a/drivers/net/wireless/rtlwifi/rtl8192ee/trx.c b/drivers/net/wireless/rtlwifi/rtl8192ee/trx.c
+> index 2fcbef1..8186ed2 100644
+> --- a/drivers/net/wireless/rtlwifi/rtl8192ee/trx.c
+> +++ b/drivers/net/wireless/rtlwifi/rtl8192ee/trx.c
+> @@ -710,27 +710,6 @@ static u16 get_desc_addr_fr_q_idx(u16 queue_index)
+>   	return desc_address;
+>   }
+>
+> -void rtl92ee_get_available_desc(struct ieee80211_hw *hw, u8 q_idx)
+> -{
+> -	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
+> -	struct rtl_priv *rtlpriv = rtl_priv(hw);
+> -	u16 point_diff = 0;
+> -	u16 current_tx_read_point = 0, current_tx_write_point = 0;
+> -	u32 tmp_4byte;
+> -
+> -	tmp_4byte = rtl_read_dword(rtlpriv,
+> -				   get_desc_addr_fr_q_idx(q_idx));
+> -	current_tx_read_point = (u16)((tmp_4byte >> 16) & 0x0fff);
+> -	current_tx_write_point = (u16)((tmp_4byte) & 0x0fff);
+> -
+> -	point_diff = ((current_tx_read_point > current_tx_write_point) ?
+> -		      (current_tx_read_point - current_tx_write_point) :
+> -		      (TX_DESC_NUM_92E - current_tx_write_point +
+> -		       current_tx_read_point));
+> -
+> -	rtlpci->tx_ring[q_idx].avl_desc = point_diff;
+> -}
+> -
+>   void rtl92ee_pre_fill_tx_bd_desc(struct ieee80211_hw *hw,
+>   				 u8 *tx_bd_desc, u8 *desc, u8 queue_index,
+>   				 struct sk_buff *skb, dma_addr_t addr)
+> diff --git a/drivers/net/wireless/rtlwifi/rtl8192ee/trx.h b/drivers/net/wireless/rtlwifi/rtl8192ee/trx.h
+> index 6f9be1c..4426c49 100644
+> --- a/drivers/net/wireless/rtlwifi/rtl8192ee/trx.h
+> +++ b/drivers/net/wireless/rtlwifi/rtl8192ee/trx.h
+> @@ -829,7 +829,6 @@ void rtl92ee_rx_check_dma_ok(struct ieee80211_hw *hw, u8 *header_desc,
+>   			     u8 queue_index);
+>   u16	rtl92ee_rx_desc_buff_remained_cnt(struct ieee80211_hw *hw,
+>   					  u8 queue_index);
+> -void rtl92ee_get_available_desc(struct ieee80211_hw *hw, u8 queue_index);
+>   void rtl92ee_pre_fill_tx_bd_desc(struct ieee80211_hw *hw,
+>   				 u8 *tx_bd_desc, u8 *desc, u8 queue_index,
+>   				 struct sk_buff *skb, dma_addr_t addr);
+>
