@@ -1,59 +1,41 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] vhost: relax used address alignment
-Date: Sun, 21 Dec 2014 01:14:05 +0200
-Message-ID: <1419117201-24590-1-git-send-email-mst@redhat.com>
+From: Andre Tomt <andre@tomt.net>
+Subject: REGRESSION in nfnetlink on 3.18.x (bisected)
+Date: Sun, 21 Dec 2014 00:33:51 +0100
+Message-ID: <5496075F.3060204@tomt.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.ugh.no ([178.79.162.34]:56415 "EHLO mail1.ugh.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751104AbaLTXjL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Dec 2014 18:39:11 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-virtio 1.0 only requires used address to be 4 byte aligned,
-vhost required 8 bytes (size of vring_used_elem).
-Fix up vhost to match that.
+On at least Ubuntu 14.04 LTS and Ubuntu 14.10 "conntrack -E" has started 
+failing with Linux 3.18.x. conntrack -L still works.
 
-Additionally, while vhost correctly requires 8 byte
-alignment for log, it's unconnected to used ring:
-it's a consequence that log has u64 entries.
-Tweak code to make that clearer.
+14.04 and 14.10 ships conntrack-utils version 1.4.1, but 1.4.2 does not 
+work either.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/vhost/vhost.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+It fails with:
+> # conntrack -E
+> conntrack v1.4.2 (conntrack-tools): Can't open handler
 
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index ed71b53..97996fc 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -713,9 +713,12 @@ long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp)
- 			r = -EFAULT;
- 			break;
- 		}
--		if ((a.avail_user_addr & (sizeof *vq->avail->ring - 1)) ||
--		    (a.used_user_addr & (sizeof *vq->used->ring - 1)) ||
--		    (a.log_guest_addr & (sizeof *vq->used->ring - 1))) {
-+
-+		BUILD_BUG_ON(__alignof__ *vq->avail != 2);
-+		BUILD_BUG_ON(__alignof__ *vq->used != 4);
-+		if ((a.avail_user_addr & (__alignof__ *vq->avail - 1)) ||
-+		    (a.used_user_addr & (__alignof__ *vq->used - 1)) ||
-+		    (a.log_guest_addr & (sizeof(u64) - 1))) {
- 			r = -EINVAL;
- 			break;
- 		}
--- 
-MST
+strace shows:
+> bind(3, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 0
+> getsockname(3, {sa_family=AF_NETLINK, pid=14092, groups=00000000}, [12]) = 0
+> bind(3, {sa_family=AF_NETLINK, pid=14092, groups=00000007}, 12) = -1 EINVAL (Invalid argument)
+
+Reverting 97840cb67ff5ac8add836684f011fd838518d698 - netfilter: 
+nfnetlink: fix insufficient validation in nfnetlink_bind
+
+makes everything work again on my systems.
+
+I'm testing with
+> # modprobe nfnetlink
+> # modprobe nf_conntrack_netlink
+> # modprobe nf_conntrack_ipv4
+> # conntrack -E
