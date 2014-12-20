@@ -1,45 +1,61 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH net-next v3] Add support of Cavium Liquidio ethernet adapters
-Date: Sat, 20 Dec 2014 01:33:50 +0100
-Message-ID: <5494C3EE.6090707@gmx.de>
-References: <feba8d6dd1904fc3936864ae332df6d8@CO2PR0701MB744.namprd07.prod.outlook.com> <1418959519-31681-1-git-send-email-rvatsavayi@caviumnetworks.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: net: Detect drivers that reschedule NAPI and exhaust budget
+Date: Sat, 20 Dec 2014 11:36:36 +1100
+Message-ID: <20141220003636.GA32187@gondor.apana.org.au>
+References: <1418756386-6940-1-git-send-email-david.vrabel@citrix.com>
+ <20141220002327.GA31975@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Derek Chickles <derek.chickles@caviumnetworks.com>,
-	Satanand Burla <satananda.burla@caviumnetworks.com>,
-	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-	davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
+	edumazet@google.com, "David S. Miller" <davem@davemloft.net>
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.21]:52028 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752087AbaLTAdy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Dec 2014 19:33:54 -0500
-In-Reply-To: <1418959519-31681-1-git-send-email-rvatsavayi@caviumnetworks.com>
+Received: from helcar.apana.org.au ([209.40.204.226]:36341 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751842AbaLTAgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 19:36:42 -0500
+Content-Disposition: inline
+In-Reply-To: <20141220002327.GA31975@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19.12.2014 04:25, Raghu Vatsavayi wrote:
-> +sleep_cond(wait_queue_head_t *wait_queue, int *condition)
-> +{
-> +	wait_queue_t we;
-> +
-> +	init_waitqueue_entry(&we, current);
-> +	add_wait_queue(wait_queue, &we);
-> +	set_current_state(TASK_INTERRUPTIBLE);
-> +	while (!(ACCESS_ONCE(*condition)))
-> +		schedule();
-> +	set_current_state(TASK_RUNNING);
-> +	remove_wait_queue(wait_queue, &we);
-> +}
+On Sat, Dec 20, 2014 at 11:23:27AM +1100, Herbert Xu wrote:
+>
+> A similar bug exists in virtio_net.
 
-This looks as if we should at least check for pending signals, otherwise
-there is no point in waiting interruptible.
-Maybe wait_event_interruptible() is what we really want here...
+In order to detect other drivers doing this we should add something
+like this.
 
-Regards,
-Lino
+-- >8 --
+The commit d75b1ade567ffab085e8adbbdacf0092d10cd09c (net: less
+interrupt masking in NAPI) required drivers to leave poll_list
+empty if the entire budget is consumed.
+
+We have already had two broken drivers so let's add a check for
+this.
+ 
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f411c28..88f9725 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4620,7 +4620,11 @@ static void net_rx_action(struct softirq_action *h)
+ 					 */
+ 					napi_gro_flush(n, HZ >= 1000);
+ 				}
+-				list_add_tail(&n->poll_list, &repoll);
++				/* Some drivers may have called napi_schedule
++				 * prior to exhausting their budget.
++				 */
++				if (!WARN_ON_ONCE(!list_empty(&n->poll_list)))
++					list_add_tail(&n->poll_list, &repoll);
+ 			}
+ 		}
+ 
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
