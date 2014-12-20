@@ -1,61 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: net: Detect drivers that reschedule NAPI and exhaust budget
-Date: Sat, 20 Dec 2014 11:36:36 +1100
-Message-ID: <20141220003636.GA32187@gondor.apana.org.au>
-References: <1418756386-6940-1-git-send-email-david.vrabel@citrix.com>
- <20141220002327.GA31975@gondor.apana.org.au>
+From: "Chickles, Derek" <Derek.Chickles@caviumnetworks.com>
+Subject: RE: [PATCH net-next v3] Add support of Cavium Liquidio ethernet
+ adapters
+Date: Sat, 20 Dec 2014 00:47:20 +0000
+Message-ID: <BY2PR07MB486D1ABE6E149FC2FE06217FE680@BY2PR07MB486.namprd07.prod.outlook.com>
+References: <feba8d6dd1904fc3936864ae332df6d8@CO2PR0701MB744.namprd07.prod.outlook.com>
+ <1418959519-31681-1-git-send-email-rvatsavayi@caviumnetworks.com>
+ <5494ABE3.5070003@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
-	edumazet@google.com, "David S. Miller" <davem@davemloft.net>
-To: David Vrabel <david.vrabel@citrix.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Burla, Satananda" <Satananda.Burla@caviumnetworks.com>,
+	"Manlunas, Felix" <Felix.Manlunas@caviumnetworks.com>,
+	"Vatsavayi, Raghu" <Raghu.Vatsavayi@caviumnetworks.com>,
+	stephen Hemminger <stephen@networkplumber.org>
+To: Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+	"Vatsavayi, Raghu" <Raghu.Vatsavayi@caviumnetworks.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:36341 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751842AbaLTAgm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 19:36:42 -0500
-Content-Disposition: inline
-In-Reply-To: <20141220002327.GA31975@gondor.apana.org.au>
+Received: from mail-bl2on0056.outbound.protection.outlook.com ([65.55.169.56]:56091
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751842AbaLTArY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2014 19:47:24 -0500
+In-Reply-To: <5494ABE3.5070003@gmx.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 20, 2014 at 11:23:27AM +1100, Herbert Xu wrote:
->
-> A similar bug exists in virtio_net.
+> > static int
+> > +oct_cfg_rx_intrcnt(struct lio *lio, struct ethtool_coalesce *intr_coal)
+> > +{
+> 
+> > +	}
+> > +
+> > +	spin_lock_irqsave(&cn6xxx->lock_for_droq_int_enb_reg, flags);
+> > +	octeon_write_csr(oct, OCT_SLI_REGNAME(oct, PKT_CNT_INT_ENB),
+> intr);
+> > +	spin_unlock_irqrestore(&cn6xxx->lock_for_droq_int_enb_reg,
+> flags);
+> > +
+> > +	return 0;
+> 
+> What is the reason that this is locked? If it really has to be
+> synchronized then there should AFAIK at least be an mmiowb() to make
+> sure that the write does not leak out of the lock...
+> 
+> Regards,
+> Lino
+> 
 
-In order to detect other drivers doing this we should add something
-like this.
+Yes, we need this locked because the interrupt handler accesses this as well,
+But you are right we need the mmiowb().
 
--- >8 --
-The commit d75b1ade567ffab085e8adbbdacf0092d10cd09c (net: less
-interrupt masking in NAPI) required drivers to leave poll_list
-empty if the entire budget is consumed.
-
-We have already had two broken drivers so let's add a check for
-this.
- 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f411c28..88f9725 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4620,7 +4620,11 @@ static void net_rx_action(struct softirq_action *h)
- 					 */
- 					napi_gro_flush(n, HZ >= 1000);
- 				}
--				list_add_tail(&n->poll_list, &repoll);
-+				/* Some drivers may have called napi_schedule
-+				 * prior to exhausting their budget.
-+				 */
-+				if (!WARN_ON_ONCE(!list_empty(&n->poll_list)))
-+					list_add_tail(&n->poll_list, &repoll);
- 			}
- 		}
- 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks,
+Derek
