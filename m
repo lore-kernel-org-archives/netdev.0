@@ -1,79 +1,68 @@
-From: "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>
-Subject: Re: net: ucc: tbi phy detection broken by
- 058112c7efc9ef43bb511c137293dddbe6e42908
-Date: Sat, 20 Dec 2014 12:40:06 -0500
-Message-ID: <20141220174006.GG24110@csclub.uwaterloo.ca>
-References: <20141219034918.GX24110@csclub.uwaterloo.ca>
- <CAGVrzcbCCV_AL48R3iTGQqvdAM6NWuC1yDW5P+eh7rExE3fcow@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net: Detect drivers that reschedule NAPI and exhaust budget
+Date: Sat, 20 Dec 2014 10:00:12 -0800
+Message-ID: <1419098412.11185.8.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20141220002327.GA31975@gondor.apana.org.au>
+	 <20141220003636.GA32187@gondor.apana.org.au>
+	 <1419039288.11185.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20141219.214000.819506179607476836.davem@davemloft.net>
+	 <20141220065529.GA2033@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	linuxppc-dev <linuxppc-dev@lists.ozlabs.org>,
-	Li Yang <leoli@freescale.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAGVrzcbCCV_AL48R3iTGQqvdAM6NWuC1yDW5P+eh7rExE3fcow@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, david.vrabel@citrix.com,
+	netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
+	edumazet@google.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:63764 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750785AbaLTSAO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Dec 2014 13:00:14 -0500
+Received: by mail-pa0-f48.google.com with SMTP id rd3so3231890pab.21
+        for <netdev@vger.kernel.org>; Sat, 20 Dec 2014 10:00:13 -0800 (PST)
+In-Reply-To: <20141220065529.GA2033@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 20, 2014 at 09:08:51AM -0800, Florian Fainelli wrote:
-> There are some comments in ucc_geth that also lead me to believe this
-> is a just a hack instead of a real Ethernet PHY device. Part of what I
-> think got broken is because of this comment:
+On Sat, 2014-12-20 at 17:55 +1100, Herbert Xu wrote:
+
+> -- >8 --
+> The commit d75b1ade567ffab085e8adbbdacf0092d10cd09c (net: less
+> interrupt masking in NAPI) required drivers to leave poll_list
+> empty if the entire budget is consumed.
 > 
-> /* Initialize TBI PHY interface for communicating with the
->  * SERDES lynx PHY on the chip.  We communicate with this PHY
->  * through the MDIO bus on each controller, treating it as a
->  * "normal" PHY at the address found in the UTBIPA register.  We assume
->  * that the UTBIPA register is valid.  Either the MDIO bus code will set
->  * it to a value that doesn't conflict with other PHYs on the bus, or the
->  * value doesn't matter, as there are no other PHYs on the bus.
->  */
+> We have already had two broken drivers so let's add a check for
+> this.
 > 
-> In particular this one:
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 > 
-> "Either the MDIO bus code will set
->  * it to a value that doesn't conflict with other PHYs on the bus, or the
->  * value doesn't matter, as there are no other PHYs on the bus."
-> 
-> and what Sebastian removed did exactly that, we used the special MDIO
-> broadcast address 0 to provide this "whatever". If this is such a
-> requirement from the ucc_geth driver and TBI PHYs, maybe we should
-> have this hack somewhere in the actual MDIO driver used by the
-> ucc_geth driver instead, or set a flag/read the PHY connection mode
-> and do this in drivers/of/of_mdio.c
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index f411c28..47fdc5c 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -4620,7 +4620,13 @@ static void net_rx_action(struct softirq_action *h)
+>  					 */
+>  					napi_gro_flush(n, HZ >= 1000);
+>  				}
+> -				list_add_tail(&n->poll_list, &repoll);
+> +				/* Some drivers may have called napi_schedule
+> +				 * prior to exhausting their budget.
+> +				 */
+> +				if (unlikely(!list_empty(&n->poll_list)))
+> +					pr_warn("%s: Budget exhausted after napi rescheduled\n", n->dev ? n->dev->name : "backlog");
+> +				else
+> +					list_add_tail(&n->poll_list, &repoll);
+>  			}
+>  		}
+>  
+> Thanks,
 
-Well it used to be that it would look for an unused address and assign
-that, but that was changed to just use 0 unless the dtb specified an
-address (essentially making specifying the address in the dtb mandetory).
-Unfortunately after this patch, specifying it in the dtb isn't enough,
-and the ucc_geth actually hits a null pointer because the tbi phy no
-longer exists.
+OK, but could you :
+1) use pr_warn_once()
+2) split the too long line
+	pr_warn_once("%s: Budget exhausted after napi rescheduled\n",
+		     n->dev ? n->dev->name : "backlog");
 
-Before commit 28d8ea2d568534026ccda3e8936f5ea1e04a86a1, the tbi address
-was in fact _not_ 0.  So yes it used to set it to a non conflicting
-address, but no longer does.  It used to pick the highest unused address
-for the tbi.  Now it uses 0 unless the dtb specifies the address.
-
-Unfortunately no one ever fixed that comment.  It appears to be entirely
-inaccurate.
-
-In the case of the board I am dealing with, setting the address to 0
-when it isn't used (port is not in SGMII or RTBI mode) actually breaks
-things because we have a switch chip at address 0 on the MDIO bus that we
-now can't reach.  Adding explicit addresses for the tbi phy on each ucc
-solves that though so that is no big deal.  The fact that the ucc that
-needs to actually use the tbi phy for SGMII or RTBI though can't find it
-anymore because it is no longer created does seem like a problem, and it
-isn't being created no matter what the address (it is not 0 in this case).
-
-So right now it is broken with ucc_geth segfaulting if you use SGMII or
-RTBI mode.  I would love a clean solution to fixing it, although for
-now reverting this patch has solved the problem.
-
--- 
-Len Sorensen
+Thanks Herbert !
