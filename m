@@ -1,134 +1,84 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: Re:Re: [linux-nics] [PATCH]e100 in linux-3.18.0: some potential
- bugs
-Date: Sat, 20 Dec 2014 04:52:51 -0800
-Message-ID: <1419079971.2461.96.camel@jtkirshe-mobl.home>
-References: <000001d01c28$41c937c0$c55ba740$@163.com>
-	 <1419070689.2461.79.camel@jtkirshe-mobl.home>
-	 <1e83d62.1197.14a67b6f11a.Coremail.baijiaju1990@163.com>
+From: "Jia-Ju Bai" <baijiaju1990@163.com>
+Subject: =?utf-8?b?562U5aSNOiBbbGludXgtbmljc10gW1BBVENIXSBp?=
+	=?utf-8?q?gb_in_linux-3=2E18=2E0=3A_some_potential_bugs?=
+Date: Sat, 20 Dec 2014 20:56:35 +0800
+Message-ID: <001001d01c54$63f3b150$2bdb13f0$@163.com>
+References: <001101d01c2c$8dcc0040$a96400c0$@163.com>
+	<1419071709.2461.86.camel@jtkirshe-mobl.home>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-N8gDqwiXYBcIy+3tahV3"
-Cc: netdev <netdev@vger.kernel.org>,
-	e1000-devel <e1000-devel@lists.sourceforge.net>
-To: =?UTF-8?Q?=E7=99=BD=E5=AE=B6=E9=A9=B9?= <baijiaju1990@163.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:40827 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752893AbaLTMww (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Dec 2014 07:52:52 -0500
-In-Reply-To: <1e83d62.1197.14a67b6f11a.Coremail.baijiaju1990@163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux.nics@intel.com
+To: "'Jeff Kirsher'" <jeffrey.t.kirsher@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1419071709.2461.86.camel@jtkirshe-mobl.home>
+Content-Language: zh-cn
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-
---=-N8gDqwiXYBcIy+3tahV3
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Sat, 2014-12-20 at 20:40 +0800, =E7=99=BD=E5=AE=B6=E9=A9=B9 wrote:
-> Thank for the reply!
-> =20
-> For the first reply:
-> I let pci_pool_create fail on purpose to simulate insufficient memory,
-> and then run the driver in reality, but the driver crashes.
-> =20
-> For the second reply:
-> I admit you are right, and my code style need to be improved.
->=20
-
-Added in netdev and e1000-devel back onto the CC, since Jia-Ju Bai
-removed them in his reply
-
->=20
-> At 2014-12-20 18:18:09,"Jeff Kirsher" <jeffrey.t.kirsher@intel.com> wrote=
-:
-> >On Sat, 2014-12-20 at 15:40 +0800, Jia-Ju Bai wrote:
-> >> I have actually tested e100 driver on the real hardware(Intel 82559
-> >> PCI
-> >> Ethernet Controller), and find some bugs:
-> >> The target file is drivers/net/ethernet/intel/e100.c, which is used to
-> >> build
-> >> e100.ko.
-> >>=20
-> >> (1) The function pci_pool_create is called by e100_probe when
-> >> initializing
-> >> the ethernet card driver. But when pci_pool_create is failed, which
-> >> means
-> >> that it returns NULL to nic->cbs_pool, the system crash will happen.
-> >> Because
-> >> pci_pool_alloc (in e100_alloc_cbs in e100_up in e100_open) need to use
-> >> nic->cbs_pool to allocate the resource, but it is NULL. I suggest that
-> >> a
-> >> check can be added in the code to detect whether pci_pool_create
-> >> returns
-> >> NULL.
-> >> (2) In the normal process, netif_napi_add is called in e100_probe, but
-> >> netif_napi_del is not called in e100_remove. However, many other
-> >> ethernet
-> >> card drivers call them in pairs, even in the error handling paths,
-> >> such as
-> >> r8169 and igb.
-> >>=20
-> >> Meanwhile, I also write the patch to fix the bugs. I have run the
-> >> patch on
-> >> the hardware, it can work normally and fix the above bugs.
-> >
-> >Did you actually experience an issue?  Or is this a theoretical issue
-> >that was never actually seen?
-> >
-> >>=20
-> >> diff --git a/drivers/net/ethernet/intel/e100.c
-> >> b/drivers/net/ethernet/intel/e100.c
-> >> index 781065e..2631d3f 100644
-> >> --- a/drivers/net/ethernet/intel/e100.c
-> >> +++ b/drivers/net/ethernet/intel/e100.c
-> >> @@ -2969,6 +2969,11 @@ static int e100_probe(struct pci_dev *pdev,
-> >> const
-> >> struct pci_device_id *ent)
-> >>                            nic->params.cbs.max * sizeof(struct cb),
-> >>                            sizeof(u32),
-> >>                            0);
-> >> +       if(!(nic->cbs_pool))
-> >> +       {
-> >> +               err =3D -ENOMEM;
-> >> +               goto err_out_pool;
-> >> +       }
-> >>         netif_info(nic, probe, nic->netdev,
-> >
-> >Minor nit-pick but your open bracket needs to be on the same line as the
-> >if statement AND you need a space between the 'if' and ().  So the above
-> >code should look like:
-> >	if (!nic->cbs_pool) {
-> >		err =3D -ENOMEM;
-> >		goto err_out_pool;
-> >	}
->=20
->=20
-
-
-
---=-N8gDqwiXYBcIy+3tahV3
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJUlXEjAAoJEOVv75VaS+3Ot5wQAJ1GOSSInU0SJL2B2UskqL/Y
-0iL6ThH0/FWLrun2Tm++D1LGrusZo862ee6FsL67WnzfVh/wQg62TjI+FA5hv7ft
-1uKCf0uVi2Nzuu8/szt4LCcWFV+OoKLdqmCaK8qighVWPhagep5Q97AGQgRRIia/
-zbqYYXBnFZAjU2KfIEEoOLUIeTZFTt6rLNzn/VgSN5NT4zcTTQ9ADVr4FTRJtwLN
-S+9cjmMZ4jFiInv7z+OcPNtx+J1Oyo7GpE8jfr9DbY95ebOpH4JTZDKKtaiXvcqv
-cOu3zhGlBJe60r+zhlJNK7vZuPwKDFD5D3Q6oYs0njKup9jPQYdnbi6iAwgrPLHS
-fFoEuAObMjwo8S2Qif0mPQF9pj7LoSSoNpN8Sm46ICy96n2Vwoe6arWeBRHabIdM
-KOUgMCeug81T14y+YycIU828L91rs1rPFUbgxI+nqB1Sr9ww5hy2InmmyiDlqmzu
-7x36X0ybOnGFmcgutpysqDfwxVhIpZiaA+3zzCkjmc4wPe+BCtfApvhxj8e9NnrB
-KsUzuwAFfTrSDZTLgoKhF5YolGFnWI/GxRGvO5YsMi/Jw2b2FfefcOAlDYAHPCpK
-fXhOPedgxMZM8nu8sfr5lB7ryqGikJC+5AlMiLYTmLLzZe+tzuJz47/lNb0ekVFv
-AQiUDHItKEHN0Lt8SD11
-=J3/f
------END PGP SIGNATURE-----
-
---=-N8gDqwiXYBcIy+3tahV3--
+VGhhbmsgZm9yIHRoZSByZXBseSEKCkZvciB0aGUgZmlyc3QgcmVwbHk6CkkgbGV0IHNvbWUgZnVu
+Y3Rpb25zIGZhaWwgb24gcHVycG9zZSB0byB0ZXN0IGVycm9yIGhhbmRsaW5nIGNvZGUsIGFuZCB0
+aGVuIHJ1biB0aGUgZHJpdmVyIGluIHJlYWxpdHkgYXMgd2VsbCBhcyBtb25pdG9yIHRoZSBmdW5j
+dGlvbiBjYWxscyBpbiBydW50aW1lLgpUaGUgcmVzdWx0cyBhcmUgaW4gbXkgcmVwb3J0LiAKCkZv
+ciB0aGUgc2Vjb25kIHJlcGx5OgpJIGFkbWl0IHlvdSBhcmUgcmlnaHQsIGFuZCBteSBjb2RlIHN0
+eWxlIG5lZWQgdG8gYmUgaW1wcm92ZWQuCgoKT24gU2F0LCAyMDE0LTEyLTIwIGF0IDE2OjExICsw
+ODAwLCBKaWEtSnUgQmFpIHdyb3RlOgo+IEkgaGF2ZSBhY3R1YWxseSB0ZXN0ZWQgaWdiIGRyaXZl
+ciBvbiB0aGUgcmVhbCBoYXJkd2FyZShJbnRlbCA4MjU3NUVCIAo+IFBDSS1FIEdpZ2FiaXQgRXRo
+ZXJuZXQgQ29udHJvbGxlciksIGFuZCBmaW5kIHNvbWUgcG90ZW50aWFsIGJ1Z3M6Cj4gVGhlIHRh
+cmdldCBmaWxlIGlzIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfbWFpbi5jCj4g
+Cj4gKDEpIEluIHRoZSBub3JtYWwgcHJvY2VzcyBvZiBpZ2IsIHBjaV9lbmFibGVfcGNpZV9lcnJv
+cl9yZXBvcnRpbmcgYW5kIAo+IHBjaV9kaXNhYmxlX3BjaWVfZXJyb3JfcmVwb3J0aW5nIGlzIGNh
+bGxlZCBpbiBwYWlycyBpbiBpZ2JfcHJvYmUgYW5kIAo+IGlnYl9yZW1vdmUuIEhvd2V2ZXIsIHdo
+ZW4gcGNpX2VuYWJsZV9wY2llX2Vycm9yX3JlcG9ydGluZyBoYXMgYmVlbiAKPiBjYWxsZWQgYW5k
+IGFsbG9jX2V0aGVyZGV2X21xcyBpbiBpZ2JfcHJvYmUgaXMgZmFpbGVkLCAKPiAiZXJyX2FsbG9j
+X2V0aGVyZGV2Igo+IHNlZ21lbnQKPiBpbiBpZ2JfcHJvYmUgaXMgZXhlY3V0ZWQgaW1tZWRpYXRl
+bHkgdG8gZXhpdCwgYnV0IAo+IHBjaV9kaXNhYmxlX3BjaWVfZXJyb3JfcmVwb3J0aW5nIGlzIG5v
+dCBjYWxsZWQuCj4gKDIpIFRoZSBzYW1lIHNpdHVhdGlvbiBoYXBwZW5zIHdoZW4gcGNpX2lvbWFw
+IGluIGlnYl9wcm9iZSBpcyBmYWlsZWQuCj4gKDMpIFRoZSBzYW1lIHNpdHVhdGlvbiBoYXBwZW5z
+IHdoZW4gaWdiX3N3X2luaXQgaW4gaWdiX3Byb2JlIGlzIAo+IGZhaWxlZC4KPiAoNCkgVGhlIHNh
+bWUgc2l0dWF0aW9uIGhhcHBlbnMgd2hlbiByZWdpc3Rlcl9uZXRkZXYgaW4gaWdiX3Byb2JlIGlz
+IAo+IGZhaWxlZC4KPiAoNSkgVGhlIHNhbWUgc2l0dWF0aW9uIGhhcHBlbnMgd2hlbiBpZ2JfaW5p
+dF9pMmMgaW4gaWdiX3Byb2JlIGlzIAo+IGZhaWxlZC4KPiAKPiAoNikgVGhlIGZ1bmN0aW9uIGtj
+YWxsb2MgaXMgY2FsbGVkIGJ5IGlnYl9zd19pbml0IHdoZW4gaW5pdGlhbGl6aW5nIAo+IHRoZSBl
+dGhlcm5ldCBjYXJkIGRyaXZlciwgYnV0IGtmcmVlIGlzIG5vdCBjYWxsZWQgd2hlbiByZWdpc3Rl
+cl9uZXRkZXYgCj4gaW4gaWdiX3Byb2JlIGlzIGZhaWxlZCwgd2hpY2ggbWF5IGNhdXNlIG1lbW9y
+eSBsZWFrLgo+ICg3KSBUaGUgc2FtZSBzaXR1YXRpb24gaGFwcGVucyB3aGVuIGlnYl9pbml0X2ky
+YyBpbiBpZ2JfcHJvYmUgaXMgCj4gZmFpbGVkLgo+ICg4KSBUaGUgc2FtZSBzaXR1YXRpb24gaGFw
+cGVucyB3aGVuIGt6YWxsb2MgaW4gaWdiX2FsbG9jX3FfdmVjdG9yIGlzIAo+IGZhaWxlZC4KPiAo
+OSkgVGhlIHNhbWUgc2l0dWF0aW9uIGhhcHBlbnMgd2hlbiBpZ2JfYWxsb2NfcV92ZWN0b3IgaW4g
+Cj4gaWdiX2FsbG9jX3FfdmVjdG9ycyBpcyBmYWlsZWQuCj4gCj4gKDEwKSBXaGVuIGlnYl9pbml0
+X2kyYyBpbiBpZ2JfcHJvYmUgaXMgZmFpbGVkLCBpZ2JfZW5hYmxlX3NyaW92IGlzIAo+IGNhbGxl
+ZCBpbiBpZ2JfcHJvYmVfdmZzLCBidXQgaWdiX2Rpc2FibGVfc3Jpb3YgaXMgbm90IGNhbGxlZC4K
+PiAoMTEpIFRoZSBzYW1lIHNpdHVhdGlvbiB3aXRoIFsxMF0gaGFwcGVucyB3aGVuIHJlZ2lzdGVy
+X25ldGRldiBpbiAKPiBpZ2JfcHJvYmUgaXMgZmFpbGVkLgo+IAo+IE1lYW53aGlsZSwgSSBhbHNv
+IHdyaXRlIHRoZSBwYXRjaCB0byBmaXggdGhlIGJ1Z3MuIEkgaGF2ZSBydW4gdGhlIAo+IHBhdGNo
+IG9uIHRoZSBoYXJkd2FyZSwgaXQgY2FuIHdvcmsgbm9ybWFsbHkgYW5kIGZpeCB0aGUgYWJvdmUg
+YnVncy4KCldhcyB0aGlzIGEgYnVnIHlvdSBhY3R1YWxseSBzYXc/ICBPciBhIHRoZW9yZXRpY2Fs
+IGJ1ZyBiYXNlZCBvbiBjb2RlIHJldmlldz8KCkkgZG8gbm90IG1pbmQgYWRkaW5nIHRoaXMgdG8g
+bXkgcXVldWUgc28gdGhhdCB3ZSBjYW4gcmV2aWV3IGFuZCB0ZXN0IHRoZSBwYXRjaCwgYWx0aG91
+Z2ggdGhpcyB3aWxsIGNhdXNlIGEgZmFpciBhbW91bnQgb2YgcmVncmVzc2lvbiB0ZXN0aW5nLgrj
+gJDmnaXoh6rnvZHmmJPpgq7nrrHnmoTotoXlpKfpmYTku7bjgJEK6YKu5Lu25bim5pyJ6ZmE5Lu2
+6aKE6KeI6ZO+5o6l77yM6Iul5oKo6L2s5Y+R5oiW5Zue5aSN5q2k6YKu5Lu25pe25LiN5biM5pyb
+5a+55pa56aKE6KeI6ZmE5Lu277yM5bu66K6u5oKo5omL5Yqo5Yig6Zmk6ZO+5o6l44CCCgpzaWdu
+YXR1cmUuYXNjCuS4i+i9vTogaHR0cDovL3UuMTYzLmNvbS90L0huVk1OSG4yMQoK6aKE6KeIOiBo
+dHRwOi8vdS4xNjMuY29tL3QvZzFqdTY0CgoKCgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KRG93bmxv
+YWQgQklSVCBpSHViIEYtVHlwZSAtIFRoZSBGcmVlIEVudGVycHJpc2UtR3JhZGUgQklSVCBTZXJ2
+ZXIKZnJvbSBBY3R1YXRlISBJbnN0YW50bHkgU3VwZXJjaGFyZ2UgWW91ciBCdXNpbmVzcyBSZXBv
+cnRzIGFuZCBEYXNoYm9hcmRzCndpdGggSW50ZXJhY3Rpdml0eSwgU2hhcmluZywgTmF0aXZlIEV4
+Y2VsIEV4cG9ydHMsIEFwcCBJbnRlZ3JhdGlvbiAmIG1vcmUKR2V0IHRlY2hub2xvZ3kgcHJldmlv
+dXNseSByZXNlcnZlZCBmb3IgYmlsbGlvbi1kb2xsYXIgY29ycG9yYXRpb25zLCBGUkVFCmh0dHA6
+Ly9wdWJhZHMuZy5kb3VibGVjbGljay5uZXQvZ2FtcGFkL2Nsaz9pZD0xNjQ3MDMxNTEmaXU9LzQx
+NDAvb3N0Zy5jbGt0cmsKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX18KRTEwMDAtZGV2ZWwgbWFpbGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZv
+cmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9lMTAw
+MC1kZXZlbApUbyBsZWFybiBtb3JlIGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0LCB2aXNpdCBo
+dHRwOi8vY29tbXVuaXRpZXMuaW50ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
