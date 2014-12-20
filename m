@@ -1,72 +1,51 @@
-From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Subject: [PATCH net] in6: fix conflict with glibc
-Date: Sat, 20 Dec 2014 12:15:49 -0800
-Message-ID: <20141220121549.7c1b8aad@urahara>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	Florent Fourcot <florent.fourcot-Pj3lBMu8rt9bbU8NOSLlsg@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [PATCH 2/4] net: Detect drivers that reschedule NAPI and exhaust budget
+Date: Sun, 21 Dec 2014 07:16:22 +1100
+Message-ID: <E1Y2QRq-0001pW-Tn@gondolin.me.apana.org.au>
+References: <20141220201453.GA6924@gondor.apana.org.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, david.vrabel@citrix.com,
+	netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
+	edumazet@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:60328 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751000AbaLTUQb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Dec 2014 15:16:31 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Resolve conflicts between glibc definition of IPV6 socket options
-and those defined in Linux headers. Looks like earlier efforts to
-solve this did not cover all the definitions.
+The commit d75b1ade567ffab085e8adbbdacf0092d10cd09c (net: less
+interrupt masking in NAPI) required drivers to leave poll_list
+empty if the entire budget is consumed.
 
-It resolves warnings during iproute2 build. 
-Please consider for stable as well.
+We have already had two broken drivers so let's add a check for
+this.
 
-Signed-off-by: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
-Patch against -net tree
 
---- a/include/uapi/linux/in6.h	2014-08-28 08:23:29.981240723 -0700
-+++ b/include/uapi/linux/in6.h	2014-12-20 12:00:31.973120787 -0800
-@@ -149,7 +149,7 @@ struct in6_flowlabel_req {
- /*
-  *	IPV6 socket options
-  */
--
-+#if __UAPI_DEF_IPV6_OPTIONS
- #define IPV6_ADDRFORM		1
- #define IPV6_2292PKTINFO	2
- #define IPV6_2292HOPOPTS	3
-@@ -196,6 +196,7 @@ struct in6_flowlabel_req {
+ net/core/dev.c |    9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f7c4f4e..4a9c424 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4602,6 +4602,15 @@ static int napi_poll(struct napi_struct *n, struct list_head *repoll)
+ 		napi_gro_flush(n, HZ >= 1000);
+ 	}
  
- #define IPV6_IPSEC_POLICY	34
- #define IPV6_XFRM_POLICY	35
-+#endif
++	/* Some drivers may have called napi_schedule
++	 * prior to exhausting their budget.
++	 */
++	if (unlikely(!list_empty(&n->poll_list))) {
++		pr_warn_once("%s: Budget exhausted after napi rescheduled\n",
++			     n->dev ? n->dev->name : "backlog");
++		goto out_unlock;
++	}
++
+ 	list_add_tail(&n->poll_list, repoll);
  
- /*
-  * Multicast:
---- a/include/uapi/linux/libc-compat.h	2014-04-08 22:12:24.316054847 -0700
-+++ b/include/uapi/linux/libc-compat.h	2014-12-20 12:10:29.960213758 -0800
-@@ -69,6 +69,7 @@
- #define __UAPI_DEF_SOCKADDR_IN6		0
- #define __UAPI_DEF_IPV6_MREQ		0
- #define __UAPI_DEF_IPPROTO_V6		0
-+#define __UAPI_DEF_IPV6_OPTIONS		0
- 
- #else
- 
-@@ -82,6 +83,7 @@
- #define __UAPI_DEF_SOCKADDR_IN6		1
- #define __UAPI_DEF_IPV6_MREQ		1
- #define __UAPI_DEF_IPPROTO_V6		1
-+#define __UAPI_DEF_IPV6_OPTIONS		1
- 
- #endif /* _NETINET_IN_H */
- 
-@@ -103,6 +105,7 @@
- #define __UAPI_DEF_SOCKADDR_IN6		1
- #define __UAPI_DEF_IPV6_MREQ		1
- #define __UAPI_DEF_IPPROTO_V6		1
-+#define __UAPI_DEF_IPV6_OPTIONS		1
- 
- /* Definitions for xattr.h */
- #define __UAPI_DEF_XATTR		1
+ out_unlock:
