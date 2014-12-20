@@ -1,125 +1,80 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: [PATCH] net: ceph: crypto.c:  Remove some unused functions
-Date: Sat, 20 Dec 2014 17:52:06 +0100
-Message-ID: <1419094326-9218-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
-	ceph-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sage Weil <sage@inktank.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: net: ucc: tbi phy detection broken by 058112c7efc9ef43bb511c137293dddbe6e42908
+Date: Sat, 20 Dec 2014 09:08:51 -0800
+Message-ID: <CAGVrzcbCCV_AL48R3iTGQqvdAM6NWuC1yDW5P+eh7rExE3fcow@mail.gmail.com>
+References: <20141219034918.GX24110@csclub.uwaterloo.ca>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	linuxppc-dev <linuxppc-dev@lists.ozlabs.org>,
+	Li Yang <leoli@freescale.com>
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141219034918.GX24110@csclub.uwaterloo.ca>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Removes some functions that are not used anywhere:
-ceph_encrypt() ceph_decrypt() ceph_crypto_key_encode()
+2014-12-18 19:49 GMT-08:00 Lennart Sorensen <lsorense@csclub.uwaterloo.ca>:
+> I have been trying to move an 8360 based system from a 3.0 kernel to a
+> 3.12 (on the way to 3.14 with ipipe/xenomai) kernel and encountered an
+> oops in the ucc_geth driver when using RTBI mode on one of the ucc
+> ports.  I haven't managed to find any commits to of_mdio or ucc_geth or
+> fsl_pq_mdio that would appear to address this problem, so I believe it
+> is still present in the latest kernel, but have not confirmed that with
+> testing yet.
+>
+> Commit 058112c7efc9ef43bb511c137293dddbe6e42908 appears to have broken
+> ucc support for tbi phy detection.
+>
+> With the patch in place, I am unable to get the mdio bus to create phy
+> devices for the tbi phy in the ucc on an 8360e, and the ucc_geth driver
+> causes a kernel oops, while with the patch reverted, it does create them
+> and the driver comes up and works.
+>
+> The tbi phy is needed when using a ucc in RTBI, TBI or SGMII mode.
+>
+> I am not convinced that the tbi phy really behaves quite like a real phy,
+> which may be why get_phy_device does not work with it.  Perhaps there
+> is a better way to deal with the tbi phy on the ucc for this purpose.
 
-This was partially found by using a static code analysis program called cppcheck.
+There are some comments in ucc_geth that also lead me to believe this
+is a just a hack instead of a real Ethernet PHY device. Part of what I
+think got broken is because of this comment:
 
-Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
----
- net/ceph/crypto.c |   52 ----------------------------------------------------
- net/ceph/crypto.h |    7 -------
- 2 files changed, 59 deletions(-)
+/* Initialize TBI PHY interface for communicating with the
+ * SERDES lynx PHY on the chip.  We communicate with this PHY
+ * through the MDIO bus on each controller, treating it as a
+ * "normal" PHY at the address found in the UTBIPA register.  We assume
+ * that the UTBIPA register is valid.  Either the MDIO bus code will set
+ * it to a value that doesn't conflict with other PHYs on the bus, or the
+ * value doesn't matter, as there are no other PHYs on the bus.
+ */
 
-diff --git a/net/ceph/crypto.c b/net/ceph/crypto.c
-index 62fc5e7..5a82890 100644
---- a/net/ceph/crypto.c
-+++ b/net/ceph/crypto.c
-@@ -22,18 +22,6 @@ int ceph_crypto_key_clone(struct ceph_crypto_key *dst,
- 	return 0;
- }
- 
--int ceph_crypto_key_encode(struct ceph_crypto_key *key, void **p, void *end)
--{
--	if (*p + sizeof(u16) + sizeof(key->created) +
--	    sizeof(u16) + key->len > end)
--		return -ERANGE;
--	ceph_encode_16(p, key->type);
--	ceph_encode_copy(p, &key->created, sizeof(key->created));
--	ceph_encode_16(p, key->len);
--	ceph_encode_copy(p, key->key, key->len);
--	return 0;
--}
--
- int ceph_crypto_key_decode(struct ceph_crypto_key *key, void **p, void *end)
- {
- 	ceph_decode_need(p, end, 2*sizeof(u16) + sizeof(key->created), bad);
-@@ -329,26 +317,6 @@ static int ceph_aes_decrypt2(const void *key, int key_len,
- }
- 
- 
--int ceph_decrypt(struct ceph_crypto_key *secret, void *dst, size_t *dst_len,
--		 const void *src, size_t src_len)
--{
--	switch (secret->type) {
--	case CEPH_CRYPTO_NONE:
--		if (*dst_len < src_len)
--			return -ERANGE;
--		memcpy(dst, src, src_len);
--		*dst_len = src_len;
--		return 0;
--
--	case CEPH_CRYPTO_AES:
--		return ceph_aes_decrypt(secret->key, secret->len, dst,
--					dst_len, src, src_len);
--
--	default:
--		return -EINVAL;
--	}
--}
--
- int ceph_decrypt2(struct ceph_crypto_key *secret,
- 			void *dst1, size_t *dst1_len,
- 			void *dst2, size_t *dst2_len,
-@@ -382,26 +350,6 @@ int ceph_decrypt2(struct ceph_crypto_key *secret,
- 	}
- }
- 
--int ceph_encrypt(struct ceph_crypto_key *secret, void *dst, size_t *dst_len,
--		 const void *src, size_t src_len)
--{
--	switch (secret->type) {
--	case CEPH_CRYPTO_NONE:
--		if (*dst_len < src_len)
--			return -ERANGE;
--		memcpy(dst, src, src_len);
--		*dst_len = src_len;
--		return 0;
--
--	case CEPH_CRYPTO_AES:
--		return ceph_aes_encrypt(secret->key, secret->len, dst,
--					dst_len, src, src_len);
--
--	default:
--		return -EINVAL;
--	}
--}
--
- int ceph_encrypt2(struct ceph_crypto_key *secret, void *dst, size_t *dst_len,
- 		  const void *src1, size_t src1_len,
- 		  const void *src2, size_t src2_len)
-diff --git a/net/ceph/crypto.h b/net/ceph/crypto.h
-index d149822..36082d5 100644
---- a/net/ceph/crypto.h
-+++ b/net/ceph/crypto.h
-@@ -22,17 +22,10 @@ static inline void ceph_crypto_key_destroy(struct ceph_crypto_key *key)
- 
- int ceph_crypto_key_clone(struct ceph_crypto_key *dst,
- 			  const struct ceph_crypto_key *src);
--int ceph_crypto_key_encode(struct ceph_crypto_key *key, void **p, void *end);
- int ceph_crypto_key_decode(struct ceph_crypto_key *key, void **p, void *end);
- int ceph_crypto_key_unarmor(struct ceph_crypto_key *key, const char *in);
- 
- /* crypto.c */
--int ceph_decrypt(struct ceph_crypto_key *secret,
--		 void *dst, size_t *dst_len,
--		 const void *src, size_t src_len);
--int ceph_encrypt(struct ceph_crypto_key *secret,
--		 void *dst, size_t *dst_len,
--		 const void *src, size_t src_len);
- int ceph_decrypt2(struct ceph_crypto_key *secret,
- 		  void *dst1, size_t *dst1_len,
- 		  void *dst2, size_t *dst2_len,
+In particular this one:
+
+"Either the MDIO bus code will set
+ * it to a value that doesn't conflict with other PHYs on the bus, or the
+ * value doesn't matter, as there are no other PHYs on the bus."
+
+and what Sebastian removed did exactly that, we used the special MDIO
+broadcast address 0 to provide this "whatever". If this is such a
+requirement from the ucc_geth driver and TBI PHYs, maybe we should
+have this hack somewhere in the actual MDIO driver used by the
+ucc_geth driver instead, or set a flag/read the PHY connection mode
+and do this in drivers/of/of_mdio.c
+
+>
+> Certainly as it is, this patch has caused a regression though, although
+> probably not very many systems with ucc ports actually use one of the
+> affected modes so the damage isn't that great.
+>
+> --
+> Len Sorensen
+
+
+
 -- 
-1.7.10.4
+Florian
