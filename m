@@ -1,7 +1,7 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Subject: Re: [PATCH]e100 in linux-3.18.0: some potential bugs
-Date: Sat, 20 Dec 2014 16:32:12 +0300
-Message-ID: <54957A5C.50404@cogentembedded.com>
+Date: Sat, 20 Dec 2014 16:33:04 +0300
+Message-ID: <54957A90.50803@cogentembedded.com>
 References: <000001d01c28$41c937c0$c55ba740$@163.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
@@ -10,15 +10,17 @@ Cc: netdev@vger.kernel.org, Linux-nics@isotope.jf.intel.com,
 	linux.nics@intel.com, e1000-devel@lists.sourceforge.net
 To: Jia-Ju Bai <baijiaju1990@163.com>, todd.fujinaka@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:34297 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752701AbaLTNcP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Dec 2014 08:32:15 -0500
-Received: by mail-la0-f54.google.com with SMTP id pv20so2088834lab.41
-        for <netdev@vger.kernel.org>; Sat, 20 Dec 2014 05:32:13 -0800 (PST)
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:61725 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752834AbaLTNdH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Dec 2014 08:33:07 -0500
+Received: by mail-lb0-f171.google.com with SMTP id w7so2088875lbi.2
+        for <netdev@vger.kernel.org>; Sat, 20 Dec 2014 05:33:05 -0800 (PST)
 In-Reply-To: <000001d01c28$41c937c0$c55ba740$@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+Hello.
 
 On 12/20/2014 10:40 AM, Jia-Ju Bai wrote:
 
@@ -39,12 +41,8 @@ On 12/20/2014 10:40 AM, Jia-Ju Bai wrote:
 > card drivers call them in pairs, even in the error handling paths, such as
 > r8169 and igb.
 
-    Fixing one issue per patch is the rule of thumb.
-
 > Meanwhile, I also write the patch to fix the bugs. I have run the patch on
 > the hardware, it can work normally and fix the above bugs.
-
-    Again, your sign-off is required. See Documentation/SubmittingPatches.
 
 > diff --git a/drivers/net/ethernet/intel/e100.c
 > b/drivers/net/ethernet/intel/e100.c
@@ -58,8 +56,6 @@ On 12/20/2014 10:40 AM, Jia-Ju Bai wrote:
 >   			   0);
 > +	if(!(nic->cbs_pool))
 
-    Space needed after *if*. Please run your patches thru scripts/checkpatch.pl.
-
-[...]
+    Oh, and the inner () not needed.
 
 WBR, Sergei
