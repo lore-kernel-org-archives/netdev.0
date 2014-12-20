@@ -1,75 +1,65 @@
-From: "Jia-Ju Bai" <baijiaju1990@163.com>
-Subject: [PATCH] ne2k+8390 in linux-3.18.0: some potential bugs
-Date: Sat, 20 Dec 2014 21:27:57 +0800
-Message-ID: <001801d01c58$c4c1f650$4e45e2f0$@163.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH]e100 in linux-3.18.0: some potential bugs
+Date: Sat, 20 Dec 2014 16:32:12 +0300
+Message-ID: <54957A5C.50404@cogentembedded.com>
+References: <000001d01c28$41c937c0$c55ba740$@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, Linux-nics@isotope.jf.intel.com,
+	linux.nics@intel.com, e1000-devel@lists.sourceforge.net
+To: Jia-Ju Bai <baijiaju1990@163.com>, todd.fujinaka@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-14.163.com ([220.181.12.14]:52174 "EHLO m12-14.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752892AbaLTN2C (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Dec 2014 08:28:02 -0500
-Content-Language: zh-cn
+Received: from mail-la0-f54.google.com ([209.85.215.54]:34297 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752701AbaLTNcP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Dec 2014 08:32:15 -0500
+Received: by mail-la0-f54.google.com with SMTP id pv20so2088834lab.41
+        for <netdev@vger.kernel.org>; Sat, 20 Dec 2014 05:32:13 -0800 (PST)
+In-Reply-To: <000001d01c28$41c937c0$c55ba740$@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have actually tested ne2k+8390 driver on the real hardware(Realtek RTL8029
-PCI Ethernet Controller), and find some potential bugs:
-The target file is drivers/net/ethernet/8390/ne2k-pci.c, which is used to
-build ne2k-pci.ko.
+On 12/20/2014 10:40 AM, Jia-Ju Bai wrote:
 
-(1) The function request_region is called by ne2k_pci_init_one when
-initializing the ethernet card driver. But when request_region is failed,
-which means that it returns the error value, ne2k_pci_init_one returns
-immediately to halt the process. However, because pci_enable_device has been
-called before request_region in ne2k_pci_init_one, pci_disable_device should
-be called before exiting. When the driver works normally, pci_enable_device
-and pci_disable_device are called in pairs in ne2k_pci_init_one and
-ne2k_pci_remove_one. Moreover, other ethernet card drivers call
-pci_enable_device and pci_disable_device in pairs in error handling paths,
-such as r8169 and sky2.
-(2) The similar problem occurs when alloc_ei_netdev is failed in
-ne2k_pci_init_one.
-(3) The similar problem occurs when register_netdev is failed in
-ne2k_pci_init_one.
+> I have actually tested e100 driver on the real hardware(Intel 82559 PCI
+> Ethernet Controller), and find some bugs:
+> The target file is drivers/net/ethernet/intel/e100.c, which is used to build
+> e100.ko.
 
+> (1) The function pci_pool_create is called by e100_probe when initializing
+> the ethernet card driver. But when pci_pool_create is failed, which means
+> that it returns NULL to nic->cbs_pool, the system crash will happen. Because
+> pci_pool_alloc (in e100_alloc_cbs in e100_up in e100_open) need to use
+> nic->cbs_pool to allocate the resource, but it is NULL. I suggest that a
+> check can be added in the code to detect whether pci_pool_create returns
+> NULL.
+> (2) In the normal process, netif_napi_add is called in e100_probe, but
+> netif_napi_del is not called in e100_remove. However, many other ethernet
+> card drivers call them in pairs, even in the error handling paths, such as
+> r8169 and igb.
 
-Meanwhile, I also write the patch to fix the bugs. I have run the patch on
-the hardware, it can work normally and fix the above bugs.
+    Fixing one issue per patch is the rule of thumb.
 
-diff --git a/drivers/net/ethernet/8390/ne2k-pci.c
-b/drivers/net/ethernet/8390/ne2k-pci.c
-index 89c8d9f..f241c6b 100644
---- a/drivers/net/ethernet/8390/ne2k-pci.c
-+++ b/drivers/net/ethernet/8390/ne2k-pci.c
-@@ -246,13 +246,13 @@ static int ne2k_pci_init_one(struct pci_dev *pdev,
- 
- 	if (!ioaddr || ((pci_resource_flags (pdev, 0) & IORESOURCE_IO) ==
-0)) {
- 		dev_err(&pdev->dev, "no I/O resource at PCI BAR #0\n");
--		return -ENODEV;
-+		goto err_out;
- 	}
- 
- 	if (request_region (ioaddr, NE_IO_EXTENT, DRV_NAME) == NULL) {
- 		dev_err(&pdev->dev, "I/O resource 0x%x @ 0x%lx busy\n",
- 			NE_IO_EXTENT, ioaddr);
--		return -EBUSY;
-+		goto err_out;
- 	}
- 
- 	reg0 = inb(ioaddr);
-@@ -392,6 +392,8 @@ err_out_free_netdev:
- 	free_netdev (dev);
- err_out_free_res:
- 	release_region (ioaddr, NE_IO_EXTENT);
-+err_out:
-+	pci_disable_device (pdev);
- 	return -ENODEV;
- }
+> Meanwhile, I also write the patch to fix the bugs. I have run the patch on
+> the hardware, it can work normally and fix the above bugs.
 
+    Again, your sign-off is required. See Documentation/SubmittingPatches.
 
-Thanks!
+> diff --git a/drivers/net/ethernet/intel/e100.c
+> b/drivers/net/ethernet/intel/e100.c
+> index 781065e..2631d3f 100644
+> --- a/drivers/net/ethernet/intel/e100.c
+> +++ b/drivers/net/ethernet/intel/e100.c
+> @@ -2969,6 +2969,11 @@ static int e100_probe(struct pci_dev *pdev, const
+> struct pci_device_id *ent)
+>   			   nic->params.cbs.max * sizeof(struct cb),
+>   			   sizeof(u32),
+>   			   0);
+> +	if(!(nic->cbs_pool))
+
+    Space needed after *if*. Please run your patches thru scripts/checkpatch.pl.
+
+[...]
+
+WBR, Sergei
