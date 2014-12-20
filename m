@@ -1,82 +1,96 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 4/4] net: Rearrange loop in net_rx_action
-Date: Sun, 21 Dec 2014 07:16:25 +1100
-Message-ID: <E1Y2QRt-0001qq-Lp@gondolin.me.apana.org.au>
-References: <20141220201453.GA6924@gondor.apana.org.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, david.vrabel@citrix.com,
-	netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
-	edumazet@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:40380 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751000AbaLTUQf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Dec 2014 15:16:35 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Prashant Sreedharan <prashant@broadcom.com>
+Subject: [PATCH net]tg3: tg3_disable_ints using uninitialized mailbox value to disable interrupts
+Date: Sat, 20 Dec 2014 12:16:17 -0800
+Message-ID: <1419106577-12891-1-git-send-email-prashant@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-pci@vger.kernel.org>,
+	<nholland@tisys.org>, <marcelo.leitner@gmail.com>,
+	<bhelgaas@google.com>, <rajatxjain@gmail.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
+To: <davem@davemloft.net>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch rearranges the loop in net_rx_action to reduce the
-amount of jumping back and forth when reading the code.
+During driver load in tg3_init_one, if the driver detects DMA activity before
+intializing the chip tg3_halt is called. As part of tg3_halt interrupts are
+disabled using routine tg3_disable_ints. This routine was using mailbox value
+which was not initialized (default value is 0). As a result driver was writing
+0x00000001 to pci config space register 0, which is the vendor id / device id.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+This driver bug was exposed because of the commit a7877b17a667 (PCI: Check only
+the Vendor ID to identify Configuration Request Retry). Also this issue is only
+seen in older generation chipsets like 5722 because config space write to offset
+0 from driver is possible. The newer generation chips ignore writes to offset 0.
+Also without commit a7877b17a667, for these older chips when a GRC reset is
+issued the Bootcode would reprogram the vendor id/device id, which is the reason
+this bug was masked earlier.
+
+Fixed by initializing the interrupt mailbox registers before calling tg3_halt.
+
+Please queue for -stable.
+
+Reported-by: Nils Holland <nholland@tisys.org>
+Reported-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Signed-off-by: Prashant Sreedharan <prashant@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
+ drivers/net/ethernet/broadcom/tg3.c |   34 +++++++++++++++++-----------------
+ 1 files changed, 17 insertions(+), 17 deletions(-)
 
- net/core/dev.c |   26 ++++++++++++--------------
- 1 file changed, 12 insertions(+), 14 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 22b0fb2..dd565a5 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4631,9 +4631,15 @@ static void net_rx_action(struct softirq_action *h)
- 	list_splice_init(&sd->poll_list, &list);
- 	local_irq_enable();
- 
--	while (!list_empty(&list)) {
-+	for (;;) {
- 		struct napi_struct *n;
- 
-+		if (list_empty(&list)) {
-+			if (!sd_has_rps_ipi_waiting(sd) && list_empty(&repoll))
-+				return;
-+			break;
-+		}
-+
- 		n = list_first_entry(&list, struct napi_struct, poll_list);
- 		budget -= napi_poll(n, &repoll);
- 
-@@ -4641,15 +4647,13 @@ static void net_rx_action(struct softirq_action *h)
- 		 * Allow this to run for 2 jiffies since which will allow
- 		 * an average latency of 1.5/HZ.
- 		 */
--		if (unlikely(budget <= 0 || time_after_eq(jiffies, time_limit)))
--			goto softnet_break;
-+		if (unlikely(budget <= 0 ||
-+			     time_after_eq(jiffies, time_limit))) {
-+			sd->time_squeeze++;
-+			break;
-+		}
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index bb48a61..553dcd8 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -17800,23 +17800,6 @@ static int tg3_init_one(struct pci_dev *pdev,
+ 		goto err_out_apeunmap;
  	}
  
--	if (!sd_has_rps_ipi_waiting(sd) &&
--	    list_empty(&list) &&
--	    list_empty(&repoll))
--		return;
--out:
- 	local_irq_disable();
- 
- 	list_splice_tail_init(&sd->poll_list, &list);
-@@ -4659,12 +4663,6 @@ out:
- 		__raise_softirq_irqoff(NET_RX_SOFTIRQ);
- 
- 	net_rps_action_and_irq_enable(sd);
+-	/*
+-	 * Reset chip in case UNDI or EFI driver did not shutdown
+-	 * DMA self test will enable WDMAC and we'll see (spurious)
+-	 * pending DMA on the PCI bus at that point.
+-	 */
+-	if ((tr32(HOSTCC_MODE) & HOSTCC_MODE_ENABLE) ||
+-	    (tr32(WDMAC_MODE) & WDMAC_MODE_ENABLE)) {
+-		tw32(MEMARB_MODE, MEMARB_MODE_ENABLE);
+-		tg3_halt(tp, RESET_KIND_SHUTDOWN, 1);
+-	}
 -
--	return;
+-	err = tg3_test_dma(tp);
+-	if (err) {
+-		dev_err(&pdev->dev, "DMA engine test failed, aborting\n");
+-		goto err_out_apeunmap;
+-	}
 -
--softnet_break:
--	sd->time_squeeze++;
--	goto out;
- }
+ 	intmbx = MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW;
+ 	rcvmbx = MAILBOX_RCVRET_CON_IDX_0 + TG3_64BIT_REG_LOW;
+ 	sndmbx = MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW;
+@@ -17861,6 +17844,23 @@ static int tg3_init_one(struct pci_dev *pdev,
+ 			sndmbx += 0xc;
+ 	}
  
- struct netdev_adjacent {
++	/*
++	 * Reset chip in case UNDI or EFI driver did not shutdown
++	 * DMA self test will enable WDMAC and we'll see (spurious)
++	 * pending DMA on the PCI bus at that point.
++	 */
++	if ((tr32(HOSTCC_MODE) & HOSTCC_MODE_ENABLE) ||
++	    (tr32(WDMAC_MODE) & WDMAC_MODE_ENABLE)) {
++		tw32(MEMARB_MODE, MEMARB_MODE_ENABLE);
++		tg3_halt(tp, RESET_KIND_SHUTDOWN, 1);
++	}
++
++	err = tg3_test_dma(tp);
++	if (err) {
++		dev_err(&pdev->dev, "DMA engine test failed, aborting\n");
++		goto err_out_apeunmap;
++	}
++
+ 	tg3_init_coal(tp);
+ 
+ 	pci_set_drvdata(pdev, dev);
+-- 
+1.7.1
