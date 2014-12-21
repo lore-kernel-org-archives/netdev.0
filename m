@@ -1,76 +1,71 @@
-From: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
-Subject: [PATCH] net: wireless: brcm80211: brcmsmac: phy: phy_lcn.c:  Remove unused function
-Date: Sun, 21 Dec 2014 01:34:13 +0100
-Message-ID: <1419122053-14613-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Cc: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>,
-	Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>,
-	Fabian Frederick <fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: [PATCH] net: wireless: brcm80211: brcmsmac: phy: phy_n.c:  Remove unused function
+Date: Sun, 21 Dec 2014 01:37:24 +0100
+Message-ID: <1419122244-14765-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Kalle Valo <kvalo@adurom.com>,
+	Fabian Frederick <fabf@skynet.be>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove the function wlc_lcnphy_crsuprs() that is not used anywhere.
+Remove the function wlc_phy_txpwr_idx_get_nphy() that is not used anywhere.
 
 This was partially found by using a static code analysis program called cppcheck.
 
-Signed-off-by: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
+Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
 ---
- .../net/wireless/brcm80211/brcmsmac/phy/phy_int.h  |    1 -
- .../net/wireless/brcm80211/brcmsmac/phy/phy_lcn.c  |   31 --------------------
- 2 files changed, 32 deletions(-)
+ .../net/wireless/brcm80211/brcmsmac/phy/phy_int.h   |    1 -
+ drivers/net/wireless/brcm80211/brcmsmac/phy/phy_n.c |   19 -------------------
+ 2 files changed, 20 deletions(-)
 
 diff --git a/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_int.h b/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_int.h
-index 4960f7d..a05dbde 100644
+index 4960f7d..c3d4f17 100644
 --- a/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_int.h
 +++ b/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_int.h
-@@ -1002,7 +1002,6 @@ s16 wlc_lcnphy_tempsense_new(struct brcms_phy *pi, bool mode);
- s8 wlc_lcnphy_tempsense_degree(struct brcms_phy *pi, bool mode);
- s8 wlc_lcnphy_vbatsense(struct brcms_phy *pi, bool mode);
- void wlc_phy_carrier_suppress_lcnphy(struct brcms_phy *pi);
--void wlc_lcnphy_crsuprs(struct brcms_phy *pi, int channel);
- void wlc_lcnphy_epa_switch(struct brcms_phy *pi, bool mode);
- void wlc_2064_vco_cal(struct brcms_phy *pi);
+@@ -1104,7 +1104,6 @@ void wlc_phy_txpwrctrl_enable_nphy(struct brcms_phy *pi, u8 ctrl_type);
+ void wlc_phy_txpwr_fixpower_nphy(struct brcms_phy *pi);
+ void wlc_phy_txpwr_apply_nphy(struct brcms_phy *pi);
+ void wlc_phy_txpwr_papd_cal_nphy(struct brcms_phy *pi);
+-u16 wlc_phy_txpwr_idx_get_nphy(struct brcms_phy *pi);
  
-diff --git a/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_lcn.c b/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_lcn.c
-index 5f13662..d2adb2d 100644
---- a/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_lcn.c
-+++ b/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_lcn.c
-@@ -1546,37 +1546,6 @@ s8 wlc_lcnphy_get_current_tx_pwr_idx(struct brcms_phy *pi)
- 	return index;
+ struct nphy_txgains wlc_phy_get_tx_gain_nphy(struct brcms_phy *pi);
+ int wlc_phy_cal_txiqlo_nphy(struct brcms_phy *pi,
+diff --git a/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_n.c b/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_n.c
+index 084f18f..44cb2f0 100644
+--- a/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_n.c
++++ b/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_n.c
+@@ -28257,25 +28257,6 @@ static bool wlc_phy_txpwr_ison_nphy(struct brcms_phy *pi)
+ 					    (0x1 << 14) | (0x1 << 13));
  }
  
--void wlc_lcnphy_crsuprs(struct brcms_phy *pi, int channel)
+-u16 wlc_phy_txpwr_idx_get_nphy(struct brcms_phy *pi)
 -{
--	u16 afectrlovr, afectrlovrval;
--	afectrlovr = read_phy_reg(pi, 0x43b);
--	afectrlovrval = read_phy_reg(pi, 0x43c);
--	if (channel != 0) {
--		mod_phy_reg(pi, 0x43b, (0x1 << 1), (1) << 1);
+-	u16 tmp;
+-	u16 pwr_idx[2];
 -
--		mod_phy_reg(pi, 0x43c, (0x1 << 1), (0) << 1);
+-	if (wlc_phy_txpwr_ison_nphy(pi)) {
+-		pwr_idx[0] = wlc_phy_txpwr_idx_cur_get_nphy(pi, PHY_CORE_0);
+-		pwr_idx[1] = wlc_phy_txpwr_idx_cur_get_nphy(pi, PHY_CORE_1);
 -
--		mod_phy_reg(pi, 0x43b, (0x1 << 4), (1) << 4);
--
--		mod_phy_reg(pi, 0x43c, (0x1 << 6), (0) << 6);
--
--		write_phy_reg(pi, 0x44b, 0xffff);
--		wlc_lcnphy_tx_pu(pi, 1);
--
--		mod_phy_reg(pi, 0x634, (0xff << 8), (0) << 8);
--
--		or_phy_reg(pi, 0x6da, 0x0080);
--
--		or_phy_reg(pi, 0x00a, 0x228);
+-		tmp = (pwr_idx[0] << 8) | pwr_idx[1];
 -	} else {
--		and_phy_reg(pi, 0x00a, ~(0x228));
--
--		and_phy_reg(pi, 0x6da, 0xFF7F);
--		write_phy_reg(pi, 0x43b, afectrlovr);
--		write_phy_reg(pi, 0x43c, afectrlovrval);
+-		tmp = ((pi->nphy_txpwrindex[PHY_CORE_0].index_internal & 0xff)
+-			<< 8) |
+-			(pi->nphy_txpwrindex[PHY_CORE_1].index_internal & 0xff);
 -	}
+-
+-	return tmp;
 -}
+-
+ void wlc_phy_txpwr_papd_cal_nphy(struct brcms_phy *pi)
+ {
+ 	if (PHY_IPA(pi)
+-- 
+1.7.10.4
