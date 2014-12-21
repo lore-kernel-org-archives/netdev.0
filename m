@@ -1,98 +1,89 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH V2 1/2] e100 in linux-3.18.0: Fix null pointer
- deference in e100_probe
-Date: Sun, 21 Dec 2014 09:19:59 +0800
-Message-ID: <5496203F.9000000@163.com>
-References: <000201d01c61$bdb956b0$392c0410$@163.com>
-	<20141220.143005.1130435723139487537.davem@davemloft.net>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH] bonding: avoid re-entry of bond_release
+Date: Sun, 21 Dec 2014 10:01:36 +0800
+Message-ID: <54962A00.6080005@huawei.com>
+References: <1418979417-28867-1-git-send-email-wen.gang.wang@oracle.com> <20141219151157.GD22253@gospo>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============2515084146431594666=="
-Cc: e1000-devel@lists.sourceforge.net, linux.nics@intel.com,
-	sergei.shtylyov@cogentembedded.com, Linux-nics@isotope.jf.intel.com
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20141220.143005.1130435723139487537.davem@davemloft.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
---===============2515084146431594666==
-Content-Type: multipart/alternative;
-	boundary="------------040603000804010905010806"
-
-This is a multi-part message in MIME format.
---------------040603000804010905010806
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Wengang Wang <wen.gang.wang@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:25383 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752669AbaLUCCA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Dec 2014 21:02:00 -0500
+In-Reply-To: <20141219151157.GD22253@gospo>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The driver lacks the check of nic->cbs_pool after pci_pool_create in e100_probe. So when this function is failed, the null pointer dereference occurs when pci_pool_alloc uses nic->cbs_pool in e100_alloc_cbs.
-This patch fix this problem, and it has been tested in runtime.
+On 2014/12/19 23:11, Andy Gospodarek wrote:
+> On Fri, Dec 19, 2014 at 04:56:57PM +0800, Wengang Wang wrote:
+>> If bond_release is run against an interface which is already detached from
+>> it's master, then there is an error message shown like
+>> 	"<master name> cannot release <slave name>".
+>>
+>> The call path is:
+>> 	bond_do_ioctl()
+>> 		bond_release()
+>> 			__bond_release_one()
+>>
+>> Though it does not really harm, the message the message is misleading.
+>> This patch tries to avoid the message.
+>>
+>> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
+>> ---
+>>  drivers/net/bonding/bond_main.c | 5 ++++-
+>>  1 file changed, 4 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index 184c434..4a71bbd 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -3256,7 +3256,10 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
+>>  		break;
+>>  	case BOND_RELEASE_OLD:
+>>  	case SIOCBONDRELEASE:
+>> -		res = bond_release(bond_dev, slave_dev);
+>> +		if (slave_dev->flags & IFF_SLAVE)
+>> +			res = bond_release(bond_dev, slave_dev);
+>> +		else
+>> +			res = 0;
+> 
+> Functionally this patch is fine, but I would prefer that you simply
+> change the check in __bond_release_one to not be so noisy.  There is a
+> check[1] in bond_enslave to see if a slave is already in a bond and that
+> just prints a message of netdev_dbg (rather than netdev_err) and it
+> seems that would be appropriate for this type of message.
+> 
+> [1] from bond_enslave():
+> 
+>         /* already enslaved */
+>         if (slave_dev->flags & IFF_SLAVE) {
+>                 netdev_dbg(bond_dev, "Error: Device was already enslaved\n");
+>                 return -EBUSY;
+>         }
+> 
+> 
+>>  		break;
+>>  	case BOND_SETHWADDR_OLD:
+>>  	case SIOCBONDSETHWADDR:
+>> -- 
 
-Signed-off-by: Jia-Ju Bai<baijiaju1990@163.com>
----
-  drivers/net/ethernet/intel/e100.c     |   6 ++++++
-  1 file changed, 6 insertions(+)
+agree ,use netdev_dbg looks more better and enough.
 
-diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
-index 781065e..ba1813f 100644
---- a/drivers/net/ethernet/intel/e100.c
-+++ b/drivers/net/ethernet/intel/e100.c
-@@ -2969,6 +2969,10 @@ static int e100_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
-                nic->params.cbs.max * sizeof(struct cb),
-                sizeof(u32),
-                0);
-+   if (!nic->cbs_pool) {
-+       err = -ENOMEM;
-+       goto err_out_pool;
-+   }
-     netif_info(nic, probe, nic->netdev,
-            "addr 0x%llx, irq %d, MAC addr %pM\n",
-            (unsigned long long)pci_resource_start(pdev, use_io ? 1 : 0),
-@@ -2976,6 +2980,8 @@ static int e100_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+Ding
 
-     return 0;
-
-+err_out_pool:
-+   unregister_netdev(netdev);
-  err_out_free:
-     e100_free(nic);
-  err_out_iounmap:
-
-
-
---------------040603000804010905010806--
-
-
-
---===============2515084146431594666==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Download BIRT iHub F-Type - The Free Enterprise-Grade BIRT Server
-from Actuate! Instantly Supercharge Your Business Reports and Dashboards
-with Interactivity, Sharing, Native Excel Exports, App Integration & more
-Get technology previously reserved for billion-dollar corporations, FREE
-http://pubads.g.doubleclick.net/gampad/clk?id=164703151&iu=/4140/ostg.clktrk
---===============2515084146431594666==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============2515084146431594666==--
+>> 1.8.3.1
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
