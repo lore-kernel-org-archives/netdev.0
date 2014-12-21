@@ -1,13 +1,12 @@
 From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH V2] e1000: Add netif_napi_del in the normal
- path and error path to match netif_napi_add
-Date: Sun, 21 Dec 2014 08:52:54 +0800
-Message-ID: <549619E6.8070503@163.com>
+Subject: [PATCH V2 1/2] e100 in linux-3.18.0: Fix null pointer
+ deference in e100_probe
+Date: Sun, 21 Dec 2014 09:19:59 +0800
+Message-ID: <5496203F.9000000@163.com>
 References: <000201d01c61$bdb956b0$392c0410$@163.com>
 	<20141220.143005.1130435723139487537.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed; boundary="===============2515084146431594666=="
 Cc: e1000-devel@lists.sourceforge.net, linux.nics@intel.com,
 	sergei.shtylyov@cogentembedded.com, Linux-nics@isotope.jf.intel.com
 To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
@@ -23,77 +22,60 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Th driver lacks netif_napi_del in the normal path and error path to match the call of netif_napi_add in e1000_probe.
+This is a multi-part message in MIME format.
+--===============2515084146431594666==
+Content-Type: multipart/alternative;
+	boundary="------------040603000804010905010806"
 
-This patch fixes this problem, and it has been tested in runtime.
+This is a multi-part message in MIME format.
+--------------040603000804010905010806
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+The driver lacks the check of nic->cbs_pool after pci_pool_create in e100_probe. So when this function is failed, the null pointer dereference occurs when pci_pool_alloc uses nic->cbs_pool in e100_alloc_cbs.
+This patch fix this problem, and it has been tested in runtime.
 
 Signed-off-by: Jia-Ju Bai<baijiaju1990@163.com>
-
 ---
+  drivers/net/ethernet/intel/e100.c     |   6 ++++++
+  1 file changed, 6 insertions(+)
 
-  drivers/net/ethernet/intel/e1000/e1000_main.c    |    6 +-
+diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
+index 781065e..ba1813f 100644
+--- a/drivers/net/ethernet/intel/e100.c
++++ b/drivers/net/ethernet/intel/e100.c
+@@ -2969,6 +2969,10 @@ static int e100_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+                nic->params.cbs.max * sizeof(struct cb),
+                sizeof(u32),
+                0);
++   if (!nic->cbs_pool) {
++       err = -ENOMEM;
++       goto err_out_pool;
++   }
+     netif_info(nic, probe, nic->netdev,
+            "addr 0x%llx, irq %d, MAC addr %pM\n",
+            (unsigned long long)pci_resource_start(pdev, use_io ? 1 : 0),
+@@ -2976,6 +2980,8 @@ static int e100_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
-  1 file changed, 4 insertions(+), 2 deletions(-)
+     return 0;
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-
-index 24f3986..f6def7b 100644
-
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-
-@@ -1004,7 +1004,7 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
-
-  	/* make ready for any if (hw->...) below */
-
-  	err = e1000_init_hw_struct(adapter, hw);
-
-  	if (err)
-
--		goto err_sw_init;
-
-+		goto err_dma;
-
-  	/* there is a workaround being applied below that limits
-
-  	* 64-bit DMA addresses to 64-bit hardware.  There are some
-
-@@ -1239,8 +1239,9 @@ err_eeprom:
-
-  		iounmap(hw->flash_address);
-
-  	kfree(adapter->tx_ring);
-
-  	kfree(adapter->rx_ring);
-
--err_dma:
-
-  err_sw_init:
-
-+	netif_napi_del(&adapter->napi);
-
-+err_dma:
-
-  err_mdio_ioremap:
-
-  	iounmap(hw->ce4100_gbe_mdio_base_virt);
-
-  	iounmap(hw->hw_addr);
-
-@@ -1271,6 +1272,7 @@ static void e1000_remove(struct pci_dev *pdev)
-
-  	e1000_down_and_stop(adapter);
-
-  	e1000_release_manageability(adapter);
-
-+	netif_napi_del(&adapter->napi);
-
-  	unregister_netdev(netdev);
-
-  	e1000_phy_hw_reset(hw);
++err_out_pool:
++   unregister_netdev(netdev);
+  err_out_free:
+     e100_free(nic);
+  err_out_iounmap:
 
 
+
+--------------040603000804010905010806--
+
+
+
+--===============2515084146431594666==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
 ------------------------------------------------------------------------------
 Download BIRT iHub F-Type - The Free Enterprise-Grade BIRT Server
@@ -101,8 +83,16 @@ from Actuate! Instantly Supercharge Your Business Reports and Dashboards
 with Interactivity, Sharing, Native Excel Exports, App Integration & more
 Get technology previously reserved for billion-dollar corporations, FREE
 http://pubads.g.doubleclick.net/gampad/clk?id=164703151&iu=/4140/ostg.clktrk
+--===============2515084146431594666==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
 _______________________________________________
 E1000-devel mailing list
 E1000-devel@lists.sourceforge.net
 https://lists.sourceforge.net/lists/listinfo/e1000-devel
 To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--===============2515084146431594666==--
