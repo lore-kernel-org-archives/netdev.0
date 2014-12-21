@@ -1,89 +1,108 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH] net: wireless: rtlwifi: rtl8723be: phy.c:  Remove unused
- function
-Date: Sat, 20 Dec 2014 18:46:10 -0600
-Message-ID: <54961852.8000403@lwfinger.net>
-References: <1419116358-13223-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+From: Jia-Ju Bai <baijiaju1990@163.com>
+Subject: [PATCH V2] e1000: Add netif_napi_del in the normal
+ path and error path to match netif_napi_add
+Date: Sun, 21 Dec 2014 08:52:54 +0800
+Message-ID: <549619E6.8070503@163.com>
+References: <000201d01c61$bdb956b0$392c0410$@163.com>
+	<20141220.143005.1130435723139487537.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>,
-	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1419116358-13223-1-git-send-email-rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: e1000-devel@lists.sourceforge.net, linux.nics@intel.com,
+	sergei.shtylyov@cogentembedded.com, Linux-nics@isotope.jf.intel.com
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20141220.143005.1130435723139487537.davem@davemloft.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On 12/20/2014 04:59 PM, Rickard Strandqvist wrote:
-> Remove the function rtl8723be_phy_get_txpower_level() that is not used anywhere.
->
-> This was partially found by using a static code analysis program called cppcheck.
->
-> Signed-off-by: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
-> ---
->   drivers/net/wireless/rtlwifi/rtl8723be/phy.c |   25 -------------------------
->   drivers/net/wireless/rtlwifi/rtl8723be/phy.h |    2 --
->   2 files changed, 27 deletions(-)
+Th driver lacks netif_napi_del in the normal path and error path to match the call of netif_napi_add in e1000_probe.
 
-Acked-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+This patch fixes this problem, and it has been tested in runtime.
 
-Larry
+Signed-off-by: Jia-Ju Bai<baijiaju1990@163.com>
 
->
-> diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/phy.c b/drivers/net/wireless/rtlwifi/rtl8723be/phy.c
-> index 20dcc25..b7b73cb 100644
-> --- a/drivers/net/wireless/rtlwifi/rtl8723be/phy.c
-> +++ b/drivers/net/wireless/rtlwifi/rtl8723be/phy.c
-> @@ -874,31 +874,6 @@ void rtl8723be_phy_get_hw_reg_originalvalue(struct ieee80211_hw *hw)
->   		  ROFDM0_RXDETECTOR3, rtlphy->framesync);
->   }
->
-> -void rtl8723be_phy_get_txpower_level(struct ieee80211_hw *hw, long *powerlevel)
-> -{
-> -	struct rtl_priv *rtlpriv = rtl_priv(hw);
-> -	struct rtl_phy *rtlphy = &rtlpriv->phy;
-> -	u8 txpwr_level;
-> -	long txpwr_dbm;
-> -
-> -	txpwr_level = rtlphy->cur_cck_txpwridx;
-> -	txpwr_dbm = rtl8723_phy_txpwr_idx_to_dbm(hw, WIRELESS_MODE_B,
-> -						 txpwr_level);
-> -	txpwr_level = rtlphy->cur_ofdm24g_txpwridx;
-> -	if (rtl8723_phy_txpwr_idx_to_dbm(hw, WIRELESS_MODE_G, txpwr_level) >
-> -	    txpwr_dbm)
-> -		txpwr_dbm =
-> -		    rtl8723_phy_txpwr_idx_to_dbm(hw, WIRELESS_MODE_G,
-> -						 txpwr_level);
-> -	txpwr_level = rtlphy->cur_ofdm24g_txpwridx;
-> -	if (rtl8723_phy_txpwr_idx_to_dbm(hw, WIRELESS_MODE_N_24G,
-> -					 txpwr_level) > txpwr_dbm)
-> -		txpwr_dbm =
-> -		    rtl8723_phy_txpwr_idx_to_dbm(hw, WIRELESS_MODE_N_24G,
-> -						 txpwr_level);
-> -	*powerlevel = txpwr_dbm;
-> -}
-> -
->   static u8 _rtl8723be_phy_get_ratesection_intxpower_byrate(enum radio_path path,
->   							  u8 rate)
->   {
-> diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/phy.h b/drivers/net/wireless/rtlwifi/rtl8723be/phy.h
-> index 6339738..9021d47 100644
-> --- a/drivers/net/wireless/rtlwifi/rtl8723be/phy.h
-> +++ b/drivers/net/wireless/rtlwifi/rtl8723be/phy.h
-> @@ -114,8 +114,6 @@ bool rtl8723be_phy_mac_config(struct ieee80211_hw *hw);
->   bool rtl8723be_phy_bb_config(struct ieee80211_hw *hw);
->   bool rtl8723be_phy_rf_config(struct ieee80211_hw *hw);
->   void rtl8723be_phy_get_hw_reg_originalvalue(struct ieee80211_hw *hw);
-> -void rtl8723be_phy_get_txpower_level(struct ieee80211_hw *hw,
-> -				     long *powerlevel);
->   void rtl8723be_phy_set_txpower_level(struct ieee80211_hw *hw,
->   				     u8 channel);
->   void rtl8723be_phy_scan_operation_backup(struct ieee80211_hw *hw,
->
+---
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+  drivers/net/ethernet/intel/e1000/e1000_main.c    |    6 +-
+
+  1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+
+index 24f3986..f6def7b 100644
+
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
+
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+
+@@ -1004,7 +1004,7 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+
+  	/* make ready for any if (hw->...) below */
+
+  	err = e1000_init_hw_struct(adapter, hw);
+
+  	if (err)
+
+-		goto err_sw_init;
+
++		goto err_dma;
+
+  	/* there is a workaround being applied below that limits
+
+  	* 64-bit DMA addresses to 64-bit hardware.  There are some
+
+@@ -1239,8 +1239,9 @@ err_eeprom:
+
+  		iounmap(hw->flash_address);
+
+  	kfree(adapter->tx_ring);
+
+  	kfree(adapter->rx_ring);
+
+-err_dma:
+
+  err_sw_init:
+
++	netif_napi_del(&adapter->napi);
+
++err_dma:
+
+  err_mdio_ioremap:
+
+  	iounmap(hw->ce4100_gbe_mdio_base_virt);
+
+  	iounmap(hw->hw_addr);
+
+@@ -1271,6 +1272,7 @@ static void e1000_remove(struct pci_dev *pdev)
+
+  	e1000_down_and_stop(adapter);
+
+  	e1000_release_manageability(adapter);
+
++	netif_napi_del(&adapter->napi);
+
+  	unregister_netdev(netdev);
+
+  	e1000_phy_hw_reset(hw);
+
+
+
+------------------------------------------------------------------------------
+Download BIRT iHub F-Type - The Free Enterprise-Grade BIRT Server
+from Actuate! Instantly Supercharge Your Business Reports and Dashboards
+with Interactivity, Sharing, Native Excel Exports, App Integration & more
+Get technology previously reserved for billion-dollar corporations, FREE
+http://pubads.g.doubleclick.net/gampad/clk?id=164703151&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
