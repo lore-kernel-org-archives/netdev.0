@@ -1,95 +1,37 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH V2 2/2] e100 in linux-3.18.0: Add
- netif_napi_del in the normal path and error path to match netif_napi_add
-Date: Sun, 21 Dec 2014 09:51:24 +0800
-Message-ID: <5496279C.6070402@163.com>
-References: <000201d01c61$bdb956b0$392c0410$@163.com>
-	<20141220.143005.1130435723139487537.davem@davemloft.net>
+From: Eric Biggers <ebiggers3@gmail.com>
+Subject: Re: [BUG] rtl8192se: panic accessing unmapped memory in skb
+Date: Sun, 21 Dec 2014 17:47:14 -0600
+Message-ID: <20141221234714.GA30675@zzz>
+References: <20141221172516.GA12784@zzz>
+ <5497516A.2020400@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============8367771131008664297=="
-Cc: bjj13@mails.tsinghua.edu.cn, linux.nics@intel.com,
-	sergei.shtylyov@cogentembedded.com, e1000-devel@lists.sourceforge.net,
-	Linux-nics@isotope.jf.intel.com
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20141220.143005.1130435723139487537.davem@davemloft.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5497516A.2020400@lwfinger.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---===============8367771131008664297==
-Content-Type: multipart/alternative;
-	boundary="------------000508050200090701080300"
+Hi,
 
-This is a multi-part message in MIME format.
---------------000508050200090701080300
-Content-Type: text/plain; charset=gbk; format=flowed
-Content-Transfer-Encoding: 7bit
+To get your patched version to work at all I had to update
+_rtl_pci_init_rx_ring() to account for new return value of
+_rtl_pci_init_one_rxdesc().  I will let you know if anything shows up in the
+kernel log, but I expect this is a highly sporadic problem.  The system has 4 GB
+of memory, and I used the 3.18 kernel for 10 days prior to the panic with no
+issues.  The panic occurred while upgrading system packages, so it's possible
+jhat the system was experiencing memory pressure.
 
-The driver lacks netif_napi_del in the normal path and error path to 
-match the call of netif_napi_add in e100_probe.
-This patch fixes this problem, and it has been tested in runtime.
+I upgraded from 3.17 to 3.18 on Dec 8, so I've actually only had since then to
+notice any bugs that may have been introduced since 3.17.
 
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
----
-drivers/net/ethernet/intel/e100.c | 2 ++
-1 file changed, 2 insertions(+)
+It does appear there were changes made to pci.c between 3.17 and 3.18.  It
+appears the 3.17 code will drop the incoming packet if a new skb can't be
+allocated, whereas the 3.18 code assumes a new skb can always be allocated.  The
+3.17 behavior seems more logical to me.  I don't know how either of these
+behaviors compare to other networking drivers, however.
 
-diff --git a/drivers/net/ethernet/intel/e100.c 
-b/drivers/net/ethernet/intel/e100.c
-index 781065e..21c4d0f 100644
---- a/drivers/net/ethernet/intel/e100.c
-+++ b/drivers/net/ethernet/intel/e100.c
-@@ -2985,6 +2985,7 @@ err_out_free_res:
-err_out_disable_pdev:
-pci_disable_device(pdev);
-err_out_free_dev:
-+ netif_napi_del(&nic->napi);
-free_netdev(netdev);
-return err;
-}
-@@ -2995,6 +2996,7 @@ static void e100_remove(struct pci_dev *pdev)
-
-if (netdev) {
-struct nic *nic = netdev_priv(netdev);
-+ netif_napi_del(&nic->napi);
-unregister_netdev(netdev);
-e100_free(nic);
-pci_iounmap(pdev, nic->csr);
-
---------------000508050200090701080300--
-
-
-
---===============8367771131008664297==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Download BIRT iHub F-Type - The Free Enterprise-Grade BIRT Server
-from Actuate! Instantly Supercharge Your Business Reports and Dashboards
-with Interactivity, Sharing, Native Excel Exports, App Integration & more
-Get technology previously reserved for billion-dollar corporations, FREE
-http://pubads.g.doubleclick.net/gampad/clk?id=164703151&iu=/4140/ostg.clktrk
---===============8367771131008664297==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============8367771131008664297==--
+Eric
