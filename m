@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next 04/11] net: bnx2x: convert to timecounter adjtime.
-Date: Sun, 21 Dec 2014 19:46:59 +0100
-Message-ID: <976abf89c833c376c2666def2c60a7de0f020026.1418504889.git.richardcochran@gmail.com>
+Subject: [PATCH net-next 09/11] net: mlx4: convert to timecounter adjtime.
+Date: Sun, 21 Dec 2014 19:47:04 +0100
+Message-ID: <4992d674b60c48aed0d9babf0e4903726b20dfb2.1418504889.git.richardcochran@gmail.com>
 References: <cover.1418504883.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -29,28 +29,26 @@ Compile tested only.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_clock.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 691f0bf..7b2cc40 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -13265,14 +13265,10 @@ static int bnx2x_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
- static int bnx2x_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
- {
- 	struct bnx2x *bp = container_of(ptp, struct bnx2x, ptp_clock_info);
--	u64 now;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+index 9990144..df35d0e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+@@ -147,12 +147,9 @@ static int mlx4_en_phc_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ 	struct mlx4_en_dev *mdev = container_of(ptp, struct mlx4_en_dev,
+ 						ptp_clock_info);
+ 	unsigned long flags;
+-	s64 now;
  
- 	DP(BNX2X_MSG_PTP, "PTP adjtime called, delta = %llx\n", delta);
- 
--	now = timecounter_read(&bp->timecounter);
+ 	write_lock_irqsave(&mdev->clock_lock, flags);
+-	now = timecounter_read(&mdev->clock);
 -	now += delta;
--	/* Re-init the timecounter */
--	timecounter_init(&bp->timecounter, &bp->cyclecounter, now);
-+	timecounter_adjtime(&bp->timecounter, delta);
+-	timecounter_init(&mdev->clock, &mdev->cycles, now);
++	timecounter_adjtime(&mdev->clock, delta);
+ 	write_unlock_irqrestore(&mdev->clock_lock, flags);
  
  	return 0;
- }
 -- 
 1.7.10.4
