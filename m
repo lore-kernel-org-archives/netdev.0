@@ -1,30 +1,28 @@
-From: Ilya Dryomov <ilya.dryomov@inktank.com>
-Subject: Re: [PATCH] net: ceph: ceph_strings.c: Remove unused function
-Date: Sun, 21 Dec 2014 14:24:47 +0300
-Message-ID: <CALFYKtD7wTNiTzekkWKZqBEb_7egij31Fhe=7J2Ey+arT3M_vA@mail.gmail.com>
-References: <1419078894-31656-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH net] in6: fix conflict with glibc
+Date: Sun, 21 Dec 2014 14:56:55 +0100
+Message-ID: <1419170215.3663.15.camel@stressinduktion.org>
+References: <20141220121549.7c1b8aad@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sage Weil <sage@inktank.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ceph Development <ceph-devel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Return-path: <ceph-devel-owner@vger.kernel.org>
-In-Reply-To: <1419078894-31656-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Sender: ceph-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Florent Fourcot <florent.fourcot-Pj3lBMu8rt9bbU8NOSLlsg@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20141220121549.7c1b8aad@urahara>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 20, 2014 at 3:34 PM, Rickard Strandqvist
-<rickard_strandqvist@spectrumdigital.se> wrote:
-> Remove the function ceph_pool_op_name() that is not used anywhere.
->
-> This was partially found by using a static code analysis program called cppcheck.
+On Sa, 2014-12-20 at 12:15 -0800, Stephen Hemminger wrote:
+> Resolve conflicts between glibc definition of IPV6 socket options
+> and those defined in Linux headers. Looks like earlier efforts to
+> solve this did not cover all the definitions.
+> 
+> It resolves warnings during iproute2 build. 
+> Please consider for stable as well.
+> 
+> Signed-off-by: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
 
-It's part of pool op infrastructure and I'd rather we use it in
-monc_show() than remove it.  I'll make a patch.
-
-Thanks,
-
-                Ilya
+Acked-by: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
