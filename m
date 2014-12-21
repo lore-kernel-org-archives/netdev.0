@@ -1,73 +1,45 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net] net/mlx4_en: Doorbell is byteswapped in Little Endian
- archs
-Date: Sun, 21 Dec 2014 22:53:50 +0300
-Message-ID: <5497254E.6090603@cogentembedded.com>
-References: <1419185938-28987-1-git-send-email-amirv@mellanox.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: SRIOV as bridge Re: [PATCH net-next RESEND] net: Do not call
+ ndo_dflt_fdb_dump if ndo_fdb_dump is defined.
+Date: Sun, 21 Dec 2014 15:06:49 -0500
+Message-ID: <54972859.7050108@mojatatu.com>
+References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>    <54894850.5000603@cumulusnetworks.com>    <7968540cd0768a770b0c8b29ce41a162.squirrel@poczta.wsisiz.edu.pl>    <5489D53E.5010603@cumulusnetworks.com>    <8d4ec5c1ae73c77866a0a154fb528f23.squirrel@poczta.wsisiz.edu.pl>    <548AD781.5020004@mojatatu.com> <4c22a6c452a73b3b77a9a9c8e7f76bcc.squirrel@poczta.wsisiz.edu.pl> <548AFD41.3010801@mojatatu.com> <548B4AA4.1020804@gmail.com> <548EF05E.6050401@mojatatu.com> <548F80B2.80408@gmail.com> <54902E5E.2070405@mojatatu.com> <54905F67.2090509@gmail.com> <5496D8E2.1090700@mojatatu.com> <54971A93.6050700@cumulusnetworks.com> <54971D2F.1090802@mojatatu.com> <54972140.30704@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Wei Yang <weiyang@linux.vnet.ibm.com>,
-	David Laight <david.laight@aculab.com>
-To: Amir Vadai <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	Hubert Sokolowski <h.sokolowski@wit.edu.pl>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f47.google.com ([209.85.215.47]:47458 "EHLO
-	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752966AbaLUTxw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Dec 2014 14:53:52 -0500
-Received: by mail-la0-f47.google.com with SMTP id hz20so3021899lab.6
-        for <netdev@vger.kernel.org>; Sun, 21 Dec 2014 11:53:50 -0800 (PST)
-In-Reply-To: <1419185938-28987-1-git-send-email-amirv@mellanox.com>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:38213 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752030AbaLUUGw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Dec 2014 15:06:52 -0500
+Received: by mail-ig0-f169.google.com with SMTP id hl2so4435743igb.0
+        for <netdev@vger.kernel.org>; Sun, 21 Dec 2014 12:06:52 -0800 (PST)
+In-Reply-To: <54972140.30704@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 12/21/14 14:36, Roopa Prabhu wrote:
+> On 12/21/14, 11:19 AM, Jamal Hadi Salim wrote:
+>> On 12/21/14 14:08, Roopa Prabhu wrote:
 
-On 12/21/2014 9:18 PM, Amir Vadai wrote:
-
-> iowrite32() will byteswap it's argument on big endian archs.
-> iowrite32be() will byteswap on little endian archs.
-> Since we don't want to do this unnecessary byteswap on the fast path,
-> doorbell is stored in the NIC's native endianness. Using the right
-> iowrite() according to the arch endianness.
-
-> CC: Wei Yang <weiyang@linux.vnet.ibm.com>
-> CC: David Laight <david.laight@aculab.com>
-> Fixes: 6a4e812 ("net/mlx4_en: Avoid calling bswap in tx fast path")
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
-> ---
->   drivers/net/ethernet/mellanox/mlx4/en_tx.c | 11 ++++++++++-
->   1 file changed, 10 insertions(+), 1 deletion(-)
+> 'self' would just mean the driver owns the PF embedded bridge and the
+> kernel bridge driver has no role in this. 'self' will just tell the VF
+> driver to deal with the fdb mac entry. And the VF driver can push the
+> fdb to the PF  (John can confirm if the intel sriov devices really do it
+> this way or some other way).
 >
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> index a308d41..6477cc7 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> @@ -962,7 +962,16 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
->   		tx_desc->ctrl.owner_opcode = op_own;
->   		if (send_doorbell) {
->   			wmb();
-> -			iowrite32(ring->doorbell_qpn,
-> +		/* Since there is no iowrite*_native() that writes the value
-> +		 * as is, without byteswapping - using the one the doesn't do
-> +		 * byteswapping in the relevant arch endianness.
-> +		 */
 
-    Why the comment is not aligned with the code?
+If the VFs are exposed as netdevs and the master (or Parent which i 
+think the "P" stands for) they point to
+is the PF - then is the PF a bridge abstraction?
+And if the path is via is the PF - i think that seems like "master"
+not self, no?
 
-> +#if defined(__LITTLE_ENDIAN)
-> +			iowrite32(
-> +#else
-> +			iowrite32be(
-> +#endif
-
-    Ugh...
-
-> +				  ring->doorbell_qpn,
->   				  ring->bf.uar->map + MLX4_SEND_DOORBELL);
-[...]
-
-WBR, Sergei
+cheers,
+jamal
