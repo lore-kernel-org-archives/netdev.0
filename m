@@ -1,89 +1,96 @@
-From: Maximilian Engelhardt <maxi@daemonizer.de>
-Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
-Date: Sun, 21 Dec 2014 15:24:29 +0100
-Message-ID: <9234001.YBqfvtcJFx@fuchs>
-References: <53FDACD1.8090805@msgid.tls.msk.ru> <141935691.MGh8oJCUVD@fuchs> <5496D59E.5030601@broadcom.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: SRIOV as bridge Re: [PATCH net-next RESEND] net: Do not call ndo_dflt_fdb_dump
+ if ndo_fdb_dump is defined.
+Date: Sun, 21 Dec 2014 09:27:46 -0500
+Message-ID: <5496D8E2.1090700@mojatatu.com>
+References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>    <54894850.5000603@cumulusnetworks.com>    <7968540cd0768a770b0c8b29ce41a162.squirrel@poczta.wsisiz.edu.pl>    <5489D53E.5010603@cumulusnetworks.com>    <8d4ec5c1ae73c77866a0a154fb528f23.squirrel@poczta.wsisiz.edu.pl>    <548AD781.5020004@mojatatu.com> <4c22a6c452a73b3b77a9a9c8e7f76bcc.squirrel@poczta.wsisiz.edu.pl> <548AFD41.3010801@mojatatu.com> <548B4AA4.1020804@gmail.com> <548EF05E.6050401@mojatatu.com> <548F80B2.80408@gmail.com> <54902E5E.2070405@mojatatu.com> <54905F67.2090509@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart2165607.tNvV9YbdjW"; micalg="pgp-sha512"; protocol="application/pgp-signature"
-Cc: Michael Tokarev <mjt@tls.msk.ru>,
-	=?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	Seth Forshee <seth.forshee@canonical.com>,
-	brcm80211 development <brcm80211-dev-list@broadcom.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Arend van Spriel <arend@broadcom.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Hubert Sokolowski <h.sokolowski@wit.edu.pl>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from daemonizer.de ([87.230.18.164]:44792 "EHLO daemonizer.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751058AbaLUOYc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 Dec 2014 09:24:32 -0500
-In-Reply-To: <5496D59E.5030601@broadcom.com>
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:54724 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751163AbaLUO1u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Dec 2014 09:27:50 -0500
+Received: by mail-ie0-f182.google.com with SMTP id x19so3176902ier.13
+        for <netdev@vger.kernel.org>; Sun, 21 Dec 2014 06:27:49 -0800 (PST)
+In-Reply-To: <54905F67.2090509@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---nextPart2165607.tNvV9YbdjW
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
+Sorry for the latency, Ive been down with a bad flu (its bad when i cant
+type on my keyboard sitting infront of me;->),  recovering and the
+thread seems to have caught on - should be able to catchup in the
+next few days.
+I am beginning to reach a conclusion that the current switchdev approach
+is *not* going to work for SRIOV. I also worry it may be too late
+to change that.
+Shrijeet wanted to set up a BOF for netdev to have hopefully final 
+consensus. Shrijeet, are you going to make an official request for the BOF?
 
-On Sunday 21 December 2014 15:13:50 Arend van Spriel wrote:
-> On 12/21/14 15:08, Maximilian Engelhardt wrote:
-> > On Sunday 21 December 2014 11:12:40 Arend van Spriel wrote:
-> >> On 12/21/14 10:58, Michael Tokarev wrote:
-> >>> 16.12.2014 19:51, Arend van Spriel wrote:
-> >>>> Hmm. The function brcms_btc_ecicoex_enab() is calling itself. Please
-> >>>> remove that call as it causes endless recursion and eventually reboot.>
-> >>> 
-> >>> Ok, that was easy.  Now it loads, but wifi link still
-> >>> does not work, stalling as before.  What we're looking
-> >>> at now?
-> >> 
-> >> The patch is just to provide me with extra bt-coex related information
-> >> in the kernel log. So if you can provide that to me I have to info
-> >> needed to look in the proprietary code base to determine what is missing.
-> >> 
-> >> Regards,
-> >> Arend
-> > 
-> > Hi Arend,
-> 
-> > here is the output from my card:
-> Thanks. It shows you have have the same bt-coex version as Michael. I am
-> not familiar with bluetooth side of things. Are you both using bluetooth
-> on 4313?
-> 
-> Regards,
-> Arend
-
-I don't know. I think I have Bluetooth somehow enabled but I'm not really 
-using it. I definitely don't have any Bluetooth devices connected. I could try 
-to unload/disable Bluetooth it to see if it makes any difference.
-
-Greetings,
-Maxi
+Sorry John, I dont have enough energy to address all your points but i
+will try to just focus on SRIOV and will save a few bytes while at it.
 
 
---nextPart2165607.tNvV9YbdjW
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
+On 12/16/14 11:35, John Fastabend wrote:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+> But in the SR-IOV case you have multiple "Cpu ports" and you want
+> to send packets to each of them depending on the configuration.
+>
+>
+>     port0   port1     port2  port3
+>      |        |        |      |      uplinks
+>   +------------------------------+
+>   |                              |
+>   |       SRIOV edge relay       |
+>   |                              |
+>   +------------------------------+
+>                   |                   downlink
+>
+>
 
-iQIcBAABCgAGBQJUltgdAAoJEIHqZH0kK9IVq08P/3+pOrkLsDb4JbRN3+M9klXr
-Oj+R9rl7PglaE7ADWwZWHdwJuacC/aUQEBEof4/WT7xyPDGIepfPguXSA0pHhyDR
-y4z6O1xeMLijlooVKto8b/6A6V04WJQ0IEDBef6gtYNGaQlIyo2jVTqqbtU4Exlu
-4tRnPkMvFQLV1LFQMDYTicn/ODqEjqsguVlorwui47cJso2xu5LngWB0re1ihEOS
-V2K+2CTN0WNfY1QQEWNU9La5cvDdW+tzXF/sMAZNvwQmDx2CrfBCnBiUvKdr34kt
-km5c7f1GgGKV3Eqp2Y65oRGB3bhdItOwlt/I8rpa2dZLUMVEoK2FAP9fO+PyOffq
-crZ+VU+EGp7lZ1CgcuDycefyjc4UHrs2GLFJ7jqT+9Okl7XwhNFRaxr7fwXnl3jt
-PEMsmGcjbaD6imiwhahDQyffUy84T9K++DfDLwZkhQr+frjKPZAMMgi++IqRAhBD
-SoNLQ4YtpvqQPnV8GyiyE1FxIco3lZzY7ntx5wM9IG2qmH5OzRgXhyJhHcz7fT8n
-upAcU615EI33uP2NRfZMegyOP6uU78KP1/pGo0vrsvqqe0a7U7vNKFLcnU/Cu8Zz
-+nV3P2An/4/E412CYY58K/eLTKxDBpBgQ5yTpCcbl69SXMXbTuYQ3nKuCWn5HM1T
-jDfJuKahssXm68eVg/FQ
-=RurE
------END PGP SIGNATURE-----
+Two points above:
+1) Did you flip uplink vs down link above?
+(I Thought URP was the wire link)
+2) What you are not showing above which is *very important* is that
+infact there is an underlying embedded fdb.
 
---nextPart2165607.tNvV9YbdjW--
+point #2 brings out a lot of the weird things in some of the bridge
+code. IOW, you have an *offloaded* bridge with _bridge ports_
+visible in the kernel but not the bridge that is controlled
+by standard Linux bridge tools. I am not saying that the model is
+wrong; on the contrary what Ben had exposed may fall under the
+same category i.e you have E_BRIDGE flag on the netdev to say it sits
+on top of an offloaded bridge and you dont need a br0 to run
+bridge command on. But then we need some proxy (TheClassThingy) to act
+as intemediary to the offloaded hardware.
+If you do that then the vf becomes simply a bridge port - which
+means bridge port ops apply.
+
+SRIOV it seems to have morphed its own toolkit.
+The PF port, when acting as the control interface, is actually
+TheClassThingy we discuss on/off.
+To add an fdb entry to point to vf 1, where TheClassThingy is eth1:
+ip link set eth1 vf 1 mac aa:bb:cc:dd:ee:ff vlan 10
+
+IMO, SRIOV should expose these ports with names and ifindices
+(probably does already) and pre-populated master or something
+which points to its parent, then i can do the following:
+bridge fdb add aa:bb:cc:dd:ee:ff vlan 10 dev vf1 master
+
+master in such a case will go to TheClassThingy which would pass
+such control to the underlying hardware.
+The PF still stays but not as the management interface.
+
+Ok, promised to keep this short ;-> I should respond to the other points
+in a separate email.
+
+cheers,
+jamal
