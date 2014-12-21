@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next 03/11] net: xgbe: convert to timecounter adjtime.
-Date: Sun, 21 Dec 2014 19:46:58 +0100
-Message-ID: <0297818b43ed776c92832369b37783beb58ed3d1.1418504889.git.richardcochran@gmail.com>
+Subject: [PATCH net-next 05/11] net: fec: convert to timecounter adjtime.
+Date: Sun, 21 Dec 2014 19:47:00 +0100
+Message-ID: <b125bd4e62d8208bd9c4bf32958c581f65dad8e5.1418504889.git.richardcochran@gmail.com>
 References: <cover.1418504883.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -17,14 +17,10 @@ Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Thomas Gleixner <tglx@linutronix.de>,
 	Tom Lendacky <thomas.lendacky@amd.com>
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:55420 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752734AbaLUSrR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Dec 2014 13:47:17 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1418504883.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 This patch changes the driver to use the new and improved method
 for adjusting the offset of a timecounter.
@@ -33,28 +29,36 @@ Compile tested only.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-ptp.c |    8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+ drivers/net/ethernet/freescale/fec_ptp.c |   16 +---------------
+ 1 file changed, 1 insertion(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ptp.c b/drivers/net/ethernet/amd/xgbe/xgbe-ptp.c
-index a1bf9d1c..f5acf4c 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-ptp.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-ptp.c
-@@ -171,15 +171,9 @@ static int xgbe_adjtime(struct ptp_clock_info *info, s64 delta)
- 						   struct xgbe_prv_data,
- 						   ptp_clock_info);
+diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+index 992c8c3..1f9cf23 100644
+--- a/drivers/net/ethernet/freescale/fec_ptp.c
++++ b/drivers/net/ethernet/freescale/fec_ptp.c
+@@ -374,23 +374,9 @@ static int fec_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ 	struct fec_enet_private *fep =
+ 	    container_of(ptp, struct fec_enet_private, ptp_caps);
  	unsigned long flags;
--	u64 nsec;
+-	u64 now;
+-	u32 counter;
  
- 	spin_lock_irqsave(&pdata->tstamp_lock, flags);
+ 	spin_lock_irqsave(&fep->tmreg_lock, flags);
 -
--	nsec = timecounter_read(&pdata->tstamp_tc);
+-	now = timecounter_read(&fep->tc);
+-	now += delta;
 -
--	nsec += delta;
--	timecounter_init(&pdata->tstamp_tc, &pdata->tstamp_cc, nsec);
+-	/* Get the timer value based on adjusted timestamp.
+-	 * Update the counter with the masked value.
+-	 */
+-	counter = now & fep->cc.mask;
+-	writel(counter, fep->hwp + FEC_ATIME);
 -
-+	timecounter_adjtime(&pdata->tstamp_tc, delta);
- 	spin_unlock_irqrestore(&pdata->tstamp_lock, flags);
+-	/* reset the timecounter */
+-	timecounter_init(&fep->tc, &fep->cc, now);
+-
++	timecounter_adjtime(&fep->tc, delta);
+ 	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
  
  	return 0;
 -- 
