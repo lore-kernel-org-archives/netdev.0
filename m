@@ -1,38 +1,112 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next 04/11] net: bnx2x: convert to timecounter
- adjtime.
-Date: Sun, 21 Dec 2014 20:01:49 +0100
-Message-ID: <20141221190149.GA5676@localhost.localdomain>
-References: <cover.1418504883.git.richardcochran@gmail.com>
- <976abf89c833c376c2666def2c60a7de0f020026.1418504889.git.richardcochran@gmail.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: SRIOV as bridge Re: [PATCH net-next RESEND] net: Do not call
+ ndo_dflt_fdb_dump if ndo_fdb_dump is defined.
+Date: Sun, 21 Dec 2014 11:08:03 -0800
+Message-ID: <54971A93.6050700@cumulusnetworks.com>
+References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>    <54894850.5000603@cumulusnetworks.com>    <7968540cd0768a770b0c8b29ce41a162.squirrel@poczta.wsisiz.edu.pl>    <5489D53E.5010603@cumulusnetworks.com>    <8d4ec5c1ae73c77866a0a154fb528f23.squirrel@poczta.wsisiz.edu.pl>    <548AD781.5020004@mojatatu.com> <4c22a6c452a73b3b77a9a9c8e7f76bcc.squirrel@poczta.wsisiz.edu.pl> <548AFD41.3010801@mojatatu.com> <548B4AA4.1020804@gmail.com> <548EF05E.6050401@mojatatu.com> <548F80B2.80408@gmail.com> <54902E5E.2070405@mojatatu.com> <54905F67.2090509@gmail.com> <5496D8E2.1090700@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Frank Li <Frank.Li@freescale.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Matthew Vick <matthew.vick@intel.com>,
-	Miroslav Lichvar <mlichvar@redhat.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Tom Lendacky <thomas.lendacky@amd.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <976abf89c833c376c2666def2c60a7de0f020026.1418504889.git.richardcochran@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	Hubert Sokolowski <h.sokolowski@wit.edu.pl>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:45554 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751268AbaLUTIH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Dec 2014 14:08:07 -0500
+In-Reply-To: <5496D8E2.1090700@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 21, 2014 at 07:46:59PM +0100, Richard Cochran wrote:
-> This patch changes the driver to use the new and improved method
-> for adjusting the offset of a timecounter.
+On 12/21/14, 6:27 AM, Jamal Hadi Salim wrote:
+>
+> Sorry for the latency, Ive been down with a bad flu (its bad when i cant
+> type on my keyboard sitting infront of me;->),  recovering and the
+> thread seems to have caught on - should be able to catchup in the
+> next few days.
+> I am beginning to reach a conclusion that the current switchdev approach
+> is *not* going to work for SRIOV. I also worry it may be too late
+> to change that.
+> Shrijeet wanted to set up a BOF for netdev to have hopefully final 
+> consensus. Shrijeet, are you going to make an official request for the 
+> BOF?
+>
+> Sorry John, I dont have enough energy to address all your points but i
+> will try to just focus on SRIOV and will save a few bytes while at it.
+>
+>
+> On 12/16/14 11:35, John Fastabend wrote:
+>
+>> But in the SR-IOV case you have multiple "Cpu ports" and you want
+>> to send packets to each of them depending on the configuration.
+>>
+>>
+>>     port0   port1     port2  port3
+>>      |        |        |      |      uplinks
+>>   +------------------------------+
+>>   |                              |
+>>   |       SRIOV edge relay       |
+>>   |                              |
+>>   +------------------------------+
+>>                   |                   downlink
+>>
+>>
+>
+> Two points above:
+> 1) Did you flip uplink vs down link above?
+> (I Thought URP was the wire link)
+> 2) What you are not showing above which is *very important* is that
+> infact there is an underlying embedded fdb.
+>
+> point #2 brings out a lot of the weird things in some of the bridge
+> code. IOW, you have an *offloaded* bridge with _bridge ports_
+> visible in the kernel but not the bridge that is controlled
+> by standard Linux bridge tools. I am not saying that the model is
+> wrong; on the contrary what Ben had exposed may fall under the
+> same category i.e you have E_BRIDGE flag on the netdev to say it sits
+> on top of an offloaded bridge and you dont need a br0 to run
+> bridge command on. But then we need some proxy (TheClassThingy) to act
+> as intemediary to the offloaded hardware.
+> If you do that then the vf becomes simply a bridge port - which
+> means bridge port ops apply.
+>
+> SRIOV it seems to have morphed its own toolkit.
+> The PF port, when acting as the control interface, is actually
+> TheClassThingy we discuss on/off.
+> To add an fdb entry to point to vf 1, where TheClassThingy is eth1:
+> ip link set eth1 vf 1 mac aa:bb:cc:dd:ee:ff vlan 10
+>
+> IMO, SRIOV should expose these ports with names and ifindices
+> (probably does already) and pre-populated master or something
+> which points to its parent, then i can do the following:
+> bridge fdb add aa:bb:cc:dd:ee:ff vlan 10 dev vf1 master
+I had a slightly different understanding of how this would work for 
+SRIOV. So, am attempting to respond to your questions for John..., ...so 
+that he can correct my understanding too ..if needed :).
 
-BTW, I noticed that this driver does not serialize access to the
-timecounter in any way, but probably it should. Ariel?
+I think SRIOV VF's do have netdevs (John can confirm, I maybe wrong). To 
+me if SRIOV has a single fdb for all VF's under a PF,
+and it wants to bypass the bridge driver, there is still no reason to 
+refer to the PF as a master.
+You can use self and go to the vf driver directly and it will do the 
+right thing.
+
+bridge fdb add aa:bb:cc:dd:ee:ff vlan 10 dev vf1 self
+
+>
+> master in such a case will go to TheClassThingy which would pass
+> such control to the underlying hardware.
+> The PF still stays but not as the management interface.
+
+Even if 'TheClassThingy' where there, you wouldn't refer to it as the 
+master (ie the PF will not have a netdev master/slave relationship with 
+the VF). 'master' will still be used for the netdev 'upper'  device if 
+VF was enslaved to one (which could be a bridge).
+
 
 Thanks,
-Richard
+Roopa
