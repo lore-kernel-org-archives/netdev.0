@@ -1,48 +1,79 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH v2 1/2] 8139too in linux-3.18.0: Fix the lack of pci_disable_device
-Date: Sun, 21 Dec 2014 15:36:43 +0800
-Message-ID: <5496788B.2030105@163.com>
-References: <000001d01c5f$650f3270$2f2d9750$@163.com> <54958534.7070202@cogentembedded.com>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: Re: Stable fixes for batman-adv
+Date: Sun, 21 Dec 2014 10:39:13 +0100
+Message-ID: <54969541.2060500@meshcoding.com>
+References: <1419079737-31107-1-git-send-email-sven@narfation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=gbk; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, shangh@realtek.com.tw,
-	bjj13@mails.tsinghua.edu.cn
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="F8cGEXVQbwhD8vCIJMFTJqTrjpmEEMewr"
+Cc: netdev@vger.kernel.org
+To: Sven Eckelmann <sven@narfation.org>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-17.163.com ([220.181.12.17]:44634 "EHLO m12-17.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750833AbaLUHhB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 Dec 2014 02:37:01 -0500
-In-Reply-To: <54958534.7070202@cogentembedded.com>
+Received: from s3.neomailbox.net ([178.209.62.157]:42425 "EHLO
+	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751020AbaLUJ5X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Dec 2014 04:57:23 -0500
+In-Reply-To: <1419079737-31107-1-git-send-email-sven@narfation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When pci_request_regions is failed in rtl8139_init_board, 
-pci_disable_device is not called to disable the device which are enabled 
-by pci_enable_device, because disable_dev_on_err is not assigned 1.
-This patch fix this problem.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--F8cGEXVQbwhD8vCIJMFTJqTrjpmEEMewr
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
----
-drivers/net/ethernet/realtek/8139too.c | 2 +-
-1 file changed, 1 insertion(+), 1 deletion(-)
+Hi Sven,
 
-diff --git a/drivers/net/ethernet/realtek/8139too.c 
-b/drivers/net/ethernet/realtek/8139too.c
-index 007b38c..49bbcf3 100644
---- a/drivers/net/ethernet/realtek/8139too.c
-+++ b/drivers/net/ethernet/realtek/8139too.c
-@@ -783,10 +783,10 @@ static struct net_device 
-*rtl8139_init_board(struct pci_dev *pdev)
-if (rc)
-goto err_out;
+On 20/12/14 13:48, Sven Eckelmann wrote:
+> Hi,
+>=20
+> it seems that patches aren't forwarded anymore (since August?) from bat=
+man-adv
+> to the netdev mailing list. Please correct me if I am wrong.
+>=20
 
-+ disable_dev_on_err = 1;
-rc = pci_request_regions (pdev, DRV_NAME);
-if (rc)
-goto err_out;
-- disable_dev_on_err = 1;
+Thank you very much for sending these patches to stable. Unfortunately
+in the last months I've been really busy with work and my focus has been
+shifted a bit away ... I should be able to get back in sync after these
+Christmas and New Year holidays.
 
-pci_set_master (pdev);
+
+David, please merge these fixes and queue them for stable even if this
+is not the standard pull request we usually do.
+
+
+Thank you all again for your work.
+
+
+Regards,
+
+
+--=20
+Antonio Quartulli
+
+
+--F8cGEXVQbwhD8vCIJMFTJqTrjpmEEMewr
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJUlpVFAAoJEJgn97Bh2u9ekLEP/iU03pMmVI8RFuEXJGQ7bC76
+550WeKVUpTLxB/1dG2odmKGr3kDak1eKEqxZeAGegErkxb4Ws1QGTz6We8IF+kcc
+KEABkPnJbUkzvCUgbm41jOX2RyNs6y53y5sCnRG74xRakG99/01IcIzfERDKRIMP
+XgKhRcRz8rvOtQgHUva9mX4OkYTn2GIx21uqyNX8NA3NJ5Ah89V3/2Z1HeMnNOxS
+mSfmGw7hY80SmRDREQYeesUKZKbxPDlCSW/gjcrM71zc0ndp3sw+U5HRHnEHnSrN
+FVOgUAVFPpHhGel+A4XPhFaxyG9fuWnrCd5s+0XF2xskE5BfLxs9PcOOOE58an4e
+b3p+u+/a0N2rk5VvHGitG9YeyhOkEGL93hZW7hLOPggSioFhHuiTpUykYlr8G7u1
+2CZ5LrTjMhei/maf+jxo0wGyJpfa5biH3WAEZNkLyXis8JpzYVLdWnmM6Ar9fPwJ
+Zhvcc0hkHVJEksAPSP7Fe3KdwrornDKhvsR5irdkgYSMGhbmfDasMzRjMoBcFpYM
+6kUMYVvDsu9XLr1tI1vSIiKzawU0NycBCeVc0XIpqE+PFAq9eklznry/af3X9fSK
+iO7yzTZ+PLa+BnSvLrS/OaIWQE1+PMUWE17luSIZu+Dymlyxb8U+MlDhnObwVxLP
+dCPzawntGXx/ztV6iz5F
+=j8yu
+-----END PGP SIGNATURE-----
+
+--F8cGEXVQbwhD8vCIJMFTJqTrjpmEEMewr--
