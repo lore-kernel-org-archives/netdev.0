@@ -1,27 +1,29 @@
-From: christain147@gmail.com
-Subject: good day
-Date: Sun, 21 Dec 2014 11:39:46 -0600
-Message-ID: <OFCA9A6F82.3532CDE4-ONC1257DB5.0060E773@wavinxchange.com>
-Reply-To: mrsalimqadri@yahoo.com.mx
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC iproute2 v2] tc: Show classes in tree view
+Date: Sun, 21 Dec 2014 09:59:46 -0800
+Message-ID: <20141221095946.73edf34a@urahara>
+References: <1419155245-22535-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <christain147@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.bemta14.messagelabs.com ([193.109.254.112]:44751 "EHLO
-	mail1.bemta14.messagelabs.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751250AbaLURqw convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 Dec 2014 12:46:52 -0500
-Content-Description: Mail message body
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:51141 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752583AbaLUR74 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Dec 2014 12:59:56 -0500
+Received: by mail-pd0-f176.google.com with SMTP id r10so4418410pdi.21
+        for <netdev@vger.kernel.org>; Sun, 21 Dec 2014 09:59:56 -0800 (PST)
+In-Reply-To: <1419155245-22535-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Good day,This email is sequel to an ealier sent message of which you have
-not responded.I have a personal charity project which I will want you to
-execute on my behalf.Please kindly get back to me with this code
-MHR/3910/2014 .You can reach me on mrsalimqadri@gmail.com .
+On Sun, 21 Dec 2014 11:47:25 +0200
+Vadim Kochan <vadim4j@gmail.com> wrote:
 
-Thank you
+> +				INIT_HLIST_NODE(c);
+> +				hlist_add_head(c, &childs);
 
-Salim Qadri
+Since hlist_add_head sets both c->next and c->pprev, the new INIT_HLIST_NODE()
+is unnecessary.
