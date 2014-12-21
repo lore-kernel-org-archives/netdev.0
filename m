@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next 10/11] net: cpts: convert to timecounter adjtime.
-Date: Sun, 21 Dec 2014 19:47:05 +0100
-Message-ID: <90dc7fc7d7550d5164474ca9995628f50989dbb2.1418504889.git.richardcochran@gmail.com>
+Subject: [PATCH net-next 04/11] net: bnx2x: convert to timecounter adjtime.
+Date: Sun, 21 Dec 2014 19:46:59 +0100
+Message-ID: <976abf89c833c376c2666def2c60a7de0f020026.1418504889.git.richardcochran@gmail.com>
 References: <cover.1418504883.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -25,30 +25,32 @@ List-Id: netdev.vger.kernel.org
 This patch changes the driver to use the new and improved method
 for adjusting the offset of a timecounter.
 
+Compile tested only.
+
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/ti/cpts.c |    5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index 4a4388b..fbe42cb 100644
---- a/drivers/net/ethernet/ti/cpts.c
-+++ b/drivers/net/ethernet/ti/cpts.c
-@@ -157,14 +157,11 @@ static int cpts_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
- 
- static int cpts_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 691f0bf..7b2cc40 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -13265,14 +13265,10 @@ static int bnx2x_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
+ static int bnx2x_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
  {
--	s64 now;
- 	unsigned long flags;
- 	struct cpts *cpts = container_of(ptp, struct cpts, info);
+ 	struct bnx2x *bp = container_of(ptp, struct bnx2x, ptp_clock_info);
+-	u64 now;
  
- 	spin_lock_irqsave(&cpts->lock, flags);
--	now = timecounter_read(&cpts->tc);
+ 	DP(BNX2X_MSG_PTP, "PTP adjtime called, delta = %llx\n", delta);
+ 
+-	now = timecounter_read(&bp->timecounter);
 -	now += delta;
--	timecounter_init(&cpts->tc, &cpts->cc, now);
-+	timecounter_adjtime(&cpts->tc, delta);
- 	spin_unlock_irqrestore(&cpts->lock, flags);
+-	/* Re-init the timecounter */
+-	timecounter_init(&bp->timecounter, &bp->cyclecounter, now);
++	timecounter_adjtime(&bp->timecounter, delta);
  
  	return 0;
+ }
 -- 
 1.7.10.4
