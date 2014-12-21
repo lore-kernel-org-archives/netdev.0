@@ -1,60 +1,148 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: SRIOV as bridge Re: [PATCH net-next RESEND] net: Do not call
- ndo_dflt_fdb_dump if ndo_fdb_dump is defined.
-Date: Sun, 21 Dec 2014 12:46:25 -0800
-Message-ID: <549731A1.3090307@cumulusnetworks.com>
-References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>    <54894850.5000603@cumulusnetworks.com>    <7968540cd0768a770b0c8b29ce41a162.squirrel@poczta.wsisiz.edu.pl>    <5489D53E.5010603@cumulusnetworks.com>    <8d4ec5c1ae73c77866a0a154fb528f23.squirrel@poczta.wsisiz.edu.pl>    <548AD781.5020004@mojatatu.com> <4c22a6c452a73b3b77a9a9c8e7f76bcc.squirrel@poczta.wsisiz.edu.pl> <548AFD41.3010801@mojatatu.com> <548B4AA4.1020804@gmail.com> <548EF05E.6050401@mojatatu.com> <548F80B2.80408@gmail.com> <54902E5E.2070405@mojatatu.com> <54905F67.2090509@gmail.com> <5496D8E2.1090700@mojatatu.com> <54971A93.6050700@cumulusnetworks.com> <54971D2F.1090802@mojatatu.com> <54972140.30704@cumulusnetworks.com> <54972859.7050108@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Hubert Sokolowski <h.sokolowski@wit.edu.pl>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:53374 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751911AbaLUUqd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Dec 2014 15:46:33 -0500
-In-Reply-To: <54972859.7050108@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wolfram Sang <wsa@the-dreams.de>
+Subject: [PATCH 00/28] remove .owner for most platform_drivers: the missing bits
+Date: Sun, 21 Dec 2014 22:14:21 +0100
+Message-ID: <1419196495-9626-1-git-send-email-wsa@the-dreams.de>
+Cc: Wolfram Sang <wsa@the-dreams.de>, alsa-devel@alsa-project.org,
+	ath5k-devel@lists.ath5k.org,
+	Dan Williams <dan.j.williams@intel.com>,
+	devicetree@vger.kernel.org, dmaengine@vger.kernel.org,
+	dri-devel@lists.freedesktop.org, iommu@lists.linux-foundation.org,
+	linux-arm-kernel@lists.infradead.org, linux-gpio@vger.kernel.org,
+	linux-mips@linux-mips.org, linux-omap@vger.kernel.org,
+	linux-pci@vger.kernel.org, linux-pm@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, linux-rockchip@lists.infradead.org,
+	linux-samsung-soc@vger.kernel.org, linux-scsi@vger.kernel.org,
+	linux-serial@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-watchdog@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, openipmi-developer@lists.sourceforge.net,
+	rtc-linux@googlegroups.com
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-pci-owner@vger.kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/21/14, 12:06 PM, Jamal Hadi Salim wrote:
-> On 12/21/14 14:36, Roopa Prabhu wrote:
->> On 12/21/14, 11:19 AM, Jamal Hadi Salim wrote:
->>> On 12/21/14 14:08, Roopa Prabhu wrote:
->
->> 'self' would just mean the driver owns the PF embedded bridge and the
->> kernel bridge driver has no role in this. 'self' will just tell the VF
->> driver to deal with the fdb mac entry. And the VF driver can push the
->> fdb to the PF  (John can confirm if the intel sriov devices really do it
->> this way or some other way).
->>
->
-> If the VFs are exposed as netdevs and the master (or Parent which i 
-> think the "P" stands for) they point to
-> is the PF - then is the PF a bridge abstraction?
-yes, could be, but its not today ('PF' is physical function and 'VF' is 
-virtual function).
-If you introduce a master/slave relationship between the PF and VF (ie 
-VF's were assigned PF as the master using 'ip link set dev vf master 
-PF), then yes.
-> And if the path is via is the PF - i think that seems like "master"
-> not self, no?
+Generated with coccinelle. The big cleanup was pulled in this merge window.
+This series catches the bits fallen through. The patches shall go in via the
+subsystem trees. If possible for 3.19 to increase consistency I'd say, but you
+decide, of course.
 
-Today ...when you add fdb...path is not via the PF netdev. It maybe 
-internally done that way in PF/VF driver.
-so, 'master' does not apply today. But if there were such a relationship 
-between PF/VF, yes, 'master' could be used.
+cocci-file used:
 
-PF does not really need to have a master relationship with the VF. Its 
-better that way. Infact it should be that way even in the case of 'the 
-switch device class model' because that will allow switch ports to be 
-added to a linux bridge (and hence make use of the linux bridge (cumulus 
-model). 'master' will be the 'linux bridge device' in this case).
+@match1@
+declarer name module_platform_driver;
+declarer name module_platform_driver_probe;
+declarer name for_each_node_by_type;
+identifier __driver;
+@@
+(
+	module_platform_driver(__driver);
+|
+	module_platform_driver_probe(__driver, ...);
+)
 
-Thanks,
-Roopa
+@fix1 depends on match1@
+identifier match1.__driver;
+@@
+	static struct platform_driver __driver = {
+		.driver = {
+-			.owner = THIS_MODULE,
+		}
+	};
+
+@match2@
+identifier __driver;
+@@
+(
+	platform_driver_register(&__driver)
+|
+	platform_driver_probe(&__driver, ...)
+|
+	platform_create_bundle(&__driver, ...)
+)
+
+@fix2 depends on match2@
+identifier match2.__driver;
+@@
+	static struct platform_driver __driver = {
+		.driver = {
+-			.owner = THIS_MODULE,
+		}
+	};
+
+Thanks again to Julia Lawall for support. And hey, we fixed a coccinelle bug on
+the way :)
+
+
+Wolfram Sang (28):
+  ARM: mach-exynos: drop owner assignment from platform_drivers
+  mips: lantiq: xway: drop owner assignment from platform_drivers
+  mips: pci: drop owner assignment from platform_drivers
+  char: ipmi: drop owner assignment from platform_drivers
+  cpufreq: drop owner assignment from platform_drivers
+  dma: drop owner assignment from platform_drivers
+  gpio: drop owner assignment from platform_drivers
+  gpu: drm: rockchip: drop owner assignment from platform_drivers
+  iommu: drop owner assignment from platform_drivers
+  net: ethernet: stmicro: stmmac: drop owner assignment from
+    platform_drivers
+  net: wireless: ath: ath5k: drop owner assignment from platform_drivers
+  of: drop owner assignment from platform_drivers
+  pci: host: drop owner assignment from platform_drivers
+  phy: drop owner assignment from platform_drivers
+  pinctrl: intel: drop owner assignment from platform_drivers
+  rtc: drop owner assignment from platform_drivers
+  scsi: drop owner assignment from platform_drivers
+  thermal: drop owner assignment from platform_drivers
+  thermal: int340x_thermal: drop owner assignment from platform_drivers
+  tty: serial: 8250: drop owner assignment from platform_drivers
+  usb: gadget: udc: bdc: drop owner assignment from platform_drivers
+  watchdog: drop owner assignment from platform_drivers
+  ASoC: intel: drop owner assignment from platform_drivers
+  ASoC: intel: sst: drop owner assignment from platform_drivers
+  ASoC: omap: drop owner assignment from platform_drivers
+  ASoC: pxa: drop owner assignment from platform_drivers
+  ASoC: samsung: drop owner assignment from platform_drivers
+  macintosh: drop owner assignment from platform_drivers
+
+ arch/arm/mach-exynos/pmu.c                            | 1 -
+ arch/mips/lantiq/xway/vmmc.c                          | 1 -
+ arch/mips/pci/pci-ar2315.c                            | 1 -
+ arch/mips/pci/pci-rt2880.c                            | 1 -
+ drivers/char/ipmi/ipmi_powernv.c                      | 1 -
+ drivers/cpufreq/ls1x-cpufreq.c                        | 1 -
+ drivers/dma/at_xdmac.c                                | 1 -
+ drivers/gpio/gpio-vf610.c                             | 1 -
+ drivers/gpu/drm/rockchip/rockchip_drm_drv.c           | 1 -
+ drivers/iommu/rockchip-iommu.c                        | 1 -
+ drivers/macintosh/windfarm_pm112.c                    | 1 -
+ drivers/macintosh/windfarm_pm72.c                     | 1 -
+ drivers/macintosh/windfarm_rm31.c                     | 1 -
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 -
+ drivers/net/wireless/ath/ath5k/ahb.c                  | 1 -
+ drivers/of/unittest.c                                 | 1 -
+ drivers/pci/host/pci-layerscape.c                     | 1 -
+ drivers/phy/phy-armada375-usb2.c                      | 1 -
+ drivers/phy/phy-berlin-usb.c                          | 1 -
+ drivers/phy/phy-miphy28lp.c                           | 1 -
+ drivers/pinctrl/intel/pinctrl-cherryview.c            | 1 -
+ drivers/rtc/rtc-opal.c                                | 1 -
+ drivers/scsi/atari_scsi.c                             | 1 -
+ drivers/scsi/mac_scsi.c                               | 1 -
+ drivers/scsi/sun3_scsi.c                              | 1 -
+ drivers/thermal/int340x_thermal/int3400_thermal.c     | 1 -
+ drivers/thermal/int340x_thermal/int3402_thermal.c     | 1 -
+ drivers/thermal/rockchip_thermal.c                    | 1 -
+ drivers/tty/serial/8250/8250_omap.c                   | 1 -
+ drivers/usb/gadget/udc/bdc/bdc_core.c                 | 1 -
+ drivers/watchdog/cadence_wdt.c                        | 1 -
+ drivers/watchdog/meson_wdt.c                          | 1 -
+ sound/soc/intel/bytcr_dpcm_rt5640.c                   | 1 -
+ sound/soc/intel/cht_bsw_rt5672.c                      | 1 -
+ sound/soc/intel/sst/sst_acpi.c                        | 1 -
+ sound/soc/omap/omap-hdmi-audio.c                      | 1 -
+ sound/soc/pxa/spitz.c                                 | 1 -
+ sound/soc/samsung/arndale_rt5631.c                    | 1 -
+ 38 files changed, 38 deletions(-)
+
+-- 
+2.1.3
