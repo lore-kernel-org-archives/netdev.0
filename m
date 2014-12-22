@@ -1,45 +1,35 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net]tg3: tg3_disable_ints using uninitialized mailbox
- value to disable interrupts
-Date: Mon, 22 Dec 2014 12:06:25 -0200
-Message-ID: <54982561.2080200@gmail.com>
-References: <1419106577-12891-1-git-send-email-prashant@broadcom.com> <20141220221606.GA2591@teela.fritz.box>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Regression with commit 971f10eca186 ("tcp: better TCP_SKB_CB layout
+ to reduce cache line misses")
+Date: Mon, 22 Dec 2014 16:17:38 +0100
+Message-ID: <54983612.8000600@6wind.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, bhelgaas@google.com,
-	rajatxjain@gmail.com, Michael Chan <mchan@broadcom.com>
-To: Nils Holland <nholland@tisys.org>,
-	Prashant Sreedharan <prashant@broadcom.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20141220221606.GA2591@teela.fritz.box>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev <netdev@vger.kernel.org>, Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:36845 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754768AbaLVPRl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2014 10:17:41 -0500
+Received: by mail-wg0-f47.google.com with SMTP id n12so6939201wgh.20
+        for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 07:17:39 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 20-12-2014 20:16, Nils Holland wrote:
-> On Sat, Dec 20, 2014 at 12:16:17PM -0800, Prashant Sreedharan wrote:
->>
->> This driver bug was exposed because of the commit a7877b17a667 (PCI: Check only
->> the Vendor ID to identify Configuration Request Retry). Also this issue is only
->> seen in older generation chipsets like 5722 because config space write to offset
->> 0 from driver is possible.
->>
->> Fixed by initializing the interrupt mailbox registers before calling tg3_halt.
->>
->> Please queue for -stable.
->
-> I gave this patch a try and can confirm what was to be expected: It
-> fixes the issue and the network interface is once again working
-> properly on my system. Thus, I guess the issue is adequately solved.
->
-> Thanks to everyone involved, especially to Marcelo for additional
-> debugging and the guys at Broadcom for the quick fix!
->
-> Greetings,
-> Nils
+One of our engineer (Huaibin Wang <huaibin.wang@6wind.com>) has reported and
+analysed this bug:
 
-Same here, it works again.
+This commit introduces a regression with IPv6 + IPsec transport + TCP.
 
-Thanks!
-Marcelo
+In TCP (net/ipv6/tcp_ipv6.c), xfrm6_policy_check() is called and thus, after
+some intermediate functions, _decode_session6() is also called.
+
+This function uses IP6CB() (u8 nexthdr = nh[IP6CB(skb)->nhoff]), which is wrong
+becauses it has been moved to the end of TCP_SKB_CB().
+
+Not sure what is the best way to fix this, any suggestion?
+
+Regards,
+Nicolas
