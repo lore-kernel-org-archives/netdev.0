@@ -1,343 +1,328 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v2] tc: Show classes in tree view
-Date: Mon, 22 Dec 2014 17:51:58 +0200
-Message-ID: <1419263518-14434-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+From: Jesse Gross <jesse@nicira.com>
+Subject: [PATCH net] net: Generalize ndo_gso_check to ndo_features_check
+Date: Mon, 22 Dec 2014 08:03:43 -0800
+Message-ID: <1419264223-30004-1-git-send-email-jesse@nicira.com>
+Cc: netdev@vger.kernel.org, Tom Herbert <therbert@google.com>,
+	Joe Stringer <joestringer@nicira.com>,
+	Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:60343 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754843AbaLVQCE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2014 11:02:04 -0500
-Received: by mail-lb0-f182.google.com with SMTP id f15so4529332lbj.27
-        for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 08:02:02 -0800 (PST)
+Received: from na3sys009aog109.obsmtp.com ([74.125.149.201]:35222 "HELO
+	na3sys009aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755125AbaLVQDt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2014 11:03:49 -0500
+Received: by mail-qa0-f50.google.com with SMTP id dc16so3321052qab.23
+        for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 08:03:48 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Kochan <vadim4j@gmail.com>
+GSO isn't the only offload feature with restrictions that
+potentially can't be expressed with the current features mechanism.
+Checksum is another although it's a general issue that could in
+theory apply to anything. Even if it may be possible to
+implement these restrictions in other ways, it can result in
+duplicate code or inefficient per-packet behavior.
 
-Added new '-t[ree]' which shows classes dependency
-in the tree view. Meanwhile only generic stats info
-is supported.
+This generalizes ndo_gso_check so that drivers can remove any
+features that don't make sense for a given packet, similar to
+netif_skb_features(). It also converts existing driver
+restrictions to the new format, completing the work that was
+done to support tunnel protocols since the issues apply to
+checksums as well.
 
-e.g.:
-
-$ tc/tc -t class show dev tap0
-+---(1:2) htb rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
-|    +---(1:40) htb prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
-|    +---(1:50) htb rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
-|    |    +---(1:51) htb prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
-|    |
-|    +---(1:60) htb prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
-|
-+---(1:1) htb rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
-     +---(1:10) htb prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
-     +---(1:20) htb prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
-     +---(1:30) htb prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
-
-$ tc/tc -t -s class show dev tap0
-+---(1:2) htb rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
-|    |    Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-|    |    rate 0bit 0pps backlog 0b 0p requeues 0
-|    |
-|    +---(1:40) htb prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
-|    |          Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-|    |          rate 0bit 0pps backlog 0b 0p requeues 0
-|    |
-|    +---(1:50) htb rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
-|    |    |     Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-|    |    |     rate 0bit 0pps backlog 0b 0p requeues 0
-|    |    |
-|    |    +---(1:51) htb prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
-|    |               Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-|    |               rate 0bit 0pps backlog 0b 0p requeues 0
-|    |
-|    +---(1:60) htb prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
-|               Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-|               rate 0bit 0pps backlog 0b 0p requeues 0
-|
-+---(1:1) htb rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
-     |    Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-     |    rate 0bit 0pps backlog 0b 0p requeues 0
-     |
-     +---(1:10) htb prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
-     |          Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-     |          rate 0bit 0pps backlog 0b 0p requeues 0
-     |
-     +---(1:20) htb prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
-     |          Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-     |          rate 0bit 0pps backlog 0b 0p requeues 0
-     |
-     +---(1:30) htb prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
-                Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-                rate 0bit 0pps backlog 0b 0p requeues 0
-
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+CC: Tom Herbert <therbert@google.com>
+CC: Joe Stringer <joestringer@nicira.com>
+CC: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Jesse Gross <jesse@nicira.com>
+Fixes: 04ffcb255f22 ("net: Add ndo_gso_check")
 ---
-Changes v2:
-    Removed "Date:" from commit message which was added by mistake.
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  8 ++++---
+ drivers/net/ethernet/emulex/benet/be_main.c      |  8 ++++---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c   | 10 +++++----
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |  8 ++++---
+ include/linux/netdevice.h                        | 20 +++++++++--------
+ include/net/vxlan.h                              | 28 ++++++++++++++++++++----
+ net/core/dev.c                                   | 28 ++++++++++++++++--------
+ 7 files changed, 75 insertions(+), 35 deletions(-)
 
-Changes RFC -> PATCH:
-    #1 get rid of INIT_HLIST_NODE
-    #2 added sample output to commit message
-    #3 use "show_tree=1" instead of "show_tree++"
-    #4 no need update include/hlist.h (because of #1)
-    #5 changed a little tree output: parentheses around class id instead of qdisc name
-
- tc/tc.c        |   5 +-
- tc/tc_class.c  | 165 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
- tc/tc_common.h |   2 +
- 3 files changed, 169 insertions(+), 3 deletions(-)
-
-diff --git a/tc/tc.c b/tc/tc.c
-index 9b50e74..30950a6 100644
---- a/tc/tc.c
-+++ b/tc/tc.c
-@@ -34,8 +34,9 @@ int show_stats = 0;
- int show_details = 0;
- int show_raw = 0;
- int show_pretty = 0;
--int batch_mode = 0;
-+int show_tree = 0;
- 
-+int batch_mode = 0;
- int resolve_hosts = 0;
- int use_iec = 0;
- int force = 0;
-@@ -278,6 +279,8 @@ int main(int argc, char **argv)
- 			++show_raw;
- 		} else if (matches(argv[1], "-pretty") == 0) {
- 			++show_pretty;
-+		} else if (matches(argv[1], "-tree") == 0) {
-+			show_tree = 1;
- 		} else if (matches(argv[1], "-Version") == 0) {
- 			printf("tc utility, iproute2-ss%s\n", SNAPSHOT);
- 			return 0;
-diff --git a/tc/tc_class.c b/tc/tc_class.c
-index e56bf07..a7b3ecd 100644
---- a/tc/tc_class.c
-+++ b/tc/tc_class.c
-@@ -24,6 +24,22 @@
- #include "utils.h"
- #include "tc_util.h"
- #include "tc_common.h"
-+#include "hlist.h"
-+
-+struct cls_node {
-+	struct hlist_node hlist;
-+	__u32 handle;
-+	__u32 parent;
-+	int level;
-+	struct cls_node *cls_parent;
-+	struct cls_node *cls_right;
-+	struct rtattr *attr;
-+	int attr_len;
-+	int childs_count;
-+};
-+
-+static struct hlist_head cls_list = {};
-+static struct hlist_head root_cls_list = {};
- 
- static void usage(void);
- 
-@@ -148,13 +164,149 @@ int filter_ifindex;
- __u32 filter_qdisc;
- __u32 filter_classid;
- 
-+static void tree_cls_add(__u32 parent, __u32 handle, struct rtattr *attr, int len)
-+{
-+	struct cls_node *cls = malloc(sizeof(struct cls_node));
-+
-+	memset(cls, 0, sizeof(*cls));
-+	cls->handle    = handle;
-+	cls->parent    = parent;
-+	cls->attr      = malloc(len);
-+	cls->attr_len  = len;
-+
-+	memcpy(cls->attr, attr, len);
-+
-+	if (parent == TC_H_ROOT)
-+		hlist_add_head(&cls->hlist, &root_cls_list);
-+	else
-+		hlist_add_head(&cls->hlist, &cls_list);
-+}
-+
-+static void tree_cls_indent(char *buf, struct cls_node *cls, int is_newline,
-+		int add_spaces)
-+{
-+	char spaces[100] = {0};
-+
-+	while (cls && cls->cls_parent) {
-+		cls->cls_parent->cls_right = cls;
-+		cls = cls->cls_parent;
-+	}
-+	while (cls && cls->cls_right)
-+	{
-+		if (cls->hlist.next)
-+			strcat(buf, "|    ");
-+		else
-+			strcat(buf, "     ");
-+
-+		cls = cls->cls_right;
-+	}
-+
-+	if (is_newline) {
-+		if (cls->hlist.next && cls->childs_count)
-+			strcat(buf, "|    |");
-+		else if (cls->hlist.next)
-+			strcat(buf, "|     ");
-+		else if (cls->childs_count)
-+			strcat(buf, "     |");
-+		else if (!cls->hlist.next)
-+			strcat(buf, "      ");
-+	}
-+	if (add_spaces > 0)
-+	{
-+		sprintf(spaces, "%-*s", add_spaces, "");
-+		strcat(buf, spaces);
-+	}
-+}
-+
-+static void tree_cls_show(FILE *fp, char *buf, struct hlist_head *root_list, int level)
-+{
-+	struct hlist_node *n, *tmp_cls;
-+	char cls_id_str[256] = {};
-+	struct rtattr * tb[TCA_MAX+1] = {};
-+	struct qdisc_util *q;
-+	char str[100] = {};
-+
-+	hlist_for_each_safe(n, tmp_cls, root_list) {
-+		struct hlist_node *c, *tmp_chld;
-+		struct hlist_head childs = {};
-+		struct cls_node *cls = container_of(n, struct cls_node, hlist);
-+
-+		hlist_for_each_safe(c, tmp_chld, &cls_list) {
-+			struct cls_node *child = container_of(c, struct cls_node, hlist);
-+
-+			if (cls->handle == child->parent) {
-+				hlist_del(c);
-+				hlist_add_head(c, &childs);
-+				cls->childs_count++;
-+				child->cls_parent = cls;
-+			}
-+		}
-+
-+		tree_cls_indent(buf, cls, 0, 0);
-+
-+		print_tc_classid(cls_id_str, sizeof(cls_id_str), cls->handle);
-+		sprintf(str, "+---(%s)", cls_id_str);
-+		strcat(buf, str);
-+
-+		parse_rtattr(tb, TCA_MAX, cls->attr, cls->attr_len);
-+
-+		if (tb[TCA_KIND] == NULL) {
-+			strcat(buf, " [unknown qdisc kind] ");
-+		} else {
-+			const char *kind = rta_getattr_str(tb[TCA_KIND]);
-+
-+			sprintf(str, " %s ", kind);
-+			strcat(buf, str);
-+			fprintf(fp, "%s", buf);
-+			buf[0] = '\0';
-+
-+			q = get_qdisc_kind(kind);
-+			if (q && q->print_copt) {
-+				q->print_copt(q, fp, tb[TCA_OPTIONS]);
-+			}
-+			if (q && show_stats)
-+			{
-+				int cls_indent = strlen(q->id) - 2 +
-+					strlen(cls_id_str);
-+				struct rtattr *xstats = NULL;
-+
-+				tree_cls_indent(buf, cls, 1, cls_indent);
-+
-+				if (tb[TCA_STATS] || tb[TCA_STATS2]) {
-+					fprintf(fp, "\n");
-+					print_tcstats_attr(fp, tb, buf, &xstats);
-+					buf[0] = '\0';
-+				}
-+				if (cls->hlist.next || cls->childs_count)
-+				{
-+					strcat(buf, "\n");
-+					tree_cls_indent(buf, cls, 1, 0);
-+				}
-+			}
-+		}
-+		free(cls->attr);
-+		fprintf(fp, "%s\n", buf);
-+		buf[0] = '\0';
-+
-+		tree_cls_show(fp, buf, &childs, level + 1);
-+		if (!cls->hlist.next) {
-+			tree_cls_indent(buf, cls, 0, 0);
-+			strcat(buf, "\n");
-+		}
-+
-+		fprintf(fp, "%s", buf);
-+		buf[0] = '\0';
-+		free(cls);
-+	}
-+}
-+
- int print_class(const struct sockaddr_nl *who,
- 		       struct nlmsghdr *n, void *arg)
- {
- 	FILE *fp = (FILE*)arg;
- 	struct tcmsg *t = NLMSG_DATA(n);
- 	int len = n->nlmsg_len;
--	struct rtattr * tb[TCA_MAX+1];
-+	struct rtattr * tb[TCA_MAX+1] = {};
- 	struct qdisc_util *q;
- 	char abuf[256];
- 
-@@ -167,13 +319,18 @@ int print_class(const struct sockaddr_nl *who,
- 		fprintf(stderr, "Wrong len %d\n", len);
- 		return -1;
- 	}
-+
-+	if (show_tree) {
-+		tree_cls_add(t->tcm_parent, t->tcm_handle, TCA_RTA(t), len);
-+		return 0;
-+	}
-+
- 	if (filter_qdisc && TC_H_MAJ(t->tcm_handle^filter_qdisc))
- 		return 0;
- 
- 	if (filter_classid && t->tcm_handle != filter_classid)
- 		return 0;
- 
--	memset(tb, 0, sizeof(tb));
- 	parse_rtattr(tb, TCA_MAX, TCA_RTA(t), len);
- 
- 	if (tb[TCA_KIND] == NULL) {
-@@ -236,6 +393,7 @@ static int tc_class_list(int argc, char **argv)
- {
- 	struct tcmsg t;
- 	char d[16];
-+	char buf[1024] = {0};
- 
- 	memset(&t, 0, sizeof(t));
- 	t.tcm_family = AF_UNSPEC;
-@@ -306,6 +464,9 @@ static int tc_class_list(int argc, char **argv)
- 		return 1;
- 	}
- 
-+	if (show_tree)
-+		tree_cls_show(stdout, &buf[0], &root_cls_list, 0);
-+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 9f5e387..72eef9f 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -12553,9 +12553,11 @@ static int bnx2x_get_phys_port_id(struct net_device *netdev,
  	return 0;
  }
  
-diff --git a/tc/tc_common.h b/tc/tc_common.h
-index 4f88856..0ee009b 100644
---- a/tc/tc_common.h
-+++ b/tc/tc_common.h
-@@ -19,3 +19,5 @@ extern int parse_estimator(int *p_argc, char ***p_argv, struct tc_estimator *est
- struct tc_sizespec;
- extern int parse_size_table(int *p_argc, char ***p_argv, struct tc_sizespec *s);
- extern int check_size_table_opts(struct tc_sizespec *s);
+-static bool bnx2x_gso_check(struct sk_buff *skb, struct net_device *dev)
++static netdev_features_t bnx2x_features_check(struct sk_buff *skb,
++					      struct net_device *dev,
++					      netdev_features_t features)
+ {
+-	return vxlan_gso_check(skb);
++	return vxlan_features_check(skb, features);
+ }
+ 
+ static const struct net_device_ops bnx2x_netdev_ops = {
+@@ -12589,7 +12591,7 @@ static const struct net_device_ops bnx2x_netdev_ops = {
+ #endif
+ 	.ndo_get_phys_port_id	= bnx2x_get_phys_port_id,
+ 	.ndo_set_vf_link_state	= bnx2x_set_vf_link_state,
+-	.ndo_gso_check		= bnx2x_gso_check,
++	.ndo_features_check	= bnx2x_features_check,
+ };
+ 
+ static int bnx2x_set_coherency_mask(struct bnx2x *bp)
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 1960731..41a0a54 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -4459,9 +4459,11 @@ done:
+ 	adapter->vxlan_port_count--;
+ }
+ 
+-static bool be_gso_check(struct sk_buff *skb, struct net_device *dev)
++static netdev_features_t be_features_check(struct sk_buff *skb,
++					   struct net_device *dev,
++					   netdev_features_t features)
+ {
+-	return vxlan_gso_check(skb);
++	return vxlan_features_check(skb, features);
+ }
+ #endif
+ 
+@@ -4492,7 +4494,7 @@ static const struct net_device_ops be_netdev_ops = {
+ #ifdef CONFIG_BE2NET_VXLAN
+ 	.ndo_add_vxlan_port	= be_add_vxlan_port,
+ 	.ndo_del_vxlan_port	= be_del_vxlan_port,
+-	.ndo_gso_check		= be_gso_check,
++	.ndo_features_check	= be_features_check,
+ #endif
+ };
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 190cbd9..d0d6dc1 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2365,9 +2365,11 @@ static void mlx4_en_del_vxlan_port(struct  net_device *dev,
+ 	queue_work(priv->mdev->workqueue, &priv->vxlan_del_task);
+ }
+ 
+-static bool mlx4_en_gso_check(struct sk_buff *skb, struct net_device *dev)
++static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
++						struct net_device *dev,
++						netdev_features_t features)
+ {
+-	return vxlan_gso_check(skb);
++	return vxlan_features_check(skb, features);
+ }
+ #endif
+ 
+@@ -2400,7 +2402,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
+ #ifdef CONFIG_MLX4_EN_VXLAN
+ 	.ndo_add_vxlan_port	= mlx4_en_add_vxlan_port,
+ 	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
+-	.ndo_gso_check		= mlx4_en_gso_check,
++	.ndo_features_check	= mlx4_en_features_check,
+ #endif
+ };
+ 
+@@ -2434,7 +2436,7 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
+ #ifdef CONFIG_MLX4_EN_VXLAN
+ 	.ndo_add_vxlan_port	= mlx4_en_add_vxlan_port,
+ 	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
+-	.ndo_gso_check		= mlx4_en_gso_check,
++	.ndo_features_check	= mlx4_en_features_check,
+ #endif
+ };
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 1aa25b1..9929b97 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -505,9 +505,11 @@ static void qlcnic_del_vxlan_port(struct net_device *netdev,
+ 	adapter->flags |= QLCNIC_DEL_VXLAN_PORT;
+ }
+ 
+-static bool qlcnic_gso_check(struct sk_buff *skb, struct net_device *dev)
++static netdev_features_t qlcnic_features_check(struct sk_buff *skb,
++					       struct net_device *dev,
++					       netdev_features_t features)
+ {
+-	return vxlan_gso_check(skb);
++	return vxlan_features_check(skb, features);
+ }
+ #endif
+ 
+@@ -532,7 +534,7 @@ static const struct net_device_ops qlcnic_netdev_ops = {
+ #ifdef CONFIG_QLCNIC_VXLAN
+ 	.ndo_add_vxlan_port	= qlcnic_add_vxlan_port,
+ 	.ndo_del_vxlan_port	= qlcnic_del_vxlan_port,
+-	.ndo_gso_check		= qlcnic_gso_check,
++	.ndo_features_check	= qlcnic_features_check,
+ #endif
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller = qlcnic_poll_controller,
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c31f74d..679e6e9 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1012,12 +1012,15 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+  *	Callback to use for xmit over the accelerated station. This
+  *	is used in place of ndo_start_xmit on accelerated net
+  *	devices.
+- * bool	(*ndo_gso_check) (struct sk_buff *skb,
+- *			  struct net_device *dev);
++ * netdev_features_t (*ndo_features_check) (struct sk_buff *skb,
++ *					    struct net_device *dev
++ *					    netdev_features_t features);
+  *	Called by core transmit path to determine if device is capable of
+- *	performing GSO on a packet. The device returns true if it is
+- *	able to GSO the packet, false otherwise. If the return value is
+- *	false the stack will do software GSO.
++ *	performing offload operations on a given packet. This is to give
++ *	the device an opportunity to implement any restrictions that cannot
++ *	be otherwise expressed by feature flags. The check is called with
++ *	the set of features that the stack has calculated and it returns
++ *	those the driver believes to be appropriate.
+  *
+  * int (*ndo_switch_parent_id_get)(struct net_device *dev,
+  *				   struct netdev_phys_item_id *psid);
+@@ -1178,8 +1181,9 @@ struct net_device_ops {
+ 							struct net_device *dev,
+ 							void *priv);
+ 	int			(*ndo_get_lock_subclass)(struct net_device *dev);
+-	bool			(*ndo_gso_check) (struct sk_buff *skb,
+-						  struct net_device *dev);
++	netdev_features_t	(*ndo_features_check) (struct sk_buff *skb,
++						       struct net_device *dev,
++						       netdev_features_t features);
+ #ifdef CONFIG_NET_SWITCHDEV
+ 	int			(*ndo_switch_parent_id_get)(struct net_device *dev,
+ 							    struct netdev_phys_item_id *psid);
+@@ -3611,8 +3615,6 @@ static inline bool netif_needs_gso(struct net_device *dev, struct sk_buff *skb,
+ 				   netdev_features_t features)
+ {
+ 	return skb_is_gso(skb) && (!skb_gso_ok(skb, features) ||
+-		(dev->netdev_ops->ndo_gso_check &&
+-		 !dev->netdev_ops->ndo_gso_check(skb, dev)) ||
+ 		unlikely((skb->ip_summed != CHECKSUM_PARTIAL) &&
+ 			 (skb->ip_summed != CHECKSUM_UNNECESSARY)));
+ }
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index 57cccd0..903461a 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -1,6 +1,9 @@
+ #ifndef __NET_VXLAN_H
+ #define __NET_VXLAN_H 1
+ 
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include <linux/if_vlan.h>
+ #include <linux/skbuff.h>
+ #include <linux/netdevice.h>
+ #include <linux/udp.h>
+@@ -51,16 +54,33 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+ 		   __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
+ 		   __be16 src_port, __be16 dst_port, __be32 vni, bool xnet);
+ 
+-static inline bool vxlan_gso_check(struct sk_buff *skb)
++static inline netdev_features_t vxlan_features_check(struct sk_buff *skb,
++						     netdev_features_t features)
+ {
+-	if ((skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) &&
++	u8 l4_hdr = 0;
 +
-+extern int show_tree;
++	if (!skb->encapsulation)
++		return features;
++
++	switch (vlan_get_protocol(skb)) {
++	case htons(ETH_P_IP):
++		l4_hdr = ip_hdr(skb)->protocol;
++		break;
++	case htons(ETH_P_IPV6):
++		l4_hdr = ipv6_hdr(skb)->nexthdr;
++		break;
++	default:
++		return features;;
++	}
++
++	if ((l4_hdr == IPPROTO_UDP) &&
+ 	    (skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
+ 	     skb->inner_protocol != htons(ETH_P_TEB) ||
+ 	     (skb_inner_mac_header(skb) - skb_transport_header(skb) !=
+ 	      sizeof(struct udphdr) + sizeof(struct vxlanhdr))))
+-		return false;
++		return features & ~(NETIF_F_ALL_CSUM | NETIF_F_GSO_MASK);
+ 
+-	return true;
++	return features;
+ }
+ 
+ /* IP header + UDP + VXLAN + Ethernet header */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f411c28..fc13f72 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2562,7 +2562,7 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
+ 
+ netdev_features_t netif_skb_features(struct sk_buff *skb)
+ {
+-	const struct net_device *dev = skb->dev;
++	struct net_device *dev = skb->dev;
+ 	netdev_features_t features = dev->features;
+ 	u16 gso_segs = skb_shinfo(skb)->gso_segs;
+ 	__be16 protocol = skb->protocol;
+@@ -2570,11 +2570,19 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
+ 	if (gso_segs > dev->gso_max_segs || gso_segs < dev->gso_min_segs)
+ 		features &= ~NETIF_F_GSO_MASK;
+ 
++	/* If encapsulation offload request, verify we are testing
++	 * hardware encapsulation features instead of standard
++	 * features for the netdev
++	 */
++	if (skb->encapsulation)
++		features = netdev_intersect_features(features,
++						     dev->hw_enc_features);
++
+ 	if (protocol == htons(ETH_P_8021Q) || protocol == htons(ETH_P_8021AD)) {
+ 		struct vlan_ethhdr *veh = (struct vlan_ethhdr *)skb->data;
+ 		protocol = veh->h_vlan_encapsulated_proto;
+ 	} else if (!vlan_tx_tag_present(skb)) {
+-		return harmonize_features(skb, features);
++		goto finalize;
+ 	}
+ 
+ 	features = netdev_intersect_features(features,
+@@ -2591,6 +2599,15 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
+ 						     NETIF_F_HW_VLAN_CTAG_TX |
+ 						     NETIF_F_HW_VLAN_STAG_TX);
+ 
++finalize:
++	if (dev->netdev_ops->ndo_features_check) {
++		netdev_features_t dev_features;
++
++		dev_features = dev->netdev_ops->ndo_features_check(skb, dev,
++								   features);
++		features = netdev_intersect_features(features, dev_features);
++	}
++
+ 	return harmonize_features(skb, features);
+ }
+ EXPORT_SYMBOL(netif_skb_features);
+@@ -2661,13 +2678,6 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device
+ 	if (unlikely(!skb))
+ 		goto out_null;
+ 
+-	/* If encapsulation offload request, verify we are testing
+-	 * hardware encapsulation features instead of standard
+-	 * features for the netdev
+-	 */
+-	if (skb->encapsulation)
+-		features &= dev->hw_enc_features;
+-
+ 	if (netif_needs_gso(dev, skb, features)) {
+ 		struct sk_buff *segs;
+ 
 -- 
-2.1.3
+1.9.1
