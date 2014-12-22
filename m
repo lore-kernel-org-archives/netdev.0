@@ -1,40 +1,341 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: SRIOV as bridge Re: [PATCH net-next RESEND] net: Do not call
- ndo_dflt_fdb_dump if ndo_fdb_dump is defined.
-Date: Mon, 22 Dec 2014 08:04:47 -0500
-Message-ID: <549816EF.9070402@mojatatu.com>
-References: <c6756bd161048ac4b4407e308045fe73.squirrel@poczta.wsisiz.edu.pl>    <54894850.5000603@cumulusnetworks.com>    <7968540cd0768a770b0c8b29ce41a162.squirrel@poczta.wsisiz.edu.pl>    <5489D53E.5010603@cumulusnetworks.com>    <8d4ec5c1ae73c77866a0a154fb528f23.squirrel@poczta.wsisiz.edu.pl>    <548AD781.5020004@mojatatu.com> <4c22a6c452a73b3b77a9a9c8e7f76bcc.squirrel@poczta.wsisiz.edu.pl> <548AFD41.3010801@mojatatu.com> <548B4AA4.1020804@gmail.com> <548EF05E.6050401@mojatatu.com> <548F80B2.80408@gmail.com> <54902E5E.2070405@mojatatu.com> <54905F67.2090509@gmail.com> <5496D8E2.1090700@mojatatu.com> <54971A93.6050700@cumulusnetworks.com> <54971D2F.1090802@mojatatu.com> <54972140.30704@cumulusnetworks.com> <54972859.7050108@mojatatu.com> <549731A1.3090307@cumulusnetworks.com> <54978C3C.4
- 040102@mojatatu.com> <5497B916.1020605@cumulusnetworks.com> <54980A33.6000801@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Hubert Sokolowski <h.sokolowski@wit.edu.pl>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2] tc: Show classes in tree view
+Date: Mon, 22 Dec 2014 14:57:21 +0200
+Message-ID: <1419253041-24893-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:33586 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753978AbaLVNEv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2014 08:04:51 -0500
-Received: by mail-ie0-f175.google.com with SMTP id x19so4120525ier.6
-        for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 05:04:50 -0800 (PST)
-In-Reply-To: <54980A33.6000801@mojatatu.com>
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:46505 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754481AbaLVNH2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2014 08:07:28 -0500
+Received: by mail-lb0-f180.google.com with SMTP id l4so3875019lbv.11
+        for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 05:07:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/22/14 07:10, Jamal Hadi Salim wrote:
+From: Vadim Kochan <vadim4j@gmail.com>
 
-> Actually you cant list them as netdevs (please someone
-> correct me if i am wrong). What you see are PCI devices.
+Date: Tue, 16 Dec 2014 22:59:30 +0200
+Added new '-t[ree]' which shows classes dependency
+in the tree view. Meanwhile only generic stats info
+is supported.
 
-I have been corrected.
-It turns out i was wrong. The VFs infact show up as ethx devices.
-So your idea of having the devices with "bridge .. self" would work
-except when the device moves to a VM and you cant see them anymore...
-and you want to add an fdb entry to the embedded switch..
+e.g.:
 
-cheers,
-jamal
+$ tc/tc -t class show dev tap0
++---(1:2) htb rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
+|    +---(1:40) htb prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
+|    +---(1:50) htb rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
+|    |    +---(1:51) htb prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+|    |
+|    +---(1:60) htb prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+|
++---(1:1) htb rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
+     +---(1:10) htb prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
+     +---(1:20) htb prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
+     +---(1:30) htb prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+
+$ tc/tc -t -s class show dev tap0
++---(1:2) htb rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
+|    |    Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+|    |    rate 0bit 0pps backlog 0b 0p requeues 0
+|    |
+|    +---(1:40) htb prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
+|    |          Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+|    |          rate 0bit 0pps backlog 0b 0p requeues 0
+|    |
+|    +---(1:50) htb rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
+|    |    |     Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+|    |    |     rate 0bit 0pps backlog 0b 0p requeues 0
+|    |    |
+|    |    +---(1:51) htb prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+|    |               Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+|    |               rate 0bit 0pps backlog 0b 0p requeues 0
+|    |
+|    +---(1:60) htb prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+|               Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+|               rate 0bit 0pps backlog 0b 0p requeues 0
+|
++---(1:1) htb rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
+     |    Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+     |    rate 0bit 0pps backlog 0b 0p requeues 0
+     |
+     +---(1:10) htb prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
+     |          Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+     |          rate 0bit 0pps backlog 0b 0p requeues 0
+     |
+     +---(1:20) htb prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
+     |          Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+     |          rate 0bit 0pps backlog 0b 0p requeues 0
+     |
+     +---(1:30) htb prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+                Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+                rate 0bit 0pps backlog 0b 0p requeues 0
+
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+Changes RFC -> PATCH:
+    #1 get rid of INIT_HLIST_NODE
+    #2 added sample output to commit message
+    #3 use "show_tree=1" instead of "show_tree++"
+    #4 no need update include/hlist.h (because of #1)
+    #5 changed a little tree output: parentheses around class id instead of qdisc name
+
+ tc/tc.c        |   5 +-
+ tc/tc_class.c  | 165 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ tc/tc_common.h |   2 +
+ 3 files changed, 169 insertions(+), 3 deletions(-)
+
+diff --git a/tc/tc.c b/tc/tc.c
+index 9b50e74..30950a6 100644
+--- a/tc/tc.c
++++ b/tc/tc.c
+@@ -34,8 +34,9 @@ int show_stats = 0;
+ int show_details = 0;
+ int show_raw = 0;
+ int show_pretty = 0;
+-int batch_mode = 0;
++int show_tree = 0;
+ 
++int batch_mode = 0;
+ int resolve_hosts = 0;
+ int use_iec = 0;
+ int force = 0;
+@@ -278,6 +279,8 @@ int main(int argc, char **argv)
+ 			++show_raw;
+ 		} else if (matches(argv[1], "-pretty") == 0) {
+ 			++show_pretty;
++		} else if (matches(argv[1], "-tree") == 0) {
++			show_tree = 1;
+ 		} else if (matches(argv[1], "-Version") == 0) {
+ 			printf("tc utility, iproute2-ss%s\n", SNAPSHOT);
+ 			return 0;
+diff --git a/tc/tc_class.c b/tc/tc_class.c
+index e56bf07..a7b3ecd 100644
+--- a/tc/tc_class.c
++++ b/tc/tc_class.c
+@@ -24,6 +24,22 @@
+ #include "utils.h"
+ #include "tc_util.h"
+ #include "tc_common.h"
++#include "hlist.h"
++
++struct cls_node {
++	struct hlist_node hlist;
++	__u32 handle;
++	__u32 parent;
++	int level;
++	struct cls_node *cls_parent;
++	struct cls_node *cls_right;
++	struct rtattr *attr;
++	int attr_len;
++	int childs_count;
++};
++
++static struct hlist_head cls_list = {};
++static struct hlist_head root_cls_list = {};
+ 
+ static void usage(void);
+ 
+@@ -148,13 +164,149 @@ int filter_ifindex;
+ __u32 filter_qdisc;
+ __u32 filter_classid;
+ 
++static void tree_cls_add(__u32 parent, __u32 handle, struct rtattr *attr, int len)
++{
++	struct cls_node *cls = malloc(sizeof(struct cls_node));
++
++	memset(cls, 0, sizeof(*cls));
++	cls->handle    = handle;
++	cls->parent    = parent;
++	cls->attr      = malloc(len);
++	cls->attr_len  = len;
++
++	memcpy(cls->attr, attr, len);
++
++	if (parent == TC_H_ROOT)
++		hlist_add_head(&cls->hlist, &root_cls_list);
++	else
++		hlist_add_head(&cls->hlist, &cls_list);
++}
++
++static void tree_cls_indent(char *buf, struct cls_node *cls, int is_newline,
++		int add_spaces)
++{
++	char spaces[100] = {0};
++
++	while (cls && cls->cls_parent) {
++		cls->cls_parent->cls_right = cls;
++		cls = cls->cls_parent;
++	}
++	while (cls && cls->cls_right)
++	{
++		if (cls->hlist.next)
++			strcat(buf, "|    ");
++		else
++			strcat(buf, "     ");
++
++		cls = cls->cls_right;
++	}
++
++	if (is_newline) {
++		if (cls->hlist.next && cls->childs_count)
++			strcat(buf, "|    |");
++		else if (cls->hlist.next)
++			strcat(buf, "|     ");
++		else if (cls->childs_count)
++			strcat(buf, "     |");
++		else if (!cls->hlist.next)
++			strcat(buf, "      ");
++	}
++	if (add_spaces > 0)
++	{
++		sprintf(spaces, "%-*s", add_spaces, "");
++		strcat(buf, spaces);
++	}
++}
++
++static void tree_cls_show(FILE *fp, char *buf, struct hlist_head *root_list, int level)
++{
++	struct hlist_node *n, *tmp_cls;
++	char cls_id_str[256] = {};
++	struct rtattr * tb[TCA_MAX+1] = {};
++	struct qdisc_util *q;
++	char str[100] = {};
++
++	hlist_for_each_safe(n, tmp_cls, root_list) {
++		struct hlist_node *c, *tmp_chld;
++		struct hlist_head childs = {};
++		struct cls_node *cls = container_of(n, struct cls_node, hlist);
++
++		hlist_for_each_safe(c, tmp_chld, &cls_list) {
++			struct cls_node *child = container_of(c, struct cls_node, hlist);
++
++			if (cls->handle == child->parent) {
++				hlist_del(c);
++				hlist_add_head(c, &childs);
++				cls->childs_count++;
++				child->cls_parent = cls;
++			}
++		}
++
++		tree_cls_indent(buf, cls, 0, 0);
++
++		print_tc_classid(cls_id_str, sizeof(cls_id_str), cls->handle);
++		sprintf(str, "+---(%s)", cls_id_str);
++		strcat(buf, str);
++
++		parse_rtattr(tb, TCA_MAX, cls->attr, cls->attr_len);
++
++		if (tb[TCA_KIND] == NULL) {
++			strcat(buf, " [unknown qdisc kind] ");
++		} else {
++			const char *kind = rta_getattr_str(tb[TCA_KIND]);
++
++			sprintf(str, " %s ", kind);
++			strcat(buf, str);
++			fprintf(fp, "%s", buf);
++			buf[0] = '\0';
++
++			q = get_qdisc_kind(kind);
++			if (q && q->print_copt) {
++				q->print_copt(q, fp, tb[TCA_OPTIONS]);
++			}
++			if (q && show_stats)
++			{
++				int cls_indent = strlen(q->id) - 2 +
++					strlen(cls_id_str);
++				struct rtattr *xstats = NULL;
++
++				tree_cls_indent(buf, cls, 1, cls_indent);
++
++				if (tb[TCA_STATS] || tb[TCA_STATS2]) {
++					fprintf(fp, "\n");
++					print_tcstats_attr(fp, tb, buf, &xstats);
++					buf[0] = '\0';
++				}
++				if (cls->hlist.next || cls->childs_count)
++				{
++					strcat(buf, "\n");
++					tree_cls_indent(buf, cls, 1, 0);
++				}
++			}
++		}
++		free(cls->attr);
++		fprintf(fp, "%s\n", buf);
++		buf[0] = '\0';
++
++		tree_cls_show(fp, buf, &childs, level + 1);
++		if (!cls->hlist.next) {
++			tree_cls_indent(buf, cls, 0, 0);
++			strcat(buf, "\n");
++		}
++
++		fprintf(fp, "%s", buf);
++		buf[0] = '\0';
++		free(cls);
++	}
++}
++
+ int print_class(const struct sockaddr_nl *who,
+ 		       struct nlmsghdr *n, void *arg)
+ {
+ 	FILE *fp = (FILE*)arg;
+ 	struct tcmsg *t = NLMSG_DATA(n);
+ 	int len = n->nlmsg_len;
+-	struct rtattr * tb[TCA_MAX+1];
++	struct rtattr * tb[TCA_MAX+1] = {};
+ 	struct qdisc_util *q;
+ 	char abuf[256];
+ 
+@@ -167,13 +319,18 @@ int print_class(const struct sockaddr_nl *who,
+ 		fprintf(stderr, "Wrong len %d\n", len);
+ 		return -1;
+ 	}
++
++	if (show_tree) {
++		tree_cls_add(t->tcm_parent, t->tcm_handle, TCA_RTA(t), len);
++		return 0;
++	}
++
+ 	if (filter_qdisc && TC_H_MAJ(t->tcm_handle^filter_qdisc))
+ 		return 0;
+ 
+ 	if (filter_classid && t->tcm_handle != filter_classid)
+ 		return 0;
+ 
+-	memset(tb, 0, sizeof(tb));
+ 	parse_rtattr(tb, TCA_MAX, TCA_RTA(t), len);
+ 
+ 	if (tb[TCA_KIND] == NULL) {
+@@ -236,6 +393,7 @@ static int tc_class_list(int argc, char **argv)
+ {
+ 	struct tcmsg t;
+ 	char d[16];
++	char buf[1024] = {0};
+ 
+ 	memset(&t, 0, sizeof(t));
+ 	t.tcm_family = AF_UNSPEC;
+@@ -306,6 +464,9 @@ static int tc_class_list(int argc, char **argv)
+ 		return 1;
+ 	}
+ 
++	if (show_tree)
++		tree_cls_show(stdout, &buf[0], &root_cls_list, 0);
++
+ 	return 0;
+ }
+ 
+diff --git a/tc/tc_common.h b/tc/tc_common.h
+index 4f88856..0ee009b 100644
+--- a/tc/tc_common.h
++++ b/tc/tc_common.h
+@@ -19,3 +19,5 @@ extern int parse_estimator(int *p_argc, char ***p_argv, struct tc_estimator *est
+ struct tc_sizespec;
+ extern int parse_size_table(int *p_argc, char ***p_argv, struct tc_sizespec *s);
+ extern int check_size_table_opts(struct tc_sizespec *s);
++
++extern int show_tree;
+-- 
+2.1.3
