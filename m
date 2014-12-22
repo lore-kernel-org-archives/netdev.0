@@ -1,210 +1,435 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [RFC PATCH 09/17] fib_trie: Use unsigned long for anything dealing
- with a shift by bits
-Date: Mon, 22 Dec 2014 09:41:49 -0800
-Message-ID: <20141222174148.1119.29330.stgit@ahduyck-vm-fedora20>
+Subject: [RFC PATCH 10/17] fib_trie: Push rcu_read_lock/unlock to callers
+Date: Mon, 22 Dec 2014 09:41:55 -0800
+Message-ID: <20141222174155.1119.7716.stgit@ahduyck-vm-fedora20>
 References: <20141222172632.1119.51469.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45235 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:39767 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755149AbaLVRlu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Dec 2014 12:41:50 -0500
-Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id sBMHfnYA023864
+	id S1755149AbaLVRl4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Dec 2014 12:41:56 -0500
+Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id sBMHfuM9013412
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 12:41:50 -0500
+	for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 12:41:56 -0500
 Received: from [192.168.122.173] (ovpn-112-82.phx2.redhat.com [10.3.112.82])
-	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id sBMHfnWs016349
-	for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 12:41:49 -0500
+	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id sBMHftXb014397
+	for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 12:41:55 -0500
 In-Reply-To: <20141222172632.1119.51469.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change makes it so that anything that can be shifted by, or compared
-to a value shifted by bits is updated to be an unsigned long.  This is
-mostly a precaution against an insanely huge address space that somehow
-starts coming close to the 2^32 root node size which would require
-something like 1.5 billion addresses.
+This change is to start cleaning up some of the rcu_read_lock/unlock
+handling.  I realized while reviewing the code there are several spots that
+I don't believe are being handled correctly or are masking warnings by
+locally calling rcu_read_lock/unlock instead of calling them at the correct
+level.
 
-I chose unsigned long instead of unsigned long long since I do not believe
-it is possible to allocate a 32 bit tnode on a 32 bit system as the memory
-consumed would be 16GB + 28B which exceeds the addressible space for any
-one process.
+A common example is a call to fib_get_table followed by fib_table_lookup.
+The rcu_read_lock/unlock ought to wrap both but there are several spots where
+they were not wrapped.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/ipv4/fib_trie.c |   53 +++++++++++++++++++++++++--------------------------
- 1 file changed, 26 insertions(+), 27 deletions(-)
+ include/net/ip_fib.h    |   50 ++++++++++-------
+ net/ipv4/fib_frontend.c |   27 +++++----
+ net/ipv4/fib_rules.c    |   22 +++-----
+ net/ipv4/fib_trie.c     |  137 ++++++++++++++++++++---------------------------
+ 4 files changed, 113 insertions(+), 123 deletions(-)
 
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 09a819e..5bd120e 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -222,16 +222,19 @@ static inline struct fib_table *fib_new_table(struct net *net, u32 id)
+ static inline int fib_lookup(struct net *net, const struct flowi4 *flp,
+ 			     struct fib_result *res)
+ {
+-	struct fib_table *table;
++	int err = -ENETUNREACH;
++
++	rcu_read_lock();
++
++	if (!fib_table_lookup(fib_get_table(net, RT_TABLE_LOCAL), flp, res,
++			      FIB_LOOKUP_NOREF) ||
++	    !fib_table_lookup(fib_get_table(net, RT_TABLE_MAIN), flp, res,
++			      FIB_LOOKUP_NOREF))
++		err = 0;
+ 
+-	table = fib_get_table(net, RT_TABLE_LOCAL);
+-	if (!fib_table_lookup(table, flp, res, FIB_LOOKUP_NOREF))
+-		return 0;
++	rcu_read_unlock();
+ 
+-	table = fib_get_table(net, RT_TABLE_MAIN);
+-	if (!fib_table_lookup(table, flp, res, FIB_LOOKUP_NOREF))
+-		return 0;
+-	return -ENETUNREACH;
++	return err;
+ }
+ 
+ #else /* CONFIG_IP_MULTIPLE_TABLES */
+@@ -247,20 +250,25 @@ static inline int fib_lookup(struct net *net, struct flowi4 *flp,
+ 			     struct fib_result *res)
+ {
+ 	if (!net->ipv4.fib_has_custom_rules) {
++		int err = -ENETUNREACH;
++
++		rcu_read_lock();
++
+ 		res->tclassid = 0;
+-		if (net->ipv4.fib_local &&
+-		    !fib_table_lookup(net->ipv4.fib_local, flp, res,
+-				      FIB_LOOKUP_NOREF))
+-			return 0;
+-		if (net->ipv4.fib_main &&
+-		    !fib_table_lookup(net->ipv4.fib_main, flp, res,
+-				      FIB_LOOKUP_NOREF))
+-			return 0;
+-		if (net->ipv4.fib_default &&
+-		    !fib_table_lookup(net->ipv4.fib_default, flp, res,
+-				      FIB_LOOKUP_NOREF))
+-			return 0;
+-		return -ENETUNREACH;
++		if ((net->ipv4.fib_local &&
++		     !fib_table_lookup(net->ipv4.fib_local, flp, res,
++				       FIB_LOOKUP_NOREF)) ||
++		    (net->ipv4.fib_main &&
++		     !fib_table_lookup(net->ipv4.fib_main, flp, res,
++				       FIB_LOOKUP_NOREF)) ||
++		    (net->ipv4.fib_default &&
++		     !fib_table_lookup(net->ipv4.fib_default, flp, res,
++				       FIB_LOOKUP_NOREF)))
++			err = 0;
++
++		rcu_read_unlock();
++
++		return err;
+ 	}
+ 	return __fib_lookup(net, flp, res);
+ }
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 6689020..57be71d 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -109,6 +109,7 @@ struct fib_table *fib_new_table(struct net *net, u32 id)
+ 	return tb;
+ }
+ 
++/* caller must hold either rtnl or rcu read lock */
+ struct fib_table *fib_get_table(struct net *net, u32 id)
+ {
+ 	struct fib_table *tb;
+@@ -119,15 +120,11 @@ struct fib_table *fib_get_table(struct net *net, u32 id)
+ 		id = RT_TABLE_MAIN;
+ 	h = id & (FIB_TABLE_HASHSZ - 1);
+ 
+-	rcu_read_lock();
+ 	head = &net->ipv4.fib_table_hash[h];
+ 	hlist_for_each_entry_rcu(tb, head, tb_hlist) {
+-		if (tb->tb_id == id) {
+-			rcu_read_unlock();
++		if (tb->tb_id == id)
+ 			return tb;
+-		}
+ 	}
+-	rcu_read_unlock();
+ 	return NULL;
+ }
+ #endif /* CONFIG_IP_MULTIPLE_TABLES */
+@@ -167,16 +164,18 @@ static inline unsigned int __inet_dev_addr_type(struct net *net,
+ 	if (ipv4_is_multicast(addr))
+ 		return RTN_MULTICAST;
+ 
++	rcu_read_lock();
++
+ 	local_table = fib_get_table(net, RT_TABLE_LOCAL);
+ 	if (local_table) {
+ 		ret = RTN_UNICAST;
+-		rcu_read_lock();
+ 		if (!fib_table_lookup(local_table, &fl4, &res, FIB_LOOKUP_NOREF)) {
+ 			if (!dev || dev == res.fi->fib_dev)
+ 				ret = res.type;
+ 		}
+-		rcu_read_unlock();
+ 	}
++
++	rcu_read_unlock();
+ 	return ret;
+ }
+ 
+@@ -919,7 +918,7 @@ void fib_del_ifaddr(struct in_ifaddr *ifa, struct in_ifaddr *iprim)
+ #undef BRD1_OK
+ }
+ 
+-static void nl_fib_lookup(struct fib_result_nl *frn, struct fib_table *tb)
++static void nl_fib_lookup(struct net *net, struct fib_result_nl *frn)
+ {
+ 
+ 	struct fib_result       res;
+@@ -929,6 +928,11 @@ static void nl_fib_lookup(struct fib_result_nl *frn, struct fib_table *tb)
+ 		.flowi4_tos = frn->fl_tos,
+ 		.flowi4_scope = frn->fl_scope,
+ 	};
++	struct fib_table *tb;
++
++	rcu_read_lock();
++
++	tb = fib_get_table(net, frn->tb_id_in);
+ 
+ 	frn->err = -ENOENT;
+ 	if (tb) {
+@@ -945,6 +949,8 @@ static void nl_fib_lookup(struct fib_result_nl *frn, struct fib_table *tb)
+ 		}
+ 		local_bh_enable();
+ 	}
++
++	rcu_read_unlock();
+ }
+ 
+ static void nl_fib_input(struct sk_buff *skb)
+@@ -952,7 +958,6 @@ static void nl_fib_input(struct sk_buff *skb)
+ 	struct net *net;
+ 	struct fib_result_nl *frn;
+ 	struct nlmsghdr *nlh;
+-	struct fib_table *tb;
+ 	u32 portid;
+ 
+ 	net = sock_net(skb->sk);
+@@ -967,9 +972,7 @@ static void nl_fib_input(struct sk_buff *skb)
+ 	nlh = nlmsg_hdr(skb);
+ 
+ 	frn = (struct fib_result_nl *) nlmsg_data(nlh);
+-	tb = fib_get_table(net, frn->tb_id_in);
+-
+-	nl_fib_lookup(frn, tb);
++	nl_fib_lookup(net, frn);
+ 
+ 	portid = NETLINK_CB(skb).portid;      /* netlink portid */
+ 	NETLINK_CB(skb).portid = 0;        /* from kernel */
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index 8f7bd56..d3db718 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -81,27 +81,25 @@ static int fib4_rule_action(struct fib_rule *rule, struct flowi *flp,
+ 		break;
+ 
+ 	case FR_ACT_UNREACHABLE:
+-		err = -ENETUNREACH;
+-		goto errout;
++		return -ENETUNREACH;
+ 
+ 	case FR_ACT_PROHIBIT:
+-		err = -EACCES;
+-		goto errout;
++		return -EACCES;
+ 
+ 	case FR_ACT_BLACKHOLE:
+ 	default:
+-		err = -EINVAL;
+-		goto errout;
++		return -EINVAL;
+ 	}
+ 
++	rcu_read_lock();
++
+ 	tbl = fib_get_table(rule->fr_net, rule->table);
+-	if (!tbl)
+-		goto errout;
++	if (tbl)
++		err = fib_table_lookup(tbl, &flp->u.ip4,
++				       (struct fib_result *)arg->result,
++				       arg->flags);
+ 
+-	err = fib_table_lookup(tbl, &flp->u.ip4, (struct fib_result *) arg->result, arg->flags);
+-	if (err > 0)
+-		err = -EAGAIN;
+-errout:
++	rcu_read_unlock();
+ 	return err;
+ }
+ 
 diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index d27aa27..74ad943 100644
+index 74ad943..45fab6e 100644
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
-@@ -146,8 +146,8 @@ struct trie {
+@@ -1181,72 +1181,6 @@ err:
+ 	return err;
+ }
+ 
+-/* should be called with rcu_read_lock */
+-static int check_leaf(struct fib_table *tb, struct trie *t, struct tnode *l,
+-		      t_key key,  const struct flowi4 *flp,
+-		      struct fib_result *res, int fib_flags)
+-{
+-	struct leaf_info *li;
+-	struct hlist_head *hhead = &l->list;
+-
+-	hlist_for_each_entry_rcu(li, hhead, hlist) {
+-		struct fib_alias *fa;
+-
+-		if (l->key != (key & li->mask_plen))
+-			continue;
+-
+-		list_for_each_entry_rcu(fa, &li->falh, fa_list) {
+-			struct fib_info *fi = fa->fa_info;
+-			int nhsel, err;
+-
+-			if (fa->fa_tos && fa->fa_tos != flp->flowi4_tos)
+-				continue;
+-			if (fi->fib_dead)
+-				continue;
+-			if (fa->fa_info->fib_scope < flp->flowi4_scope)
+-				continue;
+-			fib_alias_accessed(fa);
+-			err = fib_props[fa->fa_type].error;
+-			if (unlikely(err < 0)) {
+-#ifdef CONFIG_IP_FIB_TRIE_STATS
+-				this_cpu_inc(t->stats->semantic_match_passed);
+-#endif
+-				return err;
+-			}
+-			if (fi->fib_flags & RTNH_F_DEAD)
+-				continue;
+-			for (nhsel = 0; nhsel < fi->fib_nhs; nhsel++) {
+-				const struct fib_nh *nh = &fi->fib_nh[nhsel];
+-
+-				if (nh->nh_flags & RTNH_F_DEAD)
+-					continue;
+-				if (flp->flowi4_oif && flp->flowi4_oif != nh->nh_oif)
+-					continue;
+-
+-#ifdef CONFIG_IP_FIB_TRIE_STATS
+-				this_cpu_inc(t->stats->semantic_match_passed);
+-#endif
+-				res->prefixlen = li->plen;
+-				res->nh_sel = nhsel;
+-				res->type = fa->fa_type;
+-				res->scope = fi->fib_scope;
+-				res->fi = fi;
+-				res->table = tb;
+-				res->fa_head = &li->falh;
+-				if (!(fib_flags & FIB_LOOKUP_NOREF))
+-					atomic_inc(&fi->fib_clntref);
+-				return 0;
+-			}
+-		}
+-
+-#ifdef CONFIG_IP_FIB_TRIE_STATS
+-		this_cpu_ptr(t->stats->semantic_match_miss);
+-#endif
+-	}
+-
+-	return 1;
+-}
+-
+ static inline t_key prefix_mismatch(t_key key, struct tnode *n)
+ {
+ 	t_key prefix = n->key;
+@@ -1254,6 +1188,7 @@ static inline t_key prefix_mismatch(t_key key, struct tnode *n)
+ 	return (key ^ prefix) & (prefix | -prefix);
+ }
+ 
++/* should be called with rcu_read_lock */
+ int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
+ 		     struct fib_result *res, int fib_flags)
+ {
+@@ -1263,15 +1198,12 @@ int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
  #endif
- };
+ 	const t_key key = ntohl(flp->daddr);
+ 	struct tnode *n, *pn;
++	struct leaf_info *li;
+ 	t_key cindex;
+-	int ret = 1;
+-
+-	rcu_read_lock();
  
--static void tnode_put_child_reorg(struct tnode *tn, int i, struct tnode *n,
--				  int wasfull);
-+static void tnode_put_child_reorg(struct tnode *tn, unsigned long i,
-+				  struct tnode *n, int wasfull);
- static struct tnode *resize(struct trie *t, struct tnode *tn);
- static struct tnode *inflate(struct trie *t, struct tnode *tn);
- static struct tnode *halve(struct trie *t, struct tnode *tn);
-@@ -183,25 +183,23 @@ static inline void node_set_parent(struct tnode *n, struct tnode *tp)
- /* This provides us with the number of children in this node, in the case of a
-  * leaf this will return 0 meaning none of the children are accessible.
-  */
--static inline int tnode_child_length(const struct tnode *tn)
-+static inline unsigned long tnode_child_length(const struct tnode *tn)
- {
- 	return (1ul << tn->bits) & ~(1ul);
- }
+ 	n = rcu_dereference(t->trie);
+-
+ 	if (!n)
+-		goto failed;
++		return -EAGAIN;
  
--/*
-- * caller must hold RTNL
-- */
--static inline struct tnode *tnode_get_child(const struct tnode *tn, unsigned int i)
-+/* caller must hold RTNL */
-+static inline struct tnode *tnode_get_child(const struct tnode *tn,
-+					    unsigned long i)
- {
- 	BUG_ON(i >= tnode_child_length(tn));
+ #ifdef CONFIG_IP_FIB_TRIE_STATS
+ 	this_cpu_inc(stats->gets);
+@@ -1346,7 +1278,7 @@ backtrace:
  
- 	return rtnl_dereference(tn->child[i]);
- }
+ 				pn = node_parent_rcu(pn);
+ 				if (unlikely(!pn))
+-					goto failed;
++					return -EAGAIN;
+ #ifdef CONFIG_IP_FIB_TRIE_STATS
+ 				this_cpu_inc(stats->backtrack);
+ #endif
+@@ -1364,12 +1296,61 @@ backtrace:
  
--/*
-- * caller must hold RCU read lock or RTNL
-- */
--static inline struct tnode *tnode_get_child_rcu(const struct tnode *tn, unsigned int i)
-+/* caller must hold RCU read lock or RTNL */
-+static inline struct tnode *tnode_get_child_rcu(const struct tnode *tn,
-+						unsigned long i)
- {
- 	BUG_ON(i >= tnode_child_length(tn));
- 
-@@ -400,7 +398,7 @@ static inline int tnode_full(const struct tnode *tn, const struct tnode *n)
- 	return n && ((n->pos + n->bits) == tn->pos) && IS_TNODE(n);
- }
- 
--static inline void put_child(struct tnode *tn, int i,
-+static inline void put_child(struct tnode *tn, unsigned long i,
- 			     struct tnode *n)
- {
- 	tnode_put_child_reorg(tn, i, n, -1);
-@@ -411,13 +409,13 @@ static inline void put_child(struct tnode *tn, int i,
-   * Update the value of full_children and empty_children.
-   */
- 
--static void tnode_put_child_reorg(struct tnode *tn, int i, struct tnode *n,
--				  int wasfull)
-+static void tnode_put_child_reorg(struct tnode *tn, unsigned long i,
-+				  struct tnode *n, int wasfull)
- {
- 	struct tnode *chi = rtnl_dereference(tn->child[i]);
- 	int isfull;
- 
--	BUG_ON(i >= 1<<tn->bits);
-+	BUG_ON(i >= tnode_child_length(tn));
- 
- 	/* update emptyChildren */
- 	if (n == NULL && chi != NULL)
-@@ -607,10 +605,10 @@ no_children:
- static void tnode_clean_free(struct tnode *tn)
- {
- 	struct tnode *tofree;
--	int i;
-+	unsigned long i;
- 
- 	for (i = 0; i < tnode_child_length(tn); i++) {
--		tofree = rtnl_dereference(tn->child[i]);
-+		tofree = tnode_get_child(tn, i);
- 		if (tofree)
- 			node_free(tofree);
- 	}
-@@ -619,10 +617,10 @@ static void tnode_clean_free(struct tnode *tn)
- 
- static struct tnode *inflate(struct trie *t, struct tnode *oldtnode)
- {
--	int olen = tnode_child_length(oldtnode);
-+	unsigned long olen = tnode_child_length(oldtnode);
- 	struct tnode *tn;
-+	unsigned long i;
- 	t_key m;
--	int i;
- 
- 	pr_debug("In inflate\n");
- 
-@@ -664,7 +662,7 @@ static struct tnode *inflate(struct trie *t, struct tnode *oldtnode)
- 	for (i = 0; i < olen; i++) {
- 		struct tnode *inode = tnode_get_child(oldtnode, i);
- 		struct tnode *left, *right;
--		int size, j;
-+		unsigned long size, j;
- 
- 		/* An empty child */
- 		if (inode == NULL)
-@@ -737,7 +735,7 @@ nomem:
- 
- static struct tnode *halve(struct trie *t, struct tnode *oldtnode)
- {
--	int olen = tnode_child_length(oldtnode);
-+	unsigned long olen = tnode_child_length(oldtnode);
- 	struct tnode *tn, *left, *right;
- 	int i;
- 
-@@ -1528,9 +1526,9 @@ static int trie_flush_leaf(struct tnode *l)
- static struct tnode *leaf_walk_rcu(struct tnode *p, struct tnode *c)
- {
- 	do {
--		t_key idx = c ? idx = get_index(c->key, p) + 1 : 0;
-+		unsigned long idx = c ? idx = get_index(c->key, p) + 1 : 0;
- 
--		while (idx < 1u << p->bits) {
-+		while (idx < tnode_child_length(p)) {
- 			c = tnode_get_child_rcu(p, idx++);
- 			if (!c)
- 				continue;
-@@ -1782,8 +1780,8 @@ struct fib_trie_iter {
- 
- static struct tnode *fib_trie_get_next(struct fib_trie_iter *iter)
- {
-+	unsigned long cindex = iter->index;
- 	struct tnode *tn = iter->tnode;
--	unsigned int cindex = iter->index;
- 	struct tnode *p;
- 
- 	/* A single entry routing table */
-@@ -1793,7 +1791,7 @@ static struct tnode *fib_trie_get_next(struct fib_trie_iter *iter)
- 	pr_debug("get_next iter={node=%p index=%d depth=%d}\n",
- 		 iter->tnode, iter->index, iter->depth);
- rescan:
--	while (cindex < (1<<tn->bits)) {
-+	while (cindex < tnode_child_length(tn)) {
- 		struct tnode *n = tnode_get_child_rcu(tn, cindex);
- 
- 		if (n) {
-@@ -1870,15 +1868,16 @@ static void trie_collect_stats(struct trie *t, struct trie_stat *s)
- 			hlist_for_each_entry_rcu(li, &n->list, hlist)
- 				++s->prefixes;
- 		} else {
--			int i;
-+			unsigned long i;
- 
- 			s->tnodes++;
- 			if (n->bits < MAX_STAT_DEPTH)
- 				s->nodesizes[n->bits]++;
- 
--			for (i = 0; i < tnode_child_length(n); i++)
-+			for (i = 0; i < tnode_child_length(n); i++) {
- 				if (!rcu_access_pointer(n->child[i]))
- 					s->nullpointers++;
+ found:
+ 	/* Step 3: Process the leaf, if that fails fall back to backtracing */
+-	ret = check_leaf(tb, t, n, key, flp, res, fib_flags);
+-	if (unlikely(ret > 0))
+-		goto backtrace;
+-failed:
+-	rcu_read_unlock();
+-	return ret;
++	hlist_for_each_entry_rcu(li, &n->list, hlist) {
++		struct fib_alias *fa;
++
++		if (n->key != (key & li->mask_plen))
++			continue;
++
++		list_for_each_entry_rcu(fa, &li->falh, fa_list) {
++			struct fib_info *fi = fa->fa_info;
++			int nhsel, err;
++
++			if (fa->fa_tos && fa->fa_tos != flp->flowi4_tos)
++				continue;
++			if (fi->fib_dead)
++				continue;
++			if (fa->fa_info->fib_scope < flp->flowi4_scope)
++				continue;
++			fib_alias_accessed(fa);
++			err = fib_props[fa->fa_type].error;
++			if (unlikely(err < 0)) {
++#ifdef CONFIG_IP_FIB_TRIE_STATS
++				this_cpu_inc(stats->semantic_match_passed);
++#endif
++				return err;
 +			}
- 		}
- 	}
- 	rcu_read_unlock();
++			if (fi->fib_flags & RTNH_F_DEAD)
++				continue;
++			for (nhsel = 0; nhsel < fi->fib_nhs; nhsel++) {
++				const struct fib_nh *nh = &fi->fib_nh[nhsel];
++
++				if (nh->nh_flags & RTNH_F_DEAD)
++					continue;
++				if (flp->flowi4_oif && flp->flowi4_oif != nh->nh_oif)
++					continue;
++
++#ifdef CONFIG_IP_FIB_TRIE_STATS
++				this_cpu_inc(stats->semantic_match_passed);
++#endif
++				res->prefixlen = li->plen;
++				res->nh_sel = nhsel;
++				res->type = fa->fa_type;
++				res->scope = fi->fib_scope;
++				res->fi = fi;
++				res->table = tb;
++				res->fa_head = &li->falh;
++				if (!(fib_flags & FIB_LOOKUP_NOREF))
++					atomic_inc(&fi->fib_clntref);
++				return err;
++			}
++		}
++
++#ifdef CONFIG_IP_FIB_TRIE_STATS
++		this_cpu_inc(stats->semantic_match_miss);
++#endif
++	}
++	goto backtrace;
+ }
+ EXPORT_SYMBOL_GPL(fib_table_lookup);
+ 
