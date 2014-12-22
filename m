@@ -1,265 +1,49 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [RFC PATCH 17/17] fib_trie: Add tracking value for suffix length
-Date: Mon, 22 Dec 2014 09:42:38 -0800
-Message-ID: <20141222174238.1119.68562.stgit@ahduyck-vm-fedora20>
-References: <20141222172632.1119.51469.stgit@ahduyck-vm-fedora20>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [BUG] rtl8192se: panic accessing unmapped memory in skb
+Date: Mon, 22 Dec 2014 11:43:38 -0600
+Message-ID: <5498584A.6080204@lwfinger.net>
+References: <20141221172516.GA12784@zzz> <5497516A.2020400@lwfinger.net> <20141221234714.GA30675@zzz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51677 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755329AbaLVRmk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Dec 2014 12:42:40 -0500
-Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id sBMHgdWY022399
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 12:42:39 -0500
-Received: from [192.168.122.173] (ovpn-112-82.phx2.redhat.com [10.3.112.82])
-	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id sBMHgd0t014604
-	for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 12:42:39 -0500
-In-Reply-To: <20141222172632.1119.51469.stgit@ahduyck-vm-fedora20>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Biggers <ebiggers3@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141221234714.GA30675@zzz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This change adds a tracking value for the maximum suffix length of all
-prefixes stored in any given tnode.  With this value we can determine if we
-need to backtrace or not based on if the suffix is greater than the pos
-value.
+On 12/21/2014 05:47 PM, Eric Biggers wrote:
+> Hi,
+>
+> To get your patched version to work at all I had to update
+> _rtl_pci_init_rx_ring() to account for new return value of
+> _rtl_pci_init_one_rxdesc().  I will let you know if anything shows up in the
+> kernel log, but I expect this is a highly sporadic problem.  The system has 4 GB
+> of memory, and I used the 3.18 kernel for 10 days prior to the panic with no
+> issues.  The panic occurred while upgrading system packages, so it's possible
+> jhat the system was experiencing memory pressure.
+>
+> I upgraded from 3.17 to 3.18 on Dec 8, so I've actually only had since then to
+> notice any bugs that may have been introduced since 3.17.
+>
+> It does appear there were changes made to pci.c between 3.17 and 3.18.  It
+> appears the 3.17 code will drop the incoming packet if a new skb can't be
+> allocated, whereas the 3.18 code assumes a new skb can always be allocated.  The
+> 3.17 behavior seems more logical to me.  I don't know how either of these
+> behaviors compare to other networking drivers, however.
 
-By doing this we can reduce the CPU overhead for lookups in the local table
-as many of the prefixes there are 32b long and have a suffix length of 0
-meaning we can immediately backtrace to the root node without needing to
-test any of the nodes between it and where we ended up.
+Sorry about missing the necessary changes in the rest of the driver. That is 
+what I get for only compile testing.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
- net/ipv4/fib_trie.c |  129 ++++++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 122 insertions(+), 7 deletions(-)
+I reviewed the 3.17 => 3.18 changes and found the difference in the logic that 
+you noticed, and I missed earlier. As a result, I need to push this change for 
+3.19 with the notation for updating of 3.18. You have probably received this 
+patch already. As it needs to be backported, I decided to forgo changing the 
+return value of _rtl_pci_init_one_rxdesc(). That change should be made, but 
+there is no emergency there.
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index b6298ed..d366dcc 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -96,6 +96,7 @@ struct tnode {
- 	t_key key;
- 	unsigned char bits;		/* 2log(KEYLENGTH) bits needed */
- 	unsigned char pos;		/* 2log(KEYLENGTH) bits needed */
-+	unsigned char slen;
- 	struct tnode __rcu *parent;
- 	struct rcu_head rcu;
- 	union {
-@@ -311,6 +312,7 @@ static struct tnode *leaf_new(t_key key)
- 		 * as the nodes are searched
- 		 */
- 		l->key = key;
-+		l->slen = 0;
- 		l->pos = 0;
- 		/* set bits to 0 indicating we are not a tnode */
- 		l->bits = 0;
-@@ -342,6 +344,7 @@ static struct tnode *tnode_new(t_key key, int pos, int bits)
- 
- 	if (tn) {
- 		tn->parent = NULL;
-+		tn->slen = pos;
- 		tn->pos = pos;
- 		tn->bits = bits;
- 		tn->key = (shift < KEYLENGTH) ? (key >> shift) << shift : 0;
-@@ -387,6 +390,9 @@ static void put_child(struct tnode *tn, unsigned long i, struct tnode *n)
- 	else if (!wasfull && isfull)
- 		tn->full_children++;
- 
-+	if (n && (tn->slen < n->slen))
-+		tn->slen = n->slen;
-+
- 	rcu_assign_pointer(tn->child[i], n);
- }
- 
-@@ -635,6 +641,41 @@ static int halve(struct trie *t, struct tnode *oldtnode)
- 	return 0;
- }
- 
-+static unsigned char update_suffix(struct tnode *tn)
-+{
-+	unsigned char slen = tn->pos;
-+	unsigned long stride, i;
-+
-+	/* search though the list of children looking for nodes that might
-+	 * have a suffix greater than the one we currently have.  This is
-+	 * why we start with a stride of 2 since a stride of 1 would
-+	 * represent the nodes with suffix length equal to tn->pos
-+	 */
-+	for (i = 0, stride = 0x2ul ; i < tnode_child_length(tn); i += stride) {
-+		struct tnode *n = tnode_get_child(tn, i);
-+
-+		if (!n || (n->slen <= slen))
-+			continue;
-+
-+		/* update stride and slen based on new value */
-+		stride <<= (n->slen - slen);
-+		slen = n->slen;
-+		i &= ~(stride - 1);
-+
-+		/* if slen covers all but the last bit we can stop here
-+		 * there will be nothing longer than that since only node
-+		 * 0 and 1 << (bits - 1) could have that as their suffix
-+		 * length.
-+		 */
-+		if ((slen + 1) >= (tn->pos + tn->bits))
-+			break;
-+	}
-+
-+	tn->slen = slen;
-+
-+	return slen;
-+}
-+
- /* From "Implementing a dynamic compressed trie" by Stefan Nilsson of
-  * the Helsinki University of Technology and Matti Tikkanen of Nokia
-  * Telecommunications, page 6:
-@@ -790,6 +831,19 @@ no_children:
- 		/* drop dead node */
- 		tnode_free_init(tn);
- 		tnode_free(tn);
-+		return;
-+	}
-+
-+	/* Return if at least one deflate was run */
-+	if (max_work != MAX_WORK)
-+		return;
-+
-+	/* push the suffix length to the parent node */
-+	if (tn->slen > tn->pos) {
-+		unsigned char slen = update_suffix(tn);
-+
-+		if (tp && (slen > tp->slen))
-+			tp->slen = slen;
- 	}
- }
- 
-@@ -818,8 +872,58 @@ static inline struct list_head *get_fa_head(struct tnode *l, int plen)
- 	return &li->falh;
- }
- 
--static void insert_leaf_info(struct hlist_head *head, struct leaf_info *new)
-+static void leaf_pull_suffix(struct tnode *l)
-+{
-+	struct tnode *tp = node_parent(l);
-+
-+	while (tp && (tp->slen > tp->pos) && (tp->slen > l->slen)) {
-+		if (update_suffix(tp) > l->slen)
-+			break;
-+		tp = node_parent(tp);
-+	}
-+}
-+
-+static void leaf_push_suffix(struct tnode *l)
-+{
-+	struct tnode *tn = node_parent(l);
-+
-+	/* if this is a new leaf then tn will be NULL and we can sort
-+	 * out parent suffix lengths as a part of trie_rebalance
-+	 */
-+	while (tn && (tn->slen < l->slen)) {
-+		tn->slen = l->slen;
-+		tn = node_parent(tn);
-+	}
-+}
-+
-+static void remove_leaf_info(struct tnode *l, struct leaf_info *old)
-+{
-+	struct hlist_node *prev;
-+
-+	/* record the location of the pointer to this object */
-+	prev = rtnl_dereference(hlist_pprev_rcu(&old->hlist));
-+
-+	/* remove the leaf info from the list */
-+	hlist_del_rcu(&old->hlist);
-+
-+	/* if we emptied the list this leaf will be freed and we can sort
-+	 * out parent suffix lengths as a part of trie_rebalance
-+	 */
-+	if (hlist_empty(&l->list))
-+		return;
-+
-+	/* if we removed the tail then we need to update slen */
-+	if (!rcu_access_pointer(hlist_next_rcu(prev))) {
-+		struct leaf_info *li = hlist_entry(prev, typeof(*li), hlist);
-+
-+		l->slen = KEYLENGTH - li->plen;
-+		leaf_pull_suffix(l);
-+	}
-+}
-+
-+static void insert_leaf_info(struct tnode *l, struct leaf_info *new)
- {
-+	struct hlist_head *head = &l->list;
- 	struct leaf_info *li = NULL, *last = NULL;
- 
- 	if (hlist_empty(head)) {
-@@ -836,6 +940,12 @@ static void insert_leaf_info(struct hlist_head *head, struct leaf_info *new)
- 		else
- 			hlist_add_before_rcu(&new->hlist, &li->hlist);
- 	}
-+
-+	/* if we added to the tail node then we need to update slen */
-+	if (!rcu_access_pointer(hlist_next_rcu(&new->hlist))) {
-+		l->slen = KEYLENGTH - new->plen;
-+		leaf_push_suffix(l);
-+	}
- }
- 
- /* rcu_read_lock needs to be hold by caller from readside */
-@@ -925,7 +1035,7 @@ static struct list_head *fib_insert_node(struct trie *t, u32 key, int plen)
- 		/* we have found a leaf. Prefixes have already been compared */
- 		if (IS_LEAF(n)) {
- 			/* Case 1: n is a leaf, and prefixes match*/
--			insert_leaf_info(&n->list, li);
-+			insert_leaf_info(n, li);
- 			return fa_head;
- 		}
- 
-@@ -939,7 +1049,7 @@ static struct list_head *fib_insert_node(struct trie *t, u32 key, int plen)
- 		return NULL;
- 	}
- 
--	insert_leaf_info(&l->list, li);
-+	insert_leaf_info(l, li);
- 
- 	/* Case 2: n is a LEAF or a TNODE and the key doesn't match.
- 	 *
-@@ -1203,8 +1313,13 @@ int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
- 		if (IS_LEAF(n))
- 			goto found;
- 
--		pn = n;
--		cindex = index;
-+		/* only record pn and cindex if we are going to be chopping
-+		 * bits later.  Otherwise we are just wasting cycles.
-+		 */
-+		if (n->slen > n->pos) {
-+			pn = n;
-+			cindex = index;
-+		}
- 
- 		n = tnode_get_child_rcu(n, index);
- 		if (unlikely(!n))
-@@ -1220,7 +1335,7 @@ int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
- 		 * between the key and the prefix exist in the region of
- 		 * the lsb and higher in the prefix.
- 		 */
--		if (unlikely(prefix_mismatch(key, n)))
-+		if (unlikely(prefix_mismatch(key, n)) || (n->slen == n->pos))
- 			goto backtrace;
- 
- 		/* exit out and process leaf */
-@@ -1419,7 +1534,7 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
- 		tb->tb_num_default--;
- 
- 	if (list_empty(fa_head)) {
--		hlist_del_rcu(&li->hlist);
-+		remove_leaf_info(l, li);
- 		free_leaf_info(li);
- 	}
- 
+Thanks,
+
+Larry
