@@ -1,37 +1,44 @@
-From: Eric Biggers <ebiggers3@gmail.com>
-Subject: Re: [BUG] rtl8192se: panic accessing unmapped memory in skb
-Date: Sun, 21 Dec 2014 17:47:14 -0600
-Message-ID: <20141221234714.GA30675@zzz>
-References: <20141221172516.GA12784@zzz>
- <5497516A.2020400@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5497516A.2020400@lwfinger.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jia-Ju Bai <baijiaju1990@163.com>
+Subject: [PATCH] [PATCH v3 1/2] 8139too: Fix the lack of pci_disable_device
+Date: Mon, 22 Dec 2014 08:28:52 +0800
+Message-ID: <1419208132-23657-1-git-send-email-baijiaju1990@163.com>
+Cc: jgarzik@pobox.com, Jia-Ju Bai <baijiaju1990@163.com>
+To: davem@davemloft.net, sergei.shtylyov@cogentembedded.com,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m12-13.163.com ([220.181.12.13]:46017 "EHLO m12-13.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753421AbaLVA3L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 Dec 2014 19:29:11 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+For linux-3.18.0
+When pci_request_regions is failed in rtl8139_init_board, pci_disable_device 
+is not called to disable the device which are enabled by pci_enable_device, 
+because of disable_dev_on_err is not assigned 1.
+This patch fix this problem.
 
-To get your patched version to work at all I had to update
-_rtl_pci_init_rx_ring() to account for new return value of
-_rtl_pci_init_one_rxdesc().  I will let you know if anything shows up in the
-kernel log, but I expect this is a highly sporadic problem.  The system has 4 GB
-of memory, and I used the 3.18 kernel for 10 days prior to the panic with no
-issues.  The panic occurred while upgrading system packages, so it's possible
-jhat the system was experiencing memory pressure.
+Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+---
+ drivers/net/ethernet/realtek/8139too.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I upgraded from 3.17 to 3.18 on Dec 8, so I've actually only had since then to
-notice any bugs that may have been introduced since 3.17.
-
-It does appear there were changes made to pci.c between 3.17 and 3.18.  It
-appears the 3.17 code will drop the incoming packet if a new skb can't be
-allocated, whereas the 3.18 code assumes a new skb can always be allocated.  The
-3.17 behavior seems more logical to me.  I don't know how either of these
-behaviors compare to other networking drivers, however.
-
-Eric
+diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
+index 007b38c..49bbcf3 100644
+--- a/drivers/net/ethernet/realtek/8139too.c
++++ b/drivers/net/ethernet/realtek/8139too.c
+@@ -783,10 +783,10 @@ static struct net_device *rtl8139_init_board(struct pci_dev *pdev)
+ 	if (rc)
+ 		goto err_out;
+ 
++	disable_dev_on_err = 1;
+ 	rc = pci_request_regions (pdev, DRV_NAME);
+ 	if (rc)
+ 		goto err_out;
+-	disable_dev_on_err = 1;
+ 
+ 	pci_set_master (pdev);
+ 
+-- 
+1.7.9.5
