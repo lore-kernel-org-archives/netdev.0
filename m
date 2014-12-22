@@ -1,32 +1,45 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net] in6: fix conflict with glibc
-Date: Mon, 22 Dec 2014 16:13:04 -0500 (EST)
-Message-ID: <20141222.161304.335677296258096079.davem@davemloft.net>
-References: <20141220121549.7c1b8aad@urahara>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net]tg3: tg3_disable_ints using uninitialized mailbox
+ value to disable interrupts
+Date: Mon, 22 Dec 2014 16:13:48 -0500 (EST)
+Message-ID: <20141222.161348.332125635285859975.davem@davemloft.net>
+References: <1419106577-12891-1-git-send-email-prashant@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, florent.fourcot-Pj3lBMu8rt9bbU8NOSLlsg@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20141220121549.7c1b8aad@urahara>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org,
+	nholland@tisys.org, marcelo.leitner@gmail.com, bhelgaas@google.com,
+	rajatxjain@gmail.com, mchan@broadcom.com
+To: prashant@broadcom.com
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1419106577-12891-1-git-send-email-prashant@broadcom.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Date: Sat, 20 Dec 2014 12:15:49 -0800
+From: Prashant Sreedharan <prashant@broadcom.com>
+Date: Sat, 20 Dec 2014 12:16:17 -0800
 
-> Resolve conflicts between glibc definition of IPV6 socket options
-> and those defined in Linux headers. Looks like earlier efforts to
-> solve this did not cover all the definitions.
+> During driver load in tg3_init_one, if the driver detects DMA activity before
+> intializing the chip tg3_halt is called. As part of tg3_halt interrupts are
+> disabled using routine tg3_disable_ints. This routine was using mailbox value
+> which was not initialized (default value is 0). As a result driver was writing
+> 0x00000001 to pci config space register 0, which is the vendor id / device id.
 > 
-> It resolves warnings during iproute2 build. 
-> Please consider for stable as well.
+> This driver bug was exposed because of the commit a7877b17a667 (PCI: Check only
+> the Vendor ID to identify Configuration Request Retry). Also this issue is only
+> seen in older generation chipsets like 5722 because config space write to offset
+> 0 from driver is possible. The newer generation chips ignore writes to offset 0.
+> Also without commit a7877b17a667, for these older chips when a GRC reset is
+> issued the Bootcode would reprogram the vendor id/device id, which is the reason
+> this bug was masked earlier.
 > 
-> Signed-off-by: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+> Fixed by initializing the interrupt mailbox registers before calling tg3_halt.
 > 
-> ---
-> Patch against -net tree
+> Please queue for -stable.
+> 
+> Reported-by: Nils Holland <nholland@tisys.org>
+> Reported-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> Signed-off-by: Prashant Sreedharan <prashant@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Applied and queued up for -stable, thanks Stephen.
+Applied and queued up for -stable, thanks.
