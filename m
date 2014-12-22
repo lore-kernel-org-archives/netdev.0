@@ -1,36 +1,60 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v2 0/2] r8152: adjust r8152_submit_rx
-Date: Mon, 22 Dec 2014 14:52:54 +0800
-Message-ID: <1394712342-15778-110-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-107-Taiwan-albertk@realtek.com>
+From: Barrister Josep <josephinesmith203@gmail.com>
+Subject: compensation
+Date: Sun, 21 Dec 2014 23:43:34 -0800
+Message-ID: <CAPidZ77EAgUwRQk0ctcAwb+C2-4awA58mrKaEjabBYHhm_iTSA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-107-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f194.google.com ([209.85.160.194]:62593 "EHLO
+	mail-yk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752883AbaLVHnf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2014 02:43:35 -0500
+Received: by mail-yk0-f194.google.com with SMTP id 9so741810ykp.5
+        for <netdev@vger.kernel.org>; Sun, 21 Dec 2014 23:43:35 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-v2:
-Replace the patch #1 with "call rtl_start_rx after netif_carrier_on".
+Greetings,
 
-For patch #2, replace checking tp->speed with netif_carrier_ok.
+I am very happy to inform you about my success in getting my
+inheritance fund transferred under the cooperation of a new partner
+from LONDON (Mr. Sanjay Kumar) presently I am in India for investment
+projects with my own share of the total sum. Meanwhile, I didn't
+forget your past efforts and attempts to assist me in transferring the
+fund despite the fact that it failed us some how but God knows the
+best.
 
-v1:
-Avoid r8152_submit_rx() from submitting rx during unexpected
-moment. This could reduce the time of stopping rx.
+Now, I would like to compensate you for your tremendous effort, love
+and care for me at that time. Please I want you to contact my new
+solicitor in LOME TOGO who assisted me and my Indian partner to
+successfully transfer the fund out from Africa to India.
 
-For patch #1, the tp->speed should be updated early. Then,
-the patch #2 could use it to check the current linking status.
+The contacts of the solicitor are as follows:
 
-Hayes Wang (2):
-  r8152: call rtl_start_rx after netif_carrier_on
-  r8152: check the status before submitting rx
+Mr Sanny Ikem
+Address: Imm. CCIAB 7 etage port 13 -8 09 BP 6357  LOME TOGO
 
- drivers/net/usb/r8152.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+E-mail: infosannyikem@yahoo.com
 
--- 
-2.1.0
+
+Please contact the solicitor now and ask to send you a bank ATM CARD
+worth total sum of Eighty thousand dollars ($80,000,00) only which I
+kept for your compensation for all your past efforts and attempt to
+assist me in this  matter. However, I so much appreciate your effort,
+love and care to me at that time and I am praying that Almighty God
+will always bless you wherever you are in this world.
+
+Therefore, feel free to get in touch with the solicitor and instruct
+where to send the ATM CARD to you. Please do let me know immediately
+you receive the bank ATM CARD from the solicitor so that we can share
+the joy after all the long sufferings and stress that we  went through
+during that time. In the moment, I am very busy here because of the
+investment projects which I and my new partner are having at hand; and
+I will  not have the chance to check and reply my emails at the
+moment.Please I will get back to you at my convenient time;
+Bye-bye and remain blessed.
+In love yours sincerely
+
+
+Barrister Joseph
