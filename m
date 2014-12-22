@@ -1,110 +1,136 @@
 From: Wengang <wen.gang.wang@oracle.com>
-Subject: Re: [PATCH] bonding: avoid re-entry of bond_release
-Date: Mon, 22 Dec 2014 09:09:38 +0800
-Message-ID: <54976F52.30403@oracle.com>
-References: <1418979417-28867-1-git-send-email-wen.gang.wang@oracle.com> <20141219151157.GD22253@gospo> <54962A00.6080005@huawei.com>
+Subject: Re: [PATCH] bonding: move ipoib_header_ops to vmlinux
+Date: Mon, 22 Dec 2014 09:14:21 +0800
+Message-ID: <5497706D.8000305@oracle.com>
+References: <20141125.010741.450666241983239119.davem@davemloft.net>	<54742D6E.9030605@mellanox.com>	<19740.1416940877@famine> <20141125.134450.1265438298771389292.davem@davemloft.net> <54752D4C.7000603@oracle.com> <547E6C70.7040809@oracle.com> <548E3595.60206@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Ding Tianhong <dingtianhong@huawei.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
+Cc: ogerlitz@mellanox.com, netdev@vger.kernel.org,
+	linux-rdma@vger.kernel.org
+To: David Miller <davem@davemloft.net>, jay.vosburgh@canonical.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:38487 "EHLO
+Received: from aserp1040.oracle.com ([141.146.126.69]:39285 "EHLO
 	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753488AbaLVBIN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Dec 2014 20:08:13 -0500
-In-Reply-To: <54962A00.6080005@huawei.com>
+	with ESMTP id S1753545AbaLVBMx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Dec 2014 20:12:53 -0500
+In-Reply-To: <548E3595.60206@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andy and Ding,
-
-Thanks for your reviews!
-In the ioctl path, removing a interface that is not currently actually =
-a=20
-slave
-can happen from user space(by mistake), we should avoid the noisy messa=
-ge.
-
-While, __bond_release_one() has another call path which is from=20
-bond_uninit().
-In the later case, it should be treated as an error if the interface is=
-=20
-not with
-IFF_SLAVE flag. To notice that error occurred, the message is printed. =
-I=20
-think
-the message is needed for this path.
-
-How do you think?
+Hi, Anyone please review this patch? David? Jay? please.
 
 thanks,
 wengang
 
-=E4=BA=8E 2014=E5=B9=B412=E6=9C=8821=E6=97=A5 10:01, Ding Tianhong =E5=86=
-=99=E9=81=93:
-> On 2014/12/19 23:11, Andy Gospodarek wrote:
->> On Fri, Dec 19, 2014 at 04:56:57PM +0800, Wengang Wang wrote:
->>> If bond_release is run against an interface which is already detach=
-ed from
->>> it's master, then there is an error message shown like
->>> 	"<master name> cannot release <slave name>".
->>>
->>> The call path is:
->>> 	bond_do_ioctl()
->>> 		bond_release()
->>> 			__bond_release_one()
->>>
->>> Though it does not really harm, the message the message is misleadi=
-ng.
->>> This patch tries to avoid the message.
->>>
->>> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
->>> ---
->>>   drivers/net/bonding/bond_main.c | 5 ++++-
->>>   1 file changed, 4 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/=
-bond_main.c
->>> index 184c434..4a71bbd 100644
->>> --- a/drivers/net/bonding/bond_main.c
->>> +++ b/drivers/net/bonding/bond_main.c
->>> @@ -3256,7 +3256,10 @@ static int bond_do_ioctl(struct net_device *=
-bond_dev, struct ifreq *ifr, int cmd
->>>   		break;
->>>   	case BOND_RELEASE_OLD:
->>>   	case SIOCBONDRELEASE:
->>> -		res =3D bond_release(bond_dev, slave_dev);
->>> +		if (slave_dev->flags & IFF_SLAVE)
->>> +			res =3D bond_release(bond_dev, slave_dev);
->>> +		else
->>> +			res =3D 0;
->> Functionally this patch is fine, but I would prefer that you simply
->> change the check in __bond_release_one to not be so noisy.  There is=
- a
->> check[1] in bond_enslave to see if a slave is already in a bond and =
-that
->> just prints a message of netdev_dbg (rather than netdev_err) and it
->> seems that would be appropriate for this type of message.
+=E4=BA=8E 2014=E5=B9=B412=E6=9C=8815=E6=97=A5 09:12, Wengang =E5=86=99=E9=
+=81=93:
+> Anyone please respond to this?
+>
+> thanks,
+> wengang
+>
+> =E4=BA=8E 2014=E5=B9=B412=E6=9C=8803=E6=97=A5 09:50, Wengang Wang =E5=
+=86=99=E9=81=93:
+>> Hi David and Jay,
 >>
->> [1] from bond_enslave():
+>> Then about about the change in this patch?
 >>
->>          /* already enslaved */
->>          if (slave_dev->flags & IFF_SLAVE) {
->>                  netdev_dbg(bond_dev, "Error: Device was already ens=
-laved\n");
->>                  return -EBUSY;
->>          }
+>> thanks,
+>> wengang
 >>
->>
->>>   		break;
->>>   	case BOND_SETHWADDR_OLD:
->>>   	case SIOCBONDSETHWADDR:
+>> =E5=9C=A8 2014=E5=B9=B411=E6=9C=8826=E6=97=A5 09:30, Wengang =E5=86=99=
+=E9=81=93:
+>>> =E4=BA=8E 2014=E5=B9=B411=E6=9C=8826=E6=97=A5 02:44, David Miller =E5=
+=86=99=E9=81=93:
+>>>> From: Jay Vosburgh <jay.vosburgh@canonical.com>
+>>>> Date: Tue, 25 Nov 2014 10:41:17 -0800
+>>>>
+>>>>> Or Gerlitz <ogerlitz@mellanox.com> wrote:
+>>>>>
+>>>>>> On 11/25/2014 8:07 AM, David Miller wrote:
+>>>>>>> IPOIB should not work over bonding as it requires that the devi=
+ce
+>>>>>>> use ARPHRD_ETHER.
+>>>>>> Hi Dave,
+>>>>>>
+>>>>>> IPoIB devices can be enslaved to both bonding and teaming in=20
+>>>>>> their HA mode,
+>>>>>> the bond device type becomes ARPHRD_INFINIBAND when this happens=
+=2E
+>>>>>     The point was that pktgen disallows ARPHRD_INFINIBAND, not th=
+at
+>>>>> bonding does.
+>>>>>
+>>>>>     Pktgen specifically checks for type !=3D ARPHRD_ETHER, so the
+>>>>> IPoIB bond should not be able to be used with pkgten.  My=20
+>>>>> suspicion is
+>>>>> that pktgen is being configured on the bond first, then an IPoIB=20
+>>>>> slave
+>>>>> is added to the bond; this would change its type in a way that pk=
+tgen
+>>>>> wouldn't notice.
+>>>> +1
+>>>
+>>> I think it go this way:
+>>>
+>>> 1) bond_master is ready
+>>> 2) bond_enslave enslave a IPOIB interface calling bond_setup_by_sla=
+ve
+>>> 3) then bond_setup_by_slave set change master type to=20
+>>> ARPHRD_INFINIBAND.
+>>>
+>>> code is like this:
+>>>
+>>> 1 /* enslave device <slave> to bond device <master> */
+>>> 2 int bond_enslave(struct net_device *bond_dev, struct net_device=20
+>>> *slave_dev)
+>>> 3 {
+>>> 4 <snip>...
+>>> 5 /* set bonding device ether type by slave - bonding netdevices ar=
+e
+>>> 6 * created with ether_setup, so when the slave type is not=20
+>>> ARPHRD_ETHER
+>>> 7 * there is a need to override some of the type dependent=20
+>>> attribs/funcs.
+>>> 8 *
+>>> 9 * bond ether type mutual exclusion - don't allow slaves of dissim=
+ilar
+>>> 10 * ether type (eg ARPHRD_ETHER and ARPHRD_INFINIBAND) share the=20
+>>> same bond
+>>> 11 */
+>>> 12 if (!bond_has_slaves(bond)) {
+>>> 13 if (bond_dev->type !=3D slave_dev->type) {
+>>> 14 <snip>...
+>>> 15 if (slave_dev->type !=3D ARPHRD_ETHER)
+>>> 16 bond_setup_by_slave(bond_dev, slave_dev);
+>>> 17 else {
+>>> 18 ether_setup(bond_dev);
+>>> 19 bond_dev->priv_flags &=3D ~IFF_TX_SKB_SHARING;
+>>> 20 }
+>>> 21
+>>> 22 call_netdevice_notifiers(NETDEV_POST_TYPE_CHANGE,
+>>> 23 bond_dev);
+>>> 24 }
+>>> 25 <snip>...
+>>> 26 }
+>>> 27
+>>> 28 static void bond_setup_by_slave(struct net_device *bond_dev,
+>>> 29 struct net_device *slave_dev)
+>>> 30 {
+>>> 31 bond_dev->header_ops =3D slave_dev->header_ops;
+>>> 32
+>>> 33 bond_dev->type =3D slave_dev->type;
+>>> 34 bond_dev->hard_header_len =3D slave_dev->hard_header_len;
+>>> 35 bond_dev->addr_len =3D slave_dev->addr_len;
+>>> 36
+>>> 37 memcpy(bond_dev->broadcast, slave_dev->broadcast,
+>>> 38 slave_dev->addr_len);
+>>> 39 }
+>>> 40
+>>>
+>>> thanks
+>>> wengang
 >>> --=20
-> agree ,use netdev_dbg looks more better and enough.
->
-> Ding
->
 >
