@@ -1,370 +1,210 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [RFC PATCH 08/17] fib_trie: Update meaning of pos to represent
- unchecked bits
-Date: Mon, 22 Dec 2014 09:41:42 -0800
-Message-ID: <20141222174142.1119.46682.stgit@ahduyck-vm-fedora20>
+Subject: [RFC PATCH 09/17] fib_trie: Use unsigned long for anything dealing
+ with a shift by bits
+Date: Mon, 22 Dec 2014 09:41:49 -0800
+Message-ID: <20141222174148.1119.29330.stgit@ahduyck-vm-fedora20>
 References: <20141222172632.1119.51469.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41777 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:45235 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755149AbaLVRlp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Dec 2014 12:41:45 -0500
+	id S1755149AbaLVRlu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Dec 2014 12:41:50 -0500
 Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id sBMHfhqQ021487
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id sBMHfnYA023864
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 12:41:44 -0500
+	for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 12:41:50 -0500
 Received: from [192.168.122.173] (ovpn-112-82.phx2.redhat.com [10.3.112.82])
-	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id sBMHfgBP016240
-	for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 12:41:43 -0500
+	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id sBMHfnWs016349
+	for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 12:41:49 -0500
 In-Reply-To: <20141222172632.1119.51469.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change moves the pos value to the other side of the "bits" field.  By
-doing this it actually simplifies a significant amount of code in the trie.
+This change makes it so that anything that can be shifted by, or compared
+to a value shifted by bits is updated to be an unsigned long.  This is
+mostly a precaution against an insanely huge address space that somehow
+starts coming close to the 2^32 root node size which would require
+something like 1.5 billion addresses.
 
-For example when halving a tree we know that the bit lost exists at
-oldnode->pos, and if we inflate the tree the new bit being add is at
-tn->pos.  Previously to find those bits you would have to subtract pos and
-bits from the keylength or start with a value of (1 << 31) and then shift
-that.
-
-There are a number of spots throughout the code that benefit from this.  In
-the case of the hot-path searches the main advantage is that we can drop 2
-or more operations from the search path as we no longer need to compute the
-value for the index to be shifted by and can instead just use the raw pos
-value.
-
-In addition the tkey_extract_bits is now defunct and can be replaced by
-get_index since the two operations were doing the same thing, but now
-get_index does it much more quickly as it is only an xor and shift versus a
-pair of shifts and a subtraction.
+I chose unsigned long instead of unsigned long long since I do not believe
+it is possible to allocate a 32 bit tnode on a 32 bit system as the memory
+consumed would be 16GB + 28B which exceeds the addressible space for any
+one process.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/ipv4/fib_trie.c |  194 +++++++++++++++++++++------------------------------
- 1 file changed, 81 insertions(+), 113 deletions(-)
+ net/ipv4/fib_trie.c |   53 +++++++++++++++++++++++++--------------------------
+ 1 file changed, 26 insertions(+), 27 deletions(-)
 
 diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 969ecf3..d27aa27 100644
+index d27aa27..74ad943 100644
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
-@@ -90,8 +90,7 @@ typedef unsigned int t_key;
- #define IS_TNODE(n) ((n)->bits)
- #define IS_LEAF(n) (!(n)->bits)
+@@ -146,8 +146,8 @@ struct trie {
+ #endif
+ };
  
--#define get_shift(_kv) (KEYLENGTH - (_kv)->pos - (_kv)->bits)
--#define get_index(_key, _kv) (((_key) ^ (_kv)->key) >> get_shift(_kv))
-+#define get_index(_key, _kv) (((_key) ^ (_kv)->key) >> (_kv)->pos)
- 
- struct tnode {
- 	t_key key;
-@@ -209,81 +208,64 @@ static inline struct tnode *tnode_get_child_rcu(const struct tnode *tn, unsigned
- 	return rcu_dereference_rtnl(tn->child[i]);
- }
- 
--static inline t_key mask_pfx(t_key k, unsigned int l)
--{
--	return (l == 0) ? 0 : k >> (KEYLENGTH-l) << (KEYLENGTH-l);
--}
--
--static inline t_key tkey_extract_bits(t_key a, unsigned int offset, unsigned int bits)
--{
--	if (offset < KEYLENGTH)
--		return ((t_key)(a << offset)) >> (KEYLENGTH - bits);
--	else
--		return 0;
--}
--
--/*
--  To understand this stuff, an understanding of keys and all their bits is
--  necessary. Every node in the trie has a key associated with it, but not
--  all of the bits in that key are significant.
--
--  Consider a node 'n' and its parent 'tp'.
--
--  If n is a leaf, every bit in its key is significant. Its presence is
--  necessitated by path compression, since during a tree traversal (when
--  searching for a leaf - unless we are doing an insertion) we will completely
--  ignore all skipped bits we encounter. Thus we need to verify, at the end of
--  a potentially successful search, that we have indeed been walking the
--  correct key path.
--
--  Note that we can never "miss" the correct key in the tree if present by
--  following the wrong path. Path compression ensures that segments of the key
--  that are the same for all keys with a given prefix are skipped, but the
--  skipped part *is* identical for each node in the subtrie below the skipped
--  bit! trie_insert() in this implementation takes care of that - note the
--  call to tkey_sub_equals() in trie_insert().
--
--  if n is an internal node - a 'tnode' here, the various parts of its key
--  have many different meanings.
--
--  Example:
--  _________________________________________________________________
--  | i | i | i | i | i | i | i | N | N | N | S | S | S | S | S | C |
--  -----------------------------------------------------------------
--    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
--
--  _________________________________________________________________
--  | C | C | C | u | u | u | u | u | u | u | u | u | u | u | u | u |
--  -----------------------------------------------------------------
--   16  17  18  19  20  21  22  23  24  25  26  27  28  29  30  31
--
--  tp->pos = 7
--  tp->bits = 3
--  n->pos = 15
--  n->bits = 4
--
--  First, let's just ignore the bits that come before the parent tp, that is
--  the bits from 0 to (tp->pos-1). They are *known* but at this point we do
--  not use them for anything.
--
--  The bits from (tp->pos) to (tp->pos + tp->bits - 1) - "N", above - are the
--  index into the parent's child array. That is, they will be used to find
--  'n' among tp's children.
--
--  The bits from (tp->pos + tp->bits) to (n->pos - 1) - "S" - are skipped bits
--  for the node n.
--
--  All the bits we have seen so far are significant to the node n. The rest
--  of the bits are really not needed or indeed known in n->key.
--
--  The bits from (n->pos) to (n->pos + n->bits - 1) - "C" - are the index into
--  n's child array, and will of course be different for each child.
--
--
--  The rest of the bits, from (n->pos + n->bits) onward, are completely unknown
--  at this point.
--
--*/
-+/* To understand this stuff, an understanding of keys and all their bits is
-+ * necessary. Every node in the trie has a key associated with it, but not
-+ * all of the bits in that key are significant.
-+ *
-+ * Consider a node 'n' and its parent 'tp'.
-+ *
-+ * If n is a leaf, every bit in its key is significant. Its presence is
-+ * necessitated by path compression, since during a tree traversal (when
-+ * searching for a leaf - unless we are doing an insertion) we will completely
-+ * ignore all skipped bits we encounter. Thus we need to verify, at the end of
-+ * a potentially successful search, that we have indeed been walking the
-+ * correct key path.
-+ *
-+ * Note that we can never "miss" the correct key in the tree if present by
-+ * following the wrong path. Path compression ensures that segments of the key
-+ * that are the same for all keys with a given prefix are skipped, but the
-+ * skipped part *is* identical for each node in the subtrie below the skipped
-+ * bit! trie_insert() in this implementation takes care of that.
-+ *
-+ * if n is an internal node - a 'tnode' here, the various parts of its key
-+ * have many different meanings.
-+ *
-+ * Example:
-+ * _________________________________________________________________
-+ * | i | i | i | i | i | i | i | N | N | N | S | S | S | S | S | C |
-+ * -----------------------------------------------------------------
-+ *  31  30  29  28  27  26  25  24  23  22  21  20  19  18  17  16
-+ *
-+ * _________________________________________________________________
-+ * | C | C | C | u | u | u | u | u | u | u | u | u | u | u | u | u |
-+ * -----------------------------------------------------------------
-+ *  15  14  13  12  11  10   9   8   7   6   5   4   3   2   1   0
-+ *
-+ * tp->pos = 22
-+ * tp->bits = 3
-+ * n->pos = 13
-+ * n->bits = 4
-+ *
-+ * First, let's just ignore the bits that come before the parent tp, that is
-+ * the bits from (tp->pos + tp->bits) to 31. They are *known* but at this
-+ * point we do not use them for anything.
-+ *
-+ * The bits from (tp->pos) to (tp->pos + tp->bits - 1) - "N", above - are the
-+ * index into the parent's child array. That is, they will be used to find
-+ * 'n' among tp's children.
-+ *
-+ * The bits from (n->pos + n->bits) to (tn->pos - 1) - "S" - are skipped bits
-+ * for the node n.
-+ *
-+ * All the bits we have seen so far are significant to the node n. The rest
-+ * of the bits are really not needed or indeed known in n->key.
-+ *
-+ * The bits from (n->pos) to (n->pos + n->bits - 1) - "C" - are the index into
-+ * n's child array, and will of course be different for each child.
-+ *
-+ * The rest of the bits, from 0 to (n->pos + n->bits), are completely unknown
-+ * at this point.
-+ */
- 
- static const int halve_threshold = 25;
- static const int inflate_threshold = 50;
-@@ -367,7 +349,7 @@ static struct tnode *leaf_new(t_key key)
- 		 * as the nodes are searched
- 		 */
- 		l->key = key;
--		l->pos = KEYLENGTH;
-+		l->pos = 0;
- 		/* set bits to 0 indicating we are not a tnode */
- 		l->bits = 0;
- 
-@@ -400,7 +382,7 @@ static struct tnode *tnode_new(t_key key, int pos, int bits)
- 		tn->parent = NULL;
- 		tn->pos = pos;
- 		tn->bits = bits;
--		tn->key = mask_pfx(key, pos);
-+		tn->key = (shift < KEYLENGTH) ? (key >> shift) << shift : 0;
- 		tn->full_children = 0;
- 		tn->empty_children = 1<<bits;
- 	}
-@@ -410,14 +392,12 @@ static struct tnode *tnode_new(t_key key, int pos, int bits)
- 	return tn;
- }
- 
--/*
-- * Check whether a tnode 'n' is "full", i.e. it is an internal node
-+/* Check whether a tnode 'n' is "full", i.e. it is an internal node
-  * and no bits are skipped. See discussion in dyntree paper p. 6
+-static void tnode_put_child_reorg(struct tnode *tn, int i, struct tnode *n,
+-				  int wasfull);
++static void tnode_put_child_reorg(struct tnode *tn, unsigned long i,
++				  struct tnode *n, int wasfull);
+ static struct tnode *resize(struct trie *t, struct tnode *tn);
+ static struct tnode *inflate(struct trie *t, struct tnode *tn);
+ static struct tnode *halve(struct trie *t, struct tnode *tn);
+@@ -183,25 +183,23 @@ static inline void node_set_parent(struct tnode *n, struct tnode *tp)
+ /* This provides us with the number of children in this node, in the case of a
+  * leaf this will return 0 meaning none of the children are accessible.
   */
--
- static inline int tnode_full(const struct tnode *tn, const struct tnode *n)
+-static inline int tnode_child_length(const struct tnode *tn)
++static inline unsigned long tnode_child_length(const struct tnode *tn)
  {
--	return n && IS_TNODE(n) && (n->pos == (tn->pos + tn->bits));
-+	return n && ((n->pos + n->bits) == tn->pos) && IS_TNODE(n);
+ 	return (1ul << tn->bits) & ~(1ul);
  }
  
- static inline void put_child(struct tnode *tn, int i,
-@@ -641,11 +621,12 @@ static struct tnode *inflate(struct trie *t, struct tnode *oldtnode)
+-/*
+- * caller must hold RTNL
+- */
+-static inline struct tnode *tnode_get_child(const struct tnode *tn, unsigned int i)
++/* caller must hold RTNL */
++static inline struct tnode *tnode_get_child(const struct tnode *tn,
++					    unsigned long i)
  {
- 	int olen = tnode_child_length(oldtnode);
+ 	BUG_ON(i >= tnode_child_length(tn));
+ 
+ 	return rtnl_dereference(tn->child[i]);
+ }
+ 
+-/*
+- * caller must hold RCU read lock or RTNL
+- */
+-static inline struct tnode *tnode_get_child_rcu(const struct tnode *tn, unsigned int i)
++/* caller must hold RCU read lock or RTNL */
++static inline struct tnode *tnode_get_child_rcu(const struct tnode *tn,
++						unsigned long i)
+ {
+ 	BUG_ON(i >= tnode_child_length(tn));
+ 
+@@ -400,7 +398,7 @@ static inline int tnode_full(const struct tnode *tn, const struct tnode *n)
+ 	return n && ((n->pos + n->bits) == tn->pos) && IS_TNODE(n);
+ }
+ 
+-static inline void put_child(struct tnode *tn, int i,
++static inline void put_child(struct tnode *tn, unsigned long i,
+ 			     struct tnode *n)
+ {
+ 	tnode_put_child_reorg(tn, i, n, -1);
+@@ -411,13 +409,13 @@ static inline void put_child(struct tnode *tn, int i,
+   * Update the value of full_children and empty_children.
+   */
+ 
+-static void tnode_put_child_reorg(struct tnode *tn, int i, struct tnode *n,
+-				  int wasfull)
++static void tnode_put_child_reorg(struct tnode *tn, unsigned long i,
++				  struct tnode *n, int wasfull)
+ {
+ 	struct tnode *chi = rtnl_dereference(tn->child[i]);
+ 	int isfull;
+ 
+-	BUG_ON(i >= 1<<tn->bits);
++	BUG_ON(i >= tnode_child_length(tn));
+ 
+ 	/* update emptyChildren */
+ 	if (n == NULL && chi != NULL)
+@@ -607,10 +605,10 @@ no_children:
+ static void tnode_clean_free(struct tnode *tn)
+ {
+ 	struct tnode *tofree;
+-	int i;
++	unsigned long i;
+ 
+ 	for (i = 0; i < tnode_child_length(tn); i++) {
+-		tofree = rtnl_dereference(tn->child[i]);
++		tofree = tnode_get_child(tn, i);
+ 		if (tofree)
+ 			node_free(tofree);
+ 	}
+@@ -619,10 +617,10 @@ static void tnode_clean_free(struct tnode *tn)
+ 
+ static struct tnode *inflate(struct trie *t, struct tnode *oldtnode)
+ {
+-	int olen = tnode_child_length(oldtnode);
++	unsigned long olen = tnode_child_length(oldtnode);
  	struct tnode *tn;
-+	t_key m;
- 	int i;
++	unsigned long i;
+ 	t_key m;
+-	int i;
  
  	pr_debug("In inflate\n");
  
--	tn = tnode_new(oldtnode->key, oldtnode->pos, oldtnode->bits + 1);
-+	tn = tnode_new(oldtnode->key, oldtnode->pos - 1, oldtnode->bits + 1);
+@@ -664,7 +662,7 @@ static struct tnode *inflate(struct trie *t, struct tnode *oldtnode)
+ 	for (i = 0; i < olen; i++) {
+ 		struct tnode *inode = tnode_get_child(oldtnode, i);
+ 		struct tnode *left, *right;
+-		int size, j;
++		unsigned long size, j;
  
- 	if (!tn)
- 		return ERR_PTR(-ENOMEM);
-@@ -656,21 +637,18 @@ static struct tnode *inflate(struct trie *t, struct tnode *oldtnode)
- 	 * fails. In case of failure we return the oldnode and  inflate
- 	 * of tnode is ignored.
- 	 */
-+	for (i = 0, m = 1u << tn->pos; i < olen; i++) {
-+		struct tnode *inode = tnode_get_child(oldtnode, i);
+ 		/* An empty child */
+ 		if (inode == NULL)
+@@ -737,7 +735,7 @@ nomem:
  
--	for (i = 0; i < olen; i++) {
--		struct tnode *inode;
--
--		inode = tnode_get_child(oldtnode, i);
--		if (tnode_full(oldtnode, inode) && inode->bits > 1) {
-+		if (tnode_full(oldtnode, inode) && (inode->bits > 1)) {
- 			struct tnode *left, *right;
--			t_key m = ~0U << (KEYLENGTH - 1) >> inode->pos;
+ static struct tnode *halve(struct trie *t, struct tnode *oldtnode)
+ {
+-	int olen = tnode_child_length(oldtnode);
++	unsigned long olen = tnode_child_length(oldtnode);
+ 	struct tnode *tn, *left, *right;
+ 	int i;
  
--			left = tnode_new(inode->key&(~m), inode->pos + 1,
-+			left = tnode_new(inode->key & ~m, inode->pos,
- 					 inode->bits - 1);
- 			if (!left)
- 				goto nomem;
- 
--			right = tnode_new(inode->key|m, inode->pos + 1,
-+			right = tnode_new(inode->key | m, inode->pos,
- 					  inode->bits - 1);
- 
- 			if (!right) {
-@@ -694,9 +672,7 @@ static struct tnode *inflate(struct trie *t, struct tnode *oldtnode)
- 
- 		/* A leaf or an internal node with skipped bits */
- 		if (!tnode_full(oldtnode, inode)) {
--			put_child(tn,
--				tkey_extract_bits(inode->key, tn->pos, tn->bits),
--				inode);
-+			put_child(tn, get_index(inode->key, tn), inode);
- 			continue;
- 		}
- 
-@@ -767,7 +743,7 @@ static struct tnode *halve(struct trie *t, struct tnode *oldtnode)
- 
- 	pr_debug("In halve\n");
- 
--	tn = tnode_new(oldtnode->key, oldtnode->pos, oldtnode->bits - 1);
-+	tn = tnode_new(oldtnode->key, oldtnode->pos + 1, oldtnode->bits - 1);
- 
- 	if (!tn)
- 		return ERR_PTR(-ENOMEM);
-@@ -787,7 +763,7 @@ static struct tnode *halve(struct trie *t, struct tnode *oldtnode)
- 		if (left && right) {
- 			struct tnode *newn;
- 
--			newn = tnode_new(left->key, tn->pos + tn->bits, 1);
-+			newn = tnode_new(left->key, oldtnode->pos, 1);
- 
- 			if (!newn)
- 				goto nomem;
-@@ -915,7 +891,7 @@ static void trie_rebalance(struct trie *t, struct tnode *tn)
- 	key = tn->key;
- 
- 	while (tn != NULL && (tp = node_parent(tn)) != NULL) {
--		cindex = tkey_extract_bits(key, tp->pos, tp->bits);
-+		cindex = get_index(key, tp);
- 		wasfull = tnode_full(tp, tnode_get_child(tp, cindex));
- 		tn = resize(t, tn);
- 
-@@ -1005,11 +981,8 @@ static struct list_head *fib_insert_node(struct trie *t, u32 key, int plen)
- 	 */
- 	if (n) {
- 		struct tnode *tn;
--		int newpos;
--
--		newpos = KEYLENGTH - __fls(n->key ^ key) - 1;
- 
--		tn = tnode_new(key, newpos, 1);
-+		tn = tnode_new(key, __fls(key ^ n->key), 1);
- 		if (!tn) {
- 			free_leaf_info(li);
- 			node_free(l);
-@@ -1555,12 +1528,7 @@ static int trie_flush_leaf(struct tnode *l)
+@@ -1528,9 +1526,9 @@ static int trie_flush_leaf(struct tnode *l)
  static struct tnode *leaf_walk_rcu(struct tnode *p, struct tnode *c)
  {
  	do {
--		t_key idx;
--
--		if (c)
--			idx = tkey_extract_bits(c->key, p->pos, p->bits) + 1;
--		else
--			idx = 0;
-+		t_key idx = c ? idx = get_index(c->key, p) + 1 : 0;
+-		t_key idx = c ? idx = get_index(c->key, p) + 1 : 0;
++		unsigned long idx = c ? idx = get_index(c->key, p) + 1 : 0;
  
- 		while (idx < 1u << p->bits) {
+-		while (idx < 1u << p->bits) {
++		while (idx < tnode_child_length(p)) {
  			c = tnode_get_child_rcu(p, idx++);
-@@ -1847,7 +1815,7 @@ rescan:
- 	/* Current node exhausted, pop back up */
- 	p = node_parent_rcu(tn);
- 	if (p) {
--		cindex = tkey_extract_bits(tn->key, p->pos, p->bits)+1;
-+		cindex = get_index(tn->key, p) + 1;
- 		tn = p;
- 		--iter->depth;
- 		goto rescan;
-@@ -2182,10 +2150,10 @@ static int fib_trie_seq_show(struct seq_file *seq, void *v)
- 	if (IS_TNODE(n)) {
- 		__be32 prf = htonl(n->key);
+ 			if (!c)
+ 				continue;
+@@ -1782,8 +1780,8 @@ struct fib_trie_iter {
  
--		seq_indent(seq, iter->depth - 1);
--		seq_printf(seq, "  +-- %pI4/%d %d %d %d\n",
--			   &prf, n->pos, n->bits, n->full_children,
--			   n->empty_children);
-+		seq_indent(seq, iter->depth-1);
-+		seq_printf(seq, "  +-- %pI4/%zu %u %u %u\n",
-+			   &prf, KEYLENGTH - n->pos - n->bits, n->bits,
-+			   n->full_children, n->empty_children);
- 	} else {
- 		struct leaf_info *li;
- 		__be32 val = htonl(n->key);
+ static struct tnode *fib_trie_get_next(struct fib_trie_iter *iter)
+ {
++	unsigned long cindex = iter->index;
+ 	struct tnode *tn = iter->tnode;
+-	unsigned int cindex = iter->index;
+ 	struct tnode *p;
+ 
+ 	/* A single entry routing table */
+@@ -1793,7 +1791,7 @@ static struct tnode *fib_trie_get_next(struct fib_trie_iter *iter)
+ 	pr_debug("get_next iter={node=%p index=%d depth=%d}\n",
+ 		 iter->tnode, iter->index, iter->depth);
+ rescan:
+-	while (cindex < (1<<tn->bits)) {
++	while (cindex < tnode_child_length(tn)) {
+ 		struct tnode *n = tnode_get_child_rcu(tn, cindex);
+ 
+ 		if (n) {
+@@ -1870,15 +1868,16 @@ static void trie_collect_stats(struct trie *t, struct trie_stat *s)
+ 			hlist_for_each_entry_rcu(li, &n->list, hlist)
+ 				++s->prefixes;
+ 		} else {
+-			int i;
++			unsigned long i;
+ 
+ 			s->tnodes++;
+ 			if (n->bits < MAX_STAT_DEPTH)
+ 				s->nodesizes[n->bits]++;
+ 
+-			for (i = 0; i < tnode_child_length(n); i++)
++			for (i = 0; i < tnode_child_length(n); i++) {
+ 				if (!rcu_access_pointer(n->child[i]))
+ 					s->nullpointers++;
++			}
+ 		}
+ 	}
+ 	rcu_read_unlock();
