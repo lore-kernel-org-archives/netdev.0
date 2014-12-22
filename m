@@ -1,51 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH 02/17] fib_trie: Make leaf and tnode more uniform
-Date: Mon, 22 Dec 2014 16:50:15 -0500 (EST)
-Message-ID: <20141222.165015.1694288362513627826.davem@davemloft.net>
-References: <20141222174105.1119.71598.stgit@ahduyck-vm-fedora20>
-	<20141222.133353.2244861758408916536.davem@davemloft.net>
-	<54986915.6050906@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: alexander.h.duyck@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43856 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754900AbaLVVuR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2014 16:50:17 -0500
-In-Reply-To: <54986915.6050906@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wolfram Sang <wsa@the-dreams.de>
+Subject: [PATCH 3/3] net: ieee802154: don't use devm_pinctrl_get_select_default() in probe
+Date: Mon, 22 Dec 2014 23:16:55 +0100
+Message-ID: <1419286616-9893-3-git-send-email-wsa@the-dreams.de>
+References: <1419286616-9893-1-git-send-email-wsa@the-dreams.de>
+Cc: linux-gpio@vger.kernel.org, Wolfram Sang <wsa@the-dreams.de>,
+	Varka Bhadram <varkabhadram@gmail.com>,
+	Alexander Aring <alex.aring@gmail.com>,
+	linux-wpan@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1419286616-9893-1-git-send-email-wsa@the-dreams.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Date: Mon, 22 Dec 2014 10:55:17 -0800
+Since commit ab78029ecc34 (drivers/pinctrl: grab default handles from device
+core), we can rely on device core for setting the default pins.
 
-> The thing is I don't think we would actually be saving any space. The
-> slub allocator will round us up anyway.  On a 32b system the size is
-> 28B if I recall correctly.  Dropping it to 24B would mean only a 2
-> child node could be allocated from the 32B slab.  Anything larger than
-> that it wouldn't matter.
+Signed-off-by: Wolfram Sang <wsa@the-dreams.de>
+---
+ drivers/net/ieee802154/cc2520.c | 7 -------
+ 1 file changed, 7 deletions(-)
 
-Indeed, you even mention this in the commit messages of your
-series.
-
-> My real concern with all of this is the fact that we have to do 2
-> separate memory reads per node, one for the key info and one for the
-> child pointer.  I really think we need to get this down to 1 in order
-> to get there, but the overhead is the tricky part for that. What I
-> would look at doing is splitting the tnode into two parts. One would
-> be a key vector (key, pos, bits, seq) paired with a pointer to either
-> a tnode_info or leaf_info, the other would be something like a
-> tnode_info (rcu, parent pointer, full_children, empty_children, key
-> vector array[0]) that provides a means of backtracing and stores the
-> nodes.  The problem is it makes insertion/deletion and backtracking
-> more complicated and doubles (64b) or quadruples (32b) the memory
-> needed as such I am still just throwing the idea around and haven't
-> gotten into implementation yet.
-
-I think calling into this code twice for every non-local FIB lookup
-has costs as well.
-
-And yes I agree with you that the memory references matter a lot.
+diff --git a/drivers/net/ieee802154/cc2520.c b/drivers/net/ieee802154/cc2520.c
+index c2b7da3da183..033473448d9f 100644
+--- a/drivers/net/ieee802154/cc2520.c
++++ b/drivers/net/ieee802154/cc2520.c
+@@ -19,7 +19,6 @@
+ #include <linux/workqueue.h>
+ #include <linux/interrupt.h>
+ #include <linux/skbuff.h>
+-#include <linux/pinctrl/consumer.h>
+ #include <linux/of_gpio.h>
+ #include <linux/ieee802154.h>
+ 
+@@ -841,7 +840,6 @@ done:
+ static int cc2520_probe(struct spi_device *spi)
+ {
+ 	struct cc2520_private *priv;
+-	struct pinctrl *pinctrl;
+ 	struct cc2520_platform_data *pdata;
+ 	int ret;
+ 
+@@ -854,11 +852,6 @@ static int cc2520_probe(struct spi_device *spi)
+ 
+ 	spi_set_drvdata(spi, priv);
+ 
+-	pinctrl = devm_pinctrl_get_select_default(&spi->dev);
+-	if (IS_ERR(pinctrl))
+-		dev_warn(&spi->dev,
+-			 "pinctrl pins are not configured\n");
+-
+ 	pdata = cc2520_get_platform_data(spi);
+ 	if (!pdata) {
+ 		dev_err(&spi->dev, "no platform data\n");
+-- 
+2.1.3
