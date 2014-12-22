@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/core: Handle csum for CHECKSUM_COMPLETE VXLAN
- forwarding
-Date: Mon, 22 Dec 2014 16:21:43 -0500 (EST)
-Message-ID: <20141222.162143.1589102649309575725.davem@davemloft.net>
-References: <2983.1419031920@famine>
+Subject: Re: [RESEND PATCH] net: s6gmac: remove driver
+Date: Mon, 22 Dec 2014 16:29:23 -0500 (EST)
+Message-ID: <20141222.162923.1183357932658326852.davem@davemloft.net>
+References: <20141111.113007.194586174190893576.davem@davemloft.net>
+	<1419190059-16501-1-git-send-email-dg@emlix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jay.vosburgh@canonical.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43603 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754869AbaLVVVq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2014 16:21:46 -0500
-In-Reply-To: <2983.1419031920@famine>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: dg@emlix.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1419190059-16501-1-git-send-email-dg@emlix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Date: Fri, 19 Dec 2014 15:32:00 -0800
+=46rom: Daniel Gl=F6ckner <dg@emlix.com>
+Date: Sun, 21 Dec 2014 20:27:39 +0100
 
-> 	The receive code is careful to update the skb->csum, except in
-> __dev_forward_skb, as called by dev_forward_skb.  __dev_forward_skb
-> calls eth_type_trans, which in turn calls skb_pull_inline(skb, ETH_HLEN)
-> to skip over the Ethernet header, but does not update skb->csum when
-> doing so.
+> The s6000 Xtensa support has been removed from the kernel in
+> 4006e565e1500db4. There are no other chips using this driver.
+>=20
+> While the Mentor/Alcatel PE-MCXMAC IP core is also used in other
+> designs (Freescale Gianfar/UCC, QLogic NetXen, Solarflare, Agere
+> ET-1310, Netlogic XLR/XLS), none of these use this driver as it
+> heavily depends on the s6000 DMA engine. In fact, there is no
+> code sharing across any of the aforementioned devices.
+>=20
+> Signed-off-by: Daniel Gl=F6ckner <dg@emlix.com>
 
-Hmmm, wasn't there some discussion about doing the skb_postpull_rcsum()
-in eth_type_trans()?
-
-But I guess that won't work for non-encapsulated ethernet cases?
+Applied, thanks.
