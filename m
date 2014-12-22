@@ -1,74 +1,33 @@
-From: Heiner Kallweit <hkallweit1@gmail.com>
-Subject: [PATCH iproute2] ip: allow ip address show to list addresses with
- certain flags not being set
-Date: Mon, 22 Dec 2014 20:18:43 +0100
-Message-ID: <54986E93.4030108@gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [RFC PATCH 01/17] fib_trie: Update usage stats to be percpu
+ instead of global variables
+Date: Mon, 22 Dec 2014 11:21:44 -0800
+Message-ID: <CAHA+R7P1i1B2F5e7kR-rAsQPRL0F0=r7J06qu68kxQ5N9q5H9Q@mail.gmail.com>
+References: <20141222172632.1119.51469.stgit@ahduyck-vm-fedora20>
+	<20141222174058.1119.55120.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:54437 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932111AbaLVTTX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2014 14:19:23 -0500
-Received: by mail-wi0-f179.google.com with SMTP id ex7so8894734wid.12
-        for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 11:19:22 -0800 (PST)
+Received: from mail-qg0-f46.google.com ([209.85.192.46]:47831 "EHLO
+	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754460AbaLVTVp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2014 14:21:45 -0500
+Received: by mail-qg0-f46.google.com with SMTP id q107so3698414qgd.33
+        for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 11:21:45 -0800 (PST)
+In-Reply-To: <20141222174058.1119.55120.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sometimes it's needed to have "ip address show" list only addresses
-with certain flags not being set, e.g. in network scripts.
-As an example one might want to exclude addresses in "tentative"
-or "deprecated" state.
+On Mon, Dec 22, 2014 at 9:40 AM, Alexander Duyck
+<alexander.h.duyck@redhat.com> wrote:
+> @@ -1388,7 +1388,7 @@ static int check_leaf(struct fib_table *tb, struct trie *t, struct leaf *l,
+>                 }
+>
+>  #ifdef CONFIG_IP_FIB_TRIE_STATS
+> -               t->stats.semantic_match_miss++;
+> +               this_cpu_ptr(t->stats->semantic_match_miss);
 
-Support listing addresses with flags tentative, deprecated, dadfailed
-not being set by prefixing the respective flag with a minus.
 
-Signed-off-by: Heiner Kallweit <hkallweit1@gmail.com>
----
- ip/ipaddress.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
-
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 221ae1f..a071572 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -80,7 +80,7 @@ static void usage(void)
- 	fprintf(stderr, "SCOPE-ID := [ host | link | global | NUMBER ]\n");
- 	fprintf(stderr, "FLAG-LIST := [ FLAG-LIST ] FLAG\n");
- 	fprintf(stderr, "FLAG  := [ permanent | dynamic | secondary | primary |\n");
--	fprintf(stderr, "           tentative | deprecated | dadfailed | temporary |\n");
-+	fprintf(stderr, "           [-]tentative | [-]deprecated | [-]dadfailed | temporary |\n");
- 	fprintf(stderr, "           CONFFLAG-LIST ]\n");
- 	fprintf(stderr, "CONFFLAG-LIST := [ CONFFLAG-LIST ] CONFFLAG\n");
- 	fprintf(stderr, "CONFFLAG  := [ home | nodad | mngtmpaddr | noprefixroute ]\n");
-@@ -1261,9 +1261,15 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
- 		} else if (strcmp(*argv, "tentative") == 0) {
- 			filter.flags |= IFA_F_TENTATIVE;
- 			filter.flagmask |= IFA_F_TENTATIVE;
-+		} else if (strcmp(*argv, "-tentative") == 0) {
-+			filter.flags &= ~IFA_F_TENTATIVE;
-+			filter.flagmask |= IFA_F_TENTATIVE;
- 		} else if (strcmp(*argv, "deprecated") == 0) {
- 			filter.flags |= IFA_F_DEPRECATED;
- 			filter.flagmask |= IFA_F_DEPRECATED;
-+		} else if (strcmp(*argv, "-deprecated") == 0) {
-+			filter.flags &= ~IFA_F_DEPRECATED;
-+			filter.flagmask |= IFA_F_DEPRECATED;
- 		} else if (strcmp(*argv, "home") == 0) {
- 			filter.flags |= IFA_F_HOMEADDRESS;
- 			filter.flagmask |= IFA_F_HOMEADDRESS;
-@@ -1279,6 +1285,9 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
- 		} else if (strcmp(*argv, "dadfailed") == 0) {
- 			filter.flags |= IFA_F_DADFAILED;
- 			filter.flagmask |= IFA_F_DADFAILED;
-+		} else if (strcmp(*argv, "-dadfailed") == 0) {
-+			filter.flags &= ~IFA_F_DADFAILED;
-+			filter.flagmask |= IFA_F_DADFAILED;
- 		} else if (strcmp(*argv, "label") == 0) {
- 			NEXT_ARG();
- 			filter.label = *argv;
--- 
-2.2.1
+You mean this_cpu_inc() ?
