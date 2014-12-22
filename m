@@ -1,57 +1,129 @@
-From: Wolfram Sang <wsa@the-dreams.de>
-Subject: [PATCH 3/3] net: ieee802154: don't use devm_pinctrl_get_select_default() in probe
-Date: Mon, 22 Dec 2014 23:16:55 +0100
-Message-ID: <1419286616-9893-3-git-send-email-wsa@the-dreams.de>
-References: <1419286616-9893-1-git-send-email-wsa@the-dreams.de>
-Cc: linux-gpio@vger.kernel.org, Wolfram Sang <wsa@the-dreams.de>,
-	Varka Bhadram <varkabhadram@gmail.com>,
-	Alexander Aring <alex.aring@gmail.com>,
-	linux-wpan@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1419286616-9893-1-git-send-email-wsa@the-dreams.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2 v2] ip lib: Added shorter timestamp option
+Date: Tue, 23 Dec 2014 00:13:58 +0200
+Message-ID: <1419286438-21504-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f48.google.com ([209.85.215.48]:35676 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752822AbaLVWYG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2014 17:24:06 -0500
+Received: by mail-la0-f48.google.com with SMTP id gf13so4591166lab.21
+        for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 14:24:04 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since commit ab78029ecc34 (drivers/pinctrl: grab default handles from device
-core), we can rely on device core for setting the default pins.
+From: Vadim Kochan <vadim4j@gmail.com>
 
-Signed-off-by: Wolfram Sang <wsa@the-dreams.de>
+Added another timestamp format to look like more logging info:
+
+[2014-12-22T22:36:50.489 ] 2: enp0s25: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default
+    link/ether 3c:97:0e:a3:86:2e brd ff:ff:ff:ff:ff:ff
+
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 ---
- drivers/net/ieee802154/cc2520.c | 7 -------
- 1 file changed, 7 deletions(-)
+ include/utils.h       |  1 +
+ ip/ip.c               |  5 ++++-
+ lib/utils.c           | 15 ++++++++++++---
+ man/man8/ip-monitor.8 | 13 +++++++++++++
+ 4 files changed, 30 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ieee802154/cc2520.c b/drivers/net/ieee802154/cc2520.c
-index c2b7da3da183..033473448d9f 100644
---- a/drivers/net/ieee802154/cc2520.c
-+++ b/drivers/net/ieee802154/cc2520.c
-@@ -19,7 +19,6 @@
- #include <linux/workqueue.h>
- #include <linux/interrupt.h>
- #include <linux/skbuff.h>
--#include <linux/pinctrl/consumer.h>
- #include <linux/of_gpio.h>
- #include <linux/ieee802154.h>
+diff --git a/include/utils.h b/include/utils.h
+index eef9c42..eecbc39 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -19,6 +19,7 @@ extern int show_raw;
+ extern int resolve_hosts;
+ extern int oneline;
+ extern int timestamp;
++extern int timestamp_short;
+ extern char * _SL_;
+ extern int max_flush_loops;
+ extern int batch_mode;
+diff --git a/ip/ip.c b/ip/ip.c
+index 5f759d5..9b90707 100644
+--- a/ip/ip.c
++++ b/ip/ip.c
+@@ -53,7 +53,7 @@ static void usage(void)
+ "                    -f[amily] { inet | inet6 | ipx | dnet | bridge | link } |\n"
+ "                    -4 | -6 | -I | -D | -B | -0 |\n"
+ "                    -l[oops] { maximum-addr-flush-attempts } |\n"
+-"                    -o[neline] | -t[imestamp] | -b[atch] [filename] |\n"
++"                    -o[neline] | -t[imestamp] | -t[short] | -b[atch] [filename] |\n"
+ "                    -rc[vbuf] [size]}\n");
+ 	exit(-1);
+ }
+@@ -232,6 +232,9 @@ int main(int argc, char **argv)
+ 			++oneline;
+ 		} else if (matches(opt, "-timestamp") == 0) {
+ 			++timestamp;
++		} else if (matches(opt, "-tshort") == 0) {
++			++timestamp;
++			++timestamp_short;
+ #if 0
+ 		} else if (matches(opt, "-numeric") == 0) {
+ 			rtnl_names_numeric++;
+diff --git a/lib/utils.c b/lib/utils.c
+index 987377b..1cf0679 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -32,6 +32,8 @@
  
-@@ -841,7 +840,6 @@ done:
- static int cc2520_probe(struct spi_device *spi)
+ #include "utils.h"
+ 
++int timestamp_short = 0;
++
+ int get_integer(int *val, const char *arg, int base)
  {
- 	struct cc2520_private *priv;
--	struct pinctrl *pinctrl;
- 	struct cc2520_platform_data *pdata;
- 	int ret;
+ 	long res;
+@@ -773,13 +775,20 @@ int print_timestamp(FILE *fp)
+ {
+ 	struct timeval tv;
+ 	char *tstr;
++	char tshort[40] = {};
  
-@@ -854,11 +852,6 @@ static int cc2520_probe(struct spi_device *spi)
+ 	memset(&tv, 0, sizeof(tv));
+ 	gettimeofday(&tv, NULL);
  
- 	spi_set_drvdata(spi, priv);
+-	tstr = asctime(localtime(&tv.tv_sec));
+-	tstr[strlen(tstr)-1] = 0;
+-	fprintf(fp, "Timestamp: %s %ld usec\n", tstr, (long)tv.tv_usec);
++	if (timestamp_short) {
++		strftime(tshort, sizeof(tshort), "%Y-%m-%dT%H:%M:%S", localtime(&tv.tv_sec));
++		fprintf(fp, "[%s.%-4ld] ", tshort, (long)tv.tv_usec / 1000);
++	} else {
++		tstr = asctime(localtime(&tv.tv_sec));
++		tstr[strlen(tstr)-1] = 0;
++		fprintf(fp, "Timestamp: %s %ld usec\n", tstr, (long)tv.tv_usec);
++	}
++
+ 	return 0;
+ }
  
--	pinctrl = devm_pinctrl_get_select_default(&spi->dev);
--	if (IS_ERR(pinctrl))
--		dev_warn(&spi->dev,
--			 "pinctrl pins are not configured\n");
--
- 	pdata = cc2520_get_platform_data(spi);
- 	if (!pdata) {
- 		dev_err(&spi->dev, "no platform data\n");
+diff --git a/man/man8/ip-monitor.8 b/man/man8/ip-monitor.8
+index 68e83f1..544b625 100644
+--- a/man/man8/ip-monitor.8
++++ b/man/man8/ip-monitor.8
+@@ -16,6 +16,19 @@ ip-monitor, rtmon \- state monitoring
+ ]
+ .sp
+ 
++.SH OPTIONS
++
++.TP
++.BR "\-t" , " \-timestamp"
++Prints timestamp before the event message on the separated line in format:
++    Timestamp: <Day> <Month> <DD> <hh:mm:ss> <YYYY> <usecs> usec
++    <EVENT>
++
++.TP
++.BR "\-ts" , " \-tshort"
++Prints short timestamp before the event message on the same line in format:
++    [<YYYY>-<MM>-<DD>T<hh:mm:ss>.<ms>] <EVENT>
++
+ .SH DESCRIPTION
+ The
+ .B ip
 -- 
 2.1.3
