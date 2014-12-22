@@ -1,129 +1,31 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v2] ip lib: Added shorter timestamp option
-Date: Tue, 23 Dec 2014 00:13:58 +0200
-Message-ID: <1419286438-21504-1-git-send-email-vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2 v2] tc: Show classes in tree view
+Date: Tue, 23 Dec 2014 00:19:29 +0200
+Message-ID: <20141222221929.GA21942@angus-think.lan>
+References: <1419263518-14434-1-git-send-email-vadim4j@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: Vadim Kochan <vadim4j@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f48.google.com ([209.85.215.48]:35676 "EHLO
-	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752822AbaLVWYG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2014 17:24:06 -0500
-Received: by mail-la0-f48.google.com with SMTP id gf13so4591166lab.21
-        for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 14:24:04 -0800 (PST)
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:58474 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753715AbaLVW3f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2014 17:29:35 -0500
+Received: by mail-lb0-f169.google.com with SMTP id p9so4596469lbv.0
+        for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 14:29:33 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1419263518-14434-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Kochan <vadim4j@gmail.com>
+On Mon, Dec 22, 2014 at 05:51:58PM +0200, Vadim Kochan wrote:
+> From: Vadim Kochan <vadim4j@gmail.com>
+> 
+> Added new '-t[ree]' which shows classes dependency
+> in the tree view. Meanwhile only generic stats info
+> is supported.
+> 
 
-Added another timestamp format to look like more logging info:
-
-[2014-12-22T22:36:50.489 ] 2: enp0s25: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default
-    link/ether 3c:97:0e:a3:86:2e brd ff:ff:ff:ff:ff:ff
-
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- include/utils.h       |  1 +
- ip/ip.c               |  5 ++++-
- lib/utils.c           | 15 ++++++++++++---
- man/man8/ip-monitor.8 | 13 +++++++++++++
- 4 files changed, 30 insertions(+), 4 deletions(-)
-
-diff --git a/include/utils.h b/include/utils.h
-index eef9c42..eecbc39 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -19,6 +19,7 @@ extern int show_raw;
- extern int resolve_hosts;
- extern int oneline;
- extern int timestamp;
-+extern int timestamp_short;
- extern char * _SL_;
- extern int max_flush_loops;
- extern int batch_mode;
-diff --git a/ip/ip.c b/ip/ip.c
-index 5f759d5..9b90707 100644
---- a/ip/ip.c
-+++ b/ip/ip.c
-@@ -53,7 +53,7 @@ static void usage(void)
- "                    -f[amily] { inet | inet6 | ipx | dnet | bridge | link } |\n"
- "                    -4 | -6 | -I | -D | -B | -0 |\n"
- "                    -l[oops] { maximum-addr-flush-attempts } |\n"
--"                    -o[neline] | -t[imestamp] | -b[atch] [filename] |\n"
-+"                    -o[neline] | -t[imestamp] | -t[short] | -b[atch] [filename] |\n"
- "                    -rc[vbuf] [size]}\n");
- 	exit(-1);
- }
-@@ -232,6 +232,9 @@ int main(int argc, char **argv)
- 			++oneline;
- 		} else if (matches(opt, "-timestamp") == 0) {
- 			++timestamp;
-+		} else if (matches(opt, "-tshort") == 0) {
-+			++timestamp;
-+			++timestamp_short;
- #if 0
- 		} else if (matches(opt, "-numeric") == 0) {
- 			rtnl_names_numeric++;
-diff --git a/lib/utils.c b/lib/utils.c
-index 987377b..1cf0679 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -32,6 +32,8 @@
- 
- #include "utils.h"
- 
-+int timestamp_short = 0;
-+
- int get_integer(int *val, const char *arg, int base)
- {
- 	long res;
-@@ -773,13 +775,20 @@ int print_timestamp(FILE *fp)
- {
- 	struct timeval tv;
- 	char *tstr;
-+	char tshort[40] = {};
- 
- 	memset(&tv, 0, sizeof(tv));
- 	gettimeofday(&tv, NULL);
- 
--	tstr = asctime(localtime(&tv.tv_sec));
--	tstr[strlen(tstr)-1] = 0;
--	fprintf(fp, "Timestamp: %s %ld usec\n", tstr, (long)tv.tv_usec);
-+	if (timestamp_short) {
-+		strftime(tshort, sizeof(tshort), "%Y-%m-%dT%H:%M:%S", localtime(&tv.tv_sec));
-+		fprintf(fp, "[%s.%-4ld] ", tshort, (long)tv.tv_usec / 1000);
-+	} else {
-+		tstr = asctime(localtime(&tv.tv_sec));
-+		tstr[strlen(tstr)-1] = 0;
-+		fprintf(fp, "Timestamp: %s %ld usec\n", tstr, (long)tv.tv_usec);
-+	}
-+
- 	return 0;
- }
- 
-diff --git a/man/man8/ip-monitor.8 b/man/man8/ip-monitor.8
-index 68e83f1..544b625 100644
---- a/man/man8/ip-monitor.8
-+++ b/man/man8/ip-monitor.8
-@@ -16,6 +16,19 @@ ip-monitor, rtmon \- state monitoring
- ]
- .sp
- 
-+.SH OPTIONS
-+
-+.TP
-+.BR "\-t" , " \-timestamp"
-+Prints timestamp before the event message on the separated line in format:
-+    Timestamp: <Day> <Month> <DD> <hh:mm:ss> <YYYY> <usecs> usec
-+    <EVENT>
-+
-+.TP
-+.BR "\-ts" , " \-tshort"
-+Prints short timestamp before the event message on the same line in format:
-+    [<YYYY>-<MM>-<DD>T<hh:mm:ss>.<ms>] <EVENT>
-+
- .SH DESCRIPTION
- The
- .B ip
--- 
-2.1.3
+Seems here is one limitation with this code so that it will not pick child
+classes from the leaf classfull qdisc.
