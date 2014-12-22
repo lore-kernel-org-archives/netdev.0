@@ -1,23 +1,33 @@
-From: Eric Biggers <ebiggers3@gmail.com>
-Subject: Re: [PATCH for 3.19] rtlwifi: Fix error when accessing unmapped
- memory in skb
-Date: Mon, 22 Dec 2014 13:48:43 -0600
-Message-ID: <20141222194843.GA7575@zzz>
-References: <1419269826-12552-1-git-send-email-Larry.Finger@lwfinger.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fixed TPACKET V3 to signal poll when block is closed
+ rather than every packet
+Date: Mon, 22 Dec 2014 15:41:44 -0500 (EST)
+Message-ID: <20141222.154144.2133538994062884017.davem@davemloft.net>
+References: <1418960965-29522-1-git-send-email-dan@dcollins.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvalo@codeaurora.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1419269826-12552-1-git-send-email-Larry.Finger@lwfinger.net>
-Sender: stable-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: dan@dcollins.co.nz
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1418960965-29522-1-git-send-email-dan@dcollins.co.nz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Is this really the same behavior as 3.17?  In 3.17, allocating the new skb is
-one of the first things the interrupt handler does, and if that fails it drops
-the packet and keeps using the old skb.  In this proposal, it's only after the
-packet has been received and the old skb has been freed that a new one is
-allocated.  And if that fails --- well, what are you expecting to happen
-exactly?
+From: Dan Collins <dan@dcollins.co.nz>
+Date: Fri, 19 Dec 2014 16:49:25 +1300
+
+> Make TPACKET_V3 signal poll when block is closed rather than for every
+> packet. Side effect is that poll will be signaled when block retire
+> timer expires which didn't previously happen. Issue was visible when
+> sending packets at a very low frequency such that all blocks are retired
+> before packets are received by TPACKET_V3. This caused avoidable packet
+> loss. The fix ensures that the signal is sent when blocks are closed
+> which covers the normal path where the block is filled as well as the
+> path where the timer expires. The case where a block is filled without
+> moving to the next block (ie. all blocks are full) will still cause poll
+> to be signaled.
+> 
+> Signed-off-by: Dan Collins <dan@dcollins.co.nz>
+
+Applied, thanks.
