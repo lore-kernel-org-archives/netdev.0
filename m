@@ -1,35 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: unisys: adding unisys virtnic driver
-Date: Mon, 22 Dec 2014 13:08:06 -0500 (EST)
-Message-ID: <20141222.130806.1317934447707840013.davem@davemloft.net>
-References: <1418842340-29894-1-git-send-email-earfvids@redhat.com>
-	<5497D708.7070109@gmail.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: [PATCH RFC] ipw2200: select CFG80211_WEXT
+Date: Mon, 22 Dec 2014 19:10:17 +0100
+Message-ID: <1419271817.2317.12.camel@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: earfvids@redhat.com, benjamin.romer@unisys.com,
-	netdev@vger.kernel.org, dzickus@redhat.com,
-	Bruce.Vessey@unisys.com, sparmaintainer@unisys.com,
-	prarit@redhat.com
-To: zyjzyj2000@gmail.com
+Cc: Stanislav Yakovlev <stas.yakovlev@gmail.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes.berg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41776 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754957AbaLVSIN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2014 13:08:13 -0500
-In-Reply-To: <5497D708.7070109@gmail.com>
+Received: from cpsmtpb-ews01.kpnxchange.com ([213.75.39.4]:62532 "EHLO
+	cpsmtpb-ews01.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754957AbaLVSKU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2014 13:10:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: zhuyj <zyjzyj2000@gmail.com>
-Date: Mon, 22 Dec 2014 16:32:08 +0800
+Commit 24a0aa212ee2 ("cfg80211: make WEXT compatibility unselectable")
+made it impossible to depend on CFG80211_WEXT. It does still allow to
+select that symbol. (Yes, the commit summary is confusing.)
 
-> Compared with veth, tun/tap, is there any difference about this
-> virtnic?
+So make IPW2200 select CFG80211_WEXT, so that the ipw2200 driver can be
+built again.
 
-First, please do not top-post.
+Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+---
+Johannes,
 
-Second, do not quote an entire huge patch just to make a 2-line
-comment.  Everyone now has to receive that huge patch again in
-their inbox, so you are creating a huge burdon for everyone on
-the list.
+Building v3.19-rc1 for an outdated ThinkPad X41 left me without the
+ipw2200 driver. It turns out this trivial patch is all that's needed to
+make ipw2200 buildable again.
+
+(A similar patch would be needed for the drivers behind Kconfig symbol
+HERMES. Ie, orinico and friends.) 
+
+I must admit that I do not fully understand your commit. (How was
+CFG80211_WEXT "marked for deprecation and removal for a little more than
+two years"?) There's some terminology confusion: what you call "select"
+I tend to call "set". Anyhow, your commit basically disables building
+ipw2200 (and apparently orinoco and friends)?
+
+Was that your intention?
+ 
+ drivers/net/wireless/ipw2x00/Kconfig | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/ipw2x00/Kconfig b/drivers/net/wireless/ipw2x00/Kconfig
+index 91c0cb3c368e..21de4fe6cf2d 100644
+--- a/drivers/net/wireless/ipw2x00/Kconfig
++++ b/drivers/net/wireless/ipw2x00/Kconfig
+@@ -65,7 +65,8 @@ config IPW2100_DEBUG
+ 
+ config IPW2200
+ 	tristate "Intel PRO/Wireless 2200BG and 2915ABG Network Connection"
+-	depends on PCI && CFG80211 && CFG80211_WEXT
++	depends on PCI && CFG80211
++	select CFG80211_WEXT
+ 	select WIRELESS_EXT
+ 	select WEXT_SPY
+ 	select WEXT_PRIV
+-- 
+2.1.0
