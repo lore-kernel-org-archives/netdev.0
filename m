@@ -1,62 +1,91 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 1/5] netlink: rename netlink_unbind() to netlink_undo_bind()
-Date: Mon, 22 Dec 2014 18:56:35 +0100
-Message-ID: <1419270999-22165-2-git-send-email-johannes@sipsolutions.net>
-References: <1419270999-22165-1-git-send-email-johannes@sipsolutions.net>
-Cc: Johannes Berg <johannes.berg@intel.com>
-To: netdev@vger.kernel.org
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: [RFC PATCH 00/17] fib_trie: Reduce time spent in fib_table_lookup
+ by 35 to 75%
+Date: Mon, 22 Dec 2014 10:08:09 -0800
+Message-ID: <CAA93jw7Zz8_wToKOou42mXhgunZypQ6f=oGEHZk2K6CbrsrNqg@mail.gmail.com>
+References: <20141222172632.1119.51469.stgit@ahduyck-vm-fedora20>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:35030 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755388AbaLVR4p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Dec 2014 12:56:45 -0500
-In-Reply-To: <1419270999-22165-1-git-send-email-johannes@sipsolutions.net>
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:61023 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754957AbaLVSIJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2014 13:08:09 -0500
+Received: by mail-ob0-f170.google.com with SMTP id wp18so22204395obc.1
+        for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 10:08:09 -0800 (PST)
+In-Reply-To: <20141222172632.1119.51469.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes.berg@intel.com>
+impressive. I think. But I don't quite understand what you mean by a de=
+pth of 7?
 
-The new name is more expressive - this isn't a generic unbind
-function but rather only a little undo helper for use only in
-netlink_bind().
+What did your routing table actually look like?
 
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
----
- net/netlink/af_netlink.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+=46or example, my ipv4 routing table looks like this at the moment.
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index ef5f77b44ec7..1117a2cc7c28 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1430,8 +1430,8 @@ static int netlink_realloc_groups(struct sock *sk)
- 	return err;
- }
- 
--static void netlink_unbind(int group, long unsigned int groups,
--			   struct netlink_sock *nlk)
-+static void netlink_undo_bind(int group, long unsigned int groups,
-+			      struct netlink_sock *nlk)
- {
- 	int undo;
- 
-@@ -1481,7 +1481,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
- 			err = nlk->netlink_bind(group);
- 			if (!err)
- 				continue;
--			netlink_unbind(group, groups, nlk);
-+			netlink_undo_bind(group, groups, nlk);
- 			return err;
- 		}
- 	}
-@@ -1491,7 +1491,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
- 			netlink_insert(sk, net, nladdr->nl_pid) :
- 			netlink_autobind(sock);
- 		if (err) {
--			netlink_unbind(nlk->ngroups, groups, nlk);
-+			netlink_undo_bind(nlk->ngroups, groups, nlk);
- 			return err;
- 		}
- 	}
--- 
-2.1.1
+What is depth? searching from /32, /31, /30, /29?
+
+root@davedesk:~# ip route
+default via 172.21.2.21 dev se00  proto babel onlink
+10.1.10.0/24 via 172.21.2.21 dev se00  proto babel onlink
+10.1.10.12 via 172.21.2.21 dev se00  proto babel onlink
+50.197.142.144/29 via 172.21.0.1 dev ge00  proto babel onlink
+73.15.8.0/23 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.1.0/24 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.2.0/27 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.2.0/24 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.2.7 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.4.0/24 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.5.0/24 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.6.0/24 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.6.1 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.7.0/24 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.8.0/24 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.20.0/24 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.47.0/24 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.47.1 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.92.64/27 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.92.96/27 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.142.2 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.142.3 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.142.4 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.142.5 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.142.6 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.142.7 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.142.9 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.142.10 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.142.11 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.142.16 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.142.45 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.143.4 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.143.6 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.143.7 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.143.20 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.222.0/24 via 172.21.0.1 dev ge00  proto babel onlink
+172.20.223.0/24 via 172.21.0.1 dev ge00  proto babel onlink
+172.21.0.0/24 dev ge00  proto kernel  scope link  src 172.21.0.2
+172.21.0.1 via 172.21.0.1 dev ge00  proto babel onlink
+172.21.2.0/27 dev se00  proto kernel  scope link  src 172.21.2.1
+172.21.2.20 via 172.21.2.20 dev se00  proto babel onlink
+172.21.2.21 via 172.21.2.21 dev se00  proto babel onlink
+172.21.2.64/27 dev sw00  proto kernel  scope link  src 172.21.2.65
+172.21.2.96/27 dev sw10  proto kernel  scope link  src 172.21.2.97
+172.21.2.128/27 dev gw00  proto kernel  scope link  src 172.21.2.129
+172.21.2.160/27 dev gw10  proto kernel  scope link  src 172.21.2.161
+172.21.128.0/24 via 172.21.2.21 dev se00  proto babel onlink
+172.21.128.0/20 via 172.21.2.21 dev se00  proto babel onlink
+172.21.129.0/24 via 172.21.2.21 dev se00  proto babel onlink
+172.23.2.0/23 via 172.21.0.1 dev ge00  proto babel onlink
+172.23.6.0/23 via 172.21.0.1 dev ge00  proto babel onlink
+172.23.143.3 via 172.21.0.1 dev ge00  proto babel onlink
+172.23.143.7 via 172.21.0.1 dev ge00  proto babel onlink
+192.168.7.2 via 172.21.0.1 dev ge00  proto babel onlink
+
+
+Dave T=C3=A4ht
+
+http://www.bufferbloat.net/projects/bloat/wiki/Upcoming_Talks
