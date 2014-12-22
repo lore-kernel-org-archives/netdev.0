@@ -1,69 +1,74 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH RFC] ipw2200: select CFG80211_WEXT
-Date: Mon, 22 Dec 2014 20:13:02 +0100
-Message-ID: <1419275582.1890.24.camel@sipsolutions.net>
-References: <1419271817.2317.12.camel@tiscali.nl>
-	 (sfid-20141222_191040_534124_837C59D7)
+From: Heiner Kallweit <hkallweit1@gmail.com>
+Subject: [PATCH iproute2] ip: allow ip address show to list addresses with
+ certain flags not being set
+Date: Mon, 22 Dec 2014 20:18:43 +0100
+Message-ID: <54986E93.4030108@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Stanislav Yakovlev <stas.yakovlev@gmail.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1419271817.2317.12.camel@tiscali.nl> (sfid-20141222_191040_534124_837C59D7)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:54437 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932111AbaLVTTX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2014 14:19:23 -0500
+Received: by mail-wi0-f179.google.com with SMTP id ex7so8894734wid.12
+        for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 11:19:22 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-12-22 at 19:10 +0100, Paul Bolle wrote:
-> Commit 24a0aa212ee2 ("cfg80211: make WEXT compatibility unselectable")
-> made it impossible to depend on CFG80211_WEXT. It does still allow to
-> select that symbol. (Yes, the commit summary is confusing.)
-> 
-> So make IPW2200 select CFG80211_WEXT, so that the ipw2200 driver can be
-> built again.
-> 
-> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
-> ---
-> Johannes,
-> 
-> Building v3.19-rc1 for an outdated ThinkPad X41 left me without the
-> ipw2200 driver. It turns out this trivial patch is all that's needed to
-> make ipw2200 buildable again.
-> 
-> (A similar patch would be needed for the drivers behind Kconfig symbol
-> HERMES. Ie, orinico and friends.) 
-> 
-> I must admit that I do not fully understand your commit. (How was
-> CFG80211_WEXT "marked for deprecation and removal for a little more than
-> two years"?) There's some terminology confusion: what you call "select"
-> I tend to call "set". Anyhow, your commit basically disables building
-> ipw2200 (and apparently orinoco and friends)?
-> 
-> Was that your intention?
->  
->  drivers/net/wireless/ipw2x00/Kconfig | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/wireless/ipw2x00/Kconfig b/drivers/net/wireless/ipw2x00/Kconfig
-> index 91c0cb3c368e..21de4fe6cf2d 100644
-> --- a/drivers/net/wireless/ipw2x00/Kconfig
-> +++ b/drivers/net/wireless/ipw2x00/Kconfig
-> @@ -65,7 +65,8 @@ config IPW2100_DEBUG
->  
->  config IPW2200
->  	tristate "Intel PRO/Wireless 2200BG and 2915ABG Network Connection"
-> -	depends on PCI && CFG80211 && CFG80211_WEXT
-> +	depends on PCI && CFG80211
-> +	select CFG80211_WEXT
->  	select WIRELESS_EXT
+Sometimes it's needed to have "ip address show" list only addresses
+with certain flags not being set, e.g. in network scripts.
+As an example one might want to exclude addresses in "tentative"
+or "deprecated" state.
 
-I didn't realize that this driver actually depended on this symbol - I
-had been under the impression that those would still use regular wext
-(WIRELESS_EXT) only.
+Support listing addresses with flags tentative, deprecated, dadfailed
+not being set by prefixing the respective flag with a minus.
 
-So yeah - this makes sense. FWIW, by "selectable" I meant by the user.
+Signed-off-by: Heiner Kallweit <hkallweit1@gmail.com>
+---
+ ip/ipaddress.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
 
-johannes
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 221ae1f..a071572 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -80,7 +80,7 @@ static void usage(void)
+ 	fprintf(stderr, "SCOPE-ID := [ host | link | global | NUMBER ]\n");
+ 	fprintf(stderr, "FLAG-LIST := [ FLAG-LIST ] FLAG\n");
+ 	fprintf(stderr, "FLAG  := [ permanent | dynamic | secondary | primary |\n");
+-	fprintf(stderr, "           tentative | deprecated | dadfailed | temporary |\n");
++	fprintf(stderr, "           [-]tentative | [-]deprecated | [-]dadfailed | temporary |\n");
+ 	fprintf(stderr, "           CONFFLAG-LIST ]\n");
+ 	fprintf(stderr, "CONFFLAG-LIST := [ CONFFLAG-LIST ] CONFFLAG\n");
+ 	fprintf(stderr, "CONFFLAG  := [ home | nodad | mngtmpaddr | noprefixroute ]\n");
+@@ -1261,9 +1261,15 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
+ 		} else if (strcmp(*argv, "tentative") == 0) {
+ 			filter.flags |= IFA_F_TENTATIVE;
+ 			filter.flagmask |= IFA_F_TENTATIVE;
++		} else if (strcmp(*argv, "-tentative") == 0) {
++			filter.flags &= ~IFA_F_TENTATIVE;
++			filter.flagmask |= IFA_F_TENTATIVE;
+ 		} else if (strcmp(*argv, "deprecated") == 0) {
+ 			filter.flags |= IFA_F_DEPRECATED;
+ 			filter.flagmask |= IFA_F_DEPRECATED;
++		} else if (strcmp(*argv, "-deprecated") == 0) {
++			filter.flags &= ~IFA_F_DEPRECATED;
++			filter.flagmask |= IFA_F_DEPRECATED;
+ 		} else if (strcmp(*argv, "home") == 0) {
+ 			filter.flags |= IFA_F_HOMEADDRESS;
+ 			filter.flagmask |= IFA_F_HOMEADDRESS;
+@@ -1279,6 +1285,9 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
+ 		} else if (strcmp(*argv, "dadfailed") == 0) {
+ 			filter.flags |= IFA_F_DADFAILED;
+ 			filter.flagmask |= IFA_F_DADFAILED;
++		} else if (strcmp(*argv, "-dadfailed") == 0) {
++			filter.flags &= ~IFA_F_DADFAILED;
++			filter.flagmask |= IFA_F_DADFAILED;
+ 		} else if (strcmp(*argv, "label") == 0) {
+ 			NEXT_ARG();
+ 			filter.label = *argv;
+-- 
+2.2.1
