@@ -1,7 +1,8 @@
 From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH v3 3/3] igb: Fix a memory leak in igb_probe
-Date: Tue, 23 Dec 2014 15:17:04 +0800
-Message-ID: <1419319024-30455-3-git-send-email-baijiaju1990@163.com>
+Subject: [PATCH v3 2/3] igb: Add
+	pci_disable_pcie_error_reporting in error handling
+Date: Tue, 23 Dec 2014 15:17:03 +0800
+Message-ID: <1419319024-30455-2-git-send-email-baijiaju1990@163.com>
 References: <1419319024-30455-1-git-send-email-baijiaju1990@163.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,9 +25,8 @@ Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
 For linux-3.18.0
-The driver calls kcalloc to allocate memory for adapter->shadow_vfta
-in igb_sw_init, but kfree is not called in error handling of igb_probe.
-So when register_netdev or igb_init_i2c is failed, a memory leak occurs.
+The driver lacks pci_disable_pcie_error_reporting in error handling,
+which should match pci_enable_pcie_error_reporting in igb_probe.
 This patch fixes this problem, and it has been tested in runtime.
 
 Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
@@ -35,17 +35,17 @@ Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 487cd9c..a0be1e5 100644
+index 487cd9c..59e0ba4 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2659,6 +2659,7 @@ err_eeprom:
- 	if (hw->flash_address)
- 		iounmap(hw->flash_address);
- err_sw_init:
-+	kfree(adapter->shadow_vfta);
- 	igb_clear_interrupt_scheme(adapter);
- 	pci_iounmap(pdev, hw->hw_addr);
+@@ -2664,6 +2664,7 @@ err_sw_init:
  err_ioremap:
+ 	free_netdev(netdev);
+ err_alloc_etherdev:
++	pci_disable_pcie_error_reporting(pdev);
+ 	pci_release_selected_regions(pdev,
+ 				     pci_select_bars(pdev, IORESOURCE_MEM));
+ err_pci_reg:
 -- 
 1.7.9.5
 
