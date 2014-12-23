@@ -1,40 +1,35 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net] neigh: remove next ptr from struct neigh_table
-Date: Tue, 23 Dec 2014 17:50:37 +0100
-Message-ID: <1419353437-4213-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:35934 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754789AbaLWQup (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2014 11:50:45 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicholas Mc Guire <der.herr@hofr.at>
+Subject: [PATCH] net: incorrect use of init_completion fixup
+Date: Tue, 23 Dec 2014 18:47:50 +0100
+Message-ID: <1419356870-22710-1-git-send-email-der.herr@hofr.at>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nicholas Mc Guire <der.herr@hofr.at>
+To: Rasesh Mody <rasesh.mody@qlogic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-After commit
-d7480fd3b173 ("neigh: remove dynamic neigh table registration support"),
-this field is not used anymore.
+The second init_completion call should be a reinit_completion here.
 
-CC: Cong Wang <xiyou.wangcong@gmail.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+patch is against 3.18.0 linux-next
+
+Signed-off-by: Nicholas Mc Guire <der.herr@hofr.at>
 ---
- include/net/neighbour.h | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/net/ethernet/brocade/bna/bnad_debugfs.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index eb070b3674a1..76f708486aae 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -190,7 +190,6 @@ struct neigh_hash_table {
- 
- 
- struct neigh_table {
--	struct neigh_table	*next;
- 	int			family;
- 	int			entry_size;
- 	int			key_len;
--- 
-2.1.0
+diff --git a/drivers/net/ethernet/brocade/bna/bnad_debugfs.c b/drivers/net/ethernet/brocade/bna/bnad_debugfs.c
+index 7d6aa8c..619083a 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad_debugfs.c
++++ b/drivers/net/ethernet/brocade/bna/bnad_debugfs.c
+@@ -172,7 +172,7 @@ bnad_get_debug_drvinfo(struct bnad *bnad, void *buffer, u32 len)
+
+ 	/* Retrieve flash partition info */
+ 	fcomp.comp_status = 0;
+-	init_completion(&fcomp.comp);
++	reinit_completion(&fcomp.comp);
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+ 	ret = bfa_nw_flash_get_attr(&bnad->bna.flash, &drvinfo->flash_attr,
+ 				bnad_cb_completion, &fcomp);
+--
+1.7.10.4
