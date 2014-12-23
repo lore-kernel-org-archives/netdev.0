@@ -1,49 +1,63 @@
 From: <shh.xie@gmail.com>
-Subject: [PATCH 2/3] net/fsl: remove irq assignment from xgmac_mdio
-Date: Tue, 23 Dec 2014 17:46:59 +0800
-Message-ID: <1419328019-27254-1-git-send-email-shh.xie@gmail.com>
+Subject: [PATCH 3/3] net/fsl: remove hardcoded clock setting from xgmac_mdio
+Date: Tue, 23 Dec 2014 17:47:22 +0800
+Message-ID: <1419328042-27294-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Shaohui Xie <Shaohui.Xie@freescale.com>
 To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0066.outbound.protection.outlook.com ([157.56.111.66]:39851
+Received: from mail-bn1bbn0100.outbound.protection.outlook.com ([157.56.111.100]:22944
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755815AbaLWLYg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Dec 2014 06:24:36 -0500
+	id S1755816AbaLWLY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Dec 2014 06:24:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shaohui Xie <Shaohui.Xie@freescale.com>
 
-Which is wrong and not used, so no extra space needed by
-mdio_alloc_size(), change the parameter accordingly.
+There is no need to set the clock speed in read/write which will be performed
+unnecessarily for each mdio access. Init it during probe is enough.
+
+Also, the hardcoded clock value is not a proper way for all SoCs.
 
 Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
 ---
- drivers/net/ethernet/freescale/xgmac_mdio.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/freescale/xgmac_mdio.c | 14 --------------
+ 1 file changed, 14 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
-index 90adba1..72e0b85 100644
+index 72e0b85..f8c3bc0 100644
 --- a/drivers/net/ethernet/freescale/xgmac_mdio.c
 +++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
-@@ -187,14 +187,13 @@ static int xgmac_mdio_probe(struct platform_device *pdev)
- 		return ret;
- 	}
+@@ -94,13 +94,6 @@ static int xgmac_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 val
+ 	uint16_t dev_addr = regnum >> 16;
+ 	int ret;
  
--	bus = mdiobus_alloc_size(PHY_MAX_ADDR * sizeof(int));
-+	bus = mdiobus_alloc_size(0);
- 	if (!bus)
- 		return -ENOMEM;
+-	/* Setup the MII Mgmt clock speed */
+-	out_be32(&regs->mdio_stat, MDIO_STAT_CLKDIV(100));
+-
+-	ret = xgmac_wait_until_free(&bus->dev, regs);
+-	if (ret)
+-		return ret;
+-
+ 	/* Set the port and dev addr */
+ 	out_be32(&regs->mdio_ctl,
+ 		 MDIO_CTL_PORT_ADDR(phy_id) | MDIO_CTL_DEV_ADDR(dev_addr));
+@@ -135,13 +128,6 @@ static int xgmac_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
+ 	uint16_t value;
+ 	int ret;
  
- 	bus->name = "Freescale XGMAC MDIO Bus";
- 	bus->read = xgmac_mdio_read;
- 	bus->write = xgmac_mdio_write;
--	bus->irq = bus->priv;
- 	bus->parent = &pdev->dev;
- 	snprintf(bus->id, MII_BUS_ID_SIZE, "%llx", (unsigned long long)res.start);
- 
+-	/* Setup the MII Mgmt clock speed */
+-	out_be32(&regs->mdio_stat, MDIO_STAT_CLKDIV(100));
+-
+-	ret = xgmac_wait_until_free(&bus->dev, regs);
+-	if (ret)
+-		return ret;
+-
+ 	/* Set the Port and Device Addrs */
+ 	mdio_ctl = MDIO_CTL_PORT_ADDR(phy_id) | MDIO_CTL_DEV_ADDR(dev_addr);
+ 	out_be32(&regs->mdio_ctl, mdio_ctl);
 -- 
 1.8.4.1
