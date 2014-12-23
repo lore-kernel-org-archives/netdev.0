@@ -1,103 +1,102 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: [PATCH] arm: sa1100: move irda header to linux/platform_data
-Date: Wed, 24 Dec 2014 01:14:14 +0300
-Message-ID: <1419372854-14840-1-git-send-email-dbaryshkov@gmail.com>
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Russell King <linux@arm.linux.org.uk>,
-	Samuel Ortiz <samuel@sortiz.org>
+From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
+Subject: Re: [PATCH v4] can: Convert to runtime_pm
+Date: Tue, 23 Dec 2014 14:43:08 -0800
+Message-ID: <46c28dc78c764efb80cc334df189db3b@BY2FFO11FD055.protection.gbl>
+References: <58f37b6fd9104ce185c413c473fe047b@BY2FFO11FD050.protection.gbl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <wg@grandegger.com>, <mkl@pengutronix.de>,
+	<michal.simek@xilinx.com>, <grant.likely@linaro.org>,
+	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	Kedareswara rao Appana <appanad@xilinx.com>
+To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:52457 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753512AbaLWWOT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2014 17:14:19 -0500
-Received: by mail-pd0-f172.google.com with SMTP id y13so8682047pdi.3
-        for <netdev@vger.kernel.org>; Tue, 23 Dec 2014 14:14:19 -0800 (PST)
+Received: from mail-bn1bon0092.outbound.protection.outlook.com ([157.56.111.92]:46839
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756487AbaLWWnW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Dec 2014 17:43:22 -0500
+Content-Disposition: inline
+In-Reply-To: <58f37b6fd9104ce185c413c473fe047b@BY2FFO11FD050.protection.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the end asm/mach/irda.h header is not used by anybody except sa1100.
-Move the header to the platform data includes dir and rename it to
-irda-sa11x0.h.
+On Tue, 2014-12-23 at 05:55PM +0530, Kedareswara rao Appana wrote:
+> Instead of enabling/disabling clocks at several locations in the driv=
+er,
+> use the runtime_pm framework. This consolidates the actions for
+> runtime PM in the appropriate callbacks and makes the driver more
+> readable and mantainable.
+>=20
+> Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
+> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
+> ---
+> Chnages for v4:
+>  - Updated with the review comments.
+> Changes for v3:
+>   - Converted the driver to use runtime_pm.
+> Changes for v2:
+>   - Removed the struct platform_device* from suspend/resume
+>     as suggest by Lothar.
+>=20
+>  drivers/net/can/xilinx_can.c |  123 +++++++++++++++++++++++++-------=
+----------
+>  1 files changed, 74 insertions(+), 49 deletions(-)
+>=20
+> diff --git a/drivers/net/can/xilinx_can.c b/drivers/net/can/xilinx_ca=
+n.c
+> index 6c67643..c71f683 100644
+> --- a/drivers/net/can/xilinx_can.c
+> +++ b/drivers/net/can/xilinx_can.c
+> @@ -32,6 +32,7 @@
+>  #include <linux/can/dev.h>
+>  #include <linux/can/error.h>
+>  #include <linux/can/led.h>
+> +#include <linux/pm_runtime.h>
+> =20
+>  #define DRIVER_NAME	"xilinx_can"
+> =20
+> @@ -138,7 +139,7 @@ struct xcan_priv {
+>  	u32 (*read_reg)(const struct xcan_priv *priv, enum xcan_reg reg);
+>  	void (*write_reg)(const struct xcan_priv *priv, enum xcan_reg reg,
+>  			u32 val);
+> -	struct net_device *dev;
+> +	struct device *dev;
+>  	void __iomem *reg_base;
+>  	unsigned long irq_flags;
+>  	struct clk *bus_clk;
+> @@ -842,6 +843,13 @@ static int xcan_open(struct net_device *ndev)
+>  	struct xcan_priv *priv =3D netdev_priv(ndev);
+>  	int ret;
+> =20
+> +	ret =3D pm_runtime_get_sync(priv->dev);
+> +	if (ret < 0) {
+> +		netdev_err(ndev, "%s: pm_runtime_get failed\r(%d)\n\r",
 
-Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
----
- arch/arm/mach-sa1100/assabet.c                                          | 2 +-
- arch/arm/mach-sa1100/collie.c                                           | 2 +-
- arch/arm/mach-sa1100/h3100.c                                            | 2 +-
- arch/arm/mach-sa1100/h3600.c                                            | 2 +-
- drivers/net/irda/sa1100_ir.c                                            | 2 +-
- .../asm/mach/irda.h => include/linux/platform_data/irda-sa11x0.h        | 0
- 6 files changed, 5 insertions(+), 5 deletions(-)
- rename arch/arm/include/asm/mach/irda.h => include/linux/platform_data/irda-sa11x0.h (100%)
+Does this create the intended output? I haven't seen '\r' anywhere else=
+=2E
+Shouldn't this simply be:
+	netdev_err(ndev, "%s: pm_runtime_get failed (%d)\n",
 
-diff --git a/arch/arm/mach-sa1100/assabet.c b/arch/arm/mach-sa1100/assabet.c
-index 7dd894e..d28ecb9 100644
---- a/arch/arm/mach-sa1100/assabet.c
-+++ b/arch/arm/mach-sa1100/assabet.c
-@@ -37,7 +37,7 @@
- 
- #include <asm/mach/arch.h>
- #include <asm/mach/flash.h>
--#include <asm/mach/irda.h>
-+#include <linux/platform_data/irda-sa11x0.h>
- #include <asm/mach/map.h>
- #include <mach/assabet.h>
- #include <linux/platform_data/mfd-mcp-sa11x0.h>
-diff --git a/arch/arm/mach-sa1100/collie.c b/arch/arm/mach-sa1100/collie.c
-index 108939f..0a816e2 100644
---- a/arch/arm/mach-sa1100/collie.c
-+++ b/arch/arm/mach-sa1100/collie.c
-@@ -43,7 +43,7 @@
- #include <asm/mach/arch.h>
- #include <asm/mach/flash.h>
- #include <asm/mach/map.h>
--#include <asm/mach/irda.h>
-+#include <linux/platform_data/irda-sa11x0.h>
- 
- #include <asm/hardware/scoop.h>
- #include <asm/mach/sharpsl_param.h>
-diff --git a/arch/arm/mach-sa1100/h3100.c b/arch/arm/mach-sa1100/h3100.c
-index 3c43219..c6b4120 100644
---- a/arch/arm/mach-sa1100/h3100.c
-+++ b/arch/arm/mach-sa1100/h3100.c
-@@ -18,7 +18,7 @@
- 
- #include <asm/mach-types.h>
- #include <asm/mach/arch.h>
--#include <asm/mach/irda.h>
-+#include <linux/platform_data/irda-sa11x0.h>
- 
- #include <mach/h3xxx.h>
- #include <mach/irqs.h>
-diff --git a/arch/arm/mach-sa1100/h3600.c b/arch/arm/mach-sa1100/h3600.c
-index 5be54c2..118338e 100644
---- a/arch/arm/mach-sa1100/h3600.c
-+++ b/arch/arm/mach-sa1100/h3600.c
-@@ -18,7 +18,7 @@
- 
- #include <asm/mach-types.h>
- #include <asm/mach/arch.h>
--#include <asm/mach/irda.h>
-+#include <linux/platform_data/irda-sa11x0.h>
- 
- #include <mach/h3xxx.h>
- #include <mach/irqs.h>
-diff --git a/drivers/net/irda/sa1100_ir.c b/drivers/net/irda/sa1100_ir.c
-index 42fde9e..dd14722 100644
---- a/drivers/net/irda/sa1100_ir.c
-+++ b/drivers/net/irda/sa1100_ir.c
-@@ -38,7 +38,7 @@
- #include <net/irda/irda_device.h>
- 
- #include <mach/hardware.h>
--#include <asm/mach/irda.h>
-+#include <linux/platform_data/irda-sa11x0.h>
- 
- static int power_level = 3;
- static int tx_lpm;
-diff --git a/arch/arm/include/asm/mach/irda.h b/include/linux/platform_data/irda-sa11x0.h
-similarity index 100%
-rename from arch/arm/include/asm/mach/irda.h
-rename to include/linux/platform_data/irda-sa11x0.h
--- 
-2.1.3
+[...]
+> @@ -934,27 +927,20 @@ static int xcan_get_berr_counter(const struct n=
+et_device *ndev,
+>  	struct xcan_priv *priv =3D netdev_priv(ndev);
+>  	int ret;
+> =20
+> -	ret =3D clk_prepare_enable(priv->can_clk);
+> -	if (ret)
+> -		goto err;
+> -
+> -	ret =3D clk_prepare_enable(priv->bus_clk);
+> -	if (ret)
+> -		goto err_clk;
+> +	ret =3D pm_runtime_get_sync(priv->dev);
+> +	if (ret < 0) {
+> +		netdev_err(ndev, "%s: pm_runtime_get failed\r(%d)\n\r",
+
+ditto
+
+	S=C3=B6ren
