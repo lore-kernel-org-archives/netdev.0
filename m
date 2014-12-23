@@ -1,44 +1,65 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH RFC] ipw2200: select CFG80211_WEXT
-Date: Tue, 23 Dec 2014 11:28:41 +0100
-Message-ID: <1419330521.6091.1.camel@sipsolutions.net>
-References: <1419271817.2317.12.camel@tiscali.nl>
-	 (sfid-20141222_191040_534124_837C59D7)
+From: Jouni Malinen <jkmalinen@gmail.com>
+Subject: Re: [PATCH net-next v2] packet: make packet_snd fail on len smaller
+ than l2 header
+Date: Tue, 23 Dec 2014 12:37:17 +0200
+Message-ID: <CANe27jJfsuXd29UXouTgU8dGqb9h8mXuj9N1_Ua6Q_UbZCeCXQ@mail.gmail.com>
+References: <1416420616-5029-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stanislav Yakovlev <stas.yakovlev@gmail.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1419271817.2317.12.camel@tiscali.nl> (sfid-20141222_191040_534124_837C59D7)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, dborkman@redhat.com
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f169.google.com ([209.85.160.169]:45381 "EHLO
+	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754411AbaLWKhS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2014 05:37:18 -0500
+Received: by mail-yk0-f169.google.com with SMTP id 79so2986693ykr.0
+        for <netdev@vger.kernel.org>; Tue, 23 Dec 2014 02:37:18 -0800 (PST)
+In-Reply-To: <1416420616-5029-1-git-send-email-willemb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-12-22 at 19:10 +0100, Paul Bolle wrote:
-> Commit 24a0aa212ee2 ("cfg80211: make WEXT compatibility unselectable")
-> made it impossible to depend on CFG80211_WEXT. It does still allow to
-> select that symbol. (Yes, the commit summary is confusing.)
-> 
-> So make IPW2200 select CFG80211_WEXT, so that the ipw2200 driver can be
-> built again.
-> 
-> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
-> ---
-> Johannes,
-> 
-> Building v3.19-rc1 for an outdated ThinkPad X41 left me without the
-> ipw2200 driver. It turns out this trivial patch is all that's needed to
-> make ipw2200 buildable again.
-> 
-> (A similar patch would be needed for the drivers behind Kconfig symbol
-> HERMES. Ie, orinico and friends.) 
+On Wed, Nov 19, 2014 at 8:10 PM, Willem de Bruijn <willemb@google.com> wrote:
+> When sending packets out with PF_PACKET, SOCK_RAW, ensure that the
+> packet is at least as long as the device's expected link layer header.
+> This check already exists in tpacket_snd, but not in packet_snd.
 
-Yeah, config HERMES needs the same change.
+Was this supposed to be refusing zero-length payload following the
+header like the implementation does or accept zero-length payload like
+this commit message seems to imply? Based on the commit message, I'd
+assume 14 byte buffer on Ethernet netdev should have been accepted.
 
-Kalle, do you want to take those through your tree, or should I fix it
-seeing that I introduced the bug in a sense?
+I just noticed that once pulling this commit in into my automated test
+setup, one of the test cases started failing because of the change
+here. That test case was trying to transmit a minimum length Ethernet
+header using raw packet socket. Not that I care too much since I can
+easily change the test case to use one octet longer data to send and
+this was not really a real protocol case, but I wanted to confirm what
+was the expected behavior here since this commit seems to have number
+of inconsistent statements between the commit message, actual
+validation step, debug print, and code comment..
 
-johannes
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> @@ -2095,6 +2095,18 @@ static void tpacket_destruct_skb(struct sk_buff *skb)
+> +static bool ll_header_truncated(const struct net_device *dev, int len)
+> +{
+> +       /* net device doesn't like empty head */
+
+I'm not sure how to interpret "empty head". Is that saying that the
+data following the header should not be empty? Or that header should
+be at least hard_header_len?
+
+> +       if (unlikely(len <= dev->hard_header_len)) {
+
+That would be rejecting exactly hard_header_len, i.e,., I would have
+expected < instead of <= here based on the commit message.
+
+> +               net_warn_ratelimited("%s: packet size is too short (%d < %d)\n",
+> +                                    current->comm, len, dev->hard_header_len);
+
+But that debug print uses < instead of <= which is not consistent with
+the actual condition (and yes, I realize this was there even before
+this commit).
+
+- Jouni
