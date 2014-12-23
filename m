@@ -1,69 +1,103 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net] net: Generalize ndo_gso_check to ndo_features_check
-Date: Tue, 23 Dec 2014 13:54:37 -0800
-Message-ID: <CA+mtBx_F-ZbtfW5Mf-wXPF5ML3GMXTVNyxhjQzUjNOXaBW9+jA@mail.gmail.com>
-References: <1419264223-30004-1-git-send-email-jesse@nicira.com>
-	<CA+mtBx9vYV5i9_u=XMmEgSV3Uj9SEJAZHrKhTgyGgBG9Ojs-dA@mail.gmail.com>
-	<CF9D1877D81D214CB0CA0669EFAE020C68D41FA3@CMEXMB1.ad.emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesse Gross <jesse@nicira.com>, David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Joe Stringer <joestringer@nicira.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Sathya Perla <Sathya.Perla@emulex.com>
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Subject: [PATCH] arm: sa1100: move irda header to linux/platform_data
+Date: Wed, 24 Dec 2014 01:14:14 +0300
+Message-ID: <1419372854-14840-1-git-send-email-dbaryshkov@gmail.com>
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: Russell King <linux@arm.linux.org.uk>,
+	Samuel Ortiz <samuel@sortiz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:41248 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751499AbaLWVyi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2014 16:54:38 -0500
-Received: by mail-ig0-f181.google.com with SMTP id l13so6591559iga.8
-        for <netdev@vger.kernel.org>; Tue, 23 Dec 2014 13:54:38 -0800 (PST)
-In-Reply-To: <CF9D1877D81D214CB0CA0669EFAE020C68D41FA3@CMEXMB1.ad.emulex.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:52457 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753512AbaLWWOT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2014 17:14:19 -0500
+Received: by mail-pd0-f172.google.com with SMTP id y13so8682047pdi.3
+        for <netdev@vger.kernel.org>; Tue, 23 Dec 2014 14:14:19 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 22, 2014 at 10:24 PM, Sathya Perla <Sathya.Perla@emulex.com> wrote:
->> -----Original Message-----
->> From: netdev-owner@vger.kernel.org [mailto:netdev-
->> owner@vger.kernel.org] On Behalf Of Tom Herbert
->>
->> On Mon, Dec 22, 2014 at 8:03 AM, Jesse Gross <jesse@nicira.com> wrote:
->> > GSO isn't the only offload feature with restrictions that
->> > potentially can't be expressed with the current features mechanism.
->> > Checksum is another although it's a general issue that could in
->> > theory apply to anything. Even if it may be possible to
->> > implement these restrictions in other ways, it can result in
->> > duplicate code or inefficient per-packet behavior.
->> >
->> > This generalizes ndo_gso_check so that drivers can remove any
->> > features that don't make sense for a given packet, similar to
->> > netif_skb_features(). It also converts existing driver
->> > restrictions to the new format, completing the work that was
->> > done to support tunnel protocols since the issues apply to
->> > checksums as well.
->> >
->> It's a nice feature, but I really hope that this is not used for
->> checksums. We already have a sufficiently general interface for that
->> and checksum is already computed in drivers to work around HW bugs.
->>
-> The ndo_featureas_check() interface that includes a means to report
-> inability to compute inner checksums on some tunnel types, seems like
-> a useful feature. The Skyhawk-R NIC can support inner csum offload for
-> either vxlan or nv-gre, but not both simultaneously. So, this ndo_
-> is useful in reporting this situation.
-> This would also obviate the need to have extra code in the drivers to
-> compute csums in the above scenario.
->
-You could use it for that, but many drivers already call
-skb_checksum_help and I really doubt it makes sense to change all of
-those. Besides that, I don't think we should be "encouraging" vendors
-to continue developing NICs that do protocol specific checksums. The
-general interface (NETIF_HW_CSUM) is incredibly simple and obviates a
-whole bunch of complexity in drivers to figure out whether it can
-checksum a packet.
+In the end asm/mach/irda.h header is not used by anybody except sa1100.
+Move the header to the platform data includes dir and rename it to
+irda-sa11x0.h.
 
-Tom
+Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+---
+ arch/arm/mach-sa1100/assabet.c                                          | 2 +-
+ arch/arm/mach-sa1100/collie.c                                           | 2 +-
+ arch/arm/mach-sa1100/h3100.c                                            | 2 +-
+ arch/arm/mach-sa1100/h3600.c                                            | 2 +-
+ drivers/net/irda/sa1100_ir.c                                            | 2 +-
+ .../asm/mach/irda.h => include/linux/platform_data/irda-sa11x0.h        | 0
+ 6 files changed, 5 insertions(+), 5 deletions(-)
+ rename arch/arm/include/asm/mach/irda.h => include/linux/platform_data/irda-sa11x0.h (100%)
 
-> thanks,
-> -Sathya
+diff --git a/arch/arm/mach-sa1100/assabet.c b/arch/arm/mach-sa1100/assabet.c
+index 7dd894e..d28ecb9 100644
+--- a/arch/arm/mach-sa1100/assabet.c
++++ b/arch/arm/mach-sa1100/assabet.c
+@@ -37,7 +37,7 @@
+ 
+ #include <asm/mach/arch.h>
+ #include <asm/mach/flash.h>
+-#include <asm/mach/irda.h>
++#include <linux/platform_data/irda-sa11x0.h>
+ #include <asm/mach/map.h>
+ #include <mach/assabet.h>
+ #include <linux/platform_data/mfd-mcp-sa11x0.h>
+diff --git a/arch/arm/mach-sa1100/collie.c b/arch/arm/mach-sa1100/collie.c
+index 108939f..0a816e2 100644
+--- a/arch/arm/mach-sa1100/collie.c
++++ b/arch/arm/mach-sa1100/collie.c
+@@ -43,7 +43,7 @@
+ #include <asm/mach/arch.h>
+ #include <asm/mach/flash.h>
+ #include <asm/mach/map.h>
+-#include <asm/mach/irda.h>
++#include <linux/platform_data/irda-sa11x0.h>
+ 
+ #include <asm/hardware/scoop.h>
+ #include <asm/mach/sharpsl_param.h>
+diff --git a/arch/arm/mach-sa1100/h3100.c b/arch/arm/mach-sa1100/h3100.c
+index 3c43219..c6b4120 100644
+--- a/arch/arm/mach-sa1100/h3100.c
++++ b/arch/arm/mach-sa1100/h3100.c
+@@ -18,7 +18,7 @@
+ 
+ #include <asm/mach-types.h>
+ #include <asm/mach/arch.h>
+-#include <asm/mach/irda.h>
++#include <linux/platform_data/irda-sa11x0.h>
+ 
+ #include <mach/h3xxx.h>
+ #include <mach/irqs.h>
+diff --git a/arch/arm/mach-sa1100/h3600.c b/arch/arm/mach-sa1100/h3600.c
+index 5be54c2..118338e 100644
+--- a/arch/arm/mach-sa1100/h3600.c
++++ b/arch/arm/mach-sa1100/h3600.c
+@@ -18,7 +18,7 @@
+ 
+ #include <asm/mach-types.h>
+ #include <asm/mach/arch.h>
+-#include <asm/mach/irda.h>
++#include <linux/platform_data/irda-sa11x0.h>
+ 
+ #include <mach/h3xxx.h>
+ #include <mach/irqs.h>
+diff --git a/drivers/net/irda/sa1100_ir.c b/drivers/net/irda/sa1100_ir.c
+index 42fde9e..dd14722 100644
+--- a/drivers/net/irda/sa1100_ir.c
++++ b/drivers/net/irda/sa1100_ir.c
+@@ -38,7 +38,7 @@
+ #include <net/irda/irda_device.h>
+ 
+ #include <mach/hardware.h>
+-#include <asm/mach/irda.h>
++#include <linux/platform_data/irda-sa11x0.h>
+ 
+ static int power_level = 3;
+ static int tx_lpm;
+diff --git a/arch/arm/include/asm/mach/irda.h b/include/linux/platform_data/irda-sa11x0.h
+similarity index 100%
+rename from arch/arm/include/asm/mach/irda.h
+rename to include/linux/platform_data/irda-sa11x0.h
+-- 
+2.1.3
