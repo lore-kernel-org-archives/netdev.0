@@ -1,66 +1,45 @@
-From: <shh.xie@gmail.com>
-Subject: [PATCH 1/3] net/fsl: remove reset from xgmac_mdio
-Date: Tue, 23 Dec 2014 17:45:29 +0800
-Message-ID: <1419327929-27210-1-git-send-email-shh.xie@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v3 1/3] igb: Add igb_disable_sriov in error handling
+Date: Tue, 23 Dec 2014 14:23:03 +0300
+Message-ID: <54995097.8090105@cogentembedded.com>
+References: <1419319024-30455-1-git-send-email-baijiaju1990@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Shaohui Xie <Shaohui.Xie@freescale.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: Jia-Ju Bai <baijiaju1990@163.com>, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, bruce.w.allan@intel.com,
+	jesse.brandeburg@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0075.outbound.protection.outlook.com ([157.56.110.75]:48608
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753161AbaLWLWI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Dec 2014 06:22:08 -0500
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:34401 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755096AbaLWLXH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2014 06:23:07 -0500
+Received: by mail-lb0-f182.google.com with SMTP id f15so5737331lbj.27
+        for <netdev@vger.kernel.org>; Tue, 23 Dec 2014 03:23:06 -0800 (PST)
+In-Reply-To: <1419319024-30455-1-git-send-email-baijiaju1990@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shaohui Xie <Shaohui.Xie@freescale.com>
+Hello.
 
-Since the reset is just clock setting, individual mdio reset is
-not available.
+On 12/23/2014 10:17 AM, Jia-Ju Bai wrote:
 
-Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
----
- drivers/net/ethernet/freescale/xgmac_mdio.c | 19 -------------------
- 1 file changed, 19 deletions(-)
+> For linux-3.18.0
 
-diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
-index 6e7db66..90adba1 100644
---- a/drivers/net/ethernet/freescale/xgmac_mdio.c
-+++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
-@@ -174,24 +174,6 @@ static int xgmac_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
- 	return value;
- }
- 
--/* Reset the MIIM registers, and wait for the bus to free */
--static int xgmac_mdio_reset(struct mii_bus *bus)
--{
--	struct tgec_mdio_controller __iomem *regs = bus->priv;
--	int ret;
--
--	mutex_lock(&bus->mdio_lock);
--
--	/* Setup the MII Mgmt clock speed */
--	out_be32(&regs->mdio_stat, MDIO_STAT_CLKDIV(100));
--
--	ret = xgmac_wait_until_free(&bus->dev, regs);
--
--	mutex_unlock(&bus->mdio_lock);
--
--	return ret;
--}
--
- static int xgmac_mdio_probe(struct platform_device *pdev)
- {
- 	struct device_node *np = pdev->dev.of_node;
-@@ -212,7 +194,6 @@ static int xgmac_mdio_probe(struct platform_device *pdev)
- 	bus->name = "Freescale XGMAC MDIO Bus";
- 	bus->read = xgmac_mdio_read;
- 	bus->write = xgmac_mdio_write;
--	bus->reset = xgmac_mdio_reset;
- 	bus->irq = bus->priv;
- 	bus->parent = &pdev->dev;
- 	snprintf(bus->id, MII_BUS_ID_SIZE, "%llx", (unsigned long long)res.start);
--- 
-1.8.4.1
+    For the future: such words should be placed under --- tear line...
+
+> The driver lacks igb_disable_sriov in error handling,
+> which should match igb_enable_sriov in igb_probe.
+> This patch fixes this problem, and it has been tested in runtime.
+
+> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+> ---
+
+    .... here.
+
+>   drivers/net/ethernet/intel/igb/igb_main.c |    4 ++++
+>   1 file changed, 4 insertions(+)
+
+WBR, Sergei
