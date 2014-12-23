@@ -1,72 +1,37 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH v3 1/3] igb: Add igb_disable_sriov in error
-	handling
-Date: Tue, 23 Dec 2014 15:17:02 +0800
-Message-ID: <1419319024-30455-1-git-send-email-baijiaju1990@163.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2 v2] tc: Show classes in tree view
+Date: Tue, 23 Dec 2014 09:10:41 +0200
+Message-ID: <20141223071041.GA25809@angus-think.lan>
+References: <1419263518-14434-1-git-send-email-vadim4j@gmail.com>
+ <20141222173554.349bb18c@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Jia-Ju Bai <baijiaju1990@163.com>, linux.nics@intel.com
-To: davem@davemloft.net, sergei.shtylyov@cogentembedded.com,
-	jeffrey.t.kirsher@intel.com, bruce.w.allan@intel.com,
-	jesse.brandeburg@intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f52.google.com ([209.85.215.52]:54700 "EHLO
+	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751976AbaLWHUt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2014 02:20:49 -0500
+Received: by mail-la0-f52.google.com with SMTP id hs14so5142957lab.11
+        for <netdev@vger.kernel.org>; Mon, 22 Dec 2014 23:20:45 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20141222173554.349bb18c@urahara>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-For linux-3.18.0
-The driver lacks igb_disable_sriov in error handling,
-which should match igb_enable_sriov in igb_probe.
-This patch fixes this problem, and it has been tested in runtime.
+On Mon, Dec 22, 2014 at 05:35:54PM -0800, Stephen Hemminger wrote:
+> On Mon, 22 Dec 2014 17:51:58 +0200
+> Vadim Kochan <vadim4j@gmail.com> wrote:
+> 
+> > +	while (cls && cls->cls_parent) {
+> > +		cls->cls_parent->cls_right = cls;
+> > +		cls = cls->cls_parent;
+> > +	}
+> > +	while (cls && cls->cls_right)
+> > +	{
+> 
+> Why the sudden shift of bracketing style?
+Oh no, it happened, in company where I work they uses different style, sorry ...
 
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c |    4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 487cd9c..91914e4 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -179,6 +179,7 @@ static void igb_check_vf_rate_limit(struct igb_adapter *);
- #ifdef CONFIG_PCI_IOV
- static int igb_vf_configure(struct igb_adapter *adapter, int vf);
- static int igb_pci_enable_sriov(struct pci_dev *dev, int num_vfs);
-+static int igb_disable_sriov(struct pci_dev *pdev);
- #endif
- 
- #ifdef CONFIG_PM
-@@ -2653,6 +2654,9 @@ err_register:
- 	igb_release_hw_control(adapter);
- 	memset(&adapter->i2c_adap, 0, sizeof(adapter->i2c_adap));
- err_eeprom:
-+#ifdef CONFIG_PCI_IOV
-+	igb_disable_sriov(pdev);
-+#endif
- 	if (!igb_check_reset_block(hw))
- 		igb_reset_phy(hw);
- 
--- 
-1.7.9.5
-
-
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming! The Go Parallel Website,
-sponsored by Intel and developed in partnership with Slashdot Media, is your
-hub for all things parallel software development, from weekly thought
-leadership blogs to news, videos, case studies, tutorials and more. Take a
-look and join the conversation now. http://goparallel.sourceforge.net
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Thanks,
