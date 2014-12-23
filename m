@@ -1,53 +1,40 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH] bonding: change error message to debug message in
- __bond_release_one()
-Date: Tue, 23 Dec 2014 11:02:06 -0500
-Message-ID: <20141223160206.GA37958@gospo.home.greyhouse.net>
-References: <1419297876-1412-1-git-send-email-wen.gang.wang@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, dingtianhong@huawei.com
-To: Wengang Wang <wen.gang.wang@oracle.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net] neigh: remove next ptr from struct neigh_table
+Date: Tue, 23 Dec 2014 17:50:37 +0100
+Message-ID: <1419353437-4213-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f68.google.com ([209.85.216.68]:44451 "EHLO
-	mail-qa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756105AbaLWQCQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2014 11:02:16 -0500
-Received: by mail-qa0-f68.google.com with SMTP id dc16so1452256qab.3
-        for <netdev@vger.kernel.org>; Tue, 23 Dec 2014 08:02:15 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1419297876-1412-1-git-send-email-wen.gang.wang@oracle.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:35934 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754789AbaLWQup (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2014 11:50:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 23, 2014 at 09:24:36AM +0800, Wengang Wang wrote:
-> In __bond_release_one(), when the interface is not a slave or not a slave of
-> "this" master, it log error message.
-> 
-> The message actually should be a debug message matching what bond_enslave()
-> does.
-> 
-> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
+After commit
+d7480fd3b173 ("neigh: remove dynamic neigh table registration support"),
+this field is not used anymore.
 
-Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+CC: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ include/net/neighbour.h | 1 -
+ 1 file changed, 1 deletion(-)
 
-> ---
->  drivers/net/bonding/bond_main.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 184c434..0dceba1 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -1648,7 +1648,7 @@ static int __bond_release_one(struct net_device *bond_dev,
->  	/* slave is not a slave or master is not master of this slave */
->  	if (!(slave_dev->flags & IFF_SLAVE) ||
->  	    !netdev_has_upper_dev(slave_dev, bond_dev)) {
-> -		netdev_err(bond_dev, "cannot release %s\n",
-> +		netdev_dbg(bond_dev, "cannot release %s\n",
->  			   slave_dev->name);
->  		return -EINVAL;
->  	}
-> -- 
-> 1.8.3.1
-> 
+diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+index eb070b3674a1..76f708486aae 100644
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -190,7 +190,6 @@ struct neigh_hash_table {
+ 
+ 
+ struct neigh_table {
+-	struct neigh_table	*next;
+ 	int			family;
+ 	int			entry_size;
+ 	int			key_len;
+-- 
+2.1.0
