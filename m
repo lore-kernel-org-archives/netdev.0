@@ -1,50 +1,66 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH RFC] ipw2200: select CFG80211_WEXT
-Date: Tue, 23 Dec 2014 12:55:11 +0200
-Message-ID: <87oaqueiuo.fsf@kamboji.qca.qualcomm.com>
-References: <1419271817.2317.12.camel@tiscali.nl>
-	<1419330521.6091.1.camel@sipsolutions.net>
+From: <shh.xie@gmail.com>
+Subject: [PATCH 1/3] net/fsl: remove reset from xgmac_mdio
+Date: Tue, 23 Dec 2014 17:45:29 +0800
+Message-ID: <1419327929-27210-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul Bolle <pebolle@tiscali.nl>,
-	Stanislav Yakovlev <stas.yakovlev@gmail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1419330521.6091.1.camel@sipsolutions.net> (Johannes Berg's
-	message of "Tue, 23 Dec 2014 11:28:41 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Shaohui Xie <Shaohui.Xie@freescale.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1on0075.outbound.protection.outlook.com ([157.56.110.75]:48608
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753161AbaLWLWI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Dec 2014 06:22:08 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Johannes Berg <johannes@sipsolutions.net> writes:
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
 
-> On Mon, 2014-12-22 at 19:10 +0100, Paul Bolle wrote:
->> Commit 24a0aa212ee2 ("cfg80211: make WEXT compatibility unselectable")
->> made it impossible to depend on CFG80211_WEXT. It does still allow to
->> select that symbol. (Yes, the commit summary is confusing.)
->> 
->> So make IPW2200 select CFG80211_WEXT, so that the ipw2200 driver can be
->> built again.
->> 
->> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
->> ---
->> Johannes,
->> 
->> Building v3.19-rc1 for an outdated ThinkPad X41 left me without the
->> ipw2200 driver. It turns out this trivial patch is all that's needed to
->> make ipw2200 buildable again.
->> 
->> (A similar patch would be needed for the drivers behind Kconfig symbol
->> HERMES. Ie, orinico and friends.) 
->
-> Yeah, config HERMES needs the same change.
->
-> Kalle, do you want to take those through your tree, or should I fix it
-> seeing that I introduced the bug in a sense?
+Since the reset is just clock setting, individual mdio reset is
+not available.
 
-To keep things simple I would prefer to take this through
-wireless-drivers.git, if it's ok for you.
+Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+---
+ drivers/net/ethernet/freescale/xgmac_mdio.c | 19 -------------------
+ 1 file changed, 19 deletions(-)
 
+diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
+index 6e7db66..90adba1 100644
+--- a/drivers/net/ethernet/freescale/xgmac_mdio.c
++++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
+@@ -174,24 +174,6 @@ static int xgmac_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
+ 	return value;
+ }
+ 
+-/* Reset the MIIM registers, and wait for the bus to free */
+-static int xgmac_mdio_reset(struct mii_bus *bus)
+-{
+-	struct tgec_mdio_controller __iomem *regs = bus->priv;
+-	int ret;
+-
+-	mutex_lock(&bus->mdio_lock);
+-
+-	/* Setup the MII Mgmt clock speed */
+-	out_be32(&regs->mdio_stat, MDIO_STAT_CLKDIV(100));
+-
+-	ret = xgmac_wait_until_free(&bus->dev, regs);
+-
+-	mutex_unlock(&bus->mdio_lock);
+-
+-	return ret;
+-}
+-
+ static int xgmac_mdio_probe(struct platform_device *pdev)
+ {
+ 	struct device_node *np = pdev->dev.of_node;
+@@ -212,7 +194,6 @@ static int xgmac_mdio_probe(struct platform_device *pdev)
+ 	bus->name = "Freescale XGMAC MDIO Bus";
+ 	bus->read = xgmac_mdio_read;
+ 	bus->write = xgmac_mdio_write;
+-	bus->reset = xgmac_mdio_reset;
+ 	bus->irq = bus->priv;
+ 	bus->parent = &pdev->dev;
+ 	snprintf(bus->id, MII_BUS_ID_SIZE, "%llx", (unsigned long long)res.start);
 -- 
-Kalle Valo
+1.8.4.1
