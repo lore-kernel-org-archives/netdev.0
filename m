@@ -1,56 +1,53 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH v3] ne2k-pci: Add pci_disable_device in error handling
-Date: Tue, 23 Dec 2014 11:29:03 +0800
-Message-ID: <1419305343-29032-1-git-send-email-baijiaju1990@163.com>
-Cc: netdev@vger.kernel.org, Jia-Ju Bai <baijiaju1990@163.com>
-To: davem@davemloft.net, bhelgaas@google.com, benoit.taine@lip6.fr
+From: Sathya Perla <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH net] net: Generalize ndo_gso_check to ndo_features_check
+Date: Tue, 23 Dec 2014 06:24:48 +0000
+Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C68D41FA3@CMEXMB1.ad.emulex.com>
+References: <1419264223-30004-1-git-send-email-jesse@nicira.com>
+ <CA+mtBx9vYV5i9_u=XMmEgSV3Uj9SEJAZHrKhTgyGgBG9Ojs-dA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Joe Stringer <joestringer@nicira.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Tom Herbert <therbert@google.com>, Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-12.163.com ([220.181.12.12]:56171 "EHLO m12-12.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753728AbaLWD3T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Dec 2014 22:29:19 -0500
+Received: from cmexedge2.emulex.com ([138.239.224.100]:23956 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754519AbaLWGZO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2014 01:25:14 -0500
+In-Reply-To: <CA+mtBx9vYV5i9_u=XMmEgSV3Uj9SEJAZHrKhTgyGgBG9Ojs-dA@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For linux-3.18.0
-The driver lacks pci_disable_device in error handling code of
-ne2k_pci_init_one, so the device enabled by pci_enable_device is not
-disabled when errors occur.
-This patch fixes this problem.
-
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
----
- drivers/net/ethernet/8390/ne2k-pci.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/8390/ne2k-pci.c b/drivers/net/ethernet/8390/ne2k-pci.c
-index 89c8d9f..160c161 100644
---- a/drivers/net/ethernet/8390/ne2k-pci.c
-+++ b/drivers/net/ethernet/8390/ne2k-pci.c
-@@ -246,13 +246,13 @@ static int ne2k_pci_init_one(struct pci_dev *pdev,
- 
- 	if (!ioaddr || ((pci_resource_flags (pdev, 0) & IORESOURCE_IO) == 0)) {
- 		dev_err(&pdev->dev, "no I/O resource at PCI BAR #0\n");
--		return -ENODEV;
-+		goto err_out;
- 	}
- 
- 	if (request_region (ioaddr, NE_IO_EXTENT, DRV_NAME) == NULL) {
- 		dev_err(&pdev->dev, "I/O resource 0x%x @ 0x%lx busy\n",
- 			NE_IO_EXTENT, ioaddr);
--		return -EBUSY;
-+		goto err_out;
- 	}
- 
- 	reg0 = inb(ioaddr);
-@@ -392,6 +392,8 @@ err_out_free_netdev:
- 	free_netdev (dev);
- err_out_free_res:
- 	release_region (ioaddr, NE_IO_EXTENT);
-+err_out:
-+	pci_disable_device(pdev);
- 	return -ENODEV;
- }
- 
--- 
-1.7.9.5
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
+aGFsZiBPZiBUb20gSGVyYmVydA0KPiANCj4gT24gTW9uLCBEZWMgMjIsIDIwMTQgYXQgODowMyBB
+TSwgSmVzc2UgR3Jvc3MgPGplc3NlQG5pY2lyYS5jb20+IHdyb3RlOg0KPiA+IEdTTyBpc24ndCB0
+aGUgb25seSBvZmZsb2FkIGZlYXR1cmUgd2l0aCByZXN0cmljdGlvbnMgdGhhdA0KPiA+IHBvdGVu
+dGlhbGx5IGNhbid0IGJlIGV4cHJlc3NlZCB3aXRoIHRoZSBjdXJyZW50IGZlYXR1cmVzIG1lY2hh
+bmlzbS4NCj4gPiBDaGVja3N1bSBpcyBhbm90aGVyIGFsdGhvdWdoIGl0J3MgYSBnZW5lcmFsIGlz
+c3VlIHRoYXQgY291bGQgaW4NCj4gPiB0aGVvcnkgYXBwbHkgdG8gYW55dGhpbmcuIEV2ZW4gaWYg
+aXQgbWF5IGJlIHBvc3NpYmxlIHRvDQo+ID4gaW1wbGVtZW50IHRoZXNlIHJlc3RyaWN0aW9ucyBp
+biBvdGhlciB3YXlzLCBpdCBjYW4gcmVzdWx0IGluDQo+ID4gZHVwbGljYXRlIGNvZGUgb3IgaW5l
+ZmZpY2llbnQgcGVyLXBhY2tldCBiZWhhdmlvci4NCj4gPg0KPiA+IFRoaXMgZ2VuZXJhbGl6ZXMg
+bmRvX2dzb19jaGVjayBzbyB0aGF0IGRyaXZlcnMgY2FuIHJlbW92ZSBhbnkNCj4gPiBmZWF0dXJl
+cyB0aGF0IGRvbid0IG1ha2Ugc2Vuc2UgZm9yIGEgZ2l2ZW4gcGFja2V0LCBzaW1pbGFyIHRvDQo+
+ID4gbmV0aWZfc2tiX2ZlYXR1cmVzKCkuIEl0IGFsc28gY29udmVydHMgZXhpc3RpbmcgZHJpdmVy
+DQo+ID4gcmVzdHJpY3Rpb25zIHRvIHRoZSBuZXcgZm9ybWF0LCBjb21wbGV0aW5nIHRoZSB3b3Jr
+IHRoYXQgd2FzDQo+ID4gZG9uZSB0byBzdXBwb3J0IHR1bm5lbCBwcm90b2NvbHMgc2luY2UgdGhl
+IGlzc3VlcyBhcHBseSB0bw0KPiA+IGNoZWNrc3VtcyBhcyB3ZWxsLg0KPiA+DQo+IEl0J3MgYSBu
+aWNlIGZlYXR1cmUsIGJ1dCBJIHJlYWxseSBob3BlIHRoYXQgdGhpcyBpcyBub3QgdXNlZCBmb3IN
+Cj4gY2hlY2tzdW1zLiBXZSBhbHJlYWR5IGhhdmUgYSBzdWZmaWNpZW50bHkgZ2VuZXJhbCBpbnRl
+cmZhY2UgZm9yIHRoYXQNCj4gYW5kIGNoZWNrc3VtIGlzIGFscmVhZHkgY29tcHV0ZWQgaW4gZHJp
+dmVycyB0byB3b3JrIGFyb3VuZCBIVyBidWdzLg0KPiANClRoZSBuZG9fZmVhdHVyZWFzX2NoZWNr
+KCkgaW50ZXJmYWNlIHRoYXQgaW5jbHVkZXMgYSBtZWFucyB0byByZXBvcnQNCmluYWJpbGl0eSB0
+byBjb21wdXRlIGlubmVyIGNoZWNrc3VtcyBvbiBzb21lIHR1bm5lbCB0eXBlcywgc2VlbXMgbGlr
+ZQ0KYSB1c2VmdWwgZmVhdHVyZS4gVGhlIFNreWhhd2stUiBOSUMgY2FuIHN1cHBvcnQgaW5uZXIg
+Y3N1bSBvZmZsb2FkIGZvcg0KZWl0aGVyIHZ4bGFuIG9yIG52LWdyZSwgYnV0IG5vdCBib3RoIHNp
+bXVsdGFuZW91c2x5LiBTbywgdGhpcyBuZG9fDQppcyB1c2VmdWwgaW4gcmVwb3J0aW5nIHRoaXMg
+c2l0dWF0aW9uLg0KVGhpcyB3b3VsZCBhbHNvIG9idmlhdGUgdGhlIG5lZWQgdG8gaGF2ZSBleHRy
+YSBjb2RlIGluIHRoZSBkcml2ZXJzIHRvDQpjb21wdXRlIGNzdW1zIGluIHRoZSBhYm92ZSBzY2Vu
+YXJpby4NCg0KdGhhbmtzLA0KLVNhdGh5YQ0K
