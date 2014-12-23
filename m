@@ -1,57 +1,50 @@
 From: Kalle Valo <kvalo@codeaurora.org>
 Subject: Re: [PATCH RFC] ipw2200: select CFG80211_WEXT
-Date: Tue, 23 Dec 2014 12:50:54 +0200
-Message-ID: <87sig6ej1t.fsf@kamboji.qca.qualcomm.com>
+Date: Tue, 23 Dec 2014 12:55:11 +0200
+Message-ID: <87oaqueiuo.fsf@kamboji.qca.qualcomm.com>
 References: <1419271817.2317.12.camel@tiscali.nl>
-	<871tnqhn7j.fsf@kamboji.qca.qualcomm.com>
-	<1419330055.30945.76.camel@x220>
+	<1419330521.6091.1.camel@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes.berg@intel.com>,
+Cc: Paul Bolle <pebolle@tiscali.nl>,
 	Stanislav Yakovlev <stas.yakovlev@gmail.com>,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1419330055.30945.76.camel@x220> (Paul Bolle's message of "Tue,
-	23 Dec 2014 11:20:55 +0100")
+In-Reply-To: <1419330521.6091.1.camel@sipsolutions.net> (Johannes Berg's
+	message of "Tue, 23 Dec 2014 11:28:41 +0100")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Paul Bolle <pebolle@tiscali.nl> writes:
+Johannes Berg <johannes@sipsolutions.net> writes:
 
-> On Tue, 2014-12-23 at 08:52 +0200, Kalle Valo wrote:
->> Paul Bolle <pebolle@tiscali.nl> writes:
+> On Mon, 2014-12-22 at 19:10 +0100, Paul Bolle wrote:
+>> Commit 24a0aa212ee2 ("cfg80211: make WEXT compatibility unselectable")
+>> made it impossible to depend on CFG80211_WEXT. It does still allow to
+>> select that symbol. (Yes, the commit summary is confusing.)
 >> 
->> > Commit 24a0aa212ee2 ("cfg80211: make WEXT compatibility unselectable")
->> > made it impossible to depend on CFG80211_WEXT. It does still allow to
->> > select that symbol. (Yes, the commit summary is confusing.)
->> >
->> > So make IPW2200 select CFG80211_WEXT, so that the ipw2200 driver can be
->> > built again.
+>> So make IPW2200 select CFG80211_WEXT, so that the ipw2200 driver can be
+>> built again.
 >> 
->> I think the last sentence is a bit misleading (this isn't a compilation
->> error, right?)
->
-> No, it's not a compilation error.
->
-> The reasoning here is that all code hidden behind a Kconfig symbol that
-> cannot be set will, in practice, never be built. Sure, there are hoops
-> one can jump through to try to bypass the generated .config, but no one
-> should have to do that.
->
->>  and I would like to clarify it like this:
+>> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+>> ---
+>> Johannes,
 >> 
->> "So make IPW2200 select CFG80211_WEXT, so that the ipw2200 driver can be
->> enabled in config again."
+>> Building v3.19-rc1 for an outdated ThinkPad X41 left me without the
+>> ipw2200 driver. It turns out this trivial patch is all that's needed to
+>> make ipw2200 buildable again.
 >> 
->> Does that look ok?
+>> (A similar patch would be needed for the drivers behind Kconfig symbol
+>> HERMES. Ie, orinico and friends.) 
 >
-> I understand the confusion my text might cause, so I'm fine with your
-> amendment.
+> Yeah, config HERMES needs the same change.
+>
+> Kalle, do you want to take those through your tree, or should I fix it
+> seeing that I introduced the bug in a sense?
 
-Thanks for checking. I'll modify the commit log and apply it to
-wireless-drivers.git.
+To keep things simple I would prefer to take this through
+wireless-drivers.git, if it's ok for you.
 
 -- 
 Kalle Valo
