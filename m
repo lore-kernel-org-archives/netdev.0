@@ -1,53 +1,39 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH net] net: Generalize ndo_gso_check to ndo_features_check
-Date: Tue, 23 Dec 2014 06:24:48 +0000
-Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C68D41FA3@CMEXMB1.ad.emulex.com>
-References: <1419264223-30004-1-git-send-email-jesse@nicira.com>
- <CA+mtBx9vYV5i9_u=XMmEgSV3Uj9SEJAZHrKhTgyGgBG9Ojs-dA@mail.gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH for 3.19] rtlwifi: Fix error when accessing unmapped memory in skb
+Date: Tue, 23 Dec 2014 08:37:31 +0200
+Message-ID: <87a92ehnx0.fsf@kamboji.qca.qualcomm.com>
+References: <1419269826-12552-1-git-send-email-Larry.Finger@lwfinger.net>
+	<20141222194843.GA7575@zzz> <54989E12.6050808@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Joe Stringer <joestringer@nicira.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Tom Herbert <therbert@google.com>, Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.emulex.com ([138.239.224.100]:23956 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754519AbaLWGZO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2014 01:25:14 -0500
-In-Reply-To: <CA+mtBx9vYV5i9_u=XMmEgSV3Uj9SEJAZHrKhTgyGgBG9Ojs-dA@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Biggers <ebiggers3@gmail.com>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <54989E12.6050808@lwfinger.net> (Larry Finger's message of "Mon,
+	22 Dec 2014 16:41:22 -0600")
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
-aGFsZiBPZiBUb20gSGVyYmVydA0KPiANCj4gT24gTW9uLCBEZWMgMjIsIDIwMTQgYXQgODowMyBB
-TSwgSmVzc2UgR3Jvc3MgPGplc3NlQG5pY2lyYS5jb20+IHdyb3RlOg0KPiA+IEdTTyBpc24ndCB0
-aGUgb25seSBvZmZsb2FkIGZlYXR1cmUgd2l0aCByZXN0cmljdGlvbnMgdGhhdA0KPiA+IHBvdGVu
-dGlhbGx5IGNhbid0IGJlIGV4cHJlc3NlZCB3aXRoIHRoZSBjdXJyZW50IGZlYXR1cmVzIG1lY2hh
-bmlzbS4NCj4gPiBDaGVja3N1bSBpcyBhbm90aGVyIGFsdGhvdWdoIGl0J3MgYSBnZW5lcmFsIGlz
-c3VlIHRoYXQgY291bGQgaW4NCj4gPiB0aGVvcnkgYXBwbHkgdG8gYW55dGhpbmcuIEV2ZW4gaWYg
-aXQgbWF5IGJlIHBvc3NpYmxlIHRvDQo+ID4gaW1wbGVtZW50IHRoZXNlIHJlc3RyaWN0aW9ucyBp
-biBvdGhlciB3YXlzLCBpdCBjYW4gcmVzdWx0IGluDQo+ID4gZHVwbGljYXRlIGNvZGUgb3IgaW5l
-ZmZpY2llbnQgcGVyLXBhY2tldCBiZWhhdmlvci4NCj4gPg0KPiA+IFRoaXMgZ2VuZXJhbGl6ZXMg
-bmRvX2dzb19jaGVjayBzbyB0aGF0IGRyaXZlcnMgY2FuIHJlbW92ZSBhbnkNCj4gPiBmZWF0dXJl
-cyB0aGF0IGRvbid0IG1ha2Ugc2Vuc2UgZm9yIGEgZ2l2ZW4gcGFja2V0LCBzaW1pbGFyIHRvDQo+
-ID4gbmV0aWZfc2tiX2ZlYXR1cmVzKCkuIEl0IGFsc28gY29udmVydHMgZXhpc3RpbmcgZHJpdmVy
-DQo+ID4gcmVzdHJpY3Rpb25zIHRvIHRoZSBuZXcgZm9ybWF0LCBjb21wbGV0aW5nIHRoZSB3b3Jr
-IHRoYXQgd2FzDQo+ID4gZG9uZSB0byBzdXBwb3J0IHR1bm5lbCBwcm90b2NvbHMgc2luY2UgdGhl
-IGlzc3VlcyBhcHBseSB0bw0KPiA+IGNoZWNrc3VtcyBhcyB3ZWxsLg0KPiA+DQo+IEl0J3MgYSBu
-aWNlIGZlYXR1cmUsIGJ1dCBJIHJlYWxseSBob3BlIHRoYXQgdGhpcyBpcyBub3QgdXNlZCBmb3IN
-Cj4gY2hlY2tzdW1zLiBXZSBhbHJlYWR5IGhhdmUgYSBzdWZmaWNpZW50bHkgZ2VuZXJhbCBpbnRl
-cmZhY2UgZm9yIHRoYXQNCj4gYW5kIGNoZWNrc3VtIGlzIGFscmVhZHkgY29tcHV0ZWQgaW4gZHJp
-dmVycyB0byB3b3JrIGFyb3VuZCBIVyBidWdzLg0KPiANClRoZSBuZG9fZmVhdHVyZWFzX2NoZWNr
-KCkgaW50ZXJmYWNlIHRoYXQgaW5jbHVkZXMgYSBtZWFucyB0byByZXBvcnQNCmluYWJpbGl0eSB0
-byBjb21wdXRlIGlubmVyIGNoZWNrc3VtcyBvbiBzb21lIHR1bm5lbCB0eXBlcywgc2VlbXMgbGlr
-ZQ0KYSB1c2VmdWwgZmVhdHVyZS4gVGhlIFNreWhhd2stUiBOSUMgY2FuIHN1cHBvcnQgaW5uZXIg
-Y3N1bSBvZmZsb2FkIGZvcg0KZWl0aGVyIHZ4bGFuIG9yIG52LWdyZSwgYnV0IG5vdCBib3RoIHNp
-bXVsdGFuZW91c2x5LiBTbywgdGhpcyBuZG9fDQppcyB1c2VmdWwgaW4gcmVwb3J0aW5nIHRoaXMg
-c2l0dWF0aW9uLg0KVGhpcyB3b3VsZCBhbHNvIG9idmlhdGUgdGhlIG5lZWQgdG8gaGF2ZSBleHRy
-YSBjb2RlIGluIHRoZSBkcml2ZXJzIHRvDQpjb21wdXRlIGNzdW1zIGluIHRoZSBhYm92ZSBzY2Vu
-YXJpby4NCg0KdGhhbmtzLA0KLVNhdGh5YQ0K
+Larry Finger <Larry.Finger@lwfinger.net> writes:
+
+> You are correct. In trying to get a small patch for stable, I missed
+> some important points.
+>
+> Please look at the attached patch. I think it handles the skb
+> allocations correctly. The critical point is that
+> _rtl_pci_init_one_rxdesc() cannot be allowed to fail to allocate an
+> skb while in the interrupt path. Now, I have already allocated the skb
+> before the call and bypassed this routine if the allocation fails.
+> After a couple of crashes, this one now works for the case when the
+> allocation wouldn't fail anyway. I will likely pull the allocation out
+> of _rtl_pci_init_one_rxdesc() in all cases for the final patch.
+>
+> @Kalle: Please drop the patch I submitted this morning with this
+> subject. It would not help the problem. I will resubmit after I am
+> sure of the proper fix.
+
+Ack. I'll wait for v2.
+
+-- 
+Kalle Valo
