@@ -1,13 +1,13 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Richard Cochran <richardcochran@gmail.com>
 Subject: Re: [PATCH net-next 08/11] net: ixgbe: convert to timecounter
  adjtime.
-Date: Tue, 23 Dec 2014 13:07:19 -0800
-Message-ID: <1419368839.2470.32.camel@jtkirshe-mobl>
+Date: Tue, 23 Dec 2014 22:42:53 +0100
+Message-ID: <20141223214253.GA13937@localhost.localdomain>
 References: <cover.1418504883.git.richardcochran@gmail.com>
-	 <5d83679d541974c164cfc415c0bb171e2b363f16.1418504889.git.richardcochran@gmail.com>
+ <5d83679d541974c164cfc415c0bb171e2b363f16.1418504889.git.richardcochran@gmail.com>
+ <1419368839.2470.32.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-4HNh19mthAor9npeNqbT"
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -21,56 +21,31 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Thomas Gleixner <tglx@linutronix.de>,
 	Tom Lendacky <thomas.lendacky@amd.com>
-To: Richard Cochran <richardcochran@gmail.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5d83679d541974c164cfc415c0bb171e2b363f16.1418504889.git.richardcochran@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <1419368839.2470.32.camel@jtkirshe-mobl>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Dec 23, 2014 at 01:07:19PM -0800, Jeff Kirsher wrote:
+> Just for sanity sake, I will have Phillip test the changes, but there is
+> no need to hold this up from being committed in the mean time.
 
---=-4HNh19mthAor9npeNqbT
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+FYI, here is a test that may show the improved behavior when comparing
+before/after.
 
-On Sun, 2014-12-21 at 19:47 +0100, Richard Cochran wrote:
-> This patch changes the driver to use the new and improved method
-> for adjusting the offset of a timecounter.
->=20
-> Compile tested only.
->=20
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+1. Start ptp4l, let it run long enough to find the frequency offset.
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Just for sanity sake, I will have Phillip test the changes, but there is
-no need to hold this up from being committed in the mean time.
+2. Stop ptp4l with ^C.
 
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c |   11 +----------
->  1 file changed, 1 insertion(+), 10 deletions(-)
+3. Wait a bit, to let the clock drift away.
 
+4. Restart ptp4l, it will now start with the frequency offset learned
+   in step 1.
 
+5. Notice the the offsets in states s0 -> s1 -> s2.
+   There will likely be less offset error with the patches applied.
 
---=-4HNh19mthAor9npeNqbT
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJUmdmHAAoJEOVv75VaS+3ORbIP/0Pp1dJl2Ik1fRxwpWN1SVD7
-5sRN79OINPvPx8iP/yYU2DstZR+ylBHaiqq9GjSqOScVlVBx7/e44LjFn8WSe0si
-Te7zJDrL6VFTrNt/xUM6Cwb3wWOcPiym3nY/QRaTKn9YdbVonQe9AchDXW/F+F6l
-Gm0oRhjXCGbdAYXDMe6A3mGq5YIE/0ZWfR/K5cjcvqs9FUvH+Z3YQ6ZSMhzsCGVD
-12pBoaYH2Oty7A/RR7cUCzcF1rK1zwNxVAHUb9FFrXzYTzm/cOQ7H9MDh3837Myc
-UfJ8C3HF5RFiB4eh4aaORTW30BbQRnwsmUhaX/0lh/cUQq0+exPIOO00/VD67z9D
-yWEechjKDoB/vVhBgjdNbPQ/FdE+m0W9Qf8xp4KT2+SuXgiJH5DtGxuhGC/yF0IL
-hE5nlYQ7ZSWprExjmFyNFM7Hkn8EM8J9YAvw4kjx4yr5wD1HcZrCntLPp3dBK/jM
-8Q2TNPomvAfjjiI82YeXjaYULGvKDd6Qzc7cAYEayTWg0K6bcKcJxH8+jMxoSnpj
-cTkBhohIGfVXAC4qukzEeUZnyznnhwp8cH5RsjSOTSY58nOsDlV676/86hW8PJeP
-wmezQ01M1AFfZbHi4scLT/80acXhEN/3hff+NfZQK2z9xHsuQD825JTbLmoi1PlG
-exwDP64GV1TMXnstJZfP
-=NvtK
------END PGP SIGNATURE-----
-
---=-4HNh19mthAor9npeNqbT--
+Thanks,
+Richard
