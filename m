@@ -1,63 +1,81 @@
-From: <shh.xie@gmail.com>
-Subject: [PATCH 3/3] net/fsl: remove hardcoded clock setting from xgmac_mdio
-Date: Tue, 23 Dec 2014 17:47:22 +0800
-Message-ID: <1419328042-27294-1-git-send-email-shh.xie@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Shaohui Xie <Shaohui.Xie@freescale.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bbn0100.outbound.protection.outlook.com ([157.56.111.100]:22944
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755816AbaLWLY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Dec 2014 06:24:56 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johan Hovold <johan@kernel.org>
+Subject: [PATCH] net: phy: micrel: use generic config_init for KSZ8021/KSZ8031
+Date: Tue, 23 Dec 2014 12:59:17 +0100
+Message-ID: <1419335957-18020-1-git-send-email-johan@kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Bruno Thomsen <bth@kamstrup.dk>,
+	Johan Hovold <johan@kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shaohui Xie <Shaohui.Xie@freescale.com>
+Use generic config_init callback also for KSZ8021 and KSZ8031.
 
-There is no need to set the clock speed in read/write which will be performed
-unnecessarily for each mdio access. Init it during probe is enough.
+This has been avoided this far due to commit b838b4aced99 ("phy/micrel:
+KSZ8031RNL RMII clock reconfiguration bug"), which claims that the PHY
+becomes unresponsive if the broadcast-disable flag is set before
+configuring the clock mode.
 
-Also, the hardcoded clock value is not a proper way for all SoCs.
+Turns out that the problem seemingly worked-around by the above
+mentioned commit was really due to a hardware-configuration issue, where
+the PHY was in fact strapped to address 3 rather than 0.
 
-Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+Tested-by: Bruno Thomsen <bth@kamstrup.dk>
+Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- drivers/net/ethernet/freescale/xgmac_mdio.c | 14 --------------
- 1 file changed, 14 deletions(-)
+ drivers/net/phy/micrel.c | 18 +++---------------
+ 1 file changed, 3 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
-index 72e0b85..f8c3bc0 100644
---- a/drivers/net/ethernet/freescale/xgmac_mdio.c
-+++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
-@@ -94,13 +94,6 @@ static int xgmac_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 val
- 	uint16_t dev_addr = regnum >> 16;
- 	int ret;
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index c530de1e63f5..3ad8ca76196d 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -88,6 +88,7 @@ struct kszphy_priv {
  
--	/* Setup the MII Mgmt clock speed */
--	out_be32(&regs->mdio_stat, MDIO_STAT_CLKDIV(100));
--
--	ret = xgmac_wait_until_free(&bus->dev, regs);
--	if (ret)
--		return ret;
--
- 	/* Set the port and dev addr */
- 	out_be32(&regs->mdio_ctl,
- 		 MDIO_CTL_PORT_ADDR(phy_id) | MDIO_CTL_DEV_ADDR(dev_addr));
-@@ -135,13 +128,6 @@ static int xgmac_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
- 	uint16_t value;
- 	int ret;
+ static const struct kszphy_type ksz8021_type = {
+ 	.led_mode_reg		= MII_KSZPHY_CTRL_2,
++	.has_broadcast_disable	= true,
+ 	.has_rmii_ref_clk_sel	= true,
+ };
  
--	/* Setup the MII Mgmt clock speed */
--	out_be32(&regs->mdio_stat, MDIO_STAT_CLKDIV(100));
+@@ -258,19 +259,6 @@ static int kszphy_config_init(struct phy_device *phydev)
+ 	return 0;
+ }
+ 
+-static int ksz8021_config_init(struct phy_device *phydev)
+-{
+-	int rc;
 -
--	ret = xgmac_wait_until_free(&bus->dev, regs);
--	if (ret)
--		return ret;
+-	rc = kszphy_config_init(phydev);
+-	if (rc)
+-		return rc;
 -
- 	/* Set the Port and Device Addrs */
- 	mdio_ctl = MDIO_CTL_PORT_ADDR(phy_id) | MDIO_CTL_DEV_ADDR(dev_addr);
- 	out_be32(&regs->mdio_ctl, mdio_ctl);
+-	rc = kszphy_broadcast_disable(phydev);
+-
+-	return rc < 0 ? rc : 0;
+-}
+-
+ static int ksz9021_load_values_from_of(struct phy_device *phydev,
+ 				       struct device_node *of_node, u16 reg,
+ 				       char *field1, char *field2,
+@@ -584,7 +572,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz8021_type,
+ 	.probe		= kszphy_probe,
+-	.config_init	= ksz8021_config_init,
++	.config_init	= kszphy_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+ 	.ack_interrupt	= kszphy_ack_interrupt,
+@@ -601,7 +589,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz8021_type,
+ 	.probe		= kszphy_probe,
+-	.config_init	= ksz8021_config_init,
++	.config_init	= kszphy_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+ 	.ack_interrupt	= kszphy_ack_interrupt,
 -- 
-1.8.4.1
+2.0.5
