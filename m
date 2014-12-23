@@ -1,46 +1,49 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH] bonding: change error message to debug message in __bond_release_one()
-Date: Tue, 23 Dec 2014 09:48:38 +0800
-Message-ID: <5498C9F6.70608@huawei.com>
-References: <1419297876-1412-1-git-send-email-wen.gang.wang@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Wengang Wang <wen.gang.wang@oracle.com>, <netdev@vger.kernel.org>,
-	<gospo@cumulusnetworks.com>
+From: Jia-Ju Bai <baijiaju1990@163.com>
+Subject: [PATCH v3] 3c59x: Fix memory leaks in vortex_open
+Date: Tue, 23 Dec 2014 10:54:50 +0800
+Message-ID: <1419303290-27565-1-git-send-email-baijiaju1990@163.com>
+Cc: netdev@vger.kernel.org, Jia-Ju Bai <baijiaju1990@163.com>
+To: davem@davemloft.net, nhorman@tuxdriver.com, ebiederm@xmission.com,
+	dingtianhong@huawei.com, paul.gortmaker@windriver.com,
+	justinvanwijngaarden@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:42968 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751187AbaLWBsy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2014 20:48:54 -0500
-In-Reply-To: <1419297876-1412-1-git-send-email-wen.gang.wang@oracle.com>
+Received: from m12-15.163.com ([220.181.12.15]:44870 "EHLO m12-15.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753970AbaLWCy7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Dec 2014 21:54:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/12/23 9:24, Wengang Wang wrote:
-> In __bond_release_one(), when the interface is not a slave or not a slave of
-> "this" master, it log error message.
-> 
-> The message actually should be a debug message matching what bond_enslave()
-> does.
-> 
-> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
-> ---
->  drivers/net/bonding/bond_main.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 184c434..0dceba1 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -1648,7 +1648,7 @@ static int __bond_release_one(struct net_device *bond_dev,
->  	/* slave is not a slave or master is not master of this slave */
->  	if (!(slave_dev->flags & IFF_SLAVE) ||
->  	    !netdev_has_upper_dev(slave_dev, bond_dev)) {
-> -		netdev_err(bond_dev, "cannot release %s\n",
-> +		netdev_dbg(bond_dev, "cannot release %s\n",
->  			   slave_dev->name);
->  		return -EINVAL;
->  	}
-> 
-Acked-by: Ding Tianhong <dingtianhong@huawei.com>
+For linux-3.18.0
+The driver calls __netdev_alloc_skb in vortex_open but lacks dev_kfree_skb
+when vortex_up is failed, so memory leaks may occur in this situation.
+This patch fixes this problem.
+
+Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+---
+ drivers/net/ethernet/3com/3c59x.c |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
+index 41095eb..d0c5bee 100644
+--- a/drivers/net/ethernet/3com/3c59x.c
++++ b/drivers/net/ethernet/3com/3c59x.c
+@@ -1782,6 +1782,16 @@ vortex_open(struct net_device *dev)
+ 	if (!retval)
+ 		goto out;
+ 
++	if (vp->full_bus_master_rx) {
++		for (i = 0; i < RX_RING_SIZE; i++) {
++			if (vp->rx_skbuff[i]) {
++				dev_kfree_skb(vp->rx_skbuff[i]);
++				vp->rx_skbuff[i] = NULL;
++			}
++		}
++		retval = -ENOMEM;
++	}
++
+ err_free_irq:
+ 	free_irq(dev->irq, dev);
+ err:
+-- 
+1.7.9.5
