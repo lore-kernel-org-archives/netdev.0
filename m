@@ -1,36 +1,42 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] rsi: fix memory leak in rsi_load_ta_instructions()
-Date: Wed, 24 Dec 2014 17:26:39 +0200
-Message-ID: <87wq5h83ww.fsf@kamboji.qca.qualcomm.com>
-References: <1418420635-23869-1-git-send-email-khoroshilov@ispras.ru>
+Subject: Re: [PATCH next] drivers/net/wireless/ath/wil6210/debugfs.c: Use 'uint64_t' instead of 'cycles_t' to avoid warnings
+Date: Wed, 24 Dec 2014 17:35:07 +0200
+Message-ID: <87oaqt83is.fsf@kamboji.qca.qualcomm.com>
+References: <549AD067.80608@gmail.com> <549AD54F.3020605@gmail.com>
+	<8761d19j6z.fsf@kamboji.qca.qualcomm.com> <549ADA1D.8030509@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Fariya Fatima <fariyaf@gmail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.11.231]:53272 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750891AbaLXP0r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 10:26:47 -0500
-In-Reply-To: <1418420635-23869-1-git-send-email-khoroshilov@ispras.ru> (Alexey
-	Khoroshilov's message of "Sat, 13 Dec 2014 00:43:55 +0300")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: qca_vkondrat@qca.qualcomm.com, linux-wireless@vger.kernel.org,
+	wil6210@qca.qualcomm.com,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-next@vger.kernel.org
+To: Chen Gang <gang.chen.5i5j@gmail.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <549ADA1D.8030509@gmail.com> (Chen Gang's message of "Wed, 24 Dec
+	2014 23:22:05 +0800")
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Alexey Khoroshilov <khoroshilov@ispras.ru> writes:
+Chen Gang <gang.chen.5i5j@gmail.com> writes:
 
-> Memory allocated by kmemdup() in rsi_load_ta_instructions() is leaked.
-> But duplication of firmware data here is useless,
-> so the patch removes kmemdup() at all.
+> On 12/24/2014 11:11 PM, Kalle Valo wrote:
+>> Chen Gang <gang.chen.5i5j@gmail.com> writes:
+>> 
+>>> Oh, sorry, I forgot the word wrap (after change a new pc). I shall send
+>>> patch v2 for it.
+>> 
+>> While at it, could you also please simplify the title. You don't have to
+>> put the full directory there, it just makes it more difficult to read.
+>> This should be enough:
+>> 
+>> wil6210: Use 'uint64_t' instead of 'cycles_t' to avoid warnings
+>> 
 >
-> Found by Linux Driver Verification project (linuxtesting.org).
->
-> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+> Oh, I have sent patch v2, if necessary, I will send patch v3 for it.
+> (if necessary, please let me know)
 
-Thanks, applied to wireless-drivers-next.git.
+I can edit it this time, but in the future please be use less verbose
+titles.
 
 -- 
 Kalle Valo
