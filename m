@@ -1,17 +1,17 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v2 3/4] bridge: Allow to easy change network namespace
-Date: Wed, 24 Dec 2014 23:04:10 +0200
-Message-ID: <1419455051-23397-4-git-send-email-vadim4j@gmail.com>
+Subject: [PATCH iproute2 v2 4/4] tc: Allow to easy change network namespace
+Date: Wed, 24 Dec 2014 23:04:11 +0200
+Message-ID: <1419455051-23397-5-git-send-email-vadim4j@gmail.com>
 References: <1419455051-23397-1-git-send-email-vadim4j@gmail.com>
 Cc: Vadim Kochan <vadim4j@gmail.com>, Jiri Pirko <jiri@resnulli.us>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f41.google.com ([209.85.215.41]:36363 "EHLO
-	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751693AbaLXVO0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 16:14:26 -0500
-Received: by mail-la0-f41.google.com with SMTP id hv19so7320185lab.14
-        for <netdev@vger.kernel.org>; Wed, 24 Dec 2014 13:14:24 -0800 (PST)
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:43920 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751710AbaLXVO3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 16:14:29 -0500
+Received: by mail-lb0-f169.google.com with SMTP id p9so7294221lbv.28
+        for <netdev@vger.kernel.org>; Wed, 24 Dec 2014 13:14:26 -0800 (PST)
 In-Reply-To: <1419455051-23397-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -20,111 +20,196 @@ From: Vadim Kochan <vadim4j@gmail.com>
 
 Added new '-netns' option to simplify executing following cmd:
 
-    ip netns exec NETNS bridge OPTIONS COMMAND OBJECT
+    ip netns exec NETNS tc OPTIONS COMMAND OBJECT
 
     to
 
-    bridge -n[etns] NETNS OPTIONS COMMAND OBJECT
+    tc -n[etns] NETNS OPTIONS COMMAND OBJECT
 
 e.g.:
 
-    bridge -net vnet0 fdb
+    tc -net vnet0 qdisc
 
 Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- bridge/Makefile   |  4 ++++
- bridge/bridge.c   |  7 ++++++-
- man/man8/bridge.8 | 23 ++++++++++++++++++++++-
- 3 files changed, 32 insertions(+), 2 deletions(-)
+ man/man8/tc.8 | 65 +++++++++++++++++++++++++++++++++++++++++++++--------------
+ tc/Makefile   |  5 +++++
+ tc/tc.c       |  8 +++++++-
+ 3 files changed, 62 insertions(+), 16 deletions(-)
 
-diff --git a/bridge/Makefile b/bridge/Makefile
-index 1fb8320..9800753 100644
---- a/bridge/Makefile
-+++ b/bridge/Makefile
-@@ -2,6 +2,10 @@ BROBJ = bridge.o fdb.o monitor.o link.o mdb.o vlan.o
+diff --git a/man/man8/tc.8 b/man/man8/tc.8
+index 8d794de..d8f974f 100644
+--- a/man/man8/tc.8
++++ b/man/man8/tc.8
+@@ -2,7 +2,9 @@
+ .SH NAME
+ tc \- show / manipulate traffic control settings
+ .SH SYNOPSIS
+-.B tc qdisc [ add | change | replace | link | delete ] dev
++.B tc
++.RI "[ " OPTIONS " ]"
++.B qdisc [ add | change | replace | link | delete ] dev
+ DEV
+ .B
+ [ parent
+@@ -13,7 +15,9 @@ qdisc-id ] qdisc
+ [ qdisc specific parameters ]
+ .P
  
- include ../Config
+-.B tc class [ add | change | replace | delete ] dev
++.B tc
++.RI "[ " OPTIONS " ]"
++.B class [ add | change | replace | delete ] dev
+ DEV
+ .B parent
+ qdisc-id
+@@ -22,7 +26,9 @@ class-id ] qdisc
+ [ qdisc specific parameters ]
+ .P
  
-+ifeq ($(IP_CONFIG_SETNS),y)
-+	CFLAGS += -DHAVE_SETNS
-+endif
+-.B tc filter [ add | change | replace | delete ] dev
++.B tc
++.RI "[ " OPTIONS " ]"
++.B filter [ add | change | replace | delete ] dev
+ DEV
+ .B [ parent
+ qdisc-id
+@@ -35,21 +41,28 @@ priority filtertype
+ flow-id
+ 
+ .B tc
++.RI "[ " OPTIONS " ]"
+ .RI "[ " FORMAT " ]"
+ .B qdisc show [ dev
+ DEV
+ .B ]
+ .P
+ .B tc
++.RI "[ " OPTIONS " ]"
+ .RI "[ " FORMAT " ]"
+ .B class show dev
+ DEV
+ .P
+-.B tc filter show dev
++.B tc
++.RI "[ " OPTIONS " ]"
++.B filter show dev
+ DEV
+ 
+ .P
+-.B tc [ -force ] -b\fR[\fIatch\fR] \fB[ filename ]
++.ti 8
++.IR OPTIONS " := {"
++\fB[ -force ] -b\fR[\fIatch\fR] \fB[ filename ] \fR|
++\fB[ \fB-n\fR[\fIetns\fR] name \fB] \fR}
+ 
+ .ti 8
+ .IR FORMAT " := {"
+@@ -407,6 +420,38 @@ link
+ Only available for qdiscs and performs a replace where the node
+ must exist already.
+ 
++.SH OPTIONS
 +
- all: bridge
- 
- bridge: $(BROBJ) $(LIBNETLINK) 
-diff --git a/bridge/bridge.c b/bridge/bridge.c
-index ee08f90..5fcc552 100644
---- a/bridge/bridge.c
-+++ b/bridge/bridge.c
-@@ -13,6 +13,7 @@
- #include "SNAPSHOT.h"
- #include "utils.h"
- #include "br_common.h"
-+#include "namespace.h"
- 
- struct rtnl_handle rth = { .fd = -1 };
- int preferred_family = AF_UNSPEC;
-@@ -31,7 +32,7 @@ static void usage(void)
- "Usage: bridge [ OPTIONS ] OBJECT { COMMAND | help }\n"
- "where  OBJECT := { link | fdb | mdb | vlan | monitor }\n"
- "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] |\n"
--"                    -o[neline] | -t[imestamp] \n");
-+"                    -o[neline] | -t[imestamp] | -n[etns] name }\n");
- 	exit(-1);
- }
- 
-@@ -112,6 +113,10 @@ main(int argc, char **argv)
- 			preferred_family = AF_INET;
- 		} else if (strcmp(opt, "-6") == 0) {
- 			preferred_family = AF_INET6;
-+		} else if (matches(opt, "-netns") == 0) {
-+			NEXT_ARG();
-+			if (netns_switch(argv[1]))
-+				exit(-1);
- 		} else {
- 			fprintf(stderr, "Option \"%s\" is unknown, try \"bridge help\".\n", opt);
- 			exit(-1);
-diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
-index af31d41..cb3fb46 100644
---- a/man/man8/bridge.8
-+++ b/man/man8/bridge.8
-@@ -19,7 +19,8 @@ bridge \- show / manipulate bridge addresses and devices
- .ti -8
- .IR OPTIONS " := { "
- \fB\-V\fR[\fIersion\fR] |
--\fB\-s\fR[\fItatistics\fR] }
-+\fB\-s\fR[\fItatistics\fR] |
-+\fB\-n\fR[\fIetns\fR] name }
- 
- .ti -8
- .BR "bridge link set"
-@@ -112,6 +113,26 @@ output more information.  If this option
- is given multiple times, the amount of information increases.
- As a rule, the information is statistics or some time values.
- 
++.TP
++.BR "\-b", " \-b filename", " \-batch", " \-batch filename"
++read commands from provided file or standard input and invoke them.
++First failure will cause termination of tc.
++
++.TP
++.BR "\-force"
++don't terminate tc on errors in batch mode.
++If there were any errors during execution of the commands, the application return code will be non zero.
++
 +.TP
 +.BR "\-n" , " \-net" , " \-netns " <NETNS>
 +switches
-+.B bridge
++.B tc
 +to the specified network namespace
 +.IR NETNS .
 +Actually it just simplifies executing of:
 +
 +.B ip netns exec
 +.IR NETNS
-+.B bridge
++.B tc
 +.RI "[ " OPTIONS " ] " OBJECT " { " COMMAND " | "
 +.BR help " }"
 +
 +to
 +
-+.B bridge
++.B tc
 +.RI "-n[etns] " NETNS " [ " OPTIONS " ] " OBJECT " { " COMMAND " | "
 +.BR help " }"
 +
+ .SH FORMAT
+ The show command has additional formatting options:
  
- .SH BRIDGE - COMMAND SYNTAX
+@@ -430,16 +475,6 @@ decode filter offset and mask values to equivalent filter commands based on TCP/
+ .BR "\-iec"
+ print rates in IEC units (ie. 1K = 1024).
  
+-.TP
+-.BR "\-b", " \-b filename", " \-batch", " \-batch filename"
+-read commands from provided file or standard input and invoke them.
+-First failure will cause termination of tc.
+-
+-.TP
+-.BR "\-force"
+-don't terminate tc on errors in batch mode.
+-If there were any errors during execution of the commands, the application return code will be non zero.
+-
+ .SH HISTORY
+ .B tc
+ was written by Alexey N. Kuznetsov and added in Linux 2.2.
+diff --git a/tc/Makefile b/tc/Makefile
+index 830c97d..9412094 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -3,6 +3,11 @@ TCOBJ= tc.o tc_qdisc.o tc_class.o tc_filter.o tc_util.o \
+        m_ematch.o emp_ematch.yacc.o emp_ematch.lex.o
+ 
+ include ../Config
++
++ifeq ($(IP_CONFIG_SETNS),y)
++	CFLAGS += -DHAVE_SETNS
++endif
++
+ SHARED_LIBS ?= y
+ 
+ TCMODULES :=
+diff --git a/tc/tc.c b/tc/tc.c
+index 9b50e74..ea4ba10 100644
+--- a/tc/tc.c
++++ b/tc/tc.c
+@@ -29,6 +29,7 @@
+ #include "utils.h"
+ #include "tc_util.h"
+ #include "tc_common.h"
++#include "namespace.h"
+ 
+ int show_stats = 0;
+ int show_details = 0;
+@@ -185,7 +186,8 @@ static void usage(void)
+ 	fprintf(stderr, "Usage: tc [ OPTIONS ] OBJECT { COMMAND | help }\n"
+ 			"       tc [-force] -batch filename\n"
+ 	                "where  OBJECT := { qdisc | class | filter | action | monitor }\n"
+-	                "       OPTIONS := { -s[tatistics] | -d[etails] | -r[aw] | -p[retty] | -b[atch] [filename] }\n");
++	                "       OPTIONS := { -s[tatistics] | -d[etails] | -r[aw] | -p[retty] | -b[atch] [filename] | "
++			"-n[etns] name }\n");
+ }
+ 
+ static int do_cmd(int argc, char **argv)
+@@ -293,6 +295,10 @@ int main(int argc, char **argv)
+ 			if (argc <= 1)
+ 				usage();
+ 			batch_file = argv[1];
++		} else if (matches(argv[1], "-netns") == 0) {
++			NEXT_ARG();
++			if (netns_switch(argv[1]))
++				return -1;
+ 		} else {
+ 			fprintf(stderr, "Option \"%s\" is unknown, try \"tc -help\".\n", argv[1]);
+ 			return -1;
 -- 
 2.1.3
