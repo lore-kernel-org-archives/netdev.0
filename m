@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v3 09/20] selftests/memory-hotplug: add install target to enable test install
-Date: Wed, 24 Dec 2014 09:27:45 -0700
-Message-ID: <fffca2a31f0c84931d2dc0898051503fcf1957c1.1419387513.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v3 07/20] selftests/kcmp: add install target to enable test install
+Date: Wed, 24 Dec 2014 09:27:43 -0700
+Message-ID: <067b4c9878238c8a93f57f50a0c1aab16a26fc58.1419387513.git.shuahkh@osg.samsung.com>
 References: <cover.1419387513.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -27,40 +27,35 @@ only from top level kernel source directory.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/memory-hotplug/Makefile            | 14 ++++++++++++--
- .../memory-hotplug/{on-off-test.sh => mem-on-off-test.sh}  |  0
- 2 files changed, 12 insertions(+), 2 deletions(-)
- rename tools/testing/selftests/memory-hotplug/{on-off-test.sh => mem-on-off-test.sh} (100%)
+ tools/testing/selftests/kcmp/Makefile | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
 
-diff --git a/tools/testing/selftests/memory-hotplug/Makefile b/tools/testing/selftests/memory-hotplug/Makefile
-index d46b8d4..561ee2b 100644
---- a/tools/testing/selftests/memory-hotplug/Makefile
-+++ b/tools/testing/selftests/memory-hotplug/Makefile
-@@ -1,9 +1,19 @@
-+TEST_STR=/bin/bash ./mem-on-off-test.sh -r 2 || echo memory-hotplug selftests: [FAIL]
+diff --git a/tools/testing/selftests/kcmp/Makefile b/tools/testing/selftests/kcmp/Makefile
+index ff0eefd..8d640d0 100644
+--- a/tools/testing/selftests/kcmp/Makefile
++++ b/tools/testing/selftests/kcmp/Makefile
+@@ -1,10 +1,21 @@
+ CC := $(CROSS_COMPILE)$(CC)
+ CFLAGS += -I../../../../usr/include/
+ 
++TEST_STR = ./kcmp_test || echo kcmp_test: [FAIL]
 +
- all:
+ all: kcmp_test
  
 +install:
 +ifdef INSTALL_KSFT_PATH
-+	install ./mem-on-off-test.sh $(INSTALL_KSFT_PATH)/mem-on-off-test.sh
-+	@echo "$(TEST_STR)" >> $(KSELFTEST) >> $(KSELFTEST)
++	install ./kcmp_test $(INSTALL_KSFT_PATH)
++	@echo "$(TEST_STR)" >> $(KSELFTEST)
++	@echo rm -f kcmp-test-file >> $(KSELFTEST)
 +else
 +	@echo Run make kselftest_install in top level source directory
 +endif
 +
- run_tests:
--	@/bin/bash ./on-off-test.sh -r 2 || echo "memory-hotplug selftests: [FAIL]"
+ run_tests: all
+-	@./kcmp_test || echo "kcmp_test: [FAIL]"
 +	@$(TEST_STR)
  
- run_full_test:
--	@/bin/bash ./on-off-test.sh || echo "memory-hotplug selftests: [FAIL]"
-+	@/bin/bash ./mem-on-off-test.sh || echo "memory-hotplug selftests: [FAIL]"
- 
  clean:
-diff --git a/tools/testing/selftests/memory-hotplug/on-off-test.sh b/tools/testing/selftests/memory-hotplug/mem-on-off-test.sh
-similarity index 100%
-rename from tools/testing/selftests/memory-hotplug/on-off-test.sh
-rename to tools/testing/selftests/memory-hotplug/mem-on-off-test.sh
+ 	$(RM) kcmp_test kcmp-test-file
 -- 
 2.1.0
