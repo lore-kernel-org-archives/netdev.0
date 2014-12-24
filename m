@@ -1,42 +1,60 @@
-From: kbuild test robot <fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] openvswitch: fix odd_ptr_err.cocci warnings
-Date: Wed, 24 Dec 2014 14:41:39 +0800
-Message-ID: <20141224064138.GA11360@athens>
-References: <201412241437.BpaCtsIE%fengguang.wu@intel.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH net-next] Allow to set net namespace for wireless device
+ via RTM_LINK
+Date: Wed, 24 Dec 2014 11:48:48 +0200
+Message-ID: <CAMw6YJKLWQmT-fqg1QLDHbCxnpxWyJUSX+wvOB_pFyE=8HfSfQ@mail.gmail.com>
+References: <1410467723-2550-1-git-send-email-vadim4j@gmail.com>
+	<1411075535.2034.5.camel@jlt4.sipsolutions.net>
+	<20141014121627.GA5115@angus-think.lan>
+	<1413798437.10246.12.camel@jlt4.sipsolutions.net>
+	<128188DF-5A9B-47A5-8A89-974CF7CF9064@holtmann.org>
+	<1413802344.10246.20.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kbuild-all-JC7UmRfGjtg@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <201412241437.BpaCtsIE%fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:53805 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750963AbaLXJst (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 04:48:49 -0500
+In-Reply-To: <1413802344.10246.20.camel@jlt4.sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-bmV0L29wZW52c3dpdGNoL3Zwb3J0LWdyZS5jOjE4ODo1LTExOiBpbmNvbnNpc3RlbnQgSVNfRVJS
-IGFuZCBQVFJfRVJSLCBQVFJfRVJSIG9uIGxpbmUgMTg5CgogUFRSX0VSUiBzaG91bGQgYWNjZXNz
-IHRoZSB2YWx1ZSBqdXN0IHRlc3RlZCBieSBJU19FUlIKClNlbWFudGljIHBhdGNoIGluZm9ybWF0
-aW9uOgogVGhlcmUgY2FuIGJlIGZhbHNlIHBvc2l0aXZlcyBpbiB0aGUgcGF0Y2ggY2FzZSwgd2hl
-cmUgaXQgaXMgdGhlIGNhbGwKIElTX0VSUiB0aGF0IGlzIHdyb25nLgoKR2VuZXJhdGVkIGJ5OiBz
-Y3JpcHRzL2NvY2NpbmVsbGUvdGVzdHMvb2RkX3B0cl9lcnIuY29jY2kKCkNDOiBQcmF2aW4gQiBT
-aGVsYXIgPHBzaGVsYXJAbmljaXJhLmNvbT4KU2lnbmVkLW9mZi1ieTogRmVuZ2d1YW5nIFd1IDxm
-ZW5nZ3Vhbmcud3VAaW50ZWwuY29tPgotLS0KCiB2cG9ydC1ncmUuYyB8ICAgIDIgKy0KIDEgZmls
-ZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQoKLS0tIGEvbmV0L29wZW52
-c3dpdGNoL3Zwb3J0LWdyZS5jCisrKyBiL25ldC9vcGVudnN3aXRjaC92cG9ydC1ncmUuYwpAQCAt
-MTg2LDcgKzE4Niw3IEBAIHN0YXRpYyBpbnQgZ3JlX3RubF9zZW5kKHN0cnVjdCB2cG9ydCAqdnAK
-IAkvKiBQdXNoIFR1bm5lbCBoZWFkZXIuICovCiAJc2tiID0gX19idWlsZF9oZWFkZXIoc2tiLCB0
-dW5uZWxfaGxlbik7CiAJaWYgKElTX0VSUihza2IpKSB7Ci0JCWVyciA9IFBUUl9FUlIocnQpOwor
-CQllcnIgPSBQVFJfRVJSKHNrYik7CiAJCXNrYiA9IE5VTEw7CiAJCWdvdG8gZXJyX2ZyZWVfcnQ7
-CiAJfQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYg
-bWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9t
-YWlsbWFuL2xpc3RpbmZvL2Rldgo=
+On Mon, Oct 20, 2014 at 1:52 PM, Johannes Berg
+<johannes@sipsolutions.net> wrote:
+> On Mon, 2014-10-20 at 12:46 +0200, Marcel Holtmann wrote:
+>
+>> Maybe relaxing the check and allow ip link to move a wireless netdev
+>> into a namespace (and having the wiphy follow) could be allowed if it
+>> is the only netdev or the original wlan0 that each wiphy creates. I
+>> really do not know if this is worth it, but for some simpler container
+>> cases it could be beneficial if RTNL can be used instead of having to
+>> go through nl80211.
+>
+> The thought crossed my mind, but
+>
+> 1) it's relatively complex, though by no means impossible
+> 2) it still moves more than you bargained for, since in theory the wiphy
+> could be
+>    used to create new interfaces etc.
+>
+> That said, I'm much more inclined to believe such a patch would be
+> worthwhile than the original.
+>
+> johannes
+>
+
+Hi Johannes,
+
+What about the following thoughts:
+
+    1) Set NETIF_F_NETNS_LOCAL for phy wireless device only if there
+is at least one virtual interface which was created on it
+    2) What about to inherit netns for newer created interfaces from
+the phy device ?
+
+Thanks,
