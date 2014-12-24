@@ -1,39 +1,49 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH next] drivers/net/wireless/ath/wil6210/debugfs.c: Use 'uint64_t' instead of 'cycles_t' to avoid warnings
-Date: Wed, 24 Dec 2014 17:11:16 +0200
-Message-ID: <8761d19j6z.fsf@kamboji.qca.qualcomm.com>
-References: <549AD067.80608@gmail.com> <549AD54F.3020605@gmail.com>
+From: Chen Gang <gang.chen.5i5j@gmail.com>
+Subject: Re: [PATCH next] drivers/net/wireless/ath/wil6210/debugfs.c: Use
+ 'uint64_t' instead of 'cycles_t' to avoid warnings
+Date: Wed, 24 Dec 2014 23:22:05 +0800
+Message-ID: <549ADA1D.8030509@gmail.com>
+References: <549AD067.80608@gmail.com> <549AD54F.3020605@gmail.com> <8761d19j6z.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: qca_vkondrat-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	wil6210-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org,
-	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Chen Gang <gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <549AD54F.3020605-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (Chen Gang's message of "Wed, 24 Dec
-	2014 23:01:35 +0800")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: qca_vkondrat@qca.qualcomm.com, linux-wireless@vger.kernel.org,
+	wil6210@qca.qualcomm.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-next@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <8761d19j6z.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chen Gang <gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+On 12/24/2014 11:11 PM, Kalle Valo wrote:
+> Chen Gang <gang.chen.5i5j@gmail.com> writes:
+> 
+>> Oh, sorry, I forgot the word wrap (after change a new pc). I shall send
+>> patch v2 for it.
+> 
+> While at it, could you also please simplify the title. You don't have to
+> put the full directory there, it just makes it more difficult to read.
+> This should be enough:
+> 
+> wil6210: Use 'uint64_t' instead of 'cycles_t' to avoid warnings
+> 
 
-> Oh, sorry, I forgot the word wrap (after change a new pc). I shall send
-> patch v2 for it.
+Oh, I have sent patch v2, if necessary, I will send patch v3 for it.
+(if necessary, please let me know)
 
-While at it, could you also please simplify the title. You don't have to
-put the full directory there, it just makes it more difficult to read.
-This should be enough:
+> I see quite a few patches with titles like 'drivers: net: wireless: ath:
+> fix foo'. Where an earth is that coming from? Bad documentation
+> somewhere?
+> 
 
-wil6210: Use 'uint64_t' instead of 'cycles_t' to avoid warnings
+I guess, this can let the patch makers have a easier life, e.g. for me,
+I may send patches for various sub-systems (arch/*, drivers/*, net/*,
+also another projects ...).
 
-I see quite a few patches with titles like 'drivers: net: wireless: ath:
-fix foo'. Where an earth is that coming from? Bad documentation
-somewhere?
-
+Thanks.
 -- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Chen Gang
+
+Open, share, and attitude like air, water, and life which God blessed
