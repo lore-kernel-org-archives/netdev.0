@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v3 11/20] selftests/mqueue: add install target to enable test install
-Date: Wed, 24 Dec 2014 09:27:47 -0700
-Message-ID: <1e4aa40c42e886d36ae1bfcb93e4b8d696fa6c39.1419387513.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v3 20/20] kbuild: add a new kselftest_install make target to install selftests
+Date: Wed, 24 Dec 2014 09:27:56 -0700
+Message-ID: <05d750bb46f4f20c668b13c312c520c1e56f7ba1.1419387513.git.shuahkh@osg.samsung.com>
 References: <cover.1419387513.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -20,45 +20,59 @@ References: <cover.1419387513.git.shuahkh@osg.samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a new make target to enable installing test. This target
-installs test in the kselftest install location and add to the
-kselftest script to run the test. Install target can be run
-only from top level kernel source directory.
+Add a new make target to install to install kernel selftests.
+This new target will build and install selftests. kselftest
+target now depends on kselftest_install and runs the generated
+kselftest script to reduce duplicate work and for common look
+and feel when running tests.
+
+make kselftest_target:
+-- exports kselftest INSTALL_KSFT_PATH
+   default $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
+-- exports INSTALL_KSFT_PATH
+-- runs selftests make install target:
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/mqueue/Makefile | 18 +++++++++++++++---
- 1 file changed, 15 insertions(+), 3 deletions(-)
+ Makefile | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/tools/testing/selftests/mqueue/Makefile b/tools/testing/selftests/mqueue/Makefile
-index 8056e2e..27757b9 100644
---- a/tools/testing/selftests/mqueue/Makefile
-+++ b/tools/testing/selftests/mqueue/Makefile
-@@ -1,10 +1,22 @@
-+MQ_OPEN_TEST_STR = ./mq_open_tests /test1 || echo mq_open_tests: [FAIL]
-+MQ_PERF_TEST_STR = ./mq_perf_tests || echo mq_perf_tests: [FAIL]
-+
- all:
- 	gcc -O2 mq_open_tests.c -o mq_open_tests -lrt
- 	gcc -O2 -o mq_perf_tests mq_perf_tests.c -lrt -lpthread -lpopt
+diff --git a/Makefile b/Makefile
+index b1c3254..99fac47 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1072,12 +1072,21 @@ headers_check: headers_install
+ 	$(Q)$(MAKE) $(hdr-inst)=arch/$(hdr-arch)/include/uapi/asm $(hdr-dst) HDRCHECK=1
  
--run_tests:
--	@./mq_open_tests /test1 || echo "mq_open_tests: [FAIL]"
--	@./mq_perf_tests || echo "mq_perf_tests: [FAIL]"
-+install:
-+ifdef INSTALL_KSFT_PATH
-+	install ./mq_open_tests ./mq_perf_tests $(INSTALL_KSFT_PATH)
-+	@echo "$(MQ_OPEN_TEST_STR)" >> $(KSELFTEST)
-+	@echo "$(MQ_PERF_TEST_STR)" >> $(KSELFTEST)
-+else
-+	@echo Run make kselftest_install in top level source directory
-+endif
+ # ---------------------------------------------------------------------------
+-# Kernel selftest
++# Kernel selftest targets
 +
-+run_tests: all
-+	@$(MQ_OPEN_TEST_STR)
-+	@$(MQ_PERF_TEST_STR)
++# Default base path for kselftest install
++INSTALL_KSFT_PATH = $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
++export INSTALL_KSFT_PATH
  
- clean:
- 	rm -f mq_open_tests mq_perf_tests
+ PHONY += kselftest
+ kselftest:
+ 	$(Q)$(MAKE) -C tools/testing/selftests run_tests
+ 
++# Kernel selftest install
++PHONY += kselftest_install
++kselftest_install:
++	$(Q)$(MAKE) -C tools/testing/selftests install
++
+ # ---------------------------------------------------------------------------
+ # Modules
+ 
+@@ -1286,6 +1295,9 @@ help:
+ 	@echo  '                    Build, install, and boot kernel before'
+ 	@echo  '                    running kselftest on it'
+ 	@echo  ''
++	@echo  '  kselftest_install - Install Kselftests to INSTALL_KSFT_PATH'
++	@echo  '                      default: $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)'
++	@echo  ''
+ 	@echo  'Kernel packaging:'
+ 	@$(MAKE) $(build)=$(package-dir) help
+ 	@echo  ''
 -- 
 2.1.0
