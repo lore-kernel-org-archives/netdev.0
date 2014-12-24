@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v3 10/20] selftests/mount: add install target to enable test install
-Date: Wed, 24 Dec 2014 09:27:46 -0700
-Message-ID: <79fc8be2721f4b035bee4610ff5ba08da4422d7d.1419387513.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v3 09/20] selftests/memory-hotplug: add install target to enable test install
+Date: Wed, 24 Dec 2014 09:27:45 -0700
+Message-ID: <fffca2a31f0c84931d2dc0898051503fcf1957c1.1419387513.git.shuahkh@osg.samsung.com>
 References: <cover.1419387513.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -27,37 +27,40 @@ only from top level kernel source directory.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/mount/Makefile | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
+ tools/testing/selftests/memory-hotplug/Makefile            | 14 ++++++++++++--
+ .../memory-hotplug/{on-off-test.sh => mem-on-off-test.sh}  |  0
+ 2 files changed, 12 insertions(+), 2 deletions(-)
+ rename tools/testing/selftests/memory-hotplug/{on-off-test.sh => mem-on-off-test.sh} (100%)
 
-diff --git a/tools/testing/selftests/mount/Makefile b/tools/testing/selftests/mount/Makefile
-index 337d853..607de4c 100644
---- a/tools/testing/selftests/mount/Makefile
-+++ b/tools/testing/selftests/mount/Makefile
-@@ -1,5 +1,7 @@
- # Makefile for mount selftests.
- 
-+TEST_STR = if [ -f /proc/self/uid_map ] ; then ./unprivileged-remount-test ; fi
+diff --git a/tools/testing/selftests/memory-hotplug/Makefile b/tools/testing/selftests/memory-hotplug/Makefile
+index d46b8d4..561ee2b 100644
+--- a/tools/testing/selftests/memory-hotplug/Makefile
++++ b/tools/testing/selftests/memory-hotplug/Makefile
+@@ -1,9 +1,19 @@
++TEST_STR=/bin/bash ./mem-on-off-test.sh -r 2 || echo memory-hotplug selftests: [FAIL]
 +
- all: unprivileged-remount-test
+ all:
  
- unprivileged-remount-test: unprivileged-remount-test.c
-@@ -7,7 +9,15 @@ unprivileged-remount-test: unprivileged-remount-test.c
- 
- # Allow specific tests to be selected.
- test_unprivileged_remount: unprivileged-remount-test
--	@if [ -f /proc/self/uid_map ] ; then ./unprivileged-remount-test ; fi
-+	@$(TEST_STR)
-+
 +install:
 +ifdef INSTALL_KSFT_PATH
-+	install ./unprivileged-remount-test $(INSTALL_KSFT_PATH)
-+	@echo "$(TEST_STR)" >> $(KSELFTEST)
++	install ./mem-on-off-test.sh $(INSTALL_KSFT_PATH)/mem-on-off-test.sh
++	@echo "$(TEST_STR)" >> $(KSELFTEST) >> $(KSELFTEST)
 +else
 +	@echo Run make kselftest_install in top level source directory
 +endif
++
+ run_tests:
+-	@/bin/bash ./on-off-test.sh -r 2 || echo "memory-hotplug selftests: [FAIL]"
++	@$(TEST_STR)
  
- run_tests: all test_unprivileged_remount
+ run_full_test:
+-	@/bin/bash ./on-off-test.sh || echo "memory-hotplug selftests: [FAIL]"
++	@/bin/bash ./mem-on-off-test.sh || echo "memory-hotplug selftests: [FAIL]"
  
+ clean:
+diff --git a/tools/testing/selftests/memory-hotplug/on-off-test.sh b/tools/testing/selftests/memory-hotplug/mem-on-off-test.sh
+similarity index 100%
+rename from tools/testing/selftests/memory-hotplug/on-off-test.sh
+rename to tools/testing/selftests/memory-hotplug/mem-on-off-test.sh
 -- 
 2.1.0
