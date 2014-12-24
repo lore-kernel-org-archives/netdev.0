@@ -1,133 +1,42 @@
-From: lx <lxlenovostar@gmail.com>
-Subject: hi I'm confused with Implementation of RPS and RFS.
-Date: Wed, 24 Dec 2014 14:34:30 +0800
-Message-ID: <549A5E76.4060407@gmail.com>
+From: kbuild test robot <fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] openvswitch: fix odd_ptr_err.cocci warnings
+Date: Wed, 24 Dec 2014 14:41:39 +0800
+Message-ID: <20141224064138.GA11360@athens>
+References: <201412241437.BpaCtsIE%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:55958 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750746AbaLXGec (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 01:34:32 -0500
-Received: by mail-pa0-f42.google.com with SMTP id et14so9510824pad.1
-        for <netdev@vger.kernel.org>; Tue, 23 Dec 2014 22:34:31 -0800 (PST)
-Received: from [192.168.34.109] ([120.36.156.171])
-        by mx.google.com with ESMTPSA id vz3sm21885346pab.2.2014.12.23.22.34.29
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Tue, 23 Dec 2014 22:34:30 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kbuild-all-JC7UmRfGjtg@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <201412241437.BpaCtsIE%fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-hi all:
-       I'm read the source code of RPS and RFS, I think the key function 
-of RPS and RFS is get_rps_cpu(), and
-It's codes is:
-###############################################################
-3079 static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
-3080                struct rps_dev_flow **rflowp)
-3081 {
-3082     struct netdev_rx_queue *rxqueue;
-3083     struct rps_map *map;
-3084     struct rps_dev_flow_table *flow_table;
-3085     struct rps_sock_flow_table *sock_flow_table;
-3086     int cpu = -1;
-3087     u16 tcpu;
-3088     u32 hash;
-3089
-3090     if (skb_rx_queue_recorded(skb)) {
-3091         u16 index = skb_get_rx_queue(skb);
-3092         if (unlikely(index >= dev->real_num_rx_queues)) {
-3093             WARN_ONCE(dev->real_num_rx_queues > 1,
-3094                   "%s received packet on queue %u, but number "
-3095                   "of RX queues is %u\n",
-3096                   dev->name, index, dev->real_num_rx_queues);
-3097             goto done;
-3098         }
-3099         rxqueue = dev->_rx + index;
-3100     } else
-3101         rxqueue = dev->_rx;
-3102
-3103     map = rcu_dereference(rxqueue->rps_map);
-3104     if (map) {
-3105         if (map->len == 1 &&
-3106             !rcu_access_pointer(rxqueue->rps_flow_table)) {
-3107             tcpu = map->cpus[0];
-3108             if (cpu_online(tcpu))
-3109                 cpu = tcpu;
-3110             goto done;
-3111         }
-3112     } else if (!rcu_access_pointer(rxqueue->rps_flow_table)) {
-3113         goto done;
-3114     }
-3115
-3116     skb_reset_network_header(skb);
-3117     hash = skb_get_hash(skb);
-3118     if (!hash)
-3119         goto done;
-3120
-3121     flow_table = rcu_dereference(rxqueue->rps_flow_table);
-3122     sock_flow_table = rcu_dereference(rps_sock_flow_table);
-3123     if (flow_table && sock_flow_table) {
-3124         u16 next_cpu;
-3125         struct rps_dev_flow *rflow;
-3126
-3127         rflow = &flow_table->flows[hash & flow_table->mask];
-3128         tcpu = rflow->cpu;
-3129
-3130         next_cpu = sock_flow_table->ents[hash & sock_flow_table->mask];
-3131
-3132         /*
-3133          * If the desired CPU (where last recvmsg was done) is
-3134          * different from current CPU (one in the rx-queue flow
-3135          * table entry), switch if one of the following holds:
-3136          *   - Current CPU is unset (equal to RPS_NO_CPU).
-3137          *   - Current CPU is offline.
-3138          *   - The current CPU's queue tail has advanced beyond the
-3139          *     last packet that was enqueued using this table entry.
-3140          *     This guarantees that all previous packets for the flow
-3141          *     have been dequeued, thus preserving in order delivery.
-3142          */
-3143         if (unlikely(tcpu != next_cpu) &&
-3144             (tcpu == RPS_NO_CPU || !cpu_online(tcpu) ||
-3145              ((int)(per_cpu(softnet_data, tcpu).input_queue_head -
-3146               rflow->last_qtail)) >= 0)) {
-3147             tcpu = next_cpu;
-3148             rflow = set_rps_cpu(dev, skb, rflow, next_cpu);
-3149         }
-3150
-3151         if (tcpu != RPS_NO_CPU && cpu_online(tcpu)) {
-3152             *rflowp = rflow;
-3153             cpu = tcpu;
-3154             goto done;
-3155         }
-3156     }
-3157
-3158     if (map) {
-3159         tcpu = map->cpus[reciprocal_scale(hash, map->len)];
-3160         if (cpu_online(tcpu)) {
-3161             cpu = tcpu;
-3162             goto done;
-3163         }
-3164     }
-3165
-3166 done:
-3167     return cpu;
-3168 }
-###############################################################
-I know the RPS/RFS get the CPU id by this function.I think RPS can't work,
-when RFS is active, beacuse the implementation of RPS is between 3158 
-and 3163.
-and the codes between 3123 and 3156 are used for RFS.
-
-I think RPS is work just in this two  conditions:
-1.  When the packet first arrived this host,  the value of tcpu and 
-next_cpu are RPS_NO_CPU.
-2. When the destination of packet is not this host, the value of tcpu 
-and next_cpu always are RPS_NO_CPU.
-
-My question is: If the RFS is enable, the RPS can't work?
-
-Thank you.
+bmV0L29wZW52c3dpdGNoL3Zwb3J0LWdyZS5jOjE4ODo1LTExOiBpbmNvbnNpc3RlbnQgSVNfRVJS
+IGFuZCBQVFJfRVJSLCBQVFJfRVJSIG9uIGxpbmUgMTg5CgogUFRSX0VSUiBzaG91bGQgYWNjZXNz
+IHRoZSB2YWx1ZSBqdXN0IHRlc3RlZCBieSBJU19FUlIKClNlbWFudGljIHBhdGNoIGluZm9ybWF0
+aW9uOgogVGhlcmUgY2FuIGJlIGZhbHNlIHBvc2l0aXZlcyBpbiB0aGUgcGF0Y2ggY2FzZSwgd2hl
+cmUgaXQgaXMgdGhlIGNhbGwKIElTX0VSUiB0aGF0IGlzIHdyb25nLgoKR2VuZXJhdGVkIGJ5OiBz
+Y3JpcHRzL2NvY2NpbmVsbGUvdGVzdHMvb2RkX3B0cl9lcnIuY29jY2kKCkNDOiBQcmF2aW4gQiBT
+aGVsYXIgPHBzaGVsYXJAbmljaXJhLmNvbT4KU2lnbmVkLW9mZi1ieTogRmVuZ2d1YW5nIFd1IDxm
+ZW5nZ3Vhbmcud3VAaW50ZWwuY29tPgotLS0KCiB2cG9ydC1ncmUuYyB8ICAgIDIgKy0KIDEgZmls
+ZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQoKLS0tIGEvbmV0L29wZW52
+c3dpdGNoL3Zwb3J0LWdyZS5jCisrKyBiL25ldC9vcGVudnN3aXRjaC92cG9ydC1ncmUuYwpAQCAt
+MTg2LDcgKzE4Niw3IEBAIHN0YXRpYyBpbnQgZ3JlX3RubF9zZW5kKHN0cnVjdCB2cG9ydCAqdnAK
+IAkvKiBQdXNoIFR1bm5lbCBoZWFkZXIuICovCiAJc2tiID0gX19idWlsZF9oZWFkZXIoc2tiLCB0
+dW5uZWxfaGxlbik7CiAJaWYgKElTX0VSUihza2IpKSB7Ci0JCWVyciA9IFBUUl9FUlIocnQpOwor
+CQllcnIgPSBQVFJfRVJSKHNrYik7CiAJCXNrYiA9IE5VTEw7CiAJCWdvdG8gZXJyX2ZyZWVfcnQ7
+CiAJfQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYg
+bWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9t
+YWlsbWFuL2xpc3RpbmZvL2Rldgo=
