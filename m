@@ -1,9 +1,10 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [patch iproute2 4/6] bridge/link: add new offload hwmode swdev
-Date: Wed, 24 Dec 2014 12:37:09 -0800
-Message-ID: <20141224123709.6a68e094@urahara>
+Subject: Re: [patch iproute2 3/6] bridge/fdb: add flag/indication for FDB
+ entry synced from offload device
+Date: Wed, 24 Dec 2014 12:39:20 -0800
+Message-ID: <20141224123920.7ceacd6e@urahara>
 References: <1417683438-10935-1-git-send-email-jiri@resnulli.us>
-	<1417683438-10935-5-git-send-email-jiri@resnulli.us>
+	<1417683438-10935-4-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -24,26 +25,35 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
 	bcrl@kvack.org, hemal@broadcom.com
 To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:54892 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751675AbaLXUha (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 15:37:30 -0500
-Received: by mail-pd0-f176.google.com with SMTP id r10so10425029pdi.7
-        for <netdev@vger.kernel.org>; Wed, 24 Dec 2014 12:37:30 -0800 (PST)
-In-Reply-To: <1417683438-10935-5-git-send-email-jiri@resnulli.us>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:57881 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751504AbaLXUjl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 15:39:41 -0500
+Received: by mail-pd0-f180.google.com with SMTP id w10so10354717pde.25
+        for <netdev@vger.kernel.org>; Wed, 24 Dec 2014 12:39:41 -0800 (PST)
+In-Reply-To: <1417683438-10935-4-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu,  4 Dec 2014 09:57:16 +0100
+On Thu,  4 Dec 2014 09:57:15 +0100
 Jiri Pirko <jiri@resnulli.us> wrote:
 
 > From: Scott Feldman <sfeldma@gmail.com>
 > 
-> To support full-featured switch devices offloading bridge funtionality,
-> add new hwmode 'swdev'.  Like 'vepa' and 'veb', 'swdev' indicated bridge
-> port functionality is being offloaded to hardware.
+> Add NTF_EXT_LEARNED flag to neigh flags to indicate FDB entry learned by
+> device has been learned externally to bridge FDB.  For these entries,
+> add "external" annotation in bridge fdb show output:
+> 
+>   00:02:00:00:03:00 dev swp2 used 2/2 master br0 external
+>   00:02:00:00:03:00 dev swp2 self permanent
+> 
+> In the example above, 00:02:00:00:03:00 is shown twice on dev swp2.  The
+> first entry if from the bridge (master) and is marked as "external" by
+> the offload device.  The second entry is from the brport offload device (self),
+> and was learned by the device.
 > 
 > Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 > Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Please resubmit when the functionality is in net-next.
+Does not apply to current code.
+Please resubmit (with out the change to neighbour.h which is already there).
