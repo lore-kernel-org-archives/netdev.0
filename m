@@ -1,83 +1,170 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next v2] packet: make packet_snd fail on len smaller
- than l2 header
-Date: Wed, 24 Dec 2014 14:28:11 +0100
-Message-ID: <CA+FuTSce7A48KHz+95EQFObFyPRcPJw0iFM+P89LyZ6VQmYD9g@mail.gmail.com>
-References: <1416420616-5029-1-git-send-email-willemb@google.com> <CANe27jJfsuXd29UXouTgU8dGqb9h8mXuj9N1_Ua6Q_UbZCeCXQ@mail.gmail.com>
+From: Chris Ruehl <chris.ruehl@gtsys.com.hk>
+Subject: Re: ipv6: oops in datagram.c line 260
+Date: Wed, 24 Dec 2014 21:42:12 +0800
+Message-ID: <549AC2B4.8070203@gtsys.com.hk>
+References: <5487DD65.60800@gtsys.com.hk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Jouni Malinen <jkmalinen@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, steffen.klassert@secunet.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f49.google.com ([209.85.192.49]:60367 "EHLO
-	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751641AbaLXN2m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 08:28:42 -0500
-Received: by mail-qg0-f49.google.com with SMTP id a108so5764336qge.36
-        for <netdev@vger.kernel.org>; Wed, 24 Dec 2014 05:28:41 -0800 (PST)
-In-Reply-To: <CANe27jJfsuXd29UXouTgU8dGqb9h8mXuj9N1_Ua6Q_UbZCeCXQ@mail.gmail.com>
+Received: from mail.fpasia.hk ([202.130.89.98]:52351 "EHLO fpa01n0.fpasia.hk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751602AbaLXNm1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Dec 2014 08:42:27 -0500
+In-Reply-To: <5487DD65.60800@gtsys.com.hk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 23, 2014 at 11:37 AM, Jouni Malinen <jkmalinen@gmail.com> wrote:
-> On Wed, Nov 19, 2014 at 8:10 PM, Willem de Bruijn <willemb@google.com> wrote:
->> When sending packets out with PF_PACKET, SOCK_RAW, ensure that the
->> packet is at least as long as the device's expected link layer header.
->> This check already exists in tpacket_snd, but not in packet_snd.
+On Wednesday, December 10, 2014 01:43 PM, Chris Ruehl wrote:
+> Hi all,
 >
-> Was this supposed to be refusing zero-length payload following the
-> header like the implementation does or accept zero-length payload like
-> this commit message seems to imply? Based on the commit message, I'd
-> assume 14 byte buffer on Ethernet netdev should have been accepted.
+> We running a Dell server which crash frequently with (dell crash video snapshot)
+> vanilla 3.14.25
+>
+> Capture viewed here: http://www.gtsys.com.hk/~chris/datagram_c_line260.png
+>
+> The capture sadly don't show the full trace, so we lack on information.
+> 1st line I can see in the crash video from the idrac : tcp_transmit_skb+0x461
+>
+> RIP [<ffffffff815da587>] ipv6_local_error+0x17/0x140
+>
+> The null pointer happen:
+>   Type "apropos word" to search for commands related to "word"...
+> Reading symbols from net/ipv6/datagram.o...done.
+> (gdb) list *(ipv6_local_error+0x17)
+> 0xae7 is in ipv6_local_error (net/ipv6/datagram.c:260).
+> 255        struct ipv6_pinfo *np = inet6_sk(sk);
+> 256        struct sock_exterr_skb *serr;
+> 257        struct ipv6hdr *iph;
+> 258        struct sk_buff *skb;
+> 259
+> 260        if (!np->recverr)
+> 261            return;
+> 262
+> 263        skb = alloc_skb(sizeof(struct ipv6hdr), GFP_ATOMIC);
+> 264        if (!skb)
+> (gdb) quit
+>
+>
+> We running a 6in4 with ipsec tunnel on the 6. I found a pull request from
+> Steffen Klassert
+> here:
+>      http://article.gmane.org/gmane.linux.network/281469
+>
+> Which might be relevant to this problem.
+>
+> For time being I add a
+>
+>          if (np == NULL){
+>                  LIMIT_NETDEBUG(KERN_DEBUG "ipv6_pinfo is NULL\n");
+>                  return;
+>          }
+>
+> as work around to stop the server crashing
+>
+>
+> With kind regards
+> Chris
+>
 
-Fair point. This patch just extended the existing check in tpacket_rcv to
-cover packet_rcv, so the code is the authoritative answer. But my
-commit message is inconsistent with the patch.
+Catch it!
 
-> I just noticed that once pulling this commit in into my automated test
-> setup, one of the test cases started failing because of the change
-> here. That test case was trying to transmit a minimum length Ethernet
-> header using raw packet socket. Not that I care too much since I can
-> easily change the test case to use one octet longer data to send and
-> this was not really a real protocol case, but I wanted to confirm what
-> was the expected behavior here since this commit seems to have number
-> of inconsistent statements between the commit message, actual
-> validation step, debug print, and code comment..
->
->> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
->> @@ -2095,6 +2095,18 @@ static void tpacket_destruct_skb(struct sk_buff *skb)
->> +static bool ll_header_truncated(const struct net_device *dev, int len)
->> +{
->> +       /* net device doesn't like empty head */
->
-> I'm not sure how to interpret "empty head". Is that saying that the
-> data following the header should not be empty? Or that header should
-> be at least hard_header_len?
+Update the kernel to 3.14.27 and add a WARN_ON() to the function and catch the 
+OOPS after 5 Days.
 
-I read it as the first interpretation. I do not have an immediate example
-of stack or driver code that cannot handle Ethernet frames without
-payload, but also do not know of any legitimate use for sending such
-frames. Minimum frame length on the wire is even longer. The current
-test errs on the side of caution based on that existing use, then.
+As mentioned we running a IPv6 in IPv4 with a couple of IPSec tunnels on the v6.
 
->
->> +       if (unlikely(len <= dev->hard_header_len)) {
->
-> That would be rejecting exactly hard_header_len, i.e,., I would have
-> expected < instead of <= here based on the commit message.
->
->> +               net_warn_ratelimited("%s: packet size is too short (%d < %d)\n",
->> +                                    current->comm, len, dev->hard_header_len);
->
-> But that debug print uses < instead of <= which is not consistent with
-> the actual condition (and yes, I realize this was there even before
-> this commit).
+Code change:
+void ipv6_local_error(struct sock *sk, int err, struct flowi6 *fl6, u32 info)
+{
+         struct ipv6_pinfo *np = inet6_sk(sk);
+         struct sock_exterr_skb *serr;
+         struct ipv6hdr *iph;
+         struct sk_buff *skb;
 
-Thanks, good point. When moving that code, I did not read it closely
-enough to notice the inconsistency. This looks sloppy; I can send a one
-line patch, unless you want to do it yourself.
+         if (np == NULL){
+                 LIMIT_NETDEBUG(KERN_CRIT "ipv6_pinfo is NULL\n");
+                 WARN_ON(1);
+                 return;
+         }
 
-> - Jouni
+
+
+[447604.244357] ipv6_pinfo is NULL
+[447604.273733] ------------[ cut here ]------------
+[447604.303628] WARNING: CPU: 7 PID: 0 at net/ipv6/datagram.c:262 
+ipv6_local_error+0x16b/0x1a0()
+[447604.366173] Modules linked in: ipmi_si vhost_net vhost macvtap macvlan 
+xt_policy authenc esp6 xfrm4_mode_tunnel xfrm6_mode_tunnel mpt3sas mpt2sas 
+raid_class scsi_transport_sas mptctl mptbase ipt_MASQUERADE iptable_nat 
+nf_nat_ipv4 nf_nat nf_conntrack_ipv4 nf_defrag_ipv4 xt_conntrack nf_conntrack 
+ipt_REJECT xt_CHECKSUM iptable_mangle xt_tcpudp ipmi_devintf dell_rbu 
+ip6table_filter ip6_tables iptable_filter ip_tables ebtable_nat ebtables 
+x_tables xfrm_user xfrm4_tunnel ipcomp xfrm_ipcomp esp4 ah4 deflate ctr 
+twofish_generic twofish_avx_x86_64 twofish_x86_64_3way twofish_x86_64 
+twofish_common camellia_generic camellia_aesni_avx_x86_64 camellia_x86_64 
+serpent_avx_x86_64 serpent_sse2_x86_64 xts serpent_generic blowfish_generic 
+blowfish_x86_64 blowfish_common cast5_avx_x86_64 cast5_generic cast_common 
+des_generic cmac xcbc rmd160 crypto_null af_key xfrm_algo sit ip_tunnel tunnel4 
+bridge stp llc xfs libcrc32c intel_rapl x86_pkg_temp_thermal intel_powerclamp 
+coretemp kvm_intel kvm crct10dif_pclmul crc32_pclmul gpio_ich 
+ghash_clmulni_intel aesni_intel aes_x86_64 lrw gf128mul joydev glue_helper 
+ablk_helper cryptd dcdbas shpchp wmi mei_me mei acpi_power_meter lpc_ich dummy 
+lp parport hid_generic tg3 usbhid hid ahci megaraid_sas ptp libahci pps_core 
+[last unloaded: ipmi_si]
+[447605.087999] CPU: 7 PID: 0 Comm: swapper/7 Not tainted 3.14.27 #11
+[447605.139687] Hardware name: Dell Inc. PowerEdge R420/0CN7CM, BIOS 2.3.3 
+07/10/2014
+[447605.242931]  0000000000000009 ffff8806172e3b48 ffffffff815ffd58 0000000000000000
+[447605.349130]  ffff8806172e3b80 ffffffff81043c23 ffff8800a16322e8 ffff880037daa1c0
+[447605.459659]  ffff88000b026800 0000000000000000 ffff880037daa4b8 ffff8806172e3b90
+[447605.576385] Call Trace:
+[447605.634243]  <IRQ>  [<ffffffff815ffd58>] dump_stack+0x45/0x56
+[447605.692870]  [<ffffffff81043c23>] warn_slowpath_common+0x73/0x90
+[447605.751097]  [<ffffffff81043cf5>] warn_slowpath_null+0x15/0x20
+[447605.808000]  [<ffffffff815da6db>] ipv6_local_error+0x16b/0x1a0
+[447605.863821]  [<ffffffff815e29d0>] xfrm6_local_error+0x60/0x90
+[447605.918493]  [<ffffffff8150b485>] ? skb_dequeue+0x15/0x70
+[447605.971871]  [<ffffffff815a6cc1>] xfrm_local_error+0x51/0x70
+[447606.024218]  [<ffffffff8159ca15>] xfrm4_extract_output+0x75/0xb0
+[447606.075630]  [<ffffffff815a6c5a>] xfrm_inner_extract_output+0x6a/0x80
+[447606.126055]  [<ffffffff815e27a2>] xfrm6_prepare_output+0x12/0x60
+[447606.175310]  [<ffffffff815a6ed0>] xfrm_output_resume+0x1f0/0x370
+[447606.223406]  [<ffffffff8151a486>] ? skb_checksum_help+0x76/0x190
+[447606.270572]  [<ffffffff815a709b>] xfrm_output+0x3b/0xf0
+[447606.316454]  [<ffffffff815e2ae0>] ? xfrm6_extract_output+0xe0/0xe0
+[447606.361803]  [<ffffffff815e2af7>] xfrm6_output_finish+0x17/0x20
+[447606.406053]  [<ffffffff8159cad6>] xfrm4_output+0x46/0x80
+[447606.448694]  [<ffffffff81550a80>] ip_local_out+0x20/0x30
+[447606.489952]  [<ffffffff81550dd5>] ip_queue_xmit+0x135/0x3c0
+[447606.530017]  [<ffffffff815672e1>] tcp_transmit_skb+0x461/0x8c0
+[447606.569362]  [<ffffffff8156786e>] tcp_write_xmit+0x12e/0xb20
+[447606.607876]  [<ffffffff815669ff>] ? tcp_current_mss+0x4f/0x70
+[447606.645723]  [<ffffffff8156b320>] ? tcp_write_timer_handler+0x1b0/0x1b0
+[447606.682837]  [<ffffffff81569487>] tcp_send_loss_probe+0x37/0x1f0
+[447606.719000]  [<ffffffff8156b320>] ? tcp_write_timer_handler+0x1b0/0x1b0
+[447606.754537]  [<ffffffff8156b1bb>] tcp_write_timer_handler+0x4b/0x1b0
+[447606.789266]  [<ffffffff8156b320>] ? tcp_write_timer_handler+0x1b0/0x1b0
+[447606.823242]  [<ffffffff8156b378>] tcp_write_timer+0x58/0x60
+[447606.856047]  [<ffffffff8104e848>] call_timer_fn.isra.32+0x18/0x80
+[447606.888029]  [<ffffffff8104ea1a>] run_timer_softirq+0x16a/0x200
+[447606.920224]  [<ffffffff81047efc>] __do_softirq+0xec/0x250
+[447606.951850]  [<ffffffff810482f5>] irq_exit+0xf5/0x100
+[447606.982665]  [<ffffffff8102bc6f>] smp_apic_timer_interrupt+0x3f/0x50
+[447607.014382]  [<ffffffff8160d98a>] apic_timer_interrupt+0x6a/0x70
+[447607.046175]  <EOI>  [<ffffffff8104f336>] ? get_next_timer_interrupt+0x1d6/0x250
+[447607.111311]  [<ffffffff814d45a7>] ? cpuidle_enter_state+0x47/0xc0
+[447607.145850]  [<ffffffff814d45a3>] ? cpuidle_enter_state+0x43/0xc0
+[447607.179625]  [<ffffffff814d46b6>] cpuidle_idle_call+0x96/0x130
+[447607.213531]  [<ffffffff8100b909>] arch_cpu_idle+0x9/0x20
+[447607.247052]  [<ffffffff810925ba>] cpu_startup_entry+0xda/0x1d0
+[447607.280775]  [<ffffffff81029d22>] start_secondary+0x212/0x2c0
+[447607.314555] ---[ end trace 6ff3826b6e4fdf67 ]---
+
+
+Can someone have a closer look into this problem?
+
+Regards
+Chris
