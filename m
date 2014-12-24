@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v3 02/20] selftests/cpu-hotplug: add install target to enable test install
-Date: Wed, 24 Dec 2014 09:27:38 -0700
-Message-ID: <7c68362e79fa107dea168d94255228280114689e.1419387513.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v3 18/20] selftests/vm: add install target to enable test install
+Date: Wed, 24 Dec 2014 09:27:54 -0700
+Message-ID: <ba61de2dec95fffd8ec25947187b7ac95c55767a.1419387513.git.shuahkh@osg.samsung.com>
 References: <cover.1419387513.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -27,40 +27,36 @@ only from top level kernel source directory.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/cpu-hotplug/Makefile               | 14 ++++++++++++--
- .../cpu-hotplug/{on-off-test.sh => cpu-on-off-test.sh}     |  0
- 2 files changed, 12 insertions(+), 2 deletions(-)
- rename tools/testing/selftests/cpu-hotplug/{on-off-test.sh => cpu-on-off-test.sh} (100%)
+ tools/testing/selftests/vm/Makefile | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
 
-diff --git a/tools/testing/selftests/cpu-hotplug/Makefile b/tools/testing/selftests/cpu-hotplug/Makefile
-index e9c28d8..c9e15ee 100644
---- a/tools/testing/selftests/cpu-hotplug/Makefile
-+++ b/tools/testing/selftests/cpu-hotplug/Makefile
-@@ -1,9 +1,19 @@
-+TEST_STR=/bin/bash ./cpu-on-off-test.sh || echo cpu-hotplug selftests: [FAIL]
-+
- all:
+diff --git a/tools/testing/selftests/vm/Makefile b/tools/testing/selftests/vm/Makefile
+index 4c4b1f6..761d17d 100644
+--- a/tools/testing/selftests/vm/Makefile
++++ b/tools/testing/selftests/vm/Makefile
+@@ -4,13 +4,22 @@ CC = $(CROSS_COMPILE)gcc
+ CFLAGS = -Wall
+ BINARIES = hugepage-mmap hugepage-shm map_hugetlb thuge-gen hugetlbfstest
+ BINARIES += transhuge-stress
++TEST_STR = /bin/sh ./run_vmtests || echo vmtests: [FAIL]
+ 
+ all: $(BINARIES)
+ %: %.c
+ 	$(CC) $(CFLAGS) -o $@ $^
  
 +install:
 +ifdef INSTALL_KSFT_PATH
-+	install ./cpu-on-off-test.sh $(INSTALL_KSFT_PATH)/cpu-on-off-test.sh
++	install run_vmtests $(BINARIES) $(INSTALL_KSFT_PATH)
 +	@echo "$(TEST_STR)" >> $(KSELFTEST)
 +else
 +	@echo Run make kselftest_install in top level source directory
 +endif
 +
- run_tests:
--	@/bin/bash ./on-off-test.sh || echo "cpu-hotplug selftests: [FAIL]"
+ run_tests: all
+-	@/bin/sh ./run_vmtests || (echo "vmtests: [FAIL]"; exit 1)
 +	@$(TEST_STR)
  
- run_full_test:
--	@/bin/bash ./on-off-test.sh -a || echo "cpu-hotplug selftests: [FAIL]"
-+	@/bin/bash ./cpu-on-off-test.sh -a || echo "cpu-hotplug selftests: [FAIL]"
- 
  clean:
-diff --git a/tools/testing/selftests/cpu-hotplug/on-off-test.sh b/tools/testing/selftests/cpu-hotplug/cpu-on-off-test.sh
-similarity index 100%
-rename from tools/testing/selftests/cpu-hotplug/on-off-test.sh
-rename to tools/testing/selftests/cpu-hotplug/cpu-on-off-test.sh
+ 	$(RM) $(BINARIES)
 -- 
 2.1.0
