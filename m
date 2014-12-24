@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v3 16/20] selftests/timers: add install target to enable test install
-Date: Wed, 24 Dec 2014 09:27:52 -0700
-Message-ID: <d504ef6ae132ef71123fdd8fd82436168c05e815.1419387513.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v3 15/20] selftests/sysctl: add install target to enable test install
+Date: Wed, 24 Dec 2014 09:27:51 -0700
+Message-ID: <58a8e378a12f1070c9b80d3403f590d9331fd5e4.1419387513.git.shuahkh@osg.samsung.com>
 References: <cover.1419387513.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -27,32 +27,40 @@ only from top level kernel source directory.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/timers/Makefile | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
+ tools/testing/selftests/sysctl/Makefile | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/tools/testing/selftests/timers/Makefile b/tools/testing/selftests/timers/Makefile
-index eb2859f..922bad5 100644
---- a/tools/testing/selftests/timers/Makefile
-+++ b/tools/testing/selftests/timers/Makefile
-@@ -1,8 +1,18 @@
-+TEST_STR = ./posix_timers
-+
+diff --git a/tools/testing/selftests/sysctl/Makefile b/tools/testing/selftests/sysctl/Makefile
+index 0a92ada..dfbaa58 100644
+--- a/tools/testing/selftests/sysctl/Makefile
++++ b/tools/testing/selftests/sysctl/Makefile
+@@ -4,12 +4,25 @@
+ # No binaries, but make sure arg-less "make" doesn't trigger "run_tests".
  all:
- 	gcc posix_timers.c -o posix_timers -lrt
  
-+install:
++INSTALL_PROGS = common_tests run_numerictests run_stringtests
++NUMERIC_TEST_STR = /bin/sh ./run_numerictests
++STRING_TEST_STR = /bin/sh ./run_stringtests
++
+ # Allow specific tests to be selected.
+ test_num:
+-	@/bin/sh ./run_numerictests
++	@$(NUMERIC_TEST_STR)
+ 
+ test_string:
+-	@/bin/sh ./run_stringtests
++	@$(STRING_TEST_STR)
++
++install: all
 +ifdef INSTALL_KSFT_PATH
-+	install ./posix_timers $(INSTALL_KSFT_PATH)
-+	@echo "$(TEST_STR)" >> $(KSELFTEST)
++	install $(INSTALL_PROGS) $(INSTALL_KSFT_PATH)
++	@echo "$(NUMERIC_TEST_STR)" >> $(KSELFTEST)
++	@echo "$(STRING_TEST_STR)" >> $(KSELFTEST)
 +else
 +	@echo Run make kselftest_install in top level source directory
 +endif
-+
- run_tests: all
--	./posix_timers
-+	@$(TEST_STR)
  
- clean:
- 	rm -f ./posix_timers
+ run_tests: all test_num test_string
+ 
 -- 
 2.1.0
