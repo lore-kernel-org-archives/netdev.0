@@ -1,39 +1,68 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH net 5/6] openvswitch: Fix vport_send double free
-Date: Wed, 24 Dec 2014 04:16:01 +0100
-Message-ID: <549A2FF1.2080300@gmx.de>
-References: <1419380432-1665-1-git-send-email-pshelar@nicira.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v3] 3c59x: Fix memory leaks in vortex_open
+Date: Tue, 23 Dec 2014 22:27:28 -0500
+Message-ID: <20141224032728.GA20392@localhost.localdomain>
+References: <1419303290-27565-1-git-send-email-baijiaju1990@163.com>
+ <20141223142439.GD31876@hmsreliant.think-freely.org>
+ <54998371.7060109@163.com>
+ <20141223154313.GE31876@hmsreliant.think-freely.org>
+ <549A212A.60001@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Pravin B Shelar <pshelar@nicira.com>, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, ebiederm@xmission.com,
+	dingtianhong@huawei.com, paul.gortmaker@windriver.com,
+	justinvanwijngaarden@gmail.com, netdev@vger.kernel.org
+To: Jia-Ju Bai <baijiaju1990@163.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.19]:53733 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751667AbaLXDQH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Dec 2014 22:16:07 -0500
-In-Reply-To: <1419380432-1665-1-git-send-email-pshelar@nicira.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38995 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750896AbaLXD2G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2014 22:28:06 -0500
+Content-Disposition: inline
+In-Reply-To: <549A212A.60001@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On 24.12.2014 01:20, Pravin B Shelar wrote:
-l_hlen = ip_gre_calc_hlen(tun_key->tun_flags);
->  
-> @@ -183,8 +185,9 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
->  
->  	/* Push Tunnel header. */
->  	skb = __build_header(skb, tunnel_hlen);
-> -	if (unlikely(!skb)) {
-> -		err = 0;
-> +	if (IS_ERR(skb)) {
-> +		err = PTR_ERR(rt);
-
-Shouldn't be it
-
-err = PTR_ERR(skb); ?
-
-Regards,
-Lino
+On Wed, Dec 24, 2014 at 10:12:58AM +0800, Jia-Ju Bai wrote:
+> On 12/23/2014 11:43 PM, Neil Horman wrote:
+> >No, I don't think so.  vortex_close predicates each free with a NULL check, so
+> >if its not been allocated, it shouldn't be freed.  vortex_close also puts the
+> >adapter back into a known state (undoing all the setup that vortex_open does).
+> >I really think its better to go with the proper close path than just unwinding
+> >the allocation
+> >
+> >Neil
+> >
+> 
+> Firstly, I run my match on the real hardware(3com 3c905B 100Base
+> PCI Ethernet Controller) and make vortex_up failed on purpose
+> (make "pci_enable_device" in vortex_up failed). During runtime, the driver
+> works well and memory leaks are fixed.
+> 
+> Secondly, I revise the code according to your opinion:
+> 
+>         retval = vortex_up(dev);
+>         if (!retval)
+>             goto out;
+> 
+> +      vortex_close(dev);
+> +      return -ENOMEM;
+> 
+> Then I repeat my experiment, but system hang occurs!
+> 
+> After adding some "printk"s into the code and running the driver, I find
+> the problem's source:
+> vortex_close calls vortex_down in runtime, and vortex_down calls
+> "del_timer_sync(&vp->rx_oom_timer);" in the code. However, I make
+> "pci_enable_device" failed in vortext_up to let vortex_up return an
+> error code directly, but "vp->rx_oom_timer" is initialized only by
+> "init_timer" after "pci_enable_device". Thus when
+> "del_timer_sync(&vp->rx_oom_timer);" is called in vortex_down,
+> a null dereference may occur.
+> Moreover, only "pci_enable_device" can make vortex_up failed.
+> 
+> 
+Sooo, fix it.  Add some checks to not delete the timer if its not been
+initalized.  Its really preferable to have a single teardown path and a single
+bringup path if at all possible
+Neil
