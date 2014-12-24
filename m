@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v3 01/20] selftests/breakpoints: add install target to enable test install
-Date: Wed, 24 Dec 2014 09:27:37 -0700
-Message-ID: <0a42ee9b3e243c71927d7d71c5cb6e5f5ade510e.1419387513.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v3 06/20] selftests/ipc: add install target to enable test install
+Date: Wed, 24 Dec 2014 09:27:42 -0700
+Message-ID: <a813eb98c9e6ae6faac3cad6d3e36472e84c54ad.1419387513.git.shuahkh@osg.samsung.com>
 References: <cover.1419387513.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -27,45 +27,46 @@ only from top level kernel source directory.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/breakpoints/Makefile | 19 +++++++++++++++++--
- 1 file changed, 17 insertions(+), 2 deletions(-)
+ tools/testing/selftests/ipc/Makefile | 19 ++++++++++++++++++-
+ 1 file changed, 18 insertions(+), 1 deletion(-)
 
-diff --git a/tools/testing/selftests/breakpoints/Makefile b/tools/testing/selftests/breakpoints/Makefile
-index e18b42b..b5a5fe8 100644
---- a/tools/testing/selftests/breakpoints/Makefile
-+++ b/tools/testing/selftests/breakpoints/Makefile
-@@ -8,6 +8,7 @@ ifeq ($(ARCH),x86_64)
- 	ARCH := x86
- endif
+diff --git a/tools/testing/selftests/ipc/Makefile b/tools/testing/selftests/ipc/Makefile
+index 74bbefd..b43e8e8 100644
+--- a/tools/testing/selftests/ipc/Makefile
++++ b/tools/testing/selftests/ipc/Makefile
+@@ -11,6 +11,8 @@ endif
  
-+TEST_STR = ./breakpoint_test || echo breakpoints selftests: [FAIL]
+ CFLAGS += -I../../../../usr/include/
  
++TEST_STR = ./msgque_test || echo ipc msgque test: [FAIL]
++
  all:
  ifeq ($(ARCH),x86)
-@@ -16,8 +17,22 @@ else
- 	echo "Not an x86 target, can't build breakpoints selftests"
+ 	gcc $(CFLAGS) msgque.c -o msgque_test
+@@ -18,8 +20,23 @@ else
+ 	echo "Not an x86 target, can't build msgque selftest"
  endif
  
--run_tests:
--	@./breakpoint_test || echo "breakpoints selftests: [FAIL]"
 +install:
 +ifdef INSTALL_KSFT_PATH
 +ifeq ($(ARCH),x86)
-+	install ./breakpoint_test $(INSTALL_KSFT_PATH)
++	make all
++	install ./msgque_test $(INSTALL_KSFT_PATH)
 +	@echo "$(TEST_STR)" >> $(KSELFTEST)
 +else
-+	@echo Not an x86 target, unable to install breakpoints selftests
++	@echo Not an x86 target, unable to install ipc msgque selftests
 +endif
 +else
 +	@echo Run make kselftest_install in top level source directory
 +endif
 +
-+run_tests: all
+ run_tests: all
+-	./msgque_test
 +ifeq ($(ARCH),x86)
 +	@$(TEST_STR)
 +endif
  
  clean:
- 	rm -fr breakpoint_test
+ 	rm -fr ./msgque_test
 -- 
 2.1.0
