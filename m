@@ -1,337 +1,133 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH net v2] net: Generalize ndo_gso_check to ndo_features_check
-Date: Tue, 23 Dec 2014 22:37:26 -0800
-Message-ID: <1419403046-43165-1-git-send-email-jesse@nicira.com>
-Cc: netdev@vger.kernel.org, Tom Herbert <therbert@google.com>,
-	Joe Stringer <joestringer@nicira.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Hayes Wang <hayeswang@realtek.com>
-To: David Miller <davem@davemloft.net>
+From: lx <lxlenovostar@gmail.com>
+Subject: hi I'm confused with Implementation of RPS and RFS.
+Date: Wed, 24 Dec 2014 14:34:30 +0800
+Message-ID: <549A5E76.4060407@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:54549 "HELO
-	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751118AbaLXGha (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 01:37:30 -0500
-Received: by mail-qc0-f171.google.com with SMTP id r5so5650869qcx.30
-        for <netdev@vger.kernel.org>; Tue, 23 Dec 2014 22:37:29 -0800 (PST)
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:55958 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750746AbaLXGec (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 01:34:32 -0500
+Received: by mail-pa0-f42.google.com with SMTP id et14so9510824pad.1
+        for <netdev@vger.kernel.org>; Tue, 23 Dec 2014 22:34:31 -0800 (PST)
+Received: from [192.168.34.109] ([120.36.156.171])
+        by mx.google.com with ESMTPSA id vz3sm21885346pab.2.2014.12.23.22.34.29
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Tue, 23 Dec 2014 22:34:30 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-GSO isn't the only offload feature with restrictions that
-potentially can't be expressed with the current features mechanism.
-Checksum is another although it's a general issue that could in
-theory apply to anything. Even if it may be possible to
-implement these restrictions in other ways, it can result in
-duplicate code or inefficient per-packet behavior.
+hi all:
+       I'm read the source code of RPS and RFS, I think the key function 
+of RPS and RFS is get_rps_cpu(), and
+It's codes is:
+###############################################################
+3079 static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+3080                struct rps_dev_flow **rflowp)
+3081 {
+3082     struct netdev_rx_queue *rxqueue;
+3083     struct rps_map *map;
+3084     struct rps_dev_flow_table *flow_table;
+3085     struct rps_sock_flow_table *sock_flow_table;
+3086     int cpu = -1;
+3087     u16 tcpu;
+3088     u32 hash;
+3089
+3090     if (skb_rx_queue_recorded(skb)) {
+3091         u16 index = skb_get_rx_queue(skb);
+3092         if (unlikely(index >= dev->real_num_rx_queues)) {
+3093             WARN_ONCE(dev->real_num_rx_queues > 1,
+3094                   "%s received packet on queue %u, but number "
+3095                   "of RX queues is %u\n",
+3096                   dev->name, index, dev->real_num_rx_queues);
+3097             goto done;
+3098         }
+3099         rxqueue = dev->_rx + index;
+3100     } else
+3101         rxqueue = dev->_rx;
+3102
+3103     map = rcu_dereference(rxqueue->rps_map);
+3104     if (map) {
+3105         if (map->len == 1 &&
+3106             !rcu_access_pointer(rxqueue->rps_flow_table)) {
+3107             tcpu = map->cpus[0];
+3108             if (cpu_online(tcpu))
+3109                 cpu = tcpu;
+3110             goto done;
+3111         }
+3112     } else if (!rcu_access_pointer(rxqueue->rps_flow_table)) {
+3113         goto done;
+3114     }
+3115
+3116     skb_reset_network_header(skb);
+3117     hash = skb_get_hash(skb);
+3118     if (!hash)
+3119         goto done;
+3120
+3121     flow_table = rcu_dereference(rxqueue->rps_flow_table);
+3122     sock_flow_table = rcu_dereference(rps_sock_flow_table);
+3123     if (flow_table && sock_flow_table) {
+3124         u16 next_cpu;
+3125         struct rps_dev_flow *rflow;
+3126
+3127         rflow = &flow_table->flows[hash & flow_table->mask];
+3128         tcpu = rflow->cpu;
+3129
+3130         next_cpu = sock_flow_table->ents[hash & sock_flow_table->mask];
+3131
+3132         /*
+3133          * If the desired CPU (where last recvmsg was done) is
+3134          * different from current CPU (one in the rx-queue flow
+3135          * table entry), switch if one of the following holds:
+3136          *   - Current CPU is unset (equal to RPS_NO_CPU).
+3137          *   - Current CPU is offline.
+3138          *   - The current CPU's queue tail has advanced beyond the
+3139          *     last packet that was enqueued using this table entry.
+3140          *     This guarantees that all previous packets for the flow
+3141          *     have been dequeued, thus preserving in order delivery.
+3142          */
+3143         if (unlikely(tcpu != next_cpu) &&
+3144             (tcpu == RPS_NO_CPU || !cpu_online(tcpu) ||
+3145              ((int)(per_cpu(softnet_data, tcpu).input_queue_head -
+3146               rflow->last_qtail)) >= 0)) {
+3147             tcpu = next_cpu;
+3148             rflow = set_rps_cpu(dev, skb, rflow, next_cpu);
+3149         }
+3150
+3151         if (tcpu != RPS_NO_CPU && cpu_online(tcpu)) {
+3152             *rflowp = rflow;
+3153             cpu = tcpu;
+3154             goto done;
+3155         }
+3156     }
+3157
+3158     if (map) {
+3159         tcpu = map->cpus[reciprocal_scale(hash, map->len)];
+3160         if (cpu_online(tcpu)) {
+3161             cpu = tcpu;
+3162             goto done;
+3163         }
+3164     }
+3165
+3166 done:
+3167     return cpu;
+3168 }
+###############################################################
+I know the RPS/RFS get the CPU id by this function.I think RPS can't work,
+when RFS is active, beacuse the implementation of RPS is between 3158 
+and 3163.
+and the codes between 3123 and 3156 are used for RFS.
 
-This generalizes ndo_gso_check so that drivers can remove any
-features that don't make sense for a given packet, similar to
-netif_skb_features(). It also converts existing driver
-restrictions to the new format, completing the work that was
-done to support tunnel protocols since the issues apply to
-checksums as well.
+I think RPS is work just in this two  conditions:
+1.  When the packet first arrived this host,  the value of tcpu and 
+next_cpu are RPS_NO_CPU.
+2. When the destination of packet is not this host, the value of tcpu 
+and next_cpu always are RPS_NO_CPU.
 
-By actually removing features from the set that are used to do
-offloading, it solves another problem with the existing
-interface. In these cases, GSO would run with the original set
-of features and not do anything because it appears that
-segmentation is not required.
+My question is: If the RFS is enable, the RPS can't work?
 
-CC: Tom Herbert <therbert@google.com>
-CC: Joe Stringer <joestringer@nicira.com>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Hayes Wang <hayeswang@realtek.com>
-Signed-off-by: Jesse Gross <jesse@nicira.com>
-Acked-by:  Tom Herbert <therbert@google.com>
-Fixes: 04ffcb255f22 ("net: Add ndo_gso_check")
----
-v2: Rebase
-    Drop overzealous use of netdev_intersect_features()
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  8 ++++---
- drivers/net/ethernet/emulex/benet/be_main.c      |  8 ++++---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c   | 10 +++++----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |  8 ++++---
- include/linux/netdevice.h                        | 20 +++++++++--------
- include/net/vxlan.h                              | 28 ++++++++++++++++++++----
- net/core/dev.c                                   | 23 +++++++++++--------
- 7 files changed, 70 insertions(+), 35 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 9f5e387..72eef9f 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -12553,9 +12553,11 @@ static int bnx2x_get_phys_port_id(struct net_device *netdev,
- 	return 0;
- }
- 
--static bool bnx2x_gso_check(struct sk_buff *skb, struct net_device *dev)
-+static netdev_features_t bnx2x_features_check(struct sk_buff *skb,
-+					      struct net_device *dev,
-+					      netdev_features_t features)
- {
--	return vxlan_gso_check(skb);
-+	return vxlan_features_check(skb, features);
- }
- 
- static const struct net_device_ops bnx2x_netdev_ops = {
-@@ -12589,7 +12591,7 @@ static const struct net_device_ops bnx2x_netdev_ops = {
- #endif
- 	.ndo_get_phys_port_id	= bnx2x_get_phys_port_id,
- 	.ndo_set_vf_link_state	= bnx2x_set_vf_link_state,
--	.ndo_gso_check		= bnx2x_gso_check,
-+	.ndo_features_check	= bnx2x_features_check,
- };
- 
- static int bnx2x_set_coherency_mask(struct bnx2x *bp)
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 1960731..41a0a54 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4459,9 +4459,11 @@ done:
- 	adapter->vxlan_port_count--;
- }
- 
--static bool be_gso_check(struct sk_buff *skb, struct net_device *dev)
-+static netdev_features_t be_features_check(struct sk_buff *skb,
-+					   struct net_device *dev,
-+					   netdev_features_t features)
- {
--	return vxlan_gso_check(skb);
-+	return vxlan_features_check(skb, features);
- }
- #endif
- 
-@@ -4492,7 +4494,7 @@ static const struct net_device_ops be_netdev_ops = {
- #ifdef CONFIG_BE2NET_VXLAN
- 	.ndo_add_vxlan_port	= be_add_vxlan_port,
- 	.ndo_del_vxlan_port	= be_del_vxlan_port,
--	.ndo_gso_check		= be_gso_check,
-+	.ndo_features_check	= be_features_check,
- #endif
- };
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 190cbd9..d0d6dc1 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2365,9 +2365,11 @@ static void mlx4_en_del_vxlan_port(struct  net_device *dev,
- 	queue_work(priv->mdev->workqueue, &priv->vxlan_del_task);
- }
- 
--static bool mlx4_en_gso_check(struct sk_buff *skb, struct net_device *dev)
-+static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
-+						struct net_device *dev,
-+						netdev_features_t features)
- {
--	return vxlan_gso_check(skb);
-+	return vxlan_features_check(skb, features);
- }
- #endif
- 
-@@ -2400,7 +2402,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
- #ifdef CONFIG_MLX4_EN_VXLAN
- 	.ndo_add_vxlan_port	= mlx4_en_add_vxlan_port,
- 	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
--	.ndo_gso_check		= mlx4_en_gso_check,
-+	.ndo_features_check	= mlx4_en_features_check,
- #endif
- };
- 
-@@ -2434,7 +2436,7 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
- #ifdef CONFIG_MLX4_EN_VXLAN
- 	.ndo_add_vxlan_port	= mlx4_en_add_vxlan_port,
- 	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
--	.ndo_gso_check		= mlx4_en_gso_check,
-+	.ndo_features_check	= mlx4_en_features_check,
- #endif
- };
- 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 1aa25b1..9929b97 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -505,9 +505,11 @@ static void qlcnic_del_vxlan_port(struct net_device *netdev,
- 	adapter->flags |= QLCNIC_DEL_VXLAN_PORT;
- }
- 
--static bool qlcnic_gso_check(struct sk_buff *skb, struct net_device *dev)
-+static netdev_features_t qlcnic_features_check(struct sk_buff *skb,
-+					       struct net_device *dev,
-+					       netdev_features_t features)
- {
--	return vxlan_gso_check(skb);
-+	return vxlan_features_check(skb, features);
- }
- #endif
- 
-@@ -532,7 +534,7 @@ static const struct net_device_ops qlcnic_netdev_ops = {
- #ifdef CONFIG_QLCNIC_VXLAN
- 	.ndo_add_vxlan_port	= qlcnic_add_vxlan_port,
- 	.ndo_del_vxlan_port	= qlcnic_del_vxlan_port,
--	.ndo_gso_check		= qlcnic_gso_check,
-+	.ndo_features_check	= qlcnic_features_check,
- #endif
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller = qlcnic_poll_controller,
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index c31f74d..679e6e9 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1012,12 +1012,15 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
-  *	Callback to use for xmit over the accelerated station. This
-  *	is used in place of ndo_start_xmit on accelerated net
-  *	devices.
-- * bool	(*ndo_gso_check) (struct sk_buff *skb,
-- *			  struct net_device *dev);
-+ * netdev_features_t (*ndo_features_check) (struct sk_buff *skb,
-+ *					    struct net_device *dev
-+ *					    netdev_features_t features);
-  *	Called by core transmit path to determine if device is capable of
-- *	performing GSO on a packet. The device returns true if it is
-- *	able to GSO the packet, false otherwise. If the return value is
-- *	false the stack will do software GSO.
-+ *	performing offload operations on a given packet. This is to give
-+ *	the device an opportunity to implement any restrictions that cannot
-+ *	be otherwise expressed by feature flags. The check is called with
-+ *	the set of features that the stack has calculated and it returns
-+ *	those the driver believes to be appropriate.
-  *
-  * int (*ndo_switch_parent_id_get)(struct net_device *dev,
-  *				   struct netdev_phys_item_id *psid);
-@@ -1178,8 +1181,9 @@ struct net_device_ops {
- 							struct net_device *dev,
- 							void *priv);
- 	int			(*ndo_get_lock_subclass)(struct net_device *dev);
--	bool			(*ndo_gso_check) (struct sk_buff *skb,
--						  struct net_device *dev);
-+	netdev_features_t	(*ndo_features_check) (struct sk_buff *skb,
-+						       struct net_device *dev,
-+						       netdev_features_t features);
- #ifdef CONFIG_NET_SWITCHDEV
- 	int			(*ndo_switch_parent_id_get)(struct net_device *dev,
- 							    struct netdev_phys_item_id *psid);
-@@ -3611,8 +3615,6 @@ static inline bool netif_needs_gso(struct net_device *dev, struct sk_buff *skb,
- 				   netdev_features_t features)
- {
- 	return skb_is_gso(skb) && (!skb_gso_ok(skb, features) ||
--		(dev->netdev_ops->ndo_gso_check &&
--		 !dev->netdev_ops->ndo_gso_check(skb, dev)) ||
- 		unlikely((skb->ip_summed != CHECKSUM_PARTIAL) &&
- 			 (skb->ip_summed != CHECKSUM_UNNECESSARY)));
- }
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index 57cccd0..903461a 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -1,6 +1,9 @@
- #ifndef __NET_VXLAN_H
- #define __NET_VXLAN_H 1
- 
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include <linux/if_vlan.h>
- #include <linux/skbuff.h>
- #include <linux/netdevice.h>
- #include <linux/udp.h>
-@@ -51,16 +54,33 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
- 		   __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
- 		   __be16 src_port, __be16 dst_port, __be32 vni, bool xnet);
- 
--static inline bool vxlan_gso_check(struct sk_buff *skb)
-+static inline netdev_features_t vxlan_features_check(struct sk_buff *skb,
-+						     netdev_features_t features)
- {
--	if ((skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) &&
-+	u8 l4_hdr = 0;
-+
-+	if (!skb->encapsulation)
-+		return features;
-+
-+	switch (vlan_get_protocol(skb)) {
-+	case htons(ETH_P_IP):
-+		l4_hdr = ip_hdr(skb)->protocol;
-+		break;
-+	case htons(ETH_P_IPV6):
-+		l4_hdr = ipv6_hdr(skb)->nexthdr;
-+		break;
-+	default:
-+		return features;;
-+	}
-+
-+	if ((l4_hdr == IPPROTO_UDP) &&
- 	    (skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
- 	     skb->inner_protocol != htons(ETH_P_TEB) ||
- 	     (skb_inner_mac_header(skb) - skb_transport_header(skb) !=
- 	      sizeof(struct udphdr) + sizeof(struct vxlanhdr))))
--		return false;
-+		return features & ~(NETIF_F_ALL_CSUM | NETIF_F_GSO_MASK);
- 
--	return true;
-+	return features;
- }
- 
- /* IP header + UDP + VXLAN + Ethernet header */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index bd44e28..cf89f8a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2562,7 +2562,7 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
- 
- netdev_features_t netif_skb_features(struct sk_buff *skb)
- {
--	const struct net_device *dev = skb->dev;
-+	struct net_device *dev = skb->dev;
- 	netdev_features_t features = dev->features;
- 	u16 gso_segs = skb_shinfo(skb)->gso_segs;
- 	__be16 protocol = skb->protocol;
-@@ -2570,13 +2570,20 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
- 	if (gso_segs > dev->gso_max_segs || gso_segs < dev->gso_min_segs)
- 		features &= ~NETIF_F_GSO_MASK;
- 
-+	/* If encapsulation offload request, verify we are testing
-+	 * hardware encapsulation features instead of standard
-+	 * features for the netdev
-+	 */
-+	if (skb->encapsulation)
-+		features &= dev->hw_enc_features;
-+
- 	if (!vlan_tx_tag_present(skb)) {
- 		if (unlikely(protocol == htons(ETH_P_8021Q) ||
- 			     protocol == htons(ETH_P_8021AD))) {
- 			struct vlan_ethhdr *veh = (struct vlan_ethhdr *)skb->data;
- 			protocol = veh->h_vlan_encapsulated_proto;
- 		} else {
--			return harmonize_features(skb, features);
-+			goto finalize;
- 		}
- 	}
- 
-@@ -2594,6 +2601,11 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
- 						     NETIF_F_HW_VLAN_CTAG_TX |
- 						     NETIF_F_HW_VLAN_STAG_TX);
- 
-+finalize:
-+	if (dev->netdev_ops->ndo_features_check)
-+		features &= dev->netdev_ops->ndo_features_check(skb, dev,
-+								features);
-+
- 	return harmonize_features(skb, features);
- }
- EXPORT_SYMBOL(netif_skb_features);
-@@ -2664,13 +2676,6 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device
- 	if (unlikely(!skb))
- 		goto out_null;
- 
--	/* If encapsulation offload request, verify we are testing
--	 * hardware encapsulation features instead of standard
--	 * features for the netdev
--	 */
--	if (skb->encapsulation)
--		features &= dev->hw_enc_features;
--
- 	if (netif_needs_gso(dev, skb, features)) {
- 		struct sk_buff *segs;
- 
--- 
-1.9.1
+Thank you.
