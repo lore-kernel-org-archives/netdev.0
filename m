@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v3 17/20] selftests/user: add install target to enable test install
-Date: Wed, 24 Dec 2014 09:27:53 -0700
-Message-ID: <5b8336fbe252deff25978dee99cb58e90e8ccd34.1419387513.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v3 11/20] selftests/mqueue: add install target to enable test install
+Date: Wed, 24 Dec 2014 09:27:47 -0700
+Message-ID: <1e4aa40c42e886d36ae1bfcb93e4b8d696fa6c39.1419387513.git.shuahkh@osg.samsung.com>
 References: <cover.1419387513.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -27,31 +27,38 @@ only from top level kernel source directory.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/user/Makefile | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
+ tools/testing/selftests/mqueue/Makefile | 18 +++++++++++++++---
+ 1 file changed, 15 insertions(+), 3 deletions(-)
 
-diff --git a/tools/testing/selftests/user/Makefile b/tools/testing/selftests/user/Makefile
-index 12c9d15..218c5aa 100644
---- a/tools/testing/selftests/user/Makefile
-+++ b/tools/testing/selftests/user/Makefile
-@@ -1,7 +1,17 @@
- # Makefile for user memory selftests
- 
-+TEST_STR = ./test_user_copy.sh
+diff --git a/tools/testing/selftests/mqueue/Makefile b/tools/testing/selftests/mqueue/Makefile
+index 8056e2e..27757b9 100644
+--- a/tools/testing/selftests/mqueue/Makefile
++++ b/tools/testing/selftests/mqueue/Makefile
+@@ -1,10 +1,22 @@
++MQ_OPEN_TEST_STR = ./mq_open_tests /test1 || echo mq_open_tests: [FAIL]
++MQ_PERF_TEST_STR = ./mq_perf_tests || echo mq_perf_tests: [FAIL]
 +
- # No binaries, but make sure arg-less "make" doesn't trigger "run_tests"
  all:
+ 	gcc -O2 mq_open_tests.c -o mq_open_tests -lrt
+ 	gcc -O2 -o mq_perf_tests mq_perf_tests.c -lrt -lpthread -lpopt
  
+-run_tests:
+-	@./mq_open_tests /test1 || echo "mq_open_tests: [FAIL]"
+-	@./mq_perf_tests || echo "mq_perf_tests: [FAIL]"
 +install:
 +ifdef INSTALL_KSFT_PATH
-+	install ./test_user_copy.sh $(INSTALL_KSFT_PATH)
-+	@echo "$(TEST_STR)" >> $(KSELFTEST)
++	install ./mq_open_tests ./mq_perf_tests $(INSTALL_KSFT_PATH)
++	@echo "$(MQ_OPEN_TEST_STR)" >> $(KSELFTEST)
++	@echo "$(MQ_PERF_TEST_STR)" >> $(KSELFTEST)
 +else
 +	@echo Run make kselftest_install in top level source directory
 +endif
 +
- run_tests: all
--	./test_user_copy.sh
-+	@$(TEST_STR)
++run_tests: all
++	@$(MQ_OPEN_TEST_STR)
++	@$(MQ_PERF_TEST_STR)
+ 
+ clean:
+ 	rm -f mq_open_tests mq_perf_tests
 -- 
 2.1.0
