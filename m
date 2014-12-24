@@ -1,59 +1,49 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [patch iproute2 3/6] bridge/fdb: add flag/indication for FDB
- entry synced from offload device
-Date: Wed, 24 Dec 2014 12:39:20 -0800
-Message-ID: <20141224123920.7ceacd6e@urahara>
-References: <1417683438-10935-1-git-send-email-jiri@resnulli.us>
-	<1417683438-10935-4-git-send-email-jiri@resnulli.us>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2 2/4] ip: Allow to easy change network namespace
+Date: Wed, 24 Dec 2014 22:33:22 +0200
+Message-ID: <20141224203322.GA9728@angus-think.lan>
+References: <1418493334-23142-1-git-send-email-vadim4j@gmail.com>
+ <1418493334-23142-3-git-send-email-vadim4j@gmail.com>
+ <20141224123522.15370a16@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
-	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
-	azhou@nicira.com, ben@decadent.org.uk, jeffrey.t.kirsher@intel.com,
-	vyasevic@redhat.com, xiyou.wangcong@gmail.com,
-	john.r.fastabend@intel.com, edumazet@google.com, jhs@mojatatu.com,
-	sfeldma@gmail.com, f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.org, hemal@broadcom.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:57881 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751504AbaLXUjl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 15:39:41 -0500
-Received: by mail-pd0-f180.google.com with SMTP id w10so10354717pde.25
-        for <netdev@vger.kernel.org>; Wed, 24 Dec 2014 12:39:41 -0800 (PST)
-In-Reply-To: <1417683438-10935-4-git-send-email-jiri@resnulli.us>
+Received: from mail-lb0-f173.google.com ([209.85.217.173]:40188 "EHLO
+	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751584AbaLXUna (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 15:43:30 -0500
+Received: by mail-lb0-f173.google.com with SMTP id z12so7171475lbi.18
+        for <netdev@vger.kernel.org>; Wed, 24 Dec 2014 12:43:28 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20141224123522.15370a16@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu,  4 Dec 2014 09:57:15 +0100
-Jiri Pirko <jiri@resnulli.us> wrote:
-
-> From: Scott Feldman <sfeldma@gmail.com>
+On Wed, Dec 24, 2014 at 12:35:22PM -0800, Stephen Hemminger wrote:
+> On Sat, 13 Dec 2014 19:55:32 +0200
+> Vadim Kochan <vadim4j@gmail.com> wrote:
 > 
-> Add NTF_EXT_LEARNED flag to neigh flags to indicate FDB entry learned by
-> device has been learned externally to bridge FDB.  For these entries,
-> add "external" annotation in bridge fdb show output:
+> > From: Vadim Kochan <vadim4j@gmail.com>
+> > 
+> > Added new '-netns' option to simplify executing following cmd:
+> > 
+> >     ip netns exec NETNS ip OPTIONS COMMAND OBJECT
+> > 
+> >     to
+> > 
+> >     ip -n[etns] NETNS OPTIONS COMMAND OBJECT
+> > 
+> > e.g.:
+> > 
+> >     ip -net vnet0 link add br0 type bridge
+> >     ip -n vnet0 link
+> > 
+> > Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 > 
->   00:02:00:00:03:00 dev swp2 used 2/2 master br0 external
->   00:02:00:00:03:00 dev swp2 self permanent
+> Needs to be rebased against current upstream code.
+> Will not apply clean any more.
 > 
-> In the example above, 00:02:00:00:03:00 is shown twice on dev swp2.  The
-> first entry if from the bridge (master) and is marked as "external" by
-> the offload device.  The second entry is from the brport offload device (self),
-> and was learned by the device.
-> 
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-
-Does not apply to current code.
-Please resubmit (with out the change to neighbour.h which is already there).
+> Please resubmit whole patch series.
+And add Signed-off for Jiri as he was add it for each patch ?
