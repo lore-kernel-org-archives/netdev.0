@@ -1,64 +1,337 @@
-From: Kevin Hao <haokexin@gmail.com>
-Subject: [PATCH net-next 2/2] net: gianfar: add missing __iomem annotation
-Date: Wed, 24 Dec 2014 14:05:45 +0800
-Message-ID: <1419401145-8967-2-git-send-email-haokexin@gmail.com>
-References: <1419401145-8967-1-git-send-email-haokexin@gmail.com>
-Cc: David Miller <davem@davemloft.net>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>
-To: netdev@vger.kernel.org
+From: Jesse Gross <jesse@nicira.com>
+Subject: [PATCH net v2] net: Generalize ndo_gso_check to ndo_features_check
+Date: Tue, 23 Dec 2014 22:37:26 -0800
+Message-ID: <1419403046-43165-1-git-send-email-jesse@nicira.com>
+Cc: netdev@vger.kernel.org, Tom Herbert <therbert@google.com>,
+	Joe Stringer <joestringer@nicira.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Hayes Wang <hayeswang@realtek.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:51956 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750903AbaLXGGv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 01:06:51 -0500
-Received: by mail-pa0-f53.google.com with SMTP id kq14so9438149pab.40
-        for <netdev@vger.kernel.org>; Tue, 23 Dec 2014 22:06:51 -0800 (PST)
-In-Reply-To: <1419401145-8967-1-git-send-email-haokexin@gmail.com>
+Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:54549 "HELO
+	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751118AbaLXGha (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 01:37:30 -0500
+Received: by mail-qc0-f171.google.com with SMTP id r5so5650869qcx.30
+        for <netdev@vger.kernel.org>; Tue, 23 Dec 2014 22:37:29 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the following spare warning:
-drivers/net/ethernet/freescale/gianfar.c:3521:60: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/ethernet/freescale/gianfar.c:3521:60:    expected unsigned int [noderef] <asn:2>*addr
-drivers/net/ethernet/freescale/gianfar.c:3521:60:    got unsigned int [usertype] *rfbptr
-drivers/net/ethernet/freescale/gianfar.c:205:16: warning: incorrect type in assignment (different address spaces)
-drivers/net/ethernet/freescale/gianfar.c:205:16:    expected unsigned int [usertype] *rfbptr
-drivers/net/ethernet/freescale/gianfar.c:205:16:    got unsigned int [noderef] <asn:2>*<noident>
-drivers/net/ethernet/freescale/gianfar.c:2918:44: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/ethernet/freescale/gianfar.c:2918:44:    expected unsigned int [noderef] <asn:2>*addr
-drivers/net/ethernet/freescale/gianfar.c:2918:44:    got unsigned int [usertype] *rfbptr
+GSO isn't the only offload feature with restrictions that
+potentially can't be expressed with the current features mechanism.
+Checksum is another although it's a general issue that could in
+theory apply to anything. Even if it may be possible to
+implement these restrictions in other ways, it can result in
+duplicate code or inefficient per-packet behavior.
 
-Signed-off-by: Kevin Hao <haokexin@gmail.com>
+This generalizes ndo_gso_check so that drivers can remove any
+features that don't make sense for a given packet, similar to
+netif_skb_features(). It also converts existing driver
+restrictions to the new format, completing the work that was
+done to support tunnel protocols since the issues apply to
+checksums as well.
+
+By actually removing features from the set that are used to do
+offloading, it solves another problem with the existing
+interface. In these cases, GSO would run with the original set
+of features and not do anything because it appears that
+segmentation is not required.
+
+CC: Tom Herbert <therbert@google.com>
+CC: Joe Stringer <joestringer@nicira.com>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Hayes Wang <hayeswang@realtek.com>
+Signed-off-by: Jesse Gross <jesse@nicira.com>
+Acked-by:  Tom Herbert <therbert@google.com>
+Fixes: 04ffcb255f22 ("net: Add ndo_gso_check")
 ---
- drivers/net/ethernet/freescale/gianfar.c | 2 +-
- drivers/net/ethernet/freescale/gianfar.h | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+v2: Rebase
+    Drop overzealous use of netdev_intersect_features()
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  8 ++++---
+ drivers/net/ethernet/emulex/benet/be_main.c      |  8 ++++---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c   | 10 +++++----
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |  8 ++++---
+ include/linux/netdevice.h                        | 20 +++++++++--------
+ include/net/vxlan.h                              | 28 ++++++++++++++++++++----
+ net/core/dev.c                                   | 23 +++++++++++--------
+ 7 files changed, 70 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index d2a67ed10a38..e54b1e39f9b4 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -177,7 +177,7 @@ static int gfar_init_bds(struct net_device *ndev)
- 	struct gfar_priv_rx_q *rx_queue = NULL;
- 	struct txbd8 *txbdp;
- 	struct rxbd8 *rxbdp;
--	u32 *rfbptr;
-+	u32 __iomem *rfbptr;
- 	int i, j;
- 	dma_addr_t bufaddr;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 9f5e387..72eef9f 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -12553,9 +12553,11 @@ static int bnx2x_get_phys_port_id(struct net_device *netdev,
+ 	return 0;
+ }
  
-diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
-index b581b8823a2a..9e1802400c23 100644
---- a/drivers/net/ethernet/freescale/gianfar.h
-+++ b/drivers/net/ethernet/freescale/gianfar.h
-@@ -1039,7 +1039,7 @@ struct gfar_priv_rx_q {
- 	/* RX Coalescing values */
- 	unsigned char rxcoalescing;
- 	unsigned long rxic;
--	u32 *rfbptr;
-+	u32 __iomem *rfbptr;
+-static bool bnx2x_gso_check(struct sk_buff *skb, struct net_device *dev)
++static netdev_features_t bnx2x_features_check(struct sk_buff *skb,
++					      struct net_device *dev,
++					      netdev_features_t features)
+ {
+-	return vxlan_gso_check(skb);
++	return vxlan_features_check(skb, features);
+ }
+ 
+ static const struct net_device_ops bnx2x_netdev_ops = {
+@@ -12589,7 +12591,7 @@ static const struct net_device_ops bnx2x_netdev_ops = {
+ #endif
+ 	.ndo_get_phys_port_id	= bnx2x_get_phys_port_id,
+ 	.ndo_set_vf_link_state	= bnx2x_set_vf_link_state,
+-	.ndo_gso_check		= bnx2x_gso_check,
++	.ndo_features_check	= bnx2x_features_check,
  };
  
- enum gfar_irqinfo_id {
+ static int bnx2x_set_coherency_mask(struct bnx2x *bp)
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 1960731..41a0a54 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -4459,9 +4459,11 @@ done:
+ 	adapter->vxlan_port_count--;
+ }
+ 
+-static bool be_gso_check(struct sk_buff *skb, struct net_device *dev)
++static netdev_features_t be_features_check(struct sk_buff *skb,
++					   struct net_device *dev,
++					   netdev_features_t features)
+ {
+-	return vxlan_gso_check(skb);
++	return vxlan_features_check(skb, features);
+ }
+ #endif
+ 
+@@ -4492,7 +4494,7 @@ static const struct net_device_ops be_netdev_ops = {
+ #ifdef CONFIG_BE2NET_VXLAN
+ 	.ndo_add_vxlan_port	= be_add_vxlan_port,
+ 	.ndo_del_vxlan_port	= be_del_vxlan_port,
+-	.ndo_gso_check		= be_gso_check,
++	.ndo_features_check	= be_features_check,
+ #endif
+ };
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 190cbd9..d0d6dc1 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2365,9 +2365,11 @@ static void mlx4_en_del_vxlan_port(struct  net_device *dev,
+ 	queue_work(priv->mdev->workqueue, &priv->vxlan_del_task);
+ }
+ 
+-static bool mlx4_en_gso_check(struct sk_buff *skb, struct net_device *dev)
++static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
++						struct net_device *dev,
++						netdev_features_t features)
+ {
+-	return vxlan_gso_check(skb);
++	return vxlan_features_check(skb, features);
+ }
+ #endif
+ 
+@@ -2400,7 +2402,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
+ #ifdef CONFIG_MLX4_EN_VXLAN
+ 	.ndo_add_vxlan_port	= mlx4_en_add_vxlan_port,
+ 	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
+-	.ndo_gso_check		= mlx4_en_gso_check,
++	.ndo_features_check	= mlx4_en_features_check,
+ #endif
+ };
+ 
+@@ -2434,7 +2436,7 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
+ #ifdef CONFIG_MLX4_EN_VXLAN
+ 	.ndo_add_vxlan_port	= mlx4_en_add_vxlan_port,
+ 	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
+-	.ndo_gso_check		= mlx4_en_gso_check,
++	.ndo_features_check	= mlx4_en_features_check,
+ #endif
+ };
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 1aa25b1..9929b97 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -505,9 +505,11 @@ static void qlcnic_del_vxlan_port(struct net_device *netdev,
+ 	adapter->flags |= QLCNIC_DEL_VXLAN_PORT;
+ }
+ 
+-static bool qlcnic_gso_check(struct sk_buff *skb, struct net_device *dev)
++static netdev_features_t qlcnic_features_check(struct sk_buff *skb,
++					       struct net_device *dev,
++					       netdev_features_t features)
+ {
+-	return vxlan_gso_check(skb);
++	return vxlan_features_check(skb, features);
+ }
+ #endif
+ 
+@@ -532,7 +534,7 @@ static const struct net_device_ops qlcnic_netdev_ops = {
+ #ifdef CONFIG_QLCNIC_VXLAN
+ 	.ndo_add_vxlan_port	= qlcnic_add_vxlan_port,
+ 	.ndo_del_vxlan_port	= qlcnic_del_vxlan_port,
+-	.ndo_gso_check		= qlcnic_gso_check,
++	.ndo_features_check	= qlcnic_features_check,
+ #endif
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller = qlcnic_poll_controller,
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c31f74d..679e6e9 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1012,12 +1012,15 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+  *	Callback to use for xmit over the accelerated station. This
+  *	is used in place of ndo_start_xmit on accelerated net
+  *	devices.
+- * bool	(*ndo_gso_check) (struct sk_buff *skb,
+- *			  struct net_device *dev);
++ * netdev_features_t (*ndo_features_check) (struct sk_buff *skb,
++ *					    struct net_device *dev
++ *					    netdev_features_t features);
+  *	Called by core transmit path to determine if device is capable of
+- *	performing GSO on a packet. The device returns true if it is
+- *	able to GSO the packet, false otherwise. If the return value is
+- *	false the stack will do software GSO.
++ *	performing offload operations on a given packet. This is to give
++ *	the device an opportunity to implement any restrictions that cannot
++ *	be otherwise expressed by feature flags. The check is called with
++ *	the set of features that the stack has calculated and it returns
++ *	those the driver believes to be appropriate.
+  *
+  * int (*ndo_switch_parent_id_get)(struct net_device *dev,
+  *				   struct netdev_phys_item_id *psid);
+@@ -1178,8 +1181,9 @@ struct net_device_ops {
+ 							struct net_device *dev,
+ 							void *priv);
+ 	int			(*ndo_get_lock_subclass)(struct net_device *dev);
+-	bool			(*ndo_gso_check) (struct sk_buff *skb,
+-						  struct net_device *dev);
++	netdev_features_t	(*ndo_features_check) (struct sk_buff *skb,
++						       struct net_device *dev,
++						       netdev_features_t features);
+ #ifdef CONFIG_NET_SWITCHDEV
+ 	int			(*ndo_switch_parent_id_get)(struct net_device *dev,
+ 							    struct netdev_phys_item_id *psid);
+@@ -3611,8 +3615,6 @@ static inline bool netif_needs_gso(struct net_device *dev, struct sk_buff *skb,
+ 				   netdev_features_t features)
+ {
+ 	return skb_is_gso(skb) && (!skb_gso_ok(skb, features) ||
+-		(dev->netdev_ops->ndo_gso_check &&
+-		 !dev->netdev_ops->ndo_gso_check(skb, dev)) ||
+ 		unlikely((skb->ip_summed != CHECKSUM_PARTIAL) &&
+ 			 (skb->ip_summed != CHECKSUM_UNNECESSARY)));
+ }
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index 57cccd0..903461a 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -1,6 +1,9 @@
+ #ifndef __NET_VXLAN_H
+ #define __NET_VXLAN_H 1
+ 
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include <linux/if_vlan.h>
+ #include <linux/skbuff.h>
+ #include <linux/netdevice.h>
+ #include <linux/udp.h>
+@@ -51,16 +54,33 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+ 		   __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
+ 		   __be16 src_port, __be16 dst_port, __be32 vni, bool xnet);
+ 
+-static inline bool vxlan_gso_check(struct sk_buff *skb)
++static inline netdev_features_t vxlan_features_check(struct sk_buff *skb,
++						     netdev_features_t features)
+ {
+-	if ((skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) &&
++	u8 l4_hdr = 0;
++
++	if (!skb->encapsulation)
++		return features;
++
++	switch (vlan_get_protocol(skb)) {
++	case htons(ETH_P_IP):
++		l4_hdr = ip_hdr(skb)->protocol;
++		break;
++	case htons(ETH_P_IPV6):
++		l4_hdr = ipv6_hdr(skb)->nexthdr;
++		break;
++	default:
++		return features;;
++	}
++
++	if ((l4_hdr == IPPROTO_UDP) &&
+ 	    (skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
+ 	     skb->inner_protocol != htons(ETH_P_TEB) ||
+ 	     (skb_inner_mac_header(skb) - skb_transport_header(skb) !=
+ 	      sizeof(struct udphdr) + sizeof(struct vxlanhdr))))
+-		return false;
++		return features & ~(NETIF_F_ALL_CSUM | NETIF_F_GSO_MASK);
+ 
+-	return true;
++	return features;
+ }
+ 
+ /* IP header + UDP + VXLAN + Ethernet header */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index bd44e28..cf89f8a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2562,7 +2562,7 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
+ 
+ netdev_features_t netif_skb_features(struct sk_buff *skb)
+ {
+-	const struct net_device *dev = skb->dev;
++	struct net_device *dev = skb->dev;
+ 	netdev_features_t features = dev->features;
+ 	u16 gso_segs = skb_shinfo(skb)->gso_segs;
+ 	__be16 protocol = skb->protocol;
+@@ -2570,13 +2570,20 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
+ 	if (gso_segs > dev->gso_max_segs || gso_segs < dev->gso_min_segs)
+ 		features &= ~NETIF_F_GSO_MASK;
+ 
++	/* If encapsulation offload request, verify we are testing
++	 * hardware encapsulation features instead of standard
++	 * features for the netdev
++	 */
++	if (skb->encapsulation)
++		features &= dev->hw_enc_features;
++
+ 	if (!vlan_tx_tag_present(skb)) {
+ 		if (unlikely(protocol == htons(ETH_P_8021Q) ||
+ 			     protocol == htons(ETH_P_8021AD))) {
+ 			struct vlan_ethhdr *veh = (struct vlan_ethhdr *)skb->data;
+ 			protocol = veh->h_vlan_encapsulated_proto;
+ 		} else {
+-			return harmonize_features(skb, features);
++			goto finalize;
+ 		}
+ 	}
+ 
+@@ -2594,6 +2601,11 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
+ 						     NETIF_F_HW_VLAN_CTAG_TX |
+ 						     NETIF_F_HW_VLAN_STAG_TX);
+ 
++finalize:
++	if (dev->netdev_ops->ndo_features_check)
++		features &= dev->netdev_ops->ndo_features_check(skb, dev,
++								features);
++
+ 	return harmonize_features(skb, features);
+ }
+ EXPORT_SYMBOL(netif_skb_features);
+@@ -2664,13 +2676,6 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device
+ 	if (unlikely(!skb))
+ 		goto out_null;
+ 
+-	/* If encapsulation offload request, verify we are testing
+-	 * hardware encapsulation features instead of standard
+-	 * features for the netdev
+-	 */
+-	if (skb->encapsulation)
+-		features &= dev->hw_enc_features;
+-
+ 	if (netif_needs_gso(dev, skb, features)) {
+ 		struct sk_buff *segs;
+ 
 -- 
-1.9.3
+1.9.1
