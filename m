@@ -1,57 +1,39 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V2] virtio-net: don't do header check for dodgy gso
-	packets
-Date: Wed, 24 Dec 2014 11:03:52 +0800
-Message-ID: <1419390232-14906-1-git-send-email-jasowang@redhat.com>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH net 5/6] openvswitch: Fix vport_send double free
+Date: Wed, 24 Dec 2014 04:16:01 +0100
+Message-ID: <549A2FF1.2080300@gmx.de>
+References: <1419380432-1665-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-To: rusty@rustcorp.com.au, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Pravin B Shelar <pshelar@nicira.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.15.19]:53733 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751667AbaLXDQH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Dec 2014 22:16:07 -0500
+In-Reply-To: <1419380432-1665-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There's no need to do header check for virtio-net since:
+Hi,
 
-- Host sets dodgy for all gso packets from guest and check the header.
-- Host should be prepared for all kinds of evil packets from guest, since
-  malicious guest can send any kinds of packet.
+On 24.12.2014 01:20, Pravin B Shelar wrote:
+l_hlen = ip_gre_calc_hlen(tun_key->tun_flags);
+>  
+> @@ -183,8 +185,9 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
+>  
+>  	/* Push Tunnel header. */
+>  	skb = __build_header(skb, tunnel_hlen);
+> -	if (unlikely(!skb)) {
+> -		err = 0;
+> +	if (IS_ERR(skb)) {
+> +		err = PTR_ERR(rt);
 
-So this patch sets NETIF_F_GSO_ROBUST for virtio-net to skip the check.
+Shouldn't be it
 
-Cc: Rusty Russell <rusty@rustcorp.com.au>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-Changes from V1:
-- typo fixes
----
- drivers/net/virtio_net.c | 2 ++
- 1 file changed, 2 insertions(+)
+err = PTR_ERR(skb); ?
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index b8bd719..45c6ce2 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1761,6 +1761,8 @@ static int virtnet_probe(struct virtio_device *vdev)
- 		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_ECN))
- 			dev->hw_features |= NETIF_F_TSO_ECN;
- 
-+		dev->features |= NETIF_F_GSO_ROBUST;
-+
- 		if (gso)
- 			dev->features |= dev->hw_features & NETIF_F_ALL_TSO;
- 		/* (!csum && gso) case will be fixed by register_netdev() */
--- 
-1.9.1
+Regards,
+Lino
