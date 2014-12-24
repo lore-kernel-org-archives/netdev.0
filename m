@@ -1,63 +1,45 @@
-From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v3 03/20] selftests/efivarfs: add install target to enable test install
-Date: Wed, 24 Dec 2014 09:27:39 -0700
-Message-ID: <5ec69d133b16dfdaca04fcbd8f4193c675415f61.1419387513.git.shuahkh@osg.samsung.com>
-References: <cover.1419387513.git.shuahkh@osg.samsung.com>
-Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org
-To: mmarek@suse.cz, gregkh@linuxfoundation.org,
-	akpm@linux-foundation.org, rostedt@goodmis.org, mingo@redhat.com,
-	davem@davemloft.net, keescook@chromium.org, tranmanphong@gmail.com,
-	mpe@ellerman.id.au, cov@codeaurora.org, dh.herrmann@gmail.com,
-	hughd@google.com, bobby.prani@gmail.com, serge.hallyn@ubuntu.com,
-	ebiederm@xmission.com, tim.bird@sonymobile.com,
-	josh@joshtriplett.org, koct9i@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1419387513.git.shuahkh@osg.samsung.com>
-In-Reply-To: <cover.1419387513.git.shuahkh@osg.samsung.com>
-References: <cover.1419387513.git.shuahkh@osg.samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH] net: wireless: rtlwifi: rtl8192ee: trx.c:  Remove unused function
+Date: Wed, 24 Dec 2014 18:56:23 +0200
+Message-ID: <87bnmt7zrc.fsf@kamboji.qca.qualcomm.com>
+References: <1419079694-32476-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>,
+	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1419079694-32476-1-git-send-email-rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
+	(Rickard Strandqvist's message of "Sat, 20 Dec 2014 13:48:14 +0100")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add a new make target to enable installing test. This target
-installs test in the kselftest install location and add to the
-kselftest script to run the test. Install target can be run
-only from top level kernel source directory.
+Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org> writes:
 
-Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
----
- tools/testing/selftests/efivarfs/Makefile | 16 ++++++++++++++--
- 1 file changed, 14 insertions(+), 2 deletions(-)
+> Remove the function rtl92ee_get_available_desc() that is not used anywhere.
+>
+> This was partially found by using a static code analysis program called cppcheck.
+>
+> Signed-off-by: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
 
-diff --git a/tools/testing/selftests/efivarfs/Makefile b/tools/testing/selftests/efivarfs/Makefile
-index 29e8c6b..aaf404b 100644
---- a/tools/testing/selftests/efivarfs/Makefile
-+++ b/tools/testing/selftests/efivarfs/Makefile
-@@ -3,10 +3,22 @@ CFLAGS = -Wall
- 
- test_objs = open-unlink create-read
- 
--all: $(test_objs)
-+TEST_STR = /bin/bash ./efivarfs.sh || echo efivarfs selftests: [FAIL]
-+
-+all:
-+	gcc open-unlink.c -o open-unlink
-+	gcc create-read.c -o create-read
-+
-+install:
-+ifdef INSTALL_KSFT_PATH
-+	install ./efivarfs.sh $(test_objs) $(INSTALL_KSFT_PATH)
-+	@echo "$(TEST_STR)" >> $(KSELFTEST)
-+else
-+	@echo Run make kselftest_install in top level source directory
-+endif
- 
- run_tests: all
--	@/bin/bash ./efivarfs.sh || echo "efivarfs selftests: [FAIL]"
-+	@$(TEST_STR)
- 
- clean:
- 	rm -f $(test_objs)
+Thanks, applied to wireless-drivers-next.git.
+
+But I simplified the patch title:
+
+commit 9898b77536b8569be2704964d3c519ef070e4a27
+Author: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
+Date:   Sat Dec 20 13:48:14 2014 +0100
+
+    rtlwifi: rtl8192ee: trx.c: Remove unused function
+
 -- 
-2.1.0
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
