@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v3 13/20] selftests/ptrace: add install target to enable test install
-Date: Wed, 24 Dec 2014 09:27:49 -0700
-Message-ID: <aa8cd8752e3b0df7a551ef73ed270da99d9d4bd6.1419387513.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v3 10/20] selftests/mount: add install target to enable test install
+Date: Wed, 24 Dec 2014 09:27:46 -0700
+Message-ID: <79fc8be2721f4b035bee4610ff5ba08da4422d7d.1419387513.git.shuahkh@osg.samsung.com>
 References: <cover.1419387513.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -27,36 +27,37 @@ only from top level kernel source directory.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/ptrace/Makefile | 16 +++++++++++++---
- 1 file changed, 13 insertions(+), 3 deletions(-)
+ tools/testing/selftests/mount/Makefile | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
 
-diff --git a/tools/testing/selftests/ptrace/Makefile b/tools/testing/selftests/ptrace/Makefile
-index 47ae2d3..f238212 100644
---- a/tools/testing/selftests/ptrace/Makefile
-+++ b/tools/testing/selftests/ptrace/Makefile
-@@ -1,10 +1,20 @@
- CFLAGS += -iquote../../../../include/uapi -Wall
--peeksiginfo: peeksiginfo.c
+diff --git a/tools/testing/selftests/mount/Makefile b/tools/testing/selftests/mount/Makefile
+index 337d853..607de4c 100644
+--- a/tools/testing/selftests/mount/Makefile
++++ b/tools/testing/selftests/mount/Makefile
+@@ -1,5 +1,7 @@
+ # Makefile for mount selftests.
  
--all: peeksiginfo
-+TEST_STR = ./peeksiginfo || echo peeksiginfo selftests: [FAIL]
++TEST_STR = if [ -f /proc/self/uid_map ] ; then ./unprivileged-remount-test ; fi
 +
-+all:
-+	gcc peeksiginfo.c -o peeksiginfo
+ all: unprivileged-remount-test
+ 
+ unprivileged-remount-test: unprivileged-remount-test.c
+@@ -7,7 +9,15 @@ unprivileged-remount-test: unprivileged-remount-test.c
+ 
+ # Allow specific tests to be selected.
+ test_unprivileged_remount: unprivileged-remount-test
+-	@if [ -f /proc/self/uid_map ] ; then ./unprivileged-remount-test ; fi
++	@$(TEST_STR)
 +
 +install:
 +ifdef INSTALL_KSFT_PATH
-+	install ./peeksiginfo $(INSTALL_KSFT_PATH)
++	install ./unprivileged-remount-test $(INSTALL_KSFT_PATH)
 +	@echo "$(TEST_STR)" >> $(KSELFTEST)
 +else
 +	@echo Run make kselftest_install in top level source directory
 +endif
  
- clean:
- 	rm -f peeksiginfo
+ run_tests: all test_unprivileged_remount
  
- run_tests: all
--	@./peeksiginfo || echo "peeksiginfo selftests: [FAIL]"
-+	@$(TEST_STR)
 -- 
 2.1.0
