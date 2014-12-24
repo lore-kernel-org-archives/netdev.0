@@ -1,7 +1,8 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v3 00/20] kselftest install target feature
-Date: Wed, 24 Dec 2014 09:27:36 -0700
-Message-ID: <cover.1419387513.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v3 01/20] selftests/breakpoints: add install target to enable test install
+Date: Wed, 24 Dec 2014 09:27:37 -0700
+Message-ID: <0a42ee9b3e243c71927d7d71c5cb6e5f5ade510e.1419387513.git.shuahkh@osg.samsung.com>
+References: <cover.1419387513.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
 	netdev@vger.kernel.org
@@ -13,98 +14,58 @@ To: mmarek@suse.cz, gregkh@linuxfoundation.org,
 	ebiederm@xmission.com, tim.bird@sonymobile.com,
 	josh@joshtriplett.org, koct9i@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1419387513.git.shuahkh@osg.samsung.com>
+In-Reply-To: <cover.1419387513.git.shuahkh@osg.samsung.com>
+References: <cover.1419387513.git.shuahkh@osg.samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch series adds a new kselftest_install make target
-to enable selftest install. When make kselftest_install is
-run, selftests are installed on the system. A new install
-target is added to selftests Makefile which will install
-targets for the tests that are specified in INSTALL_TARGETS.
-During install, a script is generated to run tests that are
-installed. This script will be installed in the selftest install
-directory. Individual test Makefiles are changed to add to the
-script. This will allow new tests to add install and run test
-commands to the generated kselftest script. kselftest target
-now depends on kselftest_install and runs the generated kselftest
-script to reduce duplicate work and for common look and feel when
-running tests.
+Add a new make target to enable installing test. This target
+installs test in the kselftest install location and add to the
+kselftest script to run the test. Install target can be run
+only from top level kernel source directory.
 
-This approach leverages and extends the existing framework that
-uses makefile targets to implement run_tests and adds install
-target. This will scale well as new tests get added and makes
-it easier for test writers to add install target at the same
-time new test gets added.
+Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
+---
+ tools/testing/selftests/breakpoints/Makefile | 19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
 
-This series is uploaded to the following experimental branch
-for anybody that is interested in playing with it:
-git://git.kernel.org/pub/scm/linux/kernel/git/shuah/linux-kselftest.git devel
-
-Some benchmark numbers: no relation to this patch series,
-I just happened to get some timing numbers, this is nice
-and low.
-kselftest full run from install dir using kselftest.sh
-9.41user 3.55system 0:24.86elapsed
-
-This v3 series reduces duplicate code to generate script
-in indiviual test Makefiles and consolidates support in
-selftests main Makefile. In the main Makefile, it does
-minimal work to set and export install path. In this
-series exec and powerpc tests are not included in the
-install, this work will be done in future patches. exec
-and powerpc are still run when make kselftest is invoked.
-
-v2 series: addressed the duplicate code in install and
-run_tests targets in individual test Makefiles.
-Reference: https://lkml.org/lkml/2014/11/4/707
-
-Shuah Khan (20):
-  selftests/breakpoints: add install target to enable test install
-  selftests/cpu-hotplug: add install target to enable test install
-  selftests/efivarfs: add install target to enable test install
-  selftests/firmware: add install target to enable test install
-  selftests/ftrace: add install target to enable test install
-  selftests/ipc: add install target to enable test install
-  selftests/kcmp: add install target to enable test install
-  selftests/memfd: add install target to enable test install
-  selftests/memory-hotplug: add install target to enable test install
-  selftests/mount: add install target to enable test install
-  selftests/mqueue: add install target to enable test install
-  selftests/net: add install target to enable test install
-  selftests/ptrace: add install target to enable test install
-  selftests/size: add install target to enable test install
-  selftests/sysctl: add install target to enable test install
-  selftests/timers: add install target to enable test install
-  selftests/user: add install target to enable test install
-  selftests/vm: add install target to enable test install
-  selftests: add install target to enable test install
-  kbuild: add a new kselftest_install make target to install selftests
-
- Makefile                                           | 14 +++++-
- tools/testing/selftests/Makefile                   | 54 +++++++++++++++++++++-
- tools/testing/selftests/breakpoints/Makefile       | 19 +++++++-
- tools/testing/selftests/cpu-hotplug/Makefile       | 14 +++++-
- .../{on-off-test.sh => cpu-on-off-test.sh}         |  0
- tools/testing/selftests/efivarfs/Makefile          | 16 ++++++-
- tools/testing/selftests/firmware/Makefile          | 43 ++++++++++-------
- tools/testing/selftests/ftrace/Makefile            | 11 ++++-
- tools/testing/selftests/ipc/Makefile               | 19 +++++++-
- tools/testing/selftests/kcmp/Makefile              | 13 +++++-
- tools/testing/selftests/memfd/Makefile             | 17 +++++--
- tools/testing/selftests/memory-hotplug/Makefile    | 14 +++++-
- .../{on-off-test.sh => mem-on-off-test.sh}         |  0
- tools/testing/selftests/mount/Makefile             | 12 ++++-
- tools/testing/selftests/mqueue/Makefile            | 18 ++++++--
- tools/testing/selftests/net/Makefile               | 20 ++++++--
- tools/testing/selftests/ptrace/Makefile            | 16 +++++--
- tools/testing/selftests/size/Makefile              | 12 ++++-
- tools/testing/selftests/sysctl/Makefile            | 17 ++++++-
- tools/testing/selftests/timers/Makefile            | 12 ++++-
- tools/testing/selftests/user/Makefile              | 12 ++++-
- tools/testing/selftests/vm/Makefile                | 11 ++++-
- 22 files changed, 315 insertions(+), 49 deletions(-)
- rename tools/testing/selftests/cpu-hotplug/{on-off-test.sh => cpu-on-off-test.sh} (100%)
- rename tools/testing/selftests/memory-hotplug/{on-off-test.sh => mem-on-off-test.sh} (100%)
-
+diff --git a/tools/testing/selftests/breakpoints/Makefile b/tools/testing/selftests/breakpoints/Makefile
+index e18b42b..b5a5fe8 100644
+--- a/tools/testing/selftests/breakpoints/Makefile
++++ b/tools/testing/selftests/breakpoints/Makefile
+@@ -8,6 +8,7 @@ ifeq ($(ARCH),x86_64)
+ 	ARCH := x86
+ endif
+ 
++TEST_STR = ./breakpoint_test || echo breakpoints selftests: [FAIL]
+ 
+ all:
+ ifeq ($(ARCH),x86)
+@@ -16,8 +17,22 @@ else
+ 	echo "Not an x86 target, can't build breakpoints selftests"
+ endif
+ 
+-run_tests:
+-	@./breakpoint_test || echo "breakpoints selftests: [FAIL]"
++install:
++ifdef INSTALL_KSFT_PATH
++ifeq ($(ARCH),x86)
++	install ./breakpoint_test $(INSTALL_KSFT_PATH)
++	@echo "$(TEST_STR)" >> $(KSELFTEST)
++else
++	@echo Not an x86 target, unable to install breakpoints selftests
++endif
++else
++	@echo Run make kselftest_install in top level source directory
++endif
++
++run_tests: all
++ifeq ($(ARCH),x86)
++	@$(TEST_STR)
++endif
+ 
+ clean:
+ 	rm -fr breakpoint_test
 -- 
 2.1.0
