@@ -1,26 +1,22 @@
-From: Chen Gang <gang.chen.5i5j@gmail.com>
-Subject: [PATCH next] drivers/net/wireless/ath/wil6210/debugfs.c: Use 'uint64_t'
+From: Chen Gang <gang.chen@sunrus.com.cn>
+Subject: [PATCH next] drivers: net: wireless: ath: wil6210: debugfs: Use 'uint64_t'
  instead of 'cycles_t' to avoid warnings
-Date: Wed, 24 Dec 2014 22:40:39 +0800
-Message-ID: <549AD067.80608@gmail.com>
+Date: Wed, 24 Dec 2014 22:29:44 +0800
+Message-ID: <549ACDD8.2090506@sunrus.com.cn>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-wireless@vger.kernel.org, wil6210@qca.qualcomm.com,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-next@vger.kernel.org
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 To: qca_vkondrat@qca.qualcomm.com, kvalo@codeaurora.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:64370 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751893AbaLXOks (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 09:40:48 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 do_div() checks the type strictly. 'cycles_t' may be 32-bit under quite
 a few architectures (parisc, arm, avr32 ...). So use 'uint64_t' instead
-of, the related warning (with allmodconfig under parisc):
+of, the related warning (with allmodconfig undr parisc):
 
     CC [M]  drivers/net/wireless/ath/wil6210/debugfs.o
   In file included from arch/parisc/include/generated/asm/div64.h:1:0,
