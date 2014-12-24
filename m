@@ -1,41 +1,77 @@
 From: Heiner Kallweit <hkallweit1@gmail.com>
-Subject: Re: [PATCH iproute2] ip: allow ip address show to list addresses
- with certain flags not being set
-Date: Wed, 24 Dec 2014 23:10:23 +0100
-Message-ID: <549B39CF.8060106@gmail.com>
-References: <54986E93.4030108@gmail.com> <20141224121649.3ef9d61d@urahara>
+Subject: [PATCH iproute2] ip: extend "ip-address" man page to reflect the
+ recent flag extensions
+Date: Wed, 24 Dec 2014 23:11:50 +0100
+Message-ID: <549B3A26.6010601@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:47229 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751504AbaLXWL5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 17:11:57 -0500
-Received: by mail-wi0-f172.google.com with SMTP id n3so14422888wiv.17
-        for <netdev@vger.kernel.org>; Wed, 24 Dec 2014 14:11:56 -0800 (PST)
-In-Reply-To: <20141224121649.3ef9d61d@urahara>
+Received: from mail-wg0-f53.google.com ([74.125.82.53]:37507 "EHLO
+	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751660AbaLXWL6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 17:11:58 -0500
+Received: by mail-wg0-f53.google.com with SMTP id l18so11901395wgh.26
+        for <netdev@vger.kernel.org>; Wed, 24 Dec 2014 14:11:57 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 24.12.2014 um 21:16 schrieb Stephen Hemminger:
-> On Mon, 22 Dec 2014 20:18:43 +0100
-> Heiner Kallweit <hkallweit1@gmail.com> wrote:
-> 
->> Sometimes it's needed to have "ip address show" list only addresses
->> with certain flags not being set, e.g. in network scripts.
->> As an example one might want to exclude addresses in "tentative"
->> or "deprecated" state.
->>
->> Support listing addresses with flags tentative, deprecated, dadfailed
->> not being set by prefixing the respective flag with a minus.
->>
->> Signed-off-by: Heiner Kallweit <hkallweit1@gmail.com>
-> 
-> Applied, but please send another patch to update manual page.
-> 
-OK, man patch update follows ..
+Extend "ip-address" man page to reflect the recent extension of
+allowing to list addresses with flags tentative, deprecated, dadfailed
+not being set.
 
-Heiner
+Signed-off-by: Heiner Kallweit <heiner.kallweit@web.de>
+---
+ man/man8/ip-address.8.in | 19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
+
+diff --git a/man/man8/ip-address.8.in b/man/man8/ip-address.8.in
+index 3cfc56a..d33b1ed 100644
+--- a/man/man8/ip-address.8.in
++++ b/man/man8/ip-address.8.in
+@@ -50,8 +50,9 @@ ip-address \- protocol address management
+ 
+ .ti -8
+ .IR FLAG " := "
+-.RB "[ " permanent " | " dynamic " | " secondary " | " primary " | "\
+-tentative " | " deprecated " | " dadfailed " | " temporary " ]"
++.RB "[ " permanent " | " dynamic " | " secondary " | " primary " | \
++[ - ] " tentative " | [ - ] " deprecated " | [ - ] " dadfailed " | "\
++temporary " ]"
+ 
+ .SH "DESCRIPTION"
+ The
+@@ -178,15 +179,29 @@ addresses.
+ address detection.
+ 
+ .TP
++.B -tentative
++(IPv6 only) only list addresses which are not in the process of
++duplicate address detection currently.
++
++.TP
+ .B deprecated
+ (IPv6 only) only list deprecated addresses.
+ 
+ .TP
++.B -deprecated
++(IPv6 only) only list addresses not being deprecated.
++
++.TP
+ .B dadfailed
+ (IPv6 only) only list addresses which have failed duplicate
+ address detection.
+ 
+ .TP
++.B -dadfailed
++(IPv6 only) only list addresses which have not failed duplicate
++address detection.
++
++.TP
+ .B temporary
+ (IPv6 only) only list temporary addresses.
+ 
+-- 
+2.2.1
