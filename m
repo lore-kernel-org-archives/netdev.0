@@ -1,77 +1,46 @@
-From: Heiner Kallweit <hkallweit1@gmail.com>
-Subject: [PATCH iproute2] ip: extend "ip-address" man page to reflect the
- recent flag extensions
-Date: Wed, 24 Dec 2014 23:11:50 +0100
-Message-ID: <549B3A26.6010601@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 v3] tc: Show classes in tree view
+Date: Wed, 24 Dec 2014 12:42:56 -0800
+Message-ID: <20141224124256.0ca7fe70@urahara>
+References: <1419381976-23986-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f53.google.com ([74.125.82.53]:37507 "EHLO
-	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751660AbaLXWL6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 17:11:58 -0500
-Received: by mail-wg0-f53.google.com with SMTP id l18so11901395wgh.26
-        for <netdev@vger.kernel.org>; Wed, 24 Dec 2014 14:11:57 -0800 (PST)
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:47885 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751660AbaLXWS5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 17:18:57 -0500
+Received: by mail-pd0-f174.google.com with SMTP id fp1so10563704pdb.33
+        for <netdev@vger.kernel.org>; Wed, 24 Dec 2014 14:18:57 -0800 (PST)
+In-Reply-To: <1419381976-23986-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Extend "ip-address" man page to reflect the recent extension of
-allowing to list addresses with flags tentative, deprecated, dadfailed
-not being set.
+On Wed, 24 Dec 2014 02:46:16 +0200
+Vadim Kochan <vadim4j@gmail.com> wrote:
 
-Signed-off-by: Heiner Kallweit <heiner.kallweit@web.de>
----
- man/man8/ip-address.8.in | 19 +++++++++++++++++--
- 1 file changed, 17 insertions(+), 2 deletions(-)
+> From: Vadim Kochan <vadim4j@gmail.com>
+> 
+> Added new '-t[ree]' which shows classes dependency
+> in the tree view. Meanwhile only generic stats info
+> is supported.
+> 
 
-diff --git a/man/man8/ip-address.8.in b/man/man8/ip-address.8.in
-index 3cfc56a..d33b1ed 100644
---- a/man/man8/ip-address.8.in
-+++ b/man/man8/ip-address.8.in
-@@ -50,8 +50,9 @@ ip-address \- protocol address management
- 
- .ti -8
- .IR FLAG " := "
--.RB "[ " permanent " | " dynamic " | " secondary " | " primary " | "\
--tentative " | " deprecated " | " dadfailed " | " temporary " ]"
-+.RB "[ " permanent " | " dynamic " | " secondary " | " primary " | \
-+[ - ] " tentative " | [ - ] " deprecated " | [ - ] " dadfailed " | "\
-+temporary " ]"
- 
- .SH "DESCRIPTION"
- The
-@@ -178,15 +179,29 @@ addresses.
- address detection.
- 
- .TP
-+.B -tentative
-+(IPv6 only) only list addresses which are not in the process of
-+duplicate address detection currently.
-+
-+.TP
- .B deprecated
- (IPv6 only) only list deprecated addresses.
- 
- .TP
-+.B -deprecated
-+(IPv6 only) only list addresses not being deprecated.
-+
-+.TP
- .B dadfailed
- (IPv6 only) only list addresses which have failed duplicate
- address detection.
- 
- .TP
-+.B -dadfailed
-+(IPv6 only) only list addresses which have not failed duplicate
-+address detection.
-+
-+.TP
- .B temporary
- (IPv6 only) only list temporary addresses.
- 
--- 
-2.2.1
+
+
+I don't get strict about checkpatch. But ran this patch through and there are some minor
+things that would be good to fix.
+  1. Split long lines like:
+WARNING: line over 80 characters
+#198: FILE: tc/tc_class.c:219:
++static void tree_cls_show(FILE *fp, char *buf, struct hlist_head *root_list, int level)
+
+  2. Don't use variable name 'childs', makes sense to call it children instead??
+
+  3. Don't use space before * as in:
+ERROR: "foo * bar" should be "foo *bar"
+#285: FILE: tc/tc_class.c:305:
++	struct rtattr * tb[TCA_MAX+1] = {};
