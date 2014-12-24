@@ -1,57 +1,70 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: Re: [PATCH v3] 3c59x: Fix memory leaks in vortex_open
-Date: Wed, 24 Dec 2014 10:12:58 +0800
-Message-ID: <549A212A.60001@163.com>
-References: <1419303290-27565-1-git-send-email-baijiaju1990@163.com> <20141223142439.GD31876@hmsreliant.think-freely.org> <54998371.7060109@163.com> <20141223154313.GE31876@hmsreliant.think-freely.org>
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
+Subject: RE: [PATCH 2/3] net/fsl: remove irq assignment from xgmac_mdio
+Date: Wed, 24 Dec 2014 02:22:45 +0000
+Message-ID: <DM2PR0301MB08643B456EB87328ACF71CC5E2540@DM2PR0301MB0864.namprd03.prod.outlook.com>
+References: <1419328019-27254-1-git-send-email-shh.xie@gmail.com>
+ <54997817.6010108@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, ebiederm@xmission.com,
-	dingtianhong@huawei.com, paul.gortmaker@windriver.com,
-	justinvanwijngaarden@gmail.com, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "shh.xie@gmail.com" <shh.xie@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m50-133.163.com ([123.125.50.133]:45080 "EHLO m50-133.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750806AbaLXCNV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Dec 2014 21:13:21 -0500
-In-Reply-To: <20141223154313.GE31876@hmsreliant.think-freely.org>
+Received: from mail-by2on0106.outbound.protection.outlook.com ([207.46.100.106]:62772
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750806AbaLXCWs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2014 21:22:48 -0500
+In-Reply-To: <54997817.6010108@cogentembedded.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/23/2014 11:43 PM, Neil Horman wrote:
-> No, I don't think so.  vortex_close predicates each free with a NULL check, so
-> if its not been allocated, it shouldn't be freed.  vortex_close also puts the
-> adapter back into a known state (undoing all the setup that vortex_open does).
-> I really think its better to go with the proper close path than just unwinding
-> the allocation
->
-> Neil
->
+> -----Original Message-----
+> From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com]
+> Sent: Tuesday, December 23, 2014 10:12 PM
+> To: shh.xie@gmail.com; netdev@vger.kernel.org; davem@davemloft.net
+> Cc: Xie Shaohui-B21989
+> Subject: Re: [PATCH 2/3] net/fsl: remove irq assignment from xgmac_mdio
+> 
+> Hello.
+> 
+> On 12/23/2014 12:46 PM, shh.xie@gmail.com wrote:
+> 
+> > From: Shaohui Xie <Shaohui.Xie@freescale.com>
+> 
+> > Which is wrong and not used, so no extra space needed by
+> > mdio_alloc_size(), change the parameter accordingly.
+> 
+> > Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+> > ---
+> >   drivers/net/ethernet/freescale/xgmac_mdio.c | 3 +--
+> >   1 file changed, 1 insertion(+), 2 deletions(-)
+> 
+> > diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c
+> > b/drivers/net/ethernet/freescale/xgmac_mdio.c
+> > index 90adba1..72e0b85 100644
+> > --- a/drivers/net/ethernet/freescale/xgmac_mdio.c
+> > +++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
+> > @@ -187,14 +187,13 @@ static int xgmac_mdio_probe(struct
+> platform_device *pdev)
+> >   		return ret;
+> >   	}
+> >
+> > -	bus = mdiobus_alloc_size(PHY_MAX_ADDR * sizeof(int));
+> > +	bus = mdiobus_alloc_size(0);
+> 
+>     It's now equivalent to a mere mdiobus_alloc().
+[S.H] Yes, mdiobus_alloc() defined as:
 
-Firstly, I run my match on the real hardware(3com 3c905B 100Base
-PCI Ethernet Controller) and make vortex_up failed on purpose
-(make "pci_enable_device" in vortex_up failed). During runtime, the driver
-works well and memory leaks are fixed.
+static inline struct mii_bus *mdiobus_alloc(void)
+{       
+        return mdiobus_alloc_size(0);
+} 
 
-Secondly, I revise the code according to your opinion:
+Should I use mdiobus_alloc() instead?
 
-         retval = vortex_up(dev);
-         if (!retval)
-             goto out;
-
-+      vortex_close(dev);
-+      return -ENOMEM;
-
-Then I repeat my experiment, but system hang occurs!
-
-After adding some "printk"s into the code and running the driver, I find
-the problem's source:
-vortex_close calls vortex_down in runtime, and vortex_down calls
-"del_timer_sync(&vp->rx_oom_timer);" in the code. However, I make
-"pci_enable_device" failed in vortext_up to let vortex_up return an
-error code directly, but "vp->rx_oom_timer" is initialized only by
-"init_timer" after "pci_enable_device". Thus when
-"del_timer_sync(&vp->rx_oom_timer);" is called in vortex_down,
-a null dereference may occur.
-Moreover, only "pci_enable_device" can make vortex_up failed.
+Thanks!
+Shaohui
