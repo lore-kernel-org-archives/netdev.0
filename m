@@ -1,17 +1,17 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v2 2/4] ip: Allow to easy change network namespace
-Date: Wed, 24 Dec 2014 23:04:09 +0200
-Message-ID: <1419455051-23397-3-git-send-email-vadim4j@gmail.com>
+Subject: [PATCH iproute2 v2 3/4] bridge: Allow to easy change network namespace
+Date: Wed, 24 Dec 2014 23:04:10 +0200
+Message-ID: <1419455051-23397-4-git-send-email-vadim4j@gmail.com>
 References: <1419455051-23397-1-git-send-email-vadim4j@gmail.com>
 Cc: Vadim Kochan <vadim4j@gmail.com>, Jiri Pirko <jiri@resnulli.us>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:46487 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751646AbaLXVOY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 16:14:24 -0500
-Received: by mail-lb0-f172.google.com with SMTP id u10so7254659lbd.17
-        for <netdev@vger.kernel.org>; Wed, 24 Dec 2014 13:14:22 -0800 (PST)
+Received: from mail-la0-f41.google.com ([209.85.215.41]:36363 "EHLO
+	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751693AbaLXVO0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2014 16:14:26 -0500
+Received: by mail-la0-f41.google.com with SMTP id hv19so7320185lab.14
+        for <netdev@vger.kernel.org>; Wed, 24 Dec 2014 13:14:24 -0800 (PST)
 In-Reply-To: <1419455051-23397-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -20,96 +20,111 @@ From: Vadim Kochan <vadim4j@gmail.com>
 
 Added new '-netns' option to simplify executing following cmd:
 
-    ip netns exec NETNS ip OPTIONS COMMAND OBJECT
+    ip netns exec NETNS bridge OPTIONS COMMAND OBJECT
 
     to
 
-    ip -n[etns] NETNS OPTIONS COMMAND OBJECT
+    bridge -n[etns] NETNS OPTIONS COMMAND OBJECT
 
 e.g.:
 
-    ip -net vnet0 link add br0 type bridge
-    ip -n vnet0 link
+    bridge -net vnet0 fdb
 
 Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- ip/ip.c       |  7 ++++++-
- man/man8/ip.8 | 23 ++++++++++++++++++++++-
- 2 files changed, 28 insertions(+), 2 deletions(-)
+ bridge/Makefile   |  4 ++++
+ bridge/bridge.c   |  7 ++++++-
+ man/man8/bridge.8 | 23 ++++++++++++++++++++++-
+ 3 files changed, 32 insertions(+), 2 deletions(-)
 
-diff --git a/ip/ip.c b/ip/ip.c
-index 9b90707..61cc9c3 100644
---- a/ip/ip.c
-+++ b/ip/ip.c
-@@ -22,6 +22,7 @@
+diff --git a/bridge/Makefile b/bridge/Makefile
+index 1fb8320..9800753 100644
+--- a/bridge/Makefile
++++ b/bridge/Makefile
+@@ -2,6 +2,10 @@ BROBJ = bridge.o fdb.o monitor.o link.o mdb.o vlan.o
+ 
+ include ../Config
+ 
++ifeq ($(IP_CONFIG_SETNS),y)
++	CFLAGS += -DHAVE_SETNS
++endif
++
+ all: bridge
+ 
+ bridge: $(BROBJ) $(LIBNETLINK) 
+diff --git a/bridge/bridge.c b/bridge/bridge.c
+index ee08f90..5fcc552 100644
+--- a/bridge/bridge.c
++++ b/bridge/bridge.c
+@@ -13,6 +13,7 @@
  #include "SNAPSHOT.h"
  #include "utils.h"
- #include "ip_common.h"
+ #include "br_common.h"
 +#include "namespace.h"
  
+ struct rtnl_handle rth = { .fd = -1 };
  int preferred_family = AF_UNSPEC;
- int human_readable = 0;
-@@ -54,7 +55,7 @@ static void usage(void)
- "                    -4 | -6 | -I | -D | -B | -0 |\n"
- "                    -l[oops] { maximum-addr-flush-attempts } |\n"
- "                    -o[neline] | -t[imestamp] | -t[short] | -b[atch] [filename] |\n"
--"                    -rc[vbuf] [size]}\n");
-+"                    -rc[vbuf] [size] | -n[etns] name }\n");
+@@ -31,7 +32,7 @@ static void usage(void)
+ "Usage: bridge [ OPTIONS ] OBJECT { COMMAND | help }\n"
+ "where  OBJECT := { link | fdb | mdb | vlan | monitor }\n"
+ "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] |\n"
+-"                    -o[neline] | -t[imestamp] \n");
++"                    -o[neline] | -t[imestamp] | -n[etns] name }\n");
  	exit(-1);
  }
  
-@@ -265,6 +266,10 @@ int main(int argc, char **argv)
- 			rcvbuf = size;
- 		} else if (matches(opt, "-help") == 0) {
- 			usage();
+@@ -112,6 +113,10 @@ main(int argc, char **argv)
+ 			preferred_family = AF_INET;
+ 		} else if (strcmp(opt, "-6") == 0) {
+ 			preferred_family = AF_INET6;
 +		} else if (matches(opt, "-netns") == 0) {
 +			NEXT_ARG();
 +			if (netns_switch(argv[1]))
 +				exit(-1);
  		} else {
- 			fprintf(stderr, "Option \"%s\" is unknown, try \"ip -help\".\n", opt);
+ 			fprintf(stderr, "Option \"%s\" is unknown, try \"bridge help\".\n", opt);
  			exit(-1);
-diff --git a/man/man8/ip.8 b/man/man8/ip.8
-index 2d42e98..0bae59e 100644
---- a/man/man8/ip.8
-+++ b/man/man8/ip.8
-@@ -31,7 +31,8 @@ ip \- show / manipulate routing, devices, policy routing and tunnels
- \fB\-r\fR[\fIesolve\fR] |
- \fB\-f\fR[\fIamily\fR] {
- .BR inet " | " inet6 " | " ipx " | " dnet " | " link " } | "
--\fB\-o\fR[\fIneline\fR] }
-+\fB\-o\fR[\fIneline\fR] |
+diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
+index af31d41..cb3fb46 100644
+--- a/man/man8/bridge.8
++++ b/man/man8/bridge.8
+@@ -19,7 +19,8 @@ bridge \- show / manipulate bridge addresses and devices
+ .ti -8
+ .IR OPTIONS " := { "
+ \fB\-V\fR[\fIersion\fR] |
+-\fB\-s\fR[\fItatistics\fR] }
++\fB\-s\fR[\fItatistics\fR] |
 +\fB\-n\fR[\fIetns\fR] name }
  
- 
- .SH OPTIONS
-@@ -134,6 +135,26 @@ the output.
- use the system's name resolver to print DNS names instead of
- host addresses.
+ .ti -8
+ .BR "bridge link set"
+@@ -112,6 +113,26 @@ output more information.  If this option
+ is given multiple times, the amount of information increases.
+ As a rule, the information is statistics or some time values.
  
 +.TP
 +.BR "\-n" , " \-net" , " \-netns " <NETNS>
 +switches
-+.B ip
++.B bridge
 +to the specified network namespace
 +.IR NETNS .
 +Actually it just simplifies executing of:
 +
 +.B ip netns exec
 +.IR NETNS
-+.B ip
++.B bridge
 +.RI "[ " OPTIONS " ] " OBJECT " { " COMMAND " | "
 +.BR help " }"
 +
 +to
 +
-+.B ip
++.B bridge
 +.RI "-n[etns] " NETNS " [ " OPTIONS " ] " OBJECT " { " COMMAND " | "
 +.BR help " }"
 +
- .SH IP - COMMAND SYNTAX
  
- .SS
+ .SH BRIDGE - COMMAND SYNTAX
+ 
 -- 
 2.1.3
