@@ -1,106 +1,48 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 00/10] Split UFO into v4 and v6 versions.
-Date: Wed, 24 Dec 2014 19:11:20 +0100
-Message-ID: <1419444680.4705.129.camel@decadent.org.uk>
-References: <1418840455-22598-1-git-send-email-vyasevic@redhat.com>
-	<586203981.237162.1418880532523.JavaMail.zimbra@redhat.com>
+From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] openvswitch: fix odd_ptr_err.cocci warnings
+Date: Wed, 24 Dec 2014 10:49:22 -0800
+Message-ID: <CALnjE+qNmBekeS_vbSx23myvocShRE1mZ6nHew3Hr=dQt=rHSw@mail.gmail.com>
+References: <201412241437.BpaCtsIE%fengguang.wu@intel.com>
+ <20141224064138.GA11360@athens>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============2177754135935601803=="
-Cc: netdev@vger.kernel.org, Vladislav Yasevich <vyasevich@gmail.com>,
-	virtualization@lists.linux-foundation.org, stefanha@redhat.com,
-	mst@redhat.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <586203981.237162.1418880532523.JavaMail.zimbra@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, kbuild-all-JC7UmRfGjtg@public.gmane.org,
+ LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: kbuild test robot <fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20141224064138.GA11360@athens>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-
---===============2177754135935601803==
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-n/30AcvMQUBve0z9rAIw"
-
-
---=-n/30AcvMQUBve0z9rAIw
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2014-12-18 at 00:28 -0500, Jason Wang wrote:
->=20
-> ----- Original Message -----
-> > UFO support in the kernel applies to both IPv4 and IPv6 protocols
-> > with the same device feature.  However some devices may not be able
-> > to support one of the offloads.  For this we split the UFO offload
-> > feature into 2 pieces.  NETIF_F_UFO now controlls the IPv4 part and
-> > this series introduces NETIF_F_UFO6.
-> >=20
-> > As a result of this work, we can now re-enable NETIF_F_UFO on
-> > virtio_net devices and restore UDP over IPv4 performance for guests.
-> > We also continue to support legacy guests that assume that UFO6
-> > support included into UFO(4).
-> >=20
-> > Without this work, migrating a guest to a 3.18 kernel fails.
-> >=20
->=20
-> This series eliminate the ambiguous NETIF_F_UFO.
->=20
-> But VIRTIO_NET_F_{HOST|GUEST}_UFO and VIRTIO_NET_F_HDR_GSO_UDP is still
-> ambigious. I know it was used to keep compatibility for legacy guest. But
-> what's the future plan? Differentiate UFOv4 and UFOv6 in virtio features =
-and
-> gso type in vnet header looks sufficient?
-[...]
-
-The IPv6 fragmentation ID needs to be added to the vnet header, to do
-UFOv6 properly.  If it wasn't for that lack, we wouldn't have to split
-the feature flag.
-
-Ben.
-
---=20
-Ben Hutchings
-If more than one person is responsible for a bug, no one is at fault.
-
---=-n/30AcvMQUBve0z9rAIw
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAVJsBzee/yOyVhhEJAQoDlw//X+2PLB3MKd6HKXCFEHLoESyFwac3Zhrx
-Ay3809FE4/U21nHiqtPDyh41KTt4w6eYeLpSE8zYrWMCSD+4GtqYgcmurT8SRlGt
-kM+x57LjDmO8PgVCgGkS+VqRg+eW85G0Y71mFRBgkCCYvou20LLPNkK4ri7pmcE6
-u6DPb/oRLg9qwP7pscUcodPBVsTIOJa0s9B7lsZW2eRGBdv0ZFL6GG/qrR5PFovu
-YPUYSI45wZOkClQIwI++ioDFkYIiKYhNcptBPHWza2zrX595ROEPyctkyyWZnwA3
-w78Hw/xcMkTdE04xtgxBpWiXI/XeCLEODrz7KQY1gpjBGkLS3knU+7ZM5zMkOfMF
-J78y+2lH2tKeT3wAprQYnw5rghPmMelNr7o7Id2mCtTTeYk4mWwSgWkaEx0AtCZt
-YI3wbxNx8fiVTNFxM0T2vNnjUaJLXqF9xjwFzJWJgAtfljOrx83Lqtu43Yg1BZLA
-kZhcAKv4dAPVmFrH4ReOsU6PDsZcIQkbV7mAQ93ItY1jxA5g02OzFY41KgmAoem/
-Xiv++cMrj6NA2x8vElt2pAMZZsjpeErGY5yTA2oCaSsRA+rZc/dMxqRl0EIpmJ6L
-kjVFDWaS3fGLElg5LEto1CVXVsb0E7U4laBBGwcy635O9qYVl0CJf5ume/XLAfRJ
-3Fnxw74vMN0=
-=+eL8
------END PGP SIGNATURE-----
-
---=-n/30AcvMQUBve0z9rAIw--
-
---===============2177754135935601803==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Virtualization mailing list
-Virtualization@lists.linux-foundation.org
-https://lists.linuxfoundation.org/mailman/listinfo/virtualization
---===============2177754135935601803==--
+T24gVHVlLCBEZWMgMjMsIDIwMTQgYXQgMTA6NDEgUE0sIGtidWlsZCB0ZXN0IHJvYm90CjxmZW5n
+Z3Vhbmcud3VAaW50ZWwuY29tPiB3cm90ZToKPiBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQtZ3JlLmM6
+MTg4OjUtMTE6IGluY29uc2lzdGVudCBJU19FUlIgYW5kIFBUUl9FUlIsIFBUUl9FUlIgb24gbGlu
+ZSAxODkKPgo+ICBQVFJfRVJSIHNob3VsZCBhY2Nlc3MgdGhlIHZhbHVlIGp1c3QgdGVzdGVkIGJ5
+IElTX0VSUgo+Cj4gU2VtYW50aWMgcGF0Y2ggaW5mb3JtYXRpb246Cj4gIFRoZXJlIGNhbiBiZSBm
+YWxzZSBwb3NpdGl2ZXMgaW4gdGhlIHBhdGNoIGNhc2UsIHdoZXJlIGl0IGlzIHRoZSBjYWxsCj4g
+IElTX0VSUiB0aGF0IGlzIHdyb25nLgo+Cj4gR2VuZXJhdGVkIGJ5OiBzY3JpcHRzL2NvY2NpbmVs
+bGUvdGVzdHMvb2RkX3B0cl9lcnIuY29jY2kKPgo+IENDOiBQcmF2aW4gQiBTaGVsYXIgPHBzaGVs
+YXJAbmljaXJhLmNvbT4KPiBTaWduZWQtb2ZmLWJ5OiBGZW5nZ3VhbmcgV3UgPGZlbmdndWFuZy53
+dUBpbnRlbC5jb20+CgpUaGFua3MgZm9yIHRoZSBmaXguCgpBY2tlZC1ieTogUHJhdmluIEIgU2hl
+bGFyIDxwc2hlbGFyQG5pY2lyYS5jb20+Cgo+IC0tLQo+Cj4gIHZwb3J0LWdyZS5jIHwgICAgMiAr
+LQo+ICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKyksIDEgZGVsZXRpb24oLSkKPgo+IC0t
+LSBhL25ldC9vcGVudnN3aXRjaC92cG9ydC1ncmUuYwo+ICsrKyBiL25ldC9vcGVudnN3aXRjaC92
+cG9ydC1ncmUuYwo+IEBAIC0xODYsNyArMTg2LDcgQEAgc3RhdGljIGludCBncmVfdG5sX3NlbmQo
+c3RydWN0IHZwb3J0ICp2cAo+ICAgICAgICAgLyogUHVzaCBUdW5uZWwgaGVhZGVyLiAqLwo+ICAg
+ICAgICAgc2tiID0gX19idWlsZF9oZWFkZXIoc2tiLCB0dW5uZWxfaGxlbik7Cj4gICAgICAgICBp
+ZiAoSVNfRVJSKHNrYikpIHsKPiAtICAgICAgICAgICAgICAgZXJyID0gUFRSX0VSUihydCk7Cj4g
+KyAgICAgICAgICAgICAgIGVyciA9IFBUUl9FUlIoc2tiKTsKPiAgICAgICAgICAgICAgICAgc2ti
+ID0gTlVMTDsKPiAgICAgICAgICAgICAgICAgZ290byBlcnJfZnJlZV9ydDsKPiAgICAgICAgIH0K
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxp
+bmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1h
+bi9saXN0aW5mby9kZXYK
