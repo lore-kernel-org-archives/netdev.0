@@ -1,89 +1,98 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH net v3 1/4] e1000e: Fix a null deference in
-	e1000_open
-Date: Thu, 25 Dec 2014 09:57:00 +0800
-Message-ID: <1419472623-6060-1-git-send-email-baijiaju1990@163.com>
+From: "Ahmed S. Darwish" <darwish.07@gmail.com>
+Subject: [PATCH v2 2/4] can: kvaser_usb: Reset all URB tx contexts upon
+ channel close
+Date: Thu, 25 Dec 2014 01:59:54 +0200
+Message-ID: <20141224235954.GA24302@vivalin-002>
+References: <20141223154654.GB6460@vivalin-002>
+ <20141224235644.GA3778@vivalin-002>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Jia-Ju Bai <baijiaju1990@163.com>, linux.nics@intel.com
-To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
-	matthew.vick@intel.com, john.ronciak@intel.com, mitch.a.williams@intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Linux-CAN <linux-can@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Greg KH <gregkh@linuxfoundation.org>,
+	Linux-stable <stable@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Olivier Sobrie <olivier@sobrie.be>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141224235644.GA3778@vivalin-002>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The function vzalloc is called by e1000e_setup_rx_resources (in
-e1000_open) when initializing the ethernet card driver. But when vzalloc is
-failed, "err" segment in e1000e_setup_rx_resources is executed to return,
-and then e1000e_free_tx_resources in "err_setup_rx" segment is executed to 
-halt e1000_open. However, "writel(0, tx_ring->head)" statement in
-e1000_clean_tx_ring in e1000e_free_tx_resources will cause system crash,
-because "tx_ring->head" is not assigned the value. In the code,
-"tx_ring->head" is initialized in e1000_configure_tx in e1000_configure
-after the e1000e_setup_rx_resources.
-This patch fixes this problem, and it has been tested on the hardware.
+From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
 
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+Flooding the Kvaser CAN to USB dongle with multiple reads and
+writes in very high frequency (*), closing the CAN channel while
+all the transmissions are on (#), opening the device again (@),
+then sending a small number of packets would make the driver
+enter an almost infinite loop of:
+
+[....]
+[15959.853988] kvaser_usb 4-3:1.0 can0: cannot find free context
+[15959.853990] kvaser_usb 4-3:1.0 can0: cannot find free context
+[15959.853991] kvaser_usb 4-3:1.0 can0: cannot find free context
+[15959.853993] kvaser_usb 4-3:1.0 can0: cannot find free context
+[15959.853994] kvaser_usb 4-3:1.0 can0: cannot find free context
+[15959.853995] kvaser_usb 4-3:1.0 can0: cannot find free context
+[....]
+
+_dragging the whole system down_ in the process due to the
+excessive logging output.
+
+Initially, this has caused random panics in the kernel due to a
+buggy error recovery path.  That got fixed in an earlier commit.(%)
+This patch aims at solving the root cause. -->
+
+16 tx URBs and contexts are allocated per CAN channel per USB
+device. Such URBs are protected by:
+
+a) A simple atomic counter, up to a value of MAX_TX_URBS (16)
+b) A flag in each URB context, stating if it's free
+c) The fact that ndo_start_xmit calls are themselves protected
+   by the networking layers higher above
+
+After grabbing one of the tx URBs, if the driver noticed that all
+of them are now taken, it stops the netif transmission queue.
+Such queue is worken up again only if an acknowedgment was received
+from the firmware on one of our earlier-sent frames.
+
+Meanwhile, upon channel close (#), the driver sends a CMD_STOP_CHIP
+to the firmware, effectively closing all further communication.  In
+the high traffic case, the atomic counter remains at MAX_TX_URBS,
+and all the URB contexts remain marked as active.  While opening
+the channel again (@), it cannot send any further frames since no
+more free tx URB contexts are available.
+
+Reset all tx URB contexts upon CAN channel close.
+
+(*) 50 parallel instances of `cangen0 -g 0 -ix`
+(#) `ifconfig can0 down`
+(@) `ifconfig can0 up`
+(%) "can: kvaser_usb: Don't free packets when tight on URBs"
+
+Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c |    7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/net/can/usb/kvaser_usb.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 247335d..728328b 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -1737,6 +1737,8 @@ static void e1000_clean_rx_ring(struct e1000_ring *rx_ring)
- 	rx_ring->next_to_use = 0;
- 	adapter->flags2 &= ~FLAG2_IS_DISCARDING;
- 
-+	if (!rx_ring->head)
-+		return;
- 	writel(0, rx_ring->head);
- 	if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
- 		e1000e_update_rdt_wa(rx_ring, 0);
-@@ -2444,6 +2446,8 @@ static void e1000_clean_tx_ring(struct e1000_ring *tx_ring)
- 	tx_ring->next_to_use = 0;
- 	tx_ring->next_to_clean = 0;
- 
-+	if (!tx_ring->head)
-+		return;
- 	writel(0, tx_ring->head);
- 	if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
- 		e1000e_update_tdt_wa(tx_ring, 0);
-@@ -4357,6 +4361,9 @@ static int e1000_open(struct net_device *netdev)
- 
- 	netif_carrier_off(netdev);
- 
-+	adapter->tx_ring->head = NULL;
-+	adapter->rx_ring->head = NULL;
-+
- 	/* allocate transmit descriptors */
- 	err = e1000e_setup_tx_resources(adapter->tx_ring);
+ (Marc, Greg, this also should be added to -stable?)
+
+diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
+index 6479a2b..598e251 100644
+--- a/drivers/net/can/usb/kvaser_usb.c
++++ b/drivers/net/can/usb/kvaser_usb.c
+@@ -1246,6 +1246,9 @@ static int kvaser_usb_close(struct net_device *netdev)
  	if (err)
--- 
-1.7.9.5
-
-
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming! The Go Parallel Website,
-sponsored by Intel and developed in partnership with Slashdot Media, is your
-hub for all things parallel software development, from weekly thought
-leadership blogs to news, videos, case studies, tutorials and more. Take a
-look and join the conversation now. http://goparallel.sourceforge.net
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+ 		netdev_warn(netdev, "Cannot stop device, error %d\n", err);
+ 
++	/* reset tx contexts */
++	kvaser_usb_unlink_tx_urbs(priv);
++
+ 	priv->can.state = CAN_STATE_STOPPED;
+ 	close_candev(priv->netdev);
+ 
