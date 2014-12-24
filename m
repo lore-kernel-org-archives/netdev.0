@@ -1,70 +1,57 @@
-From: Shaohui Xie <Shaohui.Xie@freescale.com>
-Subject: RE: [PATCH 2/3] net/fsl: remove irq assignment from xgmac_mdio
-Date: Wed, 24 Dec 2014 02:22:45 +0000
-Message-ID: <DM2PR0301MB08643B456EB87328ACF71CC5E2540@DM2PR0301MB0864.namprd03.prod.outlook.com>
-References: <1419328019-27254-1-git-send-email-shh.xie@gmail.com>
- <54997817.6010108@cogentembedded.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net-next V2] virtio-net: don't do header check for dodgy gso
+	packets
+Date: Wed, 24 Dec 2014 11:03:52 +0800
+Message-ID: <1419390232-14906-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "shh.xie@gmail.com" <shh.xie@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0106.outbound.protection.outlook.com ([207.46.100.106]:62772
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750806AbaLXCWs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2014 21:22:48 -0500
-In-Reply-To: <54997817.6010108@cogentembedded.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+To: rusty@rustcorp.com.au, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com]
-> Sent: Tuesday, December 23, 2014 10:12 PM
-> To: shh.xie@gmail.com; netdev@vger.kernel.org; davem@davemloft.net
-> Cc: Xie Shaohui-B21989
-> Subject: Re: [PATCH 2/3] net/fsl: remove irq assignment from xgmac_mdio
-> 
-> Hello.
-> 
-> On 12/23/2014 12:46 PM, shh.xie@gmail.com wrote:
-> 
-> > From: Shaohui Xie <Shaohui.Xie@freescale.com>
-> 
-> > Which is wrong and not used, so no extra space needed by
-> > mdio_alloc_size(), change the parameter accordingly.
-> 
-> > Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
-> > ---
-> >   drivers/net/ethernet/freescale/xgmac_mdio.c | 3 +--
-> >   1 file changed, 1 insertion(+), 2 deletions(-)
-> 
-> > diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c
-> > b/drivers/net/ethernet/freescale/xgmac_mdio.c
-> > index 90adba1..72e0b85 100644
-> > --- a/drivers/net/ethernet/freescale/xgmac_mdio.c
-> > +++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
-> > @@ -187,14 +187,13 @@ static int xgmac_mdio_probe(struct
-> platform_device *pdev)
-> >   		return ret;
-> >   	}
-> >
-> > -	bus = mdiobus_alloc_size(PHY_MAX_ADDR * sizeof(int));
-> > +	bus = mdiobus_alloc_size(0);
-> 
->     It's now equivalent to a mere mdiobus_alloc().
-[S.H] Yes, mdiobus_alloc() defined as:
+There's no need to do header check for virtio-net since:
 
-static inline struct mii_bus *mdiobus_alloc(void)
-{       
-        return mdiobus_alloc_size(0);
-} 
+- Host sets dodgy for all gso packets from guest and check the header.
+- Host should be prepared for all kinds of evil packets from guest, since
+  malicious guest can send any kinds of packet.
 
-Should I use mdiobus_alloc() instead?
+So this patch sets NETIF_F_GSO_ROBUST for virtio-net to skip the check.
 
-Thanks!
-Shaohui
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+Changes from V1:
+- typo fixes
+---
+ drivers/net/virtio_net.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index b8bd719..45c6ce2 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1761,6 +1761,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_ECN))
+ 			dev->hw_features |= NETIF_F_TSO_ECN;
+ 
++		dev->features |= NETIF_F_GSO_ROBUST;
++
+ 		if (gso)
+ 			dev->features |= dev->hw_features & NETIF_F_ALL_TSO;
+ 		/* (!csum && gso) case will be fixed by register_netdev() */
+-- 
+1.9.1
