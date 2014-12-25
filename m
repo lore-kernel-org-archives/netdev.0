@@ -1,37 +1,54 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 net-next] tipc: replace 0 by NULL for pointers
-Date: Thu, 25 Dec 2014 12:05:50 +0100
-Message-ID: <1419505550-17336-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
-	Jon Maloy <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: Re: [Nios2-dev] [PATCH] Altera TSE: Add missing phydev
+Date: Thu, 25 Dec 2014 13:52:39 +0100
+Message-ID: <20141225125239.GP16916@distanz.ch>
+References: <BLU436-SMTP58313D55680097A2C4AAA0B6560@phx.gbl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Nios2-dev <nios2-dev@lists.rocketboards.org>,
+	Vince Bridgers <vbridgers2013@gmail.com>,
+	netdev@vger.kernel.org
+To: Kostya Belezko <bkostya@hotmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sym2.noone.org ([178.63.92.236]:44377 "EHLO sym2.noone.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752136AbaLYMwn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Dec 2014 07:52:43 -0500
+Content-Disposition: inline
+In-Reply-To: <BLU436-SMTP58313D55680097A2C4AAA0B6560@phx.gbl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix sparse warning:
-net/tipc/link.c:1924:40: warning: Using plain integer as NULL pointer
+On 2014-12-22 at 23:37:19 +0100, Kostya Belezko <bkostya@hotmail.com> wrote:
+> Altera network device doesn't come up after
+> 
+> ifconfig eth0 down
+> ifconfig eth0 up
+> 
+> The reason behind is clearing priv->phydev during tse_shutdown().
+> The phydev is not restored back at tse_open().
+> 
+> Signed-off-by: Kostya Belezko <bkostya@hotmail.com>
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- net/tipc/link.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Please Cc: netdev@vger.kernel.org for network driver patches.
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 23bcc11..082c3b5 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -1921,7 +1921,7 @@ static struct tipc_node *tipc_link_find_owner(const char *link_name,
- {
- 	struct tipc_link *l_ptr;
- 	struct tipc_node *n_ptr;
--	struct tipc_node *found_node = 0;
-+	struct tipc_node *found_node = NULL;
- 	int i;
- 
- 	*bearer_id = 0;
--- 
-1.9.1
+> ---
+>  drivers/net/ethernet/altera/altera_tse_main.c | 3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
+> index 4efc435..361bf35 100644
+> --- a/drivers/net/ethernet/altera/altera_tse_main.c
+> +++ b/drivers/net/ethernet/altera/altera_tse_main.c
+> @@ -1150,6 +1150,9 @@ static int tse_open(struct net_device *dev)
+>  
+>  	spin_unlock_irqrestore(&priv->rxdma_irq_lock, flags);
+>  
+> +	if (!priv->phydev)
+> +		init_phy(dev);
+
+That way the PHY will be initialized twice on first start.
+
+IMO the proper solution would be to disconnect and NULL the phydev in
+altera_tse_remove, not in tse_shutdown. There, only phy_stop should be
+called.
