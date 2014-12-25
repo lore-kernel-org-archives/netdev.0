@@ -1,8 +1,8 @@
 From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH net v3 4/4] e1000e: Add
-	pci_disable_pcie_error_reporting in error handling
-Date: Thu, 25 Dec 2014 09:57:03 +0800
-Message-ID: <1419472623-6060-4-git-send-email-baijiaju1990@163.com>
+Subject: [PATCH net v3 2/4] e1000e: Add pm_qos_remove_request
+	in error handling
+Date: Thu, 25 Dec 2014 09:57:01 +0800
+Message-ID: <1419472623-6060-2-git-send-email-baijiaju1990@163.com>
 References: <1419472623-6060-1-git-send-email-baijiaju1990@163.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,8 +25,8 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The driver lacks pci_disable_pcie_error_reporting in error handling,
-which should match pci_enable_pcie_error_reporting in e1000_probe.
+The driver lacks pm_qos_remove_request in error handling,
+which should match pm_qos_add_request in e1000_open.
 This patch fixes this problem, and it has been tested on the hardware.
 
 Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
@@ -35,17 +35,17 @@ Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 247335d..098c3c2 100644
+index 247335d..71bc244 100644
 --- a/drivers/net/ethernet/intel/e1000e/netdev.c
 +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -7053,6 +7053,7 @@ err_flashmap:
- err_ioremap:
- 	free_netdev(netdev);
- err_alloc_etherdev:
-+	pci_disable_pcie_error_reporting(pdev);
- 	pci_release_selected_regions(pdev,
- 				     pci_select_bars(pdev, IORESOURCE_MEM));
- err_pci_reg:
+@@ -4430,6 +4430,7 @@ static int e1000_open(struct net_device *netdev)
+ 	return 0;
+ 
+ err_req_irq:
++	pm_qos_remove_request(&adapter->netdev->pm_qos_req);
+ 	e1000e_release_hw_control(adapter);
+ 	e1000_power_down_phy(adapter);
+ 	e1000e_free_rx_resources(adapter->rx_ring);
 -- 
 1.7.9.5
 
