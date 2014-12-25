@@ -1,66 +1,62 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: Re: [Nios2-dev] [PATCH] Altera TSE: Add missing phydev
-Date: Thu, 25 Dec 2014 15:55:21 +0100
-Message-ID: <20141225145521.GQ16916@distanz.ch>
-References: <BLU436-SMTP58313D55680097A2C4AAA0B6560@phx.gbl>
- <20141225125239.GP16916@distanz.ch>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH v2 2/2] vhost: relax used address alignment
+Date: Thu, 25 Dec 2014 17:05:10 +0200
+Message-ID: <1419517332-12291-3-git-send-email-mst@redhat.com>
+References: <1419517332-12291-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nios2-dev <nios2-dev@lists.rocketboards.org>,
-	Vince Bridgers <vbridgers2013@gmail.com>,
-	netdev@vger.kernel.org
-To: Kostya Belezko <bkostya@hotmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sym2.noone.org ([178.63.92.236]:54629 "EHLO sym2.noone.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752394AbaLYOzZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Dec 2014 09:55:25 -0500
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20141225125239.GP16916@distanz.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1419517332-12291-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 2014-12-25 at 13:52:39 +0100, Tobias Klauser <tklauser@distanz.ch> wrote:
-> On 2014-12-22 at 23:37:19 +0100, Kostya Belezko <bkostya@hotmail.com> wrote:
-> > Altera network device doesn't come up after
-> > 
-> > ifconfig eth0 down
-> > ifconfig eth0 up
-> > 
-> > The reason behind is clearing priv->phydev during tse_shutdown().
-> > The phydev is not restored back at tse_open().
-> > 
-> > Signed-off-by: Kostya Belezko <bkostya@hotmail.com>
-> 
-> Please Cc: netdev@vger.kernel.org for network driver patches.
-> 
-> > ---
-> >  drivers/net/ethernet/altera/altera_tse_main.c | 3 +++
-> >  1 file changed, 3 insertions(+)
-> > 
-> > diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
-> > index 4efc435..361bf35 100644
-> > --- a/drivers/net/ethernet/altera/altera_tse_main.c
-> > +++ b/drivers/net/ethernet/altera/altera_tse_main.c
-> > @@ -1150,6 +1150,9 @@ static int tse_open(struct net_device *dev)
-> >  
-> >  	spin_unlock_irqrestore(&priv->rxdma_irq_lock, flags);
-> >  
-> > +	if (!priv->phydev)
-> > +		init_phy(dev);
-> 
-> That way the PHY will be initialized twice on first start.
+virtio 1.0 only requires used address to be 4 byte aligned,
+vhost required 8 bytes (size of vring_used_elem).
+Fix up vhost to match that.
 
-It actually won't. Sorry, I didn't read careful enough.
+Additionally, while vhost correctly requires 8 byte
+alignment for log, it's unconnected to used ring:
+it's a consequence that log has u64 entries.
+Tweak code to make that clearer.
 
-Still, the solution suggested below is preferable IMO and this is also
-what other ethernet drivers are doing (at least those I checked).
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/vhost/vhost.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-> IMO the proper solution would be to disconnect and NULL the phydev in
-> altera_tse_remove, not in tse_shutdown. There, only phy_stop should be
-> called.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index ed71b53..cb807d0 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -713,9 +713,13 @@ long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp)
+ 			r = -EFAULT;
+ 			break;
+ 		}
+-		if ((a.avail_user_addr & (sizeof *vq->avail->ring - 1)) ||
+-		    (a.used_user_addr & (sizeof *vq->used->ring - 1)) ||
+-		    (a.log_guest_addr & (sizeof *vq->used->ring - 1))) {
++
++		/* Make sure it's safe to cast pointers to vring types. */
++		BUILD_BUG_ON(__alignof__ *vq->avail > VRING_AVAIL_ALIGN_SIZE);
++		BUILD_BUG_ON(__alignof__ *vq->used > VRING_USED_ALIGN_SIZE);
++		if ((a.avail_user_addr & (VRING_AVAIL_ALIGN_SIZE - 1)) ||
++		    (a.used_user_addr & (VRING_USED_ALIGN_SIZE - 1)) ||
++		    (a.log_guest_addr & (sizeof(u64) - 1))) {
+ 			r = -EINVAL;
+ 			break;
+ 		}
+-- 
+MST
