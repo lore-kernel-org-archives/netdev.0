@@ -1,71 +1,33 @@
-From: Shahar Lev <shahar@stratoscale.com>
-Subject: [PATCH] ipnetns: fix exec for netns not in NETNS_RUN_DIR
-Date: Fri, 26 Dec 2014 00:15:58 +0200
-Message-ID: <1419545758-11200-1-git-send-email-shahar@stratoscale.com>
-Cc: Shahar Lev <shahar@stratoscale.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/5] netlink/genetlink cleanups & multicast improvements
+Date: Thu, 25 Dec 2014 18:26:43 -0500 (EST)
+Message-ID: <20141225.182643.2281873118805231449.davem@davemloft.net>
+References: <1419270999-22165-1-git-send-email-johannes@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:43237 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751169AbaLYWQa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2014 17:16:30 -0500
-Received: by mail-wi0-f171.google.com with SMTP id bs8so16074129wib.4
-        for <netdev@vger.kernel.org>; Thu, 25 Dec 2014 14:16:28 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:58624 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751431AbaLYX07 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2014 18:26:59 -0500
+In-Reply-To: <1419270999-22165-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enabling "ip netns exec" to be run with a net namespace
-specified by a file path rather than a filename under /var/run/nets.
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Mon, 22 Dec 2014 18:56:34 +0100
 
-Signed-off-by: Shahar Lev <shahar@stratoscale.com>
----
- ip/ipnetns.c | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+> I'm looking at using the multicast group functionality in a way that would
+> benefit from knowing when there are subscribers to avoid collecting the
+> required data when there aren't any. During this I noticed that the unbind
+> for multicast groups doesn't actually work - it's never called when sockets
+> are closed. Luckily, nobody actually uses the functionality.
+> 
+> While looking at the code trying to find why it's not called and where the
+> multicast listeners are actually removed, I found the potential cleanup in
+> patch 3. Patch 2 also has a cleanup for a generic netlink API in this area.
 
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index 1c8aa02..5310d0c 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -66,7 +66,7 @@ static int usage(void)
- 	exit(-1);
- }
- 
--int get_netns_fd(const char *name)
-+static int get_netns_fd_flags(const char *name, int flags)
- {
- 	char pathbuf[MAXPATHLEN];
- 	const char *path, *ptr;
-@@ -78,7 +78,12 @@ int get_netns_fd(const char *name)
- 			NETNS_RUN_DIR, name );
- 		path = pathbuf;
- 	}
--	return open(path, O_RDONLY);
-+	return open(path, flags);
-+}
-+
-+int get_netns_fd(const char *name)
-+{
-+	return get_netns_fd_flags(name, O_RDONLY);
- }
- 
- static int netns_list(int argc, char **argv)
-@@ -135,7 +140,6 @@ static int netns_exec(int argc, char **argv)
- 	 * aware, and execute a program in that environment.
- 	 */
- 	const char *name, *cmd;
--	char net_path[MAXPATHLEN];
- 	int netns;
- 
- 	if (argc < 1) {
-@@ -149,8 +153,7 @@ static int netns_exec(int argc, char **argv)
- 
- 	name = argv[0];
- 	cmd = argv[1];
--	snprintf(net_path, sizeof(net_path), "%s/%s", NETNS_RUN_DIR, name);
--	netns = open(net_path, O_RDONLY | O_CLOEXEC);
-+	netns = get_netns_fd_flags(name, O_RDONLY | O_CLOEXEC);
- 	if (netns < 0) {
- 		fprintf(stderr, "Cannot open network namespace \"%s\": %s\n",
- 			name, strerror(errno));
--- 
-1.8.3.1
+Series applied, using v2 of patch #5.
