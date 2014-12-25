@@ -1,1100 +1,1182 @@
-From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: [PATCH v2 4/4] can: kvaser_usb: Add support for the Usbcan-II family
-Date: Thu, 25 Dec 2014 02:04:40 +0200
-Message-ID: <20141225000440.GC24302@vivalin-002>
-References: <20141223154654.GB6460@vivalin-002>
- <20141224235644.GA3778@vivalin-002>
- <20141224235954.GA24302@vivalin-002>
- <20141225000256.GB24302@vivalin-002>
+From: Chen-Yu Tsai <wens@csie.org>
+Subject: Re: [PATCH v2 1/6] GMAC: add driver for Rockchip RK3288 SoCs
+ integrated GMAC
+Date: Thu, 25 Dec 2014 10:32:33 +0800
+Message-ID: <CAGb2v67WM9mHEg3yE7E1zneUwGip7qySJO-x5+PU8iRDR-Mb3w@mail.gmail.com>
+References: <1417056591-3570-1-git-send-email-roger.chen@rock-chips.com>
+ <1417056728-3642-1-git-send-email-roger.chen@rock-chips.com>
+ <1591535.72TyRu5yfQ@diego> <547EC24E.6050905@rock-chips.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	Linux-CAN <linux-can@vger.kernel.org>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko@sntech.de>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
 	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-rockchip@lists.infradead.org, kever.yang@rock-chips.com,
+	eddie.cai@rock-chips.com
+To: Roger <roger.chen@rock-chips.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141225000256.GB24302@vivalin-002>
+In-Reply-To: <547EC24E.6050905@rock-chips.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
+Hi,
 
-CAN to USB interfaces sold by the Swedish manufacturer Kvaser are
-divided into two major families: 'Leaf', and 'UsbcanII'.  From an
-Operating System perspective, the firmware of both families behave
-in a not too drastically different fashion.
+On Wed, Dec 3, 2014 at 3:57 PM, Roger <roger.chen@rock-chips.com> wrote=
+:
+> Hi! Heiko
+>
+> about regulator, power gpio,  reset gpio and irq gpio
+> please refer to my comment inline, tks.
+>
+>
+> On 2014/12/2 7:44, Heiko St=C3=BCbner wrote:
+>>
+>> Hi Roger,
+>>
+>> the comments inline are a rough first review. I hope to get a cleare=
+r
+>> picture
+>> for the stuff I'm not sure about in v3 once the big issues are fixed=
+=2E
+>>
+>>
+>> Am Donnerstag, 27. November 2014, 10:52:08 schrieb Roger Chen:
+>>>
+>>> This driver is based on stmmac driver.
+>>>
+>>> modification based on Giuseppe CAVALLARO's suggestion:
+>>> 1. use BIT()
+>>>
+>>>         > +/*RK3288_GRF_SOC_CON3*/
+>>>         > +#define GMAC_TXCLK_DLY_ENABLE   ((0x4000 << 16) | (0x400=
+0))
+>>>         > +#define GMAC_TXCLK_DLY_DISABLE  ((0x4000 << 16) | (0x000=
+0))
+>>>
+>>>         ...
+>>>
+>>>         why do not use BIT and BIT_MASK where possible?
+>>>
+>>>         =3D=3D=3D>after modification:
+>>>
+>>>         #define GRF_BIT(nr)     (BIT(nr) | BIT(nr+16))
+>>>         #define GRF_CLR_BIT(nr) (BIT(nr+16))
+>>>         #define GMAC_TXCLK_DLY_ENABLE   GRF_BIT(14)
+>>>         #define GMAC_TXCLK_DLY_DISABLE  GRF_CLR_BIT(14)
+>>>         ...
+>>> 2.
+>>>
+>>>         > +    regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>>         > +             GMAC_PHY_INTF_SEL_RGMII);
+>>>         > +    regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>>         > +             GMAC_RMII_MODE_CLR);
+>>>
+>>>         maybe you could perform just one write unless there is some=
+ HW
+>>>         constraint.
+>>>
+>>>         =3D=3D=3D>after modification:
+>>>
+>>>         regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>>                          GMAC_PHY_INTF_SEL_RGMII | GMAC_RMII_MODE_C=
+LR);
+>>>
+>>> 3. use macros
+>>>
+>>>         > +    regmap_write(bsp_priv->grf, RK3288_GRF_GPIO3D_E,
+>>> 0xFFFFFFFF);
+>>>         > +    regmap_write(bsp_priv->grf, RK3288_GRF_GPIO4B_E,
+>>>         > +             0x3<<2<<16 | 0x3<<2);
+>>>
+>>>         pls use macros, these shift sequence is really help to deco=
+de
+>>>
+>>>         =3D=3D=3D>after modification:
+>>>
+>>>         regmap_write(bsp_priv->grf, RK3288_GRF_GPIO4A_E, GPIO4A_12M=
+A);
+>>>         regmap_write(bsp_priv->grf, RK3288_GRF_GPIO4B_E, GPIO4B_2_1=
+2MA);
+>>>
+>>> 4. remove grf fail check in rk_gmac_setup()
+>>>
+>>>         > +    if (IS_ERR(bsp_priv->grf))
+>>>         > +        dev_err(&pdev->dev, "Missing rockchip,grf
+>>> property\n");
+>>>
+>>>         I wonder if you can fail on here and save all the check in
+>>>         set_rgmii_speed etc.
+>>>         Maybe this can be considered a mandatory property for the
+>>> glue-logic.
+>>>
+>>> 5. remove .tx_coe=3D1
+>>>
+>>>         > +const struct stmmac_of_data rk_gmac_data =3D {
+>>>         > +    .has_gmac =3D 1,
+>>>         > +    .tx_coe =3D 1,
+>>>
+>>>         FYI, on new gmac there is the HW capability register to
+>>> dinamically
+>>>         provide you if coe is supported.
+>>>
+>>>         IMO you should add the OF "compatible" string and in case o=
+f mac
+>>>         newer than the 3.50a you can remove coe.
+>>
+>> changelogs like these, should be compact and also not be in the comm=
+it
+>> message
+>> itself, but in the "comment"-section below the "---" and before the
+>> diffstat.
+>>
+>>
+>>> Signed-off-by: Roger Chen <roger.chen@rock-chips.com>
+>>> ---
+>>
+>> changelog here ... the commonly used pattern is something like
+>>
+>> changes since v2:
+>> - ...
+>> - ...
+>>
+>> changes since v1:
+>> - ...
+>>
+>>>   drivers/net/ethernet/stmicro/stmmac/Makefile       |    2 +-
+>>>   drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     |  636
+>>> ++++++++++++++++++++ .../net/ethernet/stmicro/stmmac/stmmac_platfor=
+m.c  |
+>>>   3 +
+>>>   .../net/ethernet/stmicro/stmmac/stmmac_platform.h  |    1 +
+>>>   4 files changed, 641 insertions(+), 1 deletion(-)
+>>>   create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+>>>
+>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile
+>>> b/drivers/net/ethernet/stmicro/stmmac/Makefile index ac4d562..73c27=
+15
+>>> 100644
+>>> --- a/drivers/net/ethernet/stmicro/stmmac/Makefile
+>>> +++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
+>>> @@ -6,7 +6,7 @@ stmmac-objs:=3D stmmac_main.o stmmac_ethtool.o
+>>> stmmac_mdio.o
+>>> ring_mode.o     \
+>>>
+>>>   obj-$(CONFIG_STMMAC_PLATFORM) +=3D stmmac-platform.o
+>>>   stmmac-platform-objs:=3D stmmac_platform.o dwmac-meson.o dwmac-su=
+nxi.o  \
+>>> -                      dwmac-sti.o dwmac-socfpga.o
+>>> +                      dwmac-sti.o dwmac-socfpga.o dwmac-rk.o
+>>>
+>>>   obj-$(CONFIG_STMMAC_PCI) +=3D stmmac-pci.o
+>>>   stmmac-pci-objs:=3D stmmac_pci.o
+>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+>>> b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c new file mode 1006=
+44
+>>> index 0000000..870563f
+>>> --- /dev/null
+>>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+>>> @@ -0,0 +1,636 @@
+>>> +/**
+>>> + * dwmac-rk.c - Rockchip RK3288 DWMAC specific glue layer
+>>> + *
+>>> + * Copyright (C) 2014 Chen-Zhi (Roger Chen)
+>>> + *
+>>> + * Chen-Zhi (Roger Chen)  <roger.chen@rock-chips.com>
+>>> + *
+>>> + * This program is free software; you can redistribute it and/or m=
+odify
+>>> + * it under the terms of the GNU General Public License as publish=
+ed by
+>>> + * the Free Software Foundation; either version 2 of the License, =
+or
+>>> + * (at your option) any later version.
+>>> + *
+>>> + * This program is distributed in the hope that it will be useful,
+>>> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+>>> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+>>> + * GNU General Public License for more details.
+>>> + */
+>>> +
+>>> +#include <linux/stmmac.h>
+>>> +#include <linux/bitops.h>
+>>> +#include <linux/clk.h>
+>>> +#include <linux/phy.h>
+>>> +#include <linux/of_net.h>
+>>> +#include <linux/gpio.h>
+>>> +#include <linux/of_gpio.h>
+>>> +#include <linux/of_device.h>
+>>> +#include <linux/regulator/consumer.h>
+>>> +#include <linux/delay.h>
+>>> +#include <linux/mfd/syscon.h>
+>>> +#include <linux/regmap.h>
+>>> +
+>>> +struct rk_priv_data {
+>>> +       struct platform_device *pdev;
+>>> +       int phy_iface;
+>>> +       bool power_ctrl_by_pmu;
+>>> +       char pmu_regulator[32];
+>>> +       int pmu_enable_level;
+>>> +
+>>> +       int power_io;
+>>> +       int power_io_level;
+>>> +       int reset_io;
+>>> +       int reset_io_level;
+>>> +       int phyirq_io;
+>>> +       int phyirq_io_level;
+>>> +
+>>> +       bool clk_enabled;
+>>> +       bool clock_input;
+>>> +
+>>> +       struct clk *clk_mac;
+>>> +       struct clk *clk_mac_pll;
+>>> +       struct clk *gmac_clkin;
+>>> +       struct clk *mac_clk_rx;
+>>> +       struct clk *mac_clk_tx;
+>>> +       struct clk *clk_mac_ref;
+>>> +       struct clk *clk_mac_refout;
+>>> +       struct clk *aclk_mac;
+>>> +       struct clk *pclk_mac;
+>>> +
+>>> +       int tx_delay;
+>>> +       int rx_delay;
+>>> +
+>>> +       struct regmap *grf;
+>>> +};
+>>> +
+>>> +#define RK3288_GRF_SOC_CON1 0x0248
+>>> +#define RK3288_GRF_SOC_CON3 0x0250
+>>> +#define RK3288_GRF_GPIO3D_E 0x01ec
+>>> +#define RK3288_GRF_GPIO4A_E 0x01f0
+>>> +#define RK3288_GRF_GPIO4B_E 0x01f4
+>>
+>> here you're using a space instead of a tab, please select one patter=
+n
+>> either
+>> tabs or space but do not mix them.
+>>
+>>
+>>> +#define GPIO3D_2MA     0xFFFF0000
+>>> +#define GPIO3D_4MA     0xFFFF5555
+>>> +#define GPIO3D_8MA     0xFFFFAAAA
+>>> +#define GPIO3D_12MA    0xFFFFFFFF
+>>> +
+>>> +#define GPIO4A_2MA     0xFFFF0000
+>>> +#define GPIO4A_4MA     0xFFFF5555
+>>> +#define GPIO4A_8MA     0xFFFFAAAA
+>>> +#define GPIO4A_12MA    0xFFFFFFFF
+>>
+>> see comment about pin settings below
+>>
+>>
+>>> +
+>>> +#define GRF_BIT(nr)    (BIT(nr) | BIT(nr+16))
+>>> +#define GRF_CLR_BIT(nr)        (BIT(nr+16))
+>>> +
+>>> +#define GPIO4B_2_2MA   (GRF_CLR_BIT(2) | GRF_CLR_BIT(3))
+>>> +#define GPIO4B_2_4MA   (GRF_BIT(2) | GRF_CLR_BIT(3))
+>>> +#define GPIO4B_2_8MA   (GRF_CLR_BIT(2) | GRF_BIT(3))
+>>> +#define GPIO4B_2_12MA  (GRF_BIT(2) | GRF_BIT(3))
+>>> +
+>>> +/*RK3288_GRF_SOC_CON1*/
+>>> +#define GMAC_PHY_INTF_SEL_RGMII        (GRF_BIT(6) | GRF_CLR_BIT(7=
+) |
+>>> GRF_CLR_BIT(8))
+>>> +#define GMAC_PHY_INTF_SEL_RMII  (GRF_CLR_BIT(6) |
+>>> GRF_CLR_BIT(7) | GRF_BIT(8))
+>>> +#define GMAC_FLOW_CTRL          GRF_BIT(9)
+>>> +#define GMAC_FLOW_CTRL_CLR      GRF_CLR_BIT(9)
+>>> +#define GMAC_SPEED_10M          GRF_CLR_BIT(10)
+>>> +#define GMAC_SPEED_100M         GRF_BIT(10)
+>>> +#define GMAC_RMII_CLK_25M       GRF_BIT(11)
+>>> +#define GMAC_RMII_CLK_2_5M      GRF_CLR_BIT(11)
+>>> +#define GMAC_CLK_125M           (GRF_CLR_BIT(12) | GRF_CLR_BIT(13)=
+)
+>>> +#define GMAC_CLK_25M            (GRF_BIT(12) | GRF_BIT(13))
+>>> +#define GMAC_CLK_2_5M           (GRF_CLR_BIT(12) | GRF_BIT(13))
+>>> +#define GMAC_RMII_MODE          GRF_BIT(14)
+>>> +#define GMAC_RMII_MODE_CLR      GRF_CLR_BIT(14)
+>>> +
+>>> +/*RK3288_GRF_SOC_CON3*/
+>>> +#define GMAC_TXCLK_DLY_ENABLE   GRF_BIT(14)
+>>> +#define GMAC_TXCLK_DLY_DISABLE  GRF_CLR_BIT(14)
+>>> +#define GMAC_RXCLK_DLY_ENABLE   GRF_BIT(15)
+>>> +#define GMAC_RXCLK_DLY_DISABLE  GRF_CLR_BIT(15)
+>>> +#define GMAC_CLK_RX_DL_CFG(val) ((0x7F<<7<<16) | (val<<7))
+>>> +#define GMAC_CLK_TX_DL_CFG(val) ((0x7F<<16) | (val))
+>>
+>> again mixed tabs and spaces as delimiters.
+>>
+>> Also the _CFG macros are not well abstracted. You could take a look =
+at the
+>> HIWORD_UPDATE macro in drivers/clk/rockchip/clk.h:
+>>
+>> #define GMAC_CLK_DL_MASK        0x7f
+>> #define GMAC_CLK_RX_DL_CFG(val)  HIWORD_UPDATE(val, GMAC_CLK_DL_MASK=
+, 7)
+>> #define GMAC_CLK_TX_DL_CFG(val)  HIWORD_UPDATE(val, GMAC_CLK_DL_MASK=
+, 0)
+>>
+>>
+>>> +
+>>> +static void set_to_rgmii(struct rk_priv_data *bsp_priv,
+>>> +                        int tx_delay, int rx_delay)
+>>> +{
+>>> +       if (IS_ERR(bsp_priv->grf)) {
+>>> +               pr_err("%s: Missing rockchip,grf property\n", __fun=
+c__);
+>>> +               return;
+>>> +       }
+>>> +
+>>> +       regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> +                    GMAC_PHY_INTF_SEL_RGMII | GMAC_RMII_MODE_CLR);
+>>> +       regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON3,
+>>> +                    GMAC_RXCLK_DLY_ENABLE | GMAC_TXCLK_DLY_ENABLE =
+|
+>>> +                    GMAC_CLK_RX_DL_CFG(rx_delay) |
+>>> +                    GMAC_CLK_TX_DL_CFG(tx_delay));
+>>> +       regmap_write(bsp_priv->grf, RK3288_GRF_GPIO3D_E, GPIO3D_12M=
+A);
+>>> +       regmap_write(bsp_priv->grf, RK3288_GRF_GPIO4A_E, GPIO4A_12M=
+A);
+>>> +       regmap_write(bsp_priv->grf, RK3288_GRF_GPIO4B_E, GPIO4B_2_1=
+2MA);
+>>
+>> please don't write to parts controlled by other drivers - here the d=
+rive
+>> strength settings of pins is controlled by the pinctrl driver. Inste=
+ad you
+>> can
+>> just set the drive-strength in the pinctrl settings.
+>>
+>>
+>>> +
+>>> +       pr_debug("%s: tx delay=3D0x%x; rx delay=3D0x%x;\n",
+>>> +                __func__, tx_delay, rx_delay);
+>>> +}
+>>> +
+>>> +static void set_to_rmii(struct rk_priv_data *bsp_priv)
+>>> +{
+>>> +       if (IS_ERR(bsp_priv->grf)) {
+>>> +               pr_err("%s: Missing rockchip,grf property\n", __fun=
+c__);
+>>
+>> you have a device-reference in rk_priv_data, so you could use dev_er=
+r
+>> here.
+>> Same for all other pr_err/pr_debug/pr_* calls in this file.
+>>
+>>
+>>> +               return;
+>>> +       }
+>>> +
+>>> +       regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> +                    GMAC_PHY_INTF_SEL_RMII);
+>>> +       regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> +                    GMAC_RMII_MODE);
+>>
+>> these two could be combined?
+>>
+>>
+>>> +}
+>>> +
+>>> +static void set_rgmii_speed(struct rk_priv_data *bsp_priv, int spe=
+ed)
+>>> +{
+>>> +       if (IS_ERR(bsp_priv->grf)) {
+>>> +               pr_err("%s: Missing rockchip,grf property\n", __fun=
+c__);
+>>> +               return;
+>>> +       }
+>>> +
+>>> +       if (speed =3D=3D 10)
+>>> +               regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> GMAC_CLK_2_5M);
+>>> +       else if (speed =3D=3D 100)
+>>> +               regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> GMAC_CLK_25M);
+>>> +       else if (speed =3D=3D 1000)
+>>> +               regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> GMAC_CLK_125M);
+>>> +       else
+>>> +               pr_err("unknown speed value for RGMII! speed=3D%d",=
+ speed);
+>>> +}
+>>> +
+>>> +static void set_rmii_speed(struct rk_priv_data *bsp_priv, int spee=
+d)
+>>> +{
+>>> +       if (IS_ERR(bsp_priv->grf)) {
+>>> +               pr_err("%s: Missing rockchip,grf property\n", __fun=
+c__);
+>>> +               return;
+>>> +       }
+>>> +
+>>> +       if (speed =3D=3D 10) {
+>>> +               regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> +                            GMAC_RMII_CLK_2_5M);
+>>> +               regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> +                            GMAC_SPEED_10M);
+>>
+>> combine into one write?
+>>
+>>
+>>> +       } else if (speed =3D=3D 100) {
+>>> +               regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> +                            GMAC_RMII_CLK_25M);
+>>> +               regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON1,
+>>> +                            GMAC_SPEED_100M);
+>>
+>> combine into one write?
+>>
+>>
+>>> +       } else {
+>>> +               pr_err("unknown speed value for RMII! speed=3D%d", =
+speed);
+>>> +       }
+>>> +}
+>>> +
+>>> +#define MAC_CLK_RX     "mac_clk_rx"
+>>> +#define MAC_CLK_TX     "mac_clk_tx"
+>>> +#define CLK_MAC_REF    "clk_mac_ref"
+>>> +#define CLK_MAC_REF_OUT        "clk_mac_refout"
+>>> +#define CLK_MAC_PLL    "clk_mac_pll"
+>>> +#define ACLK_MAC       "aclk_mac"
+>>> +#define PCLK_MAC       "pclk_mac"
+>>> +#define MAC_CLKIN      "ext_gmac"
+>>> +#define CLK_MAC                "stmmaceth"
+>>
+>> why the need to extra constants for the clock names and not use the =
+real
+>> names
+>> directly like most other drivers do?
+>>
+>>
+>>> +
+>>> +static int gmac_clk_init(struct rk_priv_data *bsp_priv)
+>>> +{
+>>> +       struct device *dev =3D &bsp_priv->pdev->dev;
+>>> +
+>>> +       bsp_priv->clk_enabled =3D false;
+>>> +
+>>> +       bsp_priv->mac_clk_rx =3D clk_get(dev, MAC_CLK_RX);
+>>> +       if (IS_ERR(bsp_priv->mac_clk_rx))
+>>> +               pr_warn("%s: warning: cannot get clock %s\n",
+>>> +                       __func__, MAC_CLK_RX);
+>>> +
+>>> +       bsp_priv->mac_clk_tx =3D clk_get(dev, MAC_CLK_TX);
+>>> +       if (IS_ERR(bsp_priv->mac_clk_tx))
+>>> +               pr_warn("%s: warning: cannot get clock %s\n",
+>>> +                       __func__, MAC_CLK_TX);
+>>> +
+>>> +       bsp_priv->clk_mac_ref =3D clk_get(dev, CLK_MAC_REF);
+>>> +       if (IS_ERR(bsp_priv->clk_mac_ref))
+>>> +               pr_warn("%s: warning: cannot get clock %s\n",
+>>> +                       __func__, CLK_MAC_REF);
+>>> +
+>>> +       bsp_priv->clk_mac_refout =3D clk_get(dev, CLK_MAC_REF_OUT);
+>>> +       if (IS_ERR(bsp_priv->clk_mac_refout))
+>>> +               pr_warn("%s: warning:cannot get clock %s\n",
+>>> +                       __func__, CLK_MAC_REF_OUT);
+>>> +
+>>> +       bsp_priv->aclk_mac =3D clk_get(dev, ACLK_MAC);
+>>> +       if (IS_ERR(bsp_priv->aclk_mac))
+>>> +               pr_warn("%s: warning: cannot get clock %s\n",
+>>> +                       __func__, ACLK_MAC);
+>>> +
+>>> +       bsp_priv->pclk_mac =3D clk_get(dev, PCLK_MAC);
+>>> +       if (IS_ERR(bsp_priv->pclk_mac))
+>>> +               pr_warn("%s: warning: cannot get clock %s\n",
+>>> +                       __func__, PCLK_MAC);
+>>> +
+>>> +       bsp_priv->clk_mac_pll =3D clk_get(dev, CLK_MAC_PLL);
+>>> +       if (IS_ERR(bsp_priv->clk_mac_pll))
+>>> +               pr_warn("%s: warning: cannot get clock %s\n",
+>>> +                       __func__, CLK_MAC_PLL);
+>>> +
+>>> +       bsp_priv->gmac_clkin =3D clk_get(dev, MAC_CLKIN);
+>>> +       if (IS_ERR(bsp_priv->gmac_clkin))
+>>> +               pr_warn("%s: warning: cannot get clock %s\n",
+>>> +                       __func__, MAC_CLKIN);
+>>> +
+>>> +       bsp_priv->clk_mac =3D clk_get(dev, CLK_MAC);
+>>> +       if (IS_ERR(bsp_priv->clk_mac))
+>>> +               pr_warn("%s: warning: cannot get clock %s\n",
+>>> +                       __func__, CLK_MAC);
+>>
+>> there is not clk_put in the _remove case ... maybe you could simply =
+use
+>> devm_clk_get here so that all clocks are put on device removal.
+>>
+>> Also you're warning on every missing clock. Below it looks like you =
+need a
+>> different set of them for rgmii and rmii, so maybe you should simply=
+ error
+>> out
+>> when core clocks for the selected phy-mode are missing.
+>>
+>>
+>>> +
+>>> +       if (bsp_priv->clock_input) {
+>>> +               pr_info("%s: clock input from PHY\n", __func__);
+>>> +       } else {
+>>> +               if (bsp_priv->phy_iface =3D=3D PHY_INTERFACE_MODE_R=
+MII)
+>>> +                       clk_set_rate(bsp_priv->clk_mac_pll, 5000000=
+0);
+>>> +
+>>> +               clk_set_parent(bsp_priv->clk_mac, bsp_priv->clk_mac=
+_pll);
+>>
+>> why the explicit reparenting. The common clock-framework is intellig=
+ent
+>> enough
+>> to select the best suitable parent.
+>>
+>> In general I'm thinking the clock-handling inside this driver should=
+ be
+>> simplyfied, as the common-clock framework can handle most cases itse=
+lf.
+>> I.e. if
+>> a 125MHz external clock is present and so on. But haven't looked to =
+deep
+>> yet.
+>>
+>>
+>>
+>>> +       }
+>>> +
+>>> +       return 0;
+>>> +}
+>>> +
+>>> +static int gmac_clk_enable(struct rk_priv_data *bsp_priv, bool ena=
+ble)
+>>> +{
+>>> +       int phy_iface =3D phy_iface =3D bsp_priv->phy_iface;
+>>> +
+>>> +       if (enable) {
+>>> +               if (!bsp_priv->clk_enabled) {
+>>> +                       if (phy_iface =3D=3D PHY_INTERFACE_MODE_RMI=
+I) {
+>>> +                               if (!IS_ERR(bsp_priv->mac_clk_rx))
+>>> +                                       clk_prepare_enable(
+>>> +                                               bsp_priv->mac_clk_r=
+x);
+>>> +
+>>> +                               if (!IS_ERR(bsp_priv->clk_mac_ref))
+>>> +                                       clk_prepare_enable(
+>>> +                                               bsp_priv->clk_mac_r=
+ef);
+>>> +
+>>> +                               if (!IS_ERR(bsp_priv->clk_mac_refou=
+t))
+>>> +                                       clk_prepare_enable(
+>>> +
+>>> bsp_priv->clk_mac_refout);
+>>> +                       }
+>>> +
+>>> +                       if (!IS_ERR(bsp_priv->aclk_mac))
+>>> +                               clk_prepare_enable(bsp_priv->aclk_m=
+ac);
+>>> +
+>>> +                       if (!IS_ERR(bsp_priv->pclk_mac))
+>>> +                               clk_prepare_enable(bsp_priv->pclk_m=
+ac);
+>>> +
+>>> +                       if (!IS_ERR(bsp_priv->mac_clk_tx))
+>>> +                               clk_prepare_enable(bsp_priv->mac_cl=
+k_tx);
+>>> +
+>>> +                       /**
+>>> +                        * if (!IS_ERR(bsp_priv->clk_mac))
+>>> +                        *      clk_prepare_enable(bsp_priv->clk_ma=
+c);
+>>> +                        */
+>>> +                       mdelay(5);
+>>> +                       bsp_priv->clk_enabled =3D true;
+>>> +               }
+>>> +       } else {
+>>> +               if (bsp_priv->clk_enabled) {
+>>> +                       if (phy_iface =3D=3D PHY_INTERFACE_MODE_RMI=
+I) {
+>>> +                               if (!IS_ERR(bsp_priv->mac_clk_rx))
+>>> +                                       clk_disable_unprepare(
+>>> +                                               bsp_priv->mac_clk_r=
+x);
+>>> +
+>>> +                               if (!IS_ERR(bsp_priv->clk_mac_ref))
+>>> +                                       clk_disable_unprepare(
+>>> +                                               bsp_priv->clk_mac_r=
+ef);
+>>> +
+>>> +                               if (!IS_ERR(bsp_priv->clk_mac_refou=
+t))
+>>> +                                       clk_disable_unprepare(
+>>> +
+>>> bsp_priv->clk_mac_refout);
+>>> +                       }
+>>> +
+>>> +                       if (!IS_ERR(bsp_priv->aclk_mac))
+>>> +
+>>> clk_disable_unprepare(bsp_priv->aclk_mac);
+>>> +
+>>> +                       if (!IS_ERR(bsp_priv->pclk_mac))
+>>> +
+>>> clk_disable_unprepare(bsp_priv->pclk_mac);
+>>> +
+>>> +                       if (!IS_ERR(bsp_priv->mac_clk_tx))
+>>> +
+>>> clk_disable_unprepare(bsp_priv->mac_clk_tx);
+>>> +                       /**
+>>> +                        * if (!IS_ERR(bsp_priv->clk_mac))
+>>> +                        *      clk_disable_unprepare(bsp_priv->clk=
+_mac);
+>>> +                        */
+>>> +                       bsp_priv->clk_enabled =3D false;
+>>> +               }
+>>> +       }
+>>> +
+>>> +       return 0;
+>>> +}
+>>> +
+>>> +static int power_on_by_pmu(struct rk_priv_data *bsp_priv, bool ena=
+ble)
+>>> +{
+>>> +       struct regulator *ldo;
+>>> +       char *ldostr =3D bsp_priv->pmu_regulator;
+>>> +       int ret;
+>>> +
+>>> +       if (!ldostr) {
+>>> +               pr_err("%s: no ldo found\n", __func__);
+>>> +               return -1;
+>>> +       }
+>>> +
+>>> +       ldo =3D regulator_get(NULL, ldostr);
+>>> +       if (!ldo) {
+>>> +               pr_err("\n%s get ldo %s failed\n", __func__, ldostr=
+);
+>>> +       } else {
+>>> +               if (enable) {
+>>> +                       if (!regulator_is_enabled(ldo)) {
+>>> +                               regulator_set_voltage(ldo, 3300000,
+>>> 3300000);
+>>> +                               ret =3D regulator_enable(ldo);
+>>> +                               if (ret !=3D 0)
+>>> +                                       pr_err("%s: fail to enable =
+%s\n",
+>>> +                                              __func__, ldostr);
+>>> +                               else
+>>> +                                       pr_info("turn on ldo done.\=
+n");
+>>> +                       } else {
+>>> +                               pr_warn("%s is enabled before enabl=
+e",
+>>> ldostr);
+>>> +                       }
+>>> +               } else {
+>>> +                       if (regulator_is_enabled(ldo)) {
+>>> +                               ret =3D regulator_disable(ldo);
+>>> +                               if (ret !=3D 0)
+>>> +                                       pr_err("%s: fail to disable
+>>> %s\n",
+>>> +                                              __func__, ldostr);
+>>> +                               else
+>>> +                                       pr_info("turn off ldo done.=
+\n");
+>>> +                       } else {
+>>> +                               pr_warn("%s is disabled before disa=
+ble",
+>>> +                                       ldostr);
+>>> +                       }
+>>> +               }
+>>> +               regulator_put(ldo);
+>>> +       }
+>>> +
+>>> +       return 0;
+>>> +}
+>>> +
+>>> +static int power_on_by_gpio(struct rk_priv_data *bsp_priv, bool en=
+able)
+>>> +{
+>>> +       if (enable) {
+>>> +               /*power on*/
+>>> +               if (gpio_is_valid(bsp_priv->power_io))
+>>> +                       gpio_direction_output(bsp_priv->power_io,
+>>> +                                             bsp_priv->power_io_le=
+vel);
+>>> +       } else {
+>>> +               /*power off*/
+>>> +               if (gpio_is_valid(bsp_priv->power_io))
+>>> +                       gpio_direction_output(bsp_priv->power_io,
+>>> +                                             !bsp_priv->power_io_l=
+evel);
+>>> +       }
+>>> +
+>>> +       return 0;
+>>> +}
+>>> +
+>>> +static int phy_power_on(struct rk_priv_data *bsp_priv, bool enable=
+)
+>>> +{
+>>> +       int ret =3D -1;
+>>> +
+>>> +       pr_info("Ethernet PHY power %s\n", enable =3D=3D 1 ? "on" :=
+ "off");
+>>> +
+>>> +       if (bsp_priv->power_ctrl_by_pmu)
+>>> +               ret =3D power_on_by_pmu(bsp_priv, enable);
+>>> +       else
+>>> +               ret =3D  power_on_by_gpio(bsp_priv, enable);
+>>
+>> this looks wrong. This should always be a regulator. Even a regulato=
+r +
+>> switch
+>> controlled by a gpio can still be modelled as regulator, so that you=
+ don't
+>> need this switch and assorted special handling - so just use the reg=
+ulator
+>> API
+>>
+> In some case, it would be a switching circuit to control the power fo=
+r PHY.
+> All I need to do is to control a GPIO to make switch on/off.  So...
 
-This patch adds support for the UsbcanII family of devices to the
-current Kvaser Leaf-only driver.
+A regulator would probably be a better choice. You can use fixed-regula=
+tor.
+The regulator framework should also take care of enabling any upstream
+regulators, such as an LDO output from the PMIC that powers some extern=
+al
+pull-ups or what not.
 
-CAN frames sending, receiving, and error handling paths has been
-tested using the dual-channel "Kvaser USBcan II HS/LS" dongle. It
-should also work nicely with other products in the same category.
+The sunxi glue driver has this support. Maybe you could move that to th=
+e
+stmmac platform core.
 
-List of new devices supported by this driver update:
+>>>
+>>> +
+>>> +       if (enable) {
+>>> +               /*reset*/
+>>> +               if (gpio_is_valid(bsp_priv->reset_io)) {
+>>> +                       gpio_direction_output(bsp_priv->reset_io,
+>>> +                                             bsp_priv->reset_io_le=
+vel);
+>>> +                       mdelay(5);
+>>> +                       gpio_direction_output(bsp_priv->reset_io,
+>>> +                                             !bsp_priv->reset_io_l=
+evel);
+>>> +               }
+>>> +               mdelay(30);
+>>> +
+>>> +       } else {
+>>> +               /*pull down reset*/
+>>> +               if (gpio_is_valid(bsp_priv->reset_io)) {
+>>> +                       gpio_direction_output(bsp_priv->reset_io,
+>>> +                                             bsp_priv->reset_io_le=
+vel);
+>>> +               }
+>>> +       }
+>>
+>> I'm not sure yet if it would be better to use the reset framework fo=
+r
+>> this.
+>> While it says it is also meant for reset-gpios, there does not seem =
+a
+>> driver
+>> for this to exist yet.
+>>
+> What should I do?
 
-         - Kvaser USBcan II HS/HS
-         - Kvaser USBcan II HS/LS
-         - Kvaser USBcan Rugged ("USBcan Rev B")
-         - Kvaser Memorator HS/HS
-         - Kvaser Memorator HS/LS
-         - Scania VCI2 (if you have the Kvaser logo on top)
+The stmmac driver has support for handling phy resets using gpios.
+Please use it. See Documentation/devicetree/bindings/net/stmmac.txt
+for details. I think this was discussed some time ago, though
+probably in a different context. If it's just a gpio that needs to
+be poked, it should stay a gpio, at least for external resets.
 
-Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
----
- drivers/net/can/usb/Kconfig      |   8 +-
- drivers/net/can/usb/kvaser_usb.c | 627 +++++++++++++++++++++++++++++++--------
- 2 files changed, 510 insertions(+), 125 deletions(-)
+>
+>>
+>>> +
+>>> +       return ret;
+>>> +}
+>>> +
+>>> +#define GPIO_PHY_POWER "gmac_phy_power"
+>>> +#define GPIO_PHY_RESET "gmac_phy_reset"
+>>> +#define GPIO_PHY_IRQ   "gmac_phy_irq"
+>>
+>> again I don't understand why these constants are necessary
+>>
+>>> +
+>>> +static void *rk_gmac_setup(struct platform_device *pdev)
+>>> +{
+>>> +       struct rk_priv_data *bsp_priv;
+>>> +       struct device *dev =3D &pdev->dev;
+>>> +       enum of_gpio_flags flags;
+>>> +       int ret;
+>>> +       const char *strings =3D NULL;
+>>> +       int value;
+>>> +       int irq;
+>>> +
+>>> +       bsp_priv =3D devm_kzalloc(dev, sizeof(*bsp_priv), GFP_KERNE=
+L);
+>>> +       if (!bsp_priv)
+>>> +               return ERR_PTR(-ENOMEM);
+>>> +
+>>> +       bsp_priv->phy_iface =3D of_get_phy_mode(dev->of_node);
+>>> +
+>>> +       ret =3D of_property_read_string(dev->of_node, "pmu_regulato=
+r",
+>>> &strings);
+>>> +       if (ret) {
+>>> +               pr_err("%s: Can not read property: pmu_regulator.\n=
+",
+>>> __func__);
+>>> +               bsp_priv->power_ctrl_by_pmu =3D false;
+>>> +       } else {
+>>> +               pr_info("%s: ethernet phy power controlled by
+>>> pmu(%s).\n",
+>>> +                       __func__, strings);
+>>> +               bsp_priv->power_ctrl_by_pmu =3D true;
+>>> +               strcpy(bsp_priv->pmu_regulator, strings);
+>>> +       }
+>>
+>> There is a generic regulator-dt-binding for regulator-consumers avai=
+lable
+>> which you should of course use.
+>>
+> The same explanation as above
+>
+>>> +
+>>> +       ret =3D of_property_read_u32(dev->of_node, "pmu_enable_leve=
+l",
+>>> &value);
+>>> +       if (ret) {
+>>> +               pr_err("%s: Can not read property: pmu_enable_level=
+=2E\n",
+>>> +                      __func__);
+>>> +               bsp_priv->power_ctrl_by_pmu =3D false;
+>>> +       } else {
+>>> +               pr_info("%s: PHY power controlled by pmu(level =3D =
+%s).\n",
+>>> +                       __func__, (value =3D=3D 1) ? "HIGH" : "LOW"=
+);
+>>> +               bsp_priv->power_ctrl_by_pmu =3D true;
+>>> +               bsp_priv->pmu_enable_level =3D value;
+>>> +       }
+>>
+>> What is this used for? Enabling should of course be done via
+>> regulator_enable
+>> and disabling using regulator_disable.
 
-** V2 Changelog:
-- Update Kconfig entries
-- Use actual number of CAN channels (instead of max) where appropriate
-- Rebase over a new set of UsbcanII-independent driver fixes
+Second. Even if it's handled by the PMU, you should also model the
+PMU as a set of regulators. That will get rid of all the ifs in
+this section.
 
-diff --git a/drivers/net/can/usb/Kconfig b/drivers/net/can/usb/Kconfig
-index a77db919..f6f5500 100644
---- a/drivers/net/can/usb/Kconfig
-+++ b/drivers/net/can/usb/Kconfig
-@@ -25,7 +25,7 @@ config CAN_KVASER_USB
- 	tristate "Kvaser CAN/USB interface"
- 	---help---
- 	  This driver adds support for Kvaser CAN/USB devices like Kvaser
--	  Leaf Light.
-+	  Leaf Light and Kvaser USBcan II.
- 
- 	  The driver provides support for the following devices:
- 	    - Kvaser Leaf Light
-@@ -46,6 +46,12 @@ config CAN_KVASER_USB
- 	    - Kvaser USBcan R
- 	    - Kvaser Leaf Light v2
- 	    - Kvaser Mini PCI Express HS
-+	    - Kvaser USBcan II HS/HS
-+	    - Kvaser USBcan II HS/LS
-+	    - Kvaser USBcan Rugged ("USBcan Rev B")
-+	    - Kvaser Memorator HS/HS
-+	    - Kvaser Memorator HS/LS
-+	    - Scania VCI2 (if you have the Kvaser logo on top)
- 
- 	  If unsure, say N.
- 
-diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
-index 2791501..50da317 100644
---- a/drivers/net/can/usb/kvaser_usb.c
-+++ b/drivers/net/can/usb/kvaser_usb.c
-@@ -6,10 +6,12 @@
-  * Parts of this driver are based on the following:
-  *  - Kvaser linux leaf driver (version 4.78)
-  *  - CAN driver for esd CAN-USB/2
-+ *  - Kvaser linux usbcanII driver (version 5.3)
-  *
-  * Copyright (C) 2002-2006 KVASER AB, Sweden. All rights reserved.
-  * Copyright (C) 2010 Matthias Fuchs <matthias.fuchs@esd.eu>, esd gmbh
-  * Copyright (C) 2012 Olivier Sobrie <olivier@sobrie.be>
-+ * Copyright (C) 2014 Valeo Corporation
-  */
- 
- #include <linux/completion.h>
-@@ -21,6 +23,18 @@
- #include <linux/can/dev.h>
- #include <linux/can/error.h>
- 
-+/*
-+ * Kvaser USB CAN dongles are divided into two major families:
-+ * - Leaf: Based on Renesas M32C, running firmware labeled as 'filo'
-+ * - UsbcanII: Based on Renesas M16C, running firmware labeled as 'helios'
-+ */
-+enum kvaser_usb_family {
-+	KVASER_LEAF,
-+	KVASER_USBCAN,
-+};
-+
-+#define MAX(a, b)			((a) > (b) ? (a) : (b))
-+
- #define MAX_TX_URBS			16
- #define MAX_RX_URBS			4
- #define START_TIMEOUT			1000 /* msecs */
-@@ -29,9 +43,12 @@
- #define USB_RECV_TIMEOUT		1000 /* msecs */
- #define RX_BUFFER_SIZE			3072
- #define CAN_USB_CLOCK			8000000
--#define MAX_NET_DEVICES			3
-+#define LEAF_MAX_NET_DEVICES		3
-+#define USBCAN_MAX_NET_DEVICES		2
-+#define MAX_NET_DEVICES			MAX(LEAF_MAX_NET_DEVICES, \
-+					    USBCAN_MAX_NET_DEVICES)
- 
--/* Kvaser USB devices */
-+/* Leaf USB devices */
- #define KVASER_VENDOR_ID		0x0bfd
- #define USB_LEAF_DEVEL_PRODUCT_ID	10
- #define USB_LEAF_LITE_PRODUCT_ID	11
-@@ -55,6 +72,16 @@
- #define USB_CAN_R_PRODUCT_ID		39
- #define USB_LEAF_LITE_V2_PRODUCT_ID	288
- #define USB_MINI_PCIE_HS_PRODUCT_ID	289
-+#define LEAF_PRODUCT_ID(id)		(id >= USB_LEAF_DEVEL_PRODUCT_ID && \
-+					 id <= USB_MINI_PCIE_HS_PRODUCT_ID)
-+
-+/* USBCANII devices */
-+#define USB_USBCAN_REVB_PRODUCT_ID	2
-+#define USB_VCI2_PRODUCT_ID		3
-+#define USB_USBCAN2_PRODUCT_ID		4
-+#define USB_MEMORATOR_PRODUCT_ID	5
-+#define USBCAN_PRODUCT_ID(id)		(id >= USB_USBCAN_REVB_PRODUCT_ID && \
-+					 id <= USB_MEMORATOR_PRODUCT_ID)
- 
- /* USB devices features */
- #define KVASER_HAS_SILENT_MODE		BIT(0)
-@@ -73,7 +100,7 @@
- #define MSG_FLAG_TX_ACK			BIT(6)
- #define MSG_FLAG_TX_REQUEST		BIT(7)
- 
--/* Can states */
-+/* Can states (M16C CxSTRH register) */
- #define M16C_STATE_BUS_RESET		BIT(0)
- #define M16C_STATE_BUS_ERROR		BIT(4)
- #define M16C_STATE_BUS_PASSIVE		BIT(5)
-@@ -98,7 +125,13 @@
- #define CMD_START_CHIP_REPLY		27
- #define CMD_STOP_CHIP			28
- #define CMD_STOP_CHIP_REPLY		29
--#define CMD_GET_CARD_INFO2		32
-+#define CMD_READ_CLOCK			30
-+#define CMD_READ_CLOCK_REPLY		31
-+
-+#define LEAF_CMD_GET_CARD_INFO2		32
-+#define USBCAN_CMD_RESET_CLOCK		32
-+#define USBCAN_CMD_CLOCK_OVERFLOW_EVENT	33
-+
- #define CMD_GET_CARD_INFO		34
- #define CMD_GET_CARD_INFO_REPLY		35
- #define CMD_GET_SOFTWARE_INFO		38
-@@ -108,8 +141,9 @@
- #define CMD_RESET_ERROR_COUNTER		49
- #define CMD_TX_ACKNOWLEDGE		50
- #define CMD_CAN_ERROR_EVENT		51
--#define CMD_USB_THROTTLE		77
--#define CMD_LOG_MESSAGE			106
-+
-+#define LEAF_CMD_USB_THROTTLE		77
-+#define LEAF_CMD_LOG_MESSAGE		106
- 
- /* error factors */
- #define M16C_EF_ACKE			BIT(0)
-@@ -121,6 +155,13 @@
- #define M16C_EF_RCVE			BIT(6)
- #define M16C_EF_TRE			BIT(7)
- 
-+/* Only Leaf-based devices can report M16C error factors,
-+ * thus define our own error status flags for USBCAN */
-+#define USBCAN_ERROR_STATE_NONE		0
-+#define USBCAN_ERROR_STATE_TX_ERROR	BIT(0)
-+#define USBCAN_ERROR_STATE_RX_ERROR	BIT(1)
-+#define USBCAN_ERROR_STATE_BUSERROR	BIT(2)
-+
- /* bittiming parameters */
- #define KVASER_USB_TSEG1_MIN		1
- #define KVASER_USB_TSEG1_MAX		16
-@@ -137,7 +178,7 @@
- #define KVASER_CTRL_MODE_SELFRECEPTION	3
- #define KVASER_CTRL_MODE_OFF		4
- 
--/* log message */
-+/* Extended CAN identifier flag */
- #define KVASER_EXTENDED_FRAME		BIT(31)
- 
- struct kvaser_msg_simple {
-@@ -148,30 +189,55 @@ struct kvaser_msg_simple {
- struct kvaser_msg_cardinfo {
- 	u8 tid;
- 	u8 nchannels;
--	__le32 serial_number;
--	__le32 padding;
-+	union {
-+		struct {
-+			__le32 serial_number;
-+			__le32 padding;
-+		} __packed leaf0;
-+		struct {
-+			__le32 serial_number_low;
-+			__le32 serial_number_high;
-+		} __packed usbcan0;
-+	} __packed;
- 	__le32 clock_resolution;
- 	__le32 mfgdate;
- 	u8 ean[8];
- 	u8 hw_revision;
--	u8 usb_hs_mode;
--	__le16 padding2;
-+	union {
-+		struct {
-+			u8 usb_hs_mode;
-+		} __packed leaf1;
-+		struct {
-+			u8 padding;
-+		} __packed usbcan1;
-+	} __packed;
-+	__le16 padding;
- } __packed;
- 
- struct kvaser_msg_cardinfo2 {
- 	u8 tid;
--	u8 channel;
-+	u8 reserved;
- 	u8 pcb_id[24];
- 	__le32 oem_unlock_code;
- } __packed;
- 
--struct kvaser_msg_softinfo {
-+struct leaf_msg_softinfo {
- 	u8 tid;
--	u8 channel;
-+	u8 padding0;
- 	__le32 sw_options;
- 	__le32 fw_version;
- 	__le16 max_outstanding_tx;
--	__le16 padding[9];
-+	__le16 padding1[9];
-+} __packed;
-+
-+struct usbcan_msg_softinfo {
-+	u8 tid;
-+	u8 fw_name[5];
-+	__le16 max_outstanding_tx;
-+	u8 padding[6];
-+	__le32 fw_version;
-+	__le16 checksum;
-+	__le16 sw_options;
- } __packed;
- 
- struct kvaser_msg_busparams {
-@@ -188,36 +254,86 @@ struct kvaser_msg_tx_can {
- 	u8 channel;
- 	u8 tid;
- 	u8 msg[14];
--	u8 padding;
--	u8 flags;
-+	union {
-+		struct {
-+			u8 padding;
-+			u8 flags;
-+		} __packed leaf;
-+		struct {
-+			u8 flags;
-+			u8 padding;
-+		} __packed usbcan;
-+	} __packed;
-+} __packed;
-+
-+struct kvaser_msg_rx_can_header {
-+	u8 channel;
-+	u8 flag;
- } __packed;
- 
--struct kvaser_msg_rx_can {
-+struct leaf_msg_rx_can {
- 	u8 channel;
- 	u8 flag;
-+
- 	__le16 time[3];
- 	u8 msg[14];
- } __packed;
- 
--struct kvaser_msg_chip_state_event {
-+struct usbcan_msg_rx_can {
-+	u8 channel;
-+	u8 flag;
-+
-+	u8 msg[14];
-+	__le16 time;
-+} __packed;
-+
-+struct leaf_msg_chip_state_event {
- 	u8 tid;
- 	u8 channel;
-+
- 	__le16 time[3];
- 	u8 tx_errors_count;
- 	u8 rx_errors_count;
-+
- 	u8 status;
- 	u8 padding[3];
- } __packed;
- 
--struct kvaser_msg_tx_acknowledge {
-+struct usbcan_msg_chip_state_event {
-+	u8 tid;
-+	u8 channel;
-+
-+	u8 tx_errors_count;
-+	u8 rx_errors_count;
-+	__le16 time;
-+
-+	u8 status;
-+	u8 padding[3];
-+} __packed;
-+
-+struct kvaser_msg_tx_acknowledge_header {
-+	u8 channel;
-+	u8 tid;
-+};
-+
-+struct leaf_msg_tx_acknowledge {
- 	u8 channel;
- 	u8 tid;
-+
- 	__le16 time[3];
- 	u8 flags;
- 	u8 time_offset;
- } __packed;
- 
--struct kvaser_msg_error_event {
-+struct usbcan_msg_tx_acknowledge {
-+	u8 channel;
-+	u8 tid;
-+
-+	__le16 time;
-+	__le16 padding;
-+} __packed;
-+
-+struct leaf_msg_error_event {
- 	u8 tid;
- 	u8 flags;
- 	__le16 time[3];
-@@ -229,6 +345,18 @@ struct kvaser_msg_error_event {
- 	u8 error_factor;
- } __packed;
- 
-+struct usbcan_msg_error_event {
-+	u8 tid;
-+	u8 padding;
-+	u8 tx_errors_count_ch0;
-+	u8 rx_errors_count_ch0;
-+	u8 tx_errors_count_ch1;
-+	u8 rx_errors_count_ch1;
-+	u8 status_ch0;
-+	u8 status_ch1;
-+	__le16 time;
-+} __packed;
-+
- struct kvaser_msg_ctrl_mode {
- 	u8 tid;
- 	u8 channel;
-@@ -243,7 +371,7 @@ struct kvaser_msg_flush_queue {
- 	u8 padding[3];
- } __packed;
- 
--struct kvaser_msg_log_message {
-+struct leaf_msg_log_message {
- 	u8 channel;
- 	u8 flags;
- 	__le16 time[3];
-@@ -260,19 +388,49 @@ struct kvaser_msg {
- 		struct kvaser_msg_simple simple;
- 		struct kvaser_msg_cardinfo cardinfo;
- 		struct kvaser_msg_cardinfo2 cardinfo2;
--		struct kvaser_msg_softinfo softinfo;
- 		struct kvaser_msg_busparams busparams;
-+
-+		struct kvaser_msg_rx_can_header rx_can_header;
-+		struct kvaser_msg_tx_acknowledge_header tx_acknowledge_header;
-+
-+		union {
-+			struct leaf_msg_softinfo softinfo;
-+			struct leaf_msg_rx_can rx_can;
-+			struct leaf_msg_chip_state_event chip_state_event;
-+			struct leaf_msg_tx_acknowledge tx_acknowledge;
-+			struct leaf_msg_error_event error_event;
-+			struct leaf_msg_log_message log_message;
-+		} __packed leaf;
-+
-+		union {
-+			struct usbcan_msg_softinfo softinfo;
-+			struct usbcan_msg_rx_can rx_can;
-+			struct usbcan_msg_chip_state_event chip_state_event;
-+			struct usbcan_msg_tx_acknowledge tx_acknowledge;
-+			struct usbcan_msg_error_event error_event;
-+		} __packed usbcan;
-+
- 		struct kvaser_msg_tx_can tx_can;
--		struct kvaser_msg_rx_can rx_can;
--		struct kvaser_msg_chip_state_event chip_state_event;
--		struct kvaser_msg_tx_acknowledge tx_acknowledge;
--		struct kvaser_msg_error_event error_event;
- 		struct kvaser_msg_ctrl_mode ctrl_mode;
- 		struct kvaser_msg_flush_queue flush_queue;
--		struct kvaser_msg_log_message log_message;
- 	} u;
- } __packed;
- 
-+/* Leaf/USBCAN-agnostic summary of an error event.
-+ * No M16C error factors for USBCAN-based devices. */
-+struct kvaser_error_summary {
-+	u8 channel, status, txerr, rxerr;
-+	union {
-+		struct {
-+			u8 error_factor;
-+		} leaf;
-+		struct {
-+			u8 other_ch_status;
-+			u8 error_state;
-+		} usbcan;
-+	};
-+};
-+
- struct kvaser_usb_tx_urb_context {
- 	struct kvaser_usb_net_priv *priv;
- 	u32 echo_index;
-@@ -288,6 +446,8 @@ struct kvaser_usb {
- 
- 	u32 fw_version;
- 	unsigned int nchannels;
-+	enum kvaser_usb_family family;
-+	unsigned int max_channels;
- 
- 	bool rxinitdone;
- 	void *rxbuf[MAX_RX_URBS];
-@@ -311,6 +471,7 @@ struct kvaser_usb_net_priv {
- };
- 
- static const struct usb_device_id kvaser_usb_table[] = {
-+	/* Leaf family IDs */
- 	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_DEVEL_PRODUCT_ID) },
- 	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_LITE_PRODUCT_ID) },
- 	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_PRO_PRODUCT_ID),
-@@ -360,6 +521,17 @@ static const struct usb_device_id kvaser_usb_table[] = {
- 		.driver_info = KVASER_HAS_TXRX_ERRORS },
- 	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_LITE_V2_PRODUCT_ID) },
- 	{ USB_DEVICE(KVASER_VENDOR_ID, USB_MINI_PCIE_HS_PRODUCT_ID) },
-+
-+	/* USBCANII family IDs */
-+	{ USB_DEVICE(KVASER_VENDOR_ID, USB_USBCAN2_PRODUCT_ID),
-+		.driver_info = KVASER_HAS_TXRX_ERRORS },
-+	{ USB_DEVICE(KVASER_VENDOR_ID, USB_USBCAN_REVB_PRODUCT_ID),
-+		.driver_info = KVASER_HAS_TXRX_ERRORS },
-+	{ USB_DEVICE(KVASER_VENDOR_ID, USB_MEMORATOR_PRODUCT_ID),
-+		.driver_info = KVASER_HAS_TXRX_ERRORS },
-+	{ USB_DEVICE(KVASER_VENDOR_ID, USB_VCI2_PRODUCT_ID),
-+		.driver_info = KVASER_HAS_TXRX_ERRORS },
-+
- 	{ }
- };
- MODULE_DEVICE_TABLE(usb, kvaser_usb_table);
-@@ -463,7 +635,18 @@ static int kvaser_usb_get_software_info(struct kvaser_usb *dev)
- 	if (err)
- 		return err;
- 
--	dev->fw_version = le32_to_cpu(msg.u.softinfo.fw_version);
-+	switch (dev->family) {
-+	case KVASER_LEAF:
-+		dev->fw_version = le32_to_cpu(msg.u.leaf.softinfo.fw_version);
-+		break;
-+	case KVASER_USBCAN:
-+		dev->fw_version = le32_to_cpu(msg.u.usbcan.softinfo.fw_version);
-+		break;
-+	default:
-+		dev_err(dev->udev->dev.parent,
-+			"Invalid device family (%d)\n", dev->family);
-+		return -EINVAL;
-+	}
- 
- 	return 0;
- }
-@@ -482,7 +665,7 @@ static int kvaser_usb_get_card_info(struct kvaser_usb *dev)
- 		return err;
- 
- 	dev->nchannels = msg.u.cardinfo.nchannels;
--	if (dev->nchannels > MAX_NET_DEVICES)
-+	if (dev->nchannels > dev->max_channels)
- 		return -EINVAL;
- 
- 	return 0;
-@@ -496,8 +679,10 @@ static void kvaser_usb_tx_acknowledge(const struct kvaser_usb *dev,
- 	struct kvaser_usb_net_priv *priv;
- 	struct sk_buff *skb;
- 	struct can_frame *cf;
--	u8 channel = msg->u.tx_acknowledge.channel;
--	u8 tid = msg->u.tx_acknowledge.tid;
-+	u8 channel, tid;
-+
-+	channel = msg->u.tx_acknowledge_header.channel;
-+	tid = msg->u.tx_acknowledge_header.tid;
- 
- 	if (channel >= dev->nchannels) {
- 		dev_err(dev->udev->dev.parent,
-@@ -615,37 +800,83 @@ static void kvaser_usb_unlink_tx_urbs(struct kvaser_usb_net_priv *priv)
- 		priv->tx_contexts[i].echo_index = MAX_TX_URBS;
- }
- 
--static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
--				const struct kvaser_msg *msg)
-+static void kvaser_report_error_event(const struct kvaser_usb *dev,
-+				      struct kvaser_error_summary *es);
-+
-+/*
-+ * Report error to userspace iff the controller's errors counter has
-+ * increased, or we're the only channel seeing the bus error state.
-+ *
-+ * As reported by USBCAN sheets, "the CAN controller has difficulties
-+ * to tell whether an error frame arrived on channel 1 or on channel 2."
-+ * Thus, error counters are compared with their earlier values to
-+ * determine which channel was responsible for the error event.
-+ */
-+static void usbcan_report_error_if_applicable(const struct kvaser_usb *dev,
-+					      struct kvaser_error_summary *es)
- {
--	struct can_frame *cf;
--	struct sk_buff *skb;
--	struct net_device_stats *stats;
- 	struct kvaser_usb_net_priv *priv;
--	unsigned int new_state;
--	u8 channel, status, txerr, rxerr, error_factor;
-+	int old_tx_err_count, old_rx_err_count, channel, report_error;
-+
-+	channel = es->channel;
-+	if (channel >= dev->nchannels) {
-+		dev_err(dev->udev->dev.parent,
-+			"Invalid channel number (%d)\n", channel);
-+		return;
-+	}
-+
-+	priv = dev->nets[channel];
-+	old_tx_err_count = priv->bec.txerr;
-+	old_rx_err_count = priv->bec.rxerr;
-+
-+	report_error = 0;
-+	if (es->txerr > old_tx_err_count) {
-+		es->usbcan.error_state |= USBCAN_ERROR_STATE_TX_ERROR;
-+		report_error = 1;
-+	}
-+	if (es->rxerr > old_rx_err_count) {
-+		es->usbcan.error_state |= USBCAN_ERROR_STATE_RX_ERROR;
-+		report_error = 1;
-+	}
-+	if ((es->status & M16C_STATE_BUS_ERROR) &&
-+	    !(es->usbcan.other_ch_status & M16C_STATE_BUS_ERROR)) {
-+		es->usbcan.error_state |= USBCAN_ERROR_STATE_BUSERROR;
-+		report_error = 1;
-+	}
-+
-+	if (report_error)
-+		kvaser_report_error_event(dev, es);
-+}
-+
-+/*
-+ * Extract error summary from a Leaf-based device error message
-+ */
-+static void leaf_extract_error_from_msg(const struct kvaser_usb *dev,
-+					const struct kvaser_msg *msg)
-+{
-+	struct kvaser_error_summary es = { 0, };
- 
- 	switch (msg->id) {
- 	case CMD_CAN_ERROR_EVENT:
--		channel = msg->u.error_event.channel;
--		status =  msg->u.error_event.status;
--		txerr = msg->u.error_event.tx_errors_count;
--		rxerr = msg->u.error_event.rx_errors_count;
--		error_factor = msg->u.error_event.error_factor;
-+		es.channel = msg->u.leaf.error_event.channel;
-+		es.status =  msg->u.leaf.error_event.status;
-+		es.txerr = msg->u.leaf.error_event.tx_errors_count;
-+		es.rxerr = msg->u.leaf.error_event.rx_errors_count;
-+		es.leaf.error_factor = msg->u.leaf.error_event.error_factor;
- 		break;
--	case CMD_LOG_MESSAGE:
--		channel = msg->u.log_message.channel;
--		status = msg->u.log_message.data[0];
--		txerr = msg->u.log_message.data[2];
--		rxerr = msg->u.log_message.data[3];
--		error_factor = msg->u.log_message.data[1];
-+	case LEAF_CMD_LOG_MESSAGE:
-+		es.channel = msg->u.leaf.log_message.channel;
-+		es.status = msg->u.leaf.log_message.data[0];
-+		es.txerr = msg->u.leaf.log_message.data[2];
-+		es.rxerr = msg->u.leaf.log_message.data[3];
-+		es.leaf.error_factor = msg->u.leaf.log_message.data[1];
- 		break;
- 	case CMD_CHIP_STATE_EVENT:
--		channel = msg->u.chip_state_event.channel;
--		status =  msg->u.chip_state_event.status;
--		txerr = msg->u.chip_state_event.tx_errors_count;
--		rxerr = msg->u.chip_state_event.rx_errors_count;
--		error_factor = 0;
-+		es.channel = msg->u.leaf.chip_state_event.channel;
-+		es.status =  msg->u.leaf.chip_state_event.status;
-+		es.txerr = msg->u.leaf.chip_state_event.tx_errors_count;
-+		es.rxerr = msg->u.leaf.chip_state_event.rx_errors_count;
-+		es.leaf.error_factor = 0;
- 		break;
- 	default:
- 		dev_err(dev->udev->dev.parent, "Invalid msg id (%d)\n",
-@@ -653,16 +884,92 @@ static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
- 		return;
- 	}
- 
--	if (channel >= dev->nchannels) {
-+	kvaser_report_error_event(dev, &es);
-+}
-+
-+/*
-+ * Extract summary from a USBCANII-based device error message.
-+ */
-+static void usbcan_extract_error_from_msg(const struct kvaser_usb *dev,
-+					const struct kvaser_msg *msg)
-+{
-+	struct kvaser_error_summary es = { 0, };
-+
-+	switch (msg->id) {
-+
-+	/* Sometimes errors are sent as unsolicited chip state events */
-+	case CMD_CHIP_STATE_EVENT:
-+		es.channel = msg->u.usbcan.chip_state_event.channel;
-+		es.status =  msg->u.usbcan.chip_state_event.status;
-+		es.txerr = msg->u.usbcan.chip_state_event.tx_errors_count;
-+		es.rxerr = msg->u.usbcan.chip_state_event.rx_errors_count;
-+		usbcan_report_error_if_applicable(dev, &es);
-+		break;
-+
-+	case CMD_CAN_ERROR_EVENT:
-+		es.channel = 0;
-+		es.status = msg->u.usbcan.error_event.status_ch0;
-+		es.txerr = msg->u.usbcan.error_event.tx_errors_count_ch0;
-+		es.rxerr = msg->u.usbcan.error_event.rx_errors_count_ch0;
-+		es.usbcan.other_ch_status =
-+			msg->u.usbcan.error_event.status_ch1;
-+		usbcan_report_error_if_applicable(dev, &es);
-+
-+		/* For error events, the USBCAN firmware does not support
-+		 * more than 2 channels: ch0, and ch1. */
-+		if (dev->nchannels > 1) {
-+			es.channel = 1;
-+			es.status = msg->u.usbcan.error_event.status_ch1;
-+			es.txerr = msg->u.usbcan.error_event.tx_errors_count_ch1;
-+			es.rxerr = msg->u.usbcan.error_event.rx_errors_count_ch1;
-+			es.usbcan.other_ch_status =
-+				msg->u.usbcan.error_event.status_ch0;
-+			usbcan_report_error_if_applicable(dev, &es);
-+		}
-+		break;
-+
-+	default:
-+		dev_err(dev->udev->dev.parent, "Invalid msg id (%d)\n",
-+			msg->id);
-+	}
-+}
-+
-+static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
-+				const struct kvaser_msg *msg)
-+{
-+	switch (dev->family) {
-+	case KVASER_LEAF:
-+		leaf_extract_error_from_msg(dev, msg);
-+		break;
-+	case KVASER_USBCAN:
-+		usbcan_extract_error_from_msg(dev, msg);
-+		break;
-+	default:
- 		dev_err(dev->udev->dev.parent,
--			"Invalid channel number (%d)\n", channel);
-+			"Invalid device family (%d)\n", dev->family);
- 		return;
- 	}
-+}
- 
--	priv = dev->nets[channel];
-+static void kvaser_report_error_event(const struct kvaser_usb *dev,
-+				      struct kvaser_error_summary *es)
-+{
-+	struct can_frame *cf;
-+	struct sk_buff *skb;
-+	struct net_device_stats *stats;
-+	struct kvaser_usb_net_priv *priv;
-+	unsigned int new_state;
-+
-+	if (es->channel >= dev->nchannels) {
-+		dev_err(dev->udev->dev.parent,
-+			"Invalid channel number (%d)\n", es->channel);
-+		return;
-+	}
-+
-+	priv = dev->nets[es->channel];
- 	stats = &priv->netdev->stats;
- 
--	if (status & M16C_STATE_BUS_RESET) {
-+	if (es->status & M16C_STATE_BUS_RESET) {
- 		kvaser_usb_unlink_tx_urbs(priv);
- 		return;
- 	}
-@@ -675,9 +982,9 @@ static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
- 
- 	new_state = priv->can.state;
- 
--	netdev_dbg(priv->netdev, "Error status: 0x%02x\n", status);
-+	netdev_dbg(priv->netdev, "Error status: 0x%02x\n", es->status);
- 
--	if (status & M16C_STATE_BUS_OFF) {
-+	if (es->status & M16C_STATE_BUS_OFF) {
- 		cf->can_id |= CAN_ERR_BUSOFF;
- 
- 		priv->can.can_stats.bus_off++;
-@@ -687,12 +994,12 @@ static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
- 		netif_carrier_off(priv->netdev);
- 
- 		new_state = CAN_STATE_BUS_OFF;
--	} else if (status & M16C_STATE_BUS_PASSIVE) {
-+	} else if (es->status & M16C_STATE_BUS_PASSIVE) {
- 		if (priv->can.state != CAN_STATE_ERROR_PASSIVE) {
- 			cf->can_id |= CAN_ERR_CRTL;
- 
--			if (txerr || rxerr)
--				cf->data[1] = (txerr > rxerr)
-+			if (es->txerr || es->rxerr)
-+				cf->data[1] = (es->txerr > es->rxerr)
- 						? CAN_ERR_CRTL_TX_PASSIVE
- 						: CAN_ERR_CRTL_RX_PASSIVE;
- 			else
-@@ -703,13 +1010,11 @@ static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
- 		}
- 
- 		new_state = CAN_STATE_ERROR_PASSIVE;
--	}
--
--	if (status == M16C_STATE_BUS_ERROR) {
-+	} else if (es->status & M16C_STATE_BUS_ERROR) {
- 		if ((priv->can.state < CAN_STATE_ERROR_WARNING) &&
--		    ((txerr >= 96) || (rxerr >= 96))) {
-+		    ((es->txerr >= 96) || (es->rxerr >= 96))) {
- 			cf->can_id |= CAN_ERR_CRTL;
--			cf->data[1] = (txerr > rxerr)
-+			cf->data[1] = (es->txerr > es->rxerr)
- 					? CAN_ERR_CRTL_TX_WARNING
- 					: CAN_ERR_CRTL_RX_WARNING;
- 
-@@ -723,7 +1028,7 @@ static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
- 		}
- 	}
- 
--	if (!status) {
-+	if (!es->status) {
- 		cf->can_id |= CAN_ERR_PROT;
- 		cf->data[2] = CAN_ERR_PROT_ACTIVE;
- 
-@@ -739,34 +1044,52 @@ static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
- 		priv->can.can_stats.restarts++;
- 	}
- 
--	if (error_factor) {
--		priv->can.can_stats.bus_error++;
--		stats->rx_errors++;
--
--		cf->can_id |= CAN_ERR_BUSERROR | CAN_ERR_PROT;
--
--		if (error_factor & M16C_EF_ACKE)
--			cf->data[3] |= (CAN_ERR_PROT_LOC_ACK);
--		if (error_factor & M16C_EF_CRCE)
--			cf->data[3] |= (CAN_ERR_PROT_LOC_CRC_SEQ |
--					CAN_ERR_PROT_LOC_CRC_DEL);
--		if (error_factor & M16C_EF_FORME)
--			cf->data[2] |= CAN_ERR_PROT_FORM;
--		if (error_factor & M16C_EF_STFE)
--			cf->data[2] |= CAN_ERR_PROT_STUFF;
--		if (error_factor & M16C_EF_BITE0)
--			cf->data[2] |= CAN_ERR_PROT_BIT0;
--		if (error_factor & M16C_EF_BITE1)
--			cf->data[2] |= CAN_ERR_PROT_BIT1;
--		if (error_factor & M16C_EF_TRE)
--			cf->data[2] |= CAN_ERR_PROT_TX;
-+	switch (dev->family) {
-+	case KVASER_LEAF:
-+		if (es->leaf.error_factor) {
-+			priv->can.can_stats.bus_error++;
-+			stats->rx_errors++;
-+
-+			cf->can_id |= CAN_ERR_BUSERROR | CAN_ERR_PROT;
-+
-+			if (es->leaf.error_factor & M16C_EF_ACKE)
-+				cf->data[3] |= (CAN_ERR_PROT_LOC_ACK);
-+			if (es->leaf.error_factor & M16C_EF_CRCE)
-+				cf->data[3] |= (CAN_ERR_PROT_LOC_CRC_SEQ |
-+						CAN_ERR_PROT_LOC_CRC_DEL);
-+			if (es->leaf.error_factor & M16C_EF_FORME)
-+				cf->data[2] |= CAN_ERR_PROT_FORM;
-+			if (es->leaf.error_factor & M16C_EF_STFE)
-+				cf->data[2] |= CAN_ERR_PROT_STUFF;
-+			if (es->leaf.error_factor & M16C_EF_BITE0)
-+				cf->data[2] |= CAN_ERR_PROT_BIT0;
-+			if (es->leaf.error_factor & M16C_EF_BITE1)
-+				cf->data[2] |= CAN_ERR_PROT_BIT1;
-+			if (es->leaf.error_factor & M16C_EF_TRE)
-+				cf->data[2] |= CAN_ERR_PROT_TX;
-+		}
-+		break;
-+	case KVASER_USBCAN:
-+		if (es->usbcan.error_state & USBCAN_ERROR_STATE_TX_ERROR)
-+			stats->tx_errors++;
-+		if (es->usbcan.error_state & USBCAN_ERROR_STATE_RX_ERROR)
-+			stats->rx_errors++;
-+		if (es->usbcan.error_state & USBCAN_ERROR_STATE_BUSERROR) {
-+			priv->can.can_stats.bus_error++;
-+			cf->can_id |= CAN_ERR_BUSERROR;
-+		}
-+		break;
-+	default:
-+		dev_err(dev->udev->dev.parent,
-+			"Invalid device family (%d)\n", dev->family);
-+		goto err;
- 	}
- 
--	cf->data[6] = txerr;
--	cf->data[7] = rxerr;
-+	cf->data[6] = es->txerr;
-+	cf->data[7] = es->rxerr;
- 
--	priv->bec.txerr = txerr;
--	priv->bec.rxerr = rxerr;
-+	priv->bec.txerr = es->txerr;
-+	priv->bec.rxerr = es->rxerr;
- 
- 	priv->can.state = new_state;
- 
-@@ -774,6 +1097,11 @@ static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
- 
- 	stats->rx_packets++;
- 	stats->rx_bytes += cf->can_dlc;
-+
-+	return;
-+
-+err:
-+	dev_kfree_skb(skb);
- }
- 
- static void kvaser_usb_rx_can_err(const struct kvaser_usb_net_priv *priv,
-@@ -783,16 +1111,16 @@ static void kvaser_usb_rx_can_err(const struct kvaser_usb_net_priv *priv,
- 	struct sk_buff *skb;
- 	struct net_device_stats *stats = &priv->netdev->stats;
- 
--	if (msg->u.rx_can.flag & (MSG_FLAG_ERROR_FRAME |
-+	if (msg->u.rx_can_header.flag & (MSG_FLAG_ERROR_FRAME |
- 					 MSG_FLAG_NERR)) {
- 		netdev_err(priv->netdev, "Unknow error (flags: 0x%02x)\n",
--			   msg->u.rx_can.flag);
-+			   msg->u.rx_can_header.flag);
- 
- 		stats->rx_errors++;
- 		return;
- 	}
- 
--	if (msg->u.rx_can.flag & MSG_FLAG_OVERRUN) {
-+	if (msg->u.rx_can_header.flag & MSG_FLAG_OVERRUN) {
- 		skb = alloc_can_err_skb(priv->netdev, &cf);
- 		if (!skb) {
- 			stats->rx_dropped++;
-@@ -819,7 +1147,8 @@ static void kvaser_usb_rx_can_msg(const struct kvaser_usb *dev,
- 	struct can_frame *cf;
- 	struct sk_buff *skb;
- 	struct net_device_stats *stats;
--	u8 channel = msg->u.rx_can.channel;
-+	u8 channel = msg->u.rx_can_header.channel;
-+	const u8 *rx_msg;
- 
- 	if (channel >= dev->nchannels) {
- 		dev_err(dev->udev->dev.parent,
-@@ -830,19 +1159,32 @@ static void kvaser_usb_rx_can_msg(const struct kvaser_usb *dev,
- 	priv = dev->nets[channel];
- 	stats = &priv->netdev->stats;
- 
--	if ((msg->u.rx_can.flag & MSG_FLAG_ERROR_FRAME) &&
--	    (msg->id == CMD_LOG_MESSAGE)) {
-+	if ((msg->u.rx_can_header.flag & MSG_FLAG_ERROR_FRAME) &&
-+	    (dev->family == KVASER_LEAF && msg->id == LEAF_CMD_LOG_MESSAGE)) {
- 		kvaser_usb_rx_error(dev, msg);
- 		return;
--	} else if (msg->u.rx_can.flag & (MSG_FLAG_ERROR_FRAME |
--					 MSG_FLAG_NERR |
--					 MSG_FLAG_OVERRUN)) {
-+	} else if (msg->u.rx_can_header.flag & (MSG_FLAG_ERROR_FRAME |
-+						MSG_FLAG_NERR |
-+						MSG_FLAG_OVERRUN)) {
- 		kvaser_usb_rx_can_err(priv, msg);
- 		return;
--	} else if (msg->u.rx_can.flag & ~MSG_FLAG_REMOTE_FRAME) {
-+	} else if (msg->u.rx_can_header.flag & ~MSG_FLAG_REMOTE_FRAME) {
- 		netdev_warn(priv->netdev,
- 			    "Unhandled frame (flags: 0x%02x)",
--			    msg->u.rx_can.flag);
-+			    msg->u.rx_can_header.flag);
-+		return;
-+	}
-+
-+	switch (dev->family) {
-+	case KVASER_LEAF:
-+		rx_msg = msg->u.leaf.rx_can.msg;
-+		break;
-+	case KVASER_USBCAN:
-+		rx_msg = msg->u.usbcan.rx_can.msg;
-+		break;
-+	default:
-+		dev_err(dev->udev->dev.parent,
-+			"Invalid device family (%d)\n", dev->family);
- 		return;
- 	}
- 
-@@ -852,38 +1194,37 @@ static void kvaser_usb_rx_can_msg(const struct kvaser_usb *dev,
- 		return;
- 	}
- 
--	if (msg->id == CMD_LOG_MESSAGE) {
--		cf->can_id = le32_to_cpu(msg->u.log_message.id);
-+	if (dev->family == KVASER_LEAF && msg->id == LEAF_CMD_LOG_MESSAGE) {
-+		cf->can_id = le32_to_cpu(msg->u.leaf.log_message.id);
- 		if (cf->can_id & KVASER_EXTENDED_FRAME)
- 			cf->can_id &= CAN_EFF_MASK | CAN_EFF_FLAG;
- 		else
- 			cf->can_id &= CAN_SFF_MASK;
- 
--		cf->can_dlc = get_can_dlc(msg->u.log_message.dlc);
-+		cf->can_dlc = get_can_dlc(msg->u.leaf.log_message.dlc);
- 
--		if (msg->u.log_message.flags & MSG_FLAG_REMOTE_FRAME)
-+		if (msg->u.leaf.log_message.flags & MSG_FLAG_REMOTE_FRAME)
- 			cf->can_id |= CAN_RTR_FLAG;
- 		else
--			memcpy(cf->data, &msg->u.log_message.data,
-+			memcpy(cf->data, &msg->u.leaf.log_message.data,
- 			       cf->can_dlc);
- 	} else {
--		cf->can_id = ((msg->u.rx_can.msg[0] & 0x1f) << 6) |
--			     (msg->u.rx_can.msg[1] & 0x3f);
-+		cf->can_id = ((rx_msg[0] & 0x1f) << 6) | (rx_msg[1] & 0x3f);
- 
- 		if (msg->id == CMD_RX_EXT_MESSAGE) {
- 			cf->can_id <<= 18;
--			cf->can_id |= ((msg->u.rx_can.msg[2] & 0x0f) << 14) |
--				      ((msg->u.rx_can.msg[3] & 0xff) << 6) |
--				      (msg->u.rx_can.msg[4] & 0x3f);
-+			cf->can_id |= ((rx_msg[2] & 0x0f) << 14) |
-+				      ((rx_msg[3] & 0xff) << 6) |
-+				      (rx_msg[4] & 0x3f);
- 			cf->can_id |= CAN_EFF_FLAG;
- 		}
- 
--		cf->can_dlc = get_can_dlc(msg->u.rx_can.msg[5]);
-+		cf->can_dlc = get_can_dlc(rx_msg[5]);
- 
--		if (msg->u.rx_can.flag & MSG_FLAG_REMOTE_FRAME)
-+		if (msg->u.rx_can_header.flag & MSG_FLAG_REMOTE_FRAME)
- 			cf->can_id |= CAN_RTR_FLAG;
- 		else
--			memcpy(cf->data, &msg->u.rx_can.msg[6],
-+			memcpy(cf->data, &rx_msg[6],
- 			       cf->can_dlc);
- 	}
- 
-@@ -947,7 +1288,12 @@ static void kvaser_usb_handle_message(const struct kvaser_usb *dev,
- 
- 	case CMD_RX_STD_MESSAGE:
- 	case CMD_RX_EXT_MESSAGE:
--	case CMD_LOG_MESSAGE:
-+		kvaser_usb_rx_can_msg(dev, msg);
-+		break;
-+
-+	case LEAF_CMD_LOG_MESSAGE:
-+		if (dev->family != KVASER_LEAF)
-+			goto warn;
- 		kvaser_usb_rx_can_msg(dev, msg);
- 		break;
- 
-@@ -960,8 +1306,14 @@ static void kvaser_usb_handle_message(const struct kvaser_usb *dev,
- 		kvaser_usb_tx_acknowledge(dev, msg);
- 		break;
- 
-+	/* Ignored messages */
-+	case USBCAN_CMD_CLOCK_OVERFLOW_EVENT:
-+		if (dev->family != KVASER_USBCAN)
-+			goto warn;
-+		break;
-+
- 	default:
--		dev_warn(dev->udev->dev.parent,
-+warn:		dev_warn(dev->udev->dev.parent,
- 			 "Unhandled message (%d)\n", msg->id);
- 		break;
- 	}
-@@ -1181,7 +1533,7 @@ static void kvaser_usb_unlink_all_urbs(struct kvaser_usb *dev)
- 				  dev->rxbuf[i],
- 				  dev->rxbuf_dma[i]);
- 
--	for (i = 0; i < MAX_NET_DEVICES; i++) {
-+	for (i = 0; i < dev->nchannels; i++) {
- 		struct kvaser_usb_net_priv *priv = dev->nets[i];
- 
- 		if (priv)
-@@ -1289,6 +1641,7 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
- 	struct kvaser_msg *msg;
- 	int i, err;
- 	int ret = NETDEV_TX_OK;
-+	uint8_t *msg_tx_can_flags;
- 
- 	if (can_dropped_invalid_skb(netdev, skb))
- 		return NETDEV_TX_OK;
-@@ -1310,9 +1663,23 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
- 
- 	msg = buf;
- 	msg->len = MSG_HEADER_LEN + sizeof(struct kvaser_msg_tx_can);
--	msg->u.tx_can.flags = 0;
- 	msg->u.tx_can.channel = priv->channel;
- 
-+	switch (dev->family) {
-+	case KVASER_LEAF:
-+		msg_tx_can_flags = &msg->u.tx_can.leaf.flags;
-+		break;
-+	case KVASER_USBCAN:
-+		msg_tx_can_flags = &msg->u.tx_can.usbcan.flags;
-+		break;
-+	default:
-+		dev_err(dev->udev->dev.parent,
-+			"Invalid device family (%d)\n", dev->family);
-+		goto releasebuf;
-+	}
-+
-+	*msg_tx_can_flags = 0;
-+
- 	if (cf->can_id & CAN_EFF_FLAG) {
- 		msg->id = CMD_TX_EXT_MESSAGE;
- 		msg->u.tx_can.msg[0] = (cf->can_id >> 24) & 0x1f;
-@@ -1330,7 +1697,7 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
- 	memcpy(&msg->u.tx_can.msg[6], cf->data, cf->can_dlc);
- 
- 	if (cf->can_id & CAN_RTR_FLAG)
--		msg->u.tx_can.flags |= MSG_FLAG_REMOTE_FRAME;
-+		*msg_tx_can_flags |= MSG_FLAG_REMOTE_FRAME;
- 
- 	for (i = 0; i < ARRAY_SIZE(priv->tx_contexts); i++) {
- 		if (priv->tx_contexts[i].echo_index == MAX_TX_URBS) {
-@@ -1601,6 +1968,18 @@ static int kvaser_usb_probe(struct usb_interface *intf,
- 	if (!dev)
- 		return -ENOMEM;
- 
-+	if (LEAF_PRODUCT_ID(id->idProduct)) {
-+		dev->family = KVASER_LEAF;
-+		dev->max_channels = LEAF_MAX_NET_DEVICES;
-+	} else if (USBCAN_PRODUCT_ID(id->idProduct)) {
-+		dev->family = KVASER_USBCAN;
-+		dev->max_channels = USBCAN_MAX_NET_DEVICES;
-+	} else {
-+		dev_err(&intf->dev, "Product ID (%d) does not belong to any "
-+				    "known Kvaser USB family", id->idProduct);
-+		return -ENODEV;
-+	}
-+
- 	err = kvaser_usb_get_endpoints(intf, &dev->bulk_in, &dev->bulk_out);
- 	if (err) {
- 		dev_err(&intf->dev, "Cannot get usb endpoint(s)");
+>>
+>>
+>>> +
+>>> +       ret =3D of_property_read_string(dev->of_node, "clock_in_out=
+",
+>>> &strings);
+>>> +       if (ret) {
+>>> +               pr_err("%s: Can not read property: clock_in_out.\n"=
+,
+>>> __func__);
+>>> +               bsp_priv->clock_input =3D true;
+>>> +       } else {
+>>> +               pr_info("%s: clock input or output? (%s).\n",
+>>> +                       __func__, strings);
+>>> +               if (!strcmp(strings, "input"))
+>>> +                       bsp_priv->clock_input =3D true;
+>>> +               else
+>>> +                       bsp_priv->clock_input =3D false;
+>>> +       }
+>>> +
+>>> +       ret =3D of_property_read_u32(dev->of_node, "tx_delay", &val=
+ue);
+>>> +       if (ret) {
+>>> +               bsp_priv->tx_delay =3D 0x30;
+>>> +               pr_err("%s: Can not read property: tx_delay.", __fu=
+nc__);
+>>> +               pr_err("%s: set tx_delay to 0x%x\n",
+>>> +                      __func__, bsp_priv->tx_delay);
+>>> +       } else {
+>>> +               pr_info("%s: TX delay(0x%x).\n", __func__, value);
+>>> +               bsp_priv->tx_delay =3D value;
+>>> +       }
+>>> +
+>>> +       ret =3D of_property_read_u32(dev->of_node, "rx_delay", &val=
+ue);
+>>> +       if (ret) {
+>>> +               bsp_priv->rx_delay =3D 0x10;
+>>> +               pr_err("%s: Can not read property: rx_delay.", __fu=
+nc__);
+>>> +               pr_err("%s: set rx_delay to 0x%x\n",
+>>> +                      __func__, bsp_priv->rx_delay);
+>>> +       } else {
+>>> +               pr_info("%s: RX delay(0x%x).\n", __func__, value);
+>>> +               bsp_priv->rx_delay =3D value;
+>>> +       }
+>>> +
+>>> +       bsp_priv->grf =3D syscon_regmap_lookup_by_phandle(dev->of_n=
+ode,
+>>> +                                                       "rockchip,g=
+rf");
+>>> +       bsp_priv->phyirq_io =3D
+>>> +               of_get_named_gpio_flags(dev->of_node,
+>>> +                                       "phyirq-gpio", 0, &flags);
+>>> +       bsp_priv->phyirq_io_level =3D (flags & OF_GPIO_ACTIVE_LOW) =
+? 0 : 1;
+>>> +
+>>> +       bsp_priv->reset_io =3D
+>>> +               of_get_named_gpio_flags(dev->of_node,
+>>> +                                       "reset-gpio", 0, &flags);
+>>> +       bsp_priv->reset_io_level =3D (flags & OF_GPIO_ACTIVE_LOW) ?=
+ 0 : 1;
+>>> +
+>>> +       bsp_priv->power_io =3D
+>>> +               of_get_named_gpio_flags(dev->of_node, "power-gpio",=
+ 0,
+>>> &flags);
+>>> +       bsp_priv->power_io_level =3D (flags & OF_GPIO_ACTIVE_LOW) ?=
+ 0 : 1;
+>>> +
+>>> +       /*power*/
+>>> +       if (!gpio_is_valid(bsp_priv->power_io)) {
+>>> +               pr_err("%s: Failed to get GPIO %s.\n",
+>>> +                      __func__, "power-gpio");
+>>> +       } else {
+>>> +               ret =3D gpio_request(bsp_priv->power_io, GPIO_PHY_P=
+OWER);
+>>> +               if (ret)
+>>> +                       pr_err("%s: ERROR: Failed to request GPIO %=
+s.\n",
+>>> +                              __func__, GPIO_PHY_POWER);
+>>> +       }
+>>
+>> When everything power-related is handled using the regulator api, yo=
+u
+>> don't
+>> need this
+>
+> The same explanation as above
+>>
+>>
+>>> +
+>>> +       if (!gpio_is_valid(bsp_priv->reset_io)) {
+>>> +               pr_err("%s: ERROR: Get reset-gpio failed.\n", __fun=
+c__);
+>>> +       } else {
+>>> +               ret =3D gpio_request(bsp_priv->reset_io, GPIO_PHY_R=
+ESET);
+>>> +               if (ret)
+>>> +                       pr_err("%s: ERROR: Failed to request GPIO %=
+s.\n",
+>>> +                              __func__, GPIO_PHY_RESET);
+>>> +       }
+>>> +
+>>> +       if (bsp_priv->phyirq_io > 0) {
+>>
+>> This is more for my understanding: why does the mac driver need to h=
+andle
+>> the
+>> phy interrupt - but I might be overlooking something.
+
+stmmac does not have a separate mdio bus driver. They are combined.
+
+>>
+> phy interrupt is not mandatory.  In most of the time,  in order to fi=
+nd
+> something happen in PHY, for example,
+> link is up or down,  we just use polling method to read the phy's reg=
+ister
+> in a timer.
+> Buf if phy interrupt is in use, when link is up or down,  phy interru=
+pt pin
+> will be assert to inform the CPU.
+> I just implement the driver for phy interrupt gpio,  not enable it as
+> default.
+
+You should probably do it in the stmmac platform/core driver.
+
+>
+>
+>>> +               struct plat_stmmacenet_data *plat_dat;
+>>> +
+>>> +               pr_info("PHY irq in use\n");
+>>> +               ret =3D gpio_request(bsp_priv->phyirq_io, GPIO_PHY_=
+IRQ);
+>>> +               if (ret < 0) {
+>>> +                       pr_warn("%s: Failed to request GPIO %s\n",
+>>> +                               __func__, GPIO_PHY_IRQ);
+>>> +                       goto goon;
+>>> +               }
+>>> +
+>>> +               ret =3D gpio_direction_input(bsp_priv->phyirq_io);
+>>> +               if (ret < 0) {
+>>> +                       pr_err("%s, Failed to set input for GPIO %s=
+\n",
+>>> +                              __func__, GPIO_PHY_IRQ);
+>>> +                       gpio_free(bsp_priv->phyirq_io);
+>>> +                       goto goon;
+>>> +               }
+>>> +
+>>> +               irq =3D gpio_to_irq(bsp_priv->phyirq_io);
+>>> +               if (irq < 0) {
+>>> +                       ret =3D irq;
+>>> +                       pr_err("Failed to set irq for %s\n",
+>>> +                              GPIO_PHY_IRQ);
+>>> +                       gpio_free(bsp_priv->phyirq_io);
+>>> +                       goto goon;
+>>> +               }
+>>> +
+>>> +               plat_dat =3D dev_get_platdata(&pdev->dev);
+>>> +               if (plat_dat)
+>>> +                       plat_dat->mdio_bus_data->probed_phy_irq =3D=
+ irq;
+>>> +               else
+>>> +                       pr_err("%s: plat_data is NULL\n", __func__)=
+;
+
+The glue layer should never ever touch the platform data. If you need
+to add interrupts for the phy, please do so in the stmmac driver proper=
+,
+and add the proper DT bindings/
+
+>>> +       }
+>>> +
+>>> +goon:
+>>> +       /*rmii or rgmii*/
+>>> +       if (bsp_priv->phy_iface =3D=3D PHY_INTERFACE_MODE_RGMII) {
+>>> +               pr_info("%s: init for RGMII\n", __func__);
+>>> +               set_to_rgmii(bsp_priv, bsp_priv->tx_delay,
+>>> bsp_priv->rx_delay);
+>>> +       } else if (bsp_priv->phy_iface =3D=3D PHY_INTERFACE_MODE_RM=
+II) {
+>>> +               pr_info("%s: init for RMII\n", __func__);
+>>> +               set_to_rmii(bsp_priv);
+>>> +       } else {
+>>> +               pr_err("%s: ERROR: NO interface defined!\n", __func=
+__);
+>>> +       }
+>>> +
+>>> +       bsp_priv->pdev =3D pdev;
+>>> +
+>>> +       gmac_clk_init(bsp_priv);
+>>> +
+>>> +       return bsp_priv;
+>>> +}
+>>> +
+>>> +static int rk_gmac_init(struct platform_device *pdev, void *priv)
+>>> +{
+>>> +       struct rk_priv_data *bsp_priv =3D priv;
+>>> +       int ret;
+>>> +
+>>> +       ret =3D phy_power_on(bsp_priv, true);
+>>> +       if (ret)
+>>> +               return ret;
+>>> +
+>>> +       ret =3D gmac_clk_enable(bsp_priv, true);
+>>> +       if (ret)
+>>> +               return ret;
+>>> +
+>>> +       return 0;
+>>> +}
+>>> +
+>>> +static void rk_gmac_exit(struct platform_device *pdev, void *priv)
+>>> +{
+>>> +       struct rk_priv_data *gmac =3D priv;
+>>> +
+>>> +       phy_power_on(gmac, false);
+>>> +       gmac_clk_enable(gmac, false);
+>>> +}
+>>> +
+>>> +static void rk_fix_speed(void *priv, unsigned int speed)
+>>> +{
+>>> +       struct rk_priv_data *bsp_priv =3D priv;
+>>> +
+>>> +       if (bsp_priv->phy_iface =3D=3D PHY_INTERFACE_MODE_RGMII)
+>>> +               set_rgmii_speed(bsp_priv, speed);
+>>> +       else if (bsp_priv->phy_iface =3D=3D PHY_INTERFACE_MODE_RMII=
+)
+>>> +               set_rmii_speed(bsp_priv, speed);
+>>> +       else
+>>> +               pr_err("unsupported interface %d", bsp_priv->phy_if=
+ace);
+>>> +}
+>>> +
+>>> +const struct stmmac_of_data rk_gmac_data =3D {
+>>> +       .has_gmac =3D 1,
+>>> +       .fix_mac_speed =3D rk_fix_speed,
+>>> +       .setup =3D rk_gmac_setup,
+>>> +       .init =3D rk_gmac_init,
+>>> +       .exit =3D rk_gmac_exit,
+>>> +};
+>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c index
+>>> 15814b7..b4dee96 100644
+>>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> @@ -33,6 +33,7 @@
+>>>
+>>>   static const struct of_device_id stmmac_dt_ids[] =3D {
+>>>         /* SoC specific glue layers should come before generic bind=
+ings
+>>> */
+>>> +       { .compatible =3D "rockchip,rk3288-gmac", .data =3D &rk_gma=
+c_data},
+>>
+>> please name that rk3288_gmac_data [of course the other occurences to=
+o]
+>> It makes it easier to see which soc it is meant for and it's also no=
+t save
+>> to
+>> assume that the next one will use the same register + bit positions =
+in the
+>> grf.
+>>
+>>
+>>>         { .compatible =3D "amlogic,meson6-dwmac", .data =3D
+>>> &meson6_dwmac_data},
+>>>         { .compatible =3D "allwinner,sun7i-a20-gmac", .data =3D
+>>> &sun7i_gmac_data},
+>>>         { .compatible =3D "st,stih415-dwmac", .data =3D &stih4xx_dw=
+mac_data},
+>>> @@ -291,6 +292,8 @@ static int stmmac_pltfr_probe(struct platform_d=
+evice
+>>> *pdev) return  -ENOMEM;
+>>>                 }
+>>>
+>>> +               pdev->dev.platform_data =3D plat_dat;
+>>> +
+
+When we re-did the DT layer for stmmac, there was consensus to _not_
+use platform_data. Please do not use it.
+
+>>>                 ret =3D stmmac_probe_config_dt(pdev, plat_dat, &mac=
+);
+>>>                 if (ret) {
+>>>                         pr_err("%s: main dt probe failed", __func__=
+);
+>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
+>>> b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h index
+>>> 25dd1f7..32a0516 100644
+>>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
+>>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
+>>> @@ -24,5 +24,6 @@ extern const struct stmmac_of_data sun7i_gmac_dat=
+a;
+>>>   extern const struct stmmac_of_data stih4xx_dwmac_data;
+>>>   extern const struct stmmac_of_data stid127_dwmac_data;
+>>>   extern const struct stmmac_of_data socfpga_gmac_data;
+>>> +extern const struct stmmac_of_data rk_gmac_data;
+>>>
+>>>   #endif /* __STMMAC_PLATFORM_H__ */
+>>
+>>
+>>
+
+I may have repeated myself a few times. Please take a look at how
+the other glue layers are written. This one is larger than it needs
+to be.
+
+Regards,
+ChenYu
