@@ -1,7 +1,8 @@
 From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH net v3] e1000: Add netif_napi_del in the driver
-Date: Thu, 25 Dec 2014 10:00:27 +0800
-Message-ID: <1419472827-6170-1-git-send-email-baijiaju1990@163.com>
+Subject: [PATCH net v3 1/2] e100: Fix a null pointer deference
+	in e100_probe
+Date: Thu, 25 Dec 2014 10:02:35 +0800
+Message-ID: <1419472956-6270-1-git-send-email-baijiaju1990@163.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -22,47 +23,40 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The driver lacks netif_napi_del in the normal path 
-and error path to match the call of netif_napi_add in e1000_probe.
+The driver lacks the check of nic->cbs_pool after pci_pool_create
+in e100_probe. So when this function is failed, the null pointer
+dereference occurs when pci_pool_alloc uses nic->cbs_pool in e100_alloc_cbs.
 This patch fixes this problem, and it has been tested on the hardware.
 
 Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
 ---
- drivers/net/ethernet/intel/e1000/e1000_main.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/e100.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 24f3986..f6def7b 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -1004,7 +1004,7 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	/* make ready for any if (hw->...) below */
- 	err = e1000_init_hw_struct(adapter, hw);
- 	if (err)
--		goto err_sw_init;
-+		goto err_dma;
+diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
+index 781065e..ba1813f 100644
+--- a/drivers/net/ethernet/intel/e100.c
++++ b/drivers/net/ethernet/intel/e100.c
+@@ -2969,6 +2969,10 @@ static int e100_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 			   nic->params.cbs.max * sizeof(struct cb),
+ 			   sizeof(u32),
+ 			   0);
++	if (!nic->cbs_pool) {
++		err = -ENOMEM;
++		goto err_out_pool;
++	}
+ 	netif_info(nic, probe, nic->netdev,
+ 		   "addr 0x%llx, irq %d, MAC addr %pM\n",
+ 		   (unsigned long long)pci_resource_start(pdev, use_io ? 1 : 0),
+@@ -2976,6 +2980,8 @@ static int e100_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  
- 	/* there is a workaround being applied below that limits
- 	 * 64-bit DMA addresses to 64-bit hardware.  There are some
-@@ -1239,8 +1239,9 @@ err_eeprom:
- 		iounmap(hw->flash_address);
- 	kfree(adapter->tx_ring);
- 	kfree(adapter->rx_ring);
--err_dma:
- err_sw_init:
-+	netif_napi_del(&adapter->napi);
-+err_dma:
- err_mdio_ioremap:
- 	iounmap(hw->ce4100_gbe_mdio_base_virt);
- 	iounmap(hw->hw_addr);
-@@ -1271,6 +1272,7 @@ static void e1000_remove(struct pci_dev *pdev)
- 	e1000_down_and_stop(adapter);
- 	e1000_release_manageability(adapter);
+ 	return 0;
  
-+	netif_napi_del(&adapter->napi);
- 	unregister_netdev(netdev);
- 
- 	e1000_phy_hw_reset(hw);
++err_out_pool:
++	unregister_netdev(netdev);
+ err_out_free:
+ 	e100_free(nic);
+ err_out_iounmap:
 -- 
 1.7.9.5
 
