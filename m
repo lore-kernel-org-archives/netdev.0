@@ -1,62 +1,116 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH v2 1/4] can: kvaser_usb: Don't free packets when tight on
- URBs
-Date: Wed, 24 Dec 2014 18:50:11 -0800
-Message-ID: <20141225025011.GA10491@kroah.com>
-References: <20141223154654.GB6460@vivalin-002>
- <20141224235644.GA3778@vivalin-002>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 00/10] Split UFO into v4 and v6 versions.
+Date: Thu, 25 Dec 2014 03:10:01 +0008
+Message-ID: <1419476521.27992.1@smtp.corp.redhat.com>
+References: <1418840455-22598-1-git-send-email-vyasevic@redhat.com>
+	<586203981.237162.1418880532523.JavaMail.zimbra@redhat.com>
+	<1419444680.4705.129.camel@decadent.org.uk>
+	<20141224185922.GA30934@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Linux-stable <stable@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141224235644.GA3778@vivalin-002>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Vladislav Yasevich <vyasevich@gmail.com>,
+	Ben Hutchings <ben@decadent.org.uk>, stefanha@redhat.com,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20141224185922.GA30934@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 25, 2014 at 01:56:44AM +0200, Ahmed S. Darwish wrote:
-> From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
-> 
-> Flooding the Kvaser CAN to USB dongle with multiple reads and
-> writes in high frequency caused seemingly-random panics in the
-> kernel.
-> 
-> On further inspection, it seems the driver erroneously freed the
-> to-be-transmitted packet upon getting tight on URBs and returning
-> NETDEV_TX_BUSY, leading to invalid memory writes and double frees
-> at a later point in time.
-> 
-> Note:
-> 
-> Finding no more URBs/transmit-contexts and returning NETDEV_TX_BUSY
-> is a driver bug in and out of itself: it means that our start/stop
-> queue flow control is broken.
-> 
-> This patch only fixes the (buggy) error handling code; the root
-> cause shall be fixed in a later commit.
-> 
-> Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
-> ---
->  drivers/net/can/usb/kvaser_usb.c | 12 ++++++------
->  1 file changed, 6 insertions(+), 6 deletions(-)
-> 
->  (Marc, Greg, I believe this should also be added to -stable?)
 
 
-<formletter>
+On Thu, Dec 25, 2014 at 2:59 AM, Michael S. Tsirkin <mst@redhat.com> 
+wrote:
+> On Wed, Dec 24, 2014 at 07:11:20PM +0100, Ben Hutchings wrote:
+>>  On Thu, 2014-12-18 at 00:28 -0500, Jason Wang wrote:
+>>  > 
+>>  > ----- Original Message -----
+>>  > > UFO support in the kernel applies to both IPv4 and IPv6 
+>> protocols
+>>  > > with the same device feature.  However some devices may not be 
+>> able
+>>  > > to support one of the offloads.  For this we split the UFO 
+>> offload
+>>  > > feature into 2 pieces.  NETIF_F_UFO now controlls the IPv4 part 
+>> and
+>>  > > this series introduces NETIF_F_UFO6.
+>>  > > 
+>>  > > As a result of this work, we can now re-enable NETIF_F_UFO on
+>>  > > virtio_net devices and restore UDP over IPv4 performance for 
+>> guests.
+>>  > > We also continue to support legacy guests that assume that UFO6
+>>  > > support included into UFO(4).
+>>  > > 
+>>  > > Without this work, migrating a guest to a 3.18 kernel fails.
+>>  > > 
+>>  > 
+>>  > This series eliminate the ambiguous NETIF_F_UFO.
+>>  > 
+>>  > But VIRTIO_NET_F_{HOST|GUEST}_UFO and VIRTIO_NET_F_HDR_GSO_UDP is 
+>> still
+>>  > ambigious. I know it was used to keep compatibility for legacy 
+>> guest. But
+>>  > what's the future plan? Differentiate UFOv4 and UFOv6 in virtio 
+>> features and
+>>  > gso type in vnet header looks sufficient?
+>>  [...]
+>>  
+>>  The IPv6 fragmentation ID needs to be added to the vnet header, to 
+>> do
+>>  UFOv6 properly.  If it wasn't for that lack, we wouldn't have to 
+>> split
+>>  the feature flag.
+>>  
+>>  Ben.
+> 
+> 
+> Right.
+> 
+> I think a good plan is as follows:
+> 
+> 1. add code generating IDs on rx path for virtio,
+>    and re-enable UFO (4+6).
+> 
+> 2. Ben's patch doing similar things for tun/macvtap
 
-This is not the correct way to submit patches for inclusion in the
-stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
-for how to do this properly.
+I wonder whether or not we can do this lazily.
 
-</formletter>
+E.g during UFO6 software segment for dodgy packets?
+
+And this can eliminate the effort of duplicating it in all untrusted 
+sources?
+> 
+> 3. similarly for packet sockets
+> 
+> 
+> above seem appropriate for stable
+> 
+> 4. 4+6 split, to make it easier for drivers
+>    to identify when fragment ID is needed
+> 
+> 5. extend vnet header, and add ways to enable it,
+>    when enabled, use that to pass
+>    fragment ID for tun/virtio/vhost/macvtap/packet socket
+> 
+> 4 is what this patchset does.
+> 
+> 
+>>  -- 
+>>  Ben Hutchings
+>>  If more than one person is responsible for a bug, no one is at 
+>> fault.
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
