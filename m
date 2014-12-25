@@ -1,72 +1,63 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH net v3 2/2] e100: Add netif_napi_del in the
-	driver
-Date: Thu, 25 Dec 2014 10:02:36 +0800
-Message-ID: <1419472956-6270-2-git-send-email-baijiaju1990@163.com>
-References: <1419472956-6270-1-git-send-email-baijiaju1990@163.com>
+From: "Ahmed S. Darwish" <darwish.07@gmail.com>
+Subject: [PATCH v2 3/4] can: kvaser_usb: Don't send a RESET_CHIP for
+ non-existing channels
+Date: Thu, 25 Dec 2014 02:02:56 +0200
+Message-ID: <20141225000256.GB24302@vivalin-002>
+References: <20141223154654.GB6460@vivalin-002>
+ <20141224235644.GA3778@vivalin-002>
+ <20141224235954.GA24302@vivalin-002>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Jia-Ju Bai <baijiaju1990@163.com>, linux.nics@intel.com
-To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
-	matthew.vick@intel.com, john.ronciak@intel.com, mitch.a.williams@intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1419472956-6270-1-git-send-email-baijiaju1990@163.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Greg KH <gregkh@linuxfoundation.org>,
+	Linux-CAN <linux-can@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Olivier Sobrie <olivier@sobrie.be>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141224235954.GA24302@vivalin-002>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The driver lacks netif_napi_del in the normal path and error path to 
-match the call of netif_napi_add in e100_probe.
-This patch fixes this problem, and it has been tested on the hardware.
+From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
 
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+"Someone reported me that recent leaf firmwares go in trouble when
+you send a command for a channel that does not exist. Instead ...
+you can move the reset command to kvaser_usb_init_one() function."
+
+Suggested-by: Olivier Sobrie <olivier@sobrie.be>
+Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
 ---
- drivers/net/ethernet/intel/e100.c |    2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/can/usb/kvaser_usb.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
-index 781065e..21c4d0f 100644
---- a/drivers/net/ethernet/intel/e100.c
-+++ b/drivers/net/ethernet/intel/e100.c
-@@ -2985,6 +2985,7 @@ err_out_free_res:
- err_out_disable_pdev:
- 	pci_disable_device(pdev);
- err_out_free_dev:
-+	netif_napi_del(&nic->napi);
- 	free_netdev(netdev);
- 	return err;
- }
-@@ -2995,6 +2996,7 @@ static void e100_remove(struct pci_dev *pdev)
+diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
+index 598e251..2791501 100644
+--- a/drivers/net/can/usb/kvaser_usb.c
++++ b/drivers/net/can/usb/kvaser_usb.c
+@@ -1505,6 +1505,10 @@ static int kvaser_usb_init_one(struct usb_interface *intf,
+ 	struct kvaser_usb_net_priv *priv;
+ 	int i, err;
  
- 	if (netdev) {
- 		struct nic *nic = netdev_priv(netdev);
-+		netif_napi_del(&nic->napi);
- 		unregister_netdev(netdev);
- 		e100_free(nic);
- 		pci_iounmap(pdev, nic->csr);
--- 
-1.7.9.5
-
-
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming! The Go Parallel Website,
-sponsored by Intel and developed in partnership with Slashdot Media, is your
-hub for all things parallel software development, from weekly thought
-leadership blogs to news, videos, case studies, tutorials and more. Take a
-look and join the conversation now. http://goparallel.sourceforge.net
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
++	err = kvaser_usb_send_simple_msg(dev, CMD_RESET_CHIP, channel);
++	if (err)
++		return err;
++
+ 	netdev = alloc_candev(sizeof(*priv), MAX_TX_URBS);
+ 	if (!netdev) {
+ 		dev_err(&intf->dev, "Cannot alloc candev\n");
+@@ -1609,9 +1613,6 @@ static int kvaser_usb_probe(struct usb_interface *intf,
+ 
+ 	usb_set_intfdata(intf, dev);
+ 
+-	for (i = 0; i < MAX_NET_DEVICES; i++)
+-		kvaser_usb_send_simple_msg(dev, CMD_RESET_CHIP, i);
+-
+ 	err = kvaser_usb_get_software_info(dev);
+ 	if (err) {
+ 		dev_err(&intf->dev,
