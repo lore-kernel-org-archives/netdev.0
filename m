@@ -1,100 +1,72 @@
-From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: [PATCH v2 1/4] can: kvaser_usb: Don't free packets when tight on URBs
-Date: Thu, 25 Dec 2014 01:56:44 +0200
-Message-ID: <20141224235644.GA3778@vivalin-002>
-References: <20141223154654.GB6460@vivalin-002>
+From: Jia-Ju Bai <baijiaju1990@163.com>
+Subject: [PATCH net v3 3/4] e1000e: Add netif_napi_del in the
+	driver
+Date: Thu, 25 Dec 2014 09:57:02 +0800
+Message-ID: <1419472623-6060-3-git-send-email-baijiaju1990@163.com>
+References: <1419472623-6060-1-git-send-email-baijiaju1990@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	Linux-stable <stable@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141223154654.GB6460@vivalin-002>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Jia-Ju Bai <baijiaju1990@163.com>, linux.nics@intel.com
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
+	matthew.vick@intel.com, john.ronciak@intel.com, mitch.a.williams@intel.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1419472623-6060-1-git-send-email-baijiaju1990@163.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
+The driver lacks netif_napi_del in the normal path
+and error path to match the call of netif_napi_add in e1000_probe.
+This patch fixes this problem, and it has been tested on the hardware.
 
-Flooding the Kvaser CAN to USB dongle with multiple reads and
-writes in high frequency caused seemingly-random panics in the
-kernel.
-
-On further inspection, it seems the driver erroneously freed the
-to-be-transmitted packet upon getting tight on URBs and returning
-NETDEV_TX_BUSY, leading to invalid memory writes and double frees
-at a later point in time.
-
-Note:
-
-Finding no more URBs/transmit-contexts and returning NETDEV_TX_BUSY
-is a driver bug in and out of itself: it means that our start/stop
-queue flow control is broken.
-
-This patch only fixes the (buggy) error handling code; the root
-cause shall be fixed in a later commit.
-
-Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
+Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
 ---
- drivers/net/can/usb/kvaser_usb.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
- (Marc, Greg, I believe this should also be added to -stable?)
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 247335d..c5f0afc 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -7045,6 +7045,7 @@ err_hw_init:
+ 	kfree(adapter->tx_ring);
+ 	kfree(adapter->rx_ring);
+ err_sw_init:
++	netif_napi_del(&adapter->napi);
+ 	if (adapter->hw.flash_address)
+ 		iounmap(adapter->hw.flash_address);
+ 	e1000e_reset_interrupt_capability(adapter);
+@@ -7103,6 +7104,7 @@ static void e1000_remove(struct pci_dev *pdev)
+ 	/* Don't lie to e1000_close() down the road. */
+ 	if (!down)
+ 		clear_bit(__E1000_DOWN, &adapter->state);
++	netif_napi_del(&adapter->napi);
+ 	unregister_netdev(netdev);
+ 
+ 	if (pci_dev_run_wake(pdev))
+-- 
+1.7.9.5
 
-diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
-index 541fb7a..6479a2b 100644
---- a/drivers/net/can/usb/kvaser_usb.c
-+++ b/drivers/net/can/usb/kvaser_usb.c
-@@ -1294,12 +1294,14 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
- 	if (!urb) {
- 		netdev_err(netdev, "No memory left for URBs\n");
- 		stats->tx_dropped++;
--		goto nourbmem;
-+		dev_kfree_skb(skb);
-+		return NETDEV_TX_OK;
- 	}
- 
- 	buf = kmalloc(sizeof(struct kvaser_msg), GFP_ATOMIC);
- 	if (!buf) {
- 		stats->tx_dropped++;
-+		dev_kfree_skb(skb);
- 		goto nobufmem;
- 	}
- 
-@@ -1334,6 +1336,9 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
- 		}
- 	}
- 
-+	/*
-+	 * This should never happen; it implies a flow control bug.
-+	 */
- 	if (!context) {
- 		netdev_warn(netdev, "cannot find free context\n");
- 		ret =  NETDEV_TX_BUSY;
-@@ -1364,9 +1369,6 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
- 	if (unlikely(err)) {
- 		can_free_echo_skb(netdev, context->echo_index);
- 
--		skb = NULL; /* set to NULL to avoid double free in
--			     * dev_kfree_skb(skb) */
--
- 		atomic_dec(&priv->active_tx_urbs);
- 		usb_unanchor_urb(urb);
- 
-@@ -1388,8 +1390,6 @@ releasebuf:
- 	kfree(buf);
- nobufmem:
- 	usb_free_urb(urb);
--nourbmem:
--	dev_kfree_skb(skb);
- 	return ret;
- }
- 
+
+
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming! The Go Parallel Website,
+sponsored by Intel and developed in partnership with Slashdot Media, is your
+hub for all things parallel software development, from weekly thought
+leadership blogs to news, videos, case studies, tutorials and more. Take a
+look and join the conversation now. http://goparallel.sourceforge.net
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
