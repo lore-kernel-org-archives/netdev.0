@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] netlink/genetlink cleanups & multicast improvements
-Date: Thu, 25 Dec 2014 18:26:43 -0500 (EST)
-Message-ID: <20141225.182643.2281873118805231449.davem@davemloft.net>
-References: <1419270999-22165-1-git-send-email-johannes@sipsolutions.net>
+Subject: Re: [PATCH] bonding: change error message to debug message in
+ __bond_release_one()
+Date: Thu, 25 Dec 2014 18:29:22 -0500 (EST)
+Message-ID: <20141225.182922.501821863388146322.davem@davemloft.net>
+References: <1419297876-1412-1-git-send-email-wen.gang.wang@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: johannes@sipsolutions.net
+Cc: netdev@vger.kernel.org, gospo@cumulusnetworks.com,
+	dingtianhong@huawei.com
+To: wen.gang.wang@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58624 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58632 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751431AbaLYX07 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2014 18:26:59 -0500
-In-Reply-To: <1419270999-22165-1-git-send-email-johannes@sipsolutions.net>
+	with ESMTP id S1751669AbaLYX3Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2014 18:29:24 -0500
+In-Reply-To: <1419297876-1412-1-git-send-email-wen.gang.wang@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Mon, 22 Dec 2014 18:56:34 +0100
+From: Wengang Wang <wen.gang.wang@oracle.com>
+Date: Tue, 23 Dec 2014 09:24:36 +0800
 
-> I'm looking at using the multicast group functionality in a way that would
-> benefit from knowing when there are subscribers to avoid collecting the
-> required data when there aren't any. During this I noticed that the unbind
-> for multicast groups doesn't actually work - it's never called when sockets
-> are closed. Luckily, nobody actually uses the functionality.
+> In __bond_release_one(), when the interface is not a slave or not a slave of
+> "this" master, it log error message.
 > 
-> While looking at the code trying to find why it's not called and where the
-> multicast listeners are actually removed, I found the potential cleanup in
-> patch 3. Patch 2 also has a cleanup for a generic netlink API in this area.
+> The message actually should be a debug message matching what bond_enslave()
+> does.
+> 
+> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
 
-Series applied, using v2 of patch #5.
+Applied, thanks.
