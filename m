@@ -1,8 +1,9 @@
 From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH net v3 1/2] e100: Fix a null pointer deference
-	in e100_probe
-Date: Thu, 25 Dec 2014 10:02:35 +0800
-Message-ID: <1419472956-6270-1-git-send-email-baijiaju1990@163.com>
+Subject: [PATCH net v3 2/2] e100: Add netif_napi_del in the
+	driver
+Date: Thu, 25 Dec 2014 10:02:36 +0800
+Message-ID: <1419472956-6270-2-git-send-email-baijiaju1990@163.com>
+References: <1419472956-6270-1-git-send-email-baijiaju1990@163.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,6 +14,7 @@ To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
 	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
 	matthew.vick@intel.com, john.ronciak@intel.com, mitch.a.williams@intel.com
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1419472956-6270-1-git-send-email-baijiaju1990@163.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -23,40 +25,35 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The driver lacks the check of nic->cbs_pool after pci_pool_create
-in e100_probe. So when this function is failed, the null pointer
-dereference occurs when pci_pool_alloc uses nic->cbs_pool in e100_alloc_cbs.
+The driver lacks netif_napi_del in the normal path and error path to 
+match the call of netif_napi_add in e100_probe.
 This patch fixes this problem, and it has been tested on the hardware.
 
 Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
 ---
- drivers/net/ethernet/intel/e100.c |    6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/intel/e100.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
-index 781065e..ba1813f 100644
+index 781065e..21c4d0f 100644
 --- a/drivers/net/ethernet/intel/e100.c
 +++ b/drivers/net/ethernet/intel/e100.c
-@@ -2969,6 +2969,10 @@ static int e100_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 			   nic->params.cbs.max * sizeof(struct cb),
- 			   sizeof(u32),
- 			   0);
-+	if (!nic->cbs_pool) {
-+		err = -ENOMEM;
-+		goto err_out_pool;
-+	}
- 	netif_info(nic, probe, nic->netdev,
- 		   "addr 0x%llx, irq %d, MAC addr %pM\n",
- 		   (unsigned long long)pci_resource_start(pdev, use_io ? 1 : 0),
-@@ -2976,6 +2980,8 @@ static int e100_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+@@ -2985,6 +2985,7 @@ err_out_free_res:
+ err_out_disable_pdev:
+ 	pci_disable_device(pdev);
+ err_out_free_dev:
++	netif_napi_del(&nic->napi);
+ 	free_netdev(netdev);
+ 	return err;
+ }
+@@ -2995,6 +2996,7 @@ static void e100_remove(struct pci_dev *pdev)
  
- 	return 0;
- 
-+err_out_pool:
-+	unregister_netdev(netdev);
- err_out_free:
- 	e100_free(nic);
- err_out_iounmap:
+ 	if (netdev) {
+ 		struct nic *nic = netdev_priv(netdev);
++		netif_napi_del(&nic->napi);
+ 		unregister_netdev(netdev);
+ 		e100_free(nic);
+ 		pci_iounmap(pdev, nic->csr);
 -- 
 1.7.9.5
 
