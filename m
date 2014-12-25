@@ -1,8 +1,8 @@
 From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH net v3 3/4] e1000e: Add netif_napi_del in the
-	driver
-Date: Thu, 25 Dec 2014 09:57:02 +0800
-Message-ID: <1419472623-6060-3-git-send-email-baijiaju1990@163.com>
+Subject: [PATCH net v3 4/4] e1000e: Add
+	pci_disable_pcie_error_reporting in error handling
+Date: Thu, 25 Dec 2014 09:57:03 +0800
+Message-ID: <1419472623-6060-4-git-send-email-baijiaju1990@163.com>
 References: <1419472623-6060-1-git-send-email-baijiaju1990@163.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,35 +25,27 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The driver lacks netif_napi_del in the normal path
-and error path to match the call of netif_napi_add in e1000_probe.
+The driver lacks pci_disable_pcie_error_reporting in error handling,
+which should match pci_enable_pcie_error_reporting in e1000_probe.
 This patch fixes this problem, and it has been tested on the hardware.
 
 Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c |    2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/intel/e1000e/netdev.c |    1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 247335d..c5f0afc 100644
+index 247335d..098c3c2 100644
 --- a/drivers/net/ethernet/intel/e1000e/netdev.c
 +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -7045,6 +7045,7 @@ err_hw_init:
- 	kfree(adapter->tx_ring);
- 	kfree(adapter->rx_ring);
- err_sw_init:
-+	netif_napi_del(&adapter->napi);
- 	if (adapter->hw.flash_address)
- 		iounmap(adapter->hw.flash_address);
- 	e1000e_reset_interrupt_capability(adapter);
-@@ -7103,6 +7104,7 @@ static void e1000_remove(struct pci_dev *pdev)
- 	/* Don't lie to e1000_close() down the road. */
- 	if (!down)
- 		clear_bit(__E1000_DOWN, &adapter->state);
-+	netif_napi_del(&adapter->napi);
- 	unregister_netdev(netdev);
- 
- 	if (pci_dev_run_wake(pdev))
+@@ -7053,6 +7053,7 @@ err_flashmap:
+ err_ioremap:
+ 	free_netdev(netdev);
+ err_alloc_etherdev:
++	pci_disable_pcie_error_reporting(pdev);
+ 	pci_release_selected_regions(pdev,
+ 				     pci_select_bars(pdev, IORESOURCE_MEM));
+ err_pci_reg:
 -- 
 1.7.9.5
 
