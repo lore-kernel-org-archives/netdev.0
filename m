@@ -1,70 +1,37 @@
-From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: Re: [PATCH v2 1/4] can: kvaser_usb: Don't free packets when tight on
- URBs
-Date: Thu, 25 Dec 2014 11:38:58 +0200
-Message-ID: <20141225093858.GA26583@vivalin-002>
-References: <20141223154654.GB6460@vivalin-002>
- <20141224235644.GA3778@vivalin-002>
- <20141225025011.GA10491@kroah.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Linux-stable <stable@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141225025011.GA10491@kroah.com>
-Sender: linux-can-owner@vger.kernel.org
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] tipc: replace 0 by NULL for pointers
+Date: Thu, 25 Dec 2014 12:05:50 +0100
+Message-ID: <1419505550-17336-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	Jon Maloy <jon.maloy@ericsson.com>,
+	Allan Stephens <allan.stephens@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 24, 2014 at 06:50:11PM -0800, Greg KH wrote:
-> On Thu, Dec 25, 2014 at 01:56:44AM +0200, Ahmed S. Darwish wrote:
-> > From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
-> > 
-  > > Flooding the Kvaser CAN to USB dongle with multiple reads and
-> > writes in high frequency caused seemingly-random panics in the
-> > kernel.
-> > 
-> > On further inspection, it seems the driver erroneously freed the
-> > to-be-transmitted packet upon getting tight on URBs and returning
-> > NETDEV_TX_BUSY, leading to invalid memory writes and double frees
-> > at a later point in time.
-> > 
-> > Note:
-> > 
-> > Finding no more URBs/transmit-contexts and returning NETDEV_TX_BUSY
-> > is a driver bug in and out of itself: it means that our start/stop
-> > queue flow control is broken.
-> > 
-> > This patch only fixes the (buggy) error handling code; the root
-> > cause shall be fixed in a later commit.
-> > 
-> > Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
-> > ---
-> >  drivers/net/can/usb/kvaser_usb.c | 12 ++++++------
-> >  1 file changed, 6 insertions(+), 6 deletions(-)
-> > 
-> >  (Marc, Greg, I believe this should also be added to -stable?)
-> 
-> 
-> <formletter>
-> 
-> This is not the correct way to submit patches for inclusion in the
-> stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
-> for how to do this properly.
-> 
-> </formletter>
+Fix sparse warning:
+net/tipc/link.c:1924:40: warning: Using plain integer as NULL pointer
 
-<msg-response>
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ net/tipc/link.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Note taken. Sorry about that ;-)
-
-</msg-response>
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 23bcc11..082c3b5 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1921,7 +1921,7 @@ static struct tipc_node *tipc_link_find_owner(const char *link_name,
+ {
+ 	struct tipc_link *l_ptr;
+ 	struct tipc_node *n_ptr;
+-	struct tipc_node *found_node = 0;
++	struct tipc_node *found_node = NULL;
+ 	int i;
+ 
+ 	*bearer_id = 0;
+-- 
+1.9.1
