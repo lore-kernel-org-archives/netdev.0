@@ -1,11 +1,10 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 24/27] orinoco_usb: Use setup_timer
-Date: Fri, 26 Dec 2014 15:35:55 +0100
-Message-ID: <1419604558-29743-25-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 11/27] ksz884x: Use setup_timer
+Date: Fri, 26 Dec 2014 15:35:42 +0100
+Message-ID: <1419604558-29743-12-git-send-email-Julia.Lawall@lip6.fr>
 References: <1419604558-29743-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1419604558-29743-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -31,21 +30,21 @@ expression t,f,d;
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- drivers/net/wireless/orinoco/orinoco_usb.c |    4 +---
+ drivers/net/ethernet/micrel/ksz884x.c |    4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/wireless/orinoco/orinoco_usb.c b/drivers/net/wireless/orinoco/orinoco_usb.c
-index 9958464..61612a6 100644
---- a/drivers/net/wireless/orinoco/orinoco_usb.c
-+++ b/drivers/net/wireless/orinoco/orinoco_usb.c
-@@ -364,9 +364,7 @@ static struct request_context *ezusb_alloc_ctx(struct ezusb_priv *upriv,
- 	atomic_set(&ctx->refcount, 1);
- 	init_completion(&ctx->done);
- 
--	init_timer(&ctx->timer);
--	ctx->timer.function = ezusb_request_timerfn;
--	ctx->timer.data = (u_long) ctx;
-+	setup_timer(&ctx->timer, ezusb_request_timerfn, (u_long)ctx);
- 	return ctx;
+diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
+index f1ebed6..d484f59 100644
+--- a/drivers/net/ethernet/micrel/ksz884x.c
++++ b/drivers/net/ethernet/micrel/ksz884x.c
+@@ -4348,9 +4348,7 @@ static void ksz_init_timer(struct ksz_timer_info *info, int period,
+ {
+ 	info->max = 0;
+ 	info->period = period;
+-	init_timer(&info->timer);
+-	info->timer.function = function;
+-	info->timer.data = (unsigned long) data;
++	setup_timer(&info->timer, function, (unsigned long)data);
  }
  
+ static void ksz_update_timer(struct ksz_timer_info *info)
