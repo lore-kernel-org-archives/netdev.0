@@ -1,41 +1,29 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] man ip-link: Small example of 'ip link show master'
-Date: Fri, 26 Dec 2014 04:46:20 +0200
-Message-ID: <1419561980-10914-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:35635 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751211AbaLZC4a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2014 21:56:30 -0500
-Received: by mail-lb0-f177.google.com with SMTP id b6so8133089lbj.36
-        for <netdev@vger.kernel.org>; Thu, 25 Dec 2014 18:56:28 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alex Gartrell <agartrell@fb.com>
+Subject: [PATCH net-next 0/2] tun: support socket system calls
+Date: Thu, 25 Dec 2014 22:50:22 -0800
+Message-ID: <1419576624-8999-1-git-send-email-agartrell@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<kernel-team@fb.com>, Alex Gartrell <agartrell@fb.com>
+To: <davem@davemloft.net>, <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vadim Kochan <vadim4j@gmail.com>
+There is an underlying socket object in struct tun that isn't accessible,
+so if you try to do a recvmmsg on a tun file descriptor you'll get an
+error. This small patchset allows external file objects to claim socket
+status and enables it for tun_files.
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- man/man8/ip-link.8.in | 5 +++++
- 1 file changed, 5 insertions(+)
+Alex Gartrell (2):
+  socket: Allow external sockets to use socket syscalls
+  tun: enable socket system calls
 
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 5134e28..1209b55 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -739,6 +739,11 @@ ip link show type vlan
- Shows the vlan devices.
- .RE
- .PP
-+ip link show master br0
-+.RS 4
-+Shows devices enslaved by br0
-+.RE
-+.PP
- ip link set dev ppp0 mtu 1400
- .RS 4
- Change the MTU the ppp0 device.
+ drivers/net/tun.c  | 34 ++++++++++++++++++++++------------
+ include/linux/fs.h |  2 +-
+ net/socket.c       |  3 ++-
+ 3 files changed, 25 insertions(+), 14 deletions(-)
+
 -- 
-2.1.3
+Alex Gartrell <agartrell@fb.com>
