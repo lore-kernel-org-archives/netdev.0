@@ -1,12 +1,15 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 15/27] net: sxgbe: Use setup_timer
-Date: Fri, 26 Dec 2014 15:35:46 +0100
-Message-ID: <1419604558-29743-16-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 13/27] iwlwifi: dvm: tt: Use setup_timer
+Date: Fri, 26 Dec 2014 15:35:43 +0100
+Message-ID: <1419604558-29743-13-git-send-email-Julia.Lawall@lip6.fr>
 References: <1419604558-29743-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, Girish K S <ks.giri@samsung.com>,
-	Vipul Pandya <vipul.pandya@samsung.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Byungho An <bh74.an@samsung.com>
+Cc: kernel-janitors@vger.kernel.org,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes.berg@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1419604558-29743-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -25,42 +28,37 @@ expression t,f,d;
 
 -init_timer(&t);
 +setup_timer(&t,f,d);
--t.function = f;
 -t.data = d;
+-t.function = f;
 // </smpl>
 
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c |   10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+ drivers/net/wireless/iwlwifi/dvm/tt.c |   13 ++++---------
+ 1 file changed, 4 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-index 6984944..b6612d6 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-@@ -133,9 +133,8 @@ bool sxgbe_eee_init(struct sxgbe_priv_data * const priv)
- 			return false;
+diff --git a/drivers/net/wireless/iwlwifi/dvm/tt.c b/drivers/net/wireless/iwlwifi/dvm/tt.c
+index acb981a..c4736c8 100644
+--- a/drivers/net/wireless/iwlwifi/dvm/tt.c
++++ b/drivers/net/wireless/iwlwifi/dvm/tt.c
+@@ -612,15 +612,10 @@ void iwl_tt_initialize(struct iwl_priv *priv)
+ 	memset(tt, 0, sizeof(struct iwl_tt_mgmt));
  
- 		priv->eee_active = 1;
--		init_timer(&priv->eee_ctrl_timer);
--		priv->eee_ctrl_timer.function = sxgbe_eee_ctrl_timer;
--		priv->eee_ctrl_timer.data = (unsigned long)priv;
-+		setup_timer(&priv->eee_ctrl_timer, sxgbe_eee_ctrl_timer,
-+			    (unsigned long)priv);
- 		priv->eee_ctrl_timer.expires = SXGBE_LPI_TIMER(eee_timer);
- 		add_timer(&priv->eee_ctrl_timer);
- 
-@@ -1009,10 +1008,9 @@ static void sxgbe_tx_init_coalesce(struct sxgbe_priv_data *priv)
- 		struct sxgbe_tx_queue *p = priv->txq[queue_num];
- 		p->tx_coal_frames =  SXGBE_TX_FRAMES;
- 		p->tx_coal_timer = SXGBE_COAL_TX_TIMER;
--		init_timer(&p->txtimer);
-+		setup_timer(&p->txtimer, sxgbe_tx_timer,
-+			    (unsigned long)&priv->txq[queue_num]);
- 		p->txtimer.expires = SXGBE_COAL_TIMER(p->tx_coal_timer);
--		p->txtimer.data = (unsigned long)&priv->txq[queue_num];
--		p->txtimer.function = sxgbe_tx_timer;
- 		add_timer(&p->txtimer);
- 	}
- }
+ 	tt->state = IWL_TI_0;
+-	init_timer(&priv->thermal_throttle.ct_kill_exit_tm);
+-	priv->thermal_throttle.ct_kill_exit_tm.data = (unsigned long)priv;
+-	priv->thermal_throttle.ct_kill_exit_tm.function =
+-		iwl_tt_check_exit_ct_kill;
+-	init_timer(&priv->thermal_throttle.ct_kill_waiting_tm);
+-	priv->thermal_throttle.ct_kill_waiting_tm.data =
+-		(unsigned long)priv;
+-	priv->thermal_throttle.ct_kill_waiting_tm.function =
+-		iwl_tt_ready_for_ct_kill;
++	setup_timer(&priv->thermal_throttle.ct_kill_exit_tm,
++		    iwl_tt_check_exit_ct_kill, (unsigned long)priv);
++	setup_timer(&priv->thermal_throttle.ct_kill_waiting_tm,
++		    iwl_tt_ready_for_ct_kill, (unsigned long)priv);
+ 	/* setup deferred ct kill work */
+ 	INIT_WORK(&priv->tt_work, iwl_bg_tt_work);
+ 	INIT_WORK(&priv->ct_enter, iwl_bg_ct_enter);
