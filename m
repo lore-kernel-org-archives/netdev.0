@@ -1,7 +1,7 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 25/27] mwifiex: tdls: Use setup_timer
-Date: Fri, 26 Dec 2014 15:35:58 +0100
-Message-ID: <1419604558-29743-28-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 26/27] mwifiex: 11n_rxreorder: Use setup_timer
+Date: Fri, 26 Dec 2014 15:35:57 +0100
+Message-ID: <1419604558-29743-27-git-send-email-Julia.Lawall@lip6.fr>
 References: <1419604558-29743-1-git-send-email-Julia.Lawall@lip6.fr>
 Cc: kernel-janitors@vger.kernel.org,
 	Avinash Patil <patila@marvell.com>,
@@ -9,9 +9,9 @@ Cc: kernel-janitors@vger.kernel.org,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Amitkumar Karwar <akarwar@marvell.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 In-Reply-To: <1419604558-29743-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Convert a call to init_timer and accompanying intializations of
@@ -34,22 +34,24 @@ expression t,f,d;
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- drivers/net/wireless/mwifiex/tdls.c |    5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/wireless/mwifiex/11n_rxreorder.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/wireless/mwifiex/tdls.c b/drivers/net/wireless/mwifiex/tdls.c
-index 22884b4..5a64681 100644
---- a/drivers/net/wireless/mwifiex/tdls.c
-+++ b/drivers/net/wireless/mwifiex/tdls.c
-@@ -1367,9 +1367,8 @@ void mwifiex_check_auto_tdls(unsigned long context)
+diff --git a/drivers/net/wireless/mwifiex/11n_rxreorder.c b/drivers/net/wireless/mwifiex/11n_rxreorder.c
+index d73fda3..f33dc81 100644
+--- a/drivers/net/wireless/mwifiex/11n_rxreorder.c
++++ b/drivers/net/wireless/mwifiex/11n_rxreorder.c
+@@ -391,10 +391,8 @@ mwifiex_11n_create_rx_reorder_tbl(struct mwifiex_private *priv, u8 *ta,
+ 	new_node->timer_context.priv = priv;
+ 	new_node->timer_context.timer_is_set = false;
  
- void mwifiex_setup_auto_tdls_timer(struct mwifiex_private *priv)
- {
--	init_timer(&priv->auto_tdls_timer);
--	priv->auto_tdls_timer.function = mwifiex_check_auto_tdls;
--	priv->auto_tdls_timer.data = (unsigned long)priv;
-+	setup_timer(&priv->auto_tdls_timer, mwifiex_check_auto_tdls,
-+		    (unsigned long)priv);
- 	priv->auto_tdls_timer_active = true;
- 	mod_timer(&priv->auto_tdls_timer,
- 		  jiffies + msecs_to_jiffies(MWIFIEX_TIMER_10S));
+-	init_timer(&new_node->timer_context.timer);
+-	new_node->timer_context.timer.function = mwifiex_flush_data;
+-	new_node->timer_context.timer.data =
+-			(unsigned long) &new_node->timer_context;
++	setup_timer(&new_node->timer_context.timer, mwifiex_flush_data,
++		    (unsigned long)&new_node->timer_context);
+ 
+ 	for (i = 0; i < win_size; ++i)
+ 		new_node->rx_reorder_ptr[i] = NULL;
+
