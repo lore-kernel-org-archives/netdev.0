@@ -1,53 +1,215 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 6/27] cw1200: queue: Use setup_timer
-Date: Fri, 26 Dec 2014 15:35:39 +0100
-Message-ID: <1419604558-29743-9-git-send-email-Julia.Lawall@lip6.fr>
-References: <1419604558-29743-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Solomon Peachy <pizza@shaftnet.org>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <1419604558-29743-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: kernel-janitors-owner@vger.kernel.org
+Subject: [PATCH 0/27] Use setup_timer
+Date: Fri, 26 Dec 2014 15:35:31 +0100
+Message-ID: <1419604558-29743-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-media@vger.kernel.org, linux-usb@vger.kernel.org
+To: wil6210@qca.qualcomm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Convert a call to init_timer and accompanying intializations of
-the timer's data and function fields to a call to setup_timer.
+These patches group a call to init_timer and initialization of the function
+and data fields into a call to setup_timer.  Is there is no initialization
+of the data field before add_timer is called, the the data value is set to
+0UL.  If the data value has a cast to something other than unsigned long,
+it is changes to a cast to unsigned long, which is the type of the data
+field.
 
-A simplified version of the semantic match that fixes this problem is as
-follows: (http://coccinelle.lip6.fr/)
+The semantic patch that performs this change is shown below
+(http://coccinelle.lip6.fr/).  This semantic patch is fairly restrictive on
+what appears between the init_timer call and the two field initializations,
+to ensure that the there is no code that the initializations depend on.
 
 // <smpl>
 @@
-expression t,f,d;
+expression t,d,f,e1,e2;
+identifier x1,x2;
+statement S1,S2;
 @@
 
+(
+-t.data = d;
+|
+-t.function = f;
+|
 -init_timer(&t);
 +setup_timer(&t,f,d);
+|
+-init_timer_on_stack(&t);
++setup_timer_on_stack(&t,f,d);
+)
+<... when != S1
+t.x1 = e1;
+...>
+(
 -t.data = d;
+|
 -t.function = f;
+|
+-init_timer(&t);
++setup_timer(&t,f,d);
+|
+-init_timer_on_stack(&t);
++setup_timer_on_stack(&t,f,d);
+)
+<... when != S2
+t.x2 = e2;
+...>
+(
+-t.data = d;
+|
+-t.function = f;
+|
+-init_timer(&t);
++setup_timer(&t,f,d);
+|
+-init_timer_on_stack(&t);
++setup_timer_on_stack(&t,f,d);
+)
+
+// ----------------------
+
+@@
+expression t,d,f,e1,e2;
+identifier x1,x2;
+statement S1,S2;
+@@
+
+(
+-t->data = d;
+|
+-t->function = f;
+|
+-init_timer(t);
++setup_timer(t,f,d);
+|
+-init_timer_on_stack(t);
++setup_timer_on_stack(t,f,d);
+)
+<... when != S1
+t->x1 = e1;
+...>
+(
+-t->data = d;
+|
+-t->function = f;
+|
+-init_timer(t);
++setup_timer(t,f,d);
+|
+-init_timer_on_stack(t);
++setup_timer_on_stack(t,f,d);
+)
+<... when != S2
+t->x2 = e2;
+...>
+(
+-t->data = d;
+|
+-t->function = f;
+|
+-init_timer(t);
++setup_timer(t,f,d);
+|
+-init_timer_on_stack(t);
++setup_timer_on_stack(t,f,d);
+)
+
+// ---------------------------------------------------------------------
+// no initialization of data field
+
+@@
+expression t,d1,d2,f;
+@@
+
+(
+-init_timer(&t);
++setup_timer(&t,f,0UL);
+|
+-init_timer_on_stack(&t);
++setup_timer_on_stack(&t,f,0UL);
+)
+... when != t.data = d1;
+-t.function = f;
+... when != t.data = d2;
+add_timer(&t);
+
+@@
+expression t,d,f,fn;
+type T;
+@@
+
+-t.function = f;
+... when != t.data
+    when != fn(...,(T)t,...)
+(
+-init_timer(&t);
++setup_timer(&t,f,d);
+|
+-init_timer_on_stack(&t);
++setup_timer_on_stack(&t,f,0UL);
+)
+... when != t.data = d;
+add_timer(&t);
+
+// ----------------------
+
+@@
+expression t,d1,d2,f;
+@@
+
+(
+-init_timer(t);
++setup_timer(t,f,0UL);
+|
+-init_timer_on_stack(t);
++setup_timer_on_stack(t,f,0UL);
+)
+... when != t->data = d1;
+-t->function = f;
+... when != t->data = d2;
+add_timer(t);
+
+@@
+expression t,d,f,fn;
+type T;
+@@
+
+-t->function = f;
+... when != t.data
+    when != fn(...,(T)t,...)
+(
+-init_timer(t);
++setup_timer(t,f,d);
+|
+-init_timer_on_stack(t);
++setup_timer_on_stack(t,f,0UL);
+)
+... when != t->data = d;
+add_timer(t);
+
+// ---------------------------------------------------------------------
+// change data field type
+
+@@
+expression d;
+type T;
+@@
+
+(
+setup_timer
+|
+setup_timer_on_stack
+)
+ (...,
+(
+  (unsigned long)d
+|
+- (T)
++ (unsigned long)
+  d
+)
+ )
 // </smpl>
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
- drivers/net/wireless/cw1200/queue.c |    4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/drivers/net/wireless/cw1200/queue.c b/drivers/net/wireless/cw1200/queue.c
-index 9c3925f..0ba5ef9 100644
---- a/drivers/net/wireless/cw1200/queue.c
-+++ b/drivers/net/wireless/cw1200/queue.c
-@@ -179,9 +179,7 @@ int cw1200_queue_init(struct cw1200_queue *queue,
- 	INIT_LIST_HEAD(&queue->pending);
- 	INIT_LIST_HEAD(&queue->free_pool);
- 	spin_lock_init(&queue->lock);
--	init_timer(&queue->gc);
--	queue->gc.data = (unsigned long)queue;
--	queue->gc.function = cw1200_queue_gc;
-+	setup_timer(&queue->gc, cw1200_queue_gc, (unsigned long)queue);
- 
- 	queue->pool = kzalloc(sizeof(struct cw1200_queue_item) * capacity,
- 			GFP_KERNEL);
-
