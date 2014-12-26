@@ -1,18 +1,14 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 13/27] iwlwifi: dvm: tt: Use setup_timer
-Date: Fri, 26 Dec 2014 15:35:43 +0100
-Message-ID: <1419604558-29743-13-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 16/27] ath6kl: Use setup_timer
+Date: Fri, 26 Dec 2014 15:35:47 +0100
+Message-ID: <1419604558-29743-17-git-send-email-Julia.Lawall@lip6.fr>
 References: <1419604558-29743-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes.berg@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 In-Reply-To: <1419604558-29743-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Convert a call to init_timer and accompanying intializations of
@@ -28,37 +24,29 @@ expression t,f,d;
 
 -init_timer(&t);
 +setup_timer(&t,f,d);
--t.data = d;
 -t.function = f;
+-t.data = d;
 // </smpl>
 
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- drivers/net/wireless/iwlwifi/dvm/tt.c |   13 ++++---------
- 1 file changed, 4 insertions(+), 9 deletions(-)
+ drivers/net/wireless/ath/ath6kl/txrx.c |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/wireless/iwlwifi/dvm/tt.c b/drivers/net/wireless/iwlwifi/dvm/tt.c
-index acb981a..c4736c8 100644
---- a/drivers/net/wireless/iwlwifi/dvm/tt.c
-+++ b/drivers/net/wireless/iwlwifi/dvm/tt.c
-@@ -612,15 +612,10 @@ void iwl_tt_initialize(struct iwl_priv *priv)
- 	memset(tt, 0, sizeof(struct iwl_tt_mgmt));
+diff --git a/drivers/net/wireless/ath/ath6kl/txrx.c b/drivers/net/wireless/ath/ath6kl/txrx.c
+index 40432fe..3bc3aa7 100644
+--- a/drivers/net/wireless/ath/ath6kl/txrx.c
++++ b/drivers/net/wireless/ath/ath6kl/txrx.c
+@@ -1757,9 +1757,7 @@ void aggr_conn_init(struct ath6kl_vif *vif, struct aggr_info *aggr_info,
  
- 	tt->state = IWL_TI_0;
--	init_timer(&priv->thermal_throttle.ct_kill_exit_tm);
--	priv->thermal_throttle.ct_kill_exit_tm.data = (unsigned long)priv;
--	priv->thermal_throttle.ct_kill_exit_tm.function =
--		iwl_tt_check_exit_ct_kill;
--	init_timer(&priv->thermal_throttle.ct_kill_waiting_tm);
--	priv->thermal_throttle.ct_kill_waiting_tm.data =
--		(unsigned long)priv;
--	priv->thermal_throttle.ct_kill_waiting_tm.function =
--		iwl_tt_ready_for_ct_kill;
-+	setup_timer(&priv->thermal_throttle.ct_kill_exit_tm,
-+		    iwl_tt_check_exit_ct_kill, (unsigned long)priv);
-+	setup_timer(&priv->thermal_throttle.ct_kill_waiting_tm,
-+		    iwl_tt_ready_for_ct_kill, (unsigned long)priv);
- 	/* setup deferred ct kill work */
- 	INIT_WORK(&priv->tt_work, iwl_bg_tt_work);
- 	INIT_WORK(&priv->ct_enter, iwl_bg_ct_enter);
+ 	aggr_conn->aggr_sz = AGGR_SZ_DEFAULT;
+ 	aggr_conn->dev = vif->ndev;
+-	init_timer(&aggr_conn->timer);
+-	aggr_conn->timer.function = aggr_timeout;
+-	aggr_conn->timer.data = (unsigned long) aggr_conn;
++	setup_timer(&aggr_conn->timer, aggr_timeout, (unsigned long)aggr_conn);
+ 	aggr_conn->aggr_info = aggr_info;
+ 
+ 	aggr_conn->timer_scheduled = false;
+
