@@ -1,119 +1,327 @@
-From: Sedat Dilek <sedat.dilek@gmail.com>
-Subject: Re: net.git: Call-trace after "Merge branch 'netlink_multicast'"
-Date: Sat, 27 Dec 2014 11:46:01 +0100
-Message-ID: <CA+icZUWxGCmxbSi6wZvu9+khtxqiBbxB9XBk=H6rkdZ=c6+5TA@mail.gmail.com>
-References: <CA+icZUVqnoZx8NGOresRRcPnqoWBF9MKUXfLnFT6QDXsPNGxjg@mail.gmail.com>
-Reply-To: sedat.dilek@gmail.com
+From: Bruno =?UTF-8?B?UHLDqW1vbnQ=?= <bonbons@linux-vserver.org>
+Subject: Re: Marvell Kirkwood - MV643XX: near 100% UDP RX packet loss
+Date: Sat, 27 Dec 2014 12:17:27 +0100
+Message-ID: <20141227121727.20fe52c8@neptune.home>
+References: <20141224001844.15e13db8@neptune.home>
+	<549C878B.3030308@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Johannes Berg <johannes.berg@intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:54429 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750826AbaL0KqD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Dec 2014 05:46:03 -0500
-Received: by mail-wg0-f50.google.com with SMTP id a1so15837431wgh.9
-        for <netdev@vger.kernel.org>; Sat, 27 Dec 2014 02:46:01 -0800 (PST)
-In-Reply-To: <CA+icZUVqnoZx8NGOresRRcPnqoWBF9MKUXfLnFT6QDXsPNGxjg@mail.gmail.com>
+Received: from hygieia.santi-shop.eu ([78.46.175.2]:43410 "EHLO
+	hygieia.santi-shop.eu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750826AbaL0LRd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Dec 2014 06:17:33 -0500
+In-Reply-To: <549C878B.3030308@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 27, 2014 at 11:30 AM, Sedat Dilek <sedat.dilek@gmail.com> wrote:
-> Hi johill :-),
->
-> I am seeing here a call-trace after pulling net.git#master on top of upstream.
->
-> [   21.095849] ------------[ cut here ]------------
-> [   21.095862] WARNING: CPU: 1 PID: 1291 at
-> net/netlink/genetlink.c:1011 genl_bind+0xeb/0x100()
-> [   21.095864] Modules linked in: arc4 iwldvm snd_hda_codec_hdmi
-> uvcvideo snd_hda_codec_realtek mac80211 snd_hda_codec_generic
-> snd_hda_intel videobuf2_vmalloc snd_hda_controller videobuf2_memops
-> snd_hda_codec videobuf2_core bnep rfcomm v4l2_common joydev option
-> i915 usb_wwan videodev snd_hwdep cdc_ether usbserial snd_pcm usbnet
-> snd_seq_midi snd_seq_midi_event iwlwifi snd_rawmidi psmouse btusb
-> snd_seq i2c_algo_bit parport_pc snd_timer drm_kms_helper bluetooth
-> ppdev snd_seq_device serio_raw cfg80211 drm snd samsung_laptop lpc_ich
-> soundcore video wmi intel_rst mac_hid lp parport binfmt_misc
-> hid_generic usbhid hid usb_storage r8169 mii
-> [   21.095942] CPU: 1 PID: 1291 Comm: acpid Not tainted
-> 3.19.0-rc1-55.2-iniza-small #1
-> [   21.095945] Hardware name: SAMSUNG ELECTRONICS CO., LTD.
-> 530U3BI/530U4BI/530U4BH/530U3BI/530U4BI/530U4BH, BIOS 13XK 03/28/2013
-> [   21.095948]  ffffffff81ae3fda ffff8800b8877dc8 ffffffff8175b61c
-> 0000000000000000
-> [   21.095955]  0000000000000000 ffff8800b8877e08 ffffffff810753da
-> ffffffff82c82f40
-> [   21.095962]  0000000000000001 ffffffff82c82f40 0000000000000000
-> 0000000000000000
-> [   21.095967] Call Trace:
-> [   21.095976]  [<ffffffff8175b61c>] dump_stack+0x4c/0x65
-> [   21.095983]  [<ffffffff810753da>] warn_slowpath_common+0x8a/0xc0
-> [   21.095989]  [<ffffffff810754ca>] warn_slowpath_null+0x1a/0x20
-> [   21.095993]  [<ffffffff8169738b>] genl_bind+0xeb/0x100
-> [   21.095998]  [<ffffffff81695d97>] netlink_bind+0xb7/0x280
-> [   21.096004]  [<ffffffff811add89>] ? might_fault+0xb9/0xc0
-> [   21.096009]  [<ffffffff811add2e>] ? might_fault+0x5e/0xc0
-> [   21.096015]  [<ffffffff8164d038>] SYSC_bind+0xb8/0xf0
-> [   21.096021]  [<ffffffff810c2f0d>] ? trace_hardirqs_on+0xd/0x10
-> [   21.096027]  [<ffffffff81025ae5>] ? syscall_trace_enter_phase1+0x105/0x180
-> [   21.096033]  [<ffffffff813b4e1e>] ? trace_hardirqs_on_thunk+0x3a/0x3f
-> [   21.096038]  [<ffffffff8164e65e>] SyS_bind+0xe/0x10
-> [   21.096044]  [<ffffffff817654ed>] system_call_fastpath+0x16/0x1b
-> [   21.096047] ---[ end trace 7dceb0e985894682 ]---
->
-> My kernel-config, full dmesg and my patchset on top of Linux
-> v.3.19-rc1 are attached.
->
-> Please CC me if you need more informations.
->
+On Thu, 25 December 2014 Rick Jones <rick.jones2@hp.com> wrote:
+> > Why are so many packets being discarded?
+> 
+> You should also check the netstat statistics, particularly UDP on the 
+> receiving side.  Look before and after the test and see how they change, 
+> if at all.
 
-It looks like the WARN_ON() in commit "genetlink: pass multicast
-bind/unbind to families" [1] causes this...
+Here they go.
 
-[ dmesg ]
-...
-[   21.095862] WARNING: CPU: 1 PID: 1291 at
-net/netlink/genetlink.c:1011 genl_bind+0xeb/0x100()
+Summary of numbers:
+iperf UDP run, 5 seconds @ 1Gb/s
+ lost 71216/71776 packets
 
-[ patch ]
-...
-+static int genl_bind(int group)
-+{
-+ int i, err;
-+ bool found = false;
-+
-+ down_read(&cb_lock);
-+ for (i = 0; i < GENL_FAM_TAB_SIZE; i++) {
-+ struct genl_family *f;
-+
-+ list_for_each_entry(f, genl_family_chain(i), family_list) {
-+ if (group >= f->mcgrp_offset &&
-+ group < f->mcgrp_offset + f->n_mcgrps) {
-+ int fam_grp = group - f->mcgrp_offset;
-+
-+ if (f->mcast_bind)
-+ err = f->mcast_bind(fam_grp);
-+ else
-+ err = 0;
-+ found = true;
-+ break;
-+ }
-+ }
-+ }
-+ up_read(&cb_lock);
-+
-+ if (WARN_ON(!found)) <--- *** Line #1011 ***
-+ err = 0;
-+
-+ return err;
-+}
+                                  before      after      delta
+ethtool:
+ rx_packets:                      420001     688424     268423
+ rx_bytes:                     433251917  809803463  376551546
+ rx_errors:                            0          0          0
+ rx_dropped:                           0          0          0
+ bad_octets_received:                  0          0          0
+ bad_frames_received:                  0          0          0
+ rx_discard:                      159691     323123     163432
+ rx_overrun:                           0          0          0
+netstat, udp:
+ packets received                  15559      16137        578
+ packets to unknown port received     18         18          0
+ packet receive errors             41599      83890      42291
+ packets sent                      34697      34770         73
+ receive buffer errors                 0          0          0
+ send buffer errors                    0          0          0
 
-Hope this helps.
 
-Regards,
-- Sedat -
 
-[1] http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/net/netlink/genetlink.c?id=c380d9a7afff0e4c2e5f3c1c2dc7d2f4214dd962
+Details of numbers:
+
+ethtool -S eth0; netstat -ns; iperf3 -s -p 3740; netstat -ns; ethtool -S eth0                                                             
+NIC statistics:
+     rx_packets: 420001
+     tx_packets: 158940
+     rx_bytes: 433251917
+     tx_bytes: 51728533
+     rx_errors: 0
+     tx_errors: 0
+     rx_dropped: 0
+     tx_dropped: 0
+     good_octets_received: 652309262
+     bad_octets_received: 0
+     internal_mac_transmit_err: 0
+     good_frames_received: 579692
+     bad_frames_received: 0
+     broadcast_frames_received: 3916
+     multicast_frames_received: 4369
+     frames_64_octets: 14938
+     frames_65_to_127_octets: 133791
+     frames_128_to_255_octets: 106501
+     frames_256_to_511_octets: 2974
+     frames_512_to_1023_octets: 80262
+     frames_1024_to_max_octets: 400166
+     good_octets_sent: 52557543
+     good_frames_sent: 158940
+     excessive_collision: 0
+     multicast_frames_sent: 428
+     broadcast_frames_sent: 9352
+     unrec_mac_control_received: 0
+     fc_sent: 0
+     good_fc_received: 0
+     bad_fc_received: 0
+     undersize_received: 0
+     fragments_received: 0
+     oversize_received: 0
+     jabber_received: 0
+     mac_receive_error: 0
+     bad_crc_event: 0
+     collision: 0
+     late_collision: 0
+     rx_discard: 159691
+     rx_overrun: 0
+Ip:
+    416522 total packets received
+    8 with invalid addresses
+    0 forwarded
+    0 incoming packets discarded
+    193528 incoming packets delivered
+    164801 requests sent out
+    2 outgoing packets dropped
+    512 fragments dropped after timeout
+    265053 reassemblies required
+    42444 packets reassembled ok
+    3518 packet reassembles failed
+    2 fragments received ok
+    4 fragments created
+Icmp:
+    64870 ICMP messages received
+    1730 input ICMP message failed.
+    ICMP input histogram:
+        destination unreachable: 21090
+        echo requests: 4912
+        echo replies: 38868
+    70216 ICMP messages sent
+    0 ICMP messages failed
+    ICMP output histogram:
+        destination unreachable: 21090
+        time exceeded: 6
+        echo request: 44208
+        echo replies: 4912
+IcmpMsg:
+        InType0: 38868
+        InType3: 21090
+        InType8: 4912
+        OutType0: 4912
+        OutType3: 21090
+        OutType8: 44208
+        OutType11: 6
+Tcp:
+    7 active connections openings
+    4 passive connection openings
+    0 failed connection attempts
+    0 connection resets received
+    5 connections established
+    20099 segments received
+    20688 segments send out
+    0 segments retransmited
+    0 bad segments received.
+    0 resets sent
+Udp:
+    15559 packets received
+    18 packets to unknown port received.
+    41599 packet receive errors
+    34697 packets sent
+    0 receive buffer errors
+    0 send buffer errors
+UdpLite:
+TcpExt:
+    4 TCP sockets finished time wait in fast timer
+    7 delayed acks sent
+    5 delayed acks further delayed because of locked socket
+    3 packets directly queued to recvmsg prequeue.
+    254 bytes directly received in process context from prequeue
+    7990 packet headers predicted
+    3 packets header predicted and directly queued to user
+    301 acknowledgments not containing data payload received
+    10132 predicted acknowledgments
+    TCPRcvCoalesce: 7843
+    TCPOrigDataSent: 11810
+IpExt:
+    InMcastPkts: 78
+    InBcastPkts: 303
+    InOctets: 421982031
+    OutOctets: 20785506
+    InMcastOctets: 2184
+    InBcastOctets: 43372
+    InNoECTPkts: 416523
+-----------------------------------------------------------
+Server listening on 3740
+-----------------------------------------------------------
+Accepted connection from 192.168.0.139, port 36178
+[  5] local 192.168.0.70 port 3740 connected to 192.168.0.139 port 55831
+[ ID] Interval           Transfer     Bandwidth       Jitter    Lost/Total Datagrams
+[  5]   0.00-1.02   sec   736 KBytes  5.93 Mbits/sec  7.017 ms  11481/11573 (99%)  
+[  5]   1.02-2.02   sec   368 KBytes  3.01 Mbits/sec  9.887 ms  14867/14913 (1e+02%)  
+[  5]   2.02-3.02   sec   560 KBytes  4.59 Mbits/sec  5.791 ms  14528/14598 (1e+02%)  
+[  5]   3.02-4.02   sec   984 KBytes  8.06 Mbits/sec  7.613 ms  13972/14095 (99%)  
+[  5]   4.02-5.04   sec  1.66 MBytes  13.7 Mbits/sec  4.602 ms  15842/16055 (99%)  
+[  5]   5.04-5.25   sec   128 KBytes  4.80 Mbits/sec  3.809 ms  526/542 (97%)  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bandwidth       Jitter    Lost/Total Datagrams
+[  5]   0.00-5.25   sec   562 MBytes   897 Mbits/sec  3.809 ms  71216/71776 (99%)  
+-----------------------------------------------------------
+Server listening on 3740
+-----------------------------------------------------------
+^Ciperf3: interrupt - the server has terminated
+Ip:
+    684863 total packets received
+    8 with invalid addresses
+    0 forwarded
+    0 incoming packets discarded
+    236661 incoming packets delivered
+    165154 requests sent out
+    2 outgoing packets dropped
+    512 fragments dropped after timeout
+    533112 reassemblies required
+    85295 packets reassembled ok
+    6421 packet reassembles failed
+    2 fragments received ok
+    4 fragments created
+Icmp:
+    65021 ICMP messages received
+    1737 input ICMP message failed.
+    ICMP input histogram:
+        destination unreachable: 21144
+        echo requests: 4923
+        echo replies: 38954
+    70380 ICMP messages sent
+    0 ICMP messages failed
+    ICMP output histogram:
+        destination unreachable: 21144
+        time exceeded: 6
+        echo request: 44307
+        echo replies: 4923
+IcmpMsg:
+        InType0: 38954
+        InType3: 21144
+        InType8: 4923
+        OutType0: 4923
+        OutType3: 21144
+        OutType8: 44307
+        OutType11: 6
+Tcp:
+    7 active connections openings
+    5 passive connection openings
+    0 failed connection attempts
+    0 connection resets received
+    5 connections established
+    20203 segments received
+    20803 segments send out
+    0 segments retransmited
+    0 bad segments received.
+    0 resets sent
+Udp:
+    16137 packets received
+    18 packets to unknown port received.
+    83890 packet receive errors
+    34770 packets sent
+    0 receive buffer errors
+    0 send buffer errors
+UdpLite:
+TcpExt:
+    4 TCP sockets finished time wait in fast timer
+    9 delayed acks sent
+    5 delayed acks further delayed because of locked socket
+    6 packets directly queued to recvmsg prequeue.
+    510 bytes directly received in process context from prequeue
+    8008 packet headers predicted
+    6 packets header predicted and directly queued to user
+    304 acknowledgments not containing data payload received
+    10211 predicted acknowledgments
+    TCPRcvCoalesce: 7859
+    TCPOrigDataSent: 11904
+IpExt:
+    InMcastPkts: 78
+    InBcastPkts: 303
+    InOctets: 793681544
+    OutOctets: 20825320
+    InMcastOctets: 2184
+    InBcastOctets: 43372
+    InNoECTPkts: 684865
+NIC statistics:
+     rx_packets: 688424
+     tx_packets: 159342
+     rx_bytes: 809803463
+     tx_bytes: 51782065
+     rx_errors: 0
+     tx_errors: 0
+     rx_dropped: 0
+     tx_dropped: 0
+     good_octets_received: 1258435196
+     bad_octets_received: 0
+     internal_mac_transmit_err: 0
+     good_frames_received: 1011547
+     bad_frames_received: 0
+     broadcast_frames_received: 3926
+     multicast_frames_received: 4384
+     frames_64_octets: 14978
+     frames_65_to_127_octets: 134201
+     frames_128_to_255_octets: 106794
+     frames_256_to_511_octets: 3006
+     frames_512_to_1023_octets: 152189
+     frames_1024_to_max_octets: 759721
+     good_octets_sent: 52613183
+     good_frames_sent: 159342
+     excessive_collision: 0
+     multicast_frames_sent: 428
+     broadcast_frames_sent: 9378
+     unrec_mac_control_received: 0
+     fc_sent: 0
+     good_fc_received: 0
+     bad_fc_received: 0
+     undersize_received: 0
+     fragments_received: 0
+     oversize_received: 0
+     jabber_received: 0
+     mac_receive_error: 0
+     bad_crc_event: 0
+     collision: 0
+     late_collision: 0
+     rx_discard: 323123
+     rx_overrun: 0
+
+
+
+iperf on client side:
+iperf3 -p 3740 -t 5 -b 0 -u -4 -c sheevaplug
+Connecting to host sheevaplug, port 3740
+[  4] local 192.168.0.139 port 55831 connected to 192.168.0.70 port 3740
+[ ID] Interval           Transfer     Bandwidth       Total Datagrams
+[  4]   0.00-1.00   sec   114 MBytes   959 Mbits/sec  14630  
+[  4]   1.00-2.00   sec   114 MBytes   959 Mbits/sec  14630  
+[  4]   2.00-3.00   sec   114 MBytes   954 Mbits/sec  14560  
+[  4]   3.00-4.00   sec   110 MBytes   926 Mbits/sec  14130  
+[  4]   4.00-5.00   sec   109 MBytes   915 Mbits/sec  13960  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bandwidth       Jitter    Lost/Total Datagrams
+[  4]   0.00-5.00   sec   562 MBytes   943 Mbits/sec  3.809 ms  71216/71776 (99%)  
+[  4] Sent 71776 datagrams
+
+iperf Done.
