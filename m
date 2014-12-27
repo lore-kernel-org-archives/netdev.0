@@ -1,45 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlink/genetlink: pass network namespace to
- bind/unbind
-Date: Sat, 27 Dec 2014 03:08:05 -0500 (EST)
-Message-ID: <20141227.030805.2148263042773135498.davem@davemloft.net>
-References: <1419364806-8753-1-git-send-email-johannes@sipsolutions.net>
+From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+Subject: Re: [PATCH 12/27] iwlwifi: dvm: main: Use setup_timer
+Date: Sat, 27 Dec 2014 19:55:21 +0000
+Message-ID: <1419710121.6140.0.camel@egrumbacBox>
+References: <1419604558-29743-1-git-send-email-Julia.Lawall@lip6.fr>
+	 <1419604558-29743-14-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, johannes.berg@intel.com
-To: johannes@sipsolutions.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50393 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751079AbaL0Siq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Dec 2014 13:38:46 -0500
-In-Reply-To: <1419364806-8753-1-git-send-email-johannes@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ilw@linux.intel.com" <ilw@linux.intel.com>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: "Julia.Lawall@lip6.fr" <Julia.Lawall@lip6.fr>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1419604558-29743-14-git-send-email-Julia.Lawall@lip6.fr>
+Content-Language: en-US
+Content-ID: <6429DB7FDB9FEA4FBEDA201ED9B82ADC@intel.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Tue, 23 Dec 2014 21:00:06 +0100
-
-> From: Johannes Berg <johannes.berg@intel.com>
-> 
-> Netlink families can exist in multiple namespaces, and for the most
-> part multicast subscriptions are per network namespace. Thus it only
-> makes sense to have bind/unbind notifications per network namespace.
-> 
-> To achieve this, pass the network namespace of a given client socket
-> to the bind/unbind functions.
-> 
-> Also do this in generic netlink, and there also make sure that any
-> bind for multicast groups that only exist in init_net is rejected.
-> This isn't really a problem if it is accepted since a client in a
-> different namespace will never receive any notifications from such
-> a group, but it can confuse the family if not rejected (it's also
-> possible to silently (without telling the family) accept it, but it
-> would also have to be ignored on unbind so families that take any
-> kind of action on bind/unbind won't do unnecessary work for invalid
-> clients like that.
-> 
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
-
-Applied, thanks Johannes.
+T24gRnJpLCAyMDE0LTEyLTI2IGF0IDE1OjM1ICswMTAwLCBKdWxpYSBMYXdhbGwgd3JvdGU6DQo+
+IENvbnZlcnQgYSBjYWxsIHRvIGluaXRfdGltZXIgYW5kIGFjY29tcGFueWluZyBpbnRpYWxpemF0
+aW9ucyBvZg0KPiB0aGUgdGltZXIncyBkYXRhIGFuZCBmdW5jdGlvbiBmaWVsZHMgdG8gYSBjYWxs
+IHRvIHNldHVwX3RpbWVyLg0KPiANCj4gQSBzaW1wbGlmaWVkIHZlcnNpb24gb2YgdGhlIHNlbWFu
+dGljIG1hdGNoIHRoYXQgZml4ZXMgdGhpcyBwcm9ibGVtIGlzIGFzDQo+IGZvbGxvd3M6IChodHRw
+Oi8vY29jY2luZWxsZS5saXA2LmZyLykNCj4gDQo+IC8vIDxzbXBsPg0KPiBAQA0KPiBleHByZXNz
+aW9uIHQsZixkOw0KPiBAQA0KPiANCj4gLWluaXRfdGltZXIoJnQpOw0KPiArc2V0dXBfdGltZXIo
+JnQsZixkKTsNCj4gLXQuZGF0YSA9IGQ7DQo+IC10LmZ1bmN0aW9uID0gZjsNCj4gLy8gPC9zbXBs
+Pg0KPiANCj4gU2lnbmVkLW9mZi1ieTogSnVsaWEgTGF3YWxsIDxKdWxpYS5MYXdhbGxAbGlwNi5m
+cj4NCj4gDQoNCkJvdGggYXBwbGllZCAtIHRoYW5rcy4NCg==
