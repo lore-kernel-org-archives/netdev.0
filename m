@@ -1,52 +1,56 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH 23/23 V2 for 3.19]  rtlwifi: Fix error when accessing
- unmapped memory in skb
-Date: Sun, 28 Dec 2014 00:15:33 -0600
-Message-ID: <549FA005.7050802@lwfinger.net>
-References: <1419711457-21469-1-git-send-email-Larry.Finger@lwfinger.net> <87a928726w.fsf@kamboji.qca.qualcomm.com>
+From: Sedat Dilek <sedat.dilek@gmail.com>
+Subject: Re: net.git: Call-trace after "Merge branch 'netlink_multicast'"
+Date: Sun, 28 Dec 2014 07:22:15 +0100
+Message-ID: <CA+icZUWFq0FT5QQThKeeVw4=-41R7W0Q7zv53ZCY9=B6AJvf7w@mail.gmail.com>
+References: <CA+icZUVkNHBqCn66onJP9i5vfVzHR9mdSFXyiBFyjhkrySrSzQ@mail.gmail.com>
+Reply-To: sedat.dilek@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eric Biggers <ebiggers3-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87a928726w.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Fengguang Wu <fengguang.wu@intel.com>
+To: Johannes Berg <johannes.berg@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f43.google.com ([74.125.82.43]:54126 "EHLO
+	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751170AbaL1GWQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Dec 2014 01:22:16 -0500
+Received: by mail-wg0-f43.google.com with SMTP id l18so16775122wgh.30
+        for <netdev@vger.kernel.org>; Sat, 27 Dec 2014 22:22:15 -0800 (PST)
+In-Reply-To: <CA+icZUVkNHBqCn66onJP9i5vfVzHR9mdSFXyiBFyjhkrySrSzQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/27/2014 11:50 PM, Kalle Valo wrote:
-> Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> writes:
+On Sun, Dec 28, 2014 at 6:39 AM, Sedat Dilek <sedat.dilek@gmail.com> wrote:
+[ ... ]
+> [ CCing Fengguang Wu who reported the same issue on LKML (see [0]) ]
 >
->> These drivers use 9100-byte receive buffers, thus allocating an skb requires
->> an O(3) memory allocation. Under heavy memory loads and fragmentation, such
->> a request can fail. Previous versions of the driver have dropped the packet
->> and reused the old buffer; however, the new version introduced a bug in that
->> it released the old buffer before trying to allocate a new one. The previous
->> method is implemented here.
->>
->> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
->> Cc: Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>  [v3.18]
->> Reported-by: Eric Biggers <ebiggers3-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> Cc: Eric Biggers <ebiggers3-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> ---
->>
->> V2 - Fixes an error in the logic of V1. Realtek is working on a change to
->>       the RX buffer allocation, but that is likely to be too invasive for
->>       a fix to -rc or stable. In the meantime, this will help.
+> Was "netlink/genetlink: pass network namespace to bind/unbind" patch
+> [1] forgotten in this 'netlink_multicast' merge?
+
+OK, this patch is additional and on top of "[PATCH 0/5]
+netlink/genetlink cleanups & multicast improvements"
+
+- Sedat -
+
+[1] http://marc.info/?l=linux-netdev&w=2&r=1&s=netlink&q=b
+
+> I also tested with that patch on top of net.git#master.
+> The warning still remains.
 >
-> 23/23? Where are patches 1-22? I don't see them in patchwork:
+> I have #if 0-ed the WARN_ON() for now (see attached patch), this makes
+> the warning go away for me.
 >
-> https://patchwork.kernel.org/project/linux-wireless/list/
-
-Sorry. I forgot to edit the subject line. To get git to format that one patch, I 
-had to generate a total of 23. There is only 1 of 1 that will be submitted.
-
-Larry
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> BTW, I looked through the patches listed in [2] but this list seems to
+> be truncated.
+> Then I looked again at the linux-netdev ML where I found Johannes'
+> patch and Dave replied "Applied, thanks Johannes." (see thread in
+> [3]).
+> Forgot to push out?
+>
+> - Sedat -
+>
+> [0] http://marc.info/?l=linux-kernel&m=141972716410805&w=2
+> [1] http://patchwork.ozlabs.org/patch/423799/
+> [2] http://patchwork.ozlabs.org/project/netdev/list/
+> [3] http://marc.info/?t=141936487400002&r=1&w=2
