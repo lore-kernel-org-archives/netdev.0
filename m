@@ -1,81 +1,51 @@
-From: Beniamino Galvani <b.galvani@gmail.com>
-Subject: [PATCH net-next] net: stmmac: add BQL support
-Date: Sun, 28 Dec 2014 15:57:11 +0100
-Message-ID: <1419778631-23067-1-git-send-email-b.galvani@gmail.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Beniamino Galvani <b.galvani@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Praveen Madhavan <praveenm@chelsio.com>
+Subject: RE: [scsi/net-next]Pull csiostor from net-next
+Date: Sun, 28 Dec 2014 15:13:14 +0000
+Message-ID: <24C222ADD7729F4FB5113B41FF0028A1BCC18E@nice.asicdesigners.com>
+References: <24C222ADD7729F4FB5113B41FF0028A1BCB65F@nice.asicdesigners.com>
+ <20141227145956.GB1094@infradead.org>,<20141227150917.GA16964@infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "hch@infradead.org" <hch@infradead.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20141227150917.GA16964@infradead.org>
+Content-Language: en-US
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add support for Byte Queue Limits to the STMicro MAC driver.
+> How much do you plan to send for the 3.20 window?  I'd rather avoid
+> having to pull in the net-next tree and merge everything through Dave
+> if that seems feasible.
+I hv couple of patches fixes for 3.20 window. Can you please pull from linux-next tree ?
 
-Tested on a Amlogic S805 Cortex-A5 board, where the use of BQL
-slightly decreases the ping latency from ~10ms to ~3ms when the
-100Mbps link is saturated by TCP streams. No difference is
-observed at 1Gbps.
+________________________________________
+From: linux-scsi-owner@vger.kernel.org [linux-scsi-owner@vger.kernel.org] on behalf of hch@infradead.org [hch@infradead.org]
+Sent: Saturday, December 27, 2014 8:39 PM
+To: Praveen Madhavan
+Cc: linux-scsi@vger.kernel.org; netdev@vger.kernel.org
+Subject: Re: [scsi/net-next]Pull csiostor from net-next
 
-Signed-off-by: Beniamino Galvani <b.galvani@gmail.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+[fixing the netdev address]
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 118a427..c5af3d8 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1097,6 +1097,7 @@ static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
- 
- 	priv->dirty_tx = 0;
- 	priv->cur_tx = 0;
-+	netdev_reset_queue(priv->dev);
- 
- 	stmmac_clear_descriptors(priv);
- 
-@@ -1300,6 +1301,7 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
- static void stmmac_tx_clean(struct stmmac_priv *priv)
- {
- 	unsigned int txsize = priv->dma_tx_size;
-+	unsigned int bytes_compl = 0, pkts_compl = 0;
- 
- 	spin_lock(&priv->tx_lock);
- 
-@@ -1356,6 +1358,8 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
- 		priv->hw->mode->clean_desc3(priv, p);
- 
- 		if (likely(skb != NULL)) {
-+			pkts_compl++;
-+			bytes_compl += skb->len;
- 			dev_consume_skb_any(skb);
- 			priv->tx_skbuff[entry] = NULL;
- 		}
-@@ -1364,6 +1368,9 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
- 
- 		priv->dirty_tx++;
- 	}
-+
-+	netdev_completed_queue(priv->dev, pkts_compl, bytes_compl);
-+
- 	if (unlikely(netif_queue_stopped(priv->dev) &&
- 		     stmmac_tx_avail(priv) > STMMAC_TX_THRESH(priv))) {
- 		netif_tx_lock(priv->dev);
-@@ -1418,6 +1425,7 @@ static void stmmac_tx_err(struct stmmac_priv *priv)
- 						     (i == txsize - 1));
- 	priv->dirty_tx = 0;
- 	priv->cur_tx = 0;
-+	netdev_reset_queue(priv->dev);
- 	priv->hw->dma->start_tx(priv->ioaddr);
- 
- 	priv->dev->stats.tx_errors++;
-@@ -2049,6 +2057,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 		skb_tx_timestamp(skb);
- 
- 	priv->hw->dma->enable_dma_transmission(priv->ioaddr);
-+	netdev_sent_queue(dev, skb->len);
- 
- 	spin_unlock(&priv->tx_lock);
- 	return NETDEV_TX_OK;
--- 
-2.1.4
+On Sat, Dec 27, 2014 at 06:59:56AM -0800, hch@infradead.org wrote:
+> On Wed, Dec 24, 2014 at 05:51:27PM +0000, Praveen Madhavan wrote:
+> > Hi Christoph,
+> > Can u please pull the csiostor changes from net-next ?. I need these changes to submit next fixes in scsi tree.
+>
+> How much do you plan to send for the 3.20 window?  I'd rather avoid
+> having to pull in the net-next tree and merge everything through Dave
+> if that seems feasible.
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-scsi" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+---end quoted text---
+--
+To unsubscribe from this list: send the line "unsubscribe linux-scsi" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
