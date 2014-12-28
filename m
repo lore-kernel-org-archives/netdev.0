@@ -1,41 +1,65 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] ip: Small corrections of '-tshort' option in usage
-Date: Sun, 28 Dec 2014 11:47:43 +0200
-Message-ID: <1419760063-21814-1-git-send-email-vadim4j@gmail.com>
+Subject: [PATCH iproute2] man tc: Add description for -graph option
+Date: Sun, 28 Dec 2014 12:33:05 +0200
+Message-ID: <1419762785-27916-1-git-send-email-vadim4j@gmail.com>
 Cc: Vadim Kochan <vadim4j@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:51846 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751207AbaL1J54 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Dec 2014 04:57:56 -0500
-Received: by mail-wg0-f42.google.com with SMTP id k14so17146849wgh.29
-        for <netdev@vger.kernel.org>; Sun, 28 Dec 2014 01:57:55 -0800 (PST)
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:48763 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751295AbaL1KnR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Dec 2014 05:43:17 -0500
+Received: by mail-wg0-f49.google.com with SMTP id n12so16917208wgh.8
+        for <netdev@vger.kernel.org>; Sun, 28 Dec 2014 02:43:16 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vadim Kochan <vadim4j@gmail.com>
 
-Fixed -t[short] to -ts[hort] as '-t' is related to
--timestamp option.
-
 Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 ---
- ip/ip.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ man/man8/tc.8 | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
 
-diff --git a/ip/ip.c b/ip/ip.c
-index 61cc9c3..850a001 100644
---- a/ip/ip.c
-+++ b/ip/ip.c
-@@ -54,7 +54,7 @@ static void usage(void)
- "                    -f[amily] { inet | inet6 | ipx | dnet | bridge | link } |\n"
- "                    -4 | -6 | -I | -D | -B | -0 |\n"
- "                    -l[oops] { maximum-addr-flush-attempts } |\n"
--"                    -o[neline] | -t[imestamp] | -t[short] | -b[atch] [filename] |\n"
-+"                    -o[neline] | -t[imestamp] | -ts[hort] | -b[atch] [filename] |\n"
- "                    -rc[vbuf] [size] | -n[etns] name }\n");
- 	exit(-1);
- }
+diff --git a/man/man8/tc.8 b/man/man8/tc.8
+index d8f974f..a6aed0a 100644
+--- a/man/man8/tc.8
++++ b/man/man8/tc.8
+@@ -70,7 +70,8 @@ DEV
+ \fB\-d\fR[\fIetails\fR] |
+ \fB\-r\fR[\fIaw\fR] |
+ \fB\-p\fR[\fIretty\fR] |
+-\fB\-i\fR[\fIec\fR] }
++\fB\-i\fR[\fIec\fR] |
++\fB\-g\fR[\fIraph\fR] }
+ 
+ .SH DESCRIPTION
+ .B Tc
+@@ -475,6 +476,25 @@ decode filter offset and mask values to equivalent filter commands based on TCP/
+ .BR "\-iec"
+ print rates in IEC units (ie. 1K = 1024).
+ 
++.TP
++.BR "\-g", " \-graph"
++shows classes as ASCII graph. Prints generic stats info under each class if
++.BR "-s"
++option was specified. Classes can be filtered only by
++.BR "dev"
++option.
++
++.SH "EXAMPLES"
++.PP
++tc -g class show dev eth0
++.RS 4
++Shows classes as ASCII graph on eth0 interface.
++.RE
++.PP
++tc -g -s class show dev eth0
++.RS 4
++Shows classes as ASCII graph with stats info under each class.
++
+ .SH HISTORY
+ .B tc
+ was written by Alexey N. Kuznetsov and added in Linux 2.2.
 -- 
 2.1.3
