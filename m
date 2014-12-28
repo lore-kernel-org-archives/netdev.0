@@ -1,41 +1,41 @@
-From: Sedat Dilek <sedat.dilek@gmail.com>
-Subject: Re: net.git: Call-trace after "Merge branch 'netlink_multicast'"
-Date: Sun, 28 Dec 2014 10:39:04 +0100
-Message-ID: <CA+icZUWfwqS8KiaO9T_vsnbwC7q8Sez4uHA-ierix0iezXKZRg@mail.gmail.com>
-References: <CA+icZUVkNHBqCn66onJP9i5vfVzHR9mdSFXyiBFyjhkrySrSzQ@mail.gmail.com>
-	<CA+icZUWFq0FT5QQThKeeVw4=-41R7W0Q7zv53ZCY9=B6AJvf7w@mail.gmail.com>
-Reply-To: sedat.dilek@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Fengguang Wu <fengguang.wu@intel.com>
-To: Johannes Berg <johannes.berg@intel.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2] ip: Small corrections of '-tshort' option in usage
+Date: Sun, 28 Dec 2014 11:47:43 +0200
+Message-ID: <1419760063-21814-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:42064 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750795AbaL1JjG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Dec 2014 04:39:06 -0500
-Received: by mail-wi0-f174.google.com with SMTP id h11so19838170wiw.13
-        for <netdev@vger.kernel.org>; Sun, 28 Dec 2014 01:39:04 -0800 (PST)
-In-Reply-To: <CA+icZUWFq0FT5QQThKeeVw4=-41R7W0Q7zv53ZCY9=B6AJvf7w@mail.gmail.com>
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:51846 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751207AbaL1J54 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Dec 2014 04:57:56 -0500
+Received: by mail-wg0-f42.google.com with SMTP id k14so17146849wgh.29
+        for <netdev@vger.kernel.org>; Sun, 28 Dec 2014 01:57:55 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 28, 2014 at 7:22 AM, Sedat Dilek <sedat.dilek@gmail.com> wrote:
-> On Sun, Dec 28, 2014 at 6:39 AM, Sedat Dilek <sedat.dilek@gmail.com> wrote:
-> [ ... ]
->> [ CCing Fengguang Wu who reported the same issue on LKML (see [0]) ]
->>
->> Was "netlink/genetlink: pass network namespace to bind/unbind" patch
->> [1] forgotten in this 'netlink_multicast' merge?
->
-> OK, this patch is additional and on top of "[PATCH 0/5]
-> netlink/genetlink cleanups & multicast improvements"
->
+From: Vadim Kochan <vadim4j@gmail.com>
 
-Thanks, now I can see that patch in net.git#master.
+Fixed -t[short] to -ts[hort] as '-t' is related to
+-timestamp option.
 
-- Sedat -
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ ip/ip.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-[1] http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=023e2cfa36c31b0ad28c159a1bb0d61ff57334c8
+diff --git a/ip/ip.c b/ip/ip.c
+index 61cc9c3..850a001 100644
+--- a/ip/ip.c
++++ b/ip/ip.c
+@@ -54,7 +54,7 @@ static void usage(void)
+ "                    -f[amily] { inet | inet6 | ipx | dnet | bridge | link } |\n"
+ "                    -4 | -6 | -I | -D | -B | -0 |\n"
+ "                    -l[oops] { maximum-addr-flush-attempts } |\n"
+-"                    -o[neline] | -t[imestamp] | -t[short] | -b[atch] [filename] |\n"
++"                    -o[neline] | -t[imestamp] | -ts[hort] | -b[atch] [filename] |\n"
+ "                    -rc[vbuf] [size] | -n[etns] name }\n");
+ 	exit(-1);
+ }
+-- 
+2.1.3
