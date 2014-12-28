@@ -1,97 +1,58 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] man ss: Add state filter description
-Date: Sun, 28 Dec 2014 13:39:08 +0200
-Message-ID: <1419766748-4468-1-git-send-email-vadim4j@gmail.com>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: refactoring cdc_ncm
+Date: Sun, 28 Dec 2014 15:53:13 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1412281540440.18200@gmail.com>
+References: <AMSPR06MB6011E001029C251790CB923EE780@AMSPR06MB601.eurprd06.prod.outlook.com> <877fy7myfb.fsf@nemi.mork.no> <alpine.LNX.2.03.1412041326160.9926@gmail.com> <54811670.5030703@audiocodes.com> <8761dqjuuh.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=y
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:45971 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751249AbaL1LtU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Dec 2014 06:49:20 -0500
-Received: by mail-wg0-f48.google.com with SMTP id y19so17024632wgg.21
-        for <netdev@vger.kernel.org>; Sun, 28 Dec 2014 03:49:19 -0800 (PST)
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:45741 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751595AbaL1OxT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Dec 2014 09:53:19 -0500
+In-Reply-To: <8761dqjuuh.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Vadim Kochan <vadim4j@gmail.com>
+Hello everyone, hello Bjorn.
+Sorry for my prevous private mail, didn't think about it.
 
-Stolen from generated doc/ss.html
-Also added reference to RFC 739 for TCP states.
+So I was wondering how it could be possible to refactor the cdc_ncm.c driver to 
+queue frames and only when enough data was collected, generate a full NCM 
+packet.
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- man/man8/ss.8 | 41 +++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 39 insertions(+), 2 deletions(-)
+so I am trying to get clear what's the way to go.
+My idea was to try to not change the layout of the code so much: I would like 
+not breaking cdc_mbim.c and other code sharing some of these functions, so all 
+of the work would be done in the cdc_ncm_fill_tx_frame function.
 
-diff --git a/man/man8/ss.8 b/man/man8/ss.8
-index 2a4bbc5..f4b709b 100644
---- a/man/man8/ss.8
-+++ b/man/man8/ss.8
-@@ -127,8 +127,41 @@ Do not display anything, just dump raw information=
- about TCP sockets to FILE aft
- Read filter information from FILE.
- Each line of FILE is interpreted like single command line option. If F=
-ILE is - stdin is used.
- .TP
--.B FILTER :=3D [ state TCP-STATE ] [ EXPRESSION ]
-+.B FILTER :=3D [ state STATE-FILTER ] [ EXPRESSION ]
- Please take a look at the official documentation (Debian package iprou=
-te-doc) for details regarding filters.
-+
-+.SH STATE-FILTER
-+
-+.B STATE-FILTER
-+allows to construct arbitrary set of states to match. Its syntax is se=
-quence of keywords state and exclude followed by identifier of state.
-+.TP
-+Available identifiers are:
-+
-+All standard TCP states:
-+.BR established ", " syn-sent ", " syn-recv ", " fin-wait-1 ", " fin-w=
-ait-2 ", " time-wait ", " closed ", " close-wait ", " last-ack ", "
-+.BR  listen " and " closing.
-+
-+.B all
-+- for all the states
-+
-+.B connected
-+- all the states except for
-+.BR listen " and " closed
-+
-+.B synchronized
-+- all the
-+.B connected
-+states except for
-+.B syn-sent
-+
-+.B bucket
-+- states, which are maintained as minisockets, i.e.
-+.BR time-wait " and " syn-recv
-+
-+.B big
-+- opposite to
-+.B bucket
-+
- .SH USAGE EXAMPLES
- .TP
- .B ss -t -a
-@@ -150,7 +183,11 @@ Find all local processes connected to X server.
- List all the tcp sockets in state FIN-WAIT-1 for our apache to network=
- 193.233.7/24 and look at their timers.
- .SH SEE ALSO
- .BR ip (8),
--.BR /usr/share/doc/iproute-doc/ss.html " (package iproute=ADdoc)"
-+.BR /usr/share/doc/iproute-doc/ss.html " (package iproute=ADdoc)",
-+.br
-+.BR RFC " 793 "
-+- https://tools.ietf.org/rfc/rfc793.txt (TCP states)=20
-+
- .SH AUTHOR
- .I ss=20
- was written by Alexey Kuznetosv, <kuznet@ms2.inr.ac.ru>.
---=20
-2.1.3
+Before starting with code, I would like to organize ideas:
+- when an SKB comes in, if the queue isn't empty, I would queue it
+   Somethink like
+   if (skb_queue_empty(ctx->skb_tx_queue)){
+     skb_insert(skb);
+   } else {
+     ready2send=1;
+   }
+- at this point, performs some check to see if we have enough data:how can I do
+   so? What should I check? Sizes of nth16 + ntb16 + ... ?
+
+   - if not enough data is present, exit the function returning NULL
+   else
+   - invoke some functions to prepare the NCM packet
+
+I plan to move / rewrite the needed code to isolate it completely from the 
+queue logic: making it also a little bit more clear. I would like to have 
+separate functions for any parts of the NCM packet construction.
+This would allow better flexibility and probably less maintenance burden in the 
+long run, and might open the road to extending the driver to support 32-bit NCM 
+and different signness handling.
+
+In the current code, we are carrying around the "sign" variable in the 
+cdc_ncm_fill_tx_frame: why? Can different NCM packets have different sign 
+settings?
+Thank you guys, waiting for your replies,
+Enrico
