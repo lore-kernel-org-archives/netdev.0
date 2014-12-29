@@ -1,7 +1,7 @@
 From: Roger Chen <roger.chen@rock-chips.com>
-Subject: [PATCH v3 5/6] ARM: dts: rockchip: enable gmac on RK3288 evb board
-Date: Mon, 29 Dec 2014 17:44:25 +0800
-Message-ID: <1419846265-14711-1-git-send-email-roger.chen@rock-chips.com>
+Subject: [PATCH v3 6/6] GMAC: add document for Rockchip RK3288 GMAC
+Date: Mon, 29 Dec 2014 17:44:34 +0800
+Message-ID: <1419846274-14747-1-git-send-email-roger.chen@rock-chips.com>
 References: <1419846152-14531-1-git-send-email-roger.chen@rock-chips.com>
 Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
@@ -13,91 +13,91 @@ In-Reply-To: <1419846152-14531-1-git-send-email-roger.chen@rock-chips.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-enable gmac in rk3288-evb-rk808.dts
+The document descripts how to add properties for GMAC in device tree.
 
-changes since v2:
-1. add fixed regulator for PHY
-2. remove power-gpio, reset-gpio, phyirq-gpio, pmu_regulator setting
-3. add "snps,reset-gpio", "snps,reset-active-low;" "snps,reset-delays-us"
+change since v2:
+
+1. remove power-gpio, reset-gpio, phyirq-gpio, pmu_regulator setting
+2. add "snps,reset-gpio", "snps,reset-active-low;" "snps,reset-delays-us"
 
 Signed-off-by: Roger Chen <roger.chen@rock-chips.com>
 ---
- arch/arm/boot/dts/rk3288-evb-rk808.dts |   23 +++++++++++++++++++++++
- arch/arm/boot/dts/rk3288-evb.dtsi      |   17 +++++++++++++++++
- 2 files changed, 40 insertions(+)
+ .../devicetree/bindings/net/rockchip-dwmac.txt     |   67 ++++++++++++++++++++
+ 1 file changed, 67 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/rockchip-dwmac.txt
 
-diff --git a/arch/arm/boot/dts/rk3288-evb-rk808.dts b/arch/arm/boot/dts/rk3288-evb-rk808.dts
-index d8c775e6..831a7aa 100644
---- a/arch/arm/boot/dts/rk3288-evb-rk808.dts
-+++ b/arch/arm/boot/dts/rk3288-evb-rk808.dts
-@@ -15,6 +15,13 @@
- 
- / {
- 	compatible = "rockchip,rk3288-evb-rk808", "rockchip,rk3288";
+diff --git a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
+new file mode 100644
+index 0000000..94d887f
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
+@@ -0,0 +1,67 @@
++Rockchip SoC RK3288 10/100/1000 Ethernet driver(GMAC)
 +
-+	ext_gmac: external-gmac-clock {
-+		compatible = "fixed-clock";
-+		clock-frequency = <125000000>;
-+		clock-output-names = "ext_gmac";
-+		#clock-cells = <0>;
-+	};
- };
- 
- &cpu0 {
-@@ -152,3 +159,19 @@
- 		};
- 	};
- };
++The device node has following properties.
 +
-+&gmac {
-+	phy_regulator = "vcc_phy";
++Required properties:
++ - compatible: Can be "rockchip,rk3288-gmac".
++ - reg: addresses and length of the register sets for the device.
++ - interrupts: Should contain the GMAC interrupts.
++ - interrupt-names: Should contain the interrupt names "macirq".
++ - rockchip,grf: phandle to the syscon grf used to control speed and mode.
++ - clocks: <&cru SCLK_MAC>: clock selector for main clock, from PLL or PHY.
++	   <&cru SCLK_MAC_PLL>: PLL clock for SCLK_MAC
++	   <&cru SCLK_MAC_RX>: clock gate for RX
++	   <&cru SCLK_MAC_TX>: clock gate for TX
++	   <&cru SCLK_MACREF>: clock gate for RMII referce clock
++	   <&cru SCLK_MACREF_OUT> clock gate for RMII reference clock output
++	   <&cru ACLK_GMAC>: AXI clock gate for GMAC 
++	   <&cru PCLK_GMAC>: APB clock gate for GMAC 
++ - clock-names: One name for each entry in the clocks property.
++ - phy-mode: See ethernet.txt file in the same directory.
++ - pinctrl-names: Names corresponding to the numbered pinctrl states.
++ - pinctrl-0: pin-control mode. can be <&rgmii_pins> or <&rmii_pins>.
++ - clock_in_out: For RGMII, it must be "input", means main clock(125MHz)
++   is not sourced from SoC's PLL, but input from PHY; For RMII, "input" means
++   PHY provides the reference clock(50MHz), "output" means GMAC provides the
++   reference clock. 
++ - snps,reset-gpio       gpio number for phy reset.
++ - snps,reset-active-low boolean flag to indicate if phy reset is active low.
++ - assigned-clocks: main clock, should be <&cru SCLK_MAC>;
++ - assigned-clock-parents = parent of main clock.
++   can be <&ext_gmac> or <&cru SCLK_MAC_PLL>.
++
++Optional properties:
++ - tx_delay: Delay value for TXD timing. Range value is 0~0x7F, 0x30 as default.
++ - rx_delay: Delay value for RXD timing. Range value is 0~0x7F, 0x10 as default.
++
++Example:
++
++gmac: ethernet@ff290000 {
++	compatible = "rockchip,rk3288-gmac";
++	reg = <0xff290000 0x10000>;
++	interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
++	interrupt-names = "macirq";
++	rockchip,grf = <&grf>;
++	clocks = <&cru SCLK_MAC>,
++		<&cru SCLK_MAC_RX>, <&cru SCLK_MAC_TX>,
++		<&cru SCLK_MACREF>, <&cru SCLK_MACREF_OUT>,
++		<&cru ACLK_GMAC>, <&cru PCLK_GMAC>;
++	clock-names = "stmmaceth",
++		"mac_clk_rx", "mac_clk_tx",
++		"clk_mac_ref", "clk_mac_refout",
++		"aclk_mac", "pclk_mac";
 +	phy-mode = "rgmii";
++	pinctrl-names = "default";
++	pinctrl-0 = <&rgmii_pins /*&rmii_pins*/>;
++
 +	clock_in_out = "input";
 +	snps,reset-gpio = <&gpio4 7 0>;
 +	snps,reset-active-low;
-+	snps,reset-delays-us = <0 10000 1000000>;
++
 +	assigned-clocks = <&cru SCLK_MAC>;
 +	assigned-clock-parents = <&ext_gmac>;
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&rgmii_pins>;
 +	tx_delay = <0x30>;
 +	rx_delay = <0x10>;
++
 +	status = "ok";
 +};
-diff --git a/arch/arm/boot/dts/rk3288-evb.dtsi b/arch/arm/boot/dts/rk3288-evb.dtsi
-index cb83cea..fe1d13c 100644
---- a/arch/arm/boot/dts/rk3288-evb.dtsi
-+++ b/arch/arm/boot/dts/rk3288-evb.dtsi
-@@ -90,6 +90,17 @@
- 		regulator-always-on;
- 		regulator-boot-on;
- 	};
-+
-+	vcc_phy: vcc-phy-regulator {
-+		compatible = "regulator-fixed";
-+		enable-active-high;
-+		gpio = <&gpio0 6 GPIO_ACTIVE_HIGH>;
-+		pinctrl-names = "default";
-+		pinctrl-0 = <&eth_phy_pwr>;
-+		regulator-name = "vcc_phy";
-+		regulator-always-on;
-+		regulator-boot-on;
-+	};
- };
- 
- &emmc {
-@@ -172,6 +183,12 @@
- 			rockchip,pins = <0 14 RK_FUNC_GPIO &pcfg_pull_none>;
- 		};
- 	};
-+
-+	eth_phy {
-+		eth_phy_pwr: eth-phy-pwr {
-+			rockchip,pins = <0 6 RK_FUNC_GPIO &pcfg_pull_none>;
-+		};
-+	};
- };
- 
- &usb_host0_ehci {
 -- 
 1.7.9.5
