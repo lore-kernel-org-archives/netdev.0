@@ -1,159 +1,80 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH 3/6] bridge: modify IFLA_AF_SPEC parser to parse IFLA_BRIDGE_VLAN_RANGE_INFO
-Date: Mon, 29 Dec 2014 15:19:57 -0800
-Message-ID: <54A1E19D.8080200@cumulusnetworks.com>
-References: <1419887132-7084-4-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bA5ZhwX=agK-BOPWoJ1sctQuVcJ92z78Rrtp-=pBWi4jg@mail.gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Marvell Kirkwood - MV643XX: near 100% UDP RX packet loss
+Date: Mon, 29 Dec 2014 15:25:15 -0800
+Message-ID: <54A1E2DB.2010309@hp.com>
+References: <20141224001844.15e13db8@neptune.home>	<549C878B.3030308@hp.com> <20141227121727.20fe52c8@neptune.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, shemminger@vyatta.com,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Wilson kok <wkok@cumulusnetworks.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	netdev@vger.kernel.org
+To: =?windows-1252?Q?Bruno_Pr=E9mont?= <bonbons@linux-vserver.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f195.google.com ([209.85.192.195]:41430 "EHLO pdbfp1"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752361AbaL2XT7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Dec 2014 18:19:59 -0500
-Received: by pdbfp1 with SMTP id fp1so15882166pdb.8
-        for <netdev@vger.kernel.org>; Mon, 29 Dec 2014 15:19:58 -0800 (PST)
-In-Reply-To: <CAE4R7bA5ZhwX=agK-BOPWoJ1sctQuVcJ92z78Rrtp-=pBWi4jg@mail.gmail.com>
+Received: from g9t1613g.houston.hp.com ([15.240.0.71]:57875 "EHLO
+	g9t1613g.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751453AbaL2XZV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2014 18:25:21 -0500
+Received: from g2t2353.austin.hp.com (g2t2353.austin.hp.com [15.217.128.52])
+	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by g9t1613g.houston.hp.com (Postfix) with ESMTPS id 9B77762620
+	for <netdev@vger.kernel.org>; Mon, 29 Dec 2014 23:25:20 +0000 (UTC)
+In-Reply-To: <20141227121727.20fe52c8@neptune.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/29/14, 2:04 PM, Scott Feldman wrote:
-> On Mon, Dec 29, 2014 at 1:05 PM,  <roopa@cumulusnetworks.com> wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On 12/27/2014 03:17 AM, Bruno Pr=E9mont wrote:
+> On Thu, 25 December 2014 Rick Jones <rick.jones2@hp.com> wrote:
+>>> Why are so many packets being discarded?
 >>
->> This patch modifies br_afspec to parse incoming IFLA_BRIDGE_VLAN_RANGE_INFO
->>
->> Signed-off-by: Wilson kok <wkok@cumulusnetworks.com>
->> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->> ---
->>   net/bridge/br_netlink.c |   70 +++++++++++++++++++++++++++++++++--------------
->>   1 file changed, 49 insertions(+), 21 deletions(-)
->>
->> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
->> index e7d1fc0..4c47ba0 100644
->> --- a/net/bridge/br_netlink.c
->> +++ b/net/bridge/br_netlink.c
->> @@ -227,48 +227,76 @@ static const struct nla_policy ifla_br_policy[IFLA_MAX+1] = {
->>                           .len = sizeof(struct bridge_vlan_range_info), },
->>   };
->>
->> +static int br_afspec_vlan_add(struct net_bridge *br,
->> +                             struct net_bridge_port *p,
->> +                             u16 vid, u16 flags)
->> +{
->> +       int err = 0;
->> +
->> +       if (p) {
->> +               err = nbp_vlan_add(p, vid, flags);
->> +               if (err)
->> +                       return err;
->> +
->> +               if (flags & BRIDGE_VLAN_INFO_MASTER)
->> +                       err = br_vlan_add(p->br, vid, flags);
->> +       } else {
->> +               err = br_vlan_add(br, vid, flags);
->> +       }
->> +
->> +       return err;
->> +}
->> +
->> +static void br_afspec_vlan_del(struct net_bridge *br,
->> +                              struct net_bridge_port *p,
->> +                              u16 vid, u16 flags)
->> +{
->> +       if (p) {
->> +               nbp_vlan_delete(p, vid);
->> +               if (flags & BRIDGE_VLAN_INFO_MASTER)
->> +                       br_vlan_delete(p->br, vid);
->> +       } else {
->> +               br_vlan_delete(br, vid);
->> +       }
->> +}
->> +
->>   static int br_afspec(struct net_bridge *br,
->>                       struct net_bridge_port *p,
->>                       struct nlattr *af_spec,
->>                       int cmd)
->>   {
->> -       struct bridge_vlan_info *vinfo;
->> -       int err = 0;
->> +       struct bridge_vlan_range_info *vinfo;
->>          struct nlattr *attr;
->>          int err = 0;
->>          int rem;
->>          u16 vid;
->>
->>          nla_for_each_nested(attr, af_spec, rem) {
->> -               if (nla_type(attr) != IFLA_BRIDGE_VLAN_INFO)
->> +               if (nla_type(attr) != IFLA_BRIDGE_VLAN_INFO &&
->> +                   nla_type(attr) != IFLA_BRIDGE_VLAN_RANGE_INFO)
->>                          continue;
->> -
->>                  vinfo = nla_data(attr);
-> Check attr size.
+>> You should also check the netstat statistics, particularly UDP on th=
+e
+>> receiving side.  Look before and after the test and see how they cha=
+nge,
+>> if at all.
 >
->> -               if (!vinfo->vid || vinfo->vid >= VLAN_VID_MASK)
->> +
->> +               if (nla_type(attr) == IFLA_BRIDGE_VLAN_INFO)
->> +                       vinfo->vid_end = vinfo->vid;
-> Maybe a switch(nla_type(attr)) would be better to explicitly handle
-> each case?  Then the size check can be done for each case, as well as
-> this fix-up for vid_end.
-
-sure, i can do that.
+> Here they go.
 >
->> +
->> +               if (!vinfo->vid || vinfo->vid >= VLAN_VID_MASK ||
->> +                   vinfo->vid_end >= VLAN_VID_MASK ||
->> +                   vinfo->vid > vinfo->vid_end)
->>                          return -EINVAL;
->>
->>                  switch (cmd) {
->>                  case RTM_SETLINK:
->> -                       if (p) {
->> -                               err = nbp_vlan_add(p, vinfo->vid, vinfo->flags);
->> +                       for (vid = vinfo->vid; vid <= vinfo->vid_end; vid++) {
->> +                               err = br_afspec_vlan_add(br, p, vid,
->> +                                                        vinfo->flags);
->>                                  if (err)
-> Do you want to unwind on failure?  Seems it should be an
-> all-or-nothing operation.
+> Summary of numbers:
+> iperf UDP run, 5 seconds @ 1Gb/s
+>   lost 71216/71776 packets
+>
+>                                    before      after      delta
+> ethtool:
+>   rx_packets:                      420001     688424     268423
+>   rx_bytes:                     433251917  809803463  376551546
+>   rx_errors:                            0          0          0
+>   rx_dropped:                           0          0          0
+>   bad_octets_received:                  0          0          0
+>   bad_frames_received:                  0          0          0
+>   rx_discard:                      159691     323123     163432
+>   rx_overrun:                           0          0          0
+> netstat, udp:
+>   packets received                  15559      16137        578
+>   packets to unknown port received     18         18          0
+>   packet receive errors             41599      83890      42291
+>   packets sent                      34697      34770         73
+>   receive buffer errors                 0          0          0
+>   send buffer errors                    0          0          0
+>
 
-I could, but looking at other link operations, I don't seen anybody 
-unwinding.  An AF_UNSPEC link netlink request can contain multiple link 
-attributes and not all maybe applied AFAICS. But i don't have a strong 
-opinion here.  I can unwind if needed.
->>                                          break;
->> -
->> -                               if (vinfo->flags & BRIDGE_VLAN_INFO_MASTER)
->> -                                       err = br_vlan_add(p->br, vinfo->vid,
->> -                                                         vinfo->flags);
->> -                       } else
->> -                               err = br_vlan_add(br, vinfo->vid, vinfo->flags);
->> -
->> +                       }
->>                          break;
->> -
->>                  case RTM_DELLINK:
->> -                       if (p) {
->> -                               nbp_vlan_delete(p, vinfo->vid);
->> -                               if (vinfo->flags & BRIDGE_VLAN_INFO_MASTER)
->> -                                       br_vlan_delete(p->br, vinfo->vid);
->> -                       } else
->> -                               br_vlan_delete(br, vinfo->vid);
->> +                       for (vid = vinfo->vid; vid <= vinfo->vid_end; vid++)
->> +                               br_afspec_vlan_del(br, p, vid, vinfo->flags);
->>                          break;
->>                  }
->>          }
->> --
->> 1.7.10.4
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Well, it certainly looks like a decent fraction of your lost traffic ar=
+e=20
+UDP packet receive errors.  Overrunning the SO_RCVBUF on the receiving=20
+side presumably.  You can either start walking-down the transmission=20
+rate of the iperf client, or try a larger receive socket buffer size on=
+=20
+the iperf server, though that will only help if those drops are from th=
+e=20
+receiving side being only occasionally slower than the sending side.=20
+You might also want to make sure the UDP datagrams being sent are huge=20
+and so getting fragmented.  All it takes is to lose one fragment of an=20
+IP datagram to render the entire datagram useless.
+
+As for the rx_discard in the ethtool stats, someone more familiar with=20
+the hardware will have to describe the various reasons for that stat to=
+=20
+be incremented.
+
+rick jones
