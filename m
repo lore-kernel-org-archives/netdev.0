@@ -1,161 +1,311 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH/RFC flow-net-next 03/10] net: flow: Add timeouts to flows
-Date: Mon, 29 Dec 2014 11:15:33 +0900
-Message-ID: <1419819340-19000-4-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH/RFC flow-net-next 05/10] net: flow: Add get, set and del notifier commands
+Date: Mon, 29 Dec 2014 11:15:35 +0900
+Message-ID: <1419819340-19000-6-git-send-email-simon.horman@netronome.com>
 References: <1419819340-19000-1-git-send-email-simon.horman@netronome.com>
 Cc: Simon Horman <simon.horman@netronome.com>
 To: John Fastabend <john.r.fastabend@intel.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:62364 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751827AbaL2CQD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Dec 2014 21:16:03 -0500
-Received: by mail-pa0-f44.google.com with SMTP id et14so16472767pad.17
-        for <netdev@vger.kernel.org>; Sun, 28 Dec 2014 18:16:02 -0800 (PST)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:65448 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751827AbaL2CQI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Dec 2014 21:16:08 -0500
+Received: by mail-pa0-f54.google.com with SMTP id fb1so16408062pad.41
+        for <netdev@vger.kernel.org>; Sun, 28 Dec 2014 18:16:07 -0800 (PST)
 In-Reply-To: <1419819340-19000-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It may be useful for hardware flow table support for timeouts to be exposed
-via the flow API. One possible use case of this is for Open vSwitch to use
-the flow API in conjunction with its existing datapath flow management
-scheme which in a nutshell treats the datapath as a cache that times out
-idle entries.
-
-Inspired by the timeouts present in OpenFlow.
+The purpose of these new commands is to manage the registration
+of listeners for flow deletion notifications which will be
+proposed in a subsequent patch.
 
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 
 ---
 
 Compile tested only
-
-Note to John Fastabend: This patch adds u32 fields to struct net_flow_flow.
-This is in contrast to existing int fields of that structure. It is unclear
-to me which is best and in practice (2^31-1)s seems to be more than ample
-for a timeout.
 ---
- include/uapi/linux/if_flow.h | 19 +++++++++++++++++++
- net/core/flow_table.c        | 21 ++++++++++++++++++---
- 2 files changed, 37 insertions(+), 3 deletions(-)
+ include/linux/netdevice.h    |   6 ++
+ include/uapi/linux/if_flow.h |  41 +++++++++++
+ net/core/flow_table.c        | 161 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 208 insertions(+)
 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 2defaae..1174ab7 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1165,6 +1165,12 @@ struct net_device_ops {
+ 						      struct net_flow_flow *f);
+ 	int  (*ndo_flow_create_table)(struct net_device *dev,
+ 				      struct net_flow_table *t);
++	int			(*ndo_flow_set_notification)(struct net_device *dev,
++							     u32 type, const u32 *pids,
++							     size_t n_pids);
++	int			(*ndo_flow_get_notification)(struct net_device *dev,
++							     u32 type, u32 **pids,
++							     size_t *n_pids);
+ };
+ 
+ /**
 diff --git a/include/uapi/linux/if_flow.h b/include/uapi/linux/if_flow.h
-index 5720698..28da45b 100644
+index 18214ea..96905fa 100644
 --- a/include/uapi/linux/if_flow.h
 +++ b/include/uapi/linux/if_flow.h
-@@ -125,6 +125,8 @@
-  *           [NET_FLOW_ATTR_TABLE]
-  *	     [NET_FLOW_ATTR_UID]
-  *	     [NET_FLOW_ATTR_PRIORITY]
-+ *	     [NET_FLOW_ATTR_IDLE_TIMEOUT]
-+ *	     [NET_FLOW_ATTR_HARD_TIMEOUT]
-  *	     [NET_FLOW_ATTR_MATCHES]
-  *	        [NET_FLOW_FIELD_REF]
-  *	        [NET_FLOW_FIELD_REF]
-@@ -149,6 +151,8 @@
-  *     [NET_FLOW_ATTR_TABLE]
-  *     [NET_FLOW_ATTR_UID]
-  *     [NET_FLOW_ATTR_PRIORITY]
-+ *     [NET_FLOW_ATTR_IDLE_TIMEOUT]
-+ *     [NET_FLOW_ATTR_HARD_TIMEOUT]
-  *     [NET_FLOW_MATCHES]
-  *       [NET_FLOW_FIELD_REF]
-  *       [NET_FLOW_FIELD_REF]
-@@ -358,6 +362,9 @@ enum {
-  * @priority priority to execute flow match/action in table
-  * @match null terminated set of match uids match criteria
-  * @action null terminated set of action uids to apply to match
-+ * @idle_timeout idle timeout of flow in seconds. Zero for no timeout.
-+ * @hard_timeout timeout of flow regardless of use in seconds.
-+ *               Zero for no timeout.
-  *
-  * Flows must match all entries in match set.
+@@ -172,6 +172,30 @@
+  *	 [NET_FLOW_ACTION]
+  *	         [..]
+  *	       [...]
++ *
++ * Set Flow Notification <Request>,
++ * Get Flow Notification <Request> and
++ * Get Flow Notification <Reply> description.
++ *
++ * Set Flow Notification registers netlink port ids to receive flow
++ * deletion notifications if the NET_FLOW_NOTIFICATION_PIDS attribute is
++ * present. Otherwise it unregisters port ids if they were previously
++ * registered by a Set Flow Notification with the
++ * NET_FLOW_NOTIFICATION_PIDS attribute present.
++ *
++ * Get Flow Notification reports the port ids if they were previously
++ * registered by a Set Flow Notification with the
++ * NET_FLOW_NOTIFICATION_PIDS.  If no ids are registered then the
++ * NET_FLOW_NOTIFICATION_PIDS attribute of the reply should be omitted.
++ *
++ * The NET_FLOW_NOTIFICATION_ATTR_PIDS attribute is an array of u32 values.
++ * If the attribute is present then it must contain at least one element.
++ * The implementation may choose to ignore some elements.  Currently the
++ * implementation ignores all elements other than the first one.
++ *
++ * [NET_FLOW_NOTIFICATION]
++ *   [NET_FLOW_NOTIFICATION_ATTR_TYPE]
++ *   [NET_FLOW_NOTIFICATION_ATTR_PIDS]
   */
-@@ -365,6 +372,8 @@ struct net_flow_flow {
- 	int table_id;
- 	int uid;
- 	int priority;
-+	__u32 idle_timeout;
-+	__u32 hard_timeout;
- 	struct net_flow_field_ref *matches;
- 	struct net_flow_action *actions;
- };
-@@ -403,6 +412,8 @@ enum {
- 	NET_FLOW_ATTR_PRIORITY,
- 	NET_FLOW_ATTR_MATCHES,
- 	NET_FLOW_ATTR_ACTIONS,
-+	NET_FLOW_ATTR_IDLE_TIMEOUT,
-+	NET_FLOW_ATTR_HARD_TIMEOUT,
- 	__NET_FLOW_ATTR_MAX,
- };
- #define NET_FLOW_ATTR_MAX (__NET_FLOW_ATTR_MAX - 1)
-@@ -448,6 +459,14 @@ enum {
- };
- #define NET_FLOW_TABLE_ATTR_MAX (__NET_FLOW_TABLE_ATTR_MAX - 1)
  
-+enum {
-+	/* Table supports idle timeout of flows */
-+	NET_FLOW_TABLE_F_IDLE_TIMEOUT		= (1 << 0),
-+
-+	/* Table supports idle timeout of flows */
-+	NET_FLOW_TABLE_F_HARD_TIMEOUT		= (1 << 1),
+ #ifndef _UAPI_LINUX_IF_FLOW
+@@ -633,6 +657,18 @@ enum {
+ };
+ 
+ enum {
++	NET_FLOW_NOTIFICATION_TYPE_FLOW_REM,
 +};
 +
- #if 0
- struct net_flow_offset {
- 	int offset;
++enum {
++	NET_FLOW_NOTIFICATION_ATTR_UNSPEC,
++	NET_FLOW_NOTIFICATION_ATTR_TYPE,
++	NET_FLOW_NOTIFICATION_ATTR_PIDS,
++	__NET_FLOW_NOTIFICATION_ATTR_MAX,
++};
++#define NET_FLOW_NOTIFICATION_ATTR_MAX (__NET_FLOW_NOTIFICATION_ATTR_MAX - 1)
++
++enum {
+ 	NET_FLOW_UNSPEC,
+ 	NET_FLOW_IDENTIFIER_TYPE,
+ 	NET_FLOW_IDENTIFIER,
+@@ -644,6 +680,7 @@ enum {
+ 	NET_FLOW_TABLE_GRAPH,
+ 	NET_FLOW_FLOWS,
+ 	NET_FLOW_FLOWS_ERROR,
++	NET_FLOW_NOTIFICATION,
+ 
+ 	__NET_FLOW_MAX,
+ 	NET_FLOW_MAX = (__NET_FLOW_MAX - 1),
+@@ -663,6 +700,10 @@ enum {
+ 
+ 	NET_FLOW_TABLE_CMD_CREATE_TABLE,
+ 	NET_FLOW_TABLE_CMD_DESTROY_TABLE,
++
++	NET_FLOW_TABLE_CMD_SET_NOTIFICATION,
++	NET_FLOW_TABLE_CMD_GET_NOTIFICATION,
++
+ 	__NET_FLOW_CMD_MAX,
+ 	NET_FLOW_CMD_MAX = (__NET_FLOW_CMD_MAX - 1),
+ };
 diff --git a/net/core/flow_table.c b/net/core/flow_table.c
-index 1ea88ed..89ba9bc 100644
+index 070e646..e8047eb 100644
 --- a/net/core/flow_table.c
 +++ b/net/core/flow_table.c
-@@ -52,6 +52,8 @@ struct nla_policy net_flow_flow_policy[NET_FLOW_ATTR_MAX + 1] = {
- 	[NET_FLOW_ATTR_TABLE]	= { .type = NLA_U32 },
- 	[NET_FLOW_ATTR_UID]		= { .type = NLA_U32 },
- 	[NET_FLOW_ATTR_PRIORITY]	= { .type = NLA_U32 },
-+	[NET_FLOW_ATTR_IDLE_TIMEOUT]	= { .type = NLA_U32 },
-+	[NET_FLOW_ATTR_HARD_TIMEOUT]	= { .type = NLA_U32 },
- 	[NET_FLOW_ATTR_MATCHES]	= { .type = NLA_NESTED },
- 	[NET_FLOW_ATTR_ACTIONS]	= { .type = NLA_NESTED },
+@@ -21,6 +21,7 @@
+ #include <uapi/linux/if_flow.h>
+ #include <linux/if_bridge.h>
+ #include <linux/types.h>
++#include <net/sock.h>
+ #include <net/netlink.h>
+ #include <net/genetlink.h>
+ #include <net/rtnetlink.h>
+@@ -1478,6 +1479,156 @@ out:
+ 	return -EINVAL;
+ }
+ 
++static const
++struct nla_policy net_flow_notification_policy[NET_FLOW_NOTIFICATION_ATTR_MAX + 1] = {
++	[NET_FLOW_NOTIFICATION_ATTR_TYPE] = { .type = NLA_U32,},
++	[NET_FLOW_NOTIFICATION_ATTR_PIDS] = { .type = NLA_U32,},
++};
++
++static int net_flow_table_cmd_set_notification(struct sk_buff *skb,
++					       struct genl_info *info)
++{
++	int err;
++	struct net_device *dev;
++	struct nlattr *tb[NET_FLOW_NOTIFICATION_ATTR_MAX+1];
++	u32 type;
++
++	dev = net_flow_table_get_dev(info);
++	if (!dev)
++		return -EINVAL;
++
++	if (!dev->netdev_ops->ndo_flow_set_notification) {
++		err = -EOPNOTSUPP;
++		goto out;
++	}
++
++	if (!info->attrs[NET_FLOW_NOTIFICATION]) {
++		err = -EINVAL;
++		goto out;
++	}
++
++	err = nla_parse_nested(tb, NET_FLOW_NOTIFICATION_ATTR_MAX,
++			       info->attrs[NET_FLOW_NOTIFICATION],
++			       net_flow_notification_policy);
++	if (err)
++		goto out;
++
++	if (!tb[NET_FLOW_NOTIFICATION_ATTR_TYPE]) {
++		err = -EINVAL;
++		goto out;
++	}
++	type = nla_get_u32(tb[NET_FLOW_NOTIFICATION_ATTR_TYPE]);
++	if (type != NET_FLOW_NOTIFICATION_TYPE_FLOW_REM) {
++		err = -EOPNOTSUPP;
++		goto out;
++	}
++
++	if (tb[NET_FLOW_NOTIFICATION_ATTR_PIDS]) {
++		u32 pid;
++
++		/* Only the first pid is used at this time */
++		pid = nla_get_u32(tb[NET_FLOW_NOTIFICATION_ATTR_PIDS]);
++
++		err = dev->netdev_ops->ndo_flow_set_notification(dev, type,
++								 &pid, 1);
++	} else {
++		err = dev->netdev_ops->ndo_flow_set_notification(dev, type,
++								 NULL, 0);
++	}
++
++out:
++	dev_put(dev);
++	return err;
++}
++
++static int net_flow_table_cmd_get_notification(struct sk_buff *skb,
++					       struct genl_info *info)
++{
++	int err;
++	size_t n_pids;
++	struct genlmsghdr *hdr;
++	struct net_device *dev;
++	struct nlattr *start;
++	struct nlattr *tb[NET_FLOW_NOTIFICATION_ATTR_MAX+1];
++	struct sk_buff *msg = NULL;
++	u32 *pids, type;
++
++	dev = net_flow_table_get_dev(info);
++	if (!dev)
++		return -EINVAL;
++
++	if (!dev->netdev_ops->ndo_flow_get_notification) {
++		err = -EOPNOTSUPP;
++		goto err;
++	}
++
++	if (!info->attrs[NET_FLOW_NOTIFICATION]) {
++		err = -EINVAL;
++		goto err;
++	}
++
++	err = nla_parse_nested(tb, NET_FLOW_NOTIFICATION_ATTR_MAX,
++			       info->attrs[NET_FLOW_NOTIFICATION],
++			       net_flow_notification_policy);
++	if (err)
++		goto err;
++
++	if (!tb[NET_FLOW_NOTIFICATION_ATTR_TYPE]) {
++		err = -EINVAL;
++		goto err;
++	}
++	type = nla_get_u32(tb[NET_FLOW_NOTIFICATION_ATTR_TYPE]);
++
++	err = dev->netdev_ops->ndo_flow_get_notification(dev, type, &pids,
++							 &n_pids);
++	if (err)
++		goto err;
++
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
++	if (!msg) {
++		err = -ENOBUFS;
++		goto err;
++	}
++
++	hdr = genlmsg_put(msg, info->snd_portid, info->snd_seq,
++			  &net_flow_nl_family, 0,
++			  NET_FLOW_TABLE_CMD_GET_NOTIFICATION);
++	if (!hdr) {
++		err = -ENOBUFS;
++		goto err;
++	}
++
++	if (nla_put_u32(msg, NET_FLOW_IDENTIFIER_TYPE, NET_FLOW_IDENTIFIER_IFINDEX) ||
++	    nla_put_u32(msg, NET_FLOW_IDENTIFIER, dev->ifindex)) {
++		err = -ENOBUFS;
++		goto err;
++	}
++
++	start = nla_nest_start(msg, NET_FLOW_NOTIFICATION);
++	if (!start)
++		return -EMSGSIZE;
++
++	if (nla_put_u32(msg, NET_FLOW_NOTIFICATION_ATTR_TYPE, type) ||
++	    (n_pids > 0 &&
++	     nla_put_u32(msg, NET_FLOW_NOTIFICATION_ATTR_PIDS, pids[0])))
++		return -ENOBUFS;
++
++	nla_nest_end(msg, start);
++
++	err = genlmsg_end(msg, hdr);
++	if (err < 0)
++		goto err;
++
++	dev_put(dev);
++
++	return genlmsg_reply(msg, info);
++
++err:
++	nlmsg_free(msg);
++	dev_put(dev);
++	return err;
++}
++
+ static const struct genl_ops net_flow_table_nl_ops[] = {
+ 	{
+ 		.cmd = NET_FLOW_TABLE_CMD_GET_TABLES,
+@@ -1541,6 +1692,16 @@ static const struct genl_ops net_flow_table_nl_ops[] = {
+ 		.doit = net_flow_table_cmd_destroy_tables,
+ 		.flags = GENL_ADMIN_PERM,
+ 	},
++	{
++		.cmd = NET_FLOW_TABLE_CMD_SET_NOTIFICATION,
++		.doit = net_flow_table_cmd_set_notification,
++		.flags = GENL_ADMIN_PERM,
++	},
++	{
++		.cmd = NET_FLOW_TABLE_CMD_GET_NOTIFICATION,
++		.doit = net_flow_table_cmd_get_notification,
++		.flags = GENL_ADMIN_PERM,
++	},
  };
-@@ -197,6 +199,13 @@ int net_flow_put_flow(struct sk_buff *skb, struct net_flow_flow *flow)
- 	    nla_put_u32(skb, NET_FLOW_ATTR_PRIORITY, flow->priority))
- 		goto flows_put_failure;
  
-+	if (flow->idle_timeout &&
-+	    nla_put_u32(skb, NET_FLOW_ATTR_IDLE_TIMEOUT, flow->idle_timeout))
-+		goto flows_put_failure;
-+	if (flow->hard_timeout &&
-+	    nla_put_u32(skb, NET_FLOW_ATTR_HARD_TIMEOUT, flow->hard_timeout))
-+		goto flows_put_failure;
-+
- 	matches = nla_nest_start(skb, NET_FLOW_ATTR_MATCHES);
- 	if (!matches)
- 		goto flows_put_failure;
-@@ -522,6 +531,11 @@ static int net_flow_get_flow(struct net_flow_flow *flow, struct nlattr *attr)
- 	flow->uid = nla_get_u32(f[NET_FLOW_ATTR_UID]);
- 	flow->priority = nla_get_u32(f[NET_FLOW_ATTR_PRIORITY]);
- 
-+	if (f[NET_FLOW_ATTR_IDLE_TIMEOUT])
-+		flow->idle_timeout = nla_get_u32(f[NET_FLOW_ATTR_IDLE_TIMEOUT]);
-+	if (f[NET_FLOW_ATTR_HARD_TIMEOUT])
-+		flow->hard_timeout = nla_get_u32(f[NET_FLOW_ATTR_HARD_TIMEOUT]);
-+
- 	flow->matches = NULL;
- 	flow->actions = NULL;
- 
-@@ -1367,9 +1381,10 @@ static int net_flow_table_cmd_flows(struct sk_buff *recv_skb,
- 		if (err)
- 			goto out;
- 
--		/* Set used_features here for each table feature that is used.
--		 * (Currently no table features are defined)
--		 */
-+		if (this.idle_timeout)
-+			used_features |= NET_FLOW_TABLE_F_IDLE_TIMEOUT;
-+		if (this.hard_timeout)
-+			used_features |= NET_FLOW_TABLE_F_HARD_TIMEOUT;
- 
- 		err = net_flow_table_check_features(dev, this.table_id,
- 						    used_features);
+ static int __init net_flow_nl_module_init(void)
 -- 
 2.1.3
