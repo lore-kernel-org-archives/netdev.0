@@ -1,85 +1,56 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH] net: flow: Allow actions and matches to be NULL in net_flow_put_flow()
-Date: Mon, 29 Dec 2014 11:20:02 +0900
-Message-ID: <1419819602-23290-1-git-send-email-simon.horman@netronome.com>
-Cc: Simon Horman <simon.horman@netronome.com>
-To: John Fastabend <john.r.fastabend@intel.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:59912 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751534AbaL2CUO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Dec 2014 21:20:14 -0500
-Received: by mail-pa0-f45.google.com with SMTP id lf10so16493453pab.4
-        for <netdev@vger.kernel.org>; Sun, 28 Dec 2014 18:20:14 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: GIRISH K S <ks.giri@samsung.com>
+Subject: Re: [PATCH 15/27] net: sxgbe: Use setup_timer
+Date: Mon, 29 Dec 2014 04:50:57 +0000 (GMT)
+Message-ID: <451468949.291671419828656924.JavaMail.weblogic@epmlwas09c>
+Reply-To: ks.giri@samsung.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: base64
+Cc: "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	Vipul Chandrakant <vipul.pandya@samsung.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Julia Lawall <Julia.Lawall@lip6.fr>,
+	ByungHo An <bh74.an@samsung.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+MIME-version: 1.0
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This makes the handing of the absence of actions or matches
-symmetric with net_flow_get_flow().
+DQoNCi0tLS0tLS0gT3JpZ2luYWwgTWVzc2FnZSAtLS0tLS0tDQpTZW5kZXIgOiBKdWxpYSBMYXdh
+bGw8SnVsaWEuTGF3YWxsQGxpcDYuZnI+DQpEYXRlIDogRGVjIDI2LCAyMDE0IDIwOjA1IChHTVQr
+MDU6MzApDQpUaXRsZSA6IFtQQVRDSCAxNS8yN10gbmV0OiBzeGdiZTogVXNlIHNldHVwX3RpbWVy
+DQoNCkNvbnZlcnQgYSBjYWxsIHRvIGluaXRfdGltZXIgYW5kIGFjY29tcGFueWluZyBpbnRpYWxp
+emF0aW9ucyBvZg0KdGhlIHRpbWVyJ3MgZGF0YSBhbmQgZnVuY3Rpb24gZmllbGRzIHRvIGEgY2Fs
+bCB0byBzZXR1cF90aW1lci4NCg0KQSBzaW1wbGlmaWVkIHZlcnNpb24gb2YgdGhlIHNlbWFudGlj
+IG1hdGNoIHRoYXQgZml4ZXMgdGhpcyBwcm9ibGVtIGlzIGFzDQpmb2xsb3dzOiAoaHR0cDovL2Nv
+Y2NpbmVsbGUubGlwNi5mci8pDQoNCi8vIA0KQEANCmV4cHJlc3Npb24gdCxmLGQ7DQpAQA0KDQot
+aW5pdF90aW1lcigmdCk7DQorc2V0dXBfdGltZXIoJnQsZixkKTsNCi10LmZ1bmN0aW9uID0gZjsN
+Ci10LmRhdGEgPSBkOw0KLy8gDQoNClNpZ25lZC1vZmYtYnk6IEp1bGlhIExhd2FsbCANCg0KLS0t
+DQpkcml2ZXJzL25ldC9ldGhlcm5ldC9zYW1zdW5nL3N4Z2JlL3N4Z2JlX21haW4uYyB8ICAgMTAg
+KysrKy0tLS0tLQ0KMSBmaWxlIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKSwgNiBkZWxldGlvbnMo
+LSkNCg0KZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3NhbXN1bmcvc3hnYmUvc3hn
+YmVfbWFpbi5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvc2Ftc3VuZy9zeGdiZS9zeGdiZV9tYWlu
+LmMNCmluZGV4IDY5ODQ5NDQuLmI2NjEyZDYgMTAwNjQ0DQotLS0gYS9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9zYW1zdW5nL3N4Z2JlL3N4Z2JlX21haW4uYw0KKysrIGIvZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvc2Ftc3VuZy9zeGdiZS9zeGdiZV9tYWluLmMNCkBAIC0xMzMsOSArMTMzLDggQEAgYm9vbCBz
+eGdiZV9lZWVfaW5pdChzdHJ1Y3Qgc3hnYmVfcHJpdl9kYXRhICogY29uc3QgcHJpdikNCnJldHVy
+biBmYWxzZTsNCg0KcHJpdi0+ZWVlX2FjdGl2ZSA9IDE7DQotIGluaXRfdGltZXIoJnByaXYtPmVl
+ZV9jdHJsX3RpbWVyKTsNCi0gcHJpdi0+ZWVlX2N0cmxfdGltZXIuZnVuY3Rpb24gPSBzeGdiZV9l
+ZWVfY3RybF90aW1lcjsNCi0gcHJpdi0+ZWVlX2N0cmxfdGltZXIuZGF0YSA9ICh1bnNpZ25lZCBs
+b25nKXByaXY7DQorIHNldHVwX3RpbWVyKCZwcml2LT5lZWVfY3RybF90aW1lciwgc3hnYmVfZWVl
+X2N0cmxfdGltZXIsDQorICAgICAodW5zaWduZWQgbG9uZylwcml2KTsNCnByaXYtPmVlZV9jdHJs
+X3RpbWVyLmV4cGlyZXMgPSBTWEdCRV9MUElfVElNRVIoZWVlX3RpbWVyKTsNCmFkZF90aW1lcigm
+cHJpdi0+ZWVlX2N0cmxfdGltZXIpOw0KDQpAQCAtMTAwOSwxMCArMTAwOCw5IEBAIHN0YXRpYyB2
+b2lkIHN4Z2JlX3R4X2luaXRfY29hbGVzY2Uoc3RydWN0IHN4Z2JlX3ByaXZfZGF0YSAqcHJpdikN
+CnN0cnVjdCBzeGdiZV90eF9xdWV1ZSAqcCA9IHByaXYtPnR4cVtxdWV1ZV9udW1dOw0KcC0+dHhf
+Y29hbF9mcmFtZXMgPSAgU1hHQkVfVFhfRlJBTUVTOw0KcC0+dHhfY29hbF90aW1lciA9IFNYR0JF
+X0NPQUxfVFhfVElNRVI7DQotIGluaXRfdGltZXIoJnAtPnR4dGltZXIpOw0KKyBzZXR1cF90aW1l
+cigmcC0+dHh0aW1lciwgc3hnYmVfdHhfdGltZXIsDQorICAgICAodW5zaWduZWQgbG9uZykmcHJp
+di0+dHhxW3F1ZXVlX251bV0pOw0KcC0+dHh0aW1lci5leHBpcmVzID0gU1hHQkVfQ09BTF9USU1F
+UihwLT50eF9jb2FsX3RpbWVyKTsNCi0gcC0+dHh0aW1lci5kYXRhID0gKHVuc2lnbmVkIGxvbmcp
+JnByaXYtPnR4cVtxdWV1ZV9udW1dOw0KLSBwLT50eHRpbWVyLmZ1bmN0aW9uID0gc3hnYmVfdHhf
+dGltZXI7DQphZGRfdGltZXIoJnAtPnR4dGltZXIpOw0KfQ0KfQ0KTG9va3MgZ29vZCB0byBtZS4N
+CkFja2VkIGJ5OiBHaXJpc2ggSyBTIDxrcy5naXJpQHNhbXN1bmcuY29tPg0K
 
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
----
- net/core/flow_table.c | 40 ++++++++++++++++++++++------------------
- 1 file changed, 22 insertions(+), 18 deletions(-)
 
-diff --git a/net/core/flow_table.c b/net/core/flow_table.c
-index df2adf6..0992806 100644
---- a/net/core/flow_table.c
-+++ b/net/core/flow_table.c
-@@ -196,32 +196,36 @@ int net_flow_put_flow(struct sk_buff *skb, struct net_flow_flow *flow)
- 	    nla_put_u32(skb, NET_FLOW_ATTR_PRIORITY, flow->priority))
- 		goto flows_put_failure;
- 
--	matches = nla_nest_start(skb, NET_FLOW_ATTR_MATCHES);
--	if (!matches)
--		goto flows_put_failure;
--	for (j = 0; flow->matches[j].header; j++) {
--		struct net_flow_field_ref *f = &flow->matches[j];
-+	if (flow->matches) {
-+		matches = nla_nest_start(skb, NET_FLOW_ATTR_MATCHES);
-+		if (!matches)
-+			goto flows_put_failure;
-+		for (j = 0; flow->matches[j].header; j++) {
-+			struct net_flow_field_ref *f = &flow->matches[j];
- 
--		if (!f->header)
--			continue;
-+			if (!f->header)
-+				continue;
- 
--		nla_put(skb, NET_FLOW_FIELD_REF, sizeof(*f), f);
-+			nla_put(skb, NET_FLOW_FIELD_REF, sizeof(*f), f);
-+		}
-+		nla_nest_end(skb, matches);
- 	}
--	nla_nest_end(skb, matches);
--
--	actions = nla_nest_start(skb, NET_FLOW_ATTR_ACTIONS);
--	if (!actions)
--		goto flows_put_failure;
- 
--	for (i = 0; flow->actions[i].uid; i++) {
--		err = net_flow_put_flow_action(skb, &flow->actions[i]);
--		if (err) {
--			nla_nest_cancel(skb, actions);
-+	if (flow->actions) {
-+		actions = nla_nest_start(skb, NET_FLOW_ATTR_ACTIONS);
-+		if (!actions)
- 			goto flows_put_failure;
-+
-+		for (i = 0; flow->actions[i].uid; i++) {
-+			err = net_flow_put_flow_action(skb, &flow->actions[i]);
-+			if (err) {
-+				nla_nest_cancel(skb, actions);
-+				goto flows_put_failure;
-+			}
- 		}
-+		nla_nest_end(skb, actions);
- 	}
- 
--	nla_nest_end(skb, actions);
- 	nla_nest_end(skb, flows);
- 	return 0;
- 
--- 
-2.1.3
