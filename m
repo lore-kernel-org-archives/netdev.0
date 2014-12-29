@@ -1,217 +1,66 @@
-From: roopa@cumulusnetworks.com
-Subject: [PATCH 5/6] bridge: new function to pack vlans using both IFLA_BRIDGE_VLAN_INFO and IFLA_BRIDGE_VLAN_RANGE_INFO
-Date: Mon, 29 Dec 2014 13:05:31 -0800
-Message-ID: <1419887132-7084-6-git-send-email-roopa@cumulusnetworks.com>
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Wilson kok <wkok@cumulusnetworks.com>
-To: netdev@vger.kernel.org, shemminger@vyatta.com, vyasevic@redhat.com
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH] bonding: move ipoib_header_ops to vmlinux
+Date: Mon, 29 Dec 2014 13:32:50 -0800
+Message-ID: <CAHA+R7M-Nm_R-AaKQ0nX4L3O=BN5_m1v-8sWJSaE_UmGyo8zwA@mail.gmail.com>
+References: <1416893768-21369-1-git-send-email-wen.gang.wang@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, linux-rdma@vger.kernel.org
+To: Wengang Wang <wen.gang.wang@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:44627 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752237AbaL2VFo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2014 16:05:44 -0500
-Received: by mail-pd0-f181.google.com with SMTP id v10so17983741pde.12
-        for <netdev@vger.kernel.org>; Mon, 29 Dec 2014 13:05:44 -0800 (PST)
+Received: from mail-qc0-f172.google.com ([209.85.216.172]:36107 "EHLO
+	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752514AbaL2Vcv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2014 16:32:51 -0500
+Received: by mail-qc0-f172.google.com with SMTP id m20so10052972qcx.3
+        for <netdev@vger.kernel.org>; Mon, 29 Dec 2014 13:32:50 -0800 (PST)
+In-Reply-To: <1416893768-21369-1-git-send-email-wen.gang.wang@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On Mon, Nov 24, 2014 at 9:36 PM, Wengang Wang <wen.gang.wang@oracle.com> wrote:
+> When last slave of a bonding master is removed, the bonding then does not work.
+> At the time if packet_snd is called against with a master net_device, it calls
+> then header_ops->create which points to slave's header_ops. In case the slave
+> is ipoib and the module is unloaded, header_ops would point to invalid address.
+> Accessing it will cause problem.
+> This patch tries to fix this issue by moving ipoib_header_ops to vmlinux to keep
+> it valid even when ipoib module is unloaded.
+>
 
-This patch adds new function to compress vlans into ranges.
-Vlans are compressed into ranges only if the fill request is called with
-RTEXT_FILTER_BRVLAN_COMPRESSED in filtermask.
+I still don't think this is the right way to fix the bug, because
+there are other modules which have the same bug, for example,
+net/bluetooth/6lowpan.c (unless it can't be enslaved into a bond
+of course, I haven't verified). We don't want to move them all
+to builtin kernel, do we?
 
-Old vlan packing code is moved to a new function and continues to be
-called when filter_mask is RTEXT_FILTER_BRVLAN
+On the other hand, as Jay explained, bonding is probably
+the only one which has the problem, why not solve it in bonding?
+I mean why do we have to adjust other modules just for bonding?
 
-Signed-off-by: Wilson kok <wkok@cumulusnetworks.com>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- net/bridge/br_netlink.c |  157 +++++++++++++++++++++++++++++++++++++++++------
- 1 file changed, 137 insertions(+), 20 deletions(-)
+When its slave device gets removed, some netdev event is sent
+to the master, so why not reset the header_ops to ether header ops
+up on this event? Something like below (not even compile tested):
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 4c47ba0..16bdd5a 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -67,6 +67,133 @@ static int br_port_fill_attrs(struct sk_buff *skb,
- 	return 0;
- }
- 
-+static int br_fill_ifvlaninfo_bitmap(struct sk_buff *skb,
-+				     const unsigned long *vlan_bmp, u16 flags)
-+{
-+	struct bridge_vlan_range_info vinfo_range;
-+	struct bridge_vlan_info vinfo;
-+	u16 vid, start = 0, end = 0;
-+	u16 pvid;
-+
-+	/* handle the untagged */
-+	for_each_set_bit(vid, vlan_bmp, VLAN_N_VID) {
-+		if (start == 0) {
-+			start = vid;
-+			end = vid;
-+		}
-+		if ((vid - end) > 1) {
-+			memset(&vinfo_range, 0, sizeof(vinfo_range));
-+			vinfo_range.flags |= flags;
-+			vinfo_range.vid = start;
-+			vinfo_range.vid_end = end;
-+			if (nla_put(skb, IFLA_BRIDGE_VLAN_RANGE_INFO,
-+				    sizeof(vinfo_range), &vinfo_range))
-+				goto nla_put_failure;
-+			start = vid;
-+			end = vid;
-+		} else {
-+			end = vid;
-+		}
-+	}
-+
-+	if (start != 0 && end != 0) {
-+		if (start != end) {
-+			memset(&vinfo_range, 0, sizeof(vinfo_range));
-+			vinfo_range.flags |= flags;
-+			vinfo_range.vid = start;
-+			vinfo_range.vid_end = end;
-+			if (nla_put(skb, IFLA_BRIDGE_VLAN_RANGE_INFO,
-+				    sizeof(vinfo_range), &vinfo_range))
-+				goto nla_put_failure;
-+		} else {
-+			memset(&vinfo, 0, sizeof(vinfo));
-+			vinfo.flags |= flags;
-+			vinfo.vid = start;
-+			if (nla_put(skb, IFLA_BRIDGE_VLAN_INFO,
-+				    sizeof(vinfo), &vinfo))
-+				goto nla_put_failure;
-+		}
-+	}
-+
-+nla_put_failure:
-+	return -EMSGSIZE;
-+}
-+
-+static int br_fill_ifvlaninfo_compressed(struct sk_buff *skb,
-+					 const struct net_port_vlans *pv)
-+{
-+	unsigned long vlan_bmp_copy[BR_VLAN_BITMAP_LEN];
-+	unsigned long untagged_bmp_copy[BR_VLAN_BITMAP_LEN];
-+	struct bridge_vlan_range_info vinfo_range;
-+	struct bridge_vlan_info vinfo;
-+	u16 pvid;
-+
-+	memset(vlan_bmp_copy, 0,
-+	       sizeof(unsigned long) * BR_VLAN_BITMAP_LEN);
-+	bitmap_copy(vlan_bmp_copy, pv->vlan_bitmap, VLAN_N_VID);
-+
-+	memset(untagged_bmp_copy, 0,
-+	       sizeof(unsigned long) * BR_VLAN_BITMAP_LEN);
-+	bitmap_copy(untagged_bmp_copy, pv->untagged_bitmap, VLAN_N_VID);
-+
-+	/* send the pvid separately first */
-+	pvid = br_get_pvid(pv);
-+	if (pvid && (pvid != VLAN_N_VID)) {
-+		memset(&vinfo, 0, sizeof(vinfo));
-+		vinfo.flags |= BRIDGE_VLAN_INFO_PVID;
-+		if (test_bit(pvid, untagged_bmp_copy)) {
-+			vinfo.flags |= BRIDGE_VLAN_INFO_UNTAGGED;
-+			clear_bit(pvid, untagged_bmp_copy);
-+		}
-+		clear_bit(pvid, vlan_bmp_copy);
-+		vinfo.vid = pvid;
-+		if (nla_put(skb, IFLA_BRIDGE_VLAN_INFO,
-+			    sizeof(vinfo), &vinfo))
-+			goto nla_put_failure;
-+	}
-+
-+	/* fill untagged vlans */
-+	br_fill_ifvlaninfo_bitmap(skb, untagged_bmp_copy,
-+				  BRIDGE_VLAN_INFO_UNTAGGED);
-+	for_each_set_bit(vid, untagged_bmp_copy, VLAN_N_VID)
-+		clear_bit(vid, vlan_bmp_copy);
-+
-+	/* fill tagged vlans */
-+	br_fill_ifvlaninfo_bitmap(skb, vlan_bmp_copy, 0);
-+
-+	return 0;
-+
-+nla_put_failure:
-+	return -EMSGSIZE;
-+}
-+
-+static int br_fill_ifvlaninfo(struct sk_buff *skb,
-+			      const struct net_port_vlans *pv)
-+{
-+	struct bridge_vlan_info vinfo;
-+	u16 pvid, vid;
-+
-+	pvid = br_get_pvid(pv);
-+	for_each_set_bit(vid, pv->vlan_bitmap, VLAN_N_VID) {
-+		vinfo.vid = vid;
-+		vinfo.flags = 0;
-+		if (vid == pvid)
-+			vinfo.flags |= BRIDGE_VLAN_INFO_PVID;
-+
-+		if (test_bit(vid, pv->untagged_bitmap))
-+			vinfo.flags |= BRIDGE_VLAN_INFO_UNTAGGED;
-+
-+		if (nla_put(skb, IFLA_BRIDGE_VLAN_INFO,
-+			    sizeof(vinfo), &vinfo))
-+			goto nla_put_failure;
-+	}
-+
-+	return 0;
-+
-+nla_put_failure:
-+	return -EMSGSIZE;
-+}
-+
- /*
-  * Create one netlink message for one interface
-  * Contains port and master info as well as carrier and bridge state.
-@@ -121,12 +248,11 @@ static int br_fill_ifinfo(struct sk_buff *skb,
- 	}
- 
- 	/* Check if  the VID information is requested */
--	if (filter_mask & RTEXT_FILTER_BRVLAN) {
--		struct nlattr *af;
-+	if ((filter_mask & RTEXT_FILTER_BRVLAN) ||
-+	    (filter_mask & RTEXT_FILTER_BRVLAN_COMPRESSED)) {
- 		const struct net_port_vlans *pv;
--		struct bridge_vlan_info vinfo;
--		u16 vid;
--		u16 pvid;
-+		struct nlattr *af;
-+		int err;
- 
- 		if (port)
- 			pv = nbp_get_vlan_info(port);
-@@ -140,21 +266,12 @@ static int br_fill_ifinfo(struct sk_buff *skb,
- 		if (!af)
- 			goto nla_put_failure;
- 
--		pvid = br_get_pvid(pv);
--		for_each_set_bit(vid, pv->vlan_bitmap, VLAN_N_VID) {
--			vinfo.vid = vid;
--			vinfo.flags = 0;
--			if (vid == pvid)
--				vinfo.flags |= BRIDGE_VLAN_INFO_PVID;
--
--			if (test_bit(vid, pv->untagged_bitmap))
--				vinfo.flags |= BRIDGE_VLAN_INFO_UNTAGGED;
--
--			if (nla_put(skb, IFLA_BRIDGE_VLAN_INFO,
--				    sizeof(vinfo), &vinfo))
--				goto nla_put_failure;
--		}
--
-+		if (filter_mask & RTEXT_FILTER_BRVLAN_COMPRESSED)
-+			err = br_fill_ifvlaninfo_compressed(skb, pv);
-+		else
-+			err = br_fill_ifvlaninfo(skb, pv);
-+		if (err)
-+			goto nla_put_failure;
- 		nla_nest_end(skb, af);
- 	}
- 
--- 
-1.7.10.4
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 184c434..aedccae 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1726,6 +1726,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+        if (!bond_has_slaves(bond)) {
+                bond_set_carrier(bond);
+                eth_hw_addr_random(bond_dev);
++               ether_setup(bond_dev);
+        }
+
+        unblock_netpoll_tx();
+
+It should solve more than just your ipoib case.
+
+Last but not least, since you said you saw the crash in packet_snd(),
+it would also be interesting to know why packet_snd() still picks this
+bond dev after all its slaves are gone, after all it is not a functional
+device without any slave (its carrier is off).
+
+Thanks.
