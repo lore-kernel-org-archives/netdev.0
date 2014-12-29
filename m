@@ -1,41 +1,50 @@
-From: =?utf-8?b?U2lzdGVtIFnDtm5ldGljaXNpPGFkbWluQGFtYXN5YS5nb3YudHI+?=@mail.unair.ac.id
-Subject: DIKKAT;
-Date: Mon, 29 Dec 2014 14:53:48 +0530
-Message-ID: <20141229091700.E309C1970DA5@mail.unair.ac.id>
-Reply-To: systemadminstrator@barid.com
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [RFC PATCH 2/6] cdc_ncm: be more precise in comments for cdc_ncm_prepare_skb_ncm16
+Date: Mon, 29 Dec 2014 16:29:40 +0300
+Message-ID: <54A15744.2050602@cogentembedded.com>
+References: <1419847788-25610-1-git-send-email-mrkiko.rs@gmail.com> <1419847788-25610-3-git-send-email-mrkiko.rs@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <admin@amasya.gov.tr>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Enrico Mioso <mrkiko.rs@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pop.unair.ac.id ([210.57.208.25]:57121 "HELO mail.unair.ac.id"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751846AbaL2Mj6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2014 07:39:58 -0500
-Content-Description: Mail message body
+Received: from mail-la0-f54.google.com ([209.85.215.54]:42034 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751291AbaL2N3k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2014 08:29:40 -0500
+Received: by mail-la0-f54.google.com with SMTP id pv20so10941098lab.41
+        for <netdev@vger.kernel.org>; Mon, 29 Dec 2014 05:29:39 -0800 (PST)
+In-Reply-To: <1419847788-25610-3-git-send-email-mrkiko.rs@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DIKKAT;
+Hello.
 
-Posta kutunuz su 10.9GB =E7alisan y=F6netici tarafindan tanimlanan 5 GB=
- depolama sinirini, asti, size posta kutusu posta yeniden onaylayana ka=
-dar yeni posta g=F6ndermek veya almak m=FCmk=FCn olmayabilir. Posta kut=
-unuzu revalidate i=E7in l=FCtfen asagidaki bilgileri g=F6nderin:
+On 12/29/2014 1:09 PM, Enrico Mioso wrote:
 
-adi:
-Kullanici Adi:
-sifre:
-Parolayi Onaylayin:
-E-posta:
-Telefon:
+> The function might return NULL: callers must be prepared to this possibility.
 
-Posta kutunuza revalidate yapamiyorsaniz, posta kutunuzdaki devre disi =
-kalacak!
+> Signed-Off-By: Enrico Mioso <mrkiko.rs@gmail.com>
+> ---
+>   drivers/net/usb/cdc_ncm.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
 
-Verdigimiz rahatsizliktan dolayi =F6z=FCr dilerim.
-Kontrol kodu: tr: 6524
-Posta Teknik Destek =A9 2014
+> diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+> index 48fee7a..bcd9437 100644
+> --- a/drivers/net/usb/cdc_ncm.c
+> +++ b/drivers/net/usb/cdc_ncm.c
+> @@ -1015,7 +1015,7 @@ static struct usb_cdc_ncm_ndp16 *cdc_ncm_ndp16(struct cdc_ncm_ctx *ctx, struct s
+>   }
+>
+>   /* Allocate new SKB for use with 16-bit NCM according to actual TX/RX
+> -	settings */
+> +	settings; returns NULL in case of errors */
 
-tesekk=FCr ederim
-Sistem Y=F6neticisi
+    BTW, the preferred style for the multi-line comments in the networking 
+code is:
+
+/* bla
+  * bla
+  */
+
+WBR, Sergei
