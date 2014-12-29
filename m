@@ -1,70 +1,214 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH 1/6] bridge: add support to parse multiple vlan info
- attributes in IFLA_AF_SPEC
-Date: Mon, 29 Dec 2014 15:47:19 -0800
-Message-ID: <CAE4R7bDiRd6WY7ry-vFCj2HgAFtxWznwJTX4vqxt_v5Q8LXdOg@mail.gmail.com>
-References: <1419887132-7084-2-git-send-email-roopa@cumulusnetworks.com>
-	<CAE4R7bAyWy83S-K_XtiRNJO2rZXtVpijPxqj_oq_sZqPKW-h-Q@mail.gmail.com>
-	<54A1D157.1000002@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, shemminger@vyatta.com,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Wilson Kok <wkok@cumulusnetworks.com>
-To: roopa <roopa@cumulusnetworks.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2 1/2] ss: Unify unix stats output from netlink and proc
+Date: Tue, 30 Dec 2014 01:56:19 +0200
+Message-ID: <1419897380-21012-2-git-send-email-vadim4j@gmail.com>
+References: <1419897380-21012-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:41326 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751568AbaL2XrV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2014 18:47:21 -0500
-Received: by mail-wi0-f177.google.com with SMTP id l15so23204671wiw.10
-        for <netdev@vger.kernel.org>; Mon, 29 Dec 2014 15:47:20 -0800 (PST)
-In-Reply-To: <54A1D157.1000002@cumulusnetworks.com>
+Received: from mail-la0-f48.google.com ([209.85.215.48]:57890 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750833AbaL3AGg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2014 19:06:36 -0500
+Received: by mail-la0-f48.google.com with SMTP id gf13so11674473lab.7
+        for <netdev@vger.kernel.org>; Mon, 29 Dec 2014 16:06:34 -0800 (PST)
+In-Reply-To: <1419897380-21012-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 29, 2014 at 2:10 PM, roopa <roopa@cumulusnetworks.com> wrote:
-> On 12/29/14, 1:40 PM, Scott Feldman wrote:
->>
->> On Mon, Dec 29, 2014 at 1:05 PM,  <roopa@cumulusnetworks.com> wrote:
->>>
->>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>
->>> This patch changes bridge IFLA_AF_SPEC netlink attribute parser to
->>> look for more than one IFLA_BRIDGE_VLAN_INFO attribute. This allows
->>> userspace to pack more than one vlan in the setlink msg.
->>>
->>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->>> ---
->>>   net/bridge/br_netlink.c |   18 +++++++++---------
->>>   1 file changed, 9 insertions(+), 9 deletions(-)
->>>
->>> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
->>> index 9f5eb55..75971b1 100644
->>> --- a/net/bridge/br_netlink.c
->>> +++ b/net/bridge/br_netlink.c
->>> @@ -230,18 +230,18 @@ static int br_afspec(struct net_bridge *br,
->>>                       struct nlattr *af_spec,
->>>                       int cmd)
->>>   {
->>> -       struct nlattr *tb[IFLA_BRIDGE_MAX+1];
->>> +       struct bridge_vlan_info *vinfo;
->>>          int err = 0;
->>> +       struct nlattr *attr;
->>> +       int err = 0;
->>> +       int rem;
->>> +       u16 vid;
->>>
->>> -       err = nla_parse_nested(tb, IFLA_BRIDGE_MAX, af_spec,
->>> ifla_br_policy);
->>
->> Removing this call orphans ifla_br_policy...should ifla_br_policy be
->> removed?
->
->
-> good question. Its a good place to see the type. In-fact userspace programs
-> also copy the same policy to parse netlink attributes. hmmm..
-> I would like to keep it if it does not throw a warning.
+From: Vadim Kochan <vadim4j@gmail.com>
 
-I don't know what the policy (sorry, no pun intended) on leaving dead
-code.  I say remove it.
+Refactored to use one func for output unix stats info
+from both /proc and netlink.
+
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ misc/ss.c | 99 ++++++++++++++++++++++++---------------------------------------
+ 1 file changed, 37 insertions(+), 62 deletions(-)
+
+diff --git a/misc/ss.c b/misc/ss.c
+index f0c7b34..88b14f8 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -2234,6 +2234,7 @@ struct unixstat
+ 	struct unixstat *next;
+ 	int ino;
+ 	int peer;
++	char *peer_name;
+ 	int rq;
+ 	int wq;
+ 	int state;
+@@ -2279,7 +2280,18 @@ static const char *unix_netid_name(int type)
+ 	return netid;
+ }
+ 
+-static void unix_list_print(struct unixstat *list, struct filter *f)
++static int unix_type_skip(struct unixstat *s, struct filter *f)
++{
++	if (s->type == SOCK_STREAM && !(f->dbs&(1<<UNIX_ST_DB)))
++		return 1;
++	if (s->type == SOCK_DGRAM && !(f->dbs&(1<<UNIX_DG_DB)))
++		return 1;
++	if (s->type == SOCK_SEQPACKET && !(f->dbs&(1<<UNIX_SQ_DB)))
++		return 1;
++	return 0;
++}
++
++static void unix_stats_print(struct unixstat *list, struct filter *f)
+ {
+ 	struct unixstat *s;
+ 	char *peer;
+@@ -2287,15 +2299,14 @@ static void unix_list_print(struct unixstat *list, struct filter *f)
+ 	for (s = list; s; s = s->next) {
+ 		if (!(f->states & (1<<s->state)))
+ 			continue;
+-		if (s->type == SOCK_STREAM && !(f->dbs&(1<<UNIX_ST_DB)))
+-			continue;
+-		if (s->type == SOCK_DGRAM && !(f->dbs&(1<<UNIX_DG_DB)))
+-			continue;
+-		if (s->type == SOCK_SEQPACKET && !(f->dbs&(1<<UNIX_SQ_DB)))
++		if (unix_type_skip(s, f))
+ 			continue;
+ 
+ 		peer = "*";
+-		if (s->peer) {
++		if (s->peer_name)
++			peer = s->peer_name;
++
++		if (s->peer && !s->peer_name) {
+ 			struct unixstat *p;
+ 			for (p = list; p; p = p->next) {
+ 				if (s->peer == p->ino)
+@@ -2356,36 +2367,24 @@ static int unix_show_sock(const struct sockaddr_nl *addr, struct nlmsghdr *nlh,
+ 	struct unix_diag_msg *r = NLMSG_DATA(nlh);
+ 	struct rtattr *tb[UNIX_DIAG_MAX+1];
+ 	char name[128];
+-	int peer_ino;
+-	__u32 rqlen, wqlen;
++	struct unixstat stat = { .name = "*" , .peer_name = "*" };
+ 
+ 	parse_rtattr(tb, UNIX_DIAG_MAX, (struct rtattr*)(r+1),
+ 		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
+ 
+-	if (r->udiag_type == SOCK_STREAM && !(f->dbs&(1<<UNIX_ST_DB)))
+-		return 0;
+-	if (r->udiag_type == SOCK_DGRAM && !(f->dbs&(1<<UNIX_DG_DB)))
+-		return 0;
+-	if (r->udiag_type == SOCK_SEQPACKET && !(f->dbs&(1<<UNIX_SQ_DB)))
+-		return 0;
++	f->f = NULL;
++	stat.type  = r->udiag_type;
++	stat.state = r->udiag_state;
++	stat.ino   = r->udiag_ino;
+ 
+-	if (netid_width)
+-		printf("%-*s ", netid_width,
+-		       unix_netid_name(r->udiag_type));
+-	if (state_width)
+-		printf("%-*s ", state_width, sstate_name[r->udiag_state]);
++	if (unix_type_skip(&stat, f))
++		return 0;
+ 
+ 	if (tb[UNIX_DIAG_RQLEN]) {
+ 		struct unix_diag_rqlen *rql = RTA_DATA(tb[UNIX_DIAG_RQLEN]);
+-		rqlen = rql->udiag_rqueue;
+-		wqlen = rql->udiag_wqueue;
+-	} else {
+-		rqlen = 0;
+-		wqlen = 0;
++		stat.rq = rql->udiag_rqueue;
++		stat.wq = rql->udiag_wqueue;
+ 	}
+-
+-	printf("%-6u %-6u ", rqlen, wqlen);
+-
+ 	if (tb[UNIX_DIAG_NAME]) {
+ 		int len = RTA_PAYLOAD(tb[UNIX_DIAG_NAME]);
+ 
+@@ -2393,41 +2392,17 @@ static int unix_show_sock(const struct sockaddr_nl *addr, struct nlmsghdr *nlh,
+ 		name[len] = '\0';
+ 		if (name[0] == '\0')
+ 			name[0] = '@';
+-	} else
+-		sprintf(name, "*");
+-
++		stat.name = &name[0];
++	}
+ 	if (tb[UNIX_DIAG_PEER])
+-		peer_ino = rta_getattr_u32(tb[UNIX_DIAG_PEER]);
+-	else
+-		peer_ino = 0;
+-
+-	printf("%*s %-*d %*s %-*d",
+-			addr_width, name,
+-			serv_width, r->udiag_ino,
+-			addr_width, "*", /* FIXME */
+-			serv_width, peer_ino);
+-
+-	char *buf = NULL;
++		stat.peer = rta_getattr_u32(tb[UNIX_DIAG_PEER]);
+ 
+-	if (show_proc_ctx || show_sock_ctx) {
+-		if (find_entry(r->udiag_ino, &buf,
+-				(show_proc_ctx & show_sock_ctx) ?
+-				PROC_SOCK_CTX : PROC_CTX) > 0) {
+-			printf(" users:(%s)", buf);
+-			free(buf);
+-		}
+-	} else if (show_users) {
+-		if (find_entry(r->udiag_ino, &buf, USERS) > 0) {
+-			printf(" users:(%s)", buf);
+-			free(buf);
+-		}
+-	}
++	unix_stats_print(&stat, f);
+ 
+ 	if (show_mem) {
+-		printf("\n\t");
++		printf("\t");
+ 		print_skmeminfo(tb, UNIX_DIAG_MEMINFO);
+ 	}
+-
+ 	if (show_details) {
+ 		if (tb[UNIX_DIAG_SHUTDOWN]) {
+ 			unsigned char mask;
+@@ -2435,9 +2410,8 @@ static int unix_show_sock(const struct sockaddr_nl *addr, struct nlmsghdr *nlh,
+ 			printf(" %c-%c", mask & 1 ? '-' : '<', mask & 2 ? '-' : '>');
+ 		}
+ 	}
+-
+-	printf("\n");
+-
++	if (show_mem || show_details)
++		printf("\n");
+ 	return 0;
+ }
+ 
+@@ -2505,6 +2479,7 @@ static int unix_show(struct filter *f)
+ 		if (!(u = malloc(sizeof(*u))))
+ 			break;
+ 		u->name = NULL;
++		u->peer_name = NULL;
+ 
+ 		if (sscanf(buf, "%x: %x %x %x %x %x %d %s",
+ 			   &u->peer, &u->rq, &u->wq, &flags, &u->type,
+@@ -2544,7 +2519,7 @@ static int unix_show(struct filter *f)
+ 			strcpy(u->name, name);
+ 		}
+ 		if (++cnt > MAX_UNIX_REMEMBER) {
+-			unix_list_print(list, f);
++			unix_stats_print(list, f);
+ 			unix_list_free(list);
+ 			list = NULL;
+ 			cnt = 0;
+@@ -2552,7 +2527,7 @@ static int unix_show(struct filter *f)
+ 	}
+ 	fclose(fp);
+ 	if (list) {
+-		unix_list_print(list, f);
++		unix_stats_print(list, f);
+ 		unix_list_free(list);
+ 		list = NULL;
+ 		cnt = 0;
+-- 
+2.1.3
