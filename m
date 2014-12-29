@@ -1,103 +1,46 @@
-From: Roger Chen <roger.chen@rock-chips.com>
-Subject: [PATCH v3 6/6] GMAC: add document for Rockchip RK3288 GMAC
-Date: Mon, 29 Dec 2014 17:44:34 +0800
-Message-ID: <1419846274-14747-1-git-send-email-roger.chen@rock-chips.com>
-References: <1419846152-14531-1-git-send-email-roger.chen@rock-chips.com>
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
-	kever.yang@rock-chips.com, eddie.cai@rock-chips.com,
-	roger.chen@rock-chips.com
-To: heiko@sntech.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1419846152-14531-1-git-send-email-roger.chen@rock-chips.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: [RFC PATCH 0/6] cdc_ncm: some basic refactoring
+Date: Mon, 29 Dec 2014 11:09:42 +0100
+Message-ID: <1419847788-25610-1-git-send-email-mrkiko.rs@gmail.com>
+Cc: Enrico Mioso <mrkiko.rs@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:32810 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751312AbaL2KJ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2014 05:09:28 -0500
+Received: by mail-wi0-f179.google.com with SMTP id ex7so21597625wid.0
+        for <netdev@vger.kernel.org>; Mon, 29 Dec 2014 02:09:27 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The document descripts how to add properties for GMAC in device tree.
+Here is some work I did to move in the direction of refactoring the cdc_ncm
+module, to allow for future further changes.
+This is work in progress (WIP): and I know some changes are controversial. In
+particular, the modification you can see related to cdc_ncm.h header file is
+useless at this point. But actually it can be useful for learning from your
+opinions: is this the right thing to do?
+Thank in advance to anyone reviewing this code.
+The final objective would be to have the driver accumulate frames as it does
+now, but in a skb queue (sk_buff_head), and then generating the NCM frame
+itself only when needed (queue full / flueshed).
+I need assistance / help: the logic seems hard to follow for me (is it me or
+is it little bit convoluted?).
+Thank you for any help, waiting for your comments.
+Note: please CC me as I am not subscribed to this list.
 
-change since v2:
 
-1. remove power-gpio, reset-gpio, phyirq-gpio, pmu_regulator setting
-2. add "snps,reset-gpio", "snps,reset-active-low;" "snps,reset-delays-us"
+Enrico Mioso (6):
+  cdc_ncm: factor out skb allocation and finalizzing
+  cdc_ncm: be more precise in comments for cdc_ncm_prepare_skb_ncm16
+  cdc_ncm: add needed members to cdc_ncm_ctx for refactoring
+  cdc_ncm: update specs URL
+  cdc_ncm: fix typo
+  cdc_ncm: factor out NDP preparation and frame linking
 
-Signed-off-by: Roger Chen <roger.chen@rock-chips.com>
----
- .../devicetree/bindings/net/rockchip-dwmac.txt     |   67 ++++++++++++++++++++
- 1 file changed, 67 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/rockchip-dwmac.txt
+ drivers/net/usb/cdc_ncm.c   | 74 ++++++++++++++++++++++++++++++++-------------
+ include/linux/usb/cdc_ncm.h |  1 +
+ 2 files changed, 54 insertions(+), 21 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-new file mode 100644
-index 0000000..94d887f
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-@@ -0,0 +1,67 @@
-+Rockchip SoC RK3288 10/100/1000 Ethernet driver(GMAC)
-+
-+The device node has following properties.
-+
-+Required properties:
-+ - compatible: Can be "rockchip,rk3288-gmac".
-+ - reg: addresses and length of the register sets for the device.
-+ - interrupts: Should contain the GMAC interrupts.
-+ - interrupt-names: Should contain the interrupt names "macirq".
-+ - rockchip,grf: phandle to the syscon grf used to control speed and mode.
-+ - clocks: <&cru SCLK_MAC>: clock selector for main clock, from PLL or PHY.
-+	   <&cru SCLK_MAC_PLL>: PLL clock for SCLK_MAC
-+	   <&cru SCLK_MAC_RX>: clock gate for RX
-+	   <&cru SCLK_MAC_TX>: clock gate for TX
-+	   <&cru SCLK_MACREF>: clock gate for RMII referce clock
-+	   <&cru SCLK_MACREF_OUT> clock gate for RMII reference clock output
-+	   <&cru ACLK_GMAC>: AXI clock gate for GMAC 
-+	   <&cru PCLK_GMAC>: APB clock gate for GMAC 
-+ - clock-names: One name for each entry in the clocks property.
-+ - phy-mode: See ethernet.txt file in the same directory.
-+ - pinctrl-names: Names corresponding to the numbered pinctrl states.
-+ - pinctrl-0: pin-control mode. can be <&rgmii_pins> or <&rmii_pins>.
-+ - clock_in_out: For RGMII, it must be "input", means main clock(125MHz)
-+   is not sourced from SoC's PLL, but input from PHY; For RMII, "input" means
-+   PHY provides the reference clock(50MHz), "output" means GMAC provides the
-+   reference clock. 
-+ - snps,reset-gpio       gpio number for phy reset.
-+ - snps,reset-active-low boolean flag to indicate if phy reset is active low.
-+ - assigned-clocks: main clock, should be <&cru SCLK_MAC>;
-+ - assigned-clock-parents = parent of main clock.
-+   can be <&ext_gmac> or <&cru SCLK_MAC_PLL>.
-+
-+Optional properties:
-+ - tx_delay: Delay value for TXD timing. Range value is 0~0x7F, 0x30 as default.
-+ - rx_delay: Delay value for RXD timing. Range value is 0~0x7F, 0x10 as default.
-+
-+Example:
-+
-+gmac: ethernet@ff290000 {
-+	compatible = "rockchip,rk3288-gmac";
-+	reg = <0xff290000 0x10000>;
-+	interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
-+	interrupt-names = "macirq";
-+	rockchip,grf = <&grf>;
-+	clocks = <&cru SCLK_MAC>,
-+		<&cru SCLK_MAC_RX>, <&cru SCLK_MAC_TX>,
-+		<&cru SCLK_MACREF>, <&cru SCLK_MACREF_OUT>,
-+		<&cru ACLK_GMAC>, <&cru PCLK_GMAC>;
-+	clock-names = "stmmaceth",
-+		"mac_clk_rx", "mac_clk_tx",
-+		"clk_mac_ref", "clk_mac_refout",
-+		"aclk_mac", "pclk_mac";
-+	phy-mode = "rgmii";
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&rgmii_pins /*&rmii_pins*/>;
-+
-+	clock_in_out = "input";
-+	snps,reset-gpio = <&gpio4 7 0>;
-+	snps,reset-active-low;
-+
-+	assigned-clocks = <&cru SCLK_MAC>;
-+	assigned-clock-parents = <&ext_gmac>;
-+	tx_delay = <0x30>;
-+	rx_delay = <0x10>;
-+
-+	status = "ok";
-+};
 -- 
-1.7.9.5
+2.2.1
