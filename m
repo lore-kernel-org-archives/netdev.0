@@ -1,102 +1,197 @@
-From: Wengang <wen.gang.wang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] bonding: move ipoib_header_ops to vmlinux
-Date: Mon, 29 Dec 2014 15:13:28 +0800
-Message-ID: <54A0FF18.8040406@oracle.com>
-References: <1416893768-21369-1-git-send-email-wen.gang.wang@oracle.com> <20141125.010741.450666241983239119.davem@davemloft.net>
+From: "Arad, Ronen" <ronen.arad@intel.com>
+Subject: RE: [PATCH/RFC flow-net-next 04/10] net: flow: Add counters to flows
+Date: Mon, 29 Dec 2014 07:31:41 +0000
+Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505DD0E24@ORSMSX101.amr.corp.intel.com>
+References: <1419819340-19000-1-git-send-email-simon.horman@netronome.com>
+ <1419819340-19000-5-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20141125.010741.450666241983239119.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-Hi David,
-
-This is a real case not a potential crash. The call stack is like this:
-
-crash> bt
-PID: 47323 TASK: ffff881722954140 CPU: 13 COMMAND: "arping"
-#0 [ffff881518437860] machine_kexec at ffffffff8103aac9
-#1 [ffff8815184378d0] crash_kexec at ffffffff810b9943
-#2 [ffff8815184379a0] oops_end at ffffffff8150e9b8
-#3 [ffff8815184379d0] no_context at ffffffff8104855c
-#4 [ffff881518437a10] __bad_area_nosemaphore at ffffffff81048685
-#5 [ffff881518437a60] bad_area_nosemaphore at ffffffff810487e3
-#6 [ffff881518437a70] do_page_fault at ffffffff81511558
-#7 [ffff881518437b80] page_fault at ffffffff8150df55
-[exception RIP: packet_snd+608]
-RIP: ffffffff814ddbc0 RSP: ffff881518437c38 RFLAGS: 00010282
-RAX: ffffffffa0316040 RBX: ffff881518437e58 RCX: 0000000000000000
-RDX: 0000000000000048 RSI: 0000000000000038 RDI: ffff88172508a080
-RBP: ffff881518437ca8 R8: ffff88176568f400 R9: 0000000000000038
-R10: ffff88172508a080 R11: 0000000000000000 R12: ffff8817e94f2080
-R13: ffff8817eba0f400 R14: ffff8817eaef6000 R15: 0000000000000038
-ORIG_RAX: ffffffffffffffff CS: 0010 SS: 0018
-#8 [ffff881518437cb0] packet_sendmsg at ffffffff814ddee3
-#9 [ffff881518437cc0] sock_sendmsg at ffffffff8142ad3f
-#10 [ffff881518437e40] sys_sendto at ffffffff8142af09
-#11 [ffff881518437f80] system_call_fastpath at ffffffff81515c42
-RIP: 00007f4a03095853 RSP: 00007fffad354bf8 RFLAGS: 00010202
-RAX: 000000000000002c RBX: ffffffff81515c42 RCX: 00007f4a02fde7ce
-RDX: 0000000000000038 RSI: 00007fffad354ab0 RDI: 0000000000000003
-RBP: 0000000000000038 R8: 00007f4a03b87e00 R9: 0000000000000020
-R10: 0000000000000000 R11: 0000000000000246 R12: 00007f4a03b87e00
-R13: 00007f4a03b87e4c R14: 00007fffad354ae4 R15: 00007f4a03b87e98
-ORIG_RAX: 000000000000002c CS: 0033 SS: 002b
-
-Though the crash is not based on mainline code, mainline has the same i=
-ssue.
-
-I think Or Gerlitz answered the question "IPOIB should not work over=20
-bonding as it requires that the device use ARPHRD_ETHER.".
-
-IPoIB devices can be enslaved to both bonding and teaming in their HA m=
-ode,
-the bond device type becomes ARPHRD_INFINIBAND when this happens.
-
-So, what information else do you need?
-
-thanks,
-wengang
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Simon Horman <simon.horman@netronome.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:52247 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751765AbaL2Hbm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2014 02:31:42 -0500
+In-Reply-To: <1419819340-19000-5-git-send-email-simon.horman@netronome.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-=E4=BA=8E 2014=E5=B9=B411=E6=9C=8825=E6=97=A5 14:07, David Miller =E5=86=
-=99=E9=81=93:
-> From: Wengang Wang <wen.gang.wang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Date: Tue, 25 Nov 2014 13:36:08 +0800
+
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
+>Behalf Of Simon Horman
+>Sent: Monday, December 29, 2014 4:16 AM
+>To: Fastabend, John R; netdev@vger.kernel.org
+>Cc: Simon Horman
+>Subject: [PATCH/RFC flow-net-next 04/10] net: flow: Add counters to flows
 >
->> When last slave of a bonding master is removed, the bonding then doe=
-s not work.
->> At the time if packet_snd is called against with a master net_device=
-, it calls
->> then header_ops->create which points to slave's header_ops. In case =
-the slave
->> is ipoib and the module is unloaded, header_ops would point to inval=
-id address.
->> Accessing it will cause problem.
->> This patch tries to fix this issue by moving ipoib_header_ops to vml=
-inux to keep
->> it valid even when ipoib module is unloaded.
->>
->> Signed-off-by: Wengang Wang <wen.gang.wang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> IPOIB should not work over bonding as it requires that the device
-> use ARPHRD_ETHER.
+>It may be useful for hardware flow table support for counters to be exposed
+>via the flow API. One possible use case of this is for Open vSwitch to use
+>the flow API in conjunction with its existing datapath flow management
+>scheme which in a nutshell treats the datapath as a cache that times out
+>idle entries.
 >
-> Someone mentioned this, and I did not see any response.
+>This patch exposes optionally exposes three counters:
+>- Number of packets that have matched a flow
+>- Number of bytes of packets that have matched a flow
+>- The time in ms when the flow was last hit
 >
-> Please show how a legitimate real bonding configuration can be
-> created, reproduce a stray memory access, and therefore potentially
-> cause a crash.
+>Inspired by the flow counters present in Open Flow.
 >
-> Using various debugging features of the kernel should allow you to
-> trigger an assertion quite easily if this bug really exists.
+>Signed-off-by: Simon Horman <simon.horman@netronome.com>
+>
+>---
+>
+>Compile tested only
+>---
+> include/uapi/linux/if_flow.h | 24 ++++++++++++++++++++++++
+> net/core/flow_table.c        | 27 +++++++++++++++++++++++++++
+> 2 files changed, 51 insertions(+)
+>
+>diff --git a/include/uapi/linux/if_flow.h b/include/uapi/linux/if_flow.h
+>index 28da45b..18214ea 100644
+>--- a/include/uapi/linux/if_flow.h
+>+++ b/include/uapi/linux/if_flow.h
+>@@ -127,6 +127,9 @@
+>  *	     [NET_FLOW_ATTR_PRIORITY]
+>  *	     [NET_FLOW_ATTR_IDLE_TIMEOUT]
+>  *	     [NET_FLOW_ATTR_HARD_TIMEOUT]
+>+ *	     [NET_FLOW_ATTR_BYTE_COUNT]
+>+ *	     [NET_FLOW_ATTR_PACKET_COUNT]
+>+ *	     [NET_FLOW_ATTR_LAST_USED]
+>  *	     [NET_FLOW_ATTR_MATCHES]
+>  *	        [NET_FLOW_FIELD_REF]
+>  *	        [NET_FLOW_FIELD_REF]
+>@@ -153,6 +156,9 @@
+>  *     [NET_FLOW_ATTR_PRIORITY]
+>  *     [NET_FLOW_ATTR_IDLE_TIMEOUT]
+>  *     [NET_FLOW_ATTR_HARD_TIMEOUT]
+>+ *     [NET_FLOW_ATTR_BYTE_COUNT]
+>+ *     [NET_FLOW_ATTR_PACKET_COUNT]
+>+ *     [NET_FLOW_ATTR_LAST_USED]
+>  *     [NET_FLOW_MATCHES]
+>  *       [NET_FLOW_FIELD_REF]
+>  *       [NET_FLOW_FIELD_REF]
+>@@ -365,6 +371,9 @@ enum {
+>  * @idle_timeout idle timeout of flow in seconds. Zero for no timeout.
+>  * @hard_timeout timeout of flow regardless of use in seconds.
+>  *               Zero for no timeout.
+>+ * @byte_count bytes recieved
+>+ * @byte_count packets recieved
+>+ * @last_used time of most recent use (msec since system initialisation)
+>  *
+>  * Flows must match all entries in match set.
+>  */
+>@@ -374,6 +383,9 @@ struct net_flow_flow {
+> 	int priority;
+> 	__u32 idle_timeout;
+> 	__u32 hard_timeout;
+>+	__u64 byte_count;
+>+	__u64 packet_count;
+>+	__u64 last_used;
+> 	struct net_flow_field_ref *matches;
+> 	struct net_flow_action *actions;
+> };
+>@@ -414,6 +426,9 @@ enum {
+> 	NET_FLOW_ATTR_ACTIONS,
+> 	NET_FLOW_ATTR_IDLE_TIMEOUT,
+> 	NET_FLOW_ATTR_HARD_TIMEOUT,
+>+	NET_FLOW_ATTR_BYTE_COUNT,
+>+	NET_FLOW_ATTR_PACKET_COUNT,
+>+	NET_FLOW_ATTR_LAST_USED,
+> 	__NET_FLOW_ATTR_MAX,
+> };
+> #define NET_FLOW_ATTR_MAX (__NET_FLOW_ATTR_MAX - 1)
+>@@ -465,6 +480,15 @@ enum {
+>
+> 	/* Table supports idle timeout of flows */
+> 	NET_FLOW_TABLE_F_HARD_TIMEOUT		= (1 << 1),
+>+
+>+	/* Table supports byte counter for flows */
+>+	NET_FLOW_TABLE_F_BYTE_COUNT		= (1 << 2),
+>+
+>+	/* Table supports packet counter for flows */
+>+	NET_FLOW_TABLE_F_PACKET_COUNT		= (1 << 3),
+>+
+>+	/* Table supports last used counter for flows */
+>+	NET_FLOW_TABLE_F_PACKET_LAST_USED	= (1 << 4),
+> };
+>
+> #if 0
+>diff --git a/net/core/flow_table.c b/net/core/flow_table.c
+>index 89ba9bc..070e646 100644
+>--- a/net/core/flow_table.c
+>+++ b/net/core/flow_table.c
+>@@ -54,6 +54,9 @@ struct nla_policy net_flow_flow_policy[NET_FLOW_ATTR_MAX +
+>1] = {
+> 	[NET_FLOW_ATTR_PRIORITY]	= { .type = NLA_U32 },
+> 	[NET_FLOW_ATTR_IDLE_TIMEOUT]	= { .type = NLA_U32 },
+> 	[NET_FLOW_ATTR_HARD_TIMEOUT]	= { .type = NLA_U32 },
+>+	[NET_FLOW_ATTR_BYTE_COUNT]	= { .type = NLA_U64 },
+>+	[NET_FLOW_ATTR_PACKET_COUNT]	= { .type = NLA_U64 },
+>+	[NET_FLOW_ATTR_LAST_USED]	= { .type = NLA_U64 },
+> 	[NET_FLOW_ATTR_MATCHES]	= { .type = NLA_NESTED },
+> 	[NET_FLOW_ATTR_ACTIONS]	= { .type = NLA_NESTED },
+> };
+>@@ -206,6 +209,16 @@ int net_flow_put_flow(struct sk_buff *skb, struct
+>net_flow_flow *flow)
+> 	    nla_put_u32(skb, NET_FLOW_ATTR_HARD_TIMEOUT, flow->hard_timeout))
+> 		goto flows_put_failure;
+>
+>+	if (flow->byte_count &&
+>+	    nla_put_u32(skb, NET_FLOW_ATTR_BYTE_COUNT, flow->byte_count))
+>+		goto flows_put_failure;
+>+	if (flow->packet_count &&
+>+	    nla_put_u32(skb, NET_FLOW_ATTR_PACKET_COUNT, flow->packet_count))
+>+		goto flows_put_failure;
+>+	if (flow->last_used &&
+>+	    nla_put_u32(skb, NET_FLOW_ATTR_LAST_USED, flow->last_used))
+>+		goto flows_put_failure;
+>+
+The flow byte_count, packet_count, and last_used fields are defined as __u64 and related netlink attributes are of type NLA_U64 but nla_put_u32() is used to add them to the netlink msg.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 	matches = nla_nest_start(skb, NET_FLOW_ATTR_MATCHES);
+> 	if (!matches)
+> 		goto flows_put_failure;
+>@@ -536,6 +549,13 @@ static int net_flow_get_flow(struct net_flow_flow *flow,
+>struct nlattr *attr)
+> 	if (f[NET_FLOW_ATTR_HARD_TIMEOUT])
+> 		flow->hard_timeout = nla_get_u32(f[NET_FLOW_ATTR_HARD_TIMEOUT]);
+>
+>+	if (f[NET_FLOW_ATTR_BYTE_COUNT])
+>+		flow->byte_count = nla_get_u64(f[NET_FLOW_ATTR_BYTE_COUNT]);
+>+	if (f[NET_FLOW_ATTR_PACKET_COUNT])
+>+		flow->packet_count = nla_get_u64(f[NET_FLOW_ATTR_PACKET_COUNT]);
+>+	if (f[NET_FLOW_ATTR_LAST_USED])
+>+		flow->last_used = nla_get_u64(f[NET_FLOW_ATTR_LAST_USED]);
+>+
+> 	flow->matches = NULL;
+> 	flow->actions = NULL;
+>
+>@@ -1386,6 +1406,13 @@ static int net_flow_table_cmd_flows(struct sk_buff
+>*recv_skb,
+> 		if (this.hard_timeout)
+> 			used_features |= NET_FLOW_TABLE_F_HARD_TIMEOUT;
+>
+>+		if (this.byte_count)
+>+			used_features |= NET_FLOW_TABLE_F_BYTE_COUNT;
+>+		if (this.packet_count)
+>+			used_features |= NET_FLOW_TABLE_F_PACKET_COUNT;
+>+		if (this.last_used)
+>+			used_features |= NET_FLOW_TABLE_F_PACKET_LAST_USED;
+>+
+> 		err = net_flow_table_check_features(dev, this.table_id,
+> 						    used_features);
+> 		if (err)
+>--
+>2.1.3
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
