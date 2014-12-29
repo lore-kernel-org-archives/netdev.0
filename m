@@ -1,47 +1,29 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: stmmac: add BQL support
-Date: Sun, 28 Dec 2014 23:48:14 -0800
-Message-ID: <CAGVrzca_i9Wdpa9ecJYPZDgw+TqgMq1SH6ZmRnE4MoQ2dvnAAw@mail.gmail.com>
-References: <1419778631-23067-1-git-send-email-b.galvani@gmail.com>
+From: Shahar Lev <shahar@stratoscale.com>
+Subject: Re: [PATCH] ipnetns: fix exec for netns not in NETNS_RUN_DIR
+Date: Mon, 29 Dec 2014 11:25:41 +0200
+Message-ID: <CAH04KvnHRsss5h+7KnGc52QK3UhJYS9yZ+8XPCQqnCjYsqpEug@mail.gmail.com>
+References: <1419611232-14206-1-git-send-email-shahar@stratoscale.com>
+	<20141227100548.4fbd3e31@urahara>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Beniamino Galvani <b.galvani@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1419778631-23067-1-git-send-email-b.galvani@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-2014-12-28 6:57 GMT-08:00 Beniamino Galvani <b.galvani@gmail.com>:
-> Add support for Byte Queue Limits to the STMicro MAC driver.
->
-> Tested on a Amlogic S805 Cortex-A5 board, where the use of BQL
-> slightly decreases the ping latency from ~10ms to ~3ms when the
-> 100Mbps link is saturated by TCP streams. No difference is
-> observed at 1Gbps.
->
-> Signed-off-by: Beniamino Galvani <b.galvani@gmail.com>
-> ---
-
-[snip]
-
->         priv->dev->stats.tx_errors++;
-> @@ -2049,6 +2057,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
->                 skb_tx_timestamp(skb);
->
->         priv->hw->dma->enable_dma_transmission(priv->ioaddr);
-> +       netdev_sent_queue(dev, skb->len);
-
-You are introducing a potential use after free here in case tx_lock is
-eliminated one day and your TX reclaim logic kicks in and frees the
-freshly transmitted SKB, it would be safer to just cache skb->len in a
-local variable, and use it here.
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:65495 "EHLO
+	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751435AbaL2JZm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2014 04:25:42 -0500
+Received: by mail-oi0-f51.google.com with SMTP id e131so28361223oig.10
+        for <netdev@vger.kernel.org>; Mon, 29 Dec 2014 01:25:41 -0800 (PST)
+In-Reply-To: <20141227100548.4fbd3e31@urahara>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 >
->         spin_unlock(&priv->tx_lock);
->         return NETDEV_TX_OK;
--- 
-Florian
+> This breaks existing users since you now require full pathname.
+>
+
+Providing a full path is not a requirement.
+If there's no dash ('/') in the parameter provided it defaults to
+opening relative to NETNS_RUN_DIR (the existing behavior).
+So this is just an extension.
