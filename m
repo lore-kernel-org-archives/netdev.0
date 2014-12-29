@@ -1,12 +1,11 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 8/8] ath10k: fix error return code
-Date: Mon, 29 Dec 2014 18:04:43 +0100
-Message-ID: <1419872683-32709-9-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 6/8] adm8211: fix error return code
+Date: Mon, 29 Dec 2014 18:04:41 +0100
+Message-ID: <1419872683-32709-7-git-send-email-Julia.Lawall@lip6.fr>
 References: <1419872683-32709-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, ath10k@lists.infradead.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@qca.qualcomm.com>
+Cc: kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1419872683-32709-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -40,22 +39,18 @@ ret = 0
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- drivers/net/wireless/ath/ath10k/htt_tx.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/wireless/adm8211.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/wireless/ath/ath10k/htt_tx.c b/drivers/net/wireless/ath/ath10k/htt_tx.c
-index 4bc51d8..2836f4c 100644
---- a/drivers/net/wireless/ath/ath10k/htt_tx.c
-+++ b/drivers/net/wireless/ath/ath10k/htt_tx.c
-@@ -480,8 +480,10 @@ int ath10k_htt_tx(struct ath10k_htt *htt, struct sk_buff *msdu)
+diff --git a/drivers/net/wireless/adm8211.c b/drivers/net/wireless/adm8211.c
+index 17fcaab..f07a618 100644
+--- a/drivers/net/wireless/adm8211.c
++++ b/drivers/net/wireless/adm8211.c
+@@ -1837,6 +1837,7 @@ static int adm8211_probe(struct pci_dev *pdev,
+ 	if (!priv->map) {
+ 		printk(KERN_ERR "%s (adm8211): Cannot map device memory\n",
+ 		       pci_name(pdev));
++		err = -ENOMEM;
+ 		goto err_free_dev;
+ 	}
  
- 	skb_cb->htt.txbuf = dma_pool_alloc(htt->tx_pool, GFP_ATOMIC,
- 					   &paddr);
--	if (!skb_cb->htt.txbuf)
-+	if (!skb_cb->htt.txbuf) {
-+		res = -ENOMEM;
- 		goto err_free_msdu_id;
-+	}
- 	skb_cb->htt.txbuf_paddr = paddr;
- 
- 	skb_cb->paddr = dma_map_single(dev, msdu->data, msdu->len,
