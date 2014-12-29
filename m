@@ -1,128 +1,101 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: am335x: cpsw: interrupt failure
-Date: Mon, 29 Dec 2014 11:13:55 -0600
-Message-ID: <20141229171355.GJ29379@saruman>
-References: <20141210171724.GI4602@saruman>
- <CAGm1_ksziwSjQnV1rDYsAv2QQCvhnZPOimowmsW5Cib7C01aqA@mail.gmail.com>
- <20141210210234.GN4602@saruman>
- <CAGm1_ktYg4iDgK7jyi5etSVup61LdookkV+SaQZOpLb6M=y7hA@mail.gmail.com>
- <CAGm1_kuaqXrU4zhNUZeY85+OeXHApSUDjJdsXcyBdvHTNhLCmQ@mail.gmail.com>
- <20141212173210.GI7549@saruman>
- <CAGm1_kuYrGsfjRO6TVr554yS8dcD4_Z9-j9KL0xpD=X+31OkXQ@mail.gmail.com>
- <CAGm1_kudtF9O4QChrKX1q=c9KwHEFZet=z7j=-_iCRE914X83Q@mail.gmail.com>
- <20141229155029.GA29379@saruman>
- <20141229165103.GB2411@atomide.com>
-Reply-To: <balbi@ti.com>
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: [PATCH net-next] net: stmmac: add BQL support
+Date: Mon, 29 Dec 2014 09:42:01 -0800
+Message-ID: <CAA93jw4GeWOqeZu5SjOYhhORiH6XCrv7uPTjrgE9O1QWESCxqw@mail.gmail.com>
+References: <1419778631-23067-1-git-send-email-b.galvani@gmail.com>
+	<CAA93jw7XMK0foH_Hf9PHitV+Xhwxu15xATFv-jnn8_1Tv+kFCA@mail.gmail.com>
+	<20141228214059.GA25570@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="LQAwcd5tHl0Qlnzi"
-Cc: Felipe Balbi <balbi@ti.com>,
-	Yegor Yefremov <yegorslists@googlemail.com>,
-	netdev <netdev@vger.kernel.org>,
-	"N, Mugunthan V" <mugunthanvnm@ti.com>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
-To: Tony Lindgren <tony@atomide.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141229165103.GB2411@atomide.com>
-Sender: linux-omap-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Beniamino Galvani <b.galvani@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141228214059.GA25570@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---LQAwcd5tHl0Qlnzi
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Sun, Dec 28, 2014 at 1:48 PM, Beniamino Galvani <b.galvani@gmail.com=
+> wrote:
+> On Sun, Dec 28, 2014 at 08:25:40AM -0800, Dave Taht wrote:
+>> On Sun, Dec 28, 2014 at 6:57 AM, Beniamino Galvani <b.galvani@gmail.=
+com> wrote:
+>> > Add support for Byte Queue Limits to the STMicro MAC driver.
+>>
+>> Thank you!
+>>
+>> > Tested on a Amlogic S805 Cortex-A5 board, where the use of BQL
+>> > slightly decreases the ping latency from ~10ms to ~3ms when the
+>> > 100Mbps link is saturated by TCP streams. No difference is
+>> > observed at 1Gbps.
+>>
+>> I see the plural. With TSQ in place it is hard (without something li=
+ke
+>> the rrul test driving multiple streams) to drive a driver to
+>> saturation with small numbers of flows. This was with pfifo_fast, no=
+t
+>> sch_fq, at 100mbit?
+>
+> Hi Dave,
+>
+> yes, this was with pfifo_fast and I used 4 iperf TCP streams. The tot=
+al
+> throughput didn't seem to increase adding more streams.
 
-On Mon, Dec 29, 2014 at 08:51:04AM -0800, Tony Lindgren wrote:
-> * Felipe Balbi <balbi@ti.com> [141229 07:53]:
-> > On Mon, Dec 29, 2014 at 10:33:26AM +0100, Yegor Yefremov wrote:
-> > > On Fri, Dec 12, 2014 at 8:19 PM, Yegor Yefremov
-> > > <yegorslists@googlemail.com> wrote:
-> > > > On Fri, Dec 12, 2014 at 6:32 PM, Felipe Balbi <balbi@ti.com> wrote:
-> > > >> Hi,
-> > > >>
-> > > >> On Fri, Dec 12, 2014 at 01:00:51PM +0100, Yegor Yefremov wrote:
-> > > >>> U-Boot version: 2014.07
-> > > >>> Kernel config is omap2plus with enabled USB
-> > > >>>
-> > > >>> # cat /proc/version
-> > > >>> Linux version 3.18.0 (user@user-VirtualBox) (gcc version 4.8.3
-> > > >>> 20140320 (prerelease) (Sourcery CodeBench Lite 2014.05-29) ) #6 S=
-MP
-> > > >>> Mon Dec 8 22:47:43 CET 2014
-> > > >>
-> > > >> Wasn't GCC 4.8.x total crap for building ARM kernels ? IIRC it was=
- even
-> > > >> blacklisted. Can you try with 4.9.x just to make sure ?
-> > > >
-> > > > Will do.
-> > >=20
-> > > Adding linux-omap. Beginning of this discussion:
-> > > http://comments.gmane.org/gmane.linux.network/341427
-> > >=20
-> > > Quick summary: starting with kernel 3.18 or commit
-> > > 55601c9f24670ba926ebdd4d712ac3b177232330 am335x (at least BBB and some
-> > > custom boards) stalls at high network load. Reproducible via nuttcp
-> > > within some minutes
-> > >=20
-> > > nuttcp -S (on BBB)
-> > > nuttcp -t -N 4 -T30m 192.168.1.235 (on host)
-> > >=20
-> > > As Felipe Balbi suggested, I tried both 4.8.3 and 4.9.2 toolchains,
-> > > but both show the same behavior.
-> > >=20
-> > > Linux version 3.18.0 (user@user-VirtualBox) (gcc version 4.8.3
-> > > 20140320 (prerelease) (Sourcery CodeBench Lite 2014.05-29) ) #6 SMP
-> > > Mon Dec 8 22:47:43 CET 2014
-> > > Linux version 3.18.1 (user@user-VirtualBox) (gcc version 4.9.2
-> > > (Buildroot 2015.02-git-00582-g10b9761) ) #1 SMP Mon Dec 29 09:22:29
-> > > CET 2014
-> > >=20
-> > > Let me know, if you can reproduce this issue.
-> >=20
-> > finally managed to reproduce this, it took quite a bit of effort though.
-> > I'll see if I can gether more information about the problem.
->=20
-> Maybe check if the irqnr is 127 (or the last reserved interrupt)
-> in irq-omap-intc.c. If so, also print out the previous interrupt.
-> It seems the intc uses the last reserved interrupt to signal a
-> spurious interrupt for the previous irqnr, so we should probably
-> add some handling for that.
->=20
-> If the previous interrupt is a cpsw interrupt, then there's probably
-> something wrong with cpsw interrupt handling. Either a missing
-> read-back to flush posted write in the cpsw interrupt handler,
-> or the EOI registers are written at a wrong time.
+>>
+>> Can this board actually drive a full gigabit in the first place? Unt=
+il
+>> now most of the low end arm boards I have seen only came with
+>> a 100mbit mac, and the gig ones lacking offloads seemed to peak
+>> out at about 600mbit.
+>
+> I measured a throughput of 650mbit in rx and 600mbit in tx.
 
-yeah, I'll go over it, but I first need to reproduce it again. Just
-rebooted to try again and after half an hour, couldn't reproduce it
-anymore. Interesting race to end the year :-)
+You might want to try the rrul test which tests both directions and
+latency at the same time.
 
-cheers
+In my case I have been trying to find a low-cost chip that could do sof=
+t
+rate limiting (htb) + fq_codel at up to 300mbit/sec, as that is about
+the peak speed
+we will be getting from cable modems, and these are horribly overbuffer=
+ed,
+at these speeds too, with 1.2sec of bidirectional latency observed at
+120mbit/12mbit.
+
+I'm open to crazy ideas like trying to find a use for the gpu, etc, to
+get there.
+
+>
+>>
+>> Under my christmas tree landed a quad core A5 (odroid-c1), also an
+>> xgene and zedboard - both of the latter are a-needing BQL,
+>> and I haven't booted the udroid yet. Hopefully it is the
+>> same driver you just improved.
+>
+> I'm using the odroid-c1 too, with this tree based on the recent
+> Amlogic mainline work:
+>
+>   https://github.com/bengal/linux/tree/meson8b
+
+Oh, cool, thx!
+
+> Unfortunately at the moment the support for the board is very basic
+> (for example, SMP is not working yet) but it's enough to do some NIC
+> tests.
+
+Good to know. Have you looked at xmit_more yet?
+
+http://lwn.net/Articles/615238/
+
+
+> Beniamino
+
+
 
 --=20
-balbi
+Dave T=C3=A4ht
 
---LQAwcd5tHl0Qlnzi
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUoYvTAAoJEIaOsuA1yqREx1kP/iT4BVpdW2f5xp4HnBFC2mlC
-XZNCfAoBTXTzY+aKMy9xM+oiNWeUc7UR5/zmNZepFkEQvKIqT5hcVxYH0ThT1/b3
-/UrFFRZD45/tWuH7RlgDAO9/mrSkXiHE/CyUKPf6yVNiL4yCzQcbkdWV1r91P+i6
-TSIzAr0TWnVx8Bv3895k0/Fu9f93j5WzI9QdvkOXxGBN+KKprsfoS8lg2I7hLoiG
-v3g6lbYJvSc14nvLgupVeENfR1z3BBKEam4CDNqP3hcGcd6yFGnwZnjM/Qctr/aE
-3sHD/RWc+LafDUjU5ET0i9TPwg5d+UV5PS77WwVEvFyjh2y0/mijz32+RE1AkFxg
-7qXotgJKbly0h5BggOxpM42HxIrHFsL6CClMIyo+XFKUGm5sv+LRBK/BlSv2ByYg
-YT7wQQaJaAEpHI7oHk15qWuGXMSy1kkm/Y82flEb2wR7eg6qxEGWuuwcZS491aKu
-dZoWKkZL9xSdI1UTS4I1SF6Xe1EmQHMbZOAkt0bHJmDHPHl8MMPB9uaDNR2wfqLO
-hqScp6tsvH5waT4ekmD/WLqzswGNVMM6tJOw8AGf3TTkzALIBYhcxHGwhA1JRDiS
-nKaVHs95LgQCnD/234ety3cOzcqvV5dhoZ8aDi4RhsCVVrSyGagSZz5RExHa2J/H
-2xfw8dtsQjnXL4cAWDOP
-=uZxW
------END PGP SIGNATURE-----
-
---LQAwcd5tHl0Qlnzi--
+http://www.bufferbloat.net/projects/bloat/wiki/Upcoming_Talks
