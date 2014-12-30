@@ -1,68 +1,34 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 1/2] net/mlx4_core: Correcly update the mtt's offset in the MR re-reg flow
-Date: Tue, 30 Dec 2014 11:59:49 +0200
-Message-ID: <1419933590-9718-2-git-send-email-ogerlitz@mellanox.com>
-References: <1419933590-9718-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net 0/2] mlx4 driver fixes for 3.19-rc2
+Date: Tue, 30 Dec 2014 11:59:48 +0200
+Message-ID: <1419933590-9718-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
-	talal@labmailer.mlnx, Maor Gottlieb <maorg@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
+	talal@labmailer.mlnx, Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:36450 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:36428 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751756AbaL3KA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Dec 2014 05:00:26 -0500
-In-Reply-To: <1419933590-9718-1-git-send-email-ogerlitz@mellanox.com>
+	id S1751756AbaL3KAY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Dec 2014 05:00:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Maor Gottlieb <maorg@mellanox.com>
+Hi Dave, 
 
-Previously, mlx4_mt_rereg_write filled the MPT's entity_size with the
-old MTT's page shift, which could result in using an incorrect offset.
-Fix the initialization to be after we calculate the new MTT offset.
+Please push Maor's patch to -stable >= 3.17
 
-In addition, assign mtt order to -1 after calling mlx4_mtt_cleanup. This
-is necessary in order to mark the MTT as invalid and avoid freeing it later.
+Jack's fixes error-flow issues introduced in 3.19-rc1, no need for -stable.
 
-Fixes: e630664 ('mlx4_core: Add helper functions to support MR re-registration')
-Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
-Signed-off-by: Matan Barak <matanb@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/mr.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
+thanks and EOY happy-holidays,
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
-index d6f5496..7094a9c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mr.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
-@@ -584,6 +584,7 @@ EXPORT_SYMBOL_GPL(mlx4_mr_free);
- void mlx4_mr_rereg_mem_cleanup(struct mlx4_dev *dev, struct mlx4_mr *mr)
- {
- 	mlx4_mtt_cleanup(dev, &mr->mtt);
-+	mr->mtt.order = -1;
- }
- EXPORT_SYMBOL_GPL(mlx4_mr_rereg_mem_cleanup);
- 
-@@ -593,14 +594,14 @@ int mlx4_mr_rereg_mem_write(struct mlx4_dev *dev, struct mlx4_mr *mr,
- {
- 	int err;
- 
--	mpt_entry->start       = cpu_to_be64(iova);
--	mpt_entry->length      = cpu_to_be64(size);
--	mpt_entry->entity_size = cpu_to_be32(page_shift);
--
- 	err = mlx4_mtt_init(dev, npages, page_shift, &mr->mtt);
- 	if (err)
- 		return err;
- 
-+	mpt_entry->start       = cpu_to_be64(mr->iova);
-+	mpt_entry->length      = cpu_to_be64(mr->size);
-+	mpt_entry->entity_size = cpu_to_be32(mr->mtt.page_shift);
-+
- 	mpt_entry->pd_flags &= cpu_to_be32(MLX4_MPT_PD_MASK |
- 					   MLX4_MPT_PD_FLAG_EN_INV);
- 	mpt_entry->flags    &= cpu_to_be32(MLX4_MPT_FLAG_FREE |
--- 
-1.7.1
+Or.
+
+Jack Morgenstein (1):
+  net/mlx4_core: Fix error flow in mlx4_init_hca()
+
+Maor Gottlieb (1):
+  net/mlx4_core: Correcly update the mtt's offset in the MR re-reg flow
+
+ drivers/net/ethernet/mellanox/mlx4/main.c |   13 ++++---------
+ drivers/net/ethernet/mellanox/mlx4/mr.c   |    9 +++++----
+ 2 files changed, 9 insertions(+), 13 deletions(-)
