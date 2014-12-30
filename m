@@ -1,34 +1,66 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 0/2] mlx4 driver fixes for 3.19-rc2
-Date: Tue, 30 Dec 2014 11:59:48 +0200
-Message-ID: <1419933590-9718-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
-	talal@labmailer.mlnx, Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: <shh.xie@gmail.com>
+Subject: [PATCH 3/3][v2] net/fsl: remove hardcoded clock setting from xgmac_mdio
+Date: Tue, 30 Dec 2014 16:28:21 +0800
+Message-ID: <1419928101-2533-1-git-send-email-shh.xie@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Shaohui Xie <Shaohui.Xie@freescale.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:36428 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751756AbaL3KAY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Dec 2014 05:00:24 -0500
+Received: from mail-bn1on0072.outbound.protection.outlook.com ([157.56.110.72]:14560
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751970AbaL3KF3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Dec 2014 05:05:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave, 
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
 
-Please push Maor's patch to -stable >= 3.17
+There is no need to set the clock speed in read/write which will be performed
+unnecessarily for each mdio access. Init it during probe is enough.
 
-Jack's fixes error-flow issues introduced in 3.19-rc1, no need for -stable.
+Also, the hardcoded clock value is not a proper way for all SoCs.
 
-thanks and EOY happy-holidays,
+Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+---
+changes in v2:
+no change.
 
-Or.
+ drivers/net/ethernet/freescale/xgmac_mdio.c | 14 --------------
+ 1 file changed, 14 deletions(-)
 
-Jack Morgenstein (1):
-  net/mlx4_core: Fix error flow in mlx4_init_hca()
-
-Maor Gottlieb (1):
-  net/mlx4_core: Correcly update the mtt's offset in the MR re-reg flow
-
- drivers/net/ethernet/mellanox/mlx4/main.c |   13 ++++---------
- drivers/net/ethernet/mellanox/mlx4/mr.c   |    9 +++++----
- 2 files changed, 9 insertions(+), 13 deletions(-)
+diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
+index 72e0b85..f8c3bc0 100644
+--- a/drivers/net/ethernet/freescale/xgmac_mdio.c
++++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
+@@ -94,13 +94,6 @@ static int xgmac_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 val
+ 	uint16_t dev_addr = regnum >> 16;
+ 	int ret;
+ 
+-	/* Setup the MII Mgmt clock speed */
+-	out_be32(&regs->mdio_stat, MDIO_STAT_CLKDIV(100));
+-
+-	ret = xgmac_wait_until_free(&bus->dev, regs);
+-	if (ret)
+-		return ret;
+-
+ 	/* Set the port and dev addr */
+ 	out_be32(&regs->mdio_ctl,
+ 		 MDIO_CTL_PORT_ADDR(phy_id) | MDIO_CTL_DEV_ADDR(dev_addr));
+@@ -135,13 +128,6 @@ static int xgmac_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
+ 	uint16_t value;
+ 	int ret;
+ 
+-	/* Setup the MII Mgmt clock speed */
+-	out_be32(&regs->mdio_stat, MDIO_STAT_CLKDIV(100));
+-
+-	ret = xgmac_wait_until_free(&bus->dev, regs);
+-	if (ret)
+-		return ret;
+-
+ 	/* Set the Port and Device Addrs */
+ 	mdio_ctl = MDIO_CTL_PORT_ADDR(phy_id) | MDIO_CTL_DEV_ADDR(dev_addr);
+ 	out_be32(&regs->mdio_ctl, mdio_ctl);
+-- 
+1.8.4.1
