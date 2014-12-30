@@ -1,7 +1,7 @@
 From: Nicholas Mc Guire <der.herr@hofr.at>
-Subject: [PATCH 2/4] ath10k: fixup wait_for_completion_timeout return handling
-Date: Tue, 30 Dec 2014 07:20:44 -0500
-Message-ID: <1419942046-17985-3-git-send-email-der.herr@hofr.at>
+Subject: [PATCH 4/4] ath10k: fixup wait_for_completion_timeout return handling
+Date: Tue, 30 Dec 2014 07:20:46 -0500
+Message-ID: <1419942046-17985-5-git-send-email-der.herr@hofr.at>
 References: <1419942046-17985-1-git-send-email-der.herr@hofr.at>
 Cc: Michal Kazior <michal.kazior@tieto.com>,
 	Ben Greear <greearb@candelatech.com>,
@@ -24,21 +24,21 @@ patch is against linux-next 3.19.0-rc1 -next-20141226
 
 Signed-off-by: Nicholas Mc Guire <der.herr@hofr.at>
 ---
- drivers/net/wireless/ath/ath10k/mac.c |    2 +-
+ drivers/net/wireless/ath/ath10k/htt.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/ath/ath10k/mac.c b/drivers/net/wireless/ath/ath10k/mac.c
-index c400567..f9d7dbb 100644
---- a/drivers/net/wireless/ath/ath10k/mac.c
-+++ b/drivers/net/wireless/ath/ath10k/mac.c
-@@ -2151,7 +2151,7 @@ void ath10k_offchan_tx_work(struct work_struct *work)
+diff --git a/drivers/net/wireless/ath/ath10k/htt.c b/drivers/net/wireless/ath/ath10k/htt.c
+index 56cb4ac..58b6fc1 100644
+--- a/drivers/net/wireless/ath/ath10k/htt.c
++++ b/drivers/net/wireless/ath/ath10k/htt.c
+@@ -102,7 +102,7 @@ int ath10k_htt_setup(struct ath10k_htt *htt)
  
- 		ret = wait_for_completion_timeout(&ar->offchan_tx_completed,
- 						  3 * HZ);
--		if (ret <= 0)
-+		if (ret == 0)
- 			ath10k_warn(ar, "timed out waiting for offchannel skb %p\n",
- 				    skb);
- 
+ 	status = wait_for_completion_timeout(&htt->target_version_received,
+ 					     HTT_TARGET_VERSION_TIMEOUT_HZ);
+-	if (status <= 0) {
++	if (status == 0) {
+ 		ath10k_warn(ar, "htt version request timed out\n");
+ 		return -ETIMEDOUT;
+ 	}
 -- 
 1.7.10.4
