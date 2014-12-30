@@ -1,116 +1,83 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [RFC PATCH net-next 0/5]: ixgbevf: Allow querying VFs RSS
- indirection table and key
-Date: Tue, 30 Dec 2014 11:28:27 -0800
-Message-ID: <1419967707.31582.23.camel@jtkirshe-mobl>
-References: <1419957035-1078-1-git-send-email-vladz@cloudius-systems.com>
-	 <CAL3LdT73zfJwNcHS0ZpZ=ZzG=UiCUW5UEnOF9Fp2rR0e-ejXYg@mail.gmail.com>
-	 <CAOYyTHb+5Wc-e3vBVE+MCh6YNfmompi9Mnsr0nDnHAn7Tvqyew@mail.gmail.com>
-	 <1419965520.31582.20.camel@jtkirshe-mobl>
-	 <CAOYyTHathHiGThyHj+yRi9O6jWEAO3wkAK-6egMc2OwK9dQoMQ@mail.gmail.com>
+From: Vlad Zolotarov <vladz@cloudius-systems.com>
+Subject: Re: [RFC PATCH net-next 3/5] ixgbe: Add GET_RSS_KEY command to VF-PF
+ channel commands set
+Date: Tue, 30 Dec 2014 21:29:11 +0200
+Message-ID: <54A2FD07.3090408@cloudius-systems.com>
+References: <1419957035-1078-1-git-send-email-vladz@cloudius-systems.com>	<1419957035-1078-4-git-send-email-vladz@cloudius-systems.com> <CAL3LdT50tUsJOW+y15GbO=90UDYWNLjMyOF6AqFgj_ciqBeTUQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-nvV1roFmA9yW3jXj1JDP"
-Cc: netdev@vger.kernel.org, Gleb Natapov <gleb@cloudius-systems.com>,
-	avi@cloudius-systems.com
-To: Vladislav Zolotarov <vladz@cloudius-systems.com>,
-	Greg Rose <gregory.v.rose@intel.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Gleb Natapov <gleb@cloudius-systems.com>,
+	Avi Kivity <avi@cloudius-systems.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:1563 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751822AbaL3T3K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Dec 2014 14:29:10 -0500
-In-Reply-To: <CAOYyTHathHiGThyHj+yRi9O6jWEAO3wkAK-6egMc2OwK9dQoMQ@mail.gmail.com>
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:53527 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751829AbaL3T3P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2014 14:29:15 -0500
+Received: by mail-wg0-f49.google.com with SMTP id n12so21006022wgh.22
+        for <netdev@vger.kernel.org>; Tue, 30 Dec 2014 11:29:14 -0800 (PST)
+In-Reply-To: <CAL3LdT50tUsJOW+y15GbO=90UDYWNLjMyOF6AqFgj_ciqBeTUQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-nvV1roFmA9yW3jXj1JDP
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+On 12/30/14 21:23, Jeff Kirsher wrote:
+> On Tue, Dec 30, 2014 at 8:30 AM, Vlad Zolotarov
+> <vladz@cloudius-systems.com> wrote:
+>> 82599 VFs and PF share the same RSS Key. Therefore we will return
+>> the same RSS key for all VFs.
+>>
+>> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+>> ---
+>>   drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  2 ++
+>>   drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 25 +++++++++++++++++++++++++
+>>   2 files changed, 27 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+>> index c1123d9..52e775b 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+>> @@ -97,6 +97,8 @@ enum ixgbe_pfvf_api_rev {
+>>   #define IXGBE_VF_GET_RETA_1    0x0b /* get RETA[12..23] */
+>>   #define IXGBE_VF_GET_RETA_2    0x0c /* get RETA[24..31] */
+>>
+>> +#define IXGBE_VF_GET_RSS_KEY   0x0d /* get RSS key */
+>> +
+>>   /* GET_QUEUES return data indices within the mailbox */
+>>   #define IXGBE_VF_TX_QUEUES     1       /* number of Tx queues supported */
+>>   #define IXGBE_VF_RX_QUEUES     2       /* number of Rx queues supported */
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>> index 84db1a5..fc8233e 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>> @@ -970,6 +970,28 @@ static int ixgbe_get_vf_reta(struct ixgbe_adapter *adapter,
+>>          return 0;
+>>   }
+>>
+>> +static int ixgbe_get_vf_rss_key(struct ixgbe_adapter *adapter,
+>> +                               u32 *msgbuf, u32 vf)
+>> +{
+>> +       struct ixgbe_hw *hw = &adapter->hw;
+>> +       int i;
+>> +       u32 *rss_key = &msgbuf[1];
+>> +
+>> +       /* verify the PF is supporting the correct API */
+>> +       switch (adapter->vfinfo[vf].vf_api) {
+>> +       case ixgbe_mbox_api_12:
+>> +               break;
+>> +       default:
+>> +               return -EPERM;
+>> +       }
+> Same as in patch 01 of the series, a switch statement is overkill for
+> a single case.  It would be far simpler to just have
+>
+> if (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12)
+>          return -EPERM;
+>
+> Later on, if there are multiple API's or future API's that also
+> support this, then we could move to a case statement.
 
-On Tue, 2014-12-30 at 21:00 +0200, Vladislav Zolotarov wrote:
->=20
-> On Dec 30, 2014 8:52 PM, "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-> wrote:
-> >
-> > On Tue, 2014-12-30 at 20:50 +0200, Vladislav Zolotarov wrote:
-> > > On Dec 30, 2014 8:16 PM, "Jeff Kirsher"
-> <jeffrey.t.kirsher@intel.com>
-> > > wrote:
-> > > >
-> > > > On Tue, Dec 30, 2014 at 8:30 AM, Vlad Zolotarov
-> > > > <vladz@cloudius-systems.com> wrote:
-> > > > > Add the ethtool ops to VF driver to allow querying the RSS
-> > > indirection table
-> > > > > and RSS Random Key.
-> > > > >
-> > > > >  - PF driver: Add new VF-PF channel commands.
-> > > > >  - VF driver: Utilize these new commands and add the
-> corresponding
-> > > > >               ethtool callbacks.
-> > > > >
-> > > > > Vlad Zolotarov (5):
-> > > > >   ixgbe: Add a RETA query command to VF-PF channel API
-> > > > >   ixgbevf: Add a RETA query code
-> > > > >   ixgbe: Add GET_RSS_KEY command to VF-PF channel commands set
-> > > > >   ixgbevf: Add RSS Key query code
-> > > > >   ixgbevf: Add the appropriate ethtool ops to query RSS
-> > > indirection
-> > > > >     table and key
-> > > > >
-> > > > >  drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h      |   8 ++
-> > > > >  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    |  60
-> > > +++++++++++
-> > > > >  drivers/net/ethernet/intel/ixgbevf/ethtool.c      |  37
-> +++++++
-> > > > >  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   4 +-
-> > > > >  drivers/net/ethernet/intel/ixgbevf/mbx.h          |   8 ++
-> > > > >  drivers/net/ethernet/intel/ixgbevf/vf.c           | 125
-> > > ++++++++++++++++++++++
-> > > > >  drivers/net/ethernet/intel/ixgbevf/vf.h           |   2 +
-> > > > >  7 files changed, 243 insertions(+), 1 deletion(-)
-> > > >
-> > > > Remember to CC on patches against drivers in
-> > > drivers/net/ethernet/intel/ please.
-> > >
-> > > To CC who? ;)
-> > >
-> >
-> > Sorry, I fat fingered that response.  Please CC me.
->=20
-> Sure. NP.=20
-> Since we are talking already, could u comment on the RFC? Does it look
-> ok to you?=20
->=20
->=20
-
-I have provided feedback on 3 of the patches, the others look ok to me.
-I would like Greg Rose to look over your changes since he did most of
-the ixgbevf work, and I want to make sure that he is fine with these
-changes.
-
---=-nvV1roFmA9yW3jXj1JDP
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJUovzbAAoJEOVv75VaS+3OaywP/RGjKUzAMDOtEzz6v1ev12Jm
-WgBfmS3KB2A83cCFjkKWML2MZK2Zqx6Tt1uzlHfAmfnLU9kUIhvaK6QB2KYzZU+s
-jdtLfqthbhdf/EY2YMVvVtvvhmI5dTWtx7q04wa4tEYQh5oYMUAgAISvYimRQ2Ij
-ZO5cKWop8c2g+uDeGNnN9a5SghiBAcGbkj90pnfALAmEGnSpXNU2S68gf9DaanaH
-PPQmNlieWxbitvyx+CvNI227SfvVKvGB3fuu4SVxZWfRSdMegLjbD/TG+h4d5ut4
-brYe6ehFyTPgEru6C/pbUBd9mnnJ4brC0cQMroDhQCXJgpT7c4qTR67wbnlrTuXj
-jYatbFK5V1cyP7dxv6FgtIhb3OdujK3NdX/za9U/hNQWzZURm/8dC8VYfr/2VvvD
-/jj5cqG9OP9VsRJ7MUBSRI4zqIE+terYJWRmmBJwTchJoRMyWchTv+BXMg5iNtrA
-hv1xNv4ZJ+T1QV+XB5T8WPZFx3s2vz+D8c8hv3fMW+ERf3Le6lNI0HHFK8kx/Y/9
-zruHB8A7dXLOvxacjov4TOBdtQvZsiZf/ArOBzad0X9t38I72prXqWKif3ZHLenx
-QE4Cfz41t+Dm2LjqWlxJ+I56ad+VKUXDVJ6Gu4vfAcwr0xg2JM7O5IUvT71mOIaE
-FBbANAmoJYROtyd4aS+X
-=shQg
------END PGP SIGNATURE-----
-
---=-nvV1roFmA9yW3jXj1JDP--
+Got it. Will fix.
+Thanks.
