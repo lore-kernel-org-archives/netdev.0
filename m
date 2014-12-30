@@ -1,54 +1,39 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [RFC PATCH net-next 0/5]: ixgbevf: Allow querying VFs RSS
- indirection table and key
-Date: Tue, 30 Dec 2014 10:16:57 -0800
-Message-ID: <CAL3LdT73zfJwNcHS0ZpZ=ZzG=UiCUW5UEnOF9Fp2rR0e-ejXYg@mail.gmail.com>
-References: <1419957035-1078-1-git-send-email-vladz@cloudius-systems.com>
+From: Siva Mannem <siva.mannem.lnx@gmail.com>
+Subject: Clarification regarding IFLA_BRPORT_LEARNING_SYNC and aging of fdb
+ entries learnt via br_fdb_external_learn_add()
+Date: Tue, 30 Dec 2014 23:50:21 +0530
+Message-ID: <CA+CtxLSv6Hg9kOmavqQKs+7y8b8+TBdW1dYwb3ZsTMOh=Ow8Ew@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, gleb@cloudius-systems.com,
-	avi@cloudius-systems.com
-To: Vlad Zolotarov <vladz@cloudius-systems.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f43.google.com ([209.85.218.43]:65467 "EHLO
-	mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751374AbaL3SQ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2014 13:16:57 -0500
-Received: by mail-oi0-f43.google.com with SMTP id i138so28744052oig.2
-        for <netdev@vger.kernel.org>; Tue, 30 Dec 2014 10:16:57 -0800 (PST)
-In-Reply-To: <1419957035-1078-1-git-send-email-vladz@cloudius-systems.com>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:47261 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751305AbaL3SUW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2014 13:20:22 -0500
+Received: by mail-wi0-f179.google.com with SMTP id ex7so24507535wid.6
+        for <netdev@vger.kernel.org>; Tue, 30 Dec 2014 10:20:21 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 30, 2014 at 8:30 AM, Vlad Zolotarov
-<vladz@cloudius-systems.com> wrote:
-> Add the ethtool ops to VF driver to allow querying the RSS indirection table
-> and RSS Random Key.
->
->  - PF driver: Add new VF-PF channel commands.
->  - VF driver: Utilize these new commands and add the corresponding
->               ethtool callbacks.
->
-> Vlad Zolotarov (5):
->   ixgbe: Add a RETA query command to VF-PF channel API
->   ixgbevf: Add a RETA query code
->   ixgbe: Add GET_RSS_KEY command to VF-PF channel commands set
->   ixgbevf: Add RSS Key query code
->   ixgbevf: Add the appropriate ethtool ops to query RSS indirection
->     table and key
->
->  drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h      |   8 ++
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    |  60 +++++++++++
->  drivers/net/ethernet/intel/ixgbevf/ethtool.c      |  37 +++++++
->  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   4 +-
->  drivers/net/ethernet/intel/ixgbevf/mbx.h          |   8 ++
->  drivers/net/ethernet/intel/ixgbevf/vf.c           | 125 ++++++++++++++++++++++
->  drivers/net/ethernet/intel/ixgbevf/vf.h           |   2 +
->  7 files changed, 243 insertions(+), 1 deletion(-)
+Hi,
 
-Remember to CC on patches against drivers in drivers/net/ethernet/intel/ please.
+I am trying to understand the ongoing switch device offload effort and
+am following the discussions. I have a question regarding
+IFLA_BRPORT_LEARNING_SYNC flag and how aging happens when this flag is
+enabled on a port that is attached to a bridge that has vlan filtering
+enabled.
 
+If I understand correctly, when  IFLA_BRPORT_LEARNING_SYNC is set on a
+bridge port, fdb entries that are learnt externally(may be learnt by
+hardware and driver is notified) are synced to bridges fdb using
+br_fdb_external_learn_add(). The fdb
+entries(fdb->added_by_external_learn set to true) that are learnt via
+this method are also deleted by the aging logic after the aging time
+even though L2 data forwadring  happens in hardware. Is there a way
+where aging can be disabled for these entries? and let the entries be
+removed only via br_fdb_external_learn_delete()? or am I missing
+something?
 
--- 
-Cheers,
-Jeff
+Regards,
+Siva.
