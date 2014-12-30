@@ -1,148 +1,284 @@
 From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH 1/6] bridge: add support to parse multiple vlan info attributes
- in IFLA_AF_SPEC
-Date: Mon, 29 Dec 2014 21:25:35 -0800
-Message-ID: <54A2374F.6050901@cumulusnetworks.com>
-References: <1419887132-7084-2-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bAyWy83S-K_XtiRNJO2rZXtVpijPxqj_oq_sZqPKW-h-Q@mail.gmail.com> <54A1D157.1000002@cumulusnetworks.com> <CAE4R7bDiRd6WY7ry-vFCj2HgAFtxWznwJTX4vqxt_v5Q8LXdOg@mail.gmail.com> <CAE4R7bAHSNePcX3aAa72kYReC4c8fRKF+BzL1f-bdk-M_pLxUg@mail.gmail.com> <CAE4R7bC7pgH35pkduV0n3G0UpoXoAUeJzmLE8ucJAwONJB2BZg@mail.gmail.com>
+Subject: Re: [PATCH 5/6] bridge: new function to pack vlans using both IFLA_BRIDGE_VLAN_INFO
+ and IFLA_BRIDGE_VLAN_RANGE_INFO
+Date: Mon, 29 Dec 2014 21:31:41 -0800
+Message-ID: <54A238BD.7050707@cumulusnetworks.com>
+References: <1419887132-7084-6-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bC63CpvpAuakFvEtEJvOsowjP40q1cs2eh0R=bf-F6w=Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: Netdev <netdev@vger.kernel.org>, shemminger@vyatta.com,
 	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Wilson Kok <wkok@cumulusnetworks.com>
+	Wilson kok <wkok@cumulusnetworks.com>
 To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:64050 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751546AbaL3FZi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2014 00:25:38 -0500
-Received: by mail-pa0-f54.google.com with SMTP id fb1so18833491pad.41
-        for <netdev@vger.kernel.org>; Mon, 29 Dec 2014 21:25:37 -0800 (PST)
-In-Reply-To: <CAE4R7bC7pgH35pkduV0n3G0UpoXoAUeJzmLE8ucJAwONJB2BZg@mail.gmail.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:64700 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751179AbaL3Fbm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2014 00:31:42 -0500
+Received: by mail-pa0-f43.google.com with SMTP id kx10so18996268pab.30
+        for <netdev@vger.kernel.org>; Mon, 29 Dec 2014 21:31:42 -0800 (PST)
+In-Reply-To: <CAE4R7bC63CpvpAuakFvEtEJvOsowjP40q1cs2eh0R=bf-F6w=Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/29/14, 4:26 PM, Scott Feldman wrote:
-> On Mon, Dec 29, 2014 at 4:07 PM, Scott Feldman <sfeldma@gmail.com> wrote:
->> On Mon, Dec 29, 2014 at 3:47 PM, Scott Feldman <sfeldma@gmail.com> wrote:
->>> On Mon, Dec 29, 2014 at 2:10 PM, roopa <roopa@cumulusnetworks.com> wrote:
->>>> On 12/29/14, 1:40 PM, Scott Feldman wrote:
->>>>> On Mon, Dec 29, 2014 at 1:05 PM,  <roopa@cumulusnetworks.com> wrote:
->>>>>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>>>>
->>>>>> This patch changes bridge IFLA_AF_SPEC netlink attribute parser to
->>>>>> look for more than one IFLA_BRIDGE_VLAN_INFO attribute. This allows
->>>>>> userspace to pack more than one vlan in the setlink msg.
->>>>>>
->>>>>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>>>> ---
->>>>>>    net/bridge/br_netlink.c |   18 +++++++++---------
->>>>>>    1 file changed, 9 insertions(+), 9 deletions(-)
->>>>>>
->>>>>> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
->>>>>> index 9f5eb55..75971b1 100644
->>>>>> --- a/net/bridge/br_netlink.c
->>>>>> +++ b/net/bridge/br_netlink.c
->>>>>> @@ -230,18 +230,18 @@ static int br_afspec(struct net_bridge *br,
->>>>>>                        struct nlattr *af_spec,
->>>>>>                        int cmd)
->>>>>>    {
->>>>>> -       struct nlattr *tb[IFLA_BRIDGE_MAX+1];
->>>>>> +       struct bridge_vlan_info *vinfo;
->>>>>>           int err = 0;
->>>>>> +       struct nlattr *attr;
->>>>>> +       int err = 0;
->>>>>> +       int rem;
->>>>>> +       u16 vid;
->>>>>>
->>>>>> -       err = nla_parse_nested(tb, IFLA_BRIDGE_MAX, af_spec,
->>>>>> ifla_br_policy);
->>>>> Removing this call orphans ifla_br_policy...should ifla_br_policy be
->>>>> removed?
->>>>
->>>> good question. Its a good place to see the type. In-fact userspace programs
->>>> also copy the same policy to parse netlink attributes. hmmm..
->>>> I would like to keep it if it does not throw a warning.
->>> I don't know what the policy (sorry, no pun intended) on leaving dead
->>> code.  I say remove it.
->> You know, not using the policy seems like a step backwards, and maybe
->> it suggests a problem with the attr packing.
+On 12/29/14, 3:25 PM, Scott Feldman wrote:
+> On Mon, Dec 29, 2014 at 1:05 PM,  <roopa@cumulusnetworks.com> wrote:
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 >>
->> We had:
+>> This patch adds new function to compress vlans into ranges.
+>> Vlans are compressed into ranges only if the fill request is called with
+>> RTEXT_FILTER_BRVLAN_COMPRESSED in filtermask.
 >>
->> ifla_br_policy
->>     IFLA_BRIDGE_FLAGS
->>     IFLA_BRIDGE_MODE
->>     IFLA_BRIDGE_VLAN_INFO
+>> Old vlan packing code is moved to a new function and continues to be
+>> called when filter_mask is RTEXT_FILTER_BRVLAN
 >>
->> This patch set makes it:
+>> Signed-off-by: Wilson kok <wkok@cumulusnetworks.com>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> ---
+>>   net/bridge/br_netlink.c |  157 +++++++++++++++++++++++++++++++++++++++++------
+>>   1 file changed, 137 insertions(+), 20 deletions(-)
 >>
->> ifla_br_policy
->>     IFLA_BRIDGE_FLAGS
->>     IFLA_BRIDGE_MODE
->>     IFLA_BRIDGE_VLAN_INFO
->>     IFLA_BRIDGE_VLAN_RANGE_INFO
+>> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+>> index 4c47ba0..16bdd5a 100644
+>> --- a/net/bridge/br_netlink.c
+>> +++ b/net/bridge/br_netlink.c
+>> @@ -67,6 +67,133 @@ static int br_port_fill_attrs(struct sk_buff *skb,
+>>          return 0;
+>>   }
 >>
->> Which is fine, but now VLAN_INFO and VLAN_RANGE_INFO can be repeated.
->> I think you want some nesting to clarify:
->>
->> ifla_br_policy
->>     IFLA_BRIDGE_FLAGS
->>     IFLA_BRIDGE_MODE
->>     IFLA_BRIDGE_VLAN_INFO
->>     IFLA_BRIDGE_VLAN_LIST_INFO    // nested array of
->>         IFLA_BRIDGE_VLAN_INFO
->>         IFLA_BRIDGE_VLAN_RANGE_INFO
->>
->> Now you can keep the policy for the top-level parsing, and loop only
->> on the nested array VLAN_LIST_INFO.  Actually, now you can use just
->> RANGE_INFO in array and have:
->>
->> ifla_br_policy
->>     IFLA_BRIDGE_FLAGS
->>     IFLA_BRIDGE_MODE
->>     IFLA_BRIDGE_VLAN_INFO
->>     IFLA_BRIDGE_VLAN_LIST_INFO    // nested array of
->>         IFLA_BRIDGE_VLAN_RANGE_INFO
->>
->> And use VLAN_RANGE_INFO for both ranges of vids as well as single
->> vids.  That'll simplify your filling algo in patch 5.
-> Hmmmm...do you even need VLAN_RANGE_INFO?  How about just using
-> existing VLAN_INFO and add some more flags:
+>> +static int br_fill_ifvlaninfo_bitmap(struct sk_buff *skb,
+>> +                                    const unsigned long *vlan_bmp, u16 flags)
+>> +{
+>> +       struct bridge_vlan_range_info vinfo_range;
+>> +       struct bridge_vlan_info vinfo;
+>> +       u16 vid, start = 0, end = 0;
+> One per line?
+ack
+
+>> +       u16 pvid;
+> Aren't you getting an "unused" compile warning on this ^^^?
+will double check..
+
+>> +
+>> +       /* handle the untagged */
+> This comment ^^^ doesn't make sense here.
 >
-> #define BRIDGE_VLAN_INFO_RANGE_START    (1<<3)
-> #define BRIDGE_VLAN_INFO_RANGE_END        (1<<4)
+>> +       for_each_set_bit(vid, vlan_bmp, VLAN_N_VID) {
+>> +               if (start == 0) {
+>> +                       start = vid;
+>> +                       end = vid;
+>> +               }
+>> +               if ((vid - end) > 1) {
+>> +                       memset(&vinfo_range, 0, sizeof(vinfo_range));
+>> +                       vinfo_range.flags |= flags;
+>> +                       vinfo_range.vid = start;
+>> +                       vinfo_range.vid_end = end;
+>> +                       if (nla_put(skb, IFLA_BRIDGE_VLAN_RANGE_INFO,
+>> +                                   sizeof(vinfo_range), &vinfo_range))
+>> +                               goto nla_put_failure;
+>> +                       start = vid;
+>> +                       end = vid;
+>> +               } else {
+>> +                       end = vid;
+>> +               }
+>> +       }
+> What happens with this set {1-10, 12, 20-25, 30}?  On vid 12, will
+> that put a VLAN_RANGE_INFO with start=end=12?  Seems strange to use
+> RANGE_INFO for single vlan.
 >
-> Now you can have:
+> Can the algorithm be simplified?  Maybe there are other examples in
+> the kernel of finding ranges/singles from a bitmap we could borrow
+> code from?
+let me see...
+
+>> +       if (start != 0 && end != 0) {
+>> +               if (start != end) {
+>> +                       memset(&vinfo_range, 0, sizeof(vinfo_range));
+>> +                       vinfo_range.flags |= flags;
+>> +                       vinfo_range.vid = start;
+>> +                       vinfo_range.vid_end = end;
+>> +                       if (nla_put(skb, IFLA_BRIDGE_VLAN_RANGE_INFO,
+>> +                                   sizeof(vinfo_range), &vinfo_range))
+>> +                               goto nla_put_failure;
+>> +               } else {
+>> +                       memset(&vinfo, 0, sizeof(vinfo));
+>> +                       vinfo.flags |= flags;
+>> +                       vinfo.vid = start;
+>> +                       if (nla_put(skb, IFLA_BRIDGE_VLAN_INFO,
+>> +                                   sizeof(vinfo), &vinfo))
+>> +                               goto nla_put_failure;
+> How many IFLA_BRIDGE_VLAN_INFOs can you fit into skb?   It seems the
+> worst case is you'll have 4094/2 = 2047 VLAN_INFOs if using all
+> even-numbered vids, for example.  Will that fit?  I guess the original
+> code had the same concern...wonder if anyone checked this worst-case?
+
+I will check this again. Remember doing worst case tests for setlinks. 
+will get back with some worst cases tests in the next submission.
 >
->     IFLA_BRIDGE_FLAGS
->     IFLA_BRIDGE_MODE
->     IFLA_BRIDGE_VLAN_INFO
->     IFLA_BRIDGE_VLAN_INFO_LIST    // nested array of
->         IFLA_BRIDGE_VLAN_INFO
+>> +               }
+>> +       }
+>> +
+>> +nla_put_failure:
+>> +       return -EMSGSIZE;
+>> +}
+>> +
+>> +static int br_fill_ifvlaninfo_compressed(struct sk_buff *skb,
+>> +                                        const struct net_port_vlans *pv)
+>> +{
+>> +       unsigned long vlan_bmp_copy[BR_VLAN_BITMAP_LEN];
+>> +       unsigned long untagged_bmp_copy[BR_VLAN_BITMAP_LEN];
+> Lots of automatic space on the stack...can you use dynamic mem
+> (kzalloc) for these?
+Let me see. Or make it a static global ?
+
 >
-> Don't set START or END for single vids in list.
+>> +       struct bridge_vlan_range_info vinfo_range;
+>> +       struct bridge_vlan_info vinfo;
+>> +       u16 pvid;
+>> +
+>> +       memset(vlan_bmp_copy, 0,
+>> +              sizeof(unsigned long) * BR_VLAN_BITMAP_LEN);
+>> +       bitmap_copy(vlan_bmp_copy, pv->vlan_bitmap, VLAN_N_VID);
+>> +
+>> +       memset(untagged_bmp_copy, 0,
+>> +              sizeof(unsigned long) * BR_VLAN_BITMAP_LEN);
+>> +       bitmap_copy(untagged_bmp_copy, pv->untagged_bitmap, VLAN_N_VID);
+>> +
+>> +       /* send the pvid separately first */
+>> +       pvid = br_get_pvid(pv);
+>> +       if (pvid && (pvid != VLAN_N_VID)) {
+>> +               memset(&vinfo, 0, sizeof(vinfo));
+>> +               vinfo.flags |= BRIDGE_VLAN_INFO_PVID;
+>> +               if (test_bit(pvid, untagged_bmp_copy)) {
+>> +                       vinfo.flags |= BRIDGE_VLAN_INFO_UNTAGGED;
+>> +                       clear_bit(pvid, untagged_bmp_copy);
+>> +               }
+>> +               clear_bit(pvid, vlan_bmp_copy);
+>> +               vinfo.vid = pvid;
+>> +               if (nla_put(skb, IFLA_BRIDGE_VLAN_INFO,
+>> +                           sizeof(vinfo), &vinfo))
+>> +                       goto nla_put_failure;
+>> +       }
+> What if pvid is not in vlan_bmp_copy?  This statement block seems
+> slightly different than the original logic where BRIDGE_VLAN_INFO_PVID
+> was set only when looping thru vlan_bitmap and vid == pvid.  Now can
+> you send a IFLA_BRIDGE_VLAN_INFO with pvid even if pvid isn't in
+> vlan_bitmap?
 
-ok. I was debating yesterday about introducing another nest. This looks 
-good.
-My only reason to not use existing IFLA_BRIDGE_VLAN_INFO was to make 
-sure it works for existing users.
-I see that in this case since IFLA_BRIDGE_VLAN_INFO_LIST is new, it will 
-not affect existing users.
+yes, you can AFAIK. pvid is usually untagged.
+>   Maybe pvid is always in vlan_bitmap, so it doesn't
+> matter.  But there is a subtle logic change here, so something to
+> consider.
+Understand what you are saying, I will check this with v2.
 
-But, i cant use IFLA_BRIDGE_VLAN_INFO (ie an attribute in 
-ifla_br_policy) under IFLA_BRIDGE_VLAN_INFO_LIST ?.
+>> +
+>> +       /* fill untagged vlans */
+>> +       br_fill_ifvlaninfo_bitmap(skb, untagged_bmp_copy,
+>> +                                 BRIDGE_VLAN_INFO_UNTAGGED);
+> This might be doing more than original logic.  Original logic looped
+> thru vid in vlan_btimap and checked if vid was in untagged_bitmap.
+> Here you're dumping all bits in untagged_bitmap, without looking if
+> bit was set in vlan_bitmap.  Maybe you want to do an intersection of
+> sets vlan_bitmap and untagged_bitmap.
+There is a clear_bit for vlan_bmp_copy  below.
+And all this works as expected on our boxes (Its tested code).
 
-IFLA_BRIDGE_VLAN_INFO_LIST will have its own policy and its own attributes.
+But, understand the difference with the original loop. Will confirm.
 
-Which will make it look something like below ?
+plus, we will see if we can use bitmap intersection here.
 
-IFLA_BRIDGE_FLAGS
-IFLA_BRIDGE_MODE
-IFLA_BRIDGE_VLAN_INFO
-IFLA_BRIDGE_VLAN_INFO_LIST    // nested array of
-	IFLA_BRIDGE_VLAN_INFO_LIST_ENTRY
-
-
-Thanks,
-Roopa
+>> +       for_each_set_bit(vid, untagged_bmp_copy, VLAN_N_VID)
+>> +               clear_bit(vid, vlan_bmp_copy);
+>> +
+>> +       /* fill tagged vlans */
+>> +       br_fill_ifvlaninfo_bitmap(skb, vlan_bmp_copy, 0);
+>> +
+>> +       return 0;
+>> +
+>> +nla_put_failure:
+>> +       return -EMSGSIZE;
+>> +}
+>> +
+>> +static int br_fill_ifvlaninfo(struct sk_buff *skb,
+>> +                             const struct net_port_vlans *pv)
+>> +{
+>> +       struct bridge_vlan_info vinfo;
+>> +       u16 pvid, vid;
+>> +
+>> +       pvid = br_get_pvid(pv);
+>> +       for_each_set_bit(vid, pv->vlan_bitmap, VLAN_N_VID) {
+>> +               vinfo.vid = vid;
+>> +               vinfo.flags = 0;
+>> +               if (vid == pvid)
+>> +                       vinfo.flags |= BRIDGE_VLAN_INFO_PVID;
+>> +
+>> +               if (test_bit(vid, pv->untagged_bitmap))
+>> +                       vinfo.flags |= BRIDGE_VLAN_INFO_UNTAGGED;
+>> +
+>> +               if (nla_put(skb, IFLA_BRIDGE_VLAN_INFO,
+>> +                           sizeof(vinfo), &vinfo))
+>> +                       goto nla_put_failure;
+>> +       }
+>> +
+>> +       return 0;
+>> +
+>> +nla_put_failure:
+>> +       return -EMSGSIZE;
+>> +}
+>> +
+>>   /*
+>>    * Create one netlink message for one interface
+>>    * Contains port and master info as well as carrier and bridge state.
+>> @@ -121,12 +248,11 @@ static int br_fill_ifinfo(struct sk_buff *skb,
+>>          }
+>>
+>>          /* Check if  the VID information is requested */
+>> -       if (filter_mask & RTEXT_FILTER_BRVLAN) {
+>> -               struct nlattr *af;
+>> +       if ((filter_mask & RTEXT_FILTER_BRVLAN) ||
+>> +           (filter_mask & RTEXT_FILTER_BRVLAN_COMPRESSED)) {
+>>                  const struct net_port_vlans *pv;
+>> -               struct bridge_vlan_info vinfo;
+>> -               u16 vid;
+>> -               u16 pvid;
+>> +               struct nlattr *af;
+>> +               int err;
+>>
+>>                  if (port)
+>>                          pv = nbp_get_vlan_info(port);
+>> @@ -140,21 +266,12 @@ static int br_fill_ifinfo(struct sk_buff *skb,
+>>                  if (!af)
+>>                          goto nla_put_failure;
+>>
+>> -               pvid = br_get_pvid(pv);
+>> -               for_each_set_bit(vid, pv->vlan_bitmap, VLAN_N_VID) {
+>> -                       vinfo.vid = vid;
+>> -                       vinfo.flags = 0;
+>> -                       if (vid == pvid)
+>> -                               vinfo.flags |= BRIDGE_VLAN_INFO_PVID;
+>> -
+>> -                       if (test_bit(vid, pv->untagged_bitmap))
+>> -                               vinfo.flags |= BRIDGE_VLAN_INFO_UNTAGGED;
+>> -
+>> -                       if (nla_put(skb, IFLA_BRIDGE_VLAN_INFO,
+>> -                                   sizeof(vinfo), &vinfo))
+>> -                               goto nla_put_failure;
+>> -               }
+>> -
+>> +               if (filter_mask & RTEXT_FILTER_BRVLAN_COMPRESSED)
+>> +                       err = br_fill_ifvlaninfo_compressed(skb, pv);
+>> +               else
+>> +                       err = br_fill_ifvlaninfo(skb, pv);
+>> +               if (err)
+>> +                       goto nla_put_failure;
+>>                  nla_nest_end(skb, af);
+>>          }
+>>
+>> --
+>> 1.7.10.4
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
