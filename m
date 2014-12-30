@@ -1,88 +1,43 @@
-From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: Re: [PATCH] can: kvaser_usb: Add support for the Usbcan-II family
-Date: Tue, 30 Dec 2014 10:33:26 -0500
-Message-ID: <20141230153326.GA3798@linux>
-References: <20141223154654.GB6460@vivalin-002>
- <20141223155311.GA5997@vivalin-002>
- <CAEM=fMqNnq9QYLiR8WXJ0wN2V=1B1TouxaLB_JLrYOtKvwxBkA@mail.gmail.com>
- <20141224150417.GB5707@vivalin-002>
- <20141228215134.GA2548@thinkoso.home>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Olivier Sobrie <olivier@sobrie.be>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141228215134.GA2548@thinkoso.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vlad Zolotarov <vladz@cloudius-systems.com>
+Subject: [RFC PATCH net-next 0/5]: ixgbevf: Allow querying VFs RSS indirection table and key
+Date: Tue, 30 Dec 2014 18:30:30 +0200
+Message-ID: <1419957035-1078-1-git-send-email-vladz@cloudius-systems.com>
+Cc: gleb@cloudius-systems.com, avi@cloudius-systems.com,
+	Vlad Zolotarov <vladz@cloudius-systems.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:40217 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750833AbaL3Qas (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2014 11:30:48 -0500
+Received: by mail-wg0-f49.google.com with SMTP id n12so20949404wgh.36
+        for <netdev@vger.kernel.org>; Tue, 30 Dec 2014 08:30:47 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 28, 2014 at 10:51:34PM +0100, Olivier Sobrie wrote:
-[...]
-> > > >  
-> > > > +	if (LEAF_PRODUCT_ID(id->idProduct)) {
-> > > > +		dev->family = KVASER_LEAF;
-> > > > +		dev->max_channels = LEAF_MAX_NET_DEVICES;
-> > > > +	} else if (USBCAN_PRODUCT_ID(id->idProduct)) {
-> > > > +		dev->family = KVASER_USBCAN;
-> > > > +		dev->max_channels = USBCAN_MAX_NET_DEVICES;
-> > > > +	} else {
-> > > > +		dev_err(&intf->dev, "Product ID (%d) does not belong to any "
-> > > > +				    "known Kvaser USB family", id->idProduct);
-> > > > +		return -ENODEV;
-> > > > +	}
-> > > > +
-> > > 
-> > > Is it really required to keep max_channels in the kvaser_usb structure?
-> > > If I looked correctly, you use this variable as a replacement for
-> > > MAX_NET_DEVICES in the code and MAX_NET_DEVICES is only used in probe
-> > > and disconnect functions. I think it can even be replaced by nchannels
-> > > in the disconnect path. So I also think that it don't need to be in the
-> > > kvaser_usb structure.
-> > > 
-> > 
-> > hmmm.. given the current state of error arbitration explained
-> > above, where I cannot accept a dev->nchannels > 2, I guess we
-> > have two options:
-> > 
-> > a) Remove max_channels, and hardcode the channels count
-> > correctness logic as follows:
-> > 
-> >         dev->nchannels = msg.u.cardinfo.nchannels;
-> >         if ((dev->family == USBCAN && dev->nchannels > USBCAN_MAX_NET_DEVICES)
-> >             || (dev->family == LEAF && dev->nchannels > LEAF_MAX_NET_DEVICES))
-> >                 return -EINVAL
-> > 
-> > b) Leave max_channels in 'struct kvaser_usb' as is.
-> > 
-> > I personally prefer the solution at 'b)' but I can do it as
-> > in 'a)' if you prefer :-)
-> 
-> Keeping max_channels in the kvaser_usb structure is useless because it
-> is only used in one function that is called in the probe function.
-> 
-> I would prefer to have:
-> 	if (dev->nchannels > MAX_NET_DEVICES)
-> 		return -EINVAL
-> 
-> 	if ((dev->family == USBCAN) &&
-> 	    (dev->nchannels > MAX_USBCAN_NET_DEVICES))
-> 		return -EINVAL
-> 
-> You can remove LEAF_MAX_NET_DEVICES which is not used, keep
-> MAX_NET_DEVICES equals to 3 and remove the MAX() macro.
-> The test specific to the USBCAN family can eventually be moved in the
-> kvaser_usb_probe() function.
-> 
+Add the ethtool ops to VF driver to allow querying the RSS indirection table
+and RSS Random Key.
 
-Quite nice, will do it that way in v3.
+ - PF driver: Add new VF-PF channel commands.
+ - VF driver: Utilize these new commands and add the corresponding
+              ethtool callbacks.
 
-Regards,
-Darwish
+Vlad Zolotarov (5):
+  ixgbe: Add a RETA query command to VF-PF channel API
+  ixgbevf: Add a RETA query code
+  ixgbe: Add GET_RSS_KEY command to VF-PF channel commands set
+  ixgbevf: Add RSS Key query code
+  ixgbevf: Add the appropriate ethtool ops to query RSS indirection
+    table and key
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h      |   8 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    |  60 +++++++++++
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c      |  37 +++++++
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   4 +-
+ drivers/net/ethernet/intel/ixgbevf/mbx.h          |   8 ++
+ drivers/net/ethernet/intel/ixgbevf/vf.c           | 125 ++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbevf/vf.h           |   2 +
+ 7 files changed, 243 insertions(+), 1 deletion(-)
+
+-- 
+2.1.0
