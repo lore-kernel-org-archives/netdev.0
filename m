@@ -1,33 +1,26 @@
-From: "Mark" <bigtimejoy@emailn.de>
-Subject: Lucr@tive
-Date: Tue, 30 Dec 2014 11:14:45 -0800
-Message-ID: <11122369074721379927038@WIN-TM1KAIADIOV>
-Reply-To: bigtimejoy@emailn.de
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.christwebs.com ([205.196.180.40]:34492 "EHLO
-	mail2.christwebs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752080AbaL3K3t convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2014 05:29:49 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicholas Mc Guire <der.herr@hofr.at>
+Subject: [PATCH 0/4] ath10k: a few incorrect return handling fix-up
+Date: Tue, 30 Dec 2014 07:20:42 -0500
+Message-ID: <1419942046-17985-1-git-send-email-der.herr@hofr.at>
+Cc: Michal Kazior <michal.kazior@tieto.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Chun-Yeow Yeoh <yeohchunyeow@gmail.com>,
+	Yanbo Li <yanbol@qti.qualcomm.com>, ath10k@lists.infradead.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Nicholas Mc Guire <der.herr@hofr.at>
+To: Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi
+wait_for_completion_timeout does not return negative values so the tests
+for <= 0 are not needed and the case differentiation in the error handling
+path unnecessary.
 
-Forget the l0tteRY
-This is re@l Joy and a real ch@nce for a new life  No crap  No Blabla
+patch was only compile tested x86_64_defconfig + CONFIG_ATH_CARDS=m
+CONFIG_ATH10K=m
 
-http://www.lotusasiacasino.com?cid=20W02156&mid=2228620828
+patch is against linux-next 3.19.0-rc1 -next-20141226
 
-
-
-
-
-
-
-
-
-No more such information? Simply answer <NO>
+None of the proposed cleanups are critical.
+All changes should only be removing unreachable cases.
