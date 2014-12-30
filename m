@@ -1,40 +1,25 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: RE: [PATCH] qlcnic: Fix return value in qlcnic_probe()
-Date: Tue, 30 Dec 2014 08:45:36 +0000
-Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A4717C763@avmb2.qlogic.org>
-References: <1419926626-26624-1-git-send-email-xuyongjiande@163.com>
+From: Dennis Chen <kernel.org.gnu@gmail.com>
+Subject: [Question] What's the noop_qdisc introduced for in the kernel?
+Date: Tue, 30 Dec 2014 17:23:12 +0800
+Message-ID: <CA+U0gVi=DTpz-Givbrs771+KYz8EE1ABdy2oO38q4LR9fG37YQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Yongjian Xu <xuyongjiande@gmail.com>
-To: "xuyongjiande@163.com" <xuyongjiande@163.com>,
-	Dept-GE Linux NIC Dev <Dept-GELinuxNICDev@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1419926626-26624-1-git-send-email-xuyongjiande@163.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:64396 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751994AbaL3JXd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2014 04:23:33 -0500
+Received: by mail-pd0-f172.google.com with SMTP id y13so18991301pdi.3
+        for <netdev@vger.kernel.org>; Tue, 30 Dec 2014 01:23:33 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: xuyongjiande@163.com [mailto:xuyongjiande@163.com]
-> Sent: Tuesday, December 30, 2014 1:34 PM
-> To: Shahed Shaikh; Dept-GE Linux NIC Dev
-> Cc: netdev; linux-kernel; Yongjian Xu
-> Subject: [PATCH] qlcnic: Fix return value in qlcnic_probe()
-> 
-> From: Yongjian Xu <xuyongjiande@gmail.com>
-> 
-> If the check of adapter fails and goes into the 'else' branch, the return value
-> 'err' should not still be zero.
-> 
-> Signed-off-by: Yongjian Xu <xuyongjiande@gmail.com>
-> ---
->  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    1 +
->  1 file changed, 1 insertion(+)
+After google and the code reading, seems this Qdisc instance is only
+used for the initialization purpose, I can't find the reason that this
+object introduced in the kernel. Does anybody know what the historical
+reason is for this invention? the purpose or the benefit for this
+Qdisc object?
 
-Acked-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
-
-Thanks,
-Shahed
+-- 
+Den
