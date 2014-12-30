@@ -1,94 +1,122 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [RFC PATCH net-next 0/5]: ixgbevf: Allow querying VFs RSS
- indirection table and key
-Date: Tue, 30 Dec 2014 10:52:00 -0800
-Message-ID: <1419965520.31582.20.camel@jtkirshe-mobl>
+Subject: Re: [RFC PATCH net-next 1/5] ixgbe: Add a RETA query command to VF-PF
+ channel API
+Date: Tue, 30 Dec 2014 11:21:33 -0800
+Message-ID: <CAL3LdT4mfE72fmA3b3iG=-b9iP9MXHfAJMBwqFzfYyC1pebc8A@mail.gmail.com>
 References: <1419957035-1078-1-git-send-email-vladz@cloudius-systems.com>
-	 <CAL3LdT73zfJwNcHS0ZpZ=ZzG=UiCUW5UEnOF9Fp2rR0e-ejXYg@mail.gmail.com>
-	 <CAOYyTHb+5Wc-e3vBVE+MCh6YNfmompi9Mnsr0nDnHAn7Tvqyew@mail.gmail.com>
+	<1419957035-1078-2-git-send-email-vladz@cloudius-systems.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-7YRaausoph2FiNcG6RYa"
-Cc: Gleb Natapov <gleb@cloudius-systems.com>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, gleb@cloudius-systems.com,
 	avi@cloudius-systems.com
-To: Vladislav Zolotarov <vladz@cloudius-systems.com>
+To: Vlad Zolotarov <vladz@cloudius-systems.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:64071 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751340AbaL3SwD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Dec 2014 13:52:03 -0500
-In-Reply-To: <CAOYyTHb+5Wc-e3vBVE+MCh6YNfmompi9Mnsr0nDnHAn7Tvqyew@mail.gmail.com>
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:34677 "EHLO
+	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751340AbaL3TVe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2014 14:21:34 -0500
+Received: by mail-oi0-f48.google.com with SMTP id u20so33434342oif.7
+        for <netdev@vger.kernel.org>; Tue, 30 Dec 2014 11:21:33 -0800 (PST)
+In-Reply-To: <1419957035-1078-2-git-send-email-vladz@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Dec 30, 2014 at 8:30 AM, Vlad Zolotarov
+<vladz@cloudius-systems.com> wrote:
+> 82599 VFs and PF share the same RSS redirection table (RETA). Therefore we
+> just return it for all VFs.
+>
+> RETA table is an array of 32 registers and the maximum number of registers
+> that may be delivered in a single VF-PF channel command is 15. Therefore
+> we will deliver the whole table in 3 steps: 12, 12 and 8 registers in each
+> step correspondingly. Thus this patch does the following:
+>
+>   - Adds a new API version (to specify a new commands set).
+>   - Adds the IXGBE_VF_GET_RETA_[0,1,2] commands to the VF-PF commands set.
+>
+> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  6 +++++
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 35 ++++++++++++++++++++++++++
+>  2 files changed, 41 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+> index a5cb755..c1123d9 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+> @@ -73,6 +73,7 @@ enum ixgbe_pfvf_api_rev {
+>         ixgbe_mbox_api_10,      /* API version 1.0, linux/freebsd VF driver */
+>         ixgbe_mbox_api_20,      /* API version 2.0, solaris Phase1 VF driver */
+>         ixgbe_mbox_api_11,      /* API version 1.1, linux/freebsd VF driver */
+> +       ixgbe_mbox_api_12,      /* API version 1.2, linux/freebsd VF driver */
+>         /* This value should always be last */
+>         ixgbe_mbox_api_unknown, /* indicates that API version is not known */
+>  };
+> @@ -91,6 +92,11 @@ enum ixgbe_pfvf_api_rev {
+>  /* mailbox API, version 1.1 VF requests */
+>  #define IXGBE_VF_GET_QUEUES    0x09 /* get queue configuration */
+>
+> +/* mailbox API, version 1.2 VF requests */
+> +#define IXGBE_VF_GET_RETA_0    0x0a /* get RETA[0..11]  */
+> +#define IXGBE_VF_GET_RETA_1    0x0b /* get RETA[12..23] */
+> +#define IXGBE_VF_GET_RETA_2    0x0c /* get RETA[24..31] */
+> +
+>  /* GET_QUEUES return data indices within the mailbox */
+>  #define IXGBE_VF_TX_QUEUES     1       /* number of Tx queues supported */
+>  #define IXGBE_VF_RX_QUEUES     2       /* number of Rx queues supported */
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+> index c76ba90..84db1a5 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+> @@ -427,6 +427,7 @@ static s32 ixgbe_set_vf_lpe(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
+>  #endif /* CONFIG_FCOE */
+>                 switch (adapter->vfinfo[vf].vf_api) {
+>                 case ixgbe_mbox_api_11:
+> +               case ixgbe_mbox_api_12:
+>                         /*
+>                          * Version 1.1 supports jumbo frames on VFs if PF has
+>                          * jumbo frames enabled which means legacy VFs are
+> @@ -894,6 +895,7 @@ static int ixgbe_negotiate_vf_api(struct ixgbe_adapter *adapter,
+>         switch (api) {
+>         case ixgbe_mbox_api_10:
+>         case ixgbe_mbox_api_11:
+> +       case ixgbe_mbox_api_12:
+>                 adapter->vfinfo[vf].vf_api = api;
+>                 return 0;
+>         default:
+> @@ -917,6 +919,7 @@ static int ixgbe_get_vf_queues(struct ixgbe_adapter *adapter,
+>         switch (adapter->vfinfo[vf].vf_api) {
+>         case ixgbe_mbox_api_20:
+>         case ixgbe_mbox_api_11:
+> +       case ixgbe_mbox_api_12:
+>                 break;
+>         default:
+>                 return -1;
+> @@ -944,6 +947,29 @@ static int ixgbe_get_vf_queues(struct ixgbe_adapter *adapter,
+>         return 0;
+>  }
+>
+> +static int ixgbe_get_vf_reta(struct ixgbe_adapter *adapter,
+> +                            u32 *msgbuf, u32 vf, int reta_offset_dw,
+> +                            size_t dwords)
+> +{
+> +       struct ixgbe_hw *hw = &adapter->hw;
+> +       int i;
+> +       u32 *reta = &msgbuf[1];
+> +
+> +       /* verify the PF is supporting the correct API */
+> +       switch (adapter->vfinfo[vf].vf_api) {
+> +       case ixgbe_mbox_api_12:
+> +               break;
+> +       default:
+> +               return -EPERM;
+> +       }
 
---=-7YRaausoph2FiNcG6RYa
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+A switch statement is overkill for a single case.  It would be far
+simpler to just have
 
-On Tue, 2014-12-30 at 20:50 +0200, Vladislav Zolotarov wrote:
-> On Dec 30, 2014 8:16 PM, "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-> wrote:
-> >
-> > On Tue, Dec 30, 2014 at 8:30 AM, Vlad Zolotarov
-> > <vladz@cloudius-systems.com> wrote:
-> > > Add the ethtool ops to VF driver to allow querying the RSS
-> indirection table
-> > > and RSS Random Key.
-> > >
-> > >  - PF driver: Add new VF-PF channel commands.
-> > >  - VF driver: Utilize these new commands and add the corresponding
-> > >               ethtool callbacks.
-> > >
-> > > Vlad Zolotarov (5):
-> > >   ixgbe: Add a RETA query command to VF-PF channel API
-> > >   ixgbevf: Add a RETA query code
-> > >   ixgbe: Add GET_RSS_KEY command to VF-PF channel commands set
-> > >   ixgbevf: Add RSS Key query code
-> > >   ixgbevf: Add the appropriate ethtool ops to query RSS
-> indirection
-> > >     table and key
-> > >
-> > >  drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h      |   8 ++
-> > >  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    |  60
-> +++++++++++
-> > >  drivers/net/ethernet/intel/ixgbevf/ethtool.c      |  37 +++++++
-> > >  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   4 +-
-> > >  drivers/net/ethernet/intel/ixgbevf/mbx.h          |   8 ++
-> > >  drivers/net/ethernet/intel/ixgbevf/vf.c           | 125
-> ++++++++++++++++++++++
-> > >  drivers/net/ethernet/intel/ixgbevf/vf.h           |   2 +
-> > >  7 files changed, 243 insertions(+), 1 deletion(-)
-> >
-> > Remember to CC on patches against drivers in
-> drivers/net/ethernet/intel/ please.
->=20
-> To CC who? ;)
->=20
+if (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12)
+        return -EPERM;
 
-Sorry, I fat fingered that response.  Please CC me.
-
---=-7YRaausoph2FiNcG6RYa
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJUovRQAAoJEOVv75VaS+3OQqEQAJdmZXIDMN8SVbsFg6eBcPgV
-Huvh1mZ8Hyi4s/F3mjwfrLFQVqHVwrPG0PK0LRq5aAh7dXL18h97rWjBGd6zOce8
-G8tKCNSpV2JACvNtOHDoabt/YA1tfPFQuwphu4rojLRqvkYgObxCbKkRas+GJTKL
-09HbXLazO0p5l950RB3Fz12NPV9/lib4M6/+yXt4xfd0uZcYibTdwtbcym+vqihT
-XCKf3NyDHyGg1Ly+j3mzR6lajkvUjfwNykKn6ZX84uJPe6vUFBZmBZM7m1CdzRCP
-KE2VnXWdlG6DaZ/YwRHiglgTsMFZvkP9QDmAjhyHOo6/Pme72EjdgRm2F93aHLaC
-WMm6XsH5x4xnTQ2XFMA9ZCC2Y00tdgMONAmK/hGryZ300Fh+JgSy8li0X4FHEKxL
-FBr73RxAYdBO95kXy452VCOBY88SwM/k/dQwZlteOOKiQMYAzQ5PzNflt8l/oiXP
-VEnAyhz6ridgBTjHq7jKZtUXyDheRFfcr3ZxRhKr97KeY1t6tuKyRhejecr+i0nY
-WjQRYC2VnjKskDJYpKO4zTqf+LH+MMkUJJ27MNIH3RTyzqAW+xrsLrANsmW16/TI
-q8L3kGrdPP/sf0J8cmBfeoZdTDXsqwNJUg6wNTmUF9Y/zNS67168zeRXUF/Ln2+V
-0zQiBOEhDnsaiz2fBsiV
-=8gvD
------END PGP SIGNATURE-----
-
---=-7YRaausoph2FiNcG6RYa--
+Later on, if there are multiple API's or future API's that also
+support this, then we could move to a case statement.
