@@ -1,42 +1,78 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 0/4] ath10k: a few incorrect return handling fix-up
-Date: Tue, 30 Dec 2014 20:18:52 +0300
-Message-ID: <54A2DE7C.1050602@cogentembedded.com>
-References: <1419942046-17985-1-git-send-email-der.herr@hofr.at>
+From: Kostya Belezko <bkostya@hotmail.com>
+Subject: [PATCH v2][Nios2-dev] Altera TSE: Add missing phydev
+Date: Tue, 30 Dec 2014 12:27:09 -0500
+Message-ID: <BLU437-SMTP8237F72A0A7CCFCAF201F6B65E0@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michal Kazior <michal.kazior@tieto.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Chun-Yeow Yeoh <yeohchunyeow@gmail.com>,
-	Yanbo Li <yanbol@qti.qualcomm.com>, ath10k@lists.infradead.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Nicholas Mc Guire <der.herr@hofr.at>,
-	Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1419942046-17985-1-git-send-email-der.herr@hofr.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>,
+	Kostya Belezko <bkostya@hotmail.com>
+To: Nios2-dev <nios2-dev@lists.rocketboards.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from blu004-omc1s6.hotmail.com ([65.55.116.17]:60557 "EHLO
+	BLU004-OMC1S6.hotmail.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750977AbaL3RdA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2014 12:33:00 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Altera network device doesn't come up after
+ 
+ifconfig eth0 down
+ifconfig eth0 up
+ 
+The reason behind is clearing priv->phydev during tse_shutdown().
+The phydev is not restored back at tse_open().
 
-On 12/30/2014 03:20 PM, Nicholas Mc Guire wrote:
+Resubmiting as to follow Tobias Klauser suggestion.
+phy_start/phy_stop are called on each ifup/ifdown and
+phy_disconnect is called once during the module removal. 
 
-> wait_for_completion_timeout does not return negative values so the tests
-> for <= 0 are not needed and the case differentiation in the error handling
-> path unnecessary.
+Signed-off-by: Kostya Belezko <bkostya@hotmail.com>
 
-    I decided to verify your statement and I saw that it seems wrong. 
-do_wait_for_common() can return -ERESTARTSYS and the return value gets 
-returned by its callers unchanged.
+---
+ drivers/net/ethernet/altera/altera_tse_main.c | 15 ++++++---------
+ 1 file changed, 6 insertions(+), 9 deletions(-)
 
-> patch was only compile tested x86_64_defconfig + CONFIG_ATH_CARDS=m
-> CONFIG_ATH10K=m
-
-> patch is against linux-next 3.19.0-rc1 -next-20141226
-
-    Rather patches. It would have been better to send one patch instead of 4 
-patches with the same name.
-
-WBR, Sergei
+diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
+index 4efc435..720db5f 100644
+--- a/drivers/net/ethernet/altera/altera_tse_main.c
++++ b/drivers/net/ethernet/altera/altera_tse_main.c
+@@ -1170,10 +1170,6 @@ tx_request_irq_error:
+ init_error:
+ 	free_skbufs(dev);
+ alloc_skbuf_error:
+-	if (priv->phydev) {
+-		phy_disconnect(priv->phydev);
+-		priv->phydev = NULL;
+-	}
+ phy_error:
+ 	return ret;
+ }
+@@ -1186,12 +1182,9 @@ static int tse_shutdown(struct net_device *dev)
+ 	int ret;
+ 	unsigned long int flags;
+ 
+-	/* Stop and disconnect the PHY */
+-	if (priv->phydev) {
++	/* Stop the PHY */
++	if (priv->phydev)
+ 		phy_stop(priv->phydev);
+-		phy_disconnect(priv->phydev);
+-		priv->phydev = NULL;
+-	}
+ 
+ 	netif_stop_queue(dev);
+ 	napi_disable(&priv->napi);
+@@ -1525,6 +1518,10 @@ err_free_netdev:
+ static int altera_tse_remove(struct platform_device *pdev)
+ {
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
++	struct altera_tse_private *priv = netdev_priv(ndev);
++
++	if (priv->phydev)
++		phy_disconnect(priv->phydev);
+ 
+ 	platform_set_drvdata(pdev, NULL);
+ 	altera_tse_mdio_destroy(ndev);
+-- 
+2.1.0
