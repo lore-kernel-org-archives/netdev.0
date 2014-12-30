@@ -1,86 +1,81 @@
 From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: [RFC PATCH net-next 3/5] ixgbe: Add GET_RSS_KEY command to VF-PF channel commands set
-Date: Tue, 30 Dec 2014 18:30:33 +0200
-Message-ID: <1419957035-1078-4-git-send-email-vladz@cloudius-systems.com>
+Subject: [RFC PATCH net-next 5/5] ixgbevf: Add the appropriate ethtool ops to query RSS indirection table and key
+Date: Tue, 30 Dec 2014 18:30:35 +0200
+Message-ID: <1419957035-1078-6-git-send-email-vladz@cloudius-systems.com>
 References: <1419957035-1078-1-git-send-email-vladz@cloudius-systems.com>
 Cc: gleb@cloudius-systems.com, avi@cloudius-systems.com,
 	Vlad Zolotarov <vladz@cloudius-systems.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:42266 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750833AbaL3QhX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2014 11:37:23 -0500
-Received: by mail-wi0-f177.google.com with SMTP id l15so24359259wiw.4
-        for <netdev@vger.kernel.org>; Tue, 30 Dec 2014 08:37:22 -0800 (PST)
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:49573 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751243AbaL3QjA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2014 11:39:00 -0500
+Received: by mail-wi0-f180.google.com with SMTP id n3so24304262wiv.7
+        for <netdev@vger.kernel.org>; Tue, 30 Dec 2014 08:38:59 -0800 (PST)
 In-Reply-To: <1419957035-1078-1-git-send-email-vladz@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-82599 VFs and PF share the same RSS Key. Therefore we will return
-the same RSS key for all VFs.
-
 Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  2 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 25 +++++++++++++++++++++++++
- 2 files changed, 27 insertions(+)
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c | 37 ++++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-index c1123d9..52e775b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-@@ -97,6 +97,8 @@ enum ixgbe_pfvf_api_rev {
- #define IXGBE_VF_GET_RETA_1	0x0b /* get RETA[12..23] */
- #define IXGBE_VF_GET_RETA_2	0x0c /* get RETA[24..31] */
- 
-+#define IXGBE_VF_GET_RSS_KEY	0x0d /* get RSS key */
-+
- /* GET_QUEUES return data indices within the mailbox */
- #define IXGBE_VF_TX_QUEUES	1	/* number of Tx queues supported */
- #define IXGBE_VF_RX_QUEUES	2	/* number of Rx queues supported */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 84db1a5..fc8233e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -970,6 +970,28 @@ static int ixgbe_get_vf_reta(struct ixgbe_adapter *adapter,
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+index cc0e5b7..255bbc8 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+@@ -792,6 +792,40 @@ static int ixgbevf_set_coalesce(struct net_device *netdev,
  	return 0;
  }
  
-+static int ixgbe_get_vf_rss_key(struct ixgbe_adapter *adapter,
-+				u32 *msgbuf, u32 vf)
++static u32 ixgbevf_get_rxfh_indir_size(struct net_device *netdev)
 +{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	int i;
-+	u32 *rss_key = &msgbuf[1];
++	return 128;
++}
 +
-+	/* verify the PF is supporting the correct API */
-+	switch (adapter->vfinfo[vf].vf_api) {
-+	case ixgbe_mbox_api_12:
-+		break;
-+	default:
-+		return -EPERM;
++static u32 ixgbevf_get_rxfh_key_size(struct net_device *netdev)
++{
++	return 40;
++}
++
++static int ixgbevf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
++			    u8 *hfunc)
++{
++	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
++	int err;
++
++	if (hfunc)
++		*hfunc = ETH_RSS_HASH_TOP;
++
++	if (indir) {
++		err = ixgbevf_get_reta(&adapter->hw, indir);
++		if (err)
++			return err;
 +	}
 +
-+	/* Read the RSS KEY */
-+	for (i = 0; i < 10; i++)
-+		rss_key[i] = IXGBE_READ_REG(hw, IXGBE_RSSRK(i));
++	if (key) {
++		err = ixgbevf_get_rss_key(&adapter->hw, key);
++		if (err)
++			return err;
++	}
 +
 +	return 0;
 +}
 +
- static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- {
- 	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
-@@ -1035,6 +1057,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- 	case IXGBE_VF_GET_RETA_2:
- 		retval = ixgbe_get_vf_reta(adapter, msgbuf, vf, 24, 8);
- 		break;
-+	case IXGBE_VF_GET_RSS_KEY:
-+		retval = ixgbe_get_vf_rss_key(adapter, msgbuf, vf);
-+		break;
- 	default:
- 		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
- 		retval = IXGBE_ERR_MBX;
+ static const struct ethtool_ops ixgbevf_ethtool_ops = {
+ 	.get_settings           = ixgbevf_get_settings,
+ 	.get_drvinfo            = ixgbevf_get_drvinfo,
+@@ -809,6 +843,9 @@ static const struct ethtool_ops ixgbevf_ethtool_ops = {
+ 	.get_ethtool_stats      = ixgbevf_get_ethtool_stats,
+ 	.get_coalesce           = ixgbevf_get_coalesce,
+ 	.set_coalesce           = ixgbevf_set_coalesce,
++	.get_rxfh_indir_size    = ixgbevf_get_rxfh_indir_size,
++	.get_rxfh_key_size      = ixgbevf_get_rxfh_key_size,
++	.get_rxfh		= ixgbevf_get_rxfh,
+ };
+ 
+ void ixgbevf_set_ethtool_ops(struct net_device *netdev)
 -- 
 2.1.0
