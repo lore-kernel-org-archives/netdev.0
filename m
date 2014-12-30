@@ -1,36 +1,90 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] bonding: move ipoib_header_ops to vmlinux
-Date: Mon, 29 Dec 2014 23:25:07 -0500 (EST)
-Message-ID: <20141229.232507.2086816594770925202.davem@davemloft.net>
-References: <1416893768-21369-1-git-send-email-wen.gang.wang@oracle.com>
-	<CAHA+R7M-Nm_R-AaKQ0nX4L3O=BN5_m1v-8sWJSaE_UmGyo8zwA@mail.gmail.com>
-	<54A21596.7000706@oracle.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH 6/6] bridge: add vlan info to bridge setlink and dellink
+ notification messages
+Date: Mon, 29 Dec 2014 21:17:15 -0800
+Message-ID: <54A2355B.6060903@cumulusnetworks.com>
+References: <1419887132-7084-7-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bCnqBX8TWmG4O_wppKtbnnCEWaaz+bHreybd8pPfUPs+w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: wen.gang.wang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <54A21596.7000706-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Netdev <netdev@vger.kernel.org>, shemminger@vyatta.com,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Wilson Kok <wkok@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:43075 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751128AbaL3FRR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2014 00:17:17 -0500
+Received: by mail-pd0-f171.google.com with SMTP id y13so18646656pdi.30
+        for <netdev@vger.kernel.org>; Mon, 29 Dec 2014 21:17:17 -0800 (PST)
+In-Reply-To: <CAE4R7bCnqBX8TWmG4O_wppKtbnnCEWaaz+bHreybd8pPfUPs+w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wengang <wen.gang.wang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Date: Tue, 30 Dec 2014 11:01:42 +0800
+On 12/29/14, 3:42 PM, Scott Feldman wrote:
+> On Mon, Dec 29, 2014 at 1:05 PM,  <roopa@cumulusnetworks.com> wrote:
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> vlan add/deletes are not notified to userspace today. This patch fixes it.
+>> Notifications will contain vlans compressed into ranges whereever applicable.
+> Why is this notification needed?  On VLAN add/del, the port driver
+> will already get called if it implements ndo_vlan_rx_add_vid and
+> ndo_vlan_rx_kill_vid.
+This is strictly for userspace.
 
-> There are more than one way we do things. For this case, considering
-> needs, complexity and stability I think moving ipoib_header_ops is the
-> right way to go.
+>    The port driver already gets the notification
+> it needs to filter vlans.  User space can query for vlan port
+> membership if it needs to know.
 
-I completely disagree, it's a gross hack at best.
-
-It's papering over the real problem.
-
-When we have references to released objects in other areas of the
-networking stack, we don't move those objects into the static kernel
-image as a fix.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+You mean request a dump ?. yes it can if it needs all the configured vlans.
+But for notifications, we must at the least notify what changed with 
+respect to vlans with RTM_SETLINK/DELLINK, no ?
+>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> ---
+>>   net/bridge/br_netlink.c |    3 ++-
+>>   net/core/rtnetlink.c    |    3 ++-
+>>   2 files changed, 4 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+>> index 16bdd5a..cebfb03 100644
+>> --- a/net/bridge/br_netlink.c
+>> +++ b/net/bridge/br_netlink.c
+>> @@ -303,7 +303,8 @@ void br_ifinfo_notify(int event, struct net_bridge_port *port)
+>>          if (skb == NULL)
+>>                  goto errout;
+>>
+>> -       err = br_fill_ifinfo(skb, port, 0, 0, event, 0, 0, port->dev);
+>> +       err = br_fill_ifinfo(skb, port, 0, 0, event, 0,
+>> +                            RTEXT_FILTER_BRVLAN_COMPRESSED, port->dev);
+> This doesn't look right.  The skb wasn't allocated large enough to
+> hold vlan info.  If this is working in your tests, you're getting
+> lucky due to some skb padding.
+>
+> skb was allocated with br_nlmsg_size(), which doesn't include vlan info.
+>
+>>          if (err < 0) {
+>>                  /* -EMSGSIZE implies BUG in br_nlmsg_size() */
+>>                  WARN_ON(err == -EMSGSIZE);
+>> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+>> index d06107d..dad5fb6 100644
+>> --- a/net/core/rtnetlink.c
+>> +++ b/net/core/rtnetlink.c
+>> @@ -2878,7 +2878,8 @@ static int rtnl_bridge_notify(struct net_device *dev, u16 flags)
+>>
+>>          if ((!flags || (flags & BRIDGE_FLAGS_MASTER)) &&
+>>              br_dev && br_dev->netdev_ops->ndo_bridge_getlink) {
+>> -               err = br_dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev, 0);
+>> +               err = br_dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev,
+>> +                                       RTEXT_FILTER_BRVLAN_COMPRESSED);
+>>                  if (err < 0)
+>>                          goto errout;
+>>          }
+>> --
+>> 1.7.10.4
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
