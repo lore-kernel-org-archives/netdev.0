@@ -1,7 +1,7 @@
 From: Nicholas Mc Guire <der.herr@hofr.at>
-Subject: [PATCH 4/4] ath10k: fixup wait_for_completion_timeout return handling
-Date: Tue, 30 Dec 2014 07:20:46 -0500
-Message-ID: <1419942046-17985-5-git-send-email-der.herr@hofr.at>
+Subject: [PATCH 3/4] ath10k: fixup wait_for_completion_timeout return handling
+Date: Tue, 30 Dec 2014 07:20:45 -0500
+Message-ID: <1419942046-17985-4-git-send-email-der.herr@hofr.at>
 References: <1419942046-17985-1-git-send-email-der.herr@hofr.at>
 Cc: Michal Kazior <michal.kazior@tieto.com>,
 	Ben Greear <greearb@candelatech.com>,
@@ -24,21 +24,26 @@ patch is against linux-next 3.19.0-rc1 -next-20141226
 
 Signed-off-by: Nicholas Mc Guire <der.herr@hofr.at>
 ---
- drivers/net/wireless/ath/ath10k/htt.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/wireless/ath/ath10k/htc.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath10k/htt.c b/drivers/net/wireless/ath/ath10k/htt.c
-index 56cb4ac..58b6fc1 100644
---- a/drivers/net/wireless/ath/ath10k/htt.c
-+++ b/drivers/net/wireless/ath/ath10k/htt.c
-@@ -102,7 +102,7 @@ int ath10k_htt_setup(struct ath10k_htt *htt)
- 
- 	status = wait_for_completion_timeout(&htt->target_version_received,
- 					     HTT_TARGET_VERSION_TIMEOUT_HZ);
+diff --git a/drivers/net/wireless/ath/ath10k/htc.c b/drivers/net/wireless/ath/ath10k/htc.c
+index f1946a6..2fd9e18 100644
+--- a/drivers/net/wireless/ath/ath10k/htc.c
++++ b/drivers/net/wireless/ath/ath10k/htc.c
+@@ -703,11 +703,9 @@ int ath10k_htc_connect_service(struct ath10k_htc *htc,
+ 	/* wait for response */
+ 	status = wait_for_completion_timeout(&htc->ctl_resp,
+ 					     ATH10K_HTC_CONN_SVC_TIMEOUT_HZ);
 -	if (status <= 0) {
+-		if (status == 0)
+-			status = -ETIMEDOUT;
 +	if (status == 0) {
- 		ath10k_warn(ar, "htt version request timed out\n");
- 		return -ETIMEDOUT;
+ 		ath10k_err(ar, "Service connect timeout: %d\n", status);
+-		return status;
++		return -ETIMEDOUT;
  	}
+ 
+ 	/* we controlled the buffer creation, it's aligned */
 -- 
 1.7.10.4
