@@ -1,133 +1,91 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH 1/6] bridge: add support to parse multiple vlan info
- attributes in IFLA_AF_SPEC
-Date: Mon, 29 Dec 2014 16:26:55 -0800
-Message-ID: <CAE4R7bC7pgH35pkduV0n3G0UpoXoAUeJzmLE8ucJAwONJB2BZg@mail.gmail.com>
-References: <1419887132-7084-2-git-send-email-roopa@cumulusnetworks.com>
-	<CAE4R7bAyWy83S-K_XtiRNJO2rZXtVpijPxqj_oq_sZqPKW-h-Q@mail.gmail.com>
-	<54A1D157.1000002@cumulusnetworks.com>
-	<CAE4R7bDiRd6WY7ry-vFCj2HgAFtxWznwJTX4vqxt_v5Q8LXdOg@mail.gmail.com>
-	<CAE4R7bAHSNePcX3aAa72kYReC4c8fRKF+BzL1f-bdk-M_pLxUg@mail.gmail.com>
+From: Wengang <wen.gang.wang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] bonding: move ipoib_header_ops to vmlinux
+Date: Tue, 30 Dec 2014 11:01:42 +0800
+Message-ID: <54A21596.7000706@oracle.com>
+References: <1416893768-21369-1-git-send-email-wen.gang.wang@oracle.com> <CAHA+R7M-Nm_R-AaKQ0nX4L3O=BN5_m1v-8sWJSaE_UmGyo8zwA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, shemminger@vyatta.com,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Wilson Kok <wkok@cumulusnetworks.com>
-To: roopa <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:37692 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751321AbaL3A04 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2014 19:26:56 -0500
-Received: by mail-wg0-f43.google.com with SMTP id k14so2095689wgh.30
-        for <netdev@vger.kernel.org>; Mon, 29 Dec 2014 16:26:55 -0800 (PST)
-In-Reply-To: <CAE4R7bAHSNePcX3aAa72kYReC4c8fRKF+BzL1f-bdk-M_pLxUg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAHA+R7M-Nm_R-AaKQ0nX4L3O=BN5_m1v-8sWJSaE_UmGyo8zwA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 29, 2014 at 4:07 PM, Scott Feldman <sfeldma@gmail.com> wrote:
-> On Mon, Dec 29, 2014 at 3:47 PM, Scott Feldman <sfeldma@gmail.com> wrote:
->> On Mon, Dec 29, 2014 at 2:10 PM, roopa <roopa@cumulusnetworks.com> wrote:
->>> On 12/29/14, 1:40 PM, Scott Feldman wrote:
->>>>
->>>> On Mon, Dec 29, 2014 at 1:05 PM,  <roopa@cumulusnetworks.com> wrote:
->>>>>
->>>>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>>>
->>>>> This patch changes bridge IFLA_AF_SPEC netlink attribute parser to
->>>>> look for more than one IFLA_BRIDGE_VLAN_INFO attribute. This allows
->>>>> userspace to pack more than one vlan in the setlink msg.
->>>>>
->>>>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>>> ---
->>>>>   net/bridge/br_netlink.c |   18 +++++++++---------
->>>>>   1 file changed, 9 insertions(+), 9 deletions(-)
->>>>>
->>>>> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
->>>>> index 9f5eb55..75971b1 100644
->>>>> --- a/net/bridge/br_netlink.c
->>>>> +++ b/net/bridge/br_netlink.c
->>>>> @@ -230,18 +230,18 @@ static int br_afspec(struct net_bridge *br,
->>>>>                       struct nlattr *af_spec,
->>>>>                       int cmd)
->>>>>   {
->>>>> -       struct nlattr *tb[IFLA_BRIDGE_MAX+1];
->>>>> +       struct bridge_vlan_info *vinfo;
->>>>>          int err = 0;
->>>>> +       struct nlattr *attr;
->>>>> +       int err = 0;
->>>>> +       int rem;
->>>>> +       u16 vid;
->>>>>
->>>>> -       err = nla_parse_nested(tb, IFLA_BRIDGE_MAX, af_spec,
->>>>> ifla_br_policy);
->>>>
->>>> Removing this call orphans ifla_br_policy...should ifla_br_policy be
->>>> removed?
->>>
->>>
->>> good question. Its a good place to see the type. In-fact userspace programs
->>> also copy the same policy to parse netlink attributes. hmmm..
->>> I would like to keep it if it does not throw a warning.
+=E4=BA=8E 2014=E5=B9=B412=E6=9C=8830=E6=97=A5 05:32, Cong Wang =E5=86=99=
+=E9=81=93:
+> On Mon, Nov 24, 2014 at 9:36 PM, Wengang Wang <wen.gang.wang@oracle.c=
+om> wrote:
+>> When last slave of a bonding master is removed, the bonding then doe=
+s not work.
+>> At the time if packet_snd is called against with a master net_device=
+, it calls
+>> then header_ops->create which points to slave's header_ops. In case =
+the slave
+>> is ipoib and the module is unloaded, header_ops would point to inval=
+id address.
+>> Accessing it will cause problem.
+>> This patch tries to fix this issue by moving ipoib_header_ops to vml=
+inux to keep
+>> it valid even when ipoib module is unloaded.
 >>
->> I don't know what the policy (sorry, no pun intended) on leaving dead
->> code.  I say remove it.
->
-> You know, not using the policy seems like a step backwards, and maybe
-> it suggests a problem with the attr packing.
->
-> We had:
->
-> ifla_br_policy
->    IFLA_BRIDGE_FLAGS
->    IFLA_BRIDGE_MODE
->    IFLA_BRIDGE_VLAN_INFO
->
-> This patch set makes it:
->
-> ifla_br_policy
->    IFLA_BRIDGE_FLAGS
->    IFLA_BRIDGE_MODE
->    IFLA_BRIDGE_VLAN_INFO
->    IFLA_BRIDGE_VLAN_RANGE_INFO
->
-> Which is fine, but now VLAN_INFO and VLAN_RANGE_INFO can be repeated.
-> I think you want some nesting to clarify:
->
-> ifla_br_policy
->    IFLA_BRIDGE_FLAGS
->    IFLA_BRIDGE_MODE
->    IFLA_BRIDGE_VLAN_INFO
->    IFLA_BRIDGE_VLAN_LIST_INFO    // nested array of
->        IFLA_BRIDGE_VLAN_INFO
->        IFLA_BRIDGE_VLAN_RANGE_INFO
->
-> Now you can keep the policy for the top-level parsing, and loop only
-> on the nested array VLAN_LIST_INFO.  Actually, now you can use just
-> RANGE_INFO in array and have:
->
-> ifla_br_policy
->    IFLA_BRIDGE_FLAGS
->    IFLA_BRIDGE_MODE
->    IFLA_BRIDGE_VLAN_INFO
->    IFLA_BRIDGE_VLAN_LIST_INFO    // nested array of
->        IFLA_BRIDGE_VLAN_RANGE_INFO
->
-> And use VLAN_RANGE_INFO for both ranges of vids as well as single
-> vids.  That'll simplify your filling algo in patch 5.
+> I still don't think this is the right way to fix the bug, because
+> there are other modules which have the same bug, for example,
+> net/bluetooth/6lowpan.c (unless it can't be enslaved into a bond
+> of course, I haven't verified). We don't want to move them all
+> to builtin kernel, do we?
 
-Hmmmm...do you even need VLAN_RANGE_INFO?  How about just using
-existing VLAN_INFO and add some more flags:
+I don't think bluetooth needs bonding(and you didn't verify at all).
+Do you have strong reason(examples)?
 
-#define BRIDGE_VLAN_INFO_RANGE_START    (1<<3)
-#define BRIDGE_VLAN_INFO_RANGE_END        (1<<4)
+> On the other hand, as Jay explained, bonding is probably
+> the only one which has the problem, why not solve it in bonding?
+> I mean why do we have to adjust other modules just for bonding?
 
-Now you can have:
+There are more than one way we do things. For this case, considering
+needs, complexity and stability I think moving ipoib_header_ops is the
+right way to go.
 
-   IFLA_BRIDGE_FLAGS
-   IFLA_BRIDGE_MODE
-   IFLA_BRIDGE_VLAN_INFO
-   IFLA_BRIDGE_VLAN_INFO_LIST    // nested array of
-       IFLA_BRIDGE_VLAN_INFO
+> When its slave device gets removed, some netdev event is sent
+> to the master, so why not reset the header_ops to ether header ops
+> up on this event? Something like below (not even compile tested):
+>
+>
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bo=
+nd_main.c
+> index 184c434..aedccae 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1726,6 +1726,7 @@ static int __bond_release_one(struct net_device=
+ *bond_dev,
+>          if (!bond_has_slaves(bond)) {
+>                  bond_set_carrier(bond);
+>                  eth_hw_addr_random(bond_dev);
+> +               ether_setup(bond_dev);
+>          }
+>
+>          unblock_netpoll_tx();
+>
+> It should solve more than just your ipoib case.
+Do you think it's safe in a race condition? Before you change=20
+header_ops, you have no
+way to prevent another thread from accessing the old one.
 
-Don't set START or END for single vids in list.
+> Last but not least, since you said you saw the crash in packet_snd(),
+> it would also be interesting to know why packet_snd() still picks thi=
+s
+> bond dev after all its slaves are gone, after all it is not a functio=
+nal
+> device without any slave (its carrier is off).
+
+It's quite normal in a race situation.
+
+thanks,
+wengang
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
