@@ -1,91 +1,77 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: Re: [RFC PATCH net-next 0/5]: ixgbevf: Allow querying VFs RSS indirection
- table and key
-Date: Tue, 30 Dec 2014 21:36:35 +0200
-Message-ID: <54A2FEC3.6050505@cloudius-systems.com>
-References: <1419957035-1078-1-git-send-email-vladz@cloudius-systems.com>		 <CAL3LdT73zfJwNcHS0ZpZ=ZzG=UiCUW5UEnOF9Fp2rR0e-ejXYg@mail.gmail.com>		 <CAOYyTHb+5Wc-e3vBVE+MCh6YNfmompi9Mnsr0nDnHAn7Tvqyew@mail.gmail.com>		 <1419965520.31582.20.camel@jtkirshe-mobl>		 <CAOYyTHathHiGThyHj+yRi9O6jWEAO3wkAK-6egMc2OwK9dQoMQ@mail.gmail.com>	 <1419967707.31582.23.camel@jtkirshe-mobl>	 <54A2FD6C.6050807@cloudius-systems.com> <1419968078.31582.27.camel@jtkirshe-mobl>
+From: Nicholas Mc Guire <der.herr@hofr.at>
+Subject: Re: [PATCH 0/4] ath10k: a few incorrect return handling fix-up
+Date: Tue, 30 Dec 2014 20:42:39 +0100
+Message-ID: <20141230194239.GA13655@opentech.at>
+References: <1419942046-17985-1-git-send-email-der.herr@hofr.at> <54A2DE7C.1050602@cogentembedded.com> <20141230182842.GA18361@opentech.at> <54A2F151.6040205@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	Gleb Natapov <gleb@cloudius-systems.com>,
-	avi@cloudius-systems.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f175.google.com ([74.125.82.175]:45401 "EHLO
-	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751461AbaL3Tgj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2014 14:36:39 -0500
-Received: by mail-we0-f175.google.com with SMTP id k11so1479165wes.20
-        for <netdev@vger.kernel.org>; Tue, 30 Dec 2014 11:36:38 -0800 (PST)
-In-Reply-To: <1419968078.31582.27.camel@jtkirshe-mobl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Kalle Valo <kvalo@qca.qualcomm.com>,
+	Michal Kazior <michal.kazior@tieto.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Chun-Yeow Yeoh <yeohchunyeow@gmail.com>,
+	Yanbo Li <yanbol@qti.qualcomm.com>, ath10k@lists.infradead.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <54A2F151.6040205@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, 30 Dec 2014, Sergei Shtylyov wrote:
 
-On 12/30/14 21:34, Jeff Kirsher wrote:
-> On Tue, 2014-12-30 at 21:30 +0200, Vlad Zolotarov wrote:
->> On 12/30/14 21:28, Jeff Kirsher wrote:
->>> On Tue, 2014-12-30 at 21:00 +0200, Vladislav Zolotarov wrote:
->>>> On Dec 30, 2014 8:52 PM, "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
->>>> wrote:
->>>>> On Tue, 2014-12-30 at 20:50 +0200, Vladislav Zolotarov wrote:
->>>>>> On Dec 30, 2014 8:16 PM, "Jeff Kirsher"
->>>> <jeffrey.t.kirsher@intel.com>
->>>>>> wrote:
->>>>>>> On Tue, Dec 30, 2014 at 8:30 AM, Vlad Zolotarov
->>>>>>> <vladz@cloudius-systems.com> wrote:
->>>>>>>> Add the ethtool ops to VF driver to allow querying the RSS
->>>>>> indirection table
->>>>>>>> and RSS Random Key.
->>>>>>>>
->>>>>>>>    - PF driver: Add new VF-PF channel commands.
->>>>>>>>    - VF driver: Utilize these new commands and add the
->>>> corresponding
->>>>>>>>                 ethtool callbacks.
->>>>>>>>
->>>>>>>> Vlad Zolotarov (5):
->>>>>>>>     ixgbe: Add a RETA query command to VF-PF channel API
->>>>>>>>     ixgbevf: Add a RETA query code
->>>>>>>>     ixgbe: Add GET_RSS_KEY command to VF-PF channel commands set
->>>>>>>>     ixgbevf: Add RSS Key query code
->>>>>>>>     ixgbevf: Add the appropriate ethtool ops to query RSS
->>>>>> indirection
->>>>>>>>       table and key
->>>>>>>>
->>>>>>>>    drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h      |   8 ++
->>>>>>>>    drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    |  60
->>>>>> +++++++++++
->>>>>>>>    drivers/net/ethernet/intel/ixgbevf/ethtool.c      |  37
->>>> +++++++
->>>>>>>>    drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   4 +-
->>>>>>>>    drivers/net/ethernet/intel/ixgbevf/mbx.h          |   8 ++
->>>>>>>>    drivers/net/ethernet/intel/ixgbevf/vf.c           | 125
->>>>>> ++++++++++++++++++++++
->>>>>>>>    drivers/net/ethernet/intel/ixgbevf/vf.h           |   2 +
->>>>>>>>    7 files changed, 243 insertions(+), 1 deletion(-)
->>>>>>> Remember to CC on patches against drivers in
->>>>>> drivers/net/ethernet/intel/ please.
->>>>>>
->>>>>> To CC who? ;)
->>>>>>
->>>>> Sorry, I fat fingered that response.  Please CC me.
->>>> Sure. NP.
->>>> Since we are talking already, could u comment on the RFC? Does it look
->>>> ok to you?
->>>>
->>>>
->>> I have provided feedback on 3 of the patches, the others look ok to me.
->>> I would like Greg Rose to look over your changes since he did most of
->>> the ixgbevf work, and I want to make sure that he is fine with these
->>> changes.
->> I saw them. Thanks, Jeff. I'll wait for Greg's comments before cooking
->> the final series then.
->>
->> Again, thanks for a rapid response.
->>
-> Go ahead and send out a non-RFC series.  Greg is on vacation till the
-> 5th anyway, so I will pick up your series and have my validation team
-> run it through their tests in the mean time.
+> On 12/30/2014 09:28 PM, Nicholas Mc Guire wrote:
+>
+>>>> wait_for_completion_timeout does not return negative values so the tests
+>>>> for <= 0 are not needed and the case differentiation in the error handling
+>>>> path unnecessary.
+>
+>>>     I decided to verify your statement and I saw that it seems wrong.
+>>> do_wait_for_common() can return -ERESTARTSYS and the return value gets
+>>> returned by its callers unchanged.
+>
+>> the -ERESTARTSYS only can be returned if state matches but
+>> wait_for_completion_timemout passes TASK_UNINTERRUPTIBLE
+>> so signal_pending_state will return 0 and never negativ
+>
+>> my understanding of the callchain is:
+>> wait_for_completion_timemout with TASK_UNINTERRUPTIBLE
+>>    -> wait_for_common(...TASK_UNINTERRUPTIBLE)
+>>      -> __wait_for_common(...TASK_UNINTERRUPTIBLE)
+>>        -> do_wait_for_common(...TASK_UNINTERRUPTIBLE)
+>>          -> signal_pending_state(TASK_UNINTERRUPTIBLE...)
+>
+>> static inline int signal_pending_state(long state, struct task_struct *p)
+>> {
+>>          if (!(state & (TASK_INTERRUPTIBLE | TASK_WAKEKILL)))
+>>                  return 0;
+>
+>    Right. I didn't look into TASK_UNINTERRUPTIBLE thing before sending my mail.
+>
+>> so wait_for_completion_timemout should return 0 or 1 only
+>
+>    0 or the remaining time, to be precise.
+>
 
-Great! It's a real pleasure working with you!
+yup - thanks for the confirmation!
+
+>>>> patch was only compile tested x86_64_defconfig + CONFIG_ATH_CARDS=m
+>>>> CONFIG_ATH10K=m
+>
+>>>> patch is against linux-next 3.19.0-rc1 -next-20141226
+>
+>>>     Rather patches. It would have been better to send one patch instead of
+>>> 4 patches with the same name.
+>
+>> sorry for that - I had split it into separate patches as it was
+>> in different files - giving them the same name of course was a bit
+>> brain-dead.
+>
+>    You should have mentioned the modified files in the subject. But IMHO 
+> it would be better to have just one patch.
+>
+resent as a single patch as v2
+
+thx!
+hofrat
