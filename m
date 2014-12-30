@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/11] Time Counter fixes and improvements
-Date: Tue, 30 Dec 2014 18:32:01 -0500 (EST)
-Message-ID: <20141230.183201.53211717284248412.davem@davemloft.net>
-References: <cover.1418504883.git.richardcochran@gmail.com>
+Subject: Re: [PATCH 15/27] net: sxgbe: Use setup_timer
+Date: Tue, 30 Dec 2014 18:34:55 -0500 (EST)
+Message-ID: <20141230.183455.719651086250317259.davem@davemloft.net>
+References: <1419604558-29743-1-git-send-email-Julia.Lawall@lip6.fr>
+	<1419604558-29743-16-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	amirv@mellanox.com, ariel.elior@qlogic.com,
-	carolyn.wyborny@intel.com, Frank.Li@freescale.com,
-	jeffrey.t.kirsher@intel.com, john.stultz@linaro.org,
-	matthew.vick@intel.com, mlichvar@redhat.com, mugunthanvnm@ti.com,
-	ogerlitz@mellanox.com, tglx@linutronix.de, thomas.lendacky@amd.com
-To: richardcochran@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bh74.an@samsung.com, kernel-janitors@vger.kernel.org,
+	ks.giri@samsung.com, vipul.pandya@samsung.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Julia.Lawall@lip6.fr
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1418504883.git.richardcochran@gmail.com>
+In-Reply-To: <1419604558-29743-16-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Richard Cochran <richardcochran@gmail.com>
-Date: Sun, 21 Dec 2014 19:46:55 +0100
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Fri, 26 Dec 2014 15:35:46 +0100
 
-> Several PTP Hardware Clock (PHC) drivers implement the clock in
-> software using the timecounter/cyclecounter code. This series adds on=
-e
-> simple improvement and one more subtle fix to the shared timecounter
-> facility. Credit for this series goes to Janusz U=BFycki, who pointed
-> the issues out to me off list.
+> Convert a call to init_timer and accompanying intializations of
+> the timer's data and function fields to a call to setup_timer.
+> 
+> A simplified version of the semantic match that fixes this problem is as
+> follows: (http://coccinelle.lip6.fr/)
+> 
+> // <smpl>
+> @@
+> expression t,f,d;
+> @@
+> 
+> -init_timer(&t);
+> +setup_timer(&t,f,d);
+> -t.function = f;
+> -t.data = d;
+> // </smpl>
+> 
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Series applied, thanks Richard.
+Applied.
