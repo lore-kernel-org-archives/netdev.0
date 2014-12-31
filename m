@@ -1,106 +1,83 @@
-From: Sedat Dilek <sedat.dilek@gmail.com>
-Subject: Re: net.git: Call-trace after "Merge branch 'netlink_multicast'"
-Date: Wed, 31 Dec 2014 14:17:40 +0100
-Message-ID: <CA+icZUWy7oLWCeN1qJUwdxD-ZFQmJ5DSmVHNy4sgqKGDsOvT=w@mail.gmail.com>
-References: <CA+icZUWFq0FT5QQThKeeVw4=-41R7W0Q7zv53ZCY9=B6AJvf7w@mail.gmail.com>
-	<CA+icZUU1-o7m9iYNpHyitpbS8W=+mk-ZbBXiK2Zgow2TDnBo1Q@mail.gmail.com>
-	<CA+icZUUO5fkmdevyhutYU6=2vBACN0Nr3WA+DMssfhy5xfsrbQ@mail.gmail.com>
-	<20141229.163311.498586171360350188.davem@davemloft.net>
-Reply-To: sedat.dilek@gmail.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: tcp: Do not apply TSO segment limit to non-TSO packets
+Date: Thu, 1 Jan 2015 00:39:23 +1100
+Message-ID: <20141231133923.GA30248@gondor.apana.org.au>
+References: <1709726.jUgUSQI9sl@pikkukde.a.i2n>
+ <20141201102522.GA16579@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Johannes Berg <johannes.berg@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wu Fengguang <fengguang.wu@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Thomas Jarosch <thomas.jarosch@intra2net.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:39011 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751454AbaLaNRm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 08:17:42 -0500
-Received: by mail-wi0-f180.google.com with SMTP id n3so25506278wiv.13
-        for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 05:17:40 -0800 (PST)
-In-Reply-To: <20141229.163311.498586171360350188.davem@davemloft.net>
+Received: from helcar.apana.org.au ([209.40.204.226]:46991 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751073AbaLaNjc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 08:39:32 -0500
+Content-Disposition: inline
+In-Reply-To: <20141201102522.GA16579@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 29, 2014 at 10:33 PM, David Miller <davem@davemloft.net> wrote:
-> From: Sedat Dilek <sedat.dilek@gmail.com>
-> Date: Sun, 28 Dec 2014 10:34:51 +0100
->
->> On Sun, Dec 28, 2014 at 8:54 AM, Sedat Dilek <sedat.dilek@gmail.com> wrote:
->>> Just a small thing, if you look at this...
->>>
->>> With gcc-4.9.2 I see this warning in my logs...
->>>
->>> net/netlink/genetlink.c: In function 'genl_bind':
->>> net/netlink/genetlink.c:1018:2: warning: 'err' may be used
->>> uninitialized in this function [-Wmaybe-uninitialized]
->>>
->>
->> Attached patch fixes the issue for me.
->
-> Ok since the user can request arbitrary multicast groups, we cannot
-> warn in this situation.
->
-> And since initializing 'err' to zero makes the whole 'found'
-> variable completely unnecessary, we can delete that too.
->
-> This is the final patch I am applying, thanks for all of your
-> help.
->
-> ====================
-> [PATCH] genetlink: A genl_bind() to an out-of-range multicast group should not WARN().
->
-> Users can request to bind to arbitrary multicast groups, so warning
-> when the requested group number is out of range is not appropriate.
->
-> And with the warning removed, and the 'err' variable properly given
-> an initial value, we can remove 'found' altogether.
->
-> Reported-by: Sedat Dilek <sedat.dilek@gmail.com>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+On Mon, Dec 01, 2014 at 06:25:22PM +0800, Herbert Xu wrote:
+> Thomas Jarosch <thomas.jarosch@intra2net.com> wrote:
+> > 
+> > When I revert it, even kernel v3.18-rc6 starts working.
+> > But I doubt this is the root problem, may be just hiding another issue.
+> 
+> Can you do a tcpdump with this patch reverted? I would like to
+> see the size of the packets that are sent out vs. the ICMP message
+> that came back.
 
-Thanks Dave for pushing this!
+Thanks for providing the data.  Here is a patch that should fix
+the problem.
 
-Guten Rutsch (Happy new year),
-- Sedat -
+-- >8 --
+Thomas Jarosch reported IPsec TCP stalls when a PMTU event occurs.
 
-> ---
->  net/netlink/genetlink.c | 7 +------
->  1 file changed, 1 insertion(+), 6 deletions(-)
->
-> diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-> index 91566ed..2e11061 100644
-> --- a/net/netlink/genetlink.c
-> +++ b/net/netlink/genetlink.c
-> @@ -985,8 +985,7 @@ static struct genl_multicast_group genl_ctrl_groups[] = {
->
->  static int genl_bind(struct net *net, int group)
->  {
-> -       int i, err;
-> -       bool found = false;
-> +       int i, err = 0;
->
->         down_read(&cb_lock);
->         for (i = 0; i < GENL_FAM_TAB_SIZE; i++) {
-> @@ -1003,16 +1002,12 @@ static int genl_bind(struct net *net, int group)
->                                         err = f->mcast_bind(net, fam_grp);
->                                 else
->                                         err = 0;
-> -                               found = true;
->                                 break;
->                         }
->                 }
->         }
->         up_read(&cb_lock);
->
-> -       if (WARN_ON(!found))
-> -               err = 0;
-> -
->         return err;
->  }
->
-> --
-> 1.7.11.7
->
+In fact the problem was completely unrelated to IPsec.  The bug is
+also reproducible if you just disable TSO/GSO.
+
+The problem is that when the MSS goes down, existing queued packet
+on the TX queue that have not been transmitted yet all look like
+TSO packets and get treated as such.
+
+This then triggers a bug where tcp_mss_split_point tells us to
+generate a zero-sized packet on the TX queue.  Once that happens
+we're screwed because the zero-sized packet can never be removed
+by ACKs.
+
+Fixes: 1485348d242 ("tcp: Apply device TSO segment limit earlier")
+Reported-by: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 7f18262..65caf8b 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2019,7 +2019,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 		if (unlikely(!tcp_snd_wnd_test(tp, skb, mss_now)))
+ 			break;
+ 
+-		if (tso_segs == 1) {
++		if (tso_segs == 1 || !max_segs) {
+ 			if (unlikely(!tcp_nagle_test(tp, skb, mss_now,
+ 						     (tcp_skb_is_last(sk, skb) ?
+ 						      nonagle : TCP_NAGLE_PUSH))))
+@@ -2032,7 +2032,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 		}
+ 
+ 		limit = mss_now;
+-		if (tso_segs > 1 && !tcp_urg_mode(tp))
++		if (tso_segs > 1 && max_segs && !tcp_urg_mode(tp))
+ 			limit = tcp_mss_split_point(sk, skb, mss_now,
+ 						    min_t(unsigned int,
+ 							  cwnd_quota,
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
