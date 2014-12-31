@@ -1,39 +1,38 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH V3 for 3.19]  rtlwifi: Fix error when accessing unmapped
- memory in skb
-Date: Wed, 31 Dec 2014 15:10:50 -0600
-Message-ID: <54A4665A.8090906@lwfinger.net>
-References: <1419996787-17395-1-git-send-email-Larry.Finger@lwfinger.net> <20141231050735.GA20639@zzz>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net] openvswitch: Consistently include VLAN header in flow
+ and port stats.
+Date: Wed, 31 Dec 2014 13:12:28 -0800
+Message-ID: <CALnjE+rT84cERDkJK_A3yF5fvmd=NxwR02BfGyYVxyvbMu67yA@mail.gmail.com>
+References: <1420044346-27957-1-git-send-email-blp@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kvalo@codeaurora.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
-To: Eric Biggers <ebiggers3@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20141231050735.GA20639@zzz>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Motonori Shindo <mshindo@vmware.com>
+To: Ben Pfaff <blp@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog102.obsmtp.com ([74.125.149.69]:55444 "HELO
+	na3sys009aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751790AbaLaVM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 16:12:29 -0500
+Received: by mail-ie0-f181.google.com with SMTP id rl12so13526751iec.40
+        for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 13:12:28 -0800 (PST)
+In-Reply-To: <1420044346-27957-1-git-send-email-blp@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/30/2014 11:07 PM, Eric Biggers wrote:
-> On Tue, Dec 30, 2014 at 09:33:07PM -0600, Larry Finger wrote:
->> v3 - Unmap skb before trying to allocate a new one so as to not leak mapping.
+On Wed, Dec 31, 2014 at 8:45 AM, Ben Pfaff <blp@nicira.com> wrote:
+> Until now, when VLAN acceleration was in use, the bytes of the VLAN header
+> were not included in port or flow byte counters.  They were however
+> included when VLAN acceleration was not used.  This commit corrects the
+> inconsistency, by always including the VLAN header in byte counters.
 >
-> Looks good to me, although I'm not sure about the handling of DMA mapping errors
-> (perhaps that's something that drivers typically don't even try to handle?).
-> Anyway, the skb allocation issue appears to be resolved now.  I am running your
-> patch with an extra hack to inject some occasional skb allocation failures, and
-> I haven't noticed any problems except dropped packets.
+> Previous discussion at
+> http://openvswitch.org/pipermail/dev/2014-December/049521.html
+>
+> Reported-by: Motonori Shindo <mshindo@vmware.com>
+> Signed-off-by: Ben Pfaff <blp@nicira.com>
 
-The last time I saw any DMA mapping errors were for some early BCM43xx cards 
-that only had 20 bits of DMA addressing space. These Realtek devices have a full 
-32 bits of addressing, thus any physical address in the first 4GB of RAM will be 
-OK. I suppose that it might be possible to get a physical address outside this 
-range for machines with a lot of RAM, but they are unlikely to have wifi interfaces.
+Looks good.
 
-Thanks for the testing. The Realtek engineer told me that they are looking at 
-this section, and may do a rewrite. I'm waiting to see what happens there before 
-considering alternatives. If the number of packets dropped due to skb allocation 
-failures is small, then the current code is likely OK.
-
-Larry
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
