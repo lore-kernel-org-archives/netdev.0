@@ -1,109 +1,103 @@
-From: Jeremiah Mahler <jmmahler@gmail.com>
-Subject: Re: [PATCH net-next v2 1/2] bridge: new attribute and flags to
- represent vlan info lists and ranges
-Date: Wed, 31 Dec 2014 10:48:55 -0800
-Message-ID: <20141231184855.GB2658@hudson.localdomain>
-References: <1420044533-16963-2-git-send-email-roopa@cumulusnetworks.com>
- <20141231174542.GA1922@hudson.localdomain>
- <54A43D59.1080304@cumulusnetworks.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [net-next PATCH 00/17] fib_trie: Reduce time spent in
+ fib_table_lookup by 35 to 75%
+Date: Wed, 31 Dec 2014 10:55:23 -0800
+Message-ID: <20141231184649.3006.29958.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com, vyasevic@redhat.com,
-	sfeldma@gmail.com, wkok@cumulusnetworks.com
-To: roopa <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:56357 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750956AbaLaSs6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 13:48:58 -0500
-Received: by mail-pd0-f169.google.com with SMTP id z10so21421782pdj.0
-        for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 10:48:58 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <54A43D59.1080304@cumulusnetworks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:40557 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751726AbaLaSzY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Dec 2014 13:55:24 -0500
+Received: from int-mx14.intmail.prod.int.phx2.redhat.com (int-mx14.intmail.prod.int.phx2.redhat.com [10.5.11.27])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id sBVItOpv006513
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 13:55:24 -0500
+Received: from [192.168.122.173] (ovpn-112-50.phx2.redhat.com [10.3.112.50])
+	by int-mx14.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id sBVItN88000665
+	for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 13:55:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roopa,
+These patches are meant to address several performance issues I have seen 
+in the fib_trie implementation, and fib_table_lookup specifically.  With 
+these changes in place I have seen a reduction of up to 35 to 75% for the 
+total time spent in fib_table_lookup depending on the type of search being 
+performed.
 
-On Wed, Dec 31, 2014 at 10:15:53AM -0800, roopa wrote:
-> On 12/31/14, 9:45 AM, Jeremiah Mahler wrote:
-> >Roopa,
-> >
-> >On Wed, Dec 31, 2014 at 08:48:52AM -0800, roopa@cumulusnetworks.com wrote:
-> >>From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> >>
-> >>This patch adds (as suggested by scott feldman),
-> >>         - new netlink attribute IFLA_BRIDGE_VLAN_INFO_LIST to represent
-> >>           vlan list
-> >>         - And bridge_vlan_info flags BRIDGE_VLAN_INFO_RANGE_START and
-> >>           BRIDGE_VLAN_INFO_RANGE_END to indicate start and end of vlan range
-> >>
-> >>Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> >>---
-> >>  include/uapi/linux/if_bridge.h |    4 ++++
-> >>  net/bridge/br_netlink.c        |    1 +
-> >>  2 files changed, 5 insertions(+)
-> >>
-> >>diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
-> >>index b03ee8f..fa468aa 100644
-> >>--- a/include/uapi/linux/if_bridge.h
-> >>+++ b/include/uapi/linux/if_bridge.h
-> >>@@ -112,12 +112,14 @@ struct __fdb_entry {
-> >>   *     [IFLA_BRIDGE_FLAGS]
-> >>   *     [IFLA_BRIDGE_MODE]
-> >>   *     [IFLA_BRIDGE_VLAN_INFO]
-> >>+ *     [IFLA_BRIDGE_VLAN_INFO_LIST]
-> >>   * }
-> >>   */
-> >>  enum {
-> >>  	IFLA_BRIDGE_FLAGS,
-> >>  	IFLA_BRIDGE_MODE,
-> >>  	IFLA_BRIDGE_VLAN_INFO,
-> >>+	IFLA_BRIDGE_VLAN_INFO_LIST,
-> >>  	__IFLA_BRIDGE_MAX,
-> >>  };
-> >>  #define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
-> >>@@ -125,6 +127,8 @@ enum {
-> >>  #define BRIDGE_VLAN_INFO_MASTER	(1<<0)	/* Operate on Bridge device as well */
-> >>  #define BRIDGE_VLAN_INFO_PVID	(1<<1)	/* VLAN is PVID, ingress untagged */
-> >>  #define BRIDGE_VLAN_INFO_UNTAGGED	(1<<2)	/* VLAN egresses untagged */
-> >>+#define BRIDGE_VLAN_INFO_RANGE_START	(1<<3) /* VLAN is start of vlan range */
-> >>+#define BRIDGE_VLAN_INFO_RANGE_END	(1<<4) /* VLAN is end of vlan range */
-> >You add these here but you don't use them until the next patch.
-> >If they were wrong a bisect would point to the next patch.
-> >
-> >I would add them in the next patch where you start to use them.
-> I thought it was ok to declare it first and use them in the next patch. Only
-> the other way around would be bad.
->  I have submitted in a similar way before. If needed i will resubmit.
-> 
-> 
-Hmm.  I cannot see how the other way would be bad but maybe I am missing
-something.  Hopefully someone else has some insight.
+On a VM running in my Corei7-4930K system with a trie of maximum depth of 7 
+this resulted in a reduction of over 370ns per packet in the total time to 
+process packets received from an ixgbe interface and route them to a dummy 
+interface.  This represents a failed lookup in the local trie followed by 
+a successful search in the main trie.
 
-> 
-> 
-> >>  struct bridge_vlan_info {
-> >>  	__u16 flags;
-> >>diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-> >>index 9f5eb55..492ef6a 100644
-> >>--- a/net/bridge/br_netlink.c
-> >>+++ b/net/bridge/br_netlink.c
-> >>@@ -223,6 +223,7 @@ static const struct nla_policy ifla_br_policy[IFLA_MAX+1] = {
-> >>  	[IFLA_BRIDGE_MODE]	= { .type = NLA_U16 },
-> >>  	[IFLA_BRIDGE_VLAN_INFO]	= { .type = NLA_BINARY,
-> >>  				    .len = sizeof(struct bridge_vlan_info), },
-> >>+	[IFLA_BRIDGE_VLAN_INFO_LIST] = { .type = NLA_NESTED, },
-> >>  };
-> >>  static int br_afspec(struct net_bridge *br,
-> >>-- 
-> >>1.7.10.4
-> >>
-> >>--
-> >>To unsubscribe from this list: send the line "unsubscribe netdev" in
-> >>the body of a message to majordomo@vger.kernel.org
-> >>More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+				Baseline	Refactor
+  ixgbe->dummy routing		1.20Mpps	2.21Mpps
+  ------------------------------------------------------------
+  processing time per packet		835ns		453ns
+  fib_table_lookup		50.1%	418ns	25.0%	113ns
+  check_leaf.isra.9		 7.9%	 66ns	   --	 --
+  ixgbe_clean_rx_irq		 5.3%	 44ns	 9.8%	 44ns
+  ip_route_input_noref		 2.9%	 25ns	 4.6%	 21ns
+  pvclock_clocksource_read	 2.6%	 21ns	 4.6%	 21ns
+  ip_rcv			 2.6%	 22ns	 4.0%	 18ns
 
--- 
-- Jeremiah Mahler
+In the simple case of receiving a frame and dropping it before it can reach 
+the socket layer I saw a reduction of 40ns per packet.  This represents a 
+trip through the local trie with the correct leaf found with no need for 
+any backtracing.
+
+				Baseline	Refactor
+  ixgbe->local receive		2.65Mpps	2.96Mpps
+  ------------------------------------------------------------
+  processing time per packet		377ns		337ns
+  fib_table_lookup		25.1%	 95ns	25.8%	 87ns
+  ixgbe_clean_rx_irq		 8.7%	 33ns	 9.0%	 30ns
+  check_leaf.isra.9		 7.2%	 27ns	   --	 --
+  ip_rcv			 5.7%	 21ns	 6.5%	 22ns
+
+These changes have resulted in several functions being inlined such as 
+check_leaf and fib_find_node, but due to the code simplification the 
+overall size of the code has been reduced.
+
+   text	   data	    bss	    dec	    hex	filename
+  16932	    376	     16	  17324	   43ac	net/ipv4/fib_trie.o - before
+  15259	    376	      8	  15643	   3d1b	net/ipv4/fib_trie.o - after
+
+Changes since RFC:
+  Replaced this_cpu_ptr with correct call to this_cpu_inc in patch 1
+  Changed test for leaf_info mismatch to (key ^ n->key) & li->mask_plen in patch 10
+  
+---
+
+Alexander Duyck (17):
+      fib_trie: Update usage stats to be percpu instead of global variables
+      fib_trie: Make leaf and tnode more uniform
+      fib_trie: Merge tnode_free and leaf_free into node_free
+      fib_trie: Merge leaf into tnode
+      fib_trie: Optimize fib_table_lookup to avoid wasting time on loops/variables
+      fib_trie: Optimize fib_find_node
+      fib_trie: Optimize fib_table_insert
+      fib_trie: Update meaning of pos to represent unchecked bits
+      fib_trie: Use unsigned long for anything dealing with a shift by bits
+      fib_trie: Push rcu_read_lock/unlock to callers
+      fib_trie: Move resize to after inflate/halve
+      fib_trie: Add functions should_inflate and should_halve
+      fib_trie: Push assignment of child to parent down into inflate/halve
+      fib_trie: Push tnode flushing down to inflate/halve
+      fib_trie: inflate/halve nodes in a more RCU friendly way
+      fib_trie: Remove checks for index >= tnode_child_length from tnode_get_child
+      fib_trie: Add tracking value for suffix length
+
+
+ include/net/ip_fib.h    |   50 +
+ net/ipv4/fib_frontend.c |   29 -
+ net/ipv4/fib_rules.c    |   22 -
+ net/ipv4/fib_trie.c     | 1916 ++++++++++++++++++++++-------------------------
+ 4 files changed, 946 insertions(+), 1071 deletions(-)
+
+--
+Signature
