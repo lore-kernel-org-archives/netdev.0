@@ -1,158 +1,145 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH 05/17] fib_trie: Optimize fib_table_lookup to avoid
- wasting time on loops/variables
-Date: Wed, 31 Dec 2014 10:55:54 -0800
-Message-ID: <20141231185554.3006.73266.stgit@ahduyck-vm-fedora20>
+Subject: [net-next PATCH 07/17] fib_trie: Optimize fib_table_insert
+Date: Wed, 31 Dec 2014 10:56:06 -0800
+Message-ID: <20141231185606.3006.16421.stgit@ahduyck-vm-fedora20>
 References: <20141231184649.3006.29958.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43922 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37633 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751576AbaLaSz4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Dec 2014 13:55:56 -0500
-Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id sBVIttPW029190
+	id S1751576AbaLaS4H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Dec 2014 13:56:07 -0500
+Received: from int-mx13.intmail.prod.int.phx2.redhat.com (int-mx13.intmail.prod.int.phx2.redhat.com [10.5.11.26])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id sBVIu7Sb022994
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 13:55:55 -0500
+	for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 13:56:07 -0500
 Received: from [192.168.122.173] (ovpn-112-50.phx2.redhat.com [10.3.112.50])
-	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id sBVItsnw011381
-	for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 13:55:54 -0500
+	by int-mx13.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id sBVIu6hp001367
+	for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 13:56:06 -0500
 In-Reply-To: <20141231184649.3006.29958.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is meant to reduce the complexity of fib_table_lookup by reducing
-the number of variables to the bare minimum while still keeping the same if
-not improved functionality versus the original.
-
-Most of this change was started off by the desire to rid the function of
-chopped_off and current_prefix_length as they actually added very little to
-the function since they only applied when computing the cindex.  I was able
-to replace them mostly with just a check for the prefix match.  As long as
-the prefix between the key and the node being tested was the same we know
-we can search the tnode fully versus just testing cindex 0.
-
-The second portion of the change ended up being a massive reordering.
-Originally the calls to check_leaf were up near the start of the loop, and
-the backtracing and descending into lower levels of tnodes was later.  This
-didn't make much sense as the structure of the tree means the leaves are
-always the last thing to be tested.  As such I reordered things so that we
-instead have a loop that will delve into the tree and only exit when we
-have either found a leaf or we have exhausted the tree.  The advantage of
-rearranging things like this is that we can fully inline check_leaf since
-there is now only one reference to it in the function.
+This patch updates the fib_table_insert function to take advantage of the
+changes made to improve the performance of fib_table_lookup.  As a result
+the code should be smaller and run faster then the original.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/ipv4/fib_trie.c |  250 +++++++++++++++++++--------------------------------
- 1 file changed, 93 insertions(+), 157 deletions(-)
+ net/ipv4/fib_trie.c |  196 ++++++++++++++++++---------------------------------
+ 1 file changed, 71 insertions(+), 125 deletions(-)
 
 diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 94c929f..3fe4dd9 100644
+index ac04f31..8a147c3 100644
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
-@@ -90,6 +90,9 @@ typedef unsigned int t_key;
- #define IS_TNODE(n) ((n)->bits)
- #define IS_LEAF(n) (!(n)->bits)
- 
-+#define get_shift(_kv) (KEYLENGTH - (_kv)->pos - (_kv)->bits)
-+#define get_index(_key, _kv) (((_key) ^ (_kv)->key) >> get_shift(_kv))
-+
- struct tnode {
- 	t_key key;
- 	unsigned char bits;		/* 2log(KEYLENGTH) bits needed */
-@@ -1281,7 +1284,7 @@ static int check_leaf(struct fib_table *tb, struct trie *t, struct tnode *l,
- 				continue;
- 			fib_alias_accessed(fa);
- 			err = fib_props[fa->fa_type].error;
--			if (err) {
-+			if (unlikely(err < 0)) {
- #ifdef CONFIG_IP_FIB_TRIE_STATS
- 				this_cpu_inc(t->stats->semantic_match_passed);
- #endif
-@@ -1303,7 +1306,7 @@ static int check_leaf(struct fib_table *tb, struct trie *t, struct tnode *l,
- 				res->prefixlen = li->plen;
- 				res->nh_sel = nhsel;
- 				res->type = fa->fa_type;
--				res->scope = fa->fa_info->fib_scope;
-+				res->scope = fi->fib_scope;
- 				res->fi = fi;
- 				res->table = tb;
- 				res->fa_head = &li->falh;
-@@ -1321,23 +1324,24 @@ static int check_leaf(struct fib_table *tb, struct trie *t, struct tnode *l,
- 	return 1;
+@@ -222,31 +222,6 @@ static inline t_key tkey_extract_bits(t_key a, unsigned int offset, unsigned int
+ 		return 0;
  }
  
-+static inline t_key prefix_mismatch(t_key key, struct tnode *n)
+-static inline int tkey_equals(t_key a, t_key b)
+-{
+-	return a == b;
+-}
+-
+-static inline int tkey_sub_equals(t_key a, int offset, int bits, t_key b)
+-{
+-	if (bits == 0 || offset >= KEYLENGTH)
+-		return 1;
+-	bits = bits > KEYLENGTH ? KEYLENGTH : bits;
+-	return ((a ^ b) << offset) >> (KEYLENGTH - bits) == 0;
+-}
+-
+-static inline int tkey_mismatch(t_key a, int offset, t_key b)
+-{
+-	t_key diff = a ^ b;
+-	int i = offset;
+-
+-	if (!diff)
+-		return 0;
+-	while ((diff << i) >> (KEYLENGTH-1) == 0)
+-		i++;
+-	return i;
+-}
+-
+ /*
+   To understand this stuff, an understanding of keys and all their bits is
+   necessary. Every node in the trie has a key associated with it, but not
+@@ -485,6 +460,15 @@ static void tnode_put_child_reorg(struct tnode *tn, int i, struct tnode *n,
+ 	rcu_assign_pointer(tn->child[i], n);
+ }
+ 
++static void put_child_root(struct tnode *tp, struct trie *t,
++			   t_key key, struct tnode *n)
 +{
-+	t_key prefix = n->key;
-+
-+	return (key ^ prefix) & (prefix | -prefix);
++	if (tp)
++		put_child(tp, get_index(key, tp), n);
++	else
++		rcu_assign_pointer(t->trie, n);
 +}
 +
- int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
- 		     struct fib_result *res, int fib_flags)
+ #define MAX_WORK 10
+ static struct tnode *resize(struct trie *t, struct tnode *tn)
  {
--	struct trie *t = (struct trie *) tb->tb_data;
-+	struct trie *t = (struct trie *)tb->tb_data;
- #ifdef CONFIG_IP_FIB_TRIE_STATS
- 	struct trie_use_stats __percpu *stats = t->stats;
- #endif
--	int ret;
+@@ -959,138 +943,100 @@ static void trie_rebalance(struct trie *t, struct tnode *tn)
+ 
+ static struct list_head *fib_insert_node(struct trie *t, u32 key, int plen)
+ {
+-	int pos, newpos;
+-	struct tnode *tp = NULL, *tn = NULL;
 -	struct tnode *n;
--	struct tnode *pn;
--	unsigned int pos, bits;
--	t_key key = ntohl(flp->daddr);
--	unsigned int chopped_off;
--	t_key cindex = 0;
--	unsigned int current_prefix_length = KEYLENGTH;
--	struct tnode *cn;
--	t_key pref_mismatch;
-+	const t_key key = ntohl(flp->daddr);
-+	struct tnode *n, *pn;
-+	t_key cindex;
-+	int ret = 1;
+-	struct tnode *l;
+-	int missbit;
+ 	struct list_head *fa_head = NULL;
++	struct tnode *l, *n, *tp = NULL;
+ 	struct leaf_info *li;
+-	t_key cindex;
  
- 	rcu_read_lock();
- 
-@@ -1349,170 +1353,102 @@ int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
- 	this_cpu_inc(stats->gets);
- #endif
- 
--	/* Just a leaf? */
--	if (IS_LEAF(n)) {
--		ret = check_leaf(tb, t, n, key, flp, res, fib_flags);
--		goto found;
--	}
--
- 	pn = n;
--	chopped_off = 0;
--
--	while (pn) {
--		pos = pn->pos;
--		bits = pn->bits;
--
--		if (!chopped_off)
--			cindex = tkey_extract_bits(mask_pfx(key, current_prefix_length),
--						   pos, bits);
--
--		n = tnode_get_child_rcu(pn, cindex);
--
--		if (n == NULL) {
--#ifdef CONFIG_IP_FIB_TRIE_STATS
--			this_cpu_inc(stats->null_node_hit);
--#endif
--			goto backtrace;
--		}
-+	cindex = 0;
+-	pos = 0;
++	li = leaf_info_new(plen);
++	if (!li)
++		return NULL;
++	fa_head = &li->falh;
 +
-+	/* Step 1: Travel to the longest prefix match in the trie */
-+	for (;;) {
+ 	n = rtnl_dereference(t->trie);
+ 
+ 	/* If we point to NULL, stop. Either the tree is empty and we should
+ 	 * just put a new leaf in if, or we have reached an empty child slot,
+ 	 * and we should just put our new leaf in that.
+-	 * If we point to a T_TNODE, check if it matches our key. Note that
+-	 * a T_TNODE might be skipping any number of bits - its 'pos' need
+-	 * not be the parent's 'pos'+'bits'!
+-	 *
+-	 * If it does match the current key, get pos/bits from it, extract
+-	 * the index from our key, push the T_TNODE and walk the tree.
+-	 *
+-	 * If it doesn't, we have to replace it with a new T_TNODE.
+ 	 *
+-	 * If we point to a T_LEAF, it might or might not have the same key
+-	 * as we do. If it does, just change the value, update the T_LEAF's
+-	 * value, and return it.
+-	 * If it doesn't, we need to replace it with a T_TNODE.
++	 * If we hit a node with a key that does't match then we should stop
++	 * and create a new tnode to replace that node and insert ourselves
++	 * and the other node into the new tnode.
+ 	 */
++	while (n) {
 +		unsigned long index = get_index(key, n);
-+
+ 
+-	while (n && IS_TNODE(n)) {
+-		if (tkey_sub_equals(n->key, pos, n->pos-pos, key)) {
+-			tp = n;
+-			pos = n->pos + n->bits;
+-			n = tnode_get_child(n,
+-					    tkey_extract_bits(key,
+-							      n->pos,
+-							      n->bits));
+-
+-			BUG_ON(n && node_parent(n) != tp);
+-		} else
 +		/* This bit of code is a bit tricky but it combines multiple
 +		 * checks into a single check.  The prefix consists of the
 +		 * prefix plus zeros for the "bits" in the prefix. The index
@@ -164,204 +151,149 @@ index 94c929f..3fe4dd9 100644
 +		 *     we have a mismatch in skip bits and failed
 +		 */
 +		if (index >> n->bits)
-+			break;
+ 			break;
+-	}
+-
+-	/*
+-	 * n  ----> NULL, LEAF or TNODE
+-	 *
+-	 * tp is n's (parent) ----> NULL or TNODE
+-	 */
+-
+-	BUG_ON(tp && IS_LEAF(tp));
+-
+-	/* Case 1: n is a leaf. Compare prefixes */
+-
+-	if (n != NULL && IS_LEAF(n) && tkey_equals(key, n->key)) {
+-		li = leaf_info_new(plen);
  
--		if (IS_LEAF(n)) {
--			ret = check_leaf(tb, t, n, key, flp, res, fib_flags);
--			if (ret > 0)
--				goto backtrace;
+-		if (!li)
+-			return NULL;
 +		/* we have found a leaf. Prefixes have already been compared */
-+		if (IS_LEAF(n))
- 			goto found;
--		}
++		if (IS_LEAF(n)) {
++			/* Case 1: n is a leaf, and prefixes match*/
++			insert_leaf_info(&n->list, li);
++			return fa_head;
++		}
  
--		cn = n;
+-		fa_head = &li->falh;
+-		insert_leaf_info(&n->list, li);
+-		goto done;
++		tp = n;
++		n = rcu_dereference_rtnl(n->child[index]);
+ 	}
+-	l = leaf_new(key);
 -
+-	if (!l)
+-		return NULL;
+-
+-	li = leaf_info_new(plen);
+ 
+-	if (!li) {
+-		node_free(l);
++	l = leaf_new(key);
++	if (!l) {
++		free_leaf_info(li);
+ 		return NULL;
+ 	}
+ 
+-	fa_head = &li->falh;
+ 	insert_leaf_info(&l->list, li);
+ 
+-	if (t->trie && n == NULL) {
+-		/* Case 2: n is NULL, and will just insert a new leaf */
+-
+-		node_set_parent(l, tp);
+-
+-		cindex = tkey_extract_bits(key, tp->pos, tp->bits);
+-		put_child(tp, cindex, l);
+-	} else {
+-		/* Case 3: n is a LEAF or a TNODE and the key doesn't match. */
 -		/*
--		 * It's a tnode, and we can do some extra checks here if we
--		 * like, to avoid descending into a dead-end branch.
--		 * This tnode is in the parent's child array at index
--		 * key[p_pos..p_pos+p_bits] but potentially with some bits
--		 * chopped off, so in reality the index may be just a
--		 * subprefix, padded with zero at the end.
--		 * We can also take a look at any skipped bits in this
--		 * tnode - everything up to p_pos is supposed to be ok,
--		 * and the non-chopped bits of the index (se previous
--		 * paragraph) are also guaranteed ok, but the rest is
--		 * considered unknown.
--		 *
--		 * The skipped bits are key[pos+bits..cn->pos].
+-		 *  Add a new tnode here
+-		 *  first tnode need some special handling
 -		 */
--
--		/* If current_prefix_length < pos+bits, we are already doing
--		 * actual prefix  matching, which means everything from
--		 * pos+(bits-chopped_off) onward must be zero along some
--		 * branch of this subtree - otherwise there is *no* valid
--		 * prefix present. Here we can only check the skipped
--		 * bits. Remember, since we have already indexed into the
--		 * parent's child array, we know that the bits we chopped of
--		 * *are* zero.
-+		/* only record pn and cindex if we are going to be chopping
-+		 * bits later.  Otherwise we are just wasting cycles.
- 		 */
--
--		/* NOTA BENE: Checking only skipped bits
--		   for the new node here */
--
--		if (current_prefix_length < pos+bits) {
--			if (tkey_extract_bits(cn->key, current_prefix_length,
--						cn->pos - current_prefix_length)
--			    || !(cn->child[0]))
--				goto backtrace;
-+		if (index) {
-+			pn = n;
-+			cindex = index;
++	/* Case 2: n is a LEAF or a TNODE and the key doesn't match.
++	 *
++	 *  Add a new tnode here
++	 *  first tnode need some special handling
++	 *  leaves us in position for handling as case 3
++	 */
++	if (n) {
++		struct tnode *tn;
++		int newpos;
+ 
+-		if (n) {
+-			pos = tp ? tp->pos+tp->bits : 0;
+-			newpos = tkey_mismatch(key, pos, n->key);
+-			tn = tnode_new(n->key, newpos, 1);
+-		} else {
+-			newpos = 0;
+-			tn = tnode_new(key, newpos, 1); /* First tnode */
+-		}
++		newpos = KEYLENGTH - __fls(n->key ^ key) - 1;
+ 
++		tn = tnode_new(key, newpos, 1);
+ 		if (!tn) {
+ 			free_leaf_info(li);
+ 			node_free(l);
+ 			return NULL;
  		}
  
--		/*
--		 * If chopped_off=0, the index is fully validated and we
--		 * only need to look at the skipped bits for this, the new,
--		 * tnode. What we actually want to do is to find out if
--		 * these skipped bits match our key perfectly, or if we will
--		 * have to count on finding a matching prefix further down,
--		 * because if we do, we would like to have some way of
--		 * verifying the existence of such a prefix at this point.
--		 */
-+		n = rcu_dereference(n->child[index]);
-+		if (unlikely(!n))
-+			goto backtrace;
+-		node_set_parent(tn, tp);
+-
+-		missbit = tkey_extract_bits(key, newpos, 1);
+-		put_child(tn, missbit, l);
+-		put_child(tn, 1-missbit, n);
++		/* initialize routes out of node */
++		NODE_INIT_PARENT(tn, tp);
++		put_child(tn, get_index(key, tn) ^ 1, n);
+ 
+-		if (tp) {
+-			cindex = tkey_extract_bits(key, tp->pos, tp->bits);
+-			put_child(tp, cindex, tn);
+-		} else {
+-			rcu_assign_pointer(t->trie, tn);
+-		}
++		/* start adding routes into the node */
++		put_child_root(tp, t, key, tn);
++		node_set_parent(n, tn);
+ 
++		/* parent now has a NULL spot where the leaf can go */
+ 		tp = tn;
+ 	}
+ 
+-	if (tp && tp->pos + tp->bits > 32)
+-		pr_warn("fib_trie tp=%p pos=%d, bits=%d, key=%0x plen=%d\n",
+-			tp, tp->pos, tp->bits, key, plen);
+-
+-	/* Rebalance the trie */
++	/* Case 3: n is NULL, and will just insert a new leaf */
++	if (tp) {
++		NODE_INIT_PARENT(l, tp);
++		put_child(tp, get_index(key, tp), l);
++		trie_rebalance(t, tp);
++	} else {
++		rcu_assign_pointer(t->trie, l);
 +	}
  
--		/* The only thing we can do at this point is to verify that
--		 * any such matching prefix can indeed be a prefix to our
--		 * key, and if the bits in the node we are inspecting that
--		 * do not match our key are not ZERO, this cannot be true.
--		 * Thus, find out where there is a mismatch (before cn->pos)
--		 * and verify that all the mismatching bits are zero in the
--		 * new tnode's key.
--		 */
-+	/* Step 2: Sort out leaves and begin backtracing for longest prefix */
-+	for (;;) {
-+		/* record the pointer where our next node pointer is stored */
-+		struct tnode __rcu **cptr = n->child;
+-	trie_rebalance(t, tp);
+-done:
+ 	return fa_head;
+ }
  
--		/*
--		 * Note: We aren't very concerned about the piece of
--		 * the key that precede pn->pos+pn->bits, since these
--		 * have already been checked. The bits after cn->pos
--		 * aren't checked since these are by definition
--		 * "unknown" at this point. Thus, what we want to see
--		 * is if we are about to enter the "prefix matching"
--		 * state, and in that case verify that the skipped
--		 * bits that will prevail throughout this subtree are
--		 * zero, as they have to be if we are to find a
--		 * matching prefix.
-+		/* This test verifies that none of the bits that differ
-+		 * between the key and the prefix exist in the region of
-+		 * the lsb and higher in the prefix.
- 		 */
-+		if (unlikely(prefix_mismatch(key, n)))
-+			goto backtrace;
+@@ -1470,11 +1416,11 @@ static void trie_leaf_remove(struct trie *t, struct tnode *l)
+ 	pr_debug("entering trie_leaf_remove(%p)\n", l);
  
--		pref_mismatch = mask_pfx(cn->key ^ key, cn->pos);
-+		/* exit out and process leaf */
-+		if (unlikely(IS_LEAF(n)))
-+			break;
+ 	if (tp) {
+-		t_key cindex = tkey_extract_bits(l->key, tp->pos, tp->bits);
+-		put_child(tp, cindex, NULL);
++		put_child(tp, get_index(l->key, tp), NULL);
+ 		trie_rebalance(t, tp);
+-	} else
++	} else {
+ 		RCU_INIT_POINTER(t->trie, NULL);
++	}
  
--		/*
--		 * In short: If skipped bits in this node do not match
--		 * the search key, enter the "prefix matching"
--		 * state.directly.
-+		/* Don't bother recording parent info.  Since we are in
-+		 * prefix match mode we will have to come back to wherever
-+		 * we started this traversal anyway
- 		 */
--		if (pref_mismatch) {
--			/* fls(x) = __fls(x) + 1 */
--			int mp = KEYLENGTH - __fls(pref_mismatch) - 1;
--
--			if (tkey_extract_bits(cn->key, mp, cn->pos - mp) != 0)
--				goto backtrace;
--
--			if (current_prefix_length >= cn->pos)
--				current_prefix_length = mp;
--		}
--
--		pn = n; /* Descend */
--		chopped_off = 0;
--		continue;
- 
-+		while ((n = rcu_dereference(*cptr)) == NULL) {
- backtrace:
--		chopped_off++;
--
--		/* As zero don't change the child key (cindex) */
--		while ((chopped_off <= pn->bits)
--		       && !(cindex & (1<<(chopped_off-1))))
--			chopped_off++;
--
--		/* Decrease current_... with bits chopped off */
--		if (current_prefix_length > pn->pos + pn->bits - chopped_off)
--			current_prefix_length = pn->pos + pn->bits
--				- chopped_off;
--
--		/*
--		 * Either we do the actual chop off according or if we have
--		 * chopped off all bits in this tnode walk up to our parent.
--		 */
--
--		if (chopped_off <= pn->bits) {
--			cindex &= ~(1 << (chopped_off-1));
--		} else {
--			struct tnode *parent = node_parent_rcu(pn);
--			if (!parent)
--				goto failed;
--
--			/* Get Child's index */
--			cindex = tkey_extract_bits(pn->key, parent->pos, parent->bits);
--			pn = parent;
--			chopped_off = 0;
--
- #ifdef CONFIG_IP_FIB_TRIE_STATS
--			this_cpu_inc(stats->backtrack);
-+			if (!n)
-+				this_cpu_inc(stats->null_node_hit);
- #endif
--			goto backtrace;
-+			/* If we are at cindex 0 there are no more bits for
-+			 * us to strip at this level so we must ascend back
-+			 * up one level to see if there are any more bits to
-+			 * be stripped there.
-+			 */
-+			while (!cindex) {
-+				t_key pkey = pn->key;
-+
-+				pn = node_parent_rcu(pn);
-+				if (unlikely(!pn))
-+					goto failed;
-+#ifdef CONFIG_IP_FIB_TRIE_STATS
-+				this_cpu_inc(stats->backtrack);
-+#endif
-+				/* Get Child's index */
-+				cindex = get_index(pkey, pn);
-+			}
-+
-+			/* strip the least significant bit from the cindex */
-+			cindex &= cindex - 1;
-+
-+			/* grab pointer for next child node */
-+			cptr = &pn->child[cindex];
- 		}
- 	}
--failed:
--	ret = 1;
-+
- found:
-+	/* Step 3: Process the leaf, if that fails fall back to backtracing */
-+	ret = check_leaf(tb, t, n, key, flp, res, fib_flags);
-+	if (unlikely(ret > 0))
-+		goto backtrace;
-+failed:
- 	rcu_read_unlock();
- 	return ret;
+ 	node_free(l);
  }
