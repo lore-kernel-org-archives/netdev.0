@@ -1,52 +1,75 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: Re: [PATCH net-next v1 4/5] ixgbevf: Add RSS Key query code
-Date: Wed, 31 Dec 2014 20:03:19 +0200
-Message-ID: <54A43A67.9020407@cloudius-systems.com>
-References: <1420019519-18139-1-git-send-email-vladz@cloudius-systems.com>	 <1420019519-18139-5-git-send-email-vladz@cloudius-systems.com> <1420043307.31582.53.camel@jtkirshe-mobl>
+From: Bas Peters <baspeters93@gmail.com>
+Subject: Re: [PATCH] Drivers: isdn: gigaset: checkpatch cleanup
+Date: Wed, 31 Dec 2014 19:04:30 +0100
+Message-ID: <CAOgR63d6FNxntkBaSWM6ozibYGzajt07OLiM2XcszJarSaGX6A@mail.gmail.com>
+References: <1420047298-7798-1-git-send-email-baspeters93@gmail.com>
+	<20141231174936.GB1922@hudson.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gleb@cloudius-systems.com,
-	avi@cloudius-systems.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:49115 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750760AbaLaSDW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 13:03:22 -0500
-Received: by mail-wg0-f42.google.com with SMTP id k14so22528175wgh.29
-        for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 10:03:21 -0800 (PST)
-In-Reply-To: <1420043307.31582.53.camel@jtkirshe-mobl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+To: Jeremiah Mahler <jmmahler@gmail.com>,
+	Bas Peters <baspeters93@gmail.com>, hjlipp@web.de,
+	tilman@imap.cc, isdn@linux-pingi.de,
+	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141231174936.GB1922@hudson.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-On 12/31/14 18:28, Jeff Kirsher wrote:
-> On Wed, 2014-12-31 at 11:51 +0200, Vlad Zolotarov wrote:
->> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
->> ---
->> New in v1 (compared to RFC):
->>     - Use "if-else" statement instead of a "switch-case" for a single
->> option case
->>       (in ixgbevf_get_rss_key()).
+2014-12-31 18:49 GMT+01:00 Jeremiah Mahler <jmmahler@gmail.com>:
+> Bas,
+>
+> On Wed, Dec 31, 2014 at 06:34:58PM +0100, Bas Peters wrote:
+>> Fixed many checkpatch.pl complaints, ranging from whitespace issues to
+>> reportedly deprecated function and macro usage.
 >>
->> ---
->>   drivers/net/ethernet/intel/ixgbevf/mbx.h |  2 ++
->>   drivers/net/ethernet/intel/ixgbevf/vf.c  | 44
->> ++++++++++++++++++++++++++++++++
->>   drivers/net/ethernet/intel/ixgbevf/vf.h  |  1 +
->>   3 files changed, 47 insertions(+)
-> Just caught this now, sorry but your patch description is sparse (i.e.
-> non-existent).  I know that the title of the patch pretty much tells
-> what you are doing, but it would be nice to have a bit more detail as to
-> why (like your first patch).
+> One patch should fix one type of problem.  This needs to be broken up
+> in to individual patches.
+>
+>> I have not been able to test the code as I do not have access to the
+>> hardware but since no new features were really added I don't think that
+>> should pose a problem.
+>>
+>> There are still some checkpatch complaints, particularly concerning
+>> potentially unnecessary 'out of memory' messages. I will provide patches
+>> for these complaints when I figure out the reason behind it and what to
+>> do about it.
+>>
+>> NOTE: This is my first patch (ever). I have attempted to follow all
+>> guidelines provided, but I probably will have missed some. If you have
+>> any comments regarding the quality of this patch or suggestions as to
+>> what I could do better in the future, please let me know.
+>>
+> You are ambitious.  I would suggest trying a smaller patch first to
+> make sure you are doing everything right.
 
-I've sent a v2 where I tried to address your last remarks. Pls., note 
-that the whole series "why" motivation is located in the PATCH0 and in 
-the final PATCH5: adding a new ethtool options for 82599 VF devices.
+With 'smaller patch', do you refer to less files at once or a different driver?
+Is it generally preferred to send patches that relate to the same
+issue (changes to a single file,
+grouping of patches to tackle the same issue, such as conversion of a
+specific function) over
+patch(sets) that deal with an entire driver?
 
-thanks,
-vlad
+Thanks for the advice!
 
 >
-> Same goes for patch 5 of the series as well.
+>> Signed-off-by: Bas Peters <baspeters93@gmail.com>
+>> ---
+>>  drivers/isdn/gigaset/asyncdata.c   |  9 +++--
+>>  drivers/isdn/gigaset/bas-gigaset.c | 80 ++++++++++++++++++++------------------
+>>  drivers/isdn/gigaset/capi.c        |  5 ++-
+>>  drivers/isdn/gigaset/common.c      |  8 ++--
+>>  drivers/isdn/gigaset/ev-layer.c    | 38 +++++++++++-------
+>>  drivers/isdn/gigaset/gigaset.h     |  4 +-
+>>  drivers/isdn/gigaset/i4l.c         | 12 +++---
+>>  drivers/isdn/gigaset/interface.c   | 10 ++---
+>>  drivers/isdn/gigaset/isocdata.c    |  3 ++
+>>  drivers/isdn/gigaset/proc.c        | 17 +++++---
+>>  drivers/isdn/gigaset/usb-gigaset.c | 46 +++++++++++++++-------
+>>  11 files changed, 141 insertions(+), 91 deletions(-)
+>>
+>> diff --git a/drivers/isdn/gigaset/asyncdata.c b/drivers/isdn/gigaset/asyncdata.c
+> [...]
+>
+> --
+> - Jeremiah Mahler
