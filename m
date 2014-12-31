@@ -1,45 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V2] virtio-net: don't do header check for
-	dodgy gso packets
-Date: Tue, 30 Dec 2014 18:53:50 -0500 (EST)
-Message-ID: <20141230.185350.1886821773938320675.davem@davemloft.net>
-References: <1419390232-14906-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH net-next 2/2] net: gianfar: add missing __iomem
+ annotation
+Date: Tue, 30 Dec 2014 19:05:19 -0500 (EST)
+Message-ID: <20141230.190519.1196965378794951492.davem@davemloft.net>
+References: <1419401145-8967-1-git-send-email-haokexin@gmail.com>
+	<1419401145-8967-2-git-send-email-haokexin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com
-To: jasowang@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1419390232-14906-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, claudiu.manoil@freescale.com
+To: haokexin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36879 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751790AbaLaAFV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2014 19:05:21 -0500
+In-Reply-To: <1419401145-8967-2-git-send-email-haokexin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Wed, 24 Dec 2014 11:03:52 +0800
+From: Kevin Hao <haokexin@gmail.com>
+Date: Wed, 24 Dec 2014 14:05:45 +0800
 
-> There's no need to do header check for virtio-net since:
+> Fix the following spare warning:
+> drivers/net/ethernet/freescale/gianfar.c:3521:60: warning: incorrect type in argument 1 (different address spaces)
+> drivers/net/ethernet/freescale/gianfar.c:3521:60:    expected unsigned int [noderef] <asn:2>*addr
+> drivers/net/ethernet/freescale/gianfar.c:3521:60:    got unsigned int [usertype] *rfbptr
+> drivers/net/ethernet/freescale/gianfar.c:205:16: warning: incorrect type in assignment (different address spaces)
+> drivers/net/ethernet/freescale/gianfar.c:205:16:    expected unsigned int [usertype] *rfbptr
+> drivers/net/ethernet/freescale/gianfar.c:205:16:    got unsigned int [noderef] <asn:2>*<noident>
+> drivers/net/ethernet/freescale/gianfar.c:2918:44: warning: incorrect type in argument 1 (different address spaces)
+> drivers/net/ethernet/freescale/gianfar.c:2918:44:    expected unsigned int [noderef] <asn:2>*addr
+> drivers/net/ethernet/freescale/gianfar.c:2918:44:    got unsigned int [usertype] *rfbptr
 > 
-> - Host sets dodgy for all gso packets from guest and check the header.
-> - Host should be prepared for all kinds of evil packets from guest, since
->   malicious guest can send any kinds of packet.
-> 
-> So this patch sets NETIF_F_GSO_ROBUST for virtio-net to skip the check.
-> 
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
-> Changes from V1:
-> - typo fixes
+> Signed-off-by: Kevin Hao <haokexin@gmail.com>
 
 Applied.
