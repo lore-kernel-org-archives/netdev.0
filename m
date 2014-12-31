@@ -1,75 +1,36 @@
-From: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
-Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
-Date: Wed, 31 Dec 2014 16:20:04 +0800
-Message-ID: <54A3B1B4.7090705@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: brudley@broadcom.com, Arend van Spriel <arend@broadcom.com>,
-	Franky Lin <frankyl@broadcom.com>, meuleman@broadcom.com,
-	kvalo@codeaurora.org, linville@tuxdriver.com,
-	pieterpg@broadcom.com, hdegoede@redhat.com, wens@csie.org,
-	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: Nicholas Mc Guire <der.herr@hofr.at>
+Subject: [PATCH] wait_for_completion_timeout does not return < 0
+Date: Wed, 31 Dec 2014 04:04:03 -0500
+Message-ID: <1420016643-19707-1-git-send-email-der.herr@hofr.at>
+Cc: linux-wimax@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Nicholas Mc Guire <der.herr@hofr.at>
+To: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->From e34419970a07bfcd365f9c66bdfa552188a0cd26 Mon Sep 17 00:00:00 2001
-From: Zhonghui Fu <zhonghui.fu@linux.intel.com>
-Date: Mon, 29 Dec 2014 21:25:31 +0800
-Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
+This is only removing the comment which is misleading as
+wait_for_completion_timeout does not return < 0 thus there
+never is anything to be passed on.
 
-WiFi chip has 2 SDIO functions, and PM core will trigger
-twice suspend/resume operations for one WiFi chip to do
-the same things. This patch avoid this case.
+patch is against linux-next 3.19.0-rc1 -next-20141226
 
-Signed-off-by: Zhonghui Fu <zhonghui.fu@linux.intel.com>
+Signed-off-by: Nicholas Mc Guire <der.herr@hofr.at>
 ---
- drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |   19 +++++++++++++++++--
- 1 files changed, 17 insertions(+), 2 deletions(-)
+ drivers/net/wimax/i2400m/driver.c |    1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-index 3c06e93..eee7818 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-@@ -1139,11 +1139,18 @@ void brcmf_sdio_wowl_config(struct device *dev, bool enabled)
- static int brcmf_ops_sdio_suspend(struct device *dev)
- {
- 	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
--	struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
-+	struct brcmf_sdio_dev *sdiodev;
- 	mmc_pm_flag_t sdio_flags;
-+	struct sdio_func *func = dev_to_sdio_func(dev);
- 
- 	brcmf_dbg(SDIO, "Enter\n");
- 
-+	if (func->num == 2) {
-+		return 0;
-+	}
-+
-+	sdiodev = bus_if->bus_priv.sdio;
-+
- 	atomic_set(&sdiodev->suspend, true);
- 
- 	if (sdiodev->wowl_enabled) {
-@@ -1164,9 +1171,17 @@ static int brcmf_ops_sdio_suspend(struct device *dev)
- static int brcmf_ops_sdio_resume(struct device *dev)
- {
- 	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
--	struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
-+	struct brcmf_sdio_dev *sdiodev;
-+	struct sdio_func *func = dev_to_sdio_func(dev);
- 
- 	brcmf_dbg(SDIO, "Enter\n");
-+
-+	if (func->num == 2) {
-+		return 0;
-+	}
-+
-+	sdiodev = bus_if->bus_priv.sdio;
-+
- 	if (sdiodev->pdata->oob_irq_supported)
- 		disable_irq_wake(sdiodev->pdata->oob_irq_nr);
- 	brcmf_sdio_wd_timer(sdiodev->bus, BRCMF_WD_POLL_MS);
--- 1.7.1
+diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
+index 9c78090..0a6384e 100644
+--- a/drivers/net/wimax/i2400m/driver.c
++++ b/drivers/net/wimax/i2400m/driver.c
+@@ -197,7 +197,6 @@ int i2400m_op_reset(struct wimax_dev *wimax_dev)
+ 		result = -ETIMEDOUT;
+ 	else if (result > 0)
+ 		result = ctx.result;
+-	/* if result < 0, pass it on */
+ 	mutex_lock(&i2400m->init_mutex);
+ 	i2400m->reset_ctx = NULL;
+ 	mutex_unlock(&i2400m->init_mutex);
+-- 
+1.7.10.4
