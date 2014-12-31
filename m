@@ -1,31 +1,60 @@
-From: Eric Biggers <ebiggers3@gmail.com>
-Subject: Re: [PATCH V3 for 3.19]  rtlwifi: Fix error when accessing unmapped
- memory in skb
-Date: Tue, 30 Dec 2014 23:07:35 -0600
-Message-ID: <20141231050735.GA20639@zzz>
-References: <1419996787-17395-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next] net: More vlan tests before registering netdevice
+Date: Wed, 31 Dec 2014 08:35:36 +0200
+Message-ID: <1420007736-30822-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvalo@codeaurora.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
-To: Larry Finger <Larry.Finger@lwfinger.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Yuval Mintz <Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:33731 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751450AbaLaFHn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 00:07:43 -0500
-Content-Disposition: inline
-In-Reply-To: <1419996787-17395-1-git-send-email-Larry.Finger@lwfinger.net>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:49558 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750710AbaLaGfr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 01:35:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 30, 2014 at 09:33:07PM -0600, Larry Finger wrote:
-> v3 - Unmap skb before trying to allocate a new one so as to not leak mapping.
+When register_netdevice() is called, netdevice's vlan filtering feature
+and supplied callbacks are checked to see the vlan implementation is
+not buggy.
+This adds an additional test - see that the vlan_features were filled
+correctly, as the vlan devices inherits those as its own features;
+Incorrect values set there would later prevent the vlan interface from being
+registered itself [as it doesn't implement the filtering ndos].
 
-Looks good to me, although I'm not sure about the handling of DMA mapping errors
-(perhaps that's something that drivers typically don't even try to handle?).
-Anyway, the skb allocation issue appears to be resolved now.  I am running your
-patch with an extra hack to inject some occasional skb allocation failures, and
-I haven't noticed any problems except dropped packets.
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+---
+Hi Dave,
 
-Eric
+Not sure why take such a defensive approach regarding this feature.
+Perhaps it would have been better to simply remove these checks altogether.
+
+Cheers,
+Yuval
+---
+
+ net/core/dev.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 3f191da..8a663b2 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6253,10 +6253,11 @@ int register_netdevice(struct net_device *dev)
+ 		}
+ 	}
+ 
+-	if (((dev->hw_features | dev->features) &
+-	     NETIF_F_HW_VLAN_CTAG_FILTER) &&
+-	    (!dev->netdev_ops->ndo_vlan_rx_add_vid ||
+-	     !dev->netdev_ops->ndo_vlan_rx_kill_vid)) {
++	if ((((dev->hw_features | dev->features) &
++	      NETIF_F_HW_VLAN_CTAG_FILTER) &&
++	     (!dev->netdev_ops->ndo_vlan_rx_add_vid ||
++	      !dev->netdev_ops->ndo_vlan_rx_kill_vid)) ||
++	    (dev->vlan_features & NETIF_F_HW_VLAN_CTAG_FILTER) {
+ 		netdev_WARN(dev, "Buggy VLAN acceleration in driver!\n");
+ 		ret = -EINVAL;
+ 		goto err_uninit;
+-- 
+1.9.3
