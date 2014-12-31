@@ -1,8 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v1 04/11] rocker: add pipeline model for rocker
- switch
-Date: Wed, 31 Dec 2014 11:47:10 -0800
-Message-ID: <20141231194709.31070.16657.stgit@nitbit.x32>
+Subject: [net-next PATCH v1 05/11] net: rocker: add set flow rules
+Date: Wed, 31 Dec 2014 11:47:37 -0800
+Message-ID: <20141231194735.31070.55480.stgit@nitbit.x32>
 References: <20141231194057.31070.5244.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,767 +10,577 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net
 To: tgraf@suug.ch, sfeldma@gmail.com, jiri@resnulli.us,
 	jhs@mojatatu.com, simon.horman@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f54.google.com ([209.85.218.54]:48668 "EHLO
-	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751585AbaLaTra (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 14:47:30 -0500
-Received: by mail-oi0-f54.google.com with SMTP id u20so36546030oif.13
-        for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 11:47:29 -0800 (PST)
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:54388 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751609AbaLaTr4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 14:47:56 -0500
+Received: by mail-ob0-f170.google.com with SMTP id wp18so49229437obc.1
+        for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 11:47:55 -0800 (PST)
 In-Reply-To: <20141231194057.31070.5244.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds rocker support for the net_flow_get_* operations. With this
-we can interrogate rocker.
-
-Here we see that for static configurations enabling the get operations
-is simply a matter of defining a pipeline model and returning the
-structures for the core infrastructure to encapsulate into netlink
-messages.
+Implement set flow operations for existing rocker tables.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- drivers/net/ethernet/rocker/rocker.c          |   35 +
- drivers/net/ethernet/rocker/rocker_pipeline.h |  673 +++++++++++++++++++++++++
- 2 files changed, 708 insertions(+)
- create mode 100644 drivers/net/ethernet/rocker/rocker_pipeline.h
+ drivers/net/ethernet/rocker/rocker.c          |  517 +++++++++++++++++++++++++
+ drivers/net/ethernet/rocker/rocker_pipeline.h |    3 
+ 2 files changed, 519 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index fded127..4c6787a 100644
+index 4c6787a..c40c58d 100644
 --- a/drivers/net/ethernet/rocker/rocker.c
 +++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -36,6 +36,7 @@
- #include <generated/utsrelease.h>
- 
- #include "rocker.h"
-+#include "rocker_pipeline.h"
- 
- static const char rocker_driver_name[] = "rocker";
- 
-@@ -3780,6 +3781,33 @@ static int rocker_port_switch_port_stp_update(struct net_device *dev, u8 state)
- 	return rocker_port_stp_update(rocker_port, state);
+@@ -3806,6 +3806,520 @@ static struct net_flow_hdr_node **rocker_get_hgraph(struct net_device *d)
+ {
+ 	return rocker_header_nodes;
  }
++
++static int is_valid_net_flow_action_arg(struct net_flow_action *a, int id)
++{
++	struct net_flow_action_arg *args = a->args;
++	int i;
++
++	for (i = 0; args[i].type != NET_FLOW_ACTION_ARG_TYPE_NULL; i++) {
++		if (a->args[i].type == NET_FLOW_ACTION_ARG_TYPE_NULL ||
++		    args[i].type != a->args[i].type)
++			return -EINVAL;
++	}
++
++	return 0;
++}
++
++static int is_valid_net_flow_action(struct net_flow_action *a, int *actions)
++{
++	int i;
++
++	for (i = 0; actions[i]; i++) {
++		if (actions[i] == a->uid)
++			return is_valid_net_flow_action_arg(a, a->uid);
++	}
++	return -EINVAL;
++}
++
++static int is_valid_net_flow_match(struct net_flow_field_ref *f,
++				   struct net_flow_field_ref *fields)
++{
++	int i;
++
++	for (i = 0; fields[i].header; i++) {
++		if (f->header == fields[i].header &&
++		    f->field == fields[i].field)
++			return 0;
++	}
++
++	return -EINVAL;
++}
++
++int is_valid_net_flow(struct net_flow_table *table, struct net_flow_flow *flow)
++{
++	struct net_flow_field_ref *fields = table->matches;
++	int *actions = table->actions;
++	int i, err;
++
++	for (i = 0; flow->actions[i].uid; i++) {
++		err = is_valid_net_flow_action(&flow->actions[i], actions);
++		if (err)
++			return -EINVAL;
++	}
++
++	for (i = 0; flow->matches[i].header; i++) {
++		err = is_valid_net_flow_match(&flow->matches[i], fields);
++		if (err)
++			return -EINVAL;
++	}
++
++	return 0;
++}
++
++static u32 rocker_goto_value(u32 id)
++{
++	switch (id) {
++	case ROCKER_FLOW_TABLE_ID_INGRESS_PORT:
++		return ROCKER_OF_DPA_TABLE_ID_INGRESS_PORT;
++	case ROCKER_FLOW_TABLE_ID_VLAN:
++		return ROCKER_OF_DPA_TABLE_ID_VLAN;
++	case ROCKER_FLOW_TABLE_ID_TERMINATION_MAC:
++		return ROCKER_OF_DPA_TABLE_ID_TERMINATION_MAC;
++	case ROCKER_FLOW_TABLE_ID_UNICAST_ROUTING:
++		return ROCKER_OF_DPA_TABLE_ID_UNICAST_ROUTING;
++	case ROCKER_FLOW_TABLE_ID_MULTICAST_ROUTING:
++		return ROCKER_OF_DPA_TABLE_ID_MULTICAST_ROUTING;
++	case ROCKER_FLOW_TABLE_ID_BRIDGING:
++		return ROCKER_OF_DPA_TABLE_ID_BRIDGING;
++	case ROCKER_FLOW_TABLE_ID_ACL_POLICY:
++		return ROCKER_OF_DPA_TABLE_ID_ACL_POLICY;
++	default:
++		return 0;
++	}
++}
++
++static int rocker_flow_set_ig_port(struct net_device *dev,
++				   struct net_flow_flow *flow)
++{
++	struct rocker_port *rocker_port = netdev_priv(dev);
++	enum rocker_of_dpa_table_id goto_tbl;
++	u32 in_lport_mask = 0xffff0000;
++	u32 in_lport = 0;
++	int err, flags = 0;
++
++	err = is_valid_net_flow(&ingress_port_table, flow);
++	if (err)
++		return err;
++
++	/* ingress port table only supports one field/mask/action this
++	 * simplifies the key construction and we can assume the values
++	 * are the correct types/mask/action by valid check above. The
++	 * user could pass multiple match/actions in a message with the
++	 * same field multiple times currently the valid test does not
++	 * catch this and we just use the first specified.
++	 */
++	in_lport = flow->matches[0].value_u32;
++	in_lport_mask = flow->matches[0].mask_u32;
++	goto_tbl = rocker_goto_value(flow->actions[0].args[0].value_u16);
++
++	err = rocker_flow_tbl_ig_port(rocker_port, flags,
++				      in_lport, in_lport_mask,
++				      goto_tbl);
++	return err;
++}
++
++static int rocker_flow_set_vlan(struct net_device *dev,
++				struct net_flow_flow *flow)
++{
++	enum rocker_of_dpa_table_id goto_tbl;
++	struct rocker_port *rocker_port = netdev_priv(dev);
++	int i, err = 0, flags = 0;
++	u32 in_lport;
++	__be16 vlan_id, vlan_id_mask, new_vlan_id;
++	bool untagged, have_in_lport = false;
++
++	err = is_valid_net_flow(&vlan_table, flow);
++	if (err)
++		return err;
++
++	goto_tbl = ROCKER_OF_DPA_TABLE_ID_TERMINATION_MAC;
++
++	/* If user does not specify vid match default to any */
++	vlan_id = 1;
++	vlan_id_mask = 0;
++
++	for (i = 0; flow->matches && flow->matches[i].instance; i++) {
++		switch (flow->matches[i].instance) {
++		case HEADER_INSTANCE_IN_LPORT:
++			in_lport = flow->matches[i].value_u32;
++			have_in_lport = true;
++			break;
++		case HEADER_INSTANCE_VLAN_OUTER:
++			if (flow->matches[i].field != HEADER_VLAN_VID)
++				break;
++
++			vlan_id = htons(flow->matches[i].value_u16);
++			vlan_id_mask = htons(flow->matches[i].mask_u16);
++			break;
++		default:
++			return -EINVAL;
++		}
++	}
++
++	/* If user does not specify a new vlan id use default vlan id */
++	new_vlan_id = rocker_port_vid_to_vlan(rocker_port, vlan_id, &untagged);
++
++	for (i = 0; flow->actions && flow->actions[i].uid; i++) {
++		struct net_flow_action_arg *arg = &flow->actions[i].args[0];
++
++		switch (flow->actions[i].uid) {
++		case ACTION_SET_GOTO_TABLE:
++			goto_tbl = rocker_goto_value(arg->value_u16);
++			break;
++		case ACTION_SET_VLAN_ID:
++			new_vlan_id = htons(arg->value_u16);
++			if (new_vlan_id)
++				untagged = false;
++			break;
++		}
++	}
++
++	if (!have_in_lport)
++		return -EINVAL;
++
++	err = rocker_flow_tbl_vlan(rocker_port, flags, in_lport,
++				   vlan_id, vlan_id_mask, goto_tbl,
++				   untagged, new_vlan_id);
++	return err;
++}
++
++static int rocker_flow_set_term_mac(struct net_device *dev,
++				    struct net_flow_flow *flow)
++{
++	struct rocker_port *rocker_port = netdev_priv(dev);
++	__be16 vlan_id, vlan_id_mask, ethtype = 0;
++	const u8 *eth_dst, *eth_dst_mask;
++	u32 in_lport, in_lport_mask;
++	int i, err = 0, flags = 0;
++	bool copy_to_cpu;
++
++	eth_dst = NULL;
++	eth_dst_mask = NULL;
++
++	err = is_valid_net_flow(&term_mac_table, flow);
++	if (err)
++		return err;
++
++	/* If user does not specify vid match default to any */
++	vlan_id = rocker_port->internal_vlan_id;
++	vlan_id_mask = 0;
++
++	/* If user does not specify in_lport match default to any */
++	in_lport = rocker_port->lport;
++	in_lport_mask = 0;
++
++	/* If user does not specify a mac address match any */
++	eth_dst = rocker_port->dev->dev_addr;
++	eth_dst_mask = zero_mac;
++
++	for (i = 0; flow->matches && flow->matches[i].instance; i++) {
++		switch (flow->matches[i].instance) {
++		case HEADER_INSTANCE_IN_LPORT:
++			in_lport = flow->matches[i].value_u32;
++			in_lport_mask = flow->matches[i].mask_u32;
++			break;
++		case HEADER_INSTANCE_VLAN_OUTER:
++			if (flow->matches[i].field != HEADER_VLAN_VID)
++				break;
++
++			vlan_id = htons(flow->matches[i].value_u16);
++			vlan_id_mask = htons(flow->matches[i].mask_u16);
++			break;
++		case HEADER_INSTANCE_ETHERNET:
++			switch (flow->matches[i].field) {
++			case HEADER_ETHERNET_DST_MAC:
++				eth_dst = (u8 *)&flow->matches[i].value_u64;
++				eth_dst_mask = (u8 *)&flow->matches[i].mask_u64;
++				break;
++			case HEADER_ETHERNET_ETHERTYPE:
++				ethtype = htons(flow->matches[i].value_u16);
++				break;
++			default:
++				return -EINVAL;
++			}
++			break;
++		default:
++			return -EINVAL;
++		}
++	}
++
++	if (!ethtype)
++		return -EINVAL;
++
++	/* By default do not copy to cpu */
++	copy_to_cpu = false;
++
++	for (i = 0; flow->actions && flow->actions[i].uid; i++) {
++		switch (flow->actions[i].uid) {
++		case ACTION_COPY_TO_CPU:
++			copy_to_cpu = true;
++			break;
++		default:
++			return -EINVAL;
++		}
++	}
++
++	err = rocker_flow_tbl_term_mac(rocker_port, in_lport, in_lport_mask,
++				       ethtype, eth_dst, eth_dst_mask,
++				       vlan_id, vlan_id_mask,
++				       copy_to_cpu, flags);
++	return err;
++}
++
++static int rocker_flow_set_ucast_routing(struct net_device *dev,
++					 struct net_flow_flow *flow)
++{
++	return -EOPNOTSUPP;
++}
++
++static int rocker_flow_set_mcast_routing(struct net_device *dev,
++					 struct net_flow_flow *flow)
++{
++	return -EOPNOTSUPP;
++}
++
++static int rocker_flow_set_bridge(struct net_device *dev,
++				  struct net_flow_flow *flow)
++{
++	enum rocker_of_dpa_table_id goto_tbl;
++	struct rocker_port *rocker_port = netdev_priv(dev);
++	u32 in_lport, in_lport_mask, group_id, tunnel_id;
++	__be16 vlan_id, vlan_id_mask;
++	const u8 *eth_dst, *eth_dst_mask;
++	int i, err = 0, flags = 0;
++	bool copy_to_cpu;
++
++	err = is_valid_net_flow(&bridge_table, flow);
++	if (err)
++		return err;
++
++	goto_tbl = ROCKER_OF_DPA_TABLE_ID_ACL_POLICY;
++
++	/* If user does not specify vid match default to any */
++	vlan_id = rocker_port->internal_vlan_id;
++	vlan_id_mask = 0;
++
++	/* If user does not specify in_lport match default to any */
++	in_lport = rocker_port->lport;
++	in_lport_mask = 0;
++
++	/* If user does not specify a mac address match any */
++	eth_dst = rocker_port->dev->dev_addr;
++	eth_dst_mask = NULL;
++
++	/* Do not support for tunnel_id yet. */
++	tunnel_id = 0;
++
++	for (i = 0; flow->matches && flow->matches[i].instance; i++) {
++		switch (flow->matches[i].instance) {
++		case HEADER_INSTANCE_IN_LPORT:
++			in_lport = flow->matches[i].value_u32;
++			in_lport_mask = flow->matches[i].mask_u32;
++			break;
++		case HEADER_INSTANCE_VLAN_OUTER:
++			if (flow->matches[i].field != HEADER_VLAN_VID)
++				break;
++
++			vlan_id = htons(flow->matches[i].value_u16);
++			vlan_id_mask = htons(flow->matches[i].mask_u16);
++			break;
++		case HEADER_INSTANCE_ETHERNET:
++			switch (flow->matches[i].field) {
++			case HEADER_ETHERNET_DST_MAC:
++				eth_dst = (u8 *)&flow->matches[i].value_u64;
++				eth_dst_mask = (u8 *)&flow->matches[i].mask_u64;
++				break;
++			default:
++				return -EINVAL;
++			}
++			break;
++		default:
++			return -EINVAL;
++		}
++	}
++
++	/* By default do not copy to cpu and skip group assignment */
++	copy_to_cpu = false;
++	group_id = ROCKER_GROUP_NONE;
++
++	for (i = 0; flow->actions && flow->actions[i].uid; i++) {
++		struct net_flow_action_arg *arg = &flow->actions[i].args[0];
++
++		switch (flow->actions[i].uid) {
++		case ACTION_SET_GOTO_TABLE:
++			goto_tbl = rocker_goto_value(arg->value_u16);
++			break;
++		case ACTION_COPY_TO_CPU:
++			copy_to_cpu = true;
++			break;
++		case ACTION_SET_GROUP_ID:
++			group_id = arg->value_u32;
++			break;
++		default:
++			return -EINVAL;
++		}
++	}
++
++	/* Ignoring eth_dst_mask it seems to cause a EINVAL return code */
++	err = rocker_flow_tbl_bridge(rocker_port, flags,
++				     eth_dst, eth_dst_mask,
++				     vlan_id, tunnel_id,
++				     goto_tbl, group_id, copy_to_cpu);
++	return err;
++}
++
++static int rocker_flow_set_acl(struct net_device *dev,
++			       struct net_flow_flow *flow)
++{
++	struct rocker_port *rocker_port = netdev_priv(dev);
++	u32 in_lport, in_lport_mask, group_id, tunnel_id;
++	__be16 vlan_id, vlan_id_mask, ethtype = 0;
++	const u8 *eth_dst, *eth_src, *eth_dst_mask, *eth_src_mask;
++	u8 protocol, protocol_mask, dscp, dscp_mask;
++	int i, err = 0, flags = 0;
++
++	err = is_valid_net_flow(&bridge_table, flow);
++	if (err)
++		return err;
++
++	/* If user does not specify vid match default to any */
++	vlan_id = rocker_port->internal_vlan_id;
++	vlan_id_mask = 0;
++
++	/* If user does not specify in_lport match default to any */
++	in_lport = rocker_port->lport;
++	in_lport_mask = 0;
++
++	/* If user does not specify a mac address match any */
++	eth_dst = rocker_port->dev->dev_addr;
++	eth_src = zero_mac;
++	eth_dst_mask = NULL;
++	eth_src_mask = NULL;
++
++	/* If user does not set protocol/dscp mask them out */
++	protocol = 0;
++	dscp = 0;
++	protocol_mask = 0;
++	dscp_mask = 0;
++
++	/* Do not support for tunnel_id yet. */
++	tunnel_id = 0;
++
++	for (i = 0; flow->matches && flow->matches[i].instance; i++) {
++		switch (flow->matches[i].instance) {
++		case HEADER_INSTANCE_IN_LPORT:
++			in_lport = flow->matches[i].value_u32;
++			in_lport_mask = flow->matches[i].mask_u32;
++			break;
++		case HEADER_INSTANCE_VLAN_OUTER:
++			if (flow->matches[i].field != HEADER_VLAN_VID)
++				break;
++
++			vlan_id = htons(flow->matches[i].value_u16);
++			vlan_id_mask = htons(flow->matches[i].mask_u16);
++			break;
++		case HEADER_INSTANCE_ETHERNET:
++			switch (flow->matches[i].field) {
++			case HEADER_ETHERNET_SRC_MAC:
++				eth_src = (u8 *)&flow->matches[i].value_u64;
++				eth_src_mask = (u8 *)&flow->matches[i].mask_u64;
++				break;
++			case HEADER_ETHERNET_DST_MAC:
++				eth_dst = (u8 *)&flow->matches[i].value_u64;
++				eth_dst_mask = (u8 *)&flow->matches[i].mask_u64;
++				break;
++			case HEADER_ETHERNET_ETHERTYPE:
++				ethtype = htons(flow->matches[i].value_u16);
++				break;
++			default:
++				return -EINVAL;
++			}
++			break;
++		case HEADER_INSTANCE_IPV4:
++			switch (flow->matches[i].field) {
++			case HEADER_IPV4_PROTOCOL:
++				protocol = flow->matches[i].value_u8;
++				protocol_mask = flow->matches[i].mask_u8;
++				break;
++			case HEADER_IPV4_DSCP:
++				dscp = flow->matches[i].value_u8;
++				dscp_mask = flow->matches[i].mask_u8;
++				break;
++			default:
++				return -EINVAL;
++			}
++		default:
++			return -EINVAL;
++		}
++	}
++
++	/* By default do not copy to cpu and skip group assignment */
++	group_id = ROCKER_GROUP_NONE;
++
++	for (i = 0; flow->actions && flow->actions[i].uid; i++) {
++		switch (flow->actions[i].uid) {
++		case ACTION_SET_GROUP_ID:
++			group_id = flow->actions[i].args[0].value_u32;
++			break;
++		default:
++			return -EINVAL;
++		}
++	}
++
++	err = rocker_flow_tbl_acl(rocker_port, flags,
++				  in_lport, in_lport_mask,
++				  eth_src, eth_src_mask,
++				  eth_dst, eth_dst_mask, ethtype,
++				  vlan_id, vlan_id_mask,
++				  protocol, protocol_mask,
++				  dscp, dscp_mask,
++				  group_id);
++	return err;
++}
++
++static int rocker_set_flows(struct net_device *dev,
++			    struct net_flow_flow *flow)
++{
++	int err = -EINVAL;
++
++	if (!flow->matches || !flow->actions)
++		return -EINVAL;
++
++	switch (flow->table_id) {
++	case ROCKER_FLOW_TABLE_ID_INGRESS_PORT:
++		err = rocker_flow_set_ig_port(dev, flow);
++		break;
++	case ROCKER_FLOW_TABLE_ID_VLAN:
++		err = rocker_flow_set_vlan(dev, flow);
++		break;
++	case ROCKER_FLOW_TABLE_ID_TERMINATION_MAC:
++		err = rocker_flow_set_term_mac(dev, flow);
++		break;
++	case ROCKER_FLOW_TABLE_ID_UNICAST_ROUTING:
++		err = rocker_flow_set_ucast_routing(dev, flow);
++		break;
++	case ROCKER_FLOW_TABLE_ID_MULTICAST_ROUTING:
++		err = rocker_flow_set_mcast_routing(dev, flow);
++		break;
++	case ROCKER_FLOW_TABLE_ID_BRIDGING:
++		err = rocker_flow_set_bridge(dev, flow);
++		break;
++	case ROCKER_FLOW_TABLE_ID_ACL_POLICY:
++		err = rocker_flow_set_acl(dev, flow);
++		break;
++	default:
++		break;
++	}
++
++	return err;
++}
++
++static int rocker_del_flows(struct net_device *dev,
++			    struct net_flow_flow *flow)
++{
++	return -EOPNOTSUPP;
++}
+ #endif
  
-+#ifdef CONFIG_NET_FLOW_TABLES
-+static struct net_flow_table **rocker_get_tables(struct net_device *d)
-+{
-+	return rocker_table_list;
-+}
-+
-+static struct net_flow_header **rocker_get_headers(struct net_device *d)
-+{
-+	return rocker_header_list;
-+}
-+
-+static struct net_flow_action **rocker_get_actions(struct net_device *d)
-+{
-+	return rocker_action_list;
-+}
-+
-+static struct net_flow_tbl_node **rocker_get_tgraph(struct net_device *d)
-+{
-+	return rocker_table_nodes;
-+}
-+
-+static struct net_flow_hdr_node **rocker_get_hgraph(struct net_device *d)
-+{
-+	return rocker_header_nodes;
-+}
-+#endif
-+
  static const struct net_device_ops rocker_port_netdev_ops = {
- 	.ndo_open			= rocker_port_open,
- 	.ndo_stop			= rocker_port_stop,
-@@ -3794,6 +3822,13 @@ static const struct net_device_ops rocker_port_netdev_ops = {
- 	.ndo_bridge_getlink		= rocker_port_bridge_getlink,
- 	.ndo_switch_parent_id_get	= rocker_port_switch_parent_id_get,
- 	.ndo_switch_port_stp_update	= rocker_port_switch_port_stp_update,
-+#ifdef CONFIG_NET_FLOW_TABLES
-+	.ndo_flow_get_tables		= rocker_get_tables,
-+	.ndo_flow_get_headers		= rocker_get_headers,
-+	.ndo_flow_get_actions		= rocker_get_actions,
-+	.ndo_flow_get_tbl_graph		= rocker_get_tgraph,
-+	.ndo_flow_get_hdr_graph		= rocker_get_hgraph,
-+#endif
+@@ -3828,6 +4342,9 @@ static const struct net_device_ops rocker_port_netdev_ops = {
+ 	.ndo_flow_get_actions		= rocker_get_actions,
+ 	.ndo_flow_get_tbl_graph		= rocker_get_tgraph,
+ 	.ndo_flow_get_hdr_graph		= rocker_get_hgraph,
++
++	.ndo_flow_set_flows		= rocker_set_flows,
++	.ndo_flow_del_flows		= rocker_del_flows,
+ #endif
  };
  
- /********************
 diff --git a/drivers/net/ethernet/rocker/rocker_pipeline.h b/drivers/net/ethernet/rocker/rocker_pipeline.h
-new file mode 100644
-index 0000000..9544339
---- /dev/null
+index 9544339..701e139 100644
+--- a/drivers/net/ethernet/rocker/rocker_pipeline.h
 +++ b/drivers/net/ethernet/rocker/rocker_pipeline.h
-@@ -0,0 +1,673 @@
-+#ifndef _MY_PIPELINE_H_
-+#define _MY_PIPELINE_H_
-+
-+#include <linux/if_flow.h>
-+
-+/* header definition */
-+#define HEADER_ETHERNET_SRC_MAC 1
-+#define HEADER_ETHERNET_DST_MAC 2
-+#define HEADER_ETHERNET_ETHERTYPE 3
-+struct net_flow_field ethernet_fields[3] = {
-+	{ .name = "src_mac", .uid = HEADER_ETHERNET_SRC_MAC, .bitwidth = 48},
-+	{ .name = "dst_mac", .uid = HEADER_ETHERNET_DST_MAC, .bitwidth = 48},
-+	{ .name = "ethertype",
-+	  .uid = HEADER_ETHERNET_ETHERTYPE,
-+	  .bitwidth = 16},
-+};
-+
-+#define HEADER_ETHERNET 1
-+struct net_flow_header ethernet = {
-+	.name = "ethernet",
-+	.uid = HEADER_ETHERNET,
-+	.field_sz = 3,
-+	.fields = ethernet_fields,
-+};
-+
-+#define HEADER_VLAN_PCP 1
-+#define HEADER_VLAN_CFI 2
-+#define HEADER_VLAN_VID 3
-+#define HEADER_VLAN_ETHERTYPE 4
-+struct net_flow_field vlan_fields[4] = {
-+	{ .name = "pcp", .uid = HEADER_VLAN_PCP, .bitwidth = 3,},
-+	{ .name = "cfi", .uid = HEADER_VLAN_CFI, .bitwidth = 1,},
-+	{ .name = "vid", .uid = HEADER_VLAN_VID, .bitwidth = 12,},
-+	{ .name = "ethertype", .uid = HEADER_VLAN_ETHERTYPE, .bitwidth = 16,},
-+};
-+
-+#define HEADER_VLAN 2
-+struct net_flow_header vlan = {
-+	.name = "vlan",
-+	.uid = HEADER_VLAN,
-+	.field_sz = 4,
-+	.fields = vlan_fields,
-+};
-+
-+#define HEADER_IPV4_VERSION 1
-+#define HEADER_IPV4_IHL 2
-+#define HEADER_IPV4_DSCP 3
-+#define HEADER_IPV4_ECN 4
-+#define HEADER_IPV4_LENGTH 5
-+#define HEADER_IPV4_IDENTIFICATION 6
-+#define HEADER_IPV4_FLAGS 7
-+#define HEADER_IPV4_FRAGMENT_OFFSET 8
-+#define HEADER_IPV4_TTL 9
-+#define HEADER_IPV4_PROTOCOL 10
-+#define HEADER_IPV4_CSUM 11
-+#define HEADER_IPV4_SRC_IP 12
-+#define HEADER_IPV4_DST_IP 13
-+#define HEADER_IPV4_OPTIONS 14
-+struct net_flow_field ipv4_fields[14] = {
-+	{ .name = "version",
-+	  .uid = HEADER_IPV4_VERSION,
-+	  .bitwidth = 4,},
-+	{ .name = "ihl",
-+	  .uid = HEADER_IPV4_IHL,
-+	  .bitwidth = 4,},
-+	{ .name = "dscp",
-+	  .uid = HEADER_IPV4_DSCP,
-+	  .bitwidth = 6,},
-+	{ .name = "ecn",
-+	  .uid = HEADER_IPV4_ECN,
-+	  .bitwidth = 2,},
-+	{ .name = "length",
-+	  .uid = HEADER_IPV4_LENGTH,
-+	  .bitwidth = 8,},
-+	{ .name = "identification",
-+	  .uid = HEADER_IPV4_IDENTIFICATION,
-+	  .bitwidth = 8,},
-+	{ .name = "flags",
-+	  .uid = HEADER_IPV4_FLAGS,
-+	  .bitwidth = 3,},
-+	{ .name = "fragment_offset",
-+	  .uid = HEADER_IPV4_FRAGMENT_OFFSET,
-+	  .bitwidth = 13,},
-+	{ .name = "ttl",
-+	  .uid = HEADER_IPV4_TTL,
-+	  .bitwidth = 1,},
-+	{ .name = "protocol",
-+	  .uid = HEADER_IPV4_PROTOCOL,
-+	  .bitwidth = 8,},
-+	{ .name = "csum",
-+	  .uid = HEADER_IPV4_CSUM,
-+	  .bitwidth = 8,},
-+	{ .name = "src_ip",
-+	  .uid = HEADER_IPV4_SRC_IP,
-+	  .bitwidth = 32,},
-+	{ .name = "dst_ip",
-+	  .uid = HEADER_IPV4_DST_IP,
-+	  .bitwidth = 32,},
-+	{ .name = "options",
-+	  .uid = HEADER_IPV4_OPTIONS,
-+	  .bitwidth = -1,},
-+};
-+
-+#define HEADER_IPV4 3
-+struct net_flow_header ipv4 = {
-+	.name = "ipv4",
-+	.uid = HEADER_IPV4,
-+	.field_sz = 14,
-+	.fields = ipv4_fields,
-+};
-+
-+#define HEADER_METADATA_IN_LPORT 1
-+#define HEADER_METADATA_GOTO_TBL 2
-+#define HEADER_METADATA_GROUP_ID 3
-+struct net_flow_field metadata_fields[3] = {
-+	{ .name = "in_lport",
-+	  .uid = HEADER_METADATA_IN_LPORT,
-+	  .bitwidth = 32,},
-+	{ .name = "goto_tbl",
-+	  .uid = HEADER_METADATA_GOTO_TBL,
-+	  .bitwidth = 16,},
-+	{ .name = "group_id",
-+	  .uid = HEADER_METADATA_GROUP_ID,
-+	  .bitwidth = 32,},
-+};
-+
-+#define HEADER_METADATA 4
-+struct net_flow_header metadata_t = {
-+	.name = "metadata_t",
-+	.uid = HEADER_METADATA,
-+	.field_sz = 3,
-+	.fields = metadata_fields,
-+};
-+
-+struct net_flow_header null_hdr = {.name = "",
-+				   .uid = 0,
-+				   .field_sz = 0,
-+				   .fields = NULL};
-+
-+struct net_flow_header *rocker_header_list[8] = {
-+	&ethernet,
-+	&vlan,
-+	&ipv4,
-+	&metadata_t,
-+	&null_hdr,
-+};
-+
-+/* action definitions */
-+struct net_flow_action_arg null_args[1] = {
-+	{
-+		.name = "",
-+		.type = NET_FLOW_ACTION_ARG_TYPE_NULL,
-+	},
-+};
-+
-+struct net_flow_action null_action = {
-+	.name = "", .uid = 0, .args = NULL,
-+};
-+
-+struct net_flow_action_arg set_goto_table_args[2] = {
-+	{
-+		.name = "table",
-+		.type = NET_FLOW_ACTION_ARG_TYPE_U16,
-+		.value_u16 = 0,
-+	},
-+	{
-+		.name = "",
-+		.type = NET_FLOW_ACTION_ARG_TYPE_NULL,
-+	},
-+};
-+
-+#define ACTION_SET_GOTO_TABLE 1
-+struct net_flow_action set_goto_table = {
-+	.name = "set_goto_table",
-+	.uid = ACTION_SET_GOTO_TABLE,
-+	.args = set_goto_table_args,
-+};
-+
-+struct net_flow_action_arg set_vlan_id_args[2] = {
-+	{
-+		.name = "vlan_id",
-+		.type = NET_FLOW_ACTION_ARG_TYPE_U16,
-+		.value_u16 = 0,
-+	},
-+	{
-+		.name = "",
-+		.type = NET_FLOW_ACTION_ARG_TYPE_NULL,
-+	},
-+};
-+
-+#define ACTION_SET_VLAN_ID 2
-+struct net_flow_action set_vlan_id = {
-+	.name = "set_vlan_id",
-+	.uid = ACTION_SET_VLAN_ID,
-+	.args = set_vlan_id_args,
-+};
-+
-+/* TBD: what is the untagged bool about in vlan table */
-+#define ACTION_COPY_TO_CPU 3
-+struct net_flow_action copy_to_cpu = {
-+	.name = "copy_to_cpu",
-+	.uid = ACTION_COPY_TO_CPU,
-+	.args = null_args,
-+};
-+
-+struct net_flow_action_arg set_group_id_args[2] = {
-+	{
-+		.name = "group_id",
-+		.type = NET_FLOW_ACTION_ARG_TYPE_U32,
-+		.value_u32 = 0,
-+	},
-+	{
-+		.name = "",
-+		.type = NET_FLOW_ACTION_ARG_TYPE_NULL,
-+	},
-+};
-+
-+#define ACTION_SET_GROUP_ID 4
-+struct net_flow_action set_group_id = {
-+	.name = "set_group_id",
-+	.uid = ACTION_SET_GROUP_ID,
-+	.args = set_group_id_args,
-+};
-+
-+#define ACTION_POP_VLAN 5
-+struct net_flow_action pop_vlan = {
-+	.name = "pop_vlan",
-+	.uid = ACTION_POP_VLAN,
-+	.args = null_args,
-+};
-+
-+struct net_flow_action_arg set_eth_src_args[2] = {
-+	{
-+		.name = "eth_src",
-+		.type = NET_FLOW_ACTION_ARG_TYPE_U64,
-+		.value_u64 = 0,
-+	},
-+	{
-+		.name = "",
-+		.type = NET_FLOW_ACTION_ARG_TYPE_NULL,
-+	},
-+};
-+
-+#define ACTION_SET_ETH_SRC 6
-+struct net_flow_action set_eth_src = {
-+	.name = "set_eth_src",
-+	.uid = ACTION_SET_ETH_SRC,
-+	.args = set_eth_src_args,
-+};
-+
-+struct net_flow_action_arg set_eth_dst_args[2] = {
-+	{
-+		.name = "eth_dst",
-+		.type = NET_FLOW_ACTION_ARG_TYPE_U64,
-+		.value_u64 = 0,
-+	},
-+	{
-+		.name = "",
-+		.type = NET_FLOW_ACTION_ARG_TYPE_NULL,
-+	},
-+};
-+
-+#define ACTION_SET_ETH_DST 7
-+struct net_flow_action set_eth_dst = {
-+	.name = "set_eth_dst",
-+	.uid = ACTION_SET_ETH_DST,
-+	.args = set_eth_dst_args,
-+};
-+
-+struct net_flow_action_arg set_out_port_args[2] = {
-+	{
-+		.name = "set_out_port",
-+		.type = NET_FLOW_ACTION_ARG_TYPE_U32,
-+		.value_u32 = 0,
-+	},
-+	{
-+		.name = "",
-+		.type = NET_FLOW_ACTION_ARG_TYPE_NULL,
-+	},
-+};
-+
-+#define ACTION_SET_OUT_PORT 8
-+struct net_flow_action set_out_port = {
-+	.name = "set_out_port",
-+	.uid = ACTION_SET_OUT_PORT,
-+	.args = set_out_port_args,
-+};
-+
-+struct net_flow_action *rocker_action_list[8] = {
-+	&set_goto_table,
-+	&set_vlan_id,
-+	&copy_to_cpu,
-+	&set_group_id,
-+	&pop_vlan,
-+	&set_eth_src,
-+	&set_eth_dst,
-+	&null_action,
-+};
-+
-+/* headers graph */
-+#define HEADER_INSTANCE_ETHERNET 1
-+#define HEADER_INSTANCE_VLAN_OUTER 2
-+#define HEADER_INSTANCE_IPV4 3
-+#define HEADER_INSTANCE_IN_LPORT 4
-+#define HEADER_INSTANCE_GOTO_TABLE 5
-+#define HEADER_INSTANCE_GROUP_ID 6
-+
-+struct net_flow_jump_table parse_ethernet[3] = {
-+	{
-+		.field = {
-+		   .header = HEADER_ETHERNET,
-+		   .field = HEADER_ETHERNET_ETHERTYPE,
-+		   .type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-+		   .value_u16 = 0x0800,
-+		},
-+		.node = HEADER_INSTANCE_IPV4,
-+	},
-+	{
-+		.field = {
-+		   .header = HEADER_ETHERNET,
-+		   .field = HEADER_ETHERNET_ETHERTYPE,
-+		   .type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-+		   .value_u16 = 0x8100,
-+		},
-+		.node = HEADER_INSTANCE_VLAN_OUTER,
-+	},
-+	{
-+		.field = {0},
-+		.node = 0,
-+	},
-+};
-+
-+int ethernet_headers[2] = {HEADER_ETHERNET, 0};
-+
-+struct net_flow_hdr_node ethernet_header_node = {
-+	.name = "ethernet",
-+	.uid = HEADER_INSTANCE_ETHERNET,
-+	.hdrs = ethernet_headers,
-+	.jump = parse_ethernet,
-+};
-+
-+struct net_flow_jump_table parse_vlan[2] = {
-+	{
-+		.field = {
-+		   .header = HEADER_VLAN,
-+		   .field = HEADER_VLAN_ETHERTYPE,
-+		   .type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-+		   .value_u16 = 0x0800,
-+		},
-+		.node = HEADER_INSTANCE_IPV4,
-+	},
-+	{
-+		.field = {0},
-+		.node = 0,
-+	},
-+};
-+
-+int vlan_headers[2] = {HEADER_VLAN, 0};
-+struct net_flow_hdr_node vlan_header_node = {
-+	.name = "vlan",
-+	.uid = HEADER_INSTANCE_VLAN_OUTER,
-+	.hdrs = vlan_headers,
-+	.jump = parse_vlan,
-+};
-+
-+struct net_flow_jump_table terminal_headers[2] = {
-+	{
-+		.field = {0},
-+		.node = NET_FLOW_JUMP_TABLE_DONE,
-+	},
-+	{
-+		.field = {0},
-+		.node = 0,
-+	},
-+};
-+
-+int ipv4_headers[2] = {HEADER_IPV4, 0};
-+struct net_flow_hdr_node ipv4_header_node = {
-+	.name = "ipv4",
-+	.uid = HEADER_INSTANCE_IPV4,
-+	.hdrs = ipv4_headers,
-+	.jump = terminal_headers,
-+};
-+
-+int metadata_headers[2] = {HEADER_METADATA, 0};
-+struct net_flow_hdr_node in_lport_header_node = {
-+	.name = "in_lport",
-+	.uid = HEADER_INSTANCE_IN_LPORT,
-+	.hdrs = metadata_headers,
-+	.jump = terminal_headers,
-+};
-+
-+struct net_flow_hdr_node goto_table_header_node = {
-+	.name = "goto_table",
-+	.uid = HEADER_INSTANCE_GOTO_TABLE,
-+	.hdrs = metadata_headers,
-+	.jump = terminal_headers,
-+};
-+
-+struct net_flow_hdr_node group_id_header_node = {
-+	.name = "group_id",
-+	.uid = HEADER_INSTANCE_GROUP_ID,
-+	.hdrs = metadata_headers,
-+	.jump = terminal_headers,
-+};
-+
-+struct net_flow_hdr_node null_header = {.name = "", .uid = 0,};
-+
-+struct net_flow_hdr_node *rocker_header_nodes[7] = {
-+	&ethernet_header_node,
-+	&vlan_header_node,
-+	&ipv4_header_node,
-+	&in_lport_header_node,
-+	&goto_table_header_node,
-+	&group_id_header_node,
-+	&null_header,
-+};
-+
-+/* table definition */
-+struct net_flow_field_ref matches_ig_port[2] = {
-+	{ .instance = HEADER_INSTANCE_IN_LPORT,
-+	  .header = HEADER_METADATA,
-+	  .field = HEADER_METADATA_IN_LPORT,
-+	  .mask_type = NET_FLOW_MASK_TYPE_LPM},
-+	{ .instance = 0, .field = 0},
-+};
-+
-+struct net_flow_field_ref matches_vlan[3] = {
-+	{ .instance = HEADER_INSTANCE_IN_LPORT,
-+	  .header = HEADER_METADATA,
-+	  .field = HEADER_METADATA_IN_LPORT,
-+	  .mask_type = NET_FLOW_MASK_TYPE_LPM},
-+	{ .instance = HEADER_INSTANCE_VLAN_OUTER,
-+	  .header = HEADER_VLAN,
-+	  .field = HEADER_VLAN_VID,
-+	  .mask_type = NET_FLOW_MASK_TYPE_LPM},
-+	{ .instance = 0, .field = 0},
-+};
-+
-+struct net_flow_field_ref matches_term_mac[5] = {
-+	{ .instance = HEADER_INSTANCE_IN_LPORT,
-+	  .header = HEADER_METADATA,
-+	  .field = HEADER_METADATA_IN_LPORT,
-+	  .mask_type = NET_FLOW_MASK_TYPE_LPM},
-+	{ .instance = HEADER_INSTANCE_ETHERNET,
-+	  .header = HEADER_ETHERNET,
-+	  .field = HEADER_ETHERNET_ETHERTYPE,
-+	  .mask_type = NET_FLOW_MASK_TYPE_EXACT},
-+	{ .instance = HEADER_INSTANCE_ETHERNET,
-+	  .header = HEADER_ETHERNET,
-+	  .field = HEADER_ETHERNET_DST_MAC,
-+	  .mask_type = NET_FLOW_MASK_TYPE_LPM},
-+	{ .instance = HEADER_INSTANCE_VLAN_OUTER,
-+	  .header = HEADER_VLAN,
-+	  .field = HEADER_VLAN_VID,
-+	  .mask_type = NET_FLOW_MASK_TYPE_LPM},
-+	{ .instance = 0, .field = 0},
-+};
-+
-+struct net_flow_field_ref matches_ucast_routing[3] = {
-+	{ .instance = HEADER_INSTANCE_ETHERNET,
-+	  .header = HEADER_ETHERNET,
-+	  .field = HEADER_ETHERNET_ETHERTYPE,
-+	  .mask_type = NET_FLOW_MASK_TYPE_EXACT},
-+	{ .instance = HEADER_INSTANCE_IPV4,
-+	  .header = HEADER_IPV4,
-+	  .field = HEADER_IPV4_DST_IP,
-+	  .mask_type = NET_FLOW_MASK_TYPE_LPM},
-+	{ .instance = 0, .field = 0},
-+};
-+
-+struct net_flow_field_ref matches_bridge[3] = {
-+	{ .instance = HEADER_INSTANCE_ETHERNET,
-+	  .header = HEADER_ETHERNET,
-+	  .field = HEADER_ETHERNET_DST_MAC,
-+	  .mask_type = NET_FLOW_MASK_TYPE_LPM},
-+	{ .instance = HEADER_INSTANCE_VLAN_OUTER,
-+	  .header = HEADER_VLAN,
-+	  .field = HEADER_VLAN_VID,
-+	  .mask_type = NET_FLOW_MASK_TYPE_LPM},
-+	{ .instance = 0, .field = 0},
-+};
-+
-+struct net_flow_field_ref matches_acl[8] = {
-+	{ .instance = HEADER_INSTANCE_IN_LPORT,
-+	  .header = HEADER_METADATA,
-+	  .field = HEADER_METADATA_IN_LPORT,
-+	  .mask_type = NET_FLOW_MASK_TYPE_LPM},
-+	{ .instance = HEADER_INSTANCE_ETHERNET,
-+	  .header = HEADER_ETHERNET,
-+	  .field = HEADER_ETHERNET_SRC_MAC,
-+	  .mask_type = NET_FLOW_MASK_TYPE_LPM},
-+	{ .instance = HEADER_INSTANCE_ETHERNET,
-+	  .header = HEADER_ETHERNET,
-+	  .field = HEADER_ETHERNET_DST_MAC,
-+	  .mask_type = NET_FLOW_MASK_TYPE_LPM},
-+	{ .instance = HEADER_INSTANCE_ETHERNET,
-+	  .header = HEADER_ETHERNET,
-+	  .field = HEADER_ETHERNET_ETHERTYPE,
-+	  .mask_type = NET_FLOW_MASK_TYPE_EXACT},
-+	{ .instance = HEADER_INSTANCE_VLAN_OUTER,
-+	  .header = HEADER_VLAN,
-+	  .field = HEADER_VLAN_VID,
-+	  .mask_type = NET_FLOW_MASK_TYPE_LPM},
-+	{ .instance = HEADER_INSTANCE_IPV4,
-+	  .header = HEADER_IPV4,
-+	  .field = HEADER_IPV4_PROTOCOL,
-+	  .mask_type = NET_FLOW_MASK_TYPE_LPM},
-+	{ .instance = HEADER_INSTANCE_IPV4,
-+	  .header = HEADER_IPV4,
-+	  .field = HEADER_IPV4_DSCP,
-+	  .mask_type = NET_FLOW_MASK_TYPE_LPM},
-+	{ .instance = 0, .field = 0},
-+};
-+
-+int actions_ig_port[2] = {ACTION_SET_GOTO_TABLE, 0};
-+int actions_vlan[3] = {ACTION_SET_GOTO_TABLE, ACTION_SET_VLAN_ID, 0};
-+int actions_term_mac[3] = {ACTION_SET_GOTO_TABLE, ACTION_COPY_TO_CPU, 0};
-+int actions_ucast_routing[3] = {ACTION_SET_GOTO_TABLE, ACTION_SET_GROUP_ID, 0};
-+int actions_bridge[4] = {ACTION_SET_GOTO_TABLE,
-+			 ACTION_SET_GROUP_ID,
-+			 ACTION_COPY_TO_CPU, 0};
-+int actions_acl[2] = {ACTION_SET_GROUP_ID, 0};
-+
-+enum rocker_flow_table_id_space {
-+	ROCKER_FLOW_TABLE_ID_INGRESS_PORT = 1,
-+	ROCKER_FLOW_TABLE_ID_VLAN,
-+	ROCKER_FLOW_TABLE_ID_TERMINATION_MAC,
-+	ROCKER_FLOW_TABLE_ID_UNICAST_ROUTING,
-+	ROCKER_FLOW_TABLE_ID_BRIDGING,
-+	ROCKER_FLOW_TABLE_ID_ACL_POLICY,
-+	ROCKER_FLOW_TABLE_NULL = 0,
-+};
-+
-+struct net_flow_table ingress_port_table = {
-+	.name = "ingress_port",
-+	.uid = ROCKER_FLOW_TABLE_ID_INGRESS_PORT,
-+	.source = 1,
-+	.size = -1,
-+	.matches = matches_ig_port,
-+	.actions = actions_ig_port,
-+};
-+
-+struct net_flow_table vlan_table = {
-+	.name = "vlan",
-+	.uid = ROCKER_FLOW_TABLE_ID_VLAN,
-+	.source = 1,
-+	.size = -1,
-+	.matches = matches_vlan,
-+	.actions = actions_vlan,
-+};
-+
-+struct net_flow_table term_mac_table = {
-+	.name = "term_mac",
-+	.uid = ROCKER_FLOW_TABLE_ID_TERMINATION_MAC,
-+	.source = 1,
-+	.size = -1,
-+	.matches = matches_term_mac,
-+	.actions = actions_term_mac,
-+};
-+
-+struct net_flow_table ucast_routing_table = {
-+	.name = "ucast_routing",
-+	.uid = ROCKER_FLOW_TABLE_ID_UNICAST_ROUTING,
-+	.source = 1,
-+	.size = -1,
-+	.matches = matches_ucast_routing,
-+	.actions = actions_ucast_routing,
-+};
-+
-+struct net_flow_table bridge_table = {
-+	.name = "bridge",
-+	.uid = ROCKER_FLOW_TABLE_ID_BRIDGING,
-+	.source = 1,
-+	.size = -1,
-+	.matches = matches_bridge,
-+	.actions = actions_bridge,
-+};
-+
-+struct net_flow_table acl_table = {
-+	.name = "acl",
-+	.uid = ROCKER_FLOW_TABLE_ID_ACL_POLICY,
-+	.source = 1,
-+	.size = -1,
-+	.matches = matches_acl,
-+	.actions = actions_acl,
-+};
-+
-+struct net_flow_table null_table = {
-+	.name = "",
-+	.uid = 0,
-+	.source = 0,
-+	.size = 0,
-+	.matches = NULL,
-+	.actions = NULL,
-+};
-+
-+struct net_flow_table *rocker_table_list[7] = {
-+	&ingress_port_table,
-+	&vlan_table,
-+	&term_mac_table,
-+	&ucast_routing_table,
-+	&bridge_table,
-+	&acl_table,
-+	&null_table,
-+};
-+
-+/* Define the table graph layout */
-+struct net_flow_jump_table table_node_ig_port_next[2] = {
-+	{ .field = {0}, .node = ROCKER_FLOW_TABLE_ID_VLAN},
-+	{ .field = {0}, .node = 0},
-+};
-+
-+struct net_flow_tbl_node table_node_ingress_port = {
-+	.uid = ROCKER_FLOW_TABLE_ID_INGRESS_PORT,
-+	.jump = table_node_ig_port_next};
-+
-+struct net_flow_jump_table table_node_vlan_next[2] = {
-+	{ .field = {0}, .node = ROCKER_FLOW_TABLE_ID_TERMINATION_MAC},
-+	{ .field = {0}, .node = 0},
-+};
-+
-+struct net_flow_tbl_node table_node_vlan = {
-+	.uid = ROCKER_FLOW_TABLE_ID_VLAN,
-+	.jump = table_node_vlan_next};
-+
-+struct net_flow_jump_table table_node_term_mac_next[2] = {
-+	{ .field = {0}, .node = ROCKER_FLOW_TABLE_ID_UNICAST_ROUTING},
-+	{ .field = {0}, .node = 0},
-+};
-+
-+struct net_flow_tbl_node table_node_term_mac = {
-+	.uid = ROCKER_FLOW_TABLE_ID_TERMINATION_MAC,
-+	.jump = table_node_term_mac_next};
-+
-+struct net_flow_jump_table table_node_bridge_next[2] = {
-+	{ .field = {0}, .node = ROCKER_FLOW_TABLE_ID_ACL_POLICY},
-+	{ .field = {0}, .node = 0},
-+};
-+
-+struct net_flow_tbl_node table_node_bridge = {
-+	.uid = ROCKER_FLOW_TABLE_ID_BRIDGING,
-+	.jump = table_node_bridge_next};
-+
-+struct net_flow_jump_table table_node_ucast_routing_next[2] = {
-+	{ .field = {0}, .node = ROCKER_FLOW_TABLE_ID_ACL_POLICY},
-+	{ .field = {0}, .node = 0},
-+};
-+
-+struct net_flow_tbl_node table_node_ucast_routing = {
-+	.uid = ROCKER_FLOW_TABLE_ID_UNICAST_ROUTING,
-+	.jump = table_node_ucast_routing_next};
-+
-+struct net_flow_jump_table table_node_acl_next[1] = {
-+	{ .field = {0}, .node = 0},
-+};
-+
-+struct net_flow_tbl_node table_node_acl = {
-+	.uid = ROCKER_FLOW_TABLE_ID_ACL_POLICY,
-+	.jump = table_node_acl_next};
-+
-+struct net_flow_tbl_node table_node_nil = {.uid = 0, .jump = NULL};
-+
-+struct net_flow_tbl_node *rocker_table_nodes[7] = {
-+	&table_node_ingress_port,
-+	&table_node_vlan,
-+	&table_node_term_mac,
-+	&table_node_ucast_routing,
-+	&table_node_bridge,
-+	&table_node_acl,
-+	&table_node_nil,
-+};
-+#endif /*_MY_PIPELINE_H*/
+@@ -527,6 +527,7 @@ enum rocker_flow_table_id_space {
+ 	ROCKER_FLOW_TABLE_ID_VLAN,
+ 	ROCKER_FLOW_TABLE_ID_TERMINATION_MAC,
+ 	ROCKER_FLOW_TABLE_ID_UNICAST_ROUTING,
++	ROCKER_FLOW_TABLE_ID_MULTICAST_ROUTING,
+ 	ROCKER_FLOW_TABLE_ID_BRIDGING,
+ 	ROCKER_FLOW_TABLE_ID_ACL_POLICY,
+ 	ROCKER_FLOW_TABLE_NULL = 0,
+@@ -588,7 +589,7 @@ struct net_flow_table acl_table = {
+ 
+ struct net_flow_table null_table = {
+ 	.name = "",
+-	.uid = 0,
++	.uid = ROCKER_FLOW_TABLE_NULL,
+ 	.source = 0,
+ 	.size = 0,
+ 	.matches = NULL,
