@@ -1,34 +1,95 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next 00/11] Time Counter fixes and improvements
-Date: Wed, 31 Dec 2014 18:42:00 +0100
-Message-ID: <20141231174200.GA4238@localhost.localdomain>
-References: <cover.1418504883.git.richardcochran@gmail.com>
- <20141230.183201.53211717284248412.davem@davemloft.net>
+From: Jeremiah Mahler <jmmahler@gmail.com>
+Subject: Re: [PATCH net-next v2 1/2] bridge: new attribute and flags to
+ represent vlan info lists and ranges
+Date: Wed, 31 Dec 2014 09:45:42 -0800
+Message-ID: <20141231174542.GA1922@hudson.localdomain>
+References: <1420044533-16963-2-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	amirv@mellanox.com, ariel.elior@qlogic.com,
-	carolyn.wyborny@intel.com, Frank.Li@freescale.com,
-	jeffrey.t.kirsher@intel.com, john.stultz@linaro.org,
-	matthew.vick@intel.com, mlichvar@redhat.com, mugunthanvnm@ti.com,
-	ogerlitz@mellanox.com, tglx@linutronix.de, thomas.lendacky@amd.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, hemminger@vyatta.com, vyasevic@redhat.com,
+	sfeldma@gmail.com, wkok@cumulusnetworks.com
+To: roopa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:62513 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750956AbaLaRpq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 12:45:46 -0500
+Received: by mail-pa0-f43.google.com with SMTP id kx10so21610952pab.2
+        for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 09:45:45 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20141230.183201.53211717284248412.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1420044533-16963-2-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 30, 2014 at 06:32:01PM -0500, David Miller wrote:
+Roopa,
+
+On Wed, Dec 31, 2014 at 08:48:52AM -0800, roopa@cumulusnetworks.com wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 > 
-> Series applied, thanks Richard.
+> This patch adds (as suggested by scott feldman),
+>         - new netlink attribute IFLA_BRIDGE_VLAN_INFO_LIST to represent
+>           vlan list
+>         - And bridge_vlan_info flags BRIDGE_VLAN_INFO_RANGE_START and
+>           BRIDGE_VLAN_INFO_RANGE_END to indicate start and end of vlan range
+> 
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+>  include/uapi/linux/if_bridge.h |    4 ++++
+>  net/bridge/br_netlink.c        |    1 +
+>  2 files changed, 5 insertions(+)
+> 
+> diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
+> index b03ee8f..fa468aa 100644
+> --- a/include/uapi/linux/if_bridge.h
+> +++ b/include/uapi/linux/if_bridge.h
+> @@ -112,12 +112,14 @@ struct __fdb_entry {
+>   *     [IFLA_BRIDGE_FLAGS]
+>   *     [IFLA_BRIDGE_MODE]
+>   *     [IFLA_BRIDGE_VLAN_INFO]
+> + *     [IFLA_BRIDGE_VLAN_INFO_LIST]
+>   * }
+>   */
+>  enum {
+>  	IFLA_BRIDGE_FLAGS,
+>  	IFLA_BRIDGE_MODE,
+>  	IFLA_BRIDGE_VLAN_INFO,
+> +	IFLA_BRIDGE_VLAN_INFO_LIST,
+>  	__IFLA_BRIDGE_MAX,
+>  };
+>  #define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
+> @@ -125,6 +127,8 @@ enum {
+>  #define BRIDGE_VLAN_INFO_MASTER	(1<<0)	/* Operate on Bridge device as well */
+>  #define BRIDGE_VLAN_INFO_PVID	(1<<1)	/* VLAN is PVID, ingress untagged */
+>  #define BRIDGE_VLAN_INFO_UNTAGGED	(1<<2)	/* VLAN egresses untagged */
+> +#define BRIDGE_VLAN_INFO_RANGE_START	(1<<3) /* VLAN is start of vlan range */
+> +#define BRIDGE_VLAN_INFO_RANGE_END	(1<<4) /* VLAN is end of vlan range */
+>  
+You add these here but you don't use them until the next patch.
+If they were wrong a bisect would point to the next patch.
 
-I got an automated email from
+I would add them in the next patch where you start to use them.
 
-  kbuild test robot <fengguang.wu@intel.com>
+>  struct bridge_vlan_info {
+>  	__u16 flags;
+> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+> index 9f5eb55..492ef6a 100644
+> --- a/net/bridge/br_netlink.c
+> +++ b/net/bridge/br_netlink.c
+> @@ -223,6 +223,7 @@ static const struct nla_policy ifla_br_policy[IFLA_MAX+1] = {
+>  	[IFLA_BRIDGE_MODE]	= { .type = NLA_U16 },
+>  	[IFLA_BRIDGE_VLAN_INFO]	= { .type = NLA_BINARY,
+>  				    .len = sizeof(struct bridge_vlan_info), },
+> +	[IFLA_BRIDGE_VLAN_INFO_LIST] = { .type = NLA_NESTED, },
+>  };
+>  
+>  static int br_afspec(struct net_bridge *br,
+> -- 
+> 1.7.10.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-showing new warnings and errors introduced by this series. I'll follow
-up with fixes soon.
-
-Thanks,
-Richard
+-- 
+- Jeremiah Mahler
