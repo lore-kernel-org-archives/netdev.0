@@ -1,24 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tun: Fixed unsigned/signed comparison
-Date: Wed, 31 Dec 2014 14:15:19 -0500 (EST)
-Message-ID: <20141231.141519.1699158219787680373.davem@davemloft.net>
-References: <1419577503-12862-1-git-send-email-agartrell@fb.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next] l2tp : multicast notification to the
+ registered listeners
+Date: Wed, 31 Dec 2014 14:17:31 -0500 (EST)
+Message-ID: <20141231.141731.1681406451412491811.davem@davemloft.net>
+References: <20141227101239.3ea24d70@urahara>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-team@fb.com
-To: agartrell@fb.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1419577503-12862-1-git-send-email-agartrell@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, g.nault-pHk1y4uTXVDytLWWfqlThQ@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20141227101239.3ea24d70@urahara>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Alex Gartrell <agartrell@fb.com>
-Date: Thu, 25 Dec 2014 23:05:03 -0800
+From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Date: Sat, 27 Dec 2014 10:12:39 -0800
 
-> Validated that this was actually using the unsigned comparison with gdb.
+> From: Bill Hong <bhong-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org>
 > 
-> Signed-off-by: Alex Gartrell <agartrell@fb.com>
+> Previously l2tp module did not provide any means for the user space to
+> get notified when tunnels/sessions are added/modified/deleted.
+> This change contains the following
+> - create a multicast group for the listeners to register.
+> - notify the registered listeners when the tunnels/sessions are
+>   created/modified/deleted.
+> 
+> Signed-off-by: Bill Hong <bhong-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org>
+> Reviewed-by: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+> Reviewed-by: Sven-Thorsten Dietrich <sven-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org>
 
 Applied.
