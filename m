@@ -1,163 +1,72 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH net-next 1/2] net: Add Transparent Ethernet Bridging GRO support.
-Date: Tue, 30 Dec 2014 19:10:15 -0800
-Message-ID: <1419995416-29987-1-git-send-email-jesse@nicira.com>
-Cc: netdev@vger.kernel.org
+Subject: [PATCH net-next 2/2] geneve: Add Geneve GRO support
+Date: Tue, 30 Dec 2014 19:10:16 -0800
+Message-ID: <1419995416-29987-2-git-send-email-jesse@nicira.com>
+References: <1419995416-29987-1-git-send-email-jesse@nicira.com>
+Cc: netdev@vger.kernel.org, Joe Stringer <joestringer@nicira.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog106.obsmtp.com ([74.125.149.77]:48486 "HELO
-	na3sys009aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751374AbaLaDKY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2014 22:10:24 -0500
-Received: by mail-pd0-f182.google.com with SMTP id p10so20077122pdj.41
-        for <netdev@vger.kernel.org>; Tue, 30 Dec 2014 19:10:23 -0800 (PST)
+Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:36672 "HELO
+	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751374AbaLaDK0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2014 22:10:26 -0500
+Received: by mail-pa0-f54.google.com with SMTP id fb1so20467667pad.41
+        for <netdev@vger.kernel.org>; Tue, 30 Dec 2014 19:10:25 -0800 (PST)
+In-Reply-To: <1419995416-29987-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently the only tunnel protocol that supports GRO with encapsulated
-Ethernet is VXLAN. This pulls out the Ethernet code into a proper layer
-so that it can be used by other tunnel protocols such as GRE and Geneve.
+From: Joe Stringer <joestringer@nicira.com>
 
+This results in an approximately 30% increase in throughput
+when handling encapsulated bulk traffic.
+
+Signed-off-by: Joe Stringer <joestringer@nicira.com>
 Signed-off-by: Jesse Gross <jesse@nicira.com>
 ---
- drivers/net/vxlan.c         | 53 +++-----------------------
- include/linux/etherdevice.h |  4 ++
- net/ethernet/eth.c          | 92 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 102 insertions(+), 47 deletions(-)
+ net/ipv4/geneve.c | 97 +++++++++++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 95 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 7fbd89f..2ab0922 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -549,10 +549,7 @@ static struct sk_buff **vxlan_gro_receive(struct sk_buff **head, struct sk_buff
- {
- 	struct sk_buff *p, **pp = NULL;
- 	struct vxlanhdr *vh, *vh2;
--	struct ethhdr *eh, *eh2;
--	unsigned int hlen, off_vx, off_eth;
--	const struct packet_offload *ptype;
--	__be16 type;
-+	unsigned int hlen, off_vx;
- 	int flush = 1;
- 
- 	off_vx = skb_gro_offset(skb);
-@@ -563,17 +560,6 @@ static struct sk_buff **vxlan_gro_receive(struct sk_buff **head, struct sk_buff
- 		if (unlikely(!vh))
- 			goto out;
- 	}
--	skb_gro_pull(skb, sizeof(struct vxlanhdr)); /* pull vxlan header */
--	skb_gro_postpull_rcsum(skb, vh, sizeof(struct vxlanhdr));
--
--	off_eth = skb_gro_offset(skb);
--	hlen = off_eth + sizeof(*eh);
--	eh   = skb_gro_header_fast(skb, off_eth);
--	if (skb_gro_header_hard(skb, hlen)) {
--		eh = skb_gro_header_slow(skb, hlen, off_eth);
--		if (unlikely(!eh))
--			goto out;
--	}
- 
- 	flush = 0;
- 
-@@ -582,28 +568,16 @@ static struct sk_buff **vxlan_gro_receive(struct sk_buff **head, struct sk_buff
- 			continue;
- 
- 		vh2 = (struct vxlanhdr *)(p->data + off_vx);
--		eh2 = (struct ethhdr   *)(p->data + off_eth);
--		if (vh->vx_vni != vh2->vx_vni || compare_ether_header(eh, eh2)) {
-+		if (vh->vx_vni != vh2->vx_vni) {
- 			NAPI_GRO_CB(p)->same_flow = 0;
- 			continue;
- 		}
- 	}
- 
--	type = eh->h_proto;
--
--	rcu_read_lock();
--	ptype = gro_find_receive_by_type(type);
--	if (ptype == NULL) {
--		flush = 1;
--		goto out_unlock;
--	}
--
--	skb_gro_pull(skb, sizeof(*eh)); /* pull inner eth header */
--	skb_gro_postpull_rcsum(skb, eh, sizeof(*eh));
--	pp = ptype->callbacks.gro_receive(head, skb);
-+	skb_gro_pull(skb, sizeof(struct vxlanhdr));
-+	skb_gro_postpull_rcsum(skb, vh, sizeof(struct vxlanhdr));
-+	pp = eth_gro_receive(head, skb);
- 
--out_unlock:
--	rcu_read_unlock();
- out:
- 	NAPI_GRO_CB(skb)->flush |= flush;
- 
-@@ -612,24 +586,9 @@ out:
- 
- static int vxlan_gro_complete(struct sk_buff *skb, int nhoff)
- {
--	struct ethhdr *eh;
--	struct packet_offload *ptype;
--	__be16 type;
--	int vxlan_len  = sizeof(struct vxlanhdr) + sizeof(struct ethhdr);
--	int err = -ENOSYS;
--
- 	udp_tunnel_gro_complete(skb, nhoff);
- 
--	eh = (struct ethhdr *)(skb->data + nhoff + sizeof(struct vxlanhdr));
--	type = eh->h_proto;
--
--	rcu_read_lock();
--	ptype = gro_find_complete_by_type(type);
--	if (ptype != NULL)
--		err = ptype->callbacks.gro_complete(skb, nhoff + vxlan_len);
--
--	rcu_read_unlock();
--	return err;
-+	return eth_gro_complete(skb, nhoff + sizeof(struct vxlanhdr));
+diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
+index 394a200..19e256e 100644
+--- a/net/ipv4/geneve.c
++++ b/net/ipv4/geneve.c
+@@ -149,6 +149,99 @@ int geneve_xmit_skb(struct geneve_sock *gs, struct rtable *rt,
  }
+ EXPORT_SYMBOL_GPL(geneve_xmit_skb);
  
- /* Notify netdevs that UDP port started listening */
-diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
-index 41c891d..1d869d1 100644
---- a/include/linux/etherdevice.h
-+++ b/include/linux/etherdevice.h
-@@ -52,6 +52,10 @@ struct net_device *alloc_etherdev_mqs(int sizeof_priv, unsigned int txqs,
- #define alloc_etherdev(sizeof_priv) alloc_etherdev_mq(sizeof_priv, 1)
- #define alloc_etherdev_mq(sizeof_priv, count) alloc_etherdev_mqs(sizeof_priv, count, count)
- 
-+struct sk_buff **eth_gro_receive(struct sk_buff **head,
-+				 struct sk_buff *skb);
-+int eth_gro_complete(struct sk_buff *skb, int nhoff);
++static int geneve_hlen(struct genevehdr *gh)
++{
++	return sizeof(*gh) + gh->opt_len * 4;
++}
 +
- /* Reserved Ethernet Addresses per IEEE 802.1Q */
- static const u8 eth_reserved_addr_base[ETH_ALEN] __aligned(2) =
- { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 };
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index 33a140e..238f38d 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -424,3 +424,95 @@ ssize_t sysfs_format_mac(char *buf, const unsigned char *addr, int len)
- 	return scnprintf(buf, PAGE_SIZE, "%*phC\n", len, addr);
- }
- EXPORT_SYMBOL(sysfs_format_mac);
-+
-+struct sk_buff **eth_gro_receive(struct sk_buff **head,
-+				 struct sk_buff *skb)
++static struct sk_buff **geneve_gro_receive(struct sk_buff **head,
++					   struct sk_buff *skb)
 +{
 +	struct sk_buff *p, **pp = NULL;
-+	struct ethhdr *eh, *eh2;
-+	unsigned int hlen, off_eth;
++	struct genevehdr *gh, *gh2;
++	unsigned int hlen, gh_len, off_gnv;
 +	const struct packet_offload *ptype;
 +	__be16 type;
 +	int flush = 1;
 +
-+	off_eth = skb_gro_offset(skb);
-+	hlen = off_eth + sizeof(*eh);
-+	eh = skb_gro_header_fast(skb, off_eth);
++	off_gnv = skb_gro_offset(skb);
++	hlen = off_gnv + sizeof(*gh);
++	gh = skb_gro_header_fast(skb, off_gnv);
 +	if (skb_gro_header_hard(skb, hlen)) {
-+		eh = skb_gro_header_slow(skb, hlen, off_eth);
-+		if (unlikely(!eh))
++		gh = skb_gro_header_slow(skb, hlen, off_gnv);
++		if (unlikely(!gh))
++			goto out;
++	}
++
++	if (gh->ver != GENEVE_VER || gh->oam)
++		goto out;
++	gh_len = geneve_hlen(gh);
++
++	hlen = off_gnv + gh_len;
++	if (skb_gro_header_hard(skb, hlen)) {
++		gh = skb_gro_header_slow(skb, hlen, off_gnv);
++		if (unlikely(!gh))
 +			goto out;
 +	}
 +
@@ -167,14 +76,15 @@ index 33a140e..238f38d 100644
 +		if (!NAPI_GRO_CB(p)->same_flow)
 +			continue;
 +
-+		eh2 = (struct ethhdr *)(p->data + off_eth);
-+		if (compare_ether_header(eh, eh2)) {
++		gh2 = (struct genevehdr *)(p->data + off_gnv);
++		if (gh->opt_len != gh2->opt_len ||
++		    memcmp(gh, gh2, gh_len)) {
 +			NAPI_GRO_CB(p)->same_flow = 0;
 +			continue;
 +		}
 +	}
 +
-+	type = eh->h_proto;
++	type = gh->proto_type;
 +
 +	rcu_read_lock();
 +	ptype = gro_find_receive_by_type(type);
@@ -183,8 +93,8 @@ index 33a140e..238f38d 100644
 +		goto out_unlock;
 +	}
 +
-+	skb_gro_pull(skb, sizeof(*eh));
-+	skb_gro_postpull_rcsum(skb, eh, sizeof(*eh));
++	skb_gro_pull(skb, gh_len);
++	skb_gro_postpull_rcsum(skb, gh, gh_len);
 +	pp = ptype->callbacks.gro_receive(head, skb);
 +
 +out_unlock:
@@ -194,44 +104,43 @@ index 33a140e..238f38d 100644
 +
 +	return pp;
 +}
-+EXPORT_SYMBOL(eth_gro_receive);
 +
-+int eth_gro_complete(struct sk_buff *skb, int nhoff)
++static int geneve_gro_complete(struct sk_buff *skb, int nhoff)
 +{
-+	struct ethhdr *eh = (struct ethhdr *)(skb->data + nhoff);
-+	__be16 type = eh->h_proto;
++	struct genevehdr *gh;
 +	struct packet_offload *ptype;
++	__be16 type;
++	int gh_len;
 +	int err = -ENOSYS;
 +
-+	if (skb->encapsulation)
-+		skb_set_inner_mac_header(skb, nhoff);
++	udp_tunnel_gro_complete(skb, nhoff);
++
++	gh = (struct genevehdr *)(skb->data + nhoff);
++	gh_len = geneve_hlen(gh);
++	type = gh->proto_type;
 +
 +	rcu_read_lock();
 +	ptype = gro_find_complete_by_type(type);
 +	if (ptype != NULL)
-+		err = ptype->callbacks.gro_complete(skb, nhoff +
-+						    sizeof(struct ethhdr));
++		err = ptype->callbacks.gro_complete(skb, nhoff + gh_len);
 +
 +	rcu_read_unlock();
 +	return err;
 +}
-+EXPORT_SYMBOL(eth_gro_complete);
 +
-+static struct packet_offload eth_packet_offload __read_mostly = {
-+	.type = cpu_to_be16(ETH_P_TEB),
-+	.callbacks = {
-+		.gro_receive = eth_gro_receive,
-+		.gro_complete = eth_gro_complete,
-+	},
-+};
-+
-+static int __init eth_offload_init(void)
-+{
-+	dev_add_offload(&eth_packet_offload);
-+
-+	return 0;
-+}
-+
-+fs_initcall(eth_offload_init);
+ static void geneve_notify_add_rx_port(struct geneve_sock *gs)
+ {
+ 	struct sock *sk = gs->sock->sk;
+@@ -278,8 +371,8 @@ static struct geneve_sock *geneve_socket_create(struct net *net, __be16 port,
+ 
+ 	/* Initialize the geneve udp offloads structure */
+ 	gs->udp_offloads.port = port;
+-	gs->udp_offloads.callbacks.gro_receive = NULL;
+-	gs->udp_offloads.callbacks.gro_complete = NULL;
++	gs->udp_offloads.callbacks.gro_receive  = geneve_gro_receive;
++	gs->udp_offloads.callbacks.gro_complete = geneve_gro_complete;
+ 
+ 	spin_lock(&gn->sock_lock);
+ 	hlist_add_head_rcu(&gs->hlist, gs_head(net, port));
 -- 
 1.9.1
