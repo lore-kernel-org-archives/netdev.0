@@ -1,73 +1,47 @@
-From: roopa@cumulusnetworks.com
-Subject: [PATCH net-next v2 1/2] bridge: new attribute and flags to represent vlan info lists and ranges
-Date: Wed, 31 Dec 2014 08:48:52 -0800
-Message-ID: <1420044533-16963-2-git-send-email-roopa@cumulusnetworks.com>
-Cc: sfeldma@gmail.com, wkok@cumulusnetworks.com,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: netdev@vger.kernel.org, hemminger@vyatta.com, vyasevic@redhat.com
+From: Vlad Zolotarov <vladz@cloudius-systems.com>
+Subject: Re: [PATCH net-next v1 4/5] ixgbevf: Add RSS Key query code
+Date: Wed, 31 Dec 2014 19:01:03 +0200
+Message-ID: <54A42BCF.8000904@cloudius-systems.com>
+References: <1420019519-18139-1-git-send-email-vladz@cloudius-systems.com>	 <1420019519-18139-5-git-send-email-vladz@cloudius-systems.com> <1420043307.31582.53.camel@jtkirshe-mobl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gleb@cloudius-systems.com,
+	avi@cloudius-systems.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:42507 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751126AbaLaQs7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 11:48:59 -0500
-Received: by mail-pa0-f51.google.com with SMTP id ey11so21627335pad.10
-        for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 08:48:58 -0800 (PST)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:35617 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750760AbaLaRBH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 12:01:07 -0500
+Received: by mail-wi0-f178.google.com with SMTP id em10so25695841wid.17
+        for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 09:01:05 -0800 (PST)
+In-Reply-To: <1420043307.31582.53.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-This patch adds (as suggested by scott feldman),
-        - new netlink attribute IFLA_BRIDGE_VLAN_INFO_LIST to represent
-          vlan list
-        - And bridge_vlan_info flags BRIDGE_VLAN_INFO_RANGE_START and
-          BRIDGE_VLAN_INFO_RANGE_END to indicate start and end of vlan range
+On 12/31/14 18:28, Jeff Kirsher wrote:
+> On Wed, 2014-12-31 at 11:51 +0200, Vlad Zolotarov wrote:
+>> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+>> ---
+>> New in v1 (compared to RFC):
+>>     - Use "if-else" statement instead of a "switch-case" for a single
+>> option case
+>>       (in ixgbevf_get_rss_key()).
+>>
+>> ---
+>>   drivers/net/ethernet/intel/ixgbevf/mbx.h |  2 ++
+>>   drivers/net/ethernet/intel/ixgbevf/vf.c  | 44
+>> ++++++++++++++++++++++++++++++++
+>>   drivers/net/ethernet/intel/ixgbevf/vf.h  |  1 +
+>>   3 files changed, 47 insertions(+)
+> Just caught this now, sorry but your patch description is sparse (i.e.
+> non-existent).  I know that the title of the patch pretty much tells
+> what you are doing, but it would be nice to have a bit more detail as to
+> why (like your first patch).
+>
+> Same goes for patch 5 of the series as well.
 
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- include/uapi/linux/if_bridge.h |    4 ++++
- net/bridge/br_netlink.c        |    1 +
- 2 files changed, 5 insertions(+)
-
-diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
-index b03ee8f..fa468aa 100644
---- a/include/uapi/linux/if_bridge.h
-+++ b/include/uapi/linux/if_bridge.h
-@@ -112,12 +112,14 @@ struct __fdb_entry {
-  *     [IFLA_BRIDGE_FLAGS]
-  *     [IFLA_BRIDGE_MODE]
-  *     [IFLA_BRIDGE_VLAN_INFO]
-+ *     [IFLA_BRIDGE_VLAN_INFO_LIST]
-  * }
-  */
- enum {
- 	IFLA_BRIDGE_FLAGS,
- 	IFLA_BRIDGE_MODE,
- 	IFLA_BRIDGE_VLAN_INFO,
-+	IFLA_BRIDGE_VLAN_INFO_LIST,
- 	__IFLA_BRIDGE_MAX,
- };
- #define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
-@@ -125,6 +127,8 @@ enum {
- #define BRIDGE_VLAN_INFO_MASTER	(1<<0)	/* Operate on Bridge device as well */
- #define BRIDGE_VLAN_INFO_PVID	(1<<1)	/* VLAN is PVID, ingress untagged */
- #define BRIDGE_VLAN_INFO_UNTAGGED	(1<<2)	/* VLAN egresses untagged */
-+#define BRIDGE_VLAN_INFO_RANGE_START	(1<<3) /* VLAN is start of vlan range */
-+#define BRIDGE_VLAN_INFO_RANGE_END	(1<<4) /* VLAN is end of vlan range */
- 
- struct bridge_vlan_info {
- 	__u16 flags;
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 9f5eb55..492ef6a 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -223,6 +223,7 @@ static const struct nla_policy ifla_br_policy[IFLA_MAX+1] = {
- 	[IFLA_BRIDGE_MODE]	= { .type = NLA_U16 },
- 	[IFLA_BRIDGE_VLAN_INFO]	= { .type = NLA_BINARY,
- 				    .len = sizeof(struct bridge_vlan_info), },
-+	[IFLA_BRIDGE_VLAN_INFO_LIST] = { .type = NLA_NESTED, },
- };
- 
- static int br_afspec(struct net_bridge *br,
--- 
-1.7.10.4
+No problema. ;)
+Will send the v2.
