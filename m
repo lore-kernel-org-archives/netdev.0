@@ -1,178 +1,79 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH 12/17] fib_trie: Add functions should_inflate and
- should_halve
-Date: Wed, 31 Dec 2014 10:56:37 -0800
-Message-ID: <20141231185637.3006.39888.stgit@ahduyck-vm-fedora20>
+Subject: [net-next PATCH 11/17] fib_trie: Move resize to after inflate/halve
+Date: Wed, 31 Dec 2014 10:56:31 -0800
+Message-ID: <20141231185631.3006.74075.stgit@ahduyck-vm-fedora20>
 References: <20141231184649.3006.29958.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51183 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51174 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751576AbaLaS4i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Dec 2014 13:56:38 -0500
+	id S1751576AbaLaS4c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Dec 2014 13:56:32 -0500
 Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id sBVIucn8010368
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id sBVIuW9w010357
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 13:56:38 -0500
+	for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 13:56:32 -0500
 Received: from [192.168.122.173] (ovpn-112-50.phx2.redhat.com [10.3.112.50])
-	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id sBVIubuu026774
-	for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 13:56:37 -0500
+	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id sBVIuV2H026760
+	for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 13:56:31 -0500
 In-Reply-To: <20141231184649.3006.29958.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change pulls the logic for if we should inflate/halve the nodes out
-into separate functions.  It also addresses what I believe is a bug where 1
-full node is all that is needed to keep a node from ever being halved.
-
-Simple script to reproduce the issue:
-	modprobe dummy;	ifconfig dummy0 up
-	for i in `seq 0 255`; do ifconfig dummy0:$i 10.0.${i}.1/24 up; done
-	ifconfig dummy0:256 10.0.255.33/16 up
-	for i in `seq 0 254`; do ifconfig dummy0:$i down; done
-
-Results from /proc/net/fib_triestat
-Before:
-	Local:
-		Aver depth:     3.00
-		Max depth:      4
-		Leaves:         17
-		Prefixes:       18
-		Internal nodes: 11
-		  1: 8  2: 2  10: 1
-		Pointers: 1048
-	Null ptrs: 1021
-	Total size: 11  kB
-After:
-	Local:
-		Aver depth:     3.41
-		Max depth:      5
-		Leaves:         17
-		Prefixes:       18
-		Internal nodes: 12
-		  1: 8  2: 3  3: 1
-		Pointers: 36
-	Null ptrs: 8
-	Total size: 3  kB
+This change consists of a cut/paste of resize to behind inflate and halve
+so that I could remove the two function prototypes.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/ipv4/fib_trie.c |  175 ++++++++++++++++++++++++++-------------------------
- 1 file changed, 89 insertions(+), 86 deletions(-)
+ net/ipv4/fib_trie.c |  311 +++++++++++++++++++++++++--------------------------
+ 1 file changed, 154 insertions(+), 157 deletions(-)
 
 diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index d044fa3..58e1224 100644
+index 987b06d..d044fa3 100644
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
-@@ -647,12 +647,94 @@ nomem:
- 	return ERR_PTR(-ENOMEM);
+@@ -149,8 +149,6 @@ struct trie {
+ static void tnode_put_child_reorg(struct tnode *tn, unsigned long i,
+ 				  struct tnode *n, int wasfull);
+ static struct tnode *resize(struct trie *t, struct tnode *tn);
+-static struct tnode *inflate(struct trie *t, struct tnode *tn);
+-static struct tnode *halve(struct trie *t, struct tnode *tn);
+ /* tnodes to free after resize(); protected by RTNL */
+ static struct callback_head *tnode_free_head;
+ static size_t tnode_free_size;
+@@ -447,161 +445,6 @@ static void put_child_root(struct tnode *tp, struct trie *t,
+ 		rcu_assign_pointer(t->trie, n);
  }
  
-+/* From "Implementing a dynamic compressed trie" by Stefan Nilsson of
-+ * the Helsinki University of Technology and Matti Tikkanen of Nokia
-+ * Telecommunications, page 6:
-+ * "A node is doubled if the ratio of non-empty children to all
-+ * children in the *doubled* node is at least 'high'."
-+ *
-+ * 'high' in this instance is the variable 'inflate_threshold'. It
-+ * is expressed as a percentage, so we multiply it with
-+ * tnode_child_length() and instead of multiplying by 2 (since the
-+ * child array will be doubled by inflate()) and multiplying
-+ * the left-hand side by 100 (to handle the percentage thing) we
-+ * multiply the left-hand side by 50.
-+ *
-+ * The left-hand side may look a bit weird: tnode_child_length(tn)
-+ * - tn->empty_children is of course the number of non-null children
-+ * in the current node. tn->full_children is the number of "full"
-+ * children, that is non-null tnodes with a skip value of 0.
-+ * All of those will be doubled in the resulting inflated tnode, so
-+ * we just count them one extra time here.
-+ *
-+ * A clearer way to write this would be:
-+ *
-+ * to_be_doubled = tn->full_children;
-+ * not_to_be_doubled = tnode_child_length(tn) - tn->empty_children -
-+ *     tn->full_children;
-+ *
-+ * new_child_length = tnode_child_length(tn) * 2;
-+ *
-+ * new_fill_factor = 100 * (not_to_be_doubled + 2*to_be_doubled) /
-+ *      new_child_length;
-+ * if (new_fill_factor >= inflate_threshold)
-+ *
-+ * ...and so on, tho it would mess up the while () loop.
-+ *
-+ * anyway,
-+ * 100 * (not_to_be_doubled + 2*to_be_doubled) / new_child_length >=
-+ *      inflate_threshold
-+ *
-+ * avoid a division:
-+ * 100 * (not_to_be_doubled + 2*to_be_doubled) >=
-+ *      inflate_threshold * new_child_length
-+ *
-+ * expand not_to_be_doubled and to_be_doubled, and shorten:
-+ * 100 * (tnode_child_length(tn) - tn->empty_children +
-+ *    tn->full_children) >= inflate_threshold * new_child_length
-+ *
-+ * expand new_child_length:
-+ * 100 * (tnode_child_length(tn) - tn->empty_children +
-+ *    tn->full_children) >=
-+ *      inflate_threshold * tnode_child_length(tn) * 2
-+ *
-+ * shorten again:
-+ * 50 * (tn->full_children + tnode_child_length(tn) -
-+ *    tn->empty_children) >= inflate_threshold *
-+ *    tnode_child_length(tn)
-+ *
-+ */
-+static bool should_inflate(const struct tnode *tn)
-+{
-+	unsigned long used = tnode_child_length(tn);
-+	unsigned long threshold = used;
-+
-+	/* Keep root node larger */
-+	threshold *= node_parent(tn) ? inflate_threshold :
-+				       inflate_threshold_root;
-+	used += tn->full_children;
-+	used -= tn->empty_children;
-+
-+	return tn->pos && ((50 * used) >= threshold);
-+}
-+
-+static bool should_halve(const struct tnode *tn)
-+{
-+	unsigned long used = tnode_child_length(tn);
-+	unsigned long threshold = used;
-+
-+	/* Keep root node larger */
-+	threshold *= node_parent(tn) ? halve_threshold :
-+				       halve_threshold_root;
-+	used -= tn->empty_children;
-+
-+	return (tn->bits > 1) && ((100 * used) < threshold);
-+}
-+
- #define MAX_WORK 10
- static struct tnode *resize(struct trie *t, struct tnode *tn)
- {
- 	struct tnode *old_tn, *n = NULL;
+-#define MAX_WORK 10
+-static struct tnode *resize(struct trie *t, struct tnode *tn)
+-{
+-	struct tnode *old_tn, *n = NULL;
 -	int inflate_threshold_use;
 -	int halve_threshold_use;
- 	int max_work;
- 
- 	if (!tn)
-@@ -668,86 +750,12 @@ static struct tnode *resize(struct trie *t, struct tnode *tn)
- 	/* One child */
- 	if (tn->empty_children == (tnode_child_length(tn) - 1))
- 		goto one_child;
+-	int max_work;
+-
+-	if (!tn)
+-		return NULL;
+-
+-	pr_debug("In tnode_resize %p inflate_threshold=%d threshold=%d\n",
+-		 tn, inflate_threshold, halve_threshold);
+-
+-	/* No children */
+-	if (tn->empty_children > (tnode_child_length(tn) - 1))
+-		goto no_children;
+-
+-	/* One child */
+-	if (tn->empty_children == (tnode_child_length(tn) - 1))
+-		goto one_child;
 -	/*
 -	 * Double as long as the resulting node has a number of
 -	 * nonempty nodes that are above the threshold.
 -	 */
- 
+-
 -	/*
 -	 * From "Implementing a dynamic compressed trie" by Stefan Nilsson of
 -	 * the Helsinki University of Technology and Matti Tikkanen of Nokia
@@ -230,9 +131,7 @@ index d044fa3..58e1224 100644
 -	 *    tn->empty_children) >= inflate_threshold *
 -	 *    tnode_child_length(tn)
 -	 *
-+	/* Double as long as the resulting node has a number of
-+	 * nonempty nodes that are above the threshold.
- 	 */
+-	 */
 -
 -	/* Keep root node larger  */
 -
@@ -244,32 +143,227 @@ index d044fa3..58e1224 100644
 -		halve_threshold_use = halve_threshold;
 -	}
 -
- 	max_work = MAX_WORK;
+-	max_work = MAX_WORK;
 -	while ((tn->full_children > 0 &&  max_work-- &&
 -		50 * (tn->full_children + tnode_child_length(tn)
 -		      - tn->empty_children)
 -		>= inflate_threshold_use * tnode_child_length(tn))) {
 -
-+	while (should_inflate(tn) && max_work--) {
- 		old_tn = tn;
- 		tn = inflate(t, tn);
- 
-@@ -764,16 +772,11 @@ static struct tnode *resize(struct trie *t, struct tnode *tn)
- 	if (max_work != MAX_WORK)
- 		return tn;
- 
+-		old_tn = tn;
+-		tn = inflate(t, tn);
+-
+-		if (IS_ERR(tn)) {
+-			tn = old_tn;
+-#ifdef CONFIG_IP_FIB_TRIE_STATS
+-			this_cpu_inc(t->stats->resize_node_skipped);
+-#endif
+-			break;
+-		}
+-	}
+-
+-	/* Return if at least one inflate is run */
+-	if (max_work != MAX_WORK)
+-		return tn;
+-
 -	/*
 -	 * Halve as long as the number of empty children in this
-+	/* Halve as long as the number of empty children in this
- 	 * node is above threshold.
- 	 */
+-	 * node is above threshold.
+-	 */
 -
- 	max_work = MAX_WORK;
+-	max_work = MAX_WORK;
 -	while (tn->bits > 1 &&  max_work-- &&
 -	       100 * (tnode_child_length(tn) - tn->empty_children) <
 -	       halve_threshold_use * tnode_child_length(tn)) {
 -
-+	while (should_halve(tn) && max_work--) {
- 		old_tn = tn;
- 		tn = halve(t, tn);
- 		if (IS_ERR(tn)) {
+-		old_tn = tn;
+-		tn = halve(t, tn);
+-		if (IS_ERR(tn)) {
+-			tn = old_tn;
+-#ifdef CONFIG_IP_FIB_TRIE_STATS
+-			this_cpu_inc(t->stats->resize_node_skipped);
+-#endif
+-			break;
+-		}
+-	}
+-
+-
+-	/* Only one child remains */
+-	if (tn->empty_children == (tnode_child_length(tn) - 1)) {
+-		unsigned long i;
+-one_child:
+-		for (i = tnode_child_length(tn); !n && i;)
+-			n = tnode_get_child(tn, --i);
+-no_children:
+-		/* compress one level */
+-		node_set_parent(n, NULL);
+-		tnode_free_safe(tn);
+-		return n;
+-	}
+-	return tn;
+-}
+-
+-
+ static void tnode_clean_free(struct tnode *tn)
+ {
+ 	struct tnode *tofree;
+@@ -804,6 +647,160 @@ nomem:
+ 	return ERR_PTR(-ENOMEM);
+ }
+ 
++#define MAX_WORK 10
++static struct tnode *resize(struct trie *t, struct tnode *tn)
++{
++	struct tnode *old_tn, *n = NULL;
++	int inflate_threshold_use;
++	int halve_threshold_use;
++	int max_work;
++
++	if (!tn)
++		return NULL;
++
++	pr_debug("In tnode_resize %p inflate_threshold=%d threshold=%d\n",
++		 tn, inflate_threshold, halve_threshold);
++
++	/* No children */
++	if (tn->empty_children > (tnode_child_length(tn) - 1))
++		goto no_children;
++
++	/* One child */
++	if (tn->empty_children == (tnode_child_length(tn) - 1))
++		goto one_child;
++	/*
++	 * Double as long as the resulting node has a number of
++	 * nonempty nodes that are above the threshold.
++	 */
++
++	/*
++	 * From "Implementing a dynamic compressed trie" by Stefan Nilsson of
++	 * the Helsinki University of Technology and Matti Tikkanen of Nokia
++	 * Telecommunications, page 6:
++	 * "A node is doubled if the ratio of non-empty children to all
++	 * children in the *doubled* node is at least 'high'."
++	 *
++	 * 'high' in this instance is the variable 'inflate_threshold'. It
++	 * is expressed as a percentage, so we multiply it with
++	 * tnode_child_length() and instead of multiplying by 2 (since the
++	 * child array will be doubled by inflate()) and multiplying
++	 * the left-hand side by 100 (to handle the percentage thing) we
++	 * multiply the left-hand side by 50.
++	 *
++	 * The left-hand side may look a bit weird: tnode_child_length(tn)
++	 * - tn->empty_children is of course the number of non-null children
++	 * in the current node. tn->full_children is the number of "full"
++	 * children, that is non-null tnodes with a skip value of 0.
++	 * All of those will be doubled in the resulting inflated tnode, so
++	 * we just count them one extra time here.
++	 *
++	 * A clearer way to write this would be:
++	 *
++	 * to_be_doubled = tn->full_children;
++	 * not_to_be_doubled = tnode_child_length(tn) - tn->empty_children -
++	 *     tn->full_children;
++	 *
++	 * new_child_length = tnode_child_length(tn) * 2;
++	 *
++	 * new_fill_factor = 100 * (not_to_be_doubled + 2*to_be_doubled) /
++	 *      new_child_length;
++	 * if (new_fill_factor >= inflate_threshold)
++	 *
++	 * ...and so on, tho it would mess up the while () loop.
++	 *
++	 * anyway,
++	 * 100 * (not_to_be_doubled + 2*to_be_doubled) / new_child_length >=
++	 *      inflate_threshold
++	 *
++	 * avoid a division:
++	 * 100 * (not_to_be_doubled + 2*to_be_doubled) >=
++	 *      inflate_threshold * new_child_length
++	 *
++	 * expand not_to_be_doubled and to_be_doubled, and shorten:
++	 * 100 * (tnode_child_length(tn) - tn->empty_children +
++	 *    tn->full_children) >= inflate_threshold * new_child_length
++	 *
++	 * expand new_child_length:
++	 * 100 * (tnode_child_length(tn) - tn->empty_children +
++	 *    tn->full_children) >=
++	 *      inflate_threshold * tnode_child_length(tn) * 2
++	 *
++	 * shorten again:
++	 * 50 * (tn->full_children + tnode_child_length(tn) -
++	 *    tn->empty_children) >= inflate_threshold *
++	 *    tnode_child_length(tn)
++	 *
++	 */
++
++	/* Keep root node larger  */
++
++	if (!node_parent(tn)) {
++		inflate_threshold_use = inflate_threshold_root;
++		halve_threshold_use = halve_threshold_root;
++	} else {
++		inflate_threshold_use = inflate_threshold;
++		halve_threshold_use = halve_threshold;
++	}
++
++	max_work = MAX_WORK;
++	while ((tn->full_children > 0 &&  max_work-- &&
++		50 * (tn->full_children + tnode_child_length(tn)
++		      - tn->empty_children)
++		>= inflate_threshold_use * tnode_child_length(tn))) {
++
++		old_tn = tn;
++		tn = inflate(t, tn);
++
++		if (IS_ERR(tn)) {
++			tn = old_tn;
++#ifdef CONFIG_IP_FIB_TRIE_STATS
++			this_cpu_inc(t->stats->resize_node_skipped);
++#endif
++			break;
++		}
++	}
++
++	/* Return if at least one inflate is run */
++	if (max_work != MAX_WORK)
++		return tn;
++
++	/*
++	 * Halve as long as the number of empty children in this
++	 * node is above threshold.
++	 */
++
++	max_work = MAX_WORK;
++	while (tn->bits > 1 &&  max_work-- &&
++	       100 * (tnode_child_length(tn) - tn->empty_children) <
++	       halve_threshold_use * tnode_child_length(tn)) {
++
++		old_tn = tn;
++		tn = halve(t, tn);
++		if (IS_ERR(tn)) {
++			tn = old_tn;
++#ifdef CONFIG_IP_FIB_TRIE_STATS
++			this_cpu_inc(t->stats->resize_node_skipped);
++#endif
++			break;
++		}
++	}
++
++
++	/* Only one child remains */
++	if (tn->empty_children == (tnode_child_length(tn) - 1)) {
++		unsigned long i;
++one_child:
++		for (i = tnode_child_length(tn); !n && i;)
++			n = tnode_get_child(tn, --i);
++no_children:
++		/* compress one level */
++		node_set_parent(n, NULL);
++		tnode_free_safe(tn);
++		return n;
++	}
++	return tn;
++}
++
+ /* readside must use rcu_read_lock currently dump routines
+  via get_fa_head and dump */
+ 
