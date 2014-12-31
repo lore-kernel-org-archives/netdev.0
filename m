@@ -1,95 +1,63 @@
 From: Jeremiah Mahler <jmmahler@gmail.com>
-Subject: Re: [PATCH net-next v2 1/2] bridge: new attribute and flags to
- represent vlan info lists and ranges
-Date: Wed, 31 Dec 2014 09:45:42 -0800
-Message-ID: <20141231174542.GA1922@hudson.localdomain>
-References: <1420044533-16963-2-git-send-email-roopa@cumulusnetworks.com>
+Subject: Re: [PATCH] Drivers: isdn: gigaset: checkpatch cleanup
+Date: Wed, 31 Dec 2014 09:49:36 -0800
+Message-ID: <20141231174936.GB1922@hudson.localdomain>
+References: <1420047298-7798-1-git-send-email-baspeters93@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, hemminger@vyatta.com, vyasevic@redhat.com,
-	sfeldma@gmail.com, wkok@cumulusnetworks.com
-To: roopa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:62513 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750956AbaLaRpq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 12:45:46 -0500
-Received: by mail-pa0-f43.google.com with SMTP id kx10so21610952pab.2
-        for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 09:45:45 -0800 (PST)
+Cc: hjlipp@web.de, tilman@imap.cc, isdn@linux-pingi.de,
+	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Bas Peters <baspeters93@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1420044533-16963-2-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1420047298-7798-1-git-send-email-baspeters93@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Roopa,
+Bas,
 
-On Wed, Dec 31, 2014 at 08:48:52AM -0800, roopa@cumulusnetworks.com wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On Wed, Dec 31, 2014 at 06:34:58PM +0100, Bas Peters wrote:
+> Fixed many checkpatch.pl complaints, ranging from whitespace issues to
+> reportedly deprecated function and macro usage.
 > 
-> This patch adds (as suggested by scott feldman),
->         - new netlink attribute IFLA_BRIDGE_VLAN_INFO_LIST to represent
->           vlan list
->         - And bridge_vlan_info flags BRIDGE_VLAN_INFO_RANGE_START and
->           BRIDGE_VLAN_INFO_RANGE_END to indicate start and end of vlan range
+One patch should fix one type of problem.  This needs to be broken up
+in to individual patches.
+
+> I have not been able to test the code as I do not have access to the
+> hardware but since no new features were really added I don't think that
+> should pose a problem.
 > 
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> There are still some checkpatch complaints, particularly concerning
+> potentially unnecessary 'out of memory' messages. I will provide patches
+> for these complaints when I figure out the reason behind it and what to
+> do about it.
+> 
+> NOTE: This is my first patch (ever). I have attempted to follow all
+> guidelines provided, but I probably will have missed some. If you have
+> any comments regarding the quality of this patch or suggestions as to
+> what I could do better in the future, please let me know.
+> 
+You are ambitious.  I would suggest trying a smaller patch first to
+make sure you are doing everything right.
+
+> Signed-off-by: Bas Peters <baspeters93@gmail.com>
 > ---
->  include/uapi/linux/if_bridge.h |    4 ++++
->  net/bridge/br_netlink.c        |    1 +
->  2 files changed, 5 insertions(+)
+>  drivers/isdn/gigaset/asyncdata.c   |  9 +++--
+>  drivers/isdn/gigaset/bas-gigaset.c | 80 ++++++++++++++++++++------------------
+>  drivers/isdn/gigaset/capi.c        |  5 ++-
+>  drivers/isdn/gigaset/common.c      |  8 ++--
+>  drivers/isdn/gigaset/ev-layer.c    | 38 +++++++++++-------
+>  drivers/isdn/gigaset/gigaset.h     |  4 +-
+>  drivers/isdn/gigaset/i4l.c         | 12 +++---
+>  drivers/isdn/gigaset/interface.c   | 10 ++---
+>  drivers/isdn/gigaset/isocdata.c    |  3 ++
+>  drivers/isdn/gigaset/proc.c        | 17 +++++---
+>  drivers/isdn/gigaset/usb-gigaset.c | 46 +++++++++++++++-------
+>  11 files changed, 141 insertions(+), 91 deletions(-)
 > 
-> diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
-> index b03ee8f..fa468aa 100644
-> --- a/include/uapi/linux/if_bridge.h
-> +++ b/include/uapi/linux/if_bridge.h
-> @@ -112,12 +112,14 @@ struct __fdb_entry {
->   *     [IFLA_BRIDGE_FLAGS]
->   *     [IFLA_BRIDGE_MODE]
->   *     [IFLA_BRIDGE_VLAN_INFO]
-> + *     [IFLA_BRIDGE_VLAN_INFO_LIST]
->   * }
->   */
->  enum {
->  	IFLA_BRIDGE_FLAGS,
->  	IFLA_BRIDGE_MODE,
->  	IFLA_BRIDGE_VLAN_INFO,
-> +	IFLA_BRIDGE_VLAN_INFO_LIST,
->  	__IFLA_BRIDGE_MAX,
->  };
->  #define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
-> @@ -125,6 +127,8 @@ enum {
->  #define BRIDGE_VLAN_INFO_MASTER	(1<<0)	/* Operate on Bridge device as well */
->  #define BRIDGE_VLAN_INFO_PVID	(1<<1)	/* VLAN is PVID, ingress untagged */
->  #define BRIDGE_VLAN_INFO_UNTAGGED	(1<<2)	/* VLAN egresses untagged */
-> +#define BRIDGE_VLAN_INFO_RANGE_START	(1<<3) /* VLAN is start of vlan range */
-> +#define BRIDGE_VLAN_INFO_RANGE_END	(1<<4) /* VLAN is end of vlan range */
->  
-You add these here but you don't use them until the next patch.
-If they were wrong a bisect would point to the next patch.
-
-I would add them in the next patch where you start to use them.
-
->  struct bridge_vlan_info {
->  	__u16 flags;
-> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-> index 9f5eb55..492ef6a 100644
-> --- a/net/bridge/br_netlink.c
-> +++ b/net/bridge/br_netlink.c
-> @@ -223,6 +223,7 @@ static const struct nla_policy ifla_br_policy[IFLA_MAX+1] = {
->  	[IFLA_BRIDGE_MODE]	= { .type = NLA_U16 },
->  	[IFLA_BRIDGE_VLAN_INFO]	= { .type = NLA_BINARY,
->  				    .len = sizeof(struct bridge_vlan_info), },
-> +	[IFLA_BRIDGE_VLAN_INFO_LIST] = { .type = NLA_NESTED, },
->  };
->  
->  static int br_afspec(struct net_bridge *br,
-> -- 
-> 1.7.10.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/drivers/isdn/gigaset/asyncdata.c b/drivers/isdn/gigaset/asyncdata.c
+[...]
 
 -- 
 - Jeremiah Mahler
