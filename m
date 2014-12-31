@@ -1,31 +1,39 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 2/2] igb_ptp: Include clocksource.h to get CLOCKSOURCE_MASK.
-Date: Wed, 31 Dec 2014 15:43:16 -0800
-Message-ID: <CAL3LdT42x2Vvg6rVGz_Hp5vFcxnu2QYHO1daeNdvvdn5HBnniA@mail.gmail.com>
-References: <20141231.183359.681102444156146233.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 00/17] fib_trie: Reduce time spent in
+ fib_table_lookup by 35 to 75%
+Date: Wed, 31 Dec 2014 18:46:10 -0500 (EST)
+Message-ID: <20141231.184610.1802958694945952516.davem@davemloft.net>
+References: <20141231184649.3006.29958.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: alexander.h.duyck@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f171.google.com ([209.85.214.171]:52933 "EHLO
-	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751407AbaLaXnR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 18:43:17 -0500
-Received: by mail-ob0-f171.google.com with SMTP id uz6so49735609obc.2
-        for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 15:43:16 -0800 (PST)
-In-Reply-To: <20141231.183359.681102444156146233.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47487 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751430AbaLaXqM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 18:46:12 -0500
+In-Reply-To: <20141231184649.3006.29958.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 31, 2014 at 3:33 PM, David Miller <davem@davemloft.net> wrote:
->
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Date: Wed, 31 Dec 2014 10:55:23 -0800
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> These patches are meant to address several performance issues I have seen 
+> in the fib_trie implementation, and fib_table_lookup specifically.  With 
+> these changes in place I have seen a reduction of up to 35 to 75% for the 
+> total time spent in fib_table_lookup depending on the type of search being 
+> performed.
+ ...
+> Changes since RFC:
+>   Replaced this_cpu_ptr with correct call to this_cpu_inc in patch 1
+>   Changed test for leaf_info mismatch to (key ^ n->key) & li->mask_plen in patch 10
 
-> ---
->  drivers/net/ethernet/intel/igb/igb_ptp.c | 1 +
->  1 file changed, 1 insertion(+)
->
+As before, this looks awesome.
+
+All applied to net-next, thanks!
+
+This knocks about 35 cpu cycles off of a lookup that ends up using the
+default route on sparc64.  From about ~438 cycles to ~403.
