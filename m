@@ -1,34 +1,29 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next] l2tp : multicast notification to the
- registered listeners
-Date: Wed, 31 Dec 2014 14:17:31 -0500 (EST)
-Message-ID: <20141231.141731.1681406451412491811.davem@davemloft.net>
-References: <20141227101239.3ea24d70@urahara>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] gre: allow live address change
+Date: Wed, 31 Dec 2014 14:18:46 -0500 (EST)
+Message-ID: <20141231.141846.262862882958032522.davem@davemloft.net>
+References: <20141227100142.13b7ed79@urahara>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, g.nault-pHk1y4uTXVDytLWWfqlThQ@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20141227101239.3ea24d70@urahara>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: shemming@brocade.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45264 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751104AbaLaTSs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 14:18:48 -0500
+In-Reply-To: <20141227100142.13b7ed79@urahara>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Date: Sat, 27 Dec 2014 10:12:39 -0800
+From: Stephen Hemminger <shemming@brocade.com>
+Date: Sat, 27 Dec 2014 10:01:42 -0800
 
-> From: Bill Hong <bhong-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org>
+> The GRE tap device supports Ethernet over GRE, but doesn't
+> care about the source address of the tunnel, therefore it
+> can be changed without bring device down.
 > 
-> Previously l2tp module did not provide any means for the user space to
-> get notified when tunnels/sessions are added/modified/deleted.
-> This change contains the following
-> - create a multicast group for the listeners to register.
-> - notify the registered listeners when the tunnels/sessions are
->   created/modified/deleted.
-> 
-> Signed-off-by: Bill Hong <bhong-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org>
-> Reviewed-by: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-> Reviewed-by: Sven-Thorsten Dietrich <sven-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
 Applied.
