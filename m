@@ -1,34 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netlink: call cond_resched after broadcasting
- updates
-Date: Wed, 31 Dec 2014 18:38:38 -0500 (EST)
-Message-ID: <20141231.183838.806545236690156809.davem@davemloft.net>
-References: <20141227095433.00333deb@urahara>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 1/2] e1000e: Include clocksource.h to get CLOCKSOURCE_MASK.
+Date: Wed, 31 Dec 2014 15:42:13 -0800
+Message-ID: <CAL3LdT50rDtJKf8dVh_Gz-Z-41QUbZcwrCDBNE8dp0VgAQM3pg@mail.gmail.com>
+References: <20141231.183347.862533634176009078.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47446 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751430AbaLaXik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 18:38:40 -0500
-In-Reply-To: <20141227095433.00333deb@urahara>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:41739 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751468AbaLaXmN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 18:42:13 -0500
+Received: by mail-ob0-f174.google.com with SMTP id nt9so55057135obb.5
+        for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 15:42:13 -0800 (PST)
+In-Reply-To: <20141231.183347.862533634176009078.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Sat, 27 Dec 2014 09:54:33 -0800
+On Wed, Dec 31, 2014 at 3:33 PM, David Miller <davem@davemloft.net> wrote:
+>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-> When a netlink event is posted to a socket, the receiving process maybe
-> waiting to wakeup. Reduce the latency by calling cond_resched() in this
-> loop. This reduces the problems with missed events during a netlink
-> storm such as when a routing daemon does mass update in response to
-> a link transition.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-As mentioned by others, this is potentially invoked from software
-interrupts generating netlink events (one example is ipv6) so we
-can't try to conditionally sleep here.
+> ---
+>  drivers/net/ethernet/intel/e1000e/netdev.c | 1 +
+>  1 file changed, 1 insertion(+)
