@@ -1,72 +1,52 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next v1 4/5] ixgbevf: Add RSS Key query code
-Date: Wed, 31 Dec 2014 08:28:27 -0800
-Message-ID: <1420043307.31582.53.camel@jtkirshe-mobl>
-References: <1420019519-18139-1-git-send-email-vladz@cloudius-systems.com>
-	 <1420019519-18139-5-git-send-email-vladz@cloudius-systems.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-BRVhUNZX90Zh6HJ3fTRZ"
-Cc: netdev@vger.kernel.org, gleb@cloudius-systems.com,
-	avi@cloudius-systems.com
-To: Vlad Zolotarov <vladz@cloudius-systems.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:53098 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750726AbaLaQ23 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Dec 2014 11:28:29 -0500
-In-Reply-To: <1420019519-18139-5-git-send-email-vladz@cloudius-systems.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: [PATCH] net: ethernet: intel: i40e: i40e_fcoe.c:  Remove unused function
+Date: Wed, 31 Dec 2014 17:48:57 +0100
+Message-ID: <1420044537-21077-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Linux NICS <linux.nics@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Remove the function i40e_rx_is_fip() that is not used anywhere.
 
---=-BRVhUNZX90Zh6HJ3fTRZ
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+This was partially found by using a static code analysis program called cppcheck.
 
-On Wed, 2014-12-31 at 11:51 +0200, Vlad Zolotarov wrote:
-> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
-> ---
-> New in v1 (compared to RFC):
->    - Use "if-else" statement instead of a "switch-case" for a single
-> option case
->      (in ixgbevf_get_rss_key()).
->=20
-> ---
->  drivers/net/ethernet/intel/ixgbevf/mbx.h |  2 ++
->  drivers/net/ethernet/intel/ixgbevf/vf.c  | 44
-> ++++++++++++++++++++++++++++++++
->  drivers/net/ethernet/intel/ixgbevf/vf.h  |  1 +
->  3 files changed, 47 insertions(+)
+Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+---
+ drivers/net/ethernet/intel/i40e/i40e_fcoe.c |    9 ---------
+ 1 file changed, 9 deletions(-)
 
-Just caught this now, sorry but your patch description is sparse (i.e.
-non-existent).  I know that the title of the patch pretty much tells
-what you are doing, but it would be nice to have a bit more detail as to
-why (like your first patch).
-
-Same goes for patch 5 of the series as well.
-
---=-BRVhUNZX90Zh6HJ3fTRZ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJUpCQsAAoJEOVv75VaS+3OGTQP/jN270JELD0dxp8LK1N9c63e
-v9ijEWJq6PBEkj3wXn3gEWmt/aKZHCsjEZorzh/ba55dxL0P3ocgDx5YvA90lMDc
-Hsfd5YB7qOytw7YcmRmKru9OFhR1AwiVVlI8rUWJbl48AqVYjFdDl3lZmty8nOJU
-TRTKorNmQBWFNSQFhbiYZsgirxitcmk4otwDFJshymim/YmnLMdti5JGzO2LJtKV
-2gwi+8WjHU6jp2D0pEt6bL0N6pke/KjAVKK1EKo7SdMxqL33O+VMoPNZVaotPctI
-zrVt6b7c6XXHyKx8QgNkpe9ufwRHgg/uWdSBMrNYIzVqOfDRKXgw4UzD8KDDPiC8
-AQFjC1y2/6TFZJ3/RM3kds9qiptR9RfCJQcH9IPv4bktop2oV24v6CpPBIMJYJpa
-NZWTF1mglvPkGoTMMTkV+/XIRub6PiQE7EMh/DLSLt+6LQI6RzigAI8hr9ZtVHia
-x0480Q8BHQJJnhDG7XoaGCJstNyKStWpHNC66k8Z2MtztBM+FQh4vtZZOSAQiZ01
-gxU0FRiq6cw9EALuOZG3mKVdb/4heE4Am5iNcRxjSMzhvPru4QjnJfSbd1ge0brU
-Fam7Re8vA87en1/+6d/UWbo9VkEEAEcINybYEjxz7FJcaXZ9XSVA4X0eAsADkvZ2
-PXuNIKq6b3S5m6CwO4Cj
-=kArP
------END PGP SIGNATURE-----
-
---=-BRVhUNZX90Zh6HJ3fTRZ--
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
+index 5d01db1..20a5bfa 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
+@@ -39,15 +39,6 @@
+ #include "i40e_fcoe.h"
+ 
+ /**
+- * i40e_rx_is_fip - returns true if the rx packet type is FIP
+- * @ptype: the packet type field from rx descriptor write-back
+- **/
+-static inline bool i40e_rx_is_fip(u16 ptype)
+-{
+-	return ptype == I40E_RX_PTYPE_L2_FIP_PAY2;
+-}
+-
+-/**
+  * i40e_rx_is_fcoe - returns true if the rx packet type is FCoE
+  * @ptype: the packet type field from rx descriptor write-back
+  **/
+-- 
+1.7.10.4
