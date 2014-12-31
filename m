@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 2/2] igb_ptp: Include clocksource.h to get CLOCKSOURCE_MASK.
-Date: Wed, 31 Dec 2014 18:33:59 -0500 (EST)
-Message-ID: <20141231.183359.681102444156146233.davem@davemloft.net>
+Subject: Re: [PATCH net] netlink: call cond_resched after broadcasting
+ updates
+Date: Wed, 31 Dec 2014 18:38:38 -0500 (EST)
+Message-ID: <20141231.183838.806545236690156809.davem@davemloft.net>
+References: <20141227095433.00333deb@urahara>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: richardcochran@gmail.com
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47404 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47446 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751486AbaLaXeA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 18:34:00 -0500
+	with ESMTP id S1751430AbaLaXik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 18:38:40 -0500
+In-Reply-To: <20141227095433.00333deb@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Sat, 27 Dec 2014 09:54:33 -0800
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/intel/igb/igb_ptp.c | 1 +
- 1 file changed, 1 insertion(+)
+> When a netlink event is posted to a socket, the receiving process maybe
+> waiting to wakeup. Reduce the latency by calling cond_resched() in this
+> loop. This reduces the problems with missed events during a netlink
+> storm such as when a routing daemon does mass update in response to
+> a link transition.
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
-index 1d27f2d..8baf3fd 100644
---- a/drivers/net/ethernet/intel/igb/igb_ptp.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-@@ -19,6 +19,7 @@
- #include <linux/device.h>
- #include <linux/pci.h>
- #include <linux/ptp_classify.h>
-+#include <linux/clocksource.h>
- 
- #include "igb.h"
- 
--- 
-2.1.0
+As mentioned by others, this is potentially invoked from software
+interrupts generating netlink events (one example is ipv6) so we
+can't try to conditionally sleep here.
