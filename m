@@ -1,90 +1,64 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
-Date: Wed, 31 Dec 2014 10:56:07 +0100
-Message-ID: <54A3C837.6040400@broadcom.com>
-References: <54A3B1B4.7090705@linux.intel.com>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: Re: [PATCH] wait_for_completion_timeout does not return < 0
+Date: Wed, 31 Dec 2014 16:01:57 +0530
+Message-ID: <20141231103157.GA20842@sudip-PC>
+References: <1420016643-19707-1-git-send-email-der.herr@hofr.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <brudley@broadcom.com>, Franky Lin <frankyl@broadcom.com>,
-	<meuleman@broadcom.com>, <kvalo@codeaurora.org>,
-	<linville@tuxdriver.com>, <pieterpg@broadcom.com>,
-	<hdegoede@redhat.com>, <wens@csie.org>,
-	<linux-wireless@vger.kernel.org>,
-	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:32916 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750734AbaLaJ4M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 04:56:12 -0500
-In-Reply-To: <54A3B1B4.7090705@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>,
+	linux-wimax@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Nicholas Mc Guire <der.herr@hofr.at>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1420016643-19707-1-git-send-email-der.herr@hofr.at>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/31/14 09:20, Fu, Zhonghui wrote:
->  From e34419970a07bfcd365f9c66bdfa552188a0cd26 Mon Sep 17 00:00:00 2001
-> From: Zhonghui Fu<zhonghui.fu@linux.intel.com>
-> Date: Mon, 29 Dec 2014 21:25:31 +0800
-> Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
->
-> WiFi chip has 2 SDIO functions, and PM core will trigger
-> twice suspend/resume operations for one WiFi chip to do
-> the same things. This patch avoid this case.
+On Wed, Dec 31, 2014 at 04:04:03AM -0500, Nicholas Mc Guire wrote:
+> This is only removing the comment which is misleading as
+> wait_for_completion_timeout does not return < 0 thus there
+> never is anything to be passed on.
 
-We have a patch queued up for this as well, but this one looks good 
-enough although I personally prefer container_of() instead of 
-dev_to_sdio_func().
+a small doubt - 
+i am seeing that:
+unsigned long wait_for_completion_timeout() is calling
+long wait_for_common()  which is again calling 
+long __wait_for_common which is again calling
+long do_wait_for_common()
 
-Acked-by: Arend van Spriel <arend@broadcom.com>
-> Signed-off-by: Zhonghui Fu<zhonghui.fu@linux.intel.com>
+now the return value from do_wait_for_common can be -ERESTARTSYS,
+so then what happens when wait_for_completion_timeout return this -ERESTARTSYS as an unsigned value ?
+it becomes a positive value, and ultimately ctx.result (which is 0) is returned.
+so then are we just ignoring the error value from do_wait_for_common() ?
+
+sudip
+
+> 
+> patch is against linux-next 3.19.0-rc1 -next-20141226
+> 
+> Signed-off-by: Nicholas Mc Guire <der.herr@hofr.at>
 > ---
->   drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |   19 +++++++++++++++++--
->   1 files changed, 17 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-> index 3c06e93..eee7818 100644
-> --- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-> +++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-> @@ -1139,11 +1139,18 @@ void brcmf_sdio_wowl_config(struct device *dev, bool enabled)
->   static int brcmf_ops_sdio_suspend(struct device *dev)
->   {
->   	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
-> -	struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
-> +	struct brcmf_sdio_dev *sdiodev;
->   	mmc_pm_flag_t sdio_flags;
-> +	struct sdio_func *func = dev_to_sdio_func(dev);
->
->   	brcmf_dbg(SDIO, "Enter\n");
->
-> +	if (func->num == 2) {
-> +		return 0;
-> +	}
-> +
-> +	sdiodev = bus_if->bus_priv.sdio;
-> +
->   	atomic_set(&sdiodev->suspend, true);
->
->   	if (sdiodev->wowl_enabled) {
-> @@ -1164,9 +1171,17 @@ static int brcmf_ops_sdio_suspend(struct device *dev)
->   static int brcmf_ops_sdio_resume(struct device *dev)
->   {
->   	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
-> -	struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
-> +	struct brcmf_sdio_dev *sdiodev;
-> +	struct sdio_func *func = dev_to_sdio_func(dev);
->
->   	brcmf_dbg(SDIO, "Enter\n");
-> +
-> +	if (func->num == 2) {
-> +		return 0;
-> +	}
-> +
-> +	sdiodev = bus_if->bus_priv.sdio;
-> +
->   	if (sdiodev->pdata->oob_irq_supported)
->   		disable_irq_wake(sdiodev->pdata->oob_irq_nr);
->   	brcmf_sdio_wd_timer(sdiodev->bus, BRCMF_WD_POLL_MS);
-> -- 1.7.1
->
+>  drivers/net/wimax/i2400m/driver.c |    1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
+> index 9c78090..0a6384e 100644
+> --- a/drivers/net/wimax/i2400m/driver.c
+> +++ b/drivers/net/wimax/i2400m/driver.c
+> @@ -197,7 +197,6 @@ int i2400m_op_reset(struct wimax_dev *wimax_dev)
+>  		result = -ETIMEDOUT;
+>  	else if (result > 0)
+>  		result = ctx.result;
+> -	/* if result < 0, pass it on */
+>  	mutex_lock(&i2400m->init_mutex);
+>  	i2400m->reset_ctx = NULL;
+>  	mutex_unlock(&i2400m->init_mutex);
+> -- 
+> 1.7.10.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
