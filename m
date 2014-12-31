@@ -1,64 +1,44 @@
-From: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net] openvswitch: Consistently include VLAN header
-	in flow and port stats.
-Date: Wed, 31 Dec 2014 08:45:46 -0800
-Message-ID: <1420044346-27957-1-git-send-email-blp@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, Motonori Shindo <mshindo-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: roopa@cumulusnetworks.com
+Subject: [PATCH net-next v2 0/2] bridge: support for vlan range in setlink/dellink
+Date: Wed, 31 Dec 2014 08:48:51 -0800
+Message-ID: <1420044533-16963-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: sfeldma@gmail.com, wkok@cumulusnetworks.com,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: netdev@vger.kernel.org, hemminger@vyatta.com, vyasevic@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:43618 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751080AbaLaQs6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 11:48:58 -0500
+Received: by mail-pd0-f173.google.com with SMTP id ft15so21149432pdb.4
+        for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 08:48:58 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VW50aWwgbm93LCB3aGVuIFZMQU4gYWNjZWxlcmF0aW9uIHdhcyBpbiB1c2UsIHRoZSBieXRlcyBv
-ZiB0aGUgVkxBTiBoZWFkZXIKd2VyZSBub3QgaW5jbHVkZWQgaW4gcG9ydCBvciBmbG93IGJ5dGUg
-Y291bnRlcnMuICBUaGV5IHdlcmUgaG93ZXZlcgppbmNsdWRlZCB3aGVuIFZMQU4gYWNjZWxlcmF0
-aW9uIHdhcyBub3QgdXNlZC4gIFRoaXMgY29tbWl0IGNvcnJlY3RzIHRoZQppbmNvbnNpc3RlbmN5
-LCBieSBhbHdheXMgaW5jbHVkaW5nIHRoZSBWTEFOIGhlYWRlciBpbiBieXRlIGNvdW50ZXJzLgoK
-UHJldmlvdXMgZGlzY3Vzc2lvbiBhdApodHRwOi8vb3BlbnZzd2l0Y2gub3JnL3BpcGVybWFpbC9k
-ZXYvMjAxNC1EZWNlbWJlci8wNDk1MjEuaHRtbAoKUmVwb3J0ZWQtYnk6IE1vdG9ub3JpIFNoaW5k
-byA8bXNoaW5kb0B2bXdhcmUuY29tPgpTaWduZWQtb2ZmLWJ5OiBCZW4gUGZhZmYgPGJscEBuaWNp
-cmEuY29tPgotLS0KIG5ldC9vcGVudnN3aXRjaC9mbG93LmMgIHwgNSArKystLQogbmV0L29wZW52
-c3dpdGNoL3Zwb3J0LmMgfCAyICstCiAyIGZpbGVzIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKSwg
-MyBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5jIGIvbmV0
-L29wZW52c3dpdGNoL2Zsb3cuYwppbmRleCA3MGJlZjJhLi5kYTJmYWUwIDEwMDY0NAotLS0gYS9u
-ZXQvb3BlbnZzd2l0Y2gvZmxvdy5jCisrKyBiL25ldC9vcGVudnN3aXRjaC9mbG93LmMKQEAgLTcw
-LDYgKzcwLDcgQEAgdm9pZCBvdnNfZmxvd19zdGF0c191cGRhdGUoc3RydWN0IHN3X2Zsb3cgKmZs
-b3csIF9fYmUxNiB0Y3BfZmxhZ3MsCiB7CiAJc3RydWN0IGZsb3dfc3RhdHMgKnN0YXRzOwogCWlu
-dCBub2RlID0gbnVtYV9ub2RlX2lkKCk7CisJaW50IGxlbiA9IHNrYi0+bGVuICsgKHZsYW5fdHhf
-dGFnX3ByZXNlbnQoc2tiKSA/IFZMQU5fSExFTiA6IDApOwogCiAJc3RhdHMgPSByY3VfZGVyZWZl
-cmVuY2UoZmxvdy0+c3RhdHNbbm9kZV0pOwogCkBAIC0xMDUsNyArMTA2LDcgQEAgdm9pZCBvdnNf
-Zmxvd19zdGF0c191cGRhdGUoc3RydWN0IHN3X2Zsb3cgKmZsb3csIF9fYmUxNiB0Y3BfZmxhZ3Ms
-CiAJCQkJaWYgKGxpa2VseShuZXdfc3RhdHMpKSB7CiAJCQkJCW5ld19zdGF0cy0+dXNlZCA9IGpp
-ZmZpZXM7CiAJCQkJCW5ld19zdGF0cy0+cGFja2V0X2NvdW50ID0gMTsKLQkJCQkJbmV3X3N0YXRz
-LT5ieXRlX2NvdW50ID0gc2tiLT5sZW47CisJCQkJCW5ld19zdGF0cy0+Ynl0ZV9jb3VudCA9IGxl
-bjsKIAkJCQkJbmV3X3N0YXRzLT50Y3BfZmxhZ3MgPSB0Y3BfZmxhZ3M7CiAJCQkJCXNwaW5fbG9j
-a19pbml0KCZuZXdfc3RhdHMtPmxvY2spOwogCkBAIC0xMjAsNyArMTIxLDcgQEAgdm9pZCBvdnNf
-Zmxvd19zdGF0c191cGRhdGUoc3RydWN0IHN3X2Zsb3cgKmZsb3csIF9fYmUxNiB0Y3BfZmxhZ3Ms
-CiAKIAlzdGF0cy0+dXNlZCA9IGppZmZpZXM7CiAJc3RhdHMtPnBhY2tldF9jb3VudCsrOwotCXN0
-YXRzLT5ieXRlX2NvdW50ICs9IHNrYi0+bGVuOworCXN0YXRzLT5ieXRlX2NvdW50ICs9IGxlbjsK
-IAlzdGF0cy0+dGNwX2ZsYWdzIHw9IHRjcF9mbGFnczsKIHVubG9jazoKIAlzcGluX3VubG9jaygm
-c3RhdHMtPmxvY2spOwpkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL3Zwb3J0LmMgYi9uZXQv
-b3BlbnZzd2l0Y2gvdnBvcnQuYwppbmRleCA1M2YzZWJiLi4yMDM0YzZkIDEwMDY0NAotLS0gYS9u
-ZXQvb3BlbnZzd2l0Y2gvdnBvcnQuYworKysgYi9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQuYwpAQCAt
-NDgwLDcgKzQ4MCw3IEBAIHZvaWQgb3ZzX3Zwb3J0X3JlY2VpdmUoc3RydWN0IHZwb3J0ICp2cG9y
-dCwgc3RydWN0IHNrX2J1ZmYgKnNrYiwKIAlzdGF0cyA9IHRoaXNfY3B1X3B0cih2cG9ydC0+cGVy
-Y3B1X3N0YXRzKTsKIAl1NjRfc3RhdHNfdXBkYXRlX2JlZ2luKCZzdGF0cy0+c3luY3ApOwogCXN0
-YXRzLT5yeF9wYWNrZXRzKys7Ci0Jc3RhdHMtPnJ4X2J5dGVzICs9IHNrYi0+bGVuOworCXN0YXRz
-LT5yeF9ieXRlcyArPSBza2ItPmxlbiArICh2bGFuX3R4X3RhZ19wcmVzZW50KHNrYikgPyBWTEFO
-X0hMRU4gOiAwKTsKIAl1NjRfc3RhdHNfdXBkYXRlX2VuZCgmc3RhdHMtPnN5bmNwKTsKIAogCU9W
-U19DQihza2IpLT5pbnB1dF92cG9ydCA9IHZwb3J0OwotLSAKMi4xLjMKCl9fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9w
-ZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2
-Cg==
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+
+This series adds new netlink attribute to represent vlan range.
+
+Will post corresponding iproute2 patches if these get accepted.
+
+v1-> v2
+    - changed patches to use a nested list of IFLA_BRIDGE_VLAN_INFO
+    as suggested by scott feldman
+    - dropped notification changes from the series. Will post them
+    separately after this range message is accepted.
+
+Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+
+Roopa Prabhu (2):
+  bridge: new attribute and flags to represent vlan info lists and
+    ranges
+  bridge: modify bridge af spec parser to accomodate vlan list and
+    ranges
+
+ include/uapi/linux/if_bridge.h |    4 ++
+ net/bridge/br_netlink.c        |  118 ++++++++++++++++++++++++++++++----------
+ 2 files changed, 92 insertions(+), 30 deletions(-)
+
+-- 
+1.7.10.4
