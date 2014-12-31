@@ -1,87 +1,90 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: [PATCH net-next v1 3/5] ixgbe: Add GET_RSS_KEY command to VF-PF channel commands set
-Date: Wed, 31 Dec 2014 11:51:57 +0200
-Message-ID: <1420019519-18139-4-git-send-email-vladz@cloudius-systems.com>
-References: <1420019519-18139-1-git-send-email-vladz@cloudius-systems.com>
-Cc: gleb@cloudius-systems.com, avi@cloudius-systems.com,
-	jeffrey.t.kirsher@intel.com,
-	Vlad Zolotarov <vladz@cloudius-systems.com>
-To: netdev@vger.kernel.org
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
+Date: Wed, 31 Dec 2014 10:56:07 +0100
+Message-ID: <54A3C837.6040400@broadcom.com>
+References: <54A3B1B4.7090705@linux.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <brudley@broadcom.com>, Franky Lin <frankyl@broadcom.com>,
+	<meuleman@broadcom.com>, <kvalo@codeaurora.org>,
+	<linville@tuxdriver.com>, <pieterpg@broadcom.com>,
+	<hdegoede@redhat.com>, <wens@csie.org>,
+	<linux-wireless@vger.kernel.org>,
+	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:39809 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751210AbaLaJwP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 04:52:15 -0500
-Received: by mail-wi0-f179.google.com with SMTP id ex7so25306143wid.12
-        for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 01:52:14 -0800 (PST)
-In-Reply-To: <1420019519-18139-1-git-send-email-vladz@cloudius-systems.com>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:32916 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750734AbaLaJ4M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 04:56:12 -0500
+In-Reply-To: <54A3B1B4.7090705@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-82599 VFs and PF share the same RSS Key. Therefore we will return
-the same RSS key for all VFs.
+On 12/31/14 09:20, Fu, Zhonghui wrote:
+>  From e34419970a07bfcd365f9c66bdfa552188a0cd26 Mon Sep 17 00:00:00 2001
+> From: Zhonghui Fu<zhonghui.fu@linux.intel.com>
+> Date: Mon, 29 Dec 2014 21:25:31 +0800
+> Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
+>
+> WiFi chip has 2 SDIO functions, and PM core will trigger
+> twice suspend/resume operations for one WiFi chip to do
+> the same things. This patch avoid this case.
 
-Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
----
-New in v1 (compared to RFC):
-   - Use "if-else" statement instead of a "switch-case" for a single option case
-     (in ixgbe_get_vf_rss_key()).
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  2 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 21 +++++++++++++++++++++
- 2 files changed, 23 insertions(+)
+We have a patch queued up for this as well, but this one looks good 
+enough although I personally prefer container_of() instead of 
+dev_to_sdio_func().
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-index c1123d9..52e775b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-@@ -97,6 +97,8 @@ enum ixgbe_pfvf_api_rev {
- #define IXGBE_VF_GET_RETA_1	0x0b /* get RETA[12..23] */
- #define IXGBE_VF_GET_RETA_2	0x0c /* get RETA[24..31] */
- 
-+#define IXGBE_VF_GET_RSS_KEY	0x0d /* get RSS key */
-+
- /* GET_QUEUES return data indices within the mailbox */
- #define IXGBE_VF_TX_QUEUES	1	/* number of Tx queues supported */
- #define IXGBE_VF_RX_QUEUES	2	/* number of Rx queues supported */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index b1625c8..d79415e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -966,6 +966,24 @@ static int ixgbe_get_vf_reta(struct ixgbe_adapter *adapter,
- 	return 0;
- }
- 
-+static int ixgbe_get_vf_rss_key(struct ixgbe_adapter *adapter,
-+				u32 *msgbuf, u32 vf)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	int i;
-+	u32 *rss_key = &msgbuf[1];
-+
-+	/* verify the PF is supporting the correct API */
-+	if (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12)
-+		return -EPERM;
-+
-+	/* Read the RSS KEY */
-+	for (i = 0; i < 10; i++)
-+		rss_key[i] = IXGBE_READ_REG(hw, IXGBE_RSSRK(i));
-+
-+	return 0;
-+}
-+
- static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- {
- 	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
-@@ -1031,6 +1049,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- 	case IXGBE_VF_GET_RETA_2:
- 		retval = ixgbe_get_vf_reta(adapter, msgbuf, vf, 24, 8);
- 		break;
-+	case IXGBE_VF_GET_RSS_KEY:
-+		retval = ixgbe_get_vf_rss_key(adapter, msgbuf, vf);
-+		break;
- 	default:
- 		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
- 		retval = IXGBE_ERR_MBX;
--- 
-2.1.0
+Acked-by: Arend van Spriel <arend@broadcom.com>
+> Signed-off-by: Zhonghui Fu<zhonghui.fu@linux.intel.com>
+> ---
+>   drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |   19 +++++++++++++++++--
+>   1 files changed, 17 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+> index 3c06e93..eee7818 100644
+> --- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+> +++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+> @@ -1139,11 +1139,18 @@ void brcmf_sdio_wowl_config(struct device *dev, bool enabled)
+>   static int brcmf_ops_sdio_suspend(struct device *dev)
+>   {
+>   	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
+> -	struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
+> +	struct brcmf_sdio_dev *sdiodev;
+>   	mmc_pm_flag_t sdio_flags;
+> +	struct sdio_func *func = dev_to_sdio_func(dev);
+>
+>   	brcmf_dbg(SDIO, "Enter\n");
+>
+> +	if (func->num == 2) {
+> +		return 0;
+> +	}
+> +
+> +	sdiodev = bus_if->bus_priv.sdio;
+> +
+>   	atomic_set(&sdiodev->suspend, true);
+>
+>   	if (sdiodev->wowl_enabled) {
+> @@ -1164,9 +1171,17 @@ static int brcmf_ops_sdio_suspend(struct device *dev)
+>   static int brcmf_ops_sdio_resume(struct device *dev)
+>   {
+>   	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
+> -	struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
+> +	struct brcmf_sdio_dev *sdiodev;
+> +	struct sdio_func *func = dev_to_sdio_func(dev);
+>
+>   	brcmf_dbg(SDIO, "Enter\n");
+> +
+> +	if (func->num == 2) {
+> +		return 0;
+> +	}
+> +
+> +	sdiodev = bus_if->bus_priv.sdio;
+> +
+>   	if (sdiodev->pdata->oob_irq_supported)
+>   		disable_irq_wake(sdiodev->pdata->oob_irq_nr);
+>   	brcmf_sdio_wd_timer(sdiodev->bus, BRCMF_WD_POLL_MS);
+> -- 1.7.1
+>
