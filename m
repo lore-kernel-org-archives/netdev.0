@@ -1,60 +1,65 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next] net: More vlan tests before registering netdevice
-Date: Wed, 31 Dec 2014 08:35:36 +0200
-Message-ID: <1420007736-30822-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Richard Laager <rlaager@wiktel.com>
+Subject: Re: Fw: [Bug 82471] New: net/core/dev.c skb_war_bad_offload
+Date: Wed, 31 Dec 2014 00:51:55 -0600
+Message-ID: <1420008715.4687.79.camel@watermelon.coderich.net>
+References: <1418805852.5277.25.camel@watermelon.coderich.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: multipart/signed; micalg="pgp-sha256";
+	protocol="application/pgp-signature"; boundary="=-uBdjkyzqGEfXZhlN61FH"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:49558 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750710AbaLaGfr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 01:35:47 -0500
+Received: from smtp2.wiktel.com ([69.89.207.152]:59085 "EHLO smtp2.wiktel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750710AbaLaGv5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Dec 2014 01:51:57 -0500
+Received: from [10.10.10.44] (vpn.wiktel.com [69.89.205.192])
+	(authenticated bits=0)
+	by smtp2.wiktel.com (8.14.4/8.14.4/Debian-4.1ubuntu1) with ESMTP id sBV6ptJH023791
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-GCM-SHA256 bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 00:51:55 -0600
+In-Reply-To: <1418805852.5277.25.camel@watermelon.coderich.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When register_netdevice() is called, netdevice's vlan filtering feature
-and supplied callbacks are checked to see the vlan implementation is
-not buggy.
-This adds an additional test - see that the vlan_features were filled
-correctly, as the vlan devices inherits those as its own features;
-Incorrect values set there would later prevent the vlan interface from being
-registered itself [as it doesn't implement the filtering ndos].
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
----
-Hi Dave,
+--=-uBdjkyzqGEfXZhlN61FH
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Not sure why take such a defensive approach regarding this feature.
-Perhaps it would have been better to simply remove these checks altogether.
+I was able to do some bisection using Ubuntu-packaged kernels.
 
-Cheers,
-Yuval
----
+The kernel from Precise (3.2.0-74.109) works (on a Trusty system).
 
- net/core/dev.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+On 3.5.0-51-generic (3.5.0-51.76) from Quantal, I get a different kind
+of brokenness. I don't get a stack dump, but I get this kernel message
+printed:
+skbuff: bond0.7: received packets cannot be forwarded while LRO is enabled
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3f191da..8a663b2 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6253,10 +6253,11 @@ int register_netdevice(struct net_device *dev)
- 		}
- 	}
- 
--	if (((dev->hw_features | dev->features) &
--	     NETIF_F_HW_VLAN_CTAG_FILTER) &&
--	    (!dev->netdev_ops->ndo_vlan_rx_add_vid ||
--	     !dev->netdev_ops->ndo_vlan_rx_kill_vid)) {
-+	if ((((dev->hw_features | dev->features) &
-+	      NETIF_F_HW_VLAN_CTAG_FILTER) &&
-+	     (!dev->netdev_ops->ndo_vlan_rx_add_vid ||
-+	      !dev->netdev_ops->ndo_vlan_rx_kill_vid)) ||
-+	    (dev->vlan_features & NETIF_F_HW_VLAN_CTAG_FILTER) {
- 		netdev_WARN(dev, "Buggy VLAN acceleration in driver!\n");
- 		ret = -EINVAL;
- 		goto err_uninit;
--- 
-1.9.3
+The kernels from Raring (3.8.0-35.50) and Saucy (3.11.0-26.45) are
+broken in the same way as Trusty.
+
+Does that skbuff error message provide any clue? If not, it seems that
+I'll have to bisect from working-on-3.2 to broken-on-3.5, then revert
+that offending commit in each test as I bisect again from 3.5 to 3.8?
+
+--=20
+Richard
+
+--=-uBdjkyzqGEfXZhlN61FH
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAABCAAGBQJUo50LAAoJEA/9MsdVF+JSueQH/i02rxvK3NIjVh2gPsQw7xiy
+pUpn7XtuNZ0bqEbJdCjB+Vksa5RPNCnN8UTVAZzoZPn+nZcotisSsPpw18yLjl1X
+kR6E4J/HAjEqxj2Ya2aGAZd5O2jsszyUCoEL1Cb3awwmz0uI2g/MINMspO8w8zm2
+276h7i0vTF+DlhfVX6C6YXoeEK30yDcS9ji8Chr7EdpLIb5R4fRhxqa43atexZF/
+fT9rYsVXwzRd+gpMT30JYd7S4h2nFWstJRLODD/Eqj/O4wuJZ23Zw5h00CIuukRW
+tN289rsW5qLpdjDSbVjGrS+F/08YRfRNROkwI5SglKbVf/wnN0wtU68PzosY7hk=
+=tUqV
+-----END PGP SIGNATURE-----
+
+--=-uBdjkyzqGEfXZhlN61FH--
