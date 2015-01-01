@@ -1,42 +1,70 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] TCP: Add support for TCP Stealth
-Date: Thu, 1 Jan 2015 11:10:30 -0800
-Message-ID: <20150101111030.1e2b3a18@urahara>
-References: <54A470B3.3010501@sec.in.tum.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Christian Grothoff <christian@grothoff.org>,
-	Jacob Appelbaum <jacob@appelbaum.net>
-To: Julian Kirsch <kirschju@sec.in.tum.de>
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: [PATCH] isdn: hisax: hfc4s8s_l1:  Remove some unused functions
+Date: Thu,  1 Jan 2015 20:17:22 +0100
+Message-ID: <1420139842-3573-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	Dan Carpenter <dan.carpenter@oracle.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:41388 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751468AbbAATKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jan 2015 14:10:39 -0500
-Received: by mail-pa0-f53.google.com with SMTP id kq14so22993644pab.12
-        for <netdev@vger.kernel.org>; Thu, 01 Jan 2015 11:10:39 -0800 (PST)
-In-Reply-To: <54A470B3.3010501@sec.in.tum.de>
+Received: from mail-wg0-f43.google.com ([74.125.82.43]:39536 "EHLO
+	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751531AbbAATOW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jan 2015 14:14:22 -0500
+Received: by mail-wg0-f43.google.com with SMTP id k14so5520553wgh.30
+        for <netdev@vger.kernel.org>; Thu, 01 Jan 2015 11:14:21 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 31 Dec 2014 22:54:59 +0100
-Julian Kirsch <kirschju@sec.in.tum.de> wrote:
+Removes some functions that are not used anywhere:
+Read_hfc32() Write_hfc32() Write_hfc16()
 
-> +	memcpy(iv, (const __u8 *)daddr,
-> +	       (daddr_size > sizeof(iv)) ? sizeof(iv) : daddr_size);
-> +
-> +#ifdef CONFIG_TCP_MD5SIG
-> +	md5 = tp->af_specific->md5_lookup(sk, sk);
-> +#else
-> +	md5 = NULL;
-> +#endif
-> +	if (likely(sysctl_tcp_timestamps && !md5) || tp->stealth.saw_tsval)
-> +		tsval = tp->stealth.mstamp.stamp_jiffies;
-> +
-> +	((__be16 *)iv)[2] ^= cpu_to_be16(tp->stealth.integrity_hash);
+This was partially found by using a static code analysis program called cppcheck.
 
-Cast unnecessary on memcpy arg since it takes void *
+Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+---
+ drivers/isdn/hisax/hfc4s8s_l1.c |   21 ---------------------
+ 1 file changed, 21 deletions(-)
 
-Would be clearer to use a real structure or union not assignment to cast to setup iv.
+diff --git a/drivers/isdn/hisax/hfc4s8s_l1.c b/drivers/isdn/hisax/hfc4s8s_l1.c
+index fc9f9d0..0e5d673 100644
+--- a/drivers/isdn/hisax/hfc4s8s_l1.c
++++ b/drivers/isdn/hisax/hfc4s8s_l1.c
+@@ -225,20 +225,6 @@ fWrite_hfc8(hfc4s8s_hw *a, u_char c)
+ }
+ 
+ static inline void
+-Write_hfc16(hfc4s8s_hw *a, u_char b, u_short c)
+-{
+-	SetRegAddr(a, b);
+-	outw(c, a->iobase);
+-}
+-
+-static inline void
+-Write_hfc32(hfc4s8s_hw *a, u_char b, u_long c)
+-{
+-	SetRegAddr(a, b);
+-	outl(c, a->iobase);
+-}
+-
+-static inline void
+ fWrite_hfc32(hfc4s8s_hw *a, u_long c)
+ {
+ 	outl(c, a->iobase);
+@@ -266,13 +252,6 @@ Read_hfc16(hfc4s8s_hw *a, u_char b)
+ }
+ 
+ static inline u_long
+-Read_hfc32(hfc4s8s_hw *a, u_char b)
+-{
+-	SetRegAddr(a, b);
+-	return (inl((volatile u_int) a->iobase));
+-}
+-
+-static inline u_long
+ fRead_hfc32(hfc4s8s_hw *a)
+ {
+ 	return (inl((volatile u_int) a->iobase));
+-- 
+1.7.10.4
