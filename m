@@ -1,37 +1,48 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next 3/7] e1000e: convert to CYCLECOUNTER_MASK macro.
-Date: Thu,  1 Jan 2015 11:39:57 +0100
-Message-ID: <85522c713fd39cce2e6ac0874780b3f1d3465aad.1420108214.git.richardcochran@gmail.com>
-References: <20141231.183347.862533634176009078.davem@davemloft.net>
-Cc: <linux-kernel@vger.kernel.org>, David Miller <davem@davemloft.net>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141231.183347.862533634176009078.davem@davemloft.net>
-In-Reply-To: <cover.1420108214.git.richardcochran@gmail.com>
-References: <cover.1420108214.git.richardcochran@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Michael S. Tsirkin" <mst@kernel.org>
+Subject: [PULL] vhost: cleanups and fixes
+Date: Thu, 1 Jan 2015 14:26:34 +0200
+Message-ID: <20150101122634.GA2670@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mst@redhat.com, rusty@rustcorp.com.au
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:60650 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751772AbbAAM0l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Jan 2015 07:26:41 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
----
- drivers/net/ethernet/intel/e1000e/netdev.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The following changes since commit b7392d2247cfe6771f95d256374f1a8e6a6f48d6:
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index e14fd85..332a298 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -4189,7 +4189,7 @@ static int e1000_sw_init(struct e1000_adapter *adapter)
- 	/* Setup hardware time stamping cyclecounter */
- 	if (adapter->flags & FLAG_HAS_HW_TIMESTAMP) {
- 		adapter->cc.read = e1000e_cyclecounter_read;
--		adapter->cc.mask = CLOCKSOURCE_MASK(64);
-+		adapter->cc.mask = CYCLECOUNTER_MASK(64);
- 		adapter->cc.mult = 1;
- 		/* cc.shift set in e1000e_get_base_tininca() */
- 
--- 
-1.7.10.4
+  Linux 3.19-rc2 (2014-12-28 16:49:37 -0800)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+
+for you to fetch changes up to 5d9a07b0de512b77bf28d2401e5fe3351f00a240:
+
+  vhost: relax used address alignment (2014-12-29 10:55:06 +0200)
+
+----------------------------------------------------------------
+vhost: virtio 1.0 bugfix
+
+There's a single change here, fixing a vhost bug where vhost initialization
+fails due to used ring alignment check being too strict.
+
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+----------------------------------------------------------------
+Michael S. Tsirkin (2):
+      virtio_ring: document alignment requirements
+      vhost: relax used address alignment
+
+ include/uapi/linux/virtio_ring.h |  7 +++++++
+ drivers/vhost/vhost.c            | 10 +++++++---
+ 2 files changed, 14 insertions(+), 3 deletions(-)
