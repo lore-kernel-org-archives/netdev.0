@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [RFC V2 PATCH 10/25] net/netpolicy: add three new NET policies
-Date: Wed, 31 Dec 2014 20:38:59 -0500
-Message-ID: <1420076354-4861-11-git-send-email-kan.liang@intel.com>
+Subject: [RFC V2 PATCH 23/25] net/netpolicy: optimize for queue pair
+Date: Wed, 31 Dec 2014 20:39:12 -0500
+Message-ID: <1420076354-4861-24-git-send-email-kan.liang@intel.com>
 References: <1420076354-4861-1-git-send-email-kan.liang@intel.com>
 Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
 	peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
@@ -23,47 +23,41 @@ List-Id: netdev.vger.kernel.org
 
 From: Kan Liang <kan.liang@intel.com>
 
-Introduce three NET policies
-CPU policy: configure for higher throughput and lower CPU% (power
-saving).
-BULK policy: configure for highest throughput.
-LATENCY policy: configure for lowest latency.
+Some drivers like i40e driver does not support separate Tx and Rx queues
+as channels. Using Rx queue to stand for the channels, if queue_pair is
+set by driver.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- include/linux/netpolicy.h | 3 +++
- net/core/netpolicy.c      | 5 ++++-
- 2 files changed, 7 insertions(+), 1 deletion(-)
+ include/linux/netpolicy.h | 1 +
+ net/core/netpolicy.c      | 3 +++
+ 2 files changed, 4 insertions(+)
 
 diff --git a/include/linux/netpolicy.h b/include/linux/netpolicy.h
-index b1d9277..3d348a7 100644
+index 00600f8..0eba512 100644
 --- a/include/linux/netpolicy.h
 +++ b/include/linux/netpolicy.h
-@@ -18,6 +18,9 @@
- 
- enum netpolicy_name {
- 	NET_POLICY_NONE		= 0,
-+	NET_POLICY_CPU,
-+	NET_POLICY_BULK,
-+	NET_POLICY_LATENCY,
- 	NET_POLICY_MAX,
- };
- 
+@@ -76,6 +76,7 @@ struct netpolicy_info {
+ 	enum netpolicy_name	cur_policy;
+ 	unsigned long avail_policy[BITS_TO_LONGS(NET_POLICY_MAX)];
+ 	bool	has_mix_policy;
++	bool	queue_pair;
+ 	/* cpu and queue mapping information */
+ 	struct netpolicy_sys_info	sys_info;
+ 	/* List of policy objects 0 rx 1 tx */
 diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
-index 8112839..71e9163 100644
+index dc1edfc..735405c 100644
 --- a/net/core/netpolicy.c
 +++ b/net/core/netpolicy.c
-@@ -223,7 +223,10 @@ static int netpolicy_enable(struct net_device *dev)
- }
+@@ -495,6 +495,9 @@ int netpolicy_pick_queue(struct netpolicy_instance *instance, bool is_rx)
+ 	if (!policy_validate(instance))
+ 		return -EINVAL;
  
- const char *policy_name[NET_POLICY_MAX] = {
--	"NONE"
-+	"NONE",
-+	"CPU",
-+	"BULK",
-+	"LATENCY"
- };
- 
- static u32 cpu_to_queue(struct net_device *dev,
++	if (dev->netpolicy->queue_pair)
++		is_rx = true;
++
+ 	/* fast path */
+ 	rcu_read_lock();
+ 	version = (int *)rcu_dereference(netpolicy_sys_map_version);
 -- 
 2.5.5
