@@ -1,56 +1,57 @@
-From: Sedat Dilek <sedat.dilek@gmail.com>
-Subject: Re: [PATCH net-next 0/7] Fixing the "Time Counter fixes and improvements"
-Date: Thu, 1 Jan 2015 17:30:58 +0100
-Message-ID: <CA+icZUXF6-_W6=YsajP4W84F5yvKCNtA3EYxKBgNS=aY4qAYPg@mail.gmail.com>
-Reply-To: sedat.dilek@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:50001 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750733AbbAAQgX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jan 2015 11:36:23 -0500
-Received: by mail-wg0-f43.google.com with SMTP id k14so5457445wgh.16
-        for <netdev@vger.kernel.org>; Thu, 01 Jan 2015 08:36:22 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: [PATCH] net: ethernet: chelsio: cxgb3: mc5.c:  Remove some unused functions
+Date: Thu,  1 Jan 2015 17:49:55 +0100
+Message-ID: <1420130996-29910-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	linux-kernel@vger.kernel.org
+To: Santosh Raspatur <santosh@chelsio.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Richard wrote:
+Removes some functions that are not used anywhere:
+dbgi_rd_rsp3() dbgi_wr_addr3()
 
-Dave,
+This was partially found by using a static code analysis program called cppcheck.
 
-I did not catch the missing includes in my x86 and arm testing,
-because those archs somehow do include clocksource.h for the drivers
-in question. Sorry.
+Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+---
+ drivers/net/ethernet/chelsio/cxgb3/mc5.c |   16 ----------------
+ 1 file changed, 16 deletions(-)
 
-This is how I would like to fix the header fallout. We really should
-decouple the timecounter/cyclecounter code from the clocksource code
-where possible.
-
-
-Thanks,
-Richard
-
-
-Richard Cochran (7):
-  timecounter: provide a macro to initialize the cyclecounter mask
-    field.
-  bnx2x: convert to CYCLECOUNTER_MASK macro.
-  e1000e: convert to CYCLECOUNTER_MASK macro.
-  igb: convert to CYCLECOUNTER_MASK macro.
-  ixgbe: convert to CYCLECOUNTER_MASK macro.
-  mlx4: include clocksource.h again
-  microblaze: include the new timecounter header.
-
-[...]
-
-With this conversion those 2 commits in net-next.git#master are obsolete now...
-
-e1000e: Include clocksource.h to get CLOCKSOURCE_MASK.
-igb_ptp: Include clocksource.h to get CLOCKSOURCE_MASK.
-
-
-- Sedat -
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/mc5.c b/drivers/net/ethernet/chelsio/cxgb3/mc5.c
+index e13b7fe..338301b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/mc5.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/mc5.c
+@@ -97,14 +97,6 @@ static int mc5_cmd_write(struct adapter *adapter, u32 cmd)
+ 			       F_DBGIRSPVALID, 1, MAX_WRITE_ATTEMPTS, 1);
+ }
+ 
+-static inline void dbgi_wr_addr3(struct adapter *adapter, u32 v1, u32 v2,
+-				 u32 v3)
+-{
+-	t3_write_reg(adapter, A_MC5_DB_DBGI_REQ_ADDR0, v1);
+-	t3_write_reg(adapter, A_MC5_DB_DBGI_REQ_ADDR1, v2);
+-	t3_write_reg(adapter, A_MC5_DB_DBGI_REQ_ADDR2, v3);
+-}
+-
+ static inline void dbgi_wr_data3(struct adapter *adapter, u32 v1, u32 v2,
+ 				 u32 v3)
+ {
+@@ -113,14 +105,6 @@ static inline void dbgi_wr_data3(struct adapter *adapter, u32 v1, u32 v2,
+ 	t3_write_reg(adapter, A_MC5_DB_DBGI_REQ_DATA2, v3);
+ }
+ 
+-static inline void dbgi_rd_rsp3(struct adapter *adapter, u32 *v1, u32 *v2,
+-				u32 *v3)
+-{
+-	*v1 = t3_read_reg(adapter, A_MC5_DB_DBGI_RSP_DATA0);
+-	*v2 = t3_read_reg(adapter, A_MC5_DB_DBGI_RSP_DATA1);
+-	*v3 = t3_read_reg(adapter, A_MC5_DB_DBGI_RSP_DATA2);
+-}
+-
+ /*
+  * Write data to the TCAM register at address (0, 0, addr_lo) using the TCAM
+  * command cmd.  The data to be written must have been set up by the caller.
+-- 
+1.7.10.4
