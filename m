@@ -1,65 +1,133 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH 00/17] fib_trie: Reduce time spent in fib_table_lookup
- by 35 to 75%
-Date: Wed, 31 Dec 2014 18:32:52 -0800
-Message-ID: <54A4B1D4.1030506@gmail.com>
-References: <20141231184649.3006.29958.stgit@ahduyck-vm-fedora20> <20141231.184610.1802958694945952516.davem@davemloft.net>
+From: Jeremiah Mahler <jmmahler@gmail.com>
+Subject: Re: [PATCH net-next v2 1/2] bridge: new attribute and flags to
+ represent vlan info lists and ranges
+Date: Wed, 31 Dec 2014 19:08:17 -0800
+Message-ID: <20150101030817.GA10710@hudson.localdomain>
+References: <1420044533-16963-2-git-send-email-roopa@cumulusnetworks.com>
+ <20141231174542.GA1922@hudson.localdomain>
+ <54A43D59.1080304@cumulusnetworks.com>
+ <20141231184855.GB2658@hudson.localdomain>
+ <54A467EB.5010404@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, alexander.h.duyck@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, vyasevic@redhat.com,
+	sfeldma@gmail.com, wkok@cumulusnetworks.com
+To: roopa <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:50444 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751461AbbAACcy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 21:32:54 -0500
-Received: by mail-pa0-f50.google.com with SMTP id bj1so22110630pad.37
-        for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 18:32:54 -0800 (PST)
-In-Reply-To: <20141231.184610.1802958694945952516.davem@davemloft.net>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:55446 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751453AbbAADIU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 22:08:20 -0500
+Received: by mail-pd0-f180.google.com with SMTP id fl12so6139523pdb.11
+        for <netdev@vger.kernel.org>; Wed, 31 Dec 2014 19:08:20 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <54A467EB.5010404@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/31/2014 03:46 PM, David Miller wrote:
-> From: Alexander Duyck <alexander.h.duyck@redhat.com>
-> Date: Wed, 31 Dec 2014 10:55:23 -0800
->
->> These patches are meant to address several performance issues I have seen 
->> in the fib_trie implementation, and fib_table_lookup specifically.  With 
->> these changes in place I have seen a reduction of up to 35 to 75% for the 
->> total time spent in fib_table_lookup depending on the type of search being 
->> performed.
->  ...
->> Changes since RFC:
->>   Replaced this_cpu_ptr with correct call to this_cpu_inc in patch 1
->>   Changed test for leaf_info mismatch to (key ^ n->key) & li->mask_plen in patch 10
-> As before, this looks awesome.
+Roopa,
 
-Thanks.
+On Wed, Dec 31, 2014 at 01:17:31PM -0800, roopa wrote:
+> On 12/31/14, 10:48 AM, Jeremiah Mahler wrote:
+> >Roopa,
+> >
+> >On Wed, Dec 31, 2014 at 10:15:53AM -0800, roopa wrote:
+> >>On 12/31/14, 9:45 AM, Jeremiah Mahler wrote:
+> >>>Roopa,
+> >>>
+> >>>On Wed, Dec 31, 2014 at 08:48:52AM -0800, roopa@cumulusnetworks.com wrote:
+> >>>>From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> >>>>
+> >>>>This patch adds (as suggested by scott feldman),
+> >>>>         - new netlink attribute IFLA_BRIDGE_VLAN_INFO_LIST to represent
+> >>>>           vlan list
+> >>>>         - And bridge_vlan_info flags BRIDGE_VLAN_INFO_RANGE_START and
+> >>>>           BRIDGE_VLAN_INFO_RANGE_END to indicate start and end of vlan range
+> >>>>
+> >>>>Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> >>>>---
+> >>>>  include/uapi/linux/if_bridge.h |    4 ++++
+> >>>>  net/bridge/br_netlink.c        |    1 +
+> >>>>  2 files changed, 5 insertions(+)
+> >>>>
+> >>>>diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
+> >>>>index b03ee8f..fa468aa 100644
+> >>>>--- a/include/uapi/linux/if_bridge.h
+> >>>>+++ b/include/uapi/linux/if_bridge.h
+> >>>>@@ -112,12 +112,14 @@ struct __fdb_entry {
+> >>>>   *     [IFLA_BRIDGE_FLAGS]
+> >>>>   *     [IFLA_BRIDGE_MODE]
+> >>>>   *     [IFLA_BRIDGE_VLAN_INFO]
+> >>>>+ *     [IFLA_BRIDGE_VLAN_INFO_LIST]
+> >>>>   * }
+> >>>>   */
+> >>>>  enum {
+> >>>>  	IFLA_BRIDGE_FLAGS,
+> >>>>  	IFLA_BRIDGE_MODE,
+> >>>>  	IFLA_BRIDGE_VLAN_INFO,
+> >>>>+	IFLA_BRIDGE_VLAN_INFO_LIST,
+> >>>>  	__IFLA_BRIDGE_MAX,
+> >>>>  };
+> >>>>  #define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
+> >>>>@@ -125,6 +127,8 @@ enum {
+> >>>>  #define BRIDGE_VLAN_INFO_MASTER	(1<<0)	/* Operate on Bridge device as well */
+> >>>>  #define BRIDGE_VLAN_INFO_PVID	(1<<1)	/* VLAN is PVID, ingress untagged */
+> >>>>  #define BRIDGE_VLAN_INFO_UNTAGGED	(1<<2)	/* VLAN egresses untagged */
+> >>>>+#define BRIDGE_VLAN_INFO_RANGE_START	(1<<3) /* VLAN is start of vlan range */
+> >>>>+#define BRIDGE_VLAN_INFO_RANGE_END	(1<<4) /* VLAN is end of vlan range */
+> >>>You add these here but you don't use them until the next patch.
+> >>>If they were wrong a bisect would point to the next patch.
+> >>>
+> >>>I would add them in the next patch where you start to use them.
+> >>I thought it was ok to declare it first and use them in the next patch. Only
+> >>the other way around would be bad.
+> >>  I have submitted in a similar way before. If needed i will resubmit.
+> >>
+> >>
+> >Hmm.  I cannot see how the other way would be bad but maybe I am missing
+> >something.
+> sorry, i did not mean what you were saying would be bad. I was just trying
+> to say that, use first and declare later would be bad (ie if my patches 1
+> and 2 were swapped). Otherwise i don't see a problem.
+> 
+Now I understand.  Yes, swapping the patches would be bad.
 
-> All applied to net-next, thanks!
->
-> This knocks about 35 cpu cycles off of a lookup that ends up using the
-> default route on sparc64.  From about ~438 cycles to ~403.
+> I know that you are saying i should combine the patches 1 and 2 into a
+> single patch. That is not a problem. If i need to respin again due to other
+> reasons i will consider merging them as well if that is a concern.
+> 
+Er, well not quite.  I don't think both patches should be combined in to
+one.  I would only move those two #defines that I pointed out in the
+first patch in to the second patch.
 
-Did that 438 value include both fib_table_lookup and check_leaf?  Just
-curious as the overall gain seems smaller than what I have been seeing
-on the x86 system I was testing with, but then again it could just be a
-sparc64 thing.
+I hope that makes a little more sense :)
 
-I've started work on a second round of patches.  With any luck they
-should be ready by the time the next net-next opens.  My hope is to cut
-the look-up time by another 30 to 50%, though it will take some time as
-I have to go though and drop the leaf_info structure, and look at
-splitting the tnode in half to break the key/pos/bits and child pointer
-dependency chain which will hopefully allow for a significant reduction
-in memory read stalls.
+> thanks.
+> 
+> >  Hopefully someone else has some insight.
+> >
+> >>
+> >>>>  struct bridge_vlan_info {
+> >>>>  	__u16 flags;
+> >>>>diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+> >>>>index 9f5eb55..492ef6a 100644
+> >>>>--- a/net/bridge/br_netlink.c
+> >>>>+++ b/net/bridge/br_netlink.c
+> >>>>@@ -223,6 +223,7 @@ static const struct nla_policy ifla_br_policy[IFLA_MAX+1] = {
+> >>>>  	[IFLA_BRIDGE_MODE]	= { .type = NLA_U16 },
+> >>>>  	[IFLA_BRIDGE_VLAN_INFO]	= { .type = NLA_BINARY,
+> >>>>  				    .len = sizeof(struct bridge_vlan_info), },
+> >>>>+	[IFLA_BRIDGE_VLAN_INFO_LIST] = { .type = NLA_NESTED, },
+> >>>>  };
+> >>>>  static int br_afspec(struct net_bridge *br,
+> >>>>-- 
+> >>>>1.7.10.4
+> >>>>
+> >>>>--
+> >>>>To unsubscribe from this list: send the line "unsubscribe netdev" in
+> >>>>the body of a message to majordomo@vger.kernel.org
+> >>>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-I am also planning to take a look at addressing the memory waste that
-occurs on nodes larger than 256 bytes due to the way kmalloc allocates
-memory as powers of 2.  I'm thinking I might try encouraging the growth
-of smaller nodes, and discouraging anything over 256 by implementing a
-"truesize" type logic that can be used in the inflate/halve functions so
-that the memory usage is more accurately reflected.
-
-- Alex
+-- 
+- Jeremiah Mahler
