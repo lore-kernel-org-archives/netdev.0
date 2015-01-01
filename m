@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [RFC V2 PATCH 12/25] net/netpolicy: NET device hotplug
-Date: Wed, 31 Dec 2014 20:39:01 -0500
-Message-ID: <1420076354-4861-13-git-send-email-kan.liang@intel.com>
+Subject: [RFC V2 PATCH 14/25] net/netpolicy: handle channel changes
+Date: Wed, 31 Dec 2014 20:39:03 -0500
+Message-ID: <1420076354-4861-15-git-send-email-kan.liang@intel.com>
 References: <1420076354-4861-1-git-send-email-kan.liang@intel.com>
 Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
 	peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
@@ -16,132 +16,77 @@ Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
 	Kan Liang <kan.liang@intel.com>
 To: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:26028 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965301AbcHDTNB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Aug 2016 15:13:01 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1420076354-4861-1-git-send-email-kan.liang@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Kan Liang <kan.liang@intel.com>
 
-Support NET device up/down/namechange in the NET policy code.
+User can uses ethtool to set the channel number. This patch handles the
+channel changes by rebuilding the object list.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- net/core/netpolicy.c | 66 +++++++++++++++++++++++++++++++++++++++++++++-------
- 1 file changed, 58 insertions(+), 8 deletions(-)
+ include/linux/netpolicy.h | 8 ++++++++
+ net/core/ethtool.c        | 8 +++++++-
+ net/core/netpolicy.c      | 1 +
+ 3 files changed, 16 insertions(+), 1 deletion(-)
 
-diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
-index 8336106..2a04fcf 100644
---- a/net/core/netpolicy.c
-+++ b/net/core/netpolicy.c
-@@ -684,6 +684,9 @@ static const struct file_operations proc_net_policy_operations = {
- 
- static int netpolicy_proc_dev_init(struct net *net, struct net_device *dev)
- {
-+	if (dev->proc_dev)
-+		proc_remove(dev->proc_dev);
-+
- 	dev->proc_dev = proc_net_mkdir(net, dev->name, net->proc_netpolicy);
- 	if (!dev->proc_dev)
- 		return -ENOMEM;
-@@ -750,6 +753,19 @@ void uninit_netpolicy(struct net_device *dev)
- 	spin_unlock(&dev->np_lock);
- }
- 
-+static void netpolicy_dev_init(struct net *net,
-+			       struct net_device *dev)
-+{
-+	if (!init_netpolicy(dev)) {
-+#ifdef CONFIG_PROC_FS
-+		if (netpolicy_proc_dev_init(net, dev))
-+			uninit_netpolicy(dev);
-+		else
-+#endif /* CONFIG_PROC_FS */
-+		pr_info("NETPOLICY: Init net policy for %s\n", dev->name);
-+	}
-+}
-+
- static int __net_init netpolicy_net_init(struct net *net)
- {
- 	struct net_device *dev, *aux;
-@@ -762,14 +778,7 @@ static int __net_init netpolicy_net_init(struct net *net)
- #endif /* CONFIG_PROC_FS */
- 
- 	for_each_netdev_safe(net, dev, aux) {
--		if (!init_netpolicy(dev)) {
--#ifdef CONFIG_PROC_FS
--			if (netpolicy_proc_dev_init(net, dev))
--				uninit_netpolicy(dev);
--			else
--#endif /* CONFIG_PROC_FS */
--			pr_info("NETPOLICY: Init net policy for %s\n", dev->name);
--		}
-+		netpolicy_dev_init(net, dev);
- 	}
- 
- 	return 0;
-@@ -791,17 +800,58 @@ static struct pernet_operations netpolicy_net_ops = {
- 	.exit = netpolicy_net_exit,
+diff --git a/include/linux/netpolicy.h b/include/linux/netpolicy.h
+index 579ff98..cc75e3c 100644
+--- a/include/linux/netpolicy.h
++++ b/include/linux/netpolicy.h
+@@ -79,4 +79,12 @@ struct netpolicy_info {
+ 	struct list_head		obj_list[NETPOLICY_RXTX][NET_POLICY_MAX];
  };
  
-+static int netpolicy_notify(struct notifier_block *this,
-+			    unsigned long event,
-+			    void *ptr)
++#ifdef CONFIG_NETPOLICY
++extern void update_netpolicy_sys_map(void);
++#else
++static inline void update_netpolicy_sys_map(void)
 +{
-+	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-+
-+	switch (event) {
-+	case NETDEV_CHANGENAME:
-+#ifdef CONFIG_PROC_FS
-+		if (dev->proc_dev) {
-+			proc_remove(dev->proc_dev);
-+			if ((netpolicy_proc_dev_init(dev_net(dev), dev) < 0) &&
-+			    dev->proc_dev) {
-+				proc_remove(dev->proc_dev);
-+				dev->proc_dev = NULL;
-+			}
-+		}
-+#endif
-+		break;
-+	case NETDEV_UP:
-+		netpolicy_dev_init(dev_net(dev), dev);
-+		break;
-+	case NETDEV_GOING_DOWN:
-+		uninit_netpolicy(dev);
-+#ifdef CONFIG_PROC_FS
-+		proc_remove(dev->proc_dev);
-+		dev->proc_dev = NULL;
-+#endif
-+		break;
-+	}
-+
-+	return NOTIFY_OK;
 +}
++#endif
 +
-+static struct notifier_block netpolicy_dev_notf = {
-+	.notifier_call = netpolicy_notify,
-+};
-+
- static int __init netpolicy_init(void)
+ #endif /*__LINUX_NETPOLICY_H*/
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 9774898..e1f8bd0 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1703,6 +1703,7 @@ static noinline_for_stack int ethtool_set_channels(struct net_device *dev,
  {
- 	int ret;
+ 	struct ethtool_channels channels, max;
+ 	u32 max_rx_in_use = 0;
++	int ret;
  
- 	ret = register_pernet_subsys(&netpolicy_net_ops);
+ 	if (!dev->ethtool_ops->set_channels || !dev->ethtool_ops->get_channels)
+ 		return -EOPNOTSUPP;
+@@ -1726,7 +1727,12 @@ static noinline_for_stack int ethtool_set_channels(struct net_device *dev,
+ 	    (channels.combined_count + channels.rx_count) <= max_rx_in_use)
+ 	    return -EINVAL;
+ 
+-	return dev->ethtool_ops->set_channels(dev, &channels);
++	ret = dev->ethtool_ops->set_channels(dev, &channels);
++#ifdef CONFIG_NETPOLICY
 +	if (!ret)
-+		register_netdevice_notifier(&netpolicy_dev_notf);
- 
- 	return ret;
++		update_netpolicy_sys_map();
++#endif
++	return ret;
  }
  
- static void __exit netpolicy_exit(void)
- {
-+	unregister_netdevice_notifier(&netpolicy_dev_notf);
- 	unregister_pernet_subsys(&netpolicy_net_ops);
+ static int ethtool_get_pauseparam(struct net_device *dev, void __user *useraddr)
+diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
+index 3b523fc..7579685 100644
+--- a/net/core/netpolicy.c
++++ b/net/core/netpolicy.c
+@@ -885,6 +885,7 @@ unlock:
+ 		}
+ 	}
  }
++EXPORT_SYMBOL(update_netpolicy_sys_map);
  
+ static int netpolicy_cpu_callback(struct notifier_block *nfb,
+ 				  unsigned long action, void *hcpu)
 -- 
 2.5.5
