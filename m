@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [RFC V2 PATCH 05/25] net/netpolicy: create CPU and queue mapping
-Date: Wed, 31 Dec 2014 20:38:54 -0500
-Message-ID: <1420076354-4861-6-git-send-email-kan.liang@intel.com>
+Subject: [RFC V2 PATCH 17/25] net/netpolicy: introduce netpolicy_pick_queue
+Date: Wed, 31 Dec 2014 20:39:06 -0500
+Message-ID: <1420076354-4861-18-git-send-email-kan.liang@intel.com>
 References: <1420076354-4861-1-git-send-email-kan.liang@intel.com>
 Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
 	peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
@@ -23,140 +23,197 @@ List-Id: netdev.vger.kernel.org
 
 From: Kan Liang <kan.liang@intel.com>
 
-Current implementation forces CPU and queue 1:1 mapping. This patch
-introduces the function netpolicy_update_sys_map to create this mapping.
-The result is stored in netpolicy_sys_info.
+To achieve better network performance, the key step is to distribute the
+packets to dedicated queues according to policy and system run time
+status.
 
-If the CPU count and queue count are different, the remaining
-CPUs/queues are not used for now.
+This patch provides an interface which can return the proper dedicated
+queue for socket/task. Then the packets of the socket/task will be
+redirect to the dedicated queue for better network performance.
 
-CPU hotplug, device hotplug or ethtool may change the CPU count or
-queue count. For these cases, this function can also be called to
-reconstruct the mapping. These cases will be handled later in this
-series.
+For selecting the proper queue, currently it uses round-robin algorithm
+to find the available object from the given policy object list. The
+algorithm is good enough for now. But it could be improved by some
+adaptive algorithm later.
+
+The selected object will be stored in hashtable. So it does not need to
+go through the whole object list every time.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- include/linux/netpolicy.h | 18 ++++++++++++
- net/core/netpolicy.c      | 74 +++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 92 insertions(+)
+ include/linux/netpolicy.h |   5 ++
+ net/core/netpolicy.c      | 136 ++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 141 insertions(+)
 
 diff --git a/include/linux/netpolicy.h b/include/linux/netpolicy.h
-index fc87d9b..a946b75c 100644
+index 5900252..a522015 100644
 --- a/include/linux/netpolicy.h
 +++ b/include/linux/netpolicy.h
-@@ -30,9 +30,27 @@ struct netpolicy_dev_info {
- 	u32	*tx_irq;
- };
+@@ -97,6 +97,7 @@ extern void update_netpolicy_sys_map(void);
+ extern int netpolicy_register(struct netpolicy_instance *instance,
+ 			      enum netpolicy_name policy);
+ extern void netpolicy_unregister(struct netpolicy_instance *instance);
++extern int netpolicy_pick_queue(struct netpolicy_instance *instance, bool is_rx);
+ #else
+ static inline void update_netpolicy_sys_map(void)
+ {
+@@ -111,6 +112,10 @@ static inline void netpolicy_unregister(struct netpolicy_instance *instance)
+ {
+ }
  
-+struct netpolicy_sys_map {
-+	u32	cpu;
-+	u32	queue;
-+	u32	irq;
-+};
-+
-+struct netpolicy_sys_info {
-+	/*
-+	 * Record the cpu and queue 1:1 mapping
-+	 */
-+	u32				avail_rx_num;
-+	struct netpolicy_sys_map	*rx;
-+	u32				avail_tx_num;
-+	struct netpolicy_sys_map	*tx;
-+};
-+
- struct netpolicy_info {
- 	enum netpolicy_name	cur_policy;
- 	unsigned long avail_policy[BITS_TO_LONGS(NET_POLICY_MAX)];
-+	/* cpu and queue mapping information */
-+	struct netpolicy_sys_info	sys_info;
- };
++static inline int netpolicy_pick_queue(struct netpolicy_instance *instance, bool is_rx)
++{
++	return 0;
++}
+ #endif
  
  #endif /*__LINUX_NETPOLICY_H*/
 diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
-index 075aaca..ff7fc04 100644
+index 3605761..98ca430 100644
 --- a/net/core/netpolicy.c
 +++ b/net/core/netpolicy.c
-@@ -54,6 +54,80 @@ static u32 netpolicy_get_cpu_information(void)
- 	return num_online_cpus();
+@@ -290,6 +290,142 @@ static void netpolicy_record_clear_dev_node(struct net_device *dev)
+ 	spin_unlock_bh(&np_hashtable_lock);
  }
  
-+static void netpolicy_free_sys_map(struct net_device *dev)
++static struct netpolicy_object *get_avail_object(struct net_device *dev,
++						 enum netpolicy_name policy,
++						 bool is_rx)
 +{
-+	struct netpolicy_sys_info *s_info = &dev->netpolicy->sys_info;
++	int dir = is_rx ? NETPOLICY_RX : NETPOLICY_TX;
++	struct netpolicy_object *tmp, *obj = NULL;
++	int val = -1;
 +
-+	kfree(s_info->rx);
-+	s_info->rx = NULL;
-+	s_info->avail_rx_num = 0;
-+	kfree(s_info->tx);
-+	s_info->tx = NULL;
-+	s_info->avail_tx_num = 0;
++	/* Check if net policy is supported */
++	if (!dev || !dev->netpolicy)
++		return NULL;
++
++	/* The system should have queues which support the request policy. */
++	if ((policy != dev->netpolicy->cur_policy) &&
++	    (dev->netpolicy->cur_policy != NET_POLICY_MIX))
++		return NULL;
++
++	spin_lock_bh(&dev->np_ob_list_lock);
++	list_for_each_entry(tmp, &dev->netpolicy->obj_list[dir][policy], list) {
++		if ((val > atomic_read(&tmp->refcnt)) ||
++		    (val == -1)) {
++			val = atomic_read(&tmp->refcnt);
++			obj = tmp;
++		}
++	}
++
++	if (WARN_ON(!obj)) {
++		spin_unlock_bh(&dev->np_ob_list_lock);
++		return NULL;
++	}
++	atomic_inc(&obj->refcnt);
++	spin_unlock_bh(&dev->np_ob_list_lock);
++
++	return obj;
 +}
 +
-+static int netpolicy_update_sys_map(struct net_device *dev,
-+				    struct netpolicy_dev_info *d_info,
-+				    u32 cpu)
++static int get_avail_queue(struct netpolicy_instance *instance, bool is_rx)
 +{
-+	struct netpolicy_sys_info *s_info = &dev->netpolicy->sys_info;
-+	u32 num, i, online_cpu;
-+	cpumask_var_t cpumask;
++	struct netpolicy_record *old_record, *new_record;
++	struct net_device *dev = instance->dev;
++	unsigned long ptr_id = (uintptr_t)instance->ptr;
++	int queue = -1;
 +
-+	if (!alloc_cpumask_var(&cpumask, GFP_ATOMIC))
-+		return -ENOMEM;
-+
-+	/* update rx cpu map */
-+	if (cpu > d_info->rx_num)
-+		num = d_info->rx_num;
-+	else
-+		num = cpu;
-+
-+	s_info->avail_rx_num = num;
-+	s_info->rx = kcalloc(num, sizeof(*s_info->rx), GFP_ATOMIC);
-+	if (!s_info->rx)
++	spin_lock_bh(&np_hashtable_lock);
++	old_record = netpolicy_record_search(ptr_id);
++	if (!old_record) {
++		pr_warn("NETPOLICY: doesn't registered. Remove net policy settings!\n");
++		instance->policy = NET_POLICY_INVALID;
 +		goto err;
-+	cpumask_copy(cpumask, cpu_online_mask);
-+
-+	i = 0;
-+	for_each_cpu(online_cpu, cpumask) {
-+		if (i == num)
-+			break;
-+		s_info->rx[i].cpu = online_cpu;
-+		s_info->rx[i].queue = i;
-+		s_info->rx[i].irq = d_info->rx_irq[i];
-+		i++;
 +	}
 +
-+	/* update tx cpu map */
-+	if (cpu >= d_info->tx_num)
-+		num = d_info->tx_num;
-+	else
-+		num = cpu;
++	if (is_rx && old_record->rx_obj) {
++		queue = old_record->rx_obj->queue;
++	} else if (!is_rx && old_record->tx_obj) {
++		queue = old_record->tx_obj->queue;
++	} else {
++		new_record = kzalloc(sizeof(*new_record), GFP_KERNEL);
++		if (!new_record)
++			goto err;
++		memcpy(new_record, old_record, sizeof(*new_record));
 +
-+	s_info->avail_tx_num = num;
-+	s_info->tx = kcalloc(num, sizeof(*s_info->tx), GFP_ATOMIC);
-+	if (!s_info->tx)
-+		goto err;
-+
-+	i = 0;
-+	for_each_cpu(online_cpu, cpumask) {
-+		if (i == num)
-+			break;
-+		s_info->tx[i].cpu = online_cpu;
-+		s_info->tx[i].queue = i;
-+		s_info->tx[i].irq = d_info->tx_irq[i];
-+		i++;
++		if (is_rx) {
++			new_record->rx_obj = get_avail_object(dev, new_record->policy, is_rx);
++			if (!new_record->dev)
++				new_record->dev = dev;
++			if (!new_record->rx_obj) {
++				kfree(new_record);
++				goto err;
++			}
++			queue = new_record->rx_obj->queue;
++		} else {
++			new_record->tx_obj = get_avail_object(dev, new_record->policy, is_rx);
++			if (!new_record->dev)
++				new_record->dev = dev;
++			if (!new_record->tx_obj) {
++				kfree(new_record);
++				goto err;
++			}
++			queue = new_record->tx_obj->queue;
++		}
++		/* update record */
++		hlist_replace_rcu(&old_record->hash_node, &new_record->hash_node);
++		kfree(old_record);
 +	}
-+
-+	free_cpumask_var(cpumask);
-+	return 0;
 +err:
-+	netpolicy_free_sys_map(dev);
-+	free_cpumask_var(cpumask);
-+	return -ENOMEM;
++	spin_unlock_bh(&np_hashtable_lock);
++	return queue;
 +}
 +
- const char *policy_name[NET_POLICY_MAX] = {
- 	"NONE"
- };
++static inline bool policy_validate(struct netpolicy_instance *instance)
++{
++	struct net_device *dev = instance->dev;
++	enum netpolicy_name cur_policy;
++
++	cur_policy = dev->netpolicy->cur_policy;
++	if ((instance->policy == NET_POLICY_NONE) ||
++	    (cur_policy == NET_POLICY_NONE))
++		return false;
++
++	if (((cur_policy != NET_POLICY_MIX) && (cur_policy != instance->policy)) ||
++	    ((cur_policy == NET_POLICY_MIX) && (instance->policy == NET_POLICY_CPU))) {
++		pr_warn("NETPOLICY: %s current device policy %s doesn't support required policy %s! Remove net policy settings!\n",
++			dev->name, policy_name[cur_policy],
++			policy_name[instance->policy]);
++		return false;
++	}
++	return true;
++}
++
++/**
++ * netpolicy_pick_queue() - Find proper queue
++ * @instance:	NET policy per socket/task instance info
++ * @is_rx:	RX queue or TX queue
++ *
++ * This function intends to find the proper queue according to policy.
++ * For selecting the proper queue, currently it uses round-robin algorithm
++ * to find the available object from the given policy object list.
++ * The selected object will be stored in hashtable. So it does not need to
++ * go through the whole object list every time.
++ *
++ * Return: negative on failure, otherwise on the assigned queue
++ */
++int netpolicy_pick_queue(struct netpolicy_instance *instance, bool is_rx)
++{
++	struct net_device *dev = instance->dev;
++
++	if (!dev || !dev->netpolicy)
++		return -EINVAL;
++
++	if (!policy_validate(instance))
++		return -EINVAL;
++
++	return get_avail_queue(instance, is_rx);
++}
++EXPORT_SYMBOL(netpolicy_pick_queue);
++
+ /**
+  * netpolicy_register() - Register per socket/task policy request
+  * @instance:	NET policy per socket/task instance info
 -- 
 2.5.5
