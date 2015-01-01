@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [RFC V2 PATCH 13/25] net/netpolicy: support CPU hotplug
-Date: Wed, 31 Dec 2014 20:39:02 -0500
-Message-ID: <1420076354-4861-14-git-send-email-kan.liang@intel.com>
+Subject: [RFC V2 PATCH 12/25] net/netpolicy: NET device hotplug
+Date: Wed, 31 Dec 2014 20:39:01 -0500
+Message-ID: <1420076354-4861-13-git-send-email-kan.liang@intel.com>
 References: <1420076354-4861-1-git-send-email-kan.liang@intel.com>
 Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
 	peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
@@ -16,128 +16,132 @@ Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
 	Kan Liang <kan.liang@intel.com>
 To: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:26028 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965301AbcHDTNB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Aug 2016 15:13:01 -0400
 In-Reply-To: <1420076354-4861-1-git-send-email-kan.liang@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Kan Liang <kan.liang@intel.com>
 
-For CPU hotplug, the NET policy subsystem will rebuild the sys map and
-object list.
+Support NET device up/down/namechange in the NET policy code.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- net/core/netpolicy.c | 76 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 76 insertions(+)
+ net/core/netpolicy.c | 66 +++++++++++++++++++++++++++++++++++++++++++++-------
+ 1 file changed, 58 insertions(+), 8 deletions(-)
 
 diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
-index 2a04fcf..3b523fc 100644
+index 8336106..2a04fcf 100644
 --- a/net/core/netpolicy.c
 +++ b/net/core/netpolicy.c
-@@ -37,6 +37,7 @@
- #include <net/net_namespace.h>
- #include <linux/sort.h>
- #include <linux/ctype.h>
-+#include <linux/cpu.h>
+@@ -684,6 +684,9 @@ static const struct file_operations proc_net_policy_operations = {
  
- static int netpolicy_get_dev_info(struct net_device *dev,
- 				  struct netpolicy_dev_info *d_info)
-@@ -838,6 +839,73 @@ static struct notifier_block netpolicy_dev_notf = {
- 	.notifier_call = netpolicy_notify,
- };
+ static int netpolicy_proc_dev_init(struct net *net, struct net_device *dev)
+ {
++	if (dev->proc_dev)
++		proc_remove(dev->proc_dev);
++
+ 	dev->proc_dev = proc_net_mkdir(net, dev->name, net->proc_netpolicy);
+ 	if (!dev->proc_dev)
+ 		return -ENOMEM;
+@@ -750,6 +753,19 @@ void uninit_netpolicy(struct net_device *dev)
+ 	spin_unlock(&dev->np_lock);
+ }
  
-+/**
-+ * update_netpolicy_sys_map() - rebuild the sys map and object list
-+ *
-+ * This function go through all the available net policy supported device,
-+ * and rebuild sys map and object list.
-+ *
-+ */
-+void update_netpolicy_sys_map(void)
++static void netpolicy_dev_init(struct net *net,
++			       struct net_device *dev)
 +{
-+	struct net *net;
-+	struct net_device *dev, *aux;
-+	enum netpolicy_name cur_policy;
-+
-+	for_each_net(net) {
-+		for_each_netdev_safe(net, dev, aux) {
-+			spin_lock(&dev->np_lock);
-+			if (!dev->netpolicy)
-+				goto unlock;
-+			cur_policy = dev->netpolicy->cur_policy;
-+			if (cur_policy == NET_POLICY_NONE)
-+				goto unlock;
-+
-+			dev->netpolicy->cur_policy = NET_POLICY_NONE;
-+
-+			/* rebuild everything */
-+			netpolicy_disable(dev);
-+			netpolicy_enable(dev);
-+			if (netpolicy_gen_obj_list(dev, cur_policy)) {
-+				pr_warn("NETPOLICY: Failed to generate netpolicy object list for dev %s\n",
-+					dev->name);
-+				netpolicy_disable(dev);
-+				goto unlock;
-+			}
-+			if (dev->netdev_ops->ndo_set_net_policy(dev, cur_policy)) {
-+				pr_warn("NETPOLICY: Failed to set netpolicy for dev %s\n",
-+					dev->name);
-+				netpolicy_disable(dev);
-+				goto unlock;
-+			}
-+
-+			dev->netpolicy->cur_policy = cur_policy;
-+unlock:
-+			spin_unlock(&dev->np_lock);
-+		}
++	if (!init_netpolicy(dev)) {
++#ifdef CONFIG_PROC_FS
++		if (netpolicy_proc_dev_init(net, dev))
++			uninit_netpolicy(dev);
++		else
++#endif /* CONFIG_PROC_FS */
++		pr_info("NETPOLICY: Init net policy for %s\n", dev->name);
 +	}
 +}
 +
-+static int netpolicy_cpu_callback(struct notifier_block *nfb,
-+				  unsigned long action, void *hcpu)
+ static int __net_init netpolicy_net_init(struct net *net)
+ {
+ 	struct net_device *dev, *aux;
+@@ -762,14 +778,7 @@ static int __net_init netpolicy_net_init(struct net *net)
+ #endif /* CONFIG_PROC_FS */
+ 
+ 	for_each_netdev_safe(net, dev, aux) {
+-		if (!init_netpolicy(dev)) {
+-#ifdef CONFIG_PROC_FS
+-			if (netpolicy_proc_dev_init(net, dev))
+-				uninit_netpolicy(dev);
+-			else
+-#endif /* CONFIG_PROC_FS */
+-			pr_info("NETPOLICY: Init net policy for %s\n", dev->name);
+-		}
++		netpolicy_dev_init(net, dev);
+ 	}
+ 
+ 	return 0;
+@@ -791,17 +800,58 @@ static struct pernet_operations netpolicy_net_ops = {
+ 	.exit = netpolicy_net_exit,
+ };
+ 
++static int netpolicy_notify(struct notifier_block *this,
++			    unsigned long event,
++			    void *ptr)
 +{
-+	switch (action & ~CPU_TASKS_FROZEN) {
-+	case CPU_ONLINE:
-+		update_netpolicy_sys_map();
++	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++
++	switch (event) {
++	case NETDEV_CHANGENAME:
++#ifdef CONFIG_PROC_FS
++		if (dev->proc_dev) {
++			proc_remove(dev->proc_dev);
++			if ((netpolicy_proc_dev_init(dev_net(dev), dev) < 0) &&
++			    dev->proc_dev) {
++				proc_remove(dev->proc_dev);
++				dev->proc_dev = NULL;
++			}
++		}
++#endif
 +		break;
-+	case CPU_DYING:
-+		update_netpolicy_sys_map();
++	case NETDEV_UP:
++		netpolicy_dev_init(dev_net(dev), dev);
++		break;
++	case NETDEV_GOING_DOWN:
++		uninit_netpolicy(dev);
++#ifdef CONFIG_PROC_FS
++		proc_remove(dev->proc_dev);
++		dev->proc_dev = NULL;
++#endif
 +		break;
 +	}
++
 +	return NOTIFY_OK;
 +}
 +
-+static struct notifier_block netpolicy_cpu_notifier = {
-+	&netpolicy_cpu_callback,
-+	NULL,
-+	0
++static struct notifier_block netpolicy_dev_notf = {
++	.notifier_call = netpolicy_notify,
 +};
 +
  static int __init netpolicy_init(void)
  {
  	int ret;
-@@ -846,6 +914,10 @@ static int __init netpolicy_init(void)
- 	if (!ret)
- 		register_netdevice_notifier(&netpolicy_dev_notf);
  
-+	cpu_notifier_register_begin();
-+	__register_cpu_notifier(&netpolicy_cpu_notifier);
-+	cpu_notifier_register_done();
-+
+ 	ret = register_pernet_subsys(&netpolicy_net_ops);
++	if (!ret)
++		register_netdevice_notifier(&netpolicy_dev_notf);
+ 
  	return ret;
  }
  
-@@ -853,6 +925,10 @@ static void __exit netpolicy_exit(void)
+ static void __exit netpolicy_exit(void)
  {
- 	unregister_netdevice_notifier(&netpolicy_dev_notf);
++	unregister_netdevice_notifier(&netpolicy_dev_notf);
  	unregister_pernet_subsys(&netpolicy_net_ops);
-+
-+	cpu_notifier_register_begin();
-+	__unregister_cpu_notifier(&netpolicy_cpu_notifier);
-+	cpu_notifier_register_done();
  }
  
- subsys_initcall(netpolicy_init);
 -- 
 2.5.5
