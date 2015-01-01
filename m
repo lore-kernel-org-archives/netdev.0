@@ -1,45 +1,60 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 2/3] igb: Remove unneeded FIXME
-Date: Wed, 31 Dec 2014 16:04:14 -0800
-Message-ID: <1420070655-28453-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 3/3] i40e: Fix possible memory leak in i40e_dbg_dump_desc
+Date: Wed, 31 Dec 2014 16:04:15 -0800
+Message-ID: <1420070655-28453-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1420070655-28453-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Todd Fujinaka <todd.fujinaka@intel.com>, netdev@vger.kernel.org,
+Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:8966 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751676AbbAAAET (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751692AbbAAAET (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 31 Dec 2014 19:04:19 -0500
 In-Reply-To: <1420070655-28453-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Todd Fujinaka <todd.fujinaka@intel.com>
+From: Joe Perches <joe@perches.com>
 
-Remove a FIXME comment that was missed in a commit on 1/2007.
+I didn't notice that return in the code, fix it by
+adding a goto out instead to free the memory.
 
-Signed-off-by: Todd Fujinaka <todd.fujinaka@intel.com>
-Reported-by: nick <xerofoify@gmail.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Fixes:
+
+> New smatch warnings:
+> drivers/net/ethernet/intel/i40e/i40e_debugfs.c:832 i40e_dbg_dump_desc() warn: possible memory leak of 'ring'
+
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Joe Perches <joe@perches.com>
+Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_82575.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index 051ea94..0f69ef8 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -1125,7 +1125,7 @@ static s32 igb_acquire_swfw_sync_82575(struct e1000_hw *hw, u16 mask)
- 	u32 swmask = mask;
- 	u32 fwmask = mask << 16;
- 	s32 ret_val = 0;
--	s32 i = 0, timeout = 200; /* FIXME: find real value to use here */
-+	s32 i = 0, timeout = 200;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index 433a558..cb0de45 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -829,7 +829,7 @@ static void i40e_dbg_dump_desc(int cnt, int vsi_seid, int ring_id, int desc_n,
+ 		if (desc_n >= ring->count || desc_n < 0) {
+ 			dev_info(&pf->pdev->dev,
+ 				 "descriptor %d not found\n", desc_n);
+-			return;
++			goto out;
+ 		}
+ 		if (!is_rx_ring) {
+ 			txd = I40E_TX_DESC(ring, desc_n);
+@@ -855,6 +855,8 @@ static void i40e_dbg_dump_desc(int cnt, int vsi_seid, int ring_id, int desc_n,
+ 	} else {
+ 		dev_info(&pf->pdev->dev, "dump desc rx/tx <vsi_seid> <ring_id> [<desc_n>]\n");
+ 	}
++
++out:
+ 	kfree(ring);
+ }
  
- 	while (i < timeout) {
- 		if (igb_get_hw_semaphore(hw)) {
 -- 
 1.9.3
