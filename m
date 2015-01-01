@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [RFC V2 PATCH 25/25] Documentation/networking: Document NET policy
-Date: Wed, 31 Dec 2014 20:39:14 -0500
-Message-ID: <1420076354-4861-26-git-send-email-kan.liang@intel.com>
+Subject: [RFC V2 PATCH 22/25] net/netpolicy: fast path for finding the queues
+Date: Wed, 31 Dec 2014 20:39:11 -0500
+Message-ID: <1420076354-4861-23-git-send-email-kan.liang@intel.com>
 References: <1420076354-4861-1-git-send-email-kan.liang@intel.com>
 Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
 	peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
@@ -16,185 +16,273 @@ Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
 	Kan Liang <kan.liang@intel.com>
 To: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:49783 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965587AbcHDTNJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Aug 2016 15:13:09 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1420076354-4861-1-git-send-email-kan.liang@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Kan Liang <kan.liang@intel.com>
 
+Current implementation searches the hash table to get assigned object
+for each transmit/receive packet. It's not necessory, because the
+assigned object usually remain unchanged. This patch store the assigned
+queue to speed up the searching process.
+
+But under certain situations, the assigned objects has to be changed,
+especially when system cpu and queue mapping changed, such as CPU
+hotplug, device hotplug, queue number changes and so on. In this patch,
+the netpolicy_sys_map_version is used to track the system cpu and queue
+mapping changes. If the netpolicy_sys_map_version doesn't match with the
+instance's version, the stored queue will be dropped. The
+netpolicy_sys_map_version is protected by RCU lock.
+
+Also, to reduce the overhead, this patch asynchronously find the
+available object by work queue. So the first several packets may not be
+benefited.
+
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- Documentation/networking/netpolicy.txt | 157 +++++++++++++++++++++++++++++++++
- 1 file changed, 157 insertions(+)
- create mode 100644 Documentation/networking/netpolicy.txt
+ include/linux/netpolicy.h |   8 ++++
+ net/core/netpolicy.c      | 103 +++++++++++++++++++++++++++++++++++++++++++++-
+ net/ipv4/af_inet.c        |   7 +---
+ 3 files changed, 112 insertions(+), 6 deletions(-)
 
-diff --git a/Documentation/networking/netpolicy.txt b/Documentation/networking/netpolicy.txt
-new file mode 100644
-index 0000000..b8e3d4c
---- /dev/null
-+++ b/Documentation/networking/netpolicy.txt
-@@ -0,0 +1,157 @@
-+What is Linux Net Policy?
+diff --git a/include/linux/netpolicy.h b/include/linux/netpolicy.h
+index df962de..00600f8 100644
+--- a/include/linux/netpolicy.h
++++ b/include/linux/netpolicy.h
+@@ -108,6 +108,14 @@ struct netpolicy_instance {
+ 	struct work_struct	fc_wk;		/* flow classification work */
+ 	atomic_t		fc_wk_cnt;	/* flow classification work number */
+ 	struct netpolicy_flow_spec flow;	/* flow information */
++	/* For fast path */
++	atomic_t		rx_queue;
++	atomic_t		tx_queue;
++	struct work_struct	get_rx_wk;
++	atomic_t		get_rx_wk_cnt;
++	struct work_struct	get_tx_wk;
++	atomic_t		get_tx_wk_cnt;
++	int			sys_map_version;
+ };
+ 
+ /* check if policy is valid */
+diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
+index 4b844d8..dc1edfc 100644
+--- a/net/core/netpolicy.c
++++ b/net/core/netpolicy.c
+@@ -79,10 +79,13 @@ struct netpolicy_record {
+ 	struct netpolicy_object	*tx_obj;
+ };
+ 
++static void __rcu *netpolicy_sys_map_version;
 +
-+It is a big challenge to get good network performance. First, the network
-+performance is not good with default system settings. Second, it is too
-+difficult to do automatic tuning for all possible workloads, since workloads
-+have different requirements. Some workloads may want high throughput. Some may
-+need low latency. Last but not least, there are lots of manual configurations.
-+Fine grained configuration is too difficult for users.
+ static DEFINE_HASHTABLE(np_record_hash, 10);
+ static DEFINE_SPINLOCK(np_hashtable_lock);
+ 
+ struct workqueue_struct *np_fc_wq;
++struct workqueue_struct *np_fast_path_wq;
+ 
+ static int netpolicy_get_dev_info(struct net_device *dev,
+ 				  struct netpolicy_dev_info *d_info)
+@@ -411,6 +414,37 @@ err:
+ 	return queue;
+ }
+ 
++static void np_find_rx_queue(struct work_struct *wk)
++{
++	struct netpolicy_instance *instance;
++	int queue;
 +
-+"NET policy" intends to simplify the network configuration and get a
-+good network performance according to the hints(policy) which is applied by
-+user. It provides some typical "policies" for user which can be set
-+per-socket, per-task or per-device. The kernel automatically figures out
-+how to merge different requests to get good network performance.
++	instance = container_of(wk, struct netpolicy_instance,
++				get_rx_wk);
 +
-+"Net policy" is designed for multiqueue network devices. This document
-+describes the concepts and APIs of "net policy" support.
++	if (instance) {
++		queue = get_avail_queue(instance, true);
++		if (queue >= 0)
++			atomic_set(&instance->rx_queue, queue);
++	}
++	atomic_set(&instance->get_rx_wk_cnt, 0);
++}
 +
-+NET POLICY CONCEPTS
++static void np_find_tx_queue(struct work_struct *wk)
++{
++	struct netpolicy_instance *instance;
++	int queue;
 +
-+Scope of Net Policies
++	instance = container_of(wk, struct netpolicy_instance,
++				get_tx_wk);
++	if (instance) {
++		queue = get_avail_queue(instance, false);
++		if (queue >= 0)
++			atomic_set(&instance->tx_queue, queue);
++	}
++	atomic_set(&instance->get_tx_wk_cnt, 0);
++}
 +
-+    Device net policy: this policy applies to the whole device. Once the
-+    device net policy is set, it automatically configures the system
-+    according to the applied policy. The configuration usually includes IRQ
-+    affinity, IRQ balance disable, interrupt moderation, and so on. But the
-+    device net policy does not change the packet direction.
+ static inline bool policy_validate(struct netpolicy_instance *instance)
+ {
+ 	struct net_device *dev = instance->dev;
+@@ -453,6 +487,7 @@ static inline bool policy_validate(struct netpolicy_instance *instance)
+ int netpolicy_pick_queue(struct netpolicy_instance *instance, bool is_rx)
+ {
+ 	struct net_device *dev = instance->dev;
++	int *version;
+ 
+ 	if (!dev || !dev->netpolicy)
+ 		return -EINVAL;
+@@ -460,7 +495,31 @@ int netpolicy_pick_queue(struct netpolicy_instance *instance, bool is_rx)
+ 	if (!policy_validate(instance))
+ 		return -EINVAL;
+ 
+-	return get_avail_queue(instance, is_rx);
++	/* fast path */
++	rcu_read_lock();
++	version = (int *)rcu_dereference(netpolicy_sys_map_version);
++	if (*version == instance->sys_map_version) {
++		if (is_rx && (atomic_read(&instance->rx_queue) != NETPOLICY_INVALID_QUEUE)) {
++			rcu_read_unlock();
++			return atomic_read(&instance->rx_queue);
++		}
++		if (!is_rx && (atomic_read(&instance->tx_queue) != NETPOLICY_INVALID_QUEUE)) {
++			rcu_read_unlock();
++			return atomic_read(&instance->tx_queue);
++		}
++	} else {
++		atomic_set(&instance->rx_queue, NETPOLICY_INVALID_QUEUE);
++		atomic_set(&instance->tx_queue, NETPOLICY_INVALID_QUEUE);
++		instance->sys_map_version = *version;
++	}
++	rcu_read_unlock();
 +
-+    Task net policy: this is a per-task policy. When it is applied to specific
-+    task, all packet transmissions of the task will be redirected to the
-+    assigned queues accordingly. If a task does not define a task policy,
-+    it "falls back" to the system default way to direct the packets. The
-+    per-task policy must be compatible with device net policy.
++	if (is_rx && !atomic_cmpxchg(&instance->get_rx_wk_cnt, 0, 1))
++		queue_work(np_fast_path_wq, &instance->get_rx_wk);
++	if (!is_rx && !atomic_cmpxchg(&instance->get_tx_wk_cnt, 0, 1))
++		queue_work(np_fast_path_wq, &instance->get_tx_wk);
 +
-+    Socket net policy: this is a per-socket policy. When it is applied to
-+    specific socket, all packet transmissions of the socket will be redirected
-+    to the assigned queues accordingly. If a socket does not define a socket
-+    policy, it "falls back" to the system default way to direct the packets.
-+    The per-socket policy must be compatible with both device net policy and
-+    per-task policy.
++	return -1;
+ }
+ EXPORT_SYMBOL(netpolicy_pick_queue);
+ 
+@@ -496,6 +555,7 @@ void np_flow_rule_set(struct work_struct *wk)
+ 	queue = get_avail_queue(instance, true);
+ 	if (queue < 0)
+ 		goto done;
++	atomic_set(&instance->rx_queue, queue);
+ 
+ 	/* using ethtool flow-type to configure
+ 	 * Rx network flow classification options or rules
+@@ -546,6 +606,14 @@ static void init_instance(struct netpolicy_instance *instance)
+ 	atomic_set(&instance->rule_queue, NETPOLICY_INVALID_QUEUE);
+ 	atomic_set(&instance->fc_wk_cnt, 0);
+ 	INIT_WORK(&instance->fc_wk, np_flow_rule_set);
 +
-+Components of Net Policies
++	atomic_set(&instance->rx_queue, NETPOLICY_INVALID_QUEUE);
++	atomic_set(&instance->tx_queue, NETPOLICY_INVALID_QUEUE);
++	instance->sys_map_version = 0;
++	atomic_set(&instance->get_rx_wk_cnt, 0);
++	atomic_set(&instance->get_tx_wk_cnt, 0);
++	INIT_WORK(&instance->get_rx_wk, np_find_rx_queue);
++	INIT_WORK(&instance->get_tx_wk, np_find_tx_queue);
+ }
+ 
+ /**
+@@ -619,6 +687,8 @@ void netpolicy_unregister(struct netpolicy_instance *instance)
+ 	struct net_device *dev = instance->dev;
+ 	struct netpolicy_record *record;
+ 
++	cancel_work_sync(&instance->get_rx_wk);
++	cancel_work_sync(&instance->get_tx_wk);
+ 	cancel_work_sync(&instance->fc_wk);
+ 	/* remove FD rules */
+ 	if (dev && instance->location != NETPOLICY_INVALID_LOC) {
+@@ -1296,6 +1366,7 @@ void update_netpolicy_sys_map(void)
+ 	struct net *net;
+ 	struct net_device *dev, *aux;
+ 	enum netpolicy_name cur_policy;
++	int *new_version, *old_version;
+ 
+ 	for_each_net(net) {
+ 		for_each_netdev_safe(net, dev, aux) {
+@@ -1331,6 +1402,18 @@ unlock:
+ 			spin_unlock(&dev->np_lock);
+ 		}
+ 	}
 +
-+    Net policy object: it is a combination of CPU and queue. The queue IRQ has
-+    to set affinity with the CPU. It can be shared between sockets and tasks.
-+    A reference counter is used to track the sharing number.
++	old_version = rcu_dereference(netpolicy_sys_map_version);
++	new_version = kzalloc(sizeof(int), GFP_KERNEL);
++	if (new_version) {
++		*new_version = *old_version + 1;
++		if (*new_version < 0)
++			*new_version = 0;
++		rcu_assign_pointer(netpolicy_sys_map_version, new_version);
++		synchronize_rcu();
++	} else {
++		pr_warn("NETPOLICY: Failed to update sys map version\n");
++	}
+ }
+ EXPORT_SYMBOL(update_netpolicy_sys_map);
+ 
+@@ -1357,11 +1440,26 @@ static struct notifier_block netpolicy_cpu_notifier = {
+ static int __init netpolicy_init(void)
+ {
+ 	int ret;
++	void *version;
+ 
+ 	np_fc_wq = create_workqueue("np_fc");
+ 	if (!np_fc_wq)
+ 		return -ENOMEM;
+ 
++	np_fast_path_wq = create_workqueue("np_fast_path");
++	if (!np_fast_path_wq) {
++		destroy_workqueue(np_fc_wq);
++		return -ENOMEM;
++	}
 +
-+    Net policy object list: each device policy has an object list. Once the
-+    device policy is determined, the net policy object will be inserted into
-+    the net policy object list. The net policy object list does not change
-+    unless the CPU/queue number is changed, the netpolicy is disabled or
-+    the device policy is changed.
-+    The network performance for objects could be different because of the
-+    CPU/queue topology and dev location. The objects which can bring high
-+    performance are in the front of the list.
++	version = kzalloc(sizeof(int), GFP_KERNEL);
++	if (!version) {
++		destroy_workqueue(np_fc_wq);
++		destroy_workqueue(np_fast_path_wq);
++		return -ENOMEM;
++	}
++	rcu_assign_pointer(netpolicy_sys_map_version, version);
 +
-+    RCU hash table: an RCU hash table to maintain the relationship between
-+    the task/socket and the assigned object. The task/socket can get the
-+    assigned object by searching the table.
-+    If it is the first time, there is no assigned object in the table. It will
-+    go through the object list to find the available object based on position
-+    and reference number.
-+    If the net policy object list changes, all the assigned objects will become
-+    invalid.
-+
-+NET POLICY APIs
-+
-+Interfaces between net policy and device driver
-+
-+    int (*ndo_netpolicy_init)(struct net_device *dev,
-+                              struct netpolicy_info *info);
-+
-+    The device driver who has NET policy support must implement this interface.
-+    In this interface, the device driver does necessory initialization, and fill
-+    the info for net policy module. The information could include supported
-+    policy, MIX policy support, queue pair support and so on.
-+
-+    int (*ndo_get_irq_info)(struct net_device *dev,
-+                            struct netpolicy_dev_info *info);
-+
-+    This interface is used to get more accurate device IRQ information.
-+
-+    int (*ndo_set_net_policy)(struct net_device *dev,
-+                              enum netpolicy_name name);
-+
-+    This interface is used to set device net policy by name. It is device driver's
-+    responsibility to set driver specific configuration for the given policy.
-+
-+Interfaces between net policy and kernel
-+
-+    int netpolicy_register(struct netpolicy_instance *instance);
-+    void netpolicy_unregister(struct netpolicy_instance *instance);
-+
-+    This interface is used to register per task/socket net policy.
-+    The socket/task can only be benefited when it register itself with specific
-+    policy. After registeration, a record will be created and inserted into RCU
-+    hash table, which include all the NET policy related information for the
-+    socket/task, such as pointor, policy, object and so on.
-+
-+    int netpolicy_pick_queue(struct netpolicy_instance *instance, bool is_rx);
-+
-+    This interface is used to find the proper queue(object) for packet
-+    receiving and transmitting. The proper queue is picked from object list
-+    according to policy, reference, location and so on.
-+
-+
-+    int netpolicy_set_rules(struct netpolicy_instance *instance);
-+
-+    This interface is used to add device specific rules. Once the rule is
-+    applied, the packet from specific IP and port will be redirected to the
-+    given queue. This interface is usually used on receive side.
-+
-+NET POLICY INTERFACE
-+
-+Device net policy setting
-+
-+    /proc/net/netpolicy/$DEV/policy
-+
-+    Concatenating(cat) the "policy" file can show the available device
-+    policies, if there is no device policy applied. Otherwise, the device
-+    policy name will be printed out. If it is MIX policy, the policy for each
-+    queue will also be printed out.
-+    User can set device net policy by writing policy name.
-+
-+Task policy setting
-+
-+    /proc/$PID/net_policy
-+
-+    Concatenating(cat) the "net_policy" file can show the applied per task
-+    policy.
-+    User can set per task net policy by writing policy name.
-+
-+    OR
-+
-+    prctl(PR_SET_NETPOLICY, POLICY_NAME, NULL, NULL, NULL)
-+
-+    "prctl" is an alternative way to set/get per task policy.
-+
-+Socket policy setting
-+
-+    setsockopt(sockfd,SOL_SOCKET,SO_NETPOLICY,&policy,sizeof(int))
-+
-+    The socket net policy can be set by option SO_NETPOLICY of setsockopt.
-+
-+AVAILABLE NET POLICIES
-+
-+    The available net policies are defined as below:
-+    - CPU: intends to get higher throughput and lower CPU% (power saving).
-+           This policy can be applied as either device net policy or
-+           task/socket net policy.
-+    - BULK: intends to get highest throughput. This policy can be applied as
-+            either device net policy or task/socket net policy.
-+    - LATENCY: intends to get lowest latency. This policy can be applied as
-+               either device net policy or task/socket net policy.
-+    - MIX: combination of other policies, which allows each queue to have a
-+           different policy. This policy can only be set as device net policy.
-+
+ 	ret = register_pernet_subsys(&netpolicy_net_ops);
+ 	if (!ret)
+ 		register_netdevice_notifier(&netpolicy_dev_notf);
+@@ -1376,6 +1474,9 @@ static int __init netpolicy_init(void)
+ static void __exit netpolicy_exit(void)
+ {
+ 	destroy_workqueue(np_fc_wq);
++	destroy_workqueue(np_fast_path_wq);
++	RCU_INIT_POINTER(netpolicy_sys_map_version, NULL);
++	synchronize_rcu();
+ 
+ 	unregister_netdevice_notifier(&netpolicy_dev_notf);
+ 	unregister_pernet_subsys(&netpolicy_net_ops);
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index b26e606..a21ae80 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -765,7 +765,6 @@ static void sock_netpolicy_manage_flow(struct sock *sk, struct msghdr *msg)
+ 	struct netpolicy_instance *instance;
+ 	struct netpolicy_flow_spec *flow;
+ 	bool change = false;
+-	int queue;
+ 
+ 	instance = netpolicy_find_instance(sk);
+ 	if (!instance)
+@@ -819,10 +818,8 @@ static void sock_netpolicy_manage_flow(struct sock *sk, struct msghdr *msg)
+ 		return;
+ 	}
+ 
+-	queue = netpolicy_pick_queue(instance, true);
+-	if (queue < 0)
+-		return;
+-	if ((queue != atomic_read(&instance->rule_queue)) || change)
++	if ((atomic_read(&instance->rx_queue) != atomic_read(&instance->rule_queue)) ||
++	    change)
+ 		netpolicy_set_rules(instance);
+ #endif
+ }
 -- 
 2.5.5
