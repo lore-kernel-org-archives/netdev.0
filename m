@@ -1,41 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/6] support GMAC driver for RK3288
-Date: Wed, 31 Dec 2014 19:15:38 -0500 (EST)
-Message-ID: <20141231.191538.585375391107637966.davem@davemloft.net>
-References: <1419846152-14531-1-git-send-email-roger.chen@rock-chips.com>
+Subject: Re: [net 0/3][pull request] Intel Wired LAN Driver Updates
+ 2014-12-31
+Date: Wed, 31 Dec 2014 19:17:31 -0500 (EST)
+Message-ID: <20141231.191731.902090516765505378.davem@davemloft.net>
+References: <1420070655-28453-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: heiko@sntech.de, peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
-	kever.yang@rock-chips.com, eddie.cai@rock-chips.com
-To: roger.chen@rock-chips.com
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47733 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47765 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751430AbbAAAPr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 19:15:47 -0500
-In-Reply-To: <1419846152-14531-1-git-send-email-roger.chen@rock-chips.com>
+	with ESMTP id S1751407AbbAAARd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2014 19:17:33 -0500
+In-Reply-To: <1420070655-28453-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roger Chen <roger.chen@rock-chips.com>
-Date: Mon, 29 Dec 2014 17:42:32 +0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 31 Dec 2014 16:04:12 -0800
 
-> Roger Chen (6):
->   patch1: add driver for Rockchip RK3288 SoCs integrated GMAC
->   patch2: define clock ID used for GMAC
->   patch3: modify CRU config for Rockchip RK3288 SoCs integrated GMAC
->   patch4: dts: rockchip: add gmac info for rk3288
->   patch5: dts: rockchip: enable gmac on RK3288 evb board
->   patch6: add document for Rockchip RK3288 GMAC
+> This series contains updates to fixes for e100, igb and i40e.
 > 
-> Tested on rk3288 evb board:
-> Execute the following command to enable ethernet,
-> set local IP and ping a remote host.
+> John Linville fixes a typo in e100 that has been around for some time,
+> where an attempted revert actually inverted the test for eeprom_mdix_enabled.
 > 
-> busybox ifconfig eth0 up
-> busybox ifconfig eth0 192.168.1.111
-> ping 192.168.1.1
+> Todd fixes up a code comment that should have been removed back in 2007.
+> 
+> Joe Perches fixes a possible memory leak in i40e which was reported by
+> Dan Carpenter using smatch.
+> 
+> The following are changes since commit 2c90331cf5ed1d648a711b9483e173aaaf2c4a9b:
+>   Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
 
-Series applied to net-next, thanks.
+Pulled, thanks Jeff.
