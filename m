@@ -1,58 +1,200 @@
-From: Ilya Lesokhin <ilyal@mellanox.com>
-Subject: RE: [PATCH] net: use non-compound pages in frag allocator
-Date: Thu, 4 Aug 2016 13:38:41 +0000
-Message-ID: <VI1PR0501MB1968D785003AA94C1EB0F226D4070@VI1PR0501MB1968.eurprd05.prod.outlook.com>
-References: <1470314858-32105-1-git-send-email-ilyal@mellanox.com>
- <1470317089.13693.23.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"edumazet@google.com" <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: kan.liang@intel.com
+Subject: [RFC V2 PATCH 25/25] Documentation/networking: Document NET policy
+Date: Wed, 31 Dec 2014 20:39:14 -0500
+Message-ID: <1420076354-4861-26-git-send-email-kan.liang@intel.com>
+References: <1420076354-4861-1-git-send-email-kan.liang@intel.com>
+Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
+	peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net,
+	akpm@linux-foundation.org, keescook@chromium.org,
+	viro@zeniv.linux.org.uk, gorcunov@openvz.org,
+	john.stultz@linaro.org, aduyck@mirantis.com, ben@decadent.org.uk,
+	decot@googlers.com, fw@strlen.de, alexander.duyck@gmail.com,
+	daniel@iogearbox.net, tom@herbertland.com, rdunlap@infradead.org,
+	xiyou.wangcong@gmail.com, hannes@stressinduktion.org,
+	jesse.brandeburg@intel.com, andi@firstfloor.org,
+	Kan Liang <kan.liang@intel.com>
+To: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0060.outbound.protection.outlook.com ([104.47.2.60]:37683
-	"EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S934040AbcHDTNo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Aug 2016 15:13:44 -0400
-In-Reply-To: <1470317089.13693.23.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
+Received: from mga03.intel.com ([134.134.136.65]:49783 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965587AbcHDTNJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Aug 2016 15:13:09 -0400
+In-Reply-To: <1420076354-4861-1-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-WW91IGFyZSByaWdodCBJIGp1c3QgcmVhbGl6ZWQgdGhhdCB0aGlzIHBhdGNoIGNhdXNlcyBhIG1l
-bW9yeSBsZWFrLCBzbyBzb3JyeSBmb3IgdGhlIHNwYW0uDQoNCkkganVzdCBoYWQgcHJvYmxlbSB1
-bmRlcnN0YW5kaW5nIHdoZW4gY29tcG91bmQgcGFnZXMgYXJlIG5lZWRlZCBhbmQgd2hlbiBJdCBp
-cyBlbm91Z2ggdG8gdXNlIGFuIGhpZ2ggb3JkZXIgcGFnZXMuDQpJIHRob3VnaHQgdGhhdCB0aGF0
-IGhpZ2ggb3JkZXIgcGFnZXMgYXJlIGVub3VnaCBmb3IgdGhpcyB1c2UgY2FzZSwgdGVzdGVkIGl0
-IGFuZCBzYXcgbm8gcHJvYmxlbXMuDQoNClVuZm9ydHVuYXRlbHkgaXQgc2VlbXMgeW91IG11c3Qg
-dXNlIGNvbXBvdW5kIHBhZ2VzIHRvIGtlZXAgdHJhY2sgb2YgIHRoZSBwYWdlIG9yZGVyLg0KcHV0
-X3BhZ2UgYXNzdW1lcyB0aGF0IHRoZSBvcmRlciBvZiBhIG5vbi1jb21wb3VuZCBwYWdlIGlzIGFs
-d2F5cyAwLiANCkl0IHdvdWxkIGJlIG5pY2UgdG8gZG9jdW1lbnQgaXQgc29tZXdoZXJlIGJ1dCBJ
-J20gbm90IHN1cmUgd2hlcmUuDQoNClRoYW5rcywNCklseWENCg0KPiAtLS0tLU9yaWdpbmFsIE1l
-c3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0bzplcmljLmR1bWF6ZXRAZ21h
-aWwuY29tXQ0KPiBTZW50OiBUaHVyc2RheSwgQXVndXN0IDA0LCAyMDE2IDQ6MjUgUE0NCj4gVG86
-IElseWEgTGVzb2toaW4gPGlseWFsQG1lbGxhbm94LmNvbT4NCj4gQ2M6IG5ldGRldkB2Z2VyLmtl
-cm5lbC5vcmc7IGVkdW1hemV0QGdvb2dsZS5jb20NCj4gU3ViamVjdDogUmU6IFtQQVRDSF0gbmV0
-OiB1c2Ugbm9uLWNvbXBvdW5kIHBhZ2VzIGluIGZyYWcgYWxsb2NhdG9yDQo+IA0KPiBPbiBUaHUs
-IDIwMTYtMDgtMDQgYXQgMTU6NDcgKzAzMDAsIElseWEgTGVzb2toaW4gd3JvdGU6DQo+ID4gVGhl
-IGNvZGUgY3VycmVudGx5IGFsd2F5cyByZWZlcmVuY2VzIHRoZSBmaXJzdCBwYWdlIGluIHRoZSBm
-cmFnDQo+ID4gdGhlcmVmb3JlIHRoZXJlIGlzIG5vIG5lZWQgdG8gcGF5IHRoZSBleHRyYSBvdmVy
-aGVhZCBvZiBtYWtpbmcgdGhlDQo+ID4gZnJhZyBwYWdlIGNvbXBvdW5kDQo+ID4NCj4gPiBTaWdu
-ZWQtb2ZmLWJ5OiBJbHlhIExlc29raGluIDxpbHlhbEBtZWxsYW5veC5jb20+DQo+ID4gLS0tDQo+
-ID4gIG5ldC9jb3JlL3NvY2suYyB8IDIgKy0NCj4gPiAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0
-aW9uKCspLCAxIGRlbGV0aW9uKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvbmV0L2NvcmUvc29j
-ay5jIGIvbmV0L2NvcmUvc29jay5jIGluZGV4IDA4YmY5N2UuLjc3NDMyYmENCj4gPiAxMDA2NDQN
-Cj4gPiAtLS0gYS9uZXQvY29yZS9zb2NrLmMNCj4gPiArKysgYi9uZXQvY29yZS9zb2NrLmMNCj4g
-PiBAQCAtMTk5Myw3ICsxOTkzLDcgQEAgYm9vbCBza2JfcGFnZV9mcmFnX3JlZmlsbCh1bnNpZ25l
-ZCBpbnQgc3osIHN0cnVjdA0KPiBwYWdlX2ZyYWcgKnBmcmFnLCBnZnBfdCBnZnApDQo+ID4gIAlp
-ZiAoU0tCX0ZSQUdfUEFHRV9PUkRFUikgew0KPiA+ICAJCS8qIEF2b2lkIGRpcmVjdCByZWNsYWlt
-IGJ1dCBhbGxvdyBrc3dhcGQgdG8gd2FrZSAqLw0KPiA+ICAJCXBmcmFnLT5wYWdlID0gYWxsb2Nf
-cGFnZXMoKGdmcCAmIH5fX0dGUF9ESVJFQ1RfUkVDTEFJTSkNCj4gfA0KPiA+IC0JCQkJCSAgX19H
-RlBfQ09NUCB8IF9fR0ZQX05PV0FSTiB8DQo+ID4gKwkJCQkJICBfX0dGUF9OT1dBUk4gfA0KPiA+
-ICAJCQkJCSAgX19HRlBfTk9SRVRSWSwNCj4gPiAgCQkJCQkgIFNLQl9GUkFHX1BBR0VfT1JERVIp
-Ow0KPiA+ICAJCWlmIChsaWtlbHkocGZyYWctPnBhZ2UpKSB7DQo+IA0KPiANCj4gTG9va3MgdmVy
-eSByaXNreSB0byBtZS4NCj4gDQo+IFdoYXQgbnVtYmVycyBjYW4geW91IHNob3cgdXMgZXhhY3Rs
-eSA/DQo+IA0KPiBzcGxpY2UoKSBpcyBrbm93biB0byBwbGF5IGdhbWVzIG9uIHBhZ2VzLCBtYWtl
-IHN1cmUgaXQgc3RpbGwgd29ya3MgPw0KPiANCj4gDQoNCg==
+From: Kan Liang <kan.liang@intel.com>
+
+Signed-off-by: Kan Liang <kan.liang@intel.com>
+---
+ Documentation/networking/netpolicy.txt | 157 +++++++++++++++++++++++++++++++++
+ 1 file changed, 157 insertions(+)
+ create mode 100644 Documentation/networking/netpolicy.txt
+
+diff --git a/Documentation/networking/netpolicy.txt b/Documentation/networking/netpolicy.txt
+new file mode 100644
+index 0000000..b8e3d4c
+--- /dev/null
++++ b/Documentation/networking/netpolicy.txt
+@@ -0,0 +1,157 @@
++What is Linux Net Policy?
++
++It is a big challenge to get good network performance. First, the network
++performance is not good with default system settings. Second, it is too
++difficult to do automatic tuning for all possible workloads, since workloads
++have different requirements. Some workloads may want high throughput. Some may
++need low latency. Last but not least, there are lots of manual configurations.
++Fine grained configuration is too difficult for users.
++
++"NET policy" intends to simplify the network configuration and get a
++good network performance according to the hints(policy) which is applied by
++user. It provides some typical "policies" for user which can be set
++per-socket, per-task or per-device. The kernel automatically figures out
++how to merge different requests to get good network performance.
++
++"Net policy" is designed for multiqueue network devices. This document
++describes the concepts and APIs of "net policy" support.
++
++NET POLICY CONCEPTS
++
++Scope of Net Policies
++
++    Device net policy: this policy applies to the whole device. Once the
++    device net policy is set, it automatically configures the system
++    according to the applied policy. The configuration usually includes IRQ
++    affinity, IRQ balance disable, interrupt moderation, and so on. But the
++    device net policy does not change the packet direction.
++
++    Task net policy: this is a per-task policy. When it is applied to specific
++    task, all packet transmissions of the task will be redirected to the
++    assigned queues accordingly. If a task does not define a task policy,
++    it "falls back" to the system default way to direct the packets. The
++    per-task policy must be compatible with device net policy.
++
++    Socket net policy: this is a per-socket policy. When it is applied to
++    specific socket, all packet transmissions of the socket will be redirected
++    to the assigned queues accordingly. If a socket does not define a socket
++    policy, it "falls back" to the system default way to direct the packets.
++    The per-socket policy must be compatible with both device net policy and
++    per-task policy.
++
++Components of Net Policies
++
++    Net policy object: it is a combination of CPU and queue. The queue IRQ has
++    to set affinity with the CPU. It can be shared between sockets and tasks.
++    A reference counter is used to track the sharing number.
++
++    Net policy object list: each device policy has an object list. Once the
++    device policy is determined, the net policy object will be inserted into
++    the net policy object list. The net policy object list does not change
++    unless the CPU/queue number is changed, the netpolicy is disabled or
++    the device policy is changed.
++    The network performance for objects could be different because of the
++    CPU/queue topology and dev location. The objects which can bring high
++    performance are in the front of the list.
++
++    RCU hash table: an RCU hash table to maintain the relationship between
++    the task/socket and the assigned object. The task/socket can get the
++    assigned object by searching the table.
++    If it is the first time, there is no assigned object in the table. It will
++    go through the object list to find the available object based on position
++    and reference number.
++    If the net policy object list changes, all the assigned objects will become
++    invalid.
++
++NET POLICY APIs
++
++Interfaces between net policy and device driver
++
++    int (*ndo_netpolicy_init)(struct net_device *dev,
++                              struct netpolicy_info *info);
++
++    The device driver who has NET policy support must implement this interface.
++    In this interface, the device driver does necessory initialization, and fill
++    the info for net policy module. The information could include supported
++    policy, MIX policy support, queue pair support and so on.
++
++    int (*ndo_get_irq_info)(struct net_device *dev,
++                            struct netpolicy_dev_info *info);
++
++    This interface is used to get more accurate device IRQ information.
++
++    int (*ndo_set_net_policy)(struct net_device *dev,
++                              enum netpolicy_name name);
++
++    This interface is used to set device net policy by name. It is device driver's
++    responsibility to set driver specific configuration for the given policy.
++
++Interfaces between net policy and kernel
++
++    int netpolicy_register(struct netpolicy_instance *instance);
++    void netpolicy_unregister(struct netpolicy_instance *instance);
++
++    This interface is used to register per task/socket net policy.
++    The socket/task can only be benefited when it register itself with specific
++    policy. After registeration, a record will be created and inserted into RCU
++    hash table, which include all the NET policy related information for the
++    socket/task, such as pointor, policy, object and so on.
++
++    int netpolicy_pick_queue(struct netpolicy_instance *instance, bool is_rx);
++
++    This interface is used to find the proper queue(object) for packet
++    receiving and transmitting. The proper queue is picked from object list
++    according to policy, reference, location and so on.
++
++
++    int netpolicy_set_rules(struct netpolicy_instance *instance);
++
++    This interface is used to add device specific rules. Once the rule is
++    applied, the packet from specific IP and port will be redirected to the
++    given queue. This interface is usually used on receive side.
++
++NET POLICY INTERFACE
++
++Device net policy setting
++
++    /proc/net/netpolicy/$DEV/policy
++
++    Concatenating(cat) the "policy" file can show the available device
++    policies, if there is no device policy applied. Otherwise, the device
++    policy name will be printed out. If it is MIX policy, the policy for each
++    queue will also be printed out.
++    User can set device net policy by writing policy name.
++
++Task policy setting
++
++    /proc/$PID/net_policy
++
++    Concatenating(cat) the "net_policy" file can show the applied per task
++    policy.
++    User can set per task net policy by writing policy name.
++
++    OR
++
++    prctl(PR_SET_NETPOLICY, POLICY_NAME, NULL, NULL, NULL)
++
++    "prctl" is an alternative way to set/get per task policy.
++
++Socket policy setting
++
++    setsockopt(sockfd,SOL_SOCKET,SO_NETPOLICY,&policy,sizeof(int))
++
++    The socket net policy can be set by option SO_NETPOLICY of setsockopt.
++
++AVAILABLE NET POLICIES
++
++    The available net policies are defined as below:
++    - CPU: intends to get higher throughput and lower CPU% (power saving).
++           This policy can be applied as either device net policy or
++           task/socket net policy.
++    - BULK: intends to get highest throughput. This policy can be applied as
++            either device net policy or task/socket net policy.
++    - LATENCY: intends to get lowest latency. This policy can be applied as
++               either device net policy or task/socket net policy.
++    - MIX: combination of other policies, which allows each queue to have a
++           different policy. This policy can only be set as device net policy.
++
+-- 
+2.5.5
