@@ -1,61 +1,52 @@
-From: Sedat Dilek <sedat.dilek@gmail.com>
-Subject: Re: [PATCH] net: wireless: b43legacy: radio.c: Remove unused function
-Date: Fri, 2 Jan 2015 13:14:47 +0100
-Message-ID: <CA+icZUWOXMEyobZkudW9BEfkaWFTXQL9XF26g7oJMCzt=4==6g@mail.gmail.com>
-References: <1420127170-28421-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-	<CACna6rznUcqGTK0t1k=kjn0NVLycq865780ozyB+VYu78d_BSg@mail.gmail.com>
-	<CACna6rxbGRdw7XSYvHAJGxJvMVwjVbAL4ynBM3m9rNggh7gCVQ@mail.gmail.com>
-Reply-To: sedat.dilek@gmail.com
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] TCP: Add support for TCP Stealth
+Date: Fri, 02 Jan 2015 13:50:56 +0100
+Message-ID: <54A69430.2060800@redhat.com>
+References: <54A470B3.3010501@sec.in.tum.de> <54A566F2.4070401@redhat.com> <54A56880.6040802@grothoff.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Stefano Brivio <stefano.brivio@polimi.it>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	b43-dev <b43-dev@lists.infradead.org>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Julian Kirsch <kirschju@sec.in.tum.de>, netdev@vger.kernel.org,
+	Jacob Appelbaum <jacob@appelbaum.net>,
+	Pavel Emelyanov <xemul@parallels.com>
+To: Christian Grothoff <christian@grothoff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f181.google.com ([74.125.82.181]:53496 "EHLO
-	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750768AbbABMOt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 07:14:49 -0500
-In-Reply-To: <CACna6rxbGRdw7XSYvHAJGxJvMVwjVbAL4ynBM3m9rNggh7gCVQ@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:39914 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750771AbbABMwT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Jan 2015 07:52:19 -0500
+In-Reply-To: <54A56880.6040802@grothoff.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 2, 2015 at 1:06 PM, Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.c=
-om> wrote:
-> On 2 January 2015 at 13:05, Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com=
-> wrote:
->> On 1 January 2015 at 16:46, Rickard Strandqvist
->> <rickard_strandqvist@spectrumdigital.se> wrote:
->>> Remove the function b43legacy_radio_set_tx_iq() that is not used an=
-ywhere.
->>>
->>> This was partially found by using a static code analysis program ca=
-lled cppcheck.
->>
->> It seems to be for A-PHY based hardware (with 0x2060 radio id) which
->> is not handled by b43legacy. Should be safe to drop this code (we
->> won't likely need it).
->>
->> Ack
->
-> For future, we prefix patches with just a driver name. So this could
-> be simply called
-> b43legacy: radio.c: Remove unused function
->
+On 01/01/2015 04:32 PM, Christian Grothoff wrote:
+...
+> That approach is highly vulnerable to timing attacks, and doesn't answer
+> how TCP clients without special capabilities could set the ISN correctly
+> either. Playing with raw sockets is the kind of geeky hack that is
 
-Alternatively...
+Right, for client/server side you'd need to have the capabilities and
+then drop them later, which would make that approach less convenient
+for user space applications (despite not having to have a port knocking
+uapi in the TCP core itself). For the server, you might get away with a
+central daemon spawning sockets via IPC, but for the unprivileged
+client to e.g., let it set it's own ISN via setsockopt(2) would be a
+bad idea.
 
-"b43legacy: Remove unused function in radio.c"
+> unlikely to give us the combination of usability and security required
+> to significantly reduce the ongoing large-scale compromise of network
+> equipment by spy agencies.
 
-BTW, as Arnd Bergmann pointed out [1] how did you test with cppcheck
-to get such stuff?
-
-- Sedat -
-
-[1] https://lkml.org/lkml/2015/1/2/51
+Out of curiosity, when you say you want to significantly reduce the
+large-scale compromise of services by hiding ports, how do you solve
+i) the pre-shared key distribution issue you need for your approach
+(are you mostly targeting administrators for accessing their companies
+router/firewall management interfaces?), and ii) the broad adoption of
+this setsockopt(2) in applications? I think for ii) it would be great
+not having to change and recompile every possible client _and_ server
+application if they don't have the change upstreamed in their project.
+It feels like a property that goes beyond the scope of a specific,
+individual application, put differently, what about an additional
+central configuration interface? Other than that, is there a plan for
+key rotations in other words, to have a grace period for a key
+transition as peers might not have synced clocks?
