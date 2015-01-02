@@ -1,7 +1,7 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 6/9] spinlock: Add spin_lock_bh_nested()
-Date: Fri,  2 Jan 2015 23:00:19 +0100
-Message-ID: <f858445f9a939d8c543fe9b34246ef7165072413.1420230585.git.tgraf@suug.ch>
+Subject: [PATCH 9/9] netlink: Lockless lookup with RCU grace period in socket release
+Date: Fri,  2 Jan 2015 23:00:22 +0100
+Message-ID: <daae84cd33bfde8518b849176e25dcf3eea8014b.1420230585.git.tgraf@suug.ch>
 References: <cover.1420230585.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	herbert@gondor.apana.org.au, paulmck@linux.vnet.ibm.com,
@@ -15,90 +15,134 @@ References: <cover.1420230585.git.tgraf@suug.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Defers the release of the socket reference using call_rcu() to
+allow using an RCU read-side protected call to rhashtable_lookup()
+
+This restores behaviour and performance gains as previously
+introduced by e341694 ("netlink: Convert netlink_lookup() to use
+RCU protected hash table") without the side effect of severely
+delayed socket destruction.
+
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- include/linux/spinlock.h         | 8 ++++++++
- include/linux/spinlock_api_smp.h | 2 ++
- include/linux/spinlock_api_up.h  | 1 +
- kernel/locking/spinlock.c        | 8 ++++++++
- 4 files changed, 19 insertions(+)
+ net/netlink/af_netlink.c | 32 ++++++++++++++++----------------
+ net/netlink/af_netlink.h |  1 +
+ 2 files changed, 17 insertions(+), 16 deletions(-)
 
-diff --git a/include/linux/spinlock.h b/include/linux/spinlock.h
-index 262ba4e..3e18379 100644
---- a/include/linux/spinlock.h
-+++ b/include/linux/spinlock.h
-@@ -190,6 +190,8 @@ static inline void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock)
- #ifdef CONFIG_DEBUG_LOCK_ALLOC
- # define raw_spin_lock_nested(lock, subclass) \
- 	_raw_spin_lock_nested(lock, subclass)
-+# define raw_spin_lock_bh_nested(lock, subclass) \
-+	_raw_spin_lock_bh_nested(lock, subclass)
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 738c3bf..298e1df 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -97,12 +97,12 @@ static int netlink_dump(struct sock *sk);
+ static void netlink_skb_destructor(struct sk_buff *skb);
  
- # define raw_spin_lock_nest_lock(lock, nest_lock)			\
- 	 do {								\
-@@ -205,6 +207,7 @@ static inline void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock)
- # define raw_spin_lock_nested(lock, subclass)		\
- 	_raw_spin_lock(((void)(subclass), (lock)))
- # define raw_spin_lock_nest_lock(lock, nest_lock)	_raw_spin_lock(lock)
-+# define raw_spin_lock_bh_nested(lock, subclass)	_raw_spin_lock_bh(lock)
- #endif
+ /* nl_table locking explained:
+- * Lookup and traversal are protected with nl_sk_hash_lock or nl_table_lock
+- * combined with an RCU read-side lock. Insertion and removal are protected
+- * with nl_sk_hash_lock while using RCU list modification primitives and may
+- * run in parallel to nl_table_lock protected lookups. Destruction of the
+- * Netlink socket may only occur *after* nl_table_lock has been acquired
+- * either during or after the socket has been removed from the list.
++ * Lookup and traversal are protected with an RCU read-side lock. Insertion
++ * and removal are protected with nl_sk_hash_lock while using RCU list
++ * modification primitives and may run in parallel to RCU protected lookups.
++ * Destruction of the Netlink socket may only occur *after* nl_table_lock has
++ * been acquired * either during or after the socket has been removed from
++ * the list and after an RCU grace period.
+  */
+ DEFINE_RWLOCK(nl_table_lock);
+ EXPORT_SYMBOL_GPL(nl_table_lock);
+@@ -1003,13 +1003,11 @@ static struct sock *netlink_lookup(struct net *net, int protocol, u32 portid)
+ 	struct netlink_table *table = &nl_table[protocol];
+ 	struct sock *sk;
  
- #if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_SPINLOCK)
-@@ -324,6 +327,11 @@ do {								\
- 	raw_spin_lock_nested(spinlock_check(lock), subclass);	\
- } while (0)
+-	read_lock(&nl_table_lock);
+ 	rcu_read_lock();
+ 	sk = __netlink_lookup(table, portid, net);
+ 	if (sk)
+ 		sock_hold(sk);
+ 	rcu_read_unlock();
+-	read_unlock(&nl_table_lock);
  
-+#define spin_lock_bh_nested(lock, subclass)			\
-+do {								\
-+	raw_spin_lock_bh_nested(spinlock_check(lock), subclass);\
-+} while (0)
-+
- #define spin_lock_nest_lock(lock, nest_lock)				\
- do {									\
- 	raw_spin_lock_nest_lock(spinlock_check(lock), nest_lock);	\
-diff --git a/include/linux/spinlock_api_smp.h b/include/linux/spinlock_api_smp.h
-index 42dfab8..5344268 100644
---- a/include/linux/spinlock_api_smp.h
-+++ b/include/linux/spinlock_api_smp.h
-@@ -22,6 +22,8 @@ int in_lock_functions(unsigned long addr);
- void __lockfunc _raw_spin_lock(raw_spinlock_t *lock)		__acquires(lock);
- void __lockfunc _raw_spin_lock_nested(raw_spinlock_t *lock, int subclass)
- 								__acquires(lock);
-+void __lockfunc _raw_spin_lock_bh_nested(raw_spinlock_t *lock, int subclass)
-+								__acquires(lock);
- void __lockfunc
- _raw_spin_lock_nest_lock(raw_spinlock_t *lock, struct lockdep_map *map)
- 								__acquires(lock);
-diff --git a/include/linux/spinlock_api_up.h b/include/linux/spinlock_api_up.h
-index d0d1888..d3afef9 100644
---- a/include/linux/spinlock_api_up.h
-+++ b/include/linux/spinlock_api_up.h
-@@ -57,6 +57,7 @@
- 
- #define _raw_spin_lock(lock)			__LOCK(lock)
- #define _raw_spin_lock_nested(lock, subclass)	__LOCK(lock)
-+#define _raw_spin_lock_bh_nested(lock, subclass) __LOCK(lock)
- #define _raw_read_lock(lock)			__LOCK(lock)
- #define _raw_write_lock(lock)			__LOCK(lock)
- #define _raw_spin_lock_bh(lock)			__LOCK_BH(lock)
-diff --git a/kernel/locking/spinlock.c b/kernel/locking/spinlock.c
-index 4b082b5..db3ccb1 100644
---- a/kernel/locking/spinlock.c
-+++ b/kernel/locking/spinlock.c
-@@ -363,6 +363,14 @@ void __lockfunc _raw_spin_lock_nested(raw_spinlock_t *lock, int subclass)
+ 	return sk;
  }
- EXPORT_SYMBOL(_raw_spin_lock_nested);
+@@ -1183,6 +1181,13 @@ out_module:
+ 	goto out;
+ }
  
-+void __lockfunc _raw_spin_lock_bh_nested(raw_spinlock_t *lock, int subclass)
++static void deferred_put_nlk_sk(struct rcu_head *head)
 +{
-+	__local_bh_disable_ip(_RET_IP_, SOFTIRQ_LOCK_OFFSET);
-+	spin_acquire(&lock->dep_map, subclass, 0, _RET_IP_);
-+	LOCK_CONTENDED(lock, do_raw_spin_trylock, do_raw_spin_lock);
-+}
-+EXPORT_SYMBOL(_raw_spin_lock_bh_nested);
++	struct netlink_sock *nlk = container_of(head, struct netlink_sock, rcu);
 +
- unsigned long __lockfunc _raw_spin_lock_irqsave_nested(raw_spinlock_t *lock,
- 						   int subclass)
++	sock_put(&nlk->sk);
++}
++
+ static int netlink_release(struct socket *sock)
  {
+ 	struct sock *sk = sock->sk;
+@@ -1248,7 +1253,7 @@ static int netlink_release(struct socket *sock)
+ 	local_bh_disable();
+ 	sock_prot_inuse_add(sock_net(sk), &netlink_proto, -1);
+ 	local_bh_enable();
+-	sock_put(sk);
++	call_rcu(&nlk->rcu, deferred_put_nlk_sk);
+ 	return 0;
+ }
+ 
+@@ -1263,7 +1268,6 @@ static int netlink_autobind(struct socket *sock)
+ 
+ retry:
+ 	cond_resched();
+-	netlink_table_grab();
+ 	rcu_read_lock();
+ 	if (__netlink_lookup(table, portid, net)) {
+ 		/* Bind collision, search negative portid values. */
+@@ -1271,11 +1275,9 @@ retry:
+ 		if (rover > -4097)
+ 			rover = -4097;
+ 		rcu_read_unlock();
+-		netlink_table_ungrab();
+ 		goto retry;
+ 	}
+ 	rcu_read_unlock();
+-	netlink_table_ungrab();
+ 
+ 	err = netlink_insert(sk, net, portid);
+ 	if (err == -EADDRINUSE)
+@@ -2910,9 +2912,8 @@ static struct sock *netlink_seq_socket_idx(struct seq_file *seq, loff_t pos)
+ }
+ 
+ static void *netlink_seq_start(struct seq_file *seq, loff_t *pos)
+-	__acquires(nl_table_lock) __acquires(RCU)
++	__acquires(RCU)
+ {
+-	read_lock(&nl_table_lock);
+ 	rcu_read_lock();
+ 	return *pos ? netlink_seq_socket_idx(seq, *pos - 1) : SEQ_START_TOKEN;
+ }
+@@ -2964,10 +2965,9 @@ static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ }
+ 
+ static void netlink_seq_stop(struct seq_file *seq, void *v)
+-	__releases(RCU) __releases(nl_table_lock)
++	__releases(RCU)
+ {
+ 	rcu_read_unlock();
+-	read_unlock(&nl_table_lock);
+ }
+ 
+ 
+diff --git a/net/netlink/af_netlink.h b/net/netlink/af_netlink.h
+index f123a88..fd96fa7 100644
+--- a/net/netlink/af_netlink.h
++++ b/net/netlink/af_netlink.h
+@@ -50,6 +50,7 @@ struct netlink_sock {
+ #endif /* CONFIG_NETLINK_MMAP */
+ 
+ 	struct rhash_head	node;
++	struct rcu_head		rcu;
+ };
+ 
+ static inline struct netlink_sock *nlk_sk(struct sock *sk)
 -- 
 1.9.3
