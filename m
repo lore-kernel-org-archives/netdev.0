@@ -1,41 +1,45 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next] net: More vlan tests before registering
  netdevice
-Date: Fri, 02 Jan 2015 15:56:21 -0500 (EST)
-Message-ID: <20150102.155621.2190810414905057279.davem@davemloft.net>
+Date: Fri, 02 Jan 2015 15:57:43 -0500 (EST)
+Message-ID: <20150102.155743.1836127158044264148.davem@davemloft.net>
 References: <1420007736-30822-1-git-send-email-Yuval.Mintz@qlogic.com>
+	<20150102.155621.2190810414905057279.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org
 To: Yuval.Mintz@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53054 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53090 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751972AbbABU4X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 15:56:23 -0500
-In-Reply-To: <1420007736-30822-1-git-send-email-Yuval.Mintz@qlogic.com>
+	with ESMTP id S1752190AbbABU5p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 15:57:45 -0500
+In-Reply-To: <20150102.155621.2190810414905057279.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Wed, 31 Dec 2014 08:35:36 +0200
-
-> When register_netdevice() is called, netdevice's vlan filtering feature
-> and supplied callbacks are checked to see the vlan implementation is
-> not buggy.
-> This adds an additional test - see that the vlan_features were filled
-> correctly, as the vlan devices inherits those as its own features;
-> Incorrect values set there would later prevent the vlan interface from being
-> registered itself [as it doesn't implement the filtering ndos].
-> 
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
- ...
-> Not sure why take such a defensive approach regarding this feature.
-> Perhaps it would have been better to simply remove these checks altogether.
-
-I guess this is fine as a defensive test, so I'll apply this.
-
-But do you actually know of any devices which have violated this rule
-either now or in the past?  I quickly tried to audit the entire tree
-for this right now and found no problems.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogRnJpLCAwMiBK
+YW4gMjAxNSAxNTo1NjoyMSAtMDUwMCAoRVNUKQ0KDQo+IEZyb206IFl1dmFsIE1pbnR6IDxZdXZh
+bC5NaW50ekBxbG9naWMuY29tPg0KPiBEYXRlOiBXZWQsIDMxIERlYyAyMDE0IDA4OjM1OjM2ICsw
+MjAwDQo+IA0KPj4gV2hlbiByZWdpc3Rlcl9uZXRkZXZpY2UoKSBpcyBjYWxsZWQsIG5ldGRldmlj
+ZSdzIHZsYW4gZmlsdGVyaW5nIGZlYXR1cmUNCj4+IGFuZCBzdXBwbGllZCBjYWxsYmFja3MgYXJl
+IGNoZWNrZWQgdG8gc2VlIHRoZSB2bGFuIGltcGxlbWVudGF0aW9uIGlzDQo+PiBub3QgYnVnZ3ku
+DQo+PiBUaGlzIGFkZHMgYW4gYWRkaXRpb25hbCB0ZXN0IC0gc2VlIHRoYXQgdGhlIHZsYW5fZmVh
+dHVyZXMgd2VyZSBmaWxsZWQNCj4+IGNvcnJlY3RseSwgYXMgdGhlIHZsYW4gZGV2aWNlcyBpbmhl
+cml0cyB0aG9zZSBhcyBpdHMgb3duIGZlYXR1cmVzOw0KPj4gSW5jb3JyZWN0IHZhbHVlcyBzZXQg
+dGhlcmUgd291bGQgbGF0ZXIgcHJldmVudCB0aGUgdmxhbiBpbnRlcmZhY2UgZnJvbSBiZWluZw0K
+Pj4gcmVnaXN0ZXJlZCBpdHNlbGYgW2FzIGl0IGRvZXNuJ3QgaW1wbGVtZW50IHRoZSBmaWx0ZXJp
+bmcgbmRvc10uDQo+PiANCj4+IFNpZ25lZC1vZmYtYnk6IFl1dmFsIE1pbnR6IDxZdXZhbC5NaW50
+ekBxbG9naWMuY29tPg0KPiAgLi4uDQo+PiBOb3Qgc3VyZSB3aHkgdGFrZSBzdWNoIGEgZGVmZW5z
+aXZlIGFwcHJvYWNoIHJlZ2FyZGluZyB0aGlzIGZlYXR1cmUuDQo+PiBQZXJoYXBzIGl0IHdvdWxk
+IGhhdmUgYmVlbiBiZXR0ZXIgdG8gc2ltcGx5IHJlbW92ZSB0aGVzZSBjaGVja3MgYWx0b2dldGhl
+ci4NCj4gDQo+IEkgZ3Vlc3MgdGhpcyBpcyBmaW5lIGFzIGEgZGVmZW5zaXZlIHRlc3QsIHNvIEkn
+bGwgYXBwbHkgdGhpcy4NCg0KQWN0dWFsbHksIHJldmVydGVkLg0KDQpOb3RoaW5nIG1ha2VzIG1l
+IG1vcmUgYW5ncnkgdGhhbiBhIHBhdGNoIHRoYXQgd2Fzbid0IGV2ZW4gYnVpbGQgdGVzdGVkOg0K
+DQpuZXQvY29yZS9kZXYuYzogSW4gZnVuY3Rpb24goXJlZ2lzdGVyX25ldGRldmljZaI6DQpuZXQv
+Y29yZS9kZXYuYzo2Mjg1OjU3OiBlcnJvcjogZXhwZWN0ZWQgoSmiIGJlZm9yZSChe6IgdG9rZW4N
+Cm5ldC9jb3JlL2Rldi5jOjYzNzg6MTogZXJyb3I6IGV4cGVjdGVkIGV4cHJlc3Npb24gYmVmb3Jl
+IKF9oiB0b2tlbg0KbmV0L2NvcmUvZGV2LmM6NjI3Nzo0OiBlcnJvcjogbGFiZWwgoW91dKIgdXNl
+ZCBidXQgbm90IGRlZmluZWQNCm5ldC9jb3JlL2Rldi5jOjYzNzg6MTogd2FybmluZzogY29udHJv
+bCByZWFjaGVzIGVuZCBvZiBub24tdm9pZCBmdW5jdGlvbiBbLVdyZXR1cm4tdHlwZV0NCg==
