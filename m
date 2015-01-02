@@ -1,85 +1,42 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v1 08/11] net: rocker: add get flow API operation
-Date: Fri, 02 Jan 2015 13:15:33 -0800
-Message-ID: <54A70A75.2030001@gmail.com>
-References: <20141231194057.31070.5244.stgit@nitbit.x32> <20141231194852.31070.72727.stgit@nitbit.x32> <CAKoUArm4z_i6Su9Q4ODB1QYR_Z098MjT2yN=WR7LbN387AvPsg@mail.gmail.com>
+From: Kostya Belezko <bkostya@hotmail.com>
+Subject: RE: [PATCH v2][Nios2-dev] Altera TSE: Add missing phydev
+Date: Fri, 2 Jan 2015 16:16:34 -0500
+Message-ID: <SNT146-W703EA22E7BC894479746F0B65D0@phx.gbl>
+References: <BLU437-SMTP8237F72A0A7CCFCAF201F6B65E0@phx.gbl>,<20150102.154500.2104526152897268790.davem@davemloft.net>,<SNT146-W41ED8A3C5CE762B5F35C15B65D0@phx.gbl>,<20150102.160703.2063675003050187496.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: simon.horman@netronome.com, Jamal Hadi Salim <jhs@mojatatu.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Thomas Graf <tgraf@suug.ch>, Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
-To: Rami Rosen <roszenrami@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "nios2-dev@lists.rocketboards.org" <nios2-dev@lists.rocketboards.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:38272 "EHLO
-	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752120AbbABVPy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 16:15:54 -0500
-Received: by mail-oi0-f46.google.com with SMTP id a3so10886184oib.5
-        for <netdev@vger.kernel.org>; Fri, 02 Jan 2015 13:15:53 -0800 (PST)
-In-Reply-To: <CAKoUArm4z_i6Su9Q4ODB1QYR_Z098MjT2yN=WR7LbN387AvPsg@mail.gmail.com>
+Received: from snt004-omc4s46.hotmail.com ([65.54.51.97]:63555 "EHLO
+	SNT004-OMC4S46.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752120AbbABVQf convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Jan 2015 16:16:35 -0500
+In-Reply-To: <20150102.160703.2063675003050187496.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/02/2015 12:46 PM, Rami Rosen wrote:
-> Nice work!
->
->
-> =D7=91=D7=AA=D7=90=D7=A8=D7=99=D7=9A 31 =D7=91=D7=93=D7=A6=D7=9E 2014
->
->
->  > +static int rocker_get_flows(struct sk_buff *skb, struct net_devic=
-e *dev,
->  > +                           int table, int min, int max)
->  > +{
->  > +       struct rocker_port *rocker_port =3D netdev_priv(dev);
->  > +       struct net_flow_flow flow;
->  > +       struct rocker_flow_tbl_entry *entry;
->  > +       struct rocker_group_tbl_entry *group;
->  > +       struct hlist_node *tmp;
->  > +       unsigned long flags;
->  > +       int bkt, err;
->  > +
->  > +       spin_lock_irqsave(&rocker_port->rocker->flow_tbl_lock, fla=
-gs);
->  > +       hash_for_each_safe(rocker_port->rocker->flow_tbl,
->  > +                          bkt, tmp, entry, entry) {
->  > +               struct rocker_flow_tbl_key *key =3D &entry->key;
->  > +
->  > +               if (rocker_goto_value(table) !=3D key->tbl_id)
->  > +                       continue;
->  > +
->  > +               flow.table_id =3D table;
->  > +               flow.uid =3D entry->cookie;
->  > +               flow.priority =3D key->priority;
->  > +
->  > +               switch (table) {
->  > +               case ROCKER_FLOW_TABLE_ID_INGRESS_PORT:
->  > +                       err =3D rocker_ig_port_to_flow(key, &flow)=
-;
->  > +                       if (err)
->  > +                               return err;
->  > +                       break;
->  > +               case ROCKER_FLOW_TABLE_ID_VLAN:
->  > +                       err =3D rocker_vlan_to_flow(key, &flow);
->  > +                       if (err)
->  > +                               return err;
->  > +                       break;
->  > +               case ROCKER_FLOW_TABLE_ID_TERMINATION_MAC:
->  > +                       err =3D rocker_term_to_flow(key, &flow);
->
-> Shouldn't it be here (and in the following 3 case entries) also:
->
-
-Yes, thanks for catching this. I'll update it in v2. Along with the
-other fixes for dev_put misses.
-
-=2EJohn
 
 
---=20
-John Fastabend         Intel Corporation
+----------------------------------------
+> Date: Fri, 2 Jan 2015 16:07:03 -0500
+> To: bkostya@hotmail.com
+> CC: nios2-dev@lists.rocketboards.org; netdev@vger.kernel.org
+> Subject: Re: [PATCH v2][Nios2-dev] Altera TSE: Add missing phydev
+> From: davem@davemloft.net
+>
+> From: Kostya Belezko <bkostya@hotmail.com>
+> Date: Fri, 2 Jan 2015 15:57:29 -0500
+>
+>> What do you mean by phy_disconnect() is down?
+>> Originally priv->phydev is NULL (and remains null forever) right after 'ifdown eth0'
+>
+> I'm saying that the code should probably keep phydev non-NULL and just
+> take the PHY down/up during these events.
+
+Yes, this is what the patch intends to achieve. It keeps phydev non-NULL and calls phy_stop, shy_start respectively.
+phy_disconnect is called upon rmmod.
+ 		 	   		  
