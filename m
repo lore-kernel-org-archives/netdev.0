@@ -1,118 +1,53 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: [PATCH] net: ethernet: cisco: enic: enic_dev:  Remove some unused functions
-Date: Fri,  2 Jan 2015 21:29:24 +0100
-Message-ID: <1420230564-2060-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
-	Govindarajulu Varadarajan <_govind@gmx.com>,
-	Neel Patel <neepatel@cisco.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Christian Benvenuti <benve@cisco.com>,
-	Sujith Sankar <ssujith@cisco.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 00/17] fib_trie: Reduce time spent in
+ fib_table_lookup by 35 to 75%
+Date: Fri, 02 Jan 2015 15:34:04 -0500 (EST)
+Message-ID: <20150102.153404.69412302713934264.davem@davemloft.net>
+References: <54A4B1D4.1030506@gmail.com>
+	<20150101.210841.1269406605009943743.davem@davemloft.net>
+	<54A6C710.6000702@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@redhat.com, netdev@vger.kernel.org
+To: alexander.duyck@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52619 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751631AbbABUeL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 15:34:11 -0500
+In-Reply-To: <54A6C710.6000702@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Removes some functions that are not used anywhere:
-enic_dev_enable2_done() enic_dev_enable2() enic_dev_deinit_done()
-enic_dev_init_prov2() enic_vnic_dev_deinit()
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Date: Fri, 02 Jan 2015 08:28:00 -0800
 
-This was partially found by using a static code analysis program called cppcheck.
+> I'm hoping that growing smaller nodes will help offset the fact that we
+> have to restrict the larger nodes.  For backtracing these large nodes
+> come at a significant price as each bit value beyond what can be fit in
+> a cache-line means one additional cache line being read when
+> backtracking.  So for example two 3 bit nodes on 64b require 4
+> cache-lines when backtracking an all 1s value, but one 6 bit node will
+> require reading 5 cache-lines.
 
-Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
----
- drivers/net/ethernet/cisco/enic/enic_dev.c |   56 ----------------------------
- drivers/net/ethernet/cisco/enic/enic_dev.h |    5 ---
- 2 files changed, 61 deletions(-)
+If you load a full BGP table into fib_trie you will notice that
+basically what it does is degenerate into what is essentially a trie
+of huge hash tables.  Largest will be the root node.
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_dev.c b/drivers/net/ethernet/cisco/enic/enic_dev.c
-index 87ddc44..f8d2a6a 100644
---- a/drivers/net/ethernet/cisco/enic/enic_dev.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_dev.c
-@@ -177,40 +177,6 @@ int enic_dev_intr_coal_timer_info(struct enic *enic)
- 	return err;
- }
- 
--int enic_vnic_dev_deinit(struct enic *enic)
--{
--	int err;
--
--	spin_lock_bh(&enic->devcmd_lock);
--	err = vnic_dev_deinit(enic->vdev);
--	spin_unlock_bh(&enic->devcmd_lock);
--
--	return err;
--}
--
--int enic_dev_init_prov2(struct enic *enic, struct vic_provinfo *vp)
--{
--	int err;
--
--	spin_lock_bh(&enic->devcmd_lock);
--	err = vnic_dev_init_prov2(enic->vdev,
--		(u8 *)vp, vic_provinfo_size(vp));
--	spin_unlock_bh(&enic->devcmd_lock);
--
--	return err;
--}
--
--int enic_dev_deinit_done(struct enic *enic, int *status)
--{
--	int err;
--
--	spin_lock_bh(&enic->devcmd_lock);
--	err = vnic_dev_deinit_done(enic->vdev, status);
--	spin_unlock_bh(&enic->devcmd_lock);
--
--	return err;
--}
--
- /* rtnl lock is held */
- int enic_vlan_rx_add_vid(struct net_device *netdev, __be16 proto, u16 vid)
- {
-@@ -237,28 +203,6 @@ int enic_vlan_rx_kill_vid(struct net_device *netdev, __be16 proto, u16 vid)
- 	return err;
- }
- 
--int enic_dev_enable2(struct enic *enic, int active)
--{
--	int err;
--
--	spin_lock_bh(&enic->devcmd_lock);
--	err = vnic_dev_enable2(enic->vdev, active);
--	spin_unlock_bh(&enic->devcmd_lock);
--
--	return err;
--}
--
--int enic_dev_enable2_done(struct enic *enic, int *status)
--{
--	int err;
--
--	spin_lock_bh(&enic->devcmd_lock);
--	err = vnic_dev_enable2_done(enic->vdev, status);
--	spin_unlock_bh(&enic->devcmd_lock);
--
--	return err;
--}
--
- int enic_dev_status_to_errno(int devcmd_status)
- {
- 	switch (devcmd_status) {
-diff --git a/drivers/net/ethernet/cisco/enic/enic_dev.h b/drivers/net/ethernet/cisco/enic/enic_dev.h
-index 10bb970..f5bb058 100644
---- a/drivers/net/ethernet/cisco/enic/enic_dev.h
-+++ b/drivers/net/ethernet/cisco/enic/enic_dev.h
-@@ -55,11 +55,6 @@ int enic_dev_set_ig_vlan_rewrite_mode(struct enic *enic);
- int enic_dev_enable(struct enic *enic);
- int enic_dev_disable(struct enic *enic);
- int enic_dev_intr_coal_timer_info(struct enic *enic);
--int enic_vnic_dev_deinit(struct enic *enic);
--int enic_dev_init_prov2(struct enic *enic, struct vic_provinfo *vp);
--int enic_dev_deinit_done(struct enic *enic, int *status);
--int enic_dev_enable2(struct enic *enic, int arg);
--int enic_dev_enable2_done(struct enic *enic, int *status);
- int enic_dev_status_to_errno(int devcmd_status);
- 
- #endif /* _ENIC_DEV_H_ */
--- 
-1.7.10.4
+So a good test would be loading a sample full BGP table into fib_trie,
+then iterate randomly choosing 15 or so routes to remove then re-add
+over and over again.  This would simulate route flaps, and you can
+check to see how much deeper the trie is with your changes added.
+
+> Also I hope to reduce the memory accesses/dependencies to half of what
+> they currently are so hopefully the two will offset each other in the
+> case where there were performance gains from having nodes larger than
+> 256B that cannot reach the necessary value to inflate after the change. 
+> If nothing else I figure I can tune the utilization values based on the
+> truesize so that we get the best memory utilization/performance ratio. 
+> If necessary I might relax the value from the 50% it is now as we pretty
+> much have to be all full nodes in order to inflate based on the truesize
+> beyond 256B.
+
+See above.
