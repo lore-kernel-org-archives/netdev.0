@@ -1,33 +1,51 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next 0/7] Fixing the "Time Counter fixes and
- improvements"
-Date: Fri, 2 Jan 2015 07:14:38 +0100
-Message-ID: <20150102061437.GA4221@localhost.localdomain>
-References: <CA+icZUXF6-_W6=YsajP4W84F5yvKCNtA3EYxKBgNS=aY4qAYPg@mail.gmail.com>
+From: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] drivers:net:wireless: Add proper locking for the function,
+ b43_op_beacon_set_tim in main.c
+Date: Fri,  2 Jan 2015 02:34:01 -0500
+Message-ID: <1420184041-6788-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Sedat Dilek <sedat.dilek@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:60829 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750702AbbABGOo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 01:14:44 -0500
-Received: by mail-wi0-f182.google.com with SMTP id h11so27307836wiw.3
-        for <netdev@vger.kernel.org>; Thu, 01 Jan 2015 22:14:42 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CA+icZUXF6-_W6=YsajP4W84F5yvKCNtA3EYxKBgNS=aY4qAYPg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org
+Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
+ <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
+List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
+ <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 01, 2015 at 05:30:58PM +0100, Sedat Dilek wrote:
-> With this conversion those 2 commits in net-next.git#master are obsolete now...
-> 
-> e1000e: Include clocksource.h to get CLOCKSOURCE_MASK.
-> igb_ptp: Include clocksource.h to get CLOCKSOURCE_MASK.
+This adds proper locking for the function, b43_op_beacon_set_tim in main.c by using the mutex lock
+in the structure pointer wl, as embedded into this pointer as a mutex in order to protect against
+multiple access to the pointer wl when updating the templates for this pointer in the function,
+b43_update_templates internally in the function, b43_op_beacon_set_tim.
 
-Right. Okay, I'll rework this series to undo the obsolete includes.
+Signed-off-by: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ drivers/net/wireless/b43/main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Thanks,
-Richard
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index 47731cb..d568fc8 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -5094,8 +5094,9 @@ static int b43_op_beacon_set_tim(struct ieee80211_hw *hw,
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 
+-	/* FIXME: add locking */
++	mutex_lock(&wl->mutex);
+ 	b43_update_templates(wl);
++	mutex_unlock(&wl->mutex);
+ 
+ 	return 0;
+ }
+-- 
+2.1.0
