@@ -1,67 +1,57 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next] openvswitch: Do not set skb ignore_df
-Date: Fri,  2 Jan 2015 10:27:28 -0800
-Message-ID: <1420223248-1681-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	Pravin B Shelar <pshelar@nicira.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog112.obsmtp.com ([74.125.149.207]:55229 "HELO
-	na3sys009aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751018AbbABS1e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 13:27:34 -0500
-Received: by mail-pd0-f179.google.com with SMTP id fp1so23888999pdb.24
-        for <netdev@vger.kernel.org>; Fri, 02 Jan 2015 10:27:34 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH 02/11] rtlwifi: rtl8723be: Improve modinfo output
+Date: Fri, 02 Jan 2015 21:35:58 +0300
+Message-ID: <54A6E50E.8070205@cogentembedded.com>
+References: <1420217908-1382-1-git-send-email-Larry.Finger@lwfinger.net> <1420217908-1382-3-git-send-email-Larry.Finger@lwfinger.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1420217908-1382-3-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Tunnel transmit code clear this bit, so setting ignore_df has
-no effect.
+Hello.
 
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
- net/openvswitch/vport-geneve.c |    1 -
- net/openvswitch/vport-gre.c    |    2 --
- net/openvswitch/vport-vxlan.c  |    2 --
- 3 files changed, 0 insertions(+), 5 deletions(-)
+On 1/2/2015 7:58 PM, Larry Finger wrote:
 
-diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
-index 484864d..8769be9 100644
---- a/net/openvswitch/vport-geneve.c
-+++ b/net/openvswitch/vport-geneve.c
-@@ -209,7 +209,6 @@ static int geneve_tnl_send(struct vport *vport, struct sk_buff *skb)
- 	df = tun_key->tun_flags & TUNNEL_DONT_FRAGMENT ? htons(IP_DF) : 0;
- 	sport = udp_flow_src_port(net, skb, 1, USHRT_MAX, true);
- 	tunnel_id_to_vni(tun_key->tun_id, vni);
--	skb->ignore_df = 1;
- 
- 	err = geneve_xmit_skb(geneve_port->gs, rt, skb, fl.saddr,
- 			      tun_key->ipv4_dst, tun_key->ipv4_tos,
-diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
-index d4168c4..ec57221 100644
---- a/net/openvswitch/vport-gre.c
-+++ b/net/openvswitch/vport-gre.c
-@@ -194,8 +194,6 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
- 	df = tun_key->tun_flags & TUNNEL_DONT_FRAGMENT ?
- 		htons(IP_DF) : 0;
- 
--	skb->ignore_df = 1;
--
- 	return iptunnel_xmit(skb->sk, rt, skb, fl.saddr,
- 			     tun_key->ipv4_dst, IPPROTO_GRE,
- 			     tun_key->ipv4_tos, tun_key->ipv4_ttl, df, false);
-diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-index d7c46b3..dc6f625 100644
---- a/net/openvswitch/vport-vxlan.c
-+++ b/net/openvswitch/vport-vxlan.c
-@@ -175,8 +175,6 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
- 	df = tun_key->tun_flags & TUNNEL_DONT_FRAGMENT ?
- 		htons(IP_DF) : 0;
- 
--	skb->ignore_df = 1;
--
- 	src_port = udp_flow_src_port(net, skb, 0, 0, true);
- 
- 	err = vxlan_xmit_skb(vxlan_port->vs, rt, skb,
--- 
-1.7.1
+> The description of the power-save variables for this driver is not as
+> clear as for the others. The wording is changed to match the others.
+
+> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+> ---
+>   drivers/net/wireless/rtlwifi/rtl8723be/sw.c | 11 ++++++-----
+>   1 file changed, 6 insertions(+), 5 deletions(-)
+
+> diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/sw.c b/drivers/net/wireless/rtlwifi/rtl8723be/sw.c
+> index 223eb42..52a6d90 100644
+> --- a/drivers/net/wireless/rtlwifi/rtl8723be/sw.c
+> +++ b/drivers/net/wireless/rtlwifi/rtl8723be/sw.c
+> @@ -387,12 +387,13 @@ module_param_named(swlps, rtl8723be_mod_params.swctrl_lps, bool, 0444);
+>   module_param_named(fwlps, rtl8723be_mod_params.fwctrl_lps, bool, 0444);
+>   module_param_named(disable_watchdog, rtl8723be_mod_params.disable_watchdog,
+>   		   bool, 0444);
+> -MODULE_PARM_DESC(swenc, "using hardware crypto (default 0 [hardware])\n");
+> -MODULE_PARM_DESC(ips, "using no link power save (default 1 is open)\n");
+> -MODULE_PARM_DESC(fwlps, "using linked fw control power save (default 1 is open)\n");
+> -MODULE_PARM_DESC(msi, "Set to 1 to use MSI interrupts mode (default 0)\n");
+
+    You are completely removing this description. Is it intentional?
+
+> +MODULE_PARM_DESC(swenc, "Set to 1 for software crypto (default 0)\n");
+> +MODULE_PARM_DESC(ips, "Set to 0 to not use link power save (default 1)\n");
+> +MODULE_PARM_DESC(swlps, "Set to 1 to use SW control power save (default 0)\n");
+> +MODULE_PARM_DESC(fwlps, "Set to 1 to use FW control power save (default 1)\n");
+>   MODULE_PARM_DESC(debug, "Set debug level (0-5) (default 0)");
+> -MODULE_PARM_DESC(disable_watchdog, "Set to 1 to disable the watchdog (default 0)\n");
+> +MODULE_PARM_DESC(disable_watchdog,
+> +		 "Set to 1 to disable the watchdog (default 0)\n");
+
+WBR, Sergei
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
