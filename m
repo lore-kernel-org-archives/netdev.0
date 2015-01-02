@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qmi_wwan: Set random MAC on devices with buggy fw
-Date: Fri, 02 Jan 2015 16:42:07 -0500 (EST)
-Message-ID: <20150102.164207.1916156409658764329.davem@davemloft.net>
-References: <1420212105-20278-1-git-send-email-kristian.evensen@gmail.com>
+Subject: Re: [PATCH net] enic: free all rq buffs when allocation fails
+Date: Fri, 02 Jan 2015 16:44:07 -0500 (EST)
+Message-ID: <20150102.164407.1319629041737193981.davem@davemloft.net>
+References: <1420212207-30219-1-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org, bjorn@mork.no
-To: kristian.evensen@gmail.com
+Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
+To: _govind@gmx.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53859 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53908 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752540AbbABVmJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 16:42:09 -0500
-In-Reply-To: <1420212105-20278-1-git-send-email-kristian.evensen@gmail.com>
+	with ESMTP id S1751815AbbABVoK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 16:44:10 -0500
+In-Reply-To: <1420212207-30219-1-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Date: Fri,  2 Jan 2015 16:21:45 +0100
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Date: Fri,  2 Jan 2015 20:53:27 +0530
 
-> From: Kristian Evensen <kristian.evensen@gmail.com>
+> When allocation of all RQs fail, we do not free previously allocated buffers,
+> before returning error. This causes memory leak.
 > 
-> Some buggy firmwares export an incorrect MAC address (00:a0:c6:00:00:00). This
-> makes for example checking devices for random MAC addresses tricky, and you
-> might end up with multiple network interfaces with the same address.
+> This patch fixes this by calling vnic_rq_clean(), which frees all the rq
+> buffers.
 > 
-> This patch tries to fix, or at least improve, the situation by setting the MAC
-> address of devices with this firmware bug to a random address. I tested the
-> patch with two devices that has this firmware bug (Huawei E398 and E392), and
-> network traffic worked fine after changing the address.
-> 
-> Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
+> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 
-Applied.
+Looks good, applied, thanks.
