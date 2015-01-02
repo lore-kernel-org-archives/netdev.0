@@ -1,118 +1,130 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net-next tree
-Date: Sat, 3 Jan 2015 09:11:01 +1100
-Message-ID: <20150103091101.04b2c11e@canb.auug.org.au>
+From: Felipe Balbi <balbi@ti.com>
+Subject: [PATCH] net: ethernet: cpsw: fix hangs with interrupts
+Date: Fri, 2 Jan 2015 16:15:59 -0600
+Message-ID: <1420236959-32444-1-git-send-email-balbi@ti.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/qz0qniLi2g=L5vMKfISL0Wt"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Richard Cochran <richardcochran@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: Mugunthan V N <mugunthanvnm@ti.com>,
+	Yegor Yefremov <yegorslists@googlemail.com>,
+	Linux OMAP Mailing List <linux-omap@vger.kernel.org>,
+	<netdev@vger.kernel.org>, Felipe Balbi <balbi@ti.com>,
+	<stable@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/qz0qniLi2g=L5vMKfISL0Wt
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+The CPSW IP implements pulse-signaled interrupts. Due to
+that we must write a correct, pre-defined value to the
+CPDMA_MACEOIVECTOR register so the controller generates
+a pulse on the correct IRQ line to signal the End Of
+Interrupt.
 
-Hi all,
+The way the driver is written today, all four IRQ lines
+are requested using the same IRQ handler and, because of
+that, we could fall into situations where a TX IRQ fires
+but we tell the controller that we ended an RX IRQ (or
+vice-versa). This situation triggers an IRQ storm on the
+reserved IRQ 127 of INTC which will in turn call ack_bad_irq()
+which will, then, print a ton of:
 
-After merging the net-next tree, today's linux-next build (powerpc
-ppc64_defconfig) failed like this:
+	unexpected IRQ trap at vector 00
 
-drivers/net/ethernet/mellanox/mlx4/en_clock.c: In function 'mlx4_en_init_ti=
-mestamp':
-drivers/net/ethernet/mellanox/mlx4/en_clock.c:249:2: error: implicit declar=
-ation of function 'CLOCKSOURCE_MASK' [-Werror=3Dimplicit-function-declarati=
-on]
-  mdev->cycles.mask =3D CLOCKSOURCE_MASK(48);
-  ^
-drivers/net/ethernet/mellanox/mlx4/en_clock.c:257:3: error: implicit declar=
-ation of function 'clocksource_khz2mult' [-Werror=3Dimplicit-function-decla=
-ration]
-   clocksource_khz2mult(1000 * dev->caps.hca_core_clock, mdev->cycles.shift=
-);
-   ^
-drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c: In function 'ixgbe_ptp_start_=
-cyclecounter':
-drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c:796:2: error: implicit declara=
-tion of function 'CLOCKSOURCE_MASK' [-Werror=3Dimplicit-function-declaratio=
-n]
-  adapter->cc.mask =3D CLOCKSOURCE_MASK(64);
-  ^
+In order to fix the problem, we are moving all calls to
+cpdma_ctlr_eoi() inside the IRQ handler and making sure
+we *always* write the correct value to the CPDMA_MACEOIVECTOR
+register. Note that the algorithm assumes that IRQ numbers and
+value-to-be-written-to-EOI are proportional, meaning that a
+write of value 0 would trigger an EOI pulse for the RX_THRESHOLD
+Interrupt and that's the IRQ number sitting in the 0-th index
+of our irqs_table array.
 
-Presumably caused by commit 74d23cc704d1 ("time: move the
-timecounter/cyclecounter code into its own file").
+This, however, is safe at least for current implementations of
+CPSW so we will refrain from making the check smarter (and, as
+a side-effect, slower) until we actually have a platform where
+IRQ lines are swapped.
 
-I added the following commit for today:
+This patch has been tested for several days with AM335x- and
+AM437x-based platforms. AM57x was left out because there are
+still pending patches to enable ethernet in mainline for that
+platform. A read of the TRM confirms the statement on previous
+paragraph.
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Sat, 3 Jan 2015 09:07:21 +1100
-Subject: [PATCH] ixgbe_ptp, mlx4: Include clocksource.h to get CLOCKSOURCE_=
-MASK
-
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Reported-by: Yegor Yefremov <yegorslists@googlemail.com>
+Fixes: 510a1e7 (drivers: net: davinci_cpdma: acknowledge interrupt properly)
+Cc: <stable@vger.kernel.org> # v3.9+
+Signed-off-by: Felipe Balbi <balbi@ti.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c  | 1 +
- drivers/net/ethernet/mellanox/mlx4/en_clock.c | 1 +
- 2 files changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/eth=
-ernet/intel/ixgbe/ixgbe_ptp.c
-index 47c29eaaa140..73548280cbae 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-@@ -25,6 +25,7 @@
-   Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-=20
- **************************************************************************=
-*****/
-+#include <linux/clocksource.h>
- #include "ixgbe.h"
- #include <linux/ptp_classify.h>
-=20
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/et=
-hernet/mellanox/mlx4/en_clock.c
-index e9cce4f72b24..7c6ef4b48f8e 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-@@ -31,6 +31,7 @@
-  *
-  */
-=20
-+#include <linux/clocksource.h>
- #include <linux/mlx4/device.h>
-=20
- #include "mlx4_en.h"
---=20
-2.1.4
+should be applied on 'net' for current -rc
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+ drivers/net/ethernet/ti/cpsw.c | 19 ++++++++-----------
+ 1 file changed, 8 insertions(+), 11 deletions(-)
 
---Sig_/qz0qniLi2g=L5vMKfISL0Wt
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIbBAEBCAAGBQJUpxd6AAoJEMDTa8Ir7ZwV3egP+NAncIhaPXOGcN8aZD1DLKFD
-skjlYTsmrNO5wo3+qc8DaPsZgZItBQuE1zr5Dh/ozpk+b5NABVnZYX3BOSrbkzYx
-j+ZOK8B+zSPMxK0CgW0nzDPF06s4v41GpgnexMOo55g7/h3ieKmNCnJ4gKPSLSF3
-By4XmgnZHYGz+PHfZWAALnMYdJL89u/sy2FJQzEg7xMjHYUe6KauMMZnATlephhq
-DxoicL6wBT7goXHZm1R3gbOUe4PrcgvnnGHaulreC4bglL5mvV4WxCQL6Fx2fWf3
-C4IzFTde4wvFhgVSQ/p1yVuKQo2GG/hORZOS/iE9EiSoQChzbv0WbDGRkcvFs7p3
-Meux9rnEbw2z8lX1aNYfxxc6+yQY3bPLKVXzZIPdjsymKzokwqpFWaH12BGggA8v
-VMY5Ax5uN4G70OYKUU5RWpSPPDsonLZQwha/yMxOmXuxhneeHGaglbwGvfhSDnQp
-Rxw1+po+Rri1/mcDWxw3oruc7vGH0ByXMJlBM0KWWriu3lbiQp7Iv0SydYH5umoO
-tQZ04b+kCrtVdm5gxIurVP0gPy1PQuOv/Kyuete97TbiFabyqEzAkmGYoofOQQ4/
-tioW0+MmcNyMN4z5u/qh3ZDQjcL93VNbXREOxI0n5AvLQV/MLHw2XOtol1uAqmsr
-WQ2rtAy8Mm7atpIbXRA=
-=kxyP
------END PGP SIGNATURE-----
-
---Sig_/qz0qniLi2g=L5vMKfISL0Wt--
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index c560f9a..e61ee83 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -757,6 +757,14 @@ requeue:
+ static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
+ {
+ 	struct cpsw_priv *priv = dev_id;
++	int value = irq - priv->irqs_table[0];
++
++	/* NOTICE: Ending IRQ here. The trick with the 'value' variable above
++	 * is to make sure we will always write the correct value to the EOI
++	 * register. Namely 0 for RX_THRESH Interrupt, 1 for RX Interrupt, 2
++	 * for TX Interrupt and 3 for MISC Interrupt.
++	 */
++	cpdma_ctlr_eoi(priv->dma, value);
+ 
+ 	cpsw_intr_disable(priv);
+ 	if (priv->irq_enabled == true) {
+@@ -786,8 +794,6 @@ static int cpsw_poll(struct napi_struct *napi, int budget)
+ 	int			num_tx, num_rx;
+ 
+ 	num_tx = cpdma_chan_process(priv->txch, 128);
+-	if (num_tx)
+-		cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
+ 
+ 	num_rx = cpdma_chan_process(priv->rxch, budget);
+ 	if (num_rx < budget) {
+@@ -795,7 +801,6 @@ static int cpsw_poll(struct napi_struct *napi, int budget)
+ 
+ 		napi_complete(napi);
+ 		cpsw_intr_enable(priv);
+-		cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
+ 		prim_cpsw = cpsw_get_slave_priv(priv, 0);
+ 		if (prim_cpsw->irq_enabled == false) {
+ 			prim_cpsw->irq_enabled = true;
+@@ -1310,8 +1315,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 	napi_enable(&priv->napi);
+ 	cpdma_ctlr_start(priv->dma);
+ 	cpsw_intr_enable(priv);
+-	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
+-	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
+ 
+ 	prim_cpsw = cpsw_get_slave_priv(priv, 0);
+ 	if (prim_cpsw->irq_enabled == false) {
+@@ -1578,9 +1581,6 @@ static void cpsw_ndo_tx_timeout(struct net_device *ndev)
+ 	cpdma_chan_start(priv->txch);
+ 	cpdma_ctlr_int_ctrl(priv->dma, true);
+ 	cpsw_intr_enable(priv);
+-	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
+-	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
+-
+ }
+ 
+ static int cpsw_ndo_set_mac_address(struct net_device *ndev, void *p)
+@@ -1620,9 +1620,6 @@ static void cpsw_ndo_poll_controller(struct net_device *ndev)
+ 	cpsw_interrupt(ndev->irq, priv);
+ 	cpdma_ctlr_int_ctrl(priv->dma, true);
+ 	cpsw_intr_enable(priv);
+-	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
+-	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
+-
+ }
+ #endif
+ 
+-- 
+2.2.0
