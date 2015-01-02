@@ -1,32 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] net: cpsw: fix hangs and improve IRQ handling
-Date: Fri, 02 Jan 2015 17:04:59 -0500 (EST)
-Message-ID: <20150102.170459.1733812415746187392.davem@davemloft.net>
-References: <1420222228-31949-1-git-send-email-balbi@ti.com>
-	<20150102.164536.1906626949656646358.davem@davemloft.net>
-	<20150102215335.GI4920@saruman>
+Subject: Re: tcp: Do not apply TSO segment limit to non-TSO packets
+Date: Fri, 02 Jan 2015 17:06:29 -0500 (EST)
+Message-ID: <20150102.170629.1474417873101408441.davem@davemloft.net>
+References: <1420223040.32621.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20150102.153655.1853692198479011402.davem@davemloft.net>
+	<20150102220107.GA28599@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, yegorslists@googlemail.com,
-	linux-omap@vger.kernel.org, netdev@vger.kernel.org
-To: balbi@ti.com
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <20150102215335.GI4920@saruman>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, thomas.jarosch@intra2net.com,
+	netdev@vger.kernel.org, edumazet@google.com,
+	steffen.klassert@secunet.com, bhutchings@solarflare.com
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54259 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752249AbbABWGc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 17:06:32 -0500
+In-Reply-To: <20150102220107.GA28599@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Felipe Balbi <balbi@ti.com>
-Date: Fri, 2 Jan 2015 15:53:35 -0600
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sat, 3 Jan 2015 09:01:07 +1100
 
-> On Fri, Jan 02, 2015 at 04:45:36PM -0500, David Miller wrote:
->> You should instead submit patch #1 all by itself, correctly targetting
->> 'net'.
->> 
->> Then, after the next time I merge 'net' into 'net-next', you can submit
->> the rest of the changes.
-> 
-> then take patch 1 and I'll resend the other in a couple weeks, no
-> problem.
+> So has anyone actually observed worse performance with GSO on these
+> devices (you could even test on a GSO-capable device simply by
+> disabling checksumming)?
 
-Please resubmit the patches in the proper manner.
+Good question.
+
+> Also the fact that this bug took two years to surface means that
+> very few people are actually using non-GSO in the real world as
+> this bug is easily triggered by a PMTU event.
+
+I think the rarity of PMTU events on non-VPN'd connections plays
+a part in how long it took as well.
+
+But I totally accept your point, for sure.
