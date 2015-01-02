@@ -1,81 +1,48 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH] net: wireless: b43legacy: radio.c: Remove unused function
-Date: Fri, 2 Jan 2015 22:34:47 +0100
-Message-ID: <CACna6rxTYUWvxvu0rFydWxkjbYdHfhV=o+9A+ViCpbV-LFx7fw@mail.gmail.com>
-References: <1420127170-28421-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-	<CACna6rznUcqGTK0t1k=kjn0NVLycq865780ozyB+VYu78d_BSg@mail.gmail.com>
-	<CACna6rxbGRdw7XSYvHAJGxJvMVwjVbAL4ynBM3m9rNggh7gCVQ@mail.gmail.com>
-	<CA+icZUWOXMEyobZkudW9BEfkaWFTXQL9XF26g7oJMCzt=4==6g@mail.gmail.com>
-	<CAKXHbyO70WdWekSYCY9spMbX2+_kdKTp3JoreDKpCdUBzFwYqw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ethernet: micrel: ksz884x.c: Remove some unused
+ functions
+Date: Fri, 02 Jan 2015 16:35:58 -0500 (EST)
+Message-ID: <20150102.163558.1139468085145968126.davem@davemloft.net>
+References: <1420131623-30749-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sedat Dilek <sedat.dilek@gmail.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Stefano Brivio <stefano.brivio@polimi.it>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	b43-dev <b43-dev@lists.infradead.org>
-To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:57471 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751815AbbABVes convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 16:34:48 -0500
-In-Reply-To: <CAKXHbyO70WdWekSYCY9spMbX2+_kdKTp3JoreDKpCdUBzFwYqw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, w-lkml@lebenslange-mailadresse.de,
+	ebiederm@xmission.com, benoit.taine@lip6.fr, Julia.Lawall@lip6.fr,
+	manuel.schoelling@gmx.de, joe@perches.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: rickard_strandqvist@spectrumdigital.se
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1420131623-30749-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2 January 2015 at 18:46, Rickard Strandqvist
-<rickard_strandqvist@spectrumdigital.se> wrote:
-> 2015-01-02 13:14 GMT+01:00 Sedat Dilek <sedat.dilek@gmail.com>:
->>
->> On Fri, Jan 2, 2015 at 1:06 PM, Rafa=C5=82 Mi=C5=82ecki <zajec5@gmai=
-l.com> wrote:
->> > On 2 January 2015 at 13:05, Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.=
-com> wrote:
->> >> On 1 January 2015 at 16:46, Rickard Strandqvist
->> >> <rickard_strandqvist@spectrumdigital.se> wrote:
->> >>> Remove the function b43legacy_radio_set_tx_iq() that is not used
->> >>> anywhere.
->> >>>
->> >>> This was partially found by using a static code analysis program
->> >>> called cppcheck.
->> >>
->> >> It seems to be for A-PHY based hardware (with 0x2060 radio id) wh=
-ich
->> >> is not handled by b43legacy. Should be safe to drop this code (we
->> >> won't likely need it).
->> >>
->> >> Ack
->> >
->> > For future, we prefix patches with just a driver name. So this cou=
-ld
->> > be simply called
->> > b43legacy: radio.c: Remove unused function
->> >
->>
->> Alternatively...
->>
->> "b43legacy: Remove unused function in radio.c"
->>
->> BTW, as Arnd Bergmann pointed out [1] how did you test with cppcheck
->> to get such stuff?
->>
->> - Sedat -
->>
->> [1] https://lkml.org/lkml/2015/1/2/51
->
->
->
-> Hi Rafal and Sedat
->
-> Rafal do you mean I should remove the entire b43legacy part?
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Date: Thu,  1 Jan 2015 18:00:23 +0100
 
-1) I gave you Ack for the changes
-2) You could drop "net: wireless: " or better use something Sedat propo=
-sed
+> Removes some functions that are not used anywhere:
+> hw_w_phy_link_md() hw_r_phy_link_md() hw_w_phy_polarity()
+> hw_r_phy_polarity() hw_w_phy_crossover() hw_r_phy_crossover()
+> hw_r_phy_rem_cap() hw_w_phy_auto_neg() hw_r_phy_auto_neg()
+> hw_r_phy_link_stat() sw_get_addr() port_chk_prio() port_chk_replace_vid()
+> port_chk_802_1p() port_chk_diffserv() sw_chk_unk_def_port()
+> sw_cfg_unk_def_port() sw_cfg_chk_unk_def_deliver() sw_cfg_unk_def_deliver()
+> port_chk_in_filter() port_chk_dis_non_vid() port_cfg_in_filter()
+> port_cfg_dis_non_vid() port_chk_rmv_tag() port_chk_ins_tag()
+> port_cfg_rmv_tag() port_cfg_ins_tag() sw_flush_dyn_mac_table() port_cfg_tx()
+> port_cfg_rx() port_chk_force_flow_ctrl() port_chk_back_pressure()
+> port_cfg_force_flow_ctrl() port_chk_broad_storm() hw_ena_intr_bit()
+> 
+> This was partially found by using a static code analysis program called cppcheck.
+> 
+> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
 
---=20
-Rafa=C5=82
+This causes a cascade of new warnings because now functions like
+phy_chk() are unused in some configurations.
+
+I'm really not thrilled to even review change from you of this nature
+if you aren't going to be careful about attending to details like
+that.
+
+Just blindly removing functions and not looking at the context or
+other potential side effects is not really acceptable.
