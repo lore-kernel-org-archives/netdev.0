@@ -1,36 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: skbuff: don't zero tc members when
- freeing skb
-Date: Fri, 02 Jan 2015 16:05:00 -0500 (EST)
-Message-ID: <20150102.160500.1791727400349422767.davem@davemloft.net>
-References: <1420029221-4296-1-git-send-email-fw@strlen.de>
+Subject: Re: [PATCH v2][Nios2-dev] Altera TSE: Add missing phydev
+Date: Fri, 02 Jan 2015 16:07:03 -0500 (EST)
+Message-ID: <20150102.160703.2063675003050187496.davem@davemloft.net>
+References: <BLU437-SMTP8237F72A0A7CCFCAF201F6B65E0@phx.gbl>
+	<20150102.154500.2104526152897268790.davem@davemloft.net>
+	<SNT146-W41ED8A3C5CE762B5F35C15B65D0@phx.gbl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fw@strlen.de
+Cc: nios2-dev@lists.rocketboards.org, netdev@vger.kernel.org
+To: bkostya@hotmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53253 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53273 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752314AbbABVFB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 16:05:01 -0500
-In-Reply-To: <1420029221-4296-1-git-send-email-fw@strlen.de>
+	with ESMTP id S1752030AbbABVHG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 16:07:06 -0500
+In-Reply-To: <SNT146-W41ED8A3C5CE762B5F35C15B65D0@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Wed, 31 Dec 2014 13:33:41 +0100
+From: Kostya Belezko <bkostya@hotmail.com>
+Date: Fri, 2 Jan 2015 15:57:29 -0500
 
-> Not needed, only four cases:
->  - kfree_skb (or one of its aliases).
->    Don't need to zero, memory will be freed.
->  - kfree_skb_partial and head was stolen:  memory will be freed.
->  - skb_morph:  The skb header fields (including tc ones) will be
->    copied over from the 'to-be-morphed' skb right after
->    skb_release_head_state returns.
->  - skb_segment:  Same as before, all the skb header
->    fields are copied over from the original skb right away.
-> 
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+> What do you mean by phy_disconnect() is down?
+> Originally priv->phydev is NULL (and remains null forever) right after 'ifdown eth0'
 
-Agreed, applied, thanks Florian.
+I'm saying that the code should probably keep phydev non-NULL and just
+take the PHY down/up during these events.
