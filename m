@@ -1,37 +1,73 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] drivers:net:wireless: Add proper locking for the function,
- b43_op_beacon_set_tim in main.c
-Date: Fri, 02 Jan 2015 10:40:04 -0600
-Message-ID: <54A6C9E4.80009@lwfinger.net>
-References: <1420184041-6788-1-git-send-email-xerofoify@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	b43-dev@lists.infradead.org, kvalo@codeaurora.org,
-	linux-kernel@vger.kernel.org
-To: Nicholas Krause <xerofoify@gmail.com>, stefano.brivio@polimi.it
+Subject: [PATCH 00/11] rtlwifi: A set of patches that simplify the drivers
+Date: Fri,  2 Jan 2015 10:58:17 -0600
+Message-ID: <1420217908-1382-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org
+To: kvalo@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:48915 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750717AbbABQkH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 11:40:07 -0500
-In-Reply-To: <1420184041-6788-1-git-send-email-xerofoify@gmail.com>
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:55581 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752048AbbABQ6e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 11:58:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/02/2015 01:34 AM, Nicholas Krause wrote:
-> This adds proper locking for the function, b43_op_beacon_set_tim in main.c by using the mutex lock
-> in the structure pointer wl, as embedded into this pointer as a mutex in order to protect against
-> multiple access to the pointer wl when updating the templates for this pointer in the function,
-> b43_update_templates internally in the function, b43_op_beacon_set_tim.
->
-> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+Happy New Year.
 
-Although this patch has already been rejected, I want to comment on the subject 
-you have chosen. As you are submitting it to the maintainer of 
-drivers/net/wireless/, there is no need to place those entities in the subject. 
-A better subject would have been "b43: Add proper locking for 
-b43_op_beacon_set_tim()".
+This set of patches, which are intended for the 3.20 stream, are intended to
+simplify the drivers. In particular, each of them has a separate routine that
+initilizes the dynamic power manipulation variables. Ten of these patches convert
+the drivers to use a common copy of this code. The other patch updates the
+parameter descriptions of rtl8723be to clarify usage.
 
-Larry
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+---
+
+Larry Finger (11):
+  rtlwifi: Unify variable naming for all drivers
+  rtlwifi: rtl8723be: Improve modinfo output
+  rtlwifi: Create new routine to initialize the DM tables
+  rtlwifi: rtl8188ee: Convert driver to use the common DM table init
+    routine
+  rtlwifi: rtl8192c-common: Convert driver to use common DM table
+    initialization
+  rtlwifi: rtl8192de: Convert driver to use common DM table
+    initialization
+  rtlwifi: rtl8192ee: Convert driver to use common DM table
+    initialization
+  rtlwifi: rtl8723ae: Convert driver to use common DM table
+    initialization
+  rtlwifi: rtl8723be: Convert driver to use common DM table
+    initialization
+  rtlwifi: rtl8821ae: Convert driver to use common DM table
+    initialization
+  rtlwifi: Move macro definitions to core
+
+ drivers/net/wireless/rtlwifi/core.c               | 37 +++++++++++++++
+ drivers/net/wireless/rtlwifi/core.h               | 41 ++++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8188ee/dm.c       | 36 ++------------
+ drivers/net/wireless/rtlwifi/rtl8188ee/dm.h       | 41 ----------------
+ drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c | 45 ++++--------------
+ drivers/net/wireless/rtlwifi/rtl8192c/dm_common.h | 38 ---------------
+ drivers/net/wireless/rtlwifi/rtl8192ce/dm.c       |  1 +
+ drivers/net/wireless/rtlwifi/rtl8192ce/dm.h       | 13 -----
+ drivers/net/wireless/rtlwifi/rtl8192de/dm.c       | 33 ++-----------
+ drivers/net/wireless/rtlwifi/rtl8192de/dm.h       | 38 ---------------
+ drivers/net/wireless/rtlwifi/rtl8192ee/dm.c       | 55 ++++++---------------
+ drivers/net/wireless/rtlwifi/rtl8192ee/dm.h       | 16 -------
+ drivers/net/wireless/rtlwifi/rtl8192se/dm.c       |  7 +--
+ drivers/net/wireless/rtlwifi/rtl8192se/dm.h       | 28 -----------
+ drivers/net/wireless/rtlwifi/rtl8723ae/dm.c       | 42 ++++------------
+ drivers/net/wireless/rtlwifi/rtl8723ae/dm.h       | 38 ---------------
+ drivers/net/wireless/rtlwifi/rtl8723be/dm.c       | 55 ++++++---------------
+ drivers/net/wireless/rtlwifi/rtl8723be/dm.h       | 33 -------------
+ drivers/net/wireless/rtlwifi/rtl8723be/sw.c       | 11 +++--
+ drivers/net/wireless/rtlwifi/rtl8821ae/dm.c       | 58 +++++++----------------
+ drivers/net/wireless/rtlwifi/rtl8821ae/dm.h       | 41 ----------------
+ drivers/net/wireless/rtlwifi/wifi.h               |  2 -
+ 22 files changed, 157 insertions(+), 552 deletions(-)
+
+-- 
+2.1.2
