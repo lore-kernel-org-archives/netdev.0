@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: cisco: enic: enic_dev: Remove some
- unused functions
-Date: Fri, 02 Jan 2015 16:40:19 -0500 (EST)
-Message-ID: <20150102.164019.754021420669768265.davem@davemloft.net>
-References: <1420230564-2060-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Subject: Re: wireless-drivers-next 2015-01-02
+Date: Fri, 02 Jan 2015 16:42:01 -0500 (EST)
+Message-ID: <20150102.164201.1861830009070132835.davem@davemloft.net>
+References: <87zja1471r.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: benve@cisco.com, ssujith@cisco.com, _govind@gmx.com,
-	neepatel@cisco.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: rickard_strandqvist@spectrumdigital.se
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1420230564-2060-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: kvalo@codeaurora.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53854 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752093AbbABVmD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 16:42:03 -0500
+In-Reply-To: <87zja1471r.fsf@kamboji.qca.qualcomm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Date: Fri,  2 Jan 2015 21:29:24 +0100
+From: Kalle Valo <kvalo@codeaurora.org>
+Date: Fri, 02 Jan 2015 15:59:44 +0200
 
-> Removes some functions that are not used anywhere:
-> enic_dev_enable2_done() enic_dev_enable2() enic_dev_deinit_done()
-> enic_dev_init_prov2() enic_vnic_dev_deinit()
+> here's the first pull request for net-next. This time a slow start with
+> just few patches so it's easier to iron out any issues. I have a lot
+> more pending in patchwork and will send them later.
 > 
-> This was partially found by using a static code analysis program called cppcheck.
-> 
-> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+> Please let me know if there are any issues.
 
-Applied.
+Pulled, thank you.
