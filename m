@@ -1,49 +1,88 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH iproute2 v2] bridge/link: add learning_sync policy flag
-Date: Fri, 2 Jan 2015 09:57:18 -0800
-Message-ID: <CAE4R7bBpmR429F--8NNx0Jqos_bR-x2G4ybjmPhDW6Q+kV5y2g@mail.gmail.com>
-References: <1419884407-21998-1-git-send-email-sfeldma@gmail.com>
-	<CA+CtxLS7x8zKQ-9xwjoH3=pidkXS9s5b2+K_VO4eDHJTWo5tYQ@mail.gmail.com>
+From: Felipe Balbi <balbi@ti.com>
+Subject: [PATCH 0/4] net: cpsw: fix hangs and improve IRQ handling
+Date: Fri, 2 Jan 2015 12:10:24 -0600
+Message-ID: <1420222228-31949-1-git-send-email-balbi@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
-	Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Siva Mannem <siva.mannem.lnx@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:56919 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752086AbbABR5U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 12:57:20 -0500
-Received: by mail-wi0-f177.google.com with SMTP id l15so28073799wiw.16
-        for <netdev@vger.kernel.org>; Fri, 02 Jan 2015 09:57:18 -0800 (PST)
-In-Reply-To: <CA+CtxLS7x8zKQ-9xwjoH3=pidkXS9s5b2+K_VO4eDHJTWo5tYQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Mugunthan V N <mugunthanvnm@ti.com>,
+	Yegor Yefremov <yegorslists@googlemail.com>,
+	Linux OMAP Mailing List <linux-omap@vger.kernel.org>,
+	<netdev@vger.kernel.org>, Felipe Balbi <balbi@ti.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 2, 2015 at 9:14 AM, Siva Mannem <siva.mannem.lnx@gmail.com> wrote:
-> Hi,
->
->
->> +.BR "learning_sync on " or " learning_sync off "
->> +Controls whether a given port will sync MAC addresses learned on device port to
->> +bridge FDB.
->> +
->
-> For the FDB entries synced from device port to bridge FDB, can the
-> device port also mention that it will take care of aging the synced
-> entries? I am thinking of a use case where the port supports hardware
-> learning and hardware aging?
+Hi folks,
 
-I think the aging settings are per-bridge, not per-bridge-port, so the
-policy control you're talking about wouldn't end up here on
-/sbin/bridge link.
+patch 1 fixes the bug reported by Yegor Yefremov <yegorslists@googlemail.com>.
 
-However, I would argue even with hardware aging capability, we still
-should use Linux for aging since all the controls are already there
-and it just works.  It keeps the swdev model simple and the swdev
-driver simple.  Do you have a counter-argument for why enabling
-hardware aging would be better?
+patches 2 - 4 improve IRQ handling a little bit.
 
--scott
+Tested with BeagleBone Black and AM437x SK. The bug fix has been
+tested for almost 3 days non-stop while the following patches
+have been tested for a couple of hours with iperf and nuttcp and
+NFS root.
+
+Note that we also have a slight throughput improvement after patch 3
+when running with AM437x SK (10.0.1.13 below):
+
+===== pre-patch =====
+
+$ iperf -c 10.0.1.13
+------------------------------------------------------------
+Client connecting to 10.0.1.13, TCP port 5001
+TCP window size: 85.0 KByte (default)
+------------------------------------------------------------
+[  3] local 10.0.1.2 port 38430 connected with 10.0.1.13 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec   240 MBytes   201 Mbits/sec
+$ iperf -c 10.0.1.101
+------------------------------------------------------------
+Client connecting to 10.0.1.101, TCP port 5001
+TCP window size: 85.0 KByte (default)
+------------------------------------------------------------
+[  3] local 10.0.1.2 port 35143 connected with 10.0.1.101 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec   113 MBytes  94.7 Mbits/sec
+
+
+===== post-patch =====
+
+$ iperf -c 10.0.1.13
+------------------------------------------------------------
+Client connecting to 10.0.1.13, TCP port 5001
+TCP window size: 85.0 KByte (default)
+------------------------------------------------------------
+[  3] local 10.0.1.2 port 38447 connected with 10.0.1.13 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec   283 MBytes   237 Mbits/sec
+$ iperf -c 10.0.1.101
+------------------------------------------------------------
+Client connecting to 10.0.1.101, TCP port 5001
+TCP window size: 85.0 KByte (default)
+------------------------------------------------------------
+[  3] local 10.0.1.2 port 35157 connected with 10.0.1.101 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec   113 MBytes  94.4 Mbits/sec
+
+That minor decrease on beagleboneblack (10.0.1.101) is so small that's
+likely into the error margin, but I'll run some further profiling as
+I have a feeling INTC's IRQ handling can be improved.
+
+In any case, patch 1 should go in during the -rc an get backported
+all the way back to v3.9, while the other patches can (should) be
+delayed for v3.20 merge window.
+
+Felipe Balbi (4):
+  net: ethernet: cpsw: fix hangs with interrupts
+  net: ethernet: cpsw: unroll IRQ request loop
+  net: ethernet: cpsw: split out IRQ handler
+  net: ethernet: cpsw: don't requests IRQs we don't use
+
+ drivers/net/ethernet/ti/cpsw.c | 81 +++++++++++++++++++++++++++---------------
+ 1 file changed, 52 insertions(+), 29 deletions(-)
+
+-- 
+2.2.0
+
