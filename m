@@ -1,81 +1,151 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 07/11] rtlwifi: rtl8192ee: Convert driver to use common DM table initialization
-Date: Fri,  2 Jan 2015 10:58:24 -0600
-Message-ID: <1420217908-1382-8-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 11/11] rtlwifi: Move macro definitions to core
+Date: Fri,  2 Jan 2015 10:58:28 -0600
+Message-ID: <1420217908-1382-12-git-send-email-Larry.Finger@lwfinger.net>
 References: <1420217908-1382-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: linux-wireless@vger.kernel.org,
 	Larry Finger <Larry.Finger@lwfinger.net>,
 	netdev@vger.kernel.org
 To: kvalo@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:43839 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752225AbbABQ6k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 11:58:40 -0500
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:36273 "EHLO
+	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752269AbbABQ6n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 11:58:43 -0500
 In-Reply-To: <1420217908-1382-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert driver rtl8192ee to use the common routine to initialize
-dm_digtable.
+Several of the drivers still were defining their own copies of various
+macros. These are all moved into the core.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/net/wireless/rtlwifi/rtl8192ee/dm.c | 32 ++---------------------------
- 1 file changed, 2 insertions(+), 30 deletions(-)
+ drivers/net/wireless/rtlwifi/core.h         | 1 +
+ drivers/net/wireless/rtlwifi/rtl8188ee/dm.h | 3 ---
+ drivers/net/wireless/rtlwifi/rtl8192ee/dm.h | 3 ---
+ drivers/net/wireless/rtlwifi/rtl8192se/dm.c | 6 +++---
+ drivers/net/wireless/rtlwifi/rtl8192se/dm.h | 1 -
+ drivers/net/wireless/rtlwifi/rtl8723be/dm.h | 3 ---
+ drivers/net/wireless/rtlwifi/rtl8821ae/dm.h | 9 ---------
+ 7 files changed, 4 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ee/dm.c b/drivers/net/wireless/rtlwifi/rtl8192ee/dm.c
-index 70e58d1..459f3d0 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ee/dm.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ee/dm.c
-@@ -152,35 +152,6 @@ static const u8 cckswing_table_ch14[CCK_TABLE_SIZE][8] = {
- 	{0x09, 0x08, 0x07, 0x04, 0x00, 0x00, 0x00, 0x00}  /* 32, -16.0dB */
- };
+diff --git a/drivers/net/wireless/rtlwifi/core.h b/drivers/net/wireless/rtlwifi/core.h
+index 1cde356..7b64e34 100644
+--- a/drivers/net/wireless/rtlwifi/core.h
++++ b/drivers/net/wireless/rtlwifi/core.h
+@@ -42,6 +42,7 @@
  
--static void rtl92ee_dm_diginit(struct ieee80211_hw *hw)
--{
--	struct rtl_priv *rtlpriv = rtl_priv(hw);
--	struct dig_t *dm_dig = &rtlpriv->dm_digtable;
+ #define DM_DIG_MAX			0x3e
+ #define DM_DIG_MIN			0x1e
++#define DM_DIG_MAX_AP			0x32
+ #define DM_DIG_BACKOFF_MAX		12
+ #define DM_DIG_BACKOFF_MIN		-4
+ #define DM_DIG_BACKOFF_DEFAULT		10
+diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/dm.h b/drivers/net/wireless/rtlwifi/rtl8188ee/dm.h
+index 51ad3f9..071ccee 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8188ee/dm.h
++++ b/drivers/net/wireless/rtlwifi/rtl8188ee/dm.h
+@@ -186,9 +186,6 @@
+ #define BW_AUTO_SWITCH_HIGH_LOW				25
+ #define BW_AUTO_SWITCH_LOW_HIGH				30
+ 
+-#define DM_DIG_MAX_AP					0x32
+-#define DM_DIG_MIN_AP					0x20
 -
--	dm_dig->cur_igvalue = rtl_get_bbreg(hw, DM_REG_IGI_A_11N,
--					    DM_BIT_IGI_11N);
--	dm_dig->rssi_lowthresh = DM_DIG_THRESH_LOW;
--	dm_dig->rssi_highthresh = DM_DIG_THRESH_HIGH;
--	dm_dig->fa_lowthresh = DM_FALSEALARM_THRESH_LOW;
--	dm_dig->fa_highthresh = DM_FALSEALARM_THRESH_HIGH;
--	dm_dig->rx_gain_max = DM_DIG_MAX;
--	dm_dig->rx_gain_min = DM_DIG_MIN;
--	dm_dig->back_val = DM_DIG_BACKOFF_DEFAULT;
--	dm_dig->back_range_max = DM_DIG_BACKOFF_MAX;
--	dm_dig->back_range_min = DM_DIG_BACKOFF_MIN;
--	dm_dig->pre_cck_cca_thres = 0xff;
--	dm_dig->cur_cck_cca_thres = 0x83;
--	dm_dig->forbidden_igi = DM_DIG_MIN;
--	dm_dig->large_fa_hit = 0;
--	dm_dig->recover_cnt = 0;
--	dm_dig->dig_min_0 = DM_DIG_MIN;
--	dm_dig->dig_min_1 = DM_DIG_MIN;
--	dm_dig->media_connect_0 = false;
--	dm_dig->media_connect_1 = false;
--	rtlpriv->dm.dm_initialgain_enable = true;
--	dm_dig->bt30_cur_igi = 0x32;
--}
+ #define DM_DIG_FA_UPPER					0x3e
+ #define DM_DIG_FA_LOWER					0x1e
+ #define DM_DIG_FA_TH0					0x200
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192ee/dm.h b/drivers/net/wireless/rtlwifi/rtl8192ee/dm.h
+index 4880e19..107d5a4 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192ee/dm.h
++++ b/drivers/net/wireless/rtlwifi/rtl8192ee/dm.h
+@@ -189,9 +189,6 @@
+ #define BW_AUTO_SWITCH_HIGH_LOW			25
+ #define BW_AUTO_SWITCH_LOW_HIGH			30
+ 
+-#define DM_DIG_MAX_AP				0x32
+-#define DM_DIG_MIN_AP				0x20
 -
- static void rtl92ee_dm_false_alarm_counter_statistics(struct ieee80211_hw *hw)
- {
- 	u32 ret_value;
-@@ -1089,10 +1060,11 @@ static void rtl92ee_dm_init_dynamic_atc_switch(struct ieee80211_hw *hw)
- void rtl92ee_dm_init(struct ieee80211_hw *hw)
- {
- 	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	u32 cur_igvalue = rtl_get_bbreg(hw, DM_REG_IGI_A_11N, DM_BIT_IGI_11N);
+ #define DM_DIG_FA_UPPER				0x3e
+ #define DM_DIG_FA_LOWER				0x1e
+ #define DM_DIG_FA_TH0				0x200
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/dm.c b/drivers/net/wireless/rtlwifi/rtl8192se/dm.c
+index 6cac70b..575980b 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192se/dm.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192se/dm.c
+@@ -470,7 +470,7 @@ static void _rtl92s_dm_initial_gain_sta_beforeconnect(struct ieee80211_hw *hw)
+ 			if (digtable->backoff_enable_flag)
+ 				rtl92s_backoff_enable_flag(hw);
+ 			else
+-				digtable->back_val = DM_DIG_BACKOFF;
++				digtable->back_val = DM_DIG_BACKOFF_MAX;
  
- 	rtlpriv->dm.dm_type = DM_TYPE_BYDRIVER;
+ 			if ((digtable->rssi_val + 10 - digtable->back_val) >
+ 				digtable->rx_gain_max)
+@@ -504,7 +504,7 @@ static void _rtl92s_dm_initial_gain_sta_beforeconnect(struct ieee80211_hw *hw)
+ 		digtable->dig_ext_port_stage = DIG_EXT_PORT_STAGE_MAX;
+ 		rtl92s_phy_set_fw_cmd(hw, FW_CMD_DIG_ENABLE);
  
--	rtl92ee_dm_diginit(hw);
-+	rtl_dm_diginit(hw, cur_igvalue);
- 	rtl92ee_dm_init_rate_adaptive_mask(hw);
- 	rtl92ee_dm_init_primary_cca_check(hw);
- 	rtl92ee_dm_init_edca_turbo(hw);
+-		digtable->back_val = DM_DIG_BACKOFF;
++		digtable->back_val = DM_DIG_BACKOFF_MAX;
+ 		digtable->cur_igvalue = rtlpriv->phy.default_initialgain[0];
+ 		digtable->pre_igvalue = 0;
+ 		return;
+@@ -692,7 +692,7 @@ static void _rtl92s_dm_init_dig(struct ieee80211_hw *hw)
+ 
+ 	/* for dig debug rssi value */
+ 	digtable->rssi_val = 50;
+-	digtable->back_val = DM_DIG_BACKOFF;
++	digtable->back_val = DM_DIG_BACKOFF_MAX;
+ 	digtable->rx_gain_max = DM_DIG_MAX;
+ 
+ 	digtable->rx_gain_min = DM_DIG_MIN;
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/dm.h b/drivers/net/wireless/rtlwifi/rtl8192se/dm.h
+index be07d81..de6ac79 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192se/dm.h
++++ b/drivers/net/wireless/rtlwifi/rtl8192se/dm.h
+@@ -83,7 +83,6 @@ enum dm_ratr_sta {
+ 
+ #define	DM_DIG_HIGH_PWR_THRESH_HIGH	75
+ #define	DM_DIG_HIGH_PWR_THRESH_LOW	70
+-#define	DM_DIG_BACKOFF			12
+ #define	DM_DIG_MIN_Netcore		0x12
+ 
+ void rtl92s_dm_watchdog(struct ieee80211_hw *hw);
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/dm.h b/drivers/net/wireless/rtlwifi/rtl8723be/dm.h
+index 533b4f2..f752a2c 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8723be/dm.h
++++ b/drivers/net/wireless/rtlwifi/rtl8723be/dm.h
+@@ -180,9 +180,6 @@
+ #define BW_AUTO_SWITCH_HIGH_LOW			25
+ #define BW_AUTO_SWITCH_LOW_HIGH			30
+ 
+-#define DM_DIG_MAX_AP				0x32
+-#define DM_DIG_MIN_AP				0x20
+-
+ #define DM_DIG_FA_UPPER				0x3e
+ #define DM_DIG_FA_LOWER				0x1e
+ #define DM_DIG_FA_TH0				0x200
+diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/dm.h b/drivers/net/wireless/rtlwifi/rtl8821ae/dm.h
+index 5516557..625a6bb 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8821ae/dm.h
++++ b/drivers/net/wireless/rtlwifi/rtl8821ae/dm.h
+@@ -187,15 +187,6 @@
+ #define BW_AUTO_SWITCH_HIGH_LOW		25
+ #define BW_AUTO_SWITCH_LOW_HIGH		30
+ 
+-#define DM_FALSEALARM_THRESH_LOW	400
+-#define DM_FALSEALARM_THRESH_HIGH	1000
+-
+-#define DM_DIG_MAX					0x3e
+-#define DM_DIG_MIN					0x1e
+-
+-#define DM_DIG_MAX_AP				0x32
+-#define DM_DIG_MIN_AP				0x20
+-
+ #define DM_DIG_FA_UPPER				0x3e
+ #define DM_DIG_FA_LOWER				0x1e
+ #define DM_DIG_FA_TH0				200
 -- 
 2.1.2
