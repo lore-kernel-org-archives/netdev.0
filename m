@@ -1,76 +1,56 @@
-From: Julian Kirsch <kirschju@sec.in.tum.de>
-Subject: Re: [PATCH] TCP: Add support for TCP Stealth
-Date: Fri, 02 Jan 2015 00:31:53 +0100
-Message-ID: <54A5D8E9.1020308@sec.in.tum.de>
-References: <54A470B3.3010501@sec.in.tum.de> <20150101111030.1e2b3a18@urahara>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 0/6] support GMAC driver for RK3288
+Date: Thu, 01 Jan 2015 21:01:22 -0500 (EST)
+Message-ID: <20150101.210122.660970681208198668.davem@davemloft.net>
+References: <1419846152-14531-1-git-send-email-roger.chen@rock-chips.com>
+	<20141231.191538.585375391107637966.davem@davemloft.net>
+	<1493383.y3pPThNXY3@phil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org,
-	Christian Grothoff <christian@grothoff.org>,
-	Jacob Appelbaum <jacob@appelbaum.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: roger.chen@rock-chips.com, peppe.cavallaro@st.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-rockchip@lists.infradead.org, kever.yang@rock-chips.com,
+	eddie.cai@rock-chips.com
+To: heiko@sntech.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.informatik.tu-muenchen.de ([131.159.0.99]:38214 "EHLO
-	smtp1.informatik.tu-muenchen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751461AbbAAXb6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jan 2015 18:31:58 -0500
-In-Reply-To: <20150101111030.1e2b3a18@urahara>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36789 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751522AbbABCB1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jan 2015 21:01:27 -0500
+In-Reply-To: <1493383.y3pPThNXY3@phil>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+=46rom: Heiko St=FCbner <heiko@sntech.de>
+Date: Thu, 01 Jan 2015 03:06:31 +0100
 
-Hi Stephen,
+> Hi David,
+>=20
+> Am Mittwoch, 31. Dezember 2014, 19:15:38 schrieb David Miller:
+>> From: Roger Chen <roger.chen@rock-chips.com>
+>> Date: Mon, 29 Dec 2014 17:42:32 +0800
+>>=20
+>> > Roger Chen (6):
+>> >   patch1: add driver for Rockchip RK3288 SoCs integrated GMAC
+>> >   patch2: define clock ID used for GMAC
+>> >   patch3: modify CRU config for Rockchip RK3288 SoCs integrated GM=
+AC
+>> >   patch4: dts: rockchip: add gmac info for rk3288
+>> >   patch5: dts: rockchip: enable gmac on RK3288 evb board
+>> >   patch6: add document for Rockchip RK3288 GMAC
+>> >=20
+>> > Tested on rk3288 evb board:
+>> > Execute the following command to enable ethernet,
+>> > set local IP and ping a remote host.
+>> >=20
+>> > busybox ifconfig eth0 up
+>> > busybox ifconfig eth0 192.168.1.111
+>> > ping 192.168.1.1
+>>=20
+>> Series applied to net-next, thanks.
+>=20
+> could we split this up a bit instead?
 
-thanks a lot for your input. I've reflected your suggestions in the
-code: The mode member of the stealth struct is now a u8, integrity_len
-is now unsigned (size_t), I've switched the integrity_len and
-integrity_hash members in order to close the gaps in the struct (sorry
-for wasting bits) and I removed the cast from the second parameter of
-the memcopy you mentioned. While I totally agree with you that the
-part of the iv-setup where we xor the hash, tsval and dport in is not
-very readable, I'd argue that declaring and using a struct would make
-the patch longer while the semantics of such a struct really are
-needed only in context of a single function and therefore cannot be
-reused. Do you think that accessing the elements with a macro (see
-below) could be an alternative?
-
-#define tcp_stealth_iv_integrity_hash(iv)	(((__be16 *)&iv)[2])
-
-Best,
-Julian
-
-On 2015-01-01 20:10, Stephen Hemminger wrote:
-> On Wed, 31 Dec 2014 22:54:59 +0100 Julian Kirsch
-> <kirschju@sec.in.tum.de> wrote:
-> 
->> +	memcpy(iv, (const __u8 *)daddr, +	       (daddr_size >
->> sizeof(iv)) ? sizeof(iv) : daddr_size); + +#ifdef
->> CONFIG_TCP_MD5SIG +	md5 = tp->af_specific->md5_lookup(sk, sk); 
->> +#else +	md5 = NULL; +#endif +	if (likely(sysctl_tcp_timestamps
->> && !md5) || tp->stealth.saw_tsval) +		tsval =
->> tp->stealth.mstamp.stamp_jiffies; + +	((__be16 *)iv)[2] ^=
->> cpu_to_be16(tp->stealth.integrity_hash);
-> 
-> Cast unnecessary on memcpy arg since it takes void *
-> 
-> Would be clearer to use a real structure or union not assignment to
-> cast to setup iv. -- To unsubscribe from this list: send the line
-> "unsubscribe netdev" in the body of a message to
-> majordomo@vger.kernel.org More majordomo info at
-> http://vger.kernel.org/majordomo-info.html
-> 
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQEcBAEBAgAGBQJUpdjhAAoJENwkOWttRRA4ZFYIALs7gskvZqlCzFCuNTsJ4js9
-7x5OTsuyY5caOIEcveVqYnW2dcOO2Jtwe1QUIOsRo7X6YOEA/8IT6+sJ0fxViLTD
-TJAzU670Kcecn7+0cHPAj31yW+t9SHb5BBzMLCJlhSAboMs0YKmkwetqffg013uP
-x81OI6kJy6pUCAeBeyyy20QafrIhs5vjEILGf9qSzeoIXRBdpnuH99FzoxEjOkUA
-ka4QtrAUh3Uk0s6H8ezcpqvY2bKcz7te8+af5XF+Kz/+DLatoN2x58psxw3irBCw
-x18FRVsbgmXY/m3leKilK4ieCyO1LzafRNa674fSW6QtHHMDZwSoYi0kDjSNMRk=
-=ke3l
------END PGP SIGNATURE-----
+Too late, what's in my tree is in the permanent commit history
+and cannot be deleted.
