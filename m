@@ -1,31 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] mlx4 driver fixes for 3.19-rc2
-Date: Fri, 02 Jan 2015 15:42:40 -0500 (EST)
-Message-ID: <20150102.154240.1187105745211807899.davem@davemloft.net>
-References: <1419933590-9718-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH v2][Nios2-dev] Altera TSE: Add missing phydev
+Date: Fri, 02 Jan 2015 15:45:00 -0500 (EST)
+Message-ID: <20150102.154500.2104526152897268790.davem@davemloft.net>
+References: <BLU437-SMTP8237F72A0A7CCFCAF201F6B65E0@phx.gbl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, matanb@mellanox.com, talal@labmailer.mlnx
-To: ogerlitz@mellanox.com
+Cc: nios2-dev@lists.rocketboards.org, netdev@vger.kernel.org
+To: bkostya@hotmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52822 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52855 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751888AbbABUmn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 15:42:43 -0500
-In-Reply-To: <1419933590-9718-1-git-send-email-ogerlitz@mellanox.com>
+	with ESMTP id S1751888AbbABUpD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 15:45:03 -0500
+In-Reply-To: <BLU437-SMTP8237F72A0A7CCFCAF201F6B65E0@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Tue, 30 Dec 2014 11:59:48 +0200
+From: Kostya Belezko <bkostya@hotmail.com>
+Date: Tue, 30 Dec 2014 12:27:09 -0500
 
-> Please push Maor's patch to -stable >= 3.17
+> Altera network device doesn't come up after
+>  
+> ifconfig eth0 down
+> ifconfig eth0 up
+>  
+> The reason behind is clearing priv->phydev during tse_shutdown().
+> The phydev is not restored back at tse_open().
 > 
-> Jack's fixes error-flow issues introduced in 3.19-rc1, no need for -stable.
+> Resubmiting as to follow Tobias Klauser suggestion.
+> phy_start/phy_stop are called on each ifup/ifdown and
+> phy_disconnect is called once during the module removal. 
+> 
+> Signed-off-by: Kostya Belezko <bkostya@hotmail.com>
 
-Series applied and patch #1 applied to -stable, thanks.
-
-> thanks and EOY happy-holidays,
-
-Thanks!
+I'll apply this, but I'm pretty sure the phy_disconnect() is down
+so that the PHY is powered down when the device is not up.
