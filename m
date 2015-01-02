@@ -1,129 +1,115 @@
 From: Felipe Balbi <balbi@ti.com>
-Subject: [PATCH 1/4] net: ethernet: cpsw: fix hangs with interrupts
-Date: Fri, 2 Jan 2015 12:10:25 -0600
-Message-ID: <1420222228-31949-2-git-send-email-balbi@ti.com>
+Subject: [PATCH 2/4] net: ethernet: cpsw: unroll IRQ request loop
+Date: Fri, 2 Jan 2015 12:10:26 -0600
+Message-ID: <1420222228-31949-3-git-send-email-balbi@ti.com>
 References: <1420222228-31949-1-git-send-email-balbi@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Mugunthan V N <mugunthanvnm@ti.com>,
 	Yegor Yefremov <yegorslists@googlemail.com>,
 	Linux OMAP Mailing List <linux-omap@vger.kernel.org>,
-	<netdev@vger.kernel.org>, Felipe Balbi <balbi@ti.com>,
-	<stable@vger.kernel.org>
+	<netdev@vger.kernel.org>, Felipe Balbi <balbi@ti.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-omap-owner@vger.kernel.org>
 In-Reply-To: <1420222228-31949-1-git-send-email-balbi@ti.com>
 Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The CPSW IP implements pulse-signaled interrupts. Due to
-that we must write a correct, pre-defined value to the
-CPDMA_MACEOIVECTOR register so the controller generates
-a pulse on the correct IRQ line to signal the End Of
-Interrupt.
+This patch is in preparation for a nicer IRQ
+handling scheme where we use different IRQ
+handlers for each IRQ line (as it should be).
 
-The way the driver is written today, all four IRQ lines
-are requested using the same IRQ handler and, because of
-that, we could fall into situations where a TX IRQ fires
-but we tell the controller that we ended an RX IRQ (or
-vice-versa). This situation triggers an IRQ storm on the
-reserved IRQ 127 of INTC which will in turn call ack_bad_irq()
-which will, then, print a ton of:
+Later, we will also drop IRQs offset 0 and 3
+because they are always disabled in this driver.
 
-	unexpected IRQ trap at vector 00
-
-In order to fix the problem, we are moving all calls to
-cpdma_ctlr_eoi() inside the IRQ handler and making sure
-we *always* write the correct value to the CPDMA_MACEOIVECTOR
-register. Note that the algorithm assumes that IRQ numbers and
-value-to-be-written-to-EOI are proportional, meaning that a
-write of value 0 would trigger an EOI pulse for the RX_THRESHOLD
-Interrupt and that's the IRQ number sitting in the 0-th index
-of our irqs_table array.
-
-This, however, is safe at least for current implementations of
-CPSW so we will refrain from making the check smarter (and, as
-a side-effect, slower) until we actually have a platform where
-IRQ lines are swapped.
-
-This patch has been tested for several days with AM335x- and
-AM437x-based platforms. AM57x was left out because there are
-still pending patches to enable ethernet in mainline for that
-platform. A read of the TRM confirms the statement on previous
-paragraph.
-
-Reported-by: Yegor Yefremov <yegorslists@googlemail.com>
-Fixes: 510a1e7 (drivers: net: davinci_cpdma: acknowledge interrupt properly)
-Cc: <stable@vger.kernel.org> # v3.9+
 Signed-off-by: Felipe Balbi <balbi@ti.com>
 ---
- drivers/net/ethernet/ti/cpsw.c | 19 ++++++++-----------
- 1 file changed, 8 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 62 ++++++++++++++++++++++++++++++++----------
+ 1 file changed, 47 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index c560f9a..e61ee83 100644
+index e61ee83..6e04128 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -757,6 +757,14 @@ requeue:
- static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
- {
- 	struct cpsw_priv *priv = dev_id;
-+	int value = irq - priv->irqs_table[0];
+@@ -2156,7 +2156,8 @@ static int cpsw_probe(struct platform_device *pdev)
+ 	void __iomem			*ss_regs;
+ 	struct resource			*res, *ss_res;
+ 	u32 slave_offset, sliver_offset, slave_size;
+-	int ret = 0, i, k = 0;
++	int ret = 0, i;
++	int irq;
+ 
+ 	ndev = alloc_etherdev(sizeof(struct cpsw_priv));
+ 	if (!ndev) {
+@@ -2345,24 +2346,55 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		goto clean_ale_ret;
+ 	}
+ 
+-	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k))) {
+-		if (k >= ARRAY_SIZE(priv->irqs_table)) {
+-			ret = -EINVAL;
+-			goto clean_ale_ret;
+-		}
++	irq = platform_get_irq(pdev, 0);
++	if (irq < 0)
++		goto clean_ale_ret;
+ 
+-		ret = devm_request_irq(&pdev->dev, res->start, cpsw_interrupt,
+-				       0, dev_name(&pdev->dev), priv);
+-		if (ret < 0) {
+-			dev_err(priv->dev, "error attaching irq (%d)\n", ret);
+-			goto clean_ale_ret;
+-		}
++	priv->irqs_table[0] = irq;
++	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
++			0, dev_name(&pdev->dev), priv);
++	if (ret < 0) {
++		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
++		goto clean_ale_ret;
++	}
+ 
+-		priv->irqs_table[k] = res->start;
+-		k++;
++	irq = platform_get_irq(pdev, 1);
++	if (irq < 0)
++		goto clean_ale_ret;
 +
-+	/* NOTICE: Ending IRQ here. The trick with the 'value' variable above
-+	 * is to make sure we will always write the correct value to the EOI
-+	 * register. Namely 0 for RX_THRESH Interrupt, 1 for RX Interrupt, 2
-+	 * for TX Interrupt and 3 for MISC Interrupt.
-+	 */
-+	cpdma_ctlr_eoi(priv->dma, value);
++	priv->irqs_table[1] = irq;
++	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
++			0, dev_name(&pdev->dev), priv);
++	if (ret < 0) {
++		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
++		goto clean_ale_ret;
++	}
++
++	irq = platform_get_irq(pdev, 2);
++	if (irq < 0)
++		goto clean_ale_ret;
++
++	priv->irqs_table[2] = irq;
++	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
++			0, dev_name(&pdev->dev), priv);
++	if (ret < 0) {
++		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
++		goto clean_ale_ret;
++	}
++
++	irq = platform_get_irq(pdev, 3);
++	if (irq < 0)
++		goto clean_ale_ret;
++
++	priv->irqs_table[3] = irq;
++	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
++			0, dev_name(&pdev->dev), priv);
++	if (ret < 0) {
++		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
++		goto clean_ale_ret;
+ 	}
  
- 	cpsw_intr_disable(priv);
- 	if (priv->irq_enabled == true) {
-@@ -786,8 +794,6 @@ static int cpsw_poll(struct napi_struct *napi, int budget)
- 	int			num_tx, num_rx;
+-	priv->num_irqs = k;
++	priv->num_irqs = 4;
  
- 	num_tx = cpdma_chan_process(priv->txch, 128);
--	if (num_tx)
--		cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
- 
- 	num_rx = cpdma_chan_process(priv->rxch, budget);
- 	if (num_rx < budget) {
-@@ -795,7 +801,6 @@ static int cpsw_poll(struct napi_struct *napi, int budget)
- 
- 		napi_complete(napi);
- 		cpsw_intr_enable(priv);
--		cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
- 		prim_cpsw = cpsw_get_slave_priv(priv, 0);
- 		if (prim_cpsw->irq_enabled == false) {
- 			prim_cpsw->irq_enabled = true;
-@@ -1310,8 +1315,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 	napi_enable(&priv->napi);
- 	cpdma_ctlr_start(priv->dma);
- 	cpsw_intr_enable(priv);
--	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
--	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
- 
- 	prim_cpsw = cpsw_get_slave_priv(priv, 0);
- 	if (prim_cpsw->irq_enabled == false) {
-@@ -1578,9 +1581,6 @@ static void cpsw_ndo_tx_timeout(struct net_device *ndev)
- 	cpdma_chan_start(priv->txch);
- 	cpdma_ctlr_int_ctrl(priv->dma, true);
- 	cpsw_intr_enable(priv);
--	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
--	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
--
- }
- 
- static int cpsw_ndo_set_mac_address(struct net_device *ndev, void *p)
-@@ -1620,9 +1620,6 @@ static void cpsw_ndo_poll_controller(struct net_device *ndev)
- 	cpsw_interrupt(ndev->irq, priv);
- 	cpdma_ctlr_int_ctrl(priv->dma, true);
- 	cpsw_intr_enable(priv);
--	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
--	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
--
- }
- #endif
+ 	ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
  
 -- 
 2.2.0
