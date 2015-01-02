@@ -1,130 +1,54 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: [PATCH] net: ethernet: cpsw: fix hangs with interrupts
-Date: Fri, 2 Jan 2015 16:15:59 -0600
-Message-ID: <1420236959-32444-1-git-send-email-balbi@ti.com>
+From: Josh Triplett <josh@joshtriplett.org>
+Subject: Re: How to fix CHECK warning: testing a 'safe expression'
+Date: Fri, 2 Jan 2015 14:20:03 -0800
+Message-ID: <20150102222003.GB2645@thin>
+References: <54907884.2040502@ti.com>
+ <54A6B06D.50102@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Mugunthan V N <mugunthanvnm@ti.com>,
-	Yegor Yefremov <yegorslists@googlemail.com>,
-	Linux OMAP Mailing List <linux-omap@vger.kernel.org>,
-	<netdev@vger.kernel.org>, Felipe Balbi <balbi@ti.com>,
-	<stable@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-sparse@vger.kernel.org
+To: Murali Karicheri <m-karicheri2@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <54A6B06D.50102@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The CPSW IP implements pulse-signaled interrupts. Due to
-that we must write a correct, pre-defined value to the
-CPDMA_MACEOIVECTOR register so the controller generates
-a pulse on the correct IRQ line to signal the End Of
-Interrupt.
++linux-sparse
 
-The way the driver is written today, all four IRQ lines
-are requested using the same IRQ handler and, because of
-that, we could fall into situations where a TX IRQ fires
-but we tell the controller that we ended an RX IRQ (or
-vice-versa). This situation triggers an IRQ storm on the
-reserved IRQ 127 of INTC which will in turn call ack_bad_irq()
-which will, then, print a ton of:
-
-	unexpected IRQ trap at vector 00
-
-In order to fix the problem, we are moving all calls to
-cpdma_ctlr_eoi() inside the IRQ handler and making sure
-we *always* write the correct value to the CPDMA_MACEOIVECTOR
-register. Note that the algorithm assumes that IRQ numbers and
-value-to-be-written-to-EOI are proportional, meaning that a
-write of value 0 would trigger an EOI pulse for the RX_THRESHOLD
-Interrupt and that's the IRQ number sitting in the 0-th index
-of our irqs_table array.
-
-This, however, is safe at least for current implementations of
-CPSW so we will refrain from making the check smarter (and, as
-a side-effect, slower) until we actually have a platform where
-IRQ lines are swapped.
-
-This patch has been tested for several days with AM335x- and
-AM437x-based platforms. AM57x was left out because there are
-still pending patches to enable ethernet in mainline for that
-platform. A read of the TRM confirms the statement on previous
-paragraph.
-
-Reported-by: Yegor Yefremov <yegorslists@googlemail.com>
-Fixes: 510a1e7 (drivers: net: davinci_cpdma: acknowledge interrupt properly)
-Cc: <stable@vger.kernel.org> # v3.9+
-Signed-off-by: Felipe Balbi <balbi@ti.com>
----
-
-should be applied on 'net' for current -rc
-
- drivers/net/ethernet/ti/cpsw.c | 19 ++++++++-----------
- 1 file changed, 8 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index c560f9a..e61ee83 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -757,6 +757,14 @@ requeue:
- static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
- {
- 	struct cpsw_priv *priv = dev_id;
-+	int value = irq - priv->irqs_table[0];
-+
-+	/* NOTICE: Ending IRQ here. The trick with the 'value' variable above
-+	 * is to make sure we will always write the correct value to the EOI
-+	 * register. Namely 0 for RX_THRESH Interrupt, 1 for RX Interrupt, 2
-+	 * for TX Interrupt and 3 for MISC Interrupt.
-+	 */
-+	cpdma_ctlr_eoi(priv->dma, value);
- 
- 	cpsw_intr_disable(priv);
- 	if (priv->irq_enabled == true) {
-@@ -786,8 +794,6 @@ static int cpsw_poll(struct napi_struct *napi, int budget)
- 	int			num_tx, num_rx;
- 
- 	num_tx = cpdma_chan_process(priv->txch, 128);
--	if (num_tx)
--		cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
- 
- 	num_rx = cpdma_chan_process(priv->rxch, budget);
- 	if (num_rx < budget) {
-@@ -795,7 +801,6 @@ static int cpsw_poll(struct napi_struct *napi, int budget)
- 
- 		napi_complete(napi);
- 		cpsw_intr_enable(priv);
--		cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
- 		prim_cpsw = cpsw_get_slave_priv(priv, 0);
- 		if (prim_cpsw->irq_enabled == false) {
- 			prim_cpsw->irq_enabled = true;
-@@ -1310,8 +1315,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 	napi_enable(&priv->napi);
- 	cpdma_ctlr_start(priv->dma);
- 	cpsw_intr_enable(priv);
--	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
--	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
- 
- 	prim_cpsw = cpsw_get_slave_priv(priv, 0);
- 	if (prim_cpsw->irq_enabled == false) {
-@@ -1578,9 +1581,6 @@ static void cpsw_ndo_tx_timeout(struct net_device *ndev)
- 	cpdma_chan_start(priv->txch);
- 	cpdma_ctlr_int_ctrl(priv->dma, true);
- 	cpsw_intr_enable(priv);
--	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
--	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
--
- }
- 
- static int cpsw_ndo_set_mac_address(struct net_device *ndev, void *p)
-@@ -1620,9 +1620,6 @@ static void cpsw_ndo_poll_controller(struct net_device *ndev)
- 	cpsw_interrupt(ndev->irq, priv);
- 	cpdma_ctlr_int_ctrl(priv->dma, true);
- 	cpsw_intr_enable(priv);
--	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
--	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
--
- }
- #endif
- 
--- 
-2.2.0
+On Fri, Jan 02, 2015 at 09:51:25AM -0500, Murali Karicheri wrote:
+> On 12/16/2014 01:23 PM, Murali Karicheri wrote:
+> >netdev maintainers,
+> >
+> >I got a comment to address CHECK warning and wondering how to address
+> >'warning: testing a 'safe expression' which appears when using
+> >IS_ERR_OR_NULL(foo)
+> >
+> >where foo is defined as
+> >
+> >struct foo_type *foo;
+> >
+> >The foo get assigned only NULL or ERR_PTR(error code). So I believe the
+> >usage is correct. But then how do I make the CHECK happy of its usage?
+> >
+> >I have tried doing a grep on the current usage of IS_ERR_OR_NULL() and
+> >found 276 of them causes this warning in the v3.18 version of the kernel
+> >that I am using
+> >
+> >$ grep -r "warning: testing a 'safe expression" * | wc -l
+> >276
+> >
+> >1) Can someone explain what this warning means?
+> >
+> >2) Is it acceptable to post patches to netdev list with this warning?
+> >
+> >3) if not, how this is expected to be fixed? Any example usage to fix
+> >this warning will be helpful.
+> >
+> >Thanks in advance for
+> 
+> 
+> -- 
+> Murali Karicheri
+> Linux Kernel, Texas Instruments
