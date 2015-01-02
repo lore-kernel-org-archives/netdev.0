@@ -1,25 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: chelsio: cxgb3: mc5.c: Remove some
- unused functions
-Date: Fri, 02 Jan 2015 16:39:54 -0500 (EST)
-Message-ID: <20150102.163954.1550479595529880647.davem@davemloft.net>
-References: <1420130996-29910-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Subject: Re: [PATCH] isdn: hisax: hfc4s8s_l1: Remove some unused functions
+Date: Fri, 02 Jan 2015 16:40:09 -0500 (EST)
+Message-ID: <20150102.164009.2208912516300295493.davem@davemloft.net>
+References: <1420139842-3573-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: santosh@chelsio.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: isdn@linux-pingi.de, dan.carpenter@oracle.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: rickard_strandqvist@spectrumdigital.se
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1420130996-29910-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+In-Reply-To: <1420139842-3573-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Date: Thu,  1 Jan 2015 17:49:55 +0100
+Date: Thu,  1 Jan 2015 20:17:22 +0100
 
 > Removes some functions that are not used anywhere:
-> dbgi_rd_rsp3() dbgi_wr_addr3()
+> Read_hfc32() Write_hfc32() Write_hfc16()
 > 
 > This was partially found by using a static code analysis program called cppcheck.
 > 
