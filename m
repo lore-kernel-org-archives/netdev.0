@@ -1,40 +1,40 @@
-From: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: tcp: Do not apply TSO segment limit to non-TSO packets
-Date: Fri, 02 Jan 2015 17:06:29 -0500 (EST)
-Message-ID: <20150102.170629.1474417873101408441.davem@davemloft.net>
+Date: Sat, 3 Jan 2015 09:09:35 +1100
+Message-ID: <20150102220935.GA28977@gondor.apana.org.au>
 References: <1420223040.32621.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150102.153655.1853692198479011402.davem@davemloft.net>
-	<20150102220107.GA28599@gondor.apana.org.au>
+ <20150102.153655.1853692198479011402.davem@davemloft.net>
+ <20150102220107.GA28599@gondor.apana.org.au>
+ <20150102.170629.1474417873101408441.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: eric.dumazet@gmail.com, thomas.jarosch@intra2net.com,
 	netdev@vger.kernel.org, edumazet@google.com,
 	steffen.klassert@secunet.com, bhutchings@solarflare.com
-To: herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54259 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752249AbbABWGc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 17:06:32 -0500
-In-Reply-To: <20150102220107.GA28599@gondor.apana.org.au>
+Received: from helcar.apana.org.au ([209.40.204.226]:47794 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752093AbbABWJn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 17:09:43 -0500
+Content-Disposition: inline
+In-Reply-To: <20150102.170629.1474417873101408441.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sat, 3 Jan 2015 09:01:07 +1100
+On Fri, Jan 02, 2015 at 05:06:29PM -0500, David Miller wrote:
+>
+> I think the rarity of PMTU events on non-VPN'd connections plays
+> a part in how long it took as well.
 
-> So has anyone actually observed worse performance with GSO on these
-> devices (you could even test on a GSO-capable device simply by
-> disabling checksumming)?
+Maybe in your neck of the woods but certainly in China I observe
+loads of PMTU events without involving any VPNs at all :)
 
-Good question.
+In fact even the fibre connections here use PPPOE so PMTU is
+sort of unavoidable.
 
-> Also the fact that this bug took two years to surface means that
-> very few people are actually using non-GSO in the real world as
-> this bug is easily triggered by a PMTU event.
-
-I think the rarity of PMTU events on non-VPN'd connections plays
-a part in how long it took as well.
-
-But I totally accept your point, for sure.
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
