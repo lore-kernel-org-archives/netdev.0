@@ -1,262 +1,103 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [PATCH] Drivers: isdn: gigaset: checkpatch cleanup
-Date: Sat, 03 Jan 2015 16:01:54 +0100
-Message-ID: <54A80462.2030007@imap.cc>
-References: <1420047298-7798-1-git-send-email-baspeters93@gmail.com>
+From: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
+Subject: Re: [PATCH] net: wireless: b43legacy: radio.c: Remove unused function
+Date: Sat, 3 Jan 2015 16:41:44 +0100
+Message-ID: <CAKXHbyN2Vud5skK38KHFNo+FEG9at4SAQh8X5QYYK7qD3-34YQ@mail.gmail.com>
+References: <1420127170-28421-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+	<CACna6rznUcqGTK0t1k=kjn0NVLycq865780ozyB+VYu78d_BSg@mail.gmail.com>
+	<CACna6rxbGRdw7XSYvHAJGxJvMVwjVbAL4ynBM3m9rNggh7gCVQ@mail.gmail.com>
+	<CA+icZUWOXMEyobZkudW9BEfkaWFTXQL9XF26g7oJMCzt=4==6g@mail.gmail.com>
+	<CAKXHbyO70WdWekSYCY9spMbX2+_kdKTp3JoreDKpCdUBzFwYqw@mail.gmail.com>
+	<CACna6rxTYUWvxvu0rFydWxkjbYdHfhV=o+9A+ViCpbV-LFx7fw@mail.gmail.com>
+	<CAKXHbyMqTk=k7eieBNtAD+n6+4w3weL82twHBo-o8ebm_3+wvg@mail.gmail.com>
+	<CA+icZUUJfemKC85=p7Huyw7xwfUdXBhePseJCnUKLx9edgpT4w@mail.gmail.com>
+	<CAKXHbyPm+2gy3E_FAVY82ggvJhWe-E_xtrhgeAPxUyRS-FutaA@mail.gmail.com>
+	<CA+icZUUfFr2PQjp4ppMNj5UQE3U7-ArmO1LSDoZZf5c1Y85OMw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hjlipp@web.de, isdn@linux-pingi.de,
-	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Bas Peters <baspeters93@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1420047298-7798-1-git-send-email-baspeters93@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	b43-dev <b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Sedat Dilek <sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+icZUUfFr2PQjp4ppMNj5UQE3U7-ArmO1LSDoZZf5c1Y85OMw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-[I only just noticed that my first reply got terribly mangled by my
-mailer, so here it is again, hopefully more readable this time.]
-
-Hello Bas,
-
-I have several objections to your patch.
-
-Am 31.12.2014 um 18:34 schrieb Bas Peters:
-> I have not been able to test the code as I do not have access to the
-> hardware but since no new features were really added I don't think th=
-at
-> should pose a problem.
-
-It's always problematic to change code you cannot test.
-At the very least, if you do coding style cleanups you should test
-whether the result still compiles and generates the same code as before=
-=2E
-
-> --- a/drivers/isdn/gigaset/bas-gigaset.c
-> +++ b/drivers/isdn/gigaset/bas-gigaset.c
-> @@ -261,11 +261,12 @@ static inline void dump_urb(enum debuglevel lev=
-el, const char *tag,
->  {
->  #ifdef CONFIG_GIGASET_DEBUG
->  	int i;
-> +
->  	gig_dbg(level, "%s urb(0x%08lx)->{", tag, (unsigned long) urb);
->  	if (urb) {
->  		gig_dbg(level,
-> -			"  dev=3D0x%08lx, pipe=3D%s:EP%d/DV%d:%s, "
-> -			"hcpriv=3D0x%08lx, transfer_flags=3D0x%x,",
-> +			"  dev=3D0x%08lx, pipe=3D%s:EP%d/DV%d:%s,
-> +			hcpriv=3D0x%08lx, transfer_flags=3D0x%x,",
-
-This is syntactically wrong and won't compile. You cannot have an
-unescaped newline inside a string literal. (Applies to two later
-chunks, too.)
-
-> @@ -566,8 +566,8 @@ static int atread_submit(struct cardstate *cs, in=
-t timeout)
-> =20
->  	if (basstate & BS_SUSPEND) {
->  		dev_notice(cs->dev,
-> -			   "HD_READ_ATMESSAGE not submitted, "
-> -			   "suspend in progress\n");
-> +			   "HD_READ_ATMESSAGE not submitted,\
-> +			   suspend in progress\n");
-
-This makes the message less readable by inserting lots of whitespace
-after the comma. (Applies to five later chunks, too.)
-
-> @@ -2312,13 +2312,13 @@ static int gigaset_probe(struct usb_interface=
- *interface,
->  	/* Reject application specific interfaces
->  	 */
->  	if (hostif->desc.bInterfaceClass !=3D 255) {
-> -		dev_warn(&udev->dev, "%s: bInterfaceClass =3D=3D %d\n",
-> +		dev_warn(&udev->dev, "%s: bInterfaceClass =3D=3D %d\n",\
->  			 __func__, hostif->desc.bInterfaceClass);
->  		return -ENODEV;
->  	}
-> =20
->  	dev_info(&udev->dev,
-> -		 "%s: Device matched (Vendor: 0x%x, Product: 0x%x)\n",
-> +		 "%s: Device matched (Vendor: 0x%x, Product: 0x%x)\n",\
->  		 __func__, le16_to_cpu(udev->descriptor.idVendor),
->  		 le16_to_cpu(udev->descriptor.idProduct));
-
-This looks strange, and not like correct coding style. Why would you
-want to escape the end of line after a function argument?
+2015-01-03 15:51 GMT+01:00 Sedat Dilek <sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
+> On Sat, Jan 3, 2015 at 3:45 PM, Rickard Strandqvist
+> <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org> wrote:
+> [ ... ]
+>>> > I just got one more complaining about my subject-line in "net: wireless: "
+>>> > I use some sed call for this, so it's easy to fix. I will now remove that
+>>> > part hereinafter.
+>>> > I check in Documentation/ but did not find any clear info for this.
+>>> >
+>>>
+>>> The easiest way to make (sub)maintainers happy is to check the git-log...
+>>>
+>>> $ git log --oneline /path/to/file
+>>>
+>>> ...and look how other contributors labeled their patches.
+>>>
+>>> [1] is the 1st address to look at on how to submit patches to Linux-kernel.
+>>> To promote the good work of Greg, see [2,3] for a video and tutorial
+>>> on that topic, too.
+>>>
+>>> - Sedat -
+>>>
+>>> [1] http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Documentation/SubmittingPatches
+>>> [2] https://www.youtube.com/watch?v=XXix80GCvpo
+>>> [3] https://github.com/gregkh/kernel-tutorial
+>>
+>>
+>>
+>> Hi Sedat
+>>
+>> Thanks for the tip :)
+>>
+>> To bad with the audio in the video thow. Have read SubmittingPatches before.
+>>
+>
+> AFAICS there is another (earlier) video "Write and Submit your first
+> Linux kernel Patch" from FOSDEM 2010.
+>
+> For German readers I can recommend the book from [2] (no I get no
+> money for promotion).
+>
+> - Sedat -
+>
+> [1] https://www.youtube.com/watch?v=LLBrBBImJt4
+> [2] http://www.opensourcepress.de/de/produkte/Git/33227/978-3-95539-119-5-
+>
+>>
+>> But I have now added a line in my script that does a:
+>>
+>> git log -10 --oneline
+>>
+>> So I can at least see the other subjekt lines, and make adjustments if
+>> necessary.
+>>
+>>
+>>
+>> Kind regards
+>> Rickard Strandqvist
 
 
-> --- a/drivers/isdn/gigaset/capi.c
-> +++ b/drivers/isdn/gigaset/capi.c
+Hi
 
-> @@ -1370,7 +1373,7 @@ static void do_connect_req(struct gigaset_capi_=
-ctr *iif,
->  	cmsg->adr.adrPLCI |=3D (bcs->channel + 1) << 8;
-> =20
->  	/* build command table */
-> -	commands =3D kzalloc(AT_NUM * (sizeof *commands), GFP_KERNEL);
-> +	commands =3D kzalloc(AT_NUM * (sizeof(*commands)), GFP_KERNEL);
+Good video!
+Wish I had seen this a year ago.
 
-Extra pair of parentheses around sizeof(*commands) is unnecessary.
-(Applies to one later chunk, too.)
+Sorry, no German for me :)
 
-> --- a/drivers/isdn/gigaset/common.c
-> +++ b/drivers/isdn/gigaset/common.c
-> @@ -53,7 +53,7 @@ void gigaset_dbg_buffer(enum debuglevel level, cons=
-t unsigned char *msg,
->  {
->  	unsigned char outbuf[80];
->  	unsigned char c;
-> -	size_t space =3D sizeof outbuf - 1;
-> +	size_t space =3D sizeof(outbuf - 1);
 
-This is wrong. The sizeof operator must be applied to the array
-variable outbuf, not to the expression (outbuf - 1).
-
-> --- a/drivers/isdn/gigaset/ev-layer.c
-> +++ b/drivers/isdn/gigaset/ev-layer.c
-
-> @@ -1083,7 +1079,7 @@ static void do_action(int action, struct cardst=
-ate *cs,
-> =20
->  	int channel;
-> =20
-> -	unsigned char *s, *e;
-> +	unsigned char *s;
->  	int i;
->  	unsigned long val;
-> =20
-> @@ -1355,8 +1351,20 @@ static void do_action(int action, struct cards=
-tate *cs,
->  		}
-> =20
->  		for (i =3D 0; i < 4; ++i) {
-> -			val =3D simple_strtoul(s, (char **) &e, 10);
-> -			if (val > INT_MAX || e =3D=3D s)
-> +			unsigned long *e;
-> +
-> +			val =3D kstrtoul(s, 10, e);
-> +			if (val =3D=3D -EINVAL) {
-> +				dev_err(cs->dev, "Parsing error on converting string to\
-> +						 unsigned long\n");
-> +				break;
-> +			}
-> +			if (val =3D=3D -ERANGE) {
-> +				dev_err(cs->dev, "Overflow error converting string to\
-> +						 unsigned long\n");
-> +				break;
-> +			}
-> +			if (val > INT_MAX || *e =3D=3D s)
->  				break;
->  			if (i =3D=3D 3) {
->  				if (*e)
-> @@ -1364,7 +1372,7 @@ static void do_action(int action, struct cardst=
-ate *cs,
->  			} else if (*e !=3D '.')
->  				break;
->  			else
-> -				s =3D e + 1;
-> +				s =3D *e + 1;
->  			cs->fwver[i] =3D val;
->  		}
->  		if (i !=3D 4) {
-
-This cannot work. The pointer variable e gets dereferenced without
-ever being initialized. The type mismatches when declaring e as
-pointing to an unsigned long but comparing *e to s in one place and to
-a character literal in another point make me wonder which semantics
-you had in mind for e in the first place.
-Also your error messages are not helpful for someone reading the log
-and trying to find out what went wrong, and not very readable because
-of the big stretch of whitespace you insert between the words "to" and
-"unsigned". In fact I'm not even convinced it's a good idea to emit a
-log message at all here.
-
-> --- a/drivers/isdn/gigaset/gigaset.h
-> +++ b/drivers/isdn/gigaset/gigaset.h
-> @@ -94,8 +94,7 @@ enum debuglevel {
->  #define gig_dbg(level, format, arg...)					\
->  	do {								\
->  		if (unlikely(((enum debuglevel)gigaset_debuglevel) & (level))) \
-> -			printk(KERN_DEBUG KBUILD_MODNAME ": " format "\n", \
-> -			       ## arg);					\
-> +			dev_dbg(cs->dev, KBUILD_MODNAME ": " format "\n")\
->  	} while (0)
-
-This will not work when
-- there is no cs variable in the context where the macro is used or
-- cs->dev doesn't contain a valid device pointer or
-- the format string references additional arguments,
-all of which actually occur in the driver.
-
-> --- a/drivers/isdn/gigaset/i4l.c
-> +++ b/drivers/isdn/gigaset/i4l.c
-
-> @@ -624,14 +624,14 @@ int gigaset_isdn_regdev(struct cardstate *cs, c=
-onst char *isdnid)
->  {
->  	isdn_if *iif;
-> =20
-> -	iif =3D kmalloc(sizeof *iif, GFP_KERNEL);
-> +	iif =3D kmalloc(sizeof(*iif, GFP_KERNEL));
-
-You're calling kmalloc with too few arguments here.
-
->  	if (!iif) {
->  		pr_err("out of memory\n");
->  		return -ENOMEM;
->  	}
-> =20
-> -	if (snprintf(iif->id, sizeof iif->id, "%s_%u", isdnid, cs->minor_in=
-dex)
-> -	    >=3D sizeof iif->id) {
-> +	if (snprintf(iif->id, sizeof(iif->id, "%s_%u", isdnid, cs->minor_in=
-dex))
-> +	    >=3D sizeof(iif->id)) {
-
-You're calling snprintf with too few arguments here.
-
-> --- a/drivers/isdn/gigaset/proc.c
-> +++ b/drivers/isdn/gigaset/proc.c
-> @@ -27,13 +27,18 @@ static ssize_t set_cidmode(struct device *dev, st=
-ruct device_attribute *attr,
->  			   const char *buf, size_t count)
->  {
->  	struct cardstate *cs =3D dev_get_drvdata(dev);
-> -	long int value;
-> -	char *end;
-> +	long int *value;
-> +	int result;
-> =20
-> -	value =3D simple_strtol(buf, &end, 0);
-> -	while (*end)
-> -		if (!isspace(*end++))
-> -			return -EINVAL;
-> +	result =3D kstrtol(buf, 0, &value);
-> +	if (result =3D=3D -ERANGE)
-> +		/* Overflow error */
-> +		dev_err(cs->dev, "Overflow error on conversion from string to\
-> +				 long\n");
-> +	if (result =3D=3D -EINVAL)
-> +		/* Parsing error  */
-> +		dev_err(cs->dev, "Parsing error on conversion from string to\
-> +				 long\n");
->  	if (value < 0 || value > 1)
->  		return -EINVAL;
-> =20
-
-This changes semantics. Your code will not accept the same input as
-the original code, and it will emit messages of its own instead of
-just returning an error code to the caller as it should.
-
-In sum: NACK.
-
-Regards,
-Tilman
-
---=20
-Tilman Schmidt                              E-Mail: tilman@imap.cc
-Bonn, Germany
-Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-Unge=C3=B6ffnet mindestens haltbar bis: (siehe R=C3=BCckseite)
+Kind regards
+Rickard Strandqvist
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
