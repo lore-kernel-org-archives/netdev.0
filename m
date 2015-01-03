@@ -1,38 +1,53 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] man ss: Fix 'Kuznetosv' -> 'Kuznetsov' typo
-Date: Sat,  3 Jan 2015 12:07:49 +0200
-Message-ID: <1420279669-3491-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/2 net-next] netfilter: remove err1 label only used with CONFIG_SYSCTL
+Date: Sat,  3 Jan 2015 12:42:08 +0100
+Message-ID: <1420285328-7901-1-git-send-email-fabf@skynet.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Fabian Frederick <fabf@skynet.be>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:61567 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750936AbbACKSI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Jan 2015 05:18:08 -0500
-Received: by mail-lb0-f177.google.com with SMTP id b6so15421099lbj.22
-        for <netdev@vger.kernel.org>; Sat, 03 Jan 2015 02:18:06 -0800 (PST)
+Received: from mailrelay011.isp.belgacom.be ([195.238.6.178]:22397 "EHLO
+	mailrelay011.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750966AbbACLmO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Jan 2015 06:42:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Kochan <vadim4j@gmail.com>
+This patch fixes the following warning:
+net/bridge/br_netfilter.c:995:1: warning: label =E2=80=98err1=E2=80=99 =
+defined but not used [-Wunused-label]
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
 ---
- man/man8/ss.8 | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/bridge/br_netfilter.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/man/man8/ss.8 b/man/man8/ss.8
-index f4b709b..450649a 100644
---- a/man/man8/ss.8
-+++ b/man/man8/ss.8
-@@ -190,7 +190,7 @@ List all the tcp sockets in state FIN-WAIT-1 for our apache to network 193.233.7
- 
- .SH AUTHOR
- .I ss 
--was written by Alexey Kuznetosv, <kuznet@ms2.inr.ac.ru>.
-+was written by Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>.
- .PP
- This manual page was written by Michael Prokop <mika@grml.org>
- for the Debian project (but may be used by others).
--- 
-2.1.3
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index c190d22..37e7d9a 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -987,15 +987,12 @@ static int __init br_netfilter_init(void)
+ 	if (brnf_sysctl_header =3D=3D NULL) {
+ 		printk(KERN_WARNING
+ 		       "br_netfilter: can't register to sysctl.\n");
+-		ret =3D -ENOMEM;
+-		goto err1;
++		nf_unregister_hooks(br_nf_ops, ARRAY_SIZE(br_nf_ops));
++		return -ENOMEM;
+ 	}
+ #endif
+ 	printk(KERN_NOTICE "Bridge firewalling registered\n");
+ 	return 0;
+-err1:
+-	nf_unregister_hooks(br_nf_ops, ARRAY_SIZE(br_nf_ops));
+-	return ret;
+ }
+=20
+ static void __exit br_netfilter_fini(void)
+--=20
+2.1.0
