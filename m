@@ -1,128 +1,111 @@
-From: Ed Swierk <eswierk@skyportsystems.com>
-Subject: [PATCH] ethtool: Extend ethtool plugin module eeprom API to phylib
-Date: Fri,  2 Jan 2015 17:27:56 -0800
-Message-ID: <1420248476-110859-1-git-send-email-eswierk@skyportsystems.com>
-Cc: f.fainelli@gmail.com, linux-kernel@vger.kernel.org,
-	Ed Swierk <eswierk@skyportsystems.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jesse Gross <jesse@nicira.com>
+Subject: [PATCH net-next 1/4] geneve: Remove workqueue.
+Date: Fri,  2 Jan 2015 18:26:02 -0800
+Message-ID: <1420251965-44794-2-git-send-email-jesse@nicira.com>
+References: <1420251965-44794-1-git-send-email-jesse@nicira.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog115.obsmtp.com ([74.125.149.238]:54099 "HELO
+	na3sys009aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752048AbbACC0L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 21:26:11 -0500
+Received: by mail-qg0-f54.google.com with SMTP id l89so13592732qgf.13
+        for <netdev@vger.kernel.org>; Fri, 02 Jan 2015 18:26:10 -0800 (PST)
+In-Reply-To: <1420251965-44794-1-git-send-email-jesse@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch extends the ethtool plugin module eeprom API to support cards
-whose phy support is delegated to a separate driver.
+The work queue is used only to free the UDP socket upon destruction.
+This is not necessary with Geneve and generally makes the code more
+difficult to reason about. It also introduces nondeterministic
+behavior such as when a socket is rapidly deleted and recreated, which
+could fail as the the deletion happens asynchronously.
 
-The handlers for ETHTOOL_GMODULEINFO and ETHTOOL_GMODULEEEPROM call the
-module_info and module_eeprom functions if the phy driver provides them;
-otherwise the handlers call the equivalent ethtool_ops functions provided
-by network drivers with built-in phy support.
-
-Signed-off-by: Ed Swierk <eswierk@skyportsystems.com>
+Signed-off-by: Jesse Gross <jesse@nicira.com>
 ---
- include/linux/phy.h |  9 +++++++++
- net/core/ethtool.c  | 45 ++++++++++++++++++++++++++++++++++-----------
- 2 files changed, 43 insertions(+), 11 deletions(-)
+ include/net/geneve.h |  1 -
+ net/ipv4/geneve.c    | 21 ++-------------------
+ 2 files changed, 2 insertions(+), 20 deletions(-)
 
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 565188c..04e5f5c 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -472,6 +472,15 @@ struct phy_driver {
- 	/* See set_wol, but for checking whether Wake on LAN is enabled. */
- 	void (*get_wol)(struct phy_device *dev, struct ethtool_wolinfo *wol);
+diff --git a/include/net/geneve.h b/include/net/geneve.h
+index 112132c..56c7e1a 100644
+--- a/include/net/geneve.h
++++ b/include/net/geneve.h
+@@ -71,7 +71,6 @@ struct geneve_sock {
+ 	struct hlist_node	hlist;
+ 	geneve_rcv_t		*rcv;
+ 	void			*rcv_data;
+-	struct work_struct	del_work;
+ 	struct socket		*sock;
+ 	struct rcu_head		rcu;
+ 	atomic_t		refcnt;
+diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
+index 19e256e..136a829 100644
+--- a/net/ipv4/geneve.c
++++ b/net/ipv4/geneve.c
+@@ -61,8 +61,6 @@ struct geneve_net {
  
-+	/* Get the size and type of the eeprom contained within a plug-in
-+	 * module */
-+	int (*module_info)(struct phy_device *dev,
-+			   struct ethtool_modinfo *modinfo);
-+
-+	/* Get the eeprom information from the plug-in module */
-+	int (*module_eeprom)(struct phy_device *dev,
-+			     struct ethtool_eeprom *ee, u8 *data);
-+
- 	struct device_driver driver;
- };
- #define to_phy_driver(d) container_of(d, struct phy_driver, driver)
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 30071de..466526b 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1405,20 +1405,31 @@ static int ethtool_get_ts_info(struct net_device *dev, void __user *useraddr)
- 	return err;
- }
+ static int geneve_net_id;
  
-+static int __ethtool_get_module_info(struct net_device *dev,
-+				     struct ethtool_modinfo *modinfo)
-+{
-+	const struct ethtool_ops *ops = dev->ethtool_ops;
-+	struct phy_device *phydev = dev->phydev;
-+
-+	if (phydev && phydev->drv && phydev->drv->module_info)
-+		return phydev->drv->module_info(phydev, modinfo);
-+
-+	if (ops->get_module_info)
-+		return ops->get_module_info(dev, modinfo);
-+
-+	return -EOPNOTSUPP;
-+}
-+
- static int ethtool_get_module_info(struct net_device *dev,
- 				   void __user *useraddr)
- {
- 	int ret;
- 	struct ethtool_modinfo modinfo;
--	const struct ethtool_ops *ops = dev->ethtool_ops;
+-static struct workqueue_struct *geneve_wq;
 -
--	if (!ops->get_module_info)
--		return -EOPNOTSUPP;
- 
- 	if (copy_from_user(&modinfo, useraddr, sizeof(modinfo)))
- 		return -EFAULT;
- 
--	ret = ops->get_module_info(dev, &modinfo);
-+	ret = __ethtool_get_module_info(dev, &modinfo);
- 	if (ret)
- 		return ret;
- 
-@@ -1428,21 +1439,33 @@ static int ethtool_get_module_info(struct net_device *dev,
- 	return 0;
- }
- 
-+static int __ethtool_get_module_eeprom(struct net_device *dev,
-+				       struct ethtool_eeprom *ee, u8 *data)
-+{
-+	const struct ethtool_ops *ops = dev->ethtool_ops;
-+	struct phy_device *phydev = dev->phydev;
-+
-+	if (phydev && phydev->drv && phydev->drv->module_eeprom)
-+		return phydev->drv->module_eeprom(phydev, ee, data);
-+
-+	if (ops->get_module_eeprom)
-+		return ops->get_module_eeprom(dev, ee, data);
-+
-+	return -EOPNOTSUPP;
-+}
-+
- static int ethtool_get_module_eeprom(struct net_device *dev,
- 				     void __user *useraddr)
+ static inline struct genevehdr *geneve_hdr(const struct sk_buff *skb)
  {
- 	int ret;
- 	struct ethtool_modinfo modinfo;
--	const struct ethtool_ops *ops = dev->ethtool_ops;
--
--	if (!ops->get_module_info || !ops->get_module_eeprom)
--		return -EOPNOTSUPP;
- 
--	ret = ops->get_module_info(dev, &modinfo);
-+	ret = __ethtool_get_module_info(dev, &modinfo);
- 	if (ret)
- 		return ret;
- 
--	return ethtool_get_any_eeprom(dev, useraddr, ops->get_module_eeprom,
-+	return ethtool_get_any_eeprom(dev, useraddr,
-+				      __ethtool_get_module_eeprom,
- 				      modinfo.eeprom_len);
+ 	return (struct genevehdr *)(udp_hdr(skb) + 1);
+@@ -307,15 +305,6 @@ error:
+ 	return 1;
  }
  
+-static void geneve_del_work(struct work_struct *work)
+-{
+-	struct geneve_sock *gs = container_of(work, struct geneve_sock,
+-					      del_work);
+-
+-	udp_tunnel_sock_release(gs->sock);
+-	kfree_rcu(gs, rcu);
+-}
+-
+ static struct socket *geneve_create_sock(struct net *net, bool ipv6,
+ 					 __be16 port)
+ {
+@@ -356,8 +345,6 @@ static struct geneve_sock *geneve_socket_create(struct net *net, __be16 port,
+ 	if (!gs)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	INIT_WORK(&gs->del_work, geneve_del_work);
+-
+ 	sock = geneve_create_sock(net, ipv6, port);
+ 	if (IS_ERR(sock)) {
+ 		kfree(gs);
+@@ -430,7 +417,8 @@ void geneve_sock_release(struct geneve_sock *gs)
+ 	geneve_notify_del_rx_port(gs);
+ 	spin_unlock(&gn->sock_lock);
+ 
+-	queue_work(geneve_wq, &gs->del_work);
++	udp_tunnel_sock_release(gs->sock);
++	kfree_rcu(gs, rcu);
+ }
+ EXPORT_SYMBOL_GPL(geneve_sock_release);
+ 
+@@ -458,10 +446,6 @@ static int __init geneve_init_module(void)
+ {
+ 	int rc;
+ 
+-	geneve_wq = alloc_workqueue("geneve", 0, 0);
+-	if (!geneve_wq)
+-		return -ENOMEM;
+-
+ 	rc = register_pernet_subsys(&geneve_net_ops);
+ 	if (rc)
+ 		return rc;
+@@ -474,7 +458,6 @@ late_initcall(geneve_init_module);
+ 
+ static void __exit geneve_cleanup_module(void)
+ {
+-	destroy_workqueue(geneve_wq);
+ 	unregister_pernet_subsys(&geneve_net_ops);
+ }
+ module_exit(geneve_cleanup_module);
 -- 
 1.9.1
