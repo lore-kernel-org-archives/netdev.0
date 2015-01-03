@@ -1,63 +1,63 @@
-From: Paul Bolle <pebolle-IWqWACnzNjzz+pZb47iToQ@public.gmane.org>
-Subject: Re: [PATCH] Revert "ipw2200: select CFG80211_WEXT"
-Date: Sat, 03 Jan 2015 23:28:44 +0100
-Message-ID: <1420324124.9624.60.camel@x220>
-References: <1420297188.2397.3.camel@tiscali.nl>
-	 <CD467A59-F563-439B-BA82-954AB27AD9CC@holtmann.org>
-	 <CA+55aFzYSiUkntraMrHEhMzkt35Ft2p9E3cT7ejwQOBDwKvcOg@mail.gmail.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2 3/3] ss: Filtering logic changing, with fixes
+Date: Sun, 4 Jan 2015 00:58:11 +0200
+Message-ID: <20150103225811.GA5972@angus-think.lan>
+References: <1420245877-11763-1-git-send-email-vadim4j@gmail.com>
+ <1420245877-11763-4-git-send-email-vadim4j@gmail.com>
+ <20150103095707.37e69147@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	Stanislav Yakovlev <stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+55aFzYSiUkntraMrHEhMzkt35Ft2p9E3cT7ejwQOBDwKvcOg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f47.google.com ([209.85.215.47]:44054 "EHLO
+	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752049AbbACXI3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Jan 2015 18:08:29 -0500
+Received: by mail-la0-f47.google.com with SMTP id hz20so16320337lab.6
+        for <netdev@vger.kernel.org>; Sat, 03 Jan 2015 15:08:28 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20150103095707.37e69147@urahara>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2015-01-03 at 10:07 -0800, Linus Torvalds wrote:
-> On Sat, Jan 3, 2015 at 10:02 AM, Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org> wrote:
-> >
-> > why would you revert this? It is obviously the correct change to actually select CFG80211_WEXT.
+On Sat, Jan 03, 2015 at 09:57:07AM -0800, Stephen Hemminger wrote:
+> On Sat,  3 Jan 2015 02:44:37 +0200
+> Vadim Kochan <vadim4j@gmail.com> wrote:
 > 
-> I don't know about obvious, but yeah, I think the select in this case
-> is actually the better idea anyway.
+> > +struct filter default_dbs[MAX_DB] = {
+> > +	[TCP_DB] = {
+> > +		.states   = SS_CONN,
+> > +		.families = (1 << AF_INET) | (1 << AF_INET6),
+> > +	},
+> 
+> I like table driven code, so this is good. But please make
+> mark the table as const.
 
-Obviously it wasn't obvious to me!
+I did re-test, and I still don't like very much my results (some cases
+are not logically) even if they (IMHO) better than the 'master' version,
+so I will try to change filer options applying in the following way:
 
-My reasoning was that the "ipw2200: select CFG80211_WEXT" commit was
-_solely_ a workaround for the breakage introduced by that other patch.
-And since that one is now reverted the workaround wasn't needed anymore.
+    0) default filter should have only default states & all dbs
 
-Besied, I thought we try to avoid select-ing symbols that can also be
-set manually. As that makes it more likely to trigger circular
-dependency problems in the kconfig tools, doesn't it?
+    1) apply all selected families with their default dbs & states from table
 
-> We could make the CFG80211_WEXT help message be very negative so that
-> people aren't encouraged to select it even if they can, but then if
-> they need the ipw driver it gets selected because of that. Because the
-> ipw driver is probably the more important of the two if you just
-> happen to have old hardware but are upgrading yout software (and
-> anybody who recompiles their own kernel is obviously doing the
-> latter).
+    2) logical AND selected dbs with dbs of the selected families and their default
+        states from table, also select families by db from table if there no
+        already selected families
 
-Side note: am I correct in thinking that there's some successor to
-CFG80211_WEXT and that the ipw2200 driver could, at least in theory, be
-ported to that successor? (ipw2200 hardware appears to be a bit old, so
-probably no one would care enough to actually do that.)
-net/wireless/kconfig doesn't mention anything like that, so probably I'm
-just confused.
+    3) logical AND selected states with selected dbs and their default states from table,
+        also select families and dbs from table by states if there no
+        already selected dbs & families
 
+So with such approach the options should affect each other in the strict
+predictable way:
 
-Paul Bolle
+    families -> dbs (socket tables) -> socket states
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I hope I will success with this ...
+
+I appreciate any feedback.
+
+Regards,
+Vadim Kochan
