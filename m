@@ -1,43 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/9 net-next v2] rhashtable: Per bucket locks &
- deferred table resizing
-Date: Sat, 03 Jan 2015 14:44:55 -0500 (EST)
-Message-ID: <20150103.144455.345230130702474137.davem@davemloft.net>
-References: <cover.1420230585.git.tgraf@suug.ch>
+From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
+Subject: Re: [PATCH v3 0/6] support GMAC driver for RK3288
+Date: Sat, 03 Jan 2015 23:27:18 +0100
+Message-ID: <3223311.vXMaSqpKME@phil>
+References: <1419846152-14531-1-git-send-email-roger.chen@rock-chips.com> <1493383.y3pPThNXY3@phil> <20150101.210122.660970681208198668.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	herbert@gondor.apana.org.au, paulmck@linux.vnet.ibm.com,
-	edumazet@google.com, john.r.fastabend@intel.com,
-	josh@joshtriplett.org
-To: tgraf@suug.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44210 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751199AbbACTpA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Jan 2015 14:45:00 -0500
-In-Reply-To: <cover.1420230585.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: roger.chen@rock-chips.com, peppe.cavallaro@st.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-rockchip@lists.infradead.org, kever.yang@rock-chips.com,
+	eddie.cai@rock-chips.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150101.210122.660970681208198668.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Fri,  2 Jan 2015 23:00:13 +0100
+Am Donnerstag, 1. Januar 2015, 21:01:22 schrieb David Miller:
+> From: Heiko St=FCbner <heiko@sntech.de>
+> Date: Thu, 01 Jan 2015 03:06:31 +0100
+>=20
+> > Hi David,
+> >=20
+> > Am Mittwoch, 31. Dezember 2014, 19:15:38 schrieb David Miller:
+> >> From: Roger Chen <roger.chen@rock-chips.com>
+> >> Date: Mon, 29 Dec 2014 17:42:32 +0800
+> >>=20
+> >> > Roger Chen (6):
+> >> >   patch1: add driver for Rockchip RK3288 SoCs integrated GMAC
+> >> >   patch2: define clock ID used for GMAC
+> >> >   patch3: modify CRU config for Rockchip RK3288 SoCs integrated =
+GMAC
+> >> >   patch4: dts: rockchip: add gmac info for rk3288
+> >> >   patch5: dts: rockchip: enable gmac on RK3288 evb board
+> >> >   patch6: add document for Rockchip RK3288 GMAC
+> >> >=20
+> >> > Tested on rk3288 evb board:
+> >> > Execute the following command to enable ethernet,
+> >> > set local IP and ping a remote host.
+> >> >=20
+> >> > busybox ifconfig eth0 up
+> >> > busybox ifconfig eth0 192.168.1.111
+> >> > ping 192.168.1.1
+> >>=20
+> >> Series applied to net-next, thanks.
+> >=20
+> > could we split this up a bit instead?
+>=20
+> Too late, what's in my tree is in the permanent commit history
+> and cannot be deleted.
 
-> Prepares for and introduces per bucket spinlocks and deferred table
-> resizing. This allows for parallel table mutations in different hash
-> buckets from atomic context. The resizing occurs in the background
-> in a separate worker thread while lookups, inserts, and removals can
-> continue.
-> 
-> Also modified the chain linked list to be terminated with a special
-> nulls marker to allow entries to move between multiple lists.
-> 
-> Last but not least, reintroduces lockless netlink_lookup() with
-> deferred Netlink socket destruction to avoid the side effect of
-> increased netlink_release() runtime.
+ok no problem ... I'll work around it then so that any possible conflic=
+ts are=20
+easily solvable.
 
-I'm sure that this might need a minor tweak or two still, but I really
-like how you implemented this so I'll apply this series now.
 
-Thanks!
+Heiko
