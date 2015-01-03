@@ -1,65 +1,83 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 linux-next] hp100: simplify hp100_module_init
-Date: Sat,  3 Jan 2015 14:44:16 +0100
-Message-ID: <1420292656-14429-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
-	Jaroslav Kysela <perex@perex.cz>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: [PATCH net-next] enic: reconfigure resources for kdump crash kernel
+Date: Sat,  3 Jan 2015 19:35:44 +0530
+Message-ID: <1420293944-7614-1-git-send-email-_govind@gmx.com>
+Cc: ssujith@cisco.com, benve@cisco.com,
+	Govindarajulu Varadarajan <_govind@gmx.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.com ([74.208.4.201]:58161 "EHLO mout.gmx.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750917AbbACOGH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Jan 2015 09:06:07 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
--Avoid double goto and directly return err where possible.
--Remove unused labels which fixes:
+When running in kdump kernel, reduce number of resources used by the driver.
+This will enable NIC to operate in low memory kdump kernel environment.
 
-drivers/net/ethernet/hp/hp100.c:3047:2: warning: label
-'out3' defined but not used [-Wunused-label]
+Also change the driver version to .83
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
+Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 ---
-This is untested.
+ drivers/net/ethernet/cisco/enic/enic.h      |  2 +-
+ drivers/net/ethernet/cisco/enic/enic_main.c | 17 +++++++++++++++++
+ 2 files changed, 18 insertions(+), 1 deletion(-)
 
- drivers/net/ethernet/hp/hp100.c | 17 ++++++++---------
- 1 file changed, 8 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/hp/hp100.c b/drivers/net/ethernet/hp/hp100.c
-index ae6e30d..7155938 100644
---- a/drivers/net/ethernet/hp/hp100.c
-+++ b/drivers/net/ethernet/hp/hp100.c
-@@ -3031,26 +3031,25 @@ static int __init hp100_module_init(void)
+diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
+index d2a1035..84b6a2b 100644
+--- a/drivers/net/ethernet/cisco/enic/enic.h
++++ b/drivers/net/ethernet/cisco/enic/enic.h
+@@ -33,7 +33,7 @@
  
- 	err = hp100_isa_init();
- 	if (err && err != -ENODEV)
--		goto out;
-+		return err;
- #ifdef CONFIG_EISA
- 	err = eisa_driver_register(&hp100_eisa_driver);
- 	if (err && err != -ENODEV)
--		goto out2;
-+		goto out_eisa;
-+	else
-+		return err;
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+-#define DRV_VERSION		"2.1.1.67"
++#define DRV_VERSION		"2.1.1.83"
+ #define DRV_COPYRIGHT		"Copyright 2008-2013 Cisco Systems, Inc"
+ 
+ #define ENIC_BARS_MAX		6
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 142c9b5..9027fc1 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -45,6 +45,7 @@
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+ #include <net/busy_poll.h>
  #endif
- #ifdef CONFIG_PCI
- 	err = pci_register_driver(&hp100_pci_driver);
--	if (err && err != -ENODEV)
--		goto out3;
-+	if (!err || err == -ENODEV)
-+		return err;
- #endif
-- out:
--	return err;
-- out3:
- #ifdef CONFIG_EISA
- 	eisa_driver_unregister (&hp100_eisa_driver);
-- out2:
-+ out_eisa:
- #endif
- 	hp100_isa_cleanup();
--	goto out;
-+	return err;
++#include <linux/crash_dump.h>
+ 
+ #include "cq_enet_desc.h"
+ #include "vnic_dev.h"
+@@ -2265,6 +2266,18 @@ static void enic_dev_deinit(struct enic *enic)
+ 	enic_clear_intr_mode(enic);
  }
  
++static void enic_kdump_kernel_config(struct enic *enic)
++{
++	if (is_kdump_kernel()) {
++		dev_info(enic_get_dev(enic), "Running from within kdump kernel. Using minimal resources\n");
++		enic->rq_count = 1;
++		enic->wq_count = 1;
++		enic->config.rq_desc_count = ENIC_MIN_RQ_DESCS;
++		enic->config.wq_desc_count = ENIC_MIN_WQ_DESCS;
++		enic->config.mtu = min_t(u16, 1500, enic->config.mtu);
++	}
++}
++
+ static int enic_dev_init(struct enic *enic)
+ {
+ 	struct device *dev = enic_get_dev(enic);
+@@ -2294,6 +2307,10 @@ static int enic_dev_init(struct enic *enic)
  
+ 	enic_get_res_counts(enic);
+ 
++	/* modify resource count if we are in kdump_kernel
++	 */
++	enic_kdump_kernel_config(enic);
++
+ 	/* Set interrupt mode based on resource counts and system
+ 	 * capabilities
+ 	 */
 -- 
-2.1.0
+2.2.1
