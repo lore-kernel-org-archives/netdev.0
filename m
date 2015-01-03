@@ -1,58 +1,63 @@
-From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
-Subject: Re: [PATCH v3 0/6] support GMAC driver for RK3288
-Date: Sat, 03 Jan 2015 23:27:18 +0100
-Message-ID: <3223311.vXMaSqpKME@phil>
-References: <1419846152-14531-1-git-send-email-roger.chen@rock-chips.com> <1493383.y3pPThNXY3@phil> <20150101.210122.660970681208198668.davem@davemloft.net>
+From: Paul Bolle <pebolle-IWqWACnzNjzz+pZb47iToQ@public.gmane.org>
+Subject: Re: [PATCH] Revert "ipw2200: select CFG80211_WEXT"
+Date: Sat, 03 Jan 2015 23:28:44 +0100
+Message-ID: <1420324124.9624.60.camel@x220>
+References: <1420297188.2397.3.camel@tiscali.nl>
+	 <CD467A59-F563-439B-BA82-954AB27AD9CC@holtmann.org>
+	 <CA+55aFzYSiUkntraMrHEhMzkt35Ft2p9E3cT7ejwQOBDwKvcOg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: roger.chen@rock-chips.com, peppe.cavallaro@st.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-rockchip@lists.infradead.org, kever.yang@rock-chips.com,
-	eddie.cai@rock-chips.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150101.210122.660970681208198668.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Stanislav Yakovlev <stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+55aFzYSiUkntraMrHEhMzkt35Ft2p9E3cT7ejwQOBDwKvcOg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Am Donnerstag, 1. Januar 2015, 21:01:22 schrieb David Miller:
-> From: Heiko St=FCbner <heiko@sntech.de>
-> Date: Thu, 01 Jan 2015 03:06:31 +0100
->=20
-> > Hi David,
-> >=20
-> > Am Mittwoch, 31. Dezember 2014, 19:15:38 schrieb David Miller:
-> >> From: Roger Chen <roger.chen@rock-chips.com>
-> >> Date: Mon, 29 Dec 2014 17:42:32 +0800
-> >>=20
-> >> > Roger Chen (6):
-> >> >   patch1: add driver for Rockchip RK3288 SoCs integrated GMAC
-> >> >   patch2: define clock ID used for GMAC
-> >> >   patch3: modify CRU config for Rockchip RK3288 SoCs integrated =
-GMAC
-> >> >   patch4: dts: rockchip: add gmac info for rk3288
-> >> >   patch5: dts: rockchip: enable gmac on RK3288 evb board
-> >> >   patch6: add document for Rockchip RK3288 GMAC
-> >> >=20
-> >> > Tested on rk3288 evb board:
-> >> > Execute the following command to enable ethernet,
-> >> > set local IP and ping a remote host.
-> >> >=20
-> >> > busybox ifconfig eth0 up
-> >> > busybox ifconfig eth0 192.168.1.111
-> >> > ping 192.168.1.1
-> >>=20
-> >> Series applied to net-next, thanks.
-> >=20
-> > could we split this up a bit instead?
->=20
-> Too late, what's in my tree is in the permanent commit history
-> and cannot be deleted.
+On Sat, 2015-01-03 at 10:07 -0800, Linus Torvalds wrote:
+> On Sat, Jan 3, 2015 at 10:02 AM, Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org> wrote:
+> >
+> > why would you revert this? It is obviously the correct change to actually select CFG80211_WEXT.
+> 
+> I don't know about obvious, but yeah, I think the select in this case
+> is actually the better idea anyway.
 
-ok no problem ... I'll work around it then so that any possible conflic=
-ts are=20
-easily solvable.
+Obviously it wasn't obvious to me!
+
+My reasoning was that the "ipw2200: select CFG80211_WEXT" commit was
+_solely_ a workaround for the breakage introduced by that other patch.
+And since that one is now reverted the workaround wasn't needed anymore.
+
+Besied, I thought we try to avoid select-ing symbols that can also be
+set manually. As that makes it more likely to trigger circular
+dependency problems in the kconfig tools, doesn't it?
+
+> We could make the CFG80211_WEXT help message be very negative so that
+> people aren't encouraged to select it even if they can, but then if
+> they need the ipw driver it gets selected because of that. Because the
+> ipw driver is probably the more important of the two if you just
+> happen to have old hardware but are upgrading yout software (and
+> anybody who recompiles their own kernel is obviously doing the
+> latter).
+
+Side note: am I correct in thinking that there's some successor to
+CFG80211_WEXT and that the ipw2200 driver could, at least in theory, be
+ported to that successor? (ipw2200 hardware appears to be a bit old, so
+probably no one would care enough to actually do that.)
+net/wireless/kconfig doesn't mention anything like that, so probably I'm
+just confused.
 
 
-Heiko
+Paul Bolle
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
