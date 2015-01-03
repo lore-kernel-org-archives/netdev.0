@@ -1,115 +1,124 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Sat, 3 Jan 2015 14:01:45 +1100
-Message-ID: <20150103140145.3cd6b79c@canb.auug.org.au>
-References: <20150103091101.04b2c11e@canb.auug.org.au>
+From: Felipe Balbi <balbi@ti.com>
+Subject: Re: [PATCH 3/4] net: ethernet: cpsw: split out IRQ handler
+Date: Fri, 2 Jan 2015 21:02:38 -0600
+Message-ID: <20150103030238.GA19959@saruman>
+References: <1420222228-31949-1-git-send-email-balbi@ti.com>
+ <1420222228-31949-4-git-send-email-balbi@ti.com>
+ <CAA93jw7qyZjdHGKXjiBhiYp4BWBFrUFM6FF-Lzc0i7eOnM6cNg@mail.gmail.com>
+ <20150102185535.GB4920@saruman>
+ <CAA93jw7=aFM3yQLO+vtN4uHW2gMnfNaY=BdbA+b0WYq-0+gSYQ@mail.gmail.com>
+ <20150102190350.GC4920@saruman>
+ <CAA93jw4BckMYOz_fUMVkW8m1YVO8uGjsb1srrhiF-meDoiD1WA@mail.gmail.com>
+Reply-To: <balbi@ti.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/znWSccTcOy8hr3rl/cMSN4R"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Richard Cochran <richardcochran@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20150103091101.04b2c11e@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="OgqxwSJOaUobr8KG"
+Cc: Felipe Balbi <balbi@ti.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux OMAP Mailing List <linux-omap@vger.kernel.org>
+To: Dave Taht <dave.taht@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bear.ext.ti.com ([192.94.94.41]:53772 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750771AbbACDDJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Jan 2015 22:03:09 -0500
+Content-Disposition: inline
+In-Reply-To: <CAA93jw4BckMYOz_fUMVkW8m1YVO8uGjsb1srrhiF-meDoiD1WA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/znWSccTcOy8hr3rl/cMSN4R
-Content-Type: text/plain; charset=US-ASCII
+--OgqxwSJOaUobr8KG
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-Hi all,
+Hi,
 
-On Sat, 3 Jan 2015 09:11:01 +1100 Stephen Rothwell <sfr@canb.auug.org.au> w=
-rote:
->
-> After merging the net-next tree, today's linux-next build (powerpc
-> ppc64_defconfig) failed like this:
+On Fri, Jan 02, 2015 at 02:56:36PM -0800, Dave Taht wrote:
+> On Fri, Jan 2, 2015 at 11:03 AM, Felipe Balbi <balbi@ti.com> wrote:
+> > Hi,
+> >
+> > (please use reply-all to keep mailing lists in Cc, also avoid
+> > top-posting)
 >=20
-> drivers/net/ethernet/mellanox/mlx4/en_clock.c: In function 'mlx4_en_init_=
-timestamp':
-> drivers/net/ethernet/mellanox/mlx4/en_clock.c:249:2: error: implicit decl=
-aration of function 'CLOCKSOURCE_MASK' [-Werror=3Dimplicit-function-declara=
-tion]
->   mdev->cycles.mask =3D CLOCKSOURCE_MASK(48);
->   ^
-> drivers/net/ethernet/mellanox/mlx4/en_clock.c:257:3: error: implicit decl=
-aration of function 'clocksource_khz2mult' [-Werror=3Dimplicit-function-dec=
-laration]
->    clocksource_khz2mult(1000 * dev->caps.hca_core_clock, mdev->cycles.shi=
-ft);
->    ^
-> drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c: In function 'ixgbe_ptp_star=
-t_cyclecounter':
-> drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c:796:2: error: implicit decla=
-ration of function 'CLOCKSOURCE_MASK' [-Werror=3Dimplicit-function-declarat=
-ion]
->   adapter->cc.mask =3D CLOCKSOURCE_MASK(64);
->   ^
+> I am trying not to read netdev right now... and failing, obviously.
+
+oops :-)
+
+> > On Fri, Jan 02, 2015 at 10:58:29AM -0800, Dave Taht wrote:
+> >> The beaglebone only has a 100mbit phy, so you aren't going to get more
+> >> than that.
+> >
+> > very true :-) Still, with AM437x SK which is definitely GigE, I'm
+> > getting 201Mbits/sec.
+> >
+> >> (so do a lot of IoT devices).
+> >>
+> >> So you have the two patches that went by on BQL and on NAPI for the be=
+agle?
+> >
+> > no, got any pointers ?
 >=20
+> the relevant thread was "am335x: cpsw: phy ignores max-speed setting"
+>=20
+> and the initial very small BQL enablement patch was here:
+>=20
+> https://patchwork.ozlabs.org/patch/407640/
 
-My powerpc allyesconfig build also produced this:
+I'll test it out, sure.
 
-drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c: In function 'bnx2x_init_c=
-yclecounter':
-drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c:14613:2: error: implicit d=
-eclaration of function 'CLOCKSOURCE_MASK' [-Werror=3Dimplicit-function-decl=
-aration]
-  bp->cyclecounter.mask =3D CLOCKSOURCE_MASK(64);
-  ^
+> (it needed a saner treatment of a failure to dma something in
+> cpsw_tx_packet_submit  - the patch as is has also been part of nelsons
+> trees for the beaglebone for a while)
+>=20
+> But it was rightly pointed out later in the thread that this change
+>=20
+> +#define CPSW_POLL_WEIGHT 16
+>=20
+> made for the biggest part of the improvement, and someone else on the
+> thread proposed handling that more dynamically for 100mbit phys with
+> another patch (that I can't find at the moment)
+>=20
+> ... but the root cause of the excessive latency in this driver was the
+> single tx/rx dma queue, which you are addressing  in your patch set.
 
-So I added this patch:
+I still think there's a lot of work pending for CPSW, the think slows to
+a crawl and takes a lot of CPU for something that should be mostly
+handled by DMA. I can very easily get 85% CPU usage with iperf.
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Sat, 3 Jan 2015 12:15:37 +1100
-Subject: [PATCH] bnx2x: Include clocksource.h to get CLOCKSOURCE_MASK
+> So if you glop on more of the above, mo better, perhaps you will win
+> bigger.
+>=20
+> I will try to slice out some time to boot up a beagle on net-next next we=
+ek.
 
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 1 +
- 1 file changed, 1 insertion(+)
+my patches aren't applied yet, however.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net=
-/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 2c951326a85d..119c190721da 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -57,6 +57,7 @@
- #include <linux/semaphore.h>
- #include <linux/stringify.h>
- #include <linux/vmalloc.h>
-+#include <linux/clocksource.h>
-=20
- #include "bnx2x.h"
- #include "bnx2x_init.h"
---=20
-2.1.4
+cheers
 
 --=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+balbi
 
---Sig_/znWSccTcOy8hr3rl/cMSN4R
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
+--OgqxwSJOaUobr8KG
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Version: GnuPG v1
 
-iQIcBAEBCAAGBQJUp1udAAoJEMDTa8Ir7ZwVRMkP/iJ4ewJJT3FY4Jk/mGquAfsm
-LJwmkeC6WrR+sJHf3jtWM8M9uiZzGh9O4TcS9Otg9oc/Kw4SuKYxI50dGR/TQFQ/
-b+uH1g/rY38v2GThRWxHtmwcnwCS0RPElY9FJWjsgS7MewnNvpjAuIzlE+z6jTRF
-HtOcuqU0uP+d0nEJXDnym7Z3j6kO442Z72/Xk+86dOB7w36Hjp69uQ9zR+h+sMrG
-2GqG9wTCIRI0owsGLc/ICw5yUtoCeqIoE9qNR8Dgh4v+jp8jM+Xruh9+f9p5ALk0
-NS9Gwu5z+rYNC16i40P1N8ON4Rq+PjjA4anluc5Z9PBDODu4L77Uy9p4jWFJXLrj
-x44ISFlpoUvjxRnGbiuN+rYNJihQFaoKVKSsJjdZ2ek+es1aZJf1raEB0bDRg7Mk
-m8XrHl/mB3bDd3xkOlOT5zqJjehNbg0AeN0KlV4XDLRHhYOxIalIGKm8MMeCDwwo
-WjgGs0eEl5zqArlFO6INStcX0jDP2tyLEYpHtNYeaOi5H3EGF8VEY7dBuajfqY+J
-grSOoXUY0KWbLfVGv5pNYodwm521BBSDijgacFAP7burgI/WkXEdBAHMEXzWEKXR
-+/jUBGKmI2S8k0Z275JRkMvS38/NPjRdGvdzQGsqYcT48UCx7dmCH4b8DpVZ4TjZ
-7eYXd92n5NaJ+o1422Dk
-=UE9R
+iQIcBAEBAgAGBQJUp1vOAAoJEIaOsuA1yqREm1gP/0z4KoxkQp9/N3Y4IVLT44j3
+c5voy1pNgWiJn/DCGG0TdCq4PM9J3uKaTnM8wInBH38vOKW0nFSzHlSYUf8SoEd0
+k5EUhp53r259RDu1gTGNmxAV8R3aBBQga0luQX/U2wKRYeh1H0exlKxCWuaHSe3v
+7p6WdwLsgx204pind2IEnWTG/DqOfP5UKnFCOIE2p5ZB4Vo2O8562us36p0SXFXX
+esATQT51TQIp3JMPm7DcCBxQE6KfAF3vRNMdApSuMgctyC/gNjsbwuzfLT0z4FUd
+sBT5YpB6kr2SyXdMxKnHmFPAdiBb7CxRNdo5DmdIO577o6AX/5Ym49tbWV5tdCzd
+4ryMIoI7FZAxvt6lzc3QVHqlrZuD/zPsjJ8484P6O3k9Uhhv+8lOrnnUcFV1TEvr
+CWwUV3b/ReCxX8EHKB5nw5Iej/Kfhi2L2h7EFmEgB+Q6TMBbCIVTSZQxmr8H21ZO
+J+F7xOk6SgvR2Z1r8eNWJZP/06XxXP95LF17tPQb5uR8IxLpUdxpWuIXwAgE6qOn
+ZQ7RgbevJE3/qVMqMpSIWtMmJUEcWQ1wnE7YW27WJr2/N8GEb7uPA8T9+83RPsZ/
+IVD2HqNFdw0FjeTysi9hnpFc44Iq0eYuP4HHTd2AajCNNwnpZa/RQgidoeFbuiEk
+5R0mCdgsvA3wgl5t3Qu4
+=zIb8
 -----END PGP SIGNATURE-----
 
---Sig_/znWSccTcOy8hr3rl/cMSN4R--
+--OgqxwSJOaUobr8KG--
