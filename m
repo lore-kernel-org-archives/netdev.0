@@ -1,87 +1,128 @@
-From: Siva Mannem <siva.mannem.lnx@gmail.com>
-Subject: Re: [PATCH iproute2 v2] bridge/link: add learning_sync policy flag
-Date: Sat, 3 Jan 2015 06:53:58 +0530
-Message-ID: <CA+CtxLSvB+vbUPS_7eJd8tfjQ1H_XVB9or=r=HAuusKVpoz9Kw@mail.gmail.com>
-References: <1419884407-21998-1-git-send-email-sfeldma@gmail.com>
-	<CA+CtxLS7x8zKQ-9xwjoH3=pidkXS9s5b2+K_VO4eDHJTWo5tYQ@mail.gmail.com>
-	<CAE4R7bBpmR429F--8NNx0Jqos_bR-x2G4ybjmPhDW6Q+kV5y2g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
-	Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:46383 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751998AbbACBX7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2015 20:23:59 -0500
-Received: by mail-wi0-f182.google.com with SMTP id h11so342477wiw.9
-        for <netdev@vger.kernel.org>; Fri, 02 Jan 2015 17:23:58 -0800 (PST)
-In-Reply-To: <CAE4R7bBpmR429F--8NNx0Jqos_bR-x2G4ybjmPhDW6Q+kV5y2g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ed Swierk <eswierk@skyportsystems.com>
+Subject: [PATCH] ethtool: Extend ethtool plugin module eeprom API to phylib
+Date: Fri,  2 Jan 2015 17:27:56 -0800
+Message-ID: <1420248476-110859-1-git-send-email-eswierk@skyportsystems.com>
+Cc: f.fainelli@gmail.com, linux-kernel@vger.kernel.org,
+	Ed Swierk <eswierk@skyportsystems.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> I think the aging settings are per-bridge, not per-bridge-port, so the
-> policy control you're talking about wouldn't end up here on
-> /sbin/bridge link.
->
-Agree.
+This patch extends the ethtool plugin module eeprom API to support cards
+whose phy support is delegated to a separate driver.
 
-> However, I would argue even with hardware aging capability, we still
-> should use Linux for aging since all the controls are already there
-> and it just works.  It keeps the swdev model simple and the swdev
-> driver simple.  Do you have a counter-argument for why enabling
-> hardware aging would be better?
+The handlers for ETHTOOL_GMODULEINFO and ETHTOOL_GMODULEEEPROM call the
+module_info and module_eeprom functions if the phy driver provides them;
+otherwise the handlers call the equivalent ethtool_ops functions provided
+by network drivers with built-in phy support.
 
-When traffic is being forwarded in hardware and if the entries are to
-be software aged, the aging logic needs to periodically(once every
-configured age interval) retrieve the FDB entry's hit bit in the
-hardware. If this bit is not set it deletes the entry. If the hit bit
-is set, it clears it. This could be CPU intensive if the FDB size runs
-into few thousand entries.
+Signed-off-by: Ed Swierk <eswierk@skyportsystems.com>
+---
+ include/linux/phy.h |  9 +++++++++
+ net/core/ethtool.c  | 45 ++++++++++++++++++++++++++++++++++-----------
+ 2 files changed, 43 insertions(+), 11 deletions(-)
 
-If hardware aging is enabled, the above job is offloaded to hardware.
-
-The current aging logic does not  differentiate between software
-forwarded and hardware forwarded entries. When the traffic is being
-forwarded in hardware, the aging logic is deleting the entries after
-age interval.
-
-So the solution could be
-
-1)When hardware aging is enabled, only the notifications(probably via
-br_fdb_external_learn_delete())  delete the fdb entries.
-2)When software aging is enabled, aging logic needs to differentiate
-between software forwarded and hardware forwarded entries. For entries
-forwarded in hardware, the above aging logic needs to be implemented.
-
-
-
-On Fri, Jan 2, 2015 at 11:27 PM, Scott Feldman <sfeldma@gmail.com> wrote:
-> On Fri, Jan 2, 2015 at 9:14 AM, Siva Mannem <siva.mannem.lnx@gmail.com> wrote:
->> Hi,
->>
->>
->>> +.BR "learning_sync on " or " learning_sync off "
->>> +Controls whether a given port will sync MAC addresses learned on device port to
->>> +bridge FDB.
->>> +
->>
->> For the FDB entries synced from device port to bridge FDB, can the
->> device port also mention that it will take care of aging the synced
->> entries? I am thinking of a use case where the port supports hardware
->> learning and hardware aging?
->
-> I think the aging settings are per-bridge, not per-bridge-port, so the
-> policy control you're talking about wouldn't end up here on
-> /sbin/bridge link.
->
-> However, I would argue even with hardware aging capability, we still
-> should use Linux for aging since all the controls are already there
-> and it just works.  It keeps the swdev model simple and the swdev
-> driver simple.  Do you have a counter-argument for why enabling
-> hardware aging would be better?
->
-> -scott
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 565188c..04e5f5c 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -472,6 +472,15 @@ struct phy_driver {
+ 	/* See set_wol, but for checking whether Wake on LAN is enabled. */
+ 	void (*get_wol)(struct phy_device *dev, struct ethtool_wolinfo *wol);
+ 
++	/* Get the size and type of the eeprom contained within a plug-in
++	 * module */
++	int (*module_info)(struct phy_device *dev,
++			   struct ethtool_modinfo *modinfo);
++
++	/* Get the eeprom information from the plug-in module */
++	int (*module_eeprom)(struct phy_device *dev,
++			     struct ethtool_eeprom *ee, u8 *data);
++
+ 	struct device_driver driver;
+ };
+ #define to_phy_driver(d) container_of(d, struct phy_driver, driver)
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 30071de..466526b 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1405,20 +1405,31 @@ static int ethtool_get_ts_info(struct net_device *dev, void __user *useraddr)
+ 	return err;
+ }
+ 
++static int __ethtool_get_module_info(struct net_device *dev,
++				     struct ethtool_modinfo *modinfo)
++{
++	const struct ethtool_ops *ops = dev->ethtool_ops;
++	struct phy_device *phydev = dev->phydev;
++
++	if (phydev && phydev->drv && phydev->drv->module_info)
++		return phydev->drv->module_info(phydev, modinfo);
++
++	if (ops->get_module_info)
++		return ops->get_module_info(dev, modinfo);
++
++	return -EOPNOTSUPP;
++}
++
+ static int ethtool_get_module_info(struct net_device *dev,
+ 				   void __user *useraddr)
+ {
+ 	int ret;
+ 	struct ethtool_modinfo modinfo;
+-	const struct ethtool_ops *ops = dev->ethtool_ops;
+-
+-	if (!ops->get_module_info)
+-		return -EOPNOTSUPP;
+ 
+ 	if (copy_from_user(&modinfo, useraddr, sizeof(modinfo)))
+ 		return -EFAULT;
+ 
+-	ret = ops->get_module_info(dev, &modinfo);
++	ret = __ethtool_get_module_info(dev, &modinfo);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -1428,21 +1439,33 @@ static int ethtool_get_module_info(struct net_device *dev,
+ 	return 0;
+ }
+ 
++static int __ethtool_get_module_eeprom(struct net_device *dev,
++				       struct ethtool_eeprom *ee, u8 *data)
++{
++	const struct ethtool_ops *ops = dev->ethtool_ops;
++	struct phy_device *phydev = dev->phydev;
++
++	if (phydev && phydev->drv && phydev->drv->module_eeprom)
++		return phydev->drv->module_eeprom(phydev, ee, data);
++
++	if (ops->get_module_eeprom)
++		return ops->get_module_eeprom(dev, ee, data);
++
++	return -EOPNOTSUPP;
++}
++
+ static int ethtool_get_module_eeprom(struct net_device *dev,
+ 				     void __user *useraddr)
+ {
+ 	int ret;
+ 	struct ethtool_modinfo modinfo;
+-	const struct ethtool_ops *ops = dev->ethtool_ops;
+-
+-	if (!ops->get_module_info || !ops->get_module_eeprom)
+-		return -EOPNOTSUPP;
+ 
+-	ret = ops->get_module_info(dev, &modinfo);
++	ret = __ethtool_get_module_info(dev, &modinfo);
+ 	if (ret)
+ 		return ret;
+ 
+-	return ethtool_get_any_eeprom(dev, useraddr, ops->get_module_eeprom,
++	return ethtool_get_any_eeprom(dev, useraddr,
++				      __ethtool_get_module_eeprom,
+ 				      modinfo.eeprom_len);
+ }
+ 
+-- 
+1.9.1
