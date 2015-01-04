@@ -1,44 +1,168 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next] rhashtable: fix missing header
-Date: Sun, 4 Jan 2015 09:57:27 +0000
-Message-ID: <20150104095727.GC15305@casper.infradead.org>
-References: <1420356309-7382-1-git-send-email-ying.xue@windriver.com>
- <20150104091908.GA15305@casper.infradead.org>
- <54A906CF.7000309@windriver.com>
+From: <shh.xie@gmail.com>
+Subject: [PATCH] net/fsl: Add mEMAC MDIO support to XGMAC MDIO
+Date: Sun, 4 Jan 2015 17:36:02 +0800
+Message-ID: <1420364162-13109-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Ying Xue <ying.xue@windriver.com>
+Content-Type: text/plain
+Cc: Andy Fleming <afleming@gmail.com>,
+	Shaohui Xie <Shaohui.Xie@freescale.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:39789 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750919AbbADJ52 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 04:57:28 -0500
-Content-Disposition: inline
-In-Reply-To: <54A906CF.7000309@windriver.com>
+Received: from mail-bn1bon0066.outbound.protection.outlook.com ([157.56.111.66]:48256
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752834AbbADK4E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 Jan 2015 05:56:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/04/15 at 05:24pm, Ying Xue wrote:
-> On 01/04/2015 05:19 PM, Thomas Graf wrote:
-> > On 01/04/15 at 03:25pm, Ying Xue wrote:
-> >> Fixup below build error:
-> >>
-> >> include/linux/rhashtable.h: At top level:
-> >> include/linux/rhashtable.h:118:34: error: field ???mutex??? has incomplete type
-> > 
-> > Just wondering, is this your new code that didn't compile? The code
-> > compiled fine for me for the existing users.
-> > 
-> 
-> When I did below patch, I met the build error.
+From: Andy Fleming <afleming@gmail.com>
 
-OK, personally I would squash it with that patch then as it's only
-needed in combination with the new code.
+The Freescale mEMAC supports operating at 10/100/1000/10G, and
+its associated MDIO controller is likewise capable of operating
+both Clause 22 and Clause 45 MDIO buses. It is nearly identical
+to the MDIO controller on the XGMAC, so we just modify that
+driver.
 
-> http://patchwork.ozlabs.org/patch/425149/
-> 
-> By the way, please help to review the patch if you have time :)
+Portions of this driver developed by:
 
-The convertion looks straight forward although I'm not fully familiar
-with the TIPC code. I left a comment with a further optimization idea.
+Sandeep Singh <sandeep@freescale.com>
+Roy Zang <tie-fei.zang@freescale.com>
+
+Signed-off-by: Andy Fleming <afleming@gmail.com>
+Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+---
+ drivers/net/ethernet/freescale/Kconfig      |  3 +-
+ drivers/net/ethernet/freescale/xgmac_mdio.c | 64 ++++++++++++++++++++++++-----
+ 2 files changed, 55 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
+index 2703083..ba84c4a 100644
+--- a/drivers/net/ethernet/freescale/Kconfig
++++ b/drivers/net/ethernet/freescale/Kconfig
+@@ -69,7 +69,8 @@ config FSL_XGMAC_MDIO
+ 	select PHYLIB
+ 	select OF_MDIO
+ 	---help---
+-	  This driver supports the MDIO bus on the Fman 10G Ethernet MACs.
++	  This driver supports the MDIO bus on the Fman 10G Ethernet MACs, and
++	  on the FMan mEMAC (which supports both Clauses 22 and 45)
+ 
+ config UCC_GETH
+ 	tristate "Freescale QE Gigabit Ethernet"
+diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
+index a352445..e0fc3d1 100644
+--- a/drivers/net/ethernet/freescale/xgmac_mdio.c
++++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
+@@ -32,6 +32,7 @@ struct tgec_mdio_controller {
+ 	__be32	mdio_addr;	/* MDIO address */
+ } __packed;
+ 
++#define MDIO_STAT_ENC		BIT(6)
+ #define MDIO_STAT_CLKDIV(x)	(((x>>1) & 0xff) << 8)
+ #define MDIO_STAT_BSY		(1 << 0)
+ #define MDIO_STAT_RD_ER		(1 << 1)
+@@ -91,20 +92,40 @@ static int xgmac_wait_until_done(struct device *dev,
+ static int xgmac_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 value)
+ {
+ 	struct tgec_mdio_controller __iomem *regs = bus->priv;
+-	uint16_t dev_addr = regnum >> 16;
++	uint16_t dev_addr;
++	u32 mdio_ctl, mdio_stat;
+ 	int ret;
+ 
+-	/* Set the port and dev addr */
+-	out_be32(&regs->mdio_ctl,
+-		 MDIO_CTL_PORT_ADDR(phy_id) | MDIO_CTL_DEV_ADDR(dev_addr));
++	mdio_stat = in_be32(&regs->mdio_stat);
++	if (regnum & MII_ADDR_C45) {
++		/* Clause 45 (ie 10G) */
++		dev_addr = (regnum >> 16) & 0x1f;
++		mdio_stat |= MDIO_STAT_ENC;
++	} else {
++		/* Clause 22 (ie 1G) */
++		dev_addr = regnum & 0x1f;
++		mdio_stat &= ~MDIO_STAT_ENC;
++	}
+ 
+-	/* Set the register address */
+-	out_be32(&regs->mdio_addr, regnum & 0xffff);
++	out_be32(&regs->mdio_stat, mdio_stat);
+ 
+ 	ret = xgmac_wait_until_free(&bus->dev, regs);
+ 	if (ret)
+ 		return ret;
+ 
++	/* Set the port and dev addr */
++	mdio_ctl = MDIO_CTL_PORT_ADDR(phy_id) | MDIO_CTL_DEV_ADDR(dev_addr);
++	out_be32(&regs->mdio_ctl, mdio_ctl);
++
++	/* Set the register address */
++	if (regnum & MII_ADDR_C45) {
++		out_be32(&regs->mdio_addr, regnum & 0xffff);
++
++		ret = xgmac_wait_until_free(&bus->dev, regs);
++		if (ret)
++			return ret;
++	}
++
+ 	/* Write the value to the register */
+ 	out_be32(&regs->mdio_data, MDIO_DATA(value));
+ 
+@@ -123,21 +144,39 @@ static int xgmac_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 val
+ static int xgmac_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
+ {
+ 	struct tgec_mdio_controller __iomem *regs = bus->priv;
+-	uint16_t dev_addr = regnum >> 16;
++	uint16_t dev_addr;
++	uint32_t mdio_stat;
+ 	uint32_t mdio_ctl;
+ 	uint16_t value;
+ 	int ret;
+ 
++	mdio_stat = in_be32(&regs->mdio_stat);
++	if (regnum & MII_ADDR_C45) {
++		dev_addr = (regnum >> 16) & 0x1f;
++		mdio_stat |= MDIO_STAT_ENC;
++	} else {
++		dev_addr = regnum & 0x1f;
++		mdio_stat = ~MDIO_STAT_ENC;
++	}
++
++	out_be32(&regs->mdio_stat, mdio_stat);
++
++	ret = xgmac_wait_until_free(&bus->dev, regs);
++	if (ret)
++		return ret;
++
+ 	/* Set the Port and Device Addrs */
+ 	mdio_ctl = MDIO_CTL_PORT_ADDR(phy_id) | MDIO_CTL_DEV_ADDR(dev_addr);
+ 	out_be32(&regs->mdio_ctl, mdio_ctl);
+ 
+ 	/* Set the register address */
+-	out_be32(&regs->mdio_addr, regnum & 0xffff);
++	if (regnum & MII_ADDR_C45) {
++		out_be32(&regs->mdio_addr, regnum & 0xffff);
+ 
+-	ret = xgmac_wait_until_free(&bus->dev, regs);
+-	if (ret)
+-		return ret;
++		ret = xgmac_wait_until_free(&bus->dev, regs);
++		if (ret)
++			return ret;
++	}
+ 
+ 	/* Initiate the read */
+ 	out_be32(&regs->mdio_ctl, mdio_ctl | MDIO_CTL_READ);
+@@ -224,6 +263,9 @@ static struct of_device_id xgmac_mdio_match[] = {
+ 	{
+ 		.compatible = "fsl,fman-xmdio",
+ 	},
++	{
++		.compatible = "fsl,fman-memac-mdio",
++	},
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(of, xgmac_mdio_match);
+-- 
+1.8.4.1
