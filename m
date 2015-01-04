@@ -1,42 +1,37 @@
 From: Giel van Schijndel <me@mortis.eu>
-Subject: [PATCH] Fix an infinite retry-loop
-Date: Sun,  4 Jan 2015 19:04:55 +0100
-Message-ID: <1420394696-20099-1-git-send-email-me@mortis.eu>
+Subject: [PATCH 2/2] Fix copy-paste bug: assign from src struct not dest
+Date: Sun,  4 Jan 2015 19:00:23 +0100
+Message-ID: <1420394427-19509-2-git-send-email-me@mortis.eu>
+References: <1420394427-19509-1-git-send-email-me@mortis.eu>
 Cc: Giel van Schijndel <me@mortis.eu>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	Ron Mercer <ron.mercer@qlogic.com>,
-	linux-driver@qlogic.com (supporter:QLOGIC QLA3XXX NE...),
-	netdev@vger.kernel.org (open list:QLOGIC QLA3XXX NE...)
+	Kalle Valo <kvalo@codeaurora.org>,
+	Eliad Peller <eliad@wizery.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Arik Nemtsov <arik@wizery.com>,
+	linux-wireless@vger.kernel.org (open list:TI WILINK WIRELES...),
+	netdev@vger.kernel.org (open list:NETWORKING DRIVERS)
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1420394427-19509-1-git-send-email-me@mortis.eu>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This was clearly intended as a retry-10-times loop, but due to the
-absence of code incrementing the loop-counter it was practically a
-retry-forever loop.
-
-Rewritten it as a for-loop as well to make the loop-counter increment
-(as well as its potential absence) easier to spot.
 ---
- drivers/net/ethernet/qlogic/qla3xxx.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/wireless/ti/wlcore/acx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qla3xxx.c b/drivers/net/ethernet/qlogic/qla3xxx.c
-index c2f09af..35a26c9 100644
---- a/drivers/net/ethernet/qlogic/qla3xxx.c
-+++ b/drivers/net/ethernet/qlogic/qla3xxx.c
-@@ -144,9 +144,9 @@ static int ql_sem_lock(struct ql3_adapter *qdev, u32 sem_mask, u32 sem_bits)
-  */
- static int ql_wait_for_drvr_lock(struct ql3_adapter *qdev)
- {
--	int i = 0;
-+	int i;
+diff --git a/drivers/net/wireless/ti/wlcore/acx.c b/drivers/net/wireless/ti/wlcore/acx.c
+index beb354c..93a2fa8 100644
+--- a/drivers/net/wireless/ti/wlcore/acx.c
++++ b/drivers/net/wireless/ti/wlcore/acx.c
+@@ -1725,7 +1725,7 @@ int wl12xx_acx_config_hangover(struct wl1271 *wl)
+ 	acx->decrease_delta             = conf->decrease_delta;
+ 	acx->quiet_time                 = conf->quiet_time;
+ 	acx->increase_time              = conf->increase_time;
+-	acx->window_size                = acx->window_size;
++	acx->window_size                = conf->window_size;
  
--	while (i < 10) {
-+	for (i = 0; i < 10; ++i) {
- 		if (i)
- 			ssleep(1);
- 
+ 	ret = wl1271_cmd_configure(wl, ACX_CONFIG_HANGOVER, acx,
+ 				   sizeof(*acx));
 -- 
 2.1.4
