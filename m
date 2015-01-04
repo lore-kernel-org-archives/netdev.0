@@ -1,13 +1,13 @@
 From: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Subject: Re: [PATCH net-next v1 1/7] net: ethtool: extend link mode support
- to 48 bits
-Date: Sun, 04 Jan 2015 22:01:07 +0000
-Message-ID: <1420408867.5686.145.camel@decadent.org.uk>
+Subject: Re: [PATCH net-next v1 2/7] net: phy: extend link mode support to
+ 48 bits
+Date: Sun, 04 Jan 2015 22:03:49 +0000
+Message-ID: <1420409029.5686.147.camel@decadent.org.uk>
 References: <1420405017-23278-1-git-send-email-ddecotig@gmail.com>
-	 <1420405017-23278-2-git-send-email-ddecotig@gmail.com>
+	 <1420405017-23278-3-git-send-email-ddecotig@gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ea6PWPqluhAEhoEOcaA8"
+	protocol="application/pgp-signature"; boundary="=-/pWqHWhvNyh6Yug/gz7V"
 Cc: Amir Vadai <amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
 	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
 	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -29,92 +29,75 @@ Cc: Amir Vadai <amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
 	Govindarajulu Varadarajan <_govind-KK0ffGbhmjU@public.gmane.org>
 To: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1420405017-23278-2-git-send-email-ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <1420405017-23278-3-git-send-email-ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
---=-ea6PWPqluhAEhoEOcaA8
+--=-/pWqHWhvNyh6Yug/gz7V
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 On Sun, 2015-01-04 at 12:56 -0800, David Decotigny wrote:
 > From: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
-
-This is mostly fine, with just a few minor issues.
-
+>=20
 > Signed-off-by: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 > ---
->  include/uapi/linux/ethtool.h | 130 ++++++++++++++++++++++++++++++++++++-=
-------
->  1 file changed, 110 insertions(+), 20 deletions(-)
+>  drivers/net/phy/phy.c        | 29 ++++++++++++++---------------
+>  drivers/net/phy/phy_device.c |  4 ++--
+>  include/linux/phy.h          | 10 +++++-----
+>  3 files changed, 21 insertions(+), 22 deletions(-)
 >=20
-> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-> index 5f66d9c..61e7734 100644
-> --- a/include/uapi/linux/ethtool.h
-> +++ b/include/uapi/linux/ethtool.h
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> index 767cd11..e9c8499 100644
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
 [...]
-> @@ -123,6 +140,46 @@ static inline __u32 ethtool_cmd_speed(const struct e=
-thtool_cmd *ep)
->  	return (ep->speed_hi << 16) | ep->speed;
->  }
+> @@ -245,7 +246,7 @@ static inline unsigned int phy_find_valid(unsigned in=
+t idx, u32 features)
+>   */
+>  static void phy_sanitize_settings(struct phy_device *phydev)
+>  {
+> -	u32 features =3D phydev->supported;
+> +	ethtool_link_mode_mask_t features =3D phydev->supported;
+>  	unsigned int idx;
 > =20
-> +/**
-> + * MAKE_ETHTOOL_LINK_MODE_ACCESSORS - create the link_mode accessors
-> + * Macro to generate the %ethtool_cmd_supported_*,
-> + * %ethtool_cmd_advertising_*, %ethtool_cmd_lp_advertising_*,
-> + * %ethtool_eee_supported_*, %ethtool_eee_advertised_*,
-> + * %ethtool_eee_lp_advertised_* families of functions.
-> + *
-> + * Macro args:
-
-Delete the 'Macro args:' heading; that's implied by the @ prefixes.
-
-> + *  @struct_name: either %ethtool_cmd or %ethtool_eee
-> + *  @field_name: name of the fields in %struct_name to
-> + *      access. supported/advertising/lp_advertising for ethtool_cmd,
-> + *      supported/advertised/lp_advertised for ethtool_eee
-> + *
-> + * Generates the following static functions:
-> + *  @ethtool_cmd_supported(const struct ethtool_cmd*): returns
-> + *      the 64b value of %supported fields (the upper bits 63..48 are 0)
-> + *  @ethtool_cmd_supported_set(struct ethtool_cmd*,
-> + *      ethtool_link_mode_mask_t value): set the %supported fields to
-> + *      given %value (only the lower 48 bits used, upper bits 63..48
-> + *      ignored)
-
-Delete the @ prefixes from these headings.
-
-> + * Same doc for all the other functions.
-> + */
-> +#define MAKE_ETHTOOL_LINK_MODE_ACCESSORS(struct_name, field_name)	\
-
-I think the name should begin with ETHTOOL but it's not a big deal.
-
-[...]
-> @@ -1192,6 +1273,9 @@ enum ethtool_sfeatures_retval_bits {
->  #define SPARC_ETH_GSET		ETHTOOL_GSET
->  #define SPARC_ETH_SSET		ETHTOOL_SSET
+>  	/* Sanitize settings based on PHY capabilities */
+> @@ -279,13 +280,13 @@ int phy_ethtool_sset(struct phy_device *phydev, str=
+uct ethtool_cmd *cmd)
+>  		return -EINVAL;
 > =20
-> +/* Do not use the following macros directly to update
-> + * ethtool_cmd::supported, ethtool_eee::supported. Please use
-> + * ethtool_(cmd|eee)_supported(|_set) instead */
+>  	/* We make sure that we don't pass unsupported values in to the PHY */
+> -	cmd->advertising &=3D phydev->supported;
+> +	phydev->advertising =3D ethtool_cmd_advertising(cmd) & phydev->supporte=
+d;
 
-The ending */ belongs on a new line.
+phydev->advertising should not be changed until after the following
+validation.  Use a local variable for this.
 
->  #define SUPPORTED_10baseT_Half		(1 << 0)
->  #define SUPPORTED_10baseT_Full		(1 << 1)
->  #define SUPPORTED_100baseT_Half		(1 << 2)
-> @@ -1223,7 +1307,12 @@ enum ethtool_sfeatures_retval_bits {
->  #define SUPPORTED_56000baseCR4_Full	(1 << 28)
->  #define SUPPORTED_56000baseSR4_Full	(1 << 29)
->  #define SUPPORTED_56000baseLR4_Full	(1 << 30)
-> +/* TODO: for bit indices >=3D 31, make sure to shift 1ULL instead of 1 *=
-/
+>  	/* Verify the settings we care about. */
+>  	if (cmd->autoneg !=3D AUTONEG_ENABLE && cmd->autoneg !=3D AUTONEG_DISAB=
+LE)
+>  		return -EINVAL;
+> =20
+> -	if (cmd->autoneg =3D=3D AUTONEG_ENABLE && cmd->advertising =3D=3D 0)
+> +	if (cmd->autoneg =3D=3D AUTONEG_ENABLE && phydev->advertising =3D=3D 0)
+>  		return -EINVAL;
+> =20
+>  	if (cmd->autoneg =3D=3D AUTONEG_DISABLE &&
+> @@ -300,8 +301,6 @@ int phy_ethtool_sset(struct phy_device *phydev, struc=
+t ethtool_cmd *cmd)
+> =20
+>  	phydev->speed =3D speed;
+> =20
+> -	phydev->advertising =3D cmd->advertising;
+> -
+>  	if (AUTONEG_ENABLE =3D=3D cmd->autoneg)
+>  		phydev->advertising |=3D ADVERTISED_Autoneg;
+>  	else
 [...]
 
-I don't think that comment is necessary; the compiler will surely warn
-if someone forgets.
+The assignment to phydev->advertising should probably remain here.
 
 Ben.
 
@@ -122,26 +105,26 @@ Ben.
 Ben Hutchings
 This sentence contradicts itself - no actually it doesn't.
 
---=-ea6PWPqluhAEhoEOcaA8
+--=-/pWqHWhvNyh6Yug/gz7V
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIVAwUAVKm4KOe/yOyVhhEJAQqenBAAqKqgR51wdo8VOmQ1sCRNP1JmUo5WwkVe
-O/vPE5KZ77oZvkFbonJMuV6MWoZcf+YD+ZmYPxGgXPs2Oa6JqC2WLQWv+WZjPffE
-wjE6+RWYJEusVZLa/2FJRgZjFSd6Zoum/S19v1UEY/w8tyut0Vwv1SZ04kylxA+7
-p9xwfLPyE8gA/tP+2K6RvPq2eVhLpEdTnCPEAVKgU7+Fpl2bGmIarm/5PkFTBO9v
-7yMNZ32jFQ/2ND5FEioAi3ADBzPaZu61rexi4G77I7cUgsQiL91ktjo6c3shT3ye
-ZF67TSDqJxUNvvZ/H9PVKzXP6/NL4ZCM0UyaVsAxAVRN+BDckMfqCvW6AkvjCFqC
-FTajgnUUeNv1efdwTWEvf2YZ5Wh+5hgzbFVD2QmDnhS3yNJcwJ9e5drLtnnDOPVe
-XgUUug0Pvvs7W6mEwXBMaJ7Bu+ASQwuvBZPM0iws5XzSPTa4a+WOWdIJnxxTj1w2
-Dc6BM5ixgmVg071noq/K7M6twYsH/2qplTdLUBgx6o7JcV/NnOsxyWYJ3NKff/fV
-OlY8IXiuGUey6EJo2TzH8XJHWw0t2QFYNG+0zrhos2wKsRoHZ67bbtTWledqgWQY
-kN1H/lUz8F95/jtPAJQdbwaoa2kmpkpNpEDwiD/p1+SV5rPd1MePniMqCluJTFOB
-nMlle7d6W1w=
-=2W5U
+iQIVAwUAVKm4yue/yOyVhhEJAQrkaQ//So7sdIftK7URAc9hSKcmvpmTNv5ahGWc
+j8i5tk1tBn7+m0FHdoEmaTgSh5jFpU31sYCeIPSre/obZvfpcZHP6eBIVdh44mPR
+LpeWRinpR3f1XZIVKapIHorTnfrt/fHAXAFofD6LWcKuUZbC9i0MUJzaf0k6Z65D
+quJ7M5ga13rSpl2ByPxibQp83hYrT7VkzTKnJ0VmAlS1uzkB0RIvEl9uZbzdSztI
+u/LZLWjUyfxYhPElGqmdbkXHNbOEbtLwkitAZ1cKezFqwX2hVQyHt+c0bNhTamEv
+4QQIfKKVBHY5M6in5gDedy4LuaJGwX/nnYPqDw6jPQPBDxKPrz8oN+OggHlWk2Xb
+LPxxAkQWKCjx8HCxnyPQJ14se5KF0bMZQS/Meh6OYef1Wkwyv2Jgyj62DLycdja8
+bb0+nEqIlxUEGxMI7eJNkYVs/RoaCSv7ThB1s/Q3Rvvzsm3u294Tr2R/ij4/HBBj
+mlMsFQkAMdNwV9z1riG3o56Vwh5h2c38wduuazUIf+78aEUoDXrwrUUMh9BuqIpe
++NfM0v3AakJiB1t5lVIQyQdO7z+gADD6nKiHpNp+B6J3i9Lcohy1tIx4D5olHv/x
+zTJn8TvpIHD21bhyOTRM3IlFjja2pjpW2VZfQ9ie6ex7iBpy8yPH3eyNb7Oaj8fZ
+advMmLlg8XU=
+=TJDY
 -----END PGP SIGNATURE-----
 
---=-ea6PWPqluhAEhoEOcaA8--
+--=-/pWqHWhvNyh6Yug/gz7V--
