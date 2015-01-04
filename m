@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v1 3/7] net: mii: extend link mode support to 48 bits
-Date: Sun,  4 Jan 2015 12:56:53 -0800
-Message-ID: <1420405017-23278-4-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v1 1/7] net: ethtool: extend link mode support to 48 bits
+Date: Sun,  4 Jan 2015 12:56:51 -0800
+Message-ID: <1420405017-23278-2-git-send-email-ddecotig@gmail.com>
 References: <1420405017-23278-1-git-send-email-ddecotig@gmail.com>
 Cc: David Decotigny <decot@googlers.com>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -33,234 +33,215 @@ From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- drivers/net/mii.c   | 52 +++++++++++++++++++++++++++++-----------------------
- include/linux/mii.h | 31 ++++++++++++++++---------------
- 2 files changed, 45 insertions(+), 38 deletions(-)
+ include/uapi/linux/ethtool.h | 130 ++++++++++++++++++++++++++++++++++++-------
+ 1 file changed, 110 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/mii.c b/drivers/net/mii.c
-index 4a99c39..2be59ba 100644
---- a/drivers/net/mii.c
-+++ b/drivers/net/mii.c
-@@ -33,7 +33,7 @@
- #include <linux/ethtool.h>
- #include <linux/mii.h>
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 5f66d9c..61e7734 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -23,14 +23,16 @@
+ /**
+  * struct ethtool_cmd - link control and status
+  * @cmd: Command number = %ETHTOOL_GSET or %ETHTOOL_SSET
+- * @supported: Bitmask of %SUPPORTED_* flags for the link modes,
+- *	physical connectors and other link features for which the
+- *	interface supports autonegotiation or auto-detection.
+- *	Read-only.
+- * @advertising: Bitmask of %ADVERTISED_* flags for the link modes,
+- *	physical connectors and other link features that are
+- *	advertised through autonegotiation or enabled for
+- *	auto-detection.
++ * @supported: Low bits of bitmask of %SUPPORTED_* flags for the link
++ *	modes, physical connectors and other link features for which
++ *	the interface supports autonegotiation or auto-detection.
++ *	Read-only. Please do not access this field directly, use the
++ *	%ethtool_cmd_supported_* family of functions instead.
++ * @advertising: Low bits of bitmask of %ADVERTISED_* flags for the
++ *	link modes, physical connectors and other link features that
++ *	are advertised through autonegotiation or enabled for
++ *	auto-detection. Please do not access this field directly, use
++ *	the %ethtool_cmd_advertising_* family of functions instead.
+  * @speed: Low bits of the speed
+  * @duplex: Duplex mode; one of %DUPLEX_*
+  * @port: Physical connector type; one of %PORT_*
+@@ -56,10 +58,22 @@
+  *	yield %ETH_TP_MDI_INVALID and writes may be ignored or rejected.
+  *	When written successfully, the link should be renegotiated if
+  *	necessary.
+- * @lp_advertising: Bitmask of %ADVERTISED_* flags for the link modes
+- *	and other link features that the link partner advertised
+- *	through autonegotiation; 0 if unknown or not applicable.
+- *	Read-only.
++ * @lp_advertising: Low bits of bitmask of %ADVERTISED_* flags for the
++ *      link modes and other link features that the link partner
++ *      advertised through autonegotiation; 0 if unknown or not
++ *      applicable.  Read-only. Please do not access this field
++ *      directly, use the %ethtool_cmd_lp_advertising_* family of
++ *      functions instead.
++ * @supported_hi: High bits of bitmask of %SUPPORTED_* flags. See
++ *      %supported. Please do not access this field directly, use the
++ *      %ethtool_cmd_supported_* family of functions instead.
++ * @advertising_hi: High bits of bitmask of %ADVERTISING_* flags. See
++ *      %advertising. Please do not access this field directly, use
++ *      the %ethtool_cmd_advertising_* family of functions instead.
++ * @lp_advertising_hi: High bits of bitmask of %ADVERTISING_* flags.
++ *      See %lp_advertising. Please do not access this field directly,
++ *      use the %ethtool_cmd_lp_advertising_* family of functions
++ *      instead.
+  *
+  * The link speed in Mbps is split between @speed and @speed_hi.  Use
+  * the ethtool_cmd_speed() and ethtool_cmd_speed_set() functions to
+@@ -107,7 +121,10 @@ struct ethtool_cmd {
+ 	__u8	eth_tp_mdix;
+ 	__u8	eth_tp_mdix_ctrl;
+ 	__u32	lp_advertising;
+-	__u32	reserved[2];
++	__u16	supported_hi;
++	__u16	advertising_hi;
++	__u16	lp_advertising_hi;
++	__u16	reserved;
+ };
  
--static u32 mii_get_an(struct mii_if_info *mii, u16 addr)
-+static ethtool_link_mode_mask_t mii_get_an(struct mii_if_info *mii, u16 addr)
- {
- 	int advert;
+ static inline void ethtool_cmd_speed_set(struct ethtool_cmd *ep,
+@@ -123,6 +140,46 @@ static inline __u32 ethtool_cmd_speed(const struct ethtool_cmd *ep)
+ 	return (ep->speed_hi << 16) | ep->speed;
+ }
  
-@@ -56,14 +56,15 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
- {
- 	struct net_device *dev = mii->dev;
- 	u16 bmcr, bmsr, ctrl1000 = 0, stat1000 = 0;
--	u32 nego;
-+	ethtool_link_mode_mask_t supported_link_modes, advertising_link_modes;
-+	ethtool_link_mode_mask_t nego;
- 
--	ecmd->supported =
-+	supported_link_modes =
- 	    (SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full |
- 	     SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
- 	     SUPPORTED_Autoneg | SUPPORTED_TP | SUPPORTED_MII);
- 	if (mii->supports_gmii)
--		ecmd->supported |= SUPPORTED_1000baseT_Half |
-+		supported_link_modes |= SUPPORTED_1000baseT_Half |
- 			SUPPORTED_1000baseT_Full;
- 
- 	/* only supports twisted-pair */
-@@ -76,7 +77,7 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
- 	ecmd->phy_address = mii->phy_id;
- 	ecmd->mdio_support = ETH_MDIO_SUPPORTS_C22;
- 
--	ecmd->advertising = ADVERTISED_TP | ADVERTISED_MII;
-+	advertising_link_modes = ADVERTISED_TP | ADVERTISED_MII;
- 
- 	bmcr = mii->mdio_read(dev, mii->phy_id, MII_BMCR);
- 	bmsr = mii->mdio_read(dev, mii->phy_id, MII_BMSR);
-@@ -85,23 +86,25 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
- 		stat1000 = mii->mdio_read(dev, mii->phy_id, MII_STAT1000);
- 	}
- 	if (bmcr & BMCR_ANENABLE) {
--		ecmd->advertising |= ADVERTISED_Autoneg;
-+		ethtool_link_mode_mask_t lp_adv;
++/**
++ * MAKE_ETHTOOL_LINK_MODE_ACCESSORS - create the link_mode accessors
++ * Macro to generate the %ethtool_cmd_supported_*,
++ * %ethtool_cmd_advertising_*, %ethtool_cmd_lp_advertising_*,
++ * %ethtool_eee_supported_*, %ethtool_eee_advertised_*,
++ * %ethtool_eee_lp_advertised_* families of functions.
++ *
++ * Macro args:
++ *  @struct_name: either %ethtool_cmd or %ethtool_eee
++ *  @field_name: name of the fields in %struct_name to
++ *      access. supported/advertising/lp_advertising for ethtool_cmd,
++ *      supported/advertised/lp_advertised for ethtool_eee
++ *
++ * Generates the following static functions:
++ *  @ethtool_cmd_supported(const struct ethtool_cmd*): returns
++ *      the 64b value of %supported fields (the upper bits 63..48 are 0)
++ *  @ethtool_cmd_supported_set(struct ethtool_cmd*,
++ *      ethtool_link_mode_mask_t value): set the %supported fields to
++ *      given %value (only the lower 48 bits used, upper bits 63..48
++ *      ignored)
++ *
++ * Same doc for all the other functions.
++ */
++#define MAKE_ETHTOOL_LINK_MODE_ACCESSORS(struct_name, field_name)	\
++	static inline ethtool_link_mode_mask_t				\
++	struct_name ## _ ## field_name(const struct struct_name *cmd)	\
++	{ ethtool_link_mode_mask_t r = cmd->field_name;			\
++	  r |= ((__u64)cmd->field_name ## _hi) << 32; return r; }	\
++	static inline void						\
++	struct_name ## _ ## field_name ## _set(struct struct_name *cmd,	\
++					       ethtool_link_mode_mask_t mask) \
++	{ cmd->field_name = mask & 0xffffffff;				\
++	  cmd->field_name ## _hi = (mask >> 32) & 0xffff; }
 +
-+		advertising_link_modes |= ADVERTISED_Autoneg;
- 		ecmd->autoneg = AUTONEG_ENABLE;
- 
--		ecmd->advertising |= mii_get_an(mii, MII_ADVERTISE);
-+		advertising_link_modes |= mii_get_an(mii, MII_ADVERTISE);
- 		if (mii->supports_gmii)
--			ecmd->advertising |=
-+			advertising_link_modes |=
- 					mii_ctrl1000_to_ethtool_adv_t(ctrl1000);
- 
- 		if (bmsr & BMSR_ANEGCOMPLETE) {
--			ecmd->lp_advertising = mii_get_an(mii, MII_LPA);
--			ecmd->lp_advertising |=
--					mii_stat1000_to_ethtool_lpa_t(stat1000);
-+			lp_adv = mii_get_an(mii, MII_LPA);
-+			lp_adv |= mii_stat1000_to_ethtool_lpa_t(stat1000);
- 		} else {
--			ecmd->lp_advertising = 0;
-+			lp_adv = 0;
- 		}
- 
--		nego = ecmd->advertising & ecmd->lp_advertising;
-+		ethtool_cmd_lp_advertising_set(ecmd, lp_adv);
-+		nego = advertising_link_modes & lp_adv;
- 
- 		if (nego & (ADVERTISED_1000baseT_Full |
- 			    ADVERTISED_1000baseT_Half)) {
-@@ -128,6 +131,8 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
- 	}
- 
- 	mii->full_duplex = ecmd->duplex;
-+	ethtool_cmd_supported_set(ecmd, supported_link_modes);
-+	ethtool_cmd_advertising_set(ecmd, advertising_link_modes);
- 
- 	/* ignore maxtxpkt, maxrxpkt for now */
- 
-@@ -168,13 +173,15 @@ int mii_ethtool_sset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
- 	if (ecmd->autoneg == AUTONEG_ENABLE) {
- 		u32 bmcr, advert, tmp;
- 		u32 advert2 = 0, tmp2 = 0;
--
--		if ((ecmd->advertising & (ADVERTISED_10baseT_Half |
--					  ADVERTISED_10baseT_Full |
--					  ADVERTISED_100baseT_Half |
--					  ADVERTISED_100baseT_Full |
--					  ADVERTISED_1000baseT_Half |
--					  ADVERTISED_1000baseT_Full)) == 0)
-+		ethtool_link_mode_mask_t ethtool_adv;
++typedef __u64 ethtool_link_mode_mask_t;
 +
-+		ethtool_adv = ethtool_cmd_advertising(ecmd);
-+		if ((ethtool_adv & (ADVERTISED_10baseT_Half |
-+				    ADVERTISED_10baseT_Full |
-+				    ADVERTISED_100baseT_Half |
-+				    ADVERTISED_100baseT_Full |
-+				    ADVERTISED_1000baseT_Half |
-+				    ADVERTISED_1000baseT_Full)) == 0)
- 			return -EINVAL;
- 
- 		/* advertise only what has been requested */
-@@ -184,11 +191,10 @@ int mii_ethtool_sset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
- 			advert2 = mii->mdio_read(dev, mii->phy_id, MII_CTRL1000);
- 			tmp2 = advert2 & ~(ADVERTISE_1000HALF | ADVERTISE_1000FULL);
- 		}
--		tmp |= ethtool_adv_to_mii_adv_t(ecmd->advertising);
-+		tmp |= ethtool_adv_to_mii_adv_t(ethtool_adv);
- 
- 		if (mii->supports_gmii)
--			tmp2 |=
--			      ethtool_adv_to_mii_ctrl1000_t(ecmd->advertising);
-+			tmp2 |= ethtool_adv_to_mii_ctrl1000_t(ethtool_adv);
- 		if (advert != tmp) {
- 			mii->mdio_write(dev, mii->phy_id, MII_ADVERTISE, tmp);
- 			mii->advertising = tmp;
-diff --git a/include/linux/mii.h b/include/linux/mii.h
-index 47492c9..6f5336c 100644
---- a/include/linux/mii.h
-+++ b/include/linux/mii.h
-@@ -106,7 +106,7 @@ static inline unsigned int mii_duplex (unsigned int duplex_lock,
-  * settings to phy autonegotiation advertisements for the
-  * MII_ADVERTISE register.
++MAKE_ETHTOOL_LINK_MODE_ACCESSORS(ethtool_cmd, supported);
++MAKE_ETHTOOL_LINK_MODE_ACCESSORS(ethtool_cmd, advertising);
++MAKE_ETHTOOL_LINK_MODE_ACCESSORS(ethtool_cmd, lp_advertising);
++
+ /* Device supports clause 22 register access to PHY or peripherals
+  * using the interface defined in <linux/mii.h>.  This should not be
+  * set if there are known to be no such peripherals present or if
+@@ -287,12 +344,18 @@ struct ethtool_eeprom {
+ /**
+  * struct ethtool_eee - Energy Efficient Ethernet information
+  * @cmd: ETHTOOL_{G,S}EEE
+- * @supported: Mask of %SUPPORTED_* flags for the speed/duplex combinations
+- *	for which there is EEE support.
+- * @advertised: Mask of %ADVERTISED_* flags for the speed/duplex combinations
+- *	advertised as eee capable.
+- * @lp_advertised: Mask of %ADVERTISED_* flags for the speed/duplex
+- *	combinations advertised by the link partner as eee capable.
++ * @supported: Low bits of mask of %SUPPORTED_* flags for the
++ *	speed/duplex combinations for which there is EEE
++ *	support. Please do not access this field directly, use the
++ *	%ethtool_eee_supported_* family of functions instead.
++ * @advertised: Low bits of mask of %ADVERTISED_* flags for the
++ *	speed/duplex combinations advertised as eee capable. Please do
++ *	not access this field directly, use the
++ *	%ethtool_eee_advertised_* family of functions instead.
++ * @lp_advertised: Low bits of mask of %ADVERTISED_* flags for the
++ *	speed/duplex combinations advertised by the link partner as
++ *	eee capable.  Please do not access this field directly, use
++ *	the %ethtool_eee_lp_advertised_* family of functions instead.
+  * @eee_active: Result of the eee auto negotiation.
+  * @eee_enabled: EEE configured mode (enabled/disabled).
+  * @tx_lpi_enabled: Whether the interface should assert its tx lpi, given
+@@ -300,6 +363,16 @@ struct ethtool_eeprom {
+  * @tx_lpi_timer: Time in microseconds the interface delays prior to asserting
+  *	its tx lpi (after reaching 'idle' state). Effective only when eee
+  *	was negotiated and tx_lpi_enabled was set.
++ * @supported_hi: High bits of mask of %SUPPORTED_* flags. See
++ *      %supported. Please do not access this field directly, use the
++ *      %ethtool_eee_supported_* family of functions instead.
++ * @advertised_hi: High bits of mask of %ADVERTISING_* flags. See
++ *      %advertising. Please do not access this field directly, use
++ *      the %ethtool_eee_advertising_* family of functions instead.
++ * @lp_advertised_hi: High bits of mask of %ADVERTISING_* flags.
++ *      See %lp_advertising. Please do not access this field directly,
++ *      use the %ethtool_eee_lp_advertising_* family of functions
++ *      instead.
   */
--static inline u32 ethtool_adv_to_mii_adv_t(u32 ethadv)
-+static inline u32 ethtool_adv_to_mii_adv_t(ethtool_link_mode_mask_t ethadv)
- {
- 	u32 result = 0;
+ struct ethtool_eee {
+ 	__u32	cmd;
+@@ -310,9 +383,17 @@ struct ethtool_eee {
+ 	__u32	eee_enabled;
+ 	__u32	tx_lpi_enabled;
+ 	__u32	tx_lpi_timer;
+-	__u32	reserved[2];
++	__u16	supported_hi;
++	__u16	advertised_hi;
++	__u16	lp_advertised_hi;
++	__u16	reserved;
+ };
  
-@@ -133,9 +133,9 @@ static inline u32 ethtool_adv_to_mii_adv_t(u32 ethadv)
-  * A small helper function that translates MII_ADVERTISE bits
-  * to ethtool advertisement settings.
-  */
--static inline u32 mii_adv_to_ethtool_adv_t(u32 adv)
-+static inline ethtool_link_mode_mask_t mii_adv_to_ethtool_adv_t(u32 adv)
- {
--	u32 result = 0;
-+	ethtool_link_mode_mask_t result = 0;
++MAKE_ETHTOOL_LINK_MODE_ACCESSORS(ethtool_eee, supported);
++MAKE_ETHTOOL_LINK_MODE_ACCESSORS(ethtool_eee, advertised);
++MAKE_ETHTOOL_LINK_MODE_ACCESSORS(ethtool_eee, lp_advertised);
++
++
+ /**
+  * struct ethtool_modinfo - plugin module eeprom information
+  * @cmd: %ETHTOOL_GMODULEINFO
+@@ -1192,6 +1273,9 @@ enum ethtool_sfeatures_retval_bits {
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+ #define SPARC_ETH_SSET		ETHTOOL_SSET
  
- 	if (adv & ADVERTISE_10HALF)
- 		result |= ADVERTISED_10baseT_Half;
-@@ -161,7 +161,8 @@ static inline u32 mii_adv_to_ethtool_adv_t(u32 adv)
-  * settings to phy autonegotiation advertisements for the
-  * MII_CTRL1000 register when in 1000T mode.
-  */
--static inline u32 ethtool_adv_to_mii_ctrl1000_t(u32 ethadv)
-+static inline u32
-+ethtool_adv_to_mii_ctrl1000_t(ethtool_link_mode_mask_t ethadv)
- {
- 	u32 result = 0;
++/* Do not use the following macros directly to update
++ * ethtool_cmd::supported, ethtool_eee::supported. Please use
++ * ethtool_(cmd|eee)_supported(|_set) instead */
+ #define SUPPORTED_10baseT_Half		(1 << 0)
+ #define SUPPORTED_10baseT_Full		(1 << 1)
+ #define SUPPORTED_100baseT_Half		(1 << 2)
+@@ -1223,7 +1307,12 @@ enum ethtool_sfeatures_retval_bits {
+ #define SUPPORTED_56000baseCR4_Full	(1 << 28)
+ #define SUPPORTED_56000baseSR4_Full	(1 << 29)
+ #define SUPPORTED_56000baseLR4_Full	(1 << 30)
++/* TODO: for bit indices >= 31, make sure to shift 1ULL instead of 1 */
  
-@@ -181,9 +182,9 @@ static inline u32 ethtool_adv_to_mii_ctrl1000_t(u32 ethadv)
-  * bits, when in 1000Base-T mode, to ethtool
-  * advertisement settings.
-  */
--static inline u32 mii_ctrl1000_to_ethtool_adv_t(u32 adv)
-+static inline ethtool_link_mode_mask_t mii_ctrl1000_to_ethtool_adv_t(u32 adv)
- {
--	u32 result = 0;
-+	ethtool_link_mode_mask_t result = 0;
++/* Do not use the following macros directly to update
++ * ethtool_cmd::advertising, ethtool_cmd::lp_advertising,
++ * ethtool_eee::advertised, ethtool_eee::lp_advertised. Please use
++ * ethtool_(cmd|eee)_*(|_set) */
+ #define ADVERTISED_10baseT_Half		(1 << 0)
+ #define ADVERTISED_10baseT_Full		(1 << 1)
+ #define ADVERTISED_100baseT_Half	(1 << 2)
+@@ -1255,6 +1344,7 @@ enum ethtool_sfeatures_retval_bits {
+ #define ADVERTISED_56000baseCR4_Full	(1 << 28)
+ #define ADVERTISED_56000baseSR4_Full	(1 << 29)
+ #define ADVERTISED_56000baseLR4_Full	(1 << 30)
++/* TODO: for bit indices >= 31, make sure to shift 1ULL instead of 1 */
  
- 	if (adv & ADVERTISE_1000HALF)
- 		result |= ADVERTISED_1000baseT_Half;
-@@ -201,9 +202,9 @@ static inline u32 mii_ctrl1000_to_ethtool_adv_t(u32 adv)
-  * bits, when in 1000Base-T mode, to ethtool
-  * LP advertisement settings.
-  */
--static inline u32 mii_lpa_to_ethtool_lpa_t(u32 lpa)
-+static inline ethtool_link_mode_mask_t mii_lpa_to_ethtool_lpa_t(u32 lpa)
- {
--	u32 result = 0;
-+	ethtool_link_mode_mask_t result = 0;
- 
- 	if (lpa & LPA_LPACK)
- 		result |= ADVERTISED_Autoneg;
-@@ -219,9 +220,9 @@ static inline u32 mii_lpa_to_ethtool_lpa_t(u32 lpa)
-  * bits, when in 1000Base-T mode, to ethtool
-  * advertisement settings.
-  */
--static inline u32 mii_stat1000_to_ethtool_lpa_t(u32 lpa)
-+static inline ethtool_link_mode_mask_t mii_stat1000_to_ethtool_lpa_t(u32 lpa)
- {
--	u32 result = 0;
-+	ethtool_link_mode_mask_t result = 0;
- 
- 	if (lpa & LPA_1000HALF)
- 		result |= ADVERTISED_1000baseT_Half;
-@@ -239,7 +240,7 @@ static inline u32 mii_stat1000_to_ethtool_lpa_t(u32 lpa)
-  * settings to phy autonegotiation advertisements for the
-  * MII_CTRL1000 register when in 1000Base-X mode.
-  */
--static inline u32 ethtool_adv_to_mii_adv_x(u32 ethadv)
-+static inline u32 ethtool_adv_to_mii_adv_x(ethtool_link_mode_mask_t ethadv)
- {
- 	u32 result = 0;
- 
-@@ -263,9 +264,9 @@ static inline u32 ethtool_adv_to_mii_adv_x(u32 ethadv)
-  * bits, when in 1000Base-X mode, to ethtool
-  * advertisement settings.
-  */
--static inline u32 mii_adv_to_ethtool_adv_x(u32 adv)
-+static inline ethtool_link_mode_mask_t mii_adv_to_ethtool_adv_x(u32 adv)
- {
--	u32 result = 0;
-+	ethtool_link_mode_mask_t result = 0;
- 
- 	if (adv & ADVERTISE_1000XHALF)
- 		result |= ADVERTISED_1000baseT_Half;
-@@ -287,9 +288,9 @@ static inline u32 mii_adv_to_ethtool_adv_x(u32 adv)
-  * bits, when in 1000Base-X mode, to ethtool
-  * LP advertisement settings.
-  */
--static inline u32 mii_lpa_to_ethtool_lpa_x(u32 lpa)
-+static inline ethtool_link_mode_mask_t mii_lpa_to_ethtool_lpa_x(u32 lpa)
- {
--	u32 result = 0;
-+	ethtool_link_mode_mask_t result = 0;
- 
- 	if (lpa & LPA_LPACK)
- 		result |= ADVERTISED_Autoneg;
+ /* The following are all involved in forcing a particular link
+  * mode for the device for setting things.  When getting the
 -- 
 2.2.0.rc0.207.ga3a616c
