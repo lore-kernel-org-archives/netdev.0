@@ -1,134 +1,303 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v2 0/3] ss: Fix sockets filtering
-Date: Sun,  4 Jan 2015 19:20:52 +0200
-Message-ID: <1420392055-4754-1-git-send-email-vadim4j@gmail.com>
+Subject: [PATCH iproute2 v2 2/3] ss: Unify packet stats output from netlink and proc
+Date: Sun,  4 Jan 2015 19:20:54 +0200
+Message-ID: <1420392055-4754-3-git-send-email-vadim4j@gmail.com>
+References: <1420392055-4754-1-git-send-email-vadim4j@gmail.com>
 Cc: Vadim Kochan <vadim4j@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:64761 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752664AbbADRbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 12:31:19 -0500
-Received: by mail-la0-f52.google.com with SMTP id hs14so17470649lab.11
-        for <netdev@vger.kernel.org>; Sun, 04 Jan 2015 09:31:17 -0800 (PST)
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:36977 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752664AbbADRbX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 12:31:23 -0500
+Received: by mail-lb0-f180.google.com with SMTP id l4so16498492lbv.39
+        for <netdev@vger.kernel.org>; Sun, 04 Jan 2015 09:31:21 -0800 (PST)
+In-Reply-To: <1420392055-4754-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vadim Kochan <vadim4j@gmail.com>
 
-PLEASE MAKE ADDITIONAL TESTING !!!
+Refactored to use one func for output packet stats info
+from both /proc and netlink.
 
-v2:
-    patch #1
-        1) Used bool and true/false
+Added possibility to get packet stats info from /proc
+by setting environment variable PROC_ROOT or PROC_NET_PACKET.
 
-    patch #3:
-        1) Added 'const' to 'filter' tables in patch #3
-        3) Get rid of default_filter
-        4) Changed a little bit merging of filtering options
-        5) Now packet and netlink show funcs requires AF and SS_CLOSE to be set
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ misc/ss.c | 215 +++++++++++++++++++++++++++++---------------------------------
+ 1 file changed, 100 insertions(+), 115 deletions(-)
+
+diff --git a/misc/ss.c b/misc/ss.c
+index 4dde080..20d3f75 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -2536,70 +2536,103 @@ static int unix_show(struct filter *f)
+ 	return 0;
+ }
  
-This series contains refactoring & fixes related to sockets filtering.
-
-1st 2 patches relates mostly to refactoring as they just
-allows to use one func to output UNIX & PACKET socket stats from both Netlink &
-/proc.
-
-The last one have a big change which related to the way how filtering options
-are combined with each other. This change has also fixes for some filtering
-combination options.
-
-I did some basic testing *BUT* I cant guarantee that there is no bugs ...
-Here is my some testing list with comparing to the 'master' version:
-
-Some test results with comparing version in PATCH and version from master
--------------------------------------------------------------------------
-
-this   - ss version sending in PATCH
-master - ss version in master
-
-Case #1: Show only IPv4 sockets
-    $ ss -4
-
-    RESULTS
-        this    -  shows only IPv4 sockets with established states     [OK]
-        master  -  shows IPv4 and UNIX sockets with established states [FAIL]
-
-Case #2: Show only IPv4 sockets with all states
-    $ ss -4 -a
-
-    RESULTS
-        this    -  shows only IPv4 sockets with all states [OK]
-        master  -  shows ALL sockets kinds with all states [FAIL]
-
-Case #3: Show only IPv4 sockets with listen states (closed or listening)
-    $ ss -4 -l
-
-    RESULTS
-        this    -  shows only IPv4 sockets with listen states    [OK]
-        master  -  shows ALL sockets kinds with LISTENING states [FAIL]
-
-Case #4 Show only IPv4 UDP sockets
-    $ ss -4 -u
-
-    RESULTS
-        this    -  shows only IPv4 UDP sockets                                 [OK]
-        master  -  shows IPv4 UDP sockets but only if state 'closed' specified [FAIL]
-    
-    In 'this' version it is not needed to set 'closed' state additionally for UDP sockets as it it set
-    automatically because we explicitly specified UDP sockets. 
-
-Case #5: Show all UDP sockets
-    $ ss -u
-
-    RESULTS
-        this    -  shows all UDP sockets for both IPv4/IPv6 protocol families  [OK]
-        master  -  shows IPv4 UDP sockets but only if state 'closed' specified [FAIL]
-
-Case #6: Show all UDP sockets for IPv6 only protocol
-    $ ss -u -6
-
-    RESULTS
-        this    -  shows all IPv6 UDP sockets                                  [OK]
-        master  -  shows IPv4 UDP sockets but only if state 'closed' specified [FAIL]
-
-
-Case #7: Show UNIX sockets with matches "*X11*" as src
-    $ ss src unix:*X11*
-
-    RESULTS
-        this    -  shows only UNIX sockets with established states with src matches "*X11*" [OK]
-        master  -  shows all established UNIX sockets with "RTNETLINK" errors               [FAIL]
-
-
-Case #8: Show UNIX sockets with matches "*X11*" as src but with LISTENING states only
-    $ ss src unix:*X11* -l
-
-    RESULTS
-        this    -  shows only UNIX sockets with LISTENING states with src matches "*X11*" [OK]
-        master  -  Segmentation error                                                     [FAIL]
-
-Case #9: Show all RAW sockets
-    $ ss -w
-
-    RESULTS
-        this    - shows all RAW sockets for IPv4/IPv6 families                                  [OK]
-        master  - shows all RAW sockets for IPv4/IPv6 families only if state 'closed' specified [FAIL]
-
-Case #10: Show all TCP/UDP sockets
-    $ ss -t -u
-
-    RESULTS
-        this    - shows all established TCP and unconnected UDP sockets for IPv4/IPv6 protocols. [OK]
-        master  - shows only TCP established sockets, shows UDP                                  [FAIL]
-
-Vadim Kochan (3):
-  ss: Unify unix stats output from netlink and proc
-  ss: Unify packet stats output from netlink and proc
-  ss: Filtering logic changing, with fixes
-
- misc/ss.c | 628 ++++++++++++++++++++++++++++++++++----------------------------
- 1 file changed, 346 insertions(+), 282 deletions(-)
-
+-static int packet_show_sock(const struct sockaddr_nl *addr,
+-		struct nlmsghdr *nlh, void *arg)
+-{
+-	struct packet_diag_msg *r = NLMSG_DATA(nlh);
+-	struct rtattr *tb[PACKET_DIAG_MAX+1];
+-	__u32 rq;
++struct pktstat {
++	int type;
++	int prot;
++	int iface;
++	int state;
++	int rq;
++	int uid;
++	int ino;
++};
+ 
+-	parse_rtattr(tb, PACKET_DIAG_MAX, (struct rtattr*)(r+1),
+-		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
++static int packet_stats_print(struct pktstat *s, const struct filter *f)
++{
++	char *buf = NULL;
+ 
+-	/* use /proc/net/packet if all info are not available */
+-	if (!tb[PACKET_DIAG_MEMINFO])
+-		return -1;
++	if (f->f) {
++		struct tcpstat tst;
++		tst.local.family = AF_PACKET;
++		tst.remote.family = AF_PACKET;
++		tst.rport = 0;
++		tst.lport = s->iface;
++		tst.local.data[0] = s->prot;
++		tst.remote.data[0] = 0;
++		if (run_ssfilter(f->f, &tst) == 0)
++			return 1;
++	}
+ 
+ 	if (netid_width)
+ 		printf("%-*s ", netid_width,
+-				r->pdiag_type == SOCK_RAW ? "p_raw" : "p_dgr");
++				s->type == SOCK_RAW ? "p_raw" : "p_dgr");
+ 	if (state_width)
+ 		printf("%-*s ", state_width, "UNCONN");
+ 
+-	if (tb[PACKET_DIAG_MEMINFO]) {
+-		__u32 *skmeminfo = RTA_DATA(tb[PACKET_DIAG_MEMINFO]);
+-
+-		rq = skmeminfo[SK_MEMINFO_RMEM_ALLOC];
+-	} else
+-		rq = 0;
+-	printf("%-6d %-6d ", rq, 0);
+-
+-	if (r->pdiag_num == 3) {
++	printf("%-6d %-6d ", s->rq, 0);
++	if (s->prot == 3) {
+ 		printf("%*s:", addr_width, "*");
+ 	} else {
+-		char tb2[16];
++		char tb[16];
+ 		printf("%*s:", addr_width,
+-		       ll_proto_n2a(htons(r->pdiag_num), tb2, sizeof(tb2)));
++				ll_proto_n2a(htons(s->prot), tb, sizeof(tb)));
+ 	}
+-	if (tb[PACKET_DIAG_INFO]) {
+-		struct packet_diag_info *pinfo = RTA_DATA(tb[PACKET_DIAG_INFO]);
+-
+-		if (pinfo->pdi_index == 0)
+-			printf("%-*s ", serv_width, "*");
+-		else
+-			printf("%-*s ", serv_width, xll_index_to_name(pinfo->pdi_index));
+-	} else
++	if (s->iface == 0) {
+ 		printf("%-*s ", serv_width, "*");
++	} else {
++		printf("%-*s ", serv_width, xll_index_to_name(s->iface));
++	}
+ 
+-	printf("%*s*%-*s",
+-	       addr_width, "", serv_width, "");
+-
+-	char *buf = NULL;
++	printf("%*s*%-*s", addr_width, "", serv_width, "");
+ 
+ 	if (show_proc_ctx || show_sock_ctx) {
+-		if (find_entry(r->pdiag_ino, &buf,
+-				(show_proc_ctx & show_sock_ctx) ?
+-				PROC_SOCK_CTX : PROC_CTX) > 0) {
++		if (find_entry(s->ino, &buf,
++					(show_proc_ctx & show_sock_ctx) ?
++					PROC_SOCK_CTX : PROC_CTX) > 0) {
+ 			printf(" users:(%s)", buf);
+ 			free(buf);
+ 		}
+ 	} else if (show_users) {
+-		if (find_entry(r->pdiag_ino, &buf, USERS) > 0) {
++		if (find_entry(s->ino, &buf, USERS) > 0) {
+ 			printf(" users:(%s)", buf);
+ 			free(buf);
+ 		}
+ 	}
+ 
++	return 0;
++}
++
++static int packet_show_sock(const struct sockaddr_nl *addr,
++		struct nlmsghdr *nlh, void *arg)
++{
++	const struct filter *f = arg;
++	struct packet_diag_msg *r = NLMSG_DATA(nlh);
++	struct rtattr *tb[PACKET_DIAG_MAX+1];
++	struct pktstat stat = {};
++
++	parse_rtattr(tb, PACKET_DIAG_MAX, (struct rtattr*)(r+1),
++		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
++
++	/* use /proc/net/packet if all info are not available */
++	if (!tb[PACKET_DIAG_MEMINFO])
++		return -1;
++
++	stat.type = r->pdiag_type;
++	stat.prot = r->pdiag_num;
++	stat.ino = r->pdiag_ino;
++
++	if (tb[PACKET_DIAG_MEMINFO]) {
++		__u32 *skmeminfo = RTA_DATA(tb[PACKET_DIAG_MEMINFO]);
++		stat.rq = skmeminfo[SK_MEMINFO_RMEM_ALLOC];
++	}
++
++	if (tb[PACKET_DIAG_INFO]) {
++		struct packet_diag_info *pinfo = RTA_DATA(tb[PACKET_DIAG_INFO]);
++		stat.iface = pinfo->pdi_index;
++	}
++
++	if (packet_stats_print(&stat, f))
++		return 0;
++
+ 	if (show_details) {
+ 		__u32 uid = 0;
+ 
+@@ -2640,94 +2673,46 @@ static int packet_show_netlink(struct filter *f)
+ 	return handle_netlink_request(f, &req.nlh, sizeof(req), packet_show_sock);
+ }
+ 
++static int packet_show_line(char *buf, const struct filter *f, int fam)
++{
++	unsigned long long sk;
++	struct pktstat stat = {};
++
++	sscanf(buf, "%llx %*d %d %x %d %d %u %u %u",
++			&sk,
++			&stat.type, &stat.prot, &stat.iface, &stat.state,
++			&stat.rq, &stat.uid, &stat.ino);
++
++	if (stat.type == SOCK_RAW && !(f->dbs&(1<<PACKET_R_DB)))
++		return 0;
++	if (stat.type == SOCK_DGRAM && !(f->dbs&(1<<PACKET_DG_DB)))
++		return 0;
++
++	if (packet_stats_print(&stat, f))
++		return 0;
++
++	if (show_details) {
++		printf(" ino=%u uid=%u sk=%llx", stat.ino, stat.uid, sk);
++	}
++	printf("\n");
++	return 0;
++}
+ 
+ static int packet_show(struct filter *f)
+ {
+ 	FILE *fp;
+-	char buf[256];
+-	int type;
+-	int prot;
+-	int iface;
+-	int state;
+-	int rq;
+-	int uid;
+-	int ino;
+-	unsigned long long sk;
+ 
+ 	if (preferred_family != AF_PACKET && !(f->states & (1 << SS_CLOSE)))
+ 		return 0;
+ 
+-	if (packet_show_netlink(f) == 0)
++	if (!getenv("PROC_NET_PACKET") && !getenv("PROC_ROOT") &&
++			packet_show_netlink(f) == 0)
+ 		return 0;
+ 
+ 	if ((fp = net_packet_open()) == NULL)
+ 		return -1;
+-	fgets(buf, sizeof(buf)-1, fp);
+-
+-	while (fgets(buf, sizeof(buf)-1, fp)) {
+-		sscanf(buf, "%llx %*d %d %x %d %d %u %u %u",
+-		       &sk,
+-		       &type, &prot, &iface, &state,
+-		       &rq, &uid, &ino);
+-
+-		if (type == SOCK_RAW && !(f->dbs&(1<<PACKET_R_DB)))
+-			continue;
+-		if (type == SOCK_DGRAM && !(f->dbs&(1<<PACKET_DG_DB)))
+-			continue;
+-		if (f->f) {
+-			struct tcpstat tst;
+-			tst.local.family = AF_PACKET;
+-			tst.remote.family = AF_PACKET;
+-			tst.rport = 0;
+-			tst.lport = iface;
+-			tst.local.data[0] = prot;
+-			tst.remote.data[0] = 0;
+-			if (run_ssfilter(f->f, &tst) == 0)
+-				continue;
+-		}
+-
+-		if (netid_width)
+-			printf("%-*s ", netid_width,
+-			       type == SOCK_RAW ? "p_raw" : "p_dgr");
+-		if (state_width)
+-			printf("%-*s ", state_width, "UNCONN");
+-		printf("%-6d %-6d ", rq, 0);
+-		if (prot == 3) {
+-			printf("%*s:", addr_width, "*");
+-		} else {
+-			char tb[16];
+-			printf("%*s:", addr_width,
+-			       ll_proto_n2a(htons(prot), tb, sizeof(tb)));
+-		}
+-		if (iface == 0) {
+-			printf("%-*s ", serv_width, "*");
+-		} else {
+-			printf("%-*s ", serv_width, xll_index_to_name(iface));
+-		}
+-		printf("%*s*%-*s",
+-		       addr_width, "", serv_width, "");
+-
+-		char *buf = NULL;
+-
+-		if (show_proc_ctx || show_sock_ctx) {
+-			if (find_entry(ino, &buf,
+-					(show_proc_ctx & show_sock_ctx) ?
+-					PROC_SOCK_CTX : PROC_CTX) > 0) {
+-				printf(" users:(%s)", buf);
+-				free(buf);
+-			}
+-		} else if (show_users) {
+-			if (find_entry(ino, &buf, USERS) > 0) {
+-				printf(" users:(%s)", buf);
+-				free(buf);
+-			}
+-		}
+-
+-		if (show_details) {
+-			printf(" ino=%u uid=%u sk=%llx", ino, uid, sk);
+-		}
+-		printf("\n");
+-	}
++	if (generic_record_read(fp, packet_show_line, f, AF_PACKET))
++		return -1;
+ 
+ 	return 0;
+ }
 -- 
 2.1.3
