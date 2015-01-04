@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v1 4/7] net: mdio: extend link mode support to 48 bits
-Date: Sun,  4 Jan 2015 12:56:54 -0800
-Message-ID: <1420405017-23278-5-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v1 7/7] net: mlx4_en: extend link mode support to 48 bits
+Date: Sun,  4 Jan 2015 12:56:57 -0800
+Message-ID: <1420405017-23278-8-git-send-email-ddecotig@gmail.com>
 References: <1420405017-23278-1-git-send-email-ddecotig@gmail.com>
 Cc: David Decotigny <decot@googlers.com>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -33,209 +33,178 @@ From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- drivers/net/mdio.c   | 59 +++++++++++++++++++++++++++++-----------------------
- include/linux/mdio.h | 15 +++++++------
- 2 files changed, 42 insertions(+), 32 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 67 +++++++++++++++----------
+ 1 file changed, 40 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/mdio.c b/drivers/net/mdio.c
-index 3e027ed..5cac2ac 100644
---- a/drivers/net/mdio.c
-+++ b/drivers/net/mdio.c
-@@ -148,9 +148,10 @@ int mdio45_nway_restart(const struct mdio_if_info *mdio)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 90e0f04..395ab72 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -388,7 +388,8 @@ static u32 mlx4_en_autoneg_get(struct net_device *dev)
+ 	return autoneg;
  }
- EXPORT_SYMBOL(mdio45_nway_restart);
  
--static u32 mdio45_get_an(const struct mdio_if_info *mdio, u16 addr)
+-static u32 ptys_get_supported_port(struct mlx4_ptys_reg *ptys_reg)
 +static ethtool_link_mode_mask_t
-+mdio45_get_an(const struct mdio_if_info *mdio, u16 addr)
++ptys_get_supported_port(struct mlx4_ptys_reg *ptys_reg)
  {
--	u32 result = 0;
-+	ethtool_link_mode_mask_t result = 0;
- 	int reg;
+ 	u32 eth_proto = be32_to_cpu(ptys_reg->eth_proto_cap);
  
- 	reg = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_AN, addr);
-@@ -185,9 +186,11 @@ static u32 mdio45_get_an(const struct mdio_if_info *mdio, u16 addr)
-  */
- void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
- 			       struct ethtool_cmd *ecmd,
--			       u32 npage_adv, u32 npage_lpa)
-+			       ethtool_link_mode_mask_t npage_adv,
-+			       ethtool_link_mode_mask_t npage_lpa)
+@@ -465,7 +466,7 @@ enum ethtool_report {
+ };
+ 
+ /* Translates mlx4 link mode to equivalent ethtool Link modes/speed */
+-static u32 ptys2ethtool_map[MLX4_LINK_MODES_SZ][3] = {
++static u64 ptys2ethtool_map[MLX4_LINK_MODES_SZ][3] = {
+ 	[MLX4_100BASE_TX] = {
+ 		SUPPORTED_100baseT_Full,
+ 		ADVERTISED_100baseT_Full,
+@@ -558,10 +559,11 @@ static u32 ptys2ethtool_map[MLX4_LINK_MODES_SZ][3] = {
+ 		},
+ };
+ 
+-static u32 ptys2ethtool_link_modes(u32 eth_proto, enum ethtool_report report)
++static ethtool_link_mode_mask_t
++ptys2ethtool_link_modes(u32 eth_proto, enum ethtool_report report)
  {
- 	int reg;
-+	ethtool_link_mode_mask_t supported_link_modes, advertising_link_modes;
- 	u32 speed;
+ 	int i;
+-	u32 link_modes = 0;
++	ethtool_link_mode_mask_t link_modes = 0;
  
- 	BUILD_BUG_ON(MDIO_SUPPORTS_C22 != ETH_MDIO_SUPPORTS_C22);
-@@ -206,64 +209,64 @@ void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
- 	case MDIO_PMA_CTRL2_100BTX:
- 	case MDIO_PMA_CTRL2_10BT:
- 		ecmd->port = PORT_TP;
--		ecmd->supported = SUPPORTED_TP;
-+		supported_link_modes = SUPPORTED_TP;
- 		reg = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_PMAPMD,
- 				      MDIO_SPEED);
- 		if (reg & MDIO_SPEED_10G)
--			ecmd->supported |= SUPPORTED_10000baseT_Full;
-+			supported_link_modes |= SUPPORTED_10000baseT_Full;
- 		if (reg & MDIO_PMA_SPEED_1000)
--			ecmd->supported |= (SUPPORTED_1000baseT_Full |
-+			supported_link_modes |= (SUPPORTED_1000baseT_Full |
- 					    SUPPORTED_1000baseT_Half);
- 		if (reg & MDIO_PMA_SPEED_100)
--			ecmd->supported |= (SUPPORTED_100baseT_Full |
-+			supported_link_modes |= (SUPPORTED_100baseT_Full |
- 					    SUPPORTED_100baseT_Half);
- 		if (reg & MDIO_PMA_SPEED_10)
--			ecmd->supported |= (SUPPORTED_10baseT_Full |
-+			supported_link_modes |= (SUPPORTED_10baseT_Full |
- 					    SUPPORTED_10baseT_Half);
--		ecmd->advertising = ADVERTISED_TP;
-+		advertising_link_modes = ADVERTISED_TP;
- 		break;
- 
- 	case MDIO_PMA_CTRL2_10GBCX4:
- 		ecmd->port = PORT_OTHER;
--		ecmd->supported = 0;
--		ecmd->advertising = 0;
-+		supported_link_modes = 0;
-+		advertising_link_modes = 0;
- 		break;
- 
- 	case MDIO_PMA_CTRL2_10GBKX4:
- 	case MDIO_PMA_CTRL2_10GBKR:
- 	case MDIO_PMA_CTRL2_1000BKX:
- 		ecmd->port = PORT_OTHER;
--		ecmd->supported = SUPPORTED_Backplane;
-+		supported_link_modes = SUPPORTED_Backplane;
- 		reg = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_PMAPMD,
- 				      MDIO_PMA_EXTABLE);
- 		if (reg & MDIO_PMA_EXTABLE_10GBKX4)
--			ecmd->supported |= SUPPORTED_10000baseKX4_Full;
-+			supported_link_modes |= SUPPORTED_10000baseKX4_Full;
- 		if (reg & MDIO_PMA_EXTABLE_10GBKR)
--			ecmd->supported |= SUPPORTED_10000baseKR_Full;
-+			supported_link_modes |= SUPPORTED_10000baseKR_Full;
- 		if (reg & MDIO_PMA_EXTABLE_1000BKX)
--			ecmd->supported |= SUPPORTED_1000baseKX_Full;
-+			supported_link_modes |= SUPPORTED_1000baseKX_Full;
- 		reg = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_PMAPMD,
- 				      MDIO_PMA_10GBR_FECABLE);
- 		if (reg & MDIO_PMA_10GBR_FECABLE_ABLE)
--			ecmd->supported |= SUPPORTED_10000baseR_FEC;
--		ecmd->advertising = ADVERTISED_Backplane;
-+			supported_link_modes |= SUPPORTED_10000baseR_FEC;
-+		advertising_link_modes = ADVERTISED_Backplane;
- 		break;
- 
- 	/* All the other defined modes are flavours of optical */
- 	default:
- 		ecmd->port = PORT_FIBRE;
--		ecmd->supported = SUPPORTED_FIBRE;
--		ecmd->advertising = ADVERTISED_FIBRE;
-+		supported_link_modes = SUPPORTED_FIBRE;
-+		advertising_link_modes = ADVERTISED_FIBRE;
- 		break;
- 	}
- 
- 	if (mdio->mmds & MDIO_DEVS_AN) {
--		ecmd->supported |= SUPPORTED_Autoneg;
-+		supported_link_modes |= SUPPORTED_Autoneg;
- 		reg = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_AN,
- 				      MDIO_CTRL1);
- 		if (reg & MDIO_AN_CTRL1_ENABLE) {
- 			ecmd->autoneg = AUTONEG_ENABLE;
--			ecmd->advertising |=
-+			advertising_link_modes |=
- 				ADVERTISED_Autoneg |
- 				mdio45_get_an(mdio, MDIO_AN_ADVERTISE) |
- 				npage_adv;
-@@ -275,21 +278,22 @@ void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
- 	}
- 
- 	if (ecmd->autoneg) {
--		u32 modes = 0;
-+		ethtool_link_mode_mask_t modes = 0;
- 		int an_stat = mdio->mdio_read(mdio->dev, mdio->prtad,
- 					      MDIO_MMD_AN, MDIO_STAT1);
- 
- 		/* If AN is complete and successful, report best common
- 		 * mode, otherwise report best advertised mode. */
- 		if (an_stat & MDIO_AN_STAT1_COMPLETE) {
--			ecmd->lp_advertising =
-+			ethtool_link_mode_mask_t lp_adv =
- 				mdio45_get_an(mdio, MDIO_AN_LPA) | npage_lpa;
- 			if (an_stat & MDIO_AN_STAT1_LPABLE)
--				ecmd->lp_advertising |= ADVERTISED_Autoneg;
--			modes = ecmd->advertising & ecmd->lp_advertising;
-+				lp_adv |= ADVERTISED_Autoneg;
-+			ethtool_cmd_lp_advertising_set(ecmd, lp_adv);
-+			modes = advertising_link_modes & lp_adv;
- 		}
- 		if ((modes & ~ADVERTISED_Autoneg) == 0)
--			modes = ecmd->advertising;
-+			modes = advertising_link_modes;
- 
- 		if (modes & (ADVERTISED_10000baseT_Full |
- 			     ADVERTISED_10000baseKX4_Full |
-@@ -338,6 +342,9 @@ void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
- 			break;
- 		}
- 	}
-+
-+	ethtool_cmd_supported_set(ecmd, supported_link_modes);
-+	ethtool_cmd_advertising_set(ecmd, advertising_link_modes);
+ 	for (i = 0; i < MLX4_LINK_MODES_SZ; i++) {
+ 		if (eth_proto & MLX4_PROT_MASK(i))
+@@ -570,7 +572,8 @@ static u32 ptys2ethtool_link_modes(u32 eth_proto, enum ethtool_report report)
+ 	return link_modes;
  }
- EXPORT_SYMBOL(mdio45_ethtool_gset_npage);
  
-diff --git a/include/linux/mdio.h b/include/linux/mdio.h
-index b42963b..18c649a 100644
---- a/include/linux/mdio.h
-+++ b/include/linux/mdio.h
-@@ -69,7 +69,8 @@ extern int mdio45_links_ok(const struct mdio_if_info *mdio, u32 mmds);
- extern int mdio45_nway_restart(const struct mdio_if_info *mdio);
- extern void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
- 				      struct ethtool_cmd *ecmd,
--				      u32 npage_adv, u32 npage_lpa);
-+				      ethtool_link_mode_mask_t npage_adv,
-+				      ethtool_link_mode_mask_t npage_lpa);
- 
- /**
-  * mdio45_ethtool_gset - get settings for ETHTOOL_GSET
-@@ -97,9 +98,10 @@ extern int mdio_mii_ioctl(const struct mdio_if_info *mdio,
-  * A small helper function that translates MMD EEE Capability (3.20) bits
-  * to ethtool supported settings.
-  */
--static inline u32 mmd_eee_cap_to_ethtool_sup_t(u16 eee_cap)
-+static inline ethtool_link_mode_mask_t
-+mmd_eee_cap_to_ethtool_sup_t(u16 eee_cap)
+-static u32 ethtool2ptys_link_modes(u32 link_modes, enum ethtool_report report)
++static u32 ethtool2ptys_link_modes(ethtool_link_mode_mask_t link_modes,
++				   enum ethtool_report report)
  {
--	u32 supported = 0;
-+	ethtool_link_mode_mask_t supported = 0;
+ 	int i;
+ 	u32 ptys_modes = 0;
+@@ -601,6 +604,9 @@ static int ethtool_get_ptys_settings(struct net_device *dev,
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_ptys_reg ptys_reg;
+ 	u32 eth_proto;
++	ethtool_link_mode_mask_t eth_supported;
++	ethtool_link_mode_mask_t eth_advertising;
++	ethtool_link_mode_mask_t eth_lp_advertising;
+ 	int ret;
  
- 	if (eee_cap & MDIO_EEE_100TX)
- 		supported |= SUPPORTED_100baseT_Full;
-@@ -125,9 +127,10 @@ static inline u32 mmd_eee_cap_to_ethtool_sup_t(u16 eee_cap)
-  * and MMD EEE Link Partner Ability (7.61) bits to ethtool advertisement
-  * settings.
-  */
--static inline u32 mmd_eee_adv_to_ethtool_adv_t(u16 eee_adv)
-+static inline ethtool_link_mode_mask_t
-+mmd_eee_adv_to_ethtool_adv_t(u16 eee_adv)
+ 	memset(&ptys_reg, 0, sizeof(ptys_reg));
+@@ -624,41 +630,44 @@ static int ethtool_get_ptys_settings(struct net_device *dev,
+ 	en_dbg(DRV, priv, "ptys_reg.eth_proto_lp_adv %x\n",
+ 	       be32_to_cpu(ptys_reg.eth_proto_lp_adv));
+ 
+-	cmd->supported = 0;
+-	cmd->advertising = 0;
++	eth_supported = 0;
++	eth_advertising = 0;
+ 
+-	cmd->supported |= ptys_get_supported_port(&ptys_reg);
++	eth_supported |= ptys_get_supported_port(&ptys_reg);
+ 
+ 	eth_proto = be32_to_cpu(ptys_reg.eth_proto_cap);
+-	cmd->supported |= ptys2ethtool_link_modes(eth_proto, SUPPORTED);
++	eth_supported |= ptys2ethtool_link_modes(eth_proto, SUPPORTED);
+ 
+ 	eth_proto = be32_to_cpu(ptys_reg.eth_proto_admin);
+-	cmd->advertising |= ptys2ethtool_link_modes(eth_proto, ADVERTISED);
++	eth_advertising |= ptys2ethtool_link_modes(eth_proto, ADVERTISED);
+ 
+-	cmd->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
+-	cmd->advertising |= (priv->prof->tx_pause) ? ADVERTISED_Pause : 0;
++	eth_supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
++	eth_advertising |= (priv->prof->tx_pause) ? ADVERTISED_Pause : 0;
+ 
+-	cmd->advertising |= (priv->prof->tx_pause ^ priv->prof->rx_pause) ?
++	eth_advertising |= (priv->prof->tx_pause ^ priv->prof->rx_pause) ?
+ 		ADVERTISED_Asym_Pause : 0;
+ 
+ 	cmd->port = ptys_get_active_port(&ptys_reg);
+-	cmd->transceiver = (SUPPORTED_TP & cmd->supported) ?
++	cmd->transceiver = (SUPPORTED_TP & eth_supported) ?
+ 		XCVR_EXTERNAL : XCVR_INTERNAL;
+ 
+ 	if (mlx4_en_autoneg_get(dev)) {
+-		cmd->supported |= SUPPORTED_Autoneg;
+-		cmd->advertising |= ADVERTISED_Autoneg;
++		eth_supported |= SUPPORTED_Autoneg;
++		eth_advertising |= ADVERTISED_Autoneg;
+ 	}
+ 
+ 	cmd->autoneg = (priv->port_state.flags & MLX4_EN_PORT_ANC) ?
+ 		AUTONEG_ENABLE : AUTONEG_DISABLE;
+ 
+ 	eth_proto = be32_to_cpu(ptys_reg.eth_proto_lp_adv);
+-	cmd->lp_advertising = ptys2ethtool_link_modes(eth_proto, ADVERTISED);
++	eth_lp_advertising = ptys2ethtool_link_modes(eth_proto, ADVERTISED);
+ 
+-	cmd->lp_advertising |= (priv->port_state.flags & MLX4_EN_PORT_ANC) ?
++	eth_lp_advertising |= (priv->port_state.flags & MLX4_EN_PORT_ANC) ?
+ 			ADVERTISED_Autoneg : 0;
+ 
++	ethtool_cmd_supported_set(cmd, eth_supported);
++	ethtool_cmd_advertising_set(cmd, eth_advertising);
++	ethtool_cmd_lp_advertising_set(cmd, eth_lp_advertising);
+ 	cmd->phy_address = 0;
+ 	cmd->mdio_support = 0;
+ 	cmd->maxtxpkt = 0;
+@@ -673,27 +682,30 @@ static void ethtool_get_default_settings(struct net_device *dev,
+ 					 struct ethtool_cmd *cmd)
  {
--	u32 adv = 0;
-+	ethtool_link_mode_mask_t adv = 0;
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
++	ethtool_link_mode_mask_t eth_supported, eth_advertising;
+ 	int trans_type;
  
- 	if (eee_adv & MDIO_EEE_100TX)
- 		adv |= ADVERTISED_100baseT_Full;
-@@ -153,7 +156,7 @@ static inline u32 mmd_eee_adv_to_ethtool_adv_t(u16 eee_adv)
-  * to EEE advertisements for the MMD EEE Advertisement (7.60) and
-  * MMD EEE Link Partner Ability (7.61) registers.
-  */
--static inline u16 ethtool_adv_to_mmd_eee_adv_t(u32 adv)
-+static inline u16 ethtool_adv_to_mmd_eee_adv_t(ethtool_link_mode_mask_t adv)
- {
- 	u16 reg = 0;
+ 	cmd->autoneg = AUTONEG_DISABLE;
+-	cmd->supported = SUPPORTED_10000baseT_Full;
+-	cmd->advertising = ADVERTISED_10000baseT_Full;
++	eth_supported = SUPPORTED_10000baseT_Full;
++	eth_advertising = ADVERTISED_10000baseT_Full;
+ 	trans_type = priv->port_state.transceiver;
  
+ 	if (trans_type > 0 && trans_type <= 0xC) {
+ 		cmd->port = PORT_FIBRE;
+ 		cmd->transceiver = XCVR_EXTERNAL;
+-		cmd->supported |= SUPPORTED_FIBRE;
+-		cmd->advertising |= ADVERTISED_FIBRE;
++		eth_supported |= SUPPORTED_FIBRE;
++		eth_advertising |= ADVERTISED_FIBRE;
+ 	} else if (trans_type == 0x80 || trans_type == 0) {
+ 		cmd->port = PORT_TP;
+ 		cmd->transceiver = XCVR_INTERNAL;
+-		cmd->supported |= SUPPORTED_TP;
+-		cmd->advertising |= ADVERTISED_TP;
++		eth_supported |= SUPPORTED_TP;
++		eth_advertising |= ADVERTISED_TP;
+ 	} else  {
+ 		cmd->port = -1;
+ 		cmd->transceiver = -1;
+ 	}
++	ethtool_cmd_supported_set(cmd, eth_supported);
++	ethtool_cmd_advertising_set(cmd, eth_advertising);
+ }
+ 
+ static int mlx4_en_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+@@ -747,13 +759,14 @@ static int mlx4_en_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_ptys_reg ptys_reg;
+ 	__be32 proto_admin;
++	const ethtool_link_mode_mask_t eth_adv = ethtool_cmd_advertising(cmd);
+ 	int ret;
+ 
+-	u32 ptys_adv = ethtool2ptys_link_modes(cmd->advertising, ADVERTISED);
++	u32 ptys_adv = ethtool2ptys_link_modes(eth_adv, ADVERTISED);
+ 	int speed = ethtool_cmd_speed(cmd);
+ 
+-	en_dbg(DRV, priv, "Set Speed=%d adv=0x%x autoneg=%d duplex=%d\n",
+-	       speed, cmd->advertising, cmd->autoneg, cmd->duplex);
++	en_dbg(DRV, priv, "Set Speed=%d adv=0x%llx autoneg=%d duplex=%d\n",
++	       speed, eth_adv, cmd->autoneg, cmd->duplex);
+ 
+ 	if (!(priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_ETH_PROT_CTRL) ||
+ 	    (cmd->duplex == DUPLEX_HALF))
 -- 
 2.2.0.rc0.207.ga3a616c
