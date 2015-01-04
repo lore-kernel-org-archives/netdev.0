@@ -1,135 +1,221 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v3 0/3] ss: Fix sockets filtering
-Date: Sun,  4 Jan 2015 22:18:37 +0200
-Message-ID: <1420402720-28767-1-git-send-email-vadim4j@gmail.com>
+Subject: [PATCH iproute2 v3 1/3] ss: Unify unix stats output from netlink and proc
+Date: Sun,  4 Jan 2015 22:18:38 +0200
+Message-ID: <1420402720-28767-2-git-send-email-vadim4j@gmail.com>
+References: <1420402720-28767-1-git-send-email-vadim4j@gmail.com>
 Cc: Vadim Kochan <vadim4j@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:52538 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752782AbbADU3B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 15:29:01 -0500
-Received: by mail-la0-f54.google.com with SMTP id pv20so16863169lab.41
-        for <netdev@vger.kernel.org>; Sun, 04 Jan 2015 12:29:00 -0800 (PST)
+Received: from mail-la0-f52.google.com ([209.85.215.52]:53611 "EHLO
+	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752782AbbADU3D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 15:29:03 -0500
+Received: by mail-la0-f52.google.com with SMTP id hs14so17093527lab.25
+        for <netdev@vger.kernel.org>; Sun, 04 Jan 2015 12:29:02 -0800 (PST)
+In-Reply-To: <1420402720-28767-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vadim Kochan <vadim4j@gmail.com>
 
-v3:
-    patch #2:
-        Used correct types in pktstat struct
-v2:
-    patch #1
-        1) Used bool and true/false
+Refactored to use one func for output unix stats info
+from both /proc and netlink.
 
-    patch #3:
-        1) Added 'const' to 'filter' tables in patch #3
-        3) Get rid of default_filter
-        4) Changed a little bit merging of filtering options
-        5) Now packet and netlink show funcs requires AF and SS_CLOSE to be set
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ misc/ss.c | 99 ++++++++++++++++++++++++---------------------------------------
+ 1 file changed, 37 insertions(+), 62 deletions(-)
+
+diff --git a/misc/ss.c b/misc/ss.c
+index f0c7b34..4dde080 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -25,6 +25,7 @@
+ #include <dirent.h>
+ #include <fnmatch.h>
+ #include <getopt.h>
++#include <stdbool.h>
  
-This series contains refactoring & fixes related to sockets filtering.
-
-1st 2 patches relates mostly to refactoring as they just
-allows to use one func to output UNIX & PACKET socket stats from both Netlink &
-/proc.
-
-The last one have a big change which related to the way how filtering options
-are combined with each other. This change has also fixes for some filtering
-combination options.
-
-I did some basic testing *BUT* I cant guarantee that there is no bugs ...
-Here is my some testing list with comparing to the 'master' version:
-
-Some test results with comparing version in PATCH and version from master
--------------------------------------------------------------------------
-
-this   - ss version sending in PATCH
-master - ss version in master
-
-Case #1: Show only IPv4 sockets
-    $ ss -4
-
-    RESULTS
-        this    -  shows only IPv4 sockets with established states     [OK]
-        master  -  shows IPv4 and UNIX sockets with established states [FAIL]
-
-Case #2: Show only IPv4 sockets with all states
-    $ ss -4 -a
-
-    RESULTS
-        this    -  shows only IPv4 sockets with all states [OK]
-        master  -  shows ALL sockets kinds with all states [FAIL]
-
-Case #3: Show only IPv4 sockets with listen states (closed or listening)
-    $ ss -4 -l
-
-    RESULTS
-        this    -  shows only IPv4 sockets with listen states    [OK]
-        master  -  shows ALL sockets kinds with LISTENING states [FAIL]
-
-Case #4 Show only IPv4 UDP sockets
-    $ ss -4 -u
-
-    RESULTS
-        this    -  shows only IPv4 UDP sockets                                 [OK]
-        master  -  shows IPv4 UDP sockets but only if state 'closed' specified [FAIL]
-    
-    In 'this' version it is not needed to set 'closed' state additionally for UDP sockets as it it set
-    automatically because we explicitly specified UDP sockets. 
-
-Case #5: Show all UDP sockets
-    $ ss -u
-
-    RESULTS
-        this    -  shows all UDP sockets for both IPv4/IPv6 protocol families  [OK]
-        master  -  shows IPv4 UDP sockets but only if state 'closed' specified [FAIL]
-
-Case #6: Show all UDP sockets for IPv6 only protocol
-    $ ss -u -6
-
-    RESULTS
-        this    -  shows all IPv6 UDP sockets                                  [OK]
-        master  -  shows IPv4 UDP sockets but only if state 'closed' specified [FAIL]
-
-
-Case #7: Show UNIX sockets with matches "*X11*" as src
-    $ ss src unix:*X11*
-
-    RESULTS
-        this    -  shows only UNIX sockets with established states with src matches "*X11*" [OK]
-        master  -  shows all established UNIX sockets with "RTNETLINK" errors               [FAIL]
-
-
-Case #8: Show UNIX sockets with matches "*X11*" as src but with LISTENING states only
-    $ ss src unix:*X11* -l
-
-    RESULTS
-        this    -  shows only UNIX sockets with LISTENING states with src matches "*X11*" [OK]
-        master  -  Segmentation error                                                     [FAIL]
-
-Case #9: Show all RAW sockets
-    $ ss -w
-
-    RESULTS
-        this    - shows all RAW sockets for IPv4/IPv6 families                                  [OK]
-        master  - shows all RAW sockets for IPv4/IPv6 families only if state 'closed' specified [FAIL]
-
-Case #10: Show all TCP/UDP sockets
-    $ ss -t -u
-
-    RESULTS
-        this    - shows all established TCP and unconnected UDP sockets for IPv4/IPv6 protocols. [OK]
-        master  - shows only TCP established sockets, shows UDP                                  [FAIL]
-
-Vadim Kochan (3):
-  ss: Unify unix stats output from netlink and proc
-  ss: Unify packet stats output from netlink and proc
-  ss: Filtering logic changing, with fixes
-
- misc/ss.c | 628 ++++++++++++++++++++++++++++++++++----------------------------
- 1 file changed, 346 insertions(+), 282 deletions(-)
-
+ #include "utils.h"
+ #include "rt_names.h"
+@@ -2234,6 +2235,7 @@ struct unixstat
+ 	struct unixstat *next;
+ 	int ino;
+ 	int peer;
++	char *peer_name;
+ 	int rq;
+ 	int wq;
+ 	int state;
+@@ -2279,7 +2281,18 @@ static const char *unix_netid_name(int type)
+ 	return netid;
+ }
+ 
+-static void unix_list_print(struct unixstat *list, struct filter *f)
++static bool unix_type_skip(struct unixstat *s, struct filter *f)
++{
++	if (s->type == SOCK_STREAM && !(f->dbs&(1<<UNIX_ST_DB)))
++		return true;
++	if (s->type == SOCK_DGRAM && !(f->dbs&(1<<UNIX_DG_DB)))
++		return true;
++	if (s->type == SOCK_SEQPACKET && !(f->dbs&(1<<UNIX_SQ_DB)))
++		return true;
++	return false;
++}
++
++static void unix_stats_print(struct unixstat *list, struct filter *f)
+ {
+ 	struct unixstat *s;
+ 	char *peer;
+@@ -2287,15 +2300,14 @@ static void unix_list_print(struct unixstat *list, struct filter *f)
+ 	for (s = list; s; s = s->next) {
+ 		if (!(f->states & (1<<s->state)))
+ 			continue;
+-		if (s->type == SOCK_STREAM && !(f->dbs&(1<<UNIX_ST_DB)))
+-			continue;
+-		if (s->type == SOCK_DGRAM && !(f->dbs&(1<<UNIX_DG_DB)))
+-			continue;
+-		if (s->type == SOCK_SEQPACKET && !(f->dbs&(1<<UNIX_SQ_DB)))
++		if (unix_type_skip(s, f))
+ 			continue;
+ 
+ 		peer = "*";
+-		if (s->peer) {
++		if (s->peer_name)
++			peer = s->peer_name;
++
++		if (s->peer && !s->peer_name) {
+ 			struct unixstat *p;
+ 			for (p = list; p; p = p->next) {
+ 				if (s->peer == p->ino)
+@@ -2356,36 +2368,23 @@ static int unix_show_sock(const struct sockaddr_nl *addr, struct nlmsghdr *nlh,
+ 	struct unix_diag_msg *r = NLMSG_DATA(nlh);
+ 	struct rtattr *tb[UNIX_DIAG_MAX+1];
+ 	char name[128];
+-	int peer_ino;
+-	__u32 rqlen, wqlen;
++	struct unixstat stat = { .name = "*" , .peer_name = "*" };
+ 
+ 	parse_rtattr(tb, UNIX_DIAG_MAX, (struct rtattr*)(r+1),
+ 		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
+ 
+-	if (r->udiag_type == SOCK_STREAM && !(f->dbs&(1<<UNIX_ST_DB)))
+-		return 0;
+-	if (r->udiag_type == SOCK_DGRAM && !(f->dbs&(1<<UNIX_DG_DB)))
+-		return 0;
+-	if (r->udiag_type == SOCK_SEQPACKET && !(f->dbs&(1<<UNIX_SQ_DB)))
+-		return 0;
++	stat.type  = r->udiag_type;
++	stat.state = r->udiag_state;
++	stat.ino   = r->udiag_ino;
+ 
+-	if (netid_width)
+-		printf("%-*s ", netid_width,
+-		       unix_netid_name(r->udiag_type));
+-	if (state_width)
+-		printf("%-*s ", state_width, sstate_name[r->udiag_state]);
++	if (unix_type_skip(&stat, f))
++		return 0;
+ 
+ 	if (tb[UNIX_DIAG_RQLEN]) {
+ 		struct unix_diag_rqlen *rql = RTA_DATA(tb[UNIX_DIAG_RQLEN]);
+-		rqlen = rql->udiag_rqueue;
+-		wqlen = rql->udiag_wqueue;
+-	} else {
+-		rqlen = 0;
+-		wqlen = 0;
++		stat.rq = rql->udiag_rqueue;
++		stat.wq = rql->udiag_wqueue;
+ 	}
+-
+-	printf("%-6u %-6u ", rqlen, wqlen);
+-
+ 	if (tb[UNIX_DIAG_NAME]) {
+ 		int len = RTA_PAYLOAD(tb[UNIX_DIAG_NAME]);
+ 
+@@ -2393,41 +2392,17 @@ static int unix_show_sock(const struct sockaddr_nl *addr, struct nlmsghdr *nlh,
+ 		name[len] = '\0';
+ 		if (name[0] == '\0')
+ 			name[0] = '@';
+-	} else
+-		sprintf(name, "*");
+-
++		stat.name = &name[0];
++	}
+ 	if (tb[UNIX_DIAG_PEER])
+-		peer_ino = rta_getattr_u32(tb[UNIX_DIAG_PEER]);
+-	else
+-		peer_ino = 0;
++		stat.peer = rta_getattr_u32(tb[UNIX_DIAG_PEER]);
+ 
+-	printf("%*s %-*d %*s %-*d",
+-			addr_width, name,
+-			serv_width, r->udiag_ino,
+-			addr_width, "*", /* FIXME */
+-			serv_width, peer_ino);
+-
+-	char *buf = NULL;
+-
+-	if (show_proc_ctx || show_sock_ctx) {
+-		if (find_entry(r->udiag_ino, &buf,
+-				(show_proc_ctx & show_sock_ctx) ?
+-				PROC_SOCK_CTX : PROC_CTX) > 0) {
+-			printf(" users:(%s)", buf);
+-			free(buf);
+-		}
+-	} else if (show_users) {
+-		if (find_entry(r->udiag_ino, &buf, USERS) > 0) {
+-			printf(" users:(%s)", buf);
+-			free(buf);
+-		}
+-	}
++	unix_stats_print(&stat, f);
+ 
+ 	if (show_mem) {
+-		printf("\n\t");
++		printf("\t");
+ 		print_skmeminfo(tb, UNIX_DIAG_MEMINFO);
+ 	}
+-
+ 	if (show_details) {
+ 		if (tb[UNIX_DIAG_SHUTDOWN]) {
+ 			unsigned char mask;
+@@ -2435,9 +2410,8 @@ static int unix_show_sock(const struct sockaddr_nl *addr, struct nlmsghdr *nlh,
+ 			printf(" %c-%c", mask & 1 ? '-' : '<', mask & 2 ? '-' : '>');
+ 		}
+ 	}
+-
+-	printf("\n");
+-
++	if (show_mem || show_details)
++		printf("\n");
+ 	return 0;
+ }
+ 
+@@ -2505,6 +2479,7 @@ static int unix_show(struct filter *f)
+ 		if (!(u = malloc(sizeof(*u))))
+ 			break;
+ 		u->name = NULL;
++		u->peer_name = NULL;
+ 
+ 		if (sscanf(buf, "%x: %x %x %x %x %x %d %s",
+ 			   &u->peer, &u->rq, &u->wq, &flags, &u->type,
+@@ -2544,7 +2519,7 @@ static int unix_show(struct filter *f)
+ 			strcpy(u->name, name);
+ 		}
+ 		if (++cnt > MAX_UNIX_REMEMBER) {
+-			unix_list_print(list, f);
++			unix_stats_print(list, f);
+ 			unix_list_free(list);
+ 			list = NULL;
+ 			cnt = 0;
+@@ -2552,7 +2527,7 @@ static int unix_show(struct filter *f)
+ 	}
+ 	fclose(fp);
+ 	if (list) {
+-		unix_list_print(list, f);
++		unix_stats_print(list, f);
+ 		unix_list_free(list);
+ 		list = NULL;
+ 		cnt = 0;
 -- 
 2.1.3
