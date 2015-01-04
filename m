@@ -1,63 +1,82 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH iproute2 3/3] ss: Filtering logic changing, with fixes
-Date: Sun, 4 Jan 2015 00:58:11 +0200
-Message-ID: <20150103225811.GA5972@angus-think.lan>
-References: <1420245877-11763-1-git-send-email-vadim4j@gmail.com>
- <1420245877-11763-4-git-send-email-vadim4j@gmail.com>
- <20150103095707.37e69147@urahara>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f47.google.com ([209.85.215.47]:44054 "EHLO
-	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752049AbbACXI3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Jan 2015 18:08:29 -0500
-Received: by mail-la0-f47.google.com with SMTP id hz20so16320337lab.6
-        for <netdev@vger.kernel.org>; Sat, 03 Jan 2015 15:08:28 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150103095707.37e69147@urahara>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: [PATCH] brcm80211: brcmsmac: dma: Remove some unused functions
+Date: Sun,  4 Jan 2015 01:47:49 +0100
+Message-ID: <1420332469-5907-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Kalle Valo <kvalo@adurom.com>,
+	Fabian Frederick <fabf@skynet.be>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 03, 2015 at 09:57:07AM -0800, Stephen Hemminger wrote:
-> On Sat,  3 Jan 2015 02:44:37 +0200
-> Vadim Kochan <vadim4j@gmail.com> wrote:
-> 
-> > +struct filter default_dbs[MAX_DB] = {
-> > +	[TCP_DB] = {
-> > +		.states   = SS_CONN,
-> > +		.families = (1 << AF_INET) | (1 << AF_INET6),
-> > +	},
-> 
-> I like table driven code, so this is good. But please make
-> mark the table as const.
+Removes some functions that are not used anywhere:
+dma_txflush() dma_txsuspended()
 
-I did re-test, and I still don't like very much my results (some cases
-are not logically) even if they (IMHO) better than the 'master' version,
-so I will try to change filer options applying in the following way:
+This was partially found by using a static code analysis program called cppcheck.
 
-    0) default filter should have only default states & all dbs
+Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+---
+ drivers/net/wireless/brcm80211/brcmsmac/dma.c |   19 -------------------
+ drivers/net/wireless/brcm80211/brcmsmac/dma.h |    2 --
+ 2 files changed, 21 deletions(-)
 
-    1) apply all selected families with their default dbs & states from table
-
-    2) logical AND selected dbs with dbs of the selected families and their default
-        states from table, also select families by db from table if there no
-        already selected families
-
-    3) logical AND selected states with selected dbs and their default states from table,
-        also select families and dbs from table by states if there no
-        already selected dbs & families
-
-So with such approach the options should affect each other in the strict
-predictable way:
-
-    families -> dbs (socket tables) -> socket states
-
-I hope I will success with this ...
-
-I appreciate any feedback.
-
-Regards,
-Vadim Kochan
+diff --git a/drivers/net/wireless/brcm80211/brcmsmac/dma.c b/drivers/net/wireless/brcm80211/brcmsmac/dma.c
+index 796f5f9..bca233a 100644
+--- a/drivers/net/wireless/brcm80211/brcmsmac/dma.c
++++ b/drivers/net/wireless/brcm80211/brcmsmac/dma.c
+@@ -1192,16 +1192,6 @@ void dma_txresume(struct dma_pub *pub)
+ 	bcma_mask32(di->core, DMA64TXREGOFFS(di, control), ~D64_XC_SE);
+ }
+ 
+-bool dma_txsuspended(struct dma_pub *pub)
+-{
+-	struct dma_info *di = container_of(pub, struct dma_info, dma);
+-
+-	return (di->ntxd == 0) ||
+-	       ((bcma_read32(di->core,
+-			     DMA64TXREGOFFS(di, control)) & D64_XC_SE) ==
+-		D64_XC_SE);
+-}
+-
+ void dma_txreclaim(struct dma_pub *pub, enum txd_range range)
+ {
+ 	struct dma_info *di = container_of(pub, struct dma_info, dma);
+@@ -1425,15 +1415,6 @@ int dma_txfast(struct brcms_c_info *wlc, struct dma_pub *pub,
+ 	return -ENOSPC;
+ }
+ 
+-void dma_txflush(struct dma_pub *pub)
+-{
+-	struct dma_info *di = container_of(pub, struct dma_info, dma);
+-	struct brcms_ampdu_session *session = &di->ampdu_session;
+-
+-	if (!skb_queue_empty(&session->skb_list))
+-		ampdu_finalize(di);
+-}
+-
+ int dma_txpending(struct dma_pub *pub)
+ {
+ 	struct dma_info *di = container_of(pub, struct dma_info, dma);
+diff --git a/drivers/net/wireless/brcm80211/brcmsmac/dma.h b/drivers/net/wireless/brcm80211/brcmsmac/dma.h
+index ff5b80b..210ec72 100644
+--- a/drivers/net/wireless/brcm80211/brcmsmac/dma.h
++++ b/drivers/net/wireless/brcm80211/brcmsmac/dma.h
+@@ -88,11 +88,9 @@ bool dma_txreset(struct dma_pub *pub);
+ void dma_txinit(struct dma_pub *pub);
+ int dma_txfast(struct brcms_c_info *wlc, struct dma_pub *pub,
+ 	       struct sk_buff *p0);
+-void dma_txflush(struct dma_pub *pub);
+ int dma_txpending(struct dma_pub *pub);
+ void dma_kick_tx(struct dma_pub *pub);
+ void dma_txsuspend(struct dma_pub *pub);
+-bool dma_txsuspended(struct dma_pub *pub);
+ void dma_txresume(struct dma_pub *pub);
+ void dma_txreclaim(struct dma_pub *pub, enum txd_range range);
+ void dma_rxreclaim(struct dma_pub *pub);
+-- 
+1.7.10.4
