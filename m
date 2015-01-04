@@ -1,105 +1,49 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 89831] New: timeout of TCP-sockets is *infinite* by
- default .. even if TCP-connection is already *broken*
-Date: Sat, 3 Jan 2015 17:33:30 -0800
-Message-ID: <20150103173330.0f9b209b@urahara>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH net-next v1 0/3] net: fec: add Wake-on-LAN support
+Date: Sun, 4 Jan 2015 01:39:02 +0000
+Message-ID: <BLUPR03MB373A9BBB32CE2D96D0B91AEF55B0@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1419413441-3406-1-git-send-email-b38611@freescale.com>
+	<20141231.130727.1660985956287926494.davem@davemloft.net>
+	<CAOMZO5BFbL-J2gM_T0jD3N3P9wHguaNLENE24BRaMQT7E6Lhiw@mail.gmail.com>
+	<20141231.142034.494966377580113808.davem@davemloft.net>
+ <CAOMZO5De+v_LAOdxGR=OHV3iMXwe8O-Z1dK0uv8ezMU90sMnMA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Shawn Guo <shawn.guo@linaro.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	"Stephen Hemminger" <stephen@networkplumber.org>
+To: Fabio Estevam <festevam@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:65062 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751493AbbADBdj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Jan 2015 20:33:39 -0500
-Received: by mail-pa0-f46.google.com with SMTP id lf10so26265183pab.33
-        for <netdev@vger.kernel.org>; Sat, 03 Jan 2015 17:33:39 -0800 (PST)
-Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
-        by mx.google.com with ESMTPSA id oa8sm50372217pdb.84.2015.01.03.17.33.37
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Sat, 03 Jan 2015 17:33:38 -0800 (PST)
+Received: from mail-by2on0121.outbound.protection.outlook.com ([207.46.100.121]:39552
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751478AbbADBjH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Jan 2015 20:39:07 -0500
+In-Reply-To: <CAOMZO5De+v_LAOdxGR=OHV3iMXwe8O-Z1dK0uv8ezMU90sMnMA@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-Begin forwarded message:
-
-Date: Tue, 16 Dec 2014 22:33:50 -0800
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 89831] New: timeout of TCP-sockets is *infinite* by default .. even if TCP-connection is already *broken*
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=89831
-
-            Bug ID: 89831
-           Summary: timeout of TCP-sockets is *infinite* by default ..
-                    even if TCP-connection is already *broken*
-           Product: Networking
-           Version: 2.5
-    Kernel Version: all
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-          Assignee: shemminger@linux-foundation.org
-          Reporter: polymorphm@gmail.com
-        Regression: No
-
-Created attachment 160881
-  --> https://bugzilla.kernel.org/attachment.cgi?id=160881&action=edit
-test for catch infinite freezing (on TCP-sockets by default) on GNU/Linux
-
-good day!
-
-please, very sorry me for your time. :-) [and sorry for my bad english].
-
-big problem in that fact: *most* application-programmers think that if
-TCP-connection is already *broken* -- that timeout of TCP-socket will *NOT* be
-*infinite*. (default system timeout).
-
-I prepared example code:
-https://gist.github.com/polymorphm/0e057402c9fa82547d72 (and this file
-"to-test.c" -- in attachment).
-
-this example code ("to-test.c") -- shows that if TCP-connection *broken* --
-that timeout will *never* be reached (for broken TCP-connection. EVEN AFTER
-SOME DAYS).
-
-program "to-test.c" -- becomes to infinite freezing -- after "[step 8]":
-
-        $ gcc -Wall -Werror -o to-test to-test.c && sudo ./to-test
-        ***** begin of test *****
-        [step 1] creating socket...
-        ***** INFO: is used SO_KEEPALIVE by default for TCP-sockets? answer: 0
-*****
-        [step 2] connecting socket...
-        [step 3] time waiting (1s)...
-        [step 4] breaking down network...    [wlp1s0]
-        # ip link set down dev wlp1s0
-        [step 5] time waiting (15s)...
-        [step 6] reestablishing up network...    [wlp1s0]
-        # ip link set up dev wlp1s0
-        [step 7] time waiting (1s)...
-        [step 8] waiting of socket timeout (or we are freezed *infinity*?)...
-
-    (infinite freeze -- at this point)
-
-
-probably, this issue-ticket will be marked as WONTFIX (and again: very sorry me
-for your time!). but this issue-ticket -- need at least for official canonical
-URL-link for answer to problem of default timeout of *broken* TCP-connection on
-GNU/Linux.
-
-when I speek with some application-programmers -- they say me: if GNU/Linux
-freeze at broken-TCP-connections (with default settings of socket) than is
-*bug* of GNU/Linux. and I maked this issue-ticket. sorry.
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+RnJvbTogRmFiaW8gRXN0ZXZhbSA8ZmVzdGV2YW1AZ21haWwuY29tPiBTZW50OiBUaHVyc2RheSwg
+SmFudWFyeSAwMSwgMjAxNSAzOjIyIEFNDQo+IFRvOiBEYXZpZCBNaWxsZXINCj4gQ2M6IER1YW4g
+RnVnYW5nLUIzODYxMTsgU2hhd24gR3VvOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBCZW4gSHV0
+Y2hpbmdzOw0KPiBTdGVwaGVuIEhlbW1pbmdlcg0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1u
+ZXh0IHYxIDAvM10gbmV0OiBmZWM6IGFkZCBXYWtlLW9uLUxBTiBzdXBwb3J0DQo+IA0KPiBPbiBX
+ZWQsIERlYyAzMSwgMjAxNCBhdCA1OjIwIFBNLCBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9m
+dC5uZXQ+IHdyb3RlOg0KPiA+IEZyb206IEZhYmlvIEVzdGV2YW0gPGZlc3RldmFtQGdtYWlsLmNv
+bT4NCj4gPiBEYXRlOiBXZWQsIDMxIERlYyAyMDE0IDE3OjAzOjI4IC0wMjAwDQo+ID4NCj4gPj4g
+LGJ1dCB3aGVuIHdlIHNlZSB5b3VyIHBhdGNoZXMgYXBwbGllZCB0aGV5IGFwcGVhciB3aXRoIE5p
+bXJvZCBBbmR5IGFzDQo+ID4+IHRoZSBhdXRob3IgaW5zdGVhZDoNCj4gPj4gaHR0cHM6Ly9naXQu
+a2VybmVsLm9yZy9jZ2l0L2xpbnV4L2tlcm5lbC9naXQvZGF2ZW0vbmV0LW5leHQuZ2l0L2NvbW1p
+DQo+ID4+IHQvP2lkPWRlNDBlZDMxYjNjNTc3Y2VmZDdiNTQ5NzIzNjVhMjcyZWNiZTlkZDYNCj4g
+Pj4NCj4gPj4gSXQgd291bGQgYmUgbmljZSBpZiB5b3UgY291bGQgdXNlIHRoZSBGcm9tIGZpZWxk
+IHRvIG1hdGNoIHRoZSBuYW1lIGluDQo+ID4+IHRoZSBTaWduZWQtb2ZmIHRhZy4NCj4gPg0KPiA+
+IEl0J3MgaGlzIGJ1c2luZXNzIHRvIHNldHVwIHRoaW5ncyBwcm9wZXJseSBzbyB0aGV5IG1hdGNo
+LCBub3QgbWluZS4gIEkNCj4gPiBqdXN0IHRha2Ugd2hhdCBpcyBpbiB0aGUgcGF0Y2ggYXMtaXMu
+DQo+IA0KPiBFeGFjdGx5LiBUaGlzIHdhcyB3aGF0IEkgc3VnZ2VzdGVkIGhpbSB0byBkby4NCg0K
+VGhhbmtzIGZvciB5b3VyIHN1Z2dlc3Rpb24uDQpJIGhhdmUgdGhlc2UgdHdvIEVuZ2xpc2ggbmFt
+ZS4gU29ycnkgSSB3aWxsIHN5bmMgb25lIG5hbWUgaW4gbGF0ZXIgcGF0Y2guDQoNClJlZ2FyZHMs
+DQpBbmR5DQo=
