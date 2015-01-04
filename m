@@ -1,168 +1,291 @@
-From: <shh.xie@gmail.com>
-Subject: [PATCH] net/fsl: Add mEMAC MDIO support to XGMAC MDIO
-Date: Sun, 4 Jan 2015 17:36:02 +0800
-Message-ID: <1420364162-13109-1-git-send-email-shh.xie@gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [net-next PATCH v1 01/11] net: flow_table: create interface for
+ hw match/action tables
+Date: Sun, 4 Jan 2015 11:12:38 +0000
+Message-ID: <20150104111238.GD15305@casper.infradead.org>
+References: <20141231194057.31070.5244.stgit@nitbit.x32>
+ <20141231194544.31070.30335.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Andy Fleming <afleming@gmail.com>,
-	Shaohui Xie <Shaohui.Xie@freescale.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@gmail.com, jiri@resnulli.us, jhs@mojatatu.com,
+	simon.horman@netronome.com, netdev@vger.kernel.org,
+	davem@davemloft.net, andy@greyhouse.net
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0066.outbound.protection.outlook.com ([157.56.111.66]:48256
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752834AbbADK4E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Jan 2015 05:56:04 -0500
+Received: from casper.infradead.org ([85.118.1.10]:40268 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750905AbbADLMm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 06:12:42 -0500
+Content-Disposition: inline
+In-Reply-To: <20141231194544.31070.30335.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Fleming <afleming@gmail.com>
+On 12/31/14 at 11:45am, John Fastabend wrote:
 
-The Freescale mEMAC supports operating at 10/100/1000/10G, and
-its associated MDIO controller is likewise capable of operating
-both Clause 22 and Clause 45 MDIO buses. It is nearly identical
-to the MDIO controller on the XGMAC, so we just modify that
-driver.
+Impressive work John, some minor nits below. In general this looks
+great. How large could tables grow? Any risk one of the nested
+attribtues could exceed 16K in size because of a very large parse
+graph? Not a problem if we account for it and allow for jumbo
+attributes.
 
-Portions of this driver developed by:
+> +
+> +/**
+> + * @struct net_flow_header
+> + * @brief defines a match (header/field) an endpoint can use
+> + *
+> + * @uid unique identifier for header
+> + * @field_sz number of fields are in the set
+> + * @fields the set of fields in the net_flow_header
 
-Sandeep Singh <sandeep@freescale.com>
-Roy Zang <tie-fei.zang@freescale.com>
+FWIW, name is not documented.
 
-Signed-off-by: Andy Fleming <afleming@gmail.com>
-Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
----
- drivers/net/ethernet/freescale/Kconfig      |  3 +-
- drivers/net/ethernet/freescale/xgmac_mdio.c | 64 ++++++++++++++++++++++++-----
- 2 files changed, 55 insertions(+), 12 deletions(-)
+> + */
+> +struct net_flow_header {
+> +	char name[NET_FLOW_NAMSIZ];
+> +	int uid;
+> +	int field_sz;
+> +	struct net_flow_field *fields;
+> +};
+> +
+> +
+> +/**
+> + * @struct net_flow_table
+> + * @brief define flow table with supported match/actions
+> + *
+> + * @uid unique identifier for table
+> + * @source uid of parent table
+> + * @size max number of entries for table or -1 for unbounded
+> + * @matches null terminated set of supported match types given by match uid
+> + * @actions null terminated set of supported action types given by action uid
+> + * @flows set of flows
 
-diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
-index 2703083..ba84c4a 100644
---- a/drivers/net/ethernet/freescale/Kconfig
-+++ b/drivers/net/ethernet/freescale/Kconfig
-@@ -69,7 +69,8 @@ config FSL_XGMAC_MDIO
- 	select PHYLIB
- 	select OF_MDIO
- 	---help---
--	  This driver supports the MDIO bus on the Fman 10G Ethernet MACs.
-+	  This driver supports the MDIO bus on the Fman 10G Ethernet MACs, and
-+	  on the FMan mEMAC (which supports both Clauses 22 and 45)
- 
- config UCC_GETH
- 	tristate "Freescale QE Gigabit Ethernet"
-diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
-index a352445..e0fc3d1 100644
---- a/drivers/net/ethernet/freescale/xgmac_mdio.c
-+++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
-@@ -32,6 +32,7 @@ struct tgec_mdio_controller {
- 	__be32	mdio_addr;	/* MDIO address */
- } __packed;
- 
-+#define MDIO_STAT_ENC		BIT(6)
- #define MDIO_STAT_CLKDIV(x)	(((x>>1) & 0xff) << 8)
- #define MDIO_STAT_BSY		(1 << 0)
- #define MDIO_STAT_RD_ER		(1 << 1)
-@@ -91,20 +92,40 @@ static int xgmac_wait_until_done(struct device *dev,
- static int xgmac_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 value)
- {
- 	struct tgec_mdio_controller __iomem *regs = bus->priv;
--	uint16_t dev_addr = regnum >> 16;
-+	uint16_t dev_addr;
-+	u32 mdio_ctl, mdio_stat;
- 	int ret;
- 
--	/* Set the port and dev addr */
--	out_be32(&regs->mdio_ctl,
--		 MDIO_CTL_PORT_ADDR(phy_id) | MDIO_CTL_DEV_ADDR(dev_addr));
-+	mdio_stat = in_be32(&regs->mdio_stat);
-+	if (regnum & MII_ADDR_C45) {
-+		/* Clause 45 (ie 10G) */
-+		dev_addr = (regnum >> 16) & 0x1f;
-+		mdio_stat |= MDIO_STAT_ENC;
-+	} else {
-+		/* Clause 22 (ie 1G) */
-+		dev_addr = regnum & 0x1f;
-+		mdio_stat &= ~MDIO_STAT_ENC;
-+	}
- 
--	/* Set the register address */
--	out_be32(&regs->mdio_addr, regnum & 0xffff);
-+	out_be32(&regs->mdio_stat, mdio_stat);
- 
- 	ret = xgmac_wait_until_free(&bus->dev, regs);
- 	if (ret)
- 		return ret;
- 
-+	/* Set the port and dev addr */
-+	mdio_ctl = MDIO_CTL_PORT_ADDR(phy_id) | MDIO_CTL_DEV_ADDR(dev_addr);
-+	out_be32(&regs->mdio_ctl, mdio_ctl);
-+
-+	/* Set the register address */
-+	if (regnum & MII_ADDR_C45) {
-+		out_be32(&regs->mdio_addr, regnum & 0xffff);
-+
-+		ret = xgmac_wait_until_free(&bus->dev, regs);
-+		if (ret)
-+			return ret;
-+	}
-+
- 	/* Write the value to the register */
- 	out_be32(&regs->mdio_data, MDIO_DATA(value));
- 
-@@ -123,21 +144,39 @@ static int xgmac_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 val
- static int xgmac_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
- {
- 	struct tgec_mdio_controller __iomem *regs = bus->priv;
--	uint16_t dev_addr = regnum >> 16;
-+	uint16_t dev_addr;
-+	uint32_t mdio_stat;
- 	uint32_t mdio_ctl;
- 	uint16_t value;
- 	int ret;
- 
-+	mdio_stat = in_be32(&regs->mdio_stat);
-+	if (regnum & MII_ADDR_C45) {
-+		dev_addr = (regnum >> 16) & 0x1f;
-+		mdio_stat |= MDIO_STAT_ENC;
-+	} else {
-+		dev_addr = regnum & 0x1f;
-+		mdio_stat = ~MDIO_STAT_ENC;
-+	}
-+
-+	out_be32(&regs->mdio_stat, mdio_stat);
-+
-+	ret = xgmac_wait_until_free(&bus->dev, regs);
-+	if (ret)
-+		return ret;
-+
- 	/* Set the Port and Device Addrs */
- 	mdio_ctl = MDIO_CTL_PORT_ADDR(phy_id) | MDIO_CTL_DEV_ADDR(dev_addr);
- 	out_be32(&regs->mdio_ctl, mdio_ctl);
- 
- 	/* Set the register address */
--	out_be32(&regs->mdio_addr, regnum & 0xffff);
-+	if (regnum & MII_ADDR_C45) {
-+		out_be32(&regs->mdio_addr, regnum & 0xffff);
- 
--	ret = xgmac_wait_until_free(&bus->dev, regs);
--	if (ret)
--		return ret;
-+		ret = xgmac_wait_until_free(&bus->dev, regs);
-+		if (ret)
-+			return ret;
-+	}
- 
- 	/* Initiate the read */
- 	out_be32(&regs->mdio_ctl, mdio_ctl | MDIO_CTL_READ);
-@@ -224,6 +263,9 @@ static struct of_device_id xgmac_mdio_match[] = {
- 	{
- 		.compatible = "fsl,fman-xmdio",
- 	},
-+	{
-+		.compatible = "fsl,fman-memac-mdio",
-+	},
- 	{},
- };
- MODULE_DEVICE_TABLE(of, xgmac_mdio_match);
--- 
-1.8.4.1
+name not documented, flows seems to be leftover
+
+> + */
+> +struct net_flow_table {
+> +	char name[NET_FLOW_NAMSIZ];
+> +	int uid;
+> +	int source;
+> +	int size;
+> +	struct net_flow_field_ref *matches;
+> +	int *actions;
+> +};
+> +
+> +/* net_flow_hdr_node: node in a header graph of header fields.
+> + *
+> + * @uid : unique id of the graph node
+> + * @flwo_header_ref : identify the hdrs that can handled by this node
+> + * @net_flow_jump_table : give a case jump statement
+> + */
+
+needs more work too ;)
+
+> +struct net_flow_hdr_node {
+> +	char name[NET_FLOW_NAMSIZ];
+> +	int uid;
+> +	int *hdrs;
+> +	struct net_flow_jump_table *jump;
+> +};
+> + */
+> +
+> +/* Netlink description:
+> + *
+> + * Table definition used to describe running tables. The following
+> + * describes the netlink message returned from a flow API messages.
+> + *
+> + * Flow table definitions used to define tables.
+> + *
+> + * [NET_FLOW_TABLE_IDENTIFIER_TYPE]
+> + * [NET_FLOW_TABLE_IDENTIFIER]
+> + * [NET_FLOW_TABLE_TABLES]
+> + *     [NET_FLOW_TABLE]
+> + *       [NET_FLOW_TABLE_ATTR_NAME]
+> + *       [NET_FLOW_TABLE_ATTR_UID]
+> + *       [NET_FLOW_TABLE_ATTR_SOURCE]
+> + *       [NET_FLOW_TABLE_ATTR_SIZE]
+> + *	 [NET_FLOW_TABLE_ATTR_MATCHES]
+
+The tabs and spaces mix make the indentation wrong in the patch, it
+looks correct unquoted though but consistency would make this perfect.
+
+> +#ifndef _UAPI_LINUX_IF_FLOW
+> +#define _UAPI_LINUX_IF_FLOW
+> +
+> +#include <linux/types.h>
+> +#include <linux/netlink.h>
+> +#include <linux/if.h>
+> +
+> +#define NET_FLOW_NAMSIZ 80
+
+Did you consider allocating the memory for names? I don't have a grasp
+for the typical number of net_flow_* instances in memory yet.
+
+> +/**
+> + * @struct net_flow_field_ref
+> + * @brief uniquely identify field as header:field tuple
+> + */
+> +struct net_flow_field_ref {
+> +	int instance;
+> +	int header;
+> +	int field;
+> +	int mask_type;
+> +	int type;
+> +	union {	/* Are these all the required data types */
+> +		__u8 value_u8;
+> +		__u16 value_u16;
+> +		__u32 value_u32;
+> +		__u64 value_u64;
+> +	};
+> +	union {	/* Are these all the required data types */
+> +		__u8 mask_u8;
+> +		__u16 mask_u16;
+> +		__u32 mask_u32;
+> +		__u64 mask_u64;
+> +	};
+> +};
+
+Does it make sense to write this as follows?
+
+union {
+        struct {
+                __u8 value_u8;
+                __u8 mask_u8;
+        };
+        struct {
+                __u16 value_u16;
+                __u16 mask_u16;
+        };
+        ...
+};
+
+> +#define NET_FLOW_TABLE_EGRESS_ROOT 1
+> +#define	NET_FLOW_TABLE_INGRESS_ROOT 2
+
+Tab/space mix.
+
+> +struct sk_buff *net_flow_build_actions_msg(struct net_flow_action **a,
+> +					   struct net_device *dev,
+> +					   u32 portid, int seq, u8 cmd)
+> +{
+> +	struct genlmsghdr *hdr;
+> +	struct sk_buff *skb;
+> +	int err = -ENOBUFS;
+> +
+> +	skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+
+genlmsg_new(GENLMSG_DEFAULT_SIZE, GFP_KERNEL);
+
+> +static int net_flow_put_table(struct net_device *dev,
+> +			      struct sk_buff *skb,
+> +			      struct net_flow_table *t)
+> +{
+> +	struct nlattr *matches, *actions;
+> +	int i;
+> +
+> +	if (nla_put_string(skb, NET_FLOW_TABLE_ATTR_NAME, t->name) ||
+> +	    nla_put_u32(skb, NET_FLOW_TABLE_ATTR_UID, t->uid) ||
+> +	    nla_put_u32(skb, NET_FLOW_TABLE_ATTR_SOURCE, t->source) ||
+> +	    nla_put_u32(skb, NET_FLOW_TABLE_ATTR_SIZE, t->size))
+> +		return -EMSGSIZE;
+> +
+> +	matches = nla_nest_start(skb, NET_FLOW_TABLE_ATTR_MATCHES);
+> +	if (!matches)
+> +		return -EMSGSIZE;
+> +
+> +	for (i = 0; t->matches[i].instance; i++)
+> +		nla_put(skb, NET_FLOW_FIELD_REF,
+> +			sizeof(struct net_flow_field_ref),
+> +			&t->matches[i]);
+
+Unhandled nla_put() error
+
+
+> +static struct sk_buff *net_flow_build_tables_msg(struct net_flow_table **t,
+> +						 struct net_device *dev,
+> +						 u32 portid, int seq, u8 cmd)
+> +{
+> +	struct genlmsghdr *hdr;
+> +	struct sk_buff *skb;
+> +	int err = -ENOBUFS;
+> +
+> +	skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+
+genlmsg_new(GENLMSG_DEFAULT_SIZE, GFP_KERNEL);
+
+> +static int net_flow_put_headers(struct sk_buff *skb,
+> +				struct net_flow_header **headers)
+> +{
+> +	struct nlattr *nest, *hdr, *fields;
+> +	struct net_flow_header *h;
+> +	int i, err;
+> +
+> +	nest = nla_nest_start(skb, NET_FLOW_HEADERS);
+> +	if (!nest)
+> +		return -EMSGSIZE;
+> +
+> +	for (i = 0; headers[i]->uid; i++) {
+> +		err = -EMSGSIZE;
+> +		h = headers[i];
+> +
+> +		hdr = nla_nest_start(skb, NET_FLOW_HEADER);
+> +		if (!hdr)
+> +			goto hdr_put_failure;
+> +
+> +		if (nla_put_string(skb, NET_FLOW_HEADER_ATTR_NAME, h->name) ||
+> +		    nla_put_u32(skb, NET_FLOW_HEADER_ATTR_UID, h->uid))
+> +			goto attr_put_failure;
+> +
+> +		fields = nla_nest_start(skb, NET_FLOW_HEADER_ATTR_FIELDS);
+> +		if (!fields)
+> +			goto attr_put_failure;
+
+You can jump to hdr_put_failure right away and get rid of the
+attr_put_failure target as you cancel that nest anyway. You can apply 
+this comment to several other places as well if you want.
+
+> +
+> +		err = net_flow_put_fields(skb, h);
+> +		if (err)
+> +			goto fields_put_failure;
+> +
+> +		nla_nest_end(skb, fields);
+> +
+> +		nla_nest_end(skb, hdr);
+> +	}
+> +	nla_nest_end(skb, nest);
+> +
+> +	return 0;
+> +fields_put_failure:
+> +	nla_nest_cancel(skb, fields);
+> +attr_put_failure:
+> +	nla_nest_cancel(skb, hdr);
+> +hdr_put_failure:
+> +	nla_nest_cancel(skb, nest);
+> +	return err;
+> +}
+> +
+> +static struct sk_buff *net_flow_build_headers_msg(struct net_flow_header **h,
+> +						  struct net_device *dev,
+> +						  u32 portid, int seq, u8 cmd)
+> +{
+> +	struct genlmsghdr *hdr;
+> +	struct sk_buff *skb;
+> +	int err = -ENOBUFS;
+> +
+> +	skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+>
+genlmsg_new(GENLMSG_DEFAULT_SIZE, GFP_KERNEL);
+
+> +static
+> +struct sk_buff *net_flow_build_graph_msg(struct net_flow_tbl_node **g,
+> +					 struct net_device *dev,
+> +					 u32 portid, int seq, u8 cmd)
+> +{
+> +	struct genlmsghdr *hdr;
+> +	struct sk_buff *skb;
+> +	int err = -ENOBUFS;
+> +
+> +	skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+>
+genlmsg_new(GENLMSG_DEFAULT_SIZE, GFP_KERNEL);
