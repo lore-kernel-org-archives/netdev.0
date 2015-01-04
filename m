@@ -1,31 +1,30 @@
 From: Giel van Schijndel <me@mortis.eu>
-Subject: Re: [PATCH] Fix NUL (\0 or \x00) specification in string
-Date: Mon, 5 Jan 2015 00:04:43 +0100
-Message-ID: <20150104230443.GI4806@salidar.dom.custoft.eu>
-References: <1420394722-20197-1-git-send-email-me@mortis.eu>
+Subject: Re: [PATCH 2/2] Fix copy-paste bug: assign from src struct not dest
+Date: Mon, 5 Jan 2015 00:02:43 +0100
+Message-ID: <20150104230243.GE4806__7455.40372231535$1420413202$gmane$org@salidar.dom.custoft.eu>
+References: <1420394427-19509-1-git-send-email-me@mortis.eu>
+ <1420394427-19509-2-git-send-email-me@mortis.eu>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="bygAmIonOAIqBxQB"
-Cc: Armin Schindler <mac@melware.de>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	"open list:ISDN SUBSYSTEM" <netdev@vger.kernel.org>
+	protocol="application/pgp-signature"; boundary="10jrOL3x2xqLmOsH"
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from khitomer.mortis.eu ([185.27.175.75]:36929 "EHLO
+	khitomer.mortis.eu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753050AbbADXND (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 18:13:03 -0500
 Content-Disposition: inline
-In-Reply-To: <1420394722-20197-1-git-send-email-me@mortis.eu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1420394427-19509-2-git-send-email-me@mortis.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---bygAmIonOAIqBxQB
+--10jrOL3x2xqLmOsH
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Sun, Jan 04, 2015 at 19:05:22 +0100, Giel van Schijndel wrote:
-> In C one can either use '\0' or '\x00' (or '\000') to add a NUL byte to
-> a string. '\0x00' isn't part of these and will in fact result in a
-> single NUL followed by "x00". This fixes that.
+On Sun, Jan 04, 2015 at 19:00:23 +0100, Giel van Schijndel wrote:
 > ---
 
 Forgot to:
@@ -35,21 +34,17 @@ Signed-off-by: Giel van Schijndel <me@mortis.eu>
 Met vriendelijke groet,
 With kind regards,
 Giel van Schijndel
---
-"There are 2 types of people in this world - those who like Chuck
- Norris and those who are dead."
-  -- Jus12
 
---bygAmIonOAIqBxQB
+--10jrOL3x2xqLmOsH
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iEYEARECAAYFAlSpxwoACgkQZBYm/87l50KkDgCfX3bEP7hKA8bQv5RaLHlkgsjA
-sOAAoJo2xp2t02Fe32uGIcVNtrguKX2E
-=VciB
+iEYEARECAAYFAlSpxpMACgkQZBYm/87l50JsngCgqCvXZ9xzyRRAKpzUh+9+gt5K
+FAIAnjuCI8bXvdDEZqMnoFXccmnFWf18
+=DXJ1
 -----END PGP SIGNATURE-----
 
---bygAmIonOAIqBxQB--
+--10jrOL3x2xqLmOsH--
