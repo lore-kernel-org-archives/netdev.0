@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v1 2/7] net: phy: extend link mode support to 48 bits
-Date: Sun,  4 Jan 2015 12:56:52 -0800
-Message-ID: <1420405017-23278-3-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v1 3/7] net: mii: extend link mode support to 48 bits
+Date: Sun,  4 Jan 2015 12:56:53 -0800
+Message-ID: <1420405017-23278-4-git-send-email-ddecotig@gmail.com>
 References: <1420405017-23278-1-git-send-email-ddecotig@gmail.com>
 Cc: David Decotigny <decot@googlers.com>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -33,174 +33,234 @@ From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- drivers/net/phy/phy.c        | 29 ++++++++++++++---------------
- drivers/net/phy/phy_device.c |  4 ++--
- include/linux/phy.h          | 10 +++++-----
- 3 files changed, 21 insertions(+), 22 deletions(-)
+ drivers/net/mii.c   | 52 +++++++++++++++++++++++++++++-----------------------
+ include/linux/mii.h | 31 ++++++++++++++++---------------
+ 2 files changed, 45 insertions(+), 38 deletions(-)
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 767cd11..e9c8499 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -132,7 +132,7 @@ static inline int phy_aneg_done(struct phy_device *phydev)
- struct phy_setting {
- 	int speed;
- 	int duplex;
--	u32 setting;
-+	ethtool_link_mode_mask_t setting;
- };
+diff --git a/drivers/net/mii.c b/drivers/net/mii.c
+index 4a99c39..2be59ba 100644
+--- a/drivers/net/mii.c
++++ b/drivers/net/mii.c
+@@ -33,7 +33,7 @@
+ #include <linux/ethtool.h>
+ #include <linux/mii.h>
  
- /* A mapping of all SUPPORTED settings to speed/duplex */
-@@ -227,7 +227,8 @@ static inline unsigned int phy_find_setting(int speed, int duplex)
-  *   the mask in features.  Returns the index of the last setting
-  *   if nothing else matches.
-  */
--static inline unsigned int phy_find_valid(unsigned int idx, u32 features)
-+static inline unsigned int phy_find_valid(unsigned int idx,
-+					  ethtool_link_mode_mask_t features)
+-static u32 mii_get_an(struct mii_if_info *mii, u16 addr)
++static ethtool_link_mode_mask_t mii_get_an(struct mii_if_info *mii, u16 addr)
  {
- 	while (idx < MAX_NUM_SETTINGS && !(settings[idx].setting & features))
- 		idx++;
-@@ -245,7 +246,7 @@ static inline unsigned int phy_find_valid(unsigned int idx, u32 features)
-  */
- static void phy_sanitize_settings(struct phy_device *phydev)
+ 	int advert;
+ 
+@@ -56,14 +56,15 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
  {
--	u32 features = phydev->supported;
-+	ethtool_link_mode_mask_t features = phydev->supported;
- 	unsigned int idx;
+ 	struct net_device *dev = mii->dev;
+ 	u16 bmcr, bmsr, ctrl1000 = 0, stat1000 = 0;
+-	u32 nego;
++	ethtool_link_mode_mask_t supported_link_modes, advertising_link_modes;
++	ethtool_link_mode_mask_t nego;
  
- 	/* Sanitize settings based on PHY capabilities */
-@@ -279,13 +280,13 @@ int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd)
- 		return -EINVAL;
+-	ecmd->supported =
++	supported_link_modes =
+ 	    (SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full |
+ 	     SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
+ 	     SUPPORTED_Autoneg | SUPPORTED_TP | SUPPORTED_MII);
+ 	if (mii->supports_gmii)
+-		ecmd->supported |= SUPPORTED_1000baseT_Half |
++		supported_link_modes |= SUPPORTED_1000baseT_Half |
+ 			SUPPORTED_1000baseT_Full;
  
- 	/* We make sure that we don't pass unsupported values in to the PHY */
--	cmd->advertising &= phydev->supported;
-+	phydev->advertising = ethtool_cmd_advertising(cmd) & phydev->supported;
+ 	/* only supports twisted-pair */
+@@ -76,7 +77,7 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
+ 	ecmd->phy_address = mii->phy_id;
+ 	ecmd->mdio_support = ETH_MDIO_SUPPORTS_C22;
  
- 	/* Verify the settings we care about. */
- 	if (cmd->autoneg != AUTONEG_ENABLE && cmd->autoneg != AUTONEG_DISABLE)
- 		return -EINVAL;
+-	ecmd->advertising = ADVERTISED_TP | ADVERTISED_MII;
++	advertising_link_modes = ADVERTISED_TP | ADVERTISED_MII;
  
--	if (cmd->autoneg == AUTONEG_ENABLE && cmd->advertising == 0)
-+	if (cmd->autoneg == AUTONEG_ENABLE && phydev->advertising == 0)
- 		return -EINVAL;
+ 	bmcr = mii->mdio_read(dev, mii->phy_id, MII_BMCR);
+ 	bmsr = mii->mdio_read(dev, mii->phy_id, MII_BMSR);
+@@ -85,23 +86,25 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
+ 		stat1000 = mii->mdio_read(dev, mii->phy_id, MII_STAT1000);
+ 	}
+ 	if (bmcr & BMCR_ANENABLE) {
+-		ecmd->advertising |= ADVERTISED_Autoneg;
++		ethtool_link_mode_mask_t lp_adv;
++
++		advertising_link_modes |= ADVERTISED_Autoneg;
+ 		ecmd->autoneg = AUTONEG_ENABLE;
  
- 	if (cmd->autoneg == AUTONEG_DISABLE &&
-@@ -300,8 +301,6 @@ int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd)
+-		ecmd->advertising |= mii_get_an(mii, MII_ADVERTISE);
++		advertising_link_modes |= mii_get_an(mii, MII_ADVERTISE);
+ 		if (mii->supports_gmii)
+-			ecmd->advertising |=
++			advertising_link_modes |=
+ 					mii_ctrl1000_to_ethtool_adv_t(ctrl1000);
  
- 	phydev->speed = speed;
+ 		if (bmsr & BMSR_ANEGCOMPLETE) {
+-			ecmd->lp_advertising = mii_get_an(mii, MII_LPA);
+-			ecmd->lp_advertising |=
+-					mii_stat1000_to_ethtool_lpa_t(stat1000);
++			lp_adv = mii_get_an(mii, MII_LPA);
++			lp_adv |= mii_stat1000_to_ethtool_lpa_t(stat1000);
+ 		} else {
+-			ecmd->lp_advertising = 0;
++			lp_adv = 0;
+ 		}
  
--	phydev->advertising = cmd->advertising;
+-		nego = ecmd->advertising & ecmd->lp_advertising;
++		ethtool_cmd_lp_advertising_set(ecmd, lp_adv);
++		nego = advertising_link_modes & lp_adv;
+ 
+ 		if (nego & (ADVERTISED_1000baseT_Full |
+ 			    ADVERTISED_1000baseT_Half)) {
+@@ -128,6 +131,8 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
+ 	}
+ 
+ 	mii->full_duplex = ecmd->duplex;
++	ethtool_cmd_supported_set(ecmd, supported_link_modes);
++	ethtool_cmd_advertising_set(ecmd, advertising_link_modes);
+ 
+ 	/* ignore maxtxpkt, maxrxpkt for now */
+ 
+@@ -168,13 +173,15 @@ int mii_ethtool_sset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
+ 	if (ecmd->autoneg == AUTONEG_ENABLE) {
+ 		u32 bmcr, advert, tmp;
+ 		u32 advert2 = 0, tmp2 = 0;
 -
- 	if (AUTONEG_ENABLE == cmd->autoneg)
- 		phydev->advertising |= ADVERTISED_Autoneg;
- 	else
-@@ -318,10 +317,10 @@ EXPORT_SYMBOL(phy_ethtool_sset);
+-		if ((ecmd->advertising & (ADVERTISED_10baseT_Half |
+-					  ADVERTISED_10baseT_Full |
+-					  ADVERTISED_100baseT_Half |
+-					  ADVERTISED_100baseT_Full |
+-					  ADVERTISED_1000baseT_Half |
+-					  ADVERTISED_1000baseT_Full)) == 0)
++		ethtool_link_mode_mask_t ethtool_adv;
++
++		ethtool_adv = ethtool_cmd_advertising(ecmd);
++		if ((ethtool_adv & (ADVERTISED_10baseT_Half |
++				    ADVERTISED_10baseT_Full |
++				    ADVERTISED_100baseT_Half |
++				    ADVERTISED_100baseT_Full |
++				    ADVERTISED_1000baseT_Half |
++				    ADVERTISED_1000baseT_Full)) == 0)
+ 			return -EINVAL;
  
- int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
- {
--	cmd->supported = phydev->supported;
-+	ethtool_cmd_supported_set(cmd, phydev->supported);
+ 		/* advertise only what has been requested */
+@@ -184,11 +191,10 @@ int mii_ethtool_sset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
+ 			advert2 = mii->mdio_read(dev, mii->phy_id, MII_CTRL1000);
+ 			tmp2 = advert2 & ~(ADVERTISE_1000HALF | ADVERTISE_1000FULL);
+ 		}
+-		tmp |= ethtool_adv_to_mii_adv_t(ecmd->advertising);
++		tmp |= ethtool_adv_to_mii_adv_t(ethtool_adv);
  
--	cmd->advertising = phydev->advertising;
--	cmd->lp_advertising = phydev->lp_advertising;
-+	ethtool_cmd_advertising_set(cmd, phydev->advertising);
-+	ethtool_cmd_lp_advertising_set(cmd, phydev->lp_advertising);
- 
- 	ethtool_cmd_speed_set(cmd, phydev->speed);
- 	cmd->duplex = phydev->duplex;
-@@ -1040,7 +1039,7 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
- 	    (phydev->interface == PHY_INTERFACE_MODE_RGMII) ||
- 	     phy_is_internal(phydev))) {
- 		int eee_lp, eee_cap, eee_adv;
--		u32 lp, cap, adv;
-+		ethtool_link_mode_mask_t cap, adv, lp;
- 		int status;
- 		unsigned int idx;
- 
-@@ -1132,21 +1131,21 @@ int phy_ethtool_get_eee(struct phy_device *phydev, struct ethtool_eee *data)
- 				    MDIO_MMD_PCS, phydev->addr);
- 	if (val < 0)
- 		return val;
--	data->supported = mmd_eee_cap_to_ethtool_sup_t(val);
-+	ethtool_eee_supported_set(data, mmd_eee_cap_to_ethtool_sup_t(val));
- 
- 	/* Get advertisement EEE */
- 	val = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_ADV,
- 				    MDIO_MMD_AN, phydev->addr);
- 	if (val < 0)
- 		return val;
--	data->advertised = mmd_eee_adv_to_ethtool_adv_t(val);
-+	ethtool_eee_advertised_set(data, mmd_eee_adv_to_ethtool_adv_t(val));
- 
- 	/* Get LP advertisement EEE */
- 	val = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_LPABLE,
- 				    MDIO_MMD_AN, phydev->addr);
- 	if (val < 0)
- 		return val;
--	data->lp_advertised = mmd_eee_adv_to_ethtool_adv_t(val);
-+	ethtool_eee_lp_advertised_set(data, mmd_eee_adv_to_ethtool_adv_t(val));
- 
- 	return 0;
- }
-@@ -1161,7 +1160,7 @@ EXPORT_SYMBOL(phy_ethtool_get_eee);
+ 		if (mii->supports_gmii)
+-			tmp2 |=
+-			      ethtool_adv_to_mii_ctrl1000_t(ecmd->advertising);
++			tmp2 |= ethtool_adv_to_mii_ctrl1000_t(ethtool_adv);
+ 		if (advert != tmp) {
+ 			mii->mdio_write(dev, mii->phy_id, MII_ADVERTISE, tmp);
+ 			mii->advertising = tmp;
+diff --git a/include/linux/mii.h b/include/linux/mii.h
+index 47492c9..6f5336c 100644
+--- a/include/linux/mii.h
++++ b/include/linux/mii.h
+@@ -106,7 +106,7 @@ static inline unsigned int mii_duplex (unsigned int duplex_lock,
+  * settings to phy autonegotiation advertisements for the
+  * MII_ADVERTISE register.
   */
- int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
+-static inline u32 ethtool_adv_to_mii_adv_t(u32 ethadv)
++static inline u32 ethtool_adv_to_mii_adv_t(ethtool_link_mode_mask_t ethadv)
  {
--	int val = ethtool_adv_to_mmd_eee_adv_t(data->advertised);
-+	int val = ethtool_adv_to_mmd_eee_adv_t(ethtool_eee_advertised(data));
+ 	u32 result = 0;
  
- 	phy_write_mmd_indirect(phydev, MDIO_AN_EEE_ADV, MDIO_MMD_AN,
- 			       phydev->addr, val);
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 3fc91e8..4391dc7 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -734,7 +734,7 @@ EXPORT_SYMBOL(phy_resume);
+@@ -133,9 +133,9 @@ static inline u32 ethtool_adv_to_mii_adv_t(u32 ethadv)
+  * A small helper function that translates MII_ADVERTISE bits
+  * to ethtool advertisement settings.
   */
- static int genphy_config_advert(struct phy_device *phydev)
+-static inline u32 mii_adv_to_ethtool_adv_t(u32 adv)
++static inline ethtool_link_mode_mask_t mii_adv_to_ethtool_adv_t(u32 adv)
  {
--	u32 advertise;
-+	ethtool_link_mode_mask_t advertise;
- 	int oldadv, adv, bmsr;
- 	int err, changed = 0;
+-	u32 result = 0;
++	ethtool_link_mode_mask_t result = 0;
  
-@@ -1086,7 +1086,7 @@ EXPORT_SYMBOL(genphy_soft_reset);
- int genphy_config_init(struct phy_device *phydev)
+ 	if (adv & ADVERTISE_10HALF)
+ 		result |= ADVERTISED_10baseT_Half;
+@@ -161,7 +161,8 @@ static inline u32 mii_adv_to_ethtool_adv_t(u32 adv)
+  * settings to phy autonegotiation advertisements for the
+  * MII_CTRL1000 register when in 1000T mode.
+  */
+-static inline u32 ethtool_adv_to_mii_ctrl1000_t(u32 ethadv)
++static inline u32
++ethtool_adv_to_mii_ctrl1000_t(ethtool_link_mode_mask_t ethadv)
  {
- 	int val;
--	u32 features;
-+	ethtool_link_mode_mask_t features;
+ 	u32 result = 0;
  
- 	features = (SUPPORTED_TP | SUPPORTED_MII
- 			| SUPPORTED_AUI | SUPPORTED_FIBRE |
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 22af8f8..aabf808 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -390,10 +390,10 @@ struct phy_device {
- 	u32 interrupts;
+@@ -181,9 +182,9 @@ static inline u32 ethtool_adv_to_mii_ctrl1000_t(u32 ethadv)
+  * bits, when in 1000Base-T mode, to ethtool
+  * advertisement settings.
+  */
+-static inline u32 mii_ctrl1000_to_ethtool_adv_t(u32 adv)
++static inline ethtool_link_mode_mask_t mii_ctrl1000_to_ethtool_adv_t(u32 adv)
+ {
+-	u32 result = 0;
++	ethtool_link_mode_mask_t result = 0;
  
- 	/* Union of PHY and Attached devices' supported modes */
--	/* See mii.h for more info */
--	u32 supported;
--	u32 advertising;
--	u32 lp_advertising;
-+	/* See ethtool.h for more info */
-+	ethtool_link_mode_mask_t supported;
-+	ethtool_link_mode_mask_t advertising;
-+	ethtool_link_mode_mask_t lp_advertising;
+ 	if (adv & ADVERTISE_1000HALF)
+ 		result |= ADVERTISED_1000baseT_Half;
+@@ -201,9 +202,9 @@ static inline u32 mii_ctrl1000_to_ethtool_adv_t(u32 adv)
+  * bits, when in 1000Base-T mode, to ethtool
+  * LP advertisement settings.
+  */
+-static inline u32 mii_lpa_to_ethtool_lpa_t(u32 lpa)
++static inline ethtool_link_mode_mask_t mii_lpa_to_ethtool_lpa_t(u32 lpa)
+ {
+-	u32 result = 0;
++	ethtool_link_mode_mask_t result = 0;
  
- 	int autoneg;
+ 	if (lpa & LPA_LPACK)
+ 		result |= ADVERTISED_Autoneg;
+@@ -219,9 +220,9 @@ static inline u32 mii_lpa_to_ethtool_lpa_t(u32 lpa)
+  * bits, when in 1000Base-T mode, to ethtool
+  * advertisement settings.
+  */
+-static inline u32 mii_stat1000_to_ethtool_lpa_t(u32 lpa)
++static inline ethtool_link_mode_mask_t mii_stat1000_to_ethtool_lpa_t(u32 lpa)
+ {
+-	u32 result = 0;
++	ethtool_link_mode_mask_t result = 0;
  
-@@ -447,7 +447,7 @@ struct phy_driver {
- 	u32 phy_id;
- 	char *name;
- 	unsigned int phy_id_mask;
--	u32 features;
-+	ethtool_link_mode_mask_t features;
- 	u32 flags;
- 	const void *driver_data;
+ 	if (lpa & LPA_1000HALF)
+ 		result |= ADVERTISED_1000baseT_Half;
+@@ -239,7 +240,7 @@ static inline u32 mii_stat1000_to_ethtool_lpa_t(u32 lpa)
+  * settings to phy autonegotiation advertisements for the
+  * MII_CTRL1000 register when in 1000Base-X mode.
+  */
+-static inline u32 ethtool_adv_to_mii_adv_x(u32 ethadv)
++static inline u32 ethtool_adv_to_mii_adv_x(ethtool_link_mode_mask_t ethadv)
+ {
+ 	u32 result = 0;
  
+@@ -263,9 +264,9 @@ static inline u32 ethtool_adv_to_mii_adv_x(u32 ethadv)
+  * bits, when in 1000Base-X mode, to ethtool
+  * advertisement settings.
+  */
+-static inline u32 mii_adv_to_ethtool_adv_x(u32 adv)
++static inline ethtool_link_mode_mask_t mii_adv_to_ethtool_adv_x(u32 adv)
+ {
+-	u32 result = 0;
++	ethtool_link_mode_mask_t result = 0;
+ 
+ 	if (adv & ADVERTISE_1000XHALF)
+ 		result |= ADVERTISED_1000baseT_Half;
+@@ -287,9 +288,9 @@ static inline u32 mii_adv_to_ethtool_adv_x(u32 adv)
+  * bits, when in 1000Base-X mode, to ethtool
+  * LP advertisement settings.
+  */
+-static inline u32 mii_lpa_to_ethtool_lpa_x(u32 lpa)
++static inline ethtool_link_mode_mask_t mii_lpa_to_ethtool_lpa_x(u32 lpa)
+ {
+-	u32 result = 0;
++	ethtool_link_mode_mask_t result = 0;
+ 
+ 	if (lpa & LPA_LPACK)
+ 		result |= ADVERTISED_Autoneg;
 -- 
 2.2.0.rc0.207.ga3a616c
