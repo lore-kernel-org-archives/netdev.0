@@ -1,92 +1,65 @@
 From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: [PATCH] wl1251: Remove unused function
-Date: Sun,  4 Jan 2015 16:43:52 +0100
-Message-ID: <1420386232-12344-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Subject: [PATCH] bluetooth: Remove unused function
+Date: Sun,  4 Jan 2015 16:55:14 +0100
+Message-ID: <1420386914-12885-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
-	=?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar@gmail.com>,
-	David Gnedt <david.gnedt@davizone.at>,
-	George Spelvin <linux@horizon.com>,
-	Surendra Patil <surendra.tux@gmail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@adurom.com>, Pavel Machek <pavel@ucw.cz>
+To: Marcel Holtmann <marcel@holtmann.org>,
+	Gustavo Padovan <gustavo@padovan.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove the function wl1251_cmd_read_memory() that is not used anywhere.
+Remove the function hci_conn_change_link_key() that is not used anywhere.
 
 This was partially found by using a static code analysis program called cppcheck.
 
 Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
 ---
- drivers/net/wireless/ti/wl1251/cmd.c |   40 ----------------------------------
- drivers/net/wireless/ti/wl1251/cmd.h |    2 --
- 2 files changed, 42 deletions(-)
+ include/net/bluetooth/hci_core.h |    1 -
+ net/bluetooth/hci_conn.c         |   15 ---------------
+ 2 files changed, 16 deletions(-)
 
-diff --git a/drivers/net/wireless/ti/wl1251/cmd.c b/drivers/net/wireless/ti/wl1251/cmd.c
-index ede31f0..26f4d74 100644
---- a/drivers/net/wireless/ti/wl1251/cmd.c
-+++ b/drivers/net/wireless/ti/wl1251/cmd.c
-@@ -346,46 +346,6 @@ out:
- 	return ret;
- }
+diff --git a/include/net/bluetooth/hci_core.h b/include/net/bluetooth/hci_core.h
+index 37ff1ae..a922163 100644
+--- a/include/net/bluetooth/hci_core.h
++++ b/include/net/bluetooth/hci_core.h
+@@ -728,7 +728,6 @@ int hci_conn_check_link_mode(struct hci_conn *conn);
+ int hci_conn_check_secure(struct hci_conn *conn, __u8 sec_level);
+ int hci_conn_security(struct hci_conn *conn, __u8 sec_level, __u8 auth_type,
+ 		      bool initiator);
+-int hci_conn_change_link_key(struct hci_conn *conn);
+ int hci_conn_switch_role(struct hci_conn *conn, __u8 role);
  
--int wl1251_cmd_read_memory(struct wl1251 *wl, u32 addr, void *answer,
--			   size_t len)
+ void hci_conn_enter_active_mode(struct hci_conn *conn, __u8 force_active);
+diff --git a/net/bluetooth/hci_conn.c b/net/bluetooth/hci_conn.c
+index b9517bd..1fc18b6 100644
+--- a/net/bluetooth/hci_conn.c
++++ b/net/bluetooth/hci_conn.c
+@@ -1075,21 +1075,6 @@ int hci_conn_check_secure(struct hci_conn *conn, __u8 sec_level)
+ }
+ EXPORT_SYMBOL(hci_conn_check_secure);
+ 
+-/* Change link key */
+-int hci_conn_change_link_key(struct hci_conn *conn)
 -{
--	struct cmd_read_write_memory *cmd;
--	int ret = 0;
+-	BT_DBG("hcon %p", conn);
 -
--	wl1251_debug(DEBUG_CMD, "cmd read memory");
--
--	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
--	if (!cmd) {
--		ret = -ENOMEM;
--		goto out;
+-	if (!test_and_set_bit(HCI_CONN_AUTH_PEND, &conn->flags)) {
+-		struct hci_cp_change_conn_link_key cp;
+-		cp.handle = cpu_to_le16(conn->handle);
+-		hci_send_cmd(conn->hdev, HCI_OP_CHANGE_CONN_LINK_KEY,
+-			     sizeof(cp), &cp);
 -	}
 -
--	WARN_ON(len > MAX_READ_SIZE);
--	len = min_t(size_t, len, MAX_READ_SIZE);
--
--	cmd->addr = addr;
--	cmd->size = len;
--
--	ret = wl1251_cmd_send(wl, CMD_READ_MEMORY, cmd, sizeof(*cmd));
--	if (ret < 0) {
--		wl1251_error("read memory command failed: %d", ret);
--		goto out;
--	}
--
--	/* the read command got in, we can now read the answer */
--	wl1251_mem_read(wl, wl->cmd_box_addr, cmd, sizeof(*cmd));
--
--	if (cmd->header.status != CMD_STATUS_SUCCESS)
--		wl1251_error("error in read command result: %d",
--			     cmd->header.status);
--
--	memcpy(answer, cmd->value, len);
--
--out:
--	kfree(cmd);
--	return ret;
+-	return 0;
 -}
 -
- int wl1251_cmd_template_set(struct wl1251 *wl, u16 cmd_id,
- 			    void *buf, size_t buf_len)
+ /* Switch role */
+ int hci_conn_switch_role(struct hci_conn *conn, __u8 role)
  {
-diff --git a/drivers/net/wireless/ti/wl1251/cmd.h b/drivers/net/wireless/ti/wl1251/cmd.h
-index d824ff9..5f35430 100644
---- a/drivers/net/wireless/ti/wl1251/cmd.h
-+++ b/drivers/net/wireless/ti/wl1251/cmd.h
-@@ -40,8 +40,6 @@ int wl1251_cmd_data_path_tx(struct wl1251 *wl, u8 channel, bool enable);
- int wl1251_cmd_join(struct wl1251 *wl, u8 bss_type, u8 channel,
- 		    u16 beacon_interval, u8 dtim_interval);
- int wl1251_cmd_ps_mode(struct wl1251 *wl, u8 ps_mode);
--int wl1251_cmd_read_memory(struct wl1251 *wl, u32 addr, void *answer,
--			   size_t len);
- int wl1251_cmd_template_set(struct wl1251 *wl, u16 cmd_id,
- 			    void *buf, size_t buf_len);
- int wl1251_cmd_scan(struct wl1251 *wl, u8 *ssid, size_t ssid_len,
 -- 
 1.7.10.4
