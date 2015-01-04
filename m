@@ -1,157 +1,90 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next PATCH v1 04/11] rocker: add pipeline model for rocker switch
-Date: Sun, 4 Jan 2015 10:43:05 +0200
-Message-ID: <CAJ3xEMitO-e4gRXAzp7F5F+1+Sq9+K8qQgTjEywA-FbX34bZ+g@mail.gmail.com>
-References: <20141231194057.31070.5244.stgit@nitbit.x32>
-	<20141231194709.31070.16657.stgit@nitbit.x32>
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
+Subject: Re: TCP out of memory - possible bug [3.18.0-rc3] / sched?
+Date: Sun, 4 Jan 2015 09:42:40 +0100
+Message-ID: <20150104084240.GA1710@x4>
+References: <5457D095.9070502@qdot.me>
+ <1415043704.1005.0.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Graf <tgraf@suug.ch>, sfeldma@gmail.com,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	simon.horman@netronome.com,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tomasz Mloduchowski <q@qdot.me>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f43.google.com ([209.85.218.43]:49704 "EHLO
-	mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750905AbbADInH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 03:43:07 -0500
-Received: by mail-oi0-f43.google.com with SMTP id i138so39998779oig.2
-        for <netdev@vger.kernel.org>; Sun, 04 Jan 2015 00:43:05 -0800 (PST)
-In-Reply-To: <20141231194709.31070.16657.stgit@nitbit.x32>
+Received: from ud10.udmedia.de ([194.117.254.50]:58564 "EHLO
+	mail.ud10.udmedia.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750951AbbADItX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 03:49:23 -0500
+Content-Disposition: inline
+In-Reply-To: <1415043704.1005.0.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 31, 2014 at 9:47 PM, John Fastabend
-<john.fastabend@gmail.com> wrote:
-> This adds rocker support for the net_flow_get_* operations. With this
-> we can interrogate rocker.
->
-> Here we see that for static configurations enabling the get operations
-> is simply a matter of defining a pipeline model and returning the
-> structures for the core infrastructure to encapsulate into netlink
-> messages.
+On 2014.11.03 at 11:41 -0800, Eric Dumazet wrote:
+> On Mon, 2014-11-03 at 19:59 +0100, Tomasz Mloduchowski wrote:
+> > Hi List,
+> > 
+> > I hope this is the right place to report a networking issue with
+> > 3.18.0-rc2 and 3.18.0-rc3 - under heavy P2P load (tested both
+> > rtorrent/libtorrent and bitcoind, so not protocol-specific), the system
+> > quickly exhausts tcp_mem limits in a very strange sequence of events.
+> > 
+> > It might be scheduler or networking subsystem related.
+> > 
+> > It's 100% reproducible on my system, first observed under 3.18.0-rc2.
+> > 
+> 
+> Sounds a perfect case for a bisection maybe ?
 
-[..]
+Any news on this issue?
 
-> diff --git a/drivers/net/ethernet/rocker/rocker_pipeline.h b/drivers/net/ethernet/rocker/rocker_pipeline.h
-> new file mode 100644
-> index 0000000..9544339
-> --- /dev/null
-> +++ b/drivers/net/ethernet/rocker/rocker_pipeline.h
-> @@ -0,0 +1,673 @@
-> +#ifndef _MY_PIPELINE_H_
-> +#define _MY_PIPELINE_H_
-> +
-> +#include <linux/if_flow.h>
-> +
-> +/* header definition */
-> +#define HEADER_ETHERNET_SRC_MAC 1
-> +#define HEADER_ETHERNET_DST_MAC 2
-> +#define HEADER_ETHERNET_ETHERTYPE 3
-> +struct net_flow_field ethernet_fields[3] = {
-> +       { .name = "src_mac", .uid = HEADER_ETHERNET_SRC_MAC, .bitwidth = 48},
-> +       { .name = "dst_mac", .uid = HEADER_ETHERNET_DST_MAC, .bitwidth = 48},
-> +       { .name = "ethertype",
-> +         .uid = HEADER_ETHERNET_ETHERTYPE,
-> +         .bitwidth = 16},
-> +};
-> +
-> +#define HEADER_ETHERNET 1
-> +struct net_flow_header ethernet = {
-> +       .name = "ethernet",
-> +       .uid = HEADER_ETHERNET,
-> +       .field_sz = 3,
-> +       .fields = ethernet_fields,
-> +};
-> +
-> +#define HEADER_VLAN_PCP 1
-> +#define HEADER_VLAN_CFI 2
-> +#define HEADER_VLAN_VID 3
-> +#define HEADER_VLAN_ETHERTYPE 4
-> +struct net_flow_field vlan_fields[4] = {
-> +       { .name = "pcp", .uid = HEADER_VLAN_PCP, .bitwidth = 3,},
-> +       { .name = "cfi", .uid = HEADER_VLAN_CFI, .bitwidth = 1,},
-> +       { .name = "vid", .uid = HEADER_VLAN_VID, .bitwidth = 12,},
-> +       { .name = "ethertype", .uid = HEADER_VLAN_ETHERTYPE, .bitwidth = 16,},
-> +};
-> +
-> +#define HEADER_VLAN 2
-> +struct net_flow_header vlan = {
-> +       .name = "vlan",
-> +       .uid = HEADER_VLAN,
-> +       .field_sz = 4,
-> +       .fields = vlan_fields,
-> +};
-> +
-> +#define HEADER_IPV4_VERSION 1
-> +#define HEADER_IPV4_IHL 2
-> +#define HEADER_IPV4_DSCP 3
-> +#define HEADER_IPV4_ECN 4
-> +#define HEADER_IPV4_LENGTH 5
-> +#define HEADER_IPV4_IDENTIFICATION 6
-> +#define HEADER_IPV4_FLAGS 7
-> +#define HEADER_IPV4_FRAGMENT_OFFSET 8
-> +#define HEADER_IPV4_TTL 9
-> +#define HEADER_IPV4_PROTOCOL 10
-> +#define HEADER_IPV4_CSUM 11
-> +#define HEADER_IPV4_SRC_IP 12
-> +#define HEADER_IPV4_DST_IP 13
-> +#define HEADER_IPV4_OPTIONS 14
-> +struct net_flow_field ipv4_fields[14] = {
-> +       { .name = "version",
-> +         .uid = HEADER_IPV4_VERSION,
-> +         .bitwidth = 4,},
-> +       { .name = "ihl",
-> +         .uid = HEADER_IPV4_IHL,
-> +         .bitwidth = 4,},
-> +       { .name = "dscp",
-> +         .uid = HEADER_IPV4_DSCP,
-> +         .bitwidth = 6,},
-> +       { .name = "ecn",
-> +         .uid = HEADER_IPV4_ECN,
-> +         .bitwidth = 2,},
-> +       { .name = "length",
-> +         .uid = HEADER_IPV4_LENGTH,
-> +         .bitwidth = 8,},
-> +       { .name = "identification",
-> +         .uid = HEADER_IPV4_IDENTIFICATION,
-> +         .bitwidth = 8,},
-> +       { .name = "flags",
-> +         .uid = HEADER_IPV4_FLAGS,
-> +         .bitwidth = 3,},
-> +       { .name = "fragment_offset",
-> +         .uid = HEADER_IPV4_FRAGMENT_OFFSET,
-> +         .bitwidth = 13,},
-> +       { .name = "ttl",
-> +         .uid = HEADER_IPV4_TTL,
-> +         .bitwidth = 1,},
-> +       { .name = "protocol",
-> +         .uid = HEADER_IPV4_PROTOCOL,
-> +         .bitwidth = 8,},
-> +       { .name = "csum",
-> +         .uid = HEADER_IPV4_CSUM,
-> +         .bitwidth = 8,},
-> +       { .name = "src_ip",
-> +         .uid = HEADER_IPV4_SRC_IP,
-> +         .bitwidth = 32,},
-> +       { .name = "dst_ip",
-> +         .uid = HEADER_IPV4_DST_IP,
-> +         .bitwidth = 32,},
-> +       { .name = "options",
-> +         .uid = HEADER_IPV4_OPTIONS,
-> +         .bitwidth = -1,},
-> +};
-> +
+I stumbled across the same problem today with 3.19.0-rc2:
 
-John,
+Jan  4 09:23:22 x4 kernel: TCP: out of memory -- consider tuning tcp_mem
+Jan  4 09:23:23 x4 kernel: ------------[ cut here ]------------
+Jan  4 09:23:23 x4 kernel: WARNING: CPU: 3 PID: 32504 at net/core/stream.c:201 inet_csk_destroy_sock+0x4d/0x100()
+Jan  4 09:23:23 x4 kernel: CPU: 3 PID: 32504 Comm: main Not tainted 3.19.0-rc2-00193-g5e0f872c7d7e-dirty #52
+Jan  4 09:23:23 x4 kernel: Hardware name: System manufacturer System Product Name/M4A78T-E, BIOS 3503    04/13/2011
+Jan  4 09:23:23 x4 kernel: 0000000000000000 ffffffff819b8544 ffffffff81686ffc 0000000000000000
+Jan  4 09:23:23 x4 kernel: ffffffff8106b352 ffff88008a623a80 ffff88008a623be8 0000000000000004
+Jan  4 09:23:23 x4 kernel: ffff88008a623ae8 ffff88012d3f9240 ffffffff8162fead ffff88008a623a80
+Jan  4 09:23:23 x4 kernel: Call Trace:
+Jan  4 09:23:23 x4 kernel: [<ffffffff81686ffc>] ? dump_stack+0x40/0x50
+Jan  4 09:23:23 x4 kernel: [<ffffffff8106b352>] ? warn_slowpath_common+0x72/0xc0
+Jan  4 09:23:23 x4 kernel: [<ffffffff8162fead>] ? inet_csk_destroy_sock+0x4d/0x100
+Jan  4 09:23:23 x4 kernel: [<ffffffff81633746>] ? tcp_close+0x226/0x400
+Jan  4 09:23:23 x4 kernel: [<ffffffff816582cd>] ? inet_release+0x6d/0x80
+Jan  4 09:23:23 x4 kernel: [<ffffffff815cf090>] ? sock_release+0x10/0x80
+Jan  4 09:23:23 x4 kernel: [<ffffffff815cf10d>] ? sock_close+0xd/0x20
+Jan  4 09:23:23 x4 kernel: [<ffffffff8110eeca>] ? __fput+0xca/0x1e0
+Jan  4 09:23:23 x4 kernel: [<ffffffff81081c0f>] ? task_work_run+0xaf/0x100
+Jan  4 09:23:23 x4 kernel: [<ffffffff81689734>] ? __schedule+0x254/0x760
+Jan  4 09:23:23 x4 kernel: [<ffffffff81039ae1>] ? do_notify_resume+0x61/0xa0
+Jan  4 09:23:23 x4 kernel: [<ffffffff8110f33e>] ? fput+0x3e/0x80
+Jan  4 09:23:23 x4 kernel: [<ffffffff8168dc18>] ? int_signal+0x12/0x17
+Jan  4 09:23:23 x4 kernel: ---[ end trace ccb3dc614f5600b1 ]---
+Jan  4 09:23:23 x4 kernel: ------------[ cut here ]------------
+Jan  4 09:23:23 x4 kernel: WARNING: CPU: 3 PID: 32504 at net/ipv4/af_inet.c:153 inet_sock_destruct+0x169/0x1e0()
+Jan  4 09:23:23 x4 kernel: CPU: 3 PID: 32504 Comm: main Tainted: G        W      3.19.0-rc2-00193-g5e0f872c7d7e-dirty #52
+Jan  4 09:23:23 x4 kernel: Hardware name: System manufacturer System Product Name/M4A78T-E, BIOS 3503    04/13/2011
+Jan  4 09:23:23 x4 kernel: 0000000000000000 ffffffff819b9876 ffffffff81686ffc 0000000000000000
+Jan  4 09:23:23 x4 kernel: ffffffff8106b352 ffff88008a623a80 ffff88008a623bc8 ffff880100104a30
+Jan  4 09:23:23 x4 kernel: ffff880216864660 ffff88012d3f9240 ffffffff816591e9 ffff8800d5e2a810
+Jan  4 09:23:23 x4 kernel: Call Trace:
+Jan  4 09:23:23 x4 kernel: [<ffffffff81686ffc>] ? dump_stack+0x40/0x50
+Jan  4 09:23:23 x4 kernel: [<ffffffff8106b352>] ? warn_slowpath_common+0x72/0xc0
+Jan  4 09:23:23 x4 kernel: [<ffffffff816591e9>] ? inet_sock_destruct+0x169/0x1e0
+Jan  4 09:23:23 x4 kernel: [<ffffffff815d1792>] ? __sk_free+0x12/0xc0
+Jan  4 09:23:23 x4 kernel: [<ffffffff816582cd>] ? inet_release+0x6d/0x80
+Jan  4 09:23:23 x4 kernel: [<ffffffff815cf090>] ? sock_release+0x10/0x80
+Jan  4 09:23:23 x4 kernel: [<ffffffff815cf10d>] ? sock_close+0xd/0x20
+Jan  4 09:23:23 x4 kernel: [<ffffffff8110eeca>] ? __fput+0xca/0x1e0
+Jan  4 09:23:23 x4 kernel: [<ffffffff81081c0f>] ? task_work_run+0xaf/0x100
+Jan  4 09:23:23 x4 kernel: [<ffffffff81689734>] ? __schedule+0x254/0x760
+Jan  4 09:23:23 x4 kernel: [<ffffffff81039ae1>] ? do_notify_resume+0x61/0xa0
+Jan  4 09:23:23 x4 kernel: [<ffffffff8110f33e>] ? fput+0x3e/0x80
+Jan  4 09:23:23 x4 kernel: [<ffffffff8168dc18>] ? int_signal+0x12/0x17
+Jan  4 09:23:23 x4 kernel: ---[ end trace ccb3dc614f5600b2 ]---
 
-Repeating the feedback I provided you f2f in Dusseldorf when the WIP
-code was within ixgbe, some/many code pieces in this patch (e.g the
-above) are generic and hence should reside not within a low level
-driver such as rocker, and also on a separate patch.
+rtorrent was spinning and the network was unusable until reboot.
 
-Or.
+-- 
+Markus
