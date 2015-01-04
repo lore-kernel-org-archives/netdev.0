@@ -1,26 +1,134 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: Re: [PATCH] net: wireless: rt2x00: use helper to check
- capability/requirement
-Date: Sun, 4 Jan 2015 16:57:41 +0100
-Message-ID: <20150104155740.GA6764@redhat.com>
-References: <1419581958-5927-1-git-send-email-fred.chou.nd@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: helmut.schaa@googlemail.com, kvalo@codeaurora.org,
-	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Fred Chou <fred.chou.nd@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1419581958-5927-1-git-send-email-fred.chou.nd@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2 v2 0/3] ss: Fix sockets filtering
+Date: Sun,  4 Jan 2015 19:20:52 +0200
+Message-ID: <1420392055-4754-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f52.google.com ([209.85.215.52]:64761 "EHLO
+	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752664AbbADRbT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 12:31:19 -0500
+Received: by mail-la0-f52.google.com with SMTP id hs14so17470649lab.11
+        for <netdev@vger.kernel.org>; Sun, 04 Jan 2015 09:31:17 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 26, 2014 at 04:19:18PM +0800, Fred Chou wrote:
-> From: Fred Chou <fred.chou.nd@gmail.com>
-> 
-> Use rt2x00_has_cap_flag macro to check rt2x00dev->cap_flags. 
-> 
-> Signed-off-by: Fred Chou <fred.chou.nd@gmail.com>
+From: Vadim Kochan <vadim4j@gmail.com>
 
-Acked-by: Stanislaw Gruszka <sgruszka@redhat.com>
+PLEASE MAKE ADDITIONAL TESTING !!!
+
+v2:
+    patch #1
+        1) Used bool and true/false
+
+    patch #3:
+        1) Added 'const' to 'filter' tables in patch #3
+        3) Get rid of default_filter
+        4) Changed a little bit merging of filtering options
+        5) Now packet and netlink show funcs requires AF and SS_CLOSE to be set
+ 
+This series contains refactoring & fixes related to sockets filtering.
+
+1st 2 patches relates mostly to refactoring as they just
+allows to use one func to output UNIX & PACKET socket stats from both Netlink &
+/proc.
+
+The last one have a big change which related to the way how filtering options
+are combined with each other. This change has also fixes for some filtering
+combination options.
+
+I did some basic testing *BUT* I cant guarantee that there is no bugs ...
+Here is my some testing list with comparing to the 'master' version:
+
+Some test results with comparing version in PATCH and version from master
+-------------------------------------------------------------------------
+
+this   - ss version sending in PATCH
+master - ss version in master
+
+Case #1: Show only IPv4 sockets
+    $ ss -4
+
+    RESULTS
+        this    -  shows only IPv4 sockets with established states     [OK]
+        master  -  shows IPv4 and UNIX sockets with established states [FAIL]
+
+Case #2: Show only IPv4 sockets with all states
+    $ ss -4 -a
+
+    RESULTS
+        this    -  shows only IPv4 sockets with all states [OK]
+        master  -  shows ALL sockets kinds with all states [FAIL]
+
+Case #3: Show only IPv4 sockets with listen states (closed or listening)
+    $ ss -4 -l
+
+    RESULTS
+        this    -  shows only IPv4 sockets with listen states    [OK]
+        master  -  shows ALL sockets kinds with LISTENING states [FAIL]
+
+Case #4 Show only IPv4 UDP sockets
+    $ ss -4 -u
+
+    RESULTS
+        this    -  shows only IPv4 UDP sockets                                 [OK]
+        master  -  shows IPv4 UDP sockets but only if state 'closed' specified [FAIL]
+    
+    In 'this' version it is not needed to set 'closed' state additionally for UDP sockets as it it set
+    automatically because we explicitly specified UDP sockets. 
+
+Case #5: Show all UDP sockets
+    $ ss -u
+
+    RESULTS
+        this    -  shows all UDP sockets for both IPv4/IPv6 protocol families  [OK]
+        master  -  shows IPv4 UDP sockets but only if state 'closed' specified [FAIL]
+
+Case #6: Show all UDP sockets for IPv6 only protocol
+    $ ss -u -6
+
+    RESULTS
+        this    -  shows all IPv6 UDP sockets                                  [OK]
+        master  -  shows IPv4 UDP sockets but only if state 'closed' specified [FAIL]
+
+
+Case #7: Show UNIX sockets with matches "*X11*" as src
+    $ ss src unix:*X11*
+
+    RESULTS
+        this    -  shows only UNIX sockets with established states with src matches "*X11*" [OK]
+        master  -  shows all established UNIX sockets with "RTNETLINK" errors               [FAIL]
+
+
+Case #8: Show UNIX sockets with matches "*X11*" as src but with LISTENING states only
+    $ ss src unix:*X11* -l
+
+    RESULTS
+        this    -  shows only UNIX sockets with LISTENING states with src matches "*X11*" [OK]
+        master  -  Segmentation error                                                     [FAIL]
+
+Case #9: Show all RAW sockets
+    $ ss -w
+
+    RESULTS
+        this    - shows all RAW sockets for IPv4/IPv6 families                                  [OK]
+        master  - shows all RAW sockets for IPv4/IPv6 families only if state 'closed' specified [FAIL]
+
+Case #10: Show all TCP/UDP sockets
+    $ ss -t -u
+
+    RESULTS
+        this    - shows all established TCP and unconnected UDP sockets for IPv4/IPv6 protocols. [OK]
+        master  - shows only TCP established sockets, shows UDP                                  [FAIL]
+
+Vadim Kochan (3):
+  ss: Unify unix stats output from netlink and proc
+  ss: Unify packet stats output from netlink and proc
+  ss: Filtering logic changing, with fixes
+
+ misc/ss.c | 628 ++++++++++++++++++++++++++++++++++----------------------------
+ 1 file changed, 346 insertions(+), 282 deletions(-)
+
+-- 
+2.1.3
