@@ -1,48 +1,39 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH iproute2 v2 2/3] ss: Unify packet stats output from
- netlink and proc
-Date: Sun, 4 Jan 2015 20:32:18 +0200
-Message-ID: <20150104183218.GA13666@angus-think.lan>
-References: <1420392055-4754-1-git-send-email-vadim4j@gmail.com>
- <1420392055-4754-3-git-send-email-vadim4j@gmail.com>
- <20150104103008.1648dcb8@urahara>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Giel van Schijndel <me@mortis.eu>
+Subject: [PATCH] Fix NUL (\0 or \x00) specification in string
+Date: Sun,  4 Jan 2015 19:05:22 +0100
+Message-ID: <1420394722-20197-1-git-send-email-me@mortis.eu>
+Cc: Giel van Schijndel <me@mortis.eu>,
+	Armin Schindler <mac@melware.de>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	netdev@vger.kernel.org (open list:ISDN SUBSYSTEM)
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:64106 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752662AbbADSmi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 13:42:38 -0500
-Received: by mail-lb0-f172.google.com with SMTP id z12so9016231lbi.3
-        for <netdev@vger.kernel.org>; Sun, 04 Jan 2015 10:42:37 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150104103008.1648dcb8@urahara>
+Received: from khitomer.mortis.eu ([185.27.175.75]:11419 "EHLO
+	khitomer.mortis.eu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752778AbbADTK3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 14:10:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 04, 2015 at 10:30:08AM -0800, Stephen Hemminger wrote:
-> On Sun,  4 Jan 2015 19:20:54 +0200
-> Vadim Kochan <vadim4j@gmail.com> wrote:
-> 
-> > +struct pktstat {
-> > +	int type;
-> > +	int prot;
-> > +	int iface;
-> > +	int state;
-> > +	int rq;
-> > +	int uid;
-> > +	int ino;
-> > +};
-> 
-> Rather than copying the original data types, this structure should use the
-> correct types that already exist. 
-> For example: type is pdiag_type which is __u8 therefore it should be __u8 or uint8_t.
-> 
-> Likewise uid should be uid_t etc.
+In C one can either use '\0' or '\x00' (or '\000') to add a NUL byte to
+a string. '\0x00' isn't part of these and will in fact result in a
+single NUL followed by "x00". This fixes that.
+---
+ drivers/isdn/hardware/eicon/message.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thats good point, but it would be good to do this for all xxxstats
-struct's, may be in separated patch ?
-
-Regards,
+diff --git a/drivers/isdn/hardware/eicon/message.c b/drivers/isdn/hardware/eicon/message.c
+index a82e542..0b38060 100644
+--- a/drivers/isdn/hardware/eicon/message.c
++++ b/drivers/isdn/hardware/eicon/message.c
+@@ -4880,7 +4880,7 @@ static void sig_ind(PLCI *plci)
+ 	byte SS_Ind[] = "\x05\x02\x00\x02\x00\x00"; /* Hold_Ind struct*/
+ 	byte CF_Ind[] = "\x09\x02\x00\x06\x00\x00\x00\x00\x00\x00";
+ 	byte Interr_Err_Ind[] = "\x0a\x02\x00\x07\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+-	byte CONF_Ind[] = "\x09\x16\x00\x06\x00\x00\0x00\0x00\0x00\0x00";
++	byte CONF_Ind[] = "\x09\x16\x00\x06\x00\x00\x00\x00\x00\x00";
+ 	byte force_mt_info = false;
+ 	byte dir;
+ 	dword d;
+-- 
+2.1.4
