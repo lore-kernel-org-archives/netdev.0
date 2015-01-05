@@ -1,202 +1,45 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH/RFC flow-net-next 04/10] net: flow: Add counters to flows
-Date: Mon, 5 Jan 2015 11:10:34 +0900
-Message-ID: <20150105021030.GD15716@vergenet.net>
+Subject: Re: [PATCH/RFC flow-net-next 02/10] net: flow: Add features to tables
+Date: Mon, 5 Jan 2015 11:18:58 +0900
+Message-ID: <20150105021855.GE15716@vergenet.net>
 References: <1419819340-19000-1-git-send-email-simon.horman@netronome.com>
- <1419819340-19000-5-git-send-email-simon.horman@netronome.com>
- <E4CD12F19ABA0C4D8729E087A761DC3505DD0E24@ORSMSX101.amr.corp.intel.com>
+ <1419819340-19000-3-git-send-email-simon.horman@netronome.com>
+ <CAHA+R7NmfUpYcKfW_Gck2HaANH3OQk-9BAYZCXnBtGO1eV13xg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Fastabend, John R" <john.r.fastabend@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Arad, Ronen" <ronen.arad@intel.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:39178 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752937AbbAECKn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 21:10:43 -0500
-Received: by mail-pd0-f177.google.com with SMTP id ft15so26775689pdb.8
-        for <netdev@vger.kernel.org>; Sun, 04 Jan 2015 18:10:42 -0800 (PST)
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:64173 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751773AbbAECTI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 21:19:08 -0500
+Received: by mail-pd0-f182.google.com with SMTP id p10so27168257pdj.13
+        for <netdev@vger.kernel.org>; Sun, 04 Jan 2015 18:19:07 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <E4CD12F19ABA0C4D8729E087A761DC3505DD0E24@ORSMSX101.amr.corp.intel.com>
+In-Reply-To: <CAHA+R7NmfUpYcKfW_Gck2HaANH3OQk-9BAYZCXnBtGO1eV13xg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 29, 2014 at 07:31:41AM +0000, Arad, Ronen wrote:
+On Mon, Dec 29, 2014 at 03:03:39PM -0800, Cong Wang wrote:
+> On Sun, Dec 28, 2014 at 6:15 PM, Simon Horman
+> <simon.horman@netronome.com> wrote:
+> > +static struct net_flow_table *net_flow_table_get_table(struct net_device *dev,
+> > +                                                      int table_uid)
+> > +{
+> > +       struct net_flow_table **tables;
+> > +       int i;
+> > +
+> > +       tables = net_flow_get_tables(dev);
+> > +       if (IS_ERR(tables))
+> > +               return ERR_PTR(PTR_ERR(tables));
 > 
-> 
-> >-----Original Message-----
-> >From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
-> >Behalf Of Simon Horman
-> >Sent: Monday, December 29, 2014 4:16 AM
-> >To: Fastabend, John R; netdev@vger.kernel.org
-> >Cc: Simon Horman
-> >Subject: [PATCH/RFC flow-net-next 04/10] net: flow: Add counters to flows
-> >
-> >It may be useful for hardware flow table support for counters to be exposed
-> >via the flow API. One possible use case of this is for Open vSwitch to use
-> >the flow API in conjunction with its existing datapath flow management
-> >scheme which in a nutshell treats the datapath as a cache that times out
-> >idle entries.
-> >
-> >This patch exposes optionally exposes three counters:
-> >- Number of packets that have matched a flow
-> >- Number of bytes of packets that have matched a flow
-> >- The time in ms when the flow was last hit
-> >
-> >Inspired by the flow counters present in Open Flow.
-> >
-> >Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> >
-> >---
-> >
-> >Compile tested only
-> >---
-> > include/uapi/linux/if_flow.h | 24 ++++++++++++++++++++++++
-> > net/core/flow_table.c        | 27 +++++++++++++++++++++++++++
-> > 2 files changed, 51 insertions(+)
-> >
-> >diff --git a/include/uapi/linux/if_flow.h b/include/uapi/linux/if_flow.h
-> >index 28da45b..18214ea 100644
-> >--- a/include/uapi/linux/if_flow.h
-> >+++ b/include/uapi/linux/if_flow.h
-> >@@ -127,6 +127,9 @@
-> >  *	     [NET_FLOW_ATTR_PRIORITY]
-> >  *	     [NET_FLOW_ATTR_IDLE_TIMEOUT]
-> >  *	     [NET_FLOW_ATTR_HARD_TIMEOUT]
-> >+ *	     [NET_FLOW_ATTR_BYTE_COUNT]
-> >+ *	     [NET_FLOW_ATTR_PACKET_COUNT]
-> >+ *	     [NET_FLOW_ATTR_LAST_USED]
-> >  *	     [NET_FLOW_ATTR_MATCHES]
-> >  *	        [NET_FLOW_FIELD_REF]
-> >  *	        [NET_FLOW_FIELD_REF]
-> >@@ -153,6 +156,9 @@
-> >  *     [NET_FLOW_ATTR_PRIORITY]
-> >  *     [NET_FLOW_ATTR_IDLE_TIMEOUT]
-> >  *     [NET_FLOW_ATTR_HARD_TIMEOUT]
-> >+ *     [NET_FLOW_ATTR_BYTE_COUNT]
-> >+ *     [NET_FLOW_ATTR_PACKET_COUNT]
-> >+ *     [NET_FLOW_ATTR_LAST_USED]
-> >  *     [NET_FLOW_MATCHES]
-> >  *       [NET_FLOW_FIELD_REF]
-> >  *       [NET_FLOW_FIELD_REF]
-> >@@ -365,6 +371,9 @@ enum {
-> >  * @idle_timeout idle timeout of flow in seconds. Zero for no timeout.
-> >  * @hard_timeout timeout of flow regardless of use in seconds.
-> >  *               Zero for no timeout.
-> >+ * @byte_count bytes recieved
-> >+ * @byte_count packets recieved
-> >+ * @last_used time of most recent use (msec since system initialisation)
-> >  *
-> >  * Flows must match all entries in match set.
-> >  */
-> >@@ -374,6 +383,9 @@ struct net_flow_flow {
-> > 	int priority;
-> > 	__u32 idle_timeout;
-> > 	__u32 hard_timeout;
-> >+	__u64 byte_count;
-> >+	__u64 packet_count;
-> >+	__u64 last_used;
-> > 	struct net_flow_field_ref *matches;
-> > 	struct net_flow_action *actions;
-> > };
-> >@@ -414,6 +426,9 @@ enum {
-> > 	NET_FLOW_ATTR_ACTIONS,
-> > 	NET_FLOW_ATTR_IDLE_TIMEOUT,
-> > 	NET_FLOW_ATTR_HARD_TIMEOUT,
-> >+	NET_FLOW_ATTR_BYTE_COUNT,
-> >+	NET_FLOW_ATTR_PACKET_COUNT,
-> >+	NET_FLOW_ATTR_LAST_USED,
-> > 	__NET_FLOW_ATTR_MAX,
-> > };
-> > #define NET_FLOW_ATTR_MAX (__NET_FLOW_ATTR_MAX - 1)
-> >@@ -465,6 +480,15 @@ enum {
-> >
-> > 	/* Table supports idle timeout of flows */
-> > 	NET_FLOW_TABLE_F_HARD_TIMEOUT		= (1 << 1),
-> >+
-> >+	/* Table supports byte counter for flows */
-> >+	NET_FLOW_TABLE_F_BYTE_COUNT		= (1 << 2),
-> >+
-> >+	/* Table supports packet counter for flows */
-> >+	NET_FLOW_TABLE_F_PACKET_COUNT		= (1 << 3),
-> >+
-> >+	/* Table supports last used counter for flows */
-> >+	NET_FLOW_TABLE_F_PACKET_LAST_USED	= (1 << 4),
-> > };
-> >
-> > #if 0
-> >diff --git a/net/core/flow_table.c b/net/core/flow_table.c
-> >index 89ba9bc..070e646 100644
-> >--- a/net/core/flow_table.c
-> >+++ b/net/core/flow_table.c
-> >@@ -54,6 +54,9 @@ struct nla_policy net_flow_flow_policy[NET_FLOW_ATTR_MAX +
-> >1] = {
-> > 	[NET_FLOW_ATTR_PRIORITY]	= { .type = NLA_U32 },
-> > 	[NET_FLOW_ATTR_IDLE_TIMEOUT]	= { .type = NLA_U32 },
-> > 	[NET_FLOW_ATTR_HARD_TIMEOUT]	= { .type = NLA_U32 },
-> >+	[NET_FLOW_ATTR_BYTE_COUNT]	= { .type = NLA_U64 },
-> >+	[NET_FLOW_ATTR_PACKET_COUNT]	= { .type = NLA_U64 },
-> >+	[NET_FLOW_ATTR_LAST_USED]	= { .type = NLA_U64 },
-> > 	[NET_FLOW_ATTR_MATCHES]	= { .type = NLA_NESTED },
-> > 	[NET_FLOW_ATTR_ACTIONS]	= { .type = NLA_NESTED },
-> > };
-> >@@ -206,6 +209,16 @@ int net_flow_put_flow(struct sk_buff *skb, struct
-> >net_flow_flow *flow)
-> > 	    nla_put_u32(skb, NET_FLOW_ATTR_HARD_TIMEOUT, flow->hard_timeout))
-> > 		goto flows_put_failure;
-> >
-> >+	if (flow->byte_count &&
-> >+	    nla_put_u32(skb, NET_FLOW_ATTR_BYTE_COUNT, flow->byte_count))
-> >+		goto flows_put_failure;
-> >+	if (flow->packet_count &&
-> >+	    nla_put_u32(skb, NET_FLOW_ATTR_PACKET_COUNT, flow->packet_count))
-> >+		goto flows_put_failure;
-> >+	if (flow->last_used &&
-> >+	    nla_put_u32(skb, NET_FLOW_ATTR_LAST_USED, flow->last_used))
-> >+		goto flows_put_failure;
-> >+
-> The flow byte_count, packet_count, and last_used fields are defined as __u64 and related netlink attributes are of type NLA_U64 but nla_put_u32() is used to add them to the netlink msg.
+> Seriously? :)
 
-Thanks, I will fix that up by using nla_put_u64().
+I was looking for a way to handle the type of tables being different
+to the return type of net_flow_table_get_table().
 
-> > 	matches = nla_nest_start(skb, NET_FLOW_ATTR_MATCHES);
-> > 	if (!matches)
-> > 		goto flows_put_failure;
-> >@@ -536,6 +549,13 @@ static int net_flow_get_flow(struct net_flow_flow *flow,
-> >struct nlattr *attr)
-> > 	if (f[NET_FLOW_ATTR_HARD_TIMEOUT])
-> > 		flow->hard_timeout = nla_get_u32(f[NET_FLOW_ATTR_HARD_TIMEOUT]);
-> >
-> >+	if (f[NET_FLOW_ATTR_BYTE_COUNT])
-> >+		flow->byte_count = nla_get_u64(f[NET_FLOW_ATTR_BYTE_COUNT]);
-> >+	if (f[NET_FLOW_ATTR_PACKET_COUNT])
-> >+		flow->packet_count = nla_get_u64(f[NET_FLOW_ATTR_PACKET_COUNT]);
-> >+	if (f[NET_FLOW_ATTR_LAST_USED])
-> >+		flow->last_used = nla_get_u64(f[NET_FLOW_ATTR_LAST_USED]);
-> >+
-> > 	flow->matches = NULL;
-> > 	flow->actions = NULL;
-> >
-> >@@ -1386,6 +1406,13 @@ static int net_flow_table_cmd_flows(struct sk_buff
-> >*recv_skb,
-> > 		if (this.hard_timeout)
-> > 			used_features |= NET_FLOW_TABLE_F_HARD_TIMEOUT;
-> >
-> >+		if (this.byte_count)
-> >+			used_features |= NET_FLOW_TABLE_F_BYTE_COUNT;
-> >+		if (this.packet_count)
-> >+			used_features |= NET_FLOW_TABLE_F_PACKET_COUNT;
-> >+		if (this.last_used)
-> >+			used_features |= NET_FLOW_TABLE_F_PACKET_LAST_USED;
-> >+
-> > 		err = net_flow_table_check_features(dev, this.table_id,
-> > 						    used_features);
-> > 		if (err)
-> >--
-> >2.1.3
-> >
-> >--
-> >To unsubscribe from this list: send the line "unsubscribe netdev" in
-> >the body of a message to majordomo@vger.kernel.org
-> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Would you recommend a cast?
+
+		return (struct net_flow_table *)tables;
