@@ -1,73 +1,75 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH/RFC rocker-net-next 6/6] net: flow: Limit checking of
- ndo_flow_{set,del}_flows
-Date: Mon, 05 Jan 2015 09:32:02 -0800
-Message-ID: <54AACA92.5030800@gmail.com>
-References: <1420440610-20621-1-git-send-email-simon.horman@netronome.com> <1420440610-20621-7-git-send-email-simon.horman@netronome.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH] Revert "ipw2200: select CFG80211_WEXT"
+Date: Mon, 05 Jan 2015 18:38:30 +0100
+Message-ID: <1420479510.14308.23.camel@x220>
+References: <1420297188.2397.3.camel@tiscali.nl>
+	 <CD467A59-F563-439B-BA82-954AB27AD9CC@holtmann.org>
+	 <CA+55aFzYSiUkntraMrHEhMzkt35Ft2p9E3cT7ejwQOBDwKvcOg@mail.gmail.com>
+	 <1420324124.9624.60.camel@x220> <54AA641C.7050307@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Simon Horman <simon.horman@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:40225 "EHLO
-	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753300AbbAERcN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 12:32:13 -0500
-Received: by mail-oi0-f51.google.com with SMTP id h136so15146637oig.10
-        for <netdev@vger.kernel.org>; Mon, 05 Jan 2015 09:32:12 -0800 (PST)
-In-Reply-To: <1420440610-20621-7-git-send-email-simon.horman@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Stanislav Yakovlev <stas.yakovlev@gmail.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Jiri Kosina <jkosina@suse.cz>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Arend van Spriel <arend@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54AA641C.7050307@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/04/2015 10:50 PM, Simon Horman wrote:
-> Only check for availability of ndo_flow_{set,del}_flows when
-> they are to be be used.
->
+On Mon, 2015-01-05 at 11:14 +0100, Arend van Spriel wrote:
+> On 01/03/15 23:28, Paul Bolle wrote:
+> > Side note: am I correct in thinking that there's some successor to
+> > CFG80211_WEXT and that the ipw2200 driver could, at least in theory, be
+> > ported to that successor? (ipw2200 hardware appears to be a bit old, so
+> > probably no one would care enough to actually do that.)
+> > net/wireless/kconfig doesn't mention anything like that, so probably I'm
+> > just confused.
+> 
+> ipw2200 is a WEXT driver using some wext functionality (and struct 
+> wiphy) provided by cfg80211 hence it needs CFG80211_WEXT. I guess that 
+> is what makes it confusing.
 
-I went ahead and merged this but, I'm not sure does it make
-sense to allow a user to add a flow that can't be deleted? Or
-delete a flow that wasn't ever added? I guess if the driver has
-a reason to do this it doesn't hurt to allow it and I think the
-code looks neater this way.
+It doesn't help that I hardly know anything about mac80211, cfg80211 and
+nl80211 (and lib80211 for that matter). To me these are mostly just
+names that end in 80211.
 
-Also thanks for the other fixes I pulled the other 5 in as well
-I'll re-submit the series after running some basic tests.
+Anyhow, concerning, CFG80211_WEXT: it seems the only functionality
+provided by that symbol that ipw2200 uses directly is
+cfg80211_wext_giwname(). Perhaps ipw2200 could have a private version of
+that function, something like ipw2100's ipw2100_wx_get_name(). Should be
+trivial to implement (ie, it could take _me_ a day or two).
 
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> ---
->   net/core/flow_table.c | 15 +++++++++++++--
->   1 file changed, 13 insertions(+), 2 deletions(-)
->
-> diff --git a/net/core/flow_table.c b/net/core/flow_table.c
-> index bfc984f..6d620d4 100644
-> --- a/net/core/flow_table.c
-> +++ b/net/core/flow_table.c
-> @@ -1206,9 +1206,20 @@ static int net_flow_table_cmd_flows(struct sk_buff *recv_skb,
->   	if (!dev)
->   		return -EINVAL;
->
-> -	if (!dev->netdev_ops->ndo_flow_set_flows ||
-> -	    !dev->netdev_ops->ndo_flow_del_flows)
-> +	switch (cmd) {
-> +	case NET_FLOW_TABLE_CMD_SET_FLOWS:
-> +		if (!dev->netdev_ops->ndo_flow_set_flows)
-> +			goto out;
-> +		break;
-> +
-> +	case NET_FLOW_TABLE_CMD_DEL_FLOWS:
-> +		if (!dev->netdev_ops->ndo_flow_del_flows)
-> +			goto out;
-> +		break;
-> +
-> +	default:
->   		goto out;
-> +	}
->
->   	if (!info->attrs[NET_FLOW_IDENTIFIER_TYPE] ||
->   	    !info->attrs[NET_FLOW_IDENTIFIER] ||
->
+But perhaps ipw2200 uses CFG80211_WEXT _indirectly_ too. Ie, in
+net/wireless/core.c I stumbled on
+    #ifdef CONFIG_CFG80211_WEXT
+            rdev->wiphy.wext = &cfg80211_wext_handler;
+    #endif
 
 
--- 
-John Fastabend         Intel Corporation
+But I net/wireless/wext-core.c I then found
+    #ifdef CONFIG_CFG80211_WEXT
+            if (dev->ieee80211_ptr && dev->ieee80211_ptr->wiphy)
+                    handlers = dev->ieee80211_ptr->wiphy->wext;
+    #endif
+    #ifdef CONFIG_WIRELESS_EXT
+            if (dev->wireless_handlers)
+                    handlers = dev->wireless_handlers;
+    #endif
+
+(There's much more to discover about WEXT, of course.) Anyhow, IPW2200
+uses both CFG80211_WEXT and WIRELESS_EXT and cfg80211_wext_handler and
+ipw2200's wireless_handlers appear to cover the same set of IOCTLS (one
+exception: SIOCSIWPMKSA). So by now I'm really puzzled how this all fits
+together.
+
+Thanks,
+
+
+Paul Bolle
