@@ -1,42 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] rhashtable: involve
- rhashtable_lookup_insert routine
-Date: Mon, 05 Jan 2015 16:30:18 -0500 (EST)
-Message-ID: <20150105.163018.658637009804208069.davem@davemloft.net>
-References: <1420457634-13017-1-git-send-email-ying.xue@windriver.com>
-	<20150105130514.GA15499@casper.infradead.org>
+Subject: Re: [PATCH] at86rf230: Constify struct regmap_config
+Date: Mon, 05 Jan 2015 16:33:11 -0500 (EST)
+Message-ID: <20150105.163311.1868277821228057884.davem@davemloft.net>
+References: <1420448551-9443-1-git-send-email-k.kozlowski@samsung.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ying.xue@windriver.com, netdev@vger.kernel.org
-To: tgraf@suug.ch
+Cc: alex.aring@gmail.com, linux-wpan@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: k.kozlowski@samsung.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60703 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60755 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753240AbbAEVaV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 16:30:21 -0500
-In-Reply-To: <20150105130514.GA15499@casper.infradead.org>
+	with ESMTP id S1753663AbbAEVdO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 16:33:14 -0500
+In-Reply-To: <1420448551-9443-1-git-send-email-k.kozlowski@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Mon, 5 Jan 2015 13:05:14 +0000
+From: Krzysztof Kozlowski <k.kozlowski@samsung.com>
+Date: Mon, 05 Jan 2015 10:02:31 +0100
 
-> On 01/05/15 at 07:33pm, Ying Xue wrote:
->> Involve a new function called rhashtable_lookup_insert() which makes
->> lookup and insertion atomic under bucket lock protection, helping us
->> avoid to introduce an extra lock when we search and insert an object
->> into hash table.
->> 
->> Signed-off-by: Ying Xue <ying.xue@windriver.com>
->> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> The regmap_config struct may be const because it is not modified by the
+> driver and regmap_init() accepts pointer to const.
 > 
-> Thanks for putting this around so quickly and thanks for testing.
-> I think this looks good. You might be able to factor out some code
-> from rhashtable_insert() to avoid duplication so we reduce the risk
-> of fixing a bug for one function but not the other.
+> Signed-off-by: Krzysztof Kozlowski <k.kozlowski@samsung.com>
 
-Do you want Ying to do this factoring out now in a v3 of this patch
-or in a subsequent patch?
-
-I assume the former since you didn't give your ACK.
+Applied.
