@@ -1,70 +1,102 @@
-From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: [PATCH v3 3/4] can: kvaser_usb: Don't send a RESET_CHIP for
- non-existing channels
-Date: Mon, 5 Jan 2015 12:57:13 -0500
-Message-ID: <20150105175713.GC6304@linux>
-References: <20141223154654.GB6460@vivalin-002>
- <20150105174910.GA6304@linux>
- <20150105175206.GB6304@linux>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net] gso: do GSO for local skb with size
+	bigger than MTU
+Date: Mon, 5 Jan 2015 12:58:33 -0500
+Message-ID: <CAEP_g=-R1FrcA0sTJJjQhypRtVCwoRZ+LieKaSJxqA-HACZqEw@mail.gmail.com>
+References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
+ <1417158128.3268.2@smtp.corp.redhat.com>
+ <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com>
+ <20141201135225.GA16814@casper.infradead.org>
+ <20141202154839.GB5344@t520.home>
+ <20141202170927.GA9457@casper.infradead.org>
+ <20141202173401.GB4126@redhat.com>
+ <20141202174158.GB9457@casper.infradead.org>
+ <5A90DA2E42F8AE43BC4A093BF0678848DEDFDB@SHSMSX104.ccr.corp.intel.com>
+ <54AA2912.6090903@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f177.google.com ([74.125.82.177]:47664 "EHLO
-	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932271AbbAER5S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 12:57:18 -0500
-Content-Disposition: inline
-In-Reply-To: <20150105175206.GB6304@linux>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "Du, Fan" <fan.du-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ "fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org" <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Fan Du <fengyuleidian0615-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <54AA2912.6090903-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
-
-Recent Leaf firmware versions (>= 3.1.557) do not allow to send
-commands for non-existing channels.  If a command is sent for a
-non-existing channel, the firmware crashes.
-
-Reported-by: Christopher Storah <Christopher.Storah@invetech.com.au>
-Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
-Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
----
- drivers/net/can/usb/kvaser_usb.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-** V3 Changelog:
-- Update commit log message per Olivier remarks on v2
-
-diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
-index 9accc82..cc7bfc0 100644
---- a/drivers/net/can/usb/kvaser_usb.c
-+++ b/drivers/net/can/usb/kvaser_usb.c
-@@ -1503,6 +1503,10 @@ static int kvaser_usb_init_one(struct usb_interface *intf,
- 	struct kvaser_usb_net_priv *priv;
- 	int i, err;
- 
-+	err = kvaser_usb_send_simple_msg(dev, CMD_RESET_CHIP, channel);
-+	if (err)
-+		return err;
-+
- 	netdev = alloc_candev(sizeof(*priv), MAX_TX_URBS);
- 	if (!netdev) {
- 		dev_err(&intf->dev, "Cannot alloc candev\n");
-@@ -1607,9 +1611,6 @@ static int kvaser_usb_probe(struct usb_interface *intf,
- 
- 	usb_set_intfdata(intf, dev);
- 
--	for (i = 0; i < MAX_NET_DEVICES; i++)
--		kvaser_usb_send_simple_msg(dev, CMD_RESET_CHIP, i);
--
- 	err = kvaser_usb_get_software_info(dev);
- 	if (err) {
- 		dev_err(&intf->dev,
+T24gTW9uLCBKYW4gNSwgMjAxNSBhdCAxOjAyIEFNLCBGYW4gRHUgPGZlbmd5dWxlaWRpYW4wNjE1
+QGdtYWlsLmNvbT4gd3JvdGU6Cj4g5LqOIDIwMTTlubQxMuaciDAz5pelIDEwOjMxLCBEdSwgRmFu
+IOWGmemBkzoKPgo+Pgo+Pgo+Pj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0KPj4+IEZyb206
+IFRob21hcyBHcmFmIFttYWlsdG86dGdyQGluZnJhZGVhZC5vcmddIE9uIEJlaGFsZiBPZiBUaG9t
+YXMgR3JhZgo+Pj4gU2VudDogV2VkbmVzZGF5LCBEZWNlbWJlciAzLCAyMDE0IDE6NDIgQU0KPj4+
+IFRvOiBNaWNoYWVsIFMuIFRzaXJraW4KPj4+IENjOiBEdSwgRmFuOyAnSmFzb24gV2FuZyc7IG5l
+dGRldkB2Z2VyLmtlcm5lbC5vcmc7IGRhdmVtQGRhdmVtbG9mdC5uZXQ7Cj4+PiBmd0BzdHJsZW4u
+ZGU7IGRldkBvcGVudnN3aXRjaC5vcmc7IGplc3NlQG5pY2lyYS5jb207IHBzaGVsYXJAbmljaXJh
+LmNvbQo+Pj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXRdIGdzbzogZG8gR1NPIGZvciBsb2NhbCBz
+a2Igd2l0aCBzaXplIGJpZ2dlciB0aGFuCj4+PiBNVFUKPj4+Cj4+PiBPbiAxMi8wMi8xNCBhdCAw
+NzozNHBtLCBNaWNoYWVsIFMuIFRzaXJraW4gd3JvdGU6Cj4+Pj4KPj4+PiBPbiBUdWUsIERlYyAw
+MiwgMjAxNCBhdCAwNTowOToyN1BNICswMDAwLCBUaG9tYXMgR3JhZiB3cm90ZToKPj4+Pj4KPj4+
+Pj4gT24gMTIvMDIvMTQgYXQgMDE6NDhwbSwgRmxhdmlvIExlaXRuZXIgd3JvdGU6Cj4+Pj4+Pgo+
+Pj4+Pj4gV2hhdCBhYm91dCBjb250YWluZXJzIG9yIGFueSBvdGhlciB2aXJ0dWFsaXphdGlvbiBl
+bnZpcm9ubWVudCB0aGF0Cj4+Pj4+PiBkb2Vzbid0IHVzZSBWaXJ0aW8/Cj4+Pj4+Cj4+Pj4+Cj4+
+Pj4+IFRoZSBob3N0IGNhbiBkaWN0YXRlIHRoZSBNVFUgaW4gdGhhdCBjYXNlIGZvciBib3RoIHZl
+dGggb3IgT1ZTCj4+Pj4+IGludGVybmFsIHdoaWNoIHdvdWxkIGJlIHByaW1hcnkgY29udGFpbmVy
+IHBsdW1iaW5nIHRlY2huaXF1ZXMuCj4+Pj4KPj4+Pgo+Pj4+IEl0IHR5cGljYWxseSBjYW4ndCBk
+byB0aGlzIGVhc2lseSBmb3IgVk1zIHdpdGggZW11bGF0ZWQgZGV2aWNlczoKPj4+PiByZWFsIGV0
+aGVybmV0IHVzZXMgYSBmaXhlZCBNVFUuCj4+Pj4KPj4+PiBJTUhPIGl0J3MgY29uZnVzaW5nIHRv
+IHN1Z2dlc3QgTVRVIGFzIGEgZml4IGZvciB0aGlzIGJ1ZywgaXQncyBhbgo+Pj4+IHVucmVsYXRl
+ZCBvcHRpbWl6YXRpb24uCj4+Pj4gSUNNUF9ERVNUX1VOUkVBQ0gvSUNNUF9GUkFHX05FRURFRCBp
+cyB0aGUgcmlnaHQgZml4IGhlcmUuCj4+Pgo+Pj4KPj4+IFBNVFUgZGlzY292ZXJ5IG9ubHkgcmVz
+b2x2ZXMgdGhlIGlzc3VlIGlmIGFuIGFjdHVhbCBJUCBzdGFjayBpcyBydW5uaW5nCj4+PiBpbnNp
+ZGUgdGhlCj4+PiBWTS4gVGhpcyBtYXkgbm90IGJlIHRoZSBjYXNlIGF0IGFsbC4KPj4KPj4gICBe
+Xl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl4KPj4KPj4gU29tZSB0aG91Z2h0cyBoZXJlOgo+Pgo+
+PiBUaGluayBvdGhlcndpc2UsIHRoaXMgaXMgaW5kZWVkIHdoYXQgaG9zdCBzdGFjayBzaG91bGQg
+Zm9yZ2UgYQo+PiBJQ01QX0RFU1RfVU5SRUFDSC9JQ01QX0ZSQUdfTkVFREVECj4+IG1lc3NhZ2Ug
+d2l0aCBfaW5uZXJfIHNrYiBuZXR3b3JrIGFuZCB0cmFuc3BvcnQgaGVhZGVyLCBkbyB3aGF0ZXZl
+ciB0eXBlIG9mCj4+IGVuY2Fwc3VsYXRpb24sCj4+IGFuZCB0aGVyZWFmdGVyIHB1c2ggc3VjaCBw
+YWNrZXQgdXB3YXJkIHRvIEd1ZXN0L0NvbnRhaW5lciwgd2hpY2ggbWFrZSB0aGVtCj4+IGZlZWws
+IHRoZSBpbnRlcm1lZGlhdGUgbm9kZQo+PiBvciB0aGUgcGVlciBzZW5kIHN1Y2ggbWVzc2FnZS4g
+UE1UVSBzaG91bGQgYmUgZXhwZWN0ZWQgdG8gd29yayBjb3JyZWN0Lgo+PiBBbmQgc3VjaCBiZWhh
+dmlvciBzaG91bGQgYmUgc2hhcmVkIGJ5IGFsbCBvdGhlciBlbmNhcHN1bGF0aW9uIHRlY2ggaWYg
+dGhleQo+PiBhcmUgYWxzbyBzdWZmZXJlZC4KPgo+Cj4gSGkgRGF2aWQsIEplc3NlIGFuZCBUaG9t
+YXMKPgo+IEFzIGRpc2N1c3NlZCBpbiBoZXJlOgo+IGh0dHBzOi8vd3d3Lm1hcmMuaW5mby8/bD1s
+aW51eC1uZXRkZXYmbT0xNDE3NjQ3MTI2MzExNTAmdz00IGFuZAo+IHF1b3RlcyBmcm9tIEplc3Nl
+Ogo+IE15IHByb3Bvc2FsIHdvdWxkIGJlIHNvbWV0aGluZyBsaWtlIHRoaXM6Cj4gICogRm9yIEwy
+LCByZWR1Y2UgdGhlIFZNIE1UVSB0byB0aGUgbG93ZXN0IGNvbW1vbiBkZW5vbWluYXRvciBvbiB0
+aGUKPiBzZWdtZW50Lgo+ICAqIEZvciBMMywgdXNlIHBhdGggTVRVIGRpc2NvdmVyeSBvciBmcmFn
+bWVudCBpbm5lciBwYWNrZXQgKGkuZS4KPiBub3JtYWwgcm91dGluZyBiZWhhdmlvcikuCj4gICog
+QXMgYSBsYXN0IHJlc29ydCAoc3VjaCBhcyBpZiB1c2luZyBhbiBvbGQgdmVyc2lvbiBvZiB2aXJ0
+aW8gaW4gdGhlCj4gZ3Vlc3QpLCBmcmFnbWVudCB0aGUgdHVubmVsIHBhY2tldC4KPgo+Cj4gRm9y
+IEwyLCBpdCdzIGEgYWRtaW5pc3RyYXRpdmUgYWN0aW9uCj4gRm9yIEwzLCBQTVRVIGFwcHJvYWNo
+IGxvb2tzIGJldHRlciwgYmVjYXVzZSBvbmNlIHRoZSBzZW5kZXIgaXMgYWxlcnRlZCB0aGUKPiBy
+ZWR1Y2VkIE1UVSwKPiBwYWNrZXQgc2l6ZSBhZnRlciBlbmNhcHN1bGF0aW9uIHdpbGwgbm90IGV4
+Y2VlZCBwaHlzaWNhbCBNVFUsIHNvIG5vCj4gYWRkaXRpb25hbCBmcmFnbWVudHMKPiBlZmZvcnRz
+IG5lZWRlZC4KPiBGb3IgIkFzIGEgbGFzdCByZXNvcnQuLi4gZnJhZ21lbnQgdGhlIHR1bm5lbCBw
+YWNrZXQiLCB0aGUgb3JpZ2luYWwgcGF0Y2g6Cj4gaHR0cHM6Ly93d3cubWFyYy5pbmZvLz9sPWxp
+bnV4LW5ldGRldiZtPTE0MTcxNTY1NTAyNDA5MCZ3PTQgZGlkIHRoZSBqb2IsIGJ1dAo+IHNlZW1z
+IGl0J3MKPiBub3Qgd2VsY29tZWQuCgpUaGlzIG5lZWRzIHRvIGJlIHByb3Blcmx5IGludGVncmF0
+ZWQgaW50byBJUCBwcm9jZXNzaW5nIGlmIGl0IGlzIHRvCndvcmsgY29ycmVjdGx5LiBPbmUgb2Yg
+dGhlIHJlYXNvbnMgZm9yIG9ubHkgZG9pbmcgcGF0aCBNVFUgZGlzY292ZXJ5CmZvciBMMyBpcyB0
+aGF0IGl0IG9wZXJhdGVzIHNlYW1sZXNzbHkgYXMgcGFydCBvZiBub3JtYWwgb3BlcmF0aW9uIC0K
+dGhlcmUgaXMgbm8gbmVlZCB0byBmb3JnZSBhZGRyZXNzZXMgb3IgcG90ZW50aWFsbHkgZ2VuZXJh
+dGUgSUNNUCB3aGVuCm9uIGFuIEwyIG5ldHdvcmsuIEhvd2V2ZXIsIHRoaXMgaWdub3JlcyB0aGUg
+SVAgaGFuZGxpbmcgdGhhdCBpcyBnb2luZwpvbiAobm90ZSB0aGF0IGluIE9WUyBpdCBpcyBwb3Nz
+aWJsZSBmb3IgTDMgdG8gYmUgaW1wbGVtZW50ZWQgYXMgYSBzZXQKb2YgZmxvd3MgY29taW5nIGZy
+b20gYSBjb250cm9sbGVyKS4KCkl0IGFsc28gc2hvdWxkIG5vdCBiZSBWWExBTiBzcGVjaWZpYyBv
+ciBkdXBsaWNhdGUgVlhMQU4gZW5jYXBzdWxhdGlvbgpjb2RlLiBBcyB0aGlzIGlzIGhhcHBlbmlu
+ZyBiZWZvcmUgZW5jYXBzdWxhdGlvbiwgdGhlIGdlbmVyYXRlZCBJQ01QCmRvZXMgbm90IG5lZWQg
+dG8gYmUgZW5jYXBzdWxhdGVkIGVpdGhlciBpZiBpdCBpcyBjcmVhdGVkIGluIHRoZSByaWdodAps
+b2NhdGlvbi4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
+ZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5v
+cmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
