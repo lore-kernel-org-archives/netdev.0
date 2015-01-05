@@ -1,53 +1,57 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: NULL pointer dereference at skb_queue_tail()
-Date: Mon, 5 Jan 2015 11:03:24 -0800
-Message-ID: <CAHA+R7Mq=vhSCqJsE5dn7PGg39R8Nh+m1RT0F-KcoBU99GdpWA@mail.gmail.com>
-References: <201412252222.HIF57826.OQFSVFFOMHLOJt@I-love.SAKURA.ne.jp>
-	<201501052150.CIG69242.FFVOLQOJFHtMSO@I-love.SAKURA.ne.jp>
+From: Vinson Lee <vlee@twopensource.com>
+Subject: next-timestamp build failure with 3.19-rc2
+Date: Mon, 5 Jan 2015 11:55:58 -0800
+Message-ID: <CAHTgTXUGVkJX26bFSOC9EH2gUynSKhLNr7D8mN8cSy7Km_+f9Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:64210 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754309AbbAETDZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 14:03:25 -0500
-Received: by mail-qa0-f53.google.com with SMTP id j7so15264975qaq.40
-        for <netdev@vger.kernel.org>; Mon, 05 Jan 2015 11:03:24 -0800 (PST)
-In-Reply-To: <201501052150.CIG69242.FFVOLQOJFHtMSO@I-love.SAKURA.ne.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-doc@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Jonathan Corbet <corbet@lwn.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Willem de Bruijn <willemb@google.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 5, 2015 at 4:50 AM, Tetsuo Handa
-<penguin-kernel@i-love.sakura.ne.jp> wrote:
-> Tetsuo Handa wrote:
->> I can reproduce below oops when testing Linux 3.18 with memory allocation
->> failure injection module at https://lkml.org/lkml/2014/12/25/64 .
->
-> I can reliably reproduce this oops with current linux.git using memory
-> allocation failure injection module. There is a possibility of memory
-> corruption since this oops always occurs immediately after memory
-> allocation failure within GPU/DRM code. I want to check whether
-> fields of structures have expected values or not.
+Hi.
 
-Looks like the skb->prev and/or skb->next in the skb queue is corrupted,
-but I don't see why. We do play some magic on these pointers recently,
-but it should not be related with unix socket at all.
+I'm hitting the following build error with 3.19-rc2 on CentOS 5 with
+glibc-headers-2.5-123.
 
-Is it possible for you to check if this is a regression of recent kernel?
-We only have few changes in unix socket recently, and I don't see they
-could cause this bug.
+  HOSTCC  Documentation/networking/timestamping/txtimestamp
+Documentation/networking/timestamping/txtimestamp.c:64:8: error:
+redefinition of =E2=80=98struct in6_pktinfo=E2=80=99
+ struct in6_pktinfo {
+        ^
+In file included from /usr/include/arpa/inet.h:23:0,
+                 from Documentation/networking/timestamping/txtimestamp=
+=2Ec:33:
+/usr/include/netinet/in.h:456:8: note: originally defined here
+ struct in6_pktinfo
+        ^
 
->
->> void skb_queue_tail(struct sk_buff_head *list, struct sk_buff *newsk)
->> {
->>         unsigned long flags;
->>
->
-> Could you tell me what are expected values (i.e. what BUG_ON() test
-> should I try) at this location?
->
+The build error was introduced with
+cbd3aad5ce66f5a266a185aa37e0eb9be9ba4154 "net-timestamp: expand
+documentation and test".
 
-Since skb queue has its own code to do list operations, we can't
-use the existing list debugging to debug this list corruption. :(
+commit cbd3aad5ce66f5a266a185aa37e0eb9be9ba4154
+Author: Willem de Bruijn <willemb@google.com>
+Date:   Sun Nov 30 22:22:35 2014 -0500
+
+    net-timestamp: expand documentation and test
+
+    Documentation:
+      expand explanation of timestamp counter
+
+    Test:
+      new: flag -I requests and prints PKTINFO
+      new: flag -x prints payload (possibly truncated)
+      fix: remove pretty print that breaks common flag '-l 1'
+
+    Signed-off-by: Willem de Bruijn <willemb@google.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+Cheers,
+Vinson
