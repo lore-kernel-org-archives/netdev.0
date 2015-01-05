@@ -1,61 +1,54 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [net-next PATCH v1 01/11] net: flow_table: create interface for
- hw match/action tables
-Date: Mon, 5 Jan 2015 21:48:38 +0000
-Message-ID: <20150105214838.GB31637@casper.infradead.org>
-References: <20141231194057.31070.5244.stgit@nitbit.x32>
- <20141231194544.31070.30335.stgit@nitbit.x32>
- <20150104111238.GD15305@casper.infradead.org>
- <54AADEFF.3090306@gmail.com>
+Subject: Re: [PATCH net-next v2] rhashtable: involve rhashtable_lookup_insert
+ routine
+Date: Mon, 5 Jan 2015 21:52:37 +0000
+Message-ID: <20150105215237.GC31637@casper.infradead.org>
+References: <1420457634-13017-1-git-send-email-ying.xue@windriver.com>
+ <20150105130514.GA15499@casper.infradead.org>
+ <20150105.163018.658637009804208069.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: sfeldma@gmail.com, jiri@resnulli.us, jhs@mojatatu.com,
-	simon.horman@netronome.com, netdev@vger.kernel.org,
-	davem@davemloft.net, andy@greyhouse.net
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: ying.xue@windriver.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:49441 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:49464 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751452AbbAEVsj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 16:48:39 -0500
+	with ESMTP id S1753240AbbAEVwj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 16:52:39 -0500
 Content-Disposition: inline
-In-Reply-To: <54AADEFF.3090306@gmail.com>
+In-Reply-To: <20150105.163018.658637009804208069.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/05/15 at 10:59am, John Fastabend wrote:
-> On 01/04/2015 03:12 AM, Thomas Graf wrote:
-> >On 12/31/14 at 11:45am, John Fastabend wrote:
-> >
-> >Impressive work John, some minor nits below. In general this looks
-> >great. How large could tables grow? Any risk one of the nested
-> >attribtues could exceed 16K in size because of a very large parse
-> >graph? Not a problem if we account for it and allow for jumbo
-> >attributes.
-> >
+On 01/05/15 at 04:30pm, David Miller wrote:
+> From: Thomas Graf <tgraf@suug.ch>
+> Date: Mon, 5 Jan 2015 13:05:14 +0000
 > 
-> hmm it sounds large to me but maybe if you have an NPU that is trying
-> to parse into application data it could happen.
+> > On 01/05/15 at 07:33pm, Ying Xue wrote:
+> >> Involve a new function called rhashtable_lookup_insert() which makes
+> >> lookup and insertion atomic under bucket lock protection, helping us
+> >> avoid to introduce an extra lock when we search and insert an object
+> >> into hash table.
+> >> 
+> >> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> >> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> > 
+> > Thanks for putting this around so quickly and thanks for testing.
+> > I think this looks good. You might be able to factor out some code
+> > from rhashtable_insert() to avoid duplication so we reduce the risk
+> > of fixing a bug for one function but not the other.
 > 
-> What does it take to allow for jumbo attributes?
-
-We basically need to make user space aware of a new nlattr header
-to be expected for certain attributes. We can reserve the 2nd bit
-of the type to indicate a 32bit length field following the current
-header. We can only do this for new attributes as its not backwards
-compatible so we need to think about this before we start exposing
-them.
-
-I can send a patch introducing them in the next few days if you
-want as it seems you'll have to respin this again anyway.
-
-> >You can jump to hdr_put_failure right away and get rid of the
-> >attr_put_failure target as you cancel that nest anyway. You can apply
-> >this comment to several other places as well if you want.
-> >
+> Do you want Ying to do this factoring out now in a v3 of this patch
+> or in a subsequent patch?
 > 
-> OK so to simplify the error paths we only need to cancel the outer most
-> nested attribute. I'll do this transformation.
+> I assume the former since you didn't give your ACK.
 
-It's a matter of style. I'm fine either way. Personally I prefer the
-single abort error target.
+Ying,
+
+I prefer it now if you don't mind. Basically I would like to see the
+grow decision factored out at least:
+
+        /* Only grow the table if no resizing is currently in progress. */
+        if (ht->tbl != ht->future_tbl &&
+            ht->p.grow_decision && ht->p.grow_decision(ht, tbl->size))
+                schedule_delayed_work(&ht->run_work, 0);
