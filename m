@@ -1,57 +1,52 @@
-From: Vinson Lee <vlee@twopensource.com>
-Subject: next-timestamp build failure with 3.19-rc2
-Date: Mon, 5 Jan 2015 11:55:58 -0800
-Message-ID: <CAHTgTXUGVkJX26bFSOC9EH2gUynSKhLNr7D8mN8cSy7Km_+f9Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-doc@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Jonathan Corbet <corbet@lwn.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Willem de Bruijn <willemb@google.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH net-next 0/4] ip: Support checksum returned in csmg
+Date: Mon,  5 Jan 2015 12:00:31 -0800
+Message-ID: <1420488035-24866-1-git-send-email-therbert@google.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:38024 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753418AbbAEUAq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 15:00:46 -0500
+Received: by mail-ie0-f171.google.com with SMTP id ar1so20108424iec.2
+        for <netdev@vger.kernel.org>; Mon, 05 Jan 2015 12:00:45 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi.
+This patch set allows the packet checksum for a datagram socket
+to be returned in csum data in recvmsg. This allows userspace
+to implement its own checksum over the data, for instance if an
+IP tunnel was be implemented in user space, the inner checksum
+could be validated.
 
-I'm hitting the following build error with 3.19-rc2 on CentOS 5 with
-glibc-headers-2.5-123.
+Changes in this patch set:
+  - Move checksum conversion to inet_sock from udp_sock. This
+    generalizes checksum conversion for use with other protocols.
+  - Move IP cmsg constants to a header file and make processing
+    of the flags more efficient in ip_cmsg_recv
+  - Return checksum value in cmsg. This is specifically the unfolded
+    32 bit checksum of the full packet starting from the first byte
+    returned in recvmsg
 
-  HOSTCC  Documentation/networking/timestamping/txtimestamp
-Documentation/networking/timestamping/txtimestamp.c:64:8: error:
-redefinition of =E2=80=98struct in6_pktinfo=E2=80=99
- struct in6_pktinfo {
-        ^
-In file included from /usr/include/arpa/inet.h:23:0,
-                 from Documentation/networking/timestamping/txtimestamp=
-=2Ec:33:
-/usr/include/netinet/in.h:456:8: note: originally defined here
- struct in6_pktinfo
-        ^
+Tested: Wrote a little server to get checksums in cmsg for UDP and
+        verfied correct checksum is returned.
+        
+Tom Herbert (4):
+  ip: Move checksum convert defines to inet
+  ip: IP cmsg cleanup
+  ip: Add offset parameter to ip_cmsg_recv
+  ip: Add support for IP_CHECKSUM cmsg
 
-The build error was introduced with
-cbd3aad5ce66f5a266a185aa37e0eb9be9ba4154 "net-timestamp: expand
-documentation and test".
+ include/linux/udp.h     |  16 +------
+ include/net/inet_sock.h |  27 ++++++++++++
+ include/net/ip.h        |   7 +++-
+ include/uapi/linux/in.h |   1 +
+ net/ipv4/fou.c          |   2 +-
+ net/ipv4/ip_sockglue.c  | 108 +++++++++++++++++++++++++++++++++++-------------
+ net/ipv4/udp.c          |   4 +-
+ net/ipv4/udp_tunnel.c   |   2 +-
+ net/ipv6/udp.c          |   2 +-
+ 9 files changed, 119 insertions(+), 50 deletions(-)
 
-commit cbd3aad5ce66f5a266a185aa37e0eb9be9ba4154
-Author: Willem de Bruijn <willemb@google.com>
-Date:   Sun Nov 30 22:22:35 2014 -0500
-
-    net-timestamp: expand documentation and test
-
-    Documentation:
-      expand explanation of timestamp counter
-
-    Test:
-      new: flag -I requests and prints PKTINFO
-      new: flag -x prints payload (possibly truncated)
-      fix: remove pretty print that breaks common flag '-l 1'
-
-    Signed-off-by: Willem de Bruijn <willemb@google.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-
-Cheers,
-Vinson
+-- 
+2.2.0.rc0.207.ga3a616c
