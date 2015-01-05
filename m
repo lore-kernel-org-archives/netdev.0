@@ -1,161 +1,153 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next v3 4/4] ip: Add offset parameter to ip_cmsg_recv
-Date: Mon,  5 Jan 2015 13:56:17 -0800
-Message-ID: <1420494977-15026-5-git-send-email-therbert@google.com>
+Subject: [PATCH net-next v3 1/4] ip: Move checksum convert defines to inet
+Date: Mon,  5 Jan 2015 13:56:14 -0800
+Message-ID: <1420494977-15026-2-git-send-email-therbert@google.com>
 References: <1420494977-15026-1-git-send-email-therbert@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:44994 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754559AbbAEV4k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 16:56:40 -0500
-Received: by mail-ig0-f179.google.com with SMTP id r2so3234297igi.0
-        for <netdev@vger.kernel.org>; Mon, 05 Jan 2015 13:56:40 -0800 (PST)
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:62807 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753441AbbAEV43 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 16:56:29 -0500
+Received: by mail-ig0-f181.google.com with SMTP id a13so43848igq.2
+        for <netdev@vger.kernel.org>; Mon, 05 Jan 2015 13:56:29 -0800 (PST)
 In-Reply-To: <1420494977-15026-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add ip_cmsg_recv_offset function which takes an offset argument
-that indicates the starting offset in skb where data is being received
-from. This will be useful in the case of UDP and provided checksum
-to user space.
-
-ip_cmsg_recv is an inline call to ip_cmsg_recv_offset with offset of
-zero.
+Move convert_csum from udp_sock to inet_sock. This allows the
+possibility that we can use convert checksum for different types
+of sockets and also allows convert checksum to be enabled from
+inet layer (what we'll want to do when enabling IP_CHECKSUM cmsg).
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/net/inet_sock.h |  1 +
- include/uapi/linux/in.h |  1 +
- net/ipv4/ip_sockglue.c  | 41 ++++++++++++++++++++++++++++++++++++++++-
+ include/linux/udp.h     | 16 +---------------
+ include/net/inet_sock.h | 17 +++++++++++++++++
+ net/ipv4/fou.c          |  2 +-
  net/ipv4/udp.c          |  2 +-
- 4 files changed, 43 insertions(+), 2 deletions(-)
+ net/ipv4/udp_tunnel.c   |  2 +-
+ net/ipv6/udp.c          |  2 +-
+ 6 files changed, 22 insertions(+), 19 deletions(-)
 
+diff --git a/include/linux/udp.h b/include/linux/udp.h
+index ee32775..247cfdc 100644
+--- a/include/linux/udp.h
++++ b/include/linux/udp.h
+@@ -49,11 +49,7 @@ struct udp_sock {
+ 	unsigned int	 corkflag;	/* Cork is required */
+ 	__u8		 encap_type;	/* Is this an Encapsulation socket? */
+ 	unsigned char	 no_check6_tx:1,/* Send zero UDP6 checksums on TX? */
+-			 no_check6_rx:1,/* Allow zero UDP6 checksums on RX? */
+-			 convert_csum:1;/* On receive, convert checksum
+-					 * unnecessary to checksum complete
+-					 * if possible.
+-					 */
++			 no_check6_rx:1;/* Allow zero UDP6 checksums on RX? */
+ 	/*
+ 	 * Following member retains the information to create a UDP header
+ 	 * when the socket is uncorked.
+@@ -102,16 +98,6 @@ static inline bool udp_get_no_check6_rx(struct sock *sk)
+ 	return udp_sk(sk)->no_check6_rx;
+ }
+ 
+-static inline void udp_set_convert_csum(struct sock *sk, bool val)
+-{
+-	udp_sk(sk)->convert_csum = val;
+-}
+-
+-static inline bool udp_get_convert_csum(struct sock *sk)
+-{
+-	return udp_sk(sk)->convert_csum;
+-}
+-
+ #define udp_portaddr_for_each_entry(__sk, node, list) \
+ 	hlist_nulls_for_each_entry(__sk, node, list, __sk_common.skc_portaddr_node)
+ 
 diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index 605ca42..eb16c7b 100644
+index a829b77..360b110 100644
 --- a/include/net/inet_sock.h
 +++ b/include/net/inet_sock.h
-@@ -203,6 +203,7 @@ struct inet_sock {
- #define IP_CMSG_RETOPTS		BIT(4)
- #define IP_CMSG_PASSSEC		BIT(5)
- #define IP_CMSG_ORIGDSTADDR	BIT(6)
-+#define IP_CMSG_CHECKSUM	BIT(7)
- 
- static inline struct inet_sock *inet_sk(const struct sock *sk)
- {
-diff --git a/include/uapi/linux/in.h b/include/uapi/linux/in.h
-index c33a65e..589ced0 100644
---- a/include/uapi/linux/in.h
-+++ b/include/uapi/linux/in.h
-@@ -109,6 +109,7 @@ struct in_addr {
- 
- #define IP_MINTTL       21
- #define IP_NODEFRAG     22
-+#define IP_CHECKSUM	23
- 
- /* IP_MTU_DISCOVER values */
- #define IP_PMTUDISC_DONT		0	/* Never send DF frames */
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 513d506..a317797 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -37,6 +37,7 @@
- #include <net/route.h>
- #include <net/xfrm.h>
- #include <net/compat.h>
-+#include <net/checksum.h>
- #if IS_ENABLED(CONFIG_IPV6)
- #include <net/transp_v6.h>
- #endif
-@@ -96,6 +97,20 @@ static void ip_cmsg_recv_retopts(struct msghdr *msg, struct sk_buff *skb)
- 	put_cmsg(msg, SOL_IP, IP_RETOPTS, opt->optlen, opt->__data);
+@@ -184,6 +184,7 @@ struct inet_sock {
+ 				mc_all:1,
+ 				nodefrag:1;
+ 	__u8			rcv_tos;
++	__u8			convert_csum;
+ 	int			uc_index;
+ 	int			mc_index;
+ 	__be32			mc_addr;
+@@ -250,4 +251,20 @@ static inline __u8 inet_sk_flowi_flags(const struct sock *sk)
+ 	return flags;
  }
  
-+static void ip_cmsg_recv_checksum(struct msghdr *msg, struct sk_buff *skb,
-+				  int offset)
++static inline void inet_inc_convert_csum(struct sock *sk)
 +{
-+	__wsum csum = skb->csum;
-+
-+	if (skb->ip_summed != CHECKSUM_COMPLETE)
-+		return;
-+
-+	if (offset != 0)
-+		csum = csum_sub(csum, csum_partial(skb->data, offset, 0));
-+
-+	put_cmsg(msg, SOL_IP, IP_CHECKSUM, sizeof(__wsum), &csum);
++	inet_sk(sk)->convert_csum++;
 +}
 +
- static void ip_cmsg_recv_security(struct msghdr *msg, struct sk_buff *skb)
- {
- 	char *secdata;
-@@ -191,9 +206,16 @@ void ip_cmsg_recv_offset(struct msghdr *msg, struct sk_buff *skb,
- 			return;
- 	}
- 
--	if (flags & IP_CMSG_ORIGDSTADDR)
-+	if (flags & IP_CMSG_ORIGDSTADDR) {
- 		ip_cmsg_recv_dstaddr(msg, skb);
- 
-+		flags &= ~IP_CMSG_ORIGDSTADDR;
-+		if (!flags)
-+			return;
-+	}
++static inline void inet_dec_convert_csum(struct sock *sk)
++{
++	if (inet_sk(sk)->convert_csum > 0)
++		inet_sk(sk)->convert_csum--;
++}
 +
-+	if (flags & IP_CMSG_CHECKSUM)
-+		ip_cmsg_recv_checksum(msg, skb, offset);
- }
- EXPORT_SYMBOL(ip_cmsg_recv_offset);
++static inline bool inet_get_convert_csum(struct sock *sk)
++{
++	return !!inet_sk(sk)->convert_csum;
++}
++
+ #endif	/* _INET_SOCK_H */
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index b986298..2197c36 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -490,7 +490,7 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
+ 	sk->sk_user_data = fou;
+ 	fou->sock = sock;
  
-@@ -533,6 +555,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
- 	case IP_MULTICAST_ALL:
- 	case IP_MULTICAST_LOOP:
- 	case IP_RECVORIGDSTADDR:
-+	case IP_CHECKSUM:
- 		if (optlen >= sizeof(int)) {
- 			if (get_user(val, (int __user *) optval))
- 				return -EFAULT;
-@@ -630,6 +653,19 @@ static int do_ip_setsockopt(struct sock *sk, int level,
- 		else
- 			inet->cmsg_flags &= ~IP_CMSG_ORIGDSTADDR;
- 		break;
-+	case IP_CHECKSUM:
-+		if (val) {
-+			if (!(inet->cmsg_flags & IP_CMSG_CHECKSUM)) {
-+				inet_inc_convert_csum(sk);
-+				inet->cmsg_flags |= IP_CMSG_CHECKSUM;
-+			}
-+		} else {
-+			if (inet->cmsg_flags & IP_CMSG_CHECKSUM) {
-+				inet_dec_convert_csum(sk);
-+				inet->cmsg_flags &= ~IP_CMSG_CHECKSUM;
-+			}
-+		}
-+		break;
- 	case IP_TOS:	/* This sets both TOS and Precedence */
- 		if (sk->sk_type == SOCK_STREAM) {
- 			val &= ~INET_ECN_MASK;
-@@ -1233,6 +1269,9 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
- 	case IP_RECVORIGDSTADDR:
- 		val = (inet->cmsg_flags & IP_CMSG_ORIGDSTADDR) != 0;
- 		break;
-+	case IP_CHECKSUM:
-+		val = (inet->cmsg_flags & IP_CMSG_CHECKSUM) != 0;
-+		break;
- 	case IP_TOS:
- 		val = inet->tos;
- 		break;
+-	udp_set_convert_csum(sk, true);
++	inet_inc_convert_csum(sk);
+ 
+ 	sk->sk_allocation = GFP_ATOMIC;
+ 
 diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 53358d8..97ef1f8b 100644
+index 13b4dcf..53358d8 100644
 --- a/net/ipv4/udp.c
 +++ b/net/ipv4/udp.c
-@@ -1329,7 +1329,7 @@ try_again:
- 		*addr_len = sizeof(*sin);
- 	}
- 	if (inet->cmsg_flags)
--		ip_cmsg_recv(msg, skb);
-+		ip_cmsg_recv_offset(msg, skb, sizeof(struct udphdr));
+@@ -1806,7 +1806,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 	if (sk != NULL) {
+ 		int ret;
  
- 	err = copied;
- 	if (flags & MSG_TRUNC)
+-		if (udp_sk(sk)->convert_csum && uh->check && !IS_UDPLITE(sk))
++		if (inet_get_convert_csum(sk) && uh->check && !IS_UDPLITE(sk))
+ 			skb_checksum_try_convert(skb, IPPROTO_UDP, uh->check,
+ 						 inet_compute_pseudo);
+ 
+diff --git a/net/ipv4/udp_tunnel.c b/net/ipv4/udp_tunnel.c
+index 1671263..9996e63 100644
+--- a/net/ipv4/udp_tunnel.c
++++ b/net/ipv4/udp_tunnel.c
+@@ -63,7 +63,7 @@ void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
+ 	inet_sk(sk)->mc_loop = 0;
+ 
+ 	/* Enable CHECKSUM_UNNECESSARY to CHECKSUM_COMPLETE conversion */
+-	udp_set_convert_csum(sk, true);
++	inet_inc_convert_csum(sk);
+ 
+ 	rcu_assign_sk_user_data(sk, cfg->sk_user_data);
+ 
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 189dc4a..e41f017 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -909,7 +909,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 			goto csum_error;
+ 		}
+ 
+-		if (udp_sk(sk)->convert_csum && uh->check && !IS_UDPLITE(sk))
++		if (inet_get_convert_csum(sk) && uh->check && !IS_UDPLITE(sk))
+ 			skb_checksum_try_convert(skb, IPPROTO_UDP, uh->check,
+ 						 ip6_compute_pseudo);
+ 
 -- 
 2.2.0.rc0.207.ga3a616c
