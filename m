@@ -1,43 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 1/4] net: bcmgenet: bcmgenet_init_tx_ring()
- cleanup
-Date: Sun, 04 Jan 2015 23:46:33 -0500 (EST)
-Message-ID: <20150104.234633.1102329264651728598.davem@davemloft.net>
-References: <20150104074523.5CA9C22034C@puck.mtv.corp.google.com>
+Subject: Re: [PATCH] Fix an infinite retry-loop
+Date: Sun, 04 Jan 2015 23:48:38 -0500 (EST)
+Message-ID: <20150104.234838.596521437683943688.davem@davemloft.net>
+References: <1420394696-20099-1-git-send-email-me@mortis.eu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
-To: pgynther@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46795 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752873AbbAEEqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 23:46:35 -0500
-In-Reply-To: <20150104074523.5CA9C22034C@puck.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, jitendra.kalsaria@qlogic.com,
+	ron.mercer@qlogic.com, linux-driver@qlogic.com,
+	netdev@vger.kernel.org
+To: me@mortis.eu
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1420394696-20099-1-git-send-email-me@mortis.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Petri Gynther <pgynther@google.com>
-Date: Sat,  3 Jan 2015 23:45:23 -0800 (PST)
+From: Giel van Schijndel <me@mortis.eu>
+Date: Sun,  4 Jan 2015 19:04:55 +0100
 
-> Signed-off-by: Petri Gynther <pgynther@google.com>
+> This was clearly intended as a retry-10-times loop, but due to the
+> absence of code incrementing the loop-counter it was practically a
+> retry-forever loop.
+> 
+> Rewritten it as a for-loop as well to make the loop-counter increment
+> (as well as its potential absence) easier to spot.
 
-I'm not applying patches like this with not even a minor
-explanation of what kind of cleanups are happening.
+Besides missing the Signoff, you also did not write your
+Subject line properly.
 
-> -	/* Disable rate control for now */
->  	bcmgenet_tdma_ring_writel(priv, index, flow_period_val,
->  				  TDMA_FLOW_PERIOD);
+You should format it as:
 
-And I think this comment, and the others you are removing are
-absolutely appropriate and should not be removed.
+Subject: [PATCH] ${SUBSYSTEM_PREFIX}: Description.
 
-Also, what value is there in renaming the function argument
-'write_ptr' to 'start_ptr'?  I think both names are equally
-clear.
+Where ${SUBSYSTEM_PREFIX} should be "qlogic: " in this
+case.
 
-You have to provide explanations and justifications in the commit log
-message of your changes.
+Do not fix this by replying to this email, instead make a new
+fresh patch posting to the lists.
 
-I'm not applying this series, sorry.
+This also applied to all of your other submissions, they all
+need to be fixed up in this manner at the very least.
