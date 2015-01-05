@@ -1,118 +1,194 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: [PATCH net-next v3 4/5] ixgbevf: Add RSS Key query code
-Date: Mon,  5 Jan 2015 16:15:10 +0200
-Message-ID: <1420467311-6680-5-git-send-email-vladz@cloudius-systems.com>
-References: <1420467311-6680-1-git-send-email-vladz@cloudius-systems.com>
-Cc: gleb@cloudius-systems.com, avi@cloudius-systems.com,
-	jeffrey.t.kirsher@intel.com,
-	Vlad Zolotarov <vladz@cloudius-systems.com>
-To: netdev@vger.kernel.org
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [RFC PATCH net-next 00/11] net: remove disable_irq() from
+ ->ndo_poll_controller
+Date: Mon, 5 Jan 2015 15:31:26 +0100
+Message-ID: <20150105143126.GA22122@kria>
+References: <1418135842-21389-1-git-send-email-sd@queasysnail.net>
+ <20141209.214433.7463087833083181.davem@davemloft.net>
+ <20141211214537.GA4159@kria>
+ <alpine.DEB.2.11.1412122242180.16494@nanos>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	peterz@infradead.org
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f171.google.com ([74.125.82.171]:39704 "EHLO
-	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753492AbbAEOPn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 09:15:43 -0500
-Received: by mail-we0-f171.google.com with SMTP id u56so7927113wes.30
-        for <netdev@vger.kernel.org>; Mon, 05 Jan 2015 06:15:42 -0800 (PST)
-In-Reply-To: <1420467311-6680-1-git-send-email-vladz@cloudius-systems.com>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:56890 "EHLO smtp2-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752923AbbAEObd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jan 2015 09:31:33 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.11.1412122242180.16494@nanos>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the ixgbevf_get_rss_key() function that queries the PF for an RSS Random Key
-using a new VF-PF channel IXGBE_VF_GET_RSS_KEY command.
+2014-12-12, 23:01:28 +0100, Thomas Gleixner wrote:
+> On Thu, 11 Dec 2014, Sabrina Dubroca wrote:
+> > 2014-12-09, 21:44:33 -0500, David Miller wrote:
+> > > 
+> > > Adding a new spinlock to every interrupt service routine is
+> > > simply a non-starter.
+> > > 
+> > > You will certainly have to find a way to fix this in a way
+> > > that doesn't involve adding any new overhead to the normal
+> > > operational paths of these drivers.
+> > 
+> > Okay. Here is another idea.
+> > 
+> > Since the issue is with the wait_event() part of synchronize_irq(),
+> > and it only takes care of threaded handlers, maybe we could try not
+> > waiting for threaded handlers.
+> > 
+> > Introduce disable_irq_nosleep() that returns true if it successfully
+> > synchronized against all handlers (there was no threaded handler
+> > running), false if it left some threads running.  And in
+> > ->ndo_poll_controller, only call the interrupt handler if
+> > synchronization was successful.
+> > 
+> > Both users of the poll controllers retry their action (alloc/xmit an
+> > skb) several times, with calls to the device's poll controller between
+> > attempts.  And hopefully, if the first attempt fails, we will still
+> > manage to get through?
+> 
+> Hopefully is not a good starting point. Is the poll controller
+> definitely retrying? Otherwise you might end up with the following:
+> 
+> Interrupt line is shared between your network device and a
+> device which requested a threaded interrupt handler.
+> 
+>   CPU0	       		   	    CPU1
+>   interrupt()
+>     your_device_handler()
+>       return NONE;
+>     shared_device_handler()
+>       return WAKE_THREAD;
+>       --> atomic_inc(threads_active);
+> 				    poll()
+> 				      disable_irq_nosleep()
+> 					sync_hardirq()
+> 					return atomic_read(threads_active);
+> 
+> So if you do not have a reliable retry then you might just go into a
+> stale state. And this can happen if the interrupt type is edge because
+> we do not disable the interrupt when we wakeup the thread for obvious
+> reasons.
 
-Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
----
-New in v2:
-   - Added a more detailed patch description.
+We do have loops retrying to run the netpoll controller, and trying to
+do the work even if the controller doesn't help.  And by hopefully I
+mean: even if we fail, we tried our best and netpoll isn't 100%
+reliable.
 
-New in v1 (compared to RFC):
-   - Use "if-else" statement instead of a "switch-case" for a single option case
-     (in ixgbevf_get_rss_key()).
----
- drivers/net/ethernet/intel/ixgbevf/mbx.h |  2 ++
- drivers/net/ethernet/intel/ixgbevf/vf.c  | 44 ++++++++++++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbevf/vf.h  |  1 +
- 3 files changed, 47 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/mbx.h b/drivers/net/ethernet/intel/ixgbevf/mbx.h
-index 951a506..f79432e 100644
---- a/drivers/net/ethernet/intel/ixgbevf/mbx.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/mbx.h
-@@ -118,6 +118,8 @@ enum ixgbe_pfvf_api_rev {
- #define IXGBE_VF_RETA_SZ        1	/* Number of RETA DWs to bring */
- #define IXGBE_VF_RETA_OFFSET    2	/* Offset in RETA */
- 
-+#define IXGBE_VF_GET_RSS_KEY	0x0b	/* get RSS hash key */
-+
- /* length of permanent address message returned from PF */
- #define IXGBE_VF_PERMADDR_MSG_LEN 4
- /* word in permanent address message with the current multicast type */
-diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
-index cb5a4cf..f42a67d 100644
---- a/drivers/net/ethernet/intel/ixgbevf/vf.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
-@@ -292,6 +292,50 @@ static inline int _ixgbevf_get_reta(struct ixgbe_hw *hw, u32 *msgbuf,
- }
- 
- /**
-+ * ixgbevf_get_rss_key - get the RSS Random Key
-+ * @hw: pointer to the HW structure
-+ * @reta: buffer to fill with RETA contents.
-+ *
-+ * The "rss_key" buffer should be big enough to contain 10 registers.
-+ *
-+ * Returns: 0 on success.
-+ *          if API doesn't support this operation - (-EPERM).
-+ */
-+int ixgbevf_get_rss_key(struct ixgbe_hw *hw, u8 *rss_key)
-+{
-+	int err;
-+	u32 msgbuf[IXGBE_VFMAILBOX_SIZE];
-+
-+	/* Return and error if API doesn't support RSS Random Key retrieval */
-+	if (hw->api_version != ixgbe_mbox_api_12)
-+		return -EPERM;
-+
-+	msgbuf[0] = IXGBE_VF_GET_RSS_KEY;
-+	err = hw->mbx.ops.write_posted(hw, msgbuf, 1);
-+
-+	if (err)
-+		return err;
-+
-+	err = hw->mbx.ops.read_posted(hw, msgbuf, 11);
-+
-+	if (err)
-+		return err;
-+
-+	msgbuf[0] &= ~IXGBE_VT_MSGTYPE_CTS;
-+
-+	/* If we didn't get an ACK there must have been
-+	 * some sort of mailbox error so we should treat it
-+	 * as such.
-+	 */
-+	if (msgbuf[0] != (IXGBE_VF_GET_RSS_KEY | IXGBE_VT_MSGTYPE_ACK))
-+		return IXGBE_ERR_MBX;
-+
-+	memcpy(rss_key, msgbuf + 1, 40);
-+
-+	return 0;
-+}
-+
-+/**
-  * ixgbevf_get_reta - get the RSS redirection table (RETA) contents.
-  * @hw: pointer to the HW structure
-  * @reta: buffer to fill with RETA contents.
-diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
-index 73c1b33..54f53f2b8 100644
---- a/drivers/net/ethernet/intel/ixgbevf/vf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
-@@ -209,5 +209,6 @@ int ixgbevf_negotiate_api_version(struct ixgbe_hw *hw, int api);
- int ixgbevf_get_queues(struct ixgbe_hw *hw, unsigned int *num_tcs,
- 		       unsigned int *default_tc);
- int ixgbevf_get_reta(struct ixgbe_hw *hw, u32 *reta);
-+int ixgbevf_get_rss_key(struct ixgbe_hw *hw, u8 *rss_key);
- #endif /* __IXGBE_VF_H__ */
- 
--- 
-2.1.0
+static struct sk_buff *find_skb(struct netpoll *np, int len, int reserve)
+{
+	...
+repeat:
+
+	skb = alloc_skb(len, GFP_ATOMIC);
+	if (!skb)
+		skb = skb_dequeue(&skb_pool);
+
+	if (!skb) {
+		if (++count < 10) {
+			netpoll_poll_dev(np->dev);
+			goto repeat;
+		}
+		return NULL;
+	}
+
+	...
+}
+
+void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
+			     struct net_device *dev)
+{
+	...
+
+		/* try until next clock tick */
+		for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
+		     tries > 0; --tries) {
+			if (HARD_TX_TRYLOCK(dev, txq)) {
+				if (!netif_xmit_stopped(txq))
+					status = netpoll_start_xmit(skb, dev, txq);
+
+				HARD_TX_UNLOCK(dev, txq);
+
+				if (status == NETDEV_TX_OK)
+					break;
+
+			}
+
+			/* tickle device maybe there is some cleanup */
+			netpoll_poll_dev(np->dev);
+
+			udelay(USEC_PER_POLL);
+		}
+
+	...
+}
+
+
+
+> Aside of that I think that something like this is a reasonable
+> approach to the problem.
+> 
+> The only other nitpicks I have are:
+> 
+>     - The name of the function sucks, though my tired braain can't
+>       come up with something reasonable right now
+
+I couldn't think of anything better.  Maybe 'disable_irq_trysync' or
+'disable_irq_hardsync'?
+
+Or maybe you prefer something that works like spin_trylock, and
+reenables the irq before returning if we can't sync?  Maybe the risk
+of abuse would be a bit lower this way?
+
+I made synchronize_irq_nosleep static, but maybe it should be
+EXPORT_SYMBOL'ed as well.  I didn't need that for e1000, but that
+would be more consistent.
+
+
+>     - The lack of extensive documentation how this interface is
+>       supposed to be used and the pitfals of abusage, both in the
+>       function documentation and the changelog.
+> 
+>       Merlily copying the existing documentation of the other
+>       interface is not sufficient.
+
+
+Yes, my email wasn't really a changelog, just a description and RFC.
+
+
+Modified documentation:
+
+-----
+disable_irq_nosleep - disable an irq and wait for completion of hard IRQ handlers
+@irq: Interrupt to disable
+
+Disable the selected interrupt line.  Enables and Disables are
+nested.
+This function does not sleep, and is safe to call in atomic context.
+
+This function waits for any pending hard IRQ handlers for this
+interrupt to complete before returning. If you use this
+function while holding a resource the IRQ handler may need you
+will deadlock.
+
+This function does not wait for threaded IRQ handlers.
+Returns true if synchronized, false if there are threaded
+handlers pending.
+
+If false is returned, the caller must assume that synchronization
+didn't occur, and that it is NOT safe to proceed.
+The caller MUST reenable the interrupt by calling enable_irq in all
+cases.
+
+This function may be called - with care - from IRQ context.
+-----
+
+
+Thanks.
+
+--
+Sabrina
