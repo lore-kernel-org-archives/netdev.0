@@ -1,34 +1,136 @@
-From: Krzysztof Kozlowski <k.kozlowski@samsung.com>
-Subject: [PATCH] at86rf230: Constify struct regmap_config
-Date: Mon, 05 Jan 2015 10:02:31 +0100
-Message-ID: <1420448551-9443-1-git-send-email-k.kozlowski@samsung.com>
-Cc: Krzysztof Kozlowski <k.kozlowski@samsung.com>
-To: Alexander Aring <alex.aring@gmail.com>, linux-wpan@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net-next] rhashtable: involve rhashtable_lookup_insert
+ routine
+Date: Mon, 5 Jan 2015 17:07:49 +0800
+Message-ID: <54AA5465.5070102@windriver.com>
+References: <1420447578-19320-1-git-send-email-ying.xue@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:33241 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753788AbbAEJIQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 04:08:16 -0500
+In-Reply-To: <1420447578-19320-1-git-send-email-ying.xue@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The regmap_config struct may be const because it is not modified by the
-driver and regmap_init() accepts pointer to const.
+On 01/05/2015 04:46 PM, Ying Xue wrote:
+> Involve a new function called rhashtable_lookup_insert() which makes
+> lookup and insertion atomic under bucket lock protection, helping us
+> avoid to introduce an extra lock when we search and insert an object
+> into hash table.
+> 
 
-Signed-off-by: Krzysztof Kozlowski <k.kozlowski@samsung.com>
----
- drivers/net/ieee802154/at86rf230.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Sorry, please ignore the version. We should compare key instead of
+object as we want to check whether in a bucket chain there is an entry
+whose key is identical with that of object to be inserted.
 
-diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index 80632fc59756..7b051eacb7f1 100644
---- a/drivers/net/ieee802154/at86rf230.c
-+++ b/drivers/net/ieee802154/at86rf230.c
-@@ -427,7 +427,7 @@ at86rf230_reg_precious(struct device *dev, unsigned int reg)
- 	}
- }
- 
--static struct regmap_config at86rf230_regmap_spi_config = {
-+static const struct regmap_config at86rf230_regmap_spi_config = {
- 	.reg_bits = 8,
- 	.val_bits = 8,
- 	.write_flag_mask = CMD_REG | CMD_WRITE,
--- 
-1.9.1
+Next version will come soon.
+
+Regards,
+Ying
+
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> Cc: Thomas Graf <tgraf@suug.ch>
+> ---
+>  include/linux/rhashtable.h |    1 +
+>  lib/rhashtable.c           |   62 +++++++++++++++++++++++++++++++++++++++++++-
+>  2 files changed, 62 insertions(+), 1 deletion(-)
+> 
+> diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
+> index de1459c7..73c913f 100644
+> --- a/include/linux/rhashtable.h
+> +++ b/include/linux/rhashtable.h
+> @@ -168,6 +168,7 @@ int rhashtable_shrink(struct rhashtable *ht);
+>  void *rhashtable_lookup(struct rhashtable *ht, const void *key);
+>  void *rhashtable_lookup_compare(struct rhashtable *ht, const void *key,
+>  				bool (*compare)(void *, void *), void *arg);
+> +bool rhashtable_lookup_insert(struct rhashtable *ht, struct rhash_head *obj);
+>  
+>  void rhashtable_destroy(struct rhashtable *ht);
+>  
+> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+> index cbad192..04e0af7 100644
+> --- a/lib/rhashtable.c
+> +++ b/lib/rhashtable.c
+> @@ -493,7 +493,7 @@ static void rht_deferred_worker(struct work_struct *work)
+>  }
+>  
+>  /**
+> - * rhashtable_insert - insert object into hash hash table
+> + * rhashtable_insert - insert object into hash table
+>   * @ht:		hash table
+>   * @obj:	pointer to hash head inside object
+>   *
+> @@ -700,6 +700,66 @@ restart:
+>  }
+>  EXPORT_SYMBOL_GPL(rhashtable_lookup_compare);
+>  
+> +/**
+> + * rhashtable_lookup_insert - lookup and insert object into hash table
+> + * @ht:		hash table
+> + * @obj:	pointer to hash head inside object
+> + *
+> + * Computes the hash value for the given object and traverses the bucket
+> + * chain checking whether the object exists in the chain or not. If it's
+> + * not found, the object is then inserted into the bucket chain. As the
+> + * bucket lock is held during the process of lookup and insertion, this
+> + * helps to avoid extra lock involvement.
+> + *
+> + * It is safe to call this function from atomic context.
+> + *
+> + * Will trigger an automatic deferred table resizing if the size grows
+> + * beyond the watermark indicated by grow_decision() which can be passed
+> + * to rhashtable_init().
+> + */
+> +bool rhashtable_lookup_insert(struct rhashtable *ht, struct rhash_head *obj)
+> +{
+> +	struct bucket_table *tbl;
+> +	struct rhash_head *he, *head;
+> +	spinlock_t *lock;
+> +	unsigned int hash;
+> +
+> +	rcu_read_lock();
+> +
+> +	tbl = rht_dereference_rcu(ht->tbl, ht);
+> +	hash = head_hashfn(ht, tbl, obj);
+> +	lock = bucket_lock(tbl, hash);
+> +
+> +	spin_lock_bh(lock);
+> +	head = rht_dereference_bucket(tbl->buckets[hash], tbl, hash);
+> +	if (rht_is_a_nulls(head)) {
+> +		INIT_RHT_NULLS_HEAD(obj->next, ht, hash);
+> +	} else {
+> +		rht_for_each(he, tbl, hash) {
+> +			if (he == obj) {
+> +				spin_unlock_bh(lock);
+> +				rcu_read_unlock();
+> +				return false;
+> +			}
+> +		}
+> +		RCU_INIT_POINTER(obj->next, head);
+> +	}
+> +	rcu_assign_pointer(tbl->buckets[hash], obj);
+> +	spin_unlock_bh(lock);
+> +
+> +	atomic_inc(&ht->nelems);
+> +
+> +	/* Only grow the table if no resizing is currently in progress. */
+> +	if (ht->tbl != ht->future_tbl &&
+> +	    ht->p.grow_decision && ht->p.grow_decision(ht, tbl->size))
+> +		schedule_delayed_work(&ht->run_work, 0);
+> +
+> +	rcu_read_unlock();
+> +
+> +	return true;
+> +}
+> +EXPORT_SYMBOL_GPL(rhashtable_lookup_insert);
+> +
+>  static size_t rounded_hashtable_size(struct rhashtable_params *params)
+>  {
+>  	return max(roundup_pow_of_two(params->nelem_hint * 4 / 3),
+> 
