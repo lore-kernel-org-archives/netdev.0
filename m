@@ -1,83 +1,122 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [CPSW driver] broadcast ethernet pkg will be dropped?
-Date: Mon, 5 Jan 2015 23:56:51 +0530
-Message-ID: <54AAD76B.6030508@ti.com>
-References: <20141229013606.GR970@techyauld.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] Revert "ipw2200: select CFG80211_WEXT"
+Date: Mon, 05 Jan 2015 19:57:04 +0100
+Message-ID: <1420484224.9459.16.camel@sipsolutions.net>
+References: <1420297188.2397.3.camel@tiscali.nl>
+	 <CD467A59-F563-439B-BA82-954AB27AD9CC@holtmann.org>
+	 <CA+55aFzYSiUkntraMrHEhMzkt35Ft2p9E3cT7ejwQOBDwKvcOg@mail.gmail.com>
+	 <1420324124.9624.60.camel@x220> <54AA641C.7050307@broadcom.com>
+	 <1420479510.14308.23.camel@x220> (sfid-20150105_183907_807502_81C08416)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Lokesh Vutla <lokeshvutla@ti.com>
-To: Zheng Yi <yzheng@techyauld.com>
+Cc: Arend van Spriel <arend@broadcom.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Stanislav Yakovlev <stas.yakovlev@gmail.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Jiri Kosina <jkosina@suse.cz>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Paul Bolle <pebolle@tiscali.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:43429 "EHLO comal.ext.ti.com"
+Received: from s3.sipsolutions.net ([5.9.151.49]:55645 "EHLO sipsolutions.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753364AbbAES1H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jan 2015 13:27:07 -0500
-In-Reply-To: <20141229013606.GR970@techyauld.com>
+	id S1753943AbbAES5S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jan 2015 13:57:18 -0500
+In-Reply-To: <1420479510.14308.23.camel@x220> (sfid-20150105_183907_807502_81C08416)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 29 December 2014 07:06 AM, Zheng Yi wrote:
-> Hi Sir
-> 
->    I found your mail address from Linux kernel git repo. I think there
->    is a problem in CPSW driver. If it is not your duty to maintain
->    those code, could you please tell me the ones who are in charge of
->    it?
-> 
->    I found that when a AM3352 board boot, I use a laptop to send ARP
->    request to it, the board do not reponse. Even ifconfig do not show
->    that there is any pkg sent to the CPSW device. I'm sure that the
->    ARP request PKG received by SoC(confirmed by my oscilloscope).
+On Mon, 2015-01-05 at 18:38 +0100, Paul Bolle wrote:
 
-Can you check the hardware statistics counters in CPSW also?
+> > ipw2200 is a WEXT driver using some wext functionality (and struct 
+> > wiphy) provided by cfg80211 hence it needs CFG80211_WEXT. I guess that 
+> > is what makes it confusing.
+> 
+> It doesn't help that I hardly know anything about mac80211, cfg80211 and
+> nl80211 (and lib80211 for that matter). To me these are mostly just
+> names that end in 80211.
 
-> 
->    After reading the SoC doc (Tech ref manual) and reading the driver code, i found that:
->    15.3.2.7 Address Lookup Engine (ALE)
->    "Broadcast packets will be dropped unless the broadcast address is entered into the table with the super bit set."
-> 
->    and in driver: drivers/net/ether/ti/cpsw_ale.c
-> 
->    int cpsw_ale_add_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask,
->                           int flags, u16 vid, int mcast_state)
->    {
->           /* ....... */
-> 
->           cpsw_ale_set_super(ale_entry, (flags & ALE_BLOCKED) ? 1 : 0);
-> 
->           /* ....... */
->    }
-> 
->    I have searched all of the calling of that function, and found no
->    ALE_BLOCKED flag was set.  Especially, in
->    cpsw_add_dual_emac_def_ale_entries(), only ALE_VLAN was provided
->    for the broadcast address.
-> 
->    After change the flag(brutally), my board can response to the ARP broadcast requests correctly.
-> 
->    Here are some questions I do not found the answer:
->    1. the macro ALE_BLOCKED seems be used uncorrectly.
->       If one want the pkg should be "blocked", the "super" bit should be cleared, not be set.
->       So, in cpsw_ale_add_mcast(), we should do like this:
->           cpsw_ale_set_super(ale_entry, (flags & ALE_BLOCKED) ? 0 : 1);
+:-)
+There isn't really all that much that ipw2x00 is using from cfg80211
+though - of note is that it has completely empty ops:
 
-When Super Bit is set, the packet will never be dropped by any ALE rules
-or rate limit. It is made sure that the packet will reach cpu port
-irrespective of any rules in the switch. So this is not the correct fix,
-need to root cause a bit more.
+static struct cfg80211_ops libipw_config_ops = { };
 
+IOW - all it does is register with the framework - courtesy of
+a3caa99e6c68f. It's practically useless.
+
+> Anyhow, concerning, CFG80211_WEXT: it seems the only functionality
+> provided by that symbol that ipw2200 uses directly is
+> cfg80211_wext_giwname(). Perhaps ipw2200 could have a private version of
+> that function, something like ipw2100's ipw2100_wx_get_name(). Should be
+> trivial to implement (ie, it could take _me_ a day or two).
+
+We could just revert that part of the commit above - or even completely.
+
+However, in theory at least doing *that* would now be a userspace
+regression - today you can at least discover the presence of ipw2200
+devices with nl80211, even if you can't do anything with them that way.
+
+> But perhaps ipw2200 uses CFG80211_WEXT _indirectly_ too. Ie, in
+> net/wireless/core.c I stumbled on
+>     #ifdef CONFIG_CFG80211_WEXT
+>             rdev->wiphy.wext = &cfg80211_wext_handler;
+>     #endif
+
+I don't think it does - see the note about the ops above. If it did,
+it'd have to implement the ops.
+
+> But I net/wireless/wext-core.c I then found
+>     #ifdef CONFIG_CFG80211_WEXT
+>             if (dev->ieee80211_ptr && dev->ieee80211_ptr->wiphy)
+>                     handlers = dev->ieee80211_ptr->wiphy->wext;
+>     #endif
+>     #ifdef CONFIG_WIRELESS_EXT
+>             if (dev->wireless_handlers)
+>                     handlers = dev->wireless_handlers;
+>     #endif
 > 
->       Do you think the current logic is reversed?
-> 
->    2. broadcast ethernet pkg from "FF:FF:FF:FF:FF:FF" should be alowed.
->       If by default, it desiged to be filtered out, why not add an interface to support
->       restore it? I do not found any code that can change filtering the broadcast pkg in runtime.
+> (There's much more to discover about WEXT, of course.) Anyhow, IPW2200
+> uses both CFG80211_WEXT and WIRELESS_EXT and cfg80211_wext_handler and
+> ipw2200's wireless_handlers appear to cover the same set of IOCTLS (one
+> exception: SIOCSIWPMKSA). So by now I'm really puzzled how this all fits
+> together.
 
-broadcast is not filtered out, it is always allowed to CPU port in CPSW
-driver. Can you dump ALE table entry and check whether something else is
-not correct in your setup.
+Well, this was meant as a transition mechanism for drivers. Ultimately,
+the way we thought how you'd convert a driver (and how we converted
+mac80211) would be to have the wext handlers like for example the scan
+ones:
 
-Regards
-Mugunthan V N
+static iw_handler ipw_wx_handlers[] = {
+...
+        IW_HANDLER(SIOCSIWSCAN, ipw_wx_set_scan),
+        IW_HANDLER(SIOCGIWSCAN, ipw_wx_get_scan),
+...
+};
+
+Then you could make a patch that uses the cfg80211 APIs for scanning in
+the driver -- i.e. implement the cfg80211_ops.scan method, report frames
+to the cfg80211 scanning and remove all the ieee->network_list stuff
+etc. using the related cfg80211 API (e.g. cfg80211_get_bss() and friends
+for getting a network, etc.) And then you'd change the handlers to be
+
+static iw_handler ipw_wx_handlers[] = {
+...
+        IW_HANDLER(SIOCSIWSCAN, cfg80211_wext_siwscan),
+        IW_HANDLER(SIOCGIWSCAN, cfg80211_wext_giwscan),
+...
+};
+
+This part would have to be done in a single patch.
+
+Multiple other groups of ioctls could be converted in similar patches,
+until at the end you can completely remove ipw_wx_handlers and rely
+entirely on cfg80211's wext compatibility.
+
+So far the theory - in practice nobody cared enough to start working on
+any of these drivers, let alone actually has the hardware today.
+
+johannes
