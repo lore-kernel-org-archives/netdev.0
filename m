@@ -1,37 +1,38 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH] net: flow: Guard against accessing non-existent
- attributes
-Date: Mon, 5 Jan 2015 11:04:03 +0900
-Message-ID: <20150105020401.GA15716@vergenet.net>
-References: <1419819455-19109-1-git-send-email-simon.horman@netronome.com>
- <54A1951A.2070209@gmail.com>
+Subject: Re: [PATCH] net: flow: Allow actions and matches to be NULL in
+ net_flow_put_flow()
+Date: Mon, 5 Jan 2015 11:06:18 +0900
+Message-ID: <20150105020616.GB15716@vergenet.net>
+References: <1419819602-23290-1-git-send-email-simon.horman@netronome.com>
+ <54A195C7.3010009@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: John Fastabend <john.r.fastabend@intel.com>, netdev@vger.kernel.org
 To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:47428 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752950AbbAECEO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 21:04:14 -0500
-Received: by mail-pd0-f177.google.com with SMTP id ft15so27004799pdb.22
-        for <netdev@vger.kernel.org>; Sun, 04 Jan 2015 18:04:13 -0800 (PST)
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:56117 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752937AbbAECG2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 21:06:28 -0500
+Received: by mail-pd0-f179.google.com with SMTP id fp1so27192638pdb.38
+        for <netdev@vger.kernel.org>; Sun, 04 Jan 2015 18:06:27 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <54A1951A.2070209@gmail.com>
+In-Reply-To: <54A195C7.3010009@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 29, 2014 at 09:53:30AM -0800, John Fastabend wrote:
-> On 12/28/2014 06:17 PM, Simon Horman wrote:
+On Mon, Dec 29, 2014 at 09:56:23AM -0800, John Fastabend wrote:
+> On 12/28/2014 06:20 PM, Simon Horman wrote:
+> >This makes the handing of the absence of actions or matches
+> >symmetric with net_flow_get_flow().
+> >
 > >Signed-off-by: Simon Horman <simon.horman@netronome.com>
 > >---
-> >  net/core/flow_table.c | 11 +++++++++++
-> >  1 file changed, 11 insertions(+)
 > 
-> Great thanks. I rolled it into the patches I should hopefully have
-> ready to submit later today.
-> 
-> By the way I got this working on rocker now so we can test it easier,
-> I'll post the driver updates as well.
+> Again thanks I actually just hit this with my rocker implementation
+> so very timely fix. Same story here I'll roll it into the patch and
+> submit it later today.
 
-Great, excellent news.
+Thanks. I have hit a few more minor problems which I have fixes for.
+What is the best way to handle them? Rebase them on v1 of your patchset
+and post them for review if they are still relevant?
