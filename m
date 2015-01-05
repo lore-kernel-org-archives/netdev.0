@@ -1,98 +1,95 @@
-From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: [PATCH v3 2/4] can: kvaser_usb: Reset all URB tx contexts upon
- channel close
-Date: Mon, 5 Jan 2015 12:52:06 -0500
-Message-ID: <20150105175206.GB6304@linux>
-References: <20141223154654.GB6460@vivalin-002>
- <20150105174910.GA6304@linux>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: Re: [PATCH v3 05/20] selftests/ftrace: add install target to enable
+ test install
+Date: Mon, 05 Jan 2015 11:06:13 -0700
+Message-ID: <54AAD295.6040208@osg.samsung.com>
+References: <cover.1419387513.git.shuahkh@osg.samsung.com> <e84eeeecde70ecb3ab82c5f825fec359f9e967ff.1419387513.git.shuahkh@osg.samsung.com> <20150102104526.29df5641@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: mmarek@suse.cz, gregkh@linuxfoundation.org,
+	akpm@linux-foundation.org, mingo@redhat.com, davem@davemloft.net,
+	keescook@chromium.org, tranmanphong@gmail.com, mpe@ellerman.id.au,
+	cov@codeaurora.org, dh.herrmann@gmail.com, hughd@google.com,
+	bobby.prani@gmail.com, serge.hallyn@ubuntu.com,
+	ebiederm@xmission.com, tim.bird@sonymobile.com,
+	josh@joshtriplett.org, koct9i@gmail.com,
+	linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	Shuah Khan <shuahkh@osg.samsung.com>
+To: Steven Rostedt <rostedt@goodmis.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:36660 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932400AbbAER7X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 12:59:23 -0500
-Content-Disposition: inline
-In-Reply-To: <20150105174910.GA6304@linux>
+Received: from lists.s-osg.org ([54.187.51.154]:42727 "EHLO lists.s-osg.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932068AbbAESGY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jan 2015 13:06:24 -0500
+In-Reply-To: <20150102104526.29df5641@gandalf.local.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
+On 01/02/2015 08:45 AM, Steven Rostedt wrote:
+> On Wed, 24 Dec 2014 09:27:41 -0700
+> Shuah Khan <shuahkh@osg.samsung.com> wrote:
+> 
+>> Add a new make target to enable installing test. This target
+>> installs test in the kselftest install location and add to the
+>> kselftest script to run the test. Install target can be run
+>> only from top level kernel source directory.
+>>
+>> Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
+>> ---
+>>  tools/testing/selftests/ftrace/Makefile | 11 ++++++++++-
+>>  1 file changed, 10 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/tools/testing/selftests/ftrace/Makefile b/tools/testing/selftests/ftrace/Makefile
+>> index 76cc9f1..7c7cf42 100644
+>> --- a/tools/testing/selftests/ftrace/Makefile
+>> +++ b/tools/testing/selftests/ftrace/Makefile
+>> @@ -1,7 +1,16 @@
+>> +TEST_STR = /bin/sh ./ftracetest || echo ftrace selftests: [FAIL]
+> 
+> Is it ok that this removes the quotes around the echo string? I don't
+> see anything wrong about it, but I don't know if there's a shell out
+> there that will fail due to it.
 
-Flooding the Kvaser CAN to USB dongle with multiple reads and
-writes in very high frequency (*), closing the CAN channel while
-all the transmissions are on (#), opening the device again (@),
-then sending a small number of packets would make the driver
-enter an almost infinite loop of:
+Right. both sh and bash are fine without the quotes. In this case there
+are no variables to interpret, so quotes don't do anything. I might as
+well play it safe. I will have to fix a few other tests to address this
+comment. Will generate v4s for a few tests in this series.
 
-[....]
-[15959.853988] kvaser_usb 4-3:1.0 can0: cannot find free context
-[15959.853990] kvaser_usb 4-3:1.0 can0: cannot find free context
-[15959.853991] kvaser_usb 4-3:1.0 can0: cannot find free context
-[15959.853993] kvaser_usb 4-3:1.0 can0: cannot find free context
-[15959.853994] kvaser_usb 4-3:1.0 can0: cannot find free context
-[15959.853995] kvaser_usb 4-3:1.0 can0: cannot find free context
-[....]
+Thanks,
+-- Shuah
 
-_dragging the whole system down_ in the process due to the
-excessive logging output.
+> 
+> Other than than,
+> 
+> Acked-by: Steven Rostedt <rostedt@goodmis.org>
+> 
+> -- Steve
+> 
+> 
+>> +
+>>  all:
+>>  
+>> +install:
+>> +ifdef INSTALL_KSFT_PATH
+>> +	install ./ftracetest $(INSTALL_KSFT_PATH)
+>> +	@cp -r test.d $(INSTALL_KSFT_PATH)
+>> +	echo "$(TEST_STR)" >> $(KSELFTEST)
+>> +endif
+>> +
+>>  run_tests:
+>> -	@/bin/sh ./ftracetest || echo "ftrace selftests: [FAIL]"
+>> +	@$(TEST_STR)
+>>  
+>>  clean:
+>>  	rm -rf logs/*
+> 
 
-Initially, this has caused random panics in the kernel due to a
-buggy error recovery path.  That got fixed in an earlier commit.(%)
-This patch aims at solving the root cause. -->
 
-16 tx URBs and contexts are allocated per CAN channel per USB
-device. Such URBs are protected by:
-
-a) A simple atomic counter, up to a value of MAX_TX_URBS (16)
-b) A flag in each URB context, stating if it's free
-c) The fact that ndo_start_xmit calls are themselves protected
-   by the networking layers higher above
-
-After grabbing one of the tx URBs, if the driver noticed that all
-of them are now taken, it stops the netif transmission queue.
-Such queue is worken up again only if an acknowedgment was received
-from the firmware on one of our earlier-sent frames.
-
-Meanwhile, upon channel close (#), the driver sends a CMD_STOP_CHIP
-to the firmware, effectively closing all further communication.  In
-the high traffic case, the atomic counter remains at MAX_TX_URBS,
-and all the URB contexts remain marked as active.  While opening
-the channel again (@), it cannot send any further frames since no
-more free tx URB contexts are available.
-
-Reset all tx URB contexts upon CAN channel close.
-
-(*) 50 parallel instances of `cangen0 -g 0 -ix`
-(#) `ifconfig can0 down`
-(@) `ifconfig can0 up`
-(%) "can: kvaser_usb: Don't free packets when tight on URBs"
-
-Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
----
- drivers/net/can/usb/kvaser_usb.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
-index 2e7d513..9accc82 100644
---- a/drivers/net/can/usb/kvaser_usb.c
-+++ b/drivers/net/can/usb/kvaser_usb.c
-@@ -1246,6 +1246,9 @@ static int kvaser_usb_close(struct net_device *netdev)
- 	if (err)
- 		netdev_warn(netdev, "Cannot stop device, error %d\n", err);
- 
-+	/* reset tx contexts */
-+	kvaser_usb_unlink_tx_urbs(priv);
-+
- 	priv->can.state = CAN_STATE_STOPPED;
- 	close_candev(priv->netdev);
- 
+-- 
+Shuah Khan
+Sr. Linux Kernel Developer
+Open Source Innovation Group
+Samsung Research America (Silicon Valley)
+shuahkh@osg.samsung.com | (970) 217-8978
