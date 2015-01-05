@@ -1,1982 +1,1498 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 5/5] cxgb4/cxgb4vf/csiostor: Cleanup PL, XGMAC, SF and MC related register defines
-Date: Mon,  5 Jan 2015 16:30:47 +0530
-Message-ID: <1420455647-23094-6-git-send-email-hariprasad@chelsio.com>
+From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH net-next 3/5] cxgb4/cxg4vf/csiostor: Cleanup MC, MA and CIM related register defines
+Date: Mon,  5 Jan 2015 16:30:45 +0530
+Message-ID: <1420455647-23094-4-git-send-email-hariprasad@chelsio.com>
 References: <1420455647-23094-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, JBottomley@parallels.com, hch@infradead.org,
-	roland@purestorage.com, leedom@chelsio.com, anish@chelsio.com,
-	nirranjan@chelsio.com, praveenm@chelsio.com,
-	swise@opengridcomputing.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	linux-rdma@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:15930 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753455AbbAEK4l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 05:56:41 -0500
-In-Reply-To: <1420455647-23094-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
+	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, praveenm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org,
+	Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1420455647-23094-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch cleanups all PL, XGMAC and SF related macros/register defines
-that are defined in t4_regs.h and the affected files
+This patch cleanups all MC, MA and CIM related macros/register defines that are
+defined in t4_regs.h and the affected files.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+Signed-off-by: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |   56 +-
- drivers/net/ethernet/chelsio/cxgb4/l2t.c           |    9 +-
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |  258 +++++-----
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |  538 +++++++++++---------
- drivers/net/ethernet/chelsio/cxgb4/t4_values.h     |   33 ++
- .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |    2 +-
- drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |    6 +-
- drivers/scsi/csiostor/csio_hw.c                    |  186 ++++----
- drivers/scsi/csiostor/csio_hw.h                    |    8 +-
- drivers/scsi/csiostor/csio_hw_chip.h               |    4 +-
- drivers/scsi/csiostor/csio_mb.c                    |    6 +-
- drivers/scsi/csiostor/csio_wr.c                    |    2 +-
- 12 files changed, 594 insertions(+), 514 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c       |  206 +++++-----
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h     |  501 +++++++++++++++-------
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_defs.h |    4 +-
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c   |   14 +-
+ drivers/scsi/csiostor/csio_hw.c                  |  125 +++---
+ drivers/scsi/csiostor/csio_hw_t4.c               |   32 +-
+ drivers/scsi/csiostor/csio_hw_t5.c               |   36 +-
+ drivers/scsi/csiostor/csio_mb.c                  |   49 ++-
+ 8 files changed, 588 insertions(+), 379 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 53ad8d3..04e675b 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -834,11 +834,11 @@ static void disable_msi(struct adapter *adapter)
- static irqreturn_t t4_nondata_intr(int irq, void *cookie)
- {
- 	struct adapter *adap = cookie;
-+	u32 v = t4_read_reg(adap, MYPF_REG(PL_PF_INT_CAUSE_A));
- 
--	u32 v = t4_read_reg(adap, MYPF_REG(PL_PF_INT_CAUSE));
--	if (v & PFSW) {
-+	if (v & PFSW_F) {
- 		adap->swintr = 1;
--		t4_write_reg(adap, MYPF_REG(PL_PF_INT_CAUSE), v);
-+		t4_write_reg(adap, MYPF_REG(PL_PF_INT_CAUSE_A), v);
- 	}
- 	t4_slow_intr_handler(adap);
- 	return IRQ_HANDLED;
-@@ -3654,10 +3654,10 @@ void cxgb4_iscsi_init(struct net_device *dev, unsigned int tag_mask,
- {
- 	struct adapter *adap = netdev2adap(dev);
- 
--	t4_write_reg(adap, ULP_RX_ISCSI_TAGMASK, tag_mask);
--	t4_write_reg(adap, ULP_RX_ISCSI_PSZ, HPZ0(pgsz_order[0]) |
--		     HPZ1(pgsz_order[1]) | HPZ2(pgsz_order[2]) |
--		     HPZ3(pgsz_order[3]));
-+	t4_write_reg(adap, ULP_RX_ISCSI_TAGMASK_A, tag_mask);
-+	t4_write_reg(adap, ULP_RX_ISCSI_PSZ_A, HPZ0_V(pgsz_order[0]) |
-+		     HPZ1_V(pgsz_order[1]) | HPZ2_V(pgsz_order[2]) |
-+		     HPZ3_V(pgsz_order[3]));
- }
- EXPORT_SYMBOL(cxgb4_iscsi_init);
- 
-@@ -4580,13 +4580,13 @@ int cxgb4_create_server_filter(const struct net_device *dev, unsigned int stid,
- 			f->fs.val.lip[i] = val[i];
- 			f->fs.mask.lip[i] = ~0;
- 		}
--		if (adap->params.tp.vlan_pri_map & F_PORT) {
-+		if (adap->params.tp.vlan_pri_map & PORT_F) {
- 			f->fs.val.iport = port;
- 			f->fs.mask.iport = mask;
- 		}
- 	}
- 
--	if (adap->params.tp.vlan_pri_map & F_PROTOCOL) {
-+	if (adap->params.tp.vlan_pri_map & PROTOCOL_F) {
- 		f->fs.val.proto = IPPROTO_TCP;
- 		f->fs.mask.proto = ~0;
- 	}
-@@ -4950,37 +4950,37 @@ static int adap_init1(struct adapter *adap, struct fw_caps_config_cmd *c)
- 
- 	/* tweak some settings */
- 	t4_write_reg(adap, TP_SHIFT_CNT_A, 0x64f8849);
--	t4_write_reg(adap, ULP_RX_TDDP_PSZ, HPZ0(PAGE_SHIFT - 12));
-+	t4_write_reg(adap, ULP_RX_TDDP_PSZ_A, HPZ0_V(PAGE_SHIFT - 12));
- 	t4_write_reg(adap, TP_PIO_ADDR_A, TP_INGRESS_CONFIG_A);
- 	v = t4_read_reg(adap, TP_PIO_DATA_A);
- 	t4_write_reg(adap, TP_PIO_DATA_A, v & ~CSUM_HAS_PSEUDO_HDR_F);
- 
- 	/* first 4 Tx modulation queues point to consecutive Tx channels */
- 	adap->params.tp.tx_modq_map = 0xE4;
--	t4_write_reg(adap, A_TP_TX_MOD_QUEUE_REQ_MAP,
--		     V_TX_MOD_QUEUE_REQ_MAP(adap->params.tp.tx_modq_map));
-+	t4_write_reg(adap, TP_TX_MOD_QUEUE_REQ_MAP_A,
-+		     TX_MOD_QUEUE_REQ_MAP_V(adap->params.tp.tx_modq_map));
- 
- 	/* associate each Tx modulation queue with consecutive Tx channels */
- 	v = 0x84218421;
- 	t4_write_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A,
--			  &v, 1, A_TP_TX_SCHED_HDR);
-+			  &v, 1, TP_TX_SCHED_HDR_A);
- 	t4_write_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A,
--			  &v, 1, A_TP_TX_SCHED_FIFO);
-+			  &v, 1, TP_TX_SCHED_FIFO_A);
- 	t4_write_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A,
--			  &v, 1, A_TP_TX_SCHED_PCMD);
-+			  &v, 1, TP_TX_SCHED_PCMD_A);
- 
- #define T4_TX_MODQ_10G_WEIGHT_DEFAULT 16 /* in KB units */
- 	if (is_offload(adap)) {
--		t4_write_reg(adap, A_TP_TX_MOD_QUEUE_WEIGHT0,
--			     V_TX_MODQ_WEIGHT0(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
--			     V_TX_MODQ_WEIGHT1(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
--			     V_TX_MODQ_WEIGHT2(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
--			     V_TX_MODQ_WEIGHT3(T4_TX_MODQ_10G_WEIGHT_DEFAULT));
--		t4_write_reg(adap, A_TP_TX_MOD_CHANNEL_WEIGHT,
--			     V_TX_MODQ_WEIGHT0(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
--			     V_TX_MODQ_WEIGHT1(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
--			     V_TX_MODQ_WEIGHT2(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
--			     V_TX_MODQ_WEIGHT3(T4_TX_MODQ_10G_WEIGHT_DEFAULT));
-+		t4_write_reg(adap, TP_TX_MOD_QUEUE_WEIGHT0_A,
-+			     TX_MODQ_WEIGHT0_V(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
-+			     TX_MODQ_WEIGHT1_V(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
-+			     TX_MODQ_WEIGHT2_V(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
-+			     TX_MODQ_WEIGHT3_V(T4_TX_MODQ_10G_WEIGHT_DEFAULT));
-+		t4_write_reg(adap, TP_TX_MOD_CHANNEL_WEIGHT_A,
-+			     TX_MODQ_WEIGHT0_V(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
-+			     TX_MODQ_WEIGHT1_V(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
-+			     TX_MODQ_WEIGHT2_V(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
-+			     TX_MODQ_WEIGHT3_V(T4_TX_MODQ_10G_WEIGHT_DEFAULT));
- 	}
- 
- 	/* get basic stuff going */
-@@ -5059,7 +5059,7 @@ static int adap_init0_config(struct adapter *adapter, int reset)
- 	 */
- 	if (reset) {
- 		ret = t4_fw_reset(adapter, adapter->mbox,
--				  PIORSTMODE | PIORST);
-+				  PIORSTMODE_F | PIORST_F);
- 		if (ret < 0)
- 			goto bye;
- 	}
-@@ -5264,7 +5264,7 @@ static int adap_init0_no_config(struct adapter *adapter, int reset)
- 	 */
- 	if (reset) {
- 		ret = t4_fw_reset(adapter, adapter->mbox,
--				  PIORSTMODE | PIORST);
-+				  PIORSTMODE_F | PIORST_F);
- 		if (ret < 0)
- 			goto bye;
- 	}
-@@ -6413,7 +6413,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto out_unmap_bar0;
- 
- 	/* We control everything through one PF */
--	func = SOURCEPF_GET(readl(regs + PL_WHOAMI));
-+	func = SOURCEPF_G(readl(regs + PL_WHOAMI_A));
- 	if (func != ent->driver_data) {
- 		iounmap(regs);
- 		pci_disable_device(pdev);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/l2t.c b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
-index a047baa..5ae1445 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/l2t.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
-@@ -46,6 +46,7 @@
- #include "t4_msg.h"
- #include "t4fw_api.h"
- #include "t4_regs.h"
-+#include "t4_values.h"
- 
- #define VLAN_NONE 0xfff
- 
-@@ -425,7 +426,7 @@ u64 cxgb4_select_ntuple(struct net_device *dev,
- 	 * in the Compressed Filter Tuple.
- 	 */
- 	if (tp->vlan_shift >= 0 && l2t->vlan != VLAN_NONE)
--		ntuple |= (u64)(F_FT_VLAN_VLD | l2t->vlan) << tp->vlan_shift;
-+		ntuple |= (u64)(FT_VLAN_VLD_F | l2t->vlan) << tp->vlan_shift;
- 
- 	if (tp->port_shift >= 0)
- 		ntuple |= (u64)l2t->lport << tp->port_shift;
-@@ -439,9 +440,9 @@ u64 cxgb4_select_ntuple(struct net_device *dev,
- 		u32 pf = FW_VIID_PFN_G(viid);
- 		u32 vld = FW_VIID_VIVLD_G(viid);
- 
--		ntuple |= (u64)(V_FT_VNID_ID_VF(vf) |
--				V_FT_VNID_ID_PF(pf) |
--				V_FT_VNID_ID_VLD(vld)) << tp->vnic_shift;
-+		ntuple |= (u64)(FT_VNID_ID_VF_V(vf) |
-+				FT_VNID_ID_PF_V(pf) |
-+				FT_VNID_ID_VLD_V(vld)) << tp->vnic_shift;
- 	}
- 
- 	return ntuple;
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index cf0bf79..3776279 100644
+index 9f8cd56..c9777e0 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -761,14 +761,13 @@ static int sf1_read(struct adapter *adapter, unsigned int byte_cnt, int cont,
+@@ -265,8 +265,8 @@ int t4_wr_mbox_meat(struct adapter *adap, int mbox, const void *cmd, int size,
+ 	u64 res;
+ 	int i, ms, delay_idx;
+ 	const __be64 *p = cmd;
+-	u32 data_reg = PF_REG(mbox, CIM_PF_MAILBOX_DATA);
+-	u32 ctl_reg = PF_REG(mbox, CIM_PF_MAILBOX_CTRL);
++	u32 data_reg = PF_REG(mbox, CIM_PF_MAILBOX_DATA_A);
++	u32 ctl_reg = PF_REG(mbox, CIM_PF_MAILBOX_CTRL_A);
  
- 	if (!byte_cnt || byte_cnt > 4)
+ 	if ((size & 15) || size > MBOX_LEN)
  		return -EINVAL;
--	if (t4_read_reg(adapter, SF_OP) & SF_BUSY)
-+	if (t4_read_reg(adapter, SF_OP_A) & SF_BUSY_F)
- 		return -EBUSY;
--	cont = cont ? SF_CONT : 0;
--	lock = lock ? SF_LOCK : 0;
--	t4_write_reg(adapter, SF_OP, lock | cont | BYTECNT(byte_cnt - 1));
--	ret = t4_wait_op_done(adapter, SF_OP, SF_BUSY, 0, SF_ATTEMPTS, 5);
-+	t4_write_reg(adapter, SF_OP_A, SF_LOCK_V(lock) |
-+		     SF_CONT_V(cont) | BYTECNT_V(byte_cnt - 1));
-+	ret = t4_wait_op_done(adapter, SF_OP_A, SF_BUSY_F, 0, SF_ATTEMPTS, 5);
- 	if (!ret)
--		*valp = t4_read_reg(adapter, SF_DATA);
-+		*valp = t4_read_reg(adapter, SF_DATA_A);
- 	return ret;
- }
+@@ -278,9 +278,9 @@ int t4_wr_mbox_meat(struct adapter *adap, int mbox, const void *cmd, int size,
+ 	if (adap->pdev->error_state != pci_channel_io_normal)
+ 		return -EIO;
  
-@@ -789,14 +788,12 @@ static int sf1_write(struct adapter *adapter, unsigned int byte_cnt, int cont,
- {
- 	if (!byte_cnt || byte_cnt > 4)
- 		return -EINVAL;
--	if (t4_read_reg(adapter, SF_OP) & SF_BUSY)
-+	if (t4_read_reg(adapter, SF_OP_A) & SF_BUSY_F)
- 		return -EBUSY;
--	cont = cont ? SF_CONT : 0;
--	lock = lock ? SF_LOCK : 0;
--	t4_write_reg(adapter, SF_DATA, val);
--	t4_write_reg(adapter, SF_OP, lock |
--		     cont | BYTECNT(byte_cnt - 1) | OP_WR);
--	return t4_wait_op_done(adapter, SF_OP, SF_BUSY, 0, SF_ATTEMPTS, 5);
-+	t4_write_reg(adapter, SF_DATA_A, val);
-+	t4_write_reg(adapter, SF_OP_A, SF_LOCK_V(lock) |
-+		     SF_CONT_V(cont) | BYTECNT_V(byte_cnt - 1) | OP_V(1));
-+	return t4_wait_op_done(adapter, SF_OP_A, SF_BUSY_F, 0, SF_ATTEMPTS, 5);
- }
+-	v = MBOWNER_GET(t4_read_reg(adap, ctl_reg));
++	v = MBOWNER_G(t4_read_reg(adap, ctl_reg));
+ 	for (i = 0; v == MBOX_OWNER_NONE && i < 3; i++)
+-		v = MBOWNER_GET(t4_read_reg(adap, ctl_reg));
++		v = MBOWNER_G(t4_read_reg(adap, ctl_reg));
  
- /**
-@@ -855,7 +852,7 @@ static int t4_read_flash(struct adapter *adapter, unsigned int addr,
- 	for ( ; nwords; nwords--, data++) {
- 		ret = sf1_read(adapter, 4, nwords > 1, nwords == 1, data);
- 		if (nwords == 1)
--			t4_write_reg(adapter, SF_OP, 0);    /* unlock SF */
-+			t4_write_reg(adapter, SF_OP_A, 0);    /* unlock SF */
- 		if (ret)
- 			return ret;
- 		if (byte_oriented)
-@@ -903,7 +900,7 @@ static int t4_write_flash(struct adapter *adapter, unsigned int addr,
- 	if (ret)
- 		goto unlock;
+ 	if (v != MBOX_OWNER_DRV)
+ 		return v ? -EBUSY : -ETIMEDOUT;
+@@ -288,7 +288,7 @@ int t4_wr_mbox_meat(struct adapter *adap, int mbox, const void *cmd, int size,
+ 	for (i = 0; i < size; i += 8)
+ 		t4_write_reg64(adap, data_reg + i, be64_to_cpu(*p++));
  
--	t4_write_reg(adapter, SF_OP, 0);    /* unlock SF */
-+	t4_write_reg(adapter, SF_OP_A, 0);    /* unlock SF */
+-	t4_write_reg(adap, ctl_reg, MBMSGVALID | MBOWNER(MBOX_OWNER_FW));
++	t4_write_reg(adap, ctl_reg, MBMSGVALID_F | MBOWNER_V(MBOX_OWNER_FW));
+ 	t4_read_reg(adap, ctl_reg);          /* flush write */
  
- 	/* Read the page to verify the write succeeded */
- 	ret = t4_read_flash(adapter, addr & ~0xff, ARRAY_SIZE(buf), buf, 1);
-@@ -919,7 +916,7 @@ static int t4_write_flash(struct adapter *adapter, unsigned int addr,
- 	return 0;
+ 	delay_idx = 0;
+@@ -304,8 +304,8 @@ int t4_wr_mbox_meat(struct adapter *adap, int mbox, const void *cmd, int size,
+ 			mdelay(ms);
  
- unlock:
--	t4_write_reg(adapter, SF_OP, 0);    /* unlock SF */
-+	t4_write_reg(adapter, SF_OP_A, 0);    /* unlock SF */
- 	return ret;
- }
+ 		v = t4_read_reg(adap, ctl_reg);
+-		if (MBOWNER_GET(v) == MBOX_OWNER_DRV) {
+-			if (!(v & MBMSGVALID)) {
++		if (MBOWNER_G(v) == MBOX_OWNER_DRV) {
++			if (!(v & MBMSGVALID_F)) {
+ 				t4_write_reg(adap, ctl_reg, 0);
+ 				continue;
+ 			}
+@@ -351,27 +351,27 @@ int t4_mc_read(struct adapter *adap, int idx, u32 addr, __be32 *data, u64 *ecc)
+ 	u32 mc_bist_status_rdata, mc_bist_data_pattern;
  
-@@ -1114,7 +1111,7 @@ static int t4_flash_erase_sectors(struct adapter *adapter, int start, int end)
- 		}
- 		start++;
+ 	if (is_t4(adap->params.chip)) {
+-		mc_bist_cmd = MC_BIST_CMD;
+-		mc_bist_cmd_addr = MC_BIST_CMD_ADDR;
+-		mc_bist_cmd_len = MC_BIST_CMD_LEN;
+-		mc_bist_status_rdata = MC_BIST_STATUS_RDATA;
+-		mc_bist_data_pattern = MC_BIST_DATA_PATTERN;
++		mc_bist_cmd = MC_BIST_CMD_A;
++		mc_bist_cmd_addr = MC_BIST_CMD_ADDR_A;
++		mc_bist_cmd_len = MC_BIST_CMD_LEN_A;
++		mc_bist_status_rdata = MC_BIST_STATUS_RDATA_A;
++		mc_bist_data_pattern = MC_BIST_DATA_PATTERN_A;
+ 	} else {
+-		mc_bist_cmd = MC_REG(MC_P_BIST_CMD, idx);
+-		mc_bist_cmd_addr = MC_REG(MC_P_BIST_CMD_ADDR, idx);
+-		mc_bist_cmd_len = MC_REG(MC_P_BIST_CMD_LEN, idx);
+-		mc_bist_status_rdata = MC_REG(MC_P_BIST_STATUS_RDATA, idx);
+-		mc_bist_data_pattern = MC_REG(MC_P_BIST_DATA_PATTERN, idx);
++		mc_bist_cmd = MC_REG(MC_P_BIST_CMD_A, idx);
++		mc_bist_cmd_addr = MC_REG(MC_P_BIST_CMD_ADDR_A, idx);
++		mc_bist_cmd_len = MC_REG(MC_P_BIST_CMD_LEN_A, idx);
++		mc_bist_status_rdata = MC_REG(MC_P_BIST_STATUS_RDATA_A, idx);
++		mc_bist_data_pattern = MC_REG(MC_P_BIST_DATA_PATTERN_A, idx);
  	}
--	t4_write_reg(adapter, SF_OP, 0);    /* unlock SF */
-+	t4_write_reg(adapter, SF_OP_A, 0);    /* unlock SF */
- 	return ret;
- }
  
-@@ -1619,7 +1616,7 @@ static void ulprx_intr_handler(struct adapter *adapter)
- 		{ 0 }
- 	};
+-	if (t4_read_reg(adap, mc_bist_cmd) & START_BIST)
++	if (t4_read_reg(adap, mc_bist_cmd) & START_BIST_F)
+ 		return -EBUSY;
+ 	t4_write_reg(adap, mc_bist_cmd_addr, addr & ~0x3fU);
+ 	t4_write_reg(adap, mc_bist_cmd_len, 64);
+ 	t4_write_reg(adap, mc_bist_data_pattern, 0xc);
+-	t4_write_reg(adap, mc_bist_cmd, BIST_OPCODE(1) | START_BIST |
+-		     BIST_CMD_GAP(1));
+-	i = t4_wait_op_done(adap, mc_bist_cmd, START_BIST, 0, 10, 1);
++	t4_write_reg(adap, mc_bist_cmd, BIST_OPCODE_V(1) | START_BIST_F |
++		     BIST_CMD_GAP_V(1));
++	i = t4_wait_op_done(adap, mc_bist_cmd, START_BIST_F, 0, 10, 1);
+ 	if (i)
+ 		return i;
  
--	if (t4_handle_intr_status(adapter, ULP_RX_INT_CAUSE, ulprx_intr_info))
-+	if (t4_handle_intr_status(adapter, ULP_RX_INT_CAUSE_A, ulprx_intr_info))
+@@ -404,31 +404,31 @@ int t4_edc_read(struct adapter *adap, int idx, u32 addr, __be32 *data, u64 *ecc)
+ 	u32 edc_bist_cmd_data_pattern, edc_bist_status_rdata;
+ 
+ 	if (is_t4(adap->params.chip)) {
+-		edc_bist_cmd = EDC_REG(EDC_BIST_CMD, idx);
+-		edc_bist_cmd_addr = EDC_REG(EDC_BIST_CMD_ADDR, idx);
+-		edc_bist_cmd_len = EDC_REG(EDC_BIST_CMD_LEN, idx);
+-		edc_bist_cmd_data_pattern = EDC_REG(EDC_BIST_DATA_PATTERN,
+-						    idx);
+-		edc_bist_status_rdata = EDC_REG(EDC_BIST_STATUS_RDATA,
++		edc_bist_cmd = EDC_REG(EDC_BIST_CMD_A, idx);
++		edc_bist_cmd_addr = EDC_REG(EDC_BIST_CMD_ADDR_A, idx);
++		edc_bist_cmd_len = EDC_REG(EDC_BIST_CMD_LEN_A, idx);
++		edc_bist_cmd_data_pattern = EDC_REG(EDC_BIST_DATA_PATTERN_A,
+ 						    idx);
++		edc_bist_status_rdata = EDC_REG(EDC_BIST_STATUS_RDATA_A,
++						idx);
+ 	} else {
+-		edc_bist_cmd = EDC_REG_T5(EDC_H_BIST_CMD, idx);
+-		edc_bist_cmd_addr = EDC_REG_T5(EDC_H_BIST_CMD_ADDR, idx);
+-		edc_bist_cmd_len = EDC_REG_T5(EDC_H_BIST_CMD_LEN, idx);
++		edc_bist_cmd = EDC_REG_T5(EDC_H_BIST_CMD_A, idx);
++		edc_bist_cmd_addr = EDC_REG_T5(EDC_H_BIST_CMD_ADDR_A, idx);
++		edc_bist_cmd_len = EDC_REG_T5(EDC_H_BIST_CMD_LEN_A, idx);
+ 		edc_bist_cmd_data_pattern =
+-			EDC_REG_T5(EDC_H_BIST_DATA_PATTERN, idx);
++			EDC_REG_T5(EDC_H_BIST_DATA_PATTERN_A, idx);
+ 		edc_bist_status_rdata =
+-			 EDC_REG_T5(EDC_H_BIST_STATUS_RDATA, idx);
++			 EDC_REG_T5(EDC_H_BIST_STATUS_RDATA_A, idx);
+ 	}
+ 
+-	if (t4_read_reg(adap, edc_bist_cmd) & START_BIST)
++	if (t4_read_reg(adap, edc_bist_cmd) & START_BIST_F)
+ 		return -EBUSY;
+ 	t4_write_reg(adap, edc_bist_cmd_addr, addr & ~0x3fU);
+ 	t4_write_reg(adap, edc_bist_cmd_len, 64);
+ 	t4_write_reg(adap, edc_bist_cmd_data_pattern, 0xc);
+ 	t4_write_reg(adap, edc_bist_cmd,
+-		     BIST_OPCODE(1) | BIST_CMD_GAP(1) | START_BIST);
+-	i = t4_wait_op_done(adap, edc_bist_cmd, START_BIST, 0, 10, 1);
++		     BIST_OPCODE_V(1) | BIST_CMD_GAP_V(1) | START_BIST_F);
++	i = t4_wait_op_done(adap, edc_bist_cmd, START_BIST_F, 0, 10, 1);
+ 	if (i)
+ 		return i;
+ 
+@@ -1543,50 +1543,55 @@ static void sge_intr_handler(struct adapter *adapter)
  		t4_fatal_err(adapter);
  }
  
-@@ -1694,16 +1691,16 @@ static void pmrx_intr_handler(struct adapter *adapter)
- static void cplsw_intr_handler(struct adapter *adapter)
++#define CIM_OBQ_INTR (OBQULP0PARERR_F | OBQULP1PARERR_F | OBQULP2PARERR_F |\
++		      OBQULP3PARERR_F | OBQSGEPARERR_F | OBQNCSIPARERR_F)
++#define CIM_IBQ_INTR (IBQTP0PARERR_F | IBQTP1PARERR_F | IBQULPPARERR_F |\
++		      IBQSGEHIPARERR_F | IBQSGELOPARERR_F | IBQNCSIPARERR_F)
++
+ /*
+  * CIM interrupt handler.
+  */
+ static void cim_intr_handler(struct adapter *adapter)
  {
- 	static const struct intr_info cplsw_intr_info[] = {
--		{ CIM_OP_MAP_PERR, "CPLSW CIM op_map parity error", -1, 1 },
--		{ CIM_OVFL_ERROR, "CPLSW CIM overflow", -1, 1 },
--		{ TP_FRAMING_ERROR, "CPLSW TP framing error", -1, 1 },
--		{ SGE_FRAMING_ERROR, "CPLSW SGE framing error", -1, 1 },
--		{ CIM_FRAMING_ERROR, "CPLSW CIM framing error", -1, 1 },
--		{ ZERO_SWITCH_ERROR, "CPLSW no-switch error", -1, 1 },
-+		{ CIM_OP_MAP_PERR_F, "CPLSW CIM op_map parity error", -1, 1 },
-+		{ CIM_OVFL_ERROR_F, "CPLSW CIM overflow", -1, 1 },
-+		{ TP_FRAMING_ERROR_F, "CPLSW TP framing error", -1, 1 },
-+		{ SGE_FRAMING_ERROR_F, "CPLSW SGE framing error", -1, 1 },
-+		{ CIM_FRAMING_ERROR_F, "CPLSW CIM framing error", -1, 1 },
-+		{ ZERO_SWITCH_ERROR_F, "CPLSW no-switch error", -1, 1 },
+ 	static const struct intr_info cim_intr_info[] = {
+-		{ PREFDROPINT, "CIM control register prefetch drop", -1, 1 },
+-		{ OBQPARERR, "CIM OBQ parity error", -1, 1 },
+-		{ IBQPARERR, "CIM IBQ parity error", -1, 1 },
+-		{ MBUPPARERR, "CIM mailbox uP parity error", -1, 1 },
+-		{ MBHOSTPARERR, "CIM mailbox host parity error", -1, 1 },
+-		{ TIEQINPARERRINT, "CIM TIEQ outgoing parity error", -1, 1 },
+-		{ TIEQOUTPARERRINT, "CIM TIEQ incoming parity error", -1, 1 },
++		{ PREFDROPINT_F, "CIM control register prefetch drop", -1, 1 },
++		{ CIM_OBQ_INTR, "CIM OBQ parity error", -1, 1 },
++		{ CIM_IBQ_INTR, "CIM IBQ parity error", -1, 1 },
++		{ MBUPPARERR_F, "CIM mailbox uP parity error", -1, 1 },
++		{ MBHOSTPARERR_F, "CIM mailbox host parity error", -1, 1 },
++		{ TIEQINPARERRINT_F, "CIM TIEQ outgoing parity error", -1, 1 },
++		{ TIEQOUTPARERRINT_F, "CIM TIEQ incoming parity error", -1, 1 },
+ 		{ 0 }
+ 	};
+ 	static const struct intr_info cim_upintr_info[] = {
+-		{ RSVDSPACEINT, "CIM reserved space access", -1, 1 },
+-		{ ILLTRANSINT, "CIM illegal transaction", -1, 1 },
+-		{ ILLWRINT, "CIM illegal write", -1, 1 },
+-		{ ILLRDINT, "CIM illegal read", -1, 1 },
+-		{ ILLRDBEINT, "CIM illegal read BE", -1, 1 },
+-		{ ILLWRBEINT, "CIM illegal write BE", -1, 1 },
+-		{ SGLRDBOOTINT, "CIM single read from boot space", -1, 1 },
+-		{ SGLWRBOOTINT, "CIM single write to boot space", -1, 1 },
+-		{ BLKWRBOOTINT, "CIM block write to boot space", -1, 1 },
+-		{ SGLRDFLASHINT, "CIM single read from flash space", -1, 1 },
+-		{ SGLWRFLASHINT, "CIM single write to flash space", -1, 1 },
+-		{ BLKWRFLASHINT, "CIM block write to flash space", -1, 1 },
+-		{ SGLRDEEPROMINT, "CIM single EEPROM read", -1, 1 },
+-		{ SGLWREEPROMINT, "CIM single EEPROM write", -1, 1 },
+-		{ BLKRDEEPROMINT, "CIM block EEPROM read", -1, 1 },
+-		{ BLKWREEPROMINT, "CIM block EEPROM write", -1, 1 },
+-		{ SGLRDCTLINT , "CIM single read from CTL space", -1, 1 },
+-		{ SGLWRCTLINT , "CIM single write to CTL space", -1, 1 },
+-		{ BLKRDCTLINT , "CIM block read from CTL space", -1, 1 },
+-		{ BLKWRCTLINT , "CIM block write to CTL space", -1, 1 },
+-		{ SGLRDPLINT , "CIM single read from PL space", -1, 1 },
+-		{ SGLWRPLINT , "CIM single write to PL space", -1, 1 },
+-		{ BLKRDPLINT , "CIM block read from PL space", -1, 1 },
+-		{ BLKWRPLINT , "CIM block write to PL space", -1, 1 },
+-		{ REQOVRLOOKUPINT , "CIM request FIFO overwrite", -1, 1 },
+-		{ RSPOVRLOOKUPINT , "CIM response FIFO overwrite", -1, 1 },
+-		{ TIMEOUTINT , "CIM PIF timeout", -1, 1 },
+-		{ TIMEOUTMAINT , "CIM PIF MA timeout", -1, 1 },
++		{ RSVDSPACEINT_F, "CIM reserved space access", -1, 1 },
++		{ ILLTRANSINT_F, "CIM illegal transaction", -1, 1 },
++		{ ILLWRINT_F, "CIM illegal write", -1, 1 },
++		{ ILLRDINT_F, "CIM illegal read", -1, 1 },
++		{ ILLRDBEINT_F, "CIM illegal read BE", -1, 1 },
++		{ ILLWRBEINT_F, "CIM illegal write BE", -1, 1 },
++		{ SGLRDBOOTINT_F, "CIM single read from boot space", -1, 1 },
++		{ SGLWRBOOTINT_F, "CIM single write to boot space", -1, 1 },
++		{ BLKWRBOOTINT_F, "CIM block write to boot space", -1, 1 },
++		{ SGLRDFLASHINT_F, "CIM single read from flash space", -1, 1 },
++		{ SGLWRFLASHINT_F, "CIM single write to flash space", -1, 1 },
++		{ BLKWRFLASHINT_F, "CIM block write to flash space", -1, 1 },
++		{ SGLRDEEPROMINT_F, "CIM single EEPROM read", -1, 1 },
++		{ SGLWREEPROMINT_F, "CIM single EEPROM write", -1, 1 },
++		{ BLKRDEEPROMINT_F, "CIM block EEPROM read", -1, 1 },
++		{ BLKWREEPROMINT_F, "CIM block EEPROM write", -1, 1 },
++		{ SGLRDCTLINT_F, "CIM single read from CTL space", -1, 1 },
++		{ SGLWRCTLINT_F, "CIM single write to CTL space", -1, 1 },
++		{ BLKRDCTLINT_F, "CIM block read from CTL space", -1, 1 },
++		{ BLKWRCTLINT_F, "CIM block write to CTL space", -1, 1 },
++		{ SGLRDPLINT_F, "CIM single read from PL space", -1, 1 },
++		{ SGLWRPLINT_F, "CIM single write to PL space", -1, 1 },
++		{ BLKRDPLINT_F, "CIM block read from PL space", -1, 1 },
++		{ BLKWRPLINT_F, "CIM block write to PL space", -1, 1 },
++		{ REQOVRLOOKUPINT_F, "CIM request FIFO overwrite", -1, 1 },
++		{ RSPOVRLOOKUPINT_F, "CIM response FIFO overwrite", -1, 1 },
++		{ TIMEOUTINT_F, "CIM PIF timeout", -1, 1 },
++		{ TIMEOUTMAINT_F, "CIM PIF MA timeout", -1, 1 },
  		{ 0 }
  	};
  
--	if (t4_handle_intr_status(adapter, CPL_INTR_CAUSE, cplsw_intr_info))
-+	if (t4_handle_intr_status(adapter, CPL_INTR_CAUSE_A, cplsw_intr_info))
+@@ -1595,9 +1600,9 @@ static void cim_intr_handler(struct adapter *adapter)
+ 	if (t4_read_reg(adapter, PCIE_FW_A) & PCIE_FW_ERR_F)
+ 		t4_report_fw_error(adapter);
+ 
+-	fat = t4_handle_intr_status(adapter, CIM_HOST_INT_CAUSE,
++	fat = t4_handle_intr_status(adapter, CIM_HOST_INT_CAUSE_A,
+ 				    cim_intr_info) +
+-	      t4_handle_intr_status(adapter, CIM_HOST_UPACC_INT_CAUSE,
++	      t4_handle_intr_status(adapter, CIM_HOST_UPACC_INT_CAUSE_A,
+ 				    cim_upintr_info);
+ 	if (fat)
+ 		t4_fatal_err(adapter);
+@@ -1786,7 +1791,8 @@ static void mps_intr_handler(struct adapter *adapter)
  		t4_fatal_err(adapter);
  }
  
-@@ -1713,15 +1710,15 @@ static void cplsw_intr_handler(struct adapter *adapter)
- static void le_intr_handler(struct adapter *adap)
- {
- 	static const struct intr_info le_intr_info[] = {
--		{ LIPMISS, "LE LIP miss", -1, 0 },
--		{ LIP0, "LE 0 LIP error", -1, 0 },
--		{ PARITYERR, "LE parity error", -1, 1 },
--		{ UNKNOWNCMD, "LE unknown command", -1, 1 },
--		{ REQQPARERR, "LE request queue parity error", -1, 1 },
-+		{ LIPMISS_F, "LE LIP miss", -1, 0 },
-+		{ LIP0_F, "LE 0 LIP error", -1, 0 },
-+		{ PARITYERR_F, "LE parity error", -1, 1 },
-+		{ UNKNOWNCMD_F, "LE unknown command", -1, 1 },
-+		{ REQQPARERR_F, "LE request queue parity error", -1, 1 },
- 		{ 0 }
- 	};
+-#define MEM_INT_MASK (PERR_INT_CAUSE | ECC_CE_INT_CAUSE | ECC_UE_INT_CAUSE)
++#define MEM_INT_MASK (PERR_INT_CAUSE_F | ECC_CE_INT_CAUSE_F | \
++		      ECC_UE_INT_CAUSE_F)
  
--	if (t4_handle_intr_status(adap, LE_DB_INT_CAUSE, le_intr_info))
-+	if (t4_handle_intr_status(adap, LE_DB_INT_CAUSE_A, le_intr_info))
- 		t4_fatal_err(adap);
+ /*
+  * EDC/MC interrupt handler.
+@@ -1798,40 +1804,40 @@ static void mem_intr_handler(struct adapter *adapter, int idx)
+ 	unsigned int addr, cnt_addr, v;
+ 
+ 	if (idx <= MEM_EDC1) {
+-		addr = EDC_REG(EDC_INT_CAUSE, idx);
+-		cnt_addr = EDC_REG(EDC_ECC_STATUS, idx);
++		addr = EDC_REG(EDC_INT_CAUSE_A, idx);
++		cnt_addr = EDC_REG(EDC_ECC_STATUS_A, idx);
+ 	} else if (idx == MEM_MC) {
+ 		if (is_t4(adapter->params.chip)) {
+-			addr = MC_INT_CAUSE;
+-			cnt_addr = MC_ECC_STATUS;
++			addr = MC_INT_CAUSE_A;
++			cnt_addr = MC_ECC_STATUS_A;
+ 		} else {
+-			addr = MC_P_INT_CAUSE;
+-			cnt_addr = MC_P_ECC_STATUS;
++			addr = MC_P_INT_CAUSE_A;
++			cnt_addr = MC_P_ECC_STATUS_A;
+ 		}
+ 	} else {
+-		addr = MC_REG(MC_P_INT_CAUSE, 1);
+-		cnt_addr = MC_REG(MC_P_ECC_STATUS, 1);
++		addr = MC_REG(MC_P_INT_CAUSE_A, 1);
++		cnt_addr = MC_REG(MC_P_ECC_STATUS_A, 1);
+ 	}
+ 
+ 	v = t4_read_reg(adapter, addr) & MEM_INT_MASK;
+-	if (v & PERR_INT_CAUSE)
++	if (v & PERR_INT_CAUSE_F)
+ 		dev_alert(adapter->pdev_dev, "%s FIFO parity error\n",
+ 			  name[idx]);
+-	if (v & ECC_CE_INT_CAUSE) {
+-		u32 cnt = ECC_CECNT_GET(t4_read_reg(adapter, cnt_addr));
++	if (v & ECC_CE_INT_CAUSE_F) {
++		u32 cnt = ECC_CECNT_G(t4_read_reg(adapter, cnt_addr));
+ 
+-		t4_write_reg(adapter, cnt_addr, ECC_CECNT_MASK);
++		t4_write_reg(adapter, cnt_addr, ECC_CECNT_V(ECC_CECNT_M));
+ 		if (printk_ratelimit())
+ 			dev_warn(adapter->pdev_dev,
+ 				 "%u %s correctable ECC data error%s\n",
+ 				 cnt, name[idx], cnt > 1 ? "s" : "");
+ 	}
+-	if (v & ECC_UE_INT_CAUSE)
++	if (v & ECC_UE_INT_CAUSE_F)
+ 		dev_alert(adapter->pdev_dev,
+ 			  "%s uncorrectable ECC data error\n", name[idx]);
+ 
+ 	t4_write_reg(adapter, addr, v);
+-	if (v & (PERR_INT_CAUSE | ECC_UE_INT_CAUSE))
++	if (v & (PERR_INT_CAUSE_F | ECC_UE_INT_CAUSE_F))
+ 		t4_fatal_err(adapter);
  }
  
-@@ -1879,13 +1876,13 @@ static void ma_intr_handler(struct adapter *adap)
- static void smb_intr_handler(struct adapter *adap)
+@@ -1840,26 +1846,26 @@ static void mem_intr_handler(struct adapter *adapter, int idx)
+  */
+ static void ma_intr_handler(struct adapter *adap)
  {
- 	static const struct intr_info smb_intr_info[] = {
--		{ MSTTXFIFOPARINT, "SMB master Tx FIFO parity error", -1, 1 },
--		{ MSTRXFIFOPARINT, "SMB master Rx FIFO parity error", -1, 1 },
--		{ SLVFIFOPARINT, "SMB slave FIFO parity error", -1, 1 },
-+		{ MSTTXFIFOPARINT_F, "SMB master Tx FIFO parity error", -1, 1 },
-+		{ MSTRXFIFOPARINT_F, "SMB master Rx FIFO parity error", -1, 1 },
-+		{ SLVFIFOPARINT_F, "SMB slave FIFO parity error", -1, 1 },
- 		{ 0 }
- 	};
+-	u32 v, status = t4_read_reg(adap, MA_INT_CAUSE);
++	u32 v, status = t4_read_reg(adap, MA_INT_CAUSE_A);
  
--	if (t4_handle_intr_status(adap, SMB_INT_CAUSE, smb_intr_info))
-+	if (t4_handle_intr_status(adap, SMB_INT_CAUSE_A, smb_intr_info))
- 		t4_fatal_err(adap);
- }
- 
-@@ -1895,14 +1892,14 @@ static void smb_intr_handler(struct adapter *adap)
- static void ncsi_intr_handler(struct adapter *adap)
- {
- 	static const struct intr_info ncsi_intr_info[] = {
--		{ CIM_DM_PRTY_ERR, "NC-SI CIM parity error", -1, 1 },
--		{ MPS_DM_PRTY_ERR, "NC-SI MPS parity error", -1, 1 },
--		{ TXFIFO_PRTY_ERR, "NC-SI Tx FIFO parity error", -1, 1 },
--		{ RXFIFO_PRTY_ERR, "NC-SI Rx FIFO parity error", -1, 1 },
-+		{ CIM_DM_PRTY_ERR_F, "NC-SI CIM parity error", -1, 1 },
-+		{ MPS_DM_PRTY_ERR_F, "NC-SI MPS parity error", -1, 1 },
-+		{ TXFIFO_PRTY_ERR_F, "NC-SI Tx FIFO parity error", -1, 1 },
-+		{ RXFIFO_PRTY_ERR_F, "NC-SI Rx FIFO parity error", -1, 1 },
- 		{ 0 }
- 	};
- 
--	if (t4_handle_intr_status(adap, NCSI_INT_CAUSE, ncsi_intr_info))
-+	if (t4_handle_intr_status(adap, NCSI_INT_CAUSE_A, ncsi_intr_info))
- 		t4_fatal_err(adap);
- }
- 
-@@ -1914,23 +1911,23 @@ static void xgmac_intr_handler(struct adapter *adap, int port)
- 	u32 v, int_cause_reg;
- 
- 	if (is_t4(adap->params.chip))
--		int_cause_reg = PORT_REG(port, XGMAC_PORT_INT_CAUSE);
-+		int_cause_reg = PORT_REG(port, XGMAC_PORT_INT_CAUSE_A);
- 	else
--		int_cause_reg = T5_PORT_REG(port, MAC_PORT_INT_CAUSE);
-+		int_cause_reg = T5_PORT_REG(port, MAC_PORT_INT_CAUSE_A);
- 
- 	v = t4_read_reg(adap, int_cause_reg);
- 
--	v &= TXFIFO_PRTY_ERR | RXFIFO_PRTY_ERR;
-+	v &= TXFIFO_PRTY_ERR_F | RXFIFO_PRTY_ERR_F;
- 	if (!v)
- 		return;
- 
--	if (v & TXFIFO_PRTY_ERR)
-+	if (v & TXFIFO_PRTY_ERR_F)
- 		dev_alert(adap->pdev_dev, "XGMAC %d Tx FIFO parity error\n",
- 			  port);
--	if (v & RXFIFO_PRTY_ERR)
-+	if (v & RXFIFO_PRTY_ERR_F)
- 		dev_alert(adap->pdev_dev, "XGMAC %d Rx FIFO parity error\n",
- 			  port);
--	t4_write_reg(adap, PORT_REG(port, XGMAC_PORT_INT_CAUSE), v);
-+	t4_write_reg(adap, PORT_REG(port, XGMAC_PORT_INT_CAUSE_A), v);
+-	if (status & MEM_PERR_INT_CAUSE) {
++	if (status & MEM_PERR_INT_CAUSE_F) {
+ 		dev_alert(adap->pdev_dev,
+ 			  "MA parity error, parity status %#x\n",
+-			  t4_read_reg(adap, MA_PARITY_ERROR_STATUS));
++			  t4_read_reg(adap, MA_PARITY_ERROR_STATUS1_A));
+ 		if (is_t5(adap->params.chip))
+ 			dev_alert(adap->pdev_dev,
+ 				  "MA parity error, parity status %#x\n",
+ 				  t4_read_reg(adap,
+-					      MA_PARITY_ERROR_STATUS2));
++					      MA_PARITY_ERROR_STATUS2_A));
+ 	}
+-	if (status & MEM_WRAP_INT_CAUSE) {
+-		v = t4_read_reg(adap, MA_INT_WRAP_STATUS);
++	if (status & MEM_WRAP_INT_CAUSE_F) {
++		v = t4_read_reg(adap, MA_INT_WRAP_STATUS_A);
+ 		dev_alert(adap->pdev_dev, "MA address wrap-around error by "
+ 			  "client %u to address %#x\n",
+-			  MEM_WRAP_CLIENT_NUM_GET(v),
+-			  MEM_WRAP_ADDRESS_GET(v) << 4);
++			  MEM_WRAP_CLIENT_NUM_G(v),
++			  MEM_WRAP_ADDRESS_G(v) << 4);
+ 	}
+-	t4_write_reg(adap, MA_INT_CAUSE, status);
++	t4_write_reg(adap, MA_INT_CAUSE_A, status);
  	t4_fatal_err(adap);
  }
  
-@@ -1940,19 +1937,19 @@ static void xgmac_intr_handler(struct adapter *adap, int port)
- static void pl_intr_handler(struct adapter *adap)
- {
- 	static const struct intr_info pl_intr_info[] = {
--		{ FATALPERR, "T4 fatal parity error", -1, 1 },
--		{ PERRVFID, "PL VFID_MAP parity error", -1, 1 },
-+		{ FATALPERR_F, "T4 fatal parity error", -1, 1 },
-+		{ PERRVFID_F, "PL VFID_MAP parity error", -1, 1 },
- 		{ 0 }
- 	};
- 
--	if (t4_handle_intr_status(adap, PL_PL_INT_CAUSE, pl_intr_info))
-+	if (t4_handle_intr_status(adap, PL_PL_INT_CAUSE_A, pl_intr_info))
- 		t4_fatal_err(adap);
- }
- 
--#define PF_INTR_MASK (PFSW)
--#define GLBL_INTR_MASK (CIM | MPS | PL | PCIE | MC | EDC0 | \
--		EDC1 | LE | TP | MA | PM_TX | PM_RX | ULP_RX | \
--		CPL_SWITCH | SGE | ULP_TX)
-+#define PF_INTR_MASK (PFSW_F)
-+#define GLBL_INTR_MASK (CIM_F | MPS_F | PL_F | PCIE_F | MC_F | EDC0_F | \
-+		EDC1_F | LE_F | TP_F | MA_F | PM_TX_F | PM_RX_F | ULP_RX_F | \
-+		CPL_SWITCH_F | SGE_F | ULP_TX_F)
- 
- /**
-  *	t4_slow_intr_handler - control path interrupt handler
-@@ -1964,60 +1961,60 @@ static void pl_intr_handler(struct adapter *adap)
-  */
- int t4_slow_intr_handler(struct adapter *adapter)
- {
--	u32 cause = t4_read_reg(adapter, PL_INT_CAUSE);
-+	u32 cause = t4_read_reg(adapter, PL_INT_CAUSE_A);
- 
- 	if (!(cause & GLBL_INTR_MASK))
- 		return 0;
--	if (cause & CIM)
-+	if (cause & CIM_F)
- 		cim_intr_handler(adapter);
--	if (cause & MPS)
-+	if (cause & MPS_F)
- 		mps_intr_handler(adapter);
--	if (cause & NCSI)
-+	if (cause & NCSI_F)
- 		ncsi_intr_handler(adapter);
--	if (cause & PL)
-+	if (cause & PL_F)
- 		pl_intr_handler(adapter);
--	if (cause & SMB)
-+	if (cause & SMB_F)
- 		smb_intr_handler(adapter);
--	if (cause & XGMAC0)
-+	if (cause & XGMAC0_F)
- 		xgmac_intr_handler(adapter, 0);
--	if (cause & XGMAC1)
-+	if (cause & XGMAC1_F)
- 		xgmac_intr_handler(adapter, 1);
--	if (cause & XGMAC_KR0)
-+	if (cause & XGMAC_KR0_F)
- 		xgmac_intr_handler(adapter, 2);
--	if (cause & XGMAC_KR1)
-+	if (cause & XGMAC_KR1_F)
- 		xgmac_intr_handler(adapter, 3);
--	if (cause & PCIE)
-+	if (cause & PCIE_F)
- 		pcie_intr_handler(adapter);
--	if (cause & MC)
-+	if (cause & MC_F)
- 		mem_intr_handler(adapter, MEM_MC);
--	if (!is_t4(adapter->params.chip) && (cause & MC1))
-+	if (!is_t4(adapter->params.chip) && (cause & MC1_S))
- 		mem_intr_handler(adapter, MEM_MC1);
--	if (cause & EDC0)
-+	if (cause & EDC0_F)
- 		mem_intr_handler(adapter, MEM_EDC0);
--	if (cause & EDC1)
-+	if (cause & EDC1_F)
- 		mem_intr_handler(adapter, MEM_EDC1);
--	if (cause & LE)
-+	if (cause & LE_F)
- 		le_intr_handler(adapter);
--	if (cause & TP)
-+	if (cause & TP_F)
- 		tp_intr_handler(adapter);
--	if (cause & MA)
-+	if (cause & MA_F)
- 		ma_intr_handler(adapter);
--	if (cause & PM_TX)
-+	if (cause & PM_TX_F)
- 		pmtx_intr_handler(adapter);
--	if (cause & PM_RX)
-+	if (cause & PM_RX_F)
- 		pmrx_intr_handler(adapter);
--	if (cause & ULP_RX)
-+	if (cause & ULP_RX_F)
- 		ulprx_intr_handler(adapter);
--	if (cause & CPL_SWITCH)
-+	if (cause & CPL_SWITCH_F)
- 		cplsw_intr_handler(adapter);
--	if (cause & SGE)
-+	if (cause & SGE_F)
- 		sge_intr_handler(adapter);
--	if (cause & ULP_TX)
-+	if (cause & ULP_TX_F)
- 		ulptx_intr_handler(adapter);
- 
- 	/* Clear the interrupts just processed for which we are the master. */
--	t4_write_reg(adapter, PL_INT_CAUSE, cause & GLBL_INTR_MASK);
--	(void) t4_read_reg(adapter, PL_INT_CAUSE); /* flush */
-+	t4_write_reg(adapter, PL_INT_CAUSE_A, cause & GLBL_INTR_MASK);
-+	(void)t4_read_reg(adapter, PL_INT_CAUSE_A); /* flush */
- 	return 1;
- }
- 
-@@ -2036,7 +2033,7 @@ int t4_slow_intr_handler(struct adapter *adapter)
-  */
- void t4_intr_enable(struct adapter *adapter)
- {
--	u32 pf = SOURCEPF_GET(t4_read_reg(adapter, PL_WHOAMI));
-+	u32 pf = SOURCEPF_G(t4_read_reg(adapter, PL_WHOAMI_A));
- 
- 	t4_write_reg(adapter, SGE_INT_ENABLE3_A, ERR_CPL_EXCEED_IQE_SIZE_F |
- 		     ERR_INVALID_CIDX_INC_F | ERR_CPL_OPCODE_0_F |
-@@ -2047,8 +2044,8 @@ void t4_intr_enable(struct adapter *adapter)
- 		     ERR_EGR_CTXT_PRIO_F | INGRESS_SIZE_ERR_F |
- 		     DBFIFO_HP_INT_F | DBFIFO_LP_INT_F |
- 		     EGRESS_SIZE_ERR_F);
--	t4_write_reg(adapter, MYPF_REG(PL_PF_INT_ENABLE), PF_INTR_MASK);
--	t4_set_reg_field(adapter, PL_INT_MAP0, 0, 1 << pf);
-+	t4_write_reg(adapter, MYPF_REG(PL_PF_INT_ENABLE_A), PF_INTR_MASK);
-+	t4_set_reg_field(adapter, PL_INT_MAP0_A, 0, 1 << pf);
- }
- 
- /**
-@@ -2061,10 +2058,10 @@ void t4_intr_enable(struct adapter *adapter)
-  */
- void t4_intr_disable(struct adapter *adapter)
- {
--	u32 pf = SOURCEPF_GET(t4_read_reg(adapter, PL_WHOAMI));
-+	u32 pf = SOURCEPF_G(t4_read_reg(adapter, PL_WHOAMI_A));
- 
--	t4_write_reg(adapter, MYPF_REG(PL_PF_INT_ENABLE), 0);
--	t4_set_reg_field(adapter, PL_INT_MAP0, 1 << pf, 0);
-+	t4_write_reg(adapter, MYPF_REG(PL_PF_INT_ENABLE_A), 0);
-+	t4_set_reg_field(adapter, PL_INT_MAP0_A, 1 << pf, 0);
- }
- 
- /**
-@@ -2498,7 +2495,7 @@ void t4_wol_magic_enable(struct adapter *adap, unsigned int port,
- 	if (is_t4(adap->params.chip)) {
- 		mag_id_reg_l = PORT_REG(port, XGMAC_PORT_MAGIC_MACID_LO);
- 		mag_id_reg_h = PORT_REG(port, XGMAC_PORT_MAGIC_MACID_HI);
--		port_cfg_reg = PORT_REG(port, XGMAC_PORT_CFG2);
-+		port_cfg_reg = PORT_REG(port, XGMAC_PORT_CFG2_A);
- 	} else {
- 		mag_id_reg_l = T5_PORT_REG(port, MAC_PORT_MAGIC_MACID_LO);
- 		mag_id_reg_h = T5_PORT_REG(port, MAC_PORT_MAGIC_MACID_HI);
-@@ -2512,8 +2509,8 @@ void t4_wol_magic_enable(struct adapter *adap, unsigned int port,
- 		t4_write_reg(adap, mag_id_reg_h,
- 			     (addr[0] << 8) | addr[1]);
+@@ -3007,7 +3013,7 @@ static int t4_fw_halt(struct adapter *adap, unsigned int mbox, int force)
+ 	 * rather than a RESET ... if it's new enough to understand that ...
+ 	 */
+ 	if (ret == 0 || force) {
+-		t4_set_reg_field(adap, CIM_BOOT_CFG, UPCRST, UPCRST);
++		t4_set_reg_field(adap, CIM_BOOT_CFG_A, UPCRST_F, UPCRST_F);
+ 		t4_set_reg_field(adap, PCIE_FW_A, PCIE_FW_HALT_F,
+ 				 PCIE_FW_HALT_F);
  	}
--	t4_set_reg_field(adap, port_cfg_reg, MAGICEN,
--			 addr ? MAGICEN : 0);
-+	t4_set_reg_field(adap, port_cfg_reg, MAGICEN_F,
-+			 addr ? MAGICEN_F : 0);
- }
- 
- /**
-@@ -2538,20 +2535,21 @@ int t4_wol_pat_enable(struct adapter *adap, unsigned int port, unsigned int map,
- 	u32 port_cfg_reg;
- 
- 	if (is_t4(adap->params.chip))
--		port_cfg_reg = PORT_REG(port, XGMAC_PORT_CFG2);
-+		port_cfg_reg = PORT_REG(port, XGMAC_PORT_CFG2_A);
- 	else
- 		port_cfg_reg = T5_PORT_REG(port, MAC_PORT_CFG2_A);
- 
- 	if (!enable) {
--		t4_set_reg_field(adap, port_cfg_reg, PATEN, 0);
-+		t4_set_reg_field(adap, port_cfg_reg, PATEN_F, 0);
- 		return 0;
- 	}
- 	if (map > 0xff)
- 		return -EINVAL;
- 
- #define EPIO_REG(name) \
--	(is_t4(adap->params.chip) ? PORT_REG(port, XGMAC_PORT_EPIO_##name) : \
--	T5_PORT_REG(port, MAC_PORT_EPIO_##name##_A))
-+	(is_t4(adap->params.chip) ? \
-+	 PORT_REG(port, XGMAC_PORT_EPIO_##name##_A) : \
-+	 T5_PORT_REG(port, MAC_PORT_EPIO_##name##_A))
- 
- 	t4_write_reg(adap, EPIO_REG(DATA1), mask0 >> 32);
- 	t4_write_reg(adap, EPIO_REG(DATA2), mask1);
-@@ -2563,21 +2561,21 @@ int t4_wol_pat_enable(struct adapter *adap, unsigned int port, unsigned int map,
- 
- 		/* write byte masks */
- 		t4_write_reg(adap, EPIO_REG(DATA0), mask0);
--		t4_write_reg(adap, EPIO_REG(OP), ADDRESS(i) | EPIOWR);
-+		t4_write_reg(adap, EPIO_REG(OP), ADDRESS_V(i) | EPIOWR_F);
- 		t4_read_reg(adap, EPIO_REG(OP));                /* flush */
--		if (t4_read_reg(adap, EPIO_REG(OP)) & SF_BUSY)
-+		if (t4_read_reg(adap, EPIO_REG(OP)) & SF_BUSY_F)
- 			return -ETIMEDOUT;
- 
- 		/* write CRC */
- 		t4_write_reg(adap, EPIO_REG(DATA0), crc);
--		t4_write_reg(adap, EPIO_REG(OP), ADDRESS(i + 32) | EPIOWR);
-+		t4_write_reg(adap, EPIO_REG(OP), ADDRESS_V(i + 32) | EPIOWR_F);
- 		t4_read_reg(adap, EPIO_REG(OP));                /* flush */
--		if (t4_read_reg(adap, EPIO_REG(OP)) & SF_BUSY)
-+		if (t4_read_reg(adap, EPIO_REG(OP)) & SF_BUSY_F)
- 			return -ETIMEDOUT;
- 	}
- #undef EPIO_REG
- 
--	t4_set_reg_field(adap, PORT_REG(port, XGMAC_PORT_CFG2), 0, PATEN);
-+	t4_set_reg_field(adap, PORT_REG(port, XGMAC_PORT_CFG2_A), 0, PATEN_F);
- 	return 0;
- }
- 
-@@ -2998,7 +2996,7 @@ static int t4_fw_halt(struct adapter *adap, unsigned int mbox, int force)
- 
- 		memset(&c, 0, sizeof(c));
- 		INIT_CMD(c, RESET, WRITE);
--		c.val = htonl(PIORST | PIORSTMODE);
-+		c.val = htonl(PIORST_F | PIORSTMODE_F);
- 		c.halt_pkd = htonl(FW_RESET_CMD_HALT_F);
- 		ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
- 	}
-@@ -3071,11 +3069,11 @@ static int t4_fw_restart(struct adapter *adap, unsigned int mbox, int reset)
- 			t4_set_reg_field(adap, CIM_BOOT_CFG_A, UPCRST_F, 0);
+@@ -3058,7 +3064,7 @@ static int t4_fw_restart(struct adapter *adap, unsigned int mbox, int reset)
+ 		 * hitting the chip with a hammer.
+ 		 */
+ 		if (mbox <= PCIE_FW_MASTER_M) {
+-			t4_set_reg_field(adap, CIM_BOOT_CFG, UPCRST, 0);
++			t4_set_reg_field(adap, CIM_BOOT_CFG_A, UPCRST_F, 0);
  			msleep(100);
  			if (t4_fw_reset(adap, mbox,
--					PIORST | PIORSTMODE) == 0)
-+					PIORST_F | PIORSTMODE_F) == 0)
- 				return 0;
- 		}
- 
--		t4_write_reg(adap, PL_RST, PIORST | PIORSTMODE);
-+		t4_write_reg(adap, PL_RST_A, PIORST_F | PIORSTMODE_F);
- 		msleep(2000);
+ 					PIORST | PIORSTMODE) == 0)
+@@ -3070,7 +3076,7 @@ static int t4_fw_restart(struct adapter *adap, unsigned int mbox, int reset)
  	} else {
  		int ms;
-@@ -3246,7 +3244,7 @@ int t4_fixup_host_params(struct adapter *adap, unsigned int page_size,
- 		     (t4_read_reg(adap, SGE_FL_BUFFER_SIZE3_A) + fl_align-1)
- 		     & ~(fl_align-1));
  
--	t4_write_reg(adap, ULP_RX_TDDP_PSZ, HPZ0(page_shift - 12));
-+	t4_write_reg(adap, ULP_RX_TDDP_PSZ_A, HPZ0_V(page_shift - 12));
+-		t4_set_reg_field(adap, CIM_BOOT_CFG, UPCRST, 0);
++		t4_set_reg_field(adap, CIM_BOOT_CFG_A, UPCRST_F, 0);
+ 		for (ms = 0; ms < FW_CMD_MAX_TIMEOUT; ) {
+ 			if (!(t4_read_reg(adap, PCIE_FW_A) & PCIE_FW_HALT_F))
+ 				return 0;
+@@ -3973,7 +3979,7 @@ static int get_flash_params(struct adapter *adap)
+ 		return -EINVAL;
+ 	adap->params.sf_size = 1 << info;
+ 	adap->params.sf_fw_start =
+-		t4_read_reg(adap, CIM_BOOT_CFG) & BOOTADDR_MASK;
++		t4_read_reg(adap, CIM_BOOT_CFG_A) & BOOTADDR_M;
  
- 	return 0;
- }
-@@ -3931,12 +3929,12 @@ int t4_wait_dev_ready(void __iomem *regs)
- {
- 	u32 whoami;
- 
--	whoami = readl(regs + PL_WHOAMI);
-+	whoami = readl(regs + PL_WHOAMI_A);
- 	if (whoami != 0xffffffff && whoami != CIM_PF_NOACCESS)
- 		return 0;
- 
- 	msleep(500);
--	whoami = readl(regs + PL_WHOAMI);
-+	whoami = readl(regs + PL_WHOAMI_A);
- 	return (whoami != 0xffffffff && whoami != CIM_PF_NOACCESS ? 0 : -EIO);
- }
- 
-@@ -3960,7 +3958,7 @@ static int get_flash_params(struct adapter *adap)
- 	ret = sf1_write(adap, 1, 1, 0, SF_RD_ID);
- 	if (!ret)
- 		ret = sf1_read(adap, 3, 0, 1, &info);
--	t4_write_reg(adap, SF_OP, 0);                    /* unlock SF */
-+	t4_write_reg(adap, SF_OP_A, 0);                    /* unlock SF */
- 	if (ret)
- 		return ret;
- 
-@@ -4007,7 +4005,7 @@ int t4_prep_adapter(struct adapter *adapter)
- 	u32 pl_rev;
- 
- 	get_pci_mode(adapter, &adapter->params.pci);
--	pl_rev = G_REV(t4_read_reg(adapter, PL_REV));
-+	pl_rev = REV_G(t4_read_reg(adapter, PL_REV_A));
- 
- 	ret = get_flash_params(adapter);
- 	if (ret < 0) {
-@@ -4197,16 +4195,16 @@ int t4_init_tp_params(struct adapter *adap)
- 	 * shift positions of several elements of the Compressed Filter Tuple
- 	 * for this adapter which we need frequently ...
- 	 */
--	adap->params.tp.vlan_shift = t4_filter_field_shift(adap, F_VLAN);
--	adap->params.tp.vnic_shift = t4_filter_field_shift(adap, F_VNIC_ID);
--	adap->params.tp.port_shift = t4_filter_field_shift(adap, F_PORT);
-+	adap->params.tp.vlan_shift = t4_filter_field_shift(adap, VLAN_F);
-+	adap->params.tp.vnic_shift = t4_filter_field_shift(adap, VNIC_ID_F);
-+	adap->params.tp.port_shift = t4_filter_field_shift(adap, PORT_F);
- 	adap->params.tp.protocol_shift = t4_filter_field_shift(adap,
--							       F_PROTOCOL);
-+							       PROTOCOL_F);
- 
- 	/* If TP_INGRESS_CONFIG.VNID == 0, then TP_VLAN_PRI_MAP.VNIC_ID
- 	 * represents the presense of an Outer VLAN instead of a VNIC ID.
- 	 */
--	if ((adap->params.tp.ingress_config & F_VNIC) == 0)
-+	if ((adap->params.tp.ingress_config & VNIC_F) == 0)
- 		adap->params.tp.vnic_shift = -1;
- 
- 	return 0;
-@@ -4232,35 +4230,35 @@ int t4_filter_field_shift(const struct adapter *adap, int filter_sel)
- 
- 	for (sel = 1, field_shift = 0; sel < filter_sel; sel <<= 1) {
- 		switch (filter_mode & sel) {
--		case F_FCOE:
--			field_shift += W_FT_FCOE;
-+		case FCOE_F:
-+			field_shift += FT_FCOE_W;
- 			break;
--		case F_PORT:
--			field_shift += W_FT_PORT;
-+		case PORT_F:
-+			field_shift += FT_PORT_W;
- 			break;
--		case F_VNIC_ID:
--			field_shift += W_FT_VNIC_ID;
-+		case VNIC_ID_F:
-+			field_shift += FT_VNIC_ID_W;
- 			break;
--		case F_VLAN:
--			field_shift += W_FT_VLAN;
-+		case VLAN_F:
-+			field_shift += FT_VLAN_W;
- 			break;
--		case F_TOS:
--			field_shift += W_FT_TOS;
-+		case TOS_F:
-+			field_shift += FT_TOS_W;
- 			break;
--		case F_PROTOCOL:
--			field_shift += W_FT_PROTOCOL;
-+		case PROTOCOL_F:
-+			field_shift += FT_PROTOCOL_W;
- 			break;
--		case F_ETHERTYPE:
--			field_shift += W_FT_ETHERTYPE;
-+		case ETHERTYPE_F:
-+			field_shift += FT_ETHERTYPE_W;
- 			break;
--		case F_MACMATCH:
--			field_shift += W_FT_MACMATCH;
-+		case MACMATCH_F:
-+			field_shift += FT_MACMATCH_W;
- 			break;
--		case F_MPSHITTYPE:
--			field_shift += W_FT_MPSHITTYPE;
-+		case MPSHITTYPE_F:
-+			field_shift += FT_MPSHITTYPE_W;
- 			break;
--		case F_FRAGMENTATION:
--			field_shift += W_FT_FRAGMENTATION;
-+		case FRAGMENTATION_F:
-+			field_shift += FT_FRAGMENTATION_W;
- 			break;
- 		}
- 	}
+ 	if (adap->params.sf_size < FLASH_MIN_SIZE)
+ 		dev_warn(adap->pdev_dev, "WARNING!!! FLASH size %#x < %#x!!!\n",
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index ec0addc..4077227 100644
+index 9b73824..4b66818 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -1708,233 +1708,323 @@
+@@ -788,41 +788,54 @@
+ #define TDUE_V(x) ((x) << TDUE_S)
+ #define TDUE_F    TDUE_V(1U)
  
- #define MPS_RX_PERR_INT_CAUSE_A 0x11074
- 
--#define CPL_INTR_CAUSE 0x19054
--#define  CIM_OP_MAP_PERR   0x00000020U
--#define  CIM_OVFL_ERROR    0x00000010U
--#define  TP_FRAMING_ERROR  0x00000008U
--#define  SGE_FRAMING_ERROR 0x00000004U
--#define  CIM_FRAMING_ERROR 0x00000002U
--#define  ZERO_SWITCH_ERROR 0x00000001U
+-#define MC_INT_CAUSE 0x7518
+-#define MC_P_INT_CAUSE 0x41318
+-#define  ECC_UE_INT_CAUSE 0x00000004U
+-#define  ECC_CE_INT_CAUSE 0x00000002U
+-#define  PERR_INT_CAUSE   0x00000001U
 -
--#define SMB_INT_CAUSE 0x19090
--#define  MSTTXFIFOPARINT 0x00200000U
--#define  MSTRXFIFOPARINT 0x00100000U
--#define  SLVFIFOPARINT   0x00080000U
+-#define MC_ECC_STATUS 0x751c
+-#define MC_P_ECC_STATUS 0x4131c
+-#define  ECC_CECNT_MASK   0xffff0000U
+-#define  ECC_CECNT_SHIFT  16
+-#define  ECC_CECNT(x)     ((x) << ECC_CECNT_SHIFT)
+-#define  ECC_CECNT_GET(x) (((x) & ECC_CECNT_MASK) >> ECC_CECNT_SHIFT)
+-#define  ECC_UECNT_MASK   0x0000ffffU
+-#define  ECC_UECNT_SHIFT  0
+-#define  ECC_UECNT(x)     ((x) << ECC_UECNT_SHIFT)
+-#define  ECC_UECNT_GET(x) (((x) & ECC_UECNT_MASK) >> ECC_UECNT_SHIFT)
 -
--#define ULP_RX_INT_CAUSE 0x19158
--#define ULP_RX_ISCSI_TAGMASK 0x19164
--#define ULP_RX_ISCSI_PSZ 0x19168
--#define  HPZ3_MASK   0x0f000000U
--#define  HPZ3_SHIFT  24
--#define  HPZ3(x)     ((x) << HPZ3_SHIFT)
--#define  HPZ2_MASK   0x000f0000U
--#define  HPZ2_SHIFT  16
--#define  HPZ2(x)     ((x) << HPZ2_SHIFT)
--#define  HPZ1_MASK   0x00000f00U
--#define  HPZ1_SHIFT  8
--#define  HPZ1(x)     ((x) << HPZ1_SHIFT)
--#define  HPZ0_MASK   0x0000000fU
--#define  HPZ0_SHIFT  0
--#define  HPZ0(x)     ((x) << HPZ0_SHIFT)
+-#define MC_BIST_CMD 0x7600
+-#define  START_BIST          0x80000000U
+-#define  BIST_CMD_GAP_MASK   0x0000ff00U
+-#define  BIST_CMD_GAP_SHIFT  8
+-#define  BIST_CMD_GAP(x)     ((x) << BIST_CMD_GAP_SHIFT)
+-#define  BIST_OPCODE_MASK    0x00000003U
+-#define  BIST_OPCODE_SHIFT   0
+-#define  BIST_OPCODE(x)      ((x) << BIST_OPCODE_SHIFT)
 -
--#define ULP_RX_TDDP_PSZ 0x19178
+-#define MC_BIST_CMD_ADDR 0x7604
+-#define MC_BIST_CMD_LEN 0x7608
+-#define MC_BIST_DATA_PATTERN 0x760c
+-#define  BIST_DATA_TYPE_MASK   0x0000000fU
+-#define  BIST_DATA_TYPE_SHIFT  0
+-#define  BIST_DATA_TYPE(x)     ((x) << BIST_DATA_TYPE_SHIFT)
 -
--#define SF_DATA 0x193f8
--#define SF_OP 0x193fc
--#define  SF_BUSY       0x80000000U
--#define  SF_LOCK       0x00000010U
--#define  SF_CONT       0x00000008U
--#define  BYTECNT_MASK  0x00000006U
--#define  BYTECNT_SHIFT 1
--#define  BYTECNT(x)    ((x) << BYTECNT_SHIFT)
--#define  OP_WR         0x00000001U
+-#define MC_BIST_STATUS_RDATA 0x7688
++/* registers for module MC */
++#define MC_INT_CAUSE_A		0x7518
++#define MC_P_INT_CAUSE_A	0x41318
+ 
++#define ECC_UE_INT_CAUSE_S    2
++#define ECC_UE_INT_CAUSE_V(x) ((x) << ECC_UE_INT_CAUSE_S)
++#define ECC_UE_INT_CAUSE_F    ECC_UE_INT_CAUSE_V(1U)
++
++#define ECC_CE_INT_CAUSE_S    1
++#define ECC_CE_INT_CAUSE_V(x) ((x) << ECC_CE_INT_CAUSE_S)
++#define ECC_CE_INT_CAUSE_F    ECC_CE_INT_CAUSE_V(1U)
++
++#define PERR_INT_CAUSE_S    0
++#define PERR_INT_CAUSE_V(x) ((x) << PERR_INT_CAUSE_S)
++#define PERR_INT_CAUSE_F    PERR_INT_CAUSE_V(1U)
++
++#define MC_ECC_STATUS_A		0x751c
++#define MC_P_ECC_STATUS_A	0x4131c
++
++#define ECC_CECNT_S    16
++#define ECC_CECNT_M    0xffffU
++#define ECC_CECNT_V(x) ((x) << ECC_CECNT_S)
++#define ECC_CECNT_G(x) (((x) >> ECC_CECNT_S) & ECC_CECNT_M)
++
++#define ECC_UECNT_S    0
++#define ECC_UECNT_M    0xffffU
++#define ECC_UECNT_V(x) ((x) << ECC_UECNT_S)
++#define ECC_UECNT_G(x) (((x) >> ECC_UECNT_S) & ECC_UECNT_M)
++
++#define MC_BIST_CMD_A 0x7600
++
++#define START_BIST_S    31
++#define START_BIST_V(x) ((x) << START_BIST_S)
++#define START_BIST_F    START_BIST_V(1U)
++
++#define BIST_CMD_GAP_S    8
++#define BIST_CMD_GAP_V(x) ((x) << BIST_CMD_GAP_S)
++
++#define BIST_OPCODE_S    0
++#define BIST_OPCODE_V(x) ((x) << BIST_OPCODE_S)
++
++#define MC_BIST_CMD_ADDR_A 0x7604
++#define MC_BIST_CMD_LEN_A 0x7608
++#define MC_BIST_DATA_PATTERN_A 0x760c
++
++#define MC_BIST_STATUS_RDATA_A 0x7688
++
++/* registers for module MA */
+ #define MA_EDRAM0_BAR_A 0x77c0
+ 
+ #define EDRAM0_SIZE_S    0
+@@ -880,109 +893,294 @@
+ #define EXT_MEM0_ENABLE_V(x) ((x) << EXT_MEM0_ENABLE_S)
+ #define EXT_MEM0_ENABLE_F    EXT_MEM0_ENABLE_V(1U)
+ 
+-#define MA_INT_CAUSE 0x77e0
+-#define  MEM_PERR_INT_CAUSE 0x00000002U
+-#define  MEM_WRAP_INT_CAUSE 0x00000001U
 -
--#define PL_PF_INT_CAUSE 0x3c0
--#define  PFSW  0x00000008U
--#define  PFSGE 0x00000004U
--#define  PFCIM 0x00000002U
--#define  PFMPS 0x00000001U
+-#define MA_INT_WRAP_STATUS 0x77e4
+-#define  MEM_WRAP_ADDRESS_MASK   0xfffffff0U
+-#define  MEM_WRAP_ADDRESS_SHIFT  4
+-#define  MEM_WRAP_ADDRESS_GET(x) (((x) & MEM_WRAP_ADDRESS_MASK) >> MEM_WRAP_ADDRESS_SHIFT)
+-#define  MEM_WRAP_CLIENT_NUM_MASK   0x0000000fU
+-#define  MEM_WRAP_CLIENT_NUM_SHIFT  0
+-#define  MEM_WRAP_CLIENT_NUM_GET(x) (((x) & MEM_WRAP_CLIENT_NUM_MASK) >> MEM_WRAP_CLIENT_NUM_SHIFT)
+-#define MA_PARITY_ERROR_STATUS 0x77f4
+-#define MA_PARITY_ERROR_STATUS2 0x7804
 -
--#define PL_PF_INT_ENABLE 0x3c4
--#define PL_PF_CTL 0x3c8
--#define  SWINT 0x00000001U
+-#define EDC_0_BASE_ADDR 0x7900
 -
--#define PL_WHOAMI 0x19400
--#define  SOURCEPF_MASK   0x00000700U
--#define  SOURCEPF_SHIFT  8
--#define  SOURCEPF(x)     ((x) << SOURCEPF_SHIFT)
--#define  SOURCEPF_GET(x) (((x) & SOURCEPF_MASK) >> SOURCEPF_SHIFT)
--#define  ISVF            0x00000080U
--#define  VFID_MASK       0x0000007fU
--#define  VFID_SHIFT      0
--#define  VFID(x)         ((x) << VFID_SHIFT)
--#define  VFID_GET(x)     (((x) & VFID_MASK) >> VFID_SHIFT)
+-#define EDC_BIST_CMD 0x7904
+-#define EDC_BIST_CMD_ADDR 0x7908
+-#define EDC_BIST_CMD_LEN 0x790c
+-#define EDC_BIST_DATA_PATTERN 0x7910
+-#define EDC_BIST_STATUS_RDATA 0x7928
+-#define EDC_INT_CAUSE 0x7978
+-#define  ECC_UE_PAR     0x00000020U
+-#define  ECC_CE_PAR     0x00000010U
+-#define  PERR_PAR_CAUSE 0x00000008U
 -
--#define PL_INT_CAUSE 0x1940c
--#define  ULP_TX     0x08000000U
--#define  SGE        0x04000000U
--#define  HMA        0x02000000U
--#define  CPL_SWITCH 0x01000000U
--#define  ULP_RX     0x00800000U
--#define  PM_RX      0x00400000U
--#define  PM_TX      0x00200000U
--#define  MA         0x00100000U
--#define  TP         0x00080000U
--#define  LE         0x00040000U
--#define  EDC1       0x00020000U
--#define  EDC0       0x00010000U
--#define  MC         0x00008000U
--#define  PCIE       0x00004000U
--#define  PMU        0x00002000U
--#define  XGMAC_KR1  0x00001000U
--#define  XGMAC_KR0  0x00000800U
--#define  XGMAC1     0x00000400U
--#define  XGMAC0     0x00000200U
--#define  SMB        0x00000100U
--#define  SF         0x00000080U
--#define  PL         0x00000040U
--#define  NCSI       0x00000020U
--#define  MPS        0x00000010U
--#define  MI         0x00000008U
--#define  DBG        0x00000004U
--#define  I2CM       0x00000002U
--#define  CIM        0x00000001U
+-#define EDC_ECC_STATUS 0x797c
 -
--#define MC1 0x31
--#define PL_INT_ENABLE 0x19410
--#define PL_INT_MAP0 0x19414
--#define PL_RST 0x19428
--#define  PIORST     0x00000002U
--#define  PIORSTMODE 0x00000001U
+-#define EDC_1_BASE_ADDR 0x7980
 -
--#define PL_PL_INT_CAUSE 0x19430
--#define  FATALPERR 0x00000010U
--#define  PERRVFID  0x00000001U
+-#define CIM_BOOT_CFG 0x7b00
+-#define  BOOTADDR_MASK 0xffffff00U
+-#define  UPCRST        0x1U
 -
--#define PL_REV 0x1943c
+-#define CIM_PF_MAILBOX_DATA 0x240
+-#define CIM_PF_MAILBOX_CTRL 0x280
+-#define  MBMSGVALID     0x00000008U
+-#define  MBINTREQ       0x00000004U
+-#define  MBOWNER_MASK   0x00000003U
+-#define  MBOWNER_SHIFT  0
+-#define  MBOWNER(x)     ((x) << MBOWNER_SHIFT)
+-#define  MBOWNER_GET(x) (((x) & MBOWNER_MASK) >> MBOWNER_SHIFT)
 -
--#define S_REV    0
--#define M_REV    0xfU
--#define V_REV(x) ((x) << S_REV)
--#define G_REV(x) (((x) >> S_REV) & M_REV)
+-#define CIM_PF_HOST_INT_ENABLE 0x288
+-#define  MBMSGRDYINTEN(x) ((x) << 19)
 -
--#define LE_DB_CONFIG 0x19c04
--#define  HASHEN 0x00100000U
+-#define CIM_PF_HOST_INT_CAUSE 0x28c
+-#define  MBMSGRDYINT 0x00080000U
 -
--#define LE_DB_SERVER_INDEX 0x19c18
--#define LE_DB_ACT_CNT_IPV4 0x19c20
--#define LE_DB_ACT_CNT_IPV6 0x19c24
+-#define CIM_HOST_INT_CAUSE 0x7b2c
+-#define  TIEQOUTPARERRINT  0x00100000U
+-#define  TIEQINPARERRINT   0x00080000U
+-#define  MBHOSTPARERR      0x00040000U
+-#define  MBUPPARERR        0x00020000U
+-#define  IBQPARERR         0x0001f800U
+-#define  IBQTP0PARERR      0x00010000U
+-#define  IBQTP1PARERR      0x00008000U
+-#define  IBQULPPARERR      0x00004000U
+-#define  IBQSGELOPARERR    0x00002000U
+-#define  IBQSGEHIPARERR    0x00001000U
+-#define  IBQNCSIPARERR     0x00000800U
+-#define  OBQPARERR         0x000007e0U
+-#define  OBQULP0PARERR     0x00000400U
+-#define  OBQULP1PARERR     0x00000200U
+-#define  OBQULP2PARERR     0x00000100U
+-#define  OBQULP3PARERR     0x00000080U
+-#define  OBQSGEPARERR      0x00000040U
+-#define  OBQNCSIPARERR     0x00000020U
+-#define  PREFDROPINT       0x00000002U
+-#define  UPACCNONZERO      0x00000001U
 -
--#define LE_DB_INT_CAUSE 0x19c3c
--#define  REQQPARERR 0x00010000U
--#define  UNKNOWNCMD 0x00008000U
--#define  PARITYERR  0x00000040U
--#define  LIPMISS    0x00000020U
--#define  LIP0       0x00000010U
+-#define CIM_HOST_UPACC_INT_CAUSE 0x7b34
+-#define  EEPROMWRINT      0x40000000U
+-#define  TIMEOUTMAINT     0x20000000U
+-#define  TIMEOUTINT       0x10000000U
+-#define  RSPOVRLOOKUPINT  0x08000000U
+-#define  REQOVRLOOKUPINT  0x04000000U
+-#define  BLKWRPLINT       0x02000000U
+-#define  BLKRDPLINT       0x01000000U
+-#define  SGLWRPLINT       0x00800000U
+-#define  SGLRDPLINT       0x00400000U
+-#define  BLKWRCTLINT      0x00200000U
+-#define  BLKRDCTLINT      0x00100000U
+-#define  SGLWRCTLINT      0x00080000U
+-#define  SGLRDCTLINT      0x00040000U
+-#define  BLKWREEPROMINT   0x00020000U
+-#define  BLKRDEEPROMINT   0x00010000U
+-#define  SGLWREEPROMINT   0x00008000U
+-#define  SGLRDEEPROMINT   0x00004000U
+-#define  BLKWRFLASHINT    0x00002000U
+-#define  BLKRDFLASHINT    0x00001000U
+-#define  SGLWRFLASHINT    0x00000800U
+-#define  SGLRDFLASHINT    0x00000400U
+-#define  BLKWRBOOTINT     0x00000200U
+-#define  BLKRDBOOTINT     0x00000100U
+-#define  SGLWRBOOTINT     0x00000080U
+-#define  SGLRDBOOTINT     0x00000040U
+-#define  ILLWRBEINT       0x00000020U
+-#define  ILLRDBEINT       0x00000010U
+-#define  ILLRDINT         0x00000008U
+-#define  ILLWRINT         0x00000004U
+-#define  ILLTRANSINT      0x00000002U
+-#define  RSVDSPACEINT     0x00000001U
++#define MA_INT_CAUSE_A	0x77e0
++
++#define MEM_PERR_INT_CAUSE_S    1
++#define MEM_PERR_INT_CAUSE_V(x) ((x) << MEM_PERR_INT_CAUSE_S)
++#define MEM_PERR_INT_CAUSE_F    MEM_PERR_INT_CAUSE_V(1U)
++
++#define MEM_WRAP_INT_CAUSE_S    0
++#define MEM_WRAP_INT_CAUSE_V(x) ((x) << MEM_WRAP_INT_CAUSE_S)
++#define MEM_WRAP_INT_CAUSE_F    MEM_WRAP_INT_CAUSE_V(1U)
++
++#define MA_INT_WRAP_STATUS_A	0x77e4
++
++#define MEM_WRAP_ADDRESS_S    4
++#define MEM_WRAP_ADDRESS_M    0xfffffffU
++#define MEM_WRAP_ADDRESS_G(x) (((x) >> MEM_WRAP_ADDRESS_S) & MEM_WRAP_ADDRESS_M)
++
++#define MEM_WRAP_CLIENT_NUM_S    0
++#define MEM_WRAP_CLIENT_NUM_M    0xfU
++#define MEM_WRAP_CLIENT_NUM_G(x) \
++	(((x) >> MEM_WRAP_CLIENT_NUM_S) & MEM_WRAP_CLIENT_NUM_M)
++
++#define MA_PARITY_ERROR_STATUS_A	0x77f4
++#define MA_PARITY_ERROR_STATUS1_A	0x77f4
++#define MA_PARITY_ERROR_STATUS2_A	0x7804
++
++/* registers for module EDC_0 */
++#define EDC_0_BASE_ADDR		0x7900
++
++#define EDC_BIST_CMD_A		0x7904
++#define EDC_BIST_CMD_ADDR_A	0x7908
++#define EDC_BIST_CMD_LEN_A	0x790c
++#define EDC_BIST_DATA_PATTERN_A 0x7910
++#define EDC_BIST_STATUS_RDATA_A	0x7928
++#define EDC_INT_CAUSE_A		0x7978
++
++#define ECC_UE_PAR_S    5
++#define ECC_UE_PAR_V(x) ((x) << ECC_UE_PAR_S)
++#define ECC_UE_PAR_F    ECC_UE_PAR_V(1U)
++
++#define ECC_CE_PAR_S    4
++#define ECC_CE_PAR_V(x) ((x) << ECC_CE_PAR_S)
++#define ECC_CE_PAR_F    ECC_CE_PAR_V(1U)
++
++#define PERR_PAR_CAUSE_S    3
++#define PERR_PAR_CAUSE_V(x) ((x) << PERR_PAR_CAUSE_S)
++#define PERR_PAR_CAUSE_F    PERR_PAR_CAUSE_V(1U)
++
++#define EDC_ECC_STATUS_A	0x797c
++
++/* registers for module EDC_1 */
++#define EDC_1_BASE_ADDR	0x7980
++
++/* registers for module CIM */
++#define CIM_BOOT_CFG_A 0x7b00
++
++#define  BOOTADDR_M	0xffffff00U
++
++#define UPCRST_S    0
++#define UPCRST_V(x) ((x) << UPCRST_S)
++#define UPCRST_F    UPCRST_V(1U)
++
++#define CIM_PF_MAILBOX_DATA_A 0x240
++#define CIM_PF_MAILBOX_CTRL_A 0x280
++
++#define MBMSGVALID_S    3
++#define MBMSGVALID_V(x) ((x) << MBMSGVALID_S)
++#define MBMSGVALID_F    MBMSGVALID_V(1U)
++
++#define MBINTREQ_S    2
++#define MBINTREQ_V(x) ((x) << MBINTREQ_S)
++#define MBINTREQ_F    MBINTREQ_V(1U)
++
++#define MBOWNER_S    0
++#define MBOWNER_M    0x3U
++#define MBOWNER_V(x) ((x) << MBOWNER_S)
++#define MBOWNER_G(x) (((x) >> MBOWNER_S) & MBOWNER_M)
++
++#define CIM_PF_HOST_INT_ENABLE_A 0x288
++
++#define MBMSGRDYINTEN_S    19
++#define MBMSGRDYINTEN_V(x) ((x) << MBMSGRDYINTEN_S)
++#define MBMSGRDYINTEN_F    MBMSGRDYINTEN_V(1U)
++
++#define CIM_PF_HOST_INT_CAUSE_A 0x28c
++
++#define MBMSGRDYINT_S    19
++#define MBMSGRDYINT_V(x) ((x) << MBMSGRDYINT_S)
++#define MBMSGRDYINT_F    MBMSGRDYINT_V(1U)
++
++#define CIM_HOST_INT_CAUSE_A 0x7b2c
++
++#define TIEQOUTPARERRINT_S    20
++#define TIEQOUTPARERRINT_V(x) ((x) << TIEQOUTPARERRINT_S)
++#define TIEQOUTPARERRINT_F    TIEQOUTPARERRINT_V(1U)
++
++#define TIEQINPARERRINT_S    19
++#define TIEQINPARERRINT_V(x) ((x) << TIEQINPARERRINT_S)
++#define TIEQINPARERRINT_F    TIEQINPARERRINT_V(1U)
++
++#define PREFDROPINT_S    1
++#define PREFDROPINT_V(x) ((x) << PREFDROPINT_S)
++#define PREFDROPINT_F    PREFDROPINT_V(1U)
++
++#define UPACCNONZERO_S    0
++#define UPACCNONZERO_V(x) ((x) << UPACCNONZERO_S)
++#define UPACCNONZERO_F    UPACCNONZERO_V(1U)
++
++#define MBHOSTPARERR_S    18
++#define MBHOSTPARERR_V(x) ((x) << MBHOSTPARERR_S)
++#define MBHOSTPARERR_F    MBHOSTPARERR_V(1U)
++
++#define MBUPPARERR_S    17
++#define MBUPPARERR_V(x) ((x) << MBUPPARERR_S)
++#define MBUPPARERR_F    MBUPPARERR_V(1U)
++
++#define IBQTP0PARERR_S    16
++#define IBQTP0PARERR_V(x) ((x) << IBQTP0PARERR_S)
++#define IBQTP0PARERR_F    IBQTP0PARERR_V(1U)
++
++#define IBQTP1PARERR_S    15
++#define IBQTP1PARERR_V(x) ((x) << IBQTP1PARERR_S)
++#define IBQTP1PARERR_F    IBQTP1PARERR_V(1U)
++
++#define IBQULPPARERR_S    14
++#define IBQULPPARERR_V(x) ((x) << IBQULPPARERR_S)
++#define IBQULPPARERR_F    IBQULPPARERR_V(1U)
++
++#define IBQSGELOPARERR_S    13
++#define IBQSGELOPARERR_V(x) ((x) << IBQSGELOPARERR_S)
++#define IBQSGELOPARERR_F    IBQSGELOPARERR_V(1U)
++
++#define IBQSGEHIPARERR_S    12
++#define IBQSGEHIPARERR_V(x) ((x) << IBQSGEHIPARERR_S)
++#define IBQSGEHIPARERR_F    IBQSGEHIPARERR_V(1U)
++
++#define IBQNCSIPARERR_S    11
++#define IBQNCSIPARERR_V(x) ((x) << IBQNCSIPARERR_S)
++#define IBQNCSIPARERR_F    IBQNCSIPARERR_V(1U)
++
++#define OBQULP0PARERR_S    10
++#define OBQULP0PARERR_V(x) ((x) << OBQULP0PARERR_S)
++#define OBQULP0PARERR_F    OBQULP0PARERR_V(1U)
++
++#define OBQULP1PARERR_S    9
++#define OBQULP1PARERR_V(x) ((x) << OBQULP1PARERR_S)
++#define OBQULP1PARERR_F    OBQULP1PARERR_V(1U)
++
++#define OBQULP2PARERR_S    8
++#define OBQULP2PARERR_V(x) ((x) << OBQULP2PARERR_S)
++#define OBQULP2PARERR_F    OBQULP2PARERR_V(1U)
++
++#define OBQULP3PARERR_S    7
++#define OBQULP3PARERR_V(x) ((x) << OBQULP3PARERR_S)
++#define OBQULP3PARERR_F    OBQULP3PARERR_V(1U)
++
++#define OBQSGEPARERR_S    6
++#define OBQSGEPARERR_V(x) ((x) << OBQSGEPARERR_S)
++#define OBQSGEPARERR_F    OBQSGEPARERR_V(1U)
++
++#define OBQNCSIPARERR_S    5
++#define OBQNCSIPARERR_V(x) ((x) << OBQNCSIPARERR_S)
++#define OBQNCSIPARERR_F    OBQNCSIPARERR_V(1U)
++
++#define CIM_HOST_UPACC_INT_CAUSE_A 0x7b34
++
++#define EEPROMWRINT_S    30
++#define EEPROMWRINT_V(x) ((x) << EEPROMWRINT_S)
++#define EEPROMWRINT_F    EEPROMWRINT_V(1U)
++
++#define TIMEOUTMAINT_S    29
++#define TIMEOUTMAINT_V(x) ((x) << TIMEOUTMAINT_S)
++#define TIMEOUTMAINT_F    TIMEOUTMAINT_V(1U)
++
++#define TIMEOUTINT_S    28
++#define TIMEOUTINT_V(x) ((x) << TIMEOUTINT_S)
++#define TIMEOUTINT_F    TIMEOUTINT_V(1U)
++
++#define RSPOVRLOOKUPINT_S    27
++#define RSPOVRLOOKUPINT_V(x) ((x) << RSPOVRLOOKUPINT_S)
++#define RSPOVRLOOKUPINT_F    RSPOVRLOOKUPINT_V(1U)
++
++#define REQOVRLOOKUPINT_S    26
++#define REQOVRLOOKUPINT_V(x) ((x) << REQOVRLOOKUPINT_S)
++#define REQOVRLOOKUPINT_F    REQOVRLOOKUPINT_V(1U)
++
++#define BLKWRPLINT_S    25
++#define BLKWRPLINT_V(x) ((x) << BLKWRPLINT_S)
++#define BLKWRPLINT_F    BLKWRPLINT_V(1U)
++
++#define BLKRDPLINT_S    24
++#define BLKRDPLINT_V(x) ((x) << BLKRDPLINT_S)
++#define BLKRDPLINT_F    BLKRDPLINT_V(1U)
++
++#define SGLWRPLINT_S    23
++#define SGLWRPLINT_V(x) ((x) << SGLWRPLINT_S)
++#define SGLWRPLINT_F    SGLWRPLINT_V(1U)
++
++#define SGLRDPLINT_S    22
++#define SGLRDPLINT_V(x) ((x) << SGLRDPLINT_S)
++#define SGLRDPLINT_F    SGLRDPLINT_V(1U)
++
++#define BLKWRCTLINT_S    21
++#define BLKWRCTLINT_V(x) ((x) << BLKWRCTLINT_S)
++#define BLKWRCTLINT_F    BLKWRCTLINT_V(1U)
++
++#define BLKRDCTLINT_S    20
++#define BLKRDCTLINT_V(x) ((x) << BLKRDCTLINT_S)
++#define BLKRDCTLINT_F    BLKRDCTLINT_V(1U)
++
++#define SGLWRCTLINT_S    19
++#define SGLWRCTLINT_V(x) ((x) << SGLWRCTLINT_S)
++#define SGLWRCTLINT_F    SGLWRCTLINT_V(1U)
++
++#define SGLRDCTLINT_S    18
++#define SGLRDCTLINT_V(x) ((x) << SGLRDCTLINT_S)
++#define SGLRDCTLINT_F    SGLRDCTLINT_V(1U)
++
++#define BLKWREEPROMINT_S    17
++#define BLKWREEPROMINT_V(x) ((x) << BLKWREEPROMINT_S)
++#define BLKWREEPROMINT_F    BLKWREEPROMINT_V(1U)
++
++#define BLKRDEEPROMINT_S    16
++#define BLKRDEEPROMINT_V(x) ((x) << BLKRDEEPROMINT_S)
++#define BLKRDEEPROMINT_F    BLKRDEEPROMINT_V(1U)
++
++#define SGLWREEPROMINT_S    15
++#define SGLWREEPROMINT_V(x) ((x) << SGLWREEPROMINT_S)
++#define SGLWREEPROMINT_F    SGLWREEPROMINT_V(1U)
++
++#define SGLRDEEPROMINT_S    14
++#define SGLRDEEPROMINT_V(x) ((x) << SGLRDEEPROMINT_S)
++#define SGLRDEEPROMINT_F    SGLRDEEPROMINT_V(1U)
++
++#define BLKWRFLASHINT_S    13
++#define BLKWRFLASHINT_V(x) ((x) << BLKWRFLASHINT_S)
++#define BLKWRFLASHINT_F    BLKWRFLASHINT_V(1U)
++
++#define BLKRDFLASHINT_S    12
++#define BLKRDFLASHINT_V(x) ((x) << BLKRDFLASHINT_S)
++#define BLKRDFLASHINT_F    BLKRDFLASHINT_V(1U)
++
++#define SGLWRFLASHINT_S    11
++#define SGLWRFLASHINT_V(x) ((x) << SGLWRFLASHINT_S)
++#define SGLWRFLASHINT_F    SGLWRFLASHINT_V(1U)
++
++#define SGLRDFLASHINT_S    10
++#define SGLRDFLASHINT_V(x) ((x) << SGLRDFLASHINT_S)
++#define SGLRDFLASHINT_F    SGLRDFLASHINT_V(1U)
++
++#define BLKWRBOOTINT_S    9
++#define BLKWRBOOTINT_V(x) ((x) << BLKWRBOOTINT_S)
++#define BLKWRBOOTINT_F    BLKWRBOOTINT_V(1U)
++
++#define BLKRDBOOTINT_S    8
++#define BLKRDBOOTINT_V(x) ((x) << BLKRDBOOTINT_S)
++#define BLKRDBOOTINT_F    BLKRDBOOTINT_V(1U)
++
++#define SGLWRBOOTINT_S    7
++#define SGLWRBOOTINT_V(x) ((x) << SGLWRBOOTINT_S)
++#define SGLWRBOOTINT_F    SGLWRBOOTINT_V(1U)
++
++#define SGLRDBOOTINT_S    6
++#define SGLRDBOOTINT_V(x) ((x) << SGLRDBOOTINT_S)
++#define SGLRDBOOTINT_F    SGLRDBOOTINT_V(1U)
++
++#define ILLWRBEINT_S    5
++#define ILLWRBEINT_V(x) ((x) << ILLWRBEINT_S)
++#define ILLWRBEINT_F    ILLWRBEINT_V(1U)
++
++#define ILLRDBEINT_S    4
++#define ILLRDBEINT_V(x) ((x) << ILLRDBEINT_S)
++#define ILLRDBEINT_F    ILLRDBEINT_V(1U)
++
++#define ILLRDINT_S    3
++#define ILLRDINT_V(x) ((x) << ILLRDINT_S)
++#define ILLRDINT_F    ILLRDINT_V(1U)
++
++#define ILLWRINT_S    2
++#define ILLWRINT_V(x) ((x) << ILLWRINT_S)
++#define ILLWRINT_F    ILLWRINT_V(1U)
++
++#define ILLTRANSINT_S    1
++#define ILLTRANSINT_V(x) ((x) << ILLTRANSINT_S)
++#define ILLTRANSINT_F    ILLTRANSINT_V(1U)
++
++#define RSVDSPACEINT_S    0
++#define RSVDSPACEINT_V(x) ((x) << RSVDSPACEINT_S)
++#define RSVDSPACEINT_F    RSVDSPACEINT_V(1U)
+ 
+ #define TP_OUT_CONFIG 0x7d04
+ #define  VLANEXTENABLE_MASK  0x0000f000U
+@@ -1634,19 +1832,22 @@
+ #define MC_STRIDE (MC_1_BASE_ADDR - MC_0_BASE_ADDR)
+ #define MC_REG(reg, idx) (reg + MC_STRIDE * idx)
+ 
+-#define MC_P_BIST_CMD 0x41400
+-#define MC_P_BIST_CMD_ADDR 0x41404
+-#define MC_P_BIST_CMD_LEN 0x41408
+-#define MC_P_BIST_DATA_PATTERN 0x4140c
+-#define MC_P_BIST_STATUS_RDATA 0x41488
+-#define EDC_T50_BASE_ADDR 0x50000
+-#define EDC_H_BIST_CMD 0x50004
+-#define EDC_H_BIST_CMD_ADDR 0x50008
+-#define EDC_H_BIST_CMD_LEN 0x5000c
+-#define EDC_H_BIST_DATA_PATTERN 0x50010
+-#define EDC_H_BIST_STATUS_RDATA 0x50028
 -
--#define LE_DB_TID_HASHBASE 0x19df8
--
--#define NCSI_INT_CAUSE 0x1a0d8
--#define  CIM_DM_PRTY_ERR 0x00000100U
--#define  MPS_DM_PRTY_ERR 0x00000080U
--#define  TXFIFO_PRTY_ERR 0x00000002U
--#define  RXFIFO_PRTY_ERR 0x00000001U
--
--#define XGMAC_PORT_CFG2 0x1018
--#define  PATEN   0x00040000U
--#define  MAGICEN 0x00020000U
-+#define CPL_INTR_CAUSE_A 0x19054
- 
--#define XGMAC_PORT_MAGIC_MACID_LO 0x1024
--#define XGMAC_PORT_MAGIC_MACID_HI 0x1028
-+#define CIM_OP_MAP_PERR_S    5
-+#define CIM_OP_MAP_PERR_V(x) ((x) << CIM_OP_MAP_PERR_S)
-+#define CIM_OP_MAP_PERR_F    CIM_OP_MAP_PERR_V(1U)
+-#define EDC_T51_BASE_ADDR 0x50800
++#define MC_P_BIST_CMD_A			0x41400
++#define MC_P_BIST_CMD_ADDR_A		0x41404
++#define MC_P_BIST_CMD_LEN_A		0x41408
++#define MC_P_BIST_DATA_PATTERN_A	0x4140c
++#define MC_P_BIST_STATUS_RDATA_A	0x41488
 +
-+#define CIM_OVFL_ERROR_S    4
-+#define CIM_OVFL_ERROR_V(x) ((x) << CIM_OVFL_ERROR_S)
-+#define CIM_OVFL_ERROR_F    CIM_OVFL_ERROR_V(1U)
++#define EDC_T50_BASE_ADDR		0x50000
 +
-+#define TP_FRAMING_ERROR_S    3
-+#define TP_FRAMING_ERROR_V(x) ((x) << TP_FRAMING_ERROR_S)
-+#define TP_FRAMING_ERROR_F    TP_FRAMING_ERROR_V(1U)
++#define EDC_H_BIST_CMD_A		0x50004
++#define EDC_H_BIST_CMD_ADDR_A		0x50008
++#define EDC_H_BIST_CMD_LEN_A		0x5000c
++#define EDC_H_BIST_DATA_PATTERN_A	0x50010
++#define EDC_H_BIST_STATUS_RDATA_A	0x50028
 +
-+#define SGE_FRAMING_ERROR_S    2
-+#define SGE_FRAMING_ERROR_V(x) ((x) << SGE_FRAMING_ERROR_S)
-+#define SGE_FRAMING_ERROR_F    SGE_FRAMING_ERROR_V(1U)
++#define EDC_T51_BASE_ADDR		0x50800
 +
-+#define CIM_FRAMING_ERROR_S    1
-+#define CIM_FRAMING_ERROR_V(x) ((x) << CIM_FRAMING_ERROR_S)
-+#define CIM_FRAMING_ERROR_F    CIM_FRAMING_ERROR_V(1U)
-+
-+#define ZERO_SWITCH_ERROR_S    0
-+#define ZERO_SWITCH_ERROR_V(x) ((x) << ZERO_SWITCH_ERROR_S)
-+#define ZERO_SWITCH_ERROR_F    ZERO_SWITCH_ERROR_V(1U)
-+
-+#define SMB_INT_CAUSE_A 0x19090
-+
-+#define MSTTXFIFOPARINT_S    21
-+#define MSTTXFIFOPARINT_V(x) ((x) << MSTTXFIFOPARINT_S)
-+#define MSTTXFIFOPARINT_F    MSTTXFIFOPARINT_V(1U)
-+
-+#define MSTRXFIFOPARINT_S    20
-+#define MSTRXFIFOPARINT_V(x) ((x) << MSTRXFIFOPARINT_S)
-+#define MSTRXFIFOPARINT_F    MSTRXFIFOPARINT_V(1U)
-+
-+#define SLVFIFOPARINT_S    19
-+#define SLVFIFOPARINT_V(x) ((x) << SLVFIFOPARINT_S)
-+#define SLVFIFOPARINT_F    SLVFIFOPARINT_V(1U)
-+
-+#define ULP_RX_INT_CAUSE_A 0x19158
-+#define ULP_RX_ISCSI_TAGMASK_A 0x19164
-+#define ULP_RX_ISCSI_PSZ_A 0x19168
-+
-+#define HPZ3_S    24
-+#define HPZ3_V(x) ((x) << HPZ3_S)
-+
-+#define HPZ2_S    16
-+#define HPZ2_V(x) ((x) << HPZ2_S)
-+
-+#define HPZ1_S    8
-+#define HPZ1_V(x) ((x) << HPZ1_S)
-+
-+#define HPZ0_S    0
-+#define HPZ0_V(x) ((x) << HPZ0_S)
-+
-+#define ULP_RX_TDDP_PSZ_A 0x19178
-+
-+/* registers for module SF */
-+#define SF_DATA_A 0x193f8
-+#define SF_OP_A 0x193fc
-+
-+#define SF_BUSY_S    31
-+#define SF_BUSY_V(x) ((x) << SF_BUSY_S)
-+#define SF_BUSY_F    SF_BUSY_V(1U)
-+
-+#define SF_LOCK_S    4
-+#define SF_LOCK_V(x) ((x) << SF_LOCK_S)
-+#define SF_LOCK_F    SF_LOCK_V(1U)
-+
-+#define SF_CONT_S    3
-+#define SF_CONT_V(x) ((x) << SF_CONT_S)
-+#define SF_CONT_F    SF_CONT_V(1U)
-+
-+#define BYTECNT_S    1
-+#define BYTECNT_V(x) ((x) << BYTECNT_S)
-+
-+#define OP_S    0
-+#define OP_V(x) ((x) << OP_S)
-+#define OP_F    OP_V(1U)
-+
-+#define PL_PF_INT_CAUSE_A 0x3c0
-+
-+#define PFSW_S    3
-+#define PFSW_V(x) ((x) << PFSW_S)
-+#define PFSW_F    PFSW_V(1U)
-+
-+#define PFCIM_S    1
-+#define PFCIM_V(x) ((x) << PFCIM_S)
-+#define PFCIM_F    PFCIM_V(1U)
-+
-+#define PL_PF_INT_ENABLE_A 0x3c4
-+#define PL_PF_CTL_A 0x3c8
-+
-+#define PL_WHOAMI_A 0x19400
-+
-+#define SOURCEPF_S    8
-+#define SOURCEPF_M    0x7U
-+#define SOURCEPF_G(x) (((x) >> SOURCEPF_S) & SOURCEPF_M)
-+
-+#define PL_INT_CAUSE_A 0x1940c
-+
-+#define ULP_TX_S    27
-+#define ULP_TX_V(x) ((x) << ULP_TX_S)
-+#define ULP_TX_F    ULP_TX_V(1U)
-+
-+#define SGE_S    26
-+#define SGE_V(x) ((x) << SGE_S)
-+#define SGE_F    SGE_V(1U)
-+
-+#define CPL_SWITCH_S    24
-+#define CPL_SWITCH_V(x) ((x) << CPL_SWITCH_S)
-+#define CPL_SWITCH_F    CPL_SWITCH_V(1U)
-+
-+#define ULP_RX_S    23
-+#define ULP_RX_V(x) ((x) << ULP_RX_S)
-+#define ULP_RX_F    ULP_RX_V(1U)
-+
-+#define PM_RX_S    22
-+#define PM_RX_V(x) ((x) << PM_RX_S)
-+#define PM_RX_F    PM_RX_V(1U)
-+
-+#define PM_TX_S    21
-+#define PM_TX_V(x) ((x) << PM_TX_S)
-+#define PM_TX_F    PM_TX_V(1U)
-+
-+#define MA_S    20
-+#define MA_V(x) ((x) << MA_S)
-+#define MA_F    MA_V(1U)
- 
--#define XGMAC_PORT_EPIO_DATA0 0x10c0
--#define XGMAC_PORT_EPIO_DATA1 0x10c4
--#define XGMAC_PORT_EPIO_DATA2 0x10c8
--#define XGMAC_PORT_EPIO_DATA3 0x10cc
--#define XGMAC_PORT_EPIO_OP 0x10d0
--#define  EPIOWR         0x00000100U
--#define  ADDRESS_MASK   0x000000ffU
--#define  ADDRESS_SHIFT  0
--#define  ADDRESS(x)     ((x) << ADDRESS_SHIFT)
-+#define TP_S    19
-+#define TP_V(x) ((x) << TP_S)
-+#define TP_F    TP_V(1U)
- 
--#define MAC_PORT_INT_CAUSE 0x8dc
--#define XGMAC_PORT_INT_CAUSE 0x10dc
-+#define LE_S    18
-+#define LE_V(x) ((x) << LE_S)
-+#define LE_F    LE_V(1U)
- 
--#define A_TP_TX_MOD_QUEUE_REQ_MAP 0x7e28
-+#define EDC1_S    17
-+#define EDC1_V(x) ((x) << EDC1_S)
-+#define EDC1_F    EDC1_V(1U)
- 
--#define A_TP_TX_MOD_CHANNEL_WEIGHT 0x7e34
-+#define EDC0_S    16
-+#define EDC0_V(x) ((x) << EDC0_S)
-+#define EDC0_F    EDC0_V(1U)
- 
--#define S_TX_MOD_QUEUE_REQ_MAP    0
--#define M_TX_MOD_QUEUE_REQ_MAP    0xffffU
--#define V_TX_MOD_QUEUE_REQ_MAP(x) ((x) << S_TX_MOD_QUEUE_REQ_MAP)
-+#define MC_S    15
-+#define MC_V(x) ((x) << MC_S)
-+#define MC_F    MC_V(1U)
- 
--#define A_TP_TX_MOD_QUEUE_WEIGHT0 0x7e30
-+#define PCIE_S    14
-+#define PCIE_V(x) ((x) << PCIE_S)
-+#define PCIE_F    PCIE_V(1U)
- 
--#define S_TX_MODQ_WEIGHT3    24
--#define M_TX_MODQ_WEIGHT3    0xffU
--#define V_TX_MODQ_WEIGHT3(x) ((x) << S_TX_MODQ_WEIGHT3)
-+#define XGMAC_KR1_S    12
-+#define XGMAC_KR1_V(x) ((x) << XGMAC_KR1_S)
-+#define XGMAC_KR1_F    XGMAC_KR1_V(1U)
- 
--#define S_TX_MODQ_WEIGHT2    16
--#define M_TX_MODQ_WEIGHT2    0xffU
--#define V_TX_MODQ_WEIGHT2(x) ((x) << S_TX_MODQ_WEIGHT2)
-+#define XGMAC_KR0_S    11
-+#define XGMAC_KR0_V(x) ((x) << XGMAC_KR0_S)
-+#define XGMAC_KR0_F    XGMAC_KR0_V(1U)
- 
--#define S_TX_MODQ_WEIGHT1    8
--#define M_TX_MODQ_WEIGHT1    0xffU
--#define V_TX_MODQ_WEIGHT1(x) ((x) << S_TX_MODQ_WEIGHT1)
-+#define XGMAC1_S    10
-+#define XGMAC1_V(x) ((x) << XGMAC1_S)
-+#define XGMAC1_F    XGMAC1_V(1U)
- 
--#define S_TX_MODQ_WEIGHT0    0
--#define M_TX_MODQ_WEIGHT0    0xffU
--#define V_TX_MODQ_WEIGHT0(x) ((x) << S_TX_MODQ_WEIGHT0)
-+#define XGMAC0_S    9
-+#define XGMAC0_V(x) ((x) << XGMAC0_S)
-+#define XGMAC0_F    XGMAC0_V(1U)
- 
--#define A_TP_TX_SCHED_HDR 0x23
-+#define SMB_S    8
-+#define SMB_V(x) ((x) << SMB_S)
-+#define SMB_F    SMB_V(1U)
- 
--#define A_TP_TX_SCHED_FIFO 0x24
-+#define SF_S    7
-+#define SF_V(x) ((x) << SF_S)
-+#define SF_F    SF_V(1U)
- 
--#define A_TP_TX_SCHED_PCMD 0x25
-+#define PL_S    6
-+#define PL_V(x) ((x) << PL_S)
-+#define PL_F    PL_V(1U)
- 
--#define S_VNIC    11
--#define V_VNIC(x) ((x) << S_VNIC)
--#define F_VNIC    V_VNIC(1U)
-+#define NCSI_S    5
-+#define NCSI_V(x) ((x) << NCSI_S)
-+#define NCSI_F    NCSI_V(1U)
- 
--#define S_FRAGMENTATION    9
--#define V_FRAGMENTATION(x) ((x) << S_FRAGMENTATION)
--#define F_FRAGMENTATION    V_FRAGMENTATION(1U)
-+#define MPS_S    4
-+#define MPS_V(x) ((x) << MPS_S)
-+#define MPS_F    MPS_V(1U)
- 
--#define S_MPSHITTYPE    8
--#define V_MPSHITTYPE(x) ((x) << S_MPSHITTYPE)
--#define F_MPSHITTYPE    V_MPSHITTYPE(1U)
-+#define CIM_S    0
-+#define CIM_V(x) ((x) << CIM_S)
-+#define CIM_F    CIM_V(1U)
- 
--#define S_MACMATCH    7
--#define V_MACMATCH(x) ((x) << S_MACMATCH)
--#define F_MACMATCH    V_MACMATCH(1U)
-+#define MC1_S    31
- 
--#define S_ETHERTYPE    6
--#define V_ETHERTYPE(x) ((x) << S_ETHERTYPE)
--#define F_ETHERTYPE    V_ETHERTYPE(1U)
-+#define PL_INT_ENABLE_A 0x19410
-+#define PL_INT_MAP0_A 0x19414
-+#define PL_RST_A 0x19428
- 
--#define S_PROTOCOL    5
--#define V_PROTOCOL(x) ((x) << S_PROTOCOL)
--#define F_PROTOCOL    V_PROTOCOL(1U)
-+#define PIORST_S    1
-+#define PIORST_V(x) ((x) << PIORST_S)
-+#define PIORST_F    PIORST_V(1U)
- 
--#define S_TOS    4
--#define V_TOS(x) ((x) << S_TOS)
--#define F_TOS    V_TOS(1U)
-+#define PIORSTMODE_S    0
-+#define PIORSTMODE_V(x) ((x) << PIORSTMODE_S)
-+#define PIORSTMODE_F    PIORSTMODE_V(1U)
- 
--#define S_VLAN    3
--#define V_VLAN(x) ((x) << S_VLAN)
--#define F_VLAN    V_VLAN(1U)
-+#define PL_PL_INT_CAUSE_A 0x19430
- 
--#define S_VNIC_ID    2
--#define V_VNIC_ID(x) ((x) << S_VNIC_ID)
--#define F_VNIC_ID    V_VNIC_ID(1U)
-+#define FATALPERR_S    4
-+#define FATALPERR_V(x) ((x) << FATALPERR_S)
-+#define FATALPERR_F    FATALPERR_V(1U)
- 
--#define S_PORT    1
--#define V_PORT(x) ((x) << S_PORT)
--#define F_PORT    V_PORT(1U)
-+#define PERRVFID_S    0
-+#define PERRVFID_V(x) ((x) << PERRVFID_S)
-+#define PERRVFID_F    PERRVFID_V(1U)
- 
--#define S_FCOE    0
--#define V_FCOE(x) ((x) << S_FCOE)
--#define F_FCOE    V_FCOE(1U)
-+#define PL_REV_A 0x1943c
-+
-+#define REV_S    0
-+#define REV_M    0xfU
-+#define REV_V(x) ((x) << REV_S)
-+#define REV_G(x) (((x) >> REV_S) & REV_M)
-+
-+#define LE_DB_INT_CAUSE_A 0x19c3c
-+
-+#define REQQPARERR_S    16
-+#define REQQPARERR_V(x) ((x) << REQQPARERR_S)
-+#define REQQPARERR_F    REQQPARERR_V(1U)
-+
-+#define UNKNOWNCMD_S    15
-+#define UNKNOWNCMD_V(x) ((x) << UNKNOWNCMD_S)
-+#define UNKNOWNCMD_F    UNKNOWNCMD_V(1U)
-+
-+#define PARITYERR_S    6
-+#define PARITYERR_V(x) ((x) << PARITYERR_S)
-+#define PARITYERR_F    PARITYERR_V(1U)
-+
-+#define LIPMISS_S    5
-+#define LIPMISS_V(x) ((x) << LIPMISS_S)
-+#define LIPMISS_F    LIPMISS_V(1U)
-+
-+#define LIP0_S    4
-+#define LIP0_V(x) ((x) << LIP0_S)
-+#define LIP0_F    LIP0_V(1U)
-+
-+#define NCSI_INT_CAUSE_A 0x1a0d8
-+
-+#define CIM_DM_PRTY_ERR_S    8
-+#define CIM_DM_PRTY_ERR_V(x) ((x) << CIM_DM_PRTY_ERR_S)
-+#define CIM_DM_PRTY_ERR_F    CIM_DM_PRTY_ERR_V(1U)
-+
-+#define MPS_DM_PRTY_ERR_S    7
-+#define MPS_DM_PRTY_ERR_V(x) ((x) << MPS_DM_PRTY_ERR_S)
-+#define MPS_DM_PRTY_ERR_F    MPS_DM_PRTY_ERR_V(1U)
-+
-+#define TXFIFO_PRTY_ERR_S    1
-+#define TXFIFO_PRTY_ERR_V(x) ((x) << TXFIFO_PRTY_ERR_S)
-+#define TXFIFO_PRTY_ERR_F    TXFIFO_PRTY_ERR_V(1U)
-+
-+#define RXFIFO_PRTY_ERR_S    0
-+#define RXFIFO_PRTY_ERR_V(x) ((x) << RXFIFO_PRTY_ERR_S)
-+#define RXFIFO_PRTY_ERR_F    RXFIFO_PRTY_ERR_V(1U)
-+
-+#define XGMAC_PORT_CFG2_A 0x1018
-+
-+#define PATEN_S    18
-+#define PATEN_V(x) ((x) << PATEN_S)
-+#define PATEN_F    PATEN_V(1U)
-+
-+#define MAGICEN_S    17
-+#define MAGICEN_V(x) ((x) << MAGICEN_S)
-+#define MAGICEN_F    MAGICEN_V(1U)
-+
-+#define XGMAC_PORT_MAGIC_MACID_LO 0x1024
-+#define XGMAC_PORT_MAGIC_MACID_HI 0x1028
-+
-+#define XGMAC_PORT_EPIO_DATA0_A 0x10c0
-+#define XGMAC_PORT_EPIO_DATA1_A 0x10c4
-+#define XGMAC_PORT_EPIO_DATA2_A 0x10c8
-+#define XGMAC_PORT_EPIO_DATA3_A 0x10cc
-+#define XGMAC_PORT_EPIO_OP_A 0x10d0
-+
-+#define EPIOWR_S    8
-+#define EPIOWR_V(x) ((x) << EPIOWR_S)
-+#define EPIOWR_F    EPIOWR_V(1U)
-+
-+#define ADDRESS_S    0
-+#define ADDRESS_V(x) ((x) << ADDRESS_S)
-+
-+#define MAC_PORT_INT_CAUSE_A 0x8dc
-+#define XGMAC_PORT_INT_CAUSE_A 0x10dc
-+
-+#define TP_TX_MOD_QUEUE_REQ_MAP_A 0x7e28
-+
-+#define TP_TX_MOD_QUEUE_WEIGHT0_A 0x7e30
-+#define TP_TX_MOD_CHANNEL_WEIGHT_A 0x7e34
-+
-+#define TX_MOD_QUEUE_REQ_MAP_S    0
-+#define TX_MOD_QUEUE_REQ_MAP_V(x) ((x) << TX_MOD_QUEUE_REQ_MAP_S)
-+
-+#define TX_MODQ_WEIGHT3_S    24
-+#define TX_MODQ_WEIGHT3_V(x) ((x) << TX_MODQ_WEIGHT3_S)
-+
-+#define TX_MODQ_WEIGHT2_S    16
-+#define TX_MODQ_WEIGHT2_V(x) ((x) << TX_MODQ_WEIGHT2_S)
-+
-+#define TX_MODQ_WEIGHT1_S    8
-+#define TX_MODQ_WEIGHT1_V(x) ((x) << TX_MODQ_WEIGHT1_S)
-+
-+#define TX_MODQ_WEIGHT0_S    0
-+#define TX_MODQ_WEIGHT0_V(x) ((x) << TX_MODQ_WEIGHT0_S)
-+
-+#define TP_TX_SCHED_HDR_A 0x23
-+#define TP_TX_SCHED_FIFO_A 0x24
-+#define TP_TX_SCHED_PCMD_A 0x25
- 
- #define NUM_MPS_CLS_SRAM_L_INSTANCES 336
- #define NUM_MPS_T5_CLS_SRAM_L_INSTANCES 512
-@@ -1968,46 +2058,8 @@
  #define EDC_STRIDE_T5 (EDC_T51_BASE_ADDR - EDC_T50_BASE_ADDR)
  #define EDC_REG_T5(reg, idx) (reg + EDC_STRIDE_T5 * idx)
  
--#define A_PL_VF_REV 0x4
--#define A_PL_VF_WHOAMI 0x0
--#define A_PL_VF_REVISION 0x8
--
--#define S_CHIPID    4
--#define M_CHIPID    0xfU
--#define V_CHIPID(x) ((x) << S_CHIPID)
--#define G_CHIPID(x) (((x) >> S_CHIPID) & M_CHIPID)
--
--/* TP_VLAN_PRI_MAP controls which subset of fields will be present in the
-- * Compressed Filter Tuple for LE filters.  Each bit set in TP_VLAN_PRI_MAP
-- * selects for a particular field being present.  These fields, when present
-- * in the Compressed Filter Tuple, have the following widths in bits.
-- */
--#define W_FT_FCOE                       1
--#define W_FT_PORT                       3
--#define W_FT_VNIC_ID                    17
--#define W_FT_VLAN                       17
--#define W_FT_TOS                        8
--#define W_FT_PROTOCOL                   8
--#define W_FT_ETHERTYPE                  16
--#define W_FT_MACMATCH                   9
--#define W_FT_MPSHITTYPE                 3
--#define W_FT_FRAGMENTATION              1
--
--/* Some of the Compressed Filter Tuple fields have internal structure.  These
-- * bit shifts/masks describe those structures.  All shifts are relative to the
-- * base position of the fields within the Compressed Filter Tuple
-- */
--#define S_FT_VLAN_VLD                   16
--#define V_FT_VLAN_VLD(x)                ((x) << S_FT_VLAN_VLD)
--#define F_FT_VLAN_VLD                   V_FT_VLAN_VLD(1U)
--
--#define S_FT_VNID_ID_VF                 0
--#define V_FT_VNID_ID_VF(x)              ((x) << S_FT_VNID_ID_VF)
--
--#define S_FT_VNID_ID_PF                 7
--#define V_FT_VNID_ID_PF(x)              ((x) << S_FT_VNID_ID_PF)
--
--#define S_FT_VNID_ID_VLD                16
--#define V_FT_VNID_ID_VLD(x)             ((x) << S_FT_VNID_ID_VLD)
-+#define PL_VF_REV_A 0x4
-+#define PL_VF_WHOAMI_A 0x0
-+#define PL_VF_REVISION_A 0x8
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_defs.h b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_defs.h
+index c7b127d..b516b12 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_defs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_defs.h
+@@ -64,8 +64,8 @@
+  * Mailbox Data in the fixed CIM PF map and the programmable VF map must
+  * match.  However, it's a useful convention ...
+  */
+-#if T4VF_MBDATA_BASE_ADDR != CIM_PF_MAILBOX_DATA
+-#error T4VF_MBDATA_BASE_ADDR must match CIM_PF_MAILBOX_DATA!
++#if T4VF_MBDATA_BASE_ADDR != CIM_PF_MAILBOX_DATA_A
++#error T4VF_MBDATA_BASE_ADDR must match CIM_PF_MAILBOX_DATA_A!
+ #endif
  
- #endif /* __T4_REGS_H */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_values.h b/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-index ecf7459..a404844 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-@@ -82,4 +82,37 @@
- #define WINDOW_SHIFT_X		10
- #define PCIEOFST_SHIFT_X	10
- 
-+/* TP_VLAN_PRI_MAP controls which subset of fields will be present in the
-+ * Compressed Filter Tuple for LE filters.  Each bit set in TP_VLAN_PRI_MAP
-+ * selects for a particular field being present.  These fields, when present
-+ * in the Compressed Filter Tuple, have the following widths in bits.
-+ */
-+#define FT_FCOE_W                       1
-+#define FT_PORT_W                       3
-+#define FT_VNIC_ID_W                    17
-+#define FT_VLAN_W                       17
-+#define FT_TOS_W                        8
-+#define FT_PROTOCOL_W                   8
-+#define FT_ETHERTYPE_W                  16
-+#define FT_MACMATCH_W                   9
-+#define FT_MPSHITTYPE_W                 3
-+#define FT_FRAGMENTATION_W              1
-+
-+/* Some of the Compressed Filter Tuple fields have internal structure.  These
-+ * bit shifts/masks describe those structures.  All shifts are relative to the
-+ * base position of the fields within the Compressed Filter Tuple
-+ */
-+#define FT_VLAN_VLD_S                   16
-+#define FT_VLAN_VLD_V(x)                ((x) << FT_VLAN_VLD_S)
-+#define FT_VLAN_VLD_F                   FT_VLAN_VLD_V(1U)
-+
-+#define FT_VNID_ID_VF_S                 0
-+#define FT_VNID_ID_VF_V(x)              ((x) << FT_VNID_ID_VF_S)
-+
-+#define FT_VNID_ID_PF_S                 7
-+#define FT_VNID_ID_PF_V(x)              ((x) << FT_VNID_ID_PF_S)
-+
-+#define FT_VNID_ID_VLD_S                16
-+#define FT_VNID_ID_VLD_V(x)             ((x) << FT_VNID_ID_VLD_S)
-+
- #endif /* __T4_VALUES_H__ */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index aa9f9cd..7bfbacd 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -1673,7 +1673,7 @@ static void cxgb4vf_get_regs(struct net_device *dev,
- 	reg_block_dump(adapter, regbuf,
- 		       T4VF_PL_BASE_ADDR + T4VF_MOD_MAP_PL_FIRST,
- 		       T4VF_PL_BASE_ADDR + (is_t4(adapter->params.chip)
--		       ? A_PL_VF_WHOAMI : A_PL_VF_REVISION));
-+		       ? PL_VF_WHOAMI_A : PL_VF_REVISION_A));
- 	reg_block_dump(adapter, regbuf,
- 		       T4VF_CIM_BASE_ADDR + T4VF_MOD_MAP_CIM_FIRST,
- 		       T4VF_CIM_BASE_ADDR + T4VF_MOD_MAP_CIM_LAST);
+ /*
 diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-index 5e83c18..fcc6108 100644
+index fa60f71..5e83c18 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-@@ -616,8 +616,8 @@ int t4vf_get_sge_params(struct adapter *adapter)
- 		 * the driver can just use it.
- 		 */
- 		whoami = t4_read_reg(adapter,
--				     T4VF_PL_BASE_ADDR + A_PL_VF_WHOAMI);
--		pf = SOURCEPF_GET(whoami);
-+				     T4VF_PL_BASE_ADDR + PL_VF_WHOAMI_A);
-+		pf = SOURCEPF_G(whoami);
+@@ -138,9 +138,9 @@ int t4vf_wr_mbox_core(struct adapter *adapter, const void *cmd, int size,
+ 	 * Loop trying to get ownership of the mailbox.  Return an error
+ 	 * if we can't gain ownership.
+ 	 */
+-	v = MBOWNER_GET(t4_read_reg(adapter, mbox_ctl));
++	v = MBOWNER_G(t4_read_reg(adapter, mbox_ctl));
+ 	for (i = 0; v == MBOX_OWNER_NONE && i < 3; i++)
+-		v = MBOWNER_GET(t4_read_reg(adapter, mbox_ctl));
++		v = MBOWNER_G(t4_read_reg(adapter, mbox_ctl));
+ 	if (v != MBOX_OWNER_DRV)
+ 		return v == MBOX_OWNER_FW ? -EBUSY : -ETIMEDOUT;
  
- 		s_hps = (HOSTPAGESIZEPF0_S +
- 			 (HOSTPAGESIZEPF1_S - HOSTPAGESIZEPF0_S) * pf);
-@@ -1591,7 +1591,7 @@ int t4vf_prep_adapter(struct adapter *adapter)
- 		break;
+@@ -162,7 +162,7 @@ int t4vf_wr_mbox_core(struct adapter *adapter, const void *cmd, int size,
+ 	t4_read_reg(adapter, mbox_data);         /* flush write */
  
- 	case CHELSIO_T5:
--		chipid = G_REV(t4_read_reg(adapter, A_PL_VF_REV));
-+		chipid = REV_G(t4_read_reg(adapter, PL_VF_REV_A));
- 		adapter->params.chip |= CHELSIO_CHIP_CODE(CHELSIO_T5, chipid);
- 		break;
- 	}
-diff --git a/drivers/scsi/csiostor/csio_hw.c b/drivers/scsi/csiostor/csio_hw.c
-index c641931..6602835 100644
---- a/drivers/scsi/csiostor/csio_hw.c
-+++ b/drivers/scsi/csiostor/csio_hw.c
-@@ -421,17 +421,15 @@ csio_hw_sf1_read(struct csio_hw *hw, uint32_t byte_cnt, int32_t cont,
- 
- 	if (!byte_cnt || byte_cnt > 4)
- 		return -EINVAL;
--	if (csio_rd_reg32(hw, SF_OP) & SF_BUSY)
-+	if (csio_rd_reg32(hw, SF_OP_A) & SF_BUSY_F)
- 		return -EBUSY;
- 
--	cont = cont ? SF_CONT : 0;
--	lock = lock ? SF_LOCK : 0;
--
--	csio_wr_reg32(hw, lock | cont | BYTECNT(byte_cnt - 1), SF_OP);
--	ret = csio_hw_wait_op_done_val(hw, SF_OP, SF_BUSY, 0, SF_ATTEMPTS,
--					 10, NULL);
-+	csio_wr_reg32(hw,  SF_LOCK_V(lock) | SF_CONT_V(cont) |
-+		      BYTECNT_V(byte_cnt - 1), SF_OP_A);
-+	ret = csio_hw_wait_op_done_val(hw, SF_OP_A, SF_BUSY_F, 0, SF_ATTEMPTS,
-+				       10, NULL);
- 	if (!ret)
--		*valp = csio_rd_reg32(hw, SF_DATA);
-+		*valp = csio_rd_reg32(hw, SF_DATA_A);
- 	return ret;
- }
- 
-@@ -453,16 +451,14 @@ csio_hw_sf1_write(struct csio_hw *hw, uint32_t byte_cnt, uint32_t cont,
- {
- 	if (!byte_cnt || byte_cnt > 4)
- 		return -EINVAL;
--	if (csio_rd_reg32(hw, SF_OP) & SF_BUSY)
-+	if (csio_rd_reg32(hw, SF_OP_A) & SF_BUSY_F)
- 		return -EBUSY;
- 
--	cont = cont ? SF_CONT : 0;
--	lock = lock ? SF_LOCK : 0;
--
--	csio_wr_reg32(hw, val, SF_DATA);
--	csio_wr_reg32(hw, cont | BYTECNT(byte_cnt - 1) | OP_WR | lock, SF_OP);
-+	csio_wr_reg32(hw, val, SF_DATA_A);
-+	csio_wr_reg32(hw, SF_CONT_V(cont) | BYTECNT_V(byte_cnt - 1) |
-+		      OP_V(1) | SF_LOCK_V(lock), SF_OP_A);
- 
--	return csio_hw_wait_op_done_val(hw, SF_OP, SF_BUSY, 0, SF_ATTEMPTS,
-+	return csio_hw_wait_op_done_val(hw, SF_OP_A, SF_BUSY_F, 0, SF_ATTEMPTS,
- 					10, NULL);
- }
- 
-@@ -533,7 +529,7 @@ csio_hw_read_flash(struct csio_hw *hw, uint32_t addr, uint32_t nwords,
- 	for ( ; nwords; nwords--, data++) {
- 		ret = csio_hw_sf1_read(hw, 4, nwords > 1, nwords == 1, data);
- 		if (nwords == 1)
--			csio_wr_reg32(hw, 0, SF_OP);    /* unlock SF */
-+			csio_wr_reg32(hw, 0, SF_OP_A);    /* unlock SF */
- 		if (ret)
- 			return ret;
- 		if (byte_oriented)
-@@ -586,7 +582,7 @@ csio_hw_write_flash(struct csio_hw *hw, uint32_t addr,
- 	if (ret)
- 		goto unlock;
- 
--	csio_wr_reg32(hw, 0, SF_OP);    /* unlock SF */
-+	csio_wr_reg32(hw, 0, SF_OP_A);    /* unlock SF */
- 
- 	/* Read the page to verify the write succeeded */
- 	ret = csio_hw_read_flash(hw, addr & ~0xff, ARRAY_SIZE(buf), buf, 1);
-@@ -603,7 +599,7 @@ csio_hw_write_flash(struct csio_hw *hw, uint32_t addr,
- 	return 0;
- 
- unlock:
--	csio_wr_reg32(hw, 0, SF_OP);    /* unlock SF */
-+	csio_wr_reg32(hw, 0, SF_OP_A);    /* unlock SF */
- 	return ret;
- }
- 
-@@ -641,7 +637,7 @@ out:
- 	if (ret)
- 		csio_err(hw, "erase of flash sector %d failed, error %d\n",
- 			 start, ret);
--	csio_wr_reg32(hw, 0, SF_OP);    /* unlock SF */
-+	csio_wr_reg32(hw, 0, SF_OP_A);    /* unlock SF */
- 	return 0;
- }
- 
-@@ -833,7 +829,7 @@ csio_hw_get_flash_params(struct csio_hw *hw)
- 	ret = csio_hw_sf1_write(hw, 1, 1, 0, SF_RD_ID);
- 	if (!ret)
- 		ret = csio_hw_sf1_read(hw, 3, 0, 1, &info);
--	csio_wr_reg32(hw, 0, SF_OP);    /* unlock SF */
-+	csio_wr_reg32(hw, 0, SF_OP_A);    /* unlock SF */
- 	if (ret != 0)
- 		return ret;
- 
-@@ -861,17 +857,17 @@ csio_hw_dev_ready(struct csio_hw *hw)
- 	uint32_t reg;
- 	int cnt = 6;
- 
--	while (((reg = csio_rd_reg32(hw, PL_WHOAMI)) == 0xFFFFFFFF) &&
--								(--cnt != 0))
-+	while (((reg = csio_rd_reg32(hw, PL_WHOAMI_A)) == 0xFFFFFFFF) &&
-+	       (--cnt != 0))
- 		mdelay(100);
- 
--	if ((cnt == 0) && (((int32_t)(SOURCEPF_GET(reg)) < 0) ||
--			    (SOURCEPF_GET(reg) >= CSIO_MAX_PFN))) {
-+	if ((cnt == 0) && (((int32_t)(SOURCEPF_G(reg)) < 0) ||
-+			   (SOURCEPF_G(reg) >= CSIO_MAX_PFN))) {
- 		csio_err(hw, "PL_WHOAMI returned 0x%x, cnt:%d\n", reg, cnt);
- 		return -EIO;
- 	}
- 
--	hw->pfn = SOURCEPF_GET(reg);
-+	hw->pfn = SOURCEPF_G(reg);
- 
- 	return 0;
- }
-@@ -1078,7 +1074,7 @@ csio_do_reset(struct csio_hw *hw, bool fw_rst)
- 
- 	if (!fw_rst) {
- 		/* PIO reset */
--		csio_wr_reg32(hw, PIORSTMODE | PIORST, PL_RST);
-+		csio_wr_reg32(hw, PIORSTMODE_F | PIORST_F, PL_RST_A);
- 		mdelay(2000);
- 		return 0;
- 	}
-@@ -1090,7 +1086,7 @@ csio_do_reset(struct csio_hw *hw, bool fw_rst)
- 	}
- 
- 	csio_mb_reset(hw, mbp, CSIO_MB_DEFAULT_TMO,
--		      PIORSTMODE | PIORST, 0, NULL);
-+		      PIORSTMODE_F | PIORST_F, 0, NULL);
- 
- 	if (csio_mb_issue(hw, mbp)) {
- 		csio_err(hw, "Issue of RESET command failed.n");
-@@ -1166,7 +1162,7 @@ csio_hw_fw_halt(struct csio_hw *hw, uint32_t mbox, int32_t force)
- 		}
- 
- 		csio_mb_reset(hw, mbp, CSIO_MB_DEFAULT_TMO,
--			      PIORSTMODE | PIORST, FW_RESET_CMD_HALT_F,
-+			      PIORSTMODE_F | PIORST_F, FW_RESET_CMD_HALT_F,
- 			      NULL);
- 
- 		if (csio_mb_issue(hw, mbp)) {
-@@ -1251,7 +1247,7 @@ csio_hw_fw_restart(struct csio_hw *hw, uint32_t mbox, int32_t reset)
- 				return 0;
- 		}
- 
--		csio_wr_reg32(hw, PIORSTMODE | PIORST, PL_RST);
-+		csio_wr_reg32(hw, PIORSTMODE_F | PIORST_F, PL_RST_A);
- 		msleep(2000);
- 	} else {
- 		int ms;
-@@ -2040,7 +2036,7 @@ csio_hw_configure(struct csio_hw *hw)
- 	}
- 
- 	/* HW version */
--	hw->chip_ver = (char)csio_rd_reg32(hw, PL_REV);
-+	hw->chip_ver = (char)csio_rd_reg32(hw, PL_REV_A);
- 
- 	/* Needed for FW download */
- 	rv = csio_hw_get_flash_params(hw);
-@@ -2218,7 +2214,7 @@ out:
- 	return;
- }
- 
--#define PF_INTR_MASK (PFSW | PFCIM)
-+#define PF_INTR_MASK (PFSW_F | PFCIM_F)
- 
- /*
-  * csio_hw_intr_enable - Enable HW interrupts
-@@ -2230,8 +2226,8 @@ static void
- csio_hw_intr_enable(struct csio_hw *hw)
- {
- 	uint16_t vec = (uint16_t)csio_get_mb_intr_idx(csio_hw_to_mbm(hw));
--	uint32_t pf = SOURCEPF_GET(csio_rd_reg32(hw, PL_WHOAMI));
--	uint32_t pl = csio_rd_reg32(hw, PL_INT_ENABLE);
-+	uint32_t pf = SOURCEPF_G(csio_rd_reg32(hw, PL_WHOAMI_A));
-+	uint32_t pl = csio_rd_reg32(hw, PL_INT_ENABLE_A);
+ 	t4_write_reg(adapter, mbox_ctl,
+-		     MBMSGVALID | MBOWNER(MBOX_OWNER_FW));
++		     MBMSGVALID_F | MBOWNER_V(MBOX_OWNER_FW));
+ 	t4_read_reg(adapter, mbox_ctl);          /* flush write */
  
  	/*
- 	 * Set aivec for MSI/MSIX. PCIE_PF_CFG.INTXType is set up
-@@ -2244,7 +2240,7 @@ csio_hw_intr_enable(struct csio_hw *hw)
- 		csio_set_reg_field(hw, MYPF_REG(PCIE_PF_CFG_A),
- 				   AIVEC_V(AIVEC_M), 0);
- 
--	csio_wr_reg32(hw, PF_INTR_MASK, MYPF_REG(PL_PF_INT_ENABLE));
-+	csio_wr_reg32(hw, PF_INTR_MASK, MYPF_REG(PL_PF_INT_ENABLE_A));
- 
- 	/* Turn on MB interrupts - this will internally flush PIO as well */
- 	csio_mb_intr_enable(hw);
-@@ -2254,8 +2250,8 @@ csio_hw_intr_enable(struct csio_hw *hw)
- 		/*
- 		 * Disable the Serial FLASH interrupt, if enabled!
+@@ -184,14 +184,14 @@ int t4vf_wr_mbox_core(struct adapter *adapter, const void *cmd, int size,
+ 		 * If we're the owner, see if this is the reply we wanted.
  		 */
--		pl &= (~SF);
--		csio_wr_reg32(hw, pl, PL_INT_ENABLE);
-+		pl &= (~SF_F);
-+		csio_wr_reg32(hw, pl, PL_INT_ENABLE_A);
+ 		v = t4_read_reg(adapter, mbox_ctl);
+-		if (MBOWNER_GET(v) == MBOX_OWNER_DRV) {
++		if (MBOWNER_G(v) == MBOX_OWNER_DRV) {
+ 			/*
+ 			 * If the Message Valid bit isn't on, revoke ownership
+ 			 * of the mailbox and continue waiting for our reply.
+ 			 */
+-			if ((v & MBMSGVALID) == 0) {
++			if ((v & MBMSGVALID_F) == 0) {
+ 				t4_write_reg(adapter, mbox_ctl,
+-					     MBOWNER(MBOX_OWNER_NONE));
++					     MBOWNER_V(MBOX_OWNER_NONE));
+ 				continue;
+ 			}
  
- 		csio_wr_reg32(hw, ERR_CPL_EXCEED_IQE_SIZE_F |
- 			      EGRESS_SIZE_ERR_F | ERR_INVALID_CIDX_INC_F |
-@@ -2266,7 +2262,7 @@ csio_hw_intr_enable(struct csio_hw *hw)
- 			      ERR_BAD_DB_PIDX0_F | ERR_ING_CTXT_PRIO_F |
- 			      ERR_EGR_CTXT_PRIO_F | INGRESS_SIZE_ERR_F,
- 			      SGE_INT_ENABLE3_A);
--		csio_set_reg_field(hw, PL_INT_MAP0, 0, 1 << pf);
-+		csio_set_reg_field(hw, PL_INT_MAP0_A, 0, 1 << pf);
+@@ -217,7 +217,7 @@ int t4vf_wr_mbox_core(struct adapter *adapter, const void *cmd, int size,
+ 					 & FW_CMD_REQUEST_F) != 0);
+ 			}
+ 			t4_write_reg(adapter, mbox_ctl,
+-				     MBOWNER(MBOX_OWNER_NONE));
++				     MBOWNER_V(MBOX_OWNER_NONE));
+ 			return -FW_CMD_RETVAL_G(v);
+ 		}
  	}
- 
- 	hw->flags |= CSIO_HWF_HW_INTR_ENABLED;
-@@ -2282,16 +2278,16 @@ csio_hw_intr_enable(struct csio_hw *hw)
- void
- csio_hw_intr_disable(struct csio_hw *hw)
- {
--	uint32_t pf = SOURCEPF_GET(csio_rd_reg32(hw, PL_WHOAMI));
-+	uint32_t pf = SOURCEPF_G(csio_rd_reg32(hw, PL_WHOAMI_A));
- 
- 	if (!(hw->flags & CSIO_HWF_HW_INTR_ENABLED))
- 		return;
- 
- 	hw->flags &= ~CSIO_HWF_HW_INTR_ENABLED;
- 
--	csio_wr_reg32(hw, 0, MYPF_REG(PL_PF_INT_ENABLE));
-+	csio_wr_reg32(hw, 0, MYPF_REG(PL_PF_INT_ENABLE_A));
- 	if (csio_is_hw_master(hw))
--		csio_set_reg_field(hw, PL_INT_MAP0, 1 << pf, 0);
-+		csio_set_reg_field(hw, PL_INT_MAP0_A, 1 << pf, 0);
- 
- 	/* Turn off MB interrupts */
- 	csio_mb_intr_disable(hw);
-@@ -2595,7 +2591,7 @@ csio_hws_removing(struct csio_hw *hw, enum csio_hw_ev evt)
- 		 * register directly.
+diff --git a/drivers/scsi/csiostor/csio_hw.c b/drivers/scsi/csiostor/csio_hw.c
+index 04ec586..257dc8d 100644
+--- a/drivers/scsi/csiostor/csio_hw.c
++++ b/drivers/scsi/csiostor/csio_hw.c
+@@ -1193,7 +1193,7 @@ csio_hw_fw_halt(struct csio_hw *hw, uint32_t mbox, int32_t force)
+ 	 * rather than a RESET ... if it's new enough to understand that ...
+ 	 */
+ 	if (retval == 0 || force) {
+-		csio_set_reg_field(hw, CIM_BOOT_CFG, UPCRST, UPCRST);
++		csio_set_reg_field(hw, CIM_BOOT_CFG_A, UPCRST_F, UPCRST_F);
+ 		csio_set_reg_field(hw, PCIE_FW_A, PCIE_FW_HALT_F,
+ 				   PCIE_FW_HALT_F);
+ 	}
+@@ -1245,7 +1245,7 @@ csio_hw_fw_restart(struct csio_hw *hw, uint32_t mbox, int32_t reset)
+ 		 * hitting the chip with a hammer.
  		 */
- 		csio_err(hw, "Resetting HW and waiting 2 seconds...\n");
--		csio_wr_reg32(hw, PIORSTMODE | PIORST, PL_RST);
-+		csio_wr_reg32(hw, PIORSTMODE_F | PIORST_F, PL_RST_A);
- 		mdelay(2000);
- 		break;
+ 		if (mbox <= PCIE_FW_MASTER_M) {
+-			csio_set_reg_field(hw, CIM_BOOT_CFG, UPCRST, 0);
++			csio_set_reg_field(hw, CIM_BOOT_CFG_A, UPCRST_F, 0);
+ 			msleep(100);
+ 			if (csio_do_reset(hw, true) == 0)
+ 				return 0;
+@@ -1256,7 +1256,7 @@ csio_hw_fw_restart(struct csio_hw *hw, uint32_t mbox, int32_t reset)
+ 	} else {
+ 		int ms;
  
-@@ -2814,7 +2810,7 @@ static void csio_ulprx_intr_handler(struct csio_hw *hw)
- 		{ 0, NULL, 0, 0 }
- 	};
- 
--	if (csio_handle_intr_status(hw, ULP_RX_INT_CAUSE, ulprx_intr_info))
-+	if (csio_handle_intr_status(hw, ULP_RX_INT_CAUSE_A, ulprx_intr_info))
+-		csio_set_reg_field(hw, CIM_BOOT_CFG, UPCRST, 0);
++		csio_set_reg_field(hw, CIM_BOOT_CFG_A, UPCRST_F, 0);
+ 		for (ms = 0; ms < FW_CMD_MAX_TIMEOUT; ) {
+ 			if (!(csio_rd_reg32(hw, PCIE_FW_A) & PCIE_FW_HALT_F))
+ 				return 0;
+@@ -2741,10 +2741,10 @@ static void csio_sge_intr_handler(struct csio_hw *hw)
  		csio_hw_fatal_err(hw);
  }
  
-@@ -2889,16 +2885,16 @@ static void csio_pmrx_intr_handler(struct csio_hw *hw)
- static void csio_cplsw_intr_handler(struct csio_hw *hw)
- {
- 	static struct intr_info cplsw_intr_info[] = {
--		{ CIM_OP_MAP_PERR, "CPLSW CIM op_map parity error", -1, 1 },
--		{ CIM_OVFL_ERROR, "CPLSW CIM overflow", -1, 1 },
--		{ TP_FRAMING_ERROR, "CPLSW TP framing error", -1, 1 },
--		{ SGE_FRAMING_ERROR, "CPLSW SGE framing error", -1, 1 },
--		{ CIM_FRAMING_ERROR, "CPLSW CIM framing error", -1, 1 },
--		{ ZERO_SWITCH_ERROR, "CPLSW no-switch error", -1, 1 },
-+		{ CIM_OP_MAP_PERR_F, "CPLSW CIM op_map parity error", -1, 1 },
-+		{ CIM_OVFL_ERROR_F, "CPLSW CIM overflow", -1, 1 },
-+		{ TP_FRAMING_ERROR_F, "CPLSW TP framing error", -1, 1 },
-+		{ SGE_FRAMING_ERROR_F, "CPLSW SGE framing error", -1, 1 },
-+		{ CIM_FRAMING_ERROR_F, "CPLSW CIM framing error", -1, 1 },
-+		{ ZERO_SWITCH_ERROR_F, "CPLSW no-switch error", -1, 1 },
- 		{ 0, NULL, 0, 0 }
- 	};
- 
--	if (csio_handle_intr_status(hw, CPL_INTR_CAUSE, cplsw_intr_info))
-+	if (csio_handle_intr_status(hw, CPL_INTR_CAUSE_A, cplsw_intr_info))
- 		csio_hw_fatal_err(hw);
- }
- 
-@@ -2908,15 +2904,15 @@ static void csio_cplsw_intr_handler(struct csio_hw *hw)
- static void csio_le_intr_handler(struct csio_hw *hw)
- {
- 	static struct intr_info le_intr_info[] = {
--		{ LIPMISS, "LE LIP miss", -1, 0 },
--		{ LIP0, "LE 0 LIP error", -1, 0 },
--		{ PARITYERR, "LE parity error", -1, 1 },
--		{ UNKNOWNCMD, "LE unknown command", -1, 1 },
--		{ REQQPARERR, "LE request queue parity error", -1, 1 },
-+		{ LIPMISS_F, "LE LIP miss", -1, 0 },
-+		{ LIP0_F, "LE 0 LIP error", -1, 0 },
-+		{ PARITYERR_F, "LE parity error", -1, 1 },
-+		{ UNKNOWNCMD_F, "LE unknown command", -1, 1 },
-+		{ REQQPARERR_F, "LE request queue parity error", -1, 1 },
- 		{ 0, NULL, 0, 0 }
- 	};
- 
--	if (csio_handle_intr_status(hw, LE_DB_INT_CAUSE, le_intr_info))
-+	if (csio_handle_intr_status(hw, LE_DB_INT_CAUSE_A, le_intr_info))
- 		csio_hw_fatal_err(hw);
- }
- 
-@@ -3054,13 +3050,13 @@ static void csio_ma_intr_handler(struct csio_hw *hw)
- static void csio_smb_intr_handler(struct csio_hw *hw)
- {
- 	static struct intr_info smb_intr_info[] = {
--		{ MSTTXFIFOPARINT, "SMB master Tx FIFO parity error", -1, 1 },
--		{ MSTRXFIFOPARINT, "SMB master Rx FIFO parity error", -1, 1 },
--		{ SLVFIFOPARINT, "SMB slave FIFO parity error", -1, 1 },
-+		{ MSTTXFIFOPARINT_F, "SMB master Tx FIFO parity error", -1, 1 },
-+		{ MSTRXFIFOPARINT_F, "SMB master Rx FIFO parity error", -1, 1 },
-+		{ SLVFIFOPARINT_F, "SMB slave FIFO parity error", -1, 1 },
- 		{ 0, NULL, 0, 0 }
- 	};
- 
--	if (csio_handle_intr_status(hw, SMB_INT_CAUSE, smb_intr_info))
-+	if (csio_handle_intr_status(hw, SMB_INT_CAUSE_A, smb_intr_info))
- 		csio_hw_fatal_err(hw);
- }
- 
-@@ -3070,14 +3066,14 @@ static void csio_smb_intr_handler(struct csio_hw *hw)
- static void csio_ncsi_intr_handler(struct csio_hw *hw)
- {
- 	static struct intr_info ncsi_intr_info[] = {
--		{ CIM_DM_PRTY_ERR, "NC-SI CIM parity error", -1, 1 },
--		{ MPS_DM_PRTY_ERR, "NC-SI MPS parity error", -1, 1 },
--		{ TXFIFO_PRTY_ERR, "NC-SI Tx FIFO parity error", -1, 1 },
--		{ RXFIFO_PRTY_ERR, "NC-SI Rx FIFO parity error", -1, 1 },
-+		{ CIM_DM_PRTY_ERR_F, "NC-SI CIM parity error", -1, 1 },
-+		{ MPS_DM_PRTY_ERR_F, "NC-SI MPS parity error", -1, 1 },
-+		{ TXFIFO_PRTY_ERR_F, "NC-SI Tx FIFO parity error", -1, 1 },
-+		{ RXFIFO_PRTY_ERR_F, "NC-SI Rx FIFO parity error", -1, 1 },
- 		{ 0, NULL, 0, 0 }
- 	};
- 
--	if (csio_handle_intr_status(hw, NCSI_INT_CAUSE, ncsi_intr_info))
-+	if (csio_handle_intr_status(hw, NCSI_INT_CAUSE_A, ncsi_intr_info))
- 		csio_hw_fatal_err(hw);
- }
- 
-@@ -3088,13 +3084,13 @@ static void csio_xgmac_intr_handler(struct csio_hw *hw, int port)
- {
- 	uint32_t v = csio_rd_reg32(hw, CSIO_MAC_INT_CAUSE_REG(hw, port));
- 
--	v &= TXFIFO_PRTY_ERR | RXFIFO_PRTY_ERR;
-+	v &= TXFIFO_PRTY_ERR_F | RXFIFO_PRTY_ERR_F;
- 	if (!v)
- 		return;
- 
--	if (v & TXFIFO_PRTY_ERR)
-+	if (v & TXFIFO_PRTY_ERR_F)
- 		csio_fatal(hw, "XGMAC %d Tx FIFO parity error\n", port);
--	if (v & RXFIFO_PRTY_ERR)
-+	if (v & RXFIFO_PRTY_ERR_F)
- 		csio_fatal(hw, "XGMAC %d Rx FIFO parity error\n", port);
- 	csio_wr_reg32(hw, v, CSIO_MAC_INT_CAUSE_REG(hw, port));
- 	csio_hw_fatal_err(hw);
-@@ -3106,12 +3102,12 @@ static void csio_xgmac_intr_handler(struct csio_hw *hw, int port)
- static void csio_pl_intr_handler(struct csio_hw *hw)
- {
- 	static struct intr_info pl_intr_info[] = {
--		{ FATALPERR, "T4 fatal parity error", -1, 1 },
--		{ PERRVFID, "PL VFID_MAP parity error", -1, 1 },
-+		{ FATALPERR_F, "T4 fatal parity error", -1, 1 },
-+		{ PERRVFID_F, "PL VFID_MAP parity error", -1, 1 },
- 		{ 0, NULL, 0, 0 }
- 	};
- 
--	if (csio_handle_intr_status(hw, PL_PL_INT_CAUSE, pl_intr_info))
-+	if (csio_handle_intr_status(hw, PL_PL_INT_CAUSE_A, pl_intr_info))
- 		csio_hw_fatal_err(hw);
- }
- 
-@@ -3126,7 +3122,7 @@ static void csio_pl_intr_handler(struct csio_hw *hw)
- int
- csio_hw_slow_intr_handler(struct csio_hw *hw)
- {
--	uint32_t cause = csio_rd_reg32(hw, PL_INT_CAUSE);
-+	uint32_t cause = csio_rd_reg32(hw, PL_INT_CAUSE_A);
- 
- 	if (!(cause & CSIO_GLBL_INTR_MASK)) {
- 		CSIO_INC_STATS(hw, n_plint_unexp);
-@@ -3137,75 +3133,75 @@ csio_hw_slow_intr_handler(struct csio_hw *hw)
- 
- 	CSIO_INC_STATS(hw, n_plint_cnt);
- 
--	if (cause & CIM)
-+	if (cause & CIM_F)
- 		csio_cim_intr_handler(hw);
- 
--	if (cause & MPS)
-+	if (cause & MPS_F)
- 		csio_mps_intr_handler(hw);
- 
--	if (cause & NCSI)
-+	if (cause & NCSI_F)
- 		csio_ncsi_intr_handler(hw);
- 
--	if (cause & PL)
-+	if (cause & PL_F)
- 		csio_pl_intr_handler(hw);
- 
--	if (cause & SMB)
-+	if (cause & SMB_F)
- 		csio_smb_intr_handler(hw);
- 
--	if (cause & XGMAC0)
-+	if (cause & XGMAC0_F)
- 		csio_xgmac_intr_handler(hw, 0);
- 
--	if (cause & XGMAC1)
-+	if (cause & XGMAC1_F)
- 		csio_xgmac_intr_handler(hw, 1);
- 
--	if (cause & XGMAC_KR0)
-+	if (cause & XGMAC_KR0_F)
- 		csio_xgmac_intr_handler(hw, 2);
- 
--	if (cause & XGMAC_KR1)
-+	if (cause & XGMAC_KR1_F)
- 		csio_xgmac_intr_handler(hw, 3);
- 
--	if (cause & PCIE)
-+	if (cause & PCIE_F)
- 		hw->chip_ops->chip_pcie_intr_handler(hw);
- 
--	if (cause & MC)
-+	if (cause & MC_F)
- 		csio_mem_intr_handler(hw, MEM_MC);
- 
--	if (cause & EDC0)
-+	if (cause & EDC0_F)
- 		csio_mem_intr_handler(hw, MEM_EDC0);
- 
--	if (cause & EDC1)
-+	if (cause & EDC1_F)
- 		csio_mem_intr_handler(hw, MEM_EDC1);
- 
--	if (cause & LE)
-+	if (cause & LE_F)
- 		csio_le_intr_handler(hw);
- 
--	if (cause & TP)
-+	if (cause & TP_F)
- 		csio_tp_intr_handler(hw);
- 
--	if (cause & MA)
-+	if (cause & MA_F)
- 		csio_ma_intr_handler(hw);
- 
--	if (cause & PM_TX)
-+	if (cause & PM_TX_F)
- 		csio_pmtx_intr_handler(hw);
- 
--	if (cause & PM_RX)
-+	if (cause & PM_RX_F)
- 		csio_pmrx_intr_handler(hw);
- 
--	if (cause & ULP_RX)
-+	if (cause & ULP_RX_F)
- 		csio_ulprx_intr_handler(hw);
- 
--	if (cause & CPL_SWITCH)
-+	if (cause & CPL_SWITCH_F)
- 		csio_cplsw_intr_handler(hw);
- 
--	if (cause & SGE)
-+	if (cause & SGE_F)
- 		csio_sge_intr_handler(hw);
- 
--	if (cause & ULP_TX)
-+	if (cause & ULP_TX_F)
- 		csio_ulptx_intr_handler(hw);
- 
- 	/* Clear the interrupts just processed for which we are the master. */
--	csio_wr_reg32(hw, cause & CSIO_GLBL_INTR_MASK, PL_INT_CAUSE);
--	csio_rd_reg32(hw, PL_INT_CAUSE); /* flush */
-+	csio_wr_reg32(hw, cause & CSIO_GLBL_INTR_MASK, PL_INT_CAUSE_A);
-+	csio_rd_reg32(hw, PL_INT_CAUSE_A); /* flush */
- 
- 	return 1;
- }
-diff --git a/drivers/scsi/csiostor/csio_hw.h b/drivers/scsi/csiostor/csio_hw.h
-index 68248da..bd97204 100644
---- a/drivers/scsi/csiostor/csio_hw.h
-+++ b/drivers/scsi/csiostor/csio_hw.h
-@@ -117,10 +117,10 @@ extern int csio_msi;
- #define CSIO_ASIC_DEVID_PROTO_MASK		0xFF00
- #define CSIO_ASIC_DEVID_TYPE_MASK		0x00FF
- 
--#define CSIO_GLBL_INTR_MASK		(CIM | MPS | PL | PCIE | MC | EDC0 | \
--					 EDC1 | LE | TP | MA | PM_TX | PM_RX | \
--					 ULP_RX | CPL_SWITCH | SGE | \
--					 ULP_TX | SF)
-+#define CSIO_GLBL_INTR_MASK	(CIM_F | MPS_F | PL_F | PCIE_F | MC_F | \
-+				 EDC0_F | EDC1_F | LE_F | TP_F | MA_F | \
-+				 PM_TX_F | PM_RX_F | ULP_RX_F | \
-+				 CPL_SWITCH_F | SGE_F | ULP_TX_F | SF_F)
+-#define CIM_OBQ_INTR (OBQULP0PARERR | OBQULP1PARERR | OBQULP2PARERR |\
+-		      OBQULP3PARERR | OBQSGEPARERR | OBQNCSIPARERR)
+-#define CIM_IBQ_INTR (IBQTP0PARERR | IBQTP1PARERR | IBQULPPARERR |\
+-		      IBQSGEHIPARERR | IBQSGELOPARERR | IBQNCSIPARERR)
++#define CIM_OBQ_INTR (OBQULP0PARERR_F | OBQULP1PARERR_F | OBQULP2PARERR_F |\
++		      OBQULP3PARERR_F | OBQSGEPARERR_F | OBQNCSIPARERR_F)
++#define CIM_IBQ_INTR (IBQTP0PARERR_F | IBQTP1PARERR_F | IBQULPPARERR_F |\
++		      IBQSGEHIPARERR_F | IBQSGELOPARERR_F | IBQNCSIPARERR_F)
  
  /*
-  * Hard parameters used to initialize the card in the absence of a
-diff --git a/drivers/scsi/csiostor/csio_hw_chip.h b/drivers/scsi/csiostor/csio_hw_chip.h
-index 0198662..70c0bdd 100644
---- a/drivers/scsi/csiostor/csio_hw_chip.h
-+++ b/drivers/scsi/csiostor/csio_hw_chip.h
-@@ -77,8 +77,8 @@ static inline int csio_is_t5(uint16_t chip)
- 	(csio_is_t4(hw->chip_id) ? (LP_INT_THRESH_M) : (LP_INT_THRESH_T5_M))
+  * CIM interrupt handler.
+@@ -2752,53 +2752,53 @@ static void csio_sge_intr_handler(struct csio_hw *hw)
+ static void csio_cim_intr_handler(struct csio_hw *hw)
+ {
+ 	static struct intr_info cim_intr_info[] = {
+-		{ PREFDROPINT, "CIM control register prefetch drop", -1, 1 },
++		{ PREFDROPINT_F, "CIM control register prefetch drop", -1, 1 },
+ 		{ CIM_OBQ_INTR, "CIM OBQ parity error", -1, 1 },
+ 		{ CIM_IBQ_INTR, "CIM IBQ parity error", -1, 1 },
+-		{ MBUPPARERR, "CIM mailbox uP parity error", -1, 1 },
+-		{ MBHOSTPARERR, "CIM mailbox host parity error", -1, 1 },
+-		{ TIEQINPARERRINT, "CIM TIEQ outgoing parity error", -1, 1 },
+-		{ TIEQOUTPARERRINT, "CIM TIEQ incoming parity error", -1, 1 },
++		{ MBUPPARERR_F, "CIM mailbox uP parity error", -1, 1 },
++		{ MBHOSTPARERR_F, "CIM mailbox host parity error", -1, 1 },
++		{ TIEQINPARERRINT_F, "CIM TIEQ outgoing parity error", -1, 1 },
++		{ TIEQOUTPARERRINT_F, "CIM TIEQ incoming parity error", -1, 1 },
+ 		{ 0, NULL, 0, 0 }
+ 	};
+ 	static struct intr_info cim_upintr_info[] = {
+-		{ RSVDSPACEINT, "CIM reserved space access", -1, 1 },
+-		{ ILLTRANSINT, "CIM illegal transaction", -1, 1 },
+-		{ ILLWRINT, "CIM illegal write", -1, 1 },
+-		{ ILLRDINT, "CIM illegal read", -1, 1 },
+-		{ ILLRDBEINT, "CIM illegal read BE", -1, 1 },
+-		{ ILLWRBEINT, "CIM illegal write BE", -1, 1 },
+-		{ SGLRDBOOTINT, "CIM single read from boot space", -1, 1 },
+-		{ SGLWRBOOTINT, "CIM single write to boot space", -1, 1 },
+-		{ BLKWRBOOTINT, "CIM block write to boot space", -1, 1 },
+-		{ SGLRDFLASHINT, "CIM single read from flash space", -1, 1 },
+-		{ SGLWRFLASHINT, "CIM single write to flash space", -1, 1 },
+-		{ BLKWRFLASHINT, "CIM block write to flash space", -1, 1 },
+-		{ SGLRDEEPROMINT, "CIM single EEPROM read", -1, 1 },
+-		{ SGLWREEPROMINT, "CIM single EEPROM write", -1, 1 },
+-		{ BLKRDEEPROMINT, "CIM block EEPROM read", -1, 1 },
+-		{ BLKWREEPROMINT, "CIM block EEPROM write", -1, 1 },
+-		{ SGLRDCTLINT , "CIM single read from CTL space", -1, 1 },
+-		{ SGLWRCTLINT , "CIM single write to CTL space", -1, 1 },
+-		{ BLKRDCTLINT , "CIM block read from CTL space", -1, 1 },
+-		{ BLKWRCTLINT , "CIM block write to CTL space", -1, 1 },
+-		{ SGLRDPLINT , "CIM single read from PL space", -1, 1 },
+-		{ SGLWRPLINT , "CIM single write to PL space", -1, 1 },
+-		{ BLKRDPLINT , "CIM block read from PL space", -1, 1 },
+-		{ BLKWRPLINT , "CIM block write to PL space", -1, 1 },
+-		{ REQOVRLOOKUPINT , "CIM request FIFO overwrite", -1, 1 },
+-		{ RSPOVRLOOKUPINT , "CIM response FIFO overwrite", -1, 1 },
+-		{ TIMEOUTINT , "CIM PIF timeout", -1, 1 },
+-		{ TIMEOUTMAINT , "CIM PIF MA timeout", -1, 1 },
++		{ RSVDSPACEINT_F, "CIM reserved space access", -1, 1 },
++		{ ILLTRANSINT_F, "CIM illegal transaction", -1, 1 },
++		{ ILLWRINT_F, "CIM illegal write", -1, 1 },
++		{ ILLRDINT_F, "CIM illegal read", -1, 1 },
++		{ ILLRDBEINT_F, "CIM illegal read BE", -1, 1 },
++		{ ILLWRBEINT_F, "CIM illegal write BE", -1, 1 },
++		{ SGLRDBOOTINT_F, "CIM single read from boot space", -1, 1 },
++		{ SGLWRBOOTINT_F, "CIM single write to boot space", -1, 1 },
++		{ BLKWRBOOTINT_F, "CIM block write to boot space", -1, 1 },
++		{ SGLRDFLASHINT_F, "CIM single read from flash space", -1, 1 },
++		{ SGLWRFLASHINT_F, "CIM single write to flash space", -1, 1 },
++		{ BLKWRFLASHINT_F, "CIM block write to flash space", -1, 1 },
++		{ SGLRDEEPROMINT_F, "CIM single EEPROM read", -1, 1 },
++		{ SGLWREEPROMINT_F, "CIM single EEPROM write", -1, 1 },
++		{ BLKRDEEPROMINT_F, "CIM block EEPROM read", -1, 1 },
++		{ BLKWREEPROMINT_F, "CIM block EEPROM write", -1, 1 },
++		{ SGLRDCTLINT_F, "CIM single read from CTL space", -1, 1 },
++		{ SGLWRCTLINT_F, "CIM single write to CTL space", -1, 1 },
++		{ BLKRDCTLINT_F, "CIM block read from CTL space", -1, 1 },
++		{ BLKWRCTLINT_F, "CIM block write to CTL space", -1, 1 },
++		{ SGLRDPLINT_F, "CIM single read from PL space", -1, 1 },
++		{ SGLWRPLINT_F, "CIM single write to PL space", -1, 1 },
++		{ BLKRDPLINT_F, "CIM block read from PL space", -1, 1 },
++		{ BLKWRPLINT_F, "CIM block write to PL space", -1, 1 },
++		{ REQOVRLOOKUPINT_F, "CIM request FIFO overwrite", -1, 1 },
++		{ RSPOVRLOOKUPINT_F, "CIM response FIFO overwrite", -1, 1 },
++		{ TIMEOUTINT_F, "CIM PIF timeout", -1, 1 },
++		{ TIMEOUTMAINT_F, "CIM PIF MA timeout", -1, 1 },
+ 		{ 0, NULL, 0, 0 }
+ 	};
  
- #define CSIO_MAC_INT_CAUSE_REG(hw, port)				\
--	(csio_is_t4(hw->chip_id) ? (PORT_REG(port, XGMAC_PORT_INT_CAUSE)) : \
--				(T5_PORT_REG(port, MAC_PORT_INT_CAUSE)))
-+	(csio_is_t4(hw->chip_id) ? (PORT_REG(port, XGMAC_PORT_INT_CAUSE_A)) : \
-+				(T5_PORT_REG(port, MAC_PORT_INT_CAUSE_A)))
+ 	int fat;
  
- #define FW_VERSION_MAJOR(hw) (csio_is_t4(hw->chip_id) ? 1 : 0)
- #define FW_VERSION_MINOR(hw) (csio_is_t4(hw->chip_id) ? 2 : 0)
+-	fat = csio_handle_intr_status(hw, CIM_HOST_INT_CAUSE,
+-				    cim_intr_info) +
+-	      csio_handle_intr_status(hw, CIM_HOST_UPACC_INT_CAUSE,
+-				    cim_upintr_info);
++	fat = csio_handle_intr_status(hw, CIM_HOST_INT_CAUSE_A,
++				      cim_intr_info) +
++	      csio_handle_intr_status(hw, CIM_HOST_UPACC_INT_CAUSE_A,
++				      cim_upintr_info);
+ 	if (fat)
+ 		csio_hw_fatal_err(hw);
+ }
+@@ -2987,7 +2987,8 @@ static void csio_mps_intr_handler(struct csio_hw *hw)
+ 		csio_hw_fatal_err(hw);
+ }
+ 
+-#define MEM_INT_MASK (PERR_INT_CAUSE | ECC_CE_INT_CAUSE | ECC_UE_INT_CAUSE)
++#define MEM_INT_MASK (PERR_INT_CAUSE_F | ECC_CE_INT_CAUSE_F | \
++		      ECC_UE_INT_CAUSE_F)
+ 
+ /*
+  * EDC/MC interrupt handler.
+@@ -2999,28 +3000,28 @@ static void csio_mem_intr_handler(struct csio_hw *hw, int idx)
+ 	unsigned int addr, cnt_addr, v;
+ 
+ 	if (idx <= MEM_EDC1) {
+-		addr = EDC_REG(EDC_INT_CAUSE, idx);
+-		cnt_addr = EDC_REG(EDC_ECC_STATUS, idx);
++		addr = EDC_REG(EDC_INT_CAUSE_A, idx);
++		cnt_addr = EDC_REG(EDC_ECC_STATUS_A, idx);
+ 	} else {
+-		addr = MC_INT_CAUSE;
+-		cnt_addr = MC_ECC_STATUS;
++		addr = MC_INT_CAUSE_A;
++		cnt_addr = MC_ECC_STATUS_A;
+ 	}
+ 
+ 	v = csio_rd_reg32(hw, addr) & MEM_INT_MASK;
+-	if (v & PERR_INT_CAUSE)
++	if (v & PERR_INT_CAUSE_F)
+ 		csio_fatal(hw, "%s FIFO parity error\n", name[idx]);
+-	if (v & ECC_CE_INT_CAUSE) {
+-		uint32_t cnt = ECC_CECNT_GET(csio_rd_reg32(hw, cnt_addr));
++	if (v & ECC_CE_INT_CAUSE_F) {
++		uint32_t cnt = ECC_CECNT_G(csio_rd_reg32(hw, cnt_addr));
+ 
+-		csio_wr_reg32(hw, ECC_CECNT_MASK, cnt_addr);
++		csio_wr_reg32(hw, ECC_CECNT_V(ECC_CECNT_M), cnt_addr);
+ 		csio_warn(hw, "%u %s correctable ECC data error%s\n",
+ 			    cnt, name[idx], cnt > 1 ? "s" : "");
+ 	}
+-	if (v & ECC_UE_INT_CAUSE)
++	if (v & ECC_UE_INT_CAUSE_F)
+ 		csio_fatal(hw, "%s uncorrectable ECC data error\n", name[idx]);
+ 
+ 	csio_wr_reg32(hw, v, addr);
+-	if (v & (PERR_INT_CAUSE | ECC_UE_INT_CAUSE))
++	if (v & (PERR_INT_CAUSE_F | ECC_UE_INT_CAUSE_F))
+ 		csio_hw_fatal_err(hw);
+ }
+ 
+@@ -3029,18 +3030,18 @@ static void csio_mem_intr_handler(struct csio_hw *hw, int idx)
+  */
+ static void csio_ma_intr_handler(struct csio_hw *hw)
+ {
+-	uint32_t v, status = csio_rd_reg32(hw, MA_INT_CAUSE);
++	uint32_t v, status = csio_rd_reg32(hw, MA_INT_CAUSE_A);
+ 
+-	if (status & MEM_PERR_INT_CAUSE)
++	if (status & MEM_PERR_INT_CAUSE_F)
+ 		csio_fatal(hw, "MA parity error, parity status %#x\n",
+-			    csio_rd_reg32(hw, MA_PARITY_ERROR_STATUS));
+-	if (status & MEM_WRAP_INT_CAUSE) {
+-		v = csio_rd_reg32(hw, MA_INT_WRAP_STATUS);
++			    csio_rd_reg32(hw, MA_PARITY_ERROR_STATUS_A));
++	if (status & MEM_WRAP_INT_CAUSE_F) {
++		v = csio_rd_reg32(hw, MA_INT_WRAP_STATUS_A);
+ 		csio_fatal(hw,
+ 		   "MA address wrap-around error by client %u to address %#x\n",
+-		   MEM_WRAP_CLIENT_NUM_GET(v), MEM_WRAP_ADDRESS_GET(v) << 4);
++		   MEM_WRAP_CLIENT_NUM_G(v), MEM_WRAP_ADDRESS_G(v) << 4);
+ 	}
+-	csio_wr_reg32(hw, status, MA_INT_CAUSE);
++	csio_wr_reg32(hw, status, MA_INT_CAUSE_A);
+ 	csio_hw_fatal_err(hw);
+ }
+ 
+diff --git a/drivers/scsi/csiostor/csio_hw_t4.c b/drivers/scsi/csiostor/csio_hw_t4.c
+index d0dac67..14884e4 100644
+--- a/drivers/scsi/csiostor/csio_hw_t4.c
++++ b/drivers/scsi/csiostor/csio_hw_t4.c
+@@ -209,19 +209,19 @@ csio_t4_mc_read(struct csio_hw *hw, int idx, uint32_t addr, __be32 *data,
+ {
+ 	int i;
+ 
+-	if (csio_rd_reg32(hw, MC_BIST_CMD) & START_BIST)
++	if (csio_rd_reg32(hw, MC_BIST_CMD_A) & START_BIST_F)
+ 		return -EBUSY;
+-	csio_wr_reg32(hw, addr & ~0x3fU, MC_BIST_CMD_ADDR);
+-	csio_wr_reg32(hw, 64, MC_BIST_CMD_LEN);
+-	csio_wr_reg32(hw, 0xc, MC_BIST_DATA_PATTERN);
+-	csio_wr_reg32(hw, BIST_OPCODE(1) | START_BIST | BIST_CMD_GAP(1),
+-		      MC_BIST_CMD);
+-	i = csio_hw_wait_op_done_val(hw, MC_BIST_CMD, START_BIST,
++	csio_wr_reg32(hw, addr & ~0x3fU, MC_BIST_CMD_ADDR_A);
++	csio_wr_reg32(hw, 64, MC_BIST_CMD_LEN_A);
++	csio_wr_reg32(hw, 0xc, MC_BIST_DATA_PATTERN_A);
++	csio_wr_reg32(hw, BIST_OPCODE_V(1) | START_BIST_F | BIST_CMD_GAP_V(1),
++		      MC_BIST_CMD_A);
++	i = csio_hw_wait_op_done_val(hw, MC_BIST_CMD_A, START_BIST_F,
+ 				     0, 10, 1, NULL);
+ 	if (i)
+ 		return i;
+ 
+-#define MC_DATA(i) MC_BIST_STATUS_REG(MC_BIST_STATUS_RDATA, i)
++#define MC_DATA(i) MC_BIST_STATUS_REG(MC_BIST_STATUS_RDATA_A, i)
+ 
+ 	for (i = 15; i >= 0; i--)
+ 		*data++ = htonl(csio_rd_reg32(hw, MC_DATA(i)));
+@@ -250,19 +250,19 @@ csio_t4_edc_read(struct csio_hw *hw, int idx, uint32_t addr, __be32 *data,
+ 	int i;
+ 
+ 	idx *= EDC_STRIDE;
+-	if (csio_rd_reg32(hw, EDC_BIST_CMD + idx) & START_BIST)
++	if (csio_rd_reg32(hw, EDC_BIST_CMD_A + idx) & START_BIST_F)
+ 		return -EBUSY;
+-	csio_wr_reg32(hw, addr & ~0x3fU, EDC_BIST_CMD_ADDR + idx);
+-	csio_wr_reg32(hw, 64, EDC_BIST_CMD_LEN + idx);
+-	csio_wr_reg32(hw, 0xc, EDC_BIST_DATA_PATTERN + idx);
+-	csio_wr_reg32(hw, BIST_OPCODE(1) | BIST_CMD_GAP(1) | START_BIST,
+-		      EDC_BIST_CMD + idx);
+-	i = csio_hw_wait_op_done_val(hw, EDC_BIST_CMD + idx, START_BIST,
++	csio_wr_reg32(hw, addr & ~0x3fU, EDC_BIST_CMD_ADDR_A + idx);
++	csio_wr_reg32(hw, 64, EDC_BIST_CMD_LEN_A + idx);
++	csio_wr_reg32(hw, 0xc, EDC_BIST_DATA_PATTERN_A + idx);
++	csio_wr_reg32(hw, BIST_OPCODE_V(1) | BIST_CMD_GAP_V(1) | START_BIST_F,
++		      EDC_BIST_CMD_A + idx);
++	i = csio_hw_wait_op_done_val(hw, EDC_BIST_CMD_A + idx, START_BIST_F,
+ 				     0, 10, 1, NULL);
+ 	if (i)
+ 		return i;
+ 
+-#define EDC_DATA(i) (EDC_BIST_STATUS_REG(EDC_BIST_STATUS_RDATA, i) + idx)
++#define EDC_DATA(i) (EDC_BIST_STATUS_REG(EDC_BIST_STATUS_RDATA_A, i) + idx)
+ 
+ 	for (i = 15; i >= 0; i--)
+ 		*data++ = htonl(csio_rd_reg32(hw, EDC_DATA(i)));
+diff --git a/drivers/scsi/csiostor/csio_hw_t5.c b/drivers/scsi/csiostor/csio_hw_t5.c
+index 99a7dca..3267f4f 100644
+--- a/drivers/scsi/csiostor/csio_hw_t5.c
++++ b/drivers/scsi/csiostor/csio_hw_t5.c
+@@ -177,25 +177,25 @@ csio_t5_mc_read(struct csio_hw *hw, int idx, uint32_t addr, __be32 *data,
+ 	uint32_t mc_bist_cmd_reg, mc_bist_cmd_addr_reg, mc_bist_cmd_len_reg;
+ 	uint32_t mc_bist_status_rdata_reg, mc_bist_data_pattern_reg;
+ 
+-	mc_bist_cmd_reg = MC_REG(MC_P_BIST_CMD, idx);
+-	mc_bist_cmd_addr_reg = MC_REG(MC_P_BIST_CMD_ADDR, idx);
+-	mc_bist_cmd_len_reg = MC_REG(MC_P_BIST_CMD_LEN, idx);
+-	mc_bist_status_rdata_reg = MC_REG(MC_P_BIST_STATUS_RDATA, idx);
+-	mc_bist_data_pattern_reg = MC_REG(MC_P_BIST_DATA_PATTERN, idx);
++	mc_bist_cmd_reg = MC_REG(MC_P_BIST_CMD_A, idx);
++	mc_bist_cmd_addr_reg = MC_REG(MC_P_BIST_CMD_ADDR_A, idx);
++	mc_bist_cmd_len_reg = MC_REG(MC_P_BIST_CMD_LEN_A, idx);
++	mc_bist_status_rdata_reg = MC_REG(MC_P_BIST_STATUS_RDATA_A, idx);
++	mc_bist_data_pattern_reg = MC_REG(MC_P_BIST_DATA_PATTERN_A, idx);
+ 
+-	if (csio_rd_reg32(hw, mc_bist_cmd_reg) & START_BIST)
++	if (csio_rd_reg32(hw, mc_bist_cmd_reg) & START_BIST_F)
+ 		return -EBUSY;
+ 	csio_wr_reg32(hw, addr & ~0x3fU, mc_bist_cmd_addr_reg);
+ 	csio_wr_reg32(hw, 64, mc_bist_cmd_len_reg);
+ 	csio_wr_reg32(hw, 0xc, mc_bist_data_pattern_reg);
+-	csio_wr_reg32(hw, BIST_OPCODE(1) | START_BIST |  BIST_CMD_GAP(1),
++	csio_wr_reg32(hw, BIST_OPCODE_V(1) | START_BIST_F |  BIST_CMD_GAP_V(1),
+ 		      mc_bist_cmd_reg);
+-	i = csio_hw_wait_op_done_val(hw, mc_bist_cmd_reg, START_BIST,
++	i = csio_hw_wait_op_done_val(hw, mc_bist_cmd_reg, START_BIST_F,
+ 				     0, 10, 1, NULL);
+ 	if (i)
+ 		return i;
+ 
+-#define MC_DATA(i) MC_BIST_STATUS_REG(MC_BIST_STATUS_RDATA, i)
++#define MC_DATA(i) MC_BIST_STATUS_REG(MC_BIST_STATUS_RDATA_A, i)
+ 
+ 	for (i = 15; i >= 0; i--)
+ 		*data++ = htonl(csio_rd_reg32(hw, MC_DATA(i)));
+@@ -231,27 +231,27 @@ csio_t5_edc_read(struct csio_hw *hw, int idx, uint32_t addr, __be32 *data,
+ #define EDC_STRIDE_T5 (EDC_T51_BASE_ADDR - EDC_T50_BASE_ADDR)
+ #define EDC_REG_T5(reg, idx) (reg + EDC_STRIDE_T5 * idx)
+ 
+-	edc_bist_cmd_reg = EDC_REG_T5(EDC_H_BIST_CMD, idx);
+-	edc_bist_cmd_addr_reg = EDC_REG_T5(EDC_H_BIST_CMD_ADDR, idx);
+-	edc_bist_cmd_len_reg = EDC_REG_T5(EDC_H_BIST_CMD_LEN, idx);
+-	edc_bist_cmd_data_pattern = EDC_REG_T5(EDC_H_BIST_DATA_PATTERN, idx);
+-	edc_bist_status_rdata_reg = EDC_REG_T5(EDC_H_BIST_STATUS_RDATA, idx);
++	edc_bist_cmd_reg = EDC_REG_T5(EDC_H_BIST_CMD_A, idx);
++	edc_bist_cmd_addr_reg = EDC_REG_T5(EDC_H_BIST_CMD_ADDR_A, idx);
++	edc_bist_cmd_len_reg = EDC_REG_T5(EDC_H_BIST_CMD_LEN_A, idx);
++	edc_bist_cmd_data_pattern = EDC_REG_T5(EDC_H_BIST_DATA_PATTERN_A, idx);
++	edc_bist_status_rdata_reg = EDC_REG_T5(EDC_H_BIST_STATUS_RDATA_A, idx);
+ #undef EDC_REG_T5
+ #undef EDC_STRIDE_T5
+ 
+-	if (csio_rd_reg32(hw, edc_bist_cmd_reg) & START_BIST)
++	if (csio_rd_reg32(hw, edc_bist_cmd_reg) & START_BIST_F)
+ 		return -EBUSY;
+ 	csio_wr_reg32(hw, addr & ~0x3fU, edc_bist_cmd_addr_reg);
+ 	csio_wr_reg32(hw, 64, edc_bist_cmd_len_reg);
+ 	csio_wr_reg32(hw, 0xc, edc_bist_cmd_data_pattern);
+-	csio_wr_reg32(hw, BIST_OPCODE(1) | START_BIST |  BIST_CMD_GAP(1),
++	csio_wr_reg32(hw, BIST_OPCODE_V(1) | START_BIST_F |  BIST_CMD_GAP_V(1),
+ 		      edc_bist_cmd_reg);
+-	i = csio_hw_wait_op_done_val(hw, edc_bist_cmd_reg, START_BIST,
++	i = csio_hw_wait_op_done_val(hw, edc_bist_cmd_reg, START_BIST_F,
+ 				     0, 10, 1, NULL);
+ 	if (i)
+ 		return i;
+ 
+-#define EDC_DATA(i) (EDC_BIST_STATUS_REG(EDC_BIST_STATUS_RDATA, i) + idx)
++#define EDC_DATA(i) (EDC_BIST_STATUS_REG(EDC_BIST_STATUS_RDATA_A, i) + idx)
+ 
+ 	for (i = 15; i >= 0; i--)
+ 		*data++ = htonl(csio_rd_reg32(hw, EDC_DATA(i)));
 diff --git a/drivers/scsi/csiostor/csio_mb.c b/drivers/scsi/csiostor/csio_mb.c
-index cb53985..1132c41 100644
+index 08c265c..cb53985 100644
 --- a/drivers/scsi/csiostor/csio_mb.c
 +++ b/drivers/scsi/csiostor/csio_mb.c
-@@ -1464,10 +1464,10 @@ csio_mb_isr_handler(struct csio_hw *hw)
+@@ -1104,8 +1104,8 @@ csio_mb_process_portparams_rsp(struct csio_hw *hw,
+ void
+ csio_mb_intr_enable(struct csio_hw *hw)
+ {
+-	csio_wr_reg32(hw, MBMSGRDYINTEN(1), MYPF_REG(CIM_PF_HOST_INT_ENABLE));
+-	csio_rd_reg32(hw, MYPF_REG(CIM_PF_HOST_INT_ENABLE));
++	csio_wr_reg32(hw, MBMSGRDYINTEN_F, MYPF_REG(CIM_PF_HOST_INT_ENABLE_A));
++	csio_rd_reg32(hw, MYPF_REG(CIM_PF_HOST_INT_ENABLE_A));
+ }
+ 
+ /*
+@@ -1117,8 +1117,9 @@ csio_mb_intr_enable(struct csio_hw *hw)
+ void
+ csio_mb_intr_disable(struct csio_hw *hw)
+ {
+-	csio_wr_reg32(hw, MBMSGRDYINTEN(0), MYPF_REG(CIM_PF_HOST_INT_ENABLE));
+-	csio_rd_reg32(hw, MYPF_REG(CIM_PF_HOST_INT_ENABLE));
++	csio_wr_reg32(hw, MBMSGRDYINTEN_V(0),
++		      MYPF_REG(CIM_PF_HOST_INT_ENABLE_A));
++	csio_rd_reg32(hw, MYPF_REG(CIM_PF_HOST_INT_ENABLE_A));
+ }
+ 
+ static void
+@@ -1153,8 +1154,8 @@ csio_mb_debug_cmd_handler(struct csio_hw *hw)
+ {
+ 	int i;
+ 	__be64 cmd[CSIO_MB_MAX_REGS];
+-	uint32_t ctl_reg = PF_REG(hw->pfn, CIM_PF_MAILBOX_CTRL);
+-	uint32_t data_reg = PF_REG(hw->pfn, CIM_PF_MAILBOX_DATA);
++	uint32_t ctl_reg = PF_REG(hw->pfn, CIM_PF_MAILBOX_CTRL_A);
++	uint32_t data_reg = PF_REG(hw->pfn, CIM_PF_MAILBOX_DATA_A);
+ 	int size = sizeof(struct fw_debug_cmd);
+ 
+ 	/* Copy mailbox data */
+@@ -1164,8 +1165,8 @@ csio_mb_debug_cmd_handler(struct csio_hw *hw)
+ 	csio_mb_dump_fw_dbg(hw, cmd);
+ 
+ 	/* Notify FW of mailbox by setting owner as UP */
+-	csio_wr_reg32(hw, MBMSGVALID | MBINTREQ | MBOWNER(CSIO_MBOWNER_FW),
+-		      ctl_reg);
++	csio_wr_reg32(hw, MBMSGVALID_F | MBINTREQ_F |
++		      MBOWNER_V(CSIO_MBOWNER_FW), ctl_reg);
+ 
+ 	csio_rd_reg32(hw, ctl_reg);
+ 	wmb();
+@@ -1187,8 +1188,8 @@ csio_mb_issue(struct csio_hw *hw, struct csio_mb *mbp)
+ 	__be64 *cmd = mbp->mb;
+ 	__be64 hdr;
+ 	struct csio_mbm	*mbm = &hw->mbm;
+-	uint32_t ctl_reg = PF_REG(hw->pfn, CIM_PF_MAILBOX_CTRL);
+-	uint32_t data_reg = PF_REG(hw->pfn, CIM_PF_MAILBOX_DATA);
++	uint32_t ctl_reg = PF_REG(hw->pfn, CIM_PF_MAILBOX_CTRL_A);
++	uint32_t data_reg = PF_REG(hw->pfn, CIM_PF_MAILBOX_DATA_A);
+ 	int size = mbp->mb_size;
+ 	int rv = -EINVAL;
+ 	struct fw_cmd_hdr *fw_hdr;
+@@ -1224,12 +1225,12 @@ csio_mb_issue(struct csio_hw *hw, struct csio_mb *mbp)
+ 	}
+ 
+ 	/* Now get ownership of mailbox */
+-	owner = MBOWNER_GET(csio_rd_reg32(hw, ctl_reg));
++	owner = MBOWNER_G(csio_rd_reg32(hw, ctl_reg));
+ 
+ 	if (!csio_mb_is_host_owner(owner)) {
+ 
+ 		for (i = 0; (owner == CSIO_MBOWNER_NONE) && (i < 3); i++)
+-			owner = MBOWNER_GET(csio_rd_reg32(hw, ctl_reg));
++			owner = MBOWNER_G(csio_rd_reg32(hw, ctl_reg));
+ 		/*
+ 		 * Mailbox unavailable. In immediate mode, fail the command.
+ 		 * In other modes, enqueue the request.
+@@ -1271,10 +1272,10 @@ csio_mb_issue(struct csio_hw *hw, struct csio_mb *mbp)
+ 	if (mbp->mb_cbfn != NULL) {
+ 		mbm->mcurrent = mbp;
+ 		mod_timer(&mbm->timer, jiffies + msecs_to_jiffies(mbp->tmo));
+-		csio_wr_reg32(hw, MBMSGVALID | MBINTREQ |
+-			      MBOWNER(CSIO_MBOWNER_FW), ctl_reg);
++		csio_wr_reg32(hw, MBMSGVALID_F | MBINTREQ_F |
++			      MBOWNER_V(CSIO_MBOWNER_FW), ctl_reg);
+ 	} else
+-		csio_wr_reg32(hw, MBMSGVALID | MBOWNER(CSIO_MBOWNER_FW),
++		csio_wr_reg32(hw, MBMSGVALID_F | MBOWNER_V(CSIO_MBOWNER_FW),
+ 			      ctl_reg);
+ 
+ 	/* Flush posted writes */
+@@ -1294,9 +1295,9 @@ csio_mb_issue(struct csio_hw *hw, struct csio_mb *mbp)
+ 
+ 		/* Check for response */
+ 		ctl = csio_rd_reg32(hw, ctl_reg);
+-		if (csio_mb_is_host_owner(MBOWNER_GET(ctl))) {
++		if (csio_mb_is_host_owner(MBOWNER_G(ctl))) {
+ 
+-			if (!(ctl & MBMSGVALID)) {
++			if (!(ctl & MBMSGVALID_F)) {
+ 				csio_wr_reg32(hw, 0, ctl_reg);
+ 				continue;
+ 			}
+@@ -1457,16 +1458,16 @@ csio_mb_isr_handler(struct csio_hw *hw)
+ 	__be64			*cmd;
+ 	uint32_t		ctl, cim_cause, pl_cause;
+ 	int			i;
+-	uint32_t		ctl_reg = PF_REG(hw->pfn, CIM_PF_MAILBOX_CTRL);
+-	uint32_t		data_reg = PF_REG(hw->pfn, CIM_PF_MAILBOX_DATA);
++	uint32_t	ctl_reg = PF_REG(hw->pfn, CIM_PF_MAILBOX_CTRL_A);
++	uint32_t	data_reg = PF_REG(hw->pfn, CIM_PF_MAILBOX_DATA_A);
+ 	int			size;
  	__be64			hdr;
  	struct fw_cmd_hdr	*fw_hdr;
  
--	pl_cause = csio_rd_reg32(hw, MYPF_REG(PL_PF_INT_CAUSE));
-+	pl_cause = csio_rd_reg32(hw, MYPF_REG(PL_PF_INT_CAUSE_A));
- 	cim_cause = csio_rd_reg32(hw, MYPF_REG(CIM_PF_HOST_INT_CAUSE_A));
+ 	pl_cause = csio_rd_reg32(hw, MYPF_REG(PL_PF_INT_CAUSE));
+-	cim_cause = csio_rd_reg32(hw, MYPF_REG(CIM_PF_HOST_INT_CAUSE));
++	cim_cause = csio_rd_reg32(hw, MYPF_REG(CIM_PF_HOST_INT_CAUSE_A));
  
--	if (!(pl_cause & PFCIM) || !(cim_cause & MBMSGRDYINT_F)) {
-+	if (!(pl_cause & PFCIM_F) || !(cim_cause & MBMSGRDYINT_F)) {
+-	if (!(pl_cause & PFCIM) || !(cim_cause & MBMSGRDYINT)) {
++	if (!(pl_cause & PFCIM) || !(cim_cause & MBMSGRDYINT_F)) {
  		CSIO_INC_STATS(hw, n_mbint_unexp);
  		return -EINVAL;
  	}
-@@ -1479,7 +1479,7 @@ csio_mb_isr_handler(struct csio_hw *hw)
+@@ -1477,16 +1478,16 @@ csio_mb_isr_handler(struct csio_hw *hw)
+ 	 * the upper level cause register. In other words, CIM-cause
  	 * first followed by PL-Cause next.
  	 */
- 	csio_wr_reg32(hw, MBMSGRDYINT_F, MYPF_REG(CIM_PF_HOST_INT_CAUSE_A));
--	csio_wr_reg32(hw, PFCIM, MYPF_REG(PL_PF_INT_CAUSE));
-+	csio_wr_reg32(hw, PFCIM_F, MYPF_REG(PL_PF_INT_CAUSE_A));
+-	csio_wr_reg32(hw, MBMSGRDYINT, MYPF_REG(CIM_PF_HOST_INT_CAUSE));
++	csio_wr_reg32(hw, MBMSGRDYINT_F, MYPF_REG(CIM_PF_HOST_INT_CAUSE_A));
+ 	csio_wr_reg32(hw, PFCIM, MYPF_REG(PL_PF_INT_CAUSE));
  
  	ctl = csio_rd_reg32(hw, ctl_reg);
  
-diff --git a/drivers/scsi/csiostor/csio_wr.c b/drivers/scsi/csiostor/csio_wr.c
-index e22503b..b47ea33 100644
---- a/drivers/scsi/csiostor/csio_wr.c
-+++ b/drivers/scsi/csiostor/csio_wr.c
-@@ -1343,7 +1343,7 @@ csio_wr_fixup_host_params(struct csio_hw *hw)
- 			SGE_FL_BUFFER_SIZE3_A);
- 	}
+-	if (csio_mb_is_host_owner(MBOWNER_GET(ctl))) {
++	if (csio_mb_is_host_owner(MBOWNER_G(ctl))) {
  
--	csio_wr_reg32(hw, HPZ0(PAGE_SHIFT - 12), ULP_RX_TDDP_PSZ);
-+	csio_wr_reg32(hw, HPZ0_V(PAGE_SHIFT - 12), ULP_RX_TDDP_PSZ_A);
+ 		CSIO_DUMP_MB(hw, hw->pfn, data_reg);
  
- 	/* default value of rx_dma_offset of the NIC driver */
- 	csio_set_reg_field(hw, SGE_CONTROL_A,
+-		if (!(ctl & MBMSGVALID)) {
++		if (!(ctl & MBMSGVALID_F)) {
+ 			csio_warn(hw,
+ 				  "Stray mailbox interrupt recvd,"
+ 				  " mailbox data not valid\n");
 -- 
 1.7.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
