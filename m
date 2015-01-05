@@ -1,52 +1,51 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next v3 0/4] ip: Support checksum returned in csmg
-Date: Mon,  5 Jan 2015 13:56:13 -0800
-Message-ID: <1420494977-15026-1-git-send-email-therbert@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH/RFC rocker-net-next 1/6] net: flow: Cancel innermost
+ nested attribute first
+Date: Mon, 5 Jan 2015 22:01:13 +0000
+Message-ID: <20150105220113.GD31637@casper.infradead.org>
+References: <1420440610-20621-1-git-send-email-simon.horman@netronome.com>
+ <1420440610-20621-2-git-send-email-simon.horman@netronome.com>
+ <20150105.161725.1765207203472571760.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: simon.horman@netronome.com, john.fastabend@gmail.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:43722 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753441AbbAEV4Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 16:56:25 -0500
-Received: by mail-ig0-f181.google.com with SMTP id a13so43283igq.14
-        for <netdev@vger.kernel.org>; Mon, 05 Jan 2015 13:56:25 -0800 (PST)
+Received: from casper.infradead.org ([85.118.1.10]:49493 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753179AbbAEWBO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 17:01:14 -0500
+Content-Disposition: inline
+In-Reply-To: <20150105.161725.1765207203472571760.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set allows the packet checksum for a datagram socket
-to be returned in csum data in recvmsg. This allows userspace
-to implement its own checksum over the data, for instance if an
-IP tunnel was be implemented in user space, the inner checksum
-could be validated.
+On 01/05/15 at 04:17pm, David Miller wrote:
+> From: Simon Horman <simon.horman@netronome.com>
+> Date: Mon,  5 Jan 2015 15:50:05 +0900
+> 
+> > Cancel innermost nested attribute first on error when putting flow actions.
+> > 
+> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> > 
+> > ---
+> > 
+> > Its unclear to me if this makes any difference.
+> > But it seems more logical to me.
+> 
+> Hmmm.  Be careful here.  nla_nest_cancel() is just rolling back
+> the length of the SKB to right before the netlink attribute being
+> given as the cancellation point.
+> 
+> So you really have to cancel attributes in exactly the reverse order
+> in which they were added.  Otherwise we'll make a trim call with a
+> negative adjustment that actually expands the SKB past an already
+> cancelled attribute.
 
-Changes in this patch set:
-  - Move checksum conversion to inet_sock from udp_sock. This
-    generalizes checksum conversion for use with other protocols.
-  - Move IP cmsg constants to a header file and make processing
-    of the flags more efficient in ip_cmsg_recv
-  - Return checksum value in cmsg. This is specifically the unfolded
-    32 bit checksum of the full packet starting from the first byte
-    returned in recvmsg
-
-Tested: Wrote a little server to get checksums in cmsg for UDP and
-        verfied correct checksum is returned.
-        
-Tom Herbert (4):
-  ip: Move checksum convert defines to inet
-  ip: IP cmsg cleanup
-  ip: Add offset parameter to ip_cmsg_recv
-  ip: Add offset parameter to ip_cmsg_recv
-
- include/linux/udp.h     |  16 +------
- include/net/inet_sock.h |  29 ++++++++++++-
- include/net/ip.h        |   7 +++-
- include/uapi/linux/in.h |   1 +
- net/ipv4/fou.c          |   2 +-
- net/ipv4/ip_sockglue.c  | 108 +++++++++++++++++++++++++++++++++++-------------
- net/ipv4/udp.c          |   4 +-
- net/ipv4/udp_tunnel.c   |   2 +-
- net/ipv6/udp.c          |   2 +-
- 9 files changed, 120 insertions(+), 51 deletions(-)
-
--- 
-2.2.0.rc0.207.ga3a616c
+As I told John in the other the other thread: It is often clearer
+and less error prone to only ever cancel the outer most nesting
+level if we are undoing all of them anyway. Dave is absolutely right,
+a wrong order will lead to bugs which are hard to track down.
+Thinking about this I'll send a patch to WARN() in nlmsg_trim() on
+mark < skb->data.
