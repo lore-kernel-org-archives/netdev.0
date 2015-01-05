@@ -1,32 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tipc: convert tipc reference table to use
- generic rhashtable
-Date: Sun, 04 Jan 2015 23:43:09 -0500 (EST)
-Message-ID: <20150104.234309.1238789079887665107.davem@davemloft.net>
-References: <1420356862-7523-1-git-send-email-ying.xue@windriver.com>
-	<20150104095320.GB15305@casper.infradead.org>
+Subject: Re: [PATCH net-next v3 1/4] net: bcmgenet: bcmgenet_init_tx_ring()
+ cleanup
+Date: Sun, 04 Jan 2015 23:46:33 -0500 (EST)
+Message-ID: <20150104.234633.1102329264651728598.davem@davemloft.net>
+References: <20150104074523.5CA9C22034C@puck.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ying.xue@windriver.com, netdev@vger.kernel.org,
-	jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
-	erik.hugne@ericsson.com, tipc-discussion@lists.sourceforge.net
-To: tgraf@suug.ch
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
+To: pgynther@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46782 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46795 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752838AbbAEEnS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 23:43:18 -0500
-In-Reply-To: <20150104095320.GB15305@casper.infradead.org>
+	with ESMTP id S1752873AbbAEEqf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 23:46:35 -0500
+In-Reply-To: <20150104074523.5CA9C22034C@puck.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Sun, 4 Jan 2015 09:53:20 +0000
+From: Petri Gynther <pgynther@google.com>
+Date: Sat,  3 Jan 2015 23:45:23 -0800 (PST)
 
-> As a further optimization, you could add a new atomic function
-> rhashtable_lookup_and_insert() which holds the per bucket lock during
-> lookup and use that instead. This would allow you to get rid of the
-> mutex alltogether.
+> Signed-off-by: Petri Gynther <pgynther@google.com>
 
-This would definitely be a better implementation in my opinion.
+I'm not applying patches like this with not even a minor
+explanation of what kind of cleanups are happening.
+
+> -	/* Disable rate control for now */
+>  	bcmgenet_tdma_ring_writel(priv, index, flow_period_val,
+>  				  TDMA_FLOW_PERIOD);
+
+And I think this comment, and the others you are removing are
+absolutely appropriate and should not be removed.
+
+Also, what value is there in renaming the function argument
+'write_ptr' to 'start_ptr'?  I think both names are equally
+clear.
+
+You have to provide explanations and justifications in the commit log
+message of your changes.
+
+I'm not applying this series, sorry.
