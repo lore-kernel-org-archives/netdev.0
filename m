@@ -1,128 +1,54 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH net-next] rhashtable: involve rhashtable_lookup_insert
- routine
-Date: Mon, 5 Jan 2015 19:44:45 +0800
-Message-ID: <54AA792D.1050906@windriver.com>
-References: <1420447578-19320-1-git-send-email-ying.xue@windriver.com> <54AA5465.5070102@windriver.com> <20150105094635.GA31637@casper.infradead.org>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCHv1 net] xen-netback: support frontends without
+ feature-rx-notify again
+Date: Mon, 5 Jan 2015 11:51:43 +0000
+Message-ID: <1420458703.22423.30.camel@citrix.com>
+References: <1418901186-14478-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
+	Wei Liu <wei.liu2@citrix.com>
+To: David Vrabel <david.vrabel@citrix.com>,
+	James Harper <james@ejbdigital.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:36545 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752993AbbAELpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 06:45:15 -0500
-In-Reply-To: <20150105094635.GA31637@casper.infradead.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:14014 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753218AbbAELwB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 06:52:01 -0500
+In-Reply-To: <1418901186-14478-1-git-send-email-david.vrabel@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/05/2015 05:46 PM, Thomas Graf wrote:
-> On 01/05/15 at 05:07pm, Ying Xue wrote:
->> On 01/05/2015 04:46 PM, Ying Xue wrote:
->>> Involve a new function called rhashtable_lookup_insert() which makes
->>> lookup and insertion atomic under bucket lock protection, helping us
->>> avoid to introduce an extra lock when we search and insert an object
->>> into hash table.
->>>
->>
->> Sorry, please ignore the version. We should compare key instead of
->> object as we want to check whether in a bucket chain there is an entry
->> whose key is identical with that of object to be inserted.
+On Thu, 2014-12-18 at 11:13 +0000, David Vrabel wrote:
+> Commit bc96f648df1bbc2729abbb84513cf4f64273a1f1 (xen-netback: make
+> feature-rx-notify mandatory) incorrectly assumed that there were no
+> frontends in use that did not support this feature.  But the frontend
+> driver in MiniOS does not and since this is used by (qemu) stubdoms,
+> these stopped working.
 > 
-> Agreed. Also, this needs to handle the special case while resizing is
-> taking place and tbl and future_tbl point to individual tables. In that
-> case a parallel writer might have or is about to add 'obj' to future_tbl.
+> Netback sort of works as-is in this mode except:
 > 
-> We need something like this:
+> - If there are no Rx requests and the internal Rx queue fills, only
+>   the drain timeout will wake the thread.  The default drain timeout
+>   of 10 s would give unacceptable pauses.
 > 
->         rcu_read_lock();
->         old_tbl = rht_dereference_rcu(ht->tbl, ht);
->         old_hash = head_hashfn(ht, old_tbl, obj);
->         old_bucket_lock = bucket_lock(old_tbl, old_hash);
->         spin_lock_bh(old_bucket_lock);
+> - If an Rx stall was detected and the internal Rx queue is drained,
+>   then the Rx thread would never wake.
 > 
->         new_tbl = rht_dereference_rcu(ht->future_tbl, ht);
->         if (unlikely(old_tbl != new_tbl)) {
->                 new_hash = head_hashfn(ht, new_tbl, obj);
->                 new_bucket_lock = bucket_lock(new_tbl, new_hash);
->                 spin_lock_bh_nested(new_bucket_lock, RHT_LOCK_NESTED1);
+> Handle these two cases (when feature-rx-notify is disabled) by:
 > 
->                 /* Resizing is in progress, search for a matching entry in the
->                  * old table before attempting to insert to the future table.
->                  */
->                 rht_for_each_rcu(he, tbl, rht_bucket_index(old_tbl, old_hash)) {
->                         if (!memcmp(rht_obj(ht, he) + ht->p.key_offset,
->                                     rht_obj(ht, obj) + ht->p.key_offset,
->                                     ht->p.key_len))
->                                 goto entry_exists;
->                 }
->         }
+> - Reducing the drain timeout to 30 ms.
 > 
->         head = rht_dereference_bucket(new_tbl->buckets[hash], new_tbl, hash);
->         if (rht_is_a_nulls(head)) {
->                 INIT_RHT_NULLS_HEAD(obj->next, ht, new_hash);
->         } else {
->                 rht_for_each(he, new_tbl, new_hash) {
->                         if (!memcmp(rht_obj(ht, he) + ht->p.key_offset,
->                                     rht_obj(ht, obj) + ht->p.key_offset,
->                                     ht->p.key_len))
->                                 goto entry_exists;
->                 }
->                 RCU_INIT_POINTER(obj->next, head);
+> - Disabling Rx stall detection.
 > 
->         }
-> 
->         rcu_assign_pointer(new_tbl->buckets[hash], obj);
->         spin_unlock_bh(new_bucket_lock);
->         if (unlikely(old_tbl != new_tbl))
->                 spin_unlock_bh(old_bucket_lock);
-> 
->         atomic_inc(&ht->nelems);
-> 
->         /* Only grow the table if no resizing is currently in progress. */
->         if (ht->tbl != ht->future_tbl &&
->             ht->p.grow_decision && ht->p.grow_decision(ht, tbl->size))
->                 schedule_delayed_work(&ht->run_work, 0);
-> 
->         rcu_read_unlock();
-> 
->         return true;
-> 
-> entry_exists:
->         spin_unlock_bh(new_bucket_lock);
->         spin_unlock_bh(old_bucket_lock);
->         rcu_read_unlock();
-> 
->         return false;
-> 
-> What this does in addition is:
->  * Locks down the bucket in both the old and new table if a resize is
->    in progress to ensure that writers can't remove from the old table
->    and can't insert to the new table during the atomic operation.
->  * Search for duplicates in the old table if a resize is in progress.
->  * Use memcmp() instead of ptr1 != ptr2 to search for duplicates
->    assuming we want to avoid key duplicates with this function.
-> 
+> Reported-by: John <jw@nuclearfallout.net>
+> Tested-by: John <jw@nuclearfallout.net>
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
 
-Yes, I understood your above comments and changes, and absolutely agreed
-with you. So I made a bit changes based on your above code in v2, and I
-also did a simple test, as a result, it worked fine.
+FYI I've seen a report[0] that "Windows 2012 R2 domu with GPLPV drivers"
+also suffered without feature-rx-notify support in the backend.
 
-But, as you reminder below, we must carefully check the code and it's
-better to write corresponding test case to verify the function. Yes,
-we should do. However, as the time is too late for me now, I have to
-deliver the new version first allowing you to earlier review it again if
-possible. Tomorrow I will figure out how to design the test case.
+Ian.
 
-Regards,
-Ying
-
-> *Please* verify this code very carefully, I wrote it out of my head
-> and did not compile or test it in any way yet. I'll double check and
-> think of a better unit test for this so we can validate functionality
-> like this.
-> 
-> 
-> 
+[0] https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=767261#103
