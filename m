@@ -1,82 +1,73 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 1/3] enic: make vnic_wq_buf doubly linked
-Date: Mon, 5 Jan 2015 17:30:54 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAC0D9E@AcuExch.aculab.com>
-References: <1419416978-1008-1-git-send-email-_govind@gmx.com>
- <1419416978-1008-2-git-send-email-_govind@gmx.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH/RFC rocker-net-next 6/6] net: flow: Limit checking of
+ ndo_flow_{set,del}_flows
+Date: Mon, 05 Jan 2015 09:32:02 -0800
+Message-ID: <54AACA92.5030800@gmail.com>
+References: <1420440610-20621-1-git-send-email-simon.horman@netronome.com> <1420440610-20621-7-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "ssujith@cisco.com" <ssujith@cisco.com>,
-	"benve@cisco.com" <benve@cisco.com>
-To: 'Govindarajulu Varadarajan' <_govind@gmx.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.181]:53016 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751222AbbAERbv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 12:31:51 -0500
-In-Reply-To: <1419416978-1008-2-git-send-email-_govind@gmx.com>
-Content-Language: en-US
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:40225 "EHLO
+	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753300AbbAERcN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 12:32:13 -0500
+Received: by mail-oi0-f51.google.com with SMTP id h136so15146637oig.10
+        for <netdev@vger.kernel.org>; Mon, 05 Jan 2015 09:32:12 -0800 (PST)
+In-Reply-To: <1420440610-20621-7-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> This patch makes vnic_wq_buf doubly liked list. This is needed for dma_mapping
-> error check, in case some frag's dma map fails, we need to move back and remove
-> previously queued buffers.
+On 01/04/2015 10:50 PM, Simon Horman wrote:
+> Only check for availability of ndo_flow_{set,del}_flows when
+> they are to be be used.
+>
 
-I can't see any code that keeps the back-pointers valid when items are removed.
-Maybe they aren't needed, but I'd like to be convinced.
+I went ahead and merged this but, I'm not sure does it make
+sense to allow a user to add a flow that can't be deleted? Or
+delete a flow that wasn't ever added? I guess if the driver has
+a reason to do this it doesn't hurt to allow it and I think the
+code looks neater this way.
 
-If errors are really unlikely, and the list likely to be short,
-then just traverse the entire list forwards in the error path.
+Also thanks for the other fixes I pulled the other 5 in as well
+I'll re-submit the series after running some basic tests.
 
-	David
-
-> 
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
 > ---
->  drivers/net/ethernet/cisco/enic/vnic_wq.c | 3 +++
->  drivers/net/ethernet/cisco/enic/vnic_wq.h | 1 +
->  2 files changed, 4 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/cisco/enic/vnic_wq.c b/drivers/net/ethernet/cisco/enic/vnic_wq.c
-> index 3e6b8d5..b5a1c93 100644
-> --- a/drivers/net/ethernet/cisco/enic/vnic_wq.c
-> +++ b/drivers/net/ethernet/cisco/enic/vnic_wq.c
-> @@ -47,11 +47,14 @@ static int vnic_wq_alloc_bufs(struct vnic_wq *wq)
->  				wq->ring.desc_size * buf->index;
->  			if (buf->index + 1 == count) {
->  				buf->next = wq->bufs[0];
-> +				buf->next->prev = buf;
->  				break;
->  			} else if (j + 1 == VNIC_WQ_BUF_BLK_ENTRIES(count)) {
->  				buf->next = wq->bufs[i + 1];
-> +				buf->next->prev = buf;
->  			} else {
->  				buf->next = buf + 1;
-> +				buf->next->prev = buf;
->  				buf++;
->  			}
->  		}
-> diff --git a/drivers/net/ethernet/cisco/enic/vnic_wq.h b/drivers/net/ethernet/cisco/enic/vnic_wq.h
-> index 816f1ad..2961543 100644
-> --- a/drivers/net/ethernet/cisco/enic/vnic_wq.h
-> +++ b/drivers/net/ethernet/cisco/enic/vnic_wq.h
-> @@ -62,6 +62,7 @@ struct vnic_wq_buf {
->  	uint8_t cq_entry; /* Gets completion event from hw */
->  	uint8_t desc_skip_cnt; /* Num descs to occupy */
->  	uint8_t compressed_send; /* Both hdr and payload in one desc */
-> +	struct vnic_wq_buf *prev;
->  };
-> 
->  /* Break the vnic_wq_buf allocations into blocks of 32/64 entries */
-> --
-> 2.2.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   net/core/flow_table.c | 15 +++++++++++++--
+>   1 file changed, 13 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/core/flow_table.c b/net/core/flow_table.c
+> index bfc984f..6d620d4 100644
+> --- a/net/core/flow_table.c
+> +++ b/net/core/flow_table.c
+> @@ -1206,9 +1206,20 @@ static int net_flow_table_cmd_flows(struct sk_buff *recv_skb,
+>   	if (!dev)
+>   		return -EINVAL;
+>
+> -	if (!dev->netdev_ops->ndo_flow_set_flows ||
+> -	    !dev->netdev_ops->ndo_flow_del_flows)
+> +	switch (cmd) {
+> +	case NET_FLOW_TABLE_CMD_SET_FLOWS:
+> +		if (!dev->netdev_ops->ndo_flow_set_flows)
+> +			goto out;
+> +		break;
+> +
+> +	case NET_FLOW_TABLE_CMD_DEL_FLOWS:
+> +		if (!dev->netdev_ops->ndo_flow_del_flows)
+> +			goto out;
+> +		break;
+> +
+> +	default:
+>   		goto out;
+> +	}
+>
+>   	if (!info->attrs[NET_FLOW_IDENTIFIER_TYPE] ||
+>   	    !info->attrs[NET_FLOW_IDENTIFIER] ||
+>
+
+
+-- 
+John Fastabend         Intel Corporation
