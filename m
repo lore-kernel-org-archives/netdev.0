@@ -1,52 +1,45 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 1/7] timecounter: provide a macro to initialize
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next 1/7] timecounter: provide a macro to initialize
  the cyclecounter mask field.
-Date: Mon, 5 Jan 2015 13:20:57 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAC09D7@AcuExch.aculab.com>
+Date: Mon, 5 Jan 2015 14:43:27 +0100
+Message-ID: <20150105134327.GA8156@localhost.localdomain>
 References: <cover.1420108214.git.richardcochran@gmail.com>
  <1f1bee3e2aa0cc530d006d99a621992a1497a442.1420108214.git.richardcochran@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CAC09D7@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
 	John Stultz <john.stultz@linaro.org>,
 	Thomas Gleixner <tglx@linutronix.de>
-To: 'Richard Cochran' <richardcochran@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.185]:59123 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753868AbbAENV4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 08:21:56 -0500
-In-Reply-To: <1f1bee3e2aa0cc530d006d99a621992a1497a442.1420108214.git.richardcochran@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAC09D7@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> There is no need for users of the timecounter/cyclecounter code to include
-> clocksource.h just for a single macro.
+On Mon, Jan 05, 2015 at 01:20:57PM +0000, David Laight wrote:
+> > +/* simplify initialization of mask field */
+> > +#define CYCLECOUNTER_MASK(bits) (cycle_t)((bits) < 64 ? ((1ULL<<(bits))-1) : -1)
 > 
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
-> ---
->  include/linux/timecounter.h |    5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/linux/timecounter.h b/include/linux/timecounter.h
-> index 74f4549..4382035 100644
-> --- a/include/linux/timecounter.h
-> +++ b/include/linux/timecounter.h
-> @@ -19,6 +19,9 @@
-> 
->  #include <linux/types.h>
-> 
-> +/* simplify initialization of mask field */
-> +#define CYCLECOUNTER_MASK(bits) (cycle_t)((bits) < 64 ? ((1ULL<<(bits))-1) : -1)
+> That has me chasing through the C integer promotion rules.
+> Better might be:
+> 	((bits) < 64 ? (1ULL << (bits)) - 1 : (((1ULL << 63) - 1) << 1) + 1)
+> I actually suspect there is a standard definition somewhere?
 
-That has me chasing through the C integer promotion rules.
-Better might be:
-	((bits) < 64 ? (1ULL << (bits)) - 1 : (((1ULL << 63) - 1) << 1) + 1)
-I actually suspect there is a standard definition somewhere?
+This is an exact copy of CLOCKSOURCE_MASK, and if wrong, then both are
+wrong.  In any case, I can't see any issue here. Is not
 
-	David 
+	(some_int_type) -1
+
+always equal to
+
+	0xf...(width of type)
+
+for all integer types, when using 2s compliment?
+
+Thanks
+Richard
