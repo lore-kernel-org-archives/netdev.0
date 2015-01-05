@@ -1,47 +1,69 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [PATCH] net: wireless: rtlwifi: btcoexist: halbtc8821a2ant: Remove some unused functions
-Date: Mon, 5 Jan 2015 12:28:48 +0200
-Message-ID: <87d26t34in.fsf@kamboji.qca.qualcomm.com>
-References: <1420230361-1862-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-	<54A786A4.2050202@lwfinger.net>
-	<CAKXHbyOYO29uKA127qyYrCfpgQ2zoqBS9rAJME513oZ8JVdOug@mail.gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] brcm80211: brcmsmac: dma: Remove some unused functions
+Date: Mon, 05 Jan 2015 12:34:27 +0200
+Message-ID: <878uhh3498.fsf@kamboji.qca.qualcomm.com>
+References: <1420332469-5907-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+	<54A8DBF4.4050202@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Fengguang Wu <fengguang.wu@intel.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Fabian Frederick <fabf@skynet.be>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKXHbyOYO29uKA127qyYrCfpgQ2zoqBS9rAJME513oZ8JVdOug@mail.gmail.com>
-	(Rickard Strandqvist's message of "Sat, 3 Jan 2015 13:03:02 +0100")
+In-Reply-To: <54A8DBF4.4050202@lwfinger.net> (Larry Finger's message of "Sun,
+	04 Jan 2015 00:21:40 -0600")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se> writes:
+Larry Finger <Larry.Finger@lwfinger.net> writes:
 
->     I know that you have been told that including "net: wireless:" in the
->     subject line is discouraged. Please do not do this again. The staging
->     directory is different as GregKH uses "staging:" in the subject to route
->     patches, but wireless does not.
+> On 01/03/2015 06:47 PM, Rickard Strandqvist wrote:
+>> Removes some functions that are not used anywhere:
+>> dma_txflush() dma_txsuspended()
+>>
+>> This was partially found by using a static code analysis program called cppcheck.
+>>
+>> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+>> ---
+>>   drivers/net/wireless/brcm80211/brcmsmac/dma.c |   19 -------------------
+>>   drivers/net/wireless/brcm80211/brcmsmac/dma.h |    2 --
+>>   2 files changed, 21 deletions(-)
 >
->     As to the patch, NACK for the simple reason that I am currently working on
->     a number of changes to btcoexist. Some of these routines may end up being
->     removed, but others will not. Having your patch remove them, and one of
->     mine adding them back just constitutes a lot of churning of the source. In
->     addition, it greatly increases the probability of the source trees becoming
->     unsynchronized and getting merge conflicts.
->
-> I do not recognize that there has been no diskution on the subject of "net: 
-> wireless:"
+> Just because file dma.c is involved, it does not need to be, nor
+> should it be in the subject line. You could specify the driver names
+> in the file tree after wireless. In this instance, one possible
+> subject would be "brcm80211: brcmsmac: Remove some unused functions".
+> On the other hand, if you look at "git log" to see past patches, the
+> driver maintainers even leave off the brcm80211 part, thus to match
+> them, the subject should be "brcmsmac: Remove some unused functions".
 
-I mentioned about this in one your earlier patches, but I guess you
-didn't get the mail because I got a bounce:
+This is a handy way to check what kind of format you should use:
 
-https://lkml.org/lkml/2014/12/24/222
+$ git log --oneline --no-merges drivers/net/wireless/brcm80211/brcmsmac/dma.c | head
+a38a9ef1c064 brcm80211: use container_of to resolve dma_info from dma_pub
+67d0cf50bd32 brcmsmac: Fix WARNING caused by lack of calls to dma_mapping_error()
+55cec505559d brcmsmac: Fix possible NULL pointer dereference in _dma_ctrlflags()
+9242c7261b8c brcmsmac: Remove some noisy and uninformative debug messages
+0c9a0a1dd145 brcmsmac: Add tracepoint for AMPDU session information
+90123e045cac brcmsmac: Add brcms_dbg_dma() debug macro
+b05618deb4ac brcmsmac: Use correct descriptor count when calculating next rx descriptor
+e041f65d5f00 brcmsmac: Remove internal tx queue
+05f8a6160491 brcmsmac: Add helper function for updating txavail count
+ec5ab1dd73a4 brcmsmac: fix DMA on SoCs
+
+> As was suggested earlier, you need to look at the precedents. Keeping
+> a uniform method of patch naming helps when looking for patches in the
+> git log.
+
+Yeah, and also having clean[1] patch titles makes working with patchwork
+so much easier and hence me happier :)
+
+[1] clean patch title == short, clear and unique
 
 -- 
 Kalle Valo
