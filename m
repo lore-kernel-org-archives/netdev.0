@@ -1,38 +1,52 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next v2] rhashtable: involve rhashtable_lookup_insert
- routine
-Date: Mon, 5 Jan 2015 13:05:14 +0000
-Message-ID: <20150105130514.GA15499@casper.infradead.org>
-References: <1420457634-13017-1-git-send-email-ying.xue@windriver.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 1/7] timecounter: provide a macro to initialize
+ the cyclecounter mask field.
+Date: Mon, 5 Jan 2015 13:20:57 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAC09D7@AcuExch.aculab.com>
+References: <cover.1420108214.git.richardcochran@gmail.com>
+ <1f1bee3e2aa0cc530d006d99a621992a1497a442.1420108214.git.richardcochran@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Ying Xue <ying.xue@windriver.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David Miller" <davem@davemloft.net>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: 'Richard Cochran' <richardcochran@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:46784 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752827AbbAENFR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 08:05:17 -0500
-Content-Disposition: inline
-In-Reply-To: <1420457634-13017-1-git-send-email-ying.xue@windriver.com>
+Received: from smtp-out4.electric.net ([192.162.216.185]:59123 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753868AbbAENV4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 08:21:56 -0500
+In-Reply-To: <1f1bee3e2aa0cc530d006d99a621992a1497a442.1420108214.git.richardcochran@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/05/15 at 07:33pm, Ying Xue wrote:
-> Involve a new function called rhashtable_lookup_insert() which makes
-> lookup and insertion atomic under bucket lock protection, helping us
-> avoid to introduce an extra lock when we search and insert an object
-> into hash table.
+> There is no need for users of the timecounter/cyclecounter code to include
+> clocksource.h just for a single macro.
 > 
-> Signed-off-by: Ying Xue <ying.xue@windriver.com>
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+> ---
+>  include/linux/timecounter.h |    5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
+> 
+> diff --git a/include/linux/timecounter.h b/include/linux/timecounter.h
+> index 74f4549..4382035 100644
+> --- a/include/linux/timecounter.h
+> +++ b/include/linux/timecounter.h
+> @@ -19,6 +19,9 @@
+> 
+>  #include <linux/types.h>
+> 
+> +/* simplify initialization of mask field */
+> +#define CYCLECOUNTER_MASK(bits) (cycle_t)((bits) < 64 ? ((1ULL<<(bits))-1) : -1)
 
-Thanks for putting this around so quickly and thanks for testing.
-I think this looks good. You might be able to factor out some code
-from rhashtable_insert() to avoid duplication so we reduce the risk
-of fixing a bug for one function but not the other.
+That has me chasing through the C integer promotion rules.
+Better might be:
+	((bits) < 64 ? (1ULL << (bits)) - 1 : (((1ULL << 63) - 1) << 1) + 1)
+I actually suspect there is a standard definition somewhere?
 
-I see some further optimization potential when we need to calculate
-the hash for both the old and new table. We can introduce a new
-function which provides both based on a single hash iteration.
-However, we should do that in a separate patch.
+	David 
