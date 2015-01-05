@@ -1,26 +1,41 @@
-From: Jacqueline Gardner <jgardner@po-box.esu.edu>
-Subject: =?windows-1256?Q?IT_Service_de_s=E9curit=E9_Bureau=FE?=
-Date: Mon, 5 Jan 2015 17:18:34 +0000
-Message-ID: <0B1EB60BB1696648B43E876E92D651AB1024B2@msxmb2.admin.esu.edu>
+From: "Kershner, David A" <David.Kershner@unisys.com>
+Subject: RE: [PATCH] net: unisys: adding unisys virtnic driver
+Date: Mon, 5 Jan 2015 17:13:48 +0000
+Message-ID: <59e8633074b045eea95c1dbcbec23d0c@US-EXCH13-1.na.uis.unisys.com>
+References: <1418842340-29894-1-git-send-email-earfvids@redhat.com>
+ <5497D708.7070109@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1256
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: zhuyj <zyjzyj2000@gmail.com>, Erik Arfvidson <earfvids@redhat.com>,
+	"Romer, Benjamin M" <Benjamin.Romer@unisys.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"dzickus@redhat.com" <dzickus@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Vessey, Bruce A" <Bruce.Vessey@unisys.com>,
+	*S-Par-Maintainer <SParMaintainer@unisys.com>,
+	"prarit@redhat.com" <prarit@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from msxgate1.admin.esu.edu ([206.225.126.254]:23303 "EHLO
-	msxgate1.admin.esu.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751222AbbAERTU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 12:19:20 -0500
+Received: from mail1.bemta8.messagelabs.com ([216.82.243.194]:54119 "EHLO
+	mail1.bemta8.messagelabs.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753236AbbAERUp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 12:20:45 -0500
+In-Reply-To: <5497D708.7070109@gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Votre compte de messagerie a d=E9pass=E9 sa limite de stockage. Vous
-neserezpas en mesure de recevoir ou d'envoyer un message. Afin de
-r=E9tablirvotrecompte s'il vous pla=EEt Cliquezici:
-
-http://webmailteamservice.weebly.com/<http://kuffubu.weebly.com/>
-
-et soumettre votre webmail information requise.
-Merci.IT Service de
-s=E9curit=E9 Bureau 2015
+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj5Gcm9tOiB6aHV5aiBbbWFpbHRvOnp5anp5ajIw
+MDBAZ21haWwuY29tXQ0KPlNlbnQ6IE1vbmRheSwgRGVjZW1iZXIgMjIsIDIwMTQgMzozMiBBTQ0K
+PlRvOiBFcmlrIEFyZnZpZHNvbjsgUm9tZXIsIEJlbmphbWluIE07IG5ldGRldkB2Z2VyLmtlcm5l
+bC5vcmc7IGR6aWNrdXNAcmVkaGF0LmNvbTsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgVmVzc2V5LCBC
+cnVjZSBBOyAqUy1QYXItTWFpbnRhaW5lcjsgPnByYXJpdEByZWRoYXQuY29tDQo+U3ViamVjdDog
+UmU6IFtQQVRDSF0gbmV0OiB1bmlzeXM6IGFkZGluZyB1bmlzeXMgdmlydG5pYyBkcml2ZXINCj4N
+Cj5Db21wYXJlZCB3aXRoIHZldGgsIHR1bi90YXAsIGlzIHRoZXJlIGFueSBkaWZmZXJlbmNlIGFi
+b3V0IHRoaXMgdmlydG5pYz8NCj4NCj5aaHUgWWFuanVuDQoNCg0KVW5pc3lzIHMtUGFyIGZpcm13
+YXJlIGNhbiBleHBvc2UgYSB2aXJ0dWFsIG5ldHdvcmsgaW50ZXJmYWNlIHRvIHNoYXJlIGEgcGh5
+c2ljYWwgcG9ydC4gVGhpcyBwYXRjaCBpbXBsZW1lbnRzIGFuIGV0aGVybmV0IGFkYXB0ZXIgdGhh
+dCBzdXBwb3J0cyB0aGUgdmlydHVhbCBuZXR3b3JrIGFkYXB0ZXIuIE5vdGU6IFRoaXMgYWRhcHRl
+ciBpcyBub3QgZXhwb3NlZCB2aWEgdGhlIHBjaSBidXMsIGJ1dCBhIHByaXZhdGUgYnVzIHNwZWNp
+ZmljIHRvIFVuaXN5cyBzLVBhciBmaXJtd2FyZS4gVGhlIGJ1cyBkcml2ZXJzIGFyZSBjdXJyZW50
+bHkgaW4gdGhlIHN0YWdpbmctbmV4dCBicmFuY2guDQoNCkRhdmlkIEtlcnNobmVyDQo=
