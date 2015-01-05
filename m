@@ -1,47 +1,26 @@
-From: nick <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] drivers:net:wireless: Add proper locking for the function,
- b43_op_beacon_set_tim in main.c
-Date: Mon, 05 Jan 2015 12:16:30 -0500
-Message-ID: <54AAC6EE.2000603@gmail.com>
-References: <1420184041-6788-1-git-send-email-xerofoify@gmail.com>
- <87tx05378x.fsf@kamboji.qca.qualcomm.com>
+From: Jacqueline Gardner <jgardner@po-box.esu.edu>
+Subject: =?windows-1256?Q?IT_Service_de_s=E9curit=E9_Bureau=FE?=
+Date: Mon, 5 Jan 2015 17:18:34 +0000
+Message-ID: <0B1EB60BB1696648B43E876E92D651AB1024B2@msxmb2.admin.esu.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <87tx05378x.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
-List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1256
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from msxgate1.admin.esu.edu ([206.225.126.254]:23303 "EHLO
+	msxgate1.admin.esu.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751222AbbAERTU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 12:19:20 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Kalle,
-That's fine. On the other hand I am interested in the
-reasons why this patch was dropped so I can send in a
-version 2 of this patch.
-Regards Nick 
+Votre compte de messagerie a d=E9pass=E9 sa limite de stockage. Vous
+neserezpas en mesure de recevoir ou d'envoyer un message. Afin de
+r=E9tablirvotrecompte s'il vous pla=EEt Cliquezici:
 
-On 2015-01-05 04:29 AM, Kalle Valo wrote:
-> Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
-> 
->> This adds proper locking for the function, b43_op_beacon_set_tim in
->> main.c by using the mutex lock in the structure pointer wl, as
->> embedded into this pointer as a mutex in order to protect against
->> multiple access to the pointer wl when updating the templates for this
->> pointer in the function, b43_update_templates internally in the
->> function, b43_op_beacon_set_tim.
->>
->> Signed-off-by: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
-> Based on the discussion I have dropped this patch.
-> 
+http://webmailteamservice.weebly.com/<http://kuffubu.weebly.com/>
+
+et soumettre votre webmail information requise.
+Merci.IT Service de
+s=E9curit=E9 Bureau 2015
