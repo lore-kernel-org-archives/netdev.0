@@ -1,31 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] enic: reconfigure resources for kdump crash
- kernel
-Date: Sun, 04 Jan 2015 22:24:08 -0500 (EST)
-Message-ID: <20150104.222408.778804325620128434.davem@davemloft.net>
-References: <1420293944-7614-1-git-send-email-_govind@gmx.com>
+Subject: Re: [PATCH net-next] qlcnic: Fix dump_skb output
+Date: Sun, 04 Jan 2015 22:24:48 -0500 (EST)
+Message-ID: <20150104.222448.2069931734048612119.davem@davemloft.net>
+References: <1420336216.2619.9.camel@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
-To: _govind@gmx.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45972 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752996AbbAEDYJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 22:24:09 -0500
-In-Reply-To: <1420293944-7614-1-git-send-email-_govind@gmx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: shahed.shaikh@qlogic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1420336216.2619.9.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Date: Sat,  3 Jan 2015 19:35:44 +0530
+From: Joe Perches <joe@perches.com>
+Date: Sat, 03 Jan 2015 17:50:16 -0800
 
-> When running in kdump kernel, reduce number of resources used by the driver.
-> This will enable NIC to operate in low memory kdump kernel environment.
+> Use normal facilities to avoid printing each byte
+> on a separate line.
 > 
-> Also change the driver version to .83
+> Now emits at KERN_DEBUG instead of KERN_INFO.
 > 
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Applied, thank you.
+This looks fine, applied, thanks Joe.
