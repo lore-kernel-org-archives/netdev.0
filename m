@@ -1,36 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 4/4] ip: Add support for IP_CHECKSUM cmsg
-Date: Mon, 05 Jan 2015 16:12:45 -0500 (EST)
-Message-ID: <20150105.161245.321583390793752509.davem@davemloft.net>
-References: <1420488035-24866-1-git-send-email-therbert@google.com>
-	<1420488035-24866-5-git-send-email-therbert@google.com>
+Subject: Re: [PATCH/RFC rocker-net-next 1/6] net: flow: Cancel innermost
+ nested attribute first
+Date: Mon, 05 Jan 2015 16:17:25 -0500 (EST)
+Message-ID: <20150105.161725.1765207203472571760.davem@davemloft.net>
+References: <1420440610-20621-1-git-send-email-simon.horman@netronome.com>
+	<1420440610-20621-2-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Cc: john.fastabend@gmail.com, netdev@vger.kernel.org
+To: simon.horman@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60516 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60542 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751234AbbAEVMr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 16:12:47 -0500
-In-Reply-To: <1420488035-24866-5-git-send-email-therbert@google.com>
+	with ESMTP id S1753140AbbAEVR3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 16:17:29 -0500
+In-Reply-To: <1420440610-20621-2-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Mon,  5 Jan 2015 12:00:35 -0800
+From: Simon Horman <simon.horman@netronome.com>
+Date: Mon,  5 Jan 2015 15:50:05 +0900
 
-> diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-> index 4091fab..2823fc0 100644
-> --- a/include/net/inet_sock.h
-> +++ b/include/net/inet_sock.h
-> @@ -203,6 +203,7 @@ struct inet_sock {
->  #define IP_CMSG_RETOPTS		(1 << 4)
->  #define IP_CMSG_PASSSEC		(1 << 5)
->  #define IP_CMSG_ORIGDSTADDR	(1 << 6)
-> +#define IP_CMSG_CHECKSUM	(1 << 7)
+> Cancel innermost nested attribute first on error when putting flow actions.
+> 
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> 
+> ---
+> 
+> Its unclear to me if this makes any difference.
+> But it seems more logical to me.
 
-Likewise, please include linux/bitops.h and use "BIT()" for this.
+Hmmm.  Be careful here.  nla_nest_cancel() is just rolling back
+the length of the SKB to right before the netlink attribute being
+given as the cancellation point.
 
-Thanks.
+So you really have to cancel attributes in exactly the reverse order
+in which they were added.  Otherwise we'll make a trim call with a
+negative adjustment that actually expands the SKB past an already
+cancelled attribute.
