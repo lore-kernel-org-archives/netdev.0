@@ -1,62 +1,100 @@
-From: nick <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] drivers:net:wireless: Add proper locking for the function,
- b43_op_beacon_set_tim in main.c
-Date: Mon, 05 Jan 2015 13:21:32 -0500
-Message-ID: <54AAD62C.3000105@gmail.com>
-References: <1420184041-6788-1-git-send-email-xerofoify@gmail.com>
- <87tx05378x.fsf@kamboji.qca.qualcomm.com> <54AAC6EE.2000603@gmail.com>
- <54AACE00.8060407@lwfinger.net>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH] Revert "ipw2200: select CFG80211_WEXT"
+Date: Mon, 5 Jan 2015 19:22:52 +0100
+Message-ID: <54AAD67C.7090900@broadcom.com>
+References: <1420297188.2397.3.camel@tiscali.nl>	 <CD467A59-F563-439B-BA82-954AB27AD9CC@holtmann.org>	 <CA+55aFzYSiUkntraMrHEhMzkt35Ft2p9E3cT7ejwQOBDwKvcOg@mail.gmail.com>	 <1420324124.9624.60.camel@x220> <54AA641C.7050307@broadcom.com> <1420479510.14308.23.camel@x220>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
- Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <54AACE00.8060407-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
-List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Stanislav Yakovlev <stas.yakovlev@gmail.com>,
+	"Kalle Valo" <kvalo@codeaurora.org>, Jiri Kosina <jkosina@suse.cz>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1420479510.14308.23.camel@x220>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 01/05/15 18:38, Paul Bolle wrote:
+> On Mon, 2015-01-05 at 11:14 +0100, Arend van Spriel wrote:
+>> On 01/03/15 23:28, Paul Bolle wrote:
+>>> Side note: am I correct in thinking that there's some successor to
+>>> CFG80211_WEXT and that the ipw2200 driver could, at least in theory, be
+>>> ported to that successor? (ipw2200 hardware appears to be a bit old, so
+>>> probably no one would care enough to actually do that.)
+>>> net/wireless/kconfig doesn't mention anything like that, so probably I'm
+>>> just confused.
+>>
+>> ipw2200 is a WEXT driver using some wext functionality (and struct
+>> wiphy) provided by cfg80211 hence it needs CFG80211_WEXT. I guess that
+>> is what makes it confusing.
+>
+> It doesn't help that I hardly know anything about mac80211, cfg80211 and
+> nl80211 (and lib80211 for that matter). To me these are mostly just
+> names that end in 80211.
 
-Larry,
-Your right I build tested it. Unfortunately I don't have
-the hardware.
-Regards Nick
-On 2015-01-05 12:46 PM, Larry Finger wrote:
-> On 01/05/2015 11:16 AM, nick wrote:
->> Kalle,
->> That's fine. On the other hand I am interested in the
->> reasons why this patch was dropped so I can send in a
->> version 2 of this patch.
->> Regards Nick
-> =
+Grapjas ;-)
 
-> Apparently you missed Michael B=FCsch's comment:
-> =
+cfg80211 provides thin-layer API for fullmac drivers (running 802.11 
+stack on the device) and mac80211-based drivers (running 802.11 stack in 
+kernel).
 
-> "Thanks for the patch.
-> =
+> Anyhow, concerning, CFG80211_WEXT: it seems the only functionality
+> provided by that symbol that ipw2200 uses directly is
+> cfg80211_wext_giwname(). Perhaps ipw2200 could have a private version of
+> that function, something like ipw2100's ipw2100_wx_get_name(). Should be
+> trivial to implement (ie, it could take _me_ a day or two).
 
-> However, this does not work. We are in atomic context here.
-> Please see the b43-dev mailing list archives for a recent thread about th=
-at.
-> I'm also pretty sure that this is safe without lock, due to the higher le=
-vel locks in mac80211."
-> =
+Indeed or even an hour or two.
 
-> Did you actually test the patch? If Michael is right, and I trust him on =
-this matter, your patch should lock the system.
-> =
+> But perhaps ipw2200 uses CFG80211_WEXT _indirectly_ too. Ie, in
+> net/wireless/core.c I stumbled on
+>      #ifdef CONFIG_CFG80211_WEXT
+>              rdev->wiphy.wext =&cfg80211_wext_handler;
+>      #endif
 
-> Larry
-> =
+This is the "wext compatibility" being enabled for any cfg80211 or 
+mac80211 based driver.
+
+>
+> But I net/wireless/wext-core.c I then found
+>      #ifdef CONFIG_CFG80211_WEXT
+>              if (dev->ieee80211_ptr&&  dev->ieee80211_ptr->wiphy)
+>                      handlers = dev->ieee80211_ptr->wiphy->wext;
+>      #endif
+
+wext-core is the WEXT framework and here it extracts WEXT handlers from 
+a cfg80211/mac80211-based driver that are store in wiphy structure.
+
+>      #ifdef CONFIG_WIRELESS_EXT
+>              if (dev->wireless_handlers)
+>                      handlers = dev->wireless_handlers;
+>      #endif
+
+Here wext-core extracts WEXT handlers from a WEXT driver. struct 
+net_device::wireless_handlers is only defined for CONFIG_WIRELESS_EXT.
+
+> (There's much more to discover about WEXT, of course.) Anyhow, IPW2200
+> uses both CFG80211_WEXT and WIRELESS_EXT and cfg80211_wext_handler and
+> ipw2200's wireless_handlers appear to cover the same set of IOCTLS (one
+> exception: SIOCSIWPMKSA). So by now I'm really puzzled how this all fits
+> together.
+
+I think ipw2200 is a bit of both worlds indeed adopting the use of 
+struct wiphy and wiphy_register() call. That seems to suggest it is a 
+cfg80211 driver, but it does not register any cfg80211 driver callbacks 
+(see libipw_config_ops in libipw_module.c). So it overrides the WEXT 
+ioctls because it needs that to interact with the device.
+
+Regards,
+Arend
+
+> Thanks,
+>
+>
+> Paul Bolle
+>
