@@ -1,35 +1,42 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 2/3] enic: check dma_mapping_error
-Date: Mon, 5 Jan 2015 17:28:30 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAC0D6C@AcuExch.aculab.com>
-References: <1419416978-1008-1-git-send-email-_govind@gmx.com>
- <1419416978-1008-3-git-send-email-_govind@gmx.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] drivers:net:wireless: Add proper locking for the function,
+ b43_op_beacon_set_tim in main.c
+Date: Mon, 05 Jan 2015 11:46:40 -0600
+Message-ID: <54AACE00.8060407@lwfinger.net>
+References: <1420184041-6788-1-git-send-email-xerofoify@gmail.com> <87tx05378x.fsf@kamboji.qca.qualcomm.com> <54AAC6EE.2000603@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "ssujith@cisco.com" <ssujith@cisco.com>,
-	"benve@cisco.com" <benve@cisco.com>
-To: 'Govindarajulu Varadarajan' <_govind@gmx.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.185]:50805 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753060AbbAERk2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 12:40:28 -0500
-In-Reply-To: <1419416978-1008-3-git-send-email-_govind@gmx.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	b43-dev@lists.infradead.org, stefano.brivio@polimi.it,
+	linux-kernel@vger.kernel.org
+To: nick <xerofoify@gmail.com>, Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54AAC6EE.2000603@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> This patch checks for pci_dma_mapping_error() after dma mapping the data.
-> If the dma mapping fails we remove the previously queued frags and return
-> NETDEV_TX_OK.
+On 01/05/2015 11:16 AM, nick wrote:
+> Kalle,
+> That's fine. On the other hand I am interested in the
+> reasons why this patch was dropped so I can send in a
+> version 2 of this patch.
+> Regards Nick
 
-This patch contains a lot of whitespace changes that make it
-very difficult to review.
+Apparently you missed Michael B=FCsch's comment:
 
-Split the patch.
+"Thanks for the patch.
 
-	David
+However, this does not work. We are in atomic context here.
+Please see the b43-dev mailing list archives for a recent thread about =
+that.
+I'm also pretty sure that this is safe without lock, due to the higher =
+level=20
+locks in mac80211."
+
+Did you actually test the patch? If Michael is right, and I trust him o=
+n this=20
+matter, your patch should lock the system.
+
+Larry
