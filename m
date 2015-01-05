@@ -1,8 +1,11 @@
 From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: [PATCH v3 1/4] can: kvaser_usb: Don't free packets when tight on URBs
-Date: Mon, 5 Jan 2015 12:49:10 -0500
-Message-ID: <20150105174910.GA6304@linux>
+Subject: [PATCH v3 3/4] can: kvaser_usb: Don't send a RESET_CHIP for
+ non-existing channels
+Date: Mon, 5 Jan 2015 12:57:13 -0500
+Message-ID: <20150105175713.GC6304@linux>
 References: <20141223154654.GB6460@vivalin-002>
+ <20150105174910.GA6304@linux>
+ <20150105175206.GB6304@linux>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>,
@@ -14,85 +17,54 @@ To: Olivier Sobrie <olivier@sobrie.be>,
 	Oliver Hartkopp <socketcan@hartkopp.net>,
 	Wolfgang Grandegger <wg@grandegger.com>,
 	Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f177.google.com ([74.125.82.177]:47664 "EHLO
+	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932271AbbAER5S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 12:57:18 -0500
 Content-Disposition: inline
-In-Reply-To: <20141223154654.GB6460@vivalin-002>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20150105175206.GB6304@linux>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
 
-Flooding the Kvaser CAN to USB dongle with multiple reads and
-writes in high frequency caused seemingly-random panics in the
-kernel.
+Recent Leaf firmware versions (>= 3.1.557) do not allow to send
+commands for non-existing channels.  If a command is sent for a
+non-existing channel, the firmware crashes.
 
-On further inspection, it seems the driver erroneously freed the
-to-be-transmitted packet upon getting tight on URBs and returning
-NETDEV_TX_BUSY, leading to invalid memory writes and double frees
-at a later point in time.
-
-Note:
-
-Finding no more URBs/transmit-contexts and returning NETDEV_TX_BUSY
-is a driver bug in and out of itself: it means that our start/stop
-queue flow control is broken.
-
-This patch only fixes the (buggy) error handling code; the root
-cause shall be fixed in a later commit.
-
+Reported-by: Christopher Storah <Christopher.Storah@invetech.com.au>
 Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
-Acked-by: Olivier Sobrie <olivier@sobrie.be>
+Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
 ---
- drivers/net/can/usb/kvaser_usb.c | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+ drivers/net/can/usb/kvaser_usb.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
 ** V3 Changelog:
-- checkpatch.pl suggestions ('net/' commenting style)
+- Update commit log message per Olivier remarks on v2
 
 diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
-index 541fb7a..2e7d513 100644
+index 9accc82..cc7bfc0 100644
 --- a/drivers/net/can/usb/kvaser_usb.c
 +++ b/drivers/net/can/usb/kvaser_usb.c
-@@ -1294,12 +1294,14 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
- 	if (!urb) {
- 		netdev_err(netdev, "No memory left for URBs\n");
- 		stats->tx_dropped++;
--		goto nourbmem;
-+		dev_kfree_skb(skb);
-+		return NETDEV_TX_OK;
- 	}
+@@ -1503,6 +1503,10 @@ static int kvaser_usb_init_one(struct usb_interface *intf,
+ 	struct kvaser_usb_net_priv *priv;
+ 	int i, err;
  
- 	buf = kmalloc(sizeof(struct kvaser_msg), GFP_ATOMIC);
- 	if (!buf) {
- 		stats->tx_dropped++;
-+		dev_kfree_skb(skb);
- 		goto nobufmem;
- 	}
++	err = kvaser_usb_send_simple_msg(dev, CMD_RESET_CHIP, channel);
++	if (err)
++		return err;
++
+ 	netdev = alloc_candev(sizeof(*priv), MAX_TX_URBS);
+ 	if (!netdev) {
+ 		dev_err(&intf->dev, "Cannot alloc candev\n");
+@@ -1607,9 +1611,6 @@ static int kvaser_usb_probe(struct usb_interface *intf,
  
-@@ -1334,6 +1336,7 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
- 		}
- 	}
+ 	usb_set_intfdata(intf, dev);
  
-+	/* This should never happen; it implies a flow control bug */
- 	if (!context) {
- 		netdev_warn(netdev, "cannot find free context\n");
- 		ret =  NETDEV_TX_BUSY;
-@@ -1364,9 +1367,6 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
- 	if (unlikely(err)) {
- 		can_free_echo_skb(netdev, context->echo_index);
- 
--		skb = NULL; /* set to NULL to avoid double free in
--			     * dev_kfree_skb(skb) */
+-	for (i = 0; i < MAX_NET_DEVICES; i++)
+-		kvaser_usb_send_simple_msg(dev, CMD_RESET_CHIP, i);
 -
- 		atomic_dec(&priv->active_tx_urbs);
- 		usb_unanchor_urb(urb);
- 
-@@ -1388,8 +1388,6 @@ releasebuf:
- 	kfree(buf);
- nobufmem:
- 	usb_free_urb(urb);
--nourbmem:
--	dev_kfree_skb(skb);
- 	return ret;
- }
- 
+ 	err = kvaser_usb_get_software_info(dev);
+ 	if (err) {
+ 		dev_err(&intf->dev,
