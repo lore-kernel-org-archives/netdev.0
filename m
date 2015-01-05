@@ -1,46 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] swdev: add IPv4 routing offload
-Date: Sun, 04 Jan 2015 22:17:23 -0500 (EST)
-Message-ID: <20150104.221723.437611561422283552.davem@davemloft.net>
-References: <1420169361-31767-1-git-send-email-sfeldma@gmail.com>
+Subject: Re: [PATCH] net: ethernet: cpsw: fix hangs with interrupts
+Date: Sun, 04 Jan 2015 22:19:23 -0500 (EST)
+Message-ID: <20150104.221923.550321820468649239.davem@davemloft.net>
+References: <1420236959-32444-1-git-send-email-balbi@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, john.fastabend@gmail.com,
-	tgraf@suug.ch, jhs@mojatatu.com, andy@greyhouse.net,
-	roopa@cumulusnetworks.com
-To: sfeldma@gmail.com
+Cc: mugunthanvnm@ti.com, yegorslists@googlemail.com,
+	linux-omap@vger.kernel.org, netdev@vger.kernel.org,
+	stable@vger.kernel.org
+To: balbi@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45857 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45905 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752854AbbAEDR3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 22:17:29 -0500
-In-Reply-To: <1420169361-31767-1-git-send-email-sfeldma@gmail.com>
+	with ESMTP id S1752838AbbAEDTZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2015 22:19:25 -0500
+In-Reply-To: <1420236959-32444-1-git-send-email-balbi@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: sfeldma@gmail.com
-Date: Thu,  1 Jan 2015 19:29:18 -0800
+From: Felipe Balbi <balbi@ti.com>
+Date: Fri, 2 Jan 2015 16:15:59 -0600
 
-> This patch set adds L3 routing offload support for IPv4 routes.  The idea is to
-> mirror routes installed in the kernel's FIB down to a hardware switch device to
-> offload the data forwarding path for L3.  Only the data forwarding path is
-> intercepted.  Control and management of the kernel's FIB remains with the
-> kernel.
+> The CPSW IP implements pulse-signaled interrupts. Due to
+> that we must write a correct, pre-defined value to the
+> CPDMA_MACEOIVECTOR register so the controller generates
+> a pulse on the correct IRQ line to signal the End Of
+> Interrupt.
+> 
+> The way the driver is written today, all four IRQ lines
+> are requested using the same IRQ handler and, because of
+> that, we could fall into situations where a TX IRQ fires
+> but we tell the controller that we ended an RX IRQ (or
+> vice-versa). This situation triggers an IRQ storm on the
+> reserved IRQ 127 of INTC which will in turn call ack_bad_irq()
+> which will, then, print a ton of:
+ ...
+> Reported-by: Yegor Yefremov <yegorslists@googlemail.com>
+> Fixes: 510a1e7 (drivers: net: davinci_cpdma: acknowledge interrupt properly)
+> Cc: <stable@vger.kernel.org> # v3.9+
+> Signed-off-by: Felipe Balbi <balbi@ti.com>
 
-It looks like the design for this is still under discussion and that
-new patches of whatever is decided upon will be forthcoming
-eventually.
-
-Can I ask you guys a huge favor?  DO NOT quote the entire patch when
-discussing these changes.
-
-The thread for patch #1 was so time consuming to scan and read in
-patchwork because you guys did this.
-
-I know it takes a little bit more work to select and delete the patch
-content in the quoted area, but you really have to do this because
-otherwise it is a huge burden for reviewers trying to follow the
-conversation.
-
-Thanks.
+Applied, thanks.
