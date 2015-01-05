@@ -1,39 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] be2net: support TX batching using
- skb->xmit_more flag
-Date: Mon, 05 Jan 2015 16:33:17 -0500 (EST)
-Message-ID: <20150105.163317.733449445319916193.davem@davemloft.net>
-References: <1420454914-9516-1-git-send-email-sathya.perla@emulex.com>
+Subject: Re: [PATCH net-next 0/5] RDMA/cxgb4/cxgb4vf/csiostor: Cleanup
+ register defines
+Date: Mon, 05 Jan 2015 16:35:28 -0500 (EST)
+Message-ID: <20150105.163528.2285094223396327404.davem@davemloft.net>
+References: <1420455647-23094-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathya.perla@emulex.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60759 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753663AbbAEVdT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 16:33:19 -0500
-In-Reply-To: <1420454914-9516-1-git-send-email-sathya.perla@emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	linux-rdma@vger.kernel.org, JBottomley@parallels.com,
+	hch@infradead.org, roland@purestorage.com, leedom@chelsio.com,
+	anish@chelsio.com, nirranjan@chelsio.com, praveenm@chelsio.com,
+	swise@opengridcomputing.com
+To: hariprasad@chelsio.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1420455647-23094-1-git-send-email-hariprasad@chelsio.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sathya Perla <sathya.perla@emulex.com>
-Date: Mon, 5 Jan 2015 05:48:34 -0500
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Mon,  5 Jan 2015 16:30:42 +0530
 
-> This patch uses skb->xmit_more flag to batch TX requests.
-> TX is flushed either when xmit_more is false or there is
-> no more space in the TXQ.
+> This series continues to cleanup all the macros/register defines related to
+> SGE, PCIE, MC, MA, TCAM, MAC, etc that are defined in t4_regs.h and the
+> affected files.
 > 
-> Skyhawk-R and BEx chips require an even number of wrbs to be posted.
-> So, when a batch of TX requests is accumulated, the last header wrb
-> may need to be fixed with an extra dummy wrb.
+> Will post another 1 or 2 series so that we can cover all the macros so that
+> they all follow the same style to be consistent.
 > 
-> This patch refactors be_xmit() routine as a sequence of be_xmit_enqueue()
-> and be_xmit_flush() calls. The Tx completion code is also
-> updated to be able to unmap/free a batch of skbs rather than a single
-> skb.
+> The patches series is created against 'net-next' tree.
+> And includes patches on cxgb4, cxgb4vf, iw_cxgb4 and csiostor driver.
 > 
-> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+> We have included all the maintainers of respective drivers. Kindly review the
+> change and let us know in case of any review comments.
 
-Applied.
+Series applied, thanks.
