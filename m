@@ -1,7 +1,7 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 2/5] cxgb4/cxgb4vf/csiostor: Cleanup SGE and PCI related register defines
-Date: Mon,  5 Jan 2015 16:30:44 +0530
-Message-ID: <1420455647-23094-3-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 5/5] cxgb4/cxgb4vf/csiostor: Cleanup PL, XGMAC, SF and MC related register defines
+Date: Mon,  5 Jan 2015 16:30:47 +0530
+Message-ID: <1420455647-23094-6-git-send-email-hariprasad@chelsio.com>
 References: <1420455647-23094-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, JBottomley@parallels.com, hch@infradead.org,
 	roland@purestorage.com, leedom@chelsio.com, anish@chelsio.com,
@@ -11,1913 +11,1972 @@ Cc: davem@davemloft.net, JBottomley@parallels.com, hch@infradead.org,
 To: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
 	linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:13801 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:15930 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753455AbbAEK4U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 05:56:20 -0500
+	by vger.kernel.org with ESMTP id S1753455AbbAEK4l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 05:56:41 -0500
 In-Reply-To: <1420455647-23094-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch cleansup remaining SGE related macros/register defines and all PCI
-related ones that are defined in t4_regs.h and the affected files.
+This patch cleanups all PL, XGMAC and SF related macros/register defines
+that are defined in t4_regs.h and the affected files
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |   68 ++--
- drivers/net/ethernet/chelsio/cxgb4/sge.c           |   78 ++--
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |  224 ++++----
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |  605 ++++++++++++++------
- drivers/net/ethernet/chelsio/cxgb4/t4_values.h     |    4 +
- .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |   12 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |   56 +-
+ drivers/net/ethernet/chelsio/cxgb4/l2t.c           |    9 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |  258 +++++-----
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |  538 +++++++++++---------
+ drivers/net/ethernet/chelsio/cxgb4/t4_values.h     |   33 ++
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |    2 +-
  drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |    6 +-
- drivers/scsi/csiostor/csio_hw.c                    |   33 +-
+ drivers/scsi/csiostor/csio_hw.c                    |  186 ++++----
+ drivers/scsi/csiostor/csio_hw.h                    |    8 +-
  drivers/scsi/csiostor/csio_hw_chip.h               |    4 +-
- drivers/scsi/csiostor/csio_hw_t4.c                 |  112 ++--
- drivers/scsi/csiostor/csio_hw_t5.c                 |  114 ++--
- drivers/scsi/csiostor/csio_isr.c                   |    2 +-
- drivers/scsi/csiostor/csio_wr.c                    |   36 +-
- 13 files changed, 766 insertions(+), 532 deletions(-)
+ drivers/scsi/csiostor/csio_mb.c                    |    6 +-
+ drivers/scsi/csiostor/csio_wr.c                    |    2 +-
+ 12 files changed, 594 insertions(+), 514 deletions(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 5e0d57a..16c633f 100644
+index 53ad8d3..04e675b 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -1590,9 +1590,9 @@ static void get_stats(struct net_device *dev, struct ethtool_stats *stats,
- 	collect_sge_port_stats(adapter, pi, (struct queue_port_stats *)data);
- 	data += sizeof(struct queue_port_stats) / sizeof(u64);
- 	if (!is_t4(adapter->params.chip)) {
--		t4_write_reg(adapter, SGE_STAT_CFG, STATSOURCE_T5(7));
--		val1 = t4_read_reg(adapter, SGE_STAT_TOTAL);
--		val2 = t4_read_reg(adapter, SGE_STAT_MATCH);
-+		t4_write_reg(adapter, SGE_STAT_CFG_A, STATSOURCE_T5_V(7));
-+		val1 = t4_read_reg(adapter, SGE_STAT_TOTAL_A);
-+		val2 = t4_read_reg(adapter, SGE_STAT_MATCH_A);
- 		*data = val1 - val2;
- 		data++;
- 		*data = val2;
-@@ -3601,14 +3601,14 @@ unsigned int cxgb4_dbfifo_count(const struct net_device *dev, int lpfifo)
- 	struct adapter *adap = netdev2adap(dev);
- 	u32 v1, v2, lp_count, hp_count;
- 
--	v1 = t4_read_reg(adap, A_SGE_DBFIFO_STATUS);
--	v2 = t4_read_reg(adap, SGE_DBFIFO_STATUS2);
-+	v1 = t4_read_reg(adap, SGE_DBFIFO_STATUS_A);
-+	v2 = t4_read_reg(adap, SGE_DBFIFO_STATUS2_A);
- 	if (is_t4(adap->params.chip)) {
--		lp_count = G_LP_COUNT(v1);
--		hp_count = G_HP_COUNT(v1);
-+		lp_count = LP_COUNT_G(v1);
-+		hp_count = HP_COUNT_G(v1);
- 	} else {
--		lp_count = G_LP_COUNT_T5(v1);
--		hp_count = G_HP_COUNT_T5(v2);
-+		lp_count = LP_COUNT_T5_G(v1);
-+		hp_count = HP_COUNT_T5_G(v2);
- 	}
- 	return lpfifo ? lp_count : hp_count;
- }
-@@ -3667,14 +3667,14 @@ int cxgb4_flush_eq_cache(struct net_device *dev)
- 	int ret;
- 
- 	ret = t4_fwaddrspace_write(adap, adap->mbox,
--				   0xe1000000 + A_SGE_CTXT_CMD, 0x20000000);
-+				   0xe1000000 + SGE_CTXT_CMD_A, 0x20000000);
- 	return ret;
- }
- EXPORT_SYMBOL(cxgb4_flush_eq_cache);
- 
- static int read_eq_indices(struct adapter *adap, u16 qid, u16 *pidx, u16 *cidx)
- {
--	u32 addr = t4_read_reg(adap, A_SGE_DBQ_CTXT_BADDR) + 24 * qid + 8;
-+	u32 addr = t4_read_reg(adap, SGE_DBQ_CTXT_BADDR_A) + 24 * qid + 8;
- 	__be64 indices;
- 	int ret;
- 
-@@ -3728,7 +3728,7 @@ void cxgb4_disable_db_coalescing(struct net_device *dev)
- 	struct adapter *adap;
- 
- 	adap = netdev2adap(dev);
--	t4_set_reg_field(adap, A_SGE_DOORBELL_CONTROL, NOCOALESCE_F,
-+	t4_set_reg_field(adap, SGE_DOORBELL_CONTROL_A, NOCOALESCE_F,
- 			 NOCOALESCE_F);
- }
- EXPORT_SYMBOL(cxgb4_disable_db_coalescing);
-@@ -3738,7 +3738,7 @@ void cxgb4_enable_db_coalescing(struct net_device *dev)
- 	struct adapter *adap;
- 
- 	adap = netdev2adap(dev);
--	t4_set_reg_field(adap, A_SGE_DOORBELL_CONTROL, NOCOALESCE_F, 0);
-+	t4_set_reg_field(adap, SGE_DOORBELL_CONTROL_A, NOCOALESCE_F, 0);
- }
- EXPORT_SYMBOL(cxgb4_enable_db_coalescing);
- 
-@@ -3877,14 +3877,14 @@ static void drain_db_fifo(struct adapter *adap, int usecs)
- 	u32 v1, v2, lp_count, hp_count;
- 
- 	do {
--		v1 = t4_read_reg(adap, A_SGE_DBFIFO_STATUS);
--		v2 = t4_read_reg(adap, SGE_DBFIFO_STATUS2);
-+		v1 = t4_read_reg(adap, SGE_DBFIFO_STATUS_A);
-+		v2 = t4_read_reg(adap, SGE_DBFIFO_STATUS2_A);
- 		if (is_t4(adap->params.chip)) {
--			lp_count = G_LP_COUNT(v1);
--			hp_count = G_HP_COUNT(v1);
-+			lp_count = LP_COUNT_G(v1);
-+			hp_count = HP_COUNT_G(v1);
- 		} else {
--			lp_count = G_LP_COUNT_T5(v1);
--			hp_count = G_HP_COUNT_T5(v2);
-+			lp_count = LP_COUNT_T5_G(v1);
-+			hp_count = HP_COUNT_T5_G(v2);
- 		}
- 
- 		if (lp_count == 0 && hp_count == 0)
-@@ -4044,7 +4044,7 @@ static void process_db_drop(struct work_struct *work)
- 		t4_set_reg_field(adap, 0x10b0, 1<<15, 1<<15);
- 	}
- 
--	t4_set_reg_field(adap, A_SGE_DOORBELL_CONTROL, F_DROPPED_DB, 0);
-+	t4_set_reg_field(adap, SGE_DOORBELL_CONTROL_A, DROPPED_DB_F, 0);
- }
- 
- void t4_db_full(struct adapter *adap)
-@@ -4871,16 +4871,16 @@ static void setup_memwin(struct adapter *adap)
- 		mem_win2_base = MEMWIN2_BASE_T5;
- 		mem_win2_aperture = MEMWIN2_APERTURE_T5;
- 	}
--	t4_write_reg(adap, PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, 0),
--		     mem_win0_base | BIR(0) |
--		     WINDOW(ilog2(MEMWIN0_APERTURE) - 10));
--	t4_write_reg(adap, PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, 1),
--		     mem_win1_base | BIR(0) |
--		     WINDOW(ilog2(MEMWIN1_APERTURE) - 10));
--	t4_write_reg(adap, PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, 2),
--		     mem_win2_base | BIR(0) |
--		     WINDOW(ilog2(mem_win2_aperture) - 10));
--	t4_read_reg(adap, PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, 2));
-+	t4_write_reg(adap, PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN_A, 0),
-+		     mem_win0_base | BIR_V(0) |
-+		     WINDOW_V(ilog2(MEMWIN0_APERTURE) - 10));
-+	t4_write_reg(adap, PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN_A, 1),
-+		     mem_win1_base | BIR_V(0) |
-+		     WINDOW_V(ilog2(MEMWIN1_APERTURE) - 10));
-+	t4_write_reg(adap, PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN_A, 2),
-+		     mem_win2_base | BIR_V(0) |
-+		     WINDOW_V(ilog2(mem_win2_aperture) - 10));
-+	t4_read_reg(adap, PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN_A, 2));
- }
- 
- static void setup_memwin_rdma(struct adapter *adap)
-@@ -4894,13 +4894,13 @@ static void setup_memwin_rdma(struct adapter *adap)
- 		start += OCQ_WIN_OFFSET(adap->pdev, &adap->vres);
- 		sz_kb = roundup_pow_of_two(adap->vres.ocq.size) >> 10;
- 		t4_write_reg(adap,
--			     PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, 3),
--			     start | BIR(1) | WINDOW(ilog2(sz_kb)));
-+			     PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN_A, 3),
-+			     start | BIR_V(1) | WINDOW_V(ilog2(sz_kb)));
- 		t4_write_reg(adap,
--			     PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET, 3),
-+			     PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET_A, 3),
- 			     adap->vres.ocq.start);
- 		t4_read_reg(adap,
--			    PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET, 3));
-+			    PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET_A, 3));
- 	}
- }
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 4449fc7..d7c301c 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2098,7 +2098,7 @@ static irqreturn_t t4_intr_intx(int irq, void *cookie)
+@@ -834,11 +834,11 @@ static void disable_msi(struct adapter *adapter)
+ static irqreturn_t t4_nondata_intr(int irq, void *cookie)
  {
  	struct adapter *adap = cookie;
++	u32 v = t4_read_reg(adap, MYPF_REG(PL_PF_INT_CAUSE_A));
  
--	t4_write_reg(adap, MYPF_REG(PCIE_PF_CLI), 0);
-+	t4_write_reg(adap, MYPF_REG(PCIE_PF_CLI_A), 0);
- 	if (t4_slow_intr_handler(adap) | process_intrq(adap))
- 		return IRQ_HANDLED;
- 	return IRQ_NONE;             /* probably shared interrupt */
-@@ -2145,9 +2145,9 @@ static void sge_rx_timer_cb(unsigned long data)
- 			}
- 		}
- 
--	t4_write_reg(adap, SGE_DEBUG_INDEX, 13);
--	idma_same_state_cnt[0] = t4_read_reg(adap, SGE_DEBUG_DATA_HIGH);
--	idma_same_state_cnt[1] = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
-+	t4_write_reg(adap, SGE_DEBUG_INDEX_A, 13);
-+	idma_same_state_cnt[0] = t4_read_reg(adap, SGE_DEBUG_DATA_HIGH_A);
-+	idma_same_state_cnt[1] = t4_read_reg(adap, SGE_DEBUG_DATA_LOW_A);
- 
- 	for (i = 0; i < 2; i++) {
- 		u32 debug0, debug11;
-@@ -2191,12 +2191,12 @@ static void sge_rx_timer_cb(unsigned long data)
- 		/* Read and save the SGE IDMA State and Queue ID information.
- 		 * We do this every time in case it changes across time ...
- 		 */
--		t4_write_reg(adap, SGE_DEBUG_INDEX, 0);
--		debug0 = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
-+		t4_write_reg(adap, SGE_DEBUG_INDEX_A, 0);
-+		debug0 = t4_read_reg(adap, SGE_DEBUG_DATA_LOW_A);
- 		s->idma_state[i] = (debug0 >> (i * 9)) & 0x3f;
- 
--		t4_write_reg(adap, SGE_DEBUG_INDEX, 11);
--		debug11 = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
-+		t4_write_reg(adap, SGE_DEBUG_INDEX_A, 11);
-+		debug11 = t4_read_reg(adap, SGE_DEBUG_DATA_LOW_A);
- 		s->idma_qid[i] = (debug11 >> (i * 16)) & 0xffff;
- 
- 		CH_WARN(adap, "SGE idma%u, queue%u, maybe stuck state%u %dsecs (debug0=%#x, debug11=%#x)\n",
-@@ -2826,21 +2826,21 @@ static int t4_sge_init_soft(struct adapter *adap)
- 	 * Retrieve our RX interrupt holdoff timer values and counter
- 	 * threshold values from the SGE parameters.
- 	 */
--	timer_value_0_and_1 = t4_read_reg(adap, SGE_TIMER_VALUE_0_AND_1);
--	timer_value_2_and_3 = t4_read_reg(adap, SGE_TIMER_VALUE_2_AND_3);
--	timer_value_4_and_5 = t4_read_reg(adap, SGE_TIMER_VALUE_4_AND_5);
-+	timer_value_0_and_1 = t4_read_reg(adap, SGE_TIMER_VALUE_0_AND_1_A);
-+	timer_value_2_and_3 = t4_read_reg(adap, SGE_TIMER_VALUE_2_AND_3_A);
-+	timer_value_4_and_5 = t4_read_reg(adap, SGE_TIMER_VALUE_4_AND_5_A);
- 	s->timer_val[0] = core_ticks_to_us(adap,
--		TIMERVALUE0_GET(timer_value_0_and_1));
-+		TIMERVALUE0_G(timer_value_0_and_1));
- 	s->timer_val[1] = core_ticks_to_us(adap,
--		TIMERVALUE1_GET(timer_value_0_and_1));
-+		TIMERVALUE1_G(timer_value_0_and_1));
- 	s->timer_val[2] = core_ticks_to_us(adap,
--		TIMERVALUE2_GET(timer_value_2_and_3));
-+		TIMERVALUE2_G(timer_value_2_and_3));
- 	s->timer_val[3] = core_ticks_to_us(adap,
--		TIMERVALUE3_GET(timer_value_2_and_3));
-+		TIMERVALUE3_G(timer_value_2_and_3));
- 	s->timer_val[4] = core_ticks_to_us(adap,
--		TIMERVALUE4_GET(timer_value_4_and_5));
-+		TIMERVALUE4_G(timer_value_4_and_5));
- 	s->timer_val[5] = core_ticks_to_us(adap,
--		TIMERVALUE5_GET(timer_value_4_and_5));
-+		TIMERVALUE5_G(timer_value_4_and_5));
- 
- 	ingress_rx_threshold = t4_read_reg(adap, SGE_INGRESS_RX_THRESHOLD_A);
- 	s->counter_val[0] = THRESHOLD_0_G(ingress_rx_threshold);
-@@ -2866,21 +2866,21 @@ static int t4_sge_init_hard(struct adapter *adap)
- 	 * and generate an interrupt when this occurs so we can recover.
- 	 */
- 	if (is_t4(adap->params.chip)) {
--		t4_set_reg_field(adap, A_SGE_DBFIFO_STATUS,
--				 V_HP_INT_THRESH(M_HP_INT_THRESH) |
--				 V_LP_INT_THRESH(M_LP_INT_THRESH),
--				 V_HP_INT_THRESH(dbfifo_int_thresh) |
--				 V_LP_INT_THRESH(dbfifo_int_thresh));
-+		t4_set_reg_field(adap, SGE_DBFIFO_STATUS_A,
-+				 HP_INT_THRESH_V(HP_INT_THRESH_M) |
-+				 LP_INT_THRESH_V(LP_INT_THRESH_M),
-+				 HP_INT_THRESH_V(dbfifo_int_thresh) |
-+				 LP_INT_THRESH_V(dbfifo_int_thresh));
- 	} else {
--		t4_set_reg_field(adap, A_SGE_DBFIFO_STATUS,
--				 V_LP_INT_THRESH_T5(M_LP_INT_THRESH_T5),
--				 V_LP_INT_THRESH_T5(dbfifo_int_thresh));
--		t4_set_reg_field(adap, SGE_DBFIFO_STATUS2,
--				 V_HP_INT_THRESH_T5(M_HP_INT_THRESH_T5),
--				 V_HP_INT_THRESH_T5(dbfifo_int_thresh));
-+		t4_set_reg_field(adap, SGE_DBFIFO_STATUS_A,
-+				 LP_INT_THRESH_T5_V(LP_INT_THRESH_T5_M),
-+				 LP_INT_THRESH_T5_V(dbfifo_int_thresh));
-+		t4_set_reg_field(adap, SGE_DBFIFO_STATUS2_A,
-+				 HP_INT_THRESH_T5_V(HP_INT_THRESH_T5_M),
-+				 HP_INT_THRESH_T5_V(dbfifo_int_thresh));
+-	u32 v = t4_read_reg(adap, MYPF_REG(PL_PF_INT_CAUSE));
+-	if (v & PFSW) {
++	if (v & PFSW_F) {
+ 		adap->swintr = 1;
+-		t4_write_reg(adap, MYPF_REG(PL_PF_INT_CAUSE), v);
++		t4_write_reg(adap, MYPF_REG(PL_PF_INT_CAUSE_A), v);
  	}
--	t4_set_reg_field(adap, A_SGE_DOORBELL_CONTROL, F_ENABLE_DROP,
--			F_ENABLE_DROP);
-+	t4_set_reg_field(adap, SGE_DOORBELL_CONTROL_A, ENABLE_DROP_F,
-+			 ENABLE_DROP_F);
+ 	t4_slow_intr_handler(adap);
+ 	return IRQ_HANDLED;
+@@ -3654,10 +3654,10 @@ void cxgb4_iscsi_init(struct net_device *dev, unsigned int tag_mask,
+ {
+ 	struct adapter *adap = netdev2adap(dev);
  
- 	/*
- 	 * SGE_FL_BUFFER_SIZE0 (RX_SMALL_PG_BUF) is set up by
-@@ -2905,15 +2905,15 @@ static int t4_sge_init_hard(struct adapter *adap)
- 		     THRESHOLD_1_V(s->counter_val[1]) |
- 		     THRESHOLD_2_V(s->counter_val[2]) |
- 		     THRESHOLD_3_V(s->counter_val[3]));
--	t4_write_reg(adap, SGE_TIMER_VALUE_0_AND_1,
--		     TIMERVALUE0(us_to_core_ticks(adap, s->timer_val[0])) |
--		     TIMERVALUE1(us_to_core_ticks(adap, s->timer_val[1])));
--	t4_write_reg(adap, SGE_TIMER_VALUE_2_AND_3,
--		     TIMERVALUE2(us_to_core_ticks(adap, s->timer_val[2])) |
--		     TIMERVALUE3(us_to_core_ticks(adap, s->timer_val[3])));
--	t4_write_reg(adap, SGE_TIMER_VALUE_4_AND_5,
--		     TIMERVALUE4(us_to_core_ticks(adap, s->timer_val[4])) |
--		     TIMERVALUE5(us_to_core_ticks(adap, s->timer_val[5])));
-+	t4_write_reg(adap, SGE_TIMER_VALUE_0_AND_1_A,
-+		     TIMERVALUE0_V(us_to_core_ticks(adap, s->timer_val[0])) |
-+		     TIMERVALUE1_V(us_to_core_ticks(adap, s->timer_val[1])));
-+	t4_write_reg(adap, SGE_TIMER_VALUE_2_AND_3_A,
-+		     TIMERVALUE2_V(us_to_core_ticks(adap, s->timer_val[2])) |
-+		     TIMERVALUE3_V(us_to_core_ticks(adap, s->timer_val[3])));
-+	t4_write_reg(adap, SGE_TIMER_VALUE_4_AND_5_A,
-+		     TIMERVALUE4_V(us_to_core_ticks(adap, s->timer_val[4])) |
-+		     TIMERVALUE5_V(us_to_core_ticks(adap, s->timer_val[5])));
- 
- 	return 0;
+-	t4_write_reg(adap, ULP_RX_ISCSI_TAGMASK, tag_mask);
+-	t4_write_reg(adap, ULP_RX_ISCSI_PSZ, HPZ0(pgsz_order[0]) |
+-		     HPZ1(pgsz_order[1]) | HPZ2(pgsz_order[2]) |
+-		     HPZ3(pgsz_order[3]));
++	t4_write_reg(adap, ULP_RX_ISCSI_TAGMASK_A, tag_mask);
++	t4_write_reg(adap, ULP_RX_ISCSI_PSZ_A, HPZ0_V(pgsz_order[0]) |
++		     HPZ1_V(pgsz_order[1]) | HPZ2_V(pgsz_order[2]) |
++		     HPZ3_V(pgsz_order[3]));
  }
+ EXPORT_SYMBOL(cxgb4_iscsi_init);
+ 
+@@ -4580,13 +4580,13 @@ int cxgb4_create_server_filter(const struct net_device *dev, unsigned int stid,
+ 			f->fs.val.lip[i] = val[i];
+ 			f->fs.mask.lip[i] = ~0;
+ 		}
+-		if (adap->params.tp.vlan_pri_map & F_PORT) {
++		if (adap->params.tp.vlan_pri_map & PORT_F) {
+ 			f->fs.val.iport = port;
+ 			f->fs.mask.iport = mask;
+ 		}
+ 	}
+ 
+-	if (adap->params.tp.vlan_pri_map & F_PROTOCOL) {
++	if (adap->params.tp.vlan_pri_map & PROTOCOL_F) {
+ 		f->fs.val.proto = IPPROTO_TCP;
+ 		f->fs.mask.proto = ~0;
+ 	}
+@@ -4950,37 +4950,37 @@ static int adap_init1(struct adapter *adap, struct fw_caps_config_cmd *c)
+ 
+ 	/* tweak some settings */
+ 	t4_write_reg(adap, TP_SHIFT_CNT_A, 0x64f8849);
+-	t4_write_reg(adap, ULP_RX_TDDP_PSZ, HPZ0(PAGE_SHIFT - 12));
++	t4_write_reg(adap, ULP_RX_TDDP_PSZ_A, HPZ0_V(PAGE_SHIFT - 12));
+ 	t4_write_reg(adap, TP_PIO_ADDR_A, TP_INGRESS_CONFIG_A);
+ 	v = t4_read_reg(adap, TP_PIO_DATA_A);
+ 	t4_write_reg(adap, TP_PIO_DATA_A, v & ~CSUM_HAS_PSEUDO_HDR_F);
+ 
+ 	/* first 4 Tx modulation queues point to consecutive Tx channels */
+ 	adap->params.tp.tx_modq_map = 0xE4;
+-	t4_write_reg(adap, A_TP_TX_MOD_QUEUE_REQ_MAP,
+-		     V_TX_MOD_QUEUE_REQ_MAP(adap->params.tp.tx_modq_map));
++	t4_write_reg(adap, TP_TX_MOD_QUEUE_REQ_MAP_A,
++		     TX_MOD_QUEUE_REQ_MAP_V(adap->params.tp.tx_modq_map));
+ 
+ 	/* associate each Tx modulation queue with consecutive Tx channels */
+ 	v = 0x84218421;
+ 	t4_write_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A,
+-			  &v, 1, A_TP_TX_SCHED_HDR);
++			  &v, 1, TP_TX_SCHED_HDR_A);
+ 	t4_write_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A,
+-			  &v, 1, A_TP_TX_SCHED_FIFO);
++			  &v, 1, TP_TX_SCHED_FIFO_A);
+ 	t4_write_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A,
+-			  &v, 1, A_TP_TX_SCHED_PCMD);
++			  &v, 1, TP_TX_SCHED_PCMD_A);
+ 
+ #define T4_TX_MODQ_10G_WEIGHT_DEFAULT 16 /* in KB units */
+ 	if (is_offload(adap)) {
+-		t4_write_reg(adap, A_TP_TX_MOD_QUEUE_WEIGHT0,
+-			     V_TX_MODQ_WEIGHT0(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
+-			     V_TX_MODQ_WEIGHT1(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
+-			     V_TX_MODQ_WEIGHT2(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
+-			     V_TX_MODQ_WEIGHT3(T4_TX_MODQ_10G_WEIGHT_DEFAULT));
+-		t4_write_reg(adap, A_TP_TX_MOD_CHANNEL_WEIGHT,
+-			     V_TX_MODQ_WEIGHT0(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
+-			     V_TX_MODQ_WEIGHT1(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
+-			     V_TX_MODQ_WEIGHT2(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
+-			     V_TX_MODQ_WEIGHT3(T4_TX_MODQ_10G_WEIGHT_DEFAULT));
++		t4_write_reg(adap, TP_TX_MOD_QUEUE_WEIGHT0_A,
++			     TX_MODQ_WEIGHT0_V(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
++			     TX_MODQ_WEIGHT1_V(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
++			     TX_MODQ_WEIGHT2_V(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
++			     TX_MODQ_WEIGHT3_V(T4_TX_MODQ_10G_WEIGHT_DEFAULT));
++		t4_write_reg(adap, TP_TX_MOD_CHANNEL_WEIGHT_A,
++			     TX_MODQ_WEIGHT0_V(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
++			     TX_MODQ_WEIGHT1_V(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
++			     TX_MODQ_WEIGHT2_V(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
++			     TX_MODQ_WEIGHT3_V(T4_TX_MODQ_10G_WEIGHT_DEFAULT));
+ 	}
+ 
+ 	/* get basic stuff going */
+@@ -5059,7 +5059,7 @@ static int adap_init0_config(struct adapter *adapter, int reset)
+ 	 */
+ 	if (reset) {
+ 		ret = t4_fw_reset(adapter, adapter->mbox,
+-				  PIORSTMODE | PIORST);
++				  PIORSTMODE_F | PIORST_F);
+ 		if (ret < 0)
+ 			goto bye;
+ 	}
+@@ -5264,7 +5264,7 @@ static int adap_init0_no_config(struct adapter *adapter, int reset)
+ 	 */
+ 	if (reset) {
+ 		ret = t4_fw_reset(adapter, adapter->mbox,
+-				  PIORSTMODE | PIORST);
++				  PIORSTMODE_F | PIORST_F);
+ 		if (ret < 0)
+ 			goto bye;
+ 	}
+@@ -6413,7 +6413,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto out_unmap_bar0;
+ 
+ 	/* We control everything through one PF */
+-	func = SOURCEPF_GET(readl(regs + PL_WHOAMI));
++	func = SOURCEPF_G(readl(regs + PL_WHOAMI_A));
+ 	if (func != ent->driver_data) {
+ 		iounmap(regs);
+ 		pci_disable_device(pdev);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/l2t.c b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
+index a047baa..5ae1445 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/l2t.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
+@@ -46,6 +46,7 @@
+ #include "t4_msg.h"
+ #include "t4fw_api.h"
+ #include "t4_regs.h"
++#include "t4_values.h"
+ 
+ #define VLAN_NONE 0xfff
+ 
+@@ -425,7 +426,7 @@ u64 cxgb4_select_ntuple(struct net_device *dev,
+ 	 * in the Compressed Filter Tuple.
+ 	 */
+ 	if (tp->vlan_shift >= 0 && l2t->vlan != VLAN_NONE)
+-		ntuple |= (u64)(F_FT_VLAN_VLD | l2t->vlan) << tp->vlan_shift;
++		ntuple |= (u64)(FT_VLAN_VLD_F | l2t->vlan) << tp->vlan_shift;
+ 
+ 	if (tp->port_shift >= 0)
+ 		ntuple |= (u64)l2t->lport << tp->port_shift;
+@@ -439,9 +440,9 @@ u64 cxgb4_select_ntuple(struct net_device *dev,
+ 		u32 pf = FW_VIID_PFN_G(viid);
+ 		u32 vld = FW_VIID_VIVLD_G(viid);
+ 
+-		ntuple |= (u64)(V_FT_VNID_ID_VF(vf) |
+-				V_FT_VNID_ID_PF(pf) |
+-				V_FT_VNID_ID_VLD(vld)) << tp->vnic_shift;
++		ntuple |= (u64)(FT_VNID_ID_VF_V(vf) |
++				FT_VNID_ID_PF_V(pf) |
++				FT_VNID_ID_VLD_V(vld)) << tp->vnic_shift;
+ 	}
+ 
+ 	return ntuple;
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index ac00cab..9f8cd56 100644
+index cf0bf79..3776279 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -150,20 +150,20 @@ void t4_write_indirect(struct adapter *adap, unsigned int addr_reg,
-  */
- void t4_hw_pci_read_cfg4(struct adapter *adap, int reg, u32 *val)
+@@ -761,14 +761,13 @@ static int sf1_read(struct adapter *adapter, unsigned int byte_cnt, int cont,
+ 
+ 	if (!byte_cnt || byte_cnt > 4)
+ 		return -EINVAL;
+-	if (t4_read_reg(adapter, SF_OP) & SF_BUSY)
++	if (t4_read_reg(adapter, SF_OP_A) & SF_BUSY_F)
+ 		return -EBUSY;
+-	cont = cont ? SF_CONT : 0;
+-	lock = lock ? SF_LOCK : 0;
+-	t4_write_reg(adapter, SF_OP, lock | cont | BYTECNT(byte_cnt - 1));
+-	ret = t4_wait_op_done(adapter, SF_OP, SF_BUSY, 0, SF_ATTEMPTS, 5);
++	t4_write_reg(adapter, SF_OP_A, SF_LOCK_V(lock) |
++		     SF_CONT_V(cont) | BYTECNT_V(byte_cnt - 1));
++	ret = t4_wait_op_done(adapter, SF_OP_A, SF_BUSY_F, 0, SF_ATTEMPTS, 5);
+ 	if (!ret)
+-		*valp = t4_read_reg(adapter, SF_DATA);
++		*valp = t4_read_reg(adapter, SF_DATA_A);
+ 	return ret;
+ }
+ 
+@@ -789,14 +788,12 @@ static int sf1_write(struct adapter *adapter, unsigned int byte_cnt, int cont,
  {
--	u32 req = ENABLE | FUNCTION(adap->fn) | reg;
-+	u32 req = ENABLE_F | FUNCTION_V(adap->fn) | REGISTER_V(reg);
- 
- 	if (is_t4(adap->params.chip))
--		req |= F_LOCALCFG;
-+		req |= LOCALCFG_F;
- 
--	t4_write_reg(adap, PCIE_CFG_SPACE_REQ, req);
--	*val = t4_read_reg(adap, PCIE_CFG_SPACE_DATA);
-+	t4_write_reg(adap, PCIE_CFG_SPACE_REQ_A, req);
-+	*val = t4_read_reg(adap, PCIE_CFG_SPACE_DATA_A);
- 
- 	/* Reset ENABLE to 0 so reads of PCIE_CFG_SPACE_DATA won't cause a
- 	 * Configuration Space read.  (None of the other fields matter when
- 	 * ENABLE is 0 so a simple register write is easier than a
- 	 * read-modify-write via t4_set_reg_field().)
- 	 */
--	t4_write_reg(adap, PCIE_CFG_SPACE_REQ, 0);
-+	t4_write_reg(adap, PCIE_CFG_SPACE_REQ_A, 0);
+ 	if (!byte_cnt || byte_cnt > 4)
+ 		return -EINVAL;
+-	if (t4_read_reg(adapter, SF_OP) & SF_BUSY)
++	if (t4_read_reg(adapter, SF_OP_A) & SF_BUSY_F)
+ 		return -EBUSY;
+-	cont = cont ? SF_CONT : 0;
+-	lock = lock ? SF_LOCK : 0;
+-	t4_write_reg(adapter, SF_DATA, val);
+-	t4_write_reg(adapter, SF_OP, lock |
+-		     cont | BYTECNT(byte_cnt - 1) | OP_WR);
+-	return t4_wait_op_done(adapter, SF_OP, SF_BUSY, 0, SF_ATTEMPTS, 5);
++	t4_write_reg(adapter, SF_DATA_A, val);
++	t4_write_reg(adapter, SF_OP_A, SF_LOCK_V(lock) |
++		     SF_CONT_V(cont) | BYTECNT_V(byte_cnt - 1) | OP_V(1));
++	return t4_wait_op_done(adapter, SF_OP_A, SF_BUSY_F, 0, SF_ATTEMPTS, 5);
  }
  
- /*
-@@ -188,8 +188,8 @@ static void t4_report_fw_error(struct adapter *adap)
- 	};
- 	u32 pcie_fw;
+ /**
+@@ -855,7 +852,7 @@ static int t4_read_flash(struct adapter *adapter, unsigned int addr,
+ 	for ( ; nwords; nwords--, data++) {
+ 		ret = sf1_read(adapter, 4, nwords > 1, nwords == 1, data);
+ 		if (nwords == 1)
+-			t4_write_reg(adapter, SF_OP, 0);    /* unlock SF */
++			t4_write_reg(adapter, SF_OP_A, 0);    /* unlock SF */
+ 		if (ret)
+ 			return ret;
+ 		if (byte_oriented)
+@@ -903,7 +900,7 @@ static int t4_write_flash(struct adapter *adapter, unsigned int addr,
+ 	if (ret)
+ 		goto unlock;
  
--	pcie_fw = t4_read_reg(adap, MA_PCIE_FW);
--	if (pcie_fw & PCIE_FW_ERR)
-+	pcie_fw = t4_read_reg(adap, PCIE_FW_A);
-+	if (pcie_fw & PCIE_FW_ERR_F)
- 		dev_err(adap->pdev_dev, "Firmware reports adapter error: %s\n",
- 			reason[PCIE_FW_EVAL_G(pcie_fw)]);
+-	t4_write_reg(adapter, SF_OP, 0);    /* unlock SF */
++	t4_write_reg(adapter, SF_OP_A, 0);    /* unlock SF */
+ 
+ 	/* Read the page to verify the write succeeded */
+ 	ret = t4_read_flash(adapter, addr & ~0xff, ARRAY_SIZE(buf), buf, 1);
+@@ -919,7 +916,7 @@ static int t4_write_flash(struct adapter *adapter, unsigned int addr,
+ 	return 0;
+ 
+ unlock:
+-	t4_write_reg(adapter, SF_OP, 0);    /* unlock SF */
++	t4_write_reg(adapter, SF_OP_A, 0);    /* unlock SF */
+ 	return ret;
  }
-@@ -506,13 +506,13 @@ int t4_memory_rw(struct adapter *adap, int win, int mtype, u32 addr,
- 	 * the address is relative to BAR0.
- 	 */
- 	mem_reg = t4_read_reg(adap,
--			      PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN,
-+			      PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN_A,
- 						  win));
--	mem_aperture = 1 << (GET_WINDOW(mem_reg) + 10);
--	mem_base = GET_PCIEOFST(mem_reg) << 10;
-+	mem_aperture = 1 << (WINDOW_G(mem_reg) + WINDOW_SHIFT_X);
-+	mem_base = PCIEOFST_G(mem_reg) << PCIEOFST_SHIFT_X;
- 	if (is_t4(adap->params.chip))
- 		mem_base -= adap->t4_bar0;
--	win_pf = is_t4(adap->params.chip) ? 0 : V_PFNUM(adap->fn);
-+	win_pf = is_t4(adap->params.chip) ? 0 : PFNUM_V(adap->fn);
  
- 	/* Calculate our initial PCI-E Memory Window Position and Offset into
- 	 * that Window.
-@@ -525,10 +525,10 @@ int t4_memory_rw(struct adapter *adap, int win, int mtype, u32 addr,
- 	 * attempt to use the new value.)
- 	 */
- 	t4_write_reg(adap,
--		     PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET, win),
-+		     PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET_A, win),
- 		     pos | win_pf);
- 	t4_read_reg(adap,
--		    PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET, win));
-+		    PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET_A, win));
- 
- 	/* Transfer data to/from the adapter as long as there's an integral
- 	 * number of 32-bit transfers to complete.
-@@ -553,11 +553,11 @@ int t4_memory_rw(struct adapter *adap, int win, int mtype, u32 addr,
- 			pos += mem_aperture;
- 			offset = 0;
- 			t4_write_reg(adap,
--				     PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET,
--							 win), pos | win_pf);
-+				PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET_A,
-+						    win), pos | win_pf);
- 			t4_read_reg(adap,
--				    PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET,
--							win));
-+				PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET_A,
-+						    win));
+@@ -1114,7 +1111,7 @@ static int t4_flash_erase_sectors(struct adapter *adapter, int start, int end)
  		}
+ 		start++;
  	}
+-	t4_write_reg(adapter, SF_OP, 0);    /* unlock SF */
++	t4_write_reg(adapter, SF_OP_A, 0);    /* unlock SF */
+ 	return ret;
+ }
  
-@@ -1366,95 +1366,97 @@ static int t4_handle_intr_status(struct adapter *adapter, unsigned int reg,
- static void pcie_intr_handler(struct adapter *adapter)
+@@ -1619,7 +1616,7 @@ static void ulprx_intr_handler(struct adapter *adapter)
+ 		{ 0 }
+ 	};
+ 
+-	if (t4_handle_intr_status(adapter, ULP_RX_INT_CAUSE, ulprx_intr_info))
++	if (t4_handle_intr_status(adapter, ULP_RX_INT_CAUSE_A, ulprx_intr_info))
+ 		t4_fatal_err(adapter);
+ }
+ 
+@@ -1694,16 +1691,16 @@ static void pmrx_intr_handler(struct adapter *adapter)
+ static void cplsw_intr_handler(struct adapter *adapter)
  {
- 	static const struct intr_info sysbus_intr_info[] = {
--		{ RNPP, "RXNP array parity error", -1, 1 },
--		{ RPCP, "RXPC array parity error", -1, 1 },
--		{ RCIP, "RXCIF array parity error", -1, 1 },
--		{ RCCP, "Rx completions control array parity error", -1, 1 },
--		{ RFTP, "RXFT array parity error", -1, 1 },
-+		{ RNPP_F, "RXNP array parity error", -1, 1 },
-+		{ RPCP_F, "RXPC array parity error", -1, 1 },
-+		{ RCIP_F, "RXCIF array parity error", -1, 1 },
-+		{ RCCP_F, "Rx completions control array parity error", -1, 1 },
-+		{ RFTP_F, "RXFT array parity error", -1, 1 },
- 		{ 0 }
- 	};
- 	static const struct intr_info pcie_port_intr_info[] = {
--		{ TPCP, "TXPC array parity error", -1, 1 },
--		{ TNPP, "TXNP array parity error", -1, 1 },
--		{ TFTP, "TXFT array parity error", -1, 1 },
--		{ TCAP, "TXCA array parity error", -1, 1 },
--		{ TCIP, "TXCIF array parity error", -1, 1 },
--		{ RCAP, "RXCA array parity error", -1, 1 },
--		{ OTDD, "outbound request TLP discarded", -1, 1 },
--		{ RDPE, "Rx data parity error", -1, 1 },
--		{ TDUE, "Tx uncorrectable data error", -1, 1 },
-+		{ TPCP_F, "TXPC array parity error", -1, 1 },
-+		{ TNPP_F, "TXNP array parity error", -1, 1 },
-+		{ TFTP_F, "TXFT array parity error", -1, 1 },
-+		{ TCAP_F, "TXCA array parity error", -1, 1 },
-+		{ TCIP_F, "TXCIF array parity error", -1, 1 },
-+		{ RCAP_F, "RXCA array parity error", -1, 1 },
-+		{ OTDD_F, "outbound request TLP discarded", -1, 1 },
-+		{ RDPE_F, "Rx data parity error", -1, 1 },
-+		{ TDUE_F, "Tx uncorrectable data error", -1, 1 },
- 		{ 0 }
- 	};
- 	static const struct intr_info pcie_intr_info[] = {
--		{ MSIADDRLPERR, "MSI AddrL parity error", -1, 1 },
--		{ MSIADDRHPERR, "MSI AddrH parity error", -1, 1 },
--		{ MSIDATAPERR, "MSI data parity error", -1, 1 },
--		{ MSIXADDRLPERR, "MSI-X AddrL parity error", -1, 1 },
--		{ MSIXADDRHPERR, "MSI-X AddrH parity error", -1, 1 },
--		{ MSIXDATAPERR, "MSI-X data parity error", -1, 1 },
--		{ MSIXDIPERR, "MSI-X DI parity error", -1, 1 },
--		{ PIOCPLPERR, "PCI PIO completion FIFO parity error", -1, 1 },
--		{ PIOREQPERR, "PCI PIO request FIFO parity error", -1, 1 },
--		{ TARTAGPERR, "PCI PCI target tag FIFO parity error", -1, 1 },
--		{ CCNTPERR, "PCI CMD channel count parity error", -1, 1 },
--		{ CREQPERR, "PCI CMD channel request parity error", -1, 1 },
--		{ CRSPPERR, "PCI CMD channel response parity error", -1, 1 },
--		{ DCNTPERR, "PCI DMA channel count parity error", -1, 1 },
--		{ DREQPERR, "PCI DMA channel request parity error", -1, 1 },
--		{ DRSPPERR, "PCI DMA channel response parity error", -1, 1 },
--		{ HCNTPERR, "PCI HMA channel count parity error", -1, 1 },
--		{ HREQPERR, "PCI HMA channel request parity error", -1, 1 },
--		{ HRSPPERR, "PCI HMA channel response parity error", -1, 1 },
--		{ CFGSNPPERR, "PCI config snoop FIFO parity error", -1, 1 },
--		{ FIDPERR, "PCI FID parity error", -1, 1 },
--		{ INTXCLRPERR, "PCI INTx clear parity error", -1, 1 },
--		{ MATAGPERR, "PCI MA tag parity error", -1, 1 },
--		{ PIOTAGPERR, "PCI PIO tag parity error", -1, 1 },
--		{ RXCPLPERR, "PCI Rx completion parity error", -1, 1 },
--		{ RXWRPERR, "PCI Rx write parity error", -1, 1 },
--		{ RPLPERR, "PCI replay buffer parity error", -1, 1 },
--		{ PCIESINT, "PCI core secondary fault", -1, 1 },
--		{ PCIEPINT, "PCI core primary fault", -1, 1 },
--		{ UNXSPLCPLERR, "PCI unexpected split completion error", -1, 0 },
-+		{ MSIADDRLPERR_F, "MSI AddrL parity error", -1, 1 },
-+		{ MSIADDRHPERR_F, "MSI AddrH parity error", -1, 1 },
-+		{ MSIDATAPERR_F, "MSI data parity error", -1, 1 },
-+		{ MSIXADDRLPERR_F, "MSI-X AddrL parity error", -1, 1 },
-+		{ MSIXADDRHPERR_F, "MSI-X AddrH parity error", -1, 1 },
-+		{ MSIXDATAPERR_F, "MSI-X data parity error", -1, 1 },
-+		{ MSIXDIPERR_F, "MSI-X DI parity error", -1, 1 },
-+		{ PIOCPLPERR_F, "PCI PIO completion FIFO parity error", -1, 1 },
-+		{ PIOREQPERR_F, "PCI PIO request FIFO parity error", -1, 1 },
-+		{ TARTAGPERR_F, "PCI PCI target tag FIFO parity error", -1, 1 },
-+		{ CCNTPERR_F, "PCI CMD channel count parity error", -1, 1 },
-+		{ CREQPERR_F, "PCI CMD channel request parity error", -1, 1 },
-+		{ CRSPPERR_F, "PCI CMD channel response parity error", -1, 1 },
-+		{ DCNTPERR_F, "PCI DMA channel count parity error", -1, 1 },
-+		{ DREQPERR_F, "PCI DMA channel request parity error", -1, 1 },
-+		{ DRSPPERR_F, "PCI DMA channel response parity error", -1, 1 },
-+		{ HCNTPERR_F, "PCI HMA channel count parity error", -1, 1 },
-+		{ HREQPERR_F, "PCI HMA channel request parity error", -1, 1 },
-+		{ HRSPPERR_F, "PCI HMA channel response parity error", -1, 1 },
-+		{ CFGSNPPERR_F, "PCI config snoop FIFO parity error", -1, 1 },
-+		{ FIDPERR_F, "PCI FID parity error", -1, 1 },
-+		{ INTXCLRPERR_F, "PCI INTx clear parity error", -1, 1 },
-+		{ MATAGPERR_F, "PCI MA tag parity error", -1, 1 },
-+		{ PIOTAGPERR_F, "PCI PIO tag parity error", -1, 1 },
-+		{ RXCPLPERR_F, "PCI Rx completion parity error", -1, 1 },
-+		{ RXWRPERR_F, "PCI Rx write parity error", -1, 1 },
-+		{ RPLPERR_F, "PCI replay buffer parity error", -1, 1 },
-+		{ PCIESINT_F, "PCI core secondary fault", -1, 1 },
-+		{ PCIEPINT_F, "PCI core primary fault", -1, 1 },
-+		{ UNXSPLCPLERR_F, "PCI unexpected split completion error",
-+		  -1, 0 },
+ 	static const struct intr_info cplsw_intr_info[] = {
+-		{ CIM_OP_MAP_PERR, "CPLSW CIM op_map parity error", -1, 1 },
+-		{ CIM_OVFL_ERROR, "CPLSW CIM overflow", -1, 1 },
+-		{ TP_FRAMING_ERROR, "CPLSW TP framing error", -1, 1 },
+-		{ SGE_FRAMING_ERROR, "CPLSW SGE framing error", -1, 1 },
+-		{ CIM_FRAMING_ERROR, "CPLSW CIM framing error", -1, 1 },
+-		{ ZERO_SWITCH_ERROR, "CPLSW no-switch error", -1, 1 },
++		{ CIM_OP_MAP_PERR_F, "CPLSW CIM op_map parity error", -1, 1 },
++		{ CIM_OVFL_ERROR_F, "CPLSW CIM overflow", -1, 1 },
++		{ TP_FRAMING_ERROR_F, "CPLSW TP framing error", -1, 1 },
++		{ SGE_FRAMING_ERROR_F, "CPLSW SGE framing error", -1, 1 },
++		{ CIM_FRAMING_ERROR_F, "CPLSW CIM framing error", -1, 1 },
++		{ ZERO_SWITCH_ERROR_F, "CPLSW no-switch error", -1, 1 },
  		{ 0 }
  	};
  
- 	static struct intr_info t5_pcie_intr_info[] = {
--		{ MSTGRPPERR, "Master Response Read Queue parity error",
-+		{ MSTGRPPERR_F, "Master Response Read Queue parity error",
- 		  -1, 1 },
--		{ MSTTIMEOUTPERR, "Master Timeout FIFO parity error", -1, 1 },
--		{ MSIXSTIPERR, "MSI-X STI SRAM parity error", -1, 1 },
--		{ MSIXADDRLPERR, "MSI-X AddrL parity error", -1, 1 },
--		{ MSIXADDRHPERR, "MSI-X AddrH parity error", -1, 1 },
--		{ MSIXDATAPERR, "MSI-X data parity error", -1, 1 },
--		{ MSIXDIPERR, "MSI-X DI parity error", -1, 1 },
--		{ PIOCPLGRPPERR, "PCI PIO completion Group FIFO parity error",
-+		{ MSTTIMEOUTPERR_F, "Master Timeout FIFO parity error", -1, 1 },
-+		{ MSIXSTIPERR_F, "MSI-X STI SRAM parity error", -1, 1 },
-+		{ MSIXADDRLPERR_F, "MSI-X AddrL parity error", -1, 1 },
-+		{ MSIXADDRHPERR_F, "MSI-X AddrH parity error", -1, 1 },
-+		{ MSIXDATAPERR_F, "MSI-X data parity error", -1, 1 },
-+		{ MSIXDIPERR_F, "MSI-X DI parity error", -1, 1 },
-+		{ PIOCPLGRPPERR_F, "PCI PIO completion Group FIFO parity error",
- 		  -1, 1 },
--		{ PIOREQGRPPERR, "PCI PIO request Group FIFO parity error",
-+		{ PIOREQGRPPERR_F, "PCI PIO request Group FIFO parity error",
- 		  -1, 1 },
--		{ TARTAGPERR, "PCI PCI target tag FIFO parity error", -1, 1 },
--		{ MSTTAGQPERR, "PCI master tag queue parity error", -1, 1 },
--		{ CREQPERR, "PCI CMD channel request parity error", -1, 1 },
--		{ CRSPPERR, "PCI CMD channel response parity error", -1, 1 },
--		{ DREQWRPERR, "PCI DMA channel write request parity error",
-+		{ TARTAGPERR_F, "PCI PCI target tag FIFO parity error", -1, 1 },
-+		{ MSTTAGQPERR_F, "PCI master tag queue parity error", -1, 1 },
-+		{ CREQPERR_F, "PCI CMD channel request parity error", -1, 1 },
-+		{ CRSPPERR_F, "PCI CMD channel response parity error", -1, 1 },
-+		{ DREQWRPERR_F, "PCI DMA channel write request parity error",
- 		  -1, 1 },
--		{ DREQPERR, "PCI DMA channel request parity error", -1, 1 },
--		{ DRSPPERR, "PCI DMA channel response parity error", -1, 1 },
--		{ HREQWRPERR, "PCI HMA channel count parity error", -1, 1 },
--		{ HREQPERR, "PCI HMA channel request parity error", -1, 1 },
--		{ HRSPPERR, "PCI HMA channel response parity error", -1, 1 },
--		{ CFGSNPPERR, "PCI config snoop FIFO parity error", -1, 1 },
--		{ FIDPERR, "PCI FID parity error", -1, 1 },
--		{ VFIDPERR, "PCI INTx clear parity error", -1, 1 },
--		{ MAGRPPERR, "PCI MA group FIFO parity error", -1, 1 },
--		{ PIOTAGPERR, "PCI PIO tag parity error", -1, 1 },
--		{ IPRXHDRGRPPERR, "PCI IP Rx header group parity error",
-+		{ DREQPERR_F, "PCI DMA channel request parity error", -1, 1 },
-+		{ DRSPPERR_F, "PCI DMA channel response parity error", -1, 1 },
-+		{ HREQWRPERR_F, "PCI HMA channel count parity error", -1, 1 },
-+		{ HREQPERR_F, "PCI HMA channel request parity error", -1, 1 },
-+		{ HRSPPERR_F, "PCI HMA channel response parity error", -1, 1 },
-+		{ CFGSNPPERR_F, "PCI config snoop FIFO parity error", -1, 1 },
-+		{ FIDPERR_F, "PCI FID parity error", -1, 1 },
-+		{ VFIDPERR_F, "PCI INTx clear parity error", -1, 1 },
-+		{ MAGRPPERR_F, "PCI MA group FIFO parity error", -1, 1 },
-+		{ PIOTAGPERR_F, "PCI PIO tag parity error", -1, 1 },
-+		{ IPRXHDRGRPPERR_F, "PCI IP Rx header group parity error",
- 		  -1, 1 },
--		{ IPRXDATAGRPPERR, "PCI IP Rx data group parity error", -1, 1 },
--		{ RPLPERR, "PCI IP replay buffer parity error", -1, 1 },
--		{ IPSOTPERR, "PCI IP SOT buffer parity error", -1, 1 },
--		{ TRGT1GRPPERR, "PCI TRGT1 group FIFOs parity error", -1, 1 },
--		{ READRSPERR, "Outbound read error", -1, 0 },
-+		{ IPRXDATAGRPPERR_F, "PCI IP Rx data group parity error",
-+		  -1, 1 },
-+		{ RPLPERR_F, "PCI IP replay buffer parity error", -1, 1 },
-+		{ IPSOTPERR_F, "PCI IP SOT buffer parity error", -1, 1 },
-+		{ TRGT1GRPPERR_F, "PCI TRGT1 group FIFOs parity error", -1, 1 },
-+		{ READRSPERR_F, "Outbound read error", -1, 0 },
+-	if (t4_handle_intr_status(adapter, CPL_INTR_CAUSE, cplsw_intr_info))
++	if (t4_handle_intr_status(adapter, CPL_INTR_CAUSE_A, cplsw_intr_info))
+ 		t4_fatal_err(adapter);
+ }
+ 
+@@ -1713,15 +1710,15 @@ static void cplsw_intr_handler(struct adapter *adapter)
+ static void le_intr_handler(struct adapter *adap)
+ {
+ 	static const struct intr_info le_intr_info[] = {
+-		{ LIPMISS, "LE LIP miss", -1, 0 },
+-		{ LIP0, "LE 0 LIP error", -1, 0 },
+-		{ PARITYERR, "LE parity error", -1, 1 },
+-		{ UNKNOWNCMD, "LE unknown command", -1, 1 },
+-		{ REQQPARERR, "LE request queue parity error", -1, 1 },
++		{ LIPMISS_F, "LE LIP miss", -1, 0 },
++		{ LIP0_F, "LE 0 LIP error", -1, 0 },
++		{ PARITYERR_F, "LE parity error", -1, 1 },
++		{ UNKNOWNCMD_F, "LE unknown command", -1, 1 },
++		{ REQQPARERR_F, "LE request queue parity error", -1, 1 },
  		{ 0 }
  	};
  
-@@ -1462,15 +1464,15 @@ static void pcie_intr_handler(struct adapter *adapter)
+-	if (t4_handle_intr_status(adap, LE_DB_INT_CAUSE, le_intr_info))
++	if (t4_handle_intr_status(adap, LE_DB_INT_CAUSE_A, le_intr_info))
+ 		t4_fatal_err(adap);
+ }
  
- 	if (is_t4(adapter->params.chip))
- 		fat = t4_handle_intr_status(adapter,
--					    PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS,
--					    sysbus_intr_info) +
-+				PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS_A,
-+				sysbus_intr_info) +
- 			t4_handle_intr_status(adapter,
--					      PCIE_CORE_UTL_PCI_EXPRESS_PORT_STATUS,
--					      pcie_port_intr_info) +
--			t4_handle_intr_status(adapter, PCIE_INT_CAUSE,
-+					PCIE_CORE_UTL_PCI_EXPRESS_PORT_STATUS_A,
-+					pcie_port_intr_info) +
-+			t4_handle_intr_status(adapter, PCIE_INT_CAUSE_A,
- 					      pcie_intr_info);
+@@ -1879,13 +1876,13 @@ static void ma_intr_handler(struct adapter *adap)
+ static void smb_intr_handler(struct adapter *adap)
+ {
+ 	static const struct intr_info smb_intr_info[] = {
+-		{ MSTTXFIFOPARINT, "SMB master Tx FIFO parity error", -1, 1 },
+-		{ MSTRXFIFOPARINT, "SMB master Rx FIFO parity error", -1, 1 },
+-		{ SLVFIFOPARINT, "SMB slave FIFO parity error", -1, 1 },
++		{ MSTTXFIFOPARINT_F, "SMB master Tx FIFO parity error", -1, 1 },
++		{ MSTRXFIFOPARINT_F, "SMB master Rx FIFO parity error", -1, 1 },
++		{ SLVFIFOPARINT_F, "SMB slave FIFO parity error", -1, 1 },
+ 		{ 0 }
+ 	};
+ 
+-	if (t4_handle_intr_status(adap, SMB_INT_CAUSE, smb_intr_info))
++	if (t4_handle_intr_status(adap, SMB_INT_CAUSE_A, smb_intr_info))
+ 		t4_fatal_err(adap);
+ }
+ 
+@@ -1895,14 +1892,14 @@ static void smb_intr_handler(struct adapter *adap)
+ static void ncsi_intr_handler(struct adapter *adap)
+ {
+ 	static const struct intr_info ncsi_intr_info[] = {
+-		{ CIM_DM_PRTY_ERR, "NC-SI CIM parity error", -1, 1 },
+-		{ MPS_DM_PRTY_ERR, "NC-SI MPS parity error", -1, 1 },
+-		{ TXFIFO_PRTY_ERR, "NC-SI Tx FIFO parity error", -1, 1 },
+-		{ RXFIFO_PRTY_ERR, "NC-SI Rx FIFO parity error", -1, 1 },
++		{ CIM_DM_PRTY_ERR_F, "NC-SI CIM parity error", -1, 1 },
++		{ MPS_DM_PRTY_ERR_F, "NC-SI MPS parity error", -1, 1 },
++		{ TXFIFO_PRTY_ERR_F, "NC-SI Tx FIFO parity error", -1, 1 },
++		{ RXFIFO_PRTY_ERR_F, "NC-SI Rx FIFO parity error", -1, 1 },
+ 		{ 0 }
+ 	};
+ 
+-	if (t4_handle_intr_status(adap, NCSI_INT_CAUSE, ncsi_intr_info))
++	if (t4_handle_intr_status(adap, NCSI_INT_CAUSE_A, ncsi_intr_info))
+ 		t4_fatal_err(adap);
+ }
+ 
+@@ -1914,23 +1911,23 @@ static void xgmac_intr_handler(struct adapter *adap, int port)
+ 	u32 v, int_cause_reg;
+ 
+ 	if (is_t4(adap->params.chip))
+-		int_cause_reg = PORT_REG(port, XGMAC_PORT_INT_CAUSE);
++		int_cause_reg = PORT_REG(port, XGMAC_PORT_INT_CAUSE_A);
  	else
--		fat = t4_handle_intr_status(adapter, PCIE_INT_CAUSE,
-+		fat = t4_handle_intr_status(adapter, PCIE_INT_CAUSE_A,
- 					    t5_pcie_intr_info);
+-		int_cause_reg = T5_PORT_REG(port, MAC_PORT_INT_CAUSE);
++		int_cause_reg = T5_PORT_REG(port, MAC_PORT_INT_CAUSE_A);
  
- 	if (fat)
-@@ -1590,7 +1592,7 @@ static void cim_intr_handler(struct adapter *adapter)
+ 	v = t4_read_reg(adap, int_cause_reg);
  
- 	int fat;
+-	v &= TXFIFO_PRTY_ERR | RXFIFO_PRTY_ERR;
++	v &= TXFIFO_PRTY_ERR_F | RXFIFO_PRTY_ERR_F;
+ 	if (!v)
+ 		return;
  
--	if (t4_read_reg(adapter, MA_PCIE_FW) & PCIE_FW_ERR)
-+	if (t4_read_reg(adapter, PCIE_FW_A) & PCIE_FW_ERR_F)
- 		t4_report_fw_error(adapter);
+-	if (v & TXFIFO_PRTY_ERR)
++	if (v & TXFIFO_PRTY_ERR_F)
+ 		dev_alert(adap->pdev_dev, "XGMAC %d Tx FIFO parity error\n",
+ 			  port);
+-	if (v & RXFIFO_PRTY_ERR)
++	if (v & RXFIFO_PRTY_ERR_F)
+ 		dev_alert(adap->pdev_dev, "XGMAC %d Rx FIFO parity error\n",
+ 			  port);
+-	t4_write_reg(adap, PORT_REG(port, XGMAC_PORT_INT_CAUSE), v);
++	t4_write_reg(adap, PORT_REG(port, XGMAC_PORT_INT_CAUSE_A), v);
+ 	t4_fatal_err(adap);
+ }
  
- 	fat = t4_handle_intr_status(adapter, CIM_HOST_INT_CAUSE,
-@@ -2750,9 +2752,9 @@ void t4_sge_decode_idma_state(struct adapter *adapter, int state)
- 		"IDMA_FL_SEND_COMPLETION_TO_IMSG",
+@@ -1940,19 +1937,19 @@ static void xgmac_intr_handler(struct adapter *adap, int port)
+ static void pl_intr_handler(struct adapter *adap)
+ {
+ 	static const struct intr_info pl_intr_info[] = {
+-		{ FATALPERR, "T4 fatal parity error", -1, 1 },
+-		{ PERRVFID, "PL VFID_MAP parity error", -1, 1 },
++		{ FATALPERR_F, "T4 fatal parity error", -1, 1 },
++		{ PERRVFID_F, "PL VFID_MAP parity error", -1, 1 },
+ 		{ 0 }
  	};
- 	static const u32 sge_regs[] = {
--		SGE_DEBUG_DATA_LOW_INDEX_2,
--		SGE_DEBUG_DATA_LOW_INDEX_3,
--		SGE_DEBUG_DATA_HIGH_INDEX_10,
-+		SGE_DEBUG_DATA_LOW_INDEX_2_A,
-+		SGE_DEBUG_DATA_LOW_INDEX_3_A,
-+		SGE_DEBUG_DATA_HIGH_INDEX_10_A,
- 	};
- 	const char **sge_idma_decode;
- 	int sge_idma_decode_nstates;
-@@ -2819,7 +2821,7 @@ retry:
- 	if (ret < 0) {
- 		if ((ret == -EBUSY || ret == -ETIMEDOUT) && retries-- > 0)
- 			goto retry;
--		if (t4_read_reg(adap, MA_PCIE_FW) & PCIE_FW_ERR)
-+		if (t4_read_reg(adap, PCIE_FW_A) & PCIE_FW_ERR_F)
- 			t4_report_fw_error(adap);
- 		return ret;
+ 
+-	if (t4_handle_intr_status(adap, PL_PL_INT_CAUSE, pl_intr_info))
++	if (t4_handle_intr_status(adap, PL_PL_INT_CAUSE_A, pl_intr_info))
+ 		t4_fatal_err(adap);
+ }
+ 
+-#define PF_INTR_MASK (PFSW)
+-#define GLBL_INTR_MASK (CIM | MPS | PL | PCIE | MC | EDC0 | \
+-		EDC1 | LE | TP | MA | PM_TX | PM_RX | ULP_RX | \
+-		CPL_SWITCH | SGE | ULP_TX)
++#define PF_INTR_MASK (PFSW_F)
++#define GLBL_INTR_MASK (CIM_F | MPS_F | PL_F | PCIE_F | MC_F | EDC0_F | \
++		EDC1_F | LE_F | TP_F | MA_F | PM_TX_F | PM_RX_F | ULP_RX_F | \
++		CPL_SWITCH_F | SGE_F | ULP_TX_F)
+ 
+ /**
+  *	t4_slow_intr_handler - control path interrupt handler
+@@ -1964,60 +1961,60 @@ static void pl_intr_handler(struct adapter *adap)
+  */
+ int t4_slow_intr_handler(struct adapter *adapter)
+ {
+-	u32 cause = t4_read_reg(adapter, PL_INT_CAUSE);
++	u32 cause = t4_read_reg(adapter, PL_INT_CAUSE_A);
+ 
+ 	if (!(cause & GLBL_INTR_MASK))
+ 		return 0;
+-	if (cause & CIM)
++	if (cause & CIM_F)
+ 		cim_intr_handler(adapter);
+-	if (cause & MPS)
++	if (cause & MPS_F)
+ 		mps_intr_handler(adapter);
+-	if (cause & NCSI)
++	if (cause & NCSI_F)
+ 		ncsi_intr_handler(adapter);
+-	if (cause & PL)
++	if (cause & PL_F)
+ 		pl_intr_handler(adapter);
+-	if (cause & SMB)
++	if (cause & SMB_F)
+ 		smb_intr_handler(adapter);
+-	if (cause & XGMAC0)
++	if (cause & XGMAC0_F)
+ 		xgmac_intr_handler(adapter, 0);
+-	if (cause & XGMAC1)
++	if (cause & XGMAC1_F)
+ 		xgmac_intr_handler(adapter, 1);
+-	if (cause & XGMAC_KR0)
++	if (cause & XGMAC_KR0_F)
+ 		xgmac_intr_handler(adapter, 2);
+-	if (cause & XGMAC_KR1)
++	if (cause & XGMAC_KR1_F)
+ 		xgmac_intr_handler(adapter, 3);
+-	if (cause & PCIE)
++	if (cause & PCIE_F)
+ 		pcie_intr_handler(adapter);
+-	if (cause & MC)
++	if (cause & MC_F)
+ 		mem_intr_handler(adapter, MEM_MC);
+-	if (!is_t4(adapter->params.chip) && (cause & MC1))
++	if (!is_t4(adapter->params.chip) && (cause & MC1_S))
+ 		mem_intr_handler(adapter, MEM_MC1);
+-	if (cause & EDC0)
++	if (cause & EDC0_F)
+ 		mem_intr_handler(adapter, MEM_EDC0);
+-	if (cause & EDC1)
++	if (cause & EDC1_F)
+ 		mem_intr_handler(adapter, MEM_EDC1);
+-	if (cause & LE)
++	if (cause & LE_F)
+ 		le_intr_handler(adapter);
+-	if (cause & TP)
++	if (cause & TP_F)
+ 		tp_intr_handler(adapter);
+-	if (cause & MA)
++	if (cause & MA_F)
+ 		ma_intr_handler(adapter);
+-	if (cause & PM_TX)
++	if (cause & PM_TX_F)
+ 		pmtx_intr_handler(adapter);
+-	if (cause & PM_RX)
++	if (cause & PM_RX_F)
+ 		pmrx_intr_handler(adapter);
+-	if (cause & ULP_RX)
++	if (cause & ULP_RX_F)
+ 		ulprx_intr_handler(adapter);
+-	if (cause & CPL_SWITCH)
++	if (cause & CPL_SWITCH_F)
+ 		cplsw_intr_handler(adapter);
+-	if (cause & SGE)
++	if (cause & SGE_F)
+ 		sge_intr_handler(adapter);
+-	if (cause & ULP_TX)
++	if (cause & ULP_TX_F)
+ 		ulptx_intr_handler(adapter);
+ 
+ 	/* Clear the interrupts just processed for which we are the master. */
+-	t4_write_reg(adapter, PL_INT_CAUSE, cause & GLBL_INTR_MASK);
+-	(void) t4_read_reg(adapter, PL_INT_CAUSE); /* flush */
++	t4_write_reg(adapter, PL_INT_CAUSE_A, cause & GLBL_INTR_MASK);
++	(void)t4_read_reg(adapter, PL_INT_CAUSE_A); /* flush */
+ 	return 1;
+ }
+ 
+@@ -2036,7 +2033,7 @@ int t4_slow_intr_handler(struct adapter *adapter)
+  */
+ void t4_intr_enable(struct adapter *adapter)
+ {
+-	u32 pf = SOURCEPF_GET(t4_read_reg(adapter, PL_WHOAMI));
++	u32 pf = SOURCEPF_G(t4_read_reg(adapter, PL_WHOAMI_A));
+ 
+ 	t4_write_reg(adapter, SGE_INT_ENABLE3_A, ERR_CPL_EXCEED_IQE_SIZE_F |
+ 		     ERR_INVALID_CIDX_INC_F | ERR_CPL_OPCODE_0_F |
+@@ -2047,8 +2044,8 @@ void t4_intr_enable(struct adapter *adapter)
+ 		     ERR_EGR_CTXT_PRIO_F | INGRESS_SIZE_ERR_F |
+ 		     DBFIFO_HP_INT_F | DBFIFO_LP_INT_F |
+ 		     EGRESS_SIZE_ERR_F);
+-	t4_write_reg(adapter, MYPF_REG(PL_PF_INT_ENABLE), PF_INTR_MASK);
+-	t4_set_reg_field(adapter, PL_INT_MAP0, 0, 1 << pf);
++	t4_write_reg(adapter, MYPF_REG(PL_PF_INT_ENABLE_A), PF_INTR_MASK);
++	t4_set_reg_field(adapter, PL_INT_MAP0_A, 0, 1 << pf);
+ }
+ 
+ /**
+@@ -2061,10 +2058,10 @@ void t4_intr_enable(struct adapter *adapter)
+  */
+ void t4_intr_disable(struct adapter *adapter)
+ {
+-	u32 pf = SOURCEPF_GET(t4_read_reg(adapter, PL_WHOAMI));
++	u32 pf = SOURCEPF_G(t4_read_reg(adapter, PL_WHOAMI_A));
+ 
+-	t4_write_reg(adapter, MYPF_REG(PL_PF_INT_ENABLE), 0);
+-	t4_set_reg_field(adapter, PL_INT_MAP0, 1 << pf, 0);
++	t4_write_reg(adapter, MYPF_REG(PL_PF_INT_ENABLE_A), 0);
++	t4_set_reg_field(adapter, PL_INT_MAP0_A, 1 << pf, 0);
+ }
+ 
+ /**
+@@ -2498,7 +2495,7 @@ void t4_wol_magic_enable(struct adapter *adap, unsigned int port,
+ 	if (is_t4(adap->params.chip)) {
+ 		mag_id_reg_l = PORT_REG(port, XGMAC_PORT_MAGIC_MACID_LO);
+ 		mag_id_reg_h = PORT_REG(port, XGMAC_PORT_MAGIC_MACID_HI);
+-		port_cfg_reg = PORT_REG(port, XGMAC_PORT_CFG2);
++		port_cfg_reg = PORT_REG(port, XGMAC_PORT_CFG2_A);
+ 	} else {
+ 		mag_id_reg_l = T5_PORT_REG(port, MAC_PORT_MAGIC_MACID_LO);
+ 		mag_id_reg_h = T5_PORT_REG(port, MAC_PORT_MAGIC_MACID_HI);
+@@ -2512,8 +2509,8 @@ void t4_wol_magic_enable(struct adapter *adap, unsigned int port,
+ 		t4_write_reg(adap, mag_id_reg_h,
+ 			     (addr[0] << 8) | addr[1]);
  	}
-@@ -2869,8 +2871,8 @@ retry:
- 			 * timeout ... and then retry if we haven't exhausted
- 			 * our retries ...
- 			 */
--			pcie_fw = t4_read_reg(adap, MA_PCIE_FW);
--			if (!(pcie_fw & (PCIE_FW_ERR|PCIE_FW_INIT))) {
-+			pcie_fw = t4_read_reg(adap, PCIE_FW_A);
-+			if (!(pcie_fw & (PCIE_FW_ERR_F|PCIE_FW_INIT_F))) {
- 				if (waiting <= 0) {
- 					if (retries-- > 0)
- 						goto retry;
-@@ -2885,9 +2887,9 @@ retry:
- 			 * report errors preferentially.
- 			 */
- 			if (state) {
--				if (pcie_fw & PCIE_FW_ERR)
-+				if (pcie_fw & PCIE_FW_ERR_F)
- 					*state = DEV_STATE_ERR;
--				else if (pcie_fw & PCIE_FW_INIT)
-+				else if (pcie_fw & PCIE_FW_INIT_F)
- 					*state = DEV_STATE_INIT;
- 			}
+-	t4_set_reg_field(adap, port_cfg_reg, MAGICEN,
+-			 addr ? MAGICEN : 0);
++	t4_set_reg_field(adap, port_cfg_reg, MAGICEN_F,
++			 addr ? MAGICEN_F : 0);
+ }
  
-@@ -2897,7 +2899,7 @@ retry:
- 			 * for our caller.
- 			 */
- 			if (master_mbox == PCIE_FW_MASTER_M &&
--			    (pcie_fw & PCIE_FW_MASTER_VLD))
-+			    (pcie_fw & PCIE_FW_MASTER_VLD_F))
- 				master_mbox = PCIE_FW_MASTER_G(pcie_fw);
- 			break;
- 		}
-@@ -3006,7 +3008,7 @@ static int t4_fw_halt(struct adapter *adap, unsigned int mbox, int force)
- 	 */
- 	if (ret == 0 || force) {
- 		t4_set_reg_field(adap, CIM_BOOT_CFG, UPCRST, UPCRST);
--		t4_set_reg_field(adap, PCIE_FW, PCIE_FW_HALT_F,
-+		t4_set_reg_field(adap, PCIE_FW_A, PCIE_FW_HALT_F,
- 				 PCIE_FW_HALT_F);
+ /**
+@@ -2538,20 +2535,21 @@ int t4_wol_pat_enable(struct adapter *adap, unsigned int port, unsigned int map,
+ 	u32 port_cfg_reg;
+ 
+ 	if (is_t4(adap->params.chip))
+-		port_cfg_reg = PORT_REG(port, XGMAC_PORT_CFG2);
++		port_cfg_reg = PORT_REG(port, XGMAC_PORT_CFG2_A);
+ 	else
+ 		port_cfg_reg = T5_PORT_REG(port, MAC_PORT_CFG2_A);
+ 
+ 	if (!enable) {
+-		t4_set_reg_field(adap, port_cfg_reg, PATEN, 0);
++		t4_set_reg_field(adap, port_cfg_reg, PATEN_F, 0);
+ 		return 0;
  	}
+ 	if (map > 0xff)
+ 		return -EINVAL;
  
-@@ -3046,7 +3048,7 @@ static int t4_fw_restart(struct adapter *adap, unsigned int mbox, int reset)
- 		 * doing it automatically, we need to clear the PCIE_FW.HALT
- 		 * bit.
- 		 */
--		t4_set_reg_field(adap, PCIE_FW, PCIE_FW_HALT_F, 0);
-+		t4_set_reg_field(adap, PCIE_FW_A, PCIE_FW_HALT_F, 0);
+ #define EPIO_REG(name) \
+-	(is_t4(adap->params.chip) ? PORT_REG(port, XGMAC_PORT_EPIO_##name) : \
+-	T5_PORT_REG(port, MAC_PORT_EPIO_##name##_A))
++	(is_t4(adap->params.chip) ? \
++	 PORT_REG(port, XGMAC_PORT_EPIO_##name##_A) : \
++	 T5_PORT_REG(port, MAC_PORT_EPIO_##name##_A))
  
- 		/*
- 		 * If we've been given a valid mailbox, first try to get the
-@@ -3070,7 +3072,7 @@ static int t4_fw_restart(struct adapter *adap, unsigned int mbox, int reset)
+ 	t4_write_reg(adap, EPIO_REG(DATA1), mask0 >> 32);
+ 	t4_write_reg(adap, EPIO_REG(DATA2), mask1);
+@@ -2563,21 +2561,21 @@ int t4_wol_pat_enable(struct adapter *adap, unsigned int port, unsigned int map,
  
- 		t4_set_reg_field(adap, CIM_BOOT_CFG, UPCRST, 0);
- 		for (ms = 0; ms < FW_CMD_MAX_TIMEOUT; ) {
--			if (!(t4_read_reg(adap, PCIE_FW) & PCIE_FW_HALT_F))
-+			if (!(t4_read_reg(adap, PCIE_FW_A) & PCIE_FW_HALT_F))
- 				return 0;
+ 		/* write byte masks */
+ 		t4_write_reg(adap, EPIO_REG(DATA0), mask0);
+-		t4_write_reg(adap, EPIO_REG(OP), ADDRESS(i) | EPIOWR);
++		t4_write_reg(adap, EPIO_REG(OP), ADDRESS_V(i) | EPIOWR_F);
+ 		t4_read_reg(adap, EPIO_REG(OP));                /* flush */
+-		if (t4_read_reg(adap, EPIO_REG(OP)) & SF_BUSY)
++		if (t4_read_reg(adap, EPIO_REG(OP)) & SF_BUSY_F)
+ 			return -ETIMEDOUT;
+ 
+ 		/* write CRC */
+ 		t4_write_reg(adap, EPIO_REG(DATA0), crc);
+-		t4_write_reg(adap, EPIO_REG(OP), ADDRESS(i + 32) | EPIOWR);
++		t4_write_reg(adap, EPIO_REG(OP), ADDRESS_V(i + 32) | EPIOWR_F);
+ 		t4_read_reg(adap, EPIO_REG(OP));                /* flush */
+-		if (t4_read_reg(adap, EPIO_REG(OP)) & SF_BUSY)
++		if (t4_read_reg(adap, EPIO_REG(OP)) & SF_BUSY_F)
+ 			return -ETIMEDOUT;
+ 	}
+ #undef EPIO_REG
+ 
+-	t4_set_reg_field(adap, PORT_REG(port, XGMAC_PORT_CFG2), 0, PATEN);
++	t4_set_reg_field(adap, PORT_REG(port, XGMAC_PORT_CFG2_A), 0, PATEN_F);
+ 	return 0;
+ }
+ 
+@@ -2998,7 +2996,7 @@ static int t4_fw_halt(struct adapter *adap, unsigned int mbox, int force)
+ 
+ 		memset(&c, 0, sizeof(c));
+ 		INIT_CMD(c, RESET, WRITE);
+-		c.val = htonl(PIORST | PIORSTMODE);
++		c.val = htonl(PIORST_F | PIORSTMODE_F);
+ 		c.halt_pkd = htonl(FW_RESET_CMD_HALT_F);
+ 		ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
+ 	}
+@@ -3071,11 +3069,11 @@ static int t4_fw_restart(struct adapter *adap, unsigned int mbox, int reset)
+ 			t4_set_reg_field(adap, CIM_BOOT_CFG_A, UPCRST_F, 0);
  			msleep(100);
- 			ms += 100;
-@@ -4146,7 +4148,7 @@ int t4_init_sge_params(struct adapter *adapter)
- 		(QUEUESPERPAGEPF1_S - QUEUESPERPAGEPF0_S) * adapter->fn);
- 	qpp = t4_read_reg(adapter, SGE_EGRESS_QUEUES_PER_PAGE_PF_A);
- 	sge_params->eq_qpp = ((qpp >> s_qpp) & QUEUESPERPAGEPF0_M);
--	qpp = t4_read_reg(adapter, SGE_INGRESS_QUEUES_PER_PAGE_PF);
-+	qpp = t4_read_reg(adapter, SGE_INGRESS_QUEUES_PER_PAGE_PF_A);
- 	sge_params->iq_qpp = ((qpp >> s_qpp) & QUEUESPERPAGEPF0_M);
+ 			if (t4_fw_reset(adap, mbox,
+-					PIORST | PIORSTMODE) == 0)
++					PIORST_F | PIORSTMODE_F) == 0)
+ 				return 0;
+ 		}
+ 
+-		t4_write_reg(adap, PL_RST, PIORST | PIORSTMODE);
++		t4_write_reg(adap, PL_RST_A, PIORST_F | PIORSTMODE_F);
+ 		msleep(2000);
+ 	} else {
+ 		int ms;
+@@ -3246,7 +3244,7 @@ int t4_fixup_host_params(struct adapter *adap, unsigned int page_size,
+ 		     (t4_read_reg(adap, SGE_FL_BUFFER_SIZE3_A) + fl_align-1)
+ 		     & ~(fl_align-1));
+ 
+-	t4_write_reg(adap, ULP_RX_TDDP_PSZ, HPZ0(page_shift - 12));
++	t4_write_reg(adap, ULP_RX_TDDP_PSZ_A, HPZ0_V(page_shift - 12));
  
  	return 0;
+ }
+@@ -3931,12 +3929,12 @@ int t4_wait_dev_ready(void __iomem *regs)
+ {
+ 	u32 whoami;
+ 
+-	whoami = readl(regs + PL_WHOAMI);
++	whoami = readl(regs + PL_WHOAMI_A);
+ 	if (whoami != 0xffffffff && whoami != CIM_PF_NOACCESS)
+ 		return 0;
+ 
+ 	msleep(500);
+-	whoami = readl(regs + PL_WHOAMI);
++	whoami = readl(regs + PL_WHOAMI_A);
+ 	return (whoami != 0xffffffff && whoami != CIM_PF_NOACCESS ? 0 : -EIO);
+ }
+ 
+@@ -3960,7 +3958,7 @@ static int get_flash_params(struct adapter *adap)
+ 	ret = sf1_write(adap, 1, 1, 0, SF_RD_ID);
+ 	if (!ret)
+ 		ret = sf1_read(adap, 3, 0, 1, &info);
+-	t4_write_reg(adap, SF_OP, 0);                    /* unlock SF */
++	t4_write_reg(adap, SF_OP_A, 0);                    /* unlock SF */
+ 	if (ret)
+ 		return ret;
+ 
+@@ -4007,7 +4005,7 @@ int t4_prep_adapter(struct adapter *adapter)
+ 	u32 pl_rev;
+ 
+ 	get_pci_mode(adapter, &adapter->params.pci);
+-	pl_rev = G_REV(t4_read_reg(adapter, PL_REV));
++	pl_rev = REV_G(t4_read_reg(adapter, PL_REV_A));
+ 
+ 	ret = get_flash_params(adapter);
+ 	if (ret < 0) {
+@@ -4197,16 +4195,16 @@ int t4_init_tp_params(struct adapter *adap)
+ 	 * shift positions of several elements of the Compressed Filter Tuple
+ 	 * for this adapter which we need frequently ...
+ 	 */
+-	adap->params.tp.vlan_shift = t4_filter_field_shift(adap, F_VLAN);
+-	adap->params.tp.vnic_shift = t4_filter_field_shift(adap, F_VNIC_ID);
+-	adap->params.tp.port_shift = t4_filter_field_shift(adap, F_PORT);
++	adap->params.tp.vlan_shift = t4_filter_field_shift(adap, VLAN_F);
++	adap->params.tp.vnic_shift = t4_filter_field_shift(adap, VNIC_ID_F);
++	adap->params.tp.port_shift = t4_filter_field_shift(adap, PORT_F);
+ 	adap->params.tp.protocol_shift = t4_filter_field_shift(adap,
+-							       F_PROTOCOL);
++							       PROTOCOL_F);
+ 
+ 	/* If TP_INGRESS_CONFIG.VNID == 0, then TP_VLAN_PRI_MAP.VNIC_ID
+ 	 * represents the presense of an Outer VLAN instead of a VNIC ID.
+ 	 */
+-	if ((adap->params.tp.ingress_config & F_VNIC) == 0)
++	if ((adap->params.tp.ingress_config & VNIC_F) == 0)
+ 		adap->params.tp.vnic_shift = -1;
+ 
+ 	return 0;
+@@ -4232,35 +4230,35 @@ int t4_filter_field_shift(const struct adapter *adap, int filter_sel)
+ 
+ 	for (sel = 1, field_shift = 0; sel < filter_sel; sel <<= 1) {
+ 		switch (filter_mode & sel) {
+-		case F_FCOE:
+-			field_shift += W_FT_FCOE;
++		case FCOE_F:
++			field_shift += FT_FCOE_W;
+ 			break;
+-		case F_PORT:
+-			field_shift += W_FT_PORT;
++		case PORT_F:
++			field_shift += FT_PORT_W;
+ 			break;
+-		case F_VNIC_ID:
+-			field_shift += W_FT_VNIC_ID;
++		case VNIC_ID_F:
++			field_shift += FT_VNIC_ID_W;
+ 			break;
+-		case F_VLAN:
+-			field_shift += W_FT_VLAN;
++		case VLAN_F:
++			field_shift += FT_VLAN_W;
+ 			break;
+-		case F_TOS:
+-			field_shift += W_FT_TOS;
++		case TOS_F:
++			field_shift += FT_TOS_W;
+ 			break;
+-		case F_PROTOCOL:
+-			field_shift += W_FT_PROTOCOL;
++		case PROTOCOL_F:
++			field_shift += FT_PROTOCOL_W;
+ 			break;
+-		case F_ETHERTYPE:
+-			field_shift += W_FT_ETHERTYPE;
++		case ETHERTYPE_F:
++			field_shift += FT_ETHERTYPE_W;
+ 			break;
+-		case F_MACMATCH:
+-			field_shift += W_FT_MACMATCH;
++		case MACMATCH_F:
++			field_shift += FT_MACMATCH_W;
+ 			break;
+-		case F_MPSHITTYPE:
+-			field_shift += W_FT_MPSHITTYPE;
++		case MPSHITTYPE_F:
++			field_shift += FT_MPSHITTYPE_W;
+ 			break;
+-		case F_FRAGMENTATION:
+-			field_shift += W_FT_FRAGMENTATION;
++		case FRAGMENTATION_F:
++			field_shift += FT_FRAGMENTATION_W;
+ 			break;
+ 		}
+ 	}
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 29c0911..9b73824 100644
+index ec0addc..4077227 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -369,196 +369,424 @@
- #define ENABLE_DROP_V(x) ((x) << ENABLE_DROP_S)
- #define ENABLE_DROP_F    ENABLE_DROP_V(1U)
+@@ -1708,233 +1708,323 @@
  
--#define SGE_TIMER_VALUE_0_AND_1 0x10b8
--#define  TIMERVALUE0_MASK   0xffff0000U
--#define  TIMERVALUE0_SHIFT  16
--#define  TIMERVALUE0(x)     ((x) << TIMERVALUE0_SHIFT)
--#define  TIMERVALUE0_GET(x) (((x) & TIMERVALUE0_MASK) >> TIMERVALUE0_SHIFT)
--#define  TIMERVALUE1_MASK   0x0000ffffU
--#define  TIMERVALUE1_SHIFT  0
--#define  TIMERVALUE1(x)     ((x) << TIMERVALUE1_SHIFT)
--#define  TIMERVALUE1_GET(x) (((x) & TIMERVALUE1_MASK) >> TIMERVALUE1_SHIFT)
--
--#define SGE_TIMER_VALUE_2_AND_3 0x10bc
--#define  TIMERVALUE2_MASK   0xffff0000U
--#define  TIMERVALUE2_SHIFT  16
--#define  TIMERVALUE2(x)     ((x) << TIMERVALUE2_SHIFT)
--#define  TIMERVALUE2_GET(x) (((x) & TIMERVALUE2_MASK) >> TIMERVALUE2_SHIFT)
--#define  TIMERVALUE3_MASK   0x0000ffffU
--#define  TIMERVALUE3_SHIFT  0
--#define  TIMERVALUE3(x)     ((x) << TIMERVALUE3_SHIFT)
--#define  TIMERVALUE3_GET(x) (((x) & TIMERVALUE3_MASK) >> TIMERVALUE3_SHIFT)
--
--#define SGE_TIMER_VALUE_4_AND_5 0x10c0
--#define  TIMERVALUE4_MASK   0xffff0000U
--#define  TIMERVALUE4_SHIFT  16
--#define  TIMERVALUE4(x)     ((x) << TIMERVALUE4_SHIFT)
--#define  TIMERVALUE4_GET(x) (((x) & TIMERVALUE4_MASK) >> TIMERVALUE4_SHIFT)
--#define  TIMERVALUE5_MASK   0x0000ffffU
--#define  TIMERVALUE5_SHIFT  0
--#define  TIMERVALUE5(x)     ((x) << TIMERVALUE5_SHIFT)
--#define  TIMERVALUE5_GET(x) (((x) & TIMERVALUE5_MASK) >> TIMERVALUE5_SHIFT)
--
--#define SGE_DEBUG_INDEX 0x10cc
--#define SGE_DEBUG_DATA_HIGH 0x10d0
--#define SGE_DEBUG_DATA_LOW 0x10d4
--#define SGE_DEBUG_DATA_LOW_INDEX_2	0x12c8
--#define SGE_DEBUG_DATA_LOW_INDEX_3	0x12cc
--#define SGE_DEBUG_DATA_HIGH_INDEX_10	0x12a8
--#define SGE_INGRESS_QUEUES_PER_PAGE_PF 0x10f4
-+#define SGE_TIMER_VALUE_0_AND_1_A 0x10b8
-+
-+#define TIMERVALUE0_S    16
-+#define TIMERVALUE0_M    0xffffU
-+#define TIMERVALUE0_V(x) ((x) << TIMERVALUE0_S)
-+#define TIMERVALUE0_G(x) (((x) >> TIMERVALUE0_S) & TIMERVALUE0_M)
-+
-+#define TIMERVALUE1_S    0
-+#define TIMERVALUE1_M    0xffffU
-+#define TIMERVALUE1_V(x) ((x) << TIMERVALUE1_S)
-+#define TIMERVALUE1_G(x) (((x) >> TIMERVALUE1_S) & TIMERVALUE1_M)
-+
-+#define SGE_TIMER_VALUE_2_AND_3_A 0x10bc
-+
-+#define TIMERVALUE2_S    16
-+#define TIMERVALUE2_M    0xffffU
-+#define TIMERVALUE2_V(x) ((x) << TIMERVALUE2_S)
-+#define TIMERVALUE2_G(x) (((x) >> TIMERVALUE2_S) & TIMERVALUE2_M)
-+
-+#define TIMERVALUE3_S    0
-+#define TIMERVALUE3_M    0xffffU
-+#define TIMERVALUE3_V(x) ((x) << TIMERVALUE3_S)
-+#define TIMERVALUE3_G(x) (((x) >> TIMERVALUE3_S) & TIMERVALUE3_M)
-+
-+#define SGE_TIMER_VALUE_4_AND_5_A 0x10c0
-+
-+#define TIMERVALUE4_S    16
-+#define TIMERVALUE4_M    0xffffU
-+#define TIMERVALUE4_V(x) ((x) << TIMERVALUE4_S)
-+#define TIMERVALUE4_G(x) (((x) >> TIMERVALUE4_S) & TIMERVALUE4_M)
-+
-+#define TIMERVALUE5_S    0
-+#define TIMERVALUE5_M    0xffffU
-+#define TIMERVALUE5_V(x) ((x) << TIMERVALUE5_S)
-+#define TIMERVALUE5_G(x) (((x) >> TIMERVALUE5_S) & TIMERVALUE5_M)
-+
-+#define SGE_DEBUG_INDEX_A 0x10cc
-+#define SGE_DEBUG_DATA_HIGH_A 0x10d0
-+#define SGE_DEBUG_DATA_LOW_A 0x10d4
-+
-+#define SGE_DEBUG_DATA_LOW_INDEX_2_A	0x12c8
-+#define SGE_DEBUG_DATA_LOW_INDEX_3_A	0x12cc
-+#define SGE_DEBUG_DATA_HIGH_INDEX_10_A	0x12a8
-+
-+#define SGE_INGRESS_QUEUES_PER_PAGE_PF_A 0x10f4
- #define SGE_INGRESS_QUEUES_PER_PAGE_VF_A 0x10f8
+ #define MPS_RX_PERR_INT_CAUSE_A 0x11074
  
--#define S_HP_INT_THRESH    28
--#define M_HP_INT_THRESH 0xfU
--#define V_HP_INT_THRESH(x) ((x) << S_HP_INT_THRESH)
--#define S_LP_INT_THRESH_T5    18
--#define V_LP_INT_THRESH_T5(x) ((x) << S_LP_INT_THRESH_T5)
--#define M_LP_COUNT_T5    0x3ffffU
--#define G_LP_COUNT_T5(x) (((x) >> S_LP_COUNT) & M_LP_COUNT_T5)
--#define M_HP_COUNT 0x7ffU
--#define S_HP_COUNT 16
--#define G_HP_COUNT(x) (((x) >> S_HP_COUNT) & M_HP_COUNT)
--#define S_LP_INT_THRESH    12
--#define M_LP_INT_THRESH 0xfU
--#define M_LP_INT_THRESH_T5    0xfffU
--#define V_LP_INT_THRESH(x) ((x) << S_LP_INT_THRESH)
--#define M_LP_COUNT 0x7ffU
--#define S_LP_COUNT 0
--#define G_LP_COUNT(x) (((x) >> S_LP_COUNT) & M_LP_COUNT)
--#define A_SGE_DBFIFO_STATUS 0x10a4
+-#define CPL_INTR_CAUSE 0x19054
+-#define  CIM_OP_MAP_PERR   0x00000020U
+-#define  CIM_OVFL_ERROR    0x00000010U
+-#define  TP_FRAMING_ERROR  0x00000008U
+-#define  SGE_FRAMING_ERROR 0x00000004U
+-#define  CIM_FRAMING_ERROR 0x00000002U
+-#define  ZERO_SWITCH_ERROR 0x00000001U
 -
--#define SGE_STAT_TOTAL 0x10e4
--#define SGE_STAT_MATCH 0x10e8
+-#define SMB_INT_CAUSE 0x19090
+-#define  MSTTXFIFOPARINT 0x00200000U
+-#define  MSTRXFIFOPARINT 0x00100000U
+-#define  SLVFIFOPARINT   0x00080000U
 -
--#define SGE_STAT_CFG   0x10ec
--#define S_STATSOURCE_T5    9
--#define STATSOURCE_T5(x) ((x) << S_STATSOURCE_T5)
+-#define ULP_RX_INT_CAUSE 0x19158
+-#define ULP_RX_ISCSI_TAGMASK 0x19164
+-#define ULP_RX_ISCSI_PSZ 0x19168
+-#define  HPZ3_MASK   0x0f000000U
+-#define  HPZ3_SHIFT  24
+-#define  HPZ3(x)     ((x) << HPZ3_SHIFT)
+-#define  HPZ2_MASK   0x000f0000U
+-#define  HPZ2_SHIFT  16
+-#define  HPZ2(x)     ((x) << HPZ2_SHIFT)
+-#define  HPZ1_MASK   0x00000f00U
+-#define  HPZ1_SHIFT  8
+-#define  HPZ1(x)     ((x) << HPZ1_SHIFT)
+-#define  HPZ0_MASK   0x0000000fU
+-#define  HPZ0_SHIFT  0
+-#define  HPZ0(x)     ((x) << HPZ0_SHIFT)
 -
--#define SGE_DBFIFO_STATUS2 0x1118
--#define M_HP_COUNT_T5    0x3ffU
--#define G_HP_COUNT_T5(x) ((x)  & M_HP_COUNT_T5)
--#define S_HP_INT_THRESH_T5    10
--#define M_HP_INT_THRESH_T5    0xfU
--#define V_HP_INT_THRESH_T5(x) ((x) << S_HP_INT_THRESH_T5)
+-#define ULP_RX_TDDP_PSZ 0x19178
 -
--#define S_ENABLE_DROP    13
--#define V_ENABLE_DROP(x) ((x) << S_ENABLE_DROP)
--#define F_ENABLE_DROP    V_ENABLE_DROP(1U)
--#define S_DROPPED_DB 0
--#define V_DROPPED_DB(x) ((x) << S_DROPPED_DB)
--#define F_DROPPED_DB V_DROPPED_DB(1U)
--#define A_SGE_DOORBELL_CONTROL 0x10a8
+-#define SF_DATA 0x193f8
+-#define SF_OP 0x193fc
+-#define  SF_BUSY       0x80000000U
+-#define  SF_LOCK       0x00000010U
+-#define  SF_CONT       0x00000008U
+-#define  BYTECNT_MASK  0x00000006U
+-#define  BYTECNT_SHIFT 1
+-#define  BYTECNT(x)    ((x) << BYTECNT_SHIFT)
+-#define  OP_WR         0x00000001U
 -
--#define A_SGE_CTXT_CMD 0x11fc
--#define A_SGE_DBQ_CTXT_BADDR 0x1084
+-#define PL_PF_INT_CAUSE 0x3c0
+-#define  PFSW  0x00000008U
+-#define  PFSGE 0x00000004U
+-#define  PFCIM 0x00000002U
+-#define  PFMPS 0x00000001U
 -
--#define PCIE_PF_CFG 0x40
--#define  AIVEC(x)	((x) << 4)
--#define  AIVEC_MASK	0x3ffU
+-#define PL_PF_INT_ENABLE 0x3c4
+-#define PL_PF_CTL 0x3c8
+-#define  SWINT 0x00000001U
 -
--#define PCIE_PF_CLI 0x44
--#define PCIE_INT_CAUSE 0x3004
--#define  UNXSPLCPLERR  0x20000000U
--#define  PCIEPINT      0x10000000U
--#define  PCIESINT      0x08000000U
--#define  RPLPERR       0x04000000U
--#define  RXWRPERR      0x02000000U
--#define  RXCPLPERR     0x01000000U
--#define  PIOTAGPERR    0x00800000U
--#define  MATAGPERR     0x00400000U
--#define  INTXCLRPERR   0x00200000U
--#define  FIDPERR       0x00100000U
--#define  CFGSNPPERR    0x00080000U
--#define  HRSPPERR      0x00040000U
--#define  HREQPERR      0x00020000U
--#define  HCNTPERR      0x00010000U
--#define  DRSPPERR      0x00008000U
--#define  DREQPERR      0x00004000U
--#define  DCNTPERR      0x00002000U
--#define  CRSPPERR      0x00001000U
--#define  CREQPERR      0x00000800U
--#define  CCNTPERR      0x00000400U
--#define  TARTAGPERR    0x00000200U
--#define  PIOREQPERR    0x00000100U
--#define  PIOCPLPERR    0x00000080U
--#define  MSIXDIPERR    0x00000040U
--#define  MSIXDATAPERR  0x00000020U
--#define  MSIXADDRHPERR 0x00000010U
--#define  MSIXADDRLPERR 0x00000008U
--#define  MSIDATAPERR   0x00000004U
--#define  MSIADDRHPERR  0x00000002U
--#define  MSIADDRLPERR  0x00000001U
+-#define PL_WHOAMI 0x19400
+-#define  SOURCEPF_MASK   0x00000700U
+-#define  SOURCEPF_SHIFT  8
+-#define  SOURCEPF(x)     ((x) << SOURCEPF_SHIFT)
+-#define  SOURCEPF_GET(x) (((x) & SOURCEPF_MASK) >> SOURCEPF_SHIFT)
+-#define  ISVF            0x00000080U
+-#define  VFID_MASK       0x0000007fU
+-#define  VFID_SHIFT      0
+-#define  VFID(x)         ((x) << VFID_SHIFT)
+-#define  VFID_GET(x)     (((x) & VFID_MASK) >> VFID_SHIFT)
 -
--#define  READRSPERR      0x20000000U
--#define  TRGT1GRPPERR    0x10000000U
--#define  IPSOTPERR       0x08000000U
--#define  IPRXDATAGRPPERR 0x02000000U
--#define  IPRXHDRGRPPERR  0x01000000U
--#define  MAGRPPERR       0x00400000U
--#define  VFIDPERR        0x00200000U
--#define  HREQWRPERR      0x00010000U
--#define  DREQWRPERR      0x00002000U
--#define  MSTTAGQPERR     0x00000400U
--#define  PIOREQGRPPERR   0x00000100U
--#define  PIOCPLGRPPERR   0x00000080U
--#define  MSIXSTIPERR     0x00000004U
--#define  MSTTIMEOUTPERR  0x00000002U
--#define  MSTGRPPERR      0x00000001U
+-#define PL_INT_CAUSE 0x1940c
+-#define  ULP_TX     0x08000000U
+-#define  SGE        0x04000000U
+-#define  HMA        0x02000000U
+-#define  CPL_SWITCH 0x01000000U
+-#define  ULP_RX     0x00800000U
+-#define  PM_RX      0x00400000U
+-#define  PM_TX      0x00200000U
+-#define  MA         0x00100000U
+-#define  TP         0x00080000U
+-#define  LE         0x00040000U
+-#define  EDC1       0x00020000U
+-#define  EDC0       0x00010000U
+-#define  MC         0x00008000U
+-#define  PCIE       0x00004000U
+-#define  PMU        0x00002000U
+-#define  XGMAC_KR1  0x00001000U
+-#define  XGMAC_KR0  0x00000800U
+-#define  XGMAC1     0x00000400U
+-#define  XGMAC0     0x00000200U
+-#define  SMB        0x00000100U
+-#define  SF         0x00000080U
+-#define  PL         0x00000040U
+-#define  NCSI       0x00000020U
+-#define  MPS        0x00000010U
+-#define  MI         0x00000008U
+-#define  DBG        0x00000004U
+-#define  I2CM       0x00000002U
+-#define  CIM        0x00000001U
 -
--#define PCIE_NONFAT_ERR 0x3010
--#define PCIE_CFG_SPACE_REQ 0x3060
--#define PCIE_CFG_SPACE_DATA 0x3064
--#define PCIE_MEM_ACCESS_BASE_WIN 0x3068
--#define S_PCIEOFST       10
--#define M_PCIEOFST       0x3fffffU
--#define GET_PCIEOFST(x)  (((x) >> S_PCIEOFST) & M_PCIEOFST)
--#define  PCIEOFST_MASK   0xfffffc00U
--#define  BIR_MASK        0x00000300U
--#define  BIR_SHIFT       8
--#define  BIR(x)          ((x) << BIR_SHIFT)
--#define  WINDOW_MASK     0x000000ffU
--#define  WINDOW_SHIFT    0
--#define  WINDOW(x)       ((x) << WINDOW_SHIFT)
--#define  GET_WINDOW(x)	 (((x) >> WINDOW_SHIFT) & WINDOW_MASK)
--#define PCIE_MEM_ACCESS_OFFSET 0x306c
--#define ENABLE	(1U << 30)
--#define FUNCTION(x) ((x) << 12)
--#define F_LOCALCFG    (1U << 28)
+-#define MC1 0x31
+-#define PL_INT_ENABLE 0x19410
+-#define PL_INT_MAP0 0x19414
+-#define PL_RST 0x19428
+-#define  PIORST     0x00000002U
+-#define  PIORSTMODE 0x00000001U
 -
--#define S_PFNUM    0
--#define V_PFNUM(x) ((x) << S_PFNUM)
+-#define PL_PL_INT_CAUSE 0x19430
+-#define  FATALPERR 0x00000010U
+-#define  PERRVFID  0x00000001U
 -
--#define PCIE_FW 0x30b8
--#define  PCIE_FW_ERR		0x80000000U
--#define  PCIE_FW_INIT		0x40000000U
--#define  PCIE_FW_HALT		0x20000000U
--#define  PCIE_FW_MASTER_VLD	0x00008000U
--#define  PCIE_FW_MASTER(x)	((x) << 12)
--#define  PCIE_FW_MASTER_MASK	0x7
--#define  PCIE_FW_MASTER_GET(x)	(((x) >> 12) & PCIE_FW_MASTER_MASK)
+-#define PL_REV 0x1943c
 -
--#define PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS 0x5908
--#define  RNPP 0x80000000U
--#define  RPCP 0x20000000U
--#define  RCIP 0x08000000U
--#define  RCCP 0x04000000U
--#define  RFTP 0x00800000U
--#define  PTRP 0x00100000U
+-#define S_REV    0
+-#define M_REV    0xfU
+-#define V_REV(x) ((x) << S_REV)
+-#define G_REV(x) (((x) >> S_REV) & M_REV)
 -
--#define PCIE_CORE_UTL_PCI_EXPRESS_PORT_STATUS 0x59a4
--#define  TPCP 0x40000000U
--#define  TNPP 0x20000000U
--#define  TFTP 0x10000000U
--#define  TCAP 0x08000000U
--#define  TCIP 0x04000000U
--#define  RCAP 0x02000000U
--#define  PLUP 0x00800000U
--#define  PLDN 0x00400000U
--#define  OTDD 0x00200000U
--#define  GTRP 0x00100000U
--#define  RDPE 0x00040000U
--#define  TDCE 0x00020000U
--#define  TDUE 0x00010000U
-+#define HP_INT_THRESH_S    28
-+#define HP_INT_THRESH_M    0xfU
-+#define HP_INT_THRESH_V(x) ((x) << HP_INT_THRESH_S)
-+
-+#define HP_COUNT_S    16
-+#define HP_COUNT_M    0x7ffU
-+#define HP_COUNT_G(x) (((x) >> HP_COUNT_S) & HP_COUNT_M)
-+
-+#define LP_INT_THRESH_S    12
-+#define LP_INT_THRESH_M    0xfU
-+#define LP_INT_THRESH_V(x) ((x) << LP_INT_THRESH_S)
-+
-+#define LP_COUNT_S    0
-+#define LP_COUNT_M    0x7ffU
-+#define LP_COUNT_G(x) (((x) >> LP_COUNT_S) & LP_COUNT_M)
-+
-+#define LP_INT_THRESH_T5_S    18
-+#define LP_INT_THRESH_T5_M    0xfffU
-+#define LP_INT_THRESH_T5_V(x) ((x) << LP_INT_THRESH_T5_S)
-+
-+#define LP_COUNT_T5_S    0
-+#define LP_COUNT_T5_M    0x3ffffU
-+#define LP_COUNT_T5_G(x) (((x) >> LP_COUNT_T5_S) & LP_COUNT_T5_M)
-+
-+#define SGE_DOORBELL_CONTROL_A 0x10a8
-+
-+#define SGE_STAT_TOTAL_A	0x10e4
-+#define SGE_STAT_MATCH_A	0x10e8
-+#define SGE_STAT_CFG_A		0x10ec
-+
-+#define STATSOURCE_T5_S    9
-+#define STATSOURCE_T5_V(x) ((x) << STATSOURCE_T5_S)
-+
-+#define SGE_DBFIFO_STATUS2_A 0x1118
-+
-+#define HP_INT_THRESH_T5_S    10
-+#define HP_INT_THRESH_T5_M    0xfU
-+#define HP_INT_THRESH_T5_V(x) ((x) << HP_INT_THRESH_T5_S)
-+
-+#define HP_COUNT_T5_S    0
-+#define HP_COUNT_T5_M    0x3ffU
-+#define HP_COUNT_T5_G(x) (((x) >> HP_COUNT_T5_S) & HP_COUNT_T5_M)
-+
-+#define ENABLE_DROP_S    13
-+#define ENABLE_DROP_V(x) ((x) << ENABLE_DROP_S)
-+#define ENABLE_DROP_F    ENABLE_DROP_V(1U)
-+
-+#define DROPPED_DB_S    0
-+#define DROPPED_DB_V(x) ((x) << DROPPED_DB_S)
-+#define DROPPED_DB_F    DROPPED_DB_V(1U)
-+
-+#define SGE_CTXT_CMD_A 0x11fc
-+#define SGE_DBQ_CTXT_BADDR_A 0x1084
-+
-+/* registers for module PCIE */
-+#define PCIE_PF_CFG_A	0x40
-+
-+#define AIVEC_S    4
-+#define AIVEC_M    0x3ffU
-+#define AIVEC_V(x) ((x) << AIVEC_S)
-+
-+#define PCIE_PF_CLI_A	0x44
-+#define PCIE_INT_CAUSE_A	0x3004
-+
-+#define UNXSPLCPLERR_S    29
-+#define UNXSPLCPLERR_V(x) ((x) << UNXSPLCPLERR_S)
-+#define UNXSPLCPLERR_F    UNXSPLCPLERR_V(1U)
-+
-+#define PCIEPINT_S    28
-+#define PCIEPINT_V(x) ((x) << PCIEPINT_S)
-+#define PCIEPINT_F    PCIEPINT_V(1U)
-+
-+#define PCIESINT_S    27
-+#define PCIESINT_V(x) ((x) << PCIESINT_S)
-+#define PCIESINT_F    PCIESINT_V(1U)
-+
-+#define RPLPERR_S    26
-+#define RPLPERR_V(x) ((x) << RPLPERR_S)
-+#define RPLPERR_F    RPLPERR_V(1U)
-+
-+#define RXWRPERR_S    25
-+#define RXWRPERR_V(x) ((x) << RXWRPERR_S)
-+#define RXWRPERR_F    RXWRPERR_V(1U)
-+
-+#define RXCPLPERR_S    24
-+#define RXCPLPERR_V(x) ((x) << RXCPLPERR_S)
-+#define RXCPLPERR_F    RXCPLPERR_V(1U)
-+
-+#define PIOTAGPERR_S    23
-+#define PIOTAGPERR_V(x) ((x) << PIOTAGPERR_S)
-+#define PIOTAGPERR_F    PIOTAGPERR_V(1U)
-+
-+#define MATAGPERR_S    22
-+#define MATAGPERR_V(x) ((x) << MATAGPERR_S)
-+#define MATAGPERR_F    MATAGPERR_V(1U)
-+
-+#define INTXCLRPERR_S    21
-+#define INTXCLRPERR_V(x) ((x) << INTXCLRPERR_S)
-+#define INTXCLRPERR_F    INTXCLRPERR_V(1U)
-+
-+#define FIDPERR_S    20
-+#define FIDPERR_V(x) ((x) << FIDPERR_S)
-+#define FIDPERR_F    FIDPERR_V(1U)
-+
-+#define CFGSNPPERR_S    19
-+#define CFGSNPPERR_V(x) ((x) << CFGSNPPERR_S)
-+#define CFGSNPPERR_F    CFGSNPPERR_V(1U)
-+
-+#define HRSPPERR_S    18
-+#define HRSPPERR_V(x) ((x) << HRSPPERR_S)
-+#define HRSPPERR_F    HRSPPERR_V(1U)
-+
-+#define HREQPERR_S    17
-+#define HREQPERR_V(x) ((x) << HREQPERR_S)
-+#define HREQPERR_F    HREQPERR_V(1U)
-+
-+#define HCNTPERR_S    16
-+#define HCNTPERR_V(x) ((x) << HCNTPERR_S)
-+#define HCNTPERR_F    HCNTPERR_V(1U)
-+
-+#define DRSPPERR_S    15
-+#define DRSPPERR_V(x) ((x) << DRSPPERR_S)
-+#define DRSPPERR_F    DRSPPERR_V(1U)
-+
-+#define DREQPERR_S    14
-+#define DREQPERR_V(x) ((x) << DREQPERR_S)
-+#define DREQPERR_F    DREQPERR_V(1U)
-+
-+#define DCNTPERR_S    13
-+#define DCNTPERR_V(x) ((x) << DCNTPERR_S)
-+#define DCNTPERR_F    DCNTPERR_V(1U)
-+
-+#define CRSPPERR_S    12
-+#define CRSPPERR_V(x) ((x) << CRSPPERR_S)
-+#define CRSPPERR_F    CRSPPERR_V(1U)
-+
-+#define CREQPERR_S    11
-+#define CREQPERR_V(x) ((x) << CREQPERR_S)
-+#define CREQPERR_F    CREQPERR_V(1U)
-+
-+#define CCNTPERR_S    10
-+#define CCNTPERR_V(x) ((x) << CCNTPERR_S)
-+#define CCNTPERR_F    CCNTPERR_V(1U)
-+
-+#define TARTAGPERR_S    9
-+#define TARTAGPERR_V(x) ((x) << TARTAGPERR_S)
-+#define TARTAGPERR_F    TARTAGPERR_V(1U)
-+
-+#define PIOREQPERR_S    8
-+#define PIOREQPERR_V(x) ((x) << PIOREQPERR_S)
-+#define PIOREQPERR_F    PIOREQPERR_V(1U)
-+
-+#define PIOCPLPERR_S    7
-+#define PIOCPLPERR_V(x) ((x) << PIOCPLPERR_S)
-+#define PIOCPLPERR_F    PIOCPLPERR_V(1U)
-+
-+#define MSIXDIPERR_S    6
-+#define MSIXDIPERR_V(x) ((x) << MSIXDIPERR_S)
-+#define MSIXDIPERR_F    MSIXDIPERR_V(1U)
-+
-+#define MSIXDATAPERR_S    5
-+#define MSIXDATAPERR_V(x) ((x) << MSIXDATAPERR_S)
-+#define MSIXDATAPERR_F    MSIXDATAPERR_V(1U)
-+
-+#define MSIXADDRHPERR_S    4
-+#define MSIXADDRHPERR_V(x) ((x) << MSIXADDRHPERR_S)
-+#define MSIXADDRHPERR_F    MSIXADDRHPERR_V(1U)
-+
-+#define MSIXADDRLPERR_S    3
-+#define MSIXADDRLPERR_V(x) ((x) << MSIXADDRLPERR_S)
-+#define MSIXADDRLPERR_F    MSIXADDRLPERR_V(1U)
-+
-+#define MSIDATAPERR_S    2
-+#define MSIDATAPERR_V(x) ((x) << MSIDATAPERR_S)
-+#define MSIDATAPERR_F    MSIDATAPERR_V(1U)
-+
-+#define MSIADDRHPERR_S    1
-+#define MSIADDRHPERR_V(x) ((x) << MSIADDRHPERR_S)
-+#define MSIADDRHPERR_F    MSIADDRHPERR_V(1U)
-+
-+#define MSIADDRLPERR_S    0
-+#define MSIADDRLPERR_V(x) ((x) << MSIADDRLPERR_S)
-+#define MSIADDRLPERR_F    MSIADDRLPERR_V(1U)
-+
-+#define READRSPERR_S    29
-+#define READRSPERR_V(x) ((x) << READRSPERR_S)
-+#define READRSPERR_F    READRSPERR_V(1U)
-+
-+#define TRGT1GRPPERR_S    28
-+#define TRGT1GRPPERR_V(x) ((x) << TRGT1GRPPERR_S)
-+#define TRGT1GRPPERR_F    TRGT1GRPPERR_V(1U)
-+
-+#define IPSOTPERR_S    27
-+#define IPSOTPERR_V(x) ((x) << IPSOTPERR_S)
-+#define IPSOTPERR_F    IPSOTPERR_V(1U)
-+
-+#define IPRETRYPERR_S    26
-+#define IPRETRYPERR_V(x) ((x) << IPRETRYPERR_S)
-+#define IPRETRYPERR_F    IPRETRYPERR_V(1U)
-+
-+#define IPRXDATAGRPPERR_S    25
-+#define IPRXDATAGRPPERR_V(x) ((x) << IPRXDATAGRPPERR_S)
-+#define IPRXDATAGRPPERR_F    IPRXDATAGRPPERR_V(1U)
-+
-+#define IPRXHDRGRPPERR_S    24
-+#define IPRXHDRGRPPERR_V(x) ((x) << IPRXHDRGRPPERR_S)
-+#define IPRXHDRGRPPERR_F    IPRXHDRGRPPERR_V(1U)
-+
-+#define MAGRPPERR_S    22
-+#define MAGRPPERR_V(x) ((x) << MAGRPPERR_S)
-+#define MAGRPPERR_F    MAGRPPERR_V(1U)
-+
-+#define VFIDPERR_S    21
-+#define VFIDPERR_V(x) ((x) << VFIDPERR_S)
-+#define VFIDPERR_F    VFIDPERR_V(1U)
-+
-+#define HREQWRPERR_S    16
-+#define HREQWRPERR_V(x) ((x) << HREQWRPERR_S)
-+#define HREQWRPERR_F    HREQWRPERR_V(1U)
-+
-+#define DREQWRPERR_S    13
-+#define DREQWRPERR_V(x) ((x) << DREQWRPERR_S)
-+#define DREQWRPERR_F    DREQWRPERR_V(1U)
-+
-+#define CREQRDPERR_S    11
-+#define CREQRDPERR_V(x) ((x) << CREQRDPERR_S)
-+#define CREQRDPERR_F    CREQRDPERR_V(1U)
-+
-+#define MSTTAGQPERR_S    10
-+#define MSTTAGQPERR_V(x) ((x) << MSTTAGQPERR_S)
-+#define MSTTAGQPERR_F    MSTTAGQPERR_V(1U)
-+
-+#define PIOREQGRPPERR_S    8
-+#define PIOREQGRPPERR_V(x) ((x) << PIOREQGRPPERR_S)
-+#define PIOREQGRPPERR_F    PIOREQGRPPERR_V(1U)
-+
-+#define PIOCPLGRPPERR_S    7
-+#define PIOCPLGRPPERR_V(x) ((x) << PIOCPLGRPPERR_S)
-+#define PIOCPLGRPPERR_F    PIOCPLGRPPERR_V(1U)
-+
-+#define MSIXSTIPERR_S    2
-+#define MSIXSTIPERR_V(x) ((x) << MSIXSTIPERR_S)
-+#define MSIXSTIPERR_F    MSIXSTIPERR_V(1U)
-+
-+#define MSTTIMEOUTPERR_S    1
-+#define MSTTIMEOUTPERR_V(x) ((x) << MSTTIMEOUTPERR_S)
-+#define MSTTIMEOUTPERR_F    MSTTIMEOUTPERR_V(1U)
-+
-+#define MSTGRPPERR_S    0
-+#define MSTGRPPERR_V(x) ((x) << MSTGRPPERR_S)
-+#define MSTGRPPERR_F    MSTGRPPERR_V(1U)
-+
-+#define PCIE_NONFAT_ERR_A	0x3010
-+#define PCIE_CFG_SPACE_REQ_A	0x3060
-+#define PCIE_CFG_SPACE_DATA_A	0x3064
-+#define PCIE_MEM_ACCESS_BASE_WIN_A 0x3068
-+
-+#define PCIEOFST_S    10
-+#define PCIEOFST_M    0x3fffffU
-+#define PCIEOFST_G(x) (((x) >> PCIEOFST_S) & PCIEOFST_M)
-+
-+#define BIR_S    8
-+#define BIR_M    0x3U
-+#define BIR_V(x) ((x) << BIR_S)
-+#define BIR_G(x) (((x) >> BIR_S) & BIR_M)
-+
-+#define WINDOW_S    0
-+#define WINDOW_M    0xffU
-+#define WINDOW_V(x) ((x) << WINDOW_S)
-+#define WINDOW_G(x) (((x) >> WINDOW_S) & WINDOW_M)
-+
-+#define PCIE_MEM_ACCESS_OFFSET_A 0x306c
-+
-+#define ENABLE_S    30
-+#define ENABLE_V(x) ((x) << ENABLE_S)
-+#define ENABLE_F    ENABLE_V(1U)
-+
-+#define LOCALCFG_S    28
-+#define LOCALCFG_V(x) ((x) << LOCALCFG_S)
-+#define LOCALCFG_F    LOCALCFG_V(1U)
-+
-+#define FUNCTION_S    12
-+#define FUNCTION_V(x) ((x) << FUNCTION_S)
-+
-+#define REGISTER_S    0
-+#define REGISTER_V(x) ((x) << REGISTER_S)
-+
-+#define PFNUM_S    0
-+#define PFNUM_V(x) ((x) << PFNUM_S)
-+
-+#define PCIE_FW_A 0x30b8
-+
-+#define PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS_A 0x5908
-+
-+#define RNPP_S    31
-+#define RNPP_V(x) ((x) << RNPP_S)
-+#define RNPP_F    RNPP_V(1U)
-+
-+#define RPCP_S    29
-+#define RPCP_V(x) ((x) << RPCP_S)
-+#define RPCP_F    RPCP_V(1U)
-+
-+#define RCIP_S    27
-+#define RCIP_V(x) ((x) << RCIP_S)
-+#define RCIP_F    RCIP_V(1U)
-+
-+#define RCCP_S    26
-+#define RCCP_V(x) ((x) << RCCP_S)
-+#define RCCP_F    RCCP_V(1U)
-+
-+#define RFTP_S    23
-+#define RFTP_V(x) ((x) << RFTP_S)
-+#define RFTP_F    RFTP_V(1U)
-+
-+#define PTRP_S    20
-+#define PTRP_V(x) ((x) << PTRP_S)
-+#define PTRP_F    PTRP_V(1U)
-+
-+#define PCIE_CORE_UTL_PCI_EXPRESS_PORT_STATUS_A 0x59a4
-+
-+#define TPCP_S    30
-+#define TPCP_V(x) ((x) << TPCP_S)
-+#define TPCP_F    TPCP_V(1U)
-+
-+#define TNPP_S    29
-+#define TNPP_V(x) ((x) << TNPP_S)
-+#define TNPP_F    TNPP_V(1U)
-+
-+#define TFTP_S    28
-+#define TFTP_V(x) ((x) << TFTP_S)
-+#define TFTP_F    TFTP_V(1U)
-+
-+#define TCAP_S    27
-+#define TCAP_V(x) ((x) << TCAP_S)
-+#define TCAP_F    TCAP_V(1U)
-+
-+#define TCIP_S    26
-+#define TCIP_V(x) ((x) << TCIP_S)
-+#define TCIP_F    TCIP_V(1U)
-+
-+#define RCAP_S    25
-+#define RCAP_V(x) ((x) << RCAP_S)
-+#define RCAP_F    RCAP_V(1U)
-+
-+#define PLUP_S    23
-+#define PLUP_V(x) ((x) << PLUP_S)
-+#define PLUP_F    PLUP_V(1U)
-+
-+#define PLDN_S    22
-+#define PLDN_V(x) ((x) << PLDN_S)
-+#define PLDN_F    PLDN_V(1U)
-+
-+#define OTDD_S    21
-+#define OTDD_V(x) ((x) << OTDD_S)
-+#define OTDD_F    OTDD_V(1U)
-+
-+#define GTRP_S    20
-+#define GTRP_V(x) ((x) << GTRP_S)
-+#define GTRP_F    GTRP_V(1U)
-+
-+#define RDPE_S    18
-+#define RDPE_V(x) ((x) << RDPE_S)
-+#define RDPE_F    RDPE_V(1U)
-+
-+#define TDCE_S    17
-+#define TDCE_V(x) ((x) << TDCE_S)
-+#define TDCE_F    TDCE_V(1U)
-+
-+#define TDUE_S    16
-+#define TDUE_V(x) ((x) << TDUE_S)
-+#define TDUE_F    TDUE_V(1U)
+-#define LE_DB_CONFIG 0x19c04
+-#define  HASHEN 0x00100000U
+-
+-#define LE_DB_SERVER_INDEX 0x19c18
+-#define LE_DB_ACT_CNT_IPV4 0x19c20
+-#define LE_DB_ACT_CNT_IPV6 0x19c24
+-
+-#define LE_DB_INT_CAUSE 0x19c3c
+-#define  REQQPARERR 0x00010000U
+-#define  UNKNOWNCMD 0x00008000U
+-#define  PARITYERR  0x00000040U
+-#define  LIPMISS    0x00000020U
+-#define  LIP0       0x00000010U
+-
+-#define LE_DB_TID_HASHBASE 0x19df8
+-
+-#define NCSI_INT_CAUSE 0x1a0d8
+-#define  CIM_DM_PRTY_ERR 0x00000100U
+-#define  MPS_DM_PRTY_ERR 0x00000080U
+-#define  TXFIFO_PRTY_ERR 0x00000002U
+-#define  RXFIFO_PRTY_ERR 0x00000001U
+-
+-#define XGMAC_PORT_CFG2 0x1018
+-#define  PATEN   0x00040000U
+-#define  MAGICEN 0x00020000U
++#define CPL_INTR_CAUSE_A 0x19054
  
- #define MC_INT_CAUSE 0x7518
- #define MC_P_INT_CAUSE 0x41318
-@@ -663,7 +891,6 @@
- #define  MEM_WRAP_CLIENT_NUM_MASK   0x0000000fU
- #define  MEM_WRAP_CLIENT_NUM_SHIFT  0
- #define  MEM_WRAP_CLIENT_NUM_GET(x) (((x) & MEM_WRAP_CLIENT_NUM_MASK) >> MEM_WRAP_CLIENT_NUM_SHIFT)
--#define MA_PCIE_FW 0x30b8
- #define MA_PARITY_ERROR_STATUS 0x77f4
- #define MA_PARITY_ERROR_STATUS2 0x7804
+-#define XGMAC_PORT_MAGIC_MACID_LO 0x1024
+-#define XGMAC_PORT_MAGIC_MACID_HI 0x1028
++#define CIM_OP_MAP_PERR_S    5
++#define CIM_OP_MAP_PERR_V(x) ((x) << CIM_OP_MAP_PERR_S)
++#define CIM_OP_MAP_PERR_F    CIM_OP_MAP_PERR_V(1U)
++
++#define CIM_OVFL_ERROR_S    4
++#define CIM_OVFL_ERROR_V(x) ((x) << CIM_OVFL_ERROR_S)
++#define CIM_OVFL_ERROR_F    CIM_OVFL_ERROR_V(1U)
++
++#define TP_FRAMING_ERROR_S    3
++#define TP_FRAMING_ERROR_V(x) ((x) << TP_FRAMING_ERROR_S)
++#define TP_FRAMING_ERROR_F    TP_FRAMING_ERROR_V(1U)
++
++#define SGE_FRAMING_ERROR_S    2
++#define SGE_FRAMING_ERROR_V(x) ((x) << SGE_FRAMING_ERROR_S)
++#define SGE_FRAMING_ERROR_F    SGE_FRAMING_ERROR_V(1U)
++
++#define CIM_FRAMING_ERROR_S    1
++#define CIM_FRAMING_ERROR_V(x) ((x) << CIM_FRAMING_ERROR_S)
++#define CIM_FRAMING_ERROR_F    CIM_FRAMING_ERROR_V(1U)
++
++#define ZERO_SWITCH_ERROR_S    0
++#define ZERO_SWITCH_ERROR_V(x) ((x) << ZERO_SWITCH_ERROR_S)
++#define ZERO_SWITCH_ERROR_F    ZERO_SWITCH_ERROR_V(1U)
++
++#define SMB_INT_CAUSE_A 0x19090
++
++#define MSTTXFIFOPARINT_S    21
++#define MSTTXFIFOPARINT_V(x) ((x) << MSTTXFIFOPARINT_S)
++#define MSTTXFIFOPARINT_F    MSTTXFIFOPARINT_V(1U)
++
++#define MSTRXFIFOPARINT_S    20
++#define MSTRXFIFOPARINT_V(x) ((x) << MSTRXFIFOPARINT_S)
++#define MSTRXFIFOPARINT_F    MSTRXFIFOPARINT_V(1U)
++
++#define SLVFIFOPARINT_S    19
++#define SLVFIFOPARINT_V(x) ((x) << SLVFIFOPARINT_S)
++#define SLVFIFOPARINT_F    SLVFIFOPARINT_V(1U)
++
++#define ULP_RX_INT_CAUSE_A 0x19158
++#define ULP_RX_ISCSI_TAGMASK_A 0x19164
++#define ULP_RX_ISCSI_PSZ_A 0x19168
++
++#define HPZ3_S    24
++#define HPZ3_V(x) ((x) << HPZ3_S)
++
++#define HPZ2_S    16
++#define HPZ2_V(x) ((x) << HPZ2_S)
++
++#define HPZ1_S    8
++#define HPZ1_V(x) ((x) << HPZ1_S)
++
++#define HPZ0_S    0
++#define HPZ0_V(x) ((x) << HPZ0_S)
++
++#define ULP_RX_TDDP_PSZ_A 0x19178
++
++/* registers for module SF */
++#define SF_DATA_A 0x193f8
++#define SF_OP_A 0x193fc
++
++#define SF_BUSY_S    31
++#define SF_BUSY_V(x) ((x) << SF_BUSY_S)
++#define SF_BUSY_F    SF_BUSY_V(1U)
++
++#define SF_LOCK_S    4
++#define SF_LOCK_V(x) ((x) << SF_LOCK_S)
++#define SF_LOCK_F    SF_LOCK_V(1U)
++
++#define SF_CONT_S    3
++#define SF_CONT_V(x) ((x) << SF_CONT_S)
++#define SF_CONT_F    SF_CONT_V(1U)
++
++#define BYTECNT_S    1
++#define BYTECNT_V(x) ((x) << BYTECNT_S)
++
++#define OP_S    0
++#define OP_V(x) ((x) << OP_S)
++#define OP_F    OP_V(1U)
++
++#define PL_PF_INT_CAUSE_A 0x3c0
++
++#define PFSW_S    3
++#define PFSW_V(x) ((x) << PFSW_S)
++#define PFSW_F    PFSW_V(1U)
++
++#define PFCIM_S    1
++#define PFCIM_V(x) ((x) << PFCIM_S)
++#define PFCIM_F    PFCIM_V(1U)
++
++#define PL_PF_INT_ENABLE_A 0x3c4
++#define PL_PF_CTL_A 0x3c8
++
++#define PL_WHOAMI_A 0x19400
++
++#define SOURCEPF_S    8
++#define SOURCEPF_M    0x7U
++#define SOURCEPF_G(x) (((x) >> SOURCEPF_S) & SOURCEPF_M)
++
++#define PL_INT_CAUSE_A 0x1940c
++
++#define ULP_TX_S    27
++#define ULP_TX_V(x) ((x) << ULP_TX_S)
++#define ULP_TX_F    ULP_TX_V(1U)
++
++#define SGE_S    26
++#define SGE_V(x) ((x) << SGE_S)
++#define SGE_F    SGE_V(1U)
++
++#define CPL_SWITCH_S    24
++#define CPL_SWITCH_V(x) ((x) << CPL_SWITCH_S)
++#define CPL_SWITCH_F    CPL_SWITCH_V(1U)
++
++#define ULP_RX_S    23
++#define ULP_RX_V(x) ((x) << ULP_RX_S)
++#define ULP_RX_F    ULP_RX_V(1U)
++
++#define PM_RX_S    22
++#define PM_RX_V(x) ((x) << PM_RX_S)
++#define PM_RX_F    PM_RX_V(1U)
++
++#define PM_TX_S    21
++#define PM_TX_V(x) ((x) << PM_TX_S)
++#define PM_TX_F    PM_TX_V(1U)
++
++#define MA_S    20
++#define MA_V(x) ((x) << MA_S)
++#define MA_F    MA_V(1U)
  
+-#define XGMAC_PORT_EPIO_DATA0 0x10c0
+-#define XGMAC_PORT_EPIO_DATA1 0x10c4
+-#define XGMAC_PORT_EPIO_DATA2 0x10c8
+-#define XGMAC_PORT_EPIO_DATA3 0x10cc
+-#define XGMAC_PORT_EPIO_OP 0x10d0
+-#define  EPIOWR         0x00000100U
+-#define  ADDRESS_MASK   0x000000ffU
+-#define  ADDRESS_SHIFT  0
+-#define  ADDRESS(x)     ((x) << ADDRESS_SHIFT)
++#define TP_S    19
++#define TP_V(x) ((x) << TP_S)
++#define TP_F    TP_V(1U)
+ 
+-#define MAC_PORT_INT_CAUSE 0x8dc
+-#define XGMAC_PORT_INT_CAUSE 0x10dc
++#define LE_S    18
++#define LE_V(x) ((x) << LE_S)
++#define LE_F    LE_V(1U)
+ 
+-#define A_TP_TX_MOD_QUEUE_REQ_MAP 0x7e28
++#define EDC1_S    17
++#define EDC1_V(x) ((x) << EDC1_S)
++#define EDC1_F    EDC1_V(1U)
+ 
+-#define A_TP_TX_MOD_CHANNEL_WEIGHT 0x7e34
++#define EDC0_S    16
++#define EDC0_V(x) ((x) << EDC0_S)
++#define EDC0_F    EDC0_V(1U)
+ 
+-#define S_TX_MOD_QUEUE_REQ_MAP    0
+-#define M_TX_MOD_QUEUE_REQ_MAP    0xffffU
+-#define V_TX_MOD_QUEUE_REQ_MAP(x) ((x) << S_TX_MOD_QUEUE_REQ_MAP)
++#define MC_S    15
++#define MC_V(x) ((x) << MC_S)
++#define MC_F    MC_V(1U)
+ 
+-#define A_TP_TX_MOD_QUEUE_WEIGHT0 0x7e30
++#define PCIE_S    14
++#define PCIE_V(x) ((x) << PCIE_S)
++#define PCIE_F    PCIE_V(1U)
+ 
+-#define S_TX_MODQ_WEIGHT3    24
+-#define M_TX_MODQ_WEIGHT3    0xffU
+-#define V_TX_MODQ_WEIGHT3(x) ((x) << S_TX_MODQ_WEIGHT3)
++#define XGMAC_KR1_S    12
++#define XGMAC_KR1_V(x) ((x) << XGMAC_KR1_S)
++#define XGMAC_KR1_F    XGMAC_KR1_V(1U)
+ 
+-#define S_TX_MODQ_WEIGHT2    16
+-#define M_TX_MODQ_WEIGHT2    0xffU
+-#define V_TX_MODQ_WEIGHT2(x) ((x) << S_TX_MODQ_WEIGHT2)
++#define XGMAC_KR0_S    11
++#define XGMAC_KR0_V(x) ((x) << XGMAC_KR0_S)
++#define XGMAC_KR0_F    XGMAC_KR0_V(1U)
+ 
+-#define S_TX_MODQ_WEIGHT1    8
+-#define M_TX_MODQ_WEIGHT1    0xffU
+-#define V_TX_MODQ_WEIGHT1(x) ((x) << S_TX_MODQ_WEIGHT1)
++#define XGMAC1_S    10
++#define XGMAC1_V(x) ((x) << XGMAC1_S)
++#define XGMAC1_F    XGMAC1_V(1U)
+ 
+-#define S_TX_MODQ_WEIGHT0    0
+-#define M_TX_MODQ_WEIGHT0    0xffU
+-#define V_TX_MODQ_WEIGHT0(x) ((x) << S_TX_MODQ_WEIGHT0)
++#define XGMAC0_S    9
++#define XGMAC0_V(x) ((x) << XGMAC0_S)
++#define XGMAC0_F    XGMAC0_V(1U)
+ 
+-#define A_TP_TX_SCHED_HDR 0x23
++#define SMB_S    8
++#define SMB_V(x) ((x) << SMB_S)
++#define SMB_F    SMB_V(1U)
+ 
+-#define A_TP_TX_SCHED_FIFO 0x24
++#define SF_S    7
++#define SF_V(x) ((x) << SF_S)
++#define SF_F    SF_V(1U)
+ 
+-#define A_TP_TX_SCHED_PCMD 0x25
++#define PL_S    6
++#define PL_V(x) ((x) << PL_S)
++#define PL_F    PL_V(1U)
+ 
+-#define S_VNIC    11
+-#define V_VNIC(x) ((x) << S_VNIC)
+-#define F_VNIC    V_VNIC(1U)
++#define NCSI_S    5
++#define NCSI_V(x) ((x) << NCSI_S)
++#define NCSI_F    NCSI_V(1U)
+ 
+-#define S_FRAGMENTATION    9
+-#define V_FRAGMENTATION(x) ((x) << S_FRAGMENTATION)
+-#define F_FRAGMENTATION    V_FRAGMENTATION(1U)
++#define MPS_S    4
++#define MPS_V(x) ((x) << MPS_S)
++#define MPS_F    MPS_V(1U)
+ 
+-#define S_MPSHITTYPE    8
+-#define V_MPSHITTYPE(x) ((x) << S_MPSHITTYPE)
+-#define F_MPSHITTYPE    V_MPSHITTYPE(1U)
++#define CIM_S    0
++#define CIM_V(x) ((x) << CIM_S)
++#define CIM_F    CIM_V(1U)
+ 
+-#define S_MACMATCH    7
+-#define V_MACMATCH(x) ((x) << S_MACMATCH)
+-#define F_MACMATCH    V_MACMATCH(1U)
++#define MC1_S    31
+ 
+-#define S_ETHERTYPE    6
+-#define V_ETHERTYPE(x) ((x) << S_ETHERTYPE)
+-#define F_ETHERTYPE    V_ETHERTYPE(1U)
++#define PL_INT_ENABLE_A 0x19410
++#define PL_INT_MAP0_A 0x19414
++#define PL_RST_A 0x19428
+ 
+-#define S_PROTOCOL    5
+-#define V_PROTOCOL(x) ((x) << S_PROTOCOL)
+-#define F_PROTOCOL    V_PROTOCOL(1U)
++#define PIORST_S    1
++#define PIORST_V(x) ((x) << PIORST_S)
++#define PIORST_F    PIORST_V(1U)
+ 
+-#define S_TOS    4
+-#define V_TOS(x) ((x) << S_TOS)
+-#define F_TOS    V_TOS(1U)
++#define PIORSTMODE_S    0
++#define PIORSTMODE_V(x) ((x) << PIORSTMODE_S)
++#define PIORSTMODE_F    PIORSTMODE_V(1U)
+ 
+-#define S_VLAN    3
+-#define V_VLAN(x) ((x) << S_VLAN)
+-#define F_VLAN    V_VLAN(1U)
++#define PL_PL_INT_CAUSE_A 0x19430
+ 
+-#define S_VNIC_ID    2
+-#define V_VNIC_ID(x) ((x) << S_VNIC_ID)
+-#define F_VNIC_ID    V_VNIC_ID(1U)
++#define FATALPERR_S    4
++#define FATALPERR_V(x) ((x) << FATALPERR_S)
++#define FATALPERR_F    FATALPERR_V(1U)
+ 
+-#define S_PORT    1
+-#define V_PORT(x) ((x) << S_PORT)
+-#define F_PORT    V_PORT(1U)
++#define PERRVFID_S    0
++#define PERRVFID_V(x) ((x) << PERRVFID_S)
++#define PERRVFID_F    PERRVFID_V(1U)
+ 
+-#define S_FCOE    0
+-#define V_FCOE(x) ((x) << S_FCOE)
+-#define F_FCOE    V_FCOE(1U)
++#define PL_REV_A 0x1943c
++
++#define REV_S    0
++#define REV_M    0xfU
++#define REV_V(x) ((x) << REV_S)
++#define REV_G(x) (((x) >> REV_S) & REV_M)
++
++#define LE_DB_INT_CAUSE_A 0x19c3c
++
++#define REQQPARERR_S    16
++#define REQQPARERR_V(x) ((x) << REQQPARERR_S)
++#define REQQPARERR_F    REQQPARERR_V(1U)
++
++#define UNKNOWNCMD_S    15
++#define UNKNOWNCMD_V(x) ((x) << UNKNOWNCMD_S)
++#define UNKNOWNCMD_F    UNKNOWNCMD_V(1U)
++
++#define PARITYERR_S    6
++#define PARITYERR_V(x) ((x) << PARITYERR_S)
++#define PARITYERR_F    PARITYERR_V(1U)
++
++#define LIPMISS_S    5
++#define LIPMISS_V(x) ((x) << LIPMISS_S)
++#define LIPMISS_F    LIPMISS_V(1U)
++
++#define LIP0_S    4
++#define LIP0_V(x) ((x) << LIP0_S)
++#define LIP0_F    LIP0_V(1U)
++
++#define NCSI_INT_CAUSE_A 0x1a0d8
++
++#define CIM_DM_PRTY_ERR_S    8
++#define CIM_DM_PRTY_ERR_V(x) ((x) << CIM_DM_PRTY_ERR_S)
++#define CIM_DM_PRTY_ERR_F    CIM_DM_PRTY_ERR_V(1U)
++
++#define MPS_DM_PRTY_ERR_S    7
++#define MPS_DM_PRTY_ERR_V(x) ((x) << MPS_DM_PRTY_ERR_S)
++#define MPS_DM_PRTY_ERR_F    MPS_DM_PRTY_ERR_V(1U)
++
++#define TXFIFO_PRTY_ERR_S    1
++#define TXFIFO_PRTY_ERR_V(x) ((x) << TXFIFO_PRTY_ERR_S)
++#define TXFIFO_PRTY_ERR_F    TXFIFO_PRTY_ERR_V(1U)
++
++#define RXFIFO_PRTY_ERR_S    0
++#define RXFIFO_PRTY_ERR_V(x) ((x) << RXFIFO_PRTY_ERR_S)
++#define RXFIFO_PRTY_ERR_F    RXFIFO_PRTY_ERR_V(1U)
++
++#define XGMAC_PORT_CFG2_A 0x1018
++
++#define PATEN_S    18
++#define PATEN_V(x) ((x) << PATEN_S)
++#define PATEN_F    PATEN_V(1U)
++
++#define MAGICEN_S    17
++#define MAGICEN_V(x) ((x) << MAGICEN_S)
++#define MAGICEN_F    MAGICEN_V(1U)
++
++#define XGMAC_PORT_MAGIC_MACID_LO 0x1024
++#define XGMAC_PORT_MAGIC_MACID_HI 0x1028
++
++#define XGMAC_PORT_EPIO_DATA0_A 0x10c0
++#define XGMAC_PORT_EPIO_DATA1_A 0x10c4
++#define XGMAC_PORT_EPIO_DATA2_A 0x10c8
++#define XGMAC_PORT_EPIO_DATA3_A 0x10cc
++#define XGMAC_PORT_EPIO_OP_A 0x10d0
++
++#define EPIOWR_S    8
++#define EPIOWR_V(x) ((x) << EPIOWR_S)
++#define EPIOWR_F    EPIOWR_V(1U)
++
++#define ADDRESS_S    0
++#define ADDRESS_V(x) ((x) << ADDRESS_S)
++
++#define MAC_PORT_INT_CAUSE_A 0x8dc
++#define XGMAC_PORT_INT_CAUSE_A 0x10dc
++
++#define TP_TX_MOD_QUEUE_REQ_MAP_A 0x7e28
++
++#define TP_TX_MOD_QUEUE_WEIGHT0_A 0x7e30
++#define TP_TX_MOD_CHANNEL_WEIGHT_A 0x7e34
++
++#define TX_MOD_QUEUE_REQ_MAP_S    0
++#define TX_MOD_QUEUE_REQ_MAP_V(x) ((x) << TX_MOD_QUEUE_REQ_MAP_S)
++
++#define TX_MODQ_WEIGHT3_S    24
++#define TX_MODQ_WEIGHT3_V(x) ((x) << TX_MODQ_WEIGHT3_S)
++
++#define TX_MODQ_WEIGHT2_S    16
++#define TX_MODQ_WEIGHT2_V(x) ((x) << TX_MODQ_WEIGHT2_S)
++
++#define TX_MODQ_WEIGHT1_S    8
++#define TX_MODQ_WEIGHT1_V(x) ((x) << TX_MODQ_WEIGHT1_S)
++
++#define TX_MODQ_WEIGHT0_S    0
++#define TX_MODQ_WEIGHT0_V(x) ((x) << TX_MODQ_WEIGHT0_S)
++
++#define TP_TX_SCHED_HDR_A 0x23
++#define TP_TX_SCHED_FIFO_A 0x24
++#define TP_TX_SCHED_PCMD_A 0x25
+ 
+ #define NUM_MPS_CLS_SRAM_L_INSTANCES 336
+ #define NUM_MPS_T5_CLS_SRAM_L_INSTANCES 512
+@@ -1968,46 +2058,8 @@
+ #define EDC_STRIDE_T5 (EDC_T51_BASE_ADDR - EDC_T50_BASE_ADDR)
+ #define EDC_REG_T5(reg, idx) (reg + EDC_STRIDE_T5 * idx)
+ 
+-#define A_PL_VF_REV 0x4
+-#define A_PL_VF_WHOAMI 0x0
+-#define A_PL_VF_REVISION 0x8
+-
+-#define S_CHIPID    4
+-#define M_CHIPID    0xfU
+-#define V_CHIPID(x) ((x) << S_CHIPID)
+-#define G_CHIPID(x) (((x) >> S_CHIPID) & M_CHIPID)
+-
+-/* TP_VLAN_PRI_MAP controls which subset of fields will be present in the
+- * Compressed Filter Tuple for LE filters.  Each bit set in TP_VLAN_PRI_MAP
+- * selects for a particular field being present.  These fields, when present
+- * in the Compressed Filter Tuple, have the following widths in bits.
+- */
+-#define W_FT_FCOE                       1
+-#define W_FT_PORT                       3
+-#define W_FT_VNIC_ID                    17
+-#define W_FT_VLAN                       17
+-#define W_FT_TOS                        8
+-#define W_FT_PROTOCOL                   8
+-#define W_FT_ETHERTYPE                  16
+-#define W_FT_MACMATCH                   9
+-#define W_FT_MPSHITTYPE                 3
+-#define W_FT_FRAGMENTATION              1
+-
+-/* Some of the Compressed Filter Tuple fields have internal structure.  These
+- * bit shifts/masks describe those structures.  All shifts are relative to the
+- * base position of the fields within the Compressed Filter Tuple
+- */
+-#define S_FT_VLAN_VLD                   16
+-#define V_FT_VLAN_VLD(x)                ((x) << S_FT_VLAN_VLD)
+-#define F_FT_VLAN_VLD                   V_FT_VLAN_VLD(1U)
+-
+-#define S_FT_VNID_ID_VF                 0
+-#define V_FT_VNID_ID_VF(x)              ((x) << S_FT_VNID_ID_VF)
+-
+-#define S_FT_VNID_ID_PF                 7
+-#define V_FT_VNID_ID_PF(x)              ((x) << S_FT_VNID_ID_PF)
+-
+-#define S_FT_VNID_ID_VLD                16
+-#define V_FT_VNID_ID_VLD(x)             ((x) << S_FT_VNID_ID_VLD)
++#define PL_VF_REV_A 0x4
++#define PL_VF_WHOAMI_A 0x0
++#define PL_VF_REVISION_A 0x8
+ 
+ #endif /* __T4_REGS_H */
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_values.h b/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-index 7699686..ecf7459 100644
+index ecf7459..a404844 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-@@ -78,4 +78,8 @@
- #define SGE_UDB_GTS		20
- #define SGE_UDB_WCDOORBELL	64
+@@ -82,4 +82,37 @@
+ #define WINDOW_SHIFT_X		10
+ #define PCIEOFST_SHIFT_X	10
  
-+/* PCI-E definitions */
-+#define WINDOW_SHIFT_X		10
-+#define PCIEOFST_SHIFT_X	10
++/* TP_VLAN_PRI_MAP controls which subset of fields will be present in the
++ * Compressed Filter Tuple for LE filters.  Each bit set in TP_VLAN_PRI_MAP
++ * selects for a particular field being present.  These fields, when present
++ * in the Compressed Filter Tuple, have the following widths in bits.
++ */
++#define FT_FCOE_W                       1
++#define FT_PORT_W                       3
++#define FT_VNIC_ID_W                    17
++#define FT_VLAN_W                       17
++#define FT_TOS_W                        8
++#define FT_PROTOCOL_W                   8
++#define FT_ETHERTYPE_W                  16
++#define FT_MACMATCH_W                   9
++#define FT_MPSHITTYPE_W                 3
++#define FT_FRAGMENTATION_W              1
++
++/* Some of the Compressed Filter Tuple fields have internal structure.  These
++ * bit shifts/masks describe those structures.  All shifts are relative to the
++ * base position of the fields within the Compressed Filter Tuple
++ */
++#define FT_VLAN_VLD_S                   16
++#define FT_VLAN_VLD_V(x)                ((x) << FT_VLAN_VLD_S)
++#define FT_VLAN_VLD_F                   FT_VLAN_VLD_V(1U)
++
++#define FT_VNID_ID_VF_S                 0
++#define FT_VNID_ID_VF_V(x)              ((x) << FT_VNID_ID_VF_S)
++
++#define FT_VNID_ID_PF_S                 7
++#define FT_VNID_ID_PF_V(x)              ((x) << FT_VNID_ID_PF_S)
++
++#define FT_VNID_ID_VLD_S                16
++#define FT_VNID_ID_VLD_V(x)             ((x) << FT_VNID_ID_VLD_S)
 +
  #endif /* __T4_VALUES_H__ */
 diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index b645e33..aa9f9cd 100644
+index aa9f9cd..7bfbacd 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -2294,17 +2294,17 @@ static int adap_init0(struct adapter *adapter)
- 	 * threshold values from the SGE parameters.
- 	 */
- 	s->timer_val[0] = core_ticks_to_us(adapter,
--		TIMERVALUE0_GET(sge_params->sge_timer_value_0_and_1));
-+		TIMERVALUE0_G(sge_params->sge_timer_value_0_and_1));
- 	s->timer_val[1] = core_ticks_to_us(adapter,
--		TIMERVALUE1_GET(sge_params->sge_timer_value_0_and_1));
-+		TIMERVALUE1_G(sge_params->sge_timer_value_0_and_1));
- 	s->timer_val[2] = core_ticks_to_us(adapter,
--		TIMERVALUE0_GET(sge_params->sge_timer_value_2_and_3));
-+		TIMERVALUE0_G(sge_params->sge_timer_value_2_and_3));
- 	s->timer_val[3] = core_ticks_to_us(adapter,
--		TIMERVALUE1_GET(sge_params->sge_timer_value_2_and_3));
-+		TIMERVALUE1_G(sge_params->sge_timer_value_2_and_3));
- 	s->timer_val[4] = core_ticks_to_us(adapter,
--		TIMERVALUE0_GET(sge_params->sge_timer_value_4_and_5));
-+		TIMERVALUE0_G(sge_params->sge_timer_value_4_and_5));
- 	s->timer_val[5] = core_ticks_to_us(adapter,
--		TIMERVALUE1_GET(sge_params->sge_timer_value_4_and_5));
-+		TIMERVALUE1_G(sge_params->sge_timer_value_4_and_5));
- 
- 	s->counter_val[0] = THRESHOLD_0_G(sge_params->sge_ingress_rx_threshold);
- 	s->counter_val[1] = THRESHOLD_1_G(sge_params->sge_ingress_rx_threshold);
+@@ -1673,7 +1673,7 @@ static void cxgb4vf_get_regs(struct net_device *dev,
+ 	reg_block_dump(adapter, regbuf,
+ 		       T4VF_PL_BASE_ADDR + T4VF_MOD_MAP_PL_FIRST,
+ 		       T4VF_PL_BASE_ADDR + (is_t4(adapter->params.chip)
+-		       ? A_PL_VF_WHOAMI : A_PL_VF_REVISION));
++		       ? PL_VF_WHOAMI_A : PL_VF_REVISION_A));
+ 	reg_block_dump(adapter, regbuf,
+ 		       T4VF_CIM_BASE_ADDR + T4VF_MOD_MAP_CIM_FIRST,
+ 		       T4VF_CIM_BASE_ADDR + T4VF_MOD_MAP_CIM_LAST);
 diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-index 6929d1f..fa60f71 100644
+index 5e83c18..fcc6108 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-@@ -537,11 +537,11 @@ int t4vf_get_sge_params(struct adapter *adapter)
- 	params[3] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
- 		     FW_PARAMS_PARAM_XYZ_V(SGE_FL_BUFFER_SIZE1_A));
- 	params[4] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
--		     FW_PARAMS_PARAM_XYZ_V(SGE_TIMER_VALUE_0_AND_1));
-+		     FW_PARAMS_PARAM_XYZ_V(SGE_TIMER_VALUE_0_AND_1_A));
- 	params[5] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
--		     FW_PARAMS_PARAM_XYZ_V(SGE_TIMER_VALUE_2_AND_3));
-+		     FW_PARAMS_PARAM_XYZ_V(SGE_TIMER_VALUE_2_AND_3_A));
- 	params[6] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
--		     FW_PARAMS_PARAM_XYZ_V(SGE_TIMER_VALUE_4_AND_5));
-+		     FW_PARAMS_PARAM_XYZ_V(SGE_TIMER_VALUE_4_AND_5_A));
- 	v = t4vf_query_params(adapter, 7, params, vals);
- 	if (v)
- 		return v;
+@@ -616,8 +616,8 @@ int t4vf_get_sge_params(struct adapter *adapter)
+ 		 * the driver can just use it.
+ 		 */
+ 		whoami = t4_read_reg(adapter,
+-				     T4VF_PL_BASE_ADDR + A_PL_VF_WHOAMI);
+-		pf = SOURCEPF_GET(whoami);
++				     T4VF_PL_BASE_ADDR + PL_VF_WHOAMI_A);
++		pf = SOURCEPF_G(whoami);
+ 
+ 		s_hps = (HOSTPAGESIZEPF0_S +
+ 			 (HOSTPAGESIZEPF1_S - HOSTPAGESIZEPF0_S) * pf);
+@@ -1591,7 +1591,7 @@ int t4vf_prep_adapter(struct adapter *adapter)
+ 		break;
+ 
+ 	case CHELSIO_T5:
+-		chipid = G_REV(t4_read_reg(adapter, A_PL_VF_REV));
++		chipid = REV_G(t4_read_reg(adapter, PL_VF_REV_A));
+ 		adapter->params.chip |= CHELSIO_CHIP_CODE(CHELSIO_T5, chipid);
+ 		break;
+ 	}
 diff --git a/drivers/scsi/csiostor/csio_hw.c b/drivers/scsi/csiostor/csio_hw.c
-index 890d93a..04ec586 100644
+index c641931..6602835 100644
 --- a/drivers/scsi/csiostor/csio_hw.c
 +++ b/drivers/scsi/csiostor/csio_hw.c
-@@ -959,8 +959,8 @@ retry:
- 			 * timeout ... and then retry if we haven't exhausted
- 			 * our retries ...
- 			 */
--			pcie_fw = csio_rd_reg32(hw, PCIE_FW);
--			if (!(pcie_fw & (PCIE_FW_ERR|PCIE_FW_INIT))) {
-+			pcie_fw = csio_rd_reg32(hw, PCIE_FW_A);
-+			if (!(pcie_fw & (PCIE_FW_ERR_F|PCIE_FW_INIT_F))) {
- 				if (waiting <= 0) {
- 					if (retries-- > 0)
- 						goto retry;
-@@ -976,10 +976,10 @@ retry:
- 			 * report errors preferentially.
- 			 */
- 			if (state) {
--				if (pcie_fw & PCIE_FW_ERR) {
-+				if (pcie_fw & PCIE_FW_ERR_F) {
- 					*state = CSIO_DEV_STATE_ERR;
- 					rv = -ETIMEDOUT;
--				} else if (pcie_fw & PCIE_FW_INIT)
-+				} else if (pcie_fw & PCIE_FW_INIT_F)
- 					*state = CSIO_DEV_STATE_INIT;
- 			}
+@@ -421,17 +421,15 @@ csio_hw_sf1_read(struct csio_hw *hw, uint32_t byte_cnt, int32_t cont,
  
-@@ -988,9 +988,9 @@ retry:
- 			 * there's not a valid Master PF, grab its identity
- 			 * for our caller.
- 			 */
--			if (mpfn == PCIE_FW_MASTER_MASK &&
--			    (pcie_fw & PCIE_FW_MASTER_VLD))
--				mpfn = PCIE_FW_MASTER_GET(pcie_fw);
-+			if (mpfn == PCIE_FW_MASTER_M &&
-+			    (pcie_fw & PCIE_FW_MASTER_VLD_F))
-+				mpfn = PCIE_FW_MASTER_G(pcie_fw);
- 			break;
- 		}
- 		hw->flags &= ~CSIO_HWF_MASTER;
-@@ -1156,7 +1156,7 @@ csio_hw_fw_halt(struct csio_hw *hw, uint32_t mbox, int32_t force)
- 	 * If a legitimate mailbox is provided, issue a RESET command
- 	 * with a HALT indication.
- 	 */
--	if (mbox <= PCIE_FW_MASTER_MASK) {
-+	if (mbox <= PCIE_FW_MASTER_M) {
- 		struct csio_mb	*mbp;
+ 	if (!byte_cnt || byte_cnt > 4)
+ 		return -EINVAL;
+-	if (csio_rd_reg32(hw, SF_OP) & SF_BUSY)
++	if (csio_rd_reg32(hw, SF_OP_A) & SF_BUSY_F)
+ 		return -EBUSY;
  
- 		mbp = mempool_alloc(hw->mb_mempool, GFP_ATOMIC);
-@@ -1194,7 +1194,8 @@ csio_hw_fw_halt(struct csio_hw *hw, uint32_t mbox, int32_t force)
- 	 */
- 	if (retval == 0 || force) {
- 		csio_set_reg_field(hw, CIM_BOOT_CFG, UPCRST, UPCRST);
--		csio_set_reg_field(hw, PCIE_FW, PCIE_FW_HALT, PCIE_FW_HALT);
-+		csio_set_reg_field(hw, PCIE_FW_A, PCIE_FW_HALT_F,
-+				   PCIE_FW_HALT_F);
+-	cont = cont ? SF_CONT : 0;
+-	lock = lock ? SF_LOCK : 0;
+-
+-	csio_wr_reg32(hw, lock | cont | BYTECNT(byte_cnt - 1), SF_OP);
+-	ret = csio_hw_wait_op_done_val(hw, SF_OP, SF_BUSY, 0, SF_ATTEMPTS,
+-					 10, NULL);
++	csio_wr_reg32(hw,  SF_LOCK_V(lock) | SF_CONT_V(cont) |
++		      BYTECNT_V(byte_cnt - 1), SF_OP_A);
++	ret = csio_hw_wait_op_done_val(hw, SF_OP_A, SF_BUSY_F, 0, SF_ATTEMPTS,
++				       10, NULL);
+ 	if (!ret)
+-		*valp = csio_rd_reg32(hw, SF_DATA);
++		*valp = csio_rd_reg32(hw, SF_DATA_A);
+ 	return ret;
+ }
+ 
+@@ -453,16 +451,14 @@ csio_hw_sf1_write(struct csio_hw *hw, uint32_t byte_cnt, uint32_t cont,
+ {
+ 	if (!byte_cnt || byte_cnt > 4)
+ 		return -EINVAL;
+-	if (csio_rd_reg32(hw, SF_OP) & SF_BUSY)
++	if (csio_rd_reg32(hw, SF_OP_A) & SF_BUSY_F)
+ 		return -EBUSY;
+ 
+-	cont = cont ? SF_CONT : 0;
+-	lock = lock ? SF_LOCK : 0;
+-
+-	csio_wr_reg32(hw, val, SF_DATA);
+-	csio_wr_reg32(hw, cont | BYTECNT(byte_cnt - 1) | OP_WR | lock, SF_OP);
++	csio_wr_reg32(hw, val, SF_DATA_A);
++	csio_wr_reg32(hw, SF_CONT_V(cont) | BYTECNT_V(byte_cnt - 1) |
++		      OP_V(1) | SF_LOCK_V(lock), SF_OP_A);
+ 
+-	return csio_hw_wait_op_done_val(hw, SF_OP, SF_BUSY, 0, SF_ATTEMPTS,
++	return csio_hw_wait_op_done_val(hw, SF_OP_A, SF_BUSY_F, 0, SF_ATTEMPTS,
+ 					10, NULL);
+ }
+ 
+@@ -533,7 +529,7 @@ csio_hw_read_flash(struct csio_hw *hw, uint32_t addr, uint32_t nwords,
+ 	for ( ; nwords; nwords--, data++) {
+ 		ret = csio_hw_sf1_read(hw, 4, nwords > 1, nwords == 1, data);
+ 		if (nwords == 1)
+-			csio_wr_reg32(hw, 0, SF_OP);    /* unlock SF */
++			csio_wr_reg32(hw, 0, SF_OP_A);    /* unlock SF */
+ 		if (ret)
+ 			return ret;
+ 		if (byte_oriented)
+@@ -586,7 +582,7 @@ csio_hw_write_flash(struct csio_hw *hw, uint32_t addr,
+ 	if (ret)
+ 		goto unlock;
+ 
+-	csio_wr_reg32(hw, 0, SF_OP);    /* unlock SF */
++	csio_wr_reg32(hw, 0, SF_OP_A);    /* unlock SF */
+ 
+ 	/* Read the page to verify the write succeeded */
+ 	ret = csio_hw_read_flash(hw, addr & ~0xff, ARRAY_SIZE(buf), buf, 1);
+@@ -603,7 +599,7 @@ csio_hw_write_flash(struct csio_hw *hw, uint32_t addr,
+ 	return 0;
+ 
+ unlock:
+-	csio_wr_reg32(hw, 0, SF_OP);    /* unlock SF */
++	csio_wr_reg32(hw, 0, SF_OP_A);    /* unlock SF */
+ 	return ret;
+ }
+ 
+@@ -641,7 +637,7 @@ out:
+ 	if (ret)
+ 		csio_err(hw, "erase of flash sector %d failed, error %d\n",
+ 			 start, ret);
+-	csio_wr_reg32(hw, 0, SF_OP);    /* unlock SF */
++	csio_wr_reg32(hw, 0, SF_OP_A);    /* unlock SF */
+ 	return 0;
+ }
+ 
+@@ -833,7 +829,7 @@ csio_hw_get_flash_params(struct csio_hw *hw)
+ 	ret = csio_hw_sf1_write(hw, 1, 1, 0, SF_RD_ID);
+ 	if (!ret)
+ 		ret = csio_hw_sf1_read(hw, 3, 0, 1, &info);
+-	csio_wr_reg32(hw, 0, SF_OP);    /* unlock SF */
++	csio_wr_reg32(hw, 0, SF_OP_A);    /* unlock SF */
+ 	if (ret != 0)
+ 		return ret;
+ 
+@@ -861,17 +857,17 @@ csio_hw_dev_ready(struct csio_hw *hw)
+ 	uint32_t reg;
+ 	int cnt = 6;
+ 
+-	while (((reg = csio_rd_reg32(hw, PL_WHOAMI)) == 0xFFFFFFFF) &&
+-								(--cnt != 0))
++	while (((reg = csio_rd_reg32(hw, PL_WHOAMI_A)) == 0xFFFFFFFF) &&
++	       (--cnt != 0))
+ 		mdelay(100);
+ 
+-	if ((cnt == 0) && (((int32_t)(SOURCEPF_GET(reg)) < 0) ||
+-			    (SOURCEPF_GET(reg) >= CSIO_MAX_PFN))) {
++	if ((cnt == 0) && (((int32_t)(SOURCEPF_G(reg)) < 0) ||
++			   (SOURCEPF_G(reg) >= CSIO_MAX_PFN))) {
+ 		csio_err(hw, "PL_WHOAMI returned 0x%x, cnt:%d\n", reg, cnt);
+ 		return -EIO;
  	}
  
- 	/*
-@@ -1234,7 +1235,7 @@ csio_hw_fw_restart(struct csio_hw *hw, uint32_t mbox, int32_t reset)
- 		 * doing it automatically, we need to clear the PCIE_FW.HALT
- 		 * bit.
- 		 */
--		csio_set_reg_field(hw, PCIE_FW, PCIE_FW_HALT, 0);
-+		csio_set_reg_field(hw, PCIE_FW_A, PCIE_FW_HALT_F, 0);
+-	hw->pfn = SOURCEPF_GET(reg);
++	hw->pfn = SOURCEPF_G(reg);
  
- 		/*
- 		 * If we've been given a valid mailbox, first try to get the
-@@ -1243,7 +1244,7 @@ csio_hw_fw_restart(struct csio_hw *hw, uint32_t mbox, int32_t reset)
- 		 * valid mailbox or the RESET command failed, fall back to
- 		 * hitting the chip with a hammer.
- 		 */
--		if (mbox <= PCIE_FW_MASTER_MASK) {
-+		if (mbox <= PCIE_FW_MASTER_M) {
- 			csio_set_reg_field(hw, CIM_BOOT_CFG, UPCRST, 0);
- 			msleep(100);
- 			if (csio_do_reset(hw, true) == 0)
-@@ -1257,7 +1258,7 @@ csio_hw_fw_restart(struct csio_hw *hw, uint32_t mbox, int32_t reset)
+ 	return 0;
+ }
+@@ -1078,7 +1074,7 @@ csio_do_reset(struct csio_hw *hw, bool fw_rst)
  
- 		csio_set_reg_field(hw, CIM_BOOT_CFG, UPCRST, 0);
- 		for (ms = 0; ms < FW_CMD_MAX_TIMEOUT; ) {
--			if (!(csio_rd_reg32(hw, PCIE_FW) & PCIE_FW_HALT))
-+			if (!(csio_rd_reg32(hw, PCIE_FW_A) & PCIE_FW_HALT_F))
+ 	if (!fw_rst) {
+ 		/* PIO reset */
+-		csio_wr_reg32(hw, PIORSTMODE | PIORST, PL_RST);
++		csio_wr_reg32(hw, PIORSTMODE_F | PIORST_F, PL_RST_A);
+ 		mdelay(2000);
+ 		return 0;
+ 	}
+@@ -1090,7 +1086,7 @@ csio_do_reset(struct csio_hw *hw, bool fw_rst)
+ 	}
+ 
+ 	csio_mb_reset(hw, mbp, CSIO_MB_DEFAULT_TMO,
+-		      PIORSTMODE | PIORST, 0, NULL);
++		      PIORSTMODE_F | PIORST_F, 0, NULL);
+ 
+ 	if (csio_mb_issue(hw, mbp)) {
+ 		csio_err(hw, "Issue of RESET command failed.n");
+@@ -1166,7 +1162,7 @@ csio_hw_fw_halt(struct csio_hw *hw, uint32_t mbox, int32_t force)
+ 		}
+ 
+ 		csio_mb_reset(hw, mbp, CSIO_MB_DEFAULT_TMO,
+-			      PIORSTMODE | PIORST, FW_RESET_CMD_HALT_F,
++			      PIORSTMODE_F | PIORST_F, FW_RESET_CMD_HALT_F,
+ 			      NULL);
+ 
+ 		if (csio_mb_issue(hw, mbp)) {
+@@ -1251,7 +1247,7 @@ csio_hw_fw_restart(struct csio_hw *hw, uint32_t mbox, int32_t reset)
  				return 0;
- 			msleep(100);
- 			ms += 100;
-@@ -2237,11 +2238,11 @@ csio_hw_intr_enable(struct csio_hw *hw)
- 	 * by FW, so do nothing for INTX.
- 	 */
- 	if (hw->intr_mode == CSIO_IM_MSIX)
--		csio_set_reg_field(hw, MYPF_REG(PCIE_PF_CFG),
--				   AIVEC(AIVEC_MASK), vec);
-+		csio_set_reg_field(hw, MYPF_REG(PCIE_PF_CFG_A),
-+				   AIVEC_V(AIVEC_M), vec);
- 	else if (hw->intr_mode == CSIO_IM_MSI)
--		csio_set_reg_field(hw, MYPF_REG(PCIE_PF_CFG),
--				   AIVEC(AIVEC_MASK), 0);
-+		csio_set_reg_field(hw, MYPF_REG(PCIE_PF_CFG_A),
-+				   AIVEC_V(AIVEC_M), 0);
+ 		}
  
- 	csio_wr_reg32(hw, PF_INTR_MASK, MYPF_REG(PL_PF_INT_ENABLE));
+-		csio_wr_reg32(hw, PIORSTMODE | PIORST, PL_RST);
++		csio_wr_reg32(hw, PIORSTMODE_F | PIORST_F, PL_RST_A);
+ 		msleep(2000);
+ 	} else {
+ 		int ms;
+@@ -2040,7 +2036,7 @@ csio_hw_configure(struct csio_hw *hw)
+ 	}
  
+ 	/* HW version */
+-	hw->chip_ver = (char)csio_rd_reg32(hw, PL_REV);
++	hw->chip_ver = (char)csio_rd_reg32(hw, PL_REV_A);
+ 
+ 	/* Needed for FW download */
+ 	rv = csio_hw_get_flash_params(hw);
+@@ -2218,7 +2214,7 @@ out:
+ 	return;
+ }
+ 
+-#define PF_INTR_MASK (PFSW | PFCIM)
++#define PF_INTR_MASK (PFSW_F | PFCIM_F)
+ 
+ /*
+  * csio_hw_intr_enable - Enable HW interrupts
+@@ -2230,8 +2226,8 @@ static void
+ csio_hw_intr_enable(struct csio_hw *hw)
+ {
+ 	uint16_t vec = (uint16_t)csio_get_mb_intr_idx(csio_hw_to_mbm(hw));
+-	uint32_t pf = SOURCEPF_GET(csio_rd_reg32(hw, PL_WHOAMI));
+-	uint32_t pl = csio_rd_reg32(hw, PL_INT_ENABLE);
++	uint32_t pf = SOURCEPF_G(csio_rd_reg32(hw, PL_WHOAMI_A));
++	uint32_t pl = csio_rd_reg32(hw, PL_INT_ENABLE_A);
+ 
+ 	/*
+ 	 * Set aivec for MSI/MSIX. PCIE_PF_CFG.INTXType is set up
+@@ -2244,7 +2240,7 @@ csio_hw_intr_enable(struct csio_hw *hw)
+ 		csio_set_reg_field(hw, MYPF_REG(PCIE_PF_CFG_A),
+ 				   AIVEC_V(AIVEC_M), 0);
+ 
+-	csio_wr_reg32(hw, PF_INTR_MASK, MYPF_REG(PL_PF_INT_ENABLE));
++	csio_wr_reg32(hw, PF_INTR_MASK, MYPF_REG(PL_PF_INT_ENABLE_A));
+ 
+ 	/* Turn on MB interrupts - this will internally flush PIO as well */
+ 	csio_mb_intr_enable(hw);
+@@ -2254,8 +2250,8 @@ csio_hw_intr_enable(struct csio_hw *hw)
+ 		/*
+ 		 * Disable the Serial FLASH interrupt, if enabled!
+ 		 */
+-		pl &= (~SF);
+-		csio_wr_reg32(hw, pl, PL_INT_ENABLE);
++		pl &= (~SF_F);
++		csio_wr_reg32(hw, pl, PL_INT_ENABLE_A);
+ 
+ 		csio_wr_reg32(hw, ERR_CPL_EXCEED_IQE_SIZE_F |
+ 			      EGRESS_SIZE_ERR_F | ERR_INVALID_CIDX_INC_F |
+@@ -2266,7 +2262,7 @@ csio_hw_intr_enable(struct csio_hw *hw)
+ 			      ERR_BAD_DB_PIDX0_F | ERR_ING_CTXT_PRIO_F |
+ 			      ERR_EGR_CTXT_PRIO_F | INGRESS_SIZE_ERR_F,
+ 			      SGE_INT_ENABLE3_A);
+-		csio_set_reg_field(hw, PL_INT_MAP0, 0, 1 << pf);
++		csio_set_reg_field(hw, PL_INT_MAP0_A, 0, 1 << pf);
+ 	}
+ 
+ 	hw->flags |= CSIO_HWF_HW_INTR_ENABLED;
+@@ -2282,16 +2278,16 @@ csio_hw_intr_enable(struct csio_hw *hw)
+ void
+ csio_hw_intr_disable(struct csio_hw *hw)
+ {
+-	uint32_t pf = SOURCEPF_GET(csio_rd_reg32(hw, PL_WHOAMI));
++	uint32_t pf = SOURCEPF_G(csio_rd_reg32(hw, PL_WHOAMI_A));
+ 
+ 	if (!(hw->flags & CSIO_HWF_HW_INTR_ENABLED))
+ 		return;
+ 
+ 	hw->flags &= ~CSIO_HWF_HW_INTR_ENABLED;
+ 
+-	csio_wr_reg32(hw, 0, MYPF_REG(PL_PF_INT_ENABLE));
++	csio_wr_reg32(hw, 0, MYPF_REG(PL_PF_INT_ENABLE_A));
+ 	if (csio_is_hw_master(hw))
+-		csio_set_reg_field(hw, PL_INT_MAP0, 1 << pf, 0);
++		csio_set_reg_field(hw, PL_INT_MAP0_A, 1 << pf, 0);
+ 
+ 	/* Turn off MB interrupts */
+ 	csio_mb_intr_disable(hw);
+@@ -2595,7 +2591,7 @@ csio_hws_removing(struct csio_hw *hw, enum csio_hw_ev evt)
+ 		 * register directly.
+ 		 */
+ 		csio_err(hw, "Resetting HW and waiting 2 seconds...\n");
+-		csio_wr_reg32(hw, PIORSTMODE | PIORST, PL_RST);
++		csio_wr_reg32(hw, PIORSTMODE_F | PIORST_F, PL_RST_A);
+ 		mdelay(2000);
+ 		break;
+ 
+@@ -2814,7 +2810,7 @@ static void csio_ulprx_intr_handler(struct csio_hw *hw)
+ 		{ 0, NULL, 0, 0 }
+ 	};
+ 
+-	if (csio_handle_intr_status(hw, ULP_RX_INT_CAUSE, ulprx_intr_info))
++	if (csio_handle_intr_status(hw, ULP_RX_INT_CAUSE_A, ulprx_intr_info))
+ 		csio_hw_fatal_err(hw);
+ }
+ 
+@@ -2889,16 +2885,16 @@ static void csio_pmrx_intr_handler(struct csio_hw *hw)
+ static void csio_cplsw_intr_handler(struct csio_hw *hw)
+ {
+ 	static struct intr_info cplsw_intr_info[] = {
+-		{ CIM_OP_MAP_PERR, "CPLSW CIM op_map parity error", -1, 1 },
+-		{ CIM_OVFL_ERROR, "CPLSW CIM overflow", -1, 1 },
+-		{ TP_FRAMING_ERROR, "CPLSW TP framing error", -1, 1 },
+-		{ SGE_FRAMING_ERROR, "CPLSW SGE framing error", -1, 1 },
+-		{ CIM_FRAMING_ERROR, "CPLSW CIM framing error", -1, 1 },
+-		{ ZERO_SWITCH_ERROR, "CPLSW no-switch error", -1, 1 },
++		{ CIM_OP_MAP_PERR_F, "CPLSW CIM op_map parity error", -1, 1 },
++		{ CIM_OVFL_ERROR_F, "CPLSW CIM overflow", -1, 1 },
++		{ TP_FRAMING_ERROR_F, "CPLSW TP framing error", -1, 1 },
++		{ SGE_FRAMING_ERROR_F, "CPLSW SGE framing error", -1, 1 },
++		{ CIM_FRAMING_ERROR_F, "CPLSW CIM framing error", -1, 1 },
++		{ ZERO_SWITCH_ERROR_F, "CPLSW no-switch error", -1, 1 },
+ 		{ 0, NULL, 0, 0 }
+ 	};
+ 
+-	if (csio_handle_intr_status(hw, CPL_INTR_CAUSE, cplsw_intr_info))
++	if (csio_handle_intr_status(hw, CPL_INTR_CAUSE_A, cplsw_intr_info))
+ 		csio_hw_fatal_err(hw);
+ }
+ 
+@@ -2908,15 +2904,15 @@ static void csio_cplsw_intr_handler(struct csio_hw *hw)
+ static void csio_le_intr_handler(struct csio_hw *hw)
+ {
+ 	static struct intr_info le_intr_info[] = {
+-		{ LIPMISS, "LE LIP miss", -1, 0 },
+-		{ LIP0, "LE 0 LIP error", -1, 0 },
+-		{ PARITYERR, "LE parity error", -1, 1 },
+-		{ UNKNOWNCMD, "LE unknown command", -1, 1 },
+-		{ REQQPARERR, "LE request queue parity error", -1, 1 },
++		{ LIPMISS_F, "LE LIP miss", -1, 0 },
++		{ LIP0_F, "LE 0 LIP error", -1, 0 },
++		{ PARITYERR_F, "LE parity error", -1, 1 },
++		{ UNKNOWNCMD_F, "LE unknown command", -1, 1 },
++		{ REQQPARERR_F, "LE request queue parity error", -1, 1 },
+ 		{ 0, NULL, 0, 0 }
+ 	};
+ 
+-	if (csio_handle_intr_status(hw, LE_DB_INT_CAUSE, le_intr_info))
++	if (csio_handle_intr_status(hw, LE_DB_INT_CAUSE_A, le_intr_info))
+ 		csio_hw_fatal_err(hw);
+ }
+ 
+@@ -3054,13 +3050,13 @@ static void csio_ma_intr_handler(struct csio_hw *hw)
+ static void csio_smb_intr_handler(struct csio_hw *hw)
+ {
+ 	static struct intr_info smb_intr_info[] = {
+-		{ MSTTXFIFOPARINT, "SMB master Tx FIFO parity error", -1, 1 },
+-		{ MSTRXFIFOPARINT, "SMB master Rx FIFO parity error", -1, 1 },
+-		{ SLVFIFOPARINT, "SMB slave FIFO parity error", -1, 1 },
++		{ MSTTXFIFOPARINT_F, "SMB master Tx FIFO parity error", -1, 1 },
++		{ MSTRXFIFOPARINT_F, "SMB master Rx FIFO parity error", -1, 1 },
++		{ SLVFIFOPARINT_F, "SMB slave FIFO parity error", -1, 1 },
+ 		{ 0, NULL, 0, 0 }
+ 	};
+ 
+-	if (csio_handle_intr_status(hw, SMB_INT_CAUSE, smb_intr_info))
++	if (csio_handle_intr_status(hw, SMB_INT_CAUSE_A, smb_intr_info))
+ 		csio_hw_fatal_err(hw);
+ }
+ 
+@@ -3070,14 +3066,14 @@ static void csio_smb_intr_handler(struct csio_hw *hw)
+ static void csio_ncsi_intr_handler(struct csio_hw *hw)
+ {
+ 	static struct intr_info ncsi_intr_info[] = {
+-		{ CIM_DM_PRTY_ERR, "NC-SI CIM parity error", -1, 1 },
+-		{ MPS_DM_PRTY_ERR, "NC-SI MPS parity error", -1, 1 },
+-		{ TXFIFO_PRTY_ERR, "NC-SI Tx FIFO parity error", -1, 1 },
+-		{ RXFIFO_PRTY_ERR, "NC-SI Rx FIFO parity error", -1, 1 },
++		{ CIM_DM_PRTY_ERR_F, "NC-SI CIM parity error", -1, 1 },
++		{ MPS_DM_PRTY_ERR_F, "NC-SI MPS parity error", -1, 1 },
++		{ TXFIFO_PRTY_ERR_F, "NC-SI Tx FIFO parity error", -1, 1 },
++		{ RXFIFO_PRTY_ERR_F, "NC-SI Rx FIFO parity error", -1, 1 },
+ 		{ 0, NULL, 0, 0 }
+ 	};
+ 
+-	if (csio_handle_intr_status(hw, NCSI_INT_CAUSE, ncsi_intr_info))
++	if (csio_handle_intr_status(hw, NCSI_INT_CAUSE_A, ncsi_intr_info))
+ 		csio_hw_fatal_err(hw);
+ }
+ 
+@@ -3088,13 +3084,13 @@ static void csio_xgmac_intr_handler(struct csio_hw *hw, int port)
+ {
+ 	uint32_t v = csio_rd_reg32(hw, CSIO_MAC_INT_CAUSE_REG(hw, port));
+ 
+-	v &= TXFIFO_PRTY_ERR | RXFIFO_PRTY_ERR;
++	v &= TXFIFO_PRTY_ERR_F | RXFIFO_PRTY_ERR_F;
+ 	if (!v)
+ 		return;
+ 
+-	if (v & TXFIFO_PRTY_ERR)
++	if (v & TXFIFO_PRTY_ERR_F)
+ 		csio_fatal(hw, "XGMAC %d Tx FIFO parity error\n", port);
+-	if (v & RXFIFO_PRTY_ERR)
++	if (v & RXFIFO_PRTY_ERR_F)
+ 		csio_fatal(hw, "XGMAC %d Rx FIFO parity error\n", port);
+ 	csio_wr_reg32(hw, v, CSIO_MAC_INT_CAUSE_REG(hw, port));
+ 	csio_hw_fatal_err(hw);
+@@ -3106,12 +3102,12 @@ static void csio_xgmac_intr_handler(struct csio_hw *hw, int port)
+ static void csio_pl_intr_handler(struct csio_hw *hw)
+ {
+ 	static struct intr_info pl_intr_info[] = {
+-		{ FATALPERR, "T4 fatal parity error", -1, 1 },
+-		{ PERRVFID, "PL VFID_MAP parity error", -1, 1 },
++		{ FATALPERR_F, "T4 fatal parity error", -1, 1 },
++		{ PERRVFID_F, "PL VFID_MAP parity error", -1, 1 },
+ 		{ 0, NULL, 0, 0 }
+ 	};
+ 
+-	if (csio_handle_intr_status(hw, PL_PL_INT_CAUSE, pl_intr_info))
++	if (csio_handle_intr_status(hw, PL_PL_INT_CAUSE_A, pl_intr_info))
+ 		csio_hw_fatal_err(hw);
+ }
+ 
+@@ -3126,7 +3122,7 @@ static void csio_pl_intr_handler(struct csio_hw *hw)
+ int
+ csio_hw_slow_intr_handler(struct csio_hw *hw)
+ {
+-	uint32_t cause = csio_rd_reg32(hw, PL_INT_CAUSE);
++	uint32_t cause = csio_rd_reg32(hw, PL_INT_CAUSE_A);
+ 
+ 	if (!(cause & CSIO_GLBL_INTR_MASK)) {
+ 		CSIO_INC_STATS(hw, n_plint_unexp);
+@@ -3137,75 +3133,75 @@ csio_hw_slow_intr_handler(struct csio_hw *hw)
+ 
+ 	CSIO_INC_STATS(hw, n_plint_cnt);
+ 
+-	if (cause & CIM)
++	if (cause & CIM_F)
+ 		csio_cim_intr_handler(hw);
+ 
+-	if (cause & MPS)
++	if (cause & MPS_F)
+ 		csio_mps_intr_handler(hw);
+ 
+-	if (cause & NCSI)
++	if (cause & NCSI_F)
+ 		csio_ncsi_intr_handler(hw);
+ 
+-	if (cause & PL)
++	if (cause & PL_F)
+ 		csio_pl_intr_handler(hw);
+ 
+-	if (cause & SMB)
++	if (cause & SMB_F)
+ 		csio_smb_intr_handler(hw);
+ 
+-	if (cause & XGMAC0)
++	if (cause & XGMAC0_F)
+ 		csio_xgmac_intr_handler(hw, 0);
+ 
+-	if (cause & XGMAC1)
++	if (cause & XGMAC1_F)
+ 		csio_xgmac_intr_handler(hw, 1);
+ 
+-	if (cause & XGMAC_KR0)
++	if (cause & XGMAC_KR0_F)
+ 		csio_xgmac_intr_handler(hw, 2);
+ 
+-	if (cause & XGMAC_KR1)
++	if (cause & XGMAC_KR1_F)
+ 		csio_xgmac_intr_handler(hw, 3);
+ 
+-	if (cause & PCIE)
++	if (cause & PCIE_F)
+ 		hw->chip_ops->chip_pcie_intr_handler(hw);
+ 
+-	if (cause & MC)
++	if (cause & MC_F)
+ 		csio_mem_intr_handler(hw, MEM_MC);
+ 
+-	if (cause & EDC0)
++	if (cause & EDC0_F)
+ 		csio_mem_intr_handler(hw, MEM_EDC0);
+ 
+-	if (cause & EDC1)
++	if (cause & EDC1_F)
+ 		csio_mem_intr_handler(hw, MEM_EDC1);
+ 
+-	if (cause & LE)
++	if (cause & LE_F)
+ 		csio_le_intr_handler(hw);
+ 
+-	if (cause & TP)
++	if (cause & TP_F)
+ 		csio_tp_intr_handler(hw);
+ 
+-	if (cause & MA)
++	if (cause & MA_F)
+ 		csio_ma_intr_handler(hw);
+ 
+-	if (cause & PM_TX)
++	if (cause & PM_TX_F)
+ 		csio_pmtx_intr_handler(hw);
+ 
+-	if (cause & PM_RX)
++	if (cause & PM_RX_F)
+ 		csio_pmrx_intr_handler(hw);
+ 
+-	if (cause & ULP_RX)
++	if (cause & ULP_RX_F)
+ 		csio_ulprx_intr_handler(hw);
+ 
+-	if (cause & CPL_SWITCH)
++	if (cause & CPL_SWITCH_F)
+ 		csio_cplsw_intr_handler(hw);
+ 
+-	if (cause & SGE)
++	if (cause & SGE_F)
+ 		csio_sge_intr_handler(hw);
+ 
+-	if (cause & ULP_TX)
++	if (cause & ULP_TX_F)
+ 		csio_ulptx_intr_handler(hw);
+ 
+ 	/* Clear the interrupts just processed for which we are the master. */
+-	csio_wr_reg32(hw, cause & CSIO_GLBL_INTR_MASK, PL_INT_CAUSE);
+-	csio_rd_reg32(hw, PL_INT_CAUSE); /* flush */
++	csio_wr_reg32(hw, cause & CSIO_GLBL_INTR_MASK, PL_INT_CAUSE_A);
++	csio_rd_reg32(hw, PL_INT_CAUSE_A); /* flush */
+ 
+ 	return 1;
+ }
+diff --git a/drivers/scsi/csiostor/csio_hw.h b/drivers/scsi/csiostor/csio_hw.h
+index 68248da..bd97204 100644
+--- a/drivers/scsi/csiostor/csio_hw.h
++++ b/drivers/scsi/csiostor/csio_hw.h
+@@ -117,10 +117,10 @@ extern int csio_msi;
+ #define CSIO_ASIC_DEVID_PROTO_MASK		0xFF00
+ #define CSIO_ASIC_DEVID_TYPE_MASK		0x00FF
+ 
+-#define CSIO_GLBL_INTR_MASK		(CIM | MPS | PL | PCIE | MC | EDC0 | \
+-					 EDC1 | LE | TP | MA | PM_TX | PM_RX | \
+-					 ULP_RX | CPL_SWITCH | SGE | \
+-					 ULP_TX | SF)
++#define CSIO_GLBL_INTR_MASK	(CIM_F | MPS_F | PL_F | PCIE_F | MC_F | \
++				 EDC0_F | EDC1_F | LE_F | TP_F | MA_F | \
++				 PM_TX_F | PM_RX_F | ULP_RX_F | \
++				 CPL_SWITCH_F | SGE_F | ULP_TX_F | SF_F)
+ 
+ /*
+  * Hard parameters used to initialize the card in the absence of a
 diff --git a/drivers/scsi/csiostor/csio_hw_chip.h b/drivers/scsi/csiostor/csio_hw_chip.h
-index 3bc9cf4..0198662 100644
+index 0198662..70c0bdd 100644
 --- a/drivers/scsi/csiostor/csio_hw_chip.h
 +++ b/drivers/scsi/csiostor/csio_hw_chip.h
-@@ -71,10 +71,10 @@ static inline int csio_is_t5(uint16_t chip)
- 
- #define CSIO_HW_LP_INT_THRESH(hw, val)					\
- 	(csio_is_t4(hw->chip_id) ? (LP_INT_THRESH_V(val)) :		\
--					(V_LP_INT_THRESH_T5(val)))
-+					(LP_INT_THRESH_T5_V(val)))
- 
- #define CSIO_HW_M_LP_INT_THRESH(hw)					\
--	(csio_is_t4(hw->chip_id) ? (LP_INT_THRESH_M) : (M_LP_INT_THRESH_T5))
-+	(csio_is_t4(hw->chip_id) ? (LP_INT_THRESH_M) : (LP_INT_THRESH_T5_M))
+@@ -77,8 +77,8 @@ static inline int csio_is_t5(uint16_t chip)
+ 	(csio_is_t4(hw->chip_id) ? (LP_INT_THRESH_M) : (LP_INT_THRESH_T5_M))
  
  #define CSIO_MAC_INT_CAUSE_REG(hw, port)				\
- 	(csio_is_t4(hw->chip_id) ? (PORT_REG(port, XGMAC_PORT_INT_CAUSE)) : \
-diff --git a/drivers/scsi/csiostor/csio_hw_t4.c b/drivers/scsi/csiostor/csio_hw_t4.c
-index 95d8318..d0dac67 100644
---- a/drivers/scsi/csiostor/csio_hw_t4.c
-+++ b/drivers/scsi/csiostor/csio_hw_t4.c
-@@ -96,11 +96,11 @@ csio_t4_set_mem_win(struct csio_hw *hw, uint32_t win)
- 	 * back MA register to ensure that changes propagate before we attempt
- 	 * to use the new values.)
+-	(csio_is_t4(hw->chip_id) ? (PORT_REG(port, XGMAC_PORT_INT_CAUSE)) : \
+-				(T5_PORT_REG(port, MAC_PORT_INT_CAUSE)))
++	(csio_is_t4(hw->chip_id) ? (PORT_REG(port, XGMAC_PORT_INT_CAUSE_A)) : \
++				(T5_PORT_REG(port, MAC_PORT_INT_CAUSE_A)))
+ 
+ #define FW_VERSION_MAJOR(hw) (csio_is_t4(hw->chip_id) ? 1 : 0)
+ #define FW_VERSION_MINOR(hw) (csio_is_t4(hw->chip_id) ? 2 : 0)
+diff --git a/drivers/scsi/csiostor/csio_mb.c b/drivers/scsi/csiostor/csio_mb.c
+index cb53985..1132c41 100644
+--- a/drivers/scsi/csiostor/csio_mb.c
++++ b/drivers/scsi/csiostor/csio_mb.c
+@@ -1464,10 +1464,10 @@ csio_mb_isr_handler(struct csio_hw *hw)
+ 	__be64			hdr;
+ 	struct fw_cmd_hdr	*fw_hdr;
+ 
+-	pl_cause = csio_rd_reg32(hw, MYPF_REG(PL_PF_INT_CAUSE));
++	pl_cause = csio_rd_reg32(hw, MYPF_REG(PL_PF_INT_CAUSE_A));
+ 	cim_cause = csio_rd_reg32(hw, MYPF_REG(CIM_PF_HOST_INT_CAUSE_A));
+ 
+-	if (!(pl_cause & PFCIM) || !(cim_cause & MBMSGRDYINT_F)) {
++	if (!(pl_cause & PFCIM_F) || !(cim_cause & MBMSGRDYINT_F)) {
+ 		CSIO_INC_STATS(hw, n_mbint_unexp);
+ 		return -EINVAL;
+ 	}
+@@ -1479,7 +1479,7 @@ csio_mb_isr_handler(struct csio_hw *hw)
+ 	 * first followed by PL-Cause next.
  	 */
--	csio_wr_reg32(hw, mem_win_base | BIR(0) |
--			  WINDOW(ilog2(MEMWIN_APERTURE) - 10),
--			  PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, win));
-+	csio_wr_reg32(hw, mem_win_base | BIR_V(0) |
-+			  WINDOW_V(ilog2(MEMWIN_APERTURE) - 10),
-+			  PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN_A, win));
- 	csio_rd_reg32(hw,
--		      PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, win));
-+		      PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN_A, win));
- 	return 0;
- }
+ 	csio_wr_reg32(hw, MBMSGRDYINT_F, MYPF_REG(CIM_PF_HOST_INT_CAUSE_A));
+-	csio_wr_reg32(hw, PFCIM, MYPF_REG(PL_PF_INT_CAUSE));
++	csio_wr_reg32(hw, PFCIM_F, MYPF_REG(PL_PF_INT_CAUSE_A));
  
-@@ -111,69 +111,69 @@ static void
- csio_t4_pcie_intr_handler(struct csio_hw *hw)
- {
- 	static struct intr_info sysbus_intr_info[] = {
--		{ RNPP, "RXNP array parity error", -1, 1 },
--		{ RPCP, "RXPC array parity error", -1, 1 },
--		{ RCIP, "RXCIF array parity error", -1, 1 },
--		{ RCCP, "Rx completions control array parity error", -1, 1 },
--		{ RFTP, "RXFT array parity error", -1, 1 },
-+		{ RNPP_F, "RXNP array parity error", -1, 1 },
-+		{ RPCP_F, "RXPC array parity error", -1, 1 },
-+		{ RCIP_F, "RXCIF array parity error", -1, 1 },
-+		{ RCCP_F, "Rx completions control array parity error", -1, 1 },
-+		{ RFTP_F, "RXFT array parity error", -1, 1 },
- 		{ 0, NULL, 0, 0 }
- 	};
- 	static struct intr_info pcie_port_intr_info[] = {
--		{ TPCP, "TXPC array parity error", -1, 1 },
--		{ TNPP, "TXNP array parity error", -1, 1 },
--		{ TFTP, "TXFT array parity error", -1, 1 },
--		{ TCAP, "TXCA array parity error", -1, 1 },
--		{ TCIP, "TXCIF array parity error", -1, 1 },
--		{ RCAP, "RXCA array parity error", -1, 1 },
--		{ OTDD, "outbound request TLP discarded", -1, 1 },
--		{ RDPE, "Rx data parity error", -1, 1 },
--		{ TDUE, "Tx uncorrectable data error", -1, 1 },
-+		{ TPCP_F, "TXPC array parity error", -1, 1 },
-+		{ TNPP_F, "TXNP array parity error", -1, 1 },
-+		{ TFTP_F, "TXFT array parity error", -1, 1 },
-+		{ TCAP_F, "TXCA array parity error", -1, 1 },
-+		{ TCIP_F, "TXCIF array parity error", -1, 1 },
-+		{ RCAP_F, "RXCA array parity error", -1, 1 },
-+		{ OTDD_F, "outbound request TLP discarded", -1, 1 },
-+		{ RDPE_F, "Rx data parity error", -1, 1 },
-+		{ TDUE_F, "Tx uncorrectable data error", -1, 1 },
- 		{ 0, NULL, 0, 0 }
- 	};
+ 	ctl = csio_rd_reg32(hw, ctl_reg);
  
- 	static struct intr_info pcie_intr_info[] = {
--		{ MSIADDRLPERR, "MSI AddrL parity error", -1, 1 },
--		{ MSIADDRHPERR, "MSI AddrH parity error", -1, 1 },
--		{ MSIDATAPERR, "MSI data parity error", -1, 1 },
--		{ MSIXADDRLPERR, "MSI-X AddrL parity error", -1, 1 },
--		{ MSIXADDRHPERR, "MSI-X AddrH parity error", -1, 1 },
--		{ MSIXDATAPERR, "MSI-X data parity error", -1, 1 },
--		{ MSIXDIPERR, "MSI-X DI parity error", -1, 1 },
--		{ PIOCPLPERR, "PCI PIO completion FIFO parity error", -1, 1 },
--		{ PIOREQPERR, "PCI PIO request FIFO parity error", -1, 1 },
--		{ TARTAGPERR, "PCI PCI target tag FIFO parity error", -1, 1 },
--		{ CCNTPERR, "PCI CMD channel count parity error", -1, 1 },
--		{ CREQPERR, "PCI CMD channel request parity error", -1, 1 },
--		{ CRSPPERR, "PCI CMD channel response parity error", -1, 1 },
--		{ DCNTPERR, "PCI DMA channel count parity error", -1, 1 },
--		{ DREQPERR, "PCI DMA channel request parity error", -1, 1 },
--		{ DRSPPERR, "PCI DMA channel response parity error", -1, 1 },
--		{ HCNTPERR, "PCI HMA channel count parity error", -1, 1 },
--		{ HREQPERR, "PCI HMA channel request parity error", -1, 1 },
--		{ HRSPPERR, "PCI HMA channel response parity error", -1, 1 },
--		{ CFGSNPPERR, "PCI config snoop FIFO parity error", -1, 1 },
--		{ FIDPERR, "PCI FID parity error", -1, 1 },
--		{ INTXCLRPERR, "PCI INTx clear parity error", -1, 1 },
--		{ MATAGPERR, "PCI MA tag parity error", -1, 1 },
--		{ PIOTAGPERR, "PCI PIO tag parity error", -1, 1 },
--		{ RXCPLPERR, "PCI Rx completion parity error", -1, 1 },
--		{ RXWRPERR, "PCI Rx write parity error", -1, 1 },
--		{ RPLPERR, "PCI replay buffer parity error", -1, 1 },
--		{ PCIESINT, "PCI core secondary fault", -1, 1 },
--		{ PCIEPINT, "PCI core primary fault", -1, 1 },
--		{ UNXSPLCPLERR, "PCI unexpected split completion error", -1,
-+		{ MSIADDRLPERR_F, "MSI AddrL parity error", -1, 1 },
-+		{ MSIADDRHPERR_F, "MSI AddrH parity error", -1, 1 },
-+		{ MSIDATAPERR_F, "MSI data parity error", -1, 1 },
-+		{ MSIXADDRLPERR_F, "MSI-X AddrL parity error", -1, 1 },
-+		{ MSIXADDRHPERR_F, "MSI-X AddrH parity error", -1, 1 },
-+		{ MSIXDATAPERR_F, "MSI-X data parity error", -1, 1 },
-+		{ MSIXDIPERR_F, "MSI-X DI parity error", -1, 1 },
-+		{ PIOCPLPERR_F, "PCI PIO completion FIFO parity error", -1, 1 },
-+		{ PIOREQPERR_F, "PCI PIO request FIFO parity error", -1, 1 },
-+		{ TARTAGPERR_F, "PCI PCI target tag FIFO parity error", -1, 1 },
-+		{ CCNTPERR_F, "PCI CMD channel count parity error", -1, 1 },
-+		{ CREQPERR_F, "PCI CMD channel request parity error", -1, 1 },
-+		{ CRSPPERR_F, "PCI CMD channel response parity error", -1, 1 },
-+		{ DCNTPERR_F, "PCI DMA channel count parity error", -1, 1 },
-+		{ DREQPERR_F, "PCI DMA channel request parity error", -1, 1 },
-+		{ DRSPPERR_F, "PCI DMA channel response parity error", -1, 1 },
-+		{ HCNTPERR_F, "PCI HMA channel count parity error", -1, 1 },
-+		{ HREQPERR_F, "PCI HMA channel request parity error", -1, 1 },
-+		{ HRSPPERR_F, "PCI HMA channel response parity error", -1, 1 },
-+		{ CFGSNPPERR_F, "PCI config snoop FIFO parity error", -1, 1 },
-+		{ FIDPERR_F, "PCI FID parity error", -1, 1 },
-+		{ INTXCLRPERR_F, "PCI INTx clear parity error", -1, 1 },
-+		{ MATAGPERR_F, "PCI MA tag parity error", -1, 1 },
-+		{ PIOTAGPERR_F, "PCI PIO tag parity error", -1, 1 },
-+		{ RXCPLPERR_F, "PCI Rx completion parity error", -1, 1 },
-+		{ RXWRPERR_F, "PCI Rx write parity error", -1, 1 },
-+		{ RPLPERR_F, "PCI replay buffer parity error", -1, 1 },
-+		{ PCIESINT_F, "PCI core secondary fault", -1, 1 },
-+		{ PCIEPINT_F, "PCI core primary fault", -1, 1 },
-+		{ UNXSPLCPLERR_F, "PCI unexpected split completion error", -1,
- 		  0 },
- 		{ 0, NULL, 0, 0 }
- 	};
- 
- 	int fat;
- 	fat = csio_handle_intr_status(hw,
--				      PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS,
-+				      PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS_A,
- 				      sysbus_intr_info) +
- 	      csio_handle_intr_status(hw,
--				      PCIE_CORE_UTL_PCI_EXPRESS_PORT_STATUS,
-+				      PCIE_CORE_UTL_PCI_EXPRESS_PORT_STATUS_A,
- 				      pcie_port_intr_info) +
--	      csio_handle_intr_status(hw, PCIE_INT_CAUSE, pcie_intr_info);
-+	      csio_handle_intr_status(hw, PCIE_INT_CAUSE_A, pcie_intr_info);
- 	if (fat)
- 		csio_hw_fatal_err(hw);
- }
-@@ -329,9 +329,9 @@ csio_t4_memory_rw(struct csio_hw *hw, u32 win, int mtype, u32 addr,
- 	 * the address is relative to BAR0.
- 	 */
- 	mem_reg = csio_rd_reg32(hw,
--			PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, win));
--	mem_aperture = 1 << (WINDOW(mem_reg) + 10);
--	mem_base = GET_PCIEOFST(mem_reg) << 10;
-+			PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN_A, win));
-+	mem_aperture = 1 << (WINDOW_V(mem_reg) + 10);
-+	mem_base = PCIEOFST_G(mem_reg) << 10;
- 
- 	bar0 = csio_t4_read_pcie_cfg4(hw, PCI_BASE_ADDRESS_0);
- 	bar0 &= PCI_BASE_ADDRESS_MEM_MASK;
-@@ -356,9 +356,9 @@ csio_t4_memory_rw(struct csio_hw *hw, u32 win, int mtype, u32 addr,
- 		 * before we attempt to use the new value.
- 		 */
- 		csio_wr_reg32(hw, pos,
--			PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET, win));
-+			PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET_A, win));
- 		csio_rd_reg32(hw,
--			PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET, win));
-+			PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET_A, win));
- 
- 		while (offset < mem_aperture && len > 0) {
- 			if (dir)
-diff --git a/drivers/scsi/csiostor/csio_hw_t5.c b/drivers/scsi/csiostor/csio_hw_t5.c
-index 66e180a..99a7dca 100644
---- a/drivers/scsi/csiostor/csio_hw_t5.c
-+++ b/drivers/scsi/csiostor/csio_hw_t5.c
-@@ -56,11 +56,11 @@ csio_t5_set_mem_win(struct csio_hw *hw, uint32_t win)
- 	 * back MA register to ensure that changes propagate before we attempt
- 	 * to use the new values.)
- 	 */
--	csio_wr_reg32(hw, mem_win_base | BIR(0) |
--			  WINDOW(ilog2(MEMWIN_APERTURE) - 10),
--			  PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, win));
-+	csio_wr_reg32(hw, mem_win_base | BIR_V(0) |
-+			  WINDOW_V(ilog2(MEMWIN_APERTURE) - 10),
-+			  PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN_A, win));
- 	csio_rd_reg32(hw,
--		      PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, win));
-+		      PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN_A, win));
- 
- 	return 0;
- }
-@@ -72,74 +72,74 @@ static void
- csio_t5_pcie_intr_handler(struct csio_hw *hw)
- {
- 	static struct intr_info sysbus_intr_info[] = {
--		{ RNPP, "RXNP array parity error", -1, 1 },
--		{ RPCP, "RXPC array parity error", -1, 1 },
--		{ RCIP, "RXCIF array parity error", -1, 1 },
--		{ RCCP, "Rx completions control array parity error", -1, 1 },
--		{ RFTP, "RXFT array parity error", -1, 1 },
-+		{ RNPP_F, "RXNP array parity error", -1, 1 },
-+		{ RPCP_F, "RXPC array parity error", -1, 1 },
-+		{ RCIP_F, "RXCIF array parity error", -1, 1 },
-+		{ RCCP_F, "Rx completions control array parity error", -1, 1 },
-+		{ RFTP_F, "RXFT array parity error", -1, 1 },
- 		{ 0, NULL, 0, 0 }
- 	};
- 	static struct intr_info pcie_port_intr_info[] = {
--		{ TPCP, "TXPC array parity error", -1, 1 },
--		{ TNPP, "TXNP array parity error", -1, 1 },
--		{ TFTP, "TXFT array parity error", -1, 1 },
--		{ TCAP, "TXCA array parity error", -1, 1 },
--		{ TCIP, "TXCIF array parity error", -1, 1 },
--		{ RCAP, "RXCA array parity error", -1, 1 },
--		{ OTDD, "outbound request TLP discarded", -1, 1 },
--		{ RDPE, "Rx data parity error", -1, 1 },
--		{ TDUE, "Tx uncorrectable data error", -1, 1 },
-+		{ TPCP_F, "TXPC array parity error", -1, 1 },
-+		{ TNPP_F, "TXNP array parity error", -1, 1 },
-+		{ TFTP_F, "TXFT array parity error", -1, 1 },
-+		{ TCAP_F, "TXCA array parity error", -1, 1 },
-+		{ TCIP_F, "TXCIF array parity error", -1, 1 },
-+		{ RCAP_F, "RXCA array parity error", -1, 1 },
-+		{ OTDD_F, "outbound request TLP discarded", -1, 1 },
-+		{ RDPE_F, "Rx data parity error", -1, 1 },
-+		{ TDUE_F, "Tx uncorrectable data error", -1, 1 },
- 		{ 0, NULL, 0, 0 }
- 	};
- 
- 	static struct intr_info pcie_intr_info[] = {
--		{ MSTGRPPERR, "Master Response Read Queue parity error",
-+		{ MSTGRPPERR_F, "Master Response Read Queue parity error",
- 		-1, 1 },
--		{ MSTTIMEOUTPERR, "Master Timeout FIFO parity error", -1, 1 },
--		{ MSIXSTIPERR, "MSI-X STI SRAM parity error", -1, 1 },
--		{ MSIXADDRLPERR, "MSI-X AddrL parity error", -1, 1 },
--		{ MSIXADDRHPERR, "MSI-X AddrH parity error", -1, 1 },
--		{ MSIXDATAPERR, "MSI-X data parity error", -1, 1 },
--		{ MSIXDIPERR, "MSI-X DI parity error", -1, 1 },
--		{ PIOCPLGRPPERR, "PCI PIO completion Group FIFO parity error",
-+		{ MSTTIMEOUTPERR_F, "Master Timeout FIFO parity error", -1, 1 },
-+		{ MSIXSTIPERR_F, "MSI-X STI SRAM parity error", -1, 1 },
-+		{ MSIXADDRLPERR_F, "MSI-X AddrL parity error", -1, 1 },
-+		{ MSIXADDRHPERR_F, "MSI-X AddrH parity error", -1, 1 },
-+		{ MSIXDATAPERR_F, "MSI-X data parity error", -1, 1 },
-+		{ MSIXDIPERR_F, "MSI-X DI parity error", -1, 1 },
-+		{ PIOCPLGRPPERR_F, "PCI PIO completion Group FIFO parity error",
- 		-1, 1 },
--		{ PIOREQGRPPERR, "PCI PIO request Group FIFO parity error",
-+		{ PIOREQGRPPERR_F, "PCI PIO request Group FIFO parity error",
- 		-1, 1 },
--		{ TARTAGPERR, "PCI PCI target tag FIFO parity error", -1, 1 },
--		{ MSTTAGQPERR, "PCI master tag queue parity error", -1, 1 },
--		{ CREQPERR, "PCI CMD channel request parity error", -1, 1 },
--		{ CRSPPERR, "PCI CMD channel response parity error", -1, 1 },
--		{ DREQWRPERR, "PCI DMA channel write request parity error",
-+		{ TARTAGPERR_F, "PCI PCI target tag FIFO parity error", -1, 1 },
-+		{ MSTTAGQPERR_F, "PCI master tag queue parity error", -1, 1 },
-+		{ CREQPERR_F, "PCI CMD channel request parity error", -1, 1 },
-+		{ CRSPPERR_F, "PCI CMD channel response parity error", -1, 1 },
-+		{ DREQWRPERR_F, "PCI DMA channel write request parity error",
- 		-1, 1 },
--		{ DREQPERR, "PCI DMA channel request parity error", -1, 1 },
--		{ DRSPPERR, "PCI DMA channel response parity error", -1, 1 },
--		{ HREQWRPERR, "PCI HMA channel count parity error", -1, 1 },
--		{ HREQPERR, "PCI HMA channel request parity error", -1, 1 },
--		{ HRSPPERR, "PCI HMA channel response parity error", -1, 1 },
--		{ CFGSNPPERR, "PCI config snoop FIFO parity error", -1, 1 },
--		{ FIDPERR, "PCI FID parity error", -1, 1 },
--		{ VFIDPERR, "PCI INTx clear parity error", -1, 1 },
--		{ MAGRPPERR, "PCI MA group FIFO parity error", -1, 1 },
--		{ PIOTAGPERR, "PCI PIO tag parity error", -1, 1 },
--		{ IPRXHDRGRPPERR, "PCI IP Rx header group parity error",
-+		{ DREQPERR_F, "PCI DMA channel request parity error", -1, 1 },
-+		{ DRSPPERR_F, "PCI DMA channel response parity error", -1, 1 },
-+		{ HREQWRPERR_F, "PCI HMA channel count parity error", -1, 1 },
-+		{ HREQPERR_F, "PCI HMA channel request parity error", -1, 1 },
-+		{ HRSPPERR_F, "PCI HMA channel response parity error", -1, 1 },
-+		{ CFGSNPPERR_F, "PCI config snoop FIFO parity error", -1, 1 },
-+		{ FIDPERR_F, "PCI FID parity error", -1, 1 },
-+		{ VFIDPERR_F, "PCI INTx clear parity error", -1, 1 },
-+		{ MAGRPPERR_F, "PCI MA group FIFO parity error", -1, 1 },
-+		{ PIOTAGPERR_F, "PCI PIO tag parity error", -1, 1 },
-+		{ IPRXHDRGRPPERR_F, "PCI IP Rx header group parity error",
- 		-1, 1 },
--		{ IPRXDATAGRPPERR, "PCI IP Rx data group parity error",
-+		{ IPRXDATAGRPPERR_F, "PCI IP Rx data group parity error",
- 		-1, 1 },
--		{ RPLPERR, "PCI IP replay buffer parity error", -1, 1 },
--		{ IPSOTPERR, "PCI IP SOT buffer parity error", -1, 1 },
--		{ TRGT1GRPPERR, "PCI TRGT1 group FIFOs parity error", -1, 1 },
--		{ READRSPERR, "Outbound read error", -1, 0 },
-+		{ RPLPERR_F, "PCI IP replay buffer parity error", -1, 1 },
-+		{ IPSOTPERR_F, "PCI IP SOT buffer parity error", -1, 1 },
-+		{ TRGT1GRPPERR_F, "PCI TRGT1 group FIFOs parity error", -1, 1 },
-+		{ READRSPERR_F, "Outbound read error", -1, 0 },
- 		{ 0, NULL, 0, 0 }
- 	};
- 
- 	int fat;
- 	fat = csio_handle_intr_status(hw,
--				      PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS,
-+				      PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS_A,
- 				      sysbus_intr_info) +
- 	      csio_handle_intr_status(hw,
--				      PCIE_CORE_UTL_PCI_EXPRESS_PORT_STATUS,
-+				      PCIE_CORE_UTL_PCI_EXPRESS_PORT_STATUS_A,
- 				      pcie_port_intr_info) +
--	      csio_handle_intr_status(hw, PCIE_INT_CAUSE, pcie_intr_info);
-+	      csio_handle_intr_status(hw, PCIE_INT_CAUSE_A, pcie_intr_info);
- 	if (fat)
- 		csio_hw_fatal_err(hw);
- }
-@@ -320,13 +320,13 @@ csio_t5_memory_rw(struct csio_hw *hw, u32 win, int mtype, u32 addr,
- 	 * the address is relative to BAR0.
- 	 */
- 	mem_reg = csio_rd_reg32(hw,
--			PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, win));
--	mem_aperture = 1 << (WINDOW(mem_reg) + 10);
--	mem_base = GET_PCIEOFST(mem_reg) << 10;
-+			PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN_A, win));
-+	mem_aperture = 1 << (WINDOW_V(mem_reg) + 10);
-+	mem_base = PCIEOFST_G(mem_reg) << 10;
- 
- 	start = addr & ~(mem_aperture-1);
- 	offset = addr - start;
--	win_pf = V_PFNUM(hw->pfn);
-+	win_pf = PFNUM_V(hw->pfn);
- 
- 	csio_dbg(hw, "csio_t5_memory_rw: mem_reg: 0x%x, mem_aperture: 0x%x\n",
- 		 mem_reg, mem_aperture);
-@@ -344,9 +344,9 @@ csio_t5_memory_rw(struct csio_hw *hw, u32 win, int mtype, u32 addr,
- 		 * before we attempt to use the new value.
- 		 */
- 		csio_wr_reg32(hw, pos | win_pf,
--			PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET, win));
-+			PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET_A, win));
- 		csio_rd_reg32(hw,
--			PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET, win));
-+			PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET_A, win));
- 
- 		while (offset < mem_aperture && len > 0) {
- 			if (dir)
-diff --git a/drivers/scsi/csiostor/csio_isr.c b/drivers/scsi/csiostor/csio_isr.c
-index a8c748a..2fb71c6 100644
---- a/drivers/scsi/csiostor/csio_isr.c
-+++ b/drivers/scsi/csiostor/csio_isr.c
-@@ -317,7 +317,7 @@ csio_fcoe_isr(int irq, void *dev_id)
- 
- 	/* Disable the interrupt for this PCI function. */
- 	if (hw->intr_mode == CSIO_IM_INTX)
--		csio_wr_reg32(hw, 0, MYPF_REG(PCIE_PF_CLI));
-+		csio_wr_reg32(hw, 0, MYPF_REG(PCIE_PF_CLI_A));
- 
- 	/*
- 	 * The read in the following function will flush the
 diff --git a/drivers/scsi/csiostor/csio_wr.c b/drivers/scsi/csiostor/csio_wr.c
-index 221433f..12697c6 100644
+index e22503b..b47ea33 100644
 --- a/drivers/scsi/csiostor/csio_wr.c
 +++ b/drivers/scsi/csiostor/csio_wr.c
-@@ -1412,22 +1412,22 @@ csio_wr_get_sge(struct csio_hw *hw)
- 	for (i = 0; i < CSIO_SGE_FL_SIZE_REGS; i++)
- 		csio_get_flbuf_size(hw, sge, i);
+@@ -1343,7 +1343,7 @@ csio_wr_fixup_host_params(struct csio_hw *hw)
+ 			SGE_FL_BUFFER_SIZE3_A);
+ 	}
  
--	timer_value_0_and_1 = csio_rd_reg32(hw, SGE_TIMER_VALUE_0_AND_1);
--	timer_value_2_and_3 = csio_rd_reg32(hw, SGE_TIMER_VALUE_2_AND_3);
--	timer_value_4_and_5 = csio_rd_reg32(hw, SGE_TIMER_VALUE_4_AND_5);
-+	timer_value_0_and_1 = csio_rd_reg32(hw, SGE_TIMER_VALUE_0_AND_1_A);
-+	timer_value_2_and_3 = csio_rd_reg32(hw, SGE_TIMER_VALUE_2_AND_3_A);
-+	timer_value_4_and_5 = csio_rd_reg32(hw, SGE_TIMER_VALUE_4_AND_5_A);
+-	csio_wr_reg32(hw, HPZ0(PAGE_SHIFT - 12), ULP_RX_TDDP_PSZ);
++	csio_wr_reg32(hw, HPZ0_V(PAGE_SHIFT - 12), ULP_RX_TDDP_PSZ_A);
  
- 	sge->timer_val[0] = (uint16_t)csio_core_ticks_to_us(hw,
--					TIMERVALUE0_GET(timer_value_0_and_1));
-+					TIMERVALUE0_G(timer_value_0_and_1));
- 	sge->timer_val[1] = (uint16_t)csio_core_ticks_to_us(hw,
--					TIMERVALUE1_GET(timer_value_0_and_1));
-+					TIMERVALUE1_G(timer_value_0_and_1));
- 	sge->timer_val[2] = (uint16_t)csio_core_ticks_to_us(hw,
--					TIMERVALUE2_GET(timer_value_2_and_3));
-+					TIMERVALUE2_G(timer_value_2_and_3));
- 	sge->timer_val[3] = (uint16_t)csio_core_ticks_to_us(hw,
--					TIMERVALUE3_GET(timer_value_2_and_3));
-+					TIMERVALUE3_G(timer_value_2_and_3));
- 	sge->timer_val[4] = (uint16_t)csio_core_ticks_to_us(hw,
--					TIMERVALUE4_GET(timer_value_4_and_5));
-+					TIMERVALUE4_G(timer_value_4_and_5));
- 	sge->timer_val[5] = (uint16_t)csio_core_ticks_to_us(hw,
--					TIMERVALUE5_GET(timer_value_4_and_5));
-+					TIMERVALUE5_G(timer_value_4_and_5));
- 
- 	ingress_rx_threshold = csio_rd_reg32(hw, SGE_INGRESS_RX_THRESHOLD_A);
- 	sge->counter_val[0] = THRESHOLD_0_G(ingress_rx_threshold);
-@@ -1513,19 +1513,19 @@ csio_wr_set_sge(struct csio_hw *hw)
- 		      SGE_INGRESS_RX_THRESHOLD_A);
- 
- 	csio_wr_reg32(hw,
--		   TIMERVALUE0(csio_us_to_core_ticks(hw, sge->timer_val[0])) |
--		   TIMERVALUE1(csio_us_to_core_ticks(hw, sge->timer_val[1])),
--		   SGE_TIMER_VALUE_0_AND_1);
-+		   TIMERVALUE0_V(csio_us_to_core_ticks(hw, sge->timer_val[0])) |
-+		   TIMERVALUE1_V(csio_us_to_core_ticks(hw, sge->timer_val[1])),
-+		   SGE_TIMER_VALUE_0_AND_1_A);
- 
- 	csio_wr_reg32(hw,
--		   TIMERVALUE2(csio_us_to_core_ticks(hw, sge->timer_val[2])) |
--		   TIMERVALUE3(csio_us_to_core_ticks(hw, sge->timer_val[3])),
--		   SGE_TIMER_VALUE_2_AND_3);
-+		   TIMERVALUE2_V(csio_us_to_core_ticks(hw, sge->timer_val[2])) |
-+		   TIMERVALUE3_V(csio_us_to_core_ticks(hw, sge->timer_val[3])),
-+		   SGE_TIMER_VALUE_2_AND_3_A);
- 
- 	csio_wr_reg32(hw,
--		   TIMERVALUE4(csio_us_to_core_ticks(hw, sge->timer_val[4])) |
--		   TIMERVALUE5(csio_us_to_core_ticks(hw, sge->timer_val[5])),
--		   SGE_TIMER_VALUE_4_AND_5);
-+		   TIMERVALUE4_V(csio_us_to_core_ticks(hw, sge->timer_val[4])) |
-+		   TIMERVALUE5_V(csio_us_to_core_ticks(hw, sge->timer_val[5])),
-+		   SGE_TIMER_VALUE_4_AND_5_A);
- 
- 	csio_init_intr_coalesce_parms(hw);
- }
+ 	/* default value of rx_dma_offset of the NIC driver */
+ 	csio_set_reg_field(hw, SGE_CONTROL_A,
 -- 
 1.7.1
