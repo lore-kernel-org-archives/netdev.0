@@ -1,114 +1,47 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: iproute2: Run over all netns
-Date: Mon, 05 Jan 2015 17:40:51 +0100
-Message-ID: <54AABE93.2010602@6wind.com>
-References: <20150105122333.GA6646@angus-think.wlc.globallogic.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: nick <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] drivers:net:wireless: Add proper locking for the function,
+ b43_op_beacon_set_tim in main.c
+Date: Mon, 05 Jan 2015 12:16:30 -0500
+Message-ID: <54AAC6EE.2000603@gmail.com>
+References: <1420184041-6788-1-git-send-email-xerofoify@gmail.com>
+ <87tx05378x.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:33039 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751806AbbAEQkz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 11:40:55 -0500
-Received: by mail-wi0-f177.google.com with SMTP id l15so3674994wiw.4
-        for <netdev@vger.kernel.org>; Mon, 05 Jan 2015 08:40:53 -0800 (PST)
-In-Reply-To: <20150105122333.GA6646@angus-think.wlc.globallogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <87tx05378x.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
+ <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
+List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
+ <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le 05/01/2015 13:23, Vadim Kochan a =E9crit :
-> Hi All,
->
-> I have some piece of code which allow 'ip cmd'
-> on each netns, I found it useful for getting some info
-> from all the netns in one shot, BUT I faced with one issue
-> which mostly related to the user interface design. The problem
-> is that it would be good to print netns name only when
-> user uses "show" command, but not for updating/adding (IMHO),
-> but its hard to find the good way to implement this.
->
-> To run each netns the 'ip -net all CMD ...' construction can be used.
->
-> I see the following options for this:
->
-> #1 Add additional option ( -N ? ) for show netns label on each execut=
-ing of CMD:
->
->      # ip -net all -N link
->
->      [test_net]
->      1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN group default
->          link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->
->      [home0]
->      1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN group default
->          link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->
->      [lan0]
->      1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN group default
->          link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->
->      [wan0]
->      1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN group default
->          link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->      2: br0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN gro=
-up default
->          link/ether 16:f7:cb:b6:7a:8e brd ff:ff:ff:ff:ff:ff
->
->      [vnet0]
->      1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN group default
->          link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->
->
->      and w/o:
->
->      # ip -net all link
->
->      1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN group default
->          link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->
->      1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN group default
->          link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->
->      1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN group default
->          link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->
->      1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN group default
->          link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->      2: br0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN gro=
-up default
->          link/ether 16:f7:cb:b6:7a:8e brd ff:ff:ff:ff:ff:ff
->
->      1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN group default
->          link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->
->      the last one is not so useful right ?
->
-> #2 Prints netns name by default if "-net all" was specified
-> (add option to prevent this ?), so it will be printed even on the
-> add/del/change commands ...
-I vote for this one (I don't think the option to prevent it is needed, =
-it's
-better to be explicit).
+Kalle,
+That's fine. On the other hand I am interested in the
+reasons why this patch was dropped so I can send in a
+version 2 of this patch.
+Regards Nick 
 
->
->      # ip -net all link add ...
->
->      [home0]
->      [lan0]
->      [wan0]
->      [vnet0]
->
->      but does it really useless to see that it will shows all the net=
-ns
->      on which cmd has been ran ?
-I tend to say yes (another process may add/remove a netns in the same t=
-ime).
-
-
-Regards,
-Nicolas
+On 2015-01-05 04:29 AM, Kalle Valo wrote:
+> Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+> 
+>> This adds proper locking for the function, b43_op_beacon_set_tim in
+>> main.c by using the mutex lock in the structure pointer wl, as
+>> embedded into this pointer as a mutex in order to protect against
+>> multiple access to the pointer wl when updating the templates for this
+>> pointer in the function, b43_update_templates internally in the
+>> function, b43_op_beacon_set_tim.
+>>
+>> Signed-off-by: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> 
+> Based on the discussion I have dropped this patch.
+> 
