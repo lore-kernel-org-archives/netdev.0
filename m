@@ -1,76 +1,87 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 00/11 V2] rtlwifi: A set of patches that simplify the drivers
-Date: Tue,  6 Jan 2015 09:58:01 -0600
-Message-ID: <1420559892-12384-1-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 04/11 V2] rtlwifi: rtl8188ee: Convert driver to use the common DM table init routine
+Date: Tue,  6 Jan 2015 09:58:05 -0600
+Message-ID: <1420559892-12384-5-git-send-email-Larry.Finger@lwfinger.net>
+References: <1420559892-12384-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: linux-wireless@vger.kernel.org,
 	Larry Finger <Larry.Finger@lwfinger.net>,
 	netdev@vger.kernel.org
 To: kvalo@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f54.google.com ([209.85.218.54]:58163 "EHLO
-	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752019AbbAFP6X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 10:58:23 -0500
+Received: from mail-oi0-f41.google.com ([209.85.218.41]:49619 "EHLO
+	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755455AbbAFP61 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 10:58:27 -0500
+In-Reply-To: <1420559892-12384-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Happy New Year.
-
-This set of patches, which are intended for the 3.20 stream, are intended to
-simplify the drivers. In particular, each of them has a separate routine that
-initilizes the dynamic power manipulation variables. Ten of these patches convert
-the drivers to use a common copy of this code. The other patch updates the
-parameter descriptions of rtl8723be to clarify usage.
+The previous patch created a routine in rtlwifi to initialize dm_digtable.
+Driver rtl8188ee is converted to use that routine.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
 
-V2 - only patch 02/11 is changed to fix the problem noted by Sergei Shylyov
-     <sergei.shtylyov@cogentembedded.com> concerning a line that was dropped.
+V2 - unchanged from V1
+---
 
-Larry Finger (11):
-  rtlwifi: Unify variable naming for all drivers
-  rtlwifi: rtl8723be: Improve modinfo output
-  rtlwifi: Create new routine to initialize the DM tables
-  rtlwifi: rtl8188ee: Convert driver to use the common DM table init
-    routine
-  rtlwifi: rtl8192c-common: Convert driver to use common DM table
-    initialization
-  rtlwifi: rtl8192de: Convert driver to use common DM table
-    initialization
-  rtlwifi: rtl8192ee: Convert driver to use common DM table
-    initialization
-  rtlwifi: rtl8723ae: Convert driver to use common DM table
-    initialization
-  rtlwifi: rtl8723be: Convert driver to use common DM table
-    initialization
-  rtlwifi: rtl8821ae: Convert driver to use common DM table
-    initialization
-  rtlwifi: Move macro definitions to core
+ drivers/net/wireless/rtlwifi/rtl8188ee/dm.c | 35 ++---------------------------
+ 1 file changed, 2 insertions(+), 33 deletions(-)
 
- drivers/net/wireless/rtlwifi/core.c               | 37 +++++++++++++++
- drivers/net/wireless/rtlwifi/core.h               | 41 ++++++++++++++++
- drivers/net/wireless/rtlwifi/rtl8188ee/dm.c       | 36 ++------------
- drivers/net/wireless/rtlwifi/rtl8188ee/dm.h       | 41 ----------------
- drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c | 45 ++++--------------
- drivers/net/wireless/rtlwifi/rtl8192c/dm_common.h | 38 ---------------
- drivers/net/wireless/rtlwifi/rtl8192ce/dm.c       |  1 +
- drivers/net/wireless/rtlwifi/rtl8192ce/dm.h       | 13 -----
- drivers/net/wireless/rtlwifi/rtl8192de/dm.c       | 33 ++-----------
- drivers/net/wireless/rtlwifi/rtl8192de/dm.h       | 38 ---------------
- drivers/net/wireless/rtlwifi/rtl8192ee/dm.c       | 55 ++++++---------------
- drivers/net/wireless/rtlwifi/rtl8192ee/dm.h       | 16 -------
- drivers/net/wireless/rtlwifi/rtl8192se/dm.c       |  7 +--
- drivers/net/wireless/rtlwifi/rtl8192se/dm.h       | 28 -----------
- drivers/net/wireless/rtlwifi/rtl8723ae/dm.c       | 42 ++++------------
- drivers/net/wireless/rtlwifi/rtl8723ae/dm.h       | 38 ---------------
- drivers/net/wireless/rtlwifi/rtl8723be/dm.c       | 55 ++++++---------------
- drivers/net/wireless/rtlwifi/rtl8723be/dm.h       | 33 -------------
- drivers/net/wireless/rtlwifi/rtl8723be/sw.c       | 11 +++--
- drivers/net/wireless/rtlwifi/rtl8821ae/dm.c       | 58 +++++++----------------
- drivers/net/wireless/rtlwifi/rtl8821ae/dm.h       | 41 ----------------
- drivers/net/wireless/rtlwifi/wifi.h               |  2 -
- 22 files changed, 157 insertions(+), 552 deletions(-)
-
+diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/dm.c b/drivers/net/wireless/rtlwifi/rtl8188ee/dm.c
+index 7ebf6e0..d930c1f 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8188ee/dm.c
++++ b/drivers/net/wireless/rtlwifi/rtl8188ee/dm.c
+@@ -342,38 +342,6 @@ static void dm_tx_pwr_track_set_pwr(struct ieee80211_hw *hw,
+ 	}
+ }
+ 
+-static void rtl88e_dm_diginit(struct ieee80211_hw *hw)
+-{
+-	struct rtl_priv *rtlpriv = rtl_priv(hw);
+-	struct dig_t *dm_dig = &rtlpriv->dm_digtable;
+-
+-	dm_dig->dig_enable_flag = true;
+-	dm_dig->cur_igvalue = rtl_get_bbreg(hw, ROFDM0_XAAGCCORE1, 0x7f);
+-	dm_dig->pre_igvalue = 0;
+-	dm_dig->cur_sta_cstate = DIG_STA_DISCONNECT;
+-	dm_dig->presta_cstate = DIG_STA_DISCONNECT;
+-	dm_dig->curmultista_cstate = DIG_MULTISTA_DISCONNECT;
+-	dm_dig->rssi_lowthresh = DM_DIG_THRESH_LOW;
+-	dm_dig->rssi_highthresh = DM_DIG_THRESH_HIGH;
+-	dm_dig->fa_lowthresh = DM_FALSEALARM_THRESH_LOW;
+-	dm_dig->fa_highthresh = DM_FALSEALARM_THRESH_HIGH;
+-	dm_dig->rx_gain_max = DM_DIG_MAX;
+-	dm_dig->rx_gain_min = DM_DIG_MIN;
+-	dm_dig->back_val = DM_DIG_BACKOFF_DEFAULT;
+-	dm_dig->back_range_max = DM_DIG_BACKOFF_MAX;
+-	dm_dig->back_range_min = DM_DIG_BACKOFF_MIN;
+-	dm_dig->pre_cck_cca_thres = 0xff;
+-	dm_dig->cur_cck_cca_thres = 0x83;
+-	dm_dig->forbidden_igi = DM_DIG_MIN;
+-	dm_dig->large_fa_hit = 0;
+-	dm_dig->recover_cnt = 0;
+-	dm_dig->dig_min_0 = 0x25;
+-	dm_dig->dig_min_1 = 0x25;
+-	dm_dig->media_connect_0 = false;
+-	dm_dig->media_connect_1 = false;
+-	rtlpriv->dm.dm_initialgain_enable = true;
+-}
+-
+ static u8 rtl88e_dm_initial_gain_min_pwdb(struct ieee80211_hw *hw)
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+@@ -1797,9 +1765,10 @@ static void rtl88e_dm_antenna_diversity(struct ieee80211_hw *hw)
+ void rtl88e_dm_init(struct ieee80211_hw *hw)
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	u32 cur_igvalue = rtl_get_bbreg(hw, ROFDM0_XAAGCCORE1, 0x7f);
+ 
+ 	rtlpriv->dm.dm_type = DM_TYPE_BYDRIVER;
+-	rtl88e_dm_diginit(hw);
++	rtl_dm_diginit(hw, cur_igvalue);
+ 	rtl88e_dm_init_dynamic_txpower(hw);
+ 	rtl88e_dm_init_edca_turbo(hw);
+ 	rtl88e_dm_init_rate_adaptive_mask(hw);
 -- 
 2.1.2
