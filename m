@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Subject: [PATCH v4 10/20] selftests/mount: add install target to enable test install
-Date: Tue,  6 Jan 2015 12:43:24 -0700
-Message-ID: <e9ad7dee751cb83d358ddc7e2949e312db9db1ed.1420571615.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v4 15/20] selftests/sysctl: add install target to enable test install
+Date: Tue,  6 Jan 2015 12:43:29 -0700
+Message-ID: <cfcfa29c9030a6b8d2149b3fe834d65a9069717b.1420571615.git.shuahkh@osg.samsung.com>
 References: <cover.1420571615.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>, linux-kbuild-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -28,37 +28,40 @@ only from top level kernel source directory.
 
 Signed-off-by: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
 ---
- tools/testing/selftests/mount/Makefile | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
+ tools/testing/selftests/sysctl/Makefile | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/tools/testing/selftests/mount/Makefile b/tools/testing/selftests/mount/Makefile
-index 337d853..422a2d8 100644
---- a/tools/testing/selftests/mount/Makefile
-+++ b/tools/testing/selftests/mount/Makefile
-@@ -1,5 +1,7 @@
- # Makefile for mount selftests.
+diff --git a/tools/testing/selftests/sysctl/Makefile b/tools/testing/selftests/sysctl/Makefile
+index 0a92ada..9119ef1 100644
+--- a/tools/testing/selftests/sysctl/Makefile
++++ b/tools/testing/selftests/sysctl/Makefile
+@@ -4,12 +4,25 @@
+ # No binaries, but make sure arg-less "make" doesn't trigger "run_tests".
+ all:
  
-+TEST_STR = if [ -f /proc/self/uid_map ] ; then ./unprivileged-remount-test ; fi
++INSTALL_PROGS = common_tests run_numerictests run_stringtests
++NUMERIC_TEST_STR = /bin/sh ./run_numerictests
++STRING_TEST_STR = /bin/sh ./run_stringtests
 +
- all: unprivileged-remount-test
- 
- unprivileged-remount-test: unprivileged-remount-test.c
-@@ -7,7 +9,15 @@ unprivileged-remount-test: unprivileged-remount-test.c
- 
  # Allow specific tests to be selected.
- test_unprivileged_remount: unprivileged-remount-test
--	@if [ -f /proc/self/uid_map ] ; then ./unprivileged-remount-test ; fi
-+	@$(TEST_STR)
+ test_num:
+-	@/bin/sh ./run_numerictests
++	@$(NUMERIC_TEST_STR)
+ 
+ test_string:
+-	@/bin/sh ./run_stringtests
++	@$(STRING_TEST_STR)
 +
-+install:
++install: all
 +ifdef INSTALL_KSFT_PATH
-+	install ./unprivileged-remount-test $(INSTALL_KSFT_PATH)
-+	@echo "$(TEST_STR)" >> $(KSELFTEST)
++	install $(INSTALL_PROGS) $(INSTALL_KSFT_PATH)
++	@echo "$(NUMERIC_TEST_STR)" >> $(KSELFTEST)
++	@echo "$(STRING_TEST_STR)" >> $(KSELFTEST)
 +else
 +	@echo "Run make kselftest_install in top level source directory"
 +endif
  
- run_tests: all test_unprivileged_remount
+ run_tests: all test_num test_string
  
 -- 
 2.1.0
