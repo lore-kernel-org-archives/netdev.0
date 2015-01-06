@@ -1,32 +1,63 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: TCP connection issues against Amazon S3
-Date: Tue, 06 Jan 2015 11:48:21 -0800
-Message-ID: <54AC3C05.1050704@hp.com>
-References: <5DCDADEF-FF9C-4844-8A2C-62E2D3B3B8CE@bengler.no> <1420560253.32621.20.camel@edumazet-glaptop2.roam.corp.google.com> <D5C36777-4461-4B8D-B6C4-38B4276F42DC@bengler.no> <1420564837.32621.30.camel@edumazet-glaptop2.roam.corp.google.com> <8C4F7938-DCA1-46F5-A3C9-7DF62511DEE7@bengler.no> <CAK6E8=d5Z0W5sSAdeEcecKbqjj_UwGw4949=a20fetFpLVKwwA@mail.gmail.com> <54AC348B.4030900@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Yuchung Cheng <ycheng@google.com>, Erik Grinaker <erik@bengler.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54AC348B.4030900@hp.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Subject: [PATCH v4 13/20] selftests/ptrace: add install target to enable test install
+Date: Tue,  6 Jan 2015 12:43:27 -0700
+Message-ID: <e6e0602db98043998a0059355e4500d0c559953a.1420571615.git.shuahkh@osg.samsung.com>
+References: <cover.1420571615.git.shuahkh@osg.samsung.com>
+Cc: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>, linux-kbuild-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: mmarek-AlSwsSmVLrQ@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, tranmanphong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org, cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, bobby.prani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tim.bird-/MT0OVThwyLZJqsBc5GL+g@public.gmane.org,
+	josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <cover.1420571615.git.shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+In-Reply-To: <cover.1420571615.git.shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+References: <cover.1420571615.git.shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 01/06/2015 11:16 AM, Rick Jones wrote:
-> I'm assuming one incident starts at XX:41:24.748265 in the trace?  That
-> does look like it is slowly slogging its way through a bunch of lost
-> traffic, which was I think part of the problem I was seeing with the
-> middlebox I stepped in, but I don't think I see the reset where I would
-> have expected it.  Still, it looks like the sender has an increasing TCP
-> RTO as it is going through the slog (as it likely must since there are
-> no TCP timestamps?), to the point it gets larger than I'm guessing curl
-> was willing to wait, so the FIN at XX:41:53.269534 after a ten second or
-> so gap.
+Add a new make target to enable installing test. This target
+installs test in the kselftest install location and add to the
+kselftest script to run the test. Install target can be run
+only from top level kernel source directory.
 
-Should the receiver's autotuning be advertising an ever larger window 
-the way it is while going through the slog of lost traffic?
+Signed-off-by: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+---
+ tools/testing/selftests/ptrace/Makefile | 16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
 
-rick
+diff --git a/tools/testing/selftests/ptrace/Makefile b/tools/testing/selftests/ptrace/Makefile
+index 47ae2d3..6fc352c 100644
+--- a/tools/testing/selftests/ptrace/Makefile
++++ b/tools/testing/selftests/ptrace/Makefile
+@@ -1,10 +1,20 @@
+ CFLAGS += -iquote../../../../include/uapi -Wall
+-peeksiginfo: peeksiginfo.c
+ 
+-all: peeksiginfo
++TEST_STR = ./peeksiginfo || echo 'peeksiginfo selftests: [FAIL]'
++
++all:
++	gcc peeksiginfo.c -o peeksiginfo
++
++install:
++ifdef INSTALL_KSFT_PATH
++	install ./peeksiginfo $(INSTALL_KSFT_PATH)
++	@echo "$(TEST_STR)" >> $(KSELFTEST)
++else
++	@echo "Run make kselftest_install in top level source directory"
++endif
+ 
+ clean:
+ 	rm -f peeksiginfo
+ 
+ run_tests: all
+-	@./peeksiginfo || echo "peeksiginfo selftests: [FAIL]"
++	@$(TEST_STR)
+-- 
+2.1.0
