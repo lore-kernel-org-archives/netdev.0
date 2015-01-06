@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] update ip-sysctl.txt documentation
-Date: Tue, 06 Jan 2015 17:40:39 -0500 (EST)
-Message-ID: <20150106.174039.783537681001060022.davem@davemloft.net>
-References: <1420583625-32414-1-git-send-email-ani@arista.com>
+Subject: Re: [PATCH] qla3xxx: don't allow never end busy loop
+Date: Tue, 06 Jan 2015 17:41:55 -0500 (EST)
+Message-ID: <20150106.174155.1469700455231157851.davem@davemloft.net>
+References: <1420579073-24637-1-git-send-email-andy.shevchenko@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: corbet@lwn.net, edumazet@google.com, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, P@draigbrady.com,
-	netdev@vger.kernel.org, fruggeri@arista.com
-To: ani@arista.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1420583625-32414-1-git-send-email-ani@arista.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-driver@qlogic.com
+To: andy.shevchenko@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56693 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750844AbbAFWl4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 17:41:56 -0500
+In-Reply-To: <1420579073-24637-1-git-send-email-andy.shevchenko@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ani Sinha <ani@arista.com>
-Date: Tue,  6 Jan 2015 14:33:45 -0800
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Date: Tue,  6 Jan 2015 23:17:53 +0200
 
-> @@ -64,8 +64,10 @@ fwmark_reflect - BOOLEAN
->  	Default: 0
->  
->  route/max_size - INTEGER
-> -	Maximum number of routes allowed in the kernel.  Increase
-> -	this when using large numbers of interfaces and/or routes.
-> +        Post linux kernel 3.6, this is depricated for ipv4 as route cache is no
-> +        longer used. For ipv6, this is used to limit the maximum number of ipv6
-> +        routes allowed in the kernel.  Increase this when using large numbers of
-> +        interfaces and/or routes.
+> The counter variable wasn't increased at all which may stuck under
+> certain circumstances.
+> 
+> Signed-off-by: Andy Shevchenko <andy.shevchenko@gmail.com>
 
-Please do not change the TABs into sequenes of space characters.
+Applied, thanks.
