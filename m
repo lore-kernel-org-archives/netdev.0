@@ -1,73 +1,158 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v1 08/11] net: rocker: add get flow API operation
-Date: Tue, 06 Jan 2015 09:50:52 -0800
-Message-ID: <54AC207C.2040908@gmail.com>
-References: <20141231194057.31070.5244.stgit@nitbit.x32> <20141231194852.31070.72727.stgit@nitbit.x32> <CAE4R7bCfpiCaiUwkOnPhHTRPJ3szcLtN8V8E35r=vKJ6rvTt3A@mail.gmail.com> <54ABF85F.2080105@gmail.com> <CAE4R7bDUiLGQnEHs1jemqjrQkzObN5jCkAa3LdWr90KGysrm5w@mail.gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next 1/3] net: add IPv4 routing FIB support for swdev
+Date: Tue, 6 Jan 2015 09:51:59 -0800
+Message-ID: <CAE4R7bCOnYL1bat39UivcyAG-S1hx-EJpwC_hWNv8prjZqV3fg@mail.gmail.com>
+References: <1420169361-31767-2-git-send-email-sfeldma@gmail.com>
+	<1420552709.32369.50.camel@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
 	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	john fastabend <john.fastabend@gmail.com>,
+	Thomas Graf <tgraf@suug.ch>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Scott Feldman <sfeldma@gmail.com>
+	Andy Gospodarek <andy@greyhouse.net>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:59617 "EHLO
-	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755888AbbAFRvG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 12:51:06 -0500
-Received: by mail-oi0-f46.google.com with SMTP id a3so22510064oib.5
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 09:51:05 -0800 (PST)
-In-Reply-To: <CAE4R7bDUiLGQnEHs1jemqjrQkzObN5jCkAa3LdWr90KGysrm5w@mail.gmail.com>
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:59939 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756303AbbAFRwB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 12:52:01 -0500
+Received: by mail-wg0-f50.google.com with SMTP id a1so29665372wgh.23
+        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 09:52:00 -0800 (PST)
+In-Reply-To: <1420552709.32369.50.camel@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/06/2015 08:57 AM, Scott Feldman wrote:
-> On Tue, Jan 6, 2015 at 6:59 AM, John Fastabend <john.fastabend@gmail.com> wrote:
->> On 01/05/2015 11:40 PM, Scott Feldman wrote:
->>>
->>> On Wed, Dec 31, 2014 at 11:48 AM, John Fastabend
->>> <john.fastabend@gmail.com> wrote:
->>>>
->>>> Add operations to get flows. I wouldn't mind cleaning this code
->>>> up a bit but my first attempt to do this used macros which shortered
->>>> the code up but when I was done I decided it just made the code
->>>> unreadable and unmaintainable.
->>>>
->>>> I might think about it a bit more but this implementation albeit
->>>> a bit long and repeatative is easier to understand IMO.
->>>
->>>
->>> Dang, you put a lot of work into this one.
->>>
->>> Something doesn't feel right though.  In this case, rocker driver just
->>> happened to have cached all the flow/group stuff in hash tables in
->>> software, so you don't need to query thru to the device to extract the
->>> if_flow info.  What doesn't feel right is all the work need in the
->>> driver.  For each and every driver.  get_flows needs to go above
->>> driver, somehow.
->>
->>
->> Another option is to have a software cache in the flow_table.c I
->> was trying to avoid caching as I really don't expect 'get' operations
->> to be fast path and going to hardware seems good enough for me.
->> Other than its a bit annoying to write the mapping code.
+On Tue, Jan 6, 2015 at 5:58 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Hi Scott,
 >
-> Caching in flow_table.c seems best to me as drivers/devices don't need
-> to be involved and the cache can server multiple users of the API.
-> Are there cases where the device could get flow table entries
-> installed/deleted outside the API?  For example, if the device was
-> learning MAC addresses, and did automatic table insertions.  We worked
-> around that case with the recent L2 swdev support by pushing learned
-> MAC addrs up to bridge's FDB so software and hardware tables stay
-> synced.
+> On Do, 2015-01-01 at 19:29 -0800, sfeldma@gmail.com wrote:
+>> From: Scott Feldman <sfeldma@gmail.com>
+>>
+>> To offload IPv4 L3 routing functions to swdev device, the swdev device driver
+>> implements two new ndo ops (ndo_switch_fib_ipv4_add/del).  The ops are called
+>> by the core IPv4 FIB code when installing/removing FIB entries to/from the
+>> kernel FIB.  On install, the driver should return 0 if FIB entry (route) can be
+>> installed to device for offloading, -EOPNOTSUPP if route cannot be installed
+>> due to device limitations, and other negative error code on failure to install
+>> route to device.  On failure error code, the route is not installed to device,
+>> and not installed in kernel FIB, and the return code is propagated back to the
+>> user-space caller (via netlink).  An -EOPNOTSUPP error code is skipped for the
+>> device but installed in the kernel FIB.
+>>
+>> The FIB entry (route) nexthop list is used to find the swdev device port to
+>> anchor the ndo op call.  The route's fib_dev (the first nexthop's dev) is used
+>> find the swdev port by recursively traversing the fib_dev's lower_dev list
+>> until a swdev port is found.  The ndo op is called on this swdev port.
+>>
+>> Since the FIB entry is "naked" when push from the kernel, the driver/device
+>> is responsible for resolving the route's nexthops to neighbor MAC addresses.
+>> This can be done by the driver by monitoring NETEVENT_NEIGH_UPDATE
+>> netevent notifier to watch for ARP activity.  Once a nexthop is resolved to
+>> neighbor MAC address, it can be installed to the device and the device will
+>> do the L3 routing offload in HW, for that nexthop.
+>>
+>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
+>>  include/linux/netdevice.h |   22 +++++++++++
+>>  include/net/switchdev.h   |   18 +++++++++
+>>  net/ipv4/fib_trie.c       |   17 ++++++++-
+>>  net/switchdev/switchdev.c |   89 +++++++++++++++++++++++++++++++++++++++++++++
+>>  4 files changed, 145 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>> index 679e6e9..b66d22b 100644
+>> --- a/include/linux/netdevice.h
+>> +++ b/include/linux/netdevice.h
+>> @@ -767,6 +767,8 @@ struct netdev_phys_item_id {
+>>  typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+>>                                      struct sk_buff *skb);
+>>
+>> +struct fib_info;
+>> +
+>>  /*
+>>   * This structure defines the management hooks for network devices.
+>>   * The following hooks can be defined; unless noted otherwise, they are
+>> @@ -1030,6 +1032,14 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+>>   * int (*ndo_switch_port_stp_update)(struct net_device *dev, u8 state);
+>>   *   Called to notify switch device port of bridge port STP
+>>   *   state change.
+>> + * int (*ndo_sw_parent_fib_ipv4_add)(struct net_device *dev, __be32 dst,
+>> + *                                int dst_len, struct fib_info *fi,
+>> + *                                u8 tos, u8 type, u32 tb_id);
+>> + *   Called to add IPv4 route to switch device.
+>> + * int (*ndo_sw_parent_fib_ipv4_del)(struct net_device *dev, __be32 dst,
+>> + *                                int dst_len, struct fib_info *fi,
+>> + *                                u8 tos, u8 type, u32 tb_id);
+>> + *   Called to delete IPv4 route from switch device.
+>>   */
+>>  struct net_device_ops {
+>>       int                     (*ndo_init)(struct net_device *dev);
+>> @@ -1189,6 +1199,18 @@ struct net_device_ops {
+>>                                                           struct netdev_phys_item_id *psid);
+>>       int                     (*ndo_switch_port_stp_update)(struct net_device *dev,
+>>                                                             u8 state);
+>> +     int                     (*ndo_switch_fib_ipv4_add)(struct net_device *dev,
+>> +                                                        __be32 dst,
+>> +                                                        int dst_len,
+>> +                                                        struct fib_info *fi,
+>> +                                                        u8 tos, u8 type,
+>> +                                                        u32 tb_id);
+>> +     int                     (*ndo_switch_fib_ipv4_del)(struct net_device *dev,
+>> +                                                        __be32 dst,
+>> +                                                        int dst_len,
+>> +                                                        struct fib_info *fi,
+>> +                                                        u8 tos, u8 type,
+>> +                                                        u32 tb_id);
+>>  #endif
+>>  };
 >
+> At this point I would like to start the discussion about handling of the
+> table ids/vrfs (again :) ): as I can see it, this version just passes
+> table ids down to the driver layer and the rocker driver filters them by
+> local/main table? This seems to be mostly fine for a first version but
+> does not feel like it will integrate well with the rest of the linux
+> networking ecosystem.
+>
+> Will hardware have the capabilities to do programmable matches like "ip
+> rule" is currently capable to do? Should we plan for that? Do we want to
+> support hardware which does support multiple tables/VRFs?
 
-OK I guess I'm convinced. I'll go ahead and cache the flow entries in
-software. I'll work this into v2.
+Good questions, thanks for bringing these up.
 
--- 
-John Fastabend         Intel Corporation
+>
+> I would like to present a first suggestion:
+> My take on this would be strive towards an integration with ip-rule, so
+> we add tables which will be offloaded to hardware. This happens only in
+> situations where those tables will be the first match for incoming
+> packets specified with an in-interface filter which has the capability
+> to do the offloading (for example). The determination if the table is
+> capable for hardware offloading should be done automatically, so if
+> later hardware will be capable of doing ip rule like matches, we can
+> just expand the check which flags the tables accordingly.
+
+Sounds like a good suggestion to me.  We need to think about what the
+swdev API looks like to the switch device driver.  Could you take a
+stab at defining what integration with ip-rule looks like, code-wise,
+at the swdev API layer?
+
+With the rocker device we're prototyping with, the standard LPM on IP
+dst is the normal L3 routing table structure.  Within that, table
+priorities could be handled, so routes in one table take precedence
+over routes in another table.  If we want to do policy routing, then
+we'd need to use the ACL table in rocker to match on other fields
+besides just IP dst.
+
+> Anyway, if hardware supports multiple tables or VRFs, it is better to
+> manage pass in a pointer where drivers can embed private data for
+> management, I think.
+>
+> Thanks,
+> Hannes
+>
+>
+>
