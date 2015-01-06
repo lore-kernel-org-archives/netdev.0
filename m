@@ -1,147 +1,29 @@
-From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v4 19/20] selftests: add install target to enable test install
-Date: Tue,  6 Jan 2015 12:43:33 -0700
-Message-ID: <5cca2e663023be7e3cc89aab34ffc62012e90045.1420571615.git.shuahkh@osg.samsung.com>
-References: <cover.1420571615.git.shuahkh@osg.samsung.com>
-Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org
-To: mmarek@suse.cz, gregkh@linuxfoundation.org,
-	akpm@linux-foundation.org, rostedt@goodmis.org, mingo@redhat.com,
-	davem@davemloft.net, keescook@chromium.org, tranmanphong@gmail.com,
-	mpe@ellerman.id.au, cov@codeaurora.org, dh.herrmann@gmail.com,
-	hughd@google.com, bobby.prani@gmail.com, serge.hallyn@ubuntu.com,
-	ebiederm@xmission.com, tim.bird@sonymobile.com,
-	josh@joshtriplett.org, koct9i@gmail.com,
-	masami.hiramatsu.pt@hitachi.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1420571615.git.shuahkh@osg.samsung.com>
-In-Reply-To: <cover.1420571615.git.shuahkh@osg.samsung.com>
-References: <cover.1420571615.git.shuahkh@osg.samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2] net: eth: xgene: change APM X-Gene SoC platform
+ ethernet to support ACPI
+Date: Tue, 06 Jan 2015 14:46:11 -0500 (EST)
+Message-ID: <20150106.144611.682542061306728720.davem@davemloft.net>
+References: <CAL85gmCGK54yK3sThVhGsatMVUS8+76LRwdDt4w9PUfppMJ3og@mail.gmail.com>
+	<20150105.231054.790363276763745624.davem@davemloft.net>
+	<CAL85gmDybxCB59UcpFm3NRR7bxG-_1xsmXAs3oehOujEoetiog@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: patches@apm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: fkan@apm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53688 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932463AbbAFTqO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 14:46:14 -0500
+In-Reply-To: <CAL85gmDybxCB59UcpFm3NRR7bxG-_1xsmXAs3oehOujEoetiog@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add a new make target to enable installing selftests. This
-new target will call install targets for the tests that are
-specified in INSTALL_TARGETS. During install, a script is
-generated to run tests that are installed. This script will
-be installed in the selftest install directory. Individual
-test Makefiles are changed to add to the script. This will
-allow new tests to add install and run test commands to the
-generated kselftest script. run_tests target runs the
-generated kselftest script to run tests when it is initiated
-from from "make kselftest" from top level source directory.
+From: Feng Kan <fkan@apm.com>
+Date: Tue, 6 Jan 2015 11:30:46 -0800
 
-Approach:
+> the platform, I am not sure how to recreate this.
 
-Add a new kselftest_install target:
--- exports kselftest INSTALL_KSFT_PATH
-   default $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
--- exports INSTALL_KSFT_PATH
--- runs selftests make kselftest_install target:
-
-selftests make install target
--- Sets up environment for sub-makefiles
--- creates kselftest.sh script in install install dir
--- runs install targets for INSTALL_TARGETS
--- install target can be run only from top level source dir.
-
-Individual test make install targets:
--- install test programs and/or scripts in install dir
--- append to the ksefltest.sh file to add commands to run test
--- install target can be run only from top level source dir.
-
-Adds the following new ways to initiate selftests:
--- Installing and running kselftest from install directory
-   by running  "make kselftest"
--- Running kselftest script from install directory
-
-Maintains the following ways to run tests:
--- make TARGETS=net kselftest
--- make -C tools/testing/selftests run_tests
--- make -C tools/testing/selftests TARGETS=target run_tests
-   Ability specify targets: e.g TARGETS=net
--- make run_tests from tools/testing/selftests
--- make run_tests from individual test directories:
-   e.g: make run_tests in tools/testing/selftests/net
-
-Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
----
- tools/testing/selftests/Makefile | 54 +++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 53 insertions(+), 1 deletion(-)
-
-diff --git a/tools/testing/selftests/Makefile b/tools/testing/selftests/Makefile
-index 4e51122..45661ce 100644
---- a/tools/testing/selftests/Makefile
-+++ b/tools/testing/selftests/Makefile
-@@ -22,15 +22,67 @@ TARGETS += vm
- TARGETS_HOTPLUG = cpu-hotplug
- TARGETS_HOTPLUG += memory-hotplug
- 
-+# Used in only run_tests target when make kselftest is run in
-+# top level source directory
-+ifeq "$(origin TARGETS)" "command line"
-+no_install_run=1
-+endif
-+
-+ifdef INSTALL_KSFT_PATH
-+KSELFTEST=$(INSTALL_KSFT_PATH)/kselftest.sh
-+export KSELFTEST
-+# TODO add install target for SKIP_INSTALL_TARGETS
-+SKIP_INSTALL_TARGETS = exec powerpc
-+INSTALL_TARGETS = $(filter-out $(SKIP_INSTALL_TARGETS),$(TARGETS)) ipc
-+else
-+no_install_run=1
-+endif
-+
-+INSTALL_KSFT_ERR = "Run make kselftest_install in top level source directory"
-+
- all:
- 	for TARGET in $(TARGETS); do \
- 		make -C $$TARGET; \
- 	done;
- 
--run_tests: all
-+install:
-+ifdef INSTALL_KSFT_PATH
-+	rm -rf $(INSTALL_KSFT_PATH)
-+	mkdir -p $(INSTALL_KSFT_PATH)
-+
-+	make all
-+	@echo "#!/bin/sh\n# Kselftest Run Tests ...." >> $(KSELFTEST)
-+	@echo "# This file is generated by kselftest_install" >> $(KSELFTEST)
-+	@echo "# Please don't change it !!\n"  >> $(KSELFTEST)
-+	@echo "echo \"============================\"" >> $(KSELFTEST)
-+	for TARGET in $(INSTALL_TARGETS); do \
-+		echo "Installing $$TARGET"; \
-+		echo "echo \"Start $$TARGET test ....\"" >> $(KSELFTEST); \
-+		make -C $$TARGET install; \
-+		echo "echo \"End $$TARGET test ....\"" >> $(KSELFTEST); \
-+		echo "echo \"============================\"" >> $(KSELFTEST); \
-+	done;
-+	chmod +x $(KSELFTEST)
-+else
-+	@echo $(INSTALL_KSFT_ERR)
-+endif
-+
-+run_tests:
-+ifndef no_install_run
-+# ifdef INSTALL_KSFT_PATH
-+	make install
-+	@cd $(INSTALL_KSFT_PATH); ./kselftest.sh; cd -
-+# invoke run_tests for SKIP_INSTALL_TARGETS
-+	for TARGET in $(SKIP_INSTALL_TARGETS); do \
-+		make -C $$TARGET run_tests; \
-+	done;
-+# endif
-+else
-+	make all
- 	for TARGET in $(TARGETS); do \
- 		make -C $$TARGET run_tests; \
- 	done;
-+endif
- 
- hotplug:
- 	for TARGET in $(TARGETS_HOTPLUG); do \
--- 
-2.1.0
+Build allmodconfig on x86-64, the most commonly tested build.
