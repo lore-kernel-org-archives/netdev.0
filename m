@@ -1,61 +1,77 @@
-From: Ani Sinha <ani@arista.com>
-Subject: Fwd: [PATCH 1/1] update ip-sysctl.txt documentation
-Date: Tue, 6 Jan 2015 14:02:29 -0800
-Message-ID: <CAOxq_8OGx9VgSaEimAbNZSWjihNqNBXoVg0m8EPRaNX5jLXZiw@mail.gmail.com>
-References: <1420574648-24213-1-git-send-email-ani@arista.com>
+From: Felipe Balbi <balbi@ti.com>
+Subject: Re: [PATCH] net: ethernet: cpsw: ignore VLAN ID 1
+Date: Tue, 6 Jan 2015 16:04:10 -0600
+Message-ID: <20150106220410.GH32308@saruman>
+References: <1420566212-30081-1-git-send-email-balbi@ti.com>
+ <20150106.141323.2091288413667564444.davem@davemloft.net>
+ <20150106203119.GC32308@saruman>
+ <20150106.165911.604916635790072318.davem@davemloft.net>
+Reply-To: <balbi@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="J/zg8ciPNcraoWb6"
+Cc: <balbi@ti.com>, <netdev@vger.kernel.org>,
+	<linux-omap@vger.kernel.org>, <stable@vger.kernel.org>,
+	<mugunthanvnm@ti.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:43422 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752654AbbAFWCu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 17:02:50 -0500
-Received: by mail-ie0-f177.google.com with SMTP id rd18so429954iec.8
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 14:02:50 -0800 (PST)
-In-Reply-To: <1420574648-24213-1-git-send-email-ani@arista.com>
+Received: from bear.ext.ti.com ([192.94.94.41]:43168 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755469AbbAFWEp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jan 2015 17:04:45 -0500
+Content-Disposition: inline
+In-Reply-To: <20150106.165911.604916635790072318.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-+netdev
+--J/zg8ciPNcraoWb6
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
+Hi,
 
----------- Forwarded message ----------
-From: Ani Sinha <ani@arista.com>
-Date: Tue, Jan 6, 2015 at 12:04 PM
-Subject: [PATCH 1/1] update ip-sysctl.txt documentation
-To: corbet@lwn.net, davem@davemloft.net, edumazet@google.com,
-linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-ani@arista.com, P@draigbrady.com
+On Tue, Jan 06, 2015 at 04:59:11PM -0500, David Miller wrote:
+> From: Felipe Balbi <balbi@ti.com>
+> Date: Tue, 6 Jan 2015 14:31:19 -0600
+>=20
+> > What you're saying here is that you prefer to drop a feature that works
+> > for all other 1023 IDs because 1 ID is quirky. Sounds like overkill
+> > to me.
+>=20
+> The other option is to software fallback only for VLAN 1.
 
+now we're talking. Keep in mind, however, that this IP runs on mere
+single-core cortex A8 and single-core cortex A9 devices which already
+have somewhat of a hard-time keeping up with the non-accelerated
+checksum calculations. But fair enough, if that's the way to go, it is
+the way to go.
 
-Update documentation to reflect the fact that
-/proc/sys/net/ipv4/route/max_size is no longer used for
-ipv4.
+cheers
 
-Signed-off-by: Ani Sinha <ani@arista.com>
----
- Documentation/networking/ip-sysctl.txt |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+--=20
+balbi
 
-diff --git a/Documentation/networking/ip-sysctl.txt
-b/Documentation/networking/ip-sysctl.txt
-index 9bffdfc..c8a7e37 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -64,8 +64,10 @@ fwmark_reflect - BOOLEAN
-        Default: 0
+--J/zg8ciPNcraoWb6
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
- route/max_size - INTEGER
--       Maximum number of routes allowed in the kernel.  Increase
--       this when using large numbers of interfaces and/or routes.
-+        Post linux kernel 3.6, this is depricated for ipv4 as route cache is no
-+        longer used. For ipv6, this is used to limit the maximum number of ipv6
-+        routes allowed in the kernel.  Increase this when using large
-numbers of
-+        interfaces and/or routes.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
- neigh/default/gc_thresh1 - INTEGER
-        Minimum number of entries to keep.  Garbage collector will not
---
-1.7.4.4
+iQIcBAEBAgAGBQJUrFvaAAoJEIaOsuA1yqRE89YQAKFYp2ZkppYy+kgHS+afzIai
+6+wjk/QcmYe5DMvOmjx7QX0amSxAD7JiejL9LrOlfvh/gGUNyl+2095PiVtSWPcT
+otnU6xy1bdxbZ1pJajRYLq+qZ116hJyaaweN/ynNx41hN4LiA7atbaLa4WvV/wGc
+P07rIvkzBUXfxMuW63R6CZ8YMPlU0fdvOLjsmP9WT1gmZCH1isyZGYJ91SrHSaU3
+7Bpcc9NfAjEItPM54YttAH5aY1GjvgHpl4aUJA/XblZf+X1jiZ1VXOKzmBkPMSky
+vAygkT3YyVwasx41WNR/OaSqLi4vc8yuohqjC9EJWEXMAM1L0qid6Ony2XQFt2s/
+CqjxYpI4l9tG7Ol7Y5177sdjm3DLKbqR2+oLQjbAo4oaCPfiXEgK4uoymRvFc6qY
+g1ljcFxn6xRzRPU0PGdJ0N3hdClbc2FmKLJqoDqrdgT49nr1WwFMqmEL6KCW/6/U
+8Zwk8+AaIAZ7n52k2nC9vUSJGqnKkmoT9+nKJ52oWE1MpvTTpFpea3B5a2fLX7S3
+xbyXXlHj9fI+yleeUGUhVSZhWJQZeC5hG7kQYgYK7AB0zRx97//D0ogrPWxdOuS/
+NZvmOlu67S8tim0d+/+/VQ7dggyB6MFHPGW0SMf4Y7jYVpOR5ShMcsM4alq86TVV
+O3wb8dZ15IoYZ2w4b8mU
+=+r1f
+-----END PGP SIGNATURE-----
+
+--J/zg8ciPNcraoWb6--
