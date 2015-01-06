@@ -1,83 +1,55 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [net-next PATCH v1 01/11] net: flow_table: create interface for
- hw match/action tables
-Date: Tue, 6 Jan 2015 10:09:44 +0900
-Message-ID: <20150106010942.GD14077@vergenet.net>
-References: <20141231194057.31070.5244.stgit@nitbit.x32>
- <20141231194544.31070.30335.stgit@nitbit.x32>
- <20150104111238.GD15305@casper.infradead.org>
- <54AADEFF.3090306@gmail.com>
- <54AB303E.3000601@gmail.com>
+From: Sunderam K <sunderam_k@yahoo.com>
+Subject: Re: [PATCH] crypto: aesni-intel - avoid IPsec re-ordering
+Date: Tue, 6 Jan 2015 01:05:21 +0000 (UTC)
+Message-ID: <loom.20150106T020250-42@post.gmane.org>
+References: <1415771371-30774-1-git-send-email-ming.liu@windriver.com> <20141112084138.GL6390@secunet.com> <20141115031549.GA19208@gondor.apana.org.au> <20141120072650.GT6390@secunet.com> <20141120074342.GA29544@gondor.apana.org.au> <20141120075943.GU6390@secunet.com> <20141120080205.GA29710@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>, sfeldma@gmail.com, jiri@resnulli.us,
-	jhs@mojatatu.com, netdev@vger.kernel.org, davem@davemloft.net,
-	andy@greyhouse.net
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:43600 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753264AbbAFBJz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 20:09:55 -0500
-Received: by mail-pd0-f181.google.com with SMTP id v10so28837608pde.26
-        for <netdev@vger.kernel.org>; Mon, 05 Jan 2015 17:09:55 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <54AB303E.3000601@gmail.com>
+Received: from plane.gmane.org ([80.91.229.3]:50345 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754039AbbAFBKS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jan 2015 20:10:18 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Y8Iep-0004yC-L5
+	for netdev@vger.kernel.org; Tue, 06 Jan 2015 02:10:04 +0100
+Received: from 207.140.44.228 ([207.140.44.228])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 02:10:03 +0100
+Received: from sunderam_k by 207.140.44.228 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 02:10:03 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 05, 2015 at 04:45:50PM -0800, John Fastabend wrote:
-> [...]
-> 
-> >>>+/**
-> >>>+ * @struct net_flow_field_ref
-> >>>+ * @brief uniquely identify field as header:field tuple
-> >>>+ */
-> >>>+struct net_flow_field_ref {
-> >>>+    int instance;
-> >>>+    int header;
-> >>>+    int field;
-> >>>+    int mask_type;
-> >>>+    int type;
-> >>>+    union {    /* Are these all the required data types */
-> >>>+        __u8 value_u8;
-> >>>+        __u16 value_u16;
-> >>>+        __u32 value_u32;
-> >>>+        __u64 value_u64;
-> >>>+    };
-> >>>+    union {    /* Are these all the required data types */
-> >>>+        __u8 mask_u8;
-> >>>+        __u16 mask_u16;
-> >>>+        __u32 mask_u32;
-> >>>+        __u64 mask_u64;
-> >>>+    };
-> >>>+};
-> >>
-> >>Does it make sense to write this as follows?
-> >
-> >Yes. I'll make this update it helps make it clear value/mask pairs are
-> >needed.
-> >
-> >>
-> >>union {
-> >>         struct {
-> >>                 __u8 value_u8;
-> >>                 __u8 mask_u8;
-> >>         };
-> >>         struct {
-> >>                 __u16 value_u16;
-> >>                 __u16 mask_u16;
-> >>         };
-> >>         ...
-> >>};
-> 
-> Another thought is to pull this entirely out of the structure and hide
-> it from the UAPI so we can add more value/mask types as needed without
-> having to spin versions of net_flow_field_ref. On the other hand I've
-> been able to fit all my fields in these types so far and I can't think
-> of any additions we need at the moment.
+Herbert Xu <herbert <at> gondor.apana.org.au> writes:
 
-FWIW, I think it would be cleaner to break both field_ref and action_args
-out into attributes and not expose the structures to user-space. But
-perhaps there is an advantage to dealing with structures directly that
-I am missing.
+> 
+> On Thu, Nov 20, 2014 at 08:59:44AM +0100, Steffen Klassert wrote:
+> >
+> > Sure, but could be an option if this is really a rare case.
+> 
+> Well it's rare but when it does hit it'll probably be there all
+> the time for that system.  IOW you either have no apps using the
+> FPU, but when you do, it's probably going to be hogging it.
+> 
+> > Anyway, I don't mind too much about the solution as long as we
+> > get it to work :)
+> 
+> :)
+> 
+> Cheers,
+
+
+Hi Herbert
+
+Is there an official "blessed" patch for this re-ordering problem?
+I saw some issues raised in the thread with the patch that Ming Liu had 
+provided? 
+
+Thanks
+-sunderam
