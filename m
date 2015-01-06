@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v2 4/8] net: mii: extend link mode support to 48 bits
-Date: Mon,  5 Jan 2015 18:54:06 -0800
-Message-ID: <1420512850-24699-5-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v2 8/8] net: mlx4_en: extend link mode support to 48 bits
+Date: Mon,  5 Jan 2015 18:54:10 -0800
+Message-ID: <1420512850-24699-9-git-send-email-ddecotig@gmail.com>
 References: <1420512850-24699-1-git-send-email-ddecotig@gmail.com>
 Cc: David Decotigny <decot@googlers.com>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -33,234 +33,198 @@ From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- drivers/net/mii.c   | 52 +++++++++++++++++++++++++++++-----------------------
- include/linux/mii.h | 31 ++++++++++++++++---------------
- 2 files changed, 45 insertions(+), 38 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 73 ++++++++++++++++---------
+ 1 file changed, 46 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/mii.c b/drivers/net/mii.c
-index 4a99c39..2be59ba 100644
---- a/drivers/net/mii.c
-+++ b/drivers/net/mii.c
-@@ -33,7 +33,7 @@
- #include <linux/ethtool.h>
- #include <linux/mii.h>
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 90e0f04..8ccbe3f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -46,6 +46,11 @@
+ #define EN_ETHTOOL_SHORT_MASK cpu_to_be16(0xffff)
+ #define EN_ETHTOOL_WORD_MASK  cpu_to_be32(0xffffffff)
  
--static u32 mii_get_an(struct mii_if_info *mii, u16 addr)
-+static ethtool_link_mode_mask_t mii_get_an(struct mii_if_info *mii, u16 addr)
- {
- 	int advert;
- 
-@@ -56,14 +56,15 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
- {
- 	struct net_device *dev = mii->dev;
- 	u16 bmcr, bmsr, ctrl1000 = 0, stat1000 = 0;
--	u32 nego;
-+	ethtool_link_mode_mask_t supported_link_modes, advertising_link_modes;
-+	ethtool_link_mode_mask_t nego;
- 
--	ecmd->supported =
-+	supported_link_modes =
- 	    (SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full |
- 	     SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
- 	     SUPPORTED_Autoneg | SUPPORTED_TP | SUPPORTED_MII);
- 	if (mii->supports_gmii)
--		ecmd->supported |= SUPPORTED_1000baseT_Half |
-+		supported_link_modes |= SUPPORTED_1000baseT_Half |
- 			SUPPORTED_1000baseT_Full;
- 
- 	/* only supports twisted-pair */
-@@ -76,7 +77,7 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
- 	ecmd->phy_address = mii->phy_id;
- 	ecmd->mdio_support = ETH_MDIO_SUPPORTS_C22;
- 
--	ecmd->advertising = ADVERTISED_TP | ADVERTISED_MII;
-+	advertising_link_modes = ADVERTISED_TP | ADVERTISED_MII;
- 
- 	bmcr = mii->mdio_read(dev, mii->phy_id, MII_BMCR);
- 	bmsr = mii->mdio_read(dev, mii->phy_id, MII_BMSR);
-@@ -85,23 +86,25 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
- 		stat1000 = mii->mdio_read(dev, mii->phy_id, MII_STAT1000);
- 	}
- 	if (bmcr & BMCR_ANENABLE) {
--		ecmd->advertising |= ADVERTISED_Autoneg;
-+		ethtool_link_mode_mask_t lp_adv;
++static u32 mlx4_en_get_compat_flags(struct net_device *unused_netdev)
++{
++	return ETH_COMPAT_SUPPORT_LINK_MODE_48b;
++}
 +
-+		advertising_link_modes |= ADVERTISED_Autoneg;
- 		ecmd->autoneg = AUTONEG_ENABLE;
+ static int mlx4_en_moderation_update(struct mlx4_en_priv *priv)
+ {
+ 	int i;
+@@ -388,7 +393,8 @@ static u32 mlx4_en_autoneg_get(struct net_device *dev)
+ 	return autoneg;
+ }
  
--		ecmd->advertising |= mii_get_an(mii, MII_ADVERTISE);
-+		advertising_link_modes |= mii_get_an(mii, MII_ADVERTISE);
- 		if (mii->supports_gmii)
--			ecmd->advertising |=
-+			advertising_link_modes |=
- 					mii_ctrl1000_to_ethtool_adv_t(ctrl1000);
+-static u32 ptys_get_supported_port(struct mlx4_ptys_reg *ptys_reg)
++static ethtool_link_mode_mask_t
++ptys_get_supported_port(struct mlx4_ptys_reg *ptys_reg)
+ {
+ 	u32 eth_proto = be32_to_cpu(ptys_reg->eth_proto_cap);
  
- 		if (bmsr & BMSR_ANEGCOMPLETE) {
--			ecmd->lp_advertising = mii_get_an(mii, MII_LPA);
--			ecmd->lp_advertising |=
--					mii_stat1000_to_ethtool_lpa_t(stat1000);
-+			lp_adv = mii_get_an(mii, MII_LPA);
-+			lp_adv |= mii_stat1000_to_ethtool_lpa_t(stat1000);
- 		} else {
--			ecmd->lp_advertising = 0;
-+			lp_adv = 0;
- 		}
+@@ -465,7 +471,7 @@ enum ethtool_report {
+ };
  
--		nego = ecmd->advertising & ecmd->lp_advertising;
-+		ethtool_cmd_lp_advertising_set(ecmd, lp_adv);
-+		nego = advertising_link_modes & lp_adv;
+ /* Translates mlx4 link mode to equivalent ethtool Link modes/speed */
+-static u32 ptys2ethtool_map[MLX4_LINK_MODES_SZ][3] = {
++static u64 ptys2ethtool_map[MLX4_LINK_MODES_SZ][3] = {
+ 	[MLX4_100BASE_TX] = {
+ 		SUPPORTED_100baseT_Full,
+ 		ADVERTISED_100baseT_Full,
+@@ -558,10 +564,11 @@ static u32 ptys2ethtool_map[MLX4_LINK_MODES_SZ][3] = {
+ 		},
+ };
  
- 		if (nego & (ADVERTISED_1000baseT_Full |
- 			    ADVERTISED_1000baseT_Half)) {
-@@ -128,6 +131,8 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
+-static u32 ptys2ethtool_link_modes(u32 eth_proto, enum ethtool_report report)
++static ethtool_link_mode_mask_t
++ptys2ethtool_link_modes(u32 eth_proto, enum ethtool_report report)
+ {
+ 	int i;
+-	u32 link_modes = 0;
++	ethtool_link_mode_mask_t link_modes = 0;
+ 
+ 	for (i = 0; i < MLX4_LINK_MODES_SZ; i++) {
+ 		if (eth_proto & MLX4_PROT_MASK(i))
+@@ -570,7 +577,8 @@ static u32 ptys2ethtool_link_modes(u32 eth_proto, enum ethtool_report report)
+ 	return link_modes;
+ }
+ 
+-static u32 ethtool2ptys_link_modes(u32 link_modes, enum ethtool_report report)
++static u32 ethtool2ptys_link_modes(ethtool_link_mode_mask_t link_modes,
++				   enum ethtool_report report)
+ {
+ 	int i;
+ 	u32 ptys_modes = 0;
+@@ -601,6 +609,9 @@ static int ethtool_get_ptys_settings(struct net_device *dev,
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_ptys_reg ptys_reg;
+ 	u32 eth_proto;
++	ethtool_link_mode_mask_t eth_supported;
++	ethtool_link_mode_mask_t eth_advertising;
++	ethtool_link_mode_mask_t eth_lp_advertising;
+ 	int ret;
+ 
+ 	memset(&ptys_reg, 0, sizeof(ptys_reg));
+@@ -624,41 +635,44 @@ static int ethtool_get_ptys_settings(struct net_device *dev,
+ 	en_dbg(DRV, priv, "ptys_reg.eth_proto_lp_adv %x\n",
+ 	       be32_to_cpu(ptys_reg.eth_proto_lp_adv));
+ 
+-	cmd->supported = 0;
+-	cmd->advertising = 0;
++	eth_supported = 0;
++	eth_advertising = 0;
+ 
+-	cmd->supported |= ptys_get_supported_port(&ptys_reg);
++	eth_supported |= ptys_get_supported_port(&ptys_reg);
+ 
+ 	eth_proto = be32_to_cpu(ptys_reg.eth_proto_cap);
+-	cmd->supported |= ptys2ethtool_link_modes(eth_proto, SUPPORTED);
++	eth_supported |= ptys2ethtool_link_modes(eth_proto, SUPPORTED);
+ 
+ 	eth_proto = be32_to_cpu(ptys_reg.eth_proto_admin);
+-	cmd->advertising |= ptys2ethtool_link_modes(eth_proto, ADVERTISED);
++	eth_advertising |= ptys2ethtool_link_modes(eth_proto, ADVERTISED);
+ 
+-	cmd->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
+-	cmd->advertising |= (priv->prof->tx_pause) ? ADVERTISED_Pause : 0;
++	eth_supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
++	eth_advertising |= (priv->prof->tx_pause) ? ADVERTISED_Pause : 0;
+ 
+-	cmd->advertising |= (priv->prof->tx_pause ^ priv->prof->rx_pause) ?
++	eth_advertising |= (priv->prof->tx_pause ^ priv->prof->rx_pause) ?
+ 		ADVERTISED_Asym_Pause : 0;
+ 
+ 	cmd->port = ptys_get_active_port(&ptys_reg);
+-	cmd->transceiver = (SUPPORTED_TP & cmd->supported) ?
++	cmd->transceiver = (SUPPORTED_TP & eth_supported) ?
+ 		XCVR_EXTERNAL : XCVR_INTERNAL;
+ 
+ 	if (mlx4_en_autoneg_get(dev)) {
+-		cmd->supported |= SUPPORTED_Autoneg;
+-		cmd->advertising |= ADVERTISED_Autoneg;
++		eth_supported |= SUPPORTED_Autoneg;
++		eth_advertising |= ADVERTISED_Autoneg;
  	}
  
- 	mii->full_duplex = ecmd->duplex;
-+	ethtool_cmd_supported_set(ecmd, supported_link_modes);
-+	ethtool_cmd_advertising_set(ecmd, advertising_link_modes);
+ 	cmd->autoneg = (priv->port_state.flags & MLX4_EN_PORT_ANC) ?
+ 		AUTONEG_ENABLE : AUTONEG_DISABLE;
  
- 	/* ignore maxtxpkt, maxrxpkt for now */
+ 	eth_proto = be32_to_cpu(ptys_reg.eth_proto_lp_adv);
+-	cmd->lp_advertising = ptys2ethtool_link_modes(eth_proto, ADVERTISED);
++	eth_lp_advertising = ptys2ethtool_link_modes(eth_proto, ADVERTISED);
  
-@@ -168,13 +173,15 @@ int mii_ethtool_sset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
- 	if (ecmd->autoneg == AUTONEG_ENABLE) {
- 		u32 bmcr, advert, tmp;
- 		u32 advert2 = 0, tmp2 = 0;
--
--		if ((ecmd->advertising & (ADVERTISED_10baseT_Half |
--					  ADVERTISED_10baseT_Full |
--					  ADVERTISED_100baseT_Half |
--					  ADVERTISED_100baseT_Full |
--					  ADVERTISED_1000baseT_Half |
--					  ADVERTISED_1000baseT_Full)) == 0)
-+		ethtool_link_mode_mask_t ethtool_adv;
-+
-+		ethtool_adv = ethtool_cmd_advertising(ecmd);
-+		if ((ethtool_adv & (ADVERTISED_10baseT_Half |
-+				    ADVERTISED_10baseT_Full |
-+				    ADVERTISED_100baseT_Half |
-+				    ADVERTISED_100baseT_Full |
-+				    ADVERTISED_1000baseT_Half |
-+				    ADVERTISED_1000baseT_Full)) == 0)
- 			return -EINVAL;
+-	cmd->lp_advertising |= (priv->port_state.flags & MLX4_EN_PORT_ANC) ?
++	eth_lp_advertising |= (priv->port_state.flags & MLX4_EN_PORT_ANC) ?
+ 			ADVERTISED_Autoneg : 0;
  
- 		/* advertise only what has been requested */
-@@ -184,11 +191,10 @@ int mii_ethtool_sset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
- 			advert2 = mii->mdio_read(dev, mii->phy_id, MII_CTRL1000);
- 			tmp2 = advert2 & ~(ADVERTISE_1000HALF | ADVERTISE_1000FULL);
- 		}
--		tmp |= ethtool_adv_to_mii_adv_t(ecmd->advertising);
-+		tmp |= ethtool_adv_to_mii_adv_t(ethtool_adv);
- 
- 		if (mii->supports_gmii)
--			tmp2 |=
--			      ethtool_adv_to_mii_ctrl1000_t(ecmd->advertising);
-+			tmp2 |= ethtool_adv_to_mii_ctrl1000_t(ethtool_adv);
- 		if (advert != tmp) {
- 			mii->mdio_write(dev, mii->phy_id, MII_ADVERTISE, tmp);
- 			mii->advertising = tmp;
-diff --git a/include/linux/mii.h b/include/linux/mii.h
-index 47492c9..6f5336c 100644
---- a/include/linux/mii.h
-+++ b/include/linux/mii.h
-@@ -106,7 +106,7 @@ static inline unsigned int mii_duplex (unsigned int duplex_lock,
-  * settings to phy autonegotiation advertisements for the
-  * MII_ADVERTISE register.
-  */
--static inline u32 ethtool_adv_to_mii_adv_t(u32 ethadv)
-+static inline u32 ethtool_adv_to_mii_adv_t(ethtool_link_mode_mask_t ethadv)
++	ethtool_cmd_supported_set(cmd, eth_supported);
++	ethtool_cmd_advertising_set(cmd, eth_advertising);
++	ethtool_cmd_lp_advertising_set(cmd, eth_lp_advertising);
+ 	cmd->phy_address = 0;
+ 	cmd->mdio_support = 0;
+ 	cmd->maxtxpkt = 0;
+@@ -673,27 +687,30 @@ static void ethtool_get_default_settings(struct net_device *dev,
+ 					 struct ethtool_cmd *cmd)
  {
- 	u32 result = 0;
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
++	ethtool_link_mode_mask_t eth_supported, eth_advertising;
+ 	int trans_type;
  
-@@ -133,9 +133,9 @@ static inline u32 ethtool_adv_to_mii_adv_t(u32 ethadv)
-  * A small helper function that translates MII_ADVERTISE bits
-  * to ethtool advertisement settings.
-  */
--static inline u32 mii_adv_to_ethtool_adv_t(u32 adv)
-+static inline ethtool_link_mode_mask_t mii_adv_to_ethtool_adv_t(u32 adv)
- {
--	u32 result = 0;
-+	ethtool_link_mode_mask_t result = 0;
+ 	cmd->autoneg = AUTONEG_DISABLE;
+-	cmd->supported = SUPPORTED_10000baseT_Full;
+-	cmd->advertising = ADVERTISED_10000baseT_Full;
++	eth_supported = SUPPORTED_10000baseT_Full;
++	eth_advertising = ADVERTISED_10000baseT_Full;
+ 	trans_type = priv->port_state.transceiver;
  
- 	if (adv & ADVERTISE_10HALF)
- 		result |= ADVERTISED_10baseT_Half;
-@@ -161,7 +161,8 @@ static inline u32 mii_adv_to_ethtool_adv_t(u32 adv)
-  * settings to phy autonegotiation advertisements for the
-  * MII_CTRL1000 register when in 1000T mode.
-  */
--static inline u32 ethtool_adv_to_mii_ctrl1000_t(u32 ethadv)
-+static inline u32
-+ethtool_adv_to_mii_ctrl1000_t(ethtool_link_mode_mask_t ethadv)
- {
- 	u32 result = 0;
+ 	if (trans_type > 0 && trans_type <= 0xC) {
+ 		cmd->port = PORT_FIBRE;
+ 		cmd->transceiver = XCVR_EXTERNAL;
+-		cmd->supported |= SUPPORTED_FIBRE;
+-		cmd->advertising |= ADVERTISED_FIBRE;
++		eth_supported |= SUPPORTED_FIBRE;
++		eth_advertising |= ADVERTISED_FIBRE;
+ 	} else if (trans_type == 0x80 || trans_type == 0) {
+ 		cmd->port = PORT_TP;
+ 		cmd->transceiver = XCVR_INTERNAL;
+-		cmd->supported |= SUPPORTED_TP;
+-		cmd->advertising |= ADVERTISED_TP;
++		eth_supported |= SUPPORTED_TP;
++		eth_advertising |= ADVERTISED_TP;
+ 	} else  {
+ 		cmd->port = -1;
+ 		cmd->transceiver = -1;
+ 	}
++	ethtool_cmd_supported_set(cmd, eth_supported);
++	ethtool_cmd_advertising_set(cmd, eth_advertising);
+ }
  
-@@ -181,9 +182,9 @@ static inline u32 ethtool_adv_to_mii_ctrl1000_t(u32 ethadv)
-  * bits, when in 1000Base-T mode, to ethtool
-  * advertisement settings.
-  */
--static inline u32 mii_ctrl1000_to_ethtool_adv_t(u32 adv)
-+static inline ethtool_link_mode_mask_t mii_ctrl1000_to_ethtool_adv_t(u32 adv)
- {
--	u32 result = 0;
-+	ethtool_link_mode_mask_t result = 0;
+ static int mlx4_en_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+@@ -747,13 +764,14 @@ static int mlx4_en_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_ptys_reg ptys_reg;
+ 	__be32 proto_admin;
++	const ethtool_link_mode_mask_t eth_adv = ethtool_cmd_advertising(cmd);
+ 	int ret;
  
- 	if (adv & ADVERTISE_1000HALF)
- 		result |= ADVERTISED_1000baseT_Half;
-@@ -201,9 +202,9 @@ static inline u32 mii_ctrl1000_to_ethtool_adv_t(u32 adv)
-  * bits, when in 1000Base-T mode, to ethtool
-  * LP advertisement settings.
-  */
--static inline u32 mii_lpa_to_ethtool_lpa_t(u32 lpa)
-+static inline ethtool_link_mode_mask_t mii_lpa_to_ethtool_lpa_t(u32 lpa)
- {
--	u32 result = 0;
-+	ethtool_link_mode_mask_t result = 0;
+-	u32 ptys_adv = ethtool2ptys_link_modes(cmd->advertising, ADVERTISED);
++	u32 ptys_adv = ethtool2ptys_link_modes(eth_adv, ADVERTISED);
+ 	int speed = ethtool_cmd_speed(cmd);
  
- 	if (lpa & LPA_LPACK)
- 		result |= ADVERTISED_Autoneg;
-@@ -219,9 +220,9 @@ static inline u32 mii_lpa_to_ethtool_lpa_t(u32 lpa)
-  * bits, when in 1000Base-T mode, to ethtool
-  * advertisement settings.
-  */
--static inline u32 mii_stat1000_to_ethtool_lpa_t(u32 lpa)
-+static inline ethtool_link_mode_mask_t mii_stat1000_to_ethtool_lpa_t(u32 lpa)
- {
--	u32 result = 0;
-+	ethtool_link_mode_mask_t result = 0;
+-	en_dbg(DRV, priv, "Set Speed=%d adv=0x%x autoneg=%d duplex=%d\n",
+-	       speed, cmd->advertising, cmd->autoneg, cmd->duplex);
++	en_dbg(DRV, priv, "Set Speed=%d adv=0x%llx autoneg=%d duplex=%d\n",
++	       speed, eth_adv, cmd->autoneg, cmd->duplex);
  
- 	if (lpa & LPA_1000HALF)
- 		result |= ADVERTISED_1000baseT_Half;
-@@ -239,7 +240,7 @@ static inline u32 mii_stat1000_to_ethtool_lpa_t(u32 lpa)
-  * settings to phy autonegotiation advertisements for the
-  * MII_CTRL1000 register when in 1000Base-X mode.
-  */
--static inline u32 ethtool_adv_to_mii_adv_x(u32 ethadv)
-+static inline u32 ethtool_adv_to_mii_adv_x(ethtool_link_mode_mask_t ethadv)
- {
- 	u32 result = 0;
+ 	if (!(priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_ETH_PROT_CTRL) ||
+ 	    (cmd->duplex == DUPLEX_HALF))
+@@ -1821,6 +1839,7 @@ static int mlx4_en_get_module_eeprom(struct net_device *dev,
+ }
  
-@@ -263,9 +264,9 @@ static inline u32 ethtool_adv_to_mii_adv_x(u32 ethadv)
-  * bits, when in 1000Base-X mode, to ethtool
-  * advertisement settings.
-  */
--static inline u32 mii_adv_to_ethtool_adv_x(u32 adv)
-+static inline ethtool_link_mode_mask_t mii_adv_to_ethtool_adv_x(u32 adv)
- {
--	u32 result = 0;
-+	ethtool_link_mode_mask_t result = 0;
- 
- 	if (adv & ADVERTISE_1000XHALF)
- 		result |= ADVERTISED_1000baseT_Half;
-@@ -287,9 +288,9 @@ static inline u32 mii_adv_to_ethtool_adv_x(u32 adv)
-  * bits, when in 1000Base-X mode, to ethtool
-  * LP advertisement settings.
-  */
--static inline u32 mii_lpa_to_ethtool_lpa_x(u32 lpa)
-+static inline ethtool_link_mode_mask_t mii_lpa_to_ethtool_lpa_x(u32 lpa)
- {
--	u32 result = 0;
-+	ethtool_link_mode_mask_t result = 0;
- 
- 	if (lpa & LPA_LPACK)
- 		result |= ADVERTISED_Autoneg;
+ const struct ethtool_ops mlx4_en_ethtool_ops = {
++	.get_compat_flags = mlx4_en_get_compat_flags,
+ 	.get_drvinfo = mlx4_en_get_drvinfo,
+ 	.get_settings = mlx4_en_get_settings,
+ 	.set_settings = mlx4_en_set_settings,
 -- 
 2.2.0.rc0.207.ga3a616c
