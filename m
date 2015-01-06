@@ -1,32 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net 1/3] i40e: fix un-necessary Tx hangs
-Date: Tue, 06 Jan 2015 13:31:21 -0500 (EST)
-Message-ID: <20150106.133121.1847060351473231478.davem@davemloft.net>
+Subject: Re: [net 0/3][pull request] Intel Wired LAN Driver Updates
+ 2015-01-06
+Date: Tue, 06 Jan 2015 13:31:00 -0500 (EST)
+Message-ID: <20150106.133100.288261701715995100.davem@davemloft.net>
 References: <1420533864-13125-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1420533864-13125-2-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20150106090440.00006a7d@unknown>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: jesse.brandeburg@intel.com
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52313 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52308 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755996AbbAFSbX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 13:31:23 -0500
-In-Reply-To: <20150106090440.00006a7d@unknown>
+	with ESMTP id S932423AbbAFSbC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 13:31:02 -0500
+In-Reply-To: <1420533864-13125-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Date: Tue, 6 Jan 2015 09:04:40 -0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue,  6 Jan 2015 00:44:21 -0800
 
-> Dave, sorry to do this but we discovered a bug in this patch (where
-> this patch impacts performance) and didn't interrupt Jeff before he sent
-> it (my mistake) I will prep a v2 for Jeff.
+> This series contains fixes to i40e only.
 > 
-> Please do not apply.
+> Jesse provides a fix for when the driver was polling with interrupts
+> disabled the hardware would occasionally not write back descriptors.
+> His fix causes the driver to detect this situation and force an interrupt
+> to fire which will flush the stuck descriptor.
+> 
+> Anjali provides a couple of fixes, the first corrects an issue where
+> the receive port checksum error counter was incrementing incorrectly with
+> UDP encapsulated tunneled traffic.  The second fix resolves an issue where
+> the driver was examining the outer protocol layer to set the inner protocol
+> layer checksum offload.  In the case of TCP over IPv6 over an IPv4 based
+> VXLAN, the inner checksum offloads would be set to look for IPv4/UDP
+> instead of IPv6/TCP, so fixed the issue so that the driver will look at
+> the proper layer for encapsulation offload settings.
 
-Ok.
+Not pulled, waiting for a respin with the fix for patch #1, thanks.
