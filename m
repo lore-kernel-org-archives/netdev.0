@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v4 16/20] selftests/timers: add install target to enable test install
-Date: Tue,  6 Jan 2015 12:43:30 -0700
-Message-ID: <a7d59f0840589027970bec63241bcc084406744d.1420571615.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v4 01/20] selftests/breakpoints: add install target to enable test install
+Date: Tue,  6 Jan 2015 12:43:15 -0700
+Message-ID: <a52b2be855825de0231e1f25cf9776af3c712fac.1420571615.git.shuahkh@osg.samsung.com>
 References: <cover.1420571615.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -28,32 +28,45 @@ only from top level kernel source directory.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/timers/Makefile | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
+ tools/testing/selftests/breakpoints/Makefile | 19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
 
-diff --git a/tools/testing/selftests/timers/Makefile b/tools/testing/selftests/timers/Makefile
-index eb2859f..6c03e92 100644
---- a/tools/testing/selftests/timers/Makefile
-+++ b/tools/testing/selftests/timers/Makefile
-@@ -1,8 +1,18 @@
-+TEST_STR = ./posix_timers
-+
- all:
- 	gcc posix_timers.c -o posix_timers -lrt
+diff --git a/tools/testing/selftests/breakpoints/Makefile b/tools/testing/selftests/breakpoints/Makefile
+index e18b42b..c738d4c 100644
+--- a/tools/testing/selftests/breakpoints/Makefile
++++ b/tools/testing/selftests/breakpoints/Makefile
+@@ -8,6 +8,7 @@ ifeq ($(ARCH),x86_64)
+ 	ARCH := x86
+ endif
  
++TEST_STR = ./breakpoint_test || echo 'breakpoints selftests: [FAIL]'
+ 
+ all:
+ ifeq ($(ARCH),x86)
+@@ -16,8 +17,22 @@ else
+ 	echo "Not an x86 target, can't build breakpoints selftests"
+ endif
+ 
+-run_tests:
+-	@./breakpoint_test || echo "breakpoints selftests: [FAIL]"
 +install:
 +ifdef INSTALL_KSFT_PATH
-+	install ./posix_timers $(INSTALL_KSFT_PATH)
++ifeq ($(ARCH),x86)
++	install ./breakpoint_test $(INSTALL_KSFT_PATH)
 +	@echo "$(TEST_STR)" >> $(KSELFTEST)
++else
++	@echo "Not an x86 target, unable to install breakpoints selftests"
++endif
 +else
 +	@echo "Run make kselftest_install in top level source directory"
 +endif
 +
- run_tests: all
--	./posix_timers
++run_tests: all
++ifeq ($(ARCH),x86)
 +	@$(TEST_STR)
++endif
  
  clean:
- 	rm -f ./posix_timers
+ 	rm -fr breakpoint_test
 -- 
 2.1.0
