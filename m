@@ -1,41 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/4] ip: Support checksum returned in csmg
-Date: Mon, 05 Jan 2015 22:47:03 -0500 (EST)
-Message-ID: <20150105.224703.1033205437426358344.davem@davemloft.net>
-References: <1420494977-15026-1-git-send-email-therbert@google.com>
+Subject: Re: [PATCH net-next v4] net: Do not call ndo_dflt_fdb_dump if
+ ndo_fdb_dump is defined
+Date: Mon, 05 Jan 2015 22:52:41 -0500 (EST)
+Message-ID: <20150105.225241.2023994227710574197.davem@davemloft.net>
+References: <54AAC9F1.9060409@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Cc: netdev@vger.kernel.org, ray.kinsella@intel.com
+To: hubert.sokolowski@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37269 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37350 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753277AbbAFDrF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 22:47:05 -0500
-In-Reply-To: <1420494977-15026-1-git-send-email-therbert@google.com>
+	with ESMTP id S1751011AbbAFDwo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 22:52:44 -0500
+In-Reply-To: <54AAC9F1.9060409@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Mon,  5 Jan 2015 13:56:13 -0800
+From: Hubert Sokolowski <hubert.sokolowski@intel.com>
+Date: Mon, 05 Jan 2015 17:29:21 +0000
 
-> This patch set allows the packet checksum for a datagram socket
-> to be returned in csum data in recvmsg. This allows userspace
-> to implement its own checksum over the data, for instance if an
-> IP tunnel was be implemented in user space, the inner checksum
-> could be validated.
+> Add checking whether the call to ndo_dflt_fdb_dump is needed.
+> It is not expected to call ndo_dflt_fdb_dump unconditionally
+> by some drivers (i.e. qlcnic or macvlan) that defines
+> own ndo_fdb_dump. Other drivers define own ndo_fdb_dump
+> and don't want ndo_dflt_fdb_dump to be called at all.
+> At the same time it is desirable to call the default dump
+> function on a bridge device.
+> Fix attributes that are passed to dev->netdev_ops->ndo_fdb_dump.
+> Add extra checking in br_fdb_dump to avoid duplicate entries
+> as now filter_dev can be NULL.
 > 
-> Changes in this patch set:
->   - Move checksum conversion to inet_sock from udp_sock. This
->     generalizes checksum conversion for use with other protocols.
->   - Move IP cmsg constants to a header file and make processing
->     of the flags more efficient in ip_cmsg_recv
->   - Return checksum value in cmsg. This is specifically the unfolded
->     32 bit checksum of the full packet starting from the first byte
->     returned in recvmsg
-> 
-> Tested: Wrote a little server to get checksums in cmsg for UDP and
->         verfied correct checksum is returned.
+> Following tests for filtering have been performed before
+> the change and after the patch was applied to make sure
+> they are the same and it doesn't break the filtering algorithm.
+ ...
+> Signed-off-by: Hubert Sokolowski <hubert.sokolowski@intel.com>
 
-Series applied, thanks Tom.
+Applied, thank you.
