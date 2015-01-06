@@ -1,39 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] netlink: get rid of nl_table_lock
-Date: Tue, 06 Jan 2015 17:19:41 -0500 (EST)
-Message-ID: <20150106.171941.296781199194329785.davem@davemloft.net>
-References: <cover.1420230585.git.tgraf@suug.ch>
-	<daae84cd33bfde8518b849176e25dcf3eea8014b.1420230585.git.tgraf@suug.ch>
-	<20150103110211.18b11f0f@urahara>
+Subject: Re: [RFC PATCH] unlock rtnl mutex in ic_open_devs while waiting
+Date: Tue, 06 Jan 2015 17:21:52 -0500 (EST)
+Message-ID: <20150106.172152.2034122593693302134.davem@davemloft.net>
+References: <54AA9706.5020202@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au,
-	paulmck@linux.vnet.ibm.com, edumazet@google.com,
-	john.r.fastabend@intel.com, josh@joshtriplett.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56296 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751834AbbAFWTo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 17:19:44 -0500
-In-Reply-To: <20150103110211.18b11f0f@urahara>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: maarten.lankhorst@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54AA9706.5020202@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Sat, 3 Jan 2015 11:02:11 -0800
+From: Maarten Lankhorst <maarten.lankhorst@canonical.com>
+Date: Mon, 05 Jan 2015 14:52:06 +0100
 
-> As a follow on to Thomas's patch I think this would complete the
-> transistion to RCU for netlink.
-> Compile tested only.
+> This fixes a deadlock with alx_link_check, which takes the rtnl_mutex in
+> a work item to check the link.
 > 
-> This patch gets rid of the reader/writer nl_table_lock and replaces it
-> with exclusively using RCU for reading, and a mutex for writing.
+> I have no idea whether alx should be fixed or ipconfig.c,
+> but this saves 120 seconds off my boot time. ;-)
 > 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Maarten Lankhorst <maarten.lankhorst@canonical.com>
 
-FWIW, this approach looks fine to me.
+I genuinely think that alx_link_check() needs to use a smaller hammer
+to do it's locking, there is no reason to use the RTNL mutex.
 
-Thomas can you review this?
+A driver private mutex will probably work just as well and not have
+this problem.
