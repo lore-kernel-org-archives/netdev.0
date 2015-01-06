@@ -1,31 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ethtool: Extend ethtool plugin module eeprom API to
- phylib
-Date: Tue, 06 Jan 2015 17:17:02 -0500 (EST)
-Message-ID: <20150106.171702.634373983545087688.davem@davemloft.net>
-References: <1420248476-110859-1-git-send-email-eswierk@skyportsystems.com>
+Subject: Re: [PATCH] net/fsl: Add mEMAC MDIO support to XGMAC MDIO
+Date: Tue, 06 Jan 2015 17:18:56 -0500 (EST)
+Message-ID: <20150106.171856.1589494551491329597.davem@davemloft.net>
+References: <1420364162-13109-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-	linux-kernel@vger.kernel.org
-To: eswierk@skyportsystems.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1420248476-110859-1-git-send-email-eswierk@skyportsystems.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, afleming@gmail.com,
+	Shaohui.Xie@freescale.com
+To: shh.xie@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56291 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751591AbbAFWS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 17:18:58 -0500
+In-Reply-To: <1420364162-13109-1-git-send-email-shh.xie@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ed Swierk <eswierk@skyportsystems.com>
-Date: Fri,  2 Jan 2015 17:27:56 -0800
+From: <shh.xie@gmail.com>
+Date: Sun, 4 Jan 2015 17:36:02 +0800
 
-> This patch extends the ethtool plugin module eeprom API to support cards
-> whose phy support is delegated to a separate driver.
+> From: Andy Fleming <afleming@gmail.com>
 > 
-> The handlers for ETHTOOL_GMODULEINFO and ETHTOOL_GMODULEEEPROM call the
-> module_info and module_eeprom functions if the phy driver provides them;
-> otherwise the handlers call the equivalent ethtool_ops functions provided
-> by network drivers with built-in phy support.
+> The Freescale mEMAC supports operating at 10/100/1000/10G, and
+> its associated MDIO controller is likewise capable of operating
+> both Clause 22 and Clause 45 MDIO buses. It is nearly identical
+> to the MDIO controller on the XGMAC, so we just modify that
+> driver.
 > 
-> Signed-off-by: Ed Swierk <eswierk@skyportsystems.com>
+> Portions of this driver developed by:
+> 
+> Sandeep Singh <sandeep@freescale.com>
+> Roy Zang <tie-fei.zang@freescale.com>
+> 
+> Signed-off-by: Andy Fleming <afleming@gmail.com>
+> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
 
-Applied to net-next, thanks.
+Applied, thanks.
