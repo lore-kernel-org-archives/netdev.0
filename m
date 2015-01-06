@@ -1,8 +1,8 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 2/5] rhashtable: introduce
-	rhashtable_wakeup_worker helper function
-Date: Tue, 6 Jan 2015 15:23:20 +0800
-Message-ID: <1420529003-22244-3-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 3/5] rhashtable: use future table
+	size to make expansion decision
+Date: Tue, 6 Jan 2015 15:23:21 +0800
+Message-ID: <1420529003-22244-4-git-send-email-ying.xue@windriver.com>
 References: <1420529003-22244-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,60 +23,36 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Introduce rhashtable_wakeup_worker() helper function to reduce
-duplicated code where to wake up worker.
+Should use future table size instead of old table size to decide
+whether hash table is worth being expanded.
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Cc: Thomas Graf <tgraf@suug.ch>
 ---
- lib/rhashtable.c |   20 +++++++++++++-------
- 1 file changed, 13 insertions(+), 7 deletions(-)
+ lib/rhashtable.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index f2fdd7a..6eda22f 100644
+index 6eda22f..f5288b1 100644
 --- a/lib/rhashtable.c
 +++ b/lib/rhashtable.c
-@@ -492,6 +492,17 @@ static void rht_deferred_worker(struct work_struct *work)
- 	mutex_unlock(&ht->mutex);
- }
+@@ -478,13 +478,14 @@ EXPORT_SYMBOL_GPL(rhashtable_shrink);
+ static void rht_deferred_worker(struct work_struct *work)
+ {
+ 	struct rhashtable *ht;
+-	struct bucket_table *tbl;
++	struct bucket_table *tbl, *new_tbl;
  
-+static void rhashtable_wakeup_worker(struct rhashtable *ht)
-+{
-+	struct bucket_table *tbl = rht_dereference_rcu(ht->tbl, ht);
-+	struct bucket_table *new_tbl = rht_dereference_rcu(ht->future_tbl, ht);
-+
-+	if (ht->tbl != ht->future_tbl &&
-+	    ((ht->p.grow_decision && ht->p.grow_decision(ht, new_tbl->size)) ||
-+	    (ht->p.shrink_decision && ht->p.shrink_decision(ht, tbl->size))))
-+		schedule_delayed_work(&ht->run_work, 0);
-+}
-+
- /**
-  * rhashtable_insert - insert object into hash hash table
-  * @ht:		hash table
-@@ -533,9 +544,7 @@ void rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj)
- 	atomic_inc(&ht->nelems);
+ 	ht = container_of(work, struct rhashtable, run_work.work);
+ 	mutex_lock(&ht->mutex);
+ 	tbl = rht_dereference(ht->tbl, ht);
++	new_tbl = rht_dereference(ht->future_tbl, ht);
  
- 	/* Only grow the table if no resizing is currently in progress. */
--	if (ht->tbl != ht->future_tbl &&
--	    ht->p.grow_decision && ht->p.grow_decision(ht, tbl->size))
--		schedule_delayed_work(&ht->run_work, 0);
-+	rhashtable_wakeup_worker(ht);
- 
- 	rcu_read_unlock();
- }
-@@ -584,10 +593,7 @@ restart:
- 
- 		spin_unlock_bh(lock);
- 
--		if (ht->tbl != ht->future_tbl &&
--		    ht->p.shrink_decision &&
--		    ht->p.shrink_decision(ht, tbl->size))
--			schedule_delayed_work(&ht->run_work, 0);
-+		rhashtable_wakeup_worker(ht);
- 
- 		rcu_read_unlock();
- 
+-	if (ht->p.grow_decision && ht->p.grow_decision(ht, tbl->size))
++	if (ht->p.grow_decision && ht->p.grow_decision(ht, new_tbl->size))
+ 		rhashtable_expand(ht);
+ 	else if (ht->p.shrink_decision && ht->p.shrink_decision(ht, tbl->size))
+ 		rhashtable_shrink(ht);
 -- 
 1.7.9.5
 
