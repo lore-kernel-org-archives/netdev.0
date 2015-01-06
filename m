@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v2 7/8] net: tun: extend link mode support to 48 bits
-Date: Mon,  5 Jan 2015 18:54:09 -0800
-Message-ID: <1420512850-24699-8-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v2 6/8] net: veth: extend link mode support to 48 bits
+Date: Mon,  5 Jan 2015 18:54:08 -0800
+Message-ID: <1420512850-24699-7-git-send-email-ddecotig@gmail.com>
 References: <1420512850-24699-1-git-send-email-ddecotig@gmail.com>
 Cc: David Decotigny <decot@googlers.com>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -24,35 +24,31 @@ To: Amir Vadai <amirv@mellanox.com>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	linux-api@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:49621 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932276AbbAFCzD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 21:55:03 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1420512850-24699-1-git-send-email-ddecotig@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- drivers/net/tun.c | 4 ++--
+ drivers/net/veth.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index c0df872..88f9078 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -2257,8 +2257,8 @@ static struct miscdevice tun_miscdev = {
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 8ad5965..902e127 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -49,8 +49,8 @@ static struct {
  
- static int tun_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ static int veth_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
  {
 -	cmd->supported		= 0;
 -	cmd->advertising	= 0;
 +	ethtool_cmd_supported_set(cmd, 0);
 +	ethtool_cmd_advertising_set(cmd, 0);
- 	ethtool_cmd_speed_set(cmd, SPEED_10);
+ 	ethtool_cmd_speed_set(cmd, SPEED_10000);
  	cmd->duplex		= DUPLEX_FULL;
  	cmd->port		= PORT_TP;
 -- 
