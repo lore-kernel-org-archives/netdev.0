@@ -1,77 +1,84 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: [PATCH] net: ethernet: cpsw: ignore VLAN ID 1
-Date: Tue, 6 Jan 2015 16:04:10 -0600
-Message-ID: <20150106220410.GH32308@saruman>
-References: <1420566212-30081-1-git-send-email-balbi@ti.com>
- <20150106.141323.2091288413667564444.davem@davemloft.net>
- <20150106203119.GC32308@saruman>
- <20150106.165911.604916635790072318.davem@davemloft.net>
-Reply-To: <balbi@ti.com>
+From: Prashant Sreedharan <prashant@broadcom.com>
+Subject: Re: [PATCH net-next] tg3: move init/deinit from open/close to
+ probe/remove
+Date: Tue, 6 Jan 2015 13:57:27 -0800
+Message-ID: <1420581447.10407.11.camel@prashant>
+References: <1420576122-23618-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="J/zg8ciPNcraoWb6"
-Cc: <balbi@ti.com>, <netdev@vger.kernel.org>,
-	<linux-omap@vger.kernel.org>, <stable@vger.kernel.org>,
-	<mugunthanvnm@ti.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <mchan@broadcom.com>
+To: Ivan Vecera <ivecera@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:43168 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755469AbbAFWEp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jan 2015 17:04:45 -0500
-Content-Disposition: inline
-In-Reply-To: <20150106.165911.604916635790072318.davem@davemloft.net>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:15267 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752231AbbAFWOs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 17:14:48 -0500
+In-Reply-To: <1420576122-23618-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---J/zg8ciPNcraoWb6
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Tue, 2015-01-06 at 21:28 +0100, Ivan Vecera wrote:
+> Move init and deinit of PTP support from open/close functions
+> to probe/remove funcs to avoid removing/re-adding of associated PTP
+> device(s) during ifup/ifdown.
+> 
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+> ---
+>  drivers/net/ethernet/broadcom/tg3.c | 18 +++++++++---------
+>  1 file changed, 9 insertions(+), 9 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> index 553dcd8..e86bee4 100644
+> --- a/drivers/net/ethernet/broadcom/tg3.c
+> +++ b/drivers/net/ethernet/broadcom/tg3.c
+> @@ -11681,13 +11681,6 @@ static int tg3_open(struct net_device *dev)
+>  		pci_set_power_state(tp->pdev, PCI_D3hot);
+>  	}
+>  
+> -	if (tg3_flag(tp, PTP_CAPABLE)) {
+> -		tp->ptp_clock = ptp_clock_register(&tp->ptp_info,
+> -						   &tp->pdev->dev);
+> -		if (IS_ERR(tp->ptp_clock))
+> -			tp->ptp_clock = NULL;
+> -	}
+> -
+>  	return err;
+>  }
+>  
+> @@ -11701,8 +11694,6 @@ static int tg3_close(struct net_device *dev)
+>  		return -EAGAIN;
+>  	}
+>  
+> -	tg3_ptp_fini(tp);
+> -
+>  	tg3_stop(tp);
+>  
+>  	/* Clear stats across close / open calls */
+> @@ -17880,6 +17871,13 @@ static int tg3_init_one(struct pci_dev *pdev,
+>  		goto err_out_apeunmap;
+>  	}
+>  
+> +	if (tg3_flag(tp, PTP_CAPABLE)) {
+> +		tp->ptp_clock = ptp_clock_register(&tp->ptp_info,
+> +						   &tp->pdev->dev);
+> +		if (IS_ERR(tp->ptp_clock))
+> +			tp->ptp_clock = NULL;
+> +	}
+> +
+>  	netdev_info(dev, "Tigon3 [partno(%s) rev %04x] (%s) MAC address %pM\n",
+>  		    tp->board_part_number,
+>  		    tg3_chip_rev_id(tp),
+> @@ -17955,6 +17953,8 @@ static void tg3_remove_one(struct pci_dev *pdev)
+>  	if (dev) {
+>  		struct tg3 *tp = netdev_priv(dev);
+>  
+> +		tg3_ptp_fini(tp);
+> +
+>  		release_firmware(tp->fw);
+>  
+>  		tg3_reset_task_cancel(tp);
 
-Hi,
-
-On Tue, Jan 06, 2015 at 04:59:11PM -0500, David Miller wrote:
-> From: Felipe Balbi <balbi@ti.com>
-> Date: Tue, 6 Jan 2015 14:31:19 -0600
->=20
-> > What you're saying here is that you prefer to drop a feature that works
-> > for all other 1023 IDs because 1 ID is quirky. Sounds like overkill
-> > to me.
->=20
-> The other option is to software fallback only for VLAN 1.
-
-now we're talking. Keep in mind, however, that this IP runs on mere
-single-core cortex A8 and single-core cortex A9 devices which already
-have somewhat of a hard-time keeping up with the non-accelerated
-checksum calculations. But fair enough, if that's the way to go, it is
-the way to go.
-
-cheers
-
---=20
-balbi
-
---J/zg8ciPNcraoWb6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUrFvaAAoJEIaOsuA1yqRE89YQAKFYp2ZkppYy+kgHS+afzIai
-6+wjk/QcmYe5DMvOmjx7QX0amSxAD7JiejL9LrOlfvh/gGUNyl+2095PiVtSWPcT
-otnU6xy1bdxbZ1pJajRYLq+qZ116hJyaaweN/ynNx41hN4LiA7atbaLa4WvV/wGc
-P07rIvkzBUXfxMuW63R6CZ8YMPlU0fdvOLjsmP9WT1gmZCH1isyZGYJ91SrHSaU3
-7Bpcc9NfAjEItPM54YttAH5aY1GjvgHpl4aUJA/XblZf+X1jiZ1VXOKzmBkPMSky
-vAygkT3YyVwasx41WNR/OaSqLi4vc8yuohqjC9EJWEXMAM1L0qid6Ony2XQFt2s/
-CqjxYpI4l9tG7Ol7Y5177sdjm3DLKbqR2+oLQjbAo4oaCPfiXEgK4uoymRvFc6qY
-g1ljcFxn6xRzRPU0PGdJ0N3hdClbc2FmKLJqoDqrdgT49nr1WwFMqmEL6KCW/6/U
-8Zwk8+AaIAZ7n52k2nC9vUSJGqnKkmoT9+nKJ52oWE1MpvTTpFpea3B5a2fLX7S3
-xbyXXlHj9fI+yleeUGUhVSZhWJQZeC5hG7kQYgYK7AB0zRx97//D0ogrPWxdOuS/
-NZvmOlu67S8tim0d+/+/VQ7dggyB6MFHPGW0SMf4Y7jYVpOR5ShMcsM4alq86TVV
-O3wb8dZ15IoYZ2w4b8mU
-=+r1f
------END PGP SIGNATURE-----
-
---J/zg8ciPNcraoWb6--
+tg3_ptp_init() needs to be called before ptp_clock_register() to
+initialize the HW and poplulate the ptp_clock_info structure. Could you
+please test after making this change. Thanks.
