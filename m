@@ -1,68 +1,80 @@
-From: =?UTF-8?B?UMOhZHJhaWcgQnJhZHk=?= <P@draigBrady.com>
-Subject: Re: route/max_size sysctl in ipv4
-Date: Tue, 06 Jan 2015 12:41:51 +0000
-Message-ID: <54ABD80F.7070602@draigBrady.com>
-References: <CAOxq_8NdxBScZ182bXs5KmTZLKRMeF3AVt+DJNFUff42gaZG4w@mail.gmail.com> <20150105.193614.1827024424476781168.davem@davemloft.net> <CAOxq_8OtQ0WD-PKBd4kX0JwZiaStqJ-cQiQRhWnTAK9Q0JquxA@mail.gmail.com> <20150105.195128.794605376092864881.davem@davemloft.net> <CAOxq_8OysjN8OrvhM13t3YUuyh5O=KM_mptR=NHieq146mqZ8g@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH_V3] dm9000: Add regulator and reset support to dm9000
+Date: Tue, 06 Jan 2015 15:57:02 +0300
+Message-ID: <54ABDB9E.3070400@cogentembedded.com>
+References: <1420542916-30169-1-git-send-email-Zubair.Kakakhel@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ani Sinha <ani@arista.com>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.vodafone.ie ([213.233.128.44]:21335 "EHLO
-	mail2.vodafone.ie" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754955AbbAFMmB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 07:42:01 -0500
-In-Reply-To: <CAOxq_8OysjN8OrvhM13t3YUuyh5O=KM_mptR=NHieq146mqZ8g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
+To: Zubair Lutfullah Kakakhel <Zubair.Kakakhel-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1420542916-30169-1-git-send-email-Zubair.Kakakhel-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 06/01/15 00:56, Ani Sinha wrote:
-> On Mon, Jan 5, 2015 at 4:51 PM, David Miller <davem@davemloft.net> wr=
-ote:
->> From: Ani Sinha <ani@arista.com>
->> Date: Mon, 5 Jan 2015 16:43:30 -0800
->>
->>> On Mon, Jan 5, 2015 at 4:36 PM, David Miller <davem@davemloft.net> =
-wrote:
->>>> From: Ani Sinha <ani@arista.com>
->>>> Date: Mon, 5 Jan 2015 15:48:11 -0800
->>>>
->>>>> I am looking at the code and it looks like since the route cache =
-for
->>>>> ipv4 was removed from the kernel, this sysctl parameter no longer
->>>>> serves the same purpose. It does not look like it is even used in=
- the
->>>>> ipv4/route.c module. Is there an equivalent sysctl parameter limi=
-ting
->>>>> the number of route entries in the kernel? Or is there now no
->>>>> mechanism to limit the number of route entries?
->>>>
->>>> There is nothing to limit, since the cache was removed.
->>>
->>> Shouldn't the documentation be updated to reflect that? Also what's
->>> the point of having a dummy variable that does nothing? Should we n=
-ot
->>> simply remove it?
->>
->> There is nothing to update, the behavior is completely transparent.
->> Absolutely no cache entries exist, therefore the limit cannot be
->> reached.
->=20
-> I disagree. You are advertising a feature in an official documentatio=
-n
-> that simply does not exist for ipv4. This is very confusing. If I did
-> not dig into the code, I wouldn't know that this particular knob is a
-> noop since the time the route cache was removed.
+Hello.
 
-You can't change APIs with impunity.
+On 1/6/2015 2:15 PM, Zubair Lutfullah Kakakhel wrote:
 
->> The sysctl is kept so that scripts reading it don't suddenly stop
->> working.  We can't just remove sysctl values.
+> In boards, the dm9000 chip's power and reset can be controlled by gpio.
 
-Perhaps /proc/sys/net/ipv4/route/max_size should always return 0 when r=
-ead,
-and discard written values?
+> It makes sense to add them to the dm9000 driver and let dt be used to
+> enable power and reset the phy.
 
-thanks,
-P=C3=A1draig
+> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Paul Burton <paul.burton-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
+
+[...]
+
+> diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
+> index ef0bb58..246c89d 100644
+> --- a/drivers/net/ethernet/davicom/dm9000.c
+> +++ b/drivers/net/ethernet/davicom/dm9000.c
+[...]
+> @@ -1426,11 +1429,49 @@ dm9000_probe(struct platform_device *pdev)
+>   	struct dm9000_plat_data *pdata = dev_get_platdata(&pdev->dev);
+>   	struct board_info *db;	/* Point a board information structure */
+>   	struct net_device *ndev;
+> +	struct device *dev = &pdev->dev;
+>   	const unsigned char *mac_src;
+>   	int ret = 0;
+>   	int iosize;
+>   	int i;
+>   	u32 id_val;
+> +	int reset_gpios;
+> +	enum of_gpio_flags flags;
+> +	struct regulator *power;
+> +
+> +	power = devm_regulator_get(dev, "vcc");
+> +	if (PTR_ERR(power) == -EPROBE_DEFER)
+> +			return -EPROBE_DEFER;
+
+    Line over-indented.
+
+[...]
+> +	reset_gpios = of_get_named_gpio_flags(dev->of_node, "reset-gpios", 0,
+> +					      &flags);
+> +	if (gpio_is_valid(reset_gpios)) {
+> +		ret = devm_gpio_request_one(dev, reset_gpios, flags,
+> +					    "dm9000_reset");
+> +		if (ret) {
+> +			dev_err(dev, "failed to request reset gpio %d: %d\n",
+> +				reset_gpios, ret);
+> +			return -ENODEV;
+> +		}
+> +
+> +		gpio_direction_output(reset_gpios, 0);
+
+    You could skip this call as devm_gpio_request_one() can handle that for you.
+
+[...]
+
+WBR, Sergei
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
