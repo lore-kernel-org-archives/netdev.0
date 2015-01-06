@@ -1,41 +1,48 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next] arm_arch_timer: include clocksource.h directly
-Date: Tue,  6 Jan 2015 14:26:13 +0100
-Message-ID: <1420550773-6752-1-git-send-email-richardcochran@gmail.com>
-Cc: <linux-kernel@vger.kernel.org>, David Miller <davem@davemloft.net>,
-	Guenter Roeck <linux@roeck-us.net>
-To: <netdev@vger.kernel.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] Revert "ipw2200: select CFG80211_WEXT"
+Date: Tue, 06 Jan 2015 14:26:45 +0100
+Message-ID: <1420550805.1966.30.camel@sipsolutions.net>
+References: <1420297188.2397.3.camel@tiscali.nl>
+	 <CD467A59-F563-439B-BA82-954AB27AD9CC@holtmann.org>
+	 <CA+55aFzYSiUkntraMrHEhMzkt35Ft2p9E3cT7ejwQOBDwKvcOg@mail.gmail.com>
+	 <1420324124.9624.60.camel@x220> <54AA641C.7050307@broadcom.com>
+	 <1420479510.14308.23.camel@x220>
+	 (sfid-20150105_183907_807502_81C08416) <1420484224.9459.16.camel@sipsolutions.net>
+	 <1420495519.14308.29.camel@x220> <1420532617.1966.2.camel@sipsolutions.net>
+	 (sfid-20150106_092406_190634_68A6D76E)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Arend van Spriel <arend@broadcom.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Stanislav Yakovlev <stas.yakovlev@gmail.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Jiri Kosina <jkosina@suse.cz>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Paul Bolle <pebolle@tiscali.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:48286 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751486AbbAFN0S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 08:26:18 -0500
+Received: from s3.sipsolutions.net ([5.9.151.49]:59612 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755445AbbAFN0x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jan 2015 08:26:53 -0500
+In-Reply-To: <1420532617.1966.2.camel@sipsolutions.net> (sfid-20150106_092406_190634_68A6D76E)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This driver makes use of the clocksource code. Previously it had only
-included the proper header indirectly, but that chain was inadvertently
-broken by 74d23cc "time: move the timecounter/cyclecounter code into its
-own file."
+On Tue, 2015-01-06 at 09:23 +0100, Johannes Berg wrote:
 
-This patch fixes the issue by including clocksource.h directly.
+> Yours is the theoretical, hopefully-forward-looking one where we still
+> expect the driver to actually be modified to take advantage of the new
+> frameworks (which is independent of wext support towards userspace). In
+> that scenario, yes, it should use more until it uses all, and then it
+> can stop concerning itself with wext (which would be a win because
+> driver/wext interaction is always finicky) (*)
 
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
----
- drivers/clocksource/arm_arch_timer.c |    1 +
- 1 file changed, 1 insertion(+)
+I just realized that in order to actually do this you'd have to revert
+04b0c5c6995103eef56391c163e970ab1f03b59f first, but that would be pretty
+simple.
 
-diff --git a/drivers/clocksource/arm_arch_timer.c b/drivers/clocksource/arm_arch_timer.c
-index 6a79fc4..8e67e72 100644
---- a/drivers/clocksource/arm_arch_timer.c
-+++ b/drivers/clocksource/arm_arch_timer.c
-@@ -15,6 +15,7 @@
- #include <linux/cpu.h>
- #include <linux/cpu_pm.h>
- #include <linux/clockchips.h>
-+#include <linux/clocksource.h>
- #include <linux/interrupt.h>
- #include <linux/of_irq.h>
- #include <linux/of_address.h>
--- 
-1.7.10.4
+johannes
