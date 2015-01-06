@@ -1,212 +1,163 @@
-From: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v2 3/8] net: phy: extend link mode support to 48 bits
-Date: Mon,  5 Jan 2015 18:54:05 -0800
-Message-ID: <1420512850-24699-4-git-send-email-ddecotig@gmail.com>
-References: <1420512850-24699-1-git-send-email-ddecotig@gmail.com>
-Cc: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	Masatake YAMATO <yamato-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Xi Wang <xii-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	WANG Cong <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Tom Gundersen <teg-B22kvLQNl6c@public.gmane.org>,
-	Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
-	Vlad Yasevich <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Venkata Duvvuru <VenkatKumar.Duvvuru-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org>,
-	Govindarajulu Varadarajan <_govind-KK0ffGbhmjU@public.gmane.org>
-To: Amir Vadai <amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1420512850-24699-1-git-send-email-ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [net-next PATCH v1 01/11] net: flow_table: create interface for
+ hw match/action tables
+Date: Tue, 6 Jan 2015 11:54:58 +0900
+Message-ID: <20150106025456.GB24057@vergenet.net>
+References: <20141231194057.31070.5244.stgit@nitbit.x32>
+ <20141231194544.31070.30335.stgit@nitbit.x32>
+ <20150104111238.GD15305@casper.infradead.org>
+ <54AADEFF.3090306@gmail.com>
+ <54AB303E.3000601@gmail.com>
+ <20150106010942.GD14077@vergenet.net>
+ <54AB381E.3010009@gmail.com>
+ <20150106020514.GA24057@vergenet.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@suug.ch>, sfeldma@gmail.com, jiri@resnulli.us,
+	jhs@mojatatu.com, netdev@vger.kernel.org, davem@davemloft.net,
+	andy@greyhouse.net
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:56914 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932252AbbAFCzK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 21:55:10 -0500
+Received: by mail-pa0-f51.google.com with SMTP id ey11so30142661pad.10
+        for <netdev@vger.kernel.org>; Mon, 05 Jan 2015 18:55:09 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20150106020514.GA24057@vergenet.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
+On Tue, Jan 06, 2015 at 11:05:14AM +0900, Simon Horman wrote:
+> On Mon, Jan 05, 2015 at 05:19:26PM -0800, John Fastabend wrote:
+> > On 01/05/2015 05:09 PM, Simon Horman wrote:
+> > >On Mon, Jan 05, 2015 at 04:45:50PM -0800, John Fastabend wrote:
+> > >>[...]
+> > >>
+> > >>>>>+/**
+> > >>>>>+ * @struct net_flow_field_ref
+> > >>>>>+ * @brief uniquely identify field as header:field tuple
+> > >>>>>+ */
+> > >>>>>+struct net_flow_field_ref {
+> > >>>>>+    int instance;
+> > >>>>>+    int header;
+> > >>>>>+    int field;
+> > >>>>>+    int mask_type;
+> > >>>>>+    int type;
+> > >>>>>+    union {    /* Are these all the required data types */
+> > >>>>>+        __u8 value_u8;
+> > >>>>>+        __u16 value_u16;
+> > >>>>>+        __u32 value_u32;
+> > >>>>>+        __u64 value_u64;
+> > >>>>>+    };
+> > >>>>>+    union {    /* Are these all the required data types */
+> > >>>>>+        __u8 mask_u8;
+> > >>>>>+        __u16 mask_u16;
+> > >>>>>+        __u32 mask_u32;
+> > >>>>>+        __u64 mask_u64;
+> > >>>>>+    };
+> > >>>>>+};
+> > >>>>
+> > >>>>Does it make sense to write this as follows?
+> > >>>
+> > >>>Yes. I'll make this update it helps make it clear value/mask pairs are
+> > >>>needed.
+> > >>>
+> > >>>>
+> > >>>>union {
+> > >>>>         struct {
+> > >>>>                 __u8 value_u8;
+> > >>>>                 __u8 mask_u8;
+> > >>>>         };
+> > >>>>         struct {
+> > >>>>                 __u16 value_u16;
+> > >>>>                 __u16 mask_u16;
+> > >>>>         };
+> > >>>>         ...
+> > >>>>};
+> > >>
+> > >>Another thought is to pull this entirely out of the structure and hide
+> > >>it from the UAPI so we can add more value/mask types as needed without
+> > >>having to spin versions of net_flow_field_ref. On the other hand I've
+> > >>been able to fit all my fields in these types so far and I can't think
+> > >>of any additions we need at the moment.
+> > >
+> > >FWIW, I think it would be cleaner to break both field_ref and action_args
+> > >out into attributes and not expose the structures to user-space. But
+> > >perhaps there is an advantage to dealing with structures directly that
+> > >I am missing.
+> > >
+> > 
+> > I  came to the same conclusion just now as well. I'm reworking it now
+> > for v2.
+> 
+> Thanks.
+> 
+> BTW, I think there are a few problems with net_flow_put_flow_action().
+> 
+> I am not quite to the bottom of it but it seems that:
+> * It loops over a->args[i] and then calls net_flow_put_act_types()
+>   which performs a similar loop. This outer-loop appears to be incorrect.
+> * It passes a[i].args instead of a->args[i] to net_flow_put_act_types()
+> 
+> I can post a fix once I've got it working to my satisfaction.
+> But if you are reworking that code anyway perhaps it is easier for
+> you to handle it then.
 
-Signed-off-by: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
----
- drivers/net/phy/phy.c        | 30 ++++++++++++++++--------------
- drivers/net/phy/phy_device.c |  4 ++--
- include/linux/phy.h          | 10 +++++-----
- 3 files changed, 23 insertions(+), 21 deletions(-)
+FWIW this got the current scheme working for me:
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 767cd11..77d4eb9 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -132,7 +132,7 @@ static inline int phy_aneg_done(struct phy_device *phydev)
- struct phy_setting {
- 	int speed;
- 	int duplex;
--	u32 setting;
-+	ethtool_link_mode_mask_t setting;
- };
- 
- /* A mapping of all SUPPORTED settings to speed/duplex */
-@@ -227,7 +227,8 @@ static inline unsigned int phy_find_setting(int speed, int duplex)
-  *   the mask in features.  Returns the index of the last setting
-  *   if nothing else matches.
-  */
--static inline unsigned int phy_find_valid(unsigned int idx, u32 features)
-+static inline unsigned int phy_find_valid(unsigned int idx,
-+					  ethtool_link_mode_mask_t features)
+diff --git a/net/core/flow_table.c b/net/core/flow_table.c
+index 5dbdc13..598afa2 100644
+--- a/net/core/flow_table.c
++++ b/net/core/flow_table.c
+@@ -946,7 +946,7 @@ static int net_flow_put_flow_action(struct sk_buff *skb,
+ 				    struct net_flow_action *a)
  {
- 	while (idx < MAX_NUM_SETTINGS && !(settings[idx].setting & features))
- 		idx++;
-@@ -245,7 +246,7 @@ static inline unsigned int phy_find_valid(unsigned int idx, u32 features)
-  */
- static void phy_sanitize_settings(struct phy_device *phydev)
- {
--	u32 features = phydev->supported;
-+	ethtool_link_mode_mask_t features = phydev->supported;
- 	unsigned int idx;
+ 	struct nlattr *action, *sigs;
+-	int i, err = 0;
++	int err = 0;
  
- 	/* Sanitize settings based on PHY capabilities */
-@@ -274,18 +275,19 @@ static void phy_sanitize_settings(struct phy_device *phydev)
- int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd)
- {
- 	u32 speed = ethtool_cmd_speed(cmd);
-+	ethtool_link_mode_mask_t eth_adv = ethtool_cmd_advertising(cmd);
+ 	action = nla_nest_start(skb, NET_FLOW_ACTION);
+ 	if (!action)
+@@ -958,21 +958,19 @@ static int net_flow_put_flow_action(struct sk_buff *skb,
+ 	if (!a->args)
+ 		goto done;
  
- 	if (cmd->phy_address != phydev->addr)
- 		return -EINVAL;
+-	for (i = 0; a->args[i].type; i++) {
+-		sigs = nla_nest_start(skb, NET_FLOW_ACTION_ATTR_SIGNATURE);
+-		if (!sigs) {
+-			nla_nest_cancel(skb, action);
+-			return -EMSGSIZE;
+-		}
++	sigs = nla_nest_start(skb, NET_FLOW_ACTION_ATTR_SIGNATURE);
++	if (!sigs) {
++		nla_nest_cancel(skb, action);
++		return -EMSGSIZE;
++	}
  
- 	/* We make sure that we don't pass unsupported values in to the PHY */
--	cmd->advertising &= phydev->supported;
-+	eth_adv &= phydev->supported;
+-		err = net_flow_put_act_types(skb, a[i].args);
+-		if (err) {
+-			nla_nest_cancel(skb, sigs);
+-			nla_nest_cancel(skb, action);
+-			return err;
+-		}
+-		nla_nest_end(skb, sigs);
++	err = net_flow_put_act_types(skb, a->args);
++	if (err) {
++		nla_nest_cancel(skb, sigs);
++		nla_nest_cancel(skb, action);
++		return err;
+ 	}
++	nla_nest_end(skb, sigs);
  
- 	/* Verify the settings we care about. */
- 	if (cmd->autoneg != AUTONEG_ENABLE && cmd->autoneg != AUTONEG_DISABLE)
- 		return -EINVAL;
+ done:
+ 	nla_nest_end(skb, action);
+@@ -1103,6 +1101,7 @@ static int net_flow_get_action(struct net_flow_action *a, struct nlattr *attr)
+ 		}
  
--	if (cmd->autoneg == AUTONEG_ENABLE && cmd->advertising == 0)
-+	if (cmd->autoneg == AUTONEG_ENABLE && eth_adv == 0)
- 		return -EINVAL;
- 
- 	if (cmd->autoneg == AUTONEG_DISABLE &&
-@@ -300,7 +302,7 @@ int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd)
- 
- 	phydev->speed = speed;
- 
--	phydev->advertising = cmd->advertising;
-+	phydev->advertising = eth_adv;
- 
- 	if (AUTONEG_ENABLE == cmd->autoneg)
- 		phydev->advertising |= ADVERTISED_Autoneg;
-@@ -318,10 +320,10 @@ EXPORT_SYMBOL(phy_ethtool_sset);
- 
- int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
- {
--	cmd->supported = phydev->supported;
-+	ethtool_cmd_supported_set(cmd, phydev->supported);
- 
--	cmd->advertising = phydev->advertising;
--	cmd->lp_advertising = phydev->lp_advertising;
-+	ethtool_cmd_advertising_set(cmd, phydev->advertising);
-+	ethtool_cmd_lp_advertising_set(cmd, phydev->lp_advertising);
- 
- 	ethtool_cmd_speed_set(cmd, phydev->speed);
- 	cmd->duplex = phydev->duplex;
-@@ -1040,7 +1042,7 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
- 	    (phydev->interface == PHY_INTERFACE_MODE_RGMII) ||
- 	     phy_is_internal(phydev))) {
- 		int eee_lp, eee_cap, eee_adv;
--		u32 lp, cap, adv;
-+		ethtool_link_mode_mask_t cap, adv, lp;
- 		int status;
- 		unsigned int idx;
- 
-@@ -1132,21 +1134,21 @@ int phy_ethtool_get_eee(struct phy_device *phydev, struct ethtool_eee *data)
- 				    MDIO_MMD_PCS, phydev->addr);
- 	if (val < 0)
- 		return val;
--	data->supported = mmd_eee_cap_to_ethtool_sup_t(val);
-+	ethtool_eee_supported_set(data, mmd_eee_cap_to_ethtool_sup_t(val));
- 
- 	/* Get advertisement EEE */
- 	val = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_ADV,
- 				    MDIO_MMD_AN, phydev->addr);
- 	if (val < 0)
- 		return val;
--	data->advertised = mmd_eee_adv_to_ethtool_adv_t(val);
-+	ethtool_eee_advertised_set(data, mmd_eee_adv_to_ethtool_adv_t(val));
- 
- 	/* Get LP advertisement EEE */
- 	val = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_LPABLE,
- 				    MDIO_MMD_AN, phydev->addr);
- 	if (val < 0)
- 		return val;
--	data->lp_advertised = mmd_eee_adv_to_ethtool_adv_t(val);
-+	ethtool_eee_lp_advertised_set(data, mmd_eee_adv_to_ethtool_adv_t(val));
- 
+ 		a->args[count] = *(struct net_flow_action_arg *)nla_data(args);
++		count++;
+ 	}
  	return 0;
  }
-@@ -1161,7 +1163,7 @@ EXPORT_SYMBOL(phy_ethtool_get_eee);
-  */
- int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
- {
--	int val = ethtool_adv_to_mmd_eee_adv_t(data->advertised);
-+	int val = ethtool_adv_to_mmd_eee_adv_t(ethtool_eee_advertised(data));
- 
- 	phy_write_mmd_indirect(phydev, MDIO_AN_EEE_ADV, MDIO_MMD_AN,
- 			       phydev->addr, val);
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 3fc91e8..4391dc7 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -734,7 +734,7 @@ EXPORT_SYMBOL(phy_resume);
-  */
- static int genphy_config_advert(struct phy_device *phydev)
- {
--	u32 advertise;
-+	ethtool_link_mode_mask_t advertise;
- 	int oldadv, adv, bmsr;
- 	int err, changed = 0;
- 
-@@ -1086,7 +1086,7 @@ EXPORT_SYMBOL(genphy_soft_reset);
- int genphy_config_init(struct phy_device *phydev)
- {
- 	int val;
--	u32 features;
-+	ethtool_link_mode_mask_t features;
- 
- 	features = (SUPPORTED_TP | SUPPORTED_MII
- 			| SUPPORTED_AUI | SUPPORTED_FIBRE |
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 22af8f8..aabf808 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -390,10 +390,10 @@ struct phy_device {
- 	u32 interrupts;
- 
- 	/* Union of PHY and Attached devices' supported modes */
--	/* See mii.h for more info */
--	u32 supported;
--	u32 advertising;
--	u32 lp_advertising;
-+	/* See ethtool.h for more info */
-+	ethtool_link_mode_mask_t supported;
-+	ethtool_link_mode_mask_t advertising;
-+	ethtool_link_mode_mask_t lp_advertising;
- 
- 	int autoneg;
- 
-@@ -447,7 +447,7 @@ struct phy_driver {
- 	u32 phy_id;
- 	char *name;
- 	unsigned int phy_id_mask;
--	u32 features;
-+	ethtool_link_mode_mask_t features;
- 	u32 flags;
- 	const void *driver_data;
- 
--- 
-2.2.0.rc0.207.ga3a616c
