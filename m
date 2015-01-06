@@ -1,58 +1,191 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [net-next PATCH v1 04/11] rocker: add pipeline model for rocker switch
-Date: Tue, 6 Jan 2015 09:16:26 -0800
-Message-ID: <CAE4R7bAHY8=TJ_hZ5X72bB5fca22zg2L8FgKJdRdRZGDWpSvcA@mail.gmail.com>
-References: <20141231194057.31070.5244.stgit@nitbit.x32>
-	<20141231194709.31070.16657.stgit@nitbit.x32>
-	<CAE4R7bB6-bKh6EaZXpsXQeLx5A=MCJTCadYQoP2K5cUfOEUiEw@mail.gmail.com>
-	<54AC149A.6040401@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Graf <tgraf@suug.ch>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:56218 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932306AbbAFRQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 12:16:28 -0500
-Received: by mail-wg0-f49.google.com with SMTP id n12so29569274wgh.22
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 09:16:27 -0800 (PST)
-In-Reply-To: <54AC149A.6040401@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shrikrishna Khare <skhare@vmware.com>
+Subject: [PATCH net-next] Driver: Vmxnet3: Make Rx ring 2 size configurable
+Date: Tue,  6 Jan 2015 09:20:15 -0800
+Message-ID: <1420564815-32101-1-git-send-email-skhare@vmware.com>
+Cc: Shrikrishna Khare <skhare@vmware.com>,
+	Ramya Bolla <bollar@vmware.com>
+To: sbhatewara@vmware.com, pv-drivers@vmware.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 6, 2015 at 9:00 AM, John Fastabend <john.fastabend@gmail.com> wrote:
-> On 01/05/2015 11:01 PM, Scott Feldman wrote:
->>> +
->>> +struct net_flow_jump_table parse_ethernet[3] = {
->>> +       {
->>> +               .field = {
->>> +                  .header = HEADER_ETHERNET,
->>> +                  .field = HEADER_ETHERNET_ETHERTYPE,
->>> +                  .type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
->>> +                  .value_u16 = 0x0800,
+Rx ring 2 size can be configured by adjusting rx-jumbo parameter
+of ethtool -G.
 
-ETH_P_IP, etc
+Signed-off-by: Ramya Bolla <bollar@vmware.com>
+Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
+Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+---
+ drivers/net/vmxnet3/vmxnet3_defs.h    |    1 +
+ drivers/net/vmxnet3/vmxnet3_drv.c     |    6 +++++-
+ drivers/net/vmxnet3/vmxnet3_ethtool.c |   27 ++++++++++++++++++++-------
+ drivers/net/vmxnet3/vmxnet3_int.h     |    6 ++++--
+ 4 files changed, 30 insertions(+), 10 deletions(-)
 
->>
->>
->> How is htons/ntohs conversions happening here?
->
->
-> my current stance is to leave everything in host order in the model
-> and let the drivers do conversions as needed. For example some drivers
-> want the vlan vid in host order others network order. I think its
-> more readable above then with hton*() throughout.
-
-Hmmm...I would argue adding htons/htonl makes it more readable in the
-sense that it's a reminder that this is a field in a network header,
-to be used for matching against packet headers, which use
-network-ordering.  Store the field in the order best for comparison
-with the raw pkt data.  Drivers may still need to do some conversion
-if the field is programmed in hardware in a diff order.
+diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
+index 4d84912..25b6fa4 100644
+--- a/drivers/net/vmxnet3/vmxnet3_defs.h
++++ b/drivers/net/vmxnet3/vmxnet3_defs.h
+@@ -342,6 +342,7 @@ union Vmxnet3_GenericDesc {
+ #define VMXNET3_TX_RING_MAX_SIZE   4096
+ #define VMXNET3_TC_RING_MAX_SIZE   4096
+ #define VMXNET3_RX_RING_MAX_SIZE   4096
++#define VMXNET3_RX_RING2_MAX_SIZE  2048
+ #define VMXNET3_RC_RING_MAX_SIZE   8192
+ 
+ /* a list of reasons for queue stop */
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index afd2953..7af1f5c 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -2505,6 +2505,9 @@ vmxnet3_adjust_rx_ring_size(struct vmxnet3_adapter *adapter)
+ 	ring0_size = min_t(u32, ring0_size, VMXNET3_RX_RING_MAX_SIZE /
+ 			   sz * sz);
+ 	ring1_size = adapter->rx_queue[0].rx_ring[1].size;
++	ring1_size = (ring1_size + sz - 1) / sz * sz;
++	ring1_size = min_t(u32, ring1_size, VMXNET3_RX_RING2_MAX_SIZE /
++			   sz * sz);
+ 	comp_size = ring0_size + ring1_size;
+ 
+ 	for (i = 0; i < adapter->num_rx_queues; i++) {
+@@ -2585,7 +2588,7 @@ vmxnet3_open(struct net_device *netdev)
+ 
+ 	err = vmxnet3_create_queues(adapter, adapter->tx_ring_size,
+ 				    adapter->rx_ring_size,
+-				    VMXNET3_DEF_RX_RING_SIZE);
++				    adapter->rx_ring2_size);
+ 	if (err)
+ 		goto queue_err;
+ 
+@@ -2964,6 +2967,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ 
+ 	adapter->tx_ring_size = VMXNET3_DEF_TX_RING_SIZE;
+ 	adapter->rx_ring_size = VMXNET3_DEF_RX_RING_SIZE;
++	adapter->rx_ring2_size = VMXNET3_DEF_RX_RING2_SIZE;
+ 
+ 	spin_lock_init(&adapter->cmd_lock);
+ 	adapter->adapter_pa = dma_map_single(&adapter->pdev->dev, adapter,
+diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+index b7b5332..8a5a90e 100644
+--- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
++++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+@@ -447,12 +447,12 @@ vmxnet3_get_ringparam(struct net_device *netdev,
+ 	param->rx_max_pending = VMXNET3_RX_RING_MAX_SIZE;
+ 	param->tx_max_pending = VMXNET3_TX_RING_MAX_SIZE;
+ 	param->rx_mini_max_pending = 0;
+-	param->rx_jumbo_max_pending = 0;
++	param->rx_jumbo_max_pending = VMXNET3_RX_RING2_MAX_SIZE;
+ 
+ 	param->rx_pending = adapter->rx_ring_size;
+ 	param->tx_pending = adapter->tx_ring_size;
+ 	param->rx_mini_pending = 0;
+-	param->rx_jumbo_pending = 0;
++	param->rx_jumbo_pending = adapter->rx_ring2_size;
+ }
+ 
+ 
+@@ -461,7 +461,7 @@ vmxnet3_set_ringparam(struct net_device *netdev,
+ 		      struct ethtool_ringparam *param)
+ {
+ 	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
+-	u32 new_tx_ring_size, new_rx_ring_size;
++	u32 new_tx_ring_size, new_rx_ring_size, new_rx_ring2_size;
+ 	u32 sz;
+ 	int err = 0;
+ 
+@@ -473,6 +473,10 @@ vmxnet3_set_ringparam(struct net_device *netdev,
+ 						VMXNET3_RX_RING_MAX_SIZE)
+ 		return -EINVAL;
+ 
++	if (param->rx_jumbo_pending == 0 ||
++	    param->rx_jumbo_pending > VMXNET3_RX_RING2_MAX_SIZE)
++		return -EINVAL;
++
+ 	/* if adapter not yet initialized, do nothing */
+ 	if (adapter->rx_buf_per_pkt == 0) {
+ 		netdev_err(netdev, "adapter not completely initialized, "
+@@ -500,8 +504,15 @@ vmxnet3_set_ringparam(struct net_device *netdev,
+ 							   sz) != 0)
+ 		return -EINVAL;
+ 
+-	if (new_tx_ring_size == adapter->tx_queue[0].tx_ring.size &&
+-	    new_rx_ring_size == adapter->rx_queue[0].rx_ring[0].size) {
++	/* ring2 has to be a multiple of VMXNET3_RING_SIZE_ALIGN */
++	new_rx_ring2_size = (param->rx_jumbo_pending + VMXNET3_RING_SIZE_MASK) &
++				~VMXNET3_RING_SIZE_MASK;
++	new_rx_ring2_size = min_t(u32, new_rx_ring2_size,
++				  VMXNET3_RX_RING2_MAX_SIZE);
++
++	if (new_tx_ring_size == adapter->tx_ring_size &&
++	    new_rx_ring_size == adapter->rx_ring_size &&
++	    new_rx_ring2_size == adapter->rx_ring2_size) {
+ 		return 0;
+ 	}
+ 
+@@ -522,7 +533,7 @@ vmxnet3_set_ringparam(struct net_device *netdev,
+ 		vmxnet3_rq_destroy_all(adapter);
+ 
+ 		err = vmxnet3_create_queues(adapter, new_tx_ring_size,
+-			new_rx_ring_size, VMXNET3_DEF_RX_RING_SIZE);
++			new_rx_ring_size, new_rx_ring2_size);
+ 
+ 		if (err) {
+ 			/* failed, most likely because of OOM, try default
+@@ -530,11 +541,12 @@ vmxnet3_set_ringparam(struct net_device *netdev,
+ 			netdev_err(netdev, "failed to apply new sizes, "
+ 				   "try the default ones\n");
+ 			new_rx_ring_size = VMXNET3_DEF_RX_RING_SIZE;
++			new_rx_ring2_size = VMXNET3_DEF_RX_RING2_SIZE;
+ 			new_tx_ring_size = VMXNET3_DEF_TX_RING_SIZE;
+ 			err = vmxnet3_create_queues(adapter,
+ 						    new_tx_ring_size,
+ 						    new_rx_ring_size,
+-						    VMXNET3_DEF_RX_RING_SIZE);
++						    new_rx_ring2_size);
+ 			if (err) {
+ 				netdev_err(netdev, "failed to create queues "
+ 					   "with default sizes. Closing it\n");
+@@ -549,6 +561,7 @@ vmxnet3_set_ringparam(struct net_device *netdev,
+ 	}
+ 	adapter->tx_ring_size = new_tx_ring_size;
+ 	adapter->rx_ring_size = new_rx_ring_size;
++	adapter->rx_ring2_size = new_rx_ring2_size;
+ 
+ out:
+ 	clear_bit(VMXNET3_STATE_BIT_RESETTING, &adapter->state);
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index 5f0199f..048f020 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -69,10 +69,10 @@
+ /*
+  * Version numbers
+  */
+-#define VMXNET3_DRIVER_VERSION_STRING   "1.2.1.0-k"
++#define VMXNET3_DRIVER_VERSION_STRING   "1.3.1.0-k"
+ 
+ /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
+-#define VMXNET3_DRIVER_VERSION_NUM      0x01020100
++#define VMXNET3_DRIVER_VERSION_NUM      0x01030100
+ 
+ #if defined(CONFIG_PCI_MSI)
+ 	/* RSS only makes sense if MSI-X is supported. */
+@@ -352,6 +352,7 @@ struct vmxnet3_adapter {
+ 	/* Ring sizes */
+ 	u32 tx_ring_size;
+ 	u32 rx_ring_size;
++	u32 rx_ring2_size;
+ 
+ 	struct work_struct work;
+ 
+@@ -384,6 +385,7 @@ struct vmxnet3_adapter {
+ /* must be a multiple of VMXNET3_RING_SIZE_ALIGN */
+ #define VMXNET3_DEF_TX_RING_SIZE    512
+ #define VMXNET3_DEF_RX_RING_SIZE    256
++#define VMXNET3_DEF_RX_RING2_SIZE   128
+ 
+ #define VMXNET3_MAX_ETH_HDR_SIZE    22
+ #define VMXNET3_MAX_SKB_BUF_SIZE    (3*1024)
+-- 
+1.7.4.1
