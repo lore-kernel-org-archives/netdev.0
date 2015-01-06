@@ -1,26 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2] net: eth: xgene: change APM X-Gene SoC platform
- ethernet to support ACPI
-Date: Mon, 05 Jan 2015 22:41:37 -0500 (EST)
-Message-ID: <20150105.224137.894770670718334587.davem@davemloft.net>
-References: <1420508576-10480-1-git-send-email-fkan@apm.com>
+Subject: Re: [PATCH net-next v3 0/4] ip: Support checksum returned in csmg
+Date: Mon, 05 Jan 2015 22:47:03 -0500 (EST)
+Message-ID: <20150105.224703.1033205437426358344.davem@davemloft.net>
+References: <1420494977-15026-1-git-send-email-therbert@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: patches@apm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: fkan@apm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1420508576-10480-1-git-send-email-fkan@apm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37269 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753277AbbAFDrF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 22:47:05 -0500
+In-Reply-To: <1420494977-15026-1-git-send-email-therbert@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Feng Kan <fkan@apm.com>
-Date: Mon,  5 Jan 2015 17:42:56 -0800
+From: Tom Herbert <therbert@google.com>
+Date: Mon,  5 Jan 2015 13:56:13 -0800
 
-> This adds support for APM X-Gene ethernet driver to use ACPI table to derive
-> ethernet driver parameter.
+> This patch set allows the packet checksum for a datagram socket
+> to be returned in csum data in recvmsg. This allows userspace
+> to implement its own checksum over the data, for instance if an
+> IP tunnel was be implemented in user space, the inner checksum
+> could be validated.
 > 
-> Signed-off-by: Feng Kan <fkan@apm.com>
+> Changes in this patch set:
+>   - Move checksum conversion to inet_sock from udp_sock. This
+>     generalizes checksum conversion for use with other protocols.
+>   - Move IP cmsg constants to a header file and make processing
+>     of the flags more efficient in ip_cmsg_recv
+>   - Return checksum value in cmsg. This is specifically the unfolded
+>     32 bit checksum of the full packet starting from the first byte
+>     returned in recvmsg
+> 
+> Tested: Wrote a little server to get checksums in cmsg for UDP and
+>         verfied correct checksum is returned.
 
-Applied.
+Series applied, thanks Tom.
