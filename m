@@ -1,85 +1,122 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 6/6] batman-adv: fix potential TT client + orig-node memory leak
-Date: Tue,  6 Jan 2015 12:10:05 +0100
-Message-ID: <1420542605-28865-7-git-send-email-antonio@meshcoding.com>
-References: <1420542605-28865-1-git-send-email-antonio@meshcoding.com>
+From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH_V3] dm9000: Add regulator and reset support to dm9000
+Date: Tue, 6 Jan 2015 11:15:16 +0000
+Message-ID: <1420542916-30169-1-git-send-email-Zubair.Kakakhel@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Antonio Quartulli <antonio@meshcoding.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:17277 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754984AbbAFLKv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 06:10:51 -0500
-In-Reply-To: <1420542605-28865-1-git-send-email-antonio@meshcoding.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <Zubair.Kakakhel-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
+In boards, the dm9000 chip's power and reset can be controlled by gpio.
 
-This patch fixes a potential memory leak which can occur once an
-originator times out. On timeout the according global translation table
-entry might not get purged correctly. Furthermore, the non purged TT
-entry will cause its orig-node to leak, too. Which additionally can lea=
-d
-to the new multicast optimization feature not kicking in because of a
-therefore bogus counter.
+It makes sense to add them to the dm9000 driver and let dt be used to
+enable power and reset the phy.
 
-In detail: The batadv_tt_global_entry->orig_list holds the reference to
-the orig-node. Usually this reference is released after
-BATADV_PURGE_TIMEOUT through: _batadv_purge_orig()->
-batadv_purge_orig_node()->batadv_update_route()->_batadv_update_route()=
-->
-batadv_tt_global_del_orig() which purges this global tt entry and
-releases the reference to the orig-node.
+Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Paul Burton <paul.burton-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
 
-However, if between two batadv_purge_orig_node() calls the orig-node
-timeout grew to 2*BATADV_PURGE_TIMEOUT then this call path isn't
-reached. Instead the according orig-node is removed from the
-originator hash in _batadv_purge_orig(), the batadv_update_route()
-part is skipped and won't be reached anymore.
-
-=46ixing the issue by moving batadv_tt_global_del_orig() out of the rcu
-callback.
-
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
-Acked-by: Antonio Quartulli <antonio@meshcoding.com>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
- net/batman-adv/originator.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+V2 A few fixes and more error checks. Nothing major
 
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 648bdba..bea8198 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -570,9 +570,6 @@ static void batadv_orig_node_free_rcu(struct rcu_he=
-ad *rcu)
-=20
- 	batadv_frag_purge_orig(orig_node, NULL);
-=20
--	batadv_tt_global_del_orig(orig_node->bat_priv, orig_node, -1,
--				  "originator timed out");
--
- 	if (orig_node->bat_priv->bat_algo_ops->bat_orig_free)
- 		orig_node->bat_priv->bat_algo_ops->bat_orig_free(orig_node);
-=20
-@@ -978,6 +975,9 @@ static void _batadv_purge_orig(struct batadv_priv *=
-bat_priv)
- 			if (batadv_purge_orig_node(bat_priv, orig_node)) {
- 				batadv_gw_node_delete(bat_priv, orig_node);
- 				hlist_del_rcu(&orig_node->hash_entry);
-+				batadv_tt_global_del_orig(orig_node->bat_priv,
-+							  orig_node, -1,
-+							  "originator timed out");
- 				batadv_orig_node_free_ref(orig_node);
- 				continue;
- 			}
---=20
-2.2.1
+V1 Minor blooper
+---
+ .../devicetree/bindings/net/davicom-dm9000.txt     |  4 +++
+ drivers/net/ethernet/davicom/dm9000.c              | 41 ++++++++++++++++++++++
+ 2 files changed, 45 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/net/davicom-dm9000.txt b/Documentation/devicetree/bindings/net/davicom-dm9000.txt
+index 28767ed..5224bf0 100644
+--- a/Documentation/devicetree/bindings/net/davicom-dm9000.txt
++++ b/Documentation/devicetree/bindings/net/davicom-dm9000.txt
+@@ -11,6 +11,8 @@ Required properties:
+ Optional properties:
+ - davicom,no-eeprom : Configuration EEPROM is not available
+ - davicom,ext-phy : Use external PHY
++- reset-gpios : phandle of gpio that will be used to reset chip during probe
++- vcc-supply : phandle of regulator that will be used to enable power to chip
+ 
+ Example:
+ 
+@@ -21,4 +23,6 @@ Example:
+ 		interrupts = <7 4>;
+ 		local-mac-address = [00 00 de ad be ef];
+ 		davicom,no-eeprom;
++		reset-gpios = <&gpf 12 GPIO_ACTIVE_LOW>;
++		vcc-supply = <&eth0_power>;
+ 	};
+diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
+index ef0bb58..246c89d 100644
+--- a/drivers/net/ethernet/davicom/dm9000.c
++++ b/drivers/net/ethernet/davicom/dm9000.c
+@@ -36,6 +36,9 @@
+ #include <linux/platform_device.h>
+ #include <linux/irq.h>
+ #include <linux/slab.h>
++#include <linux/regulator/consumer.h>
++#include <linux/gpio.h>
++#include <linux/of_gpio.h>
+ 
+ #include <asm/delay.h>
+ #include <asm/irq.h>
+@@ -1426,11 +1429,49 @@ dm9000_probe(struct platform_device *pdev)
+ 	struct dm9000_plat_data *pdata = dev_get_platdata(&pdev->dev);
+ 	struct board_info *db;	/* Point a board information structure */
+ 	struct net_device *ndev;
++	struct device *dev = &pdev->dev;
+ 	const unsigned char *mac_src;
+ 	int ret = 0;
+ 	int iosize;
+ 	int i;
+ 	u32 id_val;
++	int reset_gpios;
++	enum of_gpio_flags flags;
++	struct regulator *power;
++
++	power = devm_regulator_get(dev, "vcc");
++	if (PTR_ERR(power) == -EPROBE_DEFER)
++			return -EPROBE_DEFER;
++	if (IS_ERR(power)) {
++		dev_dbg(dev, "no regulator provided\n");
++	} else {
++		ret = regulator_enable(power);
++		if (ret != 0) {
++			dev_err(dev,
++				"Failed to enable power regulator: %d\n", ret);
++			return ret;
++		}
++		dev_dbg(dev, "regulator enabled\n");
++	}
++
++	reset_gpios = of_get_named_gpio_flags(dev->of_node, "reset-gpios", 0,
++					      &flags);
++	if (gpio_is_valid(reset_gpios)) {
++		ret = devm_gpio_request_one(dev, reset_gpios, flags,
++					    "dm9000_reset");
++		if (ret) {
++			dev_err(dev, "failed to request reset gpio %d: %d\n",
++				reset_gpios, ret);
++			return -ENODEV;
++		}
++
++		gpio_direction_output(reset_gpios, 0);
++		/* According to manual PWRST# Low Period Min 1ms */
++		msleep(2);
++		gpio_set_value(reset_gpios, 1);
++		/* Needs 3ms to read eeprom when PWRST is deasserted */
++		msleep(4);
++	}
+ 
+ 	if (!pdata) {
+ 		pdata = dm9000_parse_dt(&pdev->dev);
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
