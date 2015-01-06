@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v4 01/20] selftests/breakpoints: add install target to enable test install
-Date: Tue,  6 Jan 2015 12:43:15 -0700
-Message-ID: <a52b2be855825de0231e1f25cf9776af3c712fac.1420571615.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v4 20/20] kbuild: add a new kselftest_install make target to install selftests
+Date: Tue,  6 Jan 2015 12:43:34 -0700
+Message-ID: <2c5a28faaa79d9c2415854a08817ada509fcb943.1420571615.git.shuahkh@osg.samsung.com>
 References: <cover.1420571615.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -21,52 +21,59 @@ References: <cover.1420571615.git.shuahkh@osg.samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a new make target to enable installing test. This target
-installs test in the kselftest install location and add to the
-kselftest script to run the test. Install target can be run
-only from top level kernel source directory.
+Add a new make target to install to install kernel selftests.
+This new target will build and install selftests. kselftest
+target now depends on kselftest_install and runs the generated
+kselftest script to reduce duplicate work and for common look
+and feel when running tests.
+
+make kselftest_target:
+-- exports kselftest INSTALL_KSFT_PATH
+   default $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
+-- exports INSTALL_KSFT_PATH
+-- runs selftests make install target
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/breakpoints/Makefile | 19 +++++++++++++++++--
- 1 file changed, 17 insertions(+), 2 deletions(-)
+ Makefile | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/tools/testing/selftests/breakpoints/Makefile b/tools/testing/selftests/breakpoints/Makefile
-index e18b42b..c738d4c 100644
---- a/tools/testing/selftests/breakpoints/Makefile
-+++ b/tools/testing/selftests/breakpoints/Makefile
-@@ -8,6 +8,7 @@ ifeq ($(ARCH),x86_64)
- 	ARCH := x86
- endif
+diff --git a/Makefile b/Makefile
+index b1c3254..99fac47 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1072,12 +1072,21 @@ headers_check: headers_install
+ 	$(Q)$(MAKE) $(hdr-inst)=arch/$(hdr-arch)/include/uapi/asm $(hdr-dst) HDRCHECK=1
  
-+TEST_STR = ./breakpoint_test || echo 'breakpoints selftests: [FAIL]'
- 
- all:
- ifeq ($(ARCH),x86)
-@@ -16,8 +17,22 @@ else
- 	echo "Not an x86 target, can't build breakpoints selftests"
- endif
- 
--run_tests:
--	@./breakpoint_test || echo "breakpoints selftests: [FAIL]"
-+install:
-+ifdef INSTALL_KSFT_PATH
-+ifeq ($(ARCH),x86)
-+	install ./breakpoint_test $(INSTALL_KSFT_PATH)
-+	@echo "$(TEST_STR)" >> $(KSELFTEST)
-+else
-+	@echo "Not an x86 target, unable to install breakpoints selftests"
-+endif
-+else
-+	@echo "Run make kselftest_install in top level source directory"
-+endif
+ # ---------------------------------------------------------------------------
+-# Kernel selftest
++# Kernel selftest targets
 +
-+run_tests: all
-+ifeq ($(ARCH),x86)
-+	@$(TEST_STR)
-+endif
++# Default base path for kselftest install
++INSTALL_KSFT_PATH = $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
++export INSTALL_KSFT_PATH
  
- clean:
- 	rm -fr breakpoint_test
+ PHONY += kselftest
+ kselftest:
+ 	$(Q)$(MAKE) -C tools/testing/selftests run_tests
+ 
++# Kernel selftest install
++PHONY += kselftest_install
++kselftest_install:
++	$(Q)$(MAKE) -C tools/testing/selftests install
++
+ # ---------------------------------------------------------------------------
+ # Modules
+ 
+@@ -1286,6 +1295,9 @@ help:
+ 	@echo  '                    Build, install, and boot kernel before'
+ 	@echo  '                    running kselftest on it'
+ 	@echo  ''
++	@echo  '  kselftest_install - Install Kselftests to INSTALL_KSFT_PATH'
++	@echo  '                      default: $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)'
++	@echo  ''
+ 	@echo  'Kernel packaging:'
+ 	@$(MAKE) $(build)=$(package-dir) help
+ 	@echo  ''
 -- 
 2.1.0
