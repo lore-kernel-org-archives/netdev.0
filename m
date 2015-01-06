@@ -1,39 +1,52 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: [net 1/3] i40e: fix un-necessary Tx hangs
-Date: Tue, 6 Jan 2015 09:04:40 -0800
-Message-ID: <20150106090440.00006a7d@unknown>
-References: <1420533864-13125-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1420533864-13125-2-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch iproute2 2/2] iplink: print out addrgenmode attribute
+Date: Tue, 6 Jan 2015 18:08:36 +0100
+Message-ID: <20150106170836.GA1921@nanopsycho.orion>
+References: <1420561426-3118-1-git-send-email-jiri@resnulli.us>
+ <1420561426-3118-2-git-send-email-jiri@resnulli.us>
+ <1420563153.2527.14.camel@hal>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <nhorman@redhat.com>,
-	<sassmann@redhat.com>, <jogreene@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org
+To: Thomas Haller <thaller@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:13052 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755388AbbAFREz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jan 2015 12:04:55 -0500
-In-Reply-To: <1420533864-13125-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:38031 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752073AbbAFRIj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 12:08:39 -0500
+Received: by mail-wg0-f54.google.com with SMTP id z12so11891045wgg.27
+        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 09:08:38 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1420563153.2527.14.camel@hal>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 6 Jan 2015 00:44:22 -0800
-Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+Tue, Jan 06, 2015 at 05:52:33PM CET, thaller@redhat.com wrote:
+>On Tue, 2015-01-06 at 17:23 +0100, Jiri Pirko wrote:
+>> addrgenmode is currently write only by ip. So display this information
+>> if provided by kernel as well.
+>
+>>  
+>> +static void print_af_spec(FILE *fp, struct rtattr *af_spec_attr)
+>> +{
+>> +	struct rtattr *inet6_attr;
+>> +	struct rtattr *tb[IFLA_INET6_MAX + 1];
+>> +
+>> +	inet6_attr = parse_rtattr_one_nested(AF_INET6, af_spec_attr);
+>> +	if (!inet6_attr)
+>> +		return;
+>> +
+>> +	parse_rtattr_nested(tb, IFLA_INET6_MAX, inet6_attr);
+>> +
+>> +	if (tb[IFLA_INET6_ADDR_GEN_MODE]) {
+>> +		switch (rta_getattr_u8(tb[IFLA_INET6_ADDR_GEN_MODE])) {
+>> +		case IN6_ADDR_GEN_MODE_EUI64:
+>> +			fprintf(fp, "addrgenmode eui64 ");
+>
+>eui64 is the default and the behavior of older kernels.
+>
+>I dunno, would it be better not to print the default case?
 
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> 
-> When the driver was polling with interrupts disabled the hardware
-> will occasionally not write back descriptors.  This patch causes
-> the driver to detect this situation and force an interrupt to
-> fire which will flush the stuck descriptor.  Does not conflict
-> with NAPI because if we are already polling the napi_schedule is
-> ignored.  Additionally the extra interrupts are rate limited, so
-> don't cause a burden to the CPU.
 
-Dave, sorry to do this but we discovered a bug in this patch (where
-this patch impacts performance) and didn't interrupt Jeff before he sent
-it (my mistake) I will prep a v2 for Jeff.
-
-Please do not apply.
+This prints only when show_details is on. So I believe it is ok to print
+the default value of addrgenmode (same is done as for other things)
