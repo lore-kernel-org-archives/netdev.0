@@ -1,24 +1,24 @@
-From: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Subject: [PATCH v4 09/20] selftests/memory-hotplug: add install target to enable test install
-Date: Tue,  6 Jan 2015 12:43:23 -0700
-Message-ID: <8576f564ad9b944e7efe53f5c038ad69c6f392d5.1420571615.git.shuahkh@osg.samsung.com>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: [PATCH v4 08/20] selftests/memfd: add install target to enable test install
+Date: Tue,  6 Jan 2015 12:43:22 -0700
+Message-ID: <4353762c318dad84798bb9f45bb338be7bb3891f.1420571615.git.shuahkh@osg.samsung.com>
 References: <cover.1420571615.git.shuahkh@osg.samsung.com>
-Cc: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>, linux-kbuild-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: mmarek-AlSwsSmVLrQ@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, tranmanphong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org, cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, bobby.prani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tim.bird-/MT0OVThwyLZJqsBc5GL+g@public.gmane.org,
-	josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cover.1420571615.git.shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-In-Reply-To: <cover.1420571615.git.shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-References: <cover.1420571615.git.shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org
+To: mmarek@suse.cz, gregkh@linuxfoundation.org,
+	akpm@linux-foundation.org, rostedt@goodmis.org, mingo@redhat.com,
+	davem@davemloft.net, keescook@chromium.org, tranmanphong@gmail.com,
+	mpe@ellerman.id.au, cov@codeaurora.org, dh.herrmann@gmail.com,
+	hughd@google.com, bobby.prani@gmail.com, serge.hallyn@ubuntu.com,
+	ebiederm@xmission.com, tim.bird@sonymobile.com,
+	josh@joshtriplett.org, koct9i@gmail.com,
+	masami.hiramatsu.pt@hitachi.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1420571615.git.shuahkh@osg.samsung.com>
+In-Reply-To: <cover.1420571615.git.shuahkh@osg.samsung.com>
+References: <cover.1420571615.git.shuahkh@osg.samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Add a new make target to enable installing test. This target
@@ -26,42 +26,48 @@ installs test in the kselftest install location and add to the
 kselftest script to run the test. Install target can be run
 only from top level kernel source directory.
 
-Signed-off-by: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/memory-hotplug/Makefile            | 14 ++++++++++++--
- .../memory-hotplug/{on-off-test.sh => mem-on-off-test.sh}  |  0
- 2 files changed, 12 insertions(+), 2 deletions(-)
- rename tools/testing/selftests/memory-hotplug/{on-off-test.sh => mem-on-off-test.sh} (100%)
+ tools/testing/selftests/memfd/Makefile | 17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
 
-diff --git a/tools/testing/selftests/memory-hotplug/Makefile b/tools/testing/selftests/memory-hotplug/Makefile
-index d46b8d4..3bb0a99 100644
---- a/tools/testing/selftests/memory-hotplug/Makefile
-+++ b/tools/testing/selftests/memory-hotplug/Makefile
-@@ -1,9 +1,19 @@
-+TEST_STR=/bin/bash ./mem-on-off-test.sh -r 2 || echo 'memory-hotplug selftests: [FAIL]'
+diff --git a/tools/testing/selftests/memfd/Makefile b/tools/testing/selftests/memfd/Makefile
+index b80cd10..23c84bf 100644
+--- a/tools/testing/selftests/memfd/Makefile
++++ b/tools/testing/selftests/memfd/Makefile
+@@ -2,19 +2,30 @@ CFLAGS += -D_FILE_OFFSET_BITS=64
+ CFLAGS += -I../../../../include/uapi/
+ CFLAGS += -I../../../../include/
+ 
++INSTALL_PROGS = memfd_test fuse_test run_fuse_test.sh
++MEMFD_TEST_STR = ./memfd_test || echo 'memfd_test: [FAIL]'
++FUSE_TEST_STR = ./run_fuse_test.sh || echo 'fuse_test: [FAIL]'
 +
  all:
+ 	gcc $(CFLAGS) memfd_test.c -o memfd_test
  
 +install:
 +ifdef INSTALL_KSFT_PATH
-+	install ./mem-on-off-test.sh $(INSTALL_KSFT_PATH)/mem-on-off-test.sh
-+	@echo "$(TEST_STR)" >> $(KSELFTEST) >> $(KSELFTEST)
++	install $(INSTALL_PROGS) $(INSTALL_KSFT_PATH)
++	@echo "$(MEMFD_TEST_STR)" >> $(KSELFTEST)
 +else
 +	@echo "Run make kselftest_install in top level source directory"
 +endif
 +
- run_tests:
--	@/bin/bash ./on-off-test.sh -r 2 || echo "memory-hotplug selftests: [FAIL]"
-+	@$(TEST_STR)
+ run_tests: all
+-	gcc $(CFLAGS) memfd_test.c -o memfd_test
+-	@./memfd_test || echo "memfd_test: [FAIL]"
++	@$(MEMFD_TEST_STR)
  
- run_full_test:
--	@/bin/bash ./on-off-test.sh || echo "memory-hotplug selftests: [FAIL]"
-+	@/bin/bash ./mem-on-off-test.sh || echo "memory-hotplug selftests: [FAIL]"
+ build_fuse:
+ 	gcc $(CFLAGS) fuse_mnt.c `pkg-config fuse --cflags --libs` -o fuse_mnt
+ 	gcc $(CFLAGS) fuse_test.c -o fuse_test
+ 
+ run_fuse: build_fuse
+-	@./run_fuse_test.sh || echo "fuse_test: [FAIL]"
++	@$(FUSE_TEST_STR)
  
  clean:
-diff --git a/tools/testing/selftests/memory-hotplug/on-off-test.sh b/tools/testing/selftests/memory-hotplug/mem-on-off-test.sh
-similarity index 100%
-rename from tools/testing/selftests/memory-hotplug/on-off-test.sh
-rename to tools/testing/selftests/memory-hotplug/mem-on-off-test.sh
+ 	$(RM) memfd_test fuse_test
 -- 
 2.1.0
