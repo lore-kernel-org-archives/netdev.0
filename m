@@ -1,63 +1,72 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net] r8152: support ndo_features_check
-Date: Tue, 6 Jan 2015 17:41:58 +0800
-Message-ID: <1394712342-15778-113-Taiwan-albertk@realtek.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v4 net-next 2/2 tuntap: Increase the number of queues in
+ tun.
+Date: Tue, 6 Jan 2015 11:49:12 +0200
+Message-ID: <20150106094912.GA30222@redhat.com>
+References: <1420522756-15127-1-git-send-email-pagupta@redhat.com>
+ <1420522756-15127-3-git-send-email-pagupta@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:53958 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754435AbbAFJmi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 04:42:38 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, jasowang@redhat.com, dgibson@redhat.com,
+	vfalico@gmail.com, edumazet@google.com, vyasevic@redhat.com,
+	hkchu@google.com, wuzhy@linux.vnet.ibm.com, xemul@parallels.com,
+	therbert@google.com, bhutchings@solarflare.com, xii@google.com,
+	stephen@networkplumber.org, jiri@resnulli.us,
+	sergei.shtylyov@cogentembedded.com
+To: Pankaj Gupta <pagupta@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1420522756-15127-3-git-send-email-pagupta@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Support ndo_features_check to avoid:
- - the transport offset is more than the hw limitation when using hw checksum.
- - the skb->len of a GSO packet is more than the limitation.
+On Tue, Jan 06, 2015 at 11:09:16AM +0530, Pankaj Gupta wrote:
+> Networking under kvm works best if we allocate a per-vCPU RX and TX
+> queue in a virtual NIC. This requires a per-vCPU queue on the host side.
+> 
+> It is now safe to increase the maximum number of queues.
+> Preceding patch: 'net: allow large number of rx queues'
+> made sure this won't cause failures due to high order memory
+> allocations. Increase it to 256: this is the max number of vCPUs
+> KVM supports.
+> 
+> Size of tun_struct changes from 8512 to 10496 after this patch. This keeps 
+> pages allocated for tun_struct before and after the patch to 3. 
+> 
+> Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
+> Reviewed-by: David Gibson <dgibson@redhat.com>
+> ---
+>  drivers/net/tun.c | 9 +++++----
+>  1 file changed, 5 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index e3fa65a..a19dc5f8 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -113,10 +113,11 @@ struct tap_filter {
+>  	unsigned char	addr[FLT_EXACT_COUNT][ETH_ALEN];
+>  };
+>  
+> -/* DEFAULT_MAX_NUM_RSS_QUEUES were chosen to let the rx/tx queues allocated for
+> - * the netdevice to be fit in one page. So we can make sure the success of
+> - * memory allocation. TODO: increase the limit. */
+> -#define MAX_TAP_QUEUES DEFAULT_MAX_NUM_RSS_QUEUES
+> +/* MAX_TAP_QUEUES 256 is chosen to allow rx/tx queues to be equal
+> + * to max number of vCPUS in guest.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+VCPUs I think.
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 2d1c77e..57ec23e 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -1897,6 +1897,22 @@ static void _rtl8152_set_rx_mode(struct net_device *netdev)
- 	netif_wake_queue(netdev);
- }
- 
-+static netdev_features_t
-+rtl8152_features_check(struct sk_buff *skb, struct net_device *dev,
-+		       netdev_features_t features)
-+{
-+	u32 mss = skb_shinfo(skb)->gso_size;
-+	int max_offset = mss ? GTTCPHO_MAX : TCPHO_MAX;
-+	int offset = skb_transport_offset(skb);
-+
-+	if ((mss || skb->ip_summed == CHECKSUM_PARTIAL) && offset > max_offset)
-+		features &= ~(NETIF_F_ALL_CSUM | NETIF_F_GSO_MASK);
-+	else if ((skb->len + sizeof(struct tx_desc)) > agg_buf_sz)
-+		features &= ~NETIF_F_GSO_MASK;
-+
-+	return features;
-+}
-+
- static netdev_tx_t rtl8152_start_xmit(struct sk_buff *skb,
- 				      struct net_device *netdev)
- {
-@@ -3706,6 +3722,7 @@ static const struct net_device_ops rtl8152_netdev_ops = {
- 	.ndo_set_mac_address	= rtl8152_set_mac_address,
- 	.ndo_change_mtu		= rtl8152_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_features_check	= rtl8152_features_check,
- };
- 
- static void r8152b_get_version(struct r8152 *tp)
--- 
-2.1.0
+> Also, we are making sure here
+> + * queue memory allocation do not fail.
+
+What does this mean? How are we making sure?
+I would drop this phrase really.
+
+> + */
+> +#define MAX_TAP_QUEUES 256
+>  #define MAX_TAP_FLOWS  4096
+>  
+>  #define TUN_FLOW_EXPIRE (3 * HZ)
+> -- 
+> 1.8.3.1
