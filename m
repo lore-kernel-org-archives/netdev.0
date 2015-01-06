@@ -1,92 +1,86 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: [PATCH v4] can: Convert to runtime_pm
-Date: Tue, 6 Jan 2015 06:23:51 +0000
-Message-ID: <7324bcf422d141f0b09f0cc0e8352479@BN1BFFO11FD005.protection.gbl>
-References: <58f37b6fd9104ce185c413c473fe047b@BY2FFO11FD050.protection.gbl>
- <20141223224308.GC4611@xsjandreislx>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [net-next PATCH v1 01/11] net: flow_table: create interface for
+ hw match/action tables
+Date: Mon, 5 Jan 2015 22:40:02 -0800
+Message-ID: <CAE4R7bCp7NAfi85DNEKbG49xEZnY2xm_GNoeYyrVGMLwpbXvvA@mail.gmail.com>
+References: <20141231194057.31070.5244.stgit@nitbit.x32>
+	<20141231194544.31070.30335.stgit@nitbit.x32>
+	<CAE4R7bBeCbq1yiRHQaQSX4JwKMWxn2hMoOptyOZe3Ak=9WzrVw@mail.gmail.com>
+	<54AB7AD3.7050704@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "wg@grandegger.com" <wg@grandegger.com>,
-	"mkl@pengutronix.de" <mkl@pengutronix.de>,
-	Michal Simek <michals@xilinx.com>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Soren Brinkmann <sorenb@xilinx.com>,
-	"mkl@pengutronix.de" <mkl@pengutronix.de>
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Graf <tgraf@suug.ch>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"simon.horman@netronome.com" <simon.horman@netronome.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0074.outbound.protection.outlook.com ([207.46.100.74]:65110
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751176AbbAFGX6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jan 2015 01:23:58 -0500
-In-Reply-To: <20141223224308.GC4611@xsjandreislx>
-Content-Language: en-US
+Received: from mail-we0-f175.google.com ([74.125.82.175]:34981 "EHLO
+	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751797AbbAFGkE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 01:40:04 -0500
+Received: by mail-we0-f175.google.com with SMTP id k11so9100233wes.34
+        for <netdev@vger.kernel.org>; Mon, 05 Jan 2015 22:40:02 -0800 (PST)
+In-Reply-To: <54AB7AD3.7050704@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgTWFyYywNCg0KICAgICAgICBDb3VsZCB5b3UgcGxlYXNlICBwcm92aWRlIHlvdXIgZmVlZGJh
-Y2sgb24gdGhpcyBwYXRjaCA/DQoNCkBTb3JlbiA6IFdpbGwgdXBkYXRlIHRoZSBkcml2ZXIgd2l0
-aCB5b3VyIGNvbW1lbnRzIGR1cmluZyBuZXh0IHZlcnNpb24gb2YgdGhlIHBhdGNoLg0KDQpSZWdh
-cmRzLA0KS2VkYXIuDQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBTw7ZyZW4g
-QnJpbmttYW5uIFttYWlsdG86c29yZW4uYnJpbmttYW5uQHhpbGlueC5jb21dDQpTZW50OiBXZWRu
-ZXNkYXksIERlY2VtYmVyIDI0LCAyMDE0IDQ6MTMgQU0NClRvOiBBcHBhbmEgRHVyZ2EgS2VkYXJl
-c3dhcmEgUmFvDQpDYzogd2dAZ3JhbmRlZ2dlci5jb207IG1rbEBwZW5ndXRyb25peC5kZTsgTWlj
-aGFsIFNpbWVrOyBncmFudC5saWtlbHlAbGluYXJvLm9yZzsgbGludXgtY2FuQHZnZXIua2VybmVs
-Lm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9y
-ZzsgQXBwYW5hIER1cmdhIEtlZGFyZXN3YXJhIFJhbw0KU3ViamVjdDogUmU6IFtQQVRDSCB2NF0g
-Y2FuOiBDb252ZXJ0IHRvIHJ1bnRpbWVfcG0NCg0KT24gVHVlLCAyMDE0LTEyLTIzIGF0IDA1OjU1
-UE0gKzA1MzAsIEtlZGFyZXN3YXJhIHJhbyBBcHBhbmEgd3JvdGU6DQo+IEluc3RlYWQgb2YgZW5h
-YmxpbmcvZGlzYWJsaW5nIGNsb2NrcyBhdCBzZXZlcmFsIGxvY2F0aW9ucyBpbiB0aGUNCj4gZHJp
-dmVyLCB1c2UgdGhlIHJ1bnRpbWVfcG0gZnJhbWV3b3JrLiBUaGlzIGNvbnNvbGlkYXRlcyB0aGUg
-YWN0aW9ucw0KPiBmb3IgcnVudGltZSBQTSBpbiB0aGUgYXBwcm9wcmlhdGUgY2FsbGJhY2tzIGFu
-ZCBtYWtlcyB0aGUgZHJpdmVyIG1vcmUNCj4gcmVhZGFibGUgYW5kIG1hbnRhaW5hYmxlLg0KPg0K
-PiBTaWduZWQtb2ZmLWJ5OiBTb3JlbiBCcmlua21hbm4gPHNvcmVuLmJyaW5rbWFubkB4aWxpbngu
-Y29tPg0KPiBTaWduZWQtb2ZmLWJ5OiBLZWRhcmVzd2FyYSByYW8gQXBwYW5hIDxhcHBhbmFkQHhp
-bGlueC5jb20+DQo+IC0tLQ0KPiBDaG5hZ2VzIGZvciB2NDoNCj4gIC0gVXBkYXRlZCB3aXRoIHRo
-ZSByZXZpZXcgY29tbWVudHMuDQo+IENoYW5nZXMgZm9yIHYzOg0KPiAgIC0gQ29udmVydGVkIHRo
-ZSBkcml2ZXIgdG8gdXNlIHJ1bnRpbWVfcG0uDQo+IENoYW5nZXMgZm9yIHYyOg0KPiAgIC0gUmVt
-b3ZlZCB0aGUgc3RydWN0IHBsYXRmb3JtX2RldmljZSogZnJvbSBzdXNwZW5kL3Jlc3VtZQ0KPiAg
-ICAgYXMgc3VnZ2VzdCBieSBMb3RoYXIuDQo+DQo+ICBkcml2ZXJzL25ldC9jYW4veGlsaW54X2Nh
-bi5jIHwgIDEyMw0KPiArKysrKysrKysrKysrKysrKysrKysrKysrLS0tLS0tLS0tLS0tLS0tLS0N
-Cj4gIDEgZmlsZXMgY2hhbmdlZCwgNzQgaW5zZXJ0aW9ucygrKSwgNDkgZGVsZXRpb25zKC0pDQo+
-DQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9jYW4veGlsaW54X2Nhbi5jDQo+IGIvZHJpdmVy
-cy9uZXQvY2FuL3hpbGlueF9jYW4uYyBpbmRleCA2YzY3NjQzLi5jNzFmNjgzIDEwMDY0NA0KPiAt
-LS0gYS9kcml2ZXJzL25ldC9jYW4veGlsaW54X2Nhbi5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2Nh
-bi94aWxpbnhfY2FuLmMNCj4gQEAgLTMyLDYgKzMyLDcgQEANCj4gICNpbmNsdWRlIDxsaW51eC9j
-YW4vZGV2Lmg+DQo+ICAjaW5jbHVkZSA8bGludXgvY2FuL2Vycm9yLmg+DQo+ICAjaW5jbHVkZSA8
-bGludXgvY2FuL2xlZC5oPg0KPiArI2luY2x1ZGUgPGxpbnV4L3BtX3J1bnRpbWUuaD4NCj4NCj4g
-ICNkZWZpbmUgRFJJVkVSX05BTUUgICJ4aWxpbnhfY2FuIg0KPg0KPiBAQCAtMTM4LDcgKzEzOSw3
-IEBAIHN0cnVjdCB4Y2FuX3ByaXYgew0KPiAgICAgICB1MzIgKCpyZWFkX3JlZykoY29uc3Qgc3Ry
-dWN0IHhjYW5fcHJpdiAqcHJpdiwgZW51bSB4Y2FuX3JlZyByZWcpOw0KPiAgICAgICB2b2lkICgq
-d3JpdGVfcmVnKShjb25zdCBzdHJ1Y3QgeGNhbl9wcml2ICpwcml2LCBlbnVtIHhjYW5fcmVnIHJl
-ZywNCj4gICAgICAgICAgICAgICAgICAgICAgIHUzMiB2YWwpOw0KPiAtICAgICBzdHJ1Y3QgbmV0
-X2RldmljZSAqZGV2Ow0KPiArICAgICBzdHJ1Y3QgZGV2aWNlICpkZXY7DQo+ICAgICAgIHZvaWQg
-X19pb21lbSAqcmVnX2Jhc2U7DQo+ICAgICAgIHVuc2lnbmVkIGxvbmcgaXJxX2ZsYWdzOw0KPiAg
-ICAgICBzdHJ1Y3QgY2xrICpidXNfY2xrOw0KPiBAQCAtODQyLDYgKzg0MywxMyBAQCBzdGF0aWMg
-aW50IHhjYW5fb3BlbihzdHJ1Y3QgbmV0X2RldmljZSAqbmRldikNCj4gICAgICAgc3RydWN0IHhj
-YW5fcHJpdiAqcHJpdiA9IG5ldGRldl9wcml2KG5kZXYpOw0KPiAgICAgICBpbnQgcmV0Ow0KPg0K
-PiArICAgICByZXQgPSBwbV9ydW50aW1lX2dldF9zeW5jKHByaXYtPmRldik7DQo+ICsgICAgIGlm
-IChyZXQgPCAwKSB7DQo+ICsgICAgICAgICAgICAgbmV0ZGV2X2VycihuZGV2LCAiJXM6IHBtX3J1
-bnRpbWVfZ2V0IGZhaWxlZFxyKCVkKVxuXHIiLA0KDQpEb2VzIHRoaXMgY3JlYXRlIHRoZSBpbnRl
-bmRlZCBvdXRwdXQ/IEkgaGF2ZW4ndCBzZWVuICdccicgYW55d2hlcmUgZWxzZS4NClNob3VsZG4n
-dCB0aGlzIHNpbXBseSBiZToNCiAgICAgICAgbmV0ZGV2X2VycihuZGV2LCAiJXM6IHBtX3J1bnRp
-bWVfZ2V0IGZhaWxlZCAoJWQpXG4iLA0KDQpbLi4uXQ0KPiBAQCAtOTM0LDI3ICs5MjcsMjAgQEAg
-c3RhdGljIGludCB4Y2FuX2dldF9iZXJyX2NvdW50ZXIoY29uc3Qgc3RydWN0IG5ldF9kZXZpY2Ug
-Km5kZXYsDQo+ICAgICAgIHN0cnVjdCB4Y2FuX3ByaXYgKnByaXYgPSBuZXRkZXZfcHJpdihuZGV2
-KTsNCj4gICAgICAgaW50IHJldDsNCj4NCj4gLSAgICAgcmV0ID0gY2xrX3ByZXBhcmVfZW5hYmxl
-KHByaXYtPmNhbl9jbGspOw0KPiAtICAgICBpZiAocmV0KQ0KPiAtICAgICAgICAgICAgIGdvdG8g
-ZXJyOw0KPiAtDQo+IC0gICAgIHJldCA9IGNsa19wcmVwYXJlX2VuYWJsZShwcml2LT5idXNfY2xr
-KTsNCj4gLSAgICAgaWYgKHJldCkNCj4gLSAgICAgICAgICAgICBnb3RvIGVycl9jbGs7DQo+ICsg
-ICAgIHJldCA9IHBtX3J1bnRpbWVfZ2V0X3N5bmMocHJpdi0+ZGV2KTsNCj4gKyAgICAgaWYgKHJl
-dCA8IDApIHsNCj4gKyAgICAgICAgICAgICBuZXRkZXZfZXJyKG5kZXYsICIlczogcG1fcnVudGlt
-ZV9nZXQgZmFpbGVkXHIoJWQpXG5cciIsDQoNCmRpdHRvDQoNCiAgICAgICAgU8O2cmVuDQoNCg0K
-VGhpcyBlbWFpbCBhbmQgYW55IGF0dGFjaG1lbnRzIGFyZSBpbnRlbmRlZCBmb3IgdGhlIHNvbGUg
-dXNlIG9mIHRoZSBuYW1lZCByZWNpcGllbnQocykgYW5kIGNvbnRhaW4ocykgY29uZmlkZW50aWFs
-IGluZm9ybWF0aW9uIHRoYXQgbWF5IGJlIHByb3ByaWV0YXJ5LCBwcml2aWxlZ2VkIG9yIGNvcHly
-aWdodGVkIHVuZGVyIGFwcGxpY2FibGUgbGF3LiBJZiB5b3UgYXJlIG5vdCB0aGUgaW50ZW5kZWQg
-cmVjaXBpZW50LCBkbyBub3QgcmVhZCwgY29weSwgb3IgZm9yd2FyZCB0aGlzIGVtYWlsIG1lc3Nh
-Z2Ugb3IgYW55IGF0dGFjaG1lbnRzLiBEZWxldGUgdGhpcyBlbWFpbCBtZXNzYWdlIGFuZCBhbnkg
-YXR0YWNobWVudHMgaW1tZWRpYXRlbHkuDQoNCg==
+On Mon, Jan 5, 2015 at 10:04 PM, John Fastabend
+<john.fastabend@gmail.com> wrote:
+
+>>> + * @uid unique identifier for table
+>>> + * @source uid of parent table
+>>
+>>
+>> Is parent table the table previous in the pipeline?  If so, what if
+>> you can get to table from N different parent tables, what goes in
+>> source?
+>
+>
+> No, you can get the layout of tables from the table graph ops.
+>
+> Source is used when a single tcam or other implementation mechanism
+> is sliced into a set of tables. The current rocker world doesn't use
+> this very much at the moment because its static and I just assumed
+> every table came out of the same virtual hardware namespace.
+>
+> A simple example world would be to come up with a set of large virtual
+> TCAMs. Any given TCAM maybe sliced into a set of tables. Users may
+> organize these either via some out of band configuration at init or
+> power on time. In the rocker case we could specify this when we load
+> qemu. For now it is just informational. But if we start allowing users
+> to create delete tables at runtime it is important to "know" where the
+> slices are being allocated/free'd from. The source gives you this
+> information.
+>
+> The hardware devices I'm working on have multiple sources we can
+> allocate/free tables from. The source values would provide a way to
+> track down which tables are in which hardware namespaces.
+>
+> Hope that helps?
+
+Got it, thanks.
+
+Can source be encoded in tbl_id?
+
+
+>> hdr or header?  pick one, probably hdr.
+>
+>
+> hdr is shorter and doesn't lose any clarity IMO I'll use net_flow_hdr
+> and net_flow_hdr_node
+>
+>>
+>>> +       struct net_flow_tbl_node **(*ndo_flow_get_tbl_graph)(struct
+>>> net_device *dev);
+>>
+>>
+>> move this up next to get_tables
+>
+>
+> sure also what do you think tbl instead of table.
+
++1 for tbl.
