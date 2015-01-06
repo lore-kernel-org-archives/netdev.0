@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: cpsw: ignore VLAN ID 1
-Date: Tue, 06 Jan 2015 16:59:11 -0500 (EST)
-Message-ID: <20150106.165911.604916635790072318.davem@davemloft.net>
-References: <1420566212-30081-1-git-send-email-balbi@ti.com>
-	<20150106.141323.2091288413667564444.davem@davemloft.net>
-	<20150106203119.GC32308@saruman>
+Subject: Re: [PATCH net-next] openvswitch: Do not use private netdev_vport
+ fields
+Date: Tue, 06 Jan 2015 17:01:16 -0500 (EST)
+Message-ID: <20150106.170116.1035144706028544996.davem@davemloft.net>
+References: <1420577481-20238-1-git-send-email-daniele.di.proietto@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-	stable@vger.kernel.org, mugunthanvnm@ti.com
-To: balbi@ti.com
+Cc: netdev@vger.kernel.org, pshelar@nicira.com
+To: daniele.di.proietto@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56003 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56013 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755366AbbAFV7N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 16:59:13 -0500
-In-Reply-To: <20150106203119.GC32308@saruman>
+	with ESMTP id S1755038AbbAFWBS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 17:01:18 -0500
+In-Reply-To: <1420577481-20238-1-git-send-email-daniele.di.proietto@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Felipe Balbi <balbi@ti.com>
-Date: Tue, 6 Jan 2015 14:31:19 -0600
+From: Daniele Di Proietto <daniele.di.proietto@gmail.com>
+Date: Tue,  6 Jan 2015 21:51:21 +0100
 
-> What you're saying here is that you prefer to drop a feature that works
-> for all other 1023 IDs because 1 ID is quirky. Sounds like overkill
-> to me.
+> This commit introduces netdev_vport_index() to prevent datapath.c from directly accessing the 'dev' member of 'struct netdev_vport'.
+> This fix is needed to allow possible alternative netdev_vport implementations.
+> 
+> Signed-off-by: Daniele Di Proietto <daniele.di.proietto@gmail.com>
 
-The other option is to software fallback only for VLAN 1.
+This doesn't make any sense to me, as the code currently stands your
+change is not necessary at all.
+
+If some need does arise, submit this patch along with the change
+that creates the need.
