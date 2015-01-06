@@ -1,49 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request [net]: batman-adv 20150106
-Date: Tue, 06 Jan 2015 14:25:14 -0500 (EST)
-Message-ID: <20150106.142514.108109720918651317.davem@davemloft.net>
-References: <1420542605-28865-1-git-send-email-antonio@meshcoding.com>
+From: Giel van Schijndel <me@mortis.eu>
+Subject: Re: [PATCH] Fix NUL (\0 or \x00) specification in string
+Date: Tue, 6 Jan 2015 20:28:04 +0100
+Message-ID: <20150106192804.GL4806@salidar.dom.custoft.eu>
+References: <1420394722-20197-1-git-send-email-me@mortis.eu>
+ <20150105150026.GG6114@twin.jikos.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: antonio@meshcoding.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="vbzKE9fGfpHIBC6T"
+To: dsterba@suse.cz, linux-kernel@vger.kernel.org,
+	Armin Schindler <mac@melware.de>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	"open list:ISDN SUBSYSTEM" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53243 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751284AbbAFTZR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 14:25:17 -0500
-In-Reply-To: <1420542605-28865-1-git-send-email-antonio@meshcoding.com>
+Received: from khitomer.mortis.eu ([185.27.175.75]:64859 "EHLO
+	khitomer.mortis.eu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751338AbbAFT2I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 14:28:08 -0500
+Content-Disposition: inline
+In-Reply-To: <20150105150026.GG6114@twin.jikos.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Antonio Quartulli <antonio@meshcoding.com>
-Date: Tue,  6 Jan 2015 12:09:59 +0100
 
-> here you have some small fixes for your 'net' tree.
->=20
-> Patch 1 fixes a regression in the "bonding" code introduced while
-> implementing the multi-interface optimization feature, by Simon
-> Wunderlich.
->=20
-> Patch 2 ensures that the "last-seen" timestamp for a newly created
-> originator object is properly initialised in order to avoid a non-cri=
-tical
-> race condition, by Linus L=FCssing.
->=20
-> Patch 3 avoids false positive splats when lockdep is enabled by assig=
-ning
-> the proper lock class to locks used by the network coding feature, by
-> Martin Hundeb=F8ll.
->=20
-> Patches 4 and 5 fix the code counting the amount of multicast-disable=
-d
-> nodes in the network (used to avoid to enable the multicast optimisat=
-ion
-> when not possible), by Linus L=FCssing.
->=20
-> Patch 6 fixes a memory leak in the Translation Table code that can be
-> triggered by doubling the current originator interval, by Linus L=FCs=
-sing.
+--vbzKE9fGfpHIBC6T
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Pulled, thanks Antonio.
+On Mon, Jan 05, 2015 at 16:00:26 +0100, David Sterba wrote:
+> I'm replying to all your recent patches here as they are fixing things
+> reported in http://www.viva64.com/en/b/0299/ . I'ts a good practice to
+> give the credit the reporter.
+>=20
+> The blogpost also contains analyses of the issues so it could help
+> reviewing the patches.
+
+I guess you suggest I use a 'Reported-(at|by)' line?
+
+Would something like the below suffice? I found similar log entries in the
+commit log, e.g. bf3204cb, except that those add an e-mail address for
+the reporters, which I don't think is necessary in this case.
+> Reported-at: http://www.viva64.com/en/b/0299/
+> Reported-by: Andrey Karpov
+> Reported-by: Svyatoslav Razmyslov
+
+--=20
+Met vriendelijke groet,
+With kind regards,
+Giel van Schijndel
+--
+The #1 programmer excuse for legitimately slacking off:
+ "My code's compiling."
+  -- http://xkcd.com/303/
+
+--vbzKE9fGfpHIBC6T
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlSsN0EACgkQZBYm/87l50KjfwCePLU2pOVEgVbDw++ybwEnW5KX
+CEAAoIknZIJr8qiheVWmaI9/PMzK+Kgu
+=FSUB
+-----END PGP SIGNATURE-----
+
+--vbzKE9fGfpHIBC6T--
