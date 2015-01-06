@@ -1,68 +1,44 @@
-From: Giel van Schijndel <me@mortis.eu>
-Subject: Re: [PATCH] Fix NUL (\0 or \x00) specification in string
-Date: Tue, 6 Jan 2015 20:28:04 +0100
-Message-ID: <20150106192804.GL4806@salidar.dom.custoft.eu>
-References: <1420394722-20197-1-git-send-email-me@mortis.eu>
- <20150105150026.GG6114@twin.jikos.cz>
+From: Feng Kan <fkan@apm.com>
+Subject: Re: [PATCH V2] net: eth: xgene: change APM X-Gene SoC platform
+ ethernet to support ACPI
+Date: Tue, 6 Jan 2015 11:30:46 -0800
+Message-ID: <CAL85gmDybxCB59UcpFm3NRR7bxG-_1xsmXAs3oehOujEoetiog@mail.gmail.com>
+References: <20150105.224137.894770670718334587.davem@davemloft.net>
+	<20150105.224235.1941007145649816230.davem@davemloft.net>
+	<CAL85gmCGK54yK3sThVhGsatMVUS8+76LRwdDt4w9PUfppMJ3og@mail.gmail.com>
+	<20150105.231054.790363276763745624.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="vbzKE9fGfpHIBC6T"
-To: dsterba@suse.cz, linux-kernel@vger.kernel.org,
-	Armin Schindler <mac@melware.de>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	"open list:ISDN SUBSYSTEM" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: patches <patches@apm.com>, netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khitomer.mortis.eu ([185.27.175.75]:64859 "EHLO
-	khitomer.mortis.eu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751338AbbAFT2I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 14:28:08 -0500
-Content-Disposition: inline
-In-Reply-To: <20150105150026.GG6114@twin.jikos.cz>
+Received: from exprod5og112.obsmtp.com ([64.18.0.24]:38824 "HELO
+	exprod5og112.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1756686AbbAFTas (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 14:30:48 -0500
+Received: by mail-ob0-f180.google.com with SMTP id wp4so67281029obc.11
+        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 11:30:46 -0800 (PST)
+In-Reply-To: <20150105.231054.790363276763745624.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---vbzKE9fGfpHIBC6T
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, Jan 05, 2015 at 16:00:26 +0100, David Sterba wrote:
-> I'm replying to all your recent patches here as they are fixing things
-> reported in http://www.viva64.com/en/b/0299/ . I'ts a good practice to
-> give the credit the reporter.
->=20
-> The blogpost also contains analyses of the issues so it could help
-> reviewing the patches.
-
-I guess you suggest I use a 'Reported-(at|by)' line?
-
-Would something like the below suffice? I found similar log entries in the
-commit log, e.g. bf3204cb, except that those add an e-mail address for
-the reporters, which I don't think is necessary in this case.
-> Reported-at: http://www.viva64.com/en/b/0299/
-> Reported-by: Andrey Karpov
-> Reported-by: Svyatoslav Razmyslov
-
---=20
-Met vriendelijke groet,
-With kind regards,
-Giel van Schijndel
---
-The #1 programmer excuse for legitimately slacking off:
- "My code's compiling."
-  -- http://xkcd.com/303/
-
---vbzKE9fGfpHIBC6T
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlSsN0EACgkQZBYm/87l50KjfwCePLU2pOVEgVbDw++ybwEnW5KX
-CEAAoIknZIJr8qiheVWmaI9/PMzK+Kgu
-=FSUB
------END PGP SIGNATURE-----
-
---vbzKE9fGfpHIBC6T--
+On Mon, Jan 5, 2015 at 8:10 PM, David Miller <davem@davemloft.net> wrote:
+> From: Feng Kan <fkan@apm.com>
+> Date: Mon, 5 Jan 2015 20:05:28 -0800
+>
+>> I see, I initially tried on the net-next tree which did not build for
+>> me, failed somewhere else but builds xgene enet ok.
+>> Then I tested on net/master which builds fine for me.
+>> Would you please point me to the branch you are using?
+>
+> net-next
+David, I am not sure what I am missing here. I encountered a lot of
+errors while compiling
+the net-next.git. Mostly complaining of implicit declaration of
+functions. Once I fixed those,
+the compilation passes fine for defconfig in arm64. By default OF
+should be enabled for
+the platform, I am not sure how to recreate this. I have tested the
+image for OF and ACPI
+and both works.
