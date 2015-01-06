@@ -1,89 +1,43 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: [PATCH] net: ethernet: cpsw: ignore VLAN ID 1
-Date: Tue, 6 Jan 2015 14:31:19 -0600
-Message-ID: <20150106203119.GC32308@saruman>
-References: <1420566212-30081-1-git-send-email-balbi@ti.com>
- <20150106.141323.2091288413667564444.davem@davemloft.net>
-Reply-To: <balbi@ti.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: 3.12.33 - BUG xfrm_selector_match+0x25/0x2f6
+Date: Tue, 6 Jan 2015 22:46:57 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1501062240130.2241@ja.home.ssi.bg>
+References: <547F2462.6040405@smart-weblications.de> <20141204075627.GE6390@secunet.com> <alpine.LFD.2.11.1412042338370.4841@ja.home.ssi.bg> <5481173A.9060308@smart-weblications.de> <alpine.LFD.2.11.1412051126090.2522@ja.home.ssi.bg> <5481B944.2000002@smart-weblications.de>
+ <alpine.LFD.2.11.1412072019410.1885@ja.home.ssi.bg> <54858948.2060007@smart-weblications.de> <alpine.LFD.2.11.1412082234350.2401@ja.home.ssi.bg> <5486CD9D.4060107@smart-weblications.de> <alpine.LFD.2.11.1412102331230.4043@ja.home.ssi.bg>
+ <5489A465.6090305@smart-weblications.de> <alpine.LFD.2.11.1412132211260.3229@ja.home.ssi.bg> <54ABDB98.9060504@suse.cz>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="1SQmhf2mF2YjsYvc"
-Cc: <balbi@ti.com>, <netdev@vger.kernel.org>,
-	<linux-omap@vger.kernel.org>, <stable@vger.kernel.org>,
-	<mugunthanvnm@ti.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150106.141323.2091288413667564444.davem@davemloft.net>
-Sender: linux-omap-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Smart Weblications GmbH - Florian Wiessner
+	<f.wiessner@smart-weblications.de>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	stable@vger.kernel.org, Simon Horman <horms@verge.net.au>,
+	lvs-devel@vger.kernel.org
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <54ABDB98.9060504@suse.cz>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---1SQmhf2mF2YjsYvc
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-Hi,
+	Hello,
 
-On Tue, Jan 06, 2015 at 02:13:23PM -0500, David Miller wrote:
-> From: Felipe Balbi <balbi@ti.com>
-> Date: Tue, 6 Jan 2015 11:43:32 -0600
->=20
-> > CPSW completely hangs if we add, and later remove,
-> > VLAN ID #1. What happens is that after removing
-> > VLAN ID #1, no packets will be received by CPSW
-> > rendering network unusable.
-> >=20
-> > In order to "fix" the issue, we're returning -EINVAL
-> > if anybody tries to add VLAN ID #1. While at that,
-> > also filter out any ID > 4095 because we only have
-> > 12 bits for VLAN IDs.
-> >=20
-> > Fixes: 3b72c2f (drivers: net:ethernet: cpsw: add support for VLAN)
-> > Cc: <stable@vger.kernel.org> # v3.9+
-> > Cc: Mugunthan V N <mugunthanvnm@ti.com>
-> > Tested-by: Schuyler Patton <spatton@ti.com>
-> > Signed-off-by: Felipe Balbi <balbi@ti.com>
->=20
-> You can't just unilaterally make one VLAN ID unusable.
->=20
-> A better way to handle this situation must be found,
-> and if that means turning off hw VLAN support completely,
-> that's a much better alternative to this.
->=20
-> I'm not applying this patch, sorry.
+On Tue, 6 Jan 2015, Jiri Slaby wrote:
 
-All other IDs work alright, it's just ID 1 which seems to be quirky. In
-fact when trying to add VLAN ID 1, vconfig itself dumps out a warning
-that VLAN ID 1 doesn't work on most switches.
+> So what should be done to fix the issue in stable 3.12? Are those
+> patches needed in the upstream kernel too? In that case I suppose it
+> will propagate to me through upstream. Otherwise, could you send "3.12
+> only" patches to stable@ so that I can apply them?
 
-What you're saying here is that you prefer to drop a feature that works
-for all other 1023 IDs because 1 ID is quirky. Sounds like overkill
-to me.
+	I asked Pablo for the old fix for IPVS-FTP:
 
---=20
-balbi
+http://www.spinics.net/lists/lvs-devel/msg03879.html
 
---1SQmhf2mF2YjsYvc
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+	The new fix for the xfrm crash is not applied yet:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+http://www.spinics.net/lists/lvs-devel/msg03877.html
 
-iQIcBAEBAgAGBQJUrEYXAAoJEIaOsuA1yqRERJwQALM/ArzpuY1h0bnqDUnRdlFj
-ejsi2LkbLet8fC6oFERshF89pwuRGP8Vti0Tv5ppHrti5gDKr63A5u6p2I1MQpB9
-aKsuwNCRedwKo/poG9KCxM/YA8w6v7DuMjfIwFPUP/dzVyG9OSTaGZJ+1junbOTq
-4NOZkIWVUv+5B1n+d2lhM3RWA6HXGTWNpTX325l/ejXCXmE08wVYuocpk8GUtS50
-3iM6gmLh/B8KVi15qywJnuvescShtyZ8DVlSsWEG+ElGrJzV8BcPpAooFgqtumQp
-EYBM8Fieo9e/naS5JXx0bHAf4jBUciQOQUVI1ooIrnaUW7CjMikvTcVVIv7hyiN1
-QY8dk6sOq9Q5r9mRCkDX2Dc3KXUJq7/j6GAL5EBdZbWHSnX8MmMJVVCgHdNMugjZ
-N+HyDmHND2TEr8QOpH6f2OzI2JIptmHvkoxjvZjfAsP4Pq5U1T7j6yzcd5uJP9k+
-KxdDcJSnq7DTP0aoEu0ac+Ej+pHlfU8L3xN+5qF/OOGqoQgMLOIsa1M0hcoTdTZh
-rIUNqlMqhVhZ6iAjFDSBVIBh7MzuN6WDScKeu+n657E8A8b1jikYgnEvkZIzmRj8
-+4i4uitdPiPxw+wBqimRFXX1NqKwOGDxL+13KUfjLOvQzMjNxfTy3PKxPeocg//w
-sOHVhecbttunvt8PCMau
-=3Adf
------END PGP SIGNATURE-----
+Regards
 
---1SQmhf2mF2YjsYvc--
+--
+Julian Anastasov <ja@ssi.bg>
