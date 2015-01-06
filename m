@@ -1,101 +1,57 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: pull request [net]: batman-adv 20150106
-Date: Tue,  6 Jan 2015 12:09:59 +0100
-Message-ID: <1420542605-28865-1-git-send-email-antonio@meshcoding.com>
+Subject: [PATCH 3/6] batman-adv: fix lock class for decoding hash in network-coding.c
+Date: Tue,  6 Jan 2015 12:10:02 +0100
+Message-ID: <1420542605-28865-4-git-send-email-antonio@meshcoding.com>
+References: <1420542605-28865-1-git-send-email-antonio@meshcoding.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	=?UTF-8?q?Martin=20Hundeb=C3=B8ll?= <martin@hundeboll.net>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Antonio Quartulli <antonio@meshcoding.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:34374 "EHLO
+Received: from s3.neomailbox.net ([178.209.62.157]:21635 "EHLO
 	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754348AbbAFLKq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 06:10:46 -0500
+	with ESMTP id S1754348AbbAFLKt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 06:10:49 -0500
+In-Reply-To: <1420542605-28865-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+=46rom: Martin Hundeb=C3=B8ll <martin@hundeboll.net>
 
-here you have some small fixes for your 'net' tree.
+batadv_has_set_lock_class() is called with the wrong hash table as firs=
+t
+argument (probably due to a copy-paste error), which leads to false
+positives when running with lockdep.
 
+Introduced-by: 612d2b4fe0a1ff2f8389462a6f8be34e54124c05
+("batman-adv: network coding - save overheard and tx packets for decodi=
+ng")
 
-Patch 1 fixes a regression in the "bonding" code introduced while
-implementing the multi-interface optimization feature, by Simon
-Wunderlich.
+Signed-off-by: Martin Hundeb=C3=B8ll <martin@hundeboll.net>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
+---
+ net/batman-adv/network-coding.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Patch 2 ensures that the "last-seen" timestamp for a newly created
-originator object is properly initialised in order to avoid a non-criti=
-cal
-race condition, by Linus L=C3=BCssing.
-
-Patch 3 avoids false positive splats when lockdep is enabled by assigni=
-ng
-the proper lock class to locks used by the network coding feature, by
-Martin Hundeb=C3=B8ll.
-
-Patches 4 and 5 fix the code counting the amount of multicast-disabled
-nodes in the network (used to avoid to enable the multicast optimisatio=
-n
-when not possible), by Linus L=C3=BCssing.
-
-Patch 6 fixes a memory leak in the Translation Table code that can be
-triggered by doubling the current originator interval, by Linus L=C3=BC=
-ssing.
-
-
-
-Please pull or let me know of any problem!
-
-Thanks a lot,
-	Antonio
-
-
-
-The following changes since commit 7ce67a38f799d1fb332f672b117efbadedaa=
-5352:
-
-  net: ethernet: cpsw: fix hangs with interrupts (2015-01-04 22:18:34 -=
-0500)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
-
-for you to fetch changes up to 9d31b3ce81683ce3c9fd10afa70892e373b21067=
-:
-
-  batman-adv: fix potential TT client + orig-node memory leak (2015-01-=
-06 11:07:01 +0100)
-
-----------------------------------------------------------------
-Included changes:
-- ensure bonding is used (if enabled) for packets coming in the soft
-  interface
-- fix race condition to avoid orig_nodes to be deleted right after
-  being added
-- avoid false positive lockdep splats by assigning lockclass to
-  the proper hashtable lock objects
-- avoid miscounting of multicast 'disabled' nodes in the network
-- fix memory leak in the Global Translation Table in case of
-  originator interval change
-
-----------------------------------------------------------------
-Linus L=C3=BCssing (4):
-      batman-adv: fix delayed foreign originator recognition
-      batman-adv: fix counter for multicast supporting nodes
-      batman-adv: fix multicast counter when purging originators
-      batman-adv: fix potential TT client + orig-node memory leak
-
-Martin Hundeb=C3=B8ll (1):
-      batman-adv: fix lock class for decoding hash in network-coding.c
-
-Simon Wunderlich (1):
-      batman-adv: fix and simplify condition when bonding should be use=
-d
-
- net/batman-adv/multicast.c      | 11 +++++++----
- net/batman-adv/network-coding.c |  2 +-
- net/batman-adv/originator.c     |  7 ++++---
- net/batman-adv/routing.c        |  6 ++++--
- 4 files changed, 16 insertions(+), 10 deletions(-)
+diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network-c=
+oding.c
+index 8d04d17..fab47f1 100644
+--- a/net/batman-adv/network-coding.c
++++ b/net/batman-adv/network-coding.c
+@@ -133,7 +133,7 @@ int batadv_nc_mesh_init(struct batadv_priv *bat_pri=
+v)
+ 	if (!bat_priv->nc.decoding_hash)
+ 		goto err;
+=20
+-	batadv_hash_set_lock_class(bat_priv->nc.coding_hash,
++	batadv_hash_set_lock_class(bat_priv->nc.decoding_hash,
+ 				   &batadv_nc_decoding_hash_lock_class_key);
+=20
+ 	INIT_DELAYED_WORK(&bat_priv->nc.work, batadv_nc_worker);
+--=20
+2.2.1
