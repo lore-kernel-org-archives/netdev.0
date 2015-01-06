@@ -1,80 +1,61 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH_V3] dm9000: Add regulator and reset support to dm9000
-Date: Tue, 06 Jan 2015 15:57:02 +0300
-Message-ID: <54ABDB9E.3070400@cogentembedded.com>
-References: <1420542916-30169-1-git-send-email-Zubair.Kakakhel@imgtec.com>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: Re: 3.12.33 - BUG xfrm_selector_match+0x25/0x2f6
+Date: Tue, 06 Jan 2015 13:56:56 +0100
+Message-ID: <54ABDB98.9060504@suse.cz>
+References: <547F2462.6040405@smart-weblications.de> <20141204075627.GE6390@secunet.com> <alpine.LFD.2.11.1412042338370.4841@ja.home.ssi.bg> <5481173A.9060308@smart-weblications.de> <alpine.LFD.2.11.1412051126090.2522@ja.home.ssi.bg> <5481B944.2000002@smart-weblications.de> <alpine.LFD.2.11.1412072019410.1885@ja.home.ssi.bg> <54858948.2060007@smart-weblications.de> <alpine.LFD.2.11.1412082234350.2401@ja.home.ssi.bg> <5486CD9D.4060107@smart-weblications.de> <alpine.LFD.2.11.1412102331230.4043@ja.home.ssi.bg> <5489A465.6090305@smart-weblications.de> <alpine.LFD.2.11.1412132211260.3229@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
-To: Zubair Lutfullah Kakakhel <Zubair.Kakakhel-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1420542916-30169-1-git-send-email-Zubair.Kakakhel-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	stable@vger.kernel.org, Simon Horman <horms@verge.net.au>,
+	lvs-devel@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>,
+	Smart Weblications GmbH - Florian Wiessner
+	<f.wiessner@smart-weblications.de>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.11.1412132211260.3229@ja.home.ssi.bg>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On 12/13/2014, 09:19 PM, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Thu, 11 Dec 2014, Smart Weblications GmbH - Florian Wiessner wrote:
+> 
+>>>> [  512.485323] CPU: 4 PID: 28142 Comm: vsftpd Not tainted 3.12.33 #5
+>>>
+>>> 	Above "#5" is same as previous oops. It means kernel
+>>> is not updated. Or you updated only the IPVS modules after
+>>> applying the both patches?
+>>
+>> I did it with make-kpkg --initrd linux_image which only rebuilt the modules,
+>> correct. I can retry with make clean before building the package
+> 
+> 	I just tested PASV and PORT with 3.12.33 including
+> both patches (seq adj fix + ip_route_me_harder fix) and do not
+> see any crashes in nf_ct_seqadj_set. If you still have problem
+> with FTP send me more info offlist.
+> 
+>>> 	You can also try without FTP tests to see if there
+>>> are oopses in xfrm, so that we can close this topic and then
+>>> to continue for the FTP problem on IPVS lists without
+>>> bothering non-IPVS people.
+>>>
+>>
+>> yeah, it seems that the xfrm issue is away.
+> 
+> 	Thanks for the confirmation!
 
-On 1/6/2015 2:15 PM, Zubair Lutfullah Kakakhel wrote:
+Great! Thanks for tracking it down.
 
-> In boards, the dm9000 chip's power and reset can be controlled by gpio.
+So what should be done to fix the issue in stable 3.12? Are those
+patches needed in the upstream kernel too? In that case I suppose it
+will propagate to me through upstream. Otherwise, could you send "3.12
+only" patches to stable@ so that I can apply them?
 
-> It makes sense to add them to the dm9000 driver and let dt be used to
-> enable power and reset the phy.
-
-> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Paul Burton <paul.burton-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
-
-[...]
-
-> diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
-> index ef0bb58..246c89d 100644
-> --- a/drivers/net/ethernet/davicom/dm9000.c
-> +++ b/drivers/net/ethernet/davicom/dm9000.c
-[...]
-> @@ -1426,11 +1429,49 @@ dm9000_probe(struct platform_device *pdev)
->   	struct dm9000_plat_data *pdata = dev_get_platdata(&pdev->dev);
->   	struct board_info *db;	/* Point a board information structure */
->   	struct net_device *ndev;
-> +	struct device *dev = &pdev->dev;
->   	const unsigned char *mac_src;
->   	int ret = 0;
->   	int iosize;
->   	int i;
->   	u32 id_val;
-> +	int reset_gpios;
-> +	enum of_gpio_flags flags;
-> +	struct regulator *power;
-> +
-> +	power = devm_regulator_get(dev, "vcc");
-> +	if (PTR_ERR(power) == -EPROBE_DEFER)
-> +			return -EPROBE_DEFER;
-
-    Line over-indented.
-
-[...]
-> +	reset_gpios = of_get_named_gpio_flags(dev->of_node, "reset-gpios", 0,
-> +					      &flags);
-> +	if (gpio_is_valid(reset_gpios)) {
-> +		ret = devm_gpio_request_one(dev, reset_gpios, flags,
-> +					    "dm9000_reset");
-> +		if (ret) {
-> +			dev_err(dev, "failed to request reset gpio %d: %d\n",
-> +				reset_gpios, ret);
-> +			return -ENODEV;
-> +		}
-> +
-> +		gpio_direction_output(reset_gpios, 0);
-
-    You could skip this call as devm_gpio_request_one() can handle that for you.
-
-[...]
-
-WBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+thanks,
+-- 
+js
+suse labs
