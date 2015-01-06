@@ -1,116 +1,114 @@
-From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v4 00/20] kselftest install target feature
-Date: Tue,  6 Jan 2015 12:43:14 -0700
-Message-ID: <cover.1420571615.git.shuahkh@osg.samsung.com>
-Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org
-To: mmarek@suse.cz, gregkh@linuxfoundation.org,
-	akpm@linux-foundation.org, rostedt@goodmis.org, mingo@redhat.com,
-	davem@davemloft.net, keescook@chromium.org, tranmanphong@gmail.com,
-	mpe@ellerman.id.au, cov@codeaurora.org, dh.herrmann@gmail.com,
-	hughd@google.com, bobby.prani@gmail.com, serge.hallyn@ubuntu.com,
-	ebiederm@xmission.com, tim.bird@sonymobile.com,
-	josh@joshtriplett.org, koct9i@gmail.com,
-	masami.hiramatsu.pt@hitachi.com
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 1/3] net: add IPv4 routing FIB support for swdev
+Date: Tue, 06 Jan 2015 20:59:13 +0100
+Message-ID: <1420574353.15181.19.camel@stressinduktion.org>
+References: <1420169361-31767-2-git-send-email-sfeldma@gmail.com>
+	 <1420552709.32369.50.camel@stressinduktion.org>
+	 <CAE4R7bCOnYL1bat39UivcyAG-S1hx-EJpwC_hWNv8prjZqV3fg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?Q?Ji=C5=99=C3=AD_P=C3=ADrko?= <jiri@resnulli.us>,
+	john fastabend <john.fastabend@gmail.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from resqmta-ch2-04v.sys.comcast.net ([69.252.207.36]:51986 "EHLO
-	resqmta-ch2-04v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932667AbbAFTwC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 14:52:02 -0500
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:33215 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755821AbbAFT7R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 14:59:17 -0500
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id 0E2B52097D
+	for <netdev@vger.kernel.org>; Tue,  6 Jan 2015 14:59:17 -0500 (EST)
+In-Reply-To: <CAE4R7bCOnYL1bat39UivcyAG-S1hx-EJpwC_hWNv8prjZqV3fg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series adds a new kselftest_install make target
-to enable selftest install. When make kselftest_install is
-run, selftests are installed on the system. A new install
-target is added to selftests Makefile which will install
-targets for the tests that are specified in INSTALL_TARGETS.
-During install, a script is generated to run tests that are
-installed. This script will be installed in the selftest install
-directory. Individual test Makefiles are changed to add to the
-script. This will allow new tests to add install and run test
-commands to the generated kselftest script. kselftest target
-now depends on kselftest_install and runs the generated kselftest
-script to reduce duplicate work and for common look and feel when
-running tests.
+On Di, 2015-01-06 at 09:51 -0800, Scott Feldman wrote:
+> On Tue, Jan 6, 2015 at 5:58 AM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> > At this point I would like to start the discussion about handling of the
+> > table ids/vrfs (again :) ): as I can see it, this version just passes
+> > table ids down to the driver layer and the rocker driver filters them by
+> > local/main table? This seems to be mostly fine for a first version but
+> > does not feel like it will integrate well with the rest of the linux
+> > networking ecosystem.
+> >
+> > Will hardware have the capabilities to do programmable matches like "ip
+> > rule" is currently capable to do? Should we plan for that? Do we want to
+> > support hardware which does support multiple tables/VRFs?
+> 
+> Good questions, thanks for bringing these up.
+> >
+> > I would like to present a first suggestion:
+> > My take on this would be strive towards an integration with ip-rule, so
+> > we add tables which will be offloaded to hardware. This happens only in
+> > situations where those tables will be the first match for incoming
+> > packets specified with an in-interface filter which has the capability
+> > to do the offloading (for example). The determination if the table is
+> > capable for hardware offloading should be done automatically, so if
+> > later hardware will be capable of doing ip rule like matches, we can
+> > just expand the check which flags the tables accordingly.
+> 
+> Sounds like a good suggestion to me.  We need to think about what the
+> swdev API looks like to the switch device driver.  Could you take a
+> stab at defining what integration with ip-rule looks like, code-wise,
+> at the swdev API layer?
+> 
+> With the rocker device we're prototyping with, the standard LPM on IP
+> dst is the normal L3 routing table structure.  Within that, table
+> priorities could be handled, so routes in one table take precedence
+> over routes in another table.  If we want to do policy routing, then
+> we'd need to use the ACL table in rocker to match on other fields
+> besides just IP dst.
 
-This approach leverages and extends the existing framework that
-uses makefile targets to implement run_tests and adds install
-target. This will scale well as new tests get added and makes
-it easier for test writers to add install target at the same
-time new test gets added.
+Sorry, I haven't fully understood this. Does rocker first do a L3
+routing table lookup and *after* that does decide which nexthop to chose
+based on preferences in the action-set found at the leaf? My gut tells
+me that we cannot do a semantically equivalent to ip rules then, we
+would have to use ACLs then. Hmm...
 
-This series is uploaded to the following experimental branch
-for anybody that is interested in playing with it:
-git://git.kernel.org/pub/scm/linux/kernel/git/shuah/linux-kselftest.git devel
+For the first idea, I'll try to make an example:
 
-Some benchmark numbers: no relation to this patch series,
-I just happened to get some timing numbers, this is nice
-and low.
-kselftest full run from install dir using kselftest.sh
-9.41user 3.55system 0:24.86elapsed
+Initial setup:
+# ip rule ls
+0:	from all lookup local 
+32766:	from all lookup main 
+32767:	from all lookup default 
 
-This v4 series fixes echo strings to add quotes around them.
-There is no change to the 00/20 kbuild patch in this series.
-Other patches in the sries are updated to fix the echo strings.
+# ip rule add pref 100 iif swdev0 table 5
+# ip rule ls
+0:	from all lookup local 
+100:	from all iif swdev0 [detached] lookup 5
+> maybe we can show which rules are being able to get offloaded here
+32766:	from all lookup main 
+32767:	from all lookup default 
 
-v3 series: reduced duplicate code to generate script
-in indiviual test Makefiles and consolidates support in
-selftests main Makefile. In the main Makefile, it does
-minimal work to set and export install path.
+table 5 should be the table we can insert routes into which are
+offloaded to hardware.
 
-v2 series: addressed the duplicate code in install and
-run_tests targets in individual test Makefiles.
-Reference: https://lkml.org/lkml/2014/11/4/707
+During table modifications we linearly scan the rules if we find
+selectors which cannot be represented by hardware.
 
-Shuah Khan (20):
-  selftests/breakpoints: add install target to enable test install
-  selftests/cpu-hotplug: add install target to enable test install
-  selftests/efivarfs: add install target to enable test install
-  selftests/firmware: add install target to enable test install
-  selftests/ftrace: add install target to enable test install
-  selftests/ipc: add install target to enable test install
-  selftests/kcmp: add install target to enable test install
-  selftests/memfd: add install target to enable test install
-  selftests/memory-hotplug: add install target to enable test install
-  selftests/mount: add install target to enable test install
-  selftests/mqueue: add install target to enable test install
-  selftests/net: add install target to enable test install
-  selftests/ptrace: add install target to enable test install
-  selftests/size: add install target to enable test install
-  selftests/sysctl: add install target to enable test install
-  selftests/timers: add install target to enable test install
-  selftests/user: add install target to enable test install
-  selftests/vm: add install target to enable test install
-  selftests: add install target to enable test install
-  kbuild: add a new kselftest_install make target to install selftests
+In case we have a iif selector, we simply can use this table and just
+synthesize it into the particular interface.
 
- Makefile                                           | 14 +++++-
- tools/testing/selftests/Makefile                   | 54 +++++++++++++++++++++-
- tools/testing/selftests/breakpoints/Makefile       | 19 +++++++-
- tools/testing/selftests/cpu-hotplug/Makefile       | 14 +++++-
- .../{on-off-test.sh => cpu-on-off-test.sh}         |  0
- tools/testing/selftests/efivarfs/Makefile          | 16 ++++++-
- tools/testing/selftests/firmware/Makefile          | 43 ++++++++++-------
- tools/testing/selftests/ftrace/Makefile            | 13 +++++-
- tools/testing/selftests/ipc/Makefile               | 19 +++++++-
- tools/testing/selftests/kcmp/Makefile              | 13 +++++-
- tools/testing/selftests/memfd/Makefile             | 17 +++++--
- tools/testing/selftests/memory-hotplug/Makefile    | 14 +++++-
- .../{on-off-test.sh => mem-on-off-test.sh}         |  0
- tools/testing/selftests/mount/Makefile             | 12 ++++-
- tools/testing/selftests/mqueue/Makefile            | 18 ++++++--
- tools/testing/selftests/net/Makefile               | 20 ++++++--
- tools/testing/selftests/ptrace/Makefile            | 16 +++++--
- tools/testing/selftests/size/Makefile              | 12 ++++-
- tools/testing/selftests/sysctl/Makefile            | 17 ++++++-
- tools/testing/selftests/timers/Makefile            | 12 ++++-
- tools/testing/selftests/user/Makefile              | 12 ++++-
- tools/testing/selftests/vm/Makefile                | 11 ++++-
- 22 files changed, 317 insertions(+), 49 deletions(-)
- rename tools/testing/selftests/cpu-hotplug/{on-off-test.sh => cpu-on-off-test.sh} (100%)
- rename tools/testing/selftests/memory-hotplug/{on-off-test.sh => mem-on-off-test.sh} (100%)
+A ip-rule-from would need all the hardware being capable of matching
+source addresses, otherwise we cannot offload all routing tables with
+higher preference, same for a to/tos rule. If we encounter a fwmark
+rule, we certainly cannot represent it in hardware, so skip it (here we
+can think about entangling those with ACLs, but it feels hard to do).
 
--- 
-2.1.0
+If rules are inserted or changed we must again validate the complete
+list of rules and decide if we need to flush all the routes and install
+a slow path via kernel.
+
+What do you think? Does that make sense? I could try to come up with an
+API for that. ;)
+
+Bye,
+Hannes
