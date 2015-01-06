@@ -1,37 +1,75 @@
-From: Hannes Frederic Sowa <hannes@redhat.com>
-Subject: Re: [PATCH net-next 1/3] net: add IPv4 routing FIB support for swdev
-Date: Tue, 06 Jan 2015 21:26:56 +0100
-Message-ID: <1420576016.15181.21.camel@redhat.com>
-References: <1420169361-31767-2-git-send-email-sfeldma@gmail.com>
-	 <1420552709.32369.50.camel@stressinduktion.org>
-	 <CAE4R7bCOnYL1bat39UivcyAG-S1hx-EJpwC_hWNv8prjZqV3fg@mail.gmail.com>
-	 <1420574353.15181.19.camel@stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?Q?Ji=C5=99=C3=AD_P=C3=ADrko?= <jiri@resnulli.us>,
-	john fastabend <john.fastabend@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Scott Feldman <sfeldma@gmail.com>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: [PATCH net-next] tg3: move init/deinit from open/close to probe/remove
+Date: Tue,  6 Jan 2015 21:28:42 +0100
+Message-ID: <1420576122-23618-1-git-send-email-ivecera@redhat.com>
+Cc: prashant@broadcom.com, mchan@broadcom.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42607 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:32468 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753567AbbAFU1f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jan 2015 15:27:35 -0500
-In-Reply-To: <1420574353.15181.19.camel@stressinduktion.org>
+	id S932434AbbAFU2q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jan 2015 15:28:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Di, 2015-01-06 at 20:59 +0100, Hannes Frederic Sowa wrote:
-> Sorry, I haven't fully understood this. Does rocker first do a L3
-> routing table lookup and *after* that does decide which nexthop to chose
-> based on preferences in the action-set found at the leaf? My gut tells
-> me that we cannot do a semantically equivalent to ip rules then, we
-> would have to use ACLs then. Hmm...
+Move init and deinit of PTP support from open/close functions
+to probe/remove funcs to avoid removing/re-adding of associated PTP
+device(s) during ifup/ifdown.
 
-Does rocker drop the packet if no match is found or can it pass the
-packet onto the slowpath to the kernel?
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 553dcd8..e86bee4 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -11681,13 +11681,6 @@ static int tg3_open(struct net_device *dev)
+ 		pci_set_power_state(tp->pdev, PCI_D3hot);
+ 	}
+ 
+-	if (tg3_flag(tp, PTP_CAPABLE)) {
+-		tp->ptp_clock = ptp_clock_register(&tp->ptp_info,
+-						   &tp->pdev->dev);
+-		if (IS_ERR(tp->ptp_clock))
+-			tp->ptp_clock = NULL;
+-	}
+-
+ 	return err;
+ }
+ 
+@@ -11701,8 +11694,6 @@ static int tg3_close(struct net_device *dev)
+ 		return -EAGAIN;
+ 	}
+ 
+-	tg3_ptp_fini(tp);
+-
+ 	tg3_stop(tp);
+ 
+ 	/* Clear stats across close / open calls */
+@@ -17880,6 +17871,13 @@ static int tg3_init_one(struct pci_dev *pdev,
+ 		goto err_out_apeunmap;
+ 	}
+ 
++	if (tg3_flag(tp, PTP_CAPABLE)) {
++		tp->ptp_clock = ptp_clock_register(&tp->ptp_info,
++						   &tp->pdev->dev);
++		if (IS_ERR(tp->ptp_clock))
++			tp->ptp_clock = NULL;
++	}
++
+ 	netdev_info(dev, "Tigon3 [partno(%s) rev %04x] (%s) MAC address %pM\n",
+ 		    tp->board_part_number,
+ 		    tg3_chip_rev_id(tp),
+@@ -17955,6 +17953,8 @@ static void tg3_remove_one(struct pci_dev *pdev)
+ 	if (dev) {
+ 		struct tg3 *tp = netdev_priv(dev);
+ 
++		tg3_ptp_fini(tp);
++
+ 		release_firmware(tp->fw);
+ 
+ 		tg3_reset_task_cancel(tp);
+-- 
+2.0.5
