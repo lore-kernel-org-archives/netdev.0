@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v2 1/8] net: ethtool: internal compatibility flags to reject non-zero reserved fields
-Date: Mon,  5 Jan 2015 18:54:03 -0800
-Message-ID: <1420512850-24699-2-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v2 3/8] net: phy: extend link mode support to 48 bits
+Date: Mon,  5 Jan 2015 18:54:05 -0800
+Message-ID: <1420512850-24699-4-git-send-email-ddecotig@gmail.com>
 References: <1420512850-24699-1-git-send-email-ddecotig@gmail.com>
 Cc: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>,
 	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
@@ -31,85 +31,182 @@ List-Id: netdev.vger.kernel.org
 
 From: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 
-The public ethtool API progressively shrinks "reserved" fields to
-expand some other fields (eg. link mode masks). This patch allows
-drivers to declare that they fully support expanded fields. When they
-don't do so, the generic ethtool layer may reject (-EINVAL) userspace
-requests that assign values utilizing the newly allocated areas in
-these expanded fields (ie. when some reserved field receives != 0).
-
 Signed-off-by: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 ---
- include/linux/ethtool.h      | 19 +++++++++++++++++--
- include/uapi/linux/ethtool.h |  6 +++++-
- 2 files changed, 22 insertions(+), 3 deletions(-)
+ drivers/net/phy/phy.c        | 30 ++++++++++++++++--------------
+ drivers/net/phy/phy_device.c |  4 ++--
+ include/linux/phy.h          | 10 +++++-----
+ 3 files changed, 23 insertions(+), 21 deletions(-)
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 653dc9c..dcb08c1 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -44,6 +44,17 @@ extern int __ethtool_get_settings(struct net_device *dev,
- 				  struct ethtool_cmd *cmd);
- 
- /**
-+ * enum ethtool_compat_flags - bit indices used for %get_compat_flags() bitmaps
-+ * @__ETHTOOL_COMPAT_PLACEHOLDER_BIT: to avoid a compiler error,
-+ *                                    superseded by next patches
-+ */
-+enum ethtool_compat_flags {
-+	__ETHTOOL_COMPAT_PLACEHOLDER_BIT,
-+};
-+
-+#define __ETH_COMPAT_MASK(name)	(1UL << (ETHTOOL_COMPAT_ ## name ## _BIT))
-+
-+/**
-  * enum ethtool_phys_id_state - indicator state for physical identification
-  * @ETHTOOL_ID_INACTIVE: Physical ID indicator should be deactivated
-  * @ETHTOOL_ID_ACTIVE: Physical ID indicator should be activated
-@@ -99,6 +110,11 @@ static inline u32 ethtool_rxfh_indir_default(u32 index, u32 n_rx_rings)
- 
- /**
-  * struct ethtool_ops - optional netdev operations
-+ * @get_compat_flags: Internal function. Returns the internal ethtool
-+ *      compatibility flags: in the absence of this method, or of
-+ *      specific compatilibilty flags, the generic layer enforces
-+ *      additional constraints on the user space values before
-+ *      calling the callbacks below.
-  * @get_settings: Get various device settings including Ethernet link
-  *	settings. The @cmd parameter is expected to have been cleared
-  *	before get_settings is called. Returns a negative error code or
-@@ -279,7 +295,6 @@ struct ethtool_ops {
- 			       const struct ethtool_tunable *, void *);
- 	int	(*set_tunable)(struct net_device *,
- 			       const struct ethtool_tunable *, const void *);
--
--
-+	u32	(*get_compat_flags)(struct net_device *);
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 767cd11..77d4eb9 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -132,7 +132,7 @@ static inline int phy_aneg_done(struct phy_device *phydev)
+ struct phy_setting {
+ 	int speed;
+ 	int duplex;
+-	u32 setting;
++	ethtool_link_mode_mask_t setting;
  };
- #endif /* _LINUX_ETHTOOL_H */
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index 5f66d9c..d063368 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -88,7 +88,8 @@
-  * other than @cmd that are not described as read-only or deprecated,
-  * and must ignore all fields described as read-only.
-  *
-- * Deprecated fields should be ignored by both users and drivers.
-+ * Deprecated and reserved fields should be ignored by both users and
-+ * drivers. If reserved fields must be set, store the value 0 in them.
+ 
+ /* A mapping of all SUPPORTED settings to speed/duplex */
+@@ -227,7 +227,8 @@ static inline unsigned int phy_find_setting(int speed, int duplex)
+  *   the mask in features.  Returns the index of the last setting
+  *   if nothing else matches.
   */
- struct ethtool_cmd {
- 	__u32	cmd;
-@@ -300,6 +301,9 @@ struct ethtool_eeprom {
-  * @tx_lpi_timer: Time in microseconds the interface delays prior to asserting
-  *	its tx lpi (after reaching 'idle' state). Effective only when eee
-  *	was negotiated and tx_lpi_enabled was set.
-+ *
-+ * Deprecated and reserved fields should be ignored by both users and
-+ * drivers. If reserved fields must be set, store the value 0 in them.
+-static inline unsigned int phy_find_valid(unsigned int idx, u32 features)
++static inline unsigned int phy_find_valid(unsigned int idx,
++					  ethtool_link_mode_mask_t features)
+ {
+ 	while (idx < MAX_NUM_SETTINGS && !(settings[idx].setting & features))
+ 		idx++;
+@@ -245,7 +246,7 @@ static inline unsigned int phy_find_valid(unsigned int idx, u32 features)
   */
- struct ethtool_eee {
- 	__u32	cmd;
+ static void phy_sanitize_settings(struct phy_device *phydev)
+ {
+-	u32 features = phydev->supported;
++	ethtool_link_mode_mask_t features = phydev->supported;
+ 	unsigned int idx;
+ 
+ 	/* Sanitize settings based on PHY capabilities */
+@@ -274,18 +275,19 @@ static void phy_sanitize_settings(struct phy_device *phydev)
+ int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd)
+ {
+ 	u32 speed = ethtool_cmd_speed(cmd);
++	ethtool_link_mode_mask_t eth_adv = ethtool_cmd_advertising(cmd);
+ 
+ 	if (cmd->phy_address != phydev->addr)
+ 		return -EINVAL;
+ 
+ 	/* We make sure that we don't pass unsupported values in to the PHY */
+-	cmd->advertising &= phydev->supported;
++	eth_adv &= phydev->supported;
+ 
+ 	/* Verify the settings we care about. */
+ 	if (cmd->autoneg != AUTONEG_ENABLE && cmd->autoneg != AUTONEG_DISABLE)
+ 		return -EINVAL;
+ 
+-	if (cmd->autoneg == AUTONEG_ENABLE && cmd->advertising == 0)
++	if (cmd->autoneg == AUTONEG_ENABLE && eth_adv == 0)
+ 		return -EINVAL;
+ 
+ 	if (cmd->autoneg == AUTONEG_DISABLE &&
+@@ -300,7 +302,7 @@ int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd)
+ 
+ 	phydev->speed = speed;
+ 
+-	phydev->advertising = cmd->advertising;
++	phydev->advertising = eth_adv;
+ 
+ 	if (AUTONEG_ENABLE == cmd->autoneg)
+ 		phydev->advertising |= ADVERTISED_Autoneg;
+@@ -318,10 +320,10 @@ EXPORT_SYMBOL(phy_ethtool_sset);
+ 
+ int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
+ {
+-	cmd->supported = phydev->supported;
++	ethtool_cmd_supported_set(cmd, phydev->supported);
+ 
+-	cmd->advertising = phydev->advertising;
+-	cmd->lp_advertising = phydev->lp_advertising;
++	ethtool_cmd_advertising_set(cmd, phydev->advertising);
++	ethtool_cmd_lp_advertising_set(cmd, phydev->lp_advertising);
+ 
+ 	ethtool_cmd_speed_set(cmd, phydev->speed);
+ 	cmd->duplex = phydev->duplex;
+@@ -1040,7 +1042,7 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
+ 	    (phydev->interface == PHY_INTERFACE_MODE_RGMII) ||
+ 	     phy_is_internal(phydev))) {
+ 		int eee_lp, eee_cap, eee_adv;
+-		u32 lp, cap, adv;
++		ethtool_link_mode_mask_t cap, adv, lp;
+ 		int status;
+ 		unsigned int idx;
+ 
+@@ -1132,21 +1134,21 @@ int phy_ethtool_get_eee(struct phy_device *phydev, struct ethtool_eee *data)
+ 				    MDIO_MMD_PCS, phydev->addr);
+ 	if (val < 0)
+ 		return val;
+-	data->supported = mmd_eee_cap_to_ethtool_sup_t(val);
++	ethtool_eee_supported_set(data, mmd_eee_cap_to_ethtool_sup_t(val));
+ 
+ 	/* Get advertisement EEE */
+ 	val = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_ADV,
+ 				    MDIO_MMD_AN, phydev->addr);
+ 	if (val < 0)
+ 		return val;
+-	data->advertised = mmd_eee_adv_to_ethtool_adv_t(val);
++	ethtool_eee_advertised_set(data, mmd_eee_adv_to_ethtool_adv_t(val));
+ 
+ 	/* Get LP advertisement EEE */
+ 	val = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_LPABLE,
+ 				    MDIO_MMD_AN, phydev->addr);
+ 	if (val < 0)
+ 		return val;
+-	data->lp_advertised = mmd_eee_adv_to_ethtool_adv_t(val);
++	ethtool_eee_lp_advertised_set(data, mmd_eee_adv_to_ethtool_adv_t(val));
+ 
+ 	return 0;
+ }
+@@ -1161,7 +1163,7 @@ EXPORT_SYMBOL(phy_ethtool_get_eee);
+  */
+ int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
+ {
+-	int val = ethtool_adv_to_mmd_eee_adv_t(data->advertised);
++	int val = ethtool_adv_to_mmd_eee_adv_t(ethtool_eee_advertised(data));
+ 
+ 	phy_write_mmd_indirect(phydev, MDIO_AN_EEE_ADV, MDIO_MMD_AN,
+ 			       phydev->addr, val);
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 3fc91e8..4391dc7 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -734,7 +734,7 @@ EXPORT_SYMBOL(phy_resume);
+  */
+ static int genphy_config_advert(struct phy_device *phydev)
+ {
+-	u32 advertise;
++	ethtool_link_mode_mask_t advertise;
+ 	int oldadv, adv, bmsr;
+ 	int err, changed = 0;
+ 
+@@ -1086,7 +1086,7 @@ EXPORT_SYMBOL(genphy_soft_reset);
+ int genphy_config_init(struct phy_device *phydev)
+ {
+ 	int val;
+-	u32 features;
++	ethtool_link_mode_mask_t features;
+ 
+ 	features = (SUPPORTED_TP | SUPPORTED_MII
+ 			| SUPPORTED_AUI | SUPPORTED_FIBRE |
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 22af8f8..aabf808 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -390,10 +390,10 @@ struct phy_device {
+ 	u32 interrupts;
+ 
+ 	/* Union of PHY and Attached devices' supported modes */
+-	/* See mii.h for more info */
+-	u32 supported;
+-	u32 advertising;
+-	u32 lp_advertising;
++	/* See ethtool.h for more info */
++	ethtool_link_mode_mask_t supported;
++	ethtool_link_mode_mask_t advertising;
++	ethtool_link_mode_mask_t lp_advertising;
+ 
+ 	int autoneg;
+ 
+@@ -447,7 +447,7 @@ struct phy_driver {
+ 	u32 phy_id;
+ 	char *name;
+ 	unsigned int phy_id_mask;
+-	u32 features;
++	ethtool_link_mode_mask_t features;
+ 	u32 flags;
+ 	const void *driver_data;
+ 
 -- 
 2.2.0.rc0.207.ga3a616c
