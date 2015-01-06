@@ -1,163 +1,266 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [net-next PATCH v1 01/11] net: flow_table: create interface for
- hw match/action tables
-Date: Tue, 6 Jan 2015 11:54:58 +0900
-Message-ID: <20150106025456.GB24057@vergenet.net>
-References: <20141231194057.31070.5244.stgit@nitbit.x32>
- <20141231194544.31070.30335.stgit@nitbit.x32>
- <20150104111238.GD15305@casper.infradead.org>
- <54AADEFF.3090306@gmail.com>
- <54AB303E.3000601@gmail.com>
- <20150106010942.GD14077@vergenet.net>
- <54AB381E.3010009@gmail.com>
- <20150106020514.GA24057@vergenet.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>, sfeldma@gmail.com, jiri@resnulli.us,
-	jhs@mojatatu.com, netdev@vger.kernel.org, davem@davemloft.net,
-	andy@greyhouse.net
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:56914 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932252AbbAFCzK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 21:55:10 -0500
-Received: by mail-pa0-f51.google.com with SMTP id ey11so30142661pad.10
-        for <netdev@vger.kernel.org>; Mon, 05 Jan 2015 18:55:09 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150106020514.GA24057@vergenet.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Decotigny <ddecotig@gmail.com>
+Subject: [PATCH net-next v2 4/8] net: mii: extend link mode support to 48 bits
+Date: Mon,  5 Jan 2015 18:54:06 -0800
+Message-ID: <1420512850-24699-5-git-send-email-ddecotig@gmail.com>
+References: <1420512850-24699-1-git-send-email-ddecotig@gmail.com>
+Cc: David Decotigny <decot@googlers.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	WANG Cong <xiyou.wangcong@gmail.com>,
+	Flavio Leitner <fbl@redhat.com>, Tom Gundersen <teg@jklm.no>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>
+To: Amir Vadai <amirv@mellanox.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-api@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1420512850-24699-1-git-send-email-ddecotig@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 06, 2015 at 11:05:14AM +0900, Simon Horman wrote:
-> On Mon, Jan 05, 2015 at 05:19:26PM -0800, John Fastabend wrote:
-> > On 01/05/2015 05:09 PM, Simon Horman wrote:
-> > >On Mon, Jan 05, 2015 at 04:45:50PM -0800, John Fastabend wrote:
-> > >>[...]
-> > >>
-> > >>>>>+/**
-> > >>>>>+ * @struct net_flow_field_ref
-> > >>>>>+ * @brief uniquely identify field as header:field tuple
-> > >>>>>+ */
-> > >>>>>+struct net_flow_field_ref {
-> > >>>>>+    int instance;
-> > >>>>>+    int header;
-> > >>>>>+    int field;
-> > >>>>>+    int mask_type;
-> > >>>>>+    int type;
-> > >>>>>+    union {    /* Are these all the required data types */
-> > >>>>>+        __u8 value_u8;
-> > >>>>>+        __u16 value_u16;
-> > >>>>>+        __u32 value_u32;
-> > >>>>>+        __u64 value_u64;
-> > >>>>>+    };
-> > >>>>>+    union {    /* Are these all the required data types */
-> > >>>>>+        __u8 mask_u8;
-> > >>>>>+        __u16 mask_u16;
-> > >>>>>+        __u32 mask_u32;
-> > >>>>>+        __u64 mask_u64;
-> > >>>>>+    };
-> > >>>>>+};
-> > >>>>
-> > >>>>Does it make sense to write this as follows?
-> > >>>
-> > >>>Yes. I'll make this update it helps make it clear value/mask pairs are
-> > >>>needed.
-> > >>>
-> > >>>>
-> > >>>>union {
-> > >>>>         struct {
-> > >>>>                 __u8 value_u8;
-> > >>>>                 __u8 mask_u8;
-> > >>>>         };
-> > >>>>         struct {
-> > >>>>                 __u16 value_u16;
-> > >>>>                 __u16 mask_u16;
-> > >>>>         };
-> > >>>>         ...
-> > >>>>};
-> > >>
-> > >>Another thought is to pull this entirely out of the structure and hide
-> > >>it from the UAPI so we can add more value/mask types as needed without
-> > >>having to spin versions of net_flow_field_ref. On the other hand I've
-> > >>been able to fit all my fields in these types so far and I can't think
-> > >>of any additions we need at the moment.
-> > >
-> > >FWIW, I think it would be cleaner to break both field_ref and action_args
-> > >out into attributes and not expose the structures to user-space. But
-> > >perhaps there is an advantage to dealing with structures directly that
-> > >I am missing.
-> > >
-> > 
-> > I  came to the same conclusion just now as well. I'm reworking it now
-> > for v2.
-> 
-> Thanks.
-> 
-> BTW, I think there are a few problems with net_flow_put_flow_action().
-> 
-> I am not quite to the bottom of it but it seems that:
-> * It loops over a->args[i] and then calls net_flow_put_act_types()
->   which performs a similar loop. This outer-loop appears to be incorrect.
-> * It passes a[i].args instead of a->args[i] to net_flow_put_act_types()
-> 
-> I can post a fix once I've got it working to my satisfaction.
-> But if you are reworking that code anyway perhaps it is easier for
-> you to handle it then.
+From: David Decotigny <decot@googlers.com>
 
-FWIW this got the current scheme working for me:
+Signed-off-by: David Decotigny <decot@googlers.com>
+---
+ drivers/net/mii.c   | 52 +++++++++++++++++++++++++++++-----------------------
+ include/linux/mii.h | 31 ++++++++++++++++---------------
+ 2 files changed, 45 insertions(+), 38 deletions(-)
 
-diff --git a/net/core/flow_table.c b/net/core/flow_table.c
-index 5dbdc13..598afa2 100644
---- a/net/core/flow_table.c
-+++ b/net/core/flow_table.c
-@@ -946,7 +946,7 @@ static int net_flow_put_flow_action(struct sk_buff *skb,
- 				    struct net_flow_action *a)
+diff --git a/drivers/net/mii.c b/drivers/net/mii.c
+index 4a99c39..2be59ba 100644
+--- a/drivers/net/mii.c
++++ b/drivers/net/mii.c
+@@ -33,7 +33,7 @@
+ #include <linux/ethtool.h>
+ #include <linux/mii.h>
+ 
+-static u32 mii_get_an(struct mii_if_info *mii, u16 addr)
++static ethtool_link_mode_mask_t mii_get_an(struct mii_if_info *mii, u16 addr)
  {
- 	struct nlattr *action, *sigs;
--	int i, err = 0;
-+	int err = 0;
+ 	int advert;
  
- 	action = nla_nest_start(skb, NET_FLOW_ACTION);
- 	if (!action)
-@@ -958,21 +958,19 @@ static int net_flow_put_flow_action(struct sk_buff *skb,
- 	if (!a->args)
- 		goto done;
+@@ -56,14 +56,15 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
+ {
+ 	struct net_device *dev = mii->dev;
+ 	u16 bmcr, bmsr, ctrl1000 = 0, stat1000 = 0;
+-	u32 nego;
++	ethtool_link_mode_mask_t supported_link_modes, advertising_link_modes;
++	ethtool_link_mode_mask_t nego;
  
--	for (i = 0; a->args[i].type; i++) {
--		sigs = nla_nest_start(skb, NET_FLOW_ACTION_ATTR_SIGNATURE);
--		if (!sigs) {
--			nla_nest_cancel(skb, action);
--			return -EMSGSIZE;
--		}
-+	sigs = nla_nest_start(skb, NET_FLOW_ACTION_ATTR_SIGNATURE);
-+	if (!sigs) {
-+		nla_nest_cancel(skb, action);
-+		return -EMSGSIZE;
-+	}
+-	ecmd->supported =
++	supported_link_modes =
+ 	    (SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full |
+ 	     SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
+ 	     SUPPORTED_Autoneg | SUPPORTED_TP | SUPPORTED_MII);
+ 	if (mii->supports_gmii)
+-		ecmd->supported |= SUPPORTED_1000baseT_Half |
++		supported_link_modes |= SUPPORTED_1000baseT_Half |
+ 			SUPPORTED_1000baseT_Full;
  
--		err = net_flow_put_act_types(skb, a[i].args);
--		if (err) {
--			nla_nest_cancel(skb, sigs);
--			nla_nest_cancel(skb, action);
--			return err;
--		}
--		nla_nest_end(skb, sigs);
-+	err = net_flow_put_act_types(skb, a->args);
-+	if (err) {
-+		nla_nest_cancel(skb, sigs);
-+		nla_nest_cancel(skb, action);
-+		return err;
+ 	/* only supports twisted-pair */
+@@ -76,7 +77,7 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
+ 	ecmd->phy_address = mii->phy_id;
+ 	ecmd->mdio_support = ETH_MDIO_SUPPORTS_C22;
+ 
+-	ecmd->advertising = ADVERTISED_TP | ADVERTISED_MII;
++	advertising_link_modes = ADVERTISED_TP | ADVERTISED_MII;
+ 
+ 	bmcr = mii->mdio_read(dev, mii->phy_id, MII_BMCR);
+ 	bmsr = mii->mdio_read(dev, mii->phy_id, MII_BMSR);
+@@ -85,23 +86,25 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
+ 		stat1000 = mii->mdio_read(dev, mii->phy_id, MII_STAT1000);
  	}
-+	nla_nest_end(skb, sigs);
+ 	if (bmcr & BMCR_ANENABLE) {
+-		ecmd->advertising |= ADVERTISED_Autoneg;
++		ethtool_link_mode_mask_t lp_adv;
++
++		advertising_link_modes |= ADVERTISED_Autoneg;
+ 		ecmd->autoneg = AUTONEG_ENABLE;
  
- done:
- 	nla_nest_end(skb, action);
-@@ -1103,6 +1101,7 @@ static int net_flow_get_action(struct net_flow_action *a, struct nlattr *attr)
+-		ecmd->advertising |= mii_get_an(mii, MII_ADVERTISE);
++		advertising_link_modes |= mii_get_an(mii, MII_ADVERTISE);
+ 		if (mii->supports_gmii)
+-			ecmd->advertising |=
++			advertising_link_modes |=
+ 					mii_ctrl1000_to_ethtool_adv_t(ctrl1000);
+ 
+ 		if (bmsr & BMSR_ANEGCOMPLETE) {
+-			ecmd->lp_advertising = mii_get_an(mii, MII_LPA);
+-			ecmd->lp_advertising |=
+-					mii_stat1000_to_ethtool_lpa_t(stat1000);
++			lp_adv = mii_get_an(mii, MII_LPA);
++			lp_adv |= mii_stat1000_to_ethtool_lpa_t(stat1000);
+ 		} else {
+-			ecmd->lp_advertising = 0;
++			lp_adv = 0;
  		}
  
- 		a->args[count] = *(struct net_flow_action_arg *)nla_data(args);
-+		count++;
+-		nego = ecmd->advertising & ecmd->lp_advertising;
++		ethtool_cmd_lp_advertising_set(ecmd, lp_adv);
++		nego = advertising_link_modes & lp_adv;
+ 
+ 		if (nego & (ADVERTISED_1000baseT_Full |
+ 			    ADVERTISED_1000baseT_Half)) {
+@@ -128,6 +131,8 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
  	}
- 	return 0;
- }
+ 
+ 	mii->full_duplex = ecmd->duplex;
++	ethtool_cmd_supported_set(ecmd, supported_link_modes);
++	ethtool_cmd_advertising_set(ecmd, advertising_link_modes);
+ 
+ 	/* ignore maxtxpkt, maxrxpkt for now */
+ 
+@@ -168,13 +173,15 @@ int mii_ethtool_sset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
+ 	if (ecmd->autoneg == AUTONEG_ENABLE) {
+ 		u32 bmcr, advert, tmp;
+ 		u32 advert2 = 0, tmp2 = 0;
+-
+-		if ((ecmd->advertising & (ADVERTISED_10baseT_Half |
+-					  ADVERTISED_10baseT_Full |
+-					  ADVERTISED_100baseT_Half |
+-					  ADVERTISED_100baseT_Full |
+-					  ADVERTISED_1000baseT_Half |
+-					  ADVERTISED_1000baseT_Full)) == 0)
++		ethtool_link_mode_mask_t ethtool_adv;
++
++		ethtool_adv = ethtool_cmd_advertising(ecmd);
++		if ((ethtool_adv & (ADVERTISED_10baseT_Half |
++				    ADVERTISED_10baseT_Full |
++				    ADVERTISED_100baseT_Half |
++				    ADVERTISED_100baseT_Full |
++				    ADVERTISED_1000baseT_Half |
++				    ADVERTISED_1000baseT_Full)) == 0)
+ 			return -EINVAL;
+ 
+ 		/* advertise only what has been requested */
+@@ -184,11 +191,10 @@ int mii_ethtool_sset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
+ 			advert2 = mii->mdio_read(dev, mii->phy_id, MII_CTRL1000);
+ 			tmp2 = advert2 & ~(ADVERTISE_1000HALF | ADVERTISE_1000FULL);
+ 		}
+-		tmp |= ethtool_adv_to_mii_adv_t(ecmd->advertising);
++		tmp |= ethtool_adv_to_mii_adv_t(ethtool_adv);
+ 
+ 		if (mii->supports_gmii)
+-			tmp2 |=
+-			      ethtool_adv_to_mii_ctrl1000_t(ecmd->advertising);
++			tmp2 |= ethtool_adv_to_mii_ctrl1000_t(ethtool_adv);
+ 		if (advert != tmp) {
+ 			mii->mdio_write(dev, mii->phy_id, MII_ADVERTISE, tmp);
+ 			mii->advertising = tmp;
+diff --git a/include/linux/mii.h b/include/linux/mii.h
+index 47492c9..6f5336c 100644
+--- a/include/linux/mii.h
++++ b/include/linux/mii.h
+@@ -106,7 +106,7 @@ static inline unsigned int mii_duplex (unsigned int duplex_lock,
+  * settings to phy autonegotiation advertisements for the
+  * MII_ADVERTISE register.
+  */
+-static inline u32 ethtool_adv_to_mii_adv_t(u32 ethadv)
++static inline u32 ethtool_adv_to_mii_adv_t(ethtool_link_mode_mask_t ethadv)
+ {
+ 	u32 result = 0;
+ 
+@@ -133,9 +133,9 @@ static inline u32 ethtool_adv_to_mii_adv_t(u32 ethadv)
+  * A small helper function that translates MII_ADVERTISE bits
+  * to ethtool advertisement settings.
+  */
+-static inline u32 mii_adv_to_ethtool_adv_t(u32 adv)
++static inline ethtool_link_mode_mask_t mii_adv_to_ethtool_adv_t(u32 adv)
+ {
+-	u32 result = 0;
++	ethtool_link_mode_mask_t result = 0;
+ 
+ 	if (adv & ADVERTISE_10HALF)
+ 		result |= ADVERTISED_10baseT_Half;
+@@ -161,7 +161,8 @@ static inline u32 mii_adv_to_ethtool_adv_t(u32 adv)
+  * settings to phy autonegotiation advertisements for the
+  * MII_CTRL1000 register when in 1000T mode.
+  */
+-static inline u32 ethtool_adv_to_mii_ctrl1000_t(u32 ethadv)
++static inline u32
++ethtool_adv_to_mii_ctrl1000_t(ethtool_link_mode_mask_t ethadv)
+ {
+ 	u32 result = 0;
+ 
+@@ -181,9 +182,9 @@ static inline u32 ethtool_adv_to_mii_ctrl1000_t(u32 ethadv)
+  * bits, when in 1000Base-T mode, to ethtool
+  * advertisement settings.
+  */
+-static inline u32 mii_ctrl1000_to_ethtool_adv_t(u32 adv)
++static inline ethtool_link_mode_mask_t mii_ctrl1000_to_ethtool_adv_t(u32 adv)
+ {
+-	u32 result = 0;
++	ethtool_link_mode_mask_t result = 0;
+ 
+ 	if (adv & ADVERTISE_1000HALF)
+ 		result |= ADVERTISED_1000baseT_Half;
+@@ -201,9 +202,9 @@ static inline u32 mii_ctrl1000_to_ethtool_adv_t(u32 adv)
+  * bits, when in 1000Base-T mode, to ethtool
+  * LP advertisement settings.
+  */
+-static inline u32 mii_lpa_to_ethtool_lpa_t(u32 lpa)
++static inline ethtool_link_mode_mask_t mii_lpa_to_ethtool_lpa_t(u32 lpa)
+ {
+-	u32 result = 0;
++	ethtool_link_mode_mask_t result = 0;
+ 
+ 	if (lpa & LPA_LPACK)
+ 		result |= ADVERTISED_Autoneg;
+@@ -219,9 +220,9 @@ static inline u32 mii_lpa_to_ethtool_lpa_t(u32 lpa)
+  * bits, when in 1000Base-T mode, to ethtool
+  * advertisement settings.
+  */
+-static inline u32 mii_stat1000_to_ethtool_lpa_t(u32 lpa)
++static inline ethtool_link_mode_mask_t mii_stat1000_to_ethtool_lpa_t(u32 lpa)
+ {
+-	u32 result = 0;
++	ethtool_link_mode_mask_t result = 0;
+ 
+ 	if (lpa & LPA_1000HALF)
+ 		result |= ADVERTISED_1000baseT_Half;
+@@ -239,7 +240,7 @@ static inline u32 mii_stat1000_to_ethtool_lpa_t(u32 lpa)
+  * settings to phy autonegotiation advertisements for the
+  * MII_CTRL1000 register when in 1000Base-X mode.
+  */
+-static inline u32 ethtool_adv_to_mii_adv_x(u32 ethadv)
++static inline u32 ethtool_adv_to_mii_adv_x(ethtool_link_mode_mask_t ethadv)
+ {
+ 	u32 result = 0;
+ 
+@@ -263,9 +264,9 @@ static inline u32 ethtool_adv_to_mii_adv_x(u32 ethadv)
+  * bits, when in 1000Base-X mode, to ethtool
+  * advertisement settings.
+  */
+-static inline u32 mii_adv_to_ethtool_adv_x(u32 adv)
++static inline ethtool_link_mode_mask_t mii_adv_to_ethtool_adv_x(u32 adv)
+ {
+-	u32 result = 0;
++	ethtool_link_mode_mask_t result = 0;
+ 
+ 	if (adv & ADVERTISE_1000XHALF)
+ 		result |= ADVERTISED_1000baseT_Half;
+@@ -287,9 +288,9 @@ static inline u32 mii_adv_to_ethtool_adv_x(u32 adv)
+  * bits, when in 1000Base-X mode, to ethtool
+  * LP advertisement settings.
+  */
+-static inline u32 mii_lpa_to_ethtool_lpa_x(u32 lpa)
++static inline ethtool_link_mode_mask_t mii_lpa_to_ethtool_lpa_x(u32 lpa)
+ {
+-	u32 result = 0;
++	ethtool_link_mode_mask_t result = 0;
+ 
+ 	if (lpa & LPA_LPACK)
+ 		result |= ADVERTISED_Autoneg;
+-- 
+2.2.0.rc0.207.ga3a616c
