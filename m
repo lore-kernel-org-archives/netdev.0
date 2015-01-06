@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 3/3] i40e: Fix bug with TCP over IPv6 over VXLAN
-Date: Tue,  6 Jan 2015 00:44:24 -0800
-Message-ID: <1420533864-13125-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 2/3] i40e: Fix Rx checksum error counter
+Date: Tue,  6 Jan 2015 00:44:23 -0800
+Message-ID: <1420533864-13125-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1420533864-13125-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Anjali Singhai <anjali.singhai@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -9,9 +9,9 @@ Cc: Anjali Singhai <anjali.singhai@intel.com>, netdev@vger.kernel.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:24564 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:24567 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752231AbbAFIo2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751819AbbAFIo2 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 6 Jan 2015 03:44:28 -0500
 In-Reply-To: <1420533864-13125-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,73 +19,60 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Anjali Singhai <anjali.singhai@intel.com>
 
-The driver was examining the outer protocol layer to set the inner protocol
-layer checksum offload.  In the case of TCP over IPV6 over an IPv4 based
-VXLAN the inner checksum offloads would be set to look for IPv4/UDP instead
-of IPv6/TCP.  This code fixes that so that the driver will look at the
-proper layer for encapsulation offload settings.
+The Rx port checksum error counter was incrementing incorrectly with
+UDP encapsulated tunneled traffic.  This patch fixes the problem so that
+the port_rx_csum counter will show accurate statistics.
 
 Signed-off-by: Anjali Singhai <anjali.singhai@intel.com>
 Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 24 +++++++++++-------------
- 1 file changed, 11 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 24 +++++++++++++-----------
+ 1 file changed, 13 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 2f19ea5..35696ab 100644
+index 9995598..2f19ea5 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1866,17 +1866,16 @@ static int i40e_tso(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 	if (err < 0)
- 		return err;
+@@ -1314,9 +1314,7 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
+ 	 * so the total length of IPv4 header is IHL*4 bytes
+ 	 * The UDP_0 bit *may* bet set if the *inner* header is UDP
+ 	 */
+-	if (ipv4_tunnel &&
+-	    (decoded.inner_prot != I40E_RX_PTYPE_INNER_PROT_UDP) &&
+-	    !(rx_status & (1 << I40E_RX_DESC_STATUS_UDP_0_SHIFT))) {
++	if (ipv4_tunnel) {
+ 		skb->transport_header = skb->mac_header +
+ 					sizeof(struct ethhdr) +
+ 					(ip_hdr(skb)->ihl * 4);
+@@ -1326,15 +1324,19 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
+ 					  skb->protocol == htons(ETH_P_8021AD))
+ 					  ? VLAN_HLEN : 0;
  
--	if (protocol == htons(ETH_P_IP)) {
--		iph = skb->encapsulation ? inner_ip_hdr(skb) : ip_hdr(skb);
-+	iph = skb->encapsulation ? inner_ip_hdr(skb) : ip_hdr(skb);
-+	ipv6h = skb->encapsulation ? inner_ipv6_hdr(skb) : ipv6_hdr(skb);
+-		rx_udp_csum = udp_csum(skb);
+-		iph = ip_hdr(skb);
+-		csum = csum_tcpudp_magic(
+-				iph->saddr, iph->daddr,
+-				(skb->len - skb_transport_offset(skb)),
+-				IPPROTO_UDP, rx_udp_csum);
++		if ((ip_hdr(skb)->protocol == IPPROTO_UDP) &&
++		    (udp_hdr(skb)->check != 0)) {
++			rx_udp_csum = udp_csum(skb);
++			iph = ip_hdr(skb);
++			csum = csum_tcpudp_magic(
++					iph->saddr, iph->daddr,
++					(skb->len - skb_transport_offset(skb)),
++					IPPROTO_UDP, rx_udp_csum);
+ 
+-		if (udp_hdr(skb)->check != csum)
+-			goto checksum_fail;
++			if (udp_hdr(skb)->check != csum)
++				goto checksum_fail;
 +
-+	if (iph->version == 4) {
- 		tcph = skb->encapsulation ? inner_tcp_hdr(skb) : tcp_hdr(skb);
- 		iph->tot_len = 0;
- 		iph->check = 0;
- 		tcph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
- 						 0, IPPROTO_TCP, 0);
--	} else if (skb_is_gso_v6(skb)) {
--
--		ipv6h = skb->encapsulation ? inner_ipv6_hdr(skb)
--					   : ipv6_hdr(skb);
-+	} else if (ipv6h->version == 6) {
- 		tcph = skb->encapsulation ? inner_tcp_hdr(skb) : tcp_hdr(skb);
- 		ipv6h->payload_len = 0;
- 		tcph->check = ~csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr,
-@@ -1972,13 +1971,9 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 tx_flags,
- 					 I40E_TX_CTX_EXT_IP_IPV4_NO_CSUM;
- 			}
- 		} else if (tx_flags & I40E_TX_FLAGS_IPV6) {
--			if (tx_flags & I40E_TX_FLAGS_TSO) {
--				*cd_tunneling |= I40E_TX_CTX_EXT_IP_IPV6;
-+			*cd_tunneling |= I40E_TX_CTX_EXT_IP_IPV6;
-+			if (tx_flags & I40E_TX_FLAGS_TSO)
- 				ip_hdr(skb)->check = 0;
--			} else {
--				*cd_tunneling |=
--					 I40E_TX_CTX_EXT_IP_IPV4_NO_CSUM;
--			}
- 		}
++		} /* else its GRE and so no outer UDP header */
+ 	}
  
- 		/* Now set the ctx descriptor fields */
-@@ -1988,7 +1983,10 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 tx_flags,
- 				   ((skb_inner_network_offset(skb) -
- 					skb_transport_offset(skb)) >> 1) <<
- 				   I40E_TXD_CTX_QW0_NATLEN_SHIFT;
--
-+		if (this_ip_hdr->version == 6) {
-+			tx_flags &= ~I40E_TX_FLAGS_IPV4;
-+			tx_flags |= I40E_TX_FLAGS_IPV6;
-+		}
- 	} else {
- 		network_hdr_len = skb_network_header_len(skb);
- 		this_ip_hdr = ip_hdr(skb);
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
 -- 
 1.9.3
