@@ -1,87 +1,364 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v1 01/11] net: flow_table: create interface for
- hw match/action tables
-Date: Mon, 05 Jan 2015 17:19:26 -0800
-Message-ID: <54AB381E.3010009@gmail.com>
-References: <20141231194057.31070.5244.stgit@nitbit.x32> <20141231194544.31070.30335.stgit@nitbit.x32> <20150104111238.GD15305@casper.infradead.org> <54AADEFF.3090306@gmail.com> <54AB303E.3000601@gmail.com> <20150106010942.GD14077@vergenet.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, sfeldma@gmail.com, jiri@resnulli.us,
-	jhs@mojatatu.com, netdev@vger.kernel.org, davem@davemloft.net,
-	andy@greyhouse.net
-To: Simon Horman <simon.horman@netronome.com>
+From: Feng Kan <fkan@apm.com>
+Subject: [PATCH V2] net: eth: xgene: change APM X-Gene SoC platform ethernet to support ACPI
+Date: Mon,  5 Jan 2015 17:42:56 -0800
+Message-ID: <1420508576-10480-1-git-send-email-fkan@apm.com>
+Cc: Feng Kan <fkan@apm.com>
+To: patches@apm.com, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:43090 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753264AbbAFBTk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 20:19:40 -0500
-Received: by mail-ob0-f172.google.com with SMTP id va8so63626012obc.3
-        for <netdev@vger.kernel.org>; Mon, 05 Jan 2015 17:19:40 -0800 (PST)
-In-Reply-To: <20150106010942.GD14077@vergenet.net>
+Received: from exprod5og108.obsmtp.com ([64.18.0.186]:39623 "HELO
+	exprod5og108.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754101AbbAFBli (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 20:41:38 -0500
+Received: by mail-pa0-f42.google.com with SMTP id et14so30006235pad.29
+        for <netdev@vger.kernel.org>; Mon, 05 Jan 2015 17:41:37 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/05/2015 05:09 PM, Simon Horman wrote:
-> On Mon, Jan 05, 2015 at 04:45:50PM -0800, John Fastabend wrote:
->> [...]
->>
->>>>> +/**
->>>>> + * @struct net_flow_field_ref
->>>>> + * @brief uniquely identify field as header:field tuple
->>>>> + */
->>>>> +struct net_flow_field_ref {
->>>>> +    int instance;
->>>>> +    int header;
->>>>> +    int field;
->>>>> +    int mask_type;
->>>>> +    int type;
->>>>> +    union {    /* Are these all the required data types */
->>>>> +        __u8 value_u8;
->>>>> +        __u16 value_u16;
->>>>> +        __u32 value_u32;
->>>>> +        __u64 value_u64;
->>>>> +    };
->>>>> +    union {    /* Are these all the required data types */
->>>>> +        __u8 mask_u8;
->>>>> +        __u16 mask_u16;
->>>>> +        __u32 mask_u32;
->>>>> +        __u64 mask_u64;
->>>>> +    };
->>>>> +};
->>>>
->>>> Does it make sense to write this as follows?
->>>
->>> Yes. I'll make this update it helps make it clear value/mask pairs are
->>> needed.
->>>
->>>>
->>>> union {
->>>>          struct {
->>>>                  __u8 value_u8;
->>>>                  __u8 mask_u8;
->>>>          };
->>>>          struct {
->>>>                  __u16 value_u16;
->>>>                  __u16 mask_u16;
->>>>          };
->>>>          ...
->>>> };
->>
->> Another thought is to pull this entirely out of the structure and hide
->> it from the UAPI so we can add more value/mask types as needed without
->> having to spin versions of net_flow_field_ref. On the other hand I've
->> been able to fit all my fields in these types so far and I can't think
->> of any additions we need at the moment.
->
-> FWIW, I think it would be cleaner to break both field_ref and action_args
-> out into attributes and not expose the structures to user-space. But
-> perhaps there is an advantage to dealing with structures directly that
-> I am missing.
->
+This adds support for APM X-Gene ethernet driver to use ACPI table to derive
+ethernet driver parameter.
 
-I  came to the same conclusion just now as well. I'm reworking it now
-for v2.
+Signed-off-by: Feng Kan <fkan@apm.com>
+---
+V2:
+   - remove NO_MAC define
 
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c   | 94 +++++++++++++++++------
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 95 +++++++++++++++++++-----
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h |  3 +
+ 3 files changed, 149 insertions(+), 43 deletions(-)
+
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+index 7ba83ff..869d97f 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+@@ -593,10 +593,12 @@ static int xgene_enet_reset(struct xgene_enet_pdata *pdata)
+ 	if (!xgene_ring_mgr_init(pdata))
+ 		return -ENODEV;
+ 
+-	clk_prepare_enable(pdata->clk);
+-	clk_disable_unprepare(pdata->clk);
+-	clk_prepare_enable(pdata->clk);
+-	xgene_enet_ecc_init(pdata);
++	if (!efi_enabled(EFI_BOOT)) {
++		clk_prepare_enable(pdata->clk);
++		clk_disable_unprepare(pdata->clk);
++		clk_prepare_enable(pdata->clk);
++		xgene_enet_ecc_init(pdata);
++	}
+ 	xgene_enet_config_ring_if_assoc(pdata);
+ 
+ 	/* Enable auto-incr for scanning */
+@@ -663,15 +665,20 @@ static int xgene_enet_phy_connect(struct net_device *ndev)
+ 	struct phy_device *phy_dev;
+ 	struct device *dev = &pdata->pdev->dev;
+ 
+-	phy_np = of_parse_phandle(dev->of_node, "phy-handle", 0);
+-	if (!phy_np) {
+-		netdev_dbg(ndev, "No phy-handle found\n");
+-		return -ENODEV;
++	if (dev->of_node) {
++		phy_np = of_parse_phandle(dev->of_node, "phy-handle", 0);
++		if (!phy_np) {
++			netdev_dbg(ndev, "No phy-handle found in DT\n");
++			return -ENODEV;
++		}
++		pdata->phy_dev = of_phy_find_device(phy_np);
+ 	}
+ 
+-	phy_dev = of_phy_connect(ndev, phy_np, &xgene_enet_adjust_link,
+-				 0, pdata->phy_mode);
+-	if (!phy_dev) {
++	phy_dev = pdata->phy_dev;
++
++	if (!phy_dev ||
++	    phy_connect_direct(ndev, phy_dev, &xgene_enet_adjust_link,
++			       pdata->phy_mode)) {
+ 		netdev_err(ndev, "Could not connect to PHY\n");
+ 		return  -ENODEV;
+ 	}
+@@ -681,32 +688,71 @@ static int xgene_enet_phy_connect(struct net_device *ndev)
+ 			      ~SUPPORTED_100baseT_Half &
+ 			      ~SUPPORTED_1000baseT_Half;
+ 	phy_dev->advertising = phy_dev->supported;
+-	pdata->phy_dev = phy_dev;
+ 
+ 	return 0;
+ }
+ 
+-int xgene_enet_mdio_config(struct xgene_enet_pdata *pdata)
++static int xgene_mdiobus_register(struct xgene_enet_pdata *pdata,
++				  struct mii_bus *mdio)
+ {
+-	struct net_device *ndev = pdata->ndev;
+ 	struct device *dev = &pdata->pdev->dev;
++	struct net_device *ndev = pdata->ndev;
++	struct phy_device *phy;
+ 	struct device_node *child_np;
+ 	struct device_node *mdio_np = NULL;
+-	struct mii_bus *mdio_bus;
+ 	int ret;
++	u32 phy_id;
++
++	if (dev->of_node) {
++		for_each_child_of_node(dev->of_node, child_np) {
++			if (of_device_is_compatible(child_np,
++						    "apm,xgene-mdio")) {
++				mdio_np = child_np;
++				break;
++			}
++		}
+ 
+-	for_each_child_of_node(dev->of_node, child_np) {
+-		if (of_device_is_compatible(child_np, "apm,xgene-mdio")) {
+-			mdio_np = child_np;
+-			break;
++		if (!mdio_np) {
++			netdev_dbg(ndev, "No mdio node in the dts\n");
++			return -ENXIO;
+ 		}
+-	}
+ 
+-	if (!mdio_np) {
+-		netdev_dbg(ndev, "No mdio node in the dts\n");
+-		return -ENXIO;
++		return of_mdiobus_register(mdio, mdio_np);
+ 	}
+ 
++	/* Mask out all PHYs from auto probing. */
++	mdio->phy_mask = ~0;
++
++	/* Register the MDIO bus */
++	ret = mdiobus_register(mdio);
++	if (ret)
++		return ret;
++
++	ret = device_property_read_u32(dev, "phy-channel", &phy_id);
++	if (ret)
++		ret = device_property_read_u32(dev, "phy-addr", &phy_id);
++	if (ret)
++		return -EINVAL;
++
++	phy = get_phy_device(mdio, phy_id, true);
++	if (!phy || IS_ERR(phy))
++		return -EIO;
++
++	ret = phy_device_register(phy);
++	if (ret)
++		phy_device_free(phy);
++	else
++		pdata->phy_dev = phy;
++
++	return ret;
++}
++
++int xgene_enet_mdio_config(struct xgene_enet_pdata *pdata)
++{
++	struct net_device *ndev = pdata->ndev;
++	struct mii_bus *mdio_bus;
++	int ret;
++
+ 	mdio_bus = mdiobus_alloc();
+ 	if (!mdio_bus)
+ 		return -ENOMEM;
+@@ -720,7 +766,7 @@ int xgene_enet_mdio_config(struct xgene_enet_pdata *pdata)
+ 	mdio_bus->priv = pdata;
+ 	mdio_bus->parent = &ndev->dev;
+ 
+-	ret = of_mdiobus_register(mdio_bus, mdio_np);
++	ret = xgene_mdiobus_register(pdata, mdio_bus);
+ 	if (ret) {
+ 		netdev_err(ndev, "Failed to register MDIO bus\n");
+ 		mdiobus_free(mdio_bus);
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index 83a5028..ba579c2 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -24,6 +24,10 @@
+ #include "xgene_enet_sgmac.h"
+ #include "xgene_enet_xgmac.h"
+ 
++#define RES_ENET_CSR	0
++#define RES_RING_CSR	1
++#define RES_RING_CMD	2
++
+ static void xgene_enet_init_bufpool(struct xgene_enet_desc_ring *buf_pool)
+ {
+ 	struct xgene_enet_raw_desc16 *raw_desc;
+@@ -746,6 +750,41 @@ static const struct net_device_ops xgene_ndev_ops = {
+ 	.ndo_set_mac_address = xgene_enet_set_mac_address,
+ };
+ 
++static int xgene_get_mac_address(struct device *dev,
++				 unsigned char *addr)
++{
++	int ret;
++
++	ret = device_property_read_u8_array(dev, "local-mac-address", addr, 6);
++	if (ret)
++		ret = device_property_read_u8_array(dev, "mac-address",
++						    addr, 6);
++	if (ret)
++		return -ENODEV;
++
++	return ETH_ALEN;
++}
++
++static int xgene_get_phy_mode(struct device *dev)
++{
++	int i, ret;
++	char *modestr;
++
++	ret = device_property_read_string(dev, "phy-connection-type",
++					  (const char **)&modestr);
++	if (ret)
++		ret = device_property_read_string(dev, "phy-mode",
++						  (const char **)&modestr);
++	if (ret)
++		return -ENODEV;
++
++	for (i = 0; i < PHY_INTERFACE_MODE_MAX; i++) {
++		if (!strcasecmp(modestr, phy_modes(i)))
++			return i;
++	}
++	return -ENODEV;
++}
++
+ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
+ {
+ 	struct platform_device *pdev;
+@@ -753,29 +792,42 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
+ 	struct device *dev;
+ 	struct resource *res;
+ 	void __iomem *base_addr;
+-	const char *mac;
+ 	int ret;
+ 
+ 	pdev = pdata->pdev;
+ 	dev = &pdev->dev;
+ 	ndev = pdata->ndev;
+ 
+-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "enet_csr");
+-	pdata->base_addr = devm_ioremap_resource(dev, res);
++	res = platform_get_resource(pdev, IORESOURCE_MEM, RES_ENET_CSR);
++	if (!res) {
++		dev_err(dev, "Resource enet_csr not defined\n");
++		return -ENODEV;
++	}
++	pdata->base_addr = devm_ioremap(dev, res->start, resource_size(res));
+ 	if (IS_ERR(pdata->base_addr)) {
+ 		dev_err(dev, "Unable to retrieve ENET Port CSR region\n");
+ 		return PTR_ERR(pdata->base_addr);
+ 	}
+ 
+-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ring_csr");
+-	pdata->ring_csr_addr = devm_ioremap_resource(dev, res);
++	res = platform_get_resource(pdev, IORESOURCE_MEM, RES_RING_CSR);
++	if (!res) {
++		dev_err(dev, "Resource ring_csr not defined\n");
++		return -ENODEV;
++	}
++	pdata->ring_csr_addr = devm_ioremap(dev, res->start,
++							resource_size(res));
+ 	if (IS_ERR(pdata->ring_csr_addr)) {
+ 		dev_err(dev, "Unable to retrieve ENET Ring CSR region\n");
+ 		return PTR_ERR(pdata->ring_csr_addr);
+ 	}
+ 
+-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ring_cmd");
+-	pdata->ring_cmd_addr = devm_ioremap_resource(dev, res);
++	res = platform_get_resource(pdev, IORESOURCE_MEM, RES_RING_CMD);
++	if (!res) {
++		dev_err(dev, "Resource ring_cmd not defined\n");
++		return -ENODEV;
++	}
++	pdata->ring_cmd_addr = devm_ioremap(dev, res->start,
++							resource_size(res));
+ 	if (IS_ERR(pdata->ring_cmd_addr)) {
+ 		dev_err(dev, "Unable to retrieve ENET Ring command region\n");
+ 		return PTR_ERR(pdata->ring_cmd_addr);
+@@ -789,14 +841,12 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
+ 	}
+ 	pdata->rx_irq = ret;
+ 
+-	mac = of_get_mac_address(dev->of_node);
+-	if (mac)
+-		memcpy(ndev->dev_addr, mac, ndev->addr_len);
+-	else
++	if (xgene_get_mac_address(dev, ndev->dev_addr) != ETH_ALEN)
+ 		eth_hw_addr_random(ndev);
++
+ 	memcpy(ndev->perm_addr, ndev->dev_addr, ndev->addr_len);
+ 
+-	pdata->phy_mode = of_get_phy_mode(pdev->dev.of_node);
++	pdata->phy_mode = xgene_get_phy_mode(dev);
+ 	if (pdata->phy_mode < 0) {
+ 		dev_err(dev, "Unable to get phy-connection-type\n");
+ 		return pdata->phy_mode;
+@@ -809,11 +859,9 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
+ 	}
+ 
+ 	pdata->clk = devm_clk_get(&pdev->dev, NULL);
+-	ret = IS_ERR(pdata->clk);
+ 	if (IS_ERR(pdata->clk)) {
+-		dev_err(&pdev->dev, "can't get clock\n");
+-		ret = PTR_ERR(pdata->clk);
+-		return ret;
++		/* Firmware may have set up the clock already. */
++		pdata->clk = NULL;
+ 	}
+ 
+ 	base_addr = pdata->base_addr;
+@@ -924,7 +972,7 @@ static int xgene_enet_probe(struct platform_device *pdev)
+ 		goto err;
+ 	}
+ 
+-	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
++	ret = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(64));
+ 	if (ret) {
+ 		netdev_err(ndev, "No usable DMA configuration\n");
+ 		goto err;
+@@ -972,7 +1020,15 @@ static int xgene_enet_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-static struct of_device_id xgene_enet_match[] = {
++#ifdef CONFIG_ACPI
++static const struct acpi_device_id xgene_enet_acpi_match[] = {
++	{ "APMC0D05", },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, xgene_enet_acpi_match);
++#endif
++
++static struct of_device_id xgene_enet_of_match[] = {
+ 	{.compatible = "apm,xgene-enet",},
+ 	{},
+ };
+@@ -982,7 +1038,8 @@ MODULE_DEVICE_TABLE(of, xgene_enet_match);
+ static struct platform_driver xgene_enet_driver = {
+ 	.driver = {
+ 		   .name = "xgene-enet",
+-		   .of_match_table = xgene_enet_match,
++		   .of_match_table = of_match_ptr(xgene_enet_of_match),
++		   .acpi_match_table = ACPI_PTR(xgene_enet_acpi_match),
+ 	},
+ 	.probe = xgene_enet_probe,
+ 	.remove = xgene_enet_remove,
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+index f9958fa..c2d465c 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+@@ -22,7 +22,10 @@
+ #ifndef __XGENE_ENET_MAIN_H__
+ #define __XGENE_ENET_MAIN_H__
+ 
++#include <linux/acpi.h>
+ #include <linux/clk.h>
++#include <linux/efi.h>
++#include <linux/io.h>
+ #include <linux/of_platform.h>
+ #include <linux/of_net.h>
+ #include <linux/of_mdio.h>
 -- 
-John Fastabend         Intel Corporation
+1.9.1
