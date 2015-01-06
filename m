@@ -1,96 +1,56 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: Re: [PATCH net-next v3 0/5]: ixgbevf: Allow querying VFs RSS indirection
- table and key
-Date: Tue, 06 Jan 2015 12:58:51 +0200
-Message-ID: <54ABBFEB.9010105@cloudius-systems.com>
-References: <1420467311-6680-1-git-send-email-vladz@cloudius-systems.com> <CALgkqUojkfTwhsoAnPZdJv-oMg7PMB5m8Q2=k5=QqXKxSJgq7w@mail.gmail.com> <20150106065535.GM29889@cloudius-systems.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, avi@cloudius-systems.com,
-	jeffrey.t.kirsher@intel.com
-To: Gleb Natapov <gleb@cloudius-systems.com>,
-	Greg Rose <gvrose8192@gmail.com>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: [PATCH 1/6] batman-adv: fix and simplify condition when bonding should be used
+Date: Tue,  6 Jan 2015 12:10:00 +0100
+Message-ID: <1420542605-28865-2-git-send-email-antonio@meshcoding.com>
+References: <1420542605-28865-1-git-send-email-antonio@meshcoding.com>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Simon Wunderlich <sw@simonwunderlich.de>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Antonio Quartulli <antonio@meshcoding.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:42594 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754499AbbAFK66 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 05:58:58 -0500
-Received: by mail-we0-f174.google.com with SMTP id k48so9427560wev.19
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 02:58:57 -0800 (PST)
-In-Reply-To: <20150106065535.GM29889@cloudius-systems.com>
+Received: from s3.neomailbox.net ([178.209.62.157]:48961 "EHLO
+	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754751AbbAFLKq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 06:10:46 -0500
+In-Reply-To: <1420542605-28865-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Simon Wunderlich <sw@simonwunderlich.de>
 
-On 01/06/15 08:55, Gleb Natapov wrote:
-> On Mon, Jan 05, 2015 at 03:54:52PM -0800, Greg Rose wrote:
->> On Mon, Jan 5, 2015 at 6:15 AM, Vlad Zolotarov
->> <vladz@cloudius-systems.com> wrote:
->>> Add the ethtool ops to VF driver to allow querying the RSS indirection table
->>> and RSS Random Key.
->>>
->>>   - PF driver: Add new VF-PF channel commands.
->>>   - VF driver: Utilize these new commands and add the corresponding
->>>                ethtool callbacks.
->>>
->>> New in v3:
->>>     - Added a missing support for x550 devices.
->>>     - Mask the indirection table values according to PSRTYPE[n].RQPL.
->>>     - Minimized the number of added VF-PF commands.
->>>
->>> New in v2:
->>>     - Added a detailed description to patches 4 and 5.
->>>
->>> New in v1 (compared to RFC):
->>>     - Use "if-else" statement instead of a "switch-case" for a single option case.
->>>       More specifically: in cases where the newly added API version is the only one
->>>       allowed. We may consider using a "switch-case" back again when the list of
->>>       allowed API versions in these specific places grows up.
->>>
->>> Vlad Zolotarov (5):
->>>    ixgbe: Add a RETA query command to VF-PF channel API
->>>    ixgbevf: Add a RETA query code
->>>    ixgbe: Add GET_RSS_KEY command to VF-PF channel commands set
->>>    ixgbevf: Add RSS Key query code
->>>    ixgbevf: Add the appropriate ethtool ops to query RSS indirection
->>>      table and key
->>>
->>>   drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h      |  10 ++
->>>   drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    |  91 +++++++++++++++
->>>   drivers/net/ethernet/intel/ixgbevf/ethtool.c      |  43 +++++++
->>>   drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   4 +-
->>>   drivers/net/ethernet/intel/ixgbevf/mbx.h          |  10 ++
->>>   drivers/net/ethernet/intel/ixgbevf/vf.c           | 132 ++++++++++++++++++++++
->>>   drivers/net/ethernet/intel/ixgbevf/vf.h           |   2 +
->>>   7 files changed, 291 insertions(+), 1 deletion(-)
->> I've given this code a review and I don't see a way to
->> set a policy in the PF driver as to whether this request should be
->> allowed or not.  We cannot enable this query by default - it is a
->> security risk. To make this acceptable you need to do a
->> couple of things.
->>
-> Can you please elaborate on the security risk this information poses?
-> Is toeplitz hash function cryptographically strong enough so that VF
-> cannot reconstruct the hash key from hash result provided in packet
-> descriptor? The abstract of this paper [1] claims it is not, but I do
-> not have access to the full article unfortunately hence the question.
->
-> [1] http://ieeexplore.ieee.org/xpl/login.jsp?tp=&arnumber=5503170&url=http%3A%2F%2Fieeexplore.ieee.org%2Fxpls%2Fabs_all.jsp%3Farnumber%3D5503170
+The current condition actually does NOT consider bonding when the
+interface the packet came in from is the soft interface, which is the
+opposite of what it should do (and the comment describes). Fix that and
+slightly simplify the condition.
 
-I agree with Gleb here: when we started with just thinking about the 
-idea of this patch the possible security issue was the first thing that 
-came into our minds.
-But eventually we couldn't come up with any security risk or attack 
-example that is exclusively caused by the fact that VF knows the 
-indirection table and/or RSS hash key of the PF.
+Reported-by: Ray Gibson <booray@gmail.com>
+Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
+---
+ net/batman-adv/routing.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-So, Greg, if we have missed anything and your have such an example could 
-you share it here, please?
-
-Thanks,
-vlad
-
->
-> --
-> 			Gleb.
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index 35f76f2..6648f32 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -443,11 +443,13 @@ batadv_find_router(struct batadv_priv *bat_priv,
+ 
+ 	router = batadv_orig_router_get(orig_node, recv_if);
+ 
++	if (!router)
++		return router;
++
+ 	/* only consider bonding for recv_if == BATADV_IF_DEFAULT (first hop)
+ 	 * and if activated.
+ 	 */
+-	if (recv_if == BATADV_IF_DEFAULT || !atomic_read(&bat_priv->bonding) ||
+-	    !router)
++	if (!(recv_if == BATADV_IF_DEFAULT && atomic_read(&bat_priv->bonding)))
+ 		return router;
+ 
+ 	/* bonding: loop through the list of possible routers found
+-- 
+2.2.1
