@@ -1,52 +1,93 @@
-From: Daniele Di Proietto <daniele.di.proietto@gmail.com>
-Subject: Re: [PATCH net-next] openvswitch: Do not use private netdev_vport fields
-Date: Wed, 7 Jan 2015 00:32:58 +0100
-Message-ID: <CAExiqTLJG38DX_6C2Gaf6jE8-GThznML_-nkzs+57fU72QPW7w@mail.gmail.com>
-References: <1420577481-20238-1-git-send-email-daniele.di.proietto@gmail.com>
-	<CALnjE+odj6GdO97n4NBLQhP4egMzuNHMjxVqMwC7fSC5C=hT-g@mail.gmail.com>
-	<20150106.170206.2121115629154170856.davem@davemloft.net>
-	<CALnjE+ojw0FnonLyu8hhrWwcn_-_+EYtbFPWdCiJ-JC5h-L9eA@mail.gmail.com>
-	<CALnjE+ormbwkh-=gjPA4iNP+n_dWP6JQxER1Rz6X-c1h8_Y6mw@mail.gmail.com>
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: Re: [PATCH] brcm80211: brcmsmac: dma: Remove some unused functions
+Date: Wed, 7 Jan 2015 00:33:33 +0100
+Message-ID: <CAKXHbyNBV6=DPF4n0onzhEqAuS-PqLS5pwZj_OitRuYMvgpjvw@mail.gmail.com>
+References: <1420332469-5907-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+	<54A8DBF4.4050202@lwfinger.net>
+	<CAKXHbyN6LH_pFw1uoLXRzgJv-NcjbTLJvMZXfwYXDwuk9QDszA@mail.gmail.com>
+	<871tn933jc.fsf@kamboji.qca.qualcomm.com>
+	<54AA7042.50207@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f170.google.com ([209.85.216.170]:36927 "EHLO
-	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751085AbbAFXc7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 18:32:59 -0500
-Received: by mail-qc0-f170.google.com with SMTP id x3so204187qcv.29
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 15:32:59 -0800 (PST)
-In-Reply-To: <CALnjE+ormbwkh-=gjPA4iNP+n_dWP6JQxER1Rz6X-c1h8_Y6mw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Brett Rudley <brudley@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Fabian Frederick <fabf@skynet.be>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	brcm80211-dev-list@broadcom.com,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Julia Lawall <Julia.Lawall@lip6.fr>
+To: Arend van Spriel <arend@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54AA7042.50207@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The motivation for the change is to make datapath.c independent from
-the actual implementation of the vport. The problem came up when
-experimenting with other vport implementations and this type of change
-will help identifying layering violations.
-You are perfectly right, however, that in this form the code does not
-improve much: we should rather provide a vport_index() call, and
-implement one in each of the vports.
-
-Thoughts?
-
-2015-01-06 23:28 GMT+01:00 Pravin Shelar <pshelar@nicira.com>:
-> On Tue, Jan 6, 2015 at 2:15 PM, Pravin Shelar <pshelar@nicira.com> wrote:
->> On Tue, Jan 6, 2015 at 2:02 PM, David Miller <davem@davemloft.net> wrote:
->>> From: Pravin Shelar <pshelar@nicira.com>
->>> Date: Tue, 6 Jan 2015 13:16:11 -0800
->>>
->>>> Function return type and function name should be on same line,
->>>> otherwise looks good.
->>>
->>> I disagree, where is the code in the tree that needs this?
+2015-01-05 12:06 GMT+01:00 Arend van Spriel <arend@broadcom.com>:
+> On 01/05/15 11:49, Kalle Valo wrote:
 >>
->> Most of function definitions that I have seen are defined like this. I
->> was pointing out coding style issue.
+>> Rickard Strandqvist<rickard_strandqvist@spectrumdigital.se>  writes:
+>>
+>>> As I hope you can see I have made some changes regarding the
+>>> subject-line. Thought it was an advantage to be able to see which file
+>>> I actually removed something from. There seems to be a big focus on
+>>> getting right on subject-line right in recent weeks.
+>>>
+>>> I wonder why there is a script that takes a file name, and respond
+>>> with an appropriate subject line?
 >
-> About the actual change, I think it is a cleanup. netdev_vport_index()
-> hides the implementation from datapath.c. I hope Daniele will explain
-> need for the change.
+>
+> Is there a script for this? Anyway, I would say driver name is enough.
+> Enough about the subject line ;-) I would like to give some general remarks
+> as you seem to touch a lot of kernel code. First off, I think it is good to
+> remove unused stuff. However, I would like some more explanation on your
+> methodology apart from "partially found by using a static code analysis
+> program". So a cover-letter explaining that would have been nice (maybe
+> still is). Things like Kconfig option can affect whether function are used
+> or not so how did you cover that.
+>
+> Regards,
+> Arend
+>
+>
+>> I don't think you can really automate this as some drivers do this a bit
+>> differently. You always need to manually check the commit log.
+>>
+>>> But ok, I change my script accordingly. Should I submit the patch again?
+>>
+>>
+>> Yes, please resubmit.
+>>
+>
+
+Hi Arend
+
+Yes, a script that had been excellent, I think!
+I have one as part of my git send-email script, until a week ago, it
+was enough that I removed the "drivers/" and changed all "/" to ": "
+I have now been expanded my sed pipe a lot (tell me if anyone is interested)
+But now I've seen everything from uppercase and [DIR], etc.
+So I can not understand how anyone should be able to get the right
+name without a good help.
+
+Sure i like to share how I use cppcheck, but is very hesitant to write
+this with each patch mails I send though!
+
+I run:
+cppcheck --force --quiet --enable=all .
+
+Or a specific file instead of .
+
+This will include, among other things get a lot of error message such,
++4000 for the kernel.
+(style) The function 'xxx' is never used
+
+For these I made a script that searched through all the files after
+the function name (cppcheck missed a few). And save the rest so I go
+through them and possibly send patches.
+
+
+Kind regards
+Rickard Strandqvist
