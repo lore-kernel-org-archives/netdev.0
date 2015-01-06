@@ -1,40 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/fsl: Add mEMAC MDIO support to XGMAC MDIO
-Date: Tue, 06 Jan 2015 17:18:56 -0500 (EST)
-Message-ID: <20150106.171856.1589494551491329597.davem@davemloft.net>
-References: <1420364162-13109-1-git-send-email-shh.xie@gmail.com>
+Subject: Re: [RFC] netlink: get rid of nl_table_lock
+Date: Tue, 06 Jan 2015 17:19:41 -0500 (EST)
+Message-ID: <20150106.171941.296781199194329785.davem@davemloft.net>
+References: <cover.1420230585.git.tgraf@suug.ch>
+	<daae84cd33bfde8518b849176e25dcf3eea8014b.1420230585.git.tgraf@suug.ch>
+	<20150103110211.18b11f0f@urahara>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, afleming@gmail.com,
-	Shaohui.Xie@freescale.com
-To: shh.xie@gmail.com
+Cc: tgraf@suug.ch, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au,
+	paulmck@linux.vnet.ibm.com, edumazet@google.com,
+	john.r.fastabend@intel.com, josh@joshtriplett.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56291 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56296 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751591AbbAFWS6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 17:18:58 -0500
-In-Reply-To: <1420364162-13109-1-git-send-email-shh.xie@gmail.com>
+	with ESMTP id S1751834AbbAFWTo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 17:19:44 -0500
+In-Reply-To: <20150103110211.18b11f0f@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <shh.xie@gmail.com>
-Date: Sun, 4 Jan 2015 17:36:02 +0800
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Sat, 3 Jan 2015 11:02:11 -0800
 
-> From: Andy Fleming <afleming@gmail.com>
+> As a follow on to Thomas's patch I think this would complete the
+> transistion to RCU for netlink.
+> Compile tested only.
 > 
-> The Freescale mEMAC supports operating at 10/100/1000/10G, and
-> its associated MDIO controller is likewise capable of operating
-> both Clause 22 and Clause 45 MDIO buses. It is nearly identical
-> to the MDIO controller on the XGMAC, so we just modify that
-> driver.
+> This patch gets rid of the reader/writer nl_table_lock and replaces it
+> with exclusively using RCU for reading, and a mutex for writing.
 > 
-> Portions of this driver developed by:
-> 
-> Sandeep Singh <sandeep@freescale.com>
-> Roy Zang <tie-fei.zang@freescale.com>
-> 
-> Signed-off-by: Andy Fleming <afleming@gmail.com>
-> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Applied, thanks.
+FWIW, this approach looks fine to me.
+
+Thomas can you review this?
