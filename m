@@ -1,135 +1,93 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 1/3] net: add IPv4 routing FIB support for swdev
-Date: Tue, 06 Jan 2015 14:58:29 +0100
-Message-ID: <1420552709.32369.50.camel@stressinduktion.org>
-References: <1420169361-31767-2-git-send-email-sfeldma@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v1 08/11] net: rocker: add get flow API operation
+Date: Tue, 06 Jan 2015 06:59:43 -0800
+Message-ID: <54ABF85F.2080105@gmail.com>
+References: <20141231194057.31070.5244.stgit@nitbit.x32> <20141231194852.31070.72727.stgit@nitbit.x32> <CAE4R7bCfpiCaiUwkOnPhHTRPJ3szcLtN8V8E35r=vKJ6rvTt3A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, john.fastabend@gmail.com,
-	tgraf@suug.ch, jhs@mojatatu.com, andy@greyhouse.net,
-	roopa@cumulusnetworks.com
-To: sfeldma@gmail.com
+Cc: Thomas Graf <tgraf@suug.ch>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"simon.horman@netronome.com" <simon.horman@netronome.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:50625 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755250AbbAFN6c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 08:58:32 -0500
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 83AA52091A
-	for <netdev@vger.kernel.org>; Tue,  6 Jan 2015 08:58:31 -0500 (EST)
-In-Reply-To: <1420169361-31767-2-git-send-email-sfeldma@gmail.com>
+Received: from mail-ob0-f182.google.com ([209.85.214.182]:60275 "EHLO
+	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751842AbbAFO75 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 09:59:57 -0500
+Received: by mail-ob0-f182.google.com with SMTP id wo20so65789891obc.13
+        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 06:59:57 -0800 (PST)
+In-Reply-To: <CAE4R7bCfpiCaiUwkOnPhHTRPJ3szcLtN8V8E35r=vKJ6rvTt3A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Scott,
+On 01/05/2015 11:40 PM, Scott Feldman wrote:
+> On Wed, Dec 31, 2014 at 11:48 AM, John Fastabend
+> <john.fastabend@gmail.com> wrote:
+>> Add operations to get flows. I wouldn't mind cleaning this code
+>> up a bit but my first attempt to do this used macros which shortered
+>> the code up but when I was done I decided it just made the code
+>> unreadable and unmaintainable.
+>>
+>> I might think about it a bit more but this implementation albeit
+>> a bit long and repeatative is easier to understand IMO.
+>
+> Dang, you put a lot of work into this one.
+>
+> Something doesn't feel right though.  In this case, rocker driver just
+> happened to have cached all the flow/group stuff in hash tables in
+> software, so you don't need to query thru to the device to extract the
+> if_flow info.  What doesn't feel right is all the work need in the
+> driver.  For each and every driver.  get_flows needs to go above
+> driver, somehow.
 
-On Do, 2015-01-01 at 19:29 -0800, sfeldma@gmail.com wrote:
-> From: Scott Feldman <sfeldma@gmail.com>
-> 
-> To offload IPv4 L3 routing functions to swdev device, the swdev device driver
-> implements two new ndo ops (ndo_switch_fib_ipv4_add/del).  The ops are called
-> by the core IPv4 FIB code when installing/removing FIB entries to/from the
-> kernel FIB.  On install, the driver should return 0 if FIB entry (route) can be
-> installed to device for offloading, -EOPNOTSUPP if route cannot be installed
-> due to device limitations, and other negative error code on failure to install
-> route to device.  On failure error code, the route is not installed to device,
-> and not installed in kernel FIB, and the return code is propagated back to the
-> user-space caller (via netlink).  An -EOPNOTSUPP error code is skipped for the
-> device but installed in the kernel FIB.
-> 
-> The FIB entry (route) nexthop list is used to find the swdev device port to
-> anchor the ndo op call.  The route's fib_dev (the first nexthop's dev) is used
-> find the swdev port by recursively traversing the fib_dev's lower_dev list
-> until a swdev port is found.  The ndo op is called on this swdev port.
-> 
-> Since the FIB entry is "naked" when push from the kernel, the driver/device
-> is responsible for resolving the route's nexthops to neighbor MAC addresses.
-> This can be done by the driver by monitoring NETEVENT_NEIGH_UPDATE
-> netevent notifier to watch for ARP activity.  Once a nexthop is resolved to
-> neighbor MAC address, it can be installed to the device and the device will
-> do the L3 routing offload in HW, for that nexthop.
-> 
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->  include/linux/netdevice.h |   22 +++++++++++
->  include/net/switchdev.h   |   18 +++++++++
->  net/ipv4/fib_trie.c       |   17 ++++++++-
->  net/switchdev/switchdev.c |   89 +++++++++++++++++++++++++++++++++++++++++++++
->  4 files changed, 145 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 679e6e9..b66d22b 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -767,6 +767,8 @@ struct netdev_phys_item_id {
->  typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
->  				       struct sk_buff *skb);
->  
-> +struct fib_info;
-> +
->  /*
->   * This structure defines the management hooks for network devices.
->   * The following hooks can be defined; unless noted otherwise, they are
-> @@ -1030,6 +1032,14 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
->   * int (*ndo_switch_port_stp_update)(struct net_device *dev, u8 state);
->   *	Called to notify switch device port of bridge port STP
->   *	state change.
-> + * int (*ndo_sw_parent_fib_ipv4_add)(struct net_device *dev, __be32 dst,
-> + *				     int dst_len, struct fib_info *fi,
-> + *				     u8 tos, u8 type, u32 tb_id);
-> + *	Called to add IPv4 route to switch device.
-> + * int (*ndo_sw_parent_fib_ipv4_del)(struct net_device *dev, __be32 dst,
-> + *				     int dst_len, struct fib_info *fi,
-> + *				     u8 tos, u8 type, u32 tb_id);
-> + *	Called to delete IPv4 route from switch device.
->   */
->  struct net_device_ops {
->  	int			(*ndo_init)(struct net_device *dev);
-> @@ -1189,6 +1199,18 @@ struct net_device_ops {
->  							    struct netdev_phys_item_id *psid);
->  	int			(*ndo_switch_port_stp_update)(struct net_device *dev,
->  							      u8 state);
-> +	int			(*ndo_switch_fib_ipv4_add)(struct net_device *dev,
-> +							   __be32 dst,
-> +							   int dst_len,
-> +							   struct fib_info *fi,
-> +							   u8 tos, u8 type,
-> +							   u32 tb_id);
-> +	int			(*ndo_switch_fib_ipv4_del)(struct net_device *dev,
-> +							   __be32 dst,
-> +							   int dst_len,
-> +							   struct fib_info *fi,
-> +							   u8 tos, u8 type,
-> +							   u32 tb_id);
->  #endif
->  };
+Another option is to have a software cache in the flow_table.c I
+was trying to avoid caching as I really don't expect 'get' operations
+to be fast path and going to hardware seems good enough for me.
+Other than its a bit annoying to write the mapping code.
 
-At this point I would like to start the discussion about handling of the
-table ids/vrfs (again :) ): as I can see it, this version just passes
-table ids down to the driver layer and the rocker driver filters them by
-local/main table? This seems to be mostly fine for a first version but
-does not feel like it will integrate well with the rest of the linux
-networking ecosystem.
+If you don't have a cache then somewhere there has to be a mapping
+from hardware flow descriptors to the flow descriptors used by the
+flow API. Like I noted I tried to help by using macros and helper
+routines but in the end I simply decided it convoluted the code to
+much and made it hard to debug.
 
-Will hardware have the capabilities to do programmable matches like "ip
-rule" is currently capable to do? Should we plan for that? Do we want to
-support hardware which does support multiple tables/VRFs?
+>
+> Seems the caller of if_flow already knows the flows pushed down with
+> add_flows/del_flows, and with the err handling can't mess it up.
 
-I would like to present a first suggestion:
-My take on this would be strive towards an integration with ip-rule, so
-we add tables which will be offloaded to hardware. This happens only in
-situations where those tables will be the first match for incoming
-packets specified with an in-interface filter which has the capability
-to do the offloading (for example). The determination if the table is
-capable for hardware offloading should be done automatically, so if
-later hardware will be capable of doing ip rule like matches, we can
-just expand the check which flags the tables accordingly.
+yes the caller could know if it cached them which it doesn't. We
+can add a cache if its helpful. You may have multiple users of the
+API (both in-kernel and user space) though so I don't think you can
+push it much beyond the flow_table.c.
 
-Anyway, if hardware supports multiple tables or VRFs, it is better to
-manage pass in a pointer where drivers can embed private data for
-management, I think.
+>
+> Is one use-case for get_flows to recover from a fatal OS/driver crash,
+> and to rely on hardware to recover flow set?  In this rocker example,
+> that's not going to work because driver didn't get thru to device to
+> get_flows.  I think I'd like to know more about the use-cases of
+> get_flows.
 
-Thanks,
-Hannes
+Its helpful for debugging. And if you have multiple consumers it
+may be helpful to "learn" what other consumers are doing. I don't
+have any concrete cases at the moment though.
+
+For the CLI case its handy to add some flows, forget what you did,
+and then do a get to refresh your mind. Not likely a problem for
+"real" management software.
+
+At least its not part of the UAPI so we could tweak/improve it as
+much as we wanted. Any better ideas? I'm open to suggestions on this
+one.
+
+>
+> -scott
+>
+
+
+-- 
+John Fastabend         Intel Corporation
