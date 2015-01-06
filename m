@@ -1,9 +1,8 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v1 04/11] rocker: add pipeline model for rocker
- switch
-Date: Tue, 06 Jan 2015 09:49:50 -0800
-Message-ID: <54AC203E.6090805@gmail.com>
-References: <20141231194057.31070.5244.stgit@nitbit.x32> <20141231194709.31070.16657.stgit@nitbit.x32> <CAE4R7bB6-bKh6EaZXpsXQeLx5A=MCJTCadYQoP2K5cUfOEUiEw@mail.gmail.com> <54AC149A.6040401@gmail.com> <CAE4R7bAHY8=TJ_hZ5X72bB5fca22zg2L8FgKJdRdRZGDWpSvcA@mail.gmail.com>
+Subject: Re: [net-next PATCH v1 08/11] net: rocker: add get flow API operation
+Date: Tue, 06 Jan 2015 09:50:52 -0800
+Message-ID: <54AC207C.2040908@gmail.com>
+References: <20141231194057.31070.5244.stgit@nitbit.x32> <20141231194852.31070.72727.stgit@nitbit.x32> <CAE4R7bCfpiCaiUwkOnPhHTRPJ3szcLtN8V8E35r=vKJ6rvTt3A@mail.gmail.com> <54ABF85F.2080105@gmail.com> <CAE4R7bDUiLGQnEHs1jemqjrQkzObN5jCkAa3LdWr90KGysrm5w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -16,56 +15,59 @@ Cc: Thomas Graf <tgraf@suug.ch>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:63238 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756216AbbAFRuE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 12:50:04 -0500
-Received: by mail-ob0-f172.google.com with SMTP id va8so66713594obc.3
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 09:50:03 -0800 (PST)
-In-Reply-To: <CAE4R7bAHY8=TJ_hZ5X72bB5fca22zg2L8FgKJdRdRZGDWpSvcA@mail.gmail.com>
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:59617 "EHLO
+	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755888AbbAFRvG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 12:51:06 -0500
+Received: by mail-oi0-f46.google.com with SMTP id a3so22510064oib.5
+        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 09:51:05 -0800 (PST)
+In-Reply-To: <CAE4R7bDUiLGQnEHs1jemqjrQkzObN5jCkAa3LdWr90KGysrm5w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/06/2015 09:16 AM, Scott Feldman wrote:
-> On Tue, Jan 6, 2015 at 9:00 AM, John Fastabend <john.fastabend@gmail.com> wrote:
->> On 01/05/2015 11:01 PM, Scott Feldman wrote:
->>>> +
->>>> +struct net_flow_jump_table parse_ethernet[3] = {
->>>> +       {
->>>> +               .field = {
->>>> +                  .header = HEADER_ETHERNET,
->>>> +                  .field = HEADER_ETHERNET_ETHERTYPE,
->>>> +                  .type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
->>>> +                  .value_u16 = 0x0800,
->
-> ETH_P_IP, etc
->
+On 01/06/2015 08:57 AM, Scott Feldman wrote:
+> On Tue, Jan 6, 2015 at 6:59 AM, John Fastabend <john.fastabend@gmail.com> wrote:
+>> On 01/05/2015 11:40 PM, Scott Feldman wrote:
+>>>
+>>> On Wed, Dec 31, 2014 at 11:48 AM, John Fastabend
+>>> <john.fastabend@gmail.com> wrote:
+>>>>
+>>>> Add operations to get flows. I wouldn't mind cleaning this code
+>>>> up a bit but my first attempt to do this used macros which shortered
+>>>> the code up but when I was done I decided it just made the code
+>>>> unreadable and unmaintainable.
+>>>>
+>>>> I might think about it a bit more but this implementation albeit
+>>>> a bit long and repeatative is easier to understand IMO.
 >>>
 >>>
->>> How is htons/ntohs conversions happening here?
+>>> Dang, you put a lot of work into this one.
+>>>
+>>> Something doesn't feel right though.  In this case, rocker driver just
+>>> happened to have cached all the flow/group stuff in hash tables in
+>>> software, so you don't need to query thru to the device to extract the
+>>> if_flow info.  What doesn't feel right is all the work need in the
+>>> driver.  For each and every driver.  get_flows needs to go above
+>>> driver, somehow.
 >>
 >>
->> my current stance is to leave everything in host order in the model
->> and let the drivers do conversions as needed. For example some drivers
->> want the vlan vid in host order others network order. I think its
->> more readable above then with hton*() throughout.
+>> Another option is to have a software cache in the flow_table.c I
+>> was trying to avoid caching as I really don't expect 'get' operations
+>> to be fast path and going to hardware seems good enough for me.
+>> Other than its a bit annoying to write the mapping code.
 >
-> Hmmm...I would argue adding htons/htonl makes it more readable in the
-> sense that it's a reminder that this is a field in a network header,
-> to be used for matching against packet headers, which use
-> network-ordering.  Store the field in the order best for comparison
-> with the raw pkt data.  Drivers may still need to do some conversion
-> if the field is programmed in hardware in a diff order.
+> Caching in flow_table.c seems best to me as drivers/devices don't need
+> to be involved and the cache can server multiple users of the API.
+> Are there cases where the device could get flow table entries
+> installed/deleted outside the API?  For example, if the device was
+> learning MAC addresses, and did automatic table insertions.  We worked
+> around that case with the recent L2 swdev support by pushing learned
+> MAC addrs up to bridge's FDB so software and hardware tables stay
+> synced.
 >
 
-Easy enough here, but then when we set_flows what do we use
-network-ordering or host? If it can be network-order in some
-cases and host-order in others its hard to resolve pragmatically.
-Humans at a CLI can most likely get it right for well known fields
-such as VLAN IDs but for less common fields (maybe proprietary)
-or management software it gets tricky.
-
-I guess we could add a flag to indicate byte ordering.
+OK I guess I'm convinced. I'll go ahead and cache the flow entries in
+software. I'll work this into v2.
 
 -- 
 John Fastabend         Intel Corporation
