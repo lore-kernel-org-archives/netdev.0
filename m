@@ -1,71 +1,77 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2 1/2] libnetlink: add parse_rtattr_one_nested helper
-Date: Tue,  6 Jan 2015 17:23:45 +0100
-Message-ID: <1420561426-3118-1-git-send-email-jiri@resnulli.us>
-Cc: stephen@networkplumber.org, thaller@redhat.com
-To: netdev@vger.kernel.org
+From: Thomas Haller <thaller@redhat.com>
+Subject: Re: [patch iproute2 2/2] iplink: print out addrgenmode attribute
+Date: Tue, 06 Jan 2015 17:52:33 +0100
+Message-ID: <1420563153.2527.14.camel@hal>
+References: <1420561426-3118-1-git-send-email-jiri@resnulli.us>
+	 <1420561426-3118-2-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
+	boundary="=-yOUl6tRkyYZdCiPp4GPs"
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f170.google.com ([74.125.82.170]:58078 "EHLO
-	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753148AbbAFQ3B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 11:29:01 -0500
-Received: by mail-we0-f170.google.com with SMTP id w61so9906835wes.1
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 08:29:00 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:37101 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752073AbbAFQwl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jan 2015 11:52:41 -0500
+In-Reply-To: <1420561426-3118-2-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sometimes, it is more convenient to get only one specific nested attribute by
-type. For example for IFLA_AF_SPEC where type is address family (AF_INET6).
-So add this helper for this purpose.
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- include/libnetlink.h |  4 ++++
- lib/libnetlink.c     | 12 ++++++++++++
- 2 files changed, 16 insertions(+)
+--=-yOUl6tRkyYZdCiPp4GPs
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/include/libnetlink.h b/include/libnetlink.h
-index fe7d5d3..f0faf2d 100644
---- a/include/libnetlink.h
-+++ b/include/libnetlink.h
-@@ -80,11 +80,15 @@ extern int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int le
- extern int parse_rtattr_flags(struct rtattr *tb[], int max, struct rtattr *rta,
- 			      int len, unsigned short flags);
- extern int parse_rtattr_byindex(struct rtattr *tb[], int max, struct rtattr *rta, int len);
-+extern struct rtattr *parse_rtattr_one(int type, struct rtattr *rta, int len);
- extern int __parse_rtattr_nested_compat(struct rtattr *tb[], int max, struct rtattr *rta, int len);
- 
- #define parse_rtattr_nested(tb, max, rta) \
- 	(parse_rtattr((tb), (max), RTA_DATA(rta), RTA_PAYLOAD(rta)))
- 
-+#define parse_rtattr_one_nested(type, rta) \
-+	(parse_rtattr_one(type, RTA_DATA(rta), RTA_PAYLOAD(rta)))
-+
- #define parse_rtattr_nested_compat(tb, max, rta, data, len) \
- 	({ data = RTA_PAYLOAD(rta) >= len ? RTA_DATA(rta) : NULL;	\
- 		__parse_rtattr_nested_compat(tb, max, rta, len); })
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index 8d504a9..8e70263 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -701,6 +701,18 @@ int parse_rtattr_byindex(struct rtattr *tb[], int max, struct rtattr *rta, int l
- 	return i;
- }
- 
-+struct rtattr *parse_rtattr_one(int type, struct rtattr *rta, int len)
-+{
-+	while (RTA_OK(rta, len)) {
-+		if (rta->rta_type == type)
-+			return rta;
-+		rta = RTA_NEXT(rta, len);
-+	}
-+	if (len)
-+		fprintf(stderr, "!!!Deficit %d, rta_len=%d\n", len, rta->rta_len);
-+	return NULL;
-+}
-+
- int __parse_rtattr_nested_compat(struct rtattr *tb[], int max, struct rtattr *rta,
- 			         int len)
- {
--- 
-1.9.3
+On Tue, 2015-01-06 at 17:23 +0100, Jiri Pirko wrote:
+> addrgenmode is currently write only by ip. So display this information
+> if provided by kernel as well.
+
+> =20
+> +static void print_af_spec(FILE *fp, struct rtattr *af_spec_attr)
+> +{
+> +	struct rtattr *inet6_attr;
+> +	struct rtattr *tb[IFLA_INET6_MAX + 1];
+> +
+> +	inet6_attr =3D parse_rtattr_one_nested(AF_INET6, af_spec_attr);
+> +	if (!inet6_attr)
+> +		return;
+> +
+> +	parse_rtattr_nested(tb, IFLA_INET6_MAX, inet6_attr);
+> +
+> +	if (tb[IFLA_INET6_ADDR_GEN_MODE]) {
+> +		switch (rta_getattr_u8(tb[IFLA_INET6_ADDR_GEN_MODE])) {
+> +		case IN6_ADDR_GEN_MODE_EUI64:
+> +			fprintf(fp, "addrgenmode eui64 ");
+
+eui64 is the default and the behavior of older kernels.
+
+I dunno, would it be better not to print the default case?
+
+
+Thomas
+
+--=-yOUl6tRkyYZdCiPp4GPs
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABAgAGBQJUrBLRAAoJECnCNm5N/FcorM0P/2tF7z6He9bqhpYEpn7eay+P
+7paFF7yAscqCIokwm+tla6piurkwXuV/SH9KdldFbRC/tJqXncbBGXHGi38LoKXK
+cxvAyBfm9S2BrVN7mXyd66Ve65CW0pj01Jhw4MpcIyzzGJilGD6MHEVkv7rWtgqg
+znCqcNCJlCfOZagxTt/blhshIOK+NpNtj9bUhp26BuqckVL29YkQFm9qJI2jfBvt
+KCKbwtDcfJVdraIpU1KGjSd6LNGzMyrnmIcYqwY2YF3M/wAMXLZ4HDwv0/feWn2q
+B3Sq2ySb+zCmOa7dE0zLvFvLUvpTrSml4S0NEhueSvpoWgcx9PoxICnvTluZvnGe
+hBr1y3+mAGP7ByMvBOVpJeThTQr2zAgcuPYhqTQBbeuvhj7QQtRlpwvu5spmAQYU
+UXNdnvi+hWg94+b+vJmVWhoAEZfCVzx8pzkbwXLeyeFNkrSw6MHk0ctKsFAleGTT
+ay7YLcjgy1uNc6IjUZKIW3jsDbF6Fx/L4I00OXfFTP0vApFQHyhU8JVrw7SwjvdH
+/wlUIDK/H51XuQ5SMJyDlBj57+V++ofZ+JRYkuXe7ShzErZ59jk2JrZOr6oG8pNx
+SRoHYTcgP5WSPlSi40gIlQZuwo24xWUnKaSmgYYJl1s6ZwVLoJNh+PIvO2PHh0EY
+mbJsDVrrZiLoUZNve8VJ
+=N5Ty
+-----END PGP SIGNATURE-----
+
+--=-yOUl6tRkyYZdCiPp4GPs--
