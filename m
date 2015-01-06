@@ -1,43 +1,26 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH V2] net: eth: xgene: change APM X-Gene SoC platform
  ethernet to support ACPI
-Date: Mon, 05 Jan 2015 22:42:35 -0500 (EST)
-Message-ID: <20150105.224235.1941007145649816230.davem@davemloft.net>
+Date: Mon, 05 Jan 2015 22:41:37 -0500 (EST)
+Message-ID: <20150105.224137.894770670718334587.davem@davemloft.net>
 References: <1420508576-10480-1-git-send-email-fkan@apm.com>
-	<20150105.224137.894770670718334587.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: patches@apm.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: fkan@apm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37243 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753277AbbAFDmj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2015 22:42:39 -0500
-In-Reply-To: <20150105.224137.894770670718334587.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1420508576-10480-1-git-send-email-fkan@apm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAwNSBK
-YW4gMjAxNSAyMjo0MTozNyAtMDUwMCAoRVNUKQ0KDQo+IEZyb206IEZlbmcgS2FuIDxma2FuQGFw
-bS5jb20+DQo+IERhdGU6IE1vbiwgIDUgSmFuIDIwMTUgMTc6NDI6NTYgLTA4MDANCj4gDQo+PiBU
-aGlzIGFkZHMgc3VwcG9ydCBmb3IgQVBNIFgtR2VuZSBldGhlcm5ldCBkcml2ZXIgdG8gdXNlIEFD
-UEkgdGFibGUgdG8gZGVyaXZlDQo+PiBldGhlcm5ldCBkcml2ZXIgcGFyYW1ldGVyLg0KPj4gDQo+
-PiBTaWduZWQtb2ZmLWJ5OiBGZW5nIEthbiA8ZmthbkBhcG0uY29tPg0KPiANCj4gQXBwbGllZC4N
-Cg0KQWN0dWFsbHksIHJldmVydGVkLCB0aGlzIGJyZWFrcyB0aGUgYnVpbGQ6DQoNCmRyaXZlcnMv
-bmV0L2V0aGVybmV0L2FwbS94Z2VuZS94Z2VuZV9lbmV0X21haW4uYzoxMDMxOjI4OiB3YXJuaW5n
-OiCheGdlbmVfZW5ldF9vZl9tYXRjaKIgZGVmaW5lZCBidXQgbm90IHVzZWQgWy1XdW51c2VkLXZh
-cmlhYmxlXQ0KIHN0YXRpYyBzdHJ1Y3Qgb2ZfZGV2aWNlX2lkIHhnZW5lX2VuZXRfb2ZfbWF0Y2hb
-XSA9IHsNCiAgICAgICAgICAgICAgICAgICAgICAgICAgICBeDQpJbiBmaWxlIGluY2x1ZGVkIGZy
-b20gZHJpdmVycy9uZXQvZXRoZXJuZXQvYXBtL3hnZW5lL3hnZW5lX2VuZXRfbWFpbi5oOjMyOjAs
-DQogICAgICAgICAgICAgICAgIGZyb20gZHJpdmVycy9uZXQvZXRoZXJuZXQvYXBtL3hnZW5lL3hn
-ZW5lX2VuZXRfbWFpbi5jOjIyOg0KaW5jbHVkZS9saW51eC9tb2R1bGUuaDoxMzg6NDA6IGVycm9y
-OiChX19tb2Rfb2ZfX3hnZW5lX2VuZXRfbWF0Y2hfZGV2aWNlX3RhYmxloiBhbGlhc2VkIHRvIHVu
-ZGVmaW5lZCBzeW1ib2wgoXhnZW5lX2VuZXRfbWF0Y2iiDQogICBleHRlcm4gY29uc3Qgc3RydWN0
-IHR5cGUjI19kZXZpY2VfaWQgX19tb2RfIyN0eXBlIyNfXyMjbmFtZSMjX2RldmljZV90YWJsZSBc
-DQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgXg0KZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvYXBtL3hnZW5lL3hnZW5lX2VuZXRfbWFpbi5jOjEwMzY6MTogbm90ZTogaW4gZXhw
-YW5zaW9uIG9mIG1hY3JvIKFNT0RVTEVfREVWSUNFX1RBQkxFog0KIE1PRFVMRV9ERVZJQ0VfVEFC
-TEUob2YsIHhnZW5lX2VuZXRfbWF0Y2gpOw0KIF4NCg==
+From: Feng Kan <fkan@apm.com>
+Date: Mon,  5 Jan 2015 17:42:56 -0800
+
+> This adds support for APM X-Gene ethernet driver to use ACPI table to derive
+> ethernet driver parameter.
+> 
+> Signed-off-by: Feng Kan <fkan@apm.com>
+
+Applied.
