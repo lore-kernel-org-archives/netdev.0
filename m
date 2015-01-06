@@ -1,72 +1,56 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Possible BUG in ipv6_find_hdr function for fragmented packets
-Date: Tue, 06 Jan 2015 14:31:34 +0100
-Message-ID: <1420551094.32369.34.camel@stressinduktion.org>
-References: <CAFB3abyNNpMbX-XbJbVRNr98ns3w7VqEveiRqg2S__DrvZjT3Q@mail.gmail.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net-next v2 0/8] net: extend ethtool link mode bitmaps
+ to 48 bits
+Date: Tue, 6 Jan 2015 15:56:33 +0200
+Message-ID: <54ABE991.3040107@mellanox.com>
+References: <1420512850-24699-1-git-send-email-ddecotig@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Rahul Sharma <rsharma@arista.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: David Decotigny <decot@googlers.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	"Masatake YAMATO" <yamato@redhat.com>, Xi Wang <xii@google.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	WANG Cong <xiyou.wangcong@gmail.com>,
+	Flavio Leitner <fbl@redhat.com>, Tom Gundersen <teg@jklm.no>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>
+To: David Decotigny <ddecotig@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>,
+	Saeed Mahameed <saeedm@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:53157 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753908AbbAFNhy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 08:37:54 -0500
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 02EE5208C1
-	for <netdev@vger.kernel.org>; Tue,  6 Jan 2015 08:31:35 -0500 (EST)
-In-Reply-To: <CAFB3abyNNpMbX-XbJbVRNr98ns3w7VqEveiRqg2S__DrvZjT3Q@mail.gmail.com>
+Received: from mail-db3on0072.outbound.protection.outlook.com ([157.55.234.72]:9918
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754692AbbAFN5l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jan 2015 08:57:41 -0500
+In-Reply-To: <1420512850-24699-1-git-send-email-ddecotig@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Rahul,
+On 1/6/2015 4:54 AM, David Decotigny wrote:
+> This patch series increases the width of the supported/advertising
+> ethtool masks from 32 bits to 48. This should allow to breathe for a
+> couple more years (or... months?).
+Hi,
 
-On Mi, 2014-12-31 at 12:33 +0530, Rahul Sharma wrote:
-> I have observed a problem when I added an AH header before protocol
-> header (OSPFv3) while implementing authentication support for OSPFv3.
-> 
-> Problem: Fragmented packets which include authentication header don't
-> get reassembled in the kernel. This was because ipv6_find_hdr returns
-> ENOENT for the non-first fragment since AH is an extension header.
-> 
-> Firstly, this comment  "Note that non-1st fragment is special case
-> that "the protocol number of last header" is "next header" field in
-> Fragment header" ('last header' doesn't include AH or other extension
-> headers) before ipv6_find_hdr looks incorrect as per the description
-> of the fragmentation process in RFC2460. The rfc clearly states that
-> next header value in the fragments will be the first header of the
-> Fragmentable part of the original packet which could be AH (51) as in
-> our case.
-> 
-> This code looks like a problem:
-> if (_frag_off) {
-> 253                                 if (target < 0 &&
-> 254                                     ((!ipv6_ext_hdr(hp->nexthdr)) ||
-> 255                                      hp->nexthdr == NEXTHDR_NONE)) {
-> 256                                         if (fragoff)
-> 257                                                 *fragoff = _frag_off;
-> 258                                         return hp->nexthdr;
-> 259                                 }
-> 260                                 return -ENOENT;
-> 261                         }
-> 
-> For non-first fragments, the 'next header' in the fragment header
-> would *always* be AUTH (or whatever extension header is the first
-> header in first fragment). But the above code will keep on returning
-> ENOENT for the non-first fragment in such cases.
-> 
-> Solution: I suggest we should get away with this check
-> ((!ipv6_ext_hdr(hp->nexthdr)) ||hp->nexthdr == NEXTHDR_NONE))  and
-> simply return hp->nexthdr if the _frag_off is non zero. I tested it on
-> my machine and it works. Adding an special case for NEXTHDR_AUTH also
-> works for me.
+Nice work.
+What worries me is that it is going to be for weeks more than years or
+months...
 
-The packets do get dropped in netfilter code? Do you have any idea were
-specifically?
+Mellanox is about to release next month a driver for a new NIC, with 3
+new speeds * few link modes for each + new link modes for 10G.
+It seems that we will need to consume almost all the new bits.
 
-Your suggestion seems correct to me, can you provide a patch to fix
-this?
-
-Thanks,
-Hannes
+Amir
