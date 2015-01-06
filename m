@@ -1,72 +1,33 @@
-From: Greg Rose <gvrose8192@gmail.com>
-Subject: Re: [PATCH net-next v3 0/5]: ixgbevf: Allow querying VFs RSS
- indirection table and key
-Date: Tue, 6 Jan 2015 10:22:13 -0800
-Message-ID: <CALgkqUr2tAprqmPVSwA3up9CtkPzgrci-0H05divHhT2NC5_kA@mail.gmail.com>
-References: <1420467311-6680-1-git-send-email-vladz@cloudius-systems.com>
-	<CALgkqUojkfTwhsoAnPZdJv-oMg7PMB5m8Q2=k5=QqXKxSJgq7w@mail.gmail.com>
-	<20150106065535.GM29889@cloudius-systems.com>
-	<54ABBFEB.9010105@cloudius-systems.com>
-	<CALgkqUqh4uMxhnTA9yOm2m0Z3tOZ1E2+Z8Y68Kv5HJ6vP=Fk2A@mail.gmail.com>
-	<54AC1BBA.3010206@cloudius-systems.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] arm_arch_timer: include clocksource.h directly
+Date: Tue, 06 Jan 2015 13:27:19 -0500 (EST)
+Message-ID: <20150106.132719.85215859897492631.davem@davemloft.net>
+References: <1420550773-6752-1-git-send-email-richardcochran@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Gleb Natapov <gleb@cloudius-systems.com>, netdev@vger.kernel.org,
-	Avi Kivity <avi@cloudius-systems.com>,
-	jeffrey.t.kirsher@intel.com
-To: Vlad Zolotarov <vladz@cloudius-systems.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux@roeck-us.net
+To: richardcochran@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:53808 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756346AbbAFSWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 13:22:14 -0500
-Received: by mail-ob0-f169.google.com with SMTP id vb8so66961592obc.0
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 10:22:13 -0800 (PST)
-In-Reply-To: <54AC1BBA.3010206@cloudius-systems.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52185 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751453AbbAFS1W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 13:27:22 -0500
+In-Reply-To: <1420550773-6752-1-git-send-email-richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I accidentally replied just to Vlad - here is a reply to all.
+From: Richard Cochran <richardcochran@gmail.com>
+Date: Tue,  6 Jan 2015 14:26:13 +0100
 
-On Tue, Jan 6, 2015 at 9:30 AM, Vlad Zolotarov
-<vladz@cloudius-systems.com> wrote:
->
-> On 01/06/15 18:59, Greg Rose wrote:
->>
+> This driver makes use of the clocksource code. Previously it had only
+> included the proper header indirectly, but that chain was inadvertently
+> broken by 74d23cc "time: move the timecounter/cyclecounter code into its
+> own file."
+> 
+> This patch fixes the issue by including clocksource.h directly.
+> 
+> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 
-[snip]
-
-
->>
->> I don't have any examples and that is not my area of expertise.  But
->> just because we can't think of a security risk or attack example
->> doesn't mean there isn't one.
->>
->> Just add a policy hook so that the system admin can decide whether
->> this information should be shared with the VFs and then we're covered
->> for cases of both known and unknown exploits, risks, etc.
->
->
-> I absolutely disagree with u in regard of defining an RSS redirection table
-> and RSS hash key as a security sensitive data. I don't know how u got to
-> this conclusion.
-
-I have not reached any such conclusion - let me reiterate:  I have no
-idea.  It is not my area of expertise.  However, to take the lowest
-risk route just add a policy hook so that a system admin can turn the
-feature on through the PF driver (which is acknowledged as secure) if
-they wish then there is no worry.
-
-> However I don't want to argue about any longer. Let's move on.
->
-> Let's clarify one thing about this "hook". Do u agree that it should cover
-> only the cases when VF shares the mentioned above data with PF - namely for
-> all devices but x550?
-
-Look at how spoof checking is turned off/on for each VF using the "ip
-link set" commands.  That's what I'm envisioning - some way to decide
-on a per VF basis which VFs should be allowed to perform the query.
-
-Thanks,
-
-- Greg
+Applied.
