@@ -1,47 +1,43 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: IPsec workshop at netdev01?
-Date: Tue, 06 Jan 2015 06:15:31 -0500
-Message-ID: <54ABC3D3.2070806@mojatatu.com>
-References: <20150106101936.GC31458@secunet.com>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: Re: [PATCH net-next v1 0/3] net: fec: add Wake-on-LAN support
+Date: Tue, 6 Jan 2015 19:21:42 +0800
+Message-ID: <20150106112140.GK24511@dragon>
+References: <1419413441-3406-1-git-send-email-b38611@freescale.com>
+ <20141231.130727.1660985956287926494.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: b38611@freescale.com, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, stephen@networkplumber.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:49550 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753240AbbAFLPe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 06:15:34 -0500
-Received: by mail-ig0-f178.google.com with SMTP id b16so3253436igk.5
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 03:15:34 -0800 (PST)
-In-Reply-To: <20150106101936.GC31458@secunet.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:43250 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751511AbbAFLWC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 06:22:02 -0500
+Received: by mail-pa0-f50.google.com with SMTP id bj1so30805658pad.37
+        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 03:22:02 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20141231.130727.1660985956287926494.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/06/15 05:19, Steffen Klassert wrote:
-> Is there any interest in doing an IPsec workshop at netdev01?
->
+On Wed, Dec 31, 2014 at 01:07:27PM -0500, David Miller wrote:
+> From: Fugang Duan <b38611@freescale.com>
+> Date: Wed, 24 Dec 2014 17:30:38 +0800
+> 
+> > The patch series enable FEC Wake-on-LAN feature for i.MX6q/dl and i.MX6SX SOCs.
+> > FEC HW support sleep mode, when system in suspend status with FEC all clock gate
+> > off, magic packet can wake up system. For different SOCs, there have special SOC
+> > GPR register to let FEC enter sleep mode or exit sleep mode, add these to platform
+> > callback for driver' call.
+> > 
+> > Patch#1: add WOL interface supports.
+> > Patch#2: add SOC special sleep of/off operations for driver's sleep callback.
+> > Patch#3: add magic pattern support for devicetree.
+> 
+> Series applied, thanks.
 
+I'm not sure you want to take the last two patches.  Doing so will
+likely causes merge conflict between net and arm-soc tree.
 
-
-> This mail is to probe if we can gather enough discussion topics to run
-> such a workshop. So if someone is interested to attend and/or has a
-> related discussion topic, please let me know.
->
-
-For the record I would attend if you had it.
-Additional topic that maybe of interest is:
-on hardware offload of crypto as well as keying(RSA etc).
-I know we have some stuff in place - but a lot of these new
-devices are going on tangents doing their own thing. So perhaps
-some guidance would help. That specific topic maybe overlapping
-with the BOF Shrijeet is organizing - but there we are still
-talking about L2/3 and ACLs and an ipsec discussion could
-be, at the moment, off topic.
-
-cheers,
-jamal
+Shawn
