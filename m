@@ -1,71 +1,87 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: Re: [PATCH net-next v3 0/5]: ixgbevf: Allow querying VFs RSS indirection
- table and key
-Date: Tue, 06 Jan 2015 22:13:58 +0200
-Message-ID: <54AC4206.4030006@cloudius-systems.com>
-References: <1420467311-6680-1-git-send-email-vladz@cloudius-systems.com>	<CALgkqUojkfTwhsoAnPZdJv-oMg7PMB5m8Q2=k5=QqXKxSJgq7w@mail.gmail.com>	<20150106065535.GM29889@cloudius-systems.com>	<54ABBFEB.9010105@cloudius-systems.com>	<CALgkqUqh4uMxhnTA9yOm2m0Z3tOZ1E2+Z8Y68Kv5HJ6vP=Fk2A@mail.gmail.com>	<54AC1BBA.3010206@cloudius-systems.com> <CALgkqUr2tAprqmPVSwA3up9CtkPzgrci-0H05divHhT2NC5_kA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP connection issues against Amazon S3
+Date: Tue, 06 Jan 2015 12:13:36 -0800
+Message-ID: <1420575216.5947.12.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5DCDADEF-FF9C-4844-8A2C-62E2D3B3B8CE@bengler.no>
+	 <1420560253.32621.20.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <D5C36777-4461-4B8D-B6C4-38B4276F42DC@bengler.no>
+	 <1420564837.32621.30.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <8C4F7938-DCA1-46F5-A3C9-7DF62511DEE7@bengler.no>
+	 <CAK6E8=d5Z0W5sSAdeEcecKbqjj_UwGw4949=a20fetFpLVKwwA@mail.gmail.com>
+	 <03FC652E-AA01-42C7-BD52-019B6D922A9C@bengler.no>
+	 <CAK6E8=cP0BFUob5MVj9M0hC0efgRnUY=JMUPKee+v-4TLvHBgg@mail.gmail.com>
+	 <76DC89D1-CFCE-44B7-994E-4349FEEDEFA6@bengler.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Gleb Natapov <gleb@cloudius-systems.com>, netdev@vger.kernel.org,
-	Avi Kivity <avi@cloudius-systems.com>,
-	jeffrey.t.kirsher@intel.com
-To: Greg Rose <gvrose8192@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Yuchung Cheng <ycheng@google.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Erik Grinaker <erik@bengler.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:51917 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752383AbbAFUOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 15:14:04 -0500
-Received: by mail-wi0-f181.google.com with SMTP id r20so224633wiv.8
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 12:14:02 -0800 (PST)
-In-Reply-To: <CALgkqUr2tAprqmPVSwA3up9CtkPzgrci-0H05divHhT2NC5_kA@mail.gmail.com>
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:60563 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751674AbbAFUNj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 15:13:39 -0500
+In-Reply-To: <76DC89D1-CFCE-44B7-994E-4349FEEDEFA6@bengler.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2015-01-06 at 19:42 +0000, Erik Grinaker wrote:
 
-On 01/06/15 20:22, Greg Rose wrote:
-> I accidentally replied just to Vlad - here is a reply to all.
->
-> On Tue, Jan 6, 2015 at 9:30 AM, Vlad Zolotarov
-> <vladz@cloudius-systems.com>  wrote:
->> On 01/06/15 18:59, Greg Rose wrote:
-> [snip]
->
->
->>> I don't have any examples and that is not my area of expertise.  But
->>> just because we can't think of a security risk or attack example
->>> doesn't mean there isn't one.
->>>
->>> Just add a policy hook so that the system admin can decide whether
->>> this information should be shared with the VFs and then we're covered
->>> for cases of both known and unknown exploits, risks, etc.
->> I absolutely disagree with u in regard of defining an RSS redirection table
->> and RSS hash key as a security sensitive data. I don't know how u got to
->> this conclusion.
-> I have not reached any such conclusion - let me reiterate:  I have no
-> idea.  It is not my area of expertise.  However, to take the lowest
-> risk route just add a policy hook so that a system admin can turn the
-> feature on through the PF driver (which is acknowledged as secure) if
-> they wish then there is no worry.
+> The transfer on the functioning Netherlands server does indeed use SA=
+CKs, while the Norway servers do not.
+>=20
+> For what it=E2=80=99s worth, I have made stripped down pcaps for a si=
+ngle failing transfer as well as a single functioning transfer in the N=
+etherlands:
+>=20
+> http://abstrakt.bengler.no/tcp-issues-s3-failure.pcap.bz2
+> http://abstrakt.bengler.no/tcp-issues-s3-success-netherlands.pcap.bz2
+>=20
 
-NP. Let's move on.
+Although sender seems to be reluctant to retransmit, this 'failure' is
+caused by receiver closing the connection too soon.
 
->> However I don't want to argue about any longer. Let's move on.
->>
->> Let's clarify one thing about this "hook". Do u agree that it should cover
->> only the cases when VF shares the mentioned above data with PF - namely for
->> all devices but x550?
-> Look at how spoof checking is turned off/on for each VF using the "ip
-> link set" commands.  That's what I'm envisioning - some way to decide
-> on a per VF basis which VFs should be allowed to perform the query.
+Are you sure you do not ask curl to setup a very small completion
+timer ?
 
-I will but let's agree that x550 VFs should be out of this since their 
-RSS indirection table and Key belong to the specific domain and don't 
-impose any even theoretical thread.
+12:41:00.738336 IP 54.231.132.98.80 > 195.159.221.106.48837: Flags [.],=
+ seq 767221:768681, ack 154, win 127, length 1460
+12:41:00.738346 IP 195.159.221.106.48837 > 54.231.132.98.80: Flags [.],=
+ ack 736561, win 1877, length 0
+12:41:05.227150 IP 54.231.132.98.80 > 195.159.221.106.48837: Flags [.],=
+ seq 736561:738021, ack 154, win 127, length 1460
+12:41:05.227250 IP 195.159.221.106.48837 > 54.231.132.98.80: Flags [.],=
+ ack 745321, win 1882, length 0
+12:41:05.278287 IP 54.231.132.98.80 > 195.159.221.106.48837: Flags [.],=
+ seq 768681:770141, ack 154, win 127, length 1460
+12:41:05.278354 IP 195.159.221.106.48837 > 54.231.132.98.80: Flags [.],=
+ ack 745321, win 1888, length 0
+12:41:05.278421 IP 54.231.132.98.80 > 195.159.221.106.48837: Flags [.],=
+ seq 770141:771601, ack 154, win 127, length 1460
+12:41:05.278429 IP 195.159.221.106.48837 > 54.231.132.98.80: Flags [.],=
+ ack 745321, win 1894, length 0
+12:41:14.257102 IP 54.231.132.98.80 > 195.159.221.106.48837: Flags [.],=
+ seq 745321:746781, ack 154, win 127, length 1460
+12:41:14.257154 IP 195.159.221.106.48837 > 54.231.132.98.80: Flags [.],=
+ ack 746781, win 1900, length 0
+12:41:14.308117 IP 54.231.132.98.80 > 195.159.221.106.48837: Flags [.],=
+ seq 771601:773061, ack 154, win 127, length 1460
+12:41:14.308227 IP 195.159.221.106.48837 > 54.231.132.98.80: Flags [.],=
+ ack 746781, win 1905, length 0
+12:41:14.308387 IP 54.231.132.98.80 > 195.159.221.106.48837: Flags [.],=
+ seq 773061:774521, ack 154, win 127, length 1460
+12:41:14.308397 IP 195.159.221.106.48837 > 54.231.132.98.80: Flags [.],=
+ ack 746781, win 1911, length 0
 
-thanks,
-vlad
+-> Here receiver sends a FIN, because application closed the socket (or=
+ died)
+12:41:23.237156 IP 195.159.221.106.48837 > 54.231.132.98.80: Flags [F.]=
+, seq 154, ack 746781, win 1911, length 0
+12:41:23.289805 IP 54.231.132.98.80 > 195.159.221.106.48837: Flags [.],=
+ seq 746781:748241, ack 155, win 127, length 1460
+12:41:23.289882 IP 195.159.221.106.48837 > 54.231.132.98.80: Flags [R],=
+ seq 505782802, win 0, length 0
 
-> Thanks,
->
-> - Greg
+Anyway, getting decent speed without SACK is going to be hard.
