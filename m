@@ -1,191 +1,66 @@
-From: Shrikrishna Khare <skhare@vmware.com>
-Subject: [PATCH net-next] Driver: Vmxnet3: Make Rx ring 2 size configurable
-Date: Tue,  6 Jan 2015 09:20:15 -0800
-Message-ID: <1420564815-32101-1-git-send-email-skhare@vmware.com>
-Cc: Shrikrishna Khare <skhare@vmware.com>,
-	Ramya Bolla <bollar@vmware.com>
-To: sbhatewara@vmware.com, pv-drivers@vmware.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP connection issues against Amazon S3
+Date: Tue, 06 Jan 2015 09:20:37 -0800
+Message-ID: <1420564837.32621.30.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5DCDADEF-FF9C-4844-8A2C-62E2D3B3B8CE@bengler.no>
+	 <1420560253.32621.20.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <D5C36777-4461-4B8D-B6C4-38B4276F42DC@bengler.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
+	netdev <netdev@vger.kernel.org>
+To: Erik Grinaker <erik@bengler.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:44958 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751859AbbAFRUk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 12:20:40 -0500
+In-Reply-To: <D5C36777-4461-4B8D-B6C4-38B4276F42DC@bengler.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rx ring 2 size can be configured by adjusting rx-jumbo parameter
-of ethtool -G.
+On Tue, 2015-01-06 at 16:11 +0000, Erik Grinaker wrote:
+> > On 06 Jan 2015, at 16:04, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Tue, 2015-01-06 at 15:14 +0000, Erik Grinaker wrote:
+> >> (CCing Yuchung, as his name comes up in the relevant commits)
+> >> 
+> >> After upgrading from Ubuntu 12.04.5 to 14.04.1 we have begun seeing
+> >> intermittent TCP connection hangs for HTTP image requests against
+> >> Amazon S3. 3-5% of requests will suddenly stall in the middle of the
+> >> transfer before timing out. We see this problem across a range of
+> >> servers, in several data centres and networks, all located in Norway.
+> >> 
+> >> A packet dump [1] shows repeated ACK retransmits for some of the
+> >> requests. Using Ubuntu mainline kernels, we found the problem to have
+> >> been introduced between 3.11.10 and 3.12.0, possibly in
+> >> 0f7cc9a3c2bd89b15720dbf358e9b9e62af27126. The problem is also present
+> >> in 3.18.1. Disabling tcp_window_scaling seems to solve it, but has
+> >> obvious drawbacks for transfer speeds. Other sysctls do not seem to
+> >> affect it.
+> >> 
+> >> I am not sure if this is fundamentally a kernel bug or a network
+> >> issue, but we did not see this problem with older kernels.
+> >> 
+> >> [1] http://abstrakt.bengler.no/tcp-issues-s3.pcap.bz2
+> > 
+> > 
+> > CC netdev
+> > 
+> > This looks like the bug we fixed here :
+> > 
+> > http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=39bb5e62867de82b269b07df900165029b928359
+> 
+> Has that patch gone into a release? Because the problem persists with 3.18.1.
 
-Signed-off-by: Ramya Bolla <bollar@vmware.com>
-Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
-Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
----
- drivers/net/vmxnet3/vmxnet3_defs.h    |    1 +
- drivers/net/vmxnet3/vmxnet3_drv.c     |    6 +++++-
- drivers/net/vmxnet3/vmxnet3_ethtool.c |   27 ++++++++++++++++++++-------
- drivers/net/vmxnet3/vmxnet3_int.h     |    6 ++++--
- 4 files changed, 30 insertions(+), 10 deletions(-)
+Patch is in 3.18.1 yes.
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
-index 4d84912..25b6fa4 100644
---- a/drivers/net/vmxnet3/vmxnet3_defs.h
-+++ b/drivers/net/vmxnet3/vmxnet3_defs.h
-@@ -342,6 +342,7 @@ union Vmxnet3_GenericDesc {
- #define VMXNET3_TX_RING_MAX_SIZE   4096
- #define VMXNET3_TC_RING_MAX_SIZE   4096
- #define VMXNET3_RX_RING_MAX_SIZE   4096
-+#define VMXNET3_RX_RING2_MAX_SIZE  2048
- #define VMXNET3_RC_RING_MAX_SIZE   8192
- 
- /* a list of reasons for queue stop */
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index afd2953..7af1f5c 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -2505,6 +2505,9 @@ vmxnet3_adjust_rx_ring_size(struct vmxnet3_adapter *adapter)
- 	ring0_size = min_t(u32, ring0_size, VMXNET3_RX_RING_MAX_SIZE /
- 			   sz * sz);
- 	ring1_size = adapter->rx_queue[0].rx_ring[1].size;
-+	ring1_size = (ring1_size + sz - 1) / sz * sz;
-+	ring1_size = min_t(u32, ring1_size, VMXNET3_RX_RING2_MAX_SIZE /
-+			   sz * sz);
- 	comp_size = ring0_size + ring1_size;
- 
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
-@@ -2585,7 +2588,7 @@ vmxnet3_open(struct net_device *netdev)
- 
- 	err = vmxnet3_create_queues(adapter, adapter->tx_ring_size,
- 				    adapter->rx_ring_size,
--				    VMXNET3_DEF_RX_RING_SIZE);
-+				    adapter->rx_ring2_size);
- 	if (err)
- 		goto queue_err;
- 
-@@ -2964,6 +2967,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
- 
- 	adapter->tx_ring_size = VMXNET3_DEF_TX_RING_SIZE;
- 	adapter->rx_ring_size = VMXNET3_DEF_RX_RING_SIZE;
-+	adapter->rx_ring2_size = VMXNET3_DEF_RX_RING2_SIZE;
- 
- 	spin_lock_init(&adapter->cmd_lock);
- 	adapter->adapter_pa = dma_map_single(&adapter->pdev->dev, adapter,
-diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-index b7b5332..8a5a90e 100644
---- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
-+++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-@@ -447,12 +447,12 @@ vmxnet3_get_ringparam(struct net_device *netdev,
- 	param->rx_max_pending = VMXNET3_RX_RING_MAX_SIZE;
- 	param->tx_max_pending = VMXNET3_TX_RING_MAX_SIZE;
- 	param->rx_mini_max_pending = 0;
--	param->rx_jumbo_max_pending = 0;
-+	param->rx_jumbo_max_pending = VMXNET3_RX_RING2_MAX_SIZE;
- 
- 	param->rx_pending = adapter->rx_ring_size;
- 	param->tx_pending = adapter->tx_ring_size;
- 	param->rx_mini_pending = 0;
--	param->rx_jumbo_pending = 0;
-+	param->rx_jumbo_pending = adapter->rx_ring2_size;
- }
- 
- 
-@@ -461,7 +461,7 @@ vmxnet3_set_ringparam(struct net_device *netdev,
- 		      struct ethtool_ringparam *param)
- {
- 	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
--	u32 new_tx_ring_size, new_rx_ring_size;
-+	u32 new_tx_ring_size, new_rx_ring_size, new_rx_ring2_size;
- 	u32 sz;
- 	int err = 0;
- 
-@@ -473,6 +473,10 @@ vmxnet3_set_ringparam(struct net_device *netdev,
- 						VMXNET3_RX_RING_MAX_SIZE)
- 		return -EINVAL;
- 
-+	if (param->rx_jumbo_pending == 0 ||
-+	    param->rx_jumbo_pending > VMXNET3_RX_RING2_MAX_SIZE)
-+		return -EINVAL;
-+
- 	/* if adapter not yet initialized, do nothing */
- 	if (adapter->rx_buf_per_pkt == 0) {
- 		netdev_err(netdev, "adapter not completely initialized, "
-@@ -500,8 +504,15 @@ vmxnet3_set_ringparam(struct net_device *netdev,
- 							   sz) != 0)
- 		return -EINVAL;
- 
--	if (new_tx_ring_size == adapter->tx_queue[0].tx_ring.size &&
--	    new_rx_ring_size == adapter->rx_queue[0].rx_ring[0].size) {
-+	/* ring2 has to be a multiple of VMXNET3_RING_SIZE_ALIGN */
-+	new_rx_ring2_size = (param->rx_jumbo_pending + VMXNET3_RING_SIZE_MASK) &
-+				~VMXNET3_RING_SIZE_MASK;
-+	new_rx_ring2_size = min_t(u32, new_rx_ring2_size,
-+				  VMXNET3_RX_RING2_MAX_SIZE);
-+
-+	if (new_tx_ring_size == adapter->tx_ring_size &&
-+	    new_rx_ring_size == adapter->rx_ring_size &&
-+	    new_rx_ring2_size == adapter->rx_ring2_size) {
- 		return 0;
- 	}
- 
-@@ -522,7 +533,7 @@ vmxnet3_set_ringparam(struct net_device *netdev,
- 		vmxnet3_rq_destroy_all(adapter);
- 
- 		err = vmxnet3_create_queues(adapter, new_tx_ring_size,
--			new_rx_ring_size, VMXNET3_DEF_RX_RING_SIZE);
-+			new_rx_ring_size, new_rx_ring2_size);
- 
- 		if (err) {
- 			/* failed, most likely because of OOM, try default
-@@ -530,11 +541,12 @@ vmxnet3_set_ringparam(struct net_device *netdev,
- 			netdev_err(netdev, "failed to apply new sizes, "
- 				   "try the default ones\n");
- 			new_rx_ring_size = VMXNET3_DEF_RX_RING_SIZE;
-+			new_rx_ring2_size = VMXNET3_DEF_RX_RING2_SIZE;
- 			new_tx_ring_size = VMXNET3_DEF_TX_RING_SIZE;
- 			err = vmxnet3_create_queues(adapter,
- 						    new_tx_ring_size,
- 						    new_rx_ring_size,
--						    VMXNET3_DEF_RX_RING_SIZE);
-+						    new_rx_ring2_size);
- 			if (err) {
- 				netdev_err(netdev, "failed to create queues "
- 					   "with default sizes. Closing it\n");
-@@ -549,6 +561,7 @@ vmxnet3_set_ringparam(struct net_device *netdev,
- 	}
- 	adapter->tx_ring_size = new_tx_ring_size;
- 	adapter->rx_ring_size = new_rx_ring_size;
-+	adapter->rx_ring2_size = new_rx_ring2_size;
- 
- out:
- 	clear_bit(VMXNET3_STATE_BIT_RESETTING, &adapter->state);
-diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
-index 5f0199f..048f020 100644
---- a/drivers/net/vmxnet3/vmxnet3_int.h
-+++ b/drivers/net/vmxnet3/vmxnet3_int.h
-@@ -69,10 +69,10 @@
- /*
-  * Version numbers
-  */
--#define VMXNET3_DRIVER_VERSION_STRING   "1.2.1.0-k"
-+#define VMXNET3_DRIVER_VERSION_STRING   "1.3.1.0-k"
- 
- /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
--#define VMXNET3_DRIVER_VERSION_NUM      0x01020100
-+#define VMXNET3_DRIVER_VERSION_NUM      0x01030100
- 
- #if defined(CONFIG_PCI_MSI)
- 	/* RSS only makes sense if MSI-X is supported. */
-@@ -352,6 +352,7 @@ struct vmxnet3_adapter {
- 	/* Ring sizes */
- 	u32 tx_ring_size;
- 	u32 rx_ring_size;
-+	u32 rx_ring2_size;
- 
- 	struct work_struct work;
- 
-@@ -384,6 +385,7 @@ struct vmxnet3_adapter {
- /* must be a multiple of VMXNET3_RING_SIZE_ALIGN */
- #define VMXNET3_DEF_TX_RING_SIZE    512
- #define VMXNET3_DEF_RX_RING_SIZE    256
-+#define VMXNET3_DEF_RX_RING2_SIZE   128
- 
- #define VMXNET3_MAX_ETH_HDR_SIZE    22
- #define VMXNET3_MAX_SKB_BUF_SIZE    (3*1024)
--- 
-1.7.4.1
+So thats a separate issue. 
+
+Can you confirm pcap was taken at receiver (195.159.221.106), not sender
+(54.231.136.74) , and on which host is running the 'buggy kernel' ?
+
+If the sender is broken, changing the kernel on receiver wont help.
+
+BTW not using sack (on 54.231.132.98) is terrible for performance in
+lossy environments.
