@@ -1,108 +1,49 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: TCP connection issues against Amazon S3
-Date: Tue, 6 Jan 2015 11:18:24 -0800
-Message-ID: <CAK6E8=cP0BFUob5MVj9M0hC0efgRnUY=JMUPKee+v-4TLvHBgg@mail.gmail.com>
-References: <5DCDADEF-FF9C-4844-8A2C-62E2D3B3B8CE@bengler.no>
- <1420560253.32621.20.camel@edumazet-glaptop2.roam.corp.google.com>
- <D5C36777-4461-4B8D-B6C4-38B4276F42DC@bengler.no> <1420564837.32621.30.camel@edumazet-glaptop2.roam.corp.google.com>
- <8C4F7938-DCA1-46F5-A3C9-7DF62511DEE7@bengler.no> <CAK6E8=d5Z0W5sSAdeEcecKbqjj_UwGw4949=a20fetFpLVKwwA@mail.gmail.com>
- <03FC652E-AA01-42C7-BD52-019B6D922A9C@bengler.no>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request [net]: batman-adv 20150106
+Date: Tue, 06 Jan 2015 14:25:14 -0500 (EST)
+Message-ID: <20150106.142514.108109720918651317.davem@davemloft.net>
+References: <1420542605-28865-1-git-send-email-antonio@meshcoding.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Erik Grinaker <erik@bengler.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <03FC652E-AA01-42C7-BD52-019B6D922A9C@bengler.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: antonio@meshcoding.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53243 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751284AbbAFTZR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 14:25:17 -0500
+In-Reply-To: <1420542605-28865-1-git-send-email-antonio@meshcoding.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 6, 2015 at 11:01 AM, Erik Grinaker <erik@bengler.no> wrote:
->
->> On 06 Jan 2015, at 18:33, Yuchung Cheng <ycheng@google.com> wrote:
->>
->> On Tue, Jan 6, 2015 at 10:17 AM, Erik Grinaker <erik@bengler.no> wrote:
->>>
->>>> On 06 Jan 2015, at 17:20, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->>>> On Tue, 2015-01-06 at 16:11 +0000, Erik Grinaker wrote:
->>>>>> On 06 Jan 2015, at 16:04, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->>>>>> On Tue, 2015-01-06 at 15:14 +0000, Erik Grinaker wrote:
->>>>>>> (CCing Yuchung, as his name comes up in the relevant commits)
->>>>>>>
->>>>>>> After upgrading from Ubuntu 12.04.5 to 14.04.1 we have begun seeing
->>>>>>> intermittent TCP connection hangs for HTTP image requests against
->>>>>>> Amazon S3. 3-5% of requests will suddenly stall in the middle of the
->>>>>>> transfer before timing out. We see this problem across a range of
->>>>>>> servers, in several data centres and networks, all located in Norway.
->>>>>>>
->>>>>>> A packet dump [1] shows repeated ACK retransmits for some of the
->> TCP does not retransmit ACK ... do you mean DUPACKs sent by the receiver?
->
-> Ah, sorry, they are indeed DUPACKs; I thought they were the same thing.
->
->> I am trying to understand the problem. Could you confirm that it's the
->> HTTP responses sent from Amazon S3 got stalled, or HTTP requests sent
->> from the receiver (your host)?
->
-> Yes. We run HTTP GET requests against S3 for images (typically a few megs in size). Once in a while, the response transfer stalls about halfway through, until the client (Curl) times out. The packet dump shows loads of DUPACKs early on, then TCP retransmissions until the connection is closed.
+=46rom: Antonio Quartulli <antonio@meshcoding.com>
+Date: Tue,  6 Jan 2015 12:09:59 +0100
 
-Without SACK, the sender uses NewReno fast recovery and recovers one
-packet per RTT. In contrast, SACK-based fast recovery can potentially
-recover all lost packets in one RTT.
+> here you have some small fixes for your 'net' tree.
+>=20
+> Patch 1 fixes a regression in the "bonding" code introduced while
+> implementing the multi-interface optimization feature, by Simon
+> Wunderlich.
+>=20
+> Patch 2 ensures that the "last-seen" timestamp for a newly created
+> originator object is properly initialised in order to avoid a non-cri=
+tical
+> race condition, by Linus L=FCssing.
+>=20
+> Patch 3 avoids false positive splats when lockdep is enabled by assig=
+ning
+> the proper lock class to locks used by the network coding feature, by
+> Martin Hundeb=F8ll.
+>=20
+> Patches 4 and 5 fix the code counting the amount of multicast-disable=
+d
+> nodes in the network (used to avoid to enable the multicast optimisat=
+ion
+> when not possible), by Linus L=FCssing.
+>=20
+> Patch 6 fixes a memory leak in the Translation Table code that can be
+> triggered by doubling the current originator interval, by Linus L=FCs=
+sing.
 
-I still can't explain the problem seen on newer kernel. But that got
-to be some receiver related changes, not
-0f7cc9a3c2bd89b15720dbf358e9b9e62af27126 b/c it's a sender side
-change.
-
->
->> btw I suspect some middleboxes are stripping SACKOK options from your
->> SYNs (or Amazon SYN-ACKs) assuming Amazon supports SACK.
->
-> That may be. I just tested this on a server in the Netherlands, and I can not reproduce the problem there, while I can reproduce it from multiple locations and ISPs in Norway. Would it be helpful to have a packet dump from the functioning Netherlands server as well?
-
-
-
->
->
->>>>>>> requests. Using Ubuntu mainline kernels, we found the problem to have
->>>>>>> been introduced between 3.11.10 and 3.12.0, possibly in
->>>>>>> 0f7cc9a3c2bd89b15720dbf358e9b9e62af27126. The problem is also present
->>>>>>> in 3.18.1. Disabling tcp_window_scaling seems to solve it, but has
->>>>>>> obvious drawbacks for transfer speeds. Other sysctls do not seem to
->>>>>>> affect it.
->>>>>>>
->>>>>>> I am not sure if this is fundamentally a kernel bug or a network
->>>>>>> issue, but we did not see this problem with older kernels.
->>>>>>>
->>>>>>> [1] http://abstrakt.bengler.no/tcp-issues-s3.pcap.bz2
->>>>>>
->>>>>>
->>>>>> CC netdev
->>>>>>
->>>>>> This looks like the bug we fixed here :
->>>>>>
->>>>>> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=39bb5e62867de82b269b07df900165029b928359
->>>>>
->>>>> Has that patch gone into a release? Because the problem persists with 3.18.1.
->>>>
->>>> Patch is in 3.18.1 yes.
->>>>
->>>> So thats a separate issue.
->>>>
->>>> Can you confirm pcap was taken at receiver (195.159.221.106), not sender
->>>> (54.231.136.74) , and on which host is running the 'buggy kernel' ?
->>>
->>> Yes, pcap was taken on receiver (195.159.221.106).
->>>
->>>> If the sender is broken, changing the kernel on receiver wont help.
->>>>
->>>> BTW not using sack (on 54.231.132.98) is terrible for performance in
->>>> lossy environments.
->>>
->>> It may well be that the sender is broken; however, the sender is Amazon S3, so I do not have any control over it. And in any case, the problem goes away with 3.11.10 on receiver, but persists with 3.12.0 (or later) on receiver, so there must be some change in 3.12.0 which has caused this to trigger.
->>>
->>> If you are confident that the problem is with Amazon, I can get in touch with their engineering department.
->
+Pulled, thanks Antonio.
