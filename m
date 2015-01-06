@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v4 20/20] kbuild: add a new kselftest_install make target to install selftests
-Date: Tue,  6 Jan 2015 12:43:34 -0700
-Message-ID: <2c5a28faaa79d9c2415854a08817ada509fcb943.1420571615.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v4 19/20] selftests: add install target to enable test install
+Date: Tue,  6 Jan 2015 12:43:33 -0700
+Message-ID: <5cca2e663023be7e3cc89aab34ffc62012e90045.1420571615.git.shuahkh@osg.samsung.com>
 References: <cover.1420571615.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -21,59 +21,127 @@ References: <cover.1420571615.git.shuahkh@osg.samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a new make target to install to install kernel selftests.
-This new target will build and install selftests. kselftest
-target now depends on kselftest_install and runs the generated
-kselftest script to reduce duplicate work and for common look
-and feel when running tests.
+Add a new make target to enable installing selftests. This
+new target will call install targets for the tests that are
+specified in INSTALL_TARGETS. During install, a script is
+generated to run tests that are installed. This script will
+be installed in the selftest install directory. Individual
+test Makefiles are changed to add to the script. This will
+allow new tests to add install and run test commands to the
+generated kselftest script. run_tests target runs the
+generated kselftest script to run tests when it is initiated
+from from "make kselftest" from top level source directory.
 
-make kselftest_target:
+Approach:
+
+Add a new kselftest_install target:
 -- exports kselftest INSTALL_KSFT_PATH
    default $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
 -- exports INSTALL_KSFT_PATH
--- runs selftests make install target
+-- runs selftests make kselftest_install target:
+
+selftests make install target
+-- Sets up environment for sub-makefiles
+-- creates kselftest.sh script in install install dir
+-- runs install targets for INSTALL_TARGETS
+-- install target can be run only from top level source dir.
+
+Individual test make install targets:
+-- install test programs and/or scripts in install dir
+-- append to the ksefltest.sh file to add commands to run test
+-- install target can be run only from top level source dir.
+
+Adds the following new ways to initiate selftests:
+-- Installing and running kselftest from install directory
+   by running  "make kselftest"
+-- Running kselftest script from install directory
+
+Maintains the following ways to run tests:
+-- make TARGETS=net kselftest
+-- make -C tools/testing/selftests run_tests
+-- make -C tools/testing/selftests TARGETS=target run_tests
+   Ability specify targets: e.g TARGETS=net
+-- make run_tests from tools/testing/selftests
+-- make run_tests from individual test directories:
+   e.g: make run_tests in tools/testing/selftests/net
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- Makefile | 14 +++++++++++++-
- 1 file changed, 13 insertions(+), 1 deletion(-)
+ tools/testing/selftests/Makefile | 54 +++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 53 insertions(+), 1 deletion(-)
 
-diff --git a/Makefile b/Makefile
-index b1c3254..99fac47 100644
---- a/Makefile
-+++ b/Makefile
-@@ -1072,12 +1072,21 @@ headers_check: headers_install
- 	$(Q)$(MAKE) $(hdr-inst)=arch/$(hdr-arch)/include/uapi/asm $(hdr-dst) HDRCHECK=1
+diff --git a/tools/testing/selftests/Makefile b/tools/testing/selftests/Makefile
+index 4e51122..45661ce 100644
+--- a/tools/testing/selftests/Makefile
++++ b/tools/testing/selftests/Makefile
+@@ -22,15 +22,67 @@ TARGETS += vm
+ TARGETS_HOTPLUG = cpu-hotplug
+ TARGETS_HOTPLUG += memory-hotplug
  
- # ---------------------------------------------------------------------------
--# Kernel selftest
-+# Kernel selftest targets
++# Used in only run_tests target when make kselftest is run in
++# top level source directory
++ifeq "$(origin TARGETS)" "command line"
++no_install_run=1
++endif
 +
-+# Default base path for kselftest install
-+INSTALL_KSFT_PATH = $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
-+export INSTALL_KSFT_PATH
- 
- PHONY += kselftest
- kselftest:
- 	$(Q)$(MAKE) -C tools/testing/selftests run_tests
- 
-+# Kernel selftest install
-+PHONY += kselftest_install
-+kselftest_install:
-+	$(Q)$(MAKE) -C tools/testing/selftests install
++ifdef INSTALL_KSFT_PATH
++KSELFTEST=$(INSTALL_KSFT_PATH)/kselftest.sh
++export KSELFTEST
++# TODO add install target for SKIP_INSTALL_TARGETS
++SKIP_INSTALL_TARGETS = exec powerpc
++INSTALL_TARGETS = $(filter-out $(SKIP_INSTALL_TARGETS),$(TARGETS)) ipc
++else
++no_install_run=1
++endif
 +
- # ---------------------------------------------------------------------------
- # Modules
++INSTALL_KSFT_ERR = "Run make kselftest_install in top level source directory"
++
+ all:
+ 	for TARGET in $(TARGETS); do \
+ 		make -C $$TARGET; \
+ 	done;
  
-@@ -1286,6 +1295,9 @@ help:
- 	@echo  '                    Build, install, and boot kernel before'
- 	@echo  '                    running kselftest on it'
- 	@echo  ''
-+	@echo  '  kselftest_install - Install Kselftests to INSTALL_KSFT_PATH'
-+	@echo  '                      default: $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)'
-+	@echo  ''
- 	@echo  'Kernel packaging:'
- 	@$(MAKE) $(build)=$(package-dir) help
- 	@echo  ''
+-run_tests: all
++install:
++ifdef INSTALL_KSFT_PATH
++	rm -rf $(INSTALL_KSFT_PATH)
++	mkdir -p $(INSTALL_KSFT_PATH)
++
++	make all
++	@echo "#!/bin/sh\n# Kselftest Run Tests ...." >> $(KSELFTEST)
++	@echo "# This file is generated by kselftest_install" >> $(KSELFTEST)
++	@echo "# Please don't change it !!\n"  >> $(KSELFTEST)
++	@echo "echo \"============================\"" >> $(KSELFTEST)
++	for TARGET in $(INSTALL_TARGETS); do \
++		echo "Installing $$TARGET"; \
++		echo "echo \"Start $$TARGET test ....\"" >> $(KSELFTEST); \
++		make -C $$TARGET install; \
++		echo "echo \"End $$TARGET test ....\"" >> $(KSELFTEST); \
++		echo "echo \"============================\"" >> $(KSELFTEST); \
++	done;
++	chmod +x $(KSELFTEST)
++else
++	@echo $(INSTALL_KSFT_ERR)
++endif
++
++run_tests:
++ifndef no_install_run
++# ifdef INSTALL_KSFT_PATH
++	make install
++	@cd $(INSTALL_KSFT_PATH); ./kselftest.sh; cd -
++# invoke run_tests for SKIP_INSTALL_TARGETS
++	for TARGET in $(SKIP_INSTALL_TARGETS); do \
++		make -C $$TARGET run_tests; \
++	done;
++# endif
++else
++	make all
+ 	for TARGET in $(TARGETS); do \
+ 		make -C $$TARGET run_tests; \
+ 	done;
++endif
+ 
+ hotplug:
+ 	for TARGET in $(TARGETS_HOTPLUG); do \
 -- 
 2.1.0
