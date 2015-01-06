@@ -1,30 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] update ip-sysctl.txt documentation
-Date: Tue, 06 Jan 2015 17:31:10 -0500 (EST)
-Message-ID: <20150106.173110.2230465152118236848.davem@davemloft.net>
-References: <1420574648-24213-1-git-send-email-ani@arista.com>
-	<CAOxq_8OGx9VgSaEimAbNZSWjihNqNBXoVg0m8EPRaNX5jLXZiw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ani@arista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56544 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756208AbbAFWbM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 17:31:12 -0500
-In-Reply-To: <CAOxq_8OGx9VgSaEimAbNZSWjihNqNBXoVg0m8EPRaNX5jLXZiw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
 From: Ani Sinha <ani@arista.com>
-Date: Tue, 6 Jan 2015 14:02:29 -0800
+Subject: [PATCH 1/1] update ip-sysctl.txt documentation
+Date: Tue,  6 Jan 2015 14:33:45 -0800
+Message-ID: <1420583625-32414-1-git-send-email-ani@arista.com>
+To: corbet@lwn.net, davem@davemloft.net, edumazet@google.com,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ani@arista.com, P@draigbrady.com, netdev@vger.kernel.org,
+	fruggeri@arista.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> +netdev
+Update documentation to reflect the fact that
+/proc/sys/net/ipv4/route/max_size is no longer used for
+ipv4.
 
-Please just make a fresh list posting, otherwise I have to spend
-a lot of time editing your email to get the commit message and
-other parts to come out right.
+Signed-off-by: Ani Sinha <ani@arista.com>
+---
+ Documentation/networking/ip-sysctl.txt |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-Thanks.
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 9bffdfc..c8a7e37 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -64,8 +64,10 @@ fwmark_reflect - BOOLEAN
+ 	Default: 0
+ 
+ route/max_size - INTEGER
+-	Maximum number of routes allowed in the kernel.  Increase
+-	this when using large numbers of interfaces and/or routes.
++        Post linux kernel 3.6, this is depricated for ipv4 as route cache is no
++        longer used. For ipv6, this is used to limit the maximum number of ipv6
++        routes allowed in the kernel.  Increase this when using large numbers of
++        interfaces and/or routes.
+ 
+ neigh/default/gc_thresh1 - INTEGER
+ 	Minimum number of entries to keep.  Garbage collector will not
+-- 
+1.7.4.4
+
