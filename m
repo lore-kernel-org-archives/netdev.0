@@ -1,43 +1,71 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: Re: [PATCH net-next v1 0/3] net: fec: add Wake-on-LAN support
-Date: Tue, 6 Jan 2015 19:21:42 +0800
-Message-ID: <20150106112140.GK24511@dragon>
-References: <1419413441-3406-1-git-send-email-b38611@freescale.com>
- <20141231.130727.1660985956287926494.davem@davemloft.net>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v4] can: Convert to runtime_pm
+Date: Tue, 06 Jan 2015 12:25:41 +0100
+Message-ID: <54ABC635.10702@pengutronix.de>
+References: <58f37b6fd9104ce185c413c473fe047b@BY2FFO11FD050.protection.gbl> <20141223224308.GC4611@xsjandreislx> <7324bcf422d141f0b09f0cc0e8352479@BN1BFFO11FD005.protection.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: b38611@freescale.com, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, stephen@networkplumber.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:43250 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751511AbbAFLWC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 06:22:02 -0500
-Received: by mail-pa0-f50.google.com with SMTP id bj1so30805658pad.37
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 03:22:02 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20141231.130727.1660985956287926494.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="fBfQnPOe1AIHsx5CQ86ChmxNVmKfOR2CP"
+Cc: "wg@grandegger.com" <wg@grandegger.com>,
+	Michal Simek <michals@xilinx.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>,
+	Soren Brinkmann <sorenb@xilinx.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <7324bcf422d141f0b09f0cc0e8352479@BN1BFFO11FD005.protection.gbl>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 31, 2014 at 01:07:27PM -0500, David Miller wrote:
-> From: Fugang Duan <b38611@freescale.com>
-> Date: Wed, 24 Dec 2014 17:30:38 +0800
-> 
-> > The patch series enable FEC Wake-on-LAN feature for i.MX6q/dl and i.MX6SX SOCs.
-> > FEC HW support sleep mode, when system in suspend status with FEC all clock gate
-> > off, magic packet can wake up system. For different SOCs, there have special SOC
-> > GPR register to let FEC enter sleep mode or exit sleep mode, add these to platform
-> > callback for driver' call.
-> > 
-> > Patch#1: add WOL interface supports.
-> > Patch#2: add SOC special sleep of/off operations for driver's sleep callback.
-> > Patch#3: add magic pattern support for devicetree.
-> 
-> Series applied, thanks.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--fBfQnPOe1AIHsx5CQ86ChmxNVmKfOR2CP
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-I'm not sure you want to take the last two patches.  Doing so will
-likely causes merge conflict between net and arm-soc tree.
+On 01/06/2015 07:23 AM, Appana Durga Kedareswara Rao wrote:
+> Hi Marc,
+>=20
+>         Could you please  provide your feedback on this patch ?
+>=20
+> @Soren : Will update the driver with your comments during next version =
+of the patch.
 
-Shawn
+Sure, I'll return from my season holidays and will be in the office
+tomorrow.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--fBfQnPOe1AIHsx5CQ86ChmxNVmKfOR2CP
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJUq8Y1AAoJECte4hHFiupUkuQP/1hG3v1b+yju6aUe5YL8DAjv
+8vfb381nDBf+i8AFzgfUC9hOW+anp9+hvVnC/Gi0vWoTDiWRmuG9TMjMmF2eT7il
+9pPztogWccRDm7dhkzCbvemDCvZkl94t8TcmVRJFhA02AXdOcurqaDIRbVnR51fY
+V+E6XnQQmxAUtUB1s2iJrmTqVqBZY3inIosyCYunhux+b0zlBODWC/VotUP7uE9J
+qqmxzAAJCpHDKYD5VzSAxQP1va8xSgIE26r28W4af6NRL8AyurpZPwQWB2Pr8DgS
+RcEHnoEieYY2nMQCrYONL6kut8a9mgDIEDCRL6IyLmxAsYJxuRumRh0Am0riWvXq
+T5MFCDq+k+um5Yj6cp49wPUH5nr1sYNdmTknD5tu7dIqoDToKLK+rmtKaV8FApb8
+a+wIgEpVsRDgfXYP+oq5hYl43beh2YFcQ5Fcomb4GrmhY7uCp3Jau8hYRgrYv77a
+/GH6g8lfC7iBv730Ties8ma/eD7xHdqJUEDCqh5XYSk5efik0Txl1vJFSCrO+NKV
+fgo7onm3yKJHMTfeTaNgw327DBRTCfijevCdKfnvfw+vZ2RaMcxGGHbKaQ8TxQJO
+RM+y9T66ScU0jliMecbiU94ssTchq6LUk/cDzj/NYnaz5aazSnNEPQ3rqBsk29hf
+xqqkmviNL8dNCsBTvCgM
+=dSPj
+-----END PGP SIGNATURE-----
+
+--fBfQnPOe1AIHsx5CQ86ChmxNVmKfOR2CP--
