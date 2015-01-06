@@ -1,61 +1,41 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: Re: 3.12.33 - BUG xfrm_selector_match+0x25/0x2f6
-Date: Tue, 06 Jan 2015 13:56:56 +0100
-Message-ID: <54ABDB98.9060504@suse.cz>
-References: <547F2462.6040405@smart-weblications.de> <20141204075627.GE6390@secunet.com> <alpine.LFD.2.11.1412042338370.4841@ja.home.ssi.bg> <5481173A.9060308@smart-weblications.de> <alpine.LFD.2.11.1412051126090.2522@ja.home.ssi.bg> <5481B944.2000002@smart-weblications.de> <alpine.LFD.2.11.1412072019410.1885@ja.home.ssi.bg> <54858948.2060007@smart-weblications.de> <alpine.LFD.2.11.1412082234350.2401@ja.home.ssi.bg> <5486CD9D.4060107@smart-weblications.de> <alpine.LFD.2.11.1412102331230.4043@ja.home.ssi.bg> <5489A465.6090305@smart-weblications.de> <alpine.LFD.2.11.1412132211260.3229@ja.home.ssi.bg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	stable@vger.kernel.org, Simon Horman <horms@verge.net.au>,
-	lvs-devel@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>,
-	Smart Weblications GmbH - Florian Wiessner
-	<f.wiessner@smart-weblications.de>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.11.1412132211260.3229@ja.home.ssi.bg>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH net-next] arm_arch_timer: include clocksource.h directly
+Date: Tue,  6 Jan 2015 14:26:13 +0100
+Message-ID: <1420550773-6752-1-git-send-email-richardcochran@gmail.com>
+Cc: <linux-kernel@vger.kernel.org>, David Miller <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:48286 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751486AbbAFN0S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 08:26:18 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/13/2014, 09:19 PM, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Thu, 11 Dec 2014, Smart Weblications GmbH - Florian Wiessner wrote:
-> 
->>>> [  512.485323] CPU: 4 PID: 28142 Comm: vsftpd Not tainted 3.12.33 #5
->>>
->>> 	Above "#5" is same as previous oops. It means kernel
->>> is not updated. Or you updated only the IPVS modules after
->>> applying the both patches?
->>
->> I did it with make-kpkg --initrd linux_image which only rebuilt the modules,
->> correct. I can retry with make clean before building the package
-> 
-> 	I just tested PASV and PORT with 3.12.33 including
-> both patches (seq adj fix + ip_route_me_harder fix) and do not
-> see any crashes in nf_ct_seqadj_set. If you still have problem
-> with FTP send me more info offlist.
-> 
->>> 	You can also try without FTP tests to see if there
->>> are oopses in xfrm, so that we can close this topic and then
->>> to continue for the FTP problem on IPVS lists without
->>> bothering non-IPVS people.
->>>
->>
->> yeah, it seems that the xfrm issue is away.
-> 
-> 	Thanks for the confirmation!
+This driver makes use of the clocksource code. Previously it had only
+included the proper header indirectly, but that chain was inadvertently
+broken by 74d23cc "time: move the timecounter/cyclecounter code into its
+own file."
 
-Great! Thanks for tracking it down.
+This patch fixes the issue by including clocksource.h directly.
 
-So what should be done to fix the issue in stable 3.12? Are those
-patches needed in the upstream kernel too? In that case I suppose it
-will propagate to me through upstream. Otherwise, could you send "3.12
-only" patches to stable@ so that I can apply them?
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+---
+ drivers/clocksource/arm_arch_timer.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-thanks,
+diff --git a/drivers/clocksource/arm_arch_timer.c b/drivers/clocksource/arm_arch_timer.c
+index 6a79fc4..8e67e72 100644
+--- a/drivers/clocksource/arm_arch_timer.c
++++ b/drivers/clocksource/arm_arch_timer.c
+@@ -15,6 +15,7 @@
+ #include <linux/cpu.h>
+ #include <linux/cpu_pm.h>
+ #include <linux/clockchips.h>
++#include <linux/clocksource.h>
+ #include <linux/interrupt.h>
+ #include <linux/of_irq.h>
+ #include <linux/of_address.h>
 -- 
-js
-suse labs
+1.7.10.4
