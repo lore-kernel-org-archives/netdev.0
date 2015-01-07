@@ -1,125 +1,115 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] Driver: Vmxnet3: Reinitialize vmxnet3 backend
- on wakeup from hibernate
-Date: Thu, 08 Jan 2015 00:57:50 +0300
-Message-ID: <54ADABDE.6030008@cogentembedded.com>
-References: <1420653393-27657-1-git-send-email-skhare@vmware.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v1 01/11] net: flow_table: create interface for
+ hw match/action tables
+Date: Wed, 07 Jan 2015 14:00:25 -0800
+Message-ID: <54ADAC79.5080608@gmail.com>
+References: <CAADnVQLGLy5w8fcUKdVG6g6EpMJ=n=NMn=pq+mdYSqAOJdtk=w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Srividya Murali <smurali@vmware.com>
-To: Shrikrishna Khare <skhare@vmware.com>, sbhatewara@vmware.com,
-	pv-drivers@vmware.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1420653393-27657-1-git-send-email-skhare@vmware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	simon.horman@netronome.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:61552 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752302AbbAGWAn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 17:00:43 -0500
+Received: by mail-ob0-f176.google.com with SMTP id vb8so5405338obc.7
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 14:00:42 -0800 (PST)
+In-Reply-To: <CAADnVQLGLy5w8fcUKdVG6g6EpMJ=n=NMn=pq+mdYSqAOJdtk=w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 01/07/2015 08:56 PM, Shrikrishna Khare wrote:
-
-> Failing to reinitialize on wakeup results in loss of network connectivity for
-> vmxnet3 interface.
-
-> Signed-off-by: Srividya Murali <smurali@vmware.com>
-> Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
-> Reviewed-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
-> ---
->   drivers/net/vmxnet3/vmxnet3_drv.c |   50 +++++++++++++++++++++---------------
->   drivers/net/vmxnet3/vmxnet3_int.h |    4 +-
->   2 files changed, 31 insertions(+), 23 deletions(-)
-
-> diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-> index 7af1f5c..124cb9f 100644
-> --- a/drivers/net/vmxnet3/vmxnet3_drv.c
-> +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-> @@ -3290,51 +3290,59 @@ skip_arp:
->   static int
->   vmxnet3_resume(struct device *device)
->   {
-> -	int err, i = 0;
-> +	int err;
->   	unsigned long flags;
->   	struct pci_dev *pdev = to_pci_dev(device);
->   	struct net_device *netdev = pci_get_drvdata(pdev);
->   	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
-> -	struct Vmxnet3_PMConf *pmConf;
+On 01/07/2015 01:17 PM, Alexei Starovoitov wrote:
+> On Tue, Jan 6, 2015 at 9:37 PM, John Fastabend <john.fastabend@gmail.com> wrote:
+>>> - above plus put_header_graph() which will allow to
+>>>     rearrange some fixed sized headers ?
+>>
+>> OK but I'm not sure where/if these devices exist. Maybe your
+>> thinking of a software dataplane case? Would get_headers return
+>> some headers/fields but not include them in the graph and then
+>> expect the user to build a graph with them if the user needs
+>> them. Are there restrictions on how the graph can be built
+>> out? I guess I'm working with the assumption that the device
+>> returns a complete parse graph for all combinations it supports.
 >
->   	if (!netif_running(netdev))
->   		return 0;
->
-> -	/* Destroy wake-up filters. */
-> -	pmConf = adapter->pm_conf;
-> -	memset(pmConf, 0, sizeof(*pmConf));
-> -
-> -	adapter->shared->devRead.pmConfDesc.confVer = cpu_to_le32(1);
-> -	adapter->shared->devRead.pmConfDesc.confLen = cpu_to_le32(sizeof(
-> -								  *pmConf));
-> -	adapter->shared->devRead.pmConfDesc.confPA =
-> -		cpu_to_le64(adapter->pm_conf_pa);
-> -
-> -	netif_device_attach(netdev);
->   	pci_set_power_state(pdev, PCI_D0);
->   	pci_restore_state(pdev);
->   	err = pci_enable_device_mem(pdev);
->   	if (err != 0)
-> -		return err;
-> +		goto err;
+> ahh. I thought that get_hdr_graph() will return one
+> that is currently configured and put_hdr_graph()
+> will try to configure new sequence of headers.
+> I think returning all possible combinations is not practical,
+> since number of such combinations can be very large for
+> some hw.
 
-    Why?
+Agree here I think it should return the currently configured
+and active hdr graph. Just to be clear I had assumed that any driver
+that supported put_header_graph would also support a put_headers
+call. basically your case 3 below.
+
+> Also it seems that 4/11 patch and rocker_header_nodes[]
+> in particular describing one graph instead of
+> all possible?
+
+It returns the one and only graph rocker supports now or at least
+the graph of supported headers as I read the rocker code. As
+rocker becomes more flexible I would expect this to grow including
+tunnels, stacked headers, tcp, etc.
 
 >
->   	pci_enable_wake(pdev, PCI_D0, 0);
+>>> - above plus put_header() ?
+>>>     I'm having a hard time envisioning how that would
+>>>     look like.
+>>
+>> This case makes more sense to me. The user supplies the definition
+>> of the headers and the graph showing how they are related and the
+>> driver can program the parser to work correctly.
 >
-> +	vmxnet3_alloc_intr_resources(adapter);
-> +
-> +	/* During hibernate and suspend, device has to be reinitialized as the
-> +	 * device state need not be preserved.
-> +	 */
-> +
-> +	/* Need not check adapter state as other reset tasks cannot run during
-> +	 * device resume.
-> +	 */
->   	spin_lock_irqsave(&adapter->cmd_lock, flags);
->   	VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
-> -			       VMXNET3_CMD_UPDATE_PMCFG);
-> +			       VMXNET3_CMD_QUIESCE_DEV);
->   	spin_unlock_irqrestore(&adapter->cmd_lock, flags);
-> -	vmxnet3_alloc_intr_resources(adapter);
-> -	vmxnet3_request_irqs(adapter);
-> -	for (i = 0; i < adapter->num_rx_queues; i++)
-> -		napi_enable(&adapter->rx_queue[i].napi);
-> -	vmxnet3_enable_all_intrs(adapter);
-> +	vmxnet3_tq_cleanup_all(adapter);
-> +	vmxnet3_rq_cleanup_all(adapter);
+> yes, assuming that put_hdr_graph() programs one
+> sequence of jumping through hdrs...
+> but I think it's also fine if you do one put_hdrs_and_graph()
+> function as you described.
 >
-> -	return 0;
-> +	vmxnet3_reset_dev(adapter);
-> +	err = vmxnet3_activate_dev(adapter);
-> +	if (err) {
-> +		netdev_err(adapter->netdev,
+>> To be honest though I would really be happy getting the 1st option
+>> working.
+>
+> agree.
+> as long as we don't screw up get*() semantics that
+> prevent clean put*() logic :)
+> To illustrate my point:
+> if hw parser can parse 2 vlans and there is
+> no way to configure it to do zero, one or three, it's perfectly
+> fine for put_hdr_graph() to fail when it tries to configure
+> something different.
+> But if hw can be configured to do 1 vlan or 2 vlans, it
+> would be overkill to pass both graphs in get().
+> Just pass one that is currently active and let put() try things?
 
-    Not just 'netdev'?
+This is what I intended. I think it is good enough.
 
-> +			   "%s: failed to re-activate on resume, error: %d",
-> +		    netdev->name, err);
+> I think get_hdrs() on its own is good enough indication
+> to the user what hw is capable of and hdr_graph is
+> just a jump table between them. If hw can parse vxlan
+> without vxlan extensions it will be clearly seen in get_hdrs,
+> so no point trying to do put_hdrs() with some new
+> definition of vxlan unless parser is fully programmable.
+> that's where I was going with my category 2 where
+> only put_hdr_graph() exists... imo it will fit trident
+> and alta models ?
+> Personally I believe that we should design this API
+> with as much as possible real hw in mind.
+> rocker can support different models of hw...
+>
 
-    Should have been aligned with the line right above. And isn't netdev->name 
-printed by netdev_err() already?
+Yep. Which is why at some point I would like to program up
+a couple other "worlds" for rocker that have different pipelines.
+This would allow experimenting with more then the current static
+model rocker uses.
 
-> +		vmxnet3_force_close(adapter);
-> +		goto err;
 
-    Why not just *return*?
-
-> +	}
-> +	netif_device_attach(netdev);
-> +
-> +err:
-> +	return err;
->   }
-[...]
-
-WBR, Sergei
+-- 
+John Fastabend         Intel Corporation
