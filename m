@@ -1,95 +1,37 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 6/6] driver/net/irda: Replace timeval with ktime_t in vlsi_ir
-Date: Wed, 07 Jan 2015 09:59:21 +0100
-Message-ID: <25851353.A4KvfMplxB@wuerfel>
-References: <1420601978-15866-7-git-send-email-zhang.chunyan@linaro.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next v2 4/7] rhashtable: future table needs to be
+ traversed when remove an object
+Date: Wed, 7 Jan 2015 09:39:00 +0000
+Message-ID: <20150107093900.GI21820@casper.infradead.org>
+References: <1420609318-3261-1-git-send-email-ying.xue@windriver.com>
+ <1420609318-3261-5-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: samuel@sortiz.org, zhang.lyra@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Chunyan Zhang <zhang.chunyan@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1420601978-15866-7-git-send-email-zhang.chunyan@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, jon.maloy@ericsson.com,
+	Paul.Gortmaker@windriver.com, erik.hugne@ericsson.com,
+	netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
+To: Ying Xue <ying.xue@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:60981 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752143AbbAGJjB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 04:39:01 -0500
+Content-Disposition: inline
+In-Reply-To: <1420609318-3261-5-git-send-email-ying.xue@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 07 January 2015 11:39:38 Chunyan Zhang wrote:
-> This patch changes the 32-bit time type (timeval) to the 64-bit one
-> (ktime_t), since 32-bit time types will break in the year 2038.
-> So, I use ktime_t instead of all uses of timeval.
+On 01/07/15 at 01:41pm, Ying Xue wrote:
+> When remove an object from hash table, we currently only traverse old
+> bucket table to check whether the object exists. If the object is not
+> found in it, we will try again. But in the second search loop, we still
+> search the object from the old table instead of future table. As a
+> result, the object may be not removed from hash table especially when
+> resizing is currently in progress and the object is just saved in the
+> future table.
 > 
-> This patch also changes do_gettimeofday() to ktime_get() accordingly,
-> since ktime_get returns a ktime_t, but do_gettimeofday returns a
-> struct timeval, and the other reason is that ktime_get() uses
-> the monotonic clock.
-> 
-> This patch uses ktime_us_delta to get the elapsed time of microsecond,
-> and uses div_s64_rem to get what seconds & microseconds time elapsed
-> for printing.
-> 
-> This patch also changes the code of function 'vlsi_hard_start_xmit' to
-> do the same things as the others drivers, that is passing the remaining
-> time into udelay() instead of looping until enough time has passed.
-> 
-> Signed-off-by: Chunyan Zhang <zhang.chunyan@linaro.org>
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> Cc: Thomas Graf <tgraf@suug.ch>
 
-All six patches look correct to me now, nice work!
-
-I have a few very minor comments still, some of which apply to the
-other patches as well:
-
-* Your patch changelog starts each paragraph with 'This patch', which is
-  correct but is a little strange to read. You could start the first paragraph
-  explaining what the driver currently does and why we want to change it,
-  like "The vlsi ir driver uses 'timeval', which we try to remove in the
-  kernel because all 32-bit time types will break in the year 2038".
-
-* It would also be good to explain that none of these drivers are actually
-  broken regarding y2038 at the moment and that the change is only done to
-  remove the need for auditing this fact again.
-
-> @@ -180,8 +181,8 @@ static void vlsi_proc_ndev(struct seq_file *seq, struct net_device *ndev)
->  	vlsi_irda_dev_t *idev = netdev_priv(ndev);
->  	u8 byte;
->  	u16 word;
-> -	unsigned delta1, delta2;
-> -	struct timeval now;
-> +	ktime_t now;
-> +	s32 sec, usec;
->  	unsigned iobase = ndev->base_addr;
-
-* you now have a local variable that is only used to be passed into ktime_us_delta.
-  While there is no difference to the compiler, I would probably shorten this
-  and avoid the local variable by passing the result of ktime_get() directly
-  into ktime_us_delta().
-  For the drivers that store the 'now' variable in a data structure, doing the
-  same change shrinks the driver specific data structure, which is an added
-  benefit.
-
-> -		for(;;) {
-> -			do_gettimeofday(&now);
-> -			if (now.tv_sec > ready.tv_sec ||
-> -			    (now.tv_sec==ready.tv_sec && now.tv_usec>=ready.tv_usec))
-> -			    	break;
-> -			udelay(100);
-> -			/* must not sleep here - called under netif_tx_lock! */
-> -		}
-> +		now = ktime_get();
-> +		diff = ktime_us_delta(now, idev->last_rx);
-> +		if (mtt > diff)
-> +			udelay(mtt - diff);
->  	}
-
-The change looks good, but you remove a useful comment about sleeping inside of
-netif_tx_lock. I would not bother adding the same comment to the other drivers,
-but it still applies to the udelay call here so I would move it there.
-Note that generally we try hard to avoid the use of long 'udelay' calls, but
-I wouldn't expect you to change the drivers for this.
-
-When you submit the next version and you have addressed my last comments,
-please add
-
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
-
-	Arnd
+Nice catch!
+Acked-by: Thomas Graf <tgraf@suug.ch>
