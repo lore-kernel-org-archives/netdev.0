@@ -1,52 +1,74 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH] wireless extensions should default to Y
-Date: Wed, 7 Jan 2015 12:03:23 +0100
-Message-ID: <20150107110323.GB7368@amd>
-References: <20150107101903.GA6563@amd>
- <1420627315.3407.2.camel@sipsolutions.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/6] vxlan: Group Policy extension
+Date: Wed, 7 Jan 2015 11:01:18 +0000
+Message-ID: <20150107110118.GO21820@casper.infradead.org>
+References: <CAADnVQ+EO34qYbK+sji-Da3CMkn+-V-9Uvdar_WgxRQ4_+JFXA@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CAC2740@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jikos@suse.cz, kernel list <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	davem@davemloft.net, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: 'Alexei Starovoitov' <alexei.starovoitov@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesse Gross <jesse@nicira.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin Shelar <pshelar@nicira.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:33209 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752380AbbAGLBV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 06:01:21 -0500
 Content-Disposition: inline
-In-Reply-To: <1420627315.3407.2.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAC2740@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed 2015-01-07 11:41:55, Johannes Berg wrote:
-> On Wed, 2015-01-07 at 11:19 +0100, Pavel Machek wrote:
-> > Do we need following patch on top of
-> > 24a0aa212ee2dbe44360288684478d76a8e20a0a revert?
+On 01/07/15 at 10:03am, David Laight wrote:
+> From: Alexei Starovoitov
+> > On Tue, Jan 6, 2015 at 6:05 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> > > +struct vxlan_gbp {
+> > > +#ifdef __LITTLE_ENDIAN_BITFIELD
+> > > +       __u8    reserved_flags1:3,
+> > ...
+> > > +       __be16 policy_id;
+> > > +} __packed;
 > > 
-> > I updated kernel today, and (probably because extensions were not
-> > selectable before), the default choice was "N", which is wrong:
-> > oldconfig should result in compatible choices being made, for example
-> > to help bisect.
+> > are you sure that compiler will be smart enough
+> > to do single short load when you pack
+> > u8 + struct vxlan_gbp inside struct vxlanhdr ?
+> > I suspect compiler will use two byte loads
+> > with shifts and ors every time to access policy_id.
+> > Even it works ok, I think this struct layout is ugly.
+> > imo would be much easier to read if you replace
+> > the whole vxlanhdr with vxlanhdr_gbp
+> > or split vxlanhdr into two 32-bit structs.
+> > then __packed hacks won't be needed.
+
+If I read objdump output correctly, gcc seems fine with it:
+
+        /* For backwards compatibility, only allow reserved fields to be
+         * used by VXLAN extensions if explicitly requested.
+         */
+        if (vs->exts) {
+                if (!vxh->vni_present)
+    2640:       41 0f b6 55 08          movzbl 0x8(%r13),%edx
+    2645:       f6 c2 08                test   $0x8,%dl
+    2648:       74 c2                   je     260c <vxlan_udp_encap_recv+0x9c>
+    [...]
+                        md.gbp = ntohs(vxh->gbp.policy_id);
+    2652:       41 0f b7 55 0a          movzwl 0xa(%r13),%edx
+
+Let me know what I have to do/provide to validate this properly.
+
+> Also, if you are writing the values then you need to write
+> all the members of the bitfield in order to get a single write.
 > 
-> I don't believe we need this. It has been defaulting to N for a long
-> time, it's just that it got thrown out of your config due to building
-> inbetween the patch and its revert. Had you built only before and after
-> that wouldn't be an issue.
+> Basically you are much better off using explicit masks.
 
-Well, I clearly hit the issue. If someone had _not_ build in between,
-the "default y" does not change anything for him, as he will not be
-asked thequestion. If someone starts config from scratch, Y is the
-safe answer.
-
-> If we default to Y now we send the wrong signal. If you really need to
-> bisect something wext related you have far bigger issues I'd think, the
-> code hasn't changed *forever*.
-
-I am woried about bisecting something unrelated, and then wext coming
-and breaking the bisect. But you are right that it will break the
-bisect, anyway...
-
-                                                                        Pavel
-									
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+I went back and forth on this and chose to use individual bit fields
+and map them to a static bit definition which is exported via Netlink.
+That way the user space Netlink interface remains stable should the
+wire protocol ever change. Yes, this implies some branching which could
+be avoided right now as long as user and wire protocol are identical. I
+did not observe any performance differences in benchmarks though.
