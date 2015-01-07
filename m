@@ -1,45 +1,52 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH iproute2 -next] ip: route: add congestion control metric
-Date: Wed, 07 Jan 2015 11:21:29 +0100
-Message-ID: <54AD08A9.9000205@redhat.com>
-References: <1420588357-17665-1-git-send-email-dborkman@redhat.com> <20150106170926.5bb2d816@urahara>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net-next v2 6/7] rhashtable: initialize atomic nelems
+ variable
+Date: Wed, 7 Jan 2015 18:26:21 +0800
+Message-ID: <54AD09CD.3010100@windriver.com>
+References: <1420609318-3261-1-git-send-email-ying.xue@windriver.com> <1420609318-3261-7-git-send-email-ying.xue@windriver.com> <20150107095332.GK21820@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: fw@strlen.de, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: <davem@davemloft.net>, <jon.maloy@ericsson.com>,
+	<Paul.Gortmaker@windriver.com>, <erik.hugne@ericsson.com>,
+	<netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42378 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751021AbbAGKVp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2015 05:21:45 -0500
-In-Reply-To: <20150106170926.5bb2d816@urahara>
+Received: from mail.windriver.com ([147.11.1.11]:58230 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752093AbbAGK1F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 05:27:05 -0500
+In-Reply-To: <20150107095332.GK21820@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/07/2015 02:09 AM, Stephen Hemminger wrote:
-> On Wed,  7 Jan 2015 00:52:37 +0100
-> Daniel Borkmann <dborkman@redhat.com> wrote:
->
->> +		} else if (matches(*argv, "congctl") == 0) {
->> +			char cc[16];
->> +			NEXT_ARG();
->> +			memset(cc, 0, sizeof(cc));
->> +			if (strcmp(*argv, "lock") == 0) {
->> +				mxlock |= (1<<RTAX_CC_ALGO);
->
-> Unneeded paren
+On 01/07/2015 05:53 PM, Thomas Graf wrote:
+> On 01/07/15 at 01:41pm, Ying Xue wrote:
+>> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+>> Cc: Thomas Graf <tgraf@suug.ch>
+> 
+> Is this really needed at all? We initialize the full rhashtable
+> struct to 0 in rhashtable_init().
+> 
+> 
 
-Yep, I kept it consistent across all mxlock assignments of this file,
-but I can remove it, sure.
+I am not sure whether we really need to reinitialize atomic variable
+again although we have reset it with memset() or something else. But I
+see many places in kernel where we do this, for example:
 
->> +				NEXT_ARG();
->> +			}
->> +			strncpy(cc, *argv, sizeof(cc) - 1);
->> +			if (strlen(cc) == 0)
->> +				invarg("\"conctl\" value must be an algorithm name\n", *argv
->
-> Silently truncating the string is not odd. Can't we just let kernel impose
-> length restrictions.
+Although we use kmem_cache_zalloc() to allocate "net" structure instance
+in net_alloc(), there are still several places where to reinitialize its
+atomic variables again:
 
-Sure, will respin, thanks.
+setup_net()
+  atomic_set(&net->use_count, 0);
+
+rt_genid_init()
+  atomic_set(&net->ipv4.rt_genid, 0);
+  atomic_set(&net->fnhe_genid, 0);
+
+Can you please definitely confirm that the reinitialisation is redundant
+for us?
+
+Regards,
+Ying
