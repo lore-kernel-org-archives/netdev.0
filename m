@@ -1,39 +1,42 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH iproute2 -next] ip: route: add congestion control metric
-Date: Wed, 7 Jan 2015 12:22:49 +0200
-Message-ID: <20150107102249.GA4019@angus-think.lan>
-References: <1420588357-17665-1-git-send-email-dborkman@redhat.com>
- <20150106170926.5bb2d816@urahara>
- <54AD08A9.9000205@redhat.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH] wireless extensions should default to Y
+Date: Wed, 07 Jan 2015 11:41:55 +0100
+Message-ID: <1420627315.3407.2.camel@sipsolutions.net>
+References: <20150107101903.GA6563@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>, fw@strlen.de,
-	netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f48.google.com ([209.85.215.48]:35043 "EHLO
-	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751400AbbAGKdM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 05:33:12 -0500
-Received: by mail-la0-f48.google.com with SMTP id gf13so2556075lab.7
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 02:33:11 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <54AD08A9.9000205@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: jikos-AlSwsSmVLrQ@public.gmane.org, kernel list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150107101903.GA6563@amd>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 07, 2015 at 11:21:29AM +0100, Daniel Borkmann wrote:
-> On 01/07/2015 02:09 AM, Stephen Hemminger wrote:
-> >On Wed,  7 Jan 2015 00:52:37 +0100
-> >Daniel Borkmann <dborkman@redhat.com> wrote:
-> >
-> >>+		} else if (matches(*argv, "congctl") == 0) {
-> >>+			char cc[16];
-> >>+			NEXT_ARG();
-> >>+			memset(cc, 0, sizeof(cc));
-> >>+			if (strcmp(*argv, "lock") == 0) {
-> >>+				mxlock |= (1<<RTAX_CC_ALGO);
-> >
-> >Unneeded paren
+On Wed, 2015-01-07 at 11:19 +0100, Pavel Machek wrote:
+> Do we need following patch on top of
+> 24a0aa212ee2dbe44360288684478d76a8e20a0a revert?
 > 
- And what about spaces arount "<<" ?
+> I updated kernel today, and (probably because extensions were not
+> selectable before), the default choice was "N", which is wrong:
+> oldconfig should result in compatible choices being made, for example
+> to help bisect.
+
+I don't believe we need this. It has been defaulting to N for a long
+time, it's just that it got thrown out of your config due to building
+inbetween the patch and its revert. Had you built only before and after
+that wouldn't be an issue.
+
+If we default to Y now we send the wrong signal. If you really need to
+bisect something wext related you have far bigger issues I'd think, the
+code hasn't changed *forever*.
+
+johannes
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
