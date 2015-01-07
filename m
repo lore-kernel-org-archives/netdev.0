@@ -1,44 +1,59 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: IPsec workshop at netdev01?
-Date: Wed, 7 Jan 2015 11:31:37 +0100
-Message-ID: <20150107103137.GB13046@secunet.com>
-References: <20150106101936.GC31458@secunet.com>
- <20150106170026.GD11324@breakpoint.cc>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net-next v2 5/7] rhashtable: avoid
+ unnecessary wakeup for worker queue
+Date: Wed, 7 Jan 2015 18:28:42 +0800
+Message-ID: <54AD0A5A.60207@windriver.com>
+References: <1420609318-3261-1-git-send-email-ying.xue@windriver.com>
+	<1420609318-3261-6-git-send-email-ying.xue@windriver.com>
+	<20150107095013.GJ21820@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, Jamal Hadi Salim <jhs@mojatatu.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:50979 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752334AbbAGKbl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2015 05:31:41 -0500
-Content-Disposition: inline
-In-Reply-To: <20150106170026.GD11324@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	Paul.Gortmaker@windriver.com,
+	tipc-discussion@lists.sourceforge.net, davem@davemloft.net
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <20150107095013.GJ21820@casper.infradead.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 06, 2015 at 06:00:26PM +0100, Florian Westphal wrote:
-> Steffen Klassert <steffen.klassert@secunet.com> wrote:
-> > - We still lack a 32/64 bit compatibiltiy layer for IPsec, this issue
-> >   comes up from time to time. Some solutions were proposed in the past
-> >   but all had problems. The current behaviour is broken if someone tries
-> >   to configure IPsec with 32 bit tools on a 64 bit machine. Can we get
-> >   this right somehow or is it better to just return an error in this case?
+On 01/07/2015 05:50 PM, Thomas Graf wrote:
+> On 01/07/15 at 01:41pm, Ying Xue wrote:
+>> Move condition statements of verifying whether hash table size exceeds
+>> its maximum threshold or reaches its minimum threshold from resizing
+>> functions to resizing decision functions, avoiding unnecessary wakeup
+>> for worker queue thread.
+>>
+>> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+>> Cc: Thomas Graf <tgraf@suug.ch>
 > 
-> FWIW I think
-> http://patchwork.ozlabs.org/patch/49465/
+> Good optimization, thanks!
 > 
-> came closest to achieving full CONFIG_COMPAT support; since netlink is
-> no longer async now I'm not sure we'd still need additonal 32-compat syscalls
-> to make compat work for all cases.
+> Acked-by: Thomas Graf <tgraf@suug.ch>
 > 
-> So "its ugly as hell" is probably the only problem that is hard to avoid ;-)
+> Can you do a follow-up patch and add a note in rhashtable.h to
+> indicate the implementation of the grow and shrink decision function
+> must enforce min/max shift?
+> 
+> 
 
-Yeah, and it will be no fun to maintain it...
+Thanks for the reminder, and I will do this later.
 
-So the question is still, do we really need/want it or should we
-tell that this is not supported. We just can't leave it as it is.
-We allow to configure with 32 bit tools, but the result is crap.
+Regards,
+Ying
+
+
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming! The Go Parallel Website,
+sponsored by Intel and developed in partnership with Slashdot Media, is your
+hub for all things parallel software development, from weekly thought
+leadership blogs to news, videos, case studies, tutorials and more. Take a
+look and join the conversation now. http://goparallel.sourceforge.net
