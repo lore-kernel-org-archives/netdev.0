@@ -1,49 +1,46 @@
-From: Chunhao Lin <hau@realtek.com>
-Subject: [PATCH net-next 02/11] r8169:update rtl8168e and rtl8168evl jumbo frame patch
-Date: Thu, 8 Jan 2015 00:40:17 +0800
-Message-ID: <1420648826-12972-3-git-send-email-hau@realtek.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 07/11] r8169:update rtl8168f pcie ephy parameter
+Date: Wed, 7 Jan 2015 16:45:58 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAC2C99@AcuExch.aculab.com>
 References: <1420648826-12972-1-git-send-email-hau@realtek.com>
+ <1420648826-12972-8-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	Chunhao Lin <hau@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:41848 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753871AbbAGQkf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 11:40:35 -0500
-In-Reply-To: <1420648826-12972-1-git-send-email-hau@realtek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "nic_swsd@realtek.com" <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Chunhao Lin' <hau@realtek.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1420648826-12972-8-git-send-email-hau@realtek.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-For RTL8168E and RTL8168EVL, these two chips do not need to change pcie max
-read request size when jumbo frame is enabled.
+From: Chunhao Lin
+> rtl8168f may return to PCIe L0 from PCIe L0s low power mode too slow.
+> The following ephy parameters are for this issue.
+> { 0x00, 0x0000,	0x0008 }
+> { 0x0c, 0x3df0,	0x0200 }
+> 
+> Signed-off-by: Chunhao Lin <hau@realtek.com>
+> ---
+>  drivers/net/ethernet/realtek/r8169.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index 1874583..bafa132 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -5852,7 +5852,9 @@ static void rtl_hw_start_8168f_1(struct rtl8169_private *tp)
+>  		{ 0x06, 0x00c0,	0x0020 },
+>  		{ 0x08, 0x0001,	0x0002 },
+>  		{ 0x09, 0x0000,	0x0080 },
+> -		{ 0x19, 0x0000,	0x0224 }
+> +		{ 0x19, 0x0000,	0x0224 },
+> +		{ 0x00, 0x0000,	0x0008 },
+> +		{ 0x0c, 0x3df0,	0x0200 }
 
-Signed-off-by: Chunhao Lin <hau@realtek.com>
----
- drivers/net/ethernet/realtek/r8169.c | 2 --
- 1 file changed, 2 deletions(-)
+I can't help feeling these lines all require short comments.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 2f97476..5bfd0b9 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -4934,7 +4934,6 @@ static void r8168e_hw_jumbo_enable(struct rtl8169_private *tp)
- 	RTL_W8(MaxTxPacketSize, 0x3f);
- 	RTL_W8(Config3, RTL_R8(Config3) | Jumbo_En0);
- 	RTL_W8(Config4, RTL_R8(Config4) | 0x01);
--	rtl_tx_performance_tweak(tp->pci_dev, 0x2 << MAX_READ_REQUEST_SHIFT);
- }
- 
- static void r8168e_hw_jumbo_disable(struct rtl8169_private *tp)
-@@ -4944,7 +4943,6 @@ static void r8168e_hw_jumbo_disable(struct rtl8169_private *tp)
- 	RTL_W8(MaxTxPacketSize, 0x0c);
- 	RTL_W8(Config3, RTL_R8(Config3) & ~Jumbo_En0);
- 	RTL_W8(Config4, RTL_R8(Config4) & ~0x01);
--	rtl_tx_performance_tweak(tp->pci_dev, 0x5 << MAX_READ_REQUEST_SHIFT);
- }
- 
- static void r8168b_0_hw_jumbo_enable(struct rtl8169_private *tp)
--- 
-1.9.1
+	David
