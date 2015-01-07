@@ -1,174 +1,165 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net v2 1/3] i40e: fix un-necessary Tx hangs
-Date: Tue,  6 Jan 2015 17:31:55 -0800
-Message-ID: <1420594317-6191-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1420594317-6191-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:43209 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753217AbbAGBcF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jan 2015 20:32:05 -0500
-In-Reply-To: <1420594317-6191-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Tue, 06 Jan 2015 20:35:42 -0500 (EST)
+Message-ID: <20150106.203542.1515714670133944465.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-When the driver was polling with interrupts disabled the hardware
-will occasionally not write back descriptors.  This patch causes
-the driver to detect this situation and force an interrupt to
-fire which will flush the stuck descriptor.  Does not conflict
-with napi because if we are already polling the napi_schedule is
-ignored.  Additionally the extra interrupts are rate limited, so
-don't cause a burden to the CPU.
+Just a pile of random fixes, including:
 
-Change-ID: Iba4616d2a71288672a5f08e4512e2704b97335e8
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-v2: fixed a bug where the interrupt rate impacted 4 port workloads by
-    reducing throughput.
+1) Do not apply TSO limits to non-TSO packets, fix from Herbert
+   Xu.
 
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 56 ++++++++++++++++++++++++-----
- drivers/net/ethernet/intel/i40e/i40e_txrx.h |  1 +
- 2 files changed, 49 insertions(+), 8 deletions(-)
+2) MDI{,X} eeprom check in e100 driver is reversed, from
+   John W. Linville.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 04b4414..f145aaf 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -658,6 +658,8 @@ static inline u32 i40e_get_head(struct i40e_ring *tx_ring)
- 	return le32_to_cpu(*(volatile __le32 *)head);
- }
- 
-+#define WB_STRIDE 0x3
-+
- /**
-  * i40e_clean_tx_irq - Reclaim resources after transmit completes
-  * @tx_ring:  tx ring to clean
-@@ -759,6 +761,18 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- 	tx_ring->q_vector->tx.total_bytes += total_bytes;
- 	tx_ring->q_vector->tx.total_packets += total_packets;
- 
-+	/* check to see if there are any non-cache aligned descriptors
-+	 * waiting to be written back, and kick the hardware to force
-+	 * them to be written back in case of napi polling
-+	 */
-+	if (budget &&
-+	    !((i & WB_STRIDE) == WB_STRIDE) &&
-+	    !test_bit(__I40E_DOWN, &tx_ring->vsi->state) &&
-+	    (I40E_DESC_UNUSED(tx_ring) != tx_ring->count))
-+		tx_ring->arm_wb = true;
-+	else
-+		tx_ring->arm_wb = false;
-+
- 	if (check_for_tx_hang(tx_ring) && i40e_check_tx_hang(tx_ring)) {
- 		/* schedule immediate reset if we believe we hung */
- 		dev_info(tx_ring->dev, "Detected Tx Unit Hang\n"
-@@ -777,13 +791,16 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- 		netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
- 
- 		dev_info(tx_ring->dev,
--			 "tx hang detected on queue %d, resetting adapter\n",
-+			 "tx hang detected on queue %d, reset requested\n",
- 			 tx_ring->queue_index);
- 
--		tx_ring->netdev->netdev_ops->ndo_tx_timeout(tx_ring->netdev);
-+		/* do not fire the reset immediately, wait for the stack to
-+		 * decide we are truly stuck, also prevents every queue from
-+		 * simultaneously requesting a reset
-+		 */
- 
--		/* the adapter is about to reset, no point in enabling stuff */
--		return true;
-+		/* the adapter is about to reset, no point in enabling polling */
-+		budget = 1;
- 	}
- 
- 	netdev_tx_completed_queue(netdev_get_tx_queue(tx_ring->netdev,
-@@ -806,7 +823,25 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- 		}
- 	}
- 
--	return budget > 0;
-+	return !!budget;
-+}
-+
-+/**
-+ * i40e_force_wb - Arm hardware to do a wb on noncache aligned descriptors
-+ * @vsi: the VSI we care about
-+ * @q_vector: the vector  on which to force writeback
-+ *
-+ **/
-+static void i40e_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector)
-+{
-+	u32 val = I40E_PFINT_DYN_CTLN_INTENA_MASK |
-+		  I40E_PFINT_DYN_CTLN_SWINT_TRIG_MASK |
-+		  I40E_PFINT_DYN_CTLN_SW_ITR_INDX_ENA_MASK
-+		  /* allow 00 to be written to the index */;
-+
-+	wr32(&vsi->back->hw,
-+	     I40E_PFINT_DYN_CTLN(q_vector->v_idx + vsi->base_vector - 1),
-+	     val);
- }
- 
- /**
-@@ -1581,6 +1616,7 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
- 	struct i40e_vsi *vsi = q_vector->vsi;
- 	struct i40e_ring *ring;
- 	bool clean_complete = true;
-+	bool arm_wb = false;
- 	int budget_per_ring;
- 
- 	if (test_bit(__I40E_DOWN, &vsi->state)) {
-@@ -1591,8 +1627,10 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
- 	/* Since the actual Tx work is minimal, we can give the Tx a larger
- 	 * budget and be more aggressive about cleaning up the Tx descriptors.
- 	 */
--	i40e_for_each_ring(ring, q_vector->tx)
-+	i40e_for_each_ring(ring, q_vector->tx) {
- 		clean_complete &= i40e_clean_tx_irq(ring, vsi->work_limit);
-+		arm_wb |= ring->arm_wb;
-+	}
- 
- 	/* We attempt to distribute budget to each Rx queue fairly, but don't
- 	 * allow the budget to go below 1 because that would exit polling early.
-@@ -1603,8 +1641,11 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
- 		clean_complete &= i40e_clean_rx_irq(ring, budget_per_ring);
- 
- 	/* If work not completed, return budget and polling will return */
--	if (!clean_complete)
-+	if (!clean_complete) {
-+		if (arm_wb)
-+			i40e_force_wb(vsi, q_vector);
- 		return budget;
-+	}
- 
- 	/* Work is done so exit the polling mode and re-enable the interrupt */
- 	napi_complete(napi);
-@@ -2198,7 +2239,6 @@ static void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 	/* Place RS bit on last descriptor of any packet that spans across the
- 	 * 4th descriptor (WB_STRIDE aka 0x3) in a 64B cacheline.
- 	 */
--#define WB_STRIDE 0x3
- 	if (((i & WB_STRIDE) != WB_STRIDE) &&
- 	    (first <= &tx_ring->tx_bi[i]) &&
- 	    (first >= &tx_ring->tx_bi[i & ~WB_STRIDE])) {
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index e60d3ac..18b0023 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -241,6 +241,7 @@ struct i40e_ring {
- 	unsigned long last_rx_timestamp;
- 
- 	bool ring_active;		/* is ring online or not */
-+	bool arm_wb;		/* do something to arm write back */
- 
- 	/* stats structs */
- 	struct i40e_queue_stats	stats;
--- 
-1.9.3
+3) Missing error return assignments in several ethernet drivers,
+   from Julia Lawall.
+
+4) Altera TSE device doesn't come back up after ifconfig down/up
+   sequence, fix from Kostya Belezko.
+
+5) Add more cases to the check for whether the qmi_wwan device has
+   a bogus MAC address and needs to be assigned a random one.  From
+   Kristian Evensen.
+
+6) Fix interrupt hangs in CPSW, from Felipe Balbi.
+
+7) Implement ndo_features_check in r8152 so that the stack doesn't
+   feed GSO packets which are outside of the chip's capabilities.
+   From Hayes Wang.
+
+Please pull, thanks a lot!
+
+The following changes since commit 2c90331cf5ed1d648a711b9483e173aaaf2c=
+4a9b:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2014-1=
+2-30 10:45:47 -0800)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git=20
+
+for you to fetch changes up to 2abad79afa700e837cb4feed170141292e0720c0=
+:
+
+  qla3xxx: don't allow never end busy loop (2015-01-06 17:41:36 -0500)
+
+----------------------------------------------------------------
+Andy Shevchenko (1):
+      qla3xxx: don't allow never end busy loop
+
+Ben Pfaff (1):
+      openvswitch: Consistently include VLAN header in flow and port st=
+ats.
+
+David S. Miller (4):
+      Merge branch 'master' of git://git.kernel.org/.../jkirsher/net
+      Merge branch 'mlx4-net'
+      Merge tag 'mac80211-for-davem-2015-01-06' of git://git.kernel.org=
+/.../jberg/mac80211
+      Merge tag 'batman-adv-fix-for-davem' of git://git.open-mesh.org/l=
+inux-merge
+
+=46elipe Balbi (1):
+      net: ethernet: cpsw: fix hangs with interrupts
+
+Govindarajulu Varadarajan (1):
+      enic: free all rq buffs when allocation fails
+
+Herbert Xu (1):
+      tcp: Do not apply TSO segment limit to non-TSO packets
+
+Jack Morgenstein (1):
+      net/mlx4_core: Fix error flow in mlx4_init_hca()
+
+Joe Perches (1):
+      i40e: Fix possible memory leak in i40e_dbg_dump_desc
+
+Johannes Berg (1):
+      Revert "mac80211: Fix accounting of the tailroom-needed counter"
+
+John W. Linville (1):
+      e100: fix typo in MDI/MDI-X eeprom check in e100_phy_init
+
+Julia Lawall (4):
+      net: Xilinx: fix error return code
+      myri10ge: fix error return code
+      net: sun4i-emac: fix error return code
+      net: axienet: fix error return code
+
+Kostya Belezko (1):
+      Altera TSE: Add missing phydev
+
+Kristian Evensen (1):
+      qmi_wwan: Set random MAC on devices with buggy fw
+
+Linus L=FCssing (4):
+      batman-adv: fix delayed foreign originator recognition
+      batman-adv: fix counter for multicast supporting nodes
+      batman-adv: fix multicast counter when purging originators
+      batman-adv: fix potential TT client + orig-node memory leak
+
+Maor Gottlieb (1):
+      net/mlx4_core: Correcly update the mtt's offset in the MR re-reg =
+flow
+
+Martin Hundeb=F8ll (1):
+      batman-adv: fix lock class for decoding hash in network-coding.c
+
+Palik, Imre (1):
+      xen-netback: fixing the propagation of the transmit shaper timeou=
+t
+
+Simon Wunderlich (1):
+      batman-adv: fix and simplify condition when bonding should be use=
+d
+
+Todd Fujinaka (1):
+      igb: Remove unneeded FIXME
+
+Yongjian Xu (1):
+      qlcnic: Fix return value in qlcnic_probe()
+
+hayeswang (1):
+      r8152: support ndo_features_check
+
+ drivers/net/ethernet/allwinner/sun4i-emac.c       |  4 +++-
+ drivers/net/ethernet/altera/altera_tse_main.c     | 15 ++++++---------
+ drivers/net/ethernet/cisco/enic/enic_main.c       |  6 ++++--
+ drivers/net/ethernet/intel/e100.c                 |  2 +-
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c    |  4 +++-
+ drivers/net/ethernet/intel/igb/e1000_82575.c      |  2 +-
+ drivers/net/ethernet/mellanox/mlx4/main.c         | 13 ++++---------
+ drivers/net/ethernet/mellanox/mlx4/mr.c           |  9 +++++----
+ drivers/net/ethernet/myricom/myri10ge/myri10ge.c  |  4 +++-
+ drivers/net/ethernet/qlogic/qla3xxx.c             |  8 +++-----
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c  |  1 +
+ drivers/net/ethernet/ti/cpsw.c                    | 19 ++++++++-------=
+----
+ drivers/net/ethernet/xilinx/ll_temac_main.c       |  2 ++
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c |  2 ++
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c     |  1 +
+ drivers/net/usb/qmi_wwan.c                        | 10 +++++++---
+ drivers/net/usb/r8152.c                           | 17 +++++++++++++++=
+++
+ drivers/net/xen-netback/xenbus.c                  |  1 +
+ include/net/mac80211.h                            |  7 ++-----
+ net/batman-adv/multicast.c                        | 11 +++++++----
+ net/batman-adv/network-coding.c                   |  2 +-
+ net/batman-adv/originator.c                       |  7 ++++---
+ net/batman-adv/routing.c                          |  6 ++++--
+ net/ipv4/tcp_output.c                             |  4 ++--
+ net/mac80211/key.c                                | 12 +++++++++---
+ net/openvswitch/flow.c                            |  5 +++--
+ net/openvswitch/vport.c                           |  2 +-
+ 27 files changed, 105 insertions(+), 71 deletions(-)
