@@ -1,398 +1,67 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2 1/2] tc: push bpf common code into separate file
-Date: Wed,  7 Jan 2015 17:47:23 +0100
-Message-ID: <1420649244-9574-1-git-send-email-jiri@resnulli.us>
-References: <1420649035-9522-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, stephen@networkplumber.org
-To: netdev@vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 2/6] vxlan: Group Policy extension
+Date: Wed, 7 Jan 2015 08:56:31 -0800
+Message-ID: <CA+mtBx_A_M3+irq7w4nNCyPZBgM7ja+wfJT4w4Q0Yo6GMGYVgA@mail.gmail.com>
+References: <cover.1420594925.git.tgraf@suug.ch>
+	<2b43c19c47e3702b370054f8fd11233e44179edf.1420594925.git.tgraf@suug.ch>
+	<CA+mtBx_Jj-tUM1nbHd2fHb0-=QpK3tcQgA=smWmg=cB-fupdGg@mail.gmail.com>
+	<20150107162129.GQ21820@casper.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, Jesse Gross <jesse@nicira.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f171.google.com ([74.125.82.171]:42561 "EHLO
-	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754314AbbAGQr1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 11:47:27 -0500
-Received: by mail-we0-f171.google.com with SMTP id u56so1540841wes.2
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 08:47:26 -0800 (PST)
-In-Reply-To: <1420649035-9522-1-git-send-email-jiri@resnulli.us>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:34584 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752207AbbAGQ4c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 11:56:32 -0500
+Received: by mail-ie0-f174.google.com with SMTP id at20so4719377iec.5
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 08:56:31 -0800 (PST)
+In-Reply-To: <20150107162129.GQ21820@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- tc/Makefile |   2 +-
- tc/f_bpf.c  | 136 +++++--------------------------------------------------
- tc/tc_bpf.c | 146 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- tc/tc_bpf.h |  28 ++++++++++++
- 4 files changed, 186 insertions(+), 126 deletions(-)
- create mode 100644 tc/tc_bpf.c
- create mode 100644 tc/tc_bpf.h
+On Wed, Jan 7, 2015 at 8:21 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 01/07/15 at 08:05am, Tom Herbert wrote:
+>> Associating a sixteen bit field with security is worrisome, especially
+>> considering that VXLAN provides no verification for any header fields
+>> and doesn't even advocate use of outer UDP checksum so the field is
+>> susceptible to an undetected single bit flip. The concept of a
+>> "trusted underlay" is weak justification and hardly universal, so the
+>> only way to actually secure this is through IPsec (this is mentioned
+>> in the VXLAN-GPB draft).
+>
+> As you state correctly, this work requires a trusted underlay which can
+> be achieved with IPsec, OpenVPN, SSH, ...
+>
+This can't be enforced. There's already a lot of deployment of VXLAN
+in non-trusted networks, and there's nothing to prevent someone from
+using this feature in those environments. Maybe there's an argument
+that VXLAN already fundamentally lacks security and verification, so
+adding this field might not make things worse :-/.
 
-diff --git a/tc/Makefile b/tc/Makefile
-index 830c97d..45304a1 100644
---- a/tc/Makefile
-+++ b/tc/Makefile
-@@ -1,5 +1,5 @@
- TCOBJ= tc.o tc_qdisc.o tc_class.o tc_filter.o tc_util.o \
--       tc_monitor.o m_police.o m_estimator.o m_action.o \
-+       tc_monitor.o tc_bpf.o m_police.o m_estimator.o m_action.o \
-        m_ematch.o emp_ematch.yacc.o emp_ematch.lex.o
- 
- include ../Config
-diff --git a/tc/f_bpf.c b/tc/f_bpf.c
-index 48635a7..e2af94e 100644
---- a/tc/f_bpf.c
-+++ b/tc/f_bpf.c
-@@ -26,6 +26,7 @@
- 
- #include "utils.h"
- #include "tc_util.h"
-+#include "tc_bpf.h"
- 
- static void explain(void)
- {
-@@ -44,130 +45,6 @@ static void explain(void)
- 	fprintf(stderr, "NOTE: CLASSID is parsed as hexadecimal input.\n");
- }
- 
--static int bpf_parse_string(char *arg, bool from_file, __u16 *bpf_len,
--			    char **bpf_string, bool *need_release,
--			    const char separator)
--{
--	char sp;
--
--	if (from_file) {
--		size_t tmp_len, op_len = sizeof("65535 255 255 4294967295,");
--		char *tmp_string;
--		FILE *fp;
--
--		tmp_len = sizeof("4096,") + BPF_MAXINSNS * op_len;
--		tmp_string = malloc(tmp_len);
--		if (tmp_string == NULL)
--			return -ENOMEM;
--
--		memset(tmp_string, 0, tmp_len);
--
--		fp = fopen(arg, "r");
--		if (fp == NULL) {
--			perror("Cannot fopen");
--			free(tmp_string);
--			return -ENOENT;
--		}
--
--		if (!fgets(tmp_string, tmp_len, fp)) {
--			free(tmp_string);
--			fclose(fp);
--			return -EIO;
--		}
--
--		fclose(fp);
--
--		*need_release = true;
--		*bpf_string = tmp_string;
--	} else {
--		*need_release = false;
--		*bpf_string = arg;
--	}
--
--	if (sscanf(*bpf_string, "%hu%c", bpf_len, &sp) != 2 ||
--	    sp != separator) {
--		if (*need_release)
--			free(*bpf_string);
--		return -EINVAL;
--	}
--
--	return 0;
--}
--
--static int bpf_parse_ops(int argc, char **argv, struct nlmsghdr *n,
--			 bool from_file)
--{
--	char *bpf_string, *token, separator = ',';
--	struct sock_filter bpf_ops[BPF_MAXINSNS];
--	int ret = 0, i = 0;
--	bool need_release;
--	__u16 bpf_len = 0;
--
--	if (argc < 1)
--		return -EINVAL;
--	if (bpf_parse_string(argv[0], from_file, &bpf_len, &bpf_string,
--			     &need_release, separator))
--		return -EINVAL;
--	if (bpf_len == 0 || bpf_len > BPF_MAXINSNS) {
--		ret = -EINVAL;
--		goto out;
--	}
--
--	token = bpf_string;
--	while ((token = strchr(token, separator)) && (++token)[0]) {
--		if (i >= bpf_len) {
--			fprintf(stderr, "Real program length exceeds encoded "
--				"length parameter!\n");
--			ret = -EINVAL;
--			goto out;
--		}
--
--		if (sscanf(token, "%hu %hhu %hhu %u,",
--			   &bpf_ops[i].code, &bpf_ops[i].jt,
--			   &bpf_ops[i].jf, &bpf_ops[i].k) != 4) {
--			fprintf(stderr, "Error at instruction %d!\n", i);
--			ret = -EINVAL;
--			goto out;
--		}
--
--		i++;
--	}
--
--	if (i != bpf_len) {
--		fprintf(stderr, "Parsed program length is less than encoded"
--			"length parameter!\n");
--		ret = -EINVAL;
--		goto out;
--	}
--
--	addattr_l(n, MAX_MSG, TCA_BPF_OPS_LEN, &bpf_len, sizeof(bpf_len));
--	addattr_l(n, MAX_MSG, TCA_BPF_OPS, &bpf_ops,
--		  bpf_len * sizeof(struct sock_filter));
--out:
--	if (need_release)
--		free(bpf_string);
--
--	return ret;
--}
--
--static void bpf_print_ops(FILE *f, struct rtattr *bpf_ops, __u16 len)
--{
--	struct sock_filter *ops = (struct sock_filter *) RTA_DATA(bpf_ops);
--	int i;
--
--	if (len == 0)
--		return;
--
--	fprintf(f, "bytecode \'%u,", len);
--
--	for (i = 0; i < len - 1; i++)
--		fprintf(f, "%hu %hhu %hhu %u,", ops[i].code, ops[i].jt,
--			ops[i].jf, ops[i].k);
--
--	fprintf(f, "%hu %hhu %hhu %u\'\n", ops[i].code, ops[i].jt,
--		ops[i].jf, ops[i].k);
--}
--
- static int bpf_parse_opt(struct filter_util *qu, char *handle,
- 			 int argc, char **argv, struct nlmsghdr *n)
- {
-@@ -195,6 +72,10 @@ static int bpf_parse_opt(struct filter_util *qu, char *handle,
- 	while (argc > 0) {
- 		if (matches(*argv, "run") == 0) {
- 			bool from_file;
-+			struct sock_filter bpf_ops[BPF_MAXINSNS];
-+			__u16 bpf_len;
-+			int ret;
-+
- 			NEXT_ARG();
- 			if (strcmp(*argv, "bytecode-file") == 0) {
- 				from_file = true;
-@@ -206,10 +87,15 @@ static int bpf_parse_opt(struct filter_util *qu, char *handle,
- 				return -1;
- 			}
- 			NEXT_ARG();
--			if (bpf_parse_ops(argc, argv, n, from_file)) {
-+			ret = bpf_parse_ops(argc, argv, bpf_ops, from_file);
-+			if (ret < 0) {
- 				fprintf(stderr, "Illegal \"bytecode\"\n");
- 				return -1;
- 			}
-+			bpf_len = ret;
-+			addattr16(n, MAX_MSG, TCA_BPF_OPS_LEN, bpf_len);
-+			addattr_l(n, MAX_MSG, TCA_BPF_OPS, &bpf_ops,
-+				  bpf_len * sizeof(struct sock_filter));
- 		} else if (matches(*argv, "classid") == 0 ||
- 			   strcmp(*argv, "flowid") == 0) {
- 			unsigned handle;
-diff --git a/tc/tc_bpf.c b/tc/tc_bpf.c
-new file mode 100644
-index 0000000..c6901d6
---- /dev/null
-+++ b/tc/tc_bpf.c
-@@ -0,0 +1,146 @@
-+/*
-+ * tc_bpf.c	BPF common code
-+ *
-+ *		This program is free software; you can distribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Daniel Borkmann <dborkman@redhat.com>
-+ *		Jiri Pirko <jiri@resnulli.us>
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <unistd.h>
-+#include <string.h>
-+#include <stdbool.h>
-+#include <errno.h>
-+#include <linux/filter.h>
-+#include <linux/netlink.h>
-+#include <linux/rtnetlink.h>
-+
-+#include "utils.h"
-+#include "tc_util.h"
-+#include "tc_bpf.h"
-+
-+int bpf_parse_string(char *arg, bool from_file, __u16 *bpf_len,
-+		     char **bpf_string, bool *need_release,
-+		     const char separator)
-+{
-+	char sp;
-+
-+	if (from_file) {
-+		size_t tmp_len, op_len = sizeof("65535 255 255 4294967295,");
-+		char *tmp_string;
-+		FILE *fp;
-+
-+		tmp_len = sizeof("4096,") + BPF_MAXINSNS * op_len;
-+		tmp_string = malloc(tmp_len);
-+		if (tmp_string == NULL)
-+			return -ENOMEM;
-+
-+		memset(tmp_string, 0, tmp_len);
-+
-+		fp = fopen(arg, "r");
-+		if (fp == NULL) {
-+			perror("Cannot fopen");
-+			free(tmp_string);
-+			return -ENOENT;
-+		}
-+
-+		if (!fgets(tmp_string, tmp_len, fp)) {
-+			free(tmp_string);
-+			fclose(fp);
-+			return -EIO;
-+		}
-+
-+		fclose(fp);
-+
-+		*need_release = true;
-+		*bpf_string = tmp_string;
-+	} else {
-+		*need_release = false;
-+		*bpf_string = arg;
-+	}
-+
-+	if (sscanf(*bpf_string, "%hu%c", bpf_len, &sp) != 2 ||
-+	    sp != separator) {
-+		if (*need_release)
-+			free(*bpf_string);
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+int bpf_parse_ops(int argc, char **argv, struct sock_filter *bpf_ops,
-+		  bool from_file)
-+{
-+	char *bpf_string, *token, separator = ',';
-+	int ret = 0, i = 0;
-+	bool need_release;
-+	__u16 bpf_len = 0;
-+
-+	if (argc < 1)
-+		return -EINVAL;
-+	if (bpf_parse_string(argv[0], from_file, &bpf_len, &bpf_string,
-+			     &need_release, separator))
-+		return -EINVAL;
-+	if (bpf_len == 0 || bpf_len > BPF_MAXINSNS) {
-+		ret = -EINVAL;
-+		goto out;
-+	}
-+
-+	token = bpf_string;
-+	while ((token = strchr(token, separator)) && (++token)[0]) {
-+		if (i >= bpf_len) {
-+			fprintf(stderr, "Real program length exceeds encoded "
-+				"length parameter!\n");
-+			ret = -EINVAL;
-+			goto out;
-+		}
-+
-+		if (sscanf(token, "%hu %hhu %hhu %u,",
-+			   &bpf_ops[i].code, &bpf_ops[i].jt,
-+			   &bpf_ops[i].jf, &bpf_ops[i].k) != 4) {
-+			fprintf(stderr, "Error at instruction %d!\n", i);
-+			ret = -EINVAL;
-+			goto out;
-+		}
-+
-+		i++;
-+	}
-+
-+	if (i != bpf_len) {
-+		fprintf(stderr, "Parsed program length is less than encoded"
-+			"length parameter!\n");
-+		ret = -EINVAL;
-+		goto out;
-+	}
-+	ret = bpf_len;
-+
-+out:
-+	if (need_release)
-+		free(bpf_string);
-+
-+	return ret;
-+}
-+
-+void bpf_print_ops(FILE *f, struct rtattr *bpf_ops, __u16 len)
-+{
-+	struct sock_filter *ops = (struct sock_filter *) RTA_DATA(bpf_ops);
-+	int i;
-+
-+	if (len == 0)
-+		return;
-+
-+	fprintf(f, "bytecode \'%u,", len);
-+
-+	for (i = 0; i < len - 1; i++)
-+		fprintf(f, "%hu %hhu %hhu %u,", ops[i].code, ops[i].jt,
-+			ops[i].jf, ops[i].k);
-+
-+	fprintf(f, "%hu %hhu %hhu %u\'\n", ops[i].code, ops[i].jt,
-+		ops[i].jf, ops[i].k);
-+}
-diff --git a/tc/tc_bpf.h b/tc/tc_bpf.h
-new file mode 100644
-index 0000000..08cca92
---- /dev/null
-+++ b/tc/tc_bpf.h
-@@ -0,0 +1,28 @@
-+/*
-+ * tc_bpf.h	BPF common code
-+ *
-+ *		This program is free software; you can distribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Daniel Borkmann <dborkman@redhat.com>
-+ *		Jiri Pirko <jiri@resnulli.us>
-+ */
-+
-+#ifndef _TC_BPF_H_
-+#define _TC_BPF_H_ 1
-+
-+#include <stdio.h>
-+#include <linux/filter.h>
-+#include <linux/netlink.h>
-+#include <linux/rtnetlink.h>
-+
-+int bpf_parse_string(char *arg, bool from_file, __u16 *bpf_len,
-+		     char **bpf_string, bool *need_release,
-+		     const char separator);
-+int bpf_parse_ops(int argc, char **argv, struct sock_filter *bpf_ops,
-+		  bool from_file);
-+void bpf_print_ops(FILE *f, struct rtattr *bpf_ops, __u16 len);
-+
-+#endif
--- 
-1.9.3
+>> But if we have the security state of IPsec then why would we need
+>> this field anyway?
+>
+> It's a separation of concern: the security label mechanism of the
+> overlay should not depend on an eventual encryption layer in the
+> underlay as not all of them provide a mechanism to label packets.
+>
+>> Could this same functionality be achieved if we just match the VNI to
+>> a mark in IP tables?
+>
+> If the VNI is not already used for another purpose, yes. The solution
+> as proposed can be integrated into existing VXLAN overlays separated by
+> VNI. It is also compatible with hardware VXLAN VTEPs which ignore the
+> reserved bits while continueing to maintain VNI separation.
+
+It seems like it should be relatively easy to group VNIs together to
+have the same mark with the current use of VNI. The works up to the
+point that all packets corresponding to a single VNI get the same
+mark.
+
+Tom
