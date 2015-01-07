@@ -1,56 +1,77 @@
-From: "Singhai, Anjali" <anjali.singhai@intel.com>
-Subject: RE: [net v2 2/3] i40e: Fix Rx checksum error counter
-Date: Wed, 7 Jan 2015 20:14:02 +0000
-Message-ID: <C40BE8378EF49C44B9184714DBC8EF2992D9668D@ORSMSX110.amr.corp.intel.com>
-References: <1420594317-6191-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1420594317-6191-3-git-send-email-jeffrey.t.kirsher@intel.com>
- <CA+mtBx-VgUCCxnkayoqR6AwYXu_mfzbtGZzH+oeT3wrOznzWGg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>
-To: Tom Herbert <therbert@google.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:64068 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751847AbbAGUOE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2015 15:14:04 -0500
-In-Reply-To: <CA+mtBx-VgUCCxnkayoqR6AwYXu_mfzbtGZzH+oeT3wrOznzWGg@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Erik Grinaker <erik@bengler.no>
+Subject: Re: TCP connection issues against Amazon S3
+Date: Wed, 7 Jan 2015 20:37:19 +0000
+Message-ID: <A58F8257-97F8-4662-98FC-7AC57F35A3A4@bengler.no>
+References: <5DCDADEF-FF9C-4844-8A2C-62E2D3B3B8CE@bengler.no> <1420560253.32621.20.camel@edumazet-glaptop2.roam.corp.google.com> <D5C36777-4461-4B8D-B6C4-38B4276F42DC@bengler.no> <1420564837.32621.30.camel@edumazet-glaptop2.roam.corp.google.com> <8C4F7938-DCA1-46F5-A3C9-7DF62511DEE7@bengler.no> <CAK6E8=d5Z0W5sSAdeEcecKbqjj_UwGw4949=a20fetFpLVKwwA@mail.gmail.com> <03FC652E-AA01-42C7-BD52-019B6D922A9C@bengler.no> <CAK6E8=cP0BFUob5MVj9M0hC0efgRnUY=JMUPKee+v-4TLvHBgg@mail.gmail.com> <76DC89D1-CFCE-44B7-994E-4349FEEDEFA6@bengler.no> <1420575216.5947.12.camel@edumazet-glaptop2.roam.corp.google.com> <4DA8529D-4EEC-42DA-89B0-DC7746DB2B10@bengler.no> <3F608393-E5F1-4647-81BF-C6C740100934@bengler.no> <CAK6E8=cf7cROQ0SON0BihkbOsBB+-sLAbexxgt4_xD+Auqev3Q@mail.gmail.com> <34CE0233-F881-4F40-B119-AA9D8F
+ 7D500F@bengler.no> <1420646284.5947.19.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.1 \(1993\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Yuchung Cheng <ycheng@google.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1420646284.5947.19.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCA2IEphbiAyMDE1IDIxOjQzOjU3IC0wODAwDQpUb20gSGVyYmVydCA8dGhlcmJlcnRA
-Z29vZ2xlLmNvbT4gd3JvdGU6DQo+ID4gQEAgLTEzMzcsMTUgKzEzMzUsMTkgQEAgc3RhdGljIGlu
-bGluZSB2b2lkIGk0MGVfcnhfY2hlY2tzdW0oc3RydWN0IGk0MGVfdnNpICp2c2ksDQo+ID4gICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgc2tiLT5wcm90b2NvbCA9PSBo
-dG9ucyhFVEhfUF84MDIxQUQpKQ0KPiA+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgID8gVkxBTl9ITEVOIDogMDsNCj4gPg0KPiA+IC0gICAgICAgICAgICAgICByeF91
-ZHBfY3N1bSA9IHVkcF9jc3VtKHNrYik7DQo+ID4gLSAgICAgICAgICAgICAgIGlwaCA9IGlwX2hk
-cihza2IpOw0KPiA+IC0gICAgICAgICAgICAgICBjc3VtID0gY3N1bV90Y3B1ZHBfbWFnaWMoDQo+
-ID4gLSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBpcGgtPnNhZGRyLCBpcGgtPmRhZGRy
-LA0KPiA+IC0gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgKHNrYi0+bGVuIC0gc2tiX3Ry
-YW5zcG9ydF9vZmZzZXQoc2tiKSksDQo+ID4gLSAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICBJUFBST1RPX1VEUCwgcnhfdWRwX2NzdW0pOw0KPiA+ICsgICAgICAgICAgICAgICBpZiAoKGlw
-X2hkcihza2IpLT5wcm90b2NvbCA9PSBJUFBST1RPX1VEUCkgJiYNCj4gPiArICAgICAgICAgICAg
-ICAgICAgICh1ZHBfaGRyKHNrYiktPmNoZWNrICE9IDApKSB7DQo+ID4gKyAgICAgICAgICAgICAg
-ICAgICAgICAgcnhfdWRwX2NzdW0gPSB1ZHBfY3N1bShza2IpOw0KPiANCj4gRG9lc24ndCB0aGlz
-IGNvbXB1dGUgdGhlIHdob2xlIGNoZWNrc3VtIG9mIHRoZSBwYWNrZXQgbWFraW5nIHRoZSBmYWN0
-IA0KPiB0aGF0IGRldmljZSB2ZXJpZmllZCBpbm5lciBjaGVja3N1bSBwcmV0dHkgbXVjaCBpcnJl
-bGV2YW50PyBJdCB3b3VsZCANCj4gcHJvYmFibHkgYmUganVzdCBhcyB3ZWxsIHRvIHJldHVybiBD
-SEVDS1NVTV9OT05FIGFuZCBsZXQgdGhlIHN0YWNrIA0KPiBkZWFsIHdpdGggaXQgYW5kIHJlbW92
-ZSBhbGwgdGhpcyBjb21wbGV4aXR5Lg0KDQpUaGlzIGlzIG9ubHkgY2FsY3VsYXRpbmcgb3V0ZXIg
-VURQIGNzdW0sIGlubmVyIGNzdW1zIGFyZSBvZmZsb2FkZWQgYW5kIHNvIGlzIHRoZSBvdXRlciBJ
-UCBjc3VtLiBPdmVyYWxsIHRoaXMgaXMgbGVzcyB3b3JrIHRoYW4gYXNraW5nIHRoZSBzdGFjayB0
-byBkbyBhbGwgb2YgdGhvc2UgYnkgbWFya2luZyBpdCBhcyBDSEVDS1NVTV9VTk5FQ0VTU0FSWS4g
-V2UgZG8gaGF2ZSBhIHBhdGNoIGluIGxpbmUgdG8gdXNlIGNzdW1fbGV2ZWwgYnV0IEkgYmVsaWV2
-ZSBldmVuIHdpdGggdGhhdCB3ZSB3b3VsZCBiZSBhc2tpbmcgdGhlIHN0YWNrIHRvIGRvIG1vcmUg
-d29yayB0aGFuIG5lY2Vzc2FyeSBpZiB3ZSBpbmRpY2F0ZSB0aGF0IG9ubHkgaW5uZXIgY2hlY2tz
-dW1zIGFyZSBvZmZsb2FkZWQuIFdpdGggb3VyIEhXIHdlIGFyZSBhYmxlIHRvIG9mZmxvYWQgMyBv
-dXQgb2YgNCBjc3Vtcy4NCg==
+On 07 Jan 2015, at 15:58, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2015-01-07 at 13:31 +0000, Erik Grinaker wrote:
+>> On 06 Jan 2015, at 22:00, Yuchung Cheng <ycheng@google.com> wrote:
+>>> On Tue, Jan 6, 2015 at 1:04 PM, Erik Grinaker <erik@bengler.no> wro=
+te:
+>>>>=20
+>>>>> On 06 Jan 2015, at 20:26, Erik Grinaker <erik@bengler.no> wrote:
+>>>> This still doesn=E2=80=99t explain why it works with older kernels=
+, but not newer ones. I=E2=80=99m thinking it=E2=80=99s
+>>> probably some minor change, which gets amplified by the lack of SAC=
+Ks
+>>> on the loadbalancer. Anyway, I=E2=80=99ll bring it up with Amazon.
+>>> can you post traces with the older kernels?
+>>=20
+>> Here is a dump using 3.11.10 against a non-SACK-enabled loadbalancer=
+:
+>>=20
+>> http://abstrakt.bengler.no/tcp-issues-s3-nosack-3.11.10.pcap.bz2
+>>=20
+>> The transfer shows lots of DUPACKs and retransmits, but this does no=
+t
+>> seem to have as bad an effect as it did with the failing transfer we
+>> saw on newer kernels:
+>>=20
+>> http://abstrakt.bengler.no/tcp-issues-s3-failure.pcap.bz2
+>>=20
+>> One big difference, which Rick touched on earlier, is that the newer
+>> kernels keep sending TCP window updates as it=E2=80=99s going throug=
+h the
+>> retransmits. The older kernel does not do this.
+>=20
+> The new kernel is the receiver : It does no retransmits.
+>=20
+> Increasing window in ACK packets should not prevent sender into
+> retransmitting missing packets.
+>=20
+> Sender is not a linux host and is very buggy IMO : If receiver
+> advertises a too big window, sender decides to not retransmit in some
+> cases.
+
+I agree. I have contacted Amazon about this, but am not too hopeful for=
+ a quick fix; they have been promising SACK-support on their loadbalanc=
+ers since 2006, for example.
+
+That said, since this change breaks a service as popular as S3, it migh=
+t be worth reconsidering.
+
+> You can play with /proc/sys/net/ipv4/tcp_rmem and adopt very low valu=
+es
+> to work around the sender bug.
+>=20
+> ( Or use SO_RCVBUF in receiver application)
+
+Thanks, setting SO_RCVBUF seems like a reasonable workaround.--
+To unsubscribe from this list: send the line "unsubscribe linux-kernel"=
+ in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
