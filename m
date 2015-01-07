@@ -1,65 +1,56 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH next] net: e1000e: support txtd update delay via xmit_more
-Date: Wed,  7 Jan 2015 10:49:22 +0100
-Message-ID: <1420624162-24206-1-git-send-email-fw@strlen.de>
+Subject: [PATCH -next] r8169: add support for xmit_more
+Date: Wed,  7 Jan 2015 10:49:49 +0100
+Message-ID: <1420624189-24325-1-git-send-email-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42676 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42679 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751993AbbAGJt2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 04:49:28 -0500
+	by vger.kernel.org with ESMTP id S1752337AbbAGJtx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 04:49:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Don't update tx tail descriptor if queue hasn't been stopped
-and we know at least one more skb will be sent right away.
+Delay update of hw tail descriptor if we know that another skb is going
+to be sent.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 23 +++++++++++++----------
- 1 file changed, 13 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 332a298..214cb78 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -5444,16 +5444,6 @@ static void e1000_tx_queue(struct e1000_ring *tx_ring, int tx_flags, int count)
- 	wmb();
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 14a1c5c..3a28059 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -7049,6 +7049,7 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+ 	u32 status, len;
+ 	u32 opts[2];
+ 	int frags;
++	bool stop_queue;
  
- 	tx_ring->next_to_use = i;
--
--	if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
--		e1000e_update_tdt_wa(tx_ring, i);
--	else
--		writel(i, tx_ring->tail);
--
--	/* we need this if more than one processor can write to our tail
--	 * at a time, it synchronizes IO on IA64/Altix systems
--	 */
+ 	if (unlikely(!TX_FRAGS_READY_FOR(tp, skb_shinfo(skb)->nr_frags))) {
+ 		netif_err(tp, drv, dev, "BUG! Tx Ring full when queue awake!\n");
+@@ -7105,11 +7106,16 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+ 
+ 	tp->cur_tx += frags + 1;
+ 
+-	RTL_W8(TxPoll, NPQ);
++	stop_queue = !TX_FRAGS_READY_FOR(tp, MAX_SKB_FRAGS);
+ 
 -	mmiowb();
- }
++	if (!skb->xmit_more || stop_queue ||
++	    netif_xmit_stopped(netdev_get_tx_queue(dev, 0))) {
++		RTL_W8(TxPoll, NPQ);
++
++		mmiowb();
++	}
  
- #define MINIMUM_DHCP_PACKET_SIZE 282
-@@ -5653,6 +5643,19 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
- 				    (MAX_SKB_FRAGS *
- 				     DIV_ROUND_UP(PAGE_SIZE,
- 						  adapter->tx_fifo_limit) + 2));
-+
-+		if (!skb->xmit_more ||
-+		    netif_xmit_stopped(netdev_get_tx_queue(netdev, 0))) {
-+			if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
-+				e1000e_update_tdt_wa(tx_ring, tx_ring->next_to_use);
-+			else
-+				writel(tx_ring->next_to_use, tx_ring->tail);
-+
-+			/* we need this if more than one processor can write to our tail
-+			 * at a time, it synchronizes IO on IA64/Altix systems
-+			 */
-+			mmiowb();
-+		}
- 	} else {
- 		dev_kfree_skb_any(skb);
- 		tx_ring->buffer_info[first].time_stamp = 0;
+-	if (!TX_FRAGS_READY_FOR(tp, MAX_SKB_FRAGS)) {
++	if (stop_queue) {
+ 		/* Avoid wrongly optimistic queue wake-up: rtl_tx thread must
+ 		 * not miss a ring update when it notices a stopped queue.
+ 		 */
 -- 
 2.0.5
