@@ -1,100 +1,97 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next v2 2/7] rhashtable: introduce
-	rhashtable_wakeup_worker helper function
-Date: Wed, 7 Jan 2015 13:41:53 +0800
-Message-ID: <1420609318-3261-3-git-send-email-ying.xue@windriver.com>
-References: <1420609318-3261-1-git-send-email-ying.xue@windriver.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [net v2 2/3] i40e: Fix Rx checksum error counter
+Date: Tue, 6 Jan 2015 21:43:57 -0800
+Message-ID: <CA+mtBx-VgUCCxnkayoqR6AwYXu_mfzbtGZzH+oeT3wrOznzWGg@mail.gmail.com>
+References: <1420594317-6191-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1420594317-6191-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	Paul.Gortmaker@windriver.com,
-	tipc-discussion@lists.sourceforge.net, davem@davemloft.net
-To: <tgraf@suug.ch>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1420609318-3261-1-git-send-email-ying.xue@windriver.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Anjali Singhai <anjali.singhai@intel.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Greg Rose <gregory.v.rose@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:51770 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751870AbbAGFn6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 00:43:58 -0500
+Received: by mail-ie0-f177.google.com with SMTP id rd18so1949798iec.8
+        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 21:43:58 -0800 (PST)
+In-Reply-To: <1420594317-6191-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Introduce rhashtable_wakeup_worker() helper function to reduce
-duplicated code where to wake up worker.
+On Tue, Jan 6, 2015 at 5:31 PM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> From: Anjali Singhai <anjali.singhai@intel.com>
+>
+> The Rx port checksum error counter was incrementing incorrectly with
+> UDP encapsulated tunneled traffic.  This patch fixes the problem so that
+> the port_rx_csum counter will show accurate statistics.
+>
+> Signed-off-by: Anjali Singhai <anjali.singhai@intel.com>
+> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> Tested-by: Jim Young <james.m.young@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  drivers/net/ethernet/intel/i40e/i40e_txrx.c | 24 +++++++++++++-----------
+>  1 file changed, 13 insertions(+), 11 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> index f145aaf..38c7638 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> @@ -1325,9 +1325,7 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
+>          * so the total length of IPv4 header is IHL*4 bytes
+>          * The UDP_0 bit *may* bet set if the *inner* header is UDP
+>          */
+> -       if (ipv4_tunnel &&
+> -           (decoded.inner_prot != I40E_RX_PTYPE_INNER_PROT_UDP) &&
+> -           !(rx_status & (1 << I40E_RX_DESC_STATUS_UDP_0_SHIFT))) {
+> +       if (ipv4_tunnel) {
+>                 skb->transport_header = skb->mac_header +
+>                                         sizeof(struct ethhdr) +
+>                                         (ip_hdr(skb)->ihl * 4);
+> @@ -1337,15 +1335,19 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
+>                                           skb->protocol == htons(ETH_P_8021AD))
+>                                           ? VLAN_HLEN : 0;
+>
+> -               rx_udp_csum = udp_csum(skb);
+> -               iph = ip_hdr(skb);
+> -               csum = csum_tcpudp_magic(
+> -                               iph->saddr, iph->daddr,
+> -                               (skb->len - skb_transport_offset(skb)),
+> -                               IPPROTO_UDP, rx_udp_csum);
+> +               if ((ip_hdr(skb)->protocol == IPPROTO_UDP) &&
+> +                   (udp_hdr(skb)->check != 0)) {
+> +                       rx_udp_csum = udp_csum(skb);
 
-By the way, as long as the both "future_tbl" and "tbl" bucket table
-pointers point to the same bucket array, we should try to wake up
-the resizing worker thread, otherwise, it indicates the work of
-resizing hash table is not finished yet. However, currently we will
-wake up the worker thread only when the two pointers point to
-different bucket array. Obviously this is wrong. So, the issue is
-also fixed as well in the patch.
+Doesn't this compute the whole checksum of the packet making the fact
+that device verified inner checksum pretty much irrelevant? It would
+probably be just as well to return CHECKSUM_NONE and let the stack
+deal with it and remove all this complexity.
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Cc: Thomas Graf <tgraf@suug.ch>
----
- lib/rhashtable.c |   23 +++++++++++++++--------
- 1 file changed, 15 insertions(+), 8 deletions(-)
-
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index f2fdd7a..2000685 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -492,6 +492,19 @@ static void rht_deferred_worker(struct work_struct *work)
- 	mutex_unlock(&ht->mutex);
- }
- 
-+static void rhashtable_wakeup_worker(struct rhashtable *ht)
-+{
-+	struct bucket_table *tbl = rht_dereference_rcu(ht->tbl, ht);
-+	struct bucket_table *new_tbl = rht_dereference_rcu(ht->future_tbl, ht);
-+	size_t size = tbl->size;
-+
-+	/* Only adjust the table if no resizing is currently in progress. */
-+	if (tbl == new_tbl &&
-+	    ((ht->p.grow_decision && ht->p.grow_decision(ht, size)) ||
-+	     (ht->p.shrink_decision && ht->p.shrink_decision(ht, size))))
-+		schedule_delayed_work(&ht->run_work, 0);
-+}
-+
- /**
-  * rhashtable_insert - insert object into hash hash table
-  * @ht:		hash table
-@@ -532,10 +545,7 @@ void rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj)
- 
- 	atomic_inc(&ht->nelems);
- 
--	/* Only grow the table if no resizing is currently in progress. */
--	if (ht->tbl != ht->future_tbl &&
--	    ht->p.grow_decision && ht->p.grow_decision(ht, tbl->size))
--		schedule_delayed_work(&ht->run_work, 0);
-+	rhashtable_wakeup_worker(ht);
- 
- 	rcu_read_unlock();
- }
-@@ -584,10 +594,7 @@ restart:
- 
- 		spin_unlock_bh(lock);
- 
--		if (ht->tbl != ht->future_tbl &&
--		    ht->p.shrink_decision &&
--		    ht->p.shrink_decision(ht, tbl->size))
--			schedule_delayed_work(&ht->run_work, 0);
-+		rhashtable_wakeup_worker(ht);
- 
- 		rcu_read_unlock();
- 
--- 
-1.7.9.5
-
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming! The Go Parallel Website,
-sponsored by Intel and developed in partnership with Slashdot Media, is your
-hub for all things parallel software development, from weekly thought
-leadership blogs to news, videos, case studies, tutorials and more. Take a
-look and join the conversation now. http://goparallel.sourceforge.net
+> +                       iph = ip_hdr(skb);
+> +                       csum = csum_tcpudp_magic(
+> +                                       iph->saddr, iph->daddr,
+> +                                       (skb->len - skb_transport_offset(skb)),
+> +                                       IPPROTO_UDP, rx_udp_csum);
+>
+> -               if (udp_hdr(skb)->check != csum)
+> -                       goto checksum_fail;
+> +                       if (udp_hdr(skb)->check != csum)
+> +                               goto checksum_fail;
+> +
+> +               } /* else its GRE and so no outer UDP header */
+>         }
+>
+>         skb->ip_summed = CHECKSUM_UNNECESSARY;
+> --
+> 1.9.3
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
