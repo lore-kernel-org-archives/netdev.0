@@ -1,53 +1,57 @@
-From: Peter Griffin <peter.griffin@linaro.org>
-Subject: [PATCH v2 3/7] ARM: STi: DT: STiH407: Add usb2 picophy dt nodes
-Date: Wed,  7 Jan 2015 15:04:08 +0000
-Message-ID: <1420643052-4506-4-git-send-email-peter.griffin@linaro.org>
-References: <1420643052-4506-1-git-send-email-peter.griffin@linaro.org>
-Cc: peter.griffin@linaro.org, lee.jones@linaro.org,
-	devicetree@vger.kernel.org, netdev@vger.kernel.org
-To: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	srinivas.kandagatla@gmail.com, maxime.coquelin@st.com,
-	patrice.chotard@st.com, peppe.cavallaro@st.com, kishon@ti.com,
-	arnd@arndb.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f173.google.com ([74.125.82.173]:35839 "EHLO
-	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753406AbbAGPEZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 10:04:25 -0500
-Received: by mail-we0-f173.google.com with SMTP id q58so1335404wes.4
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 07:04:24 -0800 (PST)
-In-Reply-To: <1420643052-4506-1-git-send-email-peter.griffin@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: Re: [PATCH] vhost/net: length miscalculation
+Date: Wed, 07 Jan 2015 08:09:04 -0700
+Message-ID: <1420643344.6345.7.camel@redhat.com>
+References: <1420620847-24477-1-git-send-email-mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Greg Kurz <gkurz@linux.vnet.ibm.com>,
+	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1420620847-24477-1-git-send-email-mst@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds the dt nodes for the usb2 picophy found on the stih407
-device family. It is used on stih407 by the dwc3 usb3 controller when
-controlling usb2/1.1 devices.
+On Wed, 2015-01-07 at 10:55 +0200, Michael S. Tsirkin wrote:
+> commit 8b38694a2dc8b18374310df50174f1e4376d6824
+>     vhost/net: virtio 1.0 byte swap
+> had this chunk:
+> -       heads[headcount - 1].len += datalen;
+> +       heads[headcount - 1].len = cpu_to_vhost32(vq, len - datalen);
+> 
+> This adds datalen with the wrong sign, causing guest panics.
+> 
+> Fixes: 8b38694a2dc8b18374310df50174f1e4376d6824
+> Reported-by: Alex Williamson <alex.williamson@redhat.com>
+> Suggested-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+> 
+> Alex, could you please confirm this fixes the crash for you?
 
-Signed-off-by: Peter Griffin <peter.griffin@linaro.org>
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
----
- arch/arm/boot/dts/stih407-family.dtsi | 9 +++++++++
- 1 file changed, 9 insertions(+)
+Confirmed, this works.  Thanks,
 
-diff --git a/arch/arm/boot/dts/stih407-family.dtsi b/arch/arm/boot/dts/stih407-family.dtsi
-index 3e31d32..d4a8f84 100644
---- a/arch/arm/boot/dts/stih407-family.dtsi
-+++ b/arch/arm/boot/dts/stih407-family.dtsi
-@@ -274,5 +274,14 @@
- 
- 			status = "disabled";
- 		};
-+
-+		usb2_picophy0: phy1 {
-+			compatible = "st,stih407-usb2-phy";
-+			#phy-cells = <0>;
-+			st,syscfg = <&syscfg_core 0x100 0xf4>;
-+			resets = <&softreset STIH407_PICOPHY_SOFTRESET>,
-+				 <&picophyreset STIH407_PICOPHY0_RESET>;
-+			reset-names = "global", "port";
-+		};
- 	};
- };
--- 
-1.9.1
+Alex
+
+>  drivers/vhost/net.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 14419a8..d415d69 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -538,7 +538,7 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
+>  		++headcount;
+>  		seg += in;
+>  	}
+> -	heads[headcount - 1].len = cpu_to_vhost32(vq, len - datalen);
+> +	heads[headcount - 1].len = cpu_to_vhost32(vq, len + datalen);
+>  	*iovcount = seg;
+>  	if (unlikely(log))
+>  		*log_num = nlogs;
+
+
+
