@@ -1,36 +1,52 @@
-From: Hannes Frederic Sowa <hannes@redhat.com>
-Subject: Re: ipv6: oops in datagram.c line 260
-Date: Wed, 07 Jan 2015 11:45:02 +0100
-Message-ID: <1420627502.26870.38.camel@redhat.com>
-References: <5487DD65.60800@gtsys.com.hk> <549AC2B4.8070203@gtsys.com.hk>
-	 <1420560073.32369.60.camel@redhat.com> <20150107072254.GA13046@secunet.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH] wireless extensions should default to Y
+Date: Wed, 7 Jan 2015 12:03:23 +0100
+Message-ID: <20150107110323.GB7368@amd>
+References: <20150107101903.GA6563@amd>
+ <1420627315.3407.2.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Chris Ruehl <chris.ruehl@gtsys.com.hk>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47411 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751434AbbAGKpQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2015 05:45:16 -0500
-In-Reply-To: <20150107072254.GA13046@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: jikos@suse.cz, kernel list <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	davem@davemloft.net, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1420627315.3407.2.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mi, 2015-01-07 at 08:22 +0100, Steffen Klassert wrote:
-> On Tue, Jan 06, 2015 at 05:01:13PM +0100, Hannes Frederic Sowa wrote:
+On Wed 2015-01-07 11:41:55, Johannes Berg wrote:
+> On Wed, 2015-01-07 at 11:19 +0100, Pavel Machek wrote:
+> > Do we need following patch on top of
+> > 24a0aa212ee2dbe44360288684478d76a8e20a0a revert?
 > > 
-> > xfrm6_output_finish unconditionally resets skb->protocol so we try to
-> > dispatch to the IPv6 handler, even though tcp just sends an IPv4 packet.
+> > I updated kernel today, and (probably because extensions were not
+> > selectable before), the default choice was "N", which is wrong:
+> > oldconfig should result in compatible choices being made, for example
+> > to help bisect.
 > 
-> Maybe we better dispatch based on sk->sk_family, this should give
-> always the right address family of the socket.
+> I don't believe we need this. It has been defaulting to N for a long
+> time, it's just that it got thrown out of your config due to building
+> inbetween the patch and its revert. Had you built only before and after
+> that wouldn't be an issue.
 
-The original problem was dealing with IPv4/v6 mapped traffic. Processing
-local errors from unconnected UDP sockets which are emitting both IPv4
-and IPv6 frames won't play nicely with sk->sk_family I fear.
+Well, I clearly hit the issue. If someone had _not_ build in between,
+the "default y" does not change anything for him, as he will not be
+asked thequestion. If someone starts config from scratch, Y is the
+safe answer.
 
-Bye,
-Hannes
+> If we default to Y now we send the wrong signal. If you really need to
+> bisect something wext related you have far bigger issues I'd think, the
+> code hasn't changed *forever*.
+
+I am woried about bisecting something unrelated, and then wext coming
+and breaking the bisect. But you are right that it will break the
+bisect, anyway...
+
+                                                                        Pavel
+									
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
