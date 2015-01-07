@@ -1,105 +1,54 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next PATCH v1 01/11] net: flow_table: create interface for
- hw match/action tables
-Date: Tue, 6 Jan 2015 17:14:47 -0800
-Message-ID: <CAADnVQJ6MWVCPsBX6oZpQq=D=4iO7zE5rV8N1Vw5WHxDFGZ7xg@mail.gmail.com>
+From: Lukas Tribus <luky-37@hotmail.com>
+Subject: RE: TCP connection issues against Amazon S3
+Date: Wed, 7 Jan 2015 02:23:00 +0100
+Message-ID: <DUB123-W1008C526C7E0FA115A87EED460@phx.gbl>
+References: <5DCDADEF-FF9C-4844-8A2C-62E2D3B3B8CE@bengler.no>
+ <1420560253.32621.20.camel@edumazet-glaptop2.roam.corp.google.com>
+ <D5C36777-4461-4B8D-B6C4-38B4276F42DC@bengler.no>
+ <1420564837.32621.30.camel@edumazet-glaptop2.roam.corp.google.com>
+ <8C4F7938-DCA1-46F5-A3C9-7DF62511DEE7@bengler.no>
+ <CAK6E8=d5Z0W5sSAdeEcecKbqjj_UwGw4949=a20fetFpLVKwwA@mail.gmail.com>
+ <03FC652E-AA01-42C7-BD52-019B6D922A9C@bengler.no>
+ <CAK6E8=cP0BFUob5MVj9M0hC0efgRnUY=JMUPKee+v-4TLvHBgg@mail.gmail.com>
+ <76DC89D1-CFCE-44B7-994E-4349FEEDEFA6@bengler.no>
+ <1420575216.5947.12.camel@edumazet-glaptop2.roam.corp.google.com>
+ <4DA8529D-4EEC-42DA-89B0-DC7746DB2B10@bengler.no>,<3F608393-E5F1-4647-81BF-C6C740100934@bengler.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	simon.horman@netronome.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f50.google.com ([209.85.192.50]:57638 "EHLO
-	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751845AbbAGBPI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 20:15:08 -0500
-Received: by mail-qg0-f50.google.com with SMTP id z60so277626qgd.23
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 17:15:08 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=Windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Yuchung Cheng <ycheng@google.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Erik Grinaker <erik@bengler.no>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3F608393-E5F1-4647-81BF-C6C740100934@bengler.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 31, 2014 at 11:45 AM, John Fastabend
-<john.fastabend@gmail.com> wrote:
-> + * [NET_FLOW_TABLE_IDENTIFIER_TYPE]
-> + * [NET_FLOW_TABLE_IDENTIFIER]
-> + * [NET_FLOW_TABLE_TABLES]
-> + *     [NET_FLOW_TABLE]
-> + *       [NET_FLOW_TABLE_ATTR_NAME]
-> + *       [NET_FLOW_TABLE_ATTR_UID]
-> + *       [NET_FLOW_TABLE_ATTR_SOURCE]
-> + *       [NET_FLOW_TABLE_ATTR_SIZE]
-...
-> + * Header definitions used to define headers with user friendly
-> + * names.
-> + *
-> + * [NET_FLOW_TABLE_HEADERS]
-> + *   [NET_FLOW_HEADER]
-> + *     [NET_FLOW_HEADER_ATTR_NAME]
-> + *     [NET_FLOW_HEADER_ATTR_UID]
-> + *     [NET_FLOW_HEADER_ATTR_FIELDS]
-> + *       [NET_FLOW_HEADER_ATTR_FIELD]
-> + *         [NET_FLOW_FIELD_ATTR_NAME]
-> + *         [NET_FLOW_FIELD_ATTR_UID]
-> + *         [NET_FLOW_FIELD_ATTR_BITWIDTH]
-> + *       [NET_FLOW_HEADER_ATTR_FIELD]
-> + *         [...]
-> + *       [...]
-> + * Action definitions supported by tables
-> + *
-> + * [NET_FLOW_TABLE_ACTIONS]
-> + *   [NET_FLOW_TABLE_ATTR_ACTIONS]
-> + *     [NET_FLOW_ACTION]
-> + *       [NET_FLOW_ACTION_ATTR_NAME]
-> + *       [NET_FLOW_ACTION_ATTR_UID]
-> + *       [NET_FLOW_ACTION_ATTR_SIGNATURE]
-> + *              [NET_FLOW_ACTION_ARG]
-..
-> + * Get Table Graph <Reply> description
-> + *
-> + * [NET_FLOW_TABLE_TABLE_GRAPH]
-> + *   [TABLE_GRAPH_NODE]
-> + *     [TABLE_GRAPH_NODE_UID]
-> + *     [TABLE_GRAPH_NODE_JUMP]
+> This still doesn=92t explain why it works with older kernels, but not=
+ newer ones.
 
-I think NET_FLOW prefix everywhere is too verbose.
-Especially since you've missed it in the above 3.
-and in patch 2 it is:
-NET_FLOW_FLOW
-which is kinda awkward.
-Can you abbreviate it to NFL_ or something else ?
+Can you try the different 3.12-rc kernels? The information that this wa=
+s
+introduced in 3.12-rc1 as opposed to a specific -rc>1 releases may help
+the guys here to pinpoint what exactly caused the behavior change on th=
+e
+receiver side.
 
-I couldn't find get_headers() and get_header_graph()
-implementation on rocker side ?
-Could you describe how put_header_graph() will look like?
-When it comes to parsing I'm assuming that hw will fall
-into N categories:
-- that has get_headers() and get_header_graph() only
-  which would mean fixed parser
-- above plus put_header_graph() which will allow to
-  rearrange some fixed sized headers ?
-- above plus put_header() ?
-  I'm having a hard time envisioning how that would
-  look like.
-- ... ?
+v3.12-rc1 to -rc7 is available as prebuild package on the ubuntu mainli=
+ne kernel
+archive [1] aswell.
 
-also can we change a name from add_flow
-to add_entry or add_rule ?
-I think 'rule' fits better, since rule = field_ref+action
-and one real TCP flow may need multiple rules
-inserted into table, right?
-The whole thing can still be called 'flow API'...
 
-will there be a put_table_graph() ?
-probably not, right? since as soon as HW supports
-'goto' aciton, the meaning of table_graph is lost and
-it's actually just a set of disconnected tables and the
-way to jump from one into another is through 'goto'.
+-Lukas
 
-I think OVS guys are quiet, since they're skeptical
-that headers+header_graph approach can work?
-Would be great if they can share the experience...
+
+[1] http://kernel.ubuntu.com/~kernel-ppa/mainline/
+
+ 		 	   		  --
+To unsubscribe from this list: send the line "unsubscribe linux-kernel"=
+ in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
