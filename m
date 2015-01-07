@@ -1,72 +1,50 @@
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: Re: [PATCH] sh_eth: Fix access to TRSCER register
-Date: Thu, 8 Jan 2015 08:49:44 +0900
-Message-ID: <54ADC618.3060605@renesas.com>
-References: <1420608947-6861-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com> <CAMuHMdUyJk+27BsGaZGh+TOqhA5qH4q_pL2hM=tp-Ktn=hkFnw@mail.gmail.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: iproute2 tc: Print qdisc, stats, class, filter info to string
+ rather than FILE
+Date: Thu, 8 Jan 2015 01:46:08 +0200
+Message-ID: <20150107234608.GA1073@angus-think.lan>
+References: <20150107215331.GA19197@angus-think.lan>
+ <20150107150828.5b61f26f@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdUyJk+27BsGaZGh+TOqhA5qH4q_pL2hM=tp-Ktn=hkFnw@mail.gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f49.google.com ([209.85.215.49]:51181 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755708AbbAGX4c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 18:56:32 -0500
+Received: by mail-la0-f49.google.com with SMTP id hs14so6531905lab.8
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 15:56:30 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20150107150828.5b61f26f@urahara>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, Jan 07, 2015 at 03:08:28PM -0800, Stephen Hemminger wrote:
+> On Wed, 7 Jan 2015 23:53:31 +0200
+> Vadim Kochan <vadim4j@gmail.com> wrote:
+> 
+> > Hi,
+> > 
+> > I'd like to make possible to generate plot info about class hierarchy
+> > with qdisc, filters, stats info, but I see that all this staffs are
+> > printed to 'FILE *fp' which makes this hard to implement and seems to me
+> > that it should be changed to be printed to 'char *s' (memory safety
+> > should be considered by asprintf or similar), so this is a big change
+> > but all this is possible and I ready to do it, but before do it I'd like
+> > to ask if this could be acceptable as idea.
+> > 
+> > BUT maybe someone can advise me easier solution ?
+> > 
+> > Regards,
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> Rather than screen scraping tc command, why not use libmnl and get the
+> data you want programmatically.
 
-Thanks for youre review.
-
-(2015/01/07 17:42), Geert Uytterhoeven wrote:
-> Hi Iwamatsu-san,
->
-> On Wed, Jan 7, 2015 at 6:35 AM, Nobuhiro Iwamatsu
-> <nobuhiro.iwamatsu.yj@renesas.com>  wrote:
->> TRSCER register is configured differently by SoCs. TRSCER of R-Car is
->> RINT8 bit only valid, other bits are reserved bits.
->> This removes access to TRSCER register reserve bit.
->>
->> Signed-off-by: Nobuhiro Iwamatsu<nobuhiro.iwamatsu.yj@renesas.com>
->> ---
->>   drivers/net/ethernet/renesas/sh_eth.c | 6 +++++-
->>   1 file changed, 5 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
->> index c29ba80..59ee457 100644
->> --- a/drivers/net/ethernet/renesas/sh_eth.c
->> +++ b/drivers/net/ethernet/renesas/sh_eth.c
->> @@ -1294,7 +1294,11 @@ static int sh_eth_dev_init(struct net_device *ndev, bool start)
->>          /* Frame recv control (enable multiple-packets per rx irq) */
->>          sh_eth_write(ndev, RMCR_RNC, RMCR);
->>
->> -       sh_eth_write(ndev, DESC_I_RINT8 | DESC_I_RINT5 | DESC_I_TINT2, TRSCER);
->> +       if (mdp->cd->register_type == SH_ETH_REG_FAST_RCAR)
->
-> This catches both the R-Car Gen1 and R-Car Gen2 cases.
-> According to the datasheets, r8a7778/9 do have the other bits?
-> Only R-Car Gen2 doesn't have them.
-
-I see. I checked mistake.
-I will resend about this patch.
-
->
->> +               sh_eth_write(ndev, DESC_I_RINT8, TRSCER);
->> +       else
->> +               sh_eth_write(ndev, DESC_I_RINT8 | DESC_I_RINT5 | DESC_I_TINT2,
->> +                            TRSCER);
->
-> Gr{oetje,eeting}s,
->
->                          Geert
->
-> --
-> Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
->
-> In personal conversations with technical people, I call myself a hacker. But
-> when I'm talking to journalists I just say "programmer" or something like that.
->                                  -- Linus Torvalds
-
-Best regards,
-   Nobuhiro
+I'd like to have text info from tc on screen and output on the other
+data format to be the same, just only for this.
