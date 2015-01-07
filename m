@@ -1,49 +1,40 @@
-From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 2/6] vxlan: Group Policy extension
-Date: Wed, 7 Jan 2015 09:32:52 -0800
-Message-ID: <CAADnVQJErdNJrXOOSqEqkbC8524VCH2E9vYL-WdTb_6SGsTwvw@mail.gmail.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2 3/3] ip netns: Delete all netns
+Date: Wed, 7 Jan 2015 19:36:40 +0200
+Message-ID: <20150107173640.GA19586@angus-think.lan>
+References: <1420628662-9930-1-git-send-email-vadim4j@gmail.com>
+ <1420628662-9930-4-git-send-email-vadim4j@gmail.com>
+ <54AD5458.6000400@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:61142 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753899AbbAGRrJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 12:47:09 -0500
+Received: by mail-lb0-f179.google.com with SMTP id z11so1483224lbi.10
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 09:47:05 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <54AD5458.6000400@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBKYW4gNywgMjAxNSBhdCAzOjEwIEFNLCBUaG9tYXMgR3JhZiA8dGdyYWZAc3V1Zy5j
-aD4gd3JvdGU6Cj4gT24gMDEvMDYvMTUgYXQgMDc6MzdwbSwgQWxleGVpIFN0YXJvdm9pdG92IHdy
-b3RlOgo+PiBFdmVuIGl0IHdvcmtzIG9rLCBJIHRoaW5rIHRoaXMgc3RydWN0IGxheW91dCBpcyB1
-Z2x5Lgo+PiBpbW8gd291bGQgYmUgbXVjaCBlYXNpZXIgdG8gcmVhZCBpZiB5b3UgcmVwbGFjZQo+
-PiB0aGUgd2hvbGUgdnhsYW5oZHIgd2l0aCB2eGxhbmhkcl9nYnAKPj4gb3Igc3BsaXQgdnhsYW5o
-ZHIgaW50byB0d28gMzItYml0IHN0cnVjdHMuCj4+IHRoZW4gX19wYWNrZWQgaGFja3Mgd29uJ3Qg
-YmUgbmVlZGVkLgo+Cj4gVGhlIG1haW4gcmVhc29uIHdoeSBJIG1lcmdlZCBpdCBpbnRvIHZ4bGFu
-aGRyIGlzIGZvciBkb2N1bWVudGF0aW9uCj4gcHVycG9zZXMgYW5kIHRvIGF2b2lkIGR1cGxpY2F0
-aW5nIHRoZSBnZW5lcmljIFZYTEFOIGhlYWRlciBmb3IgZXZlcnkKPiBleHRlbnNpb24uIFRoZSBS
-Q08gYW5kIEdQRSBleHRlbnNpb25zIHdvdWxkIG5lZWQgdG8gZHVwbGljYXRlIHRoaXMKPiBvdmVy
-IGFuZCBvdmVyLiBJdCBnZXRzIG1lc3N5IGluIHBhcnRpY3VsYXIgd2hlbiBtdWx0aXBsZSBleHRl
-bnNpb25zCj4gY2FuIGJlIHVzZWQgaW4gY29tYmluYXRpb24gKHN1Y2ggYXMgR0JQIGFuZCBSQ08p
-IHdoaWNoIHRoZW4gZWFjaAo+IGhhdmUgdGhlaXIgb3duIGNvbmZsaWN0aW5nIGhlYWRlciBkZWZp
-bml0aW9ucy4gVGhpcyB3YXksIGl0IGlzIGNsZWFyCj4gd2hpY2ggZXh0ZW5zaW9ucyBhcmUgY29t
-cGF0aWJsZSBieSBqdXN0IGxvb2tpbmcgYXQgdGhlIGRlZmluaXRpb24KPiBvZiB0aGUgc3RydWN0
-dXJlLgoKSSdtIGFmcmFpZCAndW5pb24nIHN0eWxlIHdpdGggZmlyc3QgdTggZmxhZ3Mgd29ya2lu
-ZyBhcyBzZWxlY3Rvcgp3b24ndCB3b3JrIGZvciB0aGUgY2FzZSB5b3UncmUgZGVzY3JpYmluZywg
-YnV0IHNpbmNlCiAgICAgICAgICAgICAgICAgICAgICBtZC5nYnAgPSBudG9ocyh2eGgtPmdicC5w
-b2xpY3lfaWQpOwogICAgMjY1MjogICAgICAgNDEgMGYgYjcgNTUgMGEgICAgICAgICAgbW92ends
-IDB4YSglcjEzKSwlZWR4CnRoZW4gYXQgbGVhc3QgZnJvbSBwZXJmb3JtYW5jZSBzaWRlIGl0J3Mg
-b2sgYXQgbGVhc3Qgb24geDg2LgpTbyB0aGlzIF9wYWNrZWQgc3R1ZmYgaXMgZmluZSwgdGhvdWdo
-IG5vdCBwcmV0dHkuCkl0J3MgaW50ZXJuYWwgaGVhZGVyLCBzbyB3ZSBjYW4gaW1wcm92ZSBpdCBs
-YXRlci4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2
-IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcv
-bWFpbG1hbi9saXN0aW5mby9kZXYK
+On Wed, Jan 07, 2015 at 10:44:24AM -0500, Brian Haley wrote:
+> On 01/07/2015 06:04 AM, Vadim Kochan wrote:
+> > From: Vadim Kochan <vadim4j@gmail.com>
+> > 
+> > Allow delete all namespace names by:
+> > 
+> >     $ ip netns del all
+> 
+> So I can still create a namespace called 'all', but can't exec in it or delete
+> it independently with this change.  Perhaps you need to block that as well?
+> Unless there's some other patch I'm missing?
+> 
+> -Brian
+Hm, I did not take it into account ...
+I will look if I can find another way ...
+
+Thanks,
