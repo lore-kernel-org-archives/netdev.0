@@ -1,191 +1,101 @@
 From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: [PATCH net-next v5 1/7] if_link: Add an additional parameter to ifla_vf_info for RSS querying
-Date: Wed,  7 Jan 2015 21:26:36 +0200
-Message-ID: <1420658802-18061-2-git-send-email-vladz@cloudius-systems.com>
+Subject: [PATCH net-next v5 7/7] ixgbevf: Add the appropriate ethtool ops to query RSS indirection table and key
+Date: Wed,  7 Jan 2015 21:26:42 +0200
+Message-ID: <1420658802-18061-8-git-send-email-vladz@cloudius-systems.com>
 References: <1420658802-18061-1-git-send-email-vladz@cloudius-systems.com>
 Cc: gleb@cloudius-systems.com, avi@cloudius-systems.com,
 	jeffrey.t.kirsher@intel.com,
 	Vlad Zolotarov <vladz@cloudius-systems.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:51354 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753386AbbAGT05 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 14:26:57 -0500
-Received: by mail-wi0-f171.google.com with SMTP id bs8so8183526wib.16
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 11:26:56 -0800 (PST)
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:50357 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754308AbbAGT1F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 14:27:05 -0500
+Received: by mail-wi0-f177.google.com with SMTP id l15so2361473wiw.4
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 11:27:04 -0800 (PST)
 In-Reply-To: <1420658802-18061-1-git-send-email-vladz@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add configuration setting for drivers to allow/block an RSS Redirection Table and
-a Hash Key querying for discrete VFs.
+Added get_rxfh_indir_size, get_rxfh_key_size and get_rxfh ethtool_ops callbacks
+implementations.
 
-On some devices VF share the mentioned above information with PF and querying it may
-adduce a theoretical security risk. We want to let a system administrator to decide if he/she
-wants to take this risk or not.
+This enables the ethtool's "-x" and "-n rx-flow-hash" options for 82599 VF devices.
 
 Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
 ---
- include/linux/if_link.h      |  1 +
- include/linux/netdevice.h    |  8 ++++++++
- include/uapi/linux/if_link.h |  8 ++++++++
- net/core/rtnetlink.c         | 33 +++++++++++++++++++++++++++------
- 4 files changed, 44 insertions(+), 6 deletions(-)
+New in v4:
+   - Removed not needed braces in if-statement in ixgbevf_get_rxfh_indir_size().
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 119130e..da49299 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -14,5 +14,6 @@ struct ifla_vf_info {
- 	__u32 linkstate;
- 	__u32 min_tx_rate;
- 	__u32 max_tx_rate;
-+	__u32 rss_query_en;
- };
- #endif /* _LINUX_IF_LINK_H */
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 679e6e9..52d734e 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -873,6 +873,11 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
-  * int (*ndo_set_vf_link_state)(struct net_device *dev, int vf, int link_state);
-  * int (*ndo_set_vf_port)(struct net_device *dev, int vf,
-  *			  struct nlattr *port[]);
-+ *
-+ *      Enable or disable the VF ability to query its RSS Redirection Table and
-+ *      Hash Key. This is needed since on some devices VF share this information
-+ *      with PF and querying it may adduce a theoretical security risk.
-+ * int (*ndo_set_vf_rss_query_en)(struct net_device *dev, int vf, bool setting);
-  * int (*ndo_get_vf_port)(struct net_device *dev, int vf, struct sk_buff *skb);
-  * int (*ndo_setup_tc)(struct net_device *dev, u8 tc)
-  * 	Called to setup 'tc' number of traffic classes in the net device. This
-@@ -1094,6 +1099,9 @@ struct net_device_ops {
- 						   struct nlattr *port[]);
- 	int			(*ndo_get_vf_port)(struct net_device *dev,
- 						   int vf, struct sk_buff *skb);
-+	int			(*ndo_set_vf_rss_query_en)(
-+						   struct net_device *dev,
-+						   int vf, bool setting);
- 	int			(*ndo_setup_tc)(struct net_device *dev, u8 tc);
- #if IS_ENABLED(CONFIG_FCOE)
- 	int			(*ndo_fcoe_enable)(struct net_device *dev);
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index f7d0d2d..adb2842 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -454,6 +454,9 @@ enum {
- 	IFLA_VF_SPOOFCHK,	/* Spoof Checking on/off switch */
- 	IFLA_VF_LINK_STATE,	/* link state enable/disable/auto switch */
- 	IFLA_VF_RATE,		/* Min and Max TX Bandwidth Allocation */
-+	IFLA_VF_RSS_QUERY_EN,	/* RSS Redirection Table and Hash Key query
-+				 * on/off switch
-+				 */
- 	__IFLA_VF_MAX,
- };
+New in v3:
+   - Added a proper support for x550 devices: return the correct redirection table size.
+
+New in v2:
+   - Added a detailed description to the patch.
+---
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c | 42 ++++++++++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+index cc0e5b7..ddf2d82 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+@@ -792,6 +792,45 @@ static int ixgbevf_set_coalesce(struct net_device *netdev,
+ 	return 0;
+ }
  
-@@ -498,6 +501,11 @@ struct ifla_vf_link_state {
- 	__u32 link_state;
- };
- 
-+struct ifla_vf_rss_query_en {
-+	__u32 vf;
-+	__u32 setting;
-+};
++static u32 ixgbevf_get_rxfh_indir_size(struct net_device *netdev)
++{
++	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
 +
- /* VF ports management section
-  *
-  *	Nested layout of set/get msg is:
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 6a6cdad..a3b9b29 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -818,7 +818,8 @@ static inline int rtnl_vfinfo_size(const struct net_device *dev,
- 			 nla_total_size(sizeof(struct ifla_vf_vlan)) +
- 			 nla_total_size(sizeof(struct ifla_vf_spoofchk)) +
- 			 nla_total_size(sizeof(struct ifla_vf_rate)) +
--			 nla_total_size(sizeof(struct ifla_vf_link_state)));
-+			 nla_total_size(sizeof(struct ifla_vf_link_state)) +
-+			 nla_total_size(sizeof(struct ifla_vf_rss_query_en)));
- 		return size;
- 	} else
- 		return 0;
-@@ -1110,14 +1111,16 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			struct ifla_vf_tx_rate vf_tx_rate;
- 			struct ifla_vf_spoofchk vf_spoofchk;
- 			struct ifla_vf_link_state vf_linkstate;
-+			struct ifla_vf_rss_query_en vf_rss_query_en;
- 
- 			/*
- 			 * Not all SR-IOV capable drivers support the
--			 * spoofcheck query.  Preset to -1 so the user
--			 * space tool can detect that the driver didn't
--			 * report anything.
-+			 * spoofcheck and "RSS query enable" query.  Preset to
-+			 * -1 so the user space tool can detect that the driver
-+			 * didn't report anything.
- 			 */
- 			ivi.spoofchk = -1;
-+			ivi.rss_query_en = -1;
- 			memset(ivi.mac, 0, sizeof(ivi.mac));
- 			/* The default value for VF link state is "auto"
- 			 * IFLA_VF_LINK_STATE_AUTO which equals zero
-@@ -1130,7 +1133,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 				vf_rate.vf =
- 				vf_tx_rate.vf =
- 				vf_spoofchk.vf =
--				vf_linkstate.vf = ivi.vf;
-+				vf_linkstate.vf =
-+				vf_rss_query_en.vf = ivi.vf;
- 
- 			memcpy(vf_mac.mac, ivi.mac, sizeof(ivi.mac));
- 			vf_vlan.vlan = ivi.vlan;
-@@ -1140,6 +1144,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			vf_rate.max_tx_rate = ivi.max_tx_rate;
- 			vf_spoofchk.setting = ivi.spoofchk;
- 			vf_linkstate.link_state = ivi.linkstate;
-+			vf_rss_query_en.setting = ivi.rss_query_en;
- 			vf = nla_nest_start(skb, IFLA_VF_INFO);
- 			if (!vf) {
- 				nla_nest_cancel(skb, vfinfo);
-@@ -1154,7 +1159,10 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			    nla_put(skb, IFLA_VF_SPOOFCHK, sizeof(vf_spoofchk),
- 				    &vf_spoofchk) ||
- 			    nla_put(skb, IFLA_VF_LINK_STATE, sizeof(vf_linkstate),
--				    &vf_linkstate))
-+				    &vf_linkstate) ||
-+			    nla_put(skb, IFLA_VF_RSS_QUERY_EN,
-+				    sizeof(vf_rss_query_en),
-+				    &vf_rss_query_en))
- 				goto nla_put_failure;
- 			nla_nest_end(skb, vf);
- 		}
-@@ -1260,6 +1268,8 @@ static const struct nla_policy ifla_vf_policy[IFLA_VF_MAX+1] = {
- 				    .len = sizeof(struct ifla_vf_rate) },
- 	[IFLA_VF_LINK_STATE]	= { .type = NLA_BINARY,
- 				    .len = sizeof(struct ifla_vf_link_state) },
-+	[IFLA_VF_RSS_QUERY_EN]	= { .type = NLA_BINARY,
-+				   .len = sizeof(struct ifla_vf_rss_query_en) },
++	if (adapter->hw.mac.type >= ixgbe_mac_X550_vf)
++		return 64;
++	else
++		return 128;
++}
++
++static u32 ixgbevf_get_rxfh_key_size(struct net_device *netdev)
++{
++	return 40;
++}
++
++static int ixgbevf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
++			    u8 *hfunc)
++{
++	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
++	int err;
++
++	if (hfunc)
++		*hfunc = ETH_RSS_HASH_TOP;
++
++	if (indir) {
++		err = ixgbevf_get_reta(&adapter->hw, indir);
++		if (err)
++			return err;
++	}
++
++	if (key) {
++		err = ixgbevf_get_rss_key(&adapter->hw, key);
++		if (err)
++			return err;
++	}
++
++	return 0;
++}
++
+ static const struct ethtool_ops ixgbevf_ethtool_ops = {
+ 	.get_settings           = ixgbevf_get_settings,
+ 	.get_drvinfo            = ixgbevf_get_drvinfo,
+@@ -809,6 +848,9 @@ static const struct ethtool_ops ixgbevf_ethtool_ops = {
+ 	.get_ethtool_stats      = ixgbevf_get_ethtool_stats,
+ 	.get_coalesce           = ixgbevf_get_coalesce,
+ 	.set_coalesce           = ixgbevf_set_coalesce,
++	.get_rxfh_indir_size    = ixgbevf_get_rxfh_indir_size,
++	.get_rxfh_key_size      = ixgbevf_get_rxfh_key_size,
++	.get_rxfh		= ixgbevf_get_rxfh,
  };
  
- static const struct nla_policy ifla_port_policy[IFLA_PORT_MAX+1] = {
-@@ -1472,6 +1482,17 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
- 								 ivl->link_state);
- 			break;
- 		}
-+		case IFLA_VF_RSS_QUERY_EN: {
-+			struct ifla_vf_rss_query_en *ivrssq_en;
-+
-+			ivrssq_en = nla_data(vf);
-+			err = -EOPNOTSUPP;
-+			if (ops->ndo_set_vf_rss_query_en)
-+				err = ops->ndo_set_vf_rss_query_en(dev,
-+							    ivrssq_en->vf,
-+							    ivrssq_en->setting);
-+			break;
-+		}
- 		default:
- 			err = -EINVAL;
- 			break;
+ void ixgbevf_set_ethtool_ops(struct net_device *netdev)
 -- 
 2.1.0
