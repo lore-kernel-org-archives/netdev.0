@@ -1,60 +1,81 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next] openvswitch: Do not use private netdev_vport fields
-Date: Tue, 6 Jan 2015 22:00:21 -0800
-Message-ID: <CALnjE+q6v-vOT7_j52LbytoFSy=fbKU=_MBrp2PWgX4rAKhCBA@mail.gmail.com>
-References: <1420577481-20238-1-git-send-email-daniele.di.proietto@gmail.com>
-	<CALnjE+odj6GdO97n4NBLQhP4egMzuNHMjxVqMwC7fSC5C=hT-g@mail.gmail.com>
-	<20150106.170206.2121115629154170856.davem@davemloft.net>
-	<CALnjE+ojw0FnonLyu8hhrWwcn_-_+EYtbFPWdCiJ-JC5h-L9eA@mail.gmail.com>
-	<CALnjE+ormbwkh-=gjPA4iNP+n_dWP6JQxER1Rz6X-c1h8_Y6mw@mail.gmail.com>
-	<CAExiqTLJG38DX_6C2Gaf6jE8-GThznML_-nkzs+57fU72QPW7w@mail.gmail.com>
+From: Fan Du <fengyuleidian0615-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net] gso: do GSO for local skb with size
+	bigger than MTU
+Date: Wed, 07 Jan 2015 13:58:21 +0800
+Message-ID: <54ACCAFD.4070203@gmail.com>
+References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
+ <1417158128.3268.2@smtp.corp.redhat.com>
+ <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com>
+ <20141201135225.GA16814@casper.infradead.org>
+ <20141202154839.GB5344@t520.home>
+ <20141202170927.GA9457@casper.infradead.org>
+ <20141202173401.GB4126@redhat.com>
+ <20141202174158.GB9457@casper.infradead.org>
+ <5A90DA2E42F8AE43BC4A093BF0678848DEDFDB@SHSMSX104.ccr.corp.intel.com>
+ <54AA2912.6090903@gmail.com>
+ <CAEP_g=-R1FrcA0sTJJjQhypRtVCwoRZ+LieKaSJxqA-HACZqEw@mail.gmail.com>
+ <54ABAC13.9070402@gmail.com>
+ <CAEP_g=8bCR=PeSoi09jLWLtNUrxhzx45h1Wm=9D=R57AqUac2w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Daniele Di Proietto <daniele.di.proietto@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog110.obsmtp.com ([74.125.149.203]:36434 "HELO
-	na3sys009aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751223AbbAGGAX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 01:00:23 -0500
-Received: by mail-ie0-f180.google.com with SMTP id rp18so1981638iec.11
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 22:00:22 -0800 (PST)
-In-Reply-To: <CAExiqTLJG38DX_6C2Gaf6jE8-GThznML_-nkzs+57fU72QPW7w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "Du, Fan" <fan.du-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ "fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org" <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAEP_g=8bCR=PeSoi09jLWLtNUrxhzx45h1Wm=9D=R57AqUac2w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 6, 2015 at 3:32 PM, Daniele Di Proietto
-<daniele.di.proietto@gmail.com> wrote:
-> The motivation for the change is to make datapath.c independent from
-> the actual implementation of the vport. The problem came up when
-> experimenting with other vport implementations and this type of change
-> will help identifying layering violations.
-> You are perfectly right, however, that in this form the code does not
-> improve much: we should rather provide a vport_index() call, and
-> implement one in each of the vports.
->
-
-This sounds like lot more invasive change compared to the current
-patch. For such change I need to see complete set of changes that you
-are planning.
-
-
-> Thoughts?
->
-> 2015-01-06 23:28 GMT+01:00 Pravin Shelar <pshelar@nicira.com>:
->> On Tue, Jan 6, 2015 at 2:15 PM, Pravin Shelar <pshelar@nicira.com> wrote:
->>> On Tue, Jan 6, 2015 at 2:02 PM, David Miller <davem@davemloft.net> wrote:
->>>> From: Pravin Shelar <pshelar@nicira.com>
->>>> Date: Tue, 6 Jan 2015 13:16:11 -0800
->>>>
->>>>> Function return type and function name should be on same line,
->>>>> otherwise looks good.
->>>>
->>>> I disagree, where is the code in the tree that needs this?
->>>
->>> Most of function definitions that I have seen are defined like this. I
->>> was pointing out coding style issue.
->>
->> About the actual change, I think it is a cleanup. netdev_vport_index()
->> hides the implementation from datapath.c. I hope Daniele will explain
->> need for the change.
+5LqOIDIwMTXlubQwMeaciDA35pelIDAzOjExLCBKZXNzZSBHcm9zcyDlhpnpgZM6Cj4+PiBPbmUg
+b2YgdGhlIHJlYXNvbnMgZm9yIG9ubHkgZG9pbmcgcGF0aCBNVFUgZGlzY292ZXJ5Cj4+PiA+PmZv
+ciBMMyBpcyB0aGF0IGl0IG9wZXJhdGVzIHNlYW1sZXNzbHkgYXMgcGFydCBvZiBub3JtYWwgb3Bl
+cmF0aW9uIC0KPj4+ID4+dGhlcmUgaXMgbm8gbmVlZCB0byBmb3JnZSBhZGRyZXNzZXMgb3IgcG90
+ZW50aWFsbHkgZ2VuZXJhdGUgSUNNUCB3aGVuCj4+PiA+Pm9uIGFuIEwyIG5ldHdvcmsuIEhvd2V2
+ZXIsIHRoaXMgaWdub3JlcyB0aGUgSVAgaGFuZGxpbmcgdGhhdCBpcyBnb2luZwo+Pj4gPj5vbiAo
+bm90ZSB0aGF0IGluIE9WUyBpdCBpcyBwb3NzaWJsZSBmb3IgTDMgdG8gYmUgaW1wbGVtZW50ZWQg
+YXMgYSBzZXQKPj4+ID4+b2YgZmxvd3MgY29taW5nIGZyb20gYSBjb250cm9sbGVyKS4KPj4+ID4+
+Cj4+PiA+Pkl0IGFsc28gc2hvdWxkIG5vdCBiZSBWWExBTiBzcGVjaWZpYyBvciBkdXBsaWNhdGUg
+VlhMQU4gZW5jYXBzdWxhdGlvbgo+Pj4gPj5jb2RlLiBBcyB0aGlzIGlzIGhhcHBlbmluZyBiZWZv
+cmUgZW5jYXBzdWxhdGlvbiwgdGhlIGdlbmVyYXRlZCBJQ01QCj4+PiA+PmRvZXMgbm90IG5lZWQg
+dG8gYmUgZW5jYXBzdWxhdGVkIGVpdGhlciBpZiBpdCBpcyBjcmVhdGVkIGluIHRoZSByaWdodAo+
+Pj4gPj5sb2NhdGlvbi4KPj4gPgo+PiA+WWVzLCBJIGFncmVlLiBHUkUgc2hhcmUgdGhlIHNhbWUg
+aXNzdWUgZnJvbSB0aGUgY29kZSBmbG93Lgo+PiA+UHVzaGluZyBiYWNrIElDTVAgbXNnIGJhY2sg
+d2l0aG91dCBlbmNhcHN1bGF0aW9uIHdpdGhvdXQgY2lyY3VsYXRpbmcgZG93bgo+PiA+dG8gcGh5
+c2ljYWwgZGV2aWNlIGlzIHBvc3NpYmxlLiBUaGUgInJpZ2h0IGxvY2F0aW9uIiBhcyBmYXIgYXMg
+SSBrbm93Cj4+ID5jb3VsZCBvbmx5IGJlIGluIG92c192cG9ydF9zZW5kLiBJbiBhZGRpdGlvbiB0
+aGlzIHByb2JhYmx5IHJlcXVpcmVzIHdyYXBwZXIKPj4gPnJvdXRlIGxvb2tpbmcgdXAgb3BlcmF0
+aW9uIGZvciBHUkUvVlhMQU4sIGFmdGVyIGdldCB0aGUgdW5kZXIgbGF5ZXIgZGV2aWNlCj4+ID5N
+VFUKPj4gPmZyb20gdGhlIHJvdXRpbmcgaW5mb3JtYXRpb24sIHRoZW4gY2FsY3VsYXRlIHJlZHVj
+ZWQgTVRVIGJlY29tZXMgZmVhc2libGUuCj4gQXMgSSBzYWlkLCBpdCBuZWVkcyB0byBiZSBpbnRl
+Z3JhdGVkIGludG8gTDMgcHJvY2Vzc2luZy4gSW4gT1ZTIHRoaXMKPiB3b3VsZCBtZWFuIGFkZGlu
+ZyBzb21lIHByaW1pdGl2ZXMgdG8gdGhlIGtlcm5lbCBhbmQgdGhlbiBleHBvc2luZyB0aGUKPiBm
+dW5jdGlvbmFsaXR5IHVwd2FyZHMgaW50byB1c2Vyc3BhY2UvY29udHJvbGxlci4KCkknbSBiaXQg
+b2YgY29uZnVzZWQgd2l0aCAiTDMgcHJvY2Vzc2luZyIgeW91IG1lbnRpb25lZCBoZXJlLi4uIFNP
+UlJZCkFwcGFyZW50bHkgSSdtIG5vdCBzZWVpbmcgdGhlIHdob2xlIHBpY3R1cmUgYXMgeW91IHBv
+aW50ZWQgb3V0LiBDb3VsZCB5b3UgcGxlYXNlCmVsYWJvcmF0ZSAiTDMgcHJvY2Vzc2luZyIgYSBi
+aXQgbW9yZT8gZG9jcy9jb2Rlcy9vciBvdGhlciB1c2VmdWwgbGlua3MuIEFwcHJlY2lhdGVkLgoK
+TXkgdW5kZXJzdGFuZGluZyBpczoKY29udHJvbGxlciBzZXRzIHRoZSBmb3J3YXJkaW5nIHJ1bGVz
+IGludG8ga2VybmVsIGRhdGFwYXRoLCBhbnkgZmxvdyBub3QgbWF0Y2hpbmcKd2l0aCB0aGUgcnVs
+ZXMgYXJlIHRocmV3IHRvIGNvbnRyb2xsZXIgYnkgdXBjYWxsLiBPbmNlIHRoZSBydWxlIGRlY2lz
+aW9uIGlzIG1hZGUKYnkgY29udHJvbGxlciwgdGhlbiwgdGhpcyBmbG93IHBhY2tldCBpcyBwdXNo
+ZWQgZG93biB0byBkYXRhcGF0aCB0byBiZSBmb3J3YXJkZWQKYWdhaW4gYWNjb3JkaW5nIHRvIHRo
+ZSBuZXcgcnVsZS4KClNvIEknbSBub3Qgc3VyZSB3aGV0aGVyIHB1c2hpbmcgdGhlIG92ZXItTVRV
+LXNpemVkIHBhY2tldCBvciBwdXNoaW5nIHRoZSBmb3JnZWQgSUNNUAp3aXRob3V0IGVuY2Fwc3Vs
+YXRpb24gdG8gY29udHJvbGxlciBpcyByZXF1aXJlZCBieSBjdXJyZW50IG92cyBpbXBsZW1lbnRh
+dGlvbi4gQnkgZG9pbmcKc28sIHN1Y2ggb3Zlci1NVFUtc2l6ZWQgcGFja2V0IGlzIHRyZWF0ZWQg
+YXMgYSBldmVudCBmb3IgdGhlIGNvbnRyb2xsZXIgdG8gYmUgdGFrZQpjYXJlIG9mLgoKCgotLSAK
+Tm8genVvIG5vIGRpZSBidXQgSSBoYXZlIHRvIHRyeS4KX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gu
+b3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
