@@ -1,67 +1,91 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [net v2 2/3] i40e: Fix Rx checksum error counter
-Date: Wed, 7 Jan 2015 13:34:32 -0800
-Message-ID: <CA+mtBx_CXMyRkHhaMpWFuVo5OD=ejN=ZohidczXoC9w-1owaFQ@mail.gmail.com>
-References: <1420594317-6191-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1420594317-6191-3-git-send-email-jeffrey.t.kirsher@intel.com>
-	<CA+mtBx-VgUCCxnkayoqR6AwYXu_mfzbtGZzH+oeT3wrOznzWGg@mail.gmail.com>
-	<C40BE8378EF49C44B9184714DBC8EF2992D9668D@ORSMSX110.amr.corp.intel.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: TCP connection issues against Amazon S3
+Date: Wed, 7 Jan 2015 13:33:51 -0800
+Message-ID: <CAK6E8=cXJWGdc6be==5B4mA+xU7JuOnvUMpsEGJ=9RTj8YDwsA@mail.gmail.com>
+References: <5DCDADEF-FF9C-4844-8A2C-62E2D3B3B8CE@bengler.no>
+ <1420560253.32621.20.camel@edumazet-glaptop2.roam.corp.google.com>
+ <D5C36777-4461-4B8D-B6C4-38B4276F42DC@bengler.no> <1420564837.32621.30.camel@edumazet-glaptop2.roam.corp.google.com>
+ <8C4F7938-DCA1-46F5-A3C9-7DF62511DEE7@bengler.no> <CAK6E8=d5Z0W5sSAdeEcecKbqjj_UwGw4949=a20fetFpLVKwwA@mail.gmail.com>
+ <03FC652E-AA01-42C7-BD52-019B6D922A9C@bengler.no> <CAK6E8=cP0BFUob5MVj9M0hC0efgRnUY=JMUPKee+v-4TLvHBgg@mail.gmail.com>
+ <76DC89D1-CFCE-44B7-994E-4349FEEDEFA6@bengler.no> <1420575216.5947.12.camel@edumazet-glaptop2.roam.corp.google.com>
+ <4DA8529D-4EEC-42DA-89B0-DC7746DB2B10@bengler.no> <3F608393-E5F1-4647-81BF-C6C740100934@bengler.no>
+ <CAK6E8=cf7cROQ0SON0BihkbOsBB+-sLAbexxgt4_xD+Auqev3Q@mail.gmail.com>
+ <34CE0233-F881-4F40-B119-AA9D8F7D500F@bengler.no> <1420646284.5947.19.camel@edumazet-glaptop2.roam.corp.google.com>
+ <A58F8257-97F8-4662-98FC-7AC57F35A3A4@bengler.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>
-To: "Singhai, Anjali" <anjali.singhai@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:51349 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755095AbbAGVec convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 16:34:32 -0500
-Received: by mail-ig0-f178.google.com with SMTP id b16so2030166igk.5
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 13:34:32 -0800 (PST)
-In-Reply-To: <C40BE8378EF49C44B9184714DBC8EF2992D9668D@ORSMSX110.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Erik Grinaker <erik@bengler.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <A58F8257-97F8-4662-98FC-7AC57F35A3A4@bengler.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 7, 2015 at 12:14 PM, Singhai, Anjali
-<anjali.singhai@intel.com> wrote:
-> On Tue, 6 Jan 2015 21:43:57 -0800
-> Tom Herbert <therbert@google.com> wrote:
->> > @@ -1337,15 +1335,19 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
->> >                                           skb->protocol == htons(ETH_P_8021AD))
->> >                                           ? VLAN_HLEN : 0;
->> >
->> > -               rx_udp_csum = udp_csum(skb);
->> > -               iph = ip_hdr(skb);
->> > -               csum = csum_tcpudp_magic(
->> > -                               iph->saddr, iph->daddr,
->> > -                               (skb->len - skb_transport_offset(skb)),
->> > -                               IPPROTO_UDP, rx_udp_csum);
->> > +               if ((ip_hdr(skb)->protocol == IPPROTO_UDP) &&
->> > +                   (udp_hdr(skb)->check != 0)) {
->> > +                       rx_udp_csum = udp_csum(skb);
+On Wed, Jan 7, 2015 at 12:37 PM, Erik Grinaker <erik@bengler.no> wrote:
+> On 07 Jan 2015, at 15:58, Eric Dumazet <eric.dumazet@gmail.com> wrote=
+:
+>> On Wed, 2015-01-07 at 13:31 +0000, Erik Grinaker wrote:
+>>> On 06 Jan 2015, at 22:00, Yuchung Cheng <ycheng@google.com> wrote:
+>>>> On Tue, Jan 6, 2015 at 1:04 PM, Erik Grinaker <erik@bengler.no> wr=
+ote:
+>>>>>
+>>>>>> On 06 Jan 2015, at 20:26, Erik Grinaker <erik@bengler.no> wrote:
+>>>>> This still doesn=E2=80=99t explain why it works with older kernel=
+s, but not newer ones. I=E2=80=99m thinking it=E2=80=99s
+>>>> probably some minor change, which gets amplified by the lack of SA=
+CKs
+>>>> on the loadbalancer. Anyway, I=E2=80=99ll bring it up with Amazon.
+>>>> can you post traces with the older kernels?
+>>>
+>>> Here is a dump using 3.11.10 against a non-SACK-enabled loadbalance=
+r:
+>>>
+>>> http://abstrakt.bengler.no/tcp-issues-s3-nosack-3.11.10.pcap.bz2
+>>>
+>>> The transfer shows lots of DUPACKs and retransmits, but this does n=
+ot
+>>> seem to have as bad an effect as it did with the failing transfer w=
+e
+>>> saw on newer kernels:
+>>>
+>>> http://abstrakt.bengler.no/tcp-issues-s3-failure.pcap.bz2
+>>>
+>>> One big difference, which Rick touched on earlier, is that the newe=
+r
+>>> kernels keep sending TCP window updates as it=E2=80=99s going throu=
+gh the
+>>> retransmits. The older kernel does not do this.
 >>
->> Doesn't this compute the whole checksum of the packet making the fact
->> that device verified inner checksum pretty much irrelevant? It would
->> probably be just as well to return CHECKSUM_NONE and let the stack
->> deal with it and remove all this complexity.
+>> The new kernel is the receiver : It does no retransmits.
+>>
+>> Increasing window in ACK packets should not prevent sender into
+>> retransmitting missing packets.
+>>
+>> Sender is not a linux host and is very buggy IMO : If receiver
+>> advertises a too big window, sender decides to not retransmit in som=
+e
+>> cases.
 >
-> This is only calculating outer UDP csum, inner csums are offloaded and so is the outer IP csum. Overall this is less work than asking the stack to do all of those by marking it as CHECKSUM_UNNECESSARY. We do have a patch in line to use csum_level but I believe even with that we would be asking the stack to do more work than necessary if we indicate that only inner checksums are offloaded. With our HW we are able to offload 3 out of 4 csums.
+> I agree. I have contacted Amazon about this, but am not too hopeful f=
+or a quick fix; they have been promising SACK-support on their loadbala=
+ncers since 2006, for example.
+>
+> That said, since this change breaks a service as popular as S3, it mi=
+ght be worth reconsidering.
+With the newer kernel and bigger receive window, the sender skips (the
+already slow NewReno) fast recovery and falls back to (exp backoff)
+timeout recovery. Reducing rwin to accommodate the sender's bug seems
+backward to me.
 
-The stack will only compute the checksum over the packet zero or one
-times. The fact that the driver is doing it instead of the stack makes
-little difference, once the decision is made to checksum the packet
-the performance gains of offloading are lost. If you defer to the
-stack then this complex code is removed and there is the possibility
-that the checksum doesn't even need to be calculated at all (like UDP
-packet is bad or no listener for port).
 
-What does "we are able to offload 3 out of 4 csums" mean?
-
-Thanks,
-Tom
+>
+>> You can play with /proc/sys/net/ipv4/tcp_rmem and adopt very low val=
+ues
+>> to work around the sender bug.
+>>
+>> ( Or use SO_RCVBUF in receiver application)
+>
+> Thanks, setting SO_RCVBUF seems like a reasonable workaround.
