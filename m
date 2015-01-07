@@ -1,63 +1,39 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: Re: [PATCH 2/6] vxlan: Group Policy extension
-Date: Wed, 7 Jan 2015 23:27:40 +0000
-Message-ID: <20150107232740.GE21149@casper.infradead.org>
-References: <CAADnVQJErdNJrXOOSqEqkbC8524VCH2E9vYL-WdTb_6SGsTwvw@mail.gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH iproute2 -next v2] ip: route: add congestion control metric
+Date: Thu, 08 Jan 2015 00:37:48 +0100
+Message-ID: <54ADC34C.9030505@redhat.com>
+References: <1420630098-21621-1-git-send-email-dborkman@redhat.com> <20150107150657.1defa6bd@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAADnVQJErdNJrXOOSqEqkbC8524VCH2E9vYL-WdTb_6SGsTwvw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: fw@strlen.de, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45804 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754740AbbAGXh4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jan 2015 18:37:56 -0500
+In-Reply-To: <20150107150657.1defa6bd@urahara>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDEvMDcvMTUgYXQgMDk6MzJhbSwgQWxleGVpIFN0YXJvdm9pdG92IHdyb3RlOgo+IEknbSBh
-ZnJhaWQgJ3VuaW9uJyBzdHlsZSB3aXRoIGZpcnN0IHU4IGZsYWdzIHdvcmtpbmcgYXMgc2VsZWN0
-b3IKPiB3b24ndCB3b3JrIGZvciB0aGUgY2FzZSB5b3UncmUgZGVzY3JpYmluZywgYnV0IHNpbmNl
-Cj4gICAgICAgICAgICAgICAgICAgICAgIG1kLmdicCA9IG50b2hzKHZ4aC0+Z2JwLnBvbGljeV9p
-ZCk7Cj4gICAgIDI2NTI6ICAgICAgIDQxIDBmIGI3IDU1IDBhICAgICAgICAgIG1vdnp3bCAweGEo
-JXIxMyksJWVkeAo+IHRoZW4gYXQgbGVhc3QgZnJvbSBwZXJmb3JtYW5jZSBzaWRlIGl0J3Mgb2sg
-YXQgbGVhc3Qgb24geDg2Lgo+IFNvIHRoaXMgX3BhY2tlZCBzdHVmZiBpcyBmaW5lLCB0aG91Z2gg
-bm90IHByZXR0eS4KPiBJdCdzIGludGVybmFsIGhlYWRlciwgc28gd2UgY2FuIGltcHJvdmUgaXQg
-bGF0ZXIuCgpJJ20gbm90IHN1cmUgSSB1bmRlcnN0YW5kIHlvdXIgZmlyc3Qgc2VudGVuY2UgYnV0
-IEknbSBub3QKbWFycmllZCB0byB0aGUgY29kZSBhcy1pcy4KCldvdWxkIHlvdSBsaWtlIHNvbWV0
-aGluZyBsaWtlIHRoaXM/Cgogc3RydWN0IHZ4bGFuaGRyX2dicCB7CiAJX191OCB2eF9mbGFnczsK
-KyNpZmRlZiBfX0xJVFRMRV9FTkRJQU5fQklURklFTEQKKyAgICAgICBfX3U4ICAgIHJlc2VydmVk
-X2ZsYWdzMTozLAorICAgICAgICAgICAgICAgcG9saWN5X2FwcGxpZWQ6MSwKKyAgICAgICAgICAg
-ICAgIHJlc2VydmVkX2ZsYWdzMjoyLAorICAgICAgICAgICAgICAgZG9udF9sZWFybjoxLAorICAg
-ICAgICAgICAgICAgcmVzZXJ2ZWRfZmxhZ3MzOjE7CisjZWxpZiBkZWZpbmVkKF9fQklHX0VORElB
-Tl9CSVRGSUVMRCkKKyAgICAgICBfX3U4ICAgIHJlc2VydmVkX2ZsYWdzMToxLAorICAgICAgICAg
-ICAgICAgZG9udF9sZWFybjoxLAorICAgICAgICAgICAgICAgcmVzZXJ2ZWRfZmxhZ3MyOjIsCisg
-ICAgICAgICAgICAgICBwb2xpY3lfYXBwbGllZDoxLAorICAgICAgICAgICAgICAgcmVzZXJ2ZWRf
-ZmxhZ3MzOjM7CisjZWxzZQorI2Vycm9yICJQbGVhc2UgZml4IDxhc20vYnl0ZW9yZGVyLmg+Igor
-I2VuZGlmCisgICAgICAgX19iZTE2IHBvbGljeV9pZDsKKyAgICAgICBfX2JlMzIgIHZ4X3ZuaTsK
-IH07Cgogc3RydWN0IHZ4bGFuaGRyIHsKKyAgICAgICB1bmlvbiB7CisgICAgICAgICAgICAgICBz
-dHJ1Y3QgeworI2lmZGVmIF9fTElUVExFX0VORElBTl9CSVRGSUVMRAorICAgICAgICAgICAgICAg
-ICAgICAgICBfX3U4ICAgIHJlc2VydmVkX2ZsYWdzMTozLAorICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgIHZuaV9wcmVzZW50OjEsCisgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-cmVzZXJ2ZWRfZmxhZ3MyOjMsCisgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgZ2JwX3By
-ZXNlbnQ6MTsKKyNlbGlmIGRlZmluZWQoX19CSUdfRU5ESUFOX0JJVEZJRUxEKQorICAgICAgICAg
-ICAgICAgICAgICAgICBfX3U4ICAgIGdicF9wcmVzZW50OjEsCisgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgcmVzZXJ2ZWRfZmxhZ3MyOjMsCisgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgdm5pX3ByZXNlbnQ6MSwKKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICByZXNl
-cnZlZF9mbGFnczE6MzsKKyNlbHNlCisjZXJyb3IgIlBsZWFzZSBmaXggPGFzbS9ieXRlb3JkZXIu
-aD4iCisjZW5kaWYKKyAgICAgICAgICAgICAgICAgICAgICAgX191OCAgICB2eF9yZXNlcnZlZDE7
-CisgICAgICAgICAgICAgICAgICAgICAgIF9fYmUxNiAgdnhfcmVzZXJ2ZWQyOworICAgICAgICAg
-ICAgICAgfTsKKyAgICAgICAgICAgICAgIF9fYmUzMiB2eF9mbGFnczsKKyAgICAgICB9OworICAg
-ICAgIF9fYmUzMiAgdnhfdm5pOwogfTsKCgoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpo
-dHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+On 01/08/2015 12:06 AM, Stephen Hemminger wrote:
+> On Wed,  7 Jan 2015 12:28:18 +0100
+> Daniel Borkmann <dborkman@redhat.com> wrote:
+>
+>> +			if (i != RTAX_CC_ALGO)
+>> +				val = *(unsigned *)RTA_DATA(mxrta[i]);
+>
+> Please use rta_getattr_u32 here.
+>
+> Yes, I know you copied old code, but the old code predated the helper
+> functions.
+
+No problem, that looks better indeed. Will add it.
+
+Btw, while we're on the topic, we ignore errors for all rta_addattr*()
+functions f.e. in iproute_modify(). I think at least we should undo the
+mxlock in case of an error (or bail out entirely as a different option).
+
+Thanks,
+Daniel
