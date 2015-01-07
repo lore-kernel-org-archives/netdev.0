@@ -1,48 +1,95 @@
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: [PATCH] sh-eth: Set fdr_value of R-Car SoCs
-Date: Wed,  7 Jan 2015 14:40:15 +0900
-Message-ID: <1420609215-6969-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
-Cc: yoshihiro.shimoda.uh@renesas.com, linux-sh@vger.kernel.org,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:56216 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751192AbbAGFk0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 00:40:26 -0500
-Received: by mail-pd0-f181.google.com with SMTP id v10so2430651pde.12
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 21:40:26 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rahul Sharma <rsharma@arista.com>
+Subject: Re: [PATCH net] ipv6: Prevent ipv6_find_hdr() from returning ENOENT
+ for valid non-first fragments
+Date: Wed, 7 Jan 2015 11:11:17 +0530
+Message-ID: <CAFB3abwKpR1VqZXUrsexqveAZrA2LTSmTe8a=-H7z2HjAptjwA@mail.gmail.com>
+References: <CAFB3abzYNYqtzd_n+Ym0Lo=DYbV0HPU=Tqw=stALNnu188hMKQ@mail.gmail.com>
+	<20150106224706.GA7416@salvia>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netfilter-devel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20150106224706.GA7416@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-FDR register of R-Car set in fdr_value can have the original settings.
-This sets the value that is suitable for each SoCs to fdr_value of R8A777x
-and R8A779x.
+Hi Pablo,
 
-Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
----
- drivers/net/ethernet/renesas/sh_eth.c | 2 ++
- 1 file changed, 2 insertions(+)
+On Wed, Jan 7, 2015 at 4:17 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> On Wed, Jan 07, 2015 at 03:03:20AM +0530, Rahul Sharma wrote:
+>> ipv6_find_hdr() currently assumes that the next-header field in the
+>> fragment header of the non-first fragment is the "protocol number of
+>> the last header" (here last header excludes any extension header
+>> protocol numbers ) which is incorrect as per RFC2460. The next-header
+>> value is the first header of the fragmentable part of the original
+>> packet (which can be extension header as well).
+>> This can create reassembly problems. For example: Fragmented
+>> authenticated OSPFv3 packets (where AH header is inserted before the
+>> protocol header). For the second fragment, the next header value in
+>> the fragment header will be NEXTHDR_AUTH which is correct but
+>> ipv6_find_hdr will return ENOENT since AH is an extension header
+>> resulting in second fragment getting dropped. This check for the
+>> presence of non-extension header needs to be removed.
+>>
+>> Signed-off-by: Rahul Sharma <rsharma@arista.com>
+>> ---
+>> --- linux-3.18.1/net/ipv6/exthdrs_core.c.orig   2015-01-06
+>> 10:25:36.411419863 -0800
+>> +++ linux-3.18.1/net/ipv6/exthdrs_core.c        2015-01-06
+>> 10:51:45.819364986 -0800
+>> @@ -171,10 +171,11 @@ EXPORT_SYMBOL_GPL(ipv6_find_tlv);
+>>   * If the first fragment doesn't contain the final protocol header or
+>>   * NEXTHDR_NONE it is considered invalid.
+>>   *
+>> - * Note that non-1st fragment is special case that "the protocol number
+>> - * of last header" is "next header" field in Fragment header. In this case,
+>> - * *offset is meaningless and fragment offset is stored in *fragoff if fragoff
+>> - * isn't NULL.
+>> + * Note that non-1st fragment is special case that "the protocol number of the
+>> + * first header of the fragmentable part of the original packet" is
+>> + * "next header" field in the Fragment header. In this case, *offset is
+>> + * meaningless and fragment offset is stored in *fragoff if fragoff isn't
+>> + * NULL.
+>>   *
+>>   * if flags is not NULL and it's a fragment, then the frag flag
+>>   * IP6_FH_F_FRAG will be set. If it's an AH header, the
+>> @@ -250,9 +251,7 @@ int ipv6_find_hdr(const struct sk_buff *
+>>
+>>                         _frag_off = ntohs(*fp) & ~0x7;
+>>                         if (_frag_off) {
+>> -                               if (target < 0 &&
+>> -                                   ((!ipv6_ext_hdr(hp->nexthdr)) ||
+>
+> This check assumes that the following headers cannot show up in the
+> fragmented part of the IPv6 packet:
+>
+>  12 bool ipv6_ext_hdr(u8 nexthdr)
+>  13 {
+>  14         /*
+>  15          * find out if nexthdr is an extension header or a protocol
+>  16          */
+>  17         return   (nexthdr == NEXTHDR_HOP)       ||
+>  18                  (nexthdr == NEXTHDR_ROUTING)   ||
+>  19                  (nexthdr == NEXTHDR_FRAGMENT)  ||
+>  20                  (nexthdr == NEXTHDR_AUTH)      ||
+>  21                  (nexthdr == NEXTHDR_NONE)      ||
+>  22                  (nexthdr == NEXTHDR_DEST);
+>
+>> -                                    hp->nexthdr == NEXTHDR_NONE)) {
+>> +                               if (target < 0) {
+>>                                         if (fragoff)
+>>                                                 *fragoff = _frag_off;
+>>                                         return hp->nexthdr;
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 59ee457..62f2e88 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -473,6 +473,7 @@ static struct sh_eth_cpu_data r8a777x_data = {
- 	.eesr_err_check	= EESR_TWB | EESR_TABT | EESR_RABT | EESR_RFE |
- 			  EESR_RDE | EESR_RFRMER | EESR_TFE | EESR_TDE |
- 			  EESR_ECI,
-+	.fdr_value	= 0x00000f0f,
- 
- 	.apr		= 1,
- 	.mpr		= 1,
-@@ -495,6 +496,7 @@ static struct sh_eth_cpu_data r8a779x_data = {
- 	.eesr_err_check	= EESR_TWB | EESR_TABT | EESR_RABT | EESR_RFE |
- 			  EESR_RDE | EESR_RFRMER | EESR_TFE | EESR_TDE |
- 			  EESR_ECI,
-+	.fdr_value	= 0x00000f0f,
- 
- 	.apr		= 1,
- 	.mpr		= 1,
--- 
-2.1.3
+I think this is incorrect. Authentication header shows up in the
+fragmentable part of the original IPv6 packet. So, for the non-first
+fragments the next-header field value can be NEXTHDR_AUTH.
+
+Thanks
