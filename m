@@ -1,101 +1,134 @@
 From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: [PATCH net-next v5 7/7] ixgbevf: Add the appropriate ethtool ops to query RSS indirection table and key
-Date: Wed,  7 Jan 2015 21:26:42 +0200
-Message-ID: <1420658802-18061-8-git-send-email-vladz@cloudius-systems.com>
+Subject: [PATCH net-next v5 2/7] ixgbe: Add a new netdev op to allow/prevent a VF from querying an RSS info
+Date: Wed,  7 Jan 2015 21:26:37 +0200
+Message-ID: <1420658802-18061-3-git-send-email-vladz@cloudius-systems.com>
 References: <1420658802-18061-1-git-send-email-vladz@cloudius-systems.com>
 Cc: gleb@cloudius-systems.com, avi@cloudius-systems.com,
 	jeffrey.t.kirsher@intel.com,
 	Vlad Zolotarov <vladz@cloudius-systems.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:50357 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754308AbbAGT1F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 14:27:05 -0500
-Received: by mail-wi0-f177.google.com with SMTP id l15so2361473wiw.4
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 11:27:04 -0800 (PST)
+Received: from mail-we0-f170.google.com ([74.125.82.170]:36889 "EHLO
+	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753603AbbAGT06 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 14:26:58 -0500
+Received: by mail-we0-f170.google.com with SMTP id w61so1768047wes.15
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 11:26:57 -0800 (PST)
 In-Reply-To: <1420658802-18061-1-git-send-email-vladz@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added get_rxfh_indir_size, get_rxfh_key_size and get_rxfh ethtool_ops callbacks
-implementations.
-
-This enables the ethtool's "-x" and "-n rx-flow-hash" options for 82599 VF devices.
+Implements the new netdev op to allow user to enable/disable the ability
+of a specific VF to query its RSS Indirection Table and an RSS Hash Key.
 
 Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
 ---
-New in v4:
-   - Removed not needed braces in if-statement in ixgbevf_get_rxfh_indir_size().
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h       |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  7 +++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 27 ++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h |  2 ++
+ 4 files changed, 37 insertions(+)
 
-New in v3:
-   - Added a proper support for x550 devices: return the correct redirection table size.
-
-New in v2:
-   - Added a detailed description to the patch.
----
- drivers/net/ethernet/intel/ixgbevf/ethtool.c | 42 ++++++++++++++++++++++++++++
- 1 file changed, 42 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-index cc0e5b7..ddf2d82 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-@@ -792,6 +792,45 @@ static int ixgbevf_set_coalesce(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 38fc64c..5e3ff3e 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -149,6 +149,7 @@ struct vf_data_storage {
+ 	u16 tx_rate;
+ 	u16 vlan_count;
+ 	u8 spoofchk_enabled;
++	bool rss_query_enabled;
+ 	unsigned int vf_api;
+ };
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 2ed2c7d..0074e63 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3569,6 +3569,12 @@ static void ixgbe_configure_virtualization(struct ixgbe_adapter *adapter)
+ 		if (!adapter->vfinfo[i].spoofchk_enabled)
+ 			ixgbe_ndo_set_vf_spoofchk(adapter->netdev, i, false);
+ 	}
++
++	/* Enable/Disable RSS query feature  */
++	for (i = 0; i < adapter->num_vfs; i++)
++		ixgbe_ndo_set_vf_rss_query_en(adapter->netdev, i,
++					  adapter->vfinfo[i].rss_query_enabled);
++
+ }
+ 
+ static void ixgbe_set_rx_buffer_len(struct ixgbe_adapter *adapter)
+@@ -7955,6 +7961,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_set_vf_vlan	= ixgbe_ndo_set_vf_vlan,
+ 	.ndo_set_vf_rate	= ixgbe_ndo_set_vf_bw,
+ 	.ndo_set_vf_spoofchk	= ixgbe_ndo_set_vf_spoofchk,
++	.ndo_set_vf_rss_query_en = ixgbe_ndo_set_vf_rss_query_en,
+ 	.ndo_get_vf_config	= ixgbe_ndo_get_vf_config,
+ 	.ndo_get_stats64	= ixgbe_get_stats64,
+ #ifdef CONFIG_IXGBE_DCB
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index c76ba90..c903ab2 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -111,6 +111,19 @@ static int __ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
+ 		/* enable spoof checking for all VFs */
+ 		for (i = 0; i < adapter->num_vfs; i++)
+ 			adapter->vfinfo[i].spoofchk_enabled = true;
++
++		/* by default:
++		 *   - Enable RSS query for x550 devices. x550 VFs don't share
++		 *     RSS Redirection Table and RSS Hash Key with a PF, so
++		 *     there isn't any possible security threat in allowing them
++		 *     to query this information.
++		 *   - disable - for all the rest since they do share it with a
++		 *     PF.
++		 */
++		for (i = 0; i < adapter->num_vfs; i++)
++			adapter->vfinfo[i].rss_query_enabled =
++				       (adapter->hw.mac.type >= ixgbe_mac_X550);
++
+ 		return 0;
+ 	}
+ 
+@@ -1330,6 +1343,19 @@ int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting)
  	return 0;
  }
  
-+static u32 ixgbevf_get_rxfh_indir_size(struct net_device *netdev)
++int ixgbe_ndo_set_vf_rss_query_en(struct net_device *netdev, int vf,
++				  bool setting)
 +{
-+	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
 +
-+	if (adapter->hw.mac.type >= ixgbe_mac_X550_vf)
-+		return 64;
-+	else
-+		return 128;
-+}
++	if (vf >= adapter->num_vfs)
++		return -EINVAL;
 +
-+static u32 ixgbevf_get_rxfh_key_size(struct net_device *netdev)
-+{
-+	return 40;
-+}
-+
-+static int ixgbevf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
-+			    u8 *hfunc)
-+{
-+	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
-+	int err;
-+
-+	if (hfunc)
-+		*hfunc = ETH_RSS_HASH_TOP;
-+
-+	if (indir) {
-+		err = ixgbevf_get_reta(&adapter->hw, indir);
-+		if (err)
-+			return err;
-+	}
-+
-+	if (key) {
-+		err = ixgbevf_get_rss_key(&adapter->hw, key);
-+		if (err)
-+			return err;
-+	}
++	adapter->vfinfo[vf].rss_query_enabled = setting;
 +
 +	return 0;
 +}
 +
- static const struct ethtool_ops ixgbevf_ethtool_ops = {
- 	.get_settings           = ixgbevf_get_settings,
- 	.get_drvinfo            = ixgbevf_get_drvinfo,
-@@ -809,6 +848,9 @@ static const struct ethtool_ops ixgbevf_ethtool_ops = {
- 	.get_ethtool_stats      = ixgbevf_get_ethtool_stats,
- 	.get_coalesce           = ixgbevf_get_coalesce,
- 	.set_coalesce           = ixgbevf_set_coalesce,
-+	.get_rxfh_indir_size    = ixgbevf_get_rxfh_indir_size,
-+	.get_rxfh_key_size      = ixgbevf_get_rxfh_key_size,
-+	.get_rxfh		= ixgbevf_get_rxfh,
- };
- 
- void ixgbevf_set_ethtool_ops(struct net_device *netdev)
+ int ixgbe_ndo_get_vf_config(struct net_device *netdev,
+ 			    int vf, struct ifla_vf_info *ivi)
+ {
+@@ -1343,5 +1369,6 @@ int ixgbe_ndo_get_vf_config(struct net_device *netdev,
+ 	ivi->vlan = adapter->vfinfo[vf].pf_vlan;
+ 	ivi->qos = adapter->vfinfo[vf].pf_qos;
+ 	ivi->spoofchk = adapter->vfinfo[vf].spoofchk_enabled;
++	ivi->rss_query_en = adapter->vfinfo[vf].rss_query_enabled;
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+index 32c26d5..2c197e6 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+@@ -47,6 +47,8 @@ int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int queue, u16 vlan,
+ int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int min_tx_rate,
+ 			int max_tx_rate);
+ int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting);
++int ixgbe_ndo_set_vf_rss_query_en(struct net_device *netdev, int vf,
++				  bool setting);
+ int ixgbe_ndo_get_vf_config(struct net_device *netdev,
+ 			    int vf, struct ifla_vf_info *ivi);
+ void ixgbe_check_vf_rate_limit(struct ixgbe_adapter *adapter);
 -- 
 2.1.0
