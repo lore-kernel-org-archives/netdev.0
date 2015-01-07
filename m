@@ -1,91 +1,125 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: TCP connection issues against Amazon S3
-Date: Wed, 7 Jan 2015 13:33:51 -0800
-Message-ID: <CAK6E8=cXJWGdc6be==5B4mA+xU7JuOnvUMpsEGJ=9RTj8YDwsA@mail.gmail.com>
-References: <5DCDADEF-FF9C-4844-8A2C-62E2D3B3B8CE@bengler.no>
- <1420560253.32621.20.camel@edumazet-glaptop2.roam.corp.google.com>
- <D5C36777-4461-4B8D-B6C4-38B4276F42DC@bengler.no> <1420564837.32621.30.camel@edumazet-glaptop2.roam.corp.google.com>
- <8C4F7938-DCA1-46F5-A3C9-7DF62511DEE7@bengler.no> <CAK6E8=d5Z0W5sSAdeEcecKbqjj_UwGw4949=a20fetFpLVKwwA@mail.gmail.com>
- <03FC652E-AA01-42C7-BD52-019B6D922A9C@bengler.no> <CAK6E8=cP0BFUob5MVj9M0hC0efgRnUY=JMUPKee+v-4TLvHBgg@mail.gmail.com>
- <76DC89D1-CFCE-44B7-994E-4349FEEDEFA6@bengler.no> <1420575216.5947.12.camel@edumazet-glaptop2.roam.corp.google.com>
- <4DA8529D-4EEC-42DA-89B0-DC7746DB2B10@bengler.no> <3F608393-E5F1-4647-81BF-C6C740100934@bengler.no>
- <CAK6E8=cf7cROQ0SON0BihkbOsBB+-sLAbexxgt4_xD+Auqev3Q@mail.gmail.com>
- <34CE0233-F881-4F40-B119-AA9D8F7D500F@bengler.no> <1420646284.5947.19.camel@edumazet-glaptop2.roam.corp.google.com>
- <A58F8257-97F8-4662-98FC-7AC57F35A3A4@bengler.no>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] Driver: Vmxnet3: Reinitialize vmxnet3 backend
+ on wakeup from hibernate
+Date: Thu, 08 Jan 2015 00:57:50 +0300
+Message-ID: <54ADABDE.6030008@cogentembedded.com>
+References: <1420653393-27657-1-git-send-email-skhare@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Erik Grinaker <erik@bengler.no>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Srividya Murali <smurali@vmware.com>
+To: Shrikrishna Khare <skhare@vmware.com>, sbhatewara@vmware.com,
+	pv-drivers@vmware.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <A58F8257-97F8-4662-98FC-7AC57F35A3A4@bengler.no>
+In-Reply-To: <1420653393-27657-1-git-send-email-skhare@vmware.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 7, 2015 at 12:37 PM, Erik Grinaker <erik@bengler.no> wrote:
-> On 07 Jan 2015, at 15:58, Eric Dumazet <eric.dumazet@gmail.com> wrote=
-:
->> On Wed, 2015-01-07 at 13:31 +0000, Erik Grinaker wrote:
->>> On 06 Jan 2015, at 22:00, Yuchung Cheng <ycheng@google.com> wrote:
->>>> On Tue, Jan 6, 2015 at 1:04 PM, Erik Grinaker <erik@bengler.no> wr=
-ote:
->>>>>
->>>>>> On 06 Jan 2015, at 20:26, Erik Grinaker <erik@bengler.no> wrote:
->>>>> This still doesn=E2=80=99t explain why it works with older kernel=
-s, but not newer ones. I=E2=80=99m thinking it=E2=80=99s
->>>> probably some minor change, which gets amplified by the lack of SA=
-CKs
->>>> on the loadbalancer. Anyway, I=E2=80=99ll bring it up with Amazon.
->>>> can you post traces with the older kernels?
->>>
->>> Here is a dump using 3.11.10 against a non-SACK-enabled loadbalance=
-r:
->>>
->>> http://abstrakt.bengler.no/tcp-issues-s3-nosack-3.11.10.pcap.bz2
->>>
->>> The transfer shows lots of DUPACKs and retransmits, but this does n=
-ot
->>> seem to have as bad an effect as it did with the failing transfer w=
-e
->>> saw on newer kernels:
->>>
->>> http://abstrakt.bengler.no/tcp-issues-s3-failure.pcap.bz2
->>>
->>> One big difference, which Rick touched on earlier, is that the newe=
-r
->>> kernels keep sending TCP window updates as it=E2=80=99s going throu=
-gh the
->>> retransmits. The older kernel does not do this.
->>
->> The new kernel is the receiver : It does no retransmits.
->>
->> Increasing window in ACK packets should not prevent sender into
->> retransmitting missing packets.
->>
->> Sender is not a linux host and is very buggy IMO : If receiver
->> advertises a too big window, sender decides to not retransmit in som=
-e
->> cases.
->
-> I agree. I have contacted Amazon about this, but am not too hopeful f=
-or a quick fix; they have been promising SACK-support on their loadbala=
-ncers since 2006, for example.
->
-> That said, since this change breaks a service as popular as S3, it mi=
-ght be worth reconsidering.
-With the newer kernel and bigger receive window, the sender skips (the
-already slow NewReno) fast recovery and falls back to (exp backoff)
-timeout recovery. Reducing rwin to accommodate the sender's bug seems
-backward to me.
+Hello.
 
+On 01/07/2015 08:56 PM, Shrikrishna Khare wrote:
+
+> Failing to reinitialize on wakeup results in loss of network connectivity for
+> vmxnet3 interface.
+
+> Signed-off-by: Srividya Murali <smurali@vmware.com>
+> Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+> Reviewed-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
+> ---
+>   drivers/net/vmxnet3/vmxnet3_drv.c |   50 +++++++++++++++++++++---------------
+>   drivers/net/vmxnet3/vmxnet3_int.h |    4 +-
+>   2 files changed, 31 insertions(+), 23 deletions(-)
+
+> diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+> index 7af1f5c..124cb9f 100644
+> --- a/drivers/net/vmxnet3/vmxnet3_drv.c
+> +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+> @@ -3290,51 +3290,59 @@ skip_arp:
+>   static int
+>   vmxnet3_resume(struct device *device)
+>   {
+> -	int err, i = 0;
+> +	int err;
+>   	unsigned long flags;
+>   	struct pci_dev *pdev = to_pci_dev(device);
+>   	struct net_device *netdev = pci_get_drvdata(pdev);
+>   	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
+> -	struct Vmxnet3_PMConf *pmConf;
+>
+>   	if (!netif_running(netdev))
+>   		return 0;
+>
+> -	/* Destroy wake-up filters. */
+> -	pmConf = adapter->pm_conf;
+> -	memset(pmConf, 0, sizeof(*pmConf));
+> -
+> -	adapter->shared->devRead.pmConfDesc.confVer = cpu_to_le32(1);
+> -	adapter->shared->devRead.pmConfDesc.confLen = cpu_to_le32(sizeof(
+> -								  *pmConf));
+> -	adapter->shared->devRead.pmConfDesc.confPA =
+> -		cpu_to_le64(adapter->pm_conf_pa);
+> -
+> -	netif_device_attach(netdev);
+>   	pci_set_power_state(pdev, PCI_D0);
+>   	pci_restore_state(pdev);
+>   	err = pci_enable_device_mem(pdev);
+>   	if (err != 0)
+> -		return err;
+> +		goto err;
+
+    Why?
 
 >
->> You can play with /proc/sys/net/ipv4/tcp_rmem and adopt very low val=
-ues
->> to work around the sender bug.
->>
->> ( Or use SO_RCVBUF in receiver application)
+>   	pci_enable_wake(pdev, PCI_D0, 0);
 >
-> Thanks, setting SO_RCVBUF seems like a reasonable workaround.
+> +	vmxnet3_alloc_intr_resources(adapter);
+> +
+> +	/* During hibernate and suspend, device has to be reinitialized as the
+> +	 * device state need not be preserved.
+> +	 */
+> +
+> +	/* Need not check adapter state as other reset tasks cannot run during
+> +	 * device resume.
+> +	 */
+>   	spin_lock_irqsave(&adapter->cmd_lock, flags);
+>   	VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
+> -			       VMXNET3_CMD_UPDATE_PMCFG);
+> +			       VMXNET3_CMD_QUIESCE_DEV);
+>   	spin_unlock_irqrestore(&adapter->cmd_lock, flags);
+> -	vmxnet3_alloc_intr_resources(adapter);
+> -	vmxnet3_request_irqs(adapter);
+> -	for (i = 0; i < adapter->num_rx_queues; i++)
+> -		napi_enable(&adapter->rx_queue[i].napi);
+> -	vmxnet3_enable_all_intrs(adapter);
+> +	vmxnet3_tq_cleanup_all(adapter);
+> +	vmxnet3_rq_cleanup_all(adapter);
+>
+> -	return 0;
+> +	vmxnet3_reset_dev(adapter);
+> +	err = vmxnet3_activate_dev(adapter);
+> +	if (err) {
+> +		netdev_err(adapter->netdev,
+
+    Not just 'netdev'?
+
+> +			   "%s: failed to re-activate on resume, error: %d",
+> +		    netdev->name, err);
+
+    Should have been aligned with the line right above. And isn't netdev->name 
+printed by netdev_err() already?
+
+> +		vmxnet3_force_close(adapter);
+> +		goto err;
+
+    Why not just *return*?
+
+> +	}
+> +	netif_device_attach(netdev);
+> +
+> +err:
+> +	return err;
+>   }
+[...]
+
+WBR, Sergei
