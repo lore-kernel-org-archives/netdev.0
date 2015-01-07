@@ -1,57 +1,49 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH net] netlink: fix wrong subscription bitmask to group mapping in binding callbacks
-Date: Wed,  7 Jan 2015 13:31:55 +0100
-Message-ID: <1420633915-25475-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41087 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753100AbbAGM3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2015 07:29:16 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Asaf Vertz <asaf.vertz@tandemg.com>
+Subject: [PATCH] e1000: fix time comparison
+Date: Wed, 7 Jan 2015 14:41:45 +0200
+Message-ID: <20150107124145.GA15954@ubuntu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	gregory.v.rose@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The subscription bitmask passed via struct sockaddr_nl is converted to
-the group number when calling the netlink_bind() and netlink_unbind()
-callbacks.
+To be future-proof and for better readability the time comparisons are
+modified to use time_after_eq() instead of plain, error-prone math.
 
-The conversion is however incorrect since bitmask (1 << 0) needs to be
-mapped to group number 1. Note that you cannot specify the group number 0
-(usually known as _NONE) from setsockopt() using NETLINK_ADD_MEMBERSHIP
-since this is rejected through -EINVAL.
-
-This problem became noticeable since 97840cb ("netfilter: nfnetlink:
-fix insufficient validation in nfnetlink_bind") when binding to bitmask
-(1 << 0) in ctnetlink.
-
-Reported-by: Andre Tomt <andre@tomt.net>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Asaf Vertz <asaf.vertz@tandemg.com>
 ---
- net/netlink/af_netlink.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/e1000/e1000_ethtool.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 074cf3e..cbcf73b 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1420,7 +1420,7 @@ static void netlink_unbind(int group, long unsigned int groups,
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+index b691eb4..4270ad2 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+@@ -24,6 +24,7 @@
+ /* ethtool support for e1000 */
  
- 	for (undo = 0; undo < group; undo++)
- 		if (test_bit(undo, &groups))
--			nlk->netlink_unbind(undo);
-+			nlk->netlink_unbind(undo + 1);
- }
+ #include "e1000.h"
++#include <linux/jiffies.h>
+ #include <linux/uaccess.h>
  
- static int netlink_bind(struct socket *sock, struct sockaddr *addr,
-@@ -1458,7 +1458,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
- 		for (group = 0; group < nlk->ngroups; group++) {
- 			if (!test_bit(group, &groups))
- 				continue;
--			err = nlk->netlink_bind(group);
-+			err = nlk->netlink_bind(group + 1);
- 			if (!err)
- 				continue;
- 			netlink_unbind(group, groups, nlk);
+ enum {NETDEV_STATS, E1000_STATS};
+@@ -1460,7 +1461,7 @@ static int e1000_run_loopback_test(struct e1000_adapter *adapter)
+ 			ret_val = 13; /* ret_val is the same as mis-compare */
+ 			break;
+ 		}
+-		if (jiffies >= (time + 2)) {
++		if (time_after_eq(jiffies, time + 2)) {
+ 			ret_val = 14; /* error code for time out error */
+ 			break;
+ 		}
 -- 
-1.7.10.4
+1.7.0.4
