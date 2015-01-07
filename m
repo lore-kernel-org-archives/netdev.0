@@ -1,117 +1,142 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 3/3] ip netns: Delete all netns
-Date: Wed,  7 Jan 2015 13:04:22 +0200
-Message-ID: <1420628662-9930-4-git-send-email-vadim4j@gmail.com>
+Subject: [PATCH iproute2 1/3] lib: Exec func on each netns
+Date: Wed,  7 Jan 2015 13:04:20 +0200
+Message-ID: <1420628662-9930-2-git-send-email-vadim4j@gmail.com>
 References: <1420628662-9930-1-git-send-email-vadim4j@gmail.com>
 Cc: Vadim Kochan <vadim4j@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:56801 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751330AbbAGLOv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 06:14:51 -0500
-Received: by mail-la0-f50.google.com with SMTP id pn19so2719071lab.9
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 03:14:50 -0800 (PST)
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:61202 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750971AbbAGLOs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 06:14:48 -0500
+Received: by mail-lb0-f180.google.com with SMTP id l4so876704lbv.11
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 03:14:45 -0800 (PST)
 In-Reply-To: <1420628662-9930-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vadim Kochan <vadim4j@gmail.com>
 
-Allow delete all namespace names by:
-
-    $ ip netns del all
+Added possibility to run some func on each netns.
 
 Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 ---
- ip/ipnetns.c        | 24 +++++++++++++++---------
- man/man8/ip-netns.8 | 12 ++++++++++--
- 2 files changed, 25 insertions(+), 11 deletions(-)
+ include/namespace.h |  6 ++++++
+ include/utils.h     |  5 +++++
+ lib/namespace.c     | 22 ++++++++++++++++++++++
+ lib/utils.c         | 28 ++++++++++++++++++++++++++++
+ 4 files changed, 61 insertions(+)
 
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index b5a6f57..20707b8 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -274,18 +274,11 @@ static int netns_identify(int argc, char **argv)
+diff --git a/include/namespace.h b/include/namespace.h
+index 2f13e65..1a7e066 100644
+--- a/include/namespace.h
++++ b/include/namespace.h
+@@ -42,5 +42,11 @@ static int setns(int fd, int nstype)
+ #endif /* HAVE_SETNS */
  
- }
+ extern int netns_switch(char *netns);
++extern int netns_foreach(int (*func)(char *nsname, void *arg), void *arg);
++
++struct netns_func {
++	int (*func)(char *nsname, void *arg);
++	void *arg;
++};
  
--static int netns_delete(int argc, char **argv)
-+static int on_netns_del(char *nsname, void *arg)
- {
--	const char *name;
- 	char netns_path[MAXPATHLEN];
+ #endif /* __NAMESPACE_H__ */
+diff --git a/include/utils.h b/include/utils.h
+index eecbc39..3196561 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -5,6 +5,7 @@
+ #include <asm/types.h>
+ #include <resolv.h>
+ #include <stdlib.h>
++#include <stdbool.h>
  
--	if (argc < 1) {
--		fprintf(stderr, "No netns name specified\n");
--		return -1;
--	}
--
--	name = argv[0];
--	snprintf(netns_path, sizeof(netns_path), "%s/%s", NETNS_RUN_DIR, name);
-+	snprintf(netns_path, sizeof(netns_path), "%s/%s", NETNS_RUN_DIR, nsname);
- 	umount2(netns_path, MNT_DETACH);
- 	if (unlink(netns_path) < 0) {
- 		fprintf(stderr, "Cannot remove namespace file \"%s\": %s\n",
-@@ -295,6 +288,19 @@ static int netns_delete(int argc, char **argv)
+ #include "libnetlink.h"
+ #include "ll_map.h"
+@@ -160,4 +161,8 @@ struct iplink_req;
+ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+ 		char **name, char **type, char **link, char **dev,
+ 		int *group, int *index);
++
++extern int do_each_netns(int (*func)(char *nsname, void *arg), void *arg,
++		bool show_label);
++
+ #endif /* __UTILS_H__ */
+diff --git a/lib/namespace.c b/lib/namespace.c
+index 1554ce0..a0f7c6d 100644
+--- a/lib/namespace.c
++++ b/lib/namespace.c
+@@ -84,3 +84,25 @@ int netns_switch(char *name)
+ 	bind_etc(name);
  	return 0;
  }
- 
-+static int netns_delete(int argc, char **argv)
++
++int netns_foreach(int (*func)(char *nsname, void *arg), void *arg)
 +{
-+	if (argc < 1) {
-+		fprintf(stderr, "No netns name specified\n");
++	DIR *dir;
++	struct dirent *entry;
++
++	dir = opendir(NETNS_RUN_DIR);
++	if (!dir)
 +		return -1;
++
++	while ((entry = readdir(dir)) != NULL) {
++		if (strcmp(entry->d_name, ".") == 0)
++			continue;
++		if (strcmp(entry->d_name, "..") == 0)
++			continue;
++		if (func(entry->d_name, arg))
++			break;
 +	}
 +
-+	if (strcmp(argv[0], "all") == 0)
-+		return netns_foreach(on_netns_del, NULL);
++	closedir(dir);
++	return 0;
++}
+diff --git a/lib/utils.c b/lib/utils.c
+index 64915f3..e3ca11b 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -31,6 +31,7 @@
+ 
+ 
+ #include "utils.h"
++#include "namespace.h"
+ 
+ int timestamp_short = 0;
+ 
+@@ -868,3 +869,30 @@ int inet_get_addr(const char *src, __u32 *dst, struct in6_addr *dst6)
+ 	else
+ 		return inet_pton(AF_INET, src, dst);
+ }
 +
-+	return on_netns_del(argv[0], NULL);
++static int on_netns(char *nsname, void *arg)
++{
++	struct netns_func *f = arg;
++
++	if (netns_switch(nsname))
++		return -1;
++
++	return f->func(nsname, f->arg);
 +}
 +
- static int create_netns_dir(void)
- {
- 	/* Create the base netns directory if it doesn't exist */
-diff --git a/man/man8/ip-netns.8 b/man/man8/ip-netns.8
-index 70ea4f0..e56068e 100644
---- a/man/man8/ip-netns.8
-+++ b/man/man8/ip-netns.8
-@@ -16,10 +16,14 @@ ip-netns \- process network namespace management
- .BR "ip netns" " { " list " } "
- 
- .ti -8
--.BR "ip netns" " { " add " | " delete " } "
-+.B ip netns add
- .I NETNSNAME
- 
- .ti -8
-+.B ip netns del
-+.RI "{ " NETNSNAME " | " all " }"
++static int on_netns_label(char *nsname, void *arg)
++{
++	printf("\nnetns: %s\n", nsname);
++	return on_netns(nsname, arg);
++}
 +
-+.ti -8
- .BR "ip netns identify"
- .RI "[ " PID " ]"
- 
-@@ -76,7 +80,7 @@ If NAME is available in /var/run/netns/ this command creates a new
- network namespace and assigns NAME.
- 
- .TP
--.B ip netns delete NAME - delete the name of a network namespace
-+.B ip netns delete { NAME | all } - delete the name of a network namespace(s)
- .sp
- If NAME is present in /var/run/netns it is umounted and the mount
- point is removed.  If this is the last user of the network namespace the
-@@ -84,6 +88,10 @@ network namespace will be freed, otherwise the network namespace
- persists until it has no more users.  ip netns delete may fail if
- the mount point is in use in another mount namespace.
- 
-+If
-+.B all
-+was specified then all the network namespace names will be removed.
++int do_each_netns(int (*func)(char *nsname, void *arg), void *arg,
++		bool show_label)
++{
++	struct netns_func nsf = { .func = func, .arg = arg };
 +
- .TP
- .B ip netns identify [PID] - Report network namespaces names for process
- .sp
++	if (show_label)
++		return netns_foreach(on_netns_label, &nsf);
++
++	return netns_foreach(on_netns, &nsf);
++}
 -- 
 2.1.3
