@@ -1,42 +1,30 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: Re: [PATCH net-next v1 2/3] ARM: imx: add FEC sleep mode callback
- function
-Date: Wed, 7 Jan 2015 11:17:00 +0800
-Message-ID: <20150107031658.GB4928@dragon>
-References: <1419413441-3406-1-git-send-email-b38611@freescale.com>
- <1419413441-3406-3-git-send-email-b38611@freescale.com>
- <20150106114807.GL24511@dragon>
- <BLUPR03MB373F1A5D01A8A6D16DC3364F5460@BLUPR03MB373.namprd03.prod.outlook.com>
- <20150107023307.GA4928@dragon>
- <BLUPR03MB37385464C06052A231ABF19F5460@BLUPR03MB373.namprd03.prod.outlook.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH next] net: e1000: support txtd update delay via xmit_more
+Date: Tue, 6 Jan 2015 19:34:14 -0800
+Message-ID: <CAL3LdT7P0RB12Wi1X=gcLs2xKQFQU9=AthhzHpon7160tViyVA@mail.gmail.com>
+References: <1420557419-18869-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:51365 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754872AbbAGDRY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 22:17:24 -0500
-Received: by mail-pa0-f46.google.com with SMTP id lf10so1915431pab.5
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 19:17:24 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <BLUPR03MB37385464C06052A231ABF19F5460@BLUPR03MB373.namprd03.prod.outlook.com>
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:38017 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754619AbbAGDeP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 22:34:15 -0500
+Received: by mail-ob0-f179.google.com with SMTP id va2so1339344obc.10
+        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 19:34:14 -0800 (PST)
+In-Reply-To: <1420557419-18869-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 07, 2015 at 02:40:33AM +0000, fugang.duan@freescale.com wrote:
-> Yes, the platform code will become quite messy and tremendous.
-> I agree with your thinking.
-> 
-> But David applied the patches, how can I do it now ?
+On Tue, Jan 6, 2015 at 7:16 AM, Florian Westphal <fw@strlen.de> wrote:
+> Don't update tx tail descriptor if we queue hasn't been stopped and
+> we know at least one more skb will be sent right away.
+>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
+>  drivers/net/ethernet/intel/e1000/e1000_main.c | 14 ++++++++------
+>  1 file changed, 8 insertions(+), 6 deletions(-)
 
-David,
-
-Can you please drop the last two arch/arm/ patches, or revert them if
-your tree is non-rebasable?
-
-Shawn
+Thanks Florian, I will add your patch to my queue.
