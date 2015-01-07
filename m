@@ -1,87 +1,58 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v4] can: Convert to runtime_pm
-Date: Wed, 07 Jan 2015 17:36:08 +0100
-Message-ID: <54AD6078.80506@pengutronix.de>
-References: <58f37b6fd9104ce185c413c473fe047b@BY2FFO11FD050.protection.gbl> <54AD267C.4060004@pengutronix.de> <a868331b44ce4b2a80b572399530f1f9@BN1BFFO11FD043.protection.gbl> <54AD5F13.1020107@pengutronix.de> <1d3216d75e9d494fb68ce9a3b24e7ca3@BL2FFO11FD017.protection.gbl>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v1 01/11] net: flow_table: create interface for
+ hw match/action tables
+Date: Wed, 07 Jan 2015 08:35:37 -0800
+Message-ID: <54AD6059.9030901@gmail.com>
+References: <20141231194057.31070.5244.stgit@nitbit.x32> <20141231194544.31070.30335.stgit@nitbit.x32> <20150104111238.GD15305@casper.infradead.org> <54AADEFF.3090306@gmail.com> <CAJ3xEMiMsHW9Wys2GMhD9CRhU03DF3KZywGQkTWF1sMKn8x+fQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="R95cRwpVO2ie2gjCTulG8FpOL2W3F089U"
-Cc: Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
-	wg@grandegger.com, michal.simek@xilinx.com,
-	grant.likely@linaro.org, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Kedareswara rao Appana <appanad@xilinx.com>
-To: =?UTF-8?B?U8O2cmVuIEJyaW5rbWFubg==?= <soren.brinkmann@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1d3216d75e9d494fb68ce9a3b24e7ca3@BL2FFO11FD017.protection.gbl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	simon.horman@netronome.com,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:62568 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752713AbbAGQfx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 11:35:53 -0500
+Received: by mail-ob0-f178.google.com with SMTP id gq1so3894842obb.9
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 08:35:53 -0800 (PST)
+In-Reply-To: <CAJ3xEMiMsHW9Wys2GMhD9CRhU03DF3KZywGQkTWF1sMKn8x+fQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---R95cRwpVO2ie2gjCTulG8FpOL2W3F089U
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 01/07/2015 05:32 PM, S=C3=B6ren Brinkmann wrote:
-> On Wed, 2015-01-07 at 05:30PM +0100, Marc Kleine-Budde wrote:
->> On 01/07/2015 04:58 PM, S=C3=B6ren Brinkmann wrote:
->>>> I think you have to convert the _remove() function, too. Have a look=
- at
->>>> the gpio-zynq.c driver:
->>>>
->>>>> static int zynq_gpio_remove(struct platform_device *pdev)
->>>>> {
->>>>> 	struct zynq_gpio *gpio =3D platform_get_drvdata(pdev);
->>>>>
->>>>> 	pm_runtime_get_sync(&pdev->dev);
->>>>
->>>> However I don't understand why the get_sync() is here. Maybe S=C3=B6=
-ren can help?
+On 01/07/2015 02:07 AM, Or Gerlitz wrote:
+> On Mon, Jan 5, 2015 at 8:59 PM, John Fastabend <john.fastabend@gmail.com> wrote:
+>>>> +struct sk_buff *net_flow_build_actions_msg(struct net_flow_action **a,
+>>>> +                                          struct net_device *dev,
+>>>> +                                          u32 portid, int seq, u8 cmd)
+>>>> +{
+>>>> +       struct genlmsghdr *hdr;
+>>>> +       struct sk_buff *skb;
+>>>> +       int err = -ENOBUFS;
+>>>> +
+>>>> +       skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
 >>>
->>> IIRC, the concern was that the remove function may be called while th=
-e device is
->>> runtime suspended. Hence the remove function needs to resume the devi=
-ce since the
->>> remove function may access the HW.
+>>>
+>>> genlmsg_new(GENLMSG_DEFAULT_SIZE, GFP_KERNEL);
 >>
->> What about the corresponding runtime_put()? Would some counter be
->> unbalanced upon device removal?
->=20
-> Aren't those counters destroyed with module unloading?
+>>
+>> fixed along with the other cases.
+>
+> small nit here, net_flow_build_actions_msg can be made static, it's
+> called only from within this file
+>
+> few more nits... checkpatch --strict produces bunch of "CHECK: Please
+> use a blank line after function/struct/union/enum declarations"
+> comments, I guess worth fixing too.
+>
 
-I don't know.
+Thanks. will fix in v2.
 
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---R95cRwpVO2ie2gjCTulG8FpOL2W3F089U
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUrWB4AAoJECte4hHFiupU90oP/RO4Afg8tuWj6Z4WpiVbiUuB
-DzCdhK+otWYLqyPqVRkCezA5Q2Q8RfDSuQOTaqhzYljqv70h1/DFwWMmyeUfhc8X
-067m+aXmgXJPD7G4Xr4K6/zgBqE1oI1zQmbBg57Ze2pRgkkZrNw5P/N7rncxnMvr
-nFKKmuDmaDpOPz0Ap0R8tbwpiMchbAZcXJNJwum/3TRttDUPdMAK9Hq/EzZfZk4F
-91jyKGaXew3sSskgr1HIEbIH8R/k1mFU5EZOh+xMuw5QFYQ+tak+N7lOEOPOYte9
-+yvOS5/I58EqOwLFjZnOAMTffncPyU6iTota6NzXJClbGvUcpOKXV+IDW3a8CFt/
-U6diBVRK9bU6uW25SEllc+OXvkOgHCCu3B0/oMCK/R8BaKgfnOzz7EISJB2vYce8
-MvMDQqvFXkBkEVxdmv8HaBwAFTFUP5KmPIh4FfzFLLZ+LkjZZ/oZSe3PzvLxLBbj
-amclgdCQApmGu59Cvi+wy+u74928Q3Ql2Q+jNCHtfWGf2Ao1MpDPyZ23cxMyOrrN
-5PF/TgPXSyxrNtsQwRy8QkgO9i+eW3AQsixama/HoC2zOxvusqH3DuKij9soZDNa
-kQ2i8HLDuZvD0FFOZVLMwl/oPTArQJzBfbKM8cmL5lHdwIdHXzp4x40VmDUYciX3
-yK9pcttT976Jr5VSlXAa
-=7KiB
------END PGP SIGNATURE-----
-
---R95cRwpVO2ie2gjCTulG8FpOL2W3F089U--
+-- 
+John Fastabend         Intel Corporation
