@@ -1,142 +1,118 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 1/3] lib: Exec func on each netns
-Date: Wed,  7 Jan 2015 13:04:20 +0200
-Message-ID: <1420628662-9930-2-git-send-email-vadim4j@gmail.com>
-References: <1420628662-9930-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 1/3] net: add IPv4 routing FIB support for swdev
+Date: Wed, 07 Jan 2015 12:23:12 +0100
+Message-ID: <1420629792.26870.59.camel@stressinduktion.org>
+References: <1420169361-31767-2-git-send-email-sfeldma@gmail.com>
+	 <1420552709.32369.50.camel@stressinduktion.org>
+		 <CAE4R7bCOnYL1bat39UivcyAG-S1hx-EJpwC_hWNv8prjZqV3fg@mail.gmail.com>
+	 <1420574353.15181.19.camel@stressinduktion.org>
+	 <98433f41e1876041471cdb513ca53fe5@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?Q?Ji=C5=99=C3=AD_P=C3=ADrko?= <jiri@resnulli.us>,
+	john fastabend <john.fastabend@gmail.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Shrijeet Mukherjee <shm@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f180.google.com ([209.85.217.180]:61202 "EHLO
-	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750971AbbAGLOs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 06:14:48 -0500
-Received: by mail-lb0-f180.google.com with SMTP id l4so876704lbv.11
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 03:14:45 -0800 (PST)
-In-Reply-To: <1420628662-9930-1-git-send-email-vadim4j@gmail.com>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:56765 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752038AbbAGLXP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 06:23:15 -0500
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id 2221320807
+	for <netdev@vger.kernel.org>; Wed,  7 Jan 2015 06:23:15 -0500 (EST)
+In-Reply-To: <98433f41e1876041471cdb513ca53fe5@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Kochan <vadim4j@gmail.com>
+On Di, 2015-01-06 at 18:08 -0800, Shrijeet Mukherjee wrote:
+> >For the first idea, I'll try to make an example:
+> >
+> >Initial setup:
+> ># ip rule ls
+> >0:	from all lookup local
+> >32766:	from all lookup main
+> >32767:	from all lookup default
+> >
+> ># ip rule add pref 100 iif swdev0 table 5 # ip rule ls
+> >0:	from all lookup local
+> >100:	from all iif swdev0 [detached] lookup 5
+> >> maybe we can show which rules are being able to get offloaded here
+> >32766:	from all lookup main
+> >32767:	from all lookup default
+> >
+> >table 5 should be the table we can insert routes into which are offloaded
+> >to
+> >hardware.
+> >
+> >During table modifications we linearly scan the rules if we find selectors
+> >which
+> >cannot be represented by hardware.
+> >
+> >In case we have a iif selector, we simply can use this table and just
+> >synthesize it
+> >into the particular interface.
+> >
+> >A ip-rule-from would need all the hardware being capable of matching source
+> >addresses, otherwise we cannot offload all routing tables with higher
+> >preference,
+> >same for a to/tos rule. If we encounter a fwmark rule, we certainly cannot
+> >represent it in hardware, so skip it (here we can think about entangling
+> >those with
+> >ACLs, but it feels hard to do).
+> >
+> >If rules are inserted or changed we must again validate the complete list
+> >of rules
+> >and decide if we need to flush all the routes and install a slow path via
+> >kernel.
+> >
+> >What do you think? Does that make sense? I could try to come up with an API
+> >for
+> >that. ;)
+> >
+> 
+> This sounds really good, but I suspect the real problem is the case where
+> the rule evaluation is in the hardware path right. If it is purely IF based
+> there is no issue .. but any other policy like missed in table 1, then use
+> table 2 will not work with this model .. or did I miss something ?
 
-Added possibility to run some func on each netns.
+I could come up with several ways how to model hardware. Depending on
+that the integration with rules is easy or nearly impossible:
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- include/namespace.h |  6 ++++++
- include/utils.h     |  5 +++++
- lib/namespace.c     | 22 ++++++++++++++++++++++
- lib/utils.c         | 28 ++++++++++++++++++++++++++++
- 4 files changed, 61 insertions(+)
+1) it simply cannot deal with ip rules, so there is no way an ACL can
+influence the outcome of a routing table lookup - if the feature should
+be used, it has to use the slow-path in the kernel.
 
-diff --git a/include/namespace.h b/include/namespace.h
-index 2f13e65..1a7e066 100644
---- a/include/namespace.h
-+++ b/include/namespace.h
-@@ -42,5 +42,11 @@ static int setns(int fd, int nstype)
- #endif /* HAVE_SETNS */
- 
- extern int netns_switch(char *netns);
-+extern int netns_foreach(int (*func)(char *nsname, void *arg), void *arg);
-+
-+struct netns_func {
-+	int (*func)(char *nsname, void *arg);
-+	void *arg;
-+};
- 
- #endif /* __NAMESPACE_H__ */
-diff --git a/include/utils.h b/include/utils.h
-index eecbc39..3196561 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -5,6 +5,7 @@
- #include <asm/types.h>
- #include <resolv.h>
- #include <stdlib.h>
-+#include <stdbool.h>
- 
- #include "libnetlink.h"
- #include "ll_map.h"
-@@ -160,4 +161,8 @@ struct iplink_req;
- int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 		char **name, char **type, char **link, char **dev,
- 		int *group, int *index);
-+
-+extern int do_each_netns(int (*func)(char *nsname, void *arg), void *arg,
-+		bool show_label);
-+
- #endif /* __UTILS_H__ */
-diff --git a/lib/namespace.c b/lib/namespace.c
-index 1554ce0..a0f7c6d 100644
---- a/lib/namespace.c
-+++ b/lib/namespace.c
-@@ -84,3 +84,25 @@ int netns_switch(char *name)
- 	bind_etc(name);
- 	return 0;
- }
-+
-+int netns_foreach(int (*func)(char *nsname, void *arg), void *arg)
-+{
-+	DIR *dir;
-+	struct dirent *entry;
-+
-+	dir = opendir(NETNS_RUN_DIR);
-+	if (!dir)
-+		return -1;
-+
-+	while ((entry = readdir(dir)) != NULL) {
-+		if (strcmp(entry->d_name, ".") == 0)
-+			continue;
-+		if (strcmp(entry->d_name, "..") == 0)
-+			continue;
-+		if (func(entry->d_name, arg))
-+			break;
-+	}
-+
-+	closedir(dir);
-+	return 0;
-+}
-diff --git a/lib/utils.c b/lib/utils.c
-index 64915f3..e3ca11b 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -31,6 +31,7 @@
- 
- 
- #include "utils.h"
-+#include "namespace.h"
- 
- int timestamp_short = 0;
- 
-@@ -868,3 +869,30 @@ int inet_get_addr(const char *src, __u32 *dst, struct in6_addr *dst6)
- 	else
- 		return inet_pton(AF_INET, src, dst);
- }
-+
-+static int on_netns(char *nsname, void *arg)
-+{
-+	struct netns_func *f = arg;
-+
-+	if (netns_switch(nsname))
-+		return -1;
-+
-+	return f->func(nsname, f->arg);
-+}
-+
-+static int on_netns_label(char *nsname, void *arg)
-+{
-+	printf("\nnetns: %s\n", nsname);
-+	return on_netns(nsname, arg);
-+}
-+
-+int do_each_netns(int (*func)(char *nsname, void *arg), void *arg,
-+		bool show_label)
-+{
-+	struct netns_func nsf = { .func = func, .arg = arg };
-+
-+	if (show_label)
-+		return netns_foreach(on_netns_label, &nsf);
-+
-+	return netns_foreach(on_netns, &nsf);
-+}
--- 
-2.1.3
+2) ACLs can influence which routing table will get queried - this sounds
+very much like the ip rule model and it seems not too hard to model
+that.
+
+3) Routing implementations in the hardware have a single routing table
+and the leafs carry different actions with priorities: making this kind
+of model working with the ip rule concept will become very difficult and
+it might require lots of algorithmic code by every driver to adapt to a
+single API provided by Linux. It might be possible, if the hardware
+provides actions like backtrack and retrack and can keep state of
+priorities during walking the tree, I really doubt that.
+
+Implementations of type 3) would look naturally to do in hardware (see
+different Cisco policy routing configurations or ipv6 subtree feature),
+so it seems it won't be possible to find a simple way to fuse rules and
+offloading in case of point 3).
+
+Rocker sounds a lot like model 2) and this seems possible and should be
+a matter of API design. It should merely be a matter of nicely model the
+data structures. ;)
+
+Also, @Scott: if you build drivers with l3 offloading as modules, don't
+you need to push the full routing tables to the hw once? Maybe we should
+think about the drivers pulling routing information from the kernel, the
+kernel only notifying something changed?
+
+Bye,
+Hannes
