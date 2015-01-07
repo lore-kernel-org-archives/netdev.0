@@ -1,37 +1,78 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: iproute2 tc: Print qdisc, stats, class, filter info to string
- rather than FILE
-Date: Thu, 8 Jan 2015 00:12:57 +0200
-Message-ID: <20150107221257.GA23047@angus-think.lan>
-References: <20150107215331.GA19197@angus-think.lan>
- <20150107221309.GG11324@breakpoint.cc>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH 1/6] vxlan: Allow for VXLAN extensions to be implemented
+Date: Wed, 7 Jan 2015 14:45:31 -0800
+Message-ID: <CAEP_g=_Xr=6nVoeVT8dgRZoM0bNXDiiua5GrjweZ1GaT1ixhZg@mail.gmail.com>
+References: <cover.1420594925.git.tgraf@suug.ch> <7c5e8240263a22a69042c45a632c9940e5ae1062.1420594925.git.tgraf@suug.ch>
+ <CA+mtBx_mp1mf_HPp5u9wDfgeOc8pt26Mf1VHFZTAqDhTdZe7cw@mail.gmail.com> <20150107102740.GM21820@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <therbert@google.com>,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:33392 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752978AbbAGWXV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 17:23:21 -0500
-Received: by mail-la0-f42.google.com with SMTP id gd6so6273121lab.1
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 14:23:19 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150107221309.GG11324@breakpoint.cc>
+Received: from na3sys009aog130.obsmtp.com ([74.125.149.143]:38261 "HELO
+	na3sys009aog130.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750865AbbAGWp7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 17:45:59 -0500
+Received: by mail-qa0-f48.google.com with SMTP id k15so4787062qaq.7
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 14:45:53 -0800 (PST)
+In-Reply-To: <20150107102740.GM21820@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 07, 2015 at 11:13:09PM +0100, Florian Westphal wrote:
-> Vadim Kochan <vadim4j@gmail.com> wrote:
-> > I'd like to make possible to generate plot info about class hierarchy
-> > with qdisc, filters, stats info, but I see that all this staffs are
-> > printed to 'FILE *fp' which makes this hard to implement and seems to me
-> > that it should be changed to be printed to 'char *s' (memory safety
-> > should be considered by asprintf or similar), so this is a big change
-> > but all this is possible and I ready to do it, but before do it I'd like
-> > to ask if this could be acceptable as idea.
-> > 
-> > BUT maybe someone can advise me easier solution ?
-> 
-> Would fmemopen/open_memstream(3) do what you want?
-I briefly looked on it, and it might help, THANKS A LOT!
+On Wed, Jan 7, 2015 at 2:27 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 01/06/15 at 07:46pm, Tom Herbert wrote:
+>> On Tue, Jan 6, 2015 at 6:05 PM, Thomas Graf <tgraf@suug.ch> wrote:
+>> > The VXLAN receive code is currently conservative in what it accepts and
+>> > will reject any frame that uses any of the reserved VXLAN protocol fields.
+>> > The VXLAN draft specifies that "reserved fields MUST be set to zero on
+>> > transmit and ignored on receive.".
+>> >
+>> IMO it is an unfortunate decision in VXLAN to ignore set reserved
+>> fields on receive. Had they not done this, then adding a protocol
+>> field to the header would have been feasible and we wouldn't need yet
+>> another encapsulation protocol (i.e. VXLAN-GPE). Rejecting frames with
+>> reserved bits set is the better behavior, but I think the comment
+>> about this needs to be clear about why this diverges from RFC7348.
+>
+> Agreed. Do you want to give it a shot? I know you have been involved
+> on all aspects of this topic for a long time in NVO3 ;-)
+
+There is little chance of this happening. Besides the IETF procedural
+aspects, ignoring unknown reserved bits on receive is the long
+standing standard way of extending protocols. It's how TCP was
+extended to support ECN, for example.
+
+>> > Retain the current conservative parsing behaviour by default but allows
+>> > these fields to be used by VXLAN extensions which are explicitly enabled
+>> > on the VXLAN socket respectively VXLAN net_device.
+>> >
+>> Conceptually, VXLAN has both mandatory flags and optional flags for
+>> extensions. You may want to look at the VXLAN RCO patches that added
+>> an extension and infrastructure for them.
+>
+> I've seen your proposed changes. I think they could be easily rebased
+> on top of this and use the enablement infrastructure. In fact, I see
+> this as the only feasible option to deal with VXLAN extensions: Leave
+> it to the user to decide which extensions to run. That way we can
+> support any combination of extensions, even conflicting ones. All we
+> have to do is catch incompatible extension configurations on a socket
+> and reject them at configuration time. Expecting that NVO3/IETF will
+> find consensus on a list of compatible set of extensions with perfect
+> forward and backwards compatibility is unrealistic in my eyes. We have
+> Geneve and GUE to solve it properly in the future.
+
+My concern is that having multiple (and potentially overlapping)
+extensions is going to make the VXLAN code very messy and hard to
+follow. I think there's already quite a big of complexity there from
+the DOVE extensions (which are basically dead at this point to the
+best of my knowledge). We already see this some with the discussion
+over the header struct but that's just the beginning - can you imagine
+the code that checks a single bit for several different
+interpretations? Not to mention the fact that the location of the bits
+in some of these proposals has already been shuffled several times. It
+seems very painful...
