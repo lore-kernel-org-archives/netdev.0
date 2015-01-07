@@ -1,77 +1,167 @@
-From: Erik Grinaker <erik@bengler.no>
-Subject: Re: TCP connection issues against Amazon S3
-Date: Wed, 7 Jan 2015 20:37:19 +0000
-Message-ID: <A58F8257-97F8-4662-98FC-7AC57F35A3A4@bengler.no>
-References: <5DCDADEF-FF9C-4844-8A2C-62E2D3B3B8CE@bengler.no> <1420560253.32621.20.camel@edumazet-glaptop2.roam.corp.google.com> <D5C36777-4461-4B8D-B6C4-38B4276F42DC@bengler.no> <1420564837.32621.30.camel@edumazet-glaptop2.roam.corp.google.com> <8C4F7938-DCA1-46F5-A3C9-7DF62511DEE7@bengler.no> <CAK6E8=d5Z0W5sSAdeEcecKbqjj_UwGw4949=a20fetFpLVKwwA@mail.gmail.com> <03FC652E-AA01-42C7-BD52-019B6D922A9C@bengler.no> <CAK6E8=cP0BFUob5MVj9M0hC0efgRnUY=JMUPKee+v-4TLvHBgg@mail.gmail.com> <76DC89D1-CFCE-44B7-994E-4349FEEDEFA6@bengler.no> <1420575216.5947.12.camel@edumazet-glaptop2.roam.corp.google.com> <4DA8529D-4EEC-42DA-89B0-DC7746DB2B10@bengler.no> <3F608393-E5F1-4647-81BF-C6C740100934@bengler.no> <CAK6E8=cf7cROQ0SON0BihkbOsBB+-sLAbexxgt4_xD+Auqev3Q@mail.gmail.com> <34CE0233-F881-4F40-B119-AA9D8F
- 7D500F@bengler.no> <1420646284.5947.19.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.1 \(1993\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yuchung Cheng <ycheng@google.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Rahul Sharma <rsharma@arista.com>
+Subject: Re: [PATCH net] ipv6: Prevent ipv6_find_hdr() from returning ENOENT
+ for valid non-first fragments
+Date: Thu, 8 Jan 2015 02:18:57 +0530
+Message-ID: <CAFB3abz_-AbJsrBtwRX5t=TCCfzYsw82WDYH=A7jzA2N8UbAng@mail.gmail.com>
+References: <CAFB3abzYNYqtzd_n+Ym0Lo=DYbV0HPU=Tqw=stALNnu188hMKQ@mail.gmail.com>
+	<20150106224706.GA7416@salvia>
+	<CAFB3abwKpR1VqZXUrsexqveAZrA2LTSmTe8a=-H7z2HjAptjwA@mail.gmail.com>
+	<1420627396.26870.36.camel@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1420646284.5947.19.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <1420627396.26870.36.camel@stressinduktion.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07 Jan 2015, at 15:58, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2015-01-07 at 13:31 +0000, Erik Grinaker wrote:
->> On 06 Jan 2015, at 22:00, Yuchung Cheng <ycheng@google.com> wrote:
->>> On Tue, Jan 6, 2015 at 1:04 PM, Erik Grinaker <erik@bengler.no> wro=
-te:
->>>>=20
->>>>> On 06 Jan 2015, at 20:26, Erik Grinaker <erik@bengler.no> wrote:
->>>> This still doesn=E2=80=99t explain why it works with older kernels=
-, but not newer ones. I=E2=80=99m thinking it=E2=80=99s
->>> probably some minor change, which gets amplified by the lack of SAC=
-Ks
->>> on the loadbalancer. Anyway, I=E2=80=99ll bring it up with Amazon.
->>> can you post traces with the older kernels?
->>=20
->> Here is a dump using 3.11.10 against a non-SACK-enabled loadbalancer=
-:
->>=20
->> http://abstrakt.bengler.no/tcp-issues-s3-nosack-3.11.10.pcap.bz2
->>=20
->> The transfer shows lots of DUPACKs and retransmits, but this does no=
-t
->> seem to have as bad an effect as it did with the failing transfer we
->> saw on newer kernels:
->>=20
->> http://abstrakt.bengler.no/tcp-issues-s3-failure.pcap.bz2
->>=20
->> One big difference, which Rick touched on earlier, is that the newer
->> kernels keep sending TCP window updates as it=E2=80=99s going throug=
-h the
->> retransmits. The older kernel does not do this.
->=20
-> The new kernel is the receiver : It does no retransmits.
->=20
-> Increasing window in ACK packets should not prevent sender into
-> retransmitting missing packets.
->=20
-> Sender is not a linux host and is very buggy IMO : If receiver
-> advertises a too big window, sender decides to not retransmit in some
-> cases.
+Hi Hannes,
 
-I agree. I have contacted Amazon about this, but am not too hopeful for=
- a quick fix; they have been promising SACK-support on their loadbalanc=
-ers since 2006, for example.
+On Wed, Jan 7, 2015 at 4:13 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Hi,
+>
+> On Mi, 2015-01-07 at 11:11 +0530, Rahul Sharma wrote:
+>> On Wed, Jan 7, 2015 at 4:17 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+>> > On Wed, Jan 07, 2015 at 03:03:20AM +0530, Rahul Sharma wrote:
+>> >> ipv6_find_hdr() currently assumes that the next-header field in the
+>> >> fragment header of the non-first fragment is the "protocol number of
+>> >> the last header" (here last header excludes any extension header
+>> >> protocol numbers ) which is incorrect as per RFC2460. The next-header
+>> >> value is the first header of the fragmentable part of the original
+>> >> packet (which can be extension header as well).
+>> >> This can create reassembly problems. For example: Fragmented
+>> >> authenticated OSPFv3 packets (where AH header is inserted before the
+>> >> protocol header). For the second fragment, the next header value in
+>> >> the fragment header will be NEXTHDR_AUTH which is correct but
+>> >> ipv6_find_hdr will return ENOENT since AH is an extension header
+>> >> resulting in second fragment getting dropped. This check for the
+>> >> presence of non-extension header needs to be removed.
+>> >>
+>> >> Signed-off-by: Rahul Sharma <rsharma@arista.com>
+>> >> ---
+>> >> --- linux-3.18.1/net/ipv6/exthdrs_core.c.orig   2015-01-06
+>> >> 10:25:36.411419863 -0800
+>> >> +++ linux-3.18.1/net/ipv6/exthdrs_core.c        2015-01-06
+>> >> 10:51:45.819364986 -0800
+>> >> @@ -171,10 +171,11 @@ EXPORT_SYMBOL_GPL(ipv6_find_tlv);
+>> >>   * If the first fragment doesn't contain the final protocol header or
+>> >>   * NEXTHDR_NONE it is considered invalid.
+>> >>   *
+>> >> - * Note that non-1st fragment is special case that "the protocol number
+>> >> - * of last header" is "next header" field in Fragment header. In this case,
+>> >> - * *offset is meaningless and fragment offset is stored in *fragoff if fragoff
+>> >> - * isn't NULL.
+>> >> + * Note that non-1st fragment is special case that "the protocol number of the
+>> >> + * first header of the fragmentable part of the original packet" is
+>> >> + * "next header" field in the Fragment header. In this case, *offset is
+>> >> + * meaningless and fragment offset is stored in *fragoff if fragoff isn't
+>> >> + * NULL.
+>> >>   *
+>> >>   * if flags is not NULL and it's a fragment, then the frag flag
+>> >>   * IP6_FH_F_FRAG will be set. If it's an AH header, the
+>> >> @@ -250,9 +251,7 @@ int ipv6_find_hdr(const struct sk_buff *
+>> >>
+>> >>                         _frag_off = ntohs(*fp) & ~0x7;
+>> >>                         if (_frag_off) {
+>> >> -                               if (target < 0 &&
+>> >> -                                   ((!ipv6_ext_hdr(hp->nexthdr)) ||
+>> >
+>> > This check assumes that the following headers cannot show up in the
+>> > fragmented part of the IPv6 packet:
+>> >
+>> >  12 bool ipv6_ext_hdr(u8 nexthdr)
+>> >  13 {
+>> >  14         /*
+>> >  15          * find out if nexthdr is an extension header or a protocol
+>> >  16          */
+>> >  17         return   (nexthdr == NEXTHDR_HOP)       ||
+>> >  18                  (nexthdr == NEXTHDR_ROUTING)   ||
+>> >  19                  (nexthdr == NEXTHDR_FRAGMENT)  ||
+>> >  20                  (nexthdr == NEXTHDR_AUTH)      ||
+>> >  21                  (nexthdr == NEXTHDR_NONE)      ||
+>> >  22                  (nexthdr == NEXTHDR_DEST);
+>> >
+>> >> -                                    hp->nexthdr == NEXTHDR_NONE)) {
+>> >> +                               if (target < 0) {
+>> >>                                         if (fragoff)
+>> >>                                                 *fragoff = _frag_off;
+>> >>                                         return hp->nexthdr;
+>> >> --
+>> >> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> >> the body of a message to majordomo@vger.kernel.org
+>> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+>> I think this is incorrect. Authentication header shows up in the
+>> fragmentable part of the original IPv6 packet. So, for the non-first
+>> fragments the next-header field value can be NEXTHDR_AUTH.
+>
+> Pablo's mail got me thinking again.
+>
+> In general, IPv6 extension headers can appear in any order and stacks
+> must be process them. Fragmentation adds a limitation, that some
+> extension headers do not make sense and don't have any effect if they
+> appear after a fragmentation header (HbH and ROUTING).
+>
+> Looking at the rest of the function we don't check for HBHHDR or RTHDR
+> following a fragmentation header either if we process the first fragment
+> (core stack only processes HBH if directly following the ipv6 header
+> anyway).
+>
+> So, in my opinion, it is safe to completely remove this check and it
+> would align if the rest of the extension processing logic. The callers
+> all seem fine with that.
+>
+> Pablo, what do you think?
+>
+> Anyway, the patch does not apply cleanly, the patch header is mangled.
+> Could you check and send again?
+>
+> Thanks,
+> Hannes
+>
+>
+I am not sure if replying on the thread with a patch is a good idea
+(or should I send a new email). Anyway, let me know if this is works.
 
-That said, since this change breaks a service as popular as S3, it migh=
-t be worth reconsidering.
+Signed-off-by: Rahul Sharma <rsharma@arista.com>
+---
+ net/ipv6/exthdrs_core.c |   13 ++++++-------
+ 1 files changed, 6 insertions(+), 7 deletions(-)
 
-> You can play with /proc/sys/net/ipv4/tcp_rmem and adopt very low valu=
-es
-> to work around the sender bug.
->=20
-> ( Or use SO_RCVBUF in receiver application)
+diff --git a/net/ipv6/exthdrs_core.c b/net/ipv6/exthdrs_core.c
+index 8af3eb5..5949f87 100644
+--- a/net/ipv6/exthdrs_core.c
++++ b/net/ipv6/exthdrs_core.c
+@@ -171,10 +171,11 @@ EXPORT_SYMBOL_GPL(ipv6_find_tlv);
+  * If the first fragment doesn't contain the final protocol header or
+  * NEXTHDR_NONE it is considered invalid.
+  *
+- * Note that non-1st fragment is special case that "the protocol number
+- * of last header" is "next header" field in Fragment header. In this case,
+- * *offset is meaningless and fragment offset is stored in *fragoff if fragoff
+- * isn't NULL.
++ * Note that non-1st fragment is special case that "the protocol number of the
++ * first header of the fragmentable part of the original packet" is
++ * "next header" field in the Fragment header. In this case, *offset is
++ * meaningless and fragment offset is stored in *fragoff if fragoff isn't
++ * NULL.
+  *
+  * if flags is not NULL and it's a fragment, then the frag flag
+  * IP6_FH_F_FRAG will be set. If it's an AH header, the
+@@ -250,9 +251,7 @@ int ipv6_find_hdr(const struct sk_buff *skb,
+unsigned int *offset,
 
-Thanks, setting SO_RCVBUF seems like a reasonable workaround.--
-To unsubscribe from this list: send the line "unsubscribe linux-kernel"=
- in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
+                        _frag_off = ntohs(*fp) & ~0x7;
+                        if (_frag_off) {
+-                               if (target < 0 &&
+-                                   ((!ipv6_ext_hdr(hp->nexthdr)) ||
+-                                    hp->nexthdr == NEXTHDR_NONE)) {
++                               if (target < 0) {
+                                        if (fragoff)
+                                                *fragoff = _frag_off;
+                                        return hp->nexthdr;
+-- 
+1.7.4.4
