@@ -1,173 +1,54 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 1/6] vxlan: Allow for VXLAN extensions to be implemented
-Date: Tue, 6 Jan 2015 19:46:56 -0800
-Message-ID: <CA+mtBx_mp1mf_HPp5u9wDfgeOc8pt26Mf1VHFZTAqDhTdZe7cw@mail.gmail.com>
-References: <cover.1420594925.git.tgraf@suug.ch>
-	<7c5e8240263a22a69042c45a632c9940e5ae1062.1420594925.git.tgraf@suug.ch>
+From: poma <pomidorabelisima@gmail.com>
+Subject: Some warnings for skge - netpoll/netconsole induced
+Date: Wed, 07 Jan 2015 06:29:04 +0100
+Message-ID: <54ACC420.90304@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Jesse Gross <jesse@nicira.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:43217 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754243AbbAGDq5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 22:46:57 -0500
-Received: by mail-ig0-f175.google.com with SMTP id h15so5253850igd.2
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 19:46:56 -0800 (PST)
-In-Reply-To: <7c5e8240263a22a69042c45a632c9940e5ae1062.1420594925.git.tgraf@suug.ch>
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:37152 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750884AbbAGFf1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 00:35:27 -0500
+Received: by mail-wg0-f50.google.com with SMTP id a1so517025wgh.23
+        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 21:35:25 -0800 (PST)
+Received: from localhost (iskon7306.duo.carnet.hr. [31.147.124.138])
+        by mx.google.com with ESMTPSA id je12sm1120038wic.22.2015.01.06.21.29.04
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Tue, 06 Jan 2015 21:29:05 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 6, 2015 at 6:05 PM, Thomas Graf <tgraf@suug.ch> wrote:
-> The VXLAN receive code is currently conservative in what it accepts and
-> will reject any frame that uses any of the reserved VXLAN protocol fields.
-> The VXLAN draft specifies that "reserved fields MUST be set to zero on
-> transmit and ignored on receive.".
->
-IMO it is an unfortunate decision in VXLAN to ignore set reserved
-fields on receive. Had they not done this, then adding a protocol
-field to the header would have been feasible and we wouldn't need yet
-another encapsulation protocol (i.e. VXLAN-GPE). Rejecting frames with
-reserved bits set is the better behavior, but I think the comment
-about this needs to be clear about why this diverges from RFC7348.
-
-> Retain the current conservative parsing behaviour by default but allows
-> these fields to be used by VXLAN extensions which are explicitly enabled
-> on the VXLAN socket respectively VXLAN net_device.
->
-Conceptually, VXLAN has both mandatory flags and optional flags for
-extensions. You may want to look at the VXLAN RCO patches that added
-an extension and infrastructure for them.
-
-Tom
-
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> ---
->  drivers/net/vxlan.c | 29 +++++++++++++++++++----------
->  include/net/vxlan.h | 32 +++++++++++++++++++++++++++++---
->  2 files changed, 48 insertions(+), 13 deletions(-)
->
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 2ab0922..4d52aa9 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -65,7 +65,7 @@
->  #define VXLAN_VID_MASK (VXLAN_N_VID - 1)
->  #define VXLAN_HLEN (sizeof(struct udphdr) + sizeof(struct vxlanhdr))
->
-> -#define VXLAN_FLAGS 0x08000000 /* struct vxlanhdr.vx_flags required value. */
-> +#define VXLAN_FLAGS 0x08000000 /* struct vxlanhdr.vx_flags default value. */
->
->  /* UDP port for VXLAN traffic.
->   * The IANA assigned port is 4789, but the Linux default is 8472
-> @@ -1100,22 +1100,28 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
->         if (!pskb_may_pull(skb, VXLAN_HLEN))
->                 goto error;
->
-> +       vs = rcu_dereference_sk_user_data(sk);
-> +       if (!vs)
-> +               goto drop;
-> +
->         /* Return packets with reserved bits set */
->         vxh = (struct vxlanhdr *)(udp_hdr(skb) + 1);
-> -       if (vxh->vx_flags != htonl(VXLAN_FLAGS) ||
-> -           (vxh->vx_vni & htonl(0xff))) {
-> -               netdev_dbg(skb->dev, "invalid vxlan flags=%#x vni=%#x\n",
-> -                          ntohl(vxh->vx_flags), ntohl(vxh->vx_vni));
-> -               goto error;
-> +
-> +       /* For backwards compatibility, only allow reserved fields to be
-> +        * used by VXLAN extensions if explicitly requested.
-> +        */
-> +       if (vs->exts) {
-> +               if (!vxh->vni_present)
-> +                       goto error_invalid_header;
-> +       } else {
-> +               if (vxh->vx_flags != htonl(VXLAN_FLAGS) ||
-> +                   (vxh->vx_vni & htonl(0xff)))
-> +                       goto error_invalid_header;
->         }
->
->         if (iptunnel_pull_header(skb, VXLAN_HLEN, htons(ETH_P_TEB)))
->                 goto drop;
->
-> -       vs = rcu_dereference_sk_user_data(sk);
-> -       if (!vs)
-> -               goto drop;
-> -
->         vs->rcv(vs, skb, vxh->vx_vni);
->         return 0;
->
-> @@ -1124,6 +1130,9 @@ drop:
->         kfree_skb(skb);
->         return 0;
->
-> +error_invalid_header:
-> +       netdev_dbg(skb->dev, "invalid vxlan flags=%#x vni=%#x\n",
-> +                  ntohl(vxh->vx_flags), ntohl(vxh->vx_vni));
->  error:
->         /* Return non vxlan pkt */
->         return 1;
-> diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-> index 903461a..3e98d31 100644
-> --- a/include/net/vxlan.h
-> +++ b/include/net/vxlan.h
-> @@ -11,10 +11,35 @@
->  #define VNI_HASH_BITS  10
->  #define VNI_HASH_SIZE  (1<<VNI_HASH_BITS)
->
-> -/* VXLAN protocol header */
-> +/* VXLAN protocol header:
-> + * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + * |R|R|R|R|I|R|R|R|               Reserved                        |
-> + * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + * |                VXLAN Network Identifier (VNI) |   Reserved    |
-> + * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + *
-> + * I = 1       VXLAN Network Identifier (VNI) present
-> + */
->  struct vxlanhdr {
-> -       __be32 vx_flags;
-> -       __be32 vx_vni;
-> +       union {
-> +               struct {
-> +#ifdef __LITTLE_ENDIAN_BITFIELD
-> +                       __u8    reserved_flags1:3,
-> +                               vni_present:1,
-> +                               reserved_flags2:4;
-> +#elif defined(__BIG_ENDIAN_BITFIELD)
-> +                       __u8    reserved_flags2:4,
-> +                               vni_present:1,
-> +                               reserved_flags1:3;
-> +#else
-> +#error "Please fix <asm/byteorder.h>"
-> +#endif
-> +                       __u8    vx_reserved1;
-> +                       __be16  vx_reserved2;
-> +               };
-> +               __be32 vx_flags;
-> +       };
-> +       __be32  vx_vni;
->  };
->
->  struct vxlan_sock;
-> @@ -25,6 +50,7 @@ struct vxlan_sock {
->         struct hlist_node hlist;
->         vxlan_rcv_t      *rcv;
->         void             *data;
-> +       u32               exts;
->         struct work_struct del_work;
->         struct socket    *sock;
->         struct rcu_head   rcu;
-> --
-> 1.9.3
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+------------[ cut here ]------------
+WARNING: CPU: 1 PID: 2991 at net/core/netpoll.c:362 netpoll_send_skb_on_dev+0x25e/0x270()
+netpoll_send_skb_on_dev(): enp1s6 enabled interrupts in poll (skge_xmit_frame+0x0/0x680 [skge])
+...
+CPU: 1 PID: 2991 Comm: modprobe Not tainted 3.19.0-0.rc3.git0.1.fc21.x86_64 #1
+...
+Call Trace:
+ [<ffffffff8176cf2d>] dump_stack+0x45/0x57
+ [<ffffffff8109b09a>] warn_slowpath_common+0x8a/0xc0
+ [<ffffffff8109b125>] warn_slowpath_fmt+0x55/0x70
+ [<ffffffff813a2aab>] ? delay_tsc+0x3b/0x70
+ [<ffffffffa00d3be0>] ? skge_rx_setup.isra.44+0x180/0x180 [skge]
+ [<ffffffff8167518e>] netpoll_send_skb_on_dev+0x25e/0x270
+ [<ffffffff81675462>] netpoll_send_udp+0x2c2/0x410
+ [<ffffffffa079b92f>] write_msg+0xcf/0x140 [netconsole]
+ [<ffffffff810ef2aa>] call_console_drivers.constprop.22+0xaa/0xf0
+ [<ffffffff810f0992>] console_unlock+0x362/0x450
+ [<ffffffff810f0e30>] vprintk_emit+0x3b0/0x550
+ [<ffffffff810f1159>] vprintk_default+0x29/0x40
+ [<ffffffff8176b42c>] printk+0x55/0x6b
+ [<ffffffff810f15cd>] register_console+0x1bd/0x380
+ [<ffffffffa07a0000>] ? 0xffffffffa07a0000
+ [<ffffffffa07a01c4>] init_netconsole+0x1c4/0x1000 [netconsole]
+ [<ffffffffa07a0000>] ? 0xffffffffa07a0000
+ [<ffffffff81002148>] do_one_initcall+0xd8/0x210
+ [<ffffffff811de302>] ? __vunmap+0xa2/0x100
+ [<ffffffff8111ef16>] load_module+0x2256/0x2800
+ [<ffffffff8111a750>] ? store_uevent+0x70/0x70
+ [<ffffffff8111f58d>] SyS_init_module+0xcd/0x120
+ [<ffffffff81773929>] system_call_fastpath+0x12/0x17
+---[ end trace 257df3717d2db089 ]---
