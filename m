@@ -1,47 +1,44 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH] Fix NUL (\0 or \x00) specification in string
-Date: Wed, 7 Jan 2015 20:45:30 +0200
-Message-ID: <CAHp75Vcu4ZBAbPdNFOwkbTjEdBNNXWrEpw1PM6iymYLFQp=7tw@mail.gmail.com>
-References: <1420394722-20197-1-git-send-email-me@mortis.eu>
-	<20150105150026.GG6114@twin.jikos.cz>
-	<20150106192804.GL4806@salidar.dom.custoft.eu>
-	<20150107122258.GG24104@suse.cz>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [patch net-next] tc: add BPF based action
+Date: Wed, 7 Jan 2015 10:46:35 -0800
+Message-ID: <CAHA+R7PJNFfekrLx6j+c+C4zsgVk1r5jm-hXv5=f4hLkq932pA@mail.gmail.com>
+References: <1420649035-9522-1-git-send-email-jiri@resnulli.us>
+	<54AD7C03.3010904@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: dsterba@suse.cz, Giel van Schijndel <me@mortis.eu>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Armin Schindler <mac@melware.de>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	"open list:ISDN SUBSYSTEM" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150107122258.GG24104@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Alexei Starovoitov <ast@plumgrid.com>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f50.google.com ([209.85.192.50]:43963 "EHLO
+	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753748AbbAGSqg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 13:46:36 -0500
+Received: by mail-qg0-f50.google.com with SMTP id z60so1263597qgd.23
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 10:46:36 -0800 (PST)
+In-Reply-To: <54AD7C03.3010904@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 7, 2015 at 2:22 PM, David Sterba <dsterba@suse.cz> wrote:
-> On Tue, Jan 06, 2015 at 08:28:04PM +0100, Giel van Schijndel wrote:
->> On Mon, Jan 05, 2015 at 16:00:26 +0100, David Sterba wrote:
->> > I'm replying to all your recent patches here as they are fixing things
->> > reported in http://www.viva64.com/en/b/0299/ . I'ts a good practice to
->> > give the credit the reporter.
->> >
->> > The blogpost also contains analyses of the issues so it could help
->> > reviewing the patches.
+On Wed, Jan 7, 2015 at 10:33 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> On 01/07/2015 05:43 PM, Jiri Pirko wrote:
 >>
->> I guess you suggest I use a 'Reported-(at|by)' line?
+>> This action provides a possibility to exec custom BPF code.
 >
-> A link in the changelog would be enough IMHO.
 >
->> Would something like the below suffice? I found similar log entries in the
->> commit log, e.g. bf3204cb, except that those add an e-mail address for
->> the reporters, which I don't think is necessary in this case.
+> Can you elaborate a bit more on the particular use-case, and
+> what scenarios are unsolveable with the BPF filter we already
+> have in tc? Just wondering, since you're using BPF for the
+> purpose of classifying (but just from the context of actions)
+> what about a possibility of a generic container for reusing
+> (any) classifier from the framework, so we would not need to
+> duplicate code?
 >
-> If you don't have the emails, then rather do not use reported-by.
 
-Andrey Karpov <karpov@viva64.com>
++1
 
-But it requires an additional effort to get it.
-
--- 
-With Best Regards,
-Andy Shevchenko
+Also as its name tells, BPF is a filter, why it could be used
+as an action here? (I don't follow eBPF though.)
