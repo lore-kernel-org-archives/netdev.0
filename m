@@ -1,70 +1,69 @@
 From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: [PATCH net-next v5 3/7] ixgbe: Add a RETA query command to VF-PF channel API
-Date: Wed,  7 Jan 2015 21:26:38 +0200
-Message-ID: <1420658802-18061-4-git-send-email-vladz@cloudius-systems.com>
+Subject: [PATCH net-next v5 4/7] ixgbevf: Add a RETA query code
+Date: Wed,  7 Jan 2015 21:26:39 +0200
+Message-ID: <1420658802-18061-5-git-send-email-vladz@cloudius-systems.com>
 References: <1420658802-18061-1-git-send-email-vladz@cloudius-systems.com>
 Cc: gleb@cloudius-systems.com, avi@cloudius-systems.com,
 	jeffrey.t.kirsher@intel.com,
 	Vlad Zolotarov <vladz@cloudius-systems.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:41286 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754316AbbAGT1A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 14:27:00 -0500
-Received: by mail-wi0-f177.google.com with SMTP id l15so2361280wiw.4
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 11:26:58 -0800 (PST)
+Received: from mail-we0-f176.google.com ([74.125.82.176]:48930 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753603AbbAGT1D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 14:27:03 -0500
+Received: by mail-we0-f176.google.com with SMTP id w61so1754742wes.21
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 11:27:00 -0800 (PST)
 In-Reply-To: <1420658802-18061-1-git-send-email-vladz@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-82599 and x540 VFs and PF share the same RSS redirection table (RETA). Therefore we
-just return it for all VFs. x550 on the other hand provides a separate redirection
-table for each VF (there is a per-pool RETA table).
-
-For 82599 and x540 RETA table is an array of 32 registers (128 bytes) and the maximum number of
-registers that may be delivered in a single VF-PF channel command is 15. Therefore
-we will deliver the whole table in 3 steps: 12, 12 and 8 registers in each
-step correspondingly.
-
-For x550 VFs RETA is a 64 byte array, so we may deliver it in two steps: 12 and 4 registers
-correspondingly.
-
-Thus this patch does the following:
-
-  - Adds a new API version (to specify a new commands set).
-  - Adds the IXGBE_VF_GET_RETA command to the VF-PF commands set.
+   - Added a new API version support.
+   - Added the query implementation in the ixgbevf.
 
 Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
 ---
-New in v5:
-   - Use the newly added netdev op to allow/prevent the RETA query on a per-VF basis.
-
-New in v4:
-   - Deleted an empty line in ixgbe_get_vf_reta() switch-case.
-
 New in v3:
-   - Pass the number of dwords and offset in RETA in the IXGBE_VF_GET_RETA request message.
-     This allows to reduce the added command set to a single command.
-   - Added a support for all devices supported by the ixgbe driver that have
-     SR-IOV functions support: 82599, x540 and x550. The original code supported
-     only 82599 and x540.
-   - Added the masking of the RETA entries according to the PSRTYPE[n].RQPL
-     value.
+   - Adjusted to the new interface IXGBE_VF_GET_RETA command.
+   - Added a proper support for x550 devices.
 
 New in v1 (compared to RFC):
    - Use "if-else" statement instead of a "switch-case" for a single option case
-     (in ixgbe_get_vf_reta()).
+     (in ixgbevf_get_reta()).
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  8 ++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 65 ++++++++++++++++++++++++++
- 2 files changed, 73 insertions(+)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  4 +-
+ drivers/net/ethernet/intel/ixgbevf/mbx.h          |  8 +++
+ drivers/net/ethernet/intel/ixgbevf/vf.c           | 88 +++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbevf/vf.h           |  1 +
+ 4 files changed, 100 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-index a5cb755..f9b5eae 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-@@ -73,6 +73,7 @@ enum ixgbe_pfvf_api_rev {
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 62a0d8e..ba6ab61 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1880,7 +1880,8 @@ static void ixgbevf_init_last_counter_stats(struct ixgbevf_adapter *adapter)
+ static void ixgbevf_negotiate_api(struct ixgbevf_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	int api[] = { ixgbe_mbox_api_11,
++	int api[] = { ixgbe_mbox_api_12,
++		      ixgbe_mbox_api_11,
+ 		      ixgbe_mbox_api_10,
+ 		      ixgbe_mbox_api_unknown };
+ 	int err = 0, idx = 0;
+@@ -3525,6 +3526,7 @@ static int ixgbevf_change_mtu(struct net_device *netdev, int new_mtu)
+ 
+ 	switch (adapter->hw.api_version) {
+ 	case ixgbe_mbox_api_11:
++	case ixgbe_mbox_api_12:
+ 		max_possible_frame = IXGBE_MAX_JUMBO_FRAME_SIZE;
+ 		break;
+ 	default:
+diff --git a/drivers/net/ethernet/intel/ixgbevf/mbx.h b/drivers/net/ethernet/intel/ixgbevf/mbx.h
+index 0bc3005..951a506 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/mbx.h
++++ b/drivers/net/ethernet/intel/ixgbevf/mbx.h
+@@ -86,6 +86,7 @@ enum ixgbe_pfvf_api_rev {
  	ixgbe_mbox_api_10,	/* API version 1.0, linux/freebsd VF driver */
  	ixgbe_mbox_api_20,	/* API version 2.0, solaris Phase1 VF driver */
  	ixgbe_mbox_api_11,	/* API version 1.1, linux/freebsd VF driver */
@@ -72,7 +71,7 @@ index a5cb755..f9b5eae 100644
  	/* This value should always be last */
  	ixgbe_mbox_api_unknown,	/* indicates that API version is not known */
  };
-@@ -97,6 +98,13 @@ enum ixgbe_pfvf_api_rev {
+@@ -110,6 +111,13 @@ enum ixgbe_pfvf_api_rev {
  #define IXGBE_VF_TRANS_VLAN	3	/* Indication of port vlan */
  #define IXGBE_VF_DEF_QUEUE	4	/* Default queue offset */
  
@@ -86,109 +85,122 @@ index a5cb755..f9b5eae 100644
  /* length of permanent address message returned from PF */
  #define IXGBE_VF_PERMADDR_MSG_LEN 4
  /* word in permanent address message with the current multicast type */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index c903ab2..4b7246f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -440,6 +440,7 @@ static s32 ixgbe_set_vf_lpe(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
- #endif /* CONFIG_FCOE */
- 		switch (adapter->vfinfo[vf].vf_api) {
- 		case ixgbe_mbox_api_11:
-+		case ixgbe_mbox_api_12:
- 			/*
- 			 * Version 1.1 supports jumbo frames on VFs if PF has
- 			 * jumbo frames enabled which means legacy VFs are
-@@ -907,6 +908,7 @@ static int ixgbe_negotiate_vf_api(struct ixgbe_adapter *adapter,
- 	switch (api) {
- 	case ixgbe_mbox_api_10:
- 	case ixgbe_mbox_api_11:
-+	case ixgbe_mbox_api_12:
- 		adapter->vfinfo[vf].vf_api = api;
- 		return 0;
- 	default:
-@@ -930,6 +932,7 @@ static int ixgbe_get_vf_queues(struct ixgbe_adapter *adapter,
- 	switch (adapter->vfinfo[vf].vf_api) {
- 	case ixgbe_mbox_api_20:
- 	case ixgbe_mbox_api_11:
-+	case ixgbe_mbox_api_12:
- 		break;
- 	default:
- 		return -1;
-@@ -957,6 +960,65 @@ static int ixgbe_get_vf_queues(struct ixgbe_adapter *adapter,
- 	return 0;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
+index cdb53be..cb5a4cf 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/vf.c
++++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
+@@ -258,6 +258,93 @@ static s32 ixgbevf_set_uc_addr_vf(struct ixgbe_hw *hw, u32 index, u8 *addr)
+ 	return ret_val;
  }
  
-+static int ixgbe_get_vf_reta(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
++static inline int _ixgbevf_get_reta(struct ixgbe_hw *hw, u32 *msgbuf,
++				    u32 *reta, u32 reta_offset_dw, u32 dwords)
 +{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	int i, j;
-+	u32 *reta = &msgbuf[1];
-+	u32 mask = 0;
-+	u32 psrtype;
-+	u32 reta_offset_dw = msgbuf[IXGBE_VF_RETA_OFFSET];
-+	u32 dwords = msgbuf[IXGBE_VF_RETA_SZ];
++	int err;
 +
-+	/* verify the PF is supporting the correct API */
-+	if (!adapter->vfinfo[vf].rss_query_enabled ||
-+	    (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12))
-+		return -EPERM;
++	msgbuf[0]                    = IXGBE_VF_GET_RETA;
++	msgbuf[IXGBE_VF_RETA_SZ]     = dwords;
++	msgbuf[IXGBE_VF_RETA_OFFSET] = reta_offset_dw;
 +
-+	psrtype = IXGBE_READ_REG(hw, IXGBE_PSRTYPE(vf));
++	err = hw->mbx.ops.write_posted(hw, msgbuf, 3);
 +
-+	/* The redirection table is composed as follows:
-+	 * 82598: 128 (8 bit wide) entries containing pair of 4 bit RSS indices
-+	 * 82599/X540: 128 (8 bit wide) entries containing 4 bit RSS index X550:
-+	 * 512 (8 bit wide) entries containing 6 bit RSS index
-+	 *
-+	 * PSRTYPE[n].RQPL defines if 0, 1 or 2 bits from the redirection table
-+	 * value should be used.
++	if (err)
++		return err;
++
++	err = hw->mbx.ops.read_posted(hw, msgbuf, 1 + dwords);
++
++	if (err)
++		return err;
++
++	msgbuf[0] &= ~IXGBE_VT_MSGTYPE_CTS;
++
++	/* If we didn't get an ACK there must have been
++	 * some sort of mailbox error so we should treat it
++	 * as such.
 +	 */
++	if (msgbuf[0] != (IXGBE_VF_GET_RETA | IXGBE_VT_MSGTYPE_ACK))
++		return IXGBE_ERR_MBX;
 +
-+	if ((psrtype & (1 << 29)) == (1 << 29))
-+		mask = 0x01010101;
-+	else if ((psrtype & (2 << 29)) == (2 << 29))
-+		mask = 0x03030303;
-+	else
-+		mask = 0;
-+
-+	switch (hw->mac.type) {
-+	case ixgbe_mac_82599EB:
-+	case ixgbe_mac_X540:
-+		/* Read the appropriate portion of RETA */
-+		for (i = 0; i < dwords; i++)
-+			reta[i] = IXGBE_READ_REG(hw,
-+						IXGBE_RETA(i + reta_offset_dw));
-+		break;
-+	case ixgbe_mac_X550:
-+	case ixgbe_mac_X550EM_x:
-+		/* X550 has a per-VF RETA */
-+		for (i = 0, j = reta_offset_dw; i < dwords; i++, j++)
-+			reta[i] = IXGBE_READ_REG(hw,
-+						IXGBE_PFVFRETA(j, vf));
-+		break;
-+	default:
-+		return -1;
-+	}
-+
-+	/* Mask the relevant bits */
-+	for (i = 0; i < dwords; i++)
-+		reta[i] &= mask;
++	memcpy(reta + reta_offset_dw, msgbuf + 1, 4 * dwords);
 +
 +	return 0;
 +}
 +
- static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- {
- 	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
-@@ -1013,6 +1075,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- 	case IXGBE_VF_GET_QUEUES:
- 		retval = ixgbe_get_vf_queues(adapter, msgbuf, vf);
++/**
++ * ixgbevf_get_reta - get the RSS redirection table (RETA) contents.
++ * @hw: pointer to the HW structure
++ * @reta: buffer to fill with RETA contents.
++ *
++ * The "reta" buffer should be big enough to contain 32 registers.
++ *
++ * Returns: 0 on success.
++ *          if API doesn't support this operation - (-EPERM).
++ */
++int ixgbevf_get_reta(struct ixgbe_hw *hw, u32 *reta)
++{
++	int err;
++	u32 msgbuf[IXGBE_VFMAILBOX_SIZE];
++
++	/* Return an error if API doesn't RETA querying. */
++	if (hw->api_version != ixgbe_mbox_api_12)
++		return -EPERM;
++
++	/* x550 devices have a separate RETA for each VF: 64 bytes each.
++	 *
++	 * We'll get it in 2 steps due to mailbox size limitation - we can bring
++	 * up to 15 dwords every time. Therefore we'll bring 12 and 4 dwords.
++	 *
++	 * Older devices share a RETA table with the PF: 128 bytes.
++	 *
++	 * For them we do it in 3 steps. Therefore we'll bring it in 3 steps:
++	 * 12, 12 and 8 dwords in each step correspondingly.
++	 */
++
++	/* RETA[0..11] */
++	err = _ixgbevf_get_reta(hw, msgbuf, reta, 0, 12);
++	if (err)
++		return err;
++
++	if (hw->mac.type >= ixgbe_mac_X550_vf) {
++		/* RETA[12..15] */
++		err = _ixgbevf_get_reta(hw, msgbuf, reta, 12, 4);
++		if (err)
++			return err;
++
++	} else {
++		/* RETA[12..23] */
++		err = _ixgbevf_get_reta(hw, msgbuf, reta, 12, 12);
++		if (err)
++			return err;
++
++		/* RETA[24..31] */
++		err = _ixgbevf_get_reta(hw, msgbuf, reta, 24, 8);
++	}
++
++	return err;
++}
++
+ /**
+  *  ixgbevf_set_rar_vf - set device MAC address
+  *  @hw: pointer to hardware structure
+@@ -545,6 +632,7 @@ int ixgbevf_get_queues(struct ixgbe_hw *hw, unsigned int *num_tcs,
+ 	/* do nothing if API doesn't support ixgbevf_get_queues */
+ 	switch (hw->api_version) {
+ 	case ixgbe_mbox_api_11:
++	case ixgbe_mbox_api_12:
  		break;
-+	case IXGBE_VF_GET_RETA:
-+		retval = ixgbe_get_vf_reta(adapter, msgbuf, vf);
-+		break;
  	default:
- 		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
- 		retval = IXGBE_ERR_MBX;
+ 		return 0;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
+index 5b17242..73c1b33 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/vf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
+@@ -208,5 +208,6 @@ void ixgbevf_rlpml_set_vf(struct ixgbe_hw *hw, u16 max_size);
+ int ixgbevf_negotiate_api_version(struct ixgbe_hw *hw, int api);
+ int ixgbevf_get_queues(struct ixgbe_hw *hw, unsigned int *num_tcs,
+ 		       unsigned int *default_tc);
++int ixgbevf_get_reta(struct ixgbe_hw *hw, u32 *reta);
+ #endif /* __IXGBE_VF_H__ */
+ 
 -- 
 2.1.0
