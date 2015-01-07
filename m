@@ -1,30 +1,42 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH iproute2 3/3] ip netns: Delete all netns
-Date: Wed, 07 Jan 2015 10:44:24 -0500
-Message-ID: <54AD5458.6000400@hp.com>
-References: <1420628662-9930-1-git-send-email-vadim4j@gmail.com> <1420628662-9930-4-git-send-email-vadim4j@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: sched: use pinned timers
+Date: Wed, 07 Jan 2015 07:45:49 -0800
+Message-ID: <1420645549.5947.14.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1411261290.26859.103.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140926.002710.1595423408687413602.davem@davemloft.net>
+	 <54AD0543.1090806@rcs-rds.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-To: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Cosmin GIRADU <cosmin.giradu@rcs-rds.ro>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3427.houston.hp.com ([15.201.208.55]:35071 "EHLO
-	g4t3427.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753747AbbAGPo0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 10:44:26 -0500
-In-Reply-To: <1420628662-9930-4-git-send-email-vadim4j@gmail.com>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:49288 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752639AbbAGPpw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 10:45:52 -0500
+Received: by mail-pd0-f174.google.com with SMTP id fp1so5328858pdb.5
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 07:45:51 -0800 (PST)
+In-Reply-To: <54AD0543.1090806@rcs-rds.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/07/2015 06:04 AM, Vadim Kochan wrote:
-> From: Vadim Kochan <vadim4j@gmail.com>
-> 
-> Allow delete all namespace names by:
-> 
->     $ ip netns del all
+On Wed, 2015-01-07 at 12:06 +0200, Cosmin GIRADU wrote:
 
-So I can still create a namespace called 'all', but can't exec in it or delete
-it independently with this change.  Perhaps you need to block that as well?
-Unless there's some other patch I'm missing?
+> Hi Eric,
+> 
+>     I saw that this patch didn't make it's way into the stable branches.
+> So I have two questions:
+>         - Would it be safe to apply to linux-3.12.x stable?
+>         - If yes, would there be any [noticeable] efects on a [pretty
+> complex] HTB setup? (I know, test and I'll see,
+>            but if theory sais I won't, then there would be no point to
+> the test, would there?)
+> 
 
--Brian
+It is safe to backport.
+
+If you want to test an equivalent, without kernel patch, you simply can
+do :
+
+echo 0 >/proc/sys/kernel/timer_migration
