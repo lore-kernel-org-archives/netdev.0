@@ -1,82 +1,65 @@
-From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
-Subject: [PATCH] net/at91_ether: prepare and unprepare clock
-Date: Wed,  7 Jan 2015 23:59:26 +0100
-Message-ID: <1420671566-30784-1-git-send-email-alexandre.belloni@free-electrons.com>
-Cc: Boris Brezillon <boris.brezillon@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 6/6] openvswitch: Support VXLAN Group Policy extension
+Date: Wed, 7 Jan 2015 23:01:55 +0000
+Message-ID: <20150107230155.GC21149@casper.infradead.org>
+References: <cover.1420594925.git.tgraf@suug.ch>
+ <9c1b0b0acde09019acb61b9b1a4eb4b18c62642a.1420594925.git.tgraf@suug.ch>
+ <CAEP_g=__Ssxj3B_0sbp5D+Gh8YmQ7ub9giK4A_QYWVmYctjm-w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin Shelar <pshelar@nicira.com>,
+	netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:56422 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752149AbbAGW7b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 17:59:31 -0500
+Received: from casper.infradead.org ([85.118.1.10]:37995 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755207AbbAGXB4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 18:01:56 -0500
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=__Ssxj3B_0sbp5D+Gh8YmQ7ub9giK4A_QYWVmYctjm-w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The clock is enabled without being prepared, this leads to:
+On 01/07/15 at 02:46pm, Jesse Gross wrote:
+> On Tue, Jan 6, 2015 at 6:05 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> > The group policy metadata is handled in the same way as Geneve options
+> > and transported as binary blob in a new Netlink attribute
+> > OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS which is mutually exclusive to the
+> > existing OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS.
+> 
+> Can you explain some more what the encoding would look like if
+> additional options were defined (including ones that are potentially
+> mutually exclusive)? The Geneve options are binary but that is coming
+> directly from the protocol specification. However, this isn't an on
+> the wire format so I'm not sure what it would look like or how it
+> would be defined to avoid conflict and allow evolution.
 
-WARNING: CPU: 0 PID: 1 at drivers/clk/clk.c:889 __clk_enable+0x24/0xa8()
+The encoding will be based on struct ovs_vxlan_opts which is extended
+as needed by appending new members to the end of the struct. Parsers
+will look at the provided length to see which fields are provided.
 
-and a non working ethernet interface.
+The user space side looks as follows. I will add similar logic to the
+kernel side as soon as we have a 2nd extension.
 
-Use clk_prepare_enable() and clk_disable_unprepare() to handle the clock.
++/* Returns true if attribute is long enough to cover member of type. */
++#define NL_PROVIDES_MEMBER(attr, type, member, size) \
++       (nl_attr_get_size(attr) >= (offsetof(type, member) + size))
++
 
-Signed-off-by: Alexandre Belloni <alexandre.belloni@free-electrons.com>
----
- drivers/net/ethernet/cadence/at91_ether.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+[...]
 
-diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
-index 55eb7f2af2b4..7ef55f5fa664 100644
---- a/drivers/net/ethernet/cadence/at91_ether.c
-+++ b/drivers/net/ethernet/cadence/at91_ether.c
-@@ -340,7 +340,7 @@ static int __init at91ether_probe(struct platform_device *pdev)
- 		res = PTR_ERR(lp->pclk);
- 		goto err_free_dev;
- 	}
--	clk_enable(lp->pclk);
-+	clk_prepare_enable(lp->pclk);
- 
- 	lp->hclk = ERR_PTR(-ENOENT);
- 	lp->tx_clk = ERR_PTR(-ENOENT);
-@@ -406,7 +406,7 @@ static int __init at91ether_probe(struct platform_device *pdev)
- err_out_unregister_netdev:
- 	unregister_netdev(dev);
- err_disable_clock:
--	clk_disable(lp->pclk);
-+	clk_disable_unprepare(lp->pclk);
- err_free_dev:
- 	free_netdev(dev);
- 	return res;
-@@ -424,7 +424,7 @@ static int at91ether_remove(struct platform_device *pdev)
- 	kfree(lp->mii_bus->irq);
- 	mdiobus_free(lp->mii_bus);
- 	unregister_netdev(dev);
--	clk_disable(lp->pclk);
-+	clk_disable_unprepare(lp->pclk);
- 	free_netdev(dev);
- 
- 	return 0;
-@@ -440,7 +440,7 @@ static int at91ether_suspend(struct platform_device *pdev, pm_message_t mesg)
- 		netif_stop_queue(net_dev);
- 		netif_device_detach(net_dev);
- 
--		clk_disable(lp->pclk);
-+		clk_disable_unprepare(lp->pclk);
- 	}
- 	return 0;
- }
-@@ -451,7 +451,7 @@ static int at91ether_resume(struct platform_device *pdev)
- 	struct macb *lp = netdev_priv(net_dev);
- 
- 	if (netif_running(net_dev)) {
--		clk_enable(lp->pclk);
-+		clk_prepare_enable(lp->pclk);
- 
- 		netif_device_attach(net_dev);
- 		netif_start_queue(net_dev);
--- 
-2.1.0
++        case OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS: {
++            struct ovs_vxlan_opts *vxlan_opts;
++
++            /* Length verification done per member */
++            vxlan_opts = (struct ovs_vxlan_opts *)nl_attr_get_unspec(a, 0);
++
++            if (NL_PROVIDES_MEMBER(a, struct ovs_vxlan_opts, gbp, sizeof(vxlan_opts->gbp))) {
++                tun->gbp_id = htons(vxlan_opts->gbp & 0xFFFF);
++                tun->gbp_flags = (vxlan_opts->gbp >> 16) & 0xFF;
++            }
++            break;
++        }
