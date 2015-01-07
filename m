@@ -1,58 +1,73 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v1 01/11] net: flow_table: create interface for
- hw match/action tables
-Date: Wed, 07 Jan 2015 08:35:37 -0800
-Message-ID: <54AD6059.9030901@gmail.com>
-References: <20141231194057.31070.5244.stgit@nitbit.x32> <20141231194544.31070.30335.stgit@nitbit.x32> <20150104111238.GD15305@casper.infradead.org> <54AADEFF.3090306@gmail.com> <CAJ3xEMiMsHW9Wys2GMhD9CRhU03DF3KZywGQkTWF1sMKn8x+fQ@mail.gmail.com>
+From: Chunhao Lin <hau@realtek.com>
+Subject: [PATCH net-next 11/11] r8169:update rtl8168f rev.b pcie ephy parameter
+Date: Thu, 8 Jan 2015 00:40:26 +0800
+Message-ID: <1420648826-12972-12-git-send-email-hau@realtek.com>
+References: <1420648826-12972-1-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	simon.horman@netronome.com,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:62568 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752713AbbAGQfx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 11:35:53 -0500
-Received: by mail-ob0-f178.google.com with SMTP id gq1so3894842obb.9
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 08:35:53 -0800 (PST)
-In-Reply-To: <CAJ3xEMiMsHW9Wys2GMhD9CRhU03DF3KZywGQkTWF1sMKn8x+fQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	Chunhao Lin <hau@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1420648826-12972-1-git-send-email-hau@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/07/2015 02:07 AM, Or Gerlitz wrote:
-> On Mon, Jan 5, 2015 at 8:59 PM, John Fastabend <john.fastabend@gmail.com> wrote:
->>>> +struct sk_buff *net_flow_build_actions_msg(struct net_flow_action **a,
->>>> +                                          struct net_device *dev,
->>>> +                                          u32 portid, int seq, u8 cmd)
->>>> +{
->>>> +       struct genlmsghdr *hdr;
->>>> +       struct sk_buff *skb;
->>>> +       int err = -ENOBUFS;
->>>> +
->>>> +       skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
->>>
->>>
->>> genlmsg_new(GENLMSG_DEFAULT_SIZE, GFP_KERNEL);
->>
->>
->> fixed along with the other cases.
->
-> small nit here, net_flow_build_actions_msg can be made static, it's
-> called only from within this file
->
-> few more nits... checkpatch --strict produces bunch of "CHECK: Please
-> use a blank line after function/struct/union/enum declarations"
-> comments, I guess worth fixing too.
->
+RTL8168F rev.B does not have to set following two ephy parameters.
+{ 0x06, 0x00c0,	0x0020 }
+{ 0x08, 0x0001,	0x0002 }
 
-Thanks. will fix in v2.
+Add function rtl_hw_start_8168f_2 to set RTL8168F rev.B ephy parameters,
+instead of using function rtl_hw_start_8168f_1.
 
+Signed-off-by: Chunhao Lin <hau@realtek.com>
+---
+ drivers/net/ethernet/realtek/r8169.c | 24 +++++++++++++++++++++++-
+ 1 file changed, 23 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index b8a097c..d62f8d8 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -5867,6 +5867,26 @@ static void rtl_hw_start_8168f_1(struct rtl8169_private *tp)
+ 	RTL_W8(EEE_LED, RTL_R8(EEE_LED) & ~0x07);
+ }
+ 
++static void rtl_hw_start_8168f_2(struct rtl8169_private *tp)
++{
++	void __iomem *ioaddr = tp->mmio_addr;
++	static const struct ephy_info e_info_8168f_2[] = {
++		{ 0x09, 0x0000,	0x0080 },
++		{ 0x19, 0x0000,	0x0224 },
++		{ 0x00, 0x0000,	0x0008 },
++		{ 0x0c, 0x3df0,	0x0200 }
++	};
++
++	rtl_hw_start_8168f(tp);
++
++	rtl_ephy_init(tp, e_info_8168f_2, ARRAY_SIZE(e_info_8168f_2));
++
++	rtl_w0w1_eri(tp, 0x0d4, ERIAR_MASK_0011, 0x0c00, 0xff00, ERIAR_EXGMAC);
++
++	/* Adjust EEE LED frequency */
++	RTL_W8(EEE_LED, RTL_R8(EEE_LED) & ~0x07);
++}
++
+ static void rtl_hw_start_8411(struct rtl8169_private *tp)
+ {
+ 	static const struct ephy_info e_info_8411[] = {
+@@ -6276,9 +6296,11 @@ static void rtl_hw_start_8168(struct net_device *dev)
+ 		break;
+ 
+ 	case RTL_GIGA_MAC_VER_35:
+-	case RTL_GIGA_MAC_VER_36:
+ 		rtl_hw_start_8168f_1(tp);
+ 		break;
++	case RTL_GIGA_MAC_VER_36:
++		rtl_hw_start_8168f_2(tp);
++		break;
+ 
+ 	case RTL_GIGA_MAC_VER_38:
+ 		rtl_hw_start_8411(tp);
 -- 
-John Fastabend         Intel Corporation
+1.9.1
