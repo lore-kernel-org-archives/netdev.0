@@ -1,105 +1,52 @@
-From: Richard Guy Briggs <rgb@tricolour.ca>
-Subject: NetDev 0.1 Deadline Extension(Jan 24) and Talk Summary
-Date: Wed, 7 Jan 2015 13:03:58 -0500
-Message-ID: <20150107180358.GU1343@toccata2.tricolour.ca>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2 3/3] ip netns: Delete all netns
+Date: Wed, 7 Jan 2015 20:11:12 +0200
+Message-ID: <20150107181112.GA24241@angus-think.lan>
+References: <1420628662-9930-1-git-send-email-vadim4j@gmail.com>
+ <1420628662-9930-4-git-send-email-vadim4j@gmail.com>
+ <54AD5458.6000400@hp.com>
+ <20150107173640.GA19586@angus-think.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	lwn@lwn.net, netdev01@lists.netfilter.org, lartc@vger.kernel.org,
-	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:49539 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754088AbbAGSVg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 13:21:36 -0500
+Received: by mail-lb0-f177.google.com with SMTP id b6so1503791lbj.22
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 10:21:34 -0800 (PST)
 Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20150107173640.GA19586@angus-think.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fellow netheads:
+On Wed, Jan 07, 2015 at 07:36:40PM +0200, Vadim Kochan wrote:
+> On Wed, Jan 07, 2015 at 10:44:24AM -0500, Brian Haley wrote:
+> > On 01/07/2015 06:04 AM, Vadim Kochan wrote:
+> > > From: Vadim Kochan <vadim4j@gmail.com>
+> > > 
+> > > Allow delete all namespace names by:
+> > > 
+> > >     $ ip netns del all
+> > 
+> > So I can still create a namespace called 'all', but can't exec in it or delete
+> > it independently with this change.  Perhaps you need to block that as well?
+> > Unless there's some other patch I'm missing?
+> > 
+> > -Brian
+> Hm, I did not take it into account ...
+> I will look if I can find another way ...
+> 
+> Thanks,
 
-Due to several submitter requests we would like to accomodate, we have extended
-the proposal submission deadline to Jan 24.  https://netdev01.org/cfp 
+what about this ?
 
+    $ ip netns exec / ip link
+    $ ip netns del /
 
-A reminder that the Westin Hotel is holding a block of rooms for Netdev01 at a
-guaranteed rate of $159.00 or $179.00 (depending on the type of room required)
-and the rooms are going fast due to Winterlude bookings.  That guarantee
-expires on January 23, so book now to avoid disappointment and get the low
-rate. The rooms are going faster than we expected!
-Reservations: https://www.starwoodmeeting.com/StarGroupsWeb/res?id=1412035802&key=1AC9C1F8
+so it make a sense to be as root directory of bound ns names in /var/run/netns/ ?
+what do you think ?
 
-
-Here is a post-holiday update of the activity so far in NetDev 0.1 you may have
-missed if you aren't following the RSS feed or twitter:
-
-
-Confirmed keynote speaker:
-==========================
-David S. Miller - The Current State of Linux kernel Networking.
-
-
-Accepted talks: (All listed: https://www.netdev01.org/sessions )
-===============
-Rocker: switchdev prototyping vehicle
-Scott Feldman
-https://www.netdev01.org/sessions/2
-
-How to not just do a demo with DPDK or Lessons learned making a software dataplane
-Stephen Hemminger
-https://www.netdev01.org/sessions/3
-
-Picking low hanging fruit from the FIB tree
-Alexander Duyck
-https://www.netdev01.org/sessions/4
-
-Rtnetlink dump filtering in the kernel
-Roopa Prabhu
-https://www.netdev01.org/sessions/5
-
-Hardware Switches - The Opensource Approach 
-Jiri Pirko
-https://www.netdev01.org/sessions/6
-
-hello UML, meet LibOS and friends - h/w independent unadulterated reuse of Linux kernel networking code in userspace
-Hajime Tazaki
-https://www.netdev01.org/sessions/7
-
-Distributing Linux tc filter-action packet processing across disparate nodes
-Jamal Hadi Salim and Damascene M. Joachimpillai
-https://www.netdev01.org/sessions/9
-
-All About UDP Encapsulation
-Tom Herbert
-https://www.netdev01.org/sessions/11
-
-Accepted workshops:
-===================
-Wireless Workshop
-https://www.netdev01.org/sessions/1
-
-Hardware Offloading BoF
-https://www.netdev01.org/sessions/10
-
-All of the accepted proposals are new work.  A couple of proposals have been
-returned for rework prior to acceptance.  There are many more excellent
-proposals currently making their way through the technical committee vetting
-process.  The committee has so far been very impressed with the quality of
-proposals submitted.
-
-
-Registration https://onlineregistrations.ca/netdev01/
-$100/day, or $350 for 4 days (Cdn dollars). (online reg closes Feb 12th)
-Registering helps us plan properly for numbers of attendees,
-ensuring venue sizes and supplies are appropriate without
-wasting resources.
-
-
-Travel advice: https://netdev01.org/travel
-
-Sponsors: https://netdev01.org/sponsors
-Verizon http://www.verizon.com/
-Cumulus Networks http://cumulusnetworks.com/ 
-Mojatatu Networks http://mojatatu.com/ 
-
-THE Technical Conference on Linux Networking, February 14-17, 2015, Ottawa, Canada
-https://netdev01.org/
-
-RSS feed: https://netdev01.org/atom
-Follow us on Twitter: @netdev01 https://twitter.com/netdev01
+Regards,
