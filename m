@@ -1,79 +1,45 @@
-From: Tim Bird <tim.bird@sonymobile.com>
-Subject: Re: [PATCH v4 14/20] selftests/size: add install target to enable
- test install
-Date: Wed, 7 Jan 2015 15:05:44 -0800
-Message-ID: <54ADBBC8.30802@sonymobile.com>
-References: <cover.1420571615.git.shuahkh@osg.samsung.com> <5861e16e1b533cae37471a8cf18597d3e9e6b6f6.1420571615.git.shuahkh@osg.samsung.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: iproute2 tc: Print qdisc, stats, class, filter info to string
+ rather than FILE
+Date: Wed, 7 Jan 2015 15:08:28 -0800
+Message-ID: <20150107150828.5b61f26f@urahara>
+References: <20150107215331.GA19197@angus-think.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kbuild@vger.kernel.org" <linux-kbuild@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Shuah Khan <shuahkh@osg.samsung.com>,
-	"mmarek@suse.cz" <mmarek@suse.cz>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"rostedt@goodmis.org" <rostedt@goodmis.org>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"keescook@chromium.org" <keescook@chromium.org>,
-	"tranmanphong@gmail.com" <tranmanphong@gmail.com>,
-	"mpe@ellerman.id.au" <mpe@ellerman.id.au>,
-	"cov@codeaurora.org" <cov@codeaurora.org>,
-	"dh.herrmann@gmail.com" <dh.herrmann@gmail.com>,
-	"hughd@google.com" <hughd@google.com>,
-	"bobby.prani@gmail.com" <bobby.prani@gmail.com>,
-	"serge.hallyn@ubuntu.com" <serge.hallyn@ubuntu.com>,
-	"ebiederm@xmission.com" <ebiederm@xmission.com>,
-	"josh@joshtriplett.org" <josh@joshtriplett.org>,
-	"koct9i@gmail.com" <koct9i@gmail.com>,
-	"masami.hiramatsu.pt@hitachi.com" <masami.hiram
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5861e16e1b533cae37471a8cf18597d3e9e6b6f6.1420571615.git.shuahkh@osg.samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:46635 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753673AbbAGXIh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 18:08:37 -0500
+Received: by mail-pd0-f169.google.com with SMTP id z10so7465744pdj.0
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 15:08:37 -0800 (PST)
+In-Reply-To: <20150107215331.GA19197@angus-think.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/06/2015 11:43 AM, Shuah Khan wrote:
-> Add a new make target to enable installing test. This target
-> installs test in the kselftest install location and add to the
-> kselftest script to run the test. Install target can be run
-> only from top level kernel source directory.
-> 
-> Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
-> ---
->  tools/testing/selftests/size/Makefile | 12 +++++++++++-
->  1 file changed, 11 insertions(+), 1 deletion(-)
-> 
-> diff --git a/tools/testing/selftests/size/Makefile b/tools/testing/selftests/size/Makefile
-> index 04dc25e..a1478fa 100644
-> --- a/tools/testing/selftests/size/Makefile
-> +++ b/tools/testing/selftests/size/Makefile
-> @@ -1,12 +1,22 @@
->  CC = $(CROSS_COMPILE)gcc
->  
-> +TEST_STR = ./get_size || echo 'get_size selftests: [FAIL]'
-> +
->  all: get_size
->  
->  get_size: get_size.c
->  	$(CC) -static -ffreestanding -nostartfiles -s $< -o $@
->  
-> +install:
-> +ifdef INSTALL_KSFT_PATH
-> +	install ./get_size $(INSTALL_KSFT_PATH)
-> +	@echo "$(TEST_STR)" >> $(KSELFTEST)
-> +else
-> +	@echo "Run make kselftest_install in top level source directory"
-> +endif
-> +
->  run_tests: all
-> -	./get_size
-> +	@$(TEST_STR)
->  
->  clean:
->  	$(RM) get_size
-> 
+On Wed, 7 Jan 2015 23:53:31 +0200
+Vadim Kochan <vadim4j@gmail.com> wrote:
 
-Acked-by: Tim Bird <tim.bird@sonymobile.com>
+> Hi,
+> 
+> I'd like to make possible to generate plot info about class hierarchy
+> with qdisc, filters, stats info, but I see that all this staffs are
+> printed to 'FILE *fp' which makes this hard to implement and seems to me
+> that it should be changed to be printed to 'char *s' (memory safety
+> should be considered by asprintf or similar), so this is a big change
+> but all this is possible and I ready to do it, but before do it I'd like
+> to ask if this could be acceptable as idea.
+> 
+> BUT maybe someone can advise me easier solution ?
+> 
+> Regards,
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Rather than screen scraping tc command, why not use libmnl and get the
+data you want programmatically.
