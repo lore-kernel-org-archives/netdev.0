@@ -1,65 +1,79 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 6/6] openvswitch: Support VXLAN Group Policy extension
-Date: Wed, 7 Jan 2015 23:01:55 +0000
-Message-ID: <20150107230155.GC21149@casper.infradead.org>
-References: <cover.1420594925.git.tgraf@suug.ch>
- <9c1b0b0acde09019acb61b9b1a4eb4b18c62642a.1420594925.git.tgraf@suug.ch>
- <CAEP_g=__Ssxj3B_0sbp5D+Gh8YmQ7ub9giK4A_QYWVmYctjm-w@mail.gmail.com>
+From: Tim Bird <tim.bird@sonymobile.com>
+Subject: Re: [PATCH v4 14/20] selftests/size: add install target to enable
+ test install
+Date: Wed, 7 Jan 2015 15:05:44 -0800
+Message-ID: <54ADBBC8.30802@sonymobile.com>
+References: <cover.1420571615.git.shuahkh@osg.samsung.com> <5861e16e1b533cae37471a8cf18597d3e9e6b6f6.1420571615.git.shuahkh@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Pravin Shelar <pshelar@nicira.com>,
-	netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:37995 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755207AbbAGXB4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 18:01:56 -0500
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=__Ssxj3B_0sbp5D+Gh8YmQ7ub9giK4A_QYWVmYctjm-w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kbuild@vger.kernel.org" <linux-kbuild@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Shuah Khan <shuahkh@osg.samsung.com>,
+	"mmarek@suse.cz" <mmarek@suse.cz>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"rostedt@goodmis.org" <rostedt@goodmis.org>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"keescook@chromium.org" <keescook@chromium.org>,
+	"tranmanphong@gmail.com" <tranmanphong@gmail.com>,
+	"mpe@ellerman.id.au" <mpe@ellerman.id.au>,
+	"cov@codeaurora.org" <cov@codeaurora.org>,
+	"dh.herrmann@gmail.com" <dh.herrmann@gmail.com>,
+	"hughd@google.com" <hughd@google.com>,
+	"bobby.prani@gmail.com" <bobby.prani@gmail.com>,
+	"serge.hallyn@ubuntu.com" <serge.hallyn@ubuntu.com>,
+	"ebiederm@xmission.com" <ebiederm@xmission.com>,
+	"josh@joshtriplett.org" <josh@joshtriplett.org>,
+	"koct9i@gmail.com" <koct9i@gmail.com>,
+	"masami.hiramatsu.pt@hitachi.com" <masami.hiram
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5861e16e1b533cae37471a8cf18597d3e9e6b6f6.1420571615.git.shuahkh@osg.samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/07/15 at 02:46pm, Jesse Gross wrote:
-> On Tue, Jan 6, 2015 at 6:05 PM, Thomas Graf <tgraf@suug.ch> wrote:
-> > The group policy metadata is handled in the same way as Geneve options
-> > and transported as binary blob in a new Netlink attribute
-> > OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS which is mutually exclusive to the
-> > existing OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS.
+On 01/06/2015 11:43 AM, Shuah Khan wrote:
+> Add a new make target to enable installing test. This target
+> installs test in the kselftest install location and add to the
+> kselftest script to run the test. Install target can be run
+> only from top level kernel source directory.
 > 
-> Can you explain some more what the encoding would look like if
-> additional options were defined (including ones that are potentially
-> mutually exclusive)? The Geneve options are binary but that is coming
-> directly from the protocol specification. However, this isn't an on
-> the wire format so I'm not sure what it would look like or how it
-> would be defined to avoid conflict and allow evolution.
+> Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
+> ---
+>  tools/testing/selftests/size/Makefile | 12 +++++++++++-
+>  1 file changed, 11 insertions(+), 1 deletion(-)
+> 
+> diff --git a/tools/testing/selftests/size/Makefile b/tools/testing/selftests/size/Makefile
+> index 04dc25e..a1478fa 100644
+> --- a/tools/testing/selftests/size/Makefile
+> +++ b/tools/testing/selftests/size/Makefile
+> @@ -1,12 +1,22 @@
+>  CC = $(CROSS_COMPILE)gcc
+>  
+> +TEST_STR = ./get_size || echo 'get_size selftests: [FAIL]'
+> +
+>  all: get_size
+>  
+>  get_size: get_size.c
+>  	$(CC) -static -ffreestanding -nostartfiles -s $< -o $@
+>  
+> +install:
+> +ifdef INSTALL_KSFT_PATH
+> +	install ./get_size $(INSTALL_KSFT_PATH)
+> +	@echo "$(TEST_STR)" >> $(KSELFTEST)
+> +else
+> +	@echo "Run make kselftest_install in top level source directory"
+> +endif
+> +
+>  run_tests: all
+> -	./get_size
+> +	@$(TEST_STR)
+>  
+>  clean:
+>  	$(RM) get_size
+> 
 
-The encoding will be based on struct ovs_vxlan_opts which is extended
-as needed by appending new members to the end of the struct. Parsers
-will look at the provided length to see which fields are provided.
-
-The user space side looks as follows. I will add similar logic to the
-kernel side as soon as we have a 2nd extension.
-
-+/* Returns true if attribute is long enough to cover member of type. */
-+#define NL_PROVIDES_MEMBER(attr, type, member, size) \
-+       (nl_attr_get_size(attr) >= (offsetof(type, member) + size))
-+
-
-[...]
-
-+        case OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS: {
-+            struct ovs_vxlan_opts *vxlan_opts;
-+
-+            /* Length verification done per member */
-+            vxlan_opts = (struct ovs_vxlan_opts *)nl_attr_get_unspec(a, 0);
-+
-+            if (NL_PROVIDES_MEMBER(a, struct ovs_vxlan_opts, gbp, sizeof(vxlan_opts->gbp))) {
-+                tun->gbp_id = htons(vxlan_opts->gbp & 0xFFFF);
-+                tun->gbp_flags = (vxlan_opts->gbp >> 16) & 0xFF;
-+            }
-+            break;
-+        }
+Acked-by: Tim Bird <tim.bird@sonymobile.com>
