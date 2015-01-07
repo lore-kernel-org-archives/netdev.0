@@ -1,66 +1,46 @@
 From: Chunhao Lin <hau@realtek.com>
-Subject: [PATCH net-next 05/11] r8169:remove function rtl_hw_start_8168dp
-Date: Thu, 8 Jan 2015 00:40:20 +0800
-Message-ID: <1420648826-12972-6-git-send-email-hau@realtek.com>
+Subject: [PATCH net-next 07/11] r8169:update rtl8168f pcie ephy parameter
+Date: Thu, 8 Jan 2015 00:40:22 +0800
+Message-ID: <1420648826-12972-8-git-send-email-hau@realtek.com>
 References: <1420648826-12972-1-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
 	Chunhao Lin <hau@realtek.com>
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:41855 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753411AbbAGQkl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 11:40:41 -0500
 In-Reply-To: <1420648826-12972-1-git-send-email-hau@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RTL_GIGA_MAC_VER_31 is RTL8168DP and it use the same ephy parameter as
-RTL_GIGA_MAC_VER_28. So I use function rtl_hw_start_8168d_4 to set
-RTL_GIGA_MAC_VER_31 ephy parameter and remove unnecessary function
-rtl_hw_start_8168dp.
+rtl8168f may return to PCIe L0 from PCIe L0s low power mode too slow.
+The following ephy parameters are for this issue.
+{ 0x00, 0x0000,	0x0008 }
+{ 0x0c, 0x3df0,	0x0200 }
 
 Signed-off-by: Chunhao Lin <hau@realtek.com>
 ---
- drivers/net/ethernet/realtek/r8169.c | 20 +-------------------
- 1 file changed, 1 insertion(+), 19 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 15a0f5b..48d1f78 100644
+index 1874583..bafa132 100644
 --- a/drivers/net/ethernet/realtek/r8169.c
 +++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -5711,21 +5711,6 @@ static void rtl_hw_start_8168d(struct rtl8169_private *tp)
- 	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R8168_CPCMD_QUIRK_MASK);
- }
+@@ -5852,7 +5852,9 @@ static void rtl_hw_start_8168f_1(struct rtl8169_private *tp)
+ 		{ 0x06, 0x00c0,	0x0020 },
+ 		{ 0x08, 0x0001,	0x0002 },
+ 		{ 0x09, 0x0000,	0x0080 },
+-		{ 0x19, 0x0000,	0x0224 }
++		{ 0x19, 0x0000,	0x0224 },
++		{ 0x00, 0x0000,	0x0008 },
++		{ 0x0c, 0x3df0,	0x0200 }
+ 	};
  
--static void rtl_hw_start_8168dp(struct rtl8169_private *tp)
--{
--	void __iomem *ioaddr = tp->mmio_addr;
--	struct pci_dev *pdev = tp->pci_dev;
--
--	rtl_csi_access_enable_1(tp);
--
--	if (tp->dev->mtu <= ETH_DATA_LEN)
--		rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
--
--	RTL_W8(MaxTxPacketSize, TxPacketMax);
--
--	rtl_disable_clock_request(pdev);
--}
--
- static void rtl_hw_start_8168d_4(struct rtl8169_private *tp)
- {
- 	void __iomem *ioaddr = tp->mmio_addr;
-@@ -6272,11 +6257,8 @@ static void rtl_hw_start_8168(struct net_device *dev)
- 		break;
- 
- 	case RTL_GIGA_MAC_VER_28:
--		rtl_hw_start_8168d_4(tp);
--		break;
--
- 	case RTL_GIGA_MAC_VER_31:
--		rtl_hw_start_8168dp(tp);
-+		rtl_hw_start_8168d_4(tp);
- 		break;
- 
- 	case RTL_GIGA_MAC_VER_32:
+ 	rtl_hw_start_8168f(tp);
 -- 
 1.9.1
