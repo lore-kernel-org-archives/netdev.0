@@ -1,38 +1,39 @@
-From: David Sterba <dsterba@suse.cz>
-Subject: Re: [PATCH] Fix NUL (\0 or \x00) specification in string
-Date: Wed, 7 Jan 2015 13:22:58 +0100
-Message-ID: <20150107122258.GG24104@suse.cz>
-References: <1420394722-20197-1-git-send-email-me@mortis.eu>
- <20150105150026.GG6114@twin.jikos.cz>
- <20150106192804.GL4806@salidar.dom.custoft.eu>
-Reply-To: dsterba@suse.cz
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: ipv6: oops in datagram.c line 260
+Date: Wed, 7 Jan 2015 13:26:07 +0100
+Message-ID: <20150107122607.GC13046@secunet.com>
+References: <5487DD65.60800@gtsys.com.hk>
+ <549AC2B4.8070203@gtsys.com.hk>
+ <1420560073.32369.60.camel@redhat.com>
+ <20150107072254.GA13046@secunet.com>
+ <1420627502.26870.38.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Armin Schindler <mac@melware.de>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	"open list:ISDN SUBSYSTEM" <netdev@vger.kernel.org>
-To: Giel van Schijndel <me@mortis.eu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Chris Ruehl <chris.ruehl@gtsys.com.hk>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>
+To: Hannes Frederic Sowa <hannes@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:53286 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752038AbbAGM0L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jan 2015 07:26:11 -0500
 Content-Disposition: inline
-In-Reply-To: <20150106192804.GL4806@salidar.dom.custoft.eu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1420627502.26870.38.camel@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 06, 2015 at 08:28:04PM +0100, Giel van Schijndel wrote:
-> On Mon, Jan 05, 2015 at 16:00:26 +0100, David Sterba wrote:
-> > I'm replying to all your recent patches here as they are fixing things
-> > reported in http://www.viva64.com/en/b/0299/ . I'ts a good practice to
-> > give the credit the reporter.
+On Wed, Jan 07, 2015 at 11:45:02AM +0100, Hannes Frederic Sowa wrote:
+> On Mi, 2015-01-07 at 08:22 +0100, Steffen Klassert wrote:
+> > On Tue, Jan 06, 2015 at 05:01:13PM +0100, Hannes Frederic Sowa wrote:
+> > > 
+> > > xfrm6_output_finish unconditionally resets skb->protocol so we try to
+> > > dispatch to the IPv6 handler, even though tcp just sends an IPv4 packet.
 > > 
-> > The blogpost also contains analyses of the issues so it could help
-> > reviewing the patches.
+> > Maybe we better dispatch based on sk->sk_family, this should give
+> > always the right address family of the socket.
 > 
-> I guess you suggest I use a 'Reported-(at|by)' line?
+> The original problem was dealing with IPv4/v6 mapped traffic. Processing
+> local errors from unconnected UDP sockets which are emitting both IPv4
+> and IPv6 frames won't play nicely with sk->sk_family I fear.
 
-A link in the changelog would be enough IMHO.
-
-> Would something like the below suffice? I found similar log entries in the
-> commit log, e.g. bf3204cb, except that those add an e-mail address for
-> the reporters, which I don't think is necessary in this case.
-
-If you don't have the emails, then rather do not use reported-by.
+Good point, unfortunately it is not so easy to fix as I thought.
