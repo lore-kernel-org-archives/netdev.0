@@ -1,49 +1,59 @@
-From: Asaf Vertz <asaf.vertz@tandemg.com>
-Subject: [PATCH] e1000: fix time comparison
-Date: Wed, 7 Jan 2015 14:41:45 +0200
-Message-ID: <20150107124145.GA15954@ubuntu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	gregory.v.rose@intel.com, matthew.vick@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Fabio Estevam <festevam@gmail.com>
+Subject: [PATCH net-next 2/2] Revert "ARM: dts: imx6qdl: enable FEC magic-packet feature"
+Date: Wed,  7 Jan 2015 10:39:53 -0200
+Message-ID: <1420634393-30027-2-git-send-email-festevam@gmail.com>
+References: <1420634393-30027-1-git-send-email-festevam@gmail.com>
+Cc: shawn.guo@linaro.org, fugang.duan@freescale.com,
+	netdev@vger.kernel.org, Fabio Estevam <fabio.estevam@freescale.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f182.google.com ([209.85.220.182]:33930 "EHLO
+	mail-vc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751827AbbAGMkl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 07:40:41 -0500
+Received: by mail-vc0-f182.google.com with SMTP id hq12so414342vcb.41
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 04:40:40 -0800 (PST)
+In-Reply-To: <1420634393-30027-1-git-send-email-festevam@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-To be future-proof and for better readability the time comparisons are
-modified to use time_after_eq() instead of plain, error-prone math.
+From: Fabio Estevam <fabio.estevam@freescale.com>
 
-Signed-off-by: Asaf Vertz <asaf.vertz@tandemg.com>
+As 456062b3ec6f ("ARM: imx: add FEC sleep mode callback function") has been
+reverted, also revert the dts part.
+
+This reverts commit 07b4d2dda0c00f56248 ("ARM: dts: imx6qdl: enable FEC 
+magic-packet feature").
+
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 ---
- drivers/net/ethernet/intel/e1000/e1000_ethtool.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ arch/arm/boot/dts/imx6qdl-sabreauto.dtsi | 1 -
+ arch/arm/boot/dts/imx6qdl-sabresd.dtsi   | 1 -
+ 2 files changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-index b691eb4..4270ad2 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-@@ -24,6 +24,7 @@
- /* ethtool support for e1000 */
+diff --git a/arch/arm/boot/dts/imx6qdl-sabreauto.dtsi b/arch/arm/boot/dts/imx6qdl-sabreauto.dtsi
+index 327d362f..009abd6 100644
+--- a/arch/arm/boot/dts/imx6qdl-sabreauto.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-sabreauto.dtsi
+@@ -67,7 +67,6 @@
+ 	phy-mode = "rgmii";
+ 	interrupts-extended = <&gpio1 6 IRQ_TYPE_LEVEL_HIGH>,
+ 			      <&intc 0 119 IRQ_TYPE_LEVEL_HIGH>;
+-	fsl,magic-packet;
+ 	status = "okay";
+ };
  
- #include "e1000.h"
-+#include <linux/jiffies.h>
- #include <linux/uaccess.h>
+diff --git a/arch/arm/boot/dts/imx6qdl-sabresd.dtsi b/arch/arm/boot/dts/imx6qdl-sabresd.dtsi
+index 6bfd0bc..f1cd214 100644
+--- a/arch/arm/boot/dts/imx6qdl-sabresd.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-sabresd.dtsi
+@@ -160,7 +160,6 @@
+ 	pinctrl-0 = <&pinctrl_enet>;
+ 	phy-mode = "rgmii";
+ 	phy-reset-gpios = <&gpio1 25 0>;
+-	fsl,magic-packet;
+ 	status = "okay";
+ };
  
- enum {NETDEV_STATS, E1000_STATS};
-@@ -1460,7 +1461,7 @@ static int e1000_run_loopback_test(struct e1000_adapter *adapter)
- 			ret_val = 13; /* ret_val is the same as mis-compare */
- 			break;
- 		}
--		if (jiffies >= (time + 2)) {
-+		if (time_after_eq(jiffies, time + 2)) {
- 			ret_val = 14; /* error code for time out error */
- 			break;
- 		}
 -- 
-1.7.0.4
+1.9.1
