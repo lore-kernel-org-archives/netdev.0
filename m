@@ -1,62 +1,60 @@
-From: Giel van Schijndel <me@mortis.eu>
-Subject: [PATCH RESEND 2/2] wlcore: align member-assigns in a structure-copy block
-Date: Wed,  7 Jan 2015 20:38:38 +0100
-Message-ID: <1420659525-22975-2-git-send-email-me@mortis.eu>
-References: <1420394427-19509-1-git-send-email-me@mortis.eu>
- <1420659525-22975-1-git-send-email-me@mortis.eu>
-Cc: Giel van Schijndel <me@mortis.eu>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Eliad Peller <eliad@wizery.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Arik Nemtsov <arik@wizery.com>,
-	linux-wireless@vger.kernel.org (open list:TI WILINK WIRELES...),
-	netdev@vger.kernel.org (open list:NETWORKING DRIVERS)
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1420659525-22975-1-git-send-email-me@mortis.eu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH iproute2 3/3] ip netns: Delete all netns
+Date: Wed, 07 Jan 2015 14:40:51 -0500
+Message-ID: <54AD8BC3.2070609@hp.com>
+References: <1420628662-9930-1-git-send-email-vadim4j@gmail.com> <1420628662-9930-4-git-send-email-vadim4j@gmail.com> <54AD5458.6000400@hp.com> <20150107173640.GA19586@angus-think.lan> <20150107181112.GA24241@angus-think.lan>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g2t1383g.austin.hp.com ([15.217.136.92]:44956 "EHLO
+	g2t1383g.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753943AbbAGTky (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 14:40:54 -0500
+Received: from g6t1524.atlanta.hp.com (g6t1524.atlanta.hp.com [15.193.200.67])
+	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by g2t1383g.austin.hp.com (Postfix) with ESMTPS id CF5B848BB
+	for <netdev@vger.kernel.org>; Wed,  7 Jan 2015 19:40:53 +0000 (UTC)
+In-Reply-To: <20150107181112.GA24241@angus-think.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This highlights the differences (e.g. the bug fixed in the previous
-commit).
+On 01/07/2015 01:11 PM, Vadim Kochan wrote:
+> On Wed, Jan 07, 2015 at 07:36:40PM +0200, Vadim Kochan wrote:
+>> On Wed, Jan 07, 2015 at 10:44:24AM -0500, Brian Haley wrote:
+>>> On 01/07/2015 06:04 AM, Vadim Kochan wrote:
+>>>> From: Vadim Kochan <vadim4j@gmail.com>
+>>>>
+>>>> Allow delete all namespace names by:
+>>>>
+>>>>     $ ip netns del all
+>>>
+>>> So I can still create a namespace called 'all', but can't exec in it or delete
+>>> it independently with this change.  Perhaps you need to block that as well?
+>>> Unless there's some other patch I'm missing?
+>>>
+>>> -Brian
+>> Hm, I did not take it into account ...
+>> I will look if I can find another way ...
+>>
+>> Thanks,
+> 
+> what about this ?
+> 
+>     $ ip netns exec / ip link
+>     $ ip netns del /
+> 
+> so it make a sense to be as root directory of bound ns names in /var/run/netns/ ?
+> what do you think ?
 
-Signed-off-by: Giel van Schijndel <me@mortis.eu>
----
- drivers/net/wireless/ti/wlcore/acx.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+I think using / is confusing.  And something like -a[ll] as an option doesn't
+seem right either.
 
-diff --git a/drivers/net/wireless/ti/wlcore/acx.c b/drivers/net/wireless/ti/wlcore/acx.c
-index f28fa3b..93a2fa8 100644
---- a/drivers/net/wireless/ti/wlcore/acx.c
-+++ b/drivers/net/wireless/ti/wlcore/acx.c
-@@ -1715,17 +1715,17 @@ int wl12xx_acx_config_hangover(struct wl1271 *wl)
- 		goto out;
- 	}
- 
--	acx->recover_time = cpu_to_le32(conf->recover_time);
--	acx->hangover_period = conf->hangover_period;
--	acx->dynamic_mode = conf->dynamic_mode;
--	acx->early_termination_mode = conf->early_termination_mode;
--	acx->max_period = conf->max_period;
--	acx->min_period = conf->min_period;
--	acx->increase_delta = conf->increase_delta;
--	acx->decrease_delta = conf->decrease_delta;
--	acx->quiet_time = conf->quiet_time;
--	acx->increase_time = conf->increase_time;
--	acx->window_size = conf->window_size;
-+	acx->recover_time               = cpu_to_le32(conf->recover_time);
-+	acx->hangover_period            = conf->hangover_period;
-+	acx->dynamic_mode               = conf->dynamic_mode;
-+	acx->early_termination_mode     = conf->early_termination_mode;
-+	acx->max_period                 = conf->max_period;
-+	acx->min_period                 = conf->min_period;
-+	acx->increase_delta             = conf->increase_delta;
-+	acx->decrease_delta             = conf->decrease_delta;
-+	acx->quiet_time                 = conf->quiet_time;
-+	acx->increase_time              = conf->increase_time;
-+	acx->window_size                = conf->window_size;
- 
- 	ret = wl1271_cmd_configure(wl, ACX_CONFIG_HANGOVER, acx,
- 				   sizeof(*acx));
--- 
-2.1.4
+Or you just trap the name "all" in the add case and don't allow it.
+
+Just my opinion.
+
+-Brian
