@@ -1,45 +1,64 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: iproute2 tc: Print qdisc, stats, class, filter info to string
- rather than FILE
-Date: Wed, 7 Jan 2015 15:08:28 -0800
-Message-ID: <20150107150828.5b61f26f@urahara>
-References: <20150107215331.GA19197@angus-think.lan>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH 2/2] Fix copy-paste bug: assign from src struct not dest
+Date: Thu, 8 Jan 2015 00:06:59 +0100
+Message-ID: <54ADBC13.70100@broadcom.com>
+References: <20150107191836.GA18978@salidar.dom.custoft.eu> <1420668978.3407.28.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Vadim Kochan <vadim4j@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:46635 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753673AbbAGXIh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 18:08:37 -0500
-Received: by mail-pd0-f169.google.com with SMTP id z10so7465744pdj.0
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 15:08:37 -0800 (PST)
-In-Reply-To: <20150107215331.GA19197@angus-think.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Giel van Schijndel <me@mortis.eu>,
+	Andy Shevchenko <andy.shevchenko@gmail.com>,
+	<linux-kernel@vger.kernel.org>, Kalle Valo <kvalo@codeaurora.org>,
+	Eliad Peller <eliad@wizery.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Arik Nemtsov <arik@wizery.com>,
+	"open list:TI WILINK WIRELES..." <linux-wireless@vger.kernel.org>,
+	open list: "NETWORKING DRIVERS" <netdev@vger.kernel.org>, ;
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1420668978.3407.28.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 7 Jan 2015 23:53:31 +0200
-Vadim Kochan <vadim4j@gmail.com> wrote:
+On 01/07/15 23:16, Johannes Berg wrote:
+> On Wed, 2015-01-07 at 20:18 +0100, Giel van Schijndel wrote:
+>
+>> IMO the aligned block of code has the significant advantage of taking
+>> advantage of humans' ability to spot things that break a pattern. Which
+>> in this case becomes *very* visible when properly aligned, because
+>> without the alignment there is no (visual) pattern (or at least not one
+>> very suitable for my "visual processing system", I know the same applies
+>> to at least some others).
+>
+> Yeah, well, but why even invoke that "visual processing system"?
+>
+> If you look, for example, at the __skb_clone function it just uses a
+> macro:
+>
+> #define C(x) n->x = skb->x
 
-> Hi,
-> 
-> I'd like to make possible to generate plot info about class hierarchy
-> with qdisc, filters, stats info, but I see that all this staffs are
-> printed to 'FILE *fp' which makes this hard to implement and seems to me
-> that it should be changed to be printed to 'char *s' (memory safety
-> should be considered by asprintf or similar), so this is a big change
-> but all this is possible and I ready to do it, but before do it I'd like
-> to ask if this could be acceptable as idea.
-> 
-> BUT maybe someone can advise me easier solution ?
-> 
-> Regards,
+This requires fixed names so I generally prefer to add them:
+
+#define C(d, s, f)	(d)->f = (s)->f
+
+> and then
+>
+> 	C(len);
+> 	C(data_len);
+
+	C(acx, conf, window_size);
+	C(acx, conf, increase_time);
+
+Regards,
+Arend
+
+>
+> etc.
+>
+> johannes
+>
 > --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-Rather than screen scraping tc command, why not use libmnl and get the
-data you want programmatically.
+> Please read the FAQ at  http://www.tux.org/lkml/
