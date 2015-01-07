@@ -1,383 +1,610 @@
-From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
-Subject: Re: [PATCH v4] can: Convert to runtime_pm
-Date: Wed, 7 Jan 2015 07:58:38 -0800
-Message-ID: <a868331b44ce4b2a80b572399530f1f9@BN1BFFO11FD043.protection.gbl>
-References: <58f37b6fd9104ce185c413c473fe047b@BY2FFO11FD050.protection.gbl>
- <54AD267C.4060004@pengutronix.de>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 2/6] vxlan: Group Policy extension
+Date: Wed, 7 Jan 2015 08:05:06 -0800
+Message-ID: <CA+mtBx_Jj-tUM1nbHd2fHb0-=QpK3tcQgA=smWmg=cB-fupdGg@mail.gmail.com>
+References: <cover.1420594925.git.tgraf@suug.ch>
+	<2b43c19c47e3702b370054f8fd11233e44179edf.1420594925.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
-	<wg@grandegger.com>, <michal.simek@xilinx.com>,
-	<grant.likely@linaro.org>, <linux-can@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Kedareswara rao Appana <appanad@xilinx.com>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <54AD267C.4060004@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, Jesse Gross <jesse@nicira.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:48766 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753782AbbAGQFH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 11:05:07 -0500
+Received: by mail-ie0-f175.google.com with SMTP id x19so4384170ier.6
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 08:05:06 -0800 (PST)
+In-Reply-To: <2b43c19c47e3702b370054f8fd11233e44179edf.1420594925.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-01-07 at 01:28PM +0100, Marc Kleine-Budde wrote:
-> On 12/23/2014 01:25 PM, Kedareswara rao Appana wrote:
-> > Instead of enabling/disabling clocks at several locations in the dr=
-iver,
-> > use the runtime_pm framework. This consolidates the actions for
-> > runtime PM in the appropriate callbacks and makes the driver more
-> > readable and mantainable.
-> >=20
-> > Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
-> > Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
-> > ---
-> > Chnages for v4:
-> >  - Updated with the review comments.
-> > Changes for v3:
-> >   - Converted the driver to use runtime_pm.
-> > Changes for v2:
-> >   - Removed the struct platform_device* from suspend/resume
-> >     as suggest by Lothar.
-> >=20
-> >  drivers/net/can/xilinx_can.c |  123 +++++++++++++++++++++++++-----=
-------------
-> >  1 files changed, 74 insertions(+), 49 deletions(-)
-> >=20
-> > diff --git a/drivers/net/can/xilinx_can.c b/drivers/net/can/xilinx_=
-can.c
-> > index 6c67643..c71f683 100644
-> > --- a/drivers/net/can/xilinx_can.c
-> > +++ b/drivers/net/can/xilinx_can.c
-> > @@ -32,6 +32,7 @@
-> >  #include <linux/can/dev.h>
-> >  #include <linux/can/error.h>
-> >  #include <linux/can/led.h>
-> > +#include <linux/pm_runtime.h>
-> > =20
-> >  #define DRIVER_NAME	"xilinx_can"
-> > =20
-> > @@ -138,7 +139,7 @@ struct xcan_priv {
-> >  	u32 (*read_reg)(const struct xcan_priv *priv, enum xcan_reg reg);
-> >  	void (*write_reg)(const struct xcan_priv *priv, enum xcan_reg reg=
-,
-> >  			u32 val);
-> > -	struct net_device *dev;
-> > +	struct device *dev;
-> >  	void __iomem *reg_base;
-> >  	unsigned long irq_flags;
-> >  	struct clk *bus_clk;
-> > @@ -842,6 +843,13 @@ static int xcan_open(struct net_device *ndev)
-> >  	struct xcan_priv *priv =3D netdev_priv(ndev);
-> >  	int ret;
-> > =20
-> > +	ret =3D pm_runtime_get_sync(priv->dev);
-> > +	if (ret < 0) {
-> > +		netdev_err(ndev, "%s: pm_runtime_get failed\r(%d)\n\r",
-> > +				__func__, ret);
-> > +		return ret;
-> > +	}
-> > +
-> >  	ret =3D request_irq(ndev->irq, xcan_interrupt, priv->irq_flags,
-> >  			ndev->name, ndev);
-> >  	if (ret < 0) {
-> > @@ -849,29 +857,17 @@ static int xcan_open(struct net_device *ndev)
-> >  		goto err;
-> >  	}
-> > =20
-> > -	ret =3D clk_prepare_enable(priv->can_clk);
-> > -	if (ret) {
-> > -		netdev_err(ndev, "unable to enable device clock\n");
-> > -		goto err_irq;
-> > -	}
-> > -
-> > -	ret =3D clk_prepare_enable(priv->bus_clk);
-> > -	if (ret) {
-> > -		netdev_err(ndev, "unable to enable bus clock\n");
-> > -		goto err_can_clk;
-> > -	}
-> > -
-> >  	/* Set chip into reset mode */
-> >  	ret =3D set_reset_mode(ndev);
-> >  	if (ret < 0) {
-> >  		netdev_err(ndev, "mode resetting failed!\n");
-> > -		goto err_bus_clk;
-> > +		goto err_irq;
-> >  	}
-> > =20
-> >  	/* Common open */
-> >  	ret =3D open_candev(ndev);
-> >  	if (ret)
-> > -		goto err_bus_clk;
-> > +		goto err_irq;
-> > =20
-> >  	ret =3D xcan_chip_start(ndev);
-> >  	if (ret < 0) {
-> > @@ -887,13 +883,11 @@ static int xcan_open(struct net_device *ndev)
-> > =20
-> >  err_candev:
-> >  	close_candev(ndev);
-> > -err_bus_clk:
-> > -	clk_disable_unprepare(priv->bus_clk);
-> > -err_can_clk:
-> > -	clk_disable_unprepare(priv->can_clk);
-> >  err_irq:
-> >  	free_irq(ndev->irq, ndev);
-> >  err:
-> > +	pm_runtime_put(priv->dev);
-> > +
-> >  	return ret;
-> >  }
-> > =20
-> > @@ -910,12 +904,11 @@ static int xcan_close(struct net_device *ndev=
-)
-> >  	netif_stop_queue(ndev);
-> >  	napi_disable(&priv->napi);
-> >  	xcan_chip_stop(ndev);
-> > -	clk_disable_unprepare(priv->bus_clk);
-> > -	clk_disable_unprepare(priv->can_clk);
-> >  	free_irq(ndev->irq, ndev);
-> >  	close_candev(ndev);
-> > =20
-> >  	can_led_event(ndev, CAN_LED_EVENT_STOP);
-> > +	pm_runtime_put(priv->dev);
-> > =20
-> >  	return 0;
-> >  }
-> > @@ -934,27 +927,20 @@ static int xcan_get_berr_counter(const struct=
- net_device *ndev,
-> >  	struct xcan_priv *priv =3D netdev_priv(ndev);
-> >  	int ret;
-> > =20
-> > -	ret =3D clk_prepare_enable(priv->can_clk);
-> > -	if (ret)
-> > -		goto err;
-> > -
-> > -	ret =3D clk_prepare_enable(priv->bus_clk);
-> > -	if (ret)
-> > -		goto err_clk;
-> > +	ret =3D pm_runtime_get_sync(priv->dev);
-> > +	if (ret < 0) {
-> > +		netdev_err(ndev, "%s: pm_runtime_get failed\r(%d)\n\r",
-> > +				__func__, ret);
->=20
-> Please remove the \r from the error messages.
->=20
-> > +		return ret;
-> > +	}
-> > =20
-> >  	bec->txerr =3D priv->read_reg(priv, XCAN_ECR_OFFSET) & XCAN_ECR_T=
-EC_MASK;
-> >  	bec->rxerr =3D ((priv->read_reg(priv, XCAN_ECR_OFFSET) &
-> >  			XCAN_ECR_REC_MASK) >> XCAN_ESR_REC_SHIFT);
-> > =20
-> > -	clk_disable_unprepare(priv->bus_clk);
-> > -	clk_disable_unprepare(priv->can_clk);
-> > +	pm_runtime_put(priv->dev);
-> > =20
-> >  	return 0;
-> > -
-> > -err_clk:
-> > -	clk_disable_unprepare(priv->can_clk);
-> > -err:
-> > -	return ret;
-> >  }
-> > =20
-> > =20
-> > @@ -967,15 +953,45 @@ static const struct net_device_ops xcan_netde=
-v_ops =3D {
-> > =20
-> >  /**
-> >   * xcan_suspend - Suspend method for the driver
-> > - * @dev:	Address of the platform_device structure
-> > + * @dev:	Address of the device structure
-> >   *
-> >   * Put the driver into low power mode.
-> > - * Return: 0 always
-> > + * Return: 0 on success and failure value on error
-> >   */
-> >  static int __maybe_unused xcan_suspend(struct device *dev)
-> >  {
-> > -	struct platform_device *pdev =3D dev_get_drvdata(dev);
-> > -	struct net_device *ndev =3D platform_get_drvdata(pdev);
-> > +	if (!device_may_wakeup(dev))
-> > +		return pm_runtime_force_suspend(dev);
-> > +
-> > +	return 0;
-> > +}
-> > +
-> > +/**
-> > + * xcan_resume - Resume from suspend
-> > + * @dev:	Address of the device structure
-> > + *
-> > + * Resume operation after suspend.
-> > + * Return: 0 on success and failure value on error
-> > + */
-> > +static int __maybe_unused xcan_resume(struct device *dev)
-> > +{
-> > +	if (!device_may_wakeup(dev))
-> > +		return pm_runtime_force_resume(dev);
-> > +
-> > +	return 0;
-> > +
-> > +}
-> > +
-> > +/**
-> > + * xcan_runtime_suspend - Runtime suspend method for the driver
-> > + * @dev:	Address of the device structure
-> > + *
-> > + * Put the driver into low power mode.
-> > + * Return: 0 always
-> > + */
-> > +static int __maybe_unused xcan_runtime_suspend(struct device *dev)
-> > +{
-> > +	struct net_device *ndev =3D dev_get_drvdata(dev);
-> >  	struct xcan_priv *priv =3D netdev_priv(ndev);
-> > =20
-> >  	if (netif_running(ndev)) {
-> > @@ -993,16 +1009,15 @@ static int __maybe_unused xcan_suspend(struc=
-t device *dev)
-> >  }
-> > =20
-> >  /**
-> > - * xcan_resume - Resume from suspend
-> > - * @dev:	Address of the platformdevice structure
-> > + * xcan_runtime_resume - Runtime resume from suspend
-> > + * @dev:	Address of the device structure
-> >   *
-> >   * Resume operation after suspend.
-> >   * Return: 0 on success and failure value on error
-> >   */
-> > -static int __maybe_unused xcan_resume(struct device *dev)
-> > +static int __maybe_unused xcan_runtime_resume(struct device *dev)
-> >  {
-> > -	struct platform_device *pdev =3D dev_get_drvdata(dev);
-> > -	struct net_device *ndev =3D platform_get_drvdata(pdev);
-> > +	struct net_device *ndev =3D dev_get_drvdata(dev);
-> >  	struct xcan_priv *priv =3D netdev_priv(ndev);
-> >  	int ret;
->=20
-> Some more context:
->=20
-> > 	ret =3D clk_enable(priv->bus_clk);
-> > 	if (ret) {
-> > 		dev_err(dev, "Cannot enable clock.\n");
-> > 		return ret;
-> > 	}
-> > 	ret =3D clk_enable(priv->can_clk);
-> > 	if (ret) {
-> > 		dev_err(dev, "Cannot enable clock.\n");
-> > 		clk_disable_unprepare(priv->bus_clk);
->=20
-> This disable_unprepare looks wrong, should be a disable only.
->=20
-> > 		return ret;
-> > 	}
-> >=20
-> > 	priv->write_reg(priv, XCAN_MSR_OFFSET, 0);
-> > 	priv->write_reg(priv, XCAN_SRR_OFFSET, XCAN_SRR_CEN_MASK);
-> >=20
-> > 	if (netif_running(ndev)) {
-> > 		priv->can.state =3D CAN_STATE_ERROR_ACTIVE;
->=20
-> What happens if the device was not in ACTIVE state prior to the
-> runtime_suspend?
->=20
-> > 		netif_device_attach(ndev);
-> > 		netif_start_queue(ndev);
-> > 	}
-> >=20
-> > 	return 0;
-> > }
->=20
->=20
-> > =20
-> > @@ -1020,9 +1035,9 @@ static int __maybe_unused xcan_resume(struct =
-device *dev)
-> > =20
-> >  	priv->write_reg(priv, XCAN_MSR_OFFSET, 0);
-> >  	priv->write_reg(priv, XCAN_SRR_OFFSET, XCAN_SRR_CEN_MASK);
-> > -	priv->can.state =3D CAN_STATE_ERROR_ACTIVE;
-> > =20
-> >  	if (netif_running(ndev)) {
-> > +		priv->can.state =3D CAN_STATE_ERROR_ACTIVE;
-> >  		netif_device_attach(ndev);
-> >  		netif_start_queue(ndev);
-> >  	}
-> > @@ -1030,7 +1045,10 @@ static int __maybe_unused xcan_resume(struct=
- device *dev)
-> >  	return 0;
-> >  }
-> > =20
-> > -static SIMPLE_DEV_PM_OPS(xcan_dev_pm_ops, xcan_suspend, xcan_resum=
-e);
-> > +static const struct dev_pm_ops xcan_dev_pm_ops =3D {
-> > +	SET_SYSTEM_SLEEP_PM_OPS(xcan_suspend, xcan_resume)
-> > +	SET_PM_RUNTIME_PM_OPS(xcan_runtime_suspend, xcan_runtime_resume, =
-NULL)
-> > +};
-> > =20
-> >  /**
-> >   * xcan_probe - Platform registration call
-> > @@ -1071,7 +1089,7 @@ static int xcan_probe(struct platform_device =
-*pdev)
-> >  		return -ENOMEM;
-> > =20
-> >  	priv =3D netdev_priv(ndev);
-> > -	priv->dev =3D ndev;
-> > +	priv->dev =3D &pdev->dev;
-> >  	priv->can.bittiming_const =3D &xcan_bittiming_const;
-> >  	priv->can.do_set_mode =3D xcan_do_set_mode;
-> >  	priv->can.do_get_berr_counter =3D xcan_get_berr_counter;
-> > @@ -1137,15 +1155,22 @@ static int xcan_probe(struct platform_devic=
-e *pdev)
-> > =20
-> >  	netif_napi_add(ndev, &priv->napi, xcan_rx_poll, rx_max);
-> > =20
-> > +	pm_runtime_set_active(&pdev->dev);
-> > +	pm_runtime_irq_safe(&pdev->dev);
-> > +	pm_runtime_enable(&pdev->dev);
-> > +	pm_runtime_get_sync(&pdev->dev);
-> Check error values?
-> > +
-> >  	ret =3D register_candev(ndev);
-> >  	if (ret) {
-> >  		dev_err(&pdev->dev, "fail to register failed (err=3D%d)\n", ret)=
-;
-> > +		pm_runtime_put(priv->dev);
->=20
-> Please move the pm_runtime_put into the common error exit path.
->=20
-> >  		goto err_unprepare_disable_busclk;
-> >  	}
-> > =20
-> >  	devm_can_led_init(ndev);
-> > -	clk_disable_unprepare(priv->bus_clk);
-> > -	clk_disable_unprepare(priv->can_clk);
-> > +
-> > +	pm_runtime_put(&pdev->dev);
-> > +
-> >  	netdev_dbg(ndev, "reg_base=3D0x%p irq=3D%d clock=3D%d, tx fifo de=
-pth:%d\n",
-> >  			priv->reg_base, ndev->irq, priv->can.clock.freq,
-> >  			priv->tx_max);
-> >=20
->=20
-> I think you have to convert the _remove() function, too. Have a look =
-at
-> the gpio-zynq.c driver:
->=20
-> > static int zynq_gpio_remove(struct platform_device *pdev)
-> > {
-> > 	struct zynq_gpio *gpio =3D platform_get_drvdata(pdev);
-> >=20
-> > 	pm_runtime_get_sync(&pdev->dev);
->=20
-> However I don't understand why the get_sync() is here. Maybe S=C3=B6r=
-en can help?
+On Tue, Jan 6, 2015 at 6:05 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> Implements supports for the Group Policy VXLAN extension [0] to provide
+> a lightweight and simple security label mechanism across network peers
+> based on VXLAN. The security context and associated metadata is mapped
+> to/from skb->mark. This allows further mapping to a SELinux context
+> using SECMARK, to implement ACLs directly with nftables, iptables, OVS,
+> tc, etc.
+>
+> The group membership is defined by the lower 16 bits of skb->mark, the
+> upper 16 bits are used for flags.
+>
+> SELinux allows to manage label to secure local resources. However,
+> distributed applications require ACLs to implemented across hosts. This
+> is typically achieved by matching on L2-L4 fields to identify the
+> original sending host and process on the receiver. On top of that,
+> netlabel and specifically CIPSO [1] allow to map security contexts to
+> universal labels.  However, netlabel and CIPSO are relatively complex.
+> This patch provides a lightweight alternative for overlay network
+> environments with a trusted underlay. No additional control protocol
+> is required.
+>
+Associating a sixteen bit field with security is worrisome, especially
+considering that VXLAN provides no verification for any header fields
+and doesn't even advocate use of outer UDP checksum so the field is
+susceptible to an undetected single bit flip. The concept of a
+"trusted underlay" is weak justification and hardly universal, so the
+only way to actually secure this is through IPsec (this is mentioned
+in the VXLAN-GPB draft). But if we have the security state of IPsec
+then why would we need this field anyway?
 
-IIRC, the concern was that the remove function may be called while the =
-device is
-runtime suspended. Hence the remove function needs to resume the device=
- since the
-remove function may access the HW.
+Could this same functionality be achieved if we just match the VNI to
+a mark in IP tables?
 
-	S=C3=B6ren
+Tom
+
+>            Host 1:                       Host 2:
+>
+>       Group A        Group B        Group B     Group A
+>       +-----+   +-------------+    +-------+   +-----+
+>       | lxc |   | SELinux CTX |    | httpd |   | VM  |
+>       +--+--+   +--+----------+    +---+---+   +--+--+
+>           \---+---/                     \----+---/
+>               |                              |
+>           +---+---+                      +---+---+
+>           | vxlan |                      | vxlan |
+>           +---+---+                      +---+---+
+>               +------------------------------+
+>
+> Backwards compatibility:
+> A VXLAN-GBP socket can receive standard VXLAN frames and will assign
+> the default group 0x0000 to such frames. A Linux VXLAN socket will
+> drop VXLAN-GBP  frames. The extension is therefore disabled by default
+> and needs to be specifically enabled:
+>
+>    ip link add [...] type vxlan [...] gbp
+>
+> In a mixed environment with VXLAN and VXLAN-GBP sockets, the GBP socket
+> must run on a separate port number.
+>
+> Examples:
+>   iptables:
+>   $ iptables -I OUTPUT -p icmp -j MARK --set-mark 0x200
+>   $ iptables -I INPUT -i br0 -m mark --mark 0x200 -j ACCEPT
+>
+>   OVS (patches provided separately):
+>   in_port=1, actions=load:0x200->NXM_NX_TUN_GBP_ID[],NORMAL
+>
+> [0] https://tools.ietf.org/html/draft-smith-vxlan-group-policy
+> [1] http://lwn.net/Articles/204905/
+>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> ---
+>  drivers/net/vxlan.c           | 155 ++++++++++++++++++++++++++++++------------
+>  include/net/vxlan.h           |  80 ++++++++++++++++++++--
+>  include/uapi/linux/if_link.h  |   8 +++
+>  net/openvswitch/vport-vxlan.c |   9 ++-
+>  4 files changed, 197 insertions(+), 55 deletions(-)
+>
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 4d52aa9..30b7b59 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -132,6 +132,7 @@ struct vxlan_dev {
+>         __u8              tos;          /* TOS override */
+>         __u8              ttl;
+>         u32               flags;        /* VXLAN_F_* in vxlan.h */
+> +       u32               exts;         /* Enabled extensions */
+>
+>         struct work_struct sock_work;
+>         struct work_struct igmp_join;
+> @@ -568,7 +569,8 @@ static struct sk_buff **vxlan_gro_receive(struct sk_buff **head, struct sk_buff
+>                         continue;
+>
+>                 vh2 = (struct vxlanhdr *)(p->data + off_vx);
+> -               if (vh->vx_vni != vh2->vx_vni) {
+> +               if (vh->vx_flags != vh2->vx_flags ||
+> +                   vh->vx_vni != vh2->vx_vni) {
+>                         NAPI_GRO_CB(p)->same_flow = 0;
+>                         continue;
+>                 }
+> @@ -1095,6 +1097,7 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+>  {
+>         struct vxlan_sock *vs;
+>         struct vxlanhdr *vxh;
+> +       struct vxlan_metadata md = {0};
+>
+>         /* Need Vxlan and inner Ethernet header to be present */
+>         if (!pskb_may_pull(skb, VXLAN_HLEN))
+> @@ -1113,6 +1116,19 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+>         if (vs->exts) {
+>                 if (!vxh->vni_present)
+>                         goto error_invalid_header;
+> +
+> +               if (vxh->gbp_present) {
+> +                       if (!(vs->exts & VXLAN_EXT_GBP))
+> +                               goto error_invalid_header;
+> +
+> +                       md.gbp = ntohs(vxh->gbp.policy_id);
+> +
+> +                       if (vxh->gbp.dont_learn)
+> +                               md.gbp |= VXLAN_GBP_DONT_LEARN;
+> +
+> +                       if (vxh->gbp.policy_applied)
+> +                               md.gbp |= VXLAN_GBP_POLICY_APPLIED;
+> +               }
+>         } else {
+>                 if (vxh->vx_flags != htonl(VXLAN_FLAGS) ||
+>                     (vxh->vx_vni & htonl(0xff)))
+> @@ -1122,7 +1138,8 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+>         if (iptunnel_pull_header(skb, VXLAN_HLEN, htons(ETH_P_TEB)))
+>                 goto drop;
+>
+> -       vs->rcv(vs, skb, vxh->vx_vni);
+> +       md.vni = vxh->vx_vni;
+> +       vs->rcv(vs, skb, &md);
+>         return 0;
+>
+>  drop:
+> @@ -1138,8 +1155,8 @@ error:
+>         return 1;
+>  }
+>
+> -static void vxlan_rcv(struct vxlan_sock *vs,
+> -                     struct sk_buff *skb, __be32 vx_vni)
+> +static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb,
+> +                     struct vxlan_metadata *md)
+>  {
+>         struct iphdr *oip = NULL;
+>         struct ipv6hdr *oip6 = NULL;
+> @@ -1150,7 +1167,7 @@ static void vxlan_rcv(struct vxlan_sock *vs,
+>         int err = 0;
+>         union vxlan_addr *remote_ip;
+>
+> -       vni = ntohl(vx_vni) >> 8;
+> +       vni = ntohl(md->vni) >> 8;
+>         /* Is this VNI defined? */
+>         vxlan = vxlan_vs_find_vni(vs, vni);
+>         if (!vxlan)
+> @@ -1184,6 +1201,7 @@ static void vxlan_rcv(struct vxlan_sock *vs,
+>                 goto drop;
+>
+>         skb_reset_network_header(skb);
+> +       skb->mark = md->gbp;
+>
+>         if (oip6)
+>                 err = IP6_ECN_decapsulate(oip6, skb);
+> @@ -1533,15 +1551,54 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
+>         return false;
+>  }
+>
+> +static int vxlan_build_hdr(struct sk_buff *skb, struct vxlan_sock *vs,
+> +                          int min_headroom, struct vxlan_metadata *md)
+> +{
+> +       struct vxlanhdr *vxh;
+> +       int err;
+> +
+> +       /* Need space for new headers (invalidates iph ptr) */
+> +       err = skb_cow_head(skb, min_headroom);
+> +       if (unlikely(err)) {
+> +               kfree_skb(skb);
+> +               return err;
+> +       }
+> +
+> +       skb = vlan_hwaccel_push_inside(skb);
+> +       if (WARN_ON(!skb))
+> +               return -ENOMEM;
+> +
+> +       vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
+> +       vxh->vx_flags = htonl(VXLAN_FLAGS);
+> +       vxh->vx_vni = md->vni;
+> +
+> +       if (vs->exts)  {
+> +               if (vs->exts & VXLAN_EXT_GBP) {
+> +                       vxh->gbp_present = 1;
+> +
+> +                       if (md->gbp & VXLAN_GBP_DONT_LEARN)
+> +                               vxh->gbp.dont_learn = 1;
+> +
+> +                       if (md->gbp & VXLAN_GBP_POLICY_APPLIED)
+> +                               vxh->gbp.policy_applied = 1;
+> +
+> +                       vxh->gbp.policy_id = htons(md->gbp & VXLAN_GBP_ID_MASK);
+> +               }
+> +       }
+> +
+> +       skb_set_inner_protocol(skb, htons(ETH_P_TEB));
+> +
+> +       return 0;
+> +}
+> +
+>  #if IS_ENABLED(CONFIG_IPV6)
+>  static int vxlan6_xmit_skb(struct vxlan_sock *vs,
+>                            struct dst_entry *dst, struct sk_buff *skb,
+>                            struct net_device *dev, struct in6_addr *saddr,
+>                            struct in6_addr *daddr, __u8 prio, __u8 ttl,
+> -                          __be16 src_port, __be16 dst_port, __be32 vni,
+> -                          bool xnet)
+> +                          __be16 src_port, __be16 dst_port,
+> +                          struct vxlan_metadata *md, bool xnet)
+>  {
+> -       struct vxlanhdr *vxh;
+>         int min_headroom;
+>         int err;
+>         bool udp_sum = !udp_get_no_check6_tx(vs->sock->sk);
+> @@ -1558,24 +1615,9 @@ static int vxlan6_xmit_skb(struct vxlan_sock *vs,
+>                         + VXLAN_HLEN + sizeof(struct ipv6hdr)
+>                         + (vlan_tx_tag_present(skb) ? VLAN_HLEN : 0);
+>
+> -       /* Need space for new headers (invalidates iph ptr) */
+> -       err = skb_cow_head(skb, min_headroom);
+> -       if (unlikely(err)) {
+> -               kfree_skb(skb);
+> -               goto err;
+> -       }
+> -
+> -       skb = vlan_hwaccel_push_inside(skb);
+> -       if (WARN_ON(!skb)) {
+> -               err = -ENOMEM;
+> +       err = vxlan_build_hdr(skb, vs, min_headroom, md);
+> +       if (err)
+>                 goto err;
+> -       }
+> -
+> -       vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
+> -       vxh->vx_flags = htonl(VXLAN_FLAGS);
+> -       vxh->vx_vni = vni;
+> -
+> -       skb_set_inner_protocol(skb, htons(ETH_P_TEB));
+>
+>         udp_tunnel6_xmit_skb(vs->sock, dst, skb, dev, saddr, daddr, prio,
+>                              ttl, src_port, dst_port);
+> @@ -1589,9 +1631,9 @@ err:
+>  int vxlan_xmit_skb(struct vxlan_sock *vs,
+>                    struct rtable *rt, struct sk_buff *skb,
+>                    __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
+> -                  __be16 src_port, __be16 dst_port, __be32 vni, bool xnet)
+> +                  __be16 src_port, __be16 dst_port,
+> +                  struct vxlan_metadata *md, bool xnet)
+>  {
+> -       struct vxlanhdr *vxh;
+>         int min_headroom;
+>         int err;
+>         bool udp_sum = !vs->sock->sk->sk_no_check_tx;
+> @@ -1604,22 +1646,9 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+>                         + VXLAN_HLEN + sizeof(struct iphdr)
+>                         + (vlan_tx_tag_present(skb) ? VLAN_HLEN : 0);
+>
+> -       /* Need space for new headers (invalidates iph ptr) */
+> -       err = skb_cow_head(skb, min_headroom);
+> -       if (unlikely(err)) {
+> -               kfree_skb(skb);
+> +       err = vxlan_build_hdr(skb, vs, min_headroom, md);
+> +       if (err)
+>                 return err;
+> -       }
+> -
+> -       skb = vlan_hwaccel_push_inside(skb);
+> -       if (WARN_ON(!skb))
+> -               return -ENOMEM;
+> -
+> -       vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
+> -       vxh->vx_flags = htonl(VXLAN_FLAGS);
+> -       vxh->vx_vni = vni;
+> -
+> -       skb_set_inner_protocol(skb, htons(ETH_P_TEB));
+>
+>         return udp_tunnel_xmit_skb(vs->sock, rt, skb, src, dst, tos,
+>                                    ttl, df, src_port, dst_port, xnet);
+> @@ -1679,6 +1708,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+>         const struct iphdr *old_iph;
+>         struct flowi4 fl4;
+>         union vxlan_addr *dst;
+> +       struct vxlan_metadata md;
+>         __be16 src_port = 0, dst_port;
+>         u32 vni;
+>         __be16 df = 0;
+> @@ -1749,11 +1779,12 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+>
+>                 tos = ip_tunnel_ecn_encap(tos, old_iph, skb);
+>                 ttl = ttl ? : ip4_dst_hoplimit(&rt->dst);
+> +               md.vni = htonl(vni << 8);
+> +               md.gbp = skb->mark;
+>
+>                 err = vxlan_xmit_skb(vxlan->vn_sock, rt, skb,
+>                                      fl4.saddr, dst->sin.sin_addr.s_addr,
+> -                                    tos, ttl, df, src_port, dst_port,
+> -                                    htonl(vni << 8),
+> +                                    tos, ttl, df, src_port, dst_port, &md,
+>                                      !net_eq(vxlan->net, dev_net(vxlan->dev)));
+>                 if (err < 0) {
+>                         /* skb is already freed. */
+> @@ -1806,10 +1837,12 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+>                 }
+>
+>                 ttl = ttl ? : ip6_dst_hoplimit(ndst);
+> +               md.vni = htonl(vni << 8);
+> +               md.gbp = skb->mark;
+>
+>                 err = vxlan6_xmit_skb(vxlan->vn_sock, ndst, skb,
+>                                       dev, &fl6.saddr, &fl6.daddr, 0, ttl,
+> -                                     src_port, dst_port, htonl(vni << 8),
+> +                                     src_port, dst_port, &md,
+>                                       !net_eq(vxlan->net, dev_net(vxlan->dev)));
+>  #endif
+>         }
+> @@ -2210,6 +2243,11 @@ static const struct nla_policy vxlan_policy[IFLA_VXLAN_MAX + 1] = {
+>         [IFLA_VXLAN_UDP_CSUM]   = { .type = NLA_U8 },
+>         [IFLA_VXLAN_UDP_ZERO_CSUM6_TX]  = { .type = NLA_U8 },
+>         [IFLA_VXLAN_UDP_ZERO_CSUM6_RX]  = { .type = NLA_U8 },
+> +       [IFLA_VXLAN_EXTENSION]  = { .type = NLA_NESTED },
+> +};
+> +
+> +static const struct nla_policy vxlan_ext_policy[IFLA_VXLAN_EXT_MAX + 1] = {
+> +       [IFLA_VXLAN_EXT_GBP]    = { .type = NLA_FLAG, },
+>  };
+>
+>  static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
+> @@ -2246,6 +2284,18 @@ static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
+>                 }
+>         }
+>
+> +       if (data[IFLA_VXLAN_EXTENSION]) {
+> +               int err;
+> +
+> +               err = nla_validate_nested(data[IFLA_VXLAN_EXTENSION],
+> +                                         IFLA_VXLAN_EXT_MAX, vxlan_ext_policy);
+> +               if (err < 0) {
+> +                       pr_debug("invalid VXLAN extension configuration: %d\n",
+> +                                err);
+> +                       return -EINVAL;
+> +               }
+> +       }
+> +
+>         return 0;
+>  }
+>
+> @@ -2400,6 +2450,18 @@ static void vxlan_sock_work(struct work_struct *work)
+>         dev_put(vxlan->dev);
+>  }
+>
+> +static void configure_vxlan_exts(struct vxlan_dev *vxlan, struct nlattr *attr)
+> +{
+> +       struct nlattr *exts[IFLA_VXLAN_EXT_MAX+1];
+> +
+> +       /* Validated in vxlan_validate() */
+> +       if (nla_parse_nested(exts, IFLA_VXLAN_EXT_MAX, attr, NULL) < 0)
+> +               BUG();
+> +
+> +       if (exts[IFLA_VXLAN_EXT_GBP])
+> +               vxlan->exts |= VXLAN_EXT_GBP;
+> +}
+> +
+>  static int vxlan_newlink(struct net *net, struct net_device *dev,
+>                          struct nlattr *tb[], struct nlattr *data[])
+>  {
+> @@ -2525,6 +2587,9 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
+>             nla_get_u8(data[IFLA_VXLAN_UDP_ZERO_CSUM6_RX]))
+>                 vxlan->flags |= VXLAN_F_UDP_ZERO_CSUM6_RX;
+>
+> +       if (data[IFLA_VXLAN_EXTENSION])
+> +               configure_vxlan_exts(vxlan, data[IFLA_VXLAN_EXTENSION]);
+> +
+>         if (vxlan_find_vni(net, vni, use_ipv6 ? AF_INET6 : AF_INET,
+>                            vxlan->dst_port)) {
+>                 pr_info("duplicate VNI %u\n", vni);
+> diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+> index 3e98d31..66000d0 100644
+> --- a/include/net/vxlan.h
+> +++ b/include/net/vxlan.h
+> @@ -11,13 +11,60 @@
+>  #define VNI_HASH_BITS  10
+>  #define VNI_HASH_SIZE  (1<<VNI_HASH_BITS)
+>
+> +/*
+> + * VXLAN Group Based Policy Extension:
+> + * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+> + * |1|-|-|-|1|-|-|-|R|D|R|R|A|R|R|R|        Group Policy ID        |
+> + * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+> + * |                VXLAN Network Identifier (VNI) |   Reserved    |
+> + * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+> + *
+> + * D = Don't Learn bit. When set, this bit indicates that the egress
+> + *     VTEP MUST NOT learn the source address of the encapsulated frame.
+> + *
+> + * A = Indicates that the group policy has already been applied to
+> + *     this packet. Policies MUST NOT be applied by devices when the
+> + *     A bit is set.
+> + *
+> + * [0] https://tools.ietf.org/html/draft-smith-vxlan-group-policy
+> + */
+> +struct vxlan_gbp {
+> +#ifdef __LITTLE_ENDIAN_BITFIELD
+> +       __u8    reserved_flags1:3,
+> +               policy_applied:1,
+> +               reserved_flags2:2,
+> +               dont_learn:1,
+> +               reserved_flags3:1;
+> +#elif defined(__BIG_ENDIAN_BITFIELD)
+> +       __u8    reserved_flags1:1,
+> +               dont_learn:1,
+> +               reserved_flags2:2,
+> +               policy_applied:1,
+> +               reserved_flags3:3;
+> +#else
+> +#error "Please fix <asm/byteorder.h>"
+> +#endif
+> +       __be16 policy_id;
+> +} __packed;
+> +
+> +/* skb->mark mapping
+> + *
+> + * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+> + * |R|R|R|R|R|R|R|R|R|D|R|R|A|R|R|R|        Group Policy ID        |
+> + * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+> + */
+> +#define VXLAN_GBP_DONT_LEARN           (BIT(6) << 16)
+> +#define VXLAN_GBP_POLICY_APPLIED       (BIT(3) << 16)
+> +#define VXLAN_GBP_ID_MASK              (0xFFFF)
+> +
+>  /* VXLAN protocol header:
+>   * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+> - * |R|R|R|R|I|R|R|R|               Reserved                        |
+> + * |G|R|R|R|I|R|R|R|               Reserved                        |
+>   * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+>   * |                VXLAN Network Identifier (VNI) |   Reserved    |
+>   * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+>   *
+> + * G = 1       Group Policy (VXLAN-GBP)
+>   * I = 1       VXLAN Network Identifier (VNI) present
+>   */
+>  struct vxlanhdr {
+> @@ -26,24 +73,42 @@ struct vxlanhdr {
+>  #ifdef __LITTLE_ENDIAN_BITFIELD
+>                         __u8    reserved_flags1:3,
+>                                 vni_present:1,
+> -                               reserved_flags2:4;
+> +                               reserved_flags2:3,
+> +                               gbp_present:1;
+>  #elif defined(__BIG_ENDIAN_BITFIELD)
+> -                       __u8    reserved_flags2:4,
+> +                       __u8    gbp_present:1,
+> +                               reserved_flags2:3,
+>                                 vni_present:1,
+>                                 reserved_flags1:3;
+>  #else
+>  #error "Please fix <asm/byteorder.h>"
+>  #endif
+> -                       __u8    vx_reserved1;
+> -                       __be16  vx_reserved2;
+> +                       union {
+> +                               /* NOTE: Offset 0 will be 1 byte aligned, so
+> +                                * all member structs must be marked packed.
+> +                                */
+> +                               struct vxlan_gbp gbp;
+> +                               struct {
+> +                                       __u8    vx_reserved1;
+> +                                       __be16  vx_reserved2;
+> +                               } __packed;
+> +                       };
+>                 };
+>                 __be32 vx_flags;
+>         };
+>         __be32  vx_vni;
+>  };
+>
+> +struct vxlan_metadata {
+> +       __be32          vni;
+> +       u32             gbp;
+> +};
+> +
+>  struct vxlan_sock;
+> -typedef void (vxlan_rcv_t)(struct vxlan_sock *vh, struct sk_buff *skb, __be32 key);
+> +typedef void (vxlan_rcv_t)(struct vxlan_sock *vh, struct sk_buff *skb,
+> +                          struct vxlan_metadata *md);
+> +
+> +#define VXLAN_EXT_GBP                  BIT(0)
+>
+>  /* per UDP socket information */
+>  struct vxlan_sock {
+> @@ -78,7 +143,8 @@ void vxlan_sock_release(struct vxlan_sock *vs);
+>  int vxlan_xmit_skb(struct vxlan_sock *vs,
+>                    struct rtable *rt, struct sk_buff *skb,
+>                    __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
+> -                  __be16 src_port, __be16 dst_port, __be32 vni, bool xnet);
+> +                  __be16 src_port, __be16 dst_port, struct vxlan_metadata *md,
+> +                  bool xnet);
+>
+>  static inline netdev_features_t vxlan_features_check(struct sk_buff *skb,
+>                                                      netdev_features_t features)
+> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> index f7d0d2d..9f07bf5 100644
+> --- a/include/uapi/linux/if_link.h
+> +++ b/include/uapi/linux/if_link.h
+> @@ -370,10 +370,18 @@ enum {
+>         IFLA_VXLAN_UDP_CSUM,
+>         IFLA_VXLAN_UDP_ZERO_CSUM6_TX,
+>         IFLA_VXLAN_UDP_ZERO_CSUM6_RX,
+> +       IFLA_VXLAN_EXTENSION,
+>         __IFLA_VXLAN_MAX
+>  };
+>  #define IFLA_VXLAN_MAX (__IFLA_VXLAN_MAX - 1)
+>
+> +enum {
+> +       IFLA_VXLAN_EXT_UNSPEC,
+> +       IFLA_VXLAN_EXT_GBP,
+> +       __IFLA_VXLAN_EXT_MAX,
+> +};
+> +#define IFLA_VXLAN_EXT_MAX (__IFLA_VXLAN_EXT_MAX - 1)
+> +
+>  struct ifla_vxlan_port_range {
+>         __be16  low;
+>         __be16  high;
+> diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
+> index d7c46b3..dd68c97 100644
+> --- a/net/openvswitch/vport-vxlan.c
+> +++ b/net/openvswitch/vport-vxlan.c
+> @@ -59,7 +59,8 @@ static inline struct vxlan_port *vxlan_vport(const struct vport *vport)
+>  }
+>
+>  /* Called with rcu_read_lock and BH disabled. */
+> -static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb, __be32 vx_vni)
+> +static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb,
+> +                     struct vxlan_metadata *md)
+>  {
+>         struct ovs_tunnel_info tun_info;
+>         struct vport *vport = vs->data;
+> @@ -68,7 +69,7 @@ static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb, __be32 vx_vni)
+>
+>         /* Save outer tunnel values */
+>         iph = ip_hdr(skb);
+> -       key = cpu_to_be64(ntohl(vx_vni) >> 8);
+> +       key = cpu_to_be64(ntohl(md->vni) >> 8);
+>         ovs_flow_tun_info_init(&tun_info, iph,
+>                                udp_hdr(skb)->source, udp_hdr(skb)->dest,
+>                                key, TUNNEL_KEY, NULL, 0);
+> @@ -146,6 +147,7 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
+>         struct vxlan_port *vxlan_port = vxlan_vport(vport);
+>         __be16 dst_port = inet_sk(vxlan_port->vs->sock->sk)->inet_sport;
+>         struct ovs_key_ipv4_tunnel *tun_key;
+> +       struct vxlan_metadata md;
+>         struct rtable *rt;
+>         struct flowi4 fl;
+>         __be16 src_port;
+> @@ -178,12 +180,13 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
+>         skb->ignore_df = 1;
+>
+>         src_port = udp_flow_src_port(net, skb, 0, 0, true);
+> +       md.vni = htonl(be64_to_cpu(tun_key->tun_id) << 8);
+>
+>         err = vxlan_xmit_skb(vxlan_port->vs, rt, skb,
+>                              fl.saddr, tun_key->ipv4_dst,
+>                              tun_key->ipv4_tos, tun_key->ipv4_ttl, df,
+>                              src_port, dst_port,
+> -                            htonl(be64_to_cpu(tun_key->tun_id) << 8),
+> +                            &md,
+>                              false);
+>         if (err < 0)
+>                 ip_rt_put(rt);
+> --
+> 1.9.3
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
