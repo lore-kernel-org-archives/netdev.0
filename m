@@ -1,39 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v1 2/3] ARM: imx: add FEC sleep mode callback
- function
-Date: Wed, 07 Jan 2015 07:02:53 -0500 (EST)
-Message-ID: <20150107.070253.1720905189004397466.davem@davemloft.net>
-References: <20150107023307.GA4928@dragon>
-	<BLUPR03MB37385464C06052A231ABF19F5460@BLUPR03MB373.namprd03.prod.outlook.com>
-	<20150107031658.GB4928@dragon>
+From: David Sterba <dsterba@suse.cz>
+Subject: Re: [PATCH] Fix NUL (\0 or \x00) specification in string
+Date: Wed, 7 Jan 2015 13:22:58 +0100
+Message-ID: <20150107122258.GG24104@suse.cz>
+References: <1420394722-20197-1-git-send-email-me@mortis.eu>
+ <20150105150026.GG6114@twin.jikos.cz>
+ <20150106192804.GL4806@salidar.dom.custoft.eu>
+Reply-To: dsterba@suse.cz
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fugang.duan@freescale.com, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, stephen@networkplumber.org
-To: shawn.guo@linaro.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41037 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751783AbbAGMDo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 07:03:44 -0500
-In-Reply-To: <20150107031658.GB4928@dragon>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Armin Schindler <mac@melware.de>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	"open list:ISDN SUBSYSTEM" <netdev@vger.kernel.org>
+To: Giel van Schijndel <me@mortis.eu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150106192804.GL4806@salidar.dom.custoft.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shawn Guo <shawn.guo@linaro.org>
-Date: Wed, 7 Jan 2015 11:17:00 +0800
-
-> On Wed, Jan 07, 2015 at 02:40:33AM +0000, fugang.duan@freescale.com wrote:
->> Yes, the platform code will become quite messy and tremendous.
->> I agree with your thinking.
->> 
->> But David applied the patches, how can I do it now ?
+On Tue, Jan 06, 2015 at 08:28:04PM +0100, Giel van Schijndel wrote:
+> On Mon, Jan 05, 2015 at 16:00:26 +0100, David Sterba wrote:
+> > I'm replying to all your recent patches here as they are fixing things
+> > reported in http://www.viva64.com/en/b/0299/ . I'ts a good practice to
+> > give the credit the reporter.
+> > 
+> > The blogpost also contains analyses of the issues so it could help
+> > reviewing the patches.
 > 
-> David,
-> 
-> Can you please drop the last two arch/arm/ patches, or revert them if
-> your tree is non-rebasable?
+> I guess you suggest I use a 'Reported-(at|by)' line?
 
-My tree is non-rebasable, someone will need to send me a revert patch
-which has a commit message explains why the revert is happening.
+A link in the changelog would be enough IMHO.
+
+> Would something like the below suffice? I found similar log entries in the
+> commit log, e.g. bf3204cb, except that those add an e-mail address for
+> the reporters, which I don't think is necessary in this case.
+
+If you don't have the emails, then rather do not use reported-by.
