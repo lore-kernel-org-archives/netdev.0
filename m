@@ -1,254 +1,247 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 3/4] cxgb4: Add support for cim_qcfg entry in debugfs
-Date: Wed,  7 Jan 2015 08:48:02 +0530
-Message-ID: <1420600683-23289-4-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 4/4] cxgb4: Add support for mps_tcam debugfs
+Date: Wed,  7 Jan 2015 08:48:03 +0530
+Message-ID: <1420600683-23289-5-git-send-email-hariprasad@chelsio.com>
 References: <1420600683-23289-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	anish@chelsio.com, Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:14404 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:9066 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754105AbbAGDO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 22:14:56 -0500
+	by vger.kernel.org with ESMTP id S1754105AbbAGDO7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 22:14:59 -0500
 In-Reply-To: <1420600683-23289-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds debug log to get cim queue config
+Debug log to get the MPS TCAM table
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |    1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |   70 ++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |   35 ++++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.h         |    3 +
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |   55 +++++++++++++++
- 5 files changed, 164 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |  131 ++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |   60 +++++++++
+ 2 files changed, 191 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 46cd506..7c785b5 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -1041,6 +1041,7 @@ int t4_cim_read(struct adapter *adap, unsigned int addr, unsigned int n,
- int t4_cim_write(struct adapter *adap, unsigned int addr, unsigned int n,
- 		 const unsigned int *valp);
- int t4_cim_read_la(struct adapter *adap, u32 *la_buf, unsigned int *wrptr);
-+void t4_read_cimq_cfg(struct adapter *adap, u16 *base, u16 *size, u16 *thres);
- const char *t4_get_port_type_description(enum fw_port_type port_type);
- void t4_get_port_stats(struct adapter *adap, int idx, struct port_stats *p);
- void t4_read_mtu_tbl(struct adapter *adap, u16 *mtus, u8 *mtu_log);
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-index 0f7b23f..a8b0223 100644
+index a8b0223..e9f3489 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-@@ -168,6 +168,75 @@ static const struct file_operations cim_la_fops = {
+@@ -433,6 +433,136 @@ static const struct file_operations devlog_fops = {
  	.release = seq_release_private
  };
  
-+static int cim_qcfg_show(struct seq_file *seq, void *v)
++static inline void tcamxy2valmask(u64 x, u64 y, u8 *addr, u64 *mask)
 +{
-+	static const char * const qname[] = {
-+		"TP0", "TP1", "ULP", "SGE0", "SGE1", "NC-SI",
-+		"ULP0", "ULP1", "ULP2", "ULP3", "SGE", "NC-SI",
-+		"SGE0-RX", "SGE1-RX"
-+	};
++	*mask = x | y;
++	y = (__force u64)cpu_to_be64(y);
++	memcpy(addr, (char *)&y + 2, ETH_ALEN);
++}
 +
-+	int i;
-+	struct adapter *adap = seq->private;
-+	u16 base[CIM_NUM_IBQ + CIM_NUM_OBQ_T5];
-+	u16 size[CIM_NUM_IBQ + CIM_NUM_OBQ_T5];
-+	u32 stat[(4 * (CIM_NUM_IBQ + CIM_NUM_OBQ_T5))];
-+	u16 thres[CIM_NUM_IBQ];
-+	u32 obq_wr_t4[2 * CIM_NUM_OBQ], *wr;
-+	u32 obq_wr_t5[2 * CIM_NUM_OBQ_T5];
-+	u32 *p = stat;
-+	int cim_num_obq = is_t4(adap->params.chip) ?
-+				CIM_NUM_OBQ : CIM_NUM_OBQ_T5;
++static int mps_tcam_show(struct seq_file *seq, void *v)
++{
++	if (v == SEQ_START_TOKEN)
++		seq_puts(seq, "Idx  Ethernet address     Mask     Vld Ports PF"
++			 "  VF              Replication             "
++			 "P0 P1 P2 P3  ML\n");
++	else {
++		u64 mask;
++		u8 addr[ETH_ALEN];
++		struct adapter *adap = seq->private;
++		unsigned int idx = (uintptr_t)v - 2;
++		u64 tcamy = t4_read_reg64(adap, MPS_CLS_TCAM_Y_L(idx));
++		u64 tcamx = t4_read_reg64(adap, MPS_CLS_TCAM_X_L(idx));
++		u32 cls_lo = t4_read_reg(adap, MPS_CLS_SRAM_L(idx));
++		u32 cls_hi = t4_read_reg(adap, MPS_CLS_SRAM_H(idx));
++		u32 rplc[4] = {0, 0, 0, 0};
 +
-+	i = t4_cim_read(adap, is_t4(adap->params.chip) ? UP_IBQ_0_RDADDR_A :
-+			UP_IBQ_0_SHADOW_RDADDR_A,
-+			ARRAY_SIZE(stat), stat);
-+	if (!i) {
-+		if (is_t4(adap->params.chip)) {
-+			i = t4_cim_read(adap, UP_OBQ_0_REALADDR_A,
-+					ARRAY_SIZE(obq_wr_t4), obq_wr_t4);
-+				wr = obq_wr_t4;
-+		} else {
-+			i = t4_cim_read(adap, UP_OBQ_0_SHADOW_REALADDR_A,
-+					ARRAY_SIZE(obq_wr_t5), obq_wr_t5);
-+				wr = obq_wr_t5;
++		if (tcamx & tcamy) {
++			seq_printf(seq, "%3u         -\n", idx);
++			goto out;
 +		}
++
++		if (cls_lo & REPLICATE_F) {
++			struct fw_ldst_cmd ldst_cmd;
++			int ret;
++
++			memset(&ldst_cmd, 0, sizeof(ldst_cmd));
++			ldst_cmd.op_to_addrspace =
++				htonl(FW_CMD_OP_V(FW_LDST_CMD) |
++				      FW_CMD_REQUEST_F |
++				      FW_CMD_READ_F |
++				      FW_LDST_CMD_ADDRSPACE_V(
++					      FW_LDST_ADDRSPC_MPS));
++			ldst_cmd.cycles_to_len16 = htonl(FW_LEN16(ldst_cmd));
++			ldst_cmd.u.mps.fid_ctl =
++				htons(FW_LDST_CMD_FID_V(FW_LDST_MPS_RPLC) |
++				      FW_LDST_CMD_CTL_V(idx));
++			ret = t4_wr_mbox(adap, adap->mbox, &ldst_cmd,
++					 sizeof(ldst_cmd), &ldst_cmd);
++			if (ret)
++				dev_warn(adap->pdev_dev, "Can't read MPS "
++					 "replication map for idx %d: %d\n",
++					 idx, -ret);
++			else {
++				rplc[0] = ntohl(ldst_cmd.u.mps.rplc31_0);
++				rplc[1] = ntohl(ldst_cmd.u.mps.rplc63_32);
++				rplc[2] = ntohl(ldst_cmd.u.mps.rplc95_64);
++				rplc[3] = ntohl(ldst_cmd.u.mps.rplc127_96);
++			}
++		}
++
++		tcamxy2valmask(tcamx, tcamy, addr, &mask);
++		seq_printf(seq, "%3u %02x:%02x:%02x:%02x:%02x:%02x %012llx"
++			   "%3c   %#x%4u%4d",
++			   idx, addr[0], addr[1], addr[2], addr[3], addr[4],
++			   addr[5], (unsigned long long)mask,
++			   (cls_lo & SRAM_VLD_F) ? 'Y' : 'N', PORTMAP_G(cls_hi),
++			   PF_G(cls_lo),
++			   (cls_lo & VF_VALID_F) ? VF_G(cls_lo) : -1);
++		if (cls_lo & REPLICATE_F)
++			seq_printf(seq, " %08x %08x %08x %08x",
++				   rplc[3], rplc[2], rplc[1], rplc[0]);
++		else
++			seq_printf(seq, "%36c", ' ');
++		seq_printf(seq, "%4u%3u%3u%3u %#x\n",
++			   SRAM_PRIO0_G(cls_lo), SRAM_PRIO1_G(cls_lo),
++			   SRAM_PRIO2_G(cls_lo), SRAM_PRIO3_G(cls_lo),
++			   (cls_lo >> MULTILISTEN0_S) & 0xf);
 +	}
-+	if (i)
-+		return i;
-+
-+	t4_read_cimq_cfg(adap, base, size, thres);
-+
-+	seq_printf(seq,
-+		   "  Queue  Base  Size Thres  RdPtr WrPtr  SOP  EOP Avail\n");
-+	for (i = 0; i < CIM_NUM_IBQ; i++, p += 4)
-+		seq_printf(seq, "%7s %5x %5u %5u %6x  %4x %4u %4u %5u\n",
-+			   qname[i], base[i], size[i], thres[i],
-+			   IBQRDADDR_G(p[0]), IBQWRADDR_G(p[1]),
-+			   QUESOPCNT_G(p[3]), QUEEOPCNT_G(p[3]),
-+			   QUEREMFLITS_G(p[2]) * 16);
-+	for ( ; i < CIM_NUM_IBQ + cim_num_obq; i++, p += 4, wr += 2)
-+		seq_printf(seq, "%7s %5x %5u %12x  %4x %4u %4u %5u\n",
-+			   qname[i], base[i], size[i],
-+			   QUERDADDR_G(p[0]) & 0x3fff, wr[0] - base[i],
-+			   QUESOPCNT_G(p[3]), QUEEOPCNT_G(p[3]),
-+			   QUEREMFLITS_G(p[2]) * 16);
-+	return 0;
++out:	return 0;
 +}
 +
-+static int cim_qcfg_open(struct inode *inode, struct file *file)
++static inline void *mps_tcam_get_idx(struct seq_file *seq, loff_t pos)
 +{
-+	return single_open(file, cim_qcfg_show, inode->i_private);
++	struct adapter *adap = seq->private;
++	int max_mac_addr = is_t4(adap->params.chip) ?
++				NUM_MPS_CLS_SRAM_L_INSTANCES :
++				NUM_MPS_T5_CLS_SRAM_L_INSTANCES;
++	return ((pos <= max_mac_addr) ? (void *)(uintptr_t)(pos + 1) : NULL);
 +}
 +
-+static const struct file_operations cim_qcfg_fops = {
-+	.owner   = THIS_MODULE,
-+	.open    = cim_qcfg_open,
-+	.read    = seq_read,
-+	.llseek  = seq_lseek,
-+	.release = single_release,
++static void *mps_tcam_start(struct seq_file *seq, loff_t *pos)
++{
++	return *pos ? mps_tcam_get_idx(seq, *pos) : SEQ_START_TOKEN;
++}
++
++static void *mps_tcam_next(struct seq_file *seq, void *v, loff_t *pos)
++{
++	++*pos;
++	return mps_tcam_get_idx(seq, *pos);
++}
++
++static void mps_tcam_stop(struct seq_file *seq, void *v)
++{
++}
++
++static const struct seq_operations mps_tcam_seq_ops = {
++	.start = mps_tcam_start,
++	.next  = mps_tcam_next,
++	.stop  = mps_tcam_stop,
++	.show  = mps_tcam_show
 +};
 +
- /* Firmware Device Log dump. */
- static const char * const devlog_level_strings[] = {
- 	[FW_DEVLOG_LEVEL_EMERG]		= "EMERG",
-@@ -443,6 +512,7 @@ int t4_setup_debugfs(struct adapter *adap)
- 
- 	static struct t4_debugfs_entry t4_debugfs_files[] = {
- 		{ "cim_la", &cim_la_fops, S_IRUSR, 0 },
-+		{ "cim_qcfg", &cim_qcfg_fops, S_IRUSR, 0 },
- 		{ "devlog", &devlog_fops, S_IRUSR, 0 },
- 		{ "l2t", &t4_l2t_fops, S_IRUSR, 0},
- 	};
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 1e30554..734d33e 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -4326,6 +4326,41 @@ int t4_port_init(struct adapter *adap, int mbox, int pf, int vf)
- }
- 
- /**
-+ *	t4_read_cimq_cfg - read CIM queue configuration
-+ *	@adap: the adapter
-+ *	@base: holds the queue base addresses in bytes
-+ *	@size: holds the queue sizes in bytes
-+ *	@thres: holds the queue full thresholds in bytes
-+ *
-+ *	Returns the current configuration of the CIM queues, starting with
-+ *	the IBQs, then the OBQs.
-+ */
-+void t4_read_cimq_cfg(struct adapter *adap, u16 *base, u16 *size, u16 *thres)
++static int mps_tcam_open(struct inode *inode, struct file *file)
 +{
-+	unsigned int i, v;
-+	int cim_num_obq = is_t4(adap->params.chip) ?
-+				CIM_NUM_OBQ : CIM_NUM_OBQ_T5;
++	int res = seq_open(file, &mps_tcam_seq_ops);
 +
-+	for (i = 0; i < CIM_NUM_IBQ; i++) {
-+		t4_write_reg(adap, CIM_QUEUE_CONFIG_REF_A, IBQSELECT_F |
-+			     QUENUMSELECT_V(i));
-+		v = t4_read_reg(adap, CIM_QUEUE_CONFIG_CTRL_A);
-+		/* value is in 256-byte units */
-+		*base++ = CIMQBASE_G(v) * 256;
-+		*size++ = CIMQSIZE_G(v) * 256;
-+		*thres++ = QUEFULLTHRSH_G(v) * 8; /* 8-byte unit */
++	if (!res) {
++		struct seq_file *seq = file->private_data;
++
++		seq->private = inode->i_private;
 +	}
-+	for (i = 0; i < cim_num_obq; i++) {
-+		t4_write_reg(adap, CIM_QUEUE_CONFIG_REF_A, OBQSELECT_F |
-+			     QUENUMSELECT_V(i));
-+		v = t4_read_reg(adap, CIM_QUEUE_CONFIG_CTRL_A);
-+		/* value is in 256-byte units */
-+		*base++ = CIMQBASE_G(v) * 256;
-+		*size++ = CIMQSIZE_G(v) * 256;
-+	}
++	return res;
 +}
 +
-+/**
-  *	t4_cim_read - read a block from CIM internal address space
-  *	@adap: the adapter
-  *	@addr: the start address within the CIM address space
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
-index bcc925b..f6b82da 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
-@@ -56,6 +56,9 @@ enum {
- };
++static const struct file_operations mps_tcam_debugfs_fops = {
++	.owner   = THIS_MODULE,
++	.open    = mps_tcam_open,
++	.read    = seq_read,
++	.llseek  = seq_lseek,
++	.release = seq_release,
++};
++
+ static ssize_t mem_read(struct file *file, char __user *buf, size_t count,
+ 			loff_t *ppos)
+ {
+@@ -515,6 +645,7 @@ int t4_setup_debugfs(struct adapter *adap)
+ 		{ "cim_qcfg", &cim_qcfg_fops, S_IRUSR, 0 },
+ 		{ "devlog", &devlog_fops, S_IRUSR, 0 },
+ 		{ "l2t", &t4_l2t_fops, S_IRUSR, 0},
++		{ "mps_tcam", &mps_tcam_debugfs_fops, S_IRUSR, 0 },
+ 	};
  
- enum {
-+	CIM_NUM_IBQ    = 6,     /* # of CIM IBQs */
-+	CIM_NUM_OBQ    = 6,     /* # of CIM OBQs */
-+	CIM_NUM_OBQ_T5 = 8,     /* # of CIM OBQs for T5 adapter */
- 	CIMLA_SIZE     = 2048,  /* # of 32-bit words in CIM LA */
- };
- 
+ 	add_debugfs_files(adap,
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 3fe6eeb..a2cae0e 100644
+index a2cae0e..7ce55f9 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -2096,4 +2096,59 @@
- #define UPDBGLACAPTPCONLY_V(x)	((x) << UPDBGLACAPTPCONLY_S)
- #define UPDBGLACAPTPCONLY_F	UPDBGLACAPTPCONLY_V(1U)
+@@ -1708,6 +1708,66 @@
  
-+#define CIM_QUEUE_CONFIG_REF_A 0x7b48
-+#define CIM_QUEUE_CONFIG_CTRL_A 0x7b4c
+ #define MPS_RX_PERR_INT_CAUSE_A 0x11074
+ 
++#define MPS_CLS_TCAM_Y_L_A 0xf000
++#define MPS_CLS_TCAM_X_L_A 0xf008
 +
-+#define CIMQSIZE_S    24
-+#define CIMQSIZE_M    0x3fU
-+#define CIMQSIZE_G(x) (((x) >> CIMQSIZE_S) & CIMQSIZE_M)
++#define MPS_CLS_TCAM_Y_L(idx) (MPS_CLS_TCAM_Y_L_A + (idx) * 16)
++#define NUM_MPS_CLS_TCAM_Y_L_INSTANCES 512
 +
-+#define CIMQBASE_S    16
-+#define CIMQBASE_M    0x3fU
-+#define CIMQBASE_G(x) (((x) >> CIMQBASE_S) & CIMQBASE_M)
++#define MPS_CLS_TCAM_X_L(idx) (MPS_CLS_TCAM_X_L_A + (idx) * 16)
++#define NUM_MPS_CLS_TCAM_X_L_INSTANCES 512
 +
-+#define QUEFULLTHRSH_S    0
-+#define QUEFULLTHRSH_M    0x1ffU
-+#define QUEFULLTHRSH_G(x) (((x) >> QUEFULLTHRSH_S) & QUEFULLTHRSH_M)
++#define MPS_CLS_SRAM_L_A 0xe000
++#define MPS_CLS_SRAM_H_A 0xe004
 +
-+#define UP_IBQ_0_RDADDR_A 0x10
-+#define UP_IBQ_0_SHADOW_RDADDR_A 0x280
-+#define UP_OBQ_0_REALADDR_A 0x104
-+#define UP_OBQ_0_SHADOW_REALADDR_A 0x394
++#define MPS_CLS_SRAM_L(idx) (MPS_CLS_SRAM_L_A + (idx) * 8)
++#define NUM_MPS_CLS_SRAM_L_INSTANCES 336
 +
-+#define IBQRDADDR_S    0
-+#define IBQRDADDR_M    0x1fffU
-+#define IBQRDADDR_G(x) (((x) >> IBQRDADDR_S) & IBQRDADDR_M)
++#define MPS_CLS_SRAM_H(idx) (MPS_CLS_SRAM_H_A + (idx) * 8)
++#define NUM_MPS_CLS_SRAM_H_INSTANCES 336
 +
-+#define IBQWRADDR_S    0
-+#define IBQWRADDR_M    0x1fffU
-+#define IBQWRADDR_G(x) (((x) >> IBQWRADDR_S) & IBQWRADDR_M)
++#define MULTILISTEN0_S    25
 +
-+#define QUERDADDR_S    0
-+#define QUERDADDR_M    0x7fffU
-+#define QUERDADDR_G(x) (((x) >> QUERDADDR_S) & QUERDADDR_M)
++#define REPLICATE_S    11
++#define REPLICATE_V(x) ((x) << REPLICATE_S)
++#define REPLICATE_F    REPLICATE_V(1U)
 +
-+#define QUEREMFLITS_S    0
-+#define QUEREMFLITS_M    0x7ffU
-+#define QUEREMFLITS_G(x) (((x) >> QUEREMFLITS_S) & QUEREMFLITS_M)
++#define PF_S    8
++#define PF_M    0x7U
++#define PF_G(x) (((x) >> PF_S) & PF_M)
 +
-+#define QUEEOPCNT_S    16
-+#define QUEEOPCNT_M    0xfffU
-+#define QUEEOPCNT_G(x) (((x) >> QUEEOPCNT_S) & QUEEOPCNT_M)
++#define VF_VALID_S    7
++#define VF_VALID_V(x) ((x) << VF_VALID_S)
++#define VF_VALID_F    VF_VALID_V(1U)
 +
-+#define QUESOPCNT_S    0
-+#define QUESOPCNT_M    0xfffU
-+#define QUESOPCNT_G(x) (((x) >> QUESOPCNT_S) & QUESOPCNT_M)
++#define VF_S    0
++#define VF_M    0x7fU
++#define VF_G(x) (((x) >> VF_S) & VF_M)
 +
-+#define OBQSELECT_S    4
-+#define OBQSELECT_V(x) ((x) << OBQSELECT_S)
-+#define OBQSELECT_F    OBQSELECT_V(1U)
++#define SRAM_PRIO3_S    22
++#define SRAM_PRIO3_M    0x7U
++#define SRAM_PRIO3_G(x) (((x) >> SRAM_PRIO3_S) & SRAM_PRIO3_M)
 +
-+#define IBQSELECT_S    3
-+#define IBQSELECT_V(x) ((x) << IBQSELECT_S)
-+#define IBQSELECT_F    IBQSELECT_V(1U)
++#define SRAM_PRIO2_S    19
++#define SRAM_PRIO2_M    0x7U
++#define SRAM_PRIO2_G(x) (((x) >> SRAM_PRIO2_S) & SRAM_PRIO2_M)
 +
-+#define QUENUMSELECT_S    0
-+#define QUENUMSELECT_V(x) ((x) << QUENUMSELECT_S)
++#define SRAM_PRIO1_S    16
++#define SRAM_PRIO1_M    0x7U
++#define SRAM_PRIO1_G(x) (((x) >> SRAM_PRIO1_S) & SRAM_PRIO1_M)
 +
- #endif /* __T4_REGS_H */
++#define SRAM_PRIO0_S    13
++#define SRAM_PRIO0_M    0x7U
++#define SRAM_PRIO0_G(x) (((x) >> SRAM_PRIO0_S) & SRAM_PRIO0_M)
++
++#define SRAM_VLD_S    12
++#define SRAM_VLD_V(x) ((x) << SRAM_VLD_S)
++#define SRAM_VLD_F    SRAM_VLD_V(1U)
++
++#define PORTMAP_S    0
++#define PORTMAP_M    0xfU
++#define PORTMAP_G(x) (((x) >> PORTMAP_S) & PORTMAP_M)
++
+ #define CPL_INTR_CAUSE_A 0x19054
+ 
+ #define CIM_OP_MAP_PERR_S    5
 -- 
 1.7.1
