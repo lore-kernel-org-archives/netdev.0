@@ -1,54 +1,86 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: Re: [PATCH 2/6] vxlan: Group Policy extension
-Date: Wed, 7 Jan 2015 16:21:29 +0000
-Message-ID: <20150107162129.GQ21820@casper.infradead.org>
-References: <cover.1420594925.git.tgraf@suug.ch>
- <2b43c19c47e3702b370054f8fd11233e44179edf.1420594925.git.tgraf@suug.ch>
- <CA+mtBx_Jj-tUM1nbHd2fHb0-=QpK3tcQgA=smWmg=cB-fupdGg@mail.gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v4] can: Convert to runtime_pm
+Date: Wed, 07 Jan 2015 17:30:11 +0100
+Message-ID: <54AD5F13.1020107@pengutronix.de>
+References: <58f37b6fd9104ce185c413c473fe047b@BY2FFO11FD050.protection.gbl> <54AD267C.4060004@pengutronix.de> <a868331b44ce4b2a80b572399530f1f9@BN1BFFO11FD043.protection.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
- David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CA+mtBx_Jj-tUM1nbHd2fHb0-=QpK3tcQgA=smWmg=cB-fupdGg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="OWo51QjMmBw5UudRFBwODqMbhe8teBlxh"
+Cc: Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
+	wg@grandegger.com, michal.simek@xilinx.com,
+	grant.likely@linaro.org, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Kedareswara rao Appana <appanad@xilinx.com>
+To: =?UTF-8?B?U8O2cmVuIEJyaW5rbWFubg==?= <soren.brinkmann@xilinx.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <a868331b44ce4b2a80b572399530f1f9@BN1BFFO11FD043.protection.gbl>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gMDEvMDcvMTUgYXQgMDg6MDVhbSwgVG9tIEhlcmJlcnQgd3JvdGU6Cj4gQXNzb2NpYXRpbmcg
-YSBzaXh0ZWVuIGJpdCBmaWVsZCB3aXRoIHNlY3VyaXR5IGlzIHdvcnJpc29tZSwgZXNwZWNpYWxs
-eQo+IGNvbnNpZGVyaW5nIHRoYXQgVlhMQU4gcHJvdmlkZXMgbm8gdmVyaWZpY2F0aW9uIGZvciBh
-bnkgaGVhZGVyIGZpZWxkcwo+IGFuZCBkb2Vzbid0IGV2ZW4gYWR2b2NhdGUgdXNlIG9mIG91dGVy
-IFVEUCBjaGVja3N1bSBzbyB0aGUgZmllbGQgaXMKPiBzdXNjZXB0aWJsZSB0byBhbiB1bmRldGVj
-dGVkIHNpbmdsZSBiaXQgZmxpcC4gVGhlIGNvbmNlcHQgb2YgYQo+ICJ0cnVzdGVkIHVuZGVybGF5
-IiBpcyB3ZWFrIGp1c3RpZmljYXRpb24gYW5kIGhhcmRseSB1bml2ZXJzYWwsIHNvIHRoZQo+IG9u
-bHkgd2F5IHRvIGFjdHVhbGx5IHNlY3VyZSB0aGlzIGlzIHRocm91Z2ggSVBzZWMgKHRoaXMgaXMg
-bWVudGlvbmVkCj4gaW4gdGhlIFZYTEFOLUdQQiBkcmFmdCkuCgpBcyB5b3Ugc3RhdGUgY29ycmVj
-dGx5LCB0aGlzIHdvcmsgcmVxdWlyZXMgYSB0cnVzdGVkIHVuZGVybGF5IHdoaWNoIGNhbgpiZSBh
-Y2hpZXZlZCB3aXRoIElQc2VjLCBPcGVuVlBOLCBTU0gsIC4uLgoKPiBCdXQgaWYgd2UgaGF2ZSB0
-aGUgc2VjdXJpdHkgc3RhdGUgb2YgSVBzZWMgdGhlbiB3aHkgd291bGQgd2UgbmVlZAo+IHRoaXMg
-ZmllbGQgYW55d2F5PwoKSXQncyBhIHNlcGFyYXRpb24gb2YgY29uY2VybjogdGhlIHNlY3VyaXR5
-IGxhYmVsIG1lY2hhbmlzbSBvZiB0aGUKb3ZlcmxheSBzaG91bGQgbm90IGRlcGVuZCBvbiBhbiBl
-dmVudHVhbCBlbmNyeXB0aW9uIGxheWVyIGluIHRoZQp1bmRlcmxheSBhcyBub3QgYWxsIG9mIHRo
-ZW0gcHJvdmlkZSBhIG1lY2hhbmlzbSB0byBsYWJlbCBwYWNrZXRzLgogCj4gQ291bGQgdGhpcyBz
-YW1lIGZ1bmN0aW9uYWxpdHkgYmUgYWNoaWV2ZWQgaWYgd2UganVzdCBtYXRjaCB0aGUgVk5JIHRv
-Cj4gYSBtYXJrIGluIElQIHRhYmxlcz8KCklmIHRoZSBWTkkgaXMgbm90IGFscmVhZHkgdXNlZCBm
-b3IgYW5vdGhlciBwdXJwb3NlLCB5ZXMuIFRoZSBzb2x1dGlvbgphcyBwcm9wb3NlZCBjYW4gYmUg
-aW50ZWdyYXRlZCBpbnRvIGV4aXN0aW5nIFZYTEFOIG92ZXJsYXlzIHNlcGFyYXRlZCBieQpWTkku
-IEl0IGlzIGFsc28gY29tcGF0aWJsZSB3aXRoIGhhcmR3YXJlIFZYTEFOIFZURVBzIHdoaWNoIGln
-bm9yZSB0aGUKcmVzZXJ2ZWQgYml0cyB3aGlsZSBjb250aW51ZWluZyB0byBtYWludGFpbiBWTkkg
-c2VwYXJhdGlvbi4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRj
-aC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--OWo51QjMmBw5UudRFBwODqMbhe8teBlxh
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+On 01/07/2015 04:58 PM, S=C3=B6ren Brinkmann wrote:
+>> I think you have to convert the _remove() function, too. Have a look a=
+t
+>> the gpio-zynq.c driver:
+>>
+>>> static int zynq_gpio_remove(struct platform_device *pdev)
+>>> {
+>>> 	struct zynq_gpio *gpio =3D platform_get_drvdata(pdev);
+>>>
+>>> 	pm_runtime_get_sync(&pdev->dev);
+>>
+>> However I don't understand why the get_sync() is here. Maybe S=C3=B6re=
+n can help?
+>=20
+> IIRC, the concern was that the remove function may be called while the =
+device is
+> runtime suspended. Hence the remove function needs to resume the device=
+ since the
+> remove function may access the HW.
+
+What about the corresponding runtime_put()? Would some counter be
+unbalanced upon device removal?
+
+Without having tested it, unloading and loading, i.e. reloading a CAN
+driver is easier than reloading the gpio driver on an average embedded
+system. Kedareswara please test your driver with something like:
+modprobe; ifconfig up; cansend; ifconfig down; rmmod in a loop.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--OWo51QjMmBw5UudRFBwODqMbhe8teBlxh
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJUrV8TAAoJECte4hHFiupU39sP/j+wOgZt9YoAOJMnKfVoXBhe
+8hgX2SAJuK1nrUzhDa1ZjH/R+LuSwh7j9eggz/IQVhCHfCa2PbIx+79AzLUOp65J
+XsLFWJoy6mes1t4rEyXFWbttLZ/MZNpfVglOLaCYaAErzG6yyWvSxECNDuPItR3k
+Ta4L2wkbMD54iDAh+JBRxNopXYnuFtAhvOpATmGAim0clFvhDu1Wr64MTOifNdze
+CyOG8KkJdRJR2OCB5fM5P0D4KNJhFWlIOP5yDa4oBz+6awDwpsnD/F7kZlJDiLzr
+x7Cgbmp1eWG+svDK60oETJOwMJb8dWXvUJedQXuymF5OCJHhJTUCr9AY3onWndlY
+/XYiJ4vFPbLyB8EprjRMflEbTOeLtHP/RmHw3h8Qa1K4UsmntXbZ8rl3KeJWdage
+mneb9dDesAiY6tVa2SnUolitajxklqMN09aK6YTwR1LQXGH76AICeE6a/tNyydc8
+ZN+NggmrwFMZPgWJuix5dZlrXgZ/wsnHZlFBDEz8NwKm+cVPh+DQVNkba93KbQoL
+/5GWT+ktICkrOEf4XUVYaMdGCIX1lNku56nTq5GRDZ1zB0n7WSTTxZFN4K8Zx9x6
+Oqk9oNtW9KG9+XLNXAA5fFmopNWnpFmcX/uXkWRnQokQai3EIYTToSetbQ3Znn+4
+HQMXe6VRBft5aHC8KQy8
+=yKPv
+-----END PGP SIGNATURE-----
+
+--OWo51QjMmBw5UudRFBwODqMbhe8teBlxh--
