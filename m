@@ -1,89 +1,102 @@
-From: Giel van Schijndel <me@mortis.eu>
-Subject: Re: [PATCH 2/2] Fix copy-paste bug: assign from src struct not dest
-Date: Wed, 7 Jan 2015 20:18:36 +0100
-Message-ID: <20150107191836.GA18978@salidar.dom.custoft.eu>
-References: <CAHp75Vetc+fgv=YrqPuW9YChez82h7N7VeX_5bW5tpXm2j=h7g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="k1lZvvs/B4yU6o8G"
-Cc: linux-kernel@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
-	Eliad Peller <eliad@wizery.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Arik Nemtsov <arik@wizery.com>,
-	"open list:TI WILINK WIRELES..." <linux-wireless@vger.kernel.org>,
-	"open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>,
-	Andy Shevchenko <andy.shevchenko@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAHp75Vetc+fgv=YrqPuW9YChez82h7N7VeX_5bW5tpXm2j=h7g@mail.gmail.com>
- <1420451671.9459.1.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vlad Zolotarov <vladz@cloudius-systems.com>
+Subject: [PATCH net-next v5 5/7] ixgbe: Add GET_RSS_KEY command to VF-PF channel commands set
+Date: Wed,  7 Jan 2015 21:26:40 +0200
+Message-ID: <1420658802-18061-6-git-send-email-vladz@cloudius-systems.com>
+References: <1420658802-18061-1-git-send-email-vladz@cloudius-systems.com>
+Cc: gleb@cloudius-systems.com, avi@cloudius-systems.com,
+	jeffrey.t.kirsher@intel.com,
+	Vlad Zolotarov <vladz@cloudius-systems.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:56203 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754502AbbAGT1D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 14:27:03 -0500
+Received: by mail-wi0-f178.google.com with SMTP id em10so2336779wid.11
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 11:27:02 -0800 (PST)
+In-Reply-To: <1420658802-18061-1-git-send-email-vladz@cloudius-systems.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+For 82599 and x540 VFs and PF share the same RSS Key. Therefore we will return
+the same RSS key for all VFs.
 
---k1lZvvs/B4yU6o8G
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+x550 on the other hand has a separate RSS Key for every pool.
 
-On Mon, Jan 05, 2015 at 10:54:31 +0100, Johannes Berg wrote:
-> On Sun, 2015-01-04 at 19:00 +0100, Giel van Schijndel wrote:
->> ---
->>  drivers/net/wireless/ti/wlcore/acx.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>=20
->> diff --git a/drivers/net/wireless/ti/wlcore/acx.c b/drivers/net/wireless=
-/ti/wlcore/acx.c
->> index beb354c..93a2fa8 100644
->> --- a/drivers/net/wireless/ti/wlcore/acx.c
->> +++ b/drivers/net/wireless/ti/wlcore/acx.c
->> @@ -1725,7 +1725,7 @@ int wl12xx_acx_config_hangover(struct wl1271 *wl)
->>  	acx->decrease_delta             =3D conf->decrease_delta;
->>  	acx->quiet_time                 =3D conf->quiet_time;
->>  	acx->increase_time              =3D conf->increase_time;
->> -	acx->window_size                =3D acx->window_size;
->> +	acx->window_size                =3D conf->window_size;
->=20
-> It would be far better to fix the bug *first*, that way the bugfix can
-> be cherry-picked/applied to trees that don't have the alignment.
+Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+---
+New in v5:
+   - Use a newly added netdev op to allow/prevent the RSS Hash Key querying on a per-VF
+     basis.
 
-I agree on the ordering.
+New in v3:
+   - Added a support for x550 devices.
 
-As for:
-> (And anyway I question the value of the alignment - if you really want
-> to make this bug disappear you could perhaps use a macro)
+New in v1 (compared to RFC):
+   - Use "if-else" statement instead of a "switch-case" for a single option case
+     (in ixgbe_get_vf_rss_key()).
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  2 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 27 ++++++++++++++++++++++++++
+ 2 files changed, 29 insertions(+)
 
-And:
-On Wed, Jan 07, 2015 at 20:40:57 +0200, Andy Shevchenko wrote:
-> On Sun, Jan 4, 2015 at 8:00 PM, Giel van Schijndel <me@mortis.eu> wrote:
-> > This highlights the differences (errors).
->=20
-> Seems like patch for the patch. Just fix an error like it's done here:
-> http://www.spinics.net/lists/linux-wireless/msg131667.html
-
-IMO the aligned block of code has the significant advantage of taking
-advantage of humans' ability to spot things that break a pattern. Which
-in this case becomes *very* visible when properly aligned, because
-without the alignment there is no (visual) pattern (or at least not one
-very suitable for my "visual processing system", I know the same applies
-to at least some others).
-
---=20
-Met vriendelijke groet,
-With kind regards,
-Giel van Schijndel
-
---k1lZvvs/B4yU6o8G
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlSthooACgkQZBYm/87l50JySgCfQiL/iT3PzgOr3YqVE/ItFijE
-zlQAnibAUYKjA8xW2iN1tla/QuqWiGZW
-=6l9e
------END PGP SIGNATURE-----
-
---k1lZvvs/B4yU6o8G--
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+index f9b5eae..3f14373 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+@@ -105,6 +105,8 @@ enum ixgbe_pfvf_api_rev {
+ #define IXGBE_VF_RETA_SZ        1	/* Number of RETA DWs to bring */
+ #define IXGBE_VF_RETA_OFFSET    2	/* Offset in RETA */
+ 
++#define IXGBE_VF_GET_RSS_KEY	0x0b	/* get RSS key */
++
+ /* length of permanent address message returned from PF */
+ #define IXGBE_VF_PERMADDR_MSG_LEN 4
+ /* word in permanent address message with the current multicast type */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 4b7246f..cb7403f 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -1019,6 +1019,30 @@ static int ixgbe_get_vf_reta(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
+ 	return 0;
+ }
+ 
++static int ixgbe_get_vf_rss_key(struct ixgbe_adapter *adapter,
++				u32 *msgbuf, u32 vf)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	int i;
++	u32 *rss_key = &msgbuf[1];
++
++	/* verify the PF is supporting the correct API */
++	if (!adapter->vfinfo[vf].rss_query_enabled ||
++	    (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12))
++		return -EPERM;
++
++	/* Read the RSS KEY */
++	if (hw->mac.type >= ixgbe_mac_X550) {
++		for (i = 0; i < 10; i++)
++			rss_key[i] = IXGBE_READ_REG(hw,
++						IXGBE_PFVFRSSRK(i, vf));
++	} else
++		for (i = 0; i < 10; i++)
++			rss_key[i] = IXGBE_READ_REG(hw, IXGBE_RSSRK(i));
++
++	return 0;
++}
++
+ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+ {
+ 	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
+@@ -1078,6 +1102,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+ 	case IXGBE_VF_GET_RETA:
+ 		retval = ixgbe_get_vf_reta(adapter, msgbuf, vf);
+ 		break;
++	case IXGBE_VF_GET_RSS_KEY:
++		retval = ixgbe_get_vf_rss_key(adapter, msgbuf, vf);
++		break;
+ 	default:
+ 		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
+ 		retval = IXGBE_ERR_MBX;
+-- 
+2.1.0
