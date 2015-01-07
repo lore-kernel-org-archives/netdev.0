@@ -1,97 +1,105 @@
-From: Shrijeet Mukherjee <shm@cumulusnetworks.com>
-Subject: RE: [PATCH net-next 1/3] net: add IPv4 routing FIB support for swdev
-Date: Wed, 7 Jan 2015 09:54:30 -0800
-Message-ID: <1b5a5a02b187fde4c2491ce757cb0045@mail.gmail.com>
-References: <1420169361-31767-2-git-send-email-sfeldma@gmail.com>
-	 <1420552709.32369.50.camel@stressinduktion.org>		 <CAE4R7bCOnYL1bat39UivcyAG-S1hx-EJpwC_hWNv8prjZqV3fg@mail.gmail.com>
-	 <1420574353.15181.19.camel@stressinduktion.org>	 <98433f41e1876041471cdb513ca53fe5@mail.gmail.com>
- <1420629792.26870.59.camel@stressinduktion.org>
+From: Richard Guy Briggs <rgb@tricolour.ca>
+Subject: NetDev 0.1 Deadline Extension(Jan 24) and Talk Summary
+Date: Wed, 7 Jan 2015 13:03:58 -0500
+Message-ID: <20150107180358.GU1343@toccata2.tricolour.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	john fastabend <john.fastabend@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:43452 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753608AbbAGSAD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 13:00:03 -0500
-Received: by mail-wi0-f172.google.com with SMTP id n3so8032982wiv.17
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 10:00:02 -0800 (PST)
-In-Reply-To: <1420629792.26870.59.camel@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	lwn@lwn.net, netdev01@lists.netfilter.org, lartc@vger.kernel.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->
->I could come up with several ways how to model hardware. Depending on that
->the integration with rules is easy or nearly impossible:
->
->1) it simply cannot deal with ip rules, so there is no way an ACL can
->influence the
->outcome of a routing table lookup - if the feature should be used, it has
->to use
->the slow-path in the kernel.
+Fellow netheads:
 
-As Scott was saying, most hardware has table id's and the ability to
-identify and prioritize that way.
+Due to several submitter requests we would like to accomodate, we have extended
+the proposal submission deadline to Jan 24.  https://netdev01.org/cfp 
 
 
->
->2) ACLs can influence which routing table will get queried - this sounds
->very much
->like the ip rule model and it seems not too hard to model that.
-
-This clearly can be made to work .. the problem is really the space of
-policy routing (i.e jump across VRF's incase of a lookup failure) when
-combined with the space of ip rule flexibility.
+A reminder that the Westin Hotel is holding a block of rooms for Netdev01 at a
+guaranteed rate of $159.00 or $179.00 (depending on the type of room required)
+and the rooms are going fast due to Winterlude bookings.  That guarantee
+expires on January 23, so book now to avoid disappointment and get the low
+rate. The rooms are going faster than we expected!
+Reservations: https://www.starwoodmeeting.com/StarGroupsWeb/res?id=1412035802&key=1AC9C1F8
 
 
->
->3) Routing implementations in the hardware have a single routing table and
->the
->leafs carry different actions with priorities: making this kind of model
->working
->with the ip rule concept will become very difficult and it might require
->lots of
->algorithmic code by every driver to adapt to a single API provided by
->Linux. It
->might be possible, if the hardware provides actions like backtrack and
->retrack and
->can keep state of priorities during walking the tree, I really doubt that.
+Here is a post-holiday update of the activity so far in NetDev 0.1 you may have
+missed if you aren't following the RSS feed or twitter:
 
 
-In the short term .. this maybe a good way to go but with a simplication.
-Some tables are offloaded and the rest at the full table level is in
-software. Finally then you can put a "default route" in the hardware table
-to punt to cpu and then keep the software model clever and the hardware
-model fast ?
+Confirmed keynote speaker:
+==========================
+David S. Miller - The Current State of Linux kernel Networking.
 
->
->Implementations of type 3) would look naturally to do in hardware (see
->different
->Cisco policy routing configurations or ipv6 subtree feature), so it seems
->it won't
->be possible to find a simple way to fuse rules and offloading in case of
->point 3).
->
->Rocker sounds a lot like model 2) and this seems possible and should be a
->matter
->of API design. It should merely be a matter of nicely model the data
->structures. ;)
->
->Also, @Scott: if you build drivers with l3 offloading as modules, don't you
->need to
->push the full routing tables to the hw once? Maybe we should think about
->the
->drivers pulling routing information from the kernel, the kernel only
->notifying
->something changed?
->
->Bye,
->Hannes
->
+
+Accepted talks: (All listed: https://www.netdev01.org/sessions )
+===============
+Rocker: switchdev prototyping vehicle
+Scott Feldman
+https://www.netdev01.org/sessions/2
+
+How to not just do a demo with DPDK or Lessons learned making a software dataplane
+Stephen Hemminger
+https://www.netdev01.org/sessions/3
+
+Picking low hanging fruit from the FIB tree
+Alexander Duyck
+https://www.netdev01.org/sessions/4
+
+Rtnetlink dump filtering in the kernel
+Roopa Prabhu
+https://www.netdev01.org/sessions/5
+
+Hardware Switches - The Opensource Approach 
+Jiri Pirko
+https://www.netdev01.org/sessions/6
+
+hello UML, meet LibOS and friends - h/w independent unadulterated reuse of Linux kernel networking code in userspace
+Hajime Tazaki
+https://www.netdev01.org/sessions/7
+
+Distributing Linux tc filter-action packet processing across disparate nodes
+Jamal Hadi Salim and Damascene M. Joachimpillai
+https://www.netdev01.org/sessions/9
+
+All About UDP Encapsulation
+Tom Herbert
+https://www.netdev01.org/sessions/11
+
+Accepted workshops:
+===================
+Wireless Workshop
+https://www.netdev01.org/sessions/1
+
+Hardware Offloading BoF
+https://www.netdev01.org/sessions/10
+
+All of the accepted proposals are new work.  A couple of proposals have been
+returned for rework prior to acceptance.  There are many more excellent
+proposals currently making their way through the technical committee vetting
+process.  The committee has so far been very impressed with the quality of
+proposals submitted.
+
+
+Registration https://onlineregistrations.ca/netdev01/
+$100/day, or $350 for 4 days (Cdn dollars). (online reg closes Feb 12th)
+Registering helps us plan properly for numbers of attendees,
+ensuring venue sizes and supplies are appropriate without
+wasting resources.
+
+
+Travel advice: https://netdev01.org/travel
+
+Sponsors: https://netdev01.org/sponsors
+Verizon http://www.verizon.com/
+Cumulus Networks http://cumulusnetworks.com/ 
+Mojatatu Networks http://mojatatu.com/ 
+
+THE Technical Conference on Linux Networking, February 14-17, 2015, Ottawa, Canada
+https://netdev01.org/
+
+RSS feed: https://netdev01.org/atom
+Follow us on Twitter: @netdev01 https://twitter.com/netdev01
