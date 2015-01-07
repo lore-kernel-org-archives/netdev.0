@@ -1,148 +1,78 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 1/6] vxlan: Allow for VXLAN extensions to be implemented
-Date: Wed,  7 Jan 2015 03:05:36 +0100
-Message-ID: <7c5e8240263a22a69042c45a632c9940e5ae1062.1420594925.git.tgraf@suug.ch>
-References: <cover.1420594925.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: davem@davemloft.net, jesse@nicira.com, stephen@networkplumber.org,
-	pshelar@nicira.com
+From: Shrijeet Mukherjee <shm@cumulusnetworks.com>
+Subject: RE: [PATCH net-next 1/3] net: add IPv4 routing FIB support for swdev
+Date: Tue, 6 Jan 2015 18:08:10 -0800
+Message-ID: <98433f41e1876041471cdb513ca53fe5@mail.gmail.com>
+References: <1420169361-31767-2-git-send-email-sfeldma@gmail.com>
+	 <1420552709.32369.50.camel@stressinduktion.org>	 <CAE4R7bCOnYL1bat39UivcyAG-S1hx-EJpwC_hWNv8prjZqV3fg@mail.gmail.com>
+ <1420574353.15181.19.camel@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	john fastabend <john.fastabend@gmail.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:42676 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754696AbbAGCFt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 21:05:49 -0500
-In-Reply-To: <cover.1420594925.git.tgraf@suug.ch>
-In-Reply-To: <cover.1420594925.git.tgraf@suug.ch>
-References: <cover.1420594925.git.tgraf@suug.ch>
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:36180 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933151AbbAGCIL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2015 21:08:11 -0500
+Received: by mail-wg0-f42.google.com with SMTP id k14so346697wgh.29
+        for <netdev@vger.kernel.org>; Tue, 06 Jan 2015 18:08:10 -0800 (PST)
+In-Reply-To: <1420574353.15181.19.camel@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The VXLAN receive code is currently conservative in what it accepts and
-will reject any frame that uses any of the reserved VXLAN protocol fields.
-The VXLAN draft specifies that "reserved fields MUST be set to zero on
-transmit and ignored on receive.".
+>For the first idea, I'll try to make an example:
+>
+>Initial setup:
+># ip rule ls
+>0:	from all lookup local
+>32766:	from all lookup main
+>32767:	from all lookup default
+>
+># ip rule add pref 100 iif swdev0 table 5 # ip rule ls
+>0:	from all lookup local
+>100:	from all iif swdev0 [detached] lookup 5
+>> maybe we can show which rules are being able to get offloaded here
+>32766:	from all lookup main
+>32767:	from all lookup default
+>
+>table 5 should be the table we can insert routes into which are offloaded
+>to
+>hardware.
+>
+>During table modifications we linearly scan the rules if we find selectors
+>which
+>cannot be represented by hardware.
+>
+>In case we have a iif selector, we simply can use this table and just
+>synthesize it
+>into the particular interface.
+>
+>A ip-rule-from would need all the hardware being capable of matching source
+>addresses, otherwise we cannot offload all routing tables with higher
+>preference,
+>same for a to/tos rule. If we encounter a fwmark rule, we certainly cannot
+>represent it in hardware, so skip it (here we can think about entangling
+>those with
+>ACLs, but it feels hard to do).
+>
+>If rules are inserted or changed we must again validate the complete list
+>of rules
+>and decide if we need to flush all the routes and install a slow path via
+>kernel.
+>
+>What do you think? Does that make sense? I could try to come up with an API
+>for
+>that. ;)
+>
 
-Retain the current conservative parsing behaviour by default but allows
-these fields to be used by VXLAN extensions which are explicitly enabled
-on the VXLAN socket respectively VXLAN net_device.
-
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- drivers/net/vxlan.c | 29 +++++++++++++++++++----------
- include/net/vxlan.h | 32 +++++++++++++++++++++++++++++---
- 2 files changed, 48 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 2ab0922..4d52aa9 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -65,7 +65,7 @@
- #define VXLAN_VID_MASK	(VXLAN_N_VID - 1)
- #define VXLAN_HLEN (sizeof(struct udphdr) + sizeof(struct vxlanhdr))
- 
--#define VXLAN_FLAGS 0x08000000	/* struct vxlanhdr.vx_flags required value. */
-+#define VXLAN_FLAGS 0x08000000 /* struct vxlanhdr.vx_flags default value. */
- 
- /* UDP port for VXLAN traffic.
-  * The IANA assigned port is 4789, but the Linux default is 8472
-@@ -1100,22 +1100,28 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 	if (!pskb_may_pull(skb, VXLAN_HLEN))
- 		goto error;
- 
-+	vs = rcu_dereference_sk_user_data(sk);
-+	if (!vs)
-+		goto drop;
-+
- 	/* Return packets with reserved bits set */
- 	vxh = (struct vxlanhdr *)(udp_hdr(skb) + 1);
--	if (vxh->vx_flags != htonl(VXLAN_FLAGS) ||
--	    (vxh->vx_vni & htonl(0xff))) {
--		netdev_dbg(skb->dev, "invalid vxlan flags=%#x vni=%#x\n",
--			   ntohl(vxh->vx_flags), ntohl(vxh->vx_vni));
--		goto error;
-+
-+	/* For backwards compatibility, only allow reserved fields to be
-+	 * used by VXLAN extensions if explicitly requested.
-+	 */
-+	if (vs->exts) {
-+		if (!vxh->vni_present)
-+			goto error_invalid_header;
-+	} else {
-+		if (vxh->vx_flags != htonl(VXLAN_FLAGS) ||
-+		    (vxh->vx_vni & htonl(0xff)))
-+			goto error_invalid_header;
- 	}
- 
- 	if (iptunnel_pull_header(skb, VXLAN_HLEN, htons(ETH_P_TEB)))
- 		goto drop;
- 
--	vs = rcu_dereference_sk_user_data(sk);
--	if (!vs)
--		goto drop;
--
- 	vs->rcv(vs, skb, vxh->vx_vni);
- 	return 0;
- 
-@@ -1124,6 +1130,9 @@ drop:
- 	kfree_skb(skb);
- 	return 0;
- 
-+error_invalid_header:
-+	netdev_dbg(skb->dev, "invalid vxlan flags=%#x vni=%#x\n",
-+		   ntohl(vxh->vx_flags), ntohl(vxh->vx_vni));
- error:
- 	/* Return non vxlan pkt */
- 	return 1;
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index 903461a..3e98d31 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -11,10 +11,35 @@
- #define VNI_HASH_BITS	10
- #define VNI_HASH_SIZE	(1<<VNI_HASH_BITS)
- 
--/* VXLAN protocol header */
-+/* VXLAN protocol header:
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |R|R|R|R|I|R|R|R|               Reserved                        |
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |                VXLAN Network Identifier (VNI) |   Reserved    |
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ *
-+ * I = 1	VXLAN Network Identifier (VNI) present
-+ */
- struct vxlanhdr {
--	__be32 vx_flags;
--	__be32 vx_vni;
-+	union {
-+		struct {
-+#ifdef __LITTLE_ENDIAN_BITFIELD
-+			__u8	reserved_flags1:3,
-+				vni_present:1,
-+				reserved_flags2:4;
-+#elif defined(__BIG_ENDIAN_BITFIELD)
-+			__u8	reserved_flags2:4,
-+				vni_present:1,
-+				reserved_flags1:3;
-+#else
-+#error	"Please fix <asm/byteorder.h>"
-+#endif
-+			__u8	vx_reserved1;
-+			__be16	vx_reserved2;
-+		};
-+		__be32 vx_flags;
-+	};
-+	__be32	vx_vni;
- };
- 
- struct vxlan_sock;
-@@ -25,6 +50,7 @@ struct vxlan_sock {
- 	struct hlist_node hlist;
- 	vxlan_rcv_t	 *rcv;
- 	void		 *data;
-+	u32		  exts;
- 	struct work_struct del_work;
- 	struct socket	 *sock;
- 	struct rcu_head	  rcu;
--- 
-1.9.3
+This sounds really good, but I suspect the real problem is the case where
+the rule evaluation is in the hardware path right. If it is purely IF based
+there is no issue .. but any other policy like missed in table 1, then use
+table 2 will not work with this model .. or did I miss something ?
