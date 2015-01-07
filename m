@@ -1,102 +1,191 @@
 From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: [PATCH net-next v5 5/7] ixgbe: Add GET_RSS_KEY command to VF-PF channel commands set
-Date: Wed,  7 Jan 2015 21:26:40 +0200
-Message-ID: <1420658802-18061-6-git-send-email-vladz@cloudius-systems.com>
+Subject: [PATCH net-next v5 1/7] if_link: Add an additional parameter to ifla_vf_info for RSS querying
+Date: Wed,  7 Jan 2015 21:26:36 +0200
+Message-ID: <1420658802-18061-2-git-send-email-vladz@cloudius-systems.com>
 References: <1420658802-18061-1-git-send-email-vladz@cloudius-systems.com>
 Cc: gleb@cloudius-systems.com, avi@cloudius-systems.com,
 	jeffrey.t.kirsher@intel.com,
 	Vlad Zolotarov <vladz@cloudius-systems.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:56203 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754502AbbAGT1D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 14:27:03 -0500
-Received: by mail-wi0-f178.google.com with SMTP id em10so2336779wid.11
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 11:27:02 -0800 (PST)
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:51354 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753386AbbAGT05 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 14:26:57 -0500
+Received: by mail-wi0-f171.google.com with SMTP id bs8so8183526wib.16
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 11:26:56 -0800 (PST)
 In-Reply-To: <1420658802-18061-1-git-send-email-vladz@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For 82599 and x540 VFs and PF share the same RSS Key. Therefore we will return
-the same RSS key for all VFs.
+Add configuration setting for drivers to allow/block an RSS Redirection Table and
+a Hash Key querying for discrete VFs.
 
-x550 on the other hand has a separate RSS Key for every pool.
+On some devices VF share the mentioned above information with PF and querying it may
+adduce a theoretical security risk. We want to let a system administrator to decide if he/she
+wants to take this risk or not.
 
 Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
 ---
-New in v5:
-   - Use a newly added netdev op to allow/prevent the RSS Hash Key querying on a per-VF
-     basis.
+ include/linux/if_link.h      |  1 +
+ include/linux/netdevice.h    |  8 ++++++++
+ include/uapi/linux/if_link.h |  8 ++++++++
+ net/core/rtnetlink.c         | 33 +++++++++++++++++++++++++++------
+ 4 files changed, 44 insertions(+), 6 deletions(-)
 
-New in v3:
-   - Added a support for x550 devices.
-
-New in v1 (compared to RFC):
-   - Use "if-else" statement instead of a "switch-case" for a single option case
-     (in ixgbe_get_vf_rss_key()).
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  2 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 27 ++++++++++++++++++++++++++
- 2 files changed, 29 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-index f9b5eae..3f14373 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-@@ -105,6 +105,8 @@ enum ixgbe_pfvf_api_rev {
- #define IXGBE_VF_RETA_SZ        1	/* Number of RETA DWs to bring */
- #define IXGBE_VF_RETA_OFFSET    2	/* Offset in RETA */
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index 119130e..da49299 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -14,5 +14,6 @@ struct ifla_vf_info {
+ 	__u32 linkstate;
+ 	__u32 min_tx_rate;
+ 	__u32 max_tx_rate;
++	__u32 rss_query_en;
+ };
+ #endif /* _LINUX_IF_LINK_H */
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 679e6e9..52d734e 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -873,6 +873,11 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+  * int (*ndo_set_vf_link_state)(struct net_device *dev, int vf, int link_state);
+  * int (*ndo_set_vf_port)(struct net_device *dev, int vf,
+  *			  struct nlattr *port[]);
++ *
++ *      Enable or disable the VF ability to query its RSS Redirection Table and
++ *      Hash Key. This is needed since on some devices VF share this information
++ *      with PF and querying it may adduce a theoretical security risk.
++ * int (*ndo_set_vf_rss_query_en)(struct net_device *dev, int vf, bool setting);
+  * int (*ndo_get_vf_port)(struct net_device *dev, int vf, struct sk_buff *skb);
+  * int (*ndo_setup_tc)(struct net_device *dev, u8 tc)
+  * 	Called to setup 'tc' number of traffic classes in the net device. This
+@@ -1094,6 +1099,9 @@ struct net_device_ops {
+ 						   struct nlattr *port[]);
+ 	int			(*ndo_get_vf_port)(struct net_device *dev,
+ 						   int vf, struct sk_buff *skb);
++	int			(*ndo_set_vf_rss_query_en)(
++						   struct net_device *dev,
++						   int vf, bool setting);
+ 	int			(*ndo_setup_tc)(struct net_device *dev, u8 tc);
+ #if IS_ENABLED(CONFIG_FCOE)
+ 	int			(*ndo_fcoe_enable)(struct net_device *dev);
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index f7d0d2d..adb2842 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -454,6 +454,9 @@ enum {
+ 	IFLA_VF_SPOOFCHK,	/* Spoof Checking on/off switch */
+ 	IFLA_VF_LINK_STATE,	/* link state enable/disable/auto switch */
+ 	IFLA_VF_RATE,		/* Min and Max TX Bandwidth Allocation */
++	IFLA_VF_RSS_QUERY_EN,	/* RSS Redirection Table and Hash Key query
++				 * on/off switch
++				 */
+ 	__IFLA_VF_MAX,
+ };
  
-+#define IXGBE_VF_GET_RSS_KEY	0x0b	/* get RSS key */
-+
- /* length of permanent address message returned from PF */
- #define IXGBE_VF_PERMADDR_MSG_LEN 4
- /* word in permanent address message with the current multicast type */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 4b7246f..cb7403f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -1019,6 +1019,30 @@ static int ixgbe_get_vf_reta(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
- 	return 0;
- }
+@@ -498,6 +501,11 @@ struct ifla_vf_link_state {
+ 	__u32 link_state;
+ };
  
-+static int ixgbe_get_vf_rss_key(struct ixgbe_adapter *adapter,
-+				u32 *msgbuf, u32 vf)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	int i;
-+	u32 *rss_key = &msgbuf[1];
++struct ifla_vf_rss_query_en {
++	__u32 vf;
++	__u32 setting;
++};
 +
-+	/* verify the PF is supporting the correct API */
-+	if (!adapter->vfinfo[vf].rss_query_enabled ||
-+	    (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12))
-+		return -EPERM;
+ /* VF ports management section
+  *
+  *	Nested layout of set/get msg is:
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 6a6cdad..a3b9b29 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -818,7 +818,8 @@ static inline int rtnl_vfinfo_size(const struct net_device *dev,
+ 			 nla_total_size(sizeof(struct ifla_vf_vlan)) +
+ 			 nla_total_size(sizeof(struct ifla_vf_spoofchk)) +
+ 			 nla_total_size(sizeof(struct ifla_vf_rate)) +
+-			 nla_total_size(sizeof(struct ifla_vf_link_state)));
++			 nla_total_size(sizeof(struct ifla_vf_link_state)) +
++			 nla_total_size(sizeof(struct ifla_vf_rss_query_en)));
+ 		return size;
+ 	} else
+ 		return 0;
+@@ -1110,14 +1111,16 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			struct ifla_vf_tx_rate vf_tx_rate;
+ 			struct ifla_vf_spoofchk vf_spoofchk;
+ 			struct ifla_vf_link_state vf_linkstate;
++			struct ifla_vf_rss_query_en vf_rss_query_en;
+ 
+ 			/*
+ 			 * Not all SR-IOV capable drivers support the
+-			 * spoofcheck query.  Preset to -1 so the user
+-			 * space tool can detect that the driver didn't
+-			 * report anything.
++			 * spoofcheck and "RSS query enable" query.  Preset to
++			 * -1 so the user space tool can detect that the driver
++			 * didn't report anything.
+ 			 */
+ 			ivi.spoofchk = -1;
++			ivi.rss_query_en = -1;
+ 			memset(ivi.mac, 0, sizeof(ivi.mac));
+ 			/* The default value for VF link state is "auto"
+ 			 * IFLA_VF_LINK_STATE_AUTO which equals zero
+@@ -1130,7 +1133,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 				vf_rate.vf =
+ 				vf_tx_rate.vf =
+ 				vf_spoofchk.vf =
+-				vf_linkstate.vf = ivi.vf;
++				vf_linkstate.vf =
++				vf_rss_query_en.vf = ivi.vf;
+ 
+ 			memcpy(vf_mac.mac, ivi.mac, sizeof(ivi.mac));
+ 			vf_vlan.vlan = ivi.vlan;
+@@ -1140,6 +1144,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			vf_rate.max_tx_rate = ivi.max_tx_rate;
+ 			vf_spoofchk.setting = ivi.spoofchk;
+ 			vf_linkstate.link_state = ivi.linkstate;
++			vf_rss_query_en.setting = ivi.rss_query_en;
+ 			vf = nla_nest_start(skb, IFLA_VF_INFO);
+ 			if (!vf) {
+ 				nla_nest_cancel(skb, vfinfo);
+@@ -1154,7 +1159,10 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			    nla_put(skb, IFLA_VF_SPOOFCHK, sizeof(vf_spoofchk),
+ 				    &vf_spoofchk) ||
+ 			    nla_put(skb, IFLA_VF_LINK_STATE, sizeof(vf_linkstate),
+-				    &vf_linkstate))
++				    &vf_linkstate) ||
++			    nla_put(skb, IFLA_VF_RSS_QUERY_EN,
++				    sizeof(vf_rss_query_en),
++				    &vf_rss_query_en))
+ 				goto nla_put_failure;
+ 			nla_nest_end(skb, vf);
+ 		}
+@@ -1260,6 +1268,8 @@ static const struct nla_policy ifla_vf_policy[IFLA_VF_MAX+1] = {
+ 				    .len = sizeof(struct ifla_vf_rate) },
+ 	[IFLA_VF_LINK_STATE]	= { .type = NLA_BINARY,
+ 				    .len = sizeof(struct ifla_vf_link_state) },
++	[IFLA_VF_RSS_QUERY_EN]	= { .type = NLA_BINARY,
++				   .len = sizeof(struct ifla_vf_rss_query_en) },
+ };
+ 
+ static const struct nla_policy ifla_port_policy[IFLA_PORT_MAX+1] = {
+@@ -1472,6 +1482,17 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
+ 								 ivl->link_state);
+ 			break;
+ 		}
++		case IFLA_VF_RSS_QUERY_EN: {
++			struct ifla_vf_rss_query_en *ivrssq_en;
 +
-+	/* Read the RSS KEY */
-+	if (hw->mac.type >= ixgbe_mac_X550) {
-+		for (i = 0; i < 10; i++)
-+			rss_key[i] = IXGBE_READ_REG(hw,
-+						IXGBE_PFVFRSSRK(i, vf));
-+	} else
-+		for (i = 0; i < 10; i++)
-+			rss_key[i] = IXGBE_READ_REG(hw, IXGBE_RSSRK(i));
-+
-+	return 0;
-+}
-+
- static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- {
- 	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
-@@ -1078,6 +1102,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- 	case IXGBE_VF_GET_RETA:
- 		retval = ixgbe_get_vf_reta(adapter, msgbuf, vf);
- 		break;
-+	case IXGBE_VF_GET_RSS_KEY:
-+		retval = ixgbe_get_vf_rss_key(adapter, msgbuf, vf);
-+		break;
- 	default:
- 		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
- 		retval = IXGBE_ERR_MBX;
++			ivrssq_en = nla_data(vf);
++			err = -EOPNOTSUPP;
++			if (ops->ndo_set_vf_rss_query_en)
++				err = ops->ndo_set_vf_rss_query_en(dev,
++							    ivrssq_en->vf,
++							    ivrssq_en->setting);
++			break;
++		}
+ 		default:
+ 			err = -EINVAL;
+ 			break;
 -- 
 2.1.0
