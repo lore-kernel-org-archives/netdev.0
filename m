@@ -1,7 +1,7 @@
 From: Chunyan Zhang <zhang.chunyan@linaro.org>
-Subject: [PATCH v2 1/6] irda: Removed all unused timeval variables
-Date: Thu,  8 Jan 2015 12:01:27 +0800
-Message-ID: <1420689692-8760-2-git-send-email-zhang.chunyan@linaro.org>
+Subject: [PATCH v2 2/6] irda: ali-ircc: Replace timeval with ktime_t
+Date: Thu,  8 Jan 2015 12:01:28 +0800
+Message-ID: <1420689692-8760-3-git-send-email-zhang.chunyan@linaro.org>
 References: <driver-irda-v2>
  <1420689692-8760-1-git-send-email-zhang.chunyan@linaro.org>
 Cc: arnd@arndb.de, zhang.lyra@gmail.com, netdev@vger.kernel.org,
@@ -12,153 +12,80 @@ In-Reply-To: <1420689692-8760-1-git-send-email-zhang.chunyan@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In the file au1k_ir.c & via-ircc.h, there were two unused definitions of the
-timeval type members, this commit therefore removes this unneeded code.
+The ali ircc driver uses 'timeval', which we try to remove in the kernel
+because all 32-bit time types will break in the year 2038.
 
-In other three files, the same problem is the rx_time member is only ever 
-written, never read, so removed it entirely.
+This patch also changes do_gettimeofday() to ktime_get() accordingly,
+since ktime_get returns a ktime_t, but do_gettimeofday returns a
+struct timeval, and the other reason is that ktime_get() uses
+the monotonic clock.
+
+This patch uses ktime_us_delta to get the elapsed time, and in this
+way it no longer needs to check for the overflow, because
+ktime_us_delta returns time difference of microsecond.
 
 Signed-off-by: Chunyan Zhang <zhang.chunyan@linaro.org>
 Reviewed-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/irda/au1k_ir.c     |    3 ---
- drivers/net/irda/kingsun-sir.c |    3 ---
- drivers/net/irda/ks959-sir.c   |    3 ---
- drivers/net/irda/mcs7780.c     |    2 --
- drivers/net/irda/mcs7780.h     |    1 -
- drivers/net/irda/via-ircc.h    |    4 ----
- 6 files changed, 16 deletions(-)
+ drivers/net/irda/ali-ircc.c |   11 +++--------
+ drivers/net/irda/ali-ircc.h |    5 ++---
+ 2 files changed, 5 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/irda/au1k_ir.c b/drivers/net/irda/au1k_ir.c
-index e151205..44e4f38 100644
---- a/drivers/net/irda/au1k_ir.c
-+++ b/drivers/net/irda/au1k_ir.c
-@@ -24,7 +24,6 @@
- #include <linux/interrupt.h>
- #include <linux/platform_device.h>
- #include <linux/slab.h>
+diff --git a/drivers/net/irda/ali-ircc.c b/drivers/net/irda/ali-ircc.c
+index 58f98f4..58ae11a 100644
+--- a/drivers/net/irda/ali-ircc.c
++++ b/drivers/net/irda/ali-ircc.c
+@@ -1462,17 +1462,12 @@ static netdev_tx_t ali_ircc_fir_hard_xmit(struct sk_buff *skb,
+ 		if (mtt) 
+ 		{
+ 			/* Check how much time we have used already */
+-			do_gettimeofday(&self->now);
+-			
+-			diff = self->now.tv_usec - self->stamp.tv_usec;
++			diff = ktime_us_delta(ktime_get(), self->stamp);
+ 			/* self->stamp is set from ali_ircc_dma_receive_complete() */
+ 							
+ 			pr_debug("%s(), ******* diff = %d *******\n",
+ 				 __func__, diff);
+-			
+-			if (diff < 0) 
+-				diff += 1000000;
+-			
++
+ 			/* Check if the mtt is larger than the time we have
+ 			 * already used by all the protocol processing
+ 			 */
+@@ -1884,7 +1879,7 @@ static int  ali_ircc_dma_receive_complete(struct ali_ircc_cb *self)
+ 			 * reduce the min turn time a bit since we will know
+ 			 * how much time we have used for protocol processing
+ 			 */
+-			do_gettimeofday(&self->stamp);
++			self->stamp = ktime_get();
+ 
+ 			skb = dev_alloc_skb(len+1);
+ 			if (skb == NULL)  
+diff --git a/drivers/net/irda/ali-ircc.h b/drivers/net/irda/ali-ircc.h
+index 0c8edb4..c2d9747 100644
+--- a/drivers/net/irda/ali-ircc.h
++++ b/drivers/net/irda/ali-ircc.h
+@@ -22,7 +22,7 @@
+ #ifndef ALI_IRCC_H
+ #define ALI_IRCC_H
+ 
 -#include <linux/time.h>
- #include <linux/types.h>
- #include <linux/ioport.h>
++#include <linux/ktime.h>
  
-@@ -163,8 +162,6 @@ struct au1k_private {
- 	iobuff_t rx_buff;
- 
- 	struct net_device *netdev;
--	struct timeval stamp;
--	struct timeval now;
- 	struct qos_info qos;
- 	struct irlap_cb *irlap;
- 
-diff --git a/drivers/net/irda/kingsun-sir.c b/drivers/net/irda/kingsun-sir.c
-index e638893..fb5d162 100644
---- a/drivers/net/irda/kingsun-sir.c
-+++ b/drivers/net/irda/kingsun-sir.c
-@@ -114,7 +114,6 @@ struct kingsun_cb {
- 					   (usually 8) */
- 
- 	iobuff_t  	  rx_buff;	/* receive unwrap state machine */
--	struct timeval	  rx_time;
- 	spinlock_t lock;
- 	int receiving;
- 
-@@ -235,7 +234,6 @@ static void kingsun_rcv_irq(struct urb *urb)
- 						  &kingsun->netdev->stats,
- 						  &kingsun->rx_buff, bytes[i]);
- 			}
--			do_gettimeofday(&kingsun->rx_time);
- 			kingsun->receiving =
- 				(kingsun->rx_buff.state != OUTSIDE_FRAME)
- 				? 1 : 0;
-@@ -273,7 +271,6 @@ static int kingsun_net_open(struct net_device *netdev)
- 
- 	skb_reserve(kingsun->rx_buff.skb, 1);
- 	kingsun->rx_buff.head = kingsun->rx_buff.skb->data;
--	do_gettimeofday(&kingsun->rx_time);
- 
- 	kingsun->rx_urb = usb_alloc_urb(0, GFP_KERNEL);
- 	if (!kingsun->rx_urb)
-diff --git a/drivers/net/irda/ks959-sir.c b/drivers/net/irda/ks959-sir.c
-index e6b3804..8e6e0ed 100644
---- a/drivers/net/irda/ks959-sir.c
-+++ b/drivers/net/irda/ks959-sir.c
-@@ -187,7 +187,6 @@ struct ks959_cb {
- 	__u8 *rx_buf;
- 	__u8 rx_variable_xormask;
- 	iobuff_t rx_unwrap_buff;
--	struct timeval rx_time;
- 
- 	struct usb_ctrlrequest *speed_setuprequest;
- 	struct urb *speed_urb;
-@@ -476,7 +475,6 @@ static void ks959_rcv_irq(struct urb *urb)
- 						  bytes[i]);
- 			}
- 		}
--		do_gettimeofday(&kingsun->rx_time);
- 		kingsun->receiving =
- 		    (kingsun->rx_unwrap_buff.state != OUTSIDE_FRAME) ? 1 : 0;
- 	}
-@@ -514,7 +512,6 @@ static int ks959_net_open(struct net_device *netdev)
- 
- 	skb_reserve(kingsun->rx_unwrap_buff.skb, 1);
- 	kingsun->rx_unwrap_buff.head = kingsun->rx_unwrap_buff.skb->data;
--	do_gettimeofday(&kingsun->rx_time);
- 
- 	kingsun->rx_urb = usb_alloc_urb(0, GFP_KERNEL);
- 	if (!kingsun->rx_urb)
-diff --git a/drivers/net/irda/mcs7780.c b/drivers/net/irda/mcs7780.c
-index e4d678f..bca6a1e 100644
---- a/drivers/net/irda/mcs7780.c
-+++ b/drivers/net/irda/mcs7780.c
-@@ -722,7 +722,6 @@ static int mcs_net_open(struct net_device *netdev)
- 
- 	skb_reserve(mcs->rx_buff.skb, 1);
- 	mcs->rx_buff.head = mcs->rx_buff.skb->data;
--	do_gettimeofday(&mcs->rx_time);
- 
- 	/*
- 	 * Now that everything should be initialized properly,
-@@ -799,7 +798,6 @@ static void mcs_receive_irq(struct urb *urb)
- 			mcs_unwrap_fir(mcs, urb->transfer_buffer,
- 				urb->actual_length);
- 		}
--		do_gettimeofday(&mcs->rx_time);
- 	}
- 
- 	ret = usb_submit_urb(urb, GFP_ATOMIC);
-diff --git a/drivers/net/irda/mcs7780.h b/drivers/net/irda/mcs7780.h
-index b10689b..a6e8f7d 100644
---- a/drivers/net/irda/mcs7780.h
-+++ b/drivers/net/irda/mcs7780.h
-@@ -116,7 +116,6 @@ struct mcs_cb {
- 	__u8 *fifo_status;
- 
- 	iobuff_t rx_buff;	/* receive unwrap state machine */
--	struct timeval rx_time;
- 	spinlock_t lock;
- 	int receiving;
- 
-diff --git a/drivers/net/irda/via-ircc.h b/drivers/net/irda/via-ircc.h
-index 7ce820e..ac15255 100644
---- a/drivers/net/irda/via-ircc.h
-+++ b/drivers/net/irda/via-ircc.h
-@@ -29,7 +29,6 @@ this program; if not, see <http://www.gnu.org/licenses/>.
-  ********************************************************************/
- #ifndef via_IRCC_H
- #define via_IRCC_H
--#include <linux/time.h>
  #include <linux/spinlock.h>
  #include <linux/pm.h>
- #include <linux/types.h>
-@@ -106,9 +105,6 @@ struct via_ircc_cb {
- 
- 	__u8 ier;		/* Interrupt enable register */
- 
+@@ -209,8 +209,7 @@ struct ali_ircc_cb {
+ 	
+ 	unsigned char rcvFramesOverflow;
+ 		
 -	struct timeval stamp;
 -	struct timeval now;
--
- 	spinlock_t lock;	/* For serializing operations */
++	ktime_t stamp;
  
- 	__u32 flags;		/* Interface flags */
+ 	spinlock_t lock;           /* For serializing operations */
+ 	
 -- 
 1.7.9.5
