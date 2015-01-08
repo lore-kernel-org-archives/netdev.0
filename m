@@ -1,228 +1,68 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 4/6] openvswitch: Rename GENEVE_TUN_OPTS() to TUN_METADATA_OPTS()
-Date: Thu,  8 Jan 2015 23:47:29 +0100
-Message-ID: <d13f989ae1e4010938bdde5420c6902f5af271cf.1420756324.git.tgraf@suug.ch>
-References: <cover.1420756324.git.tgraf@suug.ch>
+Subject: [PATCH 0/6 net-next v2] VXLAN Group Policy Extension
+Date: Thu,  8 Jan 2015 23:47:25 +0100
+Message-ID: <cover.1420756324.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org
 To: davem@davemloft.net, jesse@nicira.com, stephen@networkplumber.org,
 	pshelar@nicira.com, therbert@google.com,
 	alexei.starovoitov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:47409 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:47207 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932651AbbAHWrt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 17:47:49 -0500
-In-Reply-To: <cover.1420756324.git.tgraf@suug.ch>
-In-Reply-To: <cover.1420756324.git.tgraf@suug.ch>
-References: <cover.1420756324.git.tgraf@suug.ch>
+	with ESMTP id S1757717AbbAHWrn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 17:47:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also factors out Geneve validation code into a new separate function
-validate_and_copy_geneve_opts().
+Implements supports for the Group Policy VXLAN extension [0] to provide
+a lightweight and simple security label mechanism across network peers
+based on VXLAN. The security context and associated metadata is mapped
+to/from skb->mark. This allows further mapping to a SELinux context
+using SECMARK, to implement ACLs directly with nftables, iptables, OVS,
+tc, etc.
 
-A subsequent patch will introduce VXLAN options. Rename the existing
-GENEVE_TUN_OPTS() to reflect its extended purpose of carrying generic
-tunnel metadata options.
+The extension is disabled by default and should be run on a distinct
+port in mixed Linux VXLAN VTEP environments. Liberal VXLAN VTEPs
+which ignore unknown reserved bits will be able to receive VXLAN-GBP
+frames.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
-v2:
- - Don't rename genev_tun_opt_from_nlattr() and keep it Geneve specific,
-   pointed out by Jesse.
- - Factor out Geneve specific validation code into separate function as
-   requested by Jesse.
+Simple usage example:
 
- net/openvswitch/flow.c         |  2 +-
- net/openvswitch/flow.h         | 14 ++++----
- net/openvswitch/flow_netlink.c | 72 +++++++++++++++++++++++-------------------
- 3 files changed, 47 insertions(+), 41 deletions(-)
+10.1.1.1:
+   # ip link add vxlan0 type vxlan id 10 remote 10.1.1.2 gbp
+   # iptables -I OUTPUT -m owner --uid-owner 101 -j MARK --set-mark 0x200
 
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index da2fae0..41f2dfd 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -691,7 +691,7 @@ int ovs_flow_key_extract(const struct ovs_tunnel_info *tun_info,
- 			BUILD_BUG_ON((1 << (sizeof(tun_info->options_len) *
- 						   8)) - 1
- 					> sizeof(key->tun_opts));
--			memcpy(GENEVE_OPTS(key, tun_info->options_len),
-+			memcpy(TUN_METADATA_OPTS(key, tun_info->options_len),
- 			       tun_info->options, tun_info->options_len);
- 			key->tun_opts_len = tun_info->options_len;
- 		} else {
-diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index a8b30f3..d3d0a40 100644
---- a/net/openvswitch/flow.h
-+++ b/net/openvswitch/flow.h
-@@ -53,7 +53,7 @@ struct ovs_key_ipv4_tunnel {
- 
- struct ovs_tunnel_info {
- 	struct ovs_key_ipv4_tunnel tunnel;
--	const struct geneve_opt *options;
-+	const void *options;
- 	u8 options_len;
- };
- 
-@@ -61,10 +61,10 @@ struct ovs_tunnel_info {
-  * maximum size. This allows us to get the benefits of variable length
-  * matching for small options.
-  */
--#define GENEVE_OPTS(flow_key, opt_len)	\
--	((struct geneve_opt *)((flow_key)->tun_opts + \
--			       FIELD_SIZEOF(struct sw_flow_key, tun_opts) - \
--			       opt_len))
-+#define TUN_METADATA_OFFSET(opt_len) \
-+	(FIELD_SIZEOF(struct sw_flow_key, tun_opts) - opt_len)
-+#define TUN_METADATA_OPTS(flow_key, opt_len) \
-+	((void *)((flow_key)->tun_opts + TUN_METADATA_OFFSET(opt_len)))
- 
- static inline void __ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
- 					    __be32 saddr, __be32 daddr,
-@@ -73,7 +73,7 @@ static inline void __ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
- 					    __be16 tp_dst,
- 					    __be64 tun_id,
- 					    __be16 tun_flags,
--					    const struct geneve_opt *opts,
-+					    const void *opts,
- 					    u8 opts_len)
- {
- 	tun_info->tunnel.tun_id = tun_id;
-@@ -105,7 +105,7 @@ static inline void ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
- 					  __be16 tp_dst,
- 					  __be64 tun_id,
- 					  __be16 tun_flags,
--					  const struct geneve_opt *opts,
-+					  const void *opts,
- 					  u8 opts_len)
- {
- 	__ovs_flow_tun_info_init(tun_info, iph->saddr, iph->daddr,
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index d1eecf7..8980d32 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -432,8 +432,7 @@ static int genev_tun_opt_from_nlattr(const struct nlattr *a,
- 		SW_FLOW_KEY_PUT(match, tun_opts_len, 0xff, true);
- 	}
- 
--	opt_key_offset = (unsigned long)GENEVE_OPTS((struct sw_flow_key *)0,
--						    nla_len(a));
-+	opt_key_offset = TUN_METADATA_OFFSET(nla_len(a));
- 	SW_FLOW_KEY_MEMCPY_OFFSET(match, opt_key_offset, nla_data(a),
- 				  nla_len(a), is_mask);
- 	return 0;
-@@ -558,8 +557,7 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
- 
- static int __ipv4_tun_to_nlattr(struct sk_buff *skb,
- 				const struct ovs_key_ipv4_tunnel *output,
--				const struct geneve_opt *tun_opts,
--				int swkey_tun_opts_len)
-+				const void *tun_opts, int swkey_tun_opts_len)
- {
- 	if (output->tun_flags & TUNNEL_KEY &&
- 	    nla_put_be64(skb, OVS_TUNNEL_KEY_ATTR_ID, output->tun_id))
-@@ -600,8 +598,7 @@ static int __ipv4_tun_to_nlattr(struct sk_buff *skb,
- 
- static int ipv4_tun_to_nlattr(struct sk_buff *skb,
- 			      const struct ovs_key_ipv4_tunnel *output,
--			      const struct geneve_opt *tun_opts,
--			      int swkey_tun_opts_len)
-+			      const void *tun_opts, int swkey_tun_opts_len)
- {
- 	struct nlattr *nla;
- 	int err;
-@@ -1148,10 +1145,10 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
- 		goto nla_put_failure;
- 
- 	if ((swkey->tun_key.ipv4_dst || is_mask)) {
--		const struct geneve_opt *opts = NULL;
-+		const void *opts = NULL;
- 
- 		if (output->tun_key.tun_flags & TUNNEL_OPTIONS_PRESENT)
--			opts = GENEVE_OPTS(output, swkey->tun_opts_len);
-+			opts = TUN_METADATA_OPTS(output, swkey->tun_opts_len);
- 
- 		if (ipv4_tun_to_nlattr(skb, &output->tun_key, opts,
- 				       swkey->tun_opts_len))
-@@ -1540,6 +1537,34 @@ void ovs_match_init(struct sw_flow_match *match,
- 	}
- }
- 
-+static int validate_and_copy_geneve_opts(struct sw_flow_key *key)
-+{
-+	struct geneve_opt *option;
-+	int opts_len = key->tun_opts_len;
-+	bool crit_opt = false;
-+
-+	option = (struct geneve_opt *)TUN_METADATA_OPTS(key, key->tun_opts_len);
-+	while (opts_len > 0) {
-+		int len;
-+
-+		if (opts_len < sizeof(*option))
-+			return -EINVAL;
-+
-+		len = sizeof(*option) + option->length * 4;
-+		if (len > opts_len)
-+			return -EINVAL;
-+
-+		crit_opt |= !!(option->type & GENEVE_CRIT_OPT_TYPE);
-+
-+		option = (struct geneve_opt *)((u8 *)option + len);
-+		opts_len -= len;
-+	};
-+
-+	key->tun_key.tun_flags |= crit_opt ? TUNNEL_CRIT_OPT : 0;
-+
-+	return 0;
-+}
-+
- static int validate_and_copy_set_tun(const struct nlattr *attr,
- 				     struct sw_flow_actions **sfa, bool log)
- {
-@@ -1555,28 +1580,9 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
- 		return err;
- 
- 	if (key.tun_opts_len) {
--		struct geneve_opt *option = GENEVE_OPTS(&key,
--							key.tun_opts_len);
--		int opts_len = key.tun_opts_len;
--		bool crit_opt = false;
--
--		while (opts_len > 0) {
--			int len;
--
--			if (opts_len < sizeof(*option))
--				return -EINVAL;
--
--			len = sizeof(*option) + option->length * 4;
--			if (len > opts_len)
--				return -EINVAL;
--
--			crit_opt |= !!(option->type & GENEVE_CRIT_OPT_TYPE);
--
--			option = (struct geneve_opt *)((u8 *)option + len);
--			opts_len -= len;
--		};
--
--		key.tun_key.tun_flags |= crit_opt ? TUNNEL_CRIT_OPT : 0;
-+		err = validate_and_copy_geneve_opts(&key);
-+		if (err < 0)
-+			return err;
- 	};
- 
- 	start = add_nested_action_start(sfa, OVS_ACTION_ATTR_SET, log);
-@@ -1597,9 +1603,9 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
- 		 * everything else will go away after flow setup. We can append
- 		 * it to tun_info and then point there.
- 		 */
--		memcpy((tun_info + 1), GENEVE_OPTS(&key, key.tun_opts_len),
--		       key.tun_opts_len);
--		tun_info->options = (struct geneve_opt *)(tun_info + 1);
-+		memcpy((tun_info + 1),
-+		       TUN_METADATA_OPTS(&key, key.tun_opts_len), key.tun_opts_len);
-+		tun_info->options = (tun_info + 1);
- 	} else {
- 		tun_info->options = NULL;
- 	}
+10.1.1.2:
+   # ip link add vxlan0 type vxlan id 10 remote 10.1.1.1 gbp
+   # iptables -I INPUT -m mark --mark 0x200 -j DROP
+
+iproute2 [1] and OVS [2] support will be provided in separate patches.
+
+[0] https://tools.ietf.org/html/draft-smith-vxlan-group-policy
+[1] https://github.com/tgraf/iproute2/tree/vxlan-gbp
+[2] https://github.com/tgraf/ovs/tree/vxlan-gbp
+
+Thomas Graf (6):
+  vxlan: Allow for VXLAN extensions to be implemented
+  vxlan: Group Policy extension
+  vxlan: Only bind to sockets with correct extensions enabled
+  openvswitch: Rename GENEVE_TUN_OPTS() to TUN_METADATA_OPTS()
+  openvswitch: Allow for any level of nesting in flow attributes
+  openvswitch: Support VXLAN Group Policy extension
+
+ drivers/net/vxlan.c              | 225 ++++++++++++++++++++----------
+ include/net/ip_tunnels.h         |   5 +-
+ include/net/vxlan.h              | 101 +++++++++++++-
+ include/uapi/linux/if_link.h     |   8 ++
+ include/uapi/linux/openvswitch.h |  11 ++
+ net/openvswitch/flow.c           |   2 +-
+ net/openvswitch/flow.h           |  14 +-
+ net/openvswitch/flow_netlink.c   | 286 ++++++++++++++++++++++++++-------------
+ net/openvswitch/vport-geneve.c   |   2 +-
+ net/openvswitch/vport-vxlan.c    |  90 +++++++++++-
+ net/openvswitch/vport-vxlan.h    |  11 ++
+ 11 files changed, 572 insertions(+), 183 deletions(-)
+ create mode 100644 net/openvswitch/vport-vxlan.h
+
 -- 
 1.9.3
