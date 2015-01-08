@@ -1,104 +1,95 @@
-From: Nicholas Mc Guire <der.herr-kA1LtwSENNE@public.gmane.org>
-Subject: [PATCH v3] ath10k: fixup wait_for_completion_timeout return handling
-Date: Thu,  8 Jan 2015 13:27:34 +0100
-Message-ID: <1420720054-27870-1-git-send-email-der.herr@hofr.at>
-Cc: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>,
-	Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>,
-	Chun-Yeow Yeoh <yeohchunyeow-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Yanbo Li <yanbol-Rm6X0d1/PG5y9aJCnZT0Uw@public.gmane.org>,
-	Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-	ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Nicholas Mc Guire <der.herr-kA1LtwSENNE@public.gmane.org>
-To: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Ignacy =?iso-8859-2?Q?Gaw=EAdzki?=
+	<ignacy.gawedzki@green-communications.fr>
+Subject: [PATCH net v2] gen_stats.c: Duplicate xstats buffer for later use
+Date: Thu, 8 Jan 2015 13:33:43 +0100
+Message-ID: <20150108123343.GA8541@zenon.in.qult.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [78.193.33.39] ([78.193.33.39]:54255 "EHLO mail.qult.net"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754203AbbAHMeI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jan 2015 07:34:08 -0500
+Received: from zenon.in.qult.net ([192.168.64.1] helo=zenon)
+	by mail.qult.net with esmtps (TLS1.2:RSA_AES_128_CBC_SHA1:128)
+	(Exim 4.82)
+	(envelope-from <ignacy.gawedzki@green-communications.fr>)
+	id 1Y9CHY-0004FA-Gs
+	for netdev@vger.kernel.org; Thu, 08 Jan 2015 13:33:44 +0100
+Received: from ig by zenon with local (Exim 4.84_RC1)
+	(envelope-from <ignacy.gawedzki@green-communications.fr>)
+	id 1Y9CHX-0002EA-QZ
+	for netdev@vger.kernel.org; Thu, 08 Jan 2015 13:33:44 +0100
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-wait_for_completion_timeout does not return negative values so the tests
-for <= 0 are not needed and the case differentiation in the error handling
-path unnecessary.
+The gnet_stats_copy_app() function gets called, more often than not, wi=
+th its
+second argument a pointer to an automatic variable in the caller's stac=
+k.
+Therefore, to avoid copying garbage afterwards when calling
+gnet_stats_finish_copy(), this data is better copied to a dynamically a=
+llocated
+memory that gets freed after use.
 
-v2: all wait_for_completion_timeout changes in a single patch
-v3: patch formatting cleanups - no change of actual patch
-
-Signed-off-by: Nicholas Mc Guire <der.herr-kA1LtwSENNE@public.gmane.org>
+Signed-off-by: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communications.=
+fr>
 ---
-patch was only compile tested x86_64_defconfig + CONFIG_ATH_CARDS=m
-CONFIG_ATH10K=m
+ net/core/gen_stats.c | 16 +++++++++++++++-
+ 1 file changed, 15 insertions(+), 1 deletion(-)
 
-patch is against linux-next 3.19.0-rc1 -next-20141226
-
-None of the proposed cleanups are critical.
-All changes should only be removing unreachable cases.
-
- drivers/net/wireless/ath/ath10k/debug.c |    2 +-
- drivers/net/wireless/ath/ath10k/htc.c   |    6 ++----
- drivers/net/wireless/ath/ath10k/htt.c   |    2 +-
- drivers/net/wireless/ath/ath10k/mac.c   |    2 +-
- 4 files changed, 5 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/wireless/ath/ath10k/debug.c b/drivers/net/wireless/ath/ath10k/debug.c
-index a716758..7e1fe93 100644
---- a/drivers/net/wireless/ath/ath10k/debug.c
-+++ b/drivers/net/wireless/ath/ath10k/debug.c
-@@ -373,7 +373,7 @@ static int ath10k_debug_fw_stats_request(struct ath10k *ar)
- 
- 		ret = wait_for_completion_timeout(&ar->debug.fw_stats_complete,
- 						  1*HZ);
--		if (ret <= 0)
-+		if (ret == 0)
- 			return -ETIMEDOUT;
- 
- 		spin_lock_bh(&ar->data_lock);
-diff --git a/drivers/net/wireless/ath/ath10k/htc.c b/drivers/net/wireless/ath/ath10k/htc.c
-index f1946a6..2fd9e18 100644
---- a/drivers/net/wireless/ath/ath10k/htc.c
-+++ b/drivers/net/wireless/ath/ath10k/htc.c
-@@ -703,11 +703,9 @@ int ath10k_htc_connect_service(struct ath10k_htc *htc,
- 	/* wait for response */
- 	status = wait_for_completion_timeout(&htc->ctl_resp,
- 					     ATH10K_HTC_CONN_SVC_TIMEOUT_HZ);
--	if (status <= 0) {
--		if (status == 0)
--			status = -ETIMEDOUT;
-+	if (status == 0) {
- 		ath10k_err(ar, "Service connect timeout: %d\n", status);
--		return status;
-+		return -ETIMEDOUT;
+diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
+index 0c08062..5ad2fe7 100644
+--- a/net/core/gen_stats.c
++++ b/net/core/gen_stats.c
+@@ -32,6 +32,9 @@ gnet_stats_copy(struct gnet_dump *d, int type, void *=
+buf, int size)
+ 	return 0;
+=20
+ nla_put_failure:
++	kfree(d->xstats);
++	d->xstats =3D NULL;
++	d->xstats_len =3D 0;
+ 	spin_unlock_bh(d->lock);
+ 	return -1;
+ }
+@@ -305,7 +308,11 @@ int
+ gnet_stats_copy_app(struct gnet_dump *d, void *st, int len)
+ {
+ 	if (d->compat_xstats) {
+-		d->xstats =3D st;
++		kfree(d->xstats);
++		d->xstats =3D kmalloc(len, GFP_ATOMIC);
++		if (!d->xstats)
++			goto kmalloc_failure;
++		memcpy(d->xstats, st, len);
+ 		d->xstats_len =3D len;
  	}
- 
- 	/* we controlled the buffer creation, it's aligned */
-diff --git a/drivers/net/wireless/ath/ath10k/htt.c b/drivers/net/wireless/ath/ath10k/htt.c
-index 56cb4ac..58b6fc1 100644
---- a/drivers/net/wireless/ath/ath10k/htt.c
-+++ b/drivers/net/wireless/ath/ath10k/htt.c
-@@ -102,7 +102,7 @@ int ath10k_htt_setup(struct ath10k_htt *htt)
- 
- 	status = wait_for_completion_timeout(&htt->target_version_received,
- 					     HTT_TARGET_VERSION_TIMEOUT_HZ);
--	if (status <= 0) {
-+	if (status == 0) {
- 		ath10k_warn(ar, "htt version request timed out\n");
- 		return -ETIMEDOUT;
+=20
+@@ -313,6 +320,10 @@ gnet_stats_copy_app(struct gnet_dump *d, void *st,=
+ int len)
+ 		return gnet_stats_copy(d, TCA_STATS_APP, st, len);
+=20
+ 	return 0;
++kmalloc_failure:
++	d->xstats_len =3D 0;
++	spin_unlock_bh(d->lock);
++	return -1;
+ }
+ EXPORT_SYMBOL(gnet_stats_copy_app);
+=20
+@@ -345,6 +356,9 @@ gnet_stats_finish_copy(struct gnet_dump *d)
+ 			return -1;
  	}
-diff --git a/drivers/net/wireless/ath/ath10k/mac.c b/drivers/net/wireless/ath/ath10k/mac.c
-index c400567..f9d7dbb 100644
---- a/drivers/net/wireless/ath/ath10k/mac.c
-+++ b/drivers/net/wireless/ath/ath10k/mac.c
-@@ -2151,7 +2151,7 @@ void ath10k_offchan_tx_work(struct work_struct *work)
- 
- 		ret = wait_for_completion_timeout(&ar->offchan_tx_completed,
- 						  3 * HZ);
--		if (ret <= 0)
-+		if (ret == 0)
- 			ath10k_warn(ar, "timed out waiting for offchannel skb %p\n",
- 				    skb);
- 
--- 
-1.7.10.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+=20
++	kfree(d->xstats);
++	d->xstats =3D NULL;
++	d->xstats_len =3D 0;
+ 	spin_unlock_bh(d->lock);
+ 	return 0;
+ }
+--=20
+1.9.1
