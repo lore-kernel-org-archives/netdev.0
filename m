@@ -1,64 +1,228 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] ipv6: Prevent ipv6_find_hdr() from returning ENOENT for
- valid non-first fragments
-Date: Thu, 08 Jan 2015 23:39:16 +0100
-Message-ID: <1420756756.1755002.211556745.0418D128@webmail.messagingengine.com>
-References: <CAFB3abzYNYqtzd_n+Ym0Lo=DYbV0HPU=Tqw=stALNnu188hMKQ@mail.gmail.com>
- <20150106224706.GA7416@salvia>
- <CAFB3abwKpR1VqZXUrsexqveAZrA2LTSmTe8a=-H7z2HjAptjwA@mail.gmail.com>
- <1420627396.26870.36.camel@stressinduktion.org>
- <20150108205328.GA3361@salvia>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Rahul Sharma <rsharma@arista.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 4/6] openvswitch: Rename GENEVE_TUN_OPTS() to TUN_METADATA_OPTS()
+Date: Thu,  8 Jan 2015 23:47:29 +0100
+Message-ID: <d13f989ae1e4010938bdde5420c6902f5af271cf.1420756324.git.tgraf@suug.ch>
+References: <cover.1420756324.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: davem@davemloft.net, jesse@nicira.com, stephen@networkplumber.org,
+	pshelar@nicira.com, therbert@google.com,
+	alexei.starovoitov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:34671 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754872AbbAHWjR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 17:39:17 -0500
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by mailout.nyi.internal (Postfix) with ESMTP id DB9DD2077F
-	for <netdev@vger.kernel.org>; Thu,  8 Jan 2015 17:39:16 -0500 (EST)
-In-Reply-To: <20150108205328.GA3361@salvia>
+Received: from bombadil.infradead.org ([198.137.202.9]:47409 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932651AbbAHWrt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 17:47:49 -0500
+In-Reply-To: <cover.1420756324.git.tgraf@suug.ch>
+In-Reply-To: <cover.1420756324.git.tgraf@suug.ch>
+References: <cover.1420756324.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Pablo,
+Also factors out Geneve validation code into a new separate function
+validate_and_copy_geneve_opts().
 
-On Thu, Jan 8, 2015, at 21:53, Pablo Neira Ayuso wrote:
-> I'm afraid we cannot just get rid of that !ipv6_ext_hdr() check. The
-> ipv6_find_hdr() function is designed to return the transport protocol.
-> After the proposed change, it will return extension header numbers.
-> This will break existing ip6tables rulesets since the `-p' option
-> relies on this function to match the transport protocol.
->
-> Note that the AH header is skipped (see code a bit below this
-> problematic fragmentation handling) so the follow up header after the
-> AH header is returned as the transport header.
-> 
-> We can probably return the AH protocol number for non-1st fragments.
-> However, that would be something new to ip6tables since nobody has
-> ever seen packet matching `-p ah' rules. Thus, we restore control to
-> the user to allow this, but we would accept all kind of fragmented AH
-> traffic through the firewall since we cannot know what transport
-> protocol contains from non-1st fragments (unless I'm missing anything,
-> I need to have a closer look at this again tomorrow with fresher
-> mind).
+A subsequent patch will introduce VXLAN options. Rename the existing
+GENEVE_TUN_OPTS() to reflect its extended purpose of carrying generic
+tunnel metadata options.
 
-The code in question is guarded by (_frag_off != 0), so we are
-definitely processing a non-1st fragment currently. The -p match would
-happen at the time when the packet is reassembled and thus ipv6_find_hdr
-will find the real transport (final) header at this point (I hope I
-followed the code correctly here).
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+v2:
+ - Don't rename genev_tun_opt_from_nlattr() and keep it Geneve specific,
+   pointed out by Jesse.
+ - Factor out Geneve specific validation code into separate function as
+   requested by Jesse.
 
-The next proto field of the fragmentation header is copied from the
-first fragment, thus it may specify AH header but actually only in the
-original (unfragmented) packet an AH header is directly following the
-fragmentation header, thus the next proto chain is somewhat unstable if
-looking at the fragmented packets only.
+ net/openvswitch/flow.c         |  2 +-
+ net/openvswitch/flow.h         | 14 ++++----
+ net/openvswitch/flow_netlink.c | 72 +++++++++++++++++++++++-------------------
+ 3 files changed, 47 insertions(+), 41 deletions(-)
 
-Bye,
-Hannes
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index da2fae0..41f2dfd 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -691,7 +691,7 @@ int ovs_flow_key_extract(const struct ovs_tunnel_info *tun_info,
+ 			BUILD_BUG_ON((1 << (sizeof(tun_info->options_len) *
+ 						   8)) - 1
+ 					> sizeof(key->tun_opts));
+-			memcpy(GENEVE_OPTS(key, tun_info->options_len),
++			memcpy(TUN_METADATA_OPTS(key, tun_info->options_len),
+ 			       tun_info->options, tun_info->options_len);
+ 			key->tun_opts_len = tun_info->options_len;
+ 		} else {
+diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+index a8b30f3..d3d0a40 100644
+--- a/net/openvswitch/flow.h
++++ b/net/openvswitch/flow.h
+@@ -53,7 +53,7 @@ struct ovs_key_ipv4_tunnel {
+ 
+ struct ovs_tunnel_info {
+ 	struct ovs_key_ipv4_tunnel tunnel;
+-	const struct geneve_opt *options;
++	const void *options;
+ 	u8 options_len;
+ };
+ 
+@@ -61,10 +61,10 @@ struct ovs_tunnel_info {
+  * maximum size. This allows us to get the benefits of variable length
+  * matching for small options.
+  */
+-#define GENEVE_OPTS(flow_key, opt_len)	\
+-	((struct geneve_opt *)((flow_key)->tun_opts + \
+-			       FIELD_SIZEOF(struct sw_flow_key, tun_opts) - \
+-			       opt_len))
++#define TUN_METADATA_OFFSET(opt_len) \
++	(FIELD_SIZEOF(struct sw_flow_key, tun_opts) - opt_len)
++#define TUN_METADATA_OPTS(flow_key, opt_len) \
++	((void *)((flow_key)->tun_opts + TUN_METADATA_OFFSET(opt_len)))
+ 
+ static inline void __ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
+ 					    __be32 saddr, __be32 daddr,
+@@ -73,7 +73,7 @@ static inline void __ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
+ 					    __be16 tp_dst,
+ 					    __be64 tun_id,
+ 					    __be16 tun_flags,
+-					    const struct geneve_opt *opts,
++					    const void *opts,
+ 					    u8 opts_len)
+ {
+ 	tun_info->tunnel.tun_id = tun_id;
+@@ -105,7 +105,7 @@ static inline void ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
+ 					  __be16 tp_dst,
+ 					  __be64 tun_id,
+ 					  __be16 tun_flags,
+-					  const struct geneve_opt *opts,
++					  const void *opts,
+ 					  u8 opts_len)
+ {
+ 	__ovs_flow_tun_info_init(tun_info, iph->saddr, iph->daddr,
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index d1eecf7..8980d32 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -432,8 +432,7 @@ static int genev_tun_opt_from_nlattr(const struct nlattr *a,
+ 		SW_FLOW_KEY_PUT(match, tun_opts_len, 0xff, true);
+ 	}
+ 
+-	opt_key_offset = (unsigned long)GENEVE_OPTS((struct sw_flow_key *)0,
+-						    nla_len(a));
++	opt_key_offset = TUN_METADATA_OFFSET(nla_len(a));
+ 	SW_FLOW_KEY_MEMCPY_OFFSET(match, opt_key_offset, nla_data(a),
+ 				  nla_len(a), is_mask);
+ 	return 0;
+@@ -558,8 +557,7 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
+ 
+ static int __ipv4_tun_to_nlattr(struct sk_buff *skb,
+ 				const struct ovs_key_ipv4_tunnel *output,
+-				const struct geneve_opt *tun_opts,
+-				int swkey_tun_opts_len)
++				const void *tun_opts, int swkey_tun_opts_len)
+ {
+ 	if (output->tun_flags & TUNNEL_KEY &&
+ 	    nla_put_be64(skb, OVS_TUNNEL_KEY_ATTR_ID, output->tun_id))
+@@ -600,8 +598,7 @@ static int __ipv4_tun_to_nlattr(struct sk_buff *skb,
+ 
+ static int ipv4_tun_to_nlattr(struct sk_buff *skb,
+ 			      const struct ovs_key_ipv4_tunnel *output,
+-			      const struct geneve_opt *tun_opts,
+-			      int swkey_tun_opts_len)
++			      const void *tun_opts, int swkey_tun_opts_len)
+ {
+ 	struct nlattr *nla;
+ 	int err;
+@@ -1148,10 +1145,10 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
+ 		goto nla_put_failure;
+ 
+ 	if ((swkey->tun_key.ipv4_dst || is_mask)) {
+-		const struct geneve_opt *opts = NULL;
++		const void *opts = NULL;
+ 
+ 		if (output->tun_key.tun_flags & TUNNEL_OPTIONS_PRESENT)
+-			opts = GENEVE_OPTS(output, swkey->tun_opts_len);
++			opts = TUN_METADATA_OPTS(output, swkey->tun_opts_len);
+ 
+ 		if (ipv4_tun_to_nlattr(skb, &output->tun_key, opts,
+ 				       swkey->tun_opts_len))
+@@ -1540,6 +1537,34 @@ void ovs_match_init(struct sw_flow_match *match,
+ 	}
+ }
+ 
++static int validate_and_copy_geneve_opts(struct sw_flow_key *key)
++{
++	struct geneve_opt *option;
++	int opts_len = key->tun_opts_len;
++	bool crit_opt = false;
++
++	option = (struct geneve_opt *)TUN_METADATA_OPTS(key, key->tun_opts_len);
++	while (opts_len > 0) {
++		int len;
++
++		if (opts_len < sizeof(*option))
++			return -EINVAL;
++
++		len = sizeof(*option) + option->length * 4;
++		if (len > opts_len)
++			return -EINVAL;
++
++		crit_opt |= !!(option->type & GENEVE_CRIT_OPT_TYPE);
++
++		option = (struct geneve_opt *)((u8 *)option + len);
++		opts_len -= len;
++	};
++
++	key->tun_key.tun_flags |= crit_opt ? TUNNEL_CRIT_OPT : 0;
++
++	return 0;
++}
++
+ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 				     struct sw_flow_actions **sfa, bool log)
+ {
+@@ -1555,28 +1580,9 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 		return err;
+ 
+ 	if (key.tun_opts_len) {
+-		struct geneve_opt *option = GENEVE_OPTS(&key,
+-							key.tun_opts_len);
+-		int opts_len = key.tun_opts_len;
+-		bool crit_opt = false;
+-
+-		while (opts_len > 0) {
+-			int len;
+-
+-			if (opts_len < sizeof(*option))
+-				return -EINVAL;
+-
+-			len = sizeof(*option) + option->length * 4;
+-			if (len > opts_len)
+-				return -EINVAL;
+-
+-			crit_opt |= !!(option->type & GENEVE_CRIT_OPT_TYPE);
+-
+-			option = (struct geneve_opt *)((u8 *)option + len);
+-			opts_len -= len;
+-		};
+-
+-		key.tun_key.tun_flags |= crit_opt ? TUNNEL_CRIT_OPT : 0;
++		err = validate_and_copy_geneve_opts(&key);
++		if (err < 0)
++			return err;
+ 	};
+ 
+ 	start = add_nested_action_start(sfa, OVS_ACTION_ATTR_SET, log);
+@@ -1597,9 +1603,9 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 		 * everything else will go away after flow setup. We can append
+ 		 * it to tun_info and then point there.
+ 		 */
+-		memcpy((tun_info + 1), GENEVE_OPTS(&key, key.tun_opts_len),
+-		       key.tun_opts_len);
+-		tun_info->options = (struct geneve_opt *)(tun_info + 1);
++		memcpy((tun_info + 1),
++		       TUN_METADATA_OPTS(&key, key.tun_opts_len), key.tun_opts_len);
++		tun_info->options = (tun_info + 1);
+ 	} else {
+ 		tun_info->options = NULL;
+ 	}
+-- 
+1.9.3
