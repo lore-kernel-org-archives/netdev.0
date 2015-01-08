@@ -1,144 +1,147 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [RFC net-next 0/3] devconf: New infrastructure for setting
- pre-load parameters for a module
-Date: Thu, 8 Jan 2015 11:25:13 -0800
-Message-ID: <20150108192513.GB1961@kroah.com>
-References: <1420730220-20224-1-git-send-email-hadarh@mellanox.com>
- <20150108164618.GA11696@kroah.com>
- <54AEBA28.1030301@mellanox.com>
- <20150108174707.GA13218@kroah.com>
- <CAPcc5PivsUKr9Q3VN1NFn3xJiB339EdPV=DEiLie8d9QVgOmOg@mail.gmail.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net] gso: do GSO for local skb with size bigger than MTU
+Date: Thu, 8 Jan 2015 11:55:00 -0800
+Message-ID: <CAEP_g=9hh+MG7AWEnct7CwRqp=ZghpbkDeQ5BhGQktDgMST1jA@mail.gmail.com>
+References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
+ <1417158128.3268.2@smtp.corp.redhat.com> <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com>
+ <20141201135225.GA16814@casper.infradead.org> <20141202154839.GB5344@t520.home>
+ <20141202170927.GA9457@casper.infradead.org> <20141202173401.GB4126@redhat.com>
+ <20141202174158.GB9457@casper.infradead.org> <5A90DA2E42F8AE43BC4A093BF0678848DEDFDB@SHSMSX104.ccr.corp.intel.com>
+ <54AA2912.6090903@gmail.com> <CAEP_g=-R1FrcA0sTJJjQhypRtVCwoRZ+LieKaSJxqA-HACZqEw@mail.gmail.com>
+ <54ABAC13.9070402@gmail.com> <CAEP_g=8bCR=PeSoi09jLWLtNUrxhzx45h1Wm=9D=R57AqUac2w@mail.gmail.com>
+ <54ACCAFD.4070203@gmail.com> <CAEP_g=8EBeQUFkRRsG3sznYryd+LE9qJKWQXfS==HG2HDO=UKA@mail.gmail.com>
+ <54AE506A.5020207@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hadar Hen Zion <hadarh@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Du, Fan" <fan.du@intel.com>, Thomas Graf <tgraf@suug.ch>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Jason Wang <jasowang@redhat.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	"shannon.nelson@intel.com" <shannon.nelson@intel.com>,
-	Doug Ledford <dledford@redhat.com>,
-	"greearb@candelatech.com" <greearb@candelatech.com>
-To: Amir Vadai <amirv@mellanox.com>
+	"fw@strlen.de" <fw@strlen.de>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	"pshelar@nicira.com" <pshelar@nicira.com>
+To: Fan Du <fengyuleidian0615@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:43961 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752722AbbAHTZP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 14:25:15 -0500
-Content-Disposition: inline
-In-Reply-To: <CAPcc5PivsUKr9Q3VN1NFn3xJiB339EdPV=DEiLie8d9QVgOmOg@mail.gmail.com>
+Received: from na3sys009aog129.obsmtp.com ([74.125.149.142]:53648 "HELO
+	na3sys009aog129.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751576AbbAHTzW convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jan 2015 14:55:22 -0500
+Received: by mail-qc0-f180.google.com with SMTP id i8so4189781qcq.11
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 11:55:21 -0800 (PST)
+In-Reply-To: <54AE506A.5020207@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 08, 2015 at 09:14:32PM +0200, Amir Vadai wrote:
-> On Thu, Jan 8, 2015 at 7:47 PM, Greg KH <gregkh@linuxfoundation.org> wrote:
-> > On Thu, Jan 08, 2015 at 07:11:04PM +0200, Amir Vadai wrote:
-> >> On 1/8/2015 6:46 PM, Greg KH wrote:
-> >> > On Thu, Jan 08, 2015 at 05:16:57PM +0200, Hadar Hen Zion wrote:
-> >> >> Hi,
-> >> >>
-> >> >> When configuring a device at an early boot stage, most kernel drivers
-> >> >> use module parameters (the parameters' settings can be determined in
-> >> >> modprobe.d config files).
-> >> >
-> >> > Which is a bad idea, as you have learned :)
-> >> >
-> >> >> These parameters are difficult to manage, and one of the reasons is that
-> >> >> module parameters are set per driver and not per device (NICs using the
-> >> >> same driver cannot be set with different configurations).
-> >> >> Furthermore, using other existing configuration tools like ethtool,
-> >> >> ifconfig, ip link commands or sysfs entries is not applicable, since
-> >> >> they all rely on having a netdev already set up.
-> >> >>
-> >> >> In the past, 'request_firmware' solution for configuration parameters
-> >> >> was suggested by Shannon Nelson from Intel[1]. The idea was rejected by
-> >> >> Greg KH, who claimed it was abusive of the request_firmware mechanism.
-> >> >> Greg suggested using configfs for device configuration instead (as done
-> >> >> by the USB gadget driver).
-> >> >>
-> >> >> As a solution, we introduce a new kernel infrastructure using configfs
-> >> >> to allow the configuration of the device. The goal is to set low-level
-> >> >> device functionality that needs to be sorted out before a module is
-> >> >> loaded.
-> >> >
-> >> > Ick, really?  drivers should never need to be configured like this, if
-> >> > so, then something is wrong, they should "just work" by default.  What
-> >> > are you needing to "configure" that can't be determined by something
-> >> > like a device tree?
-> >> Ick indeed - but we can't find anything better.
-> >>
-> >> For example, we have devices that can act as either netdev or as an
-> >> Infiniband device.
-> >> The driver consists of a core to handle the hardware, and higher layer
-> >> drivers - one for Ethernet and one for Infiniband.
-> >> Today the selection is done through a module parameter. according to it
-> >> the relevant higher level driver is loaded, and the device is
-> >> initialized. You don't want to have a default of netdev, and in every
-> >> installation that needs Infiniband, a netdev will be created, removed
-> >> and only then the Infiniband device will appear.
-> >
-> > But that really isn't an issue, right?  Who cares if it happens that
-> > way?
-> >
-> > Or just don't do anything until that "higher level" driver is loaded,
-> > either ib or network.
-> >
-> >> This is only one example to configuration that needs to be known before
-> >> the hardware is initialized, and be persistent across boots.
-> >>
-> >> We can have a 2 stages loading. First load the core, wait for user
-> >> input, and only then configure the device and load the right upper layer
-> >> driver according to the user input (configfs/sysfs).
-> >
-> > Why not just wait for an "upper layer" driver to be loaded?  It doesn't
-> > make it dynamic, and forces you to have a module manually be loaded, but
-> > would solve this problem.
-> >
-> > Or just don't do anything until configfs is set up for your devices,
-> > after the module is loaded.  This allows drivers to be built into the
-> > kernel if people really want that type of configuration to work
-> > properly.
-> Yes this is the idea in this RFC, and we're suggesting a mechanism to
-> make it general, so other vendors that would like to have a persistent
-> state for their devices could do it.
+On Thu, Jan 8, 2015 at 1:39 AM, Fan Du <fengyuleidian0615@gmail.com> wr=
+ote:
+> =E4=BA=8E 2015=E5=B9=B401=E6=9C=8808=E6=97=A5 04:52, Jesse Gross =E5=86=
+=99=E9=81=93:
+>>>
+>>> My understanding is:
+>>> >controller sets the forwarding rules into kernel datapath, any flo=
+w not
+>>> >matching
+>>> >with the rules are threw to controller by upcall. Once the rule de=
+cision
+>>> > is
+>>> >made
+>>> >by controller, then, this flow packet is pushed down to datapath t=
+o be
+>>> >forwarded
+>>> >again according to the new rule.
+>>> >
+>>> >So I'm not sure whether pushing the over-MTU-sized packet or pushi=
+ng the
+>>> >forged ICMP
+>>> >without encapsulation to controller is required by current ovs
+>>> >implementation. By doing
+>>> >so, such over-MTU-sized packet is treated as a event for the contr=
+oller
+>>> > to
+>>> >be take
+>>> >care of.
+>>
+>> If flows are implementing routing (again, they are doing things like
+>> decrementing the TTL) then it is necessary for them to also handle
+>> this situation using some potentially new primitives (like a size
+>> check). Otherwise you end up with issues like the ones that I
+>> mentioned above like needing to forge addresses because you don't kn=
+ow
+>> what the correct ones are.
+>
+>
+> Thanks for explaining, Jesse!
+>
+> btw, I don't get it about "to forge addresses", building ICMP message
+> with Guest packet doesn't require to forge address when not encapsula=
+ting
+> ICMP message with outer headers.
 
-I don't think _any_ devices should be doing this, so please don't make
-it "generic".  Just use configfs in your module and document it
-properly, like other modules that use configfs.
+Your patch has things like this (for the inner IP header):
 
-> >> Since other vendors seems to need this capability too, we thought it
-> >> would be better to make it generic - and this is this what this RFC is
-> >> about.
-> >
-> > What other vendors have such horribly designed hardware / kernel modules
-> > that need this type of thing?  :)
-> Intel [1], Atheros [2]. I can dig in the mailing list for some more.
-> 
-> [1] - https://lkml.org/lkml/2013/1/10/606
-> [2] - http://lists.openwall.net/netdev/2014/06/16/53
-> 
-> I agree that whenever possible the hardware should have a good default
-> state. But sometimes the user has some useful information that could
-> be used during initialization and make driver loading process much
-> more efficient and clean.
++                               new_ip->saddr =3D orig_ip->daddr;
++                               new_ip->daddr =3D orig_ip->saddr;
 
-But you are talking about loading config info before the driver is
-loaded, which goes backwards for how we automatically load modules when
-the hardware is found.
+These addresses are owned by the endpoints, not the host generating
+generating the ICMP message, so I would consider that to be forging
+addresses.
 
-> Let me know if you prefer us to contribute a generic solution, or to
-> have a configfs with 2 stages loading for our driver only. I thought
-> that a generic solution is better, but would be happy to hear what
-> other vendors and experienced kernel developers have to say.
+> If the flows aren't doing things to
+>>
+>> implement routing, then you really have a flat L2 network and you
+>> shouldn't be doing this type of behavior at all as I described in th=
+e
+>> original plan.
+>
+>
+> For flows implementing routing scenario:
+> First of all, over-MTU-sized packet could only be detected once the f=
+low
+> as been consulted(each port could implement a 'check' hook to do this=
+),
+> and just before send to the actual port.
+>
+> Then pushing the over-MTU-sized packet back to controller, it's the
+> controller
+> who will will decide whether to build ICMP message, or whatever routi=
+ng
+> behaviour
+> it may take. And sent it back with the port information. This ICMP me=
+ssage
+> will
+> travel back to Guest.
+>
+> Why does the flow has to use primitive like a "check size"? "check si=
+ze"
+> will only take effect after do_output. I'm not very clear with this
+> approach.
 
-A generic solution would be nice, but so far I just see network specific
-drivers that can be configured after the driver is loaded, and so should
-use the network specific configuration tools like everyone else.
+Checking the size obviously needs to be an action that would take
+place before outputting in order for it to have any effect. Attaching
+a check to a port does not fit in very well with the other primitives
+of OVS, so I think an action is the obvious place to put it.
 
-So please just have the module default to a network device and then
-configure things from there, after you are loaded, if you need it and
-want to do something "special".  Otherwise you are moving backwards for
-how autoload drivers work and that is not good.
+> And not all scenario involving flow with routing behaviour, just set =
+up a
+> vxlan tunnel, and attach KVM guest or Docker onto it for playing or
+> developing.
+> This wouldn't necessarily require user to set additional specific flo=
+ws to
+> make
+> over-MTU-sized packet pass through the tunnel correctly. In such scen=
+ario, I
+> think the original patch in this thread to fragment tunnel packet is =
+still
+> needed
+> OR workout a generic component to build ICMP for all type tunnel in L=
+2
+> level.
+> Both of those will act as a backup plan as there is no such specific =
+flow as
+> default.
 
-thanks,
-
-greg k-h
+In these cases, we should find a way to adjust the MTU, preferably
+automatically using virtio.
