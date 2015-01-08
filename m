@@ -1,47 +1,47 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: iproute2 tc: Print qdisc, stats, class, filter info to string
- rather than FILE
-Date: Thu, 8 Jan 2015 03:02:30 +0200
-Message-ID: <20150108010230.GA11821@angus-think.lan>
-References: <20150107215331.GA19197@angus-think.lan>
- <20150107150828.5b61f26f@urahara>
- <20150107234608.GA1073@angus-think.lan>
- <20150108000620.GF21149@casper.infradead.org>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH 6/6] openvswitch: Support VXLAN Group Policy extension
+Date: Wed, 7 Jan 2015 17:18:04 -0800
+Message-ID: <CAEP_g=_t_KMUdit7WUSg+OORh=FoQtzLyygaVMftyDV-tAxJvA@mail.gmail.com>
+References: <cover.1420594925.git.tgraf@suug.ch> <9c1b0b0acde09019acb61b9b1a4eb4b18c62642a.1420594925.git.tgraf@suug.ch>
+ <CAEP_g=__Ssxj3B_0sbp5D+Gh8YmQ7ub9giK4A_QYWVmYctjm-w@mail.gmail.com> <20150107230155.GC21149@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vadim Kochan <vadim4j@gmail.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
 	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
+	Pravin Shelar <pshelar@nicira.com>,
+	netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
 To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:36718 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752409AbbAHBMy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 20:12:54 -0500
-Received: by mail-la0-f45.google.com with SMTP id gq15so6763393lab.4
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 17:12:53 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150108000620.GF21149@casper.infradead.org>
+Received: from na3sys009aog106.obsmtp.com ([74.125.149.77]:46540 "HELO
+	na3sys009aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755925AbbAHBSZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 20:18:25 -0500
+Received: by mail-qa0-f47.google.com with SMTP id f12so350112qad.6
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 17:18:24 -0800 (PST)
+In-Reply-To: <20150107230155.GC21149@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 08, 2015 at 12:06:20AM +0000, Thomas Graf wrote:
-> On 01/08/15 at 01:46am, Vadim Kochan wrote:
-> > I'd like to have text info from tc on screen and output on the other
-> > data format to be the same, just only for this.
-> 
-> Look at:
-> https://github.com/tgraf/libnl/blob/master/src/nl-tctree-list.c
-> 
-> It shows how to use an API to retrieve the information you want and
-> allows to pretty print tc entries.
+On Wed, Jan 7, 2015 at 3:01 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 01/07/15 at 02:46pm, Jesse Gross wrote:
+>> On Tue, Jan 6, 2015 at 6:05 PM, Thomas Graf <tgraf@suug.ch> wrote:
+>> > The group policy metadata is handled in the same way as Geneve options
+>> > and transported as binary blob in a new Netlink attribute
+>> > OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS which is mutually exclusive to the
+>> > existing OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS.
+>>
+>> Can you explain some more what the encoding would look like if
+>> additional options were defined (including ones that are potentially
+>> mutually exclusive)? The Geneve options are binary but that is coming
+>> directly from the protocol specification. However, this isn't an on
+>> the wire format so I'm not sure what it would look like or how it
+>> would be defined to avoid conflict and allow evolution.
+>
+> The encoding will be based on struct ovs_vxlan_opts which is extended
+> as needed by appending new members to the end of the struct. Parsers
+> will look at the provided length to see which fields are provided.
 
-OK, may be I am not clearly described what I am trying to do ...
-So I think it might be useful to have an option in TC which would be
-generate classes graph in plot format but keep the same text info as it
-is printed on console by default. I just think to re-use the existing
-code which prints that text info to console but use it for plot
-generating. Do you think that this not right thing feature to be in TC
-and it might better to have this separately from TC ?
-
-Thanks,
+But this means that if there are two extensions that are conflicting
+or if one is retired you still need to carry the earlier members of
+the struct. Why not make them real netlink attributes?
