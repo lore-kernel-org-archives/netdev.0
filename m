@@ -1,75 +1,52 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next] tc: add BPF based action
-Date: Thu, 8 Jan 2015 16:01:36 +0100
-Message-ID: <20150108150134.GB1898@nanopsycho.orion>
-References: <1420649035-9522-1-git-send-email-jiri@resnulli.us>
- <1420728937.5928.8.camel@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2] tcp: avoid reducing cwnd when ACK+DSACK is
+ received
+Date: Thu, 08 Jan 2015 07:07:36 -0800
+Message-ID: <1420729656.5947.50.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1420719609-18638-1-git-send-email-sebastien.barre@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-	stephen@networkplumber.org
-To: Hannes Frederic Sowa <hannes@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Gregory Detal <gregory.detal@uclouvain.be>,
+	Nandita Dukkipati <nanditad@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: =?ISO-8859-1?Q?S=E9bastien_Barr=E9?= <sebastien.barre@uclouvain.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:57089 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753118AbbAHPBi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 10:01:38 -0500
-Received: by mail-wg0-f42.google.com with SMTP id k14so3078782wgh.1
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 07:01:37 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1420728937.5928.8.camel@redhat.com>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:51323 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752427AbbAHPHj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 10:07:39 -0500
+Received: by mail-ie0-f178.google.com with SMTP id vy18so9830188iec.9
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 07:07:38 -0800 (PST)
+In-Reply-To: <1420719609-18638-1-git-send-email-sebastien.barre@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Jan 08, 2015 at 03:55:37PM CET, hannes@redhat.com wrote:
->On Mi, 2015-01-07 at 17:43 +0100, Jiri Pirko wrote:
->> +static int tcf_bpf(struct sk_buff *skb, const struct tc_action *a,
->> +		   struct tcf_result *res)
->> +{
->> +	struct tcf_bpf *b = a->priv;
->> +	int action;
->> +	int filter_res;
->> +
->> +	spin_lock(&b->tcf_lock);
->> +	b->tcf_tm.lastuse = jiffies;
->> +	bstats_update(&b->tcf_bstats, skb);
->> +	action = b->tcf_action;
->> +
->> +	filter_res = BPF_PROG_RUN(b->filter, skb);
->> +	if (filter_res == -1)
->> +		goto drop;
->> +
->> +	goto unlock;
->> +
->> +drop:
->> +	action = TC_ACT_SHOT;
->> +	b->tcf_qstats.drops++;
->> +unlock:
->> +	spin_unlock(&b->tcf_lock);
->> +	return action;
->> +}
->
->In theory this could be like:
->
->filter_res = BPF_PROG_RUN(b->filter, skb);
->
->spin_lock(&b->tcf_lock);
-><update stats...>
->
->if (filter_res == -1)
->  goto drop;
->
->action = b->tcf_action;
->...
->
->to keep BPF_PROG_RUN out of the spin_lock?
+On Thu, 2015-01-08 at 13:20 +0100, S=C3=A9bastien Barr=C3=A9 wrote:
+> When the peer has delayed ack enabled, it may reply to a probe with a=
+n
+> ACK+D-SACK, with ack value set to tlp_high_seq.
 
-Okay. That makes sense. Will include this change into v2.
 
-Thanks.
+The most probable cause would not be a delayed ack (rto should be much
+bigger), but a lost ACK.
 
->
->Bye,
->Hannes
->
->
+
+>  In the current code,
+> such ACK+DSACK will be missed and only at next, higher ack will the T=
+LP
+> episode be considered done. Since the DSACK is not present anymore,
+> this will cost a cwnd reduction.
+>=20
+> This patch ensures that this scenario does not cause a cwnd reduction=
+, since
+> receiving an ACK+DSACK indicates that both the initial segment and th=
+e probe
+> have been received by the peer.
+
+Do you have at hand a packetdrill test to demonstrate that the patch
+works ?
+
+Thanks !
