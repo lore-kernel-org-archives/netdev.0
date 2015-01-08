@@ -1,77 +1,97 @@
-From: "Singhai, Anjali" <anjali.singhai@intel.com>
-Subject: RE: [net v2 2/3] i40e: Fix Rx checksum error counter
-Date: Thu, 8 Jan 2015 20:33:03 +0000
-Message-ID: <C40BE8378EF49C44B9184714DBC8EF2992D97264@ORSMSX110.amr.corp.intel.com>
-References: <1420594317-6191-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1420594317-6191-3-git-send-email-jeffrey.t.kirsher@intel.com>
-	<CA+mtBx-VgUCCxnkayoqR6AwYXu_mfzbtGZzH+oeT3wrOznzWGg@mail.gmail.com>
-	<C40BE8378EF49C44B9184714DBC8EF2992D9668D@ORSMSX110.amr.corp.intel.com>
- <CA+mtBx_CXMyRkHhaMpWFuVo5OD=ejN=ZohidczXoC9w-1owaFQ@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net] ipv6: Prevent ipv6_find_hdr() from returning ENOENT
+ for valid non-first fragments
+Date: Thu, 8 Jan 2015 21:53:28 +0100
+Message-ID: <20150108205328.GA3361@salvia>
+References: <CAFB3abzYNYqtzd_n+Ym0Lo=DYbV0HPU=Tqw=stALNnu188hMKQ@mail.gmail.com>
+ <20150106224706.GA7416@salvia>
+ <CAFB3abwKpR1VqZXUrsexqveAZrA2LTSmTe8a=-H7z2HjAptjwA@mail.gmail.com>
+ <1420627396.26870.36.camel@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rahul Sharma <rsharma@arista.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:8764 "EHLO mga02.intel.com"
+Received: from mail.us.es ([193.147.175.20]:54560 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751085AbbAHUdG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jan 2015 15:33:06 -0500
-In-Reply-To: <CA+mtBx_CXMyRkHhaMpWFuVo5OD=ejN=ZohidczXoC9w-1owaFQ@mail.gmail.com>
-Content-Language: en-US
+	id S1752350AbbAHUuo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jan 2015 15:50:44 -0500
+Content-Disposition: inline
+In-Reply-To: <1420627396.26870.36.camel@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBKYW4gNywgMjAxNSBhdCAxMjoxNCBQTSwgU2luZ2hhaSwgQW5qYWxpIDxhbmphbGku
-c2luZ2hhaUBpbnRlbC5jb20+IHdyb3RlOg0KPiBPbiBUdWUsIDYgSmFuIDIwMTUgMjE6NDM6NTcg
-LTA4MDANCj4gVG9tIEhlcmJlcnQgPHRoZXJiZXJ0QGdvb2dsZS5jb20+IHdyb3RlOg0KPj4+ID4g
-QEAgLTEzMzcsMTUgKzEzMzUsMTkgQEAgc3RhdGljIGlubGluZSB2b2lkIGk0MGVfcnhfY2hlY2tz
-dW0oc3RydWN0IGk0MGVfdnNpICp2c2ksDQo+Pj4gPiAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICBza2ItPnByb3RvY29sID09IGh0b25zKEVUSF9QXzgwMjFBRCkpDQo+
-Pj4gPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA/IFZMQU5fSExF
-TiA6IDA7DQo+Pj4gPg0KPj4+ID4gLSAgICAgICAgICAgICAgIHJ4X3VkcF9jc3VtID0gdWRwX2Nz
-dW0oc2tiKTsNCj4+PiA+IC0gICAgICAgICAgICAgICBpcGggPSBpcF9oZHIoc2tiKTsNCj4+PiA+
-IC0gICAgICAgICAgICAgICBjc3VtID0gY3N1bV90Y3B1ZHBfbWFnaWMoDQo+Pj4gPiAtICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgIGlwaC0+c2FkZHIsIGlwaC0+ZGFkZHIsDQo+Pj4gPiAt
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIChza2ItPmxlbiAtIHNrYl90cmFuc3BvcnRf
-b2Zmc2V0KHNrYikpLA0KPj4+ID4gLSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBJUFBS
-T1RPX1VEUCwgcnhfdWRwX2NzdW0pOw0KPj4+ID4gKyAgICAgICAgICAgICAgIGlmICgoaXBfaGRy
-KHNrYiktPnByb3RvY29sID09IElQUFJPVE9fVURQKSAmJg0KPj4+ID4gKyAgICAgICAgICAgICAg
-ICAgICAodWRwX2hkcihza2IpLT5jaGVjayAhPSAwKSkgew0KPj4+ID4gKyAgICAgICAgICAgICAg
-ICAgICAgICAgcnhfdWRwX2NzdW0gPSB1ZHBfY3N1bShza2IpOw0KPj4+DQo+Pj4gRG9lc24ndCB0
-aGlzIGNvbXB1dGUgdGhlIHdob2xlIGNoZWNrc3VtIG9mIHRoZSBwYWNrZXQgbWFraW5nIHRoZSAN
-Cj4+PiBmYWN0IHRoYXQgZGV2aWNlIHZlcmlmaWVkIGlubmVyIGNoZWNrc3VtIHByZXR0eSBtdWNo
-IGlycmVsZXZhbnQ/IEl0IA0KPj4+IHdvdWxkIHByb2JhYmx5IGJlIGp1c3QgYXMgd2VsbCB0byBy
-ZXR1cm4gQ0hFQ0tTVU1fTk9ORSBhbmQgbGV0IHRoZSANCj4+PiBzdGFjayBkZWFsIHdpdGggaXQg
-YW5kIHJlbW92ZSBhbGwgdGhpcyBjb21wbGV4aXR5Lg0KPj4NCj4+IFRoaXMgaXMgb25seSBjYWxj
-dWxhdGluZyBvdXRlciBVRFAgY3N1bSwgaW5uZXIgY3N1bXMgYXJlIG9mZmxvYWRlZCBhbmQgc28g
-aXMgdGhlIG91dGVyIElQIGNzdW0uIE92ZXJhbGwgdGhpcyBpcyBsZXNzIHdvcmsgdGhhbiBhc2tp
-bmcgdGhlIHN0YWNrIHRvIGRvIGFsbCBvZiB0aG9zZSBieSBtYXJraW5nIGl0IGFzIENIRUNLU1VN
-X1VOTkVDRVNTQVJZLiBXZSBkbyBoYXZlIGEgcGF0Y2ggaW4gbGluZSB0byB1c2UgY3N1bV9sZXZl
-bCBidXQgSSBiZWxpZXZlIGV2ZW4gd2l0aCB0aGF0IHdlIHdvdWxkIGJlIGFza2luZyB0aGUgc3Rh
-Y2sgdG8gZG8gbW9yZSB3b3JrIHRoYW4gbmVjZXNzYXJ5IGlmIHdlIGluZGljYXRlIHRoYXQgb25s
-eSBpbm5lciBjaGVja3N1bXMgYXJlIG9mZmxvYWRlZC4gV2l0aCBvdXIgSFcgd2UgYXJlIGFibGUg
-dG8gb2ZmbG9hZCAzIG91dCBvZiA0IGNzdW1zLg0KPg0KPlRoZSBzdGFjayB3aWxsIG9ubHkgY29t
-cHV0ZSB0aGUgY2hlY2tzdW0gb3ZlciB0aGUgcGFja2V0IHplcm8gb3Igb25lIHRpbWVzLiBUaGUg
-ZmFjdCB0aGF0IHRoZSBkcml2ZXIgaXMgZG9pbmcgaXQgaW5zdGVhZCBvZiB0aGUgc3RhY2sgbWFr
-ZXMgbGl0dGxlIGRpZmZlcmVuY2UsIG9uY2UgdGhlIGRlY2lzaW9uIGlzIG1hZGUgdG8gY2hlY2tz
-dW0gdGhlIHBhY2tldCB0aGUgcGVyZm9ybWFuY2UgZ2FpbnMgb2Ygb2ZmbG9hZGluZyBhcmUgbG9z
-dC4gSWYgeW91IGRlZmVyIHRvIHRoZSBzdGFjayB0aGVuIHRoaXMgY29tcGxleCBjb2RlIGlzIHJl
-bW92ZWQgYW5kIHRoZXJlIGlzIHRoZSBwb3NzaWJpbGl0eSB0aGF0IHRoZSBjaGVja3N1bSBkb2Vz
-bid0IGV2ZW4gbmVlZCB0byBiZSBjYWxjdWxhdGVkIGF0IGFsbCAobGlrZSBVRFAgcGFja2V0IGlz
-IGJhZCBvciBubyBsaXN0ZW5lciBmb3IgcG9ydCkuDQo+DQo+V2hhdCBkb2VzICJ3ZSBhcmUgYWJs
-ZSB0byBvZmZsb2FkIDMgb3V0IG9mIDQgY3N1bXMiIG1lYW4/DQoNCldpdGggRm9ydHZpbGxlLCB0
-aGUgSFcgbGV0cyB5b3Ugb2ZmbG9hZCBpbm5lciBJUCBhbmQgVENQL1VEUCBjaGVja3N1bSBhcyB3
-ZWxsIGFzIG91dGVyIElQIGNoZWNrc3VtLiBUaGUgb25lIHRoYXQgaXMgbm90IG9mZmxvYWRlZCBp
-cyBvdXRlciBVRFAuIEkgZ3Vlc3MgaW4gbW9zdCBjYXNlcywgb3V0ZXIgVURQIGNoZWNrc3VtIHdp
-bGwgYmUgemVybyBhbmQgd2UgZG8gY2hlY2sgZm9yIHRoYXQsIGluIHRoZSBsZXNzIGxpa2VseSBj
-YXNlIHdoZXJlIG91dGVyIFVEUCAgY2hlY2tzdW0gaXMgbm9uLXplcm8gd2UgY291bGQgZGVmZXIg
-aXQgdG8gdGhlIHN0YWNrLiAgSSBndWVzcyBJIHdpbGwgc2ltcGxpZnkgdGhlIGNvZGUsIGFsdGhv
-dWdoIHRoaXMgcGF0Y2ggaXMganVzdCBmaXhpbmcgYnVncyBhbHJlYWR5IHByZXNlbnQgaW4gdGhl
-IHVwc3RyZWFtIGRyaXZlci4NCg0KVGhhbmtzDQpBbmphbGkNCg0K
+On Wed, Jan 07, 2015 at 11:43:16AM +0100, Hannes Frederic Sowa wrote:
+> > >> @@ -250,9 +251,7 @@ int ipv6_find_hdr(const struct sk_buff *
+> > >>
+> > >>                         _frag_off = ntohs(*fp) & ~0x7;
+> > >>                         if (_frag_off) {
+> > >> -                               if (target < 0 &&
+> > >> -                                   ((!ipv6_ext_hdr(hp->nexthdr)) ||
+> > >
+> > > This check assumes that the following headers cannot show up in the
+> > > fragmented part of the IPv6 packet:
+> > >
+> > >  12 bool ipv6_ext_hdr(u8 nexthdr)
+> > >  13 {
+> > >  14         /*
+> > >  15          * find out if nexthdr is an extension header or a protocol
+> > >  16          */
+> > >  17         return   (nexthdr == NEXTHDR_HOP)       ||
+> > >  18                  (nexthdr == NEXTHDR_ROUTING)   ||
+> > >  19                  (nexthdr == NEXTHDR_FRAGMENT)  ||
+> > >  20                  (nexthdr == NEXTHDR_AUTH)      ||
+> > >  21                  (nexthdr == NEXTHDR_NONE)      ||
+> > >  22                  (nexthdr == NEXTHDR_DEST);
+> > >
+> > >> -                                    hp->nexthdr == NEXTHDR_NONE)) {
+> > >> +                               if (target < 0) {
+> > >>                                         if (fragoff)
+> > >>                                                 *fragoff = _frag_off;
+> > >>                                         return hp->nexthdr;
+> > >> --
+> > >> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > >> the body of a message to majordomo@vger.kernel.org
+> > >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > 
+> > I think this is incorrect. Authentication header shows up in the
+> > fragmentable part of the original IPv6 packet. So, for the non-first
+> > fragments the next-header field value can be NEXTHDR_AUTH.
+> 
+> Pablo's mail got me thinking again.
+> 
+> In general, IPv6 extension headers can appear in any order and stacks
+> must be process them. Fragmentation adds a limitation, that some
+> extension headers do not make sense and don't have any effect if they
+> appear after a fragmentation header (HbH and ROUTING).
+> 
+> Looking at the rest of the function we don't check for HBHHDR or RTHDR
+> following a fragmentation header either if we process the first fragment
+> (core stack only processes HBH if directly following the ipv6 header
+> anyway).
+> 
+> So, in my opinion, it is safe to completely remove this check and it
+> would align if the rest of the extension processing logic. The callers
+> all seem fine with that.
+> 
+> Pablo, what do you think?
+
+I'm afraid we cannot just get rid of that !ipv6_ext_hdr() check. The
+ipv6_find_hdr() function is designed to return the transport protocol.
+After the proposed change, it will return extension header numbers.
+This will break existing ip6tables rulesets since the `-p' option
+relies on this function to match the transport protocol.
+
+Note that the AH header is skipped (see code a bit below this
+problematic fragmentation handling) so the follow up header after the
+AH header is returned as the transport header.
+
+We can probably return the AH protocol number for non-1st fragments.
+However, that would be something new to ip6tables since nobody has
+ever seen packet matching `-p ah' rules. Thus, we restore control to
+the user to allow this, but we would accept all kind of fragmented AH
+traffic through the firewall since we cannot know what transport
+protocol contains from non-1st fragments (unless I'm missing anything,
+I need to have a closer look at this again tomorrow with fresher
+mind).
