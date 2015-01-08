@@ -1,70 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2] tcp: avoid reducing cwnd when ACK+DSACK is
- received
-Date: Thu, 08 Jan 2015 07:19:56 -0800
-Message-ID: <1420730396.5947.55.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1420719609-18638-1-git-send-email-sebastien.barre@uclouvain.be>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [net-next PATCH v1 00/11] A flow API
+Date: Thu, 8 Jan 2015 17:14:12 +0200
+Message-ID: <CAJ3xEMjb+pG3TR+r0huNVSGkuPE9i7EZeHO4SQkcfm=WA6zMeA@mail.gmail.com>
+References: <20141231194057.31070.5244.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Gregory Detal <gregory.detal@uclouvain.be>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: =?ISO-8859-1?Q?S=E9bastien_Barr=E9?= <sebastien.barre@uclouvain.be>
+Cc: Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	simon.horman@netronome.com,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:35645 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753877AbbAHPT7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 10:19:59 -0500
-Received: by mail-ig0-f175.google.com with SMTP id h15so3221815igd.2
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 07:19:58 -0800 (PST)
-In-Reply-To: <1420719609-18638-1-git-send-email-sebastien.barre@uclouvain.be>
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:43208 "EHLO
+	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752427AbbAHPON convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 10:14:13 -0500
+Received: by mail-oi0-f49.google.com with SMTP id a141so7727294oig.8
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 07:14:13 -0800 (PST)
+In-Reply-To: <20141231194057.31070.5244.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-01-08 at 13:20 +0100, S=C3=A9bastien Barr=C3=A9 wrote:
-> When the peer has delayed ack enabled, it may reply to a probe with a=
-n
-> ACK+D-SACK, with ack value set to tlp_high_seq. In the current code,
-> such ACK+DSACK will be missed and only at next, higher ack will the T=
-LP
-> episode be considered done. Since the DSACK is not present anymore,
-> this will cost a cwnd reduction.
->=20
-=2E..
->  net/ipv4/tcp_input.c | 30 +++++++++++++-----------------
->  1 file changed, 13 insertions(+), 17 deletions(-)
->=20
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 075ab4d..cf63a29 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -3363,29 +3363,25 @@ static void tcp_replace_ts_recent(struct tcp_=
-sock *tp, u32 seq)
->  static void tcp_process_tlp_ack(struct sock *sk, u32 ack, int flag)
->  {
->  	struct tcp_sock *tp =3D tcp_sk(sk);
-> -	bool is_tlp_dupack =3D (ack =3D=3D tp->tlp_high_seq) &&
-> -			     !(flag & (FLAG_SND_UNA_ADVANCED |
-> -				       FLAG_NOT_DUP | FLAG_DATA_SACKED));
-> =20
+On Wed, Dec 31, 2014 at 9:45 PM, John Fastabend
+<john.fastabend@gmail.com> wrote:
+> For some examples and maybe a bit more illustrative description I
+> posted a quickly typed up set of notes on github io pages. Here we
+> can show the description along with images produced by the flow tool
+> showing the pipeline. Once we settle a bit more on the API we should
+> probably do a clean up of this and other threads happening and commit
+> something to the Documentation directory.
+>
+>  http://jrfastab.github.io/jekyll/update/2014/12/21/flow-api.html
 
-No idea why you removed this bool, it really helped to understand the
-code. This makes your patch looks more complex than needed.
+John, Going over your excellent tutorial, the distinction between
+action and operation isn=E2=80=99t clear... specifically, the paragraph
+=E2=80=9CAlthough this gives us a list of actions we can perform on a p=
+acket
+and a set of argument to give the action so we can use them it does
+not supply the operations performed on the packet=E2=80=9D is a bit vag=
+ue.
 
->  	/* Mark the end of TLP episode on receiving TLP dupack or when
->  	 * ack is after tlp_high_seq.
-> +	 * With delayed acks, we may also get a regular ACK+DSACK, in which
-> +	 * case we don't want to reduce the cwnd either.
->  	 */
-> -	if (is_tlp_dupack) {
-> +	if (((ack =3D=3D tp->tlp_high_seq) &&
-> +	     !(flag & (FLAG_SND_UNA_ADVANCED |
-> +		       FLAG_NOT_DUP | FLAG_DATA_SACKED))) ||
-> +	    (!before(ack, tp->tlp_high_seq) && (flag & FLAG_DSACKING_ACK)))=
- {
->  		tp->tlp_high_seq =3D 0;
-> -		return;
-> -	}
+Or.
