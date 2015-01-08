@@ -1,41 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Prevent multiple NAPI instances co-existing in the
- list
-Date: Thu, 08 Jan 2015 06:51:11 -0800
-Message-ID: <1420728671.5947.47.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+U0gVh+TyEUJ+qmg+FE=UhvvQywfNxcouCyv1sutZ3fav5FAw@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@redhat.com>
+Subject: Re: [patch net-next] tc: add BPF based action
+Date: Thu, 08 Jan 2015 15:55:37 +0100
+Message-ID: <1420728937.5928.8.camel@redhat.com>
+References: <1420649035-9522-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Miller <davem@davemloft.net>
-To: Dennis Chen <kernel.org.gnu@gmail.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+	stephen@networkplumber.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:41482 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753218AbbAHOvO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 09:51:14 -0500
-Received: by mail-ig0-f169.google.com with SMTP id z20so2876792igj.0
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 06:51:13 -0800 (PST)
-In-Reply-To: <CA+U0gVh+TyEUJ+qmg+FE=UhvvQywfNxcouCyv1sutZ3fav5FAw@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:45958 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756479AbbAHOz5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jan 2015 09:55:57 -0500
+In-Reply-To: <1420649035-9522-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-01-08 at 16:22 +0800, Dennis Chen wrote:
-> Some drivers may clear the NAPI_STATE_SCHED bit upon the state of the
-> NAPI instance after exhaust the budget in the poll function, which
-> will open a window for next device interrupt handler to insert a same
-> instance to the list after calling list_add_tail(&n->poll_list,
-> repoll) if we don't set this bit.
-> 
-> Signed-off-by: Dennis Chen <kernel.org.gnu@gmail.com>
-> ---
+On Mi, 2015-01-07 at 17:43 +0100, Jiri Pirko wrote:
+> +static int tcf_bpf(struct sk_buff *skb, const struct tc_action *a,
+> +		   struct tcf_result *res)
+> +{
+> +	struct tcf_bpf *b = a->priv;
+> +	int action;
+> +	int filter_res;
+> +
+> +	spin_lock(&b->tcf_lock);
+> +	b->tcf_tm.lastuse = jiffies;
+> +	bstats_update(&b->tcf_bstats, skb);
+> +	action = b->tcf_action;
+> +
+> +	filter_res = BPF_PROG_RUN(b->filter, skb);
+> +	if (filter_res == -1)
+> +		goto drop;
+> +
+> +	goto unlock;
+> +
+> +drop:
+> +	action = TC_ACT_SHOT;
+> +	b->tcf_qstats.drops++;
+> +unlock:
+> +	spin_unlock(&b->tcf_lock);
+> +	return action;
+> +}
 
+In theory this could be like:
 
-Well no.
+filter_res = BPF_PROG_RUN(b->filter, skb);
 
-I am removing some atomic ops in the stack, please do not add new ones,
-especially if no driver is that buggy.
+spin_lock(&b->tcf_lock);
+<update stats...>
 
-The unlikely() wont help the expensive stuff being done here.
+if (filter_res == -1)
+  goto drop;
+
+action = b->tcf_action;
+...
+
+to keep BPF_PROG_RUN out of the spin_lock?
+
+Bye,
+Hannes
