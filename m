@@ -1,68 +1,208 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 0/6 net-next v2] VXLAN Group Policy Extension
-Date: Thu,  8 Jan 2015 23:47:25 +0100
-Message-ID: <cover.1420756324.git.tgraf@suug.ch>
+Subject: [PATCH 5/6] openvswitch: Allow for any level of nesting in flow attributes
+Date: Thu,  8 Jan 2015 23:47:30 +0100
+Message-ID: <57fd936b821cd5c13cf7c8dbca25479c1391695d.1420756324.git.tgraf@suug.ch>
+References: <cover.1420756324.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org
 To: davem@davemloft.net, jesse@nicira.com, stephen@networkplumber.org,
 	pshelar@nicira.com, therbert@google.com,
 	alexei.starovoitov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:47207 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:47496 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757717AbbAHWrn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 17:47:43 -0500
+	with ESMTP id S932651AbbAHWrw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 17:47:52 -0500
+In-Reply-To: <cover.1420756324.git.tgraf@suug.ch>
+In-Reply-To: <cover.1420756324.git.tgraf@suug.ch>
+References: <cover.1420756324.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implements supports for the Group Policy VXLAN extension [0] to provide
-a lightweight and simple security label mechanism across network peers
-based on VXLAN. The security context and associated metadata is mapped
-to/from skb->mark. This allows further mapping to a SELinux context
-using SECMARK, to implement ACLs directly with nftables, iptables, OVS,
-tc, etc.
+nlattr_set() is currently hardcoded to two levels of nesting. This change
+introduces struct ovs_len_tbl to define minimal length requirements plus
+next level nesting tables to traverse the key attributes to arbitary depth.
 
-The extension is disabled by default and should be run on a distinct
-port in mixed Linux VXLAN VTEP environments. Liberal VXLAN VTEPs
-which ignore unknown reserved bits will be able to receive VXLAN-GBP
-frames.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+v2:
+ - New patch to allow nested Netlink attributes inside
+   OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS
 
-Simple usage example:
+ net/openvswitch/flow_netlink.c | 106 ++++++++++++++++++++++-------------------
+ 1 file changed, 56 insertions(+), 50 deletions(-)
 
-10.1.1.1:
-   # ip link add vxlan0 type vxlan id 10 remote 10.1.1.2 gbp
-   # iptables -I OUTPUT -m owner --uid-owner 101 -j MARK --set-mark 0x200
-
-10.1.1.2:
-   # ip link add vxlan0 type vxlan id 10 remote 10.1.1.1 gbp
-   # iptables -I INPUT -m mark --mark 0x200 -j DROP
-
-iproute2 [1] and OVS [2] support will be provided in separate patches.
-
-[0] https://tools.ietf.org/html/draft-smith-vxlan-group-policy
-[1] https://github.com/tgraf/iproute2/tree/vxlan-gbp
-[2] https://github.com/tgraf/ovs/tree/vxlan-gbp
-
-Thomas Graf (6):
-  vxlan: Allow for VXLAN extensions to be implemented
-  vxlan: Group Policy extension
-  vxlan: Only bind to sockets with correct extensions enabled
-  openvswitch: Rename GENEVE_TUN_OPTS() to TUN_METADATA_OPTS()
-  openvswitch: Allow for any level of nesting in flow attributes
-  openvswitch: Support VXLAN Group Policy extension
-
- drivers/net/vxlan.c              | 225 ++++++++++++++++++++----------
- include/net/ip_tunnels.h         |   5 +-
- include/net/vxlan.h              | 101 +++++++++++++-
- include/uapi/linux/if_link.h     |   8 ++
- include/uapi/linux/openvswitch.h |  11 ++
- net/openvswitch/flow.c           |   2 +-
- net/openvswitch/flow.h           |  14 +-
- net/openvswitch/flow_netlink.c   | 286 ++++++++++++++++++++++++++-------------
- net/openvswitch/vport-geneve.c   |   2 +-
- net/openvswitch/vport-vxlan.c    |  90 +++++++++++-
- net/openvswitch/vport-vxlan.h    |  11 ++
- 11 files changed, 572 insertions(+), 183 deletions(-)
- create mode 100644 net/openvswitch/vport-vxlan.h
-
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index 8980d32..457ccf3 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -50,6 +50,13 @@
+ 
+ #include "flow_netlink.h"
+ 
++struct ovs_len_tbl {
++	int len;
++	const struct ovs_len_tbl *next;
++};
++
++#define OVS_ATTR_NESTED -1
++
+ static void update_range(struct sw_flow_match *match,
+ 			 size_t offset, size_t size, bool is_mask)
+ {
+@@ -289,29 +296,44 @@ size_t ovs_key_attr_size(void)
+ 		+ nla_total_size(28); /* OVS_KEY_ATTR_ND */
+ }
+ 
++static const struct ovs_len_tbl ovs_tunnel_key_lens[OVS_TUNNEL_KEY_ATTR_MAX + 1] = {
++	[OVS_TUNNEL_KEY_ATTR_ID]	    = { .len = sizeof(u64) },
++	[OVS_TUNNEL_KEY_ATTR_IPV4_SRC]	    = { .len = sizeof(u32) },
++	[OVS_TUNNEL_KEY_ATTR_IPV4_DST]	    = { .len = sizeof(u32) },
++	[OVS_TUNNEL_KEY_ATTR_TOS]	    = { .len = 1 },
++	[OVS_TUNNEL_KEY_ATTR_TTL]	    = { .len = 1 },
++	[OVS_TUNNEL_KEY_ATTR_DONT_FRAGMENT] = { .len = 0 },
++	[OVS_TUNNEL_KEY_ATTR_CSUM]	    = { .len = 0 },
++	[OVS_TUNNEL_KEY_ATTR_TP_SRC]	    = { .len = sizeof(u16) },
++	[OVS_TUNNEL_KEY_ATTR_TP_DST]	    = { .len = sizeof(u16) },
++	[OVS_TUNNEL_KEY_ATTR_OAM]	    = { .len = 0 },
++	[OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS]   = { .len = OVS_ATTR_NESTED },
++};
++
+ /* The size of the argument for each %OVS_KEY_ATTR_* Netlink attribute.  */
+-static const int ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
+-	[OVS_KEY_ATTR_ENCAP] = -1,
+-	[OVS_KEY_ATTR_PRIORITY] = sizeof(u32),
+-	[OVS_KEY_ATTR_IN_PORT] = sizeof(u32),
+-	[OVS_KEY_ATTR_SKB_MARK] = sizeof(u32),
+-	[OVS_KEY_ATTR_ETHERNET] = sizeof(struct ovs_key_ethernet),
+-	[OVS_KEY_ATTR_VLAN] = sizeof(__be16),
+-	[OVS_KEY_ATTR_ETHERTYPE] = sizeof(__be16),
+-	[OVS_KEY_ATTR_IPV4] = sizeof(struct ovs_key_ipv4),
+-	[OVS_KEY_ATTR_IPV6] = sizeof(struct ovs_key_ipv6),
+-	[OVS_KEY_ATTR_TCP] = sizeof(struct ovs_key_tcp),
+-	[OVS_KEY_ATTR_TCP_FLAGS] = sizeof(__be16),
+-	[OVS_KEY_ATTR_UDP] = sizeof(struct ovs_key_udp),
+-	[OVS_KEY_ATTR_SCTP] = sizeof(struct ovs_key_sctp),
+-	[OVS_KEY_ATTR_ICMP] = sizeof(struct ovs_key_icmp),
+-	[OVS_KEY_ATTR_ICMPV6] = sizeof(struct ovs_key_icmpv6),
+-	[OVS_KEY_ATTR_ARP] = sizeof(struct ovs_key_arp),
+-	[OVS_KEY_ATTR_ND] = sizeof(struct ovs_key_nd),
+-	[OVS_KEY_ATTR_RECIRC_ID] = sizeof(u32),
+-	[OVS_KEY_ATTR_DP_HASH] = sizeof(u32),
+-	[OVS_KEY_ATTR_TUNNEL] = -1,
+-	[OVS_KEY_ATTR_MPLS] = sizeof(struct ovs_key_mpls),
++static const struct ovs_len_tbl ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
++	[OVS_KEY_ATTR_ENCAP]	 = { .len = OVS_ATTR_NESTED },
++	[OVS_KEY_ATTR_PRIORITY]	 = { .len = sizeof(u32) },
++	[OVS_KEY_ATTR_IN_PORT]	 = { .len = sizeof(u32) },
++	[OVS_KEY_ATTR_SKB_MARK]	 = { .len = sizeof(u32) },
++	[OVS_KEY_ATTR_ETHERNET]	 = { .len = sizeof(struct ovs_key_ethernet) },
++	[OVS_KEY_ATTR_VLAN]	 = { .len = sizeof(__be16) },
++	[OVS_KEY_ATTR_ETHERTYPE] = { .len = sizeof(__be16) },
++	[OVS_KEY_ATTR_IPV4]	 = { .len = sizeof(struct ovs_key_ipv4) },
++	[OVS_KEY_ATTR_IPV6]	 = { .len = sizeof(struct ovs_key_ipv6) },
++	[OVS_KEY_ATTR_TCP]	 = { .len = sizeof(struct ovs_key_tcp) },
++	[OVS_KEY_ATTR_TCP_FLAGS] = { .len = sizeof(__be16) },
++	[OVS_KEY_ATTR_UDP]	 = { .len = sizeof(struct ovs_key_udp) },
++	[OVS_KEY_ATTR_SCTP]	 = { .len = sizeof(struct ovs_key_sctp) },
++	[OVS_KEY_ATTR_ICMP]	 = { .len = sizeof(struct ovs_key_icmp) },
++	[OVS_KEY_ATTR_ICMPV6]	 = { .len = sizeof(struct ovs_key_icmpv6) },
++	[OVS_KEY_ATTR_ARP]	 = { .len = sizeof(struct ovs_key_arp) },
++	[OVS_KEY_ATTR_ND]	 = { .len = sizeof(struct ovs_key_nd) },
++	[OVS_KEY_ATTR_RECIRC_ID] = { .len = sizeof(u32) },
++	[OVS_KEY_ATTR_DP_HASH]	 = { .len = sizeof(u32) },
++	[OVS_KEY_ATTR_TUNNEL]	 = { .len = OVS_ATTR_NESTED,
++				     .next = ovs_tunnel_key_lens, },
++	[OVS_KEY_ATTR_MPLS]	 = { .len = sizeof(struct ovs_key_mpls) },
+ };
+ 
+ static bool is_all_zero(const u8 *fp, size_t size)
+@@ -352,8 +374,8 @@ static int __parse_flow_nlattrs(const struct nlattr *attr,
+ 			return -EINVAL;
+ 		}
+ 
+-		expected_len = ovs_key_lens[type];
+-		if (nla_len(nla) != expected_len && expected_len != -1) {
++		expected_len = ovs_key_lens[type].len;
++		if (nla_len(nla) != expected_len && expected_len != OVS_ATTR_NESTED) {
+ 			OVS_NLERR(log, "Key %d has unexpected len %d expected %d",
+ 				  type, nla_len(nla), expected_len);
+ 			return -EINVAL;
+@@ -451,30 +473,16 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
+ 		int type = nla_type(a);
+ 		int err;
+ 
+-		static const u32 ovs_tunnel_key_lens[OVS_TUNNEL_KEY_ATTR_MAX + 1] = {
+-			[OVS_TUNNEL_KEY_ATTR_ID] = sizeof(u64),
+-			[OVS_TUNNEL_KEY_ATTR_IPV4_SRC] = sizeof(u32),
+-			[OVS_TUNNEL_KEY_ATTR_IPV4_DST] = sizeof(u32),
+-			[OVS_TUNNEL_KEY_ATTR_TOS] = 1,
+-			[OVS_TUNNEL_KEY_ATTR_TTL] = 1,
+-			[OVS_TUNNEL_KEY_ATTR_DONT_FRAGMENT] = 0,
+-			[OVS_TUNNEL_KEY_ATTR_CSUM] = 0,
+-			[OVS_TUNNEL_KEY_ATTR_TP_SRC] = sizeof(u16),
+-			[OVS_TUNNEL_KEY_ATTR_TP_DST] = sizeof(u16),
+-			[OVS_TUNNEL_KEY_ATTR_OAM] = 0,
+-			[OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS] = -1,
+-		};
+-
+ 		if (type > OVS_TUNNEL_KEY_ATTR_MAX) {
+ 			OVS_NLERR(log, "Tunnel attr %d out of range max %d",
+ 				  type, OVS_TUNNEL_KEY_ATTR_MAX);
+ 			return -EINVAL;
+ 		}
+ 
+-		if (ovs_tunnel_key_lens[type] != nla_len(a) &&
+-		    ovs_tunnel_key_lens[type] != -1) {
++		if (ovs_tunnel_key_lens[type].len != nla_len(a) &&
++		    ovs_tunnel_key_lens[type].len != OVS_ATTR_NESTED) {
+ 			OVS_NLERR(log, "Tunnel attr %d has unexpected len %d expected %d",
+-				  type, nla_len(a), ovs_tunnel_key_lens[type]);
++				  type, nla_len(a), ovs_tunnel_key_lens[type].len);
+ 			return -EINVAL;
+ 		}
+ 
+@@ -912,18 +920,16 @@ static int ovs_key_from_nlattrs(struct sw_flow_match *match, u64 attrs,
+ 	return 0;
+ }
+ 
+-static void nlattr_set(struct nlattr *attr, u8 val, bool is_attr_mask_key)
++static void nlattr_set(struct nlattr *attr, u8 val,
++		       const struct ovs_len_tbl *tbl)
+ {
+ 	struct nlattr *nla;
+ 	int rem;
+ 
+ 	/* The nlattr stream should already have been validated */
+ 	nla_for_each_nested(nla, attr, rem) {
+-		/* We assume that ovs_key_lens[type] == -1 means that type is a
+-		 * nested attribute
+-		 */
+-		if (is_attr_mask_key && ovs_key_lens[nla_type(nla)] == -1)
+-			nlattr_set(nla, val, false);
++		if (tbl && tbl[nla_type(nla)].len == OVS_ATTR_NESTED)
++			nlattr_set(nla, val, tbl[nla_type(nla)].next);
+ 		else
+ 			memset(nla_data(nla), val, nla_len(nla));
+ 	}
+@@ -931,7 +937,7 @@ static void nlattr_set(struct nlattr *attr, u8 val, bool is_attr_mask_key)
+ 
+ static void mask_set_nlattr(struct nlattr *attr, u8 val)
+ {
+-	nlattr_set(attr, val, true);
++	nlattr_set(attr, val, ovs_key_lens);
+ }
+ 
+ /**
+@@ -1628,8 +1634,8 @@ static int validate_set(const struct nlattr *a,
+ 		return -EINVAL;
+ 
+ 	if (key_type > OVS_KEY_ATTR_MAX ||
+-	    (ovs_key_lens[key_type] != nla_len(ovs_key) &&
+-	     ovs_key_lens[key_type] != -1))
++	    (ovs_key_lens[key_type].len != nla_len(ovs_key) &&
++	     ovs_key_lens[key_type].len != OVS_ATTR_NESTED))
+ 		return -EINVAL;
+ 
+ 	switch (key_type) {
 -- 
 1.9.3
