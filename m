@@ -1,43 +1,57 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next] packet: make packet too small warning match condition
-Date: Thu,  8 Jan 2015 11:29:18 -0500
-Message-ID: <1420734558-30979-1-git-send-email-willemb@google.com>
-Cc: davem@davemloft.net, jkmalinen@gmail.com, dborkman@redhat.com,
-	Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [RFC net-next 0/3] devconf: New infrastructure for setting
+ pre-load parameters for a module
+Date: Thu, 8 Jan 2015 08:46:18 -0800
+Message-ID: <20150108164618.GA11696@kroah.com>
+References: <1420730220-20224-1-git-send-email-hadarh@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Amir Vadai <amirv@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>, shannon.nelson@intel.com,
+	Doug Ledford <dledford@redhat.com>, greearb@candelatech.com
+To: Hadar Hen Zion <hadarh@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f178.google.com ([209.85.160.178]:41033 "EHLO
-	mail-yk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753998AbbAHQ3o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 11:29:44 -0500
-Received: by mail-yk0-f178.google.com with SMTP id 20so1666080yks.9
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 08:29:43 -0800 (PST)
+Received: from mail.linuxfoundation.org ([140.211.169.12]:42109 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754837AbbAHQqT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 11:46:19 -0500
+Content-Disposition: inline
+In-Reply-To: <1420730220-20224-1-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+On Thu, Jan 08, 2015 at 05:16:57PM +0200, Hadar Hen Zion wrote:
+> Hi,
+>     
+> When configuring a device at an early boot stage, most kernel drivers
+> use module parameters (the parameters' settings can be determined in
+> modprobe.d config files).
 
-The expression in ll_header_truncated() tests less than or equal, but
-the warning prints less than. Update the warning.
+Which is a bad idea, as you have learned :)
 
-Reported-by: Jouni Malinen <jkmalinen@gmail.com>
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- net/packet/af_packet.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> These parameters are difficult to manage, and one of the reasons is that
+> module parameters are set per driver and not per device (NICs using the
+> same driver cannot be set with different configurations).
+> Furthermore, using other existing configuration tools like ethtool,
+> ifconfig, ip link commands or sysfs entries is not applicable, since
+> they all rely on having a netdev already set up.
+> 
+> In the past, 'request_firmware' solution for configuration parameters
+> was suggested by Shannon Nelson from Intel[1]. The idea was rejected by
+> Greg KH, who claimed it was abusive of the request_firmware mechanism.
+> Greg suggested using configfs for device configuration instead (as done
+> by the USB gadget driver).
+> 
+> As a solution, we introduce a new kernel infrastructure using configfs
+> to allow the configuration of the device. The goal is to set low-level
+> device functionality that needs to be sorted out before a module is
+> loaded.
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 6880f34..0f02668 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2102,7 +2102,7 @@ static bool ll_header_truncated(const struct net_device *dev, int len)
- {
- 	/* net device doesn't like empty head */
- 	if (unlikely(len <= dev->hard_header_len)) {
--		net_warn_ratelimited("%s: packet size is too short (%d < %d)\n",
-+		net_warn_ratelimited("%s: packet size is too short (%d <= %d)\n",
- 				     current->comm, len, dev->hard_header_len);
- 		return true;
- 	}
--- 
-2.2.0.rc0.207.ga3a616c
+Ick, really?  drivers should never need to be configured like this, if
+so, then something is wrong, they should "just work" by default.  What
+are you needing to "configure" that can't be determined by something
+like a device tree?
+
+greg k-h
