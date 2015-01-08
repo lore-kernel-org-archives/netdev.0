@@ -1,45 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2] tcp: avoid reducing cwnd when ACK+DSACK is
- received
-Date: Thu, 08 Jan 2015 09:27:54 -0800
-Message-ID: <1420738074.5947.68.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1420719609-18638-1-git-send-email-sebastien.barre@uclouvain.be>
-	 <1420730396.5947.55.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <54AEA498.5030202@uclouvain.be>
-	 <CADVnQy=A57TUYD=kGtZXvq7-FGSN=vN3D2heaNCnBB=zjujwUg@mail.gmail.com>
-	 <1420734325.5947.61.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1420737469.5947.66.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?S=E9bastien_Barr=E9?= <sebastien.barre@uclouvain.be>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Gregory Detal <gregory.detal@uclouvain.be>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Neal Cardwell <ncardwell@google.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net 1/1] tipc: fix bug in broadcast retransmit code
+Date: Thu,  8 Jan 2015 12:27:27 -0500
+Message-ID: <1420738047-16466-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f171.google.com ([209.85.216.171]:44679 "EHLO
-	mail-qc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755299AbbAHR2A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 12:28:00 -0500
-Received: by mail-qc0-f171.google.com with SMTP id r5so3250231qcx.2
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 09:28:00 -0800 (PST)
-In-Reply-To: <1420737469.5947.66.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from smtp101.biz.mail.bf1.yahoo.com ([98.139.221.60]:42272 "EHLO
+	smtp101.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757171AbbAHReT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 12:34:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-01-08 at 09:17 -0800, Eric Dumazet wrote:
+In commit 58dc55f25631178ee74cd27185956a8f7dcb3e32 ("tipc: use generic
+SKB list APIs to manage link transmission queue") we replace all list
+traversal loops with the macros skb_queue_walk() or
+skb_queue_walk_safe(). While the previous loops were based on the
+assumption that the list was NULL-terminated, the standard macros
+stop when the iterator reaches the list head, which is non-NULL.
 
-> BTW, tlp_high_seq is used no matter what (initial value is 0).
-> 
-> While the probability ACK seq being exactly 0 is small (1 out of 2^32),
-> probability that !before(ack, tp->tlp_high_seq) being a false positive
-> is very high. Initial sequence number are supposed to be random.
-> 
+In the function bclink_retransmit_pkt() this macro replacement has
+lead to a bug. When we receive a BCAST STATE_MSG we unconditionally
+call the function bclink_retransmit_pkt(), whether there really is
+anything to retransmit or not, assuming that the sequence number
+comparisons will lead to the correct behavior. However, if the
+transmission queue is empty, or if there are no eligible buffers in
+the transmission queue, we will by mistake pass the list head pointer
+to the function tipc_link_retransmit(). Since the list head is not a
+valid sk_buff, this leads to a crash.
 
-Oh well, calls to tcp_process_tlp_ack() are guarded by :
+In this commit we fix this by only calling tipc_link_retransmit()
+if we actually found eligible buffers in the transmission queue.
 
-if (tp->tlp_high_seq)
-    tcp_process_tlp_ack(sk, ack, flag);
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/bcast.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index 96ceefe..a9e174f 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -220,10 +220,11 @@ static void bclink_retransmit_pkt(u32 after, u32 to)
+ 	struct sk_buff *skb;
+ 
+ 	skb_queue_walk(&bcl->outqueue, skb) {
+-		if (more(buf_seqno(skb), after))
++		if (more(buf_seqno(skb), after)) {
++			tipc_link_retransmit(bcl, skb, mod(to - after));
+ 			break;
++		}
+ 	}
+-	tipc_link_retransmit(bcl, skb, mod(to - after));
+ }
+ 
+ /**
+-- 
+1.9.1
