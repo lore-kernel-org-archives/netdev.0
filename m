@@ -1,93 +1,98 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net] ipv6: Prevent ipv6_find_hdr() from returning ENOENT
- for valid non-first fragments
-Date: Thu, 8 Jan 2015 22:11:23 +0100
-Message-ID: <20150108211123.GA4140@salvia>
-References: <CAFB3abzYNYqtzd_n+Ym0Lo=DYbV0HPU=Tqw=stALNnu188hMKQ@mail.gmail.com>
- <20150106224706.GA7416@salvia>
- <CAFB3abwKpR1VqZXUrsexqveAZrA2LTSmTe8a=-H7z2HjAptjwA@mail.gmail.com>
- <1420627396.26870.36.camel@stressinduktion.org>
- <20150108205328.GA3361@salvia>
+From: Prashant Sreedharan <prashant@broadcom.com>
+Subject: Re: [PATCH net-next v2] tg3: move init/deinit from open/close to
+ probe/remove
+Date: Thu, 8 Jan 2015 12:56:19 -0800
+Message-ID: <1420750579.30204.4.camel@prashant>
+References: <1420729987-18476-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rahul Sharma <rsharma@arista.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150108205328.GA3361@salvia>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <mchan@broadcom.com>
+To: Ivan Vecera <ivecera@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:15970 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752089AbbAHVNr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 16:13:47 -0500
+In-Reply-To: <1420729987-18476-1-git-send-email-ivecera@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 08, 2015 at 09:53:28PM +0100, Pablo Neira Ayuso wrote:
-> On Wed, Jan 07, 2015 at 11:43:16AM +0100, Hannes Frederic Sowa wrote:
-> > > >> @@ -250,9 +251,7 @@ int ipv6_find_hdr(const struct sk_buff *
-> > > >>
-> > > >>                         _frag_off = ntohs(*fp) & ~0x7;
-> > > >>                         if (_frag_off) {
-> > > >> -                               if (target < 0 &&
-> > > >> -                                   ((!ipv6_ext_hdr(hp->nexthdr)) ||
-> > > >
-> > > > This check assumes that the following headers cannot show up in the
-> > > > fragmented part of the IPv6 packet:
-> > > >
-> > > >  12 bool ipv6_ext_hdr(u8 nexthdr)
-> > > >  13 {
-> > > >  14         /*
-> > > >  15          * find out if nexthdr is an extension header or a protocol
-> > > >  16          */
-> > > >  17         return   (nexthdr == NEXTHDR_HOP)       ||
-> > > >  18                  (nexthdr == NEXTHDR_ROUTING)   ||
-> > > >  19                  (nexthdr == NEXTHDR_FRAGMENT)  ||
-> > > >  20                  (nexthdr == NEXTHDR_AUTH)      ||
-> > > >  21                  (nexthdr == NEXTHDR_NONE)      ||
-> > > >  22                  (nexthdr == NEXTHDR_DEST);
-> > > >
-> > > >> -                                    hp->nexthdr == NEXTHDR_NONE)) {
-> > > >> +                               if (target < 0) {
-> > > >>                                         if (fragoff)
-> > > >>                                                 *fragoff = _frag_off;
-> > > >>                                         return hp->nexthdr;
-> > > >> --
-> > > >> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > > >> the body of a message to majordomo@vger.kernel.org
-> > > >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > > 
-> > > I think this is incorrect. Authentication header shows up in the
-> > > fragmentable part of the original IPv6 packet. So, for the non-first
-> > > fragments the next-header field value can be NEXTHDR_AUTH.
-> > 
-> > Pablo's mail got me thinking again.
-> > 
-> > In general, IPv6 extension headers can appear in any order and stacks
-> > must be process them. Fragmentation adds a limitation, that some
-> > extension headers do not make sense and don't have any effect if they
-> > appear after a fragmentation header (HbH and ROUTING).
-> > 
-> > Looking at the rest of the function we don't check for HBHHDR or RTHDR
-> > following a fragmentation header either if we process the first fragment
-> > (core stack only processes HBH if directly following the ipv6 header
-> > anyway).
-> > 
-> > So, in my opinion, it is safe to completely remove this check and it
-> > would align if the rest of the extension processing logic. The callers
-> > all seem fine with that.
-> > 
-> > Pablo, what do you think?
+On Thu, 2015-01-08 at 16:13 +0100, Ivan Vecera wrote:
+> Move init and deinit of PTP support from open/close functions
+> to probe/remove funcs to avoid removing/re-adding of associated PTP
+> device(s) during ifup/ifdown.
 > 
-> I'm afraid we cannot just get rid of that !ipv6_ext_hdr() check. The
-> ipv6_find_hdr() function is designed to return the transport protocol.
-> After the proposed change, it will return extension header numbers.
-> This will break existing ip6tables rulesets since the `-p' option
-> relies on this function to match the transport protocol.
+> v2: tg3_ptp_init call moved to correct place (thx. Prashant)
 > 
-> Note that the AH header is skipped (see code a bit below this
-> problematic fragmentation handling) so the follow up header after the
-> AH header is returned as the transport header.
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+> ---
+>  drivers/net/ethernet/broadcom/tg3.c | 25 +++++++++++--------------
+>  1 file changed, 11 insertions(+), 14 deletions(-)
 > 
-> We can probably return the AH protocol number for non-1st fragments.
-> However, that would be something new to ip6tables since nobody has
-> ever seen packet matching `-p ah' rules.
+> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> index 553dcd8..356bd5b 100644
+> --- a/drivers/net/ethernet/broadcom/tg3.c
+> +++ b/drivers/net/ethernet/broadcom/tg3.c
+> @@ -11556,11 +11556,7 @@ static int tg3_start(struct tg3 *tp, bool reset_phy, bool test_irq,
+>  	tg3_flag_set(tp, INIT_COMPLETE);
+>  	tg3_enable_ints(tp);
+>  
+> -	if (init)
+> -		tg3_ptp_init(tp);
+> -	else
+> -		tg3_ptp_resume(tp);
+> -
+> +	tg3_ptp_resume(tp);
+>  
+>  	tg3_full_unlock(tp);
+>  
+> @@ -11681,13 +11677,6 @@ static int tg3_open(struct net_device *dev)
+>  		pci_set_power_state(tp->pdev, PCI_D3hot);
+>  	}
+>  
+> -	if (tg3_flag(tp, PTP_CAPABLE)) {
+> -		tp->ptp_clock = ptp_clock_register(&tp->ptp_info,
+> -						   &tp->pdev->dev);
+> -		if (IS_ERR(tp->ptp_clock))
+> -			tp->ptp_clock = NULL;
+> -	}
+> -
+>  	return err;
+>  }
+>  
+> @@ -11701,8 +11690,6 @@ static int tg3_close(struct net_device *dev)
+>  		return -EAGAIN;
+>  	}
+>  
+> -	tg3_ptp_fini(tp);
+> -
+>  	tg3_stop(tp);
+>  
+>  	/* Clear stats across close / open calls */
+> @@ -17880,6 +17867,14 @@ static int tg3_init_one(struct pci_dev *pdev,
+>  		goto err_out_apeunmap;
+>  	}
+>  
+> +	if (tg3_flag(tp, PTP_CAPABLE)) {
+> +		tg3_ptp_init(tp);
+> +		tp->ptp_clock = ptp_clock_register(&tp->ptp_info,
+> +						   &tp->pdev->dev);
+> +		if (IS_ERR(tp->ptp_clock))
+> +			tp->ptp_clock = NULL;
+> +	}
+> +
+>  	netdev_info(dev, "Tigon3 [partno(%s) rev %04x] (%s) MAC address %pM\n",
+>  		    tp->board_part_number,
+>  		    tg3_chip_rev_id(tp),
+> @@ -17955,6 +17950,8 @@ static void tg3_remove_one(struct pci_dev *pdev)
+>  	if (dev) {
+>  		struct tg3 *tp = netdev_priv(dev);
+>  
+> +		tg3_ptp_fini(tp);
+> +
+>  		release_firmware(tp->fw);
+>  
+>  		tg3_reset_task_cancel(tp);
 
-# ip6tables -I INPUT -p ah
-Warning: never matched protocol: ah. use extension match instead.
+Acked-by: Prashant Sreedharan <prashant@broadcom.com>
