@@ -1,99 +1,66 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH] net/at91_ether: prepare and unprepare clock
-Date: Thu, 8 Jan 2015 11:55:58 +0100
-Message-ID: <54AE623E.5020507@atmel.com>
-References: <1420671566-30784-1-git-send-email-alexandre.belloni@free-electrons.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net 1/2] gen_stats.c: Duplicate xstats buffer for later
+ use
+Date: Thu, 8 Jan 2015 11:05:24 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAC353D@AcuExch.aculab.com>
+References: <20150108103518.GA7214@zenon.in.qult.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Boris Brezillon <boris.brezillon@free-electrons.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1420671566-30784-1-git-send-email-alexandre.belloni@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: 'Ignacy Gawedzki' <ignacy.gawedzki@green-communications.fr>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.184]:52089 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754256AbbAHLGc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 06:06:32 -0500
+In-Reply-To: <20150108103518.GA7214@zenon.in.qult.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 07/01/2015 23:59, Alexandre Belloni a =E9crit :
-> The clock is enabled without being prepared, this leads to:
->=20
-> WARNING: CPU: 0 PID: 1 at drivers/clk/clk.c:889 __clk_enable+0x24/0xa=
-8()
->=20
-> and a non working ethernet interface.
->=20
-> Use clk_prepare_enable() and clk_disable_unprepare() to handle the cl=
-ock.
->=20
-> Signed-off-by: Alexandre Belloni <alexandre.belloni@free-electrons.co=
-m>
-
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-
+From: Ignacy Gawedzki
+> The gnet_stats_copy_app() function gets called, more often than not, with its
+> second argument a pointer to an automatic variable in the caller's stack.
+> Therefore, to avoid copying garbage afterwards when calling
+> gnet_stats_finish_copy(), this data is better copied to a dynamically allocated
+> memory that gets freed after use.
+> 
+> Signed-off-by: Ignacy Gawedzki <ignacy.gawedzki@green-communications.fr>
 > ---
->  drivers/net/ethernet/cadence/at91_ether.c | 10 +++++-----
->  1 file changed, 5 insertions(+), 5 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/=
-ethernet/cadence/at91_ether.c
-> index 55eb7f2af2b4..7ef55f5fa664 100644
-> --- a/drivers/net/ethernet/cadence/at91_ether.c
-> +++ b/drivers/net/ethernet/cadence/at91_ether.c
-> @@ -340,7 +340,7 @@ static int __init at91ether_probe(struct platform=
-_device *pdev)
->  		res =3D PTR_ERR(lp->pclk);
->  		goto err_free_dev;
+>  net/core/gen_stats.c | 17 ++++++++++++++---
+>  1 file changed, 14 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
+> index 0c08062..5770a0e 100644
+> --- a/net/core/gen_stats.c
+> +++ b/net/core/gen_stats.c
+> @@ -305,7 +305,10 @@ int
+>  gnet_stats_copy_app(struct gnet_dump *d, void *st, int len)
+>  {
+>  	if (d->compat_xstats) {
+> -		d->xstats = st;
+> +		d->xstats = kmalloc(len, GFP_KERNEL);
+> +		if (!d->xstats)
+> +			goto kmalloc_failure;
+> +		memcpy(d->xstats, st, len);
+>  		d->xstats_len = len;
 >  	}
-> -	clk_enable(lp->pclk);
-> +	clk_prepare_enable(lp->pclk);
-> =20
->  	lp->hclk =3D ERR_PTR(-ENOENT);
->  	lp->tx_clk =3D ERR_PTR(-ENOENT);
-> @@ -406,7 +406,7 @@ static int __init at91ether_probe(struct platform=
-_device *pdev)
->  err_out_unregister_netdev:
->  	unregister_netdev(dev);
->  err_disable_clock:
-> -	clk_disable(lp->pclk);
-> +	clk_disable_unprepare(lp->pclk);
->  err_free_dev:
->  	free_netdev(dev);
->  	return res;
-> @@ -424,7 +424,7 @@ static int at91ether_remove(struct platform_devic=
-e *pdev)
->  	kfree(lp->mii_bus->irq);
->  	mdiobus_free(lp->mii_bus);
->  	unregister_netdev(dev);
-> -	clk_disable(lp->pclk);
-> +	clk_disable_unprepare(lp->pclk);
->  	free_netdev(dev);
-> =20
+> 
+> @@ -313,6 +316,9 @@ gnet_stats_copy_app(struct gnet_dump *d, void *st, int len)
+>  		return gnet_stats_copy(d, TCA_STATS_APP, st, len);
+> 
 >  	return 0;
-> @@ -440,7 +440,7 @@ static int at91ether_suspend(struct platform_devi=
-ce *pdev, pm_message_t mesg)
->  		netif_stop_queue(net_dev);
->  		netif_device_detach(net_dev);
-> =20
-> -		clk_disable(lp->pclk);
-> +		clk_disable_unprepare(lp->pclk);
->  	}
->  	return 0;
+> +kmalloc_failure:
+> +	spin_unlock_bh(d->lock);
+> +	return -1;
 >  }
-> @@ -451,7 +451,7 @@ static int at91ether_resume(struct platform_devic=
-e *pdev)
->  	struct macb *lp =3D netdev_priv(net_dev);
-> =20
->  	if (netif_running(net_dev)) {
-> -		clk_enable(lp->pclk);
-> +		clk_prepare_enable(lp->pclk);
-> =20
->  		netif_device_attach(net_dev);
->  		netif_start_queue(net_dev);
->=20
 
+This rather implies that you are calling kmalloc() with a spin lock help.
+If this is valid at all then you should probably specify GPF_ATOMIC.
+OTOH it is better to call kmalloc() before acquiring the lock.
 
---=20
-Nicolas Ferre
+The locking itself looks odd - since the corresponding spin_lock_bh()
+isn't in the same function.
+
+	David
