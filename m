@@ -1,76 +1,65 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: iproute2 ss: Some thoughts about additional info output layout
-Date: Fri, 9 Jan 2015 00:12:40 +0200
-Message-ID: <20150108221240.GA23636@angus-think.lan>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [RFC net-next 0/3] devconf: New infrastructure for setting
+ pre-load parameters for a module
+Date: Fri, 9 Jan 2015 00:28:21 +0200
+Message-ID: <CAPcc5PgyBh3Hn4_7kiche2VLFJRXGPUaBw1ycZgvXiR0TSToxw@mail.gmail.com>
+References: <1420730220-20224-1-git-send-email-hadarh@mellanox.com>
+	<20150108164618.GA11696@kroah.com>
+	<54AEBA28.1030301@mellanox.com>
+	<20150108174707.GA13218@kroah.com>
+	<CAPcc5PivsUKr9Q3VN1NFn3xJiB339EdPV=DEiLie8d9QVgOmOg@mail.gmail.com>
+	<20150108192513.GB1961@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vadim4j@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Amir Vadai <amirv@mellanox.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	"shannon.nelson@intel.com" <shannon.nelson@intel.com>,
+	Doug Ledford <dledford@redhat.com>,
+	"greearb@candelatech.com" <greearb@candelatech.com>
+To: Greg KH <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:40104 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754692AbbAHWXG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 17:23:06 -0500
-Received: by mail-lb0-f172.google.com with SMTP id z12so5354387lbi.3
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 14:23:04 -0800 (PST)
-Content-Disposition: inline
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:57081 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932116AbbAHW2W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 17:28:22 -0500
+Received: by mail-lb0-f170.google.com with SMTP id 10so5362940lbg.1
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 14:28:21 -0800 (PST)
+In-Reply-To: <20150108192513.GB1961@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, Jan 8, 2015 at 9:25 PM, Greg KH <gregkh@linuxfoundation.org> wrote:
+> On Thu, Jan 08, 2015 at 09:14:32PM +0200, Amir Vadai wrote:
+>> On Thu, Jan 8, 2015 at 7:47 PM, Greg KH <gregkh@linuxfoundation.org> wrote:
+>> > On Thu, Jan 08, 2015 at 07:11:04PM +0200, Amir Vadai wrote:
+>> >> On 1/8/2015 6:46 PM, Greg KH wrote:
+>> >> > On Thu, Jan 08, 2015 at 05:16:57PM +0200, Hadar Hen Zion wrote:
+>> >> >> Hi,
+>> >> >>
+>> >> >> When configuring a device at an early boot stage, most kernel drivers
+>> >> >> use module parameters (the parameters' settings can be determined in
+>> >> >> modprobe.d config files).
+>> >> >
+>> >> > Which is a bad idea, as you have learned :)
 
-I think that current output of ss utility visually looks little weird
-when additional info options were specified, so I feel that a lot of
-yours will say that it will break existing scripts of ss output parsing
-but I will try, so thats how I think ss output would looks better in
-case if additionally info options were specified (I am not sure how it
-would looks in the email) :
+[...]
 
+>
+> But you are talking about loading config info before the driver is
+> loaded, which goes backwards for how we automatically load modules when
+> the hardware is found.
 
-u_str  ESTAB      0      0                                                   * 14875                                                             * 14876
-users:("terminator",pid=30585,fd=8),
-      ("terminator",pid=29450,fd=8),
-      ("firefox",pid=21863,fd=8),
-      ("terminator",pid=18927,fd=8),
-      ("terminator",pid=17955,fd=8),
-      ("terminator",pid=9620,fd=8),
-      ("terminator",pid=7894,fd=8),
-      ("terminator",pid=7245,fd=8),
-      ("terminator",pid=2542,fd=8),
-      ("qtile",pid=654,fd=8)
-skmem:(r0,rb212992,t0,tb212992,f0,w0,o0,bl0) <-> 
+I guess you're a busy man and getting tired of my nudges. And it is ok
+with us to make it a non-generic solution - so I won't bother you much
+more...
+I would like to understand the arguments here: Maybe there is a
+history that I missed - What are the arguments against having a config
+info before the driver is loaded? Assuming, that it will make the
+driver loading process simpler and faster.
 
-u_str  ESTAB      0      0                                                   * 7550221                                                           * 7550222      
-users:("terminator",pid=9620,fd=12)
-skmem:(r0,rb4194304,t0,tb4194304,f0,w0,o0,bl0) <-> 
-
-udp    ESTAB      0      0                                           10.3.5.18:ipproto-58744                                           192.168.1.1:swipe        
-users:("firefox",pid=21863,fd=54) 
-uid:1000 ino:7328962 sk:ffff880212f77bc0 <->
-skmem:(r0,rb4194304,t0,tb4194304,f0,w0,o0,bl0)
-
-udp    ESTAB      0      0                           fe80::6e88:14ff:feac:51e4:ipproto-33582                                     fd6b:a256:8c2e::1:swipe        
-users:("firefox",pid=21863,fd=62) 
-uid:1000 ino:7328974 sk:ffff880205a76e80 <->
-skmem:(r0,rb4194304,t0,tb4194304,f0,w0,o0,bl0)
-
-tcp    ESTAB      0      0                                       192.168.1.198:57851                                               173.194.113.205:https        
-users:("firefox",pid=21863,fd=67) 
-uid:1000 ino:7601516 sk:ffff880102e94d00 <->
-skmem:(r0,rb372480,t0,tb87040,f0,w0,o0,bl0)
-ts sack cubic
-wscale:7,11
-rto:253.333 rtt:50.609/18.209 ato:40
-mss:1448 cwnd:10
-send 2.3Mbps lastsnd:46636 lastrcv:46570 lastack:46593 pacing_rate 4.6Mbps rcv_rtt:73.333 rcv_space:42340
-
-tcp    ESTAB      0      0                                       192.168.1.198:47385                                                74.125.143.104:https        
-users:("firefox",pid=21863,fd=63)
-uid:1000 ino:7602727 sk:ffff880007a1db00 <->
-skmem:(r0,rb372480,t0,tb87040,f0,w0,o0,bl0)
-ts sack cubic wscale:7,11 rto:296.666 rtt:95.496/22.756 ato:40
-mss:1418 cwnd:10
-send 1.2Mbps lastsnd:58640 lastrcv:58550 lastack:58550 pacing_rate 2.4Mbps rcv_rtt:96.666 rcv_space:42340
-
-Regards,
-Vadim Kochan
+Thanks,
+Amir
