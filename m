@@ -1,115 +1,172 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: pull request: batman-adv 20150108
-Date: Thu,  8 Jan 2015 16:15:05 +0100
-Message-ID: <1420730120-9844-1-git-send-email-antonio@meshcoding.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: davem@davemloft.net
+From: Hadar Hen Zion <hadarh@mellanox.com>
+Subject: [RFC net-next 3/3] net/mlx4_core: Set port_type value according to configuration module
+Date: Thu,  8 Jan 2015 17:17:00 +0200
+Message-ID: <1420730220-20224-4-git-send-email-hadarh@mellanox.com>
+References: <1420730220-20224-1-git-send-email-hadarh@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Hadar Har-Zion <hadarh@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>, shannon.nelson@intel.com,
+	Doug Ledford <dledford@redhat.com>, greearb@candelatech.com
+To: "David S. Miller" <davem@davemloft.net>, gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:4490 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754761AbbAHPQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 10:16:28 -0500
+Received: from [193.47.165.129] ([193.47.165.129]:54570 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754650AbbAHPSq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jan 2015 10:18:46 -0500
+In-Reply-To: <1420730220-20224-1-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+port_type_array is a module parameter which sets mlx4_core ports type
+under SRIOV.
+Since module parameter can't be set per device, few Mellanox NICs using
+the same driver, will have to be configured with the same ports type.
 
-this is a batch of patches intended for net-next.
+Using the new devconf infrastructure allows setting different ports type
+per device. In case mlx4_core configuration module is missing, the ports
+type of each device will be set as before, according to port_type_array
+value.
 
-In this patchset you have mostly cleanups and small corrections to issu=
-es
-reported by checkpatch.
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/Kconfig |    1 +
+ drivers/net/ethernet/mellanox/mlx4/main.c  |   55 +++++++++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h  |    1 +
+ 3 files changed, 56 insertions(+), 1 deletions(-)
 
-One notable change is the addition of the DEBUG_FS dependency to the
-BATMAN_ADV_DEBUG symbol by Markus Pargmann. We add this dependency beca=
-use all
-the information provided by the DEBUG feature is accessible only throug=
-h
-debugfs.
-
-
-Please pull or let me know of any problem!
-
-Thanks a lot,
-	Antonio
-
-
-
-The following changes since commit 44d84d7272e5848878a96029b8a8b6e86854=
-f146:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2015-0=
-1-06 22:29:20 -0500)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
-
-for you to fetch changes up to 9535395640edb23ba5cec2abb026c4ee51899722=
-:
-
-  batman-adv: Kconfig, Add missing DEBUG_FS dependency (2015-01-07 22:1=
-7:11 +0100)
-
-----------------------------------------------------------------
-Included changes:
-- remove useless return in void functions
-- remove unused member 'primary_iface' from 'struct orig_node'
-- improve existing kernel doc
-- fix several checkpatch complaints
-- ensure socket's control block is cleared for received skbs
-- add missing DEBUG_FS dependency to BATMAN_ADV_DEBUG symbol
-
-----------------------------------------------------------------
-Antonio Quartulli (7):
-      batman-adv: avoid useless return in void functions
-      batman-adv: checkpatch - else is not generally useful after a bre=
-ak or return
-      batman-adv: checkpatch - No space is necessary after a cast
-      batman-adv: checkpatch - Please use a blank line after declaratio=
-ns
-      batman-adv: checkpatch - Please don't use multiple blank lines
-      batman-adv: checkpatch - remove unnecessary parentheses
-      batman-adv: fix misspelled words
-
-Markus Pargmann (1):
-      batman-adv: Kconfig, Add missing DEBUG_FS dependency
-
-Martin Hundeb=C3=B8ll (5):
-      batman-adv: kernel doc fixes for bat_iv_ogm.c
-      batman-adv: kernel doc fixes for bridge_loop_avoidance.c
-      batman-adv: kernel doc fix for distributed-arp-table.h
-      batman-adv: kernel doc fixes for main.{c, h}
-      batman-adv: clear control block of received socket buffers
-
-Simon Wunderlich (2):
-      batman-adv: remove obsolete variable primary_iface from orig_node
-      batman-adv: Start new development cycle
-
- net/batman-adv/Kconfig                 |  1 +
- net/batman-adv/bat_iv_ogm.c            | 15 +++++++--------
- net/batman-adv/bitarray.c              |  1 -
- net/batman-adv/bitarray.h              |  3 +--
- net/batman-adv/bridge_loop_avoidance.c | 17 +++++++----------
- net/batman-adv/debugfs.c               |  2 +-
- net/batman-adv/distributed-arp-table.c |  1 +
- net/batman-adv/distributed-arp-table.h |  4 +---
- net/batman-adv/fragmentation.c         |  1 -
- net/batman-adv/fragmentation.h         |  3 +--
- net/batman-adv/gateway_client.c        |  1 +
- net/batman-adv/main.c                  | 10 ++++++----
- net/batman-adv/main.h                  | 15 +++++++--------
- net/batman-adv/multicast.h             |  3 ---
- net/batman-adv/network-coding.c        |  3 +--
- net/batman-adv/originator.c            |  1 -
- net/batman-adv/originator.h            |  1 -
- net/batman-adv/packet.h                |  5 +++--
- net/batman-adv/routing.c               |  3 +--
- net/batman-adv/soft-interface.c        |  1 -
- net/batman-adv/sysfs.c                 |  1 -
- net/batman-adv/translation-table.c     |  8 +++-----
- net/batman-adv/types.h                 |  4 +---
- 23 files changed, 43 insertions(+), 61 deletions(-)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/Kconfig b/drivers/net/ethernet/mellanox/mlx4/Kconfig
+index fa135d3..ebdfaae 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlx4/Kconfig
+@@ -33,6 +33,7 @@ config MLX4_EN_VXLAN
+ config MLX4_CORE
+ 	tristate
+ 	depends on PCI
++	select DEVCONF
+ 	default n
+ 
+ config MLX4_DEBUG
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 943cbd4..c2c1129 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -42,6 +42,7 @@
+ #include <linux/io-mapping.h>
+ #include <linux/delay.h>
+ #include <linux/kmod.h>
++#include <linux/devconf.h>
+ 
+ #include <linux/mlx4/device.h>
+ #include <linux/mlx4/doorbell.h>
+@@ -55,6 +56,7 @@ MODULE_DESCRIPTION("Mellanox ConnectX HCA low-level driver");
+ MODULE_LICENSE("Dual BSD/GPL");
+ MODULE_VERSION(DRV_VERSION);
+ 
++static struct devconf_config_driver *mlx4_conf;
+ struct workqueue_struct *mlx4_wq;
+ 
+ #ifdef CONFIG_MLX4_DEBUG
+@@ -255,6 +257,36 @@ static void mlx4_enable_cqe_eqe_stride(struct mlx4_dev *dev)
+ 	}
+ }
+ 
++static int config_port_type(struct mlx4_priv *priv,
++			    int port_num,
++			    int *port_type)
++{
++	struct devconf_config_object *port, *ports;
++	int err;
++	char port_n[sizeof(int)];
++
++	if (!priv->config_obj)
++		return -ENOENT;
++
++	ports = devconf_get_config_object(&priv->config_obj->group, "ports");
++	if (!ports) {
++		pr_err("Fail to get ports configuration\n");
++		return -ENOENT;
++	}
++
++	sprintf(port_n, "%d", port_num);
++	port = devconf_get_config_object(&ports->group, port_n);
++	if (!port)
++		return -ENOENT;
++	err = devconf_get_int_attr(mlx4_conf, port, "type", port_type);
++	if (err < 0) {
++		pr_err("Fail to get port %d type from dev_c_mlx4 configuration module\n",
++		       port_num);
++		return err;
++	}
++	return 0;
++}
++
+ static int _mlx4_dev_port(struct mlx4_dev *dev, int port,
+ 			  struct mlx4_port_cap *port_cap)
+ {
+@@ -297,6 +329,8 @@ static int mlx4_dev_port(struct mlx4_dev *dev, int port,
+ #define MLX4_A0_STEERING_TABLE_SIZE	256
+ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ {
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	int port_type;
+ 	int err;
+ 	int i;
+ 
+@@ -411,7 +445,11 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 				/* if IB and ETH are supported, we set the port
+ 				 * type according to user selection of port type;
+ 				 * if user selected none, take the FW hint */
+-				if (port_type_array[i - 1] == MLX4_PORT_TYPE_NONE)
++				err = config_port_type(priv, i, &port_type);
++				if (!err)
++					dev->caps.port_type[i] = port_type;
++				else if (port_type_array[i - 1] ==
++					 MLX4_PORT_TYPE_NONE)
+ 					dev->caps.port_type[i] = dev->caps.suggested_type[i] ?
+ 						MLX4_PORT_TYPE_ETH : MLX4_PORT_TYPE_IB;
+ 				else
+@@ -3072,6 +3110,7 @@ static int mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
+ {
+ 	struct mlx4_priv *priv;
+ 	struct mlx4_dev *dev;
++	struct devconf_config_object *pdevs;
+ 	int ret;
+ 
+ 	printk_once(KERN_INFO "%s", mlx4_version);
+@@ -3085,6 +3124,20 @@ static int mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
+ 	pci_set_drvdata(pdev, dev);
+ 	priv->pci_dev_data = id->driver_data;
+ 
++	mlx4_conf = devconf_get_config_driver(DRV_NAME);
++	if (IS_ERR(mlx4_conf)) {
++		pr_warn("Configuration driver is missing for "
++			DRV_NAME ", using default vlaues.\n");
++	} else {
++		pdevs = devconf_get_config_object(&mlx4_conf->cobj.group,
++						  "pdevs");
++		if (!pdevs)
++			pr_err("Couldn't find 'pdevs' config object\n");
++		else
++			priv->config_obj =
++				devconf_get_config_object(&pdevs->group,
++							  pci_name(pdev));
++	}
+ 	ret =  __mlx4_init_one(pdev, id->driver_data, priv);
+ 	if (ret)
+ 		kfree(priv);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index bdd4eea..81678a5 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -881,6 +881,7 @@ struct mlx4_priv {
+ 
+ 	atomic_t		opreq_count;
+ 	struct work_struct	opreq_task;
++	struct devconf_config_object	*config_obj;
+ };
+ 
+ static inline struct mlx4_priv *mlx4_priv(struct mlx4_dev *dev)
+-- 
+1.7.8.2
