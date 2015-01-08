@@ -1,61 +1,54 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -next] net: eth: xgene: devm_ioremap() returns NULL on error
-Date: Thu, 8 Jan 2015 13:52:12 +0300
-Message-ID: <20150108105211.GB10597@mwanda>
+From: Ignacy =?iso-8859-2?Q?Gaw=EAdzki?=
+	<ignacy.gawedzki@green-communications.fr>
+Subject: [PATCH net 2/2] gen_stats.c: Fix comment above
+ gnet_stats_start_copy()
+Date: Thu, 8 Jan 2015 11:35:36 +0100
+Message-ID: <20150108103536.GA7237@zenon.in.qult.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Keyur Chudgar <kchudgar@apm.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Iyappan Subramanian <isubramanian@apm.com>, Feng Kan <fkan@apm.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [78.193.33.39] ([78.193.33.39]:53971 "EHLO mail.qult.net"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753784AbbAHKvr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jan 2015 05:51:47 -0500
+Received: from zenon.in.qult.net ([192.168.64.1] helo=zenon)
+	by mail.qult.net with esmtps (TLS1.2:RSA_AES_128_CBC_SHA1:128)
+	(Exim 4.82)
+	(envelope-from <ignacy.gawedzki@green-communications.fr>)
+	id 1Y9ARc-0003lQ-IX
+	for netdev@vger.kernel.org; Thu, 08 Jan 2015 11:36:00 +0100
+Received: from ig by zenon with local (Exim 4.84_RC1)
+	(envelope-from <ignacy.gawedzki@green-communications.fr>)
+	id 1Y9ARE-0001su-Um
+	for netdev@vger.kernel.org; Thu, 08 Jan 2015 11:35:37 +0100
 Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-devm_ioremap() returns NULL on failure, it doesn't return an ERR_PTR.
+The original comment was obviously a failed copy/paste.
 
-Fixes: de7b5b3d790a ('net: eth: xgene: change APM X-Gene SoC platform ethernet to support ACPI')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communications.=
+fr>
+---
+ net/core/gen_stats.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 1e56bf3..02add38 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -804,9 +804,9 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
- 		return -ENODEV;
- 	}
- 	pdata->base_addr = devm_ioremap(dev, res->start, resource_size(res));
--	if (IS_ERR(pdata->base_addr)) {
-+	if (!pdata->base_addr) {
- 		dev_err(dev, "Unable to retrieve ENET Port CSR region\n");
--		return PTR_ERR(pdata->base_addr);
-+		return -ENOMEM;
- 	}
- 
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, RES_RING_CSR);
-@@ -816,9 +816,9 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
- 	}
- 	pdata->ring_csr_addr = devm_ioremap(dev, res->start,
- 							resource_size(res));
--	if (IS_ERR(pdata->ring_csr_addr)) {
-+	if (!pdata->ring_csr_addr) {
- 		dev_err(dev, "Unable to retrieve ENET Ring CSR region\n");
--		return PTR_ERR(pdata->ring_csr_addr);
-+		return -ENOMEM;
- 	}
- 
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, RES_RING_CMD);
-@@ -828,9 +828,9 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
- 	}
- 	pdata->ring_cmd_addr = devm_ioremap(dev, res->start,
- 							resource_size(res));
--	if (IS_ERR(pdata->ring_cmd_addr)) {
-+	if (!pdata->ring_cmd_addr) {
- 		dev_err(dev, "Unable to retrieve ENET Ring command region\n");
--		return PTR_ERR(pdata->ring_cmd_addr);
-+		return -ENOMEM;
- 	}
- 
- 	ret = platform_get_irq(pdev, 0);
+diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
+index 5770a0e..1b25d80 100644
+--- a/net/core/gen_stats.c
++++ b/net/core/gen_stats.c
+@@ -77,7 +77,7 @@ gnet_stats_start_copy_compat(struct sk_buff *skb, int=
+ type, int tc_stats_type,
+ EXPORT_SYMBOL(gnet_stats_start_copy_compat);
+=20
+ /**
+- * gnet_stats_start_copy_compat - start dumping procedure in compatibi=
+lity mode
++ * gnet_stats_start_copy - start dumping procedure
+  * @skb: socket buffer to put statistics TLVs into
+  * @type: TLV type for top level statistic TLV
+  * @lock: statistics lock
+--=20
+1.9.1
