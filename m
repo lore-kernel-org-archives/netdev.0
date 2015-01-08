@@ -1,61 +1,48 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 12/15] batman-adv: clear control block of received socket buffers
-Date: Thu,  8 Jan 2015 16:15:17 +0100
-Message-ID: <1420730120-9844-13-git-send-email-antonio@meshcoding.com>
+Subject: [PATCH 11/15] batman-adv: checkpatch - remove unnecessary parentheses
+Date: Thu,  8 Jan 2015 16:15:16 +0100
+Message-ID: <1420730120-9844-12-git-send-email-antonio@meshcoding.com>
 References: <1420730120-9844-1-git-send-email-antonio@meshcoding.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	=?UTF-8?q?Martin=20Hundeb=C3=B8ll?= <martin@hundeboll.net>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Antonio Quartulli <antonio@meshcoding.com>
+	Antonio Quartulli <antonio@meshcoding.com>,
+	Marek Lindner <mareklindner@neomailbox.ch>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:45371 "EHLO
+Received: from s3.neomailbox.net ([178.209.62.157]:23187 "EHLO
 	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754864AbbAHPbz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 10:31:55 -0500
+	with ESMTP id S1754864AbbAHPbx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 10:31:53 -0500
 In-Reply-To: <1420730120-9844-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Martin Hundeb=C3=B8ll <martin@hundeboll.net>
-
-Since other network components (and some drivers) uses the control bloc=
-k
-provided in skb's, the network coding feature might wrongly assume that
-an SKB has been decoded, and thus not try to code it with another packe=
-t
-again. This happens for instance when batman-adv is running on a bridge=
- device.
-
-=46ix this by clearing the control block for every received SKB.
-
-Introduced by 3c12de9a5c756b23fe7c9ab332474ece1568914c
-("batman-adv: network coding - code and transmit packets if possible")
-Signed-off-by: Martin Hundeb=C3=B8ll <martin@hundeboll.net>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-
 Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 ---
- net/batman-adv/main.c | 3 +++
- 1 file changed, 3 insertions(+)
+ net/batman-adv/bat_iv_ogm.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-index d4079cd..3bcd847 100644
---- a/net/batman-adv/main.c
-+++ b/net/batman-adv/main.c
-@@ -402,6 +402,9 @@ int batadv_batman_skb_recv(struct sk_buff *skb, str=
-uct net_device *dev,
- 		goto err_free;
- 	}
-=20
-+	/* reset control block to avoid left overs from previous users */
-+	memset(skb->cb, 0, sizeof(struct batadv_skb_cb));
-+
- 	/* all receive handlers return whether they received or reused
- 	 * the supplied skb. if not, we have to free the skb.
- 	 */
---=20
+diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
+index 4dd7c40..00e00e0 100644
+--- a/net/batman-adv/bat_iv_ogm.c
++++ b/net/batman-adv/bat_iv_ogm.c
+@@ -878,7 +878,7 @@ batadv_iv_ogm_slide_own_bcast_window(struct batadv_hard_iface *hard_iface)
+ 		hlist_for_each_entry_rcu(orig_node, head, hash_entry) {
+ 			spin_lock_bh(&orig_node->bat_iv.ogm_cnt_lock);
+ 			word_index = hard_iface->if_num * BATADV_NUM_WORDS;
+-			word = &(orig_node->bat_iv.bcast_own[word_index]);
++			word = &orig_node->bat_iv.bcast_own[word_index];
+ 
+ 			batadv_bit_get_packet(bat_priv, word, 1, 0);
+ 			if_num = hard_iface->if_num;
+@@ -1663,7 +1663,7 @@ static void batadv_iv_ogm_process(const struct sk_buff *skb, int ogm_offset,
+ 			offset = if_num * BATADV_NUM_WORDS;
+ 
+ 			spin_lock_bh(&orig_neigh_node->bat_iv.ogm_cnt_lock);
+-			word = &(orig_neigh_node->bat_iv.bcast_own[offset]);
++			word = &orig_neigh_node->bat_iv.bcast_own[offset];
+ 			bit_pos = if_incoming_seqno - 2;
+ 			bit_pos -= ntohl(ogm_packet->seqno);
+ 			batadv_set_bit(word, bit_pos);
+-- 
 2.2.1
