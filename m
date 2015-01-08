@@ -1,108 +1,74 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: Re: [PATCH net-next v5 0/7]: ixgbevf: Allow querying VFs RSS indirection
- table and key
-Date: Thu, 08 Jan 2015 10:42:37 +0200
-Message-ID: <54AE42FD.3030908@cloudius-systems.com>
-References: <1420658802-18061-1-git-send-email-vladz@cloudius-systems.com> <1420661025.2491.73.camel@jtkirshe-mobl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gleb@cloudius-systems.com,
-	avi@cloudius-systems.com, Greg Rose <gregory.v.rose@intel.com>,
-	Greg Rose <gvrose8192@gmail.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch iproute2 v2] iplink: print out addrgenmode attribute
+Date: Thu,  8 Jan 2015 09:49:55 +0100
+Message-ID: <1420706995-2107-1-git-send-email-jiri@resnulli.us>
+Cc: stephen@networkplumber.org, thaller@redhat.com, vadim4j@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:36041 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753420AbbAHImk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 03:42:40 -0500
-Received: by mail-wi0-f176.google.com with SMTP id ex7so1731546wid.3
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 00:42:39 -0800 (PST)
-In-Reply-To: <1420661025.2491.73.camel@jtkirshe-mobl>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:40152 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753420AbbAHIt7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 03:49:59 -0500
+Received: by mail-wi0-f174.google.com with SMTP id h11so1761339wiw.1
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 00:49:58 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+addrgenmode is currently write only by ip. So display this information
+if provided by kernel as well.
 
-On 01/07/15 22:03, Jeff Kirsher wrote:
-> On Wed, 2015-01-07 at 21:26 +0200, Vlad Zolotarov wrote:
->> Add the ethtool ops to VF driver to allow querying the RSS indirection
->> table
->> and RSS Random Key.
->>
->> On some devices VFs share the RSS Redirection Table and Hash Key with
->> a PF and letting
->> the VF query this information may introduce some security risks.
->> Therefore we disable this
->> feature by default for such devices (e.g. 82599) and allow it for
->> those where there isn't any
->> possible risk (e.g. on x550). The new netdev op is going to allow a
->> system administrator to
->> change the default behaviour with "ip link set" command.
->>
->>   - netdev: Add a new netdev op to allow/block VF from querying RSS
->> Indirection Table and
->>     RSS Hash Key.
->>   - PF driver: Add new VF-PF channel commands.
->>   - VF driver: Utilize these new commands and add the corresponding
->>                ethtool callbacks.
->>
->> New in v5:
->>     - Added a new netdev op to allow/block VF from querying RSS
->> Indirection Table and
->>       RSS Hash Key.
->>     - Let VF query the RSS info only if VF is allowed to.
->>
->> New in v4:
->>     - Forgot to run checkpatch on v3 and there were a few styling
->> things to fix. ;)
->>
->> New in v3:
->>     - Added a missing support for x550 devices.
->>     - Mask the indirection table values according to PSRTYPE[n].RQPL.
->>     - Minimized the number of added VF-PF commands.
->>
->> New in v2:
->>     - Added a detailed description to patches 4 and 5.
->>
->> New in v1 (compared to RFC):
->>     - Use "if-else" statement instead of a "switch-case" for a single
->> option case.
->>       More specifically: in cases where the newly added API version is
->> the only one
->>       allowed. We may consider using a "switch-case" back again when
->> the list of
->>       allowed API versions in these specific places grows up.
->>
->> Vlad Zolotarov (7):
->>    if_link: Add an additional parameter to ifla_vf_info for RSS
->> querying
->>    ixgbe: Add a new netdev op to allow/prevent a VF from querying an
->> RSS
->>      info
->>    ixgbe: Add a RETA query command to VF-PF channel API
->>    ixgbevf: Add a RETA query code
->>    ixgbe: Add GET_RSS_KEY command to VF-PF channel commands set
->>    ixgbevf: Add RSS Key query code
->>    ixgbevf: Add the appropriate ethtool ops to query RSS indirection
->>      table and key
->>
->>   drivers/net/ethernet/intel/ixgbe/ixgbe.h          |   1 +
->>   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |   7 ++
->>   drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h      |  10 ++
->>   drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    | 119
->> +++++++++++++++++++
->>   drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h    |   2 +
->>   drivers/net/ethernet/intel/ixgbevf/ethtool.c      |  42 +++++++
->>   drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   4 +-
->>   drivers/net/ethernet/intel/ixgbevf/mbx.h          |  10 ++
->>   drivers/net/ethernet/intel/ixgbevf/vf.c           | 132
->> ++++++++++++++++++++++
->>   drivers/net/ethernet/intel/ixgbevf/vf.h           |   2 +
->>   include/linux/if_link.h                           |   1 +
->>   include/linux/netdevice.h                         |   8 ++
->>   include/uapi/linux/if_link.h                      |   8 ++
->>   net/core/rtnetlink.c                              |  33 +++++-
->>   14 files changed, 372 insertions(+), 7 deletions(-)
-> Thanks Vlad, I will add your patches to my queue.
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Thanks, guys (Greg and Jeff).
+---
+v1->v2:
+-rebased on current master (instead of net-next branch)
+---
+ ip/ipaddress.c | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 28dfe8c..d8bda30 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -255,6 +255,29 @@ static void print_linktype(FILE *fp, struct rtattr *tb)
+ 	}
+ }
+ 
++static void print_af_spec(FILE *fp, struct rtattr *af_spec_attr)
++{
++	struct rtattr *inet6_attr;
++	struct rtattr *tb[IFLA_INET6_MAX + 1];
++
++	inet6_attr = parse_rtattr_one_nested(AF_INET6, af_spec_attr);
++	if (!inet6_attr)
++		return;
++
++	parse_rtattr_nested(tb, IFLA_INET6_MAX, inet6_attr);
++
++	if (tb[IFLA_INET6_ADDR_GEN_MODE]) {
++		switch (rta_getattr_u8(tb[IFLA_INET6_ADDR_GEN_MODE])) {
++		case IN6_ADDR_GEN_MODE_EUI64:
++			fprintf(fp, "addrgenmode eui64 ");
++			break;
++		case IN6_ADDR_GEN_MODE_NONE:
++			fprintf(fp, "addrgenmode none ");
++			break;
++		}
++	}
++}
++
+ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
+ {
+ 	struct ifla_vf_mac *vf_mac;
+@@ -658,6 +681,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 	if (tb[IFLA_LINKINFO] && show_details)
+ 		print_linktype(fp, tb[IFLA_LINKINFO]);
+ 
++	if (do_link && tb[IFLA_AF_SPEC] && show_details)
++		print_af_spec(fp, tb[IFLA_AF_SPEC]);
++
+ 	if ((do_link || show_details) && tb[IFLA_IFALIAS]) {
+ 		fprintf(fp, "%s    alias %s", _SL_,
+ 			rta_getattr_str(tb[IFLA_IFALIAS]));
+-- 
+1.9.3
