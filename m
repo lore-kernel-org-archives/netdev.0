@@ -1,489 +1,152 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 6/6] openvswitch: Support VXLAN Group Policy extension
-Date: Thu,  8 Jan 2015 23:47:31 +0100
-Message-ID: <afb217a272c609e7ca30669d862cda5fb99d8b55.1420756324.git.tgraf@suug.ch>
+Subject: [PATCH 1/6] vxlan: Allow for VXLAN extensions to be implemented
+Date: Thu,  8 Jan 2015 23:47:26 +0100
+Message-ID: <4be19bc1973d968fabbf9b0e5d60e0a51df38202.1420756324.git.tgraf@suug.ch>
 References: <cover.1420756324.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org
 To: davem@davemloft.net, jesse@nicira.com, stephen@networkplumber.org,
 	pshelar@nicira.com, therbert@google.com,
 	alexei.starovoitov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:47582 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:47202 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932670AbbAHWry (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 17:47:54 -0500
+	with ESMTP id S1757715AbbAHWrn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 17:47:43 -0500
 In-Reply-To: <cover.1420756324.git.tgraf@suug.ch>
 In-Reply-To: <cover.1420756324.git.tgraf@suug.ch>
 References: <cover.1420756324.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduces support for the group policy extension to the VXLAN virtual
-port. The extension is disabled by default and only enabled if the user
-has provided the respective configuration.
+The VXLAN receive code is currently conservative in what it accepts and
+will reject any frame that uses any of the reserved VXLAN protocol fields.
+The VXLAN draft specifies that "reserved fields MUST be set to zero on
+transmit and ignored on receive.".
 
-  ovs-vsctl add-port br0 vxlan0 -- \
-     set Interface vxlan0 type=vxlan options:exts=gbp
-
-The configuration interface to enable the extension is based on a new
-attribute OVS_VXLAN_EXT_GBP nested inside OVS_TUNNEL_ATTR_EXTENSION
-which can carry additional extensions as needed in the future.
-
-The group policy metadata is stored as binary blob (struct ovs_vxlan_opts)
-internally just like Geneve options but transported as nested Netlink
-attributes to user space.
-
-Renames the existing TUNNEL_OPTIONS_PRESENT to TUNNEL_GENEVE_OPT with the
-binary value kept intact, a new flag TUNNEL_VXLAN_OPT is introduced.
-
-The attributes OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS and existing
-OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS are implemented mutually exclusive.
+Retain the current conservative parsing behaviour by default but allows
+these fields to be used by VXLAN extensions which are explicitly enabled
+on the VXLAN socket respectively VXLAN net_device.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
 v2:
- - Addressed Jesse's request to transport VXLAN options as Netlink
-   attributes instead of a binary blob. Allows a partial transport of
-   VXLAN extensions. Internally, the datapath continues to use a binary
-   blob (defined in vport-vxlan.h) for performance reasons.
- - Added new TUNNEL_GENEVE_OPT and TUNNEL_VXLAN_OPT flags to mark
-   tunnel option flavour
- - Correctly report VXLAN options to user space
+ - No change
 
- include/net/ip_tunnels.h         |   5 +-
- include/uapi/linux/openvswitch.h |  11 ++++
- net/openvswitch/flow_netlink.c   | 114 ++++++++++++++++++++++++++++++++++-----
- net/openvswitch/vport-geneve.c   |   2 +-
- net/openvswitch/vport-vxlan.c    |  81 +++++++++++++++++++++++++++-
- net/openvswitch/vport-vxlan.h    |  11 ++++
- 6 files changed, 207 insertions(+), 17 deletions(-)
- create mode 100644 net/openvswitch/vport-vxlan.h
+ drivers/net/vxlan.c | 29 +++++++++++++++++++----------
+ include/net/vxlan.h | 32 +++++++++++++++++++++++++++++---
+ 2 files changed, 48 insertions(+), 13 deletions(-)
 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 25a59eb..ce4db3c 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -97,7 +97,10 @@ struct ip_tunnel {
- #define TUNNEL_DONT_FRAGMENT    __cpu_to_be16(0x0100)
- #define TUNNEL_OAM		__cpu_to_be16(0x0200)
- #define TUNNEL_CRIT_OPT		__cpu_to_be16(0x0400)
--#define TUNNEL_OPTIONS_PRESENT	__cpu_to_be16(0x0800)
-+#define TUNNEL_GENEVE_OPT	__cpu_to_be16(0x0800)
-+#define TUNNEL_VXLAN_OPT	__cpu_to_be16(0x1000)
-+
-+#define TUNNEL_OPTIONS_PRESENT	(TUNNEL_GENEVE_OPT | TUNNEL_VXLAN_OPT)
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 2ab0922..4d52aa9 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -65,7 +65,7 @@
+ #define VXLAN_VID_MASK	(VXLAN_N_VID - 1)
+ #define VXLAN_HLEN (sizeof(struct udphdr) + sizeof(struct vxlanhdr))
  
- struct tnl_ptk_info {
- 	__be16 flags;
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index 3a6dcaa..e474c95 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -248,11 +248,21 @@ enum ovs_vport_attr {
+-#define VXLAN_FLAGS 0x08000000	/* struct vxlanhdr.vx_flags required value. */
++#define VXLAN_FLAGS 0x08000000 /* struct vxlanhdr.vx_flags default value. */
  
- #define OVS_VPORT_ATTR_MAX (__OVS_VPORT_ATTR_MAX - 1)
+ /* UDP port for VXLAN traffic.
+  * The IANA assigned port is 4789, but the Linux default is 8472
+@@ -1100,22 +1100,28 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 	if (!pskb_may_pull(skb, VXLAN_HLEN))
+ 		goto error;
  
-+enum {
-+	OVS_VXLAN_EXT_UNSPEC,
-+	OVS_VXLAN_EXT_GBP,	/* Flag or __u32 */
-+	__OVS_VXLAN_EXT_MAX,
-+};
++	vs = rcu_dereference_sk_user_data(sk);
++	if (!vs)
++		goto drop;
 +
-+#define OVS_VXLAN_EXT_MAX (__OVS_VXLAN_EXT_MAX - 1)
+ 	/* Return packets with reserved bits set */
+ 	vxh = (struct vxlanhdr *)(udp_hdr(skb) + 1);
+-	if (vxh->vx_flags != htonl(VXLAN_FLAGS) ||
+-	    (vxh->vx_vni & htonl(0xff))) {
+-		netdev_dbg(skb->dev, "invalid vxlan flags=%#x vni=%#x\n",
+-			   ntohl(vxh->vx_flags), ntohl(vxh->vx_vni));
+-		goto error;
 +
-+
- /* OVS_VPORT_ATTR_OPTIONS attributes for tunnels.
-  */
- enum {
- 	OVS_TUNNEL_ATTR_UNSPEC,
- 	OVS_TUNNEL_ATTR_DST_PORT, /* 16-bit UDP port, used by L4 tunnels. */
-+	OVS_TUNNEL_ATTR_EXTENSION,
- 	__OVS_TUNNEL_ATTR_MAX
- };
- 
-@@ -324,6 +334,7 @@ enum ovs_tunnel_key_attr {
- 	OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS,        /* Array of Geneve options. */
- 	OVS_TUNNEL_KEY_ATTR_TP_SRC,		/* be16 src Transport Port. */
- 	OVS_TUNNEL_KEY_ATTR_TP_DST,		/* be16 dst Transport Port. */
-+	OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS,		/* Nested OVS_VXLAN_EXT_* */
- 	__OVS_TUNNEL_KEY_ATTR_MAX
- };
- 
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 457ccf3..cea492b 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -49,6 +49,7 @@
- #include <net/mpls.h>
- 
- #include "flow_netlink.h"
-+#include "vport-vxlan.h"
- 
- struct ovs_len_tbl {
- 	int len;
-@@ -268,6 +269,9 @@ size_t ovs_tun_key_attr_size(void)
- 		+ nla_total_size(0)    /* OVS_TUNNEL_KEY_ATTR_CSUM */
- 		+ nla_total_size(0)    /* OVS_TUNNEL_KEY_ATTR_OAM */
- 		+ nla_total_size(256)  /* OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS */
-+		/* OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS is mutually exclusive with
-+		 * OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS and covered by it.
-+		 */
- 		+ nla_total_size(2)    /* OVS_TUNNEL_KEY_ATTR_TP_SRC */
- 		+ nla_total_size(2);   /* OVS_TUNNEL_KEY_ATTR_TP_DST */
- }
-@@ -308,6 +312,7 @@ static const struct ovs_len_tbl ovs_tunnel_key_lens[OVS_TUNNEL_KEY_ATTR_MAX + 1]
- 	[OVS_TUNNEL_KEY_ATTR_TP_DST]	    = { .len = sizeof(u16) },
- 	[OVS_TUNNEL_KEY_ATTR_OAM]	    = { .len = 0 },
- 	[OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS]   = { .len = OVS_ATTR_NESTED },
-+	[OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS]    = { .len = OVS_ATTR_NESTED },
- };
- 
- /* The size of the argument for each %OVS_KEY_ATTR_* Netlink attribute.  */
-@@ -460,6 +465,41 @@ static int genev_tun_opt_from_nlattr(const struct nlattr *a,
- 	return 0;
- }
- 
-+static const struct nla_policy vxlan_opt_policy[OVS_VXLAN_EXT_MAX + 1] = {
-+	[OVS_VXLAN_EXT_GBP]	= { .type = NLA_U32 },
-+};
-+
-+static int vxlan_tun_opt_from_nlattr(const struct nlattr *a,
-+				     struct sw_flow_match *match, bool is_mask,
-+				     bool log)
-+{
-+	struct nlattr *tb[OVS_VXLAN_EXT_MAX+1];
-+	unsigned long opt_key_offset;
-+	struct ovs_vxlan_opts opts;
-+	int err;
-+
-+	BUILD_BUG_ON(sizeof(opts) > sizeof(match->key->tun_opts));
-+
-+	err = nla_parse_nested(tb, OVS_VXLAN_EXT_MAX, a, vxlan_opt_policy);
-+	if (err < 0)
-+		return err;
-+
-+	memset(&opts, 0, sizeof(opts));
-+
-+	if (tb[OVS_VXLAN_EXT_MAX])
-+		opts.gbp = nla_get_u32(tb[OVS_VXLAN_EXT_MAX]);
-+
-+	if (!is_mask)
-+		SW_FLOW_KEY_PUT(match, tun_opts_len, sizeof(opts), false);
-+	else
-+		SW_FLOW_KEY_PUT(match, tun_opts_len, 0xff, true);
-+
-+	opt_key_offset = TUN_METADATA_OFFSET(sizeof(opts));
-+	SW_FLOW_KEY_MEMCPY_OFFSET(match, opt_key_offset, &opts, sizeof(opts),
-+				  is_mask);
-+	return 0;
-+}
-+
- static int ipv4_tun_from_nlattr(const struct nlattr *attr,
- 				struct sw_flow_match *match, bool is_mask,
- 				bool log)
-@@ -468,6 +508,7 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
- 	int rem;
- 	bool ttl = false;
- 	__be16 tun_flags = 0;
-+	int opts_type = 0;
- 
- 	nla_for_each_nested(a, attr, rem) {
- 		int type = nla_type(a);
-@@ -527,11 +568,30 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
- 			tun_flags |= TUNNEL_OAM;
- 			break;
- 		case OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS:
-+			if (opts_type) {
-+				OVS_NLERR(log, "Multiple metadata blocks provided");
-+				return -EINVAL;
-+			}
-+
- 			err = genev_tun_opt_from_nlattr(a, match, is_mask, log);
- 			if (err)
- 				return err;
- 
--			tun_flags |= TUNNEL_OPTIONS_PRESENT;
-+			tun_flags |= TUNNEL_GENEVE_OPT;
-+			opts_type = type;
-+			break;
-+		case OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS:
-+			if (opts_type) {
-+				OVS_NLERR(log, "Multiple metadata blocks provided");
-+				return -EINVAL;
-+			}
-+
-+			err = vxlan_tun_opt_from_nlattr(a, match, is_mask, log);
-+			if (err)
-+				return err;
-+
-+			tun_flags |= TUNNEL_VXLAN_OPT;
-+			opts_type = type;
- 			break;
- 		default:
- 			OVS_NLERR(log, "Unknown IPv4 tunnel attribute %d",
-@@ -560,6 +620,23 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
- 		}
++	/* For backwards compatibility, only allow reserved fields to be
++	 * used by VXLAN extensions if explicitly requested.
++	 */
++	if (vs->exts) {
++		if (!vxh->vni_present)
++			goto error_invalid_header;
++	} else {
++		if (vxh->vx_flags != htonl(VXLAN_FLAGS) ||
++		    (vxh->vx_vni & htonl(0xff)))
++			goto error_invalid_header;
  	}
  
-+	return opts_type;
-+}
-+
-+static int vxlan_opt_to_nlattr(struct sk_buff *skb,
-+			       const void *tun_opts, int swkey_tun_opts_len)
-+{
-+	const struct ovs_vxlan_opts *opts = tun_opts;
-+	struct nlattr *nla;
-+
-+	nla = nla_nest_start(skb, OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS);
-+	if (!nla)
-+		return -EMSGSIZE;
-+
-+	if (nla_put_u32(skb, OVS_VXLAN_EXT_GBP, opts->gbp) < 0)
-+		return -EMSGSIZE;
-+
-+	nla_nest_end(skb, nla);
+ 	if (iptunnel_pull_header(skb, VXLAN_HLEN, htons(ETH_P_TEB)))
+ 		goto drop;
+ 
+-	vs = rcu_dereference_sk_user_data(sk);
+-	if (!vs)
+-		goto drop;
+-
+ 	vs->rcv(vs, skb, vxh->vx_vni);
  	return 0;
- }
  
-@@ -596,10 +673,15 @@ static int __ipv4_tun_to_nlattr(struct sk_buff *skb,
- 	if ((output->tun_flags & TUNNEL_OAM) &&
- 	    nla_put_flag(skb, OVS_TUNNEL_KEY_ATTR_OAM))
- 		return -EMSGSIZE;
--	if (tun_opts &&
--	    nla_put(skb, OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS,
--		    swkey_tun_opts_len, tun_opts))
--		return -EMSGSIZE;
-+	if (tun_opts) {
-+		if (output->tun_flags & TUNNEL_GENEVE_OPT &&
-+		    nla_put(skb, OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS,
-+			    swkey_tun_opts_len, tun_opts))
-+			return -EMSGSIZE;
-+		else if (output->tun_flags & TUNNEL_VXLAN_OPT &&
-+			 vxlan_opt_to_nlattr(skb, tun_opts, swkey_tun_opts_len))
-+			return -EMSGSIZE;
-+	}
- 
+@@ -1124,6 +1130,9 @@ drop:
+ 	kfree_skb(skb);
  	return 0;
- }
-@@ -680,7 +762,7 @@ static int metadata_from_nlattrs(struct sw_flow_match *match,  u64 *attrs,
- 	}
- 	if (*attrs & (1 << OVS_KEY_ATTR_TUNNEL)) {
- 		if (ipv4_tun_from_nlattr(a[OVS_KEY_ATTR_TUNNEL], match,
--					 is_mask, log))
-+					 is_mask, log) < 0)
- 			return -EINVAL;
- 		*attrs &= ~(1 << OVS_KEY_ATTR_TUNNEL);
- 	}
-@@ -1578,17 +1660,23 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
- 	struct sw_flow_key key;
- 	struct ovs_tunnel_info *tun_info;
- 	struct nlattr *a;
--	int err, start;
-+	int err, start, opts_type;
  
- 	ovs_match_init(&match, &key, NULL);
--	err = ipv4_tun_from_nlattr(nla_data(attr), &match, false, log);
--	if (err)
--		return err;
-+	opts_type = ipv4_tun_from_nlattr(nla_data(attr), &match, false, log);
-+	if (opts_type < 0)
-+		return opts_type;
++error_invalid_header:
++	netdev_dbg(skb->dev, "invalid vxlan flags=%#x vni=%#x\n",
++		   ntohl(vxh->vx_flags), ntohl(vxh->vx_vni));
+ error:
+ 	/* Return non vxlan pkt */
+ 	return 1;
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index 903461a..3e98d31 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -11,10 +11,35 @@
+ #define VNI_HASH_BITS	10
+ #define VNI_HASH_SIZE	(1<<VNI_HASH_BITS)
  
- 	if (key.tun_opts_len) {
--		err = validate_and_copy_geneve_opts(&key);
--		if (err < 0)
--			return err;
-+		switch (opts_type) {
-+		case OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS:
-+			err = validate_and_copy_geneve_opts(&key);
-+			if (err < 0)
-+				return err;
-+			break;
-+		case OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS:
-+			break;
-+		}
- 	};
- 
- 	start = add_nested_action_start(sfa, OVS_ACTION_ATTR_SET, log);
-diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
-index 484864d..902ee4f 100644
---- a/net/openvswitch/vport-geneve.c
-+++ b/net/openvswitch/vport-geneve.c
-@@ -90,7 +90,7 @@ static void geneve_rcv(struct geneve_sock *gs, struct sk_buff *skb)
- 
- 	opts_len = geneveh->opt_len * 4;
- 
--	flags = TUNNEL_KEY | TUNNEL_OPTIONS_PRESENT |
-+	flags = TUNNEL_KEY | TUNNEL_GENEVE_OPT |
- 		(udp_hdr(skb)->check != 0 ? TUNNEL_CSUM : 0) |
- 		(geneveh->oam ? TUNNEL_OAM : 0) |
- 		(geneveh->critical ? TUNNEL_CRIT_OPT : 0);
-diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-index 266c595..dbd6c75 100644
---- a/net/openvswitch/vport-vxlan.c
-+++ b/net/openvswitch/vport-vxlan.c
-@@ -40,6 +40,7 @@
- 
- #include "datapath.h"
- #include "vport.h"
-+#include "vport-vxlan.h"
- 
- /**
-  * struct vxlan_port - Keeps track of open UDP ports
-@@ -49,6 +50,7 @@
- struct vxlan_port {
- 	struct vxlan_sock *vs;
- 	char name[IFNAMSIZ];
-+	u32 exts; /* VXLAN_EXT_* in <net/vxlan.h> */
- };
- 
- static struct vport_ops ovs_vxlan_vport_ops;
-@@ -63,16 +65,26 @@ static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb,
- 		      struct vxlan_metadata *md)
- {
- 	struct ovs_tunnel_info tun_info;
-+	struct vxlan_port *vxlan_port;
- 	struct vport *vport = vs->data;
- 	struct iphdr *iph;
-+	struct ovs_vxlan_opts opts = {
-+		.gbp = md->gbp,
-+	};
- 	__be64 key;
-+	__be16 flags;
-+
-+	flags = TUNNEL_KEY;
-+	vxlan_port = vxlan_vport(vport);
-+	if (vxlan_port->exts & VXLAN_EXT_GBP)
-+		flags |= TUNNEL_VXLAN_OPT;
- 
- 	/* Save outer tunnel values */
- 	iph = ip_hdr(skb);
- 	key = cpu_to_be64(ntohl(md->vni) >> 8);
- 	ovs_flow_tun_info_init(&tun_info, iph,
- 			       udp_hdr(skb)->source, udp_hdr(skb)->dest,
--			       key, TUNNEL_KEY, NULL, 0);
-+			       key, flags, &opts, sizeof(opts));
- 
- 	ovs_vport_receive(vport, skb, &tun_info);
- }
-@@ -84,6 +96,21 @@ static int vxlan_get_options(const struct vport *vport, struct sk_buff *skb)
- 
- 	if (nla_put_u16(skb, OVS_TUNNEL_ATTR_DST_PORT, ntohs(dst_port)))
- 		return -EMSGSIZE;
-+
-+	if (vxlan_port->exts) {
-+		struct nlattr *exts;
-+
-+		exts = nla_nest_start(skb, OVS_TUNNEL_ATTR_EXTENSION);
-+		if (!exts)
-+			return -EMSGSIZE;
-+
-+		if (vxlan_port->exts & VXLAN_EXT_GBP &&
-+		    nla_put_flag(skb, OVS_VXLAN_EXT_GBP))
-+			return -EMSGSIZE;
-+
-+		nla_nest_end(skb, exts);
-+	}
-+
- 	return 0;
- }
- 
-@@ -96,6 +123,31 @@ static void vxlan_tnl_destroy(struct vport *vport)
- 	ovs_vport_deferred_free(vport);
- }
- 
-+static const struct nla_policy exts_policy[OVS_VXLAN_EXT_MAX+1] = {
-+	[OVS_VXLAN_EXT_GBP]	= { .type = NLA_FLAG, },
-+};
-+
-+static int vxlan_configure_exts(struct vport *vport, struct nlattr *attr)
-+{
-+	struct nlattr *exts[OVS_VXLAN_EXT_MAX+1];
-+	struct vxlan_port *vxlan_port;
-+	int err;
-+
-+	if (nla_len(attr) < sizeof(struct nlattr))
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(exts, OVS_VXLAN_EXT_MAX, attr, exts_policy);
-+	if (err < 0)
-+		return err;
-+
-+	vxlan_port = vxlan_vport(vport);
-+
-+	if (exts[OVS_VXLAN_EXT_GBP])
-+		vxlan_port->exts |= VXLAN_EXT_GBP;
-+
-+	return 0;
-+}
-+
- static struct vport *vxlan_tnl_create(const struct vport_parms *parms)
- {
- 	struct net *net = ovs_dp_get_net(parms->dp);
-@@ -128,7 +180,17 @@ static struct vport *vxlan_tnl_create(const struct vport_parms *parms)
- 	vxlan_port = vxlan_vport(vport);
- 	strncpy(vxlan_port->name, parms->name, IFNAMSIZ);
- 
--	vs = vxlan_sock_add(net, htons(dst_port), vxlan_rcv, vport, true, 0, 0);
-+	a = nla_find_nested(options, OVS_TUNNEL_ATTR_EXTENSION);
-+	if (a) {
-+		err = vxlan_configure_exts(vport, a);
-+		if (err) {
-+			ovs_vport_free(vport);
-+			goto error;
-+		}
-+	}
-+
-+	vs = vxlan_sock_add(net, htons(dst_port), vxlan_rcv, vport, true, 0,
-+			    vxlan_port->exts);
- 	if (IS_ERR(vs)) {
- 		ovs_vport_free(vport);
- 		return (void *)vs;
-@@ -141,6 +203,20 @@ error:
- 	return ERR_PTR(err);
- }
- 
-+static int vxlan_ext_gbp(struct sk_buff *skb)
-+{
-+	const struct ovs_tunnel_info *tun_info;
-+	const struct ovs_vxlan_opts *opts;
-+
-+	tun_info = OVS_CB(skb)->egress_tun_info;
-+	opts = tun_info->options;
-+
-+	if (tun_info->options_len >= sizeof(*opts))
-+		return opts->gbp;
-+	else
-+		return 0;
-+}
-+
- static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
- {
- 	struct net *net = ovs_dp_get_net(vport->dp);
-@@ -181,6 +257,7 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
- 
- 	src_port = udp_flow_src_port(net, skb, 0, 0, true);
- 	md.vni = htonl(be64_to_cpu(tun_key->tun_id) << 8);
-+	md.gbp = vxlan_ext_gbp(skb);
- 
- 	err = vxlan_xmit_skb(vxlan_port->vs, rt, skb,
- 			     fl.saddr, tun_key->ipv4_dst,
-diff --git a/net/openvswitch/vport-vxlan.h b/net/openvswitch/vport-vxlan.h
-new file mode 100644
-index 0000000..4b08233e
---- /dev/null
-+++ b/net/openvswitch/vport-vxlan.h
-@@ -0,0 +1,11 @@
-+#ifndef VPORT_VXLAN_H
-+#define VPORT_VXLAN_H 1
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+
-+struct ovs_vxlan_opts {
-+	__u32 gbp;
-+};
-+
+-/* VXLAN protocol header */
++/* VXLAN protocol header:
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |R|R|R|R|I|R|R|R|               Reserved                        |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                VXLAN Network Identifier (VNI) |   Reserved    |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ *
++ * I = 1	VXLAN Network Identifier (VNI) present
++ */
+ struct vxlanhdr {
+-	__be32 vx_flags;
+-	__be32 vx_vni;
++	union {
++		struct {
++#ifdef __LITTLE_ENDIAN_BITFIELD
++			__u8	reserved_flags1:3,
++				vni_present:1,
++				reserved_flags2:4;
++#elif defined(__BIG_ENDIAN_BITFIELD)
++			__u8	reserved_flags2:4,
++				vni_present:1,
++				reserved_flags1:3;
++#else
++#error	"Please fix <asm/byteorder.h>"
 +#endif
++			__u8	vx_reserved1;
++			__be16	vx_reserved2;
++		};
++		__be32 vx_flags;
++	};
++	__be32	vx_vni;
+ };
+ 
+ struct vxlan_sock;
+@@ -25,6 +50,7 @@ struct vxlan_sock {
+ 	struct hlist_node hlist;
+ 	vxlan_rcv_t	 *rcv;
+ 	void		 *data;
++	u32		  exts;
+ 	struct work_struct del_work;
+ 	struct socket	 *sock;
+ 	struct rcu_head	  rcu;
 -- 
 1.9.3
