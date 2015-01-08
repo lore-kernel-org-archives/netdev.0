@@ -1,88 +1,40 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v3 1/4] can: kvaser_usb: Don't free packets when tight
- on URBs
-Date: Thu, 08 Jan 2015 10:59:41 +0100
-Message-ID: <54AE550D.2090603@pengutronix.de>
-References: <20141223154654.GB6460@vivalin-002> <20150105174910.GA6304@linux>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 6/6] openvswitch: Support VXLAN Group Policy extension
+Date: Thu, 8 Jan 2015 10:22:12 +0000
+Message-ID: <20150108102212.GA27599@casper.infradead.org>
+References: <cover.1420594925.git.tgraf@suug.ch>
+ <9c1b0b0acde09019acb61b9b1a4eb4b18c62642a.1420594925.git.tgraf@suug.ch>
+ <CAEP_g=__Ssxj3B_0sbp5D+Gh8YmQ7ub9giK4A_QYWVmYctjm-w@mail.gmail.com>
+ <20150107230155.GC21149@casper.infradead.org>
+ <CAEP_g=_t_KMUdit7WUSg+OORh=FoQtzLyygaVMftyDV-tAxJvA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="WiNE8xaUfGDPeWqvKbbP7HCNwqTlFEQ4v"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Linux-CAN <linux-can@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin Shelar <pshelar@nicira.com>,
 	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: "Ahmed S. Darwish" <darwish.07@gmail.com>,
-	Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20150105174910.GA6304@linux>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:41415 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751050AbbAHKWP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 05:22:15 -0500
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=_t_KMUdit7WUSg+OORh=FoQtzLyygaVMftyDV-tAxJvA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---WiNE8xaUfGDPeWqvKbbP7HCNwqTlFEQ4v
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On 01/07/15 at 05:18pm, Jesse Gross wrote:
+> On Wed, Jan 7, 2015 at 3:01 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> > The encoding will be based on struct ovs_vxlan_opts which is extended
+> > as needed by appending new members to the end of the struct. Parsers
+> > will look at the provided length to see which fields are provided.
+> 
+> But this means that if there are two extensions that are conflicting
+> or if one is retired you still need to carry the earlier members of
+> the struct. Why not make them real netlink attributes?
 
-On 01/05/2015 06:49 PM, Ahmed S. Darwish wrote:
-> From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
->=20
-> Flooding the Kvaser CAN to USB dongle with multiple reads and
-> writes in high frequency caused seemingly-random panics in the
-> kernel.
->=20
-> On further inspection, it seems the driver erroneously freed the
-> to-be-transmitted packet upon getting tight on URBs and returning
-> NETDEV_TX_BUSY, leading to invalid memory writes and double frees
-> at a later point in time.
->=20
-> Note:
->=20
-> Finding no more URBs/transmit-contexts and returning NETDEV_TX_BUSY
-> is a driver bug in and out of itself: it means that our start/stop
-> queue flow control is broken.
->=20
-> This patch only fixes the (buggy) error handling code; the root
-> cause shall be fixed in a later commit.
->=20
-> Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
-> Acked-by: Olivier Sobrie <olivier@sobrie.be>
-
-Applied 1-3 to can/master + added stable on Cc.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---WiNE8xaUfGDPeWqvKbbP7HCNwqTlFEQ4v
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUrlUNAAoJECte4hHFiupUU1oP+gPHJr/qMlLDH/fU+ewPD1Mz
-51hu2buq6BT2SR1EGf5Hnn4HiQc4GFp8WfSxiSpUX7KggpTefig/XApe4JEj/dUE
-Glr3ef0yyrruQpWyqCnohWtJH099ejGwvNhKtVXckPj4eBt9gLOMXat7iTf1Bccx
-YLqEv+TKKt+cVKasFZVxSuUJSazK1hGblP4mJrwXEsjjfFiOSExdMVcoANK4QGZa
-rTYLULlNNr/kgGRNyHwjTgSMOqiSIb7jroiHETp2rO0Odo/hbxm9SfTSUTGhACs+
-N0X2qHdMfyThPR18fbpCYnBlLoLm08N++EmLt+v43biN8Gwqh9a91hva4sI5rOnO
-cyUCO6OJ/WQAqEOsGQXtmQ8c1ziZSTraECnYi1d9PQi2AyLqo+m33Ou1gjPV3jcw
-J2hh7l4kbKTbgbgQLHyjdk0lAFrvUogYMA/9vy9hLEMaiknD5QflnC9N02I5DTGe
-MC5/n0n72qz4yhfv4p+Tm63eqiH6AiWnNyAYZLd7h3pztWa+0pdy5HOuYT92Coff
-YaWQ7pMhrA/UBjj1qPQXnLVmJgHrwnnw9iNSlTD0tV7IyCCMx9wD2hNfYsi9as9I
-q8hWQpJI1bHcKziqMFR8a5pm/4/9u8gjgfQvrx3oK5qWSiYyjkuVpQUD3KAd7Zsd
-g9uabkR6ZybKwICbLCbO
-=xNks
------END PGP SIGNATURE-----
-
---WiNE8xaUfGDPeWqvKbbP7HCNwqTlFEQ4v--
+I figured that due to the limited space available in the VXLAN header
+the structure would never grow big. I have no problem converting this
+to use Netlink attributes internally though. Will address this in v2.
