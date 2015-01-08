@@ -1,52 +1,45 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [patch iproute2 2/2] iplink: print out addrgenmode attribute
-Date: Thu, 8 Jan 2015 09:13:08 +0200
-Message-ID: <20150108071308.GA16389@angus-think.lan>
-References: <1420561426-3118-1-git-send-email-jiri@resnulli.us>
- <1420561426-3118-2-git-send-email-jiri@resnulli.us>
- <20150107151036.2852e1be@urahara>
- <20150108070439.GB1860@nanopsycho.orion>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next] tc: add BPF based action
+Date: Thu, 8 Jan 2015 08:26:00 +0100
+Message-ID: <20150108072600.GC1860@nanopsycho.orion>
+References: <1420649035-9522-1-git-send-email-jiri@resnulli.us>
+ <54AD7C03.3010904@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org, thaller@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+	stephen@networkplumber.org, ast@plumgrid.com
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f41.google.com ([209.85.215.41]:48182 "EHLO
-	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752243AbbAHHXd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 02:23:33 -0500
-Received: by mail-la0-f41.google.com with SMTP id hv19so7696932lab.0
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 23:23:31 -0800 (PST)
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:49770 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751298AbbAHH0D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 02:26:03 -0500
+Received: by mail-wi0-f174.google.com with SMTP id h11so1368997wiw.1
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 23:26:01 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20150108070439.GB1860@nanopsycho.orion>
+In-Reply-To: <54AD7C03.3010904@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 08, 2015 at 08:04:39AM +0100, Jiri Pirko wrote:
-> Thu, Jan 08, 2015 at 12:10:36AM CET, stephen@networkplumber.org wrote:
-> >On Tue,  6 Jan 2015 17:23:46 +0100
-> >Jiri Pirko <jiri@resnulli.us> wrote:
-> >
-> >> addrgenmode is currently write only by ip. So display this information
-> >> if provided by kernel as well.
-> >> 
-> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> >
-> >Patch does not apply to current iproute2 git
-> 
-> I made that against net-next branch. Which branch should I use for new
-> features?
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Wed, Jan 07, 2015 at 07:33:39PM CET, dborkman@redhat.com wrote:
+>On 01/07/2015 05:43 PM, Jiri Pirko wrote:
+>>This action provides a possibility to exec custom BPF code.
+>
+>Can you elaborate a bit more on the particular use-case, and
+>what scenarios are unsolveable with the BPF filter we already
+>have in tc? Just wondering, since you're using BPF for the
+>purpose of classifying (but just from the context of actions)
+>what about a possibility of a generic container for reusing
+>(any) classifier from the framework, so we would not need to
+>duplicate code?
+>
+>On the other hand, I would understand if it's at some point in
+>time eBPF which would f.e. mangle the packet, but the API you
+>propose is clearly classic BPF. ;)
 
-I am not sure if I am right, but seems to me that net-next should keep
-features which depends on the next Linux headers version, and as I
-understand these new headers are merged into net-next branch and after
-into master. But I tried fix your patch on the master and it compiles
-OK, so I assume that it can be based on master branch.
+Exactly. I would like to extend cls_bpf and act_bpf to handle eBPF right
+after. That is the point.
 
-Regards,
+>
+>Thanks,
+>Daniel
