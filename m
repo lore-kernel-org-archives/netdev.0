@@ -1,8 +1,10 @@
 From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [RFC net-next 3/3] net/mlx4_core: Set port_type value according to configuration module
-Date: Thu,  8 Jan 2015 17:17:00 +0200
-Message-ID: <1420730220-20224-4-git-send-email-hadarh@mellanox.com>
-References: <1420730220-20224-1-git-send-email-hadarh@mellanox.com>
+Subject: [RFC net-next 0/3] devconf: New infrastructure for setting pre-load parameters for a module
+Date: Thu,  8 Jan 2015 17:16:57 +0200
+Message-ID: <1420730220-20224-1-git-send-email-hadarh@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Hadar Har-Zion <hadarh@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
@@ -10,163 +12,195 @@ Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Doug Ledford <dledford@redhat.com>, greearb@candelatech.com
 To: "David S. Miller" <davem@davemloft.net>, gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:54570 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:54585 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754650AbbAHPSq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jan 2015 10:18:46 -0500
-In-Reply-To: <1420730220-20224-1-git-send-email-hadarh@mellanox.com>
+	id S1753567AbbAHPTC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jan 2015 10:19:02 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-port_type_array is a module parameter which sets mlx4_core ports type
-under SRIOV.
-Since module parameter can't be set per device, few Mellanox NICs using
-the same driver, will have to be configured with the same ports type.
+Hi,
+   =20
+When configuring a device at an early boot stage, most kernel drivers
+use module parameters (the parameters' settings can be determined in
+modprobe.d config files).
+These parameters are difficult to manage, and one of the reasons is tha=
+t
+module parameters are set per driver and not per device (NICs using the
+same driver cannot be set with different configurations).
+=46urthermore, using other existing configuration tools like ethtool,
+ifconfig, ip link commands or sysfs entries is not applicable, since
+they all rely on having a netdev already set up.
 
-Using the new devconf infrastructure allows setting different ports type
-per device. In case mlx4_core configuration module is missing, the ports
-type of each device will be set as before, according to port_type_array
-value.
+In the past, 'request_firmware' solution for configuration parameters
+was suggested by Shannon Nelson from Intel[1]. The idea was rejected by
+Greg KH, who claimed it was abusive of the request_firmware mechanism.
+Greg suggested using configfs for device configuration instead (as done
+by the USB gadget driver).
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/Kconfig |    1 +
- drivers/net/ethernet/mellanox/mlx4/main.c  |   55 +++++++++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h  |    1 +
- 3 files changed, 56 insertions(+), 1 deletions(-)
+As a solution, we introduce a new kernel infrastructure using configfs
+to allow the configuration of the device. The goal is to set low-level
+device functionality that needs to be sorted out before a module is
+loaded.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/Kconfig b/drivers/net/ethernet/mellanox/mlx4/Kconfig
-index fa135d3..ebdfaae 100644
---- a/drivers/net/ethernet/mellanox/mlx4/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlx4/Kconfig
-@@ -33,6 +33,7 @@ config MLX4_EN_VXLAN
- config MLX4_CORE
- 	tristate
- 	depends on PCI
-+	select DEVCONF
- 	default n
- 
- config MLX4_DEBUG
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 943cbd4..c2c1129 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -42,6 +42,7 @@
- #include <linux/io-mapping.h>
- #include <linux/delay.h>
- #include <linux/kmod.h>
-+#include <linux/devconf.h>
- 
- #include <linux/mlx4/device.h>
- #include <linux/mlx4/doorbell.h>
-@@ -55,6 +56,7 @@ MODULE_DESCRIPTION("Mellanox ConnectX HCA low-level driver");
- MODULE_LICENSE("Dual BSD/GPL");
- MODULE_VERSION(DRV_VERSION);
- 
-+static struct devconf_config_driver *mlx4_conf;
- struct workqueue_struct *mlx4_wq;
- 
- #ifdef CONFIG_MLX4_DEBUG
-@@ -255,6 +257,36 @@ static void mlx4_enable_cqe_eqe_stride(struct mlx4_dev *dev)
- 	}
- }
- 
-+static int config_port_type(struct mlx4_priv *priv,
-+			    int port_num,
-+			    int *port_type)
-+{
-+	struct devconf_config_object *port, *ports;
-+	int err;
-+	char port_n[sizeof(int)];
-+
-+	if (!priv->config_obj)
-+		return -ENOENT;
-+
-+	ports = devconf_get_config_object(&priv->config_obj->group, "ports");
-+	if (!ports) {
-+		pr_err("Fail to get ports configuration\n");
-+		return -ENOENT;
-+	}
-+
-+	sprintf(port_n, "%d", port_num);
-+	port = devconf_get_config_object(&ports->group, port_n);
-+	if (!port)
-+		return -ENOENT;
-+	err = devconf_get_int_attr(mlx4_conf, port, "type", port_type);
-+	if (err < 0) {
-+		pr_err("Fail to get port %d type from dev_c_mlx4 configuration module\n",
-+		       port_num);
-+		return err;
-+	}
-+	return 0;
-+}
-+
- static int _mlx4_dev_port(struct mlx4_dev *dev, int port,
- 			  struct mlx4_port_cap *port_cap)
- {
-@@ -297,6 +329,8 @@ static int mlx4_dev_port(struct mlx4_dev *dev, int port,
- #define MLX4_A0_STEERING_TABLE_SIZE	256
- static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- {
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	int port_type;
- 	int err;
- 	int i;
- 
-@@ -411,7 +445,11 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 				/* if IB and ETH are supported, we set the port
- 				 * type according to user selection of port type;
- 				 * if user selected none, take the FW hint */
--				if (port_type_array[i - 1] == MLX4_PORT_TYPE_NONE)
-+				err = config_port_type(priv, i, &port_type);
-+				if (!err)
-+					dev->caps.port_type[i] = port_type;
-+				else if (port_type_array[i - 1] ==
-+					 MLX4_PORT_TYPE_NONE)
- 					dev->caps.port_type[i] = dev->caps.suggested_type[i] ?
- 						MLX4_PORT_TYPE_ETH : MLX4_PORT_TYPE_IB;
- 				else
-@@ -3072,6 +3110,7 @@ static int mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
- {
- 	struct mlx4_priv *priv;
- 	struct mlx4_dev *dev;
-+	struct devconf_config_object *pdevs;
- 	int ret;
- 
- 	printk_once(KERN_INFO "%s", mlx4_version);
-@@ -3085,6 +3124,20 @@ static int mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
- 	pci_set_drvdata(pdev, dev);
- 	priv->pci_dev_data = id->driver_data;
- 
-+	mlx4_conf = devconf_get_config_driver(DRV_NAME);
-+	if (IS_ERR(mlx4_conf)) {
-+		pr_warn("Configuration driver is missing for "
-+			DRV_NAME ", using default vlaues.\n");
-+	} else {
-+		pdevs = devconf_get_config_object(&mlx4_conf->cobj.group,
-+						  "pdevs");
-+		if (!pdevs)
-+			pr_err("Couldn't find 'pdevs' config object\n");
-+		else
-+			priv->config_obj =
-+				devconf_get_config_object(&pdevs->group,
-+							  pci_name(pdev));
-+	}
- 	ret =  __mlx4_init_one(pdev, id->driver_data, priv);
- 	if (ret)
- 		kfree(priv);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index bdd4eea..81678a5 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -881,6 +881,7 @@ struct mlx4_priv {
- 
- 	atomic_t		opreq_count;
- 	struct work_struct	opreq_task;
-+	struct devconf_config_object	*config_obj;
- };
- 
- static inline struct mlx4_priv *mlx4_priv(struct mlx4_dev *dev)
--- 
+Configfs Solution:
+----------------------
+The implemented configfs solution is composed of one generic module
+('devconf') that can load configuration modules per driver.
+The devconf should be loaded at a very early boot stage, before other
+kernel modules are loaded (or compiled as in-tree). After configfs is
+mounted, it creates a new directory under configfs, called 'devices'.
+
+In the example presented below, systemd mechanism is being used, but th=
+e
+configuration can also work with older init systems.
+
+1. A systemd service, scheduled by the OS to run before kernel modules
+are loaded, creates a directory under 'devices' with the name of the dr=
+iver.
+The devconf module will try to load a configuration module for this
+driver (if exists).
+
+2. Drivers using this mechanism will be made of two parts:
+a configuration module and the driver itself.
+
+3. Later on, when the OS loads the driver, it uses the configuration
+sub-tree.
+
+To avoid dependencies between the modules, in case the configuration
+module does not exist or is not loaded, the driver will use default
+values.
+
+Example:
+--------
+The below mlx4_core configuration file is only an example. Since the
+infrastructure is generic, each vendor can choose how to identify its
+devices (for example: bdf, mac address, uuid etc.).
+
+If /etc/devconf.d/mlx4_core.conf is as follows (see below), systemd
+service will use it to run the following commands (see below).
+
+mlx4_core.conf file:
+--------------------
+[pdevs]
+	[0000:00:08.0]
+		dmfs =3D 0
+		[ports]
+			[1]
+			type =3D 2
+			[2]
+			type =3D2
+	[0000:00:04.0]
+		dmfs =3D 0
+		[ports]
+			[1]
+			type =3D 5
+			[2]
+			type =3D1
+
+Systemd commands:
+-----------------
+$ mkdir /sys/kernel/config/devices/mlx4_core
+
+devconf module will try to load dev_c_mlx4.ko
+
+$ mkdir /sys/kernel/config/devices/mlx4_core/pdevs
+$ mkdir /sys/kernel/config/devices/mlx4_core/pdevs/0000:00:08.0
+$ mkdir /sys/kernel/config/devices/mlx4_core/pdevs/0000:00:08.0/ports
+$ mkdir /sys/kernel/config/devices/mlx4_core/pdevs/0000:00:08.0/ports/1
+$ mkdir /sys/kernel/config/devices/mlx4_core/pdevs/0000:00:08.0/ports/2
+
+$ echo 5 > /sys/kernel/config/devices/mlx4_core/pdevs/0000:00:08.0/port=
+s/1/type
+$ echo 1 > /sys/kernel/config/devices/mlx4_core/pdevs/0000:00:08.0/port=
+s/2/type
+$ echo 0 > /sys/kernel/config/devices/mlx4_core/pdevs/0000:00:08.0/dmfs
+[...]
+
+dev_c_mlx4 will reject the above configuration, printing a clear messag=
+e
+to dmesg:
+"mlx4_core: Unknown port type '5' for device 0000:00:08.0. Use 0 for
+auto, 1 for IB and 2 for ETH"
+
+The driver configuration module validates and prepares configfs sub-tre=
+e
+for the driver itself.
+A configuration sub-tree for a specific module will be created under
+/sys/kernel/config/devices/<driver name>, and propagated from a
+configuration file on the OS (located under: /etc/devconf.d/).
+
+Configfs Sub-tree Example (for mlx4_core):
+------------------------------------------
+$ cd /sys/kernel/config/
+$ tree devices/
+devices/
+=E2=94=94=E2=94=80=E2=94=80 mlx4_core
+    =E2=94=94=E2=94=80=E2=94=80 pdevs
+	    =E2=94=9C=E2=94=80=E2=94=80 0000:00:04.0
+	    =E2=94=82=C2=A0=C2=A0 =E2=94=9C=E2=94=80=E2=94=80 dmfs
+	    =E2=94=82   =E2=94=94=E2=94=80=E2=94=80 ports
+	    =E2=94=82=C2=A0=C2=A0     =E2=94=9C=E2=94=80=E2=94=80 1
+	    =E2=94=82=C2=A0=C2=A0     =E2=94=82=C2=A0=C2=A0 =E2=94=94=E2=94=80=
+=E2=94=80 type
+	    =E2=94=82=C2=A0=C2=A0     =E2=94=94=E2=94=80=E2=94=80 2
+	    =E2=94=82		=E2=94=94=E2=94=80=E2=94=80 type
+	    =E2=94=94=E2=94=80=E2=94=80 0000:00:08.0
+	 	=E2=94=9C=E2=94=80=E2=94=80 dmfs
+	 	=E2=94=94=E2=94=80=E2=94=80 ports
+	 	    =E2=94=9C=E2=94=80=E2=94=80 1
+	 	    =E2=94=82 	=E2=94=94=E2=94=80=E2=94=80 type
+	 	    =E2=94=94=E2=94=80=E2=94=80 2
+	 		=E2=94=94=E2=94=80=E2=94=80 type
+
+The systemd service that populates configfs is part of the sysinit
+target. The service is executed after mounting configfs and before udev
+load kernel modules.
+
+To use devconf infrastructure, the following should be included:
+1. Devconf systemd service
+2. Configuration file in the right format under: /etc/devconf.d/
+
+This suggested solution is generic and designed to suite any type of
+device. The goal is to make this solution generic enough so all kinds o=
+f
+drivers are able to use it.
+As a start, this RFC is being sent to the netdev mailing list for
+feedback, but will eventually be submitted to the LKML mailing list as =
+a
+generic kernel infrastructure.
+
+Hadar.
+
+[1] - https://lkml.org/lkml/2013/1/10/606
+
+Hadar Hen Zion (3):
+  net/dev_c_mlx4: Support mlx4_core pre-load configuration
+  devconf: Add configuration module for setting pre-load parameters
+  net/mlx4_core: Set port_type value according to configuration module
+
+ Documentation/filesystems/configfs/devconf.txt |  135 ++++++++++
+ drivers/Kconfig                                |    2 +
+ drivers/Makefile                               |    1 +
+ drivers/devconf/Kconfig                        |    6 +
+ drivers/devconf/Makefile                       |    3 +
+ drivers/devconf/driver.c                       |  160 ++++++++++++
+ drivers/devconf/main.c                         |  103 ++++++++
+ drivers/net/ethernet/mellanox/mlx4/Kconfig     |    6 +
+ drivers/net/ethernet/mellanox/mlx4/Makefile    |    4 +
+ drivers/net/ethernet/mellanox/mlx4/main.c      |   55 ++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h      |    1 +
+ drivers/net/ethernet/mellanox/mlx4/mlx4_conf.c |  323 ++++++++++++++++=
+++++++++
+ include/linux/devconf.h                        |   69 +++++
+ 13 files changed, 867 insertions(+), 1 deletions(-)
+ create mode 100644 Documentation/filesystems/configfs/devconf.txt
+ create mode 100644 drivers/devconf/Kconfig
+ create mode 100644 drivers/devconf/Makefile
+ create mode 100644 drivers/devconf/driver.c
+ create mode 100644 drivers/devconf/main.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx4/mlx4_conf.c
+ create mode 100644 include/linux/devconf.h
+
+--=20
 1.7.8.2
