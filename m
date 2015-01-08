@@ -1,140 +1,158 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: [PATCH 3/6] vxlan: Only bind to sockets with correct
-	extensions enabled
-Date: Thu,  8 Jan 2015 23:47:28 +0100
-Message-ID: <c02e4ba90da456541d8cb3ead339e8aa0262cc74.1420756324.git.tgraf@suug.ch>
-References: <cover.1420756324.git.tgraf@suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
- pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <cover.1420756324.git.tgraf-G/eBtMaohhA@public.gmane.org>
-In-Reply-To: <cover.1420756324.git.tgraf-G/eBtMaohhA@public.gmane.org>
-References: <cover.1420756324.git.tgraf-G/eBtMaohhA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH iproute2 -next v3] ip: route: add congestion control metric
+Date: Fri,  9 Jan 2015 00:13:06 +0100
+Message-ID: <1420758786-32666-1-git-send-email-dborkman@redhat.com>
+Cc: fw@strlen.de, netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42592 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752444AbbAHXNP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jan 2015 18:13:15 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-QSBWWExBTiBuZXRfZGV2aWNlIGxvb2tpbmcgZm9yIGFuIGFwcHJvcHJpYXRlIHNvY2tldCBtYXkg
-b25seSBjb25zaWRlcgphIHNvY2tldCB3aGljaCBoYXMgYSBtYXRjaGluZyBzZXQgb2YgZXh0ZW5z
-aW9ucyBlbmFibGVkLiBJZiB0aGUKZXh0ZW5zaW9ucyBkb24ndCBtYXRjaCwgcmV0dXJuIGEgY29u
-ZmxpY3QgdG8gaGF2ZSB0aGUgY2FsbGVyIGNyZWF0ZSBhCmRpc3RpbmN0IHNvY2tldCB3aXRoIGRp
-c3RpbmN0IHBvcnQuCgpUaGUgT1ZTIFZYTEFOIHBvcnQgaXMga2VwdCB1bmF3YXJlIG9mIGV4dGVu
-c2lvbnMgYXQgdGhpcyBwb2ludC4KClNpZ25lZC1vZmYtYnk6IFRob21hcyBHcmFmIDx0Z3JhZkBz
-dXVnLmNoPgotLS0KdjI6CiAtIEltcHJvdmVkIGNvbW1pdCBtZXNzYWdlLCByZXBvcnRlZCBieSBK
-ZXNzZQoKIGRyaXZlcnMvbmV0L3Z4bGFuLmMgICAgICAgICAgIHwgMzUgKysrKysrKysrKysrKysr
-KysrKysrLS0tLS0tLS0tLS0tLS0KIGluY2x1ZGUvbmV0L3Z4bGFuLmggICAgICAgICAgIHwgIDIg
-Ky0KIG5ldC9vcGVudnN3aXRjaC92cG9ydC12eGxhbi5jIHwgIDIgKy0KIDMgZmlsZXMgY2hhbmdl
-ZCwgMjMgaW5zZXJ0aW9ucygrKSwgMTYgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVy
-cy9uZXQvdnhsYW4uYyBiL2RyaXZlcnMvbmV0L3Z4bGFuLmMKaW5kZXggYjE0ODczOS4uNjFlMTEx
-MiAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvdnhsYW4uYworKysgYi9kcml2ZXJzL25ldC92eGxh
-bi5jCkBAIC0yNzEsMTQgKzI3MSwxNSBAQCBzdGF0aWMgaW5saW5lIHN0cnVjdCB2eGxhbl9yZHN0
-ICpmaXJzdF9yZW1vdGVfcnRubChzdHJ1Y3QgdnhsYW5fZmRiICpmZGIpCiB9CiAKIC8qIEZpbmQg
-VlhMQU4gc29ja2V0IGJhc2VkIG9uIG5ldHdvcmsgbmFtZXNwYWNlLCBhZGRyZXNzIGZhbWlseSBh
-bmQgVURQIHBvcnQgKi8KLXN0YXRpYyBzdHJ1Y3QgdnhsYW5fc29jayAqdnhsYW5fZmluZF9zb2Nr
-KHN0cnVjdCBuZXQgKm5ldCwKLQkJCQkJICBzYV9mYW1pbHlfdCBmYW1pbHksIF9fYmUxNiBwb3J0
-KQorc3RhdGljIHN0cnVjdCB2eGxhbl9zb2NrICp2eGxhbl9maW5kX3NvY2soc3RydWN0IG5ldCAq
-bmV0LCBzYV9mYW1pbHlfdCBmYW1pbHksCisJCQkJCSAgX19iZTE2IHBvcnQsIHUzMiBleHRzKQog
-ewogCXN0cnVjdCB2eGxhbl9zb2NrICp2czsKIAogCWhsaXN0X2Zvcl9lYWNoX2VudHJ5X3JjdSh2
-cywgdnNfaGVhZChuZXQsIHBvcnQpLCBobGlzdCkgewogCQlpZiAoaW5ldF9zayh2cy0+c29jay0+
-c2spLT5pbmV0X3Nwb3J0ID09IHBvcnQgJiYKLQkJICAgIGluZXRfc2sodnMtPnNvY2stPnNrKS0+
-c2suc2tfZmFtaWx5ID09IGZhbWlseSkKKwkJICAgIGluZXRfc2sodnMtPnNvY2stPnNrKS0+c2su
-c2tfZmFtaWx5ID09IGZhbWlseSAmJgorCQkgICAgdnMtPmV4dHMgPT0gZXh0cykKIAkJCXJldHVy
-biB2czsKIAl9CiAJcmV0dXJuIE5VTEw7CkBAIC0yOTgsMTEgKzI5OSwxMiBAQCBzdGF0aWMgc3Ry
-dWN0IHZ4bGFuX2RldiAqdnhsYW5fdnNfZmluZF92bmkoc3RydWN0IHZ4bGFuX3NvY2sgKnZzLCB1
-MzIgaWQpCiAKIC8qIExvb2sgdXAgVk5JIGluIGEgcGVyIG5ldCBuYW1lc3BhY2UgdGFibGUgKi8K
-IHN0YXRpYyBzdHJ1Y3QgdnhsYW5fZGV2ICp2eGxhbl9maW5kX3ZuaShzdHJ1Y3QgbmV0ICpuZXQs
-IHUzMiBpZCwKLQkJCQkJc2FfZmFtaWx5X3QgZmFtaWx5LCBfX2JlMTYgcG9ydCkKKwkJCQkJc2Ff
-ZmFtaWx5X3QgZmFtaWx5LCBfX2JlMTYgcG9ydCwKKwkJCQkJdTMyIGV4dHMpCiB7CiAJc3RydWN0
-IHZ4bGFuX3NvY2sgKnZzOwogCi0JdnMgPSB2eGxhbl9maW5kX3NvY2sobmV0LCBmYW1pbHksIHBv
-cnQpOworCXZzID0gdnhsYW5fZmluZF9zb2NrKG5ldCwgZmFtaWx5LCBwb3J0LCBleHRzKTsKIAlp
-ZiAoIXZzKQogCQlyZXR1cm4gTlVMTDsKIApAQCAtMTc3Niw3ICsxNzc4LDggQEAgc3RhdGljIHZv
-aWQgdnhsYW5feG1pdF9vbmUoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2Ug
-KmRldiwKIAogCQkJaXBfcnRfcHV0KHJ0KTsKIAkJCWRzdF92eGxhbiA9IHZ4bGFuX2ZpbmRfdm5p
-KHZ4bGFuLT5uZXQsIHZuaSwKLQkJCQkJCSAgIGRzdC0+c2Euc2FfZmFtaWx5LCBkc3RfcG9ydCk7
-CisJCQkJCQkgICBkc3QtPnNhLnNhX2ZhbWlseSwgZHN0X3BvcnQsCisJCQkJCQkgICB2eGxhbi0+
-ZXh0cyk7CiAJCQlpZiAoIWRzdF92eGxhbikKIAkJCQlnb3RvIHR4X2Vycm9yOwogCQkJdnhsYW5f
-ZW5jYXBfYnlwYXNzKHNrYiwgdnhsYW4sIGRzdF92eGxhbik7CkBAIC0xODM1LDcgKzE4MzgsOCBA
-QCBzdGF0aWMgdm9pZCB2eGxhbl94bWl0X29uZShzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qg
-bmV0X2RldmljZSAqZGV2LAogCiAJCQlkc3RfcmVsZWFzZShuZHN0KTsKIAkJCWRzdF92eGxhbiA9
-IHZ4bGFuX2ZpbmRfdm5pKHZ4bGFuLT5uZXQsIHZuaSwKLQkJCQkJCSAgIGRzdC0+c2Euc2FfZmFt
-aWx5LCBkc3RfcG9ydCk7CisJCQkJCQkgICBkc3QtPnNhLnNhX2ZhbWlseSwgZHN0X3BvcnQsCisJ
-CQkJCQkgICB2eGxhbi0+ZXh0cyk7CiAJCQlpZiAoIWRzdF92eGxhbikKIAkJCQlnb3RvIHR4X2Vy
-cm9yOwogCQkJdnhsYW5fZW5jYXBfYnlwYXNzKHNrYiwgdnhsYW4sIGRzdF92eGxhbik7CkBAIC0y
-MDA1LDcgKzIwMDksNyBAQCBzdGF0aWMgaW50IHZ4bGFuX2luaXQoc3RydWN0IG5ldF9kZXZpY2Ug
-KmRldikKIAogCXNwaW5fbG9jaygmdm4tPnNvY2tfbG9jayk7CiAJdnMgPSB2eGxhbl9maW5kX3Nv
-Y2sodnhsYW4tPm5ldCwgaXB2NiA/IEFGX0lORVQ2IDogQUZfSU5FVCwKLQkJCSAgICAgdnhsYW4t
-PmRzdF9wb3J0KTsKKwkJCSAgICAgdnhsYW4tPmRzdF9wb3J0LCB2eGxhbi0+ZXh0cyk7CiAJaWYg
-KHZzICYmIGF0b21pY19hZGRfdW5sZXNzKCZ2cy0+cmVmY250LCAxLCAwKSkgewogCQkvKiBJZiB3
-ZSBoYXZlIGEgc29ja2V0IHdpdGggc2FtZSBwb3J0IGFscmVhZHksIHJldXNlIGl0ICovCiAJCXZ4
-bGFuX3ZzX2FkZF9kZXYodnMsIHZ4bGFuKTsKQEAgLTIzNTksNyArMjM2Myw3IEBAIHN0YXRpYyBz
-dHJ1Y3Qgc29ja2V0ICp2eGxhbl9jcmVhdGVfc29jayhzdHJ1Y3QgbmV0ICpuZXQsIGJvb2wgaXB2
-NiwKIC8qIENyZWF0ZSBuZXcgbGlzdGVuIHNvY2tldCBpZiBuZWVkZWQgKi8KIHN0YXRpYyBzdHJ1
-Y3QgdnhsYW5fc29jayAqdnhsYW5fc29ja2V0X2NyZWF0ZShzdHJ1Y3QgbmV0ICpuZXQsIF9fYmUx
-NiBwb3J0LAogCQkJCQkgICAgICB2eGxhbl9yY3ZfdCAqcmN2LCB2b2lkICpkYXRhLAotCQkJCQkg
-ICAgICB1MzIgZmxhZ3MpCisJCQkJCSAgICAgIHUzMiBmbGFncywgdTMyIGV4dHMpCiB7CiAJc3Ry
-dWN0IHZ4bGFuX25ldCAqdm4gPSBuZXRfZ2VuZXJpYyhuZXQsIHZ4bGFuX25ldF9pZCk7CiAJc3Ry
-dWN0IHZ4bGFuX3NvY2sgKnZzOwpAQCAtMjM4Nyw2ICsyMzkxLDcgQEAgc3RhdGljIHN0cnVjdCB2
-eGxhbl9zb2NrICp2eGxhbl9zb2NrZXRfY3JlYXRlKHN0cnVjdCBuZXQgKm5ldCwgX19iZTE2IHBv
-cnQsCiAJYXRvbWljX3NldCgmdnMtPnJlZmNudCwgMSk7CiAJdnMtPnJjdiA9IHJjdjsKIAl2cy0+
-ZGF0YSA9IGRhdGE7CisJdnMtPmV4dHMgPSBleHRzOwogCiAJLyogSW5pdGlhbGl6ZSB0aGUgdnhs
-YW4gdWRwIG9mZmxvYWRzIHN0cnVjdHVyZSAqLwogCXZzLT51ZHBfb2ZmbG9hZHMucG9ydCA9IHBv
-cnQ7CkBAIC0yNDExLDEzICsyNDE2LDE0IEBAIHN0YXRpYyBzdHJ1Y3QgdnhsYW5fc29jayAqdnhs
-YW5fc29ja2V0X2NyZWF0ZShzdHJ1Y3QgbmV0ICpuZXQsIF9fYmUxNiBwb3J0LAogCiBzdHJ1Y3Qg
-dnhsYW5fc29jayAqdnhsYW5fc29ja19hZGQoc3RydWN0IG5ldCAqbmV0LCBfX2JlMTYgcG9ydCwK
-IAkJCQkgIHZ4bGFuX3Jjdl90ICpyY3YsIHZvaWQgKmRhdGEsCi0JCQkJICBib29sIG5vX3NoYXJl
-LCB1MzIgZmxhZ3MpCisJCQkJICBib29sIG5vX3NoYXJlLCB1MzIgZmxhZ3MsCisJCQkJICB1MzIg
-ZXh0cykKIHsKIAlzdHJ1Y3QgdnhsYW5fbmV0ICp2biA9IG5ldF9nZW5lcmljKG5ldCwgdnhsYW5f
-bmV0X2lkKTsKIAlzdHJ1Y3QgdnhsYW5fc29jayAqdnM7CiAJYm9vbCBpcHY2ID0gZmxhZ3MgJiBW
-WExBTl9GX0lQVjY7CiAKLQl2cyA9IHZ4bGFuX3NvY2tldF9jcmVhdGUobmV0LCBwb3J0LCByY3Ys
-IGRhdGEsIGZsYWdzKTsKKwl2cyA9IHZ4bGFuX3NvY2tldF9jcmVhdGUobmV0LCBwb3J0LCByY3Ys
-IGRhdGEsIGZsYWdzLCBleHRzKTsKIAlpZiAoIUlTX0VSUih2cykpCiAJCXJldHVybiB2czsKIApA
-QCAtMjQyNSw3ICsyNDMxLDcgQEAgc3RydWN0IHZ4bGFuX3NvY2sgKnZ4bGFuX3NvY2tfYWRkKHN0
-cnVjdCBuZXQgKm5ldCwgX19iZTE2IHBvcnQsCiAJCXJldHVybiB2czsKIAogCXNwaW5fbG9jaygm
-dm4tPnNvY2tfbG9jayk7Ci0JdnMgPSB2eGxhbl9maW5kX3NvY2sobmV0LCBpcHY2ID8gQUZfSU5F
-VDYgOiBBRl9JTkVULCBwb3J0KTsKKwl2cyA9IHZ4bGFuX2ZpbmRfc29jayhuZXQsIGlwdjYgPyBB
-Rl9JTkVUNiA6IEFGX0lORVQsIHBvcnQsIGV4dHMpOwogCWlmICh2cyAmJiAoKHZzLT5yY3YgIT0g
-cmN2KSB8fAogCQkgICAhYXRvbWljX2FkZF91bmxlc3MoJnZzLT5yZWZjbnQsIDEsIDApKSkKIAkJ
-CXZzID0gRVJSX1BUUigtRUJVU1kpOwpAQCAtMjQ0Nyw3ICsyNDUzLDggQEAgc3RhdGljIHZvaWQg
-dnhsYW5fc29ja193b3JrKHN0cnVjdCB3b3JrX3N0cnVjdCAqd29yaykKIAlfX2JlMTYgcG9ydCA9
-IHZ4bGFuLT5kc3RfcG9ydDsKIAlzdHJ1Y3QgdnhsYW5fc29jayAqbnZzOwogCi0JbnZzID0gdnhs
-YW5fc29ja19hZGQobmV0LCBwb3J0LCB2eGxhbl9yY3YsIE5VTEwsIGZhbHNlLCB2eGxhbi0+Zmxh
-Z3MpOworCW52cyA9IHZ4bGFuX3NvY2tfYWRkKG5ldCwgcG9ydCwgdnhsYW5fcmN2LCBOVUxMLCBm
-YWxzZSwgdnhsYW4tPmZsYWdzLAorCQkJICAgICB2eGxhbi0+ZXh0cyk7CiAJc3Bpbl9sb2NrKCZ2
-bi0+c29ja19sb2NrKTsKIAlpZiAoIUlTX0VSUihudnMpKQogCQl2eGxhbl92c19hZGRfZGV2KG52
-cywgdnhsYW4pOwpAQCAtMjU5Nyw3ICsyNjA0LDcgQEAgc3RhdGljIGludCB2eGxhbl9uZXdsaW5r
-KHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0IG5ldF9kZXZpY2UgKmRldiwKIAkJY29uZmlndXJlX3Z4
-bGFuX2V4dHModnhsYW4sIGRhdGFbSUZMQV9WWExBTl9FWFRFTlNJT05dKTsKIAogCWlmICh2eGxh
-bl9maW5kX3ZuaShuZXQsIHZuaSwgdXNlX2lwdjYgPyBBRl9JTkVUNiA6IEFGX0lORVQsCi0JCQkg
-ICB2eGxhbi0+ZHN0X3BvcnQpKSB7CisJCQkgICB2eGxhbi0+ZHN0X3BvcnQsIHZ4bGFuLT5leHRz
-KSkgewogCQlwcl9pbmZvKCJkdXBsaWNhdGUgVk5JICV1XG4iLCB2bmkpOwogCQlyZXR1cm4gLUVF
-WElTVDsKIAl9CmRpZmYgLS1naXQgYS9pbmNsdWRlL25ldC92eGxhbi5oIGIvaW5jbHVkZS9uZXQv
-dnhsYW4uaAppbmRleCBhZjA1MjZiLi40MTZhYTJiIDEwMDY0NAotLS0gYS9pbmNsdWRlL25ldC92
-eGxhbi5oCisrKyBiL2luY2x1ZGUvbmV0L3Z4bGFuLmgKQEAgLTEzMyw3ICsxMzMsNyBAQCBzdHJ1
-Y3QgdnhsYW5fc29jayB7CiAKIHN0cnVjdCB2eGxhbl9zb2NrICp2eGxhbl9zb2NrX2FkZChzdHJ1
-Y3QgbmV0ICpuZXQsIF9fYmUxNiBwb3J0LAogCQkJCSAgdnhsYW5fcmN2X3QgKnJjdiwgdm9pZCAq
-ZGF0YSwKLQkJCQkgIGJvb2wgbm9fc2hhcmUsIHUzMiBmbGFncyk7CisJCQkJICBib29sIG5vX3No
-YXJlLCB1MzIgZmxhZ3MsIHUzMiBleHRzKTsKIAogdm9pZCB2eGxhbl9zb2NrX3JlbGVhc2Uoc3Ry
-dWN0IHZ4bGFuX3NvY2sgKnZzKTsKIApkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL3Zwb3J0
-LXZ4bGFuLmMgYi9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtdnhsYW4uYwppbmRleCBkZDY4Yzk3Li4y
-NjZjNTk1IDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtdnhsYW4uYworKysgYi9u
-ZXQvb3BlbnZzd2l0Y2gvdnBvcnQtdnhsYW4uYwpAQCAtMTI4LDcgKzEyOCw3IEBAIHN0YXRpYyBz
-dHJ1Y3QgdnBvcnQgKnZ4bGFuX3RubF9jcmVhdGUoY29uc3Qgc3RydWN0IHZwb3J0X3Bhcm1zICpw
-YXJtcykKIAl2eGxhbl9wb3J0ID0gdnhsYW5fdnBvcnQodnBvcnQpOwogCXN0cm5jcHkodnhsYW5f
-cG9ydC0+bmFtZSwgcGFybXMtPm5hbWUsIElGTkFNU0laKTsKIAotCXZzID0gdnhsYW5fc29ja19h
-ZGQobmV0LCBodG9ucyhkc3RfcG9ydCksIHZ4bGFuX3JjdiwgdnBvcnQsIHRydWUsIDApOworCXZz
-ID0gdnhsYW5fc29ja19hZGQobmV0LCBodG9ucyhkc3RfcG9ydCksIHZ4bGFuX3JjdiwgdnBvcnQs
-IHRydWUsIDAsIDApOwogCWlmIChJU19FUlIodnMpKSB7CiAJCW92c192cG9ydF9mcmVlKHZwb3J0
-KTsKIAkJcmV0dXJuICh2b2lkICopdnM7Ci0tIAoxLjkuMwoKX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0
-Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+This patch adds configuration and dumping of congestion control metric
+for ip route, for example:
+
+  ip route add <dst> dev foo congctl [lock] dctcp
+
+Reference: http://thread.gmane.org/gmane.linux.network/344733
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ v2->v3:
+  - use rta_getattr_u32 et al helpers
+  - regarding discussed mx(un)lock, I'll do a follow-up for
+    all users inside iproute_modify() if that is wished
+ v1->v2:
+  - adapted mxlock setting to kernel style
+  - use arg directly in rta_addattr_l
+
+ include/linux/rtnetlink.h |  2 ++
+ ip/iproute.c              | 22 ++++++++++++++++++----
+ man/man8/ip-route.8.in    | 19 ++++++++++++++++++-
+ 3 files changed, 38 insertions(+), 5 deletions(-)
+
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 9aa5c2f..ac4af97 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -389,6 +389,8 @@ enum {
+ #define RTAX_INITRWND RTAX_INITRWND
+ 	RTAX_QUICKACK,
+ #define RTAX_QUICKACK RTAX_QUICKACK
++	RTAX_CC_ALGO,
++#define RTAX_CC_ALGO RTAX_CC_ALGO
+ 	__RTAX_MAX
+ };
+ 
+diff --git a/ip/iproute.c b/ip/iproute.c
+index 5a496a9..76d8e36 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -53,6 +53,7 @@ static const char *mx_names[RTAX_MAX+1] = {
+ 	[RTAX_RTO_MIN]	= "rto_min",
+ 	[RTAX_INITRWND]	= "initrwnd",
+ 	[RTAX_QUICKACK]	= "quickack",
++	[RTAX_CC_ALGO]	= "congctl",
+ };
+ static void usage(void) __attribute__((noreturn));
+ 
+@@ -80,8 +81,7 @@ static void usage(void)
+ 	fprintf(stderr, "           [ window NUMBER] [ cwnd NUMBER ] [ initcwnd NUMBER ]\n");
+ 	fprintf(stderr, "           [ ssthresh NUMBER ] [ realms REALM ] [ src ADDRESS ]\n");
+ 	fprintf(stderr, "           [ rto_min TIME ] [ hoplimit NUMBER ] [ initrwnd NUMBER ]\n");
+-	fprintf(stderr, "           [ features FEATURES ]\n");
+-	fprintf(stderr, "           [ quickack BOOL ]\n");
++	fprintf(stderr, "           [ features FEATURES ] [ quickack BOOL ] [ congctl NAME ]\n");
+ 	fprintf(stderr, "TYPE := [ unicast | local | broadcast | multicast | throw |\n");
+ 	fprintf(stderr, "          unreachable | prohibit | blackhole | nat ]\n");
+ 	fprintf(stderr, "TABLE_ID := [ local | main | default | all | NUMBER ]\n");
+@@ -536,7 +536,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 			mxlock = *(unsigned*)RTA_DATA(mxrta[RTAX_LOCK]);
+ 
+ 		for (i=2; i<= RTAX_MAX; i++) {
+-			unsigned val;
++			__u32 val;
+ 
+ 			if (mxrta[i] == NULL)
+ 				continue;
+@@ -545,10 +545,12 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 				fprintf(fp, " %s", mx_names[i]);
+ 			else
+ 				fprintf(fp, " metric %d", i);
++
+ 			if (mxlock & (1<<i))
+ 				fprintf(fp, " lock");
++			if (i != RTAX_CC_ALGO)
++				val = rta_getattr_u32(mxrta[i]);
+ 
+-			val = *(unsigned*)RTA_DATA(mxrta[i]);
+ 			switch (i) {
+ 			case RTAX_FEATURES:
+ 				print_rtax_features(fp, val);
+@@ -573,6 +575,10 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 					fprintf(fp, " %gs", val/1e3);
+ 				else
+ 					fprintf(fp, " %ums", val);
++				break;
++			case RTAX_CC_ALGO:
++				fprintf(fp, " %s", rta_getattr_str(mxrta[i]));
++				break;
+ 			}
+ 		}
+ 	}
+@@ -925,6 +931,14 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
+ 			if (quickack != 1 && quickack != 0)
+ 				invarg("\"quickack\" value should be 0 or 1\n", *argv);
+ 			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_QUICKACK, quickack);
++		} else if (matches(*argv, "congctl") == 0) {
++			NEXT_ARG();
++			if (strcmp(*argv, "lock") == 0) {
++				mxlock |= 1 << RTAX_CC_ALGO;
++				NEXT_ARG();
++			}
++			rta_addattr_l(mxrta, sizeof(mxbuf), RTAX_CC_ALGO, *argv,
++				      strlen(*argv));
+ 		} else if (matches(*argv, "rttvar") == 0) {
+ 			unsigned win;
+ 			NEXT_ARG();
+diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
+index 89960c1..2b1583d 100644
+--- a/man/man8/ip-route.8.in
++++ b/man/man8/ip-route.8.in
+@@ -116,7 +116,9 @@ replace " } "
+ .B  features
+ .IR FEATURES " ] [ "
+ .B  quickack
+-.IR BOOL " ]"
++.IR BOOL " ] [ "
++.B  congctl
++.IR NAME " ]"
+ 
+ .ti -8
+ .IR TYPE " := [ "
+@@ -433,6 +435,21 @@ sysctl is set to 0.
+ Enable or disable quick ack for connections to this destination.
+ 
+ .TP
++.BI congctl " NAME " "(3.20+ only)"
++.TP
++.BI "congctl lock" " NAME " "(3.20+ only)"
++Sets a specific TCP congestion control algorithm only for a given destination.
++If not specified, Linux keeps the current global default TCP congestion control
++algorithm, or the one set from the application. If the modifier
++.B lock
++is not used, an application may nevertheless overwrite the suggested congestion
++control algorithm for that destination. If the modifier
++.B lock
++is used, then an application is not allowed to overwrite the specified congestion
++control algorithm for that destination, thus it will be enforced/guaranteed to
++use the proposed algorithm.
++
++.TP
+ .BI advmss " NUMBER " "(2.3.15+ only)"
+ the MSS ('Maximal Segment Size') to advertise to these
+ destinations when establishing TCP connections.  If it is not given,
+-- 
+1.9.0
