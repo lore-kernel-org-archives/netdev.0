@@ -1,32 +1,37 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: iproute2 tc: Print qdisc, stats, class, filter info to string
- rather than FILE
-Date: Thu, 8 Jan 2015 00:06:20 +0000
-Message-ID: <20150108000620.GF21149@casper.infradead.org>
-References: <20150107215331.GA19197@angus-think.lan>
- <20150107150828.5b61f26f@urahara>
- <20150107234608.GA1073@angus-think.lan>
+Subject: Re: [PATCH 1/6] vxlan: Allow for VXLAN extensions to be implemented
+Date: Thu, 8 Jan 2015 00:14:01 +0000
+Message-ID: <20150108001401.GG21149@casper.infradead.org>
+References: <cover.1420594925.git.tgraf@suug.ch>
+ <7c5e8240263a22a69042c45a632c9940e5ae1062.1420594925.git.tgraf@suug.ch>
+ <CA+mtBx_mp1mf_HPp5u9wDfgeOc8pt26Mf1VHFZTAqDhTdZe7cw@mail.gmail.com>
+ <20150107102740.GM21820@casper.infradead.org>
+ <CAEP_g=_Xr=6nVoeVT8dgRZoM0bNXDiiua5GrjweZ1GaT1ixhZg@mail.gmail.com>
+ <20150107232412.GD21149@casper.infradead.org>
+ <CA+mtBx8HDc1OfsuED8afUnTdf562RAyU37tVeKk0ndAm5wMWfQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
-To: Vadim Kochan <vadim4j@gmail.com>
+Cc: Jesse Gross <jesse@nicira.com>, David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:38323 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:38384 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752084AbbAHAGW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 19:06:22 -0500
+	with ESMTP id S1753708AbbAHAOE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 19:14:04 -0500
 Content-Disposition: inline
-In-Reply-To: <20150107234608.GA1073@angus-think.lan>
+In-Reply-To: <CA+mtBx8HDc1OfsuED8afUnTdf562RAyU37tVeKk0ndAm5wMWfQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/08/15 at 01:46am, Vadim Kochan wrote:
-> I'd like to have text info from tc on screen and output on the other
-> data format to be the same, just only for this.
+On 01/07/15 at 04:02pm, Tom Herbert wrote:
+> Do you know how could GPE work with GBP they want to use the same bits
+> in header for data? Seems like these are mutually exclusive
+> extensions. RCO should be fine with either :-)
 
-Look at:
-https://github.com/tgraf/libnl/blob/master/src/nl-tctree-list.c
-
-It shows how to use an API to retrieve the information you want and
-allows to pretty print tc entries.
+Yes, GBP and GPE are mutually exclusive extensions. Although
+GPE would allow to define an intermediate header for additional
+metadata, f.e. encoded as GUE or Geneve options.
