@@ -1,94 +1,141 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 1/3] net: add IPv4 routing FIB support for swdev
-Date: Thu, 08 Jan 2015 14:03:59 +0100
-Message-ID: <1420722239.810.23.camel@stressinduktion.org>
-References: <1420169361-31767-2-git-send-email-sfeldma@gmail.com>
-	 <1420552709.32369.50.camel@stressinduktion.org>
-			 <CAE4R7bCOnYL1bat39UivcyAG-S1hx-EJpwC_hWNv8prjZqV3fg@mail.gmail.com>
-	 <1420574353.15181.19.camel@stressinduktion.org>
-		 <98433f41e1876041471cdb513ca53fe5@mail.gmail.com>
-	 <1420629792.26870.59.camel@stressinduktion.org>
-	 <1b5a5a02b187fde4c2491ce757cb0045@mail.gmail.com>
+Subject: Re: [PATCH net] ipv6: Prevent ipv6_find_hdr() from returning ENOENT
+ for valid non-first fragments
+Date: Thu, 08 Jan 2015 14:11:14 +0100
+Message-ID: <1420722674.810.25.camel@stressinduktion.org>
+References: <CAFB3abzYNYqtzd_n+Ym0Lo=DYbV0HPU=Tqw=stALNnu188hMKQ@mail.gmail.com>
+	 <20150106224706.GA7416@salvia>
+	 <CAFB3abwKpR1VqZXUrsexqveAZrA2LTSmTe8a=-H7z2HjAptjwA@mail.gmail.com>
+	 <1420627396.26870.36.camel@stressinduktion.org>
+	 <CAFB3abz_-AbJsrBtwRX5t=TCCfzYsw82WDYH=A7jzA2N8UbAng@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?Q?Ji=C5=99=C3=AD_P=C3=ADrko?= <jiri@resnulli.us>,
-	john fastabend <john.fastabend@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Shrijeet Mukherjee <shm@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:39097 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754103AbbAHNEC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 08:04:02 -0500
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id C1A8120707
-	for <netdev@vger.kernel.org>; Thu,  8 Jan 2015 08:04:01 -0500 (EST)
-In-Reply-To: <1b5a5a02b187fde4c2491ce757cb0045@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Rahul Sharma <rsharma@arista.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFB3abz_-AbJsrBtwRX5t=TCCfzYsw82WDYH=A7jzA2N8UbAng@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-
-On Mi, 2015-01-07 at 09:54 -0800, Shrijeet Mukherjee wrote:
+On Do, 2015-01-08 at 02:18 +0530, Rahul Sharma wrote:
+> Hi Hannes,
+> 
+> On Wed, Jan 7, 2015 at 4:13 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> > Hi,
 > >
-> >I could come up with several ways how to model hardware. Depending on that
-> >the integration with rules is easy or nearly impossible:
+> > On Mi, 2015-01-07 at 11:11 +0530, Rahul Sharma wrote:
+> >> On Wed, Jan 7, 2015 at 4:17 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> >> > On Wed, Jan 07, 2015 at 03:03:20AM +0530, Rahul Sharma wrote:
+> >> >> ipv6_find_hdr() currently assumes that the next-header field in the
+> >> >> fragment header of the non-first fragment is the "protocol number of
+> >> >> the last header" (here last header excludes any extension header
+> >> >> protocol numbers ) which is incorrect as per RFC2460. The next-header
+> >> >> value is the first header of the fragmentable part of the original
+> >> >> packet (which can be extension header as well).
+> >> >> This can create reassembly problems. For example: Fragmented
+> >> >> authenticated OSPFv3 packets (where AH header is inserted before the
+> >> >> protocol header). For the second fragment, the next header value in
+> >> >> the fragment header will be NEXTHDR_AUTH which is correct but
+> >> >> ipv6_find_hdr will return ENOENT since AH is an extension header
+> >> >> resulting in second fragment getting dropped. This check for the
+> >> >> presence of non-extension header needs to be removed.
+> >> >>
+> >> >> Signed-off-by: Rahul Sharma <rsharma@arista.com>
+> >> >> ---
+> >> >> --- linux-3.18.1/net/ipv6/exthdrs_core.c.orig   2015-01-06
+> >> >> 10:25:36.411419863 -0800
+> >> >> +++ linux-3.18.1/net/ipv6/exthdrs_core.c        2015-01-06
+> >> >> 10:51:45.819364986 -0800
+> >> >> @@ -171,10 +171,11 @@ EXPORT_SYMBOL_GPL(ipv6_find_tlv);
+> >> >>   * If the first fragment doesn't contain the final protocol header or
+> >> >>   * NEXTHDR_NONE it is considered invalid.
+> >> >>   *
+> >> >> - * Note that non-1st fragment is special case that "the protocol number
+> >> >> - * of last header" is "next header" field in Fragment header. In this case,
+> >> >> - * *offset is meaningless and fragment offset is stored in *fragoff if fragoff
+> >> >> - * isn't NULL.
+> >> >> + * Note that non-1st fragment is special case that "the protocol number of the
+> >> >> + * first header of the fragmentable part of the original packet" is
+> >> >> + * "next header" field in the Fragment header. In this case, *offset is
+> >> >> + * meaningless and fragment offset is stored in *fragoff if fragoff isn't
+> >> >> + * NULL.
+> >> >>   *
+> >> >>   * if flags is not NULL and it's a fragment, then the frag flag
+> >> >>   * IP6_FH_F_FRAG will be set. If it's an AH header, the
+> >> >> @@ -250,9 +251,7 @@ int ipv6_find_hdr(const struct sk_buff *
+> >> >>
+> >> >>                         _frag_off = ntohs(*fp) & ~0x7;
+> >> >>                         if (_frag_off) {
+> >> >> -                               if (target < 0 &&
+> >> >> -                                   ((!ipv6_ext_hdr(hp->nexthdr)) ||
+> >> >
+> >> > This check assumes that the following headers cannot show up in the
+> >> > fragmented part of the IPv6 packet:
+> >> >
+> >> >  12 bool ipv6_ext_hdr(u8 nexthdr)
+> >> >  13 {
+> >> >  14         /*
+> >> >  15          * find out if nexthdr is an extension header or a protocol
+> >> >  16          */
+> >> >  17         return   (nexthdr == NEXTHDR_HOP)       ||
+> >> >  18                  (nexthdr == NEXTHDR_ROUTING)   ||
+> >> >  19                  (nexthdr == NEXTHDR_FRAGMENT)  ||
+> >> >  20                  (nexthdr == NEXTHDR_AUTH)      ||
+> >> >  21                  (nexthdr == NEXTHDR_NONE)      ||
+> >> >  22                  (nexthdr == NEXTHDR_DEST);
+> >> >
+> >> >> -                                    hp->nexthdr == NEXTHDR_NONE)) {
+> >> >> +                               if (target < 0) {
+> >> >>                                         if (fragoff)
+> >> >>                                                 *fragoff = _frag_off;
+> >> >>                                         return hp->nexthdr;
+> >> >> --
+> >> >> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> >> >> the body of a message to majordomo@vger.kernel.org
+> >> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >>
+> >> I think this is incorrect. Authentication header shows up in the
+> >> fragmentable part of the original IPv6 packet. So, for the non-first
+> >> fragments the next-header field value can be NEXTHDR_AUTH.
 > >
-> >1) it simply cannot deal with ip rules, so there is no way an ACL can
-> >influence the
-> >outcome of a routing table lookup - if the feature should be used, it has
-> >to use
-> >the slow-path in the kernel.
+> > Pablo's mail got me thinking again.
+> >
+> > In general, IPv6 extension headers can appear in any order and stacks
+> > must be process them. Fragmentation adds a limitation, that some
+> > extension headers do not make sense and don't have any effect if they
+> > appear after a fragmentation header (HbH and ROUTING).
+> >
+> > Looking at the rest of the function we don't check for HBHHDR or RTHDR
+> > following a fragmentation header either if we process the first fragment
+> > (core stack only processes HBH if directly following the ipv6 header
+> > anyway).
+> >
+> > So, in my opinion, it is safe to completely remove this check and it
+> > would align if the rest of the extension processing logic. The callers
+> > all seem fine with that.
+> >
+> > Pablo, what do you think?
+> >
+> > Anyway, the patch does not apply cleanly, the patch header is mangled.
+> > Could you check and send again?
+> >
+> > Thanks,
+> > Hannes
+> >
+> >
+> I am not sure if replying on the thread with a patch is a good idea
+> (or should I send a new email). Anyway, let me know if this is works.
 > 
-> As Scott was saying, most hardware has table id's and the ability to
-> identify and prioritize that way.
 
-I saw Scott only talking about Rocker - maybe I missed it?
+The patch was identified correctly but the commit message now is
+scrambled, see:
 
-> >2) ACLs can influence which routing table will get queried - this sounds
-> >very much
-> >like the ip rule model and it seems not too hard to model that.
-> 
-> This clearly can be made to work .. the problem is really the space of
-> policy routing (i.e jump across VRF's incase of a lookup failure) when
-> combined with the space of ip rule flexibility.
+http://patchwork.ozlabs.org/patch/426404/
 
-This very much depends on the hardware, I guess. The complexity is
-increased by the routing offloading knowing about the ACL datastructures
-and vice versa.
+Maybe just resend it as "[PATCH net v2]"?
 
-> >3) Routing implementations in the hardware have a single routing table and
-> >the
-> >leafs carry different actions with priorities: making this kind of model
-> >working
-> >with the ip rule concept will become very difficult and it might require
-> >lots of
-> >algorithmic code by every driver to adapt to a single API provided by
-> >Linux. It
-> >might be possible, if the hardware provides actions like backtrack and
-> >retrack and
-> >can keep state of priorities during walking the tree, I really doubt that.
-> 
-> 
-> In the short term .. this maybe a good way to go but with a simplication.
-> Some tables are offloaded and the rest at the full table level is in
-> software. Finally then you can put a "default route" in the hardware table
-> to punt to cpu and then keep the software model clever and the hardware
-> model fast ?
-
-Yes, the algorithm I described in my prior mail implicitly does that, we
-can extend it bit by bit as new hardware supports more filter features.
-Especially the default configuration with only the RT_TABLE_LOCAL and
-RT_TABLE_MAIN allows complete offloading, which should be desirable.
-
-To deal with the RT_TABLE_LOCAL, we might walk the whole routing table
-and verify that all routes have full prefix length (32 ipv4 or 128
-ipv6).
-
-Bye,
+Thanks,
 Hannes
