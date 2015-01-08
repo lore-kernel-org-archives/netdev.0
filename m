@@ -1,74 +1,93 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2 v2] iplink: print out addrgenmode attribute
-Date: Thu,  8 Jan 2015 09:49:55 +0100
-Message-ID: <1420706995-2107-1-git-send-email-jiri@resnulli.us>
-Cc: stephen@networkplumber.org, thaller@redhat.com, vadim4j@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:40152 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753420AbbAHIt7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 03:49:59 -0500
-Received: by mail-wi0-f174.google.com with SMTP id h11so1761339wiw.1
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 00:49:58 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fan Du <fengyuleidian0615-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net] gso: do GSO for local skb with size
+	bigger than MTU
+Date: Thu, 08 Jan 2015 17:39:54 +0800
+Message-ID: <54AE506A.5020207@gmail.com>
+References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
+ <1417158128.3268.2@smtp.corp.redhat.com>
+ <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com>
+ <20141201135225.GA16814@casper.infradead.org>
+ <20141202154839.GB5344@t520.home>
+ <20141202170927.GA9457@casper.infradead.org>
+ <20141202173401.GB4126@redhat.com>
+ <20141202174158.GB9457@casper.infradead.org>
+ <5A90DA2E42F8AE43BC4A093BF0678848DEDFDB@SHSMSX104.ccr.corp.intel.com>
+ <54AA2912.6090903@gmail.com>
+ <CAEP_g=-R1FrcA0sTJJjQhypRtVCwoRZ+LieKaSJxqA-HACZqEw@mail.gmail.com>
+ <54ABAC13.9070402@gmail.com>
+ <CAEP_g=8bCR=PeSoi09jLWLtNUrxhzx45h1Wm=9D=R57AqUac2w@mail.gmail.com>
+ <54ACCAFD.4070203@gmail.com>
+ <CAEP_g=8EBeQUFkRRsG3sznYryd+LE9qJKWQXfS==HG2HDO=UKA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "Du, Fan" <fan.du-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ "fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org" <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAEP_g=8EBeQUFkRRsG3sznYryd+LE9qJKWQXfS==HG2HDO=UKA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-addrgenmode is currently write only by ip. So display this information
-if provided by kernel as well.
-
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-
----
-v1->v2:
--rebased on current master (instead of net-next branch)
----
- ip/ipaddress.c | 26 ++++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
-
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 28dfe8c..d8bda30 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -255,6 +255,29 @@ static void print_linktype(FILE *fp, struct rtattr *tb)
- 	}
- }
- 
-+static void print_af_spec(FILE *fp, struct rtattr *af_spec_attr)
-+{
-+	struct rtattr *inet6_attr;
-+	struct rtattr *tb[IFLA_INET6_MAX + 1];
-+
-+	inet6_attr = parse_rtattr_one_nested(AF_INET6, af_spec_attr);
-+	if (!inet6_attr)
-+		return;
-+
-+	parse_rtattr_nested(tb, IFLA_INET6_MAX, inet6_attr);
-+
-+	if (tb[IFLA_INET6_ADDR_GEN_MODE]) {
-+		switch (rta_getattr_u8(tb[IFLA_INET6_ADDR_GEN_MODE])) {
-+		case IN6_ADDR_GEN_MODE_EUI64:
-+			fprintf(fp, "addrgenmode eui64 ");
-+			break;
-+		case IN6_ADDR_GEN_MODE_NONE:
-+			fprintf(fp, "addrgenmode none ");
-+			break;
-+		}
-+	}
-+}
-+
- static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- {
- 	struct ifla_vf_mac *vf_mac;
-@@ -658,6 +681,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 	if (tb[IFLA_LINKINFO] && show_details)
- 		print_linktype(fp, tb[IFLA_LINKINFO]);
- 
-+	if (do_link && tb[IFLA_AF_SPEC] && show_details)
-+		print_af_spec(fp, tb[IFLA_AF_SPEC]);
-+
- 	if ((do_link || show_details) && tb[IFLA_IFALIAS]) {
- 		fprintf(fp, "%s    alias %s", _SL_,
- 			rta_getattr_str(tb[IFLA_IFALIAS]));
--- 
-1.9.3
+5LqOIDIwMTXlubQwMeaciDA45pelIDA0OjUyLCBKZXNzZSBHcm9zcyDlhpnpgZM6Cj4+IE15IHVu
+ZGVyc3RhbmRpbmcgaXM6Cj4+ID5jb250cm9sbGVyIHNldHMgdGhlIGZvcndhcmRpbmcgcnVsZXMg
+aW50byBrZXJuZWwgZGF0YXBhdGgsIGFueSBmbG93IG5vdAo+PiA+bWF0Y2hpbmcKPj4gPndpdGgg
+dGhlIHJ1bGVzIGFyZSB0aHJldyB0byBjb250cm9sbGVyIGJ5IHVwY2FsbC4gT25jZSB0aGUgcnVs
+ZSBkZWNpc2lvbiBpcwo+PiA+bWFkZQo+PiA+YnkgY29udHJvbGxlciwgdGhlbiwgdGhpcyBmbG93
+IHBhY2tldCBpcyBwdXNoZWQgZG93biB0byBkYXRhcGF0aCB0byBiZQo+PiA+Zm9yd2FyZGVkCj4+
+ID5hZ2FpbiBhY2NvcmRpbmcgdG8gdGhlIG5ldyBydWxlLgo+PiA+Cj4+ID5TbyBJJ20gbm90IHN1
+cmUgd2hldGhlciBwdXNoaW5nIHRoZSBvdmVyLU1UVS1zaXplZCBwYWNrZXQgb3IgcHVzaGluZyB0
+aGUKPj4gPmZvcmdlZCBJQ01QCj4+ID53aXRob3V0IGVuY2Fwc3VsYXRpb24gdG8gY29udHJvbGxl
+ciBpcyByZXF1aXJlZCBieSBjdXJyZW50IG92cwo+PiA+aW1wbGVtZW50YXRpb24uIEJ5IGRvaW5n
+Cj4+ID5zbywgc3VjaCBvdmVyLU1UVS1zaXplZCBwYWNrZXQgaXMgdHJlYXRlZCBhcyBhIGV2ZW50
+IGZvciB0aGUgY29udHJvbGxlciB0bwo+PiA+YmUgdGFrZQo+PiA+Y2FyZSBvZi4KPiBJZiBmbG93
+cyBhcmUgaW1wbGVtZW50aW5nIHJvdXRpbmcgKGFnYWluLCB0aGV5IGFyZSBkb2luZyB0aGluZ3Mg
+bGlrZQo+IGRlY3JlbWVudGluZyB0aGUgVFRMKSB0aGVuIGl0IGlzIG5lY2Vzc2FyeSBmb3IgdGhl
+bSB0byBhbHNvIGhhbmRsZQo+IHRoaXMgc2l0dWF0aW9uIHVzaW5nIHNvbWUgcG90ZW50aWFsbHkg
+bmV3IHByaW1pdGl2ZXMgKGxpa2UgYSBzaXplCj4gY2hlY2spLiBPdGhlcndpc2UgeW91IGVuZCB1
+cCB3aXRoIGlzc3VlcyBsaWtlIHRoZSBvbmVzIHRoYXQgSQo+IG1lbnRpb25lZCBhYm92ZSBsaWtl
+IG5lZWRpbmcgdG8gZm9yZ2UgYWRkcmVzc2VzIGJlY2F1c2UgeW91IGRvbid0IGtub3cKPiB3aGF0
+IHRoZSBjb3JyZWN0IG9uZXMgYXJlLgoKVGhhbmtzIGZvciBleHBsYWluaW5nLCBKZXNzZSEKCmJ0
+dywgSSBkb24ndCBnZXQgaXQgYWJvdXQgInRvIGZvcmdlIGFkZHJlc3NlcyIsIGJ1aWxkaW5nIElD
+TVAgbWVzc2FnZQp3aXRoIEd1ZXN0IHBhY2tldCBkb2Vzbid0IHJlcXVpcmUgdG8gZm9yZ2UgYWRk
+cmVzcyB3aGVuIG5vdCBlbmNhcHN1bGF0aW5nCklDTVAgbWVzc2FnZSB3aXRoIG91dGVyIGhlYWRl
+cnMuCgpJZiB0aGUgZmxvd3MgYXJlbid0IGRvaW5nIHRoaW5ncyB0bwo+IGltcGxlbWVudCByb3V0
+aW5nLCB0aGVuIHlvdSByZWFsbHkgaGF2ZSBhIGZsYXQgTDIgbmV0d29yayBhbmQgeW91Cj4gc2hv
+dWxkbid0IGJlIGRvaW5nIHRoaXMgdHlwZSBvZiBiZWhhdmlvciBhdCBhbGwgYXMgSSBkZXNjcmli
+ZWQgaW4gdGhlCj4gb3JpZ2luYWwgcGxhbi4KCkZvciBmbG93cyBpbXBsZW1lbnRpbmcgcm91dGlu
+ZyBzY2VuYXJpbzoKRmlyc3Qgb2YgYWxsLCBvdmVyLU1UVS1zaXplZCBwYWNrZXQgY291bGQgb25s
+eSBiZSBkZXRlY3RlZCBvbmNlIHRoZSBmbG93CmFzIGJlZW4gY29uc3VsdGVkKGVhY2ggcG9ydCBj
+b3VsZCBpbXBsZW1lbnQgYSAnY2hlY2snIGhvb2sgdG8gZG8gdGhpcyksCmFuZCBqdXN0IGJlZm9y
+ZSBzZW5kIHRvIHRoZSBhY3R1YWwgcG9ydC4KClRoZW4gcHVzaGluZyB0aGUgb3Zlci1NVFUtc2l6
+ZWQgcGFja2V0IGJhY2sgdG8gY29udHJvbGxlciwgaXQncyB0aGUgY29udHJvbGxlcgp3aG8gd2ls
+bCB3aWxsIGRlY2lkZSB3aGV0aGVyIHRvIGJ1aWxkIElDTVAgbWVzc2FnZSwgb3Igd2hhdGV2ZXIg
+cm91dGluZyBiZWhhdmlvdXIKaXQgbWF5IHRha2UuIEFuZCBzZW50IGl0IGJhY2sgd2l0aCB0aGUg
+cG9ydCBpbmZvcm1hdGlvbi4gVGhpcyBJQ01QIG1lc3NhZ2Ugd2lsbAp0cmF2ZWwgYmFjayB0byBH
+dWVzdC4KCldoeSBkb2VzIHRoZSBmbG93IGhhcyB0byB1c2UgcHJpbWl0aXZlIGxpa2UgYSAiY2hl
+Y2sgc2l6ZSI/ICJjaGVjayBzaXplIgp3aWxsIG9ubHkgdGFrZSBlZmZlY3QgYWZ0ZXIgZG9fb3V0
+cHV0LiBJJ20gbm90IHZlcnkgY2xlYXIgd2l0aCB0aGlzIGFwcHJvYWNoLgoKQW5kIG5vdCBhbGwg
+c2NlbmFyaW8gaW52b2x2aW5nIGZsb3cgd2l0aCByb3V0aW5nIGJlaGF2aW91ciwganVzdCBzZXQg
+dXAgYQp2eGxhbiB0dW5uZWwsIGFuZCBhdHRhY2ggS1ZNIGd1ZXN0IG9yIERvY2tlciBvbnRvIGl0
+IGZvciBwbGF5aW5nIG9yIGRldmVsb3BpbmcuClRoaXMgd291bGRuJ3QgbmVjZXNzYXJpbHkgcmVx
+dWlyZSB1c2VyIHRvIHNldCBhZGRpdGlvbmFsIHNwZWNpZmljIGZsb3dzIHRvIG1ha2UKb3Zlci1N
+VFUtc2l6ZWQgcGFja2V0IHBhc3MgdGhyb3VnaCB0aGUgdHVubmVsIGNvcnJlY3RseS4gSW4gc3Vj
+aCBzY2VuYXJpbywgSQp0aGluayB0aGUgb3JpZ2luYWwgcGF0Y2ggaW4gdGhpcyB0aHJlYWQgdG8g
+ZnJhZ21lbnQgdHVubmVsIHBhY2tldCBpcyBzdGlsbCBuZWVkZWQKT1Igd29ya291dCBhIGdlbmVy
+aWMgY29tcG9uZW50IHRvIGJ1aWxkIElDTVAgZm9yIGFsbCB0eXBlIHR1bm5lbCBpbiBMMiBsZXZl
+bC4KQm90aCBvZiB0aG9zZSB3aWxsIGFjdCBhcyBhIGJhY2t1cCBwbGFuIGFzIHRoZXJlIGlzIG5v
+IHN1Y2ggc3BlY2lmaWMgZmxvdyBhcwpkZWZhdWx0LgoKSWYgSSBtaXNzZWQgc29tZXRoaW5nIG9i
+dmlvdXNseSwgcGxlYXNlIGxldCBtZSBrbm93LgoKLS0gCk5vIHp1byBubyBkaWUgYnV0IEkgaGF2
+ZSB0byB0cnkuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+CmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gu
+b3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
