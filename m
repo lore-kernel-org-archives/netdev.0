@@ -1,128 +1,61 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 13/15] batman-adv: fix misspelled words
-Date: Thu,  8 Jan 2015 16:15:18 +0100
-Message-ID: <1420730120-9844-14-git-send-email-antonio@meshcoding.com>
+Subject: [PATCH 12/15] batman-adv: clear control block of received socket buffers
+Date: Thu,  8 Jan 2015 16:15:17 +0100
+Message-ID: <1420730120-9844-13-git-send-email-antonio@meshcoding.com>
 References: <1420730120-9844-1-git-send-email-antonio@meshcoding.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <antonio@meshcoding.com>,
-	Marek Lindner <mareklindner@neomailbox.ch>
+	=?UTF-8?q?Martin=20Hundeb=C3=B8ll?= <martin@hundeboll.net>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Antonio Quartulli <antonio@meshcoding.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:27799 "EHLO
+Received: from s3.neomailbox.net ([178.209.62.157]:45371 "EHLO
 	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752427AbbAHP3M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 10:29:12 -0500
+	with ESMTP id S1754864AbbAHPbz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 10:31:55 -0500
 In-Reply-To: <1420730120-9844-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reported-by: checkpatch
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
----
- net/batman-adv/bridge_loop_avoidance.c | 4 ++--
- net/batman-adv/main.c                  | 2 +-
- net/batman-adv/packet.h                | 4 ++--
- net/batman-adv/routing.c               | 2 +-
- net/batman-adv/translation-table.c     | 2 +-
- net/batman-adv/types.h                 | 2 +-
- 6 files changed, 8 insertions(+), 8 deletions(-)
+=46rom: Martin Hundeb=C3=B8ll <martin@hundeboll.net>
 
-diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
-index 4fc6cab..ac4b96e 100644
---- a/net/batman-adv/bridge_loop_avoidance.c
-+++ b/net/batman-adv/bridge_loop_avoidance.c
-@@ -244,7 +244,7 @@ batadv_bla_del_backbone_claims(struct batadv_bla_backbone_gw *backbone_gw)
- 		spin_unlock_bh(list_lock);
- 	}
- 
--	/* all claims gone, intialize CRC */
-+	/* all claims gone, initialize CRC */
- 	backbone_gw->crc = BATADV_BLA_CRC_INIT;
- }
- 
-@@ -1328,7 +1328,7 @@ int batadv_bla_check_bcast_duplist(struct batadv_priv *bat_priv,
- 		goto out;
- 	}
- 	/* not found, add a new entry (overwrite the oldest entry)
--	 * and allow it, its the first occurence.
-+	 * and allow it, its the first occurrence.
- 	 */
- 	curr = (bat_priv->bla.bcast_duplist_curr + BATADV_DUPLIST_SIZE - 1);
- 	curr %= BATADV_DUPLIST_SIZE;
+Since other network components (and some drivers) uses the control bloc=
+k
+provided in skb's, the network coding feature might wrongly assume that
+an SKB has been decoded, and thus not try to code it with another packe=
+t
+again. This happens for instance when batman-adv is running on a bridge=
+ device.
+
+=46ix this by clearing the control block for every received SKB.
+
+Introduced by 3c12de9a5c756b23fe7c9ab332474ece1568914c
+("batman-adv: network coding - code and transmit packets if possible")
+Signed-off-by: Martin Hundeb=C3=B8ll <martin@hundeboll.net>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+
+Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
+---
+ net/batman-adv/main.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
 diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-index 3bcd847..12fc77b 100644
+index d4079cd..3bcd847 100644
 --- a/net/batman-adv/main.c
 +++ b/net/batman-adv/main.c
-@@ -798,7 +798,7 @@ void batadv_tvlv_container_register(struct batadv_priv *bat_priv,
- }
- 
- /**
-- * batadv_tvlv_realloc_packet_buff - reallocate packet buffer to accomodate
-+ * batadv_tvlv_realloc_packet_buff - reallocate packet buffer to accommodate
-  *  requested packet size
-  * @packet_buff: packet buffer
-  * @packet_buff_len: packet buffer size
-diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index facd1fe..b81fbbf 100644
---- a/net/batman-adv/packet.h
-+++ b/net/batman-adv/packet.h
-@@ -377,7 +377,7 @@ struct batadv_frag_packet {
- 	uint8_t reserved:4;
- 	uint8_t no:4;
- #else
--#error "unknown bitfield endianess"
-+#error "unknown bitfield endianness"
- #endif
- 	uint8_t dest[ETH_ALEN];
- 	uint8_t orig[ETH_ALEN];
-@@ -453,7 +453,7 @@ struct batadv_coded_packet {
-  * @src: address of the source
-  * @dst: address of the destination
-  * @tvlv_len: length of tvlv data following the unicast tvlv header
-- * @align: 2 bytes to align the header to a 4 byte boundry
-+ * @align: 2 bytes to align the header to a 4 byte boundary
-  */
- struct batadv_unicast_tvlv_packet {
- 	uint8_t  packet_type;
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 139d2f6..da83982 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -456,7 +456,7 @@ batadv_find_router(struct batadv_priv *bat_priv,
- 	 * the last chosen bonding candidate (next_candidate). If no such
- 	 * router is found, use the first candidate found (the previously
- 	 * chosen bonding candidate might have been the last one in the list).
--	 * If this can't be found either, return the previously choosen
-+	 * If this can't be found either, return the previously chosen
- 	 * router - obviously there are no other candidates.
+@@ -402,6 +402,9 @@ int batadv_batman_skb_recv(struct sk_buff *skb, str=
+uct net_device *dev,
+ 		goto err_free;
+ 	}
+=20
++	/* reset control block to avoid left overs from previous users */
++	memset(skb->cb, 0, sizeof(struct batadv_skb_cb));
++
+ 	/* all receive handlers return whether they received or reused
+ 	 * the supplied skb. if not, we have to free the skb.
  	 */
- 	rcu_read_lock();
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 84e6f01..07b263a 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -2852,7 +2852,7 @@ static void batadv_tt_update_changes(struct batadv_priv *bat_priv,
- /**
-  * batadv_is_my_client - check if a client is served by the local node
-  * @bat_priv: the bat priv with all the soft interface information
-- * @addr: the mac adress of the client to check
-+ * @addr: the mac address of the client to check
-  * @vid: VLAN identifier
-  *
-  * Returns true if the client is served by this node, false otherwise.
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 462a70c..9398c3f 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -968,7 +968,7 @@ struct batadv_tt_orig_list_entry {
- };
- 
- /**
-- * struct batadv_tt_change_node - structure for tt changes occured
-+ * struct batadv_tt_change_node - structure for tt changes occurred
-  * @list: list node for batadv_priv_tt::changes_list
-  * @change: holds the actual translation table diff data
-  */
--- 
+--=20
 2.2.1
