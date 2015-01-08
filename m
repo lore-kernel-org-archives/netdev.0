@@ -1,60 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2] tcp: avoid reducing cwnd when ACK+DSACK is
- received
-Date: Thu, 08 Jan 2015 08:25:25 -0800
-Message-ID: <1420734325.5947.61.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1420719609-18638-1-git-send-email-sebastien.barre@uclouvain.be>
-	 <1420730396.5947.55.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <54AEA498.5030202@uclouvain.be>
-	 <CADVnQy=A57TUYD=kGtZXvq7-FGSN=vN3D2heaNCnBB=zjujwUg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?S=E9bastien_Barr=E9?= <sebastien.barre@uclouvain.be>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Gregory Detal <gregory.detal@uclouvain.be>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Neal Cardwell <ncardwell@google.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net-next] packet: make packet too small warning match condition
+Date: Thu,  8 Jan 2015 11:29:18 -0500
+Message-ID: <1420734558-30979-1-git-send-email-willemb@google.com>
+Cc: davem@davemloft.net, jkmalinen@gmail.com, dborkman@redhat.com,
+	Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:65106 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754305AbbAHQZ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 11:25:28 -0500
-Received: by mail-ie0-f180.google.com with SMTP id rp18so10272837iec.11
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 08:25:27 -0800 (PST)
-In-Reply-To: <CADVnQy=A57TUYD=kGtZXvq7-FGSN=vN3D2heaNCnBB=zjujwUg@mail.gmail.com>
+Received: from mail-yk0-f178.google.com ([209.85.160.178]:41033 "EHLO
+	mail-yk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753998AbbAHQ3o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 11:29:44 -0500
+Received: by mail-yk0-f178.google.com with SMTP id 20so1666080yks.9
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 08:29:43 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-01-08 at 10:49 -0500, Neal Cardwell wrote:
-> On Thu, Jan 8, 2015 at 10:39 AM, S=C3=A9bastien Barr=C3=A9
-> <sebastien.barre@uclouvain.be> wrote:
-> > What do you and Neal think ?
->=20
-> My preference is to have the whole expression detecting the case wher=
-e
-> the receiver got the probe packet encoded in a single expression. I
-> don't have a strong feeling about whether it should be stored in a
-> bool (to reduce the size of the diff) or written directly into the if
-> () expression (to reduce the size of the code). I'll defer to Eric on
-> which he thinks is better. :-)
+From: Willem de Bruijn <willemb@google.com>
 
-There is no shame using helpers with nice names to help understand this
-TCP stack. Even if the helper is used exactly once.
+The expression in ll_header_truncated() tests less than or equal, but
+the warning prints less than. Update the warning.
 
-In this case, it seems we test 2 different conditions, so this could us=
-e
-2 helpers with self describing names.
+Reported-by: Jouni Malinen <jkmalinen@gmail.com>
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ net/packet/af_packet.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-When I see :=20
-
-> +     if (((ack =3D=3D tp->tlp_high_seq) &&
-> +          !(flag & (FLAG_SND_UNA_ADVANCED |
-> +                    FLAG_NOT_DUP | FLAG_DATA_SACKED))) ||
-> +         (!before(ack, tp->tlp_high_seq) && (flag & FLAG_DSACKING_AC=
-K))) {
->               tp->tlp_high_seq =3D 0;
-
-My brain hurts.
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 6880f34..0f02668 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2102,7 +2102,7 @@ static bool ll_header_truncated(const struct net_device *dev, int len)
+ {
+ 	/* net device doesn't like empty head */
+ 	if (unlikely(len <= dev->hard_header_len)) {
+-		net_warn_ratelimited("%s: packet size is too short (%d < %d)\n",
++		net_warn_ratelimited("%s: packet size is too short (%d <= %d)\n",
+ 				     current->comm, len, dev->hard_header_len);
+ 		return true;
+ 	}
+-- 
+2.2.0.rc0.207.ga3a616c
