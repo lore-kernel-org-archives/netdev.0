@@ -1,36 +1,49 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch iproute2 2/2] iplink: print out addrgenmode attribute
-Date: Thu, 8 Jan 2015 08:04:39 +0100
-Message-ID: <20150108070439.GB1860@nanopsycho.orion>
-References: <1420561426-3118-1-git-send-email-jiri@resnulli.us>
- <1420561426-3118-2-git-send-email-jiri@resnulli.us>
- <20150107151036.2852e1be@urahara>
+From: Ying Xue <ying.xue-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+Subject: [PATCH net-next] mac80211: silent build warnings
+Date: Thu, 8 Jan 2015 15:04:15 +0800
+Message-ID: <1420700655-9427-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, thaller@redhat.com
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:38958 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753142AbbAHHEl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 02:04:41 -0500
-Received: by mail-wi0-f179.google.com with SMTP id ex7so1284455wid.0
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 23:04:40 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150107151036.2852e1be@urahara>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Thu, Jan 08, 2015 at 12:10:36AM CET, stephen@networkplumber.org wrote:
->On Tue,  6 Jan 2015 17:23:46 +0100
->Jiri Pirko <jiri@resnulli.us> wrote:
->
->> addrgenmode is currently write only by ip. So display this information
->> if provided by kernel as well.
->> 
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->
->Patch does not apply to current iproute2 git
+Silent the following build warnings:
 
-I made that against net-next branch. Which branch should I use for new
-features?
+net/mac80211/mlme.c: In function =E2=80=98ieee80211_rx_mgmt_beacon=E2=80=
+=99:
+net/mac80211/mlme.c:1348:3: warning: =E2=80=98pwr_level_cisco=E2=80=99 =
+may be used uninitialized in this function [-Wuninitialized]
+net/mac80211/mlme.c:1315:6: note: =E2=80=98pwr_level_cisco=E2=80=99 was=
+ declared here
+
+Signed-off-by: Ying Xue <ying.xue-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+---
+ net/mac80211/mlme.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
+index 2c36c47..13b5506 100644
+--- a/net/mac80211/mlme.c
++++ b/net/mac80211/mlme.c
+@@ -1312,7 +1312,7 @@ static u32 ieee80211_handle_pwr_constr(struct iee=
+e80211_sub_if_data *sdata,
+ {
+ 	bool has_80211h_pwr =3D false, has_cisco_pwr =3D false;
+ 	int chan_pwr =3D 0, pwr_reduction_80211h =3D 0;
+-	int pwr_level_cisco, pwr_level_80211h;
++	int pwr_level_cisco =3D 0, pwr_level_80211h =3D 0;
+ 	int new_ap_level;
+=20
+ 	if (country_ie && pwr_constr_ie &&
+--=20
+1.7.9.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
