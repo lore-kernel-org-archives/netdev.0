@@ -1,32 +1,69 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH iproute2 3/3] ip netns: Delete all netns
-Date: Wed, 7 Jan 2015 16:00:43 -0800
-Message-ID: <CAHA+R7M8OkCEoO+TFo06sFMsjzr4r1GrGRHSi+hqZNruhjPdOQ@mail.gmail.com>
-References: <1420628662-9930-1-git-send-email-vadim4j@gmail.com>
-	<1420628662-9930-4-git-send-email-vadim4j@gmail.com>
-	<54AD5458.6000400@hp.com>
-	<20150107173640.GA19586@angus-think.lan>
-	<20150107181112.GA24241@angus-think.lan>
-	<54AD8BC3.2070609@hp.com>
-	<20150107195517.GA4645@angus-think.lan>
+From: Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 1/6] vxlan: Allow for VXLAN extensions to be
+	implemented
+Date: Wed, 7 Jan 2015 16:02:48 -0800
+Message-ID: <CA+mtBx8HDc1OfsuED8afUnTdf562RAyU37tVeKk0ndAm5wMWfQ@mail.gmail.com>
+References: <cover.1420594925.git.tgraf@suug.ch>
+ <7c5e8240263a22a69042c45a632c9940e5ae1062.1420594925.git.tgraf@suug.ch>
+ <CA+mtBx_mp1mf_HPp5u9wDfgeOc8pt26Mf1VHFZTAqDhTdZe7cw@mail.gmail.com>
+ <20150107102740.GM21820@casper.infradead.org>
+ <CAEP_g=_Xr=6nVoeVT8dgRZoM0bNXDiiua5GrjweZ1GaT1ixhZg@mail.gmail.com>
+ <20150107232412.GD21149@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Brian Haley <brian.haley@hp.com>, netdev <netdev@vger.kernel.org>
-To: Vadim Kochan <vadim4j@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f49.google.com ([209.85.216.49]:56753 "EHLO
-	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751528AbbAHAAo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 19:00:44 -0500
-Received: by mail-qa0-f49.google.com with SMTP id dc16so5113433qab.8
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 16:00:44 -0800 (PST)
-In-Reply-To: <20150107195517.GA4645@angus-think.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+ David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20150107232412.GD21149-FZi0V3Vbi30CUdFEqe4BF2D2FQJk+8+b@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 7, 2015 at 11:55 AM, Vadim Kochan <vadim4j@gmail.com> wrote:
-> So I think that do not allow to add netns "all" can be a solution, I'd
-> like to hear from other people if it might be OK.
->
-
-Nope, that would break existing scripts using "all" as a netns.
+T24gV2VkLCBKYW4gNywgMjAxNSBhdCAzOjI0IFBNLCBUaG9tYXMgR3JhZiA8dGdyYWZAc3V1Zy5j
+aD4gd3JvdGU6Cj4gT24gMDEvMDcvMTUgYXQgMDI6NDVwbSwgSmVzc2UgR3Jvc3Mgd3JvdGU6Cj4+
+IE15IGNvbmNlcm4gaXMgdGhhdCBoYXZpbmcgbXVsdGlwbGUgKGFuZCBwb3RlbnRpYWxseSBvdmVy
+bGFwcGluZykKPj4gZXh0ZW5zaW9ucyBpcyBnb2luZyB0byBtYWtlIHRoZSBWWExBTiBjb2RlIHZl
+cnkgbWVzc3kgYW5kIGhhcmQgdG8KPj4gZm9sbG93LiBJIHRoaW5rIHRoZXJlJ3MgYWxyZWFkeSBx
+dWl0ZSBhIGJpZyBvZiBjb21wbGV4aXR5IHRoZXJlIGZyb20KPj4gdGhlIERPVkUgZXh0ZW5zaW9u
+cyAod2hpY2ggYXJlIGJhc2ljYWxseSBkZWFkIGF0IHRoaXMgcG9pbnQgdG8gdGhlCj4+IGJlc3Qg
+b2YgbXkga25vd2xlZGdlKS4gV2UgYWxyZWFkeSBzZWUgdGhpcyBzb21lIHdpdGggdGhlIGRpc2N1
+c3Npb24KPj4gb3ZlciB0aGUgaGVhZGVyIHN0cnVjdCBidXQgdGhhdCdzIGp1c3QgdGhlIGJlZ2lu
+bmluZyAtIGNhbiB5b3UgaW1hZ2luZQo+PiB0aGUgY29kZSB0aGF0IGNoZWNrcyBhIHNpbmdsZSBi
+aXQgZm9yIHNldmVyYWwgZGlmZmVyZW50Cj4+IGludGVycHJldGF0aW9ucz8KPgo+IEknbSBub3Qg
+ZGlzYWdyZWVpbmcgd2l0aCB5b3UgSmVzc2UuIEkgdGhpbmsgaXQncyBtYW5hZ2VhYmxlIHRob3Vn
+aC4KPiBJIGRvbid0IHRoaW5rIHRoZSBjb2RlIGFzIHByb3Bvc2VkIGlzIG92ZXJseSBkaWZmaWN1
+bHQgdG8gdW5kZXJzdGFuZAo+IG9yIG1lc3N5LiBJJ20gZ2xhZCB0byBhZGp1c3QgdGhlIHN0cnVj
+dCBkZWZpbml0aW9uIGlmIHRoZSB1bmlvbiBzdHlsZQo+IGlzIGNvbnNpZGVyZWQgbWVzc3ksIG5v
+IHByb2JsZW0uCj4KPiBXZSBoYXZlIHRoZXNlIHJlc2VydmVkIGJpdHMgaW4gYSB3aWRlbHkgdXNl
+ZCBwcm90b2NvbCBhbmQgaXQgaXMgb3VyCj4gY2hvaWNlIHRvIG1ha2UgdXNlIG9mIHRoZXNlIGJp
+dHMgb3Igbm90LiBNeSBvcGluaW9uIGlzIHRoYXQgd2Ugc2hvdWxkLgo+IEdvb2QgY2FuZGlkYXRl
+cyB0byBtZSBzZWVtIHRvIGJlIEdCUCBmb3Igc2VjdXJpdHkgbGFiZWxzLCBSQ08gZm9yCj4gY2hl
+Y2tzdW1taW5nIGFuZCBHUEUgZm9yIG5vbi1MMiBvdmVyIFZYTEFOLgo+CkRvIHlvdSBrbm93IGhv
+dyBjb3VsZCBHUEUgd29yayB3aXRoIEdCUCB0aGV5IHdhbnQgdG8gdXNlIHRoZSBzYW1lIGJpdHMK
+aW4gaGVhZGVyIGZvciBkYXRhPyBTZWVtcyBsaWtlIHRoZXNlIGFyZSBtdXR1YWxseSBleGNsdXNp
+dmUKZXh0ZW5zaW9ucy4gUkNPIHNob3VsZCBiZSBmaW5lIHdpdGggZWl0aGVyIDotKQoKPiBJIHdv
+dWxkIGxvdmUgZm9yIGV2ZXJ5Ym9keSB0byBzd2l0Y2ggb3ZlciB0byBHZW5ldmUgb3IgR1VFIGFu
+ZCBhcyB5b3UKPiBrbm93IEknbSBoaWdobHkgaW50ZXJlc3RlZCBpbiBwdXNoaW5nIGl0IGZvcndh
+cmQuIFJlYWxpdHkgaXMgdGhhdCBpdAo+IG1pZ2h0IGJlIGFub3RoZXIgY291cGxlIG9mIHllYXJz
+IGZvciBpdCB0byBiZWNvbWUgZnVsbHkgZXN0YWJsaXNoZWQuCj4KPj4gTm90IHRvIG1lbnRpb24g
+dGhlIGZhY3QgdGhhdCB0aGUgbG9jYXRpb24gb2YgdGhlIGJpdHMKPj4gaW4gc29tZSBvZiB0aGVz
+ZSBwcm9wb3NhbHMgaGFzIGFscmVhZHkgYmVlbiBzaHVmZmxlZCBzZXZlcmFsIHRpbWVzLiBJdAo+
+PiBzZWVtcyB2ZXJ5IHBhaW5mdWwuLi4KPgo+IEkgZG9uJ3QgcmVhbGx5IHdhbnQgdG8gZGVmZW5k
+IHRoZSBwcm9jZXNzIGJlaGluZCB0aGVzZSBkcmFmdHMuIEkKPiBiZWxpZXZlIHRoYXQgY29kZSBk
+ZWZpbmVzIHRoZSBzdGFuZGFyZCwgaW4gcGFydGljdWxhciBvcGVuIHNvdXJjZSBjb2RlLgo+IEFz
+IGZvciBHQlAsIHdlIGFyZSB0aGUgYXV0aG9ycyBvZiB0aGUgZHJhZnQgYW5kIHRoaXMgaGFzIGJl
+ZW4gZGVwbG95ZWQKPiB0byBoYXJkd2FyZSBhcyB3ZWxsIHNvIHRoaXMgd29uJ3QgY2hhbmdlLgpf
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGlu
+ZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFu
+L2xpc3RpbmZvL2Rldgo=
