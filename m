@@ -1,55 +1,63 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH net-next] mac80211: silent build warnings
-Date: Thu, 08 Jan 2015 15:59:43 +0300
-Message-ID: <54AE7F3F.3070802@cogentembedded.com>
-References: <1420700655-9427-1-git-send-email-ying.xue@windriver.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: Prevent multiple NAPI instances co-existing in the
+ list
+Date: Thu, 08 Jan 2015 16:04:08 +0300
+Message-ID: <54AE8048.6040105@cogentembedded.com>
+References: <CA+U0gVh+TyEUJ+qmg+FE=UhvvQywfNxcouCyv1sutZ3fav5FAw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ying Xue <ying.xue-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1420700655-9427-1-git-send-email-ying.xue-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Dennis Chen <kernel.org.gnu@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:45083 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754653AbbAHNEN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 08:04:13 -0500
+Received: by mail-lb0-f178.google.com with SMTP id u14so2705128lbd.9
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 05:04:11 -0800 (PST)
+In-Reply-To: <CA+U0gVh+TyEUJ+qmg+FE=UhvvQywfNxcouCyv1sutZ3fav5FAw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hello.
 
-On 1/8/2015 10:04 AM, Ying Xue wrote:
+On 1/8/2015 11:22 AM, Dennis Chen wrote:
 
-> Silent the following build warnings:
+> Some drivers may clear the NAPI_STATE_SCHED bit upon the state of the
+> NAPI instance after exhaust the budget in the poll function, which
+> will open a window for next device interrupt handler to insert a same
+> instance to the list after calling list_add_tail(&n->poll_list,
+> repoll) if we don't set this bit.
 
-> net/mac80211/mlme.c: In function =E2=80=98ieee80211_rx_mgmt_beacon=E2=
-=80=99:
-> net/mac80211/mlme.c:1348:3: warning: =E2=80=98pwr_level_cisco=E2=80=99=
- may be used uninitialized in this function [-Wuninitialized]
-> net/mac80211/mlme.c:1315:6: note: =E2=80=98pwr_level_cisco=E2=80=99 w=
-as declared here
-
-> Signed-off-by: Ying Xue <ying.xue-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+> Signed-off-by: Dennis Chen <kernel.org.gnu@gmail.com>
 > ---
->   net/mac80211/mlme.c |    2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
+>   net/core/dev.c |    8 ++++++++
+>   1 file changed, 8 insertions(+)
 
-> diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
-> index 2c36c47..13b5506 100644
-> --- a/net/mac80211/mlme.c
-> +++ b/net/mac80211/mlme.c
-> @@ -1312,7 +1312,7 @@ static u32 ieee80211_handle_pwr_constr(struct i=
-eee80211_sub_if_data *sdata,
->   {
->   	bool has_80211h_pwr =3D false, has_cisco_pwr =3D false;
->   	int chan_pwr =3D 0, pwr_reduction_80211h =3D 0;
-> -	int pwr_level_cisco, pwr_level_80211h;
-> +	int pwr_level_cisco =3D 0, pwr_level_80211h =3D 0;
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 683d493..b3107ac 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -4619,6 +4619,14 @@ static int napi_poll(struct napi_struct *n,
+> struct list_head *repoll)
+>                               n->dev ? n->dev->name : "backlog");
+>                  goto out_unlock;
+>          }
+> +
+> +       /* Some drivers may exit the polling mode when exhaust the
 
-    OK, but why are you also initializing the second variable?
+    s/exhaust/exhausting/.
+
+> +        * budget. Set the NAPI_STATE_SCHED bit to prevent multiple NAPI
+> +        * instances in the list in case of next device interrupt raised.
+> +        */
+> +       if (unlikely(!test_and_set_bit(NAPI_STATE_SCHED, &n->state)))
+> +               pr_warn_once("%s: exit polling mode after exhaust the budget\n",
+
+    Likewise. And s/exit/exiting/.
 
 WBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
