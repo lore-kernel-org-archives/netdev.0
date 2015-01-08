@@ -1,42 +1,47 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH iproute2 0/3] ip netns: Run over all netns
-Date: Thu, 8 Jan 2015 02:52:12 +0200
-Message-ID: <20150108005212.GA10487@angus-think.lan>
-References: <1420628662-9930-1-git-send-email-vadim4j@gmail.com>
- <CAHA+R7OpGoYx51DQfLhFiZmU_jMfd28G6kssgft6NQoFXj_X+A@mail.gmail.com>
+Subject: Re: iproute2 tc: Print qdisc, stats, class, filter info to string
+ rather than FILE
+Date: Thu, 8 Jan 2015 03:02:30 +0200
+Message-ID: <20150108010230.GA11821@angus-think.lan>
+References: <20150107215331.GA19197@angus-think.lan>
+ <20150107150828.5b61f26f@urahara>
+ <20150107234608.GA1073@angus-think.lan>
+ <20150108000620.GF21149@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Vadim Kochan <vadim4j@gmail.com>, netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:43353 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755723AbbAHBCf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 20:02:35 -0500
-Received: by mail-lb0-f178.google.com with SMTP id u14so441527lbd.9
-        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 17:02:34 -0800 (PST)
+Received: from mail-la0-f45.google.com ([209.85.215.45]:36718 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752409AbbAHBMy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2015 20:12:54 -0500
+Received: by mail-la0-f45.google.com with SMTP id gq15so6763393lab.4
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2015 17:12:53 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <CAHA+R7OpGoYx51DQfLhFiZmU_jMfd28G6kssgft6NQoFXj_X+A@mail.gmail.com>
+In-Reply-To: <20150108000620.GF21149@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 07, 2015 at 04:04:14PM -0800, Cong Wang wrote:
-> On Wed, Jan 7, 2015 at 3:04 AM, Vadim Kochan <vadim4j@gmail.com> wrote:
-> > From: Vadim Kochan <vadim4j@gmail.com>
-> >
-> > Allow 'ip netns del' and 'ip netns exec' run over each network namespace names.
-> >
-> > 'ip netns exec' executes command forcely on eacn nsname.
-> >
+On Thu, Jan 08, 2015 at 12:06:20AM +0000, Thomas Graf wrote:
+> On 01/08/15 at 01:46am, Vadim Kochan wrote:
+> > I'd like to have text info from tc on screen and output on the other
+> > data format to be the same, just only for this.
 > 
-> Why this has to be done in iproute command?
-> That is, why not just offloading this to a shell script like below?
+> Look at:
+> https://github.com/tgraf/libnl/blob/master/src/nl-tctree-list.c
 > 
-> for ns in `ip netns show`;
-> do
->      ip netns exec $ns ip link show.....
-> done
+> It shows how to use an API to retrieve the information you want and
+> allows to pretty print tc entries.
 
-Hm, but would not it better to have it in iproute instead of collect
-scripts ? Scripts allows to do a lot of things, but in this case it seems like a
-feature which related to iproute.
+OK, may be I am not clearly described what I am trying to do ...
+So I think it might be useful to have an option in TC which would be
+generate classes graph in plot format but keep the same text info as it
+is printed on console by default. I just think to re-use the existing
+code which prints that text info to console but use it for plot
+generating. Do you think that this not right thing feature to be in TC
+and it might better to have this separately from TC ?
+
+Thanks,
