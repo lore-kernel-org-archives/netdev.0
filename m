@@ -1,91 +1,93 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net-next v2] tg3: move init/deinit from open/close to probe/remove
-Date: Thu,  8 Jan 2015 16:13:07 +0100
-Message-ID: <1420729987-18476-1-git-send-email-ivecera@redhat.com>
-Cc: prashant@broadcom.com, mchan@broadcom.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36648 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753218AbbAHPNM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jan 2015 10:13:12 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+Subject: [PATCH 04/15] batman-adv: kernel doc fixes for
+	bridge_loop_avoidance.c
+Date: Thu,  8 Jan 2015 16:15:09 +0100
+Message-ID: <1420730120-9844-5-git-send-email-antonio@meshcoding.com>
+References: <1420730120-9844-1-git-send-email-antonio@meshcoding.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ =?UTF-8?q?Martin=20Hundeb=C3=B8ll?= <martin-SHBFXCSm21MJGwgDXS7ZQA@public.gmane.org>,
+ b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>,
+ Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1420730120-9844-1-git-send-email-antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Move init and deinit of PTP support from open/close functions
-to probe/remove funcs to avoid removing/re-adding of associated PTP
-device(s) during ifup/ifdown.
+From: Martin Hundeb=C3=B8ll <martin-SHBFXCSm21MJGwgDXS7ZQA@public.gmane.org>
 
-v2: tg3_ptp_init call moved to correct place (thx. Prashant)
-
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+Signed-off-by: Martin Hundeb=C3=B8ll <martin-SHBFXCSm21MJGwgDXS7ZQA@public.gmane.org>
+Acked-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
+Signed-off-by: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
 ---
- drivers/net/ethernet/broadcom/tg3.c | 25 +++++++++++--------------
- 1 file changed, 11 insertions(+), 14 deletions(-)
+ net/batman-adv/bridge_loop_avoidance.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 553dcd8..356bd5b 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -11556,11 +11556,7 @@ static int tg3_start(struct tg3 *tp, bool reset_phy, bool test_irq,
- 	tg3_flag_set(tp, INIT_COMPLETE);
- 	tg3_enable_ints(tp);
- 
--	if (init)
--		tg3_ptp_init(tp);
--	else
--		tg3_ptp_resume(tp);
--
-+	tg3_ptp_resume(tp);
- 
- 	tg3_full_unlock(tp);
- 
-@@ -11681,13 +11677,6 @@ static int tg3_open(struct net_device *dev)
- 		pci_set_power_state(tp->pdev, PCI_D3hot);
- 	}
- 
--	if (tg3_flag(tp, PTP_CAPABLE)) {
--		tp->ptp_clock = ptp_clock_register(&tp->ptp_info,
--						   &tp->pdev->dev);
--		if (IS_ERR(tp->ptp_clock))
--			tp->ptp_clock = NULL;
--	}
--
- 	return err;
- }
- 
-@@ -11701,8 +11690,6 @@ static int tg3_close(struct net_device *dev)
- 		return -EAGAIN;
- 	}
- 
--	tg3_ptp_fini(tp);
--
- 	tg3_stop(tp);
- 
- 	/* Clear stats across close / open calls */
-@@ -17880,6 +17867,14 @@ static int tg3_init_one(struct pci_dev *pdev,
- 		goto err_out_apeunmap;
- 	}
- 
-+	if (tg3_flag(tp, PTP_CAPABLE)) {
-+		tg3_ptp_init(tp);
-+		tp->ptp_clock = ptp_clock_register(&tp->ptp_info,
-+						   &tp->pdev->dev);
-+		if (IS_ERR(tp->ptp_clock))
-+			tp->ptp_clock = NULL;
-+	}
-+
- 	netdev_info(dev, "Tigon3 [partno(%s) rev %04x] (%s) MAC address %pM\n",
- 		    tp->board_part_number,
- 		    tg3_chip_rev_id(tp),
-@@ -17955,6 +17950,8 @@ static void tg3_remove_one(struct pci_dev *pdev)
- 	if (dev) {
- 		struct tg3 *tp = netdev_priv(dev);
- 
-+		tg3_ptp_fini(tp);
-+
- 		release_firmware(tp->fw);
- 
- 		tg3_reset_task_cancel(tp);
--- 
-2.0.5
+diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/brid=
+ge_loop_avoidance.c
+index a957c81..0f0ca43 100644
+--- a/net/batman-adv/bridge_loop_avoidance.c
++++ b/net/batman-adv/bridge_loop_avoidance.c
+@@ -252,7 +252,7 @@ batadv_bla_del_backbone_claims(struct batadv_bla_back=
+bone_gw *backbone_gw)
+ /**
+  * batadv_bla_send_claim - sends a claim frame according to the provided=
+ info
+  * @bat_priv: the bat priv with all the soft interface information
+- * @orig: the mac address to be announced within the claim
++ * @mac: the mac address to be announced within the claim
+  * @vid: the VLAN ID
+  * @claimtype: the type of the claim (CLAIM, UNCLAIM, ANNOUNCE, ...)
+  */
+@@ -364,6 +364,7 @@ out:
+  * @bat_priv: the bat priv with all the soft interface information
+  * @orig: the mac address of the originator
+  * @vid: the VLAN ID
++ * @own_backbone: set if the requested backbone is local
+  *
+  * searches for the backbone gw or creates a new one if it could not
+  * be found.
+@@ -454,6 +455,7 @@ batadv_bla_update_own_backbone_gw(struct batadv_priv =
+*bat_priv,
+ /**
+  * batadv_bla_answer_request - answer a bla request by sending own claim=
+s
+  * @bat_priv: the bat priv with all the soft interface information
++ * @primary_if: interface where the request came on
+  * @vid: the vid where the request came on
+  *
+  * Repeat all of our own claims, and finally send an ANNOUNCE frame
+@@ -775,6 +777,7 @@ static int batadv_handle_claim(struct batadv_priv *ba=
+t_priv,
+ /**
+  * batadv_check_claim_group
+  * @bat_priv: the bat priv with all the soft interface information
++ * @primary_if: the primary interface of this batman interface
+  * @hw_src: the Hardware source in the ARP Header
+  * @hw_dst: the Hardware destination in the ARP Header
+  * @ethhdr: pointer to the Ethernet header of the claim frame
+@@ -850,6 +853,7 @@ static int batadv_check_claim_group(struct batadv_pri=
+v *bat_priv,
+ /**
+  * batadv_bla_process_claim
+  * @bat_priv: the bat priv with all the soft interface information
++ * @primary_if: the primary hard interface of this batman soft interface
+  * @skb: the frame to be checked
+  *
+  * Check if this is a claim frame, and process it accordingly.
+--=20
+2.2.1
