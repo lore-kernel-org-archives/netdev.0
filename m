@@ -1,49 +1,32 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: Re: [PATCH net-next 1/2] Revert "ARM: imx: add FEC sleep mode
- callback function"
-Date: Thu, 8 Jan 2015 20:53:51 +0800
-Message-ID: <20150108125349.GD4928@dragon>
-References: <1420634393-30027-1-git-send-email-festevam@gmail.com>
+From: Mathieu Rohon <mathieu.rohon@gmail.com>
+Subject: bridge-utils : bridge fdb replace undocumented
+Date: Thu, 8 Jan 2015 13:52:01 +0100
+Message-ID: <CAAfiWQqCv9=nFRNuxHPb+hRVbNywiEN_bQJHaxXc29hka0iUaw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, fugang.duan@freescale.com,
-	netdev@vger.kernel.org, Fabio Estevam <fabio.estevam@freescale.com>
-To: Fabio Estevam <festevam@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:50478 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753240AbbAHMyT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 07:54:19 -0500
-Received: by mail-pd0-f176.google.com with SMTP id r10so11102152pdi.7
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 04:54:18 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1420634393-30027-1-git-send-email-festevam@gmail.com>
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:58639 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754530AbbAHMwD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 07:52:03 -0500
+Received: by mail-qa0-f53.google.com with SMTP id j7so7062993qaq.12
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 04:52:02 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 07, 2015 at 10:39:52AM -0200, Fabio Estevam wrote:
-> From: Fabio Estevam <fabio.estevam@freescale.com>
-> 
-> i.MX platform maintainer Shawn Guo is not happy with the such commit as
-> explained below [1]:
-> 
-> "The GPR difference between SoCs can be encoded in device tree as well.
-> It's pointless to repeat the same code pattern for every single
-> platform, that need to set up GPR bits for enabling magic packet wake
-> up, while the only difference is the register and bit offset.
-> 
-> The platform code will become quite messy and unmaintainable if every
-> device driver dump their GPR register setup code into platform.
-> 
-> Sorry, but it's NACK from me."
-> 
-> This reverts commit 456062b3ec6f5b9 ("ARM: imx: add FEC sleep mode callback 
-> function").
-> 
-> [1] http://www.spinics.net/lists/netdev/msg310922.html
-> 
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+Hi,
 
-Thanks, Fabio.  For both patches,
+the command :
+#bridge fdb replace
 
-Acked-by: Shawn Guo <shawn.guo@linaro.org>
+can be useful to replace a learned Mac address by a static one. We'd
+like to use this command to solve an openstack bug :
+https://bugs.launchpad.net/neutron/+bug/1367999
+
+However it is not documented in the manpage of bridge-utilis version 1.5.9.
+
+Also, I don't know what is the minimum version to have this features.
+
+regards,
+Mathieu
