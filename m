@@ -1,585 +1,140 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 2/6] vxlan: Group Policy extension
-Date: Thu,  8 Jan 2015 23:47:27 +0100
-Message-ID: <7339e3bff124cecaf65cd04ea9bdc973c730ba34.1420756324.git.tgraf@suug.ch>
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Subject: [PATCH 3/6] vxlan: Only bind to sockets with correct
+	extensions enabled
+Date: Thu,  8 Jan 2015 23:47:28 +0100
+Message-ID: <c02e4ba90da456541d8cb3ead339e8aa0262cc74.1420756324.git.tgraf@suug.ch>
 References: <cover.1420756324.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: davem@davemloft.net, jesse@nicira.com, stephen@networkplumber.org,
-	pshelar@nicira.com, therbert@google.com,
-	alexei.starovoitov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:47229 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757722AbbAHWro (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 17:47:44 -0500
-In-Reply-To: <cover.1420756324.git.tgraf@suug.ch>
-In-Reply-To: <cover.1420756324.git.tgraf@suug.ch>
-References: <cover.1420756324.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
+ pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <cover.1420756324.git.tgraf-G/eBtMaohhA@public.gmane.org>
+In-Reply-To: <cover.1420756324.git.tgraf-G/eBtMaohhA@public.gmane.org>
+References: <cover.1420756324.git.tgraf-G/eBtMaohhA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Implements supports for the Group Policy VXLAN extension [0] to provide
-a lightweight and simple security label mechanism across network peers
-based on VXLAN. The security context and associated metadata is mapped
-to/from skb->mark. This allows further mapping to a SELinux context
-using SECMARK, to implement ACLs directly with nftables, iptables, OVS,
-tc, etc.
-
-The group membership is defined by the lower 16 bits of skb->mark, the
-upper 16 bits are used for flags.
-
-SELinux allows to manage label to secure local resources. However,
-distributed applications require ACLs to implemented across hosts. This
-is typically achieved by matching on L2-L4 fields to identify the
-original sending host and process on the receiver. On top of that,
-netlabel and specifically CIPSO [1] allow to map security contexts to
-universal labels.  However, netlabel and CIPSO are relatively complex.
-This patch provides a lightweight alternative for overlay network
-environments with a trusted underlay. No additional control protocol
-is required.
-
-           Host 1:                       Host 2:
-
-      Group A        Group B        Group B     Group A
-      +-----+   +-------------+    +-------+   +-----+
-      | lxc |   | SELinux CTX |    | httpd |   | VM  |
-      +--+--+   +--+----------+    +---+---+   +--+--+
-	  \---+---/                     \----+---/
-	      |                              |
-	  +---+---+                      +---+---+
-	  | vxlan |                      | vxlan |
-	  +---+---+                      +---+---+
-	      +------------------------------+
-
-Backwards compatibility:
-A VXLAN-GBP socket can receive standard VXLAN frames and will assign
-the default group 0x0000 to such frames. A Linux VXLAN socket will
-drop VXLAN-GBP  frames. The extension is therefore disabled by default
-and needs to be specifically enabled:
-
-   ip link add [...] type vxlan [...] gbp
-
-In a mixed environment with VXLAN and VXLAN-GBP sockets, the GBP socket
-must run on a separate port number.
-
-Examples:
- iptables:
-  host1# iptables -I OUTPUT -m owner --uid-owner 101 -j MARK --set-mark 0x200
-  host2# iptables -I INPUT -m mark --mark 0x200 -j DROP
-
- OVS:
-  # ovs-ofctl add-flow br0 'in_port=1,actions=load:0x200->NXM_NX_TUN_GBP_ID[],NORMAL'
-  # ovs-ofctl add-flow br0 'in_port=2,tun_gbp_id=0x200,actions=drop'
-
-[0] https://tools.ietf.org/html/draft-smith-vxlan-group-policy
-[1] http://lwn.net/Articles/204905/
-
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
-v2:
- - split GBP header definition into separate struct vxlanhdr_gbp as requested
-   by Alexei
-
- drivers/net/vxlan.c           | 161 ++++++++++++++++++++++++++++++------------
- include/net/vxlan.h           |  73 +++++++++++++++++--
- include/uapi/linux/if_link.h  |   8 +++
- net/openvswitch/vport-vxlan.c |   9 ++-
- 4 files changed, 198 insertions(+), 53 deletions(-)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 4d52aa9..b148739 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -132,6 +132,7 @@ struct vxlan_dev {
- 	__u8		  tos;		/* TOS override */
- 	__u8		  ttl;
- 	u32		  flags;	/* VXLAN_F_* in vxlan.h */
-+	u32		  exts;		/* Enabled extensions */
- 
- 	struct work_struct sock_work;
- 	struct work_struct igmp_join;
-@@ -568,7 +569,8 @@ static struct sk_buff **vxlan_gro_receive(struct sk_buff **head, struct sk_buff
- 			continue;
- 
- 		vh2 = (struct vxlanhdr *)(p->data + off_vx);
--		if (vh->vx_vni != vh2->vx_vni) {
-+		if (vh->vx_flags != vh2->vx_flags ||
-+		    vh->vx_vni != vh2->vx_vni) {
- 			NAPI_GRO_CB(p)->same_flow = 0;
- 			continue;
- 		}
-@@ -1095,6 +1097,7 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- {
- 	struct vxlan_sock *vs;
- 	struct vxlanhdr *vxh;
-+	struct vxlan_metadata md = {0};
- 
- 	/* Need Vxlan and inner Ethernet header to be present */
- 	if (!pskb_may_pull(skb, VXLAN_HLEN))
-@@ -1113,6 +1116,22 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 	if (vs->exts) {
- 		if (!vxh->vni_present)
- 			goto error_invalid_header;
-+
-+		if (vxh->gbp_present) {
-+			struct vxlanhdr_gbp *gbp;
-+
-+			if (!(vs->exts & VXLAN_EXT_GBP))
-+				goto error_invalid_header;
-+
-+			gbp = (struct vxlanhdr_gbp *)vxh;
-+			md.gbp = ntohs(gbp->policy_id);
-+
-+			if (gbp->dont_learn)
-+				md.gbp |= VXLAN_GBP_DONT_LEARN;
-+
-+			if (gbp->policy_applied)
-+				md.gbp |= VXLAN_GBP_POLICY_APPLIED;
-+		}
- 	} else {
- 		if (vxh->vx_flags != htonl(VXLAN_FLAGS) ||
- 		    (vxh->vx_vni & htonl(0xff)))
-@@ -1122,7 +1141,8 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 	if (iptunnel_pull_header(skb, VXLAN_HLEN, htons(ETH_P_TEB)))
- 		goto drop;
- 
--	vs->rcv(vs, skb, vxh->vx_vni);
-+	md.vni = vxh->vx_vni;
-+	vs->rcv(vs, skb, &md);
- 	return 0;
- 
- drop:
-@@ -1138,8 +1158,8 @@ error:
- 	return 1;
- }
- 
--static void vxlan_rcv(struct vxlan_sock *vs,
--		      struct sk_buff *skb, __be32 vx_vni)
-+static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb,
-+		      struct vxlan_metadata *md)
- {
- 	struct iphdr *oip = NULL;
- 	struct ipv6hdr *oip6 = NULL;
-@@ -1150,7 +1170,7 @@ static void vxlan_rcv(struct vxlan_sock *vs,
- 	int err = 0;
- 	union vxlan_addr *remote_ip;
- 
--	vni = ntohl(vx_vni) >> 8;
-+	vni = ntohl(md->vni) >> 8;
- 	/* Is this VNI defined? */
- 	vxlan = vxlan_vs_find_vni(vs, vni);
- 	if (!vxlan)
-@@ -1184,6 +1204,7 @@ static void vxlan_rcv(struct vxlan_sock *vs,
- 		goto drop;
- 
- 	skb_reset_network_header(skb);
-+	skb->mark = md->gbp;
- 
- 	if (oip6)
- 		err = IP6_ECN_decapsulate(oip6, skb);
-@@ -1533,15 +1554,57 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
- 	return false;
- }
- 
-+static int vxlan_build_hdr(struct sk_buff *skb, struct vxlan_sock *vs,
-+			   int min_headroom, struct vxlan_metadata *md)
-+{
-+	struct vxlanhdr *vxh;
-+	int err;
-+
-+	/* Need space for new headers (invalidates iph ptr) */
-+	err = skb_cow_head(skb, min_headroom);
-+	if (unlikely(err)) {
-+		kfree_skb(skb);
-+		return err;
-+	}
-+
-+	skb = vlan_hwaccel_push_inside(skb);
-+	if (WARN_ON(!skb))
-+		return -ENOMEM;
-+
-+	vxh = (struct vxlanhdr *)__skb_push(skb, sizeof(*vxh));
-+	vxh->vx_flags = htonl(VXLAN_FLAGS);
-+	vxh->vx_vni = md->vni;
-+
-+	if (vs->exts)  {
-+		if (vs->exts & VXLAN_EXT_GBP) {
-+			struct vxlanhdr_gbp *gbp;
-+
-+			gbp = (struct vxlanhdr_gbp *)vxh;
-+			vxh->gbp_present = 1;
-+
-+			if (md->gbp & VXLAN_GBP_DONT_LEARN)
-+				gbp->dont_learn = 1;
-+
-+			if (md->gbp & VXLAN_GBP_POLICY_APPLIED)
-+				gbp->policy_applied = 1;
-+
-+			gbp->policy_id = htons(md->gbp & VXLAN_GBP_ID_MASK);
-+		}
-+	}
-+
-+	skb_set_inner_protocol(skb, htons(ETH_P_TEB));
-+
-+	return 0;
-+}
-+
- #if IS_ENABLED(CONFIG_IPV6)
- static int vxlan6_xmit_skb(struct vxlan_sock *vs,
- 			   struct dst_entry *dst, struct sk_buff *skb,
- 			   struct net_device *dev, struct in6_addr *saddr,
- 			   struct in6_addr *daddr, __u8 prio, __u8 ttl,
--			   __be16 src_port, __be16 dst_port, __be32 vni,
--			   bool xnet)
-+			   __be16 src_port, __be16 dst_port,
-+			   struct vxlan_metadata *md, bool xnet)
- {
--	struct vxlanhdr *vxh;
- 	int min_headroom;
- 	int err;
- 	bool udp_sum = !udp_get_no_check6_tx(vs->sock->sk);
-@@ -1558,24 +1621,9 @@ static int vxlan6_xmit_skb(struct vxlan_sock *vs,
- 			+ VXLAN_HLEN + sizeof(struct ipv6hdr)
- 			+ (vlan_tx_tag_present(skb) ? VLAN_HLEN : 0);
- 
--	/* Need space for new headers (invalidates iph ptr) */
--	err = skb_cow_head(skb, min_headroom);
--	if (unlikely(err)) {
--		kfree_skb(skb);
--		goto err;
--	}
--
--	skb = vlan_hwaccel_push_inside(skb);
--	if (WARN_ON(!skb)) {
--		err = -ENOMEM;
-+	err = vxlan_build_hdr(skb, vs, min_headroom, md);
-+	if (err)
- 		goto err;
--	}
--
--	vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
--	vxh->vx_flags = htonl(VXLAN_FLAGS);
--	vxh->vx_vni = vni;
--
--	skb_set_inner_protocol(skb, htons(ETH_P_TEB));
- 
- 	udp_tunnel6_xmit_skb(vs->sock, dst, skb, dev, saddr, daddr, prio,
- 			     ttl, src_port, dst_port);
-@@ -1589,9 +1637,9 @@ err:
- int vxlan_xmit_skb(struct vxlan_sock *vs,
- 		   struct rtable *rt, struct sk_buff *skb,
- 		   __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
--		   __be16 src_port, __be16 dst_port, __be32 vni, bool xnet)
-+		   __be16 src_port, __be16 dst_port,
-+		   struct vxlan_metadata *md, bool xnet)
- {
--	struct vxlanhdr *vxh;
- 	int min_headroom;
- 	int err;
- 	bool udp_sum = !vs->sock->sk->sk_no_check_tx;
-@@ -1604,22 +1652,9 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
- 			+ VXLAN_HLEN + sizeof(struct iphdr)
- 			+ (vlan_tx_tag_present(skb) ? VLAN_HLEN : 0);
- 
--	/* Need space for new headers (invalidates iph ptr) */
--	err = skb_cow_head(skb, min_headroom);
--	if (unlikely(err)) {
--		kfree_skb(skb);
-+	err = vxlan_build_hdr(skb, vs, min_headroom, md);
-+	if (err)
- 		return err;
--	}
--
--	skb = vlan_hwaccel_push_inside(skb);
--	if (WARN_ON(!skb))
--		return -ENOMEM;
--
--	vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
--	vxh->vx_flags = htonl(VXLAN_FLAGS);
--	vxh->vx_vni = vni;
--
--	skb_set_inner_protocol(skb, htons(ETH_P_TEB));
- 
- 	return udp_tunnel_xmit_skb(vs->sock, rt, skb, src, dst, tos,
- 				   ttl, df, src_port, dst_port, xnet);
-@@ -1679,6 +1714,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	const struct iphdr *old_iph;
- 	struct flowi4 fl4;
- 	union vxlan_addr *dst;
-+	struct vxlan_metadata md;
- 	__be16 src_port = 0, dst_port;
- 	u32 vni;
- 	__be16 df = 0;
-@@ -1749,11 +1785,12 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 
- 		tos = ip_tunnel_ecn_encap(tos, old_iph, skb);
- 		ttl = ttl ? : ip4_dst_hoplimit(&rt->dst);
-+		md.vni = htonl(vni << 8);
-+		md.gbp = skb->mark;
- 
- 		err = vxlan_xmit_skb(vxlan->vn_sock, rt, skb,
- 				     fl4.saddr, dst->sin.sin_addr.s_addr,
--				     tos, ttl, df, src_port, dst_port,
--				     htonl(vni << 8),
-+				     tos, ttl, df, src_port, dst_port, &md,
- 				     !net_eq(vxlan->net, dev_net(vxlan->dev)));
- 		if (err < 0) {
- 			/* skb is already freed. */
-@@ -1806,10 +1843,12 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 		}
- 
- 		ttl = ttl ? : ip6_dst_hoplimit(ndst);
-+		md.vni = htonl(vni << 8);
-+		md.gbp = skb->mark;
- 
- 		err = vxlan6_xmit_skb(vxlan->vn_sock, ndst, skb,
- 				      dev, &fl6.saddr, &fl6.daddr, 0, ttl,
--				      src_port, dst_port, htonl(vni << 8),
-+				      src_port, dst_port, &md,
- 				      !net_eq(vxlan->net, dev_net(vxlan->dev)));
- #endif
- 	}
-@@ -2210,6 +2249,11 @@ static const struct nla_policy vxlan_policy[IFLA_VXLAN_MAX + 1] = {
- 	[IFLA_VXLAN_UDP_CSUM]	= { .type = NLA_U8 },
- 	[IFLA_VXLAN_UDP_ZERO_CSUM6_TX]	= { .type = NLA_U8 },
- 	[IFLA_VXLAN_UDP_ZERO_CSUM6_RX]	= { .type = NLA_U8 },
-+	[IFLA_VXLAN_EXTENSION]	= { .type = NLA_NESTED },
-+};
-+
-+static const struct nla_policy vxlan_ext_policy[IFLA_VXLAN_EXT_MAX + 1] = {
-+	[IFLA_VXLAN_EXT_GBP]	= { .type = NLA_FLAG, },
- };
- 
- static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
-@@ -2246,6 +2290,18 @@ static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
- 		}
- 	}
- 
-+	if (data[IFLA_VXLAN_EXTENSION]) {
-+		int err;
-+
-+		err = nla_validate_nested(data[IFLA_VXLAN_EXTENSION],
-+					  IFLA_VXLAN_EXT_MAX, vxlan_ext_policy);
-+		if (err < 0) {
-+			pr_debug("invalid VXLAN extension configuration: %d\n",
-+				 err);
-+			return -EINVAL;
-+		}
-+	}
-+
- 	return 0;
- }
- 
-@@ -2400,6 +2456,18 @@ static void vxlan_sock_work(struct work_struct *work)
- 	dev_put(vxlan->dev);
- }
- 
-+static void configure_vxlan_exts(struct vxlan_dev *vxlan, struct nlattr *attr)
-+{
-+	struct nlattr *exts[IFLA_VXLAN_EXT_MAX+1];
-+
-+	/* Validated in vxlan_validate() */
-+	if (nla_parse_nested(exts, IFLA_VXLAN_EXT_MAX, attr, NULL) < 0)
-+		BUG();
-+
-+	if (exts[IFLA_VXLAN_EXT_GBP])
-+		vxlan->exts |= VXLAN_EXT_GBP;
-+}
-+
- static int vxlan_newlink(struct net *net, struct net_device *dev,
- 			 struct nlattr *tb[], struct nlattr *data[])
- {
-@@ -2525,6 +2593,9 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
- 	    nla_get_u8(data[IFLA_VXLAN_UDP_ZERO_CSUM6_RX]))
- 		vxlan->flags |= VXLAN_F_UDP_ZERO_CSUM6_RX;
- 
-+	if (data[IFLA_VXLAN_EXTENSION])
-+		configure_vxlan_exts(vxlan, data[IFLA_VXLAN_EXTENSION]);
-+
- 	if (vxlan_find_vni(net, vni, use_ipv6 ? AF_INET6 : AF_INET,
- 			   vxlan->dst_port)) {
- 		pr_info("duplicate VNI %u\n", vni);
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index 3e98d31..af0526b 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -11,13 +11,65 @@
- #define VNI_HASH_BITS	10
- #define VNI_HASH_SIZE	(1<<VNI_HASH_BITS)
- 
-+/*
-+ * VXLAN Group Based Policy Extension:
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |1|-|-|-|1|-|-|-|R|D|R|R|A|R|R|R|        Group Policy ID        |
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |                VXLAN Network Identifier (VNI) |   Reserved    |
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ *
-+ * D = Don't Learn bit. When set, this bit indicates that the egress
-+ *     VTEP MUST NOT learn the source address of the encapsulated frame.
-+ *
-+ * A = Indicates that the group policy has already been applied to
-+ *     this packet. Policies MUST NOT be applied by devices when the
-+ *     A bit is set.
-+ *
-+ * [0] https://tools.ietf.org/html/draft-smith-vxlan-group-policy
-+ */
-+struct vxlanhdr_gbp {
-+	__u8	vx_flags;
-+#ifdef __LITTLE_ENDIAN_BITFIELD
-+	__u8	reserved_flags1:3,
-+		policy_applied:1,
-+		reserved_flags2:2,
-+		dont_learn:1,
-+		reserved_flags3:1;
-+#elif defined(__BIG_ENDIAN_BITFIELD)
-+	__u8	reserved_flags1:1,
-+		dont_learn:1,
-+		reserved_flags2:2,
-+		policy_applied:1,
-+		reserved_flags3:3;
-+#else
-+#error	"Please fix <asm/byteorder.h>"
-+#endif
-+	__be16	policy_id;
-+	__be32	vx_vni;
-+};
-+
-+struct vxlan_gbp {
-+} __packed;
-+
-+/* skb->mark mapping
-+ *
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |R|R|R|R|R|R|R|R|R|D|R|R|A|R|R|R|        Group Policy ID        |
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ */
-+#define VXLAN_GBP_DONT_LEARN		(BIT(6) << 16)
-+#define VXLAN_GBP_POLICY_APPLIED	(BIT(3) << 16)
-+#define VXLAN_GBP_ID_MASK		(0xFFFF)
-+
- /* VXLAN protocol header:
-  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-- * |R|R|R|R|I|R|R|R|               Reserved                        |
-+ * |G|R|R|R|I|R|R|R|               Reserved                        |
-  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-  * |                VXLAN Network Identifier (VNI) |   Reserved    |
-  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-  *
-+ * G = 1	Group Policy (VXLAN-GBP)
-  * I = 1	VXLAN Network Identifier (VNI) present
-  */
- struct vxlanhdr {
-@@ -26,9 +78,11 @@ struct vxlanhdr {
- #ifdef __LITTLE_ENDIAN_BITFIELD
- 			__u8	reserved_flags1:3,
- 				vni_present:1,
--				reserved_flags2:4;
-+				reserved_flags2:3,
-+				gbp_present:1;
- #elif defined(__BIG_ENDIAN_BITFIELD)
--			__u8	reserved_flags2:4,
-+			__u8	gbp_present:1,
-+				reserved_flags2:3,
- 				vni_present:1,
- 				reserved_flags1:3;
- #else
-@@ -42,8 +96,16 @@ struct vxlanhdr {
- 	__be32	vx_vni;
- };
- 
-+struct vxlan_metadata {
-+	__be32		vni;
-+	u32		gbp;
-+};
-+
- struct vxlan_sock;
--typedef void (vxlan_rcv_t)(struct vxlan_sock *vh, struct sk_buff *skb, __be32 key);
-+typedef void (vxlan_rcv_t)(struct vxlan_sock *vh, struct sk_buff *skb,
-+			   struct vxlan_metadata *md);
-+
-+#define VXLAN_EXT_GBP			BIT(0)
- 
- /* per UDP socket information */
- struct vxlan_sock {
-@@ -78,7 +140,8 @@ void vxlan_sock_release(struct vxlan_sock *vs);
- int vxlan_xmit_skb(struct vxlan_sock *vs,
- 		   struct rtable *rt, struct sk_buff *skb,
- 		   __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
--		   __be16 src_port, __be16 dst_port, __be32 vni, bool xnet);
-+		   __be16 src_port, __be16 dst_port, struct vxlan_metadata *md,
-+		   bool xnet);
- 
- static inline netdev_features_t vxlan_features_check(struct sk_buff *skb,
- 						     netdev_features_t features)
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index f7d0d2d..9f07bf5 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -370,10 +370,18 @@ enum {
- 	IFLA_VXLAN_UDP_CSUM,
- 	IFLA_VXLAN_UDP_ZERO_CSUM6_TX,
- 	IFLA_VXLAN_UDP_ZERO_CSUM6_RX,
-+	IFLA_VXLAN_EXTENSION,
- 	__IFLA_VXLAN_MAX
- };
- #define IFLA_VXLAN_MAX	(__IFLA_VXLAN_MAX - 1)
- 
-+enum {
-+	IFLA_VXLAN_EXT_UNSPEC,
-+	IFLA_VXLAN_EXT_GBP,
-+	__IFLA_VXLAN_EXT_MAX,
-+};
-+#define IFLA_VXLAN_EXT_MAX (__IFLA_VXLAN_EXT_MAX - 1)
-+
- struct ifla_vxlan_port_range {
- 	__be16	low;
- 	__be16	high;
-diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-index d7c46b3..dd68c97 100644
---- a/net/openvswitch/vport-vxlan.c
-+++ b/net/openvswitch/vport-vxlan.c
-@@ -59,7 +59,8 @@ static inline struct vxlan_port *vxlan_vport(const struct vport *vport)
- }
- 
- /* Called with rcu_read_lock and BH disabled. */
--static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb, __be32 vx_vni)
-+static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb,
-+		      struct vxlan_metadata *md)
- {
- 	struct ovs_tunnel_info tun_info;
- 	struct vport *vport = vs->data;
-@@ -68,7 +69,7 @@ static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb, __be32 vx_vni)
- 
- 	/* Save outer tunnel values */
- 	iph = ip_hdr(skb);
--	key = cpu_to_be64(ntohl(vx_vni) >> 8);
-+	key = cpu_to_be64(ntohl(md->vni) >> 8);
- 	ovs_flow_tun_info_init(&tun_info, iph,
- 			       udp_hdr(skb)->source, udp_hdr(skb)->dest,
- 			       key, TUNNEL_KEY, NULL, 0);
-@@ -146,6 +147,7 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
- 	struct vxlan_port *vxlan_port = vxlan_vport(vport);
- 	__be16 dst_port = inet_sk(vxlan_port->vs->sock->sk)->inet_sport;
- 	struct ovs_key_ipv4_tunnel *tun_key;
-+	struct vxlan_metadata md;
- 	struct rtable *rt;
- 	struct flowi4 fl;
- 	__be16 src_port;
-@@ -178,12 +180,13 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
- 	skb->ignore_df = 1;
- 
- 	src_port = udp_flow_src_port(net, skb, 0, 0, true);
-+	md.vni = htonl(be64_to_cpu(tun_key->tun_id) << 8);
- 
- 	err = vxlan_xmit_skb(vxlan_port->vs, rt, skb,
- 			     fl.saddr, tun_key->ipv4_dst,
- 			     tun_key->ipv4_tos, tun_key->ipv4_ttl, df,
- 			     src_port, dst_port,
--			     htonl(be64_to_cpu(tun_key->tun_id) << 8),
-+			     &md,
- 			     false);
- 	if (err < 0)
- 		ip_rt_put(rt);
--- 
-1.9.3
+QSBWWExBTiBuZXRfZGV2aWNlIGxvb2tpbmcgZm9yIGFuIGFwcHJvcHJpYXRlIHNvY2tldCBtYXkg
+b25seSBjb25zaWRlcgphIHNvY2tldCB3aGljaCBoYXMgYSBtYXRjaGluZyBzZXQgb2YgZXh0ZW5z
+aW9ucyBlbmFibGVkLiBJZiB0aGUKZXh0ZW5zaW9ucyBkb24ndCBtYXRjaCwgcmV0dXJuIGEgY29u
+ZmxpY3QgdG8gaGF2ZSB0aGUgY2FsbGVyIGNyZWF0ZSBhCmRpc3RpbmN0IHNvY2tldCB3aXRoIGRp
+c3RpbmN0IHBvcnQuCgpUaGUgT1ZTIFZYTEFOIHBvcnQgaXMga2VwdCB1bmF3YXJlIG9mIGV4dGVu
+c2lvbnMgYXQgdGhpcyBwb2ludC4KClNpZ25lZC1vZmYtYnk6IFRob21hcyBHcmFmIDx0Z3JhZkBz
+dXVnLmNoPgotLS0KdjI6CiAtIEltcHJvdmVkIGNvbW1pdCBtZXNzYWdlLCByZXBvcnRlZCBieSBK
+ZXNzZQoKIGRyaXZlcnMvbmV0L3Z4bGFuLmMgICAgICAgICAgIHwgMzUgKysrKysrKysrKysrKysr
+KysrKysrLS0tLS0tLS0tLS0tLS0KIGluY2x1ZGUvbmV0L3Z4bGFuLmggICAgICAgICAgIHwgIDIg
+Ky0KIG5ldC9vcGVudnN3aXRjaC92cG9ydC12eGxhbi5jIHwgIDIgKy0KIDMgZmlsZXMgY2hhbmdl
+ZCwgMjMgaW5zZXJ0aW9ucygrKSwgMTYgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVy
+cy9uZXQvdnhsYW4uYyBiL2RyaXZlcnMvbmV0L3Z4bGFuLmMKaW5kZXggYjE0ODczOS4uNjFlMTEx
+MiAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvdnhsYW4uYworKysgYi9kcml2ZXJzL25ldC92eGxh
+bi5jCkBAIC0yNzEsMTQgKzI3MSwxNSBAQCBzdGF0aWMgaW5saW5lIHN0cnVjdCB2eGxhbl9yZHN0
+ICpmaXJzdF9yZW1vdGVfcnRubChzdHJ1Y3QgdnhsYW5fZmRiICpmZGIpCiB9CiAKIC8qIEZpbmQg
+VlhMQU4gc29ja2V0IGJhc2VkIG9uIG5ldHdvcmsgbmFtZXNwYWNlLCBhZGRyZXNzIGZhbWlseSBh
+bmQgVURQIHBvcnQgKi8KLXN0YXRpYyBzdHJ1Y3QgdnhsYW5fc29jayAqdnhsYW5fZmluZF9zb2Nr
+KHN0cnVjdCBuZXQgKm5ldCwKLQkJCQkJICBzYV9mYW1pbHlfdCBmYW1pbHksIF9fYmUxNiBwb3J0
+KQorc3RhdGljIHN0cnVjdCB2eGxhbl9zb2NrICp2eGxhbl9maW5kX3NvY2soc3RydWN0IG5ldCAq
+bmV0LCBzYV9mYW1pbHlfdCBmYW1pbHksCisJCQkJCSAgX19iZTE2IHBvcnQsIHUzMiBleHRzKQog
+ewogCXN0cnVjdCB2eGxhbl9zb2NrICp2czsKIAogCWhsaXN0X2Zvcl9lYWNoX2VudHJ5X3JjdSh2
+cywgdnNfaGVhZChuZXQsIHBvcnQpLCBobGlzdCkgewogCQlpZiAoaW5ldF9zayh2cy0+c29jay0+
+c2spLT5pbmV0X3Nwb3J0ID09IHBvcnQgJiYKLQkJICAgIGluZXRfc2sodnMtPnNvY2stPnNrKS0+
+c2suc2tfZmFtaWx5ID09IGZhbWlseSkKKwkJICAgIGluZXRfc2sodnMtPnNvY2stPnNrKS0+c2su
+c2tfZmFtaWx5ID09IGZhbWlseSAmJgorCQkgICAgdnMtPmV4dHMgPT0gZXh0cykKIAkJCXJldHVy
+biB2czsKIAl9CiAJcmV0dXJuIE5VTEw7CkBAIC0yOTgsMTEgKzI5OSwxMiBAQCBzdGF0aWMgc3Ry
+dWN0IHZ4bGFuX2RldiAqdnhsYW5fdnNfZmluZF92bmkoc3RydWN0IHZ4bGFuX3NvY2sgKnZzLCB1
+MzIgaWQpCiAKIC8qIExvb2sgdXAgVk5JIGluIGEgcGVyIG5ldCBuYW1lc3BhY2UgdGFibGUgKi8K
+IHN0YXRpYyBzdHJ1Y3QgdnhsYW5fZGV2ICp2eGxhbl9maW5kX3ZuaShzdHJ1Y3QgbmV0ICpuZXQs
+IHUzMiBpZCwKLQkJCQkJc2FfZmFtaWx5X3QgZmFtaWx5LCBfX2JlMTYgcG9ydCkKKwkJCQkJc2Ff
+ZmFtaWx5X3QgZmFtaWx5LCBfX2JlMTYgcG9ydCwKKwkJCQkJdTMyIGV4dHMpCiB7CiAJc3RydWN0
+IHZ4bGFuX3NvY2sgKnZzOwogCi0JdnMgPSB2eGxhbl9maW5kX3NvY2sobmV0LCBmYW1pbHksIHBv
+cnQpOworCXZzID0gdnhsYW5fZmluZF9zb2NrKG5ldCwgZmFtaWx5LCBwb3J0LCBleHRzKTsKIAlp
+ZiAoIXZzKQogCQlyZXR1cm4gTlVMTDsKIApAQCAtMTc3Niw3ICsxNzc4LDggQEAgc3RhdGljIHZv
+aWQgdnhsYW5feG1pdF9vbmUoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2Ug
+KmRldiwKIAogCQkJaXBfcnRfcHV0KHJ0KTsKIAkJCWRzdF92eGxhbiA9IHZ4bGFuX2ZpbmRfdm5p
+KHZ4bGFuLT5uZXQsIHZuaSwKLQkJCQkJCSAgIGRzdC0+c2Euc2FfZmFtaWx5LCBkc3RfcG9ydCk7
+CisJCQkJCQkgICBkc3QtPnNhLnNhX2ZhbWlseSwgZHN0X3BvcnQsCisJCQkJCQkgICB2eGxhbi0+
+ZXh0cyk7CiAJCQlpZiAoIWRzdF92eGxhbikKIAkJCQlnb3RvIHR4X2Vycm9yOwogCQkJdnhsYW5f
+ZW5jYXBfYnlwYXNzKHNrYiwgdnhsYW4sIGRzdF92eGxhbik7CkBAIC0xODM1LDcgKzE4MzgsOCBA
+QCBzdGF0aWMgdm9pZCB2eGxhbl94bWl0X29uZShzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qg
+bmV0X2RldmljZSAqZGV2LAogCiAJCQlkc3RfcmVsZWFzZShuZHN0KTsKIAkJCWRzdF92eGxhbiA9
+IHZ4bGFuX2ZpbmRfdm5pKHZ4bGFuLT5uZXQsIHZuaSwKLQkJCQkJCSAgIGRzdC0+c2Euc2FfZmFt
+aWx5LCBkc3RfcG9ydCk7CisJCQkJCQkgICBkc3QtPnNhLnNhX2ZhbWlseSwgZHN0X3BvcnQsCisJ
+CQkJCQkgICB2eGxhbi0+ZXh0cyk7CiAJCQlpZiAoIWRzdF92eGxhbikKIAkJCQlnb3RvIHR4X2Vy
+cm9yOwogCQkJdnhsYW5fZW5jYXBfYnlwYXNzKHNrYiwgdnhsYW4sIGRzdF92eGxhbik7CkBAIC0y
+MDA1LDcgKzIwMDksNyBAQCBzdGF0aWMgaW50IHZ4bGFuX2luaXQoc3RydWN0IG5ldF9kZXZpY2Ug
+KmRldikKIAogCXNwaW5fbG9jaygmdm4tPnNvY2tfbG9jayk7CiAJdnMgPSB2eGxhbl9maW5kX3Nv
+Y2sodnhsYW4tPm5ldCwgaXB2NiA/IEFGX0lORVQ2IDogQUZfSU5FVCwKLQkJCSAgICAgdnhsYW4t
+PmRzdF9wb3J0KTsKKwkJCSAgICAgdnhsYW4tPmRzdF9wb3J0LCB2eGxhbi0+ZXh0cyk7CiAJaWYg
+KHZzICYmIGF0b21pY19hZGRfdW5sZXNzKCZ2cy0+cmVmY250LCAxLCAwKSkgewogCQkvKiBJZiB3
+ZSBoYXZlIGEgc29ja2V0IHdpdGggc2FtZSBwb3J0IGFscmVhZHksIHJldXNlIGl0ICovCiAJCXZ4
+bGFuX3ZzX2FkZF9kZXYodnMsIHZ4bGFuKTsKQEAgLTIzNTksNyArMjM2Myw3IEBAIHN0YXRpYyBz
+dHJ1Y3Qgc29ja2V0ICp2eGxhbl9jcmVhdGVfc29jayhzdHJ1Y3QgbmV0ICpuZXQsIGJvb2wgaXB2
+NiwKIC8qIENyZWF0ZSBuZXcgbGlzdGVuIHNvY2tldCBpZiBuZWVkZWQgKi8KIHN0YXRpYyBzdHJ1
+Y3QgdnhsYW5fc29jayAqdnhsYW5fc29ja2V0X2NyZWF0ZShzdHJ1Y3QgbmV0ICpuZXQsIF9fYmUx
+NiBwb3J0LAogCQkJCQkgICAgICB2eGxhbl9yY3ZfdCAqcmN2LCB2b2lkICpkYXRhLAotCQkJCQkg
+ICAgICB1MzIgZmxhZ3MpCisJCQkJCSAgICAgIHUzMiBmbGFncywgdTMyIGV4dHMpCiB7CiAJc3Ry
+dWN0IHZ4bGFuX25ldCAqdm4gPSBuZXRfZ2VuZXJpYyhuZXQsIHZ4bGFuX25ldF9pZCk7CiAJc3Ry
+dWN0IHZ4bGFuX3NvY2sgKnZzOwpAQCAtMjM4Nyw2ICsyMzkxLDcgQEAgc3RhdGljIHN0cnVjdCB2
+eGxhbl9zb2NrICp2eGxhbl9zb2NrZXRfY3JlYXRlKHN0cnVjdCBuZXQgKm5ldCwgX19iZTE2IHBv
+cnQsCiAJYXRvbWljX3NldCgmdnMtPnJlZmNudCwgMSk7CiAJdnMtPnJjdiA9IHJjdjsKIAl2cy0+
+ZGF0YSA9IGRhdGE7CisJdnMtPmV4dHMgPSBleHRzOwogCiAJLyogSW5pdGlhbGl6ZSB0aGUgdnhs
+YW4gdWRwIG9mZmxvYWRzIHN0cnVjdHVyZSAqLwogCXZzLT51ZHBfb2ZmbG9hZHMucG9ydCA9IHBv
+cnQ7CkBAIC0yNDExLDEzICsyNDE2LDE0IEBAIHN0YXRpYyBzdHJ1Y3QgdnhsYW5fc29jayAqdnhs
+YW5fc29ja2V0X2NyZWF0ZShzdHJ1Y3QgbmV0ICpuZXQsIF9fYmUxNiBwb3J0LAogCiBzdHJ1Y3Qg
+dnhsYW5fc29jayAqdnhsYW5fc29ja19hZGQoc3RydWN0IG5ldCAqbmV0LCBfX2JlMTYgcG9ydCwK
+IAkJCQkgIHZ4bGFuX3Jjdl90ICpyY3YsIHZvaWQgKmRhdGEsCi0JCQkJICBib29sIG5vX3NoYXJl
+LCB1MzIgZmxhZ3MpCisJCQkJICBib29sIG5vX3NoYXJlLCB1MzIgZmxhZ3MsCisJCQkJICB1MzIg
+ZXh0cykKIHsKIAlzdHJ1Y3QgdnhsYW5fbmV0ICp2biA9IG5ldF9nZW5lcmljKG5ldCwgdnhsYW5f
+bmV0X2lkKTsKIAlzdHJ1Y3QgdnhsYW5fc29jayAqdnM7CiAJYm9vbCBpcHY2ID0gZmxhZ3MgJiBW
+WExBTl9GX0lQVjY7CiAKLQl2cyA9IHZ4bGFuX3NvY2tldF9jcmVhdGUobmV0LCBwb3J0LCByY3Ys
+IGRhdGEsIGZsYWdzKTsKKwl2cyA9IHZ4bGFuX3NvY2tldF9jcmVhdGUobmV0LCBwb3J0LCByY3Ys
+IGRhdGEsIGZsYWdzLCBleHRzKTsKIAlpZiAoIUlTX0VSUih2cykpCiAJCXJldHVybiB2czsKIApA
+QCAtMjQyNSw3ICsyNDMxLDcgQEAgc3RydWN0IHZ4bGFuX3NvY2sgKnZ4bGFuX3NvY2tfYWRkKHN0
+cnVjdCBuZXQgKm5ldCwgX19iZTE2IHBvcnQsCiAJCXJldHVybiB2czsKIAogCXNwaW5fbG9jaygm
+dm4tPnNvY2tfbG9jayk7Ci0JdnMgPSB2eGxhbl9maW5kX3NvY2sobmV0LCBpcHY2ID8gQUZfSU5F
+VDYgOiBBRl9JTkVULCBwb3J0KTsKKwl2cyA9IHZ4bGFuX2ZpbmRfc29jayhuZXQsIGlwdjYgPyBB
+Rl9JTkVUNiA6IEFGX0lORVQsIHBvcnQsIGV4dHMpOwogCWlmICh2cyAmJiAoKHZzLT5yY3YgIT0g
+cmN2KSB8fAogCQkgICAhYXRvbWljX2FkZF91bmxlc3MoJnZzLT5yZWZjbnQsIDEsIDApKSkKIAkJ
+CXZzID0gRVJSX1BUUigtRUJVU1kpOwpAQCAtMjQ0Nyw3ICsyNDUzLDggQEAgc3RhdGljIHZvaWQg
+dnhsYW5fc29ja193b3JrKHN0cnVjdCB3b3JrX3N0cnVjdCAqd29yaykKIAlfX2JlMTYgcG9ydCA9
+IHZ4bGFuLT5kc3RfcG9ydDsKIAlzdHJ1Y3QgdnhsYW5fc29jayAqbnZzOwogCi0JbnZzID0gdnhs
+YW5fc29ja19hZGQobmV0LCBwb3J0LCB2eGxhbl9yY3YsIE5VTEwsIGZhbHNlLCB2eGxhbi0+Zmxh
+Z3MpOworCW52cyA9IHZ4bGFuX3NvY2tfYWRkKG5ldCwgcG9ydCwgdnhsYW5fcmN2LCBOVUxMLCBm
+YWxzZSwgdnhsYW4tPmZsYWdzLAorCQkJICAgICB2eGxhbi0+ZXh0cyk7CiAJc3Bpbl9sb2NrKCZ2
+bi0+c29ja19sb2NrKTsKIAlpZiAoIUlTX0VSUihudnMpKQogCQl2eGxhbl92c19hZGRfZGV2KG52
+cywgdnhsYW4pOwpAQCAtMjU5Nyw3ICsyNjA0LDcgQEAgc3RhdGljIGludCB2eGxhbl9uZXdsaW5r
+KHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0IG5ldF9kZXZpY2UgKmRldiwKIAkJY29uZmlndXJlX3Z4
+bGFuX2V4dHModnhsYW4sIGRhdGFbSUZMQV9WWExBTl9FWFRFTlNJT05dKTsKIAogCWlmICh2eGxh
+bl9maW5kX3ZuaShuZXQsIHZuaSwgdXNlX2lwdjYgPyBBRl9JTkVUNiA6IEFGX0lORVQsCi0JCQkg
+ICB2eGxhbi0+ZHN0X3BvcnQpKSB7CisJCQkgICB2eGxhbi0+ZHN0X3BvcnQsIHZ4bGFuLT5leHRz
+KSkgewogCQlwcl9pbmZvKCJkdXBsaWNhdGUgVk5JICV1XG4iLCB2bmkpOwogCQlyZXR1cm4gLUVF
+WElTVDsKIAl9CmRpZmYgLS1naXQgYS9pbmNsdWRlL25ldC92eGxhbi5oIGIvaW5jbHVkZS9uZXQv
+dnhsYW4uaAppbmRleCBhZjA1MjZiLi40MTZhYTJiIDEwMDY0NAotLS0gYS9pbmNsdWRlL25ldC92
+eGxhbi5oCisrKyBiL2luY2x1ZGUvbmV0L3Z4bGFuLmgKQEAgLTEzMyw3ICsxMzMsNyBAQCBzdHJ1
+Y3QgdnhsYW5fc29jayB7CiAKIHN0cnVjdCB2eGxhbl9zb2NrICp2eGxhbl9zb2NrX2FkZChzdHJ1
+Y3QgbmV0ICpuZXQsIF9fYmUxNiBwb3J0LAogCQkJCSAgdnhsYW5fcmN2X3QgKnJjdiwgdm9pZCAq
+ZGF0YSwKLQkJCQkgIGJvb2wgbm9fc2hhcmUsIHUzMiBmbGFncyk7CisJCQkJICBib29sIG5vX3No
+YXJlLCB1MzIgZmxhZ3MsIHUzMiBleHRzKTsKIAogdm9pZCB2eGxhbl9zb2NrX3JlbGVhc2Uoc3Ry
+dWN0IHZ4bGFuX3NvY2sgKnZzKTsKIApkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL3Zwb3J0
+LXZ4bGFuLmMgYi9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtdnhsYW4uYwppbmRleCBkZDY4Yzk3Li4y
+NjZjNTk1IDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtdnhsYW4uYworKysgYi9u
+ZXQvb3BlbnZzd2l0Y2gvdnBvcnQtdnhsYW4uYwpAQCAtMTI4LDcgKzEyOCw3IEBAIHN0YXRpYyBz
+dHJ1Y3QgdnBvcnQgKnZ4bGFuX3RubF9jcmVhdGUoY29uc3Qgc3RydWN0IHZwb3J0X3Bhcm1zICpw
+YXJtcykKIAl2eGxhbl9wb3J0ID0gdnhsYW5fdnBvcnQodnBvcnQpOwogCXN0cm5jcHkodnhsYW5f
+cG9ydC0+bmFtZSwgcGFybXMtPm5hbWUsIElGTkFNU0laKTsKIAotCXZzID0gdnhsYW5fc29ja19h
+ZGQobmV0LCBodG9ucyhkc3RfcG9ydCksIHZ4bGFuX3JjdiwgdnBvcnQsIHRydWUsIDApOworCXZz
+ID0gdnhsYW5fc29ja19hZGQobmV0LCBodG9ucyhkc3RfcG9ydCksIHZ4bGFuX3JjdiwgdnBvcnQs
+IHRydWUsIDAsIDApOwogCWlmIChJU19FUlIodnMpKSB7CiAJCW92c192cG9ydF9mcmVlKHZwb3J0
+KTsKIAkJcmV0dXJuICh2b2lkICopdnM7Ci0tIAoxLjkuMwoKX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0
+Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
