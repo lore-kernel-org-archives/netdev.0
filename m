@@ -1,33 +1,41 @@
-From: Hannes Frederic Sowa <hannes@redhat.com>
-Subject: Re: Kernel Panic ip6_xmit (screenshot)
-Date: Thu, 08 Jan 2015 14:51:50 +0100
-Message-ID: <1420725110.5928.5.camel@redhat.com>
-References: <CALJXSJp22yVKZtM8UerAzBdpaZE1CQuavQ=cSJ+Xf7SM75ZJxw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Prevent multiple NAPI instances co-existing in the
+ list
+Date: Thu, 08 Jan 2015 06:51:11 -0800
+Message-ID: <1420728671.5947.47.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+U0gVh+TyEUJ+qmg+FE=UhvvQywfNxcouCyv1sutZ3fav5FAw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?J=E9r=F4me?= Poulin <jeromepoulin@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Miller <davem@davemloft.net>
+To: Dennis Chen <kernel.org.gnu@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48000 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754454AbbAHNvy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jan 2015 08:51:54 -0500
-In-Reply-To: <CALJXSJp22yVKZtM8UerAzBdpaZE1CQuavQ=cSJ+Xf7SM75ZJxw@mail.gmail.com>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:41482 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753218AbbAHOvO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 09:51:14 -0500
+Received: by mail-ig0-f169.google.com with SMTP id z20so2876792igj.0
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 06:51:13 -0800 (PST)
+In-Reply-To: <CA+U0gVh+TyEUJ+qmg+FE=UhvvQywfNxcouCyv1sutZ3fav5FAw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mi, 2015-01-07 at 12:31 -0500, J=C3=A9r=C3=B4me Poulin wrote:
-> I'm submitting this screenshot in case it would affect something
-> important. I have no more details, I was using my desktop computer an=
-d
-> suddenly a kernel panic occured.
->=20
-> Here is the screenshot: http://postimg.org/image/9jhzcfqfd/
+On Thu, 2015-01-08 at 16:22 +0800, Dennis Chen wrote:
+> Some drivers may clear the NAPI_STATE_SCHED bit upon the state of the
+> NAPI instance after exhaust the budget in the poll function, which
+> will open a window for next device interrupt handler to insert a same
+> instance to the list after calling list_add_tail(&n->poll_list,
+> repoll) if we don't set this bit.
+> 
+> Signed-off-by: Dennis Chen <kernel.org.gnu@gmail.com>
+> ---
 
-This is a tainted an ancient kernel, I am sorry, it is unlikely someone
-will look into this if you cannot give more background information on
-how you think this can be reproduced.
 
-Bye,
-Hannes
+Well no.
+
+I am removing some atomic ops in the stack, please do not add new ones,
+especially if no driver is that buggy.
+
+The unlikely() wont help the expensive stuff being done here.
