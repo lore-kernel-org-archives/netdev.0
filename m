@@ -1,61 +1,42 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net 1/2] gen_stats.c: Duplicate xstats buffer for later
- use
-Date: Thu, 08 Jan 2015 16:07:58 +0300
-Message-ID: <54AE812E.4070508@cogentembedded.com>
-References: <20150108103518.GA7214@zenon.in.qult.net>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: [bisected] no traffic on ssl vpn with 3.19rc1 - 3.19rc3
+Date: Thu, 08 Jan 2015 11:22:19 -0200
+Message-ID: <54AE848B.5070407@redhat.com>
+References: <CAHQNsofShzPsOgtEZw1HHpOvJW5fo+MQtO8Ys6Uqsc+SN_LaLA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: =?ISO-8859-2?Q?Ignacy_Gaw=EAdzki?=
-	<ignacy.gawedzki@green-communications.fr>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au
+To: Billy Shuman <wshuman3@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:48870 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754162AbbAHNPo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 08:15:44 -0500
-Received: by mail-la0-f51.google.com with SMTP id ms9so9034163lab.10
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 05:15:43 -0800 (PST)
-In-Reply-To: <20150108103518.GA7214@zenon.in.qult.net>
+Received: from mx1.redhat.com ([209.132.183.28]:47057 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754074AbbAHNW1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jan 2015 08:22:27 -0500
+In-Reply-To: <CAHQNsofShzPsOgtEZw1HHpOvJW5fo+MQtO8Ys6Uqsc+SN_LaLA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 07-01-2015 17:10, Billy Shuman wrote:
+> Hi,
+>
+> Since 3.19rc1 I get 100% packet loss through SSL vpn.  I bisected with
+> the following result:
+>
+> 0b46d0ee9c240c7430a47e9b0365674d4a04522 is the first bad commit
+> commit e0b46d0ee9c240c7430a47e9b0365674d4a04522
+> Author: Herbert Xu <herbert@gondor.apana.org.au>
+> Date:   Fri Nov 7 21:22:23 2014 +0800
+>
+>      tun: Use iovec iterators
+>
+>      This patch removes the use of skb_copy_datagram_const_iovec in
+>      favour of the iovec iterator-based skb_copy_datagram_iter.
+>
+>
+> https://bugzilla.kernel.org/show_bug.cgi?id=90901
 
-On 1/8/2015 1:35 PM, Ignacy Gaw=EAdzki wrote:
+Interesting. Similar effect that I had but your version has the fix already.
+http://article.gmane.org/gmane.linux.network/340700
 
-> The gnet_stats_copy_app() function gets called, more often than not, =
-with its
-> second argument a pointer to an automatic variable in the caller's st=
-ack.
-> Therefore, to avoid copying garbage afterwards when calling
-> gnet_stats_finish_copy(), this data is better copied to a dynamically=
- allocated
-> memory that gets freed after use.
-
-> Signed-off-by: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communication=
-s.fr>
-> ---
->   net/core/gen_stats.c | 17 ++++++++++++++---
->   1 file changed, 14 insertions(+), 3 deletions(-)
-
-> diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
-> index 0c08062..5770a0e 100644
-> --- a/net/core/gen_stats.c
-> +++ b/net/core/gen_stats.c
-> @@ -305,7 +305,10 @@ int
->   gnet_stats_copy_app(struct gnet_dump *d, void *st, int len)
->   {
->   	if (d->compat_xstats) {
-> -		d->xstats =3D st;
-> +		d->xstats =3D kmalloc(len, GFP_KERNEL);
-> +		if (!d->xstats)
-> +			goto kmalloc_failure;
-> +		memcpy(d->xstats, st, len);
-
-    Please use kmemdup() instead of kmalloc()/memcpy().
-
-[...]
-
-WBR, Sergei
+   Marcelo
