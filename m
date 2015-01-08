@@ -1,35 +1,61 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: REGRESSION in nfnetlink on 3.18.x (bisected)
-Date: Thu, 8 Jan 2015 11:47:14 +0100
-Message-ID: <20150108104714.GA3463@salvia>
-References: <5496075F.3060204@tomt.net>
- <20141222115607.GA4961@salvia>
- <5498A7DF.6040903@tomt.net>
- <54ADAD1E.3060101@tomt.net>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch -next] net: eth: xgene: devm_ioremap() returns NULL on error
+Date: Thu, 8 Jan 2015 13:52:12 +0300
+Message-ID: <20150108105211.GB10597@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Andre Tomt <andre@tomt.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: Keyur Chudgar <kchudgar@apm.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Iyappan Subramanian <isubramanian@apm.com>, Feng Kan <fkan@apm.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <54ADAD1E.3060101@tomt.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 07, 2015 at 11:03:10PM +0100, Andre Tomt wrote:
-> On 23. des. 2014 00:23, Andre Tomt wrote:
-> >On 22. des. 2014 12:56, Pablo Neira Ayuso wrote:
-> >>Could you give a test to this patch? Thanks.
-> >>
-> >
-> >Initial testing looks good with this patch applied on top of 3.18.1
-> >I will give it a spin on some more systems tomorrow.
-> 
-> No news is good news :-)
-> 
-> ~10 3.18.x systems in various roles have had this fix for two weeks
-> with no issues.
+devm_ioremap() returns NULL on failure, it doesn't return an ERR_PTR.
 
-Thanks a lot for testing. I already sent the patch to David:
+Fixes: de7b5b3d790a ('net: eth: xgene: change APM X-Gene SoC platform ethernet to support ACPI')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-http://patchwork.ozlabs.org/patch/426205/
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index 1e56bf3..02add38 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -804,9 +804,9 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
+ 		return -ENODEV;
+ 	}
+ 	pdata->base_addr = devm_ioremap(dev, res->start, resource_size(res));
+-	if (IS_ERR(pdata->base_addr)) {
++	if (!pdata->base_addr) {
+ 		dev_err(dev, "Unable to retrieve ENET Port CSR region\n");
+-		return PTR_ERR(pdata->base_addr);
++		return -ENOMEM;
+ 	}
+ 
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, RES_RING_CSR);
+@@ -816,9 +816,9 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
+ 	}
+ 	pdata->ring_csr_addr = devm_ioremap(dev, res->start,
+ 							resource_size(res));
+-	if (IS_ERR(pdata->ring_csr_addr)) {
++	if (!pdata->ring_csr_addr) {
+ 		dev_err(dev, "Unable to retrieve ENET Ring CSR region\n");
+-		return PTR_ERR(pdata->ring_csr_addr);
++		return -ENOMEM;
+ 	}
+ 
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, RES_RING_CMD);
+@@ -828,9 +828,9 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
+ 	}
+ 	pdata->ring_cmd_addr = devm_ioremap(dev, res->start,
+ 							resource_size(res));
+-	if (IS_ERR(pdata->ring_cmd_addr)) {
++	if (!pdata->ring_cmd_addr) {
+ 		dev_err(dev, "Unable to retrieve ENET Ring command region\n");
+-		return PTR_ERR(pdata->ring_cmd_addr);
++		return -ENOMEM;
+ 	}
+ 
+ 	ret = platform_get_irq(pdev, 0);
