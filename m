@@ -1,48 +1,49 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 11/15] batman-adv: checkpatch - remove unnecessary parentheses
-Date: Thu,  8 Jan 2015 16:15:16 +0100
-Message-ID: <1420730120-9844-12-git-send-email-antonio@meshcoding.com>
+From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+Subject: [PATCH 15/15] batman-adv: Kconfig,
+	Add missing DEBUG_FS dependency
+Date: Thu,  8 Jan 2015 16:15:20 +0100
+Message-ID: <1420730120-9844-16-git-send-email-antonio@meshcoding.com>
 References: <1420730120-9844-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <antonio@meshcoding.com>,
-	Marek Lindner <mareklindner@neomailbox.ch>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:23187 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754864AbbAHPbx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 10:31:53 -0500
-In-Reply-To: <1420730120-9844-1-git-send-email-antonio@meshcoding.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1420730120-9844-1-git-send-email-antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+From: Markus Pargmann <mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+
+BATMAN_ADV_DEBUG is using debugfs files for the debugging log. So it
+depends on DEBUG_FS which is missing as dependency in the Kconfig file.
+
+Signed-off-by: Markus Pargmann <mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Signed-off-by: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
 ---
- net/batman-adv/bat_iv_ogm.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/batman-adv/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 4dd7c40..00e00e0 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -878,7 +878,7 @@ batadv_iv_ogm_slide_own_bcast_window(struct batadv_hard_iface *hard_iface)
- 		hlist_for_each_entry_rcu(orig_node, head, hash_entry) {
- 			spin_lock_bh(&orig_node->bat_iv.ogm_cnt_lock);
- 			word_index = hard_iface->if_num * BATADV_NUM_WORDS;
--			word = &(orig_node->bat_iv.bcast_own[word_index]);
-+			word = &orig_node->bat_iv.bcast_own[word_index];
- 
- 			batadv_bit_get_packet(bat_priv, word, 1, 0);
- 			if_num = hard_iface->if_num;
-@@ -1663,7 +1663,7 @@ static void batadv_iv_ogm_process(const struct sk_buff *skb, int ogm_offset,
- 			offset = if_num * BATADV_NUM_WORDS;
- 
- 			spin_lock_bh(&orig_neigh_node->bat_iv.ogm_cnt_lock);
--			word = &(orig_neigh_node->bat_iv.bcast_own[offset]);
-+			word = &orig_neigh_node->bat_iv.bcast_own[offset];
- 			bit_pos = if_incoming_seqno - 2;
- 			bit_pos -= ntohl(ogm_packet->seqno);
- 			batadv_set_bit(word, bit_pos);
+diff --git a/net/batman-adv/Kconfig b/net/batman-adv/Kconfig
+index 11660a3..c6fc8f7 100644
+--- a/net/batman-adv/Kconfig
++++ b/net/batman-adv/Kconfig
+@@ -62,6 +62,7 @@ config BATMAN_ADV_MCAST
+ config BATMAN_ADV_DEBUG
+ 	bool "B.A.T.M.A.N. debugging"
+ 	depends on BATMAN_ADV
++	depends on DEBUG_FS
+ 	help
+ 	  This is an option for use by developers; most people should
+ 	  say N here. This enables compilation of support for
 -- 
 2.2.1
