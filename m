@@ -1,92 +1,79 @@
-From: =?UTF-8?B?U8OpYmFzdGllbiBCYXJyw6k=?= <sebastien.barre@uclouvain.be>
-Subject: Re: [PATCH net-next v2] tcp: avoid reducing cwnd when ACK+DSACK is
- received
-Date: Thu, 8 Jan 2015 16:39:04 +0100
-Message-ID: <54AEA498.5030202@uclouvain.be>
-References: <1420719609-18638-1-git-send-email-sebastien.barre@uclouvain.be> <1420730396.5947.55.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next v2] tcp: avoid reducing cwnd when ACK+DSACK is received
+Date: Thu, 8 Jan 2015 10:43:07 -0500
+Message-ID: <CADVnQy=kACmKGkakx85BHWg7WppS3-B1yLa-TXvfBKbXtXYJ+A@mail.gmail.com>
+References: <1420719609-18638-1-git-send-email-sebastien.barre@uclouvain.be>
+	<1420729656.5947.50.camel@edumazet-glaptop2.roam.corp.google.com>
+	<54AEA11A.1000603@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
 	Gregory Detal <gregory.detal@uclouvain.be>,
 	Nandita Dukkipati <nanditad@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Yuchung Cheng <ycheng@google.com>
+To: =?UTF-8?B?U8OpYmFzdGllbiBCYXJyw6k=?= <sebastien.barre@uclouvain.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:38169 "EHLO
-	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753118AbbAHPjb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 10:39:31 -0500
-In-Reply-To: <1420730396.5947.55.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-qg0-f47.google.com ([209.85.192.47]:54851 "EHLO
+	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754556AbbAHPnI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 10:43:08 -0500
+Received: by mail-qg0-f47.google.com with SMTP id q108so2664610qgd.6
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 07:43:08 -0800 (PST)
+In-Reply-To: <54AEA11A.1000603@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> Le 08/01/2015 16:07, Eric Dumazet a =C3=A9crit :
+>> Do you have at hand a packetdrill test to demonstrate that the patch
+>> works ?
 
-Le 08/01/2015 16:19, Eric Dumazet a =C3=A9crit :
-> On Thu, 2015-01-08 at 13:20 +0100, S=C3=A9bastien Barr=C3=A9 wrote:
->> When the peer has delayed ack enabled, it may reply to a probe with =
-an
->> ACK+D-SACK, with ack value set to tlp_high_seq. In the current code,
->> such ACK+DSACK will be missed and only at next, higher ack will the =
-TLP
->> episode be considered done. Since the DSACK is not present anymore,
->> this will cost a cwnd reduction.
->>
-> ...
->>   net/ipv4/tcp_input.c | 30 +++++++++++++-----------------
->>   1 file changed, 13 insertions(+), 17 deletions(-)
->>
->> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
->> index 075ab4d..cf63a29 100644
->> --- a/net/ipv4/tcp_input.c
->> +++ b/net/ipv4/tcp_input.c
->> @@ -3363,29 +3363,25 @@ static void tcp_replace_ts_recent(struct tcp=
-_sock *tp, u32 seq)
->>   static void tcp_process_tlp_ack(struct sock *sk, u32 ack, int flag=
+I cooked up the packetdrill test below when Sebastien sent out his v1
+a few weeks ago. It fails on a kernel without his patch, and passes on
+a kernel with his patch.
+
+The code change looks fine to me, but if Eric prefers that the
+expression be assigned to a bool before the check, that also sounds
+fine to me.
+
+neal
+
+
+------------
+// Establish a connection.
+0     socket(..., SOCK_STREAM, IPPROTO_TCP) =3D 3
++0     setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
++0    bind(3, ..., ...) =3D 0
++0    listen(3, 1) =3D 0
+
++0    < S 0:0(0) win 32792 <mss 1000,sackOK,nop,nop,nop,wscale 7>
++0    > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 6>
++.020 < . 1:1(0) ack 1 win 257
++0    accept(3, ..., ...) =3D 4
+
+// Send 1 packet.
++0    write(4, ..., 1000) =3D 1000
++0    > P. 1:1001(1000) ack 1
+
+// Loss probe retransmission.
+// packets_out =3D=3D 1 =3D> schedule PTO in max(2*RTT, 1.5*RTT + 200ms=
 )
->>   {
->>   	struct tcp_sock *tp =3D tcp_sk(sk);
->> -	bool is_tlp_dupack =3D (ack =3D=3D tp->tlp_high_seq) &&
->> -			     !(flag & (FLAG_SND_UNA_ADVANCED |
->> -				       FLAG_NOT_DUP | FLAG_DATA_SACKED));
->>  =20
-> No idea why you removed this bool, it really helped to understand the
-> code. This makes your patch looks more complex than needed.
-I did not remove it in v1=20
-(http://www.spinics.net/lists/netdev/msg308653.html)
-The removal was a request from Neal=20
-(http://www.spinics.net/lists/netdev/msg308758.html)
+// In this case, this means: 1.5*RTT + 200ms =3D 230ms
++.230 > P. 1:1001(1000) ack 1
++0    %{ assert tcpi_snd_cwnd =3D=3D 10 }%
 
-I think he found it special to have part of the logic apart, in a bool,=
-=20
-and part of it in the if condition.
-One possible option is to restore is_tlp_dupack and include the DSACK=20
-check in it, although this will
-not do much more than moving complexity in the bool definition. But=20
-indeed, that might make
-the patch more readable.
+// Receiver ACKs at tlp_high_seq with a DSACK,
+// indicating they received the original packet and probe.
++.020 < . 1:1(0) ack 1001 win 257 <sack 1:1001,nop,nop>
++0    %{ assert tcpi_snd_cwnd =3D=3D 10 }%
 
-What do you and Neal think ?
+// Send another packet.
++0    write(4, ..., 1000) =3D 1000
++0    > P. 1001:2001(1000) ack 1
 
-regards,
-
-S=C3=A9bastien.
->
->>   	/* Mark the end of TLP episode on receiving TLP dupack or when
->>   	 * ack is after tlp_high_seq.
->> +	 * With delayed acks, we may also get a regular ACK+DSACK, in whic=
-h
->> +	 * case we don't want to reduce the cwnd either.
->>   	 */
->> -	if (is_tlp_dupack) {
->> +	if (((ack =3D=3D tp->tlp_high_seq) &&
->> +	     !(flag & (FLAG_SND_UNA_ADVANCED |
->> +		       FLAG_NOT_DUP | FLAG_DATA_SACKED))) ||
->> +	    (!before(ack, tp->tlp_high_seq) && (flag & FLAG_DSACKING_ACK))=
-) {
->>   		tp->tlp_high_seq =3D 0;
->> -		return;
->> -	}
->
+// Receiver ACKs above tlp_high_seq, which should end the TLP episode
+// if we haven't already. We should not reduce cwnd.
++.020 < . 1:1(0) ack 2001 win 257
++0    %{ assert tcpi_snd_cwnd =3D=3D 10, tcpi_snd_cwnd }%
