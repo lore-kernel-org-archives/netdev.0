@@ -1,56 +1,73 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net] ipv6: Prevent ipv6_find_hdr() from returning ENOENT
- for valid non-first fragments
-Date: Fri, 9 Jan 2015 01:05:46 +0100
-Message-ID: <20150109000546.GA3488@salvia>
-References: <CAFB3abzYNYqtzd_n+Ym0Lo=DYbV0HPU=Tqw=stALNnu188hMKQ@mail.gmail.com>
- <20150106224706.GA7416@salvia>
- <CAFB3abwKpR1VqZXUrsexqveAZrA2LTSmTe8a=-H7z2HjAptjwA@mail.gmail.com>
- <1420627396.26870.36.camel@stressinduktion.org>
- <20150108205328.GA3361@salvia>
- <1420756756.1755002.211556745.0418D128@webmail.messagingengine.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net-next] mac80211: silent build warnings
+Date: Fri, 9 Jan 2015 09:00:42 +0800
+Message-ID: <54AF283A.5020104@windriver.com>
+References: <1420700655-9427-1-git-send-email-ying.xue@windriver.com> <54AE7F3F.3070802@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rahul Sharma <rsharma@arista.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <linux-wireless@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	<johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41751 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755543AbbAIADI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jan 2015 19:03:08 -0500
-Content-Disposition: inline
-In-Reply-To: <1420756756.1755002.211556745.0418D128@webmail.messagingengine.com>
+Received: from mail.windriver.com ([147.11.1.11]:48065 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750949AbbAIBAu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 20:00:50 -0500
+In-Reply-To: <54AE7F3F.3070802@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 08, 2015 at 11:39:16PM +0100, Hannes Frederic Sowa wrote:
-> Hi Pablo,
-> 
-> On Thu, Jan 8, 2015, at 21:53, Pablo Neira Ayuso wrote:
-> > I'm afraid we cannot just get rid of that !ipv6_ext_hdr() check. The
-> > ipv6_find_hdr() function is designed to return the transport protocol.
-> > After the proposed change, it will return extension header numbers.
-> > This will break existing ip6tables rulesets since the `-p' option
-> > relies on this function to match the transport protocol.
-> >
-> > Note that the AH header is skipped (see code a bit below this
-> > problematic fragmentation handling) so the follow up header after the
-> > AH header is returned as the transport header.
-> > 
-> > We can probably return the AH protocol number for non-1st fragments.
-> > However, that would be something new to ip6tables since nobody has
-> > ever seen packet matching `-p ah' rules. Thus, we restore control to
-> > the user to allow this, but we would accept all kind of fragmented AH
-> > traffic through the firewall since we cannot know what transport
-> > protocol contains from non-1st fragments (unless I'm missing anything,
-> > I need to have a closer look at this again tomorrow with fresher
-> > mind).
-> 
-> The code in question is guarded by (_frag_off != 0), so we are
-> definitely processing a non-1st fragment currently. The -p match would
-> happen at the time when the packet is reassembled and thus ipv6_find_hdr
-> will find the real transport (final) header at this point (I hope I
-> followed the code correctly here).
+On 01/08/2015 08:59 PM, Sergei Shtylyov wrote:
+> Hello.
+>=20
+> On 1/8/2015 10:04 AM, Ying Xue wrote:
+>=20
+>> Silent the following build warnings:
+>=20
+>> net/mac80211/mlme.c: In function =E2=80=98ieee80211_rx_mgmt_beacon=E2=
+=80=99:
+>> net/mac80211/mlme.c:1348:3: warning: =E2=80=98pwr_level_cisco=E2=80=99=
+ may be used
+>> uninitialized in this function [-Wuninitialized]
+>> net/mac80211/mlme.c:1315:6: note: =E2=80=98pwr_level_cisco=E2=80=99 =
+was declared here
+>=20
+>> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+>> ---
+>>   net/mac80211/mlme.c |    2 +-
+>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>=20
+>> diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
+>> index 2c36c47..13b5506 100644
+>> --- a/net/mac80211/mlme.c
+>> +++ b/net/mac80211/mlme.c
+>> @@ -1312,7 +1312,7 @@ static u32 ieee80211_handle_pwr_constr(struct
+>> ieee80211_sub_if_data *sdata,
+>>   {
+>>       bool has_80211h_pwr =3D false, has_cisco_pwr =3D false;
+>>       int chan_pwr =3D 0, pwr_reduction_80211h =3D 0;
+>> -    int pwr_level_cisco, pwr_level_80211h;
+>> +    int pwr_level_cisco =3D 0, pwr_level_80211h =3D 0;
+>=20
+>    OK, but why are you also initializing the second variable?
+>=20
 
-Then, Rahul should get things working by modprobing nf_defrag_ipv6.
+Although the second variable is not warned in above compile warning
+message, but it should be if we take a look at the code associated with=
+ it.
+
+However, as Johannes confirmed, the first change is unnecessary at all.
+So please ignore the patch.
+
+Thanks,
+Ying
+
+> WBR, Sergei
+>=20
+> --=20
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
+>=20
