@@ -1,36 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] Revert "ARM: dts: imx6qdl: enable FEC
- magic-packet feature"
-Date: Thu, 08 Jan 2015 20:05:46 -0800 (PST)
-Message-ID: <20150108.200546.269142338503098096.davem@davemloft.net>
-References: <1420634393-30027-1-git-send-email-festevam@gmail.com>
-	<1420634393-30027-2-git-send-email-festevam@gmail.com>
+Subject: Re: [PATCH v2] sh_eth: Fix access to TRSCER register
+Date: Thu, 08 Jan 2015 20:07:30 -0800 (PST)
+Message-ID: <20150108.200730.2161513801937723015.davem@davemloft.net>
+References: <1420698307-3707-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shawn.guo@linaro.org, fugang.duan@freescale.com,
-	netdev@vger.kernel.org, fabio.estevam@freescale.com
-To: festevam@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50682 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753937AbbAIEAE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 23:00:04 -0500
-In-Reply-To: <1420634393-30027-2-git-send-email-festevam@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, yoshihiro.shimoda.uh@renesas.com,
+	linux-sh@vger.kernel.org, geert@linux-m68k.org
+To: nobuhiro.iwamatsu.yj@renesas.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1420698307-3707-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Fabio Estevam <festevam@gmail.com>
-Date: Wed,  7 Jan 2015 10:39:53 -0200
+From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Date: Thu,  8 Jan 2015 15:25:07 +0900
 
-> From: Fabio Estevam <fabio.estevam@freescale.com>
+> TRSCER register is configured differently by SoCs. TRSCER of R-Car Gen2 is
+> RINT8 bit only valid, other bits are reserved bits. This removes access to
+> TRSCER register reserve bit by adding variable trscer_err_mask to
+> sh_eth_cpu_data structure, set the register information to each SoCs.
 > 
-> As 456062b3ec6f ("ARM: imx: add FEC sleep mode callback function") has been
-> reverted, also revert the dts part.
-> 
-> This reverts commit 07b4d2dda0c00f56248 ("ARM: dts: imx6qdl: enable FEC 
-> magic-packet feature").
-> 
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 
 Applied.
