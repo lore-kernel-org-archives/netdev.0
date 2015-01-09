@@ -1,65 +1,71 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: Re: [patch -next] net: eth: xgene: devm_ioremap() returns NULL on error
-Date: Fri, 9 Jan 2015 14:56:53 -0800
-Message-ID: <CAKh23FkWyiXG38RtbWK3nkX9jC0YkDqfvFnGLtSp0f+8N=KhPw@mail.gmail.com>
-References: <20150108105211.GB10597@mwanda>
+From: Ignacy =?iso-8859-2?Q?Gaw=EAdzki?=
+	<ignacy.gawedzki@green-communications.fr>
+Subject: Re: [PATCH net v3] gen_stats.c: Duplicate xstats buffer for later use
+Date: Sat, 10 Jan 2015 00:01:09 +0100
+Message-ID: <20150109230109.GA4549@zenon.in.qult.net>
+References: <20150108123343.GA8541@zenon.in.qult.net>
+ <20150108133037.GA10389@zenon.in.qult.net>
+ <CAHA+R7OpbP_+iwh6X=sh4SsXJ4VreBjze7dPrV6Xh8RHEe+cGw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Feng Kan <fkan@apm.com>, Keyur Chudgar <kchudgar@apm.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	netdev <netdev@vger.kernel.org>, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20150108105211.GB10597@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [78.193.33.39] ([78.193.33.39]:60004 "EHLO mail.qult.net"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752362AbbAIXB6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jan 2015 18:01:58 -0500
+Content-Disposition: inline
+In-Reply-To: <CAHA+R7OpbP_+iwh6X=sh4SsXJ4VreBjze7dPrV6Xh8RHEe+cGw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 8, 2015 at 2:52 AM, Dan Carpenter <dan.carpenter@oracle.com> wrote:
-> devm_ioremap() returns NULL on failure, it doesn't return an ERR_PTR.
->
-> Fixes: de7b5b3d790a ('net: eth: xgene: change APM X-Gene SoC platform ethernet to support ACPI')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->
-> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-> index 1e56bf3..02add38 100644
-> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-> @@ -804,9 +804,9 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
->                 return -ENODEV;
->         }
->         pdata->base_addr = devm_ioremap(dev, res->start, resource_size(res));
-> -       if (IS_ERR(pdata->base_addr)) {
-> +       if (!pdata->base_addr) {
->                 dev_err(dev, "Unable to retrieve ENET Port CSR region\n");
-> -               return PTR_ERR(pdata->base_addr);
-> +               return -ENOMEM;
->         }
->
->         res = platform_get_resource(pdev, IORESOURCE_MEM, RES_RING_CSR);
-> @@ -816,9 +816,9 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
->         }
->         pdata->ring_csr_addr = devm_ioremap(dev, res->start,
->                                                         resource_size(res));
-> -       if (IS_ERR(pdata->ring_csr_addr)) {
-> +       if (!pdata->ring_csr_addr) {
->                 dev_err(dev, "Unable to retrieve ENET Ring CSR region\n");
-> -               return PTR_ERR(pdata->ring_csr_addr);
-> +               return -ENOMEM;
->         }
->
->         res = platform_get_resource(pdev, IORESOURCE_MEM, RES_RING_CMD);
-> @@ -828,9 +828,9 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
->         }
->         pdata->ring_cmd_addr = devm_ioremap(dev, res->start,
->                                                         resource_size(res));
-> -       if (IS_ERR(pdata->ring_cmd_addr)) {
-> +       if (!pdata->ring_cmd_addr) {
->                 dev_err(dev, "Unable to retrieve ENET Ring command region\n");
-> -               return PTR_ERR(pdata->ring_cmd_addr);
-> +               return -ENOMEM;
->         }
->
->         ret = platform_get_irq(pdev, 0);
+On Fri, Jan 09, 2015 at 02:35:41PM -0800, thus spake Cong Wang:
+> On Thu, Jan 8, 2015 at 5:30 AM, Ignacy Gaw=EAdzki
+> > diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
+> > index 0c08062..c9f1fa8 100644
+> > --- a/net/core/gen_stats.c
+> > +++ b/net/core/gen_stats.c
+> > @@ -32,6 +32,9 @@ gnet_stats_copy(struct gnet_dump *d, int type, vo=
+id *buf, int size)
+> >         return 0;
+> >
+> >  nla_put_failure:
+> > +       kfree(d->xstats);
+> > +       d->xstats =3D NULL;
+> > +       d->xstats_len =3D 0;
+> >         spin_unlock_bh(d->lock);
+> >         return -1;
+> >  }
+>=20
+> Although it is not your fault, the API sucks, gnet_stats_copy()
+> should not need to care about the error path of its caller.
+> I will cook a patch for it.
 
-Acked-by: Iyappan Subramanian <isubramanian@apm.com>
+That would be great, as I'm certainly not that fluent in kernel code.
+
+> > @@ -305,7 +308,10 @@ int
+> >  gnet_stats_copy_app(struct gnet_dump *d, void *st, int len)
+> >  {
+> >         if (d->compat_xstats) {
+> > -               d->xstats =3D st;
+> > +               kfree(d->xstats);
+> > +               d->xstats =3D kmemdup(st, len, GFP_ATOMIC);
+> > +               if (!d->xstats)
+> > +                       goto kmalloc_failure;
+>=20
+> Do we really need to call kfree() before kmemdup()?
+> I don't think gnet_stats_copy_app() is supposed to be called
+> twice before gnet_stats_copy_finish()?
+
+It's not, but I figured it's safer that way and probably not that expen=
+sive
+given the frequency with which calls to these functions are performed i=
+n
+practice.
+
+--=20
+Ignacy Gaw=EAdzki
+R&D Engineer
+Green Communications
