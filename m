@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: fix NULL pointer dereference in
- fec_enet_timeout_work
-Date: Thu, 08 Jan 2015 20:12:56 -0800 (PST)
-Message-ID: <20150108.201256.84753051983146804.davem@davemloft.net>
-References: <1420638497-6871-1-git-send-email-hubert.feurstein@deto.at>
+Subject: Re: pull request: batman-adv 20150108
+Date: Thu, 08 Jan 2015 20:14:55 -0800 (PST)
+Message-ID: <20150108.201455.1089469097589757110.davem@davemloft.net>
+References: <1420730120-9844-1-git-send-email-antonio@meshcoding.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fabio.estevam@freescale.com,
-	frank.li@freescale.com, linux-kernel@vger.kernel.org
-To: h.feurstein@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1420638497-6871-1-git-send-email-hubert.feurstein@deto.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: antonio@meshcoding.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50824 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753352AbbAIEJL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 23:09:11 -0500
+In-Reply-To: <1420730120-9844-1-git-send-email-antonio@meshcoding.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hubert Feurstein <h.feurstein@gmail.com>
-Date: Wed,  7 Jan 2015 14:48:17 +0100
+From: Antonio Quartulli <antonio@meshcoding.com>
+Date: Thu,  8 Jan 2015 16:15:05 +0100
 
-> From: Hubert Feurstein <h.feurstein@gmail.com>
+> this is a batch of patches intended for net-next.
 > 
-> This patch initialises the fep->netdev pointer. This pointer was not
-> initialised at all, but is used in fec_enet_timeout_work and in some
-> error paths.
+> In this patchset you have mostly cleanups and small corrections to issues
+> reported by checkpatch.
 > 
-> Signed-off-by: Hubert Feurstein <h.feurstein@gmail.com>
+> One notable change is the addition of the DEBUG_FS dependency to the
+> BATMAN_ADV_DEBUG symbol by Markus Pargmann. We add this dependency because all
+> the information provided by the DEBUG feature is accessible only through
+> debugfs.
 
-Applied.
+Pulled, thanks Antonio.
