@@ -1,50 +1,41 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 3/3] rhashtable: add a note for grow and shrink decision functions
-Date: Fri, 9 Jan 2015 16:23:38 +0800
-Message-ID: <1420791818-22150-4-git-send-email-ying.xue@windriver.com>
-References: <1420791818-22150-1-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 0/3] remove nl_sk_hash_lock from netlink socket
+Date: Fri, 9 Jan 2015 16:23:35 +0800
+Message-ID: <1420791818-22150-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
 To: <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:36887 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753346AbbAIIYK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 03:24:10 -0500
-In-Reply-To: <1420791818-22150-1-git-send-email-ying.xue@windriver.com>
+Received: from mail1.windriver.com ([147.11.146.13]:32871 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753346AbbAIIYH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 03:24:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As commit c0c09bfdc415 ("rhashtable: avoid unnecessary wakeup for
-worker queue") moves condition statements of verifying whether hash
-table size exceeds its maximum threshold or reaches its minimum
-threshold from resizing functions to resizing decision functions,
-we should add a note in rhashtable.h to indicate the implementation
-of what the grow and shrink decision function must enforce min/max
-shift, otherwise, it's failed to take min/max shift's set watermarks
-into effect.
+After tipc socket successfully avoids the involvement of an extra lock
+with rhashtable_lookup_insert(), it's possible for netlink socket to
+remove its hash socket lock now. But as netlink socket needs a compare
+function to look for an object, we first introduce a new function
+called rhashtable_lookup_compare_insert() in commit #1 which is
+implemented based on original rhashtable_lookup_insert(). We
+subsequently remove nl_sk_hash_lock from netlink socket with the new
+introduced function in commit #2. Lastly, as Thomas requested, we add
+commit #3 to indicate the implementation of what the grow and shrink
+decision function must enforce min/max shift.
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Cc: Thomas Graf <tgraf@suug.ch>
----
- include/linux/rhashtable.h |    4 ++++
- 1 file changed, 4 insertions(+)
+Ying Xue (3):
+  rhashtable: involve rhashtable_lookup_compare_insert routine
+  netlink: eliminate nl_sk_hash_lock
+  rhashtable: add a note for grow and shrink decision functions
 
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 7b9bd77..9570832 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -79,6 +79,10 @@ struct rhashtable;
-  * @obj_hashfn: Function to hash object
-  * @grow_decision: If defined, may return true if table should expand
-  * @shrink_decision: If defined, may return true if table should shrink
-+ *
-+ * Note: when implementing the grow and shrink decision function, min/max
-+ * shift must be enforced, otherwise, resizing watermarks they set may be
-+ * useless.
-  */
- struct rhashtable_params {
- 	size_t			nelem_hint;
+ include/linux/rhashtable.h |    9 +++++++++
+ lib/rhashtable.c           |   42 ++++++++++++++++++++++++++++++++++++++++--
+ net/netlink/af_netlink.c   |   43 ++++++++++++++++++++++---------------------
+ net/netlink/af_netlink.h   |    1 -
+ net/netlink/diag.c         |   10 +++++-----
+ 5 files changed, 76 insertions(+), 29 deletions(-)
+
 -- 
 1.7.9.5
