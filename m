@@ -1,62 +1,68 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH v2 net-next] bridge: Add ability to enable TSO
-Date: Fri, 09 Jan 2015 15:22:37 +0900
-Message-ID: <54AF73AD.4000008@lab.ntt.co.jp>
-References: <1420780600-11313-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	<1138400428.6686751.1420782286490.JavaMail.zimbra@redhat.com>
+From: Rahul Sharma <rsharma@arista.com>
+Subject: Re: [PATCH net] ipv6: Prevent ipv6_find_hdr() from returning ENOENT
+ for valid non-first fragments
+Date: Fri, 9 Jan 2015 12:48:24 +0530
+Message-ID: <CAFB3abwrjp61LLOk3RWwXYEq1g4QZUC8OTKuO2cAr+GbV3n4rw@mail.gmail.com>
+References: <CAFB3abzYNYqtzd_n+Ym0Lo=DYbV0HPU=Tqw=stALNnu188hMKQ@mail.gmail.com>
+	<20150106224706.GA7416@salvia>
+	<CAFB3abwKpR1VqZXUrsexqveAZrA2LTSmTe8a=-H7z2HjAptjwA@mail.gmail.com>
+	<1420627396.26870.36.camel@stressinduktion.org>
+	<20150108205328.GA3361@salvia>
+	<1420756756.1755002.211556745.0418D128@webmail.messagingengine.com>
+	<20150109000546.GA3488@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	"David S . Miller" <davem@davemloft.net>
-To: Pankaj Gupta <pagupta@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1138400428.6686751.1420782286490.JavaMail.zimbra@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f173.google.com ([74.125.82.173]:59006 "EHLO
+	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754031AbbAIHSZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 02:18:25 -0500
+Received: by mail-we0-f173.google.com with SMTP id q58so6375201wes.4
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 23:18:24 -0800 (PST)
+In-Reply-To: <20150109000546.GA3488@salvia>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2015/01/09 14:44, Pankaj Gupta wrote:
-> 
->>
->> Currently a bridge device turns off TSO feature if no bridge ports
->> support it. We can always enable it, since packets can be segmented on
->> ports by software as well as on the bridge device.
->> This will reduce the number of packets processed in the bridge.
->>
->> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
->> ---
->> v2: Use an existing helper function.
->>
->>  net/bridge/br_if.c | 1 +
->>  1 file changed, 1 insertion(+)
->>
->> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
->> index ed307db..81e49fb 100644
->> --- a/net/bridge/br_if.c
->> +++ b/net/bridge/br_if.c
->> @@ -424,6 +424,7 @@ netdev_features_t br_features_recompute(struct net_bridge
->> *br,
->>  		features = netdev_increment_features(features,
->>  						     p->dev->features, mask);
->>  	}
->> +	features = netdev_add_tso_features(features, mask);
-> 
-> Just a doubt. Are we inducing latency if source has traffic at very low rate.
-> I mean by default do we need it?
+Hi Pablo,
 
-Is your concern tcp_tso_should_defer() in tcp_write_xmit()?
-If so, since TSO packet is created by GSO even without this patch, this
-should not increase latency there.
-This patch just delays the point of software segmentation from the
-bridge device to its port.
+On Fri, Jan 9, 2015 at 5:35 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> On Thu, Jan 08, 2015 at 11:39:16PM +0100, Hannes Frederic Sowa wrote:
+>> Hi Pablo,
+>>
+>> On Thu, Jan 8, 2015, at 21:53, Pablo Neira Ayuso wrote:
+>> > I'm afraid we cannot just get rid of that !ipv6_ext_hdr() check. The
+>> > ipv6_find_hdr() function is designed to return the transport protocol.
+>> > After the proposed change, it will return extension header numbers.
+>> > This will break existing ip6tables rulesets since the `-p' option
+>> > relies on this function to match the transport protocol.
+>> >
+>> > Note that the AH header is skipped (see code a bit below this
+>> > problematic fragmentation handling) so the follow up header after the
+>> > AH header is returned as the transport header.
+>> >
+>> > We can probably return the AH protocol number for non-1st fragments.
+>> > However, that would be something new to ip6tables since nobody has
+>> > ever seen packet matching `-p ah' rules. Thus, we restore control to
+>> > the user to allow this, but we would accept all kind of fragmented AH
+>> > traffic through the firewall since we cannot know what transport
+>> > protocol contains from non-1st fragments (unless I'm missing anything,
+>> > I need to have a closer look at this again tomorrow with fresher
+>> > mind).
+>>
+>> The code in question is guarded by (_frag_off != 0), so we are
+>> definitely processing a non-1st fragment currently. The -p match would
+>> happen at the time when the packet is reassembled and thus ipv6_find_hdr
+>> will find the real transport (final) header at this point (I hope I
+>> followed the code correctly here).
+>
+> Then, Rahul should get things working by modprobing nf_defrag_ipv6.
+
+I already had nf_defrag_ipv6 installed when the issue occured. But I
+see ip6table_raw_hook returning NF_DROP for the second fragment.
 
 Thanks,
-Toshiaki Makita
+Rahul
