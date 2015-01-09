@@ -1,79 +1,58 @@
-From: "Arad, Ronen" <ronen.arad@intel.com>
-Subject: RE: Clarification regarding IFLA_BRPORT_LEARNING_SYNC and aging of
- fdb entries learnt via br_fdb_external_learn_add()
-Date: Fri, 9 Jan 2015 16:15:58 +0000
-Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505DDA643@ORSMSX101.amr.corp.intel.com>
-References: <CA+CtxLSv6Hg9kOmavqQKs+7y8b8+TBdW1dYwb3ZsTMOh=Ow8Ew@mail.gmail.com>
-	<20150107125301.GE1888@nanopsycho.orion>
- <CAE4R7bBRboCfhRKFKgVVAGt1f-m6wkXNfaej4RjuaCKPypABeA@mail.gmail.com>
+From: "Carlos O'Donell" <carlos@redhat.com>
+Subject: Re: [Patch net-next] ipv6: fix redefinition of in6_pktinfo and ip6_mtuinfo
+Date: Fri, 09 Jan 2015 11:27:46 -0500
+Message-ID: <54B00182.8060609@redhat.com>
+References: <1420587932-8733-1-git-send-email-xiyou.wangcong@gmail.com> <20150108.193819.258816805892789860.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Siva Mannem <siva.mannem.lnx@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=iso-8859-7
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, vlee@twopensource.com
+To: David Miller <davem@davemloft.net>, xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:60388 "EHLO mga11.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49316 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751161AbbAIQQA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jan 2015 11:16:00 -0500
-In-Reply-To: <CAE4R7bBRboCfhRKFKgVVAGt1f-m6wkXNfaej4RjuaCKPypABeA@mail.gmail.com>
-Content-Language: en-US
+	id S1754844AbbAIQ1v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jan 2015 11:27:51 -0500
+In-Reply-To: <20150108.193819.258816805892789860.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IG5ldGRldi1vd25lckB2Z2Vy
-Lmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnXSBPbg0KPkJl
-aGFsZiBPZiBTY290dCBGZWxkbWFuDQo+U2VudDogRnJpZGF5LCBKYW51YXJ5IDA5LCAyMDE1IDM6
-NDcgQU0NCj5UbzogSmlyaSBQaXJrbw0KPkNjOiBTaXZhIE1hbm5lbTsgTmV0ZGV2DQo+U3ViamVj
-dDogUmU6IENsYXJpZmljYXRpb24gcmVnYXJkaW5nIElGTEFfQlJQT1JUX0xFQVJOSU5HX1NZTkMg
-YW5kIGFnaW5nIG9mDQo+ZmRiIGVudHJpZXMgbGVhcm50IHZpYSBicl9mZGJfZXh0ZXJuYWxfbGVh
-cm5fYWRkKCkNCj4NCj5PbiBXZWQsIEphbiA3LCAyMDE1IGF0IDQ6NTMgQU0sIEppcmkgUGlya28g
-PGppcmlAcmVzbnVsbGkudXM+IHdyb3RlOg0KPj4gVHVlLCBEZWMgMzAsIDIwMTQgYXQgMDc6MjA6
-MjFQTSBDRVQsIHNpdmEubWFubmVtLmxueEBnbWFpbC5jb20gd3JvdGU6DQo+Pj5IaSwNCj4+Pg0K
-Pj4+SSBhbSB0cnlpbmcgdG8gdW5kZXJzdGFuZCB0aGUgb25nb2luZyBzd2l0Y2ggZGV2aWNlIG9m
-ZmxvYWQgZWZmb3J0IGFuZA0KPj4+YW0gZm9sbG93aW5nIHRoZSBkaXNjdXNzaW9ucy4gSSBoYXZl
-IGEgcXVlc3Rpb24gcmVnYXJkaW5nDQo+Pj5JRkxBX0JSUE9SVF9MRUFSTklOR19TWU5DIGZsYWcg
-YW5kIGhvdyBhZ2luZyBoYXBwZW5zIHdoZW4gdGhpcyBmbGFnIGlzDQo+Pj5lbmFibGVkIG9uIGEg
-cG9ydCB0aGF0IGlzIGF0dGFjaGVkIHRvIGEgYnJpZGdlIHRoYXQgaGFzIHZsYW4gZmlsdGVyaW5n
-DQo+Pj5lbmFibGVkLg0KPj4+DQo+Pj5JZiBJIHVuZGVyc3RhbmQgY29ycmVjdGx5LCB3aGVuICBJ
-RkxBX0JSUE9SVF9MRUFSTklOR19TWU5DIGlzIHNldCBvbiBhDQo+Pj5icmlkZ2UgcG9ydCwgZmRi
-IGVudHJpZXMgdGhhdCBhcmUgbGVhcm50IGV4dGVybmFsbHkobWF5IGJlIGxlYXJudCBieQ0KPj4+
-aGFyZHdhcmUgYW5kIGRyaXZlciBpcyBub3RpZmllZCkgYXJlIHN5bmNlZCB0byBicmlkZ2VzIGZk
-YiB1c2luZw0KPj4+YnJfZmRiX2V4dGVybmFsX2xlYXJuX2FkZCgpLiBUaGUgZmRiDQo+Pj5lbnRy
-aWVzKGZkYi0+YWRkZWRfYnlfZXh0ZXJuYWxfbGVhcm4gc2V0IHRvIHRydWUpIHRoYXQgYXJlIGxl
-YXJudCB2aWENCj4+PnRoaXMgbWV0aG9kIGFyZSBhbHNvIGRlbGV0ZWQgYnkgdGhlIGFnaW5nIGxv
-Z2ljIGFmdGVyIHRoZSBhZ2luZyB0aW1lDQo+Pj5ldmVuIHRob3VnaCBMMiBkYXRhIGZvcndhZHJp
-bmcgIGhhcHBlbnMgaW4gaGFyZHdhcmUuDQo+DQo+VGhpcyBpcyBjb3JyZWN0Li4uDQo+DQo+Pj4g
-SXMgdGhlcmUgYSB3YXkNCj4+PndoZXJlIGFnaW5nIGNhbiBiZSBkaXNhYmxlZCBmb3IgdGhlc2Ug
-ZW50cmllcz8gYW5kIGxldCB0aGUgZW50cmllcyBiZQ0KPj4+cmVtb3ZlZCBvbmx5IHZpYSBicl9m
-ZGJfZXh0ZXJuYWxfbGVhcm5fZGVsZXRlKCk/IG9yIGFtIEkgbWlzc2luZw0KPj4+c29tZXRoaW5n
-Pw0KPj4NCj4+IEN1cnJlbnRseSBleHRlbmFseSBsZWFybmVkIGZkYiBlbnRyaWVzIGFyZSBpbmRl
-ZWQgcmVtb3ZlZCBkdXJpbmcgYWdpbmcNCj4+IGNsZWFudXAuIEkgYmVsaWV2ZSB0aGF0IGJyX2Zk
-Yl9jbGVhbnVwIHNob3VsZCBjaGVjayBhZGRlZF9ieV9leHRlcm5hbF9sZWFybg0KPj4gYW5kIG5v
-dCByZW1vdmUgdGhhdCBmZGJzLiBXaGF0IGRvIHlvdSB0aGluayBTY290dD8NCj4NCj5Tb21ldGhp
-bmcgbGlrZSB0aGF0IHdvdWxkIHdvcmssIGlmIHdlIGFkZGVkIGFub3RoZXIgYnJwb3J0IGZsYWcg
-dG8NCj5jb250cm9sIHRoYXQuICBXaXRoIHRoZSBjdXJyZW50IGFycmFuZ2VtZW50LCB1c2luZyBi
-cmlkZ2UgZm9yIGFnaW5nDQo+b3V0IGVudHJpZXMsIHdlIHdhbnQgYnJfZmRiX2NsZWFudXAgcmVt
-b3ZpbmcgdGhlIGV4dGVybmFsX2xlYXJuZWQNCj5mZGJzLCBidXQgaWYgdGhlcmUgd2FzIGFub3Ro
-ZXIgYnJwb3J0IGZsYWcgd2UgY291bGQgZmluZSB0dW5lIHRoYXQuDQo+U2F5IG5ldyBmbGFnIGlz
-IElGTEFfQlJQT1JUX0FHSU5HX09GRkxPQUQgb3Igc29tZXRoaW5nIGxpa2UgdGhhdC4gIEknbQ0K
-Pm5vdCBzdXJlIGhvdyBhZ2luZyBzZXR0aW5ncyBmb3IgdGhlIGJyaWRnZSBhcmUgcHVzaGVkIGRv
-d24gdG8gb2ZmbG9hZA0KPmh3LCBvciBpZiB0aGVyZSBpcyBhIGRpZmZlcmVudCBzZXQgZm9yIGh3
-Lg0KPg0KPkJ1dCwgaXNuJ3QgaXQgbmljZSB0byBsZXQgTGludXggYnJpZGdlIGNvbnRyb2wgYWdp
-bmc/ICBUaGF0IHdheSwNCj5icmlkZ2UgLXMgZmRiIGR1bXAgc2hvd3MgbmljZSBzdGF0aXN0aWNz
-IG9uIGZkYiBlbnRyaWVzLiAgSGFyZHdhcmUNCj5pc24ndCBpbnZvbHZlZCBpbiB0aGUgYWdpbmcg
-cHJvY2Vzc2VzIChvdGhlciB0aGFuIGJlaW5nIHRvbGQgdG8gcmVtb3ZlDQo+YW4gZW50cnkpLiAg
-U2ltcGxlIGhhcmR3YXJlIGVxdWFscyBzaW1wbGUgZHJpdmVyLiAgTGludXggcmVtYWlucw0KPmNv
-bnRyb2wgcG9pbnQuDQo+DQpJdCBpcyBpbmRlZWQgc2ltcGxlci4gSG93ZXZlciwgaWYgdGhlIG92
-ZXJoZWFkIG9mIHJlYWRpbmcgaGl0IGJpdHMgZnJvbSB0aGUgSFcNCmFuZCB1cGRhdGluZyBmcmVz
-aG5lc3Mgb2YgZW50cmllcyB1c2luZyBicl9mZGJfZXh0ZXJuYWxfbGVhcm5fYWRkKCkgaXMgdG9v
-DQpleHBlbnNpdmUsIGl0IHdvdWxkIGZvcmNlIHN1Y2ggcGxhdGZvcm1zIHRvIGRpc2FibGUgbGVh
-cm5pbmcgc3luYyBhbHRvZ2V0aGVyLg0KVGhlcmVmb3JlLCBJIGJlbGlldmUgYWdpbmcgb2ZmbG9h
-ZCBmbGFnIChjb3VsZCBiZSBzdWZmaWNpZW50IGF0IGJyaWRnZSBsZXZlbCkNCmFuZCBleHRlcm5h
-bCBhZ2luZyBpbnRlcnZhbCAocG9zc2libHkgbG9uZ2VyIHRoYW4gdGhlIHNvZnR3YXJlIGFnaW5n
-IGludGVydmFsKQ0Kd2lsbCBlbmNvdXJhZ2UgZHJpdmVycyB0byB1c2UgbGVhbmluZyBzeW5jLg0K
-Pi1zY290dA0KPi0tDQo+VG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxp
-bmUgInVuc3Vic2NyaWJlIG5ldGRldiIgaW4NCj50aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFq
-b3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPk1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92
-Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0K
+On 01/08/2015 10:38 PM, David Miller wrote:
+> From: Cong Wang <xiyou.wangcong@gmail.com>
+> Date: Tue,  6 Jan 2015 15:45:31 -0800
+>=20
+>> Both netinet/in.h and linux/ipv6.h define these two structs,
+>> if we include both of them, we got:
+>>
+>> 	/usr/include/linux/ipv6.h:19:8: error: redefinition of =A1struct in=
+6_pktinfo=A2
+>> 	 struct in6_pktinfo {
+>> 		^
+>> 	In file included from /usr/include/arpa/inet.h:22:0,
+>> 			 from txtimestamp.c:33:
+>> 	/usr/include/netinet/in.h:524:8: note: originally defined here
+>> 	 struct in6_pktinfo
+>> 		^
+>> 	In file included from txtimestamp.c:40:0:
+>> 	/usr/include/linux/ipv6.h:24:8: error: redefinition of =A1struct ip=
+6_mtuinfo=A2
+>> 	 struct ip6_mtuinfo {
+>> 		^
+>> 	In file included from /usr/include/arpa/inet.h:22:0,
+>> 			 from txtimestamp.c:33:
+>> 	/usr/include/netinet/in.h:531:8: note: originally defined here
+>> 	 struct ip6_mtuinfo
+>> 		^
+>> So similarly to what we did for in6_addr, we need to sync with
+>> libc header on their definitions.
+>>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>=20
+> Applied.
+>=20
+
+I'm reviewing the glibc side and will apply there if nobody has done so=
+ yet.
+
+Cheers,
+Carlos.
