@@ -1,92 +1,71 @@
-From: "Ronciak, John" <john.ronciak@intel.com>
-Subject: RE: [PATCH] i40e: don't enable and init FCOE by default when do PF
- reset
-Date: Fri, 9 Jan 2015 16:41:51 +0000
-Message-ID: <D38E8E86660E514AB505863C19C9287C741097AF@ORSMSX102.amr.corp.intel.com>
-References: <1420821466-5747-1-git-send-email-ethan.zhao@oracle.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH RESEND 2/2] wlcore: align member-assigns in a structure-copy block
+Date: Fri, 09 Jan 2015 19:03:45 +0200
+Message-ID: <87vbkfga32.fsf@kamboji.qca.qualcomm.com>
+References: <1420394427-19509-1-git-send-email-me@mortis.eu>
+	<1420659525-22975-1-git-send-email-me@mortis.eu>
+	<1420659525-22975-2-git-send-email-me@mortis.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Linux NICS <Linux-nics@isotope.jf.intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ethan.kernel@gmail.com" <ethan.kernel@gmail.com>,
-	"brian.maly@oracle.com" <brian.maly@oracle.com>
-To: Ethan Zhao <ethan.zhao@oracle.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"Dev, Vasu" <vasu.dev@intel.com>,
-	"Parikh, Neerav" <neerav.parikh@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:9768 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753066AbbAIQlw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 11:41:52 -0500
-In-Reply-To: <1420821466-5747-1-git-send-email-ethan.zhao@oracle.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eliad Peller <eliad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Arik Nemtsov <arik-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:TI WILINK WIRELES...),
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:NETWORKING DRIVERS)
+To: Giel van Schijndel <me-sZ9Uef1cvPWHXe+LvDLADg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1420659525-22975-2-git-send-email-me-sZ9Uef1cvPWHXe+LvDLADg@public.gmane.org> (Giel van
+	Schijndel's message of "Wed, 7 Jan 2015 20:38:38 +0100")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Adding Vasu and Neerav
+Giel van Schijndel <me-sZ9Uef1cvPWHXe+LvDLADg@public.gmane.org> writes:
 
-Cheers,
-John
-
-> -----Original Message-----
-> From: Ethan Zhao [mailto:ethan.zhao@oracle.com]
-> Sent: Friday, January 9, 2015 8:38 AM
-> To: Kirsher, Jeffrey T; Brandeburg, Jesse; Allan, Bruce W; Wyborny, Carolyn;
-> Skidmore, Donald C; Rose, Gregory V; Vick, Matthew; Ronciak, John;
-> Williams, Mitch A
-> Cc: Linux NICS; e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org;
-> linux-kernel@vger.kernel.org; ethan.kernel@gmail.com;
-> brian.maly@oracle.com; Ethan Zhao
-> Subject: [PATCH] i40e: don't enable and init FCOE by default when do PF
-> reset
-> 
-> While do PF reset with function i40e_reset_and_rebuild(), it will call
-> i40e_init_pf_fcoe() by default if FCOE is defined, thus if the PF is resetted,
-> FCOE will be enabled whatever it was - enabled or not.
-> 
-> Such bug might be hit when PF resumes from suspend, run diagnostic test
-> with ethtool, setup VLAN etc.
-> 
-> Passed building with v3.19-rc3.
-> 
-> Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
+> This highlights the differences (e.g. the bug fixed in the previous
+> commit).
+>
+> Signed-off-by: Giel van Schijndel <me-sZ9Uef1cvPWHXe+LvDLADg@public.gmane.org>
 > ---
->  drivers/net/ethernet/intel/i40e/i40e_main.c | 9 ++++++---
->  1 file changed, 6 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> index a5f2660..a2572cc 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> @@ -6180,9 +6180,12 @@ static void i40e_reset_and_rebuild(struct i40e_pf
-> *pf, bool reinit)
+>  drivers/net/wireless/ti/wlcore/acx.c | 22 +++++++++++-----------
+>  1 file changed, 11 insertions(+), 11 deletions(-)
+>
+> diff --git a/drivers/net/wireless/ti/wlcore/acx.c b/drivers/net/wireless/ti/wlcore/acx.c
+> index f28fa3b..93a2fa8 100644
+> --- a/drivers/net/wireless/ti/wlcore/acx.c
+> +++ b/drivers/net/wireless/ti/wlcore/acx.c
+> @@ -1715,17 +1715,17 @@ int wl12xx_acx_config_hangover(struct wl1271 *wl)
+>  		goto out;
 >  	}
->  #endif /* CONFIG_I40E_DCB */
->  #ifdef I40E_FCOE
-> -	ret = i40e_init_pf_fcoe(pf);
-> -	if (ret)
-> -		dev_info(&pf->pdev->dev, "init_pf_fcoe failed: %d\n", ret);
-> +	if (pf->flags & I40E_FLAG_FCOE_ENABLED) {
-> +		ret = i40e_init_pf_fcoe(pf);
-> +		if (ret)
-> +			dev_info(&pf->pdev->dev,
-> +				 "init_pf_fcoe failed: %d\n", ret);
-> +	}
-> 
->  #endif
->  	/* do basic switch setup */
-> --
-> 1.8.3.1
+>  
+> -	acx->recover_time = cpu_to_le32(conf->recover_time);
+> -	acx->hangover_period = conf->hangover_period;
+> -	acx->dynamic_mode = conf->dynamic_mode;
+> -	acx->early_termination_mode = conf->early_termination_mode;
+> -	acx->max_period = conf->max_period;
+> -	acx->min_period = conf->min_period;
+> -	acx->increase_delta = conf->increase_delta;
+> -	acx->decrease_delta = conf->decrease_delta;
+> -	acx->quiet_time = conf->quiet_time;
+> -	acx->increase_time = conf->increase_time;
+> -	acx->window_size = conf->window_size;
+> +	acx->recover_time               = cpu_to_le32(conf->recover_time);
+> +	acx->hangover_period            = conf->hangover_period;
+> +	acx->dynamic_mode               = conf->dynamic_mode;
+> +	acx->early_termination_mode     = conf->early_termination_mode;
+> +	acx->max_period                 = conf->max_period;
+> +	acx->min_period                 = conf->min_period;
+> +	acx->increase_delta             = conf->increase_delta;
+> +	acx->decrease_delta             = conf->decrease_delta;
+> +	acx->quiet_time                 = conf->quiet_time;
+> +	acx->increase_time              = conf->increase_time;
+> +	acx->window_size                = conf->window_size;
+
+I would like to get an ACK from one of the wlcore developers if I should
+apply this (or not).
+
+-- 
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
