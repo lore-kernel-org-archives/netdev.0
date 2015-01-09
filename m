@@ -1,127 +1,95 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: [PATCH 6/6] selftests: Set CC using CROSS_COMPILE once in lib.mk
-Date: Fri,  9 Jan 2015 20:06:15 +1100
-Message-ID: <1420794375-31881-6-git-send-email-mpe@ellerman.id.au>
+From: Michael Ellerman <mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>
+Subject: [PATCH 4/6] kbuild: add a new kselftest_install make target to install selftests
+Date: Fri,  9 Jan 2015 20:06:13 +1100
+Message-ID: <1420794375-31881-4-git-send-email-mpe@ellerman.id.au>
 References: <1420794375-31881-1-git-send-email-mpe@ellerman.id.au>
-Cc: mmarek@suse.cz, gregkh@linuxfoundation.org,
-	akpm@linux-foundation.org, rostedt@goodmis.org, mingo@redhat.com,
-	davem@davemloft.net, keescook@chromium.org, tranmanphong@gmail.com,
-	cov@codeaurora.org, dh.herrmann@gmail.com, hughd@google.com,
-	bobby.prani@gmail.com, serge.hallyn@ubuntu.com,
-	ebiederm@xmission.com, tim.bird@sonymobile.com,
-	josh@joshtriplett.org, koct9i@gmail.com,
-	linux-kbuild@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, shuahkh@osg.samsung.com
-To: <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:55085 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755883AbbAIJGx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jan 2015 04:06:53 -0500
-In-Reply-To: <1420794375-31881-1-git-send-email-mpe@ellerman.id.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mmarek-AlSwsSmVLrQ@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, tranmanphong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	bobby.prani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tim.bird-/MT0OVThwyLZJqsBc5GL+g@public.gmane.org,
+	josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-kbuild-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org
+To: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1420794375-31881-1-git-send-email-mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
+Add a new make target to install kernel selftests. This new target will
+build and install selftests.
+
+The default is just $(objtree)/selftests. This is preferable to
+something based on $(INSTALL_MOD_PATH) (which defaults to /), as it
+allows a normal user to install the tests. This is similar to the
+default behaviour of make headers_install.
+
+Therefore the most basic usage is:
+
+$ make kselftests_install
+$ ./selftests/all.sh
+
+To install elsewhere use:
+
+$ make kselftests_install INSTALL_SELFTESTS_PATH=/some/where
+$ /some/where/all.sh
+
+Signed-off-by: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Signed-off-by: Michael Ellerman <mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>
 ---
- tools/testing/selftests/efivarfs/Makefile | 1 -
- tools/testing/selftests/exec/Makefile     | 1 -
- tools/testing/selftests/kcmp/Makefile     | 1 -
- tools/testing/selftests/lib.mk            | 6 ++++++
- tools/testing/selftests/net/Makefile      | 1 -
- tools/testing/selftests/powerpc/Makefile  | 3 +--
- tools/testing/selftests/size/Makefile     | 2 --
- tools/testing/selftests/vm/Makefile       | 1 -
- 8 files changed, 7 insertions(+), 9 deletions(-)
+ Makefile                         | 13 ++++++++++++-
+ tools/testing/selftests/Makefile |  1 +
+ 2 files changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/tools/testing/selftests/efivarfs/Makefile b/tools/testing/selftests/efivarfs/Makefile
-index 3052d0bda24b..d683486a859b 100644
---- a/tools/testing/selftests/efivarfs/Makefile
-+++ b/tools/testing/selftests/efivarfs/Makefile
-@@ -1,4 +1,3 @@
--CC = $(CROSS_COMPILE)gcc
- CFLAGS = -Wall
+diff --git a/Makefile b/Makefile
+index eb4eca56843a..c186a928d8be 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1072,12 +1072,20 @@ headers_check: headers_install
+ 	$(Q)$(MAKE) $(hdr-inst)=arch/$(hdr-arch)/include/uapi/asm $(hdr-dst) HDRCHECK=1
  
- test_objs = open-unlink create-read
-diff --git a/tools/testing/selftests/exec/Makefile b/tools/testing/selftests/exec/Makefile
-index 886cabe307b1..4edb7d0da29b 100644
---- a/tools/testing/selftests/exec/Makefile
-+++ b/tools/testing/selftests/exec/Makefile
-@@ -1,4 +1,3 @@
--CC = $(CROSS_COMPILE)gcc
- CFLAGS = -Wall
- BINARIES = execveat
- DEPS = execveat.symlink execveat.denatured script subdir
-diff --git a/tools/testing/selftests/kcmp/Makefile b/tools/testing/selftests/kcmp/Makefile
-index 0eecd183058c..2ae7450a9a89 100644
---- a/tools/testing/selftests/kcmp/Makefile
-+++ b/tools/testing/selftests/kcmp/Makefile
-@@ -1,4 +1,3 @@
--CC := $(CROSS_COMPILE)$(CC)
- CFLAGS += -I../../../../usr/include/
- 
- all: kcmp_test
-diff --git a/tools/testing/selftests/lib.mk b/tools/testing/selftests/lib.mk
-index 7bd3dabe2846..abae16396c43 100644
---- a/tools/testing/selftests/lib.mk
-+++ b/tools/testing/selftests/lib.mk
-@@ -1,3 +1,9 @@
-+# When we're called from kbuild $(CC) already contains $(CROSS_COMPILE), so
-+# here we need to use "cc", otherwise we'll get $(CROSS_COMPILE) twice. The
-+# only downside is it breaks someone overriding $(CC), but that's probably OK,
-+# they can probably cope by changing their path.
-+CC := $(CROSS_COMPILE)cc
+ # ---------------------------------------------------------------------------
+-# Kernel selftest
++# Kernel selftest targets
 +
- define RUN_TESTS
- 	@for TEST in $(TEST_PROGS); do \
- 		(./$$TEST && echo "selftests: $$TEST [PASS]") || echo "selftests: $$TEST [FAIL]"; \
-diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
-index 6ba2ac7bbb0d..fac4782c51d8 100644
---- a/tools/testing/selftests/net/Makefile
-+++ b/tools/testing/selftests/net/Makefile
-@@ -1,6 +1,5 @@
- # Makefile for net selftests
++# Default base path for kselftest install
++INSTALL_SELFTESTS_PATH = $(abspath $(objtree)/selftests)
  
--CC = $(CROSS_COMPILE)gcc
- CFLAGS = -Wall -O2 -g
+ PHONY += kselftest
+ kselftest:
+ 	$(Q)$(MAKE) -C tools/testing/selftests run_tests
  
- CFLAGS += -I../../../../usr/include/
-diff --git a/tools/testing/selftests/powerpc/Makefile b/tools/testing/selftests/powerpc/Makefile
-index d2d19db7eda7..af3882a01e33 100644
---- a/tools/testing/selftests/powerpc/Makefile
-+++ b/tools/testing/selftests/powerpc/Makefile
-@@ -8,10 +8,9 @@ ifeq ($(ARCH),powerpc)
++# Kernel selftest install
++PHONY += kselftest_install
++kselftest_install:
++	$(Q)$(MAKE) -C tools/testing/selftests INSTALL_PATH=$(INSTALL_SELFTESTS_PATH) install
++
+ # ---------------------------------------------------------------------------
+ # Modules
  
- GIT_VERSION = $(shell git describe --always --long --dirty || echo "unknown")
+@@ -1286,6 +1294,9 @@ help:
+ 	@echo  '                    Build, install, and boot kernel before'
+ 	@echo  '                    running kselftest on it'
+ 	@echo  ''
++	@echo  '  kselftest_install - Install selftests to INSTALL_SELFTESTS_PATH'
++	@echo  '                      default: $(INSTALL_SELFTESTS_PATH)'
++	@echo  ''
+ 	@echo  'Kernel packaging:'
+ 	@$(MAKE) $(build)=$(package-dir) help
+ 	@echo  ''
+diff --git a/tools/testing/selftests/Makefile b/tools/testing/selftests/Makefile
+index 4f2849b5ff77..a2345f4512bb 100644
+--- a/tools/testing/selftests/Makefile
++++ b/tools/testing/selftests/Makefile
+@@ -62,6 +62,7 @@ ifdef INSTALL_PATH
  
--CC := $(CROSS_COMPILE)$(CC)
- CFLAGS := -Wall -O2 -flto -Wall -Werror -DGIT_VERSION='"$(GIT_VERSION)"' -I$(CURDIR) $(CFLAGS)
+ 	@# Ask all targets to emit their test scripts
+ 	echo "#!/bin/bash\n\n" > $(ALL_SCRIPT)
++	echo "cd \$$(dirname \$$0)" >> $(ALL_SCRIPT)
+ 	echo "ROOT=\$$PWD\n" >> $(ALL_SCRIPT)
  
--export CC CFLAGS
-+export CFLAGS
- 
- TARGETS = pmu copyloops mm tm primitives
- 
-diff --git a/tools/testing/selftests/size/Makefile b/tools/testing/selftests/size/Makefile
-index e4353d74ea6e..bbd0b5398b61 100644
---- a/tools/testing/selftests/size/Makefile
-+++ b/tools/testing/selftests/size/Makefile
-@@ -1,5 +1,3 @@
--CC = $(CROSS_COMPILE)gcc
--
- all: get_size
- 
- get_size: get_size.c
-diff --git a/tools/testing/selftests/vm/Makefile b/tools/testing/selftests/vm/Makefile
-index c0462182ec37..0dd26947fc68 100644
---- a/tools/testing/selftests/vm/Makefile
-+++ b/tools/testing/selftests/vm/Makefile
-@@ -1,6 +1,5 @@
- # Makefile for vm selftests
- 
--CC = $(CROSS_COMPILE)gcc
- CFLAGS = -Wall
- BINARIES = hugepage-mmap hugepage-shm map_hugetlb thuge-gen hugetlbfstest
- BINARIES += transhuge-stress
+ 	for TARGET in $(TARGETS); do \
 -- 
 2.1.0
