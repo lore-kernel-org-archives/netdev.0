@@ -1,29 +1,49 @@
-From: Gopakumar Choorakkot Edakkunni <gopakumar.c.e@gmail.com>
-Subject: protocol 0806 is buggy, dev usb0
-Date: Fri, 9 Jan 2015 03:16:37 -0800
-Message-ID: <CABK1yFBbOY1iqSaADsRkrR7A6Mo6JnLECYVXZqUM7Ki67O+KsA@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net v2] ipv6: Prevent ipv6_find_hdr() from returning
+ ENOENT for valid non-first fragments
+Date: Fri, 9 Jan 2015 12:31:45 +0100
+Message-ID: <20150109113145.GA4426@salvia>
+References: <CAFB3abzM2ApxMH6C7vSDJ8JikKEkE46bOH3jbsis2NiF-ieUxA@mail.gmail.com>
+ <54AFA502.8090701@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f53.google.com ([209.85.213.53]:44071 "EHLO
-	mail-yh0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932671AbbAILQi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 06:16:38 -0500
-Received: by mail-yh0-f53.google.com with SMTP id i57so3820509yha.12
-        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 03:16:37 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netfilter-devel@vger.kernel.org
+To: Rahul Sharma <rsharma@arista.com>, netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <54AFA502.8090701@miraclelinux.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I have a ZTE MF823 modem (kernel version is 3.12.27) using cdc-ether driver
-which gives a usb0 interface. It works well for the most part, but I keep
-seeing the below messages in dmesg once in every 5 seconds. Its clearly
-complaining about the ARP packets, the modem has some instability issues,
-not sure if thats related to this message. A googling doesnt give much info
-other than users reporting this once in a while - if anyone has more info
-about this please share, that will be of great help !
+On Fri, Jan 09, 2015 at 06:53:06PM +0900, YOSHIFUJI Hideaki wrote:
+> Hi,
+> 
+> Rahul Sharma wrote:
+> >ipv6_find_hdr() currently assumes that the next-header field in the
+> >fragment header of the non-first fragment is the "protocol number of
+> >the last header" (here last header excludes any extension header
+> >protocol numbers ) which is incorrect as per RFC2460. The next-header
+> >value is the first header of the fragmentable part of the original
+> >packet (which can be extension header as well).
+> >This can create reassembly problems. For example: Fragmented
+> >authenticated OSPFv3 packets (where AH header is inserted before the
+> >protocol header). For the second fragment, the next header value in
+> >the fragment header will be NEXTHDR_AUTH which is correct but
+> >ipv6_find_hdr will return ENOENT since AH is an extension header
+> >resulting in second fragment getting dropped. This check for the
+> >presence of non-extension header needs to be removed.
+> >
+> >Signed-off-by: Rahul Sharma <rsharma@arista.com>
+> 
+> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-"protocol 0806 is buggy, dev usb0"
+I already mentioned this patch will break ip6tables.
 
-Rgds,
-Gopa.
+And it doesn't make sense to me that you still hit the problem with
+nf_defrag_ipv6.
+
+Could you please hold on with this patch until we clarify what the
+real undelying problem is? Could you send me a pcap trace?
