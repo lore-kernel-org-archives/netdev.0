@@ -1,95 +1,302 @@
-From: Michael Ellerman <mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>
-Subject: [PATCH 4/6] kbuild: add a new kselftest_install make target to install selftests
-Date: Fri,  9 Jan 2015 20:06:13 +1100
-Message-ID: <1420794375-31881-4-git-send-email-mpe@ellerman.id.au>
+From: Michael Ellerman <mpe@ellerman.id.au>
+Subject: [PATCH 3/6] selftests: Add install support for the powerpc tests
+Date: Fri,  9 Jan 2015 20:06:12 +1100
+Message-ID: <1420794375-31881-3-git-send-email-mpe@ellerman.id.au>
 References: <1420794375-31881-1-git-send-email-mpe@ellerman.id.au>
-Cc: mmarek-AlSwsSmVLrQ@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, tranmanphong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	bobby.prani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tim.bird-/MT0OVThwyLZJqsBc5GL+g@public.gmane.org,
-	josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linux-kbuild-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org
-To: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1420794375-31881-1-git-send-email-mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: mmarek@suse.cz, gregkh@linuxfoundation.org,
+	akpm@linux-foundation.org, rostedt@goodmis.org, mingo@redhat.com,
+	davem@davemloft.net, keescook@chromium.org, tranmanphong@gmail.com,
+	cov@codeaurora.org, dh.herrmann@gmail.com, hughd@google.com,
+	bobby.prani@gmail.com, serge.hallyn@ubuntu.com,
+	ebiederm@xmission.com, tim.bird@sonymobile.com,
+	josh@joshtriplett.org, koct9i@gmail.com,
+	linux-kbuild@vger.kernel.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, shuahkh@osg.samsung.com
+To: <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([103.22.144.67]:33032 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755724AbbAIJGs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jan 2015 04:06:48 -0500
+In-Reply-To: <1420794375-31881-1-git-send-email-mpe@ellerman.id.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add a new make target to install kernel selftests. This new target will
-build and install selftests.
+The bulk of the selftests are actually below the powerpc sub directory.
 
-The default is just $(objtree)/selftests. This is preferable to
-something based on $(INSTALL_MOD_PATH) (which defaults to /), as it
-allows a normal user to install the tests. This is similar to the
-default behaviour of make headers_install.
+This adds support for installing them, when on a powerpc machine, or if
+ARCH and CROSS_COMPILE are set appropriately.
 
-Therefore the most basic usage is:
+This is a little more complicated because of the sub directory structure
+under powerpc, but much of the common logic in lib.mk is still used. The
+net effect of the patch is still a reduction in code.
 
-$ make kselftests_install
-$ ./selftests/all.sh
-
-To install elsewhere use:
-
-$ make kselftests_install INSTALL_SELFTESTS_PATH=/some/where
-$ /some/where/all.sh
-
-Signed-off-by: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Signed-off-by: Michael Ellerman <mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>
+Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
 ---
- Makefile                         | 13 ++++++++++++-
- tools/testing/selftests/Makefile |  1 +
- 2 files changed, 13 insertions(+), 1 deletion(-)
+ tools/testing/selftests/powerpc/Makefile           | 19 ++++++++-
+ tools/testing/selftests/powerpc/copyloops/Makefile | 15 +++----
+ tools/testing/selftests/powerpc/mm/Makefile        | 15 +++----
+ tools/testing/selftests/powerpc/pmu/Makefile       | 48 ++++++++++++----------
+ tools/testing/selftests/powerpc/pmu/ebb/Makefile   | 13 +++---
+ .../testing/selftests/powerpc/primitives/Makefile  | 15 +++----
+ tools/testing/selftests/powerpc/tm/Makefile        | 15 +++----
+ 7 files changed, 68 insertions(+), 72 deletions(-)
 
-diff --git a/Makefile b/Makefile
-index eb4eca56843a..c186a928d8be 100644
---- a/Makefile
-+++ b/Makefile
-@@ -1072,12 +1072,20 @@ headers_check: headers_install
- 	$(Q)$(MAKE) $(hdr-inst)=arch/$(hdr-arch)/include/uapi/asm $(hdr-dst) HDRCHECK=1
+diff --git a/tools/testing/selftests/powerpc/Makefile b/tools/testing/selftests/powerpc/Makefile
+index f6ff90a76bd7..d2d19db7eda7 100644
+--- a/tools/testing/selftests/powerpc/Makefile
++++ b/tools/testing/selftests/powerpc/Makefile
+@@ -22,10 +22,25 @@ all: $(TARGETS)
+ $(TARGETS):
+ 	$(MAKE) -k -C $@ all
  
- # ---------------------------------------------------------------------------
--# Kernel selftest
-+# Kernel selftest targets
+-run_tests: all
++include ../lib.mk
 +
-+# Default base path for kselftest install
-+INSTALL_SELFTESTS_PATH = $(abspath $(objtree)/selftests)
- 
- PHONY += kselftest
- kselftest:
- 	$(Q)$(MAKE) -C tools/testing/selftests run_tests
- 
-+# Kernel selftest install
-+PHONY += kselftest_install
-+kselftest_install:
-+	$(Q)$(MAKE) -C tools/testing/selftests INSTALL_PATH=$(INSTALL_SELFTESTS_PATH) install
++override define RUN_TESTS
+ 	@for TARGET in $(TARGETS); do \
+ 		$(MAKE) -C $$TARGET run_tests; \
+ 	done;
++endef
 +
- # ---------------------------------------------------------------------------
- # Modules
++override define INSTALL_RULE
++	@for TARGET in $(TARGETS); do \
++		$(MAKE) -C $$TARGET install; \
++	done;
++endef
++
++override define EMIT_TESTS
++	@for TARGET in $(TARGETS); do \
++		$(MAKE) -s -C $$TARGET emit_tests; \
++	done;
++endef
  
-@@ -1286,6 +1294,9 @@ help:
- 	@echo  '                    Build, install, and boot kernel before'
- 	@echo  '                    running kselftest on it'
- 	@echo  ''
-+	@echo  '  kselftest_install - Install selftests to INSTALL_SELFTESTS_PATH'
-+	@echo  '                      default: $(INSTALL_SELFTESTS_PATH)'
-+	@echo  ''
- 	@echo  'Kernel packaging:'
- 	@$(MAKE) $(build)=$(package-dir) help
- 	@echo  ''
-diff --git a/tools/testing/selftests/Makefile b/tools/testing/selftests/Makefile
-index 4f2849b5ff77..a2345f4512bb 100644
---- a/tools/testing/selftests/Makefile
-+++ b/tools/testing/selftests/Makefile
-@@ -62,6 +62,7 @@ ifdef INSTALL_PATH
+ clean:
+ 	@for TARGET in $(TARGETS); do \
+@@ -36,4 +51,4 @@ clean:
+ tags:
+ 	find . -name '*.c' -o -name '*.h' | xargs ctags
  
- 	@# Ask all targets to emit their test scripts
- 	echo "#!/bin/bash\n\n" > $(ALL_SCRIPT)
-+	echo "cd \$$(dirname \$$0)" >> $(ALL_SCRIPT)
- 	echo "ROOT=\$$PWD\n" >> $(ALL_SCRIPT)
+-.PHONY: all run_tests clean tags $(TARGETS)
++.PHONY: tags $(TARGETS)
+diff --git a/tools/testing/selftests/powerpc/copyloops/Makefile b/tools/testing/selftests/powerpc/copyloops/Makefile
+index 6f2d3be227f9..c05023514ce8 100644
+--- a/tools/testing/selftests/powerpc/copyloops/Makefile
++++ b/tools/testing/selftests/powerpc/copyloops/Makefile
+@@ -6,24 +6,19 @@ CFLAGS += -D SELFTEST
+ # Use our CFLAGS for the implicit .S rule
+ ASFLAGS = $(CFLAGS)
  
- 	for TARGET in $(TARGETS); do \
+-PROGS := copyuser_64 copyuser_power7 memcpy_64 memcpy_power7
++TEST_PROGS := copyuser_64 copyuser_power7 memcpy_64 memcpy_power7
+ EXTRA_SOURCES := validate.c ../harness.c
+ 
+-all: $(PROGS)
++all: $(TEST_PROGS)
+ 
+ copyuser_64:     CPPFLAGS += -D COPY_LOOP=test___copy_tofrom_user_base
+ copyuser_power7: CPPFLAGS += -D COPY_LOOP=test___copy_tofrom_user_power7
+ memcpy_64:       CPPFLAGS += -D COPY_LOOP=test_memcpy
+ memcpy_power7:   CPPFLAGS += -D COPY_LOOP=test_memcpy_power7
+ 
+-$(PROGS): $(EXTRA_SOURCES)
++$(TEST_PROGS): $(EXTRA_SOURCES)
+ 
+-run_tests: all
+-	@-for PROG in $(PROGS); do \
+-		./$$PROG; \
+-	done;
++include ../../lib.mk
+ 
+ clean:
+-	rm -f $(PROGS) *.o
+-
+-.PHONY: all run_tests clean
++	rm -f $(TEST_PROGS) *.o
+diff --git a/tools/testing/selftests/powerpc/mm/Makefile b/tools/testing/selftests/powerpc/mm/Makefile
+index 357ccbd6bad9..e3b5fa360520 100644
+--- a/tools/testing/selftests/powerpc/mm/Makefile
++++ b/tools/testing/selftests/powerpc/mm/Makefile
+@@ -1,18 +1,13 @@
+ noarg:
+ 	$(MAKE) -C ../
+ 
+-PROGS := hugetlb_vs_thp_test
++TEST_PROGS := hugetlb_vs_thp_test
+ 
+-all: $(PROGS)
++all: $(TEST_PROGS)
+ 
+-$(PROGS): ../harness.c
++$(TEST_PROGS): ../harness.c
+ 
+-run_tests: all
+-	@-for PROG in $(PROGS); do \
+-		./$$PROG; \
+-	done;
++include ../../lib.mk
+ 
+ clean:
+-	rm -f $(PROGS)
+-
+-.PHONY: all run_tests clean
++	rm -f $(TEST_PROGS)
+diff --git a/tools/testing/selftests/powerpc/pmu/Makefile b/tools/testing/selftests/powerpc/pmu/Makefile
+index c9f4263906a5..5a161175bbd4 100644
+--- a/tools/testing/selftests/powerpc/pmu/Makefile
++++ b/tools/testing/selftests/powerpc/pmu/Makefile
+@@ -1,38 +1,42 @@
+ noarg:
+ 	$(MAKE) -C ../
+ 
+-PROGS := count_instructions l3_bank_test per_event_excludes
++TEST_PROGS := count_instructions l3_bank_test per_event_excludes
+ EXTRA_SOURCES := ../harness.c event.c lib.c
+ 
+-SUB_TARGETS = ebb
++all: $(TEST_PROGS) ebb
+ 
+-all: $(PROGS) $(SUB_TARGETS)
+-
+-$(PROGS): $(EXTRA_SOURCES)
++$(TEST_PROGS): $(EXTRA_SOURCES)
+ 
+ # loop.S can only be built 64-bit
+ count_instructions: loop.S count_instructions.c $(EXTRA_SOURCES)
+ 	$(CC) $(CFLAGS) -m64 -o $@ $^
+ 
+-run_tests: all sub_run_tests
+-	@-for PROG in $(PROGS); do \
+-		./$$PROG; \
+-	done;
++include ../../lib.mk
+ 
+-clean: sub_clean
+-	rm -f $(PROGS) loop.o
++DEFAULT_RUN_TESTS := $(RUN_TESTS)
++override define RUN_TESTS
++	$(DEFAULT_RUN_TESTS)
++	$(MAKE) -C ebb run_tests
++endef
+ 
+-$(SUB_TARGETS):
+-	$(MAKE) -k -C $@ all
++DEFAULT_EMIT_TESTS := $(EMIT_TESTS)
++override define EMIT_TESTS
++	$(DEFAULT_EMIT_TESTS)
++	$(MAKE) -s -C ebb emit_tests
++endef
+ 
+-sub_run_tests: all
+-	@for TARGET in $(SUB_TARGETS); do \
+-		$(MAKE) -C $$TARGET run_tests; \
+-	done;
++DEFAULT_INSTALL := $(INSTALL_RULE)
++override define INSTALL_RULE
++	$(DEFAULT_INSTALL_RULE)
++	$(MAKE) -C ebb install
++endef
+ 
+-sub_clean:
+-	@for TARGET in $(SUB_TARGETS); do \
+-		$(MAKE) -C $$TARGET clean; \
+-	done;
++clean:
++	rm -f $(TEST_PROGS) loop.o
++	$(MAKE) -C ebb clean
++
++ebb:
++	$(MAKE) -k -C $@ all
+ 
+-.PHONY: all run_tests clean sub_run_tests sub_clean $(SUB_TARGETS)
++.PHONY: all run_tests clean ebb
+diff --git a/tools/testing/selftests/powerpc/pmu/ebb/Makefile b/tools/testing/selftests/powerpc/pmu/ebb/Makefile
+index 3dc4332698cb..5cdc9dbf2b27 100644
+--- a/tools/testing/selftests/powerpc/pmu/ebb/Makefile
++++ b/tools/testing/selftests/powerpc/pmu/ebb/Makefile
+@@ -4,7 +4,7 @@ noarg:
+ # The EBB handler is 64-bit code and everything links against it
+ CFLAGS += -m64
+ 
+-PROGS := reg_access_test event_attributes_test cycles_test	\
++TEST_PROGS := reg_access_test event_attributes_test cycles_test	\
+ 	 cycles_with_freeze_test pmc56_overflow_test		\
+ 	 ebb_vs_cpu_event_test cpu_event_vs_ebb_test		\
+ 	 cpu_event_pinned_vs_ebb_test task_event_vs_ebb_test	\
+@@ -16,18 +16,15 @@ PROGS := reg_access_test event_attributes_test cycles_test	\
+ 	 lost_exception_test no_handler_test			\
+ 	 cycles_with_mmcr2_test
+ 
+-all: $(PROGS)
++all: $(TEST_PROGS)
+ 
+-$(PROGS): ../../harness.c ../event.c ../lib.c ebb.c ebb_handler.S trace.c busy_loop.S
++$(TEST_PROGS): ../../harness.c ../event.c ../lib.c ebb.c ebb_handler.S trace.c busy_loop.S
+ 
+ instruction_count_test: ../loop.S
+ 
+ lost_exception_test: ../lib.c
+ 
+-run_tests: all
+-	@-for PROG in $(PROGS); do \
+-		./$$PROG; \
+-	done;
++include ../../../lib.mk
+ 
+ clean:
+-	rm -f $(PROGS)
++	rm -f $(TEST_PROGS)
+diff --git a/tools/testing/selftests/powerpc/primitives/Makefile b/tools/testing/selftests/powerpc/primitives/Makefile
+index ea737ca01732..b68c6221d3d1 100644
+--- a/tools/testing/selftests/powerpc/primitives/Makefile
++++ b/tools/testing/selftests/powerpc/primitives/Makefile
+@@ -1,17 +1,12 @@
+ CFLAGS += -I$(CURDIR)
+ 
+-PROGS := load_unaligned_zeropad
++TEST_PROGS := load_unaligned_zeropad
+ 
+-all: $(PROGS)
++all: $(TEST_PROGS)
+ 
+-$(PROGS): ../harness.c
++$(TEST_PROGS): ../harness.c
+ 
+-run_tests: all
+-	@-for PROG in $(PROGS); do \
+-		./$$PROG; \
+-	done;
++include ../../lib.mk
+ 
+ clean:
+-	rm -f $(PROGS) *.o
+-
+-.PHONY: all run_tests clean
++	rm -f $(TEST_PROGS) *.o
+diff --git a/tools/testing/selftests/powerpc/tm/Makefile b/tools/testing/selftests/powerpc/tm/Makefile
+index 2cede239a074..34f2ec634b40 100644
+--- a/tools/testing/selftests/powerpc/tm/Makefile
++++ b/tools/testing/selftests/powerpc/tm/Makefile
+@@ -1,15 +1,10 @@
+-PROGS := tm-resched-dscr
++TEST_PROGS := tm-resched-dscr
+ 
+-all: $(PROGS)
++all: $(TEST_PROGS)
+ 
+-$(PROGS): ../harness.c
++$(TEST_PROGS): ../harness.c
+ 
+-run_tests: all
+-	@-for PROG in $(PROGS); do \
+-		./$$PROG; \
+-	done;
++include ../../lib.mk
+ 
+ clean:
+-	rm -f $(PROGS) *.o
+-
+-.PHONY: all run_tests clean
++	rm -f $(TEST_PROGS) *.o
 -- 
 2.1.0
