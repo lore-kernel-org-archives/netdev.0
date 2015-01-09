@@ -1,8 +1,8 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] ipv6: Prevent ipv6_find_hdr() from returning ENOENT for
- valid non-first fragments
-Date: Fri, 09 Jan 2015 12:34:15 +0100
-Message-ID: <1420803255.1978819.211762005.707EFFB9@webmail.messagingengine.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net] ipv6: Prevent ipv6_find_hdr() from returning ENOENT
+ for valid non-first fragments
+Date: Fri, 9 Jan 2015 12:36:48 +0100
+Message-ID: <20150109113648.GA4462@salvia>
 References: <CAFB3abzYNYqtzd_n+Ym0Lo=DYbV0HPU=Tqw=stALNnu188hMKQ@mail.gmail.com>
  <20150106224706.GA7416@salvia>
  <CAFB3abwKpR1VqZXUrsexqveAZrA2LTSmTe8a=-H7z2HjAptjwA@mail.gmail.com>
@@ -12,31 +12,21 @@ References: <CAFB3abzYNYqtzd_n+Ym0Lo=DYbV0HPU=Tqw=stALNnu188hMKQ@mail.gmail.com>
  <20150109000546.GA3488@salvia>
  <CAFB3abwrjp61LLOk3RWwXYEq1g4QZUC8OTKuO2cAr+GbV3n4rw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	netfilter-devel@vger.kernel.org
-To: Rahul Sharma <rsharma@arista.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:48183 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932684AbbAILeQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 06:34:16 -0500
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by mailout.nyi.internal (Postfix) with ESMTP id B6C45205A9
-	for <netdev@vger.kernel.org>; Fri,  9 Jan 2015 06:34:15 -0500 (EST)
+To: Rahul Sharma <rsharma@arista.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
 In-Reply-To: <CAFB3abwrjp61LLOk3RWwXYEq1g4QZUC8OTKuO2cAr+GbV3n4rw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-
-On Fri, Jan 9, 2015, at 08:18, Rahul Sharma wrote:
+On Fri, Jan 09, 2015 at 12:48:24PM +0530, Rahul Sharma wrote:
 > Hi Pablo,
 > 
-> On Fri, Jan 9, 2015 at 5:35 AM, Pablo Neira Ayuso <pablo@netfilter.org>
-> wrote:
+> On Fri, Jan 9, 2015 at 5:35 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
 > > On Thu, Jan 08, 2015 at 11:39:16PM +0100, Hannes Frederic Sowa wrote:
 > >> Hi Pablo,
 > >>
@@ -71,10 +61,6 @@ On Fri, Jan 9, 2015, at 08:18, Rahul Sharma wrote:
 > I already had nf_defrag_ipv6 installed when the issue occured. But I
 > see ip6table_raw_hook returning NF_DROP for the second fragment.
 
-That's what I expected. I think the change only affects hooks before
-reassembly.
-Pablo, do we care about that, otherwise we should start audit the
-callers?
-
-Bye,
-Hannes
+That's strange, this doesn't make sense to me. Could you enable
+pr_debug() debugging in nf_ct_frag6_gather() to check why this packet
+was not defragmented?
