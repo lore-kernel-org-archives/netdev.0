@@ -1,41 +1,41 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] usb/kaweth: use GFP_ATOMIC under spin_lock in usb_start_wait_urb()
-Date: Sat, 10 Jan 2015 02:16:22 +0300
-Message-ID: <1420845382-25815-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Martin Lau <kafai@fb.com>
+Subject: Re: [PATCH RFC net-next] ip_tunnel: create percpu gro_cell
+Date: Fri, 9 Jan 2015 15:17:03 -0800
+Message-ID: <20150109231703.GF3842288@devbig242.prn2.facebook.com>
+References: <1420828933-844290-1-git-send-email-kafai@fb.com>
+ <1420844264.5947.81.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58640 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758211AbbAIXRJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 18:17:09 -0500
+Content-Disposition: inline
+In-Reply-To: <1420844264.5947.81.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit e4c7f259c5be ("USB: kaweth.c: use GFP_ATOMIC under spin_lock")
-makes sure that kaweth_internal_control_msg() allocates memory with GFP_ATOMIC,
-but kaweth_internal_control_msg() also calls usb_start_wait_urb()
-that still allocates memory with GFP_NOIO.
+On Fri, Jan 09, 2015 at 02:57:44PM -0800, Eric Dumazet wrote:
+> On Fri, 2015-01-09 at 10:42 -0800, Martin KaFai Lau wrote:
+> > In the ipip tunnel, the skb->queue_mapping is lost in ipip_rcv().
+> > All skb will be queued to the same cell->napi_skbs.  The
+> > gro_cell_poll is pinned to one core under load. In production traffic,
+> > we also see severe rx_dropped in the tunl iface and it is probably due to
+> > this limit: skb_queue_len(&cell->napi_skbs) > netdev_max_backlog
+> > 
+> > This patch is trying to alloc_percpu(struct gro_cell) and schedule
+> > gro_cell_poll to process it in the same core.
+> 
+> 
+> I wrote a similar patch here at Google,  but I removed the
+> ____cacheline_aligned_in_smp attribute on struct gro_cell
+> 
+> It was needed because of kcalloc(), but with alloc_percpu(), no gain
+> adding a padding.
+Is the spin_lock() still needed?
 
-The patch fixes usb_start_wait_urb() as well.
-
-Found by Linux Driver Verification project (linuxtesting.org).
-
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/usb/kaweth.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/usb/kaweth.c b/drivers/net/usb/kaweth.c
-index dcb6d33141e0..1e9cdca37014 100644
---- a/drivers/net/usb/kaweth.c
-+++ b/drivers/net/usb/kaweth.c
-@@ -1276,7 +1276,7 @@ static int usb_start_wait_urb(struct urb *urb, int timeout, int* actual_length)
-         awd.done = 0;
- 
-         urb->context = &awd;
--        status = usb_submit_urb(urb, GFP_NOIO);
-+        status = usb_submit_urb(urb, GFP_ATOMIC);
-         if (status) {
-                 // something went wrong
-                 usb_free_urb(urb);
--- 
-1.9.1
+Thanks,
+--Martin
