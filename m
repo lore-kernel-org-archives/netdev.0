@@ -1,67 +1,58 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: Clarification regarding IFLA_BRPORT_LEARNING_SYNC and aging of
- fdb entries learnt via br_fdb_external_learn_add()
-Date: Thu, 8 Jan 2015 17:46:46 -0800
-Message-ID: <CAE4R7bBRboCfhRKFKgVVAGt1f-m6wkXNfaej4RjuaCKPypABeA@mail.gmail.com>
-References: <CA+CtxLSv6Hg9kOmavqQKs+7y8b8+TBdW1dYwb3ZsTMOh=Ow8Ew@mail.gmail.com>
-	<20150107125301.GE1888@nanopsycho.orion>
+From: Dennis Chen <kernel.org.gnu@gmail.com>
+Subject: Re: [PATCH] net: Prevent multiple NAPI instances co-existing in the list
+Date: Fri, 9 Jan 2015 10:24:18 +0800
+Message-ID: <CA+U0gVgZr-Mhzest1O_vtCWMwuaQmP30DYb8CLXDG8iTobObYQ@mail.gmail.com>
+References: <CA+U0gVh+TyEUJ+qmg+FE=UhvvQywfNxcouCyv1sutZ3fav5FAw@mail.gmail.com>
+ <20150108111554.GA8720@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Siva Mannem <siva.mannem.lnx@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: netdev <netdev@vger.kernel.org>, davem@davemloft.net,
+	eric.dumazet@gmail.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:39798 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751195AbbAIBqs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 20:46:48 -0500
-Received: by mail-wg0-f42.google.com with SMTP id k14so5689978wgh.1
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 17:46:46 -0800 (PST)
-In-Reply-To: <20150107125301.GE1888@nanopsycho.orion>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:52611 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751890AbbAICYj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 21:24:39 -0500
+Received: by mail-pd0-f181.google.com with SMTP id v10so14582604pde.12
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 18:24:39 -0800 (PST)
+In-Reply-To: <20150108111554.GA8720@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 7, 2015 at 4:53 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Tue, Dec 30, 2014 at 07:20:21PM CET, siva.mannem.lnx@gmail.com wrote:
->>Hi,
+On Thu, Jan 8, 2015 at 7:15 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> Dennis Chen <kernel.org.gnu@gmail.com> wrote:
+>> Some drivers may clear the NAPI_STATE_SCHED bit upon the state of the
+>> NAPI instance after exhaust the budget in the poll function, which
+>> will open a window for next device interrupt handler to insert a same
+>> instance to the list after calling list_add_tail(&n->poll_list,
+>> repoll) if we don't set this bit.
 >>
->>I am trying to understand the ongoing switch device offload effort and
->>am following the discussions. I have a question regarding
->>IFLA_BRPORT_LEARNING_SYNC flag and how aging happens when this flag is
->>enabled on a port that is attached to a bridge that has vlan filtering
->>enabled.
->>
->>If I understand correctly, when  IFLA_BRPORT_LEARNING_SYNC is set on a
->>bridge port, fdb entries that are learnt externally(may be learnt by
->>hardware and driver is notified) are synced to bridges fdb using
->>br_fdb_external_learn_add(). The fdb
->>entries(fdb->added_by_external_learn set to true) that are learnt via
->>this method are also deleted by the aging logic after the aging time
->>even though L2 data forwadring  happens in hardware.
-
-This is correct...
-
->> Is there a way
->>where aging can be disabled for these entries? and let the entries be
->>removed only via br_fdb_external_learn_delete()? or am I missing
->>something?
+>> Signed-off-by: Dennis Chen <kernel.org.gnu@gmail.com>
 >
-> Currently extenaly learned fdb entries are indeed removed during aging
-> cleanup. I believe that br_fdb_cleanup should check added_by_external_learn
-> and not remove that fdbs. What do you think Scott?
+> Which driver is doing this?
+>
+> Cheers,
+> --
+> Email: Herbert Xu <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-Something like that would work, if we added another brport flag to
-control that.  With the current arrangement, using bridge for aging
-out entries, we want br_fdb_cleanup removing the external_learned
-fdbs, but if there was another brport flag we could fine tune that.
-Say new flag is IFLA_BRPORT_AGING_OFFLOAD or something like that.  I'm
-not sure how aging settings for the bridge are pushed down to offload
-hw, or if there is a different set for hw.
+Hi Herbert, please see this code piece in napi_poll:
 
-But, isn't it nice to let Linux bridge control aging?  That way,
-bridge -s fdb dump shows nice statistics on fdb entries.  Hardware
-isn't involved in the aging processes (other than being told to remove
-an entry).  Simple hardware equals simple driver.  Linux remains
-control point.
+     /* Some drivers may have called napi_schedule
+     * prior to exhausting their budget.
+     */
+    if (unlikely(!list_empty(&n->poll_list))) {
+        pr_warn_once("%s: Budget exhausted after napi rescheduled\n",
+                 n->dev ? n->dev->name : "backlog");
+        goto out_unlock;
+    }
 
--scott
+Here "Some drivers" may have called  napi_schedule to make
+n->poll_list is not empty, does that mean "Some drivers" will clear
+NAPI_STATE_SCHED bit, otherwise the napi_schedule() will do nothing,
+does that make sense for you question? ;-)
+
+-- 
+Den
