@@ -1,371 +1,229 @@
-From: Don Dutile <ddutile@redhat.com>
-Subject: Re: [PATCH RFC] pci: Control whether VFs are probed on pci_enable_sriov
-Date: Fri, 09 Jan 2015 13:38:08 -0500
-Message-ID: <54B02010.5050602@redhat.com>
-References: <1417957693-24979-1-git-send-email-eli@mellanox.com> <20150109182546.GG6575@google.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH RFC net-next] ip_tunnel: create percpu gro_cell
+Date: Fri, 9 Jan 2015 10:42:13 -0800
+Message-ID: <1420828933-844290-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-pci@vger.kernel.org,
-	netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	yevgenyp@mellanox.com, Eli Cohen <eli@mellanox.com>
-To: Bjorn Helgaas <bhelgaas@google.com>,
-	Eli Cohen <eli@dev.mellanox.co.il>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20150109182546.GG6575@google.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:17318 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750807AbbAISmR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 13:42:17 -0500
+Received: from pps.filterd (m0004346 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t09IeTVw010230
+	for <netdev@vger.kernel.org>; Fri, 9 Jan 2015 10:42:17 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 1rtkhe040n-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=OK)
+	for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 10:42:16 -0800
+Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
+ mx-out.facebook.com (10.212.236.89) with ESMTP	id
+ 3a693ff6982f11e484340002c95209d8-b3d646d0 for <netdev@vger.kernel.org>;	Fri,
+ 09 Jan 2015 10:42:14 -0800
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/09/2015 01:25 PM, Bjorn Helgaas wrote:
-> On Sun, Dec 07, 2014 at 03:08:13PM +0200, Eli Cohen wrote:
->> Sometimes it is not desirable to probe the virtual fuctions right away,
->> but rather leave the decision to the host's administrator.
->>
->> This can save host side resource usage by VF instances which would be
->> eventually probed to VMs.
->>
->> Use a parameter to pci_enable_sriov to control that policy, and modify
->> all current callers such that they retain the same functionality.
->>
->> Use a one shot flag on struct pci_device which is cleared after the
->> first probe is ignored so subsequent attempts go through.
->>
->> Cc: Donald Dutile <ddutile@redhat.com>
->> Signed-off-by: Eli Cohen <eli@mellanox.com>
->
-> Seems like we never really reached a consensus here.  Please repost if you
-> want to continue down this path.
->
-> Bjorn
->
-hmmm, seems like I have to increase the power on my nack-phaser.
--dd
+In the ipip tunnel, the skb->queue_mapping is lost in ipip_rcv().
+All skb will be queued to the same cell->napi_skbs.  The
+gro_cell_poll is pinned to one core under load. In production traffic,
+we also see severe rx_dropped in the tunl iface and it is probably due to
+this limit: skb_queue_len(&cell->napi_skbs) > netdev_max_backlog
 
->> ---
->> This approach is used by the mlx5 driver SRIOV implementation, so
->> sending this to get feedback from the PCI and networking folks.
->>
->>   drivers/misc/genwqe/card_base.c                      |  2 +-
->>   drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c    |  2 +-
->>   drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c      |  2 +-
->>   drivers/net/ethernet/cisco/enic/enic_main.c          |  2 +-
->>   drivers/net/ethernet/emulex/benet/be_main.c          |  2 +-
->>   drivers/net/ethernet/intel/fm10k/fm10k_iov.c         |  2 +-
->>   drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c   |  2 +-
->>   drivers/net/ethernet/intel/igb/igb_main.c            |  2 +-
->>   drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c       |  4 ++--
->>   drivers/net/ethernet/mellanox/mlx4/main.c            |  2 +-
->>   drivers/net/ethernet/neterion/vxge/vxge-main.c       |  2 +-
->>   drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c |  2 +-
->>   drivers/net/ethernet/sfc/siena_sriov.c               |  2 +-
->>   drivers/pci/iov.c                                    | 12 +++++++-----
->>   drivers/pci/pci-driver.c                             | 11 ++++++++---
->>   drivers/scsi/lpfc/lpfc_init.c                        |  2 +-
->>   include/linux/pci.h                                  |  5 +++--
->>   17 files changed, 33 insertions(+), 25 deletions(-)
->>
->> diff --git a/drivers/misc/genwqe/card_base.c b/drivers/misc/genwqe/card_base.c
->> index 4cf8f82cfca2..69253ca17506 100644
->> --- a/drivers/misc/genwqe/card_base.c
->> +++ b/drivers/misc/genwqe/card_base.c
->> @@ -1325,7 +1325,7 @@ static int genwqe_sriov_configure(struct pci_dev *dev, int numvfs)
->>
->>   	if (numvfs > 0) {
->>   		genwqe_setup_vf_jtimer(cd);
->> -		rc = pci_enable_sriov(dev, numvfs);
->> +		rc = pci_enable_sriov(dev, numvfs, 1);
->>   		if (rc < 0)
->>   			return rc;
->>   		return numvfs;
->> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
->> index c88b20af87df..773b20224a47 100644
->> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
->> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
->> @@ -2570,7 +2570,7 @@ int bnx2x_enable_sriov(struct bnx2x *bp)
->>   	if (rc)
->>   		return rc;
->>
->> -	rc = pci_enable_sriov(bp->pdev, req_vfs);
->> +	rc = pci_enable_sriov(bp->pdev, req_vfs, 1);
->>   	if (rc) {
->>   		BNX2X_ERR("pci_enable_sriov failed with %d\n", rc);
->>   		return rc;
->> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
->> index 3aea82bb9039..6e8afbfd3eba 100644
->> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
->> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
->> @@ -6597,7 +6597,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->>   sriov:
->>   #ifdef CONFIG_PCI_IOV
->>   	if (func < ARRAY_SIZE(num_vf) && num_vf[func] > 0)
->> -		if (pci_enable_sriov(pdev, num_vf[func]) == 0)
->> +		if (pci_enable_sriov(pdev, num_vf[func], 1) == 0)
->>   			dev_info(&pdev->dev,
->>   				 "instantiated %u virtual functions\n",
->>   				 num_vf[func]);
->> diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
->> index 86ee350e57f0..8a8b1d86f18a 100644
->> --- a/drivers/net/ethernet/cisco/enic/enic_main.c
->> +++ b/drivers/net/ethernet/cisco/enic/enic_main.c
->> @@ -2421,7 +2421,7 @@ static int enic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
->>   		pci_read_config_word(pdev, pos + PCI_SRIOV_TOTAL_VF,
->>   			&enic->num_vfs);
->>   		if (enic->num_vfs) {
->> -			err = pci_enable_sriov(pdev, enic->num_vfs);
->> +			err = pci_enable_sriov(pdev, enic->num_vfs, 1);
->>   			if (err) {
->>   				dev_err(dev, "SRIOV enable failed, aborting."
->>   					" pci_enable_sriov() returned %d\n",
->> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
->> index dc77ec2bdafd..a96491777ac4 100644
->> --- a/drivers/net/ethernet/emulex/benet/be_main.c
->> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
->> @@ -3274,7 +3274,7 @@ static int be_vf_setup(struct be_adapter *adapter)
->>   	}
->>
->>   	if (!old_vfs) {
->> -		status = pci_enable_sriov(adapter->pdev, adapter->num_vfs);
->> +		status = pci_enable_sriov(adapter->pdev, adapter->num_vfs, 1);
->>   		if (status) {
->>   			dev_err(dev, "SRIOV enable failed\n");
->>   			adapter->num_vfs = 0;
->> diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
->> index 060190864238..04a3dc5acc28 100644
->> --- a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
->> +++ b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
->> @@ -408,7 +408,7 @@ int fm10k_iov_configure(struct pci_dev *pdev, int num_vfs)
->>   		 */
->>   		fm10k_disable_aer_comp_abort(pdev);
->>
->> -		err = pci_enable_sriov(pdev, num_vfs);
->> +		err = pci_enable_sriov(pdev, num_vfs, 1);
->>   		if (err) {
->>   			dev_err(&pdev->dev,
->>   				"Enable PCI SR-IOV failed: %d\n", err);
->> diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
->> index 668d860275d6..fe56e09725f2 100644
->> --- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
->> +++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
->> @@ -852,7 +852,7 @@ int i40e_alloc_vfs(struct i40e_pf *pf, u16 num_alloc_vfs)
->>
->>   	/* Check to see if we're just allocating resources for extant VFs */
->>   	if (pci_num_vf(pf->pdev) != num_alloc_vfs) {
->> -		ret = pci_enable_sriov(pf->pdev, num_alloc_vfs);
->> +		ret = pci_enable_sriov(pf->pdev, num_alloc_vfs, 1);
->>   		if (ret) {
->>   			dev_err(&pf->pdev->dev,
->>   				"Failed to enable SR-IOV, error %d.\n", ret);
->> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
->> index 3c0221620c9d..da01326ef550 100644
->> --- a/drivers/net/ethernet/intel/igb/igb_main.c
->> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
->> @@ -2742,7 +2742,7 @@ static int igb_enable_sriov(struct pci_dev *pdev, int num_vfs)
->>
->>   	/* only call pci_enable_sriov() if no VFs are allocated already */
->>   	if (!old_vfs) {
->> -		err = pci_enable_sriov(pdev, adapter->vfs_allocated_count);
->> +		err = pci_enable_sriov(pdev, adapter->vfs_allocated_count, 1);
->>   		if (err)
->>   			goto err_out;
->>   	}
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
->> index 04eee7c7b653..74b33483a0d1 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
->> @@ -149,7 +149,7 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
->>   		 */
->>   		adapter->num_vfs = min_t(unsigned int, adapter->num_vfs, IXGBE_MAX_VFS_DRV_LIMIT);
->>
->> -		err = pci_enable_sriov(adapter->pdev, adapter->num_vfs);
->> +		err = pci_enable_sriov(adapter->pdev, adapter->num_vfs, 1);
->>   		if (err) {
->>   			e_err(probe, "Failed to enable PCI sriov: %d\n", err);
->>   			adapter->num_vfs = 0;
->> @@ -270,7 +270,7 @@ static int ixgbe_pci_sriov_enable(struct pci_dev *dev, int num_vfs)
->>   	for (i = 0; i < adapter->num_vfs; i++)
->>   		ixgbe_vf_configuration(dev, (i | 0x10000000));
->>
->> -	err = pci_enable_sriov(dev, num_vfs);
->> +	err = pci_enable_sriov(dev, num_vfs, 1);
->>   	if (err) {
->>   		e_dev_warn("Failed to enable PCI sriov: %d\n", err);
->>   		return err;
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
->> index 3044f9e623cb..ae38b556ec13 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
->> @@ -2350,7 +2350,7 @@ static u64 mlx4_enable_sriov(struct mlx4_dev *dev, struct pci_dev *pdev,
->>   					 existing_vfs, total_vfs);
->>   		} else {
->>   			mlx4_warn(dev, "Enabling SR-IOV with %d VFs\n", total_vfs);
->> -			err = pci_enable_sriov(pdev, total_vfs);
->> +			err = pci_enable_sriov(pdev, total_vfs, 1);
->>   		}
->>   		if (err) {
->>   			mlx4_err(dev, "Failed to enable SR-IOV, continuing without SR-IOV (err = %d)\n",
->> diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
->> index cc0485e3c621..c341e73fc68c 100644
->> --- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
->> +++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
->> @@ -4495,7 +4495,7 @@ vxge_probe(struct pci_dev *pdev, const struct pci_device_id *pre)
->>   	/* Enable SRIOV mode, if firmware has SRIOV support and if it is a PF */
->>   	if (is_sriov(function_mode) && !is_sriov_initialized(pdev) &&
->>   	   (ll_config->intr_type != INTA)) {
->> -		ret = pci_enable_sriov(pdev, num_vfs);
->> +		ret = pci_enable_sriov(pdev, num_vfs, 1);
->>   		if (ret)
->>   			vxge_debug_ll_config(VXGE_ERR,
->>   				"Failed in enabling SRIOV mode: %d\n", ret);
->> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
->> index a29538b86edf..b483705a1ef1 100644
->> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
->> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
->> @@ -570,7 +570,7 @@ static int qlcnic_sriov_pf_enable(struct qlcnic_adapter *adapter, int num_vfs)
->>   	if (!qlcnic_sriov_enable_check(adapter))
->>   		return 0;
->>
->> -	err = pci_enable_sriov(adapter->pdev, num_vfs);
->> +	err = pci_enable_sriov(adapter->pdev, num_vfs, 1);
->>   	if (err)
->>   		qlcnic_sriov_pf_cleanup(adapter);
->>
->> diff --git a/drivers/net/ethernet/sfc/siena_sriov.c b/drivers/net/ethernet/sfc/siena_sriov.c
->> index a8bbbad68a88..6804ed04cfcd 100644
->> --- a/drivers/net/ethernet/sfc/siena_sriov.c
->> +++ b/drivers/net/ethernet/sfc/siena_sriov.c
->> @@ -1332,7 +1332,7 @@ int efx_siena_sriov_init(struct efx_nic *efx)
->>
->>   	/* At this point we must be ready to accept VFDI requests */
->>
->> -	rc = pci_enable_sriov(efx->pci_dev, efx->vf_count);
->> +	rc = pci_enable_sriov(efx->pci_dev, efx->vf_count, 1);
->>   	if (rc)
->>   		goto fail_pci;
->>
->> diff --git a/drivers/pci/iov.c b/drivers/pci/iov.c
->> index 4d109c07294a..f6aba5beea78 100644
->> --- a/drivers/pci/iov.c
->> +++ b/drivers/pci/iov.c
->> @@ -57,7 +57,7 @@ static void virtfn_remove_bus(struct pci_bus *physbus, struct pci_bus *virtbus)
->>   		pci_remove_bus(virtbus);
->>   }
->>
->> -static int virtfn_add(struct pci_dev *dev, int id, int reset)
->> +static int virtfn_add(struct pci_dev *dev, int id, int reset, int probe)
->>   {
->>   	int i;
->>   	int rc = -ENOMEM;
->> @@ -85,6 +85,7 @@ static int virtfn_add(struct pci_dev *dev, int id, int reset)
->>   	virtfn->physfn = pci_dev_get(dev);
->>   	virtfn->is_virtfn = 1;
->>   	virtfn->multifunction = 0;
->> +	virtfn->probe_vf = probe;
->>
->>   	for (i = 0; i < PCI_SRIOV_NUM_BARS; i++) {
->>   		res = dev->resource + PCI_IOV_RESOURCES + i;
->> @@ -170,7 +171,7 @@ static void virtfn_remove(struct pci_dev *dev, int id, int reset)
->>   	pci_dev_put(dev);
->>   }
->>
->> -static int sriov_enable(struct pci_dev *dev, int nr_virtfn)
->> +static int sriov_enable(struct pci_dev *dev, int nr_virtfn, int probe_vfs)
->>   {
->>   	int rc;
->>   	int i, j;
->> @@ -255,7 +256,7 @@ static int sriov_enable(struct pci_dev *dev, int nr_virtfn)
->>   		initial = nr_virtfn;
->>
->>   	for (i = 0; i < initial; i++) {
->> -		rc = virtfn_add(dev, i, 0);
->> +		rc = virtfn_add(dev, i, 0, probe_vfs);
->>   		if (rc)
->>   			goto failed;
->>   	}
->> @@ -558,17 +559,18 @@ int pci_iov_bus_range(struct pci_bus *bus)
->>    * pci_enable_sriov - enable the SR-IOV capability
->>    * @dev: the PCI device
->>    * @nr_virtfn: number of virtual functions to enable
->> + * @probe_vfs: in zero, don't probe new VFs, otherwise probe if suitable driver available
->>    *
->>    * Returns 0 on success, or negative on failure.
->>    */
->> -int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn)
->> +int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn, int probe_vfs)
->>   {
->>   	might_sleep();
->>
->>   	if (!dev->is_physfn)
->>   		return -ENOSYS;
->>
->> -	return sriov_enable(dev, nr_virtfn);
->> +	return sriov_enable(dev, nr_virtfn, probe_vfs);
->>   }
->>   EXPORT_SYMBOL_GPL(pci_enable_sriov);
->>
->> diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
->> index 2b3c89425bb5..d5b93339b8a4 100644
->> --- a/drivers/pci/pci-driver.c
->> +++ b/drivers/pci/pci-driver.c
->> @@ -397,9 +397,14 @@ static int pci_device_probe(struct device *dev)
->>   	drv = to_pci_driver(dev->driver);
->>   	pci_dev = to_pci_dev(dev);
->>   	pci_dev_get(pci_dev);
->> -	error = __pci_device_probe(drv, pci_dev);
->> -	if (error)
->> -		pci_dev_put(pci_dev);
->> +	if (!pci_dev->is_virtfn || pci_dev->probe_vf) {
->> +		error = __pci_device_probe(drv, pci_dev);
->> +		if (error)
->> +			pci_dev_put(pci_dev);
->> +	}
->> +	/* one shot blocking of probe */
->> +	if (pci_dev->is_virtfn && !pci_dev->probe_vf)
->> +		pci_dev->probe_vf = 1;
->>
->>   	return error;
->>   }
->> diff --git a/drivers/scsi/lpfc/lpfc_init.c b/drivers/scsi/lpfc/lpfc_init.c
->> index 0b2c53af85c7..2f81f471b8f3 100644
->> --- a/drivers/scsi/lpfc/lpfc_init.c
->> +++ b/drivers/scsi/lpfc/lpfc_init.c
->> @@ -4797,7 +4797,7 @@ lpfc_sli_probe_sriov_nr_virtfn(struct lpfc_hba *phba, int nr_vfn)
->>   		return -EINVAL;
->>   	}
->>
->> -	rc = pci_enable_sriov(pdev, nr_vfn);
->> +	rc = pci_enable_sriov(pdev, nr_vfn, 1);
->>   	if (rc) {
->>   		lpfc_printf_log(phba, KERN_WARNING, LOG_INIT,
->>   				"2806 Failed to enable sriov on this device "
->> diff --git a/include/linux/pci.h b/include/linux/pci.h
->> index 4c8ac5fcc224..beb2640ba18d 100644
->> --- a/include/linux/pci.h
->> +++ b/include/linux/pci.h
->> @@ -373,6 +373,7 @@ struct pci_dev {
->>   	phys_addr_t rom; /* Physical address of ROM if it's not from the BAR */
->>   	size_t romlen; /* Length of ROM if it's not from the BAR */
->>   	char *driver_override; /* Driver name to force a match */
->> +	int probe_vf; /* probe this device */
->>   };
->>
->>   static inline struct pci_dev *pci_physfn(struct pci_dev *dev)
->> @@ -1655,14 +1656,14 @@ int pci_ext_cfg_avail(void);
->>   void __iomem *pci_ioremap_bar(struct pci_dev *pdev, int bar);
->>
->>   #ifdef CONFIG_PCI_IOV
->> -int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn);
->> +int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn, int probe_vfs);
->>   void pci_disable_sriov(struct pci_dev *dev);
->>   int pci_num_vf(struct pci_dev *dev);
->>   int pci_vfs_assigned(struct pci_dev *dev);
->>   int pci_sriov_set_totalvfs(struct pci_dev *dev, u16 numvfs);
->>   int pci_sriov_get_totalvfs(struct pci_dev *dev);
->>   #else
->> -static inline int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn)
->> +static inline int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn, int nr_virt_probe)
->>   { return -ENODEV; }
->>   static inline void pci_disable_sriov(struct pci_dev *dev) { }
->>   static inline int pci_num_vf(struct pci_dev *dev) { return 0; }
->> --
->> 2.1.3
->>
+This patch is trying to alloc_percpu(struct gro_cell) and schedule
+gro_cell_poll to process it in the same core.
+
+Setup:
+VIP_PREFIX=9.9.9.9/32
+REMOTE_REAL_IP=10.228.95.75
+
+if [ "$1" = "encap" ]
+then
+    sudo ip tunnel add mode ipip remote ${REMOTE_REAL_IP}
+    sudo ip link set dev ipip0 up
+    sudo ip route add dev ipip0 ${VIP_PREFIX}
+else
+    # Decapsulating host
+
+    sudo ip tunnel add mode ipip
+    sudo ip link set dev tunl0 up
+    sudo ip addr add dev lo ${VIP_PREFIX}
+    sudo sysctl -a  | grep '\.rp_filter' | awk '{print $1;}' | \
+        xargs -n1 -I{} sudo sysctl {}=0
+fi
+
+Before:
+[root@DECAP ~]# netserver -p 8888
+[root@ENCAP ~]# super_netperf 200 -t TCP_RR -H 9.9.9.9 -p 8888 \
+-l 30 -- -d 0x6 -m 8k,64k -s 1M -S 1M
+332215
+[root@DECAP ~]# perf probe -a gro_cell_poll
+[root@DECAP ~]# perf stat -I 1000 -a -A -e probe:gro_cell_poll
+   117.258518273 CPU0                     0      probe:gro_cell_poll
+   117.258518273 CPU1                     0      probe:gro_cell_poll
+   117.258518273 CPU2                     0      probe:gro_cell_poll
+   117.258518273 CPU3                     0      probe:gro_cell_poll
+   117.258518273 CPU4                     0      probe:gro_cell_poll
+   117.258518273 CPU5                     0      probe:gro_cell_poll
+   117.258518273 CPU6                     0      probe:gro_cell_poll
+   117.258518273 CPU7                     0      probe:gro_cell_poll
+   117.258518273 CPU8                     0      probe:gro_cell_poll
+   117.258518273 CPU9                     0      probe:gro_cell_poll
+   117.258518273 CPU10                    0      probe:gro_cell_poll
+   117.258518273 CPU11                    0      probe:gro_cell_poll
+   117.258518273 CPU12                    0      probe:gro_cell_poll
+   117.258518273 CPU13                    0      probe:gro_cell_poll
+   117.258518273 CPU14                    0      probe:gro_cell_poll
+   117.258518273 CPU15                4,882      probe:gro_cell_poll
+   117.258518273 CPU16                    0      probe:gro_cell_poll
+   117.258518273 CPU17                    0      probe:gro_cell_poll
+   117.258518273 CPU18                    0      probe:gro_cell_poll
+   117.258518273 CPU19                    0      probe:gro_cell_poll
+   117.258518273 CPU20                    0      probe:gro_cell_poll
+   117.258518273 CPU21                    0      probe:gro_cell_poll
+   117.258518273 CPU22                    0      probe:gro_cell_poll
+   117.258518273 CPU23                    0      probe:gro_cell_poll
+   117.258518273 CPU24                    0      probe:gro_cell_poll
+   117.258518273 CPU25                    0      probe:gro_cell_poll
+   117.258518273 CPU26                    0      probe:gro_cell_poll
+   117.258518273 CPU27                    0      probe:gro_cell_poll
+   117.258518273 CPU28                    0      probe:gro_cell_poll
+   117.258518273 CPU29                    0      probe:gro_cell_poll
+   117.258518273 CPU30                    0      probe:gro_cell_poll
+   117.258518273 CPU31                    0      probe:gro_cell_poll
+   117.258518273 CPU32                    0      probe:gro_cell_poll
+   117.258518273 CPU33                    0      probe:gro_cell_poll
+   117.258518273 CPU34                    0      probe:gro_cell_poll
+   117.258518273 CPU35                    0      probe:gro_cell_poll
+   117.258518273 CPU36                    0      probe:gro_cell_poll
+   117.258518273 CPU37                    0      probe:gro_cell_poll
+   117.258518273 CPU38                    0      probe:gro_cell_poll
+   117.258518273 CPU39                    0      probe:gro_cell_poll
+
+After:
+[root@DECAP ~]# netserver -p 8888
+[root@ENCAP ~]# super_netperf 200 -t TCP_RR -H 9.9.9.9 -p 8888 \
+-l 30 -- -d 0x6 -m 8k,64k -s 1M -S 1M
+877530
+[root@DECAP ~]# perf probe -a gro_cell_poll
+[root@DECAP ~]# perf stat -I 1000 -a -A -e probe:gro_cell_poll
+    40.085714389 CPU0                13,607      probe:gro_cell_poll
+    40.085714389 CPU1                13,188      probe:gro_cell_poll
+    40.085714389 CPU2                12,913      probe:gro_cell_poll
+    40.085714389 CPU3                12,790      probe:gro_cell_poll
+    40.085714389 CPU4                13,395      probe:gro_cell_poll
+    40.085714389 CPU5                13,121      probe:gro_cell_poll
+    40.085714389 CPU6                11,083      probe:gro_cell_poll
+    40.085714389 CPU7                12,945      probe:gro_cell_poll
+    40.085714389 CPU8                13,704      probe:gro_cell_poll
+    40.085714389 CPU9                13,514      probe:gro_cell_poll
+    40.085714389 CPU10                    0      probe:gro_cell_poll
+    40.085714389 CPU11                    0      probe:gro_cell_poll
+    40.085714389 CPU12                    0      probe:gro_cell_poll
+    40.085714389 CPU13                    0      probe:gro_cell_poll
+    40.085714389 CPU14                    0      probe:gro_cell_poll
+    40.085714389 CPU15                    0      probe:gro_cell_poll
+    40.085714389 CPU16                    0      probe:gro_cell_poll
+    40.085714389 CPU17                    0      probe:gro_cell_poll
+    40.085714389 CPU18                    0      probe:gro_cell_poll
+    40.085714389 CPU19                    0      probe:gro_cell_poll
+    40.085714389 CPU20               10,402      probe:gro_cell_poll
+    40.085714389 CPU21               12,312      probe:gro_cell_poll
+    40.085714389 CPU22               11,913      probe:gro_cell_poll
+    40.085714389 CPU23               12,964      probe:gro_cell_poll
+    40.085714389 CPU24               13,727      probe:gro_cell_poll
+    40.085714389 CPU25               12,943      probe:gro_cell_poll
+    40.085714389 CPU26               13,558      probe:gro_cell_poll
+    40.085714389 CPU27               12,676      probe:gro_cell_poll
+    40.085714389 CPU28               13,754      probe:gro_cell_poll
+    40.085714389 CPU29               13,379      probe:gro_cell_poll
+    40.085714389 CPU30                    0      probe:gro_cell_poll
+    40.085714389 CPU31                    0      probe:gro_cell_poll
+    40.085714389 CPU32                    0      probe:gro_cell_poll
+    40.085714389 CPU33                    0      probe:gro_cell_poll
+    40.085714389 CPU34                    0      probe:gro_cell_poll
+    40.085714389 CPU35                    0      probe:gro_cell_poll
+    40.085714389 CPU36                    0      probe:gro_cell_poll
+    40.085714389 CPU37                    0      probe:gro_cell_poll
+    40.085714389 CPU38                    0      probe:gro_cell_poll
+    40.085714389 CPU39                    0      probe:gro_cell_poll
+
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+---
+ include/net/gro_cells.h | 27 +++++++++++----------------
+ 1 file changed, 11 insertions(+), 16 deletions(-)
+
+diff --git a/include/net/gro_cells.h b/include/net/gro_cells.h
+index 734d9b5..cdac448 100644
+--- a/include/net/gro_cells.h
++++ b/include/net/gro_cells.h
+@@ -11,22 +11,20 @@ struct gro_cell {
+ } ____cacheline_aligned_in_smp;
+ 
+ struct gro_cells {
+-	unsigned int		gro_cells_mask;
+-	struct gro_cell		*cells;
++	struct gro_cell __percpu	*cells;
+ };
+ 
+ static inline void gro_cells_receive(struct gro_cells *gcells, struct sk_buff *skb)
+ {
+-	struct gro_cell *cell = gcells->cells;
++	struct gro_cell *cell;
+ 	struct net_device *dev = skb->dev;
+ 
+-	if (!cell || skb_cloned(skb) || !(dev->features & NETIF_F_GRO)) {
++	if (!gcells->cells || skb_cloned(skb) || !(dev->features & NETIF_F_GRO)) {
+ 		netif_rx(skb);
+ 		return;
+ 	}
+ 
+-	if (skb_rx_queue_recorded(skb))
+-		cell += skb_get_rx_queue(skb) & gcells->gro_cells_mask;
++	cell = this_cpu_ptr(gcells->cells);
+ 
+ 	if (skb_queue_len(&cell->napi_skbs) > netdev_max_backlog) {
+ 		atomic_long_inc(&dev->rx_dropped);
+@@ -72,15 +70,12 @@ static inline int gro_cells_init(struct gro_cells *gcells, struct net_device *de
+ {
+ 	int i;
+ 
+-	gcells->gro_cells_mask = roundup_pow_of_two(netif_get_num_default_rss_queues()) - 1;
+-	gcells->cells = kcalloc(gcells->gro_cells_mask + 1,
+-				sizeof(struct gro_cell),
+-				GFP_KERNEL);
++	gcells->cells = alloc_percpu(struct gro_cell);
+ 	if (!gcells->cells)
+ 		return -ENOMEM;
+ 
+-	for (i = 0; i <= gcells->gro_cells_mask; i++) {
+-		struct gro_cell *cell = gcells->cells + i;
++	for_each_possible_cpu(i) {
++		struct gro_cell *cell = per_cpu_ptr(gcells->cells, i);
+ 
+ 		skb_queue_head_init(&cell->napi_skbs);
+ 		netif_napi_add(dev, &cell->napi, gro_cell_poll, 64);
+@@ -91,16 +86,16 @@ static inline int gro_cells_init(struct gro_cells *gcells, struct net_device *de
+ 
+ static inline void gro_cells_destroy(struct gro_cells *gcells)
+ {
+-	struct gro_cell *cell = gcells->cells;
+ 	int i;
+ 
+-	if (!cell)
++	if (!gcells->cells)
+ 		return;
+-	for (i = 0; i <= gcells->gro_cells_mask; i++,cell++) {
++	for_each_possible_cpu(i) {
++		struct gro_cell *cell = per_cpu_ptr(gcells->cells, i);
+ 		netif_napi_del(&cell->napi);
+ 		skb_queue_purge(&cell->napi_skbs);
+ 	}
+-	kfree(gcells->cells);
++	free_percpu(gcells->cells);
+ 	gcells->cells = NULL;
+ }
+ 
+-- 
+1.8.1
