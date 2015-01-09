@@ -1,7 +1,7 @@
 From: Chunhao Lin <hau@realtek.com>
-Subject: [PATCH net-next v2 1/8] r8169:change rtl8168dp jumbo frame patch
-Date: Fri, 9 Jan 2015 23:25:59 +0800
-Message-ID: <1420817166-9868-2-git-send-email-hau@realtek.com>
+Subject: [PATCH net-next v2 3/8] r8169:correct the way of setting rtl8168dp pcie ephy parameters
+Date: Fri, 9 Jan 2015 23:26:01 +0800
+Message-ID: <1420817166-9868-4-git-send-email-hau@realtek.com>
 References: <1420817166-9868-1-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,70 +13,47 @@ In-Reply-To: <1420817166-9868-1-git-send-email-hau@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RTL8168DP jumbo frame patch is the same as RTL8168C. So, for RTL8168DP,
-change to use RTL8168C jumbo frame patch. Also reomve uncessary function
-"r8168dp_hw_jumbo_enable" and "r8168dp_hw_jumbo_disable".
+The original way is wrong, it always sets the ephy reg 0x03. Correct it
+in this patch.
 
 Signed-off-by: Chunhao Lin <hau@realtek.com>
 ---
- drivers/net/ethernet/realtek/r8169.c | 28 ++++++----------------------
- 1 file changed, 6 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c | 15 ++++-----------
+ 1 file changed, 4 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 3a28059..72d15b8 100644
+index 991bda5..540a6b8 100644
 --- a/drivers/net/ethernet/realtek/r8169.c
 +++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -4927,20 +4927,6 @@ static void r8168c_hw_jumbo_disable(struct rtl8169_private *tp)
- 	rtl_tx_performance_tweak(tp->pci_dev, 0x5 << MAX_READ_REQUEST_SHIFT);
- }
- 
--static void r8168dp_hw_jumbo_enable(struct rtl8169_private *tp)
--{
--	void __iomem *ioaddr = tp->mmio_addr;
--
--	RTL_W8(Config3, RTL_R8(Config3) | Jumbo_En0);
--}
--
--static void r8168dp_hw_jumbo_disable(struct rtl8169_private *tp)
--{
--	void __iomem *ioaddr = tp->mmio_addr;
--
--	RTL_W8(Config3, RTL_R8(Config3) & ~Jumbo_En0);
--}
--
- static void r8168e_hw_jumbo_enable(struct rtl8169_private *tp)
- {
+@@ -5731,11 +5731,10 @@ static void rtl_hw_start_8168d_4(struct rtl8169_private *tp)
  	void __iomem *ioaddr = tp->mmio_addr;
-@@ -5014,16 +5000,13 @@ static void rtl_init_jumbo_ops(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_24:
- 	case RTL_GIGA_MAC_VER_25:
- 	case RTL_GIGA_MAC_VER_26:
--		ops->disable	= r8168c_hw_jumbo_disable;
--		ops->enable	= r8168c_hw_jumbo_enable;
--		break;
- 	case RTL_GIGA_MAC_VER_27:
- 	case RTL_GIGA_MAC_VER_28:
--		ops->disable	= r8168dp_hw_jumbo_disable;
--		ops->enable	= r8168dp_hw_jumbo_enable;
-+	case RTL_GIGA_MAC_VER_31:
-+		ops->disable	= r8168c_hw_jumbo_disable;
-+		ops->enable	= r8168c_hw_jumbo_enable;
- 		break;
--	case RTL_GIGA_MAC_VER_31: /* Wild guess. Needs info from Realtek. */
--	case RTL_GIGA_MAC_VER_32:
-+	case RTL_GIGA_MAC_VER_32: /* Wild guess. Needs info from Realtek. */
- 	case RTL_GIGA_MAC_VER_33:
- 	case RTL_GIGA_MAC_VER_34:
- 		ops->disable	= r8168e_hw_jumbo_disable;
-@@ -5758,7 +5741,8 @@ static void rtl_hw_start_8168d_4(struct rtl8169_private *tp)
+ 	struct pci_dev *pdev = tp->pci_dev;
+ 	static const struct ephy_info e_info_8168d_4[] = {
+-		{ 0x0b, ~0,	0x48 },
+-		{ 0x19, 0x20,	0x50 },
+-		{ 0x0c, ~0,	0x20 }
++		{ 0x0b, 0x0000,	0x0048 },
++		{ 0x19, 0x0020,	0x0050 },
++		{ 0x0c, 0x0100,	0x0020 }
+ 	};
+-	int i;
  
  	rtl_csi_access_enable_1(tp);
  
--	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
-+	if (tp->dev->mtu <= ETH_DATA_LEN)
-+		rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
+@@ -5744,13 +5743,7 @@ static void rtl_hw_start_8168d_4(struct rtl8169_private *tp)
  
  	RTL_W8(MaxTxPacketSize, TxPacketMax);
  
+-	for (i = 0; i < ARRAY_SIZE(e_info_8168d_4); i++) {
+-		const struct ephy_info *e = e_info_8168d_4 + i;
+-		u16 w;
+-
+-		w = rtl_ephy_read(tp, e->offset);
+-		rtl_ephy_write(tp, 0x03, (w & e->mask) | e->bits);
+-	}
++	rtl_ephy_init(tp, e_info_8168d_4, ARRAY_SIZE(e_info_8168d_4));
+ 
+ 	rtl_enable_clock_request(pdev);
+ }
 -- 
 1.9.1
