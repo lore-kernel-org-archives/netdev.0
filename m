@@ -1,84 +1,63 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] ipv6: Prevent ipv6_find_hdr() from returning ENOENT
- for valid non-first fragments
-Date: Fri, 09 Jan 2015 16:50:36 +0100
-Message-ID: <1420818636.31075.15.camel@stressinduktion.org>
-References: <CAFB3abzYNYqtzd_n+Ym0Lo=DYbV0HPU=Tqw=stALNnu188hMKQ@mail.gmail.com>
-	 <20150106224706.GA7416@salvia>
-	 <CAFB3abwKpR1VqZXUrsexqveAZrA2LTSmTe8a=-H7z2HjAptjwA@mail.gmail.com>
-	 <1420627396.26870.36.camel@stressinduktion.org>
-	 <20150108205328.GA3361@salvia>
-	 <1420756756.1755002.211556745.0418D128@webmail.messagingengine.com>
-	 <20150109000546.GA3488@salvia>
-	 <CAFB3abwrjp61LLOk3RWwXYEq1g4QZUC8OTKuO2cAr+GbV3n4rw@mail.gmail.com>
-	 <1420803255.1978819.211762005.707EFFB9@webmail.messagingengine.com>
-	 <20150109114506.GA4857@salvia>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Rahul Sharma <rsharma@arista.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150109114506.GA4857@salvia>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Praveen Madhavan <praveenm@chelsio.com>
+Subject: [PATCH 1/1] csiostor:fix sparse warnings
+Date: Fri,  9 Jan 2015 21:25:16 +0530
+Message-ID: <1420818916-12185-1-git-send-email-praveenm@chelsio.com>
+Cc: davem@davemloft.net, JBottomley@parallels.com, hch@infradead.org,
+	hariprasad@chelsio.com, praveenm@chelsio.com
+To: netdev@vger.kernel.org, linux-scsi@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fr, 2015-01-09 at 12:45 +0100, Pablo Neira Ayuso wrote:
-> Hi Hannes,
-> 
-> On Fri, Jan 09, 2015 at 12:34:15PM +0100, Hannes Frederic Sowa wrote:
-> > On Fri, Jan 9, 2015, at 08:18, Rahul Sharma wrote:
-> > > Hi Pablo,
-> > > 
-> > > On Fri, Jan 9, 2015 at 5:35 AM, Pablo Neira Ayuso <pablo@netfilter.org>
-> > > wrote:
-> > > > On Thu, Jan 08, 2015 at 11:39:16PM +0100, Hannes Frederic Sowa wrote:
-> > > >> Hi Pablo,
-> > > >>
-> > > >> On Thu, Jan 8, 2015, at 21:53, Pablo Neira Ayuso wrote:
-> > > >> > I'm afraid we cannot just get rid of that !ipv6_ext_hdr() check. The
-> > > >> > ipv6_find_hdr() function is designed to return the transport protocol.
-> > > >> > After the proposed change, it will return extension header numbers.
-> > > >> > This will break existing ip6tables rulesets since the `-p' option
-> > > >> > relies on this function to match the transport protocol.
-> > > >> >
-> > > >> > Note that the AH header is skipped (see code a bit below this
-> > > >> > problematic fragmentation handling) so the follow up header after the
-> > > >> > AH header is returned as the transport header.
-> > > >> >
-> > > >> > We can probably return the AH protocol number for non-1st fragments.
-> > > >> > However, that would be something new to ip6tables since nobody has
-> > > >> > ever seen packet matching `-p ah' rules. Thus, we restore control to
-> > > >> > the user to allow this, but we would accept all kind of fragmented AH
-> > > >> > traffic through the firewall since we cannot know what transport
-> > > >> > protocol contains from non-1st fragments (unless I'm missing anything,
-> > > >> > I need to have a closer look at this again tomorrow with fresher
-> > > >> > mind).
-> > > >>
-> > > >> The code in question is guarded by (_frag_off != 0), so we are
-> > > >> definitely processing a non-1st fragment currently. The -p match would
-> > > >> happen at the time when the packet is reassembled and thus ipv6_find_hdr
-> > > >> will find the real transport (final) header at this point (I hope I
-> > > >> followed the code correctly here).
-> > > >
-> > > > Then, Rahul should get things working by modprobing nf_defrag_ipv6.
-> > > 
-> > > I already had nf_defrag_ipv6 installed when the issue occured. But I
-> > > see ip6table_raw_hook returning NF_DROP for the second fragment.
-> > 
-> > That's what I expected. I think the change only affects hooks before
-> > reassembly.
-> 
-> reassembly happens at NF_IP6_PRI_CONNTRACK_DEFRAG (-400), so that
-> happens before NF_IP6_PRI_RAW (-300) in IPv6 which is where the raw
-> table is placed.
+This patch fixes sparse warning reported by kbuild.
+Apply this on net-next since it depends on previous commit.
 
-I tried to reproduce it, but couldn't get non-1st fragments getting
-dropped during traversal of the raw table. They get dropped earlier at
-during reassembly or pass.
+drivers/scsi/csiostor/csio_hw.c:259:17: sparse: cast to restricted __le32
+drivers/scsi/csiostor/csio_hw.c:536:31: sparse: incorrect type in assignment
+(different base types)
+drivers/scsi/csiostor/csio_hw.c:536:31:    expected unsigned int [unsigned]
+[usertype] <noident>
+drivers/scsi/csiostor/csio_hw.c:536:31:    got restricted __be32 [usertype]
+<noident>
+>> drivers/scsi/csiostor/csio_hw.c:2012:5: sparse: symbol 'csio_hw_prep_fw' was
+not declared. Should it be static?
 
-I agree with Pablo, I also would like to see more data.
+Signed-off-by: Praveen Madhavan <praveenm@chelsio.com>
+---
+ drivers/scsi/csiostor/csio_hw.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Thanks,
-Hannes
+diff --git a/drivers/scsi/csiostor/csio_hw.c b/drivers/scsi/csiostor/csio_hw.c
+index b70c15f..5c31fa6 100644
+--- a/drivers/scsi/csiostor/csio_hw.c
++++ b/drivers/scsi/csiostor/csio_hw.c
+@@ -256,7 +256,7 @@ csio_hw_seeprom_read(struct csio_hw *hw, uint32_t addr, uint32_t *data)
+ 	}
+ 
+ 	pci_read_config_dword(hw->pdev, base + PCI_VPD_DATA, data);
+-	*data = le32_to_cpu(*data);
++	*data = le32_to_cpu(*(__le32 *)data);
+ 
+ 	return 0;
+ }
+@@ -533,7 +533,7 @@ csio_hw_read_flash(struct csio_hw *hw, uint32_t addr, uint32_t nwords,
+ 		if (ret)
+ 			return ret;
+ 		if (byte_oriented)
+-			*data = htonl(*data);
++			*data = (__force __u32) htonl(*data);
+ 	}
+ 	return 0;
+ }
+@@ -2009,7 +2009,7 @@ static struct fw_info *find_fw_info(int chip)
+ 	return NULL;
+ }
+ 
+-int csio_hw_prep_fw(struct csio_hw *hw, struct fw_info *fw_info,
++static int csio_hw_prep_fw(struct csio_hw *hw, struct fw_info *fw_info,
+ 	       const u8 *fw_data, unsigned int fw_size,
+ 	       struct fw_hdr *card_fw, enum csio_dev_state state,
+ 	       int *reset)
+-- 
+2.0.2
+
