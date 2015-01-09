@@ -1,17 +1,16 @@
 From: Rahul Sharma <rsharma@arista.com>
-Subject: [PATCH net v2] ipv6: Prevent ipv6_find_hdr() from returning ENOENT
+Subject: [PATCH v2] net: ipv6: Prevent ipv6_find_hdr() from returning ENOENT
  for valid non-first fragments
-Date: Fri, 9 Jan 2015 13:56:39 +0530
-Message-ID: <CAFB3abzM2ApxMH6C7vSDJ8JikKEkE46bOH3jbsis2NiF-ieUxA@mail.gmail.com>
+Date: Fri, 9 Jan 2015 14:02:17 +0530
+Message-ID: <CAFB3abzcBGEVgEXPNAs+HHOYspFYptO-2oc4dXi-OT+wDKh8_w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-kernel@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netfilter-devel@vger.kernel.org,
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	Pablo Neira Ayuso <pablo@netfilter.org>
 To: netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 ipv6_find_hdr() currently assumes that the next-header field in the
