@@ -1,7 +1,7 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 03/16] tipc: remove unnecessary wrapper functions of kernel timer APIs
-Date: Fri, 9 Jan 2015 15:27:00 +0800
-Message-ID: <1420788433-17960-4-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 11/16] tipc: make tipc socket support net namespace
+Date: Fri, 9 Jan 2015 15:27:08 +0800
+Message-ID: <1420788433-17960-12-git-send-email-ying.xue@windriver.com>
 References: <1420788433-17960-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,480 +11,335 @@ Cc: <jon.maloy@ericsson.com>, <Tero.Aho@coriant.com>,
 	<tipc-discussion@lists.sourceforge.net>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:60113 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:60303 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753974AbbAIH1u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 02:27:50 -0500
+	with ESMTP id S1755902AbbAIH2L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 02:28:11 -0500
 In-Reply-To: <1420788433-17960-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Not only some wrapper function like k_term_timer() is empty, but also
-some others including k_start_timer() and k_cancel_timer() don't return
-back any value to its caller, what's more, there is no any component
-in the kernel world to do such thing. Therefore, these timer interfaces
-defined in tipc module should be purged.
+Now tipc socket table is statically allocated as a global variable.
+Through it, we can look up one socket instance with port ID, insert
+a new socket instance to the table, and delete a socket from the
+table. But when tipc supports net namespace, each namespace must own
+its specific socket table. So the global variable of socket table
+must be redefined in tipc_net structure. As a concequence, a new
+socket table will be allocated when a new namespace is created, and
+a socket table will be deallocated when namespace is destroyed.
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Tested-by: Tero Aho <Tero.Aho@coriant.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/core.h     |   67 ---------------------------------------------------
- net/tipc/discover.c |   32 +++++++++++++-----------
- net/tipc/link.c     |   27 +++++++++++----------
- net/tipc/link.h     |    4 +--
- net/tipc/msg.h      |    2 --
- net/tipc/socket.c   |   17 ++++++-------
- net/tipc/subscr.c   |   17 ++++++-------
- net/tipc/subscr.h   |    2 +-
- 8 files changed, 50 insertions(+), 118 deletions(-)
+ net/tipc/config.c |    2 +-
+ net/tipc/core.c   |   12 ++++--------
+ net/tipc/core.h   |    4 ++++
+ net/tipc/net.c    |    2 +-
+ net/tipc/socket.c |   48 +++++++++++++++++++++++++++++-------------------
+ net/tipc/socket.h |    8 ++++----
+ 6 files changed, 43 insertions(+), 33 deletions(-)
 
+diff --git a/net/tipc/config.c b/net/tipc/config.c
+index ac73291..20b1c58 100644
+--- a/net/tipc/config.c
++++ b/net/tipc/config.c
+@@ -257,7 +257,7 @@ struct sk_buff *tipc_cfg_do_cmd(struct net *net, u32 orig_node, u16 cmd,
+ 		rep_tlv_buf = tipc_media_get_names();
+ 		break;
+ 	case TIPC_CMD_SHOW_PORTS:
+-		rep_tlv_buf = tipc_sk_socks_show();
++		rep_tlv_buf = tipc_sk_socks_show(net);
+ 		break;
+ 	case TIPC_CMD_SHOW_STATS:
+ 		rep_tlv_buf = tipc_show_stats();
+diff --git a/net/tipc/core.c b/net/tipc/core.c
+index 7b84439..23ff3ca 100644
+--- a/net/tipc/core.c
++++ b/net/tipc/core.c
+@@ -55,17 +55,20 @@ int sysctl_tipc_rmem[3] __read_mostly;	/* min/default/max */
+ static int __net_init tipc_init_net(struct net *net)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
++	int err;
+ 
+ 	tn->net_id = 4711;
+ 	INIT_LIST_HEAD(&tn->node_list);
+ 	spin_lock_init(&tn->node_list_lock);
+ 
+-	return 0;
++	err = tipc_sk_rht_init(net);
++	return err;
+ }
+ 
+ static void __net_exit tipc_exit_net(struct net *net)
+ {
+ 	tipc_net_stop(net);
++	tipc_sk_rht_destroy(net);
+ }
+ 
+ static struct pernet_operations tipc_net_ops = {
+@@ -95,10 +98,6 @@ static int __init tipc_init(void)
+ 	if (err)
+ 		goto out_pernet;
+ 
+-	err = tipc_sk_rht_init();
+-	if (err)
+-		goto out_reftbl;
+-
+ 	err = tipc_nametbl_init();
+ 	if (err)
+ 		goto out_nametbl;
+@@ -136,8 +135,6 @@ out_socket:
+ out_netlink:
+ 	tipc_nametbl_stop();
+ out_nametbl:
+-	tipc_sk_rht_destroy();
+-out_reftbl:
+ 	unregister_pernet_subsys(&tipc_net_ops);
+ out_pernet:
+ 	pr_err("Unable to start in single node mode\n");
+@@ -153,7 +150,6 @@ static void __exit tipc_exit(void)
+ 	tipc_nametbl_stop();
+ 	tipc_socket_stop();
+ 	tipc_unregister_sysctl();
+-	tipc_sk_rht_destroy();
+ 
+ 	pr_info("Deactivated\n");
+ }
 diff --git a/net/tipc/core.h b/net/tipc/core.h
-index 56fe422..d570689 100644
+index 3f6f9e0..1a7f816 100644
 --- a/net/tipc/core.h
 +++ b/net/tipc/core.h
-@@ -107,73 +107,6 @@ void tipc_unregister_sysctl(void);
- #endif
+@@ -58,6 +58,7 @@
+ #include <linux/rtnetlink.h>
+ #include <linux/etherdevice.h>
+ #include <net/netns/generic.h>
++#include <linux/rhashtable.h>
  
- /*
-- * TIPC timer code
-- */
--typedef void (*Handler) (unsigned long);
--
--/**
-- * k_init_timer - initialize a timer
-- * @timer: pointer to timer structure
-- * @routine: pointer to routine to invoke when timer expires
-- * @argument: value to pass to routine when timer expires
-- *
-- * Timer must be initialized before use (and terminated when no longer needed).
-- */
--static inline void k_init_timer(struct timer_list *timer, Handler routine,
--				unsigned long argument)
--{
--	setup_timer(timer, routine, argument);
--}
--
--/**
-- * k_start_timer - start a timer
-- * @timer: pointer to timer structure
-- * @msec: time to delay (in ms)
-- *
-- * Schedules a previously initialized timer for later execution.
-- * If timer is already running, the new timeout overrides the previous request.
-- *
-- * To ensure the timer doesn't expire before the specified delay elapses,
-- * the amount of delay is rounded up when converting to the jiffies
-- * then an additional jiffy is added to account for the fact that
-- * the starting time may be in the middle of the current jiffy.
-- */
--static inline void k_start_timer(struct timer_list *timer, unsigned long msec)
--{
--	mod_timer(timer, jiffies + msecs_to_jiffies(msec) + 1);
--}
--
--/**
-- * k_cancel_timer - cancel a timer
-- * @timer: pointer to timer structure
-- *
-- * Cancels a previously initialized timer.
-- * Can be called safely even if the timer is already inactive.
-- *
-- * WARNING: Must not be called when holding locks required by the timer's
-- *          timeout routine, otherwise deadlock can occur on SMP systems!
-- */
--static inline void k_cancel_timer(struct timer_list *timer)
--{
--	del_timer_sync(timer);
--}
--
--/**
-- * k_term_timer - terminate a timer
-- * @timer: pointer to timer structure
-- *
-- * Prevents further use of a previously initialized timer.
-- *
-- * WARNING: Caller must ensure timer isn't currently running.
-- *
-- * (Do not "enhance" this routine to automatically cancel an active timer,
-- * otherwise deadlock can arise when a timeout routine calls k_term_timer.)
-- */
--static inline void k_term_timer(struct timer_list *timer)
--{
--}
--
--/*
-  * TIPC message buffer code
-  *
-  * TIPC message buffer headroom reserves space for the worst-case
-diff --git a/net/tipc/discover.c b/net/tipc/discover.c
-index aa722a4..1a3a985 100644
---- a/net/tipc/discover.c
-+++ b/net/tipc/discover.c
-@@ -38,10 +38,14 @@
- #include "link.h"
- #include "discover.h"
- 
--#define TIPC_LINK_REQ_INIT	125	/* min delay during bearer start up */
--#define TIPC_LINK_REQ_FAST	1000	/* max delay if bearer has no links */
--#define TIPC_LINK_REQ_SLOW	60000	/* max delay if bearer has links */
--#define TIPC_LINK_REQ_INACTIVE	0xffffffff /* indicates no timer in use */
-+/* min delay during bearer start up */
-+#define TIPC_LINK_REQ_INIT	msecs_to_jiffies(125)
-+/* max delay if bearer has no links */
-+#define TIPC_LINK_REQ_FAST	msecs_to_jiffies(1000)
-+/* max delay if bearer has links */
-+#define TIPC_LINK_REQ_SLOW	msecs_to_jiffies(60000)
-+/* indicates no timer in use */
-+#define TIPC_LINK_REQ_INACTIVE	0xffffffff
- 
- 
- /**
-@@ -63,7 +67,7 @@ struct tipc_link_req {
- 	spinlock_t lock;
- 	struct sk_buff *buf;
- 	struct timer_list timer;
--	unsigned int timer_intv;
-+	unsigned long timer_intv;
- };
- 
- /**
-@@ -265,7 +269,7 @@ static void disc_update(struct tipc_link_req *req)
- 		if ((req->timer_intv == TIPC_LINK_REQ_INACTIVE) ||
- 		    (req->timer_intv > TIPC_LINK_REQ_FAST)) {
- 			req->timer_intv = TIPC_LINK_REQ_INIT;
--			k_start_timer(&req->timer, req->timer_intv);
-+			mod_timer(&req->timer, jiffies + req->timer_intv);
- 		}
- 	}
- }
-@@ -295,12 +299,13 @@ void tipc_disc_remove_dest(struct tipc_link_req *req)
- 
- /**
-  * disc_timeout - send a periodic link setup request
-- * @req: ptr to link request structure
-+ * @data: ptr to link request structure
-  *
-  * Called whenever a link setup request timer associated with a bearer expires.
-  */
--static void disc_timeout(struct tipc_link_req *req)
-+static void disc_timeout(unsigned long data)
- {
-+	struct tipc_link_req *req = (struct tipc_link_req *)data;
- 	int max_delay;
- 
- 	spin_lock_bh(&req->lock);
-@@ -329,7 +334,7 @@ static void disc_timeout(struct tipc_link_req *req)
- 	if (req->timer_intv > max_delay)
- 		req->timer_intv = max_delay;
- 
--	k_start_timer(&req->timer, req->timer_intv);
-+	mod_timer(&req->timer, jiffies + req->timer_intv);
- exit:
- 	spin_unlock_bh(&req->lock);
- }
-@@ -363,8 +368,8 @@ int tipc_disc_create(struct tipc_bearer *b_ptr, struct tipc_media_addr *dest)
- 	req->num_nodes = 0;
- 	req->timer_intv = TIPC_LINK_REQ_INIT;
- 	spin_lock_init(&req->lock);
--	k_init_timer(&req->timer, (Handler)disc_timeout, (unsigned long)req);
--	k_start_timer(&req->timer, req->timer_intv);
-+	setup_timer(&req->timer, disc_timeout, (unsigned long)req);
-+	mod_timer(&req->timer, jiffies + req->timer_intv);
- 	b_ptr->link_req = req;
- 	tipc_bearer_send(req->bearer_id, req->buf, &req->dest);
- 	return 0;
-@@ -376,8 +381,7 @@ int tipc_disc_create(struct tipc_bearer *b_ptr, struct tipc_media_addr *dest)
-  */
- void tipc_disc_delete(struct tipc_link_req *req)
- {
--	k_cancel_timer(&req->timer);
--	k_term_timer(&req->timer);
-+	del_timer_sync(&req->timer);
- 	kfree_skb(req->buf);
- 	kfree(req);
- }
-@@ -397,7 +401,7 @@ void tipc_disc_reset(struct tipc_bearer *b_ptr)
- 	req->domain = b_ptr->domain;
- 	req->num_nodes = 0;
- 	req->timer_intv = TIPC_LINK_REQ_INIT;
--	k_start_timer(&req->timer, req->timer_intv);
-+	mod_timer(&req->timer, jiffies + req->timer_intv);
- 	tipc_bearer_send(req->bearer_id, req->buf, &req->dest);
- 	spin_unlock_bh(&req->lock);
- }
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 082c3b5..f2531a8 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -106,7 +106,7 @@ static void link_handle_out_of_seq_msg(struct tipc_link *l_ptr,
- static void tipc_link_proto_rcv(struct tipc_link *l_ptr, struct sk_buff *buf);
- static int  tipc_link_tunnel_rcv(struct tipc_node *n_ptr,
- 				 struct sk_buff **buf);
--static void link_set_supervision_props(struct tipc_link *l_ptr, u32 tolerance);
-+static void link_set_supervision_props(struct tipc_link *l_ptr, u32 tol);
- static void link_state_event(struct tipc_link *l_ptr, u32 event);
- static void link_reset_statistics(struct tipc_link *l_ptr);
- static void link_print(struct tipc_link *l_ptr, const char *str);
-@@ -169,8 +169,9 @@ int tipc_link_is_active(struct tipc_link *l_ptr)
-  * link_timeout - handle expiration of link timer
-  * @l_ptr: pointer to link
-  */
--static void link_timeout(struct tipc_link *l_ptr)
-+static void link_timeout(unsigned long data)
- {
-+	struct tipc_link *l_ptr = (struct tipc_link *)data;
- 	struct sk_buff *skb;
- 
- 	tipc_node_lock(l_ptr->owner);
-@@ -217,9 +218,9 @@ static void link_timeout(struct tipc_link *l_ptr)
- 	tipc_node_unlock(l_ptr->owner);
- }
- 
--static void link_set_timer(struct tipc_link *l_ptr, u32 time)
-+static void link_set_timer(struct tipc_link *link, unsigned long time)
- {
--	k_start_timer(&l_ptr->timer, time);
-+	mod_timer(&link->timer, jiffies + time);
- }
- 
- /**
-@@ -299,8 +300,7 @@ struct tipc_link *tipc_link_create(struct tipc_node *n_ptr,
- 
- 	tipc_node_attach_link(n_ptr, l_ptr);
- 
--	k_init_timer(&l_ptr->timer, (Handler)link_timeout,
--		     (unsigned long)l_ptr);
-+	setup_timer(&l_ptr->timer, link_timeout, (unsigned long)l_ptr);
- 
- 	link_state_event(l_ptr, STARTING_EVT);
- 
-@@ -479,7 +479,7 @@ static void link_activate(struct tipc_link *l_ptr)
- static void link_state_event(struct tipc_link *l_ptr, unsigned int event)
- {
- 	struct tipc_link *other;
--	u32 cont_intv = l_ptr->continuity_interval;
-+	unsigned long cont_intv = l_ptr->cont_intv;
- 
- 	if (l_ptr->flags & LINK_STOPPED)
- 		return;
-@@ -1880,15 +1880,16 @@ void tipc_link_bundle_rcv(struct sk_buff *buf)
- 	kfree_skb(buf);
- }
- 
--static void link_set_supervision_props(struct tipc_link *l_ptr, u32 tolerance)
-+static void link_set_supervision_props(struct tipc_link *l_ptr, u32 tol)
- {
--	if ((tolerance < TIPC_MIN_LINK_TOL) || (tolerance > TIPC_MAX_LINK_TOL))
-+	unsigned long intv = ((tol / 4) > 500) ? 500 : tol / 4;
+ #include "node.h"
+ #include "bearer.h"
+@@ -101,6 +102,9 @@ struct tipc_net {
+ 	struct tipc_bcbearer *bcbearer;
+ 	struct tipc_bclink *bclink;
+ 	struct tipc_link *bcl;
 +
-+	if ((tol < TIPC_MIN_LINK_TOL) || (tol > TIPC_MAX_LINK_TOL))
- 		return;
- 
--	l_ptr->tolerance = tolerance;
--	l_ptr->continuity_interval =
--		((tolerance / 4) > 500) ? 500 : tolerance / 4;
--	l_ptr->abort_limit = tolerance / (l_ptr->continuity_interval / 4);
-+	l_ptr->tolerance = tol;
-+	l_ptr->cont_intv = msecs_to_jiffies(intv);
-+	l_ptr->abort_limit = tol / (jiffies_to_msecs(l_ptr->cont_intv) / 4);
- }
- 
- void tipc_link_set_queue_limits(struct tipc_link *l_ptr, u32 window)
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 55812e8..15ca850 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -105,7 +105,7 @@ struct tipc_stats {
-  * @peer_bearer_id: bearer id used by link's peer endpoint
-  * @bearer_id: local bearer id used by link
-  * @tolerance: minimum link continuity loss needed to reset link [in ms]
-- * @continuity_interval: link continuity testing interval [in ms]
-+ * @cont_intv: link continuity testing interval
-  * @abort_limit: # of unacknowledged continuity probes needed to reset link
-  * @state: current state of link FSM
-  * @fsm_msg_cnt: # of protocol messages link FSM has sent in current state
-@@ -146,7 +146,7 @@ struct tipc_link {
- 	u32 peer_bearer_id;
- 	u32 bearer_id;
- 	u32 tolerance;
--	u32 continuity_interval;
-+	unsigned long cont_intv;
- 	u32 abort_limit;
- 	int state;
- 	u32 fsm_msg_cnt;
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index d5c83d7..1a52f7c 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -77,12 +77,10 @@
- 
- #define TIPC_MEDIA_ADDR_OFFSET	5
- 
--
- struct tipc_msg {
- 	__be32 hdr[15];
++	/* Socket hash table */
++	struct rhashtable sk_rht;
  };
  
--
- static inline u32 msg_word(struct tipc_msg *m, u32 pos)
- {
- 	return ntohl(m->hdr[pos]);
+ #ifdef CONFIG_SYSCTL
+diff --git a/net/tipc/net.c b/net/tipc/net.c
+index 7548ba8..44ccf47 100644
+--- a/net/tipc/net.c
++++ b/net/tipc/net.c
+@@ -117,7 +117,7 @@ int tipc_net_start(struct net *net, u32 addr)
+ 
+ 	tipc_own_addr = addr;
+ 	tipc_named_reinit();
+-	tipc_sk_reinit();
++	tipc_sk_reinit(net);
+ 	res = tipc_bclink_init(net);
+ 	if (res)
+ 		return res;
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 701f31b..e16197e 100644
+index 6883145..accb02c 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -47,7 +47,7 @@
- #define SS_READY		-2	/* socket is connectionless */
+@@ -115,7 +115,7 @@ static int tipc_sk_publish(struct tipc_sock *tsk, uint scope,
+ 			   struct tipc_name_seq const *seq);
+ static int tipc_sk_withdraw(struct tipc_sock *tsk, uint scope,
+ 			    struct tipc_name_seq const *seq);
+-static struct tipc_sock *tipc_sk_lookup(u32 portid);
++static struct tipc_sock *tipc_sk_lookup(struct net *net, u32 portid);
+ static int tipc_sk_insert(struct tipc_sock *tsk);
+ static void tipc_sk_remove(struct tipc_sock *tsk);
  
- #define CONN_TIMEOUT_DEFAULT	8000	/* default connect timeout = 8s */
--#define CONN_PROBING_INTERVAL	3600000	/* [ms] => 1 h */
-+#define CONN_PROBING_INTERVAL	msecs_to_jiffies(3600000)  /* [ms] => 1 h */
- #define TIPC_FWD_MSG		1
- #define TIPC_CONN_OK		0
- #define TIPC_CONN_PROBING	1
-@@ -68,7 +68,7 @@
-  * @publications: list of publications for port
-  * @pub_count: total # of publications port has made during its lifetime
-  * @probing_state:
-- * @probing_interval:
-+ * @probing_intv:
-  * @timer:
-  * @port: port - interacts with 'sk' and with the rest of the TIPC stack
-  * @peer_name: the peer of the connection, if any
-@@ -93,7 +93,7 @@ struct tipc_sock {
- 	struct list_head publications;
- 	u32 pub_count;
- 	u32 probing_state;
--	u32 probing_interval;
-+	unsigned long probing_intv;
- 	struct timer_list timer;
- 	uint conn_timeout;
- 	atomic_t dupl_rcvcnt;
-@@ -361,7 +361,7 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
- 		return -EINVAL;
- 	}
- 	msg_set_origport(msg, tsk->portid);
--	k_init_timer(&tsk->timer, (Handler)tipc_sk_timeout, tsk->portid);
-+	setup_timer(&tsk->timer, tipc_sk_timeout, tsk->portid);
- 	sk->sk_backlog_rcv = tipc_backlog_rcv;
- 	sk->sk_rcvbuf = sysctl_tipc_rmem[1];
- 	sk->sk_data_ready = tipc_data_ready;
-@@ -511,7 +511,7 @@ static int tipc_release(struct socket *sock)
- 	}
+@@ -179,9 +179,6 @@ static const struct nla_policy tipc_nl_sock_policy[TIPC_NLA_SOCK_MAX + 1] = {
+  *   - port reference
+  */
  
- 	tipc_sk_withdraw(tsk, 0, NULL);
--	k_cancel_timer(&tsk->timer);
-+	del_timer_sync(&tsk->timer);
- 	tipc_sk_remove(tsk);
- 	if (tsk->connected) {
- 		skb = tipc_msg_create(TIPC_CRITICAL_IMPORTANCE, TIPC_CONN_MSG,
-@@ -522,7 +522,6 @@ static int tipc_release(struct socket *sock)
- 			tipc_link_xmit_skb(skb, dnode, tsk->portid);
- 		tipc_node_remove_conn(dnode, tsk->portid);
- 	}
--	k_term_timer(&tsk->timer);
- 
- 	/* Discard any remaining (connection-based) messages in receive queue */
- 	__skb_queue_purge(&sk->sk_receive_queue);
-@@ -1139,10 +1138,10 @@ static void tipc_sk_finish_conn(struct tipc_sock *tsk, u32 peer_port,
- 	msg_set_lookup_scope(msg, 0);
- 	msg_set_hdr_sz(msg, SHORT_H_SIZE);
- 
--	tsk->probing_interval = CONN_PROBING_INTERVAL;
-+	tsk->probing_intv = CONN_PROBING_INTERVAL;
- 	tsk->probing_state = TIPC_CONN_OK;
- 	tsk->connected = 1;
--	k_start_timer(&tsk->timer, tsk->probing_interval);
-+	mod_timer(&tsk->timer, jiffies + tsk->probing_intv);
- 	tipc_node_add_conn(peer_node, tsk->portid, peer_port);
- 	tsk->max_pkt = tipc_node_get_mtu(peer_node, tsk->portid);
- }
-@@ -2128,7 +2127,7 @@ static void tipc_sk_timeout(unsigned long portid)
- 				      0, peer_node, tipc_own_addr,
- 				      peer_port, portid, TIPC_OK);
- 		tsk->probing_state = TIPC_CONN_PROBING;
--		k_start_timer(&tsk->timer, tsk->probing_interval);
-+		mod_timer(&tsk->timer, jiffies + tsk->probing_intv);
- 	}
- 	bh_unlock_sock(sk);
- 	if (skb)
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index 0344206..e6cb959 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -141,8 +141,9 @@ void tipc_subscr_report_overlap(struct tipc_subscription *sub, u32 found_lower,
- 	subscr_send_event(sub, found_lower, found_upper, event, port_ref, node);
- }
- 
--static void subscr_timeout(struct tipc_subscription *sub)
-+static void subscr_timeout(unsigned long data)
+-/* Protects tipc socket hash table mutations */
+-static struct rhashtable tipc_sk_rht;
+-
+ static u32 tsk_peer_node(struct tipc_sock *tsk)
  {
-+	struct tipc_subscription *sub = (struct tipc_subscription *)data;
- 	struct tipc_subscriber *subscriber = sub->subscriber;
+ 	return msg_destnode(&tsk->phdr);
+@@ -1766,7 +1763,7 @@ int tipc_sk_rcv(struct net *net, struct sk_buff *skb)
+ 	u32 dnode;
  
- 	/* The spin lock per subscriber is used to protect its members */
-@@ -167,7 +168,6 @@ static void subscr_timeout(struct tipc_subscription *sub)
- 			  TIPC_SUBSCR_TIMEOUT, 0, 0);
- 
- 	/* Now destroy subscription */
--	k_term_timer(&sub->timer);
- 	kfree(sub);
- 	atomic_dec(&subscription_count);
+ 	/* Validate destination and message */
+-	tsk = tipc_sk_lookup(dport);
++	tsk = tipc_sk_lookup(net, dport);
+ 	if (unlikely(!tsk)) {
+ 		rc = tipc_msg_eval(skb, &dnode);
+ 		goto exit;
+@@ -2245,8 +2242,9 @@ static int tipc_sk_show(struct tipc_sock *tsk, char *buf,
+ 	return ret;
  }
-@@ -207,8 +207,7 @@ static void subscr_release(struct tipc_subscriber *subscriber)
- 				 subscription_list) {
- 		if (sub->timeout != TIPC_WAIT_FOREVER) {
- 			spin_unlock_bh(&subscriber->lock);
--			k_cancel_timer(&sub->timer);
--			k_term_timer(&sub->timer);
-+			del_timer_sync(&sub->timer);
- 			spin_lock_bh(&subscriber->lock);
- 		}
- 		subscr_del(sub);
-@@ -250,8 +249,7 @@ static void subscr_cancel(struct tipc_subscr *s,
- 	if (sub->timeout != TIPC_WAIT_FOREVER) {
- 		sub->timeout = TIPC_WAIT_FOREVER;
- 		spin_unlock_bh(&subscriber->lock);
--		k_cancel_timer(&sub->timer);
--		k_term_timer(&sub->timer);
-+		del_timer_sync(&sub->timer);
- 		spin_lock_bh(&subscriber->lock);
+ 
+-struct sk_buff *tipc_sk_socks_show(void)
++struct sk_buff *tipc_sk_socks_show(struct net *net)
+ {
++	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 	const struct bucket_table *tbl;
+ 	struct rhash_head *pos;
+ 	struct sk_buff *buf;
+@@ -2265,7 +2263,7 @@ struct sk_buff *tipc_sk_socks_show(void)
+ 	pb_len = ULTRA_STRING_MAX_LEN;
+ 
+ 	rcu_read_lock();
+-	tbl = rht_dereference_rcu((&tipc_sk_rht)->tbl, &tipc_sk_rht);
++	tbl = rht_dereference_rcu((&tn->sk_rht)->tbl, &tn->sk_rht);
+ 	for (i = 0; i < tbl->size; i++) {
+ 		rht_for_each_entry_rcu(tsk, pos, tbl, i, node) {
+ 			spin_lock_bh(&tsk->sk.sk_lock.slock);
+@@ -2286,8 +2284,9 @@ struct sk_buff *tipc_sk_socks_show(void)
+ /* tipc_sk_reinit: set non-zero address in all existing sockets
+  *                 when we go from standalone to network mode.
+  */
+-void tipc_sk_reinit(void)
++void tipc_sk_reinit(struct net *net)
+ {
++	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 	const struct bucket_table *tbl;
+ 	struct rhash_head *pos;
+ 	struct tipc_sock *tsk;
+@@ -2295,7 +2294,7 @@ void tipc_sk_reinit(void)
+ 	int i;
+ 
+ 	rcu_read_lock();
+-	tbl = rht_dereference_rcu((&tipc_sk_rht)->tbl, &tipc_sk_rht);
++	tbl = rht_dereference_rcu((&tn->sk_rht)->tbl, &tn->sk_rht);
+ 	for (i = 0; i < tbl->size; i++) {
+ 		rht_for_each_entry_rcu(tsk, pos, tbl, i, node) {
+ 			spin_lock_bh(&tsk->sk.sk_lock.slock);
+@@ -2308,12 +2307,13 @@ void tipc_sk_reinit(void)
+ 	rcu_read_unlock();
+ }
+ 
+-static struct tipc_sock *tipc_sk_lookup(u32 portid)
++static struct tipc_sock *tipc_sk_lookup(struct net *net, u32 portid)
+ {
++	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 	struct tipc_sock *tsk;
+ 
+ 	rcu_read_lock();
+-	tsk = rhashtable_lookup(&tipc_sk_rht, &portid);
++	tsk = rhashtable_lookup(&tn->sk_rht, &portid);
+ 	if (tsk)
+ 		sock_hold(&tsk->sk);
+ 	rcu_read_unlock();
+@@ -2323,6 +2323,9 @@ static struct tipc_sock *tipc_sk_lookup(u32 portid)
+ 
+ static int tipc_sk_insert(struct tipc_sock *tsk)
+ {
++	struct sock *sk = &tsk->sk;
++	struct net *net = sock_net(sk);
++	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 	u32 remaining = (TIPC_MAX_PORT - TIPC_MIN_PORT) + 1;
+ 	u32 portid = prandom_u32() % remaining + TIPC_MIN_PORT;
+ 
+@@ -2332,7 +2335,7 @@ static int tipc_sk_insert(struct tipc_sock *tsk)
+ 			portid = TIPC_MIN_PORT;
+ 		tsk->portid = portid;
+ 		sock_hold(&tsk->sk);
+-		if (rhashtable_lookup_insert(&tipc_sk_rht, &tsk->node))
++		if (rhashtable_lookup_insert(&tn->sk_rht, &tsk->node))
+ 			return 0;
+ 		sock_put(&tsk->sk);
  	}
- 	subscr_del(sub);
-@@ -296,7 +294,7 @@ static int subscr_subscribe(struct tipc_subscr *s,
- 	sub->seq.type = htohl(s->seq.type, swap);
- 	sub->seq.lower = htohl(s->seq.lower, swap);
- 	sub->seq.upper = htohl(s->seq.upper, swap);
--	sub->timeout = htohl(s->timeout, swap);
-+	sub->timeout = msecs_to_jiffies(htohl(s->timeout, swap));
- 	sub->filter = htohl(s->filter, swap);
- 	if ((!(sub->filter & TIPC_SUB_PORTS) ==
- 	     !(sub->filter & TIPC_SUB_SERVICE)) ||
-@@ -311,9 +309,8 @@ static int subscr_subscribe(struct tipc_subscr *s,
- 	memcpy(&sub->evt.s, s, sizeof(struct tipc_subscr));
- 	atomic_inc(&subscription_count);
- 	if (sub->timeout != TIPC_WAIT_FOREVER) {
--		k_init_timer(&sub->timer,
--			     (Handler)subscr_timeout, (unsigned long)sub);
--		k_start_timer(&sub->timer, sub->timeout);
-+		setup_timer(&sub->timer, subscr_timeout, (unsigned long)sub);
-+		mod_timer(&sub->timer, jiffies + sub->timeout);
+@@ -2343,15 +2346,17 @@ static int tipc_sk_insert(struct tipc_sock *tsk)
+ static void tipc_sk_remove(struct tipc_sock *tsk)
+ {
+ 	struct sock *sk = &tsk->sk;
++	struct tipc_net *tn = net_generic(sock_net(sk), tipc_net_id);
+ 
+-	if (rhashtable_remove(&tipc_sk_rht, &tsk->node)) {
++	if (rhashtable_remove(&tn->sk_rht, &tsk->node)) {
+ 		WARN_ON(atomic_read(&sk->sk_refcnt) == 1);
+ 		__sock_put(sk);
  	}
- 	*sub_p = sub;
- 	return 0;
-diff --git a/net/tipc/subscr.h b/net/tipc/subscr.h
-index 393e417..ab01713 100644
---- a/net/tipc/subscr.h
-+++ b/net/tipc/subscr.h
-@@ -58,7 +58,7 @@ struct tipc_subscriber;
- struct tipc_subscription {
- 	struct tipc_subscriber *subscriber;
- 	struct tipc_name_seq seq;
--	u32 timeout;
-+	unsigned long timeout;
- 	u32 filter;
- 	struct timer_list timer;
- 	struct list_head nameseq_list;
+ }
+ 
+-int tipc_sk_rht_init(void)
++int tipc_sk_rht_init(struct net *net)
+ {
++	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 	struct rhashtable_params rht_params = {
+ 		.nelem_hint = 192,
+ 		.head_offset = offsetof(struct tipc_sock, node),
+@@ -2364,15 +2369,17 @@ int tipc_sk_rht_init(void)
+ 		.shrink_decision = rht_shrink_below_30,
+ 	};
+ 
+-	return rhashtable_init(&tipc_sk_rht, &rht_params);
++	return rhashtable_init(&tn->sk_rht, &rht_params);
+ }
+ 
+-void tipc_sk_rht_destroy(void)
++void tipc_sk_rht_destroy(struct net *net)
+ {
++	struct tipc_net *tn = net_generic(net, tipc_net_id);
++
+ 	/* Wait for socket readers to complete */
+ 	synchronize_net();
+ 
+-	rhashtable_destroy(&tipc_sk_rht);
++	rhashtable_destroy(&tn->sk_rht);
+ }
+ 
+ /**
+@@ -2730,10 +2737,12 @@ int tipc_nl_sk_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct rhash_head *pos;
+ 	u32 prev_portid = cb->args[0];
+ 	u32 portid = prev_portid;
++	struct net *net = sock_net(skb->sk);
++	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 	int i;
+ 
+ 	rcu_read_lock();
+-	tbl = rht_dereference_rcu((&tipc_sk_rht)->tbl, &tipc_sk_rht);
++	tbl = rht_dereference_rcu((&tn->sk_rht)->tbl, &tn->sk_rht);
+ 	for (i = 0; i < tbl->size; i++) {
+ 		rht_for_each_entry_rcu(tsk, pos, tbl, i, node) {
+ 			spin_lock_bh(&tsk->sk.sk_lock.slock);
+@@ -2839,6 +2848,7 @@ int tipc_nl_publ_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 	u32 tsk_portid = cb->args[0];
+ 	u32 last_publ = cb->args[1];
+ 	u32 done = cb->args[2];
++	struct net *net = sock_net(skb->sk);
+ 	struct tipc_sock *tsk;
+ 
+ 	if (!tsk_portid) {
+@@ -2864,7 +2874,7 @@ int tipc_nl_publ_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 	if (done)
+ 		return 0;
+ 
+-	tsk = tipc_sk_lookup(tsk_portid);
++	tsk = tipc_sk_lookup(net, tsk_portid);
+ 	if (!tsk)
+ 		return -EINVAL;
+ 
+diff --git a/net/tipc/socket.h b/net/tipc/socket.h
+index eb15c31..c15c4e1 100644
+--- a/net/tipc/socket.h
++++ b/net/tipc/socket.h
+@@ -50,11 +50,11 @@ void tipc_sock_release_local(struct socket *sock);
+ int tipc_sock_accept_local(struct socket *sock, struct socket **newsock,
+ 			   int flags);
+ int tipc_sk_rcv(struct net *net, struct sk_buff *buf);
+-struct sk_buff *tipc_sk_socks_show(void);
++struct sk_buff *tipc_sk_socks_show(struct net *net);
+ void tipc_sk_mcast_rcv(struct net *net, struct sk_buff *buf);
+-void tipc_sk_reinit(void);
+-int tipc_sk_rht_init(void);
+-void tipc_sk_rht_destroy(void);
++void tipc_sk_reinit(struct net *net);
++int tipc_sk_rht_init(struct net *net);
++void tipc_sk_rht_destroy(struct net *net);
+ int tipc_nl_sk_dump(struct sk_buff *skb, struct netlink_callback *cb);
+ int tipc_nl_publ_dump(struct sk_buff *skb, struct netlink_callback *cb);
+ 
 -- 
 1.7.9.5
