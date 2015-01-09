@@ -1,8 +1,9 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 00/16] tipc: make tipc support
-	namespace
-Date: Fri, 9 Jan 2015 15:26:57 +0800
-Message-ID: <1420788433-17960-1-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 05/16] tipc: feed tipc sock
+	pointer to tipc_sk_timeout routine
+Date: Fri, 9 Jan 2015 15:27:02 +0800
+Message-ID: <1420788433-17960-6-git-send-email-ying.xue@windriver.com>
+References: <1420788433-17960-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,6 +11,7 @@ Cc: jon.maloy@ericsson.com, Tero.Aho@coriant.com, netdev@vger.kernel.org,
 	Paul.Gortmaker@windriver.com, tipc-discussion@lists.sourceforge.net
 To: <davem@davemloft.net>
 Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1420788433-17960-1-git-send-email-ying.xue@windriver.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
@@ -20,92 +22,126 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-This patchset aims to add net namespace support for TIPC stack.
+In order to make tipc socket table aware of namespace, a networking
+namespace instance must be passed to tipc_sk_lookup(), allowing it
+to look up tipc socket instance with a given port ID from a concrete
+socket table. However, as now tipc_sk_timeout() only has one port ID
+parameter and is not namespace aware, it's unable to obtain a correct
+socket instance through tipc_sk_lookup() just with a port ID,
+especially after namespace is completely supported.
 
-Currently TIPC module declares the following global resources:
-- TIPC network idenfication number
-- TIPC node table
-- TIPC bearer list table
-- TIPC broadcast link
-- TIPC socket reference table
-- TIPC name service table
-- TIPC node address
-- TIPC service subscriber server
-- TIPC random value
-- TIPC netlink
+If port ID is replaced with socket instance as tipc_sk_timeout()'s
+parameter, it's unnecessary to look up socket table. But as the timer
+handler - tipc_sk_timeout() is run asynchronously, socket reference
+must be held before its timer is launched, and must be carefully
+checked to identify whether the socket reference needs to be put or
+not when its timer is terminated.
 
-In order that TIPC is aware of namespace, above each resource must be
-allocated, initialized and destroyed inside per namespace. Therefore,
-the major works of this patchset are to isolate these global resources
-and make them private for each namespace. However, before these changes
-come true, some necessary preparation works must be first done: convert
-socket reference table with generic rhashtable, cleanup core.c and
-core.h files, remove unnecessary wrapper functions for kernel timer
-interfaces and so on.
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Tested-by: Tero Aho <Tero.Aho@coriant.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/socket.c |   33 ++++++++++++++++-----------------
+ 1 file changed, 16 insertions(+), 17 deletions(-)
 
-It should be noted that commit ##1 ("tipc: fix bug in broadcast
-retransmit code") was already submitted to 'net' tree, so please see
-below link:
-
-http://patchwork.ozlabs.org/patch/426717/
-
-Since it is prerequisite for the rest of the series to apply, I
-prepend them to the series.
-
-Jon Maloy (1):
-  tipc: fix bug in broadcast retransmit code
-
-Ying Xue (15):
-  tipc: remove tipc_core_start/stop routines
-  tipc: remove unnecessary wrapper functions of kernel timer APIs
-  tipc: cleanup core.c and core.h files
-  tipc: feed tipc sock pointer to tipc_sk_timeout routine
-  tipc: remove unused tipc_link_get_max_pkt routine
-  tipc: involve namespace infrastructure
-  tipc: make tipc node table aware of net namespace
-  tipc: make bearer list support net namespace
-  tipc: make tipc broadcast link support net namespace
-  tipc: make tipc socket support net namespace
-  tipc: name tipc name table support net namespace
-  tipc: make tipc node address support net namespace
-  tipc: make subscriber server support net namespace
-  tipc: make tipc random value aware of net namespace
-  tipc: make netlink support net namespace
-
- net/tipc/addr.c       |   45 +++++-
- net/tipc/addr.h       |   45 ++----
- net/tipc/bcast.c      |  372 ++++++++++++++++++++++++-------------------------
- net/tipc/bcast.h      |  113 ++++++++++-----
- net/tipc/bearer.c     |  141 ++++++++++---------
- net/tipc/bearer.h     |   46 +++---
- net/tipc/config.c     |   66 +++++----
- net/tipc/config.h     |    6 +-
- net/tipc/core.c       |  140 ++++++++-----------
- net/tipc/core.h       |  167 ++++++----------------
- net/tipc/discover.c   |   84 ++++++-----
- net/tipc/discover.h   |    8 +-
- net/tipc/link.c       |  322 +++++++++++++++++++++++-------------------
- net/tipc/link.h       |   36 +++--
- net/tipc/msg.c        |   71 +++++++---
- net/tipc/msg.h        |   60 +++++---
- net/tipc/name_distr.c |  115 ++++++++-------
- net/tipc/name_distr.h |   16 +--
- net/tipc/name_table.c |  180 +++++++++++++-----------
- net/tipc/name_table.h |   33 ++---
- net/tipc/net.c        |   54 ++++---
- net/tipc/net.h        |    4 +-
- net/tipc/netlink.c    |   17 ++-
- net/tipc/netlink.h    |    3 +
- net/tipc/node.c       |  159 +++++++++++----------
- net/tipc/node.h       |   35 ++---
- net/tipc/server.c     |    6 +-
- net/tipc/server.h     |   17 ++-
- net/tipc/socket.c     |  255 ++++++++++++++++++---------------
- net/tipc/socket.h     |   19 ++-
- net/tipc/subscr.c     |  131 +++++++++--------
- net/tipc/subscr.h     |   14 +-
- 32 files changed, 1503 insertions(+), 1277 deletions(-)
-
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index e16197e..c58f66b 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -110,7 +110,7 @@ static void tipc_write_space(struct sock *sk);
+ static int tipc_release(struct socket *sock);
+ static int tipc_accept(struct socket *sock, struct socket *new_sock, int flags);
+ static int tipc_wait_for_sndmsg(struct socket *sock, long *timeo_p);
+-static void tipc_sk_timeout(unsigned long portid);
++static void tipc_sk_timeout(unsigned long data);
+ static int tipc_sk_publish(struct tipc_sock *tsk, uint scope,
+ 			   struct tipc_name_seq const *seq);
+ static int tipc_sk_withdraw(struct tipc_sock *tsk, uint scope,
+@@ -361,7 +361,7 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
+ 		return -EINVAL;
+ 	}
+ 	msg_set_origport(msg, tsk->portid);
+-	setup_timer(&tsk->timer, tipc_sk_timeout, tsk->portid);
++	setup_timer(&tsk->timer, tipc_sk_timeout, (unsigned long)tsk);
+ 	sk->sk_backlog_rcv = tipc_backlog_rcv;
+ 	sk->sk_rcvbuf = sysctl_tipc_rmem[1];
+ 	sk->sk_data_ready = tipc_data_ready;
+@@ -475,7 +475,7 @@ static int tipc_release(struct socket *sock)
+ 	struct sock *sk = sock->sk;
+ 	struct tipc_sock *tsk;
+ 	struct sk_buff *skb;
+-	u32 dnode;
++	u32 dnode, probing_state;
+ 
+ 	/*
+ 	 * Exit if socket isn't fully initialized (occurs when a failed accept()
+@@ -511,7 +511,9 @@ static int tipc_release(struct socket *sock)
+ 	}
+ 
+ 	tipc_sk_withdraw(tsk, 0, NULL);
+-	del_timer_sync(&tsk->timer);
++	probing_state = tsk->probing_state;
++	if (del_timer_sync(&tsk->timer) && probing_state != TIPC_CONN_PROBING)
++		sock_put(sk);
+ 	tipc_sk_remove(tsk);
+ 	if (tsk->connected) {
+ 		skb = tipc_msg_create(TIPC_CRITICAL_IMPORTANCE, TIPC_CONN_MSG,
+@@ -1141,7 +1143,8 @@ static void tipc_sk_finish_conn(struct tipc_sock *tsk, u32 peer_port,
+ 	tsk->probing_intv = CONN_PROBING_INTERVAL;
+ 	tsk->probing_state = TIPC_CONN_OK;
+ 	tsk->connected = 1;
+-	mod_timer(&tsk->timer, jiffies + tsk->probing_intv);
++	if (!mod_timer(&tsk->timer, jiffies + tsk->probing_intv))
++		sock_hold(&tsk->sk);
+ 	tipc_node_add_conn(peer_node, tsk->portid, peer_port);
+ 	tsk->max_pkt = tipc_node_get_mtu(peer_node, tsk->portid);
+ }
+@@ -2096,18 +2099,13 @@ restart:
+ 	return res;
+ }
+ 
+-static void tipc_sk_timeout(unsigned long portid)
++static void tipc_sk_timeout(unsigned long data)
+ {
+-	struct tipc_sock *tsk;
+-	struct sock *sk;
++	struct tipc_sock *tsk = (struct tipc_sock *)data;
++	struct sock *sk = &tsk->sk;
+ 	struct sk_buff *skb = NULL;
+ 	u32 peer_port, peer_node;
+ 
+-	tsk = tipc_sk_lookup(portid);
+-	if (!tsk)
+-		return;
+-
+-	sk = &tsk->sk;
+ 	bh_lock_sock(sk);
+ 	if (!tsk->connected) {
+ 		bh_unlock_sock(sk);
+@@ -2120,18 +2118,19 @@ static void tipc_sk_timeout(unsigned long portid)
+ 		/* Previous probe not answered -> self abort */
+ 		skb = tipc_msg_create(TIPC_CRITICAL_IMPORTANCE, TIPC_CONN_MSG,
+ 				      SHORT_H_SIZE, 0, tipc_own_addr,
+-				      peer_node, portid, peer_port,
++				      peer_node, tsk->portid, peer_port,
+ 				      TIPC_ERR_NO_PORT);
+ 	} else {
+ 		skb = tipc_msg_create(CONN_MANAGER, CONN_PROBE, INT_H_SIZE,
+ 				      0, peer_node, tipc_own_addr,
+-				      peer_port, portid, TIPC_OK);
++				      peer_port, tsk->portid, TIPC_OK);
+ 		tsk->probing_state = TIPC_CONN_PROBING;
+-		mod_timer(&tsk->timer, jiffies + tsk->probing_intv);
++		if (!mod_timer(&tsk->timer, jiffies + tsk->probing_intv))
++			sock_hold(sk);
+ 	}
+ 	bh_unlock_sock(sk);
+ 	if (skb)
+-		tipc_link_xmit_skb(skb, peer_node, portid);
++		tipc_link_xmit_skb(skb, peer_node, tsk->portid);
+ exit:
+ 	sock_put(sk);
+ }
 -- 
 1.7.9.5
 
