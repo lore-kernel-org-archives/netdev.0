@@ -1,29 +1,45 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next] openvswitch: Add ovs_vport_get_index() to hide
- vport implementation
-Date: Thu, 8 Jan 2015 20:10:31 -0800
-Message-ID: <CALnjE+rCX-2z=jzJ5pnH6kzGdkM+MYAr=f8uz0etvOYFufxC9A@mail.gmail.com>
-References: <1420674525-18253-1-git-send-email-daniele.di.proietto@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Daniele Di Proietto <daniele.di.proietto@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:58947 "HELO
-	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754079AbbAIEKc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 23:10:32 -0500
-Received: by mail-ig0-f175.google.com with SMTP id h15so6274413igd.2
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 20:10:31 -0800 (PST)
-In-Reply-To: <1420674525-18253-1-git-send-email-daniele.di.proietto@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH v2 net-next] bridge: Add ability to enable TSO
+Date: Fri,  9 Jan 2015 14:16:40 +0900
+Message-ID: <1420780600-11313-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: "David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 7, 2015 at 3:48 PM, Daniele Di Proietto
-<daniele.di.proietto@gmail.com> wrote:
-> datapath.c should not access private vport data. This commit adds
-> 'ovs_vport_get_index()' to vport.c and '.get_index()' to vport_ops
-> to hide vport implementation details.
->
-Earlier patch was better. There is no need to introduce new
-ovs_vport_get_index() since no other vport type can have ifindex.
+Currently a bridge device turns off TSO feature if no bridge ports
+support it. We can always enable it, since packets can be segmented on
+ports by software as well as on the bridge device.
+This will reduce the number of packets processed in the bridge.
+
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+---
+v2: Use an existing helper function.
+
+ net/bridge/br_if.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index ed307db..81e49fb 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -424,6 +424,7 @@ netdev_features_t br_features_recompute(struct net_bridge *br,
+ 		features = netdev_increment_features(features,
+ 						     p->dev->features, mask);
+ 	}
++	features = netdev_add_tso_features(features, mask);
+ 
+ 	return features;
+ }
+-- 
+1.8.1.2
