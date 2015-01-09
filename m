@@ -1,46 +1,78 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH iproute2 0/3] ip netns: Run over all netns
-Date: Fri, 9 Jan 2015 10:49:50 -0800
-Message-ID: <CAHA+R7NPrBw_tN20adU6m0A0Toggo9SO9LpVV7WSaVa51Fyfsg@mail.gmail.com>
-References: <1420628662-9930-1-git-send-email-vadim4j@gmail.com>
-	<CAHA+R7OpGoYx51DQfLhFiZmU_jMfd28G6kssgft6NQoFXj_X+A@mail.gmail.com>
-	<20150108005212.GA10487@angus-think.lan>
+From: Ani Sinha <ani@arista.com>
+Subject: Re: route/max_size sysctl in ipv4
+Date: Fri, 9 Jan 2015 11:08:25 -0800
+Message-ID: <CAOxq_8Na14ES1souk-jBa8A=9ArHc-ffRtSd36zbvwHvGM+24Q@mail.gmail.com>
+References: <CAOxq_8NdxBScZ182bXs5KmTZLKRMeF3AVt+DJNFUff42gaZG4w@mail.gmail.com>
+ <20150105.193614.1827024424476781168.davem@davemloft.net> <CAOxq_8OtQ0WD-PKBd4kX0JwZiaStqJ-cQiQRhWnTAK9Q0JquxA@mail.gmail.com>
+ <20150105.195128.794605376092864881.davem@davemloft.net> <CAOxq_8MoPocarmhdXQOkc=4HfGh1L+5-ozEdwPzn2K8q4Gh55w@mail.gmail.com>
+ <CAOxq_8PeZFGGsHoT7Ef0gJezV=UikMQqM0UvQZQcpOywxBOy4w@mail.gmail.com>
+ <1420683594.5947.43.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAOxq_8Pp7fwsV3Y+-LNheziQzP8FXqT3ohgMt7SeEs6+nuGxMg@mail.gmail.com>
+ <1420695665.5947.44.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAOxq_8OPj4twFg2U93hFNSjeiZ5We5DgeCo-W5hSbXJvQmZfyQ@mail.gmail.com>
+ <1420743808.5947.73.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAOxq_8M=Ros56U_VbUVumjS226jHs1DK0A-K9aRksTMu88H_sg@mail.gmail.com> <CAHA+R7Ps2_+5NgjE8HNbrTxbjhtt4nJyK9y5HrbHez2PhZEiPQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Vadim Kochan <vadim4j@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f180.google.com ([209.85.216.180]:38646 "EHLO
-	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751107AbbAIStu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 13:49:50 -0500
-Received: by mail-qc0-f180.google.com with SMTP id i8so10471092qcq.11
-        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 10:49:50 -0800 (PST)
-In-Reply-To: <20150108005212.GA10487@angus-think.lan>
+Received: from mail-ie0-f180.google.com ([209.85.223.180]:43692 "EHLO
+	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750773AbbAITIq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 14:08:46 -0500
+Received: by mail-ie0-f180.google.com with SMTP id rp18so16635397iec.11
+        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 11:08:46 -0800 (PST)
+In-Reply-To: <CAHA+R7Ps2_+5NgjE8HNbrTxbjhtt4nJyK9y5HrbHez2PhZEiPQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 7, 2015 at 4:52 PM, Vadim Kochan <vadim4j@gmail.com> wrote:
-> On Wed, Jan 07, 2015 at 04:04:14PM -0800, Cong Wang wrote:
->> On Wed, Jan 7, 2015 at 3:04 AM, Vadim Kochan <vadim4j@gmail.com> wrote:
->> > From: Vadim Kochan <vadim4j@gmail.com>
->> >
->> > Allow 'ip netns del' and 'ip netns exec' run over each network namespace names.
->> >
->> > 'ip netns exec' executes command forcely on eacn nsname.
->> >
+On Fri, Jan 9, 2015 at 10:47 AM, Cong Wang <cwang@twopensource.com> wrote:
+> On Thu, Jan 8, 2015 at 12:13 PM, Ani Sinha <ani@arista.com> wrote:
+>> On Thu, Jan 8, 2015 at 11:03 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>>>
+>>> If you want to use network namespaces, you have to adapt your scripts.
+>>>
+>>> Nobody claimed network namespaces were totally transparent.
+>>>
 >>
->> Why this has to be done in iproute command?
->> That is, why not just offloading this to a shell script like below?
+>> I see. I am going back to an old thread here where Linus says that the
+>> #1 rule is:
 >>
->> for ns in `ip netns show`;
->> do
->>      ip netns exec $ns ip link show.....
->> done
+>> ""We don't regress user space"
+>>
+>> https://lkml.org/lkml/2013/7/16/565
+>>
+>> Breaking scripts seems to me to fall into the category of regressing
+>> userspace. Or may be we can treat these sysctls more softly since they
+>> are not strictly speaking linux ABIs.
 >
-> Hm, but would not it better to have it in iproute instead of collect
-> scripts ? Scripts allows to do a lot of things, but in this case it seems like a
-> feature which related to iproute.
+> As Eric said, it has been like this since day 0,
 
-iproute2 should keep a minimum set of features especially when
-a one-liner shell script can do that.
+I beg to differ. It has not been like this for that particular sysctl
+from day 0. That sysctl was available from a child namespace and now
+it isn't.
+
+why you still think
+> we break something? It is you who misunderstands the interface
+> not us who break your script.
+
+Perhaps. What I am truly confused about is :
+
+- We are keeping a sysctl interface that does absolutely nothing in
+the kernel and is completely useless in case some userland
+scripts/tools are rendered broken from it's removal.
+
+- surprisingly, we contradict ourselves when we let scripts break when
+running from a child namespace because the  same sysctl is no longer
+available!
+
+When the source is available for a script or tool, it's easy to change
+the code to conform to the new semantics. However, for old binaries
+for which we do not have any source, it's not easy or is impossible to
+fix them.
+
+I rest my case. We will of course find a way to fix our code if that
+is what netdev thinks is the way to go.
